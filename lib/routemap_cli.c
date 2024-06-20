@@ -417,6 +417,74 @@ DEFPY_YANG(
 	return nb_cli_apply_changes(vty, NULL);
 }
 
+DEFUN_YANG (match_ipv6_next_hop,
+	    match_ipv6_next_hop_cmd,
+	    "match ipv6 next-hop ACCESSLIST6_NAME",
+	    MATCH_STR
+	    IPV6_STR
+	    "Match IPv6 next-hop address of route\n"
+	    "IPv6 access-list name\n")
+{
+	const char *xpath = "./match-condition[condition='frr-route-map:ipv6-next-hop-list']";
+	char xpath_value[XPATH_MAXLEN];
+
+	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
+	snprintf(xpath_value, sizeof(xpath_value), "%s/rmap-match-condition/list-name", xpath);
+	nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY, argv[argc - 1]->arg);
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFUN_YANG (no_match_ipv6_next_hop,
+	    no_match_ipv6_next_hop_cmd,
+	    "no match ipv6 next-hop [ACCESSLIST6_NAME]",
+	    NO_STR
+	    MATCH_STR
+	    IPV6_STR
+	    "Match IPv6 next-hop address of route\n"
+	    "IPv6 access-list name\n")
+{
+	const char *xpath = "./match-condition[condition='frr-route-map:ipv6-next-hop-list']";
+
+	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFUN_YANG (match_ipv6_next_hop_prefix_list,
+	    match_ipv6_next_hop_prefix_list_cmd,
+	    "match ipv6 next-hop prefix-list PREFIXLIST_NAME",
+	    MATCH_STR
+	    IPV6_STR
+	    "Match IPv6 next-hop address of route\n"
+	    "Match entries by prefix-list\n"
+	    "IPv6 prefix-list name\n")
+{
+	const char *xpath = "./match-condition[condition='frr-route-map:ipv6-next-hop-prefix-list']";
+	char xpath_value[XPATH_MAXLEN];
+
+	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
+	snprintf(xpath_value, sizeof(xpath_value), "%s/rmap-match-condition/list-name", xpath);
+	nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY, argv[argc - 1]->arg);
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFUN_YANG (no_match_ipv6_next_hop_prefix_list,
+	    no_match_ipv6_next_hop_prefix_list_cmd,
+	    "no match ipv6 next-hop prefix-list [PREFIXLIST_NAME]",
+	    NO_STR
+	    MATCH_STR
+	    IPV6_STR
+	    "Match IPv6 next-hop address of route\n"
+	    "Match entries by prefix-list\n"
+	    "IPv6 prefix-list name\n")
+{
+	const char *xpath = "./match-condition[condition='frr-route-map:ipv6-next-hop-prefix-list']";
+
+	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+	return nb_cli_apply_changes(vty, NULL);
+}
+
 DEFPY_YANG(
 	match_ipv6_next_hop_type, match_ipv6_next_hop_type_cmd,
 	"match ipv6 next-hop type <blackhole>$type",
@@ -688,6 +756,18 @@ void route_map_condition_show(struct vty *vty, const struct lyd_node *dnode,
 			acl = "local";
 
 		vty_out(vty, " match peer %s\n", acl);
+	} else if (IS_MATCH_SRC_PEER(condition)) {
+		acl = NULL;
+		ln = yang_dnode_get(dnode,
+				    "./rmap-match-condition/frr-bgp-route-map:src-peer-ipv4-address");
+		if (!ln)
+			ln = yang_dnode_get(dnode,
+					    "./rmap-match-condition/frr-bgp-route-map:src-peer-ipv6-address");
+		if (!ln)
+			ln = yang_dnode_get(dnode,
+					    "./rmap-match-condition/frr-bgp-route-map:src-peer-interface");
+		acl = yang_dnode_get_string(ln, NULL);
+		vty_out(vty, " match src-peer %s\n", acl);
 	} else if (IS_MATCH_AS_LIST(condition)) {
 		vty_out(vty, " match as-path %s\n",
 			yang_dnode_get_string(
@@ -854,13 +934,15 @@ DEFPY_YANG(
 
 DEFPY_YANG(
 	set_metric, set_metric_cmd,
-	"set metric <(-4294967295-4294967295)$metric|rtt$rtt|+rtt$artt|-rtt$srtt>",
+	"set metric <(-4294967295-4294967295)$metric|rtt$rtt|+rtt$artt|-rtt$srtt|igp$igp|aigp$aigp>",
 	SET_STR
 	"Metric value for destination routing protocol\n"
 	"Metric value (use +/- for additions or subtractions)\n"
 	"Assign round trip time\n"
 	"Add round trip time\n"
-	"Subtract round trip time\n")
+	"Subtract round trip time\n"
+	"Metric value from IGP protocol\n"
+	"Metric value from AIGP (Accumulated IGP)\n")
 {
 	const char *xpath = "./set-action[action='frr-route-map:set-metric']";
 	char xpath_value[XPATH_MAXLEN];
@@ -870,6 +952,12 @@ DEFPY_YANG(
 	if (rtt) {
 		snprintf(xpath_value, sizeof(xpath_value),
 			 "%s/rmap-set-action/use-round-trip-time", xpath);
+		snprintf(value, sizeof(value), "true");
+	} else if (igp) {
+		snprintf(xpath_value, sizeof(xpath_value), "%s/rmap-set-action/use-igp", xpath);
+		snprintf(value, sizeof(value), "true");
+	} else if (aigp) {
+		snprintf(xpath_value, sizeof(xpath_value), "%s/rmap-set-action/use-aigp", xpath);
 		snprintf(value, sizeof(value), "true");
 	} else if (artt) {
 		snprintf(xpath_value, sizeof(xpath_value),
@@ -1080,23 +1168,19 @@ void route_map_action_show(struct vty *vty, const struct lyd_node *dnode,
 		if (yang_dnode_get(dnode,
 				   "./rmap-set-action/use-round-trip-time")) {
 			vty_out(vty, " set metric rtt\n");
-		} else if (yang_dnode_get(
-				   dnode,
-				   "./rmap-set-action/add-round-trip-time")) {
+		} else if (yang_dnode_get(dnode, "./rmap-set-action/use-igp")) {
+			vty_out(vty, " set metric igp\n");
+		} else if (yang_dnode_get(dnode, "./rmap-set-action/use-aigp")) {
+			vty_out(vty, " set metric aigp\n");
+		} else if (yang_dnode_get(dnode, "./rmap-set-action/add-round-trip-time")) {
 			vty_out(vty, " set metric +rtt\n");
-		} else if (
-			yang_dnode_get(
-				dnode,
-				"./rmap-set-action/subtract-round-trip-time")) {
+		} else if (yang_dnode_get(dnode, "./rmap-set-action/subtract-round-trip-time")) {
 			vty_out(vty, " set metric -rtt\n");
-		} else if (yang_dnode_get(dnode,
-					  "./rmap-set-action/add-metric")) {
+		} else if (yang_dnode_get(dnode, "./rmap-set-action/add-metric")) {
 			vty_out(vty, " set metric +%s\n",
 				yang_dnode_get_string(
 					dnode, "./rmap-set-action/add-metric"));
-		} else if (yang_dnode_get(
-				   dnode,
-				   "./rmap-set-action/subtract-metric")) {
+		} else if (yang_dnode_get(dnode, "./rmap-set-action/subtract-metric")) {
 			vty_out(vty, " set metric -%s\n",
 				yang_dnode_get_string(
 					dnode,
@@ -1664,6 +1748,11 @@ void route_map_cli_init(void)
 
 	install_element(RMAP_NODE, &match_ipv6_next_hop_type_cmd);
 	install_element(RMAP_NODE, &no_match_ipv6_next_hop_type_cmd);
+
+	install_element(RMAP_NODE, &match_ipv6_next_hop_cmd);
+	install_element(RMAP_NODE, &match_ipv6_next_hop_prefix_list_cmd);
+	install_element(RMAP_NODE, &no_match_ipv6_next_hop_cmd);
+	install_element(RMAP_NODE, &no_match_ipv6_next_hop_prefix_list_cmd);
 
 	install_element(RMAP_NODE, &match_metric_cmd);
 	install_element(RMAP_NODE, &no_match_metric_cmd);

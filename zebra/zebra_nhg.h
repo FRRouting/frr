@@ -152,6 +152,25 @@ struct nhg_hash_entry {
  * when installation is successful.
  */
 #define NEXTHOP_GROUP_REINSTALL (1 << 8)
+
+/*
+ * Connected routes and kernel routes received
+ * from the kernel or created by Zebra do no
+ * need to be installed.  For connected, this
+ * is because the routes are in the local table
+ * but not imported and we create an amalgram
+ * route for it.  For kernel routes if the route
+ * is an pre-nhg route, there is no nexthop associated
+ * with it and we should not create it until it
+ * is used by something else.
+ * The reason for this is because is that this just
+ * fills up the DPlane's nexthop slots when there
+ * are a bunch of interfaces or pre-existing routes
+ * As such let's not initially install it ( but
+ * pretend it was successful ) and if another route
+ * chooses this NHG then we can install it then.
+ */
+#define NEXTHOP_GROUP_INITIAL_DELAY_INSTALL (1 << 9)
 };
 
 /* Upper 4 bits of the NHG are reserved for indicating the NHG type */
@@ -212,7 +231,7 @@ struct nhg_ctx {
 	int type;
 
 	/* If its a group array, how many? */
-	uint8_t count;
+	uint16_t count;
 
 	/* Its either a single nexthop or an array of ID's */
 	union {
@@ -298,10 +317,8 @@ extern int nhg_ctx_process(struct nhg_ctx *ctx);
 void nhg_ctx_free(struct nhg_ctx **ctx);
 
 /* Find via kernel nh creation */
-extern int zebra_nhg_kernel_find(uint32_t id, struct nexthop *nh,
-				 struct nh_grp *grp, uint8_t count,
-				 vrf_id_t vrf_id, afi_t afi, int type,
-				 int startup,
+extern int zebra_nhg_kernel_find(uint32_t id, struct nexthop *nh, struct nh_grp *grp,
+				 uint16_t count, vrf_id_t vrf_id, afi_t afi, int type, int startup,
 				 struct nhg_resilience *resilience);
 /* Del via kernel */
 extern int zebra_nhg_kernel_del(uint32_t id, vrf_id_t vrf_id);
@@ -360,11 +377,10 @@ extern void zebra_nhg_increment_ref(struct nhg_hash_entry *nhe);
 extern void zebra_nhg_check_valid(struct nhg_hash_entry *nhe);
 
 /* Convert nhe depends to a grp context that can be passed around safely */
-extern uint8_t zebra_nhg_nhe2grp(struct nh_grp *grp, struct nhg_hash_entry *nhe,
-				 int size);
+extern uint16_t zebra_nhg_nhe2grp(struct nh_grp *grp, struct nhg_hash_entry *nhe, int size);
 
 /* Dataplane install/uninstall */
-extern void zebra_nhg_install_kernel(struct nhg_hash_entry *nhe);
+extern void zebra_nhg_install_kernel(struct nhg_hash_entry *nhe, uint8_t type);
 extern void zebra_nhg_uninstall_kernel(struct nhg_hash_entry *nhe);
 extern void zebra_interface_nhg_reinstall(struct interface *ifp);
 
@@ -385,7 +401,8 @@ extern void zebra_nhg_mark_keep(void);
 
 /* Nexthop resolution processing */
 struct route_entry; /* Forward ref to avoid circular includes */
-extern int nexthop_active_update(struct route_node *rn, struct route_entry *re);
+extern int nexthop_active_update(struct route_node *rn, struct route_entry *re,
+				 struct route_entry *old_re);
 
 #ifdef _FRR_ATTRIBUTE_PRINTFRR
 #pragma FRR printfrr_ext "%pNG" (const struct nhg_hash_entry *)

@@ -172,6 +172,10 @@ void isis_link_params_update_asla(struct isis_circuit *circuit,
 	struct isis_ext_subtlvs *ext = circuit->ext;
 	int i;
 
+	if (!ext)
+		/* no extended subTLVs - nothing to update */
+		return;
+
 	if (!HAS_LINK_PARAMS(ifp)) {
 		list_delete_all_node(ext->aslas);
 		return;
@@ -327,7 +331,7 @@ void isis_link_params_update(struct isis_circuit *circuit,
 		return;
 
 	/* Sanity Check */
-	if ((ifp == NULL) || (circuit->state != C_STATE_UP))
+	if (ifp == NULL)
 		return;
 
 	te_debug("ISIS-TE(%s): Update circuit parameters for interface %s",

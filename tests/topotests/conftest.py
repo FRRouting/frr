@@ -18,12 +18,11 @@ from pathlib import Path
 import lib.fixtures
 import pytest
 from lib.common_config import generate_support_bundle
-from lib.micronet_compat import Mininet
 from lib.topogen import diagnose_env, get_topogen
 from lib.topolog import get_test_logdir, logger
 from lib.topotest import json_cmp_result
 from munet import cli
-from munet.base import Commander, proc_error
+from munet.base import BaseMunet, Commander, proc_error
 from munet.cleanup import cleanup_current, cleanup_previous
 from munet.config import ConfigOptionsProxy
 from munet.testing.util import pause_test
@@ -32,7 +31,7 @@ from lib import topolog, topotest
 
 try:
     # Used by munet native tests
-    from munet.testing.fixtures import event_loop, unet  # pylint: disable=all # noqa
+    from munet.testing.fixtures import unet  # pylint: disable=all # noqa
 
     @pytest.fixture(scope="module")
     def rundir_module(pytestconfig):
@@ -86,7 +85,7 @@ def pytest_addoption(parser):
     parser.addoption(
         "--cli-on-error",
         action="store_true",
-        help="Mininet cli on test failure",
+        help="Munet cli on test failure",
     )
 
     parser.addoption(
@@ -711,7 +710,7 @@ def pytest_runtest_makereport(item, call):
         wait_for_procs = []
         # Really would like something better than using this global here.
         # Not all tests use topogen though so get_topogen() won't work.
-        for node in Mininet.g_mnet_inst.hosts.values():
+        for node in BaseMunet.g_unet.hosts.values():
             pause = True
 
             if is_tmux:
@@ -720,13 +719,15 @@ def pytest_runtest_makereport(item, call):
                     if not isatty
                     else None
                 )
-                Commander.tmux_wait_gen += 1
-                wait_for_channels.append(channel)
+                # If we don't have a tty to pause on pause for tmux windows to exit
+                if channel is not None:
+                    Commander.tmux_wait_gen += 1
+                    wait_for_channels.append(channel)
 
             pane_info = node.run_in_window(
                 error_cmd,
                 new_window=win_info is None,
-                background=True,
+                background=not isatty,
                 title="{} ({})".format(title, node.name),
                 name=title,
                 tmux_target=win_info,
@@ -737,9 +738,13 @@ def pytest_runtest_makereport(item, call):
                     win_info = pane_info
             elif is_xterm:
                 assert isinstance(pane_info, subprocess.Popen)
-                wait_for_procs.append(pane_info)
+                # If we don't have a tty to pause on pause for xterm procs to exit
+                if not isatty:
+                    wait_for_procs.append(pane_info)
 
         # Now wait on any channels
+        if wait_for_channels or wait_for_procs:
+            logger.info("Pausing for error command windows to exit")
         for channel in wait_for_channels:
             logger.debug("Waiting on TMUX channel %s", channel)
             commander.cmd_raises([commander.get_exec_path("tmux"), "wait", channel])
@@ -752,10 +757,10 @@ def pytest_runtest_makereport(item, call):
     if error and item.config.option.cli_on_error:
         # Really would like something better than using this global here.
         # Not all tests use topogen though so get_topogen() won't work.
-        if Mininet.g_mnet_inst:
-            cli.cli(Mininet.g_mnet_inst, title=title, background=False)
+        if BaseMunet.g_unet:
+            cli.cli(BaseMunet.g_unet, title=title, background=False)
         else:
-            logger.error("Could not launch CLI b/c no mininet exists yet")
+            logger.error("Could not launch CLI b/c no munet exists yet")
 
     if pause and isatty:
         pause_test()
@@ -800,8 +805,19 @@ done"""
 def pytest_terminal_summary(terminalreporter, exitstatus, config):
     # Only run if we are the top level test runner
     is_xdist_worker = "PYTEST_XDIST_WORKER" in os.environ
+    is_xdist = os.environ["PYTEST_XDIST_MODE"] != "no"
     if config.option.cov_topotest and not is_xdist_worker:
         coverage_finish(terminalreporter, config)
+
+    if (
+        is_xdist
+        and not is_xdist_worker
+        and (
+            bool(config.getoption("--pause"))
+            or bool(config.getoption("--pause-at-end"))
+        )
+    ):
+        pause_test("pause-at-end")
 
 
 #

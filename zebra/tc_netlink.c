@@ -661,27 +661,6 @@ netlink_put_tc_filter_update_msg(struct nl_batch *bth,
 }
 
 /*
- * Request filters from the kernel
- */
-static int netlink_request_filters(struct zebra_ns *zns, int family, int type,
-				   ifindex_t ifindex)
-{
-	struct {
-		struct nlmsghdr n;
-		struct tcmsg tc;
-	} req;
-
-	memset(&req, 0, sizeof(req));
-	req.n.nlmsg_type = type;
-	req.n.nlmsg_flags = NLM_F_ROOT | NLM_F_MATCH | NLM_F_REQUEST;
-	req.n.nlmsg_len = NLMSG_LENGTH(sizeof(struct tcmsg));
-	req.tc.tcm_family = family;
-	req.tc.tcm_ifindex = ifindex;
-
-	return netlink_request(&zns->netlink_cmd, &req);
-}
-
-/*
  * Request queue discipline from the kernel
  */
 static int netlink_request_qdiscs(struct zebra_ns *zns, int family, int type)
@@ -845,25 +824,6 @@ int netlink_qdisc_read(struct zebra_ns *zns)
 		return ret;
 
 	ret = netlink_parse_info(netlink_qdisc_change, &zns->netlink_cmd,
-				 &dp_info, 0, true);
-	if (ret < 0)
-		return ret;
-
-	return 0;
-}
-
-int netlink_tfilter_read_for_interface(struct zebra_ns *zns, ifindex_t ifindex)
-{
-	int ret;
-	struct zebra_dplane_info dp_info;
-
-	zebra_dplane_info_from_zns(&dp_info, zns, true);
-
-	ret = netlink_request_filters(zns, AF_UNSPEC, RTM_GETTFILTER, ifindex);
-	if (ret < 0)
-		return ret;
-
-	ret = netlink_parse_info(netlink_tfilter_change, &zns->netlink_cmd,
 				 &dp_info, 0, true);
 	if (ret < 0)
 		return ret;

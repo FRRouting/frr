@@ -94,6 +94,12 @@ module frr-bgp-route-map {
       "Match peer address";
   }
 
+  identity src-peer {
+    base frr-route-map:rmap-match-type;
+    description
+      "Match source peer address";
+  }
+
   identity mac-address-list {
     base frr-route-map:rmap-match-type;
     description
@@ -688,6 +694,37 @@ identity set-extcommunity-color {
       }
     }
 
+    case src-peer {
+      when "derived-from-or-self(../frr-route-map:condition, 'frr-bgp-route-map:src-peer')";
+      choice peer {
+        description
+          "Value of the peer";
+        case src-peer-ipv4-address {
+          description
+            "IP address of peer";
+          leaf src-peer-ipv4-address {
+            type inet:ipv4-address;
+          }
+        }
+
+        case src-peer-interface {
+          description
+            "Interface name of peer";
+          leaf src-peer-interface {
+            type string;
+          }
+        }
+
+        case src-peer-ipv6-address {
+          description
+            "IPv6 address of peer";
+          leaf src-peer-ipv6-address {
+            type inet:ipv6-address;
+          }
+        }
+      }
+    }
+
     case access-list-name {
       when "derived-from-or-self(../frr-route-map:condition, 'frr-bgp-route-map:mac-address-list') or "
         + "derived-from-or-self(../frr-route-map:condition, 'frr-bgp-route-map:as-path-list') or "
@@ -847,7 +884,7 @@ identity set-extcommunity-color {
     }
 
     case extcommunity-nt {
-      when "derived-from-or-self(/frr-route-map:lib/frr-route-map:route-map/frr-route-map:entry/frr-route-map:set-action/frr-route-map:action, 'frr-bgp-route-map:set-extcommunity-nt')";
+      when "derived-from-or-self(../frr-route-map:action, 'frr-bgp-route-map:set-extcommunity-nt')";
       description
         "Value of the ext-community";
       leaf extcommunity-nt {
@@ -1008,7 +1045,7 @@ identity set-extcommunity-color {
     }
 
     case aigp-metric {
-      when "derived-from-or-self(/frr-route-map:lib/frr-route-map:route-map/frr-route-map:entry/frr-route-map:set-action/frr-route-map:action, 'frr-bgp-route-map:aigp-metric')";
+      when "derived-from-or-self(../frr-route-map:action, 'frr-bgp-route-map:aigp-metric')";
       leaf aigp-metric {
         type string;
         description
@@ -1127,16 +1164,14 @@ identity set-extcommunity-color {
     case comm-list-name {
       when "derived-from-or-self(../frr-route-map:action, 'frr-bgp-route-map:comm-list-delete') or "
         + "derived-from-or-self(../frr-route-map:action, 'frr-bgp-route-map:large-comm-list-delete') or "
-        + "derived-from-or-self(../frr-route-map:action,
-'frr-bgp-route-map:extended-comm-list-delete')";
+        + "derived-from-or-self(../frr-route-map:action, 'frr-bgp-route-map:extended-comm-list-delete')";
       leaf comm-list-name {
         type bgp-filter:bgp-list-name;
       }
     }
     case evpn-gateway-ip-ipv4 {
       when
-      "derived-from-or-self(/frr-route-map:lib/frr-route-map:route-map/frr-route-map:entry/frr-route-map:set-action/frr-route-map:action,
-      'frr-bgp-route-map:set-evpn-gateway-ip-ipv4')";
+      "derived-from-or-self(../frr-route-map:action, 'frr-bgp-route-map:set-evpn-gateway-ip-ipv4')";
       description
         "Set EVPN gateway IP overlay index IPv4";
       leaf evpn-gateway-ip-ipv4 {
@@ -1145,8 +1180,7 @@ identity set-extcommunity-color {
     }
     case evpn-gateway-ip-ipv6 {
       when
-      "derived-from-or-self(/frr-route-map:lib/frr-route-map:route-map/frr-route-map:entry/frr-route-map:set-action/frr-route-map:action,
-      'frr-bgp-route-map:set-evpn-gateway-ip-ipv6')";
+      "derived-from-or-self(../frr-route-map:action, 'frr-bgp-route-map:set-evpn-gateway-ip-ipv6')";
       description
         "Set EVPN gateway IP overlay index IPv6";
       leaf evpn-gateway-ip-ipv6 {
@@ -1155,8 +1189,7 @@ identity set-extcommunity-color {
     }
     case l3vpn-nexthop-encapsulation {
       when
-      "derived-from-or-self(../frr-route-map:action,
-      'frr-bgp-route-map:set-l3vpn-nexthop-encapsulation')";
+      "derived-from-or-self(../frr-route-map:action, 'frr-bgp-route-map:set-l3vpn-nexthop-encapsulation')";
       description
         "Accept L3VPN traffic over other than LSP encapsulation";
       leaf l3vpn-nexthop-encapsulation {

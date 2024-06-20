@@ -87,7 +87,7 @@ Generate skeleton instance data:
 
 * XML:
 
-   .. code:: sh
+.. code:: sh
 
    $ pyang -p <yang-search-path> \
        -f sample-xml-skeleton --sample-xml-skeleton-defaults \
@@ -95,7 +95,7 @@ Generate skeleton instance data:
 
 *  JSON:
 
-   .. code:: sh
+.. code:: sh
 
    $ pyang -p <yang-search-path> \
        -f jsonxsl module.yang -o module.xsl

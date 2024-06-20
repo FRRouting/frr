@@ -718,7 +718,7 @@ DEFUN (ospf_area_range_not_advertise,
 
 DEFUN (no_ospf_area_range,
        no_ospf_area_range_cmd,
-       "no area <A.B.C.D|(0-4294967295)> range A.B.C.D/M [<cost (0-16777215)|advertise [cost (0-16777215)]|not-advertise>]",
+       "no area <A.B.C.D|(0-4294967295)> range A.B.C.D/M [<cost [(0-16777215)]|advertise [cost [(0-16777215)]]|not-advertise>]",
        NO_STR
        "OSPF area parameters\n"
        "OSPF area ID in IP address format\n"
@@ -747,6 +747,8 @@ DEFUN (no_ospf_area_range,
 	ospf_area_display_format_set(ospf, area, format);
 
 	ospf_area_range_unset(ospf, area, area->ranges, &p);
+
+	ospf_area_check_free(ospf, area_id);
 
 	return CMD_SUCCESS;
 }
@@ -780,6 +782,8 @@ DEFUN (no_ospf_area_range_substitute,
 	ospf_area_display_format_set(ospf, area, format);
 
 	ospf_area_range_substitute_unset(ospf, area, &p);
+
+	ospf_area_check_free(ospf, area_id);
 
 	return CMD_SUCCESS;
 }
@@ -1353,12 +1357,13 @@ DEFUN (ospf_area_shortcut,
 
 DEFUN (no_ospf_area_shortcut,
        no_ospf_area_shortcut_cmd,
-       "no area <A.B.C.D|(0-4294967295)> shortcut <enable|disable>",
+       "no area <A.B.C.D|(0-4294967295)> shortcut <default|enable|disable>",
        NO_STR
        "OSPF area parameters\n"
        "OSPF area ID in IP address format\n"
        "OSPF area ID as a decimal value\n"
        "Deconfigure the area's shortcutting mode\n"
+       "Deconfigure default shortcutting through the area\n"
        "Deconfigure enabled shortcutting through the area\n"
        "Deconfigure disabled shortcutting through the area\n")
 {
@@ -2111,7 +2116,7 @@ DEFUN (ospf_abr_type,
 
 DEFUN (no_ospf_abr_type,
        no_ospf_abr_type_cmd,
-       "no ospf abr-type <cisco|ibm|shortcut|standard>",
+       "no ospf abr-type [<cisco|ibm|shortcut|standard>]",
        NO_STR
        "OSPF specific commands\n"
        "Set OSPF ABR type\n"
@@ -2290,6 +2295,10 @@ static int ospf_timers_spf_set(struct vty *vty, unsigned int delay,
 			       unsigned int hold, unsigned int max)
 {
 	VTY_DECLVAR_INSTANCE_CONTEXT(ospf, ospf);
+
+	if (ospf->spf_delay != delay || ospf->spf_holdtime != hold ||
+	    ospf->spf_max_holdtime != max)
+		ospf->spf_hold_multiplier = 1;
 
 	ospf->spf_delay = delay;
 	ospf->spf_holdtime = hold;
@@ -8157,7 +8166,7 @@ DEFUN (ip_ospf_dead_interval_minimal,
 
 DEFUN (no_ip_ospf_dead_interval,
        no_ip_ospf_dead_interval_cmd,
-       "no ip ospf dead-interval [<(1-65535)|minimal hello-multiplier (2-20)> [A.B.C.D]]",
+       "no ip ospf dead-interval [<(1-65535)|minimal hello-multiplier [(2-20)]> [A.B.C.D]]",
        NO_STR
        "IP Information\n"
        "OSPF interface commands\n"
@@ -13183,6 +13192,10 @@ static void ospf_vty_if_init(void)
 	/* "ip ospf hello-interval" commands. */
 	install_element(INTERFACE_NODE, &ip_ospf_hello_interval_cmd);
 	install_element(INTERFACE_NODE, &no_ip_ospf_hello_interval_cmd);
+
+	/* "ip ospf graceful-restart" commands. */
+	install_element(INTERFACE_NODE, &ip_ospf_gr_hdelay_cmd);
+	install_element(INTERFACE_NODE, &no_ip_ospf_gr_hdelay_cmd);
 
 	/* "ip ospf network" commands. */
 	install_element(INTERFACE_NODE, &ip_ospf_network_cmd);

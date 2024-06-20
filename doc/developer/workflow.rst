@@ -6,9 +6,10 @@ Process & Workflow
 
 .. highlight:: none
 
-FRR is a large project developed by many different groups. This section
-documents standards for code style & quality, commit messages, pull requests
-and best practices that all contributors are asked to follow.
+FRR is a large project developed by many different groups. This
+section documents standards for code style & quality, commit messages,
+pull requests (PRs) and best practices that all contributors are asked
+to follow.
 
 This chapter is "descriptive/post-factual" in that it documents pratices that
 are in use; it is not "definitive/pre-factual" in prescribing practices. This
@@ -241,7 +242,7 @@ discontinued.
 The LTS branch duties are the following ones:
 
 - organise meetings on a (bi-)weekly or monthly basis, the handling of issues
-  and pull requested relative to that branch. When time permits, this may be done
+  and pull requests relative to that branch. When time permits, this may be done
   during the regularly scheduled FRR meeting.
 
 - ensure the stability of the branch, by using and eventually adapting the
@@ -324,11 +325,17 @@ relevant to your work.
 Submitting Patches and Enhancements
 ===================================
 
-FRR accepts patches using GitHub pull requests.
+FRR accepts patches using GitHub pull requests (PRs). The typical FRR
+developer will maintain a fork of the FRR project in GitHub; see the
+GitHub documentation for help setting up an account and creating a
+fork repository. Keep the ``master`` branch of your fork up-to-date
+with the FRR version. Create a dev branch in your fork and commit your
+work there. When ready, create a pull-request between your dev branch
+in your fork and the main FRR repository in GitHub.
 
-The base branch for new contributions and non-critical bug fixes should be
-``master``. Please ensure your pull request is based on this branch when you
-submit it.
+The base branch for new contributions and non-critical bug fixes
+should be ``master``. Please ensure your pull request targets this
+branch when you submit it.
 
 Code submitted by pull request will be automatically tested by one or more CI
 systems. Once the automated tests succeed, other developers will review your
@@ -530,6 +537,42 @@ After Submitting Your Changes
    be a manual code review and further (longer) tests by various
    community members.
 -  Your submission is done once it is merged to the master branch.
+
+Reverting the changes
+=====================
+
+When you revert a regular commit in Git, the process is straightforward - it
+undoes the changes introduced by that commit. However, reverting a merge commit
+is more complex. While it undoes the data changes brought in by the merge, it
+does not alter the repository's history or the merge's effect on it.
+
+Reverting a Merge Commit
+------------------------
+
+When you revert a merge commit, the following occurs:
+
+* The changes made by the merge are undone;
+* The merge itself remains in the history: it continues to be recognized as the point where two branches were joined;
+* Future merges will still treat this as the last shared state, regardless of the revert.
+
+Thus, a "revert" in Git undoes data changes, but it does not serve as a true "undo"
+for the historical effects of a commit.
+
+Reverting a Merge and Bisectability
+-----------------------------------
+
+Consider the implications of reverting a merge and then reverting that revert.
+This scenario complicates the debugging process, especially when using tools like
+git bisect. A reverted merge effectively consolidates all changes from the original
+merge into a single commit, but in reverse. This creates a challenge for debugging,
+as you lose the granularity of individual commits, making it difficult to identify
+the specific change causing an issue.
+
+Considerations
+--------------
+
+When reverting the changes, e.g. a full Pull Request, we SHOULD revert every commit
+individually, and not use git revert on merge commits.
 
 Programming Languages, Tools and Libraries
 ==========================================

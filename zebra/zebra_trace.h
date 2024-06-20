@@ -70,20 +70,6 @@ TRACEPOINT_EVENT(
 
 TRACEPOINT_EVENT(
 	frr_zebra,
-	netlink_interface_addr,
-	TP_ARGS(
-		struct nlmsghdr *, header,
-		ns_id_t, ns_id,
-		int, startup),
-	TP_FIELDS(
-		ctf_integer_hex(intptr_t, header, header)
-		ctf_integer(uint32_t, ns_id, ns_id)
-		ctf_integer(uint32_t, startup, startup)
-		)
-	)
-
-TRACEPOINT_EVENT(
-	frr_zebra,
 	netlink_route_change_read_unicast,
 	TP_ARGS(
 		struct nlmsghdr *, header,

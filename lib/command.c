@@ -17,6 +17,7 @@
 #include <lib/version.h>
 
 #include "command.h"
+#include "debug.h"
 #include "frrstr.h"
 #include "memory.h"
 #include "log.h"
@@ -1453,7 +1454,7 @@ DEFUN (config_help,
        "Description of the interactive help system\n")
 {
 	vty_out(vty,
-		"Quagga VTY provides advanced help feature.  When you need help,\n\
+		"FRR VTY provides advanced help feature.  When you need help,\n\
 anytime at the command line please press '?'.\n\
 \n\
 If nothing matches, the help list will be empty and you must backup\n\
@@ -2463,8 +2464,7 @@ const char *host_config_get(void)
 void cmd_show_lib_debugs(struct vty *vty)
 {
 	route_map_show_debug(vty);
-	mgmt_debug_be_client_show_debug(vty);
-	mgmt_debug_fe_client_show_debug(vty);
+	debug_status_write(vty);
 }
 
 void install_default(enum node_type node)

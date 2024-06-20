@@ -33,10 +33,11 @@ Installing Topotest Requirements
        net-tools \
        python3-pip \
        iputils-ping \
+       iptables \
        tshark \
        valgrind
    python3 -m pip install wheel
-   python3 -m pip install 'pytest>=6.2.4' 'pytest-xdist>=2.3.0'
+   python3 -m pip install 'pytest>=8.3.2' 'pytest-asyncio>=0.24.0' 'pytest-xdist>=3.6.1'
    python3 -m pip install 'scapy>=2.4.5'
    python3 -m pip install xmltodict
    python3 -m pip install git+https://github.com/Exa-Networks/exabgp@0659057837cd6c6351579e9f0fa47e9fb7de7311
@@ -730,8 +731,8 @@ packages.
 
 Code coverage can automatically be gathered for any topotest run. To support
 this FRR must first be compiled with the ``--enable-gcov`` configure option.
-This will cause *.gnco files to be created during the build. When topotests are
-run the statistics are generated and stored in *.gcda files. Topotest
+This will cause \*.gnco files to be created during the build. When topotests are
+run the statistics are generated and stored in \*.gcda files. Topotest
 infrastructure will gather these files, capture the information into a
 ``coverage.info`` ``lcov`` file and also report the coverage summary.
 
@@ -740,7 +741,7 @@ If you build your FRR in a directory outside of the FRR source directory you
 will also need to pass the ``--cov-frr-build-dir`` argument specifying the build
 directory location.
 
-During the topotest run the *.gcda files are generated into a ``gcda``
+During the topotest run the \*.gcda files are generated into a ``gcda``
 sub-directory of the top-level run directory (i.e., normally
 ``/tmp/topotests/gcda``). These files will then be copied at the end of the
 topotest run into the FRR build directory where the ``gcov`` and ``lcov``
@@ -755,7 +756,7 @@ The ``coverage.info`` file can then be used to generate coverage reports or file
 markup (e.g., using the ``genhtml`` utility) or enable markup within your
 IDE/editor if supported (e.g., the emacs ``cov-mode`` package)
 
-NOTE: the *.gcda files in ``/tmp/topotests/gcda`` are cumulative so if you do
+NOTE: the \*.gcda files in ``/tmp/topotests/gcda`` are cumulative so if you do
 not remove them they will aggregate data across multiple topotest runs.
 
 How to reproduce failed Tests
@@ -1392,21 +1393,22 @@ or using unified config (specifying which daemons to run is optional):
 Requirements:
 
 - Directory name for a new topotest must not contain hyphen (``-``) characters.
-  To separate words, use underscores (``_``). For example, ``tests/topotests/bgp_new_example``.
+  To separate words, use underscores (``_``). For example, ``tests/topotests/bgp_new_example``;
 - Test code should always be declared inside functions that begin with the
   ``test_`` prefix. Functions beginning with different prefixes will not be run
-  by pytest.
+  by pytest;
 - Configuration files and long output commands should go into separated files
-  inside folders named after the equipment.
+  inside folders named after the equipment;
 - Tests must be able to run without any interaction. To make sure your test
-  conforms with this, run it without the :option:`-s` parameter.
+  conforms with this, run it without the :option:`-s` parameter;
 - Use `black <https://github.com/psf/black>`_ code formatter before creating
-  a pull request. This ensures we have a unified code style.
+  a pull request. This ensures we have a unified code style;
 - Mark test modules with pytest markers depending on the daemons used during the
-  tests (see :ref:`topotests-markers`)
+  tests (see :ref:`topotests-markers`);
 - Always use IPv4 :rfc:`5737` (``192.0.2.0/24``, ``198.51.100.0/24``,
   ``203.0.113.0/24``) and IPv6 :rfc:`3849` (``2001:db8::/32``) ranges reserved
-  for documentation.
+  for documentation;
+- Use unified config (``frr.conf``) for all new [tests](#writing-tests).
 
 Tips:
 

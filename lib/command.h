@@ -84,14 +84,13 @@ enum node_type {
 	CONFIG_NODE,		 /* Config node. Default mode of config file. */
 	PREFIX_NODE, /* ip prefix-list node. */
 	PREFIX_IPV6_NODE, /* ipv6 prefix-list node. */
+	RMAP_NODE, /* Route map node. */
+	LIB_DEBUG_NODE,		 /* frrlib debug node. */
 	DEBUG_NODE,		 /* Debug node. */
 	VRF_DEBUG_NODE,		 /* Vrf Debug node. */
-	NORTHBOUND_DEBUG_NODE,	 /* Northbound Debug node. */
 	DEBUG_VNC_NODE,		 /* Debug VNC node. */
 	RMAP_DEBUG_NODE,         /* Route-map debug node */
 	RESOLVER_DEBUG_NODE,	 /* Resolver debug node */
-	MGMT_BE_DEBUG_NODE,	 /* mgmtd backend-client debug node */
-	MGMT_FE_DEBUG_NODE,	 /* mgmtd frontend-client debug node */
 	AAA_NODE,		 /* AAA node. */
 	EXTLOG_NODE,		 /* RFC5424 & co. extended syslog */
 	KEYCHAIN_NODE,		 /* Key-chain node. */
@@ -102,7 +101,6 @@ enum node_type {
 	INTERFACE_NODE,		 /* Interface mode node. */
 	NH_GROUP_NODE,		 /* Nexthop-Group mode node. */
 	ZEBRA_NODE,		 /* zebra connection node. */
-	TABLE_NODE,		 /* rtm_table selection node. */
 	RIP_NODE,		 /* RIP protocol mode node. */
 	RIPNG_NODE,		 /* RIPng protocol mode node. */
 	BABEL_NODE,		 /* BABEL protocol mode node. */
@@ -120,7 +118,6 @@ enum node_type {
 	BGP_VNC_DEFAULTS_NODE,   /* BGP VNC nve defaults */
 	BGP_VNC_NVE_GROUP_NODE,  /* BGP VNC nve group */
 	BGP_VNC_L2_GROUP_NODE,   /* BGP VNC L2 group */
-	RFP_DEFAULTS_NODE,       /* RFP defaults node */
 	BGP_EVPN_NODE,		 /* BGP EVPN node. */
 	BGP_SRV6_NODE,		 /* BGP SRv6 node. */
 	OSPF_NODE,		 /* OSPF protocol mode */
@@ -140,7 +137,6 @@ enum node_type {
 	AS_LIST_NODE,		 /* AS list node. */
 	COMMUNITY_LIST_NODE,     /* Community list node. */
 	COMMUNITY_ALIAS_NODE, /* Community alias node. */
-	RMAP_NODE,		 /* Route map node. */
 	PBRMAP_NODE,		 /* PBR map node. */
 	SMUX_NODE,		 /* SNMP configuration node. */
 	DUMP_NODE,		 /* Packet dump node. */

@@ -7,6 +7,7 @@
 #include <zebra.h>
 #include <sys/stat.h>
 
+#include "debug.h"
 #include "frrevent.h"
 #include "vty.h"
 #include "command.h"
@@ -459,7 +460,8 @@ int main(int argc, char **argv)
 	cmd_hostname_set("test");
 	vty_init(master, false);
 	lib_cmd_init();
-	nb_init(master, modules, array_size(modules), false);
+	debug_init();
+	nb_init(master, modules, array_size(modules), false, false);
 
 	install_element(ENABLE_NODE, &test_rpc_cmd);
 

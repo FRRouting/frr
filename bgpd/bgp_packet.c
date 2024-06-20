@@ -641,30 +641,10 @@ void bgp_keepalive_send(struct peer *peer)
 	bgp_writes_on(peer->connection);
 }
 
-/*
- * Creates a BGP Open packet and appends it to the peer's output queue.
- * Sets capabilities as necessary.
- */
-void bgp_open_send(struct peer_connection *connection)
+struct stream *bgp_open_make(struct peer *peer, uint16_t send_holdtime, as_t local_as)
 {
-	struct stream *s;
-	uint16_t send_holdtime;
-	as_t local_as;
-	struct peer *peer = connection->peer;
+	struct stream *s = stream_new(BGP_STANDARD_MESSAGE_MAX_PACKET_SIZE);
 	bool ext_opt_params = false;
-
-	if (CHECK_FLAG(peer->flags, PEER_FLAG_TIMER))
-		send_holdtime = peer->holdtime;
-	else
-		send_holdtime = peer->bgp->default_holdtime;
-
-	/* local-as Change */
-	if (peer->change_local_as)
-		local_as = peer->change_local_as;
-	else
-		local_as = peer->local_as;
-
-	s = stream_new(BGP_STANDARD_MESSAGE_MAX_PACKET_SIZE);
 
 	/* Make open packet. */
 	bgp_packet_set_marker(s, BGP_MSG_OPEN);
@@ -703,6 +683,33 @@ void bgp_open_send(struct peer_connection *connection)
 			   peer, peer->connection->fd,
 			   ext_opt_params ? " (Extended)" : "", BGP_VERSION_4,
 			   local_as, send_holdtime, &peer->local_id);
+
+	return s;
+}
+
+/*
+ * Creates a BGP Open packet and appends it to the peer's output queue.
+ * Sets capabilities as necessary.
+ */
+void bgp_open_send(struct peer_connection *connection)
+{
+	struct stream *s;
+	uint16_t send_holdtime;
+	as_t local_as;
+	struct peer *peer = connection->peer;
+
+	if (CHECK_FLAG(peer->flags, PEER_FLAG_TIMER))
+		send_holdtime = peer->holdtime;
+	else
+		send_holdtime = peer->bgp->default_holdtime;
+
+	/* local-as Change */
+	if (peer->change_local_as)
+		local_as = peer->change_local_as;
+	else
+		local_as = peer->local_as;
+
+	s = bgp_open_make(peer, send_holdtime, local_as);
 
 	/* Dump packet if debug option is set. */
 	/* bgp_packet_dump (s); */
@@ -1116,10 +1123,10 @@ void bgp_route_refresh_send(struct peer *peer, afi_t afi, safi_t safi,
 	s = stream_new(peer->max_packet_size);
 
 	/* Make BGP update packet. */
-	if (CHECK_FLAG(peer->cap, PEER_CAP_REFRESH_RCV))
-		bgp_packet_set_marker(s, BGP_MSG_ROUTE_REFRESH_NEW);
-	else
-		bgp_packet_set_marker(s, BGP_MSG_ROUTE_REFRESH_OLD);
+	if (!CHECK_FLAG(peer->cap, PEER_CAP_REFRESH_RCV))
+		return;
+
+	bgp_packet_set_marker(s, BGP_MSG_ROUTE_REFRESH_NEW);
 
 	/* Encode Route Refresh message. */
 	stream_putw(s, pkt_afi);
@@ -2702,6 +2709,19 @@ static int bgp_notify_receive(struct peer_connection *connection,
 	    inner.subcode == BGP_NOTIFY_OPEN_UNSUP_PARAM)
 		UNSET_FLAG(peer->sflags, PEER_STATUS_CAPABILITY_OPEN);
 
+	/* Resend the next OPEN message with a global AS number if we received
+	 * a `Bad Peer AS` notification. This is only valid if `dual-as` is
+	 * configured.
+	 */
+	if (inner.code == BGP_NOTIFY_OPEN_ERR &&
+	    inner.subcode == BGP_NOTIFY_OPEN_BAD_PEER_AS &&
+	    CHECK_FLAG(peer->flags, PEER_FLAG_DUAL_AS)) {
+		if (peer->change_local_as != peer->bgp->as)
+			peer->change_local_as = peer->bgp->as;
+		else
+			peer->change_local_as = peer->local_as;
+	}
+
 	/* If Graceful-Restart N-bit (Notification) is exchanged,
 	 * and it's not a Hard Reset, let's retain the routes.
 	 */
@@ -2922,35 +2942,31 @@ static int bgp_route_refresh_receive(struct peer_connection *connection,
 					if (bgp_debug_neighbor_events(peer)) {
 						char buf[INET6_BUFSIZ];
 
-						zlog_debug(
-							"%pBP rcvd %s %s seq %u %s/%d ge %d le %d%s",
-							peer,
-							(common & ORF_COMMON_PART_REMOVE
-								 ? "Remove"
-								 : "Add"),
-							(common & ORF_COMMON_PART_DENY
-								 ? "deny"
-								 : "permit"),
-							orfp.seq,
-							inet_ntop(
-								orfp.p.family,
-								&orfp.p.u.prefix,
-								buf,
-								INET6_BUFSIZ),
-							orfp.p.prefixlen,
-							orfp.ge, orfp.le,
-							ok ? "" : " MALFORMED");
+						zlog_debug("%pBP rcvd %s %s seq %u %s/%d ge %d le %d%s",
+							   peer,
+							   (CHECK_FLAG(common, ORF_COMMON_PART_REMOVE)
+								    ? "Remove"
+								    : "Add"),
+							   (CHECK_FLAG(common, ORF_COMMON_PART_DENY)
+								    ? "deny"
+								    : "permit"),
+							   orfp.seq,
+							   inet_ntop(orfp.p.family, &orfp.p.u.prefix,
+								     buf, INET6_BUFSIZ),
+							   orfp.p.prefixlen, orfp.ge, orfp.le,
+							   ok ? "" : " MALFORMED");
 					}
 
 					if (ok)
-						ret = prefix_bgp_orf_set(
-							name, afi, &orfp,
-							(common & ORF_COMMON_PART_DENY
-								 ? 0
-								 : 1),
-							(common & ORF_COMMON_PART_REMOVE
-								 ? 0
-								 : 1));
+						ret = prefix_bgp_orf_set(name, afi, &orfp,
+									 (CHECK_FLAG(common,
+										     ORF_COMMON_PART_DENY)
+										  ? 0
+										  : 1),
+									 (CHECK_FLAG(common,
+										     ORF_COMMON_PART_REMOVE)
+										  ? 0
+										  : 1));
 
 					if (!ok || (ok && ret != CMD_SUCCESS)) {
 						zlog_info(
@@ -3177,17 +3193,11 @@ static void bgp_dynamic_capability_addpath(uint8_t *pnt, int action,
 
 			if (bgp_debug_neighbor_events(peer))
 				zlog_debug("%s OPEN has %s capability for afi/safi: %s/%s%s%s",
-					   peer->host,
-					   lookup_msg(capcode_str, hdr->code,
-						      NULL),
-					   iana_afi2str(pkt_afi),
-					   iana_safi2str(pkt_safi),
-					   (bac.flags & BGP_ADDPATH_RX)
-						   ? ", receive"
-						   : "",
-					   (bac.flags & BGP_ADDPATH_TX)
-						   ? ", transmit"
-						   : "");
+					   peer->host, lookup_msg(capcode_str, hdr->code, NULL),
+					   iana_afi2str(pkt_afi), iana_safi2str(pkt_safi),
+					   CHECK_FLAG(bac.flags, BGP_ADDPATH_RX) ? ", receive" : "",
+					   CHECK_FLAG(bac.flags, BGP_ADDPATH_TX) ? ", transmit"
+										 : "");
 
 			if (bgp_map_afi_safi_iana2int(pkt_afi, pkt_safi, &afi,
 						      &safi)) {

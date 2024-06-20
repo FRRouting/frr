@@ -284,6 +284,9 @@ struct bgp_path_info {
 	/* Peer structure.  */
 	struct peer *peer;
 
+	/* From peer structure */
+	struct peer *from;
+
 	/* Attribute structure.  */
 	struct attr *attr;
 
@@ -313,6 +316,11 @@ struct bgp_path_info {
 #define BGP_PATH_STALE (1 << 8)
 #define BGP_PATH_REMOVED (1 << 9)
 #define BGP_PATH_COUNTED (1 << 10)
+/*
+ * A BGP_PATH_MULTIPATH flag is not set on the best path
+ * it is set on every other node that is part of ECMP
+ * for that particular dest
+ */
 #define BGP_PATH_MULTIPATH (1 << 11)
 #define BGP_PATH_MULTIPATH_CHG (1 << 12)
 #define BGP_PATH_RIB_ATTR_CHG (1 << 13)
@@ -322,6 +330,15 @@ struct bgp_path_info {
 #define BGP_PATH_MPLSVPN_LABEL_NH (1 << 17)
 #define BGP_PATH_MPLSVPN_NH_LABEL_BIND (1 << 18)
 #define BGP_PATH_UNSORTED (1 << 19)
+/*
+ * BGP_PATH_MULTIPATH_NEW is set on those bgp_path_info
+ * nodes that we have decided should possibly be in the
+ * ecmp path for a particular dest.  This flag is
+ * removed when the bgp_path_info's are looked at to
+ * decide on whether or not a bgp_path_info is on
+ * the actual ecmp path.
+ */
+#define BGP_PATH_MULTIPATH_NEW (1 << 20)
 
 	/* BGP route type.  This can be static, RIP, OSPF, BGP etc.  */
 	uint8_t type;
@@ -605,13 +622,13 @@ static inline bool is_pi_family_matching(struct bgp_path_info *pi,
 }
 
 static inline void prep_for_rmap_apply(struct bgp_path_info *dst_pi,
-				       struct bgp_path_info_extra *dst_pie,
-				       struct bgp_dest *dest,
-				       struct bgp_path_info *src_pi,
-				       struct peer *peer, struct attr *attr)
+				       struct bgp_path_info_extra *dst_pie, struct bgp_dest *dest,
+				       struct bgp_path_info *src_pi, struct peer *peer,
+				       struct peer *from, struct attr *attr)
 {
 	memset(dst_pi, 0, sizeof(struct bgp_path_info));
 	dst_pi->peer = peer;
+	dst_pi->from = from;
 	dst_pi->attr = attr;
 	dst_pi->net = dest;
 	dst_pi->flags = src_pi->flags;
@@ -804,9 +821,19 @@ extern void bgp_withdraw(struct peer *peer, const struct prefix *p,
 			 int sub_type, struct prefix_rd *prd,
 			 mpls_label_t *label, uint8_t num_labels);
 
-/* for bgp_nexthop and bgp_damp */
+/*
+ * Add a route to be processed for bgp bestpath through the bgp
+ * workqueue.  This route is added to the end of all other routes
+ * queued for processing
+ *
+ * bgp_process_early adds the route for processing at the beginning
+ * of the current queue for processing.
+ */
 extern void bgp_process(struct bgp *bgp, struct bgp_dest *dest,
 			struct bgp_path_info *pi, afi_t afi, safi_t safi);
+
+extern void bgp_process_early(struct bgp *bgp, struct bgp_dest *dest,
+			      struct bgp_path_info *pi, afi_t afi, safi_t safi);
 
 /*
  * Add an end-of-initial-update marker to the process queue. This is just a
@@ -903,7 +930,8 @@ extern void route_vty_out_detail_header(struct vty *vty, struct bgp *bgp,
 					const struct prefix *p,
 					const struct prefix_rd *prd, afi_t afi,
 					safi_t safi, json_object *json,
-					bool incremental_print);
+					bool incremental_print,
+					bool local_table);
 extern void route_vty_out_detail(struct vty *vty, struct bgp *bgp,
 				 struct bgp_dest *bn, const struct prefix *p,
 				 struct bgp_path_info *path, afi_t afi,

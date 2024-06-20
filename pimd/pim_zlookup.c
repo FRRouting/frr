@@ -193,7 +193,7 @@ static int zclient_read_nexthop(struct pim_instance *pim,
 
 	distance = stream_getc(s);
 	metric = stream_getl(s);
-	nexthop_num = stream_getc(s);
+	nexthop_num = stream_getw(s);
 
 	if (nexthop_num < 1 || nexthop_num > router->multipath) {
 		if (PIM_DEBUG_PIM_NHT_DETAIL)

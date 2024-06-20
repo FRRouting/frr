@@ -515,7 +515,7 @@ static int ecommunity_encode_internal(uint8_t type, uint8_t sub_type,
 	/* Fill in the values. */
 	eval->val[0] = type;
 	if (!trans)
-		eval->val[0] |= ECOMMUNITY_FLAG_NON_TRANSITIVE;
+		SET_FLAG(eval->val[0], ECOMMUNITY_FLAG_NON_TRANSITIVE);
 	eval->val[1] = sub_type;
 	if (type == ECOMMUNITY_ENCODE_AS) {
 		encode_route_target_as(as, val, eval, trans);
@@ -1293,11 +1293,12 @@ char *ecommunity_ecom2str(struct ecommunity *ecom, int format, int filter)
 				   == ECOMMUNITY_EVPN_SUBTYPE_ESI_LABEL) {
 				uint8_t flags = *++pnt;
 
-				snprintf(encbuf,
-					sizeof(encbuf), "ESI-label-Rt:%s",
-					(flags &
-					 ECOMMUNITY_EVPN_SUBTYPE_ESI_SA_FLAG) ?
-					"SA":"AA");
+				snprintf(encbuf, sizeof(encbuf),
+					 "ESI-label-Rt:%s",
+					 CHECK_FLAG(flags,
+						    ECOMMUNITY_EVPN_SUBTYPE_ESI_SA_FLAG)
+						 ? "SA"
+						 : "AA");
 			} else if (*pnt
 				   == ECOMMUNITY_EVPN_SUBTYPE_DF_ELECTION) {
 				uint8_t alg;
@@ -1337,38 +1338,37 @@ char *ecommunity_ecom2str(struct ecommunity *ecom, int format, int filter)
 				char buf[ECOMMUNITY_STRLEN];
 
 				memset(buf, 0, sizeof(buf));
-				ecommunity_rt_soo_str_internal(buf, sizeof(buf),
-						(const uint8_t *)pnt,
-						type &
-						~ECOMMUNITY_ENCODE_TRANS_EXP,
-						ECOMMUNITY_ROUTE_TARGET,
-						format,
-						ecom->unit_size);
+				ecommunity_rt_soo_str_internal(
+					buf, sizeof(buf), (const uint8_t *)pnt,
+					CHECK_FLAG(type,
+						   ~ECOMMUNITY_ENCODE_TRANS_EXP),
+					ECOMMUNITY_ROUTE_TARGET, format,
+					ecom->unit_size);
 				snprintf(encbuf, sizeof(encbuf), "%s", buf);
 			} else if (sub_type ==
 				   ECOMMUNITY_FLOWSPEC_REDIRECT_IPV6) {
 				char buf[64];
 
 				memset(buf, 0, sizeof(buf));
-				ecommunity_rt_soo_str_internal(buf, sizeof(buf),
-						(const uint8_t *)pnt,
-						type &
-						~ECOMMUNITY_ENCODE_TRANS_EXP,
-						ECOMMUNITY_ROUTE_TARGET,
-						ECOMMUNITY_FORMAT_DISPLAY,
-						ecom->unit_size);
+				ecommunity_rt_soo_str_internal(
+					buf, sizeof(buf), (const uint8_t *)pnt,
+					CHECK_FLAG(type,
+						   ~ECOMMUNITY_ENCODE_TRANS_EXP),
+					ECOMMUNITY_ROUTE_TARGET,
+					ECOMMUNITY_FORMAT_DISPLAY,
+					ecom->unit_size);
 				snprintf(encbuf, sizeof(encbuf),
 					 "FS:redirect VRF %s", buf);
 			} else if (sub_type == ECOMMUNITY_REDIRECT_VRF) {
 				char buf[16];
 
 				memset(buf, 0, sizeof(buf));
-				ecommunity_rt_soo_str(buf, sizeof(buf),
-						(const uint8_t *)pnt,
-						type &
-						~ECOMMUNITY_ENCODE_TRANS_EXP,
-						ECOMMUNITY_ROUTE_TARGET,
-						ECOMMUNITY_FORMAT_DISPLAY);
+				ecommunity_rt_soo_str(
+					buf, sizeof(buf), (const uint8_t *)pnt,
+					CHECK_FLAG(type,
+						   ~ECOMMUNITY_ENCODE_TRANS_EXP),
+					ECOMMUNITY_ROUTE_TARGET,
+					ECOMMUNITY_FORMAT_DISPLAY);
 				snprintf(encbuf, sizeof(encbuf),
 					 "FS:redirect VRF %s", buf);
 				snprintf(encbuf, sizeof(encbuf),
@@ -1408,9 +1408,12 @@ char *ecommunity_ecom2str(struct ecommunity *ecom, int format, int filter)
 					 "FS:marking %u", *(pnt + 5));
 			} else
 				unk_ecom = true;
-		} else if (type == ECOMMUNITY_ENCODE_AS_NON_TRANS) {
+		} else if (CHECK_FLAG(type, ECOMMUNITY_FLAG_NON_TRANSITIVE) ||
+			   type == ECOMMUNITY_ENCODE_OPAQUE_NON_TRANS) {
 			sub_type = *pnt++;
-			if (sub_type == ECOMMUNITY_LINK_BANDWIDTH)
+			if (sub_type == ECOMMUNITY_ORIGIN_VALIDATION_STATE)
+				ecommunity_origin_validation_state_str(encbuf, sizeof(encbuf), pnt);
+			else if (sub_type == ECOMMUNITY_LINK_BANDWIDTH)
 				ecommunity_lb_str(encbuf, sizeof(encbuf), pnt,
 						  ecom->disable_ieee_floating);
 			else if (sub_type == ECOMMUNITY_EXTENDED_LINK_BANDWIDTH)
@@ -1418,18 +1421,11 @@ char *ecommunity_ecom2str(struct ecommunity *ecom, int format, int filter)
 						       pnt, len);
 			else
 				unk_ecom = true;
-		} else if (type == ECOMMUNITY_ENCODE_IP_NON_TRANS) {
+		} else if (CHECK_FLAG(type, ECOMMUNITY_ENCODE_IP_NON_TRANS)) {
 			sub_type = *pnt++;
 			if (sub_type == ECOMMUNITY_NODE_TARGET)
 				ecommunity_node_target_str(
 					encbuf, sizeof(encbuf), pnt, format);
-			else
-				unk_ecom = true;
-		} else if (type == ECOMMUNITY_ENCODE_OPAQUE_NON_TRANS) {
-			sub_type = *pnt++;
-			if (sub_type == ECOMMUNITY_ORIGIN_VALIDATION_STATE)
-				ecommunity_origin_validation_state_str(
-					encbuf, sizeof(encbuf), pnt);
 			else
 				unk_ecom = true;
 		} else {
@@ -1587,6 +1583,57 @@ bool ecommunity_strip(struct ecommunity *ecom, uint8_t type,
 	return true;
 }
 
+static bool ecommunity_non_transitive(uint8_t type)
+{
+	return (CHECK_FLAG(type, ECOMMUNITY_FLAG_NON_TRANSITIVE) ||
+		CHECK_FLAG(type, ECOMMUNITY_ENCODE_IP_NON_TRANS) ||
+		type == ECOMMUNITY_ENCODE_OPAQUE_NON_TRANS);
+}
+
+/* Delete all non-transitive extended communities */
+bool ecommunity_strip_non_transitive(struct ecommunity *ecom)
+{
+	uint8_t *p, *q, *new;
+	uint32_t c, found = 0;
+
+	if (!ecom || !ecom->val)
+		return false;
+
+	/* Certain extended communities like the Route Target can be present
+	 * multiple times, handle that.
+	 */
+	c = 0;
+	for (p = ecom->val; c < ecom->size; p += ecom->unit_size, c++)
+		if (ecommunity_non_transitive(*p))
+			found++;
+
+	if (!found)
+		return false;
+
+	/* Handle the case where everything needs to be stripped. */
+	if (found == ecom->size) {
+		XFREE(MTYPE_ECOMMUNITY_VAL, ecom->val);
+		ecom->size = 0;
+		return true;
+	}
+
+	/* Strip extended communities with non-transitive flag set */
+	new = XMALLOC(MTYPE_ECOMMUNITY_VAL, (ecom->size - found) * ecom->unit_size);
+	q = new;
+	for (c = 0, p = ecom->val; c < ecom->size; c++, p += ecom->unit_size) {
+		if (!ecommunity_non_transitive(*p)) {
+			memcpy(q, p, ecom->unit_size);
+			q += ecom->unit_size;
+		}
+	}
+
+	XFREE(MTYPE_ECOMMUNITY_VAL, ecom->val);
+	ecom->val = new;
+	ecom->size -= found;
+
+	return true;
+}
+
 /*
  * Remove specified extended community value from extended community.
  * Returns 1 if value was present (and hence, removed), 0 otherwise.
@@ -1640,12 +1687,13 @@ int ecommunity_fill_pbr_action(struct ecommunity_val *ecom_eval,
 	} else if (ecom_eval->val[1] == ECOMMUNITY_TRAFFIC_ACTION) {
 		api->action = ACTION_TRAFFIC_ACTION;
 		/* else distribute code is set by default */
-		if (ecom_eval->val[5] & (1 << FLOWSPEC_TRAFFIC_ACTION_TERMINAL))
-			api->u.za.filter |= TRAFFIC_ACTION_TERMINATE;
+		if (CHECK_FLAG(ecom_eval->val[5],
+			       (1 << FLOWSPEC_TRAFFIC_ACTION_TERMINAL)))
+			SET_FLAG(api->u.za.filter, TRAFFIC_ACTION_TERMINATE);
 		else
-			api->u.za.filter |= TRAFFIC_ACTION_DISTRIBUTE;
+			SET_FLAG(api->u.za.filter, TRAFFIC_ACTION_DISTRIBUTE);
 		if (ecom_eval->val[5] == 1 << FLOWSPEC_TRAFFIC_ACTION_SAMPLE)
-			api->u.za.filter |= TRAFFIC_ACTION_SAMPLE;
+			SET_FLAG(api->u.za.filter, TRAFFIC_ACTION_SAMPLE);
 
 	} else if (ecom_eval->val[1] == ECOMMUNITY_TRAFFIC_MARKING) {
 		api->action = ACTION_MARKING;
@@ -1882,9 +1930,7 @@ const uint8_t *ecommunity_linkbw_present(struct ecommunity *ecom, uint64_t *bw)
 		if (len < ecom->unit_size)
 			return NULL;
 
-		if ((type == ECOMMUNITY_ENCODE_AS ||
-		     type == ECOMMUNITY_ENCODE_AS_NON_TRANS) &&
-		    sub_type == ECOMMUNITY_LINK_BANDWIDTH) {
+		if ((type == ECOMMUNITY_ENCODE_AS) && sub_type == ECOMMUNITY_LINK_BANDWIDTH) {
 			uint32_t bwval;
 
 			pnt += 2; /* bandwidth is encoded as AS:val */
@@ -1940,7 +1986,7 @@ struct ecommunity *ecommunity_replace_linkbw(as_t as, struct ecommunity *ecom,
 		return new;
 
 	type = *eval;
-	if (type & ECOMMUNITY_FLAG_NON_TRANSITIVE)
+	if (CHECK_FLAG(type, ECOMMUNITY_FLAG_NON_TRANSITIVE))
 		return new;
 
 	/* Transitive link-bandwidth exists, replace with the passed

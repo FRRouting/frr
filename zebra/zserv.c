@@ -161,9 +161,11 @@ void zserv_log_message(const char *errmsg, struct stream *msg,
 	if (errmsg)
 		zlog_debug("%s", errmsg);
 	if (hdr) {
+		struct vrf *vrf = vrf_lookup_by_id(hdr->vrf_id);
+
 		zlog_debug(" Length: %d", hdr->length);
 		zlog_debug("Command: %s", zserv_command_string(hdr->command));
-		zlog_debug("    VRF: %u", hdr->vrf_id);
+		zlog_debug("    VRF: %s(%u)", VRF_LOGNAME(vrf), hdr->vrf_id);
 	}
 	stream_hexdump(msg);
 }
@@ -425,11 +427,13 @@ static void zserv_read(struct event *thread)
 		}
 
 		/* Debug packet information. */
-		if (IS_ZEBRA_DEBUG_PACKET)
-			zlog_debug("zebra message[%s:%u:%u] comes from socket [%d]",
+		if (IS_ZEBRA_DEBUG_PACKET) {
+			struct vrf *vrf = vrf_lookup_by_id(hdr.vrf_id);
+
+			zlog_debug("zebra message[%s:%s:%u] comes from socket [%d]",
 				   zserv_command_string(hdr.command),
-				   hdr.vrf_id, hdr.length,
-				   sock);
+				   VRF_LOGNAME(vrf), hdr.length, sock);
+		}
 
 		stream_set_getp(client->ibuf_work, 0);
 		struct stream *msg = stream_dup(client->ibuf_work);

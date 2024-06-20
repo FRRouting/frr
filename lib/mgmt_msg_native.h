@@ -383,11 +383,18 @@ _Static_assert(sizeof(struct mgmt_msg_edit) ==
 /**
  * struct mgmt_msg_edit_reply - frontend edit reply.
  *
- * @data: the xpath of the data node that was created.
+ * @changed: If true then changes in datastore resulted.
+ * @created: If true then object was newly created (non-existing before)
+ * @data: @vsplit values, second value may be zero len.
+ * @data: [0] the xpath of the data node that was created.
+ * @data: [1] Possible structured data to pass back to client (e.g., non-"error"
+ *        yang modeled error data).
  */
 struct mgmt_msg_edit_reply {
 	struct mgmt_msg_header;
-	uint8_t resv2[8];
+	uint8_t changed;
+	uint8_t created;
+	uint8_t resv2[6];
 
 	alignas(8) char data[];
 };

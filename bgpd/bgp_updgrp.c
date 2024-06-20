@@ -455,6 +455,10 @@ static unsigned int updgrp_hash_key_make(const void *p)
 		key = jhash_1word(jhash(soo_str, strlen(soo_str), SEED1), key);
 	}
 
+	if (afi == AFI_IP6 &&
+	    (CHECK_FLAG(peer->af_flags[afi][safi], PEER_FLAG_NEXTHOP_LOCAL_UNCHANGED)))
+		key = jhash(&peer->nexthop.v6_global, IPV6_MAX_BYTELEN, key);
+
 	/*
 	 * ANY NEW ITEMS THAT ARE ADDED TO THE key, ENSURE DEBUG
 	 * STATEMENT STAYS UP TO DATE
@@ -521,6 +525,12 @@ static unsigned int updgrp_hash_key_make(const void *p)
 			peer->soo[afi][safi]
 				? ecommunity_str(peer->soo[afi][safi])
 				: "(NONE)");
+		zlog_debug("%pBP Update Group Hash: IPv6 nexthop-local unchanged: %d IPv6 global %pI6",
+			   peer,
+			   afi == AFI_IP6 && (CHECK_FLAG(peer->af_flags[afi][safi],
+							 PEER_FLAG_NEXTHOP_LOCAL_UNCHANGED)),
+			   &peer->nexthop.v6_global);
+
 		zlog_debug("%pBP Update Group Hash key: %u", peer, key);
 	}
 	return key;
@@ -655,6 +665,12 @@ static bool updgrp_hash_cmp(const void *p1, const void *p2)
 	    !sockunion_same(&pe1->connection->su, &pe2->connection->su))
 		return false;
 
+	if (afi == AFI_IP6 &&
+	    (CHECK_FLAG(flags1, PEER_FLAG_NEXTHOP_LOCAL_UNCHANGED) ||
+	     CHECK_FLAG(flags2, PEER_FLAG_NEXTHOP_LOCAL_UNCHANGED)) &&
+	    !IPV6_ADDR_SAME(&pe1->nexthop.v6_global, &pe2->nexthop.v6_global))
+		return false;
+
 	return true;
 }
 
@@ -783,8 +799,11 @@ static int update_group_show_walkcb(struct update_group *updgrp, void *arg)
 				json_updgrp, "replaceLocalAs",
 				CHECK_FLAG(updgrp->conf->flags,
 					   PEER_FLAG_LOCAL_AS_REPLACE_AS));
+			json_object_boolean_add(json_updgrp, "dualAs",
+						CHECK_FLAG(updgrp->conf->flags,
+							   PEER_FLAG_DUAL_AS));
 		} else {
-			vty_out(vty, "  Local AS %u%s%s\n",
+			vty_out(vty, "  Local AS %u%s%s%s\n",
 				updgrp->conf->change_local_as,
 				CHECK_FLAG(updgrp->conf->flags,
 					   PEER_FLAG_LOCAL_AS_NO_PREPEND)
@@ -793,6 +812,10 @@ static int update_group_show_walkcb(struct update_group *updgrp, void *arg)
 				CHECK_FLAG(updgrp->conf->flags,
 					   PEER_FLAG_LOCAL_AS_REPLACE_AS)
 					? " replace-as"
+					: "",
+				CHECK_FLAG(updgrp->conf->flags,
+					   PEER_FLAG_DUAL_AS)
+					? " dual-as"
 					: "");
 		}
 	}
@@ -2015,6 +2038,8 @@ int update_group_adjust_soloness(struct peer *peer, int set)
 {
 	struct peer_group *group;
 	struct listnode *node, *nnode;
+
+	peer_flag_set(peer, PEER_FLAG_LONESOUL);
 
 	if (!CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP)) {
 		peer_lonesoul_or_not(peer, set);

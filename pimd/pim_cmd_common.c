@@ -420,6 +420,17 @@ int pim_process_no_ip_pim_boundary_oil_cmd(struct vty *vty)
 				    FRR_PIM_AF_XPATH_VAL);
 }
 
+int pim_process_ip_gmp_proxy_cmd(struct vty *vty, bool enable)
+{
+	if (enable)
+		nb_cli_enqueue_change(vty, "./proxy", NB_OP_MODIFY, "true");
+	else
+		nb_cli_enqueue_change(vty, "./proxy", NB_OP_DESTROY, NULL);
+
+	return nb_cli_apply_changes(vty, FRR_GMP_INTERFACE_XPATH,
+				    FRR_PIM_AF_XPATH_VAL);
+}
+
 int pim_process_ip_mroute_cmd(struct vty *vty, const char *interface,
 			      const char *group_str, const char *source_str)
 {
@@ -591,6 +602,165 @@ int pim_process_no_rp_plist_cmd(struct vty *vty, const char *rp_str,
 	}
 
 	nb_cli_enqueue_change(vty, rp_xpath, NB_OP_DESTROY, NULL);
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+int pim_process_autorp_cmd(struct vty *vty)
+{
+	char xpath[XPATH_MAXLEN];
+
+	snprintf(xpath, sizeof(xpath), "%s/%s", FRR_PIM_AUTORP_XPATH,
+		 "discovery-enabled");
+
+	nb_cli_enqueue_change(vty, xpath, NB_OP_MODIFY, "true");
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+int pim_process_no_autorp_cmd(struct vty *vty)
+{
+	char xpath[XPATH_MAXLEN];
+
+	snprintf(xpath, sizeof(xpath), "%s/%s", FRR_PIM_AUTORP_XPATH,
+		 "discovery-enabled");
+
+	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+int pim_process_autorp_candidate_rp_cmd(struct vty *vty, bool no,
+					const char *rpaddr_str,
+					const struct prefix_ipv4 *grp,
+					const char *plist)
+{
+	char xpath[XPATH_MAXLEN];
+	char grpstr[64];
+
+	if (no) {
+		if ((grp && !is_default_prefix((const struct prefix *)grp)) || plist) {
+			/* If any single values are set, only destroy those */
+			if (grp && !is_default_prefix((const struct prefix *)grp)) {
+				snprintfrr(xpath, sizeof(xpath),
+					   "%s/candidate-rp-list[rp-address='%s']/group",
+					   FRR_PIM_AUTORP_XPATH, rpaddr_str);
+				nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY,
+						      NULL);
+			}
+			if (plist) {
+				snprintfrr(xpath, sizeof(xpath),
+					   "%s/candidate-rp-list[rp-address='%s']/prefix-list",
+					   FRR_PIM_AUTORP_XPATH, rpaddr_str);
+				nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY,
+						      NULL);
+			}
+		} else {
+			/* No values set, remove the entire RP */
+			snprintfrr(xpath, sizeof(xpath),
+				   "%s/candidate-rp-list[rp-address='%s']",
+				   FRR_PIM_AUTORP_XPATH, rpaddr_str);
+			nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+		}
+	} else {
+		if ((grp && !is_default_prefix((const struct prefix *)grp)) || plist) {
+			snprintfrr(xpath, sizeof(xpath),
+				   "%s/candidate-rp-list[rp-address='%s']",
+				   FRR_PIM_AUTORP_XPATH, rpaddr_str);
+			nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
+			if (grp && !is_default_prefix((const struct prefix *)grp)) {
+				snprintfrr(xpath, sizeof(xpath),
+					   "%s/candidate-rp-list[rp-address='%s']/group",
+					   FRR_PIM_AUTORP_XPATH, rpaddr_str);
+				nb_cli_enqueue_change(vty, xpath, NB_OP_MODIFY,
+						      prefix2str(grp, grpstr,
+								 sizeof(grpstr)));
+			}
+			if (plist) {
+				snprintfrr(xpath, sizeof(xpath),
+					   "%s/candidate-rp-list[rp-address='%s']/prefix-list",
+					   FRR_PIM_AUTORP_XPATH, rpaddr_str);
+				nb_cli_enqueue_change(vty, xpath, NB_OP_MODIFY,
+						      plist);
+			}
+		} else {
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+	}
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+int pim_process_autorp_announce_scope_int_cmd(struct vty *vty, bool no,
+					      const char *scope,
+					      const char *interval,
+					      const char *holdtime)
+{
+	char xpath[XPATH_MAXLEN];
+
+	if (no) {
+		if (scope || interval || holdtime) {
+			/* If any single values are set, only destroy those */
+			if (scope) {
+				snprintfrr(xpath, sizeof(xpath), "%s/%s",
+					   FRR_PIM_AUTORP_XPATH,
+					   "announce-scope");
+				nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY,
+						      NULL);
+			}
+			if (interval) {
+				snprintfrr(xpath, sizeof(xpath), "%s/%s",
+					   FRR_PIM_AUTORP_XPATH,
+					   "announce-interval");
+				nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY,
+						      NULL);
+			}
+			if (holdtime) {
+				snprintfrr(xpath, sizeof(xpath), "%s/%s",
+					   FRR_PIM_AUTORP_XPATH,
+					   "announce-holdtime");
+				nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY,
+						      NULL);
+			}
+		} else {
+			/* No values set, remove all */
+			snprintfrr(xpath, sizeof(xpath), "%s/%s",
+				   FRR_PIM_AUTORP_XPATH, "announce-scope");
+			nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+			snprintfrr(xpath, sizeof(xpath), "%s/%s",
+				   FRR_PIM_AUTORP_XPATH, "announce-interval");
+			nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+			snprintfrr(xpath, sizeof(xpath), "%s/%s",
+				   FRR_PIM_AUTORP_XPATH, "announce-holdtime");
+			nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+		}
+	} else {
+		if (scope || interval || holdtime) {
+			if (scope) {
+				snprintfrr(xpath, sizeof(xpath), "%s/%s",
+					   FRR_PIM_AUTORP_XPATH,
+					   "announce-scope");
+				nb_cli_enqueue_change(vty, xpath, NB_OP_MODIFY,
+						      scope);
+			}
+			if (interval) {
+				snprintfrr(xpath, sizeof(xpath), "%s/%s",
+					   FRR_PIM_AUTORP_XPATH,
+					   "announce-interval");
+				nb_cli_enqueue_change(vty, xpath, NB_OP_MODIFY,
+						      interval);
+			}
+			if (holdtime) {
+				snprintfrr(xpath, sizeof(xpath), "%s/%s",
+					   FRR_PIM_AUTORP_XPATH,
+					   "announce-holdtime");
+				nb_cli_enqueue_change(vty, xpath, NB_OP_MODIFY,
+						      holdtime);
+			}
+		} else {
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+	}
 
 	return nb_cli_apply_changes(vty, NULL);
 }
@@ -874,7 +1044,7 @@ void pim_show_rpf(struct pim_instance *pim, struct vty *vty, json_object *json)
 	if (!json) {
 		table = ttable_dump(tt, "\n");
 		vty_out(vty, "%s\n", table);
-		XFREE(MTYPE_TMP, table);
+		XFREE(MTYPE_TMP_TTABLE, table);
 		ttable_del(tt);
 	}
 }
@@ -926,7 +1096,7 @@ void pim_show_neighbors_secondary(struct pim_instance *pim, struct vty *vty)
 	/* Dump the generated table. */
 	table = ttable_dump(tt, "\n");
 	vty_out(vty, "%s\n", table);
-	XFREE(MTYPE_TMP, table);
+	XFREE(MTYPE_TMP_TTABLE, table);
 	ttable_del(tt);
 }
 
@@ -1180,7 +1350,7 @@ void pim_show_state(struct pim_instance *pim, struct vty *vty,
 #else
 		table = ttable_dump(tt, "\n");
 		vty_out(vty, "%s\n", table);
-		XFREE(MTYPE_TMP, table);
+		XFREE(MTYPE_TMP_TTABLE, table);
 		ttable_del(tt);
 #endif
 	}
@@ -1413,7 +1583,7 @@ void pim_show_upstream(struct pim_instance *pim, struct vty *vty,
 	if (!json) {
 		table = ttable_dump(tt, "\n");
 		vty_out(vty, "%s\n", table);
-		XFREE(MTYPE_TMP, table);
+		XFREE(MTYPE_TMP_TTABLE, table);
 		ttable_del(tt);
 	}
 }
@@ -1490,7 +1660,7 @@ void pim_show_join_desired(struct pim_instance *pim, struct vty *vty, bool uj)
 		/* Dump the generated table. */
 		table = ttable_dump(tt, "\n");
 		vty_out(vty, "%s\n", table);
-		XFREE(MTYPE_TMP, table);
+		XFREE(MTYPE_TMP_TTABLE, table);
 		ttable_del(tt);
 	}
 }
@@ -1569,7 +1739,7 @@ void pim_show_upstream_rpf(struct pim_instance *pim, struct vty *vty, bool uj)
 		/* Dump the generated table. */
 		table = ttable_dump(tt, "\n");
 		vty_out(vty, "%s\n", table);
-		XFREE(MTYPE_TMP, table);
+		XFREE(MTYPE_TMP_TTABLE, table);
 		ttable_del(tt);
 	}
 }
@@ -1751,7 +1921,7 @@ void pim_show_join(struct pim_instance *pim, struct vty *vty, pim_sgaddr *sg,
 	if (!json) {
 		table = ttable_dump(tt, "\n");
 		vty_out(vty, "%s\n", table);
-		XFREE(MTYPE_TMP, table);
+		XFREE(MTYPE_TMP_TTABLE, table);
 		ttable_del(tt);
 	}
 }
@@ -1831,7 +2001,7 @@ void pim_show_jp_agg_list(struct pim_instance *pim, struct vty *vty)
 	/* Dump the generated table. */
 	table = ttable_dump(tt, "\n");
 	vty_out(vty, "%s\n", table);
-	XFREE(MTYPE_TMP, table);
+	XFREE(MTYPE_TMP_TTABLE, table);
 	ttable_del(tt);
 }
 
@@ -1974,7 +2144,7 @@ void pim_show_membership(struct pim_instance *pim, struct vty *vty, bool uj)
 		/* Dump the generated table. */
 		table = ttable_dump(tt, "\n");
 		vty_out(vty, "%s\n", table);
-		XFREE(MTYPE_TMP, table);
+		XFREE(MTYPE_TMP_TTABLE, table);
 		ttable_del(tt);
 	}
 }
@@ -2079,7 +2249,7 @@ void pim_show_channel(struct pim_instance *pim, struct vty *vty, bool uj)
 		/* Dump the generated table. */
 		table = ttable_dump(tt, "\n");
 		vty_out(vty, "%s\n", table);
-		XFREE(MTYPE_TMP, table);
+		XFREE(MTYPE_TMP_TTABLE, table);
 		ttable_del(tt);
 	}
 }
@@ -2262,7 +2432,7 @@ void pim_show_interfaces(struct pim_instance *pim, struct vty *vty, bool mlag,
 		/* Dump the generated table. */
 		table = ttable_dump(tt, "\n");
 		vty_out(vty, "%s\n", table);
-		XFREE(MTYPE_TMP, table);
+		XFREE(MTYPE_TMP_TTABLE, table);
 
 		ttable_del(tt);
 	}
@@ -2734,7 +2904,7 @@ static int pim_print_vty_pnc_cache_walkcb(struct hash_bucket *bucket, void *arg)
 	/* Dump the generated table. */
 	table = ttable_dump(tt, "\n");
 	vty_out(vty, "%s\n", table);
-	XFREE(MTYPE_TMP, table);
+	XFREE(MTYPE_TMP_TTABLE, table);
 	ttable_del(tt);
 
 	return CMD_SUCCESS;
@@ -3214,7 +3384,7 @@ void pim_show_neighbors(struct pim_instance *pim, struct vty *vty,
 	if (!json) {
 		table = ttable_dump(tt, "\n");
 		vty_out(vty, "%s\n", table);
-		XFREE(MTYPE_TMP, table);
+		XFREE(MTYPE_TMP_TTABLE, table);
 		ttable_del(tt);
 	}
 }
@@ -3389,6 +3559,55 @@ int pim_process_no_unicast_bsm_cmd(struct vty *vty)
 				    FRR_PIM_AF_XPATH_VAL);
 }
 
+/* helper for bsr/rp candidate commands*/
+int pim_process_bsr_candidate_cmd(struct vty *vty, const char *cand_str,
+				  bool no, bool is_rp, bool any,
+				  const char *ifname, const char *addr,
+				  const char *prio, const char *interval)
+{
+	if (no)
+		nb_cli_enqueue_change(vty, ".", NB_OP_DESTROY, NULL);
+	else {
+		nb_cli_enqueue_change(vty, ".", NB_OP_CREATE, NULL);
+
+		if (any)
+			nb_cli_enqueue_change(vty, "./if-any", NB_OP_CREATE,
+					      NULL);
+		else if (ifname)
+			nb_cli_enqueue_change(vty, "./interface", NB_OP_CREATE,
+					      ifname);
+		else if (addr)
+			nb_cli_enqueue_change(vty, "./address", NB_OP_CREATE,
+					      addr);
+		else
+			nb_cli_enqueue_change(vty, "./if-loopback",
+					      NB_OP_CREATE, NULL);
+
+		if (prio)
+			nb_cli_enqueue_change(vty,
+					      (is_rp ? "./rp-priority"
+						     : "./bsr-priority"),
+					      NB_OP_MODIFY, prio);
+
+		/* only valid for rp candidate case*/
+		if (is_rp && interval)
+			nb_cli_enqueue_change(vty, "./advertisement-interval",
+					      NB_OP_MODIFY, interval);
+	}
+
+	return nb_cli_apply_changes(vty, "%s", cand_str);
+}
+
+int pim_process_bsr_crp_grp_cmd(struct vty *vty, const char *grp, bool no)
+{
+	if (no)
+		nb_cli_enqueue_change(vty, ".", NB_OP_DESTROY, grp);
+	else
+		nb_cli_enqueue_change(vty, ".", NB_OP_CREATE, grp);
+
+	return nb_cli_apply_changes(vty, "%s/group-list", FRR_PIM_CAND_RP_XPATH);
+}
+
 static void show_scan_oil_stats(struct pim_instance *pim, struct vty *vty,
 				time_t now)
 {
@@ -3500,7 +3719,7 @@ void show_multicast_interfaces(struct pim_instance *pim, struct vty *vty,
 	if (!json) {
 		table = ttable_dump(tt, "\n");
 		vty_out(vty, "%s\n", table);
-		XFREE(MTYPE_TMP, table);
+		XFREE(MTYPE_TMP_TTABLE, table);
 		ttable_del(tt);
 	}
 }
@@ -3939,7 +4158,7 @@ void show_mroute(struct pim_instance *pim, struct vty *vty, pim_sgaddr *sg,
 	if (!json) {
 		table = ttable_dump(tt, "\n");
 		vty_out(vty, "%s\n", table);
-		XFREE(MTYPE_TMP, table);
+		XFREE(MTYPE_TMP_TTABLE, table);
 		ttable_del(tt);
 	}
 }
@@ -4022,7 +4241,7 @@ void show_mroute_count(struct pim_instance *pim, struct vty *vty,
 	if (!json) {
 		table = ttable_dump(tt, "\n");
 		vty_out(vty, "%s\n", table);
-		XFREE(MTYPE_TMP, table);
+		XFREE(MTYPE_TMP_TTABLE, table);
 		ttable_del(tt);
 	}
 }
@@ -4154,6 +4373,27 @@ struct vrf *pim_cmd_lookup(struct vty *vty, const char *name)
 
 	if (!vrf)
 		vty_out(vty, "Specified VRF: %s does not exist\n", name);
+
+	return vrf;
+}
+
+struct vrf *pim_cmd_lookup_vrf(struct vty *vty, struct cmd_token *argv[],
+			       const int argc, int *idx, bool uj)
+{
+	struct vrf *vrf;
+
+	if (argv_find(argv, argc, "NAME", idx))
+		vrf = vrf_lookup_by_name(argv[*idx]->arg);
+	else
+		vrf = vrf_lookup_by_id(VRF_DEFAULT);
+
+	if (!vrf) {
+		if (uj)
+			vty_json_empty(vty, NULL);
+		else
+			vty_out(vty, "Specified VRF: %s does not exist\n",
+				argv[*idx]->arg);
+	}
 
 	return vrf;
 }
@@ -5188,6 +5428,12 @@ void pim_show_bsr(struct pim_instance *pim, struct vty *vty, bool uj)
 	case ACCEPT_PREFERRED:
 		strlcpy(bsr_state, "ACCEPT_PREFERRED", sizeof(bsr_state));
 		break;
+	case BSR_PENDING:
+		strlcpy(bsr_state, "BSR_PENDING", sizeof(bsr_state));
+		break;
+	case BSR_ELECTED:
+		strlcpy(bsr_state, "BSR_ELECTED", sizeof(bsr_state));
+		break;
 	default:
 		strlcpy(bsr_state, "", sizeof(bsr_state));
 	}
@@ -5207,7 +5453,7 @@ void pim_show_bsr(struct pim_instance *pim, struct vty *vty, bool uj)
 	}
 
 	else {
-		vty_out(vty, "PIMv2 Bootstrap information\n");
+		vty_out(vty, "PIMv2 Bootstrap Router information\n");
 		vty_out(vty, "Current preferred BSR address: %pPA\n",
 			&pim->global_scope.current_bsr);
 		vty_out(vty,
@@ -5325,7 +5571,7 @@ static void pim_show_group_rp_mappings_info(struct pim_instance *pim,
 
 			table = ttable_dump(tt, "\n");
 			vty_out(vty, "%s\n", table);
-			XFREE(MTYPE_TMP, table);
+			XFREE(MTYPE_TMP_TTABLE, table);
 			ttable_del(tt);
 			tt = NULL;
 		}
@@ -5379,7 +5625,7 @@ static void pim_show_group_rp_mappings_info(struct pim_instance *pim,
 
 			table = ttable_dump(tt, "\n");
 			vty_out(vty, "%s\n", table);
-			XFREE(MTYPE_TMP, table);
+			XFREE(MTYPE_TMP_TTABLE, table);
 			ttable_del(tt);
 		}
 		if (!bsm_rpinfos_count(bsgrp->partial_bsrp_list) && !uj)
@@ -5412,6 +5658,98 @@ int pim_show_group_rp_mappings_info_helper(const char *vrf, struct vty *vty,
 	}
 
 	pim_show_group_rp_mappings_info(v->info, vty, uj);
+
+	return CMD_SUCCESS;
+}
+
+int pim_show_bsr_cand_rp(const struct vrf *vrf, struct vty *vty, bool uj)
+{
+	struct pim_instance *pim;
+	struct bsm_scope *scope;
+	json_object *jsondata = NULL;
+
+	if (!vrf || !vrf->info)
+		return CMD_WARNING;
+
+	pim = (struct pim_instance *)vrf->info;
+	scope = &pim->global_scope;
+
+	if (!scope->cand_rp_addrsel.run) {
+		if (!!uj)
+			vty_out(vty, "{}\n");
+		else
+			vty_out(vty,
+				"This router is not currently operating as Candidate RP\n");
+		return CMD_SUCCESS;
+	}
+
+	if (!!uj) {
+		jsondata = json_object_new_object();
+		json_object_string_addf(jsondata, "address", "%pPA",
+					&scope->cand_rp_addrsel.run_addr);
+		json_object_int_add(jsondata, "priority", scope->cand_rp_prio);
+		json_object_int_add(jsondata, "nextAdvertisementMsec",
+				    event_timer_remain_msec(
+					    scope->cand_rp_adv_timer));
+
+		vty_json(vty, jsondata);
+		return CMD_SUCCESS;
+	}
+
+	vty_out(vty, "Candidate-RP\nAddress:   %pPA\nPriority:  %u\n\n",
+		&scope->cand_rp_addrsel.run_addr, scope->cand_rp_prio);
+	vty_out(vty, "Next adv.: %lu msec\n",
+		event_timer_remain_msec(scope->cand_rp_adv_timer));
+
+
+	return CMD_SUCCESS;
+}
+
+int pim_show_bsr_cand_bsr(const struct vrf *vrf, struct vty *vty, bool uj)
+{
+	struct pim_instance *pim;
+	struct bsm_scope *scope;
+	json_object *jsondata = NULL;
+
+	if (!vrf || !vrf->info)
+		return CMD_WARNING;
+
+	pim = (struct pim_instance *)vrf->info;
+	scope = &pim->global_scope;
+
+	if (!scope->bsr_addrsel.cfg_enable) {
+		if (!!uj)
+			vty_out(vty, "{}\n");
+		else
+			vty_out(vty,
+				"This router is not currently operating as Candidate BSR\n");
+		return CMD_SUCCESS;
+	}
+
+	if (uj) {
+		char buf[INET_ADDRSTRLEN];
+
+		jsondata = json_object_new_object();
+		inet_ntop(AF_INET, &scope->bsr_addrsel.run_addr, buf,
+			  sizeof(buf));
+		json_object_string_add(jsondata, "address", buf);
+		json_object_int_add(jsondata, "priority", scope->cand_bsr_prio);
+		json_object_boolean_add(jsondata, "elected",
+					pim->global_scope.state == BSR_ELECTED);
+
+		vty_json(vty, jsondata);
+		return CMD_SUCCESS;
+	}
+
+	vty_out(vty,
+		"Candidate-BSR\nAddress:   %pPA\nPriority:  %u\nElected: %s\n",
+		&scope->bsr_addrsel.run_addr, scope->cand_bsr_prio,
+		(pim->global_scope.state == BSR_ELECTED) ? "  Yes" : "  No");
+
+	if (!pim_addr_cmp(scope->bsr_addrsel.run_addr, PIMADDR_ANY))
+		vty_out(vty,
+			"\nThis router is not currently operating as Candidate BSR\n"
+			"Configure a BSR address to enable this feature\n\n");
 
 	return CMD_SUCCESS;
 }

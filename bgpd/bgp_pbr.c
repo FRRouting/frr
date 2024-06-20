@@ -173,33 +173,33 @@ static int snprintf_bgp_pbr_match_val(char *str, int len,
 		ptr += delta;
 		len -= delta;
 	} else {
-		if (mval->unary_operator & OPERATOR_UNARY_OR) {
+		if (CHECK_FLAG(mval->unary_operator, OPERATOR_UNARY_OR)) {
 			delta = snprintf(ptr, len, ", or ");
 			ptr += delta;
 			len -= delta;
 		}
-		if (mval->unary_operator & OPERATOR_UNARY_AND) {
+		if (CHECK_FLAG(mval->unary_operator, OPERATOR_UNARY_AND)) {
 			delta = snprintf(ptr, len, ", and ");
 			ptr += delta;
 			len -= delta;
 		}
 	}
-	if (mval->compare_operator & OPERATOR_COMPARE_LESS_THAN) {
+	if (CHECK_FLAG(mval->compare_operator, OPERATOR_COMPARE_LESS_THAN)) {
 		delta = snprintf(ptr, len, "<");
 		ptr += delta;
 		len -= delta;
 	}
-	if (mval->compare_operator & OPERATOR_COMPARE_GREATER_THAN) {
+	if (CHECK_FLAG(mval->compare_operator, OPERATOR_COMPARE_GREATER_THAN)) {
 		delta = snprintf(ptr, len, ">");
 		ptr += delta;
 		len -= delta;
 	}
-	if (mval->compare_operator & OPERATOR_COMPARE_EQUAL_TO) {
+	if (CHECK_FLAG(mval->compare_operator, OPERATOR_COMPARE_EQUAL_TO)) {
 		delta = snprintf(ptr, len, "=");
 		ptr += delta;
 		len -= delta;
 	}
-	if (mval->compare_operator & OPERATOR_COMPARE_EXACT_MATCH) {
+	if (CHECK_FLAG(mval->compare_operator, OPERATOR_COMPARE_EXACT_MATCH)) {
 		delta = snprintf(ptr, len, "match");
 		ptr += delta;
 		len -= delta;
@@ -287,9 +287,7 @@ static bool bgp_pbr_extract_enumerate_unary_opposite(
 {
 	if (unary_operator == OPERATOR_UNARY_AND && and_valmask) {
 		if (type_entry == FLOWSPEC_TCP_FLAGS) {
-			and_valmask->mask |=
-				TCP_HEADER_ALL_FLAGS &
-				~(value);
+			SET_FLAG(and_valmask->mask, CHECK_FLAG(TCP_HEADER_ALL_FLAGS, ~(value)));
 		} else if (type_entry == FLOWSPEC_DSCP ||
 			   type_entry == FLOWSPEC_FLOW_LABEL ||
 			   type_entry == FLOWSPEC_PKT_LEN ||
@@ -302,9 +300,7 @@ static bool bgp_pbr_extract_enumerate_unary_opposite(
 				      sizeof(struct bgp_pbr_val_mask));
 		if (type_entry == FLOWSPEC_TCP_FLAGS) {
 			and_valmask->val = TCP_HEADER_ALL_FLAGS;
-			and_valmask->mask |=
-				TCP_HEADER_ALL_FLAGS &
-				~(value);
+			SET_FLAG(and_valmask->mask, CHECK_FLAG(TCP_HEADER_ALL_FLAGS, ~(value)));
 		} else if (type_entry == FLOWSPEC_DSCP ||
 			   type_entry == FLOWSPEC_FLOW_LABEL ||
 			   type_entry == FLOWSPEC_FRAGMENT ||
@@ -346,14 +342,10 @@ static bool bgp_pbr_extract_enumerate_unary(struct bgp_pbr_match_val list[],
 		if (i != 0 && list[i].unary_operator !=
 		    unary_operator)
 			return false;
-		if (!(list[i].compare_operator &
-		    OPERATOR_COMPARE_EQUAL_TO) &&
-		    !(list[i].compare_operator &
-		      OPERATOR_COMPARE_EXACT_MATCH)) {
-			if ((list[i].compare_operator &
-			     OPERATOR_COMPARE_LESS_THAN) &&
-			    (list[i].compare_operator &
-			     OPERATOR_COMPARE_GREATER_THAN)) {
+		if (!CHECK_FLAG(list[i].compare_operator, OPERATOR_COMPARE_EQUAL_TO) &&
+		    !CHECK_FLAG(list[i].compare_operator, OPERATOR_COMPARE_EXACT_MATCH)) {
+			if (CHECK_FLAG(list[i].compare_operator, OPERATOR_COMPARE_LESS_THAN) &&
+			    CHECK_FLAG(list[i].compare_operator, OPERATOR_COMPARE_GREATER_THAN)) {
 				ret = bgp_pbr_extract_enumerate_unary_opposite(
 						 unary_operator, and_valmask,
 						 or_valmask, list[i].value,
@@ -366,15 +358,15 @@ static bool bgp_pbr_extract_enumerate_unary(struct bgp_pbr_match_val list[],
 		}
 		if (unary_operator == OPERATOR_UNARY_AND && and_valmask) {
 			if (type_entry == FLOWSPEC_TCP_FLAGS)
-				and_valmask->mask |=
-					TCP_HEADER_ALL_FLAGS & list[i].value;
+				SET_FLAG(and_valmask->mask,
+					 CHECK_FLAG(TCP_HEADER_ALL_FLAGS, list[i].value));
 		} else if (unary_operator == OPERATOR_UNARY_OR && or_valmask) {
 			and_valmask = XCALLOC(MTYPE_PBR_VALMASK,
 					      sizeof(struct bgp_pbr_val_mask));
 			if (type_entry == FLOWSPEC_TCP_FLAGS) {
 				and_valmask->val = TCP_HEADER_ALL_FLAGS;
-				and_valmask->mask |=
-					TCP_HEADER_ALL_FLAGS & list[i].value;
+				SET_FLAG(and_valmask->mask,
+					 CHECK_FLAG(TCP_HEADER_ALL_FLAGS, list[i].value));
 			} else if (type_entry == FLOWSPEC_DSCP ||
 				   type_entry == FLOWSPEC_FLOW_LABEL ||
 				   type_entry == FLOWSPEC_ICMP_TYPE ||
@@ -402,8 +394,8 @@ static bool bgp_pbr_extract_enumerate(struct bgp_pbr_match_val list[],
 	uint8_t unary_operator_val;
 	bool double_check = false;
 
-	if ((unary_operator & OPERATOR_UNARY_OR) &&
-	    (unary_operator & OPERATOR_UNARY_AND)) {
+	if (CHECK_FLAG(unary_operator, OPERATOR_UNARY_OR) &&
+	    CHECK_FLAG(unary_operator, OPERATOR_UNARY_AND)) {
 		unary_operator_val = OPERATOR_UNARY_AND;
 		double_check = true;
 	} else
@@ -431,12 +423,12 @@ static uint8_t bgp_pbr_match_val_get_operator(struct bgp_pbr_match_val list[],
 	for (i = 0; i < num; i++) {
 		if (i == 0)
 			continue;
-		if (list[i].unary_operator & OPERATOR_UNARY_OR)
+		if (CHECK_FLAG(list[i].unary_operator, OPERATOR_UNARY_OR))
 			unary_operator = OPERATOR_UNARY_OR;
-		if ((list[i].unary_operator & OPERATOR_UNARY_AND
-		     && unary_operator == OPERATOR_UNARY_OR) ||
-		    (list[i].unary_operator & OPERATOR_UNARY_OR
-		     && unary_operator == OPERATOR_UNARY_AND))
+		if ((CHECK_FLAG(list[i].unary_operator, OPERATOR_UNARY_AND) &&
+		     unary_operator == OPERATOR_UNARY_OR) ||
+		    (CHECK_FLAG(list[i].unary_operator, OPERATOR_UNARY_OR) &&
+		     unary_operator == OPERATOR_UNARY_AND))
 			return 0;
 	}
 	return unary_operator;
@@ -723,8 +715,8 @@ static int bgp_pbr_validate_policy_route(struct bgp_pbr_entry_main *api)
 			}
 		}
 
-	} else if (!(api->match_bitmask & PREFIX_SRC_PRESENT) &&
-		   !(api->match_bitmask & PREFIX_DST_PRESENT)) {
+	} else if (!CHECK_FLAG(api->match_bitmask, PREFIX_SRC_PRESENT) &&
+		   !CHECK_FLAG(api->match_bitmask, PREFIX_DST_PRESENT)) {
 		if (BGP_DEBUG(pbr, PBR)) {
 			bgp_pbr_print_policy_route(api);
 			zlog_debug("BGP: match actions without src or dst address can not operate. ignoring.");
@@ -775,21 +767,18 @@ int bgp_pbr_build_and_validate_entry(const struct prefix *p,
 			}
 			api_action = &api->actions[action_count - 1];
 
-			if ((ecom_eval->val[1] ==
-			     (char)ECOMMUNITY_REDIRECT_VRF) &&
-			    (ecom_eval->val[0] ==
-			     (char)ECOMMUNITY_ENCODE_TRANS_EXP ||
+			if ((ecom_eval->val[1] == ECOMMUNITY_REDIRECT_VRF) &&
+			    (ecom_eval->val[0] == ECOMMUNITY_ENCODE_TRANS_EXP ||
 			     ecom_eval->val[0] ==
-			     (char)ECOMMUNITY_EXTENDED_COMMUNITY_PART_2 ||
+				     ECOMMUNITY_EXTENDED_COMMUNITY_PART_2 ||
 			     ecom_eval->val[0] ==
-			     (char)ECOMMUNITY_EXTENDED_COMMUNITY_PART_3)) {
+				     ECOMMUNITY_EXTENDED_COMMUNITY_PART_3)) {
 				struct ecommunity *eckey = ecommunity_new();
 				struct ecommunity_val ecom_copy;
 
 				memcpy(&ecom_copy, ecom_eval,
 				       sizeof(struct ecommunity_val));
-				ecom_copy.val[0] &=
-					~ECOMMUNITY_ENCODE_TRANS_EXP;
+				UNSET_FLAG(ecom_copy.val[0], ECOMMUNITY_ENCODE_TRANS_EXP);
 				ecom_copy.val[1] = ECOMMUNITY_ROUTE_TARGET;
 				ecommunity_add_val(eckey, &ecom_copy,
 						   false, false);
@@ -800,9 +789,9 @@ int bgp_pbr_build_and_validate_entry(const struct prefix *p,
 								eckey);
 				ecommunity_free(&eckey);
 			} else if ((ecom_eval->val[0] ==
-				    (char)ECOMMUNITY_ENCODE_REDIRECT_IP_NH) &&
+				    ECOMMUNITY_ENCODE_REDIRECT_IP_NH) &&
 				   (ecom_eval->val[1] ==
-				    (char)ECOMMUNITY_REDIRECT_IP_NH)) {
+				    ECOMMUNITY_REDIRECT_IP_NH)) {
 				/* in case the 2 ecom present,
 				 * do not overwrite
 				 * draft-ietf-idr-flowspec-redirect
@@ -861,10 +850,9 @@ int bgp_pbr_build_and_validate_entry(const struct prefix *p,
 						= ecom_eval->val[7];
 					api_action_redirect_ip = api_action;
 				}
-			} else if ((ecom_eval->val[0] ==
-				    (char)ECOMMUNITY_ENCODE_IP) &&
+			} else if ((ecom_eval->val[0] == ECOMMUNITY_ENCODE_IP) &&
 				   (ecom_eval->val[1] ==
-				    (char)ECOMMUNITY_FLOWSPEC_REDIRECT_IPV4)) {
+				    ECOMMUNITY_FLOWSPEC_REDIRECT_IPV4)) {
 				/* in case the 2 ecom present,
 				 * overwrite simpson draft
 				 * update redirect ip fields
@@ -888,7 +876,7 @@ int bgp_pbr_build_and_validate_entry(const struct prefix *p,
 				}
 			} else {
 				if (ecom_eval->val[0] !=
-				    (char)ECOMMUNITY_ENCODE_TRANS_EXP)
+				    ECOMMUNITY_ENCODE_TRANS_EXP)
 					continue;
 				ret = ecommunity_fill_pbr_action(ecom_eval,
 								 api_action,
@@ -920,9 +908,9 @@ int bgp_pbr_build_and_validate_entry(const struct prefix *p,
 			}
 			api_action = &api->actions[action_count - 1];
 			if ((ipv6_ecom_eval->val[1] ==
-			     (char)ECOMMUNITY_FLOWSPEC_REDIRECT_IPV6) &&
+			     ECOMMUNITY_FLOWSPEC_REDIRECT_IPV6) &&
 			    (ipv6_ecom_eval->val[0] ==
-			     (char)ECOMMUNITY_ENCODE_TRANS_EXP)) {
+			     ECOMMUNITY_ENCODE_TRANS_EXP)) {
 				struct ecommunity *eckey = ecommunity_new();
 				struct ecommunity_val_ipv6 ecom_copy;
 
@@ -958,12 +946,12 @@ int bgp_pbr_build_and_validate_entry(const struct prefix *p,
 		return -1;
 
 	/* check inconsistency in the match rule */
-	if (api->match_bitmask & PREFIX_SRC_PRESENT) {
+	if (CHECK_FLAG(api->match_bitmask, PREFIX_SRC_PRESENT)) {
 		src = &api->src_prefix;
 		afi = family2afi(src->family);
 		valid_prefix = 1;
 	}
-	if (api->match_bitmask & PREFIX_DST_PRESENT) {
+	if (CHECK_FLAG(api->match_bitmask, PREFIX_DST_PRESENT)) {
 		dst = &api->dst_prefix;
 		if (valid_prefix && afi != family2afi(dst->family)) {
 			if (BGP_DEBUG(pbr, PBR)) {
@@ -1207,12 +1195,10 @@ bool bgp_pbr_rule_hash_equal(const void *arg1, const void *arg2)
 	if (r1->action != r2->action)
 		return false;
 
-	if ((r1->flags & MATCH_IP_SRC_SET) &&
-	    !prefix_same(&r1->src, &r2->src))
+	if (CHECK_FLAG(r1->flags, MATCH_IP_SRC_SET) && !prefix_same(&r1->src, &r2->src))
 		return false;
 
-	if ((r1->flags & MATCH_IP_DST_SET) &&
-	    !prefix_same(&r1->dst, &r2->dst))
+	if (CHECK_FLAG(r1->flags, MATCH_IP_DST_SET) && !prefix_same(&r1->dst, &r2->dst))
 		return false;
 
 	return true;
@@ -1429,7 +1415,7 @@ void bgp_pbr_print_policy_route(struct bgp_pbr_entry_main *api)
 	delta = snprintf(ptr, sizeof(return_string),  "MATCH : ");
 	len -= delta;
 	ptr += delta;
-	if (api->match_bitmask & PREFIX_SRC_PRESENT) {
+	if (CHECK_FLAG(api->match_bitmask, PREFIX_SRC_PRESENT)) {
 		struct prefix *p = &(api->src_prefix);
 
 		if (api->src_prefix_offset)
@@ -1441,7 +1427,7 @@ void bgp_pbr_print_policy_route(struct bgp_pbr_entry_main *api)
 		ptr += delta;
 		INCREMENT_DISPLAY(ptr, nb_items, len);
 	}
-	if (api->match_bitmask & PREFIX_DST_PRESENT) {
+	if (CHECK_FLAG(api->match_bitmask, PREFIX_DST_PRESENT)) {
 		struct prefix *p = &(api->dst_prefix);
 
 		INCREMENT_DISPLAY(ptr, nb_items, len);
@@ -1584,21 +1570,18 @@ void bgp_pbr_print_policy_route(struct bgp_pbr_entry_main *api)
 			delta = snprintf(ptr, len, "@action ");
 			len -= delta;
 			ptr += delta;
-			if (api->actions[i].u.za.filter
-			    & TRAFFIC_ACTION_TERMINATE) {
+			if (CHECK_FLAG(api->actions[i].u.za.filter, TRAFFIC_ACTION_TERMINATE)) {
 				delta = snprintf(ptr, len,
 						 " terminate (apply filter(s))");
 				len -= delta;
 				ptr += delta;
 			}
-			if (api->actions[i].u.za.filter
-			    & TRAFFIC_ACTION_DISTRIBUTE) {
+			if (CHECK_FLAG(api->actions[i].u.za.filter, TRAFFIC_ACTION_DISTRIBUTE)) {
 				delta = snprintf(ptr, len, " distribute");
 				len -= delta;
 				ptr += delta;
 			}
-			if (api->actions[i].u.za.filter
-			    & TRAFFIC_ACTION_SAMPLE) {
+			if (CHECK_FLAG(api->actions[i].u.za.filter, TRAFFIC_ACTION_SAMPLE)) {
 				delta = snprintf(ptr, len, " sample");
 				len -= delta;
 				ptr += delta;
@@ -1749,12 +1732,10 @@ static int bgp_pbr_get_same_rule(struct hash_bucket *bucket, void *arg)
 	if (r1->flags != r2->flags)
 		return HASHWALK_CONTINUE;
 
-	if ((r1->flags & MATCH_IP_SRC_SET) &&
-	    !prefix_same(&r1->src, &r2->src))
+	if (CHECK_FLAG(r1->flags, MATCH_IP_SRC_SET) && !prefix_same(&r1->src, &r2->src))
 		return HASHWALK_CONTINUE;
 
-	if ((r1->flags & MATCH_IP_DST_SET) &&
-	    !prefix_same(&r1->dst, &r2->dst))
+	if (CHECK_FLAG(r1->flags, MATCH_IP_DST_SET) && !prefix_same(&r1->dst, &r2->dst))
 		return HASHWALK_CONTINUE;
 
 	/* this function is used for two cases:
@@ -1843,11 +1824,11 @@ static void bgp_pbr_policyroute_remove_from_zebra_unit(
 		pbr_rule.vrf_id = bpf->vrf_id;
 		if (bpf->src) {
 			prefix_copy(&pbr_rule.src, bpf->src);
-			pbr_rule.flags |= MATCH_IP_SRC_SET;
+			SET_FLAG(pbr_rule.flags, MATCH_IP_SRC_SET);
 		}
 		if (bpf->dst) {
 			prefix_copy(&pbr_rule.dst, bpf->dst);
-			pbr_rule.flags |= MATCH_IP_DST_SET;
+			SET_FLAG(pbr_rule.flags, MATCH_IP_DST_SET);
 		}
 		bpr = &pbr_rule;
 		/* A previous entry may already exist
@@ -1870,32 +1851,32 @@ static void bgp_pbr_policyroute_remove_from_zebra_unit(
 
 	temp.family = bpf->family;
 	if (bpf->src) {
-		temp.flags |= MATCH_IP_SRC_SET;
+		SET_FLAG(temp.flags, MATCH_IP_SRC_SET);
 		prefix_copy(&temp2.src, bpf->src);
 	} else
 		temp2.src.family = bpf->family;
 	if (bpf->dst) {
-		temp.flags |= MATCH_IP_DST_SET;
+		SET_FLAG(temp.flags, MATCH_IP_DST_SET);
 		prefix_copy(&temp2.dst, bpf->dst);
 	} else
 		temp2.dst.family = bpf->family;
 	if (src_port && (src_port->min_port || bpf->protocol == IPPROTO_ICMP)) {
 		if (bpf->protocol == IPPROTO_ICMP)
-			temp.flags |= MATCH_ICMP_SET;
-		temp.flags |= MATCH_PORT_SRC_SET;
+			SET_FLAG(temp.flags, MATCH_ICMP_SET);
+		SET_FLAG(temp.flags, MATCH_PORT_SRC_SET);
 		temp2.src_port_min = src_port->min_port;
 		if (src_port->max_port) {
-			temp.flags |= MATCH_PORT_SRC_RANGE_SET;
+			SET_FLAG(temp.flags, MATCH_PORT_SRC_RANGE_SET);
 			temp2.src_port_max = src_port->max_port;
 		}
 	}
 	if (dst_port && (dst_port->min_port || bpf->protocol == IPPROTO_ICMP)) {
 		if (bpf->protocol == IPPROTO_ICMP)
-			temp.flags |= MATCH_ICMP_SET;
-		temp.flags |= MATCH_PORT_DST_SET;
+			SET_FLAG(temp.flags, MATCH_ICMP_SET);
+		SET_FLAG(temp.flags, MATCH_PORT_DST_SET);
 		temp2.dst_port_min = dst_port->min_port;
 		if (dst_port->max_port) {
-			temp.flags |= MATCH_PORT_DST_RANGE_SET;
+			SET_FLAG(temp.flags, MATCH_PORT_DST_RANGE_SET);
 			temp2.dst_port_max = dst_port->max_port;
 		}
 	}
@@ -1907,7 +1888,7 @@ static void bgp_pbr_policyroute_remove_from_zebra_unit(
 			temp.pkt_len_max = pkt_len->max_port;
 	} else if (bpf->pkt_len_val) {
 		if (bpf->pkt_len_val->mask)
-			temp.flags |= MATCH_PKT_LEN_INVERSE_SET;
+			SET_FLAG(temp.flags, MATCH_PKT_LEN_INVERSE_SET);
 		temp.pkt_len_min = bpf->pkt_len_val->val;
 	}
 	if (bpf->tcp_flags) {
@@ -1916,32 +1897,32 @@ static void bgp_pbr_policyroute_remove_from_zebra_unit(
 	}
 	if (bpf->dscp) {
 		if (bpf->dscp->mask)
-			temp.flags |= MATCH_DSCP_INVERSE_SET;
+			SET_FLAG(temp.flags, MATCH_DSCP_INVERSE_SET);
 		else
-			temp.flags |= MATCH_DSCP_SET;
+			SET_FLAG(temp.flags, MATCH_DSCP_SET);
 		temp.dscp_value = bpf->dscp->val;
 	}
 	if (bpf->flow_label) {
 		if (bpf->flow_label->mask)
-			temp.flags |= MATCH_FLOW_LABEL_INVERSE_SET;
+			SET_FLAG(temp.flags, MATCH_FLOW_LABEL_INVERSE_SET);
 		else
-			temp.flags |= MATCH_FLOW_LABEL_SET;
+			SET_FLAG(temp.flags, MATCH_FLOW_LABEL_SET);
 		temp.flow_label = bpf->flow_label->val;
 	}
 
 	if (bpf->fragment) {
 		if (bpf->fragment->mask)
-			temp.flags |= MATCH_FRAGMENT_INVERSE_SET;
+			SET_FLAG(temp.flags, MATCH_FRAGMENT_INVERSE_SET);
 		temp.fragment = bpf->fragment->val;
 	}
 
 	if (bpf->src == NULL || bpf->dst == NULL) {
-		if (temp.flags & (MATCH_PORT_DST_SET | MATCH_PORT_SRC_SET))
+		if (CHECK_FLAG(temp.flags, (MATCH_PORT_DST_SET | MATCH_PORT_SRC_SET)))
 			temp.type = IPSET_NET_PORT;
 		else
 			temp.type = IPSET_NET;
 	} else {
-		if (temp.flags & (MATCH_PORT_DST_SET | MATCH_PORT_SRC_SET))
+		if (CHECK_FLAG(temp.flags, (MATCH_PORT_DST_SET | MATCH_PORT_SRC_SET)))
 			temp.type = IPSET_NET_PORT_NET;
 		else
 			temp.type = IPSET_NET_NET;
@@ -2319,11 +2300,11 @@ static void bgp_pbr_policyroute_add_to_zebra_unit(struct bgp *bgp,
 		pbr_rule.vrf_id = bpf->vrf_id;
 		pbr_rule.priority = 20;
 		if (bpf->src) {
-			pbr_rule.flags |= MATCH_IP_SRC_SET;
+			SET_FLAG(pbr_rule.flags, MATCH_IP_SRC_SET);
 			prefix_copy(&pbr_rule.src, bpf->src);
 		}
 		if (bpf->dst) {
-			pbr_rule.flags |= MATCH_IP_DST_SET;
+			SET_FLAG(pbr_rule.flags, MATCH_IP_DST_SET);
 			prefix_copy(&pbr_rule.dst, bpf->dst);
 		}
 		pbr_rule.action = bpa;
@@ -2380,32 +2361,32 @@ static void bgp_pbr_policyroute_add_to_zebra_unit(struct bgp *bgp,
 	temp.vrf_id = bpf->vrf_id;
 	temp.family = bpf->family;
 	if (bpf->src)
-		temp.flags |= MATCH_IP_SRC_SET;
+		SET_FLAG(temp.flags, MATCH_IP_SRC_SET);
 	if (bpf->dst)
-		temp.flags |= MATCH_IP_DST_SET;
+		SET_FLAG(temp.flags, MATCH_IP_DST_SET);
 
 	if (src_port && (src_port->min_port || bpf->protocol == IPPROTO_ICMP)) {
 		if (bpf->protocol == IPPROTO_ICMP)
-			temp.flags |= MATCH_ICMP_SET;
-		temp.flags |= MATCH_PORT_SRC_SET;
+			SET_FLAG(temp.flags, MATCH_ICMP_SET);
+		SET_FLAG(temp.flags, MATCH_PORT_SRC_SET);
 	}
 	if (dst_port && (dst_port->min_port || bpf->protocol == IPPROTO_ICMP)) {
 		if (bpf->protocol == IPPROTO_ICMP)
-			temp.flags |= MATCH_ICMP_SET;
-		temp.flags |= MATCH_PORT_DST_SET;
+			SET_FLAG(temp.flags, MATCH_ICMP_SET);
+		SET_FLAG(temp.flags, MATCH_PORT_DST_SET);
 	}
 	if (src_port && src_port->max_port)
-		temp.flags |= MATCH_PORT_SRC_RANGE_SET;
+		SET_FLAG(temp.flags, MATCH_PORT_SRC_RANGE_SET);
 	if (dst_port && dst_port->max_port)
-		temp.flags |= MATCH_PORT_DST_RANGE_SET;
+		SET_FLAG(temp.flags, MATCH_PORT_DST_RANGE_SET);
 
 	if (bpf->src == NULL || bpf->dst == NULL) {
-		if (temp.flags & (MATCH_PORT_DST_SET | MATCH_PORT_SRC_SET))
+		if (CHECK_FLAG(temp.flags, (MATCH_PORT_DST_SET | MATCH_PORT_SRC_SET)))
 			temp.type = IPSET_NET_PORT;
 		else
 			temp.type = IPSET_NET;
 	} else {
-		if (temp.flags & (MATCH_PORT_DST_SET | MATCH_PORT_SRC_SET))
+		if (CHECK_FLAG(temp.flags, (MATCH_PORT_DST_SET | MATCH_PORT_SRC_SET)))
 			temp.type = IPSET_NET_PORT_NET;
 		else
 			temp.type = IPSET_NET_NET;
@@ -2416,7 +2397,7 @@ static void bgp_pbr_policyroute_add_to_zebra_unit(struct bgp *bgp,
 			temp.pkt_len_max = pkt_len->max_port;
 	} else if (bpf->pkt_len_val) {
 		if (bpf->pkt_len_val->mask)
-			temp.flags |= MATCH_PKT_LEN_INVERSE_SET;
+			SET_FLAG(temp.flags, MATCH_PKT_LEN_INVERSE_SET);
 		temp.pkt_len_min = bpf->pkt_len_val->val;
 	}
 	if (bpf->tcp_flags) {
@@ -2425,26 +2406,26 @@ static void bgp_pbr_policyroute_add_to_zebra_unit(struct bgp *bgp,
 	}
 	if (bpf->dscp) {
 		if (bpf->dscp->mask)
-			temp.flags |= MATCH_DSCP_INVERSE_SET;
+			SET_FLAG(temp.flags, MATCH_DSCP_INVERSE_SET);
 		else
-			temp.flags |= MATCH_DSCP_SET;
+			SET_FLAG(temp.flags, MATCH_DSCP_SET);
 		temp.dscp_value = bpf->dscp->val;
 	}
 	if (bpf->flow_label) {
 		if (bpf->flow_label->mask)
-			temp.flags |= MATCH_FLOW_LABEL_INVERSE_SET;
+			SET_FLAG(temp.flags, MATCH_FLOW_LABEL_INVERSE_SET);
 		else
-			temp.flags |= MATCH_FLOW_LABEL_SET;
+			SET_FLAG(temp.flags, MATCH_FLOW_LABEL_SET);
 		temp.flow_label = bpf->flow_label->val;
 	}
 	if (bpf->fragment) {
 		if (bpf->fragment->mask)
-			temp.flags |= MATCH_FRAGMENT_INVERSE_SET;
+			SET_FLAG(temp.flags, MATCH_FRAGMENT_INVERSE_SET);
 		temp.fragment = bpf->fragment->val;
 	}
 	if (bpf->protocol) {
 		temp.protocol = bpf->protocol;
-		temp.flags |= MATCH_PROTOCOL_SET;
+		SET_FLAG(temp.flags, MATCH_PROTOCOL_SET);
 	}
 	temp.action = bpa;
 	bpm = hash_get(bgp->pbr_match_hash, &temp,
@@ -2661,13 +2642,13 @@ static void bgp_pbr_handle_entry(struct bgp *bgp, struct bgp_path_info *path,
 	memset(&nh, 0, sizeof(nh));
 	memset(&bpf, 0, sizeof(bpf));
 	memset(&bpof, 0, sizeof(bpof));
-	if (api->match_bitmask & PREFIX_SRC_PRESENT ||
+	if (CHECK_FLAG(api->match_bitmask, PREFIX_SRC_PRESENT) ||
 	    (api->type == BGP_PBR_IPRULE &&
-	     api->match_bitmask_iprule & PREFIX_SRC_PRESENT))
+	     CHECK_FLAG(api->match_bitmask_iprule, PREFIX_SRC_PRESENT)))
 		src = &api->src_prefix;
-	if (api->match_bitmask & PREFIX_DST_PRESENT ||
+	if (CHECK_FLAG(api->match_bitmask, PREFIX_DST_PRESENT) ||
 	    (api->type == BGP_PBR_IPRULE &&
-	     api->match_bitmask_iprule & PREFIX_DST_PRESENT))
+	     CHECK_FLAG(api->match_bitmask_iprule, PREFIX_DST_PRESENT)))
 		dst = &api->dst_prefix;
 	if (api->type == BGP_PBR_IPRULE)
 		bpf.type = api->type;
@@ -2812,8 +2793,7 @@ static void bgp_pbr_handle_entry(struct bgp *bgp, struct bgp_path_info *path,
 			}
 			break;
 		case ACTION_TRAFFIC_ACTION:
-			if (api->actions[i].u.za.filter
-			    & TRAFFIC_ACTION_SAMPLE) {
+			if (CHECK_FLAG(api->actions[i].u.za.filter, TRAFFIC_ACTION_SAMPLE)) {
 				if (BGP_DEBUG(pbr, PBR)) {
 					bgp_pbr_print_policy_route(api);
 					zlog_warn("PBR: Sample action Ignored");

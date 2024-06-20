@@ -523,6 +523,7 @@ object which contains methods corresponding to each of the ``zlog`` levels:
    log.error("error")
    log.notice("notice")
    log.debug("debug")
+   log.trace("trace")
 
 The log messages will show up in the daemon's log output.
 
@@ -579,14 +580,14 @@ accomplished with scripting.
            RM_FAILURE, RM_NOMATCH, RM_MATCH, RM_MATCH_AND_CHANGE)
 
            log.info("Evaluating route " .. prefix.network .. " from peer " .. peer.remote_id.string)
-   
+
            function on_match (prefix, attributes)
                    log.info("Match")
                    return {
                            attributes = RM_MATCH
                    }
            end
-   
+
            function on_nomatch (prefix, attributes)
                    log.info("No match")
                    return {

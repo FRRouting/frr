@@ -70,6 +70,8 @@ int zebra_ns_early_shutdown(struct ns *ns,
 int zebra_ns_final_shutdown(struct ns *ns,
 			    void *param_in __attribute__((unused)),
 			    void **param_out __attribute__((unused)));
+int zebra_ns_kernel_shutdown(struct ns *ns, void *param_in __attribute__((unused)),
+			     void **param_out __attribute__((unused)));
 
 void zebra_ns_startup_continue(struct zebra_dplane_ctx *ctx);
 

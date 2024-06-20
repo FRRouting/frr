@@ -797,7 +797,7 @@ int ospf_flood_through_interface(struct ospf_interface *oi,
 				ospf_ls_upd_send_lsa(nbr, lsa,
 						     OSPF_SEND_PACKET_DIRECT);
 		}
-	} else
+	} else {
 		/* If P2MP delayed reflooding is configured and the LSA was
 		   received from a neighbor on the P2MP interface, do not flood
 		   if back out on the interface. The LSA will be  retransmitted
@@ -815,9 +815,17 @@ int ospf_flood_through_interface(struct ospf_interface *oi,
 					inbr ? &(inbr->router_id)
 					     : &(oi->ospf->router_id),
 					IF_NAME(oi));
-		} else
-			ospf_ls_upd_send_lsa(oi->nbr_self, lsa,
-					     OSPF_SEND_PACKET_INDIRECT);
+			/*
+			 * If reflooding is delayed, a delayed acknowledge
+			 * should be sent since the LSA will not be immediately
+			 * reflooded and interpreted as an implied
+			 * acknowledgment by the sender.
+			 */
+			return 1;
+		}
+		ospf_ls_upd_send_lsa(oi->nbr_self, lsa,
+				     OSPF_SEND_PACKET_INDIRECT);
+	}
 
 	return 0;
 }
@@ -1094,8 +1102,13 @@ void ospf_ls_retransmit_add(struct ospf_neighbor *nbr, struct ospf_lsa *lsa)
 			if (ls_rxmt_node->lsa_list_entry ==
 			    ospf_lsa_list_first(&nbr->ls_rxmt_list))
 				rxmt_head_replaced = true;
+
+			/* Keep SA happy */
+			assert(ls_rxmt_node->lsa_list_entry != NULL);
+
 			ospf_lsa_list_del(&nbr->ls_rxmt_list,
 					  ls_rxmt_node->lsa_list_entry);
+
 			XFREE(MTYPE_OSPF_LSA_LIST, ls_rxmt_node->lsa_list_entry);
 			ospf_lsdb_delete(&nbr->ls_rxmt, old);
 			if (IS_DEBUG_OSPF(lsa, LSA_FLOODING))
@@ -1163,8 +1176,13 @@ void ospf_ls_retransmit_delete(struct ospf_neighbor *nbr, struct ospf_lsa *lsa)
 			rxmt_timer_reset = false;
 
 		lsa->retransmit_counter--;
+
+		/* Keep SA happy */
+		assert(ls_rxmt_node->lsa_list_entry != NULL);
+
 		ospf_lsa_list_del(&nbr->ls_rxmt_list,
 				  ls_rxmt_node->lsa_list_entry);
+
 		XFREE(MTYPE_OSPF_LSA_LIST, ls_rxmt_node->lsa_list_entry);
 		ospf_lsdb_delete(&nbr->ls_rxmt, lsa);
 		if (IS_DEBUG_OSPF(lsa, LSA_FLOODING))

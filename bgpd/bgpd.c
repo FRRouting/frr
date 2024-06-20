@@ -85,6 +85,7 @@ DEFINE_QOBJ_TYPE(bgp_master);
 DEFINE_QOBJ_TYPE(bgp);
 DEFINE_QOBJ_TYPE(peer);
 DEFINE_HOOK(bgp_inst_delete, (struct bgp *bgp), (bgp));
+DEFINE_HOOK(bgp_instance_state, (struct bgp *bgp), (bgp));
 
 /* BGP process wide configuration.  */
 static struct bgp_master bgp_master;
@@ -1255,7 +1256,6 @@ static void peer_free(struct peer *peer)
 		EVENT_OFF(peer->t_revalidate_all[afi][safi]);
 	assert(!peer->connection->t_write);
 	assert(!peer->connection->t_read);
-	event_cancel_event_ready(bm->master, peer->connection);
 
 	/* Free connected nexthop, if present */
 	if (CHECK_FLAG(peer->flags, PEER_FLAG_CONFIG_NODE)
@@ -1497,9 +1497,11 @@ static void bgp_srv6_init(struct bgp *bgp)
 static void bgp_srv6_cleanup(struct bgp *bgp)
 {
 	for (afi_t afi = AFI_IP; afi < AFI_MAX; afi++) {
-		if (bgp->vpn_policy[afi].tovpn_sid_locator != NULL)
-			srv6_locator_chunk_free(
-				&bgp->vpn_policy[afi].tovpn_sid_locator);
+		if (bgp->vpn_policy[afi].tovpn_sid_locator != NULL) {
+			srv6_locator_free(
+				bgp->vpn_policy[afi].tovpn_sid_locator);
+			bgp->vpn_policy[afi].tovpn_sid_locator = NULL;
+		}
 		if (bgp->vpn_policy[afi].tovpn_zebra_vrf_sid_last_sent != NULL)
 			XFREE(MTYPE_BGP_SRV6_SID,
 			      bgp->vpn_policy[afi].tovpn_zebra_vrf_sid_last_sent);
@@ -1510,8 +1512,10 @@ static void bgp_srv6_cleanup(struct bgp *bgp)
 		}
 	}
 
-	if (bgp->tovpn_sid_locator != NULL)
-		srv6_locator_chunk_free(&bgp->tovpn_sid_locator);
+	if (bgp->tovpn_sid_locator != NULL) {
+		srv6_locator_free(bgp->tovpn_sid_locator);
+		bgp->tovpn_sid_locator = NULL;
+	}
 	if (bgp->tovpn_zebra_vrf_sid_last_sent != NULL)
 		XFREE(MTYPE_BGP_SRV6_SID, bgp->tovpn_zebra_vrf_sid_last_sent);
 	if (bgp->tovpn_sid != NULL) {
@@ -1523,6 +1527,9 @@ static void bgp_srv6_cleanup(struct bgp *bgp)
 		list_delete(&bgp->srv6_locator_chunks);
 	if (bgp->srv6_functions)
 		list_delete(&bgp->srv6_functions);
+
+	srv6_locator_free(bgp->srv6_locator);
+	bgp->srv6_locator = NULL;
 }
 
 /* Allocate new peer object, implicitely locked.  */
@@ -3414,11 +3421,17 @@ static void bgp_vrf_string_name_delete(void *data)
 static struct bgp *bgp_create(as_t *as, const char *name,
 			      enum bgp_instance_type inst_type,
 			      const char *as_pretty,
-			      enum asnotation_mode asnotation)
+			      enum asnotation_mode asnotation,
+			      struct bgp *bgp_old, bool hidden)
 {
 	struct bgp *bgp;
 	afi_t afi;
 	safi_t safi;
+
+	if (hidden) {
+		bgp = bgp_old;
+		goto peer_init;
+	}
 
 	bgp = XCALLOC(MTYPE_BGP, sizeof(struct bgp));
 	bgp->as = *as;
@@ -3473,18 +3486,24 @@ static struct bgp *bgp_create(as_t *as, const char *name,
 		bgp->peer_self->domainname =
 			XSTRDUP(MTYPE_BGP_PEER_HOST, cmd_domainname_get());
 	bgp->peer = list_new();
+
+peer_init:
 	bgp->peer->cmp = (int (*)(void *, void *))peer_cmp;
 	bgp->peerhash = hash_create(peer_hash_key_make, peer_hash_same,
 				    "BGP Peer Hash");
 	bgp->peerhash->max_size = BGP_PEER_MAX_HASH_SIZE;
 
-	bgp->group = list_new();
+	if (!hidden)
+		bgp->group = list_new();
 	bgp->group->cmp = (int (*)(void *, void *))peer_group_cmp;
 
 	FOREACH_AFI_SAFI (afi, safi) {
-		bgp->route[afi][safi] = bgp_table_init(bgp, afi, safi);
-		bgp->aggregate[afi][safi] = bgp_table_init(bgp, afi, safi);
-		bgp->rib[afi][safi] = bgp_table_init(bgp, afi, safi);
+		if (!hidden) {
+			bgp->route[afi][safi] = bgp_table_init(bgp, afi, safi);
+			bgp->aggregate[afi][safi] = bgp_table_init(bgp, afi,
+								   safi);
+			bgp->rib[afi][safi] = bgp_table_init(bgp, afi, safi);
+		}
 
 		/* Enable maximum-paths */
 		bgp_maximum_paths_set(bgp, afi, safi, BGP_PEER_EBGP,
@@ -3505,7 +3524,8 @@ static struct bgp *bgp_create(as_t *as, const char *name,
 	bgp->default_subgroup_pkt_queue_max =
 		BGP_DEFAULT_SUBGROUP_PKT_QUEUE_MAX;
 	bgp_tcp_keepalive_unset(bgp);
-	bgp_timers_unset(bgp);
+	if (!hidden)
+		bgp_timers_unset(bgp);
 	bgp->default_min_holdtime = 0;
 	bgp->restart_time = BGP_DEFAULT_RESTART_TIME;
 	bgp->stalepath_time = BGP_DEFAULT_STALEPATH_TIME;
@@ -3520,10 +3540,10 @@ static struct bgp *bgp_create(as_t *as, const char *name,
 	bgp_addpath_init_bgp_data(&bgp->tx_addpath);
 	bgp->fast_convergence = false;
 	bgp->llgr_stale_time = BGP_DEFAULT_LLGR_STALE_TIME;
-	bgp->rmap_def_originate_eval_timer = RMAP_DEFAULT_ORIGINATE_EVAL_TIMER;
+	bgp->rmap_def_originate_eval_timer = 0;
 
 #ifdef ENABLE_BGP_VNC
-	if (inst_type != BGP_INSTANCE_TYPE_VRF) {
+	if (inst_type != BGP_INSTANCE_TYPE_VRF && !hidden) {
 		bgp->rfapi = bgp_rfapi_new(bgp);
 		assert(bgp->rfapi);
 		assert(bgp->rfapi_cfg);
@@ -3540,9 +3560,11 @@ static struct bgp *bgp_create(as_t *as, const char *name,
 		bgp->vpn_policy[afi].import_vrf = list_new();
 		bgp->vpn_policy[afi].import_vrf->del =
 			bgp_vrf_string_name_delete;
-		bgp->vpn_policy[afi].export_vrf = list_new();
-		bgp->vpn_policy[afi].export_vrf->del =
-			bgp_vrf_string_name_delete;
+		if (!hidden) {
+			bgp->vpn_policy[afi].export_vrf = list_new();
+			bgp->vpn_policy[afi].export_vrf->del =
+				bgp_vrf_string_name_delete;
+		}
 		SET_FLAG(bgp->af_flags[afi][SAFI_MPLS_VPN],
 			 BGP_VPNVX_RETAIN_ROUTE_TARGET_ALL);
 	}
@@ -3560,7 +3582,7 @@ static struct bgp *bgp_create(as_t *as, const char *name,
 			bgp->restart_time, &bgp->t_startup);
 
 	/* printable name we can use in debug messages */
-	if (inst_type == BGP_INSTANCE_TYPE_DEFAULT) {
+	if (inst_type == BGP_INSTANCE_TYPE_DEFAULT && !hidden) {
 		bgp->name_pretty = XSTRDUP(MTYPE_BGP_NAME, "VRF default");
 	} else {
 		const char *n;
@@ -3588,17 +3610,20 @@ static struct bgp *bgp_create(as_t *as, const char *name,
 	bgp->coalesce_time = BGP_DEFAULT_SUBGROUP_COALESCE_TIME;
 	bgp->default_af[AFI_IP][SAFI_UNICAST] = true;
 
-	QOBJ_REG(bgp, bgp);
+	if (!hidden)
+		QOBJ_REG(bgp, bgp);
 
 	update_bgp_group_init(bgp);
 
-	/* assign a unique rd id for auto derivation of vrf's RD */
-	bf_assign_index(bm->rd_idspace, bgp->vrf_rd_id);
+	if (!hidden) {
+		/* assign a unique rd id for auto derivation of vrf's RD */
+		bf_assign_index(bm->rd_idspace, bgp->vrf_rd_id);
 
-	bgp_evpn_init(bgp);
-	bgp_evpn_vrf_es_init(bgp);
-	bgp_pbr_init(bgp);
-	bgp_srv6_init(bgp);
+		bgp_evpn_init(bgp);
+		bgp_evpn_vrf_es_init(bgp);
+		bgp_pbr_init(bgp);
+		bgp_srv6_init(bgp);
+	}
 
 	/*initilize global GR FSM */
 	bgp_global_gr_init(bgp);
@@ -3736,10 +3761,15 @@ int bgp_handle_socket(struct bgp *bgp, struct vrf *vrf, vrf_id_t old_vrf_id,
 		return bgp_check_main_socket(create, bgp);
 }
 
-int bgp_lookup_by_as_name_type(struct bgp **bgp_val, as_t *as, const char *name,
+int bgp_lookup_by_as_name_type(struct bgp **bgp_val, as_t *as,
+			       const char *as_pretty,
+			       enum asnotation_mode asnotation, const char *name,
 			       enum bgp_instance_type inst_type)
 {
 	struct bgp *bgp;
+	struct peer *peer = NULL;
+	struct listnode *node, *nnode;
+	bool hidden = false;
 
 	/* Multiple instance check. */
 	if (name)
@@ -3748,14 +3778,41 @@ int bgp_lookup_by_as_name_type(struct bgp **bgp_val, as_t *as, const char *name,
 		bgp = bgp_get_default();
 
 	if (bgp) {
-		*bgp_val = bgp;
+		if (IS_BGP_INSTANCE_HIDDEN(bgp) && *as != AS_UNSPECIFIED)
+			hidden = true;
+		/* Handle AS number change */
 		if (bgp->as != *as) {
+			if (hidden || CHECK_FLAG(bgp->vrf_flags, BGP_VRF_AUTO)) {
+				if (hidden) {
+					bgp_create(as, name, inst_type,
+						   as_pretty, asnotation, bgp,
+						   hidden);
+					UNSET_FLAG(bgp->flags,
+						   BGP_FLAG_INSTANCE_HIDDEN);
+				} else {
+					bgp->as = *as;
+					UNSET_FLAG(bgp->vrf_flags, BGP_VRF_AUTO);
+				}
+
+				/* Set all peer's local AS with this ASN */
+				for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode,
+						       peer))
+					peer->local_as = *as;
+				*bgp_val = bgp;
+				return BGP_INSTANCE_EXISTS;
+			}
+
 			*as = bgp->as;
-			return BGP_ERR_AS_MISMATCH;
+			*bgp_val = bgp;
+			return BGP_ERR_INSTANCE_MISMATCH;
 		}
 		if (bgp->inst_type != inst_type)
 			return BGP_ERR_INSTANCE_MISMATCH;
-		return BGP_SUCCESS;
+		if (hidden)
+			bgp_create(as, name, inst_type, as_pretty, asnotation,
+				   bgp, hidden);
+		*bgp_val = bgp;
+		return BGP_INSTANCE_EXISTS;
 	}
 	*bgp_val = NULL;
 
@@ -3771,11 +3828,13 @@ int bgp_get(struct bgp **bgp_val, as_t *as, const char *name,
 	struct vrf *vrf = NULL;
 	int ret = 0;
 
-	ret = bgp_lookup_by_as_name_type(bgp_val, as, name, inst_type);
+	ret = bgp_lookup_by_as_name_type(bgp_val, as, as_pretty, asnotation,
+					 name, inst_type);
 	if (ret || *bgp_val)
 		return ret;
 
-	bgp = bgp_create(as, name, inst_type, as_pretty, asnotation);
+	bgp = bgp_create(as, name, inst_type, as_pretty, asnotation, NULL,
+			 false);
 
 	/*
 	 * view instances will never work inside of a vrf
@@ -3871,6 +3930,9 @@ void bgp_instance_up(struct bgp *bgp)
 	struct peer *peer;
 	struct listnode *node, *next;
 
+	/* notify BMP of instance state changed */
+	hook_call(bgp_instance_state, bgp);
+
 	bgp_set_redist_vrf_bitmaps(bgp, true);
 
 	/* Register with zebra. */
@@ -3898,6 +3960,9 @@ void bgp_instance_down(struct bgp *bgp)
 
 	/* Cleanup evpn instance state */
 	bgp_evpn_instance_down(bgp);
+
+	/* notify BMP of instance state changed */
+	hook_call(bgp_instance_state, bgp);
 
 	/* Stop timers. */
 	if (bgp->t_rmap_def_originate_eval)
@@ -4015,6 +4080,15 @@ int bgp_delete(struct bgp *bgp)
 		bgp_damp_disable(bgp, afi, safi);
 	}
 
+	if (bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT &&
+	    (bgp_table_top(bgp->rib[AFI_IP][SAFI_MPLS_VPN]) ||
+	     bgp_table_top(bgp->rib[AFI_IP6][SAFI_MPLS_VPN]))) {
+		if (BGP_DEBUG(zebra, ZEBRA))
+			zlog_debug(
+				"Marking the deleting default bgp instance as hidden");
+		SET_FLAG(bgp->flags, BGP_FLAG_INSTANCE_HIDDEN);
+	}
+
 	if (BGP_DEBUG(zebra, ZEBRA)) {
 		if (bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT)
 			zlog_debug("Deleting Default VRF");
@@ -4027,7 +4101,8 @@ int bgp_delete(struct bgp *bgp)
 	}
 
 	/* unmap from RT list */
-	bgp_evpn_vrf_delete(bgp);
+	if (!IS_BGP_INSTANCE_HIDDEN(bgp))
+		bgp_evpn_vrf_delete(bgp);
 
 	/* unmap bgp vrf label */
 	vpn_leak_zebra_vrf_label_withdraw(bgp, AFI_IP);
@@ -4059,7 +4134,7 @@ int bgp_delete(struct bgp *bgp)
 		peer_delete(peer);
 	}
 
-	if (bgp->peer_self) {
+	if (bgp->peer_self && !IS_BGP_INSTANCE_HIDDEN(bgp)) {
 		peer_delete(bgp->peer_self);
 		bgp->peer_self = NULL;
 	}
@@ -4069,7 +4144,8 @@ int bgp_delete(struct bgp *bgp)
 /* TODO - Other memory may need to be freed - e.g., NHT */
 
 #ifdef ENABLE_BGP_VNC
-	rfapi_delete(bgp);
+	if (!IS_BGP_INSTANCE_HIDDEN(bgp))
+		rfapi_delete(bgp);
 #endif
 
 	/* Free memory allocated with aggregate address configuration. */
@@ -4111,7 +4187,7 @@ int bgp_delete(struct bgp *bgp)
 	}
 
 	/* Deregister from Zebra, if needed */
-	if (IS_BGP_INST_KNOWN_TO_ZEBRA(bgp)) {
+	if (IS_BGP_INST_KNOWN_TO_ZEBRA(bgp) && !IS_BGP_INSTANCE_HIDDEN(bgp)) {
 		if (BGP_DEBUG(zebra, ZEBRA))
 			zlog_debug(
 				"%s: deregistering this bgp %s instance from zebra",
@@ -4119,17 +4195,19 @@ int bgp_delete(struct bgp *bgp)
 		bgp_zebra_instance_deregister(bgp);
 	}
 
-	/* Remove visibility via the master list - there may however still be
-	 * routes to be processed still referencing the struct bgp.
-	 */
-	listnode_delete(bm->bgp, bgp);
-
-	/* Free interfaces in this instance. */
-	bgp_if_finish(bgp);
+	if (!IS_BGP_INSTANCE_HIDDEN(bgp)) {
+		/* Remove visibility via the master list -
+		 * there may however still be routes to be processed
+		 * still referencing the struct bgp.
+		 */
+		listnode_delete(bm->bgp, bgp);
+		/* Free interfaces in this instance. */
+		bgp_if_finish(bgp);
+	}
 
 	vrf = bgp_vrf_lookup_by_instance_type(bgp);
 	bgp_handle_socket(bgp, vrf, VRF_UNKNOWN, false);
-	if (vrf)
+	if (vrf && !IS_BGP_INSTANCE_HIDDEN(bgp))
 		bgp_vrf_unlink(bgp, vrf);
 
 	/* Update EVPN VRF pointer */
@@ -4144,7 +4222,22 @@ int bgp_delete(struct bgp *bgp)
 		work_queue_free_and_null(&bgp->process_queue);
 
 	event_master_free_unused(bm->master);
-	bgp_unlock(bgp); /* initial reference */
+
+	if (!IS_BGP_INSTANCE_HIDDEN(bgp))
+		bgp_unlock(bgp); /* initial reference */
+	else {
+		for (afi = AFI_IP; afi < AFI_MAX; afi++) {
+			enum vpn_policy_direction dir;
+
+			if (bgp->vpn_policy[afi].import_vrf)
+				list_delete(&bgp->vpn_policy[afi].import_vrf);
+
+			dir = BGP_VPN_POLICY_DIR_FROMVPN;
+			if (bgp->vpn_policy[afi].rtlist[dir])
+				ecommunity_free(
+					&bgp->vpn_policy[afi].rtlist[dir]);
+		}
+	}
 
 	return 0;
 }
@@ -4689,6 +4782,7 @@ static const struct peer_flag_action peer_flag_action_list[] = {
 	{PEER_FLAG_LOCAL_AS, 0, peer_change_reset},
 	{PEER_FLAG_LOCAL_AS_NO_PREPEND, 0, peer_change_reset},
 	{PEER_FLAG_LOCAL_AS_REPLACE_AS, 0, peer_change_reset},
+	{PEER_FLAG_DUAL_AS, 0, peer_change_reset},
 	{PEER_FLAG_UPDATE_SOURCE, 0, peer_change_none},
 	{PEER_FLAG_DISABLE_LINK_BW_ENCODING_IEEE, 0, peer_change_none},
 	{PEER_FLAG_EXTENDED_OPT_PARAMS, 0, peer_change_reset},
@@ -4701,6 +4795,7 @@ static const struct peer_flag_action peer_flag_action_list[] = {
 	{PEER_FLAG_CAPABILITY_FQDN, 0, peer_change_none},
 	{PEER_FLAG_AS_LOOP_DETECTION, 0, peer_change_none},
 	{PEER_FLAG_EXTENDED_LINK_BANDWIDTH, 0, peer_change_none},
+	{PEER_FLAG_LONESOUL, 0, peer_change_reset_out},
 	{0, 0, 0}};
 
 static const struct peer_flag_action peer_af_flag_action_list[] = {
@@ -5783,6 +5878,10 @@ int peer_default_originate_set(struct peer *peer, afi_t afi, safi_t safi,
 	subgrp = peer_subgroup(peer, afi, safi);
 
 	if (rmap) {
+		if (!peer->bgp->rmap_def_originate_eval_timer)
+			peer->bgp->rmap_def_originate_eval_timer =
+				RMAP_DEFAULT_ORIGINATE_EVAL_TIMER;
+
 		if (!peer->default_rmap[afi][safi].name
 		    || strcmp(rmap, peer->default_rmap[afi][safi].name) != 0) {
 			struct route_map *map = NULL;
@@ -5864,6 +5963,10 @@ int peer_default_originate_set(struct peer *peer, afi_t afi, safi_t safi,
 			 PEER_FLAG_DEFAULT_ORIGINATE);
 		if (rmap) {
 			struct route_map *map = NULL;
+
+			if (!member->bgp->rmap_def_originate_eval_timer)
+				member->bgp->rmap_def_originate_eval_timer =
+					RMAP_DEFAULT_ORIGINATE_EVAL_TIMER;
 
 			if (member->default_rmap[afi][safi].name) {
 				map = route_map_lookup_by_name(
@@ -6630,9 +6733,9 @@ int peer_allowas_in_unset(struct peer *peer, afi_t afi, safi_t safi)
 }
 
 int peer_local_as_set(struct peer *peer, as_t as, bool no_prepend,
-		      bool replace_as, const char *as_str)
+		      bool replace_as, bool dual_as, const char *as_str)
 {
-	bool old_no_prepend, old_replace_as;
+	bool old_no_prepend, old_replace_as, old_dual_as;
 	struct bgp *bgp = peer->bgp;
 	struct peer *member;
 	struct listnode *node, *nnode;
@@ -6645,14 +6748,16 @@ int peer_local_as_set(struct peer *peer, as_t as, bool no_prepend,
 		!!CHECK_FLAG(peer->flags, PEER_FLAG_LOCAL_AS_NO_PREPEND);
 	old_replace_as =
 		!!CHECK_FLAG(peer->flags, PEER_FLAG_LOCAL_AS_REPLACE_AS);
+	old_dual_as = !!CHECK_FLAG(peer->flags, PEER_FLAG_DUAL_AS);
 
 	/* Set flag and configuration on peer. */
 	peer_flag_set(peer, PEER_FLAG_LOCAL_AS);
 	peer_flag_modify(peer, PEER_FLAG_LOCAL_AS_NO_PREPEND, no_prepend);
 	peer_flag_modify(peer, PEER_FLAG_LOCAL_AS_REPLACE_AS, replace_as);
+	peer_flag_modify(peer, PEER_FLAG_DUAL_AS, dual_as);
 
-	if (peer->change_local_as == as && old_no_prepend == no_prepend
-	    && old_replace_as == replace_as)
+	if (peer->change_local_as == as && old_no_prepend == no_prepend &&
+	    old_replace_as == replace_as && old_dual_as == dual_as)
 		return 0;
 	peer->change_local_as = as;
 	if (as_str) {
@@ -6681,10 +6786,11 @@ int peer_local_as_set(struct peer *peer, as_t as, bool no_prepend,
 					    PEER_FLAG_LOCAL_AS_NO_PREPEND);
 		old_replace_as = CHECK_FLAG(member->flags,
 					    PEER_FLAG_LOCAL_AS_REPLACE_AS);
-		if (member->change_local_as == as
-		    && CHECK_FLAG(member->flags, PEER_FLAG_LOCAL_AS)
-		    && old_no_prepend == no_prepend
-		    && old_replace_as == replace_as)
+		old_dual_as = !!CHECK_FLAG(member->flags, PEER_FLAG_DUAL_AS);
+		if (member->change_local_as == as &&
+		    CHECK_FLAG(member->flags, PEER_FLAG_LOCAL_AS) &&
+		    old_no_prepend == no_prepend &&
+		    old_replace_as == replace_as && old_dual_as == dual_as)
 			continue;
 
 		/* Set flag and configuration on peer-group member. */
@@ -6693,6 +6799,7 @@ int peer_local_as_set(struct peer *peer, as_t as, bool no_prepend,
 			  no_prepend);
 		COND_FLAG(member->flags, PEER_FLAG_LOCAL_AS_REPLACE_AS,
 			  replace_as);
+		COND_FLAG(member->flags, PEER_FLAG_DUAL_AS, dual_as);
 		member->change_local_as = as;
 		if (as_str)
 			member->change_local_as_pretty = XSTRDUP(MTYPE_BGP_NAME,
@@ -6715,12 +6822,14 @@ int peer_local_as_unset(struct peer *peer)
 		peer_flag_inherit(peer, PEER_FLAG_LOCAL_AS);
 		peer_flag_inherit(peer, PEER_FLAG_LOCAL_AS_NO_PREPEND);
 		peer_flag_inherit(peer, PEER_FLAG_LOCAL_AS_REPLACE_AS);
+		peer_flag_inherit(peer, PEER_FLAG_DUAL_AS);
 		PEER_ATTR_INHERIT(peer, peer->group, change_local_as);
 	} else {
 		/* Otherwise remove flag and configuration from peer. */
 		peer_flag_unset(peer, PEER_FLAG_LOCAL_AS);
 		peer_flag_unset(peer, PEER_FLAG_LOCAL_AS_NO_PREPEND);
 		peer_flag_unset(peer, PEER_FLAG_LOCAL_AS_REPLACE_AS);
+		peer_flag_unset(peer, PEER_FLAG_DUAL_AS);
 		peer->change_local_as = 0;
 		XFREE(MTYPE_BGP_NAME, peer->change_local_as_pretty);
 	}
@@ -6752,6 +6861,7 @@ int peer_local_as_unset(struct peer *peer)
 		UNSET_FLAG(member->flags, PEER_FLAG_LOCAL_AS);
 		UNSET_FLAG(member->flags, PEER_FLAG_LOCAL_AS_NO_PREPEND);
 		UNSET_FLAG(member->flags, PEER_FLAG_LOCAL_AS_REPLACE_AS);
+		UNSET_FLAG(member->flags, PEER_FLAG_DUAL_AS);
 		member->change_local_as = 0;
 		XFREE(MTYPE_BGP_NAME, member->change_local_as_pretty);
 		member->last_reset = PEER_DOWN_LOCAL_AS_CHANGE;
@@ -8797,6 +8907,12 @@ static ssize_t printfrr_bp(struct fbuf *buf, struct printfrr_eargs *ea,
 
 	if (!peer)
 		return bputs(buf, "(null)");
+
+	if (!peer->host) {
+		if (peer->conf_if)
+			return bprintfrr(buf, "%s", peer->conf_if);
+		return bprintfrr(buf, "%pSU", &peer->connection->su);
+	}
 
 	return bprintfrr(buf, "%s(%s)", peer->host,
 			 peer->hostname ? peer->hostname : "Unknown");

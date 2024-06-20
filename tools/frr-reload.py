@@ -203,7 +203,7 @@ def get_normalized_es_id(line):
     """
     sub_strs = ["evpn mh es-id", "evpn mh es-sys-mac"]
     for sub_str in sub_strs:
-        obj = re.match(sub_str + " (?P<esi>\S*)", line)
+        obj = re.match(sub_str + r" (?P<esi>\S*)", line)
         if obj:
             line = "%s %s" % (sub_str, obj.group("esi").lower())
             break
@@ -871,7 +871,7 @@ def bgp_delete_nbr_remote_as_line(lines_to_add):
             if ctx_keys[0] not in pg_dict:
                 pg_dict[ctx_keys[0]] = dict()
             # find 'neighbor <pg_name> peer-group'
-            re_pg = re.match("neighbor (\S+) peer-group$", line)
+            re_pg = re.match(r"neighbor (\S+) peer-group$", line)
             if re_pg and re_pg.group(1) not in pg_dict[ctx_keys[0]]:
                 pg_dict[ctx_keys[0]][re_pg.group(1)] = {
                     "nbr": list(),
@@ -1066,7 +1066,7 @@ def bgp_delete_move_lines(lines_to_add, lines_to_del):
             if ctx_keys[0] not in del_dict:
                 del_dict[ctx_keys[0]] = dict()
             # find 'no neighbor <pg_name> peer-group'
-            re_pg = re.match("neighbor (\S+) peer-group$", line)
+            re_pg = re.match(r"neighbor (\S+) peer-group$", line)
             if re_pg and re_pg.group(1) not in del_dict[ctx_keys[0]]:
                 del_dict[ctx_keys[0]][re_pg.group(1)] = list()
                 found_pg_del_cmd = True
@@ -1140,14 +1140,14 @@ def pim_delete_move_lines(lines_to_add, lines_to_del):
     # they are implicitly deleted by 'no ip pim'.
     # Remove all such depdendent options from delete
     # pending list.
-    pim_disable = False
+    pim_disable = []
     lines_to_del_to_del = []
 
     index = -1
     for ctx_keys, line in lines_to_del:
         index = index + 1
         if ctx_keys[0].startswith("interface") and line and line == "ip pim":
-            pim_disable = True
+            pim_disable.append(ctx_keys[0])
 
         # no ip msdp peer <> does not accept source so strip it off.
         if line and line.startswith("ip msdp peer "):
@@ -1158,14 +1158,19 @@ def pim_delete_move_lines(lines_to_add, lines_to_del):
                 lines_to_del.remove((ctx_keys, line))
                 lines_to_del.insert(index, (ctx_keys, new_line))
 
-    if pim_disable:
-        for ctx_keys, line in lines_to_del:
-            if (
-                ctx_keys[0].startswith("interface")
-                and line
-                and (line.startswith("ip pim ") or line.startswith("ip multicast "))
-            ):
-                lines_to_del_to_del.append((ctx_keys, line))
+    for ctx_keys, line in lines_to_del:
+        if (
+            ctx_keys[0] in pim_disable
+            and ctx_keys[0].startswith("interface")
+            and line
+            and (
+                line.startswith("ip pim ")
+                or line.startswith("no ip pim ")
+                or line.startswith("ip multicast ")
+                or line.startswith("no ip multicast ")
+            )
+        ):
+            lines_to_del_to_del.append((ctx_keys, line))
 
     for ctx_keys, line in lines_to_del_to_del:
         lines_to_del.remove((ctx_keys, line))

@@ -106,6 +106,10 @@ struct seg6local_context {
 	struct in6_addr nh6;
 	uint32_t table;
 	struct seg6local_flavors_info flv;
+	uint8_t block_len;
+	uint8_t node_len;
+	uint8_t function_len;
+	uint8_t argument_len;
 };
 
 struct srv6_locator {

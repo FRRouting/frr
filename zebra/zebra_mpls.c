@@ -37,6 +37,7 @@
 DEFINE_MTYPE_STATIC(ZEBRA, LSP, "MPLS LSP object");
 DEFINE_MTYPE_STATIC(ZEBRA, FEC, "MPLS FEC object");
 DEFINE_MTYPE_STATIC(ZEBRA, NHLFE, "MPLS nexthop object");
+DEFINE_MTYPE_STATIC(ZEBRA, NH_LABEL, "Nexthop label");
 
 bool mpls_enabled;
 bool mpls_pw_reach_strict; /* Strict reachability checking */
@@ -50,7 +51,7 @@ static int lsp_install(struct zebra_vrf *zvrf, mpls_label_t label,
 		       struct route_node *rn, struct route_entry *re);
 static int lsp_uninstall(struct zebra_vrf *zvrf, mpls_label_t label);
 static int fec_change_update_lsp(struct zebra_vrf *zvrf, struct zebra_fec *fec,
-				 mpls_label_t old_label);
+				 mpls_label_t old_label, bool uninstall);
 static int fec_send(struct zebra_fec *fec, struct zserv *client);
 static void fec_update_clients(struct zebra_fec *fec);
 static void fec_print(struct zebra_fec *fec, struct vty *vty);
@@ -161,12 +162,14 @@ static int lsp_install(struct zebra_vrf *zvrf, mpls_label_t label,
 	enum lsp_types_t lsp_type;
 	char buf[BUFSIZ];
 	int added, changed;
+	bool zvrf_nexthop_resolution;
 
 	/* Lookup table. */
 	lsp_table = zvrf->lsp_table;
 	if (!lsp_table)
 		return -1;
 
+	zvrf_nexthop_resolution = zvrf->zebra_mpls_fec_nexthop_resolution;
 	lsp_type = lsp_type_from_re_type(re->type);
 	added = changed = 0;
 
@@ -180,13 +183,20 @@ static int lsp_install(struct zebra_vrf *zvrf, mpls_label_t label,
 	 * the label advertised by the recursive nexthop (plus we don't have the
 	 * logic yet to push multiple labels).
 	 */
-	for (nexthop = re->nhe->nhg.nexthop;
-	     nexthop; nexthop = nexthop->next) {
-		/* Skip inactive and recursive entries. */
-		if (!CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE))
+	nexthop = re->nhe->nhg.nexthop;
+	while (nexthop) {
+		if (!CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE)) {
+			nexthop =
+				nexthop_next_resolution(nexthop,
+							zvrf_nexthop_resolution);
 			continue;
-		if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_RECURSIVE))
+		}
+		if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_RECURSIVE)) {
+			nexthop =
+				nexthop_next_resolution(nexthop,
+							zvrf_nexthop_resolution);
 			continue;
+		}
 
 		nhlfe = nhlfe_find(&lsp->nhlfe_list, lsp_type,
 				   nexthop->type, &nexthop->gate,
@@ -194,9 +204,13 @@ static int lsp_install(struct zebra_vrf *zvrf, mpls_label_t label,
 		if (nhlfe) {
 			/* Clear deleted flag (in case it was set) */
 			UNSET_FLAG(nhlfe->flags, NHLFE_FLAG_DELETED);
-			if (nexthop_labels_match(nhlfe->nexthop, nexthop))
+			if (nexthop_labels_match(nhlfe->nexthop, nexthop)) {
 				/* No change */
+				nexthop =
+					nexthop_next_resolution(nexthop,
+								zvrf_nexthop_resolution);
 				continue;
+			}
 
 
 			if (IS_ZEBRA_DEBUG_MPLS) {
@@ -221,11 +235,18 @@ static int lsp_install(struct zebra_vrf *zvrf, mpls_label_t label,
 				return -1;
 
 			if (IS_ZEBRA_DEBUG_MPLS) {
+				char label_str[MPLS_LABEL_STRLEN];
+
 				nhlfe2str(nhlfe, buf, BUFSIZ);
-				zlog_debug(
-					"Add LSP in-label %u type %d nexthop %s out-label %u",
-					lsp->ile.in_label, lsp_type, buf,
-					nexthop->nh_label->label[0]);
+				zlog_debug("Add LSP in-label %u type %d nexthop %s out-label %s",
+					   lsp->ile.in_label, lsp_type, buf,
+					   mpls_label2str(nexthop->nh_label
+								  ->num_labels,
+							  nexthop->nh_label->label,
+							  label_str,
+							  sizeof(label_str),
+							  nexthop->nh_label_type,
+							  0));
 			}
 
 			lsp->addr_family = NHLFE_FAMILY(nhlfe);
@@ -234,6 +255,8 @@ static int lsp_install(struct zebra_vrf *zvrf, mpls_label_t label,
 			SET_FLAG(nhlfe->flags, NHLFE_FLAG_CHANGED);
 			added++;
 		}
+		nexthop = nexthop_next_resolution(nexthop,
+						  zvrf_nexthop_resolution);
 	}
 
 	/* Queue LSP for processing if necessary. If no NHLFE got added (special
@@ -245,6 +268,8 @@ static int lsp_install(struct zebra_vrf *zvrf, mpls_label_t label,
 			return -1;
 	} else {
 		lsp_check_free(lsp_table, &lsp);
+		/* failed to install a new LSP */
+		return -1;
 	}
 
 	return 0;
@@ -353,7 +378,7 @@ static void fec_evaluate(struct zebra_vrf *zvrf)
 			fec_update_clients(fec);
 
 			/* Update label forwarding entries appropriately */
-			fec_change_update_lsp(zvrf, fec, old_label);
+			fec_change_update_lsp(zvrf, fec, old_label, false);
 		}
 	}
 }
@@ -384,7 +409,7 @@ static uint32_t fec_derive_label_from_index(struct zebra_vrf *zvrf,
  * entries, as appropriate.
  */
 static int fec_change_update_lsp(struct zebra_vrf *zvrf, struct zebra_fec *fec,
-				 mpls_label_t old_label)
+				 mpls_label_t old_label, bool uninstall)
 {
 	struct route_table *table;
 	struct route_node *rn;
@@ -416,11 +441,17 @@ static int fec_change_update_lsp(struct zebra_vrf *zvrf, struct zebra_fec *fec,
 			break;
 	}
 
-	if (!re || !zebra_rib_labeled_unicast(re))
+	if (!re || !zebra_rib_labeled_unicast(re)) {
+		if (uninstall)
+			lsp_uninstall(zvrf, fec->label);
 		return 0;
+	}
 
-	if (lsp_install(zvrf, fec->label, rn, re))
+	if (lsp_install(zvrf, fec->label, rn, re)) {
+		if (uninstall)
+			lsp_uninstall(zvrf, fec->label);
 		return -1;
+	}
 
 	return 0;
 }
@@ -445,6 +476,30 @@ static int fec_send(struct zebra_fec *fec, struct zserv *client)
 	stream_putl(s, fec->label);
 	stream_putw_at(s, 0, stream_get_endp(s));
 	return zserv_send_message(client, s);
+}
+
+/*
+ * Upon reconfiguring nexthop-resolution updates, update the
+ * lsp entries accordingly.
+ */
+void zebra_mpls_fec_nexthop_resolution_update(struct zebra_vrf *zvrf)
+{
+	int af;
+	struct route_node *rn;
+	struct zebra_fec *fec;
+
+	for (af = AFI_IP; af < AFI_MAX; af++) {
+		if (zvrf->fec_table[af] == NULL)
+			continue;
+		for (rn = route_top(zvrf->fec_table[af]); rn;
+		     rn = route_next(rn)) {
+			if (!rn->info)
+				continue;
+			fec = rn->info;
+			fec_change_update_lsp(zvrf, fec, MPLS_INVALID_LABEL,
+					      true);
+		}
+	}
 }
 
 /*
@@ -1398,7 +1453,31 @@ static int nhlfe_del(struct zebra_nhlfe *nhlfe)
 static void nhlfe_out_label_update(struct zebra_nhlfe *nhlfe,
 				   struct mpls_label_stack *nh_label)
 {
-	nhlfe->nexthop->nh_label->label[0] = nh_label->label[0];
+	struct mpls_label_stack *nh_label_tmp;
+	int i;
+
+	/* Enforce limit on label stack size */
+	if (nh_label->num_labels > MPLS_MAX_LABELS)
+		nh_label->num_labels = MPLS_MAX_LABELS;
+
+	/* Resize the array to accommodate the new label stack */
+	if (nh_label->num_labels > nhlfe->nexthop->nh_label->num_labels) {
+		nh_label_tmp = XREALLOC(MTYPE_NH_LABEL, nhlfe->nexthop->nh_label,
+					sizeof(struct mpls_label_stack) +
+						nh_label->num_labels *
+							sizeof(mpls_label_t));
+		if (nh_label_tmp) {
+			nhlfe->nexthop->nh_label = nh_label_tmp;
+			nhlfe->nexthop->nh_label->num_labels =
+				nh_label->num_labels;
+		} else
+			nh_label->num_labels =
+				nhlfe->nexthop->nh_label->num_labels;
+	}
+
+	/* Copy the label stack into the array */
+	for (i = 0; i < nh_label->num_labels; i++)
+		nhlfe->nexthop->nh_label->label[i] = nh_label->label[i];
 }
 
 static int mpls_lsp_uninstall_all(struct hash *lsp_table, struct zebra_lsp *lsp,
@@ -2117,7 +2196,7 @@ void zebra_mpls_process_dplane_notify(struct zebra_dplane_ctx *ctx)
 /*
  * Install dynamic LSP entry.
  */
-int zebra_mpls_lsp_install(struct zebra_vrf *zvrf, struct route_node *rn,
+void zebra_mpls_lsp_install(struct zebra_vrf *zvrf, struct route_node *rn,
 			   struct route_entry *re)
 {
 	struct route_table *table;
@@ -2125,23 +2204,20 @@ int zebra_mpls_lsp_install(struct zebra_vrf *zvrf, struct route_node *rn,
 
 	table = zvrf->fec_table[family2afi(PREFIX_FAMILY(&rn->p))];
 	if (!table)
-		return -1;
+		return;
 
 	/* See if there is a configured label binding for this FEC. */
 	fec = fec_find(table, &rn->p);
 	if (!fec || fec->label == MPLS_INVALID_LABEL)
-		return 0;
+		return;
 
 	/* We cannot install a label forwarding entry if local label is the
 	 * implicit-null label.
 	 */
 	if (fec->label == MPLS_LABEL_IMPLICIT_NULL)
-		return 0;
+		return;
 
-	if (lsp_install(zvrf, fec->label, rn, re))
-		return -1;
-
-	return 0;
+	lsp_install(zvrf, fec->label, rn, re);
 }
 
 /*
@@ -2345,7 +2421,7 @@ int zebra_mpls_fec_register(struct zebra_vrf *zvrf, struct prefix *p,
 	}
 
 	if (new_client || label_change)
-		return fec_change_update_lsp(zvrf, fec, old_label);
+		return fec_change_update_lsp(zvrf, fec, old_label, false);
 
 	return 0;
 }
@@ -2386,7 +2462,7 @@ int zebra_mpls_fec_unregister(struct zebra_vrf *zvrf, struct prefix *p,
 	    list_isempty(fec->client_list)) {
 		mpls_label_t old_label = fec->label;
 		fec->label = MPLS_INVALID_LABEL; /* reset */
-		fec_change_update_lsp(zvrf, fec, old_label);
+		fec_change_update_lsp(zvrf, fec, old_label, false);
 		fec_del(fec);
 	}
 
@@ -2556,7 +2632,7 @@ int zebra_mpls_static_fec_add(struct zebra_vrf *zvrf, struct prefix *p,
 		fec_update_clients(fec);
 
 		/* Update label forwarding entries appropriately */
-		ret = fec_change_update_lsp(zvrf, fec, old_label);
+		ret = fec_change_update_lsp(zvrf, fec, old_label, false);
 	}
 
 	return ret;
@@ -2609,7 +2685,7 @@ int zebra_mpls_static_fec_del(struct zebra_vrf *zvrf, struct prefix *p)
 	fec_update_clients(fec);
 
 	/* Update label forwarding entries appropriately */
-	return fec_change_update_lsp(zvrf, fec, old_label);
+	return fec_change_update_lsp(zvrf, fec, old_label, false);
 }
 
 /*
@@ -3794,7 +3870,7 @@ void zebra_mpls_print_lsp_table(struct vty *vty, struct zebra_vrf *zvrf,
 		if (tt->nrows > 1) {
 			char *table = ttable_dump(tt, "\n");
 			vty_out(vty, "%s\n", table);
-			XFREE(MTYPE_TMP, table);
+			XFREE(MTYPE_TMP_TTABLE, table);
 		}
 		ttable_del(tt);
 	}

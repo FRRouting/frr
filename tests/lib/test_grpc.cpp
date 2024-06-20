@@ -9,6 +9,7 @@
 #include <unistd.h>
 #include <zebra.h>
 
+#include "debug.h"
 #include "filter.h"
 #include "frr_pthread.h"
 #include "libfrr.h"
@@ -79,6 +80,7 @@ static void static_startup(void)
 	// static struct option_chain *oc;
 
 	cmd_init(1);
+	debug_init();
 
 	zlog_aux_init("NONE: ", LOG_DEBUG);
 	zprivs_preinit(&static_privs);
@@ -109,8 +111,7 @@ static void static_startup(void)
 	static_debug_init();
 
 	master = event_master_create(NULL);
-	nb_init(master, staticd_yang_modules, array_size(staticd_yang_modules),
-		false);
+	nb_init(master, staticd_yang_modules, array_size(staticd_yang_modules), false, false);
 
 	static_zebra_init();
 	vty_init(master, true);

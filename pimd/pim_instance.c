@@ -57,6 +57,10 @@ static void pim_instance_terminate(struct pim_instance *pim)
 
 	pim_mroute_socket_disable(pim);
 
+#if PIM_IPV == 4
+	pim_autorp_finish(pim);
+#endif
+
 	XFREE(MTYPE_PIM_PLIST_NAME, pim->spt.plist);
 	XFREE(MTYPE_PIM_PLIST_NAME, pim->register_plist);
 
@@ -124,6 +128,10 @@ static struct pim_instance *pim_instance_init(struct vrf *vrf)
 	pim->msdp.hold_time = PIM_MSDP_PEER_HOLD_TIME;
 	pim->msdp.keep_alive = PIM_MSDP_PEER_KA_TIME;
 	pim->msdp.connection_retry = PIM_MSDP_PEER_CONNECT_RETRY_TIME;
+
+#if PIM_IPV == 4
+	pim_autorp_init(pim);
+#endif
 
 	return pim;
 }
@@ -253,6 +261,7 @@ void pim_vrf_terminate(void)
 		if (!pim)
 			continue;
 
+		pim_crp_db_clear(&pim->global_scope);
 		pim_ssmpingd_destroy(pim);
 		pim_instance_terminate(pim);
 

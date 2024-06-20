@@ -381,7 +381,7 @@ DEFPY(fpm_show_status,
 
 		out = ttable_dump(table, "\n");
 		vty_out(vty, "%s\n", out);
-		XFREE(MTYPE_TMP, out);
+		XFREE(MTYPE_TMP_TTABLE, out);
 
 		ttable_del(table);
 	}
@@ -1058,6 +1058,7 @@ static int fpm_nl_enqueue(struct fpm_nl_ctx *fnc, struct zebra_dplane_ctx *ctx)
 	case DPLANE_OP_SRV6_ENCAP_SRCADDR_SET:
 	case DPLANE_OP_NONE:
 	case DPLANE_OP_STARTUP_STAGE:
+	case DPLANE_OP_VLAN_INSTALL:
 		break;
 
 	}
@@ -1336,7 +1337,7 @@ static void fpm_enqueue_l3vni_table(struct hash_bucket *bucket, void *arg)
 	struct zebra_l3vni *zl3vni = bucket->data;
 
 	fra->zl3vni = zl3vni;
-	hash_iterate(zl3vni->rmac_table, fpm_enqueue_rmac_table, zl3vni);
+	hash_iterate(zl3vni->rmac_table, fpm_enqueue_rmac_table, fra);
 }
 
 static void fpm_rmac_send(struct event *t)
@@ -1512,8 +1513,12 @@ static void fpm_process_queue(struct event *t)
 
 	/* Re-schedule if we ran out of buffer space */
 	if (no_bufs) {
-		event_add_event(fnc->fthread->master, fpm_process_queue, fnc, 0,
-				&fnc->t_dequeue);
+		if (processed_contexts)
+			event_add_event(fnc->fthread->master, fpm_process_queue, fnc, 0,
+					&fnc->t_dequeue);
+		else
+			event_add_timer_msec(fnc->fthread->master, fpm_process_queue, fnc, 10,
+					     &fnc->t_dequeue);
 		event_add_timer(fnc->fthread->master, fpm_process_wedged, fnc,
 				DPLANE_FPM_NL_WEDGIE_TIME, &fnc->t_wedged);
 	} else
@@ -1525,7 +1530,7 @@ static void fpm_process_queue(struct event *t)
 	 * until the dataplane thread gets scheduled for new,
 	 * unrelated work.
 	 */
-	if (dplane_provider_out_ctx_queue_len(fnc->prov) > 0)
+	if (processed_contexts)
 		dplane_provider_work_ready();
 }
 
@@ -1678,6 +1683,25 @@ static int fpm_nl_process(struct zebra_dplane_provider *prov)
 
 	fnc = dplane_provider_get_data(prov);
 	limit = dplane_provider_get_work_limit(prov);
+
+	frr_with_mutex (&fnc->ctxqueue_mutex) {
+		cur_queue = dplane_ctx_queue_count(&fnc->ctxqueue);
+	}
+
+	if (cur_queue >= (uint64_t)limit) {
+		if (IS_ZEBRA_DEBUG_FPM)
+			zlog_debug("%s: Already at a limit(%" PRIu64
+				   ") of internal work, hold off",
+				   __func__, cur_queue);
+		limit = 0;
+	} else if (cur_queue != 0) {
+		if (IS_ZEBRA_DEBUG_FPM)
+			zlog_debug("%s: current queue is %" PRIu64
+				   ", limiting to lesser amount of %" PRIu64,
+				   __func__, cur_queue, limit - cur_queue);
+		limit -= cur_queue;
+	}
+
 	for (counter = 0; counter < limit; counter++) {
 		ctx = dplane_provider_dequeue_in_ctx(prov);
 		if (ctx == NULL)

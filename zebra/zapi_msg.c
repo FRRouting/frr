@@ -517,7 +517,7 @@ int zsend_redistribute_route(int cmd, struct zserv *client,
 	struct zapi_nexthop *api_nh;
 	struct nexthop *nexthop;
 	const struct prefix *p, *src_p;
-	uint8_t count = 0;
+	uint16_t count = 0;
 	afi_t afi;
 	size_t stream_size =
 		MAX(ZEBRA_MAX_PACKET_SIZ, sizeof(struct zapi_route));
@@ -647,7 +647,7 @@ static int zsend_nexthop_lookup_mrib(struct zserv *client, struct ipaddr *addr,
 {
 	struct stream *s;
 	unsigned long nump;
-	uint8_t num;
+	uint16_t num;
 	struct nexthop *nexthop;
 
 	/* Get output stream. */
@@ -667,7 +667,7 @@ static int zsend_nexthop_lookup_mrib(struct zserv *client, struct ipaddr *addr,
 		/* remember position for nexthop_num */
 		nump = stream_get_endp(s);
 		/* reserve room for nexthop_num */
-		stream_putc(s, 0);
+		stream_putw(s, 0);
 		nhg = rib_get_fib_nhg(re);
 		for (ALL_NEXTHOPS_PTR(nhg, nexthop)) {
 			if (rnh_nexthop_valid(re, nexthop))
@@ -675,11 +675,11 @@ static int zsend_nexthop_lookup_mrib(struct zserv *client, struct ipaddr *addr,
 		}
 
 		/* store nexthop_num */
-		stream_putc_at(s, nump, num);
+		stream_putw_at(s, nump, num);
 	} else {
 		stream_putc(s, 0); /* distance */
 		stream_putl(s, 0); /* metric */
-		stream_putc(s, 0); /* nexthop_num */
+		stream_putw(s, 0); /* nexthop_num */
 	}
 
 	stream_putw_at(s, 0, stream_get_endp(s));
@@ -735,11 +735,13 @@ static int route_notify_internal(const struct route_node *rn, int type,
 
 	client = zserv_find_client(type, instance);
 	if (!client || !client->notify_owner) {
-		if (IS_ZEBRA_DEBUG_PACKET)
-			zlog_debug(
-				"Not Notifying Owner: %s about prefix %pRN(%u) %d vrf: %u",
-				zebra_route_string(type), rn, table_id, note,
-				vrf_id);
+		if (IS_ZEBRA_DEBUG_PACKET) {
+			struct vrf *vrf = vrf_lookup_by_id(vrf_id);
+
+			zlog_debug("Not Notifying Owner: %s about prefix %pRN(%u) %d vrf: %s",
+				   zebra_route_string(type), rn, table_id, note,
+				   VRF_LOGNAME(vrf));
+		}
 		return 0;
 	}
 
@@ -2129,8 +2131,8 @@ static void zread_route_add(ZAPI_HANDLER_ARGS)
 	vrf_id = zvrf_id(zvrf);
 
 	if (IS_ZEBRA_DEBUG_RECV)
-		zlog_debug("%s: p=(%u:%u)%pFX, msg flags=0x%x, flags=0x%x",
-			   __func__, vrf_id, api.tableid, &api.prefix,
+		zlog_debug("%s: p=(%s:%u)%pFX, msg flags=0x%x, flags=0x%x",
+			   __func__, zvrf_name(zvrf), api.tableid, &api.prefix,
 			   (int)api.message, api.flags);
 
 	/* Allocate new route. */
@@ -2473,22 +2475,6 @@ static void zread_hello(ZAPI_HANDLER_ARGS)
 	}
 stream_failure:
 	return;
-}
-
-/* Unregister all information in a VRF. */
-static void zread_vrf_unregister(ZAPI_HANDLER_ARGS)
-{
-	int i;
-	afi_t afi;
-
-	for (afi = AFI_IP; afi < AFI_MAX; afi++) {
-		for (i = 0; i < ZEBRA_ROUTE_MAX; i++)
-			vrf_bitmap_unset(&client->redist[afi][i],
-					 zvrf_id(zvrf));
-		vrf_bitmap_unset(&client->redist_default[afi], zvrf_id(zvrf));
-		vrf_bitmap_unset(&client->ridinfo[afi], zvrf_id(zvrf));
-		vrf_bitmap_unset(&client->neighinfo[afi], zvrf_id(zvrf));
-	}
 }
 
 /*
@@ -4053,7 +4039,6 @@ void (*const zserv_handlers[])(ZAPI_HANDLER_ARGS) = {
 #if HAVE_BFDD > 0
 	[ZEBRA_BFD_DEST_REPLAY] = zebra_ptm_bfd_dst_replay,
 #endif /* HAVE_BFDD */
-	[ZEBRA_VRF_UNREGISTER] = zread_vrf_unregister,
 	[ZEBRA_VRF_LABEL] = zread_vrf_label,
 	[ZEBRA_BFD_CLIENT_REGISTER] = zebra_ptm_bfd_client_register,
 	[ZEBRA_INTERFACE_ENABLE_RADV] = zebra_interface_radv_enable,

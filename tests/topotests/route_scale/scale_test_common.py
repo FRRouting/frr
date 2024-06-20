@@ -119,7 +119,11 @@ def run_one_setup(r1, s):
             count = d["rib"]
             break
 
-    logger.info("Testing {} routes X {} ecmp".format(count, s["ecmp"]))
+    logger.info(
+        "Testing {} routes X {} ecmp, waiting {} retries {}".format(
+            count, s["ecmp"], wait, retries
+        )
+    )
 
     r1.vtysh_cmd(
         "sharp install route 1.0.0.0 \
@@ -193,8 +197,8 @@ def route_install_helper(iter):
         [2, "two"],
         [4, "four"],
         [8, "eight"],
-        [16, "sixteen", 10, 40],
-        [32, "thirtytwo", 10, 40],
+        [16, "sixteen", 10, 80],
+        [32, "thirtytwo", 10, 80],
     ]
 
     # Build up a list of dicts with params for each step of the test;

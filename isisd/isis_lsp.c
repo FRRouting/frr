@@ -119,6 +119,10 @@ static void lsp_destroy(struct isis_lsp *lsp)
 	lsp_clear_data(lsp);
 
 	if (!LSP_FRAGMENT(lsp->hdr.lsp_id)) {
+		/* Only non-pseudo nodes and non-fragment LSPs can delete nodes. */
+		if (!LSP_PSEUDO_ID(lsp->hdr.lsp_id))
+			isis_dynhn_remove(lsp->area->isis, lsp->hdr.lsp_id);
+
 		if (lsp->lspu.frags) {
 			lsp_remove_frags(&lsp->area->lspdb[lsp->level - 1],
 					lsp->lspu.frags);
@@ -711,10 +715,6 @@ void lsp_print_common(struct isis_lsp *lsp, struct vty *vty, struct json_object 
 	}
 }
 
-#if CONFDATE > 20240916
-CPP_NOTICE("Remove JSON in '-' format")
-#endif
-
 void lsp_print_json(struct isis_lsp *lsp, struct json_object *json,
 	       char dynhost, struct isis *isis)
 {
@@ -728,19 +728,11 @@ void lsp_print_json(struct isis_lsp *lsp, struct json_object *json,
 	own_json = json_object_new_object();
 	json_object_object_add(json, "lsp", own_json);
 	json_object_string_add(own_json, "id", LSPid);
-#if CONFDATE > 20240916
-	CPP_NOTICE("remove own key")
-#endif
 	json_object_string_add(own_json, "own", lsp->own_lsp ? "*" : " ");
 	if (lsp->own_lsp)
 		json_object_boolean_add(own_json, "ownLSP", true);
-	json_object_int_add(json, "pdu-len", lsp->hdr.pdu_len);
 	json_object_int_add(json, "pduLen", lsp->hdr.pdu_len);
 	snprintfrr(buf, sizeof(buf), "0x%08x", lsp->hdr.seqno);
-#if CONFDATE > 20240916
-	CPP_NOTICE("remove seq-number key")
-#endif
-	json_object_string_add(json, "seq-number", buf);
 	json_object_string_add(json, "seqNumber", buf);
 	snprintfrr(buf, sizeof(buf), "0x%04hx", lsp->hdr.checksum);
 	json_object_string_add(json, "chksum", buf);
@@ -751,11 +743,6 @@ void lsp_print_json(struct isis_lsp *lsp, struct json_object *json,
 	} else {
 		json_object_int_add(json, "holdtime", lsp->hdr.rem_lifetime);
 	}
-#if CONFDATE > 20240916
-	CPP_NOTICE("remove att-p-ol key")
-#endif
-	json_object_string_add(
-		json, "att-p-ol", lsp_bits2string(lsp->hdr.lsp_bits, b, sizeof(b)));
 	json_object_string_add(json, "attPOl",
 			       lsp_bits2string(lsp->hdr.lsp_bits, b, sizeof(b)));
 }
@@ -2225,10 +2212,6 @@ void lsp_tick(struct event *thread)
 						next = lspdb_next(
 							&area->lspdb[level],
 							next);
-
-				if (!LSP_PSEUDO_ID(lsp->hdr.lsp_id))
-					isis_dynhn_remove(area->isis,
-							  lsp->hdr.lsp_id);
 
 				lspdb_del(&area->lspdb[level], lsp);
 				lsp_destroy(lsp);

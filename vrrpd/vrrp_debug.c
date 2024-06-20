@@ -13,78 +13,14 @@
 #include "vrrp_debug.h"
 
 /* clang-format off */
-struct debug vrrp_dbg_arp = {0, "VRRP ARP"};
-struct debug vrrp_dbg_auto = {0, "VRRP autoconfiguration events"};
-struct debug vrrp_dbg_ndisc = {0, "VRRP Neighbor Discovery"};
-struct debug vrrp_dbg_pkt = {0, "VRRP packets"};
-struct debug vrrp_dbg_proto = {0, "VRRP protocol events"};
-struct debug vrrp_dbg_sock = {0, "VRRP sockets"};
-struct debug vrrp_dbg_zebra = {0, "VRRP Zebra events"};
-
-struct debug *vrrp_debugs[] = {
-	&vrrp_dbg_arp,
-	&vrrp_dbg_auto,
-	&vrrp_dbg_ndisc,
-	&vrrp_dbg_pkt,
-	&vrrp_dbg_proto,
-	&vrrp_dbg_sock,
-	&vrrp_dbg_zebra
-};
-
-const char *vrrp_debugs_conflines[] = {
-	"debug vrrp arp",
-	"debug vrrp autoconfigure",
-	"debug vrrp ndisc",
-	"debug vrrp packets",
-	"debug vrrp protocol",
-	"debug vrrp sockets",
-	"debug vrrp zebra",
-};
+struct debug vrrp_dbg_arp = {0, "debug vrrp arp", "VRRP ARP"};
+struct debug vrrp_dbg_auto = {0, "debug vrrp autoconfigure", "VRRP autoconfiguration events"};
+struct debug vrrp_dbg_ndisc = {0, "debug vrrp ndisc", "VRRP Neighbor Discovery"};
+struct debug vrrp_dbg_pkt = {0, "debug vrrp packets", "VRRP packets"};
+struct debug vrrp_dbg_proto = {0, "debug vrrp protocol", "VRRP protocol events"};
+struct debug vrrp_dbg_sock = {0, "debug vrrp sockets", "VRRP sockets"};
+struct debug vrrp_dbg_zebra = {0, "debug vrrp zebra", "VRRP Zebra events"};
 /* clang-format on */
-
-/*
- * Set or unset flags on all debugs for vrrpd.
- *
- * flags
- *    The flags to set
- *
- * set
- *    Whether to set or unset the specified flags
- */
-static void vrrp_debug_set_all(uint32_t flags, bool set)
-{
-	for (unsigned int i = 0; i < array_size(vrrp_debugs); i++) {
-		DEBUG_FLAGS_SET(vrrp_debugs[i], flags, set);
-
-		/* if all modes have been turned off, don't preserve options */
-		if (!DEBUG_MODE_CHECK(vrrp_debugs[i], DEBUG_MODE_ALL))
-			DEBUG_CLEAR(vrrp_debugs[i]);
-	}
-}
-
-static int vrrp_debug_config_write_helper(struct vty *vty, bool config)
-{
-	uint32_t mode = DEBUG_MODE_ALL;
-
-	if (config)
-		mode = DEBUG_MODE_CONF;
-
-	for (unsigned int i = 0; i < array_size(vrrp_debugs); i++)
-		if (DEBUG_MODE_CHECK(vrrp_debugs[i], mode))
-			vty_out(vty, "%s\n", vrrp_debugs_conflines[i]);
-
-	return 0;
-}
-
-int vrrp_config_write_debug(struct vty *vty)
-{
-	return vrrp_debug_config_write_helper(vty, true);
-}
-
-int vrrp_debug_status_write(struct vty *vty)
-{
-	return vrrp_debug_config_write_helper(vty, false);
-}
 
 void vrrp_debug_set(struct interface *ifp, uint8_t vrid, int vtynode,
 		    bool onoff, bool proto, bool autoconf, bool pkt, bool sock,
@@ -110,9 +46,13 @@ void vrrp_debug_set(struct interface *ifp, uint8_t vrid, int vtynode,
 
 /* ------------------------------------------------------------------------- */
 
-struct debug_callbacks vrrp_dbg_cbs = {.debug_set_all = vrrp_debug_set_all};
-
 void vrrp_debug_init(void)
 {
-	debug_init(&vrrp_dbg_cbs);
+	debug_install(&vrrp_dbg_arp);
+	debug_install(&vrrp_dbg_auto);
+	debug_install(&vrrp_dbg_ndisc);
+	debug_install(&vrrp_dbg_pkt);
+	debug_install(&vrrp_dbg_proto);
+	debug_install(&vrrp_dbg_sock);
+	debug_install(&vrrp_dbg_zebra);
 }

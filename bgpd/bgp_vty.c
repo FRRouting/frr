@@ -161,9 +161,8 @@ static struct peer_group *listen_range_exists(struct bgp *bgp,
 static void bgp_show_global_graceful_restart_mode_vty(struct vty *vty,
 						      struct bgp *bgp);
 
-static int bgp_show_neighbor_graceful_restart_afi_all(struct vty *vty,
-						      enum show_type type,
-						      const char *ip_str,
+static int bgp_show_neighbor_graceful_restart_afi_all(struct vty *vty, struct bgp *bgp,
+						      enum show_type type, const char *ip_str,
 						      afi_t afi, bool use_json);
 
 static enum node_type bgp_node_type(afi_t afi, safi_t safi)
@@ -302,17 +301,10 @@ static const char *get_afi_safi_json_str(afi_t afi, safi_t safi)
 /* unset srv6 locator */
 static int bgp_srv6_locator_unset(struct bgp *bgp)
 {
-	int ret;
 	struct listnode *node, *nnode;
 	struct srv6_locator_chunk *chunk;
 	struct bgp_srv6_function *func;
 	struct bgp *bgp_vrf;
-
-	/* release chunk notification via ZAPI */
-	ret = bgp_zebra_srv6_manager_release_locator_chunk(
-			bgp->srv6_locator_name);
-	if (ret < 0)
-		return -1;
 
 	/* refresh chunks */
 	for (ALL_LIST_ELEMENTS(bgp->srv6_locator_chunks, node, nnode, chunk)) {
@@ -352,19 +344,27 @@ static int bgp_srv6_locator_unset(struct bgp *bgp)
 			continue;
 
 		/* refresh vpnv4 tovpn_sid_locator */
-		srv6_locator_chunk_free(
-			&bgp_vrf->vpn_policy[AFI_IP].tovpn_sid_locator);
+		srv6_locator_free(bgp_vrf->vpn_policy[AFI_IP].tovpn_sid_locator);
+		bgp_vrf->vpn_policy[AFI_IP].tovpn_sid_locator = NULL;
 
 		/* refresh vpnv6 tovpn_sid_locator */
-		srv6_locator_chunk_free(
-			&bgp_vrf->vpn_policy[AFI_IP6].tovpn_sid_locator);
+		srv6_locator_free(
+			bgp_vrf->vpn_policy[AFI_IP6].tovpn_sid_locator);
+		bgp_vrf->vpn_policy[AFI_IP6].tovpn_sid_locator = NULL;
 
 		/* refresh per-vrf tovpn_sid_locator */
-		srv6_locator_chunk_free(&bgp_vrf->tovpn_sid_locator);
+		srv6_locator_free(bgp_vrf->tovpn_sid_locator);
+		bgp_vrf->tovpn_sid_locator = NULL;
 	}
 
 	/* clear locator name */
 	memset(bgp->srv6_locator_name, 0, sizeof(bgp->srv6_locator_name));
+
+	/* clear SRv6 locator */
+	if (bgp->srv6_locator) {
+		srv6_locator_free(bgp->srv6_locator);
+		bgp->srv6_locator = NULL;
+	}
 
 	return 0;
 }
@@ -878,6 +878,7 @@ int bgp_vty_return(struct vty *vty, enum bgp_create_error_code ret)
 	switch (ret) {
 	case BGP_SUCCESS:
 	case BGP_CREATED:
+	case BGP_INSTANCE_EXISTS:
 	case BGP_GR_NO_OPERATION:
 		break;
 	case BGP_ERR_INVALID_VALUE:
@@ -1417,7 +1418,7 @@ DEFUN_HIDDEN (bgp_local_mac,
 	seq = strtoul(argv[7]->arg, NULL, 10);
 
 	bgp = bgp_get_default();
-	if (!bgp) {
+	if (!bgp || IS_BGP_INSTANCE_HIDDEN(bgp)) {
 		vty_out(vty, "Default BGP instance is not there\n");
 		return CMD_WARNING;
 	}
@@ -1457,7 +1458,7 @@ DEFUN_HIDDEN (no_bgp_local_mac,
 	memset(&ip, 0, sizeof(ip));
 
 	bgp = bgp_get_default();
-	if (!bgp) {
+	if (!bgp || IS_BGP_INSTANCE_HIDDEN(bgp)) {
 		vty_out(vty, "Default BGP instance is not there\n");
 		return CMD_WARNING;
 	}
@@ -1600,8 +1601,12 @@ DEFUN_NOSH (router_bgp,
 		if (is_new_bgp && inst_type == BGP_INSTANCE_TYPE_DEFAULT)
 			vpn_leak_postchange_all();
 
-		if (inst_type == BGP_INSTANCE_TYPE_VRF)
+		if (inst_type == BGP_INSTANCE_TYPE_VRF ||
+		    IS_BGP_INSTANCE_HIDDEN(bgp)) {
 			bgp_vpn_leak_export(bgp);
+			UNSET_FLAG(bgp->flags, BGP_FLAG_INSTANCE_HIDDEN);
+			UNSET_FLAG(bgp->flags, BGP_FLAG_DELETE_IN_PROGRESS);
+		}
 		/* Pending: handle when user tries to change a view to vrf n vv.
 		 */
 		/* for pre-existing bgp instance,
@@ -1673,7 +1678,7 @@ DEFUN (no_router_bgp,
 				argv[idx_asn]->arg);
 			return CMD_WARNING_CONFIG_FAILED;
 		}
-		if (argc > 4) {
+		if (argc > 4 && strncmp(argv[4]->arg, "vrf", 3) == 0) {
 			name = argv[idx_vrf]->arg;
 			if (strmatch(argv[idx_vrf - 1]->text, "vrf")
 			    && strmatch(name, VRF_DEFAULT_NAME))
@@ -4488,16 +4493,6 @@ DEFUN (bgp_network_import_check,
 	return CMD_SUCCESS;
 }
 
-#if CONFDATE > 20241013
-CPP_NOTICE("Drop `bgp network import-check exact` command")
-#endif
-ALIAS_HIDDEN(bgp_network_import_check, bgp_network_import_check_exact_cmd,
-	     "bgp network import-check exact",
-	     BGP_STR
-	     "BGP network command\n"
-	     "Check BGP network route exists in IGP\n"
-	     "Match route precisely\n")
-
 DEFUN (no_bgp_network_import_check,
        no_bgp_network_import_check_cmd,
        "no bgp network import-check",
@@ -5450,7 +5445,7 @@ DEFUN (neighbor_local_as,
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
-	ret = peer_local_as_set(peer, as, 0, 0, argv[idx_number]->arg);
+	ret = peer_local_as_set(peer, as, 0, 0, 0, argv[idx_number]->arg);
 	return bgp_vty_return(vty, ret);
 }
 
@@ -5479,19 +5474,20 @@ DEFUN (neighbor_local_as_no_prepend,
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
-	ret = peer_local_as_set(peer, as, 1, 0, argv[idx_number]->arg);
+	ret = peer_local_as_set(peer, as, 1, 0, 0, argv[idx_number]->arg);
 	return bgp_vty_return(vty, ret);
 }
 
-DEFUN (neighbor_local_as_no_prepend_replace_as,
+DEFPY (neighbor_local_as_no_prepend_replace_as,
        neighbor_local_as_no_prepend_replace_as_cmd,
-       "neighbor <A.B.C.D|X:X::X:X|WORD> local-as ASNUM no-prepend replace-as",
+       "neighbor <A.B.C.D|X:X::X:X|WORD> local-as ASNUM no-prepend replace-as [dual-as$dual_as]",
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
        "Specify a local-as number\n"
        "AS number expressed in dotted or plain format used as local AS\n"
        "Do not prepend local-as to updates from ebgp peers\n"
-       "Do not prepend local-as to updates from ibgp peers\n")
+       "Do not prepend local-as to updates from ibgp peers\n"
+       "Allow peering with a global AS number or local-as number\n")
 {
 	int idx_peer = 1;
 	int idx_number = 3;
@@ -5509,20 +5505,21 @@ DEFUN (neighbor_local_as_no_prepend_replace_as,
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
-	ret = peer_local_as_set(peer, as, 1, 1, argv[idx_number]->arg);
+	ret = peer_local_as_set(peer, as, 1, 1, dual_as, argv[idx_number]->arg);
 	return bgp_vty_return(vty, ret);
 }
 
 DEFUN (no_neighbor_local_as,
        no_neighbor_local_as_cmd,
-       "no neighbor <A.B.C.D|X:X::X:X|WORD> local-as [ASNUM [no-prepend [replace-as]]]",
+       "no neighbor <A.B.C.D|X:X::X:X|WORD> local-as [ASNUM [no-prepend [replace-as] [dual-as]]]",
        NO_STR
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
        "Specify a local-as number\n"
        "AS number expressed in dotted or plain format used as local AS\n"
        "Do not prepend local-as to updates from ebgp peers\n"
-       "Do not prepend local-as to updates from ibgp peers\n")
+       "Do not prepend local-as to updates from ibgp peers\n"
+       "Allow peering with a global AS number or local-as number\n")
 {
 	int idx_peer = 2;
 	struct peer *peer;
@@ -8416,7 +8413,7 @@ DEFPY (bgp_condadv_period,
 
 DEFPY (bgp_def_originate_eval,
        bgp_def_originate_eval_cmd,
-       "[no$no] bgp default-originate timer (0-3600)$timer",
+       "[no$no] bgp default-originate timer (0-65535)$timer",
        NO_STR
        BGP_STR
        "Control default-originate\n"
@@ -8425,8 +8422,7 @@ DEFPY (bgp_def_originate_eval,
 {
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
 
-	bgp->rmap_def_originate_eval_timer =
-		no ? RMAP_DEFAULT_ORIGINATE_EVAL_TIMER : timer;
+	bgp->rmap_def_originate_eval_timer = no ? 0 : timer;
 
 	if (bgp->t_rmap_def_originate_eval)
 		EVENT_OFF(bgp->t_rmap_def_originate_eval);
@@ -10444,9 +10440,9 @@ DEFPY(af_import_vrf_route_map, af_import_vrf_route_map_cmd,
 	bgp_default = bgp_get_default();
 	if (!bgp_default) {
 		int32_t ret;
-		as_t as = bgp->as;
+		as_t as = AS_UNSPECIFIED;
 
-		/* Auto-create assuming the same AS */
+		/* Auto-create with AS_UNSPECIFIED, to be filled in later */
 		ret = bgp_get_vty(&bgp_default, &as, NULL,
 				  BGP_INSTANCE_TYPE_DEFAULT, NULL,
 				  ASNOTATION_UNDEFINED);
@@ -10456,6 +10452,8 @@ DEFPY(af_import_vrf_route_map, af_import_vrf_route_map_cmd,
 				"VRF default is not configured as a bgp instance\n");
 			return CMD_WARNING;
 		}
+
+		SET_FLAG(bgp_default->flags, BGP_FLAG_INSTANCE_HIDDEN);
 	}
 
 	vpn_leak_prechange(dir, afi, bgp_get_default(), bgp);
@@ -10559,7 +10557,9 @@ DEFPY(bgp_imexport_vrf, bgp_imexport_vrf_cmd,
 
 	bgp_default = bgp_get_default();
 	if (!bgp_default) {
-		/* Auto-create assuming the same AS */
+		as = AS_UNSPECIFIED;
+
+		/* Auto-create with AS_UNSPECIFIED, to be filled in later */
 		ret = bgp_get_vty(&bgp_default, &as, NULL,
 				  BGP_INSTANCE_TYPE_DEFAULT, NULL,
 				  ASNOTATION_UNDEFINED);
@@ -10569,6 +10569,8 @@ DEFPY(bgp_imexport_vrf, bgp_imexport_vrf_cmd,
 				"VRF default is not configured as a bgp instance\n");
 			return CMD_WARNING;
 		}
+
+		SET_FLAG(bgp_default->flags, BGP_FLAG_INSTANCE_HIDDEN);
 	}
 
 	vrf_bgp = bgp_lookup_by_name(import_name);
@@ -10576,22 +10578,25 @@ DEFPY(bgp_imexport_vrf, bgp_imexport_vrf_cmd,
 		if (strcmp(import_name, VRF_DEFAULT_NAME) == 0) {
 			vrf_bgp = bgp_default;
 		} else {
-			/* Auto-create assuming the same AS */
+			as = AS_UNSPECIFIED;
+
+			/* Auto-create with AS_UNSPECIFIED, fill in later */
 			ret = bgp_get_vty(&vrf_bgp, &as, import_name, bgp_type,
 					  NULL, ASNOTATION_UNDEFINED);
+			if (ret) {
+				vty_out(vty,
+					"VRF %s is not configured as a bgp instance\n",
+					import_name);
+				return CMD_WARNING;
+			}
+
+			SET_FLAG(vrf_bgp->flags, BGP_FLAG_INSTANCE_HIDDEN);
 
 			/* Auto created VRF instances should be marked
 			 * properly, otherwise we have a state after bgpd
 			 * restart where VRF instance has default VRF's ASN.
 			 */
 			SET_FLAG(vrf_bgp->vrf_flags, BGP_VRF_AUTO);
-		}
-
-		if (ret) {
-			vty_out(vty,
-				"VRF %s is not configured as a bgp instance\n",
-				import_name);
-			return CMD_WARNING;
 		}
 	}
 
@@ -10878,7 +10883,7 @@ DEFPY (bgp_srv6_locator,
 	snprintf(bgp->srv6_locator_name,
 		 sizeof(bgp->srv6_locator_name), "%s", name);
 
-	ret = bgp_zebra_srv6_manager_get_locator_chunk(name);
+	ret = bgp_zebra_srv6_manager_get_locator(name);
 	if (ret < 0)
 		return CMD_WARNING_CONFIG_FAILED;
 
@@ -10929,6 +10934,17 @@ DEFPY (show_bgp_srv6,
 		return CMD_SUCCESS;
 
 	vty_out(vty, "locator_name: %s\n", bgp->srv6_locator_name);
+	if (bgp->srv6_locator) {
+		vty_out(vty, "  prefix: %pFX\n", &bgp->srv6_locator->prefix);
+		vty_out(vty, "  block-length: %d\n",
+			bgp->srv6_locator->block_bits_length);
+		vty_out(vty, "  node-length: %d\n",
+			bgp->srv6_locator->node_bits_length);
+		vty_out(vty, "  func-length: %d\n",
+			bgp->srv6_locator->function_bits_length);
+		vty_out(vty, "  arg-length: %d\n",
+			bgp->srv6_locator->argument_bits_length);
+	}
 	vty_out(vty, "locator_chunks:\n");
 	for (ALL_LIST_ELEMENTS_RO(bgp->srv6_locator_chunks, node, chunk)) {
 		vty_out(vty, "- %pFX\n", &chunk->prefix);
@@ -11538,7 +11554,7 @@ DEFUN(show_bgp_martian_nexthop_db, show_bgp_martian_nexthop_db_cmd,
 	else
 		bgp = bgp_get_default();
 
-	if (!bgp) {
+	if (!bgp || IS_BGP_INSTANCE_HIDDEN(bgp)) {
 		vty_out(vty, "%% No BGP process is configured\n");
 		return CMD_WARNING;
 	}
@@ -12768,6 +12784,9 @@ static void bgp_show_all_instances_summary_vty(struct vty *vty, afi_t afi,
 
 	for (ALL_LIST_ELEMENTS(bm->bgp, node, nnode, bgp)) {
 		if (CHECK_FLAG(bgp->vrf_flags, BGP_VRF_AUTO))
+			continue;
+
+		if (IS_BGP_INSTANCE_HIDDEN(bgp))
 			continue;
 
 		nbr_output = true;
@@ -14040,6 +14059,10 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, bool use_json,
 		if (CHECK_FLAG(p->flags, PEER_FLAG_LOCAL_AS_REPLACE_AS))
 			json_object_boolean_true_add(json_neigh,
 						     "localAsReplaceAs");
+
+		json_object_boolean_add(json_neigh, "localAsReplaceAsDualAs",
+					!!CHECK_FLAG(p->flags,
+						     PEER_FLAG_DUAL_AS));
 	} else {
 		if (p->as_type == AS_SPECIFIED ||
 		    CHECK_FLAG(p->as_type, AS_AUTO) ||
@@ -14054,13 +14077,15 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, bool use_json,
 		vty_out(vty, ASN_FORMAT(bgp->asnotation),
 			p->change_local_as ? &p->change_local_as
 					   : &p->local_as);
-		vty_out(vty, "%s%s, ",
+		vty_out(vty, "%s%s%s, ",
 			CHECK_FLAG(p->flags, PEER_FLAG_LOCAL_AS_NO_PREPEND)
 				? " no-prepend"
 				: "",
 			CHECK_FLAG(p->flags, PEER_FLAG_LOCAL_AS_REPLACE_AS)
 				? " replace-as"
-				: "");
+				: "",
+			CHECK_FLAG(p->flags, PEER_FLAG_DUAL_AS) ? " dual-as"
+								: "");
 	}
 	/* peer type internal or confed-internal */
 	if ((p->as == p->local_as) || (CHECK_FLAG(p->as_type, AS_INTERNAL))) {
@@ -16108,20 +16133,12 @@ static int bgp_show_neighbor(struct vty *vty, struct bgp *bgp,
 	return CMD_SUCCESS;
 }
 
-static void bgp_show_neighbor_graceful_restart_vty(struct vty *vty,
-						   enum show_type type,
-						   const char *ip_str,
+static void bgp_show_neighbor_graceful_restart_vty(struct vty *vty, struct bgp *bgp,
+						   enum show_type type, const char *ip_str,
 						   afi_t afi, json_object *json)
 {
-
 	int ret;
-	struct bgp *bgp;
 	union sockunion su;
-
-	bgp = bgp_get_default();
-
-	if (!bgp)
-		return;
 
 	if (!json)
 		bgp_show_global_graceful_restart_mode_vty(vty, bgp);
@@ -16156,6 +16173,9 @@ static void bgp_show_all_instances_neighbors_vty(struct vty *vty,
 
 	for (ALL_LIST_ELEMENTS(bm->bgp, node, nnode, bgp)) {
 		if (CHECK_FLAG(bgp->vrf_flags, BGP_VRF_AUTO))
+			continue;
+
+		if (IS_BGP_INSTANCE_HIDDEN(bgp))
 			continue;
 
 		nbr_output = true;
@@ -16274,48 +16294,41 @@ static int bgp_show_neighbor_vty(struct vty *vty, const char *name,
 	return CMD_SUCCESS;
 }
 
-
-
 /* "show [ip] bgp neighbors graceful-restart" commands.  */
-DEFUN (show_ip_bgp_neighbors_graceful_restart,
-	show_ip_bgp_neighbors_graceful_restart_cmd,
-	"show bgp [<ipv4|ipv6>] neighbors [<A.B.C.D|X:X::X:X|WORD>] graceful-restart [json]",
-	SHOW_STR
-	BGP_STR
-	IP_STR
-	IPV6_STR
-	NEIGHBOR_STR
-	"Neighbor to display information about\n"
-	"Neighbor to display information about\n"
-	"Neighbor on BGP configured interface\n"
-	GR_SHOW
+DEFPY (show_ip_bgp_neighbors_graceful_restart,
+       show_ip_bgp_neighbors_graceful_restart_cmd,
+       "show bgp [<ipv4|ipv6>]$afi [<view|vrf> VIEWVRFNAME$vrf] neighbors [<A.B.C.D|X:X::X:X|WORD>$neigh] graceful-restart [json]$json",
+       SHOW_STR
+       BGP_STR
+       IP_STR
+       IPV6_STR
+       BGP_INSTANCE_HELP_STR
+       NEIGHBOR_STR
+       "Neighbor to display information about\n"
+       "Neighbor to display information about\n"
+       "Neighbor on BGP configured interface\n"
+       GR_SHOW
        JSON_STR)
 {
-	char *sh_arg = NULL;
-	enum show_type sh_type;
-	int idx = 0;
-	afi_t afi = AFI_MAX;
-	bool uj = use_json(argc, argv);
+	enum show_type sh_type = show_all;
+	afi_t afiz = AFI_IP;
+	bool uj = !!json;
+	struct bgp *bgp;
 
-	if (!argv_find_and_parse_afi(argv, argc, &idx, &afi))
-		afi = AFI_MAX;
+	if (afi)
+		afiz = bgp_vty_afi_from_str(afi);
 
-	idx++;
-
-	if (argv_find(argv, argc, "A.B.C.D", &idx)
-	    || argv_find(argv, argc, "X:X::X:X", &idx)
-	    || argv_find(argv, argc, "WORD", &idx)) {
+	if (neigh)
 		sh_type = show_peer;
-		sh_arg = argv[idx]->arg;
-	} else
-		sh_type = show_all;
 
-	if (!argv_find(argv, argc, "graceful-restart", &idx))
-		return CMD_SUCCESS;
+	bgp = vrf ? bgp_lookup_by_name(vrf) : bgp_get_default();
 
+	if (!bgp) {
+		vty_out(vty, "No such bgp instance %s", vrf ? vrf : "");
+		return CMD_WARNING;
+	}
 
-	return bgp_show_neighbor_graceful_restart_afi_all(vty, sh_type, sh_arg,
-							  afi, uj);
+	return bgp_show_neighbor_graceful_restart_afi_all(vty, bgp, sh_type, neigh, afiz, uj);
 }
 
 /* "show [ip] bgp neighbors" commands.  */
@@ -16489,9 +16502,8 @@ static void bgp_show_global_graceful_restart_mode_vty(struct vty *vty,
 	vty_out(vty, "\n");
 }
 
-static int bgp_show_neighbor_graceful_restart_afi_all(struct vty *vty,
-						      enum show_type type,
-						      const char *ip_str,
+static int bgp_show_neighbor_graceful_restart_afi_all(struct vty *vty, struct bgp *bgp,
+						      enum show_type type, const char *ip_str,
 						      afi_t afi, bool use_json)
 {
 	json_object *json = NULL;
@@ -16503,14 +16515,11 @@ static int bgp_show_neighbor_graceful_restart_afi_all(struct vty *vty,
 		afi = AFI_IP;
 
 		while ((afi != AFI_L2VPN) && (afi < AFI_MAX)) {
-
-			bgp_show_neighbor_graceful_restart_vty(
-				vty, type, ip_str, afi, json);
+			bgp_show_neighbor_graceful_restart_vty(vty, bgp, type, ip_str, afi, json);
 			afi++;
 		}
 	} else if (afi != AFI_MAX) {
-		bgp_show_neighbor_graceful_restart_vty(vty, type, ip_str, afi,
-						       json);
+		bgp_show_neighbor_graceful_restart_vty(vty, bgp, type, ip_str, afi, json);
 	} else {
 		if (json)
 			json_object_free(json);
@@ -16813,6 +16822,9 @@ static void bgp_show_all_instances_updgrps_vty(struct vty *vty, afi_t afi,
 		if (CHECK_FLAG(bgp->vrf_flags, BGP_VRF_AUTO))
 			continue;
 
+		if (IS_BGP_INSTANCE_HIDDEN(bgp))
+			continue;
+
 		if (!uj)
 			vty_out(vty, "\nInstance %s:\n",
 				(bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT)
@@ -16935,7 +16947,7 @@ DEFUN (show_bgp_updgrps_stats,
 	struct bgp *bgp;
 
 	bgp = bgp_get_default();
-	if (bgp)
+	if (bgp && !IS_BGP_INSTANCE_HIDDEN(bgp))
 		update_group_show_stats(bgp, vty);
 
 	return CMD_SUCCESS;
@@ -17072,8 +17084,13 @@ static int bgp_show_one_peer_group(struct vty *vty, struct peer_group *group,
 			vty_out(vty, "\nBGP peer-group %s\n", group->name);
 	}
 
-	if ((group->bgp->as == conf->as) ||
-	    CHECK_FLAG(conf->as_type, AS_INTERNAL)) {
+	if (CHECK_FLAG(conf->as_type, AS_AUTO)) {
+		if (json)
+			json_object_string_add(json_peer_group, "type", "auto");
+		else
+			vty_out(vty, "  Peer-group type is auto\n");
+	} else if ((group->bgp->as == conf->as) ||
+		   CHECK_FLAG(conf->as_type, AS_INTERNAL)) {
 		if (json)
 			json_object_string_add(json_peer_group, "type",
 					       "internal");
@@ -18647,6 +18664,8 @@ static void bgp_config_write_peer_global(struct vty *vty, struct bgp *bgp,
 			vty_out(vty, " no-prepend");
 		if (peergroup_flag_check(peer, PEER_FLAG_LOCAL_AS_REPLACE_AS))
 			vty_out(vty, " replace-as");
+		if (peergroup_flag_check(peer, PEER_FLAG_DUAL_AS))
+			vty_out(vty, " dual-as");
 		vty_out(vty, "\n");
 	}
 
@@ -18678,11 +18697,8 @@ static void bgp_config_write_peer_global(struct vty *vty, struct bgp *bgp,
 			peer->password);
 
 	/* neighbor solo */
-	if (CHECK_FLAG(peer->flags, PEER_FLAG_LONESOUL)) {
-		if (!peer_group_active(peer)) {
-			vty_out(vty, " neighbor %s solo\n", addr);
-		}
-	}
+	if (peergroup_flag_check(peer, PEER_FLAG_LONESOUL))
+		vty_out(vty, " neighbor %s solo\n", addr);
 
 	/* BGP port */
 	if (peer->port != BGP_PORT_DEFAULT) {
@@ -18927,6 +18943,10 @@ static void bgp_config_write_peer_af(struct vty *vty, struct bgp *bgp,
 	struct peer *g_peer = NULL;
 	char *addr;
 	bool flag_scomm, flag_secomm, flag_slcomm;
+
+	/* skip hidden default vrf bgp instance */
+	if (IS_BGP_INSTANCE_HIDDEN(bgp))
+		return;
 
 	/* Skip dynamic neighbors. */
 	if (peer_dynamic_neighbor(peer))
@@ -19233,6 +19253,9 @@ static void bgp_config_write_family(struct vty *vty, struct bgp *bgp, afi_t afi,
 	struct peer_group *group;
 	struct listnode *node, *nnode;
 
+	/* skip hidden default vrf bgp instance */
+	if (IS_BGP_INSTANCE_HIDDEN(bgp))
+		return;
 
 	vty_frame(vty, " !\n address-family ");
 	if (afi == AFI_IP) {
@@ -19413,6 +19436,10 @@ int bgp_config_write(struct vty *vty)
 
 		/* skip all auto created vrf as they dont have user config */
 		if (CHECK_FLAG(bgp->vrf_flags, BGP_VRF_AUTO))
+			continue;
+
+		/* skip hidden default vrf bgp instance */
+		if (IS_BGP_INSTANCE_HIDDEN(bgp))
 			continue;
 
 		/* Router bgp ASN */
@@ -19778,8 +19805,9 @@ int bgp_config_write(struct vty *vty)
 				bgp->condition_check_period);
 
 		/* default-originate timer configuration */
-		if (bgp->rmap_def_originate_eval_timer !=
-		    RMAP_DEFAULT_ORIGINATE_EVAL_TIMER)
+		if (bgp->rmap_def_originate_eval_timer &&
+		    bgp->rmap_def_originate_eval_timer !=
+			    RMAP_DEFAULT_ORIGINATE_EVAL_TIMER)
 			vty_out(vty, " bgp default-originate timer %u\n",
 				bgp->rmap_def_originate_eval_timer);
 
@@ -20620,7 +20648,6 @@ void bgp_vty_init(void)
 
 	/* "bgp network import-check" commands. */
 	install_element(BGP_NODE, &bgp_network_import_check_cmd);
-	install_element(BGP_NODE, &bgp_network_import_check_exact_cmd);
 	install_element(BGP_NODE, &no_bgp_network_import_check_cmd);
 
 	/* "bgp default local-preference" commands. */

@@ -165,6 +165,11 @@ int pim_debug_config_write(struct vty *vty)
 		++writes;
 	}
 
+	if (PIM_DEBUG_AUTORP) {
+		vty_out(vty, "debug pim autorp\n");
+		++writes;
+	}
+
 	return writes;
 }
 
@@ -182,6 +187,10 @@ int pim_global_config_write_worker(struct pim_instance *pim, struct vty *vty)
 	}
 
 	writes += pim_rp_config_write(pim, vty);
+#if PIM_IPV == 4
+	writes += pim_autorp_config_write(pim, vty);
+#endif
+	writes += pim_cand_config_write(pim, vty);
 
 	if (pim->vrf->vrf_id == VRF_DEFAULT) {
 		if (router->register_suppress_time
@@ -266,6 +275,11 @@ static int gm_config_write(struct vty *vty, int writes,
 	/* IF ip igmp */
 	if (pim_ifp->gm_enable) {
 		vty_out(vty, " ip igmp\n");
+		++writes;
+	}
+
+	if (pim_ifp->gm_proxy) {
+		vty_out(vty, " ip igmp proxy\n");
 		++writes;
 	}
 

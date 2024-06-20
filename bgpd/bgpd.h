@@ -270,7 +270,7 @@ struct vpn_policy {
 	 */
 	uint32_t tovpn_sid_index; /* unset => set to 0 */
 	struct in6_addr *tovpn_sid;
-	struct srv6_locator_chunk *tovpn_sid_locator;
+	struct srv6_locator *tovpn_sid_locator;
 	uint32_t tovpn_sid_transpose_label;
 	struct in6_addr *tovpn_zebra_vrf_sid_last_sent;
 };
@@ -550,6 +550,7 @@ struct bgp {
 #define BGP_FLAG_ENFORCE_FIRST_AS (1ULL << 36)
 #define BGP_FLAG_DYNAMIC_CAPABILITY (1ULL << 37)
 #define BGP_FLAG_VNI_DOWN		 (1ULL << 38)
+#define BGP_FLAG_INSTANCE_HIDDEN	 (1ULL << 39)
 
 	/* BGP default address-families.
 	 * New peers inherit enabled afi/safis from bgp instance.
@@ -836,11 +837,12 @@ struct bgp {
 	/* BGP VPN SRv6 backend */
 	bool srv6_enabled;
 	char srv6_locator_name[SRV6_LOCNAME_SIZE];
+	struct srv6_locator *srv6_locator;
 	struct list *srv6_locator_chunks;
 	struct list *srv6_functions;
 	uint32_t tovpn_sid_index; /* unset => set to 0 */
 	struct in6_addr *tovpn_sid;
-	struct srv6_locator_chunk *tovpn_sid_locator;
+	struct srv6_locator *tovpn_sid_locator;
 	uint32_t tovpn_sid_transpose_label;
 	struct in6_addr *tovpn_zebra_vrf_sid_last_sent;
 
@@ -878,6 +880,7 @@ DECLARE_HOOK(bgp_snmp_traps_config_write, (struct vty *vty), (vty));
 DECLARE_HOOK(bgp_config_end, (struct bgp *bgp), (bgp));
 DECLARE_HOOK(bgp_hook_vrf_update, (struct vrf *vrf, bool enabled),
 	     (vrf, enabled));
+DECLARE_HOOK(bgp_instance_state, (struct bgp *bgp), (bgp));
 
 /* Thread callback information */
 struct afi_safi_info {
@@ -1506,6 +1509,7 @@ struct peer {
 #define PEER_FLAG_CAPABILITY_FQDN (1ULL << 37)  /* fqdn capability */
 #define PEER_FLAG_AS_LOOP_DETECTION (1ULL << 38) /* as path loop detection */
 #define PEER_FLAG_EXTENDED_LINK_BANDWIDTH (1ULL << 39)
+#define PEER_FLAG_DUAL_AS		  (1ULL << 40)
 
 	/*
 	 *GR-Disabled mode means unset PEER_FLAG_GRACEFUL_RESTART
@@ -1827,16 +1831,13 @@ struct peer {
 	struct stream *last_reset_cause;
 
 	/* The kind of route-map Flags.*/
-	uint16_t rmap_type;
+	uint8_t rmap_type;
 #define PEER_RMAP_TYPE_IN             (1U << 0) /* neighbor route-map in */
 #define PEER_RMAP_TYPE_OUT            (1U << 1) /* neighbor route-map out */
 #define PEER_RMAP_TYPE_NETWORK        (1U << 2) /* network route-map */
 #define PEER_RMAP_TYPE_REDISTRIBUTE   (1U << 3) /* redistribute route-map */
 #define PEER_RMAP_TYPE_DEFAULT        (1U << 4) /* default-originate route-map */
-#define PEER_RMAP_TYPE_NOSET          (1U << 5) /* not allow to set commands */
-#define PEER_RMAP_TYPE_IMPORT         (1U << 6) /* neighbor route-map import */
-#define PEER_RMAP_TYPE_EXPORT         (1U << 7) /* neighbor route-map export */
-#define PEER_RMAP_TYPE_AGGREGATE      (1U << 8) /* aggregate-address route-map */
+#define PEER_RMAP_TYPE_AGGREGATE      (1U << 5) /* aggregate-address route-map */
 
 	/** Peer overwrite configuration. */
 	struct bfd_session_config {
@@ -2154,6 +2155,7 @@ enum bgp_clear_type {
 enum bgp_create_error_code {
 	BGP_SUCCESS = 0,
 	BGP_CREATED = 1,
+	BGP_INSTANCE_EXISTS = 2,
 	BGP_ERR_INVALID_VALUE = -1,
 	BGP_ERR_INVALID_FLAG = -2,
 	BGP_ERR_INVALID_AS = -3,
@@ -2445,7 +2447,7 @@ extern int peer_allowas_in_set(struct peer *, afi_t, safi_t, int, int);
 extern int peer_allowas_in_unset(struct peer *, afi_t, safi_t);
 
 extern int peer_local_as_set(struct peer *peer, as_t as, bool no_prepend,
-			     bool replace_as, const char *as_str);
+			     bool replace_as, bool dual_as, const char *as_str);
 extern int peer_local_as_unset(struct peer *);
 
 extern int peer_prefix_list_set(struct peer *, afi_t, safi_t, int,
@@ -2824,6 +2826,8 @@ extern struct peer *peer_new(struct bgp *bgp);
 extern struct peer *peer_lookup_in_view(struct vty *vty, struct bgp *bgp,
 					const char *ip_str, bool use_json);
 extern int bgp_lookup_by_as_name_type(struct bgp **bgp_val, as_t *as,
+				      const char *as_pretty,
+				      enum asnotation_mode asnotation,
 				      const char *name,
 				      enum bgp_instance_type inst_type);
 
@@ -2864,5 +2868,18 @@ extern void bgp_session_reset_safe(struct peer *peer, struct listnode **nnode);
 #pragma FRR printfrr_ext "%pBP" (struct peer *)
 /* clang-format on */
 #endif
+
+/* Macro to check if default bgp instance is hidden */
+#define IS_BGP_INSTANCE_HIDDEN(_bgp)                                           \
+	(CHECK_FLAG(_bgp->flags, BGP_FLAG_INSTANCE_HIDDEN) &&                  \
+	 (_bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT ||                      \
+	  _bgp->inst_type == BGP_INSTANCE_TYPE_VRF))
+
+/* Macro to check if bgp instance delete in-progress and !hidden */
+#define BGP_INSTANCE_HIDDEN_DELETE_IN_PROGRESS(_bgp, _afi, _safi)              \
+	(CHECK_FLAG(_bgp->flags, BGP_FLAG_DELETE_IN_PROGRESS) &&               \
+	 !IS_BGP_INSTANCE_HIDDEN(_bgp) &&                                      \
+	 !(_afi == AFI_IP && _safi == SAFI_MPLS_VPN) &&                        \
+	 !(_afi == AFI_IP6 && _safi == SAFI_MPLS_VPN))
 
 #endif /* _QUAGGA_BGPD_H */

@@ -108,8 +108,8 @@ struct route_entry {
 	uint32_t nexthop_mtu;
 
 	/* Flags of this route.
-	 * This flag's definition is in lib/zebra.h ZEBRA_FLAG_* and is exposed
-	 * to clients via Zserv
+	 * This flag's definition is in lib/zclient.h ZEBRA_FLAG_* and is
+	 * exposed to clients via Zserv
 	 */
 	uint32_t flags;
 
@@ -326,6 +326,7 @@ typedef struct rib_tables_iter_t_ {
 
 /* Events/reasons triggering a RIB update. */
 enum rib_update_event {
+	RIB_UPDATE_INTERFACE_DOWN,
 	RIB_UPDATE_KERNEL,
 	RIB_UPDATE_RMAP_CHANGE,
 	RIB_UPDATE_OTHER,
@@ -395,7 +396,7 @@ extern int rib_add_multipath_nhe(afi_t afi, safi_t safi, struct prefix *p,
 
 extern void rib_delete(afi_t afi, safi_t safi, vrf_id_t vrf_id, int type,
 		       unsigned short instance, uint32_t flags,
-		       struct prefix *p, struct prefix_ipv6 *src_p,
+		       const struct prefix *p, const struct prefix_ipv6 *src_p,
 		       const struct nexthop *nh, uint32_t nhe_id,
 		       uint32_t table_id, uint32_t metric, uint8_t distance,
 		       bool fromkernel);
@@ -406,9 +407,6 @@ extern struct route_entry *rib_match(afi_t afi, safi_t safi, vrf_id_t vrf_id,
 extern struct route_entry *rib_match_multicast(afi_t afi, vrf_id_t vrf_id,
 					       union g_addr *gaddr,
 					       struct route_node **rn_out);
-
-extern struct route_entry *rib_lookup_ipv4(struct prefix_ipv4 *p,
-					   vrf_id_t vrf_id);
 
 extern void rib_update(enum rib_update_event event);
 extern void rib_update_table(struct route_table *table,
@@ -476,6 +474,8 @@ extern uint8_t route_distance(int type);
 
 extern void zebra_rib_evaluate_rn_nexthops(struct route_node *rn, uint32_t seq,
 					   bool rt_delete);
+
+extern void rib_update_handle_vrf_all(enum rib_update_event event, int rtype);
 
 /*
  * rib_find_rn_from_ctx
@@ -628,10 +628,15 @@ extern int rib_add_gr_run(afi_t afi, vrf_id_t vrf_id, uint8_t proto,
 			  uint8_t instance, time_t restart_time);
 
 extern void zebra_vty_init(void);
+extern uint32_t zebra_rib_dplane_results_count(void);
 
 extern pid_t pid;
 
 extern uint32_t rt_table_main_id;
+
+void route_entry_dump_nh(const struct route_entry *re, const char *straddr,
+			 const struct vrf *re_vrf,
+			 const struct nexthop *nexthop);
 
 /* Name of hook calls */
 #define ZEBRA_ON_RIB_PROCESS_HOOK_CALL "on_rib_process_dplane_results"

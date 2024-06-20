@@ -1098,6 +1098,15 @@ struct ospf_interface *add_ospf_interface(struct connected *co,
 	oi->p2mp_delay_reflood = IF_DEF_PARAMS(co->ifp)->p2mp_delay_reflood;
 	oi->p2mp_non_broadcast = IF_DEF_PARAMS(co->ifp)->p2mp_non_broadcast;
 
+	/*
+	 * If a neighbor filter is configured, update the neighbor filter
+	 * for the interface.
+	 */
+	if (OSPF_IF_PARAM_CONFIGURED(IF_DEF_PARAMS(co->ifp), nbr_filter_name))
+		oi->nbr_filter = prefix_list_lookup(AFI_IP,
+						    IF_DEF_PARAMS(co->ifp)
+							    ->nbr_filter_name);
+
 	/* Add pseudo neighbor. */
 	ospf_nbr_self_reset(oi, oi->ospf->router_id);
 
@@ -1721,6 +1730,8 @@ int ospf_area_nssa_unset(struct ospf *ospf, struct in_addr area_id)
 	area->no_summary = 0;
 	area->suppress_fa = 0;
 	area->NSSATranslatorRole = OSPF_NSSA_ROLE_CANDIDATE;
+	if (area->NSSATranslatorState == OSPF_NSSA_TRANSLATE_ENABLED)
+		ospf_asbr_status_update(ospf, --ospf->redistribute);
 	area->NSSATranslatorState = OSPF_NSSA_TRANSLATE_DISABLED;
 	area->NSSATranslatorStabilityInterval = OSPF_NSSA_TRANS_STABLE_DEFAULT;
 	ospf_area_type_set(area, OSPF_AREA_DEFAULT);

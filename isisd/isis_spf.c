@@ -1469,13 +1469,12 @@ static void spf_adj_list_parse_tlv(struct isis_spftree *spftree,
 		sadj->metric = metric;
 	if (oldmetric)
 		SET_FLAG(flags, F_ISIS_SPF_ADJ_OLDMETRIC);
+	if ((oldmetric && sadj->metric == ISIS_NARROW_METRIC_INFINITY) ||
+	    (!oldmetric && sadj->metric == ISIS_WIDE_METRIC_INFINITY))
+		SET_FLAG(flags, F_ISIS_SPF_ADJ_METRIC_INFINITY);
 	sadj->lsp = lsp;
 	sadj->subtlvs = subtlvs;
 	sadj->flags = flags;
-
-	if ((oldmetric && metric == ISIS_NARROW_METRIC_INFINITY)
-	    || (!oldmetric && metric == ISIS_WIDE_METRIC_INFINITY))
-		SET_FLAG(flags, F_ISIS_SPF_ADJ_METRIC_INFINITY);
 
 	/* Set real adjacency. */
 	if (!CHECK_FLAG(spftree->flags, F_SPFTREE_NO_ADJACENCIES)
@@ -2337,7 +2336,7 @@ static void isis_print_paths(struct vty *vty, struct isis_vertex_queue *queue,
 	if (json == NULL) {
 		table = ttable_dump(tt, "\n");
 		vty_out(vty, "%s\n", table);
-		XFREE(MTYPE_TMP, table);
+		XFREE(MTYPE_TMP_TTABLE, table);
 	} else
 		*json = ttable_json_with_json_text(
 			tt, "ssdsss",
@@ -3016,7 +3015,7 @@ void isis_print_routes(struct vty *vty, struct isis_spftree *spftree,
 
 		table = ttable_dump(tt, "\n");
 		vty_out(vty, "%s\n", table);
-		XFREE(MTYPE_TMP, table);
+		XFREE(MTYPE_TMP_TTABLE, table);
 	} else if (json) {
 		*json = ttable_json_with_json_text(
 			tt, prefix_sid ? "sdssdsdd" : "sdsss",
@@ -3259,6 +3258,7 @@ DEFUN(show_isis_route, show_isis_route_cmd,
 	json_object *json = NULL, *json_vrf = NULL;
 	uint8_t algorithm = SR_ALGORITHM_SPF;
 
+	ISIS_FIND_VRF_ARGS(argv, argc, idx, vrf_name, all_vrf);
 	if (argv_find(argv, argc, "level-1", &idx))
 		levels = ISIS_LEVEL1;
 	else if (argv_find(argv, argc, "level-2", &idx))
@@ -3270,7 +3270,6 @@ DEFUN(show_isis_route, show_isis_route_cmd,
 		vty_out(vty, "IS-IS Routing Process not enabled\n");
 		return CMD_SUCCESS;
 	}
-	ISIS_FIND_VRF_ARGS(argv, argc, idx, vrf_name, all_vrf);
 
 	if (argv_find(argv, argc, "prefix-sid", &idx))
 		prefix_sid = true;
@@ -3458,7 +3457,7 @@ static void isis_print_frr_summary(struct vty *vty,
 	/* Dump the generated table. */
 	table = ttable_dump(tt, "\n");
 	vty_out(vty, "%s\n", table);
-	XFREE(MTYPE_TMP, table);
+	XFREE(MTYPE_TMP_TTABLE, table);
 	ttable_del(tt);
 }
 
@@ -3521,6 +3520,7 @@ DEFUN(show_isis_frr_summary, show_isis_frr_summary_cmd,
 	bool all_vrf = false;
 	int idx = 0;
 
+	ISIS_FIND_VRF_ARGS(argv, argc, idx, vrf_name, all_vrf);
 	if (argv_find(argv, argc, "level-1", &idx))
 		levels = ISIS_LEVEL1;
 	else if (argv_find(argv, argc, "level-2", &idx))
@@ -3532,7 +3532,6 @@ DEFUN(show_isis_frr_summary, show_isis_frr_summary_cmd,
 		vty_out(vty, "IS-IS Routing Process not enabled\n");
 		return CMD_SUCCESS;
 	}
-	ISIS_FIND_VRF_ARGS(argv, argc, idx, vrf_name, all_vrf);
 
 	if (all_vrf) {
 		for (ALL_LIST_ELEMENTS_RO(im->isis, node, isis))

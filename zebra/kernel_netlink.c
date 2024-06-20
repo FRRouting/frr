@@ -405,10 +405,6 @@ static int netlink_information_fetch(struct nlmsghdr *h, ns_id_t ns_id,
 		return netlink_route_change(h, ns_id, startup);
 	case RTM_DELROUTE:
 		return netlink_route_change(h, ns_id, startup);
-	case RTM_NEWLINK:
-		return netlink_link_change(h, ns_id, startup);
-	case RTM_DELLINK:
-		return 0;
 	case RTM_NEWNEIGH:
 	case RTM_DELNEIGH:
 	case RTM_GETNEIGH:
@@ -430,10 +426,6 @@ static int netlink_information_fetch(struct nlmsghdr *h, ns_id_t ns_id,
 	case RTM_NEWTFILTER:
 	case RTM_DELTFILTER:
 		return netlink_tfilter_change(h, ns_id, startup);
-	case RTM_NEWVLAN:
-		return netlink_vlan_change(h, ns_id, startup);
-	case RTM_DELVLAN:
-		return netlink_vlan_change(h, ns_id, startup);
 
 	/* Messages we may receive, but ignore */
 	case RTM_NEWCHAIN:
@@ -442,6 +434,8 @@ static int netlink_information_fetch(struct nlmsghdr *h, ns_id_t ns_id,
 		return 0;
 
 	/* Messages handled in the dplane thread */
+	case RTM_NEWLINK:
+	case RTM_DELLINK:
 	case RTM_NEWADDR:
 	case RTM_DELADDR:
 	case RTM_NEWNETCONF:
@@ -449,6 +443,8 @@ static int netlink_information_fetch(struct nlmsghdr *h, ns_id_t ns_id,
 	case RTM_NEWTUNNEL:
 	case RTM_DELTUNNEL:
 	case RTM_GETTUNNEL:
+	case RTM_NEWVLAN:
+	case RTM_DELVLAN:
 		return 0;
 	default:
 		/*
@@ -491,6 +487,10 @@ static int dplane_netlink_information_fetch(struct nlmsghdr *h, ns_id_t ns_id,
 	case RTM_NEWLINK:
 	case RTM_DELLINK:
 		return netlink_link_change(h, ns_id, startup);
+
+	case RTM_NEWVLAN:
+	case RTM_DELVLAN:
+		return netlink_vlan_change(h, ns_id, startup);
 
 	default:
 		break;
@@ -670,21 +670,6 @@ void netlink_parse_rtattr_nested(struct rtattr **tb, int max,
 				 struct rtattr *rta)
 {
 	netlink_parse_rtattr(tb, max, RTA_DATA(rta), RTA_PAYLOAD(rta));
-}
-
-bool nl_addraw_l(struct nlmsghdr *n, unsigned int maxlen, const void *data,
-		 unsigned int len)
-{
-	if (NLMSG_ALIGN(n->nlmsg_len) + NLMSG_ALIGN(len) > maxlen) {
-		zlog_err("ERROR message exceeded bound of %d", maxlen);
-		return false;
-	}
-
-	memcpy(NLMSG_TAIL(n), data, len);
-	memset((uint8_t *)NLMSG_TAIL(n) + len, 0, NLMSG_ALIGN(len) - len);
-	n->nlmsg_len = NLMSG_ALIGN(n->nlmsg_len) + NLMSG_ALIGN(len);
-
-	return true;
 }
 
 bool nl_attr_put(struct nlmsghdr *n, unsigned int maxlen, int type,
@@ -1636,6 +1621,7 @@ static enum netlink_msg_status nl_put_msg(struct nl_batch *bth,
 	case DPLANE_OP_IPSET_ENTRY_ADD:
 	case DPLANE_OP_IPSET_ENTRY_DELETE:
 	case DPLANE_OP_STARTUP_STAGE:
+	case DPLANE_OP_VLAN_INSTALL:
 		return FRR_NETLINK_ERROR;
 
 	case DPLANE_OP_GRE_SET:
@@ -1877,8 +1863,8 @@ void kernel_init(struct zebra_ns *zns)
 	 * setsockopt multicast group subscriptions that don't fit in nl_groups
 	 */
 	grp = RTNLGRP_BRVLAN;
-	ret = setsockopt(zns->netlink.sock, SOL_NETLINK, NETLINK_ADD_MEMBERSHIP,
-			 &grp, sizeof(grp));
+	ret = setsockopt(zns->netlink_dplane_in.sock, SOL_NETLINK,
+			 NETLINK_ADD_MEMBERSHIP, &grp, sizeof(grp));
 
 	if (ret < 0)
 		zlog_notice(

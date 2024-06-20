@@ -2806,15 +2806,22 @@ static enum ospf_read_return_enum ospf_read_helper(struct ospf *ospf)
 	 * or header area is backbone but ospf_interface is not
 	 * check for VLINK interface
 	 */
-	if ((oi == NULL)
-	    || (OSPF_IS_AREA_ID_BACKBONE(ospfh->area_id)
-		&& !OSPF_IS_AREA_ID_BACKBONE(oi->area->area_id))) {
+	if (oi == NULL) {
 		if ((oi = ospf_associate_packet_vl(ospf, ifp, iph, ospfh))
 		    == NULL) {
 			if (!ospf->instance && IS_DEBUG_OSPF_EVENT)
 				zlog_debug(
 					"Packet from [%pI4] received on link %s but no ospf_interface",
 					&iph->ip_src, ifp->name);
+			return OSPF_READ_CONTINUE;
+		}
+	} else if (OSPF_IS_AREA_ID_BACKBONE(ospfh->area_id) &&
+		   !OSPF_IS_AREA_ID_BACKBONE(oi->area->area_id)) {
+		oi = ospf_associate_packet_vl(ospf, ifp, iph, ospfh);
+		if (oi == NULL) {
+			flog_warn(EC_OSPF_PACKET,
+				  "interface %s: ospf_read invalid Area ID %pI4",
+				  ifp->name, &ospfh->area_id);
 			return OSPF_READ_CONTINUE;
 		}
 	}

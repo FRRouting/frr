@@ -157,6 +157,9 @@ SPECIAL		[(),]
 
 %%
 
+#else
+extern int def_yylex(void);
+extern int def_yylex_destroy(void);
 #endif /* __clang_analyzer__ */
 
 static int yylex_clr(char **retbuf)

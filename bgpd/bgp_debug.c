@@ -449,6 +449,10 @@ bool bgp_dump_attr(struct attr *attr, char *buf, size_t size)
 			 ", extcommunity %s",
 			 ecommunity_str(bgp_attr_get_ecommunity(attr)));
 
+	if (CHECK_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_IPV6_EXT_COMMUNITIES)))
+		snprintf(buf + strlen(buf), size - strlen(buf), ", ipv6-extcommunity %s",
+			 ecommunity_str(bgp_attr_get_ipv6_ecommunity(attr)));
+
 	if (CHECK_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_ATOMIC_AGGREGATE)))
 		snprintf(buf + strlen(buf), size - strlen(buf),
 			 ", atomic-aggregate");
@@ -2558,7 +2562,7 @@ static int bgp_debug_per_prefix(const struct prefix *p,
 	struct bgp_debug_filter *filter;
 	struct listnode *node, *nnode;
 
-	if (term_bgp_debug_type & BGP_DEBUG_TYPE) {
+	if (CHECK_FLAG(term_bgp_debug_type, BGP_DEBUG_TYPE)) {
 		/* We are debugging all prefixes so return true */
 		if (!per_prefix_list || list_isempty(per_prefix_list))
 			return 1;
@@ -2591,7 +2595,7 @@ static bool bgp_debug_per_peer(char *host, const struct prefix *p,
 	struct bgp_debug_filter *filter;
 	struct listnode *node, *nnode;
 
-	if (term_bgp_debug_type & BGP_DEBUG_TYPE) {
+	if (CHECK_FLAG(term_bgp_debug_type, BGP_DEBUG_TYPE)) {
 		/* We are debugging all peers so return true */
 		if (!per_peer_list || list_isempty(per_peer_list))
 			return true;

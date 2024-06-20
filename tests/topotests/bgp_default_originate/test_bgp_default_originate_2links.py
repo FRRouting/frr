@@ -266,21 +266,21 @@ def verify_the_uptime(time_stamp_before, time_stamp_after, incremented=None):
     if incremented == True:
         if uptime_before < uptime_after:
             logger.info(
-                "  The Uptime [{}] is incremented than [{}].......PASSED ".format(
+                "  The Uptime before [{}] is less than [{}].......PASSED ".format(
                     time_stamp_before, time_stamp_after
                 )
             )
             return True
         else:
             logger.error(
-                "  The Uptime [{}] is expected to be incremented than [{}].......FAILED ".format(
+                "  The Uptime before [{}] is greater than the uptime after [{}].......FAILED ".format(
                     time_stamp_before, time_stamp_after
                 )
             )
             return False
     else:
         logger.info(
-            "  The Uptime [{}] is not incremented than [{}] ".format(
+            "  The Uptime before [{}] the same as after [{}] ".format(
                 time_stamp_before, time_stamp_after
             )
         )
@@ -1027,7 +1027,7 @@ def test_verify_bgp_default_originate_with_default_static_route_p1(request):
     result = verify_the_uptime(uptime_before_ipv6, uptime_after_ipv6, incremented=False)
     assert result is True, "Testcase {} : Failed Error: {}".format(tc_name, result)
 
-    step("Taking uptime snapshot before  removing   redisctribute static ")
+    step("Taking uptime snapshot before removing redistribute static")
     uptime_before_ipv4 = get_rib_route_uptime(tgen, "ipv4", "r2", ipv4_uptime_dict)
     uptime_before_ipv6 = get_rib_route_uptime(tgen, "ipv6", "r2", ipv6_uptime_dict)
     sleep(1)
@@ -1074,6 +1074,7 @@ def test_verify_bgp_default_originate_with_default_static_route_p1(request):
     )
     assert result is True, "Testcase {} : Failed Error: {}".format(tc_name, result)
 
+    step("Now look that the route is not pointed at link2")
     result = verify_rib_default_route(
         tgen,
         topo,
@@ -1093,7 +1094,7 @@ def test_verify_bgp_default_originate_with_default_static_route_p1(request):
     )
     assert result is not True, "Testcase {} : Failed Error: {}".format(tc_name, result)
 
-    step("Taking uptime snapshot before  removing   redisctribute static ")
+    step("Taking uptime snapshot after removing redistribute static")
     uptime_after_ipv4 = get_rib_route_uptime(tgen, "ipv4", "r2", ipv4_uptime_dict)
     uptime_after_ipv6 = get_rib_route_uptime(tgen, "ipv6", "r2", ipv6_uptime_dict)
 

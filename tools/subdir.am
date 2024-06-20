@@ -13,15 +13,20 @@ EXTRA_PROGRAMS += \
 	# end
 
 sbin_PROGRAMS += tools/ssd
+
+if PYTHON_RUNTIME_DEPENDENCY
+sbin_SCRIPTS += \
+	tools/frr-reload.py \
+	tools/generate_support_bundle.py \
+	tools/frr_babeltrace.py
+endif
+
 sbin_SCRIPTS += \
 	tools/frr-reload \
-	tools/frr-reload.py \
 	tools/frr \
 	\
 	tools/frrcommon.sh \
 	tools/frrinit.sh \
-	tools/generate_support_bundle.py \
-	tools/frr_babeltrace.py \
 	tools/watchfrr.sh \
 	# end
 

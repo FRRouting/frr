@@ -83,7 +83,7 @@ be specified (:ref:`common-invocation-options`).
    be done to see if this is helping or not at the scale you are running
    at.
 
-.. option:: --v6-with-v4-nexthops
+.. option:: -x, --v6-with-v4-nexthops
 
    Allow BGP to peer in the V6 afi, when the interface only has v4 addresses.
    This allows bgp to install the v6 routes with a v6 nexthop that has the
@@ -1169,6 +1169,14 @@ BGP GR Peer Mode Commands
    at the peer level.
 
 
+BGP GR Show Commands
+^^^^^^^^^^^^^^^^^^^^
+
+.. clicmd:: show bgp [<ipv4|ipv6>] [<view|vrf> VRF] neighbors [<A.B.C.D|X:X::X:X|WORD>] graceful-restart [json]
+
+   This command will display information about the neighbors graceful-restart status
+
+
 Long-lived Graceful Restart
 ---------------------------
 
@@ -1818,7 +1826,7 @@ Configuring Peers
    Since sent prefix count is managed by update-groups, this option
    creates a separate update-group for outgoing updates.
 
-.. clicmd:: neighbor PEER local-as AS-NUMBER [no-prepend] [replace-as]
+.. clicmd:: neighbor PEER local-as AS-NUMBER [no-prepend [replace-as [dual-as]]]
 
    Specify an alternate AS for this BGP process when interacting with the
    specified peer. With no modifiers, the specified local-as is prepended to
@@ -1834,11 +1842,16 @@ Configuring Peers
 
    Note that replace-as can only be specified if no-prepend is.
 
+   The ``dual-as`` keyword is used to configure the neighbor to establish a peering
+   session using the real autonomous-system number (``router bgp ASN``) or by using
+   the autonomous system number configured with the ``local-as``.
+
    This command is only allowed for eBGP peers.
 
 .. clicmd:: neighbor <A.B.C.D|X:X::X:X|WORD> as-override
 
-   Override AS number of the originating router with the local AS number.
+   Override any AS number in the AS path that matches the neighbor's AS number
+   with the local AS number.
 
    Usually this configuration is used in PEs (Provider Edge) to replace
    the incoming customer AS number so the connected CE (Customer Edge)
@@ -1972,11 +1985,13 @@ Configuring Peers
    and will not be displayed as part of a `show run`.  The no form
    of the command turns off this ability.
 
-.. clicmd:: bgp default-originate timer (0-3600)
+.. clicmd:: bgp default-originate timer (0-65535)
 
    Set the period to rerun the default-originate route-map scanner process. The
    default is 5 seconds. With a full routing table, it might be useful to increase
    this setting to avoid scanning the whole BGP table aggressively.
+
+   Setting to 0 turns off the scanning at all.
 
 .. clicmd:: bgp default ipv4-unicast
 
@@ -2191,8 +2206,7 @@ and will share updates.
 .. clicmd:: neighbor PEER solo
 
    This command is used to indicate that routes advertised by the peer
-   should not be reflected back to the peer.  This command only is only
-   meaningful when there is a single peer defined in the peer-group.
+   should not be reflected back to the peer.
 
 .. clicmd:: show [ip] bgp peer-group [json]
 
@@ -2482,7 +2496,7 @@ is 4 octet long. The following format is used to define the community value.
 ``blackhole``
    ``blackhole`` represents well-known communities value ``BLACKHOLE``
    ``0xFFFF029A`` ``65535:666``. :rfc:`7999` documents sending prefixes to
-   EBGP peers and upstream for the purpose of blackholing traffic.
+   peers and upstream for the purpose of blackholing traffic.
    Prefixes tagged with the this community should normally not be
    re-advertised from neighbors of the originating network. Upon receiving
    ``BLACKHOLE`` community from a BGP speaker, ``NO_ADVERTISE`` community

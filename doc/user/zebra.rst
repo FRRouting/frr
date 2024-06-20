@@ -815,6 +815,16 @@ Allocated label chunks table can be dumped using the command
    range is configured, static label requests that match that
    range are not accepted.
 
+FEC nexthop entry resolution over MPLS networks
+-----------------------------------------------
+
+The LSP associated with a BGP labeled route is normally restricted to
+directly-connected nexthops. If connected nexthops are not available,
+the LSP entry will not be installed. This command permits the use of
+recursive resolution for LSPs, similar to that available for IP routes.
+
+.. clicmd:: mpls fec nexthop-resolution
+
 .. _zebra-srv6:
 
 Segment-Routing IPv6
@@ -1637,7 +1647,11 @@ zebra Terminal Mode Commands
    option as that nexthop groups are per namespace in linux.
    If you specify singleton you would like to see the singleton
    nexthop groups that do have an afi. [type] allows you to filter those
-   only coming from a specific NHG type (protocol).
+   only coming from a specific NHG type (protocol).  A nexthop group
+   that has `Initial Delay`, means that this nexthop group entry
+   was not installed because no-one was using it at that point and
+   Zebra can delay installing this route until it is used by something
+   else.
 
 .. clicmd:: show <ip|ipv6> zebra route dump [<vrf> VRFNAME]
 

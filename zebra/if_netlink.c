@@ -1032,212 +1032,6 @@ netlink_put_intf_update_msg(struct nl_batch *bth, struct zebra_dplane_ctx *ctx)
 	return netlink_batch_add_msg(bth, ctx, netlink_intf_msg_encoder, false);
 }
 
-int netlink_interface_addr(struct nlmsghdr *h, ns_id_t ns_id, int startup)
-{
-	int len;
-	struct ifaddrmsg *ifa;
-	struct rtattr *tb[IFA_MAX + 1];
-	struct interface *ifp;
-	void *addr;
-	void *broad;
-	uint8_t flags = 0;
-	char *label = NULL;
-	struct zebra_ns *zns;
-	uint32_t metric = METRIC_MAX;
-	uint32_t kernel_flags = 0;
-
-	frrtrace(3, frr_zebra, netlink_interface_addr, h, ns_id, startup);
-
-	zns = zebra_ns_lookup(ns_id);
-	ifa = NLMSG_DATA(h);
-
-	if (ifa->ifa_family != AF_INET && ifa->ifa_family != AF_INET6) {
-		flog_warn(
-			EC_ZEBRA_UNKNOWN_FAMILY,
-			"Invalid address family: %u received from kernel interface addr change: %s",
-			ifa->ifa_family, nl_msg_type_to_str(h->nlmsg_type));
-		return 0;
-	}
-
-	if (h->nlmsg_type != RTM_NEWADDR && h->nlmsg_type != RTM_DELADDR)
-		return 0;
-
-	len = h->nlmsg_len - NLMSG_LENGTH(sizeof(struct ifaddrmsg));
-	if (len < 0) {
-		zlog_err(
-			"%s: Message received from netlink is of a broken size: %d %zu",
-			__func__, h->nlmsg_len,
-			(size_t)NLMSG_LENGTH(sizeof(struct ifaddrmsg)));
-		return -1;
-	}
-
-	netlink_parse_rtattr(tb, IFA_MAX, IFA_RTA(ifa), len);
-
-	ifp = if_lookup_by_index_per_ns(zns, ifa->ifa_index);
-	if (ifp == NULL) {
-		if (startup) {
-			/* During startup, failure to lookup the referenced
-			 * interface should not be an error, so we have
-			 * downgraded this condition to warning, and we permit
-			 * the startup interface state retrieval to continue.
-			 */
-			flog_warn(EC_LIB_INTERFACE,
-				  "%s: can't find interface by index %d",
-				  __func__, ifa->ifa_index);
-			return 0;
-		} else {
-			flog_err(EC_LIB_INTERFACE,
-				 "%s: can't find interface by index %d",
-				 __func__, ifa->ifa_index);
-			return -1;
-		}
-	}
-
-	/* Flags passed through */
-	if (tb[IFA_FLAGS])
-		kernel_flags = *(int *)RTA_DATA(tb[IFA_FLAGS]);
-	else
-		kernel_flags = ifa->ifa_flags;
-
-	if (IS_ZEBRA_DEBUG_KERNEL) /* remove this line to see initial ifcfg */
-	{
-		char buf[BUFSIZ];
-		zlog_debug("%s %s %s flags 0x%x:", __func__,
-			   nl_msg_type_to_str(h->nlmsg_type), ifp->name,
-			   kernel_flags);
-		if (tb[IFA_LOCAL])
-			zlog_debug("  IFA_LOCAL     %s/%d",
-				   inet_ntop(ifa->ifa_family,
-					     RTA_DATA(tb[IFA_LOCAL]), buf,
-					     BUFSIZ),
-				   ifa->ifa_prefixlen);
-		if (tb[IFA_ADDRESS])
-			zlog_debug("  IFA_ADDRESS   %s/%d",
-				   inet_ntop(ifa->ifa_family,
-					     RTA_DATA(tb[IFA_ADDRESS]), buf,
-					     BUFSIZ),
-				   ifa->ifa_prefixlen);
-		if (tb[IFA_BROADCAST])
-			zlog_debug("  IFA_BROADCAST %s/%d",
-				   inet_ntop(ifa->ifa_family,
-					     RTA_DATA(tb[IFA_BROADCAST]), buf,
-					     BUFSIZ),
-				   ifa->ifa_prefixlen);
-		if (tb[IFA_LABEL] && strcmp(ifp->name, RTA_DATA(tb[IFA_LABEL])))
-			zlog_debug("  IFA_LABEL     %s",
-				   (char *)RTA_DATA(tb[IFA_LABEL]));
-
-		if (tb[IFA_CACHEINFO]) {
-			struct ifa_cacheinfo *ci = RTA_DATA(tb[IFA_CACHEINFO]);
-			zlog_debug("  IFA_CACHEINFO pref %d, valid %d",
-				   ci->ifa_prefered, ci->ifa_valid);
-		}
-	}
-
-	/* logic copied from iproute2/ip/ipaddress.c:print_addrinfo() */
-	if (tb[IFA_LOCAL] == NULL)
-		tb[IFA_LOCAL] = tb[IFA_ADDRESS];
-	if (tb[IFA_ADDRESS] == NULL)
-		tb[IFA_ADDRESS] = tb[IFA_LOCAL];
-
-	/* local interface address */
-	addr = (tb[IFA_LOCAL] ? RTA_DATA(tb[IFA_LOCAL]) : NULL);
-
-	/* is there a peer address? */
-	if (tb[IFA_ADDRESS]
-	    && memcmp(RTA_DATA(tb[IFA_ADDRESS]), RTA_DATA(tb[IFA_LOCAL]),
-		      RTA_PAYLOAD(tb[IFA_ADDRESS]))) {
-		broad = RTA_DATA(tb[IFA_ADDRESS]);
-		SET_FLAG(flags, ZEBRA_IFA_PEER);
-	} else
-		/* seeking a broadcast address */
-		broad = (tb[IFA_BROADCAST] ? RTA_DATA(tb[IFA_BROADCAST])
-					   : NULL);
-
-	/* addr is primary key, SOL if we don't have one */
-	if (addr == NULL) {
-		zlog_debug("%s: Local Interface Address is NULL for %s",
-			   __func__, ifp->name);
-		return -1;
-	}
-
-	/* Flags. */
-	if (kernel_flags & IFA_F_SECONDARY)
-		SET_FLAG(flags, ZEBRA_IFA_SECONDARY);
-
-	/* Label */
-	if (tb[IFA_LABEL])
-		label = (char *)RTA_DATA(tb[IFA_LABEL]);
-
-	if (label && strcmp(ifp->name, label) == 0)
-		label = NULL;
-
-	if (tb[IFA_RT_PRIORITY])
-		metric = *(uint32_t *)RTA_DATA(tb[IFA_RT_PRIORITY]);
-
-	/* Register interface address to the interface. */
-	if (ifa->ifa_family == AF_INET) {
-		if (ifa->ifa_prefixlen > IPV4_MAX_BITLEN) {
-			zlog_err(
-				"Invalid prefix length: %u received from kernel interface addr change: %s",
-				ifa->ifa_prefixlen,
-				nl_msg_type_to_str(h->nlmsg_type));
-			return -1;
-		}
-
-		if (h->nlmsg_type == RTM_NEWADDR)
-			connected_add_ipv4(ifp, flags, (struct in_addr *)addr,
-					   ifa->ifa_prefixlen,
-					   (struct in_addr *)broad, label,
-					   metric);
-		else if (CHECK_FLAG(flags, ZEBRA_IFA_PEER)) {
-			/* Delete with a peer address */
-			connected_delete_ipv4(
-				ifp, flags, (struct in_addr *)addr,
-				ifa->ifa_prefixlen, broad);
-		} else
-			connected_delete_ipv4(
-				ifp, flags, (struct in_addr *)addr,
-				ifa->ifa_prefixlen, NULL);
-	}
-
-	if (ifa->ifa_family == AF_INET6) {
-		if (ifa->ifa_prefixlen > IPV6_MAX_BITLEN) {
-			zlog_err(
-				"Invalid prefix length: %u received from kernel interface addr change: %s",
-				ifa->ifa_prefixlen,
-				nl_msg_type_to_str(h->nlmsg_type));
-			return -1;
-		}
-		if (h->nlmsg_type == RTM_NEWADDR) {
-			/* Only consider valid addresses; we'll not get a
-			 * notification from
-			 * the kernel till IPv6 DAD has completed, but at init
-			 * time, Quagga
-			 * does query for and will receive all addresses.
-			 */
-			if (!(kernel_flags
-			      & (IFA_F_DADFAILED | IFA_F_TENTATIVE)))
-				connected_add_ipv6(ifp, flags,
-						   (struct in6_addr *)addr,
-						   (struct in6_addr *)broad,
-						   ifa->ifa_prefixlen, label,
-						   metric);
-		} else
-			connected_delete_ipv6(ifp, (struct in6_addr *)addr,
-					      NULL, ifa->ifa_prefixlen);
-	}
-
-	/*
-	 * Linux kernel does not send route delete on interface down/addr del
-	 * so we have to re-process routes it owns (i.e. kernel routes)
-	 */
-	if (h->nlmsg_type != RTM_NEWADDR)
-		rib_update(RIB_UPDATE_KERNEL);
-
-	return 0;
-}
-
 /*
  * Parse and validate an incoming interface address change message,
  * generating a dplane context object.
@@ -1799,81 +1593,35 @@ int netlink_tunneldump_read(struct zebra_ns *zns)
 
 		ret = netlink_request_tunneldump(zns, PF_BRIDGE,
 						 tmp_if->ifindex);
-		if (ret < 0)
+		if (ret < 0) {
+			route_unlock_node(rn);
 			return ret;
+		}
 
 		ret = netlink_parse_info(netlink_link_change, netlink_cmd,
 					 &dp_info, 0, true);
 
-		if (ret < 0)
+		if (ret < 0) {
+			route_unlock_node(rn);
 			return ret;
+		}
 	}
 
 	return 0;
 }
 
-static const char *port_state2str(uint8_t state)
+static uint8_t netlink_get_dplane_vlan_state(uint8_t state)
 {
-	switch (state) {
-	case BR_STATE_DISABLED:
-		return "DISABLED";
-	case BR_STATE_LISTENING:
-		return "LISTENING";
-	case BR_STATE_LEARNING:
-		return "LEARNING";
-	case BR_STATE_FORWARDING:
-		return "FORWARDING";
-	case BR_STATE_BLOCKING:
-		return "BLOCKING";
-	}
+	if (state == BR_STATE_LISTENING)
+		return ZEBRA_DPLANE_BR_STATE_LISTENING;
+	else if (state == BR_STATE_LEARNING)
+		return ZEBRA_DPLANE_BR_STATE_LEARNING;
+	else if (state == BR_STATE_FORWARDING)
+		return ZEBRA_DPLANE_BR_STATE_FORWARDING;
+	else if (state == BR_STATE_BLOCKING)
+		return ZEBRA_DPLANE_BR_STATE_BLOCKING;
 
-	return "UNKNOWN";
-}
-
-static void vxlan_vni_state_change(struct zebra_if *zif, uint16_t id,
-				   uint8_t state)
-{
-	struct zebra_vxlan_vni *vnip;
-
-	vnip = zebra_vxlan_if_vlanid_vni_find(zif, id);
-
-	if (!vnip) {
-		if (IS_ZEBRA_DEBUG_VXLAN)
-			zlog_debug(
-				"Cannot find VNI for VID (%u) IF %s for vlan state update",
-				id, zif->ifp->name);
-
-		return;
-	}
-
-	switch (state) {
-	case BR_STATE_FORWARDING:
-		zebra_vxlan_if_vni_up(zif->ifp, vnip);
-		break;
-	case BR_STATE_BLOCKING:
-		zebra_vxlan_if_vni_down(zif->ifp, vnip);
-		break;
-	case BR_STATE_DISABLED:
-	case BR_STATE_LISTENING:
-	case BR_STATE_LEARNING:
-	default:
-		/* Not used for anything at the moment */
-		break;
-	}
-}
-
-static void vlan_id_range_state_change(struct interface *ifp, uint16_t id_start,
-				       uint16_t id_end, uint8_t state)
-{
-	struct zebra_if *zif;
-
-	zif = (struct zebra_if *)ifp->info;
-
-	if (!zif)
-		return;
-
-	for (uint16_t i = id_start; i <= id_end; i++)
-		vxlan_vni_state_change(zif, i, state);
+	return ZEBRA_DPLANE_BR_STATE_DISABLED;
 }
 
 /**
@@ -1888,7 +1636,6 @@ static void vlan_id_range_state_change(struct interface *ifp, uint16_t id_start,
 int netlink_vlan_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 {
 	int len, rem;
-	struct interface *ifp;
 	struct br_vlan_msg *bvm;
 	struct bridge_vlan_info *vinfo;
 	struct rtattr *vtb[BRIDGE_VLANDB_ENTRY_MAX + 1] = {};
@@ -1896,6 +1643,9 @@ int netlink_vlan_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 	uint8_t state;
 	uint32_t vrange;
 	int type;
+	uint32_t count = 0;
+	struct zebra_dplane_ctx *ctx = NULL;
+	struct zebra_vxlan_vlan_array *vlan_array = NULL;
 
 	/* We only care about state changes for now */
 	if (!(h->nlmsg_type == RTM_NEWVLAN))
@@ -1915,25 +1665,10 @@ int netlink_vlan_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 	if (bvm->family != AF_BRIDGE)
 		return 0;
 
-	ifp = if_lookup_by_index_per_ns(zebra_ns_lookup(ns_id), bvm->ifindex);
-	if (!ifp) {
-		zlog_debug("Cannot find bridge-vlan IF (%u) for vlan update",
-			   bvm->ifindex);
-		return 0;
-	}
-
-	if (!IS_ZEBRA_IF_VXLAN(ifp)) {
-		if (IS_ZEBRA_DEBUG_KERNEL)
-			zlog_debug("Ignoring non-vxlan IF (%s) for vlan update",
-				   ifp->name);
-
-		return 0;
-	}
-
-	if (IS_ZEBRA_DEBUG_KERNEL || IS_ZEBRA_DEBUG_VXLAN)
-		zlog_debug("%s %s IF %s NS %u",
-			   nl_msg_type_to_str(h->nlmsg_type),
-			   nl_family_to_str(bvm->family), ifp->name, ns_id);
+	ctx = dplane_ctx_alloc();
+	dplane_ctx_set_ns_id(ctx, ns_id);
+	dplane_ctx_set_op(ctx, DPLANE_OP_VLAN_INSTALL);
+	dplane_ctx_set_vlan_ifindex(ctx, bvm->ifindex);
 
 	/* Loop over "ALL" BRIDGE_VLANDB_ENTRY */
 	rem = len;
@@ -1964,25 +1699,38 @@ int netlink_vlan_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 		if (!vtb[BRIDGE_VLANDB_ENTRY_STATE])
 			continue;
 
+		count++;
+		vlan_array =
+			XREALLOC(MTYPE_VLAN_CHANGE_ARR, vlan_array,
+				 sizeof(struct zebra_vxlan_vlan_array) +
+					 count * sizeof(struct zebra_vxlan_vlan));
+
+		memset(&vlan_array->vlans[count - 1], 0,
+		       sizeof(struct zebra_vxlan_vlan));
+
 		state = *(uint8_t *)RTA_DATA(vtb[BRIDGE_VLANDB_ENTRY_STATE]);
 
 		if (vtb[BRIDGE_VLANDB_ENTRY_RANGE])
 			vrange = *(uint32_t *)RTA_DATA(
 				vtb[BRIDGE_VLANDB_ENTRY_RANGE]);
 
-		if (IS_ZEBRA_DEBUG_KERNEL || IS_ZEBRA_DEBUG_VXLAN) {
-			if (vrange)
-				zlog_debug("VLANDB_ENTRY: VID (%u-%u) state=%s",
-					   vinfo->vid, vrange,
-					   port_state2str(state));
-			else
-				zlog_debug("VLANDB_ENTRY: VID (%u) state=%s",
-					   vinfo->vid, port_state2str(state));
-		}
-
-		vlan_id_range_state_change(
-			ifp, vinfo->vid, (vrange ? vrange : vinfo->vid), state);
+		vlan_array->vlans[count - 1].state =
+			netlink_get_dplane_vlan_state(state);
+		vlan_array->vlans[count - 1].vid = vinfo->vid;
+		vlan_array->vlans[count - 1].vrange = vrange;
 	}
+
+	if (count) {
+		vlan_array->count = count;
+		dplane_ctx_set_vxlan_vlan_array(ctx, vlan_array);
+		if (IS_ZEBRA_DEBUG_KERNEL || IS_ZEBRA_DEBUG_VXLAN)
+			zlog_debug("RTM_NEWVLAN for ifindex %u NS %u, enqueuing for zebra main",
+				   bvm->ifindex, ns_id);
+
+		dplane_provider_enqueue_to_zebra(ctx);
+	} else
+		dplane_ctx_fini(&ctx);
+
 
 	return 0;
 }

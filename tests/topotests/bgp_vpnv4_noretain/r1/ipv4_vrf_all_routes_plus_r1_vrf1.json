@@ -7,6 +7,9 @@
     "routes": {
       "10.204.0.0/24": [
         {
+          "valid": true,
+          "bestpath": true,
+          "selectionReason": "First path received",
           "pathFrom": "external",
           "prefix": "10.204.0.0",
           "prefixLen": 24,
@@ -63,6 +66,9 @@
       ],
       "10.201.0.0/24": [
         {
+          "valid": true,
+          "bestpath": true,
+          "selectionReason": "First path received",
           "pathFrom": "external",
           "prefix": "10.201.0.0",
           "prefixLen": 24,

@@ -229,8 +229,7 @@ struct ospf6_lsa *ospf6_find_inter_prefix_lsa(struct ospf6 *ospf6,
 		struct ospf6_inter_prefix_lsa *prefix_lsa;
 		struct prefix prefix;
 
-		prefix_lsa = (struct ospf6_inter_prefix_lsa *)
-			ospf6_lsa_header_end(lsa->header);
+		prefix_lsa = lsa_after_header(lsa->header);
 		prefix.family = AF_INET6;
 		prefix.prefixlen = prefix_lsa->prefix.prefix_length;
 		ospf6_prefix_in6_addr(&prefix.u.prefix6, prefix_lsa,

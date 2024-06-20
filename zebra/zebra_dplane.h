@@ -24,6 +24,8 @@
 extern "C" {
 #endif
 
+DECLARE_MTYPE(VLAN_CHANGE_ARR);
+
 /* Retrieve the dataplane API version number; see libfrr.h to decode major,
  * minor, sub version values.
  * Plugins should pay attention to the major version number, at least, to
@@ -204,12 +206,22 @@ enum dplane_op_e {
 	DPLANE_OP_TC_FILTER_DELETE,
 	DPLANE_OP_TC_FILTER_UPDATE,
 
+	/* VLAN update */
+	DPLANE_OP_VLAN_INSTALL,
+
 	/* Startup Control */
 	DPLANE_OP_STARTUP_STAGE,
 
 	/* Source address for SRv6 encapsulation */
 	DPLANE_OP_SRV6_ENCAP_SRCADDR_SET,
 };
+
+/* Operational status of Bridge Ports */
+#define ZEBRA_DPLANE_BR_STATE_DISABLED	 0x01
+#define ZEBRA_DPLANE_BR_STATE_LISTENING	 0x02
+#define ZEBRA_DPLANE_BR_STATE_LEARNING	 0x04
+#define ZEBRA_DPLANE_BR_STATE_FORWARDING 0x08
+#define ZEBRA_DPLANE_BR_STATE_BLOCKING	 0x10
 
 /*
  * The vxlan/evpn neighbor management code needs some values to use
@@ -597,7 +609,7 @@ const struct nexthop_group *
 dplane_ctx_get_nhe_ng(const struct zebra_dplane_ctx *ctx);
 const struct nh_grp *
 dplane_ctx_get_nhe_nh_grp(const struct zebra_dplane_ctx *ctx);
-uint8_t dplane_ctx_get_nhe_nh_grp_count(const struct zebra_dplane_ctx *ctx);
+uint16_t dplane_ctx_get_nhe_nh_grp_count(const struct zebra_dplane_ctx *ctx);
 
 /* Accessors for LSP information */
 
@@ -1077,6 +1089,26 @@ void dplane_set_in_queue_limit(uint32_t limit, bool set);
 
 /* Retrieve the current queue depth of incoming, unprocessed updates */
 uint32_t dplane_get_in_queue_len(void);
+
+void dplane_ctx_set_vlan_ifindex(struct zebra_dplane_ctx *ctx,
+				 ifindex_t ifindex);
+ifindex_t dplane_ctx_get_vlan_ifindex(struct zebra_dplane_ctx *ctx);
+struct zebra_vxlan_vlan_array;
+
+/*
+ * In netlink_vlan_change(), the memory allocated for vlan_array is freed
+ * in two cases
+ *  1) Inline free in netlink_vlan_change() when there are no new
+ *     vlans to process i.e. nothing is enqueued to main thread.
+ *  2) Dplane-ctx takes over the vlan memory which gets freed in
+ *     rib_process_dplane_results() after handling the vlan install
+ *
+ * Note: MTYPE of interest for this purpose is MTYPE_VLAN_CHANGE_ARR
+ */
+void dplane_ctx_set_vxlan_vlan_array(struct zebra_dplane_ctx *ctx,
+				     struct zebra_vxlan_vlan_array *vlan_array);
+const struct zebra_vxlan_vlan_array *
+dplane_ctx_get_vxlan_vlan_array(struct zebra_dplane_ctx *ctx);
 
 /*
  * Vty/cli apis

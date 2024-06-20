@@ -9,6 +9,7 @@
 #include <zebra.h>
 #include <sys/stat.h>
 
+#include "debug.h"
 #include "frrevent.h"
 #include "vty.h"
 #include "command.h"
@@ -71,11 +72,12 @@ int main(int argc, char **argv)
 
 	vty_init(master, false);
 	lib_cmd_init();
+	debug_init();
 
 	for (yangcount = 0; test_yang_modules && test_yang_modules[yangcount];
 	     yangcount++)
 		;
-	nb_init(master, test_yang_modules, yangcount, false);
+	nb_init(master, test_yang_modules, yangcount, false, false);
 
 	test_init(argc, argv);
 

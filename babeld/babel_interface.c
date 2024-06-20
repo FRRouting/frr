@@ -1351,7 +1351,7 @@ babel_interface_allocate (void)
     /* All flags are unset */
     babel_ifp->bucket_time = babel_now.tv_sec;
     babel_ifp->bucket = BUCKET_TOKENS_MAX;
-    babel_ifp->hello_seqno = (frr_weak_random() & 0xFFFF);
+    babel_ifp->hello_seqno = CHECK_FLAG(frr_weak_random(), 0xFFFF);
     babel_ifp->rtt_decay = BABEL_DEFAULT_RTT_DECAY;
     babel_ifp->rtt_min = BABEL_DEFAULT_RTT_MIN;
     babel_ifp->rtt_max = BABEL_DEFAULT_RTT_MAX;

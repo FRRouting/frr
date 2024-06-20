@@ -353,7 +353,7 @@ struct transit {
 	__builtin_choose_expr((X) >= 1 && (X) <= 64, 1ULL << ((X)-1), (void)0)
 
 #define BGP_CLUSTER_LIST_LENGTH(attr)                                          \
-	(((attr)->flag & ATTR_FLAG_BIT(BGP_ATTR_CLUSTER_LIST))                 \
+	(CHECK_FLAG((attr)->flag, ATTR_FLAG_BIT(BGP_ATTR_CLUSTER_LIST))        \
 		 ? bgp_attr_get_cluster((attr))->length                        \
 		 : 0)
 
@@ -387,12 +387,12 @@ extern struct attr *bgp_attr_aggregate_intern(
 	struct community *community, struct ecommunity *ecommunity,
 	struct lcommunity *lcommunity, struct bgp_aggregate *aggregate,
 	uint8_t atomic_aggregate, const struct prefix *p);
-extern bgp_size_t bgp_packet_attribute(
-	struct bgp *bgp, struct peer *peer, struct stream *s, struct attr *attr,
-	struct bpacket_attr_vec_arr *vecarr, struct prefix *p, afi_t afi,
-	safi_t safi, struct peer *from, struct prefix_rd *prd,
-	mpls_label_t *label, uint8_t num_labels, bool addpath_capable,
-	uint32_t addpath_tx_id, struct bgp_path_info *bpi);
+extern bgp_size_t bgp_packet_attribute(struct bgp *bgp, struct peer *peer, struct stream *s,
+				       struct attr *attr, struct bpacket_attr_vec_arr *vecarr,
+				       struct prefix *p, afi_t afi, safi_t safi, struct peer *from,
+				       struct prefix_rd *prd, mpls_label_t *label,
+				       uint8_t num_labels, bool addpath_capable,
+				       uint32_t addpath_tx_id);
 extern void bgp_dump_routes_attr(struct stream *s, struct bgp_path_info *bpi,
 				 const struct prefix *p);
 extern bool attrhash_cmp(const void *arg1, const void *arg2);
@@ -515,7 +515,7 @@ static inline void bgp_attr_set_ecommunity(struct attr *attr,
 {
 	attr->ecommunity = ecomm;
 
-	if (ecomm)
+	if (ecomm && ecomm->size)
 		SET_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_EXT_COMMUNITIES));
 	else
 		UNSET_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_EXT_COMMUNITIES));
@@ -566,7 +566,7 @@ static inline void bgp_attr_set_ipv6_ecommunity(struct attr *attr,
 {
 	attr->ipv6_ecommunity = ipv6_ecomm;
 
-	if (ipv6_ecomm)
+	if (ipv6_ecomm && ipv6_ecomm->size)
 		SET_FLAG(attr->flag,
 			 ATTR_FLAG_BIT(BGP_ATTR_IPV6_EXT_COMMUNITIES));
 	else
@@ -585,6 +585,10 @@ static inline void bgp_attr_set_transit(struct attr *attr,
 	attr->transit = transit;
 }
 
+#define AIGP_TRANSMIT_ALLOWED(peer)                                                                \
+	(CHECK_FLAG((peer)->flags, PEER_FLAG_AIGP) || ((peer)->sub_sort == BGP_PEER_EBGP_OAD) ||   \
+	 ((peer)->sort != BGP_PEER_EBGP))
+
 static inline uint64_t bgp_attr_get_aigp_metric(const struct attr *attr)
 {
 	return attr->aigp_metric;
@@ -593,9 +597,23 @@ static inline uint64_t bgp_attr_get_aigp_metric(const struct attr *attr)
 static inline void bgp_attr_set_aigp_metric(struct attr *attr, uint64_t aigp)
 {
 	attr->aigp_metric = aigp;
+	SET_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_AIGP));
+}
 
-	if (aigp)
-		SET_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_AIGP));
+static inline uint64_t bgp_aigp_metric_total(struct bgp_path_info *bpi)
+{
+	uint64_t aigp = bgp_attr_get_aigp_metric(bpi->attr);
+
+	if (bpi->nexthop)
+		return aigp + bpi->nexthop->metric;
+	else
+		return aigp;
+}
+
+static inline void bgp_attr_set_med(struct attr *attr, uint32_t med)
+{
+	attr->med = med;
+	SET_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_MULTI_EXIT_DISC));
 }
 
 static inline struct cluster_list *bgp_attr_get_cluster(const struct attr *attr)

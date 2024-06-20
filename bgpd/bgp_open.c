@@ -1374,7 +1374,7 @@ int bgp_open_option_parse(struct peer *peer, uint16_t length,
 		 * Check that we can read the opt_type and fetch it
 		 */
 		if (STREAM_READABLE(s) < 1) {
-			zlog_info("%s Option length error", peer->host);
+			zlog_err("%s Option length error", peer->host);
 			bgp_notify_send(peer->connection, BGP_NOTIFY_OPEN_ERR,
 					BGP_NOTIFY_OPEN_MALFORMED_ATTR);
 			return -1;
@@ -1387,7 +1387,7 @@ int bgp_open_option_parse(struct peer *peer, uint16_t length,
 		 */
 		if (BGP_OPEN_EXT_OPT_PARAMS_CAPABLE(peer)) {
 			if (STREAM_READABLE(s) < 2) {
-				zlog_info("%s Option length error", peer->host);
+				zlog_err("%s Option length error", peer->host);
 				bgp_notify_send(peer->connection,
 						BGP_NOTIFY_OPEN_ERR,
 						BGP_NOTIFY_OPEN_MALFORMED_ATTR);
@@ -1397,7 +1397,7 @@ int bgp_open_option_parse(struct peer *peer, uint16_t length,
 			opt_length = stream_getw(s);
 		} else {
 			if (STREAM_READABLE(s) < 1) {
-				zlog_info("%s Option length error", peer->host);
+				zlog_err("%s Option length error", peer->host);
 				bgp_notify_send(peer->connection,
 						BGP_NOTIFY_OPEN_ERR,
 						BGP_NOTIFY_OPEN_MALFORMED_ATTR);
@@ -1409,8 +1409,8 @@ int bgp_open_option_parse(struct peer *peer, uint16_t length,
 
 		/* Option length check. */
 		if (STREAM_READABLE(s) < opt_length) {
-			zlog_info("%s Option length error (%d)", peer->host,
-				  opt_length);
+			zlog_err("%s Option length error (%d)", peer->host,
+				 opt_length);
 			bgp_notify_send(peer->connection, BGP_NOTIFY_OPEN_ERR,
 					BGP_NOTIFY_OPEN_MALFORMED_ATTR);
 			return -1;

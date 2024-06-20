@@ -343,7 +343,8 @@ bool pim_nht_bsr_rpf_check(struct pim_instance *pim, pim_addr bsr_addr,
 			if (!nbr)
 				continue;
 
-			return znh->ifindex == src_ifp->ifindex;
+			return znh->ifindex == src_ifp->ifindex &&
+			       (!pim_addr_cmp(znh->nexthop_addr, src_ip));
 		}
 		return false;
 	}
@@ -404,13 +405,12 @@ bool pim_nht_bsr_rpf_check(struct pim_instance *pim, pim_addr bsr_addr,
 			return true;
 
 		/* MRIB (IGP) may be pointing at a router where PIM is down */
-
 		nbr = pim_neighbor_find(ifp, nhaddr, true);
-
 		if (!nbr)
 			continue;
 
-		return nh->ifindex == src_ifp->ifindex;
+		return nh->ifindex == src_ifp->ifindex &&
+		       (!pim_addr_cmp(nhaddr, src_ip));
 	}
 	return false;
 }
@@ -573,7 +573,7 @@ static int pim_ecmp_nexthop_search(struct pim_instance *pim,
 	ifindex_t first_ifindex;
 	struct interface *ifp = NULL;
 	uint32_t hash_val = 0, mod_val = 0;
-	uint8_t nh_iter = 0, found = 0;
+	uint16_t nh_iter = 0, found = 0;
 	uint32_t i, num_nbrs = 0;
 	struct pim_interface *pim_ifp;
 
@@ -947,7 +947,7 @@ int pim_ecmp_nexthop_lookup(struct pim_instance *pim,
 	struct interface *ifps[router->multipath], *ifp;
 	int first_ifindex;
 	int found = 0;
-	uint8_t i = 0;
+	uint16_t i = 0;
 	uint32_t hash_val = 0, mod_val = 0;
 	uint32_t num_nbrs = 0;
 	struct pim_interface *pim_ifp;
