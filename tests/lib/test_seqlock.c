@@ -111,4 +111,5 @@ int main(int argc, char **argv)
 	writestr("main @release\n");
 	seqlock_release(&sqlo);
 	sleep(1);
+	pthread_join(thr1, NULL);
 }
