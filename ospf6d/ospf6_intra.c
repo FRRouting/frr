@@ -2385,7 +2385,17 @@ static struct ospf6_lsa_handler router_handler = {
 	.lh_short_name = "Rtr",
 	.lh_show = ospf6_router_lsa_show,
 	.lh_get_prefix_str = ospf6_router_lsa_get_nbr_id,
-	.lh_debug = 0};
+	.lh_debug = 0
+};
+
+static struct ospf6_lsa_handler e_router_handler = {
+	.lh_type = OSPF6_LSTYPE_E_ROUTER,
+	.lh_name = "E-Router",
+	.lh_short_name = "ERtr",
+	.lh_show = ospf6_router_lsa_show,
+	.lh_get_prefix_str = ospf6_router_lsa_get_nbr_id,
+	.lh_debug = 0
+};
 
 static struct ospf6_lsa_handler network_handler = {
 	.lh_type = OSPF6_LSTYPE_NETWORK,
@@ -2393,7 +2403,17 @@ static struct ospf6_lsa_handler network_handler = {
 	.lh_short_name = "Net",
 	.lh_show = ospf6_network_lsa_show,
 	.lh_get_prefix_str = ospf6_network_lsa_get_ar_id,
-	.lh_debug = 0};
+	.lh_debug = 0
+};
+
+static struct ospf6_lsa_handler e_network_handler = {
+	.lh_type = OSPF6_LSTYPE_E_NETWORK,
+	.lh_name = "E-Network",
+	.lh_short_name = "ENet",
+	.lh_show = ospf6_network_lsa_show,
+	.lh_get_prefix_str = ospf6_network_lsa_get_ar_id,
+	.lh_debug = 0
+};
 
 static struct ospf6_lsa_handler link_handler = {
 	.lh_type = OSPF6_LSTYPE_LINK,
@@ -2401,7 +2421,17 @@ static struct ospf6_lsa_handler link_handler = {
 	.lh_short_name = "Lnk",
 	.lh_show = ospf6_link_lsa_show,
 	.lh_get_prefix_str = ospf6_link_lsa_get_prefix_str,
-	.lh_debug = 0};
+	.lh_debug = 0
+};
+
+static struct ospf6_lsa_handler e_link_handler = {
+	.lh_type = OSPF6_LSTYPE_E_LINK,
+	.lh_name = "E-Link",
+	.lh_short_name = "ELnk",
+	.lh_show = ospf6_link_lsa_show,
+	.lh_get_prefix_str = ospf6_link_lsa_get_prefix_str,
+	.lh_debug = 0
+};
 
 static struct ospf6_lsa_handler intra_prefix_handler = {
 	.lh_type = OSPF6_LSTYPE_INTRA_PREFIX,
@@ -2409,14 +2439,28 @@ static struct ospf6_lsa_handler intra_prefix_handler = {
 	.lh_short_name = "INP",
 	.lh_show = ospf6_intra_prefix_lsa_show,
 	.lh_get_prefix_str = ospf6_intra_prefix_lsa_get_prefix_str,
-	.lh_debug = 0};
+	.lh_debug = 0
+};
+
+static struct ospf6_lsa_handler e_intra_prefix_handler = {
+	.lh_type = OSPF6_LSTYPE_E_INTRA_PREFIX,
+	.lh_name = "E-Intra-Prefix",
+	.lh_short_name = "EINP",
+	.lh_show = ospf6_intra_prefix_lsa_show,
+	.lh_get_prefix_str = ospf6_intra_prefix_lsa_get_prefix_str,
+	.lh_debug = 0
+};
 
 void ospf6_intra_init(void)
 {
 	ospf6_install_lsa_handler(&router_handler);
+	ospf6_install_lsa_handler(&e_router_handler);
 	ospf6_install_lsa_handler(&network_handler);
+	ospf6_install_lsa_handler(&e_network_handler);
 	ospf6_install_lsa_handler(&link_handler);
+	ospf6_install_lsa_handler(&e_link_handler);
 	ospf6_install_lsa_handler(&intra_prefix_handler);
+	ospf6_install_lsa_handler(&e_intra_prefix_handler);
 }
 
 DEFUN (debug_ospf6_brouter,
