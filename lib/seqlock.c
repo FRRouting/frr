@@ -26,6 +26,39 @@
  * OS specific synchronization wrappers *
  ****************************************/
 
+#ifndef __has_feature /* not available on old GCC */
+#define __has_feature(x) 0
+#endif
+
+#if (defined(__SANITIZE_THREAD__) || __has_feature(thread_sanitizer))
+/* TSAN really does not understand what is going on with the low-level
+ * futex/umtx calls.  This leads to a whole bunch of warnings, a lot of which
+ * also have _extremely_ misleading text - since TSAN does not understand that
+ * there is in fact a synchronization primitive involved, it can end up pulling
+ * in completely unrelated things.
+ *
+ * What does work is the "unsupported platform" seqlock implementation based
+ * on a pthread mutex + condvar, since TSAN of course suppports these.
+ *
+ * It may be possible to also fix this with TSAN annotations (__tsan_acquire
+ * and __tsan_release), but using those (correctly) is not easy either, and
+ * for now just get things rolling.
+ */
+
+#ifdef HAVE_SYNC_LINUX_FUTEX
+#undef HAVE_SYNC_LINUX_FUTEX
+#endif
+
+#ifdef HAVE_SYNC_OPENBSD_FUTEX
+#undef HAVE_SYNC_OPENBSD_FUTEX
+#endif
+
+#ifdef HAVE_SYNC_UMTX_OP
+#undef HAVE_SYNC_UMTX_OP
+#endif
+
+#endif /* TSAN */
+
 /*
  * Linux: sys_futex()
  */
