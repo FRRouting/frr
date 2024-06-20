@@ -343,7 +343,7 @@ int zebra_sr_policy_validate(struct zebra_sr_policy *policy,
 			     struct zapi_srte_tunnel *new_tunnel)
 {
 	struct zapi_srte_tunnel old_tunnel = policy->segment_list;
-	struct zebra_lsp *lsp;
+	struct zebra_lsp *lsp = NULL;
 	struct zebra_nhlfe *nhlfe;
 	bool lsp_if_found = false;
 	bool srv6_sid_resolved = false;
