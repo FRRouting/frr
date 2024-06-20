@@ -458,6 +458,7 @@ static uint32_t _flex_algo_endpoint_hash(const struct flex_algo_endpoint *f)
 		accumulator ^= f->endpoint.ipaddr_v6.__in6_u.__u6_addr32[1];
 		accumulator ^= f->endpoint.ipaddr_v6.__in6_u.__u6_addr32[2];
 		accumulator ^= f->endpoint.ipaddr_v6.__in6_u.__u6_addr32[3];
+		break;
 	default:
 		break;
 	}
