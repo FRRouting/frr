@@ -1484,7 +1484,7 @@ static void format_item_ext_subtlvs(struct isis_ext_subtlvs *exts,
 					!!(lan->flags &
 					   EXT_SUBTLV_LINK_SRV6_ENDX_SID_PFLG));
 				json_object_string_addf(srv6_lan_endx_sid_json,
-							"neighbor-id", "%pSY",
+							"neighborID", "%pSY",
 							lan->neighbor_id);
 				json_object_array_add(arr_adj_json,
 						      srv6_lan_endx_sid_json);
