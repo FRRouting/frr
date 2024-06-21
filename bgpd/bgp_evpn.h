@@ -153,6 +153,7 @@ extern int bgp_evpn_local_l3vni_add(vni_t vni, vrf_id_t vrf_id,
 				    struct in_addr originator_ip, int filter,
 				    ifindex_t svi_ifindex, bool is_anycast_mac);
 extern int bgp_evpn_local_l3vni_del(vni_t vni, vrf_id_t vrf_id);
+extern void bgp_evpn_instance_down(struct bgp *bgp);
 extern int bgp_evpn_local_vni_del(struct bgp *bgp, vni_t vni);
 extern int bgp_evpn_local_vni_add(struct bgp *bgp, vni_t vni,
 				  struct in_addr originator_ip,
