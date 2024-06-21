@@ -1331,10 +1331,7 @@ static void bgp_zebra_announce_parse_nexthop(
 							 &nh_weight))
 				continue;
 		}
-		if (CHECK_FLAG(info->flags, BGP_PATH_SELECTED))
-			api_nh = &api->nexthops[*valid_nh_count];
-		else
-			api_nh = &api->backup_nexthops[*valid_nh_count];
+		api_nh = &api->nexthops[*valid_nh_count];
 
 		api_nh->srte_color = bgp_attr_get_color(info->attr);
 
