@@ -956,11 +956,12 @@ static bool zebra_srv6_sid_compose(struct in6_addr *sid_value,
 				   uint32_t sid_func)
 {
 	uint8_t offset, func_len;
-	struct srv6_sid_format *format = locator->sid_format;
+	struct srv6_sid_format *format;
 
 	if (!sid_value || !locator)
 		return false;
 
+	format = locator->sid_format;
 	if (format) {
 		offset = format->block_len + format->node_len;
 		func_len = format->function_len;
