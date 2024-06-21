@@ -1066,8 +1066,7 @@ static void format_item_ext_subtlvs(struct isis_ext_subtlvs *exts,
 				json_object_array_add(arr_adj_json, flags_json);
 				if (adj->subsubtlvs)
 					isis_format_subsubtlvs(adj->subsubtlvs,
-							       NULL,
-							       arr_adj_json,
+							       NULL, flags_json,
 							       indent + 4);
 			}
 		} else
@@ -1141,8 +1140,7 @@ static void format_item_ext_subtlvs(struct isis_ext_subtlvs *exts,
 				json_object_array_add(arr_adj_json, flags_json);
 				if (lan->subsubtlvs)
 					isis_format_subsubtlvs(lan->subsubtlvs,
-							       NULL,
-							       arr_adj_json,
+							       NULL, flags_json,
 							       indent + 4);
 			}
 		} else
