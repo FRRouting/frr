@@ -685,6 +685,9 @@ def _check_lsp_overload_bit(router, overloaded_router_lsp, att_p_ol_expected):
     )
 
     database_json = json.loads(isis_database_output)
+    if "lsps" not in database_json["areas"][0]["levels"][1]:
+        return "The LSP of {} has not been synchronized yet ".format(router.name)
+
     att_p_ol = database_json["areas"][0]["levels"][1]["lsps"][0]["attPOl"]
     if att_p_ol == att_p_ol_expected:
         return True
