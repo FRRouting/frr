@@ -1843,7 +1843,7 @@ static bool release_srv6_sid_func_explicit(struct zebra_srv6_sid_block *block,
 				for (ALL_LIST_ELEMENTS_RO(block->u.usid
 								  .wide_lib[sid_func]
 								  .func_allocated,
-							  node, sid_func_ptr))
+							  node, sid_wide_func_ptr))
 					if (*sid_wide_func_ptr == sid_wide_func)
 						break;
 
