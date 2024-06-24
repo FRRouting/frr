@@ -238,8 +238,7 @@ static bool route_add(const struct prefix *p, vrf_id_t vrf_id, uint8_t instance,
 
 	api.flags = flags;
 
-	/* Only send via ID if nhgroup has been successfully installed */
-	if (nhgid && sharp_nhgroup_id_is_installed(nhgid)) {
+	if (nhgid) {
 		zapi_route_set_nhg_id(&api, &nhgid);
 	} else {
 		SET_FLAG(api.message, ZAPI_MESSAGE_NEXTHOP);
