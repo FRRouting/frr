@@ -55,16 +55,22 @@ Certain signals have special meanings to *pimd*.
 *pimd* invocation options. Common options that can be specified
 (:ref:`common-invocation-options`).
 
-.. clicmd:: ip pim rp A.B.C.D A.B.C.D/M
+PIM Routers
+-----------
+
+.. clicmd:: router pim [vrf NAME]
+   Configure global PIM protocol
+
+.. clicmd:: rp A.B.C.D A.B.C.D/M
 
    In order to use pim, it is necessary to configure a RP for join messages to
    be sent to. Currently the only methodology to do this is via static rp
    commands. All routers in the pim network must agree on these values. The
    first ip address is the RP's address and the second value is the matching
    prefix of group ranges covered. This command is vrf aware, to configure for
-   a vrf, enter the vrf submode.
+   a vrf, specify the vrf in the router pim block.
 
-.. clicmd:: ip pim rp keep-alive-timer (1-65535)
+.. clicmd:: rp keep-alive-timer (1-65535)
 
    Modify the time out value for a S,G flow from 1-65535 seconds at RP.
    The normal keepalive period for the KAT(S,G) defaults to 210 seconds.
@@ -74,41 +80,41 @@ Certain signals have special meanings to *pimd*.
    max(Keepalive_Period, RP_Keepalive_Period) when a Register-Stop is sent.
    If choosing a value below 31 seconds be aware that some hardware platforms
    cannot see data flowing in better than 30 second chunks. This command is
-   vrf aware, to configure for a vrf, enter the vrf submode.
+   vrf aware, to configure for a vrf, specify the vrf in the router pim block.
 
-.. clicmd:: ip pim register-accept-list PLIST
+.. clicmd:: register-accept-list PLIST
 
    When pim receives a register packet the source of the packet will be compared
    to the prefix-list specified, PLIST, and if a permit is received normal
    processing continues.  If a deny is returned for the source address of the
    register packet a register stop message is sent to the source.
 
-.. clicmd:: ip pim spt-switchover infinity-and-beyond [prefix-list PLIST]
+.. clicmd:: spt-switchover infinity-and-beyond [prefix-list PLIST]
 
    On the last hop router if it is desired to not switch over to the SPT tree
    configure this command. Optional parameter prefix-list can be use to control
    which groups to switch or not switch. If a group is PERMIT as per the
    PLIST, then the SPT switchover does not happen for it and if it is DENY,
    then the SPT switchover happens.
-   This command is vrf aware, to configure for a vrf,
-   enter the vrf submode.
+   This command is vrf aware, to configure for a vrf, specify the vrf in the
+   router pim block.
 
-.. clicmd:: ip pim ecmp
+.. clicmd:: ecmp
 
    If pim has the a choice of ECMP nexthops for a particular RPF, pim will
    cause S,G flows to be spread out amongst the nexthops. If this command is
    not specified then the first nexthop found will be used. This command is vrf
-   aware, to configure for a vrf, enter the vrf submode.
+   aware, to configure for a vrf, specify the vrf in the router pim block.
 
-.. clicmd:: ip pim ecmp rebalance
+.. clicmd:: ecmp rebalance
 
    If pim is using ECMP and an interface goes down, cause pim to rebalance all
    S,G flows across the remaining nexthops. If this command is not configured
    pim only modifies those S,G flows that were using the interface that went
-   down. This command is vrf aware, to configure for a vrf, enter the vrf
-   submode.
+   down. This command is vrf aware, to configure for a vrf, specify the vrf in
+   the router pim block.
 
-.. clicmd:: ip pim join-prune-interval (1-65535)
+.. clicmd:: join-prune-interval (1-65535)
 
    Modify the join/prune interval that pim uses to the new value. Time is
    specified in seconds. This command is vrf aware, to configure for a vrf,
@@ -116,39 +122,42 @@ Certain signals have special meanings to *pimd*.
    a value smaller than 60 seconds be aware that this can and will affect
    convergence at scale.
 
-.. clicmd:: ip pim keep-alive-timer (1-65535)
+.. clicmd:: keep-alive-timer (1-65535)
 
    Modify the time out value for a S,G flow from 1-65535 seconds. If choosing
    a value below 31 seconds be aware that some hardware platforms cannot see data
    flowing in better than 30 second chunks. This command is vrf aware, to
-   configure for a vrf, enter the vrf submode.
+   configure for a vrf, specify the vrf in the router pim block.
 
-.. clicmd:: ip pim packets (1-255)
+.. clicmd:: packets (1-255)
 
    When processing packets from a neighbor process the number of packets
    incoming at one time before moving on to the next task. The default value is
    3 packets.  This command is only useful at scale when you can possibly have
    a large number of pim control packets flowing. This command is vrf aware, to
-   configure for a vrf, enter the vrf submode.
+   configure for a vrf, specify the vrf in the router pim block.
 
-.. clicmd:: ip pim register-suppress-time (1-65535)
+.. clicmd:: register-suppress-time (1-65535)
 
    Modify the time that pim will register suppress a FHR will send register
    notifications to the kernel. This command is vrf aware, to configure for a
-   vrf, enter the vrf submode.
+   vrf, specify the vrf in the router pim block.
 
-.. clicmd:: ip pim send-v6-secondary
+.. clicmd:: send-v6-secondary
 
    When sending pim hello packets tell pim to send any v6 secondary addresses
    on the interface. This information is used to allow pim to use v6 nexthops
    in it's decision for RPF lookup. This command is vrf aware, to configure for
-   a vrf, enter the vrf submode.
+   a vrf, specify the vrf in the router pim block.
 
-.. clicmd:: ip pim ssm prefix-list WORD
+.. clicmd:: ssm prefix-list WORD
 
    Specify a range of group addresses via a prefix-list that forces pim to
-   never do SM over. This command is vrf aware, to configure for a vrf, enter
-   the vrf submode.
+   never do SM over. This command is vrf aware, to configure for a vrf, specify
+   the vrf in the router pim block.
+
+Global Multicast
+----------------
 
 .. clicmd:: ip multicast rpf-lookup-mode WORD
 
@@ -334,11 +343,12 @@ MSDP can be setup in different ways:
 .. note::
 
    MSDP default peer and SA filtering is not implemented.
+   MSDP configuration is available under 'router pim'
 
 
 Commands available for MSDP:
 
-.. clicmd:: ip msdp timers (1-65535) (1-65535) [(1-65535)]
+.. clicmd:: msdp timers (1-65535) (1-65535) [(1-65535)]
 
    Configure global MSDP timers.
 
@@ -354,16 +364,16 @@ Commands available for MSDP:
    configures the interval between connection attempts. The default value
    is 30 seconds.
 
-.. clicmd:: ip msdp mesh-group WORD member A.B.C.D
+.. clicmd:: msdp mesh-group WORD member A.B.C.D
 
    Create or update a mesh group to include the specified MSDP peer.
 
-.. clicmd:: ip msdp mesh-group WORD source A.B.C.D
+.. clicmd:: msdp mesh-group WORD source A.B.C.D
 
    Create or update a mesh group to set the source address used to connect to
    peers.
 
-.. clicmd:: ip msdp peer A.B.C.D source A.B.C.D
+.. clicmd:: msdp peer A.B.C.D source A.B.C.D
 
    Create a regular MSDP session with peer using the specified source address.
 
@@ -734,8 +744,9 @@ Sample configuration
    ! You may want to enable ssmpingd for troubleshooting
    ! See http://www.venaas.no/multicast/ssmping/
    !
-   ip ssmpingd 1.1.1.1
-   ip ssmpingd 2.2.2.2
+   router pim
+    ssmpingd 1.1.1.1
+    ssmpingd 2.2.2.2
 
    ! HINTS:
    !  - Enable "ip pim ssm" on the interface directly attached to the

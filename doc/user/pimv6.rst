@@ -47,21 +47,28 @@ Certain signals have special meanings to *pim6d*.
 *pim6d* invocation options. Common options that can be specified
 (:ref:`common-invocation-options`).
 
-.. clicmd:: ipv6 pim rp X:X::X:X Y:Y::Y:Y/M
+PIMv6 Router
+------------
+
+.. clicmd:: router pim6 [vrf NAME]
+
+   Configure the global PIMv6 protocol
+
+.. clicmd:: rp X:X::X:X Y:Y::Y:Y/M
 
    In order to use pimv6, it is necessary to configure a RP for join messages to
    be sent to. Currently the only methodology to do this is via static rp
    commands. All routers in the pimv6 network must agree on these values. The
    first ipv6 address is the RP's address and the second value is the matching
    prefix of group ranges covered. This command is vrf aware, to configure for
-   a vrf, enter the vrf submode.
+   a vrf, specify the vrf in the router pim6 block.
 
-.. clicmd:: ipv6 pim rp X:X::X:X prefix-list WORD
+.. clicmd:: rp X:X::X:X prefix-list WORD
 
    This CLI helps in configuring RP address for a range of groups specified
    by the prefix-list.
 
-.. clicmd:: ipv6 pim rp keep-alive-timer (1-65535)
+.. clicmd:: rp keep-alive-timer (1-65535)
 
    Modify the time out value for a S,G flow from 1-65535 seconds at RP.
    The normal keepalive period for the KAT(S,G) defaults to 210 seconds.
@@ -71,19 +78,19 @@ Certain signals have special meanings to *pim6d*.
    max(Keepalive_Period, RP_Keepalive_Period) when a Register-Stop is sent.
    If choosing a value below 31 seconds be aware that some hardware platforms
    cannot see data flowing in better than 30 second chunks. This command is
-   vrf aware, to configure for a vrf, enter the vrf submode.
+   vrf aware, to configure for a vrf, specify the vrf in the router pim6 block.
 
-.. clicmd:: ipv6 pim spt-switchover infinity-and-beyond [prefix-list PLIST]
+.. clicmd:: spt-switchover infinity-and-beyond [prefix-list PLIST]
 
    On the last hop router if it is desired to not switch over to the SPT tree
    configure this command. Optional parameter prefix-list can be use to control
    which groups to switch or not switch. If a group is PERMIT as per the
    PLIST, then the SPT switchover does not happen for it and if it is DENY,
    then the SPT switchover happens.
-   This command is vrf aware, to configure for a vrf,
-   enter the vrf submode.
+   This command is vrf aware, to configure for a vrf, specify the vrf in the
+   router pim6 block.
 
-.. clicmd:: ipv6 pim join-prune-interval (1-65535)
+.. clicmd:: join-prune-interval (1-65535)
 
    Modify the join/prune interval that pim uses to the new value. Time is
    specified in seconds. This command is vrf aware, to configure for a vrf,
@@ -91,28 +98,28 @@ Certain signals have special meanings to *pim6d*.
    a value smaller than 60 seconds be aware that this can and will affect
    convergence at scale.
 
-.. clicmd:: ipv6 pim keep-alive-timer (1-65535)
+.. clicmd:: keep-alive-timer (1-65535)
 
    Modify the time out value for a S,G flow from 1-65535 seconds. If choosing
    a value below 31 seconds be aware that some hardware platforms cannot see data
    flowing in better than 30 second chunks. This command is vrf aware, to
-   configure for a vrf, enter the vrf submode.
+   configure for a vrf, specify the vrf in the router pim6 block.
 
-.. clicmd:: ipv6 pim packets (1-255)
+.. clicmd:: packets (1-255)
 
    When processing packets from a neighbor process the number of packets
    incoming at one time before moving on to the next task. The default value is
    3 packets.  This command is only useful at scale when you can possibly have
    a large number of pim control packets flowing. This command is vrf aware, to
-   configure for a vrf, enter the vrf submode.
+   configure for a vrf, specify the vrf in the router pim6 block.
 
-.. clicmd:: ipv6 pim register-suppress-time (1-65535)
+.. clicmd:: register-suppress-time (1-65535)
 
    Modify the time that pim will register suppress a FHR will send register
    notifications to the kernel. This command is vrf aware, to configure for a
-   vrf, enter the vrf submode.
+   vrf, specify the vrf in the router pim6 block.
 
-.. clicmd:: ipv6 ssmpingd [X:X::X:X]
+.. clicmd:: ssmpingd [X:X::X:X]
 
    Enable ipv6 ssmpingd configuration. A network level management tool
    to check whether one can receive multicast packets via SSM from host.
@@ -417,7 +424,7 @@ Clear commands reset various variables.
 
 .. clicmd:: clear ipv6 pim [vrf NAME] interface traffic
 
-   When this command is issued, resets the information about the 
+   When this command is issued, resets the information about the
    number of PIM protocol packets sent/received on an interface.
 
 .. clicmd:: clear ipv6 pim oil
@@ -494,7 +501,7 @@ the config was written out.
 
 .. clicmd:: debug mld trace [detail]
 
-   This traces mld code and how it is running. 
+   This traces mld code and how it is running.
 
 .. clicmd:: debug pimv6 bsm
 
