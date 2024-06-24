@@ -161,18 +161,27 @@ void pim_nht_bsr_add(struct pim_instance *pim, pim_addr addr)
 	pnc->bsr_count++;
 }
 
+bool pim_nht_candrp_add(struct pim_instance *pim, pim_addr addr)
+{
+	struct pim_nexthop_cache *pnc;
+
+	pnc = pim_nht_get(pim, addr);
+
+	pnc->candrp_count++;
+	return CHECK_FLAG(pnc->flags, PIM_NEXTHOP_VALID);
+}
+
 static void pim_nht_drop_maybe(struct pim_instance *pim,
 			       struct pim_nexthop_cache *pnc)
 {
 	if (PIM_DEBUG_PIM_NHT)
-		zlog_debug(
-			"%s: NHT %pPA(%s) rp_list count:%d upstream count:%ld BSR count:%u",
-			__func__, &pnc->rpf.rpf_addr, pim->vrf->name,
-			pnc->rp_list->count, pnc->upstream_hash->count,
-			pnc->bsr_count);
+		zlog_debug("%s: NHT %pPA(%s) rp_list count:%d upstream count:%ld BSR count:%u Cand-RP count:%u",
+			   __func__, &pnc->rpf.rpf_addr, pim->vrf->name,
+			   pnc->rp_list->count, pnc->upstream_hash->count,
+			   pnc->bsr_count, pnc->candrp_count);
 
-	if (pnc->rp_list->count == 0 && pnc->upstream_hash->count == 0
-	    && pnc->bsr_count == 0) {
+	if (pnc->rp_list->count == 0 && pnc->upstream_hash->count == 0 &&
+	    pnc->bsr_count == 0 && pnc->candrp_count == 0) {
 		struct zclient *zclient = pim_zebra_zclient_get();
 
 		pim_sendmsg_zebra_rnh(pim, zclient, pnc,
@@ -254,6 +263,27 @@ void pim_nht_bsr_del(struct pim_instance *pim, pim_addr addr)
 
 	assertf(pnc->bsr_count > 0, "addr=%pPA", &addr);
 	pnc->bsr_count--;
+
+	pim_nht_drop_maybe(pim, pnc);
+}
+
+void pim_nht_candrp_del(struct pim_instance *pim, pim_addr addr)
+{
+	struct pim_nexthop_cache *pnc = NULL;
+	struct pim_nexthop_cache lookup;
+
+	lookup.rpf.rpf_addr = addr;
+
+	pnc = hash_lookup(pim->rpf_hash, &lookup);
+
+	if (!pnc) {
+		zlog_warn("attempting to delete nonexistent NHT C-RP entry %pPA",
+			  &addr);
+		return;
+	}
+
+	assertf(pnc->candrp_count > 0, "addr=%pPA", &addr);
+	pnc->candrp_count--;
 
 	pim_nht_drop_maybe(pim, pnc);
 }
@@ -900,6 +930,9 @@ void pim_nexthop_update(struct vrf *vrf, struct prefix *match,
 		pim_update_rp_nh(pim, pnc);
 	if (pnc->upstream_hash->count)
 		pim_update_upstream_nh(pim, pnc);
+
+	if (pnc->candrp_count)
+		pim_crp_nht_update(pim, pnc);
 }
 
 int pim_ecmp_nexthop_lookup(struct pim_instance *pim,
