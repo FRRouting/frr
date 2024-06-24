@@ -260,6 +260,7 @@ struct srv6_sid_ctx {
 	struct in6_addr nh6;
 	uint32_t color;
 	vrf_id_t vrf_id;
+	ifindex_t ifindex;
 };
 
 static inline const char *seg6_mode2str(enum seg6_mode_t mode)
