@@ -11,6 +11,7 @@
 #include "bgpd/bgp_table.h"
 
 PREDECL_HASH(bgp_nhg_cache);
+PREDECL_RBTREE_UNIQ(bgp_nhg_connected_tree);
 
 extern struct bgp_nhg_cache_head nhg_cache_table;
 
@@ -42,6 +43,22 @@ struct bgp_nhg_cache {
 
 	unsigned int path_count;
 	time_t last_update;
+
+	/* Dependency tree between parent nhg and child nhg:
+	 * For instance, to represent 2 ECMP nexthops,
+	 * 1 parent nhg entry (ID 3) and 2 child nhg (ID 1 and ID 2)
+	 * entries are necessary.
+	 *
+	 * bgp_nhg(ID 3)->nhg_childs has ID 1 and ID 2 in the tree
+	 * bgp_nhg(ID 3)->nhg_parents is empty
+	 *
+	 * bgp_nhg(ID 1)->nhg_childs is empty
+	 * bgp_nhg(ID 1)->nhg_parents is ID 3 in the tree
+	 *
+	 * bgp_nhg(ID 2)->nhg_childs is empty
+	 * bgp_nhg(ID 2)->nhg_parents is ID 3 in the tree
+	 */
+	struct bgp_nhg_connected_tree_head nhg_childs, nhg_parents;
 };
 
 extern uint32_t bgp_nhg_cache_hash(const struct bgp_nhg_cache *nhg);
