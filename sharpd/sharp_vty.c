@@ -206,7 +206,7 @@ DEFPY (install_routes,
 	  <nexthop <A.B.C.D$nexthop4|X:X::X:X$nexthop6>|\
 	   nexthop-group NHGNAME$nexthop_group>\
 	  [backup$backup <A.B.C.D$backup_nexthop4|X:X::X:X$backup_nexthop6>] \
-	  (1-1000000)$routes [instance (0-255)$instance] [repeat (2-1000)$rpt] [opaque WORD] [no-recurse$norecurse]",
+	  (1-1000000)$routes [instance (0-255)$instance] [repeat (2-1000)$rpt] [opaque WORD] [no-recurse$norecurse] [use-protocol-nexthop-group$useprotonhg]",
        "Sharp routing Protocol\n"
        "install some routes\n"
        "Routes to install\n"
@@ -229,7 +229,8 @@ DEFPY (install_routes,
        "How many times to repeat this command\n"
        "What opaque data to send down\n"
        "The opaque data\n"
-       "No recursive nexthops\n")
+       "No recursive nexthops\n"
+       "Force to use protocol nexthop-groups\n")
 {
 	struct vrf *vrf;
 	struct prefix prefix;
@@ -291,7 +292,14 @@ DEFPY (install_routes,
 		}
 
 		nhgid = sharp_nhgroup_get_id(nexthop_group);
-		sg.r.nhgid = nhgid;
+		/* Only send via ID if nhgroup has been successfully installed or use-protocol-nexthop-group is used */
+		if (nhgid &&
+		    (sharp_nhgroup_id_is_installed(nhgid) || useprotonhg))
+			sg.r.nhgid = nhgid;
+		else {
+			sg.r.nhgid = 0;
+			nhgid = 0;
+		}
 		sg.r.nhop_group.nexthop = nhgc->nhg.nexthop;
 
 		/* Use group's backup nexthop info if present */
