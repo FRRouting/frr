@@ -669,6 +669,7 @@ void isis_zebra_request_srv6_sid_endx(struct isis_adjacency *adj)
 
 	ctx.behavior = ZEBRA_SEG6_LOCAL_ACTION_END_X;
 	ctx.nh6 = nexthop;
+	ctx.ifindex = circuit->interface->ifindex;
 	ret = isis_zebra_request_srv6_sid(&ctx, &sid_value,
 					  area->srv6db.config.srv6_locator_name);
 	if (!ret) {
