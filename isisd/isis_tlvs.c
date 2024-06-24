@@ -1034,7 +1034,8 @@ static void format_item_ext_subtlvs(struct isis_ext_subtlvs *exts,
 			struct json_object *arr_adj_json, *flags_json;
 
 			arr_adj_json = json_object_new_array();
-			json_object_object_add(json, "srv6EndSID", arr_adj_json);
+			json_object_object_add(json, "srv6EndXSID",
+					       arr_adj_json);
 			for (adj = (struct isis_srv6_endx_sid_subtlv *)
 					   exts->srv6_endx_sid.head;
 			     adj; adj = adj->next) {
