@@ -10,6 +10,7 @@
 
 #include <bgpd/bgpd.h>
 #include <bgpd/bgp_debug.h>
+#include <bgpd/bgp_nhg_private.h>
 #include <bgpd/bgp_nhg.h>
 #include <bgpd/bgp_nexthop.h>
 #include <bgpd/bgp_zebra.h>
@@ -18,6 +19,8 @@
 #include "bgpd/bgp_nhg_clippy.c"
 
 extern struct zclient *zclient;
+
+DEFINE_MTYPE_STATIC(BGPD, BGP_NHG_CONNECTED, "BGP NHG Connected");
 
 /* BGP NHG hash table. */
 struct bgp_nhg_cache_head nhg_cache_table;
@@ -67,6 +70,123 @@ static void bgp_nhg_zebra_init(void)
 	nexthop_group_init(bgp_nhg_add_cb, bgp_nhg_modify_cb,
 			   bgp_nhg_add_nexthop_cb, bgp_nhg_del_nexthop_cb,
 			   bgp_nhg_del_cb);
+}
+
+/* BGP NHGs are either child or parent nhgs. To reflect dependency between a parent
+ * and its childs (and reversely reflect that a child is used by a list of parents),
+ * a tree of 'bgp_nhg_connected' structures are used. The below API is used to
+ * handle those structures.
+ */
+static void bgp_nhg_connected_free(struct bgp_nhg_connected *dep)
+{
+	XFREE(MTYPE_BGP_NHG_CONNECTED, dep);
+}
+
+static struct bgp_nhg_connected *bgp_nhg_connected_new(struct bgp_nhg_cache *nhg)
+{
+	struct bgp_nhg_connected *new = NULL;
+
+	new = XCALLOC(MTYPE_BGP_NHG_CONNECTED, sizeof(struct bgp_nhg_connected));
+	new->nhg = nhg;
+
+	return new;
+}
+
+static __attribute__((__unused__)) bool
+bgp_nhg_connected_tree_is_empty(const struct bgp_nhg_connected_tree_head *head)
+{
+	return bgp_nhg_connected_tree_count(head) ? false : true;
+}
+
+struct bgp_nhg_cache *bgp_nhg_connected_tree_del_nhg(struct bgp_nhg_connected_tree_head *head,
+						     struct bgp_nhg_cache *depend)
+{
+	struct bgp_nhg_connected lookup = {};
+	struct bgp_nhg_connected *remove = NULL;
+	struct bgp_nhg_cache *removed_nhg;
+
+	lookup.nhg = depend;
+
+	/* Lookup to find the element, then remove it */
+	remove = bgp_nhg_connected_tree_find(head, &lookup);
+	if (remove)
+		/* Re-returning here just in case this API changes..
+		 * the _del list api's are a bit undefined at the moment.
+		 *
+		 * So hopefully returning here will make it fail if the api
+		 * changes to something different than currently expected.
+		 */
+		remove = bgp_nhg_connected_tree_del(head, remove);
+
+	/* If the entry was sucessfully removed, free the 'connected` struct */
+	if (remove) {
+		removed_nhg = remove->nhg;
+		bgp_nhg_connected_free(remove);
+		return removed_nhg;
+	}
+
+	return NULL;
+}
+
+/* Assuming UNIQUE RB tree. If this changes, assumptions here about
+ * insertion need to change.
+ */
+struct bgp_nhg_cache *bgp_nhg_connected_tree_add_nhg(struct bgp_nhg_connected_tree_head *head,
+						     struct bgp_nhg_cache *depend)
+{
+	struct bgp_nhg_connected *new = NULL;
+
+	new = bgp_nhg_connected_new(depend);
+
+	/* On success, NULL will be returned from the
+	 * RB code.
+	 */
+	if (new && (bgp_nhg_connected_tree_add(head, new) == NULL))
+		return NULL;
+
+	/* If it wasn't successful, it must be a duplicate. We enforce the
+	 * unique property for the `nhg_connected` tree.
+	 */
+	bgp_nhg_connected_free(new);
+
+	return depend;
+}
+
+static __attribute__((__unused__)) unsigned int bgp_nhg_childs_count(const struct bgp_nhg_cache *nhg)
+{
+	return bgp_nhg_connected_tree_count(&nhg->nhg_childs);
+}
+
+static __attribute__((__unused__)) bool bgp_nhg_childs_is_empty(const struct bgp_nhg_cache *nhg)
+{
+	return bgp_nhg_connected_tree_is_empty(&nhg->nhg_childs);
+}
+
+static __attribute__((__unused__)) void bgp_nhg_childs_del(struct bgp_nhg_cache *from,
+							   struct bgp_nhg_cache *depend)
+{
+	bgp_nhg_connected_tree_del_nhg(&from->nhg_childs, depend);
+}
+
+static void bgp_nhg_childs_init(struct bgp_nhg_cache *nhg)
+{
+	bgp_nhg_connected_tree_init(&nhg->nhg_childs);
+}
+
+static __attribute__((__unused__)) unsigned int bgp_nhg_parents_count(const struct bgp_nhg_cache *nhg)
+{
+	return bgp_nhg_connected_tree_count(&nhg->nhg_parents);
+}
+
+static __attribute__((__unused__)) void bgp_nhg_parents_del(struct bgp_nhg_cache *from,
+							    struct bgp_nhg_cache *dependent)
+{
+	bgp_nhg_connected_tree_del_nhg(&from->nhg_parents, dependent);
+}
+
+static void bgp_nhg_parents_init(struct bgp_nhg_cache *nhg)
+{
+	bgp_nhg_connected_tree_init(&nhg->nhg_parents);
 }
 
 void bgp_nhg_init(void)
@@ -227,6 +347,8 @@ struct bgp_nhg_cache *bgp_nhg_new(uint32_t flags, uint16_t nexthop_num, struct z
 		bgp_nhg_debug(nhg, "creation");
 
 	LIST_INIT(&(nhg->paths));
+	bgp_nhg_parents_init(nhg);
+	bgp_nhg_childs_init(nhg);
 	bgp_nhg_cache_add(&nhg_cache_table, nhg);
 
 	/* prepare the nexthop */
@@ -235,9 +357,26 @@ struct bgp_nhg_cache *bgp_nhg_new(uint32_t flags, uint16_t nexthop_num, struct z
 	return nhg;
 }
 
+static void bgp_nhg_connected_del(struct bgp_nhg_cache *nhg)
+{
+	struct bgp_nhg_connected *rb_node_dep = NULL;
+
+	frr_each_safe (bgp_nhg_connected_tree, &(nhg->nhg_parents), rb_node_dep) {
+		bgp_nhg_childs_del(rb_node_dep->nhg, nhg);
+		bgp_nhg_parents_del(nhg, rb_node_dep->nhg);
+	}
+
+	frr_each_safe (bgp_nhg_connected_tree, &(nhg->nhg_childs), rb_node_dep) {
+		bgp_nhg_parents_del(rb_node_dep->nhg, nhg);
+		bgp_nhg_childs_del(nhg, rb_node_dep->nhg);
+	}
+}
+
 static void bgp_nhg_free(struct bgp_nhg_cache *nhg)
 {
 	struct zapi_nhg api_nhg = {};
+
+	bgp_nhg_connected_del(nhg);
 
 	api_nhg.id = nhg->id;
 
