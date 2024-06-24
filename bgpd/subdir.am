@@ -141,6 +141,7 @@ noinst_HEADERS += \
 	bgpd/bgp_mplsvpn_snmp.h \
 	bgpd/bgp_network.h \
 	bgpd/bgp_nexthop.h \
+	bgpd/bgp_nhg_private.h \
 	bgpd/bgp_nht.h \
 	bgpd/bgp_open.h \
 	bgpd/bgp_packet.h \
