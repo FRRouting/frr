@@ -47,6 +47,8 @@ struct ospf_if_params {
 			 output_cost_cmd); /* Command Interface Output Cost */
 	DECLARE_IF_PARAM(uint32_t,
 			 retransmit_interval); /* Retransmission Interval */
+	DECLARE_IF_PARAM(uint32_t,
+			 retransmit_window); /* Retransmission Window */
 	DECLARE_IF_PARAM(uint8_t, passive_interface); /* OSPF Interface is
 							passive: no sending or
 							receiving (no need to
@@ -296,6 +298,7 @@ struct ospf_interface {
 	uint32_t ls_ack_out;   /* LS Ack message output count. */
 	uint32_t discarded;    /* discarded input count by error. */
 	uint32_t state_change; /* Number of status change. */
+	uint32_t ls_rxmt_lsa;  /* Number of LSAs retransmitted. */
 
 	uint32_t full_nbrs;
 

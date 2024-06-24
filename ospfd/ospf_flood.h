@@ -7,6 +7,26 @@
 #ifndef _ZEBRA_OSPF_FLOOD_H
 #define _ZEBRA_OSPF_FLOOD_H
 
+/*
+ * OSPF Temporal LSA List
+ */
+PREDECL_DLIST(ospf_lsa_list);
+
+struct ospf_lsa_list_entry {
+	/* Linkage for LSA List */
+	struct ospf_lsa_list_item list_linkage;
+
+	/*
+	 * Time associated with the list entry. For example, for a neigbhor
+	 * link retransmission list, this is the retransmission time.
+	 */
+	struct timeval list_entry_time;
+
+	struct ospf_lsa *lsa;
+};
+
+DECLARE_DLIST(ospf_lsa_list, struct ospf_lsa_list_entry, list_linkage);
+
 extern int ospf_flood(struct ospf *, struct ospf_neighbor *, struct ospf_lsa *,
 		      struct ospf_lsa *);
 extern int ospf_flood_through(struct ospf *, struct ospf_neighbor *,
@@ -36,6 +56,8 @@ extern void ospf_ls_retransmit_add(struct ospf_neighbor *, struct ospf_lsa *);
 extern void ospf_ls_retransmit_delete(struct ospf_neighbor *,
 				      struct ospf_lsa *);
 extern void ospf_ls_retransmit_clear(struct ospf_neighbor *);
+extern void ospf_ls_retransmit_set_timer(struct ospf_neighbor *nbr);
+
 extern struct ospf_lsa *ospf_ls_retransmit_lookup(struct ospf_neighbor *,
 						  struct ospf_lsa *);
 extern void ospf_ls_retransmit_delete_nbr_area(struct ospf_area *,

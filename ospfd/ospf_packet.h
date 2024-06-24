@@ -140,7 +140,7 @@ extern void ospf_ls_ack_send_delayed(struct ospf_interface *);
 extern void ospf_ls_retransmit(struct ospf_interface *, struct ospf_lsa *);
 extern void ospf_ls_req_event(struct ospf_neighbor *);
 
-extern void ospf_ls_upd_timer(struct event *thread);
+extern void ospf_ls_rxmt_timer(struct event *thread);
 extern void ospf_ls_ack_timer(struct event *thread);
 extern void ospf_poll_timer(struct event *thread);
 extern void ospf_hello_reply_timer(struct event *thread);

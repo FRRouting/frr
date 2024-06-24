@@ -1015,7 +1015,7 @@ void ospf_ls_request_delete(struct ospf_neighbor *nbr, struct ospf_lsa *lsa)
 	ospf_lsdb_delete(&nbr->ls_req, lsa);
 }
 
-/* Remove all LSA from neighbor's ls-requenst list. */
+/* Remove all LSAs from neighbor's ls-request list. */
 void ospf_ls_request_delete_all(struct ospf_neighbor *nbr)
 {
 	ospf_lsa_unlock(&nbr->ls_req_last);
@@ -1061,58 +1061,114 @@ int ospf_ls_retransmit_isempty(struct ospf_neighbor *nbr)
 /* Add LSA to be retransmitted to neighbor's ls-retransmit list. */
 void ospf_ls_retransmit_add(struct ospf_neighbor *nbr, struct ospf_lsa *lsa)
 {
-	struct ospf_lsa *old;
+	struct ospf_lsdb_linked_node *ls_rxmt_node;
+	struct ospf_lsa_list_entry *ls_rxmt_list_entry;
+	struct ospf_lsa *old = NULL;
+	bool rxmt_head_replaced = false;
 
-	old = ospf_ls_retransmit_lookup(nbr, lsa);
+	ls_rxmt_node = ospf_lsdb_linked_lookup(&nbr->ls_rxmt, lsa);
+	if (ls_rxmt_node)
+		old = ls_rxmt_node->info;
 
 	if (ospf_lsa_more_recent(old, lsa) < 0) {
 		if (old) {
 			old->retransmit_counter--;
+			if (ls_rxmt_node->lsa_list_entry ==
+			    ospf_lsa_list_first(&nbr->ls_rxmt_list))
+				rxmt_head_replaced = true;
+			ospf_lsa_list_del(&nbr->ls_rxmt_list,
+					  ls_rxmt_node->lsa_list_entry);
+			XFREE(MTYPE_OSPF_LSA_LIST, ls_rxmt_node->lsa_list_entry);
+			ospf_lsdb_delete(&nbr->ls_rxmt, old);
 			if (IS_DEBUG_OSPF(lsa, LSA_FLOODING))
-				zlog_debug("RXmtL(%lu)--, NBR(%pI4(%s)), LSA[%s]",
+				zlog_debug("RXmtL(%lu) NBR(%pI4(%s)) Old Delete LSA[%s] on Add",
 					   ospf_ls_retransmit_count(nbr),
 					   &nbr->router_id,
 					   ospf_get_name(nbr->oi->ospf),
-					   dump_lsa_key(old));
-			ospf_lsdb_delete(&nbr->ls_rxmt, old);
+					   dump_lsa_key(lsa));
+			ospf_lsa_unlock(&old);
 		}
 		lsa->retransmit_counter++;
+		ls_rxmt_list_entry = XCALLOC(MTYPE_OSPF_LSA_LIST,
+					     sizeof(struct ospf_lsa_list_entry));
 		/*
-		 * We cannot make use of the newly introduced callback function
-		 * "lsdb->new_lsa_hook" to replace debug output below, just
-		 * because
-		 * it seems no simple and smart way to pass neighbor information
-		 * to
-		 * the common function "ospf_lsdb_add()" -- endo.
+		 * Set the LSA retransmission time for the neighbor;
 		 */
-		if (IS_DEBUG_OSPF(lsa, LSA_FLOODING))
-			zlog_debug("RXmtL(%lu)++, NBR(%pI4(%s)), LSA[%s]",
-				   ospf_ls_retransmit_count(nbr),
-				   &nbr->router_id,
-				   ospf_get_name(nbr->oi->ospf),
-				   dump_lsa_key(lsa));
+		monotime(&ls_rxmt_list_entry->list_entry_time);
+		ls_rxmt_list_entry->list_entry_time.tv_sec += nbr->v_ls_rxmt;
+
+		/*
+		 * Add the LSA to the neighbor retransmission list.
+		 */
+		ls_rxmt_list_entry->lsa = ospf_lsa_lock(lsa);
+		ospf_lsa_list_add_tail(&nbr->ls_rxmt_list, ls_rxmt_list_entry);
 		ospf_lsdb_add(&nbr->ls_rxmt, lsa);
+
+		/*
+		 * Look up the newly added node and set the list pointer.
+		 */
+		ls_rxmt_node = ospf_lsdb_linked_lookup(&nbr->ls_rxmt, lsa);
+		ls_rxmt_node->lsa_list_entry = ls_rxmt_list_entry;
+
+		if (IS_DEBUG_OSPF(lsa, LSA_FLOODING))
+			zlog_debug("RXmtL(%lu) NBR(%pI4(%s)) Add LSA[%s] retrans at (%ld/%ld)",
+				   ospf_ls_retransmit_count(nbr),
+				   &nbr->router_id, ospf_get_name(nbr->oi->ospf),
+				   dump_lsa_key(lsa),
+				   (long)ls_rxmt_list_entry->list_entry_time
+					   .tv_sec,
+				   (long)ls_rxmt_list_entry->list_entry_time
+					   .tv_usec);
+		/*
+		 * Reset the neighbor LSA retransmission timer if isn't currently
+		 * running or the LSA at the head of the list was updated.
+		 */
+		if (!nbr->t_ls_rxmt || rxmt_head_replaced)
+			ospf_ls_retransmit_set_timer(nbr);
 	}
 }
 
 /* Remove LSA from neibghbor's ls-retransmit list. */
 void ospf_ls_retransmit_delete(struct ospf_neighbor *nbr, struct ospf_lsa *lsa)
 {
-	if (ospf_ls_retransmit_lookup(nbr, lsa)) {
+	struct ospf_lsdb_linked_node *ls_rxmt_node;
+
+	ls_rxmt_node = ospf_lsdb_linked_lookup(&nbr->ls_rxmt, lsa);
+
+	if (ls_rxmt_node) {
+		bool rxmt_timer_reset;
+
+		if (ls_rxmt_node->lsa_list_entry ==
+		    ospf_lsa_list_first(&nbr->ls_rxmt_list))
+			rxmt_timer_reset = true;
+		else
+			rxmt_timer_reset = false;
+
 		lsa->retransmit_counter--;
-		if (IS_DEBUG_OSPF(lsa, LSA_FLOODING)) /* -- endo. */
-			zlog_debug("RXmtL(%lu)--, NBR(%pI4(%s)), LSA[%s]",
-				   ospf_ls_retransmit_count(nbr),
-				   &nbr->router_id,
-				   ospf_get_name(nbr->oi->ospf),
-				   dump_lsa_key(lsa));
+		ospf_lsa_list_del(&nbr->ls_rxmt_list,
+				  ls_rxmt_node->lsa_list_entry);
+		XFREE(MTYPE_OSPF_LSA_LIST, ls_rxmt_node->lsa_list_entry);
 		ospf_lsdb_delete(&nbr->ls_rxmt, lsa);
+		if (IS_DEBUG_OSPF(lsa, LSA_FLOODING))
+			zlog_debug("RXmtL(%lu) NBR(%pI4(%s)) Delete LSA[%s]",
+				   ospf_ls_retransmit_count(nbr),
+				   &nbr->router_id, ospf_get_name(nbr->oi->ospf),
+				   dump_lsa_key(lsa));
+		ospf_lsa_unlock(&lsa);
+
+		/*
+		 * If the LS retransmission entry at the head of the list was
+		 * deleted, reset the timer.
+		 */
+		if (rxmt_timer_reset)
+			ospf_ls_retransmit_set_timer(nbr);
 	}
 }
 
 /* Clear neighbor's ls-retransmit list. */
 void ospf_ls_retransmit_clear(struct ospf_neighbor *nbr)
 {
+	struct ospf_lsa_list_entry *ls_rxmt_list_entry;
 	struct ospf_lsdb *lsdb;
 	int i;
 
@@ -1128,8 +1184,52 @@ void ospf_ls_retransmit_clear(struct ospf_neighbor *nbr)
 				ospf_ls_retransmit_delete(nbr, lsa);
 	}
 
+	frr_each_safe (ospf_lsa_list, &nbr->ls_rxmt_list, ls_rxmt_list_entry) {
+		ospf_lsa_list_del(&nbr->ls_rxmt_list, ls_rxmt_list_entry);
+		ospf_lsa_unlock(&ls_rxmt_list_entry->lsa);
+		XFREE(MTYPE_OSPF_LSA_LIST, ls_rxmt_list_entry);
+	}
+
 	ospf_lsa_unlock(&nbr->ls_req_last);
 	nbr->ls_req_last = NULL;
+}
+
+/*
+ * Set the neighbor's ls-retransmit timer based on the next
+ * LSA retransmit time.
+ */
+void ospf_ls_retransmit_set_timer(struct ospf_neighbor *nbr)
+{
+	struct ospf_lsa_list_entry *ls_rxmt_list_entry;
+
+	if (nbr->t_ls_rxmt)
+		EVENT_OFF(nbr->t_ls_rxmt);
+
+	ls_rxmt_list_entry = ospf_lsa_list_first(&nbr->ls_rxmt_list);
+	if (ls_rxmt_list_entry) {
+		struct timeval current_time, delay;
+		unsigned long delay_milliseconds;
+
+		monotime(&current_time);
+		if (timercmp(&current_time,
+			     &ls_rxmt_list_entry->list_entry_time, >=))
+			delay_milliseconds = 10;
+		else {
+			timersub(&ls_rxmt_list_entry->list_entry_time,
+				 &current_time, &delay);
+			delay_milliseconds = (delay.tv_sec * 1000) +
+					     (delay.tv_usec / 1000);
+		}
+
+		event_add_timer_msec(master, ospf_ls_rxmt_timer, nbr,
+				     delay_milliseconds, &nbr->t_ls_rxmt);
+		if (IS_DEBUG_OSPF(lsa, LSA_FLOODING))
+			zlog_debug("RXmtL(%lu) NBR(%pI4(%s)) retrans timer set in %ld msecs - Head LSA(%s)",
+				   ospf_ls_retransmit_count(nbr),
+				   &nbr->router_id, ospf_get_name(nbr->oi->ospf),
+				   delay_milliseconds,
+				   dump_lsa_key(ls_rxmt_list_entry->lsa));
+	}
 }
 
 /* Lookup LSA from neighbor's ls-retransmit list. */

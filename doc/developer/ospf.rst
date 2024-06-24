@@ -8,6 +8,7 @@ OSPFD
    :maxdepth: 2
 
    ospf-api
+   ospf-ls-retrans
    ospf-sr
    cspf
 
