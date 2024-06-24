@@ -358,7 +358,7 @@ void isis_adj_state_change(struct isis_adjacency **padj,
 				 * purposes */
 				adj->last_flap = time(NULL);
 				adj->flaps++;
-			} else if (old_state == ISIS_ADJ_UP) {
+			} else if (old_state == ISIS_ADJ_UP || old_state == ISIS_ADJ_INITIALIZING) {
 				circuit->adj_state_changes++;
 
 				circuit->upadjcount[level - 1]--;
