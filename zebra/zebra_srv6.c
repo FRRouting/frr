@@ -956,11 +956,12 @@ static bool zebra_srv6_sid_compose(struct in6_addr *sid_value,
 				   uint32_t sid_func)
 {
 	uint8_t offset, func_len;
-	struct srv6_sid_format *format = locator->sid_format;
+	struct srv6_sid_format *format;
 
 	if (!sid_value || !locator)
 		return false;
 
+	format = locator->sid_format;
 	if (format) {
 		offset = format->block_len + format->node_len;
 		func_len = format->function_len;
@@ -1742,8 +1743,7 @@ int get_srv6_sid(struct zebra_srv6_sid **sid, struct srv6_sid_ctx *ctx,
 			   __func__, srv6_sid_ctx2str(buf, sizeof(buf), ctx),
 			   sid_value, srv6_sid_alloc_mode2str(alloc_mode));
 
-	switch (alloc_mode) {
-	case SRV6_SID_ALLOC_MODE_EXPLICIT:
+	if (alloc_mode == SRV6_SID_ALLOC_MODE_EXPLICIT) {
 		/*
 		 * Explicit SID allocation: allocate a specific SID value
 		 */
@@ -1755,9 +1755,7 @@ int get_srv6_sid(struct zebra_srv6_sid **sid, struct srv6_sid_ctx *ctx,
 		}
 
 		ret = get_srv6_sid_explicit(sid, ctx, sid_value);
-
-		break;
-	case SRV6_SID_ALLOC_MODE_DYNAMIC:
+	} else {
 		/*
 		 * Dynamic SID allocation: allocate any available SID value
 		 */
@@ -1776,16 +1774,6 @@ int get_srv6_sid(struct zebra_srv6_sid **sid, struct srv6_sid_ctx *ctx,
 		}
 
 		ret = get_srv6_sid_dynamic(sid, ctx, locator);
-
-		break;
-	case SRV6_SID_ALLOC_MODE_MAX:
-	case SRV6_SID_ALLOC_MODE_UNSPEC:
-	default:
-		flog_err(EC_ZEBRA_SM_CANNOT_ASSIGN_SID,
-			 "%s: SRv6 Manager: Unrecognized alloc mode %u",
-			 __func__, alloc_mode);
-		/* We should never arrive here */
-		assert(0);
 	}
 
 	return ret;
@@ -1856,7 +1844,7 @@ static bool release_srv6_sid_func_explicit(struct zebra_srv6_sid_block *block,
 				for (ALL_LIST_ELEMENTS_RO(block->u.usid
 								  .wide_lib[sid_func]
 								  .func_allocated,
-							  node, sid_func_ptr))
+							  node, sid_wide_func_ptr))
 					if (*sid_wide_func_ptr == sid_wide_func)
 						break;
 
