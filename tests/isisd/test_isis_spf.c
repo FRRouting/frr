@@ -55,7 +55,7 @@ static void test_run_spf(struct vty *vty, const struct isis_topology *topology,
 	isis_run_spf(spftree);
 
 	/* Print the SPT and the corresponding routing table. */
-	isis_print_spftree(vty, spftree);
+	isis_print_spftree(vty, spftree, NULL);
 	isis_print_routes(vty, spftree, NULL, false, false);
 
 	/* Cleanup SPF tree. */
@@ -85,7 +85,7 @@ static void test_run_lfa(struct vty *vty, const struct isis_topology *topology,
 	isis_lfa_compute(area, NULL, spftree_self, protected_resource);
 
 	/* Print the SPT and the corresponding main/backup routing tables. */
-	isis_print_spftree(vty, spftree_self);
+	isis_print_spftree(vty, spftree_self, NULL);
 	vty_out(vty, "Main:\n");
 	isis_print_routes(vty, spftree_self, NULL, false, false);
 	vty_out(vty, "Backup:\n");
@@ -148,7 +148,7 @@ static void test_run_rlfa(struct vty *vty, const struct isis_topology *topology,
 	vty_out(vty, "\n");
 
 	/* Print the post-convergence SPT. */
-	isis_print_spftree(vty, spftree_pc);
+	isis_print_spftree(vty, spftree_pc, NULL);
 
 	/*
 	 * Activate the computed RLFAs (if any) using artificial LDP labels for
@@ -164,7 +164,7 @@ static void test_run_rlfa(struct vty *vty, const struct isis_topology *topology,
 	}
 
 	/* Print the SPT and the corresponding main/backup routing tables. */
-	isis_print_spftree(vty, spftree_self);
+	isis_print_spftree(vty, spftree_self, NULL);
 	vty_out(vty, "Main:\n");
 	isis_print_routes(vty, spftree_self, NULL, false, false);
 	vty_out(vty, "Backup:\n");
@@ -228,7 +228,7 @@ static void test_run_ti_lfa(struct vty *vty,
 	/*
 	 * Print the post-convergence SPT and the corresponding routing table.
 	 */
-	isis_print_spftree(vty, spftree_pc);
+	isis_print_spftree(vty, spftree_pc, NULL);
 	isis_print_routes(vty, spftree_self, NULL, false, true);
 
 	/* Cleanup everything. */

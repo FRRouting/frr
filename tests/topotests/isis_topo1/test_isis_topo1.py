@@ -120,19 +120,13 @@ def test_isis_convergence():
         pytest.skip(tgen.errors)
 
     logger.info("waiting for ISIS protocol to converge")
-    # Code to generate the json files.
-    # for rname, router in tgen.routers().items():
-    #     open('/tmp/{}_topology.json'.format(rname), 'w').write(
-    #         json.dumps(show_isis_topology(router), indent=2, sort_keys=True)
-    #     )
-
     for rname, router in tgen.routers().items():
         filename = "{0}/{1}/{1}_topology.json".format(CWD, rname)
         expected = json.loads(open(filename).read())
 
         def compare_isis_topology(router, expected):
             "Helper function to test ISIS topology convergence."
-            actual = show_isis_topology(router)
+            actual = json.loads(router.vtysh_cmd("show isis topology json"))
             return topotest.json_cmp(actual, expected)
 
         test_func = functools.partial(compare_isis_topology, router, expected)
@@ -845,52 +839,3 @@ def parse_topology(lines, level):
             continue
 
     return areas
-
-
-def show_isis_topology(router):
-    """
-    Get the ISIS topology in a dictionary format.
-
-    Sample:
-    {
-      'area-name': {
-        'level-1': [
-          {
-            'vertex': 'r1'
-          }
-        ],
-        'level-2': [
-          {
-            'vertex': '10.0.0.1/24',
-            'type': 'IP',
-            'parent': '0',
-            'metric': 'internal'
-          }
-        ]
-      },
-      'area-name-2': {
-        'level-2': [
-          {
-            "interface": "rX-ethY",
-            "metric": "Z",
-            "next-hop": "rA",
-            "parent": "rC(B)",
-            "type": "TE-IS",
-            "vertex": "rD"
-          }
-        ]
-      }
-    }
-    """
-    l1out = topotest.normalize_text(
-        router.vtysh_cmd("show isis topology level-1")
-    ).splitlines()
-    l2out = topotest.normalize_text(
-        router.vtysh_cmd("show isis topology level-2")
-    ).splitlines()
-
-    l1 = parse_topology(l1out, "level-1")
-    l2 = parse_topology(l2out, "level-2")
-
-    dict_merge(l1, l2)
-    return l1
