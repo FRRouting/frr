@@ -800,6 +800,12 @@ static struct log_ref ferr_zebra_err[] = {
 		.suggestion = "Ignore this error.",
 	},
 	{
+		.code = EC_ZEBRA_INTF_ADDR_NOPREFIXROUTE,
+		.title = "Interface has an address with 'noprefixroute' flag",
+		.description = "External network managers (e.g. NetworkManager, systemd-networkd) can cause the route to be resolved through the wrong interface because the 'noprefixroute' flag is added to the IP address.",
+		.suggestion = "Verify that the IP address assigned to the interface doesn't have the 'noprefixroute' flag.",
+	},
+	{
 		.code = END_FERR,
 	}
 };
