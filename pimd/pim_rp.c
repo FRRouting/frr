@@ -1115,8 +1115,8 @@ int pim_rp_set_upstream_addr(struct pim_instance *pim, pim_addr *up,
 
 	rp_info = pim_rp_find_match_group(pim, &g);
 
-	if (!rp_info || ((pim_rpf_addr_is_inaddr_any(&rp_info->rp)) &&
-			 (pim_addr_is_any(source)))) {
+	if ((!rp_info || (pim_rpf_addr_is_inaddr_any(&rp_info->rp))) &&
+			 (pim_addr_is_any(source))) {
 		if (PIM_DEBUG_PIM_NHT_RP)
 			zlog_debug("%s: Received a (*,G) with no RP configured",
 				   __func__);
