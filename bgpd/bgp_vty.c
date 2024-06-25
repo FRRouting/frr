@@ -11661,10 +11661,9 @@ static void bgp_show_peer_reset(struct vty * vty, struct peer *peer,
 						  BGP_NOTIFY_CEASE_HARD_RESET)
 					: "");
 		} else {
-			vty_out(vty, "  %s (%s)\n",
+			vty_out(vty, " %s (%s)\n",
 				peer_down_str[(int)peer->last_reset],
-				peer->soft_version ? peer->soft_version
-						   : "n/a");
+				peer->soft_version ? peer->soft_version : "n/a");
 		}
 	}
 }
