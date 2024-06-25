@@ -3,22 +3,25 @@
    single: Installing FRR
    single: Building FRR
 
-.. _installation:
-
 Installation
 ============
 
-This section covers the basics of building, installing and setting up FRR.
+This section covers the basics of building, installing and setting up
+FRR.
 
+The official FRR website is located at |PACKAGE_URL| and contains further
+information, as well as links to additional resources.
 
 From Packages
 -------------
 
-The project publishes packages for Red Hat, Centos, Debian and Ubuntu on the
-`GitHub releases <https://github.com/FRRouting/frr/releases>`_. page. External
-contributors offer packages for many other platforms including \*BSD, Alpine,
-Gentoo, Docker, and others. There is currently no documentation on how to use
-those but we hope to add it soon.
+Up-to-date Debian & Redhat packages are available at
+https://deb.frrouting.org/ & https://rpm.frrouting.org/ respectively.
+
+Several distributions also provide packages for FRR. Check your
+distribution's repositories to find out if a suitable version is
+available.
+
 
 From Snapcraft
 --------------
@@ -29,12 +32,12 @@ universal Snap images, available at https://snapcraft.io/frr.
 From Source
 -----------
 
-Building FRR from source is the best way to ensure you have the latest features
-and bug fixes. Details for each supported platform, including dependency
-package listings, permissions, and other gotchas, are in the `developer's
-documentation
-<http://docs.frrouting.org/projects/dev-guide/en/latest/building.html>`_. This
-section provides a brief overview on the process.
+Building FRR from source is the best way to ensure you have the latest
+features and bug fixes. Details for each supported platform, including
+dependency package listings, permissions, and other gotchas, are in the
+`developer's documentation
+<http://docs.frrouting.org/projects/dev-guide/en/latest/building.html>`_.
+This section provides a brief overview on the process.
 
 
 Getting the Source

@@ -1,12 +1,19 @@
 .. _bfd:
 
-**********************************
-Bidirectional Forwarding Detection
-**********************************
+***
+BFD
+***
 
-:abbr:`BFD (Bidirectional Forwarding Detection)` stands for
-Bidirectional Forwarding Detection and it is described and extended by
-the following RFCs:
+:abbr:`BFD (Bidirectional Forwarding Detection)` is:
+
+  a protocol intended to detect faults in the bidirectional path between two
+  forwarding engines, including interfaces, data link(s), and to the extent
+  possible the forwarding engines themselves, with potentially very low
+  latency.
+
+  -- :rfc:`5880`
+
+It is described and extended by the following RFCs:
 
 * :rfc:`5880`
 * :rfc:`5881`
