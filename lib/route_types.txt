@@ -58,6 +58,7 @@ ZEBRA_ROUTE_OSPF6,      ospf6,     ospf6d, 'O', 0, 1, 1,     "OSPFv3",        os
 ZEBRA_ROUTE_ISIS,       isis,      isisd,  'I', 1, 1, 1,     "IS-IS",         isisd
 ZEBRA_ROUTE_BGP,        bgp,       bgpd,   'B', 1, 1, 1,     "BGP",           bgpd
 ZEBRA_ROUTE_PIM,	pim,	   pimd,   'P', 0, 0, 0,     "PIM",           pimd
+ZEBRA_ROUTE_PIM6,       pim6,      pim6d,  'P', 0, 1, 0,     "PIM6",          pim6d
 ZEBRA_ROUTE_EIGRP,      eigrp,     eigrpd, 'E', 1, 0, 1,     "EIGRP",         eigrpd
 ZEBRA_ROUTE_NHRP,       nhrp,      nhrpd,  'N', 1, 1, 1,     "NHRP",          nhrpd
 # HSLS and OLSR both are AFI independent (so: 1, 1), however
@@ -104,6 +105,7 @@ ZEBRA_ROUTE_OSPF6,  "Open Shortest Path First (IPv6) (OSPFv3)"
 ZEBRA_ROUTE_ISIS,   "Intermediate System to Intermediate System (IS-IS)"
 ZEBRA_ROUTE_BGP,    "Border Gateway Protocol (BGP)"
 ZEBRA_ROUTE_PIM,    "Protocol Independent Multicast (PIM)"
+ZEBRA_ROUTE_PIM6,   "Protocol Independent Multicast (IPv6) (PIM6)"
 ZEBRA_ROUTE_EIGRP,  "Enhanced Interior Gateway Routing Protocol (EIGRP)"
 ZEBRA_ROUTE_NHRP,   "Next Hop Resolution Protocol (NHRP)"
 ZEBRA_ROUTE_HSLS,   "Hazy-Sighted Link State Protocol (HSLS)"
