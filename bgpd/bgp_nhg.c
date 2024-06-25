@@ -251,13 +251,14 @@ static void bgp_nhg_debug(struct bgp_nhg_cache *nhg, const char *prefix)
 {
 	char nexthop_buf[1024];
 
-	if (nhg->nexthop_num != 1) {
+	if (nhg->nexthops.nexthop_num != 1) {
 		zlog_debug("NHG %u: %s", nhg->id, prefix);
-		if (nhg->nexthop_num > 1)
-			bgp_debug_zebra_nh(nhg->nexthops, nhg->nexthop_num);
+		if (nhg->nexthops.nexthop_num > 1)
+			bgp_debug_zebra_nh(nhg->nexthops.nexthops,
+					   nhg->nexthops.nexthop_num);
 		return;
 	}
-	bgp_debug_zebra_nh_buffer(&nhg->nexthops[0], nexthop_buf,
+	bgp_debug_zebra_nh_buffer(&nhg->nexthops.nexthops[0], nexthop_buf,
 				  sizeof(nexthop_buf));
 	zlog_debug("NHG %u: %s (%s)", nhg->id, prefix, nexthop_buf);
 }
@@ -275,7 +276,7 @@ static struct bgp_nhg_cache *bgp_nhg_find_per_id(uint32_t id)
 
 uint32_t bgp_nhg_cache_hash(const struct bgp_nhg_cache *nhg)
 {
-	return jhash_1word((uint32_t)nhg->nexthop_num, 0x55aa5a5a);
+	return jhash_1word((uint32_t)nhg->nexthops.nexthop_num, 0x55aa5a5a);
 }
 
 uint32_t bgp_nhg_cache_compare(const struct bgp_nhg_cache *a,
@@ -286,8 +287,9 @@ uint32_t bgp_nhg_cache_compare(const struct bgp_nhg_cache *a,
 	if (a->flags != b->flags)
 		return a->flags - b->flags;
 
-	for (i = 0; i < a->nexthop_num; i++) {
-		ret = zapi_nexthop_cmp(&a->nexthops[i], &b->nexthops[i]);
+	for (i = 0; i < a->nexthops.nexthop_num; i++) {
+		ret = zapi_nexthop_cmp(&a->nexthops.nexthops[i],
+				       &b->nexthops.nexthops[i]);
 		if (ret != 0)
 			return ret;
 	}
@@ -300,19 +302,46 @@ static vrf_id_t bgp_nhg_get_vrfid(struct bgp_nhg_cache *nhg)
 	vrf_id_t vrf_id = VRF_DEFAULT;
 	int i = 0;
 
-	for (i = 0; i < nhg->nexthop_num; i++)
-		return nhg->nexthops[i].vrf_id;
+	for (i = 0; i < nhg->nexthops.nexthop_num; i++)
+		return nhg->nexthops.nexthops[i].vrf_id;
 
 	return vrf_id;
+}
+
+static bool bgp_nhg_add_or_update_nhg_nexthop(struct bgp_nhg_cache *bgp_nhg,
+					      struct zapi_nhg *api_nhg)
+{
+	int i;
+	bool ret = true;
+
+	api_nhg->id = bgp_nhg->id;
+
+	for (i = 0; i < bgp_nhg->nexthops.nexthop_num; i++) {
+		if (api_nhg->nexthop_num >= MULTIPATH_NUM) {
+			if (BGP_DEBUG(nexthop_group, NEXTHOP_GROUP_DETAIL))
+				zlog_warn("%s: number of nexthops greater than max multipath size, truncating",
+					  __func__);
+			break;
+		}
+		memcpy(&api_nhg->nexthops[api_nhg->nexthop_num],
+		       &bgp_nhg->nexthops.nexthops[i],
+		       sizeof(struct zapi_nexthop));
+		api_nhg->nexthop_num++;
+	}
+	if (api_nhg->nexthop_num == 0) {
+		/* assumption that dependent nhg are removed before when id is installed */
+		if (BGP_DEBUG(nexthop_group, NEXTHOP_GROUP_DETAIL))
+			zlog_debug("%s: nhg %u not sent: no valid nexthops",
+				   __func__, api_nhg->id);
+		ret = false;
+	}
+	return ret;
 }
 
 static void bgp_nhg_add_or_update_nhg(struct bgp_nhg_cache *bgp_nhg)
 {
 	struct zapi_nhg api_nhg = {};
-	int i;
-	bool ret = true;
 
-	api_nhg.id = bgp_nhg->id;
 	if (CHECK_FLAG(bgp_nhg->flags, BGP_NHG_FLAG_ALLOW_RECURSION))
 		SET_FLAG(api_nhg.flags, NEXTHOP_GROUP_ALLOW_RECURSION);
 
@@ -322,25 +351,7 @@ static void bgp_nhg_add_or_update_nhg(struct bgp_nhg_cache *bgp_nhg)
 	if (CHECK_FLAG(bgp_nhg->flags, BGP_NHG_FLAG_IBGP))
 		SET_FLAG(api_nhg.flags, NEXTHOP_GROUP_IBGP);
 
-	for (i = 0; i < bgp_nhg->nexthop_num; i++) {
-		if (api_nhg.nexthop_num >= MULTIPATH_NUM) {
-			if (BGP_DEBUG(nexthop_group, NEXTHOP_GROUP_DETAIL))
-				zlog_warn("%s: number of nexthops greater than max multipath size, truncating",
-					  __func__);
-			break;
-		}
-		memcpy(&api_nhg.nexthops[api_nhg.nexthop_num],
-		       &bgp_nhg->nexthops[i], sizeof(struct zapi_nexthop));
-		api_nhg.nexthop_num++;
-	}
-	if (api_nhg.nexthop_num == 0) {
-		/* assumption that dependent nhg are removed before when id is installed */
-		if (BGP_DEBUG(nexthop_group, NEXTHOP_GROUP_DETAIL))
-			zlog_debug("%s: nhg %u not sent: no valid nexthops",
-				   __func__, api_nhg.id);
-		ret = false;
-	}
-	if (ret)
+	if (bgp_nhg_add_or_update_nhg_nexthop(bgp_nhg, &api_nhg))
 		zclient_nhg_send(zclient, ZEBRA_NHG_ADD, &api_nhg);
 }
 
@@ -352,10 +363,10 @@ struct bgp_nhg_cache *bgp_nhg_new(uint32_t flags, uint16_t nexthop_num,
 
 	nhg = XCALLOC(MTYPE_BGP_NHG_CACHE, sizeof(struct bgp_nhg_cache));
 	for (i = 0; i < nexthop_num; i++)
-		memcpy(&nhg->nexthops[i], &api_nh[i],
+		memcpy(&nhg->nexthops.nexthops[i], &api_nh[i],
 		       sizeof(struct zapi_nexthop));
 
-	nhg->nexthop_num = nexthop_num;
+	nhg->nexthops.nexthop_num = nexthop_num;
 	nhg->flags = flags;
 
 	nhg->id = bgp_nhg_id_alloc();
@@ -569,8 +580,8 @@ void bgp_nhg_refresh_by_nexthop(struct bgp_nexthop_cache *bnc)
 		    (!srte_color &&
 		     CHECK_FLAG(nhg->flags, BGP_NHG_FLAG_SRTE_PRESENCE)))
 			continue;
-		for (i = 0; i < nhg->nexthop_num; i++) {
-			zapi_nh = &nhg->nexthops[i];
+		for (i = 0; i < nhg->nexthops.nexthop_num; i++) {
+			zapi_nh = &nhg->nexthops.nexthops[i];
 			if (zapi_nh->type == NEXTHOP_TYPE_IFINDEX ||
 			    zapi_nh->type == NEXTHOP_TYPE_BLACKHOLE)
 				continue;
@@ -685,11 +696,11 @@ static void show_bgp_nhg_id_helper(struct vty *vty, struct bgp_nhg_cache *nhg,
 		vty_out(vty, "\n");
 	}
 
-	if (nhg->nexthop_num && json)
+	if (nhg->nexthops.nexthop_num && json)
 		json_array = json_object_new_array();
 
-	for (i = 0; i < nhg->nexthop_num; i++) {
-		nexthop = nexthop_from_zapi_nexthop(&nhg->nexthops[i]);
+	for (i = 0; i < nhg->nexthops.nexthop_num; i++) {
+		nexthop = nexthop_from_zapi_nexthop(&nhg->nexthops.nexthops[i]);
 		if (json) {
 			json_entry = json_object_new_object();
 			nexthop_json_helper(json_entry, nexthop, true,
