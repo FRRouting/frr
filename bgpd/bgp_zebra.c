@@ -1324,7 +1324,7 @@ static void bgp_zebra_nexthop_group_configure(struct bgp_path_info *info, const 
 		}
 	}
 
-	nhg.nexthop_num = *valid_nh_count;
+	nhg.nexthops.nexthop_num = *valid_nh_count;
 	if (*allow_recursion || CHECK_FLAG(api->flags, ZEBRA_FLAG_ALLOW_RECURSION))
 		SET_FLAG(nhg.flags, BGP_NHG_FLAG_ALLOW_RECURSION);
 	if (CHECK_FLAG(api->flags, ZEBRA_FLAG_IBGP))
@@ -1333,10 +1333,10 @@ static void bgp_zebra_nexthop_group_configure(struct bgp_path_info *info, const 
 		SET_FLAG(nhg.flags, BGP_NHG_FLAG_SRTE_PRESENCE);
 
 	for (i = 0; i < *valid_nh_count; i++)
-		memcpy(&nhg.nexthops[i], &api->nexthops[i], sizeof(struct zapi_nexthop));
+		memcpy(&nhg.nexthops.nexthops[i], &api->nexthops[i], sizeof(struct zapi_nexthop));
 	p_nhg = bgp_nhg_cache_find(&nhg_cache_table, &nhg);
 	if (!p_nhg)
-		p_nhg = bgp_nhg_new(nhg.flags, nhg.nexthop_num, nhg.nexthops);
+		p_nhg = bgp_nhg_new(nhg.flags, nhg.nexthops.nexthop_num, nhg.nexthops.nexthops);
 
 	if (p_nhg != info->bgp_nhg) {
 		/* updates NHG info list reference */
