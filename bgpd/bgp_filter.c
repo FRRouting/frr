@@ -16,7 +16,7 @@
 #include "bgpd/bgp_aspath.h"
 #include "bgpd/bgp_regex.h"
 
-/* List of AS filter list. */
+/* List of AS list. */
 struct as_list_list {
 	struct as_list *head;
 	struct as_list *tail;
@@ -205,14 +205,6 @@ static struct as_list *as_list_new(void)
 
 static void as_list_free(struct as_list *aslist)
 {
-	struct aspath_exclude_list *cur_bp = aslist->exclude_list;
-	struct aspath_exclude_list *next_bp = NULL;
-
-	while (cur_bp) {
-		next_bp = cur_bp->next;
-		XFREE(MTYPE_ROUTE_MAP_COMPILED, cur_bp);
-		cur_bp = next_bp;
-	}
 
 	XFREE (MTYPE_AS_STR, aslist->name);
 	XFREE (MTYPE_AS_LIST, aslist);
@@ -299,7 +291,6 @@ static void as_list_delete(struct as_list *aslist)
 {
 	struct as_list_list *list;
 	struct as_filter *filter, *next;
-	struct aspath_exclude_list *cur_bp;
 
 	for (filter = aslist->head; filter; filter = next) {
 		next = filter->next;
@@ -317,12 +308,6 @@ static void as_list_delete(struct as_list *aslist)
 		aslist->prev->next = aslist->next;
 	else
 		list->head = aslist->next;
-
-	cur_bp = aslist->exclude_list;
-	while (cur_bp) {
-		cur_bp->bp_as_excl->exclude_aspath_acl = NULL;
-		cur_bp = cur_bp->next;
-	}
 
 	as_list_free(aslist);
 }
@@ -431,6 +416,7 @@ DEFUN(as_path, bgp_as_path_cmd,
 	enum as_filter_type type;
 	struct as_filter *asfilter;
 	struct as_list *aslist;
+	struct aspath_exclude *ase;
 	regex_t *regex;
 	char *regstr;
 	int64_t seqnum = ASPATH_SEQ_NUMBER_AUTO;
@@ -482,6 +468,22 @@ DEFUN(as_path, bgp_as_path_cmd,
 	else
 		as_list_filter_add(aslist, asfilter);
 
+	/* init the exclude rule list*/
+	as_list_list_init(&aslist->exclude_rule);
+
+	/* get aspath orphan exclude that are using this acl */
+	ase = as_exclude_lookup_orphan(alname);
+	if (ase) {
+		as_list_list_add_head(&aslist->exclude_rule, ase);
+		/* set reverse pointer */
+		ase->exclude_aspath_acl = aslist;
+		/* set list of aspath excludes using that acl */
+		while ((ase = as_exclude_lookup_orphan(alname))) {
+			as_list_list_add_head(&aslist->exclude_rule, ase);
+			ase->exclude_aspath_acl = aslist;
+		}
+	}
+
 	return CMD_SUCCESS;
 }
 
@@ -502,6 +504,7 @@ DEFUN(no_as_path, no_bgp_as_path_cmd,
 	enum as_filter_type type;
 	struct as_filter *asfilter;
 	struct as_list *aslist;
+	struct aspath_exclude *ase;
 	char *regstr;
 	regex_t *regex;
 
@@ -556,6 +559,12 @@ DEFUN(no_as_path, no_bgp_as_path_cmd,
 
 	XFREE(MTYPE_TMP, regstr);
 
+	/* put aspath exclude list into orphan */
+	if (as_list_list_count(&aslist->exclude_rule))
+		while ((ase = as_list_list_pop(&aslist->exclude_rule)))
+			as_exclude_set_orphan(ase);
+
+	as_list_list_fini(&aslist->exclude_rule);
 	as_list_filter_delete(aslist, asfilter);
 
 	return CMD_SUCCESS;
