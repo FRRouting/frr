@@ -3557,7 +3557,7 @@ static void bgp_dynamic_capability_software_version(uint8_t *pnt, int action,
 	char soft_version[BGP_MAX_SOFT_VERSION + 1] = {};
 
 	if (action == CAPABILITY_ACTION_SET) {
-		if (data + len > end) {
+		if (data + len + 1 > end) {
 			zlog_err("%pBP: Received invalid Software Version capability length %d",
 				 peer, len);
 			return;
