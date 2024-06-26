@@ -2821,9 +2821,9 @@ int lib_interface_gmp_address_family_robustness_variable_modify(
 }
 
 /*
- * XPath: /frr-interface:lib/interface/frr-gmp:gmp/address-family/static-group
+ * XPath: /frr-interface:lib/interface/frr-gmp:gmp/address-family/join-group
  */
-int lib_interface_gmp_address_family_static_group_create(
+int lib_interface_gmp_address_family_join_group_create(
 	struct nb_cb_create_args *args)
 {
 	struct interface *ifp;
@@ -2881,7 +2881,7 @@ int lib_interface_gmp_address_family_static_group_create(
 	return NB_OK;
 }
 
-int lib_interface_gmp_address_family_static_group_destroy(
+int lib_interface_gmp_address_family_join_group_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	struct interface *ifp;
@@ -2906,6 +2906,97 @@ int lib_interface_gmp_address_family_static_group_destroy(
 			snprintf(args->errmsg, args->errmsg_len,
 				 "%% Failure leaving " GM
 				 " group %pPAs %pPAs on interface %s: %d",
+				 &source_addr, &group_addr, ifp->name, result);
+
+			return NB_ERR_INCONSISTENCY;
+		}
+
+		break;
+	}
+
+	return NB_OK;
+}
+
+/*
+ * XPath: /frr-interface:lib/interface/frr-gmp:gmp/address-family/static-group
+ */
+int lib_interface_gmp_address_family_static_group_create(
+	struct nb_cb_create_args *args)
+{
+	struct interface *ifp;
+	pim_addr source_addr;
+	pim_addr group_addr;
+	int result;
+	const char *ifp_name;
+	const struct lyd_node *if_dnode;
+
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+		if_dnode = yang_dnode_get_parent(args->dnode, "interface");
+		if (!is_pim_interface(if_dnode)) {
+			ifp_name = yang_dnode_get_string(if_dnode, "name");
+			snprintf(args->errmsg, args->errmsg_len,
+				 "multicast not enabled on interface %s",
+				 ifp_name);
+			return NB_ERR_VALIDATION;
+		}
+
+		yang_dnode_get_pimaddr(&group_addr, args->dnode, "./group-addr");
+#if PIM_IPV == 4
+		if (pim_is_group_224_0_0_0_24(group_addr)) {
+			snprintf(args->errmsg, args->errmsg_len,
+				 "Groups within 224.0.0.0/24 are reserved and cannot be joined");
+			return NB_ERR_VALIDATION;
+		}
+#else
+		if (ipv6_mcast_reserved(&group_addr)) {
+			snprintf(args->errmsg, args->errmsg_len,
+				 "Groups within ffx2::/16 are reserved and cannot be joined");
+			return NB_ERR_VALIDATION;
+		}
+#endif
+		break;
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		break;
+	case NB_EV_APPLY:
+		ifp = nb_running_get_entry(args->dnode, NULL, true);
+		yang_dnode_get_pimaddr(&source_addr, args->dnode,
+				       "./source-addr");
+		yang_dnode_get_pimaddr(&group_addr, args->dnode, "./group-addr");
+		result = pim_if_static_group_add(ifp, group_addr, source_addr);
+		if (result) {
+			snprintf(args->errmsg, args->errmsg_len,
+				 "Failure adding static group");
+			return NB_ERR_INCONSISTENCY;
+		}
+	}
+	return NB_OK;
+}
+
+int lib_interface_gmp_address_family_static_group_destroy(
+	struct nb_cb_destroy_args *args)
+{
+	struct interface *ifp;
+	pim_addr source_addr;
+	pim_addr group_addr;
+	int result;
+
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		break;
+	case NB_EV_APPLY:
+		ifp = nb_running_get_entry(args->dnode, NULL, true);
+		yang_dnode_get_pimaddr(&source_addr, args->dnode,
+				       "./source-addr");
+		yang_dnode_get_pimaddr(&group_addr, args->dnode, "./group-addr");
+		result = pim_if_static_group_del(ifp, group_addr, source_addr);
+
+		if (result) {
+			snprintf(args->errmsg, args->errmsg_len,
+				 "%% Failure removing static group %pPAs %pPAs on interface %s: %d",
 				 &source_addr, &group_addr, ifp->name, result);
 
 			return NB_ERR_INCONSISTENCY;

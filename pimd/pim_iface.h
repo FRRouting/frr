@@ -98,6 +98,7 @@ struct pim_interface {
 						       */
 	struct list *gm_socket_list; /* list of struct IGMP or MLD sock */
 	struct list *gm_join_list;   /* list of struct IGMP or MLD join */
+	struct list *static_group_list; /* list of struct static group */
 	struct list *gm_group_list;  /* list of struct IGMP or MLD group */
 	struct hash *gm_group_hash;
 
@@ -221,6 +222,11 @@ ferr_r pim_if_gm_join_add(struct interface *ifp, pim_addr group_addr,
 			  pim_addr source_addr);
 int pim_if_gm_join_del(struct interface *ifp, pim_addr group_addr,
 		       pim_addr source_addr);
+
+ferr_r pim_if_static_group_add(struct interface *ifp, pim_addr group_addr,
+			       pim_addr source_addr);
+int pim_if_static_group_del(struct interface *ifp, pim_addr group_addr,
+			    pim_addr source_addr);
 
 void pim_if_update_could_assert(struct interface *ifp);
 
