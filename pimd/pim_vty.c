@@ -306,17 +306,34 @@ static int gm_config_write(struct vty *vty, int writes,
 		++writes;
 	}
 
-	/* IF ip igmp join */
+	/* IF ip igmp join-group */
 	if (pim_ifp->gm_join_list) {
 		struct listnode *node;
 		struct gm_join *ij;
 		for (ALL_LIST_ELEMENTS_RO(pim_ifp->gm_join_list, node, ij)) {
 			if (pim_addr_is_any(ij->source_addr))
-				vty_out(vty, " ip igmp join %pPAs\n",
+				vty_out(vty, " ip igmp join-group %pPAs\n",
 					&ij->group_addr);
 			else
-				vty_out(vty, " ip igmp join %pPAs %pPAs\n",
+				vty_out(vty, " ip igmp join-group %pPAs %pPAs\n",
 					&ij->group_addr, &ij->source_addr);
+			++writes;
+		}
+	}
+
+	/* IF ip igmp static-group */
+	if (pim_ifp->static_group_list) {
+		struct listnode *node;
+		struct static_group *stgrp;
+		for (ALL_LIST_ELEMENTS_RO(pim_ifp->static_group_list, node,
+					  stgrp)) {
+			if (pim_addr_is_any(stgrp->source_addr))
+				vty_out(vty, " ip igmp static-group %pPAs\n",
+					&stgrp->group_addr);
+			else
+				vty_out(vty,
+					" ip igmp static-group %pPAs %pPAs\n",
+					&stgrp->group_addr, &stgrp->source_addr);
 			++writes;
 		}
 	}
@@ -358,17 +375,37 @@ static int gm_config_write(struct vty *vty, int writes,
 		vty_out(vty, " ipv6 mld last-member-query-interval %d\n",
 			pim_ifp->gm_specific_query_max_response_time_dsec);
 
-	/* IF ipv6 mld join */
+	/* IF ipv6 mld join-group */
 	if (pim_ifp->gm_join_list) {
 		struct listnode *node;
 		struct gm_join *ij;
+
 		for (ALL_LIST_ELEMENTS_RO(pim_ifp->gm_join_list, node, ij)) {
 			if (pim_addr_is_any(ij->source_addr))
-				vty_out(vty, " ipv6 mld join %pPAs\n",
+				vty_out(vty, " ipv6 mld join-group %pPAs\n",
 					&ij->group_addr);
 			else
-				vty_out(vty, " ipv6 mld join %pPAs %pPAs\n",
+				vty_out(vty,
+					" ipv6 mld join-group %pPAs %pPAs\n",
 					&ij->group_addr, &ij->source_addr);
+			++writes;
+		}
+	}
+
+	/* IF ipv6 mld static-group */
+	if (pim_ifp->static_group_list) {
+		struct listnode *node;
+		struct static_group *stgrp;
+
+		for (ALL_LIST_ELEMENTS_RO(pim_ifp->static_group_list, node,
+					  stgrp)) {
+			if (pim_addr_is_any(stgrp->source_addr))
+				vty_out(vty, " ipv6 mld static-group %pPAs\n",
+					&stgrp->group_addr);
+			else
+				vty_out(vty,
+					" ipv6 mld static-group %pPAs %pPAs\n",
+					&stgrp->group_addr, &stgrp->source_addr);
 			++writes;
 		}
 	}

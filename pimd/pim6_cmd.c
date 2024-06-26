@@ -1363,46 +1363,57 @@ DEFPY_ATTR(no_ipv6_ssmpingd,
 	return ret;
 }
 
-DEFPY (interface_ipv6_mld_join,
-       interface_ipv6_mld_join_cmd,
-       "ipv6 mld join X:X::X:X$group [X:X::X:X$source]",
-       IPV6_STR
-       IFACE_MLD_STR
-       "MLD join multicast group\n"
-       "Multicast group address\n"
-       "Source address\n")
+DEFPY_YANG_HIDDEN (interface_ipv6_mld_join,
+                   interface_ipv6_mld_join_cmd,
+                   "[no] ipv6 mld join X:X::X:X$grp [X:X::X:X]$src",
+                   NO_STR
+                   IPV6_STR
+                   IFACE_MLD_STR
+                   "MLD join multicast group\n"
+                   "Multicast group address\n"
+                   "Source address\n")
 {
-	char xpath[XPATH_MAXLEN];
-
-	if (!IN6_IS_ADDR_MULTICAST(&group)) {
-		vty_out(vty, "Invalid Multicast Address\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	if (source_str) {
-		if (IPV6_ADDR_SAME(&source, &in6addr_any)) {
-			vty_out(vty, "Bad source address %s\n", source_str);
-			return CMD_WARNING_CONFIG_FAILED;
-		}
-	} else
-		source_str = "::";
-
-	snprintf(xpath, sizeof(xpath), FRR_GMP_JOIN_XPATH, "frr-routing:ipv6",
-		 group_str, source_str);
-
-	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
-
-	return nb_cli_apply_changes(vty, NULL);
+	nb_cli_enqueue_change(vty, ".", (!no ? NB_OP_CREATE : NB_OP_DESTROY),
+			      NULL);
+	return nb_cli_apply_changes(vty, FRR_GMP_JOIN_GROUP_XPATH,
+				    "frr-routing:ipv6", grp_str,
+				    (src_str ? src_str : "::"));
 }
-
-DEFPY (interface_no_ipv6_mld_join,
-       interface_no_ipv6_mld_join_cmd,
-       "no ipv6 mld join X:X::X:X$group [X:X::X:X$source]",
+ALIAS (interface_ipv6_mld_join,
+       interface_ipv6_mld_join_group_cmd,
+       "[no] ipv6 mld join-group X:X::X:X$grp [X:X::X:X]$src",
        NO_STR
        IPV6_STR
        IFACE_MLD_STR
        "MLD join multicast group\n"
        "Multicast group address\n"
+       "Source address\n");
+
+DEFPY_YANG (interface_ipv6_mld_static_group,
+            interface_ipv6_mld_static_group_cmd,
+            "[no] ipv6 mld static-group X:X::X:X$grp [X:X::X:X]$src",
+            NO_STR
+            IPV6_STR
+            IFACE_MLD_STR
+            "Static multicast group\n"
+            "Multicast group address\n"
+            "Source address\n")
+{
+	nb_cli_enqueue_change(vty, ".", (!no ? NB_OP_CREATE : NB_OP_DESTROY),
+			      NULL);
+	return nb_cli_apply_changes(vty, FRR_GMP_STATIC_GROUP_XPATH,
+				    "frr-routing:ipv6", grp_str,
+				    (src_str ? src_str : "::"));
+}
+
+DEFPY (interface_no_ipv6_mld_static_group,
+       interface_no_ipv6_mld_static_group_cmd,
+       "no ipv6 mld static-group X:X::X:X$group [X:X::X:X$source]",
+       NO_STR
+       IPV6_STR
+       IFACE_MLD_STR
+       "Static multicast group\n"
+       "Multicast group address\n"
        "Source address\n")
 {
 	char xpath[XPATH_MAXLEN];
@@ -1415,8 +1426,8 @@ DEFPY (interface_no_ipv6_mld_join,
 	} else
 		source_str = "::";
 
-	snprintf(xpath, sizeof(xpath), FRR_GMP_JOIN_XPATH, "frr-routing:ipv6",
-		 group_str, source_str);
+	snprintf(xpath, sizeof(xpath), FRR_GMP_STATIC_GROUP_XPATH,
+		 "frr-routing:ipv6", group_str, source_str);
 
 	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
 
@@ -2669,7 +2680,8 @@ void pim_cmd_init(void)
 	install_element(INTERFACE_NODE, &interface_ipv6_mld_cmd);
 	install_element(INTERFACE_NODE, &interface_no_ipv6_mld_cmd);
 	install_element(INTERFACE_NODE, &interface_ipv6_mld_join_cmd);
-	install_element(INTERFACE_NODE, &interface_no_ipv6_mld_join_cmd);
+	install_element(INTERFACE_NODE, &interface_ipv6_mld_join_group_cmd);
+	install_element(INTERFACE_NODE, &interface_ipv6_mld_static_group_cmd);
 	install_element(INTERFACE_NODE, &interface_ipv6_mld_version_cmd);
 	install_element(INTERFACE_NODE, &interface_no_ipv6_mld_version_cmd);
 	install_element(INTERFACE_NODE, &interface_ipv6_mld_query_interval_cmd);
