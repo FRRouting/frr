@@ -4365,8 +4365,10 @@ int rib_add_multipath(afi_t afi, safi_t safi, struct prefix *p,
 		return -1;
 
 	/* We either need nexthop(s) or an existing nexthop id */
-	if (ng == NULL && re->nhe_id == 0)
+	if (ng == NULL && re->nhe_id == 0) {
+		XFREE(MTYPE_RE, re);
 		return -1;
+	}
 
 	/*
 	 * Use a temporary nhe to convey info to the common/main api.
