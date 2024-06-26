@@ -3269,29 +3269,24 @@ def verify_graceful_restart(
 
             # Local GR mode
             if "bgp" not in input_dict[dut] and "graceful-restart" in input_dict[dut]:
-                    if (
-                        "graceful-restart" in input_dict[dut]["graceful-restart"]
-                        and input_dict[dut]["graceful-restart"][
-                            "graceful-restart"
-                        ]
-                    ):
-                        lmode = "Restart*"
-                    elif (
-                        "graceful-restart-disable"
-                        in input_dict[dut]["graceful-restart"]
-                        and input_dict[dut]["graceful-restart"][
-                            "graceful-restart-disable"
-                        ]
-                    ):
-                        lmode = "Disable*"
-                    else:
-                        lmode = "Helper*"
+                if (
+                    "graceful-restart" in input_dict[dut]["graceful-restart"]
+                    and input_dict[dut]["graceful-restart"]["graceful-restart"]
+                ):
+                    lmode = "Restart*"
+                elif (
+                    "graceful-restart-disable" in input_dict[dut]["graceful-restart"]
+                    and input_dict[dut]["graceful-restart"]["graceful-restart-disable"]
+                ):
+                    lmode = "Disable*"
+                else:
+                    lmode = "Helper*"
 
             if lmode is None:
                 if "address_family" in input_dict[dut]["bgp"]:
                     bgp_neighbors = input_dict[dut]["bgp"]["address_family"][addr_type][
-                    "unicast"
-                ]["neighbor"][peer]["dest_link"]
+                        "unicast"
+                    ]["neighbor"][peer]["dest_link"]
 
                     for dest_link, data in bgp_neighbors.items():
                         if (
@@ -3336,7 +3331,10 @@ def verify_graceful_restart(
 
             # Remote GR mode
 
-            if "bgp" in input_dict[peer] and "address_family" in input_dict[peer]["bgp"]:
+            if (
+                "bgp" in input_dict[peer]
+                and "address_family" in input_dict[peer]["bgp"]
+            ):
                 bgp_neighbors = input_dict[peer]["bgp"]["address_family"][addr_type][
                     "unicast"
                 ]["neighbor"][dut]["dest_link"]
@@ -3358,7 +3356,10 @@ def verify_graceful_restart(
                         rmode = None
 
             if rmode is None:
-                if "bgp" in input_dict[peer] and  "graceful-restart" in input_dict[peer]["bgp"]:
+                if (
+                    "bgp" in input_dict[peer]
+                    and "graceful-restart" in input_dict[peer]["bgp"]
+                ):
                     if (
                         "graceful-restart"
                         in input_dict[peer]["bgp"]["graceful-restart"]
@@ -3379,13 +3380,13 @@ def verify_graceful_restart(
                         rmode = "Helper"
 
             if rmode is None:
-                if "bgp" not in input_dict[peer] and "graceful-restart" in input_dict[peer]:
+                if (
+                    "bgp" not in input_dict[peer]
+                    and "graceful-restart" in input_dict[peer]
+                ):
                     if (
-                        "graceful-restart"
-                        in input_dict[peer]["graceful-restart"]
-                        and input_dict[peer]["graceful-restart"][
-                            "graceful-restart"
-                        ]
+                        "graceful-restart" in input_dict[peer]["graceful-restart"]
+                        and input_dict[peer]["graceful-restart"]["graceful-restart"]
                     ):
                         rmode = "Restart"
                     elif (

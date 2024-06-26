@@ -3706,8 +3706,9 @@ DEFPY (neighbor_graceful_shutdown,
 	afi_t afi;
 	safi_t safi;
 	struct peer *peer;
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
 	int ret;
+
+	VTY_DECLVAR_CONTEXT(bgp, bgp);
 
 	peer = peer_and_group_lookup_vty(vty, neighbor);
 	if (!peer)

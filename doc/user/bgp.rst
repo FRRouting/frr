@@ -92,6 +92,12 @@ be specified (:ref:`common-invocation-options`).
    the operator has turned off communication to zebra and is running bgpd
    as a complete standalone process.
 
+.. option:: -K, --graceful_restart
+
+   Bgpd will use this option to denote either a planned FRR graceful
+   restart or a bgpd-only graceful restart, and this will drive the BGP
+   GR restarting router procedures.
+
 LABEL MANAGER
 -------------
 

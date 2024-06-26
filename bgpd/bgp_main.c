@@ -519,7 +519,9 @@ int main(int argc, char **argv)
 		bgp_option_set(BGP_OPT_NO_FIB);
 	if (no_zebra_flag)
 		bgp_option_set(BGP_OPT_NO_ZEBRA);
-	SET_FLAG(bm->flags, BM_FLAG_GRACEFUL_RESTART);
+	if (bgpd_di.graceful_restart)
+		SET_FLAG(bm->flags, BM_FLAG_GRACEFUL_RESTART);
+
 	bgp_error_init();
 	/* Initializations. */
 	libagentx_init();
