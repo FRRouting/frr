@@ -415,9 +415,14 @@ class ClicmdDirective(GenericObject):
 
 
 def setup(app):
-    app.add_object_type("clicmd", "clicmd", objname="CLI command")
     # Override the directive that was just created for us
-    app.add_directive_to_domain("std", "clicmd", ClicmdDirective, override=True)
+    if int(sphinx.__version__.split(".")[0]) >= 2:
+        app.add_object_type("clicmd", "clicmd", objname="CLI command")
+        app.add_directive_to_domain("std", "clicmd", ClicmdDirective, override=True)
+    else:
+        app.add_object_type(
+            "clicmd", "clicmd", indextemplate="pair: %s; configuration command"
+        )
 
     # I dont care how stupid this is
     if "add_js_file" in dir(app):
