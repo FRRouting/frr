@@ -4375,8 +4375,10 @@ int rib_add_multipath(afi_t afi, safi_t safi, struct prefix *p,
 		return -1;
 
 	/* We either need nexthop(s) or an existing nexthop id */
-	if (ng == NULL && re->nhe_id == 0)
+	if (ng == NULL && re->nhe_id == 0) {
+		zebra_rib_route_entry_free(re);
 		return -1;
+	}
 
 	/*
 	 * Use a temporary nhe to convey info to the common/main api.
