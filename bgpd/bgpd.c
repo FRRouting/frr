@@ -3488,11 +3488,10 @@ static struct bgp *bgp_create(as_t *as, const char *name,
 		bgp_maximum_paths_set(bgp, afi, safi, BGP_PEER_IBGP,
 				      multipath_num, 0);
 		/* Initialize graceful restart info */
-		bgp->gr_info[afi][safi].eor_required = 0;
-		bgp->gr_info[afi][safi].eor_received = 0;
 		bgp->gr_info[afi][safi].t_select_deferral = NULL;
 		bgp->gr_info[afi][safi].t_route_select = NULL;
 		bgp->gr_info[afi][safi].gr_deferred = 0;
+		bgp->gr_info[afi][safi].select_defer_over = false;
 	}
 
 	bgp->v_update_delay = bm->v_update_delay;
