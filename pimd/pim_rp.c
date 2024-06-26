@@ -1107,16 +1107,17 @@ int pim_rp_set_upstream_addr(struct pim_instance *pim, pim_addr *up,
 			     pim_addr source, pim_addr group)
 {
 	struct rp_info *rp_info;
-	struct prefix g;
+	struct prefix g = {};
 
-	memset(&g, 0, sizeof(g));
+	if (!pim_addr_is_any(source)) {
+		*up = source;
+		return 1;
+	}
 
 	pim_addr_to_prefix(&g, group);
-
 	rp_info = pim_rp_find_match_group(pim, &g);
 
-	if ((!rp_info || (pim_rpf_addr_is_inaddr_any(&rp_info->rp))) &&
-			 (pim_addr_is_any(source))) {
+	if (!rp_info || pim_rpf_addr_is_inaddr_any(&rp_info->rp)) {
 		if (PIM_DEBUG_PIM_NHT_RP)
 			zlog_debug("%s: Received a (*,G) with no RP configured",
 				   __func__);
@@ -1124,11 +1125,7 @@ int pim_rp_set_upstream_addr(struct pim_instance *pim, pim_addr *up,
 		return 0;
 	}
 
-	if (pim_addr_is_any(source))
-		*up = rp_info->rp.rpf_addr;
-	else
-		*up = source;
-
+	*up = rp_info->rp.rpf_addr;
 	return 1;
 }
 
