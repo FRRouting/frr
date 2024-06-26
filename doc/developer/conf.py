@@ -18,6 +18,7 @@ import re
 import pygments
 from sphinx.highlighting import lexers
 from sphinx.util import logging
+
 logger = logging.getLogger(__name__)
 
 # If extensions (or modules to document with autodoc) are in another directory,
@@ -53,18 +54,18 @@ source_suffix = ".rst"
 master_doc = "index"
 
 # General information about the project.
-project = u"FRR"
-copyright = u"2017, FRR"
-author = u"FRR authors"
+project = "FRR"
+copyright = "2017, FRR"
+author = "FRR authors"
 
 # The version info for the project you're documenting, acts as replacement for
 # |version| and |release|, also used in various other places throughout the
 # built documents.
 
 # The short X.Y version.
-version = u"?.?"
+version = "?.?"
 # The full version, including alpha/beta/rc tags.
-release = u"?.?-?"
+release = "?.?-?"
 
 
 # -----------------------------------------------------------------------------
@@ -287,7 +288,7 @@ latex_elements = {
 # (source start file, target name, title,
 #  author, documentclass [howto, manual, or own class]).
 latex_documents = [
-    (master_doc, "FRR.tex", u"FRR Developer's Manual", u"FRR", "manual"),
+    (master_doc, "FRR.tex", "FRR Developer's Manual", "FRR", "manual"),
 ]
 
 # The name of an image file (relative to this directory) to place at the top of
@@ -315,7 +316,7 @@ latex_logo = "../figures/frr-logo-medium.png"
 
 # One entry per manual page. List of tuples
 # (source start file, name, description, authors, manual section).
-man_pages = [(master_doc, "frr", u"FRR Developer's Manual", [author], 1)]
+man_pages = [(master_doc, "frr", "FRR Developer's Manual", [author], 1)]
 
 # If true, show URL addresses after external links.
 # man_show_urls = False
@@ -330,7 +331,7 @@ texinfo_documents = [
     (
         master_doc,
         "frr",
-        u"FRR Developer's Manual",
+        "FRR Developer's Manual",
         author,
         "FRR",
         "One line description of project.",
@@ -358,27 +359,29 @@ texinfo_documents = [
 with open("../extra/frrlexer.py", "rb") as lex:
     frrlexerpy = lex.read()
 
-frrfmt_re = re.compile(r'^\s*%(?P<spec>[^\s]+)\s+\((?P<types>.*)\)\s*$')
+frrfmt_re = re.compile(r"^\s*%(?P<spec>[^\s]+)\s+\((?P<types>.*)\)\s*$")
+
 
 def parse_frrfmt(env, text, node):
     from sphinx import addnodes
 
     m = frrfmt_re.match(text)
     if not m:
-        logger.warning('could not parse frrfmt:: %r' % (text), location=node)
+        logger.warning("could not parse frrfmt:: %r" % (text), location=node)
         node += addnodes.desc_name(text, text)
         return text
 
-    spec, types = m.group('spec'), m.group('types')
+    spec, types = m.group("spec"), m.group("types")
 
-    node += addnodes.desc_sig_operator('%', '%')
-    node += addnodes.desc_name(spec + ' ', spec + ' ')
+    node += addnodes.desc_sig_operator("%", "%")
+    node += addnodes.desc_name(spec + " ", spec + " ")
     plist = addnodes.desc_parameterlist()
-    for typ in types.split(','):
+    for typ in types.split(","):
         typ = typ.strip()
         plist += addnodes.desc_parameter(typ, typ)
     node += plist
-    return '%' + spec
+    return "%" + spec
+
 
 # custom extensions here
 def setup(app):
