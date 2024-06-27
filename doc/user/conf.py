@@ -52,18 +52,18 @@ source_suffix = ".rst"
 master_doc = "index"
 
 # General information about the project.
-project = u"FRR"
-copyright = u"2017, FRR"
-author = u"FRR authors"
+project = "FRR"
+copyright = "2017, FRR"
+author = "FRR authors"
 
 # The version info for the project you're documenting, acts as replacement for
 # |version| and |release|, also used in various other places throughout the
 # built documents.
 
 # The short X.Y version.
-version = u"?.?"
+version = "?.?"
 # The full version, including alpha/beta/rc tags.
-release = u"?.?-?"
+release = "?.?-?"
 
 
 # -----------------------------------------------------------------------------
@@ -287,7 +287,7 @@ latex_elements = {
 # (source start file, target name, title,
 #  author, documentclass [howto, manual, or own class]).
 latex_documents = [
-    (master_doc, "FRR.tex", u"FRR User Manual", u"FRR", "manual"),
+    (master_doc, "FRR.tex", "FRR User Manual", "FRR", "manual"),
 ]
 
 # The name of an image file (relative to this directory) to place at the top of
@@ -315,7 +315,7 @@ latex_logo = "../figures/frr-logo-medium.png"
 
 # One entry per manual page. List of tuples
 # (source start file, name, description, authors, manual section).
-man_pages = [(master_doc, "frr", u"FRR User Manual", [author], 1)]
+man_pages = [(master_doc, "frr", "FRR User Manual", [author], 1)]
 
 # If true, show URL addresses after external links.
 # man_show_urls = False
@@ -330,7 +330,7 @@ texinfo_documents = [
     (
         master_doc,
         "frr",
-        u"FRR User Manual",
+        "FRR User Manual",
         author,
         "FRR",
         "One line description of project.",
@@ -358,6 +358,7 @@ texinfo_documents = [
 with open("../extra/frrlexer.py", "rb") as lex:
     frrlexerpy = lex.read()
 
+
 # Parse version string into int array
 def vparse(s):
     a = []
@@ -376,7 +377,9 @@ def vparse(s):
 def setup(app):
     # object type for FRR CLI commands, can be extended to document parent CLI
     # node later on
-    app.add_object_type("clicmd", "clicmd", indextemplate="pair: %s; configuration command")
+    app.add_object_type(
+        "clicmd", "clicmd", indextemplate="pair: %s; configuration command"
+    )
 
     # I dont care how stupid this is
     if "add_js_file" in dir(app):
@@ -388,7 +391,6 @@ def setup(app):
         app.add_css_file("overrides.css")
     else:
         app.add_stylesheet("overrides.css")
-
 
     # load Pygments lexer for FRR config syntax
     #
