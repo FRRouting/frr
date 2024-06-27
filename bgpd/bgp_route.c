@@ -5878,7 +5878,7 @@ void bgp_set_stale_route(struct peer *peer, afi_t afi, safi_t safi)
 
 bool bgp_outbound_policy_exists(struct peer *peer, struct bgp_filter *filter)
 {
-	if (peer->sort == BGP_PEER_IBGP)
+	if (peer->sort == BGP_PEER_CONFED || peer->sort == BGP_PEER_IBGP)
 		return true;
 
 	if (peer->sort == BGP_PEER_EBGP &&
@@ -5891,7 +5891,7 @@ bool bgp_outbound_policy_exists(struct peer *peer, struct bgp_filter *filter)
 
 bool bgp_inbound_policy_exists(struct peer *peer, struct bgp_filter *filter)
 {
-	if (peer->sort == BGP_PEER_IBGP)
+	if (peer->sort == BGP_PEER_CONFED || peer->sort == BGP_PEER_IBGP)
 		return true;
 
 	if (peer->sort == BGP_PEER_EBGP
