@@ -1080,6 +1080,52 @@ Default global mode is helper and default peer per mode is inherit from global.
 If per peer mode is configured, the GR mode of this particular peer will
 override the global mode.
 
+.. _bgp-GR-config-mode-cmd:
+
+BGP GR Config Mode Commands
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+.. clicmd:: bgp graceful-restart
+
+   This command will enable BGP graceful restart functionality for all BGP instances.
+
+.. clicmd:: bgp graceful-restart-disable
+
+   This command will disable both the functionality graceful restart and helper
+   mode for all BGP instances
+
+.. clicmd:: bgp graceful-restart select-defer-time (0-3600)
+
+   This is command, will set deferral time to value specified.
+
+.. clicmd:: bgp graceful-restart rib-stale-time (1-3600)
+
+   This is command, will set the time for which stale routes are kept in RIB.
+
+.. clicmd:: bgp graceful-restart restart-time (0-4095)
+
+   Set the time to wait to delete stale routes before a BGP open message
+   is received.
+
+   Using with Long-lived Graceful Restart capability, this is recommended
+   setting this timer to 0 and control stale routes with
+   ``bgp long-lived-graceful-restart stale-time``.
+
+   Default value is 120.
+
+.. clicmd:: bgp graceful-restart stalepath-time (1-4095)
+
+   This is command, will set the max time (in seconds) to hold onto
+   restarting peer's stale paths.
+
+   It also controls Enhanced Route-Refresh timer.
+
+   If this command is configured and the router does not receive a Route-Refresh EoRR
+   message, the router removes the stale routes from the BGP table after the timer
+   expires. The stale path timer is started when the router receives a Route-Refresh
+   BoRR message
+
+
 .. _bgp-GR-global-mode-cmd:
 
 BGP GR Global Mode Commands
