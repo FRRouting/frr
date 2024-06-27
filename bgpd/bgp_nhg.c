@@ -595,17 +595,43 @@ void bgp_nhg_refresh_by_nexthop(struct bgp_nexthop_cache *bnc)
 	}
 }
 
+static void show_bgp_nhg_path_helper(struct vty *vty, json_object *paths, struct bgp_path_info *path)
+{
+	json_object *json_path = NULL;
+
+	if (paths)
+		json_path = json_object_new_object();
+	bgp_path_info_display(path, vty, json_path);
+	if (paths)
+		json_object_array_add(paths, json_path);
+}
+
+static void show_bgp_nhg_id_helper_detail(struct vty *vty, struct bgp_nhg_cache *nhg,
+					  json_object *json)
+{
+	struct bgp_path_info *path;
+	json_object *paths = NULL;
+
+	if (json)
+		paths = json_object_new_array();
+	else
+		vty_out(vty, "  Paths:\n");
+
+	LIST_FOREACH (path, &(nhg->paths), nhg_nexthop_cache_thread)
+		show_bgp_nhg_path_helper(vty, paths, path);
+
+	if (json)
+		json_object_object_add(json, "paths", paths);
+}
+
 static void show_bgp_nhg_id_helper(struct vty *vty, struct bgp_nhg_cache *nhg, json_object *json,
 				   bool detail)
 {
 	struct nexthop *nexthop;
 	json_object *json_entry;
 	json_object *json_array = NULL;
-	json_object *paths = NULL;
-	json_object *json_path = NULL;
 	int i;
 	bool first;
-	struct bgp_path_info *path;
 
 	if (json) {
 		json_object_int_add(json, "nhgId", nhg->id);
@@ -682,21 +708,8 @@ static void show_bgp_nhg_id_helper(struct vty *vty, struct bgp_nhg_cache *nhg, j
 	if (json_array)
 		json_object_object_add(json, "nexthops", json_array);
 
-	if (detail) {
-		if (json)
-			paths = json_object_new_array();
-		else
-			vty_out(vty, "  Paths:\n");
-		LIST_FOREACH (path, &(nhg->paths), nhg_cache_thread) {
-			if (json)
-				json_path = json_object_new_object();
-			bgp_path_info_display(path, vty, json_path);
-			if (json)
-				json_object_array_add(paths, json_path);
-		}
-		if (json)
-			json_object_object_add(json, "paths", paths);
-	}
+	if (detail)
+		show_bgp_nhg_id_helper_detail(vty, nhg, json);
 }
 
 DEFPY(show_ip_bgp_nhg, show_ip_bgp_nhg_cmd,
