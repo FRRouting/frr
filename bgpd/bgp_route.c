@@ -5837,7 +5837,12 @@ void bgp_set_stale_route(struct peer *peer, afi_t afi, safi_t safi)
 
 bool bgp_outbound_policy_exists(struct peer *peer, struct bgp_filter *filter)
 {
+<<<<<<< HEAD
 	if (peer->sort == BGP_PEER_IBGP)
+=======
+	if (peer->sort == BGP_PEER_CONFED || peer->sort == BGP_PEER_IBGP ||
+	    peer->sub_sort == BGP_PEER_EBGP_OAD)
+>>>>>>> fa2cc09d45 (bgpd: Ignore RFC8212 for BGP Confederations)
 		return true;
 
 	if (peer->sort == BGP_PEER_EBGP &&
@@ -5850,7 +5855,12 @@ bool bgp_outbound_policy_exists(struct peer *peer, struct bgp_filter *filter)
 
 bool bgp_inbound_policy_exists(struct peer *peer, struct bgp_filter *filter)
 {
+<<<<<<< HEAD
 	if (peer->sort == BGP_PEER_IBGP)
+=======
+	if (peer->sort == BGP_PEER_CONFED || peer->sort == BGP_PEER_IBGP ||
+	    peer->sub_sort == BGP_PEER_EBGP_OAD)
+>>>>>>> fa2cc09d45 (bgpd: Ignore RFC8212 for BGP Confederations)
 		return true;
 
 	if (peer->sort == BGP_PEER_EBGP
