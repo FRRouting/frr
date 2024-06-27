@@ -24,6 +24,8 @@ DEFINE_MTYPE_STATIC(BGPD, BGP_NHG_CONNECTED, "BGP NHG Connected");
 
 /* BGP NHG hash table. */
 struct bgp_nhg_cache_head nhg_cache_table;
+/* BGP NHG parent hash table ordered by ids. */
+struct bgp_nhg_parent_cache_head nhg_parent_cache_table;
 
 /****************************************************************************
  * L3 NHGs are used for fast failover of nexthops in the dplane. These are
@@ -204,6 +206,7 @@ void bgp_nhg_init(void)
 		zlog_debug("bgp nexthop group init");
 
 	bgp_nhg_cache_init(&nhg_cache_table);
+	bgp_nhg_parent_cache_init(&nhg_parent_cache_table);
 }
 
 void bgp_nhg_finish(void)
@@ -252,13 +255,18 @@ static void bgp_nhg_debug(struct bgp_nhg_cache *nhg, const char *prefix)
 
 static struct bgp_nhg_cache *bgp_nhg_find_per_id(uint32_t id)
 {
-	struct bgp_nhg_cache *nhg;
+	struct bgp_nhg_cache nhg_tmp = { 0 };
 
-	frr_each_safe (bgp_nhg_cache, &nhg_cache_table, nhg)
-		if (nhg->id == id)
-			return nhg;
+	/* parse list of parents */
+	nhg_tmp.id = id;
+	return bgp_nhg_parent_cache_find(&nhg_parent_cache_table, &nhg_tmp);
+}
 
-	return NULL;
+int bgp_nhg_parent_cache_compare(const struct bgp_nhg_cache *a, const struct bgp_nhg_cache *b)
+{
+	if (a->id != b->id)
+		return a->id - b->id;
+	return 0;
 }
 
 uint32_t bgp_nhg_cache_hash(const struct bgp_nhg_cache *nhg)
@@ -359,6 +367,7 @@ struct bgp_nhg_cache *bgp_nhg_new(uint32_t flags, uint16_t nexthop_num, struct z
 	bgp_nhg_parents_init(nhg);
 	bgp_nhg_childs_init(nhg);
 	bgp_nhg_cache_add(&nhg_cache_table, nhg);
+	bgp_nhg_parent_cache_add(&nhg_parent_cache_table, nhg);
 
 	/* prepare the nexthop */
 	bgp_nhg_add_or_update_nhg(nhg);
@@ -396,6 +405,7 @@ static void bgp_nhg_free(struct bgp_nhg_cache *nhg)
 		bgp_nhg_debug(nhg, "removal");
 
 	bgp_nhg_cache_del(&nhg_cache_table, nhg);
+	bgp_nhg_parent_cache_del(&nhg_parent_cache_table, nhg);
 	XFREE(MTYPE_BGP_NHG_CACHE, nhg);
 }
 
@@ -617,7 +627,7 @@ static void show_bgp_nhg_id_helper_detail(struct vty *vty, struct bgp_nhg_cache 
 	else
 		vty_out(vty, "  Paths:\n");
 
-	LIST_FOREACH (path, &(nhg->paths), nhg_nexthop_cache_thread)
+	LIST_FOREACH (path, &(nhg->paths), nhg_cache_thread)
 		show_bgp_nhg_path_helper(vty, paths, path);
 
 	if (json)
@@ -712,6 +722,18 @@ static void show_bgp_nhg_id_helper(struct vty *vty, struct bgp_nhg_cache *nhg, j
 		show_bgp_nhg_id_helper_detail(vty, nhg, json);
 }
 
+static void show_bgp_nhg_id_list_helper(struct vty *vty, struct bgp_nhg_cache *nhg,
+					json_object *json_list, bool detail)
+{
+	json_object *json = NULL;
+
+	if (json_list)
+		json = json_object_new_object();
+	show_bgp_nhg_id_helper(vty, nhg, json, detail);
+	if (json_list)
+		json_object_array_add(json_list, json);
+}
+
 DEFPY(show_ip_bgp_nhg, show_ip_bgp_nhg_cmd,
       "show [ip] bgp [vrf <NAME$vrf_name|all$vrf_all>] nexthop-group [<(0-4294967295)>$id] [detail$detail] [json$uj]",
       SHOW_STR IP_STR BGP_STR VRF_FULL_CMD_HELP_STR
@@ -752,13 +774,14 @@ DEFPY(show_ip_bgp_nhg, show_ip_bgp_nhg_cmd,
 
 
 	frr_each_safe (bgp_nhg_cache, &nhg_cache_table, nhg) {
-		if (json_list)
-			json = json_object_new_object();
 		if (vrf && vrf->vrf_id != bgp_nhg_get_vrfid(nhg))
 			continue;
-		show_bgp_nhg_id_helper(vty, nhg, json, !!detail);
-		if (json_list)
-			json_object_array_add(json_list, json);
+		show_bgp_nhg_id_list_helper(vty, nhg, json_list, !!detail);
+	}
+	frr_each_safe (bgp_nhg_parent_cache, &nhg_parent_cache_table, nhg) {
+		if (vrf && vrf->vrf_id != bgp_nhg_get_vrfid(nhg))
+			continue;
+		show_bgp_nhg_id_list_helper(vty, nhg, json_list, !!detail);
 	}
 	if (json_list)
 		vty_json(vty, json_list);
