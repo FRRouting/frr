@@ -24,6 +24,15 @@ DEFINE_MTYPE_STATIC(BGPD, BGP_NHG_CONNECTED, "BGP NHG Connected");
 
 /* Tree for BGP NHG lookup cache. */
 struct bgp_nhg_cache_head nhg_cache_table;
+/* Tree for BGP NHG lookup cache ordered by ids.
+ * When using the frr_each_safe() function on the nhg_cache_table, it is
+ * not possible to modify multiple nhg entries in the same loop.
+ * To do so, a new design pattern is proposed, involving two hash_lists:
+ * Each time a walk is needed to perform NHG changes, the frr_each_safe()
+ * function will operate on the nhg_cache_id_table, and the changes will
+ * be applied to the nhg entries of the original nhg_cache_table.
+ */
+struct bgp_nhg_cache_id_head nhg_cache_id_table;
 
 /****************************************************************************
  * L3 NHGs are used for fast failover of nexthops in the dplane. These are
@@ -244,6 +253,7 @@ static void bgp_nhg_group_init(void)
 		zlog_debug("bgp nexthop group init");
 
 	bgp_nhg_cache_init(&nhg_cache_table);
+	bgp_nhg_cache_id_init(&nhg_cache_id_table);
 }
 
 /* display in a debug trace BGP NHG information, with a custom 'prefix' string */
@@ -265,13 +275,19 @@ static void bgp_nhg_debug(struct bgp_nhg_cache *nhg, const char *prefix)
 
 static struct bgp_nhg_cache *bgp_nhg_find_per_id(uint32_t id)
 {
-	struct bgp_nhg_cache *nhg;
+	struct bgp_nhg_cache nhg = { 0 };
 
-	frr_each_safe (bgp_nhg_cache, &nhg_cache_table, nhg)
-		if (nhg->id == id)
-			return nhg;
+	nhg.id = id;
 
-	return NULL;
+	return bgp_nhg_cache_id_find(&nhg_cache_id_table, &nhg);
+}
+
+int bgp_nhg_cache_id_compare(const struct bgp_nhg_cache *a,
+			     const struct bgp_nhg_cache *b)
+{
+	if (a->id != b->id)
+		return a->id - b->id;
+	return 0;
 }
 
 uint32_t bgp_nhg_cache_hash(const struct bgp_nhg_cache *nhg)
@@ -378,6 +394,7 @@ struct bgp_nhg_cache *bgp_nhg_new(uint32_t flags, uint16_t nexthop_num,
 	bgp_nhg_parents_init(nhg);
 	bgp_nhg_childs_init(nhg);
 	bgp_nhg_cache_add(&nhg_cache_table, nhg);
+	bgp_nhg_cache_id_add(&nhg_cache_id_table, nhg);
 
 	/* prepare the nexthop */
 	bgp_nhg_add_or_update_nhg(nhg);
@@ -416,6 +433,7 @@ static void bgp_nhg_free(struct bgp_nhg_cache *nhg)
 		bgp_nhg_debug(nhg, "removal");
 
 	bgp_nhg_cache_del(&nhg_cache_table, nhg);
+	bgp_nhg_cache_id_del(&nhg_cache_id_table, nhg);
 	XFREE(MTYPE_BGP_NHG_CACHE, nhg);
 }
 
@@ -569,7 +587,7 @@ void bgp_nhg_refresh_by_nexthop(struct bgp_nexthop_cache *bnc)
 	vrf_id_t vrf_id = bnc->bgp->vrf_id;
 	bool found;
 
-	frr_each_safe (bgp_nhg_cache, &nhg_cache_table, nhg) {
+	frr_each_safe (bgp_nhg_cache_id, &nhg_cache_id_table, nhg) {
 		found = false;
 		if (CHECK_FLAG(nhg->state, BGP_NHG_STATE_REMOVED))
 			continue;
@@ -651,7 +669,7 @@ static void show_bgp_nhg_id_helper_detail(struct vty *vty,
 	else
 		vty_out(vty, "  Paths:\n");
 
-	LIST_FOREACH (path, &(nhg->paths), nhg_nexthop_cache_thread)
+	LIST_FOREACH (path, &(nhg->paths), nhg_cache_thread)
 		show_bgp_nhg_path_helper(vty, paths, path);
 
 	if (json)
@@ -793,7 +811,7 @@ DEFPY(show_ip_bgp_nhg, show_ip_bgp_nhg_cmd,
 		json_list = json_object_new_array();
 
 
-	frr_each_safe (bgp_nhg_cache, &nhg_cache_table, nhg) {
+	frr_each_safe (bgp_nhg_cache_id, &nhg_cache_id_table, nhg) {
 		if (json_list)
 			json = json_object_new_object();
 		if (vrf && vrf->vrf_id != bgp_nhg_get_vrfid(nhg))
