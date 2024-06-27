@@ -1237,6 +1237,13 @@ DEFPY_YANG_NOSH (interface,
 				ifp = NULL;
 		} else {
 			ifp = if_lookup_by_name_all_vrf(ifname);
+			if (ifp) {
+				if (vrf_name)
+					strlcpy(ifp->fake_vrflite, vrf_name,
+						sizeof(ifp->fake_vrflite));
+				else
+					ifp->fake_vrflite[0] = '\0';
+			}
 		}
 		if (ifp)
 			VTY_PUSH_CONTEXT(INTERFACE_NODE, ifp);
@@ -1348,6 +1355,8 @@ void if_vty_config_start(struct vty *vty, struct interface *ifp)
 
 	if (vrf_is_backend_netns() && strcmp(ifp->vrf->name, VRF_DEFAULT_NAME))
 		vty_frame(vty, " vrf %s", ifp->vrf->name);
+	else if (!vrf_is_backend_netns() && ifp->fake_vrflite[0] != '\0')
+		vty_frame(vty, " vrf %s", ifp->fake_vrflite);
 
 	vty_frame(vty, "\n");
 }

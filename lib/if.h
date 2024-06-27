@@ -293,6 +293,11 @@ struct interface {
 
 	struct vrf *vrf;
 
+	/* vrf name for show run backward compatibility
+	 * do not use it for anything else than show running
+	 */
+	char fake_vrflite[IFNAMSIZ];
+
 	/*
 	 * Has the end users entered `interface XXXX` from the cli in some
 	 * fashion?
