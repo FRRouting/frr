@@ -11,9 +11,11 @@
 #include "bgpd/bgp_table.h"
 
 PREDECL_HASH(bgp_nhg_cache);
+PREDECL_RBTREE_UNIQ(bgp_nhg_parent_cache);
 PREDECL_RBTREE_UNIQ(bgp_nhg_connected_tree);
 
 extern struct bgp_nhg_cache_head nhg_cache_table;
+extern struct bgp_nhg_parent_cache_head nhg_parent_cache_table;
 
 struct bgp_nhg_nexthop_cache {
 	uint16_t nexthop_num;
@@ -22,6 +24,7 @@ struct bgp_nhg_nexthop_cache {
 
 struct bgp_nhg_cache {
 	struct bgp_nhg_cache_item entry;
+	struct bgp_nhg_parent_cache_item parent_entry;
 
 	uint32_t id;
 
@@ -70,6 +73,10 @@ struct bgp_nhg_cache {
 extern uint32_t bgp_nhg_cache_hash(const struct bgp_nhg_cache *nhg);
 extern uint32_t bgp_nhg_cache_compare(const struct bgp_nhg_cache *a, const struct bgp_nhg_cache *b);
 DECLARE_HASH(bgp_nhg_cache, struct bgp_nhg_cache, entry, bgp_nhg_cache_compare, bgp_nhg_cache_hash);
+extern int bgp_nhg_parent_cache_compare(const struct bgp_nhg_cache *a,
+					const struct bgp_nhg_cache *b);
+DECLARE_RBTREE_UNIQ(bgp_nhg_parent_cache, struct bgp_nhg_cache, parent_entry,
+		    bgp_nhg_parent_cache_compare);
 
 /* APIs for setting up and allocating L3 nexthop group ids */
 extern uint32_t bgp_nhg_id_alloc(void);
