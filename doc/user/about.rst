@@ -1,47 +1,8 @@
 .. _overview:
 
-********
-Overview
-********
-
-`FRR`_ is a fully featured, high performance, free software IP routing suite.
-
-FRR implements all standard routing protocols such as BGP, RIP, OSPF, IS-IS and
-more (see :ref:`feature-matrix`), as well as many of their extensions.
-
-FRR is a high performance suite written primarily in C. It can easily handle
-full Internet routing tables and is suitable for use on hardware ranging from
-cheap SBCs to commercial grade routers. It is actively used in production by
-hundreds of companies, universities, research labs and governments.
-
-FRR is distributed under GPLv2, with development modeled after the Linux
-kernel. Anyone may contribute features, bug fixes, tools, documentation
-updates, or anything else.
-
-FRR is a fork of `Quagga <http://www.quagga.net/>`_.
-
-.. _how-to-get-frr:
-
-How to get FRR
-==============
-
-The official FRR website is located at |PACKAGE_URL| and contains further
-information, as well as links to additional resources.
-
-Several distributions provide packages for FRR. Check your distribution's
-repositories to find out if a suitable version is available.
-
-Up-to-date Debian & Redhat packages are available at https://deb.frrouting.org/
-& https://rpm.frrouting.org/ respectively.
-
-For instructions on installing from source, refer to the
-`developer documentation <http://docs.frrouting.org/projects/dev-guide/en/latest/>`_.
-
-
-.. _about-frr:
-
+*********
 About FRR
-=========
+*********
 
 FRR provides IP routing services. Its role in a networking stack is to exchange
 routing information with other routers, make routing and policy decisions, and
@@ -55,11 +16,8 @@ light L2 functionality as well, but this is mostly left to the platform. This
 makes it suitable for deployments ranging from small home networks with static
 routes to Internet exchanges running full Internet tables.
 
-FRR runs on all modern \*NIX operating systems, including Linux and the BSDs.
-Feature support varies by platform; see the :ref:`feature-matrix`.
-
 System Requirements
--------------------
+===================
 
 System resources needed by FRR are highly dependent on workload. Routing
 software performance is particularly susceptible to external factors such as:
@@ -86,8 +44,8 @@ information with peers about how to forward packets. Forwarding plane
 performance largely depends on choice of NIC / ASIC.
 
 
-System Architecture
--------------------
+Architecture
+============
 
 .. index::
    pair: architecture; FRR
@@ -146,9 +104,8 @@ routing stack.
 
 .. _supported-platforms:
 
-Supported Platforms
--------------------
-
+Platform Support
+================
 
 Currently FRR supports GNU/Linux and BSD. Porting FRR to other platforms is not
 too difficult as platform dependent code should be mostly limited to the
