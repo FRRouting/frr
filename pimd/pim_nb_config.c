@@ -19,7 +19,6 @@
 #include "pim_ssm.h"
 #include "pim_ssmpingd.h"
 #include "pim_vxlan.h"
-#include "pim_util.h"
 #include "log.h"
 #include "lib_errors.h"
 #include "pim_util.h"
@@ -2846,14 +2845,7 @@ int lib_interface_gmp_address_family_static_group_create(
 
 		yang_dnode_get_pimaddr(&group_addr, args->dnode,
 				       "./group-addr");
-#if PIM_IPV == 4
-		if (pim_is_group_224_0_0_0_24(group_addr)) {
-			snprintf(
-				args->errmsg, args->errmsg_len,
-				"Groups within 224.0.0.0/24 are reserved and cannot be joined");
-			return NB_ERR_VALIDATION;
-		}
-#else
+#if PIM_IPV == 6
 		if (ipv6_mcast_reserved(&group_addr)) {
 			snprintf(
 				args->errmsg, args->errmsg_len,
