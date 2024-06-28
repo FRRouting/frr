@@ -18,6 +18,8 @@ import re
 import pygments
 import sphinx
 from sphinx.highlighting import lexers
+from sphinx.domains.std import GenericObject
+from docutils.parsers.rst import directives
 
 # If extensions (or modules to document with autodoc) are in another directory,
 # add these directories to sys.path here. If the directory is relative to the
@@ -373,13 +375,54 @@ def vparse(s):
     return a[:3]
 
 
-# custom extensions here
+class ClicmdDirective(GenericObject):
+    """
+    Directive for documenting CLI commands.
+
+    The xref string, if no option is provided, will be the verbatim command
+    string. If the :daemon: option is provided, then it's
+    "(<daemon>) <command string>)".
+
+    Options:
+      :daemon: - specify the daemon this command belongs to. Useful for
+                 disambiguating multiple definitions of the same command.
+    """
+
+    has_content = True
+    required_arguments = 1
+    optional_arguments = 0
+    option_spec = {
+        **GenericObject.option_spec,
+        "daemon": directives.unchanged,
+    }
+
+    def handle_signature(self, sig, signode):
+        name = super().handle_signature(sig, signode)
+        daemon = self.options["daemon"] if "daemon" in self.options else ""
+        prefix = f"({daemon}) " if daemon else ""
+        return prefix + name
+
+    def run(self):
+        daemon = self.options["daemon"] if "daemon" in self.options else ""
+        if daemon:
+            self.indextemplate = f"pair: ({daemon}) %s; configuration command"
+        else:
+            self.indextemplate = f"pair: %s; configuration command"
+
+        nodes = super().run()
+
+        return nodes
+
+
 def setup(app):
-    # object type for FRR CLI commands, can be extended to document parent CLI
-    # node later on
-    app.add_object_type(
-        "clicmd", "clicmd", indextemplate="pair: %s; configuration command"
-    )
+    # Override the directive that was just created for us
+    if int(sphinx.__version__.split(".")[0]) >= 2:
+        app.add_object_type("clicmd", "clicmd", objname="CLI command")
+        app.add_directive_to_domain("std", "clicmd", ClicmdDirective, override=True)
+    else:
+        app.add_object_type(
+            "clicmd", "clicmd", indextemplate="pair: %s; configuration command"
+        )
 
     # I dont care how stupid this is
     if "add_js_file" in dir(app):
