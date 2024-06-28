@@ -42,6 +42,7 @@
 #include "bgpd/bgp_io.h"
 #include "bgpd/bgp_zebra.h"
 #include "bgpd/bgp_vty.h"
+#include "bgpd/bgp_nhg.h"
 
 DEFINE_HOOK(peer_backward_transition, (struct peer * peer), (peer));
 DEFINE_HOOK(peer_status_changed, (struct peer * peer), (peer));
@@ -1241,6 +1242,12 @@ void bgp_fsm_change_status(struct peer_connection *connection,
 	 */
 	if (status >= Clearing && (peer->established || peer == bgp->peer_self)) {
 		bgp_clear_route_all(peer);
+
+		/* do not wait the clear-node thread to be called. otherwise,
+		 * the updated paths may be processed before.
+		 */
+		if (bgp_option_check(BGP_OPT_NHG))
+			bgp_nhg_clear_nhg_nexthop();
 
 		/* If no route was queued for the clear-node processing,
 		 * generate the

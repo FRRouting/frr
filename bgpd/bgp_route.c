@@ -4325,6 +4325,7 @@ void bgp_rib_remove(struct bgp_dest *dest, struct bgp_path_info *pi,
 		}
 	}
 
+	bgp_nhg_path_nexthop_unlink(pi, false);
 	hook_call(bgp_process, peer->bgp, afi, safi, dest, peer, true);
 	bgp_process(peer->bgp, dest, pi, afi, safi);
 }
@@ -6022,7 +6023,6 @@ static void bgp_clear_node_complete(struct work_queue *wq)
 
 	/* Tickle FSM to start moving again */
 	BGP_EVENT_ADD(peer->connection, Clearing_Completed);
-
 	peer_unlock(peer); /* bgp_clear_route */
 }
 
@@ -6046,7 +6046,7 @@ static void bgp_clear_node_queue_init(struct peer *peer)
 }
 
 static void bgp_clear_route_table(struct peer *peer, afi_t afi, safi_t safi,
-				  struct bgp_table *table)
+				  struct bgp_table *table, bool nexthop_unlink)
 {
 	struct bgp_dest *dest;
 	int force = peer->bgp->process_queue ? 0 : 1;
@@ -6115,6 +6115,9 @@ static void bgp_clear_route_table(struct peer *peer, afi_t afi, safi_t safi,
 			if (pi->peer != peer)
 				continue;
 
+			if (nexthop_unlink && !force)
+				bgp_nhg_path_nexthop_unlink(pi, false);
+
 			if (force) {
 				dest = bgp_path_info_reap(dest, pi);
 				assert(dest);
@@ -6136,7 +6139,7 @@ static void bgp_clear_route_table(struct peer *peer, afi_t afi, safi_t safi,
 	return;
 }
 
-void bgp_clear_route(struct peer *peer, afi_t afi, safi_t safi)
+void bgp_clear_route(struct peer *peer, afi_t afi, safi_t safi, bool nexthop_unlink)
 {
 	struct bgp_dest *dest;
 	struct bgp_table *table;
@@ -6165,7 +6168,7 @@ void bgp_clear_route(struct peer *peer, afi_t afi, safi_t safi)
 		peer_lock(peer);
 
 	if (safi != SAFI_MPLS_VPN && safi != SAFI_ENCAP && safi != SAFI_EVPN)
-		bgp_clear_route_table(peer, afi, safi, NULL);
+		bgp_clear_route_table(peer, afi, safi, NULL, nexthop_unlink);
 	else
 		for (dest = bgp_table_top(peer->bgp->rib[afi][safi]); dest;
 		     dest = bgp_route_next(dest)) {
@@ -6173,7 +6176,7 @@ void bgp_clear_route(struct peer *peer, afi_t afi, safi_t safi)
 			if (!table)
 				continue;
 
-			bgp_clear_route_table(peer, afi, safi, table);
+			bgp_clear_route_table(peer, afi, safi, table, nexthop_unlink);
 		}
 
 	/* unlock if no nodes got added to the clear-node-queue. */
@@ -6187,7 +6190,7 @@ void bgp_clear_route_all(struct peer *peer)
 	safi_t safi;
 
 	FOREACH_AFI_SAFI (afi, safi)
-		bgp_clear_route(peer, afi, safi);
+		bgp_clear_route(peer, afi, safi, true);
 
 #ifdef ENABLE_BGP_VNC
 	rfapiProcessPeerDown(peer);
@@ -6306,6 +6309,9 @@ void bgp_clear_stale_route(struct peer *peer, afi_t afi, safi_t safi)
 				break;
 			}
 	}
+	/* all routes marked as remove - let us clean nhg context */
+	if (bgp_option_check(BGP_OPT_NHG))
+		bgp_nhg_clear_nhg_nexthop();
 }
 
 void bgp_set_stale_route(struct peer *peer, afi_t afi, safi_t safi)

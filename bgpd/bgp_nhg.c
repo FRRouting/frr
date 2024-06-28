@@ -1084,6 +1084,32 @@ DEFPY(show_ip_bgp_nhg, show_ip_bgp_nhg_cmd,
 	return CMD_SUCCESS;
 }
 
+/* remove nexthop nhg that are no more used */
+void bgp_nhg_clear_nhg_nexthop(void)
+{
+	struct bgp_nhg_connected *rb_node_dep = NULL;
+	struct bgp_nhg_cache *nhg, *child_nhg;
+	struct bgp_path_info *path, *safe;
+
+	frr_each_safe (bgp_nhg_parent_cache, &nhg_parent_cache_table, nhg) {
+		frr_each_safe (bgp_nhg_connected_tree, &nhg->nhg_childs, rb_node_dep) {
+			child_nhg = rb_node_dep->nhg;
+			if (child_nhg && LIST_EMPTY(&(child_nhg->paths))) {
+				/* sync bgp_nhg paths */
+				LIST_FOREACH_SAFE (path, &(nhg->paths), nhg_cache_thread, safe) {
+					if (!path->bgp_nhg_nexthop) {
+						LIST_REMOVE(path, nhg_cache_thread);
+						path->bgp_nhg = NULL;
+						nhg->path_count--;
+					}
+				}
+
+				bgp_nhg_detach_child_from_parent(nhg, child_nhg);
+			}
+		}
+	}
+	bgp_nhg_parent_unused_clean();
+}
 
 void bgp_nhg_vty_init(void)
 {

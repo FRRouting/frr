@@ -2618,7 +2618,7 @@ static bool non_peergroup_deactivate_af(struct peer *peer, afi_t afi,
 				bgp_capability_send(peer, afi, safi,
 						    CAPABILITY_CODE_MP,
 						    CAPABILITY_ACTION_UNSET);
-				bgp_clear_route(peer, afi, safi);
+				bgp_clear_route(peer, afi, safi, false);
 				peer->pcount[afi][safi] = 0;
 			} else {
 				bgp_notify_send(peer->connection,

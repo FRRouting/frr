@@ -111,5 +111,6 @@ extern void bgp_nhg_refresh_by_nexthop(struct bgp_nexthop_cache *bnc);
 void bgp_nhg_vty_init(void);
 void bgp_nhg_debug_parent(uint32_t child_ids[], int count, char *group_buf, size_t len);
 void bgp_nhg_parent_sort(uint32_t child_ids[], uint16_t nhg_num);
+void bgp_nhg_clear_nhg_nexthop(void);
 
 #endif /* _BGP_NHG_H */
