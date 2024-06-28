@@ -374,6 +374,12 @@ struct bgp_path_info {
 
 	/* For nexthop group cache linked list */
 	LIST_ENTRY(bgp_path_info) nhg_cache_thread;
+
+	/* Back pointer to the BGP nhg nexthop structure */
+	struct bgp_nhg_cache *bgp_nhg_nexthop;
+
+	/* For nexthop group cache linked list */
+	LIST_ENTRY(bgp_path_info) nhg_nexthop_cache_thread;
 };
 
 /* Structure used in BGP path selection */

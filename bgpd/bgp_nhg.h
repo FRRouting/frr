@@ -93,6 +93,7 @@ void bgp_nhg_finish(void);
 extern struct bgp_nhg_cache *bgp_nhg_find(struct bgp *bgp, struct bgp_dest *dest,
 					  struct bgp_path_info *pi, afi_t afi, safi_t safi);
 extern void bgp_nhg_path_unlink(struct bgp_path_info *pi);
+extern void bgp_nhg_path_nexthop_unlink(struct bgp_path_info *pi, bool force);
 
 extern struct bgp_nhg_cache *bgp_nhg_new(uint32_t flags, uint16_t num, struct zapi_nexthop api_nh[],
 					 uint32_t api_group[]);
