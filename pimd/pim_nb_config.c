@@ -1504,11 +1504,18 @@ int routing_control_plane_protocols_control_plane_protocol_pim_address_family_re
  */
 int lib_interface_pim_address_family_create(struct nb_cb_create_args *args)
 {
+	struct interface *ifp;
+
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
 	case NB_EV_APPLY:
+		ifp = nb_running_get_entry(args->dnode, NULL, true);
+		if (ifp->info)
+			return NB_OK;
+
+		pim_if_new(ifp, false, false, false, false);
 		break;
 	}
 
