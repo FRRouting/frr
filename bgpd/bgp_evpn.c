@@ -3037,6 +3037,9 @@ static int install_evpn_route_entry_in_vrf(struct bgp *bgp_vrf,
 			vrf_id_to_name(bgp_vrf->vrf_id), evp, parent_pi,
 			parent_pi->flags);
 
+	if (bgp_vrf->vrf_id == VRF_UNKNOWN)
+		return -1;
+
 	/* Create (or fetch) route within the VRF. */
 	/* NOTE: There is no RD here. */
 	if (is_evpn_prefix_ipaddr_v4(evp)) {
