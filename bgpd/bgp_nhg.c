@@ -518,6 +518,21 @@ static void bgp_nhg_free(struct bgp_nhg_cache *nhg)
 	XFREE(MTYPE_BGP_NHG_CACHE, nhg);
 }
 
+void bgp_nhg_path_nexthop_unlink(struct bgp_path_info *pi, bool force)
+{
+	struct bgp_nhg_cache *nhg_nexthop;
+
+	nhg_nexthop = pi->bgp_nhg_nexthop;
+	if (nhg_nexthop) {
+		/* detach nexthop */
+		LIST_REMOVE(pi, nhg_nexthop_cache_thread);
+		pi->bgp_nhg_nexthop->path_count--;
+		if (force && LIST_EMPTY(&(nhg_nexthop->paths)))
+			bgp_nhg_free(nhg_nexthop);
+		pi->bgp_nhg_nexthop = NULL;
+	}
+}
+
 static void bgp_nhg_path_unlink_internal(struct bgp_path_info *pi, bool free_nhg)
 {
 	struct bgp_nhg_cache *nhg;
@@ -526,6 +541,8 @@ static void bgp_nhg_path_unlink_internal(struct bgp_path_info *pi, bool free_nhg
 		return;
 
 	nhg = pi->bgp_nhg;
+
+	bgp_nhg_path_nexthop_unlink(pi, true);
 
 	if (!nhg)
 		return;
