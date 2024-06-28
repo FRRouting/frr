@@ -1116,6 +1116,41 @@ DEFPY(show_ip_bgp_nhg, show_ip_bgp_nhg_cmd,
 	return CMD_SUCCESS;
 }
 
+/* remove nexthop nhg that are no more used */
+void bgp_nhg_clear_nhg_nexthop(void)
+{
+	struct bgp_nhg_connected *rb_node_dep = NULL;
+	struct bgp_nhg_cache *nhg, *child_nhg;
+	struct bgp_nhg_cache **p_nhg;
+	struct bgp_path_info *path, *safe;
+
+	frr_each_safe (bgp_nhg_cache_id, &nhg_cache_id_table, nhg) {
+		frr_each_safe (bgp_nhg_connected_tree, &nhg->nhg_childs,
+			       rb_node_dep) {
+			child_nhg = rb_node_dep->nhg;
+			if (child_nhg && LIST_EMPTY(&(child_nhg->paths))) {
+				p_nhg = &nhg;
+				/* sync bgp_nhg paths */
+				LIST_FOREACH_SAFE (path, &(nhg->paths),
+						   nhg_cache_thread, safe) {
+					if (!path->bgp_nhg_nexthop) {
+						LIST_REMOVE(path,
+							    nhg_cache_thread);
+						path->bgp_nhg = NULL;
+						nhg->path_count--;
+					}
+				}
+
+				/* When updating the key of nhg, if nhg is replaced
+				 * then, the below bgp_nhg_parent_unused_clean() function will suppress it
+				 */
+				bgp_nhg_detach_child_from_parent(p_nhg,
+								 child_nhg);
+			}
+		}
+	}
+	bgp_nhg_parent_unused_clean();
+}
 
 void bgp_nhg_vty_init(void)
 {
