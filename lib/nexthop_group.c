@@ -1080,24 +1080,27 @@ void nexthop_group_json_nexthop(json_object *j, const struct nexthop *nh)
 
 	switch (nh->type) {
 	case NEXTHOP_TYPE_IFINDEX:
-		json_object_string_add(j, "nexthop",
+		json_object_string_add(j, "interfaceName",
 				       ifindex2ifname(nh->ifindex, nh->vrf_id));
+		json_object_int_add(j, "vrfId", nh->vrf_id);
 		break;
 	case NEXTHOP_TYPE_IPV4:
 		json_object_string_addf(j, "nexthop", "%pI4", &nh->gate.ipv4);
 		break;
 	case NEXTHOP_TYPE_IPV4_IFINDEX:
 		json_object_string_addf(j, "nexthop", "%pI4", &nh->gate.ipv4);
-		json_object_string_add(j, "vrfId",
+		json_object_string_add(j, "interfaceName",
 				       ifindex2ifname(nh->ifindex, nh->vrf_id));
+		json_object_int_add(j, "vrfId", nh->vrf_id);
 		break;
 	case NEXTHOP_TYPE_IPV6:
 		json_object_string_addf(j, "nexthop", "%pI6", &nh->gate.ipv6);
 		break;
 	case NEXTHOP_TYPE_IPV6_IFINDEX:
 		json_object_string_addf(j, "nexthop", "%pI6", &nh->gate.ipv6);
-		json_object_string_add(j, "vrfId",
+		json_object_string_add(j, "interfaceName",
 				       ifindex2ifname(nh->ifindex, nh->vrf_id));
+		json_object_int_add(j, "vrfId", nh->vrf_id);
 		break;
 	case NEXTHOP_TYPE_BLACKHOLE:
 		break;
