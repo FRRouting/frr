@@ -2674,6 +2674,8 @@ static void zebra_evpn_mh_on_first_local_es(void)
 	zebra_evpn_mh_dup_addr_detect_off();
 	zebra_evpn_mh_advertise_reach_neigh_only();
 	zebra_evpn_mh_advertise_svi_mac();
+	zebra_evpn_mh_garp_flood_set(true);
+	zebra_evpn_arp_nd_failover_enable();
 }
 
 static void zebra_evpn_es_local_info_set(struct zebra_evpn_es *es,
@@ -3913,7 +3915,7 @@ void zebra_evpn_es_set_base_evpn(struct zebra_evpn *zevpn)
 					true /* es_evi_re_reval */);
 	}
 
-	zebra_evpn_arp_nd_failover_enable();
+	zebra_evpn_arp_nd_udp_sock_create();
 }
 
 /* called when a vni is removed or becomes oper down or is removed from a
