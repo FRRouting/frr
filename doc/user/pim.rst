@@ -251,9 +251,17 @@ is in a vrf, enter the interface command with the vrf keyword at the end.
    Tell pim to receive IGMP reports and Query on this interface. The default
    version is v3. This command is useful on a LHR.
 
-.. clicmd:: ip igmp join A.B.C.D [A.B.C.D]
+.. clicmd:: ip igmp join-group A.B.C.D [A.B.C.D]
 
-   Join multicast group or source-group on an interface.
+   Join multicast group or source-group on an interface. This will result in
+   an IGMP join happening through a local socket so that IGMP reports will be
+   sent on this interface. It may also have the side effect of the kernel
+   forwarding multicast traffic to the socket unnessarily.
+
+.. clicmd:: ip igmp static-group A.B.C.D [A.B.C.D]
+
+   Add a static multicast group or source-group on an interface. This will behave
+   as if there is a receiver on this interface without any IGMP reports.
 
 .. clicmd:: ip igmp query-interval (1-65535)
 
