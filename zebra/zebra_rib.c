@@ -1651,12 +1651,16 @@ static bool rib_update_nhg_from_ctx(struct nexthop_group *re_nhg,
 	    || !CHECK_FLAG(ctx_nexthop->flags, NEXTHOP_FLAG_ACTIVE))
 		ctx_nexthop = nexthop_next_active_resolved(ctx_nexthop);
 
+	nexthop_group_mark_duplicates(re_nhg);
 	for (ALL_NEXTHOPS_PTR(re_nhg, nexthop)) {
 
 		if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_RECURSIVE))
 			continue;
 
 		if (!CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE))
+			continue;
+
+		if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_DUPLICATE))
 			continue;
 
 		/* Check for a FIB nexthop corresponding to the RIB nexthop */
@@ -2580,10 +2584,7 @@ static void process_subq_nhg(struct listnode *lnode)
 						 ZAPI_NHG_REMOVE_FAIL);
 
 		} else {
-			newnhe = zebra_nhg_proto_add(nhe->id, nhe->type,
-						     nhe->zapi_instance,
-						     nhe->zapi_session,
-						     &nhe->nhg, 0);
+			newnhe = zebra_nhg_proto_add(nhe, &nhe->nhg, 0);
 
 			/* Report error to daemon via ZAPI */
 			if (newnhe == NULL)

@@ -1,0 +1,24 @@
+{   
+  "192.168.4.0/24":[
+   {
+      "prefix":"192.168.4.0/24",
+      "prefixLen":24,
+      "protocol":"bgp",
+      "vrfName":"default",
+      "selected":true,
+      "destSelected":true,
+      "distance":20,
+      "metric":0,
+      "installed":true,
+      "table":254,
+      "nexthops":[
+        {
+          "fib":true,
+          "directlyConnected":true,
+          "interfaceName":"vrf1",
+          "active":true
+        }
+      ]
+    }
+  ]
+}
