@@ -414,6 +414,13 @@ int ls_prefix_same(struct ls_prefix *p1, struct ls_prefix *p2)
 		    || (p1->sr.sid_flag != p2->sr.sid_flag))
 			return 0;
 	}
+	if (CHECK_FLAG(p1->flags, LS_PREF_SRV6)) {
+		if (memcmp(&p1->srv6.sid, &p2->srv6.sid,
+			   sizeof(struct in6_addr)) ||
+		    (p1->srv6.flags != p2->srv6.flags) ||
+		    (p1->srv6.behavior != p2->srv6.behavior))
+			return 0;
+	}
 
 	/* OK, p1 & p2 are equal */
 	return 1;
@@ -1388,6 +1395,11 @@ static struct ls_prefix *ls_parse_prefix(struct stream *s)
 		STREAM_GETC(s, ls_pref->sr.sid_flag);
 		STREAM_GETC(s, ls_pref->sr.algo);
 	}
+	if (CHECK_FLAG(ls_pref->flags, LS_PREF_SRV6)) {
+		STREAM_GET(&ls_pref->srv6.sid, s, sizeof(struct in6_addr));
+		STREAM_GETW(s, ls_pref->srv6.behavior);
+		STREAM_GETC(s, ls_pref->srv6.flags);
+	}
 
 	return ls_pref;
 
@@ -1631,6 +1643,11 @@ static int ls_format_prefix(struct stream *s, struct ls_prefix *ls_pref)
 		stream_putl(s, ls_pref->sr.sid);
 		stream_putc(s, ls_pref->sr.sid_flag);
 		stream_putc(s, ls_pref->sr.algo);
+	}
+	if (CHECK_FLAG(ls_pref->flags, LS_PREF_SRV6)) {
+		stream_put(s, &ls_pref->srv6.sid, sizeof(struct in6_addr));
+		stream_putw(s, ls_pref->srv6.behavior);
+		stream_putc(s, ls_pref->srv6.flags);
 	}
 
 	return 0;
@@ -2748,6 +2765,13 @@ static void ls_show_subnet_vty(struct ls_subnet *subnet, struct vty *vty,
 		sbuf_push(&sbuf, 4, "SID: %d\tAlgorithm: %d\tFlags: 0x%x\n",
 			  pref->sr.sid, pref->sr.algo, pref->sr.sid_flag);
 
+	if (CHECK_FLAG(pref->flags, LS_PREF_SRV6))
+		sbuf_push(&sbuf, 4,
+			  "SIDv6: %pI6\tEndpoint behavior: %s\tFlags: 0x%x\n",
+			  &pref->srv6.sid,
+			  seg6local_action2str(pref->srv6.behavior),
+			  pref->srv6.flags);
+
 end:
 	vty_out(vty, "%s\n", sbuf_buf(&sbuf));
 	sbuf_free(&sbuf);
@@ -2757,7 +2781,7 @@ static void ls_show_subnet_json(struct ls_subnet *subnet,
 				struct json_object *json)
 {
 	struct ls_prefix *pref;
-	json_object *jsr;
+	json_object *jsr, *jsrv6;
 	char buf[INET6_BUFSIZ];
 
 	pref = subnet->ls_pref;
@@ -2786,6 +2810,16 @@ static void ls_show_subnet_json(struct ls_subnet *subnet,
 		json_object_int_add(jsr, "algo", pref->sr.algo);
 		snprintfrr(buf, INET6_BUFSIZ, "0x%x", pref->sr.sid_flag);
 		json_object_string_add(jsr, "flags", buf);
+	}
+	if (CHECK_FLAG(pref->flags, LS_PREF_SRV6)) {
+		jsrv6 = json_object_new_object();
+		json_object_object_add(json, "segment-routing-ipv6", jsrv6);
+		snprintfrr(buf, INET6_BUFSIZ, "%pI6", &pref->srv6.sid);
+		json_object_string_add(jsrv6, "sid", buf);
+		json_object_string_add(jsrv6, "behavior",
+				       seg6local_action2str(pref->srv6.behavior));
+		snprintfrr(buf, INET6_BUFSIZ, "0x%x", pref->srv6.flags);
+		json_object_string_add(jsrv6, "flags", buf);
 	}
 }
 
