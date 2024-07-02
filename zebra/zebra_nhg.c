@@ -3292,6 +3292,9 @@ void zebra_nhg_dplane_result(struct zebra_dplane_ctx *ctx)
 				if (CHECK_FLAG(nhop->flags,
 					       NEXTHOP_FLAG_RECURSIVE))
 					continue;
+				if (CHECK_FLAG(nhop->flags,
+					       NEXTHOP_FLAG_DUPLICATE))
+					continue;
 				SET_FLAG(nhop->flags, NEXTHOP_FLAG_FIB);
 			}
 
