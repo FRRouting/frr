@@ -33,6 +33,12 @@ else
   CONF_PIM6=--disable-pim6d
 endif
 
+ifeq ($(filter pkg.frr.grpc,$(DEB_BUILD_PROFILES)),)
+  CONF_GRPC=--disable-grpc
+else
+  CONF_GRPC=--enable-grpc
+endif
+
 export PYTHON=python3
 
 %:
@@ -51,6 +57,7 @@ override_dh_auto_configure:
 		$(CONF_RPKI) \
 		$(CONF_LUA) \
 		$(CONF_PIM6) \
+		$(CONF_GRPC) \
 		--with-libpam \
 		--enable-doc \
 		--enable-doc-html \
