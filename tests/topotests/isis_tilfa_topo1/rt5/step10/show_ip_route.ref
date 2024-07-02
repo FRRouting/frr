@@ -457,8 +457,7 @@
           "fib":true,
           "ip":"10.0.8.6",
           "afi":"ipv4",
-          "interfaceName":"eth-rt6",
-          "active":true
+          "interfaceName":"eth-rt6"
         }
       ]
     }
