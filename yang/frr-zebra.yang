@@ -2043,9 +2043,25 @@ module frr-zebra {
       }
 
       leaf mpls {
-        type boolean;
         description
-          "Interface MPLS status.";
+          "Interface MPLS configuration status.";
+        type enumeration {
+            enum enable {
+            value 1;
+            description
+              "MPLS configuration is enabled.";
+            }
+            enum disable {
+            value 2;
+              description
+                "MPLS configuration is disabled.";
+            }
+            enum auto {
+              value 3;
+              description
+                "MPLS configuration is enabled when used.";
+            }
+          }
       }
 
       leaf bandwidth {
