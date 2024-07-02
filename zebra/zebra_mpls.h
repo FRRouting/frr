@@ -146,7 +146,7 @@ int zebra_mpls_write_label_block_config(struct vty *vty, struct zebra_vrf *vrf);
 /*
  * Install dynamic LSP entry.
  */
-int zebra_mpls_lsp_install(struct zebra_vrf *zvrf, struct route_node *rn,
+void zebra_mpls_lsp_install(struct zebra_vrf *zvrf, struct route_node *rn,
 			   struct route_entry *re);
 
 /*
@@ -255,6 +255,12 @@ void mpls_zapi_labels_process(bool add_p, struct zebra_vrf *zvrf,
 			      const struct zapi_labels *zl);
 void zebra_mpls_zapi_labels_process(bool add_p, struct zebra_vrf *zvrf,
 				    const struct zapi_labels *zl);
+
+/*
+ * Upon reconfiguring nexthop-resolution updates, update the
+ * lsp entries accordingly.
+ */
+void zebra_mpls_fec_nexthop_resolution_update(struct zebra_vrf *zvrf);
 
 /*
  * Uninstall all NHLFEs bound to a single FEC.

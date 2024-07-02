@@ -2221,6 +2221,37 @@ static void lib_vrf_zebra_ipv6_resolve_via_default_cli_write(
 	}
 }
 
+DEFPY_YANG (mpls_fec_nexthop_resolution, mpls_fec_nexthop_resolution_cmd,
+      "[no$no] mpls fec nexthop-resolution",
+      NO_STR
+      MPLS_STR
+      "MPLS FEC table\n"
+      "Authorise nexthop resolution over all labeled routes.\n")
+{
+	nb_cli_enqueue_change(vty,
+			      "./frr-zebra:zebra/mpls/fec-nexthop-resolution",
+			      NB_OP_MODIFY, no ? "false" : "true");
+
+	if (vty->node == CONFIG_NODE)
+		return nb_cli_apply_changes(vty, "/frr-vrf:lib/vrf[name='%s']",
+					    VRF_DEFAULT_NAME);
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+static void lib_vrf_mpls_fec_nexthop_resolution_cli_write(
+	struct vty *vty, const struct lyd_node *dnode, bool show_defaults)
+{
+	bool fec_nexthop_resolution = yang_dnode_get_bool(dnode, NULL);
+
+	if (fec_nexthop_resolution || show_defaults) {
+		zebra_vrf_indent_cli_write(vty, dnode);
+
+		vty_out(vty, "%smpls fec nexthop-resolution\n",
+			fec_nexthop_resolution ? "" : "no ");
+	}
+}
+
 DEFPY_YANG (vrf_netns,
        vrf_netns_cmd,
        "[no] netns ![NAME$netns_name]",
@@ -2852,6 +2883,10 @@ const struct frr_yang_module_info frr_zebra_cli_info = {
 			.cbs.cli_show = lib_vrf_zebra_netns_table_range_cli_write,
 		},
 		{
+			.xpath = "/frr-vrf:lib/vrf/frr-zebra:zebra/mpls/fec-nexthop-resolution",
+			.cbs.cli_show = lib_vrf_mpls_fec_nexthop_resolution_cli_write,
+		},
+		{
 			.xpath = "/frr-vrf:lib/vrf/frr-zebra:zebra/l3vni-id",
 			.cbs.cli_show = lib_vrf_zebra_l3vni_id_cli_write,
 		},
@@ -2956,6 +2991,9 @@ void zebra_cli_init(void)
 	install_element(CONFIG_NODE, &ipv6_nht_default_route_cmd);
 	install_element(VRF_NODE, &ip_nht_default_route_cmd);
 	install_element(VRF_NODE, &ipv6_nht_default_route_cmd);
+
+	install_element(CONFIG_NODE, &mpls_fec_nexthop_resolution_cmd);
+	install_element(VRF_NODE, &mpls_fec_nexthop_resolution_cmd);
 
 	install_element(CONFIG_NODE, &vni_mapping_cmd);
 	install_element(VRF_NODE, &vni_mapping_cmd);

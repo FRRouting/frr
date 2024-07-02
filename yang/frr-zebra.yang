@@ -2855,6 +2855,16 @@ module frr-zebra {
         }
       }
 
+      container mpls {
+        description
+          "MPLS Configuration.";
+          leaf fec-nexthop-resolution {
+            type boolean;
+            description
+              "Authorise nexthop resolution over all labeled routes.";
+          }
+      }
+
       uses ribs;
 
       uses vrf-vni-mapping;
