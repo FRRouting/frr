@@ -1,0 +1,24 @@
+[submodule "deps/libssh"]
+        path = deps/libssh-mirror
+        url = https://github.com/libssh/libssh-mirror.git
+        branch = libssh-0.7.0
+[submodule "deps/uncrustify"]
+        path = deps/uncrustify
+        url = https://github.com/uncrustify/uncrustify.git
+        branch = uncrustify-0.77.1
+[submodule "deps/cmocka"]
+        path = deps/cmocka
+        url = https://github.com/clibs/cmocka.git
+        branch = cmocka-1.0.1
+[submodule "deps/libyang"]
+        path = deps/libyang
+        url = https://github.com/CESNET/libyang.git
+        branch = v2.1.128
+[submodule "deps/libnetconf2"]
+        path = deps/libnetconf2
+        url = https://github.com/CESNET/libnetconf2.git
+        branch = v2.1.7
+[submodule "deps/netopeer2"]
+        path = deps/netopeer2
+        url = https://github.com/CESNET/netopeer2.git
+        branch = v2.1.16
