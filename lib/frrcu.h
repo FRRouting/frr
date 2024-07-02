@@ -156,7 +156,7 @@ extern void rcu_enqueue(struct rcu_head *head, const struct rcu_action *action);
 #define rcu_call(func, ptr, field)                                             \
 	do {                                                                   \
 		typeof(ptr) _ptr = (ptr);                                      \
-		void (*fptype)(typeof(ptr));                                   \
+		void (*_fptype)(typeof(ptr));                                  \
 		struct rcu_head *_rcu_head = &_ptr->field;                     \
 		static const struct rcu_action _rcu_action = {                 \
 			.type = RCUA_CALL,                                     \
