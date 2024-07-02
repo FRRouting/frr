@@ -261,6 +261,8 @@ ctx_keywords = {
     "router ospf6": {},
     "router eigrp ": {},
     "router babel": {},
+    "router pim": {},
+    "router pim6": {},
     "mpls ldp": {"address-family ": {"interface ": {}}},
     "l2vpn ": {"member pseudowire ": {}},
     "key chain ": {"key ": {}},
@@ -1683,9 +1685,11 @@ def compare_context_objects(newconf, running):
                 lines_to_del.append((running_ctx_keys, None))
 
             # We cannot do 'no interface' or 'no vrf' in FRR, and so deal with it
-            elif running_ctx_keys[0].startswith("interface") or running_ctx_keys[
-                0
-            ].startswith("vrf"):
+            elif (
+                running_ctx_keys[0].startswith("interface")
+                or running_ctx_keys[0].startswith("vrf")
+                or running_ctx_keys[0].startswith("router pim")
+            ):
                 for line in running_ctx.lines:
                     lines_to_del.append((running_ctx_keys, line))
 

@@ -182,6 +182,8 @@ int pim_show_interface_traffic_helper(const char *vrf, const char *if_name,
 void clear_pim_interfaces(struct pim_instance *pim);
 void pim_show_bsr(struct pim_instance *pim, struct vty *vty, bool uj);
 int pim_show_bsr_helper(const char *vrf, struct vty *vty, bool uj);
+int pim_router_config_write(struct vty *vty);
+
 /*
  * Special Macro to allow us to get the correct pim_instance;
  */
@@ -189,5 +191,50 @@ int pim_show_bsr_helper(const char *vrf, struct vty *vty, bool uj);
 	VTY_DECLVAR_CONTEXT_VRF(vrfptr);                                       \
 	struct pim_instance *pimptr = vrfptr->info;                            \
 	MACRO_REQUIRE_SEMICOLON() /* end */
+
+/*
+ * Macros used to fix up the xpath so that global style PIM CLI handlers
+ * can continue to use the common functions which now expect "router pim"
+ * style configuration.
+ * Global PIM configuration was at the top-level config node, or
+ * within the vrf config node. Now configuration is moved to the
+ * router pim[6] [vrf NAME] node.
+ * So these macros will move vty to the router pim context and push
+ * the correct base xpath, then all the common config handling assumes
+ * that VTY_CURR_XPATH is correct and/or uses relative paths, and at
+ * the end vty is moved back to the original node and xpath popped
+ */
+#define START_PIM_DEPRECATED(clinode)                           \
+	const char *__vrfname;                                       \
+	char __xpath[XPATH_MAXLEN];                                  \
+	int __orig_node = -1;                                        \
+	if (vty->node != clinode) {                                  \
+		__vrfname = pim_cli_get_vrf_name(vty);                    \
+		if (__vrfname) {                                          \
+			snprintf(__xpath, sizeof(__xpath), FRR_PIM_VRF_XPATH,  \
+				 "frr-pim:pimd", "pim", __vrfname,                  \
+				 FRR_PIM_AF_XPATH_VAL);                             \
+			nb_cli_enqueue_change(vty, __xpath, NB_OP_CREATE,      \
+					      NULL);                                     \
+			if (nb_cli_apply_changes_clear_pending(vty, NULL) ==   \
+			    CMD_SUCCESS) {                                     \
+				__orig_node = vty->node;                            \
+				VTY_PUSH_XPATH(clinode, __xpath);                   \
+			} else {                                               \
+				return CMD_WARNING_CONFIG_FAILED;                   \
+			}                                                      \
+		} else {                                                  \
+			vty_out(vty, "%% Failed to determine vrf name\n");     \
+			return CMD_WARNING_CONFIG_FAILED;                      \
+		}                                                         \
+	}
+
+#define END_PIM_DEPRECATED         \
+	do {                            \
+		if (__orig_node != -1) {     \
+			vty->node = __orig_node;  \
+			vty->xpath_index--;       \
+		}                            \
+	} while (0)
 
 #endif /* PIM_CMD_COMMON_H */

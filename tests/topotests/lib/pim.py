@@ -195,17 +195,17 @@ def _add_pim_rp_config(tgen, topo, input_dict, router, build, config_data_dict):
                 # Delete rp config
                 del_action = rp_dict.setdefault("delete", False)
 
-                if keep_alive_timer:
+                if keep_alive_timer or rp_addr:
                     if addr_type == "ipv4":
-                        cmd = "ip pim rp keep-alive-timer {}".format(keep_alive_timer)
-                        if del_action:
-                            cmd = "no {}".format(cmd)
-                        config_data.append(cmd)
-                    if addr_type == "ipv6":
-                        cmd = "ipv6 pim rp keep-alive-timer {}".format(keep_alive_timer)
-                        if del_action:
-                            cmd = "no {}".format(cmd)
-                        config_data.append(cmd)
+                        config_data.append("router pim")
+                    elif addr_type == "ipv6":
+                        config_data.append("router pim6")
+
+                if keep_alive_timer:
+                    cmd = " rp keep-alive-timer {}".format(keep_alive_timer)
+                    if del_action:
+                        cmd = " no {}".format(cmd)
+                    config_data.append(cmd)
 
                 if rp_addr:
                     if group_addr_range:
@@ -213,32 +213,19 @@ def _add_pim_rp_config(tgen, topo, input_dict, router, build, config_data_dict):
                             group_addr_range = [group_addr_range]
 
                         for grp_addr in group_addr_range:
-                            if addr_type == "ipv4":
-                                cmd = "ip pim rp {} {}".format(rp_addr, grp_addr)
-                                if del_action:
-                                    cmd = "no {}".format(cmd)
-                                config_data.append(cmd)
-                            if addr_type == "ipv6":
-                                cmd = "ipv6 pim rp {} {}".format(rp_addr, grp_addr)
-                                if del_action:
-                                    cmd = "no {}".format(cmd)
-                                config_data.append(cmd)
+                            cmd = " rp {} {}".format(rp_addr, grp_addr)
+                            if del_action:
+                                cmd = " no{}".format(cmd)
+                            config_data.append(cmd)
 
                     if prefix_list:
-                        if addr_type == "ipv4":
-                            cmd = "ip pim rp {} prefix-list {}".format(
-                                rp_addr, prefix_list
-                            )
-                            if del_action:
-                                cmd = "no {}".format(cmd)
-                            config_data.append(cmd)
-                        if addr_type == "ipv6":
-                            cmd = "ipv6 pim rp {} prefix-list {}".format(
-                                rp_addr, prefix_list
-                            )
-                            if del_action:
-                                cmd = "no {}".format(cmd)
-                            config_data.append(cmd)
+                        cmd = " rp {} prefix-list {}".format(rp_addr, prefix_list)
+                        if del_action:
+                            cmd = " no{}".format(cmd)
+                        config_data.append(cmd)
+
+                if keep_alive_timer or rp_addr:
+                    config_data.append("exit")
 
                 if config_data:
                     if dut not in config_data_dict:
@@ -544,31 +531,43 @@ def _enable_disable_pim_config(tgen, topo, input_dict, router, build=False):
     if "pim" in input_dict[router]:
         pim_data = input_dict[router]["pim"]
         del_action = pim_data.setdefault("delete", False)
+        addHeader = True
         for t in [
             "join-prune-interval",
             "keep-alive-timer",
             "register-suppress-time",
         ]:
             if t in pim_data:
-                cmd = "ip pim {} {}".format(t, pim_data[t])
+                if addHeader:
+                    config_data.append("router pim")
+                    addHeader = False
+                cmd = " {} {}".format(t, pim_data[t])
                 if del_action:
-                    cmd = "no {}".format(cmd)
+                    cmd = " no{}".format(cmd)
                 config_data.append(cmd)
+        if not addHeader:
+            config_data.append("exit")
 
     # pim6 global config
     if "pim6" in input_dict[router]:
         pim6_data = input_dict[router]["pim6"]
         del_action = pim6_data.setdefault("delete", False)
+        addHeader = True
         for t in [
             "join-prune-interval",
             "keep-alive-timer",
             "register-suppress-time",
         ]:
             if t in pim6_data:
-                cmd = "ipv6 pim {} {}".format(t, pim6_data[t])
+                if addHeader:
+                    config_data.append("router pim6")
+                    addHeader = False
+                cmd = " {} {}".format(t, pim6_data[t])
                 if del_action:
-                    cmd = "no {}".format(cmd)
+                    cmd = " no{}".format(cmd)
                 config_data.append(cmd)
+        if not addHeader:
+            config_data.append("exit")
 
     return config_data
 
