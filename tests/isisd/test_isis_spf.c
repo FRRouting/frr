@@ -245,12 +245,25 @@ static int test_run(struct vty *vty, const struct isis_topology *topology,
 	struct isis_area *area;
 	struct lfa_protected_resource protected_resource = {};
 	uint8_t fail_id[ISIS_SYS_ID_LEN] = {};
+	static char sysidstr[ISO_SYSID_STRLEN];
+	char net_title[255];
+	uint8_t buff[255];
+	struct iso_address *addr = NULL;
 
 	/* Init topology. */
 	area = isis_area_create("1", NULL);
 	memcpy(area->isis->sysid, root->sysid, sizeof(area->isis->sysid));
 	area->is_type = IS_LEVEL_1_AND_2;
 	area->srdb.enabled = true;
+	area->area_addrs = list_new();
+	area->area_addrs->del = isis_area_address_delete;
+	addr = XMALLOC(MTYPE_ISIS_AREA_ADDR, sizeof(struct iso_address));
+	snprintfrr(sysidstr, sizeof(sysidstr), "%pSY", area->isis->sysid);
+	snprintf(net_title, sizeof(net_title), "49.%s.00", sysidstr);
+	addr->addr_len = dotformat2buff(buff, net_title);
+	memcpy(addr->area_addr, buff, addr->addr_len);
+	addr->addr_len -= (ISIS_SYS_ID_LEN + ISIS_NSEL_LEN);
+	listnode_add(area->area_addrs, addr);
 	if (test_topology_load(topology, area, area->lspdb) != 0) {
 		vty_out(vty, "%% Failed to load topology\n");
 		return CMD_WARNING;

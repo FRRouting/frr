@@ -272,7 +272,7 @@ void isis_area_del_circuit(struct isis_area *area, struct isis_circuit *circuit)
 	isis_csm_state_change(ISIS_DISABLE, circuit, area);
 }
 
-static void delete_area_addr(void *arg)
+void isis_area_address_delete(void *arg)
 {
 	struct iso_address *addr = (struct iso_address *)arg;
 
@@ -330,7 +330,7 @@ struct isis_area *isis_area_create(const char *area_tag, const char *vrf_name)
 	area->circuit_list = list_new();
 	area->adjacency_list = list_new();
 	area->area_addrs = list_new();
-	area->area_addrs->del = delete_area_addr;
+	area->area_addrs->del = isis_area_address_delete;
 
 	if (!CHECK_FLAG(im->options, F_ISIS_UNIT_TEST))
 		event_add_timer(master, lsp_tick, area, 1, &area->t_tick);
@@ -467,6 +467,29 @@ struct isis_area *isis_area_lookup(const char *area_tag, vrf_id_t vrf_id)
 		    || (area->area_tag && area_tag
 			&& strcmp(area->area_tag, area_tag) == 0))
 			return area;
+
+	return NULL;
+}
+
+struct isis_area *isis_area_lookup_by_sysid(const uint8_t *sysid)
+{
+	struct isis_area *area;
+	struct listnode *node;
+	struct isis *isis;
+	struct iso_address *addr = NULL;
+
+	isis = isis_lookup_by_sysid(sysid);
+	if (isis == NULL)
+		return NULL;
+
+	for (ALL_LIST_ELEMENTS_RO(isis->area_list, node, area)) {
+		if (listcount(area->area_addrs) > 0) {
+			addr = listgetdata(listhead(area->area_addrs));
+			if (!memcmp(addr->area_addr + addr->addr_len, sysid,
+				    ISIS_SYS_ID_LEN))
+				return area;
+			}
+		}
 
 	return NULL;
 }
