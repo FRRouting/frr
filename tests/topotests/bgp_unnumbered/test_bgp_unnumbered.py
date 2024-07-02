@@ -27,7 +27,6 @@ pytestmark = [pytest.mark.bgpd]
 
 
 def build_topo(tgen):
-
     tgen.add_router("r1")
     tgen.add_router("r2")
 
@@ -53,7 +52,7 @@ def setup_module(mod):
     tgen.start_router()
 
 
-def teardown_module(mod):
+def teardown_module():
     tgen = get_topogen()
     tgen.stop_topology()
 

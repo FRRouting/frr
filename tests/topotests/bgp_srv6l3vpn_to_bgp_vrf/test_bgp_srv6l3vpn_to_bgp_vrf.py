@@ -122,7 +122,7 @@ def setup_module(mod):
     # please use tgen.mininet_cli() to start it.
 
 
-def teardown_module(mod):
+def teardown_module():
     tgen = get_topogen()
     tgen.stop_topology()
 

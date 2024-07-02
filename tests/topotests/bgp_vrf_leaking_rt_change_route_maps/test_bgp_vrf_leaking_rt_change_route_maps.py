@@ -47,7 +47,7 @@ def setup_module(mod):
     router.start()
 
 
-def teardown_module(mod):
+def teardown_module():
     tgen = get_topogen()
     tgen.stop_topology()
 

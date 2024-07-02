@@ -38,7 +38,6 @@ from lib.common_config import (
     required_linux_kernel_version,
 )
 
-from lib.topolog import logger
 import json
 
 fatal_error = ""
@@ -153,7 +152,6 @@ def test_error_messages_vtysh():
     print("\n\n** Check for error messages on VTYSH")
     print("******************************************\n")
 
-    failures = 0
     for i in range(1, 2):
         #
         # First checking Standard Output

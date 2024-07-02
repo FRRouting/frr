@@ -18,7 +18,6 @@ import functools
 import os
 import sys
 import pytest
-import re
 import time
 
 # Save the Current Working Directory to find configuration files.
@@ -121,7 +120,7 @@ def setup_module(module):
         router.start()
 
 
-def teardown_module(module):
+def teardown_module():
     tgen = get_topogen()
     tgen.stop_topology()
 

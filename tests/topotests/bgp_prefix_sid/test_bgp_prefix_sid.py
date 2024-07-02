@@ -65,7 +65,7 @@ def setup_module(module):
         logger.info(pname)
 
 
-def teardown_module(module):
+def teardown_module():
     tgen = get_topogen()
     tgen.stop_topology()
 

@@ -78,7 +78,7 @@ def setup_module(mod):
         )
 
 
-def teardown_module(mod):
+def teardown_module():
     tgen = get_topogen()
 
     for rname in ["r1", "r3"]:

@@ -32,7 +32,6 @@ from lib.topogen import Topogen, TopoRouter, get_topogen
 
 from lib.common_config import (
     kill_router_daemons,
-    start_router_daemons,
     step,
 )
 
@@ -76,7 +75,7 @@ def setup_module(mod):
     tgen.start_router()
 
 
-def teardown_module(mod):
+def teardown_module():
     tgen = get_topogen()
     tgen.stop_topology()
 

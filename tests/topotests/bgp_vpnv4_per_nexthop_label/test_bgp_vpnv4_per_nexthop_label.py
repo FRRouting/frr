@@ -183,7 +183,7 @@ def bgp_vpnv4_table_check(router, group, label_list=None, label_value_expected=N
         assert dump, "{0}, {1}, route distinguisher not present".format(
             router.name, prefix
         )
-        for rd, pathes in dump.items():
+        for _, pathes in dump.items():
             for path in pathes["paths"]:
                 assert (
                     "remoteLabel" in path.keys()
@@ -305,7 +305,7 @@ def mpls_table_check(router, blacklist=None, label_list=None, whitelist=None):
     test_func = functools.partial(
         check_show_mpls_table, router, blacklist, label_list, whitelist
     )
-    success, _ = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
+    success, result = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
     assert success, "{}, MPLS labels check fail: {}".format(router.name, result)
 
 

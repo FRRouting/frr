@@ -74,7 +74,7 @@ def setup_module(mod):
     tgen.gears["r1"].cmd("ip route add 192.0.2.3 via 192.168.2.2 metric 20")
 
 
-def teardown_module(mod):
+def teardown_module():
     tgen = get_topogen()
     tgen.stop_topology()
 

@@ -125,7 +125,7 @@ def setup_module(module):
         peer.start(peer_dir, env_file)
 
 
-def teardown_module(module):
+def teardown_module():
     tgen = get_topogen()
     tgen.stop_topology()
 

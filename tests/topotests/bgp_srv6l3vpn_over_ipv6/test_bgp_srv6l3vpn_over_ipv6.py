@@ -9,10 +9,7 @@
 #
 
 import os
-import re
 import sys
-import json
-import functools
 import pytest
 
 CWD = os.path.dirname(os.path.realpath(__file__))
@@ -20,9 +17,7 @@ sys.path.append(os.path.join(CWD, "../"))
 
 # pylint: disable=C0413
 # Import topogen and topotest helpers
-from lib import topotest
 from lib.topogen import Topogen, TopoRouter, get_topogen
-from lib.topolog import logger
 from lib.common_config import required_linux_kernel_version
 from lib.checkping import check_ping
 
@@ -97,7 +92,7 @@ def setup_module(mod):
     tgen.start_router()
 
 
-def teardown_module(mod):
+def teardown_module():
     tgen = get_topogen()
     tgen.stop_topology()
 
