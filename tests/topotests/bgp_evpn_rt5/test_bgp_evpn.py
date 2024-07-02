@@ -25,6 +25,8 @@ sys.path.append(os.path.join(CWD, "../"))
 # pylint: disable=C0413
 # Import topogen and topotest helpers
 from lib import topotest
+from lib.bgp import verify_bgp_rib
+from lib.common_config import apply_raw_config
 from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
 
@@ -179,11 +181,17 @@ def test_protocols_convergence():
     output = tgen.gears["r1"].vtysh_cmd("show bgp vrf r1-vrf-101 ipv4", isjson=False)
     logger.info("==== result from show bgp vrf r1-vrf-101 ipv4")
     logger.info(output)
+    output = tgen.gears["r1"].vtysh_cmd("show bgp vrf r1-vrf-101 ipv6", isjson=False)
+    logger.info("==== result from show bgp vrf r1-vrf-101 ipv6")
+    logger.info(output)
     output = tgen.gears["r1"].vtysh_cmd("show bgp vrf r1-vrf-101", isjson=False)
     logger.info("==== result from show bgp vrf r1-vrf-101 ")
     logger.info(output)
     output = tgen.gears["r1"].vtysh_cmd("show ip route vrf r1-vrf-101", isjson=False)
     logger.info("==== result from show ip route vrf r1-vrf-101")
+    logger.info(output)
+    output = tgen.gears["r1"].vtysh_cmd("show ipv6 route vrf r1-vrf-101", isjson=False)
+    logger.info("==== result from show ipv6 route vrf r1-vrf-101")
     logger.info(output)
     output = tgen.gears["r1"].vtysh_cmd("show evpn vni detail", isjson=False)
     logger.info("==== result from show evpn vni detail")
@@ -192,10 +200,125 @@ def test_protocols_convergence():
     logger.info("==== result from show evpn next-hops vni all")
     logger.info(output)
     output = tgen.gears["r1"].vtysh_cmd("show evpn rmac vni all", isjson=False)
-    logger.info("==== result from show evpn next-hops vni all")
+    logger.info("==== result from show evpn rmac vni all")
     logger.info(output)
+
+    expected = {
+        "fd00::2/128": [
+            {
+                "prefix": "fd00::2/128",
+                "vrfName": "r1-vrf-101",
+                "nexthops": [
+                    {
+                        "ip": "::ffff:c0a8:6429",
+                    }
+                ],
+            }
+        ]
+    }
+    result = topotest.router_json_cmp(
+        tgen.gears["r1"], "show ipv6 route vrf r1-vrf-101 fd00::2/128 json", expected
+    )
+    assert result is None, "ipv6 route check failed"
+
+    expected = {
+        "101": {
+            "numNextHops": 2,
+            "192.168.100.41": {
+                "nexthopIp": "192.168.100.41",
+            },
+            "::ffff:c0a8:6429": {
+                "nexthopIp": "::ffff:c0a8:6429",
+            },
+        }
+    }
+    result = topotest.router_json_cmp(
+        tgen.gears["r1"], "show evpn next-hops vni all json", expected
+    )
+    assert result is None, "evpn next-hops check failed"
+
+    expected = {"101": {"numRmacs": 1}}
+    result = topotest.router_json_cmp(
+        tgen.gears["r1"], "show evpn rmac vni all json", expected
+    )
+    assert result is None, "evpn rmac number check failed"
+
     # Check IPv4 and IPv6 connectivity between r1 and r2 ( routing vxlan evpn)
     pingrouter = tgen.gears["r1"]
+    logger.info(
+        "Check Ping IPv4 from  R1(r1-vrf-101) to R2(r2-vrf-101 = 192.168.101.41)"
+    )
+    output = pingrouter.run("ip netns exec r1-vrf-101 ping 192.168.101.41 -f -c 1000")
+    logger.info(output)
+    if "1000 packets transmitted, 1000 received" not in output:
+        assertmsg = (
+            "expected ping IPv4 from R1(r1-vrf-101) to R2(192.168.101.41) should be ok"
+        )
+        assert 0, assertmsg
+    else:
+        logger.info("Check Ping IPv4 from R1(r1-vrf-101) to R2(192.168.101.41) OK")
+
+    logger.info("Check Ping IPv6 from  R1(r1-vrf-101) to R2(r2-vrf-101 = fd00::2)")
+    output = pingrouter.run("ip netns exec r1-vrf-101 ping fd00::2 -f -c 1000")
+    logger.info(output)
+    if "1000 packets transmitted, 1000 received" not in output:
+        assert 0, "expected ping IPv6 from R1(r1-vrf-101) to R2(fd00::2) should be ok"
+    else:
+        logger.info("Check Ping IPv6 from R1(r1-vrf-101) to R2(fd00::2) OK")
+
+    config_no_ipv6 = {
+        "r2": {
+            "raw_config": [
+                "router bgp 65000 vrf r2-vrf-101",
+                "address-family ipv6 unicast",
+                "no network fd00::2/128",
+            ]
+        }
+    }
+
+    logger.info("==== Remove IPv6 network on R2")
+    result = apply_raw_config(tgen, config_no_ipv6)
+    assert result is True, "Failed to remove IPv6 network on R2, Error: {} ".format(
+        result
+    )
+    ipv6_routes = {
+        "r1": {
+            "static_routes": [
+                {
+                    "vrf": "r1-vrf-101",
+                    "network": ["fd00::2/128"],
+                }
+            ]
+        }
+    }
+    result = verify_bgp_rib(tgen, "ipv6", "r1", ipv6_routes, expected=False)
+    assert result is not True, "expect IPv6 route fd00::2/128 withdrawn"
+    output = tgen.gears["r1"].vtysh_cmd("show evpn next-hops vni all", isjson=False)
+    logger.info("==== result from show evpn next-hops vni all")
+    logger.info(output)
+    output = tgen.gears["r1"].vtysh_cmd("show evpn rmac vni all", isjson=False)
+    logger.info("==== result from show evpn next-hops vni all")
+    logger.info(output)
+
+    expected = {
+        "101": {
+            "numNextHops": 1,
+            "192.168.100.41": {
+                "nexthopIp": "192.168.100.41",
+            },
+        }
+    }
+    result = topotest.router_json_cmp(
+        tgen.gears["r1"], "show evpn next-hops vni all json", expected
+    )
+    assert result is None, "evpn next-hops check failed"
+
+    expected = {"101": {"numRmacs": 1}}
+    result = topotest.router_json_cmp(
+        tgen.gears["r1"], "show evpn rmac vni all json", expected
+    )
+    assert result is None, "evpn rmac number check failed"
+
     logger.info(
         "Check Ping IPv4 from  R1(r1-vrf-101) to R2(r2-vrf-101 = 192.168.101.41)"
     )
