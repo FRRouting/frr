@@ -163,6 +163,23 @@ struct bgp_master {
 	uint32_t flags;
 #define BM_FLAG_GRACEFUL_SHUTDOWN        (1 << 0)
 #define BM_FLAG_SEND_EXTRA_DATA_TO_ZEBRA (1 << 1)
+#define BM_FLAG_MAINTENANCE_MODE	 (1 << 2)
+#define BM_FLAG_GR_RESTARTER		 (1 << 3)
+#define BM_FLAG_GR_DISABLED		 (1 << 4)
+#define BM_FLAG_GR_PRESERVE_FWD		 (1 << 5)
+#define BM_FLAG_GRACEFUL_RESTART	 (1 << 6)
+#define BM_FLAG_GR_COMPLETE		 (1 << 7)
+
+#define BM_FLAG_GR_CONFIGURED (BM_FLAG_GR_RESTARTER | BM_FLAG_GR_DISABLED)
+
+	/* BGP-wide graceful restart config params */
+	uint32_t restart_time;
+	uint32_t stalepath_time;
+	uint32_t select_defer_time;
+	uint32_t rib_stale_time;
+
+	time_t startup_time;
+	time_t gr_completion_time;
 
 	bool terminating;	/* global flag that sigint terminate seen */
 
@@ -293,9 +310,9 @@ struct graceful_restart_info {
 	/* Best route select */
 	struct event *t_route_select;
 	/* AFI, SAFI enabled */
-	bool af_enabled[AFI_MAX][SAFI_MAX];
+	bool af_enabled;
 	/* Route update completed */
-	bool route_sync[AFI_MAX][SAFI_MAX];
+	bool route_sync;
 };
 
 enum global_mode {
@@ -546,6 +563,9 @@ struct bgp {
 	 * - ZEBRA_GR_ENABLE / ZEBRA_GR_DISABLE
 	 */
 	enum zebra_gr_mode present_zebra_gr_state;
+
+	/* Is deferred path selection still not complete? */
+	bool gr_route_sync_pending;
 
 	/* BGP Per AF flags */
 	uint16_t af_flags[AFI_MAX][SAFI_MAX];
@@ -2740,6 +2760,59 @@ static inline bool bgp_in_graceful_shutdown(struct bgp *bgp)
 	/* True if either set for this instance or globally */
 	return (!!CHECK_FLAG(bgp->flags, BGP_FLAG_GRACEFUL_SHUTDOWN) ||
 	        !!CHECK_FLAG(bm->flags, BM_FLAG_GRACEFUL_SHUTDOWN));
+}
+
+static inline bool bgp_in_graceful_restart(void)
+{
+	/* True if BGP has (re)started gracefully (based on flags
+	 * noted at startup) and GR is not complete.
+	 */
+	return (CHECK_FLAG(bm->flags, BM_FLAG_GRACEFUL_RESTART) &&
+		!CHECK_FLAG(bm->flags, BM_FLAG_GR_COMPLETE));
+}
+
+static inline bool bgp_is_graceful_restart_complete(void)
+{
+	/* True if BGP has (re)started gracefully (based on flags
+	 * noted at startup) and GR is marked as complete.
+	 */
+	return (CHECK_FLAG(bm->flags, BM_FLAG_GRACEFUL_RESTART) &&
+		CHECK_FLAG(bm->flags, BM_FLAG_GR_COMPLETE));
+}
+
+static inline void bgp_update_gr_completion(void)
+{
+	struct listnode *node, *nnode;
+	struct bgp *bgp;
+
+	/*
+	 * Check and mark GR complete. This is done when deferred
+	 * path selection has been completed for all instances and
+	 * route-advertisement/EOR and route-sync with zebra has
+	 * been invoked.
+	 */
+	if (!CHECK_FLAG(bm->flags, BM_FLAG_GRACEFUL_RESTART) ||
+	    CHECK_FLAG(bm->flags, BM_FLAG_GR_COMPLETE))
+		return;
+
+	for (ALL_LIST_ELEMENTS(bm->bgp, node, nnode, bgp)) {
+		if (bgp->gr_route_sync_pending)
+			return;
+	}
+
+	SET_FLAG(bm->flags, BM_FLAG_GR_COMPLETE);
+	bm->gr_completion_time = monotime(NULL);
+}
+
+static inline bool bgp_gr_is_forwarding_preserved(struct bgp *bgp)
+{
+	/*
+	 * Is forwarding state preserved? Based either on config
+	 * or if BGP restarted gracefully.
+	 * TBD: Additional AFI/SAFI based checks etc.
+	 */
+	return (CHECK_FLAG(bm->flags, BM_FLAG_GRACEFUL_RESTART) ||
+		CHECK_FLAG(bgp->flags, BGP_FLAG_GR_PRESERVE_FWD));
 }
 
 /* For benefit of rfapi */

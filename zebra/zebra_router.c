@@ -238,7 +238,7 @@ void zebra_router_terminate(void)
 {
 	struct zebra_router_table *zrt, *tmp;
 
-	EVENT_OFF(zrouter.sweeper);
+	EVENT_OFF(zrouter.t_rib_sweep);
 
 	RB_FOREACH_SAFE (zrt, zebra_router_table_head, &zrouter.tables, tmp)
 		zebra_router_free_table(zrt);

@@ -3979,6 +3979,11 @@ int bgp_zebra_send_capabilities(struct bgp *bgp, bool disable)
 		return BGP_GR_FAILURE;
 	}
 
+	if (BGP_DEBUG(zebra, ZEBRA))
+		zlog_debug("%s(%d): Sending GR capability %s to zebra",
+			   bgp->name_pretty, bgp->vrf_id,
+			   disable ? "disabled" : "enabled");
+
 	/* Check if capability is already sent. If the flag force is set
 	 * send the capability since this can be initial bgp configuration
 	 */
@@ -3994,8 +3999,8 @@ int bgp_zebra_send_capabilities(struct bgp *bgp, bool disable)
 
 	if (zclient_capabilities_send(ZEBRA_CLIENT_CAPABILITIES, zclient, &api)
 	    == ZCLIENT_SEND_FAILURE) {
-		zlog_err("%s: %s error sending capability", __func__,
-			 bgp->name_pretty);
+		zlog_err("%s(%d): Error sending GR capability to zebra",
+			 bgp->name_pretty, bgp->vrf_id);
 		ret = BGP_GR_FAILURE;
 	} else {
 		if (disable)
@@ -4003,9 +4008,6 @@ int bgp_zebra_send_capabilities(struct bgp *bgp, bool disable)
 		else
 			bgp->present_zebra_gr_state = ZEBRA_GR_ENABLE;
 
-		if (BGP_DEBUG(zebra, ZEBRA))
-			zlog_debug("%s: %s send capabilty success", __func__,
-				   bgp->name_pretty);
 		ret = BGP_GR_SUCCESS;
 	}
 	return ret;

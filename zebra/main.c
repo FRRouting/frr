@@ -65,8 +65,6 @@ struct mgmt_be_client *mgmt_be_client;
 /* Route retain mode flag. */
 int retain_mode = 0;
 
-int graceful_restart;
-
 /* Receive buffer size for kernel control sockets */
 #define RCVBUFSIZE_MIN 4194304
 #ifdef HAVE_NETLINK
@@ -88,7 +86,6 @@ const struct option longopts[] = {
 	{ "socket", required_argument, NULL, 'z' },
 	{ "ecmp", required_argument, NULL, 'e' },
 	{ "retain", no_argument, NULL, 'r' },
-	{ "graceful_restart", required_argument, NULL, 'K' },
 	{ "asic-offload", optional_argument, NULL, OPTION_ASIC_OFFLOAD },
 	{ "v6-with-v4-nexthops", no_argument, NULL, OPTION_V6_WITH_V4_NEXTHOP },
 #ifdef HAVE_NETLINK
@@ -96,7 +93,7 @@ const struct option longopts[] = {
 	{ "nl-bufsize", required_argument, NULL, 's' },
 	{ "v6-rr-semantics", no_argument, NULL, OPTION_V6_RR_SEMANTICS },
 #endif /* HAVE_NETLINK */
-	{"routing-table", optional_argument, NULL, 'R'},
+	{ "routing-table", optional_argument, NULL, 'R' },
 	{ 0 }
 };
 
@@ -326,7 +323,6 @@ int main(int argc, char **argv)
 	bool v6_with_v4_nexthop = false;
 	bool notify_on_ack = true;
 
-	graceful_restart = 0;
 	vrf_configure_backend(VRF_BACKEND_VRF_LITE);
 
 	frr_preinit(&zebra_di, argc, argv);
@@ -342,7 +338,6 @@ int main(int argc, char **argv)
 		    "  -z, --socket              Set path of zebra socket\n"
 		    "  -e, --ecmp                Specify ECMP to use.\n"
 		    "  -r, --retain              When program terminates, retain added route by zebra.\n"
-		    "  -K, --graceful_restart    Graceful restart at the kernel level, timer in seconds for expiration\n"
 		    "  -A, --asic-offload        FRR is interacting with an asic underneath the linux kernel\n"
 		    "      --v6-with-v4-nexthops Underlying dataplane supports v6 routes with v4 nexthops"
 #ifdef HAVE_NETLINK
@@ -352,8 +347,7 @@ int main(int argc, char **argv)
 #else
 		    "  -s,                       Set kernel socket receive buffer size\n"
 #endif /* HAVE_NETLINK */
-		    "  -R, --routing-table       Set kernel routing table\n"
-	);
+		    "  -R, --routing-table       Set kernel routing table\n");
 
 	while (1) {
 		int opt = frr_getopt(argc, argv, NULL);
@@ -396,9 +390,6 @@ int main(int argc, char **argv)
 			break;
 		case 'r':
 			retain_mode = 1;
-			break;
-		case 'K':
-			graceful_restart = atoi(optarg);
 			break;
 		case 's':
 			rcvbufsize = atoi(optarg);
@@ -488,11 +479,25 @@ int main(int argc, char **argv)
 	*  Clean up zebra-originated routes. The requests will be sent to OS
 	*  immediately, so originating PID in notifications from kernel
 	*  will be equal to the current getpid(). To know about such routes,
-	* we have to have route_read() called before.
+	*  we have to have route_read() called before.
+	*  If FRR is gracefully restarting, we either wait for clients
+	*  (e.g., BGP) to signal GR is complete else we wait for specified
+	*  duration.
 	*/
 	zrouter.startup_time = monotime(NULL);
-	event_add_timer(zrouter.master, rib_sweep_route, NULL, graceful_restart,
-			&zrouter.sweeper);
+	zrouter.rib_sweep_time = 0;
+	zrouter.graceful_restart = zebra_di.graceful_restart;
+	if (!zrouter.graceful_restart)
+		event_add_timer(zrouter.master, rib_sweep_route, NULL, 0, NULL);
+	else {
+		int gr_cleanup_time;
+
+		gr_cleanup_time = zebra_di.gr_cleanup_time
+					  ? zebra_di.gr_cleanup_time
+					  : ZEBRA_GR_DEFAULT_RIB_SWEEP_TIME;
+		event_add_timer(zrouter.master, rib_sweep_route, NULL,
+				gr_cleanup_time, &zrouter.t_rib_sweep);
+	}
 
 	/* Needed for BSD routing socket. */
 	pid = getpid();

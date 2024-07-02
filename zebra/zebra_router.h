@@ -191,10 +191,16 @@ struct zebra_router {
 	enum multicast_mode ipv4_multicast_mode;
 
 	/*
-	 * Time for when we sweep the rib from old routes
+	 * zebra start time and time of sweeping RIB of old routes
 	 */
 	time_t startup_time;
-	struct event *sweeper;
+	time_t rib_sweep_time;
+
+	/* FRR fast/graceful restart info */
+	bool graceful_restart;
+	int gr_cleanup_time;
+#define ZEBRA_GR_DEFAULT_RIB_SWEEP_TIME 500
+	struct event *t_rib_sweep;
 
 	/*
 	 * The hash of nexthop groups associated with this router

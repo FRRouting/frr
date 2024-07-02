@@ -3825,6 +3825,20 @@ DEFUN (show_zebra,
 	struct vrf *vrf;
 	struct ttable *table = ttable_new(&ttable_styles[TTSTYLE_BLANK]);
 	char *out;
+	char timebuf[MONOTIME_STRLEN];
+
+	time_to_string(zrouter.startup_time, timebuf);
+	vty_out(vty, "Zebra started%s at time %s",
+		zrouter.graceful_restart ? " gracefully" : "", timebuf);
+
+	if (zrouter.t_rib_sweep)
+		vty_out(vty,
+			"Zebra RIB sweep timer running, remaining time %lds\n",
+			event_timer_remain_second(zrouter.t_rib_sweep));
+	else {
+		time_to_string(zrouter.rib_sweep_time, timebuf);
+		vty_out(vty, "Zebra RIB sweep happened at %s", timebuf);
+	}
 
 	ttable_rowseps(table, 0, BOTTOM, true, '-');
 	ttable_add_row(table, "OS|%s(%s)", cmd_system_get(), cmd_release_get());

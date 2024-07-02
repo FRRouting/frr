@@ -519,20 +519,17 @@ static int bgp_capability_restart(struct peer *peer,
 	UNSET_FLAG(restart_flag_time, 0xF000);
 	peer->v_gr_restart = restart_flag_time;
 
-	if (bgp_debug_neighbor_events(peer)) {
-		zlog_debug(
-			"%s Peer has%srestarted. Restart Time: %d, N-bit set: %s",
-			peer->host,
-			CHECK_FLAG(peer->cap,
-				   PEER_CAP_GRACEFUL_RESTART_R_BIT_RCV)
-				? " "
-				: " not ",
-			peer->v_gr_restart,
-			CHECK_FLAG(peer->cap,
-				   PEER_CAP_GRACEFUL_RESTART_N_BIT_RCV)
-				? "yes"
-				: "no");
-	}
+	if (bgp_debug_neighbor_events(peer))
+		zlog_debug("%pBP OPEN has GR capability, Restart time %d R-bit %s N-bit %s",
+			   peer, peer->v_gr_restart,
+			   CHECK_FLAG(peer->cap,
+				      PEER_CAP_GRACEFUL_RESTART_R_BIT_RCV)
+				   ? "SET"
+				   : "NOT-SET",
+			   CHECK_FLAG(peer->cap,
+				      PEER_CAP_GRACEFUL_RESTART_N_BIT_RCV)
+				   ? "SET"
+				   : "NOT-SET");
 
 	while (stream_get_getp(s) + 4 <= end) {
 		afi_t afi;
@@ -556,14 +553,12 @@ static int bgp_capability_restart(struct peer *peer,
 					iana_safi2str(pkt_safi));
 		} else {
 			if (bgp_debug_neighbor_events(peer))
-				zlog_debug(
-					"%s Address family %s is%spreserved",
-					peer->host, get_afi_safi_str(afi, safi, false),
-					CHECK_FLAG(
-						peer->af_cap[afi][safi],
-						PEER_CAP_RESTART_AF_PRESERVE_RCV)
-						? " "
-						: " not ");
+				zlog_debug("%pBP F-bit %s for %s", peer,
+					   CHECK_FLAG(peer->af_cap[afi][safi],
+						      PEER_CAP_RESTART_AF_PRESERVE_RCV)
+						   ? "SET"
+						   : "NOT-SET",
+					   get_afi_safi_str(afi, safi, false));
 
 			SET_FLAG(peer->af_cap[afi][safi],
 				 PEER_CAP_RESTART_AF_RCV);
@@ -1587,14 +1582,11 @@ static void bgp_peer_send_gr_capability(struct stream *s, struct peer *peer,
 	uint32_t restart_time;
 	unsigned long capp = 0;
 	unsigned long rcapp = 0;
+	struct bgp *bgp = peer->bgp;
 
 	if (!CHECK_FLAG(peer->flags, PEER_FLAG_GRACEFUL_RESTART)
 	    && !CHECK_FLAG(peer->flags, PEER_FLAG_GRACEFUL_RESTART_HELPER))
 		return;
-
-	if (BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
-		zlog_debug("[BGP_GR] Sending helper Capability for Peer :%s :",
-			   peer->host);
 
 	SET_FLAG(peer->cap, PEER_CAP_RESTART_ADV);
 	stream_putc(s, BGP_OPEN_OPT_CAP);
@@ -1605,41 +1597,40 @@ static void bgp_peer_send_gr_capability(struct stream *s, struct peer *peer,
 	/* Set Restart Capability Len Pointer */
 	rcapp = stream_get_endp(s);
 	stream_putc(s, 0);
-	restart_time = peer->bgp->restart_time;
-	if (peer->bgp->t_startup) {
+	restart_time = bgp->restart_time;
+	if (peer->bgp->t_startup || bgp_in_graceful_restart()) {
 		SET_FLAG(restart_time, GRACEFUL_RESTART_R_BIT);
 		SET_FLAG(peer->cap, PEER_CAP_GRACEFUL_RESTART_R_BIT_ADV);
-		if (BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
-			zlog_debug("[BGP_GR] Sending R-Bit for peer: %s",
-				   peer->host);
 	}
 
-	if (CHECK_FLAG(peer->bgp->flags, BGP_FLAG_GRACEFUL_NOTIFICATION)) {
+	if (CHECK_FLAG(bgp->flags, BGP_FLAG_GRACEFUL_NOTIFICATION)) {
 		SET_FLAG(restart_time, GRACEFUL_RESTART_N_BIT);
 		SET_FLAG(peer->cap, PEER_CAP_GRACEFUL_RESTART_N_BIT_ADV);
-		if (BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
-			zlog_debug("[BGP_GR] Sending N-Bit for peer: %s",
-				   peer->host);
 	}
 
 	stream_putw(s, restart_time);
+
+	if (BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
+		zlog_debug("%s: Sending GR Capability, Restart time %d R-bit %s, N-bit %s",
+			   peer->host, bgp->restart_time,
+			   CHECK_FLAG(peer->cap,
+				      PEER_CAP_GRACEFUL_RESTART_R_BIT_ADV)
+				   ? "SET"
+				   : "NOT-SET",
+			   CHECK_FLAG(peer->cap,
+				      PEER_CAP_GRACEFUL_RESTART_N_BIT_ADV)
+				   ? "SET"
+				   : "NOT-SET");
 
 	/* Send address-family specific graceful-restart capability
 	 * only when GR config is present
 	 */
 	if (CHECK_FLAG(peer->flags, PEER_FLAG_GRACEFUL_RESTART)) {
-		if (CHECK_FLAG(peer->bgp->flags, BGP_FLAG_GR_PRESERVE_FWD)
-		    && BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
-			zlog_debug("[BGP_GR] F bit Set");
-
 		FOREACH_AFI_SAFI (afi, safi) {
+			bool f_bit = false;
+
 			if (!peer->afc[afi][safi])
 				continue;
-
-			if (BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
-				zlog_debug(
-					"[BGP_GR] Sending GR Capability for AFI :%d :, SAFI :%d:",
-					afi, safi);
 
 			/* Convert AFI, SAFI to values for
 			 * packet.
@@ -1648,11 +1639,15 @@ static void bgp_peer_send_gr_capability(struct stream *s, struct peer *peer,
 						  &pkt_safi);
 			stream_putw(s, pkt_afi);
 			stream_putc(s, pkt_safi);
-			if (CHECK_FLAG(peer->bgp->flags,
-				       BGP_FLAG_GR_PRESERVE_FWD))
-				stream_putc(s, GRACEFUL_RESTART_F_BIT);
-			else
-				stream_putc(s, 0);
+
+			f_bit = bgp_gr_is_forwarding_preserved(bgp);
+
+			if (BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
+				zlog_debug("... F-bit %s for %s",
+					   f_bit ? "SET" : "NOT-SET",
+					   get_afi_safi_str(afi, safi, false));
+
+			stream_putc(s, f_bit ? GRACEFUL_RESTART_F_BIT : 0);
 		}
 	}
 
