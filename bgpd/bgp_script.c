@@ -12,6 +12,10 @@
 #include "bgp_script.h"
 #include "bgp_debug.h"
 #include "bgp_aspath.h"
+#include "bgp_attr.h"
+#include "bgp_community.h"
+#include "bgp_ecommunity.h"
+#include "bgp_lcommunity.h"
 #include "frratomic.h"
 #include "frrscript.h"
 
@@ -139,16 +143,34 @@ void lua_pushattr(lua_State *L, const struct attr *attr)
 	lua_setfield(L, -2, "aspath");
 	lua_pushinteger(L, attr->local_pref);
 	lua_setfield(L, -2, "localpref");
+	lua_pushstring(L, (attr->community && attr->community->str)
+				  ? attr->community->str
+				  : "");
+	lua_setfield(L, -2, "community");
+	lua_pushstring(L, (attr->ecommunity && attr->ecommunity->str)
+				  ? attr->ecommunity->str
+				  : "");
+	lua_setfield(L, -2, "extended-community");
+	lua_pushstring(L, (attr->lcommunity && attr->lcommunity->str)
+				  ? attr->lcommunity->str
+				  : "");
+	lua_setfield(L, -2, "large-community");
 }
 
 void lua_decode_attr(lua_State *L, int idx, struct attr *attr)
 {
+	struct community *comm_new;
+	struct ecommunity *ecomm_new;
+	struct lcommunity *lcomm_new;
+
 	lua_getfield(L, idx, "metric");
 	attr->med = lua_tointeger(L, -1);
 	lua_pop(L, 1);
+
 	lua_getfield(L, idx, "ifindex");
 	attr->nh_ifindex = lua_tointeger(L, -1);
 	lua_pop(L, 1);
+
 	lua_getfield(L, idx, "aspath");
 	attr->aspath = aspath_str2aspath(lua_tostring(L, -1),
 					 bgp_get_asnotation(NULL));
@@ -156,6 +178,32 @@ void lua_decode_attr(lua_State *L, int idx, struct attr *attr)
 	lua_getfield(L, idx, "localpref");
 	attr->local_pref = lua_tointeger(L, -1);
 	lua_pop(L, 1);
+
+	lua_getfield(L, idx, "community");
+	comm_new = community_str2com(lua_tostring(L, -1));
+	if (comm_new) {
+		community_str(attr->community, false, false);
+		bgp_attr_set_community(attr, comm_new);
+	}
+	lua_pop(L, 1);
+
+	lua_getfield(L, idx, "extended-community");
+	ecomm_new = ecommunity_str2com(lua_tostring(L, -1), 0 /* type */,
+				       1 /* keyword included */);
+	if (ecomm_new) {
+		ecommunity_str(ecomm_new);
+		bgp_attr_set_ecommunity(attr, ecomm_new);
+	}
+	lua_pop(L, 1);
+
+	lua_getfield(L, idx, "large-community");
+	lcomm_new = lcommunity_str2com(lua_tostring(L, -1));
+	if (lcomm_new) {
+		lcommunity_str(lcomm_new, false, false);
+		bgp_attr_set_lcommunity(attr, lcomm_new);
+	}
+	lua_pop(L, 1);
+
 	lua_pop(L, 1);
 }
 
