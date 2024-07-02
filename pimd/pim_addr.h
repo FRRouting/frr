@@ -34,6 +34,8 @@ typedef struct prefix_ipv4 prefix_pim;
 
 #define PIM_ADDR_FUNCNAME(name) ipv4_##name
 
+#define ZEBRA_ROUTE_PIM_AF ZEBRA_ROUTE_PIM
+
 union pimprefixptr {
 	uniontype(pimprefixptr, struct prefix,      p)
 	uniontype(pimprefixptr, struct prefix_ipv4, p4)
@@ -65,6 +67,8 @@ typedef struct prefix_ipv6 prefix_pim;
 #define IPPROTO_GM      IPPROTO_ICMPV6
 
 #define PIM_ADDR_FUNCNAME(name) ipv6_##name
+
+#define ZEBRA_ROUTE_PIM_AF ZEBRA_ROUTE_PIM6
 
 union pimprefixptr {
 	uniontype(pimprefixptr, struct prefix,      p)
