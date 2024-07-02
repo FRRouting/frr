@@ -10,6 +10,18 @@
 extern "C" {
 #endif
 
+/*
+ * NOTICE:
+ *
+ * If you are reading this file in an effort to add a new list structure
+ * this is the wrong place to be using it.  Please see the typesafe
+ * data structures, or ask one of the other developers.
+ *
+ * If you are reading this file as a way to update an existing usage
+ * of this data structure, please consider just converting the data
+ * structure to one of the typesafe data structures instead.
+ */
+
 /* listnodes must always contain data to be valid. Adding an empty node
  * to a list is invalid
  */
