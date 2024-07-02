@@ -11883,7 +11883,7 @@ static int bgp_show_table(struct vty *vty, struct bgp *bgp, afi_t afi, safi_t sa
 							bgp_dest_get_prefix(
 								dest),
 							prd, table->afi, safi,
-							NULL, false);
+							NULL, false, false);
 
 					route_vty_out_detail(
 						vty, bgp, dest, dest_p, pi,
@@ -11959,7 +11959,7 @@ static int bgp_show_table(struct vty *vty, struct bgp *bgp, afi_t afi, safi_t sa
 				route_vty_out_detail_header(
 					vty, bgp, dest,
 					bgp_dest_get_prefix(dest), prd,
-					table->afi, safi, json_paths, true);
+					table->afi, safi, json_paths, true, false);
 
 				vty_out(vty, "\"paths\": ");
 				json_detail_header_used = true;
@@ -12165,7 +12165,7 @@ void route_vty_out_detail_header(struct vty *vty, struct bgp *bgp,
 				 struct bgp_dest *dest, const struct prefix *p,
 				 const struct prefix_rd *prd, afi_t afi,
 				 safi_t safi, json_object *json,
-				 bool incremental_print)
+				 bool incremental_print, bool local_table)
 {
 	struct bgp_path_info *pi;
 	struct peer *peer;
@@ -12383,8 +12383,12 @@ void route_vty_out_detail_header(struct vty *vty, struct bgp *bgp,
 				json_object_object_add(json, "advertisedTo",
 						       json_adv_to);
 		} else {
-			if (!json && first)
-				vty_out(vty, "  Not advertised to any peer");
+			if (!json && first) {
+				if (!local_table)
+					vty_out(vty, "  Not advertised to any peer");
+				else
+					vty_out(vty, "  Local BGP table not advertised");
+			}
 			vty_out(vty, "\n");
 		}
 	}
@@ -12426,7 +12430,7 @@ static void bgp_show_path_info(const struct prefix_rd *pfx_rd,
 			route_vty_out_detail_header(
 				vty, bgp, bgp_node,
 				bgp_dest_get_prefix(bgp_node), pfx_rd, AFI_IP,
-				safi, json_header, false);
+				safi, json_header, false, false);
 			header = 0;
 		}
 		(*display)++;
