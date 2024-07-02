@@ -126,7 +126,7 @@ static int if_zebra_new_hook(struct interface *ifp)
 
 	zebra_if->link_nsid = NS_UNKNOWN;
 
-	nhg_connected_tree_init(&zebra_if->nhg_dependents);
+	nhg_connected_tree_init(&zebra_if->nhg_parent);
 
 	zebra_ptm_if_init(zebra_if);
 
@@ -159,21 +159,21 @@ static int if_zebra_new_hook(struct interface *ifp)
 	return 0;
 }
 
-static void if_down_nhg_dependents(const struct interface *ifp)
+static void if_down_nhg_parent(const struct interface *ifp)
 {
 	struct nhg_connected *rb_node_dep = NULL;
 	struct zebra_if *zif = (struct zebra_if *)ifp->info;
 
-	frr_each(nhg_connected_tree, &zif->nhg_dependents, rb_node_dep)
+	frr_each (nhg_connected_tree, &zif->nhg_parent, rb_node_dep)
 		zebra_nhg_check_valid(rb_node_dep->nhe);
 }
 
-static void if_nhg_dependents_release(const struct interface *ifp)
+static void if_nhg_parent_release(const struct interface *ifp)
 {
 	struct nhg_connected *rb_node_dep = NULL;
 	struct zebra_if *zif = (struct zebra_if *)ifp->info;
 
-	frr_each(nhg_connected_tree, &zif->nhg_dependents, rb_node_dep) {
+	frr_each (nhg_connected_tree, &zif->nhg_parent, rb_node_dep) {
 		rb_node_dep->nhe->ifp = NULL; /* Null it out */
 		zebra_nhg_check_valid(rb_node_dep->nhe);
 		if (CHECK_FLAG(rb_node_dep->nhe->flags,
@@ -213,8 +213,8 @@ static int if_zebra_delete_hook(struct interface *ifp)
 		zebra_evpn_if_cleanup(zebra_if);
 		zebra_evpn_mac_ifp_del(ifp);
 
-		if_nhg_dependents_release(ifp);
-		nhg_connected_tree_free(&zebra_if->nhg_dependents);
+		if_nhg_parent_release(ifp);
+		nhg_connected_tree_free(&zebra_if->nhg_parent);
 
 		XFREE(MTYPE_ZIF_DESC, zebra_if->desc);
 
@@ -1023,7 +1023,7 @@ void if_down(struct interface *ifp)
 	zif->down_count++;
 	frr_timestamp(2, zif->down_last, sizeof(zif->down_last));
 
-	if_down_nhg_dependents(ifp);
+	if_down_nhg_parent(ifp);
 
 	/* Handle interface down for specific types for EVPN. Non-VxLAN
 	 * interfaces

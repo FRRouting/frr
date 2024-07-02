@@ -135,7 +135,7 @@ struct zebra_if {
 	 * we will use this list to update the nexthops
 	 * pointing to it with that info.
 	 */
-	struct nhg_connected_tree_head nhg_dependents;
+	struct nhg_connected_tree_head nhg_parent;
 
 	/* Information about up/down changes */
 	unsigned int up_count;
@@ -331,7 +331,7 @@ void link_param_cmd_set_float(struct interface *ifp, float *field,
 void link_param_cmd_unset(struct interface *ifp, uint32_t type);
 
 /* Nexthop group connected functions */
-extern bool if_nhg_dependents_is_empty(const struct interface *ifp);
+extern bool if_nhg_parent_is_empty(const struct interface *ifp);
 
 extern void vrf_add_update(struct vrf *vrfp);
 extern void zebra_l2_map_slave_to_bond(struct zebra_if *zif, vrf_id_t vrf);

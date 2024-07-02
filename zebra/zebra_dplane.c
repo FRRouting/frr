@@ -3678,8 +3678,8 @@ int dplane_ctx_nexthop_init(struct zebra_dplane_ctx *ctx, enum dplane_op_e op,
 	nexthop_group_copy(&(ctx->u.rinfo.nhe.ng), &(nhe->nhg));
 
 	/* If this is a group, convert it to a grp array of ids */
-	if (!zebra_nhg_depends_is_empty(nhe)
-	    && !CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_RECURSIVE))
+	if (!zebra_nhg_child_is_empty(nhe) &&
+	    !CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_RECURSIVE))
 		ctx->u.rinfo.nhe.nh_grp_count = zebra_nhg_nhe2grp(
 			ctx->u.rinfo.nhe.nh_grp, nhe, MULTIPATH_NUM);
 

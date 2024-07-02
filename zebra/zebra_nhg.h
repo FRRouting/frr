@@ -71,23 +71,23 @@ struct nhg_hash_entry {
 	 * Using a rb tree here to make lookups
 	 * faster with ID's.
 	 *
-	 * nhg_depends the RB tree of entries that this
+	 * nhg_child the RB tree of entries that this
 	 * group contains.
 	 *
-	 * nhg_dependents the RB tree of entries that
+	 * nhg_parent the RB tree of entries that
 	 * this group is being used by
 	 *
 	 * NHG id 3 with nexthops id 1/2
-	 * nhg(3)->nhg_depends has 1 and 2 in the tree
-	 * nhg(3)->nhg_dependents is empty
+	 * nhg(3)->nhg_child has 1 and 2 in the tree
+	 * nhg(3)->nhg_parent is empty
 	 *
-	 * nhg(1)->nhg_depends is empty
-	 * nhg(1)->nhg_dependents is 3 in the tree
+	 * nhg(1)->nhg_child is empty
+	 * nhg(1)->nhg_parent is 3 in the tree
 	 *
-	 * nhg(2)->nhg_depends is empty
-	 * nhg(2)->nhg_dependents is 3 in the tree
+	 * nhg(2)->nhg_child is empty
+	 * nhg(2)->nhg_parent is 3 in the tree
 	 */
-	struct nhg_connected_tree_head nhg_depends, nhg_dependents;
+	struct nhg_connected_tree_head nhg_child, nhg_parent;
 
 	struct event *timer;
 
@@ -272,12 +272,11 @@ struct nexthop_group *zebra_nhg_get_backup_nhg(struct nhg_hash_entry *nhe);
 
 extern struct nhg_hash_entry *zebra_nhg_resolve(struct nhg_hash_entry *nhe);
 
-extern unsigned int zebra_nhg_depends_count(const struct nhg_hash_entry *nhe);
-extern bool zebra_nhg_depends_is_empty(const struct nhg_hash_entry *nhe);
+extern unsigned int zebra_nhg_child_count(const struct nhg_hash_entry *nhe);
+extern bool zebra_nhg_child_is_empty(const struct nhg_hash_entry *nhe);
 
-extern unsigned int
-zebra_nhg_dependents_count(const struct nhg_hash_entry *nhe);
-extern bool zebra_nhg_dependents_is_empty(const struct nhg_hash_entry *nhe);
+extern unsigned int zebra_nhg_parent_count(const struct nhg_hash_entry *nhe);
+extern bool zebra_nhg_parent_is_empty(const struct nhg_hash_entry *nhe);
 
 /* Lookup ID, doesn't create */
 extern struct nhg_hash_entry *zebra_nhg_lookup_id(uint32_t id);
@@ -356,7 +355,7 @@ unsigned long zebra_nhg_score_proto(int type);
 extern void zebra_nhg_decrement_ref(struct nhg_hash_entry *nhe);
 extern void zebra_nhg_increment_ref(struct nhg_hash_entry *nhe);
 
-/* Check validity of nhe, if invalid will update dependents as well */
+/* Check validity of nhe, if invalid will update parents as well */
 extern void zebra_nhg_check_valid(struct nhg_hash_entry *nhe);
 
 /* Convert nhe depends to a grp context that can be passed around safely */
