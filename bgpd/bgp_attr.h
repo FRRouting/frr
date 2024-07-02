@@ -197,9 +197,6 @@ struct attr {
 #define ATTR_ES_L3_NHG_ACTIVE (1 << 6)
 #define ATTR_ES_L3_NHG	      (ATTR_ES_L3_NHG_USE | ATTR_ES_L3_NHG_ACTIVE)
 
-	/* NA router flag (R-bit) support in EVPN */
-	uint8_t router_flag;
-
 	/* Distance as applied by Route map */
 	uint8_t distance;
 
@@ -256,11 +253,12 @@ struct attr {
 	/* MP Nexthop length */
 	uint8_t mp_nexthop_len;
 
-	/* Static MAC for EVPN */
-	uint8_t sticky;
-
-	/* Flag for default gateway extended community in EVPN */
-	uint8_t default_gw;
+	/* EVPN flags */
+	uint8_t evpn_flags;
+#define ATTR_EVPN_FLAG_STICKY	  (1 << 0)
+#define ATTR_EVPN_FLAG_DEFAULT_GW (1 << 1)
+/* NA router flag (R-bit) support in EVPN */
+#define ATTR_EVPN_FLAG_ROUTER (1 << 2)
 
 	/* route tag */
 	route_tag_t tag;
