@@ -552,6 +552,18 @@ static inline void pim_mlag_vxlan_state_update(void)
 
 
 /********************API to process PIM MLAG Data ************************/
+static void pim_mlag_peer_zebra_flag_set(void)
+{
+	if (router->mlag_flags & PIM_MLAGF_PEER_CONN_UP) {
+		if (!(router->mlag_flags & PIM_MLAGF_PEER_ZEBRA_UP)) {
+			if (PIM_DEBUG_MLAG)
+				zlog_debug(
+					"%s: update Mlag flag with PIM_MLAGF_PEER_ZEBRA_UP",
+					__func__);
+			router->mlag_flags |= PIM_MLAGF_PEER_ZEBRA_UP;
+		}
+	}
+}
 
 static void pim_mlag_process_mlagd_state_change(struct mlag_status msg)
 {
@@ -575,7 +587,6 @@ static void pim_mlag_process_mlagd_state_change(struct mlag_status msg)
 		return;
 	}
 	++router->mlag_stats.msg.mlag_status_updates;
-
 	/* evaluate the changes first */
 	if (router->mlag_role != msg.my_role) {
 		role_chg = true;
@@ -618,6 +629,7 @@ static void pim_mlag_process_mlagd_state_change(struct mlag_status msg)
 	 */
 	if (!(router->mlag_flags & PIM_MLAGF_STATUS_RXED)) {
 		router->mlag_flags |= PIM_MLAGF_STATUS_RXED;
+		pim_mlag_peer_zebra_flag_set();
 		pim_mlag_vxlan_state_update();
 		/* on session up re-eval DF status */
 		pim_mlag_up_local_reeval(false /*mlagd_send*/, "mlagd_up");
@@ -630,21 +642,24 @@ static void pim_mlag_process_mlagd_state_change(struct mlag_status msg)
 		pim_mlag_vxlan_state_update();
 
 	if (state_chg) {
-		if (!(router->mlag_flags & PIM_MLAGF_PEER_CONN_UP))
+		if (!(router->mlag_flags & PIM_MLAGF_PEER_CONN_UP)) {
 			/* when a connection goes down the primary takes over
 			 * DF role for all entries
 			 */
 			pim_mlag_up_local_reeval(true /*mlagd_send*/,
 					"peer_down");
-		else
+		} else {
 			/* XXX - when session comes up we need to wait for
 			 * PEER_REPLAY_DONE before running re-election on
 			 * local-mlag entries that are missing peer reference
 			 */
+			pim_mlag_peer_zebra_flag_set();
 			pim_mlag_up_local_reeval(true /*mlagd_send*/,
 					"peer_up");
+		}
 	} else if (role_chg) {
 		/* MLAG role changed without a state change */
+		pim_mlag_peer_zebra_flag_set();
 		pim_mlag_up_local_reeval(true /*mlagd_send*/, "role_chg");
 	}
 }
@@ -668,6 +683,10 @@ static void pim_mlag_process_peer_frr_state_change(struct mlag_frr_status msg)
 	if (msg.frr_state == MLAG_FRR_STATE_UP) {
 		if (!(router->mlag_flags & PIM_MLAGF_PEER_ZEBRA_UP)) {
 			router->mlag_flags |= PIM_MLAGF_PEER_ZEBRA_UP;
+			if (PIM_DEBUG_MLAG)
+				zlog_debug(
+					"%s:%d: Mlag Peer FRR state is UP Setting PIM_MLAGF_PEER_ZEBRA_UP mlag flag %0x",
+					__func__, __LINE__, router->mlag_flags);
 			/* XXX - when peer zebra comes up we need to wait for
 			 * for some time to let the peer setup MDTs before
 			 * before relinquishing DF status
@@ -679,6 +698,10 @@ static void pim_mlag_process_peer_frr_state_change(struct mlag_frr_status msg)
 		if (router->mlag_flags & PIM_MLAGF_PEER_ZEBRA_UP) {
 			++router->mlag_stats.peer_zebra_downs;
 			router->mlag_flags &= ~PIM_MLAGF_PEER_ZEBRA_UP;
+			if (PIM_DEBUG_MLAG)
+				zlog_debug(
+					"%s:%d: Mlag Peer FRR state is DOWN unsetting PIM_MLAGF_PEER_ZEBRA_UP mlag flag %0x",
+					__func__, __LINE__, router->mlag_flags);
 			/* when a peer zebra goes down we assume DF role */
 			pim_mlag_up_local_reeval(true /*mlagd_send*/,
 					"zebra_down");
@@ -881,8 +904,15 @@ int pim_zebra_mlag_process_up(ZAPI_CALLBACK_ARGS)
 	 */
 	router->connected_to_mlag = true;
 	router->mlag_flags |= PIM_MLAGF_LOCAL_CONN_UP;
+	/*
+	 * Handle when local mlag session comes up later,
+	 * Update the Peer Zebra status once the local MLAG connection is
+	 * restored based on peer connection status.
+	 */
+	pim_mlag_peer_zebra_flag_set();
 	return 0;
 }
+
 
 static void pim_mlag_param_reset(void)
 {
