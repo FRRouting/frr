@@ -3847,12 +3847,6 @@ DEFPY_YANG(metric_type, metric_type_cmd,
 		return CMD_SUCCESS;
 	}
 
-	if (!igp)
-		vty_out(vty,
-			"Warning: this version can advertise a Flex-Algorithm Definition (FAD) with the %s metric.\n"
-			"However, participation in a Flex-Algorithm with such a metric is not yet supported.\n",
-			type);
-
 	nb_cli_enqueue_change(vty, "./metric-type",
 			      no ? NB_OP_DESTROY : NB_OP_MODIFY,
 			      no ? NULL : type);

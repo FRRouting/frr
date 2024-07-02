@@ -837,7 +837,7 @@ static int isis_spf_process_lsp(struct isis_spftree *spftree,
 {
 	bool pseudo_lsp = LSP_PSEUDO_ID(lsp->hdr.lsp_id);
 	struct listnode *fragnode = NULL;
-	uint32_t dist;
+	uint32_t dist, metric;
 	enum vertextype vtype;
 	static const uint8_t null_sysid[ISIS_SYS_ID_LEN];
 	struct isis_mt_router_info *mt_router_info = NULL;
@@ -938,21 +938,31 @@ lspfragloop:
 				    && !memcmp(er->id, null_sysid,
 					       ISIS_SYS_ID_LEN))
 					continue;
+
+				metric = er->metric;
+
 #ifndef FABRICD
 
+				/* isis_flex_algo_extended_is_metric() overrides
+				 * the metric variable if successful.
+				 */
 				if (flex_algo_id_valid(spftree->algorithm) &&
-				    (!sr_algorithm_participated(
-					     lsp, spftree->algorithm) ||
+				    (!sr_algorithm_participated(lsp,
+								spftree->algorithm) ||
 				     isis_flex_algo_constraint_drop(spftree,
-								    lsp, er)))
+								    lsp, er) ||
+				     !isis_flex_algo_extended_is_metric(spftree,
+									er->metric,
+									er->subtlvs,
+									&metric)))
 					continue;
 #endif /* ifndef FABRICD */
 
-				dist = cost
-				       + (CHECK_FLAG(spftree->flags,
-						     F_SPFTREE_HOPCOUNT_METRIC)
-						  ? 1
-						  : er->metric);
+				dist = cost +
+				       (CHECK_FLAG(spftree->flags,
+						   F_SPFTREE_HOPCOUNT_METRIC)
+						? 1
+						: metric);
 				process_N(spftree,
 					  LSP_PSEUDO_ID(er->id)
 						  ? VTYPE_PSEUDO_TE_IS
@@ -1011,7 +1021,27 @@ lspfragloop:
 					   ipv4_reachs->head
 				 : NULL;
 		     r; r = r->next) {
-			dist = cost + r->metric;
+#ifndef FABRICD
+			if (flex_algo_id_valid(spftree->algorithm) &&
+			    isis_is_prefix_attr_redist_ext(r->subtlvs,
+							   spftree->algorithm)) {
+				bool rc =
+					isis_flex_algo_prefix_metric(r->subtlvs,
+								     r->metric,
+								     spftree->area,
+								     spftree->algorithm,
+								     &metric);
+				if (rc == false) {
+					if (IS_DEBUG_SPF_EVENTS)
+						zlog_debug("%s: can't get metric for prefix %pFX",
+							   __func__, &r->prefix);
+					continue;
+				}
+			} else
+#endif /* ifndef FABRICD */
+				metric = r->metric;
+
+			dist = cost + metric;
 			ip_info.dest.u.prefix4 = r->prefix.prefix;
 			ip_info.dest.prefixlen = r->prefix.prefixlen;
 
@@ -1070,7 +1100,28 @@ lspfragloop:
 				 ? (struct isis_ipv6_reach *)ipv6_reachs->head
 				 : NULL;
 		     r; r = r->next) {
-			dist = cost + r->metric;
+#ifndef FABRICD
+			if (flex_algo_id_valid(spftree->algorithm) &&
+			    (r->external ||
+			     isis_is_prefix_attr_redist_ext(r->subtlvs,
+							    spftree->algorithm))) {
+				bool rc =
+					isis_flex_algo_prefix_metric(r->subtlvs,
+								     r->metric,
+								     spftree->area,
+								     spftree->algorithm,
+								     &metric);
+				if (rc == false) {
+					if (IS_DEBUG_SPF_EVENTS)
+						zlog_debug("%s: can't get metric for prefix %pFX",
+							   __func__, &r->prefix);
+					continue;
+				}
+			} else
+#endif /* ifndef FABRICD */
+				metric = r->metric;
+
+			dist = cost + metric;
 			vtype = r->external ? VTYPE_IP6REACH_EXTERNAL
 					    : VTYPE_IP6REACH_INTERNAL;
 			memset(&ip_info, 0, sizeof(ip_info));
@@ -1317,9 +1368,10 @@ static void isis_spf_preload_tent(struct isis_spftree *spftree,
 	if (!CHECK_FLAG(spftree->flags, F_SPFTREE_HOPCOUNT_METRIC)) {
 		ip_reach_args.spftree = spftree;
 		ip_reach_args.parent = parent;
-		isis_lsp_iterate_ip_reach(
-			root_lsp, spftree->family, spftree->mtid,
-			isis_spf_preload_tent_ip_reach_cb, &ip_reach_args);
+		isis_lsp_iterate_ip_reach(root_lsp, spftree->family,
+					  spftree->mtid, spftree->algorithm,
+					  isis_spf_preload_tent_ip_reach_cb,
+					  &ip_reach_args);
 	}
 
 	/* Iterate over adjacencies. */
@@ -1339,9 +1391,26 @@ static void isis_spf_preload_tent(struct isis_spftree *spftree,
 			continue;
 		}
 
-		metric = CHECK_FLAG(spftree->flags, F_SPFTREE_HOPCOUNT_METRIC)
-				 ? 1
-				 : sadj->metric;
+		if (CHECK_FLAG(spftree->flags, F_SPFTREE_HOPCOUNT_METRIC))
+			metric = 1;
+#ifndef FABRICD
+		else if (flex_algo_id_valid(spftree->algorithm)) {
+			/* isis_flex_algo_extended_is_metric updates the metric
+			 * variable */
+			if (!isis_flex_algo_extended_is_metric(spftree,
+							       sadj->metric,
+							       sadj->subtlvs,
+							       &metric)) {
+				if (IS_DEBUG_SPF_EVENTS)
+					zlog_debug("%s: can't get metric",
+						   __func__);
+				continue;
+			}
+		}
+#endif /* ifndef FABRICD */
+		else
+			metric = sadj->metric;
+
 		if (!LSP_PSEUDO_ID(sadj->id)) {
 			isis_spf_add_local(spftree,
 					   CHECK_FLAG(sadj->flags,
@@ -2181,7 +2250,8 @@ int _isis_spf_schedule(struct isis_area *area, int level,
 		/* Need to call schedule function also if spf delay is running
 		 * to
 		 * restart holdoff timer - compare
-		 * draft-ietf-rtgwg-backoff-algo-04 */
+		 * draft-ietf-rtgwg-backoff-algo-04
+		 */
 		long delay =
 			spf_backoff_schedule(area->spf_delay_ietf[level - 1]);
 		if (area->spf_timer[level - 1])

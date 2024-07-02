@@ -873,6 +873,10 @@ static void lsp_build_internal_reach_ipv4(struct isis_lsp *lsp,
 					  uint32_t metric)
 {
 	struct sr_prefix_cfg *pcfgs[SR_ALGORITHM_COUNT] = {NULL};
+#ifndef FABRICD
+	bool fa_prefix_metric[SR_ALGORITHM_COUNT] = {};
+	struct isis_router_cap_fad *fad;
+#endif /* ifndef FABRICD */
 
 	if (area->oldmetric) {
 		lsp_debug(
@@ -887,17 +891,28 @@ static void lsp_build_internal_reach_ipv4(struct isis_lsp *lsp,
 
 		if (area->srdb.enabled)
 			for (int i = 0; i < SR_ALGORITHM_COUNT; i++) {
+				pcfgs[i] = isis_sr_cfg_prefix_find(area, ipv4,
+								   i);
 #ifndef FABRICD
-				if (flex_algo_id_valid(i) &&
-				    !isis_flex_algo_elected_supported(i, area))
+				if (!flex_algo_id_valid(i))
 					continue;
+				fad = isis_flex_algo_elected_supported(i, area);
+				if (!fad)
+					continue;
+				if (CHECK_FLAG(fad->fad.flags, FAD_FLAG_M))
+					fa_prefix_metric[i] = true;
 #endif /* ifndef FABRICD */
-				pcfgs[i] =
-					isis_sr_cfg_prefix_find(area, ipv4, i);
 			}
 
 		isis_tlvs_add_extended_ip_reach(lsp->tlvs, ipv4, metric, false,
-						pcfgs);
+						pcfgs
+#ifdef FABRICD
+						,
+						NULL);
+#else
+						,
+						fa_prefix_metric);
+#endif /* ifndef FABRICD */
 	}
 }
 
@@ -907,22 +922,37 @@ static void lsp_build_internal_reach_ipv6(struct isis_lsp *lsp,
 					  uint32_t metric)
 {
 	struct sr_prefix_cfg *pcfgs[SR_ALGORITHM_COUNT] = {NULL};
+#ifndef FABRICD
+	bool fa_prefix_metric[SR_ALGORITHM_COUNT] = {};
+	struct isis_router_cap_fad *fad;
+#endif /* ifndef FABRICD */
 
 	lsp_debug("ISIS (%s): Adding IPv6 reachability for %pFX",
 		  area->area_tag, ipv6);
 
 	if (area->srdb.enabled)
 		for (int i = 0; i < SR_ALGORITHM_COUNT; i++) {
-#ifndef FABRICD
-			if (flex_algo_id_valid(i) &&
-			    !isis_flex_algo_elected_supported(i, area))
-				continue;
-#endif /* ifndef FABRICD */
 			pcfgs[i] = isis_sr_cfg_prefix_find(area, ipv6, i);
+#ifndef FABRICD
+			if (!flex_algo_id_valid(i))
+				continue;
+			fad = isis_flex_algo_elected_supported(i, area);
+			if (!fad)
+				continue;
+			if (CHECK_FLAG(fad->fad.flags, FAD_FLAG_M))
+				fa_prefix_metric[i] = true;
+#endif /* ifndef FABRICD */
 		}
 
 	isis_tlvs_add_ipv6_reach(lsp->tlvs, isis_area_ipv6_topology(area), ipv6,
-				 metric, false, pcfgs);
+				 metric, false, pcfgs
+#ifdef FABRICD
+				 ,
+				 NULL);
+#else
+				 ,
+				 fa_prefix_metric);
+#endif /* ifndef FABRICD */
 }
 
 
@@ -930,6 +960,11 @@ static void lsp_build_ext_reach_ipv4(struct isis_lsp *lsp,
 				     struct isis_area *area)
 {
 	struct route_table *er_table = get_ext_reach(area, AF_INET, lsp->level);
+#ifndef FABRICD
+	bool fa_prefix_metric[SR_ALGORITHM_COUNT] = {};
+	struct isis_router_cap_fad *fad;
+#endif /* ifndef FABRICD */
+
 	if (!er_table)
 		return;
 
@@ -956,18 +991,31 @@ static void lsp_build_ext_reach_ipv4(struct isis_lsp *lsp,
 
 			if (area->srdb.enabled)
 				for (int i = 0; i < SR_ALGORITHM_COUNT; i++) {
+					pcfgs[i] = isis_sr_cfg_prefix_find(area,
+									   ipv4,
+									   i);
 #ifndef FABRICD
-					if (flex_algo_id_valid(i) &&
-					    !isis_flex_algo_elected_supported(
-						    i, area))
+					if (!flex_algo_id_valid(i))
 						continue;
+					fad = isis_flex_algo_elected_supported(i,
+									       area);
+					if (!fad)
+						continue;
+					if (CHECK_FLAG(fad->fad.flags,
+						       FAD_FLAG_M))
+						fa_prefix_metric[i] = true;
 #endif /* ifndef FABRICD */
-					pcfgs[i] = isis_sr_cfg_prefix_find(
-						area, ipv4, i);
 				}
 
 			isis_tlvs_add_extended_ip_reach(lsp->tlvs, ipv4, metric,
-							true, pcfgs);
+							true, pcfgs
+#ifdef FABRICD
+							,
+							NULL);
+#else
+							,
+							fa_prefix_metric);
+#endif /* ifndef FABRICD */
 		}
 	}
 }
@@ -977,6 +1025,11 @@ static void lsp_build_ext_reach_ipv6(struct isis_lsp *lsp,
 {
 	struct route_table *er_table =
 		get_ext_reach(area, AF_INET6, lsp->level);
+#ifndef FABRICD
+	bool fa_prefix_metric[SR_ALGORITHM_COUNT] = {};
+	struct isis_router_cap_fad *fad;
+#endif /* ifndef FABRICD */
+
 	if (!er_table)
 		return;
 
@@ -1000,19 +1053,31 @@ static void lsp_build_ext_reach_ipv6(struct isis_lsp *lsp,
 
 			if (area->srdb.enabled)
 				for (int i = 0; i < SR_ALGORITHM_COUNT; i++) {
+					pcfgs[i] = isis_sr_cfg_prefix_find(area,
+									   p, i);
 #ifndef FABRICD
-					if (flex_algo_id_valid(i) &&
-					    !isis_flex_algo_elected_supported(
-						    i, area))
+					if (!flex_algo_id_valid(i))
 						continue;
+					fad = isis_flex_algo_elected_supported(i,
+									       area);
+					if (!fad)
+						continue;
+					if (CHECK_FLAG(fad->fad.flags,
+						       FAD_FLAG_M))
+						fa_prefix_metric[i] = true;
 #endif /* ifndef FABRICD */
-					pcfgs[i] = isis_sr_cfg_prefix_find(
-						area, p, i);
 				}
 
 			isis_tlvs_add_ipv6_reach(lsp->tlvs,
 						 isis_area_ipv6_topology(area),
-						 p, metric, true, pcfgs);
+						 p, metric, true, pcfgs
+#ifdef FABRICD
+						 ,
+						 NULL);
+#else
+						 ,
+						 fa_prefix_metric);
+#endif /* ifndef FABRICD */
 		} else if (isis_area_ipv6_dstsrc_enabled(area)) {
 			isis_tlvs_add_ipv6_dstsrc_reach(lsp->tlvs,
 							ISIS_MT_IPV6_DSTSRC,
@@ -1252,7 +1317,7 @@ static void lsp_build(struct isis_lsp *lsp, struct isis_area *area)
 
 		isis_tlvs_add_ipv6_reach(lsp->tlvs,
 					 isis_area_ipv6_topology(area),
-					 &chunk->prefix, 0, false, NULL);
+					 &chunk->prefix, 0, false, NULL, NULL);
 	}
 
 	/* IPv4 address and TE router ID TLVs.
@@ -2338,21 +2403,39 @@ static int lsp_handle_adj_state_change(struct isis_adjacency *adj)
 /*
  * Iterate over all IP reachability TLVs in a LSP (all fragments) of the given
  * address-family and MT-ID.
+ *
+ * algorithm parameter: was added to support flex-algo. For non-flex-algo
+ * usage, algorithm should be 0. For flex-algo usage, algorithm should be
+ * in the range 128-255.
  */
 int isis_lsp_iterate_ip_reach(struct isis_lsp *lsp, int family, uint16_t mtid,
-			      lsp_ip_reach_iter_cb cb, void *arg)
+			      uint8_t algorithm, lsp_ip_reach_iter_cb cb,
+			      void *arg)
 {
 	bool pseudo_lsp = LSP_PSEUDO_ID(lsp->hdr.lsp_id);
 	struct isis_lsp *frag;
 	struct listnode *node;
+	uint32_t metric;
+
+	assert(algorithm == SR_ALGORITHM_SPF
+#ifndef FABRICD
+	       || flex_algo_id_valid(algorithm)
+#endif /* ifndef FABRICD */
+	);
 
 	if (lsp->hdr.seqno == 0 || lsp->hdr.rem_lifetime == 0)
 		return LSP_ITER_CONTINUE;
 
 	/* Parse LSP */
 	if (lsp->tlvs) {
-		if (!fabricd && !pseudo_lsp && family == AF_INET
-		    && mtid == ISIS_MT_IPV4_UNICAST) {
+		/*
+		 * oldstyle IP reachability TLV does not support
+		 * flex-algo so do not process algorithm that is
+		 * not SR_ALGORITHM_SPF
+		 */
+		if (!fabricd && !pseudo_lsp && family == AF_INET &&
+		    mtid == ISIS_MT_IPV4_UNICAST &&
+		    algorithm == SR_ALGORITHM_SPF) {
 			struct isis_item_list *reachs[] = {
 				&lsp->tlvs->oldstyle_ip_reach,
 				&lsp->tlvs->oldstyle_ip_reach_ext};
@@ -2389,9 +2472,22 @@ int isis_lsp_iterate_ip_reach(struct isis_lsp *lsp, int family, uint16_t mtid,
 						       ipv4_reachs->head
 					     : NULL;
 			     r; r = r->next) {
-				if ((*cb)((struct prefix *)&r->prefix,
-					  r->metric, false, r->subtlvs, arg)
-				    == LSP_ITER_STOP)
+#ifndef FABRICD
+				if (flex_algo_id_valid(algorithm) &&
+				    isis_is_prefix_attr_redist_ext(r->subtlvs,
+								   algorithm)) {
+					bool rc = isis_flex_algo_prefix_metric(
+						r->subtlvs, r->metric,
+						lsp->area, algorithm, &metric);
+					if (rc == false)
+						continue;
+				} else
+#endif /* ifndef FABRICD */
+					metric = r->metric;
+
+				if ((*cb)((struct prefix *)&r->prefix, metric,
+					  false, r->subtlvs,
+					  arg) == LSP_ITER_STOP)
 					return LSP_ITER_STOP;
 			}
 		}
@@ -2410,10 +2506,23 @@ int isis_lsp_iterate_ip_reach(struct isis_lsp *lsp, int family, uint16_t mtid,
 						       ipv6_reachs->head
 					     : NULL;
 			     r; r = r->next) {
-				if ((*cb)((struct prefix *)&r->prefix,
-					  r->metric, r->external, r->subtlvs,
-					  arg)
-				    == LSP_ITER_STOP)
+#ifndef FABRICD
+				if (flex_algo_id_valid(algorithm) &&
+				    (r->external ||
+				     isis_is_prefix_attr_redist_ext(r->subtlvs,
+								    algorithm))) {
+					bool rc = isis_flex_algo_prefix_metric(
+						r->subtlvs, r->metric,
+						lsp->area, algorithm, &metric);
+					if (rc == false)
+						continue;
+				} else
+#endif /* ifndef FABRICD */
+					metric = r->metric;
+
+				if ((*cb)((struct prefix *)&r->prefix, metric,
+					  r->external, r->subtlvs,
+					  arg) == LSP_ITER_STOP)
 					return LSP_ITER_STOP;
 			}
 		}
@@ -2425,9 +2534,9 @@ int isis_lsp_iterate_ip_reach(struct isis_lsp *lsp, int family, uint16_t mtid,
 			if (!frag->tlvs)
 				continue;
 
-			if (isis_lsp_iterate_ip_reach(frag, family, mtid, cb,
-						      arg)
-			    == LSP_ITER_STOP)
+			if (isis_lsp_iterate_ip_reach(frag, family, mtid,
+						      algorithm, cb,
+						      arg) == LSP_ITER_STOP)
 				return LSP_ITER_STOP;
 		}
 
