@@ -8405,6 +8405,7 @@ void bgp_master_init(struct event_loop *master, const int buffer_size,
 	bm->t_bgp_sync_label_manager = NULL;
 	bm->t_bgp_start_label_manager = NULL;
 	bm->t_bgp_zebra_route = NULL;
+	bm->t_vpn_leak_postchange = NULL;
 
 	bgp_mac_init();
 	/* init the rd id space.
@@ -8657,6 +8658,7 @@ void bgp_terminate(void)
 	EVENT_OFF(bm->t_bgp_sync_label_manager);
 	EVENT_OFF(bm->t_bgp_start_label_manager);
 	EVENT_OFF(bm->t_bgp_zebra_route);
+	EVENT_OFF(bm->t_vpn_leak_postchange);
 
 	bgp_mac_finish();
 }

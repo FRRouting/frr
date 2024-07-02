@@ -344,7 +344,7 @@ static int bgp_srv6_locator_unset(struct bgp *bgp)
 	}
 
 	/* update vpn bgp processes */
-	vpn_leak_postchange_all();
+	vpn_leak_postchange_all(false);
 
 	/* refresh tovpn_sid_locator */
 	for (ALL_LIST_ELEMENTS_RO(bm->bgp, node, bgp_vrf)) {
@@ -1598,7 +1598,7 @@ DEFUN_NOSH (router_bgp,
 		 * earlier "router bgp X vrf FOO" blocks.
 		 */
 		if (is_new_bgp && inst_type == BGP_INSTANCE_TYPE_DEFAULT)
-			vpn_leak_postchange_all();
+			vpn_leak_postchange_all(false);
 
 		if (inst_type == BGP_INSTANCE_TYPE_VRF)
 			bgp_vpn_leak_export(bgp);
