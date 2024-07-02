@@ -1123,12 +1123,15 @@ static void zebra_nhg_handle_install(struct nhg_hash_entry *nhe, bool install)
 			zebra_nhg_install_kernel(rb_node_dep->nhe);
 		}
 	}
-	/* update FIB flag of nexthop-group */
+	/* update FIB and DUPLICATE flags of nexthop-group */
 	if (install) {
+		nexthop_group_mark_duplicates(&nhe->nhg);
 		for (ALL_NEXTHOPS(nhe->nhg, nhop)) {
 			if (!CHECK_FLAG(nhop->flags, NEXTHOP_FLAG_ACTIVE))
 				continue;
 			if (CHECK_FLAG(nhop->flags, NEXTHOP_FLAG_RECURSIVE))
+				continue;
+			if (CHECK_FLAG(nhop->flags, NEXTHOP_FLAG_DUPLICATE))
 				continue;
 			SET_FLAG(nhop->flags, NEXTHOP_FLAG_FIB);
 		}
