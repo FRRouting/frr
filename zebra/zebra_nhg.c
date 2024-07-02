@@ -1109,6 +1109,7 @@ static void zebra_nhg_handle_install(struct nhg_hash_entry *nhe, bool install)
 {
 	/* Update validity of groups depending on it */
 	struct nhg_connected *rb_node_dep;
+	struct nexthop *nhop;
 
 	frr_each_safe (nhg_connected_tree, &nhe->nhg_dependents, rb_node_dep) {
 		zebra_nhg_set_valid(rb_node_dep->nhe, true);
@@ -1120,6 +1121,16 @@ static void zebra_nhg_handle_install(struct nhg_hash_entry *nhe, bool install)
 					__func__, nhe->id, nhe->flags,
 					rb_node_dep->nhe);
 			zebra_nhg_install_kernel(rb_node_dep->nhe);
+		}
+	}
+	/* update FIB flag of nexthop-group */
+	if (install) {
+		for (ALL_NEXTHOPS(nhe->nhg, nhop)) {
+			if (!CHECK_FLAG(nhop->flags, NEXTHOP_FLAG_ACTIVE))
+				continue;
+			if (CHECK_FLAG(nhop->flags, NEXTHOP_FLAG_RECURSIVE))
+				continue;
+			SET_FLAG(nhop->flags, NEXTHOP_FLAG_FIB);
 		}
 	}
 }
