@@ -1161,7 +1161,6 @@ static void build_evpn_route_extcomm(struct bgpevpn *vpn, struct attr *attr,
 	/* Add MAC mobility (sticky) if needed. */
 	if (attr->sticky) {
 		seqnum = 0;
-		memset(&ecom_sticky, 0, sizeof(ecom_sticky));
 		encode_mac_mobility_extcomm(1, seqnum, &eval_sticky);
 		ecom_sticky.size = 1;
 		ecom_sticky.unit_size = ECOMMUNITY_SIZE;
@@ -1180,7 +1179,6 @@ static void build_evpn_route_extcomm(struct bgpevpn *vpn, struct attr *attr,
 
 	/* Add default gateway, if needed. */
 	if (attr->default_gw) {
-		memset(&ecom_default_gw, 0, sizeof(ecom_default_gw));
 		encode_default_gw_extcomm(&eval_default_gw);
 		ecom_default_gw.size = 1;
 		ecom_default_gw.unit_size = ECOMMUNITY_SIZE;
@@ -1192,7 +1190,6 @@ static void build_evpn_route_extcomm(struct bgpevpn *vpn, struct attr *attr,
 
 	proxy = !!(attr->es_flags & ATTR_ES_PROXY_ADVERT);
 	if (attr->router_flag || proxy) {
-		memset(&ecom_na, 0, sizeof(ecom_na));
 		encode_na_flag_extcomm(&eval_na, attr->router_flag, proxy);
 		ecom_na.size = 1;
 		ecom_na.unit_size = ECOMMUNITY_SIZE;
