@@ -456,6 +456,33 @@ def verify_nexthop_group_inactive(nhg_id):
     )
 
 
+def verify_nexthop_group_duplicate(nhg_id):
+    net = get_topogen().net
+    duplicate = None
+    count = 0
+    found = False
+
+    while not found and count < 10:
+        count += 1
+        # Verify any nexthop is duplicated
+        output = net["r1"].cmd(
+            'vtysh -c "show nexthop-group rib {} json"'.format(nhg_id)
+        )
+        joutput = json.loads(output)
+        for nhgid in joutput:
+            n = joutput[nhgid]
+            for nh in n["nexthops"]:
+                if "duplicate" not in nh.keys() or not nh["duplicate"]:
+                    continue
+                if "fib" not in nh.keys() or not nh["fib"]:
+                    found = True
+        if not found:
+            sleep(1)
+            continue
+
+    assert found, "Nexthop Group ID={} does not have duplicated nexthops".format(nhg_id)
+
+
 def verify_nexthop_group_inactive_nexthop(nexthop, client="sharp"):
     net = get_topogen().net
     if client:
@@ -916,6 +943,31 @@ def test_nexthop_groups():
     )
     sleep(1)
     verify_route_nexthop_group("8.8.8.8/32", ecmp=3)
+
+    ## duplicate configration
+    net["r1"].cmd(
+        'vtysh -c "configure terminal" \
+        -c "nexthop-group GROUP2" \
+        -c "allow-recursion" \
+        -c "child-group ECMP4" \
+        -c "child-group ECMP5" \
+        -c "exit" \
+        -c "nexthop-group ECMP4" \
+        -c "allow-recursion" \
+        -c "nexthop 192.0.2.100" \
+        -c "exit" \
+        -c "nexthop-group ECMP5" \
+        -c "allow-recursion" \
+        -c "nexthop 192.0.2.110"'
+    )
+    net["r1"].cmd(
+        'vtysh -c "sharp install routes 12.12.12.12 nexthop-group GROUP2 1\n"'
+    )
+
+    verify_route_nexthop_group("12.12.12.12/32", "r1", ecmp=2)
+
+    nhg_id = route_get_nhg_id("12.12.12.12/32")
+    verify_nexthop_group_duplicate(nhg_id)
 
     ## Remove all NHG routes
 

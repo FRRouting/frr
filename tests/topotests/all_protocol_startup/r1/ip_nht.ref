@@ -57,6 +57,14 @@ VRF default:
  resolved via static, prefix 172.31.0.200/32
  via 192.168.0.44, r1-eth0 (vrf default), weight 1
  Client list: sharp(fd XX) pbr(fd XX)
+192.0.2.100
+ resolved via static, prefix 192.0.2.0/24
+ via 192.168.0.208, r1-eth0 (vrf default), weight 1
+ Client list: pbr(fd XX)
+192.0.2.110
+ resolved via static, prefix 192.0.2.0/24
+ via 192.168.0.208, r1-eth0 (vrf default), weight 1
+ Client list: pbr(fd XX)
 192.0.2.200
  resolved via static, prefix 192.0.2.0/24
  via 192.168.0.208, r1-eth0 (vrf default), weight 1
