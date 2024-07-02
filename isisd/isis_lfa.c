@@ -2126,9 +2126,16 @@ void isis_lfa_compute(struct isis_area *area, struct isis_circuit *circuit,
 		}
 
 		vadj_primary = listnode_head(vertex->Adj_N);
+		if (!vadj_primary) {
+			if (IS_DEBUG_LFA)
+				zlog_debug(
+					"ISIS-LFA: skipping computing LFAs due to no adjacencies");
+			continue;
+		}
 		sadj_primary = vadj_primary->sadj;
 
 		parent_vertex = listnode_head(vertex->parents);
+		assert(parent_vertex);
 		prefix_metric = vertex->d_N - parent_vertex->d_N;
 
 		/*
