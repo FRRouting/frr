@@ -37,6 +37,7 @@
 #include "ospf6_intra.h"
 #include "ospf6_spf.h"
 #include "ospf6d.h"
+#include "ospf6_tlv.h"
 #include "ospf6_gr.h"
 #include "lib/json.h"
 #include "ospf6_nssa.h"

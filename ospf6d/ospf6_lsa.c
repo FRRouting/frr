@@ -18,6 +18,7 @@
 
 #include "ospf6_proto.h"
 #include "ospf6_lsa.h"
+#include "ospf6_tlv.h"
 #include "ospf6_lsdb.h"
 #include "ospf6_message.h"
 #include "ospf6_asbr.h"
@@ -38,6 +39,155 @@ DEFINE_MTYPE_STATIC(OSPF6D, OSPF6_LSA_HEADER,  "OSPF6 LSA header");
 DEFINE_MTYPE_STATIC(OSPF6D, OSPF6_LSA_SUMMARY, "OSPF6 LSA summary");
 
 static struct ospf6_lsa_handler *lsa_handlers[OSPF6_LSTYPE_SIZE];
+
+/* Router LSA */
+static int each_router_lsdesc(struct ospf6_lsa_header *lsa_header,
+			      struct tlv_handler *h)
+{
+	struct ospf6_router_lsdesc *desc =
+		lsdesc_start(ospf6_router_lsdesc,
+			     ospf6_lsa_header_end(lsa_header));
+	char *lsa_end = ospf6_lsa_end(lsa_header);
+	int err = 0;
+
+	for (; (char *)(desc + 1) <= lsa_end && !err; desc++)
+		err = (*h->callback)(desc, h->callback_data);
+	return err;
+}
+
+/* Network LSA */
+static int each_network_lsdesc(struct ospf6_lsa_header *lsa_header,
+			       struct tlv_handler *h)
+{
+	struct ospf6_network_lsdesc *desc =
+		lsdesc_start(ospf6_network_lsdesc,
+			     ospf6_lsa_header_end(lsa_header));
+	char *lsa_end = ospf6_lsa_end(lsa_header);
+	int err = 0;
+
+	for (; (char *)(desc + 1) <= lsa_end && !err; desc++)
+		err = (*h->callback)(desc, h->callback_data);
+	return err;
+}
+
+/* Link LSA */
+static int each_prefix_in_link_lsa(struct ospf6_lsa_header *lsa_header,
+				   struct tlv_handler *h)
+{
+	struct ospf6_prefix *prefix =
+		lsdesc_start(ospf6_prefix, ospf6_lsa_header_end(lsa_header));
+	char *lsa_end = ospf6_lsa_end(lsa_header);
+	int err = 0;
+
+	for (; (char *)prefix + OSPF6_PREFIX_SIZE(prefix) <= lsa_end && !err;
+	     prefix = OSPF6_PREFIX_NEXT(prefix))
+		err = (*h->callback)(prefix, h->callback_data);
+	return err;
+}
+
+static inline int tlv_type_to_lsdesc_body_size(uint16_t tlv_type)
+{
+	return (tlv_type < OSPF6_TLV_ENUM_END) ? tlv_size_map[tlv_type] : 0;
+}
+
+/* forward declaration */
+static int foreach_tlv(struct tlv_header *header, char *end,
+		       struct tlv_handler *tlvhandler);
+
+static int handle_one_tlv(struct tlv_header *header, struct tlv_handler *handler)
+{
+	int lsdesc_size = tlv_type_to_lsdesc_body_size(ntohs(header->type));
+	struct tlv_header *stlv_start;
+	char *tlv_end;
+	struct tlv_handler *sh;
+	int err;
+
+	assert(lsdesc_size);
+	err = (*handler->callback)(TLV_BODY(header), handler->callback_data);
+
+	if (err)
+		return err;
+	/* TODO: log something? */
+
+	/*
+	 * Are there any Sub-TLVs?
+	 * According to RFC 8362, "sub-TLVs may be nested to any level".
+	 * The sub-TLVs type IDs are mostly distinct in the E-LSA space,
+	 * but overlap with the TLV IDs, so they must be nested.
+	 *
+	 * FIXME: Calling the tlv iterator again creates an unbounded mutual
+	 * recursion, because the nesting is unbounded.
+	 */
+	if (TLV_SIZE(header) > lsdesc_size + TLV_HDR_SIZE) {
+		stlv_start = (struct tlv_header *)((char *)header + lsdesc_size);
+		tlv_end = (char *)header + TLV_SIZE(header);
+		sh = handler->sub_handler;
+
+		while (sh) {
+			err = foreach_tlv(stlv_start, tlv_end, sh);
+			if (err)
+				return err;
+			sh = sh->next;
+		}
+	}
+	return 0;
+}
+
+static int foreach_tlv(struct tlv_header *header, char *end,
+		       struct tlv_handler *handler)
+{
+	int err = 0;
+
+	for (; (char *)header + TLV_SIZE(header) <= end && !err;
+	     header = TLV_HDR_NEXT(header)) {
+		while (handler) {
+			assert(handler->tlv_type);
+			assert(handler->callback);
+
+			if (handler->tlv_type != ntohs(header->type))
+				continue;
+
+			err = handle_one_tlv(header, handler);
+			if (err)
+				return err;
+
+			handler = handler->next;
+		}
+	}
+	return 0;
+}
+
+static int foreach_tlv_in_lsa(struct ospf6_lsa_header *lsa_header,
+			      struct tlv_handler *h)
+{
+	struct tlv_header *tlvh = TLV_HDR_TOP(ospf6_lsa_header_end(lsa_header));
+	char *lsa_end = ospf6_lsa_end(lsa_header);
+
+	return foreach_tlv(tlvh, lsa_end, h);
+}
+
+int foreach_lsdesc(struct ospf6_lsa_header *lsa_header,
+		   struct tlv_handler *handler)
+{
+	assert(handler && handler->callback && handler->callback_data);
+
+	switch (ntohs(lsa_header->type)) {
+	case OSPF6_LSTYPE_ROUTER:
+		return each_router_lsdesc(lsa_header, handler);
+	case OSPF6_LSTYPE_NETWORK:
+		return each_network_lsdesc(lsa_header, handler);
+	case OSPF6_LSTYPE_LINK:
+		return each_prefix_in_link_lsa(lsa_header, handler);
+	case OSPF6_LSTYPE_E_ROUTER:
+	case OSPF6_LSTYPE_E_NETWORK:
+	case OSPF6_LSTYPE_E_INTRA_PREFIX:
+		return foreach_tlv_in_lsa(lsa_header, handler);
+	default:
+		zlog_err("Unhandled LSA type: %d", ntohs(lsa_header->type));
+		return -1;
+	}
+	return -1;
+}
 
 struct ospf6 *ospf6_get_by_lsdb(struct ospf6_lsa *lsa)
 {
@@ -150,6 +300,7 @@ const char *ospf6_lstype_short_name(uint16_t type)
 uint8_t ospf6_lstype_debug(uint16_t type)
 {
 	const struct ospf6_lsa_handler *handler;
+
 	handler = ospf6_get_lsa_handler(type);
 	return handler->lh_debug;
 }
@@ -448,6 +599,10 @@ void ospf6_lsa_show_summary(struct vty *vty, struct ospf6_lsa *lsa,
 	case OSPF6_LSTYPE_INTER_ROUTER:
 	case OSPF6_LSTYPE_AS_EXTERNAL:
 	case OSPF6_LSTYPE_TYPE_7:
+	case OSPF6_LSTYPE_E_INTER_PREFIX:
+	case OSPF6_LSTYPE_E_INTER_ROUTER:
+	case OSPF6_LSTYPE_E_AS_EXTERNAL:
+	case OSPF6_LSTYPE_E_TYPE_7:
 		if (use_json) {
 			json_object_string_add(
 				json_obj, "type",
@@ -478,8 +633,12 @@ void ospf6_lsa_show_summary(struct vty *vty, struct ospf6_lsa *lsa,
 	case OSPF6_LSTYPE_GROUP_MEMBERSHIP:
 	case OSPF6_LSTYPE_LINK:
 	case OSPF6_LSTYPE_INTRA_PREFIX:
-		while (handler->lh_get_prefix_str(lsa, buf, sizeof(buf), cnt)
-		       != NULL) {
+	case OSPF6_LSTYPE_E_ROUTER:
+	case OSPF6_LSTYPE_E_NETWORK:
+	case OSPF6_LSTYPE_E_LINK:
+	case OSPF6_LSTYPE_E_INTRA_PREFIX:
+		while (handler->lh_get_prefix_str(lsa, buf, sizeof(buf), cnt) !=
+		       NULL) {
 			if (use_json) {
 				json_object_string_add(
 					json_obj, "type",

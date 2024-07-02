@@ -16,6 +16,7 @@
 #include "printfrr.h"
 #include "lib_errors.h"
 
+#include "ospf6_proto.h"
 #include "ospf6d/ospf6_lsa.h"
 #include "ospf6d/ospf6_lsdb.h"
 #include "ospf6d/ospf6_route.h"
@@ -30,6 +31,7 @@
 #include "ospf6d/ospf6_flood.h"
 #include "ospf6d/ospf6_intra.h"
 #include "ospf6d/ospf6_spf.h"
+#include "ospf6d/ospf6_tlv.h"
 #include "ospf6d/ospf6_gr.h"
 #include "ospf6d/ospf6_gr_clippy.c"
 
@@ -57,13 +59,13 @@ static int ospf6_gr_lsa_originate(struct ospf6_interface *oi,
 	grace_lsa = (struct ospf6_grace_lsa *)ospf6_lsa_header_end(lsa_header);
 
 	/* Put grace period. */
-	grace_lsa->tlv_period.header.type = htons(GRACE_PERIOD_TYPE);
-	grace_lsa->tlv_period.header.length = htons(GRACE_PERIOD_LENGTH);
+	grace_lsa->tlv_period.header.type = htons(TLV_GRACE_PERIOD_TYPE);
+	grace_lsa->tlv_period.header.length = htons(TLV_GRACE_PERIOD_LENGTH);
 	grace_lsa->tlv_period.interval = htonl(gr_info->grace_period);
 
 	/* Put restart reason. */
-	grace_lsa->tlv_reason.header.type = htons(RESTART_REASON_TYPE);
-	grace_lsa->tlv_reason.header.length = htons(RESTART_REASON_LENGTH);
+	grace_lsa->tlv_reason.header.type = htons(TLV_GRACE_RESTART_REASON_TYPE);
+	grace_lsa->tlv_reason.header.length = htons(TLV_GRACE_RESTART_REASON_LENGTH);
 	grace_lsa->tlv_reason.reason = reason;
 
 	/* Fill LSA Header */
@@ -260,6 +262,26 @@ void ospf6_gr_restart_enter(struct ospf6 *ospf6,
 #define RTR_LSA_ADJ_FOUND 1
 #define RTR_LSA_ADJ_NOT_FOUND 2
 
+struct matcher_cb_data {
+	struct ospf6_lsa *lsa;
+	in_addr_t nbr_id;
+	bool out_adjacency_found;
+};
+
+static int match_adjacent_lsa(void *desc, void *cb_data)
+{
+	struct ospf6_router_lsdesc *lsdesc = desc;
+	struct matcher_cb_data *cbd = cb_data;
+
+	if (lsdesc->type == OSPF6_ROUTER_LSDESC_POINTTOPOINT &&
+	    lsdesc->neighbor_router_id == cbd->nbr_id) {
+		ospf6_lsa_unlock(&cbd->lsa);
+		cbd->out_adjacency_found = true;
+	}
+	cbd->out_adjacency_found = false;
+	return 0;
+}
+
 /* Check if a Router-LSA exists and if it contains a given link. */
 static int ospf6_router_lsa_contains_adj(struct ospf6_area *area,
 					 in_addr_t adv_router,
@@ -268,34 +290,21 @@ static int ospf6_router_lsa_contains_adj(struct ospf6_area *area,
 	uint16_t type;
 	struct ospf6_lsa *lsa;
 	bool empty = true;
+	struct matcher_cb_data cbd = { .lsa = NULL,
+				       .nbr_id = neighbor_router_id };
+	struct tlv_handler handler = { .tlv_type = 0,
+				       .callback = match_adjacent_lsa,
+				       .callback_data = &cbd };
+	int err;
 
 	type = ntohs(OSPF6_LSTYPE_ROUTER);
 	for (ALL_LSDB_TYPED_ADVRTR(area->lsdb, type, adv_router, lsa)) {
-		struct ospf6_router_lsa *router_lsa;
-		char *start, *end, *current;
-
 		empty = false;
-		router_lsa = (struct ospf6_router_lsa
-				      *)((char *)lsa->header
-					 + sizeof(struct ospf6_lsa_header));
+		cbd.lsa = lsa;
+		err = foreach_lsdesc(lsa->header, &handler);
 
-		/* Iterate over all interfaces in the Router-LSA. */
-		start = (char *)router_lsa + sizeof(struct ospf6_router_lsa);
-		end = (char *)lsa->header + ntohs(lsa->header->length);
-		for (current = start;
-		     current + sizeof(struct ospf6_router_lsdesc) <= end;
-		     current += sizeof(struct ospf6_router_lsdesc)) {
-			struct ospf6_router_lsdesc *lsdesc;
-
-			lsdesc = (struct ospf6_router_lsdesc *)current;
-			if (lsdesc->type != OSPF6_ROUTER_LSDESC_POINTTOPOINT)
-				continue;
-
-			if (lsdesc->neighbor_router_id == neighbor_router_id) {
-				ospf6_lsa_unlock(&lsa);
-				return RTR_LSA_ADJ_FOUND;
-			}
-		}
+		if (!err && cbd.out_adjacency_found)
+			return RTR_LSA_ADJ_FOUND;
 	}
 
 	if (empty)
@@ -304,36 +313,42 @@ static int ospf6_router_lsa_contains_adj(struct ospf6_area *area,
 	return RTR_LSA_ADJ_NOT_FOUND;
 }
 
+struct check_adjacency_cb_data {
+	struct ospf6_area *area;
+	in_addr_t router_id;
+	bool out_adjacency_found;
+};
+
+static int check_adjacency(void *desc, void *cb_data)
+{
+	struct ospf6_router_lsdesc *lsdesc = desc;
+	struct check_adjacency_cb_data *cbd = cb_data;
+
+	if (lsdesc->type == OSPF6_ROUTER_LSDESC_POINTTOPOINT)
+		cbd->out_adjacency_found &=
+			(ospf6_router_lsa_contains_adj(cbd->area,
+						       lsdesc->neighbor_router_id,
+						       cbd->router_id) ==
+			 RTR_LSA_ADJ_FOUND);
+	return 0;
+}
+
 static bool ospf6_gr_check_router_lsa_consistency(struct ospf6 *ospf6,
 						  struct ospf6_area *area,
 						  struct ospf6_lsa *lsa)
 {
+	struct check_adjacency_cb_data cbd = { .area = area,
+					       .router_id = ospf6->router_id,
+					       .out_adjacency_found = true };
+	struct tlv_handler handler = { .callback = check_adjacency,
+				       .callback_data = &cbd };
+	int err;
+
 	if (lsa->header->adv_router == ospf6->router_id) {
-		struct ospf6_router_lsa *router_lsa;
-		char *start, *end, *current;
+		err = foreach_lsdesc(lsa->header, &handler);
 
-		router_lsa = (struct ospf6_router_lsa
-				      *)((char *)lsa->header
-					 + sizeof(struct ospf6_lsa_header));
-
-		/* Iterate over all interfaces in the Router-LSA. */
-		start = (char *)router_lsa + sizeof(struct ospf6_router_lsa);
-		end = (char *)lsa->header + ntohs(lsa->header->length);
-		for (current = start;
-		     current + sizeof(struct ospf6_router_lsdesc) <= end;
-		     current += sizeof(struct ospf6_router_lsdesc)) {
-			struct ospf6_router_lsdesc *lsdesc;
-
-			lsdesc = (struct ospf6_router_lsdesc *)current;
-			if (lsdesc->type != OSPF6_ROUTER_LSDESC_POINTTOPOINT)
-				continue;
-
-			if (ospf6_router_lsa_contains_adj(
-				    area, lsdesc->neighbor_router_id,
-				    ospf6->router_id)
-			    == RTR_LSA_ADJ_NOT_FOUND)
-				return false;
-		}
+		if (err || !cbd.out_adjacency_found)
+			return false;
 	} else {
 		int adj1, adj2;
 
@@ -391,18 +406,36 @@ static bool ospf6_gr_check_adj_id(struct ospf6_area *area,
 	return true;
 }
 
+static int check_neighbor_adjacent(void *desc, void *cb_data)
+{
+	struct ospf6_network_lsdesc *lsdesc = desc;
+	struct check_adjacency_cb_data *cbd = cb_data;
+
+	/* Skip self in the pseudonode. */
+	if (lsdesc->router_id == cbd->router_id)
+		return 0;
+
+	/* Check if there's a fully formed adjacency with this router. */
+	if (!ospf6_gr_check_adj_id(cbd->area, lsdesc->router_id))
+		cbd->out_adjacency_found = false;
+
+	return 0;
+}
+
 static bool ospf6_gr_check_adjs_lsa_transit(struct ospf6_area *area,
 					    in_addr_t neighbor_router_id,
 					    uint32_t neighbor_interface_id)
 {
 	struct ospf6 *ospf6 = area->ospf6;
+	struct check_adjacency_cb_data cbd = { .area = area,
+					       .router_id = ospf6->router_id,
+					       .out_adjacency_found = true };
+	struct tlv_handler handler = { .callback = check_neighbor_adjacent,
+				       .callback_data = &cbd };
 
 	/* Check if we are the DR. */
 	if (neighbor_router_id == ospf6->router_id) {
 		struct ospf6_lsa *lsa;
-		char *start, *end, *current;
-		struct ospf6_network_lsa *network_lsa;
-		struct ospf6_network_lsdesc *lsdesc;
 
 		/* Lookup Network LSA corresponding to this interface. */
 		lsa = ospf6_lsdb_lookup(htons(OSPF6_LSTYPE_NETWORK),
@@ -412,27 +445,9 @@ static bool ospf6_gr_check_adjs_lsa_transit(struct ospf6_area *area,
 			return false;
 
 		/* Iterate over all routers present in the network. */
-		network_lsa = (struct ospf6_network_lsa
-				       *)((char *)lsa->header
-					  + sizeof(struct ospf6_lsa_header));
-		start = (char *)network_lsa + sizeof(struct ospf6_network_lsa);
-		end = (char *)lsa->header + ntohs(lsa->header->length);
-		for (current = start;
-		     current + sizeof(struct ospf6_network_lsdesc) <= end;
-		     current += sizeof(struct ospf6_network_lsdesc)) {
-			lsdesc = (struct ospf6_network_lsdesc *)current;
-
-			/* Skip self in the pseudonode. */
-			if (lsdesc->router_id == ospf6->router_id)
-				continue;
-
-			/*
-			 * Check if there's a fully formed adjacency with this
-			 * router.
-			 */
-			if (!ospf6_gr_check_adj_id(area, lsdesc->router_id))
-				return false;
-		}
+		foreach_lsdesc(lsa->header, &handler);
+		if (!cbd.out_adjacency_found)
+			return false;
 	} else {
 		struct ospf6_neighbor *nbr;
 
@@ -450,43 +465,49 @@ static bool ospf6_gr_check_adjs_lsa_transit(struct ospf6_area *area,
 	return true;
 }
 
+/*
+ * Checks whether the neighbour router in the desc is adjacent to the router
+ * in the callback data and updates the flag in the callback data.
+ * FIXME: rename this.
+ */
+static int cb_check_one_adj_lsa(void *desc, void *cb_data)
+{
+	struct ospf6_router_lsdesc *lsdesc = desc;
+	struct check_adjacency_cb_data *cbd = cb_data;
+
+	switch (lsdesc->type) {
+	case OSPF6_ROUTER_LSDESC_POINTTOPOINT:
+		if (!ospf6_gr_check_adj_id(cbd->area,
+					   lsdesc->neighbor_router_id))
+			cbd->out_adjacency_found = false;
+		break;
+	case OSPF6_ROUTER_LSDESC_TRANSIT_NETWORK:
+		if (!ospf6_gr_check_adjs_lsa_transit(cbd->area,
+						     lsdesc->neighbor_router_id,
+						     lsdesc->neighbor_interface_id))
+			cbd->out_adjacency_found = false;
+		break;
+	default:
+		break;
+	}
+
+	return 0;
+}
+
+/*
+ * Returns true if all are adjacent; false if any are not.
+ */
 static bool ospf6_gr_check_adjs_lsa(struct ospf6_area *area,
 				    struct ospf6_lsa *lsa)
 {
-	struct ospf6_router_lsa *router_lsa;
-	char *start, *end, *current;
+	struct check_adjacency_cb_data cbd = { .area = area,
+					       .router_id = 0,
+					       .out_adjacency_found = true };
+	struct tlv_handler handler = { .callback = cb_check_one_adj_lsa,
+				       .callback_data = &cbd };
 
-	router_lsa =
-		(struct ospf6_router_lsa *)((char *)lsa->header
-					    + sizeof(struct ospf6_lsa_header));
-
-	/* Iterate over all interfaces in the Router-LSA. */
-	start = (char *)router_lsa + sizeof(struct ospf6_router_lsa);
-	end = (char *)lsa->header + ntohs(lsa->header->length);
-	for (current = start;
-	     current + sizeof(struct ospf6_router_lsdesc) <= end;
-	     current += sizeof(struct ospf6_router_lsdesc)) {
-		struct ospf6_router_lsdesc *lsdesc;
-
-		lsdesc = (struct ospf6_router_lsdesc *)current;
-		switch (lsdesc->type) {
-		case OSPF6_ROUTER_LSDESC_POINTTOPOINT:
-			if (!ospf6_gr_check_adj_id(area,
-						   lsdesc->neighbor_router_id))
-				return false;
-			break;
-		case OSPF6_ROUTER_LSDESC_TRANSIT_NETWORK:
-			if (!ospf6_gr_check_adjs_lsa_transit(
-				    area, lsdesc->neighbor_router_id,
-				    lsdesc->neighbor_interface_id))
-				return false;
-			break;
-		default:
-			break;
-		}
-	}
-
-	return true;
+	foreach_lsdesc(lsa->header, &handler);
+	return cbd.out_adjacency_found;
 }
 
 /*
