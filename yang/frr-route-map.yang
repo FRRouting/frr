@@ -360,16 +360,16 @@ module frr-route-map {
 
         case set-min-metric {
           when "derived-from-or-self(../action, 'set-min-metric')";
-          choice minimun-metric-value {
+          choice minimum-metric-value {
             description
-              "Mimimum metric to set or use";
+              "Minimum metric to set or use";
             case min-metric {
               leaf min-metric {
                 type uint32 {
                   range "0..4294967295";
                 }
                 description
-                  "Use the following mimumn metric value";
+                  "Use the following minimum metric value";
               }
             }
           }
