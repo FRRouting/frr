@@ -4296,6 +4296,8 @@ dplane_route_update_internal(struct route_node *rn,
 					__func__);
 
 			nhe = zebra_nhg_lookup_id(dplane_ctx_get_nhe_id(ctx));
+			if (PROTO_OWNED(nhe))
+				nexthop_group_mark_duplicates(&nhe->nhg);
 			for (ALL_NEXTHOPS_PTR(&nhe->nhg, nexthop)) {
 				if (CHECK_FLAG(nexthop->flags,
 					       NEXTHOP_FLAG_RECURSIVE))
