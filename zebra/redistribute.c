@@ -290,6 +290,7 @@ void redistribute_delete(const struct route_node *rn,
 	if (IS_ZEBRA_DEBUG_RIB) {
 		uint8_t old_inst, new_inst;
 		uint32_t table = 0;
+		struct vrf *vrf = vrf_lookup_by_id(vrfid);
 
 		old_inst = new_inst = 0;
 
@@ -302,8 +303,8 @@ void redistribute_delete(const struct route_node *rn,
 			table = new_re->table;
 		}
 
-		zlog_debug("(%u:%u):%pRN: Redist del: re %p (%u:%s), new re %p (%u:%s)",
-			   vrfid, table, rn, old_re, old_inst,
+		zlog_debug("(%s:%u):%pRN: Redist del: re %p (%u:%s), new re %p (%u:%s)",
+			   VRF_LOGNAME(vrf), table, rn, old_re, old_inst,
 			   old_re ? zebra_route_string(old_re->type) : "None",
 			   new_re, new_inst,
 			   new_re ? zebra_route_string(new_re->type) : "None");

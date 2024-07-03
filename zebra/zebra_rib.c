@@ -316,12 +316,18 @@ static ssize_t printfrr_zebra_node(struct fbuf *buf, struct printfrr_eargs *ea,
 }
 
 #define rnode_debug(node, vrf_id, msg, ...)                                    \
-	zlog_debug("%s: (%u:%pZNt):%pZN: " msg, __func__, vrf_id, node, node,  \
-		   ##__VA_ARGS__)
+	do {                                                                   \
+		struct vrf *vrf = vrf_lookup_by_id(vrf_id);                    \
+		zlog_debug("%s: (%s:%pZNt):%pZN: " msg, __func__,              \
+			   VRF_LOGNAME(vrf), node, node, ##__VA_ARGS__);       \
+	} while (0)
 
 #define rnode_info(node, vrf_id, msg, ...)                                     \
-	zlog_info("%s: (%u:%pZNt):%pZN: " msg, __func__, vrf_id, node, node,   \
-		  ##__VA_ARGS__)
+	do {                                                                   \
+		struct vrf *vrf = vrf_lookup_by_id(vrf_id);                    \
+		zlog_info("%s: (%s:%pZNt):%pZN: " msg, __func__,               \
+			  VRF_LOGNAME(vrf), node, node, ##__VA_ARGS__);        \
+	} while (0)
 
 static char *_dump_re_status(const struct route_entry *re, char *buf,
 			     size_t len)
@@ -4113,7 +4119,7 @@ void rib_delnode(struct route_node *rn, struct route_entry *re)
  * Helper that debugs a single nexthop within a route-entry
  */
 static void _route_entry_dump_nh(const struct route_entry *re,
-				 const char *straddr,
+				 const char *straddr, const struct vrf *re_vrf,
 				 const struct nexthop *nexthop)
 {
 	char nhname[PREFIX_STRLEN];
@@ -4168,35 +4174,32 @@ static void _route_entry_dump_nh(const struct route_entry *re,
 	if (nexthop->weight)
 		snprintf(wgt_str, sizeof(wgt_str), "wgt %d,", nexthop->weight);
 
-	zlog_debug("%s: %s %s[%u] %svrf %s(%u) %s%s with flags %s%s%s%s%s%s%s%s%s",
-		   straddr, (nexthop->rparent ? "  NH" : "NH"), nhname,
-		   nexthop->ifindex, label_str, vrf ? vrf->name : "Unknown",
-		   nexthop->vrf_id,
+	zlog_debug("%s(%s): %s %s[%u] %svrf %s(%u) %s%s with flags %s%s%s%s%s%s%s%s%s",
+		   straddr, VRF_LOGNAME(re_vrf),
+		   (nexthop->rparent ? "  NH" : "NH"), nhname, nexthop->ifindex,
+		   label_str, vrf ? vrf->name : "Unknown", nexthop->vrf_id,
 		   wgt_str, backup_str,
-		   (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE)
-		    ? "ACTIVE "
-		    : ""),
-		   (CHECK_FLAG(re->status, ROUTE_ENTRY_INSTALLED)
-		    ? "FIB "
-		    : ""),
+		   (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE) ? "ACTIVE "
+								    : ""),
+		   (CHECK_FLAG(re->status, ROUTE_ENTRY_INSTALLED) ? "FIB " : ""),
 		   (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_RECURSIVE)
-		    ? "RECURSIVE "
-		    : ""),
-		   (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_ONLINK)
-		    ? "ONLINK "
-		    : ""),
+			    ? "RECURSIVE "
+			    : ""),
+		   (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_ONLINK) ? "ONLINK "
+								    : ""),
 		   (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_DUPLICATE)
-		    ? "DUPLICATE "
-		    : ""),
+			    ? "DUPLICATE "
+			    : ""),
 		   (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_RNH_FILTERED)
-		    ? "FILTERED " : ""),
+			    ? "FILTERED "
+			    : ""),
 		   (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_HAS_BACKUP)
-		    ? "BACKUP " : ""),
-		   (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_SRTE)
-		    ? "SRTE " : ""),
-		   (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_EVPN)
-		    ? "EVPN " : ""));
-
+			    ? "BACKUP "
+			    : ""),
+		   (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_SRTE) ? "SRTE "
+								  : ""),
+		   (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_EVPN) ? "EVPN "
+								  : ""));
 }
 
 /* This function dumps the contents of a given RE entry into
@@ -4225,32 +4228,33 @@ void _route_entry_dump(const char *func, union prefixconstptr pp,
 		   is_srcdst ? prefix2str(src_pp, srcaddr, sizeof(srcaddr))
 			     : "",
 		   VRF_LOGNAME(vrf), re->vrf_id);
-	zlog_debug("%s: uptime == %lu, type == %u, instance == %d, table == %d",
-		   straddr, (unsigned long)re->uptime, re->type, re->instance,
-		   re->table);
-	zlog_debug(
-		"%s: metric == %u, mtu == %u, distance == %u, flags == %sstatus == %s",
-		straddr, re->metric, re->mtu, re->distance,
-		zclient_dump_route_flags(re->flags, flags_buf,
-					 sizeof(flags_buf)),
-		_dump_re_status(re, status_buf, sizeof(status_buf)));
-	zlog_debug("%s: tag == %u, nexthop_num == %u, nexthop_active_num == %u",
-		   straddr, re->tag, nexthop_group_nexthop_num(&(re->nhe->nhg)),
+	zlog_debug("%s(%s): uptime == %lu, type == %u, instance == %d, table == %d",
+		   straddr, VRF_LOGNAME(vrf), (unsigned long)re->uptime,
+		   re->type, re->instance, re->table);
+	zlog_debug("%s(%s): metric == %u, mtu == %u, distance == %u, flags == %sstatus == %s",
+		   straddr, VRF_LOGNAME(vrf), re->metric, re->mtu, re->distance,
+		   zclient_dump_route_flags(re->flags, flags_buf,
+					    sizeof(flags_buf)),
+		   _dump_re_status(re, status_buf, sizeof(status_buf)));
+	zlog_debug("%s(%s): tag == %u, nexthop_num == %u, nexthop_active_num == %u",
+		   straddr, VRF_LOGNAME(vrf), re->tag,
+		   nexthop_group_nexthop_num(&(re->nhe->nhg)),
 		   nexthop_group_active_nexthop_num(&(re->nhe->nhg)));
 
 	/* Dump nexthops */
 	for (ALL_NEXTHOPS(re->nhe->nhg, nexthop))
-		_route_entry_dump_nh(re, straddr, nexthop);
+		_route_entry_dump_nh(re, straddr, vrf, nexthop);
 
 	if (zebra_nhg_get_backup_nhg(re->nhe)) {
-		zlog_debug("%s: backup nexthops:", straddr);
+		zlog_debug("%s(%s): backup nexthops:", straddr,
+			   VRF_LOGNAME(vrf));
 
 		nhg = zebra_nhg_get_backup_nhg(re->nhe);
 		for (ALL_NEXTHOPS_PTR(nhg, nexthop))
-			_route_entry_dump_nh(re, straddr, nexthop);
+			_route_entry_dump_nh(re, straddr, vrf, nexthop);
 	}
 
-	zlog_debug("%s: dump complete", straddr);
+	zlog_debug("%s(%s): dump complete", straddr, VRF_LOGNAME(vrf));
 }
 
 static int rib_meta_queue_gr_run_add(struct meta_queue *mq, void *data)
@@ -4271,11 +4275,14 @@ static int rib_meta_queue_early_route_add(struct meta_queue *mq, void *data)
 	listnode_add(mq->subq[META_QUEUE_EARLY_ROUTE], data);
 	mq->size++;
 
-	if (IS_ZEBRA_DEBUG_RIB_DETAILED)
-		zlog_debug("Route %pFX(%u) (%s) queued for processing into sub-queue %s",
-			   &ere->p, ere->re->vrf_id,
+	if (IS_ZEBRA_DEBUG_RIB_DETAILED) {
+		struct vrf *vrf = vrf_lookup_by_id(ere->re->vrf_id);
+
+		zlog_debug("Route %pFX(%s) (%s) queued for processing into sub-queue %s",
+			   &ere->p, VRF_LOGNAME(vrf),
 			   ere->deletion ? "delete" : "add",
 			   subqueue2str(META_QUEUE_EARLY_ROUTE));
+	}
 
 	return 0;
 }
