@@ -97,6 +97,10 @@ struct vty {
 	/* Command input buffer */
 	char *buf;
 
+	/* Command input list */
+	bool pending_obuf;
+	struct list *cmds;
+
 	/* Command input error buffer */
 	struct list *error;
 

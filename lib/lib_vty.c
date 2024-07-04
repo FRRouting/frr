@@ -260,6 +260,28 @@ DEFUN_NOSH(end_config, end_config_cmd, "XFRR_end_configuration",
 	return ret;
 }
 
+DEFUN_HIDDEN(batch_start,
+	      batch_start_cmd,
+	      "config_batch_start",
+	      "The Beginning of batch Configuration\n")
+{
+	vty->pending_obuf = 1;
+	if (!vty->cmds)
+		vty->cmds = list_new();
+
+	return CMD_SUCCESS;
+}
+
+DEFUN_HIDDEN(batch_end,
+	      batch_end_cmd,
+	      "config_batch_end",
+	      "The end of batch Configuration\n")
+{
+	vty->pending_obuf = 0;
+
+	return CMD_SUCCESS;
+}
+
 void cmd_init_config_callbacks(void (*start_config_cb)(void),
 			       void (*end_config_cb)(void))
 {
@@ -293,6 +315,8 @@ void lib_cmd_init(void)
 
 	install_element(CONFIG_NODE, &start_config_cmd);
 	install_element(CONFIG_NODE, &end_config_cmd);
+	install_element(CONFIG_NODE, &batch_start_cmd);
+	install_element(CONFIG_NODE, &batch_end_cmd);
 }
 
 /* Stats querying from users */

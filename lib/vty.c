@@ -2310,6 +2310,25 @@ bool mgmt_vty_read_configs(void)
 	return true;
 }
 
+static void vty_commands(struct vty *vty)
+{
+	struct listnode *node, *nnode;
+	char *cmd;
+	int ret;
+
+
+	for (ALL_LIST_ELEMENTS(vty->cmds, node, nnode, cmd)) {
+		ret = vty_command(vty, cmd);
+		listnode_delete(vty->cmds, cmd);
+
+		if (ret != CMD_SUCCESS)
+			flog_err(EC_LIB_VTY, "Command failed: %s",
+				 cmd);
+
+		XFREE(MTYPE_TMP, cmd);
+	}
+}
+
 static void vtysh_read(struct event *thread)
 {
 	int ret;
@@ -2369,8 +2388,20 @@ static void vtysh_read(struct event *thread)
 		for (p = buf; p < buf + nbytes; p++) {
 			vty->buf[vty->length++] = *p;
 			if (*p == '\0') {
-				/* Pass this line to parser. */
-				ret = vty_execute(vty);
+				if (vty->pending_obuf) {
+					listnode_add(vty->cmds,
+						     qstrdup(MTYPE_TMP,
+						     (const char *)vty->buf));
+					if (!strncmp((const char *)buf,
+						     "config_batch_end", 16))
+						vty_commands(vty);
+
+					vty->cp = vty->length = 0;
+					vty_clear_buf(vty);
+					ret = CMD_SUCCESS;
+				} else
+					/* Pass this line to parser. */
+					ret = vty_execute(vty);
 /* Note that vty_execute clears the command buffer and resets
    vty->length to 0. */
 
@@ -2484,6 +2515,13 @@ static void vty_error_delete(void *arg)
 	XFREE(MTYPE_TMP, ve);
 }
 
+static void vty_cmd_delete(void *arg)
+{
+	char *cmd = arg;
+
+	XFREE(MTYPE_TMP, cmd);
+}
+
 /* Close vty interface.  Warning: call this only from functions that
    will be careful not to access the vty afterwards (since it has
    now been freed).  This is safest from top-level functions (called
@@ -2505,6 +2543,11 @@ void vty_close(struct vty *vty)
 
 	/* Drop out of configure / transaction if needed. */
 	vty_config_exit(vty);
+	/* exec all pending commands */
+	if (vty->pending_obuf) {
+		vty_commands(vty);
+		vty->pending_obuf = 0;
+	}
 
 	if (mgmt_fe_client && vty->mgmt_session_id) {
 		debug_fe_client("closing vty session");
@@ -2565,6 +2608,10 @@ void vty_close(struct vty *vty)
 	if (vty->error) {
 		vty->error->del = vty_error_delete;
 		list_delete(&vty->error);
+	}
+	if (vty->cmds) {
+		vty->cmds->del = vty_cmd_delete;
+		list_delete(&vty->cmds);
 	}
 
 	/* OK free vty. */
