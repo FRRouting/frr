@@ -56,10 +56,12 @@ struct bgp_pbr_config;
  * behavior
  * in the system.
  */
-enum { AS_UNSPECIFIED = 0,
-       AS_SPECIFIED,
-       AS_INTERNAL,
-       AS_EXTERNAL,
+enum peer_asn_type {
+	AS_UNSPECIFIED = 1,
+	AS_SPECIFIED = 2,
+	AS_INTERNAL = 4,
+	AS_EXTERNAL = 8,
+	AS_AUTO = 16,
 };
 
 /* Zebra Gracaful Restart states */
