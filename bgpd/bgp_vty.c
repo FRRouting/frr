@@ -4862,7 +4862,7 @@ static int peer_remote_as_vty(struct vty *vty, const char *peer_str,
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
 	int ret;
 	as_t as;
-	int as_type = AS_SPECIFIED;
+	enum peer_asn_type as_type = AS_SPECIFIED;
 	union sockunion su;
 
 	if (as_str[0] == 'i') {
@@ -5041,7 +5041,7 @@ static int peer_conf_interface_get(struct vty *vty, const char *conf_if,
 {
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
 	as_t as = 0;
-	int as_type = AS_UNSPECIFIED;
+	enum peer_asn_type as_type = AS_UNSPECIFIED;
 	struct peer *peer;
 	struct peer_group *group;
 	int ret = 0;
@@ -11887,7 +11887,8 @@ static char *bgp_peer_description_stripped(char *desc, uint32_t size)
 
 /* Determine whether var peer should be filtered out of the summary. */
 static bool bgp_show_summary_is_peer_filtered(struct peer *peer,
-					      struct peer *fpeer, int as_type,
+					      struct peer *fpeer,
+					      enum peer_asn_type as_type,
 					      as_t as)
 {
 
@@ -11921,8 +11922,8 @@ static bool bgp_show_summary_is_peer_filtered(struct peer *peer,
  * whitespaces and the whole output will be tricky.
  */
 static int bgp_show_summary(struct vty *vty, struct bgp *bgp, int afi, int safi,
-			    struct peer *fpeer, int as_type, as_t as,
-			    uint16_t show_flags)
+			    struct peer *fpeer, enum peer_asn_type as_type,
+			    as_t as, uint16_t show_flags)
 {
 	struct peer *peer;
 	struct listnode *node, *nnode;
@@ -12729,10 +12730,9 @@ static void bgp_show_summary_afi_safi(struct vty *vty, struct bgp *bgp, int afi,
 }
 
 static void bgp_show_all_instances_summary_vty(struct vty *vty, afi_t afi,
-					       safi_t safi,
-					       const char *neighbor,
-					       int as_type, as_t as,
-					       uint16_t show_flags)
+					       safi_t safi, const char *neighbor,
+					       enum peer_asn_type as_type,
+					       as_t as, uint16_t show_flags)
 {
 	struct listnode *node, *nnode;
 	struct bgp *bgp;
@@ -12774,8 +12774,9 @@ static void bgp_show_all_instances_summary_vty(struct vty *vty, afi_t afi,
 }
 
 int bgp_show_summary_vty(struct vty *vty, const char *name, afi_t afi,
-			 safi_t safi, const char *neighbor, int as_type,
-			 as_t as, uint16_t show_flags)
+			 safi_t safi, const char *neighbor,
+			 enum peer_asn_type as_type, as_t as,
+			 uint16_t show_flags)
 {
 	struct bgp *bgp;
 	bool use_json = CHECK_FLAG(show_flags, BGP_SHOW_OPT_JSON);

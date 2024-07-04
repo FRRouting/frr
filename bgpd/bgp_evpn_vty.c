@@ -4840,7 +4840,7 @@ DEFUN(show_bgp_l2vpn_evpn_summary, show_bgp_l2vpn_evpn_summary_cmd,
 	char *vrf = NULL;
 	char *neighbor = NULL;
 	as_t as = 0; /* 0 means AS filter not set */
-	int as_type = AS_UNSPECIFIED;
+	enum peer_asn_type as_type = AS_UNSPECIFIED;
 	uint16_t show_flags = 0;
 
 	if (argv_find(argv, argc, "vrf", &idx_vrf))
