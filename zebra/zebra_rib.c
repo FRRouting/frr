@@ -1705,6 +1705,7 @@ static bool rib_update_re_from_ctx(struct route_entry *re,
 	bool changed_p = false; /* Change to nexthops? */
 	rib_dest_t *dest;
 	struct vrf *vrf;
+	uint32_t ctxnhgid;
 
 	vrf = vrf_lookup_by_id(re->vrf_id);
 
@@ -1724,6 +1725,7 @@ static bool rib_update_re_from_ctx(struct route_entry *re,
 	 */
 	matched = false;
 	ctxnhg = dplane_ctx_get_ng(ctx);
+	ctxnhgid = dplane_ctx_get_nhg_id(ctx);
 
 	/* Check route's fib group and incoming notif group for equivalence.
 	 *
@@ -1783,6 +1785,9 @@ static bool rib_update_re_from_ctx(struct route_entry *re,
 		changed_p = true;
 		goto no_nexthops;
 	}
+
+	if (ctxnhgid >= ZEBRA_NHG_PROTO_LOWER)
+		nexthop_group_mark_duplicates(&(re->nhe->nhg));
 
 	matched = rib_update_nhg_from_ctx(&(re->nhe->nhg), ctxnhg, &changed_p);
 
