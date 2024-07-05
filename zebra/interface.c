@@ -1538,23 +1538,27 @@ static void interface_vrf_change(enum dplane_op_e op, ifindex_t ifindex,
 				"DPLANE_OP_INTF_UPDATE for VRF %s(%u) table %u",
 				name, ifindex, tableid);
 
-		if (!vrf_lookup_by_id((vrf_id_t)ifindex)) {
-			vrf_id_t exist_id;
+		/*
+		 * For a given tableid, if there already exists a vrf and it
+		 * is different from the current vrf to be operated, then there
+		 * is a misconfiguration and zebra will exit.
+		 */
+		vrf_id_t exist_id = zebra_vrf_lookup_by_table(tableid, ns_id);
 
-			exist_id = zebra_vrf_lookup_by_table(tableid, ns_id);
-			if (exist_id != VRF_DEFAULT) {
-				vrf = vrf_lookup_by_id(exist_id);
+		if (exist_id != VRF_DEFAULT) {
+			vrf = vrf_lookup_by_id(exist_id);
 
-				if (vrf)
-					flog_err(EC_ZEBRA_VRF_MISCONFIGURED,
-						 "VRF %s id %u table id overlaps existing vrf %s(%d), misconfiguration exiting",
-						 name, ifindex, vrf->name,
-						 vrf->vrf_id);
-				else
-					flog_err(EC_ZEBRA_VRF_NOT_FOUND,
-						 "VRF %s id %u does not exist",
-						 name, ifindex);
+			if (!vrf_lookup_by_id((vrf_id_t)ifindex) && !vrf) {
+				flog_err(EC_ZEBRA_VRF_NOT_FOUND,
+					 "VRF %s id %u does not exist", name,
+					 ifindex);
+				exit(-1);
+			}
 
+			if (vrf && strcmp(name, vrf->name)) {
+				flog_err(EC_ZEBRA_VRF_MISCONFIGURED,
+					 "VRF %s id %u table id overlaps existing vrf %s(%d), misconfiguration exiting",
+					 name, ifindex, vrf->name, vrf->vrf_id);
 				exit(-1);
 			}
 		}
