@@ -36,12 +36,10 @@ extern void bgp_add_routermac_ecom(struct attr *attr,
 extern int bgp_build_evpn_prefix(int type, uint32_t eth_tag,
 				 struct prefix *dst);
 extern bool bgp_attr_rmac(struct attr *attr, struct ethaddr *rmac);
-extern uint32_t bgp_attr_mac_mobility_seqnum(struct attr *attr,
-					     uint8_t *sticky);
-extern uint8_t bgp_attr_default_gw(struct attr *attr);
+extern uint32_t bgp_attr_mac_mobility_seqnum(struct attr *attr);
+extern void bgp_attr_default_gw(struct attr *attr);
 
-extern void bgp_attr_evpn_na_flag(struct attr *attr, uint8_t *router_flag,
-		bool *proxy);
+extern void bgp_attr_evpn_na_flag(struct attr *attr, bool *proxy);
 extern uint16_t bgp_attr_df_pref_from_ec(struct attr *attr, uint8_t *alg);
 
 

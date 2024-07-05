@@ -851,8 +851,13 @@ int bgp_path_info_cmp(struct bgp *bgp, struct bgp_path_info *new,
 		 * with the
 		 * sticky flag.
 		 */
-		if (newattr->sticky != existattr->sticky) {
-			if (newattr->sticky && !existattr->sticky) {
+		bool new_sticky = CHECK_FLAG(newattr->evpn_flags,
+					     ATTR_EVPN_FLAG_STICKY);
+		bool exist_sticky = CHECK_FLAG(existattr->evpn_flags,
+					       ATTR_EVPN_FLAG_STICKY);
+
+		if (new_sticky != exist_sticky) {
+			if (new_sticky && !exist_sticky) {
 				*reason = bgp_path_selection_evpn_sticky_mac;
 				if (debug)
 					zlog_debug(
@@ -861,7 +866,7 @@ int bgp_path_info_cmp(struct bgp *bgp, struct bgp_path_info *new,
 				return 1;
 			}
 
-			if (!newattr->sticky && existattr->sticky) {
+			if (!new_sticky && exist_sticky) {
 				*reason = bgp_path_selection_evpn_sticky_mac;
 				if (debug)
 					zlog_debug(

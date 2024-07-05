@@ -115,14 +115,14 @@ bool bgp_attr_rmac(struct attr *attr, struct ethaddr *rmac)
 /*
  * return true if attr contains default gw extended community
  */
-uint8_t bgp_attr_default_gw(struct attr *attr)
+void bgp_attr_default_gw(struct attr *attr)
 {
 	struct ecommunity *ecom;
 	uint32_t i;
 
 	ecom = bgp_attr_get_ecommunity(attr);
 	if (!ecom || !ecom->size)
-		return 0;
+		return;
 
 	/* If there is a default gw extendd community return true otherwise
 	 * return 0 */
@@ -136,10 +136,9 @@ uint8_t bgp_attr_default_gw(struct attr *attr)
 
 		if ((type == ECOMMUNITY_ENCODE_OPAQUE
 		     && sub_type == ECOMMUNITY_EVPN_SUBTYPE_DEF_GW))
-			return 1;
+			SET_FLAG(attr->evpn_flags, ATTR_EVPN_FLAG_DEFAULT_GW);
 	}
-
-	return 0;
+	UNSET_FLAG(attr->evpn_flags, ATTR_EVPN_FLAG_DEFAULT_GW);
 }
 
 /*
@@ -183,7 +182,7 @@ uint16_t bgp_attr_df_pref_from_ec(struct attr *attr, uint8_t *alg)
  * Fetch and return the sequence number from MAC Mobility extended
  * community, if present, else 0.
  */
-uint32_t bgp_attr_mac_mobility_seqnum(struct attr *attr, uint8_t *sticky)
+uint32_t bgp_attr_mac_mobility_seqnum(struct attr *attr)
 {
 	struct ecommunity *ecom;
 	uint32_t i;
@@ -213,9 +212,9 @@ uint32_t bgp_attr_mac_mobility_seqnum(struct attr *attr, uint8_t *sticky)
 		flags = *pnt++;
 
 		if (flags & ECOMMUNITY_EVPN_SUBTYPE_MACMOBILITY_FLAG_STICKY)
-			*sticky = 1;
+			SET_FLAG(attr->evpn_flags, ATTR_EVPN_FLAG_STICKY);
 		else
-			*sticky = 0;
+			UNSET_FLAG(attr->evpn_flags, ATTR_EVPN_FLAG_STICKY);
 
 		pnt++;
 		pnt = ptr_get_be32(pnt, &seq_num);
@@ -229,8 +228,7 @@ uint32_t bgp_attr_mac_mobility_seqnum(struct attr *attr, uint8_t *sticky)
 /*
  * return true if attr contains router flag extended community
  */
-void bgp_attr_evpn_na_flag(struct attr *attr,
-		uint8_t *router_flag, bool *proxy)
+void bgp_attr_evpn_na_flag(struct attr *attr, bool *proxy)
 {
 	struct ecommunity *ecom;
 	uint32_t i;
@@ -254,7 +252,8 @@ void bgp_attr_evpn_na_flag(struct attr *attr,
 			val = *pnt++;
 
 			if (val & ECOMMUNITY_EVPN_SUBTYPE_ND_ROUTER_FLAG)
-				*router_flag = 1;
+				SET_FLAG(attr->evpn_flags,
+					 ATTR_EVPN_FLAG_ROUTER);
 
 			if (val & ECOMMUNITY_EVPN_SUBTYPE_PROXY_FLAG)
 				*proxy = true;
