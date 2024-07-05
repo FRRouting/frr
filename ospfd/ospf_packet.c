@@ -351,19 +351,16 @@ void ospf_ls_upd_timer(struct event *thread)
 	OSPF_NSM_TIMER_ON(nbr->t_ls_upd, ospf_ls_upd_timer, nbr->v_ls_upd);
 }
 
-void ospf_ls_ack_timer(struct event *thread)
+void ospf_ls_ack_delayed_timer(struct event *thread)
 {
 	struct ospf_interface *oi;
 
 	oi = EVENT_ARG(thread);
-	oi->t_ls_ack = NULL;
+	oi->t_ls_ack_delayed = NULL;
 
 	/* Send Link State Acknowledgment. */
-	if (listcount(oi->ls_ack) > 0)
+	if (ospf_lsa_list_count(&oi->ls_ack_delayed))
 		ospf_ls_ack_send_delayed(oi);
-
-	/* Set LS Ack timer. */
-	OSPF_ISM_TIMER_ON(oi->t_ls_ack, ospf_ls_ack_timer, oi->v_ls_ack);
 }
 
 #ifdef WANT_OSPF_WRITE_FRAGMENT
@@ -1811,7 +1808,7 @@ static void ospf_ls_upd(struct ospf *ospf, struct ip *iph,
 		if (IS_LSA_MAXAGE(lsa) && !current
 		    && ospf_check_nbr_status(oi->ospf)) {
 			/* (4a) Response Link State Acknowledgment. */
-			ospf_ls_ack_send(nbr, lsa);
+			ospf_ls_ack_send_direct(nbr, lsa);
 
 			/* (4b) Discard LSA. */
 			if (IS_DEBUG_OSPF(lsa, LSA)) {
@@ -1836,7 +1833,7 @@ static void ospf_ls_upd(struct ospf *ospf, struct ip *iph,
 			if (IS_LSA_MAXAGE(lsa)) {
 				zlog_info("LSA[%s]: Boomerang effect?",
 					  dump_lsa_key(lsa));
-				ospf_ls_ack_send(nbr, lsa);
+				ospf_ls_ack_send_direct(nbr, lsa);
 				ospf_lsa_discard(lsa);
 
 				if (current != NULL && !IS_LSA_MAXAGE(current))
@@ -1870,7 +1867,7 @@ static void ospf_ls_upd(struct ospf *ospf, struct ip *iph,
 
 				SET_FLAG(lsa->flags, OSPF_LSA_SELF);
 
-				ospf_ls_ack_send(nbr, lsa);
+				ospf_ls_ack_send_direct(nbr, lsa);
 
 				if (!ospf->gr_info.restart_in_progress) {
 					ospf_opaque_self_originated_lsa_received(
@@ -2009,9 +2006,8 @@ static void ospf_ls_upd(struct ospf *ospf, struct ip *iph,
 				   */
 				if (oi->state == ISM_Backup)
 					if (NBR_IS_DR(nbr))
-						listnode_add(
-							oi->ls_ack,
-							ospf_lsa_lock(lsa));
+						ospf_ls_ack_send_direct(nbr,
+									lsa);
 
 				DISCARD_LSA(lsa, 6);
 			} else
@@ -2020,7 +2016,7 @@ static void ospf_ls_upd(struct ospf *ospf, struct ip *iph,
 			   receiving
 			   interface. */
 			{
-				ospf_ls_ack_send(nbr, lsa);
+				ospf_ls_ack_send_direct(nbr, lsa);
 				DISCARD_LSA(lsa, 7);
 			}
 		}
@@ -3308,16 +3304,35 @@ static int ospf_make_ls_upd(struct ospf_interface *oi, struct list *update,
 	return length;
 }
 
-static int ospf_make_ls_ack(struct ospf_interface *oi, struct list *ack,
-			    struct stream *s)
+static int ospf_make_ls_ack(struct ospf_interface *oi,
+			    struct ospf_lsa_list_head *ls_ack_list,
+			    bool direct_ack, bool delete_ack, struct stream *s)
 {
-	struct listnode *node, *nnode;
+	struct ospf_lsa_list_entry *ls_ack_list_first;
+	struct ospf_lsa_list_entry *ls_ack_list_entry;
 	uint16_t length = OSPF_LS_ACK_MIN_SIZE;
-	unsigned long delta = OSPF_LSA_HEADER_SIZE;
 	struct ospf_lsa *lsa;
+	struct in_addr first_dst_addr;
 
-	for (ALL_LIST_ELEMENTS(ack, node, nnode, lsa)) {
+	/*
+	 * For direct LS Acks, assure the destination address doesn't
+	 * change between queued acknowledgments.
+	 */
+	if (direct_ack) {
+		ls_ack_list_first = ospf_lsa_list_first(ls_ack_list);
+		if (ls_ack_list_first)
+			first_dst_addr.s_addr =
+				ls_ack_list_first->list_entry_dst.s_addr;
+	} else
+		first_dst_addr.s_addr = INADDR_ANY;
+
+	frr_each_safe (ospf_lsa_list, ls_ack_list, ls_ack_list_entry) {
+		lsa = ls_ack_list_entry->lsa;
 		assert(lsa);
+
+		if (direct_ack && (ls_ack_list_entry->list_entry_dst.s_addr !=
+				   first_dst_addr.s_addr))
+			break;
 
 		/* LS Ack packet overflows interface MTU
 		 * delta is just number of bytes required for
@@ -3327,17 +3342,44 @@ static int ospf_make_ls_ack(struct ospf_interface *oi, struct list *ack,
 		 * against ospf_packet_max to check if it can fit
 		 * another ls header in the same packet.
 		 */
-		if ((length + delta) > ospf_packet_max(oi))
+		if ((length + OSPF_LSA_HEADER_SIZE) > ospf_packet_max(oi))
 			break;
 
 		stream_put(s, lsa->data, OSPF_LSA_HEADER_SIZE);
 		length += OSPF_LSA_HEADER_SIZE;
 
-		listnode_delete(ack, lsa);
-		ospf_lsa_unlock(&lsa); /* oi->ls_ack_direct.ls_ack */
+		if (delete_ack) {
+			ospf_lsa_list_del(ls_ack_list, ls_ack_list_entry);
+			XFREE(MTYPE_OSPF_LSA_LIST, ls_ack_list_entry);
+			ospf_lsa_unlock(&lsa);
+		}
 	}
 
 	return length;
+}
+
+/*
+ * On non-braodcast networks, the same LS acks must be sent to multiple
+ * neighbors and deletion must be deferred until after the LS Ack packet
+ * is sent to all neighbors.
+ */
+static void ospf_delete_ls_ack_delayed(struct ospf_interface *oi)
+{
+	struct ospf_lsa_list_entry *ls_ack_list_entry;
+	struct ospf_lsa *lsa;
+	uint16_t length = OSPF_LS_ACK_MIN_SIZE;
+
+	frr_each_safe (ospf_lsa_list, &oi->ls_ack_delayed, ls_ack_list_entry) {
+		lsa = ls_ack_list_entry->lsa;
+		assert(lsa);
+		if ((length + OSPF_LSA_HEADER_SIZE) > ospf_packet_max(oi))
+			break;
+
+		length += OSPF_LSA_HEADER_SIZE;
+		ospf_lsa_list_del(&oi->ls_ack_delayed, ls_ack_list_entry);
+		XFREE(MTYPE_OSPF_LSA_LIST, ls_ack_list_entry);
+		ospf_lsa_unlock(&lsa);
+	}
 }
 
 static void ospf_hello_send_sub(struct ospf_interface *oi, in_addr_t addr)
@@ -3897,10 +3939,13 @@ void ospf_ls_upd_send(struct ospf_neighbor *nbr, struct list *update, int flag,
 				&oi->t_ls_upd_event);
 }
 
-static void ospf_ls_ack_send_list(struct ospf_interface *oi, struct list *ack,
+static void ospf_ls_ack_send_list(struct ospf_interface *oi,
+				  struct ospf_lsa_list_head *ls_ack_list,
+				  bool direct_ack, bool delete_ack,
 				  struct in_addr dst)
 {
 	struct ospf_packet *op;
+	struct ospf_lsa_list_entry *ls_ack_list_first;
 	uint16_t length = OSPF_HEADER_SIZE;
 
 	op = ospf_packet_new(oi->ifp->mtu);
@@ -3908,8 +3953,18 @@ static void ospf_ls_ack_send_list(struct ospf_interface *oi, struct list *ack,
 	/* Prepare OSPF common header. */
 	ospf_make_header(OSPF_MSG_LS_ACK, oi, op->s);
 
+	/* Determine the destination address - for direct acks,
+	 * the list entries always include the distination address.
+	 */
+	if (direct_ack) {
+		ls_ack_list_first = ospf_lsa_list_first(ls_ack_list);
+		op->dst.s_addr = ls_ack_list_first->list_entry_dst.s_addr;
+	} else
+		op->dst.s_addr = dst.s_addr;
+
 	/* Prepare OSPF Link State Acknowledgment body. */
-	length += ospf_make_ls_ack(oi, ack, op->s);
+	length += ospf_make_ls_ack(oi, ls_ack_list, direct_ack, delete_ack,
+				   op->s);
 
 	/* Fill OSPF header. */
 	ospf_fill_header(oi, op->s, length);
@@ -3917,6 +3972,7 @@ static void ospf_ls_ack_send_list(struct ospf_interface *oi, struct list *ack,
 	/* Set packet length. */
 	op->length = length;
 
+<<<<<<< HEAD
 	/* Decide destination address. */
 	if (oi->type == OSPF_IFTYPE_POINTOPOINT ||
 	    oi->type == OSPF_IFTYPE_POINTOMULTIPOINT)
@@ -3924,6 +3980,8 @@ static void ospf_ls_ack_send_list(struct ospf_interface *oi, struct list *ack,
 	else
 		op->dst.s_addr = dst.s_addr;
 
+=======
+>>>>>>> ed48014884 (ospfd: Fix several problems with direct acknowledgments and improved delay acks.)
 	/* Add packet to the interface output queue. */
 	ospf_packet_add(oi, op);
 
@@ -3931,20 +3989,65 @@ static void ospf_ls_ack_send_list(struct ospf_interface *oi, struct list *ack,
 	OSPF_ISM_WRITE_ON(oi->ospf);
 }
 
-static void ospf_ls_ack_send_event(struct event *thread)
+static void ospf_ls_ack_send_direct_event(struct event *thread)
 {
 	struct ospf_interface *oi = EVENT_ARG(thread);
+	struct in_addr dst = { INADDR_ANY };
 
 	oi->t_ls_ack_direct = NULL;
 
-	while (listcount(oi->ls_ack_direct.ls_ack))
-		ospf_ls_ack_send_list(oi, oi->ls_ack_direct.ls_ack,
-				      oi->ls_ack_direct.dst);
+	while (ospf_lsa_list_count(&oi->ls_ack_direct))
+		ospf_ls_ack_send_list(oi, &(oi->ls_ack_direct), true, true, dst);
 }
 
-void ospf_ls_ack_send(struct ospf_neighbor *nbr, struct ospf_lsa *lsa)
+void ospf_ls_ack_send_direct(struct ospf_neighbor *nbr, struct ospf_lsa *lsa)
 {
+	struct ospf_lsa_list_entry *ls_ack_list_entry;
 	struct ospf_interface *oi = nbr->oi;
+
+	if (IS_DEBUG_OSPF(lsa, LSA_FLOODING))
+		zlog_debug("%s:Add LSA[Type%d:%pI4:%pI4]: seq 0x%x age %u NBR %pI4 (%s) ack queue",
+			   __func__, lsa->data->type, &lsa->data->id,
+			   &lsa->data->adv_router, ntohl(lsa->data->ls_seqnum),
+			   ntohs(lsa->data->ls_age), &nbr->router_id,
+			   IF_NAME(nbr->oi));
+
+	/*
+	 * On Point-to-Multipoint broadcast-capabile interfaces,
+	 * where direct acks from are sent to the ALLSPFRouters
+	 * address and one direct ack send event, may include LSAs
+	 * from multiple neighbors, there is a possibility of the same
+	 * LSA being processed more than once in the same send event.
+	 * In this case, the instances subsequent to the first can be
+	 * ignored.
+	 */
+	if (oi->type == OSPF_IFTYPE_POINTOMULTIPOINT && !oi->p2mp_non_broadcast) {
+		struct ospf_lsa_list_entry *ls_ack_list_entry;
+		struct ospf_lsa *ack_queue_lsa;
+
+		frr_each (ospf_lsa_list, &oi->ls_ack_direct, ls_ack_list_entry) {
+			ack_queue_lsa = ls_ack_list_entry->lsa;
+			if ((lsa == ack_queue_lsa) ||
+			    ((lsa->data->type == ack_queue_lsa->data->type) &&
+			     (lsa->data->id.s_addr ==
+			      ack_queue_lsa->data->id.s_addr) &&
+			     (lsa->data->adv_router.s_addr ==
+			      ack_queue_lsa->data->adv_router.s_addr) &&
+			     (lsa->data->ls_seqnum ==
+			      ack_queue_lsa->data->ls_seqnum))) {
+				if (IS_DEBUG_OSPF(lsa, LSA_FLOODING))
+					zlog_debug("%s:LSA[Type%d:%pI4:%pI4]: seq 0x%x age %u NBR %pI4 (%s) ack queue duplicate",
+						   __func__, lsa->data->type,
+						   &lsa->data->id,
+						   &lsa->data->adv_router,
+						   ntohl(lsa->data->ls_seqnum),
+						   ntohs(lsa->data->ls_age),
+						   &nbr->router_id,
+						   IF_NAME(nbr->oi));
+				return;
+			}
+		}
+	}
 
 	if (IS_GRACE_LSA(lsa)) {
 		if (IS_DEBUG_OSPF_GR)
@@ -3952,13 +4055,30 @@ void ospf_ls_ack_send(struct ospf_neighbor *nbr, struct ospf_lsa *lsa)
 				   __func__);
 	}
 
-	if (listcount(oi->ls_ack_direct.ls_ack) == 0)
-		oi->ls_ack_direct.dst = nbr->address.u.prefix4;
+	ls_ack_list_entry = XCALLOC(MTYPE_OSPF_LSA_LIST,
+				    sizeof(struct ospf_lsa_list_entry));
 
-	listnode_add(oi->ls_ack_direct.ls_ack, ospf_lsa_lock(lsa));
+	/*
+	 * Determine the destination address - Direct LS acknowledgments
+	 * are sent the AllSPFRouters multicast address on Point-to-Point
+	 * and Point-to-Multipoint broadcast-capable interfaces. For all other
+	 * interface types, they are unicast directly to the neighbor.
+	 */
+	if (oi->type == OSPF_IFTYPE_POINTOPOINT ||
+	    (oi->type == OSPF_IFTYPE_POINTOMULTIPOINT &&
+	     !oi->p2mp_non_broadcast))
+		ls_ack_list_entry->list_entry_dst.s_addr =
+			htonl(OSPF_ALLSPFROUTERS);
+	else
+		ls_ack_list_entry->list_entry_dst.s_addr =
+			nbr->address.u.prefix4.s_addr;
 
-	event_add_event(master, ospf_ls_ack_send_event, oi, 0,
-			&oi->t_ls_ack_direct);
+	ls_ack_list_entry->lsa = ospf_lsa_lock(lsa);
+	ospf_lsa_list_add_tail(&nbr->oi->ls_ack_direct, ls_ack_list_entry);
+
+	if (oi->t_ls_ack_direct == NULL)
+		event_add_event(master, ospf_ls_ack_send_direct_event, oi, 0,
+				&oi->t_ls_ack_direct);
 }
 
 /* Send Link State Acknowledgment delayed. */
@@ -3975,33 +4095,39 @@ void ospf_ls_ack_send_delayed(struct ospf_interface *oi)
 		struct ospf_neighbor *nbr;
 		struct route_node *rn;
 
-		for (rn = route_top(oi->nbrs); rn; rn = route_next(rn)) {
-			nbr = rn->info;
+		while (ospf_lsa_list_count(&oi->ls_ack_delayed)) {
+			for (rn = route_top(oi->nbrs); rn; rn = route_next(rn)) {
+				nbr = rn->info;
 
-			if (!nbr)
-				continue;
+				if (!nbr)
+					continue;
 
-			if (nbr != oi->nbr_self && nbr->state >= NSM_Exchange)
-				while (listcount(oi->ls_ack))
-					ospf_ls_ack_send_list(
-						oi, oi->ls_ack,
-						nbr->address.u.prefix4);
+				if (nbr != oi->nbr_self &&
+				    nbr->state >= NSM_Exchange)
+					ospf_ls_ack_send_list(oi,
+							      &oi->ls_ack_delayed,
+							      false, false,
+							      nbr->address.u
+								      .prefix4);
+			}
+			ospf_delete_ls_ack_delayed(oi);
 		}
-		return;
-	}
-	if (oi->type == OSPF_IFTYPE_VIRTUALLINK)
-		dst.s_addr = oi->vl_data->peer_addr.s_addr;
-	else if (oi->state == ISM_DR || oi->state == ISM_Backup)
-		dst.s_addr = htonl(OSPF_ALLSPFROUTERS);
-	else if (oi->type == OSPF_IFTYPE_POINTOPOINT)
-		dst.s_addr = htonl(OSPF_ALLSPFROUTERS);
-	else if (oi->type == OSPF_IFTYPE_POINTOMULTIPOINT)
-		dst.s_addr = htonl(OSPF_ALLSPFROUTERS);
-	else
-		dst.s_addr = htonl(OSPF_ALLDROUTERS);
+	} else {
+		if (oi->type == OSPF_IFTYPE_VIRTUALLINK)
+			dst.s_addr = oi->vl_data->peer_addr.s_addr;
+		else if (oi->state == ISM_DR || oi->state == ISM_Backup)
+			dst.s_addr = htonl(OSPF_ALLSPFROUTERS);
+		else if (oi->type == OSPF_IFTYPE_POINTOPOINT)
+			dst.s_addr = htonl(OSPF_ALLSPFROUTERS);
+		else if (oi->type == OSPF_IFTYPE_POINTOMULTIPOINT)
+			dst.s_addr = htonl(OSPF_ALLSPFROUTERS);
+		else
+			dst.s_addr = htonl(OSPF_ALLDROUTERS);
 
-	while (listcount(oi->ls_ack))
-		ospf_ls_ack_send_list(oi, oi->ls_ack, dst);
+		while (ospf_lsa_list_count(&oi->ls_ack_delayed))
+			ospf_ls_ack_send_list(oi, &oi->ls_ack_delayed, false,
+					      true, dst);
+	}
 }
 
 /*
