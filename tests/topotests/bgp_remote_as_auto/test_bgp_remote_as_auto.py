@@ -23,7 +23,7 @@ pytestmark = [pytest.mark.bgpd]
 
 
 def setup_module(mod):
-    topodef = {"s1": ("r1", "r2", "r3")}
+    topodef = {"s1": ("r1", "r2", "r3"), "s2": ("r1", "r4")}
     tgen = Topogen(topodef, mod.__name__)
     tgen.start_topology()
 
@@ -49,11 +49,18 @@ def test_bgp_remote_as_auto():
     r1 = tgen.gears["r1"]
     r2 = tgen.gears["r2"]
     r3 = tgen.gears["r3"]
+    r4 = tgen.gears["r4"]
 
     def _bgp_converge():
         output = json.loads(r1.vtysh_cmd("show bgp ipv4 unicast summary json"))
         expected = {
             "peers": {
+                "r1-eth1": {
+                    "hostname": "r4",
+                    "remoteAs": 65004,
+                    "localAs": 65001,
+                    "state": "Established",
+                },
                 "192.168.1.2": {
                     "hostname": "r2",
                     "remoteAs": 65001,
@@ -123,6 +130,30 @@ def test_bgp_remote_as_auto():
     )
     _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
     assert result is None, "Can't see automatic eBGP peering"
+
+    def _bgp_converge_external_unnumbered():
+        output = json.loads(r4.vtysh_cmd("show bgp ipv4 unicast 10.0.0.1/32 json"))
+        expected = {
+            "paths": [
+                {
+                    "aspath": {
+                        "string": "65001",
+                    },
+                    "valid": True,
+                    "peer": {
+                        "hostname": "r1",
+                        "type": "external",
+                    },
+                }
+            ]
+        }
+        return topotest.json_cmp(output, expected)
+
+    test_func = functools.partial(
+        _bgp_converge_external_unnumbered,
+    )
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
+    assert result is None, "Can't see automatic unnumbered eBGP peering"
 
 
 if __name__ == "__main__":
