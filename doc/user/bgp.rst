@@ -1561,6 +1561,10 @@ Defining Peers
    peers ASN is the same as mine as specified under the :clicmd:`router bgp ASN`
    command the connection will be denied.
 
+.. clicmd:: neighbor PEER remote-as auto
+
+   The neighbor's ASN is detected automatically from the OPEN message.
+
 .. clicmd:: neighbor PEER oad
 
    Mark a peer belonging to the One Administrative Domain.
@@ -1699,7 +1703,7 @@ Configuring Peers
    IPv4 session addresses, see the ``neighbor PEER update-source`` command
    below.
 
-.. clicmd:: neighbor PEER interface remote-as <internal|external|ASN>
+.. clicmd:: neighbor PEER interface remote-as <internal|external|auto|ASN>
 
    Configure an unnumbered BGP peer. ``PEER`` should be an interface name. The
    session will be established via IPv6 link locals. Use ``internal`` for iBGP

@@ -1074,10 +1074,10 @@ static inline enum bgp_peer_sort peer_calc_sort(struct peer *peer)
 
 	/* Peer-group */
 	if (CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP)) {
-		if (peer->as_type == AS_INTERNAL)
+		if (CHECK_FLAG(peer->as_type, AS_INTERNAL))
 			return BGP_PEER_IBGP;
 
-		else if (peer->as_type == AS_EXTERNAL)
+		if (CHECK_FLAG(peer->as_type, AS_EXTERNAL))
 			return BGP_PEER_EBGP;
 
 		else if (peer->as_type == AS_SPECIFIED && peer->as) {
@@ -1132,17 +1132,20 @@ static inline enum bgp_peer_sort peer_calc_sort(struct peer *peer)
 						return BGP_PEER_IBGP;
 					else
 						return BGP_PEER_EBGP;
-				} else if (peer->group->conf->as_type
-					   == AS_INTERNAL)
+				} else if (CHECK_FLAG(peer->group->conf->as_type,
+						      AS_INTERNAL))
 					return BGP_PEER_IBGP;
 				else
 					return BGP_PEER_EBGP;
 			}
 			/* no AS information anywhere, let caller know */
 			return BGP_PEER_UNSPECIFIED;
-		} else if (peer->as_type != AS_SPECIFIED)
-			return (peer->as_type == AS_INTERNAL ? BGP_PEER_IBGP
-							     : BGP_PEER_EBGP);
+		} else if (peer->as_type != AS_SPECIFIED) {
+			if (CHECK_FLAG(peer->as_type, AS_INTERNAL))
+				return BGP_PEER_IBGP;
+			else if (CHECK_FLAG(peer->as_type, AS_EXTERNAL))
+				return BGP_PEER_EBGP;
+		}
 
 		return (local_as == 0 ? BGP_PEER_INTERNAL
 				      : local_as == peer->as ? BGP_PEER_IBGP
@@ -1949,7 +1952,7 @@ void bgp_recalculate_all_bestpaths(struct bgp *bgp)
  */
 struct peer *peer_create(union sockunion *su, const char *conf_if,
 			 struct bgp *bgp, as_t local_as, as_t remote_as,
-			 int as_type, struct peer_group *group,
+			 enum peer_asn_type as_type, struct peer_group *group,
 			 bool config_node, const char *as_str)
 {
 	int active;
@@ -2081,7 +2084,7 @@ bool bgp_afi_safi_peer_exists(struct bgp *bgp, afi_t afi, safi_t safi)
 }
 
 /* Change peer's AS number.  */
-void peer_as_change(struct peer *peer, as_t as, int as_specified,
+void peer_as_change(struct peer *peer, as_t as, enum peer_asn_type as_type,
 		    const char *as_str)
 {
 	enum bgp_peer_sort origtype, newtype;
@@ -2097,13 +2100,13 @@ void peer_as_change(struct peer *peer, as_t as, int as_specified,
 	}
 	origtype = peer_sort_lookup(peer);
 	peer->as = as;
-	if (as_specified == AS_SPECIFIED && as_str) {
+	if (as_type == AS_SPECIFIED && as_str) {
 		if (peer->as_pretty)
 			XFREE(MTYPE_BGP_NAME, peer->as_pretty);
 		peer->as_pretty = XSTRDUP(MTYPE_BGP_NAME, as_str);
 	} else if (peer->as_type == AS_UNSPECIFIED && peer->as_pretty)
 		XFREE(MTYPE_BGP_NAME, peer->as_pretty);
-	peer->as_type = as_specified;
+	peer->as_type = as_type;
 
 	if (bgp_config_check(peer->bgp, BGP_CONFIG_CONFEDERATION)
 	    && !bgp_confederation_peers_check(peer->bgp, as)
@@ -2160,7 +2163,7 @@ void peer_as_change(struct peer *peer, as_t as, int as_specified,
 /* If peer does not exist, create new one.  If peer already exists,
    set AS number to the peer.  */
 int peer_remote_as(struct bgp *bgp, union sockunion *su, const char *conf_if,
-		   as_t *as, int as_type, const char *as_str)
+		   as_t *as, enum peer_asn_type as_type, const char *as_str)
 {
 	struct peer *peer;
 	as_t local_as;
@@ -2201,10 +2204,10 @@ int peer_remote_as(struct bgp *bgp, union sockunion *su, const char *conf_if,
 				}
 			} else {
 				/* internal/external used, compare as-types */
-				if (((peer_sort_type == BGP_PEER_IBGP)
-				    && (as_type != AS_INTERNAL))
-				    || ((peer_sort_type == BGP_PEER_EBGP)
-				    && (as_type != AS_EXTERNAL)))  {
+				if (((peer_sort_type == BGP_PEER_IBGP) &&
+				     !CHECK_FLAG(as_type, AS_INTERNAL)) ||
+				    ((peer_sort_type == BGP_PEER_EBGP) &&
+				     !CHECK_FLAG(as_type, AS_EXTERNAL))) {
 					*as = peer->as;
 					return BGP_ERR_PEER_GROUP_PEER_TYPE_DIFFERENT;
 				}
@@ -3025,7 +3028,7 @@ static void peer_group2peer_config_copy(struct peer_group *group,
 
 /* Peer group's remote AS configuration.  */
 int peer_group_remote_as(struct bgp *bgp, const char *group_name, as_t *as,
-			 int as_type, const char *as_str)
+			 enum peer_asn_type as_type, const char *as_str)
 {
 	struct peer_group *group;
 	struct peer *peer;

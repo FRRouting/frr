@@ -161,8 +161,9 @@ extern int bgp_vty_find_and_parse_afi_safi_bgp(struct vty *vty,
 int bgp_vty_find_and_parse_bgp(struct vty *vty, struct cmd_token **argv,
 			       int argc, struct bgp **bgp, bool use_json);
 extern int bgp_show_summary_vty(struct vty *vty, const char *name, afi_t afi,
-				safi_t safi, const char *neighbor, int as_type,
-				as_t as, uint16_t show_flags);
+				safi_t safi, const char *neighbor,
+				enum peer_asn_type as_type, as_t as,
+				uint16_t show_flags);
 extern bool peergroup_flag_check(struct peer *peer, uint64_t flag);
 extern bool peergroup_af_flag_check(struct peer *peer, afi_t afi, safi_t safi,
 				    uint64_t flag);

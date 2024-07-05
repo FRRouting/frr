@@ -4862,7 +4862,7 @@ static int peer_remote_as_vty(struct vty *vty, const char *peer_str,
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
 	int ret;
 	as_t as;
-	int as_type = AS_SPECIFIED;
+	enum peer_asn_type as_type = AS_SPECIFIED;
 	union sockunion su;
 
 	if (as_str[0] == 'i') {
@@ -4871,6 +4871,9 @@ static int peer_remote_as_vty(struct vty *vty, const char *peer_str,
 	} else if (as_str[0] == 'e') {
 		as = 0;
 		as_type = AS_EXTERNAL;
+	} else if (as_str[0] == 'a') {
+		as = 0;
+		as_type = AS_AUTO;
 	} else if (!asn_str2asn(as_str, &as))
 		as_type = AS_UNSPECIFIED;
 
@@ -4976,13 +4979,14 @@ ALIAS(no_bgp_shutdown, no_bgp_shutdown_msg_cmd,
 
 DEFUN (neighbor_remote_as,
        neighbor_remote_as_cmd,
-       "neighbor <A.B.C.D|X:X::X:X|WORD> remote-as <ASNUM|internal|external>",
+       "neighbor <A.B.C.D|X:X::X:X|WORD> remote-as <ASNUM|internal|external|auto>",
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
        "Specify a BGP neighbor\n"
        AS_STR
        "Internal BGP peer\n"
-       "External BGP peer\n")
+       "External BGP peer\n"
+       "Automatically detect remote ASN\n")
 {
 	int idx_peer = 1;
 	int idx_remote_as = 3;
@@ -5037,7 +5041,7 @@ static int peer_conf_interface_get(struct vty *vty, const char *conf_if,
 {
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
 	as_t as = 0;
-	int as_type = AS_UNSPECIFIED;
+	enum peer_asn_type as_type = AS_UNSPECIFIED;
 	struct peer *peer;
 	struct peer_group *group;
 	int ret = 0;
@@ -5054,6 +5058,8 @@ static int peer_conf_interface_get(struct vty *vty, const char *conf_if,
 			as_type = AS_INTERNAL;
 		} else if (as_str[0] == 'e') {
 			as_type = AS_EXTERNAL;
+		} else if (as_str[0] == 'a') {
+			as_type = AS_AUTO;
 		} else {
 			/* Get AS number.  */
 			if (asn_str2asn(as_str, &as))
@@ -5170,14 +5176,15 @@ DEFUN (neighbor_interface_config_v6only,
 
 DEFUN (neighbor_interface_config_remote_as,
        neighbor_interface_config_remote_as_cmd,
-       "neighbor WORD interface remote-as <ASNUM|internal|external>",
+       "neighbor WORD interface remote-as <ASNUM|internal|external|auto>",
        NEIGHBOR_STR
        "Interface name or neighbor tag\n"
        "Enable BGP on interface\n"
        "Specify a BGP neighbor\n"
        AS_STR
        "Internal BGP peer\n"
-       "External BGP peer\n")
+       "External BGP peer\n"
+       "Automatically detect remote ASN\n")
 {
 	int idx_word = 1;
 	int idx_remote_as = 4;
@@ -5187,7 +5194,7 @@ DEFUN (neighbor_interface_config_remote_as,
 
 DEFUN (neighbor_interface_v6only_config_remote_as,
        neighbor_interface_v6only_config_remote_as_cmd,
-       "neighbor WORD interface v6only remote-as <ASNUM|internal|external>",
+       "neighbor WORD interface v6only remote-as <ASNUM|internal|external|auto>",
        NEIGHBOR_STR
        "Interface name or neighbor tag\n"
        "Enable BGP with v6 link-local only\n"
@@ -5195,7 +5202,8 @@ DEFUN (neighbor_interface_v6only_config_remote_as,
        "Specify a BGP neighbor\n"
        AS_STR
        "Internal BGP peer\n"
-       "External BGP peer\n")
+       "External BGP peer\n"
+       "Automatically detect remote ASN\n")
 {
 	int idx_word = 1;
 	int idx_remote_as = 5;
@@ -5232,14 +5240,15 @@ DEFUN (neighbor_peer_group,
 
 DEFUN (no_neighbor,
        no_neighbor_cmd,
-       "no neighbor <WORD|<A.B.C.D|X:X::X:X> [remote-as <(1-4294967295)|internal|external>]>",
+       "no neighbor <WORD|<A.B.C.D|X:X::X:X> [remote-as <(1-4294967295)|internal|external|auto>]>",
        NO_STR
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
        "Specify a BGP neighbor\n"
        AS_STR
        "Internal BGP peer\n"
-       "External BGP peer\n")
+       "External BGP peer\n"
+       "Automatically detect remote ASN\n")
 {
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
 	int idx_peer = 2;
@@ -5310,7 +5319,7 @@ DEFUN (no_neighbor,
 
 DEFUN (no_neighbor_interface_config,
        no_neighbor_interface_config_cmd,
-       "no neighbor WORD interface [v6only] [peer-group PGNAME] [remote-as <(1-4294967295)|internal|external>]",
+       "no neighbor WORD interface [v6only] [peer-group PGNAME] [remote-as <(1-4294967295)|internal|external|auto>]",
        NO_STR
        NEIGHBOR_STR
        "Interface name\n"
@@ -5321,7 +5330,8 @@ DEFUN (no_neighbor_interface_config,
        "Specify a BGP neighbor\n"
        AS_STR
        "Internal BGP peer\n"
-       "External BGP peer\n")
+       "External BGP peer\n"
+       "Automatically detect remote ASN\n")
 {
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
 	int idx_word = 2;
@@ -5378,14 +5388,15 @@ DEFUN (no_neighbor_peer_group,
 
 DEFUN (no_neighbor_interface_peer_group_remote_as,
        no_neighbor_interface_peer_group_remote_as_cmd,
-       "no neighbor WORD remote-as <ASNUM|internal|external>",
+       "no neighbor WORD remote-as <ASNUM|internal|external|auto>",
        NO_STR
        NEIGHBOR_STR
        "Interface name or neighbor tag\n"
        "Specify a BGP neighbor\n"
        AS_STR
        "Internal BGP peer\n"
-       "External BGP peer\n")
+       "External BGP peer\n"
+       "Automatically detect remote ASN\n")
 {
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
 	int idx_word = 2;
@@ -11876,7 +11887,8 @@ static char *bgp_peer_description_stripped(char *desc, uint32_t size)
 
 /* Determine whether var peer should be filtered out of the summary. */
 static bool bgp_show_summary_is_peer_filtered(struct peer *peer,
-					      struct peer *fpeer, int as_type,
+					      struct peer *fpeer,
+					      enum peer_asn_type as_type,
 					      as_t as)
 {
 
@@ -11887,7 +11899,7 @@ static bool bgp_show_summary_is_peer_filtered(struct peer *peer,
 	/* filter remote-as (internal|external) */
 	if (as_type != AS_UNSPECIFIED) {
 		if (peer->as_type == AS_SPECIFIED) {
-			if (as_type == AS_INTERNAL) {
+			if (CHECK_FLAG(as_type, AS_INTERNAL)) {
 				if (peer->as != peer->local_as)
 					return true;
 			} else if (peer->as == peer->local_as)
@@ -11910,8 +11922,8 @@ static bool bgp_show_summary_is_peer_filtered(struct peer *peer,
  * whitespaces and the whole output will be tricky.
  */
 static int bgp_show_summary(struct vty *vty, struct bgp *bgp, int afi, int safi,
-			    struct peer *fpeer, int as_type, as_t as,
-			    uint16_t show_flags)
+			    struct peer *fpeer, enum peer_asn_type as_type,
+			    as_t as, uint16_t show_flags)
 {
 	struct peer *peer;
 	struct listnode *node, *nnode;
@@ -12718,10 +12730,9 @@ static void bgp_show_summary_afi_safi(struct vty *vty, struct bgp *bgp, int afi,
 }
 
 static void bgp_show_all_instances_summary_vty(struct vty *vty, afi_t afi,
-					       safi_t safi,
-					       const char *neighbor,
-					       int as_type, as_t as,
-					       uint16_t show_flags)
+					       safi_t safi, const char *neighbor,
+					       enum peer_asn_type as_type,
+					       as_t as, uint16_t show_flags)
 {
 	struct listnode *node, *nnode;
 	struct bgp *bgp;
@@ -12763,8 +12774,9 @@ static void bgp_show_all_instances_summary_vty(struct vty *vty, afi_t afi,
 }
 
 int bgp_show_summary_vty(struct vty *vty, const char *name, afi_t afi,
-			 safi_t safi, const char *neighbor, int as_type,
-			 as_t as, uint16_t show_flags)
+			 safi_t safi, const char *neighbor,
+			 enum peer_asn_type as_type, as_t as,
+			 uint16_t show_flags)
 {
 	struct bgp *bgp;
 	bool use_json = CHECK_FLAG(show_flags, BGP_SHOW_OPT_JSON);
@@ -12879,6 +12891,8 @@ DEFPY(show_ip_bgp_summary, show_ip_bgp_summary_cmd,
 			as_type = AS_INTERNAL;
 		else if (argv[idx + 1]->arg[0] == 'e')
 			as_type = AS_EXTERNAL;
+		else if (argv[idx + 1]->arg[0] == 'a')
+			as_type = AS_AUTO;
 		else if (!asn_str2asn(argv[idx + 1]->arg, &as)) {
 			vty_out(vty,
 				"%% Invalid neighbor remote-as value: %s\n",
@@ -14002,9 +14016,10 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, bool use_json,
 			json_object_boolean_true_add(json_neigh,
 						     "localAsReplaceAs");
 	} else {
-		if ((p->as_type == AS_SPECIFIED) ||
-		    (p->as_type == AS_EXTERNAL) ||
-		    (p->as_type == AS_INTERNAL)) {
+		if (p->as_type == AS_SPECIFIED ||
+		    CHECK_FLAG(p->as_type, AS_AUTO) ||
+		    CHECK_FLAG(p->as_type, AS_EXTERNAL) ||
+		    CHECK_FLAG(p->as_type, AS_INTERNAL)) {
 			vty_out(vty, "remote AS ");
 			vty_out(vty, ASN_FORMAT(bgp->asnotation), &p->as);
 			vty_out(vty, ", ");
@@ -14023,7 +14038,7 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, bool use_json,
 				: "");
 	}
 	/* peer type internal or confed-internal */
-	if ((p->as == p->local_as) || (p->as_type == AS_INTERNAL)) {
+	if ((p->as == p->local_as) || (CHECK_FLAG(p->as_type, AS_INTERNAL))) {
 		if (use_json) {
 			if (CHECK_FLAG(bgp->config, BGP_CONFIG_CONFEDERATION))
 				json_object_boolean_true_add(
@@ -17011,7 +17026,7 @@ static int bgp_show_one_peer_group(struct vty *vty, struct peer_group *group,
 				&conf->as);
 			vty_out(vty, "\n");
 		}
-	} else if (conf->as_type == AS_INTERNAL) {
+	} else if (CHECK_FLAG(conf->as_type, AS_INTERNAL)) {
 		if (json)
 			asn_asn2json(json, "remoteAs", group->bgp->as,
 				     group->bgp->asnotation);
@@ -17023,7 +17038,8 @@ static int bgp_show_one_peer_group(struct vty *vty, struct peer_group *group,
 			vty_out(vty, "\nBGP peer-group %s\n", group->name);
 	}
 
-	if ((group->bgp->as == conf->as) || (conf->as_type == AS_INTERNAL)) {
+	if ((group->bgp->as == conf->as) ||
+	    CHECK_FLAG(conf->as_type, AS_INTERNAL)) {
 		if (json)
 			json_object_string_add(json_peer_group, "type",
 					       "internal");
@@ -18525,6 +18541,9 @@ static void bgp_config_write_peer_global(struct vty *vty, struct bgp *bgp,
 		} else if (peer->as_type == AS_EXTERNAL) {
 			vty_out(vty, " remote-as external");
 			if_ras_printed = true;
+		} else if (CHECK_FLAG(peer->as_type, AS_AUTO)) {
+			vty_out(vty, " remote-as auto");
+			if_ras_printed = true;
 		}
 
 		vty_out(vty, "\n");
@@ -18546,6 +18565,9 @@ static void bgp_config_write_peer_global(struct vty *vty, struct bgp *bgp,
 			} else if (peer->as_type == AS_EXTERNAL) {
 				vty_out(vty,
 					" neighbor %s remote-as external\n",
+					addr);
+			} else if (CHECK_FLAG(peer->as_type, AS_AUTO)) {
+				vty_out(vty, " neighbor %s remote-as auto\n",
 					addr);
 			}
 		}
@@ -18575,6 +18597,9 @@ static void bgp_config_write_peer_global(struct vty *vty, struct bgp *bgp,
 			} else if (peer->as_type == AS_EXTERNAL) {
 				vty_out(vty,
 					" neighbor %s remote-as external\n",
+					addr);
+			} else if (CHECK_FLAG(peer->as_type, AS_AUTO)) {
+				vty_out(vty, " neighbor %s remote-as auto\n",
 					addr);
 			}
 		}

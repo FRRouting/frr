@@ -1977,6 +1977,14 @@ static int bgp_open_receive(struct peer_connection *connection,
 					  BGP_NOTIFY_OPEN_BAD_PEER_AS,
 					  notify_data_remote_as, 2);
 		return BGP_Stop;
+	} else if (peer->as_type == AS_AUTO) {
+		if (remote_as == peer->bgp->as) {
+			peer->as = peer->local_as;
+			SET_FLAG(peer->as_type, AS_INTERNAL);
+		} else {
+			peer->as = remote_as;
+			SET_FLAG(peer->as_type, AS_EXTERNAL);
+		}
 	} else if (peer->as_type == AS_INTERNAL) {
 		if (remote_as != peer->bgp->as) {
 			if (bgp_debug_neighbor_events(peer))

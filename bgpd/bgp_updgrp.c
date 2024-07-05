@@ -343,7 +343,12 @@ static unsigned int updgrp_hash_key_make(const void *p)
 
 	key = 0;
 
-	key = jhash_1word(peer->sort, key); /* EBGP or IBGP */
+	/* `remote-as auto` technically uses identical peer->sort.
+	 * After OPEN message is parsed, this is updated accordingly, but
+	 * we need to call the peer_sort() here also to properly create
+	 * separate subgroups.
+	 */
+	key = jhash_1word(peer_sort((struct peer *)peer), key);
 	key = jhash_1word(peer->sub_sort, key); /* OAD */
 	key = jhash_1word((peer->flags & PEER_UPDGRP_FLAGS), key);
 	key = jhash_1word((flags & PEER_UPDGRP_AF_FLAGS), key);

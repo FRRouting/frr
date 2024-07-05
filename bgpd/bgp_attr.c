@@ -4466,6 +4466,8 @@ bgp_size_t bgp_packet_attribute(struct bgp *bgp, struct peer *peer,
 		bgp_packet_mpattr_end(s, mpattrlen_pos);
 	}
 
+	(void)peer_sort(peer);
+
 	/* Origin attribute. */
 	stream_putc(s, BGP_ATTR_FLAG_TRANS);
 	stream_putc(s, BGP_ATTR_ORIGIN);

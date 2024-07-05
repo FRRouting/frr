@@ -56,10 +56,12 @@ struct bgp_pbr_config;
  * behavior
  * in the system.
  */
-enum { AS_UNSPECIFIED = 0,
-       AS_SPECIFIED,
-       AS_INTERNAL,
-       AS_EXTERNAL,
+enum peer_asn_type {
+	AS_UNSPECIFIED = 1,
+	AS_SPECIFIED = 2,
+	AS_INTERNAL = 4,
+	AS_EXTERNAL = 8,
+	AS_AUTO = 16,
 };
 
 /* Zebra Gracaful Restart states */
@@ -1246,7 +1248,7 @@ struct peer {
 	struct peer_af *peer_af_array[BGP_AF_MAX];
 
 	/* Peer's remote AS number. */
-	int as_type;
+	enum peer_asn_type as_type;
 	as_t as;
 	/* for vty as format */
 	char *as_pretty;
@@ -2281,8 +2283,9 @@ extern bool peer_afc_advertised(struct peer *peer);
 extern void bgp_recalculate_all_bestpaths(struct bgp *bgp);
 extern struct peer *peer_create(union sockunion *su, const char *conf_if,
 				struct bgp *bgp, as_t local_as, as_t remote_as,
-				int as_type, struct peer_group *group,
-				bool config_node, const char *as_str);
+				enum peer_asn_type as_type,
+				struct peer_group *group, bool config_node,
+				const char *as_str);
 extern struct peer *peer_create_accept(struct bgp *);
 extern void peer_xfer_config(struct peer *dst, struct peer *src);
 extern char *peer_uptime(time_t uptime2, char *buf, size_t len, bool use_json,
@@ -2355,13 +2358,13 @@ extern void bgp_listen_limit_unset(struct bgp *bgp);
 extern bool bgp_update_delay_active(struct bgp *);
 extern bool bgp_update_delay_configured(struct bgp *);
 extern bool bgp_afi_safi_peer_exists(struct bgp *bgp, afi_t afi, safi_t safi);
-extern void peer_as_change(struct peer *peer, as_t as, int as_type,
-			   const char *as_str);
+extern void peer_as_change(struct peer *peer, as_t as,
+			   enum peer_asn_type as_type, const char *as_str);
 extern int peer_remote_as(struct bgp *bgp, union sockunion *su,
-			  const char *conf_if, as_t *as, int as_type,
-			  const char *as_str);
+			  const char *conf_if, as_t *as,
+			  enum peer_asn_type as_type, const char *as_str);
 extern int peer_group_remote_as(struct bgp *bgp, const char *peer_str, as_t *as,
-				int as_type, const char *as_str);
+				enum peer_asn_type as_type, const char *as_str);
 extern int peer_delete(struct peer *peer);
 extern void peer_notify_unconfig(struct peer *peer);
 extern int peer_group_delete(struct peer_group *);
