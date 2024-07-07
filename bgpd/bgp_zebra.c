@@ -1665,10 +1665,10 @@ bgp_zebra_announce_actual(struct bgp_dest *dest, struct bgp_path_info *info,
 	}
 
 	if (bgp_debug_zebra(p)) {
-		zlog_debug("Tx route add %s %pFX metric %u tag %" ROUTE_TAG_PRI
+		zlog_debug("Tx route add %s (table id %u) %pFX metric %u tag %" ROUTE_TAG_PRI
 			   " count %d nhg %d",
-			   bgp->name_pretty, &api.prefix, api.metric, api.tag,
-			   api.nexthop_num, nhg_id);
+			   bgp->name_pretty, api.tableid, &api.prefix,
+			   api.metric, api.tag, api.nexthop_num, nhg_id);
 		bgp_debug_zebra_nh(&api);
 
 		zlog_debug("%s: %pFX: announcing to zebra (recursion %sset)",
@@ -1757,8 +1757,8 @@ enum zclient_send_status bgp_zebra_withdraw_actual(struct bgp_dest *dest,
 	}
 
 	if (bgp_debug_zebra(p))
-		zlog_debug("Tx route delete %s %pFX", bgp->name_pretty,
-			   &api.prefix);
+		zlog_debug("Tx route delete %s (table id %u) %pFX",
+			   bgp->name_pretty, api.tableid, &api.prefix);
 
 	return zclient_route_send(ZEBRA_ROUTE_DELETE, zclient, &api);
 }
