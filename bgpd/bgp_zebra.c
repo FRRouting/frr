@@ -1556,7 +1556,6 @@ bgp_zebra_announce_actual(struct bgp_dest *dest, struct bgp_path_info *info,
 	struct peer *peer;
 	uint32_t metric;
 	route_tag_t tag;
-	bool is_add;
 	uint32_t nhg_id = 0;
 	struct bgp_table *table = bgp_dest_table(dest);
 	const struct prefix *p = bgp_dest_get_prefix(dest);
@@ -1610,9 +1609,7 @@ bgp_zebra_announce_actual(struct bgp_dest *dest, struct bgp_path_info *info,
 					 table->afi, table->safi, &nhg_id,
 					 &metric, &tag, &allow_recursion);
 
-	is_add = (valid_nh_count || nhg_id) ? true : false;
-
-	if (is_add && CHECK_FLAG(bm->flags, BM_FLAG_SEND_EXTRA_DATA_TO_ZEBRA)) {
+	if (CHECK_FLAG(bm->flags, BM_FLAG_SEND_EXTRA_DATA_TO_ZEBRA)) {
 		struct bgp_zebra_opaque bzo = {};
 		const char *reason =
 			bgp_path_selection_reason2str(dest->reason);
@@ -1668,18 +1665,17 @@ bgp_zebra_announce_actual(struct bgp_dest *dest, struct bgp_path_info *info,
 	}
 
 	if (bgp_debug_zebra(p)) {
-		zlog_debug("Tx route %s %s %pFX metric %u tag %" ROUTE_TAG_PRI
+		zlog_debug("Tx route add %s %pFX metric %u tag %" ROUTE_TAG_PRI
 			   " count %d nhg %d",
-			   is_add ? "add" : "delete", bgp->name_pretty,
-			   &api.prefix, api.metric, api.tag, api.nexthop_num,
-			   nhg_id);
+			   bgp->name_pretty, &api.prefix, api.metric, api.tag,
+			   api.nexthop_num, nhg_id);
 		bgp_debug_zebra_nh(&api);
 
 		zlog_debug("%s: %pFX: announcing to zebra (recursion %sset)",
 			   __func__, p, (allow_recursion ? "" : "NOT "));
 	}
-	return zclient_route_send(is_add ? ZEBRA_ROUTE_ADD : ZEBRA_ROUTE_DELETE,
-				  zclient, &api);
+
+	return zclient_route_send(ZEBRA_ROUTE_ADD, zclient, &api);
 }
 
 
