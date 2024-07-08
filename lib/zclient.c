@@ -951,7 +951,7 @@ static int zapi_nexthop_cmp_no_labels(const struct zapi_nexthop *next1,
 	return 0;
 }
 
-static int zapi_nexthop_cmp(const void *item1, const void *item2)
+int zapi_nexthop_cmp(const void *item1, const void *item2)
 {
 	int ret = 0;
 
