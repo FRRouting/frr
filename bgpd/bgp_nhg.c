@@ -5,11 +5,16 @@
  */
 
 #include <zebra.h>
+#include "memory.h"
+#include "jhash.h"
 
 #include <bgpd/bgpd.h>
 #include <bgpd/bgp_debug.h>
 #include <bgpd/bgp_nhg.h>
+#include <bgpd/bgp_zebra.h>
 
+/* BGP NHG hash table. */
+struct bgp_nhg_cache_head nhg_cache_table;
 
 /****************************************************************************
  * L3 NHGs are used for fast failover of nexthops in the dplane. These are
@@ -69,6 +74,10 @@ void bgp_nhg_init(void)
 	if (BGP_DEBUG(nht, NHT) || BGP_DEBUG(evpn_mh, EVPN_MH_ES))
 		zlog_debug("bgp nhg range %u - %u", bgp_nhg_start + 1,
 			   bgp_nhg_start + id_max);
+	if (BGP_DEBUG(nexthop_group, NEXTHOP_GROUP))
+		zlog_debug("bgp nexthop group init");
+
+	bgp_nhg_cache_init(&nhg_cache_table);
 }
 
 void bgp_nhg_finish(void)
@@ -96,4 +105,64 @@ void bgp_nhg_id_free(uint32_t nhg_id)
 	nhg_id -= bgp_nhg_start;
 
 	bf_release_index(bgp_nh_id_bitmap, nhg_id);
+}
+
+/* display in a debug trace BGP NHG information, with a custom 'prefix' string */
+static void bgp_nhg_debug(struct bgp_nhg_cache *nhg, const char *prefix)
+{
+	char nexthop_buf[BGP_NEXTHOP_BUFFER_SIZE];
+
+	if (!nhg->nexthop_num)
+		return;
+
+	if (nhg->nexthop_num > 1) {
+		zlog_debug("NHG %u: %s", nhg->id, prefix);
+		bgp_debug_zebra_nh(nhg->nexthops, nhg->nexthop_num);
+		return;
+	}
+	bgp_debug_zebra_nh_buffer(&nhg->nexthops[0], nexthop_buf, sizeof(nexthop_buf));
+	zlog_debug("NHG %u: %s (%s)", nhg->id, prefix, nexthop_buf);
+}
+
+uint32_t bgp_nhg_cache_hash(const struct bgp_nhg_cache *nhg)
+{
+	return jhash_1word((uint32_t)nhg->nexthop_num, 0x55aa5a5a);
+}
+
+uint32_t bgp_nhg_cache_compare(const struct bgp_nhg_cache *a, const struct bgp_nhg_cache *b)
+{
+	int i, ret;
+
+	if (a->flags != b->flags)
+		return a->flags - b->flags;
+
+	for (i = 0; i < a->nexthop_num; i++) {
+		ret = zapi_nexthop_cmp(&a->nexthops[i], &b->nexthops[i]);
+		if (ret)
+			return ret;
+	}
+	return 0;
+}
+
+struct bgp_nhg_cache *bgp_nhg_new(uint32_t flags, uint16_t nexthop_num, struct zapi_nexthop api_nh[])
+{
+	struct bgp_nhg_cache *nhg;
+	int i;
+
+	nhg = XCALLOC(MTYPE_BGP_NHG_CACHE, sizeof(struct bgp_nhg_cache));
+	for (i = 0; i < nexthop_num; i++)
+		memcpy(&nhg->nexthops[i], &api_nh[i], sizeof(struct zapi_nexthop));
+
+	nhg->nexthop_num = nexthop_num;
+	nhg->flags = flags;
+
+	nhg->id = bgp_nhg_id_alloc();
+
+	if (BGP_DEBUG(nexthop_group, NEXTHOP_GROUP))
+		bgp_nhg_debug(nhg, "creation");
+
+	LIST_INIT(&(nhg->paths));
+	bgp_nhg_cache_add(&nhg_cache_table, nhg);
+
+	return nhg;
 }
