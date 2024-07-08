@@ -37,6 +37,7 @@
 #include "bgpd/bgp_errors.h"
 #include "bgpd/bgp_mpath.h"
 #include "bgpd/bgp_nexthop.h"
+#include "bgpd/bgp_nhg.h"
 #include "bgpd/bgp_nht.h"
 #include "bgpd/bgp_bfd.h"
 #include "bgpd/bgp_label.h"
@@ -1231,6 +1232,38 @@ static bool bgp_zebra_use_nhop_weighted(struct bgp *bgp, struct attr *attr,
 		*nh_weight = attr->link_bw;
 
 	return true;
+}
+
+static int bgp_nhg_notify_owner(ZAPI_CALLBACK_ARGS)
+{
+	enum zapi_nhg_notify_owner note;
+	uint32_t id;
+
+	if (!zapi_nhg_notify_decode(zclient->ibuf, &id, &note))
+		return -1;
+
+	switch (note) {
+	case ZAPI_NHG_INSTALLED:
+		bgp_nhg_id_set_installed(id);
+		if (BGP_DEBUG(zebra, ZEBRA))
+			zlog_debug("Installed nhg %u", id);
+		break;
+	case ZAPI_NHG_FAIL_INSTALL:
+		if (BGP_DEBUG(zebra, ZEBRA))
+			zlog_debug("Failed install of nhg %u", id);
+		break;
+	case ZAPI_NHG_REMOVED:
+		bgp_nhg_id_set_removed(id);
+		if (BGP_DEBUG(zebra, ZEBRA))
+			zlog_debug("Removed nhg %u", id);
+		break;
+	case ZAPI_NHG_REMOVE_FAIL:
+		if (BGP_DEBUG(zebra, ZEBRA))
+			zlog_debug("Failed removal of nhg %u", id);
+		break;
+	}
+
+	return 0;
 }
 
 static void bgp_zebra_announce_parse_nexthop(
@@ -3826,9 +3859,9 @@ static zclient_handler *const bgp_handlers[] = {
 	[ZEBRA_ROUTE_NOTIFY_OWNER] = bgp_zebra_route_notify_owner,
 	[ZEBRA_SRV6_LOCATOR_ADD] = bgp_zebra_process_srv6_locator_add,
 	[ZEBRA_SRV6_LOCATOR_DELETE] = bgp_zebra_process_srv6_locator_delete,
-	[ZEBRA_SRV6_MANAGER_GET_LOCATOR_CHUNK] =
-		bgp_zebra_process_srv6_locator_chunk,
+	[ZEBRA_SRV6_MANAGER_GET_LOCATOR_CHUNK] = bgp_zebra_process_srv6_locator_chunk,
 	[ZEBRA_SRV6_SID_NOTIFY] = bgp_zebra_srv6_sid_notify,
+	[ZEBRA_NHG_NOTIFY_OWNER] = bgp_nhg_notify_owner,
 };
 
 static int bgp_if_new_hook(struct interface *ifp)
