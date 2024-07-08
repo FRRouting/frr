@@ -13,6 +13,8 @@
 #include <bgpd/bgp_nhg.h>
 #include <bgpd/bgp_zebra.h>
 
+extern struct zclient *zclient;
+
 /* BGP NHG hash table. */
 struct bgp_nhg_cache_head nhg_cache_table;
 
@@ -124,6 +126,17 @@ static void bgp_nhg_debug(struct bgp_nhg_cache *nhg, const char *prefix)
 	zlog_debug("NHG %u: %s (%s)", nhg->id, prefix, nexthop_buf);
 }
 
+static struct bgp_nhg_cache *bgp_nhg_find_per_id(uint32_t id)
+{
+	struct bgp_nhg_cache *nhg;
+
+	frr_each_safe (bgp_nhg_cache, &nhg_cache_table, nhg)
+		if (nhg->id == id)
+			return nhg;
+
+	return NULL;
+}
+
 uint32_t bgp_nhg_cache_hash(const struct bgp_nhg_cache *nhg)
 {
 	return jhash_1word((uint32_t)nhg->nexthop_num, 0x55aa5a5a);
@@ -142,6 +155,42 @@ uint32_t bgp_nhg_cache_compare(const struct bgp_nhg_cache *a, const struct bgp_n
 			return ret;
 	}
 	return 0;
+}
+
+static void bgp_nhg_add_or_update_nhg(struct bgp_nhg_cache *bgp_nhg)
+{
+	struct zapi_nhg api_nhg = {};
+	int i;
+
+	if (bgp_nhg->nexthop_num == 0) {
+		/* assumption that dependent nhg are removed before when id is installed */
+		if (BGP_DEBUG(nexthop_group, NEXTHOP_GROUP_DETAIL))
+			zlog_debug("%s: nhg %u not sent: no valid nexthops", __func__, bgp_nhg->id);
+		return;
+	}
+
+	api_nhg.id = bgp_nhg->id;
+	if (CHECK_FLAG(bgp_nhg->flags, BGP_NHG_FLAG_ALLOW_RECURSION))
+		SET_FLAG(api_nhg.flags, NEXTHOP_GROUP_ALLOW_RECURSION);
+
+	if (CHECK_FLAG(bgp_nhg->flags, BGP_NHG_FLAG_SRTE_PRESENCE))
+		SET_FLAG(api_nhg.message, ZAPI_MESSAGE_SRTE);
+
+	if (CHECK_FLAG(bgp_nhg->flags, BGP_NHG_FLAG_IBGP))
+		SET_FLAG(api_nhg.flags, NEXTHOP_GROUP_IBGP);
+
+	for (i = 0; i < bgp_nhg->nexthop_num; i++) {
+		if (api_nhg.nexthop_num >= MULTIPATH_NUM) {
+			if (BGP_DEBUG(nexthop_group, NEXTHOP_GROUP_DETAIL))
+				zlog_warn("%s: number of nexthops greater than maximum number of multipathes, discard some nexthops.",
+					  __func__);
+			break;
+		}
+		memcpy(&api_nhg.nexthops[api_nhg.nexthop_num], &bgp_nhg->nexthops[i],
+		       sizeof(struct zapi_nexthop));
+		api_nhg.nexthop_num++;
+	}
+	zclient_nhg_send(zclient, ZEBRA_NHG_ADD, &api_nhg);
 }
 
 struct bgp_nhg_cache *bgp_nhg_new(uint32_t flags, uint16_t nexthop_num, struct zapi_nexthop api_nh[])
@@ -164,5 +213,35 @@ struct bgp_nhg_cache *bgp_nhg_new(uint32_t flags, uint16_t nexthop_num, struct z
 	LIST_INIT(&(nhg->paths));
 	bgp_nhg_cache_add(&nhg_cache_table, nhg);
 
+	/* prepare the nexthop */
+	bgp_nhg_add_or_update_nhg(nhg);
+
 	return nhg;
+}
+
+/* called when ZEBRA notified the BGP NHG id is installed */
+void bgp_nhg_id_set_installed(uint32_t id)
+{
+	static struct bgp_nhg_cache *nhg;
+
+	nhg = bgp_nhg_find_per_id(id);
+	if (nhg == NULL)
+		return;
+	SET_FLAG(nhg->state, BGP_NHG_STATE_INSTALLED);
+	if (BGP_DEBUG(nexthop_group, NEXTHOP_GROUP))
+		zlog_debug("NHG %u: ID is installed", nhg->id);
+}
+
+/* called when ZEBRA notified the BGP NHG id is removed */
+void bgp_nhg_id_set_removed(uint32_t id)
+{
+	static struct bgp_nhg_cache *nhg;
+
+	nhg = bgp_nhg_find_per_id(id);
+	if (nhg == NULL)
+		return;
+	if (BGP_DEBUG(nexthop_group, NEXTHOP_GROUP))
+		zlog_debug("NHG %u: ID is uninstalled", nhg->id);
+	UNSET_FLAG(nhg->state, BGP_NHG_STATE_INSTALLED);
+	SET_FLAG(nhg->state, BGP_NHG_STATE_REMOVED);
 }
