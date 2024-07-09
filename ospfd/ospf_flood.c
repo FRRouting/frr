@@ -110,6 +110,9 @@ void ospf_area_update_fr_state(struct ospf_area *area)
 static void ospf_flood_delayed_lsa_ack(struct ospf_neighbor *inbr,
 				       struct ospf_lsa *lsa)
 {
+	struct ospf_lsa_list_entry *ls_ack_list_entry;
+	struct ospf_interface *oi = inbr->oi;
+
 	/* LSA is more recent than database copy, but was not
 	   flooded back out receiving interface.  Delayed
 	   acknowledgment sent. If interface is in Backup state
@@ -122,12 +125,27 @@ static void ospf_flood_delayed_lsa_ack(struct ospf_neighbor *inbr,
 	   worked out previously */
 
 	/* Deal with router as BDR */
-	if (inbr->oi->state == ISM_Backup && !NBR_IS_DR(inbr))
+	if (oi->state == ISM_Backup && !NBR_IS_DR(inbr))
 		return;
 
-	/* Schedule a delayed LSA Ack to be sent */
-	listnode_add(inbr->oi->ls_ack,
-		     ospf_lsa_lock(lsa)); /* delayed LSA Ack */
+	if (IS_DEBUG_OSPF(lsa, LSA_FLOODING))
+		zlog_debug("%s:Add LSA[Type%d:%pI4:%pI4]: seq 0x%x age %u NBR %pI4 (%s) ack queue",
+			   __func__, lsa->data->type, &lsa->data->id,
+			   &lsa->data->adv_router, ntohl(lsa->data->ls_seqnum),
+			   ntohs(lsa->data->ls_age), &inbr->router_id,
+			   IF_NAME(inbr->oi));
+
+	/* Add the LSA to the interface delayed Ack list. */
+	ls_ack_list_entry = XCALLOC(MTYPE_OSPF_LSA_LIST,
+				    sizeof(struct ospf_lsa_list_entry));
+	ls_ack_list_entry->lsa = ospf_lsa_lock(lsa);
+	ospf_lsa_list_add_tail(&oi->ls_ack_delayed, ls_ack_list_entry);
+
+	/* Set LS Ack timer if it is not already scheduled. */
+	if (!oi->t_ls_ack_delayed)
+		OSPF_ISM_TIMER_ON(oi->t_ls_ack_delayed,
+				  ospf_ls_ack_delayed_timer,
+				  oi->v_ls_ack_delayed);
 }
 
 /* Check LSA is related to external info. */
