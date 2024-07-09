@@ -496,6 +496,7 @@ void isis_area_destroy(struct isis_area *area)
 {
 	struct listnode *node, *nnode;
 	struct isis_circuit *circuit;
+	struct iso_address *addr;
 
 	QOBJ_UNREG(area);
 
@@ -544,6 +545,15 @@ void isis_area_destroy(struct isis_area *area)
 
 	if (!CHECK_FLAG(im->options, F_ISIS_UNIT_TEST))
 		isis_redist_area_finish(area);
+
+	if (listcount(area->area_addrs) > 0) {
+		addr = listgetdata(listhead(area->area_addrs));
+		if (!memcmp(addr->area_addr + addr->addr_len, area->isis->sysid,
+			    ISIS_SYS_ID_LEN)) {
+			memset(area->isis->sysid, 0, ISIS_SYS_ID_LEN);
+			area->isis->sysid_set = 0;
+		}
+	}
 
 	list_delete(&area->area_addrs);
 

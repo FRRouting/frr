@@ -252,11 +252,12 @@ int isis_instance_area_address_destroy(struct nb_cb_destroy_args *args)
 		return NB_ERR_INCONSISTENCY;
 
 	listnode_delete(area->area_addrs, addrp);
-	XFREE(MTYPE_ISIS_AREA_ADDR, addrp);
 	/*
 	 * Last area address - reset the SystemID for this router
 	 */
-	if (listcount(area->area_addrs) == 0) {
+	if (!memcmp(addrp->area_addr + addrp->addr_len, area->isis->sysid,
+		    ISIS_SYS_ID_LEN) &&
+	    listcount(area->area_addrs) == 0) {
 		for (ALL_LIST_ELEMENTS_RO(area->circuit_list, cnode, circuit))
 			for (lvl = IS_LEVEL_1; lvl <= IS_LEVEL_2; ++lvl) {
 				if (circuit->u.bc.is_dr[lvl - 1])
@@ -267,6 +268,8 @@ int isis_instance_area_address_destroy(struct nb_cb_destroy_args *args)
 		if (IS_DEBUG_EVENTS)
 			zlog_debug("Router has no SystemID");
 	}
+
+	XFREE(MTYPE_ISIS_AREA_ADDR, addrp);
 
 	return NB_OK;
 }
