@@ -2314,6 +2314,7 @@ static int nexthop_active(struct nexthop *nexthop, struct nhg_hash_entry *nhe,
 	if (nexthop->srte_color) {
 		struct ipaddr endpoint = {0};
 		struct zebra_sr_policy *policy;
+		struct nexthop *nexthop_resolved;
 
 		switch (afi) {
 		case AFI_IP:
@@ -2336,19 +2337,31 @@ static int nexthop_active(struct nexthop *nexthop, struct nhg_hash_entry *nhe,
 		policy = zebra_sr_policy_find(nexthop->srte_color, &endpoint);
 		if (policy && policy->status == ZEBRA_SR_POLICY_UP) {
 			resolved = 0;
-			frr_each_safe (nhlfe_list, &policy->lsp->nhlfe_list,
-				       nhlfe) {
-				if (!CHECK_FLAG(nhlfe->flags,
-						NHLFE_FLAG_SELECTED)
-				    || CHECK_FLAG(nhlfe->flags,
-						  NHLFE_FLAG_DELETED))
-					continue;
-				SET_FLAG(nexthop->flags,
-					 NEXTHOP_FLAG_RECURSIVE);
-				nexthop_set_resolved(afi, nhlfe->nexthop,
+			if (policy->segment_list.label_num > 0) {
+				frr_each_safe (nhlfe_list,
+					       &policy->lsp->nhlfe_list, nhlfe) {
+					if (!CHECK_FLAG(nhlfe->flags,
+							NHLFE_FLAG_SELECTED) ||
+					    CHECK_FLAG(nhlfe->flags,
+						       NHLFE_FLAG_DELETED))
+						continue;
+					SET_FLAG(nexthop->flags,
+						 NEXTHOP_FLAG_RECURSIVE);
+					nexthop_set_resolved(afi, nhlfe->nexthop,
+							     nexthop, policy);
+					resolved = 1;
+				}
+			} else if (policy->segment_list.nexthop_resolved_num) {
+				nexthop_resolved = nexthop_from_zapi_nexthop(
+					&policy->segment_list.nexthop_resolved[0]);
+
+				SET_FLAG(nexthop->flags, NEXTHOP_FLAG_RECURSIVE);
+				nexthop_set_resolved(afi, nexthop_resolved,
 						     nexthop, policy);
 				resolved = 1;
+				nexthop_free(nexthop_resolved);
 			}
+
 			if (resolved)
 				return 1;
 		}

@@ -335,15 +335,24 @@ int zebra_sr_policy_validate(struct zebra_sr_policy *policy,
 			     struct zapi_srte_tunnel *new_tunnel)
 {
 	struct zapi_srte_tunnel old_tunnel = policy->segment_list;
-	struct zebra_lsp *lsp;
+	struct zebra_lsp *lsp = NULL;
+	bool srv6_sid_resolved = false;
 
 	if (new_tunnel)
 		policy->segment_list = *new_tunnel;
 
 	/* Try to resolve the Binding-SID nexthops. */
-	lsp = mpls_lsp_find(policy->zvrf, policy->segment_list.labels[0]);
-	if (!lsp || !lsp->best_nhlfe
-	    || lsp->addr_family != ipaddr_family(&policy->endpoint)) {
+	if (policy->segment_list.type == ZEBRA_SR_LSP_SRTE)
+		lsp = mpls_lsp_find(policy->zvrf,
+				    policy->segment_list.labels[0]);
+
+	/* Check if there are resolved nexthops in the segment list. */
+	srv6_sid_resolved = policy->segment_list.nexthop_resolved_num ? true
+								      : false;
+
+	if ((!lsp || !lsp->best_nhlfe ||
+	     lsp->addr_family != ipaddr_family(&policy->endpoint)) &&
+	    !srv6_sid_resolved) {
 		if (policy->status == ZEBRA_SR_POLICY_UP)
 			zebra_sr_policy_deactivate(policy);
 		return -1;
