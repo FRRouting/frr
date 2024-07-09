@@ -482,13 +482,19 @@ static void lsp_update_data(struct isis_lsp *lsp, struct isis_lsp_hdr *hdr,
 
 	lsp->tlvs = tlvs;
 
-	if (area->dynhostname && lsp->tlvs->hostname
-	    && lsp->hdr.rem_lifetime) {
-		isis_dynhn_insert(
-			area->isis, lsp->hdr.lsp_id, lsp->tlvs->hostname,
-			(lsp->hdr.lsp_bits & LSPBIT_IST) == IS_LEVEL_1_AND_2
-				? IS_LEVEL_2
-				: IS_LEVEL_1);
+	if (area->dynhostname && lsp->hdr.rem_lifetime) {
+		if (lsp->tlvs->hostname) {
+			isis_dynhn_insert(area->isis, lsp->hdr.lsp_id,
+					  lsp->tlvs->hostname,
+					  (lsp->hdr.lsp_bits & LSPBIT_IST) ==
+							  IS_LEVEL_1_AND_2
+						  ? IS_LEVEL_2
+						  : IS_LEVEL_1);
+		} else {
+			if (!LSP_PSEUDO_ID(lsp->hdr.lsp_id) &&
+			    !LSP_FRAGMENT(lsp->hdr.lsp_id))
+				isis_dynhn_remove(area->isis, lsp->hdr.lsp_id);
+		}
 	}
 
 	return;
@@ -2219,6 +2225,10 @@ void lsp_tick(struct event *thread)
 						next = lspdb_next(
 							&area->lspdb[level],
 							next);
+
+				if (!LSP_PSEUDO_ID(lsp->hdr.lsp_id))
+					isis_dynhn_remove(area->isis,
+							  lsp->hdr.lsp_id);
 
 				lspdb_del(&area->lspdb[level], lsp);
 				lsp_destroy(lsp);

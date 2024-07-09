@@ -293,7 +293,7 @@ const char *isis_adj_name(const struct isis_adjacency *adj)
 	struct isis_dynhn *dyn;
 
 	dyn = dynhn_find_by_id(adj->circuit->isis, adj->sysid);
-	if (dyn)
+	if (adj->circuit->area->dynhostname && dyn)
 		return dyn->hostname;
 
 	snprintfrr(buf, sizeof(buf), "%pSY", adj->sysid);
