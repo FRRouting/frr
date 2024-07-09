@@ -320,7 +320,7 @@ def check_ipv4_prefix_recursive_with_multiple_nexthops(
             )
 
     test_func = functools.partial(
-        ip_check_path_selection, tgen.gears["r1"], prefix, expected
+        ip_check_path_selection, tgen.gears["r1"], prefix, expected, check_fib=True
     )
     _, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
     assert (

@@ -1659,6 +1659,9 @@ static bool rib_update_nhg_from_ctx(struct nexthop_group *re_nhg,
 		if (!CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE))
 			continue;
 
+		if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_DUPLICATE))
+			continue;
+
 		/* Check for a FIB nexthop corresponding to the RIB nexthop */
 		if (!nexthop_same(ctx_nexthop, nexthop)) {
 			/* If the FIB doesn't know about the nexthop,

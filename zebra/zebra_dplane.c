@@ -4315,6 +4315,10 @@ dplane_route_update_internal(struct route_node *rn,
 					continue;
 
 				if (CHECK_FLAG(nexthop->flags,
+					       NEXTHOP_FLAG_DUPLICATE))
+					continue;
+
+				if (CHECK_FLAG(nexthop->flags,
 					       NEXTHOP_FLAG_ACTIVE))
 					SET_FLAG(nexthop->flags,
 						 NEXTHOP_FLAG_FIB);
