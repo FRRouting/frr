@@ -995,13 +995,12 @@ def test_bgp_ipv4_simulate_r5_peering_going_down():
 
     recursive_nh_changed = False
     step("Check that same NHG is used by 172.18.1.100/32 unicast routes")
-    if local_nhg_id != nhg_id_18:
-        print(
-            "Warning: BFD event, recursive nexthop 172.18.1.100/32, NHG_ID changed : %d -> %d"
-            % (nhg_id_18, local_nhg_id)
-        )
-        nhg_id_18 = local_nhg_id
-        recursive_nh_changed = True
+    assert (
+        local_nhg_id == nhg_id_18
+    ), "BFD event, recursive nexthop 172.18.1.100/32, NHG_ID changed : %d -> %d" % (
+        nhg_id_18,
+        local_nhg_id,
+    )
 
     check_ipv4_prefix_recursive_with_multiple_nexthops(
         "172.22.1.100/32", "172.18.1.200", r5_path=False, r6_path=True, r8_path=True
@@ -1015,24 +1014,22 @@ def test_bgp_ipv4_simulate_r5_peering_going_down():
     )
 
     step("Check that same NHG is used by 172.22.1.100/32 unicast routes")
-    if local_nhg_id != nhg_id_22:
-        print(
-            "Warning: BFD event, recursive nexthop 172.22.1.100/32, NHG_ID changed : %d -> %d"
-            % (nhg_id_22, local_nhg_id)
-        )
-        nhg_id_22 = local_nhg_id
-        recursive_nh_changed = True
+    assert (
+        local_nhg_id == nhg_id_22
+    ), "BFD event, recursive nexthop 172.22.1.100/32, NHG_ID changed : %d -> %d" % (
+        nhg_id_22,
+        local_nhg_id,
+    )
 
-    if not recursive_nh_changed:
-        step(
-            "Check that the number of route ADD messages between BGP and ZEBRA did not move"
-        )
-        local_route_count_add = _get_bgp_route_count(tgen.net["r1"])
-        logger.info(f"Number of route messages ADD: {local_route_count_add}")
-        assert route_count == local_route_count_add, (
-            "The number of route messages increased when r5 machine goes down : %d, expected %d"
-            % (local_route_count_add, route_count)
-        )
+    step(
+        "Check that the number of route ADD messages between BGP and ZEBRA did not move"
+    )
+    local_route_count_add = _get_bgp_route_count(tgen.net["r1"])
+    logger.info(f"Number of route messages ADD: {local_route_count_add}")
+    assert route_count == local_route_count_add, (
+        "The number of route messages increased when r5 machine goes down : %d, expected %d"
+        % (local_route_count_add, route_count)
+    )
 
     step("Check that the number of route DEL messages between BGP and ZEBRA is zero")
     local_route_count_del = _get_bgp_route_count(tgen.net["r1"], add_routes=False)
