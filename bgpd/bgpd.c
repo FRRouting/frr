@@ -3913,19 +3913,25 @@ int bgp_delete(struct bgp *bgp)
 	safi_t safi;
 	int i;
 	struct bgp_dest *dest = NULL;
+	struct bgp_dest *dest_next = NULL;
+	struct bgp_table *dest_table = NULL;
 	struct graceful_restart_info *gr_info;
-	uint32_t ann_count = zebra_announce_count(&bm->zebra_announce_head);
 
 	assert(bgp);
 
-	while (ann_count) {
-		dest = zebra_announce_pop(&bm->zebra_announce_head);
-		ann_count--;
-		if (dest->za_bgp_pi->peer->bgp == bgp) {
+	/*
+	 * Iterate the pending dest list and remove all the dest pertaininig to
+	 * the bgp under delete.
+	 */
+	for (dest = zebra_announce_first(&bm->zebra_announce_head); dest;
+	     dest = dest_next) {
+		dest_next = zebra_announce_next(&bm->zebra_announce_head, dest);
+		dest_table = bgp_dest_table(dest);
+		if (dest_table->bgp == bgp) {
 			bgp_path_info_unlock(dest->za_bgp_pi);
 			bgp_dest_unlock_node(dest);
-		} else
-			zebra_announce_add_tail(&bm->zebra_announce_head, dest);
+			zebra_announce_del(&bm->zebra_announce_head, dest);
+		}
 	}
 
 	bgp_soft_reconfig_table_task_cancel(bgp, NULL, NULL);
