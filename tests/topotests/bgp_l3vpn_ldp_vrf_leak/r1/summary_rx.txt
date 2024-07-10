@@ -1,0 +1,15 @@
+
+{
+  "routerId":"5.5.5.5",
+  "as":100,
+  "peerCount":1,
+  "peers":{
+    "9.9.9.9":{
+      "outq":0,
+      "inq":0,
+      "pfxRcd":20,
+      "state":"Established"
+    }
+  },
+  "totalPeers":1
+}
