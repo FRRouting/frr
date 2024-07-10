@@ -1515,6 +1515,8 @@ static void vty_show_pbrms(struct vty *vty,
 			   const struct pbr_map_sequence *pbrms, bool detail)
 {
 	char rbuf[64];
+	char src_str[INET6_ADDRSTRLEN];
+	char dst_str[INET6_ADDRSTRLEN];
 
 	if (pbrms->reason)
 		pbr_map_reason_string(pbrms->reason, rbuf, sizeof(rbuf));
@@ -1538,11 +1540,37 @@ static void vty_show_pbrms(struct vty *vty,
 		p = getprotobynumber(pbrms->ip_proto);
 		vty_out(vty, "        IP Protocol Match: %s\n", p->p_name);
 	}
-
-	if (CHECK_FLAG(pbrms->filter_bm, PBR_FILTER_SRC_IP))
-		vty_out(vty, "        SRC IP Match: %pFX\n", pbrms->src);
-	if (CHECK_FLAG(pbrms->filter_bm, PBR_FILTER_DST_IP))
-		vty_out(vty, "        DST IP Match: %pFX\n", pbrms->dst);
+	if (CHECK_FLAG(pbrms->filter_bm, PBR_FILTER_SRC_IP)) {
+		if (pbrms->src->family == AF_INET) {
+			if (inet_ntop(AF_INET, &pbrms->src->u.prefix4, src_str, INET_ADDRSTRLEN) !=
+			    NULL) {
+				vty_out(vty, "        SRC IP Match: %s/%d\n", src_str,
+					pbrms->src->prefixlen);
+			}
+		} else if (pbrms->src->family == AF_INET6) {
+			// ipv6 addr
+			if (inet_ntop(AF_INET6, &pbrms->src->u.prefix6, src_str,
+				      INET6_ADDRSTRLEN) != NULL) {
+				vty_out(vty, "        SRC IP Match: %s/%d\n", src_str,
+					pbrms->src->prefixlen);
+			}
+		}
+	}
+	if (CHECK_FLAG(pbrms->filter_bm, PBR_FILTER_DST_IP)) {
+		if (pbrms->dst->family == AF_INET) {
+			if (inet_ntop(AF_INET, &pbrms->dst->u.prefix4, dst_str, INET_ADDRSTRLEN) !=
+			    NULL) {
+				vty_out(vty, "        DST IP Match: %s/%d\n", dst_str,
+					pbrms->dst->prefixlen);
+			}
+		} else if (pbrms->dst->family == AF_INET6) {
+			if (inet_ntop(AF_INET6, &pbrms->dst->u.prefix6, dst_str,
+				      INET6_ADDRSTRLEN) != NULL) {
+				vty_out(vty, "        DST IP Match: %s/%d\n", dst_str,
+					pbrms->dst->prefixlen);
+			}
+		}
+	}
 
 	if (CHECK_FLAG(pbrms->filter_bm, PBR_FILTER_SRC_PORT))
 		vty_out(vty, "        SRC Port Match: %u\n", pbrms->src_prt);
