@@ -236,11 +236,34 @@ void bgp_nhg_id_free(uint32_t nhg_id)
 	bf_release_index(bgp_nh_id_bitmap, nhg_id);
 }
 
+void bgp_nhg_debug_parent(uint32_t child_ids[], int count, char *group_buf, size_t len)
+{
+	int i;
+	char *ptr = group_buf;
+	size_t written_len = 0;
+
+	group_buf[0] = '\0';
+	for (i = 0; i < count; i++) {
+		written_len += snprintf(ptr, len - written_len, "%u", child_ids[i]);
+		ptr = group_buf + written_len;
+		if (i + 1 < count) {
+			written_len += snprintf(ptr, len - written_len, ", ");
+			ptr = group_buf + written_len;
+		}
+	}
+}
+
 /* display in a debug trace BGP NHG information, with a custom 'prefix' string */
 static void bgp_nhg_debug(struct bgp_nhg_cache *nhg, const char *prefix)
 {
 	char nexthop_buf[BGP_NEXTHOP_BUFFER_SIZE];
 
+	if (CHECK_FLAG(nhg->flags, BGP_NHG_FLAG_TYPE_PARENT)) {
+		bgp_nhg_debug_parent(nhg->childs.childs, nhg->childs.child_num, nexthop_buf,
+				     sizeof(nexthop_buf));
+		zlog_debug("NHG %u: child %s (%s)", nhg->id, prefix, nexthop_buf);
+		return;
+	}
 	if (!nhg->nexthops.nexthop_num)
 		return;
 
@@ -255,7 +278,14 @@ static void bgp_nhg_debug(struct bgp_nhg_cache *nhg, const char *prefix)
 
 static struct bgp_nhg_cache *bgp_nhg_find_per_id(uint32_t id)
 {
+	struct bgp_nhg_cache *nhg;
 	struct bgp_nhg_cache nhg_tmp = { 0 };
+
+	/* parse list of childs */
+	frr_each_safe (bgp_nhg_cache, &nhg_cache_table, nhg) {
+		if (nhg->id == id)
+			return nhg;
+	}
 
 	/* parse list of parents */
 	nhg_tmp.id = id;
@@ -271,6 +301,8 @@ int bgp_nhg_parent_cache_compare(const struct bgp_nhg_cache *a, const struct bgp
 
 uint32_t bgp_nhg_cache_hash(const struct bgp_nhg_cache *nhg)
 {
+	if (CHECK_FLAG(nhg->flags, BGP_NHG_FLAG_TYPE_PARENT))
+		return jhash_1word((uint32_t)nhg->childs.child_num, 0x55aa5a5a);
 	return jhash_1word((uint32_t)nhg->nexthops.nexthop_num, 0x55aa5a5a);
 }
 
@@ -280,6 +312,14 @@ uint32_t bgp_nhg_cache_compare(const struct bgp_nhg_cache *a, const struct bgp_n
 
 	if (a->flags != b->flags)
 		return a->flags - b->flags;
+
+	if (CHECK_FLAG(a->flags, BGP_NHG_FLAG_TYPE_PARENT)) {
+		for (i = 0; i < a->childs.child_num; i++) {
+			if (a->childs.childs[i] != b->childs.childs[i])
+				return a->childs.childs[i] - b->childs.childs[i];
+		}
+		return 0;
+	}
 
 	for (i = 0; i < a->nexthops.nexthop_num; i++) {
 		ret = zapi_nexthop_cmp(&a->nexthops.nexthops[i], &b->nexthops.nexthops[i]);
@@ -294,11 +334,55 @@ static vrf_id_t bgp_nhg_get_vrfid(struct bgp_nhg_cache *nhg)
 {
 	vrf_id_t vrf_id = VRF_DEFAULT;
 	int i = 0;
+	struct bgp_nhg_cache *child_nhg;
+
+	if (CHECK_FLAG(nhg->flags, BGP_NHG_FLAG_TYPE_PARENT)) {
+		for (i = 0; i < nhg->childs.child_num; i++) {
+			child_nhg = bgp_nhg_find_per_id(nhg->childs.childs[i]);
+			if (child_nhg)
+				return bgp_nhg_get_vrfid(child_nhg);
+		}
+	}
 
 	for (i = 0; i < nhg->nexthops.nexthop_num; i++)
 		return nhg->nexthops.nexthops[i].vrf_id;
 
 	return vrf_id;
+}
+
+static bool bgp_nhg_add_or_update_nhg_group(struct bgp_nhg_cache *bgp_nhg,
+					    struct zapi_nhg_group *api_nhg_group)
+{
+	bool ret = true;
+	int i;
+	struct bgp_nhg_cache *child_nhg;
+
+	api_nhg_group->id = bgp_nhg->id;
+	api_nhg_group->child_group_num = 0;
+	for (i = 0; i < bgp_nhg->childs.child_num; i++) {
+		if (api_nhg_group->child_group_num >= MULTIPATH_NUM) {
+			if (BGP_DEBUG(nexthop_group, NEXTHOP_GROUP_DETAIL))
+				zlog_warn("%s: number of nexthops greater than max multipath size, truncating",
+					  __func__);
+			break;
+		}
+		child_nhg = bgp_nhg_find_per_id(bgp_nhg->childs.childs[i]);
+		if (!child_nhg || !CHECK_FLAG(child_nhg->state, BGP_NHG_STATE_INSTALLED)) {
+			if (BGP_DEBUG(nexthop_group, NEXTHOP_GROUP_DETAIL))
+				zlog_warn("%s: nhg %u not sent, child NHG ID %u not present or not installed.",
+					  __func__, bgp_nhg->id, bgp_nhg->childs.childs[i]);
+			continue;
+		}
+		api_nhg_group->child_group_id[i] = bgp_nhg->childs.childs[i];
+		api_nhg_group->child_group_num++;
+	}
+	if (api_nhg_group->child_group_num == 0) {
+		if (BGP_DEBUG(nexthop_group, NEXTHOP_GROUP_DETAIL))
+			zlog_debug("%s: nhg %u not sent: no valid groups", __func__,
+				   api_nhg_group->id);
+		ret = false;
+	}
+	return ret;
 }
 
 static bool bgp_nhg_add_or_update_nhg_nexthop(struct bgp_nhg_cache *bgp_nhg,
@@ -332,30 +416,51 @@ static bool bgp_nhg_add_or_update_nhg_nexthop(struct bgp_nhg_cache *bgp_nhg,
 static void bgp_nhg_add_or_update_nhg(struct bgp_nhg_cache *bgp_nhg)
 {
 	struct zapi_nhg api_nhg = {};
+	struct zapi_nhg_group api_nhg_group = {};
+	uint32_t message = 0;
+	uint8_t flags = 0;
 
 	if (CHECK_FLAG(bgp_nhg->flags, BGP_NHG_FLAG_ALLOW_RECURSION))
-		SET_FLAG(api_nhg.flags, NEXTHOP_GROUP_ALLOW_RECURSION);
+		SET_FLAG(flags, NEXTHOP_GROUP_ALLOW_RECURSION);
 
 	if (CHECK_FLAG(bgp_nhg->flags, BGP_NHG_FLAG_SRTE_PRESENCE))
-		SET_FLAG(api_nhg.message, ZAPI_MESSAGE_SRTE);
+		SET_FLAG(message, ZAPI_MESSAGE_SRTE);
 
 	if (CHECK_FLAG(bgp_nhg->flags, BGP_NHG_FLAG_IBGP))
-		SET_FLAG(api_nhg.flags, NEXTHOP_GROUP_IBGP);
+		SET_FLAG(flags, NEXTHOP_GROUP_IBGP);
+
+	if (CHECK_FLAG(bgp_nhg->flags, BGP_NHG_FLAG_TYPE_PARENT)) {
+		if (bgp_nhg_add_or_update_nhg_group(bgp_nhg, &api_nhg_group)) {
+			api_nhg_group.flags = flags;
+			api_nhg_group.message = message;
+			zclient_nhg_child_send(zclient, ZEBRA_NHG_CHILD_ADD, &api_nhg_group);
+		}
+		return;
+	}
+
+	api_nhg.flags = flags;
+	api_nhg.message = message;
 
 	if (bgp_nhg_add_or_update_nhg_nexthop(bgp_nhg, &api_nhg))
 		zclient_nhg_send(zclient, ZEBRA_NHG_ADD, &api_nhg);
 }
 
-struct bgp_nhg_cache *bgp_nhg_new(uint32_t flags, uint16_t nexthop_num, struct zapi_nexthop api_nh[])
+struct bgp_nhg_cache *bgp_nhg_new(uint32_t flags, uint16_t num, struct zapi_nexthop api_nh[],
+				  uint32_t api_group[])
 {
 	struct bgp_nhg_cache *nhg;
 	int i;
 
 	nhg = XCALLOC(MTYPE_BGP_NHG_CACHE, sizeof(struct bgp_nhg_cache));
-	for (i = 0; i < nexthop_num; i++)
-		memcpy(&nhg->nexthops.nexthops[i], &api_nh[i], sizeof(struct zapi_nexthop));
-
-	nhg->nexthops.nexthop_num = nexthop_num;
+	if (CHECK_FLAG(flags, BGP_NHG_FLAG_TYPE_PARENT)) {
+		for (i = 0; i < num; i++)
+			nhg->childs.childs[i] = api_group[i];
+		nhg->childs.child_num = num;
+	} else {
+		for (i = 0; i < num; i++)
+			memcpy(&nhg->nexthops.nexthops[i], &api_nh[i], sizeof(struct zapi_nexthop));
+		nhg->nexthops.nexthop_num = num;
+	}
 	nhg->flags = flags;
 
 	nhg->id = bgp_nhg_id_alloc();
@@ -366,8 +471,10 @@ struct bgp_nhg_cache *bgp_nhg_new(uint32_t flags, uint16_t nexthop_num, struct z
 	LIST_INIT(&(nhg->paths));
 	bgp_nhg_parents_init(nhg);
 	bgp_nhg_childs_init(nhg);
-	bgp_nhg_cache_add(&nhg_cache_table, nhg);
-	bgp_nhg_parent_cache_add(&nhg_parent_cache_table, nhg);
+	if (CHECK_FLAG(nhg->flags, BGP_NHG_FLAG_TYPE_PARENT))
+		bgp_nhg_parent_cache_add(&nhg_parent_cache_table, nhg);
+	else
+		bgp_nhg_cache_add(&nhg_cache_table, nhg);
 
 	/* prepare the nexthop */
 	bgp_nhg_add_or_update_nhg(nhg);
@@ -404,8 +511,10 @@ static void bgp_nhg_free(struct bgp_nhg_cache *nhg)
 	if (BGP_DEBUG(nexthop_group, NEXTHOP_GROUP))
 		bgp_nhg_debug(nhg, "removal");
 
-	bgp_nhg_cache_del(&nhg_cache_table, nhg);
-	bgp_nhg_parent_cache_del(&nhg_parent_cache_table, nhg);
+	if (CHECK_FLAG(nhg->flags, BGP_NHG_FLAG_TYPE_PARENT))
+		bgp_nhg_parent_cache_del(&nhg_parent_cache_table, nhg);
+	else
+		bgp_nhg_cache_del(&nhg_cache_table, nhg);
 	XFREE(MTYPE_BGP_NHG_CACHE, nhg);
 }
 
