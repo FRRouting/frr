@@ -1336,7 +1336,8 @@ static void bgp_zebra_nexthop_group_configure(struct bgp_path_info *info, const 
 		memcpy(&nhg.nexthops.nexthops[i], &api->nexthops[i], sizeof(struct zapi_nexthop));
 	p_nhg = bgp_nhg_cache_find(&nhg_cache_table, &nhg);
 	if (!p_nhg)
-		p_nhg = bgp_nhg_new(nhg.flags, nhg.nexthops.nexthop_num, nhg.nexthops.nexthops);
+		p_nhg = bgp_nhg_new(nhg.flags, nhg.nexthops.nexthop_num, nhg.nexthops.nexthops,
+				    NULL);
 
 	if (p_nhg != info->bgp_nhg) {
 		/* updates NHG info list reference */
