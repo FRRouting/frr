@@ -868,6 +868,9 @@ static int isis_spf_process_lsp(struct isis_spftree *spftree,
 			    || (mt_router_info && !mt_router_info->overload));
 
 lspfragloop:
+	if (!lsp->tlvs)
+		return ISIS_OK;
+
 	if (lsp->hdr.seqno == 0) {
 		zlog_warn("%s: lsp with 0 seq_num - ignore", __func__);
 		return ISIS_WARNING;
