@@ -4154,6 +4154,7 @@ int bgp_delete(struct bgp *bgp)
 	struct bgp_table *dest_table = NULL;
 	struct graceful_restart_info *gr_info;
 	struct bgp *bgp_default = bgp_get_default();
+	uint32_t cnt_before, cnt_after;
 
 	assert(bgp);
 
@@ -4161,6 +4162,7 @@ int bgp_delete(struct bgp *bgp)
 	 * Iterate the pending dest list and remove all the dest pertaininig to
 	 * the bgp under delete.
 	 */
+	cnt_before = zebra_announce_count(&bm->zebra_announce_head);
 	for (dest = zebra_announce_first(&bm->zebra_announce_head); dest;
 	     dest = dest_next) {
 		dest_next = zebra_announce_next(&bm->zebra_announce_head, dest);
@@ -4171,6 +4173,11 @@ int bgp_delete(struct bgp *bgp)
 			zebra_announce_del(&bm->zebra_announce_head, dest);
 		}
 	}
+
+	cnt_after = zebra_announce_count(&bm->zebra_announce_head);
+	if (BGP_DEBUG(zebra, ZEBRA))
+		zlog_debug("Zebra Announce Fifo cleanup count before %u and after %u during BGP %s deletion",
+			   cnt_before, cnt_after, bgp->name_pretty);
 
 	bgp_soft_reconfig_table_task_cancel(bgp, NULL, NULL);
 
