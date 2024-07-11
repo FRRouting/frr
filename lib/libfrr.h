@@ -222,10 +222,39 @@ extern void frr_fini(void);
 
 extern char config_default[512];
 extern char frr_zclientpath[512];
+
+/* refer to lib/config_paths.h (generated during ./configure) for build config
+ * values of the following:
+ */
+
+/* sysconfdir is generally /etc/frr/, some BSDs may use /usr/local/etc/frr/.
+ * Will NOT include "pathspace" (namespace) suffix from -N. (libfrr.c handles
+ * pathspace'ing config files.)  Has a slash at the end for "historical"
+ * reasons.
+ */
 extern const char frr_sysconfdir[];
+
+/* runstatedir is *ephemeral* across reboots.  It may either be a ramdisk,
+ * or be wiped during boot.  Use only for pid files, sockets, and the like,
+ * not state.  Commonly /run/frr or /var/run/frr.
+ * Will include "pathspace" (namespace) suffix from -N.
+ */
 extern char frr_runstatedir[256];
+
+/* libstatedir is *persistent*.  It's the place to put state like sequence
+ * numbers or databases.  Commonly /var/lib/frr.
+ * Will include "pathspace" (namespace) suffix from -N.
+ */
 extern char frr_libstatedir[256];
+
+/* moduledir is something along the lines of /usr/lib/frr/modules or
+ * /usr/lib/x86_64-linux-gnu/frr/modules.  It is not guaranteed to be a
+ * subdirectory of the directory that the daemon binaries reside in.  (e.g.
+ * the "x86_64-linux-gnu" component will be absent from daemon paths.)
+ */
 extern const char frr_moduledir[];
+
+/* scriptdir is for Lua scripts, generally ${frr_sysconfdir}/scripts */
 extern const char frr_scriptdir[];
 
 extern char frr_protoname[];
