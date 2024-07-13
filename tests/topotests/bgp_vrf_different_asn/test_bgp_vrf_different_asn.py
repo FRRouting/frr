@@ -58,6 +58,24 @@ def test_bgp_vrf_different_asn():
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
+    def _bgp_check_instances():
+        output = json.loads(tgen.gears["r1"].vtysh_cmd("show bgp vrf all json"))
+        expected = {
+            "default": {
+                "vrfName": "default",
+                "localAS": 65000,
+            },
+            "vrf100": {
+                "vrfName": "vrf100",
+                "localAS": 65100,
+            },
+        }
+        return topotest.json_cmp(output, expected)
+
+    test_func = functools.partial(_bgp_check_instances)
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
+    assert result is None, "Can't see vrf100 to be under 65100 ASN"
+
     def _bgp_check_imported_route():
         output = json.loads(
             tgen.gears["r1"].vtysh_cmd("show ip route 192.168.1.0/24 json")
