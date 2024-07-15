@@ -33,6 +33,8 @@ extern void bgp_zebra_route_install(struct bgp_dest *dest,
 				    bool install, struct bgpevpn *vpn,
 				    bool is_sync);
 extern void bgp_zebra_announce_table(struct bgp *bgp, afi_t afi, safi_t safi);
+extern void bgp_zebra_announce_dest(struct bgp *bgp, struct bgp_dest *dest,
+				    bool imported);
 
 /* Announce routes of any bgp subtype of a table to zebra */
 extern void bgp_zebra_announce_table_all_subtypes(struct bgp *bgp, afi_t afi,
