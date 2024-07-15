@@ -1675,6 +1675,10 @@ DEFUN (no_router_bgp,
 			for (ALL_LIST_ELEMENTS_RO(bm->bgp, node, tmp_bgp)) {
 				if (tmp_bgp->inst_type != BGP_INSTANCE_TYPE_VRF)
 					continue;
+
+				if (CHECK_FLAG(tmp_bgp->vrf_flags, BGP_VRF_AUTO))
+					continue;
+
 				if (CHECK_FLAG(
 					    tmp_bgp->af_flags[AFI_IP]
 							     [SAFI_UNICAST],
