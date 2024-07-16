@@ -97,8 +97,9 @@ struct bfd_echo_pkt {
 /* Macros for manipulating control packets */
 #define BFD_VERMASK 0x07
 #define BFD_DIAGMASK 0x1F
-#define BFD_GETVER(diag) ((diag >> 5) & BFD_VERMASK)
-#define BFD_SETVER(diag, val) ((diag) |= (val & BFD_VERMASK) << 5)
+#define BFD_GETVER(diag) (CHECK_FLAG((diag >> 5), BFD_VERMASK))
+#define BFD_SETVER(diag, val)                                                  \
+	SET_FLAG((diag), CHECK_FLAG(val, BFD_VERMASK) << 5)
 #define BFD_VERSION 1
 #define BFD_PBIT 0x20
 #define BFD_FBIT 0x10
@@ -106,36 +107,36 @@ struct bfd_echo_pkt {
 #define BFD_ABIT 0x04
 #define BFD_DEMANDBIT 0x02
 #define BFD_MBIT	      0x01
-#define BFD_GETMBIT(flags)    (flags & BFD_MBIT)
+#define BFD_GETMBIT(flags)    (CHECK_FLAG(flags, BFD_MBIT))
 #define BFD_SETDEMANDBIT(flags, val)                                           \
 	{                                                                      \
 		if ((val))                                                     \
-			flags |= BFD_DEMANDBIT;                                \
+			SET_FLAG(flags, BFD_DEMANDBIT);                        \
 	}
 #define BFD_SETPBIT(flags, val)                                                \
 	{                                                                      \
 		if ((val))                                                     \
-			flags |= BFD_PBIT;                                     \
+			SET_FLAG(flags, BFD_PBIT);                             \
 	}
-#define BFD_GETPBIT(flags) (flags & BFD_PBIT)
+#define BFD_GETPBIT(flags) (CHECK_FLAG(flags, BFD_PBIT))
 #define BFD_SETFBIT(flags, val)                                                \
 	{                                                                      \
 		if ((val))                                                     \
-			flags |= BFD_FBIT;                                     \
+			SET_FLAG(flags, BFD_FBIT);                             \
 	}
-#define BFD_GETFBIT(flags) (flags & BFD_FBIT)
+#define BFD_GETFBIT(flags) (CHECK_FLAG(flags, BFD_FBIT))
 #define BFD_SETSTATE(flags, val)                                               \
 	{                                                                      \
 		if ((val))                                                     \
-			flags |= (val & 0x3) << 6;                             \
+			SET_FLAG(flags, (CHECK_FLAG(val, 0x3) << 6));          \
 	}
-#define BFD_GETSTATE(flags) ((flags >> 6) & 0x3)
+#define BFD_GETSTATE(flags) (CHECK_FLAG((flags >> 6), 0x3))
 #define BFD_SETCBIT(flags, val)                                                \
 	{                                                                      \
 		if ((val))                                                     \
-			flags |= val;                                          \
+			SET_FLAG(flags, val);                                  \
 	}
-#define BFD_GETCBIT(flags) (flags & BFD_CBIT)
+#define BFD_GETCBIT(flags) (CHECK_FLAG(flags, BFD_CBIT))
 #define BFD_ECHO_VERSION 1
 #define BFD_ECHO_PKT_LEN sizeof(struct bfd_echo_pkt)
 
