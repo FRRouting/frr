@@ -2988,9 +2988,6 @@ static int show_one_daemon(struct vty *vty, struct cmd_token **argv, int argc,
 	return ret;
 }
 
-#if CONFDATE > 20240707
-	CPP_NOTICE("Remove `show thread ...` commands")
-#endif
 DEFUN (vtysh_show_event_timer,
        vtysh_show_event_timer_cmd,
        "show event timers",
