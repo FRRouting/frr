@@ -855,7 +855,7 @@ static int pm_sessions_update_ifp_walkcb(struct hash_bucket *backet, void *arg)
 		return HASHWALK_CONTINUE;
 
 	if (enable)
-		pm_echo(pm, errormsg, sizeof(errormsg));
+		pm_try_run(NULL, pm);
 	else
 		pm_echo_stop(pm, errormsg, sizeof(errormsg), true);
 
