@@ -49,6 +49,7 @@ struct in6_addr g_router_id_v6;
 pthread_mutex_t g_router_id_v4_mtx = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t g_router_id_v6_mtx = PTHREAD_MUTEX_INITIALIZER;
 
+DEFINE_MTYPE_STATIC(PATHD, LOCATOR_LIST_CTX, "Locator List context");
 DEFINE_MTYPE_STATIC(PATHD, PATH_NHT_DATA, "Pathd Nexthop tracking data");
 PREDECL_HASH(path_nht_hash);
 
@@ -825,6 +826,97 @@ static int path_zebra_opaque_msg_handler(ZAPI_CALLBACK_ARGS)
 	return ret;
 }
 
+PREDECL_DLIST(path_locator_list);
+struct path_locator_list_head path_srv6_locator_list;
+struct path_locator_ctx {
+	struct srv6_locator *locator;
+	struct path_locator_list_item pll_entries;
+};
+DECLARE_DLIST(path_locator_list, struct path_locator_ctx, pll_entries);
+
+
+static int path_zebra_process_srv6_locator_add(ZAPI_CALLBACK_ARGS)
+{
+	struct srv6_locator locator = {};
+	struct path_locator_ctx *ctx;
+	struct srte_policy *policy;
+	struct srv6_sid_ctx sid_ctx = {};
+
+	if (zapi_srv6_locator_decode(zclient->ibuf, &locator) < 0)
+		return -1;
+
+	if (!path_zebra_locator_ctx_lookup_by_name((const char *)&locator.name)) {
+		ctx = XCALLOC(MTYPE_LOCATOR_LIST_CTX,
+			      sizeof(struct path_locator_ctx));
+		ctx->locator = srv6_locator_alloc((const char *)&locator.name);
+		srv6_locator_copy(ctx->locator, &locator);
+		path_locator_list_add_tail(&path_srv6_locator_list, ctx);
+	}
+
+	RB_FOREACH (policy, srte_policy_head, &srte_policies) {
+		if (IPV6_ADDR_SAME(&policy->srv6_binding_sid, &in6addr_any))
+			continue;
+		sid_ctx.vrf_id = VRF_DEFAULT;
+		sid_ctx.behavior = ZEBRA_SEG6_LOCAL_ACTION_END_B6_ENCAP;
+		memcpy(&sid_ctx.nh6, &policy->endpoint.ip._v6_addr,
+		       sizeof(struct in6_addr));
+		sid_ctx.color = policy->color;
+		if (!CHECK_FLAG(policy->flags, F_POLICY_BSID_ALLOCATED))
+			path_zebra_srv6_manager_get_sid(&sid_ctx,
+							&policy->srv6_binding_sid);
+	}
+	return 0;
+}
+
+static int path_zebra_process_srv6_locator_delete(ZAPI_CALLBACK_ARGS)
+{
+	struct srv6_locator loc = {};
+	struct srv6_locator *locator;
+	struct srte_policy *policy;
+	struct srv6_sid_ctx ctx = {};
+	struct path_locator_ctx *context;
+
+	if (zapi_srv6_locator_decode(zclient->ibuf, &loc) < 0)
+		return -1;
+
+	context = path_zebra_locator_ctx_lookup_by_name((const char *)&loc.name);
+	if (!context || !context->locator)
+		return -1;
+
+	locator = context->locator;
+
+	PATH_ZEBRA_DEBUG("%s: Received SRv6 locator %s %pFX, loc-block-len=%u, loc-node-len=%u func-len=%u, arg-len=%u",
+			 __func__, locator->name, &locator->prefix,
+			 locator->block_bits_length, locator->node_bits_length,
+			 locator->function_bits_length,
+			 locator->argument_bits_length);
+
+	RB_FOREACH (policy, srte_policy_head, &srte_policies) {
+		if (IPV6_ADDR_SAME(&policy->srv6_binding_sid, &in6addr_any))
+			continue;
+		if (policy->srv6_locator == locator) {
+			ctx.vrf_id = VRF_DEFAULT;
+			ctx.behavior = ZEBRA_SEG6_LOCAL_ACTION_END_B6_ENCAP;
+			memcpy(&ctx.nh6, &policy->endpoint.ip._v6_addr,
+			       sizeof(struct in6_addr));
+			ctx.color = policy->color;
+			(void)path_zebra_send_bsid(&policy->srv6_binding_sid, 0,
+						   ZEBRA_SEG6_LOCAL_ACTION_END_B6_ENCAP,
+						   NULL, 0);
+			if (CHECK_FLAG(policy->flags, F_POLICY_BSID_ALLOCATED))
+				path_zebra_srv6_manager_release_sid(&ctx);
+			UNSET_FLAG(policy->flags, F_POLICY_BSID_ALLOCATED);
+			policy->srv6_locator = NULL;
+		}
+	}
+
+	srv6_locator_free(context->locator);
+	path_locator_list_del(&path_srv6_locator_list, context);
+	XFREE(MTYPE_LOCATOR_LIST_CTX, context);
+
+	return 0;
+}
+
 static int path_zebra_srv6_sid_notify(ZAPI_CALLBACK_ARGS)
 {
 	struct srv6_sid_ctx ctx;
@@ -835,6 +927,7 @@ static int path_zebra_srv6_sid_notify(ZAPI_CALLBACK_ARGS)
 	char buf[256];
 	char *locator_name = NULL;
 	char **p_locator_name = &locator_name;
+	struct path_locator_ctx *context;
 
 	/* Decode the received notification message */
 	if (!zapi_srv6_sid_notify_decode(zclient->ibuf, &ctx, &sid_addr,
@@ -843,6 +936,8 @@ static int path_zebra_srv6_sid_notify(ZAPI_CALLBACK_ARGS)
 		zlog_err("%s : error in msg decode", __func__);
 		return -1;
 	}
+	if (p_locator_name)
+		locator_name = *p_locator_name;
 
 	PATH_ZEBRA_DEBUG("%s: received SRv6 SID notify: ctx %s sid_value %pI6 %s",
 			 __func__, srv6_sid_ctx2str(buf, sizeof(buf), &ctx),
@@ -860,6 +955,11 @@ static int path_zebra_srv6_sid_notify(ZAPI_CALLBACK_ARGS)
 					 srv6_sid_ctx2str(buf, sizeof(buf),
 							  &ctx));
 			SET_FLAG(policy->flags, F_POLICY_BSID_ALLOCATED);
+
+			context = path_zebra_locator_ctx_lookup_by_name(
+				(const char *)locator_name);
+			if (context)
+				policy->srv6_locator = context->locator;
 			if (policy->best_candidate)
 				path_zebra_add_sr_policy(policy,
 							 policy->best_candidate
@@ -871,6 +971,7 @@ static int path_zebra_srv6_sid_notify(ZAPI_CALLBACK_ARGS)
 					 srv6_sid_ctx2str(buf, sizeof(buf),
 							  &ctx));
 			UNSET_FLAG(policy->flags, F_POLICY_BSID_ALLOCATED);
+			policy->srv6_locator = NULL;
 			break;
 		case ZAPI_SRV6_SID_FAIL_ALLOC:
 			PATH_ZEBRA_DEBUG("SRv6 SID %pI6 %s: Failed to allocate",
@@ -896,8 +997,24 @@ static zclient_handler *const path_handlers[] = {
 	[ZEBRA_SR_POLICY_NOTIFY_STATUS] = path_zebra_sr_policy_notify_status,
 	[ZEBRA_ROUTER_ID_UPDATE] = path_zebra_router_id_update,
 	[ZEBRA_OPAQUE_MESSAGE] = path_zebra_opaque_msg_handler,
+	[ZEBRA_SRV6_LOCATOR_ADD] = path_zebra_process_srv6_locator_add,
+	[ZEBRA_SRV6_LOCATOR_DELETE] = path_zebra_process_srv6_locator_delete,
 	[ZEBRA_SRV6_SID_NOTIFY] = path_zebra_srv6_sid_notify,
 };
+
+struct path_locator_ctx *
+path_zebra_locator_ctx_lookup_by_name(const char *locator_name)
+{
+	struct path_locator_ctx *ctx;
+
+	frr_each_safe (path_locator_list, &path_srv6_locator_list, ctx) {
+		if (ctx->locator &&
+		    strcmp(ctx->locator->name, locator_name) == 0) {
+			return ctx;
+		}
+	}
+	return NULL;
+}
 
 /**
  * Initializes Zebra asynchronous connection.
@@ -927,6 +1044,7 @@ void path_zebra_init(struct event_loop *master)
 
 	/* Pathd nht init */
 	path_nht_hash_init(path_nht_hash);
+	path_locator_list_init(&path_srv6_locator_list);
 }
 
 void path_zebra_stop(void)

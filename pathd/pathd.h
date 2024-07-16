@@ -353,6 +353,9 @@ struct srte_policy {
 	/* SRv6 Binding SID */
 	struct in6_addr srv6_binding_sid;
 
+	/* SRv6 locator attached to SID */
+	struct srv6_locator *srv6_locator;
+
 	/* The Protocol-Origin. */
 	enum srte_protocol_origin protocol_origin;
 
