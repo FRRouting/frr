@@ -242,10 +242,18 @@ static int zebra_evpn_arp_nd_proc(struct zebra_if *zif, uint16_t vlan,
 				   zif->ifp->name, vlan);
 		return 0;
 	}
-
 	/* zif is ZEBRA_IF_SLAVE_BRIDGE - can be vxlan or local port
-	 * TODO: Does br_if exists?
+	 * When the interface is deleted, zif will be present if ifp is
+	 * still configured, all other params are reset in which case check for
+	 * presence of bridge slave info
 	 */
+	if (!if_is_operative(zif->ifp) || !zif->brslave_info.br_if) {
+		if (IS_ZEBRA_DEBUG_EVPN_MH_ARP_ND_PKT)
+			zlog_debug("evpn arp_nd zif brslave_info bridge intf is"
+				   "NULL or interface is down for %s",
+				   zif->ifp->name);
+		return 0;
+	}
 	acc_bd = zebra_evpn_acc_vl_find(vlan ? vlan : zif->pvid,
 					zif->brslave_info.br_if);
 	if (!acc_bd || !acc_bd->zevpn) {
