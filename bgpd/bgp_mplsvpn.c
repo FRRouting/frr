@@ -280,7 +280,8 @@ done:
  *
  * Sending this vrf-label association is qualified by a) whether vrf->vpn
  * exporting is active ("export vpn" is enabled, vpn-policy RD and RT list
- * are set) and b) whether vpn-policy label is set.
+ * are set), b) whether vpn-policy label is set and c) the vrf loopback
+ * interface is up.
  *
  * If any of these conditions do not hold, then we send MPLS_LABEL_NONE
  * for this vrf, which zebra interprets to mean "delete this vrf-label
@@ -288,6 +289,7 @@ done:
  */
 void vpn_leak_zebra_vrf_label_update(struct bgp *bgp, afi_t afi)
 {
+	struct interface *ifp;
 	mpls_label_t label = MPLS_LABEL_NONE;
 	int debug = BGP_DEBUG(vpn, VPN_LEAK_LABEL);
 
@@ -301,7 +303,9 @@ void vpn_leak_zebra_vrf_label_update(struct bgp *bgp, afi_t afi)
 	}
 
 	if (vpn_leak_to_vpn_active(bgp, afi, NULL, false)) {
-		label = bgp->vpn_policy[afi].tovpn_label;
+		ifp = if_get_vrf_loopback(bgp->vrf_id);
+		if (ifp && if_is_vrf(ifp) && if_is_up(ifp))
+			label = bgp->vpn_policy[afi].tovpn_label;
 	}
 
 	if (debug) {
