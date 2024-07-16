@@ -56,20 +56,27 @@ frr_sysconfdir="\${sysconfdir}/frr"
 
 AC_MSG_CHECKING([whether --localstatedir option is FRR-specific])
 case "$localstatedir" in
+  /etc/frr*)
+    AC_MSG_RESULT([yes, /etc/frr special directory])
+    frr_libstatedir="/etc/frr"
+    ;;
   */run/frr)
     AC_MSG_RESULT([yes, ends in /run/frr - removing suffix])
     AC_MSG_WARN([Please remove /run/frr suffix from --localstatedir=${localstatedir} (it should be /var in 99% of cases)])
     localstatedir="${localstatedir%/run/frr}"
     path_warn_banner=true
+    frr_libstatedir="\${localstatedir}/lib/frr"
     ;;
   */frr)
     AC_MSG_RESULT([yes, ends in /frr - removing suffix])
     AC_MSG_WARN([The --localstatedir=${localstatedir} option seems to include /frr but not /run, this is unexpected.  Please check for consistency.)])
     localstatedir="${localstatedir%/frr}"
     path_warn_banner=true
+    frr_libstatedir="\${localstatedir}/lib/frr"
     ;;
   *)
     AC_MSG_RESULT([no, as expected])
+    frr_libstatedir="\${localstatedir}/lib/frr"
     ;;
 esac
 
@@ -79,7 +86,6 @@ dnl
 dnl note runstatedir was never used with /frr as the other two above, so does
 dnl not need the same cleanup hack
 : "${runstatedir:=\${localstatedir\}/run}"
-frr_runstatedir="\${runstatedir}/frr"
 
 if $path_warn_banner; then
   AC_MSG_WARN([^])
@@ -91,7 +97,17 @@ if $path_warn_banner; then
   AC_MSG_WARN([^])
 fi
 
-frr_libstatedir="\${localstatedir}/lib/frr"
+AX_RECURSIVE_EVAL([$runstatedir], [runstatedir])
+case "$runstatedir" in
+  /etc/frr*)
+    AC_MSG_RESULT([yes, /etc/frr special directory])
+    frr_runstatedir="/etc/frr"
+    ;;
+  *)
+    AC_MSG_RESULT([no, as expected])
+    frr_runstatedir="\${runstatedir}/frr"
+    ;;
+esac
 
 dnl -----------------------------------
 dnl Get hostname and other information.
