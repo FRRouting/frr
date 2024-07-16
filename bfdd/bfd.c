@@ -410,8 +410,8 @@ static uint32_t ptm_bfd_gen_ID(void)
 	 * random session identification numbers.
 	 */
 	do {
-		session_id = ((frr_weak_random() << 16) & 0xFFFF0000)
-			     | (frr_weak_random() & 0x0000FFFF);
+		session_id = CHECK_FLAG((frr_weak_random() << 16), 0xFFFF0000) |
+			     CHECK_FLAG(frr_weak_random(), 0x0000FFFF);
 	} while (session_id == 0 || bfd_id_lookup(session_id) != NULL);
 
 	return session_id;
