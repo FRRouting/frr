@@ -263,18 +263,7 @@ void gen_bfd_key(struct bfd_key *key, struct sockaddr_any *peer,
 
 struct bfd_session *bs_peer_find(struct bfd_peer_cfg *bpc)
 {
-	struct bfd_session *bs;
-	struct peer_label *pl;
 	struct bfd_key key;
-
-	/* Try to find label first. */
-	if (bpc->bpc_has_label) {
-		pl = pl_find(bpc->bpc_label);
-		if (pl != NULL) {
-			bs = pl->pl_bs;
-			return bs;
-		}
-	}
 
 	/* Otherwise fallback to peer/local hash lookup. */
 	gen_bfd_key(&key, &bpc->bpc_peer, &bpc->bpc_local, bpc->bpc_mhop,
@@ -333,10 +322,8 @@ int bfd_session_enable(struct bfd_session *bs)
 	bs->ifp = ifp;
 
 	/* Attempt to use data plane. */
-	if (bglobal.bg_use_dplane && bfd_dplane_add_session(bs) == 0) {
-		control_notify_config(BCM_NOTIFY_CONFIG_ADD, bs);
+	if (bglobal.bg_use_dplane && bfd_dplane_add_session(bs) == 0)
 		return 0;
-	}
 
 	/* Sanity check: don't leak open sockets. */
 	if (bs->sock != -1) {
@@ -507,7 +494,7 @@ void ptm_bfd_sess_up(struct bfd_session *bfd)
 	/* Start sending control packets with poll bit immediately. */
 	ptm_bfd_snd(bfd, 0);
 
-	control_notify(bfd, bfd->ses_state);
+	ptm_bfd_notify(bfd, bfd->ses_state);
 
 	if (old_state != bfd->ses_state) {
 		bfd->stats.session_up++;
@@ -543,7 +530,7 @@ void ptm_bfd_sess_dn(struct bfd_session *bfd, uint8_t diag)
 
 	/* only signal clients when going from up->down state */
 	if (old_state == PTM_BFD_UP)
-		control_notify(bfd, PTM_BFD_DOWN);
+		ptm_bfd_notify(bfd, PTM_BFD_DOWN);
 
 	/* Stop echo packet transmission if they are active */
 	if (CHECK_FLAG(bfd->flags, BFD_SESS_FLAG_ECHO_ACTIVE))
@@ -695,38 +682,6 @@ struct bfd_session *bfd_session_new(void)
 	return bs;
 }
 
-int bfd_session_update_label(struct bfd_session *bs, const char *nlabel)
-{
-	/* New label treatment:
-	 * - Check if the label is taken;
-	 * - Try to allocate the memory for it and register;
-	 */
-	if (bs->pl == NULL) {
-		if (pl_find(nlabel) != NULL) {
-			/* Someone is already using it. */
-			return -1;
-		}
-
-		pl_new(nlabel, bs);
-
-		return 0;
-	}
-
-	/*
-	 * Test label change consistency:
-	 * - Do nothing if it's the same label;
-	 * - Check if the future label is already taken;
-	 * - Change label;
-	 */
-	if (strcmp(nlabel, bs->pl->pl_label) == 0)
-		return -1;
-	if (pl_find(nlabel) != NULL)
-		return -1;
-
-	strlcpy(bs->pl->pl_label, nlabel, sizeof(bs->pl->pl_label));
-	return 0;
-}
-
 static void _bfd_session_update(struct bfd_session *bs,
 				struct bfd_peer_cfg *bpc)
 {
@@ -754,9 +709,6 @@ static void _bfd_session_update(struct bfd_session *bs,
 		bs->timers.desired_min_echo_tx = bpc->bpc_echotxinterval * 1000;
 		bs->peer_profile.min_echo_tx = bs->timers.desired_min_echo_tx;
 	}
-
-	if (bpc->bpc_has_label)
-		bfd_session_update_label(bs, bpc->bpc_label);
 
 	if (bpc->bpc_cbit)
 		SET_FLAG(bs->flags, BFD_SESS_FLAG_CBIT);
@@ -797,8 +749,6 @@ static int bfd_session_update(struct bfd_session *bs, struct bfd_peer_cfg *bpc)
 
 	_bfd_session_update(bs, bpc);
 
-	control_notify_config(BCM_NOTIFY_CONFIG_UPDATE, bs);
-
 	return 0;
 }
 
@@ -825,8 +775,6 @@ void bfd_session_free(struct bfd_session *bs)
 	}
 	if (bso != NULL)
 		bs_observer_del(bso);
-
-	pl_free(bs->pl);
 
 	XFREE(MTYPE_BFDD_PROFILE, bs->profile_name);
 	XFREE(MTYPE_BFDD_CONFIG, bs);
@@ -926,8 +874,6 @@ struct bfd_session *bs_registrate(struct bfd_session *bfd)
 
 	hook_call(bfd_tracking_new_session, bfd);
 
-	control_notify_config(BCM_NOTIFY_CONFIG_ADD, bfd);
-
 	return bfd;
 }
 
@@ -949,8 +895,6 @@ int ptm_bfd_sess_del(struct bfd_peer_cfg *bpc)
 
 	if (bglobal.debug_peer_event)
 		zlog_debug("%s: %s", __func__, bs_to_string(bs));
-
-	control_notify_config(BCM_NOTIFY_CONFIG_DELETE, bs);
 
 	bfd_session_free(bs);
 
@@ -1175,11 +1119,8 @@ void bs_final_handler(struct bfd_session *bs)
 	 * When using demand mode we must disable the detection timer
 	 * for lost control packets.
 	 */
-	if (bs->demand_mode) {
-		/* Notify watchers about changed timers. */
-		control_notify_config(BCM_NOTIFY_CONFIG_UPDATE, bs);
+	if (bs->demand_mode)
 		return;
-	}
 
 	/*
 	 * Calculate transmission time based on new timers.
@@ -1198,9 +1139,6 @@ void bs_final_handler(struct bfd_session *bs)
 
 	/* Apply new transmission timer immediately. */
 	ptm_bfd_start_xmt_timer(bs, false);
-
-	/* Notify watchers about changed timers. */
-	control_notify_config(BCM_NOTIFY_CONFIG_UPDATE, bs);
 }
 
 void bs_set_slow_timers(struct bfd_session *bs)
@@ -1271,7 +1209,7 @@ void bfd_set_shutdown(struct bfd_session *bs, bool shutdown)
 		if (bs->bdc) {
 			bs->ses_state = PTM_BFD_ADM_DOWN;
 			bfd_dplane_update_session(bs);
-			control_notify(bs, bs->ses_state);
+			ptm_bfd_notify(bs, bs->ses_state);
 			return;
 		}
 
@@ -1283,7 +1221,7 @@ void bfd_set_shutdown(struct bfd_session *bs, bool shutdown)
 
 		/* Change and notify state change. */
 		bs->ses_state = PTM_BFD_ADM_DOWN;
-		control_notify(bs, bs->ses_state);
+		ptm_bfd_notify(bs, bs->ses_state);
 
 		/* Don't try to send packets with a disabled session. */
 		if (bs->sock != -1)
@@ -1299,13 +1237,13 @@ void bfd_set_shutdown(struct bfd_session *bs, bool shutdown)
 		if (bs->bdc) {
 			bs->ses_state = PTM_BFD_DOWN;
 			bfd_dplane_update_session(bs);
-			control_notify(bs, bs->ses_state);
+			ptm_bfd_notify(bs, bs->ses_state);
 			return;
 		}
 
 		/* Change and notify state change. */
 		bs->ses_state = PTM_BFD_DOWN;
-		control_notify(bs, bs->ses_state);
+		ptm_bfd_notify(bs, bs->ses_state);
 
 		/* Enable timers if non passive, otherwise stop them. */
 		if (CHECK_FLAG(bs->flags, BFD_SESS_FLAG_PASSIVE)) {

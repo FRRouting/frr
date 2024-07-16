@@ -21,8 +21,6 @@ bfdd_libbfd_a_SOURCES = \
 	bfdd/bfdd_vty.c \
 	bfdd/bfdd_cli.c \
 	bfdd/bfd_packet.c \
-	bfdd/config.c \
-	bfdd/control.c \
 	bfdd/dplane.c \
 	bfdd/event.c \
 	bfdd/ptm_adapter.c \
@@ -46,7 +44,6 @@ bfdd/bfd_tracking.lo: bfdd/bfd_tracking_clippy.c
 endif
 
 noinst_HEADERS += \
-	bfdd/bfdctl.h \
 	bfdd/bfdd_nb.h \
 	bfdd/bfd.h \
 	# end
