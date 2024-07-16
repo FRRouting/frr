@@ -75,7 +75,7 @@ module frr-eigrpd {
   typedef autonomous-system {
     description "Administrative domain identification for a network";
     type uint16 {
-      range 1..65535;
+      range "1..65535";
     }
   }
 
