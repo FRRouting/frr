@@ -799,8 +799,6 @@ int netlink_route_change_read_unicast_internal(struct nlmsghdr *h,
 		return 0;
 	if (rtm->rtm_protocol == RTPROT_REDIRECT)
 		return 0;
-	if (rtm->rtm_protocol == RTPROT_KERNEL)
-		return 0;
 
 	selfroute = is_selfroute(rtm->rtm_protocol);
 
@@ -840,6 +838,10 @@ int netlink_route_change_read_unicast_internal(struct nlmsghdr *h,
 
 	if (h->nlmsg_flags & NLM_F_APPEND)
 		flags |= ZEBRA_FLAG_OUTOFSYNC;
+
+	/* kernel link-scoped routes are directly connected */
+	if (rtm->rtm_scope == RT_SCOPE_LINK)
+		proto = ZEBRA_ROUTE_CONNECT;
 
 	/* Route which inserted by Zebra. */
 	if (selfroute) {
