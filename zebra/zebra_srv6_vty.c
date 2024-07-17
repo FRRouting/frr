@@ -639,7 +639,7 @@ static void do_show_srv6_sid_all(struct vty *vty, json_object **json, struct srv
 
 DEFPY (show_srv6_sid,
        show_srv6_sid_cmd,
-       "show segment-routing srv6 [locator NAME$locator_name] sid [X:X::X:X$sid_value] [json]",
+       "show segment-routing srv6 [locator NAME$locator_name] sid [X:X::X:X$sid_value] [detail$detail] [json]",
        SHOW_STR
        "Segment Routing\n"
        "Segment Routing SRv6\n"
@@ -647,6 +647,7 @@ DEFPY (show_srv6_sid,
        "Locator Name\n"
        "SID\n"
        "SID value\n"
+       "Detailed information\n"
        JSON_STR)
 {
 	bool uj = use_json(argc, argv);
