@@ -576,11 +576,11 @@ cause great confusion.
 
    Display current bsr, its uptime and last received bsm age.
 
-.. clicmd:: show ip pim bsrp-info
+.. clicmd:: show ip pim bsrp-info [vrf NAME] [json]
 
    Display group-to-rp mappings received from E-BSR.
 
-.. clicmd:: show ip pim bsm-database
+.. clicmd:: show ip pim bsm-database [vrf NAME] [json]
 
    Display all fragments of stored bootstrap message in user readable format.
 
