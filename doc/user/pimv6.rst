@@ -388,11 +388,11 @@ General multicast routing state
 
    Display current bsr, its uptime and last received bsm age.
 
-.. clicmd:: show ipv6 pim bsrp-info
+.. clicmd:: show ipv6 pim bsrp-info [vrf NAME] [json]
 
    Display group-to-rp mappings received from E-BSR.
 
-.. clicmd:: show ipv6 pim bsm-database
+.. clicmd:: show ipv6 pim bsm-database [vrf NAME] [json]
 
    Display all fragments of stored bootstrap message in user readable format.
 
