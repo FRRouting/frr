@@ -6332,16 +6332,16 @@ struct bgpevpn *bgp_evpn_new(struct bgp *bgp, vni_t vni,
 void bgp_evpn_free(struct bgp *bgp, struct bgpevpn *vpn)
 {
 	struct bgp_dest *dest = NULL;
-	uint32_t ann_count = zebra_announce_count(&bm->zebra_announce_head);
+	struct bgp_dest *dest_next = NULL;
 
-	while (ann_count) {
-		dest = zebra_announce_pop(&bm->zebra_announce_head);
-		ann_count--;
+	for (dest = zebra_announce_first(&bm->zebra_announce_head); dest;
+	     dest = dest_next) {
+		dest_next = zebra_announce_next(&bm->zebra_announce_head, dest);
 		if (dest->za_vpn == vpn) {
 			bgp_path_info_unlock(dest->za_bgp_pi);
 			bgp_dest_unlock_node(dest);
-		} else
-			zebra_announce_add_tail(&bm->zebra_announce_head, dest);
+			zebra_announce_del(&bm->zebra_announce_head, dest);
+		}
 	}
 
 	bgp_evpn_remote_ip_hash_destroy(vpn);
