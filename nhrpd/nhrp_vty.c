@@ -459,6 +459,62 @@ DEFUN(if_no_nhrp_holdtime, if_no_nhrp_holdtime_cmd,
 	return CMD_SUCCESS;
 }
 
+<<<<<<< HEAD
+=======
+#define NHRP_CISCO_PASS_LEN 8
+DEFPY(if_nhrp_authentication, if_nhrp_authentication_cmd,
+      AFI_CMD "nhrp authentication PASSWORD$password",
+      AFI_STR
+      NHRP_STR
+      "Specify plain text password used for authenticantion\n"
+      "Password, plain text, limited to 8 characters\n")
+{
+	VTY_DECLVAR_CONTEXT(interface, ifp);
+	struct nhrp_cisco_authentication_extension *auth;
+	struct nhrp_interface *nifp = ifp->info;
+	int pass_len = strlen(password);
+
+	if (pass_len > NHRP_CISCO_PASS_LEN) {
+		vty_out(vty, "Password size limit exceeded (%d>%d)\n",
+			pass_len, NHRP_CISCO_PASS_LEN);
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	if (nifp->auth_token) {
+		zbuf_free(nifp->auth_token);
+		nifp->auth_token = NULL;
+	}
+
+	nifp->auth_token = zbuf_alloc(pass_len + sizeof(uint32_t));
+	auth = (struct nhrp_cisco_authentication_extension *)
+		       nifp->auth_token->buf;
+	auth->type = htonl(NHRP_AUTHENTICATION_PLAINTEXT);
+	memcpy(auth->secret, password, pass_len);
+
+	return CMD_SUCCESS;
+}
+
+
+DEFPY(if_no_nhrp_authentication, if_no_nhrp_authentication_cmd,
+      "no " AFI_CMD "nhrp authentication PASSWORD$password",
+      NO_STR
+      AFI_STR
+      NHRP_STR
+      "Specify plain text password used for authenticantion\n"
+	  "Password, plain text, limited to 8 characters\n")
+{
+	VTY_DECLVAR_CONTEXT(interface, ifp);
+	struct nhrp_interface *nifp = ifp->info;
+
+	if (nifp->auth_token) {
+		zbuf_free(nifp->auth_token);
+		nifp->auth_token = NULL;
+	}
+	return CMD_SUCCESS;
+}
+
+
+>>>>>>> 55de91d853 (nhrpd: Fixes auth config change bug)
 DEFUN(if_nhrp_mtu, if_nhrp_mtu_cmd,
 	"ip nhrp mtu <(576-1500)|opennhrp>",
 	IP_STR
