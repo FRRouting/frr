@@ -87,6 +87,8 @@ struct ospf6_lsa_header {
 	uint16_t length;     /* LSA length */
 };
 
+
+
 static inline char *ospf6_lsa_header_end(struct ospf6_lsa_header *header)
 {
 	return (char *)header + sizeof(struct ospf6_lsa_header);
@@ -120,7 +122,6 @@ static inline uint16_t ospf6_lsa_size(struct ospf6_lsa_header *header)
 #define OSPF6_LSA_IS_MAXAGE(L) (ospf6_lsa_age_current (L) == OSPF_LSA_MAXAGE)
 #define OSPF6_LSA_IS_CHANGED(L1, L2) ospf6_lsa_is_changed (L1, L2)
 #define OSPF6_LSA_IS_SEQWRAP(L) ((L)->header->seqnum == htonl(OSPF_MAX_SEQUENCE_NUMBER + 1))
-
 
 /* Router-LSA */
 #define OSPF6_ROUTER_LSA_MIN_SIZE              4U
@@ -369,4 +370,8 @@ extern void ospf6_flush_self_originated_lsas_now(struct ospf6 *ospf6);
 extern struct ospf6 *ospf6_get_by_lsdb(struct ospf6_lsa *lsa);
 struct ospf6_lsa *ospf6_find_external_lsa(struct ospf6 *ospf6,
 					  struct prefix *p);
+
+void *lsdesc_start_lsa_type(struct ospf6_lsa_header *header, int lsa_type);
+void *lsdesc_start(struct ospf6_lsa_header *header);
+
 #endif /* OSPF6_LSA_H */

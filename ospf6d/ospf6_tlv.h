@@ -27,9 +27,6 @@ struct tlv_header {
 
 #define TLV_SIZE(tlvh) ((uint32_t)(TLV_HDR_SIZE + TLV_BODY_SIZE(tlvh)))
 
-#define TLV_HDR_TOP(lsah)                                                      \
-	((struct tlv_header *)((char *)(lsah) + OSPF6_LSA_HEADER_SIZE))
-
 #define TLV_HDR_NEXT(tlvh)                                                     \
 	((struct tlv_header *)((char *)(tlvh) + TLV_SIZE(tlvh)))
 
