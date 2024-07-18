@@ -215,3 +215,9 @@ possibility to select the MIB he wants to receive traps from:
 By default, only rfc4273 traps are enabled and sent.
 
 .. [Draft-IETF-idr-bgp4-mibv2-11] <https://tools.ietf.org/id/draft-ietf-idr-bgp4-mibv2-11.txt>
+
+The :rfc:`4382` also defines traps to inform when an L3VPN network changes
+the operational status of its VRF interface. The user can choose to suppress
+those traps or not.
+
+.. clicmd:: bgp snmp traps rfc4382
