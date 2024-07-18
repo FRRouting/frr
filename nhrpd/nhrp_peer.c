@@ -1052,6 +1052,13 @@ static void nhrp_peer_forward(struct nhrp_peer *p,
 				zbuf_put(zb, extpl.head, len);
 			}
 			break;
+		case NHRP_EXTENSION_AUTHENTICATION:
+			/* At this point, received packet has been authenticated.
+			 *  Just need to regenerate auth extension before forwarding.
+			 *  This will be done below in nhrp_packet_complete_auth().
+			 */
+			break;
+
 		default:
 			if (htons(ext->type) & NHRP_EXTENSION_FLAG_COMPULSORY)
 				/* FIXME: RFC says to just copy, but not
@@ -1070,7 +1077,7 @@ static void nhrp_peer_forward(struct nhrp_peer *p,
 		nhrp_ext_complete(zb, dst);
 	}
 
-	nhrp_packet_complete_auth(zb, hdr, pp->ifp, false);
+	nhrp_packet_complete_auth(zb, hdr, pp->ifp, true);
 	nhrp_peer_send(p, zb);
 	zbuf_free(zb);
 	zbuf_free(zb_copy);
