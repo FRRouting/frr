@@ -37,6 +37,37 @@ DEFINE_MTYPE_STATIC(OSPF6D, OSPF6_LSA,         "OSPF6 LSA");
 DEFINE_MTYPE_STATIC(OSPF6D, OSPF6_LSA_HEADER,  "OSPF6 LSA header");
 DEFINE_MTYPE_STATIC(OSPF6D, OSPF6_LSA_SUMMARY, "OSPF6 LSA summary");
 
+const uint8_t ospf6_lsa_min_size[OSPF6_LSTYPE_SIZE] = {
+	[OSPF6_LSTYPE_UNKNOWN] = 0,
+	[0x00ff & OSPF6_LSTYPE_ROUTER] = OSPF6_ROUTER_LSA_MIN_SIZE,
+	[0x00ff & OSPF6_LSTYPE_NETWORK] = OSPF6_NETWORK_LSA_MIN_SIZE,
+	[0x00ff & OSPF6_LSTYPE_INTER_PREFIX] = OSPF6_INTER_PREFIX_LSA_MIN_SIZE,
+	[0x00ff & OSPF6_LSTYPE_INTER_ROUTER] = OSPF6_INTER_ROUTER_LSA_FIX_SIZE,
+	[0x00ff & OSPF6_LSTYPE_AS_EXTERNAL] = OSPF6_AS_EXTERNAL_LSA_MIN_SIZE,
+	[0x00ff & OSPF6_LSTYPE_GROUP_MEMBERSHIP] = 0, /* Unused */
+	[0x00ff & OSPF6_LSTYPE_TYPE_7] = OSPF6_AS_EXTERNAL_LSA_MIN_SIZE,
+	[0x00ff & OSPF6_LSTYPE_LINK] = OSPF6_LINK_LSA_MIN_SIZE,
+	[0x00ff & OSPF6_LSTYPE_INTRA_PREFIX] = OSPF6_INTRA_PREFIX_LSA_MIN_SIZE,
+	[0x00ff & OSPF6_LSTYPE_GRACE_LSA] = 0
+};
+
+void *lsdesc_start_lsa_type(struct ospf6_lsa_header *header, int lsa_type)
+{
+	uint8_t t = (0x00ff & lsa_type);
+
+	if (t == OSPF6_LSTYPE_UNKNOWN || t >= OSPF6_LSTYPE_SIZE) {
+		zlog_debug("Cannot get descriptor offset for unknown lsa type 0x%x",
+			   t);
+		return ospf6_lsa_end(header);
+	}
+	return (char *)lsa_after_header(header) + ospf6_lsa_min_size[t];
+}
+
+void *lsdesc_start(struct ospf6_lsa_header *header)
+{
+	return lsdesc_start_lsa_type(header, ntohs(header->type));
+}
+
 static struct ospf6_lsa_handler *lsa_handlers[OSPF6_LSTYPE_SIZE];
 
 struct ospf6 *ospf6_get_by_lsdb(struct ospf6_lsa *lsa)

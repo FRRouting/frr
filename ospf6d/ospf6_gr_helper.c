@@ -145,7 +145,7 @@ static int ospf6_extract_grace_lsa_fields(struct ospf6_lsa *lsa,
 
 	length = ntohs(lsah->length) - OSPF6_LSA_HEADER_SIZE;
 
-	for (tlvh = TLV_HDR_TOP(lsah); sum < length && tlvh;
+	for (tlvh = lsdesc_start(lsah); sum < length && tlvh;
 	     tlvh = TLV_HDR_NEXT(tlvh)) {
 
 		/* Check TLV len against overall LSA */
@@ -1241,7 +1241,7 @@ static int ospf6_grace_lsa_show_info(struct vty *vty, struct ospf6_lsa *lsa,
 		zlog_debug("  TLV info:");
 	}
 
-	for (tlvh = TLV_HDR_TOP(lsah); sum < length && tlvh;
+	for (tlvh = lsdesc_start(lsah); sum < length && tlvh;
 	     tlvh = TLV_HDR_NEXT(tlvh)) {
 
 		/* Check TLV len */
