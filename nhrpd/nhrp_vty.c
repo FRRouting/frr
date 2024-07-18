@@ -481,8 +481,10 @@ DEFPY(if_nhrp_authentication, if_nhrp_authentication_cmd,
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
-	if (nifp->auth_token)
+	if (nifp->auth_token) {
 		zbuf_free(nifp->auth_token);
+		nifp->auth_token = NULL;
+	}
 
 	nifp->auth_token = zbuf_alloc(pass_len + sizeof(uint32_t));
 	auth = (struct nhrp_cisco_authentication_extension *)
@@ -505,8 +507,10 @@ DEFPY(if_no_nhrp_authentication, if_no_nhrp_authentication_cmd,
 	VTY_DECLVAR_CONTEXT(interface, ifp);
 	struct nhrp_interface *nifp = ifp->info;
 
-	if (nifp->auth_token)
+	if (nifp->auth_token) {
 		zbuf_free(nifp->auth_token);
+		nifp->auth_token = NULL;
+	}
 	return CMD_SUCCESS;
 }
 
