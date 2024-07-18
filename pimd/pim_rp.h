@@ -46,8 +46,7 @@ int pim_rp_change(struct pim_instance *pim, pim_addr new_rp_addr,
 void pim_rp_prefix_list_update(struct pim_instance *pim,
 			       struct prefix_list *plist);
 
-int pim_rp_config_write(struct pim_instance *pim, struct vty *vty,
-			const char *spaces);
+int pim_rp_config_write(struct pim_instance *pim, struct vty *vty);
 
 void pim_rp_setup(struct pim_instance *pim);
 

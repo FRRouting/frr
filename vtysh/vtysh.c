@@ -1677,6 +1677,24 @@ static struct cmd_node bfd_profile_node = {
 };
 #endif /* HAVE_BFDD */
 
+#ifdef HAVE_PIMD
+static struct cmd_node pim_node = {
+	.name = "pim",
+	.node = PIM_NODE,
+	.parent_node = CONFIG_NODE,
+	.prompt = "%s(config-pim)# ",
+};
+#endif /* HAVE_PIMD */
+
+#ifdef HAVE_PIM6D
+static struct cmd_node pim6_node = {
+	.name = "pim6",
+	.node = PIM6_NODE,
+	.parent_node = CONFIG_NODE,
+	.prompt = "%s(config-pim6)# ",
+};
+#endif /* HAVE_PIM6D */
+
 /* Defined in lib/vty.c */
 extern struct cmd_node vty_node;
 
@@ -2413,6 +2431,30 @@ DEFUNSH(VTYSH_BFDD, bfd_profile_enter, bfd_profile_enter_cmd,
 }
 #endif /* HAVE_BFDD */
 
+#ifdef HAVE_PIMD
+DEFUNSH(VTYSH_PIMD, router_pim, router_pim_cmd,
+	"router pim [vrf NAME]",
+	ROUTER_STR
+	"Start PIM configuration\n"
+	VRF_CMD_HELP_STR)
+{
+	vty->node = PIM_NODE;
+	return CMD_SUCCESS;
+}
+#endif /* HAVE_PIMD */
+
+#ifdef HAVE_PIM6D
+DEFUNSH(VTYSH_PIM6D, router_pim6, router_pim6_cmd,
+	"router pim6 [vrf NAME]",
+	ROUTER_STR
+	"Start PIMv6 configuration\n"
+	VRF_CMD_HELP_STR)
+{
+	vty->node = PIM6_NODE;
+	return CMD_SUCCESS;
+}
+#endif /* HAVE_PIM6D*/
+
 DEFUNSH(VTYSH_ALL, vtysh_line_vty, vtysh_line_vty_cmd, "line vty",
 	"Configure a terminal line\n"
 	"Virtual terminal\n")
@@ -2825,6 +2867,34 @@ DEFUNSH(VTYSH_PATHD, vtysh_quit_pathd, vtysh_quit_pathd_cmd, "quit",
 	return vtysh_exit_pathd(self, vty, argc, argv);
 }
 #endif /* HAVE_PATHD */
+
+#ifdef HAVE_PIMD
+DEFUNSH(VTYSH_PIMD, vtysh_exit_pimd, vtysh_exit_pimd_cmd, "exit",
+	"Exit current mode and down to previous mode\n")
+{
+	return vtysh_exit(vty);
+}
+
+DEFUNSH(VTYSH_PIMD, vtysh_quit_pimd, vtysh_quit_pimd_cmd, "quit",
+	"Exit current mode and down to previous mode\n")
+{
+	return vtysh_exit_pimd(self, vty, argc, argv);
+}
+#endif /* HAVE_PIMD */
+
+#ifdef HAVE_PIM6D
+DEFUNSH(VTYSH_PIM6D, vtysh_exit_pim6d, vtysh_exit_pim6d_cmd, "exit",
+	"Exit current mode and down to previous mode\n")
+{
+	return vtysh_exit(vty);
+}
+
+DEFUNSH(VTYSH_PIM6D, vtysh_quit_pim6d, vtysh_quit_pim6d_cmd, "quit",
+	"Exit current mode and down to previous mode\n")
+{
+	return vtysh_exit_pim6d(self, vty, argc, argv);
+}
+#endif /* HAVE_PIM6D */
 
 DEFUNSH(VTYSH_ALL, vtysh_exit_line_vty, vtysh_exit_line_vty_cmd, "exit",
 	"Exit current mode and down to previous mode\n")
@@ -5293,6 +5363,25 @@ void vtysh_init_vty(void)
 	install_element(INTERFACE_NODE, &vtysh_exit_interface_cmd);
 	install_element(INTERFACE_NODE, &vtysh_quit_interface_cmd);
 
+	/* pimd */
+#ifdef HAVE_PIMD
+	install_node(&pim_node);
+	install_element(CONFIG_NODE, &router_pim_cmd);
+	install_element(PIM_NODE, &vtysh_exit_pimd_cmd);
+	install_element(PIM_NODE, &vtysh_quit_pimd_cmd);
+	install_element(PIM_NODE, &vtysh_end_all_cmd);
+#endif /* HAVE_PIMD */
+
+	/* pim6d */
+#ifdef HAVE_PIM6D
+	install_node(&pim6_node);
+	install_element(CONFIG_NODE, &router_pim6_cmd);
+	install_element(PIM6_NODE, &vtysh_exit_pim6d_cmd);
+	install_element(PIM6_NODE, &vtysh_quit_pim6d_cmd);
+	install_element(PIM6_NODE, &vtysh_end_all_cmd);
+#endif /* HAVE_PIM6D */
+
+	/* zebra and all, cont. */
 	install_node(&link_params_node);
 	install_element(INTERFACE_NODE, &vtysh_link_params_cmd);
 	install_element(LINK_PARAMS_NODE, &no_link_params_enable_cmd);
