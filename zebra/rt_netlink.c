@@ -282,6 +282,7 @@ int zebra2proto(int proto)
 		break;
 	case ZEBRA_ROUTE_TABLE:
 	case ZEBRA_ROUTE_NHG:
+	case ZEBRA_ROUTE_6PE:
 		proto = RTPROT_ZEBRA;
 		break;
 	case ZEBRA_ROUTE_CONNECT:
