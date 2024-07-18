@@ -248,9 +248,7 @@ void ospf6_router_lsa_originate(struct event *thread)
 	ospf6_router_lsa_options_set(oa, router_lsa);
 
 	/* describe links for each interfaces */
-	lsdesc = (struct ospf6_router_lsdesc
-			  *)((caddr_t)router_lsa
-			     + sizeof(struct ospf6_router_lsa));
+	lsdesc = lsdesc_start_lsa_type(lsa_header, OSPF6_LSTYPE_ROUTER);
 
 	for (ALL_LIST_ELEMENTS(oa->if_list, node, nnode, oi)) {
 		/* Interfaces in state Down or Loopback are not described */
@@ -273,9 +271,9 @@ void ospf6_router_lsa_originate(struct event *thread)
 		    && ((size_t)((char *)lsdesc - buffer)
 				+ sizeof(struct ospf6_router_lsdesc)
 			> oa->router_lsa_size_limit)) {
-			if ((caddr_t)lsdesc
-			    == (caddr_t)router_lsa
-				       + sizeof(struct ospf6_router_lsa)) {
+			if (lsdesc ==
+			    lsdesc_start_lsa_type(lsa_header,
+						  OSPF6_LSTYPE_ROUTER)) {
 				zlog_warn(
 					"Size limit setting for Router-LSA too short");
 				return;
@@ -309,9 +307,8 @@ void ospf6_router_lsa_originate(struct event *thread)
 			ospf6_router_lsa_options_set(oa, router_lsa);
 
 			/* describe links for each interfaces */
-			lsdesc = (struct ospf6_router_lsdesc
-					  *)((caddr_t)router_lsa
-					     + sizeof(struct ospf6_router_lsa));
+			lsdesc = lsdesc_start_lsa_type(lsa_header,
+						       OSPF6_LSTYPE_ROUTER);
 
 			link_state_id++;
 		}
@@ -575,9 +572,7 @@ void ospf6_network_lsa_originate(struct event *thread)
 		network_lsa->options[2] |= link_lsa->options[2];
 	}
 
-	lsdesc = (struct ospf6_network_lsdesc
-			  *)((caddr_t)network_lsa
-			     + sizeof(struct ospf6_network_lsa));
+	lsdesc = lsdesc_start_lsa_type(lsa_header, OSPF6_LSTYPE_NETWORK);
 
 	/* set Link Description to the router itself */
 	lsdesc->router_id = oi->area->ospf6->router_id;
@@ -802,8 +797,7 @@ void ospf6_link_lsa_originate(struct event *thread)
 	       sizeof(struct in6_addr));
 	link_lsa->prefix_num = htonl(oi->route_connected->count);
 
-	op = (struct ospf6_prefix *)((caddr_t)link_lsa
-				     + sizeof(struct ospf6_link_lsa));
+	op = lsdesc_start_lsa_type(lsa_header, OSPF6_LSTYPE_LINK);
 
 	/* connected prefix to advertise */
 	for (route = ospf6_route_head(oi->route_connected); route;
@@ -1119,12 +1113,10 @@ void ospf6_intra_prefix_lsa_originate_stub(struct event *thread)
 
 	/* put prefixes to advertise */
 	prefix_num = 0;
-	op = (struct ospf6_prefix *)((caddr_t)intra_prefix_lsa
-				     + sizeof(struct ospf6_intra_prefix_lsa));
+	op = lsdesc_start_lsa_type(lsa_header, OSPF6_LSTYPE_INTRA_PREFIX);
 	for (route = ospf6_route_head(route_advertise); route;
 	     route = ospf6_route_best_next(route)) {
 		if (((caddr_t)op - (caddr_t)lsa_header) > MAX_LSA_PAYLOAD) {
-
 			intra_prefix_lsa->prefix_num = htons(prefix_num);
 
 			/* Fill LSA Header */
@@ -1159,10 +1151,8 @@ void ospf6_intra_prefix_lsa_originate_stub(struct event *thread)
 
 			/* Put next set of prefixes to advertise */
 			prefix_num = 0;
-			op = (struct ospf6_prefix
-				      *)((caddr_t)intra_prefix_lsa
-					 + sizeof(struct
-						  ospf6_intra_prefix_lsa));
+			op = lsdesc_start_lsa_type(lsa_header,
+						   OSPF6_LSTYPE_INTRA_PREFIX);
 		}
 
 		op->prefix_length = route->prefix.prefixlen;
@@ -1351,8 +1341,7 @@ void ospf6_intra_prefix_lsa_originate_transit(struct event *thread)
 			zlog_debug("Trailing garbage in %s", lsa->name);
 	}
 
-	op = (struct ospf6_prefix *)((caddr_t)intra_prefix_lsa
-				     + sizeof(struct ospf6_intra_prefix_lsa));
+	op = lsdesc_start_lsa_type(lsa_header, OSPF6_LSTYPE_INTRA_PREFIX);
 
 	prefix_num = 0;
 	for (route = ospf6_route_head(route_advertise); route;
