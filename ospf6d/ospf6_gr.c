@@ -56,7 +56,7 @@ static int ospf6_gr_lsa_originate(struct ospf6_interface *oi,
 	/* prepare buffer */
 	memset(buffer, 0, sizeof(buffer));
 	lsa_header = (struct ospf6_lsa_header *)buffer;
-	grace_lsa = (struct ospf6_grace_lsa *)ospf6_lsa_header_end(lsa_header);
+	grace_lsa = lsa_after_header(lsa_header);
 
 	/* Put grace period. */
 	grace_lsa->tlv_period.header.type = htons(TLV_GRACE_PERIOD_TYPE);

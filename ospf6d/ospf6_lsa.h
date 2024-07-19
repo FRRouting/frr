@@ -92,6 +92,11 @@ static inline char *ospf6_lsa_header_end(struct ospf6_lsa_header *header)
 	return (char *)header + sizeof(struct ospf6_lsa_header);
 }
 
+static inline void *lsa_after_header(struct ospf6_lsa_header *header)
+{
+	return (char *)header + sizeof(struct ospf6_lsa_header);
+}
+
 static inline char *ospf6_lsa_end(struct ospf6_lsa_header *header)
 {
 	return (char *)header + ntohs(header->length);
