@@ -65,7 +65,7 @@ static int ospf6_unknown_lsa_show(struct vty *vty, struct ospf6_lsa *lsa,
 {
 	char *start, *end, *current;
 
-	start = ospf6_lsa_header_end(lsa->header);
+	start = lsa_after_header(lsa->header);
 	end = ospf6_lsa_end(lsa->header);
 
 	if (use_json) {
@@ -234,8 +234,8 @@ int ospf6_lsa_is_changed(struct ospf6_lsa *lsa1, struct ospf6_lsa *lsa2)
 	if (length <= 0)
 		return 0;
 
-	return memcmp(ospf6_lsa_header_end(lsa1->header),
-		      ospf6_lsa_header_end(lsa2->header), length);
+	return memcmp(lsa_after_header(lsa1->header),
+		      lsa_after_header(lsa2->header), length);
 }
 
 /* ospf6 age functions */
