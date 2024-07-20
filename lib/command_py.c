@@ -109,6 +109,24 @@ static PyObject *graph_node_next(PyObject *self, PyObject *args)
 	pylist = PyList_New(vector_active(wrap->node->to));
 	for (size_t i = 0; i < vector_active(wrap->node->to); i++) {
 		struct graph_node *gn = vector_slot(wrap->node->to, i);
+
+		PyList_SetItem(pylist, i, graph_to_pyobj(wrap->wgraph, gn));
+	}
+	return pylist;
+};
+
+static PyObject *graph_node_prev(PyObject *self, PyObject *args)
+{
+	struct wrap_graph_node *wrap = (struct wrap_graph_node *)self;
+	PyObject *pylist;
+
+	if (wrap->node->data &&
+	    ((struct cmd_token *)wrap->node->data)->type == START_TKN)
+		return PyList_New(0);
+	pylist = PyList_New(vector_active(wrap->node->from));
+	for (size_t i = 0; i < vector_active(wrap->node->from); i++) {
+		struct graph_node *gn = vector_slot(wrap->node->from, i);
+
 		PyList_SetItem(pylist, i, graph_to_pyobj(wrap->wgraph, gn));
 	}
 	return pylist;
@@ -133,9 +151,11 @@ static PyObject *graph_node_join(PyObject *self, PyObject *args)
 };
 
 static PyMethodDef methods_graph_node[] = {
-	{"next", graph_node_next, METH_NOARGS, "outbound graph edge list"},
-	{"join", graph_node_join, METH_NOARGS, "outbound join node"},
-	{}};
+	{ "next", graph_node_next, METH_NOARGS, "outbound graph edge list" },
+	{ "prev", graph_node_prev, METH_NOARGS, "inbound graph edge list" },
+	{ "join", graph_node_join, METH_NOARGS, "outbound join node" },
+	{}
+};
 
 static void graph_node_wrap_free(void *arg)
 {
