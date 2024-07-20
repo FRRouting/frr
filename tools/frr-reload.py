@@ -328,7 +328,10 @@ class Config(object):
                     vrf_context = re_vrf.group(1)
 
             # Detect legacy pim commands that need to move under the router pim context
-            re_pim = re.match("^ip(v6)? pim ((ecmp|join|keep|mlag|packets|register|rp|send|spt|ssm).*)$", line)
+            re_pim = re.match(
+                "^ip(v6)? pim ((ecmp|join|keep|mlag|packets|register|rp|send|spt|ssm).*)$",
+                line,
+            )
             if re_pim and re_pim.group(2):
                 router_pim = "router pim"
                 if re_pim.group(1):
@@ -340,7 +343,7 @@ class Config(object):
                     pim_vrfs.append(router_pim)
                     pim_vrfs.append(re_pim.group(2))
                     pim_vrfs.append("exit")
-                    line="# PIM VRF LINE MOVED TO ROUTER PIM"
+                    line = "# PIM VRF LINE MOVED TO ROUTER PIM"
                 else:
                     self.lines.append(router_pim)
                     self.lines.append(re_pim.group(2))
@@ -358,7 +361,7 @@ class Config(object):
                     pim_vrfs.append(router_pim)
                     pim_vrfs.append(re_pim.group(2))
                     pim_vrfs.append("exit")
-                    line="# PIM VRF LINE MOVED TO ROUTER PIM"
+                    line = "# PIM VRF LINE MOVED TO ROUTER PIM"
                 else:
                     self.lines.append(router_pim)
                     self.lines.append(re_pim.group(2))
