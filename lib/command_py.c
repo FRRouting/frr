@@ -296,7 +296,7 @@ static PyObject *graph_parse(PyTypeObject *type, PyObject *args, PyObject *kwds)
 	if (!gwrap)
 		return NULL;
 
-	if (!PyArg_ParseTupleAndKeywords(args, kwds, "s|s", (char **)kwnames,
+	if (!PyArg_ParseTupleAndKeywords(args, kwds, "z|s", (char **)kwnames,
 					 &def, &doc))
 		return NULL;
 
@@ -304,12 +304,18 @@ static PyObject *graph_parse(PyTypeObject *type, PyObject *args, PyObject *kwds)
 	struct cmd_token *token = cmd_token_new(START_TKN, 0, NULL, NULL);
 	graph_new_node(graph, token, (void (*)(void *)) & cmd_token_del);
 
-	struct cmd_element cmd = {.string = def, .doc = doc};
-	cmd_graph_parse(graph, &cmd);
-	cmd_graph_names(graph);
+	if (def) {
+		struct cmd_element cmd = { .string = def, .doc = doc };
+
+		cmd_graph_parse(graph, &cmd);
+		cmd_graph_names(graph);
+
+		gwrap->definition = strdup(def);
+	} else {
+		gwrap->definition = strdup("NULL");
+	}
 
 	gwrap->graph = graph;
-	gwrap->definition = strdup(def);
 	return (PyObject *)gwrap;
 }
 
