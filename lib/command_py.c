@@ -68,6 +68,7 @@ struct wrap_graph {
 
 		char *definition;
 	struct graph *graph;
+	size_t n_nodewrappers;
 	struct wrap_graph_node **nodewrappers;
 };
 
@@ -138,6 +139,8 @@ static PyMethodDef methods_graph_node[] = {
 static void graph_node_wrap_free(void *arg)
 {
 	struct wrap_graph_node *wrap = arg;
+
+	assert(wrap->idx < wrap->wgraph->n_nodewrappers);
 	wrap->wgraph->nodewrappers[wrap->idx] = NULL;
 	Py_DECREF(wrap->wgraph);
 }
@@ -165,6 +168,15 @@ static PyObject *graph_to_pyobj(struct wrap_graph *wgraph,
 	if (i == vector_active(wgraph->graph->nodes)) {
 		PyErr_SetString(PyExc_ValueError, "cannot find node in graph");
 		return NULL;
+	}
+	if (i >= wgraph->n_nodewrappers) {
+		wgraph->nodewrappers =
+			realloc(wgraph->nodewrappers,
+				(i + 1) * sizeof(wgraph->nodewrappers[0]));
+		memset(wgraph->nodewrappers + wgraph->n_nodewrappers, 0,
+		       sizeof(wgraph->nodewrappers[0]) *
+			       (i + 1 - wgraph->n_nodewrappers));
+		wgraph->n_nodewrappers = i + 1;
 	}
 	if (wgraph->nodewrappers[i]) {
 		PyObject *obj = (PyObject *)wgraph->nodewrappers[i];
@@ -298,8 +310,6 @@ static PyObject *graph_parse(PyTypeObject *type, PyObject *args, PyObject *kwds)
 
 	gwrap->graph = graph;
 	gwrap->definition = strdup(def);
-	gwrap->nodewrappers = calloc(vector_active(graph->nodes),
-				     sizeof(gwrap->nodewrappers[0]));
 	return (PyObject *)gwrap;
 }
 
