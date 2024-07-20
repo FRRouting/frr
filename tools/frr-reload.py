@@ -400,7 +400,8 @@ class Config(object):
 
             self.lines.append(line)
 
-        self.lines.append(pim_vrfs)
+        if len(pim_vrfs) > 0:
+            self.lines.append(pim_vrfs)
 
         self.load_contexts()
 
