@@ -145,6 +145,14 @@ static void graph_node_wrap_free(void *arg)
 	Py_DECREF(wrap->wgraph);
 }
 
+static PyObject *repr_graph_node(PyObject *arg)
+{
+	struct wrap_graph_node *wrap = (struct wrap_graph_node *)arg;
+
+	return PyUnicode_FromFormat("<_clippy.GraphNode %p [%zu] %s>",
+				    wrap->node, wrap->idx, wrap->type);
+}
+
 static PyTypeObject typeobj_graph_node = {
 	PyVarObject_HEAD_INIT(NULL, 0).tp_name = "_clippy.GraphNode",
 	.tp_basicsize = sizeof(struct wrap_graph_node),
@@ -154,6 +162,7 @@ static PyTypeObject typeobj_graph_node = {
 	.tp_free = graph_node_wrap_free,
 	.tp_members = members_graph_node,
 	.tp_methods = methods_graph_node,
+	.tp_repr = repr_graph_node,
 };
 
 static PyObject *graph_to_pyobj(struct wrap_graph *wgraph,
