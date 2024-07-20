@@ -258,9 +258,13 @@ static PyObject *graph_first(PyObject *self, PyObject *args)
 	return graph_to_pyobj(gwrap, gn);
 };
 
+static PyObject *graph_merge(PyObject *self, PyObject *args);
+
 static PyMethodDef methods_graph[] = {
-	{"first", graph_first, METH_NOARGS, "first graph node"},
-	{}};
+	{ "first", graph_first, METH_NOARGS, "first graph node" },
+	{ "merge", graph_merge, METH_VARARGS, "merge graphs" },
+	{}
+};
 
 static PyObject *graph_parse(PyTypeObject *type, PyObject *args,
 			     PyObject *kwds);
@@ -284,6 +288,20 @@ static PyTypeObject typeobj_graph = {
 	.tp_members = members_graph,
 	.tp_methods = methods_graph,
 };
+
+static PyObject *graph_merge(PyObject *self, PyObject *args)
+{
+	PyObject *py_other;
+	struct wrap_graph *gwrap = (struct wrap_graph *)self;
+	struct wrap_graph *gother;
+
+	if (!PyArg_ParseTuple(args, "O!", &typeobj_graph, &py_other))
+		return NULL;
+
+	gother = (struct wrap_graph *)py_other;
+	cmd_graph_merge(gwrap->graph, gother->graph, +1);
+	Py_RETURN_NONE;
+}
 
 /* top call / entrypoint for python code */
 static PyObject *graph_parse(PyTypeObject *type, PyObject *args, PyObject *kwds)
