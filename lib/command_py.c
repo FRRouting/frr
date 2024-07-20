@@ -29,6 +29,7 @@
 struct wrap_graph;
 static PyObject *graph_to_pyobj(struct wrap_graph *graph,
 				struct graph_node *gn);
+static PyObject *graph_to_pyobj_idx(struct wrap_graph *wgraph, size_t i);
 
 /*
  * nodes are wrapped as follows:
@@ -168,7 +169,6 @@ static PyTypeObject typeobj_graph_node = {
 static PyObject *graph_to_pyobj(struct wrap_graph *wgraph,
 				struct graph_node *gn)
 {
-	struct wrap_graph_node *wrap;
 	size_t i;
 
 	for (i = 0; i < vector_active(wgraph->graph->nodes); i++)
@@ -178,6 +178,15 @@ static PyObject *graph_to_pyobj(struct wrap_graph *wgraph,
 		PyErr_SetString(PyExc_ValueError, "cannot find node in graph");
 		return NULL;
 	}
+
+	return graph_to_pyobj_idx(wgraph, i);
+}
+
+static PyObject *graph_to_pyobj_idx(struct wrap_graph *wgraph, size_t i)
+{
+	struct wrap_graph_node *wrap;
+	struct graph_node *gn = vector_slot(wgraph->graph->nodes, i);
+
 	if (i >= wgraph->n_nodewrappers) {
 		wgraph->nodewrappers =
 			realloc(wgraph->nodewrappers,
@@ -287,6 +296,30 @@ static void graph_wrap_free(void *arg)
 	free(wgraph->definition);
 }
 
+static Py_ssize_t graph_length(PyObject *self)
+{
+	struct wrap_graph *gwrap = (struct wrap_graph *)self;
+
+	return vector_active(gwrap->graph->nodes);
+}
+
+static PyObject *graph_item(PyObject *self, Py_ssize_t idx)
+{
+	struct wrap_graph *gwrap = (struct wrap_graph *)self;
+
+	if (idx >= vector_active(gwrap->graph->nodes))
+		return PyErr_Format(PyExc_IndexError,
+				    "index %zd past graph size %u", idx,
+				    vector_active(gwrap->graph->nodes));
+
+	return graph_to_pyobj_idx(gwrap, idx);
+}
+
+static PySequenceMethods seq_graph = {
+	.sq_length = graph_length,
+	.sq_item = graph_item,
+};
+
 static PyTypeObject typeobj_graph = {
 	PyVarObject_HEAD_INIT(NULL, 0).tp_name = "_clippy.Graph",
 	.tp_basicsize = sizeof(struct wrap_graph),
@@ -296,6 +329,7 @@ static PyTypeObject typeobj_graph = {
 	.tp_free = graph_wrap_free,
 	.tp_members = members_graph,
 	.tp_methods = methods_graph,
+	.tp_as_sequence = &seq_graph,
 };
 
 static PyObject *graph_merge(PyObject *self, PyObject *args)
