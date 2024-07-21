@@ -138,13 +138,30 @@ static PyObject *graph_node_prev(PyObject *self, PyObject *args)
 static PyObject *graph_node_join(PyObject *self, PyObject *args)
 {
 	struct wrap_graph_node *wrap = (struct wrap_graph_node *)self;
+	struct cmd_token *tok;
 
 	if (!wrap->node->data
 	    || ((struct cmd_token *)wrap->node->data)->type == END_TKN)
 		Py_RETURN_NONE;
 
-	struct cmd_token *tok = wrap->node->data;
+	tok = wrap->node->data;
 	if (tok->type != FORK_TKN)
+		Py_RETURN_NONE;
+
+	return graph_to_pyobj(wrap->wgraph, tok->forkjoin);
+};
+
+static PyObject *graph_node_fork(PyObject *self, PyObject *args)
+{
+	struct wrap_graph_node *wrap = (struct wrap_graph_node *)self;
+	struct cmd_token *tok;
+
+	if (!wrap->node->data ||
+	    ((struct cmd_token *)wrap->node->data)->type == END_TKN)
+		Py_RETURN_NONE;
+
+	tok = wrap->node->data;
+	if (tok->type != JOIN_TKN)
 		Py_RETURN_NONE;
 
 	return graph_to_pyobj(wrap->wgraph, tok->forkjoin);
@@ -154,6 +171,7 @@ static PyMethodDef methods_graph_node[] = {
 	{ "next", graph_node_next, METH_NOARGS, "outbound graph edge list" },
 	{ "prev", graph_node_prev, METH_NOARGS, "inbound graph edge list" },
 	{ "join", graph_node_join, METH_NOARGS, "outbound join node" },
+	{ "fork", graph_node_fork, METH_NOARGS, "inbound fork node" },
 	{}
 };
 
