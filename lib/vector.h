@@ -51,7 +51,6 @@ static inline unsigned int vector_count(vector v)
 }
 
 extern void vector_free(vector v);
-extern vector vector_copy(vector v);
 
 extern void *vector_lookup(vector, unsigned int);
 extern void *vector_lookup_ensure(vector, unsigned int);
