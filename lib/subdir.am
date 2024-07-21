@@ -504,19 +504,40 @@ SUFFIXES += .xref
 %.xref: % $(CLIPPY)
 	$(AM_V_XRELFO) $(CLIPPY) $(top_srcdir)/python/xrelfo.py $(WERROR) $(XRELFO_FLAGS) -o $@ $<
 
+# these run up to a total of 350k lines at the time of writing.  That's a lot
+# for the compiler to chug down - enough to warrant splitting it up so it can
+# benefit from parallel build.
+vtysh_cmd_split = \
+	vtysh/vtysh_cmd.1.c \
+	vtysh/vtysh_cmd.2.c \
+	vtysh/vtysh_cmd.3.c \
+	vtysh/vtysh_cmd.4.c \
+	vtysh/vtysh_cmd.5.c \
+	vtysh/vtysh_cmd.6.c \
+	vtysh/vtysh_cmd.7.c \
+	vtysh/vtysh_cmd.8.c \
+	# end
+
 # dependencies added in python/makefile.py
 frr.xref:
-	$(AM_V_XRELFO) $(CLIPPY) $(top_srcdir)/python/xrelfo.py -o $@ -c vtysh/vtysh_cmd.c $^
+	$(AM_V_XRELFO) $(CLIPPY) $(top_srcdir)/python/xrelfo.py -o $@ $^ \
+		-c vtysh/vtysh_cmd.c $(vtysh_cmd_split)
 all-am: frr.xref
 
 clean-xref:
 	-rm -rf $(xrefs) frr.xref
 clean-local: clean-xref
 
-CLEANFILES += vtysh/vtysh_cmd.c
 vtysh/vtysh_cmd.c: frr.xref
 	@test -f $@ || rm -f frr.xref || true
 	@test -f $@ || $(MAKE) $(AM_MAKEFLAGS) frr.xref
+
+vtysh/vtysh_cmd.%.c: vtysh/vtysh_cmd.c
+	@test -f $@ || rm -f vtysh/vtysh_cmd.c || true
+	@test -f $@ || $(MAKE) $(AM_MAKEFLAGS) vtysh/vtysh_cmd.c
+
+nodist_vtysh_vtysh_SOURCES = vtysh/vtysh_cmd.c $(vtysh_cmd_split)
+CLEANFILES += vtysh/vtysh_cmd.c $(vtysh_cmd_split)
 
 ## automake's "ylwrap" is a great piece of GNU software... not.
 .l.c:
