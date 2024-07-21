@@ -256,7 +256,7 @@ struct cmd_node {
 
 /* helper defines for end-user DEFUN* macros */
 #define DEFUN_CMD_ELEMENT(funcname, cmdname, cmdstr, helpstr, attrs, dnum)     \
-	static const struct cmd_element cmdname = {                            \
+	const struct cmd_element cmdname = {                                   \
 		.string = cmdstr,                                              \
 		.func = funcname,                                              \
 		.doc = helpstr,                                                \
@@ -283,7 +283,7 @@ struct cmd_node {
 /* DEFPY variants */
 
 #define DEFPY_ATTR(funcname, cmdname, cmdstr, helpstr, attr)                   \
-	DEFUN_CMD_ELEMENT(funcname, cmdname, cmdstr, helpstr, attr, 0)         \
+	static DEFUN_CMD_ELEMENT(funcname, cmdname, cmdstr, helpstr, attr, 0)  \
 	funcdecl_##funcname
 
 #define DEFPY(funcname, cmdname, cmdstr, helpstr)                              \
@@ -310,7 +310,7 @@ struct cmd_node {
 
 #define DEFUN_ATTR(funcname, cmdname, cmdstr, helpstr, attr)                   \
 	DEFUN_CMD_FUNC_DECL(funcname)                                          \
-	DEFUN_CMD_ELEMENT(funcname, cmdname, cmdstr, helpstr, attr, 0)         \
+	static DEFUN_CMD_ELEMENT(funcname, cmdname, cmdstr, helpstr, attr, 0)  \
 	DEFUN_CMD_FUNC_TEXT(funcname)
 
 #define DEFUN(funcname, cmdname, cmdstr, helpstr)                              \
@@ -347,7 +347,8 @@ struct cmd_node {
 /* DEFUN + DEFSH */
 #define DEFUNSH_ATTR(daemon, funcname, cmdname, cmdstr, helpstr, attr)         \
 	DEFUN_CMD_FUNC_DECL(funcname)                                          \
-	DEFUN_CMD_ELEMENT(funcname, cmdname, cmdstr, helpstr, attr, daemon)    \
+	static DEFUN_CMD_ELEMENT(funcname, cmdname, cmdstr, helpstr, attr,     \
+				 daemon)                                       \
 	DEFUN_CMD_FUNC_TEXT(funcname)
 
 #define DEFUNSH(daemon, funcname, cmdname, cmdstr, helpstr)                    \
@@ -359,7 +360,7 @@ struct cmd_node {
 
 /* ALIAS macro which define existing command's alias. */
 #define ALIAS_ATTR(funcname, cmdname, cmdstr, helpstr, attr)                   \
-	DEFUN_CMD_ELEMENT(funcname, cmdname, cmdstr, helpstr, attr, 0)
+	static DEFUN_CMD_ELEMENT(funcname, cmdname, cmdstr, helpstr, attr, 0)
 
 #define ALIAS(funcname, cmdname, cmdstr, helpstr)                              \
 	ALIAS_ATTR(funcname, cmdname, cmdstr, helpstr, 0)

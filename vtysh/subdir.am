@@ -17,9 +17,6 @@ vtysh_vtysh_SOURCES = \
 	vtysh/vtysh_user.c \
 	vtysh/vtysh_config.c \
 	# end
-nodist_vtysh_vtysh_SOURCES = \
-	vtysh/vtysh_cmd.c \
-	# end
 
 noinst_HEADERS += \
 	vtysh/vtysh.h \
