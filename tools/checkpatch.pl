@@ -5150,7 +5150,7 @@ sub process {
 				# none after.  May be left adjacent to another
 				# unary operator, or a cast
 				} elsif ($op eq '!' || $op eq '~' ||
-					 $opv eq '*U' || $opv eq '-U' ||
+					 $opv eq '*U' || $opv eq '-U' || $opv eq '+U' ||
 					 $opv eq '&U' || $opv eq '&&U') {
 					if ($ctx !~ /[WEBC]x./ && $ca !~ /(?:\)|!|~|\*|-|\&|\||\+\+|\-\-|\{)$/) {
 						if (ERROR("SPACING",
