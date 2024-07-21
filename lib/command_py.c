@@ -45,13 +45,6 @@ struct wrap_graph_node {
 		bool allowrepeat;
 	const char *type;
 
-	bool deprecated;
-	bool hidden;
-	const char *text;
-	const char *desc;
-	const char *varname;
-	long long min, max;
-
 	struct graph_node *node;
 	struct wrap_graph *wgraph;
 	size_t idx;
@@ -86,11 +79,75 @@ static PyObject *refuse_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
 			READONLY, (char *)#name " (" #type ")"                 \
 	}
 static PyMemberDef members_graph_node[] = {
-	member(allowrepeat, T_BOOL), member(type, T_STRING),
-	member(deprecated, T_BOOL),  member(hidden, T_BOOL),
-	member(text, T_STRING),      member(desc, T_STRING),
-	member(min, T_LONGLONG),     member(max, T_LONGLONG),
-	member(varname, T_STRING),   {},
+	/* clang-format off */
+	member(type, T_STRING),
+	member(idx, T_ULONG),
+	{},
+	/* clang-format on */
+};
+#undef member
+
+static PyObject *graph_node_get_str(PyObject *self, void *poffset)
+{
+	struct wrap_graph_node *wrap = (struct wrap_graph_node *)self;
+	void *offset = (char *)wrap->node->data + (ptrdiff_t)poffset;
+	const char *val = *(const char **)offset;
+
+	if (!val)
+		Py_RETURN_NONE;
+	return PyUnicode_FromString(val);
+}
+
+static PyObject *graph_node_get_bool(PyObject *self, void *poffset)
+{
+	struct wrap_graph_node *wrap = (struct wrap_graph_node *)self;
+	void *offset = (char *)wrap->node->data + (ptrdiff_t)poffset;
+	bool val = *(bool *)offset;
+
+	return PyBool_FromLong(val);
+}
+
+static PyObject *graph_node_get_ll(PyObject *self, void *poffset)
+{
+	struct wrap_graph_node *wrap = (struct wrap_graph_node *)self;
+	void *offset = (char *)wrap->node->data + (ptrdiff_t)poffset;
+	long long val = *(long long *)offset;
+
+	return PyLong_FromLongLong(val);
+}
+
+static PyObject *graph_node_get_u8(PyObject *self, void *poffset)
+{
+	struct wrap_graph_node *wrap = (struct wrap_graph_node *)self;
+	void *offset = (char *)wrap->node->data + (ptrdiff_t)poffset;
+	uint8_t val = *(uint8_t *)offset;
+
+	return PyLong_FromUnsignedLong(val);
+}
+
+/* clang-format off */
+#define member(name, variant)                                                  \
+	{                                                                      \
+		(char *)#name,                                                 \
+		graph_node_get_##variant,                                      \
+		NULL,                                                          \
+		(char *)#name " (" #variant ")",                               \
+		(void *)offsetof(struct cmd_token, name),                      \
+	}
+/* clang-format on */
+
+static PyGetSetDef getset_graph_node[] = {
+	/* clang-format off */
+	member(attr, u8),
+	member(allowrepeat, bool),
+	member(varname_src, u8),
+	member(text, str),
+	member(desc, str),
+	member(min, ll),
+	member(max, ll),
+	member(varname, str),
+	{},
+	/* clang-format on */
 };
 #undef member
 
@@ -200,6 +257,7 @@ static PyTypeObject typeobj_graph_node = {
 	.tp_new = refuse_new,
 	.tp_free = graph_node_wrap_free,
 	.tp_members = members_graph_node,
+	.tp_getset = getset_graph_node,
 	.tp_methods = methods_graph_node,
 	.tp_repr = repr_graph_node,
 };
@@ -281,15 +339,6 @@ static PyObject *graph_to_pyobj_idx(struct wrap_graph *wgraph, size_t i)
 		default:
 			wrap->type = "???";
 		}
-
-		wrap->deprecated = !!(tok->attr & CMD_ATTR_DEPRECATED);
-		wrap->hidden = !!(tok->attr & CMD_ATTR_HIDDEN);
-		wrap->text = tok->text;
-		wrap->desc = tok->desc;
-		wrap->varname = tok->varname;
-		wrap->min = tok->min;
-		wrap->max = tok->max;
-		wrap->allowrepeat = tok->allowrepeat;
 	}
 
 	return (PyObject *)wrap;
