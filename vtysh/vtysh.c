@@ -1161,14 +1161,12 @@ static char **new_completion(const char *text, int start, int end)
 }
 
 /* Vty node structures. */
-#ifdef HAVE_BGPD
 static struct cmd_node bgp_node = {
 	.name = "bgp",
 	.node = BGP_NODE,
 	.parent_node = CONFIG_NODE,
 	.prompt = "%s(config-router)# ",
 };
-#endif /* HAVE_BGPD */
 
 static struct cmd_node rip_node = {
 	.name = "rip",
@@ -1177,7 +1175,6 @@ static struct cmd_node rip_node = {
 	.prompt = "%s(config-router)# ",
 };
 
-#ifdef HAVE_ISISD
 static struct cmd_node isis_node = {
 	.name = "isis",
 	.node = ISIS_NODE,
@@ -1205,16 +1202,13 @@ static struct cmd_node isis_srv6_node_msd_node = {
 	.parent_node = ISIS_SRV6_NODE,
 	.prompt = "%s(config-router-srv6-node-msd)# ",
 };
-#endif /* HAVE_ISISD */
 
-#ifdef HAVE_FABRICD
 static struct cmd_node openfabric_node = {
 	.name = "openfabric",
 	.node = OPENFABRIC_NODE,
 	.parent_node = CONFIG_NODE,
 	.prompt = "%s(config-router)# ",
 };
-#endif /* HAVE_FABRICD */
 
 static struct cmd_node interface_node = {
 	.name = "interface",
@@ -1237,7 +1231,6 @@ static struct cmd_node segment_routing_node = {
 	.prompt = "%s(config-sr)# ",
 };
 
-#if defined(HAVE_PATHD)
 static struct cmd_node sr_traffic_eng_node = {
 	.name = "sr traffic-eng",
 	.node = SR_TRAFFIC_ENG_NODE,
@@ -1293,7 +1286,6 @@ static struct cmd_node pcep_pce_config_node = {
 	.parent_node = PCEP_NODE,
 	.prompt = "%s(pcep-sr-te-pcep-pce-config)# ",
 };
-#endif /* HAVE_PATHD */
 
 static struct cmd_node vrf_node = {
 	.name = "vrf",
@@ -1365,14 +1357,12 @@ static struct cmd_node srv6_sid_format_uncompressed_f4024_node = {
 	.prompt = "%s(config-srv6-format)# "
 };
 
-#ifdef HAVE_PBRD
 static struct cmd_node pbr_map_node = {
 	.name = "pbr-map",
 	.node = PBRMAP_NODE,
 	.parent_node = CONFIG_NODE,
 	.prompt = "%s(config-pbr-map)# ",
 };
-#endif /* HAVE_PBRD */
 
 static struct cmd_node zebra_node = {
 	.name = "zebra",
@@ -1381,7 +1371,6 @@ static struct cmd_node zebra_node = {
 	.prompt = "%s(config-router)# ",
 };
 
-#ifdef HAVE_BGPD
 static struct cmd_node bgp_vpnv4_node = {
 	.name = "bgp vpnv4",
 	.node = BGP_VPNV4_NODE,
@@ -1477,7 +1466,6 @@ static struct cmd_node bgp_ipv6l_node = {
 	.no_xpath = true,
 };
 
-#ifdef ENABLE_BGP_VNC
 static struct cmd_node bgp_vnc_defaults_node = {
 	.name = "bgp vnc defaults",
 	.node = BGP_VNC_DEFAULTS_NODE,
@@ -1505,7 +1493,6 @@ static struct cmd_node bgp_vnc_l2_group_node = {
 	.parent_node = BGP_NODE,
 	.prompt = "%s(config-router-vnc-l2-group)# ",
 };
-#endif /* ENABLE_BGP_VNC */
 
 static struct cmd_node bmp_node = {
 	.name = "bmp",
@@ -1520,34 +1507,27 @@ static struct cmd_node bgp_srv6_node = {
 	.parent_node = BGP_NODE,
 	.prompt = "%s(config-router-srv6)# ",
 };
-#endif /* HAVE_BGPD */
 
-#ifdef HAVE_OSPFD
 static struct cmd_node ospf_node = {
 	.name = "ospf",
 	.node = OSPF_NODE,
 	.parent_node = CONFIG_NODE,
 	.prompt = "%s(config-router)# ",
 };
-#endif /* HAVE_OSPFD */
 
-#ifdef HAVE_EIGRPD
 static struct cmd_node eigrp_node = {
 	.name = "eigrp",
 	.node = EIGRP_NODE,
 	.parent_node = CONFIG_NODE,
 	.prompt = "%s(config-router)# ",
 };
-#endif /* HAVE_EIGRPD */
 
-#ifdef HAVE_BABELD
 static struct cmd_node babel_node = {
 	.name = "babel",
 	.node = BABEL_NODE,
 	.parent_node = CONFIG_NODE,
 	.prompt = "%s(config-router)# ",
 };
-#endif /* HAVE_BABELD */
 
 static struct cmd_node ripng_node = {
 	.name = "ripng",
@@ -1556,16 +1536,13 @@ static struct cmd_node ripng_node = {
 	.prompt = "%s(config-router)# ",
 };
 
-#ifdef HAVE_OSPF6D
 static struct cmd_node ospf6_node = {
 	.name = "ospf6",
 	.node = OSPF6_NODE,
 	.parent_node = CONFIG_NODE,
 	.prompt = "%s(config-ospf6)# ",
 };
-#endif /* HAVE_OSPF6D */
 
-#ifdef HAVE_LDPD
 static struct cmd_node ldp_node = {
 	.name = "ldp",
 	.node = LDP_NODE,
@@ -1614,7 +1591,6 @@ static struct cmd_node ldp_pseudowire_node = {
 	.parent_node = LDP_L2VPN_NODE,
 	.prompt = "%s(config-l2vpn-pw)# ",
 };
-#endif /* HAVE_LDPD */
 
 static struct cmd_node keychain_node = {
 	.name = "keychain",
@@ -1637,7 +1613,6 @@ struct cmd_node link_params_node = {
 	.prompt = "%s(config-link-params)# ",
 };
 
-#ifdef HAVE_BGPD
 static struct cmd_node rpki_node = {
 	.name = "rpki",
 	.node = RPKI_NODE,
@@ -1652,9 +1627,6 @@ static struct cmd_node rpki_vrf_node = {
 	.prompt = "%s(config-vrf-rpki)# ",
 };
 
-#endif /* HAVE_BGPD */
-
-#if HAVE_BFDD > 0
 static struct cmd_node bfd_node = {
 	.name = "bfd",
 	.node = BFD_NODE,
@@ -1675,25 +1647,20 @@ static struct cmd_node bfd_profile_node = {
 	.parent_node = BFD_NODE,
 	.prompt = "%s(config-bfd-profile)# ",
 };
-#endif /* HAVE_BFDD */
 
-#ifdef HAVE_PIMD
 static struct cmd_node pim_node = {
 	.name = "pim",
 	.node = PIM_NODE,
 	.parent_node = CONFIG_NODE,
 	.prompt = "%s(config-pim)# ",
 };
-#endif /* HAVE_PIMD */
 
-#ifdef HAVE_PIM6D
 static struct cmd_node pim6_node = {
 	.name = "pim6",
 	.node = PIM6_NODE,
 	.parent_node = CONFIG_NODE,
 	.prompt = "%s(config-pim6)# ",
 };
-#endif /* HAVE_PIM6D */
 
 /* Defined in lib/vty.c */
 extern struct cmd_node vty_node;
@@ -4954,15 +4921,87 @@ void vtysh_init_vty(void)
 	cmd_init(0);
 	cmd_variable_handler_register(vtysh_var_handler);
 
+	install_node(&bgp_node);
+	install_node(&babel_node);
+	install_node(&bgp_vpnv4_node);
+	install_node(&bgp_vpnv6_node);
+	install_node(&bgp_flowspecv4_node);
+	install_node(&bgp_flowspecv6_node);
+	install_node(&bgp_ipv4_node);
+	install_node(&bgp_ipv4m_node);
+	install_node(&bgp_ipv4l_node);
+	install_node(&bgp_ipv6_node);
+	install_node(&bgp_ipv6m_node);
+	install_node(&bgp_ipv6l_node);
+	install_node(&bgp_vrf_policy_node);
+	install_node(&bgp_vnc_defaults_node);
+	install_node(&bgp_vnc_nve_group_node);
+	install_node(&bgp_vnc_l2_group_node);
+	install_node(&bgp_evpn_node);
+	install_node(&bgp_evpn_vni_node);
+	install_node(&rpki_node);
+	install_node(&bmp_node);
+	install_node(&bgp_srv6_node);
+	install_node(&rip_node);
+	install_node(&ripng_node);
+	install_node(&ospf_node);
+	install_node(&ospf6_node);
+	install_node(&ldp_node);
+	install_node(&ldp_ipv4_node);
+	install_node(&ldp_ipv6_node);
+	install_node(&ldp_ipv4_iface_node);
+	install_node(&ldp_ipv6_iface_node);
+	install_node(&ldp_l2vpn_node);
+	install_node(&ldp_pseudowire_node);
+	install_node(&eigrp_node);
+	install_node(&isis_node);
+	install_node(&isis_flex_algo_node);
+	install_node(&isis_srv6_node);
+	install_node(&isis_srv6_node_msd_node);
+	install_node(&openfabric_node);
+	install_node(&pbr_map_node);
+	install_node(&bfd_node);
+	install_node(&bfd_peer_node);
+	install_node(&bfd_profile_node);
+	install_node(&segment_routing_node);
+	install_node(&sr_traffic_eng_node);
+	install_node(&srte_segment_list_node);
+	install_node(&srte_policy_node);
+	install_node(&srte_candidate_dyn_node);
+	install_node(&pcep_node);
+	install_node(&pcep_pcc_node);
+	install_node(&pcep_pce_node);
+	install_node(&pcep_pce_config_node);
+	install_node(&keychain_node);
+	install_node(&keychain_key_node);
+	install_node(&nh_group_node);
+	install_node(&zebra_node);
+	install_node(&interface_node);
+	install_node(&pim_node);
+	install_node(&pim6_node);
+	install_node(&link_params_node);
+	install_node(&pw_node);
+	install_node(&vrf_node);
+	install_node(&rpki_vrf_node);
+	install_node(&rmap_node);
+	install_node(&vty_node);
+	install_node(&srv6_node);
+	install_node(&srv6_locs_node);
+	install_node(&srv6_loc_node);
+	install_node(&srv6_encap_node);
+	install_node(&srv6_sid_formats_node);
+	install_node(&srv6_sid_format_usid_f3216_node);
+	install_node(&srv6_sid_format_uncompressed_f4024_node);
+
+	vtysh_init_cmd();
+
 	/* bgpd */
 #ifdef HAVE_BGPD
-	install_node(&bgp_node);
 	install_element(CONFIG_NODE, &router_bgp_cmd);
 	install_element(BGP_NODE, &vtysh_exit_bgpd_cmd);
 	install_element(BGP_NODE, &vtysh_quit_bgpd_cmd);
 	install_element(BGP_NODE, &vtysh_end_all_cmd);
 
-	install_node(&bgp_vpnv4_node);
 	install_element(BGP_NODE, &address_family_ipv4_vpn_cmd);
 #ifdef KEEP_OLD_VPN_COMMANDS
 	install_element(BGP_NODE, &address_family_vpnv4_cmd);
@@ -4972,7 +5011,6 @@ void vtysh_init_vty(void)
 	install_element(BGP_VPNV4_NODE, &vtysh_end_all_cmd);
 	install_element(BGP_VPNV4_NODE, &exit_address_family_cmd);
 
-	install_node(&bgp_vpnv6_node);
 	install_element(BGP_NODE, &address_family_ipv6_vpn_cmd);
 #ifdef KEEP_OLD_VPN_COMMANDS
 	install_element(BGP_NODE, &address_family_vpnv6_cmd);
@@ -4982,56 +5020,48 @@ void vtysh_init_vty(void)
 	install_element(BGP_VPNV6_NODE, &vtysh_end_all_cmd);
 	install_element(BGP_VPNV6_NODE, &exit_address_family_cmd);
 
-	install_node(&bgp_flowspecv4_node);
 	install_element(BGP_NODE, &address_family_flowspecv4_cmd);
 	install_element(BGP_FLOWSPECV4_NODE, &vtysh_exit_bgpd_cmd);
 	install_element(BGP_FLOWSPECV4_NODE, &vtysh_quit_bgpd_cmd);
 	install_element(BGP_FLOWSPECV4_NODE, &vtysh_end_all_cmd);
 	install_element(BGP_FLOWSPECV4_NODE, &exit_address_family_cmd);
 
-	install_node(&bgp_flowspecv6_node);
 	install_element(BGP_NODE, &address_family_flowspecv6_cmd);
 	install_element(BGP_FLOWSPECV6_NODE, &vtysh_exit_bgpd_cmd);
 	install_element(BGP_FLOWSPECV6_NODE, &vtysh_quit_bgpd_cmd);
 	install_element(BGP_FLOWSPECV6_NODE, &vtysh_end_all_cmd);
 	install_element(BGP_FLOWSPECV6_NODE, &exit_address_family_cmd);
 
-	install_node(&bgp_ipv4_node);
 	install_element(BGP_NODE, &address_family_ipv4_cmd);
 	install_element(BGP_IPV4_NODE, &vtysh_exit_bgpd_cmd);
 	install_element(BGP_IPV4_NODE, &vtysh_quit_bgpd_cmd);
 	install_element(BGP_IPV4_NODE, &vtysh_end_all_cmd);
 	install_element(BGP_IPV4_NODE, &exit_address_family_cmd);
 
-	install_node(&bgp_ipv4m_node);
 	install_element(BGP_NODE, &address_family_ipv4_multicast_cmd);
 	install_element(BGP_IPV4M_NODE, &vtysh_exit_bgpd_cmd);
 	install_element(BGP_IPV4M_NODE, &vtysh_quit_bgpd_cmd);
 	install_element(BGP_IPV4M_NODE, &vtysh_end_all_cmd);
 	install_element(BGP_IPV4M_NODE, &exit_address_family_cmd);
 
-	install_node(&bgp_ipv4l_node);
 	install_element(BGP_NODE, &address_family_ipv4_labeled_unicast_cmd);
 	install_element(BGP_IPV4L_NODE, &vtysh_exit_bgpd_cmd);
 	install_element(BGP_IPV4L_NODE, &vtysh_quit_bgpd_cmd);
 	install_element(BGP_IPV4L_NODE, &vtysh_end_all_cmd);
 	install_element(BGP_IPV4L_NODE, &exit_address_family_cmd);
 
-	install_node(&bgp_ipv6_node);
 	install_element(BGP_NODE, &address_family_ipv6_cmd);
 	install_element(BGP_IPV6_NODE, &vtysh_exit_bgpd_cmd);
 	install_element(BGP_IPV6_NODE, &vtysh_quit_bgpd_cmd);
 	install_element(BGP_IPV6_NODE, &vtysh_end_all_cmd);
 	install_element(BGP_IPV6_NODE, &exit_address_family_cmd);
 
-	install_node(&bgp_ipv6m_node);
 	install_element(BGP_NODE, &address_family_ipv6_multicast_cmd);
 	install_element(BGP_IPV6M_NODE, &vtysh_exit_bgpd_cmd);
 	install_element(BGP_IPV6M_NODE, &vtysh_quit_bgpd_cmd);
 	install_element(BGP_IPV6M_NODE, &vtysh_end_all_cmd);
 	install_element(BGP_IPV6M_NODE, &exit_address_family_cmd);
 
-	install_node(&bgp_ipv6l_node);
 	install_element(BGP_NODE, &address_family_ipv6_labeled_unicast_cmd);
 	install_element(BGP_IPV6L_NODE, &vtysh_exit_bgpd_cmd);
 	install_element(BGP_IPV6L_NODE, &vtysh_quit_bgpd_cmd);
@@ -5039,28 +5069,24 @@ void vtysh_init_vty(void)
 	install_element(BGP_IPV6L_NODE, &exit_address_family_cmd);
 
 #if defined(ENABLE_BGP_VNC)
-	install_node(&bgp_vrf_policy_node);
 	install_element(BGP_NODE, &vnc_vrf_policy_cmd);
 	install_element(BGP_VRF_POLICY_NODE, &vtysh_exit_bgpd_cmd);
 	install_element(BGP_VRF_POLICY_NODE, &vtysh_quit_bgpd_cmd);
 	install_element(BGP_VRF_POLICY_NODE, &vtysh_end_all_cmd);
 	install_element(BGP_VRF_POLICY_NODE, &exit_vrf_policy_cmd);
 
-	install_node(&bgp_vnc_defaults_node);
 	install_element(BGP_NODE, &vnc_defaults_cmd);
 	install_element(BGP_VNC_DEFAULTS_NODE, &vtysh_exit_bgpd_cmd);
 	install_element(BGP_VNC_DEFAULTS_NODE, &vtysh_quit_bgpd_cmd);
 	install_element(BGP_VNC_DEFAULTS_NODE, &vtysh_end_all_cmd);
 	install_element(BGP_VNC_DEFAULTS_NODE, &exit_vnc_config_cmd);
 
-	install_node(&bgp_vnc_nve_group_node);
 	install_element(BGP_NODE, &vnc_nve_group_cmd);
 	install_element(BGP_VNC_NVE_GROUP_NODE, &vtysh_exit_bgpd_cmd);
 	install_element(BGP_VNC_NVE_GROUP_NODE, &vtysh_quit_bgpd_cmd);
 	install_element(BGP_VNC_NVE_GROUP_NODE, &vtysh_end_all_cmd);
 	install_element(BGP_VNC_NVE_GROUP_NODE, &exit_vnc_config_cmd);
 
-	install_node(&bgp_vnc_l2_group_node);
 	install_element(BGP_NODE, &vnc_l2_group_cmd);
 	install_element(BGP_VNC_L2_GROUP_NODE, &vtysh_exit_bgpd_cmd);
 	install_element(BGP_VNC_L2_GROUP_NODE, &vtysh_quit_bgpd_cmd);
@@ -5068,33 +5094,28 @@ void vtysh_init_vty(void)
 	install_element(BGP_VNC_L2_GROUP_NODE, &exit_vnc_config_cmd);
 #endif
 
-	install_node(&bgp_evpn_node);
 	install_element(BGP_NODE, &address_family_evpn_cmd);
 	install_element(BGP_EVPN_NODE, &vtysh_quit_bgpd_cmd);
 	install_element(BGP_EVPN_NODE, &vtysh_exit_bgpd_cmd);
 	install_element(BGP_EVPN_NODE, &vtysh_end_all_cmd);
 	install_element(BGP_EVPN_NODE, &exit_address_family_cmd);
 
-	install_node(&bgp_evpn_vni_node);
 	install_element(BGP_EVPN_NODE, &bgp_evpn_vni_cmd);
 	install_element(BGP_EVPN_VNI_NODE, &vtysh_exit_bgpd_cmd);
 	install_element(BGP_EVPN_VNI_NODE, &vtysh_quit_bgpd_cmd);
 	install_element(BGP_EVPN_VNI_NODE, &vtysh_end_all_cmd);
 	install_element(BGP_EVPN_VNI_NODE, &exit_vni_cmd);
 
-	install_node(&rpki_node);
 	install_element(CONFIG_NODE, &rpki_cmd);
 	install_element(RPKI_NODE, &rpki_exit_cmd);
 	install_element(RPKI_NODE, &rpki_quit_cmd);
 	install_element(RPKI_NODE, &vtysh_end_all_cmd);
 
-	install_node(&bmp_node);
 	install_element(BGP_NODE, &bmp_targets_cmd);
 	install_element(BMP_NODE, &bmp_exit_cmd);
 	install_element(BMP_NODE, &bmp_quit_cmd);
 	install_element(BMP_NODE, &vtysh_end_all_cmd);
 
-	install_node(&bgp_srv6_node);
 	install_element(BGP_NODE, &bgp_srv6_cmd);
 	install_element(BGP_SRV6_NODE, &exit_bgp_srv6_cmd);
 	install_element(BGP_SRV6_NODE, &quit_bgp_srv6_cmd);
@@ -5102,7 +5123,6 @@ void vtysh_init_vty(void)
 #endif /* HAVE_BGPD */
 
 	/* ripd */
-	install_node(&rip_node);
 #ifdef HAVE_RIPD
 	install_element(CONFIG_NODE, &router_rip_cmd);
 	install_element(RIP_NODE, &vtysh_exit_ripd_cmd);
@@ -5111,7 +5131,6 @@ void vtysh_init_vty(void)
 #endif /* HAVE_RIPD */
 
 	/* ripngd */
-	install_node(&ripng_node);
 #ifdef HAVE_RIPNGD
 	install_element(CONFIG_NODE, &router_ripng_cmd);
 	install_element(RIPNG_NODE, &vtysh_exit_ripngd_cmd);
@@ -5121,7 +5140,6 @@ void vtysh_init_vty(void)
 
 	/* ospfd */
 #ifdef HAVE_OSPFD
-	install_node(&ospf_node);
 	install_element(CONFIG_NODE, &router_ospf_cmd);
 	install_element(OSPF_NODE, &vtysh_exit_ospfd_cmd);
 	install_element(OSPF_NODE, &vtysh_quit_ospfd_cmd);
@@ -5130,7 +5148,6 @@ void vtysh_init_vty(void)
 
 	/* ospf6d */
 #ifdef HAVE_OSPF6D
-	install_node(&ospf6_node);
 	install_element(CONFIG_NODE, &router_ospf6_cmd);
 	install_element(OSPF6_NODE, &vtysh_exit_ospf6d_cmd);
 	install_element(OSPF6_NODE, &vtysh_quit_ospf6d_cmd);
@@ -5139,45 +5156,38 @@ void vtysh_init_vty(void)
 
 	/* ldpd */
 #if defined(HAVE_LDPD)
-	install_node(&ldp_node);
 	install_element(CONFIG_NODE, &ldp_mpls_ldp_cmd);
 	install_element(LDP_NODE, &vtysh_exit_ldpd_cmd);
 	install_element(LDP_NODE, &vtysh_quit_ldpd_cmd);
 	install_element(LDP_NODE, &vtysh_end_all_cmd);
 
-	install_node(&ldp_ipv4_node);
 	install_element(LDP_NODE, &ldp_address_family_ipv4_cmd);
 	install_element(LDP_IPV4_NODE, &vtysh_exit_ldpd_cmd);
 	install_element(LDP_IPV4_NODE, &vtysh_quit_ldpd_cmd);
 	install_element(LDP_IPV4_NODE, &ldp_exit_address_family_cmd);
 	install_element(LDP_IPV4_NODE, &vtysh_end_all_cmd);
 
-	install_node(&ldp_ipv6_node);
 	install_element(LDP_NODE, &ldp_address_family_ipv6_cmd);
 	install_element(LDP_IPV6_NODE, &vtysh_exit_ldpd_cmd);
 	install_element(LDP_IPV6_NODE, &vtysh_quit_ldpd_cmd);
 	install_element(LDP_IPV6_NODE, &ldp_exit_address_family_cmd);
 	install_element(LDP_IPV6_NODE, &vtysh_end_all_cmd);
 
-	install_node(&ldp_ipv4_iface_node);
 	install_element(LDP_IPV4_NODE, &ldp_interface_ifname_cmd);
 	install_element(LDP_IPV4_IFACE_NODE, &vtysh_exit_ldpd_cmd);
 	install_element(LDP_IPV4_IFACE_NODE, &vtysh_quit_ldpd_cmd);
 	install_element(LDP_IPV4_IFACE_NODE, &vtysh_end_all_cmd);
 
-	install_node(&ldp_ipv6_iface_node);
 	install_element(LDP_IPV6_NODE, &ldp_interface_ifname_cmd);
 	install_element(LDP_IPV6_IFACE_NODE, &vtysh_exit_ldpd_cmd);
 	install_element(LDP_IPV6_IFACE_NODE, &vtysh_quit_ldpd_cmd);
 	install_element(LDP_IPV6_IFACE_NODE, &vtysh_end_all_cmd);
 
-	install_node(&ldp_l2vpn_node);
 	install_element(CONFIG_NODE, &ldp_l2vpn_word_type_vpls_cmd);
 	install_element(LDP_L2VPN_NODE, &vtysh_exit_ldpd_cmd);
 	install_element(LDP_L2VPN_NODE, &vtysh_quit_ldpd_cmd);
 	install_element(LDP_L2VPN_NODE, &vtysh_end_all_cmd);
 
-	install_node(&ldp_pseudowire_node);
 	install_element(LDP_L2VPN_NODE, &ldp_member_pseudowire_ifname_cmd);
 	install_element(LDP_PSEUDOWIRE_NODE, &vtysh_exit_ldpd_cmd);
 	install_element(LDP_PSEUDOWIRE_NODE, &vtysh_quit_ldpd_cmd);
@@ -5186,7 +5196,6 @@ void vtysh_init_vty(void)
 
 	/* eigrpd */
 #ifdef HAVE_EIGRPD
-	install_node(&eigrp_node);
 	install_element(CONFIG_NODE, &router_eigrp_cmd);
 	install_element(EIGRP_NODE, &vtysh_exit_eigrpd_cmd);
 	install_element(EIGRP_NODE, &vtysh_quit_eigrpd_cmd);
@@ -5195,7 +5204,6 @@ void vtysh_init_vty(void)
 
 	/* babeld */
 #ifdef HAVE_BABELD
-	install_node(&babel_node);
 	install_element(CONFIG_NODE, &router_babel_cmd);
 	install_element(BABEL_NODE, &vtysh_exit_babeld_cmd);
 	install_element(BABEL_NODE, &vtysh_quit_babeld_cmd);
@@ -5204,25 +5212,21 @@ void vtysh_init_vty(void)
 
 	/* isisd */
 #ifdef HAVE_ISISD
-	install_node(&isis_node);
 	install_element(CONFIG_NODE, &router_isis_cmd);
 	install_element(ISIS_NODE, &vtysh_exit_isisd_cmd);
 	install_element(ISIS_NODE, &vtysh_quit_isisd_cmd);
 	install_element(ISIS_NODE, &vtysh_end_all_cmd);
 
-	install_node(&isis_flex_algo_node);
 	install_element(ISIS_NODE, &isis_flex_algo_cmd);
 	install_element(ISIS_FLEX_ALGO_NODE, &vtysh_exit_isis_flex_algo_cmd);
 	install_element(ISIS_FLEX_ALGO_NODE, &vtysh_quit_isis_flex_algo_cmd);
 	install_element(ISIS_FLEX_ALGO_NODE, &vtysh_end_all_cmd);
 
-	install_node(&isis_srv6_node);
 	install_element(ISIS_NODE, &isis_srv6_enable_cmd);
 	install_element(ISIS_SRV6_NODE, &isis_srv6_node_msd_cmd);
 	install_element(ISIS_SRV6_NODE, &vtysh_exit_isis_srv6_enable_cmd);
 	install_element(ISIS_SRV6_NODE, &vtysh_quit_isis_srv6_enable_cmd);
 	install_element(ISIS_SRV6_NODE, &vtysh_end_all_cmd);
-	install_node(&isis_srv6_node_msd_node);
 	install_element(ISIS_SRV6_NODE_MSD_NODE,
 			&vtysh_exit_isis_srv6_node_msd_cmd);
 	install_element(ISIS_SRV6_NODE_MSD_NODE,
@@ -5232,7 +5236,6 @@ void vtysh_init_vty(void)
 
 	/* fabricd */
 #ifdef HAVE_FABRICD
-	install_node(&openfabric_node);
 	install_element(CONFIG_NODE, &router_openfabric_cmd);
 	install_element(OPENFABRIC_NODE, &vtysh_exit_fabricd_cmd);
 	install_element(OPENFABRIC_NODE, &vtysh_quit_fabricd_cmd);
@@ -5241,7 +5244,6 @@ void vtysh_init_vty(void)
 
 	/* pbrd */
 #ifdef HAVE_PBRD
-	install_node(&pbr_map_node);
 	install_element(CONFIG_NODE, &vtysh_pbr_map_cmd);
 	install_element(CONFIG_NODE, &vtysh_no_pbr_map_cmd);
 	install_element(PBRMAP_NODE, &vtysh_exit_pbr_map_cmd);
@@ -5251,37 +5253,28 @@ void vtysh_init_vty(void)
 
 	/* bfdd */
 #if HAVE_BFDD > 0
-	install_node(&bfd_node);
 	install_element(CONFIG_NODE, &bfd_enter_cmd);
 	install_element(BFD_NODE, &vtysh_exit_bfdd_cmd);
 	install_element(BFD_NODE, &vtysh_quit_bfdd_cmd);
 	install_element(BFD_NODE, &vtysh_end_all_cmd);
 
-	install_node(&bfd_peer_node);
 	install_element(BFD_NODE, &bfd_peer_enter_cmd);
 	install_element(BFD_PEER_NODE, &vtysh_exit_bfdd_cmd);
 	install_element(BFD_PEER_NODE, &vtysh_quit_bfdd_cmd);
 	install_element(BFD_PEER_NODE, &vtysh_end_all_cmd);
 
-	install_node(&bfd_profile_node);
 	install_element(BFD_NODE, &bfd_profile_enter_cmd);
 	install_element(BFD_PROFILE_NODE, &vtysh_exit_bfdd_cmd);
 	install_element(BFD_PROFILE_NODE, &vtysh_quit_bfdd_cmd);
 	install_element(BFD_PROFILE_NODE, &vtysh_end_all_cmd);
 #endif /* HAVE_BFDD */
 
-	install_node(&segment_routing_node);
 	install_element(CONFIG_NODE, &segment_routing_cmd);
 	install_element(SEGMENT_ROUTING_NODE, &vtysh_exit_sr_cmd);
 	install_element(SEGMENT_ROUTING_NODE, &vtysh_quit_sr_cmd);
 	install_element(SEGMENT_ROUTING_NODE, &vtysh_end_all_cmd);
 
 #if defined(HAVE_PATHD)
-	install_node(&sr_traffic_eng_node);
-	install_node(&srte_segment_list_node);
-	install_node(&srte_policy_node);
-	install_node(&srte_candidate_dyn_node);
-
 	install_element(SR_TRAFFIC_ENG_NODE, &vtysh_exit_pathd_cmd);
 	install_element(SR_TRAFFIC_ENG_NODE, &vtysh_quit_pathd_cmd);
 	install_element(SR_SEGMENT_LIST_NODE, &vtysh_exit_pathd_cmd);
@@ -5301,11 +5294,6 @@ void vtysh_init_vty(void)
 	install_element(SR_TRAFFIC_ENG_NODE, &srte_segment_list_cmd);
 	install_element(SR_TRAFFIC_ENG_NODE, &srte_policy_cmd);
 	install_element(SR_POLICY_NODE, &srte_policy_candidate_dyn_path_cmd);
-
-	install_node(&pcep_node);
-	install_node(&pcep_pcc_node);
-	install_node(&pcep_pce_node);
-	install_node(&pcep_pce_config_node);
 
 	install_element(PCEP_NODE, &vtysh_exit_pathd_cmd);
 	install_element(PCEP_NODE, &vtysh_quit_pathd_cmd);
@@ -5329,14 +5317,12 @@ void vtysh_init_vty(void)
 #endif /* HAVE_PATHD */
 
 	/* keychain */
-	install_node(&keychain_node);
 	install_element(CONFIG_NODE, &key_chain_cmd);
 	install_element(KEYCHAIN_NODE, &key_chain_cmd);
 	install_element(KEYCHAIN_NODE, &vtysh_exit_keys_cmd);
 	install_element(KEYCHAIN_NODE, &vtysh_quit_keys_cmd);
 	install_element(KEYCHAIN_NODE, &vtysh_end_all_cmd);
 
-	install_node(&keychain_key_node);
 	install_element(KEYCHAIN_NODE, &key_cmd);
 	install_element(KEYCHAIN_KEY_NODE, &key_chain_cmd);
 	install_element(KEYCHAIN_KEY_NODE, &vtysh_exit_keys_cmd);
@@ -5344,7 +5330,6 @@ void vtysh_init_vty(void)
 	install_element(KEYCHAIN_KEY_NODE, &vtysh_end_all_cmd);
 
 	/* nexthop-group */
-	install_node(&nh_group_node);
 	install_element(CONFIG_NODE, &vtysh_nexthop_group_cmd);
 	install_element(CONFIG_NODE, &vtysh_no_nexthop_group_cmd);
 	install_element(NH_GROUP_NODE, &vtysh_end_all_cmd);
@@ -5352,9 +5337,6 @@ void vtysh_init_vty(void)
 	install_element(NH_GROUP_NODE, &vtysh_quit_nexthop_group_cmd);
 
 	/* zebra and all */
-	install_node(&zebra_node);
-
-	install_node(&interface_node);
 	install_element(CONFIG_NODE, &vtysh_interface_cmd);
 	install_element(INTERFACE_NODE, &vtysh_end_all_cmd);
 	install_element(INTERFACE_NODE, &vtysh_exit_interface_cmd);
@@ -5362,7 +5344,6 @@ void vtysh_init_vty(void)
 
 	/* pimd */
 #ifdef HAVE_PIMD
-	install_node(&pim_node);
 	install_element(CONFIG_NODE, &router_pim_cmd);
 	install_element(PIM_NODE, &vtysh_exit_pimd_cmd);
 	install_element(PIM_NODE, &vtysh_quit_pimd_cmd);
@@ -5371,15 +5352,12 @@ void vtysh_init_vty(void)
 
 	/* pim6d */
 #ifdef HAVE_PIM6D
-	install_node(&pim6_node);
 	install_element(CONFIG_NODE, &router_pim6_cmd);
 	install_element(PIM6_NODE, &vtysh_exit_pim6d_cmd);
 	install_element(PIM6_NODE, &vtysh_quit_pim6d_cmd);
 	install_element(PIM6_NODE, &vtysh_end_all_cmd);
 #endif /* HAVE_PIM6D */
 
-	/* zebra and all, cont. */
-	install_node(&link_params_node);
 	install_element(INTERFACE_NODE, &vtysh_link_params_cmd);
 	install_element(LINK_PARAMS_NODE, &no_link_params_enable_cmd);
 	install_element(LINK_PARAMS_NODE, &exit_link_params_cmd);
@@ -5387,13 +5365,11 @@ void vtysh_init_vty(void)
 	install_element(LINK_PARAMS_NODE, &vtysh_exit_link_params_cmd);
 	install_element(LINK_PARAMS_NODE, &vtysh_quit_link_params_cmd);
 
-	install_node(&pw_node);
 	install_element(CONFIG_NODE, &vtysh_pseudowire_cmd);
 	install_element(PW_NODE, &vtysh_end_all_cmd);
 	install_element(PW_NODE, &vtysh_exit_pseudowire_cmd);
 	install_element(PW_NODE, &vtysh_quit_pseudowire_cmd);
 
-	install_node(&vrf_node);
 	install_element(CONFIG_NODE, &vtysh_vrf_cmd);
 	install_element(VRF_NODE, &exit_vrf_config_cmd);
 	install_element(VRF_NODE, &vtysh_end_all_cmd);
@@ -5401,7 +5377,6 @@ void vtysh_init_vty(void)
 	install_element(VRF_NODE, &vtysh_quit_vrf_cmd);
 
 #ifdef HAVE_BGPD
-	install_node(&rpki_vrf_node);
 	install_element(VRF_NODE, &rpki_cmd);
 	install_element(RPKI_VRF_NODE, &rpki_exit_cmd);
 	install_element(RPKI_VRF_NODE, &rpki_quit_cmd);
@@ -5411,13 +5386,11 @@ void vtysh_init_vty(void)
 	install_element(CONFIG_NODE, &vtysh_affinity_map_cmd);
 	install_element(CONFIG_NODE, &vtysh_no_affinity_map_cmd);
 
-	install_node(&rmap_node);
 	install_element(CONFIG_NODE, &vtysh_route_map_cmd);
 	install_element(RMAP_NODE, &vtysh_exit_rmap_cmd);
 	install_element(RMAP_NODE, &vtysh_quit_rmap_cmd);
 	install_element(RMAP_NODE, &vtysh_end_all_cmd);
 
-	install_node(&vty_node);
 	install_element(CONFIG_NODE, &vtysh_line_vty_cmd);
 	install_element(VTY_NODE, &vtysh_exit_line_vty_cmd);
 	install_element(VTY_NODE, &vtysh_quit_line_vty_cmd);
@@ -5450,7 +5423,6 @@ void vtysh_init_vty(void)
 	install_element(ENABLE_NODE, &vtysh_end_all_cmd);
 
 	/* SRv6 Data-plane */
-	install_node(&srv6_node);
 	install_element(SEGMENT_ROUTING_NODE, &srv6_cmd);
 	install_element(SRV6_NODE, &srv6_locators_cmd);
 	install_element(SRV6_NODE, &srv6_sid_formats_cmd);
@@ -5458,32 +5430,26 @@ void vtysh_init_vty(void)
 	install_element(SRV6_NODE, &vtysh_end_all_cmd);
 	install_element(SRV6_NODE, &srv6_encap_cmd);
 
-	install_node(&srv6_locs_node);
 	install_element(SRV6_LOCS_NODE, &srv6_locator_cmd);
 	install_element(SRV6_LOCS_NODE, &exit_srv6_locs_config_cmd);
 	install_element(SRV6_LOCS_NODE, &vtysh_end_all_cmd);
 
-	install_node(&srv6_loc_node);
 	install_element(SRV6_LOC_NODE, &exit_srv6_loc_config_cmd);
 	install_element(SRV6_LOC_NODE, &vtysh_end_all_cmd);
 
-	install_node(&srv6_encap_node);
 	install_element(SRV6_ENCAP_NODE, &exit_srv6_encap_cmd);
 	install_element(SRV6_ENCAP_NODE, &vtysh_end_all_cmd);
 
-	install_node(&srv6_sid_formats_node);
 	install_element(SRV6_SID_FORMATS_NODE, &srv6_sid_format_f3216_usid_cmd);
 	install_element(SRV6_SID_FORMATS_NODE,
 			&srv6_sid_format_f4024_uncompressed_cmd);
 	install_element(SRV6_SID_FORMATS_NODE, &exit_srv6_sid_formats_cmd);
 	install_element(SRV6_SID_FORMATS_NODE, &vtysh_end_all_cmd);
 
-	install_node(&srv6_sid_format_usid_f3216_node);
 	install_element(SRV6_SID_FORMAT_USID_F3216_NODE,
 			&exit_srv6_sid_format_cmd);
 	install_element(SRV6_SID_FORMAT_USID_F3216_NODE, &vtysh_end_all_cmd);
 
-	install_node(&srv6_sid_format_uncompressed_f4024_node);
 	install_element(SRV6_SID_FORMAT_UNCOMPRESSED_F4024_NODE,
 			&exit_srv6_sid_format_cmd);
 	install_element(SRV6_SID_FORMAT_UNCOMPRESSED_F4024_NODE,

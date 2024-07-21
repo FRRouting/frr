@@ -252,6 +252,8 @@ struct cmd_node {
 /* Argc max counts. */
 #define CMD_ARGC_MAX   256
 
+/* clang-format off */
+
 /* helper defines for end-user DEFUN* macros */
 #define DEFUN_CMD_ELEMENT(funcname, cmdname, cmdstr, helpstr, attrs, dnum)     \
 	static const struct cmd_element cmdname = {                            \
@@ -375,6 +377,8 @@ struct cmd_node {
 
 #define ALIAS_YANG(funcname, cmdname, cmdstr, helpstr)                         \
 	ALIAS_ATTR(funcname, cmdname, cmdstr, helpstr, CMD_ATTR_YANG)
+
+/* clang-format on */
 
 /* Some macroes */
 
