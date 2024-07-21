@@ -160,8 +160,8 @@ static PyObject *graph_node_next(PyObject *self, PyObject *args)
 	struct wrap_graph_node *wrap = (struct wrap_graph_node *)self;
 	PyObject *pylist;
 
-	if (wrap->node->data
-	    && ((struct cmd_token *)wrap->node->data)->type == END_TKN)
+	if (wrap->node->data &&
+	    ((struct cmd_token *)wrap->node->data)->type == CMD_ELEMENT_TKN)
 		return PyList_New(0);
 	pylist = PyList_New(vector_active(wrap->node->to));
 	for (size_t i = 0; i < vector_active(wrap->node->to); i++) {
@@ -335,6 +335,7 @@ static PyObject *graph_to_pyobj_idx(struct wrap_graph *wgraph, size_t i)
 			item(START_TKN);
 			item(END_TKN);
 			item(NEG_ONLY_TKN);
+			item(CMD_ELEMENT_TKN);
 #undef item
 		default:
 			wrap->type = "???";
@@ -436,16 +437,16 @@ static PyObject *graph_merge(PyObject *self, PyObject *args)
 /* top call / entrypoint for python code */
 static PyObject *graph_parse(PyTypeObject *type, PyObject *args, PyObject *kwds)
 {
-	const char *def, *doc = NULL;
+	const char *def, *doc = NULL, *name = NULL;
 	struct wrap_graph *gwrap;
-	static const char *kwnames[] = {"cmddef", "doc", NULL};
+	static const char *const kwnames[] = { "cmddef", "doc", "name", NULL };
 
 	gwrap = (struct wrap_graph *)typeobj_graph.tp_alloc(&typeobj_graph, 0);
 	if (!gwrap)
 		return NULL;
 
-	if (!PyArg_ParseTupleAndKeywords(args, kwds, "z|s", (char **)kwnames,
-					 &def, &doc))
+	if (!PyArg_ParseTupleAndKeywords(args, kwds, "z|ss", (char **)kwnames,
+					 &def, &doc, &name))
 		return NULL;
 
 	struct graph *graph = graph_new();
@@ -454,9 +455,17 @@ static PyObject *graph_parse(PyTypeObject *type, PyObject *args, PyObject *kwds)
 
 	if (def) {
 		struct cmd_element cmd = { .string = def, .doc = doc };
+		struct graph_node *last;
 
 		cmd_graph_parse(graph, &cmd);
 		cmd_graph_names(graph);
+
+		last = vector_slot(graph->nodes,
+				   vector_active(graph->nodes) - 1);
+		assert(last->data == &cmd);
+
+		last->data = cmd_token_new(CMD_ELEMENT_TKN, 0, name, def);
+		last->del = (void (*)(void *))cmd_token_del;
 
 		gwrap->definition = strdup(def);
 	} else {
