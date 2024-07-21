@@ -34,22 +34,6 @@ void vector_free(vector v)
 	XFREE(MTYPE_VECTOR, v);
 }
 
-vector vector_copy(vector v)
-{
-	unsigned int size;
-	vector new = XCALLOC(MTYPE_VECTOR, sizeof(struct _vector));
-
-	new->active = v->active;
-	new->alloced = v->alloced;
-	new->count = v->count;
-
-	size = sizeof(void *) * (v->alloced);
-	new->index = XCALLOC(MTYPE_VECTOR_INDEX, size);
-	memcpy(new->index, v->index, size);
-
-	return new;
-}
-
 /* Check assigned index, and if it runs short double index pointer */
 void vector_ensure(vector v, unsigned int num)
 {
