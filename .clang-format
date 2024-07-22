@@ -224,4 +224,8 @@ WhitespaceSensitiveMacros:
   - "DEFUN_YANG_NOSH"
   - "DEFUNSH"
   - "DEFUNSH_HIDDEN"
+  - "ALIAS"
+  - "ALIAS_HIDDEN"
+  - "ALIAS_YANG"
+  - "ALIAS_DEPRECATED"
 ...
