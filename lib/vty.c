@@ -3574,8 +3574,9 @@ static void vty_mgmt_set_config_result_notified(
 			errmsg_if_any ? errmsg_if_any : "Unknown");
 	} else {
 		debug_fe_client("SET_CONFIG request for client 0x%" PRIx64
-				" req-id %" PRIu64 " was successfull",
-				client_id, req_id);
+				" req-id %" PRIu64 " was successfull%s%s",
+				client_id, req_id, errmsg_if_any ? ": " : "",
+				errmsg_if_any ?: "");
 	}
 
 	if (implicit_commit) {
@@ -3606,8 +3607,9 @@ static void vty_mgmt_commit_config_result_notified(
 			errmsg_if_any ? errmsg_if_any : "Unknown");
 	} else {
 		debug_fe_client("COMMIT_CONFIG request for client 0x%" PRIx64
-				" req-id %" PRIu64 " was successfull",
-				client_id, req_id);
+				" req-id %" PRIu64 " was successfull%s%s",
+				client_id, req_id, errmsg_if_any ? ": " : "",
+				errmsg_if_any ?: "");
 		if (errmsg_if_any)
 			vty_out(vty, "MGMTD: %s\n", errmsg_if_any);
 	}
@@ -3638,8 +3640,9 @@ static int vty_mgmt_get_data_result_notified(
 	}
 
 	debug_fe_client("GET_DATA request succeeded, client 0x%" PRIx64
-			" req-id %" PRIu64,
-			client_id, req_id);
+			" req-id %" PRIu64 "%s%s",
+			client_id, req_id, errmsg_if_any ? ": " : "",
+			errmsg_if_any ?: "");
 
 	if (req_id != mgmt_last_req_id) {
 		mgmt_last_req_id = req_id;
