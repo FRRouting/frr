@@ -15,7 +15,7 @@
                 "origin": "incomplete",
                 "nexthops": [
                     {
-                        "ip": "::ffff:c000:202",
+                        "ip": "::ffff:192.0.2.2",
                         "hostname": "ce1",
                         "afi": "ipv6",
                         "scope": "global"
