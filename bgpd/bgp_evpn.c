@@ -6339,9 +6339,9 @@ void bgp_evpn_free(struct bgp *bgp, struct bgpevpn *vpn)
 	     dest = dest_next) {
 		dest_next = zebra_announce_next(&bm->zebra_announce_head, dest);
 		if (dest->za_vpn == vpn) {
+			zebra_announce_del(&bm->zebra_announce_head, dest);
 			bgp_path_info_unlock(dest->za_bgp_pi);
 			bgp_dest_unlock_node(dest);
-			zebra_announce_del(&bm->zebra_announce_head, dest);
 		}
 	}
 
