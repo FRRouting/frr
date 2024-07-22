@@ -210,7 +210,7 @@ def test_protocols_convergence():
                 "vrfName": "r1-vrf-101",
                 "nexthops": [
                     {
-                        "ip": "::ffff:c0a8:6429",
+                        "ip": "::ffff:192.168.100.41",
                     }
                 ],
             }
@@ -227,8 +227,8 @@ def test_protocols_convergence():
             "192.168.100.41": {
                 "nexthopIp": "192.168.100.41",
             },
-            "::ffff:c0a8:6429": {
-                "nexthopIp": "::ffff:c0a8:6429",
+            "::ffff:192.168.100.41": {
+                "nexthopIp": "::ffff:192.168.100.41",
             },
         }
     }
