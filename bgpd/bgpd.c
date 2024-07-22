@@ -2283,7 +2283,7 @@ static void peer_group2peer_config_copy_af(struct peer_group *group,
 	flags_tmp = conf->af_flags[afi][safi] & ~pflags_ovrd;
 	flags_tmp ^= conf->af_flags_invert[afi][safi]
 		     ^ peer->af_flags_invert[afi][safi];
-	flags_tmp &= ~pflags_ovrd;
+	UNSET_FLAG(flags_tmp, pflags_ovrd);
 
 	UNSET_FLAG(peer->af_flags[afi][safi], ~pflags_ovrd);
 	SET_FLAG(peer->af_flags[afi][safi], flags_tmp);
@@ -2523,10 +2523,10 @@ int peer_activate(struct peer *peer, afi_t afi, safi_t safi)
 		group = peer->group;
 
 		for (ALL_LIST_ELEMENTS(group->peer, node, nnode, tmp_peer)) {
-			ret |= peer_activate_af(tmp_peer, afi, safi);
+			SET_FLAG(ret, peer_activate_af(tmp_peer, afi, safi));
 		}
 	} else {
-		ret |= peer_activate_af(peer, afi, safi);
+		SET_FLAG(ret, peer_activate_af(peer, afi, safi));
 	}
 
 	/* If this is the first peer to be activated for this
@@ -2625,10 +2625,11 @@ int peer_deactivate(struct peer *peer, afi_t afi, safi_t safi)
 		group = peer->group;
 
 		for (ALL_LIST_ELEMENTS(group->peer, node, nnode, tmp_peer)) {
-			ret |= non_peergroup_deactivate_af(tmp_peer, afi, safi);
+			SET_FLAG(ret, non_peergroup_deactivate_af(tmp_peer, afi,
+								  safi));
 		}
 	} else {
-		ret |= non_peergroup_deactivate_af(peer, afi, safi);
+		SET_FLAG(ret, non_peergroup_deactivate_af(peer, afi, safi));
 	}
 
 	bgp = peer->bgp;
@@ -2930,9 +2931,9 @@ static void peer_group2peer_config_copy(struct peer_group *group,
 	peer->gtsm_hops = conf->gtsm_hops;
 
 	/* peer flags apply */
-	flags_tmp = conf->flags & ~peer->flags_override;
+	flags_tmp = CHECK_FLAG(conf->flags, ~peer->flags_override);
 	flags_tmp ^= conf->flags_invert ^ peer->flags_invert;
-	flags_tmp &= ~peer->flags_override;
+	UNSET_FLAG(flags_tmp, peer->flags_override);
 
 	UNSET_FLAG(peer->flags, ~peer->flags_override);
 	SET_FLAG(peer->flags, flags_tmp);
@@ -4758,7 +4759,7 @@ static int peer_flag_action_set(const struct peer_flag_action *action_list,
 		if (match->flag == 0)
 			break;
 
-		if (match->flag & flag) {
+		if (CHECK_FLAG(match->flag, flag)) {
 			found = 1;
 
 			if (match->type == peer_change_reset_in)
@@ -5085,15 +5086,17 @@ static int peer_af_flag_modify(struct peer *peer, afi_t afi, safi_t safi,
 
 	ptype = peer_sort(peer);
 	/* Special check for reflector client.  */
-	if (flag & PEER_FLAG_REFLECTOR_CLIENT && ptype != BGP_PEER_IBGP)
+	if (CHECK_FLAG(flag, PEER_FLAG_REFLECTOR_CLIENT) &&
+	    ptype != BGP_PEER_IBGP)
 		return BGP_ERR_NOT_INTERNAL_PEER;
 
 	/* Special check for remove-private-AS.  */
-	if (flag & PEER_FLAG_REMOVE_PRIVATE_AS && ptype == BGP_PEER_IBGP)
+	if (CHECK_FLAG(flag, PEER_FLAG_REMOVE_PRIVATE_AS) &&
+	    ptype == BGP_PEER_IBGP)
 		return BGP_ERR_REMOVE_PRIVATE_AS;
 
 	/* as-override is not allowed for IBGP peers */
-	if (flag & PEER_FLAG_AS_OVERRIDE && ptype == BGP_PEER_IBGP)
+	if (CHECK_FLAG(flag, PEER_FLAG_AS_OVERRIDE) && ptype == BGP_PEER_IBGP)
 		return BGP_ERR_AS_OVERRIDE;
 
 	/* Handle flag updates where desired state matches current state. */
@@ -5144,7 +5147,7 @@ static int peer_af_flag_modify(struct peer *peer, afi_t afi, safi_t safi,
 	 * If the peer is a route server client let's not
 	 * muck with the nexthop on the way out the door
 	 */
-	if (flag & PEER_FLAG_RSERVER_CLIENT) {
+	if (CHECK_FLAG(flag, PEER_FLAG_RSERVER_CLIENT)) {
 		if (set)
 			SET_FLAG(peer->af_flags[afi][safi],
 				 PEER_FLAG_NEXTHOP_UNCHANGED);
