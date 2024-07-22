@@ -31,7 +31,7 @@
       "installed": true,
       "nexthops": [
         {
-          "ip": "::ffff:c633:6405",
+          "ip": "::ffff:198.51.100.5",
           "afi": "ipv6",
           "vrf": "default",
           "active": true,
@@ -43,7 +43,7 @@
         },
         {
           "fib": true,
-          "ip": "::ffff:c000:203",
+          "ip": "::ffff:192.0.2.3",
           "afi": "ipv6",
           "interfaceName": "eth-p2",
           "resolver": true,
@@ -70,7 +70,7 @@
       "installed": true,
       "nexthops": [
         {
-          "ip": "::ffff:c633:6405",
+          "ip": "::ffff:198.51.100.5",
           "afi": "ipv6",
           "vrf": "default",
           "active": true,
@@ -82,7 +82,7 @@
         },
         {
           "fib": true,
-          "ip": "::ffff:c000:203",
+          "ip": "::ffff:192.0.2.3",
           "afi": "ipv6",
           "interfaceName": "eth-p2",
           "resolver": true,
@@ -109,7 +109,7 @@
       "installed": true,
       "nexthops": [
         {
-          "ip": "::ffff:c633:6405",
+          "ip": "::ffff:198.51.100.5",
           "afi": "ipv6",
           "vrf": "default",
           "active": true,
@@ -121,7 +121,7 @@
         },
         {
           "fib": true,
-          "ip": "::ffff:c000:203",
+          "ip": "::ffff:192.0.2.3",
           "afi": "ipv6",
           "interfaceName": "eth-p2",
           "resolver": true,
@@ -148,7 +148,7 @@
       "installed": true,
       "nexthops": [
         {
-          "ip": "::ffff:c633:6405",
+          "ip": "::ffff:198.51.100.5",
           "afi": "ipv6",
           "vrf": "default",
           "active": true,
@@ -160,7 +160,7 @@
         },
         {
           "fib": true,
-          "ip": "::ffff:c000:203",
+          "ip": "::ffff:192.0.2.3",
           "afi": "ipv6",
           "interfaceName": "eth-p2",
           "resolver": true,
@@ -187,7 +187,7 @@
       "installed": true,
       "nexthops": [
         {
-          "ip": "::ffff:c633:6405",
+          "ip": "::ffff:198.51.100.5",
           "afi": "ipv6",
           "vrf": "default",
           "active": true,
@@ -199,7 +199,7 @@
         },
         {
           "fib": true,
-          "ip": "::ffff:c000:203",
+          "ip": "::ffff:192.0.2.3",
           "afi": "ipv6",
           "interfaceName": "eth-p2",
           "resolver": true,

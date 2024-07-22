@@ -18,7 +18,7 @@
         "origin": "IGP",
         "nexthops": [
           {
-            "ip": "::ffff:c633:6402",
+            "ip": "::ffff:198.51.100.2",
             "afi": "ipv6",
             "scope": "global",
             "used": true

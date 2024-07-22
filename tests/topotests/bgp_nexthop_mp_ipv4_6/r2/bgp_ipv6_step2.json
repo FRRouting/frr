@@ -7,7 +7,7 @@
         "path": "65100",
         "nexthops": [
           {
-            "ip": "::ffff:ac10:1",
+            "ip": "::ffff:172.16.0.1",
             "afi": "ipv6",
             "scope": "global"
           },

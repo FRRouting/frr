@@ -37,7 +37,7 @@
         "origin": "IGP",
         "nexthops": [
           {
-            "ip": "::ffff:c633:6405",
+            "ip": "::ffff:198.51.100.5",
             "afi": "ipv6",
             "scope": "global",
             "used": true
@@ -56,7 +56,7 @@
         "origin": "IGP",
         "nexthops": [
           {
-            "ip": "::ffff:c633:6405",
+            "ip": "::ffff:198.51.100.5",
             "afi": "ipv6",
             "scope": "global",
             "used": true
@@ -75,7 +75,7 @@
         "origin": "IGP",
         "nexthops": [
           {
-            "ip": "::ffff:c633:6405",
+            "ip": "::ffff:198.51.100.5",
             "afi": "ipv6",
             "scope": "global",
             "used": true
@@ -94,7 +94,7 @@
         "origin": "IGP",
         "nexthops": [
           {
-            "ip": "::ffff:c633:6405",
+            "ip": "::ffff:198.51.100.5",
             "afi": "ipv6",
             "scope": "global",
             "used": true
@@ -113,7 +113,7 @@
         "origin": "IGP",
         "nexthops": [
           {
-            "ip": "::ffff:c633:6405",
+            "ip": "::ffff:198.51.100.5",
             "afi": "ipv6",
             "scope": "global",
             "used": true

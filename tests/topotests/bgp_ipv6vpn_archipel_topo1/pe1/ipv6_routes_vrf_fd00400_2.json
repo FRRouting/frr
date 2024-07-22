@@ -11,7 +11,7 @@
       "installed": true,
       "nexthops": [
         {
-          "ip": "::ffff:c633:6405",
+          "ip": "::ffff:198.51.100.5",
           "afi": "ipv6",
           "active": true,
           "vrf": "default",
@@ -23,7 +23,7 @@
         },
         {
           "fib": true,
-          "ip": "::ffff:cb00:7103",
+          "ip": "::ffff:203.0.113.3",
           "afi": "ipv6",
           "interfaceName": "eth-p1",
           "resolver": true,

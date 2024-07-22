@@ -14,7 +14,7 @@
         "path": "65500",
         "nexthops": [
           {
-            "ip": "::ffff:c000:202",
+            "ip": "::ffff:192.0.2.2",
             "afi": "ipv6",
             "scope": "global",
             "used": true

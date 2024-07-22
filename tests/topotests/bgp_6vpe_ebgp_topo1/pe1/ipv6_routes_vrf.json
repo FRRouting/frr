@@ -31,7 +31,7 @@
       "installed": true,
       "nexthops": [
         {
-          "ip": "::ffff:c000:205",
+          "ip": "::ffff:192.0.2.5",
           "afi": "ipv6",
           "vrf": "default",
           "active": true,
@@ -55,7 +55,7 @@
       "installed": true,
       "nexthops": [
         {
-          "ip": "::ffff:c000:205",
+          "ip": "::ffff:192.0.2.5",
           "afi": "ipv6",
           "vrf": "default",
           "active": true,
@@ -79,7 +79,7 @@
       "installed": true,
       "nexthops": [
         {
-          "ip": "::ffff:c000:205",
+          "ip": "::ffff:192.0.2.5",
           "afi": "ipv6",
           "vrf": "default",
           "active": true,
@@ -103,7 +103,7 @@
       "installed": true,
       "nexthops": [
         {
-          "ip": "::ffff:c000:205",
+          "ip": "::ffff:192.0.2.5",
           "afi": "ipv6",
           "vrf": "default",
           "active": true,
@@ -127,7 +127,7 @@
       "installed": true,
       "nexthops": [
         {
-          "ip": "::ffff:c000:205",
+          "ip": "::ffff:192.0.2.5",
           "afi": "ipv6",
           "vrf": "default",
           "active": true,

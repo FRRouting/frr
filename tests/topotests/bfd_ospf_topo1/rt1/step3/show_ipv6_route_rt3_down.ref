@@ -1,7 +1,7 @@
 {
-  "::ffff:202:202\/128":[
+  "::ffff:2.2.2.2\/128":[
     {
-      "prefix":"::ffff:202:202\/128",
+      "prefix":"::ffff:2.2.2.2\/128",
       "protocol":"ospf6",
       "selected":true,
       "destSelected":true,
@@ -16,9 +16,9 @@
       ]
     }
   ],
-  "::ffff:303:303\/128":[
+  "::ffff:3.3.3.3\/128":[
     {
-      "prefix":"::ffff:303:303\/128",
+      "prefix":"::ffff:3.3.3.3\/128",
       "protocol":"ospf6",
       "selected":true,
       "destSelected":true,
@@ -33,9 +33,9 @@
       ]
     }
   ],
-  "::ffff:404:404\/128":[
+  "::ffff:4.4.4.4\/128":[
     {
-      "prefix":"::ffff:404:404\/128",
+      "prefix":"::ffff:4.4.4.4\/128",
       "protocol":"ospf6",
       "selected":true,
       "destSelected":true,
@@ -50,9 +50,9 @@
       ]
     }
   ],
-  "::ffff:505:505\/128":[
+  "::ffff:5.5.5.5\/128":[
     {
-      "prefix":"::ffff:505:505\/128",
+      "prefix":"::ffff:5.5.5.5\/128",
       "protocol":"ospf6",
       "selected":true,
       "destSelected":true,

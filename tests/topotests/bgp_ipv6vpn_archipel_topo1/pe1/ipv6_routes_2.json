@@ -1,9 +1,9 @@
 {
-  "::ffff:c000:200/120": null,
-  "::ffff:c633:6405/128": null,
-  "::ffff:cb00:7100/120": [
+  "::ffff:192.0.2.0/120": null,
+  "::ffff:198.51.100.5/128": null,
+  "::ffff:203.0.113.0/120": [
     {
-      "prefix": "::ffff:cb00:7100/120",
+      "prefix": "::ffff:203.0.113.0/120",
       "protocol": "connected",
       "vrfName": "default",
       "selected": true,

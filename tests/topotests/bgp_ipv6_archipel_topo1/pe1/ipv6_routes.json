@@ -1,7 +1,7 @@
 {
-  "::ffff:c633:6405/128": [
+  "::ffff:198.51.100.5/128": [
     {
-      "prefix": "::ffff:c633:6405/128",
+      "prefix": "::ffff:198.51.100.5/128",
       "protocol": "6pe",
       "vrfName": "default",
       "selected": true,
@@ -12,7 +12,7 @@
       "nexthops": [
         {
           "fib": true,
-          "ip": "::ffff:c000:203",
+          "ip": "::ffff:192.0.2.3",
           "afi": "ipv6",
           "interfaceName": "eth-p2",
           "active": true,
@@ -24,9 +24,9 @@
       ]
     }
   ],
-  "::ffff:cb00:7100/120": [
+  "::ffff:203.0.113.0/120": [
     {
-      "prefix": "::ffff:cb00:7100/120",
+      "prefix": "::ffff:203.0.113.0/120",
       "protocol": "connected",
       "vrfName": "default",
       "selected": true,
@@ -44,9 +44,9 @@
       ]
     }
   ],
-  "::ffff:c000:200/120": [
+  "::ffff:192.0.2.0/120": [
     {
-      "prefix": "::ffff:c000:200/120",
+      "prefix": "::ffff:192.0.2.0/120",
       "protocol": "connected",
       "vrfName": "default",
       "selected": true,
@@ -96,7 +96,7 @@
       "installed": true,
       "nexthops": [
         {
-          "ip": "::ffff:c633:6405",
+          "ip": "::ffff:198.51.100.5",
           "afi": "ipv6",
           "active": true,
           "recursive": true,
@@ -107,7 +107,7 @@
         },
         {
           "fib": true,
-          "ip": "::ffff:c000:203",
+          "ip": "::ffff:192.0.2.3",
           "afi": "ipv6",
           "interfaceName": "eth-p2",
           "resolver": true,
@@ -133,7 +133,7 @@
       "installed": true,
       "nexthops": [
         {
-          "ip": "::ffff:c633:6405",
+          "ip": "::ffff:198.51.100.5",
           "afi": "ipv6",
           "active": true,
           "recursive": true,
@@ -144,7 +144,7 @@
         },
         {
           "fib": true,
-          "ip": "::ffff:c000:203",
+          "ip": "::ffff:192.0.2.3",
           "afi": "ipv6",
           "interfaceName": "eth-p2",
           "resolver": true,
@@ -170,7 +170,7 @@
       "installed": true,
       "nexthops": [
         {
-          "ip": "::ffff:c633:6405",
+          "ip": "::ffff:198.51.100.5",
           "afi": "ipv6",
           "active": true,
           "recursive": true,
@@ -181,7 +181,7 @@
         },
         {
           "fib": true,
-          "ip": "::ffff:c000:203",
+          "ip": "::ffff:192.0.2.3",
           "afi": "ipv6",
           "interfaceName": "eth-p2",
           "resolver": true,
@@ -207,7 +207,7 @@
       "installed": true,
       "nexthops": [
         {
-          "ip": "::ffff:c633:6405",
+          "ip": "::ffff:198.51.100.5",
           "afi": "ipv6",
           "active": true,
           "recursive": true,
@@ -218,7 +218,7 @@
         },
         {
           "fib": true,
-          "ip": "::ffff:c000:203",
+          "ip": "::ffff:192.0.2.3",
           "afi": "ipv6",
           "interfaceName": "eth-p2",
           "resolver": true,
@@ -244,7 +244,7 @@
       "installed": true,
       "nexthops": [
         {
-          "ip": "::ffff:c633:6405",
+          "ip": "::ffff:198.51.100.5",
           "afi": "ipv6",
           "active": true,
           "recursive": true,
@@ -256,7 +256,7 @@
         {
           "flags": 3,
           "fib": true,
-          "ip": "::ffff:c000:203",
+          "ip": "::ffff:192.0.2.3",
           "afi": "ipv6",
           "interfaceName": "eth-p2",
           "resolver": true,
