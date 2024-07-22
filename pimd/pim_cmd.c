@@ -1457,7 +1457,7 @@ static void clear_interfaces(struct pim_instance *pim)
 static void pim_cli_legacy_mesh_group_behavior(struct vty *vty,
 					       const char *gname)
 {
-	char xpath_value[XPATH_MAXLEN];
+	char xpath_value[XPATH_MAXLEN + 26];
 	char xpath_member_value[XPATH_MAXLEN];
 	const struct lyd_node *member_dnode;
 
@@ -4314,7 +4314,7 @@ DEFPY (no_pim_ssm_prefix_list_name,
        "Name of a prefix-list\n")
 {
 	const struct lyd_node *ssm_plist_dnode;
-	char ssm_plist_xpath[XPATH_MAXLEN];
+	char ssm_plist_xpath[XPATH_MAXLEN + 16];
 	const char *ssm_plist_name;
 
 	snprintf(ssm_plist_xpath, sizeof(ssm_plist_xpath), "%s/ssm-prefix-list",
@@ -4350,7 +4350,7 @@ DEFPY_ATTR(no_ip_pim_ssm_prefix_list_name,
 			  CMD_ATTR_HIDDEN | CMD_ATTR_DEPRECATED)
 {
 	const struct lyd_node *ssm_plist_dnode;
-	char ssm_plist_xpath[XPATH_MAXLEN];
+	char ssm_plist_xpath[XPATH_MAXLEN + 16];
 	const char *ssm_plist_name;
 	int ret = CMD_WARNING_CONFIG_FAILED;
 	const char *vrfname;
@@ -6574,7 +6574,7 @@ DEFPY(no_pim_msdp_mesh_group_member,
       "Mesh group member\n"
       "Peer IP address\n")
 {
-	char xpath_value[XPATH_MAXLEN];
+	char xpath_value[XPATH_MAXLEN + 26];
 	char xpath_member_value[XPATH_MAXLEN];
 
 	/* Get mesh group base XPath. */
@@ -6620,7 +6620,7 @@ DEFPY_ATTR(no_ip_pim_msdp_mesh_group_member,
 			  "Peer IP address\n",
 			  CMD_ATTR_HIDDEN | CMD_ATTR_DEPRECATED)
 {
-	char xpath_value[XPATH_MAXLEN];
+	char xpath_value[XPATH_MAXLEN + 26];
 	char xpath_member_value[XPATH_MAXLEN];
 	int ret = CMD_WARNING_CONFIG_FAILED;
 	const char *vrfname;
@@ -6852,7 +6852,7 @@ DEFPY(no_pim_msdp_mesh_group,
       "Delete MSDP mesh-group\n"
       "Mesh group name\n")
 {
-	char xpath_value[XPATH_MAXLEN];
+	char xpath_value[XPATH_MAXLEN + 26];
 
 	/* Get mesh group base XPath. */
 	snprintf(xpath_value, sizeof(xpath_value),
@@ -6873,7 +6873,7 @@ DEFPY_ATTR(no_ip_pim_msdp_mesh_group,
 			  "Mesh group name\n",
 			  CMD_ATTR_HIDDEN | CMD_ATTR_DEPRECATED)
 {
-	char xpath_value[XPATH_MAXLEN];
+	char xpath_value[XPATH_MAXLEN + 26];
 	int ret = CMD_SUCCESS;
 	const char *vrfname;
 	char xpath[XPATH_MAXLEN];

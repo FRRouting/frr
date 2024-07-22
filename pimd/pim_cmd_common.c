@@ -100,8 +100,8 @@ int pim_process_no_join_prune_cmd(struct vty *vty)
 
 int pim_process_spt_switchover_infinity_cmd(struct vty *vty)
 {
-	char spt_plist_xpath[XPATH_MAXLEN];
-	char spt_action_xpath[XPATH_MAXLEN];
+	char spt_plist_xpath[XPATH_MAXLEN + 40];
+	char spt_action_xpath[XPATH_MAXLEN + 26];
 
 	snprintf(spt_plist_xpath, sizeof(spt_plist_xpath),
 		 "%s/spt-switchover/spt-infinity-prefix-list", VTY_CURR_XPATH);
@@ -522,7 +522,7 @@ int pim_process_no_rp_cmd(struct vty *vty, const char *rp_str,
 			  const char *group_str)
 {
 	char group_xpath[XPATH_MAXLEN];
-	char rp_xpath[XPATH_MAXLEN];
+	char rp_xpath[XPATH_MAXLEN + 47];
 	int printed;
 	const struct lyd_node *group_dnode;
 
@@ -568,8 +568,8 @@ int pim_process_rp_plist_cmd(struct vty *vty, const char *rp_str,
 int pim_process_no_rp_plist_cmd(struct vty *vty, const char *rp_str,
 				const char *prefix_list)
 {
-	char rp_xpath[XPATH_MAXLEN];
-	char plist_xpath[XPATH_MAXLEN];
+	char rp_xpath[XPATH_MAXLEN + 47];
+	char plist_xpath[XPATH_MAXLEN + 1070];
 	const struct lyd_node *plist_dnode;
 	const char *plist;
 
