@@ -980,8 +980,8 @@ static int mgmt_txn_create_config_batches(struct mgmt_txn_req *txn_req,
 		}
 
 		if (!chg_clients)
-			__log_err("No connected daemon is interested in XPATH %s",
-				  xpath);
+			__dbg("Daemons interested in XPATH are not currently connected: %s",
+			      xpath);
 
 		cmtcfg_req->clients |= chg_clients;
 
@@ -992,7 +992,7 @@ static int mgmt_txn_create_config_batches(struct mgmt_txn_req *txn_req,
 	if (!num_chgs) {
 		(void)mgmt_txn_send_commit_cfg_reply(txn_req->txn,
 						     MGMTD_NO_CFG_CHANGES,
-						     "No changes found to commit!");
+						     "No connected daemons interested in changes");
 		return -1;
 	}
 
