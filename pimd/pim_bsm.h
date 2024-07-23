@@ -378,28 +378,8 @@ struct pim_nexthop_cache;
 void pim_crp_nht_update(struct pim_instance *pim, struct pim_nexthop_cache *pnc);
 
 void pim_crp_db_clear(struct bsm_scope *scope);
-int pim_crp_db_show(struct vty *vty, struct bsm_scope *scope);
-int pim_crp_groups_show(struct vty *vty, struct bsm_scope *scope);
-
-int pim_crp_process(struct interface *ifp, pim_sgaddr *src_dst, uint8_t *buf,
-		    uint32_t buf_size);
-
-struct pim_nexthop_cache;
-void pim_crp_nht_update(struct pim_instance *pim, struct pim_nexthop_cache *pnc);
-
-void pim_crp_db_clear(struct bsm_scope *scope);
-int pim_crp_db_show(struct vty *vty, struct bsm_scope *scope);
-int pim_crp_groups_show(struct vty *vty, struct bsm_scope *scope);
-
-int pim_crp_process(struct interface *ifp, pim_sgaddr *src_dst, uint8_t *buf,
-		    uint32_t buf_size);
-
-struct pim_nexthop_cache;
-void pim_crp_nht_update(struct pim_instance *pim, struct pim_nexthop_cache *pnc);
-
-void pim_crp_db_clear(struct bsm_scope *scope);
-int pim_crp_db_show(struct vty *vty, struct bsm_scope *scope);
-int pim_crp_groups_show(struct vty *vty, struct bsm_scope *scope);
+int pim_crp_db_show(struct vty *vty, struct bsm_scope *scope, bool json);
+int pim_crp_groups_show(struct vty *vty, struct bsm_scope *scope, bool json);
 
 int pim_cand_config_write(struct pim_instance *pim, struct vty *vty);
 

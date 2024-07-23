@@ -140,6 +140,8 @@ void show_mroute_summary(struct pim_instance *pim, struct vty *vty,
 			 json_object *json);
 int clear_ip_mroute_count_command(struct vty *vty, const char *name);
 struct vrf *pim_cmd_lookup(struct vty *vty, const char *name);
+struct vrf *pim_cmd_lookup_vrf(struct vty *vty, struct cmd_token *argv[],
+			       const int argc, int *idx, bool uj);
 void clear_mroute(struct pim_instance *pim);
 void clear_pim_statistics(struct pim_instance *pim);
 int clear_pim_interface_traffic(const char *vrf, struct vty *vty);
@@ -191,6 +193,8 @@ int pim_show_interface_traffic_helper(const char *vrf, const char *if_name,
 void clear_pim_interfaces(struct pim_instance *pim);
 void pim_show_bsr(struct pim_instance *pim, struct vty *vty, bool uj);
 int pim_show_bsr_helper(const char *vrf, struct vty *vty, bool uj);
+int pim_show_bsr_cand_bsr(const struct vrf *vrf, struct vty *vty, bool uj);
+int pim_show_bsr_cand_rp(const struct vrf *vrf, struct vty *vty, bool uj);
 int pim_router_config_write(struct vty *vty);
 
 /*

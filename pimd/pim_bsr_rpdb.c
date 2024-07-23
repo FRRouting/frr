@@ -588,7 +588,7 @@ void pim_crp_db_clear(struct bsm_scope *scope)
 	}
 }
 
-int pim_crp_db_show(struct vty *vty, struct bsm_scope *scope)
+int pim_crp_db_show(struct vty *vty, struct bsm_scope *scope, bool json)
 {
 	struct bsr_crp_rp *rp;
 	struct bsr_crp_item *item;
@@ -609,7 +609,7 @@ int pim_crp_db_show(struct vty *vty, struct bsm_scope *scope)
 	return CMD_SUCCESS;
 }
 
-int pim_crp_groups_show(struct vty *vty, struct bsm_scope *scope)
+int pim_crp_groups_show(struct vty *vty, struct bsm_scope *scope, bool json)
 {
 	struct bsr_crp_group *group;
 	struct bsr_crp_item *item;
