@@ -394,6 +394,7 @@ struct cmd_node {
 #define IPV6_STR "IPv6 information\n"
 #define IP_ADDR_STR "IPv4 Address\n"
 #define IP6_ADDR_STR "IPv6 Address\n"
+#define BSR_STR "Bootstrap Router configuration\n"
 #define SRTE_STR "SR-TE information\n"
 #define SRTE_COLOR_STR "SR-TE Color information\n"
 #define NO_STR "Negate a command or set its defaults\n"
