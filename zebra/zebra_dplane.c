@@ -6003,6 +6003,14 @@ int dplane_show_helper(struct vty *vty, bool detailed)
 	vty_out(vty, "Zebra dataplane:\nRoute updates:            %"PRIu64"\n",
 		incoming);
 	vty_out(vty, "Route update errors:      %"PRIu64"\n", errs);
+
+	incoming = atomic_load_explicit(&zdplane_info.dg_nexthops_in,
+					memory_order_relaxed);
+	errs = atomic_load_explicit(&zdplane_info.dg_nexthop_errors,
+				    memory_order_relaxed);
+	vty_out(vty, "Nexthop updates:          %" PRIu64 "\n", incoming);
+	vty_out(vty, "Nexthop update errors:    %" PRIu64 "\n", errs);
+
 	vty_out(vty, "Other errors       :      %"PRIu64"\n", other_errs);
 	vty_out(vty, "Route update queue limit: %"PRIu64"\n", limit);
 	vty_out(vty, "Route update queue depth: %"PRIu64"\n", queued);
