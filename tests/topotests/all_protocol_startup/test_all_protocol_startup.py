@@ -19,6 +19,7 @@ import re
 import sys
 import pytest
 import glob
+from functools import partial
 from time import sleep
 
 pytestmark = [
@@ -107,6 +108,7 @@ def setup_module(module):
         net["r{}".format(i)].loadConf("nhrpd", "{}/r{}/nhrpd.conf".format(thisDir, i))
         net["r{}".format(i)].loadConf("babeld", "{}/r{}/babeld.conf".format(thisDir, i))
         net["r{}".format(i)].loadConf("pbrd", "{}/r{}/pbrd.conf".format(thisDir, i))
+        net["r{}".format(i)].loadConf("pathd", "{}/r{}/pathd.conf".format(thisDir, i))
         tgen.gears["r{}".format(i)].start()
 
     # For debugging after starting FRR daemons, uncomment the next line
@@ -415,6 +417,85 @@ def route_get_nhg_id(route_str):
     return nhg_id
 
 
+def verify_nexthop_group_inactive(nhg_id):
+    net = get_topogen().net
+    inactive = None
+    uninstalled = None
+    found = False
+    count = 0
+
+    while not found and count < 10:
+        count += 1
+        # Verify NHG is invalid/not installed
+        output = net["r1"].cmd('vtysh -c "show nexthop-group rib {}"'.format(nhg_id))
+        inactive = re.search(r"inactive", output)
+        if inactive is None:
+            sleep(1)
+            continue
+        uninstalled = not re.search(r"Installed", output)
+        if uninstalled is None:
+            sleep(1)
+            continue
+        found = True
+
+    assert inactive is not None, "Nexthop Group ID={} not marked inactive".format(
+        nhg_id
+    )
+    assert uninstalled is not None, "Nexthop Group ID={} marked Installed".format(
+        nhg_id
+    )
+
+
+def verify_nexthop_group_duplicate(nhg_id):
+    net = get_topogen().net
+    duplicate = None
+    count = 0
+    found = False
+
+    while not found and count < 10:
+        count += 1
+        # Verify any nexthop is duplicated
+        output = net["r1"].cmd(
+            'vtysh -c "show nexthop-group rib {} json"'.format(nhg_id)
+        )
+        joutput = json.loads(output)
+        for nhgid in joutput:
+            n = joutput[nhgid]
+            for nh in n["nexthops"]:
+                if "duplicate" not in nh.keys() or not nh["duplicate"]:
+                    continue
+                if "fib" not in nh.keys() or not nh["fib"]:
+                    found = True
+        if not found:
+            sleep(1)
+            continue
+
+    assert found, "Nexthop Group ID={} does not have duplicated nexthops".format(nhg_id)
+
+
+def verify_nexthop_group_inactive_nexthop(nexthop, client="sharp"):
+    net = get_topogen().net
+    if client:
+        cmd_str = 'vtysh -c "show nexthop-group rib {} json"'.format(client)
+    else:
+        cmd_str = 'vtysh -c "show nexthop-group rib json"'.format(client)
+
+    output = net["r1"].cmd(cmd_str)
+    joutput = json.loads(output)
+
+    for nhgid in joutput:
+        n = joutput[nhgid]
+        if "nexthops" not in n:
+            continue
+        if "ip" not in n["nexthops"][0].keys():
+            continue
+        if n["nexthops"][0]["ip"] == nexthop:
+            if "active" in n["nexthops"][0].keys() and n["nexthops"][0]["active"]:
+                assert 0, "nexthop-group {} marked active, expected inactive".format(
+                    nhgid
+                )
+
+
 def verify_nexthop_group(nhg_id, recursive=False, ecmp=0):
     net = get_topogen().net
     count = 0
@@ -486,6 +567,44 @@ def verify_nexthop_group(nhg_id, recursive=False, ecmp=0):
         assert installed is not None, "Nexthop Group ID={} not marked Installed".format(
             nhg_id
         )
+
+
+def check_show_nexthop_group_nexthops(nhg_id, nexthop, srte_color=None, labels=None):
+    net = get_topogen().net
+
+    try:
+        joutput = json.loads(
+            net["r1"].cmd('vtysh -c "show nexthop-group rib {} json"'.format(nhg_id))
+        )
+    except:
+        joutput = []
+    jnexthops = joutput[str(nhg_id)]["nexthops"]
+    for jnexthop in jnexthops:
+        if "recursive" in jnexthop.keys():
+            if "srteColor" in jnexthop.keys():
+                if srte_color is not None and jnexthop["srteColor"] != srte_color:
+                    return f'nexthop IP {jnexthop["ip"]}, srteColor not colored {jnexthop["srteColor"]}'
+                continue
+            elif srte_color is None:
+                continue
+            return f'nexthop IP {jnexthop["ip"]}, srteColor expected'
+        # recursive nexthop
+        if "ip" in jnexthop.keys():
+            if nexthop is None:
+                return f'unexpected nexthop IP address present : {jnexthop["ip"]}'
+            if jnexthop["ip"] != nexthop:
+                return f'unexpected nexthop IP address in nexthop : {jnexthop["ip"]}'
+        elif nexthop is not None:
+            return f"unexpected nexthop IP address not present"
+
+        if "labels" in jnexthop.keys():
+            if labels == None:
+                return f'unexpected label in nexthop present: {jnexthop["labels"]}'
+            if jnexthop["labels"] != labels:
+                return f'unexpected label in nexthop present: {jnexthop["labels"]}'
+        elif labels is not None:
+            return f"unexpected label in nexthop not present"
+    return None
 
 
 def verify_route_nexthop_group(route_str, recursive=False, ecmp=0):
@@ -636,6 +755,203 @@ def test_nexthop_groups():
         nhg_id
     )
 
+    ## nexthop-group TESTALLOWRECURSION
+    ## create a static route, and use that static route to resolve the nexthop-group
+    tgen = get_topogen()
+    net["r1"].cmd(
+        'vtysh -c "configure terminal" \
+        -c "nexthop-group TESTALLOWRECURSION" \
+        -c "nexthop 192.0.2.200"'
+    )
+    # the TESTALLOWRECURSION nexthop-group should be inactive
+    # check that the sharp nexthop-group for 9.9.9.9 is inactive.
+    verify_nexthop_group_inactive_nexthop("192.0.2.200")
+
+    net["r1"].cmd(
+        'vtysh -c "configure terminal" \
+        -c "nexthop-group TESTALLOWRECURSION" \
+        -c "allow-recursion"'
+    )
+
+    net["r1"].cmd(
+        'vtysh -c "sharp install routes 9.9.9.9 nexthop-group TESTALLOWRECURSION 1"'
+    )
+
+    nhg_id = route_get_nhg_id("9.9.9.9/32")
+
+    verify_nexthop_group(nhg_id)
+
+    net["r1"].cmd(
+        'vtysh -c "configure terminal" \
+        -c "nexthop-group TESTALLOWRECURSION" \
+        -c "no allow-recursion"'
+    )
+    nhg_id_local = route_get_nhg_id("9.9.9.9/32")
+    assert (
+        nhg_id == nhg_id_local
+    ), "r1, after disabling recursion, NHG ID changed for 9.9.9.9/32, old {}, new {}".format(
+        nhg_id, nhg_id_local
+    )
+
+    verify_nexthop_group_inactive(nhg_id)
+
+    ## Colored nexthop test
+    # create a non colored nexthop, and expect that the nexthop is steered by default
+    net["r1"].cmd(
+        'vtysh -c "configure terminal" \
+        -c "nexthop-group TESTSRTE" \
+        -c "allow-recursion" \
+        -c "nexthop 172.31.0.200"'
+    )
+
+    net["r1"].cmd(
+        'vtysh -c "sharp install routes 10.10.10.10 nexthop-group TESTSRTE 1"'
+    )
+
+    nhg_id = route_get_nhg_id("10.10.10.10/32")
+    verify_nexthop_group(nhg_id)
+    # Use the json output to check the nexthops validity
+    # - main nexthop has no srteColor, and ip set to 172.31.0.200
+    # - recursive nexthop has no label values and recurses to 192.168.0.44, as per static route:
+    #    ip route 172.31.0.200/32 192.168.0.44
+    test_func = partial(
+        check_show_nexthop_group_nexthops, nhg_id, nexthop="192.168.0.44"
+    )
+    success, _ = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
+    assert (
+        success
+    ), "r1, route to 10.10.10.10 nexthop 172.31.0.200 with no SRTE color, nexthop not expected"
+
+    ## register to nexthop tracking events to 172.31.0.200 color 1
+    net["r1"].cmd('vtysh -c "sharp watch nexthop 172.31.0.200 color 1"')
+
+    ## modify nexthop-group to use the color, and expect that the nexthop is steered by pathd
+    net["r1"].cmd(
+        'vtysh -c "configure terminal" \
+        -c "nexthop-group TESTSRTE" \
+        -c "allow-recursion" \
+        -c "nexthop 172.31.0.200 color 1"'
+    )
+
+    # Use the json output to check the nexthops validity
+    # - main nexthop has srteColor=1
+    # - recursive nexthop has ip set to 192.168.0.209 as per lsp entry:
+    #    mpls lsp 400 192.168.0.209 500
+    # - recursive nexthop has label [400, 500] values as per pathd segment-list
+    test_func = partial(
+        check_show_nexthop_group_nexthops,
+        nhg_id,
+        nexthop="192.168.0.209",
+        srte_color=1,
+        labels=[400, 600],
+    )
+    success, _ = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
+    assert (
+        success
+    ), "r1, route to 10.10.10.10 nexthop 172.31.0.200 SRTE color 1, nexthop not expected"
+
+    # remove srte policy
+    output = net["r1"].cmd(
+        'vtysh -c "configure terminal" \
+        -c "segment-routing" \
+        -c "traffic-eng" \
+        -c "no policy color 1 endpoint 172.31.0.200"'
+    )
+
+    # Use the json output to check the nexthops validity
+    # - main nexthop has srteColor=1, and ip set to 172.31.0.200
+    # - recursive nexthop has no label values
+    test_func = partial(
+        check_show_nexthop_group_nexthops,
+        nhg_id,
+        nexthop="192.168.0.44",
+        srte_color=1,
+        labels=None,
+    )
+    success, _ = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
+    assert (
+        success
+    ), "r1, route to 10.10.10.10 nexthop 172.31.0.200 SRTE color 1, nexthop not expected"
+
+    ## modify nexthop-group to not use the color, and expect that the nexthop is steered by staticd
+    net["r1"].cmd(
+        'vtysh -c "configure terminal" \
+        -c "nexthop-group TESTSRTE" \
+        -c "allow-recursion" \
+        -c "nexthop 172.31.0.200"'
+    )
+
+    # Use the json output to check the nexthops validity
+    # - main nexthop has no srteColor, and ip set to 172.31.0.200
+    # - recursive nexthop has no label values and recurses to 192.168.0.44, as per static route:
+    #    ip route 172.31.0.200/32 192.168.0.44
+    test_func = partial(
+        check_show_nexthop_group_nexthops, nhg_id, nexthop="192.168.0.44"
+    )
+    success, _ = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
+    assert (
+        success
+    ), "r1, route to 10.10.10.10 nexthop 172.31.0.200 with no SRTE color, nexthop not expected"
+
+    net["r1"].cmd('vtysh -c "sharp remove routes 10.10.10.10 1"')
+
+    ## child-group configration
+    net["r1"].cmd(
+        'vtysh -c "configure terminal" \
+        -c "nexthop-group GROUP1" \
+        -c "child-group ECMP1" \
+        -c "child-group ECMP2" \
+        -c "exit" \
+        -c "nexthop-group ECMP1" \
+        -c "nexthop 192.168.0.202 r1-eth0" \
+        -c "exit" \
+        -c "nexthop-group ECMP2" \
+        -c "nexthop 192.168.0.205 r1-eth0"'
+    )
+    net["r1"].cmd('vtysh -c "sharp install routes 8.8.8.8 nexthop-group GROUP1 1\n"')
+    verify_route_nexthop_group("8.8.8.8/32", ecmp=2)
+
+    net["r1"].cmd(
+        'vtysh -c "configure terminal" \
+        -c "nexthop-group GROUP1" \
+        -c "no child-group ECMP2\n"'
+    )
+    verify_route_nexthop_group("8.8.8.8/32", ecmp=1)
+    net["r1"].cmd(
+        'vtysh -c "configure terminal" \
+        -c "nexthop-group ECMP3" \
+        -c "nexthop 192.168.0.207 r1-eth0" \
+        -c "nexthop-group GROUP1" \
+        -c "child-group ECMP3" \
+        -c "child-group ECMP2"'
+    )
+    verify_route_nexthop_group("8.8.8.8/32", ecmp=3)
+
+    ## duplicate configration
+    net["r1"].cmd(
+        'vtysh -c "configure terminal" \
+        -c "nexthop-group GROUP2" \
+        -c "allow-recursion" \
+        -c "child-group ECMP4" \
+        -c "child-group ECMP5" \
+        -c "exit" \
+        -c "nexthop-group ECMP4" \
+        -c "allow-recursion" \
+        -c "nexthop 192.0.2.100" \
+        -c "exit" \
+        -c "nexthop-group ECMP5" \
+        -c "allow-recursion" \
+        -c "nexthop 192.0.2.110"'
+    )
+    net["r1"].cmd(
+        'vtysh -c "sharp install routes 12.12.12.12 nexthop-group GROUP2 1\n"'
+    )
+
+    verify_route_nexthop_group("12.12.12.12/32", "r1", ecmp=2)
+
+    nhg_id = route_get_nhg_id("12.12.12.12/32")
+    verify_nexthop_group_duplicate(nhg_id)
+
     ## Remove all NHG routes
 
     net["r1"].cmd('vtysh -c "sharp remove routes 2.2.2.1 1"')
@@ -646,6 +962,8 @@ def test_nexthop_groups():
     net["r1"].cmd('vtysh -c "sharp remove routes 4.4.4.2 1"')
     net["r1"].cmd('vtysh -c "sharp remove routes 5.5.5.1 1"')
     net["r1"].cmd('vtysh -c "sharp remove routes 6.6.6.1 4"')
+    net["r1"].cmd('vtysh -c "sharp remove routes 9.9.9.9 1"')
+    net["r1"].cmd('vtysh -c "sharp remove routes 8.8.8.8 1"')
     net["r1"].cmd('vtysh -c "c t" -c "no ip route 6.6.6.0/24 1.1.1.1"')
 
 
