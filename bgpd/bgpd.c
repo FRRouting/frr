@@ -3954,9 +3954,9 @@ int bgp_delete(struct bgp *bgp)
 		dest_next = zebra_announce_next(&bm->zebra_announce_head, dest);
 		dest_table = bgp_dest_table(dest);
 		if (dest_table->bgp == bgp) {
+			zebra_announce_del(&bm->zebra_announce_head, dest);
 			bgp_path_info_unlock(dest->za_bgp_pi);
 			bgp_dest_unlock_node(dest);
-			zebra_announce_del(&bm->zebra_announce_head, dest);
 		}
 	}
 
