@@ -91,7 +91,7 @@ replace_vars = {
 
 # extract version information, installation location, other stuff we need to
 # use when building final documents
-val = re.compile('^S\["([^"]+)"\]="(.*)"$')
+val = re.compile(r'^S\["([^"]+)"\]="(.*)"$')
 try:
     with open("../../config.status", "r") as cfgstatus:
         for ln in cfgstatus.readlines():
