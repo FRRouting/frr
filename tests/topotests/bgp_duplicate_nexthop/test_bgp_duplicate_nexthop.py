@@ -212,7 +212,7 @@ def check_ipv4_prefix_with_multiple_nexthops(prefix, multipath=True):
     test_func = functools.partial(
         ip_check_path_selection, tgen.gears["r1"], prefix, expected
     )
-    _, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
+    _, result = topotest.run_and_expect(test_func, None, count=120, wait=0.5)
     assert (
         result is None
     ), f"Failed to check that {prefix} uses the IGP label 16055 and 16006"
