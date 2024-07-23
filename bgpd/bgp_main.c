@@ -522,6 +522,7 @@ int main(int argc, char **argv)
 	if (bgpd_di.graceful_restart)
 		SET_FLAG(bm->flags, BM_FLAG_GRACEFUL_RESTART);
 
+	bgp_nhg_configure_default();
 	bgp_error_init();
 	/* Initializations. */
 	libagentx_init();
