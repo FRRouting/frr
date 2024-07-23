@@ -1051,7 +1051,17 @@ void frr_config_fork(void)
 	zlog_tls_buffer_init();
 }
 
-void frr_vty_serv_start(void)
+static void frr_check_detach(void)
+{
+	if (nodetach_term || nodetach_daemon)
+		return;
+
+	if (daemon_ctl_sock != -1)
+		close(daemon_ctl_sock);
+	daemon_ctl_sock = -1;
+}
+
+void frr_vty_serv_start(bool check_detach)
 {
 	/* allow explicit override of vty_path in the future
 	 * (not currently set anywhere) */
@@ -1074,6 +1084,9 @@ void frr_vty_serv_start(void)
 	}
 
 	vty_serv_start(di->vty_addr, di->vty_port, di->vty_path);
+
+	if (check_detach)
+		frr_check_detach();
 }
 
 void frr_vty_serv_stop(void)
@@ -1082,16 +1095,6 @@ void frr_vty_serv_stop(void)
 
 	if (di->vty_path)
 		unlink(di->vty_path);
-}
-
-static void frr_check_detach(void)
-{
-	if (nodetach_term || nodetach_daemon)
-		return;
-
-	if (daemon_ctl_sock != -1)
-		close(daemon_ctl_sock);
-	daemon_ctl_sock = -1;
 }
 
 static void frr_terminal_close(int isexit)
@@ -1179,7 +1182,7 @@ void frr_run(struct event_loop *master)
 	char instanceinfo[64] = "";
 
 	if (!(di->flags & FRR_MANUAL_VTY_START))
-		frr_vty_serv_start();
+		frr_vty_serv_start(false);
 
 	if (di->instance)
 		snprintf(instanceinfo, sizeof(instanceinfo), "instance %u ",
@@ -1217,7 +1220,8 @@ void frr_run(struct event_loop *master)
 			close(nullfd);
 		}
 
-		frr_check_detach();
+		if (!(di->flags & FRR_MANUAL_VTY_START))
+			frr_check_detach();
 	}
 
 	/* end fixed stderr startup logging */

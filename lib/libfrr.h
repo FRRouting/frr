@@ -202,7 +202,7 @@ extern void frr_config_fork(void);
 
 extern void frr_run(struct event_loop *master);
 extern void frr_detach(void);
-extern void frr_vty_serv_start(void);
+extern void frr_vty_serv_start(bool check_detach);
 extern void frr_vty_serv_stop(void);
 
 extern bool frr_zclient_addr(struct sockaddr_storage *sa, socklen_t *sa_len,

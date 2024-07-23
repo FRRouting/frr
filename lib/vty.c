@@ -3502,7 +3502,7 @@ static void vty_mgmt_server_connected(struct mgmt_fe_client *client,
 
 	/* Start or stop listening for vty connections */
 	if (connected)
-		frr_vty_serv_start();
+		frr_vty_serv_start(true);
 	else
 		frr_vty_serv_stop();
 }
