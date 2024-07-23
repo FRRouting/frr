@@ -1781,8 +1781,16 @@ static void zl3vni_check_del_rmac(struct zebra_l3vni *zl3vni,
 				  const struct ipaddr *vtep_ip)
 {
 	struct zebra_mac *zrmac = NULL;
+	bool vtep_ip_same = false;
+	struct ipaddr ipv4_vtep;
+
 	zrmac = zl3vni_rmac_lookup(zl3vni, &old_rmac);
-	if (zrmac) {
+
+	vtep_to_v4(vtep_ip, &ipv4_vtep);
+	vtep_ip_same = IPV4_ADDR_SAME(&zrmac->fwd_info.r_vtep_ip,
+				      &ipv4_vtep.ipaddr_v4);
+
+	if (zrmac && vtep_ip_same) {
 		if (IS_ZEBRA_DEBUG_VXLAN)
 			zlog_debug(
 				"L3VNI %u uninstalling old RMAC %pEA for nexthop %pIA",
@@ -1887,7 +1895,6 @@ static int svd_remote_nh_add(struct zebra_l3vni *zl3vni,
 		frrtrace(5, frr_zebra, remote_nh_add_rmac_change, zl3vni->vni, &nh->emac, rmac,
 			 vtep_ip, nh->refcnt);
 
-		zl3vni_check_del_rmac(zl3vni, nh->emac, vtep_ip);
 		memcpy(&nh->emac, rmac, ETH_ALEN);
 		/* install (update) the nh neigh in kernel */
 		svd_nh_install(zl3vni, nh);
