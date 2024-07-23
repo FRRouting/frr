@@ -277,8 +277,9 @@ int pim_pim_packet(struct interface *ifp, uint8_t *buf, size_t len,
 	if (!is_mcast) {
 		if (header->type == PIM_MSG_TYPE_CANDIDATE) {
 			if (PIM_DEBUG_PIM_PACKETS)
-			    zlog_debug( "%s %s: Candidate RP PIM message from  %pPA on %s",
-				       __FILE__, __func__, &sg.src, ifp->name);
+				zlog_debug("%s %s: Candidate RP PIM message from  %pPA on %s",
+					   __FILE__, __func__, &sg.src,
+					   ifp->name);
 
 			return pim_crp_process(ifp, &sg, pim_msg, pim_msg_len);
 		}

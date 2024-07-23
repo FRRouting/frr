@@ -5213,7 +5213,7 @@ void pim_show_bsr(struct pim_instance *pim, struct vty *vty, bool uj)
 	}
 
 	else {
-		vty_out(vty, "PIMv2 Bootstrap information\n");
+		vty_out(vty, "PIMv2 Bootstrap Router information\n");
 		vty_out(vty, "Current preferred BSR address: %pPA\n",
 			&pim->global_scope.current_bsr);
 		vty_out(vty,

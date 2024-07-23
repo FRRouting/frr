@@ -1856,20 +1856,21 @@ DEFPY (show_ipv6_pim_secondary,
 	return pim_show_secondary_helper(vrf, vty);
 }
 
-DEFPY (show_ipv6_pim_cand_rp,
-       show_ipv6_pim_cand_rp_cmd,
-       "show ipv6 pim candidate-rp [vrf VRF_NAME] [json$uj]",
+DEFPY (show_ipv6_pim_bsr_cand_rp,
+       show_ipv6_pim_bsr_cand_rp_cmd,
+       "show ipv6 pim bsr candidate-rp [vrf VRF_NAME] [json$json]",
        SHOW_STR
        IPV6_STR
        PIM_STR
-       "PIM Candidate RP state\n"
+       BSR_STR
+       "Current PIM router candidate RP state\n"
        VRF_CMD_HELP_STR
        JSON_STR)
 {
 	struct vrf *vrf = pim_cmd_lookup(vty, vrf_name);
 	struct pim_instance *pim;
 	struct bsm_scope *scope;
-	json_object *json = NULL;
+	json_object *jsondata = NULL;
 
 	if (!vrf || !vrf->info)
 		return CMD_WARNING;
@@ -1878,7 +1879,7 @@ DEFPY (show_ipv6_pim_cand_rp,
 	scope = &pim->global_scope;
 
 	if (!scope->cand_rp_addrsel.run) {
-		if (uj)
+		if (!!json)
 			vty_out(vty, "{}\n");
 		else
 			vty_out(vty,
@@ -1886,19 +1887,19 @@ DEFPY (show_ipv6_pim_cand_rp,
 		return CMD_SUCCESS;
 	}
 
-	if (uj) {
-		json = json_object_new_object();
-		json_object_string_addf(json, "address", "%pPA",
+	if (!!json) {
+		jsondata = json_object_new_object();
+		json_object_string_addf(jsondata, "address", "%pPA",
 					&scope->cand_rp_addrsel.run_addr);
-		json_object_int_add(json, "priority", scope->cand_rp_prio);
-		json_object_int_add(json, "nextAdvertisementMsec",
+		json_object_int_add(jsondata, "priority", scope->cand_rp_prio);
+		json_object_int_add(jsondata, "nextAdvertisementMsec",
 				    event_timer_remain_msec(
 					    scope->cand_rp_adv_timer));
 
 		vty_out(vty, "%s\n",
-			json_object_to_json_string_ext(json,
+			json_object_to_json_string_ext(jsondata,
 						       JSON_C_TO_STRING_PRETTY));
-		json_object_free(json);
+		json_object_free(jsondata);
 		return CMD_SUCCESS;
 	}
 
@@ -1913,12 +1914,12 @@ DEFPY (show_ipv6_pim_cand_rp,
 
 DEFPY (show_ipv6_pim_bsr_rpdb,
        show_ipv6_pim_bsr_rpdb_cmd,
-       "show ipv6 pim bsr candidate-rps [vrf VRF_NAME] [json$uj]",
+       "show ipv6 pim bsr candidate-rp-database [vrf VRF_NAME] [json$json]",
        SHOW_STR
        IPV6_STR
        PIM_STR
-       "boot-strap router information\n"
-       "Candidate RPs\n"
+       BSR_STR
+       "Candidate RPs database on this router (if it is the BSR)\n"
        VRF_CMD_HELP_STR
        JSON_STR)
 {
@@ -1930,12 +1931,12 @@ DEFPY (show_ipv6_pim_bsr_rpdb,
 	struct pim_instance *pim = vrf->info;
 	struct bsm_scope *scope = &pim->global_scope;
 
-	return pim_crp_db_show(vty, scope);
+	return pim_crp_db_show(vty, scope, !!json);
 }
 
 DEFPY (show_ipv6_pim_bsr_groups,
        show_ipv6_pim_bsr_groups_cmd,
-       "show ipv6 pim bsr groups [vrf VRF_NAME] [json$uj]",
+       "show ipv6 pim bsr groups [vrf VRF_NAME] [json$json]",
        SHOW_STR
        IPV6_STR
        PIM_STR
@@ -1952,7 +1953,7 @@ DEFPY (show_ipv6_pim_bsr_groups,
 	struct pim_instance *pim = vrf->info;
 	struct bsm_scope *scope = &pim->global_scope;
 
-	return pim_crp_groups_show(vty, scope);
+	return pim_crp_groups_show(vty, scope, !!json);
 }
 
 
@@ -2944,7 +2945,7 @@ void pim_cmd_init(void)
 	install_element(VIEW_NODE, &show_ipv6_pim_rpf_cmd);
 	install_element(VIEW_NODE, &show_ipv6_pim_rpf_vrf_all_cmd);
 	install_element(VIEW_NODE, &show_ipv6_pim_secondary_cmd);
-	install_element(VIEW_NODE, &show_ipv6_pim_cand_rp_cmd);
+	install_element(VIEW_NODE, &show_ipv6_pim_bsr_cand_rp_cmd);
 	install_element(VIEW_NODE, &show_ipv6_pim_bsr_rpdb_cmd);
 	install_element(VIEW_NODE, &show_ipv6_pim_bsr_groups_cmd);
 	install_element(VIEW_NODE, &show_ipv6_pim_statistics_cmd);

@@ -142,7 +142,7 @@ void pim_bsm_generate(struct bsm_scope *scope)
 	pos += sizeof(*hdr);
 	assert(pos <= end);
 
-	CPP_NOTICE("FIXME make BSR hashmasklen configurable");
+	/* TODO: make BSR hashmasklen configurable */
 #if PIM_IPV == 6
 	hdr->hm_len = 126;
 #else
@@ -190,7 +190,7 @@ void pim_bsm_generate(struct bsm_scope *scope)
 		gi->rp_count = group->n_selected;
 		gi->frag_rp_count = n_added;
 		assert(n_added == group->n_selected);
-		CPP_NOTICE("implement fragmentation");
+		/* TODO: mplement fragmentation */
 	}
 
 	assertf(pos == end, "end-pos=%td", end - pos);
@@ -217,7 +217,6 @@ static void pim_bsm_generate_sched(struct bsm_scope *scope)
 	if (scope->t_ebsr_regen_bsm)
 		return;
 
-	CPP_NOTICE("timer");
 	event_add_timer(router->master, pim_bsm_generate_timer, scope, 1,
 			&scope->t_ebsr_regen_bsm);
 }
@@ -289,7 +288,7 @@ static void bsr_crp_reselect(struct bsm_scope *scope,
 
 	scope->elec_rp_data_changed |= changed;
 
-	CPP_NOTICE("cleanup unused groups after holdover");
+	/* TODO: cleanup unused groups after holdover" */
 }
 
 /* changing rp->nht_ok or rp->prio affects the sort order in group->rp
@@ -583,7 +582,7 @@ void pim_crp_db_clear(struct bsm_scope *scope)
 	}
 }
 
-int pim_crp_db_show(struct vty *vty, struct bsm_scope *scope)
+int pim_crp_db_show(struct vty *vty, struct bsm_scope *scope, bool json)
 {
 	struct bsr_crp_rp *rp;
 	struct bsr_crp_item *item;
@@ -604,7 +603,7 @@ int pim_crp_db_show(struct vty *vty, struct bsm_scope *scope)
 	return CMD_SUCCESS;
 }
 
-int pim_crp_groups_show(struct vty *vty, struct bsm_scope *scope)
+int pim_crp_groups_show(struct vty *vty, struct bsm_scope *scope, bool json)
 {
 	struct bsr_crp_group *group;
 	struct bsr_crp_item *item;

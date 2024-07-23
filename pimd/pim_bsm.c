@@ -1560,7 +1560,6 @@ int pim_bsm_process(struct interface *ifp, pim_sgaddr *sg, uint8_t *buf,
 	 * back at it, and without this we'll go into ACCEPT_PREFERRED with
 	 * ourselves as the BSR when we should be in BSR_ELECTED.
 	 */
-	CPP_NOTICE("invalidate BSR when address added locally");
 	if (if_address_is_local(&bshdr->bsr_addr.addr, PIM_AF,
 				pim->vrf->vrf_id)) {
 		if (PIM_DEBUG_BSM)
