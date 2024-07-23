@@ -385,6 +385,70 @@ const struct frr_yang_module_info frr_pim_rp_info = {
 	}
 };
 
+const struct frr_yang_module_info frr_pim_candidate_info = {
+	.name = "frr-pim-candidate",
+	.nodes = {
+		/* Candidate-RP */
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-pim:pim/address-family/frr-pim-candidate:candidate-rp",
+			.cbs = {
+				.create = routing_control_plane_protocols_control_plane_protocol_pim_address_family_candidate_rp_create,
+				.destroy = routing_control_plane_protocols_control_plane_protocol_pim_address_family_candidate_rp_destroy,
+			}
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-pim:pim/address-family/frr-pim-candidate:candidate-rp/rp-priority",
+			.cbs = {
+				.modify = routing_control_plane_protocols_control_plane_protocol_pim_address_family_candidate_rp_priority_modify,
+			}
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-pim:pim/address-family/frr-pim-candidate:candidate-rp/advertisement-interval",
+			.cbs = {
+				.modify = routing_control_plane_protocols_control_plane_protocol_pim_address_family_candidate_rp_adv_interval_modify,
+			}
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-pim:pim/address-family/frr-pim-candidate:candidate-rp/group-list",
+			.cbs = {
+				.create = routing_control_plane_protocols_control_plane_protocol_pim_address_family_candidate_rp_group_list_create,
+				.destroy = routing_control_plane_protocols_control_plane_protocol_pim_address_family_candidate_rp_group_list_destroy,
+			}
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-pim:pim/address-family/frr-pim-candidate:candidate-rp/address",
+			.cbs = {
+				.modify = routing_control_plane_protocols_control_plane_protocol_pim_address_family_candidate_rp_addrsel_modify,
+				.destroy = routing_control_plane_protocols_control_plane_protocol_pim_address_family_candidate_rp_addrsel_destroy,
+			}
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-pim:pim/address-family/frr-pim-candidate:candidate-rp/interface",
+			.cbs = {
+				.modify = routing_control_plane_protocols_control_plane_protocol_pim_address_family_candidate_rp_addrsel_modify,
+				.destroy = routing_control_plane_protocols_control_plane_protocol_pim_address_family_candidate_rp_addrsel_destroy,
+			}
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-pim:pim/address-family/frr-pim-candidate:candidate-rp/if-loopback",
+			.cbs = {
+				.create = routing_control_plane_protocols_control_plane_protocol_pim_address_family_candidate_rp_addrsel_create,
+				.destroy = routing_control_plane_protocols_control_plane_protocol_pim_address_family_candidate_rp_addrsel_destroy,
+			}
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-pim:pim/address-family/frr-pim-candidate:candidate-rp/if-any",
+			.cbs = {
+				.create = routing_control_plane_protocols_control_plane_protocol_pim_address_family_candidate_rp_addrsel_create,
+				.destroy = routing_control_plane_protocols_control_plane_protocol_pim_address_family_candidate_rp_addrsel_destroy,
+			}
+		},
+		{
+			.xpath = NULL,
+		},
+	}
+};
+
 /* clang-format off */
 const struct frr_yang_module_info frr_gmp_info = {
 	.name = "frr-gmp",

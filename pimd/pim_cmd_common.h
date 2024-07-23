@@ -53,6 +53,13 @@ int pim_process_bsm_cmd(struct vty *vty);
 int pim_process_no_bsm_cmd(struct vty *vty);
 int pim_process_unicast_bsm_cmd(struct vty *vty);
 int pim_process_no_unicast_bsm_cmd(struct vty *vty);
+
+int pim_process_bsr_candidate_cmd(struct vty *vty, const char *cand_str,
+				  bool no, bool is_rp, bool any,
+				  const char *ifname, const char *addr,
+				  const char *prio, const char *interval);
+int pim_process_bsr_crp_grp_cmd(struct vty *vty, const char *grp, bool no);
+
 void json_object_pim_upstream_add(json_object *json, struct pim_upstream *up);
 void pim_show_rpf(struct pim_instance *pim, struct vty *vty, json_object *json);
 void pim_show_neighbors_secondary(struct pim_instance *pim, struct vty *vty);

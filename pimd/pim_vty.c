@@ -182,6 +182,7 @@ int pim_global_config_write_worker(struct pim_instance *pim, struct vty *vty)
 	}
 
 	writes += pim_rp_config_write(pim, vty);
+	writes += pim_cand_config_write(pim, vty);
 
 	if (pim->vrf->vrf_id == VRF_DEFAULT) {
 		if (router->register_suppress_time

@@ -23,6 +23,12 @@
 #include "pim_time.h"
 #include "pim_zebra.h"
 #include "pim_util.h"
+#include "pim_sock.h"
+
+#include <lib/network.h>
+#include <lib/iana_afi.h>
+#include <lib/sockunion.h>
+#include <lib/sockopt.h>
 
 /* Functions forward declaration */
 static void pim_bs_timer_start(struct bsm_scope *scope, int bs_timeout);
@@ -35,6 +41,16 @@ DEFINE_MTYPE_STATIC(PIMD, PIM_BSGRP_NODE, "PIM BSR advertised grp info");
 DEFINE_MTYPE_STATIC(PIMD, PIM_BSRP_INFO, "PIM BSR advertised RP info");
 DEFINE_MTYPE_STATIC(PIMD, PIM_BSM_FRAG, "PIM BSM fragment");
 DEFINE_MTYPE_STATIC(PIMD, PIM_BSM_PKT_VAR_MEM, "PIM BSM Packet");
+DEFINE_MTYPE_STATIC(PIMD, PIM_CAND_RP_GRP, "PIM Candidate RP group");
+
+static int cand_rp_group_cmp(const struct cand_rp_group *a,
+			     const struct cand_rp_group *b)
+{
+	return prefix_cmp(&a->p, &b->p);
+}
+
+DECLARE_RBTREE_UNIQ(cand_rp_groups, struct cand_rp_group, item,
+		    cand_rp_group_cmp);
 
 /* All bsm packets forwarded shall be fit within ip mtu less iphdr(max) */
 #define MAX_IP_HDR_LEN 24
@@ -214,34 +230,57 @@ static inline void pim_bs_timer_restart(struct bsm_scope *scope, int bs_timeout)
 
 void pim_bsm_proc_init(struct pim_instance *pim)
 {
-	memset(&pim->global_scope, 0, sizeof(struct bsm_scope));
+	struct bsm_scope *scope = &pim->global_scope;
 
-	pim->global_scope.sz_id = PIM_GBL_SZ_ID;
-	pim->global_scope.bsrp_table = route_table_init();
-	pim->global_scope.accept_nofwd_bsm = true;
-	pim->global_scope.state = NO_INFO;
-	pim->global_scope.pim = pim;
-	bsm_frags_init(pim->global_scope.bsm_frags);
-	pim_bs_timer_start(&pim->global_scope, PIM_BS_TIME);
+	memset(scope, 0, sizeof(*scope));
+
+	scope->sz_id = PIM_GBL_SZ_ID;
+	scope->bsrp_table = route_table_init();
+	scope->accept_nofwd_bsm = true;
+	scope->state = NO_INFO;
+	scope->pim = pim;
+	bsm_frags_init(scope->bsm_frags);
+	pim_bs_timer_start(scope, PIM_BS_TIME);
+
+	scope->cand_rp_interval = PIM_CRP_ADV_INTERVAL;
+	cand_rp_groups_init(scope->cand_rp_groups);
+
+	scope->unicast_sock = pim_socket_raw(IPPROTO_PIM);
+	set_nonblocking(scope->unicast_sock);
+	sockopt_reuseaddr(scope->unicast_sock);
+	setsockopt_ipv6_pktinfo(scope->unicast_sock, 1);
+	pim_socket_ip_hdr(scope->unicast_sock);
+
+	frr_with_privs (&pimd_privs) {
+		vrf_bind(pim->vrf->vrf_id, scope->unicast_sock, NULL);
+	}
 }
 
 void pim_bsm_proc_free(struct pim_instance *pim)
 {
+	struct bsm_scope *scope = &pim->global_scope;
 	struct route_node *rn;
 	struct bsgrp_node *bsgrp;
+	struct cand_rp_group *crpgrp;
 
-	pim_bs_timer_stop(&pim->global_scope);
-	pim_bsm_frags_free(&pim->global_scope);
+	close(scope->unicast_sock);
 
-	for (rn = route_top(pim->global_scope.bsrp_table); rn;
-	     rn = route_next(rn)) {
+	pim_bs_timer_stop(scope);
+	pim_bsm_frags_free(scope);
+
+	for (rn = route_top(scope->bsrp_table); rn; rn = route_next(rn)) {
 		bsgrp = rn->info;
 		if (!bsgrp)
 			continue;
 		pim_free_bsgrp_data(bsgrp);
 	}
 
-	route_table_finish(pim->global_scope.bsrp_table);
+	while ((crpgrp = cand_rp_groups_pop(scope->cand_rp_groups)))
+		XFREE(MTYPE_PIM_CAND_RP_GRP, crpgrp);
+
+	cand_rp_groups_fini(scope->cand_rp_groups);
+
+	route_table_finish(scope->bsrp_table);
 }
 
 static bool is_hold_time_elapsed(void *data)
@@ -538,6 +577,8 @@ static void pim_bsm_update(struct pim_instance *pim, pim_addr bsr,
 		pim->global_scope.current_bsr_first_ts =
 			pim_time_monotonic_sec();
 		pim->global_scope.state = ACCEPT_PREFERRED;
+
+		pim_cand_rp_trigger(&pim->global_scope);
 	}
 	pim->global_scope.current_bsr_prio = bsr_prio;
 	pim->global_scope.current_bsr_last_ts = pim_time_monotonic_sec();
@@ -1450,6 +1491,366 @@ int pim_bsm_process(struct interface *ifp, pim_sgaddr *sg, uint8_t *buf,
 	}
 
 	return 0;
+}
+
+static inline pim_addr if_highest_addr(pim_addr cur, struct interface *ifp)
+{
+	struct connected *connected;
+
+	frr_each (if_connected, ifp->connected, connected) {
+		pim_addr conn_addr;
+
+		if (connected->address->family != PIM_AF)
+			continue;
+
+		conn_addr = pim_addr_from_prefix(connected->address);
+		/* highest address */
+		if (pim_addr_cmp(conn_addr, cur) > 0)
+			cur = conn_addr;
+	}
+	return cur;
+}
+
+static void cand_addrsel_clear(struct cand_addrsel *asel)
+{
+	asel->run = false;
+	asel->run_addr = PIMADDR_ANY;
+}
+
+/* returns whether address or active changed */
+static bool cand_addrsel_update(struct cand_addrsel *asel, struct vrf *vrf)
+{
+	bool is_any = false, prev_run = asel->run;
+	struct interface *ifp = NULL;
+	pim_addr new_addr = PIMADDR_ANY;
+
+	if (!asel->cfg_enable)
+		goto out_disable;
+
+	switch (asel->cfg_mode) {
+	case CAND_ADDR_EXPLICIT:
+		new_addr = asel->cfg_addr;
+		ifp = if_lookup_address_local(&asel->cfg_addr, PIM_AF,
+					      vrf->vrf_id);
+		break;
+
+	case CAND_ADDR_IFACE:
+		ifp = if_lookup_by_name_vrf(asel->cfg_ifname, vrf);
+
+		if (ifp)
+			new_addr = if_highest_addr(PIMADDR_ANY, ifp);
+		break;
+
+	case CAND_ADDR_ANY:
+		is_any = true;
+		/* fallthru */
+	case CAND_ADDR_LO:
+		FOR_ALL_INTERFACES (vrf, ifp) {
+			if (!if_is_up(ifp))
+				continue;
+			if (is_any || if_is_loopback(ifp) || if_is_vrf(ifp))
+				new_addr = if_highest_addr(new_addr, ifp);
+		}
+		break;
+	}
+
+	if (ifp && !if_is_up(ifp))
+		goto out_disable;
+
+	if (pim_addr_is_any(new_addr))
+		goto out_disable;
+
+	/* nothing changed re. address (don't care about interface changes) */
+	if (asel->run && !pim_addr_cmp(asel->run_addr, new_addr))
+		return !prev_run;
+
+	asel->run = true;
+	asel->run_addr = new_addr;
+	return true;
+
+out_disable:
+	asel->run = false;
+	asel->run_addr = PIMADDR_ANY;
+
+	return prev_run;
+}
+
+static void pim_cand_rp_adv_stop_maybe(struct bsm_scope *scope)
+{
+	/* actual check whether stop should be sent - covers address
+	 * changes as well as run_addr = 0.0.0.0 (C-RP shutdown)
+	 */
+	if (pim_addr_is_any(scope->cand_rp_prev_addr) ||
+	    !pim_addr_cmp(scope->cand_rp_prev_addr,
+			  scope->cand_rp_addrsel.run_addr))
+		return;
+
+	switch (scope->state) {
+	case ACCEPT_PREFERRED:
+		/* TBD: BSR_ELECTED */
+		break;
+
+	case NO_INFO:
+	case ACCEPT_ANY:
+	default:
+		return;
+	}
+
+	if (PIM_DEBUG_BSM)
+		zlog_debug("Candidate-RP (-, %pPA) deregistering self to %pPA",
+			   &scope->cand_rp_prev_addr, &scope->current_bsr);
+
+	struct cand_rp_msg *msg;
+	uint8_t buf[PIM_MSG_HEADER_LEN + sizeof(*msg) + sizeof(pim_encoded_group)];
+
+	msg = (struct cand_rp_msg *)(&buf[PIM_MSG_HEADER_LEN]);
+	msg->prefix_cnt = 0;
+	msg->rp_prio = 255;
+	msg->rp_holdtime = 0;
+	msg->rp_addr.family = PIM_IANA_AFI;
+	msg->rp_addr.reserved = 0;
+	msg->rp_addr.addr = scope->cand_rp_prev_addr;
+
+	pim_msg_build_header(PIMADDR_ANY, scope->current_bsr, buf, sizeof(buf),
+			     PIM_MSG_TYPE_CANDIDATE, false);
+
+	if (pim_msg_send(scope->unicast_sock, PIMADDR_ANY, scope->current_bsr,
+			 buf, sizeof(buf), NULL)) {
+		zlog_warn("failed to send Cand-RP message: %m");
+	}
+
+	scope->cand_rp_prev_addr = PIMADDR_ANY;
+}
+
+static void pim_cand_rp_adv(struct event *t)
+{
+	struct bsm_scope *scope = EVENT_ARG(t);
+	int next_msec;
+
+	pim_cand_rp_adv_stop_maybe(scope);
+
+	if (!scope->cand_rp_addrsel.run) {
+		scope->cand_rp_adv_trigger = 0;
+		return;
+	}
+
+	switch (scope->state) {
+	case ACCEPT_PREFERRED:
+		/* TBD: BSR_ELECTED */
+		break;
+
+	case ACCEPT_ANY:
+	case NO_INFO:
+	default:
+		/* state change will retrigger */
+		scope->cand_rp_adv_trigger = 0;
+
+		zlog_warn("Candidate-RP advertisement not sent in state %d",
+			  scope->state);
+		return;
+	}
+
+	if (PIM_DEBUG_BSM)
+		zlog_debug("Candidate-RP (%u, %pPA) advertising %zu groups to %pPA",
+			   scope->cand_rp_prio, &scope->cand_rp_addrsel.run_addr,
+			   cand_rp_groups_count(scope->cand_rp_groups),
+			   &scope->current_bsr);
+
+	struct cand_rp_group *grp;
+	struct cand_rp_msg *msg;
+	uint8_t buf[PIM_MSG_HEADER_LEN + sizeof(*msg) +
+		    sizeof(pim_encoded_group) *
+			    cand_rp_groups_count(scope->cand_rp_groups)];
+	size_t i = 0;
+
+
+	msg = (struct cand_rp_msg *)(&buf[PIM_MSG_HEADER_LEN]);
+	msg->prefix_cnt = cand_rp_groups_count(scope->cand_rp_groups);
+	msg->rp_prio = scope->cand_rp_prio;
+	msg->rp_holdtime =
+		htons(MAX(151, (scope->cand_rp_interval * 5 + 1) / 2));
+	msg->rp_addr.family = PIM_IANA_AFI;
+	msg->rp_addr.reserved = 0;
+	msg->rp_addr.addr = scope->cand_rp_addrsel.run_addr;
+
+	frr_each (cand_rp_groups, scope->cand_rp_groups, grp) {
+		memset(&msg->groups[i], 0, sizeof(msg->groups[i]));
+
+		msg->groups[i].family = PIM_IANA_AFI;
+		msg->groups[i].mask = grp->p.prefixlen;
+		msg->groups[i].addr = grp->p.prefix;
+		i++;
+	}
+
+	scope->cand_rp_prev_addr = scope->cand_rp_addrsel.run_addr;
+
+	pim_msg_build_header(scope->cand_rp_addrsel.run_addr, scope->current_bsr,
+			     buf, sizeof(buf), PIM_MSG_TYPE_CANDIDATE, false);
+
+	if (pim_msg_send(scope->unicast_sock, scope->cand_rp_addrsel.run_addr,
+			 scope->current_bsr, buf, sizeof(buf), NULL)) {
+		zlog_warn("failed to send Cand-RP message: %m");
+	}
+
+	/* -1s...+1s */
+	next_msec = (frr_weak_random() & 2047) - 1024;
+
+	if (scope->cand_rp_adv_trigger) {
+		scope->cand_rp_adv_trigger--;
+		next_msec += 2000;
+	} else
+		next_msec += scope->cand_rp_interval * 1000;
+
+	event_add_timer_msec(router->master, pim_cand_rp_adv, scope, next_msec,
+			     &scope->cand_rp_adv_timer);
+}
+
+void pim_cand_rp_trigger(struct bsm_scope *scope)
+{
+	if (scope->cand_rp_adv_trigger && scope->cand_rp_addrsel.run) {
+		scope->cand_rp_adv_trigger = PIM_CRP_ADV_TRIGCOUNT;
+
+		/* already scheduled to send triggered advertisements, don't
+		 * reschedule so burst changes don't result in an advertisement
+		 * burst
+		 */
+		return;
+	}
+
+	EVENT_OFF(scope->cand_rp_adv_timer);
+
+	if (!scope->cand_rp_addrsel.run)
+		return;
+
+	scope->cand_rp_adv_trigger = PIM_CRP_ADV_TRIGCOUNT;
+
+	struct event t;
+
+	t.arg = scope;
+	pim_cand_rp_adv(&t);
+}
+
+void pim_cand_rp_apply(struct bsm_scope *scope)
+{
+	if (!cand_addrsel_update(&scope->cand_rp_addrsel, scope->pim->vrf))
+		return;
+
+	if (!scope->cand_rp_addrsel.run) {
+		if (PIM_DEBUG_BSM)
+			zlog_debug("Candidate RP ceasing operation");
+
+		cand_addrsel_clear(&scope->cand_rp_addrsel);
+		EVENT_OFF(scope->cand_rp_adv_timer);
+		pim_cand_rp_adv_stop_maybe(scope);
+		scope->cand_rp_adv_trigger = 0;
+		return;
+	}
+
+	if (PIM_DEBUG_BSM)
+		zlog_debug("Candidate RP: %pPA, priority %u",
+			   &scope->cand_rp_addrsel.run_addr,
+			   scope->cand_rp_prio);
+
+	pim_cand_rp_trigger(scope);
+}
+
+void pim_cand_rp_grp_add(struct bsm_scope *scope, const prefix_pim *p)
+{
+	struct cand_rp_group *grp, ref;
+
+	ref.p = *p;
+	grp = cand_rp_groups_find(scope->cand_rp_groups, &ref);
+	if (grp)
+		return;
+
+	grp = XCALLOC(MTYPE_PIM_CAND_RP_GRP, sizeof(*grp));
+	grp->p = *p;
+	cand_rp_groups_add(scope->cand_rp_groups, grp);
+
+	pim_cand_rp_trigger(scope);
+}
+
+void pim_cand_rp_grp_del(struct bsm_scope *scope, const prefix_pim *p)
+{
+	struct cand_rp_group *grp, ref;
+
+	ref.p = *p;
+	grp = cand_rp_groups_find(scope->cand_rp_groups, &ref);
+	if (!grp)
+		return;
+
+	cand_rp_groups_del(scope->cand_rp_groups, grp);
+	XFREE(MTYPE_PIM_CAND_RP_GRP, grp);
+
+	pim_cand_rp_trigger(scope);
+}
+
+static struct event *t_cand_addrs_reapply;
+
+static void pim_cand_addrs_reapply(struct event *t)
+{
+	struct vrf *vrf;
+
+	RB_FOREACH (vrf, vrf_id_head, &vrfs_by_id) {
+		struct pim_instance *pi = vrf->info;
+
+		if (!pi)
+			continue;
+
+		/* this calls cand_addrsel_update() and applies changes */
+		pim_cand_rp_apply(&pi->global_scope);
+	}
+}
+
+void pim_cand_addrs_changed(void)
+{
+	EVENT_OFF(t_cand_addrs_reapply);
+	event_add_timer_msec(router->master, pim_cand_addrs_reapply, NULL, 1,
+			     &t_cand_addrs_reapply);
+}
+
+static void cand_addrsel_config_write(struct vty *vty,
+				      struct cand_addrsel *addrsel)
+{
+	switch (addrsel->cfg_mode) {
+	case CAND_ADDR_LO:
+		break;
+	case CAND_ADDR_ANY:
+		vty_out(vty, " source any");
+		break;
+	case CAND_ADDR_IFACE:
+		vty_out(vty, " source interface %s", addrsel->cfg_ifname);
+		break;
+	case CAND_ADDR_EXPLICIT:
+		vty_out(vty, " source address %pPA", &addrsel->cfg_addr);
+		break;
+	}
+}
+
+int pim_cand_config_write(struct pim_instance *pim, struct vty *vty)
+{
+	struct bsm_scope *scope = &pim->global_scope;
+	int ret = 0;
+
+	if (scope->cand_rp_addrsel.cfg_enable) {
+		vty_out(vty, " bsr candidate-rp");
+		if (scope->cand_rp_prio != 192)
+			vty_out(vty, " priority %u", scope->cand_rp_prio);
+		if (scope->cand_rp_interval != PIM_CRP_ADV_INTERVAL)
+			vty_out(vty, " interval %u", scope->cand_rp_interval);
+		cand_addrsel_config_write(vty, &scope->cand_rp_addrsel);
+		vty_out(vty, "\n");
+		ret++;
+
+		struct cand_rp_group *group;
+
+		frr_each (cand_rp_groups, scope->cand_rp_groups, group) {
+			vty_out(vty, " bsr candidate-rp group %pFX\n",
+				&group->p);
+			ret++;
+		}
+	}
+	return ret;
 }
 
 void pim_crp_nht_update(struct pim_instance *pim, struct pim_nexthop_cache *pnc)

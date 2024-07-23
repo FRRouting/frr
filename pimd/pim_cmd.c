@@ -2877,6 +2877,66 @@ DEFPY (show_ip_pim_bsrp,
 	return pim_show_group_rp_mappings_info_helper(vrf, vty, !!json);
 }
 
+DEFUN (show_ip_pim_cand_rp,
+       show_ip_pim_cand_rp_cmd,
+       "show ip pim candidate-rp [vrf NAME] [json]",
+       SHOW_STR
+       IP_STR
+       PIM_STR
+       "PIM Candidate RP state\n"
+       VRF_CMD_HELP_STR
+       JSON_STR)
+{
+	bool uj = use_json(argc, argv);
+	int idx = 2;
+	struct vrf *vrf = pim_cmd_lookup_vrf(vty, argv, argc, &idx, uj);
+	struct pim_instance *pim;
+	struct bsm_scope *scope;
+	json_object *json = NULL;
+
+	if (!vrf || !vrf->info)
+		return CMD_WARNING;
+
+	pim = (struct pim_instance *)vrf->info;
+	scope = &pim->global_scope;
+
+	if (!scope->cand_rp_addrsel.run) {
+		if (uj)
+			vty_out(vty, "{}\n");
+		else
+			vty_out(vty,
+				"This router is not currently operating as Candidate RP\n");
+		return CMD_SUCCESS;
+	}
+
+	if (uj) {
+		char buf[INET_ADDRSTRLEN];
+
+		json = json_object_new_object();
+		inet_ntop(AF_INET, &scope->cand_rp_addrsel.run_addr, buf,
+			  sizeof(buf));
+		json_object_string_add(json, "address", buf);
+		json_object_int_add(json, "priority", scope->cand_rp_prio);
+		json_object_int_add(json, "nextAdvertisementMsec",
+				    pim_time_timer_remain_msec(
+					    scope->cand_rp_adv_timer));
+
+		vty_out(vty, "%s\n",
+			json_object_to_json_string_ext(json,
+						       JSON_C_TO_STRING_PRETTY));
+		json_object_free(json);
+		return CMD_SUCCESS;
+	}
+
+	vty_out(vty, "Candidate-RP\nAddress:   %pI4\nPriority:  %u\n\n",
+		&scope->cand_rp_addrsel.run_addr, scope->cand_rp_prio);
+	vty_out(vty, "Next adv.: %lu msec\n",
+		pim_time_timer_remain_msec(scope->cand_rp_adv_timer));
+
+
+	return CMD_SUCCESS;
+}
+
 DEFPY (show_ip_pim_statistics,
        show_ip_pim_statistics_cmd,
        "show ip pim [vrf NAME] statistics [interface WORD$word] [json$json]",
@@ -4374,6 +4434,41 @@ DEFPY_ATTR(no_ip_pim_rp_prefix_list,
 	}
 
 	return ret;
+}
+
+DEFPY (pim_bsr_candidate_rp,
+       pim_bsr_candidate_rp_cmd,
+       "[no] bsr candidate-rp [{priority (0-255)|interval (1-4294967295)|source <address A.B.C.D|interface IFNAME|loopback$loopback|any$any>}]",
+       NO_STR
+       BSR_STR
+       "Make this router a Candidate RP\n"
+       "RP Priority (lower wins)\n"
+       "RP Priority (lower wins)\n"
+       "Advertisement interval (seconds)\n"
+       "Advertisement interval (seconds)\n"
+       "Specify IP address for RP operation\n"
+       "Local address to use\n"
+       "Local address to use\n"
+       "Interface to pick address from\n"
+       "Interface to pick address from\n"
+       "Pick highest loopback address (default)\n"
+       "Pick highest address from any interface\n")
+{
+	return pim_process_bsr_candidate_cmd(vty, FRR_PIM_CAND_RP_XPATH, no,
+					     true, any, ifname, address_str,
+					     priority_str, interval_str);
+}
+
+DEFPY (pim_bsr_candidate_rp_group,
+       pim_bsr_candidate_rp_group_cmd,
+       "[no] bsr candidate-rp group A.B.C.D/M",
+       NO_STR
+       BSR_STR
+       "Make this router a Candidate RP\n"
+       "Configure groups to become candidate RP for\n"
+       "Multicast group prefix\n")
+{
+	return pim_process_bsr_crp_grp_cmd(vty, group_str, no);
 }
 
 DEFPY (pim_ssm_prefix_list,
@@ -8550,6 +8645,9 @@ void pim_cmd_init(void)
 	install_element(PIM_NODE, &no_pim_msdp_mesh_group_source_cmd);
 	install_element(PIM_NODE, &no_pim_msdp_mesh_group_cmd);
 
+	install_element(PIM_NODE, &pim_bsr_candidate_rp_cmd);
+	install_element(PIM_NODE, &pim_bsr_candidate_rp_group_cmd);
+
 	install_element(INTERFACE_NODE, &interface_ip_igmp_cmd);
 	install_element(INTERFACE_NODE, &interface_no_ip_igmp_cmd);
 	install_element(INTERFACE_NODE, &interface_ip_igmp_join_cmd);
@@ -8670,6 +8768,7 @@ void pim_cmd_init(void)
 	install_element(VIEW_NODE, &show_ip_pim_nexthop_lookup_cmd);
 	install_element(VIEW_NODE, &show_ip_pim_bsrp_cmd);
 	install_element(VIEW_NODE, &show_ip_pim_bsm_db_cmd);
+	install_element(VIEW_NODE, &show_ip_pim_cand_rp_cmd);
 	install_element(VIEW_NODE, &show_ip_pim_statistics_cmd);
 	install_element(VIEW_NODE, &show_ip_msdp_peer_detail_cmd);
 	install_element(VIEW_NODE, &show_ip_msdp_peer_detail_vrf_all_cmd);

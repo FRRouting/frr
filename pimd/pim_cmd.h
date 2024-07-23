@@ -24,6 +24,7 @@
 #define IFACE_IGMP_QUERY_MAX_RESPONSE_TIME_DSEC_STR "IGMP max query response value (deciseconds)\n"
 #define IFACE_IGMP_LAST_MEMBER_QUERY_INTERVAL_STR   "IGMP last member query interval\n"
 #define IFACE_IGMP_LAST_MEMBER_QUERY_COUNT_STR      "IGMP last member query count\n"
+#define BSR_STR                                     "Bootstrap Router configuration\n"
 #define DEBUG_IGMP_STR                              "IGMP protocol activity\n"
 #define DEBUG_IGMP_EVENTS_STR                       "IGMP protocol events\n"
 #define DEBUG_IGMP_PACKETS_STR                      "IGMP protocol packets\n"

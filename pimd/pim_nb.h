@@ -9,6 +9,7 @@
 
 extern const struct frr_yang_module_info frr_pim_info;
 extern const struct frr_yang_module_info frr_pim_rp_info;
+extern const struct frr_yang_module_info frr_pim_candidate_info;
 extern const struct frr_yang_module_info frr_gmp_info;
 
 /* frr-pim prototypes*/
@@ -159,6 +160,26 @@ int routing_control_plane_protocols_control_plane_protocol_pim_address_family_rp
 int routing_control_plane_protocols_control_plane_protocol_pim_address_family_rp_static_rp_rp_list_prefix_list_destroy(
 	struct nb_cb_destroy_args *args);
 
+/* frr-candidate */
+int routing_control_plane_protocols_control_plane_protocol_pim_address_family_candidate_rp_create(
+	struct nb_cb_create_args *args);
+int routing_control_plane_protocols_control_plane_protocol_pim_address_family_candidate_rp_destroy(
+	struct nb_cb_destroy_args *args);
+int routing_control_plane_protocols_control_plane_protocol_pim_address_family_candidate_rp_priority_modify(
+	struct nb_cb_modify_args *args);
+int routing_control_plane_protocols_control_plane_protocol_pim_address_family_candidate_rp_adv_interval_modify(
+	struct nb_cb_modify_args *args);
+int routing_control_plane_protocols_control_plane_protocol_pim_address_family_candidate_rp_group_list_create(
+	struct nb_cb_create_args *args);
+int routing_control_plane_protocols_control_plane_protocol_pim_address_family_candidate_rp_group_list_destroy(
+	struct nb_cb_destroy_args *args);
+int routing_control_plane_protocols_control_plane_protocol_pim_address_family_candidate_rp_addrsel_create(
+	struct nb_cb_create_args *args);
+int routing_control_plane_protocols_control_plane_protocol_pim_address_family_candidate_rp_addrsel_modify(
+	struct nb_cb_modify_args *args);
+int routing_control_plane_protocols_control_plane_protocol_pim_address_family_candidate_rp_addrsel_destroy(
+	struct nb_cb_destroy_args *args);
+
 /* frr-gmp prototypes*/
 int lib_interface_gmp_address_family_create(
 	struct nb_cb_create_args *args);
@@ -219,6 +240,8 @@ int routing_control_plane_protocols_name_validate(
 	"mroute[source-addr='%s'][group-addr='%s']"
 #define FRR_PIM_STATIC_RP_XPATH                                         \
 	"frr-pim-rp:rp/static-rp/rp-list[rp-address='%s']"
+#define FRR_PIM_CAND_RP_XPATH                                           \
+	"./frr-pim-candidate:candidate-rp"
 #define FRR_GMP_INTERFACE_XPATH                                         \
 	"./frr-gmp:gmp/address-family[address-family='%s']"
 #define FRR_GMP_ENABLE_XPATH                                            \

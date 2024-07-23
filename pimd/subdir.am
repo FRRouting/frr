@@ -76,6 +76,7 @@ pimd_pimd_SOURCES = \
 nodist_pimd_pimd_SOURCES = \
 	yang/frr-pim.yang.c \
 	yang/frr-pim-rp.yang.c \
+	yang/frr-pim-candidate.yang.c \
 	yang/frr-gmp.yang.c \
 	# end
 
@@ -89,6 +90,7 @@ pimd_pim6d_SOURCES = \
 nodist_pimd_pim6d_SOURCES = \
 	yang/frr-pim.yang.c \
 	yang/frr-pim-rp.yang.c \
+	yang/frr-pim-candidate.yang.c \
 	yang/frr-gmp.yang.c \
 	# end
 

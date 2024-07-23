@@ -3389,6 +3389,55 @@ int pim_process_no_unicast_bsm_cmd(struct vty *vty)
 				    FRR_PIM_AF_XPATH_VAL);
 }
 
+/* helper for bsr/rp candidate commands*/
+int pim_process_bsr_candidate_cmd(struct vty *vty, const char *cand_str,
+				  bool no, bool is_rp, bool any,
+				  const char *ifname, const char *addr,
+				  const char *prio, const char *interval)
+{
+	if (no)
+		nb_cli_enqueue_change(vty, ".", NB_OP_DESTROY, NULL);
+	else {
+		nb_cli_enqueue_change(vty, ".", NB_OP_CREATE, NULL);
+
+		if (any)
+			nb_cli_enqueue_change(vty, "./if-any", NB_OP_CREATE,
+					      NULL);
+		else if (ifname)
+			nb_cli_enqueue_change(vty, "./interface", NB_OP_CREATE,
+					      ifname);
+		else if (addr)
+			nb_cli_enqueue_change(vty, "./address", NB_OP_CREATE,
+					      addr);
+		else
+			nb_cli_enqueue_change(vty, "./if-loopback",
+					      NB_OP_CREATE, NULL);
+
+		if (prio)
+			nb_cli_enqueue_change(vty,
+					      (is_rp ? "./rp-priority"
+						     : "./bsr-priority"),
+					      NB_OP_MODIFY, prio);
+
+		/* only valid for rp candidate case*/
+		if (is_rp && interval)
+			nb_cli_enqueue_change(vty, "./advertisement-interval",
+					      NB_OP_MODIFY, interval);
+	}
+
+	return nb_cli_apply_changes(vty, "%s", cand_str);
+}
+
+int pim_process_bsr_crp_grp_cmd(struct vty *vty, const char *grp, bool no)
+{
+	if (no)
+		nb_cli_enqueue_change(vty, ".", NB_OP_DESTROY, grp);
+	else
+		nb_cli_enqueue_change(vty, ".", NB_OP_CREATE, grp);
+
+	return nb_cli_apply_changes(vty, "%s/group-list", FRR_PIM_CAND_RP_XPATH);
+}
+
 static void show_scan_oil_stats(struct pim_instance *pim, struct vty *vty,
 				time_t now)
 {

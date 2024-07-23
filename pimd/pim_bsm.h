@@ -21,6 +21,10 @@
 #define PIM_BS_TIME 60		    /* RFC 5059 - Sec 5 */
 #define PIM_BSR_DEFAULT_TIMEOUT 130 /* RFC 5059 - Sec 5 */
 
+#define PIM_CRP_ADV_TRIGCOUNT 3
+#define PIM_CRP_ADV_INTERVAL  60
+#define PIM_CRP_HOLDTIME      150
+
 /* These structures are only encoded IPv4 specific */
 #define PIM_BSM_HDR_LEN sizeof(struct bsm_hdr)
 #define PIM_BSM_GRP_LEN sizeof(struct bsmmsg_grpinfo)
@@ -40,7 +44,31 @@ enum ncbsr_state {
 	ACCEPT_PREFERRED
 };
 
+enum cand_addr {
+	CAND_ADDR_LO = 0,
+	CAND_ADDR_ANY,
+	CAND_ADDR_IFACE,
+	CAND_ADDR_EXPLICIT,
+};
+
+/* used separately for Cand-RP, and (TBD) Cand-BSR */
+struct cand_addrsel {
+	bool cfg_enable;
+	enum cand_addr cfg_mode : 8;
+
+	/* only valid for mode==CAND_ADDR_IFACE */
+	char cfg_ifname[IFNAMSIZ];
+	/* only valid for mode==CAND_ADDR_EXPLICIT */
+	pim_addr cfg_addr;
+
+	/* running state updated based on above on zebra events */
+	pim_addr run_addr;
+	bool run;
+};
+
+
 PREDECL_DLIST(bsm_frags);
+PREDECL_RBTREE_UNIQ(cand_rp_groups);
 
 /* BSM scope - bsm processing is per scope */
 struct bsm_scope {
@@ -60,6 +88,27 @@ struct bsm_scope {
 
 	struct route_table *bsrp_table; /* group2rp mapping rcvd from BSR */
 	struct event *bs_timer;		/* Boot strap timer */
+
+	/* Candidate RP config */
+	struct cand_addrsel cand_rp_addrsel;
+	uint8_t cand_rp_prio;
+	unsigned int cand_rp_interval; /* default: PIM_CRP_ADV_INTERVAL=60 */
+	/* holdtime is not configurable, always 2.5 * interval. */
+	struct cand_rp_groups_head cand_rp_groups[1];
+
+	/* Candidate RP state */
+	int unicast_sock;
+	struct event *cand_rp_adv_timer;
+	unsigned int cand_rp_adv_trigger; /* # trigg. C-RP-Adv left to send */
+
+	/* for sending holdtime=0 zap */
+	pim_addr cand_rp_prev_addr;
+};
+
+struct cand_rp_group {
+	struct cand_rp_groups_item item;
+
+	prefix_pim p;
 };
 
 /* BSM packet (= fragment) - this is stored as list in bsm_frags inside scope
@@ -200,6 +249,14 @@ struct bsmmsg_rpinfo {
 	uint8_t reserved;
 } __attribute__((packed));
 
+struct cand_rp_msg {
+	uint8_t prefix_cnt;
+	uint8_t rp_prio;
+	uint16_t rp_holdtime;
+	pim_encoded_unicast rp_addr;
+	pim_encoded_group groups[0];
+} __attribute__((packed));
+
 /* API */
 void pim_bsm_proc_init(struct pim_instance *pim);
 void pim_bsm_proc_free(struct pim_instance *pim);
@@ -210,4 +267,14 @@ int pim_bsm_process(struct interface *ifp, pim_sgaddr *sg, uint8_t *buf,
 bool pim_bsm_new_nbr_fwd(struct pim_neighbor *neigh, struct interface *ifp);
 struct bsgrp_node *pim_bsm_get_bsgrp_node(struct bsm_scope *scope,
 					  struct prefix *grp);
+
+void pim_cand_rp_apply(struct bsm_scope *scope);
+void pim_cand_rp_trigger(struct bsm_scope *scope);
+void pim_cand_rp_grp_add(struct bsm_scope *scope, const prefix_pim *p);
+void pim_cand_rp_grp_del(struct bsm_scope *scope, const prefix_pim *p);
+
+void pim_cand_addrs_changed(void);
+
+int pim_cand_config_write(struct pim_instance *pim, struct vty *vty);
+
 #endif
