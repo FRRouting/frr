@@ -1482,7 +1482,7 @@ enum bgp_fsm_state_progress bgp_stop(struct peer_connection *connection)
 	EVENT_OFF(connection->t_connect);
 	EVENT_OFF(connection->t_holdtime);
 	EVENT_OFF(connection->t_routeadv);
-	EVENT_OFF(peer->connection->t_delayopen);
+	EVENT_OFF(connection->t_delayopen);
 
 	/* Clear input and output buffer.  */
 	frr_with_mutex (&connection->io_mtx) {
