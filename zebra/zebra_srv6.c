@@ -22,7 +22,6 @@
 #include "zebra/ge_netlink.h"
 #include "zebra/zebra_ns.h"
 #include "zebra/kernel_netlink.h"
-#include <stdio.h>
 
 #include <stdio.h>
 #include <string.h>
