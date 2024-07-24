@@ -42,7 +42,6 @@
 #include "zebra/zebra_evpn_mac.h"
 #include "zebra/kernel_netlink.h"
 #include "zebra/rt_netlink.h"
-#include "zebra/debug.h"
 #include "fpm/fpm.h"
 
 #include "zebra/dplane_fpm_nl_clippy.c"
