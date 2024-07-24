@@ -215,7 +215,7 @@ static char re_status_output_char(const struct route_entry *re,
 			if (is_fib) {
 				star_p = !!CHECK_FLAG(nhop->flags,
 						      NEXTHOP_FLAG_FIB);
-			} else
+			} else if (CHECK_FLAG(nhop->flags, NEXTHOP_FLAG_ACTIVE))
 				star_p = true;
 		}
 
