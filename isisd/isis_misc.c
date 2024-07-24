@@ -370,18 +370,20 @@ const char *print_sys_hostname(const uint8_t *sysid)
 	struct isis_dynhn *dyn;
 	struct isis *isis = NULL;
 	struct listnode *node;
+	struct isis_area *area = NULL;
 
 	if (!sysid)
 		return "nullsysid";
 
 	/* For our system ID return our host name */
-	isis = isis_lookup_by_sysid(sysid);
-	if (isis && !CHECK_FLAG(im->options, F_ISIS_UNIT_TEST))
+	area = isis_area_lookup_by_sysid(sysid);
+	if (area && area->dynhostname && !CHECK_FLAG(im->options, F_ISIS_UNIT_TEST))
 		return cmd_hostname_get();
 
 	for (ALL_LIST_ELEMENTS_RO(im->isis, node, isis)) {
+		area = isis_area_lookup_by_sysid(isis->sysid);
 		dyn = dynhn_find_by_id(isis, sysid);
-		if (dyn)
+		if (area && area->dynhostname && dyn)
 			return dyn->hostname;
 	}
 
