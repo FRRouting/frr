@@ -18,7 +18,6 @@ import functools
 import os
 import sys
 import pytest
-import re
 import time
 
 # Save the Current Working Directory to find configuration files.

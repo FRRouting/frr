@@ -26,7 +26,6 @@ from functools import partial
 from ipaddress import ip_network
 import json
 import os
-import platform
 import pytest
 import sys
 

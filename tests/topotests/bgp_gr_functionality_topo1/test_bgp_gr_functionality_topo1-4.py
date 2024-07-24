@@ -104,8 +104,6 @@ from lib.bgp import (
     verify_bgp_rib,
     verify_graceful_restart,
     create_router_bgp,
-    verify_r_bit,
-    verify_f_bit,
     verify_bgp_convergence,
     verify_bgp_convergence_from_running_config,
 )
@@ -120,7 +118,6 @@ from lib.common_config import (
     check_address_types,
     write_test_footer,
     check_router_status,
-    shutdown_bringup_interface,
     step,
     get_frr_ipv6_linklocal,
     required_linux_kernel_version,

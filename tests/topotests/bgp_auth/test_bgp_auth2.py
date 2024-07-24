@@ -32,14 +32,12 @@ for bgp instances
 """
 # pylint: disable=C0413
 
-import json
 import os
 import platform
 import sys
-from time import sleep
 
 import pytest
-from lib import common_config, topotest
+from lib import topotest
 from lib.common_config import (
     save_initial_config_on_routers,
     reset_with_new_configs,

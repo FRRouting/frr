@@ -141,7 +141,7 @@ def router_json_cmp_exact_filter(router, cmd, expected):
     # filter out tableVersion, version and nhVrfID
     json_output.pop("tableVersion")
     for rd, data in json_output["routes"]["routeDistinguishers"].items():
-        for prefix, attrs in data.items():
+        for _, attrs in data.items():
             for attr in attrs:
                 if "nhVrfId" in attr:
                     attr.pop("nhVrfId")
@@ -171,7 +171,7 @@ def router_vrf_json_cmp_exact_filter(router, cmd, expected):
             data.pop("tableVersion")
         if "routes" not in data:
             continue
-        for route, attrs in data["routes"].items():
+        for _, attrs in data["routes"].items():
             for attr in attrs:
                 if "nhVrfId" in attr:
                     attr.pop("nhVrfId")

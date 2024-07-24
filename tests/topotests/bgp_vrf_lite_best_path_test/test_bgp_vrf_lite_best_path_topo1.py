@@ -49,9 +49,7 @@ from lib.topolog import logger
 from lib.bgp import (
     verify_bgp_convergence,
     create_router_bgp,
-    verify_bgp_community,
     verify_bgp_rib,
-    clear_bgp,
     verify_best_path_as_per_bgp_attribute,
 )
 from lib.topojson import build_config_from_json

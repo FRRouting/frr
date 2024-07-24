@@ -15,7 +15,6 @@ import sys
 import json
 import pytest
 from functools import partial
-from time import sleep
 from lib.topolog import logger
 
 CWD = os.path.dirname(os.path.realpath(__file__))

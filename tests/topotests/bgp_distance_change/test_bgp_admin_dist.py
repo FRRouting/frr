@@ -215,7 +215,6 @@ def test_bgp_admin_distance_ebgp_ecmp_p0():
     step("Configure static route  in R4 and R5, redistribute in bgp")
 
     for addr_type in ADDR_TYPES:
-
         input_dict = {
             "r4": {
                 "static_routes": [{"network": NETWORK[addr_type], "next_hop": "Null0"}]
@@ -228,7 +227,6 @@ def test_bgp_admin_distance_ebgp_ecmp_p0():
         )
 
     for addr_type in ADDR_TYPES:
-
         input_dict = {
             "r5": {
                 "static_routes": [{"network": NETWORK[addr_type], "next_hop": "Null0"}]
@@ -268,7 +266,6 @@ def test_bgp_admin_distance_ebgp_ecmp_p0():
     step("Configure the static route  in R3 (Dut).")
 
     for addr_type in ADDR_TYPES:
-
         input_dict = {
             "r3": {
                 "static_routes": [
@@ -305,7 +302,6 @@ def test_bgp_admin_distance_ebgp_ecmp_p0():
     step(" Configure the admin distance of 254 to static route  in R3.")
 
     for addr_type in ADDR_TYPES:
-
         input_dict = {
             "r3": {
                 "static_routes": [
@@ -571,7 +567,6 @@ def test_bgp_admin_distance_ebgp_ecmp_p0():
     step("Reconfigure the static route without admin distance")
 
     for addr_type in ADDR_TYPES:
-
         input_dict = {
             "r3": {
                 "static_routes": [
@@ -993,7 +988,6 @@ def test_bgp_admin_distance_ibgp_p0():
     step("Configure static route  Without any admin distance")
 
     for addr_type in ADDR_TYPES:
-
         input_dict = {
             "r3": {
                 "static_routes": [{"network": NETWORK[addr_type], "next_hop": "Null0"}]
@@ -1009,7 +1003,6 @@ def test_bgp_admin_distance_ibgp_p0():
     protocol = "static"
 
     for addr_type in ADDR_TYPES:
-
         input_dict = {
             "r3": {
                 "static_routes": [{"network": NETWORK[addr_type], "next_hop": "Null0"}]
@@ -1023,7 +1016,6 @@ def test_bgp_admin_distance_ibgp_p0():
 
     step("Configure static route  with admin distance of 253")
     for addr_type in ADDR_TYPES:
-
         input_dict = {
             "r3": {
                 "static_routes": [
@@ -1086,7 +1078,6 @@ def test_bgp_admin_distance_ibgp_p0():
 
     step("Delete the static route.")
     for addr_type in ADDR_TYPES:
-
         input_dict = {
             "r3": {
                 "static_routes": [

@@ -25,7 +25,6 @@ sys.path.append(os.path.join(CWD, "../"))
 
 # pylint: disable=C0413
 from lib.topogen import Topogen, TopoRouter, get_topogen
-from lib.topolog import logger
 from lib import topotest
 
 
