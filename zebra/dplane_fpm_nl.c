@@ -41,7 +41,6 @@
 #include "zebra/zebra_evpn_mac.h"
 #include "zebra/kernel_netlink.h"
 #include "zebra/rt_netlink.h"
-#include "zebra/debug.h"
 #include "fpm/fpm.h"
 
 #define SOUTHBOUND_DEFAULT_ADDR INADDR_LOOPBACK
