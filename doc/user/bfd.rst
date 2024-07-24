@@ -45,19 +45,6 @@ may also be specified (:ref:`common-invocation-options`).
 
 .. program:: bfdd
 
-.. option:: --bfdctl <unix-socket>
-
-   Set the BFD daemon control socket location. If using a non-default
-   socket location::
-
-      /usr/lib/frr/bfdd --bfdctl /tmp/bfdd.sock
-
-
-   The default UNIX socket location is |INSTALL_PREFIX_STATE|/bfdd.sock
-
-   This option overrides the location addition that the -N option provides
-   to the bfdd.sock
-
 .. option:: --dplaneaddr <type>:<address>[<:port>]
 
    Configure the distributed BFD data plane listening socket bind address.

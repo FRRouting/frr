@@ -3,12 +3,6 @@ BFD
 
 The following options controls the BFD daemon auxiliary sockets.
 
-.. option:: --bfdctl bfd-control-socket
-
-   Opens the BFD daemon control socket located at the pointed location.
-
-   (default: |INSTALL_PREFIX_STATE|/bfdd.sock)
-
 .. option:: --dplaneaddr <type>:<address>[<:port>]
 
    Configure the distributed BFD data plane listening socket bind address.
