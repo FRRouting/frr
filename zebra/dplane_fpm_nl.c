@@ -36,7 +36,6 @@
 #include "zebra/zebra_dplane.h"
 #include "zebra/zebra_mpls.h"
 #include "zebra/zebra_router.h"
-#include "zebra/interface.h"
 #include "zebra/zebra_vxlan_private.h"
 #include "zebra/zebra_evpn.h"
 #include "zebra/zebra_evpn_mac.h"
