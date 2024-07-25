@@ -323,6 +323,8 @@ BGP
   :t:`Dissemination of Flow Specification Rules. P. Marques, N. Sheth, R. Raszuk, B. Greene, J. Mauch, D. McPherson. August 2009.`
 - :rfc:`5668`
   :t:`4-Octet AS Specific BGP Extended Community. Y. Rekhter, S. Sangli, D. Tappan October 2009.`
+- :rfc:`5701`
+  :t:`IPv6 Address Specific BGP Extended Community Attribute. Y. Rekhter. 2009.`
 - :rfc:`6286`
   :t:`Autonomous-System-Wide Unique BGP Identifier for BGP-4. E. Chen, J. Yuan. June 2011.`
 - :rfc:`6472`
