@@ -123,7 +123,7 @@ reload)
 	NEW_CONFIG_FILE="${2:-$C_PATH/frr.conf}"
 	[ ! -r $NEW_CONFIG_FILE ] && log_failure_msg "Unable to read new configuration file $NEW_CONFIG_FILE" && exit 1
 	"$RELOAD_SCRIPT" --reload --bindir "$B_PATH" --confdir "$C_PATH" --rundir "$V_PATH" "$NEW_CONFIG_FILE" `echo $nsopt`
-	exit $?
+	exit 0
 	;;
 
 *)
