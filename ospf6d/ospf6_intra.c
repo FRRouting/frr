@@ -754,8 +754,9 @@ static char *ospf6_link_lsa_get_prefix_str(struct ospf6_lsa *lsa, char *buf,
 
 struct print_prefix_cb_data {
 	struct vty *vty;
-	bool use_json;
+	int prefix_count;
 	json_object *json_arr;
+	bool use_json;
 	bool print_metric;
 };
 
@@ -769,6 +770,8 @@ static int cb_print_prefix(void *desc, void *cb_data)
 
 	if (prefix->prefix_length == 0)
 		return 0; /* why would this be needed? */
+
+	cbd->prefix_count++;
 
 	memset(&in6, 0, sizeof(in6));
 	memcpy(&in6, OSPF6_PREFIX_BODY(prefix),
@@ -982,20 +985,32 @@ static int ospf6_intra_prefix_lsa_show(struct vty *vty, struct ospf6_lsa *lsa,
 
 	intra_prefix_lsa = lsa_from_container(ospf6_intra_prefix_lsa, lsa);
 
-	prefixnum = ntohs(intra_prefix_lsa->prefix_num);
+	if (ntohs(lsa->header->type) == OSPF6_LSTYPE_E_INTRA_PREFIX)
+		handler.tlv_type = OSPF6_TLV_INTRA_AREA_PREFIX;
 
 	inet_ntop(AF_INET, &intra_prefix_lsa->ref_id, id, sizeof(id));
 	inet_ntop(AF_INET, &intra_prefix_lsa->ref_adv_router, adv_router,
 		  sizeof(adv_router));
 
-	if (use_json) {
+	if (use_json)
 		cbd.json_arr = json_object_new_array();
+
+	/* Print each prefix (and count them, if TLV-based) */
+	foreach_lsdesc(lsa->header, &handler);
+
+	if (ntohs(lsa->header->type) == OSPF6_LSTYPE_E_INTRA_PREFIX)
+		prefixnum = cbd.prefix_count;
+	else
+		prefixnum = ntohs(intra_prefix_lsa->prefix_num);
+
+	if (use_json) {
 		json_object_int_add(json_obj, "numberOfPrefix", prefixnum);
 		json_object_string_add(json_obj, "reference",
 				       ospf6_lstype_name(
 					       intra_prefix_lsa->ref_type));
 		json_object_string_add(json_obj, "referenceId", id);
 		json_object_string_add(json_obj, "referenceAdv", adv_router);
+		json_object_object_add(json_obj, "prefix", cbd.json_arr);
 	} else {
 		vty_out(vty, "     Number of Prefix: %d\n", prefixnum);
 		vty_out(vty, "     Reference: %s Id: %s Adv: %s\n",
@@ -1003,13 +1018,9 @@ static int ospf6_intra_prefix_lsa_show(struct vty *vty, struct ospf6_lsa *lsa,
 			adv_router);
 	}
 
-	/* Print each prefix */
-	foreach_lsdesc(lsa->header, &handler);
-
-	if (use_json)
-		json_object_object_add(json_obj, "prefix", cbd.json_arr);
-
 	return 0;
+
+
 }
 
 void ospf6_intra_prefix_lsa_originate_stub(struct event *thread)
