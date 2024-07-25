@@ -2740,14 +2740,15 @@ static void bgp_gr_update_mode_of_all_peers(struct bgp *bgp,
 				   peer, peer->peer_gr_new_status_flag,
 				   peer->flags);
 
+		peer->last_reset = PEER_DOWN_CAPABILITY_CHANGE;
+
 		/* Reset session to match with behavior for other peer
 		 * configs that require the session to be re-setup.
 		 */
-		if (BGP_IS_VALID_STATE_FOR_NOTIF(peer->connection->status)) {
-			peer->last_reset = PEER_DOWN_CAPABILITY_CHANGE;
+		if (BGP_IS_VALID_STATE_FOR_NOTIF(peer->connection->status))
 			bgp_notify_send(peer->connection, BGP_NOTIFY_CEASE,
 					BGP_NOTIFY_CEASE_CONFIG_CHANGE);
-		} else
+		else
 			bgp_session_reset(peer);
 	}
 }
@@ -2968,14 +2969,15 @@ unsigned int bgp_peer_gr_action(struct peer *peer, enum peer_mode old_state,
 	bgp_peer_move_to_gr_mode(peer, new_state);
 
 	if (session_reset) {
+		peer->last_reset = PEER_DOWN_CAPABILITY_CHANGE;
+
 		/* Reset session to match with behavior for other peer
 		 * configs that require the session to be re-setup.
 		 */
-		if (BGP_IS_VALID_STATE_FOR_NOTIF(peer->connection->status)) {
-			peer->last_reset = PEER_DOWN_CAPABILITY_CHANGE;
+		if (BGP_IS_VALID_STATE_FOR_NOTIF(peer->connection->status))
 			bgp_notify_send(peer->connection, BGP_NOTIFY_CEASE,
 					BGP_NOTIFY_CEASE_CONFIG_CHANGE);
-		} else
+		else
 			bgp_session_reset(peer);
 	}
 
