@@ -12329,6 +12329,12 @@ static int bgp_show_summary(struct vty *vty, struct bgp *bgp, int afi, int safi,
 					json_object_string_add(json_peer, "domainname",
 							       peer->domainname);
 
+				json_object_string_add(json_peer,
+						       "softwareVersion",
+						       peer->soft_version
+							       ? peer->soft_version
+							       : "n/a");
+
 				asn_asn2json(json_peer, "remoteAs", peer->as,
 					     bgp->asnotation);
 				asn_asn2json(json_peer, "localAs",
