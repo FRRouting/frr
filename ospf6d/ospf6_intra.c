@@ -678,15 +678,29 @@ struct cbd_prefix_to_str {
 	int buflen;
 	char *buf;
 	int print_length;
+	bool is_tlv;
 };
 
 
 static int cb_prefix_to_str(void *desc, void *cb_data)
 {
-	struct ospf6_prefix *prefix = desc;
+	struct ospf6_prefix *prefix;
 	struct cbd_prefix_to_str *cbd = cb_data;
 	struct in6_addr in6;
+	uint32_t metric;
 	char tbuf[16];
+
+	/*
+	 * The field definitions correspond to the content of an IPv6 Prefix,
+	 * but the metric has moved out and adds a 4-byte offset before the
+	 * prefix in each descriptor.
+	 */
+	if (cbd->is_tlv) {
+		metric = ntohl(*(uint32_t *)desc);
+		prefix = (struct ospf6_prefix *)((char *)desc + sizeof(metric));
+	} else {
+		prefix = desc;
+	}
 
 	if (cbd->iterpos == cbd->pos) {
 		memset(&in6, 0, sizeof(in6));
@@ -941,11 +955,17 @@ static char *ospf6_intra_prefix_lsa_get_prefix_str(struct ospf6_lsa *lsa,
 	if (!lsa || !buf)
 		return NULL;
 
+	if (ntohs(lsa->header->type) == OSPF6_LSTYPE_E_INTRA_PREFIX) {
+		cbd.is_tlv = true;
+		handler.tlv_type = OSPF6_TLV_INTRA_AREA_PREFIX;
+	}
+
 	found_it = foreach_lsdesc(lsa->header, &handler);
 
 	if (found_it)
 		return buf;
 	return NULL;
+
 }
 
 static int ospf6_intra_prefix_lsa_show(struct vty *vty, struct ospf6_lsa *lsa,
