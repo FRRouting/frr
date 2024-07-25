@@ -613,8 +613,9 @@ static char *ospf6_link_lsa_get_prefix_str(struct ospf6_lsa *lsa, char *buf,
 
 struct cbd_prefix_printer {
 	struct vty *vty;
-	bool use_json;
+	int prefix_count;
 	json_object *json_arr;
+	bool use_json;
 	bool print_metric;
 };
 
@@ -628,6 +629,8 @@ static int cb_print_prefix(void *desc, void *cb_data)
 
 	if (prefix->prefix_length == 0)
 		return 0; /* why would this be needed? */
+
+	cbd->prefix_count++;
 
 	memset(&in6, 0, sizeof(in6));
 	memcpy(&in6, OSPF6_PREFIX_BODY(prefix),
@@ -830,25 +833,39 @@ static int ospf6_intra_prefix_lsa_show(struct vty *vty, struct ospf6_lsa *lsa,
 	struct cbd_prefix_printer cbd = { .vty = vty,
 					  .use_json = use_json,
 					  .print_metric = true };
-	struct tlv_handler handler = { .callback = cb_print_prefix,
-				       .callback_data = &cbd };
+	struct tlv_handler h1 = { .tlv_type = OSPF6_TLV_RESERVED,
+				  .callback = cb_print_prefix,
+				  .callback_data = &cbd },
+			   h0 = { .tlv_type = OSPF6_TLV_INTRA_AREA_PREFIX,
+				  .callback = cb_print_prefix,
+				  .callback_data = &cbd,
+				  .next = &h1 };
 
 	intra_prefix_lsa = lsa_after_header(lsa->header);
-
-	prefixnum = ntohs(intra_prefix_lsa->prefix_num);
 
 	inet_ntop(AF_INET, &intra_prefix_lsa->ref_id, id, sizeof(id));
 	inet_ntop(AF_INET, &intra_prefix_lsa->ref_adv_router, adv_router,
 		  sizeof(adv_router));
 
-	if (use_json) {
+	if (use_json)
 		cbd.json_arr = json_object_new_array();
+
+	/* Print each prefix (and count them, if TLV-based) */
+	foreach_lsdesc(lsa->header, &h0);
+
+	if (ntohs(lsa->header->type) == OSPF6_LSTYPE_E_INTRA_PREFIX)
+		prefixnum = cbd.prefix_count;
+	else
+		prefixnum = ntohs(intra_prefix_lsa->prefix_num);
+
+	if (use_json) {
 		json_object_int_add(json_obj, "numberOfPrefix", prefixnum);
 		json_object_string_add(json_obj, "reference",
 				       ospf6_lstype_name(
 					       intra_prefix_lsa->ref_type));
 		json_object_string_add(json_obj, "referenceId", id);
 		json_object_string_add(json_obj, "referenceAdv", adv_router);
+		json_object_object_add(json_obj, "prefix", cbd.json_arr);
 	} else {
 		vty_out(vty, "     Number of Prefix: %d\n", prefixnum);
 		vty_out(vty, "     Reference: %s Id: %s Adv: %s\n",
@@ -856,13 +873,9 @@ static int ospf6_intra_prefix_lsa_show(struct vty *vty, struct ospf6_lsa *lsa,
 			adv_router);
 	}
 
-	/* Print each prefix */
-	foreach_lsdesc(lsa->header, &handler);
-
-	if (use_json)
-		json_object_object_add(json_obj, "prefix", cbd.json_arr);
-
 	return 0;
+
+
 }
 
 void ospf6_intra_prefix_lsa_originate_stub(struct event *thread)
