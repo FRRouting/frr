@@ -2875,6 +2875,8 @@ int isis_instance_flex_algo_create(struct nb_cb_create_args *args)
 
 int isis_instance_flex_algo_destroy(struct nb_cb_destroy_args *args)
 {
+	struct listnode *node, *nnode;
+	struct flex_algo *fa;
 	struct isis_area *area;
 	uint32_t algorithm;
 
@@ -2883,7 +2885,11 @@ int isis_instance_flex_algo_destroy(struct nb_cb_destroy_args *args)
 
 	switch (args->event) {
 	case NB_EV_APPLY:
-		flex_algo_delete(area->flex_algos, algorithm);
+		for (ALL_LIST_ELEMENTS(area->flex_algos->flex_algos, node,
+				       nnode, fa)) {
+			if (fa->algorithm == algorithm)
+				flex_algo_free(area->flex_algos, fa);
+		}
 		lsp_regenerate_schedule(area, area->is_type, 0);
 		break;
 	case NB_EV_VALIDATE:
