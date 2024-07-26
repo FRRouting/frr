@@ -351,6 +351,8 @@ static int _ptm_msg_read(struct stream *msg, int command, vrf_id_t vrf_id,
 	 * - c: bfd_cbit
 	 * - c: profile name length.
 	 * - X bytes: profile name.
+	 * - l: session id
+	 * - c: session disabled?
 	 *
 	 * q(64), l(32), w(16), c(8)
 	 */
@@ -443,6 +445,14 @@ static int _ptm_msg_read(struct stream *msg, int command, vrf_id_t vrf_id,
 		bpc->bpc_profile[ifnamelen] = 0;
 	}
 
+	if (STREAM_READABLE (msg)) {
+		/* Get the session id */
+		STREAM_GETL(msg, bpc->bpc_session_id);
+
+		/* Get the session disable state. */
+		STREAM_GETC(msg, bpc->bpc_session_disable);
+	}
+
 	/* Sanity check: peer and local address must match IP types. */
 	if (bpc->bpc_local.sa_sin.sin_family != AF_UNSPEC
 	    && (bpc->bpc_local.sa_sin.sin_family
@@ -480,6 +490,11 @@ static void bfdd_dest_register(struct stream *msg, vrf_id_t vrf_id)
 			return;
 		}
 	} else {
+		/* Existing BFD session has been enabled */
+		if (!bpc.bpc_session_disable && bpc.bpc_session_disable != bs->ses_disable) {
+			bs->ses_disable = bpc.bpc_session_disable;
+			bfd_session_enable(bs);
+		}
 		/*
 		 * BFD session was already created, we are just updating the
 		 * current peer.

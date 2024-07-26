@@ -263,6 +263,10 @@ struct bfd_config_timers {
  */
 struct bfd_session {
 
+	/* protocol parameters */
+	bool ses_disable;
+	uint32_t session_id;
+
 	/* protocol state per RFC 5880*/
 	uint8_t ses_state;
 	struct bfd_discrs discrs;
