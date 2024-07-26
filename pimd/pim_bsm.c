@@ -10,6 +10,17 @@
 #include "config.h"
 #endif
 
+#include <math.h>
+#include <stdint.h>
+#include <stdlib.h>
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <lib/network.h>
+#include <lib/iana_afi.h>
+#include <lib/sockunion.h>
+#include <lib/sockopt.h>
+
 #include "if.h"
 #include "pimd.h"
 #include "pim_iface.h"
@@ -25,21 +36,19 @@
 #include "pim_util.h"
 #include "pim_sock.h"
 
-#include <lib/network.h>
-#include <lib/iana_afi.h>
-#include <lib/sockunion.h>
-#include <lib/sockopt.h>
-
 /* Functions forward declaration */
 static void pim_bs_timer_start(struct bsm_scope *scope, int bs_timeout);
 static void pim_g2rp_timer_start(struct bsm_rpinfo *bsrp, int hold_time);
 static inline void pim_g2rp_timer_restart(struct bsm_rpinfo *bsrp,
 					  int hold_time);
+static void pim_bsm_accept_any(struct bsm_scope *scope);
+static void pim_cand_bsr_trigger(struct bsm_scope *scope, bool verbose);
+static void pim_cand_bsr_pending(struct bsm_scope *scope);
 
 /* Memory Types */
 DEFINE_MTYPE_STATIC(PIMD, PIM_BSGRP_NODE, "PIM BSR advertised grp info");
 DEFINE_MTYPE_STATIC(PIMD, PIM_BSRP_INFO, "PIM BSR advertised RP info");
-DEFINE_MTYPE_STATIC(PIMD, PIM_BSM_FRAG, "PIM BSM fragment");
+DEFINE_MTYPE(PIMD, PIM_BSM_FRAG, "PIM BSM fragment");
 DEFINE_MTYPE_STATIC(PIMD, PIM_BSM_PKT_VAR_MEM, "PIM BSM Packet");
 DEFINE_MTYPE_STATIC(PIMD, PIM_CAND_RP_GRP, "PIM Candidate RP group");
 
@@ -106,7 +115,7 @@ static void pim_bsm_frag_free(struct bsm_frag *bsfrag)
 	XFREE(MTYPE_PIM_BSM_FRAG, bsfrag);
 }
 
-static void pim_bsm_frags_free(struct bsm_scope *scope)
+void pim_bsm_frags_free(struct bsm_scope *scope)
 {
 	struct bsm_frag *bsfrag;
 
@@ -156,12 +165,12 @@ static struct bsgrp_node *pim_bsm_new_bsgrp_node(struct route_table *rt,
 	return bsgrp;
 }
 
+/* BS timer for NO_INFO, ACCEPT_ANY & ACCEPT_PREFERRED.
+ * Candidate BSR handling is separate further below
+ */
 static void pim_on_bs_timer(struct event *t)
 {
-	struct route_node *rn;
 	struct bsm_scope *scope;
-	struct bsgrp_node *bsgrp_node;
-	struct bsm_rpinfo *bsrp;
 
 	scope = EVENT_ARG(t);
 	EVENT_OFF(scope->bs_timer);
@@ -170,7 +179,20 @@ static void pim_on_bs_timer(struct event *t)
 		zlog_debug("%s: Bootstrap Timer expired for scope: %d",
 			   __func__, scope->sz_id);
 
+	assertf(scope->state <= ACCEPT_PREFERRED, "state=%d", scope->state);
 	pim_nht_bsr_del(scope->pim, scope->current_bsr);
+
+	pim_bsm_accept_any(scope);
+}
+
+static void pim_bsm_accept_any(struct bsm_scope *scope)
+{
+	struct route_node *rn;
+	struct bsgrp_node *bsgrp_node;
+	struct bsm_rpinfo *bsrp;
+
+	EVENT_OFF(scope->t_ebsr_regen_bsm);
+
 	/* Reset scope zone data */
 	scope->state = ACCEPT_ANY;
 	scope->current_bsr = PIMADDR_ANY;
@@ -197,6 +219,11 @@ static void pim_on_bs_timer(struct event *t)
 		pim_bsm_rpinfos_free(bsgrp_node->partial_bsrp_list);
 		bsgrp_node->pend_rp_cnt = 0;
 	}
+
+	/* we're leaving ACCEPT_PREFERRED, which doubles as C-BSR if we're
+	 * configured to be a Candidate BSR.  See if we're P-BSR now.
+	 */
+	pim_cand_bsr_trigger(scope, false);
 }
 
 static void pim_bs_timer_stop(struct bsm_scope *scope)
@@ -228,6 +255,71 @@ static inline void pim_bs_timer_restart(struct bsm_scope *scope, int bs_timeout)
 	pim_bs_timer_start(scope, bs_timeout);
 }
 
+static void bsm_unicast_sock_read(struct event *t)
+{
+	struct bsm_scope *scope = EVENT_ARG(t);
+	struct sockaddr_storage from;
+	struct sockaddr_storage to;
+	socklen_t fromlen = sizeof(from);
+	socklen_t tolen = sizeof(to);
+	ifindex_t ifindex = 0;
+	struct interface *ifp;
+	uint8_t buf[PIM_PIM_BUFSIZE_READ];
+	int len, i;
+
+	event_add_read(router->master, bsm_unicast_sock_read, scope,
+		       scope->unicast_sock, &scope->unicast_read);
+
+	for (i = 0; i < router->packet_process; i++) {
+		pim_sgaddr sg;
+
+		len = pim_socket_recvfromto(scope->unicast_sock, buf,
+					    sizeof(buf), &from, &fromlen, &to,
+					    &tolen, &ifindex);
+		if (len < 0) {
+			if (errno == EINTR)
+				continue;
+			if (errno == EWOULDBLOCK || errno == EAGAIN)
+				break;
+
+			if (PIM_DEBUG_PIM_PACKETS)
+				zlog_debug("Received errno: %d %s", errno,
+					   safe_strerror(errno));
+			break;
+		}
+
+#if PIM_IPV == 4
+		sg.src = ((struct sockaddr_in *)&from)->sin_addr;
+		sg.grp = ((struct sockaddr_in *)&to)->sin_addr;
+#else
+		sg.src = ((struct sockaddr_in6 *)&from)->sin6_addr;
+		sg.grp = ((struct sockaddr_in6 *)&to)->sin6_addr;
+#endif
+
+		/*
+		 * What?  So with vrf's the incoming packet is received
+		 * on the vrf interface but recvfromto above returns
+		 * the right ifindex, so just use it.  We know
+		 * it's the right interface because we bind to it
+		 */
+		ifp = if_lookup_by_index(ifindex, scope->pim->vrf->vrf_id);
+		if (!ifp) {
+			zlog_warn("Received incoming PIM packet on unknown ifindex %d",
+				  ifindex);
+			break;
+		}
+
+		int fail = pim_pim_packet(ifp, buf, len, sg, false);
+
+		if (fail) {
+			if (PIM_DEBUG_PIM_PACKETS)
+				zlog_debug("%s: pim_pim_packet() return=%d",
+					   __func__, fail);
+			break;
+		}
+	}
+}
+
 void pim_bsm_proc_init(struct pim_instance *pim)
 {
 	struct bsm_scope *scope = &pim->global_scope;
@@ -248,12 +340,19 @@ void pim_bsm_proc_init(struct pim_instance *pim)
 	scope->unicast_sock = pim_socket_raw(IPPROTO_PIM);
 	set_nonblocking(scope->unicast_sock);
 	sockopt_reuseaddr(scope->unicast_sock);
-	setsockopt_ipv6_pktinfo(scope->unicast_sock, 1);
+
+	if (setsockopt_ifindex(PIM_AF, scope->unicast_sock, 1) == -1)
+		zlog_warn("%s: Without IP_PKTINFO, src interface can't be determined",
+			  __func__);
+
 	pim_socket_ip_hdr(scope->unicast_sock);
 
 	frr_with_privs (&pimd_privs) {
 		vrf_bind(pim->vrf->vrf_id, scope->unicast_sock, NULL);
 	}
+
+	event_add_read(router->master, bsm_unicast_sock_read, scope,
+		       scope->unicast_sock, &scope->unicast_read);
 }
 
 void pim_bsm_proc_free(struct pim_instance *pim)
@@ -263,6 +362,7 @@ void pim_bsm_proc_free(struct pim_instance *pim)
 	struct bsgrp_node *bsgrp;
 	struct cand_rp_group *crpgrp;
 
+	EVENT_OFF(scope->unicast_read);
 	close(scope->unicast_sock);
 
 	pim_bs_timer_stop(scope);
@@ -551,9 +651,6 @@ static void pim_instate_pend_list(struct bsgrp_node *bsgrp_node)
 static bool is_preferred_bsr(struct pim_instance *pim, pim_addr bsr,
 			     uint32_t bsr_prio)
 {
-	if (!pim_addr_cmp(bsr, pim->global_scope.current_bsr))
-		return true;
-
 	if (bsr_prio > pim->global_scope.current_bsr_prio)
 		return true;
 
@@ -562,6 +659,11 @@ static bool is_preferred_bsr(struct pim_instance *pim, pim_addr bsr,
 			return true;
 		else
 			return false;
+	} else if (!pim_addr_cmp(bsr, pim->global_scope.current_bsr)) {
+		/* BSR config changed, lower prio now.  local BSR check
+		 * is handled separately in pim_bsm_update()
+		 */
+		return true;
 	} else
 		return false;
 }
@@ -569,19 +671,52 @@ static bool is_preferred_bsr(struct pim_instance *pim, pim_addr bsr,
 static void pim_bsm_update(struct pim_instance *pim, pim_addr bsr,
 			   uint32_t bsr_prio)
 {
-	if (pim_addr_cmp(bsr, pim->global_scope.current_bsr)) {
-		pim_nht_bsr_del(pim, pim->global_scope.current_bsr);
-		pim_nht_bsr_add(pim, bsr);
-
-		pim->global_scope.current_bsr = bsr;
-		pim->global_scope.current_bsr_first_ts =
-			pim_time_monotonic_sec();
-		pim->global_scope.state = ACCEPT_PREFERRED;
-
-		pim_cand_rp_trigger(&pim->global_scope);
-	}
 	pim->global_scope.current_bsr_prio = bsr_prio;
 	pim->global_scope.current_bsr_last_ts = pim_time_monotonic_sec();
+
+	if (pim->global_scope.bsr_addrsel.run &&
+	    pim->global_scope.cand_bsr_prio > bsr_prio &&
+	    pim->global_scope.state < BSR_PENDING) {
+		/* current BSR is now less preferred than ourselves */
+		pim_cand_bsr_pending(&pim->global_scope);
+		return;
+	}
+
+	if (!pim_addr_cmp(bsr, pim->global_scope.current_bsr))
+		return;
+
+	switch (pim->global_scope.state) {
+	case BSR_PENDING:
+		if (PIM_DEBUG_BSM)
+			zlog_debug("Candidate BSR dropping out of BSR election, better BSR (%u, %pPA)",
+				   bsr_prio, &bsr);
+		break;
+
+	case BSR_ELECTED:
+		if (PIM_DEBUG_BSM)
+			zlog_debug("Lost BSR status, better BSR (%u, %pPA)",
+				   bsr_prio, &bsr);
+		break;
+
+	case NO_INFO:
+	case ACCEPT_ANY:
+	case ACCEPT_PREFERRED:
+		break;
+	}
+
+	EVENT_OFF(pim->global_scope.t_ebsr_regen_bsm);
+
+	if (pim->global_scope.state == BSR_ELECTED)
+		pim_crp_db_clear(&pim->global_scope);
+	else
+		pim_nht_bsr_del(pim, pim->global_scope.current_bsr);
+	pim_nht_bsr_add(pim, bsr);
+
+	pim->global_scope.current_bsr = bsr;
+	pim->global_scope.current_bsr_first_ts = pim_time_monotonic_sec();
+	pim->global_scope.state = ACCEPT_PREFERRED;
+
+	pim_cand_rp_trigger(&pim->global_scope);
 }
 
 void pim_bsm_clear(struct pim_instance *pim)
@@ -596,7 +731,12 @@ void pim_bsm_clear(struct pim_instance *pim)
 	struct rp_info *rp_info;
 	bool upstream_updated = false;
 
-	pim_nht_bsr_del(pim, pim->global_scope.current_bsr);
+	EVENT_OFF(pim->global_scope.t_ebsr_regen_bsm);
+
+	if (pim->global_scope.state == BSR_ELECTED)
+		pim_crp_db_clear(&pim->global_scope);
+	else
+		pim_nht_bsr_del(pim, pim->global_scope.current_bsr);
 
 	/* Reset scope zone data */
 	pim->global_scope.accept_nofwd_bsm = false;
@@ -1157,8 +1297,8 @@ static void pim_update_pending_rp_cnt(struct bsm_scope *sz,
 }
 
 /* Parsing BSR packet and adding to partial list of corresponding bsgrp node */
-static bool pim_bsm_parse_install_g2rp(struct bsm_scope *scope, uint8_t *buf,
-				       int buflen, uint16_t bsm_frag_tag)
+bool pim_bsm_parse_install_g2rp(struct bsm_scope *scope, uint8_t *buf,
+				int buflen, uint16_t bsm_frag_tag)
 {
 	struct bsmmsg_grpinfo grpinfo;
 	struct bsmmsg_rpinfo rpinfo;
@@ -1379,35 +1519,6 @@ int pim_bsm_process(struct interface *ifp, pim_sgaddr *sg, uint8_t *buf,
 		}
 	}
 
-	/* Drop if bsr is not preferred bsr */
-	if (!is_preferred_bsr(pim, bsr_addr, bshdr->bsr_prio)) {
-		if (PIM_DEBUG_BSM)
-			zlog_debug("%s : Received a non-preferred BSM",
-				   __func__);
-		pim->bsm_dropped++;
-		return -1;
-	}
-
-	if (no_fwd) {
-		/* only accept no-forward BSM if quick refresh on startup */
-		if ((pim->global_scope.accept_nofwd_bsm)
-		    || (frag_tag == pim->global_scope.bsm_frag_tag)) {
-			pim->global_scope.accept_nofwd_bsm = false;
-		} else {
-			if (PIM_DEBUG_BSM)
-				zlog_debug(
-					"%s : nofwd_bsm received on %pPAs when accpt_nofwd_bsm false",
-					__func__, &bsr_addr);
-			pim->bsm_dropped++;
-			pim_ifp->pim_ifstat_ucast_bsm_cfg_miss++;
-			return -1;
-		}
-	}
-
-	/* BSM packet is seen, so resetting accept_nofwd_bsm to false */
-	if (pim->global_scope.accept_nofwd_bsm)
-		pim->global_scope.accept_nofwd_bsm = false;
-
 	if (!pim_addr_cmp(sg->grp, qpim_all_pim_routers_addr)) {
 		/* Multicast BSMs are only accepted if source interface & IP
 		 * match RPF towards the BSR's IP address, or they have
@@ -1444,6 +1555,57 @@ int pim_bsm_process(struct interface *ifp, pim_sgaddr *sg, uint8_t *buf,
 		return -1;
 	}
 
+	/* when the BSR restarts, it can get its own BSR advertisement thrown
+	 * back at it, and without this we'll go into ACCEPT_PREFERRED with
+	 * ourselves as the BSR when we should be in BSR_ELECTED.
+	 */
+	if (if_address_is_local(&bshdr->bsr_addr.addr, PIM_AF,
+				pim->vrf->vrf_id)) {
+		if (PIM_DEBUG_BSM)
+			zlog_debug("%s : Dropping BSM from ourselves", __func__);
+		pim->bsm_dropped++;
+		return -1;
+	}
+
+	/* Drop if bsr is not preferred bsr */
+	if (!is_preferred_bsr(pim, bsr_addr, bshdr->bsr_prio)) {
+		if (pim->global_scope.state == BSR_PENDING && !no_fwd) {
+			/* in P-BSR state, non-preferred BSMs are forwarded, but
+			 * content is ignored.
+			 */
+			if (PIM_DEBUG_BSM)
+				zlog_debug("%s : Forwarding non-preferred BSM during Pending-BSR state",
+					   __func__);
+
+			pim_bsm_fwd_whole_sz(pim_ifp->pim, buf, buf_size, sz);
+			return -1;
+		}
+		if (PIM_DEBUG_BSM)
+			zlog_debug("%s : Received a non-preferred BSM",
+				   __func__);
+		pim->bsm_dropped++;
+		return -1;
+	}
+
+	if (no_fwd) {
+		/* only accept no-forward BSM if quick refresh on startup */
+		if ((pim->global_scope.accept_nofwd_bsm) ||
+		    (frag_tag == pim->global_scope.bsm_frag_tag)) {
+			pim->global_scope.accept_nofwd_bsm = false;
+		} else {
+			if (PIM_DEBUG_BSM)
+				zlog_debug("%s : nofwd_bsm received on %pPAs when accpt_nofwd_bsm false",
+					   __func__, &bsr_addr);
+			pim->bsm_dropped++;
+			pim_ifp->pim_ifstat_ucast_bsm_cfg_miss++;
+			return -1;
+		}
+	}
+
+	/* BSM packet is seen, so resetting accept_nofwd_bsm to false */
+	if (pim->global_scope.accept_nofwd_bsm)
+		pim->global_scope.accept_nofwd_bsm = false;
+
 	if (empty_bsm) {
 		if (PIM_DEBUG_BSM)
 			zlog_debug("%s : Empty Pref BSM received", __func__);
@@ -1454,9 +1616,8 @@ int pim_bsm_process(struct interface *ifp, pim_sgaddr *sg, uint8_t *buf,
 		    (buf + PIM_BSM_HDR_LEN + PIM_MSG_HEADER_LEN),
 		    (buf_size - PIM_BSM_HDR_LEN - PIM_MSG_HEADER_LEN),
 		    frag_tag)) {
-		if (PIM_DEBUG_BSM) {
-			zlog_debug("%s, Parsing BSM failed.", __func__);
-		}
+		zlog_warn("BSM from %pPA failed to parse",
+			  (pim_addr *)&bshdr->bsr_addr.addr);
 		pim->bsm_dropped++;
 		return -1;
 	}
@@ -1491,6 +1652,148 @@ int pim_bsm_process(struct interface *ifp, pim_sgaddr *sg, uint8_t *buf,
 	}
 
 	return 0;
+}
+
+static void pim_elec_bsr_timer(struct event *t)
+{
+	struct bsm_scope *scope = EVENT_ARG(t);
+	struct bsm_frag *frag;
+	struct bsm_hdr *hdr;
+
+	assert(scope->state == BSR_ELECTED);
+
+	scope->bsm_frag_tag++;
+	frag = bsm_frags_first(scope->bsm_frags);
+	assert(frag);
+
+	hdr = (struct bsm_hdr *)(frag->data + PIM_MSG_HEADER_LEN);
+	hdr->frag_tag = htons(scope->bsm_frag_tag);
+
+	unsigned int timer = PIM_BS_TIME;
+
+	if (scope->changed_bsm_trigger) {
+		if (PIM_DEBUG_BSM)
+			zlog_debug("Sending triggered BSM");
+		scope->changed_bsm_trigger--;
+		timer = 5;
+	} else {
+		if (PIM_DEBUG_BSM)
+			zlog_debug("Sending scheduled BSM");
+		pim_bsm_sent(scope);
+	}
+
+	pim_bsm_fwd_whole_sz(scope->pim, frag->data, frag->size, scope->sz_id);
+	scope->current_bsr_last_ts = pim_time_monotonic_sec();
+
+	event_add_timer(router->master, pim_elec_bsr_timer, scope, timer,
+			&scope->bs_timer);
+}
+
+void pim_bsm_changed(struct bsm_scope *scope)
+{
+	struct event t;
+
+	EVENT_OFF(scope->bs_timer);
+	scope->changed_bsm_trigger = 2;
+
+	t.arg = scope;
+	pim_elec_bsr_timer(&t);
+}
+
+static void pim_cand_bsr_pending_expire(struct event *t)
+{
+	struct bsm_scope *scope = EVENT_ARG(t);
+
+	assertf(scope->state == BSR_PENDING, "state=%d", scope->state);
+	assertf(pim_addr_is_any(scope->current_bsr), "current_bsr=%pPA",
+		&scope->current_bsr);
+
+	if (PIM_DEBUG_BSM)
+		zlog_debug("Elected BSR, wait expired without preferable BSMs");
+
+	scope->state = BSR_ELECTED;
+	scope->current_bsr_prio = scope->cand_bsr_prio;
+	scope->current_bsr = scope->bsr_addrsel.run_addr;
+
+	scope->bsm_frag_tag = frr_weak_random();
+	scope->current_bsr_first_ts = pim_time_monotonic_sec();
+
+	pim_cand_rp_trigger(scope);
+	pim_bsm_generate(scope);
+}
+
+#if PIM_IPV == 6
+static float bsr_addr_delay(pim_addr best, pim_addr local)
+{
+	unsigned int pos;
+	uint32_t best_4b, local_4b;
+	float delay_log;
+
+	for (pos = 0; pos < 12; pos++) {
+		if (best.s6_addr[pos] != local.s6_addr[pos])
+			break;
+	}
+
+	memcpy(&best_4b, &best.s6_addr[pos], 4);
+	memcpy(&local_4b, &local.s6_addr[pos], 4);
+
+	delay_log = log2(1 + ntohl(best_4b) - ntohl(local_4b));
+	delay_log += (12 - pos) * 8;
+	return delay_log / 64.;
+}
+#endif
+
+static void pim_cand_bsr_pending(struct bsm_scope *scope)
+{
+	unsigned int bs_rand_override;
+	uint8_t best_prio;
+	pim_addr best_addr;
+	float prio_delay, addr_delay;
+
+	EVENT_OFF(scope->bs_timer);
+	EVENT_OFF(scope->t_ebsr_regen_bsm);
+	scope->state = BSR_PENDING;
+
+	best_prio = MAX(scope->cand_bsr_prio, scope->current_bsr_prio);
+	best_addr = pim_addr_cmp(scope->bsr_addrsel.run_addr,
+				 scope->current_bsr) > 0
+			    ? scope->bsr_addrsel.run_addr
+			    : scope->current_bsr;
+
+	/* RFC5059 sec.5 */
+#if PIM_IPV == 4
+	if (scope->cand_bsr_prio == best_prio) {
+		prio_delay = 0.; /* log2(1) = 0 */
+		addr_delay = log2(1 + ntohl(best_addr.s_addr) -
+				  ntohl(scope->bsr_addrsel.run_addr.s_addr)) /
+			     16.;
+	} else {
+		prio_delay = 2. * log2(1 + best_prio - scope->cand_bsr_prio);
+		addr_delay = 2 - (ntohl(scope->bsr_addrsel.run_addr.s_addr) /
+				  (float)(1 << 31));
+	}
+#else
+	if (scope->cand_bsr_prio == best_prio) {
+		prio_delay = 0.; /* log2(1) = 0 */
+		addr_delay = bsr_addr_delay(best_addr,
+					    scope->bsr_addrsel.run_addr);
+	} else {
+		prio_delay = 2. * log2(1 + best_prio - scope->cand_bsr_prio);
+		addr_delay = 2 -
+			     (ntohl(scope->bsr_addrsel.run_addr.s6_addr32[0]) /
+			      (float)(1 << 31));
+	}
+#endif
+
+	bs_rand_override = 5000 + (int)((prio_delay + addr_delay) * 1000.);
+
+	if (PIM_DEBUG_BSM)
+		zlog_debug("Pending-BSR (%u, %pPA), waiting %ums",
+			   scope->cand_bsr_prio, &scope->bsr_addrsel.run_addr,
+			   bs_rand_override);
+
+	event_add_timer_msec(router->master, pim_cand_bsr_pending_expire, scope,
+			     bs_rand_override, &scope->bs_timer);
 }
 
 static inline pim_addr if_highest_addr(pim_addr cur, struct interface *ifp)
@@ -1575,6 +1878,84 @@ out_disable:
 	return prev_run;
 }
 
+static void pim_cand_bsr_stop(struct bsm_scope *scope, bool verbose)
+{
+	cand_addrsel_clear(&scope->bsr_addrsel);
+
+	switch (scope->state) {
+	case NO_INFO:
+	case ACCEPT_ANY:
+	case ACCEPT_PREFERRED:
+		return;
+	case BSR_PENDING:
+	case BSR_ELECTED:
+		break;
+	}
+
+	if (PIM_DEBUG_BSM)
+		zlog_debug("Candidate BSR ceasing operation");
+
+	EVENT_OFF(scope->t_ebsr_regen_bsm);
+	EVENT_OFF(scope->bs_timer);
+	pim_crp_db_clear(scope);
+	pim_bsm_accept_any(scope);
+}
+
+static void pim_cand_bsr_trigger(struct bsm_scope *scope, bool verbose)
+{
+	/* this is called on all state changes even if we aren't configured
+	 * to be C-BSR at all.
+	 */
+	if (!scope->bsr_addrsel.run)
+		return;
+
+	if (scope->current_bsr_prio > scope->cand_bsr_prio) {
+		assert(scope->state == ACCEPT_PREFERRED);
+		if (!verbose)
+			return;
+
+		if (PIM_DEBUG_BSM)
+			zlog_debug("Candidate BSR: known better BSR %pPA (higher priority %u > %u)",
+				   &scope->current_bsr, scope->current_bsr_prio,
+				   scope->cand_bsr_prio);
+		return;
+	} else if (scope->current_bsr_prio == scope->cand_bsr_prio &&
+		   pim_addr_cmp(scope->current_bsr,
+				scope->bsr_addrsel.run_addr) > 0) {
+		assert(scope->state == ACCEPT_PREFERRED);
+		if (!verbose)
+			return;
+
+		if (PIM_DEBUG_BSM)
+			zlog_debug("Candidate BSR: known better BSR %pPA (higher address > %pPA)",
+				   &scope->current_bsr,
+				   &scope->bsr_addrsel.run_addr);
+		return;
+	}
+
+	if (!pim_addr_cmp(scope->current_bsr, scope->bsr_addrsel.run_addr))
+		return;
+
+	pim_cand_bsr_pending(scope);
+}
+
+void pim_cand_bsr_apply(struct bsm_scope *scope)
+{
+	if (!cand_addrsel_update(&scope->bsr_addrsel, scope->pim->vrf))
+		return;
+
+	if (!scope->bsr_addrsel.run) {
+		pim_cand_bsr_stop(scope, true);
+		return;
+	}
+
+	if (PIM_DEBUG_BSM)
+		zlog_debug("Candidate BSR: %pPA, priority %u",
+			   &scope->bsr_addrsel.run_addr, scope->cand_bsr_prio);
+
+	pim_cand_bsr_trigger(scope, true);
+}
+
 static void pim_cand_rp_adv_stop_maybe(struct bsm_scope *scope)
 {
 	/* actual check whether stop should be sent - covers address
@@ -1587,11 +1968,12 @@ static void pim_cand_rp_adv_stop_maybe(struct bsm_scope *scope)
 
 	switch (scope->state) {
 	case ACCEPT_PREFERRED:
-		/* TBD: BSR_ELECTED */
+	case BSR_ELECTED:
 		break;
 
 	case NO_INFO:
 	case ACCEPT_ANY:
+	case BSR_PENDING:
 	default:
 		return;
 	}
@@ -1636,10 +2018,11 @@ static void pim_cand_rp_adv(struct event *t)
 
 	switch (scope->state) {
 	case ACCEPT_PREFERRED:
-		/* TBD: BSR_ELECTED */
+	case BSR_ELECTED:
 		break;
 
 	case ACCEPT_ANY:
+	case BSR_PENDING:
 	case NO_INFO:
 	default:
 		/* state change will retrigger */
@@ -1797,7 +2180,8 @@ static void pim_cand_addrs_reapply(struct event *t)
 		if (!pi)
 			continue;
 
-		/* this calls cand_addrsel_update() and applies changes */
+		/* these call cand_addrsel_update() and apply changes */
+		pim_cand_bsr_apply(&pi->global_scope);
 		pim_cand_rp_apply(&pi->global_scope);
 	}
 }
@@ -1850,10 +2234,14 @@ int pim_cand_config_write(struct pim_instance *pim, struct vty *vty)
 			ret++;
 		}
 	}
-	return ret;
-}
 
-void pim_crp_nht_update(struct pim_instance *pim, struct pim_nexthop_cache *pnc)
-{
-	/* stub for Candidate-RP */
+	if (scope->bsr_addrsel.cfg_enable) {
+		vty_out(vty, " bsr candidate-bsr");
+		if (scope->cand_bsr_prio != 64)
+			vty_out(vty, " priority %u", scope->cand_bsr_prio);
+		cand_addrsel_config_write(vty, &scope->bsr_addrsel);
+		vty_out(vty, "\n");
+		ret++;
+	}
+	return ret;
 }

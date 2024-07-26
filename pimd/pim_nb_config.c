@@ -2692,6 +2692,152 @@ static void yang_addrsel(struct cand_addrsel *addrsel,
 	}
 }
 
+static int candidate_bsr_addrsel(struct bsm_scope *scope,
+				 const struct lyd_node *cand_bsr_node)
+{
+	yang_addrsel(&scope->bsr_addrsel, cand_bsr_node);
+	pim_cand_bsr_apply(scope);
+	return NB_OK;
+}
+
+int routing_control_plane_protocols_control_plane_protocol_pim_address_family_candidate_bsr_create(
+	struct nb_cb_create_args *args)
+{
+	struct vrf *vrf;
+	struct pim_instance *pim;
+	struct bsm_scope *scope;
+
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		break;
+	case NB_EV_APPLY:
+		vrf = nb_running_get_entry(args->dnode, NULL, true);
+		pim = vrf->info;
+		scope = &pim->global_scope;
+
+		scope->bsr_addrsel.cfg_enable = true;
+		scope->cand_bsr_prio = yang_dnode_get_uint8(args->dnode,
+							    "bsr-priority");
+
+		candidate_bsr_addrsel(scope, args->dnode);
+		break;
+	}
+
+	return NB_OK;
+}
+
+int routing_control_plane_protocols_control_plane_protocol_pim_address_family_candidate_bsr_destroy(
+	struct nb_cb_destroy_args *args)
+{
+	struct vrf *vrf;
+	struct pim_instance *pim;
+	struct bsm_scope *scope;
+
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		break;
+	case NB_EV_APPLY:
+		vrf = nb_running_get_entry(args->dnode, NULL, true);
+		pim = vrf->info;
+		scope = &pim->global_scope;
+
+		scope->bsr_addrsel.cfg_enable = false;
+
+		pim_cand_bsr_apply(scope);
+		break;
+	}
+
+	return NB_OK;
+}
+
+int routing_control_plane_protocols_control_plane_protocol_pim_address_family_candidate_bsr_priority_modify(
+	struct nb_cb_modify_args *args)
+{
+	struct vrf *vrf;
+	struct pim_instance *pim;
+	struct bsm_scope *scope;
+
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		break;
+	case NB_EV_APPLY:
+		vrf = nb_running_get_entry(args->dnode, NULL, true);
+		pim = vrf->info;
+		scope = &pim->global_scope;
+
+		scope->cand_bsr_prio = yang_dnode_get_uint8(args->dnode, NULL);
+
+		/* FIXME: force prio update */
+		candidate_bsr_addrsel(scope, args->dnode);
+		break;
+	}
+
+	return NB_OK;
+}
+
+int routing_control_plane_protocols_control_plane_protocol_pim_address_family_candidate_bsr_addrsel_create(
+	struct nb_cb_create_args *args)
+{
+	struct vrf *vrf;
+	struct pim_instance *pim;
+	struct bsm_scope *scope;
+	const struct lyd_node *cand_bsr_node;
+
+	cand_bsr_node = yang_dnode_get_parent(args->dnode, "candidate-bsr");
+
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		break;
+	case NB_EV_APPLY:
+		vrf = nb_running_get_entry(args->dnode, NULL, true);
+		pim = vrf->info;
+		scope = &pim->global_scope;
+
+		return candidate_bsr_addrsel(scope, cand_bsr_node);
+	}
+	return NB_OK;
+}
+
+int routing_control_plane_protocols_control_plane_protocol_pim_address_family_candidate_bsr_addrsel_modify(
+	struct nb_cb_modify_args *args)
+{
+	struct vrf *vrf;
+	struct pim_instance *pim;
+	struct bsm_scope *scope;
+	const struct lyd_node *cand_bsr_node;
+
+	cand_bsr_node = yang_dnode_get_parent(args->dnode, "candidate-bsr");
+
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		break;
+	case NB_EV_APPLY:
+		vrf = nb_running_get_entry(args->dnode, NULL, true);
+		pim = vrf->info;
+		scope = &pim->global_scope;
+
+		return candidate_bsr_addrsel(scope, cand_bsr_node);
+	}
+	return NB_OK;
+}
+
+int routing_control_plane_protocols_control_plane_protocol_pim_address_family_candidate_bsr_addrsel_destroy(
+	struct nb_cb_destroy_args *args)
+{
+	/* nothing to do here, we'll get a CREATE for something else */
+	return NB_OK;
+}
+
 static int candidate_rp_addrsel(struct bsm_scope *scope,
 				const struct lyd_node *cand_rp_node)
 {

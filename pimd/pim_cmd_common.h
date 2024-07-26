@@ -7,6 +7,8 @@
 #ifndef PIM_CMD_COMMON_H
 #define PIM_CMD_COMMON_H
 
+#define BSR_STR "Bootstrap Router configuration\n"
+
 struct pim_upstream;
 struct pim_instance;
 

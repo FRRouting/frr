@@ -253,6 +253,7 @@ void pim_vrf_terminate(void)
 		if (!pim)
 			continue;
 
+		pim_crp_db_clear(&pim->global_scope);
 		pim_ssmpingd_destroy(pim);
 		pim_instance_terminate(pim);
 

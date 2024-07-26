@@ -21,6 +21,9 @@
 #define PIM_BS_TIME 60		    /* RFC 5059 - Sec 5 */
 #define PIM_BSR_DEFAULT_TIMEOUT 130 /* RFC 5059 - Sec 5 */
 
+/* number of times to include rp-count = 0 ranges */
+#define PIM_BSR_DEAD_COUNT 3
+
 #define PIM_CRP_ADV_TRIGCOUNT 3
 #define PIM_CRP_ADV_INTERVAL  60
 #define PIM_CRP_HOLDTIME      150
@@ -37,11 +40,21 @@
  * ==============
  */
 
-/* Non candidate BSR states */
-enum ncbsr_state {
+/* BSR states
+ *
+ * Candidate BSR starts at BSR_PENDING, moves to AP or E depending on
+ * loss/win.  Will never go into AA (because in that case it'd become BSR
+ * itself.)
+ *
+ * Non-Candidate BSR starts at NO_INFO, moves to AP & AA depending on
+ * a BSR being available or not.
+ */
+enum bsr_state {
 	NO_INFO = 0,
 	ACCEPT_ANY,
-	ACCEPT_PREFERRED
+	ACCEPT_PREFERRED, /* = same as C-BSR if candidate */
+	BSR_PENDING,
+	BSR_ELECTED,
 };
 
 enum cand_addr {
@@ -51,7 +64,7 @@ enum cand_addr {
 	CAND_ADDR_EXPLICIT,
 };
 
-/* used separately for Cand-RP, and (TBD) Cand-BSR */
+/* used separately for Cand-RP and Cand-BSR */
 struct cand_addrsel {
 	bool cfg_enable;
 	enum cand_addr cfg_mode : 8;
@@ -70,10 +83,18 @@ struct cand_addrsel {
 PREDECL_DLIST(bsm_frags);
 PREDECL_RBTREE_UNIQ(cand_rp_groups);
 
+/* n*m "table" accessed both by-RP and by-group */
+PREDECL_RBTREE_UNIQ(bsr_crp_rps);
+PREDECL_RBTREE_UNIQ(bsr_crp_groups);
+
+PREDECL_RBTREE_UNIQ(bsr_crp_rp_groups);
+PREDECL_RBTREE_UNIQ(bsr_crp_group_rps);
+
 /* BSM scope - bsm processing is per scope */
 struct bsm_scope {
 	int sz_id;			/* scope zone id */
-	enum ncbsr_state state;		/* non candidate BSR state */
+	enum bsr_state state;		/* BSR state */
+
 	bool accept_nofwd_bsm;		/* no fwd bsm accepted for scope */
 	pim_addr current_bsr;		/* current elected BSR for the sz */
 	uint32_t current_bsr_prio;      /* current BSR priority */
@@ -89,6 +110,31 @@ struct bsm_scope {
 	struct route_table *bsrp_table; /* group2rp mapping rcvd from BSR */
 	struct event *bs_timer;		/* Boot strap timer */
 
+	/* Candidate BSR config */
+	struct cand_addrsel bsr_addrsel;
+	uint8_t cand_bsr_prio;
+
+	/* Candidate BSR state */
+	uint8_t current_cand_bsr_prio;
+	/* if nothing changed from Cand-RP data we received, less work... */
+	bool elec_rp_data_changed;
+
+	/* data that the E-BSR keeps - not to be confused with Candidate-RP
+	 * stuff below.  These two here are the info about all the Cand-RPs
+	 * that we as a BSR received information for in Cand-RP-adv packets.
+	 */
+	struct bsr_crp_rps_head ebsr_rps[1];
+	struct bsr_crp_groups_head ebsr_groups[1];
+
+	/* set if we have any group ranges where we're currently advertising
+	 * rp-count = 0 (includes both ranges without any RPs as well as
+	 * ranges with only NHT-unreachable RPs)
+	 */
+	bool ebsr_have_dead_pending;
+	unsigned int changed_bsm_trigger;
+
+	struct event *t_ebsr_regen_bsm;
+
 	/* Candidate RP config */
 	struct cand_addrsel cand_rp_addrsel;
 	uint8_t cand_rp_prio;
@@ -98,6 +144,7 @@ struct bsm_scope {
 
 	/* Candidate RP state */
 	int unicast_sock;
+	struct event *unicast_read;
 	struct event *cand_rp_adv_timer;
 	unsigned int cand_rp_adv_trigger; /* # trigg. C-RP-Adv left to send */
 
@@ -109,6 +156,46 @@ struct cand_rp_group {
 	struct cand_rp_groups_item item;
 
 	prefix_pim p;
+};
+
+struct bsr_crp_group {
+	struct bsr_crp_groups_item item;
+
+	prefix_pim range;
+	struct bsr_crp_group_rps_head rps[1];
+
+	size_t n_selected;
+	bool deleted_selected : 1;
+
+	/* number of times we've advertised this range with rp-count = 0 */
+	unsigned int dead_count;
+};
+
+struct bsr_crp_rp {
+	struct bsr_crp_rps_item item;
+
+	pim_addr addr;
+	struct bsr_crp_rp_groups_head groups[1];
+
+	struct bsm_scope *scope;
+	struct event *t_hold;
+	time_t seen_first;
+	time_t seen_last;
+
+	uint16_t holdtime;
+	uint8_t prio;
+	bool nht_ok;
+};
+
+/* "n * m" RP<->Group tie-in */
+struct bsr_crp_item {
+	struct bsr_crp_rp_groups_item r_g_item;
+	struct bsr_crp_group_rps_item g_r_item;
+
+	struct bsr_crp_group *group;
+	struct bsr_crp_rp *rp;
+
+	bool selected : 1;
 };
 
 /* BSM packet (= fragment) - this is stored as list in bsm_frags inside scope
@@ -268,6 +355,15 @@ bool pim_bsm_new_nbr_fwd(struct pim_neighbor *neigh, struct interface *ifp);
 struct bsgrp_node *pim_bsm_get_bsgrp_node(struct bsm_scope *scope,
 					  struct prefix *grp);
 
+void pim_bsm_generate(struct bsm_scope *scope);
+void pim_bsm_changed(struct bsm_scope *scope);
+void pim_bsm_sent(struct bsm_scope *scope);
+void pim_bsm_frags_free(struct bsm_scope *scope);
+
+bool pim_bsm_parse_install_g2rp(struct bsm_scope *scope, uint8_t *buf,
+				int buflen, uint16_t bsm_frag_tag);
+
+void pim_cand_bsr_apply(struct bsm_scope *scope);
 void pim_cand_rp_apply(struct bsm_scope *scope);
 void pim_cand_rp_trigger(struct bsm_scope *scope);
 void pim_cand_rp_grp_add(struct bsm_scope *scope, const prefix_pim *p);
@@ -275,6 +371,42 @@ void pim_cand_rp_grp_del(struct bsm_scope *scope, const prefix_pim *p);
 
 void pim_cand_addrs_changed(void);
 
+int pim_crp_process(struct interface *ifp, pim_sgaddr *src_dst, uint8_t *buf,
+		    uint32_t buf_size);
+
+struct pim_nexthop_cache;
+void pim_crp_nht_update(struct pim_instance *pim, struct pim_nexthop_cache *pnc);
+
+void pim_crp_db_clear(struct bsm_scope *scope);
+int pim_crp_db_show(struct vty *vty, struct bsm_scope *scope);
+int pim_crp_groups_show(struct vty *vty, struct bsm_scope *scope);
+
+int pim_crp_process(struct interface *ifp, pim_sgaddr *src_dst, uint8_t *buf,
+		    uint32_t buf_size);
+
+struct pim_nexthop_cache;
+void pim_crp_nht_update(struct pim_instance *pim, struct pim_nexthop_cache *pnc);
+
+void pim_crp_db_clear(struct bsm_scope *scope);
+int pim_crp_db_show(struct vty *vty, struct bsm_scope *scope);
+int pim_crp_groups_show(struct vty *vty, struct bsm_scope *scope);
+
+int pim_crp_process(struct interface *ifp, pim_sgaddr *src_dst, uint8_t *buf,
+		    uint32_t buf_size);
+
+struct pim_nexthop_cache;
+void pim_crp_nht_update(struct pim_instance *pim, struct pim_nexthop_cache *pnc);
+
+void pim_crp_db_clear(struct bsm_scope *scope);
+int pim_crp_db_show(struct vty *vty, struct bsm_scope *scope);
+int pim_crp_groups_show(struct vty *vty, struct bsm_scope *scope);
+
 int pim_cand_config_write(struct pim_instance *pim, struct vty *vty);
+
+DECLARE_MTYPE(PIM_BSM_FRAG);
+
+DECLARE_MTYPE(PIM_BSM_FRAG);
+
+DECLARE_MTYPE(PIM_BSM_FRAG);
 
 #endif

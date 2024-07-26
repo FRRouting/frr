@@ -17,6 +17,7 @@ pim_common = \
 	pimd/pim_assert.c \
 	pimd/pim_bfd.c \
 	pimd/pim_bsm.c \
+	pimd/pim_bsr_rpdb.c \
 	pimd/pim_cmd_common.c \
 	pimd/pim_errors.c \
 	pimd/pim_hello.c \
@@ -162,12 +163,12 @@ clippy_scan += \
 	# end
 
 pimd_pimd_CFLAGS = $(AM_CFLAGS) -DPIM_IPV=4
-pimd_pimd_LDADD = lib/libfrr.la $(LIBCAP)
+pimd_pimd_LDADD = lib/libfrr.la $(LIBCAP) -lm
 
 if PIM6D
 sbin_PROGRAMS += pimd/pim6d
 pimd_pim6d_CFLAGS = $(AM_CFLAGS) -DPIM_IPV=6
-pimd_pim6d_LDADD = lib/libfrr.la $(LIBCAP)
+pimd_pim6d_LDADD = lib/libfrr.la $(LIBCAP) -lm
 endif
 
 pimd_test_igmpv3_join_CFLAGS = $(AM_CFLAGS) -DPIM_IPV=4
