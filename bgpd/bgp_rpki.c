@@ -604,7 +604,6 @@ static void bgpd_sync_callback(struct event *thread)
 
 		atomic_store_explicit(&rpki_vrf->rtr_update_overflow, 0,
 				      memory_order_seq_cst);
-		revalidate_all_routes(rpki_vrf);
 		return;
 	}
 
@@ -626,6 +625,8 @@ static void bgpd_sync_callback(struct event *thread)
 			return;
 		}
 	}
+
+	revalidate_all_routes(rpki_vrf);
 
 	for (ALL_LIST_ELEMENTS_RO(bm->bgp, node, bgp)) {
 		safi_t safi;
@@ -722,6 +723,8 @@ static void revalidate_all_routes(struct rpki_vrf *rpki_vrf)
 			continue;
 		if (vrf && bgp->vrf_id != vrf->vrf_id)
 			continue;
+
+		bgp_static_add(bgp);
 
 		for (ALL_LIST_ELEMENTS_RO(bgp->peer, peer_listnode, peer)) {
 			afi_t afi;
