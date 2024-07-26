@@ -163,12 +163,16 @@ def check_bgp_vpnv4_prefix_presence(router, prefix, table_version):
         for path in paths["paths"]:
             new_version = path["version"]
         if new_version <= table_version:
-            return "{}, prefix ipv4 vpn {} has not been updated yet".format(router.name, prefix)
+            return "{}, prefix ipv4 vpn {} has not been updated yet".format(
+                router.name, prefix
+            )
 
     return None
 
 
-def bgp_vpnv4_table_check(router, group, label_list=None, label_value_expected=None, table_version=0):
+def bgp_vpnv4_table_check(
+    router, group, label_list=None, label_value_expected=None, table_version=0
+):
     """
     Dump and check that vpnv4 entries have the same MPLS label value
     * 'router': the router to check
@@ -180,7 +184,9 @@ def bgp_vpnv4_table_check(router, group, label_list=None, label_value_expected=N
 
     stored_label_inited = False
     for prefix in group:
-        test_func = functools.partial(check_bgp_vpnv4_prefix_presence, router, prefix, table_version)
+        test_func = functools.partial(
+            check_bgp_vpnv4_prefix_presence, router, prefix, table_version
+        )
         success, _ = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
         assert success, "{}, prefix ipv4 vpn {} is not installed yet".format(
             router.name, prefix
@@ -243,7 +249,7 @@ def bgp_vpnv4_table_check_all(router, label_list=None, same=False, table_version
             + PREFIXES_REDIST
             + PREFIXES_CONNECTED,
             label_list=label_list,
-            table_version=table_version
+            table_version=table_version,
         )
     else:
         for group in (
@@ -253,7 +259,9 @@ def bgp_vpnv4_table_check_all(router, label_list=None, same=False, table_version
             PREFIXES_REDIST,
             PREFIXES_CONNECTED,
         ):
-            bgp_vpnv4_table_check(router, group=group, label_list=label_list, table_version=table_version)
+            bgp_vpnv4_table_check(
+                router, group=group, label_list=label_list, table_version=table_version
+            )
 
 
 def check_show_mpls_table(router, blacklist=None, label_list=None, whitelist=None):
@@ -357,9 +365,11 @@ def check_show_mpls_table_entry_label_not_found(router, inlabel):
         return "not good"
     return None
 
+
 def get_table_version(router):
     table = router.vtysh_cmd("show bgp ipv4 vpn json", isjson=True)
     return table["tableVersion"]
+
 
 def mpls_entry_get_interface(router, label):
     """
@@ -765,7 +775,9 @@ def test_unconfigure_allocation_mode_nexthop():
     # Check vpnv4 routes from r1
     logger.info("Checking vpnv4 routes on r1")
     label_list = set()
-    bgp_vpnv4_table_check_all(router, label_list=label_list, same=True, table_version=table_version)
+    bgp_vpnv4_table_check_all(
+        router, label_list=label_list, same=True, table_version=table_version
+    )
     assert len(label_list) == 1, "r1, multiple Label values found for vpnv4 updates"
 
     new_label = label_list.pop()
@@ -815,7 +827,9 @@ def test_reconfigure_allocation_mode_nexthop():
     # Check vpnv4 routes from r1
     logger.info("Checking vpnv4 routes on r1")
     label_list = set()
-    bgp_vpnv4_table_check_all(router, label_list=label_list, table_version=table_version)
+    bgp_vpnv4_table_check_all(
+        router, label_list=label_list, table_version=table_version
+    )
     assert len(label_list) != 1, "r1, only 1 label values found for vpnv4 updates"
 
     # Check mpls table with all values

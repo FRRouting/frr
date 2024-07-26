@@ -162,12 +162,16 @@ def check_bgp_vpnv6_prefix_presence(router, prefix, table_version):
         for path in paths["paths"]:
             new_version = path["version"]
         if new_version <= table_version:
-            return "{}, prefix ipv6 vpn {} has not been updated yet".format(router.name, prefix)
+            return "{}, prefix ipv6 vpn {} has not been updated yet".format(
+                router.name, prefix
+            )
 
     return None
 
 
-def bgp_vpnv6_table_check(router, group, label_list=None, label_value_expected=None, table_version=0):
+def bgp_vpnv6_table_check(
+    router, group, label_list=None, label_value_expected=None, table_version=0
+):
     """
     Dump and check that vpnv6 entries have the same MPLS label value
     * 'router': the router to check
@@ -179,7 +183,9 @@ def bgp_vpnv6_table_check(router, group, label_list=None, label_value_expected=N
 
     stored_label_inited = False
     for prefix in group:
-        test_func = functools.partial(check_bgp_vpnv6_prefix_presence, router, prefix, table_version)
+        test_func = functools.partial(
+            check_bgp_vpnv6_prefix_presence, router, prefix, table_version
+        )
         success, _ = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
         assert success, "{}, prefix ipv6 vpn {} is not installed yet".format(
             router.name, prefix
@@ -238,7 +244,7 @@ def bgp_vpnv6_table_check_all(router, label_list=None, same=False, table_version
             + PREFIXES_REDIST_R14
             + PREFIXES_CONNECTED,
             label_list=label_list,
-            table_version=table_version
+            table_version=table_version,
         )
     else:
         for group in (
@@ -247,7 +253,9 @@ def bgp_vpnv6_table_check_all(router, label_list=None, same=False, table_version
             PREFIXES_REDIST_R14,
             PREFIXES_CONNECTED,
         ):
-            bgp_vpnv6_table_check(router, group=group, label_list=label_list, table_version=table_version)
+            bgp_vpnv6_table_check(
+                router, group=group, label_list=label_list, table_version=table_version
+            )
 
 
 def check_show_mpls_table(router, blacklist=None, label_list=None, whitelist=None):
@@ -819,7 +827,9 @@ def test_reconfigure_allocation_mode_nexthop():
     # Check vpnv6 routes from r1
     logger.info("Checking VPNv6 routes on r1")
     label_list = set()
-    bgp_vpnv6_table_check_all(router, label_list=label_list, table_version=table_version)
+    bgp_vpnv6_table_check_all(
+        router, label_list=label_list, table_version=table_version
+    )
     assert len(label_list) != 1, "r1, only 1 label values found for VPNv6 updates"
 
     # Check mpls table with all values
