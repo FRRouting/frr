@@ -117,7 +117,6 @@ struct flex_algo *flex_algo_alloc(struct flex_algos *flex_algos,
 				  uint8_t algorithm, void *arg);
 struct flex_algo *flex_algo_lookup(struct flex_algos *flex_algos,
 				   uint8_t algorithm);
-void flex_algos_free(struct flex_algos *flex_algos);
 bool flex_algo_definition_cmp(struct flex_algo *fa1, struct flex_algo *fa2);
 void flex_algo_delete(struct flex_algos *flex_algos, uint8_t algorithm);
 bool flex_algo_id_valid(uint16_t algorithm);
