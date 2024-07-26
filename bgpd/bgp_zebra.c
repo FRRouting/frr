@@ -1789,8 +1789,11 @@ static void bgp_handle_route_announcements_to_zebra(struct event *e)
 	struct bgp_table *table = NULL;
 	enum zclient_send_status status = ZCLIENT_SEND_SUCCESS;
 	bool install;
+	const struct prefix_evpn *evp = NULL;
 
 	while (count < ZEBRA_ANNOUNCEMENTS_LIMIT) {
+		is_evpn = false;
+
 		dest = zebra_announce_pop(&bm->zebra_announce_head);
 
 		if (!dest)
@@ -1798,8 +1801,11 @@ static void bgp_handle_route_announcements_to_zebra(struct event *e)
 
 		table = bgp_dest_table(dest);
 		install = CHECK_FLAG(dest->flags, BGP_NODE_SCHEDULE_FOR_INSTALL);
-		if (table->afi == AFI_L2VPN && table->safi == SAFI_EVPN)
+		if (table->afi == AFI_L2VPN && table->safi == SAFI_EVPN) {
 			is_evpn = true;
+			evp = (const struct prefix_evpn *)bgp_dest_get_prefix(
+				dest);
+		}
 
 		if (BGP_DEBUG(zebra, ZEBRA))
 			zlog_debug("BGP %s route %pBD(%s) with dest %p and flags 0x%x to zebra",
@@ -1835,6 +1841,17 @@ static void bgp_handle_route_announcements_to_zebra(struct event *e)
 
 			UNSET_FLAG(dest->flags, BGP_NODE_SCHEDULE_FOR_DELETE);
 		}
+
+		if (is_evpn && status == ZCLIENT_SEND_FAILURE)
+			flog_err(EC_BGP_EVPN_FAIL,
+				 "%s (%u): Failed to %s EVPN %pFX %s route in VNI %u",
+				 vrf_id_to_name(table->bgp->vrf_id),
+				 table->bgp->vrf_id,
+				 install ? "install" : "uninstall", evp,
+				 evp->prefix.route_type == BGP_EVPN_MAC_IP_ROUTE
+					 ? "MACIP"
+					 : "IMET",
+				 dest->za_vpn->vni);
 
 		bgp_path_info_unlock(dest->za_bgp_pi);
 		dest->za_bgp_pi = NULL;

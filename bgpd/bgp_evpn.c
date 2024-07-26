@@ -1487,11 +1487,12 @@ int evpn_route_select_install(struct bgp *bgp, struct bgpevpn *vpn,
 	    && !bgp_addpath_is_addpath_used(&bgp->tx_addpath, afi, safi)) {
 		if (bgp_zebra_has_route_changed(old_select)) {
 			if (CHECK_FLAG(bgp->flags, BGP_FLAG_DELETE_IN_PROGRESS))
-				evpn_zebra_install(bgp, vpn,
-						   (const struct prefix_evpn *)
-							   bgp_dest_get_prefix(
-								   dest),
-						   old_select);
+				ret = evpn_zebra_install(bgp, vpn,
+							 (const struct prefix_evpn
+								  *)
+								 bgp_dest_get_prefix(
+									 dest),
+							 old_select);
 			else
 				bgp_zebra_route_install(dest, old_select, bgp,
 							true, vpn, false);
@@ -1529,10 +1530,11 @@ int evpn_route_select_install(struct bgp *bgp, struct bgpevpn *vpn,
 	    && (new_select->sub_type == BGP_ROUTE_IMPORTED ||
 			bgp_evpn_attr_is_sync(new_select->attr))) {
 		if (CHECK_FLAG(bgp->flags, BGP_FLAG_DELETE_IN_PROGRESS))
-			evpn_zebra_install(bgp, vpn,
-					   (const struct prefix_evpn *)
-						   bgp_dest_get_prefix(dest),
-					   new_select);
+			ret = evpn_zebra_install(bgp, vpn,
+						 (const struct prefix_evpn *)
+							 bgp_dest_get_prefix(
+								 dest),
+						 new_select);
 		else
 			bgp_zebra_route_install(dest, new_select, bgp, true,
 						vpn, false);
@@ -1556,11 +1558,12 @@ int evpn_route_select_install(struct bgp *bgp, struct bgpevpn *vpn,
 		    old_select->sub_type == BGP_ROUTE_IMPORTED) {
 			if (CHECK_FLAG(bgp->flags, BGP_FLAG_DELETE_IN_PROGRESS) ||
 			    CHECK_FLAG(bgp->flags, BGP_FLAG_VNI_DOWN))
-				evpn_zebra_uninstall(bgp, vpn,
-						     (const struct prefix_evpn *)
-							     bgp_dest_get_prefix(
-								     dest),
-						     old_select, false);
+				ret = evpn_zebra_uninstall(bgp, vpn,
+							   (const struct prefix_evpn
+								    *)
+								   bgp_dest_get_prefix(
+									   dest),
+							   old_select, false);
 			else
 				bgp_zebra_route_install(dest, old_select, bgp,
 							false, vpn, false);
