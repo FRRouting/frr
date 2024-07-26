@@ -361,6 +361,48 @@ const struct frr_yang_module_info frr_pim_rp_info = {
 const struct frr_yang_module_info frr_pim_candidate_info = {
 	.name = "frr-pim-candidate",
 	.nodes = {
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-pim:pim/address-family/frr-pim-candidate:candidate-bsr",
+			.cbs = {
+				.create = routing_control_plane_protocols_control_plane_protocol_pim_address_family_candidate_bsr_create,
+				.destroy = routing_control_plane_protocols_control_plane_protocol_pim_address_family_candidate_bsr_destroy,
+			}
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-pim:pim/address-family/frr-pim-candidate:candidate-bsr/bsr-priority",
+			.cbs = {
+				.modify = routing_control_plane_protocols_control_plane_protocol_pim_address_family_candidate_bsr_priority_modify,
+			}
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-pim:pim/address-family/frr-pim-candidate:candidate-bsr/address",
+			.cbs = {
+				.modify = routing_control_plane_protocols_control_plane_protocol_pim_address_family_candidate_bsr_addrsel_modify,
+				.destroy = routing_control_plane_protocols_control_plane_protocol_pim_address_family_candidate_bsr_addrsel_destroy,
+			}
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-pim:pim/address-family/frr-pim-candidate:candidate-bsr/interface",
+			.cbs = {
+				.modify = routing_control_plane_protocols_control_plane_protocol_pim_address_family_candidate_bsr_addrsel_modify,
+				.destroy = routing_control_plane_protocols_control_plane_protocol_pim_address_family_candidate_bsr_addrsel_destroy,
+			}
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-pim:pim/address-family/frr-pim-candidate:candidate-bsr/if-loopback",
+			.cbs = {
+				.create = routing_control_plane_protocols_control_plane_protocol_pim_address_family_candidate_bsr_addrsel_create,
+				.destroy = routing_control_plane_protocols_control_plane_protocol_pim_address_family_candidate_bsr_addrsel_destroy,
+			}
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-pim:pim/address-family/frr-pim-candidate:candidate-bsr/if-any",
+			.cbs = {
+				.create = routing_control_plane_protocols_control_plane_protocol_pim_address_family_candidate_bsr_addrsel_create,
+				.destroy = routing_control_plane_protocols_control_plane_protocol_pim_address_family_candidate_bsr_addrsel_destroy,
+			}
+		},
+
 		/* Candidate-RP */
 		{
 			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-pim:pim/address-family/frr-pim-candidate:candidate-rp",

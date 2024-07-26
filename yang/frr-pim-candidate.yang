@@ -71,6 +71,43 @@ module frr-pim-candidate {
   /*
    * Groupings
    */
+  grouping candidate-bsr-container {
+    description
+      "Grouping of Candidate BSR settings.";
+
+    container candidate-bsr {
+      presence
+        "Enable router to be a Candidate BSR.";
+
+      description
+        "Candidate BSR settings";
+
+      leaf bsr-priority {
+        type uint8;
+        default "64";
+        description
+          "BSR priority for this router, higher values win.";
+      }
+
+      choice source-address-or-interface {
+        description "IP address to use for BSR operation";
+        default if-loopback;
+        leaf address {
+          type inet:ip-address;
+        }
+        leaf interface {
+          type frr-interface:interface-ref;
+        }
+        leaf if-loopback {
+          type empty;
+        }
+        leaf if-any {
+          type empty;
+        }
+      }
+    } // candidate-bsr
+  } // candidate-bsr-container
+
   grouping candidate-rp-container {
     description
       "Grouping of Candidate RP settings.";
@@ -131,6 +168,7 @@ module frr-pim-candidate {
     + "frr-pim:address-family" {
     description "PIM Candidate RP augmentation.";
 
+    uses candidate-bsr-container;
     uses candidate-rp-container;
   }
 }

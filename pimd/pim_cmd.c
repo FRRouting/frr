@@ -2780,6 +2780,54 @@ DEFUN (show_ip_pim_cand_rp,
 	return CMD_SUCCESS;
 }
 
+DEFUN (show_ip_pim_bsr_rpdb,
+       show_ip_pim_bsr_rpdb_cmd,
+       "show ip pim bsr candidate-rps [vrf NAME] [json]",
+       SHOW_STR
+       IP_STR
+       PIM_STR
+       "boot-strap router information\n"
+       "Candidate RPs\n"
+       VRF_CMD_HELP_STR
+       JSON_STR)
+{
+	int idx = 2;
+	struct vrf *vrf = pim_cmd_lookup_vrf(vty, argv, argc, &idx, false);
+	//bool uj = use_json(argc, argv);
+
+	if (!vrf || !vrf->info)
+		return CMD_WARNING;
+
+	struct pim_instance *pim = vrf->info;
+	struct bsm_scope *scope = &pim->global_scope;
+
+	return pim_crp_db_show(vty, scope);
+}
+
+DEFUN (show_ip_pim_bsr_groups,
+       show_ip_pim_bsr_groups_cmd,
+       "show ip pim bsr groups [vrf NAME] [json]",
+       SHOW_STR
+       IP_STR
+       PIM_STR
+       "boot-strap router information\n"
+       "Candidate RP groups\n"
+       VRF_CMD_HELP_STR
+       JSON_STR)
+{
+	int idx = 2;
+	struct vrf *vrf = pim_cmd_lookup_vrf(vty, argv, argc, &idx, false);
+	//bool uj = use_json(argc, argv);
+
+	if (!vrf || !vrf->info)
+		return CMD_WARNING;
+
+	struct pim_instance *pim = vrf->info;
+	struct bsm_scope *scope = &pim->global_scope;
+
+	return pim_crp_groups_show(vty, scope);
+}
+
 DEFPY (show_ip_pim_statistics,
        show_ip_pim_statistics_cmd,
        "show ip pim [vrf NAME] statistics [interface WORD$word] [json$json]",
@@ -4243,6 +4291,64 @@ DEFPY_ATTR(no_ip_pim_rp_prefix_list,
 	}
 
 	return ret;
+}
+
+DEFPY (pim_bsr_candidate_bsr,
+       pim_bsr_candidate_bsr_cmd,
+       "[no] bsr candidate-bsr [{priority (0-255)|source <address A.B.C.D|interface IFNAME|loopback$loopback|any$any>}]",
+       NO_STR
+       BSR_STR
+       "Make this router a Candidate BSR\n"
+       "BSR Priority (higher wins)\n"
+       "BSR Priority (higher wins)\n"
+       "Specify IP address for BSR operation\n"
+       "Local address to use\n"
+       "Local address to use\n"
+       "Interface to pick address from\n"
+       "Interface to pick address from\n"
+       "Pick highest loopback address (default)\n"
+       "Pick highest address from any interface\n")
+{
+	char cand_bsr_xpath[XPATH_MAXLEN];
+
+	snprintf(cand_bsr_xpath, sizeof(cand_bsr_xpath), "%s",
+			FRR_PIM_CAND_BSR_XPATH);
+
+	if (no)
+		nb_cli_enqueue_change(vty, cand_bsr_xpath, NB_OP_DESTROY, NULL);
+	else {
+		char xpath2[XPATH_MAXLEN + 16];
+
+		nb_cli_enqueue_change(vty, cand_bsr_xpath, NB_OP_CREATE, NULL);
+
+		if (any) {
+			snprintf(xpath2, sizeof(xpath2), "%s/if-any",
+				 cand_bsr_xpath);
+			nb_cli_enqueue_change(vty, xpath2, NB_OP_CREATE, NULL);
+		} else if (ifname) {
+			snprintf(xpath2, sizeof(xpath2), "%s/interface",
+				 cand_bsr_xpath);
+			nb_cli_enqueue_change(vty, xpath2, NB_OP_CREATE, ifname);
+		} else if (address_str) {
+			snprintf(xpath2, sizeof(xpath2), "%s/address",
+				 cand_bsr_xpath);
+			nb_cli_enqueue_change(vty, xpath2, NB_OP_CREATE,
+					      address_str);
+		} else {
+			snprintf(xpath2, sizeof(xpath2), "%s/if-loopback",
+				 cand_bsr_xpath);
+			nb_cli_enqueue_change(vty, xpath2, NB_OP_CREATE, NULL);
+		}
+
+		if (priority_str) {
+			snprintf(xpath2, sizeof(xpath2), "%s/bsr-priority",
+				 cand_bsr_xpath);
+			nb_cli_enqueue_change(vty, xpath2, NB_OP_MODIFY,
+					      priority_str);
+		}
+	}
+
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFPY (pim_bsr_candidate_rp,
@@ -8417,6 +8523,7 @@ void pim_cmd_init(void)
 
 	install_element(PIM_NODE, &pim_bsr_candidate_rp_cmd);
 	install_element(PIM_NODE, &pim_bsr_candidate_rp_group_cmd);
+	install_element(PIM_NODE, &pim_bsr_candidate_bsr_cmd);
 
 	install_element(INTERFACE_NODE, &interface_ip_igmp_cmd);
 	install_element(INTERFACE_NODE, &interface_no_ip_igmp_cmd);
@@ -8534,6 +8641,8 @@ void pim_cmd_init(void)
 	install_element(VIEW_NODE, &show_ip_pim_bsrp_cmd);
 	install_element(VIEW_NODE, &show_ip_pim_bsm_db_cmd);
 	install_element(VIEW_NODE, &show_ip_pim_cand_rp_cmd);
+	install_element(VIEW_NODE, &show_ip_pim_bsr_rpdb_cmd);
+	install_element(VIEW_NODE, &show_ip_pim_bsr_groups_cmd);
 	install_element(VIEW_NODE, &show_ip_pim_statistics_cmd);
 	install_element(VIEW_NODE, &show_ip_msdp_peer_detail_cmd);
 	install_element(VIEW_NODE, &show_ip_msdp_peer_detail_vrf_all_cmd);
