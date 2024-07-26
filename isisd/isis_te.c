@@ -164,8 +164,8 @@ void isis_mpls_te_term(struct isis_area *area)
 	XFREE(MTYPE_ISIS_MPLS_TE, area->mta);
 }
 
-static void isis_link_params_update_asla(struct isis_circuit *circuit,
-					 struct interface *ifp)
+void isis_link_params_update_asla(struct isis_circuit *circuit,
+				  struct interface *ifp)
 {
 	struct isis_asla_subtlvs *asla;
 	struct listnode *node, *nnode;
