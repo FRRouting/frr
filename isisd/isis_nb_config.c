@@ -2884,6 +2884,7 @@ int isis_instance_flex_algo_create(struct nb_cb_create_args *args)
 
 int isis_instance_flex_algo_destroy(struct nb_cb_destroy_args *args)
 {
+	struct isis_circuit *circuit;
 	struct listnode *node, *nnode;
 	struct flex_algo *fa;
 	struct isis_area *area;
@@ -2898,6 +2899,12 @@ int isis_instance_flex_algo_destroy(struct nb_cb_destroy_args *args)
 				       nnode, fa)) {
 			if (fa->algorithm == algorithm)
 				flex_algo_free(area->flex_algos, fa);
+		}
+		if (list_isempty(area->flex_algos->flex_algos)) {
+			for (ALL_LIST_ELEMENTS_RO(area->circuit_list, node,
+						  circuit))
+				isis_link_params_update_asla(circuit,
+							     circuit->interface);
 		}
 		lsp_regenerate_schedule(area, area->is_type, 0);
 		break;
