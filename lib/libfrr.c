@@ -1245,10 +1245,6 @@ void frr_early_fini(void)
 
 void frr_fini(void)
 {
-	FILE *fp;
-	char filename[128];
-	int have_leftovers = 0;
-
 	hook_call(frr_fini);
 
 	vty_terminate();
@@ -1289,26 +1285,7 @@ void frr_fini(void)
 
 	frrmod_terminate();
 
-	/* also log memstats to stderr when stderr goes to a file*/
-	if (debug_memstats_at_exit || !isatty(STDERR_FILENO))
-		have_leftovers = log_memstats(stderr, di->name);
-
-	/* in case we decide at runtime that we want exit-memstats for
-	 * a daemon
-	 * (only do this if we actually have something to print though)
-	 */
-	if (!debug_memstats_at_exit || !have_leftovers)
-		return;
-
-	snprintf(filename, sizeof(filename), "/tmp/frr-memstats-%s-%llu-%llu",
-		 di->name, (unsigned long long)getpid(),
-		 (unsigned long long)time(NULL));
-
-	fp = fopen(filename, "w");
-	if (fp) {
-		log_memstats(fp, di->name);
-		fclose(fp);
-	}
+	log_memstats(di->name, debug_memstats_at_exit);
 }
 
 struct json_object *frr_daemon_state_load(void)

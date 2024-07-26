@@ -181,8 +181,7 @@ static inline size_t mtype_stats_alloc(struct memtype *mt)
  * last value from qmem_walk_fn. */
 typedef int qmem_walk_fn(void *arg, struct memgroup *mg, struct memtype *mt);
 extern int qmem_walk(qmem_walk_fn *func, void *arg);
-extern int log_memstats(FILE *fp, const char *);
-#define log_memstats_stderr(prefix) log_memstats(stderr, prefix)
+extern int log_memstats(const char *daemon_name, bool enabled);
 
 extern __attribute__((__noreturn__)) void memory_oom(size_t size,
 						     const char *name);
