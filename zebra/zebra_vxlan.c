@@ -1785,12 +1785,18 @@ static void zl3vni_check_del_rmac(struct zebra_l3vni *zl3vni,
 	struct ipaddr ipv4_vtep;
 
 	zrmac = zl3vni_rmac_lookup(zl3vni, &old_rmac);
+	if (!zrmac) {
+		if (IS_ZEBRA_DEBUG_VXLAN)
+			zlog_debug("L3VNI %u RMAC %pEA is deleted from cache",
+				   zl3vni->vni, &old_rmac);
+		return;
+	}
 
 	vtep_to_v4(vtep_ip, &ipv4_vtep);
 	vtep_ip_same = IPV4_ADDR_SAME(&zrmac->fwd_info.r_vtep_ip,
 				      &ipv4_vtep.ipaddr_v4);
 
-	if (zrmac && vtep_ip_same) {
+	if (vtep_ip_same) {
 		if (IS_ZEBRA_DEBUG_VXLAN)
 			zlog_debug(
 				"L3VNI %u uninstalling old RMAC %pEA for nexthop %pIA",
