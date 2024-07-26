@@ -67,6 +67,8 @@ struct memgroup {
  *         but MGROUP_* aren't.
  */
 
+/* clang-format off */
+
 #define DECLARE_MGROUP(name) extern struct memgroup _mg_##name
 #define _DEFINE_MGROUP(mname, desc, ...)                                       \
 	struct memgroup _mg_##mname _DATA_SECTION("mgroups") = {               \
@@ -75,6 +77,7 @@ struct memgroup {
 		.next = NULL,                                                  \
 		.insert = NULL,                                                \
 		.ref = NULL,                                                   \
+		__VA_ARGS__                                                    \
 	};                                                                     \
 	static void _mginit_##mname(void) __attribute__((_CONSTRUCTOR(1000))); \
 	static void _mginit_##mname(void)                                      \
@@ -135,6 +138,8 @@ struct memgroup {
 #define DEFINE_MTYPE_STATIC(group, name, desc)                                 \
 	DEFINE_MTYPE_ATTR(group, name, static, desc)                           \
 	/* end */
+
+/* clang-format on */
 
 DECLARE_MGROUP(LIB);
 DECLARE_MTYPE(TMP);
