@@ -1269,7 +1269,21 @@ void frr_fini(void)
 	event_master_free(master);
 	master = NULL;
 	zlog_tls_buffer_fini();
-	zlog_fini();
+
+	if (0) {
+		/* this is intentionally disabled.  zlog remains running until
+		 * exit(), so even the very last item done during shutdown can
+		 * have its zlog() messages written out.
+		 *
+		 * Yes this causes memory leaks.  They are explicitly marked
+		 * with DEFINE_MGROUP_ACTIVEATEXIT, which is only used for
+		 * log target memory allocations, and excluded from leak
+		 * reporting at shutdown.  This is strongly preferable over
+		 * just discarding error messages at shutdown.
+		 */
+		zlog_fini();
+	}
+
 	/* frrmod_init -> nothing needed / hooks */
 	rcu_shutdown();
 
