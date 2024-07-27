@@ -3981,8 +3981,10 @@ int bgp_delete(struct bgp *bgp)
 
 	hook_call(bgp_inst_delete, bgp);
 
-	FOREACH_AFI_SAFI (afi, safi)
+	FOREACH_AFI_SAFI (afi, safi) {
 		EVENT_OFF(bgp->t_revalidate[afi][safi]);
+		EVENT_OFF(bgp->t_revalidate_all[afi][safi]);
+	}
 
 	EVENT_OFF(bgp->t_condition_check);
 	EVENT_OFF(bgp->t_startup);

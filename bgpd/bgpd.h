@@ -476,6 +476,7 @@ struct bgp {
 	struct event *t_update_delay;
 	struct event *t_establish_wait;
 	struct event *t_revalidate[AFI_MAX][SAFI_MAX];
+	struct event *t_revalidate_all[AFI_MAX][SAFI_MAX];
 
 	uint8_t update_delay_over;
 	uint8_t main_zebra_update_hold;

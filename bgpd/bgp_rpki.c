@@ -59,6 +59,7 @@ DEFINE_MTYPE_STATIC(BGPD, BGP_RPKI_REVALIDATE, "BGP RPKI Revalidation");
 #define EXPIRE_INTERVAL_DEFAULT 7200
 #define RETRY_INTERVAL_DEFAULT 600
 #define BGP_RPKI_CACHE_SERVER_SYNC_RETRY_TIMEOUT 3
+#define BGP_RPKI_REVALIDATE_INTERVAL		 30
 
 #define RPKI_DEBUG(...)                                                        \
 	if (rpki_debug_conf || rpki_debug_term) {                              \
@@ -104,6 +105,7 @@ struct rpki_vrf {
 	unsigned int polling_period;
 	unsigned int expire_interval;
 	unsigned int retry_interval;
+	uint32_t revalidate_interval;
 	int rpki_sync_socket_rtr;
 	int rpki_sync_socket_bgpd;
 	char *vrfname;
@@ -156,7 +158,7 @@ static enum route_map_cmd_result_t route_match(void *rule,
 					       void *object);
 static void *route_match_compile(const char *arg);
 static void revalidate_bgp_node(struct bgp_dest *dest, afi_t afi, safi_t safi);
-static void revalidate_all_routes(struct rpki_vrf *rpki_vrf);
+static void rpki_revalidate_all_routes(struct event *event);
 
 static bool rpki_debug_conf, rpki_debug_term;
 
@@ -629,8 +631,6 @@ static void bgpd_sync_callback(struct event *thread)
 		}
 	}
 
-	revalidate_all_routes(rpki_vrf);
-
 	for (ALL_LIST_ELEMENTS_RO(bm->bgp, node, bgp)) {
 		safi_t safi;
 
@@ -645,6 +645,13 @@ static void bgpd_sync_callback(struct event *thread)
 
 			if (!table)
 				continue;
+
+			if (!event_is_scheduled(bgp->t_revalidate_all[afi][safi]))
+				event_add_timer(bm->master,
+						rpki_revalidate_all_routes,
+						rpki_vrf,
+						rpki_vrf->revalidate_interval,
+						&bgp->t_revalidate_all[afi][safi]);
 
 			rrp = XCALLOC(MTYPE_BGP_RPKI_REVALIDATE, sizeof(*rrp));
 			rrp->bgp = bgp;
@@ -703,11 +710,12 @@ static void bgp_rpki_revalidate_peer(struct event *thread)
 	XFREE(MTYPE_BGP_RPKI_REVALIDATE, rvp);
 }
 
-static void revalidate_all_routes(struct rpki_vrf *rpki_vrf)
+static void rpki_revalidate_all_routes(struct event *event)
 {
 	struct bgp *bgp;
 	struct listnode *node;
 	struct vrf *vrf = NULL;
+	struct rpki_vrf *rpki_vrf = EVENT_ARG(event);
 
 	if (rpki_vrf->vrfname) {
 		vrf = vrf_lookup_by_name(rpki_vrf->vrfname);
@@ -851,6 +859,7 @@ static struct rpki_vrf *bgp_rpki_allocate(const char *vrfname)
 	rpki_vrf->polling_period = POLLING_PERIOD_DEFAULT;
 	rpki_vrf->expire_interval = EXPIRE_INTERVAL_DEFAULT;
 	rpki_vrf->retry_interval = RETRY_INTERVAL_DEFAULT;
+	rpki_vrf->revalidate_interval = BGP_RPKI_REVALIDATE_INTERVAL;
 
 	if (vrfname && !strmatch(vrfname, VRF_DEFAULT_NAME))
 		rpki_vrf->vrfname = XSTRDUP(MTYPE_BGP_RPKI_CACHE, vrfname);
@@ -1602,7 +1611,8 @@ static int bgp_rpki_write_vrf(struct vty *vty, struct vrf *vrf)
 	if (rpki_vrf->cache_list && list_isempty(rpki_vrf->cache_list) &&
 	    rpki_vrf->polling_period == POLLING_PERIOD_DEFAULT &&
 	    rpki_vrf->retry_interval == RETRY_INTERVAL_DEFAULT &&
-	    rpki_vrf->expire_interval == EXPIRE_INTERVAL_DEFAULT)
+	    rpki_vrf->expire_interval == EXPIRE_INTERVAL_DEFAULT &&
+	    rpki_vrf->revalidate_interval == BGP_RPKI_REVALIDATE_INTERVAL)
 		/* do not display the default config values */
 		return 0;
 
@@ -1619,6 +1629,9 @@ static int bgp_rpki_write_vrf(struct vty *vty, struct vrf *vrf)
 	if (rpki_vrf->expire_interval != EXPIRE_INTERVAL_DEFAULT)
 		vty_out(vty, "%s rpki expire_interval %d\n", sep,
 			rpki_vrf->expire_interval);
+	if (rpki_vrf->revalidate_interval != BGP_RPKI_REVALIDATE_INTERVAL)
+		vty_out(vty, "%s rpki revalidate_interval %u\n", sep,
+			rpki_vrf->revalidate_interval);
 
 	for (ALL_LIST_ELEMENTS_RO(rpki_vrf->cache_list, cache_node, cache)) {
 		switch (cache->type) {
@@ -1741,6 +1754,7 @@ DEFPY (no_rpki,
 	rpki_vrf->polling_period = POLLING_PERIOD_DEFAULT;
 	rpki_vrf->expire_interval = EXPIRE_INTERVAL_DEFAULT;
 	rpki_vrf->retry_interval = RETRY_INTERVAL_DEFAULT;
+	rpki_vrf->revalidate_interval = BGP_RPKI_REVALIDATE_INTERVAL;
 
 	return CMD_SUCCESS;
 }
@@ -1922,6 +1936,32 @@ DEFUN (no_rpki_retry_interval,
 		return CMD_WARNING_CONFIG_FAILED;
 
 	rpki_vrf->retry_interval = RETRY_INTERVAL_DEFAULT;
+	return CMD_SUCCESS;
+}
+
+DEFPY (rpki_revalidate_interval,
+       rpki_revalidate_interval_cmd,
+       "[no] rpki revalidate_interval (1-4294967295)$revalidate",
+       NO_STR
+       RPKI_OUTPUT_STRING
+       "Set revalidate all routes interval\n"
+       "revalidate interval value\n")
+{
+	struct rpki_vrf *rpki_vrf;
+
+	if (vty->node == RPKI_VRF_NODE)
+		rpki_vrf = VTY_GET_CONTEXT_SUB(rpki_vrf);
+	else
+		rpki_vrf = VTY_GET_CONTEXT(rpki_vrf);
+
+	if (!rpki_vrf)
+		return CMD_WARNING_CONFIG_FAILED;
+
+	if (no)
+		rpki_vrf->revalidate_interval = BGP_RPKI_REVALIDATE_INTERVAL;
+	else
+		rpki_vrf->revalidate_interval = revalidate;
+
 	return CMD_SUCCESS;
 }
 
@@ -2577,6 +2617,8 @@ DEFPY(show_rpki_configuration, show_rpki_configuration_cmd,
 				    rpki_vrf->retry_interval);
 		json_object_int_add(json, "expireIntervalSeconds",
 				    rpki_vrf->expire_interval);
+		json_object_int_add(json, "revalidateAllSeconds",
+				    rpki_vrf->revalidate_interval);
 
 		vty_json(vty, json);
 
@@ -2597,6 +2639,8 @@ DEFPY(show_rpki_configuration, show_rpki_configuration_cmd,
 	vty_out(vty, "\tpolling period %d\n", rpki_vrf->polling_period);
 	vty_out(vty, "\tretry interval %d\n", rpki_vrf->retry_interval);
 	vty_out(vty, "\texpire interval %d\n", rpki_vrf->expire_interval);
+	vty_out(vty, "\trevalidate interval %u\n",
+		rpki_vrf->revalidate_interval);
 
 	return CMD_SUCCESS;
 }
@@ -2746,6 +2790,9 @@ static void install_cli_commands(void)
 	/* Install rpki retry interval commands */
 	install_element(RPKI_NODE, &rpki_retry_interval_cmd);
 	install_element(RPKI_NODE, &no_rpki_retry_interval_cmd);
+
+	/* Install rpki revalidate interval commands */
+	install_element(RPKI_NODE, &rpki_revalidate_interval_cmd);
 
 	/* Install rpki cache commands */
 	install_element(RPKI_NODE, &rpki_cache_tcp_cmd);
