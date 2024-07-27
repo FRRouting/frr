@@ -150,17 +150,28 @@ def teardown_module(_mod):
     tgen.stop_topology()
 
 
-def check_bgp_vpnv6_prefix_presence(router, prefix):
+def check_bgp_vpnv6_prefix_presence(router, prefix, table_version):
     "Check the presence of a prefix"
     tgen = get_topogen()
 
     dump = router.vtysh_cmd("show bgp ipv6 vpn {} json".format(prefix), isjson=True)
     if not dump:
         return "{}, prefix ipv6 vpn {} is not installed yet".format(router.name, prefix)
+
+    for _, paths in dump.items():
+        for path in paths["paths"]:
+            new_version = path["version"]
+        if new_version <= table_version:
+            return "{}, prefix ipv6 vpn {} has not been updated yet".format(
+                router.name, prefix
+            )
+
     return None
 
 
-def bgp_vpnv6_table_check(router, group, label_list=None, label_value_expected=None):
+def bgp_vpnv6_table_check(
+    router, group, label_list=None, label_value_expected=None, table_version=0
+):
     """
     Dump and check that vpnv6 entries have the same MPLS label value
     * 'router': the router to check
@@ -172,7 +183,9 @@ def bgp_vpnv6_table_check(router, group, label_list=None, label_value_expected=N
 
     stored_label_inited = False
     for prefix in group:
-        test_func = functools.partial(check_bgp_vpnv6_prefix_presence, router, prefix)
+        test_func = functools.partial(
+            check_bgp_vpnv6_prefix_presence, router, prefix, table_version
+        )
         success, _ = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
         assert success, "{}, prefix ipv6 vpn {} is not installed yet".format(
             router.name, prefix
@@ -214,7 +227,7 @@ def bgp_vpnv6_table_check(router, group, label_list=None, label_value_expected=N
                     )
 
 
-def bgp_vpnv6_table_check_all(router, label_list=None, same=False):
+def bgp_vpnv6_table_check_all(router, label_list=None, same=False, table_version=0):
     """
     Dump and check that vpnv6 entries are correctly configured with specific label values
     * 'router': the router to check
@@ -231,6 +244,7 @@ def bgp_vpnv6_table_check_all(router, label_list=None, same=False):
             + PREFIXES_REDIST_R14
             + PREFIXES_CONNECTED,
             label_list=label_list,
+            table_version=table_version,
         )
     else:
         for group in (
@@ -239,7 +253,9 @@ def bgp_vpnv6_table_check_all(router, label_list=None, same=False):
             PREFIXES_REDIST_R14,
             PREFIXES_CONNECTED,
         ):
-            bgp_vpnv6_table_check(router, group=group, label_list=label_list)
+            bgp_vpnv6_table_check(
+                router, group=group, label_list=label_list, table_version=table_version
+            )
 
 
 def check_show_mpls_table(router, blacklist=None, label_list=None, whitelist=None):
@@ -343,6 +359,11 @@ def check_show_mpls_table_entry_label_not_found(router, inlabel):
     if ret is None:
         return "not good"
     return None
+
+
+def get_table_version(router):
+    table = router.vtysh_cmd("show bgp ipv6 vpn json", isjson=True)
+    return table["tableVersion"]
 
 
 def mpls_entry_get_interface(router, label):
@@ -691,6 +712,7 @@ def test_changing_default_label_value():
         old_len != 1
     ), "r1, number of labels used should be greater than 1, oberved {} ".format(old_len)
 
+    table_version = get_table_version(router)
     logger.info("r1, vrf1, changing the default MPLS label value to export to 222")
     router.vtysh_cmd(
         "configure terminal\nrouter bgp 65500 vrf vrf1\naddress-family ipv6 unicast\nlabel vpn export 222\n",
@@ -710,7 +732,7 @@ def test_changing_default_label_value():
     # check label repartition is ok
     logger.info("r1, VPNv6 table, check the number of labels used after modification")
     label_list = set()
-    bgp_vpnv6_table_check_all(router, label_list)
+    bgp_vpnv6_table_check_all(router, label_list, table_version=table_version)
     new_len = len(label_list)
     assert (
         old_len == new_len
@@ -786,6 +808,7 @@ def test_reconfigure_allocation_mode_nexthop():
 
     logger.info("Reconfiguring allocation mode per nexthop")
     router = tgen.gears["r1"]
+    table_version = get_table_version(router)
     dump = router.vtysh_cmd(
         "configure terminal\nrouter bgp 65500 vrf vrf1\naddress-family ipv6 unicast\nlabel vpn export allocation-mode per-nexthop\n",
         isjson=False,
@@ -804,7 +827,9 @@ def test_reconfigure_allocation_mode_nexthop():
     # Check vpnv6 routes from r1
     logger.info("Checking VPNv6 routes on r1")
     label_list = set()
-    bgp_vpnv6_table_check_all(router, label_list=label_list)
+    bgp_vpnv6_table_check_all(
+        router, label_list=label_list, table_version=table_version
+    )
     assert len(label_list) != 1, "r1, only 1 label values found for VPNv6 updates"
 
     # Check mpls table with all values
