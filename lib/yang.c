@@ -286,7 +286,7 @@ void yang_snode_get_path(const struct lysc_node *snode,
 }
 
 LY_ERR yang_resolve_snode_xpath(struct ly_ctx *ly_ctx, const char *xpath,
-				struct lysc_node ***snodes, bool *simple)
+				const struct lysc_node ***snodes, bool *simple)
 {
 	struct lysc_node *snode;
 	struct ly_set *set;

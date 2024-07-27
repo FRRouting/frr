@@ -827,7 +827,8 @@ extern int yang_xpath_pop_node(char *xpath);
  * Return: a libyang error or LY_SUCCESS.
  */
 extern LY_ERR yang_resolve_snode_xpath(struct ly_ctx *ly_ctx, const char *xpath,
-				       struct lysc_node ***snodes, bool *simple);
+				       const struct lysc_node ***snodes,
+				       bool *simple);
 
 /*
  * Libyang future functions

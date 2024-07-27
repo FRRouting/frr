@@ -178,7 +178,7 @@ struct nb_node *nb_node_find(const char *path)
 
 struct nb_node **nb_nodes_find(const char *xpath)
 {
-	struct lysc_node **snodes = NULL;
+	const struct lysc_node **snodes = NULL;
 	struct nb_node **nb_nodes = NULL;
 	bool simple;
 	LY_ERR err;

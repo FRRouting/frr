@@ -1282,8 +1282,7 @@ static void fe_adapter_handle_get_data(struct mgmt_fe_session_ctx *session,
 				       void *__msg, size_t msg_len)
 {
 	struct mgmt_msg_get_data *msg = __msg;
-	struct lysc_node **snodes = NULL;
-	char *xpath_resolved = NULL;
+	const struct lysc_node **snodes = NULL;
 	uint64_t req_id = msg->req_id;
 	Mgmtd__DatastoreId ds_id;
 	uint64_t clients;
@@ -1395,7 +1394,6 @@ static void fe_adapter_handle_get_data(struct mgmt_fe_session_ctx *session,
 	}
 done:
 	darr_free(snodes);
-	darr_free(xpath_resolved);
 }
 
 static void fe_adapter_handle_edit(struct mgmt_fe_session_ctx *session,
