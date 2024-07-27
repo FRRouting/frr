@@ -357,6 +357,9 @@ struct graceful_restart_info {
 	/* Route update completed */
 	bool route_sync;
 	bool select_defer_over;
+	uint8_t flags;
+/* Flag to skip backpressure logic for GR */
+#define BGP_GR_SKIP_BP (1 << 0)
 };
 
 enum global_mode {
