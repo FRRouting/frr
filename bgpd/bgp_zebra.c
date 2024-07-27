@@ -1560,9 +1560,8 @@ static void bgp_debug_zebra_nh(struct zapi_route *api)
 	}
 }
 
-static enum zclient_send_status
-bgp_zebra_announce_actual(struct bgp_dest *dest, struct bgp_path_info *info,
-			  struct bgp *bgp)
+enum zclient_send_status bgp_zebra_announce_actual(struct bgp_dest *dest,
+						   struct bgp_path_info *info, struct bgp *bgp)
 {
 	struct bgp_path_info *bpi_ultimate;
 	struct zapi_route api;
