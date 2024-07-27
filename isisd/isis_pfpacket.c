@@ -10,7 +10,7 @@
 #include <zebra.h>
 #if ISIS_METHOD == ISIS_METHOD_PFPACKET
 #include <net/ethernet.h> /* the L2 protocols */
-#include <netpacket/packet.h>
+#include "linux/if_packet.h"
 
 #include <linux/filter.h>
 
@@ -132,6 +132,12 @@ static int open_packet_socket(struct isis_circuit *circuit)
 		zlog_warn("%s: socket() failed %s", __func__,
 			  safe_strerror(errno));
 		return ISIS_WARNING;
+	}
+
+	int val = 1;
+	if (setsockopt(fd, SOL_PACKET, PACKET_AUXDATA, &val, sizeof(val)) == -1 && errno != ENOPROTOOPT) {
+		zlog_warn("%s: PACKET_AUXDATA failed: %s", __func__,
+			  safe_strerror(errno));
 	}
 
 	if (setsockopt(fd, SOL_SOCKET, SO_ATTACH_FILTER, &bpf, sizeof(bpf))) {
@@ -284,13 +290,52 @@ int isis_recv_pdu_bcast(struct isis_circuit *circuit, uint8_t *ssnpa)
 			? circuit->interface->mtu
 			: circuit->interface->mtu6;
 	uint8_t temp_buff[max_size];
-	bytesread =
-		recvfrom(circuit->fd, temp_buff, max_size, MSG_DONTWAIT,
-			 (struct sockaddr *)&s_addr, (socklen_t *)&addr_len);
+
+	union {
+		struct cmsghdr	cmsg;
+		char		buf[CMSG_SPACE(sizeof(struct tpacket_auxdata))];
+	} cmsg_buf;
+	struct iovec	iov;
+	struct msghdr	msg;
+	memset(&cmsg_buf, 0x00, sizeof(cmsg_buf));
+	memset(&iov, 0x00, sizeof(iov));
+	memset(&msg, 0x00, sizeof(msg));
+
+	iov.iov_base = temp_buff;
+	iov.iov_len = max_size;
+
+	msg.msg_iov = &iov;
+	msg.msg_iovlen = 1;
+
+	msg.msg_name = &s_addr;
+	msg.msg_namelen = addr_len;
+
+	msg.msg_control = &cmsg_buf;
+	msg.msg_controllen = sizeof(cmsg_buf);
+
+	bytesread = recvmsg(circuit->fd, &msg, MSG_DONTWAIT);
 	if (bytesread < 0) {
 		zlog_warn("%s: recvfrom() failed", __func__);
 		return ISIS_WARNING;
 	}
+
+	bool vlan_packet = false;
+	for (struct cmsghdr *cmsg = CMSG_FIRSTHDR(&msg); cmsg; cmsg = CMSG_NXTHDR(&msg, cmsg)) {
+		if (cmsg->cmsg_len >= CMSG_LEN(sizeof(struct tpacket_auxdata)) &&
+			cmsg->cmsg_level == SOL_PACKET &&
+			cmsg->cmsg_type == PACKET_AUXDATA) {
+			struct tpacket_auxdata *aux = (struct tpacket_auxdata *)CMSG_DATA(cmsg);
+			if(aux && (aux->tp_status & TP_STATUS_VLAN_VALID)) {
+				vlan_packet = true;
+			}
+			break;
+		}
+	}
+
+	if(vlan_packet) {
+		return ISIS_WARNING;
+	}
+
 	/* then we lose the LLC */
 	stream_write(circuit->rcv_stream, temp_buff + LLC_LEN,
 		     bytesread - LLC_LEN);
