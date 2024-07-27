@@ -36,6 +36,7 @@
 #include "bgpd/bgp_route.h"
 #include "bgpd/bgp_rpki.h"
 #include "bgpd/bgp_debug.h"
+#include "bgpd/bgp_zebra.h"
 #include "northbound_cli.h"
 
 #include "lib/network.h"
@@ -727,6 +728,7 @@ static void revalidate_all_routes(struct rpki_vrf *rpki_vrf)
 			continue;
 
 		bgp_static_add(bgp);
+		bgp_redistribute_redo(bgp);
 
 		for (ALL_LIST_ELEMENTS_RO(bgp->peer, peer_listnode, peer)) {
 			afi_t afi;
