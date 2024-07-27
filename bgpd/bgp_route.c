@@ -3893,10 +3893,14 @@ static void bgp_process_main_one(struct bgp *bgp, struct bgp_dest *dest,
 #endif
 			if (bgp_fibupd_safi(safi)
 			    && !bgp_option_check(BGP_OPT_NO_FIB)) {
-				if (bgp_zebra_announce_eligible(new_select))
-					bgp_zebra_route_install(dest, old_select,
-								bgp, true, NULL,
-								false);
+				if (bgp_zebra_announce_eligible(new_select)) {
+					if (CHECK_FLAG(bgp->gr_info[afi][safi].flags,
+						       BGP_GR_SKIP_BP))
+						bgp_zebra_announce_actual(dest, old_select, bgp);
+					else
+						bgp_zebra_route_install(dest, old_select, bgp,
+									true, NULL, false);
+				}
 			}
 		}
 
@@ -4002,14 +4006,19 @@ static void bgp_process_main_one(struct bgp *bgp, struct bgp_dest *dest,
 	if (bgp_fibupd_safi(safi) && (bgp->inst_type != BGP_INSTANCE_TYPE_VIEW)
 	    && !bgp_option_check(BGP_OPT_NO_FIB)) {
 		if (new_select && bgp_zebra_announce_eligible(new_select)) {
-			bgp_zebra_route_install(dest, new_select, bgp, true,
-						NULL, false);
+			if (CHECK_FLAG(bgp->gr_info[afi][safi].flags, BGP_GR_SKIP_BP))
+				bgp_zebra_announce_actual(dest, new_select, bgp);
+			else
+				bgp_zebra_route_install(dest, new_select, bgp, true, NULL, false);
 		} else {
 			/* Withdraw the route from the kernel. */
-			if (old_select && bgp_zebra_announce_eligible(old_select))
-
-				bgp_zebra_route_install(dest, old_select, bgp,
-							false, NULL, false);
+			if (old_select && bgp_zebra_announce_eligible(old_select)) {
+				if (CHECK_FLAG(bgp->gr_info[afi][safi].flags, BGP_GR_SKIP_BP))
+					bgp_zebra_withdraw_actual(dest, old_select, bgp);
+				else
+					bgp_zebra_route_install(dest, old_select, bgp, false, NULL,
+								false);
+			}
 		}
 	}
 
