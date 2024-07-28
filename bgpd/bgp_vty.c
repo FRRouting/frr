@@ -1703,7 +1703,7 @@ DEFUN (no_router_bgp,
 					continue;
 
 				if (CHECK_FLAG(tmp_bgp->vrf_flags, BGP_VRF_AUTO))
-					continue;
+					bgp_delete(tmp_bgp);
 
 				if (CHECK_FLAG(
 					    tmp_bgp->af_flags[AFI_IP]
