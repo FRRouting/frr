@@ -214,10 +214,8 @@ int ospf6_router_is_stub_router(struct ospf6_lsa *lsa)
 	return OSPF6_NOT_STUB_ROUTER;
 }
 
-void ospf6_router_lsa_originate(struct event *thread)
+static void router_lsa_originate(struct ospf6_area *oa, int lstype)
 {
-	struct ospf6_area *oa;
-
 	char buffer[OSPF6_MAX_LSASIZE];
 	struct ospf6_lsa_header *lsa_header;
 	struct ospf6_lsa *lsa;
@@ -229,11 +227,10 @@ void ospf6_router_lsa_originate(struct event *thread)
 	struct ospf6_neighbor *on, *drouter = NULL;
 	struct ospf6_router_lsa *router_lsa;
 	struct ospf6_router_lsdesc *lsdesc;
+	struct tlv_router_link *tlv;
 	uint16_t type;
 	uint32_t router;
 	int count;
-
-	oa = (struct ospf6_area *)EVENT_ARG(thread);
 
 	if (oa->ospf6->gr_info.restart_in_progress) {
 		if (IS_DEBUG_OSPF6_GR)
@@ -242,8 +239,13 @@ void ospf6_router_lsa_originate(struct event *thread)
 		return;
 	}
 
-	if (IS_OSPF6_DEBUG_ORIGINATE(ROUTER))
-		zlog_debug("Originate Router-LSA for Area %s", oa->name);
+	if (IS_OSPF6_DEBUG_ORIGINATE(ROUTER)) {
+		if (lstype == OSPF6_LSTYPE_ROUTER)
+			zlog_debug("Originate Router-LSA for Area %s", oa->name);
+		else
+			zlog_debug("Originate E-Router-LSA for Area %s",
+				   oa->name);
+	}
 
 	memset(buffer, 0, sizeof(buffer));
 	lsa_header = (struct ospf6_lsa_header *)buffer;
@@ -256,8 +258,8 @@ void ospf6_router_lsa_originate(struct event *thread)
 
 	for (ALL_LIST_ELEMENTS(oa->if_list, node, nnode, oi)) {
 		/* Interfaces in state Down or Loopback are not described */
-		if (oi->state == OSPF6_INTERFACE_DOWN
-		    || oi->state == OSPF6_INTERFACE_LOOPBACK)
+		if (oi->state == OSPF6_INTERFACE_DOWN ||
+		    oi->state == OSPF6_INTERFACE_LOOPBACK)
 			continue;
 
 		/* Nor are interfaces without any full adjacencies described */
@@ -271,10 +273,11 @@ void ospf6_router_lsa_originate(struct event *thread)
 
 		/* Multiple Router-LSA instance according to size limit setting
 		 */
-		if ((oa->router_lsa_size_limit != 0)
-		    && ((size_t)((char *)lsdesc - buffer)
-				+ sizeof(struct ospf6_router_lsdesc)
-			> oa->router_lsa_size_limit)) {
+		/* FIXME: the sizeof(struct ospf6_router_lsdesc) doesn't work for TLVs. */
+		if ((oa->router_lsa_size_limit != 0) &&
+		    ((size_t)((char *)lsdesc - buffer) +
+			     sizeof(struct ospf6_router_lsdesc) >
+		     oa->router_lsa_size_limit)) {
 			if (lsdesc ==
 			    lsdesc_start_lsa_type(lsa_header,
 						  OSPF6_LSTYPE_ROUTER)) {
@@ -285,12 +288,14 @@ void ospf6_router_lsa_originate(struct event *thread)
 
 			/* Fill LSA Header */
 			lsa_header->age = 0;
-			lsa_header->type = htons(OSPF6_LSTYPE_ROUTER);
+			lsa_header->type = htons(lstype);
 			lsa_header->id = htonl(link_state_id);
 			lsa_header->adv_router = oa->ospf6->router_id;
-			lsa_header->seqnum = ospf6_new_ls_seqnum(
-				lsa_header->type, lsa_header->id,
-				lsa_header->adv_router, oa->lsdb);
+			lsa_header->seqnum =
+				ospf6_new_ls_seqnum(lsa_header->type,
+						    lsa_header->id,
+						    lsa_header->adv_router,
+						    oa->lsdb);
 			lsa_header->length =
 				htons((caddr_t)lsdesc - (caddr_t)buffer);
 
@@ -318,21 +323,49 @@ void ospf6_router_lsa_originate(struct event *thread)
 		}
 
 		/* Point-to-Point interfaces */
-		if (oi->type == OSPF_IFTYPE_POINTOPOINT
-		    || oi->type == OSPF_IFTYPE_POINTOMULTIPOINT) {
+		if (oi->type == OSPF_IFTYPE_POINTOPOINT ||
+		    oi->type == OSPF_IFTYPE_POINTOMULTIPOINT) {
 			for (ALL_LIST_ELEMENTS_RO(oi->neighbor_list, j, on)) {
 				if (on->state != OSPF6_NEIGHBOR_FULL)
 					continue;
 
-				lsdesc->type = OSPF6_ROUTER_LSDESC_POINTTOPOINT;
-				lsdesc->metric = htons(ospf6_neighbor_cost(on));
-				lsdesc->interface_id =
-					htonl(oi->interface->ifindex);
-				lsdesc->neighbor_interface_id =
-					htonl(on->ifindex);
-				lsdesc->neighbor_router_id = on->router_id;
+				if (lstype == OSPF6_LSTYPE_ROUTER) {
+					lsdesc->type =
+						OSPF6_ROUTER_LSDESC_POINTTOPOINT;
+					lsdesc->metric =
+						htons(ospf6_neighbor_cost(on));
+					lsdesc->interface_id =
+						htonl(oi->interface->ifindex);
+					lsdesc->neighbor_interface_id =
+						htonl(on->ifindex);
+					lsdesc->neighbor_router_id =
+						on->router_id;
 
-				lsdesc++;
+					lsdesc++;
+				} else {
+					/*
+					 * lstype == OSPF_LSTYPE_E_ROUTER
+					 * fields are offset by the tlv header
+					 */
+					tlv = (struct tlv_router_link *)lsdesc;
+					tlv->type =
+						OSPF6_ROUTER_LSDESC_POINTTOPOINT;
+					tlv->metric =
+						htons(ospf6_neighbor_cost(on));
+					tlv->interface_id =
+						htonl(oi->interface->ifindex);
+					tlv->neighbor_interface_id =
+						htonl(on->ifindex);
+					tlv->neighbor_router_id = on->router_id;
+
+					tlv->header.type =
+						htons(OSPF6_TLV_ROUTER_LINK);
+					/* No sub-TLVs to include in length calc */
+					tlv->header.length =
+						htons(TLV_ROUTER_LINK_LENGTH);
+					lsdesc = (struct ospf6_router_lsdesc *)
+						TLV_HDR_NEXT(&tlv->header);
+				}
 			}
 		}
 
@@ -342,28 +375,60 @@ void ospf6_router_lsa_originate(struct event *thread)
 			   and If this router not fully adjacent with DR,
 			   this interface is not transit yet: ignore. */
 			if (oi->state != OSPF6_INTERFACE_DR) {
-				drouter =
-					ospf6_neighbor_lookup(oi->drouter, oi);
-				if (drouter == NULL
-				    || drouter->state != OSPF6_NEIGHBOR_FULL)
+				drouter = ospf6_neighbor_lookup(oi->drouter, oi);
+				if (drouter == NULL ||
+				    drouter->state != OSPF6_NEIGHBOR_FULL)
 					continue;
 			}
 
-			lsdesc->type = OSPF6_ROUTER_LSDESC_TRANSIT_NETWORK;
-			lsdesc->metric = htons(oi->cost);
-			lsdesc->interface_id = htonl(oi->interface->ifindex);
-			if (oi->state != OSPF6_INTERFACE_DR) {
-				lsdesc->neighbor_interface_id =
-					htonl(drouter->ifindex);
-				lsdesc->neighbor_router_id = drouter->router_id;
-			} else {
-				lsdesc->neighbor_interface_id =
+			if (lstype == OSPF6_LSTYPE_ROUTER) {
+				lsdesc->type =
+					OSPF6_ROUTER_LSDESC_TRANSIT_NETWORK;
+				lsdesc->metric = htons(oi->cost);
+				lsdesc->interface_id =
 					htonl(oi->interface->ifindex);
-				lsdesc->neighbor_router_id =
-					oi->area->ospf6->router_id;
-			}
+				if (oi->state != OSPF6_INTERFACE_DR) {
+					lsdesc->neighbor_interface_id =
+						htonl(drouter->ifindex);
+					lsdesc->neighbor_router_id =
+						drouter->router_id;
+				} else {
+					lsdesc->neighbor_interface_id =
+						htonl(oi->interface->ifindex);
+					lsdesc->neighbor_router_id =
+						oi->area->ospf6->router_id;
+				}
 
-			lsdesc++;
+				lsdesc++;
+			} else {
+				/*
+				 * lstype == OSPF_LSTYPE_E_ROUTER
+				 * fields are offset by the tlv header
+				 */
+				tlv = (struct tlv_router_link *)lsdesc;
+				tlv->type = OSPF6_ROUTER_LSDESC_TRANSIT_NETWORK;
+				tlv->metric = htons(oi->cost);
+				tlv->interface_id =
+					htonl(oi->interface->ifindex);
+				if (oi->state != OSPF6_INTERFACE_DR) {
+					tlv->neighbor_interface_id =
+						htonl(drouter->ifindex);
+					tlv->neighbor_router_id =
+						drouter->router_id;
+				} else {
+					tlv->neighbor_interface_id =
+						htonl(oi->interface->ifindex);
+					tlv->neighbor_router_id =
+						oi->area->ospf6->router_id;
+				}
+
+				tlv->header.type = htons(OSPF6_TLV_ROUTER_LINK);
+				/* No sub-TLVs to include in length calc */
+				tlv->header.length =
+					htons(TLV_ROUTER_LINK_LENGTH);
+				lsdesc = (struct ospf6_router_lsdesc *)
+					TLV_HDR_NEXT(&tlv->header);
+			}
 		} else {
 			assert(0); /* Unknown interface type */
 		}
@@ -376,7 +441,7 @@ void ospf6_router_lsa_originate(struct event *thread)
 
 	/* Fill LSA Header */
 	lsa_header->age = 0;
-	lsa_header->type = htons(OSPF6_LSTYPE_ROUTER);
+	lsa_header->type = htons(lstype);
 	lsa_header->id = htonl(link_state_id);
 	lsa_header->adv_router = oa->ospf6->router_id;
 	lsa_header->seqnum =
@@ -396,7 +461,7 @@ void ospf6_router_lsa_originate(struct event *thread)
 	link_state_id++;
 
 	/* Do premature-aging of rest, undesired Router-LSAs */
-	type = ntohs(OSPF6_LSTYPE_ROUTER);
+	type = ntohs(lstype);
 	router = oa->ospf6->router_id;
 	count = 0;
 	for (ALL_LSDB_TYPED_ADVRTR(oa->lsdb, type, router, lsa)) {
@@ -410,12 +475,19 @@ void ospf6_router_lsa_originate(struct event *thread)
 	 * Waiting till the LSA is actually removed from the database to trigger
 	 * SPF delays network convergence. Unlike IPv4, for an ABR, when all
 	 * interfaces associated with an area are gone, triggering an SPF right
-	 * away
-	 * helps convergence with inter-area routes.
+	 * away helps convergence with inter-area routes.
 	 */
 	if (count && !link_state_id)
 		ospf6_spf_schedule(oa->ospf6,
 				   OSPF6_SPF_FLAGS_ROUTER_LSA_ORIGINATED);
+}
+
+void ospf6_router_lsa_originate(struct event *thread)
+{
+	struct ospf6_area *oa = EVENT_ARG(thread);
+
+	router_lsa_originate(oa, OSPF6_LSTYPE_ROUTER);
+	router_lsa_originate(oa, OSPF6_LSTYPE_E_ROUTER);
 }
 
 /*******************************/
