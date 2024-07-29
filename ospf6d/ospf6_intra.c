@@ -564,10 +564,8 @@ static int ospf6_network_lsa_show(struct vty *vty, struct ospf6_lsa *lsa,
 	return 0;
 }
 
-void ospf6_network_lsa_originate(struct event *thread)
+static void network_lsa_originate(struct ospf6_interface *oi, int lstype)
 {
-	struct ospf6_interface *oi;
-
 	char buffer[OSPF6_MAX_LSASIZE];
 	struct ospf6_lsa_header *lsa_header;
 
@@ -575,12 +573,12 @@ void ospf6_network_lsa_originate(struct event *thread)
 	struct ospf6_lsa *old, *lsa;
 	struct ospf6_network_lsa *network_lsa;
 	struct ospf6_network_lsdesc *lsdesc;
+	struct tlv_attached_routers *tlv;
 	struct ospf6_neighbor *on;
 	struct ospf6_link_lsa *link_lsa;
 	struct listnode *i;
 	uint16_t type;
 
-	oi = (struct ospf6_interface *)EVENT_ARG(thread);
 
 	/* The interface must be enabled until here. A Network-LSA of a
 	   disabled interface (but was once enabled) should be flushed
@@ -607,9 +605,8 @@ void ospf6_network_lsa_originate(struct event *thread)
 			 * database to
 			 * trigger SPF delays network convergence.
 			 */
-			ospf6_spf_schedule(
-				oi->area->ospf6,
-				OSPF6_SPF_FLAGS_NETWORK_LSA_ORIGINATED);
+			ospf6_spf_schedule(oi->area->ospf6,
+					   OSPF6_SPF_FLAGS_NETWORK_LSA_ORIGINATED);
 		}
 		return;
 	}
@@ -650,23 +647,44 @@ void ospf6_network_lsa_originate(struct event *thread)
 
 	lsdesc = lsdesc_start_lsa_type(lsa_header, OSPF6_LSTYPE_NETWORK);
 
-	/* set Link Description to the router itself */
-	lsdesc->router_id = oi->area->ospf6->router_id;
-	lsdesc++;
+	if (lstype == OSPF6_LSTYPE_NETWORK) {
+		/* set Link Description to the router itself */
+		lsdesc->router_id = oi->area->ospf6->router_id;
+		lsdesc++;
+	} else {
+		/* lstype == OSPF6_LSTYPE_E_NETWORK */
+		tlv = (struct tlv_attached_routers *)lsdesc;
+		tlv->router_id[0] = oi->area->ospf6->router_id;
+		tlv->header.type = htons(TLV_ATTACHED_ROUTERS_TYPE);
+		tlv->header.length = htons(TLV_ATTACHED_ROUTERS_LENGTH);
+		lsdesc = (struct ospf6_network_lsdesc *)TLV_HDR_NEXT(&tlv->header);
+	}
 
 	/* Walk through the neighbors */
-	for (ALL_LIST_ELEMENTS_RO(oi->neighbor_list, i, on)) {
-		if (on->state != OSPF6_NEIGHBOR_FULL)
-			continue;
+	if (lstype == OSPF6_LSTYPE_NETWORK) {
+		for (ALL_LIST_ELEMENTS_RO(oi->neighbor_list, i, on)) {
+			if (on->state != OSPF6_NEIGHBOR_FULL)
+				continue;
 
-		/* set this neighbor's Router-ID to LSA */
-		lsdesc->router_id = on->router_id;
-		lsdesc++;
+			/* set this neighbor's Router-ID to LSA */
+			lsdesc->router_id = on->router_id;
+			lsdesc++;
+		}
+	} else {
+		/* lstype == OSPF6_LSTYPE_E_NETWORK */
+		int count = 1;
+		for (ALL_LIST_ELEMENTS_RO(oi->neighbor_list, i, on)) {
+			if (on->state != OSPF6_NEIGHBOR_FULL)
+				continue;
+			tlv->router_id[count++] = on->router_id;
+		}
+		tlv->header.length = htons(count * TLV_ATTACHED_ROUTERS_LENGTH);
+		lsdesc = (struct ospf6_network_lsdesc *)TLV_HDR_NEXT(&tlv->header);
 	}
 
 	/* Fill LSA Header */
 	lsa_header->age = 0;
-	lsa_header->type = htons(OSPF6_LSTYPE_NETWORK);
+	lsa_header->type = htons(lstype);
 	lsa_header->id = htonl(oi->interface->ifindex);
 	lsa_header->adv_router = oi->area->ospf6->router_id;
 	lsa_header->seqnum =
@@ -684,6 +702,13 @@ void ospf6_network_lsa_originate(struct event *thread)
 	ospf6_lsa_originate_area(lsa, oi->area);
 }
 
+void ospf6_network_lsa_originate(struct event *thread)
+{
+	struct ospf6_interface *oi = EVENT_ARG(thread);
+
+	network_lsa_originate(oi, OSPF6_LSTYPE_NETWORK);
+	network_lsa_originate(oi, OSPF6_LSTYPE_E_NETWORK);
+}
 
 /****************************/
 /* RFC2740 3.4.3.6 Link-LSA */

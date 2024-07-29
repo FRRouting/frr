@@ -83,7 +83,7 @@ struct tlv_router_link {
 /* fields correspond to struct ospf6_network_lsdesc - RFC 8362 3.3 */
 struct tlv_attached_routers {
 	struct tlv_header header;
-	in_addr_t router_id;
+	in_addr_t router_id[];
 };
 
 #define TLV_INTER_AREA_PREFIX_TYPE 3
