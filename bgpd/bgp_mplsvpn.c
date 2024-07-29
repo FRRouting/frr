@@ -3730,6 +3730,9 @@ void vpn_leak_postchange_all(void)
 		if (bgp->inst_type != BGP_INSTANCE_TYPE_VRF)
 			continue;
 
+		if (CHECK_FLAG(bgp->vrf_flags, BGP_VRF_AUTO))
+			continue;
+
 		vpn_leak_postchange(
 			BGP_VPN_POLICY_DIR_TOVPN,
 			AFI_IP,
@@ -3747,6 +3750,9 @@ void vpn_leak_postchange_all(void)
 	for (ALL_LIST_ELEMENTS_RO(bm->bgp, next, bgp)) {
 
 		if (bgp->inst_type != BGP_INSTANCE_TYPE_VRF)
+			continue;
+
+		if (CHECK_FLAG(bgp->vrf_flags, BGP_VRF_AUTO))
 			continue;
 
 		vpn_leak_postchange(
