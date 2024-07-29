@@ -1287,6 +1287,94 @@ int routing_control_plane_protocols_control_plane_protocol_pim_address_family_ms
 #endif /* PIM_IPV != 6 */
 
 /*
+ * XPath:
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-pim:pim/address-family/msdp-peer/sa-filter-in
+ */
+int pim_msdp_peer_sa_filter_in_modify(struct nb_cb_modify_args *args)
+{
+	struct pim_msdp_peer *mp;
+
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		/* NOTHING */
+		break;
+	case NB_EV_APPLY:
+		mp = nb_running_get_entry(args->dnode, NULL, true);
+		XFREE(MTYPE_TMP, mp->acl_in);
+		mp->acl_in = XSTRDUP(MTYPE_TMP,
+				     yang_dnode_get_string(args->dnode, NULL));
+		break;
+	}
+
+	return NB_OK;
+}
+
+int pim_msdp_peer_sa_filter_in_destroy(struct nb_cb_destroy_args *args)
+{
+	struct pim_msdp_peer *mp;
+
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		/* NOTHING */
+		break;
+	case NB_EV_APPLY:
+		mp = nb_running_get_entry(args->dnode, NULL, true);
+		XFREE(MTYPE_TMP, mp->acl_in);
+		break;
+	}
+
+	return NB_OK;
+}
+
+/*
+ * XPath:
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-pim:pim/address-family/msdp-peer/sa-filter-out
+ */
+int pim_msdp_peer_sa_filter_out_modify(struct nb_cb_modify_args *args)
+{
+	struct pim_msdp_peer *mp;
+
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		/* NOTHING */
+		break;
+	case NB_EV_APPLY:
+		mp = nb_running_get_entry(args->dnode, NULL, true);
+		XFREE(MTYPE_TMP, mp->acl_out);
+		mp->acl_out = XSTRDUP(MTYPE_TMP,
+				      yang_dnode_get_string(args->dnode, NULL));
+		break;
+	}
+
+	return NB_OK;
+}
+
+int pim_msdp_peer_sa_filter_out_destroy(struct nb_cb_destroy_args *args)
+{
+	struct pim_msdp_peer *mp;
+
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		/* NOTHING */
+		break;
+	case NB_EV_APPLY:
+		mp = nb_running_get_entry(args->dnode, NULL, true);
+		XFREE(MTYPE_TMP, mp->acl_out);
+		break;
+	}
+
+	return NB_OK;
+}
+
+/*
  * XPath: /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-pim:pim/address-family/mlag
  */
 int routing_control_plane_protocols_control_plane_protocol_pim_address_family_mlag_create(

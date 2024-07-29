@@ -342,7 +342,7 @@ MSDP can be setup in different ways:
 
 .. note::
 
-   MSDP default peer and SA filtering is not implemented.
+   MSDP default peer is not implemented.
    MSDP configuration is available under 'router pim'
 
 
@@ -376,6 +376,15 @@ Commands available for MSDP:
 .. clicmd:: msdp peer A.B.C.D source A.B.C.D
 
    Create a regular MSDP session with peer using the specified source address.
+
+.. clicmd:: msdp peer A.B.C.D sa-filter ACL_NAME <in|out>
+
+   Configure incoming or outgoing SA filtering rule.
+
+   .. note::
+
+      The filtering will only take effect starting from the command
+      application.
 
 
 .. _show-pim-information:
