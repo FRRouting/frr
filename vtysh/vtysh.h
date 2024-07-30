@@ -35,6 +35,7 @@ extern struct event_loop *master;
 #define VTYSH_PATHD     0x80000
 #define VTYSH_PIM6D     0x100000
 #define VTYSH_MGMTD 0x200000
+#define RCV_BUF_MAX	16777216
 
 #define VTYSH_WAS_ACTIVE (-2)
 

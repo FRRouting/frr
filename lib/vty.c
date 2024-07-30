@@ -345,8 +345,17 @@ int vty_out(struct vty *vty, const char *format, ...)
 	case VTY_SHELL_SERV:
 	case VTY_FILE:
 	default:
+		vty->vty_buf_size_written += strlen(filtered);
 		/* print without crlf replacement */
 		buffer_put(vty->obuf, (uint8_t *)filtered, strlen(filtered));
+		/* For every chunk of memory, we invoke vtysh_flush where we
+		 * put the data of collective vty->obuf Linked List items on the
+		 * socket and free the vty->obuf data.
+		 */
+		if (vty->vty_buf_size_written >= MAX_INTERMEDIATE_FLUSH) {
+			vty->vty_buf_size_written = 0;
+			vtysh_flush(vty);
+		}
 		break;
 	}
 
@@ -2141,6 +2150,21 @@ static void vtysh_accept(struct event *thread)
 		close(sock);
 		return;
 	}
+	/* Setting the SND buffer size to 16MB to increase the buffer size
+	 * the socket can hold before sending it to VTY shell
+	 */
+	uint32_t sndbufsize = SEND_BUF_MAX;
+	int ret;
+
+	ret = setsockopt(sock, SOL_SOCKET, SO_SNDBUF, (char *)&sndbufsize,
+			 sizeof(sndbufsize));
+	if (ret < 0) {
+		flog_err(EC_LIB_SOCKET,
+			 "Cannot set socket %d send buffer size, %s", sock,
+			 safe_strerror(errno));
+		close(sock);
+		return;
+	}
 	set_cloexec(sock);
 
 #ifdef VTYSH_DEBUG
@@ -2227,6 +2251,7 @@ static int vtysh_flush(struct vty *vty)
 		vty_close(vty);
 		return -1;
 	case BUFFER_EMPTY:
+		vty->vty_buf_size_written = 0;
 		break;
 	}
 	return 0;

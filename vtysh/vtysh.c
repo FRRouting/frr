@@ -4721,6 +4721,22 @@ static int vtysh_connect(struct vtysh_client *vclient)
 		close(sock);
 		return -1;
 	}
+	/* Setting the RCV buffer size to 16MB to increase the buffer size
+	 * the socket can hold after receving from other process
+	 */
+	uint32_t rcvbufsize = RCV_BUF_MAX;
+
+	ret = setsockopt(sock, SOL_SOCKET, SO_RCVBUF, (char *)&rcvbufsize,
+			 sizeof(rcvbufsize));
+	if (ret < 0) {
+#ifdef DEBUG
+		fprintf(stderr, "Cannot set socket %d rcv buffer size, %s\n",
+			sock, safe_strerror(errno));
+#endif /* DEBUG */
+		close(sock);
+		return -1;
+	}
+
 	vclient->fd = sock;
 
 	return 0;
