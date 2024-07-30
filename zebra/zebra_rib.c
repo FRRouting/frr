@@ -3837,13 +3837,18 @@ static void rib_meta_queue_free(struct meta_queue *mq, struct list *l,
 }
 
 static void early_route_meta_queue_free(struct meta_queue *mq, struct list *l,
-					struct zebra_vrf *zvrf)
+					const struct zebra_vrf *zvrf,
+					uint8_t proto, uint8_t instance)
 {
 	struct zebra_early_route *ere;
 	struct listnode *node, *nnode;
 
 	for (ALL_LIST_ELEMENTS(l, node, nnode, ere)) {
 		if (zvrf && ere->re->vrf_id != zvrf->vrf->vrf_id)
+			continue;
+
+		if (proto != ZEBRA_ROUTE_ALL &&
+		    (proto != ere->re->type && instance != ere->re->instance))
 			continue;
 
 		early_route_memory_free(ere);
@@ -3884,7 +3889,8 @@ void meta_queue_free(struct meta_queue *mq, struct zebra_vrf *zvrf)
 			evpn_meta_queue_free(mq, mq->subq[i], zvrf);
 			break;
 		case META_QUEUE_EARLY_ROUTE:
-			early_route_meta_queue_free(mq, mq->subq[i], zvrf);
+			early_route_meta_queue_free(mq, mq->subq[i], zvrf,
+						    ZEBRA_ROUTE_ALL, 0);
 			break;
 		case META_QUEUE_EARLY_LABEL:
 			early_label_meta_queue_free(mq, mq->subq[i], zvrf);
@@ -4751,6 +4757,10 @@ unsigned long rib_score_proto(uint8_t proto, unsigned short instance)
 		zvrf = vrf->info;
 		if (!zvrf)
 			continue;
+
+		early_route_meta_queue_free(zrouter.mq,
+					    zrouter.mq->subq[META_QUEUE_EARLY_ROUTE],
+					    zvrf, proto, instance);
 
 		cnt += rib_score_proto_table(proto, instance,
 					     zvrf->table[AFI_IP][SAFI_UNICAST])
