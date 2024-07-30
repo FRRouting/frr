@@ -750,6 +750,46 @@ IDE/editor if supported (e.g., the emacs ``cov-mode`` package)
 NOTE: the *.gcda files in ``/tmp/topotests/gcda`` are cumulative so if you do
 not remove them they will aggregate data across multiple topotest runs.
 
+How to reproduce failed Tests
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Generally tests fail but recreating the test failure reliably is not necessarily
+easy, or it happens once every 10 runs locally.  Here are some generic strategies
+that are employed to allow for the test to be reproduced reliably
+
+.. code:: console
+
+   cd <test directory>
+   ln -s test_the_test_name.py test_a.py
+   ln -s test_the_test_name.py test_b.py
+
+This allows you to run multiple copies of the same test with one full test run.
+Additionally if you need to modify the test you don't need to recopy everything
+to make it work.  By adding multiple copies of the same occassionally failing test
+you raise the odds of it failing again.  Additionally you have easily accessible
+good and bad runs to compare.
+
+.. code:: console
+
+   sudo -E python3 -m pytest -n <some value> --dist=loadfile
+
+Choose a n value that is greater than the number of cpu's avalaible on the system.
+This changes the timing and may or may not make it more likely that the test fails.
+Be aware, though, that this changes memory requirements as well as may make other
+tests fail more often as well.  You should choose values that do not cause the system
+to go into swap usage.
+
+.. code:: console
+
+   stress -n <number of cpu's to put at 100%>
+
+By filling up cpu's with programs that do nothing you also change the timing again and
+may cause the problem to happen more often.
+
+There is no magic bullet here.  You as a developer might have to experiment with different
+values and different combinations of the above to cause the problem to happen more often.
+These are just the tools that we know of at this point in time.
+
 
 .. _topotests_docker:
 
