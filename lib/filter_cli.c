@@ -215,15 +215,8 @@ DEFPY_YANG(
 	"Address to match\n"
 	"Wildcard bits\n")
 {
-	int64_t sseq;
 	struct acl_dup_args ada = {};
 
-	/* If the user provided sequence number, then just go for it. */
-	if (seq_str != NULL)
-		return filter_remove_check_empty(vty, "access", "ipv4", name,
-						 seq, false);
-
-	/* Otherwise, to keep compatibility, we need to figure it out. */
 	ada.ada_type = "ipv4";
 	ada.ada_name = name;
 	ada.ada_action = action;
@@ -240,13 +233,11 @@ DEFPY_YANG(
 		ada.ada_value[0] = "";
 	}
 
-	if (acl_is_dup(vty->candidate_config->dnode, &ada))
-		sseq = ada.ada_seq;
-	else
+	if (!acl_is_dup(vty->candidate_config->dnode, &ada))
 		return CMD_WARNING_CONFIG_FAILED;
 
-	return filter_remove_check_empty(vty, "access", "ipv4", name, sseq,
-					 false);
+	return filter_remove_check_empty(vty, "access", "ipv4", name,
+					 ada.ada_seq, false);
 }
 
 DEFPY_YANG(
@@ -388,15 +379,8 @@ DEFPY_YANG(
 	"Any destination host\n")
 {
 	int idx = 0;
-	int64_t sseq;
 	struct acl_dup_args ada = {};
 
-	/* If the user provided sequence number, then just go for it. */
-	if (seq_str != NULL)
-		return filter_remove_check_empty(vty, "access", "ipv4", name,
-						 seq, false);
-
-	/* Otherwise, to keep compatibility, we need to figure it out. */
 	ada.ada_type = "ipv4";
 	ada.ada_name = name;
 	ada.ada_action = action;
@@ -434,13 +418,11 @@ DEFPY_YANG(
 		idx++;
 	}
 
-	if (acl_is_dup(vty->candidate_config->dnode, &ada))
-		sseq = ada.ada_seq;
-	else
+	if (!acl_is_dup(vty->candidate_config->dnode, &ada))
 		return CMD_WARNING_CONFIG_FAILED;
 
-	return filter_remove_check_empty(vty, "access", "ipv4", name, sseq,
-					 false);
+	return filter_remove_check_empty(vty, "access", "ipv4", name,
+					 ada.ada_seq, false);
 }
 
 /*
@@ -531,15 +513,8 @@ DEFPY_YANG(
 	"Exact match of the prefixes\n"
 	"Match any IPv4\n")
 {
-	int64_t sseq;
 	struct acl_dup_args ada = {};
 
-	/* If the user provided sequence number, then just go for it. */
-	if (seq_str != NULL)
-		return filter_remove_check_empty(vty, "access", "ipv4", name,
-						 seq, false);
-
-	/* Otherwise, to keep compatibility, we need to figure it out. */
 	ada.ada_type = "ipv4";
 	ada.ada_name = name;
 	ada.ada_action = action;
@@ -556,13 +531,11 @@ DEFPY_YANG(
 		ada.ada_value[0] = "";
 	}
 
-	if (acl_is_dup(vty->candidate_config->dnode, &ada))
-		sseq = ada.ada_seq;
-	else
+	if (!acl_is_dup(vty->candidate_config->dnode, &ada))
 		return CMD_WARNING_CONFIG_FAILED;
 
-	return filter_remove_check_empty(vty, "access", "ipv4", name, sseq,
-					 false);
+	return filter_remove_check_empty(vty, "access", "ipv4", name,
+					 ada.ada_seq, false);
 }
 
 DEFPY_YANG(
@@ -712,15 +685,8 @@ DEFPY_YANG(
 	"Exact match of the prefixes\n"
 	"Match any IPv6\n")
 {
-	int64_t sseq;
 	struct acl_dup_args ada = {};
 
-	/* If the user provided sequence number, then just go for it. */
-	if (seq_str != NULL)
-		return filter_remove_check_empty(vty, "access", "ipv6", name,
-						 seq, false);
-
-	/* Otherwise, to keep compatibility, we need to figure it out. */
 	ada.ada_type = "ipv6";
 	ada.ada_name = name;
 	ada.ada_action = action;
@@ -737,13 +703,11 @@ DEFPY_YANG(
 		ada.ada_value[0] = "";
 	}
 
-	if (acl_is_dup(vty->candidate_config->dnode, &ada))
-		sseq = ada.ada_seq;
-	else
+	if (!acl_is_dup(vty->candidate_config->dnode, &ada))
 		return CMD_WARNING_CONFIG_FAILED;
 
-	return filter_remove_check_empty(vty, "access", "ipv6", name, sseq,
-					 false);
+	return filter_remove_check_empty(vty, "access", "ipv6", name,
+					 ada.ada_seq, false);
 }
 
 DEFPY_YANG(
@@ -888,15 +852,8 @@ DEFPY_YANG(
 	"MAC address\n"
 	"Match any MAC address\n")
 {
-	int64_t sseq;
 	struct acl_dup_args ada = {};
 
-	/* If the user provided sequence number, then just go for it. */
-	if (seq_str != NULL)
-		return filter_remove_check_empty(vty, "access", "mac", name,
-						 seq, false);
-
-	/* Otherwise, to keep compatibility, we need to figure it out. */
 	ada.ada_type = "mac";
 	ada.ada_name = name;
 	ada.ada_action = action;
@@ -909,13 +866,11 @@ DEFPY_YANG(
 		ada.ada_value[0] = "";
 	}
 
-	if (acl_is_dup(vty->candidate_config->dnode, &ada))
-		sseq = ada.ada_seq;
-	else
+	if (!acl_is_dup(vty->candidate_config->dnode, &ada))
 		return CMD_WARNING_CONFIG_FAILED;
 
-	return filter_remove_check_empty(vty, "access", "mac", name, sseq,
-					 false);
+	return filter_remove_check_empty(vty, "access", "mac", name,
+					 ada.ada_seq, false);
 }
 
 DEFPY_YANG(
@@ -1134,15 +1089,8 @@ static int plist_remove(struct vty *vty, const char *iptype, const char *name,
 			uint32_t seq, const char *action,
 			union prefixconstptr prefix, int ge, int le)
 {
-	int64_t sseq;
 	struct plist_dup_args pda = {};
 
-	/* If the user provided sequence number, then just go for it. */
-	if (seq != 0)
-		return filter_remove_check_empty(vty, "prefix", iptype, name,
-						 seq, false);
-
-	/* Otherwise, to keep compatibility, we need to figure it out. */
 	pda.pda_type = iptype;
 	pda.pda_name = name;
 	pda.pda_action = action;
@@ -1155,13 +1103,11 @@ static int plist_remove(struct vty *vty, const char *iptype, const char *name,
 		pda.any = true;
 	}
 
-	if (plist_is_dup(vty->candidate_config->dnode, &pda))
-		sseq = pda.pda_seq;
-	else
+	if (!plist_is_dup(vty->candidate_config->dnode, &pda))
 		return CMD_WARNING_CONFIG_FAILED;
 
-	return filter_remove_check_empty(vty, "prefix", iptype, name, sseq,
-					 false);
+	return filter_remove_check_empty(vty, "prefix", iptype, name,
+					 pda.pda_seq, false);
 }
 
 DEFPY_YANG(
@@ -1276,18 +1222,6 @@ DEFPY_YANG(
 {
 	return plist_remove(vty, "ipv4", name, seq, action,
 			    prefix_str ? prefix : NULL, ge, le);
-}
-
-DEFPY_YANG(
-	no_ip_prefix_list_seq, no_ip_prefix_list_seq_cmd,
-	"no ip prefix-list PREFIXLIST4_NAME$name seq (1-4294967295)$seq",
-	NO_STR
-	IP_STR
-	PREFIX_LIST_STR
-	PREFIX_LIST_NAME_STR
-	ACCESS_LIST_SEQ_STR)
-{
-	return plist_remove(vty, "ipv4", name, seq, NULL, NULL, 0, 0);
 }
 
 DEFPY_YANG(
@@ -1466,18 +1400,6 @@ DEFPY_YANG(
 {
 	return plist_remove(vty, "ipv6", name, seq, action,
 			    prefix_str ? prefix : NULL, ge, le);
-}
-
-DEFPY_YANG(
-	no_ipv6_prefix_list_seq, no_ipv6_prefix_list_seq_cmd,
-	"no ipv6 prefix-list PREFIXLIST6_NAME$name seq (1-4294967295)$seq",
-	NO_STR
-	IPV6_STR
-	PREFIX_LIST_STR
-	PREFIX_LIST_NAME_STR
-	ACCESS_LIST_SEQ_STR)
-{
-	return plist_remove(vty, "ipv6", name, seq, NULL, NULL, 0, 0);
 }
 
 DEFPY_YANG(
@@ -1664,7 +1586,6 @@ void filter_cli_init(void)
 	/* prefix lists. */
 	install_element(CONFIG_NODE, &ip_prefix_list_cmd);
 	install_element(CONFIG_NODE, &no_ip_prefix_list_cmd);
-	install_element(CONFIG_NODE, &no_ip_prefix_list_seq_cmd);
 	install_element(CONFIG_NODE, &no_ip_prefix_list_all_cmd);
 	install_element(CONFIG_NODE, &ip_prefix_list_remark_cmd);
 	install_element(CONFIG_NODE, &no_ip_prefix_list_remark_cmd);
@@ -1672,7 +1593,6 @@ void filter_cli_init(void)
 
 	install_element(CONFIG_NODE, &ipv6_prefix_list_cmd);
 	install_element(CONFIG_NODE, &no_ipv6_prefix_list_cmd);
-	install_element(CONFIG_NODE, &no_ipv6_prefix_list_seq_cmd);
 	install_element(CONFIG_NODE, &no_ipv6_prefix_list_all_cmd);
 	install_element(CONFIG_NODE, &ipv6_prefix_list_remark_cmd);
 	install_element(CONFIG_NODE, &no_ipv6_prefix_list_remark_cmd);
