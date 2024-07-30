@@ -154,48 +154,6 @@
       ]
     }
   ],
-  "10.0.2.0\/24":[
-    {
-      "prefix":"10.0.2.0\/24",
-      "protocol":"isis",
-      "distance":115,
-      "metric":20,
-      "nexthops":[
-        {
-          "ip":"10.0.2.2",
-          "afi":"ipv4",
-          "interfaceName":"eth-rt2-1"
-        },
-        {
-          "ip":"10.0.3.2",
-          "afi":"ipv4",
-          "interfaceName":"eth-rt2-2",
-          "active":true
-        }
-      ]
-    }
-  ],
-  "10.0.3.0\/24":[
-    {
-      "prefix":"10.0.3.0\/24",
-      "protocol":"isis",
-      "distance":115,
-      "metric":20,
-      "nexthops":[
-        {
-          "ip":"10.0.2.2",
-          "afi":"ipv4",
-          "interfaceName":"eth-rt2-1",
-          "active":true
-        },
-        {
-          "ip":"10.0.3.2",
-          "afi":"ipv4",
-          "interfaceName":"eth-rt2-2"
-        }
-      ]
-    }
-  ],
   "10.0.4.0\/24":[
     {
       "prefix":"10.0.4.0\/24",
@@ -232,36 +190,6 @@
           "afi":"ipv4",
           "interfaceName":"eth-rt5",
           "active":true
-        }
-      ]
-    }
-  ],
-  "10.0.6.0\/24":[
-    {
-      "prefix":"10.0.6.0\/24",
-      "protocol":"isis",
-      "distance":115,
-      "metric":20,
-      "nexthops":[
-        {
-          "ip":"10.0.6.5",
-          "afi":"ipv4",
-          "interfaceName":"eth-rt5"
-        }
-      ]
-    }
-  ],
-  "10.0.7.0\/24":[
-    {
-      "prefix":"10.0.7.0\/24",
-      "protocol":"isis",
-      "distance":115,
-      "metric":20,
-      "nexthops":[
-        {
-          "ip":"10.0.7.6",
-          "afi":"ipv4",
-          "interfaceName":"eth-rt6"
         }
       ]
     }

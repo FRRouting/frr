@@ -78,19 +78,6 @@
   "10.0.2.0\/24":[
     {
       "prefix":"10.0.2.0\/24",
-      "protocol":"isis",
-      "distance":115,
-      "metric":10,
-      "nexthops":[
-        {
-          "ip":"10.0.2.1",
-          "afi":"ipv4",
-          "interfaceName":"r3-eth1"
-        }
-      ]
-    },
-    {
-      "prefix":"10.0.2.0\/24",
       "protocol":"connected",
       "selected":true,
       "nexthops":[
@@ -104,19 +91,6 @@
     }
   ],
   "10.0.3.0\/24":[
-    {
-      "prefix":"10.0.3.0\/24",
-      "protocol":"isis",
-      "distance":115,
-      "metric":10,
-      "nexthops":[
-        {
-          "ip":"10.0.3.2",
-          "afi":"ipv4",
-          "interfaceName":"r3-eth2"
-        }
-      ]
-    },
     {
       "prefix":"10.0.3.0\/24",
       "protocol":"connected",

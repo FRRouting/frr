@@ -195,9 +195,8 @@
     "nexthops":[
       {
         "type":"SR (IS-IS)",
-        "outLabel":16100,
-        "installed":true,
-        "nexthop":"10.0.6.4"
+        "outLabel":3,
+        "installed":true
       }
     ]
   },

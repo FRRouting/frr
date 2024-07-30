@@ -251,36 +251,6 @@
       ]
     }
   ],
-  "10.0.7.0\/24":[
-    {
-      "prefix":"10.0.7.0\/24",
-      "protocol":"isis",
-      "distance":115,
-      "metric":20,
-      "nexthops":[
-        {
-          "ip":"10.0.7.4",
-          "afi":"ipv4",
-          "interfaceName":"eth-rt4"
-        }
-      ]
-    }
-  ],
-  "10.0.8.0\/24":[
-    {
-      "prefix":"10.0.8.0\/24",
-      "protocol":"isis",
-      "distance":115,
-      "metric":20,
-      "nexthops":[
-        {
-          "ip":"10.0.8.5",
-          "afi":"ipv4",
-          "interfaceName":"eth-rt5"
-        }
-      ]
-    }
-  ],
   "10.10.10.10\/32":[
     {
       "prefix":"10.10.10.10\/32",

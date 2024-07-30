@@ -10,13 +10,13 @@
                 {
                     "metric": 0,
                     "parent": "r5(4)",
-                    "type": "IP internal",
+                    "type": "IP TE",
                     "vertex": "10.0.10.0/24"
                 },
                 {
                     "metric": 0,
                     "parent": "r5(4)",
-                    "type": "IP internal",
+                    "type": "IP TE",
                     "vertex": "10.0.11.0/24"
                 },
                 {
@@ -41,14 +41,6 @@
                     "nextHop": "r3",
                     "parent": "r3(4)",
                     "type": "IP TE",
-                    "vertex": "10.0.10.0/24"
-                },
-                {
-                    "interface": "r5-eth0",
-                    "metric": 10,
-                    "nextHop": "r3",
-                    "parent": "r3(4)",
-                    "type": "IP TE",
                     "vertex": "10.0.20.0/24"
                 },
                 {
@@ -58,14 +50,6 @@
                     "parent": "r3(4)",
                     "type": "IP TE",
                     "vertex": "10.254.0.3/32"
-                },
-                {
-                    "interface": "r5-eth1",
-                    "metric": 10,
-                    "nextHop": "r4",
-                    "parent": "r4(4)",
-                    "type": "IP TE",
-                    "vertex": "10.0.11.0/24"
                 },
                 {
                     "interface": "r5-eth1",
