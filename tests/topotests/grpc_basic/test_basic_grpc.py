@@ -31,7 +31,7 @@ GRPCP_OSPFD = 50055
 GRPCP_PIMD = 50056
 GRPCP_MGMTD = 50057
 
-pytestmark = [
+pytestmark = [pytest.mark.random_order(disabled=True),
     pytest.mark.mgmtd,
     # pytest.mark.bfdd,
     # pytest.mark.isisd,

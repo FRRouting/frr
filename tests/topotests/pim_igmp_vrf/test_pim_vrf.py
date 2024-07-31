@@ -96,7 +96,7 @@ from lib.common_config import required_linux_kernel_version
 from lib.pim import McastTesterHelper
 
 
-pytestmark = [pytest.mark.ospfd, pytest.mark.pimd]
+pytestmark = [pytest.mark.random_order(disabled=True), pytest.mark.ospfd, pytest.mark.pimd]
 
 
 def build_topo(tgen):

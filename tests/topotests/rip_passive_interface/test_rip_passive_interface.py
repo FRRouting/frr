@@ -24,7 +24,7 @@ from lib import topotest
 from lib.topogen import Topogen, get_topogen
 from lib.common_config import step
 
-pytestmark = [pytest.mark.ripd]
+pytestmark = [pytest.mark.random_order(disabled=True), pytest.mark.ripd]
 
 
 def setup_module(mod):

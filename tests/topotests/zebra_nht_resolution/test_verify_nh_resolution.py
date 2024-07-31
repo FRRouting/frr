@@ -29,7 +29,7 @@ from lib.topolog import logger
 CWD = os.path.dirname(os.path.realpath(__file__))
 sys.path.append(os.path.join(CWD, "../"))
 
-pytestmark = [pytest.mark.sharpd]
+pytestmark = [pytest.mark.random_order(disabled=True), pytest.mark.sharpd]
 
 # GLOBAL VARIABLES
 NH1 = "2.2.2.32"

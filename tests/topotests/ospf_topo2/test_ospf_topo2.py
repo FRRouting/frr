@@ -26,7 +26,7 @@ import time
 from lib.topogen import Topogen
 
 
-pytestmark = [
+pytestmark = [pytest.mark.random_order(disabled=True),
     pytest.mark.ospf6d,
     pytest.mark.ospfd,
 ]

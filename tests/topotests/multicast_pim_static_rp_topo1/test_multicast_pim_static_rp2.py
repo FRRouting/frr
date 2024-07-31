@@ -129,7 +129,7 @@ from lib.pim import (
     McastTesterHelper,
 )
 
-pytestmark = [pytest.mark.pimd, pytest.mark.staticd]
+pytestmark = [pytest.mark.random_order(disabled=True), pytest.mark.pimd, pytest.mark.staticd]
 
 
 # Global variables

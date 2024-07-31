@@ -29,7 +29,7 @@ from lib import topotest
 
 # Required to instantiate the topology builder class.
 
-pytestmark = [pytest.mark.bgpd, pytest.mark.isisd, pytest.mark.snmp]
+pytestmark = [pytest.mark.random_order(disabled=True), pytest.mark.bgpd, pytest.mark.isisd, pytest.mark.snmp]
 
 
 def build_topo(tgen):

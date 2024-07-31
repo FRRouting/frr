@@ -59,7 +59,7 @@ r3_r4_links = []
 r4_r2_links = []
 r4_r3_links = []
 
-pytestmark = [pytest.mark.pim6d, pytest.mark.staticd]
+pytestmark = [pytest.mark.random_order(disabled=True), pytest.mark.pim6d, pytest.mark.staticd]
 
 TOPOLOGY = """
                +-------------------+

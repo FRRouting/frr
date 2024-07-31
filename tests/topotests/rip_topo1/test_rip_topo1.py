@@ -28,7 +28,7 @@ from lib.topogen import Topogen, get_topogen
 
 fatal_error = ""
 
-pytestmark = [pytest.mark.ripd]
+pytestmark = [pytest.mark.random_order(disabled=True), pytest.mark.ripd]
 
 #####################################################
 ##

@@ -17,7 +17,7 @@ sys.path.append(os.path.join(os.path.dirname(os.path.realpath(__file__)), "../")
 from lib.ltemplate import *
 
 
-pytestmark = [pytest.mark.bgpd, pytest.mark.ldpd, pytest.mark.ospfd]
+pytestmark = [pytest.mark.random_order(disabled=True), pytest.mark.bgpd, pytest.mark.ldpd, pytest.mark.ospfd]
 
 
 def test_check_linux_vrf():

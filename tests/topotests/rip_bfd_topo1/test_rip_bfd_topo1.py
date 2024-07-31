@@ -21,7 +21,7 @@ from functools import partial
 from lib import topotest
 from lib.topogen import Topogen, TopoRouter
 
-pytestmark = [
+pytestmark = [pytest.mark.random_order(disabled=True),
     pytest.mark.bfdd,
     pytest.mark.ripd,
 ]

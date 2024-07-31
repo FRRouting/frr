@@ -41,7 +41,7 @@ from lib.common_config import start_topology
 from lib.topotest import router_json_cmp, run_and_expect
 from functools import partial
 
-pytestmark = [pytest.mark.bgpd]
+pytestmark = [pytest.mark.random_order(disabled=True), pytest.mark.bgpd]
 
 
 LISTEN_ADDRESSES = {

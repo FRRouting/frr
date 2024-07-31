@@ -46,7 +46,7 @@ from lib.common_config import required_linux_kernel_version
 
 # Required to instantiate the topology builder class.
 
-pytestmark = [pytest.mark.bgpd, pytest.mark.ospfd]
+pytestmark = [pytest.mark.random_order(disabled=True), pytest.mark.bgpd, pytest.mark.ospfd]
 
 
 def build_topo(tgen):

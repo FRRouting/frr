@@ -42,7 +42,7 @@ from lib import topotest
 from lib.topogen import Topogen, TopoRouter, get_topogen
 from functools import partial
 
-pytestmark = [pytest.mark.bgpd]
+pytestmark = [pytest.mark.random_order(disabled=True), pytest.mark.bgpd]
 
 
 def build_topo(tgen):

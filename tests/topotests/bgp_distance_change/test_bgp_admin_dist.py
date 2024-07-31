@@ -103,7 +103,7 @@ from lib.topolog import logger
 # Global variables
 topo = None
 bgp_convergence = False
-pytestmark = [pytest.mark.bgpd, pytest.mark.staticd]
+pytestmark = [pytest.mark.random_order(disabled=True), pytest.mark.bgpd, pytest.mark.staticd]
 
 NETWORK = {
     "ipv4": [

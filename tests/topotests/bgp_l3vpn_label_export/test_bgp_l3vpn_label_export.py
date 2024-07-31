@@ -27,7 +27,7 @@ from lib import topotest
 from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.common_config import kill_router_daemons, start_router_daemons, step
 
-pytestmark = [pytest.mark.bgpd]
+pytestmark = [pytest.mark.random_order(disabled=True), pytest.mark.bgpd]
 
 
 def build_topo(tgen):

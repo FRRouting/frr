@@ -33,7 +33,7 @@ CWD = os.path.dirname(os.path.realpath(__file__))
 sys.path.append(os.path.join(CWD, "../"))
 sys.path.append(os.path.join(CWD, "../lib/"))
 
-pytestmark = [pytest.mark.ospfd, pytest.mark.staticd]
+pytestmark = [pytest.mark.random_order(disabled=True), pytest.mark.ospfd, pytest.mark.staticd]
 # Global variables
 topo = None
 
