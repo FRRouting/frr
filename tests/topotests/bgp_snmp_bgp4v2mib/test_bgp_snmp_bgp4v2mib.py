@@ -26,7 +26,11 @@ from lib.snmptest import SnmpTester
 from lib import topotest
 from lib.topolog import logger
 
-pytestmark = [pytest.mark.random_order(disabled=True), pytest.mark.bgpd, pytest.mark.snmp]
+pytestmark = [
+    pytest.mark.random_order(disabled=True),
+    pytest.mark.bgpd,
+    pytest.mark.snmp,
+]
 
 
 def build_topo(tgen):

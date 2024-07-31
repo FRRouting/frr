@@ -22,7 +22,11 @@ from util import check_kernel, check_vtysh_up, write_big_route_conf
 
 CWD = os.path.dirname(os.path.realpath(__file__))
 
-pytestmark = [pytest.mark.random_order(disabled=True), pytest.mark.staticd, pytest.mark.mgmtd]
+pytestmark = [
+    pytest.mark.random_order(disabled=True),
+    pytest.mark.staticd,
+    pytest.mark.mgmtd,
+]
 
 track = Timeout(0)
 ROUTE_COUNT = 2500

@@ -66,7 +66,11 @@ from lib.bgp import (
 )
 from lib.topojson import build_config_from_json
 
-pytestmark = [pytest.mark.random_order(disabled=True), pytest.mark.bgpd, pytest.mark.staticd]
+pytestmark = [
+    pytest.mark.random_order(disabled=True),
+    pytest.mark.bgpd,
+    pytest.mark.staticd,
+]
 
 # Global variables
 BGP_CONVERGENCE = False

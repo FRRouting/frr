@@ -49,7 +49,11 @@ from bgp_auth_common import (
 )
 from lib.topogen import Topogen, TopoRouter, get_topogen
 
-pytestmark = [pytest.mark.random_order(disabled=True), pytest.mark.bgpd, pytest.mark.ospfd]
+pytestmark = [
+    pytest.mark.random_order(disabled=True),
+    pytest.mark.bgpd,
+    pytest.mark.ospfd,
+]
 
 CWD = os.path.dirname(os.path.realpath(__file__))
 

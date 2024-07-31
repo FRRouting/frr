@@ -45,11 +45,16 @@ from lib.topolog import logger
 
 from lib.pim import McastTesterHelper
 
-pytestmark = [pytest.mark.random_order(disabled=True), pytest.mark.bgpd, pytest.mark.pimd]
+pytestmark = [
+    pytest.mark.random_order(disabled=True),
+    pytest.mark.bgpd,
+    pytest.mark.pimd,
+]
 
 app_helper = McastTesterHelper()
 
 MCAST_ADDR = "229.1.2.3"
+
 
 def build_topo(tgen):
     "Build function"
@@ -334,10 +339,8 @@ def test_mroute():
                 },
             },
         },
-        "r3": {
-        },
-        "r4": {
-        },
+        "r3": {},
+        "r4": {},
         "r5": {
             MCAST_ADDR: {
                 "192.168.6.100": {

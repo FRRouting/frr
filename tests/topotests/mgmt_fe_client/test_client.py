@@ -14,7 +14,11 @@ import pytest
 from lib.topogen import Topogen
 from oper import check_kernel_32
 
-pytestmark = [pytest.mark.random_order(disabled=True), pytest.mark.staticd, pytest.mark.mgmtd]
+pytestmark = [
+    pytest.mark.random_order(disabled=True),
+    pytest.mark.staticd,
+    pytest.mark.mgmtd,
+]
 
 
 @pytest.fixture(scope="module")

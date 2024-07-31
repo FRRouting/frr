@@ -27,7 +27,11 @@ from lib.topolog import logger
 from lib.checkping import check_ping
 from lib.bgp import verify_bgp_convergence_from_running_config
 
-pytestmark = [pytest.mark.random_order(disabled=True), pytest.mark.bgpd, pytest.mark.isisd]
+pytestmark = [
+    pytest.mark.random_order(disabled=True),
+    pytest.mark.bgpd,
+    pytest.mark.isisd,
+]
 
 
 def build_topo(tgen):

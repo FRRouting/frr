@@ -65,7 +65,11 @@ from lib.topogen import Topogen, get_topogen
 
 fatal_error = ""
 
-pytestmark = [pytest.mark.random_order(disabled=True), pytest.mark.ldpd, pytest.mark.ospfd]
+pytestmark = [
+    pytest.mark.random_order(disabled=True),
+    pytest.mark.ldpd,
+    pytest.mark.ospfd,
+]
 
 #####################################################
 ##

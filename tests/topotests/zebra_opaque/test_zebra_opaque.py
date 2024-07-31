@@ -22,7 +22,12 @@ sys.path.append(os.path.join(CWD, "../"))
 from lib import topotest
 from lib.topogen import Topogen, TopoRouter, get_topogen
 
-pytestmark = [pytest.mark.random_order(disabled=True), pytest.mark.bgpd, pytest.mark.ospfd, pytest.mark.ospf6d]
+pytestmark = [
+    pytest.mark.random_order(disabled=True),
+    pytest.mark.bgpd,
+    pytest.mark.ospfd,
+    pytest.mark.ospf6d,
+]
 
 
 def setup_module(mod):

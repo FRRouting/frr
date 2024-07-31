@@ -80,7 +80,12 @@ from lib.topolog import logger
 
 # Required to instantiate the topology builder class.
 
-pytestmark = [pytest.mark.random_order(disabled=True), pytest.mark.bgpd, pytest.mark.ospfd, pytest.mark.pathd]
+pytestmark = [
+    pytest.mark.random_order(disabled=True),
+    pytest.mark.bgpd,
+    pytest.mark.ospfd,
+    pytest.mark.pathd,
+]
 
 
 def build_topo(tgen):

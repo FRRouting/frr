@@ -59,7 +59,11 @@ from lib.bgp import (
 )
 from lib.topojson import build_config_from_json
 
-pytestmark = [pytest.mark.random_order(disabled=True), pytest.mark.bgpd, pytest.mark.staticd]
+pytestmark = [
+    pytest.mark.random_order(disabled=True),
+    pytest.mark.bgpd,
+    pytest.mark.staticd,
+]
 
 # Global variables
 NETWORK1_1 = {"ipv4": "11.11.11.1/32", "ipv6": "11:11::1/128"}
@@ -849,25 +853,23 @@ def test_dynamic_imported_matching_prefix_based_on_community_list_p0(request):
                 result = verify_bgp_rib(
                     tgen, addr_type, "r3", static_routes, expected=False
                 )
-                assert result is not True, (
-                    "Testcase {} : Failed \nError {}\n"
-                    "Routes {} still in BGP table".format(
-                        tc_name,
-                        result,
-                        static_routes["r3"]["static_routes"][0]["network"],
-                    )
+                assert (
+                    result is not True
+                ), "Testcase {} : Failed \nError {}\n" "Routes {} still in BGP table".format(
+                    tc_name,
+                    result,
+                    static_routes["r3"]["static_routes"][0]["network"],
                 )
 
                 result = verify_rib(
                     tgen, addr_type, "r3", static_routes, expected=False
                 )
-                assert result is not True, (
-                    "Testcase {} : Failed Error {}"
-                    "Routes {} still in Route table".format(
-                        tc_name,
-                        result,
-                        static_routes["r3"]["static_routes"][0]["network"],
-                    )
+                assert (
+                    result is not True
+                ), "Testcase {} : Failed Error {}" "Routes {} still in Route table".format(
+                    tc_name,
+                    result,
+                    static_routes["r3"]["static_routes"][0]["network"],
                 )
             else:
                 result = verify_bgp_rib(tgen, addr_type, "r3", static_routes)
@@ -924,25 +926,23 @@ def test_dynamic_imported_matching_prefix_based_on_community_list_p0(request):
                 result = verify_bgp_rib(
                     tgen, addr_type, "r3", static_routes, expected=False
                 )
-                assert result is not True, (
-                    "Testcase {} : Failed \nError {}\n"
-                    "Routes {} still in BGP table".format(
-                        tc_name,
-                        result,
-                        static_routes["r3"]["static_routes"][0]["network"],
-                    )
+                assert (
+                    result is not True
+                ), "Testcase {} : Failed \nError {}\n" "Routes {} still in BGP table".format(
+                    tc_name,
+                    result,
+                    static_routes["r3"]["static_routes"][0]["network"],
                 )
 
                 result = verify_rib(
                     tgen, addr_type, "r3", static_routes, expected=False
                 )
-                assert result is not True, (
-                    "Testcase {} : Failed Error {}"
-                    "Routes {} still in Route table".format(
-                        tc_name,
-                        result,
-                        static_routes["r3"]["static_routes"][0]["network"],
-                    )
+                assert (
+                    result is not True
+                ), "Testcase {} : Failed Error {}" "Routes {} still in Route table".format(
+                    tc_name,
+                    result,
+                    static_routes["r3"]["static_routes"][0]["network"],
                 )
             else:
                 result = verify_bgp_rib(tgen, addr_type, "r3", static_routes)
@@ -1155,25 +1155,23 @@ def test_dynamic_import_routes_delete_static_route_p1(request):
                 result = verify_bgp_rib(
                     tgen, addr_type, "r2", static_routes, expected=False
                 )
-                assert result is not True, (
-                    "Testcase {} : Failed \nError {}\n"
-                    "Routes {} still in BGP table".format(
-                        tc_name,
-                        result,
-                        static_routes["r2"]["static_routes"][0]["network"],
-                    )
+                assert (
+                    result is not True
+                ), "Testcase {} : Failed \nError {}\n" "Routes {} still in BGP table".format(
+                    tc_name,
+                    result,
+                    static_routes["r2"]["static_routes"][0]["network"],
                 )
 
                 result = verify_rib(
                     tgen, addr_type, "r2", static_routes, expected=False
                 )
-                assert result is not True, (
-                    "Testcase {} : Failed Error {}"
-                    "Routes {} still in Route table".format(
-                        tc_name,
-                        result,
-                        static_routes[dut]["static_routes"][0]["network"],
-                    )
+                assert (
+                    result is not True
+                ), "Testcase {} : Failed Error {}" "Routes {} still in Route table".format(
+                    tc_name,
+                    result,
+                    static_routes[dut]["static_routes"][0]["network"],
                 )
 
     step("Delete static routes from vrf BLUE")
@@ -1213,23 +1211,21 @@ def test_dynamic_import_routes_delete_static_route_p1(request):
                 result = verify_bgp_rib(
                     tgen, addr_type, dut, static_routes, expected=False
                 )
-                assert result is not True, (
-                    "Testcase {} : Failed \nError {}\n"
-                    "Routes {} still in BGP table".format(
-                        tc_name,
-                        result,
-                        static_routes[dut]["static_routes"][0]["network"],
-                    )
+                assert (
+                    result is not True
+                ), "Testcase {} : Failed \nError {}\n" "Routes {} still in BGP table".format(
+                    tc_name,
+                    result,
+                    static_routes[dut]["static_routes"][0]["network"],
                 )
 
                 result = verify_rib(tgen, addr_type, dut, static_routes, expected=False)
-                assert result is not True, (
-                    "Testcase {} : Failed Error {}"
-                    "Routes {} still in Route table".format(
-                        tc_name,
-                        result,
-                        static_routes[dut]["static_routes"][0]["network"],
-                    )
+                assert (
+                    result is not True
+                ), "Testcase {} : Failed Error {}" "Routes {} still in Route table".format(
+                    tc_name,
+                    result,
+                    static_routes[dut]["static_routes"][0]["network"],
                 )
 
     step("Delete static routes from vrf default")

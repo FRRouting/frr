@@ -38,6 +38,7 @@ from lib.checkping import check_ping
 
 pytestmark = pytest.mark.random_order(disabled=True)
 
+
 def build_topo(tgen):
     r"""
      CE1     CE3      CE5

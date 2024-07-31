@@ -36,7 +36,11 @@ from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
 from lib.common_config import step
 
-pytestmark = [pytest.mark.random_order(disabled=True), pytest.mark.bgpd, pytest.mark.ospfd]
+pytestmark = [
+    pytest.mark.random_order(disabled=True),
+    pytest.mark.bgpd,
+    pytest.mark.ospfd,
+]
 
 
 def build_topo(tgen):

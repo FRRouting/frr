@@ -29,7 +29,11 @@ from lib import topotest
 from lib.topogen import Topogen, TopoRouter, get_topogen
 
 
-pytestmark = [pytest.mark.random_order(disabled=True), pytest.mark.fpm, pytest.mark.sharpd]
+pytestmark = [
+    pytest.mark.random_order(disabled=True),
+    pytest.mark.fpm,
+    pytest.mark.sharpd,
+]
 
 
 def build_topo(tgen):

@@ -32,7 +32,12 @@ from lib.topolog import logger
 
 from lib.pim import McastTesterHelper
 
-pytestmark = [pytest.mark.random_order(disabled=True), pytest.mark.bgpd, pytest.mark.ospfd, pytest.mark.pimd]
+pytestmark = [
+    pytest.mark.random_order(disabled=True),
+    pytest.mark.bgpd,
+    pytest.mark.ospfd,
+    pytest.mark.pimd,
+]
 
 app_helper = McastTesterHelper()
 

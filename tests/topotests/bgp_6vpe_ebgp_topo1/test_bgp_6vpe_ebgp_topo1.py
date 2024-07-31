@@ -26,7 +26,11 @@ from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
 from lib.checkping import check_ping
 
-pytestmark = [pytest.mark.random_order(disabled=True), pytest.mark.bgpd, pytest.mark.isisd]
+pytestmark = [
+    pytest.mark.random_order(disabled=True),
+    pytest.mark.bgpd,
+    pytest.mark.isisd,
+]
 
 
 def build_topo(tgen):

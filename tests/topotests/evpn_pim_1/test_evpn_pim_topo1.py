@@ -20,7 +20,11 @@ import pytest
 import json
 from functools import partial
 
-pytestmark = [pytest.mark.random_order(disabled=True), pytest.mark.pimd, pytest.mark.bgpd]
+pytestmark = [
+    pytest.mark.random_order(disabled=True),
+    pytest.mark.pimd,
+    pytest.mark.bgpd,
+]
 
 # Save the Current Working Directory to find configuration files.
 CWD = os.path.dirname(os.path.realpath(__file__))
