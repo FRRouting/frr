@@ -2751,6 +2751,14 @@ static int bgp_attr_encap(struct bgp_attr_parser_args *args)
 						  args->total);
 		}
 
+		if (STREAM_READABLE(BGP_INPUT(peer)) < sublength) {
+			zlog_err("Tunnel Encap attribute sub-tlv length %d exceeds remaining stream length %zu",
+				 sublength, STREAM_READABLE(BGP_INPUT(peer)));
+			return bgp_attr_malformed(args,
+						  BGP_NOTIFY_UPDATE_OPT_ATTR_ERR,
+						  args->total);
+		}
+
 		/* alloc and copy sub-tlv */
 		/* TBD make sure these are freed when attributes are released */
 		tlv = XCALLOC(MTYPE_ENCAP_TLV,
