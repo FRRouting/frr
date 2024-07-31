@@ -843,10 +843,8 @@ static int ospf6_link_lsa_show(struct vty *vty, struct ospf6_lsa *lsa,
 	return 0;
 }
 
-void ospf6_link_lsa_originate(struct event *thread)
+static void link_lsa_originate(struct ospf6_interface *oi, int lstype)
 {
-	struct ospf6_interface *oi;
-
 	char buffer[OSPF6_MAX_LSASIZE];
 	struct ospf6_lsa_header *lsa_header;
 	struct ospf6_lsa *old, *lsa;
@@ -854,8 +852,6 @@ void ospf6_link_lsa_originate(struct event *thread)
 	struct ospf6_link_lsa *link_lsa;
 	struct ospf6_route *route;
 	struct ospf6_prefix *op;
-
-	oi = (struct ospf6_interface *)EVENT_ARG(thread);
 
 	assert(oi->area);
 
@@ -868,8 +864,7 @@ void ospf6_link_lsa_originate(struct event *thread)
 
 
 	/* find previous LSA */
-	old = ospf6_lsdb_lookup(htons(OSPF6_LSTYPE_LINK),
-				htonl(oi->interface->ifindex),
+	old = ospf6_lsdb_lookup(htons(lstype), htonl(oi->interface->ifindex),
 				oi->area->ospf6->router_id, oi->lsdb);
 
 	if (CHECK_FLAG(oi->flag, OSPF6_INTERFACE_DISABLE)) {
@@ -878,9 +873,14 @@ void ospf6_link_lsa_originate(struct event *thread)
 		return;
 	}
 
-	if (IS_OSPF6_DEBUG_ORIGINATE(LINK))
-		zlog_debug("Originate Link-LSA for Interface %s",
-			   oi->interface->name);
+	if (IS_OSPF6_DEBUG_ORIGINATE(LINK)) {
+		if (lstype == OSPF6_LSTYPE_LINK)
+			zlog_debug("Originate Link-LSA for Interface %s",
+				   oi->interface->name);
+		else
+			zlog_debug("Originate E-Link-LSA for Interface %s",
+				   oi->interface->name);
+	}
 
 	/* can't make Link-LSA if linklocal address not set */
 	if (oi->linklocal_addr == NULL) {
@@ -898,29 +898,66 @@ void ospf6_link_lsa_originate(struct event *thread)
 	lsa_header = (struct ospf6_lsa_header *)buffer;
 	link_lsa = lsa_after_header(lsa_header);
 
-	/* Fill Link-LSA */
-	link_lsa->priority = oi->priority;
-	memcpy(link_lsa->options, oi->area->options, 3);
-	memcpy(&link_lsa->linklocal_addr, oi->linklocal_addr,
-	       sizeof(struct in6_addr));
-	link_lsa->prefix_num = htonl(oi->route_connected->count);
+	if (lstype == OSPF6_LSTYPE_LINK) {
+		/* Fill Link-LSA */
+		link_lsa->priority = oi->priority;
+		memcpy(link_lsa->options, oi->area->options, 3);
+		memcpy(&link_lsa->linklocal_addr, oi->linklocal_addr,
+		       sizeof(struct in6_addr));
+		link_lsa->prefix_num = htonl(oi->route_connected->count);
 
-	op = lsdesc_start_lsa_type(lsa_header, OSPF6_LSTYPE_LINK);
+		op = lsdesc_start_lsa_type(lsa_header, OSPF6_LSTYPE_LINK);
 
-	/* connected prefix to advertise */
-	for (route = ospf6_route_head(oi->route_connected); route;
-	     route = ospf6_route_next(route)) {
-		op->prefix_length = route->prefix.prefixlen;
-		op->prefix_options = route->prefix_options;
-		op->prefix_metric = htons(0);
-		memcpy(OSPF6_PREFIX_BODY(op), &route->prefix.u.prefix6,
-		       OSPF6_PREFIX_SPACE(op->prefix_length));
-		op = OSPF6_PREFIX_NEXT(op);
+		/* connected prefix to advertise */
+		for (route = ospf6_route_head(oi->route_connected); route;
+		     route = ospf6_route_next(route)) {
+			op->prefix_length = route->prefix.prefixlen;
+			op->prefix_options = route->prefix_options;
+			op->prefix_metric = htons(0);
+			memcpy(OSPF6_PREFIX_BODY(op), &route->prefix.u.prefix6,
+			       OSPF6_PREFIX_SPACE(op->prefix_length));
+			op = OSPF6_PREFIX_NEXT(op);
+		}
+	} else {
+		struct tlv_ipv6_link_local_address *tlv_ip6ll;
+		struct tlv_intra_area_prefix *tlv_op;
+
+		/* Fill Link-LSA */
+		link_lsa->priority = oi->priority;
+		memcpy(link_lsa->options, oi->area->options, 3);
+
+		tlv_ip6ll = lsdesc_start_lsa_type(lsa_header,
+						  OSPF6_LSTYPE_E_LINK);
+		memcpy(&tlv_ip6ll->addr, oi->linklocal_addr,
+		       sizeof(struct in6_addr));
+		tlv_ip6ll->header.type = htons(TLV_IPV6_LINK_LOCAL_ADDRESS_TYPE);
+		tlv_ip6ll->header.length = htons(sizeof(struct in6_addr));
+
+		tlv_op = (struct tlv_intra_area_prefix *)TLV_HDR_NEXT(
+			&tlv_ip6ll->header);
+
+		/* connected prefix to advertise */
+		for (route = ospf6_route_head(oi->route_connected); route;
+		     route = ospf6_route_next(route)) {
+			tlv_op->prefix.prefix_length = route->prefix.prefixlen;
+			tlv_op->prefix.prefix_options = route->prefix_options;
+			tlv_op->metric = htons(0);
+			memcpy(OSPF6_PREFIX_BODY(&tlv_op->prefix),
+			       &route->prefix.u.prefix6,
+			       OSPF6_PREFIX_SPACE(tlv_op->prefix.prefix_length));
+			tlv_op->header.type = htons(OSPF6_TLV_INTRA_AREA_PREFIX);
+			tlv_op->header.length = htons(
+				(char *)OSPF6_PREFIX_NEXT(&(tlv_op->prefix)) -
+				(char *)tlv_op - sizeof(struct tlv_header));
+			tlv_op = (struct tlv_intra_area_prefix *)TLV_HDR_NEXT(
+				&tlv_op->header);
+		}
+		op = (struct ospf6_prefix *)tlv_op;
 	}
 
 	/* Fill LSA Header */
 	lsa_header->age = 0;
-	lsa_header->type = htons(OSPF6_LSTYPE_LINK);
+	lsa_header->type = htons(lstype);
 	lsa_header->id = htonl(oi->interface->ifindex);
 	lsa_header->adv_router = oi->area->ospf6->router_id;
 	lsa_header->seqnum =
@@ -936,6 +973,14 @@ void ospf6_link_lsa_originate(struct event *thread)
 
 	/* Originate */
 	ospf6_lsa_originate_interface(lsa, oi);
+}
+
+void ospf6_link_lsa_originate(struct event *thread)
+{
+	struct ospf6_interface *oi = EVENT_ARG(thread);
+
+	link_lsa_originate(oi, OSPF6_LSTYPE_LINK);
+	link_lsa_originate(oi, OSPF6_LSTYPE_E_LINK);
 }
 
 
