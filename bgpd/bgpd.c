@@ -149,7 +149,7 @@ void bgp_session_reset(struct peer *peer)
  * during walk of peer list, we would end up accessing the freed next
  * node. This function moves the next node along.
  */
-static void bgp_session_reset_safe(struct peer *peer, struct listnode **nnode)
+void bgp_session_reset_safe(struct peer *peer, struct listnode **nnode)
 {
 	struct listnode *n;
 	struct peer *npeer;

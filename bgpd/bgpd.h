@@ -2858,6 +2858,8 @@ extern bool bgp_path_attribute_treat_as_withdraw(struct peer *peer, char *buf,
 
 extern void srv6_function_free(struct bgp_srv6_function *func);
 
+extern void bgp_session_reset_safe(struct peer *peer, struct listnode **nnode);
+
 #ifdef _FRR_ATTRIBUTE_PRINTFRR
 /* clang-format off */
 #pragma FRR printfrr_ext "%pBP" (struct peer *)
