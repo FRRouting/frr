@@ -614,6 +614,7 @@ static char *ospf6_link_lsa_get_prefix_str(struct ospf6_lsa *lsa, char *buf,
 struct cbd_prefix_printer {
 	struct vty *vty;
 	int prefix_count;
+	json_object *json_obj;
 	json_object *json_arr;
 	bool use_json;
 	bool print_metric;
@@ -664,6 +665,27 @@ static int cb_print_prefix(void *desc, void *cb_data)
 	return 0;
 }
 
+static int cb_tlv_ip6lladdr_to_str(void *desc, void *cb_data)
+{
+	struct cbd_prefix_printer *cbd = cb_data;
+	struct in6_addr *addr = desc;
+	char buf[32];
+
+	inet_ntop(AF_INET6, addr, buf, sizeof(buf));
+
+	if (cbd->use_json) {
+		json_object_string_add(cbd->json_obj, "linkLocalAddress", buf);
+	} else {
+		/*
+		 * Output scrapers beware:
+		 * This will have a different output sequence from Link LSAs.
+		 */
+		vty_out(cbd->vty, "     LinkLocal Address: %s\n", buf);
+	}
+
+	return 0;
+}
+
 static int ospf6_link_lsa_show(struct vty *vty, struct ospf6_lsa *lsa,
 			       json_object *json_obj, bool use_json)
 {
@@ -671,31 +693,53 @@ static int ospf6_link_lsa_show(struct vty *vty, struct ospf6_lsa *lsa,
 	int prefixnum;
 	char buf[128], options[32];
 	struct cbd_prefix_printer cbd = { .vty = vty,
-					  .use_json = use_json };
-	struct tlv_handler handler = { .callback = cb_print_prefix,
-				       .callback_data = &cbd };
+					  .use_json = use_json,
+					  .json_obj = json_obj };
+	struct tlv_handler h2 = { .tlv_type = OSPF6_TLV_RESERVED,
+				  .callback = cb_print_prefix,
+				  .callback_data = &cbd },
+			   h1 = { .tlv_type = OSPF6_TLV_IPV6_LL_ADDR,
+				  .callback = cb_tlv_ip6lladdr_to_str,
+				  .callback_data = &cbd,
+				  .next = &h2 },
+			   h0 = { .tlv_type = OSPF6_TLV_INTRA_AREA_PREFIX,
+				  .callback = cb_print_prefix,
+				  .callback_data = &cbd,
+				  .next = &h1 };
 
 	link_lsa = lsa_after_header(lsa->header);
 
 	ospf6_options_printbuf(link_lsa->options, options, sizeof(options));
-	inet_ntop(AF_INET6, &link_lsa->linklocal_addr, buf, sizeof(buf));
-	prefixnum = ntohl(link_lsa->prefix_num);
+
+	if (use_json)
+		cbd.json_arr = json_object_new_array();
+
+	/* Print each prefix / lladdr */
+	foreach_lsdesc(lsa->header, &h0);
+
+	if (ntohs(lsa->header->type) == OSPF6_LSTYPE_E_LINK) {
+		/* lladdr is a TLV in E-Link LSA */
+		memset(buf, 0, sizeof(buf));
+		prefixnum = cbd.prefix_count;
+	} else {
+		inet_ntop(AF_INET6, &link_lsa->linklocal_addr, buf, sizeof(buf));
+		prefixnum = ntohs(link_lsa->prefix_num);
+	}
 
 	if (use_json) {
-		cbd.json_arr = json_object_new_array();
 		json_object_int_add(json_obj, "priority", link_lsa->priority);
 		json_object_string_add(json_obj, "options", options);
-		json_object_string_add(json_obj, "linkLocalAddress", buf);
+		if (ntohs(lsa->header->type) == OSPF6_LSTYPE_LINK)
+			json_object_string_add(json_obj, "linkLocalAddress",
+					       buf);
 		json_object_int_add(json_obj, "numberOfPrefix", prefixnum);
 	} else {
 		vty_out(vty, "     Priority: %d Options: %s\n",
 			link_lsa->priority, options);
-		vty_out(vty, "     LinkLocal Address: %s\n", buf);
+		if (ntohs(lsa->header->type) == OSPF6_LSTYPE_LINK)
+			vty_out(vty, "     LinkLocal Address: %s\n", buf);
 		vty_out(vty, "     Number of Prefix: %d\n", prefixnum);
 	}
-
-	/* Print each prefix */
-	foreach_lsdesc(lsa->header, &handler);
 
 	if (use_json)
 		json_object_object_add(json_obj, "prefix", cbd.json_arr);
