@@ -2749,7 +2749,7 @@ static void bgp_gr_update_mode_of_all_peers(struct bgp *bgp,
 			bgp_notify_send(peer->connection, BGP_NOTIFY_CEASE,
 					BGP_NOTIFY_CEASE_CONFIG_CHANGE);
 		else
-			bgp_session_reset(peer);
+			bgp_session_reset_safe(peer, &nnode);
 	}
 }
 
