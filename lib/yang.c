@@ -671,7 +671,13 @@ void yang_dnode_rpc_output_add(struct lyd_node *output, const char *xpath,
 	LY_ERR err;
 
 	err = lyd_new_path(output, ly_native_ctx, xpath, value,
-			   LYD_NEW_PATH_OUTPUT | LYD_NEW_PATH_UPDATE, NULL);
+#if (LY_VERSION_MAJOR < 3)
+			   LYD_NEW_PATH_OUTPUT
+#else
+			   LYD_NEW_VAL_OUTPUT
+#endif
+				   | LYD_NEW_PATH_UPDATE,
+			   NULL);
 	assert(err == LY_SUCCESS);
 }
 
