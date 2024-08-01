@@ -2837,12 +2837,13 @@ DEFPY(clear_ip_msdp_peer, clear_ip_msdp_peer_cmd,
 	const struct vrf *vrf;
 	struct pim_msdp_peer *mp;
 
-	if (vrfname) {
+	if (vrfname)
 		vrf = vrf_lookup_by_name(vrfname);
-		if (vrf == NULL)
-			return CMD_WARNING;
-	} else
+	else
 		vrf = vrf_lookup_by_id(VRF_DEFAULT);
+
+	if (vrf == NULL || vrf->info == NULL)
+		return CMD_WARNING;
 
 	pim = vrf->info;
 	for (ALL_LIST_ELEMENTS_RO(pim->msdp.peer_list, node, mp)) {
