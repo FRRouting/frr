@@ -1781,8 +1781,6 @@ static void zl3vni_check_del_rmac(struct zebra_l3vni *zl3vni,
 				  const struct ipaddr *vtep_ip)
 {
 	struct zebra_mac *zrmac = NULL;
-	bool vtep_ip_same = false;
-	struct ipaddr ipv4_vtep;
 
 	zrmac = zl3vni_rmac_lookup(zl3vni, &old_rmac);
 	if (!zrmac) {
@@ -1791,12 +1789,33 @@ static void zl3vni_check_del_rmac(struct zebra_l3vni *zl3vni,
 				   zl3vni->vni, &old_rmac);
 		return;
 	}
+	if (listcount(zrmac->nh_list)) {
+		struct ipaddr *curr_vtep = NULL;
+		struct listnode *node = NULL, *nnode = NULL;
+		for (ALL_LIST_ELEMENTS(zrmac->nh_list, node, nnode, curr_vtep)) {
+			if (ipaddr_cmp(curr_vtep, vtep_ip) == 0)
+				break;
+		}
+		if (node) {
+			list_delete_node(zrmac->nh_list, node);
+			/* Get the first node in the list */
+			node = listhead(zrmac->nh_list);
+			/* Update the forward reference vtep IP to first node in list */
+			if (node) {
+				curr_vtep = listgetdata(node);
+				if (IS_ZEBRA_DEBUG_VXLAN)
+					zlog_debug("Updating VTEP IP %pIA", curr_vtep);
+				zrmac->fwd_info.r_vtep_ip = *curr_vtep;
+			}
+		}
+		if (IS_ZEBRA_DEBUG_VXLAN) {
+			zlog_debug("Zrmac cache nexthop list");
+			for (ALL_LIST_ELEMENTS(zrmac->nh_list, node, nnode, curr_vtep))
+				zlog_debug("%pIA", curr_vtep);
+		}
+	}
 
-	vtep_to_v4(vtep_ip, &ipv4_vtep);
-	vtep_ip_same = IPV4_ADDR_SAME(&zrmac->fwd_info.r_vtep_ip,
-				      &ipv4_vtep.ipaddr_v4);
-
-	if (vtep_ip_same) {
+	if (!listcount(zrmac->nh_list)) {
 		if (IS_ZEBRA_DEBUG_VXLAN)
 			zlog_debug(
 				"L3VNI %u uninstalling old RMAC %pEA for nexthop %pIA",
