@@ -375,5 +375,6 @@ void *lsdesc_start_lsa_type(struct ospf6_lsa_header *header, int lsa_type);
 void *lsdesc_start(struct ospf6_lsa_header *header);
 
 void *nth_lsdesc(struct ospf6_lsa_header *header, int pos);
+void *nth_prefix(struct ospf6_lsa_header *header, int pos);
 
 #endif /* OSPF6_LSA_H */

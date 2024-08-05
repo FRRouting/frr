@@ -92,6 +92,26 @@ void *nth_lsdesc(struct ospf6_lsa_header *header, int pos)
 	return NULL;
 }
 
+void *nth_prefix(struct ospf6_lsa_header *header, int pos)
+{
+	struct ospf6_prefix *prefix = lsdesc_start(header);
+	char *end = ospf6_lsa_end(header);
+	int i;
+
+	if (ntohs(header->type) != OSPF6_LSTYPE_LINK &&
+	    ntohs(header->type) != OSPF6_LSTYPE_INTRA_PREFIX)
+		return NULL;
+
+	for (i = 0;
+	     i < pos && (char *)prefix + OSPF6_PREFIX_SIZE(prefix) < end; i++)
+		prefix = OSPF6_PREFIX_NEXT(prefix);
+
+	if (i == pos)
+		return prefix;
+
+	return NULL;
+}
+
 struct ospf6 *ospf6_get_by_lsdb(struct ospf6_lsa *lsa)
 {
 	struct ospf6 *ospf6 = NULL;
