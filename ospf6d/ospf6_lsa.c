@@ -70,6 +70,28 @@ void *lsdesc_start(struct ospf6_lsa_header *header)
 
 static struct ospf6_lsa_handler *lsa_handlers[OSPF6_LSTYPE_SIZE];
 
+void *nth_lsdesc(struct ospf6_lsa_header *header, int pos)
+{
+	char *lsdesc = lsdesc_start(header);
+	char *lsa_end = ospf6_lsa_end(header);
+	char *nth;
+	int lsdesc_size;
+
+	if (ntohs(header->type) == OSPF6_LSTYPE_ROUTER)
+		lsdesc_size = OSPF6_ROUTER_LSDESC_FIX_SIZE;
+	else if (ntohs(header->type) == OSPF6_LSTYPE_NETWORK)
+		lsdesc_size = OSPF6_NETWORK_LSDESC_FIX_SIZE;
+	else
+		return NULL;
+
+	nth = lsdesc + (pos * lsdesc_size);
+
+	if (nth + lsdesc_size <= lsa_end)
+		return nth;
+
+	return NULL;
+}
+
 struct ospf6 *ospf6_get_by_lsdb(struct ospf6_lsa *lsa)
 {
 	struct ospf6 *ospf6 = NULL;
