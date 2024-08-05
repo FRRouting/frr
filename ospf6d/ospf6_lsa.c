@@ -122,6 +122,21 @@ void *nth_prefix(struct ospf6_lsa_header *header, int pos)
 	return NULL;
 }
 
+void *nth_tlv(struct ospf6_lsa_header *header, int pos)
+{
+	struct tlv_header *cur = lsdesc_start(header);
+	char *end = ospf6_lsa_end(header);
+	int i = 0;
+
+	for (; i < pos && (char *)cur + TLV_SIZE(cur) < end; i++)
+		cur = TLV_HDR_NEXT(cur);
+
+	if (i == pos)
+		return cur;
+
+	return NULL;
+}
+
 /* Router LSA */
 static int each_router_lsdesc(struct ospf6_lsa_header *lsa_header,
 			      struct tlv_handler *h)
