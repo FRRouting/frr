@@ -60,6 +60,22 @@ static char *ospf6_router_lsa_get_nbr_id(struct ospf6_lsa *lsa, char *buf,
 	return buf;
 }
 
+/* OSPF6_LSTYPE_E_ROUTER */
+static char *ospf6_e_router_lsa_get_nbr_id(struct ospf6_lsa *lsa, char *buf,
+					   int buflen, int pos)
+{
+	char buf1[INET_ADDRSTRLEN], buf2[INET_ADDRSTRLEN];
+	struct tlv_router_link *tlv = nth_tlv(lsa->header, pos);
+
+	if (!tlv || !buf || buflen < (2 + 2 * INET_ADDRSTRLEN))
+		return NULL;
+
+	inet_ntop(AF_INET, &tlv->neighbor_interface_id, buf1, sizeof(buf1));
+	inet_ntop(AF_INET, &tlv->neighbor_router_id, buf2, sizeof(buf2));
+	snprintf(buf, buflen, "%s/%s", buf2, buf1);
+	return buf;
+}
+
 struct cbd_lsdesc_printer {
 	struct vty *vty;
 	json_object *json_arr;
@@ -2471,6 +2487,14 @@ static struct ospf6_lsa_handler router_handler = {
 	.lh_get_prefix_str = ospf6_router_lsa_get_nbr_id,
 	.lh_debug = 0};
 
+static struct ospf6_lsa_handler e_router_handler = {
+	.lh_type = OSPF6_LSTYPE_E_ROUTER,
+	.lh_name = "E-Router",
+	.lh_short_name = "ERtr",
+	.lh_show = ospf6_router_lsa_show,
+	.lh_get_prefix_str = ospf6_e_router_lsa_get_nbr_id,
+	.lh_debug = 0};
+
 static struct ospf6_lsa_handler network_handler = {
 	.lh_type = OSPF6_LSTYPE_NETWORK,
 	.lh_name = "Network",
@@ -2498,6 +2522,7 @@ static struct ospf6_lsa_handler intra_prefix_handler = {
 void ospf6_intra_init(void)
 {
 	ospf6_install_lsa_handler(&router_handler);
+	ospf6_install_lsa_handler(&e_router_handler);
 	ospf6_install_lsa_handler(&network_handler);
 	ospf6_install_lsa_handler(&link_handler);
 	ospf6_install_lsa_handler(&intra_prefix_handler);
