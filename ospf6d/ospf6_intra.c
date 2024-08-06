@@ -1068,6 +1068,29 @@ static char *ospf6_intra_prefix_lsa_get_prefix_str(struct ospf6_lsa *lsa,
 	return buf;
 }
 
+static char *ospf6_e_intra_prefix_lsa_get_prefix_str(struct ospf6_lsa *lsa,
+						     char *buf, int buflen,
+						     int pos)
+{
+	struct tlv_intra_area_prefix *tlv_iap;
+	struct tlv_header *tlvh = nth_tlv(lsa->header, pos);
+	struct in6_addr in6 = { 0 };
+
+	if (!lsa || !tlvh || !buf || buflen < (1 + INET6_ADDRSTRLEN))
+		return NULL;
+
+	switch (ntohs(tlvh->type)) {
+	case OSPF6_TLV_INTRA_AREA_PREFIX:
+		tlv_iap = (struct tlv_intra_area_prefix *)tlvh;
+		memcpy(&in6, OSPF6_PREFIX_BODY(&tlv_iap->prefix),
+		       OSPF6_PREFIX_SPACE(tlv_iap->prefix.prefix_length));
+		inet_ntop(AF_INET6, &in6, buf, buflen);
+		return buf;
+	default:
+		return NULL;
+	}
+}
+
 static int ospf6_intra_prefix_lsa_show(struct vty *vty, struct ospf6_lsa *lsa,
 				       json_object *json_obj, bool use_json)
 {
@@ -2578,6 +2601,14 @@ static struct ospf6_lsa_handler intra_prefix_handler = {
 	.lh_get_prefix_str = ospf6_intra_prefix_lsa_get_prefix_str,
 	.lh_debug = 0};
 
+static struct ospf6_lsa_handler e_intra_prefix_handler = {
+	.lh_type = OSPF6_LSTYPE_E_INTRA_PREFIX,
+	.lh_name = "E-Intra-Prefix",
+	.lh_short_name = "EINP",
+	.lh_show = ospf6_intra_prefix_lsa_show,
+	.lh_get_prefix_str = ospf6_e_intra_prefix_lsa_get_prefix_str,
+	.lh_debug = 0};
+
 void ospf6_intra_init(void)
 {
 	ospf6_install_lsa_handler(&router_handler);
@@ -2587,6 +2618,7 @@ void ospf6_intra_init(void)
 	ospf6_install_lsa_handler(&link_handler);
 	ospf6_install_lsa_handler(&e_link_handler);
 	ospf6_install_lsa_handler(&intra_prefix_handler);
+	ospf6_install_lsa_handler(&e_intra_prefix_handler);
 }
 
 DEFUN (debug_ospf6_brouter,
