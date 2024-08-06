@@ -786,6 +786,35 @@ static char *ospf6_link_lsa_get_prefix_str(struct ospf6_lsa *lsa, char *buf,
 	return buf;
 }
 
+static char *ospf6_e_link_lsa_get_prefix_str(struct ospf6_lsa *lsa, char *buf,
+					     int buflen, int pos)
+{
+	struct tlv_ipv6_link_local_address *tlv_ll6;
+	struct ospf6_prefix *prefix;
+	struct tlv_header *tlvh = nth_tlv(lsa->header, pos);
+	struct in6_addr in6 = { 0 };
+
+	if (!lsa || !tlvh || !buf || buflen < (1 + INET6_ADDRSTRLEN))
+		return NULL;
+
+	switch (ntohs(tlvh->type)) {
+	case OSPF6_TLV_IPV6_LL_ADDR:
+		tlv_ll6 = (struct tlv_ipv6_link_local_address *)tlvh;
+		inet_ntop(AF_INET6, &tlv_ll6->addr, buf, buflen);
+		return buf;
+	case OSPF6_TLV_INTRA_AREA_PREFIX:
+		prefix = get_prefix_in_tlv(tlvh);
+		memcpy(&in6, OSPF6_PREFIX_BODY(prefix),
+		       OSPF6_PREFIX_SPACE(prefix->prefix_length));
+		inet_ntop(AF_INET6, &in6, buf, buflen);
+		return buf;
+	case OSPF6_TLV_IPV4_LL_ADDR:
+		return NULL; /* TODO */
+	default:
+		return NULL;
+	}
+}
+
 struct cbd_prefix_printer {
 	struct vty *vty;
 	int prefix_count;
@@ -2625,6 +2654,14 @@ static struct ospf6_lsa_handler link_handler = {
 	.lh_get_prefix_str = ospf6_link_lsa_get_prefix_str,
 	.lh_debug = 0};
 
+static struct ospf6_lsa_handler e_link_handler = {
+	.lh_type = OSPF6_LSTYPE_E_LINK,
+	.lh_name = "E-Link",
+	.lh_short_name = "ELnk",
+	.lh_show = ospf6_link_lsa_show,
+	.lh_get_prefix_str = ospf6_e_link_lsa_get_prefix_str,
+	.lh_debug = 0};
+
 static struct ospf6_lsa_handler intra_prefix_handler = {
 	.lh_type = OSPF6_LSTYPE_INTRA_PREFIX,
 	.lh_name = "Intra-Prefix",
@@ -2640,6 +2677,7 @@ void ospf6_intra_init(void)
 	ospf6_install_lsa_handler(&network_handler);
 	ospf6_install_lsa_handler(&e_network_handler);
 	ospf6_install_lsa_handler(&link_handler);
+	ospf6_install_lsa_handler(&e_link_handler);
 	ospf6_install_lsa_handler(&intra_prefix_handler);
 }
 
