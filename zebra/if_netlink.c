@@ -63,6 +63,7 @@
 #include "zebra/zebra_l2.h"
 #include "zebra/netconf_netlink.h"
 #include "zebra/zebra_trace.h"
+#include "zebra/zebra_vxlan.h"
 
 extern struct zebra_privs_t zserv_privs;
 
@@ -1814,70 +1815,6 @@ int netlink_tunneldump_read(struct zebra_ns *zns)
 	}
 
 	return 0;
-}
-
-static const char *port_state2str(uint8_t state)
-{
-	switch (state) {
-	case BR_STATE_DISABLED:
-		return "DISABLED";
-	case BR_STATE_LISTENING:
-		return "LISTENING";
-	case BR_STATE_LEARNING:
-		return "LEARNING";
-	case BR_STATE_FORWARDING:
-		return "FORWARDING";
-	case BR_STATE_BLOCKING:
-		return "BLOCKING";
-	}
-
-	return "UNKNOWN";
-}
-
-static void vxlan_vni_state_change(struct zebra_if *zif, uint16_t id,
-				   uint8_t state)
-{
-	struct zebra_vxlan_vni *vnip;
-
-	vnip = zebra_vxlan_if_vlanid_vni_find(zif, id);
-
-	if (!vnip) {
-		if (IS_ZEBRA_DEBUG_VXLAN)
-			zlog_debug(
-				"Cannot find VNI for VID (%u) IF %s for vlan state update",
-				id, zif->ifp->name);
-
-		return;
-	}
-
-	switch (state) {
-	case BR_STATE_FORWARDING:
-		zebra_vxlan_if_vni_up(zif->ifp, vnip);
-		break;
-	case BR_STATE_BLOCKING:
-		zebra_vxlan_if_vni_down(zif->ifp, vnip);
-		break;
-	case BR_STATE_DISABLED:
-	case BR_STATE_LISTENING:
-	case BR_STATE_LEARNING:
-	default:
-		/* Not used for anything at the moment */
-		break;
-	}
-}
-
-static void vlan_id_range_state_change(struct interface *ifp, uint16_t id_start,
-				       uint16_t id_end, uint8_t state)
-{
-	struct zebra_if *zif;
-
-	zif = (struct zebra_if *)ifp->info;
-
-	if (!zif)
-		return;
-
-	for (uint16_t i = id_start; i <= id_end; i++)
-		vxlan_vni_state_change(zif, i, state);
 }
 
 /**
