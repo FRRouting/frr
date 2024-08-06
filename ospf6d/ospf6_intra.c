@@ -490,6 +490,7 @@ void ospf6_router_lsa_originate(struct event *thread)
 /* RFC2740 3.4.3.2 Network-LSA */
 /*******************************/
 
+/* FIXME: this doesn't have topotest coverage */
 static char *ospf6_network_lsa_get_ar_id(struct ospf6_lsa *lsa, char *buf,
 					 int buflen, int pos)
 {
@@ -499,6 +500,19 @@ static char *ospf6_network_lsa_get_ar_id(struct ospf6_lsa *lsa, char *buf,
 		return NULL;
 
 	inet_ntop(AF_INET, &lsdesc->router_id, buf, buflen);
+	return buf;
+}
+
+/* FIXME: this doesn't have topotest coverage */
+static char *ospf6_e_network_lsa_get_ar_id(struct ospf6_lsa *lsa, char *buf,
+					 int buflen, int pos)
+{
+	struct tlv_attached_routers *tlv = nth_tlv(lsa->header, pos);
+
+	if (!tlv || !buf || buflen < (1 + INET_ADDRSTRLEN))
+		return NULL;
+
+	inet_ntop(AF_INET, &tlv->router_id, buf, buflen);
 	return buf;
 }
 
@@ -2503,6 +2517,14 @@ static struct ospf6_lsa_handler network_handler = {
 	.lh_get_prefix_str = ospf6_network_lsa_get_ar_id,
 	.lh_debug = 0};
 
+static struct ospf6_lsa_handler e_network_handler = {
+	.lh_type = OSPF6_LSTYPE_E_NETWORK,
+	.lh_name = "E-Network",
+	.lh_short_name = "ENet",
+	.lh_show = ospf6_network_lsa_show,
+	.lh_get_prefix_str = ospf6_e_network_lsa_get_ar_id,
+	.lh_debug = 0};
+
 static struct ospf6_lsa_handler link_handler = {
 	.lh_type = OSPF6_LSTYPE_LINK,
 	.lh_name = "Link",
@@ -2524,6 +2546,7 @@ void ospf6_intra_init(void)
 	ospf6_install_lsa_handler(&router_handler);
 	ospf6_install_lsa_handler(&e_router_handler);
 	ospf6_install_lsa_handler(&network_handler);
+	ospf6_install_lsa_handler(&e_network_handler);
 	ospf6_install_lsa_handler(&link_handler);
 	ospf6_install_lsa_handler(&intra_prefix_handler);
 }
