@@ -458,6 +458,8 @@ int group_distribute_list_create_helper(
 
 int group_distribute_list_destroy(struct nb_cb_destroy_args *args)
 {
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
 	nb_running_unset_entry(args->dnode);
 	return NB_OK;
 }
