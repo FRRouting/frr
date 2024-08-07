@@ -968,6 +968,46 @@ int lib_interface_zebra_ipv4_addrs_label_destroy(struct nb_cb_destroy_args *args
 	return NB_OK;
 }
 
+
+/* XPath: /frr-interface:lib/interface/frr-zebra:zebra/ipv4-addrs/setorder */
+int lib_interface_zebra_ipv4_addrs_setorder_modify(struct nb_cb_modify_args *args)
+{
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+		if (nb_running_get_entry_non_rec(lyd_parent(args->dnode), NULL,
+						 false)) {
+			snprintf(args->errmsg, args->errmsg_len,
+				 "Changing setorder is not allowed");
+			return NB_ERR_VALIDATION;
+		}
+		break;
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+	case NB_EV_APPLY:
+		break;
+	}
+
+	return NB_OK;
+}
+
+/* XPath: /frr-interface:lib/interface/frr-zebra:zebra/ipv4-addrs/setorder */
+int lib_interface_zebra_ipv4_addrs_setorder_destroy(
+	struct nb_cb_destroy_args *args)
+{
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+		snprintf(args->errmsg, args->errmsg_len,
+			 "Removing setorder is not allowed");
+		return NB_ERR_VALIDATION;
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+	case NB_EV_APPLY:
+		break;
+	}
+
+	return NB_OK;
+}
+
 /*
  * XPath: /frr-interface:lib/interface/frr-zebra:zebra/ipv4-p2p-addrs
  */
@@ -1726,8 +1766,7 @@ int lib_interface_zebra_link_params_utilized_bandwidth_destroy(
  * XPath:
  * /frr-interface:lib/interface/frr-zebra:zebra/link-params/legacy-admin-group
  */
-int lib_interface_zebra_legacy_admin_group_modify(
-	struct nb_cb_modify_args *args)
+int lib_interface_zebra_legacy_admin_group_modify(struct nb_cb_modify_args *args)
 {
 	struct interface *ifp;
 	struct if_link_params *iflp;
@@ -1751,8 +1790,7 @@ int lib_interface_zebra_legacy_admin_group_modify(
 	return NB_OK;
 }
 
-int lib_interface_zebra_legacy_admin_group_destroy(
-	struct nb_cb_destroy_args *args)
+int lib_interface_zebra_legacy_admin_group_destroy(struct nb_cb_destroy_args *args)
 {
 	struct interface *ifp;
 	struct if_link_params *iflp;
@@ -1908,8 +1946,9 @@ int lib_interface_zebra_affinity_mode_modify(struct nb_cb_modify_args *args)
 		if (affinity_mode == AFFINITY_MODE_STANDARD) {
 			if (!IS_PARAM_SET(iflp, LP_ADM_GRP) &&
 			    IS_PARAM_SET(iflp, LP_EXTEND_ADM_GRP)) {
-				iflp->admin_grp = admin_group_get_offset(
-					&iflp->ext_admin_grp, 0);
+				iflp->admin_grp =
+					admin_group_get_offset(&iflp->ext_admin_grp,
+							       0);
 				SET_PARAM(iflp, LP_ADM_GRP);
 			}
 			admin_group_clear(&iflp->ext_admin_grp);
@@ -1933,8 +1972,9 @@ int lib_interface_zebra_affinity_mode_modify(struct nb_cb_modify_args *args)
 				SET_PARAM(iflp, LP_EXTEND_ADM_GRP);
 			} else if (!IS_PARAM_SET(iflp, LP_ADM_GRP) &&
 				   IS_PARAM_SET(iflp, LP_EXTEND_ADM_GRP)) {
-				iflp->admin_grp = admin_group_get_offset(
-					&iflp->ext_admin_grp, 0);
+				iflp->admin_grp =
+					admin_group_get_offset(&iflp->ext_admin_grp,
+							       0);
 				SET_PARAM(iflp, LP_ADM_GRP);
 			}
 		}
@@ -3102,7 +3142,7 @@ int lib_interface_zebra_ipv6_router_advertisements_rdnss_rdnss_address_create(
 	struct nb_cb_create_args *args)
 {
 	struct interface *ifp;
-	struct rtadv_rdnss rdnss = {{{{0}}}}, *p;
+	struct rtadv_rdnss rdnss = { { { { 0 } } } }, *p;
 
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
@@ -3181,7 +3221,7 @@ int lib_interface_zebra_ipv6_router_advertisements_dnssl_dnssl_domain_create(
 	struct nb_cb_create_args *args)
 {
 	struct interface *ifp;
-	struct rtadv_dnssl dnssl = {{0}}, *p;
+	struct rtadv_dnssl dnssl = { { 0 } }, *p;
 	int ret;
 
 	strlcpy(dnssl.name, yang_dnode_get_string(args->dnode, "domain"),
