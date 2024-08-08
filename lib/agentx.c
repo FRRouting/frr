@@ -377,4 +377,9 @@ void smux_events_update(void)
 	agentx_events_update();
 }
 
+void smux_terminate(void)
+{
+	if (events)
+		list_delete(&events);
+}
 #endif /* SNMP_AGENTX */
