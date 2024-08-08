@@ -319,6 +319,8 @@ seg6local_action2str(uint32_t action);
 const char *seg6local_context2str(char *str, size_t size,
 				  const struct seg6local_context *ctx,
 				  uint32_t action);
+void seg6local_context2json(const struct seg6local_context *ctx,
+			    uint32_t action, json_object *json);
 
 static inline const char *srv6_sid_ctx2str(char *str, size_t size,
 					   const struct srv6_sid_ctx *ctx)
