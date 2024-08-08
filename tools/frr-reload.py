@@ -228,7 +228,7 @@ def get_normalized_interface_vrf(line):
     correctly and configurations are matched appropriately.
     """
 
-    intf_vrf = re.search("interface (\S+) vrf (\S+)", line)
+    intf_vrf = re.search(r"interface (\S+) vrf (\S+)", line)
     if intf_vrf:
         old_line = "vrf %s" % intf_vrf.group(2)
         new_line = line.replace(old_line, "").strip()
@@ -894,13 +894,13 @@ def bgp_delete_nbr_remote_as_line(lines_to_add):
             if ctx_keys[0] in pg_dict:
                 for pg_key in pg_dict[ctx_keys[0]]:
                     # Find 'neighbor <pg_name> remote-as'
-                    pg_rmtas = "neighbor %s remote-as (\S+)" % pg_key
+                    pg_rmtas = r"neighbor %s remote-as (\S+)" % pg_key
                     re_pg_rmtas = re.search(pg_rmtas, line)
                     if re_pg_rmtas:
                         pg_dict[ctx_keys[0]][pg_key]["remoteas"] = True
 
                     # Find 'neighbor <peer> [interface] peer-group <pg_name>'
-                    nb_pg = "neighbor (\S+) peer-group %s$" % pg_key
+                    nb_pg = r"neighbor (\S+) peer-group %s$" % pg_key
                     re_nbr_pg = re.search(nb_pg, line)
                     if (
                         re_nbr_pg
@@ -918,7 +918,7 @@ def bgp_delete_nbr_remote_as_line(lines_to_add):
             and line
             and line.startswith("neighbor ")
         ):
-            nbr_rmtas = "neighbor (\S+) remote-as.*"
+            nbr_rmtas = r"neighbor (\S+) remote-as.*"
             re_nbr_rmtas = re.search(nbr_rmtas, line)
             if re_nbr_rmtas and ctx_keys[0] in pg_dict:
                 for pg in pg_dict[ctx_keys[0]]:
@@ -947,8 +947,8 @@ def bgp_remove_neighbor_cfg(lines_to_del, del_nbr_dict):
         ):
             if ctx_keys[0] in del_nbr_dict:
                 for nbr in del_nbr_dict[ctx_keys[0]]:
-                    re_nbr_pg = re.search("neighbor (\S+) .*peer-group (\S+)", line)
-                    nb_exp = "neighbor %s .*" % nbr
+                    re_nbr_pg = re.search(r"neighbor (\S+) .*peer-group (\S+)", line)
+                    nb_exp = r"neighbor %s .*" % nbr
                     if not re_nbr_pg:
                         re_nb = re.search(nb_exp, line)
                         if re_nb:
@@ -1046,7 +1046,7 @@ def bgp_delete_move_lines(lines_to_add, lines_to_del):
             #  neighbor uplink1 interface remote-as internal
             #
             # 'no neighbor peer [interface] remote-as <>'
-            nb_remoteas = "neighbor (\S+) .*remote-as (\S+)"
+            nb_remoteas = r"neighbor (\S+) .*remote-as (\S+)"
             re_nb_remoteas = re.search(nb_remoteas, line)
             if re_nb_remoteas:
                 lines_to_del_to_app.append((ctx_keys, line))
@@ -1054,7 +1054,7 @@ def bgp_delete_move_lines(lines_to_add, lines_to_del):
             # 'no neighbor peer [interface] peer-group <>' is in lines_to_del
             # copy the neighbor and look for all config removal lines associated
             # to neighbor and delete them from the lines_to_del
-            re_nbr_pg = re.search("neighbor (\S+) .*peer-group (\S+)", line)
+            re_nbr_pg = re.search(r"neighbor (\S+) .*peer-group (\S+)", line)
             if re_nbr_pg:
                 if ctx_keys[0] not in del_nbr_dict:
                     del_nbr_dict[ctx_keys[0]] = list()
@@ -1093,7 +1093,7 @@ def bgp_delete_move_lines(lines_to_add, lines_to_del):
             if ctx_keys[0] in del_dict:
                 for pg_key in del_dict[ctx_keys[0]]:
                     # 'neighbor <peer> [interface] peer-group <pg_name>'
-                    nb_pg = "neighbor (\S+) .*peer-group %s$" % pg_key
+                    nb_pg = r"neighbor (\S+) .*peer-group %s$" % pg_key
                     re_nbr_pg = re.search(nb_pg, line)
                     if (
                         re_nbr_pg
@@ -1111,7 +1111,7 @@ def bgp_delete_move_lines(lines_to_add, lines_to_del):
             if ctx_keys[0] in del_dict:
                 for pg in del_dict[ctx_keys[0]]:
                     for nbr in del_dict[ctx_keys[0]][pg]:
-                        nb_exp = "neighbor %s .*" % nbr
+                        nb_exp = r"neighbor %s .*" % nbr
                         re_nb = re.search(nb_exp, line)
                         # add peer configs to delete list.
                         if re_nb and line not in lines_to_del_to_del:
@@ -1151,7 +1151,7 @@ def pim_delete_move_lines(lines_to_add, lines_to_del):
 
         # no ip msdp peer <> does not accept source so strip it off.
         if line and line.startswith("ip msdp peer "):
-            pim_msdp_peer = re.search("ip msdp peer (\S+) source (\S+)", line)
+            pim_msdp_peer = re.search(r"ip msdp peer (\S+) source (\S+)", line)
             if pim_msdp_peer:
                 source_sub_str = "source %s" % pim_msdp_peer.group(2)
                 new_line = line.replace(source_sub_str, "").strip()
@@ -1244,10 +1244,10 @@ def ignore_delete_re_add_lines(lines_to_add, lines_to_del):
                 #
                 # If so then chop the del line and the corresponding add lines
                 re_swpx_int_peergroup = re.search(
-                    "neighbor (\S+) interface peer-group (\S+)", line
+                    r"neighbor (\S+) interface peer-group (\S+)", line
                 )
                 re_swpx_int_v6only_peergroup = re.search(
-                    "neighbor (\S+) interface v6only peer-group (\S+)", line
+                    r"neighbor (\S+) interface v6only peer-group (\S+)", line
                 )
 
                 if re_swpx_int_peergroup or re_swpx_int_v6only_peergroup:
@@ -1304,7 +1304,7 @@ def ignore_delete_re_add_lines(lines_to_add, lines_to_del):
 
                 if re_nbr_bfd_timers:
                     nbr = re_nbr_bfd_timers.group(1)
-                    bfd_nbr = "neighbor %s" % nbr
+                    bfd_nbr = r"neighbor %s" % nbr
                     bfd_search_string = bfd_nbr + r" bfd (\S+) (\S+) (\S+)"
 
                     for ctx_keys, add_line in lines_to_add:
@@ -1329,13 +1329,13 @@ def ignore_delete_re_add_lines(lines_to_add, lines_to_del):
                 # they actually match and if we are going from a very old style
                 # command such that the neighbor command is under the `router
                 # bgp ..` node that we need to handle that appropriately
-                re_nbr_rm = re.search("neighbor(.*)route-map(.*)(in|out)$", line)
+                re_nbr_rm = re.search(r"neighbor(.*)route-map(.*)(in|out)$", line)
                 if re_nbr_rm:
                     adjust_for_bgp_node = 0
                     neighbor_name = re_nbr_rm.group(1)
                     rm_name_del = re_nbr_rm.group(2)
                     dir = re_nbr_rm.group(3)
-                    search = "neighbor%sroute-map(.*)%s" % (neighbor_name, dir)
+                    search = r"neighbor%sroute-map(.*)%s" % (neighbor_name, dir)
                     save_line = "EMPTY"
                     for ctx_keys_al, add_line in lines_to_add:
                         if ctx_keys_al[0].startswith("router bgp"):
@@ -1388,10 +1388,10 @@ def ignore_delete_re_add_lines(lines_to_add, lines_to_del):
                 #
                 # If so then chop the del line and the corresponding add lines
                 re_swpx_int_remoteas = re.search(
-                    "neighbor (\S+) interface remote-as (\S+)", line
+                    r"neighbor (\S+) interface remote-as (\S+)", line
                 )
                 re_swpx_int_v6only_remoteas = re.search(
-                    "neighbor (\S+) interface v6only remote-as (\S+)", line
+                    r"neighbor (\S+) interface v6only remote-as (\S+)", line
                 )
 
                 if re_swpx_int_remoteas or re_swpx_int_v6only_remoteas:
@@ -1431,7 +1431,7 @@ def ignore_delete_re_add_lines(lines_to_add, lines_to_del):
             # unnecessary session resets.
             if "multipath-relax" in line:
                 re_asrelax_new = re.search(
-                    "^bgp\s+bestpath\s+as-path\s+multipath-relax$", line
+                    r"^bgp\s+bestpath\s+as-path\s+multipath-relax$", line
                 )
                 old_asrelax_cmd = "bgp bestpath as-path multipath-relax no-as-set"
                 found_asrelax_old = line_exist(lines_to_add, ctx_keys, old_asrelax_cmd)
@@ -1456,7 +1456,7 @@ def ignore_delete_re_add_lines(lines_to_add, lines_to_del):
         # the new syntax. This causes an unnecessary 'no import-table' followed
         # by the same old 'ip import-table' which causes perturbations in
         # announced routes leading to traffic blackholes. Fix this issue.
-        re_importtbl = re.search("^ip\s+import-table\s+(\d+)$", ctx_keys[0])
+        re_importtbl = re.search(r"^ip\s+import-table\s+(\d+)$", ctx_keys[0])
         if re_importtbl:
             table_num = re_importtbl.group(1)
             for ctx in lines_to_add:
@@ -1477,7 +1477,7 @@ def ignore_delete_re_add_lines(lines_to_add, lines_to_del):
         #      access-list FOO seq 5 permit 2.2.2.2/32
         #      ipv6 access-list BAR seq 5 permit 2:2:2::2/128
         re_acl_pfxlst = re.search(
-            "^(ip |ipv6 |)(prefix-list|access-list)(\s+\S+\s+)(seq \d+\s+)(permit|deny)(.*)$",
+            r"^(ip |ipv6 |)(prefix-list|access-list)(\s+\S+\s+)(seq \d+\s+)(permit|deny)(.*)$",
             ctx_keys[0],
         )
         if re_acl_pfxlst:
@@ -1510,7 +1510,7 @@ def ignore_delete_re_add_lines(lines_to_add, lines_to_del):
         #      bgp large-community-list standard llist seq 5 permit 65001:65001:1
         #      bgp extcommunity-list standard elist seq 5 permit soo 123:123
         re_bgp_lists = re.search(
-            "^(bgp )(community-list|large-community-list|extcommunity-list)(\s+\S+\s+)(\S+\s+)(seq \d+\s+)(permit|deny)(.*)$",
+            r"^(bgp )(community-list|large-community-list|extcommunity-list)(\s+\S+\s+)(\S+\s+)(seq \d+\s+)(permit|deny)(.*)$",
             ctx_keys[0],
         )
         if re_bgp_lists:
@@ -1539,7 +1539,7 @@ def ignore_delete_re_add_lines(lines_to_add, lines_to_del):
         # Examples:
         #      bgp as-path access-list important_internet_bgp_as_numbers seq 30 permit _40841_"
         re_bgp_as_path = re.search(
-            "^(bgp )(as-path )(access-list )(\S+\s+)(seq \d+\s+)(permit|deny)(.*)$",
+            r"^(bgp )(as-path )(access-list )(\S+\s+)(seq \d+\s+)(permit|deny)(.*)$",
             ctx_keys[0],
         )
         if re_bgp_as_path:
@@ -1569,7 +1569,7 @@ def ignore_delete_re_add_lines(lines_to_add, lines_to_del):
             and ctx_keys[2].startswith("vni")
         ):
             re_route_target = (
-                re.search("^route-target import (.*)$", line)
+                re.search(r"^route-target import (.*)$", line)
                 if line is not None
                 else False
             )
@@ -1706,7 +1706,7 @@ def compare_context_objects(newconf, running):
     pcclist_to_del = []
     candidates_to_add = []
     delete_bgpd = False
-    area_stub_no_sum = "area (\S+) stub no-summary"
+    area_stub_no_sum = r"area (\S+) stub no-summary"
     deleted_keychains = []
 
     # Find contexts that are in newconf but not in running
