@@ -103,6 +103,11 @@ static __attribute__((__noreturn__)) void terminate(int i)
 	isis_sr_term();
 	isis_srv6_term();
 	isis_zebra_stop();
+
+	route_map_finish();
+	vrf_terminate();
+
+	frr_fini();
 	exit(i);
 }
 
