@@ -146,6 +146,13 @@ module frr-gmp {
         "Querier's Robustness Variable allows tuning for the
          expected packet loss on a network.";
     }
+    
+    leaf proxy {
+      type boolean;
+      default "false";
+      description
+        "Enable IGMP proxy on the interface.";
+    }
 
     list join-group {
       key "group-addr source-addr";

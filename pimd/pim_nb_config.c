@@ -3382,6 +3382,28 @@ int lib_interface_gmp_address_family_robustness_variable_modify(
 }
 
 /*
+ * XPath: /frr-interface:lib/interface/frr-gmp:gmp/address-family/proxy
+ */
+int lib_interface_gmp_address_family_proxy_modify(struct nb_cb_modify_args *args)
+{
+	struct interface *ifp;
+	struct pim_interface *pim_ifp;
+
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		break;
+	case NB_EV_APPLY:
+		ifp = nb_running_get_entry(args->dnode, NULL, true);
+		pim_ifp = ifp->info;
+		if (pim_ifp)
+			pim_ifp->gm_proxy = yang_dnode_get_bool(args->dnode,
+								NULL);
+	}
+	return NB_OK;
+}
+/*
  * XPath: /frr-interface:lib/interface/frr-gmp:gmp/address-family/join-group
  */
 int lib_interface_gmp_address_family_join_group_create(

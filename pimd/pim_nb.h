@@ -221,6 +221,7 @@ int lib_interface_gmp_address_family_join_group_create(
 	struct nb_cb_create_args *args);
 int lib_interface_gmp_address_family_join_group_destroy(
 	struct nb_cb_destroy_args *args);
+int lib_interface_gmp_address_family_proxy_modify(struct nb_cb_modify_args *args);
 int lib_interface_gmp_address_family_static_group_create(
 		struct nb_cb_create_args *args);
 int lib_interface_gmp_address_family_static_group_destroy(

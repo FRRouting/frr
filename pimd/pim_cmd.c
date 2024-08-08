@@ -5756,6 +5756,18 @@ DEFUN (interface_no_ip_pim_hello,
 	return pim_process_no_ip_pim_hello_cmd(vty);
 }
 
+DEFPY (interface_ip_igmp_proxy,
+       interface_ip_igmp_proxy_cmd,
+       "[no] ip igmp proxy",
+       NO_STR
+       IP_STR
+       IGMP_STR
+       "Proxy IGMP join/prune operations\n")
+{
+	return CMD_SUCCESS;
+}
+
+
 DEFUN (debug_igmp,
        debug_igmp_cmd,
        "debug igmp",
@@ -8718,6 +8730,7 @@ void pim_cmd_init(void)
 			&interface_ip_igmp_last_member_query_interval_cmd);
 	install_element(INTERFACE_NODE,
 			&interface_no_ip_igmp_last_member_query_interval_cmd);
+	install_element(INTERFACE_NODE, &interface_ip_igmp_proxy_cmd);
 	install_element(INTERFACE_NODE, &interface_ip_pim_activeactive_cmd);
 	install_element(INTERFACE_NODE, &interface_ip_pim_ssm_cmd);
 	install_element(INTERFACE_NODE, &interface_no_ip_pim_ssm_cmd);

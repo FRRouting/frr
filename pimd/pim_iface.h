@@ -63,6 +63,7 @@ struct pim_interface {
 	bool pim_passive_enable : 1;
 
 	bool gm_enable : 1;
+	bool gm_proxy : 1; /* proxy IGMP joins/prunes */
 
 	ifindex_t mroute_vif_index;
 	struct pim_instance *pim;
