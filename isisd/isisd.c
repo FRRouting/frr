@@ -176,6 +176,11 @@ void isis_master_init(struct event_loop *master)
 	im->master = master;
 }
 
+void isis_master_terminate(void)
+{
+	list_delete(&im->isis);
+}
+
 struct isis *isis_new(const char *vrf_name)
 {
 	struct vrf *vrf;
