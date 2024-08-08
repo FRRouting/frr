@@ -198,8 +198,8 @@ void isis_circuit_del(struct isis_circuit *circuit)
 	ldp_sync_info_free(&circuit->ldp_sync_info);
 
 	circuit_mt_finish(circuit);
-	isis_lfa_excluded_ifaces_clear(circuit, ISIS_LEVEL1);
-	isis_lfa_excluded_ifaces_clear(circuit, ISIS_LEVEL2);
+	isis_lfa_excluded_ifaces_delete(circuit, ISIS_LEVEL1);
+	isis_lfa_excluded_ifaces_delete(circuit, ISIS_LEVEL2);
 
 	list_delete(&circuit->ip_addrs);
 	list_delete(&circuit->ipv6_link);
