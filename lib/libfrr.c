@@ -1251,6 +1251,8 @@ void frr_fini(void)
 	/* frrmod_init -> nothing needed / hooks */
 	rcu_shutdown();
 
+	frrmod_terminate();
+
 	/* also log memstats to stderr when stderr goes to a file*/
 	if (debug_memstats_at_exit || !isatty(STDERR_FILENO))
 		have_leftovers = log_memstats(stderr, di->name);
