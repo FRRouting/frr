@@ -39,8 +39,7 @@ int zebra_import_kernel_table_table_id_modify(struct nb_cb_modify_args *args);
 int zebra_import_kernel_table_table_id_destroy(struct nb_cb_destroy_args *args);
 int zebra_import_kernel_table_distance_modify(struct nb_cb_modify_args *args);
 int zebra_import_kernel_table_route_map_modify(struct nb_cb_modify_args *args);
-int zebra_import_kernel_table_route_map_destroy(
-	struct nb_cb_destroy_args *args);
+int zebra_import_kernel_table_route_map_destroy(struct nb_cb_destroy_args *args);
 int zebra_allow_external_route_update_create(struct nb_cb_create_args *args);
 int zebra_allow_external_route_update_destroy(struct nb_cb_destroy_args *args);
 int zebra_dplane_queue_limit_modify(struct nb_cb_modify_args *args);
@@ -88,6 +87,10 @@ int lib_interface_zebra_ipv4_addrs_create(struct nb_cb_create_args *args);
 int lib_interface_zebra_ipv4_addrs_destroy(struct nb_cb_destroy_args *args);
 int lib_interface_zebra_ipv4_addrs_label_modify(struct nb_cb_modify_args *args);
 int lib_interface_zebra_ipv4_addrs_label_destroy(struct nb_cb_destroy_args *args);
+int lib_interface_zebra_ipv4_addrs_setorder_modify(
+	struct nb_cb_modify_args *args);
+int lib_interface_zebra_ipv4_addrs_setorder_destroy(
+	struct nb_cb_destroy_args *args);
 int lib_interface_zebra_ipv4_p2p_addrs_create(struct nb_cb_create_args *args);
 int lib_interface_zebra_ipv4_p2p_addrs_destroy(struct nb_cb_destroy_args *args);
 int lib_interface_zebra_ipv4_p2p_addrs_label_modify(
@@ -281,11 +284,12 @@ struct yang_data *
 lib_interface_zebra_state_vlan_id_get_elem(struct nb_cb_get_elem_args *args);
 struct yang_data *
 lib_interface_zebra_state_vni_id_get_elem(struct nb_cb_get_elem_args *args);
-struct yang_data *lib_interface_zebra_state_remote_vtep_get_elem(
-	struct nb_cb_get_elem_args *args);
-struct yang_data *lib_interface_zebra_state_mcast_group_get_elem(
-	struct nb_cb_get_elem_args *args);
-struct yang_data *lib_interface_zebra_state_bond_get_elem(struct nb_cb_get_elem_args *args);
+struct yang_data *
+lib_interface_zebra_state_remote_vtep_get_elem(struct nb_cb_get_elem_args *args);
+struct yang_data *
+lib_interface_zebra_state_mcast_group_get_elem(struct nb_cb_get_elem_args *args);
+struct yang_data *
+lib_interface_zebra_state_bond_get_elem(struct nb_cb_get_elem_args *args);
 int lib_vrf_zebra_router_id_modify(struct nb_cb_modify_args *args);
 int lib_vrf_zebra_router_id_destroy(struct nb_cb_destroy_args *args);
 int lib_vrf_zebra_ipv6_router_id_modify(struct nb_cb_modify_args *args);
@@ -328,20 +332,20 @@ const void *
 lib_vrf_zebra_ribs_rib_route_lookup_next(struct nb_cb_lookup_entry_args *args);
 struct yang_data *
 lib_vrf_zebra_ribs_rib_route_prefix_get_elem(struct nb_cb_get_elem_args *args);
-struct yang_data *lib_vrf_zebra_ribs_rib_route_protocol_get_elem(
-	struct nb_cb_get_elem_args *args);
+struct yang_data *
+lib_vrf_zebra_ribs_rib_route_protocol_get_elem(struct nb_cb_get_elem_args *args);
 struct yang_data *lib_vrf_zebra_ribs_rib_route_protocol_v6_get_elem(
 	struct nb_cb_get_elem_args *args);
 struct yang_data *
 lib_vrf_zebra_ribs_rib_route_vrf_get_elem(struct nb_cb_get_elem_args *args);
-struct yang_data *lib_vrf_zebra_ribs_rib_route_distance_get_elem(
-	struct nb_cb_get_elem_args *args);
+struct yang_data *
+lib_vrf_zebra_ribs_rib_route_distance_get_elem(struct nb_cb_get_elem_args *args);
 struct yang_data *
 lib_vrf_zebra_ribs_rib_route_metric_get_elem(struct nb_cb_get_elem_args *args);
 struct yang_data *
 lib_vrf_zebra_ribs_rib_route_tag_get_elem(struct nb_cb_get_elem_args *args);
-struct yang_data *lib_vrf_zebra_ribs_rib_route_selected_get_elem(
-	struct nb_cb_get_elem_args *args);
+struct yang_data *
+lib_vrf_zebra_ribs_rib_route_selected_get_elem(struct nb_cb_get_elem_args *args);
 struct yang_data *lib_vrf_zebra_ribs_rib_route_installed_get_elem(
 	struct nb_cb_get_elem_args *args);
 struct yang_data *
