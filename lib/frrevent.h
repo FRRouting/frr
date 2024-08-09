@@ -6,10 +6,21 @@
 #ifndef _ZEBRA_THREAD_H
 #define _ZEBRA_THREAD_H
 
+#if defined(USE_EPOLL) &&                                                      \
+	(defined(HAVE_EPOLL_WAIT) || defined(HAVE_EPOLL_PWAIT) ||              \
+	 defined(HAVE_EPOLL_PWAIT2))
+#define EPOLL_ENABLED 1
+#else
+#define EPOLL_ENABLED 0
+#endif
+
 #include <signal.h>
 #include <zebra.h>
 #include <pthread.h>
 #include <poll.h>
+#if EPOLL_ENABLED
+#include <sys/epoll.h>
+#endif
 #include "monotime.h"
 #include "frratomic.h"
 #include "typesafe.h"
@@ -43,6 +54,34 @@ struct rusage_t {
 PREDECL_LIST(event_list);
 PREDECL_HEAP(event_timer_list);
 
+#if EPOLL_ENABLED
+struct fd_handler {
+	/* The epoll set file descriptor */
+	int epoll_fd;
+
+	/* A hash table in which monitored I/O file descrpitors and events
+	 * are registered
+	 */
+	struct hash *epoll_event_hash;
+
+	/* Maximum size of .revents and .regular_revents arrays */
+	int eventsize;
+
+	/* The buffer which stores the results of epoll_wait */
+	struct epoll_event *revents;
+
+	/* Vtysh might redirect stdin/stdout to regular files. However,
+	 * regular files can't be added into epoll set and need special
+	 * treatment. I/O events from/to regular file will be directly
+	 * added to regular_revents, but not into epoll set, whereby
+	 * sidesteping epoll_wait.
+	 */
+	struct epoll_event *regular_revents;
+	int regular_revent_count;
+
+	unsigned long *fd_poll_counter;
+};
+#else
 struct fd_handler {
 	/* number of pfd that fit in the allocated space of pfds. This is a
 	 * constant and is the same for both pfds and copy.
@@ -59,6 +98,7 @@ struct fd_handler {
 	/* number of pollfds stored in copy */
 	nfds_t copycount;
 };
+#endif
 
 struct xref_eventsched {
 	struct xref xref;
@@ -92,7 +132,9 @@ struct event_loop {
 	pthread_mutex_t mtx;
 	pthread_t owner;
 
+#if !EPOLL_ENABLED
 	nfds_t last_read;
+#endif
 
 	bool ready_run_loop;
 	RUSAGE_T last_getrusage;
@@ -115,10 +157,10 @@ struct event {
 	enum event_types add_type; /* event type */
 	struct event_list_item eventitem;
 	struct event_timer_list_item timeritem;
-	struct event **ref;	      /* external reference (if given) */
-	struct event_loop *master;    /* pointer to the struct event_loop */
+	struct event **ref;	       /* external reference (if given) */
+	struct event_loop *master;     /* pointer to the struct event_loop */
 	void (*func)(struct event *e); /* event function */
-	void *arg;		      /* event argument */
+	void *arg;		       /* event argument */
 	union {
 		int val;	      /* second argument of the event. */
 		int fd;		      /* file descriptor in case of r/w */
@@ -158,8 +200,8 @@ struct cpu_event_history {
 
 static inline unsigned long timeval_elapsed(struct timeval a, struct timeval b)
 {
-	return (((a.tv_sec - b.tv_sec) * TIMER_SECOND_MICRO)
-		+ (a.tv_usec - b.tv_usec));
+	return (((a.tv_sec - b.tv_sec) * TIMER_SECOND_MICRO) +
+		(a.tv_usec - b.tv_usec));
 }
 
 /* Event yield time.  */
@@ -169,7 +211,7 @@ static inline unsigned long timeval_elapsed(struct timeval a, struct timeval b)
 
 /* Macros. */
 #define EVENT_ARG(X) ((X)->arg)
-#define EVENT_FD(X) ((X)->u.fd)
+#define EVENT_FD(X)  ((X)->u.fd)
 #define EVENT_VAL(X) ((X)->u.val)
 
 /*
@@ -255,9 +297,8 @@ extern void _event_add_event(const struct xref_eventsched *xref,
 			     struct event **tref);
 
 extern void _event_execute(const struct xref_eventsched *xref,
-			   struct event_loop *master,
-			   void (*fn)(struct event *), void *arg, int val,
-			   struct event **eref);
+			   struct event_loop *master, void (*fn)(struct event *),
+			   void *arg, int val, struct event **eref);
 
 extern void event_cancel(struct event **event);
 extern void event_cancel_async(struct event_loop *m, struct event **eptr,
