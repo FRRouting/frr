@@ -1568,6 +1568,111 @@ int cli_cmp_isis_redistribute_table(const struct lyd_node *dnode1,
 }
 
 /*
+ * XPath: /frr-isisd:isis/instance/route_leaking
+ */
+DEFPY_YANG(isis_leaking, isis_leaking_cmd,
+	   "[no] redistribute <ipv4$ip isis$proto|ipv6$ip isis$proto>"
+	   "<level-1|level-2>$level_from into <level-2|level-1>$level_to "
+	   "[{metric (0-16777215)|route-map RMAP_NAME$route_map}]",
+	   NO_STR LEAKING_STR
+	   "Redistribute IPv4 routes\n"
+	   "Intermediate System to Intermediate System (IS-IS)\n"
+	   "Redistribute IPv6 routes\n"
+	   "Intermediate System to Intermediate System (IS-IS)\n"
+	   "Inter-area routes from level-1\n"
+	   "Inter-area routes from level-2\n"
+	   "Redistribute from level-m to level-n\n"
+	   "Inter-area routes into level-1\n"
+	   "Inter-area routes into level-2\n"
+	   "Metric for redistributed routes\n"
+	   "IS-IS default metric\n"
+	   "Route map reference\n"
+	   "Pointer to route-map entries\n")
+{
+	if (no)
+		nb_cli_enqueue_change(vty, ".", NB_OP_DESTROY, NULL);
+	else {
+		nb_cli_enqueue_change(vty, ".", NB_OP_CREATE, NULL);
+		nb_cli_enqueue_change(vty, "./route-map",
+				      route_map ? NB_OP_MODIFY : NB_OP_DESTROY,
+				      route_map ? route_map : NULL);
+		nb_cli_enqueue_change(vty, "./metric", NB_OP_MODIFY,
+				      metric_str ? metric_str : NULL);
+	}
+
+	return nb_cli_apply_changes(vty,
+				    "./route_leaking/%s[protocol='%s'][level='%s']",
+				    ip, proto, level_from);
+}
+
+static void vty_print_route_leaking(struct vty *vty,
+				    const struct lyd_node *dnode,
+				    bool show_defaults, const char *family,
+				    bool table)
+{
+	const char *level;
+	const char *protocol = NULL;
+	const char *routemap = NULL;
+
+	protocol = yang_dnode_get_string(dnode, "./protocol");
+	level = yang_dnode_get_string(dnode, "./level");
+
+	vty_out(vty, "redistribute %s %s ", family, protocol);
+	if (!strcmp(level, "level-1"))
+		vty_out(vty, "level-1 into level-2");
+	else
+		vty_out(vty, "level-2 into level-1");
+
+	if (show_defaults || !yang_dnode_is_default(dnode, "./metric"))
+		vty_out(vty, " metric %s",
+			yang_dnode_get_string(dnode, "%s", "./metric"));
+
+	if (yang_dnode_exists(dnode, "./route-map"))
+		routemap = yang_dnode_get_string(dnode, "./route-map");
+	if (routemap)
+		vty_out(vty, " route-map %s", routemap);
+	vty_out(vty, "\n");
+}
+
+
+void cli_show_isis_leaking_ipv4(struct vty *vty, const struct lyd_node *dnode,
+				bool show_defaults)
+{
+	vty_print_route_leaking(vty, dnode, show_defaults, "ipv4", false);
+}
+
+void cli_show_isis_leaking_ipv6(struct vty *vty, const struct lyd_node *dnode,
+				bool show_defaults)
+{
+	vty_print_route_leaking(vty, dnode, show_defaults, "ipv6", false);
+}
+
+void cli_show_isis_route_leaking_ipv4_table(struct vty *vty,
+					    const struct lyd_node *dnode,
+					    bool show_defaults)
+{
+	/*TODO: support table redistribution between levels in  IS-IS*/
+	vty_print_route_leaking(vty, dnode, show_defaults, "ipv4", true);
+}
+
+void cli_show_isis_route_leaking_ipv6_table(struct vty *vty,
+					    const struct lyd_node *dnode,
+					    bool show_defaults)
+{
+	/*TODO: support table redistribution between levels in  IS-IS*/
+	vty_print_route_leaking(vty, dnode, show_defaults, "ipv6", true);
+}
+
+int cli_cmp_isis_route_leaking_table(const struct lyd_node *dnode1,
+				     const struct lyd_node *dnode2)
+{
+	uint16_t table1 = yang_dnode_get_uint16(dnode1, "./table");
+	uint16_t table2 = yang_dnode_get_uint16(dnode2, "./table");
+
+	return table1 - table2;
+}
+
+/*
  * XPath: /frr-isisd:isis/instance/multi-topology
  */
 DEFPY_YANG(
@@ -4017,6 +4122,8 @@ void isis_cli_init(void)
 	install_element(ISIS_NODE, &isis_default_originate_cmd);
 	install_element(ISIS_NODE, &isis_redistribute_cmd);
 	install_element(ISIS_NODE, &isis_redistribute_table_cmd);
+
+	install_element(ISIS_NODE, &isis_leaking_cmd);
 
 	install_element(ISIS_NODE, &isis_topology_cmd);
 
