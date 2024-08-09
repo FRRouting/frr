@@ -27,7 +27,8 @@ Installing Topotest Requirements
 
 .. code:: shell
 
-   apt-get install \
+
+  sudo apt-get install \
        gdb \
        iproute2 \
        net-tools \
@@ -35,6 +36,7 @@ Installing Topotest Requirements
        iputils-ping \
        tshark \
        valgrind
+
    python3 -m pip install wheel
    python3 -m pip install 'pytest>=6.2.4' 'pytest-xdist>=2.3.0'
    python3 -m pip install 'scapy>=2.4.5'
@@ -87,9 +89,9 @@ following steps will get you there on Ubuntu 20.04.
 
 .. code:: shell
 
-   apt install libsnmp-dev
-   apt install snmpd snmp
-   apt install snmp-mibs-downloader
+   sudo apt install libsnmp-dev
+   sudo apt install snmpd snmp
+   sudo apt install snmp-mibs-downloader
    download-mibs
    wget https://raw.githubusercontent.com/FRRouting/frr-mibs/main/iana/IANA-IPPM-METRICS-REGISTRY-MIB -O /usr/share/snmp/mibs/iana/IANA-IPPM-METRICS-REGISTRY-MIB
    wget https://raw.githubusercontent.com/FRRouting/frr-mibs/main/ietf/SNMPv2-PDU -O /usr/share/snmp/mibs/ietf/SNMPv2-PDU
