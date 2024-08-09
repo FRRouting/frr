@@ -590,6 +590,11 @@ static int bgp_vrf_check_update_active(struct bgp *bgp, struct interface *ifp)
 		/* add trap in here */
 		bgp->snmp_stats->active = new_active;
 
+		if (!CHECK_FLAG(bm->options, BGP_OPT_TRAPS_RFC4382)) {
+			bgp_mpls_l3vpn_update_last_changed(bgp);
+			return 0;
+		}
+
 		/* send relevent trap */
 		if (bgp->snmp_stats->active)
 			trap = MPLSL3VPNVRFUP;
