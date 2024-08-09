@@ -209,7 +209,7 @@ struct attr {
 
 	/* has the route-map changed any attribute?
 	   Used on the peer outbound side. */
-	uint32_t rmap_change_flags;
+	uint16_t rmap_change_flags;
 
 	/* Multi-Protocol Nexthop, AFI IPv6 */
 	struct in6_addr mp_nexthop_global;
