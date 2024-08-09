@@ -636,10 +636,25 @@ struct zapi_labels {
 };
 
 struct zapi_srte_tunnel {
-	enum lsp_types_t type;
+	enum sr_types type;
+
+	/* MPLS-TE */
 	mpls_label_t local_label;
 	uint8_t label_num;
 	mpls_label_t labels[MPLS_MAX_LABELS];
+
+	/* SRv6-TE */
+	struct seg6_segs srv6_segs;
+
+	/* For SRv6 resolution. contains
+	 * the resolved next-hop obtained by nexthop tracking
+	 * the original metric and distance values
+	 */
+	uint16_t nexthop_resolved_num;
+	struct zapi_nexthop nexthop_resolved[MULTIPATH_NUM];
+
+	uint32_t metric;
+	uint8_t distance;
 };
 
 struct zapi_sr_policy {
@@ -1399,6 +1414,9 @@ extern int zapi_client_close_notify_decode(struct stream *s,
 
 extern int zclient_send_zebra_gre_request(struct zclient *client,
 					  struct interface *ifp);
+
+extern bool zapi_nexthop_update_decode(struct stream *s, struct prefix *match,
+				       struct zapi_route *nhr);
 #ifdef __cplusplus
 }
 #endif
