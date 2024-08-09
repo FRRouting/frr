@@ -209,6 +209,7 @@ static int process_p2p_hello(struct iih_info *iih)
 		if (iih->circuit->area->is_type == IS_LEVEL_1) {
 			switch (iih->circ_type) {
 			case IS_LEVEL_1:
+<<<<<<< HEAD
 			case IS_LEVEL_1_AND_2:
 				if (adj->adj_state != ISIS_ADJ_UP
 				    || adj->adj_usage == ISIS_ADJ_LEVEL1) {
@@ -227,6 +228,17 @@ static int process_p2p_hello(struct iih_info *iih)
 					isis_adj_state_change(&adj,
 							      ISIS_ADJ_DOWN,
 							      "Wrong System");
+=======
+				isis_adj_process_threeway(&adj, tw_adj,
+							  iih->calculated_type);
+				break;
+			case IS_LEVEL_1_AND_2:
+				if ((adj->adj_state != ISIS_ADJ_UP) ||
+				    (adj->adj_usage == ISIS_ADJ_LEVEL1) ||
+				    (adj->adj_usage == ISIS_ADJ_LEVEL1AND2)) {
+					isis_adj_process_threeway(&adj, tw_adj,
+								  iih->calculated_type);
+>>>>>>> 3eb7d16411 (isisd: fix memory handling in isis_adj_process_threeway())
 				}
 				break;
 			}
@@ -238,12 +250,20 @@ static int process_p2p_hello(struct iih_info *iih)
 			case IS_LEVEL_1:
 				if (adj->adj_state != ISIS_ADJ_UP
 				    || adj->adj_usage == ISIS_ADJ_LEVEL1) {
+<<<<<<< HEAD
 					isis_adj_process_threeway(adj, tw_adj,
 								  ISIS_ADJ_LEVEL1);
 				} else if ((adj->adj_usage
 					    == ISIS_ADJ_LEVEL1AND2)
 					   || (adj->adj_usage
 					       == ISIS_ADJ_LEVEL2)) {
+=======
+					isis_adj_process_threeway(&adj, tw_adj,
+								  iih->calculated_type);
+				} else if ((adj->adj_usage == ISIS_ADJ_LEVEL2) ||
+					   (adj->adj_usage ==
+					    ISIS_ADJ_LEVEL1AND2)) {
+>>>>>>> 3eb7d16411 (isisd: fix memory handling in isis_adj_process_threeway())
 					/* (8) down - wrong system */
 					isis_adj_state_change(&adj,
 							      ISIS_ADJ_DOWN,
@@ -253,11 +273,19 @@ static int process_p2p_hello(struct iih_info *iih)
 			case IS_LEVEL_2:
 				if (adj->adj_state != ISIS_ADJ_UP
 				    || adj->adj_usage == ISIS_ADJ_LEVEL2) {
+<<<<<<< HEAD
 					isis_adj_process_threeway(adj, tw_adj,
 								  ISIS_ADJ_LEVEL2);
 				} else if ((adj->adj_usage == ISIS_ADJ_LEVEL1)
 					   || (adj->adj_usage
 					       == ISIS_ADJ_LEVEL1AND2)) {
+=======
+					isis_adj_process_threeway(&adj, tw_adj,
+								  iih->calculated_type);
+				} else if ((adj->adj_usage == ISIS_ADJ_LEVEL1) ||
+					   (adj->adj_usage ==
+					    ISIS_ADJ_LEVEL1AND2)) {
+>>>>>>> 3eb7d16411 (isisd: fix memory handling in isis_adj_process_threeway())
 					/* (8) down - wrong system */
 					isis_adj_state_change(&adj,
 							      ISIS_ADJ_DOWN,
@@ -267,11 +295,18 @@ static int process_p2p_hello(struct iih_info *iih)
 			case IS_LEVEL_1_AND_2:
 				if (adj->adj_state != ISIS_ADJ_UP
 				    || adj->adj_usage == ISIS_ADJ_LEVEL1AND2) {
+<<<<<<< HEAD
 					isis_adj_process_threeway(adj, tw_adj,
 								  ISIS_ADJ_LEVEL1AND2);
 				} else if ((adj->adj_usage == ISIS_ADJ_LEVEL1)
 					   || (adj->adj_usage
 					       == ISIS_ADJ_LEVEL2)) {
+=======
+					isis_adj_process_threeway(&adj, tw_adj,
+								  iih->calculated_type);
+				} else if ((adj->adj_usage == ISIS_ADJ_LEVEL1) ||
+					   (adj->adj_usage == ISIS_ADJ_LEVEL2)) {
+>>>>>>> 3eb7d16411 (isisd: fix memory handling in isis_adj_process_threeway())
 					/* (8) down - wrong system */
 					isis_adj_state_change(&adj,
 							      ISIS_ADJ_DOWN,
@@ -284,6 +319,7 @@ static int process_p2p_hello(struct iih_info *iih)
 		/* 8.2.5.2 a) 4) If the system is L2 - table 7 */
 		if (iih->circuit->area->is_type == IS_LEVEL_2) {
 			switch (iih->circ_type) {
+<<<<<<< HEAD
 			case IS_LEVEL_1:
 				if (adj->adj_state != ISIS_ADJ_UP) {
 					/* (5) reject - wrong system type event
@@ -298,10 +334,19 @@ static int process_p2p_hello(struct iih_info *iih)
 					isis_adj_state_change(&adj,
 							      ISIS_ADJ_DOWN,
 							      "Wrong System");
+=======
+			case IS_LEVEL_1_AND_2:
+				if (adj->adj_state != ISIS_ADJ_UP ||
+				    adj->adj_usage == ISIS_ADJ_LEVEL2 ||
+				    adj->adj_usage == ISIS_ADJ_LEVEL1AND2) {
+					isis_adj_process_threeway(&adj, tw_adj,
+								  iih->calculated_type);
+>>>>>>> 3eb7d16411 (isisd: fix memory handling in isis_adj_process_threeway())
 				}
 				break;
 			case IS_LEVEL_1_AND_2:
 			case IS_LEVEL_2:
+<<<<<<< HEAD
 				if (adj->adj_state != ISIS_ADJ_UP
 				    || adj->adj_usage == ISIS_ADJ_LEVEL2) {
 					isis_adj_process_threeway(adj, tw_adj,
@@ -313,6 +358,10 @@ static int process_p2p_hello(struct iih_info *iih)
 							      ISIS_ADJ_DOWN,
 							      "Wrong System");
 				}
+=======
+				isis_adj_process_threeway(&adj, tw_adj,
+							  iih->calculated_type);
+>>>>>>> 3eb7d16411 (isisd: fix memory handling in isis_adj_process_threeway())
 				break;
 			}
 		}
@@ -358,8 +407,13 @@ static int process_p2p_hello(struct iih_info *iih)
 			case IS_LEVEL_2:
 				if (adj->adj_state != ISIS_ADJ_UP
 				    || adj->adj_usage == ISIS_ADJ_LEVEL2) {
+<<<<<<< HEAD
 					isis_adj_process_threeway(adj, tw_adj,
 								  ISIS_ADJ_LEVEL2);
+=======
+					isis_adj_process_threeway(&adj, tw_adj,
+								  iih->calculated_type);
+>>>>>>> 3eb7d16411 (isisd: fix memory handling in isis_adj_process_threeway())
 				} else if (adj->adj_usage == ISIS_ADJ_LEVEL1) {
 					/* (7) down - wrong system */
 					isis_adj_state_change(&adj,
