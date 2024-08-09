@@ -1,0 +1,174 @@
+module frr-pim-candidate {
+  yang-version "1.1";
+  namespace "http://frrouting.org/yang/pim-candidate";
+
+  prefix frr-pim-candidate;
+
+  import frr-interface {
+    prefix frr-interface;
+  }
+
+  import ietf-inet-types {
+    prefix "inet";
+  }
+
+  import frr-routing {
+    prefix "frr-rt";
+  }
+
+  import frr-pim {
+    prefix "frr-pim";
+  }
+
+  import frr-route-types {
+    prefix frr-route-types;
+  }
+
+  organization
+    "FRRouting";
+
+  contact
+    "FRR Users List:       <mailto:frog@lists.frrouting.org>
+     FRR Development List: <mailto:dev@lists.frrouting.org>";
+
+  description
+    "The module defines a collection of YANG definitions common for
+     all PIM (Protocol Independent Multicast) Candidate RP & BSR
+     (Rendezvous Point & Bootstrap Router) operation.
+
+     Copyright 2020 FRRouting
+
+     Redistribution and use in source and binary forms, with or without
+     modification, are permitted provided that the following conditions
+     are met:
+
+     1. Redistributions of source code must retain the above copyright notice,
+     this list of conditions and the following disclaimer.
+
+     2. Redistributions in binary form must reproduce the above copyright
+     notice, this list of conditions and the following disclaimer in the
+     documentation and/or other materials provided with the distribution.
+
+     THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+     \"AS IS\" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+     LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+     A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+     HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+     SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+     LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+     DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+     THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+     (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+     OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.";
+
+  revision 2021-05-04 {
+    description
+      "Initial revision.";
+    reference
+      "TBD";
+  }
+
+  /*
+   * Groupings
+   */
+  grouping candidate-bsr-container {
+    description
+      "Grouping of Candidate BSR settings.";
+
+    container candidate-bsr {
+      presence
+        "Enable router to be a Candidate BSR.";
+
+      description
+        "Candidate BSR settings";
+
+      leaf bsr-priority {
+        type uint8;
+        default "64";
+        description
+          "BSR priority for this router, higher values win.";
+      }
+
+      choice source-address-or-interface {
+        description "IP address to use for BSR operation";
+        default if-loopback;
+        leaf address {
+          type inet:ip-address;
+        }
+        leaf interface {
+          type frr-interface:interface-ref;
+        }
+        leaf if-loopback {
+          type empty;
+        }
+        leaf if-any {
+          type empty;
+        }
+      }
+    } // candidate-bsr
+  } // candidate-bsr-container
+
+  grouping candidate-rp-container {
+    description
+      "Grouping of Candidate RP settings.";
+
+    container candidate-rp {
+      presence
+        "Enable router to be a Candidate RP.";
+
+      description
+        "Candidate RP settings";
+
+      leaf rp-priority {
+        type uint8;
+        default "192";
+        description
+          "RP priority for this router, lower values win.";
+      }
+
+      leaf advertisement-interval {
+        type uint32 {
+          range 1..4294967295;
+        }
+        default "60";
+        description
+          "RP advertisement interval (seconds).  Holdtime is 2.5 times this.";
+      }
+
+      leaf-list group-list {
+        type frr-route-types:ip-multicast-group-prefix;
+        description
+          "List of multicast group address.";
+      }
+
+      choice source-address-or-interface {
+        description "IP address to use for RP operation";
+        default if-loopback;
+        leaf address {
+          type inet:ip-address;
+        }
+        leaf interface {
+          type frr-interface:interface-ref;
+        }
+        leaf if-loopback {
+          type empty;
+        }
+        leaf if-any {
+          type empty;
+        }
+      }
+    }
+  }
+
+  /*
+   * Configuration data nodes
+   */
+  augment "/frr-rt:routing/frr-rt:control-plane-protocols/"
+    + "frr-rt:control-plane-protocol/frr-pim:pim/"
+    + "frr-pim:address-family" {
+    description "PIM Candidate RP augmentation.";
+
+    uses candidate-bsr-container;
+    uses candidate-rp-container;
+  }
+}

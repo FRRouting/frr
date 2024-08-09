@@ -1259,6 +1259,154 @@ DEFPY (no_ipv6_pim_ucast_bsm,
 	return pim_process_no_unicast_bsm_cmd(vty);
 }
 
+DEFPY (pim6_bsr_candidate_bsr,
+       pim6_bsr_candidate_bsr_cmd,
+       "[no] bsr candidate-bsr [{priority (0-255)|source <address X:X::X:X|interface IFNAME|loopback$loopback|any$any>}]",
+       NO_STR
+       BSR_STR
+       "Make this router a Candidate BSR\n"
+       "BSR Priority (higher wins)\n"
+       "BSR Priority (higher wins)\n"
+       "Specify IP address for BSR operation\n"
+       "Local address to use\n"
+       "Local address to use\n"
+       "Interface to pick address from\n"
+       "Interface to pick address from\n"
+       "Pick highest loopback address (default)\n"
+       "Pick highest address from any interface\n")
+{
+	char cand_bsr_xpath[XPATH_MAXLEN];
+
+	snprintf(cand_bsr_xpath, sizeof(cand_bsr_xpath), "%s",
+		 FRR_PIM_CAND_BSR_XPATH);
+
+	if (no)
+		nb_cli_enqueue_change(vty, cand_bsr_xpath, NB_OP_DESTROY, NULL);
+	else {
+		char xpath2[XPATH_MAXLEN + 16];
+
+		nb_cli_enqueue_change(vty, cand_bsr_xpath, NB_OP_CREATE, NULL);
+
+		if (any) {
+			snprintf(xpath2, sizeof(xpath2), "%s/if-any",
+				 cand_bsr_xpath);
+			nb_cli_enqueue_change(vty, xpath2, NB_OP_CREATE, NULL);
+		} else if (ifname) {
+			snprintf(xpath2, sizeof(xpath2), "%s/interface",
+				 cand_bsr_xpath);
+			nb_cli_enqueue_change(vty, xpath2, NB_OP_CREATE, ifname);
+		} else if (address_str) {
+			snprintf(xpath2, sizeof(xpath2), "%s/address",
+				 cand_bsr_xpath);
+			nb_cli_enqueue_change(vty, xpath2, NB_OP_CREATE,
+					      address_str);
+		} else {
+			snprintf(xpath2, sizeof(xpath2), "%s/if-loopback",
+				 cand_bsr_xpath);
+			nb_cli_enqueue_change(vty, xpath2, NB_OP_CREATE, NULL);
+		}
+
+		if (priority_str) {
+			snprintf(xpath2, sizeof(xpath2), "%s/bsr-priority",
+				 cand_bsr_xpath);
+			nb_cli_enqueue_change(vty, xpath2, NB_OP_MODIFY,
+					      priority_str);
+		}
+	}
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFPY (pim6_bsr_candidate_rp,
+       pim6_bsr_candidate_rp_cmd,
+       "[no] bsr candidate-rp [{priority (0-255)|interval (1-4294967295)|source <address X:X::X:X|interface IFNAME|loopback$loopback|any$any>}]",
+       NO_STR
+       "Bootstrap Router configuration\n"
+       "Make this router a Candidate RP\n"
+       "RP Priority (lower wins)\n"
+       "RP Priority (lower wins)\n"
+       "Advertisement interval (seconds)\n"
+       "Advertisement interval (seconds)\n"
+       "Specify IP address for RP operation\n"
+       "Local address to use\n"
+       "Local address to use\n"
+       "Interface to pick address from\n"
+       "Interface to pick address from\n"
+       "Pick highest loopback address (default)\n"
+       "Pick highest address from any interface\n")
+{
+	char cand_rp_xpath[XPATH_MAXLEN];
+
+	snprintf(cand_rp_xpath, sizeof(cand_rp_xpath), "%s",
+		 FRR_PIM_CAND_RP_XPATH);
+
+	if (no)
+		nb_cli_enqueue_change(vty, cand_rp_xpath, NB_OP_DESTROY, NULL);
+	else {
+		char xpath2[XPATH_MAXLEN + 24];
+
+		nb_cli_enqueue_change(vty, cand_rp_xpath, NB_OP_CREATE, NULL);
+
+		if (any) {
+			snprintf(xpath2, sizeof(xpath2), "%s/if-any",
+				 cand_rp_xpath);
+			nb_cli_enqueue_change(vty, xpath2, NB_OP_CREATE, NULL);
+		} else if (ifname) {
+			snprintf(xpath2, sizeof(xpath2), "%s/interface",
+				 cand_rp_xpath);
+			nb_cli_enqueue_change(vty, xpath2, NB_OP_CREATE, ifname);
+		} else if (address_str) {
+			snprintf(xpath2, sizeof(xpath2), "%s/address",
+				 cand_rp_xpath);
+			nb_cli_enqueue_change(vty, xpath2, NB_OP_CREATE,
+					      address_str);
+		} else {
+			snprintf(xpath2, sizeof(xpath2), "%s/if-loopback",
+				 cand_rp_xpath);
+			nb_cli_enqueue_change(vty, xpath2, NB_OP_CREATE, NULL);
+		}
+
+		if (priority_str) {
+			snprintf(xpath2, sizeof(xpath2), "%s/rp-priority",
+				 cand_rp_xpath);
+			nb_cli_enqueue_change(vty, xpath2, NB_OP_MODIFY,
+					      priority_str);
+		}
+		if (interval_str) {
+			snprintf(xpath2, sizeof(xpath2),
+				 "%s/advertisement-interval", cand_rp_xpath);
+			nb_cli_enqueue_change(vty, xpath2, NB_OP_MODIFY,
+					      interval_str);
+		}
+	}
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFPY (pim6_bsr_candidate_rp_group,
+       pim6_bsr_candidate_rp_group_cmd,
+       "[no] bsr candidate-rp group X:X::X:X/M",
+       NO_STR
+       "Bootstrap Router configuration\n"
+       "Make this router a Candidate RP\n"
+       "Configure groups to become candidate RP for\n"
+       "Multicast group prefix\n")
+{
+	char cand_rp_xpath[XPATH_MAXLEN];
+
+	snprintf(cand_rp_xpath, sizeof(cand_rp_xpath), "%s/group-list",
+		 FRR_PIM_CAND_RP_XPATH);
+
+	if (no)
+		nb_cli_enqueue_change(vty, cand_rp_xpath, NB_OP_DESTROY,
+				      group_str);
+	else
+		nb_cli_enqueue_change(vty, cand_rp_xpath, NB_OP_CREATE,
+				      group_str);
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
 DEFPY (pim6_ssmpingd,
        pim6_ssmpingd_cmd,
        "ssmpingd [X:X::X:X]$source",
@@ -1707,6 +1855,107 @@ DEFPY (show_ipv6_pim_secondary,
 {
 	return pim_show_secondary_helper(vrf, vty);
 }
+
+DEFPY (show_ipv6_pim_bsr_cand_rp,
+       show_ipv6_pim_bsr_cand_rp_cmd,
+       "show ipv6 pim bsr candidate-rp [vrf VRF_NAME] [json$json]",
+       SHOW_STR
+       IPV6_STR
+       PIM_STR
+       BSR_STR
+       "Current PIM router candidate RP state\n"
+       VRF_CMD_HELP_STR
+       JSON_STR)
+{
+	struct vrf *vrf = pim_cmd_lookup(vty, vrf_name);
+	struct pim_instance *pim;
+	struct bsm_scope *scope;
+	json_object *jsondata = NULL;
+
+	if (!vrf || !vrf->info)
+		return CMD_WARNING;
+
+	pim = (struct pim_instance *)vrf->info;
+	scope = &pim->global_scope;
+
+	if (!scope->cand_rp_addrsel.run) {
+		if (!!json)
+			vty_out(vty, "{}\n");
+		else
+			vty_out(vty,
+				"This router is not currently operating as Candidate RP\n");
+		return CMD_SUCCESS;
+	}
+
+	if (!!json) {
+		jsondata = json_object_new_object();
+		json_object_string_addf(jsondata, "address", "%pPA",
+					&scope->cand_rp_addrsel.run_addr);
+		json_object_int_add(jsondata, "priority", scope->cand_rp_prio);
+		json_object_int_add(jsondata, "nextAdvertisementMsec",
+				    event_timer_remain_msec(
+					    scope->cand_rp_adv_timer));
+
+		vty_out(vty, "%s\n",
+			json_object_to_json_string_ext(jsondata,
+						       JSON_C_TO_STRING_PRETTY));
+		json_object_free(jsondata);
+		return CMD_SUCCESS;
+	}
+
+	vty_out(vty, "Candidate-RP\nAddress:   %pPA\nPriority:  %u\n\n",
+		&scope->cand_rp_addrsel.run_addr, scope->cand_rp_prio);
+	vty_out(vty, "Next adv.: %lu msec\n",
+		event_timer_remain_msec(scope->cand_rp_adv_timer));
+
+
+	return CMD_SUCCESS;
+}
+
+DEFPY (show_ipv6_pim_bsr_rpdb,
+       show_ipv6_pim_bsr_rpdb_cmd,
+       "show ipv6 pim bsr candidate-rp-database [vrf VRF_NAME] [json$json]",
+       SHOW_STR
+       IPV6_STR
+       PIM_STR
+       BSR_STR
+       "Candidate RPs database on this router (if it is the BSR)\n"
+       VRF_CMD_HELP_STR
+       JSON_STR)
+{
+	struct vrf *vrf = pim_cmd_lookup(vty, vrf_name);
+
+	if (!vrf || !vrf->info)
+		return CMD_WARNING;
+
+	struct pim_instance *pim = vrf->info;
+	struct bsm_scope *scope = &pim->global_scope;
+
+	return pim_crp_db_show(vty, scope, !!json);
+}
+
+DEFPY (show_ipv6_pim_bsr_groups,
+       show_ipv6_pim_bsr_groups_cmd,
+       "show ipv6 pim bsr groups [vrf VRF_NAME] [json$json]",
+       SHOW_STR
+       IPV6_STR
+       PIM_STR
+       "boot-strap router information\n"
+       "Candidate RP groups\n"
+       VRF_CMD_HELP_STR
+       JSON_STR)
+{
+	struct vrf *vrf = pim_cmd_lookup(vty, vrf_name);
+
+	if (!vrf || !vrf->info)
+		return CMD_WARNING;
+
+	struct pim_instance *pim = vrf->info;
+	struct bsm_scope *scope = &pim->global_scope;
+
+	return pim_crp_groups_show(vty, scope, !!json);
+}
+
 
 DEFPY (show_ipv6_pim_statistics,
        show_ipv6_pim_statistics_cmd,
@@ -2639,6 +2888,9 @@ void pim_cmd_init(void)
 	install_element(PIM6_NODE, &no_pim6_rp_prefix_list_cmd);
 	install_element(PIM6_NODE, &pim6_ssmpingd_cmd);
 	install_element(PIM6_NODE, &no_pim6_ssmpingd_cmd);
+	install_element(PIM6_NODE, &pim6_bsr_candidate_rp_cmd);
+	install_element(PIM6_NODE, &pim6_bsr_candidate_rp_group_cmd);
+	install_element(PIM6_NODE, &pim6_bsr_candidate_bsr_cmd);
 
 	install_element(CONFIG_NODE, &ipv6_mld_group_watermark_cmd);
 	install_element(VRF_NODE, &ipv6_mld_group_watermark_cmd);
@@ -2693,6 +2945,9 @@ void pim_cmd_init(void)
 	install_element(VIEW_NODE, &show_ipv6_pim_rpf_cmd);
 	install_element(VIEW_NODE, &show_ipv6_pim_rpf_vrf_all_cmd);
 	install_element(VIEW_NODE, &show_ipv6_pim_secondary_cmd);
+	install_element(VIEW_NODE, &show_ipv6_pim_bsr_cand_rp_cmd);
+	install_element(VIEW_NODE, &show_ipv6_pim_bsr_rpdb_cmd);
+	install_element(VIEW_NODE, &show_ipv6_pim_bsr_groups_cmd);
 	install_element(VIEW_NODE, &show_ipv6_pim_statistics_cmd);
 	install_element(VIEW_NODE, &show_ipv6_pim_upstream_cmd);
 	install_element(VIEW_NODE, &show_ipv6_pim_upstream_vrf_all_cmd);

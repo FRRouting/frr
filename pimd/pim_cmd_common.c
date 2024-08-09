@@ -5188,6 +5188,12 @@ void pim_show_bsr(struct pim_instance *pim, struct vty *vty, bool uj)
 	case ACCEPT_PREFERRED:
 		strlcpy(bsr_state, "ACCEPT_PREFERRED", sizeof(bsr_state));
 		break;
+	case BSR_PENDING:
+		strlcpy(bsr_state, "BSR_PENDING", sizeof(bsr_state));
+		break;
+	case BSR_ELECTED:
+		strlcpy(bsr_state, "BSR_ELECTED", sizeof(bsr_state));
+		break;
 	default:
 		strlcpy(bsr_state, "", sizeof(bsr_state));
 	}
@@ -5207,7 +5213,7 @@ void pim_show_bsr(struct pim_instance *pim, struct vty *vty, bool uj)
 	}
 
 	else {
-		vty_out(vty, "PIMv2 Bootstrap information\n");
+		vty_out(vty, "PIMv2 Bootstrap Router information\n");
 		vty_out(vty, "Current preferred BSR address: %pPA\n",
 			&pim->global_scope.current_bsr);
 		vty_out(vty,

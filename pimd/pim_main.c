@@ -68,6 +68,7 @@ static const struct frr_yang_module_info *const pimd_yang_modules[] = {
 	&frr_routing_info,
 	&frr_pim_info,
 	&frr_pim_rp_info,
+	&frr_pim_candidate_info,
 	&frr_gmp_info,
 };
 
