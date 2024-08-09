@@ -1354,9 +1354,6 @@ struct peer *peer_unlock_with_caller(const char *name, struct peer *peer)
 
 int bgp_global_gr_init(struct bgp *bgp)
 {
-	if (BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
-		zlog_debug("%s called ..", __func__);
-
 	int local_GLOBAL_GR_FSM[BGP_GLOBAL_GR_MODE][BGP_GLOBAL_GR_EVENT_CMD] = {
 		/* GLOBAL_HELPER Mode  */
 		{
@@ -1424,9 +1421,6 @@ int bgp_global_gr_init(struct bgp *bgp)
 
 int bgp_peer_gr_init(struct peer *peer)
 {
-	if (BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
-		zlog_debug("%s called ..", __func__);
-
 	struct bgp_peer_gr local_Peer_GR_FSM[BGP_PEER_GR_MODE]
 					[BGP_PEER_GR_EVENT_CMD] = {
 	{
@@ -1595,9 +1589,6 @@ struct peer *peer_new(struct bgp *bgp)
 
 	SET_FLAG(peer->flags_invert, PEER_FLAG_CAPABILITY_FQDN);
 	SET_FLAG(peer->flags, PEER_FLAG_CAPABILITY_FQDN);
-
-	/* Initialize per peer bgp GR FSM */
-	bgp_peer_gr_init(peer);
 
 	/* Get service port number.  */
 	sp = getservbyname("bgp", "tcp");
@@ -2044,7 +2035,9 @@ struct peer *peer_create(union sockunion *su, const char *conf_if,
 	else if (!active && peer_active(peer))
 		bgp_timer_set(peer->connection);
 
-	bgp_peer_gr_flags_update(peer);
+	/* Initialize per peer bgp GR FSM */
+	bgp_peer_gr_init(peer);
+
 	BGP_GR_ROUTER_DETECT_AND_SEND_CAPABILITY_TO_ZEBRA(bgp, bgp->peer);
 
 	return peer;
@@ -2060,6 +2053,9 @@ struct peer *peer_create_accept(struct bgp *bgp)
 	peer = peer_lock(peer); /* bgp peer list reference */
 	listnode_add_sort(bgp->peer, peer);
 	(void)hash_get(bgp->peerhash, peer, hash_alloc_intern);
+
+	/* Initialize per peer bgp GR FSM */
+	bgp_peer_gr_init(peer);
 
 	return peer;
 }
@@ -3492,11 +3488,10 @@ static struct bgp *bgp_create(as_t *as, const char *name,
 		bgp_maximum_paths_set(bgp, afi, safi, BGP_PEER_IBGP,
 				      multipath_num, 0);
 		/* Initialize graceful restart info */
-		bgp->gr_info[afi][safi].eor_required = 0;
-		bgp->gr_info[afi][safi].eor_received = 0;
 		bgp->gr_info[afi][safi].t_select_deferral = NULL;
 		bgp->gr_info[afi][safi].t_route_select = NULL;
 		bgp->gr_info[afi][safi].gr_deferred = 0;
+		bgp->gr_info[afi][safi].select_defer_over = false;
 	}
 
 	bgp->v_update_delay = bm->v_update_delay;

@@ -157,6 +157,7 @@ struct bgp_debug_filter {
 #define CONF_BGP_DEBUG(a, b) (unlikely(conf_bgp_debug_##a & BGP_DEBUG_##b))
 
 extern const char *const bgp_type_str[];
+extern const char *const bgp_global_gr_mode_str[];
 
 extern bool bgp_dump_attr(struct attr *attr, char *buf, size_t size);
 extern bool bgp_debug_peer_updout_enabled(char *host);
