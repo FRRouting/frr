@@ -182,6 +182,10 @@ int lib_interface_gmp_address_family_last_member_query_interval_modify(
 		struct nb_cb_modify_args *args);
 int lib_interface_gmp_address_family_robustness_variable_modify(
 		struct nb_cb_modify_args *args);
+int lib_interface_gmp_address_family_join_group_create(
+	struct nb_cb_create_args *args);
+int lib_interface_gmp_address_family_join_group_destroy(
+	struct nb_cb_destroy_args *args);
 int lib_interface_gmp_address_family_static_group_create(
 		struct nb_cb_create_args *args);
 int lib_interface_gmp_address_family_static_group_destroy(
@@ -219,8 +223,11 @@ int routing_control_plane_protocols_name_validate(
 	"./frr-gmp:gmp/address-family[address-family='%s']"
 #define FRR_GMP_ENABLE_XPATH                                            \
 	"%s/frr-gmp:gmp/address-family[address-family='%s']/enable"
-#define FRR_GMP_JOIN_XPATH                                              \
-	"./frr-gmp:gmp/address-family[address-family='%s']/"            \
+#define FRR_GMP_JOIN_GROUP_XPATH                                               \
+	"./frr-gmp:gmp/address-family[address-family='%s']/"                   \
+	"join-group[group-addr='%s'][source-addr='%s']"
+#define FRR_GMP_STATIC_GROUP_XPATH                                             \
+	"./frr-gmp:gmp/address-family[address-family='%s']/"                   \
 	"static-group[group-addr='%s'][source-addr='%s']"
 
 #endif /* _FRR_PIM_NB_H_ */
