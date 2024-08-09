@@ -1678,13 +1678,25 @@ bgp_zebra_announce_actual(struct bgp_dest *dest, struct bgp_path_info *info,
 	return zclient_route_send(ZEBRA_ROUTE_ADD, zclient, &api);
 }
 
+void bgp_zebra_announce_dest(struct bgp *bgp, struct bgp_dest *dest,
+			     bool imported)
+{
+	struct bgp_path_info *pi;
+
+	for (pi = bgp_dest_get_bgp_path_info(dest); pi; pi = pi->next)
+		if (CHECK_FLAG(pi->flags, BGP_PATH_SELECTED) &&
+		    (pi->type == ZEBRA_ROUTE_BGP &&
+		     (pi->sub_type == BGP_ROUTE_NORMAL ||
+		      (imported && pi->sub_type == BGP_ROUTE_IMPORTED))))
+			bgp_zebra_route_install(dest, pi, bgp, true, NULL,
+						false);
+}
 
 /* Announce all routes of a table to zebra */
 void bgp_zebra_announce_table(struct bgp *bgp, afi_t afi, safi_t safi)
 {
 	struct bgp_dest *dest;
 	struct bgp_table *table;
-	struct bgp_path_info *pi;
 
 	/* Don't try to install if we're not connected to Zebra or Zebra doesn't
 	 * know of this instance.
@@ -1697,13 +1709,7 @@ void bgp_zebra_announce_table(struct bgp *bgp, afi_t afi, safi_t safi)
 		return;
 
 	for (dest = bgp_table_top(table); dest; dest = bgp_route_next(dest))
-		for (pi = bgp_dest_get_bgp_path_info(dest); pi; pi = pi->next)
-			if (CHECK_FLAG(pi->flags, BGP_PATH_SELECTED) &&
-			    (pi->type == ZEBRA_ROUTE_BGP
-			     && (pi->sub_type == BGP_ROUTE_NORMAL
-				 || pi->sub_type == BGP_ROUTE_IMPORTED)))
-				bgp_zebra_route_install(dest, pi, bgp, true,
-							NULL, false);
+		bgp_zebra_announce_dest(bgp, dest, true);
 }
 
 /* Announce routes of any bgp subtype of a table to zebra */
@@ -1712,7 +1718,6 @@ void bgp_zebra_announce_table_all_subtypes(struct bgp *bgp, afi_t afi,
 {
 	struct bgp_dest *dest;
 	struct bgp_table *table;
-	struct bgp_path_info *pi;
 
 	if (!bgp_install_info_to_zebra(bgp))
 		return;
@@ -1722,11 +1727,7 @@ void bgp_zebra_announce_table_all_subtypes(struct bgp *bgp, afi_t afi,
 		return;
 
 	for (dest = bgp_table_top(table); dest; dest = bgp_route_next(dest))
-		for (pi = bgp_dest_get_bgp_path_info(dest); pi; pi = pi->next)
-			if (CHECK_FLAG(pi->flags, BGP_PATH_SELECTED) &&
-			    pi->type == ZEBRA_ROUTE_BGP)
-				bgp_zebra_route_install(dest, pi, bgp, true,
-							NULL, false);
+		bgp_zebra_announce_dest(bgp, dest, false);
 }
 
 enum zclient_send_status bgp_zebra_withdraw_actual(struct bgp_dest *dest,
