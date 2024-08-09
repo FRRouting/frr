@@ -1628,5 +1628,4 @@ void isis_zebra_stop(void)
 	zclient_free(zclient_sync);
 	zclient_stop(zclient);
 	zclient_free(zclient);
-	frr_fini();
 }

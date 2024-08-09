@@ -268,6 +268,7 @@ DECLARE_HOOK(isis_area_overload_bit_update, (struct isis_area * area), (area));
 
 void isis_terminate(void);
 void isis_master_init(struct event_loop *master);
+void isis_master_terminate(void);
 void isis_vrf_link(struct isis *isis, struct vrf *vrf);
 void isis_vrf_unlink(struct isis *isis, struct vrf *vrf);
 struct isis *isis_lookup_by_vrfid(vrf_id_t vrf_id);

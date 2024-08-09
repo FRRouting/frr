@@ -238,10 +238,10 @@ void isis_lfa_excluded_ifaces_init(struct isis_circuit *circuit, int level)
  *
  * @param nodes		List of SPF nodes
  */
-void isis_lfa_excluded_ifaces_clear(struct isis_circuit *circuit, int level)
+void isis_lfa_excluded_ifaces_delete(struct isis_circuit *circuit, int level)
 {
-	hash_clean(circuit->lfa_excluded_ifaces[level - 1],
-		   lfa_excl_interface_hash_free);
+	hash_clean_and_free(&circuit->lfa_excluded_ifaces[level - 1],
+			    lfa_excl_interface_hash_free);
 }
 
 /**
