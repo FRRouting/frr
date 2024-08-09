@@ -23,7 +23,7 @@ sys.path.append(os.path.join(CWD, "../lib/"))
 
 # pylint: disable=C0413
 
-pytestmark = [pytest.mark.ospfd]
+pytestmark = [pytest.mark.random_order(disabled=True), pytest.mark.ospfd]
 
 
 # Global variables

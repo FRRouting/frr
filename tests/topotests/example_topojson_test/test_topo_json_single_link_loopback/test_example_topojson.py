@@ -44,7 +44,7 @@ from lib.topojson import build_topo_from_json, build_config_from_json
 # pytest module level markers
 """
 pytestmark = pytest.mark.bfdd # single marker
-pytestmark = [
+pytestmark = [pytest.mark.random_order(disabled=True)
 	pytest.mark.bgpd,
 	pytest.mark.ospfd,
 	pytest.mark.ospf6d

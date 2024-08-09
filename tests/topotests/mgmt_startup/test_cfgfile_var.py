@@ -31,7 +31,11 @@ from lib.common_config import step
 from lib.topogen import Topogen, TopoRouter
 from util import check_kernel
 
-pytestmark = [pytest.mark.staticd, pytest.mark.mgmtd]
+pytestmark = [
+    pytest.mark.random_order(disabled=True),
+    pytest.mark.staticd,
+    pytest.mark.mgmtd,
+]
 
 
 @pytest.fixture(scope="module")

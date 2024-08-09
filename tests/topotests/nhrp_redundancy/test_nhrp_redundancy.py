@@ -69,7 +69,7 @@ sys.path.append(os.path.join(CWD, "../"))
 
 # Required to instantiate the topology builder class.
 
-pytestmark = [pytest.mark.nhrpd]
+pytestmark = [pytest.mark.random_order(disabled=True), pytest.mark.nhrpd]
 
 
 def build_topo(tgen):

@@ -30,7 +30,7 @@ from lib.topogen import Topogen, TopoRouter, get_topogen
 # Required to instantiate the topology builder class.
 
 
-pytestmark = [pytest.mark.bgpd]
+pytestmark = [pytest.mark.random_order(disabled=True), pytest.mark.bgpd]
 
 
 # Basic scenario for BGP-LU. Nodes are directly connected.

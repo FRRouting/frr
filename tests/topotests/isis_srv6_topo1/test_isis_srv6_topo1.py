@@ -78,7 +78,11 @@ from lib.common_config import (
     create_interface_in_kernel,
 )
 
-pytestmark = [pytest.mark.isisd, pytest.mark.sharpd]
+pytestmark = [
+    pytest.mark.random_order(disabled=True),
+    pytest.mark.isisd,
+    pytest.mark.sharpd,
+]
 
 
 def build_topo(tgen):

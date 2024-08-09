@@ -18,7 +18,7 @@ import pytest
 import json
 from functools import partial
 
-pytestmark = [pytest.mark.pimd]
+pytestmark = [pytest.mark.random_order(disabled=True), pytest.mark.pimd]
 
 CWD = os.path.dirname(os.path.realpath(__file__))
 sys.path.append(os.path.join(CWD, "../"))

@@ -43,7 +43,7 @@ from lib.ospf import (
     create_router_ospf,
 )
 
-pytestmark = [pytest.mark.ospfd]
+pytestmark = [pytest.mark.random_order(disabled=True), pytest.mark.ospfd]
 
 # Global variables
 topo = None

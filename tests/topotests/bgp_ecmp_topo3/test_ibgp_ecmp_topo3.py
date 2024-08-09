@@ -43,7 +43,11 @@ from lib.topolog import logger
 from lib.topojson import build_config_from_json
 from lib.bgp import create_router_bgp, verify_bgp_convergence
 
-pytestmark = [pytest.mark.bgpd, pytest.mark.staticd]
+pytestmark = [
+    pytest.mark.random_order(disabled=True),
+    pytest.mark.bgpd,
+    pytest.mark.staticd,
+]
 
 
 # Global variables

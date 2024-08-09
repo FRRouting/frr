@@ -34,7 +34,7 @@ import pytest
 from functools import partial
 
 # add after imports, before defining classes or functions:
-pytestmark = [pytest.mark.bgpd]
+pytestmark = [pytest.mark.random_order(disabled=True), pytest.mark.bgpd]
 
 CWD = os.path.dirname(os.path.realpath(__file__))
 sys.path.append(os.path.join(CWD, "../"))

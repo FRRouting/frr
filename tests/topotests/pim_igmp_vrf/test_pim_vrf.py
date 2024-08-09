@@ -96,7 +96,11 @@ from lib.common_config import required_linux_kernel_version
 from lib.pim import McastTesterHelper
 
 
-pytestmark = [pytest.mark.ospfd, pytest.mark.pimd]
+pytestmark = [
+    pytest.mark.random_order(disabled=True),
+    pytest.mark.ospfd,
+    pytest.mark.pimd,
+]
 
 
 def build_topo(tgen):
@@ -354,6 +358,7 @@ def _test_vrf_pimreg_interfaces():
     assertmsg = "PIM router R1, VRF red (table 12) pimreg12 interface missing or incorrect status"
     assert res is None, assertmsg
 
+
 def test_vrf_pimreg_interfaces():
     tgen = get_topogen()
     r1 = tgen.gears["r1"]
@@ -364,6 +369,7 @@ def test_vrf_pimreg_interfaces():
         output = r1.net.cmd_nostatus("ip -o link")
         logging.error("ip link info after failure: %s", output)
         raise
+
 
 ##################################
 ###  Test PIM / IGMP with VRF

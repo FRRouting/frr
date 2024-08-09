@@ -18,7 +18,11 @@ from lib.common_config import retry
 from lib.topogen import Topogen
 from lib.topotest import json_cmp
 
-pytestmark = [pytest.mark.ripd, pytest.mark.mgmtd]
+pytestmark = [
+    pytest.mark.random_order(disabled=True),
+    pytest.mark.ripd,
+    pytest.mark.mgmtd,
+]
 
 CWD = os.path.dirname(os.path.realpath(__file__))
 

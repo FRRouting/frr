@@ -84,7 +84,7 @@ STAR = "*"
 SOURCE = "Static"
 ASSERT_MSG = "Testcase {} : Failed Error: {}"
 
-pytestmark = [pytest.mark.pim6d]
+pytestmark = [pytest.mark.random_order(disabled=True), pytest.mark.pim6d]
 
 
 def build_topo(tgen):

@@ -36,7 +36,7 @@ from lib.topotest import interface_set_status, json_cmp
 from lib import topotest
 from lib.topogen import Topogen, TopoRouter
 
-pytestmark = [pytest.mark.ospfd]
+pytestmark = [pytest.mark.random_order(disabled=True), pytest.mark.ospfd]
 
 CWD = os.path.dirname(os.path.realpath(__file__))
 TESTDIR = os.path.abspath(CWD)

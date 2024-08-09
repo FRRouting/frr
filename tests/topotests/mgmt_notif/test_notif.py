@@ -17,7 +17,12 @@ from lib.topogen import Topogen
 from lib.topotest import json_cmp
 from oper import check_kernel_32
 
-pytestmark = [pytest.mark.ripd, pytest.mark.staticd, pytest.mark.mgmtd]
+pytestmark = [
+    pytest.mark.random_order(disabled=True),
+    pytest.mark.ripd,
+    pytest.mark.staticd,
+    pytest.mark.mgmtd,
+]
 
 CWD = os.path.dirname(os.path.realpath(__file__))
 

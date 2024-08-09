@@ -33,7 +33,7 @@ sys.path.append(os.path.join(CWD, "../"))
 from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
 
-pytestmark = [pytest.mark.staticd]
+pytestmark = [pytest.mark.random_order(disabled=True), pytest.mark.staticd]
 
 
 def build_topo(tgen):

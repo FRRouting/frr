@@ -69,7 +69,7 @@ from lib.common_config import (
     start_router_daemons,
 )
 
-pytestmark = [pytest.mark.ospf6d]
+pytestmark = [pytest.mark.random_order(disabled=True), pytest.mark.ospf6d]
 
 # Global multi-dimensional dictionary containing all expected outputs
 outputs = {}

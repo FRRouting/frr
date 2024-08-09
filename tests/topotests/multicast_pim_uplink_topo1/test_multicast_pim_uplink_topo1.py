@@ -108,7 +108,7 @@ r4_r3_links = []
 HELLO_TIMER = 1
 HOLD_TIMER = 3
 
-pytestmark = [pytest.mark.pimd]
+pytestmark = [pytest.mark.random_order(disabled=True), pytest.mark.pimd]
 
 
 def setup_module(mod):

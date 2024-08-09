@@ -27,6 +27,7 @@ from lib.topogen import Topogen
 
 
 pytestmark = [
+    pytest.mark.random_order(disabled=True),
     pytest.mark.ospf6d,
     pytest.mark.ospfd,
 ]

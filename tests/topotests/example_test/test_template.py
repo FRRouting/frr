@@ -22,6 +22,7 @@ from lib.topolog import logger
 # TODO: select markers based on daemons used during test
 # pytest module level markers
 pytestmark = [
+    pytest.mark.random_order(disabled=True),
     # pytest.mark.babeld,
     # pytest.mark.bfdd,
     # pytest.mark.bgpd,

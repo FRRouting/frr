@@ -69,7 +69,7 @@ from lib.topolog import logger
 
 # Required to instantiate the topology builder class.
 
-pytestmark = [pytest.mark.isisd]
+pytestmark = [pytest.mark.random_order(disabled=True), pytest.mark.isisd]
 
 
 def build_topo(tgen):

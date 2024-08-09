@@ -30,7 +30,7 @@ from lib.topolog import logger
 
 # Required to instantiate the topology builder class.
 
-pytestmark = [pytest.mark.ospf6d]
+pytestmark = [pytest.mark.random_order(disabled=True), pytest.mark.ospf6d]
 
 
 def expect_lsas(router, area, lsas, wait=5, extra_params=""):

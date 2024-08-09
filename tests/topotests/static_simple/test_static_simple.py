@@ -20,7 +20,7 @@ from lib.topogen import TopoRouter, Topogen
 from lib.topolog import logger
 from lib.common_config import retry, step
 
-pytestmark = [pytest.mark.staticd]
+pytestmark = [pytest.mark.random_order(disabled=True), pytest.mark.staticd]
 
 
 @pytest.fixture(scope="module")

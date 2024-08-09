@@ -750,6 +750,28 @@ IDE/editor if supported (e.g., the emacs ``cov-mode`` package)
 NOTE: the *.gcda files in ``/tmp/topotests/gcda`` are cumulative so if you do
 not remove them they will aggregate data across multiple topotest runs.
 
+How to run tests in a random order
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+To introduce additional randomness in the call order you can install the
+pytest-random-order module.
+
+.. code:: console
+
+   pip3 install pytest-random-order
+
+Then when you run the tests, add this to the command line:
+
+.. code:: console
+
+   sudo -E python3 -m pytest -n <some value> --dist=loadfile --random-order=package
+
+This causes the tests to be run in a random order.  The run of the test will give
+you the seed for the random order so you can use that to specify a repeat run
+if you can cause a specific test to fail more often.  Consult the pytest-random-order
+documentation for how to do this.
+
+
 How to reproduce failed Tests
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 

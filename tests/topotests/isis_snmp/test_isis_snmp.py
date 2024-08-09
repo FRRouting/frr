@@ -66,7 +66,12 @@ from lib.snmptest import SnmpTester
 
 # Required to instantiate the topology builder class.
 
-pytestmark = [pytest.mark.isisd, pytest.mark.ldpd, pytest.mark.snmp]
+pytestmark = [
+    pytest.mark.random_order(disabled=True),
+    pytest.mark.isisd,
+    pytest.mark.ldpd,
+    pytest.mark.snmp,
+]
 
 
 def build_topo(tgen):

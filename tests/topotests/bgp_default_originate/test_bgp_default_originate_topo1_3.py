@@ -56,7 +56,11 @@ from lib.common_config import (
     check_router_status,
 )
 
-pytestmark = [pytest.mark.bgpd, pytest.mark.staticd]
+pytestmark = [
+    pytest.mark.random_order(disabled=True),
+    pytest.mark.bgpd,
+    pytest.mark.staticd,
+]
 
 # Save the Current Working Directory to find configuration files.
 CWD = os.path.dirname(os.path.realpath(__file__))

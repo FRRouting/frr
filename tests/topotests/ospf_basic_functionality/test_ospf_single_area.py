@@ -47,7 +47,11 @@ from lib.ospf import (
     verify_ospf_interface,
 )
 
-pytestmark = [pytest.mark.ospfd, pytest.mark.staticd]
+pytestmark = [
+    pytest.mark.random_order(disabled=True),
+    pytest.mark.ospfd,
+    pytest.mark.staticd,
+]
 # Global variables
 topo = None
 

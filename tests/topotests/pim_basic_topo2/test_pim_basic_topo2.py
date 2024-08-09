@@ -30,7 +30,11 @@ from lib.topolog import logger
 
 # Required to instantiate the topology builder class.
 
-pytestmark = [pytest.mark.bfdd, pytest.mark.pimd]
+pytestmark = [
+    pytest.mark.random_order(disabled=True),
+    pytest.mark.bfdd,
+    pytest.mark.pimd,
+]
 
 
 def build_topo(tgen):

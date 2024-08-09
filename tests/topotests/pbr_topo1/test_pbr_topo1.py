@@ -37,7 +37,7 @@ from lib.common_config import shutdown_bringup_interface
 
 # Required to instantiate the topology builder class.
 
-pytestmark = [pytest.mark.pbrd]
+pytestmark = [pytest.mark.random_order(disabled=True), pytest.mark.pbrd]
 
 #####################################################
 ##

@@ -89,7 +89,7 @@ r2_r4_links = []
 r4_r2_links = []
 r4_r3_links = []
 
-pytestmark = [pytest.mark.pimd]
+pytestmark = [pytest.mark.random_order(disabled=True), pytest.mark.pimd]
 
 
 def setup_module(mod):

@@ -51,7 +51,7 @@ from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
 
 
-pytestmark = [pytest.mark.isisd]
+pytestmark = [pytest.mark.random_order(disabled=True), pytest.mark.isisd]
 
 # Global multi-dimensional dictionary containing all expected outputs
 outputs = {}

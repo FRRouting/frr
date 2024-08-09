@@ -32,7 +32,7 @@ from lib.topolog import logger
 from time import sleep
 
 
-pytestmark = [pytest.mark.sharpd]
+pytestmark = [pytest.mark.random_order(disabled=True), pytest.mark.sharpd]
 krel = platform.release()
 
 
