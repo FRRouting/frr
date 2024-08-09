@@ -229,11 +229,12 @@ static void isis_adj_route_switchover(struct isis_adjacency *adj)
 	}
 }
 
-void isis_adj_process_threeway(struct isis_adjacency *adj,
+void isis_adj_process_threeway(struct isis_adjacency **padj,
 			       struct isis_threeway_adj *tw_adj,
 			       enum isis_adj_usage adj_usage)
 {
 	enum isis_threeway_state next_tw_state = ISIS_THREEWAY_DOWN;
+	struct isis_adjacency *adj = *padj;
 
 	if (tw_adj && !adj->circuit->disable_threeway_adj) {
 		if (tw_adj->state == ISIS_THREEWAY_DOWN) {
@@ -263,14 +264,13 @@ void isis_adj_process_threeway(struct isis_adjacency *adj,
 		fabricd_initial_sync_hello(adj->circuit);
 
 	if (next_tw_state == ISIS_THREEWAY_DOWN) {
-		isis_adj_state_change(&adj, ISIS_ADJ_DOWN,
-				      "Neighbor restarted");
+		isis_adj_state_change(padj, ISIS_ADJ_DOWN, "Neighbor restarted");
 		return;
 	}
 
 	if (next_tw_state == ISIS_THREEWAY_UP) {
 		if (adj->adj_state != ISIS_ADJ_UP) {
-			isis_adj_state_change(&adj, ISIS_ADJ_UP, NULL);
+			isis_adj_state_change(padj, ISIS_ADJ_UP, NULL);
 			adj->adj_usage = adj_usage;
 		}
 	}
