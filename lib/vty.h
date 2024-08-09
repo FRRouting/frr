@@ -236,6 +236,7 @@ struct vty {
 	uintptr_t mgmt_req_pending_data;
 	bool mgmt_locked_candidate_ds;
 	bool mgmt_locked_running_ds;
+	uint64_t vty_buf_size_written;
 };
 
 static inline void vty_push_context(struct vty *vty, int node, uint64_t id)
