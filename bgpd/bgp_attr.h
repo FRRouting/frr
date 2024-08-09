@@ -293,7 +293,7 @@ struct attr {
 	/* EVPN local router-mac */
 	struct ethaddr rmac;
 
-	uint16_t encap_tunneltype;
+	uint8_t encap_tunneltype;
 
 	/* rmap set table */
 	uint32_t rmap_table_id;
