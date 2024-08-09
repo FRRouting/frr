@@ -902,7 +902,7 @@ struct bpacket *subgroup_update_packet(struct update_subgroup *subgrp)
 				subgrp->update_group->id, subgrp->id,
 				(stream_get_endp(packet)
 				 - stream_get_getp(packet)),
-				peer->max_packet_size, num_pfx);
+				atomic_load_explicit(&peer->max_packet_size, memory_order_relaxed), num_pfx);
 		pkt = bpacket_queue_add(SUBGRP_PKTQ(subgrp), packet, &vecarr);
 		stream_reset(s);
 		stream_reset(snlri);
@@ -1139,7 +1139,7 @@ void subgroup_default_update_packet(struct update_subgroup *subgrp,
 			   tx_id_buf, attrstr);
 	}
 
-	s = stream_new(peer->max_packet_size);
+	s = stream_new(atomic_load_explicit(&peer->max_packet_size, memory_order_relaxed));
 
 	/* Make BGP update packet. */
 	bgp_packet_set_marker(s, BGP_MSG_UPDATE);
@@ -1226,7 +1226,7 @@ void subgroup_default_withdraw_packet(struct update_subgroup *subgrp)
 			   tx_id_buf);
 	}
 
-	s = stream_new(peer->max_packet_size);
+	s = stream_new(atomic_load_explicit(&peer->max_packet_size, memory_order_relaxed));
 
 	/* Make BGP update packet. */
 	bgp_packet_set_marker(s, BGP_MSG_UPDATE);
