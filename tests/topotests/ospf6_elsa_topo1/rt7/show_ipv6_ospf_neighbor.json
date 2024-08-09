@@ -1,0 +1,12 @@
+{
+  "neighbors":[
+    {
+      "neighborId":"6.6.6.6",
+      "priority":1,
+      "state":"Full",
+      "ifState":"PointToPoint",
+      "interfaceName":"eth-rt6",
+      "interfaceState":"PointToPoint"
+    }
+  ]
+}

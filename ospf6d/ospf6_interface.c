@@ -14,6 +14,7 @@
 #include "plist.h"
 #include "zclient.h"
 
+#include "ospf6_proto.h"
 #include "ospf6_lsa.h"
 #include "ospf6_lsdb.h"
 #include "ospf6_top.h"
@@ -30,9 +31,9 @@
 #include "ospf6d.h"
 #include "ospf6_bfd.h"
 #include "ospf6_zebra.h"
+#include "ospf6_tlv.h"
 #include "ospf6_gr.h"
 #include "lib/json.h"
-#include "ospf6_proto.h"
 #include "lib/keychain.h"
 #include "ospf6_auth_trailer.h"
 #include "ospf6d/ospf6_interface_clippy.c"
@@ -94,6 +95,7 @@ static void ospf6_interface_lsdb_hook(struct ospf6_lsa *lsa, unsigned int reason
 	oi = lsa->lsdb->data;
 	switch (ntohs(lsa->header->type)) {
 	case OSPF6_LSTYPE_LINK:
+	case OSPF6_LSTYPE_E_LINK:
 		if (oi->state == OSPF6_INTERFACE_DR)
 			OSPF6_INTRA_PREFIX_LSA_SCHEDULE_TRANSIT(oi);
 		if (oi->area)
