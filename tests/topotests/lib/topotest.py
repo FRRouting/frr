@@ -1749,7 +1749,8 @@ class Router(Node):
         self.removeIPs()
         # If ldp is used, check for LDP to be compiled and Linux Kernel to be 4.5 or higher
         # No error - but return message and skip all the tests
-        if self.daemons["ldpd"] == 1:
+        if self.daemons["ldpd"] == 1 or self.unified_config:
+            self.daemons["ldpd"] = 1
             ldpd_path = os.path.join(self.daemondir, "ldpd")
             if not os.path.isfile(ldpd_path):
                 logger.info("LDP Test, but no ldpd compiled or installed")
