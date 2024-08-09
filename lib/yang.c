@@ -29,6 +29,10 @@ DEFINE_MTYPE_STATIC(LIB, YANG_DATA, "YANG data structure");
 #define yang_lyd_find_xpath3(ctx_node, tree, xpath, format, prefix_data, vars, \
 			     set)                                              \
 	lyd_find_xpath3(ctx_node, tree, xpath, LY_VALUE_JSON, NULL, vars, set)
+
+#ifndef LYD_NEW_PATH_OUTPUT
+#define LYD_NEW_PATH_OUTPUT LYD_NEW_VAL_OUTPUT
+#endif
 #endif
 
 /* libyang container. */
