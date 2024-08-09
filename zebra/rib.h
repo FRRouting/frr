@@ -326,6 +326,7 @@ typedef struct rib_tables_iter_t_ {
 
 /* Events/reasons triggering a RIB update. */
 enum rib_update_event {
+	RIB_UPDATE_INTERFACE_DOWN,
 	RIB_UPDATE_KERNEL,
 	RIB_UPDATE_RMAP_CHANGE,
 	RIB_UPDATE_OTHER,
@@ -395,7 +396,7 @@ extern int rib_add_multipath_nhe(afi_t afi, safi_t safi, struct prefix *p,
 
 extern void rib_delete(afi_t afi, safi_t safi, vrf_id_t vrf_id, int type,
 		       unsigned short instance, uint32_t flags,
-		       struct prefix *p, struct prefix_ipv6 *src_p,
+		       const struct prefix *p, const struct prefix_ipv6 *src_p,
 		       const struct nexthop *nh, uint32_t nhe_id,
 		       uint32_t table_id, uint32_t metric, uint8_t distance,
 		       bool fromkernel);
@@ -476,6 +477,8 @@ extern uint8_t route_distance(int type);
 
 extern void zebra_rib_evaluate_rn_nexthops(struct route_node *rn, uint32_t seq,
 					   bool rt_delete);
+
+extern void rib_update_handle_vrf_all(enum rib_update_event event, int rtype);
 
 /*
  * rib_find_rn_from_ctx

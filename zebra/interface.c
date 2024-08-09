@@ -1058,6 +1058,8 @@ void if_down(struct interface *ifp)
 
 	/* Delete all neighbor addresses learnt through IPv6 RA */
 	if_down_del_nbr_connected(ifp);
+
+	rib_update_handle_vrf_all(RIB_UPDATE_INTERFACE_DOWN, ZEBRA_ROUTE_KERNEL);
 }
 
 void if_refresh(struct interface *ifp)
