@@ -884,6 +884,13 @@ const struct frr_yang_module_info frr_zebra_info = {
 			}
 		},
 		{
+			.xpath = "/frr-vrf:lib/vrf/frr-zebra:zebra/mpls/fec-nexthop-resolution",
+			.cbs = {
+				.modify = lib_vrf_zebra_mpls_fec_nexthop_resolution_modify,
+				.destroy = lib_vrf_zebra_mpls_fec_nexthop_resolution_destroy,
+			}
+		},
+		{
 			.xpath = "/frr-vrf:lib/vrf/frr-zebra:zebra/ribs/rib",
 			.cbs = {
 				.get_next = lib_vrf_zebra_ribs_rib_get_next,

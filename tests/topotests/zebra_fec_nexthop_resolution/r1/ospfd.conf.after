@@ -1,0 +1,25 @@
+log stdout
+!
+interface lo
+ ip ospf passive
+exit
+!
+interface r1-eth0
+ ip ospf network point-to-point
+ ip ospf hello-interval 1
+exit
+!
+router ospf
+ ospf router-id 192.0.2.1
+ network 192.0.2.1/32 area 0.0.0.0
+ network 192.168.1.0/24 area 0.0.0.0
+ passive-interface lo
+ capability opaque
+ mpls-te on
+ mpls-te router-address 192.0.2.1
+ segment-routing on
+ segment-routing global-block 1000 10000 local-block 32000 32999
+ segment-routing node-msd 8
+ segment-routing prefix 192.0.2.1/32 index 11
+exit
+!
