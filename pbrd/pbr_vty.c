@@ -1954,13 +1954,6 @@ DEFPY (show_pbr_interface,
 
 /* PBR debugging CLI ------------------------------------------------------- */
 
-static struct cmd_node debug_node = {
-	.name = "debug",
-	.node = DEBUG_NODE,
-	.prompt = "",
-	.config_write = pbr_debug_config_write,
-};
-
 DEFPY(debug_pbr,
       debug_pbr_cmd,
       "[no] debug pbr [{map$map|zebra$zebra|nht$nht|events$events}]",
@@ -1973,19 +1966,20 @@ DEFPY(debug_pbr,
       "Events\n")
 {
 	uint32_t mode = DEBUG_NODE2MODE(vty->node);
-
-	if (map)
-		DEBUG_MODE_SET(&pbr_dbg_map, mode, !no);
-	if (zebra)
-		DEBUG_MODE_SET(&pbr_dbg_zebra, mode, !no);
-	if (nht)
-		DEBUG_MODE_SET(&pbr_dbg_nht, mode, !no);
-	if (events)
-		DEBUG_MODE_SET(&pbr_dbg_event, mode, !no);
+	bool all = false;
 
 	/* no specific debug --> act on all of them */
 	if (strmatch(argv[argc - 1]->text, "pbr"))
-		pbr_debug_set_all(mode, !no);
+		all = true;
+
+	if (map || all)
+		DEBUG_MODE_SET(&pbr_dbg_map, mode, !no);
+	if (zebra || all)
+		DEBUG_MODE_SET(&pbr_dbg_zebra, mode, !no);
+	if (nht || all)
+		DEBUG_MODE_SET(&pbr_dbg_nht, mode, !no);
+	if (events || all)
+		DEBUG_MODE_SET(&pbr_dbg_event, mode, !no);
 
 	return CMD_SUCCESS;
 }
@@ -1998,8 +1992,6 @@ DEFUN_NOSH(show_debugging_pbr,
 	   PBR_STR)
 {
 	vty_out(vty, "PBR debugging status:\n");
-
-	pbr_debug_config_write_helper(vty, false);
 
 	cmd_show_lib_debugs(vty);
 
@@ -2194,7 +2186,6 @@ void pbr_vty_init(void)
 	install_node(&pbr_map_node);
 
 	/* debug */
-	install_node(&debug_node);
 	install_element(ENABLE_NODE, &debug_pbr_cmd);
 	install_element(CONFIG_NODE, &debug_pbr_cmd);
 	install_element(ENABLE_NODE, &show_debugging_pbr_cmd);

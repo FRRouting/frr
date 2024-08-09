@@ -84,14 +84,12 @@ enum node_type {
 	CONFIG_NODE,		 /* Config node. Default mode of config file. */
 	PREFIX_NODE, /* ip prefix-list node. */
 	PREFIX_IPV6_NODE, /* ipv6 prefix-list node. */
+	LIB_DEBUG_NODE,		 /* frrlib debug node. */
 	DEBUG_NODE,		 /* Debug node. */
 	VRF_DEBUG_NODE,		 /* Vrf Debug node. */
-	NORTHBOUND_DEBUG_NODE,	 /* Northbound Debug node. */
 	DEBUG_VNC_NODE,		 /* Debug VNC node. */
 	RMAP_DEBUG_NODE,         /* Route-map debug node */
 	RESOLVER_DEBUG_NODE,	 /* Resolver debug node */
-	MGMT_BE_DEBUG_NODE,	 /* mgmtd backend-client debug node */
-	MGMT_FE_DEBUG_NODE,	 /* mgmtd frontend-client debug node */
 	AAA_NODE,		 /* AAA node. */
 	EXTLOG_NODE,		 /* RFC5424 & co. extended syslog */
 	KEYCHAIN_NODE,		 /* Key-chain node. */

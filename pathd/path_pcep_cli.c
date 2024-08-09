@@ -46,8 +46,6 @@
 #define BUFFER_PCC_PCE_SIZE 1024
 
 /* CLI Function declarations */
-static int pcep_cli_debug_config_write(struct vty *vty);
-static int pcep_cli_debug_set_all(uint32_t flags, bool set);
 static int pcep_cli_pcep_config_write(struct vty *vty);
 static int pcep_cli_pcc_config_write(struct vty *vty);
 static int pcep_cli_pce_config_write(struct vty *vty);
@@ -110,10 +108,6 @@ static const char PCEP_VTYSH_ARG_DELEGATION_TIMEOUT[] = "delegation-timeout";
 static const char PCEP_VTYSH_ARG_SR_DRAFT07[] = "sr-draft07";
 static const char PCEP_VTYSH_ARG_PCE_INIT[] = "pce-initiated";
 static const char PCEP_VTYSH_ARG_TCP_MD5[] = "tcp-md5-auth";
-static const char PCEP_VTYSH_ARG_BASIC[] = "basic";
-static const char PCEP_VTYSH_ARG_PATH[] = "path";
-static const char PCEP_VTYSH_ARG_MESSAGE[] = "message";
-static const char PCEP_VTYSH_ARG_PCEPLIB[] = "pceplib";
 static const char PCEP_CLI_CAP_STATEFUL[] = " [Stateful PCE]";
 static const char PCEP_CLI_CAP_INCL_DB_VER[] = " [Include DB version]";
 static const char PCEP_CLI_CAP_LSP_TRIGGERED[] = " [LSP Triggered Resync]";
@@ -463,31 +457,19 @@ static void pcep_cli_remove_pce_connection(struct pce_opts *pce_opts)
  * VTY command implementations
  */
 
-static int path_pcep_cli_debug(struct vty *vty, const char *debug_type, bool set)
+static int path_pcep_cli_debug(struct vty *vty, bool onoff, bool basic,
+			       bool path, bool message, bool lib)
 {
 	uint32_t mode = DEBUG_NODE2MODE(vty->node);
 
-	/* Global Set */
-	if (debug_type == NULL) {
-		DEBUG_MODE_SET(&pcep_g->dbg, mode, set);
-		DEBUG_FLAGS_SET(&pcep_g->dbg, PCEP_DEBUG_MODE_ALL, set);
-		return CMD_SUCCESS;
-	}
-
-	DEBUG_MODE_SET(&pcep_g->dbg, mode, true);
-
-	if (strcmp(debug_type, "basic") == 0)
-		DEBUG_FLAGS_SET(&pcep_g->dbg, PCEP_DEBUG_MODE_BASIC, set);
-	else if (strcmp(debug_type, "path") == 0)
-		DEBUG_FLAGS_SET(&pcep_g->dbg, PCEP_DEBUG_MODE_PATH, set);
-	else if (strcmp(debug_type, "message") == 0)
-		DEBUG_FLAGS_SET(&pcep_g->dbg, PCEP_DEBUG_MODE_PCEP, set);
-	else if (strcmp(debug_type, "pceplib") == 0)
-		DEBUG_FLAGS_SET(&pcep_g->dbg, PCEP_DEBUG_MODE_PCEPLIB, set);
-
-	/* Unset the pcep debug mode if there is no flag at least set*/
-	if (!DEBUG_FLAGS_CHECK(&pcep_g->dbg, PCEP_DEBUG_MODE_ALL))
-		DEBUG_MODE_SET(&pcep_g->dbg, mode, false);
+	if (basic)
+		DEBUG_MODE_SET(&pcep_g->dbg_basic, mode, onoff);
+	if (path)
+		DEBUG_MODE_SET(&pcep_g->dbg_path, mode, onoff);
+	if (message)
+		DEBUG_MODE_SET(&pcep_g->dbg_msg, mode, onoff);
+	if (lib)
+		DEBUG_MODE_SET(&pcep_g->dbg_lib, mode, onoff);
 
 	return CMD_SUCCESS;
 }
@@ -1712,42 +1694,6 @@ static int path_pcep_cli_clear_srte_pcep_session(struct vty *vty,
  * Config Write functions
  */
 
-int pcep_cli_debug_config_write(struct vty *vty)
-{
-	char buff[128] = "";
-
-	if (DEBUG_MODE_CHECK(&pcep_g->dbg, DEBUG_MODE_CONF)) {
-		if (DEBUG_FLAGS_CHECK(&pcep_g->dbg, PCEP_DEBUG_MODE_BASIC))
-			csnprintfrr(buff, sizeof(buff), " %s",
-				    PCEP_VTYSH_ARG_BASIC);
-		if (DEBUG_FLAGS_CHECK(&pcep_g->dbg, PCEP_DEBUG_MODE_PATH))
-			csnprintfrr(buff, sizeof(buff), " %s",
-				    PCEP_VTYSH_ARG_PATH);
-		if (DEBUG_FLAGS_CHECK(&pcep_g->dbg, PCEP_DEBUG_MODE_PCEP))
-			csnprintfrr(buff, sizeof(buff), " %s",
-				    PCEP_VTYSH_ARG_MESSAGE);
-		if (DEBUG_FLAGS_CHECK(&pcep_g->dbg, PCEP_DEBUG_MODE_PCEPLIB))
-			csnprintfrr(buff, sizeof(buff), " %s",
-				    PCEP_VTYSH_ARG_PCEPLIB);
-		vty_out(vty, "debug pathd pcep%s\n", buff);
-		buff[0] = 0;
-		return 1;
-	}
-
-	return 0;
-}
-
-int pcep_cli_debug_set_all(uint32_t flags, bool set)
-{
-	DEBUG_FLAGS_SET(&pcep_g->dbg, flags, set);
-
-	/* If all modes have been turned off, don't preserve options. */
-	if (!DEBUG_MODE_CHECK(&pcep_g->dbg, DEBUG_MODE_ALL))
-		DEBUG_CLEAR(&pcep_g->dbg);
-
-	return 0;
-}
-
 int pcep_cli_pcep_config_write(struct vty *vty)
 {
 	vty_out(vty, "  pcep\n");
@@ -2006,36 +1952,9 @@ int pcep_cli_pcep_pce_config_write(struct vty *vty)
  * The param names are taken from the path_pcep_cli_clippy.c generated file.
  */
 
-DEFPY(show_debugging_pathd_pcep,
-      show_debugging_pathd_pcep_cmd,
-      "show debugging pathd-pcep",
-      SHOW_STR
-      "State of each debugging option\n"
-      "pathd pcep module debugging\n")
-{
-	vty_out(vty, "Pathd pcep debugging status:\n");
-
-	if (DEBUG_MODE_CHECK(&pcep_g->dbg, DEBUG_MODE_CONF)) {
-		if (DEBUG_FLAGS_CHECK(&pcep_g->dbg, PCEP_DEBUG_MODE_BASIC))
-			vty_out(vty, "  Pathd pcep %s debugging is on\n",
-				PCEP_VTYSH_ARG_BASIC);
-		if (DEBUG_FLAGS_CHECK(&pcep_g->dbg, PCEP_DEBUG_MODE_PATH))
-			vty_out(vty, "  Pathd pcep %s debugging is on\n",
-				PCEP_VTYSH_ARG_PATH);
-		if (DEBUG_FLAGS_CHECK(&pcep_g->dbg, PCEP_DEBUG_MODE_PCEP))
-			vty_out(vty, "  Pathd pcep %s debugging is on\n",
-				PCEP_VTYSH_ARG_MESSAGE);
-		if (DEBUG_FLAGS_CHECK(&pcep_g->dbg, PCEP_DEBUG_MODE_PCEPLIB))
-			vty_out(vty, "  Pathd pcep %s debugging is on\n",
-				PCEP_VTYSH_ARG_PCEPLIB);
-	}
-
-	return CMD_SUCCESS;
-}
-
 DEFPY(pcep_cli_debug,
       pcep_cli_debug_cmd,
-      "[no] debug pathd pcep [<basic|path|message|pceplib>$debug_type]",
+      "[no] debug pathd pcep [{basic$basic|path$path|message$msg|pceplib$lib}]",
       NO_STR DEBUG_STR
       "pathd debugging\n"
       "pcep module debugging\n"
@@ -2044,7 +1963,11 @@ DEFPY(pcep_cli_debug,
       "pcep message debugging\n"
       "pceplib debugging\n")
 {
-	return path_pcep_cli_debug(vty, debug_type, !no);
+	if (strmatch(argv[argc - 1]->text, "pcep"))
+		return path_pcep_cli_debug(vty, !no, true, true, true, true);
+	else
+		return path_pcep_cli_debug(vty, !no, !!basic, !!path, !!msg,
+					   !!lib);
 }
 
 DEFPY(pcep_cli_show_srte_pcep_counters,
@@ -2372,9 +2295,11 @@ DEFPY(pcep_cli_clear_srte_pcep_session,
 void pcep_cli_init(void)
 {
 	hook_register(pathd_srte_config_write, pcep_cli_pcep_config_write);
-	hook_register(nb_client_debug_config_write,
-		      pcep_cli_debug_config_write);
-	hook_register(nb_client_debug_set_all, pcep_cli_debug_set_all);
+
+	debug_install(&pcep_g->dbg_basic);
+	debug_install(&pcep_g->dbg_path);
+	debug_install(&pcep_g->dbg_msg);
+	debug_install(&pcep_g->dbg_lib);
 
 	memset(&pce_connections_g, 0, sizeof(pce_connections_g));
 
@@ -2423,7 +2348,6 @@ void pcep_cli_init(void)
 	/* Top commands */
 	install_element(CONFIG_NODE, &pcep_cli_debug_cmd);
 	install_element(ENABLE_NODE, &pcep_cli_debug_cmd);
-	install_element(ENABLE_NODE, &show_debugging_pathd_pcep_cmd);
 	install_element(ENABLE_NODE, &pcep_cli_show_srte_pcep_counters_cmd);
 	install_element(ENABLE_NODE, &pcep_cli_show_srte_pcep_pce_config_cmd);
 	install_element(ENABLE_NODE, &pcep_cli_show_srte_pcep_pce_cmd);
