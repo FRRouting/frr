@@ -523,9 +523,18 @@ bool zebra_nhg_hash_equal(const void *arg1, const void *arg2)
 	struct nexthop *nexthop1;
 	struct nexthop *nexthop2;
 
-	/* No matter what if they equal IDs, assume equal */
-	if (nhe1->id && nhe2->id && (nhe1->id == nhe2->id))
-		return true;
+	/* If both NHG's have id's then we can just know that
+	 * they are either identical or not.  This comparison
+	 * is only ever used for hash equality.  NHE's id
+	 * is sufficient to distinguish them.  This is especially
+	 * true if NHG's are owned by an upper level protocol.
+	 */
+	if (nhe1->id && nhe2->id) {
+		if (nhe1->id == nhe2->id)
+			return true;
+
+		return false;
+	}
 
 	if (nhe1->type != nhe2->type)
 		return false;
