@@ -1476,3 +1476,11 @@ const char *frr_vers2str(uint32_t version, char *buf, int buflen)
 
 	return buf;
 }
+
+bool frr_is_daemon(void)
+{
+	if (di)
+		return true;
+
+	return false;
+}
