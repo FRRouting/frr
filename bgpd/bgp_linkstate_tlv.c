@@ -286,7 +286,7 @@ int bgp_nlri_parse_linkstate(struct peer *peer, struct attr *attr,
 		/* Process the route. */
 		if (withdraw)
 			bgp_withdraw(peer, &p, 0, afi, safi, ZEBRA_ROUTE_BGP,
-				     BGP_ROUTE_NORMAL, NULL, NULL, 0, NULL);
+				     BGP_ROUTE_NORMAL, NULL, NULL, 0);
 		else
 			bgp_update(peer, &p, 0, attr, afi, safi,
 				   ZEBRA_ROUTE_BGP, BGP_ROUTE_NORMAL, NULL,

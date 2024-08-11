@@ -575,7 +575,7 @@ int bgp_nlri_parse_label(struct peer *peer, struct attr *attr,
 		} else {
 			bgp_withdraw(peer, &p, addpath_id, packet->afi,
 				     SAFI_UNICAST, ZEBRA_ROUTE_BGP,
-				     BGP_ROUTE_NORMAL, NULL, &label, 1, NULL);
+				     BGP_ROUTE_NORMAL, NULL, &label, 1);
 		}
 	}
 

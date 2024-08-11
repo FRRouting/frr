@@ -1146,6 +1146,8 @@ static bool update_ipv4nh_for_route_install(int nh_othervrf, struct bgp *nh_bgp,
 					    struct attr *attr, bool is_evpn,
 					    struct zapi_nexthop *api_nh)
 {
+	struct bgp_route_evpn *bre = bgp_attr_get_evpn_overlay(attr);
+
 	api_nh->gate.ipv4 = *nexthop;
 	api_nh->vrf_id = nh_bgp->vrf_id;
 
@@ -1162,7 +1164,7 @@ static bool update_ipv4nh_for_route_install(int nh_othervrf, struct bgp *nh_bgp,
 		 * treat the nexthop as NEXTHOP_TYPE_IPV4
 		 * Else, mark the nexthop as onlink.
 		 */
-		if (attr->evpn_overlay.type == OVERLAY_INDEX_GATEWAY_IP)
+		if (bre && bre->type == OVERLAY_INDEX_GATEWAY_IP)
 			api_nh->type = NEXTHOP_TYPE_IPV4;
 		else {
 			api_nh->type = NEXTHOP_TYPE_IPV4_IFINDEX;
@@ -1188,9 +1190,11 @@ static bool update_ipv6nh_for_route_install(int nh_othervrf, struct bgp *nh_bgp,
 					    struct zapi_nexthop *api_nh)
 {
 	struct attr *attr;
+	struct bgp_route_evpn *bre;
 
 	attr = pi->attr;
 	api_nh->vrf_id = nh_bgp->vrf_id;
+	bre = bgp_attr_get_evpn_overlay(attr);
 
 	if (attr->nh_type == NEXTHOP_TYPE_BLACKHOLE) {
 		api_nh->type = attr->nh_type;
@@ -1201,7 +1205,7 @@ static bool update_ipv6nh_for_route_install(int nh_othervrf, struct bgp *nh_bgp,
 		 * treat the nexthop as NEXTHOP_TYPE_IPV4
 		 * Else, mark the nexthop as onlink.
 		 */
-		if (attr->evpn_overlay.type == OVERLAY_INDEX_GATEWAY_IP)
+		if (bre && bre->type == OVERLAY_INDEX_GATEWAY_IP)
 			api_nh->type = NEXTHOP_TYPE_IPV6;
 		else {
 			api_nh->type = NEXTHOP_TYPE_IPV6_IFINDEX;
@@ -1299,6 +1303,7 @@ static void bgp_zebra_announce_parse_nexthop(
 	uint32_t ttl = 0;
 	uint32_t bos = 0;
 	uint32_t exp = 0;
+	struct bgp_route_evpn *bre = NULL;
 
 	/* Determine if we're doing weighted ECMP or not */
 	do_wt_ecmp = bgp_path_info_mpath_chkwtd(bgp, info);
@@ -1415,6 +1420,7 @@ static void bgp_zebra_announce_parse_nexthop(
 		}
 
 		is_evpn = !!CHECK_FLAG(api_nh->flags, ZAPI_NEXTHOP_FLAG_EVPN);
+		bre = bgp_attr_get_evpn_overlay(mpinfo->attr);
 
 		/* Did we get proper nexthop info to update zebra? */
 		if (!nh_updated)
@@ -1450,9 +1456,7 @@ static void bgp_zebra_announce_parse_nexthop(
 			api_nh->labels[0] = nh_label;
 		}
 
-		if (is_evpn
-		    && mpinfo->attr->evpn_overlay.type
-			       != OVERLAY_INDEX_GATEWAY_IP)
+		if (is_evpn && !(bre && bre->type == OVERLAY_INDEX_GATEWAY_IP))
 			memcpy(&api_nh->rmac, &(mpinfo->attr->rmac),
 			       sizeof(struct ethaddr));
 

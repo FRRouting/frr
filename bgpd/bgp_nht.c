@@ -1354,6 +1354,8 @@ void evaluate_paths(struct bgp_nexthop_cache *bnc)
 
 		bool bnc_is_valid_nexthop = false;
 		bool path_valid = false;
+		struct bgp_route_evpn *bre =
+			bgp_attr_get_evpn_overlay(path->attr);
 
 		if (p->family == AF_INET6 && bnc->prefix.family == AF_INET6 &&
 		    IS_MAPPED_IPV6(&bnc->prefix.u.prefix6) && safi == SAFI_LABELED_UNICAST &&
@@ -1366,7 +1368,7 @@ void evaluate_paths(struct bgp_nexthop_cache *bnc)
 			bnc_is_valid_nexthop = true;
 		else if (safi == SAFI_UNICAST && path->sub_type == BGP_ROUTE_IMPORTED &&
 			 BGP_PATH_INFO_NUM_LABELS(path) &&
-			 (path->attr->evpn_overlay.type != OVERLAY_INDEX_GATEWAY_IP)) {
+			 !(bre && bre->type == OVERLAY_INDEX_GATEWAY_IP)) {
 			bnc_is_valid_nexthop = bgp_isvalid_nexthop_for_l3vpn(bnc, path) ? true
 											: false;
 		} else if (safi == SAFI_MPLS_VPN && path->sub_type != BGP_ROUTE_IMPORTED) {
