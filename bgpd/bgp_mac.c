@@ -143,7 +143,6 @@ static void bgp_process_mac_rescan_table(struct bgp *bgp, struct peer *peer,
 			const struct prefix *p = bgp_dest_get_prefix(dest);
 			struct prefix_evpn *pevpn = (struct prefix_evpn *)dest;
 			struct prefix_rd prd;
-			struct bgp_route_evpn *evpn;
 
 			if (pevpn->family == AF_EVPN
 			    && pevpn->prefix.route_type == BGP_EVPN_MAC_IP_ROUTE
@@ -195,12 +194,10 @@ static void bgp_process_mac_rescan_table(struct bgp *bgp, struct peer *peer,
 				continue;
 			}
 
-			memcpy(&evpn, bgp_attr_get_evpn_overlay(pi->attr),
-			       sizeof(evpn));
 			bgp_update(peer, p, pi->addpath_rx_id, pi->attr,
 				   AFI_L2VPN, SAFI_EVPN, ZEBRA_ROUTE_BGP,
-				   BGP_ROUTE_NORMAL, &prd, label_pnt,
-				   num_labels, 1, evpn);
+				   BGP_ROUTE_NORMAL, &prd, label_pnt, num_labels,
+				   1, bgp_attr_get_evpn_overlay(pi->attr));
 		}
 	}
 }

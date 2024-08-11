@@ -23,6 +23,7 @@ enum overlay_index_type {
  * MAC overlay index is stored in the RMAC attribute.
  */
 struct bgp_route_evpn {
+	unsigned long refcnt;
 	enum overlay_index_type type;
 	esi_t eth_s_id;
 	struct ipaddr gw_ip;

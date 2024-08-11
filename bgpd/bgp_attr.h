@@ -278,7 +278,7 @@ struct attr {
 	struct bgp_attr_encap_subtlv *vnc_subtlvs; /* VNC-specific */
 #endif
 	/* EVPN */
-	struct bgp_route_evpn evpn_overlay;
+	struct bgp_route_evpn *evpn_overlay;
 
 	/* EVPN MAC Mobility sequence number, if any. */
 	uint32_t mm_seqnum;
@@ -614,16 +614,16 @@ static inline void bgp_attr_set_cluster(struct attr *attr,
 		UNSET_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_CLUSTER_LIST));
 }
 
-static inline const struct bgp_route_evpn *
+static inline struct bgp_route_evpn *
 bgp_attr_get_evpn_overlay(const struct attr *attr)
 {
-	return &attr->evpn_overlay;
+	return attr->evpn_overlay;
 }
 
 static inline void bgp_attr_set_evpn_overlay(struct attr *attr,
-					     struct bgp_route_evpn *eo)
+					     struct bgp_route_evpn *bre)
 {
-	memcpy(&attr->evpn_overlay, eo, sizeof(struct bgp_route_evpn));
+	attr->evpn_overlay = bre;
 }
 
 static inline struct bgp_attr_encap_subtlv *

@@ -1300,11 +1300,13 @@ void evaluate_paths(struct bgp_nexthop_cache *bnc)
 
 		bool bnc_is_valid_nexthop = false;
 		bool path_valid = false;
+		struct bgp_route_evpn *bre =
+			bgp_attr_get_evpn_overlay(path->attr);
 
 		if (safi == SAFI_UNICAST &&
 		    path->sub_type == BGP_ROUTE_IMPORTED &&
 		    bgp_path_info_num_labels(path) &&
-		    (path->attr->evpn_overlay.type != OVERLAY_INDEX_GATEWAY_IP)) {
+		    !(bre && bre->type == OVERLAY_INDEX_GATEWAY_IP)) {
 			bnc_is_valid_nexthop =
 				bgp_isvalid_nexthop_for_l3vpn(bnc, path)
 					? true

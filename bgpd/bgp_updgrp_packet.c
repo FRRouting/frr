@@ -863,7 +863,8 @@ struct bpacket *subgroup_update_packet(struct update_subgroup *subgrp)
 			bgp_debug_rdpfxpath2str(afi, safi, prd, dest_p,
 						label_pnt, num_labels,
 						addpath_capable, addpath_tx_id,
-						&adv->baa->attr->evpn_overlay,
+						bgp_attr_get_evpn_overlay(
+							adv->baa->attr),
 						pfx_buf, sizeof(pfx_buf));
 			zlog_debug("u%" PRIu64 ":s%" PRIu64 " send UPDATE %s",
 				   subgrp->update_group->id, subgrp->id,
