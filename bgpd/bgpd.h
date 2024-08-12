@@ -131,6 +131,7 @@ struct bgp_master {
 #define BGP_OPT_NO_ZEBRA                 (1 << 2)
 #define BGP_OPT_TRAPS_RFC4273            (1 << 3)
 #define BGP_OPT_TRAPS_BGP4MIBV2          (1 << 4)
+#define BGP_OPT_TRAPS_RFC4382		 (1 << 5)
 
 	uint64_t updgrp_idspace;
 	uint64_t subgrp_idspace;
