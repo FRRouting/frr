@@ -221,11 +221,7 @@ extern int zebra_vxlan_dp_network_mac_del(struct interface *ifp,
 
 extern void zebra_vxlan_set_accept_bgp_seq(bool set);
 extern bool zebra_vxlan_get_accept_bgp_seq(void);
-extern void vlan_id_range_state_change(struct interface *ifp, uint16_t id_start,
-				       uint16_t id_end, uint8_t state);
-extern void vxlan_vni_state_change(struct zebra_if *zif, uint16_t id,
-				   uint8_t state);
-extern const char *port_state2str(uint8_t state);
+extern void zebra_vlan_dplane_result(struct zebra_dplane_ctx *ctx);
 #ifdef __cplusplus
 }
 #endif
