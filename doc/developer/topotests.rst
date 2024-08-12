@@ -1332,6 +1332,15 @@ Example:
            router.load_config(TopoRouter.RD_ZEBRA, "zebra.conf")
            router.load_config(TopoRouter.RD_OSPF)
 
+or using unified config (specifying which daemons to run is optional):
+
+.. code:: py
+
+      for _, (rname, router) in enumerate(router_list.items(), 1):
+         router.load_frr_config(os.path.join(CWD, "{}/frr.conf".format(rname)), [
+            TopoRouter.RD_ZEBRA
+            TopoRouter.RD_MGMTD,
+            TopoRouter.RD_BGP])
 
 - The topology definition or build function
 
