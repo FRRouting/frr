@@ -63,7 +63,6 @@
 #include "zebra/zebra_l2.h"
 #include "zebra/netconf_netlink.h"
 #include "zebra/zebra_trace.h"
-#include "zebra/zebra_vxlan.h"
 
 extern struct zebra_privs_t zserv_privs;
 
@@ -1817,6 +1816,20 @@ int netlink_tunneldump_read(struct zebra_ns *zns)
 	return 0;
 }
 
+static uint8_t netlink_get_dplane_vlan_state(uint8_t state)
+{
+	if (state == BR_STATE_LISTENING)
+		return ZEBRA_DPLANE_BR_STATE_LISTENING;
+	else if (state == BR_STATE_LEARNING)
+		return ZEBRA_DPLANE_BR_STATE_LEARNING;
+	else if (state == BR_STATE_FORWARDING)
+		return ZEBRA_DPLANE_BR_STATE_FORWARDING;
+	else if (state == BR_STATE_BLOCKING)
+		return ZEBRA_DPLANE_BR_STATE_BLOCKING;
+
+	return ZEBRA_DPLANE_BR_STATE_DISABLED;
+}
+
 /**
  * netlink_vlan_change() - Read in change about vlans from the kernel
  *
@@ -1829,7 +1842,6 @@ int netlink_tunneldump_read(struct zebra_ns *zns)
 int netlink_vlan_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 {
 	int len, rem;
-	struct interface *ifp;
 	struct br_vlan_msg *bvm;
 	struct bridge_vlan_info *vinfo;
 	struct rtattr *vtb[BRIDGE_VLANDB_ENTRY_MAX + 1] = {};
@@ -1837,6 +1849,9 @@ int netlink_vlan_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 	uint8_t state;
 	uint32_t vrange;
 	int type;
+	uint32_t count = 0;
+	struct zebra_dplane_ctx *ctx = NULL;
+	struct zebra_vxlan_vlan_array *vlan_array = NULL;
 
 	/* We only care about state changes for now */
 	if (!(h->nlmsg_type == RTM_NEWVLAN))
@@ -1856,25 +1871,10 @@ int netlink_vlan_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 	if (bvm->family != AF_BRIDGE)
 		return 0;
 
-	ifp = if_lookup_by_index_per_ns(zebra_ns_lookup(ns_id), bvm->ifindex);
-	if (!ifp) {
-		zlog_debug("Cannot find bridge-vlan IF (%u) for vlan update",
-			   bvm->ifindex);
-		return 0;
-	}
-
-	if (!IS_ZEBRA_IF_VXLAN(ifp)) {
-		if (IS_ZEBRA_DEBUG_KERNEL)
-			zlog_debug("Ignoring non-vxlan IF (%s) for vlan update",
-				   ifp->name);
-
-		return 0;
-	}
-
-	if (IS_ZEBRA_DEBUG_KERNEL || IS_ZEBRA_DEBUG_VXLAN)
-		zlog_debug("%s %s IF %s NS %u",
-			   nl_msg_type_to_str(h->nlmsg_type),
-			   nl_family_to_str(bvm->family), ifp->name, ns_id);
+	ctx = dplane_ctx_alloc();
+	dplane_ctx_set_ns_id(ctx, ns_id);
+	dplane_ctx_set_op(ctx, DPLANE_OP_VLAN_INSTALL);
+	dplane_ctx_set_vlan_ifindex(ctx, bvm->ifindex);
 
 	/* Loop over "ALL" BRIDGE_VLANDB_ENTRY */
 	rem = len;
@@ -1905,25 +1905,38 @@ int netlink_vlan_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 		if (!vtb[BRIDGE_VLANDB_ENTRY_STATE])
 			continue;
 
+		count++;
+		vlan_array =
+			XREALLOC(MTYPE_VLAN_CHANGE_ARR, vlan_array,
+				 sizeof(struct zebra_vxlan_vlan_array) +
+					 count * sizeof(struct zebra_vxlan_vlan));
+
+		memset(&vlan_array->vlans[count - 1], 0,
+		       sizeof(struct zebra_vxlan_vlan));
+
 		state = *(uint8_t *)RTA_DATA(vtb[BRIDGE_VLANDB_ENTRY_STATE]);
 
 		if (vtb[BRIDGE_VLANDB_ENTRY_RANGE])
 			vrange = *(uint32_t *)RTA_DATA(
 				vtb[BRIDGE_VLANDB_ENTRY_RANGE]);
 
-		if (IS_ZEBRA_DEBUG_KERNEL || IS_ZEBRA_DEBUG_VXLAN) {
-			if (vrange)
-				zlog_debug("VLANDB_ENTRY: VID (%u-%u) state=%s",
-					   vinfo->vid, vrange,
-					   port_state2str(state));
-			else
-				zlog_debug("VLANDB_ENTRY: VID (%u) state=%s",
-					   vinfo->vid, port_state2str(state));
-		}
-
-		vlan_id_range_state_change(
-			ifp, vinfo->vid, (vrange ? vrange : vinfo->vid), state);
+		vlan_array->vlans[count - 1].state =
+			netlink_get_dplane_vlan_state(state);
+		vlan_array->vlans[count - 1].vid = vinfo->vid;
+		vlan_array->vlans[count - 1].vrange = vrange;
 	}
+
+	if (count) {
+		vlan_array->count = count;
+		dplane_ctx_set_vxlan_vlan_array(ctx, vlan_array);
+		if (IS_ZEBRA_DEBUG_KERNEL || IS_ZEBRA_DEBUG_VXLAN)
+			zlog_debug("RTM_NEWVLAN for ifindex %u NS %u, enqueuing for zebra main",
+				   bvm->ifindex, ns_id);
+
+		dplane_provider_enqueue_to_zebra(ctx);
+	} else
+		dplane_ctx_fini(&ctx);
+
 
 	return 0;
 }

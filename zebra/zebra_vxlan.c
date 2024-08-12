@@ -41,8 +41,6 @@
 #include "zebra/zebra_evpn_mh.h"
 #include "zebra/zebra_evpn_vxlan.h"
 #include "zebra/zebra_router.h"
-#include "zebra/zebra_trace.h"
-#include <linux/if_bridge.h>
 
 DEFINE_MTYPE_STATIC(ZEBRA, HOST_PREFIX, "host prefix");
 DEFINE_MTYPE_STATIC(ZEBRA, ZL3VNI, "L3 VNI hash");
@@ -6249,25 +6247,26 @@ extern void zebra_evpn_init(void)
 	hook_register(zserv_client_close, zebra_evpn_cfg_clean_up);
 }
 
-const char *port_state2str(uint8_t state)
+static const char *port_state2str(uint8_t state)
 {
 	switch (state) {
-	case BR_STATE_DISABLED:
+	case ZEBRA_DPLANE_BR_STATE_DISABLED:
 		return "DISABLED";
-	case BR_STATE_LISTENING:
+	case ZEBRA_DPLANE_BR_STATE_LISTENING:
 		return "LISTENING";
-	case BR_STATE_LEARNING:
+	case ZEBRA_DPLANE_BR_STATE_LEARNING:
 		return "LEARNING";
-	case BR_STATE_FORWARDING:
+	case ZEBRA_DPLANE_BR_STATE_FORWARDING:
 		return "FORWARDING";
-	case BR_STATE_BLOCKING:
+	case ZEBRA_DPLANE_BR_STATE_BLOCKING:
 		return "BLOCKING";
 	}
 
 	return "UNKNOWN";
 }
 
-void vxlan_vni_state_change(struct zebra_if *zif, uint16_t id, uint8_t state)
+static void vxlan_vni_state_change(struct zebra_if *zif, uint16_t id,
+				   uint8_t state)
 {
 	struct zebra_vxlan_vni *vnip;
 
@@ -6282,23 +6281,23 @@ void vxlan_vni_state_change(struct zebra_if *zif, uint16_t id, uint8_t state)
 	}
 
 	switch (state) {
-	case BR_STATE_FORWARDING:
+	case ZEBRA_DPLANE_BR_STATE_FORWARDING:
 		zebra_vxlan_if_vni_up(zif->ifp, vnip);
 		break;
-	case BR_STATE_BLOCKING:
+	case ZEBRA_DPLANE_BR_STATE_BLOCKING:
 		zebra_vxlan_if_vni_down(zif->ifp, vnip);
 		break;
-	case BR_STATE_DISABLED:
-	case BR_STATE_LISTENING:
-	case BR_STATE_LEARNING:
+	case ZEBRA_DPLANE_BR_STATE_DISABLED:
+	case ZEBRA_DPLANE_BR_STATE_LISTENING:
+	case ZEBRA_DPLANE_BR_STATE_LEARNING:
 	default:
 		/* Not used for anything at the moment */
 		break;
 	}
 }
 
-void vlan_id_range_state_change(struct interface *ifp, uint16_t id_start,
-				uint16_t id_end, uint8_t state)
+static void vlan_id_range_state_change(struct interface *ifp, uint16_t id_start,
+				       uint16_t id_end, uint8_t state)
 {
 	struct zebra_if *zif;
 
@@ -6309,4 +6308,52 @@ void vlan_id_range_state_change(struct interface *ifp, uint16_t id_start,
 
 	for (uint16_t i = id_start; i <= id_end; i++)
 		vxlan_vni_state_change(zif, i, state);
+}
+
+void zebra_vlan_dplane_result(struct zebra_dplane_ctx *ctx)
+{
+	int i;
+	struct interface *ifp = NULL;
+	ns_id_t ns_id = dplane_ctx_get_ns_id(ctx);
+	enum dplane_op_e op = dplane_ctx_get_op(ctx);
+	const struct zebra_vxlan_vlan_array *vlan_array =
+		dplane_ctx_get_vxlan_vlan_array(ctx);
+	ifindex_t ifindex = dplane_ctx_get_vlan_ifindex(ctx);
+
+	ifp = if_lookup_by_index_per_ns(zebra_ns_lookup(ns_id), ifindex);
+	if (!ifp) {
+		zlog_debug("Cannot find bridge-vlan IF (%u) for vlan update",
+			   ifindex);
+		return;
+	}
+
+	if (!IS_ZEBRA_IF_VXLAN(ifp)) {
+		if (IS_ZEBRA_DEBUG_KERNEL)
+			zlog_debug("Ignoring non-vxlan IF (%s) for vlan update",
+				   ifp->name);
+
+		return;
+	}
+
+	if (IS_ZEBRA_DEBUG_KERNEL || IS_ZEBRA_DEBUG_VXLAN)
+		zlog_debug("Dequeuing in zebra main..%s IF %s ifindex %u NS %u",
+			   dplane_op2str(op), ifp->name, ifindex, ns_id);
+
+	for (i = 0; i < vlan_array->count; i++) {
+		vlanid_t vid = vlan_array->vlans[i].vid;
+		uint8_t state = vlan_array->vlans[i].state;
+		uint32_t vrange = vlan_array->vlans[i].vrange;
+
+		if (IS_ZEBRA_DEBUG_KERNEL || IS_ZEBRA_DEBUG_VXLAN) {
+			if (vrange)
+				zlog_debug("VLANDB_ENTRY: VID (%u-%u) state=%s",
+					   vid, vrange, port_state2str(state));
+			else
+				zlog_debug("VLANDB_ENTRY: VID (%u) state=%s",
+					   vid, port_state2str(state));
+		}
+
+		vlan_id_range_state_change(ifp, vid, (vrange ? vrange : vid),
+					   state);
+	}
 }
