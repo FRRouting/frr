@@ -59,6 +59,7 @@ PIM Routers
 -----------
 
 .. clicmd:: router pim [vrf NAME]
+
    Configure global PIM protocol
 
 .. clicmd:: rp A.B.C.D A.B.C.D/M
@@ -158,6 +159,9 @@ PIM Routers
 
 Global Multicast
 ----------------
+
+These commands are valid at the top-level of the configuration (or also per
+vrf where indicated), instead of under the 'router pim' submode.
 
 .. clicmd:: ip multicast rpf-lookup-mode WORD
 
@@ -343,10 +347,13 @@ MSDP can be setup in different ways:
 .. note::
 
    MSDP default peer is not implemented.
-   MSDP configuration is available under 'router pim'
 
+Commands available for MSDP
+---------------------------
 
-Commands available for MSDP:
+.. note::
+
+   MSDP configuration is available under 'router pim'.
 
 .. clicmd:: msdp timers (1-65535) (1-65535) [(1-65535)]
 
@@ -415,15 +422,9 @@ cause great confusion.
 
 .. clicmd:: show ip igmp [vrf NAME] join [json]
 
-   Display IGMP static join information for a specific vrf.
-   
-.. index:: show ip igmp [vrf NAME$vrf_name] groups [INTERFACE$ifname [GROUP$grp_str]] [detail] [json$json]
-.. clicmd:: show ip igmp [vrf NAME$vrf_name] groups [INTERFACE$ifname [GROUP$grp_str]] [detail] [json$json]
+   Display IGMP static join information.
 
-   Display IGMP static join information for all the vrfs present.
-
-.. index:: show ip igmp vrf all groups [GROUP$grp_str] [detail$detail] [json$json]
-.. clicmd:: show ip igmp vrf all groups [GROUP$grp_str] [detail$detail] [json$json]
+.. clicmd:: show ip igmp [vrf NAME] groups [INTERFACE [GROUP]] [detail] [json]
 
    Display IGMP groups information.
 
@@ -788,4 +789,3 @@ Sample configuration
    interface eth0
     ip pim ssm
     ip igmp
-
