@@ -148,6 +148,16 @@ void srte_segment_list_del(struct srte_segment_list *segment_list)
 	XFREE(MTYPE_PATH_SEGMENT_LIST, segment_list);
 }
 
+static void srte_segment_list_terminate(void)
+{
+	while (!RB_EMPTY(srte_segment_list_head, &srte_segment_lists)) {
+		struct srte_segment_list *sl = RB_ROOT(srte_segment_list_head,
+						       &srte_segment_lists);
+
+		srte_segment_list_del(sl);
+	}
+}
+
 /**
  * Search for a segment list by name.
  *
@@ -1281,6 +1291,11 @@ void pathd_shutdown(void)
 {
 	path_ted_teardown();
 	srte_clean_zebra();
+
+	srte_segment_list_terminate();
+
+	vrf_terminate();
+
 	frr_fini();
 }
 
