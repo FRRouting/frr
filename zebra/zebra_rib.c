@@ -2696,8 +2696,7 @@ static void early_route_memory_free(struct zebra_early_route *ere)
 	if (ere->re_nhe)
 		zebra_nhg_free(ere->re_nhe);
 
-	zapi_re_opaque_free(ere->re->opaque);
-	XFREE(MTYPE_RE, ere->re);
+	zebra_rib_route_entry_free(ere->re);
 	XFREE(MTYPE_WQ_WRAPPER, ere);
 }
 
@@ -4070,9 +4069,7 @@ void rib_unlink(struct route_node *rn, struct route_entry *re)
 
 	rib_re_nhg_free(re);
 
-	zapi_re_opaque_free(re->opaque);
-
-	XFREE(MTYPE_RE, re);
+	zebra_rib_route_entry_free(re);
 }
 
 void rib_delnode(struct route_node *rn, struct route_entry *re)
@@ -4319,6 +4316,7 @@ struct route_entry *zebra_rib_route_entry_new(vrf_id_t vrf_id, int type,
 
 void zebra_rib_route_entry_free(struct route_entry *re)
 {
+	zapi_re_opaque_free(re);
 	XFREE(MTYPE_RE, re);
 }
 
@@ -4389,7 +4387,7 @@ int rib_add_multipath(afi_t afi, safi_t safi, struct prefix *p,
 
 	/* In error cases, free the route also */
 	if (ret < 0)
-		XFREE(MTYPE_RE, re);
+		zebra_rib_route_entry_free(re);
 
 	return ret;
 }

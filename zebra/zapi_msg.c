@@ -2148,7 +2148,7 @@ static void zread_route_add(ZAPI_HANDLER_ARGS)
 			__func__, &api.prefix,
 			zebra_route_string(client->proto));
 
-		XFREE(MTYPE_RE, re);
+		zebra_rib_route_entry_free(re);
 		return;
 	}
 
@@ -2173,7 +2173,7 @@ static void zread_route_add(ZAPI_HANDLER_ARGS)
 
 		nexthop_group_delete(&ng);
 		zebra_nhg_backup_free(&bnhg);
-		XFREE(MTYPE_RE, re);
+		zebra_rib_route_entry_free(re);
 		return;
 	}
 
@@ -2192,8 +2192,7 @@ static void zread_route_add(ZAPI_HANDLER_ARGS)
 			  __func__);
 		nexthop_group_delete(&ng);
 		zebra_nhg_backup_free(&bnhg);
-		XFREE(MTYPE_RE_OPAQUE, re->opaque);
-		XFREE(MTYPE_RE, re);
+		zebra_rib_route_entry_free(re);
 		return;
 	}
 	if (CHECK_FLAG(api.message, ZAPI_MESSAGE_SRCPFX))
@@ -2205,8 +2204,7 @@ static void zread_route_add(ZAPI_HANDLER_ARGS)
 			  __func__, api.safi);
 		nexthop_group_delete(&ng);
 		zebra_nhg_backup_free(&bnhg);
-		XFREE(MTYPE_RE_OPAQUE, re->opaque);
-		XFREE(MTYPE_RE, re);
+		zebra_rib_route_entry_free(re);
 		return;
 	}
 
@@ -2235,8 +2233,7 @@ static void zread_route_add(ZAPI_HANDLER_ARGS)
 	 */
 	if (ret == -1) {
 		client->error_cnt++;
-		XFREE(MTYPE_RE_OPAQUE, re->opaque);
-		XFREE(MTYPE_RE, re);
+		zebra_rib_route_entry_free(re);
 	}
 
 	/* At this point, these allocations are not needed: 're' has been
@@ -2264,9 +2261,10 @@ static void zread_route_add(ZAPI_HANDLER_ARGS)
 	}
 }
 
-void zapi_re_opaque_free(struct re_opaque *opaque)
+void zapi_re_opaque_free(struct route_entry *re)
 {
-	XFREE(MTYPE_RE_OPAQUE, opaque);
+	XFREE(MTYPE_RE_OPAQUE, re->opaque);
+	re->opaque = NULL;
 }
 
 static void zread_route_del(ZAPI_HANDLER_ARGS)

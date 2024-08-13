@@ -1040,7 +1040,7 @@ int netlink_route_change_read_unicast_internal(struct nlmsghdr *h,
 			zlog_err(
 				"%s: %pFX multipath RTM_NEWROUTE has a invalid nexthop group from the kernel",
 				__func__, &p);
-			XFREE(MTYPE_RE, re);
+			zebra_rib_route_entry_free(re);
 		}
 	} else {
 		if (ctx) {
