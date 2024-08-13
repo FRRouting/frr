@@ -1171,6 +1171,11 @@ DEFUN (show_babel_parameters,
     return CMD_SUCCESS;
 }
 
+void babel_if_terminate(void)
+{
+	vector_free(babel_enable_if);
+}
+
 void
 babel_if_init(void)
 {
