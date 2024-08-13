@@ -7,7 +7,7 @@
 # Copyright 2024 6WIND S.A.
 #
 
-"""
+r"""
  test_bgp_nhg_duplicate_nexthop.py:
  Check that the FRR BGP daemon on r1 selects updates with same nexthops
 
