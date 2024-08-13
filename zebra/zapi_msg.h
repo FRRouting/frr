@@ -106,7 +106,7 @@ extern int zsend_client_close_notify(struct zserv *client,
 int zsend_nhg_notify(uint16_t type, uint16_t instance, uint32_t session_id,
 		     uint32_t id, enum zapi_nhg_notify_owner note);
 
-extern void zapi_re_opaque_free(struct re_opaque *opaque);
+extern void zapi_re_opaque_free(struct route_entry *re);
 
 extern int zsend_zebra_srv6_locator_add(struct zserv *client,
 					struct srv6_locator *loc);
