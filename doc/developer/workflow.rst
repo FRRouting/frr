@@ -1325,6 +1325,14 @@ but are no longer actively maintained. MemorySanitizer is not available in GCC.
    The different Sanitizers are mostly incompatible with each other.  Please
    refer to GCC/LLVM documentation for details.
 
+.. note::
+
+   The different sanitizers also require setting
+
+   sysctl vm.mmap_rnd_bits=28
+
+   in order to work properly.
+
 frr-format plugin
    This is a GCC plugin provided with FRR that does extended type checks for
    ``%pFX``-style printfrr extensions.  To use this plugin,
