@@ -12046,6 +12046,8 @@ static int bgp_show_summary(struct vty *vty, struct bgp *bgp, int afi, int safi,
 
 	if (show_failed && !failed_count) {
 		if (use_json) {
+			json_object_free(json_peers);
+
 			json_object_int_add(json, "failedPeersCount", 0);
 			json_object_int_add(json, "dynamicPeers", dn_count);
 			json_object_int_add(json, "totalPeers", count);
