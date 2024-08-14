@@ -534,7 +534,7 @@ struct stream *bpacket_reformat_for_peer(struct bpacket *pkt,
 			gnh_modified = 1;
 		}
 
-		if (peer->nexthop.v4.s_addr != INADDR_ANY &&
+		if (!peer->conf_if && peer->nexthop.v4.s_addr != INADDR_ANY &&
 		    (IN6_IS_ADDR_UNSPECIFIED(mod_v6nhg) ||
 		     (IN6_IS_ADDR_LINKLOCAL(mod_v6nhg) &&
 		      ((peer->connection->su.sa.sa_family == AF_INET6 &&
