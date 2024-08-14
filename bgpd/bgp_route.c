@@ -9671,7 +9671,10 @@ void route_vty_out(struct vty *vty, const struct prefix *p,
 				json_object_string_add(json_nexthop_ll, "scope",
 						       "link-local");
 
-				if (!CHECK_FLAG(attr->nh_flags,
+				if ((IPV6_ADDR_CMP(&attr->mp_nexthop_global,
+						   &attr->mp_nexthop_local) !=
+				     0) &&
+				    !CHECK_FLAG(attr->nh_flags,
 						BGP_ATTR_NH_MP_PREFER_GLOBAL))
 					json_object_boolean_true_add(
 						json_nexthop_ll, "used");
