@@ -508,9 +508,6 @@ struct stream *bpacket_reformat_for_peer(struct bpacket *pkt,
 				gnh_modified = 1;
 			}
 		} else if (IN6_IS_ADDR_UNSPECIFIED(&v6nhglobal)) {
-			/* the UPDATE is originating from the local router.
-			 * Build the global nexthop.
-			 */
 			mod_v6nhg = &peer->nexthop.v6_global;
 			gnh_modified = 1;
 		} else if ((peer->sort == BGP_PEER_EBGP)
@@ -521,14 +518,6 @@ struct stream *bpacket_reformat_for_peer(struct bpacket *pkt,
 				   peer, paf->afi, paf->safi,
 				   PEER_FLAG_NEXTHOP_UNCHANGED)) {
 			/* NOTE: not handling case where NH has new AFI
-			 */
-			mod_v6nhg = &peer->nexthop.v6_global;
-			gnh_modified = 1;
-		} else if (IS_MAPPED_IPV6(&v6nhglobal) &&
-			   !IN6_IS_ADDR_LINKLOCAL(&peer->nexthop.v6_global)) {
-			/* prefer a IPv6 native global address over
-			 * an IPv4-mapped IPv6 address as nexthop when
-			 * forwarding UPDATEs.
 			 */
 			mod_v6nhg = &peer->nexthop.v6_global;
 			gnh_modified = 1;
@@ -544,10 +533,6 @@ struct stream *bpacket_reformat_for_peer(struct bpacket *pkt,
 		}
 
 		if (IS_MAPPED_IPV6(&peer->nexthop.v6_global)) {
-			/* If the interface to the peer has no global IPv6
-			 * address, replace the nexthop in UPDATE with
-			 * the IPv4-mapped IPv6 address if any.
-			 */
 			mod_v6nhg = &peer->nexthop.v6_global;
 			gnh_modified = 1;
 		}
