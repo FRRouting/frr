@@ -325,47 +325,53 @@ static int bgp_interface_address_add(ZAPI_CALLBACK_ARGS)
 	if (!bgp)
 		return 0;
 
-	if (!if_is_operative(ifc->ifp))
-		return 0;
+	if (if_is_operative(ifc->ifp)) {
+		bgp_connected_add(bgp, ifc);
 
-	bgp_connected_add(bgp, ifc);
+		/* If we have learnt of any neighbors on this interface,
+		 * check to kick off any BGP interface-based neighbors,
+		 * but only if this is a link-local address.
+		 */
+		if (IN6_IS_ADDR_LINKLOCAL(&ifc->address->u.prefix6)
+		    && !list_isempty(ifc->ifp->nbr_connected))
+			bgp_start_interface_nbrs(bgp, ifc->ifp);
+		else if (ifc->address->family == AF_INET6 &&
+			 !IN6_IS_ADDR_LINKLOCAL(&ifc->address->u.prefix6)) {
+			addr = ifc->address;
 
-	/* If we have learnt of any neighbors on this interface,
-	 * check to kick off any BGP interface-based neighbors,
-	 * but only if this is a link-local address.
-	 */
-	if (IN6_IS_ADDR_LINKLOCAL(&ifc->address->u.prefix6) &&
-	    !list_isempty(ifc->ifp->nbr_connected))
-		bgp_start_interface_nbrs(bgp, ifc->ifp);
-	else if (ifc->address->family == AF_INET6 &&
-		 !IN6_IS_ADDR_LINKLOCAL(&ifc->address->u.prefix6)) {
-		addr = ifc->address;
+			for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer)) {
+				/*
+				 * If the Peer's interface name matches the
+				 * interface name for which BGP received the
+				 * update and if the received interface address
+				 * is a globalV6 and if the peer is currently
+				 * using a v4-mapped-v6 addr or a link local
+				 * address, then copy the Rxed global v6 addr
+				 * into peer's v6_global and send updates out
+				 * with new nexthop addr.
+				 */
+				if ((peer->conf_if &&
+				     (strcmp(peer->conf_if, ifc->ifp->name) ==
+				      0)) &&
+				    ((IS_MAPPED_IPV6(
+					     &peer->nexthop.v6_global)) ||
+				     IN6_IS_ADDR_LINKLOCAL(
+					     &peer->nexthop.v6_global))) {
 
-		for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer)) {
-			/*
-			 * If the Peer's interface name matches the
-			 * interface name for which BGP received the
-			 * update and if the received interface address
-			 * is a globalV6 and if the peer is currently
-			 * using a v4-mapped-v6 addr or a link local
-			 * address, then copy the Rxed global v6 addr
-			 * into peer's v6_global and send updates out
-			 * with new nexthop addr.
-			 */
-			if ((peer->conf_if &&
-			     (strcmp(peer->conf_if, ifc->ifp->name) == 0)) &&
-			    ((IS_MAPPED_IPV6(&peer->nexthop.v6_global)) ||
-			     IN6_IS_ADDR_LINKLOCAL(&peer->nexthop.v6_global))) {
-				if (bgp_debug_zebra(ifc->address)) {
-					zlog_debug("Update peer %pBP's current intf addr %pI6 and send updates",
-						   peer,
-						   &peer->nexthop.v6_global);
+					if (bgp_debug_zebra(ifc->address)) {
+						zlog_debug(
+							"Update peer %pBP's current intf addr %pI6 and send updates",
+							peer,
+							&peer->nexthop
+								 .v6_global);
+					}
+					memcpy(&peer->nexthop.v6_global,
+					       &addr->u.prefix6,
+					       IPV6_MAX_BYTELEN);
+					FOREACH_AFI_SAFI (afi, safi)
+						bgp_announce_route(peer, afi,
+								   safi, true);
 				}
-				memcpy(&peer->nexthop.v6_global,
-				       &addr->u.prefix6, IPV6_MAX_BYTELEN);
-				FOREACH_AFI_SAFI (afi, safi)
-					bgp_announce_route(peer, afi, safi,
-							   true);
 			}
 		}
 	}
