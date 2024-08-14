@@ -2015,9 +2015,11 @@ static void bgp_peer_remove_private_as(struct bgp *bgp, afi_t afi, safi_t safi,
 			 * need to walk the AS-Path to maintain all instances
 			 * of the peer's ASN to break possible loops.
 			 */
-			else
+			else {
 				attr->aspath = aspath_remove_private_asns(
 					attr->aspath, peer->as);
+				attr->refcnt = 0;
+			}
 		}
 
 		// 'all' was not specified so the entire aspath must be private
@@ -2029,13 +2031,15 @@ static void bgp_peer_remove_private_as(struct bgp *bgp, afi_t afi, safi_t safi,
 				    PEER_FLAG_REMOVE_PRIVATE_AS_REPLACE))
 				attr->aspath = aspath_replace_private_asns(
 					attr->aspath, bgp->as, peer->as);
-			else
+			else {
 				/*
 				 * Walk the aspath to retain any instances of
 				 * the peer_asn
 				 */
 				attr->aspath = aspath_remove_private_asns(
 					attr->aspath, peer->as);
+				attr->refcnt = 0;
+			}
 		}
 	}
 }
