@@ -302,12 +302,11 @@ static int bgp_ifp_down(struct interface *ifp)
 
 static int bgp_interface_address_add(ZAPI_CALLBACK_ARGS)
 {
-	struct connected *ifc, *connected;
+	struct connected *ifc;
 	struct bgp *bgp;
 	struct peer *peer;
 	struct prefix *addr;
 	struct listnode *node, *nnode;
-	bool v6_ll_in_nh_global;
 	afi_t afi;
 	safi_t safi;
 
@@ -342,27 +341,6 @@ static int bgp_interface_address_add(ZAPI_CALLBACK_ARGS)
 		addr = ifc->address;
 
 		for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer)) {
-			v6_ll_in_nh_global = false;
-
-			if (IN6_IS_ADDR_LINKLOCAL(&peer->nexthop.v6_global)) {
-				frr_each (if_connected, ifc->ifp->connected,
-					  connected) {
-					if (connected->address->family !=
-					    AF_INET6)
-						continue;
-					if (!IPV6_ADDR_SAME(&connected->address
-								     ->u.prefix6,
-							    &peer->nexthop
-								     .v6_global))
-						continue;
-					/* peer->nexthop.v6_global contains a link-local address
-					 * that needs to be replaced by the global address.
-					 */
-					v6_ll_in_nh_global = true;
-					break;
-				}
-			}
-
 			/*
 			 * If the Peer's interface name matches the
 			 * interface name for which BGP received the
@@ -373,11 +351,10 @@ static int bgp_interface_address_add(ZAPI_CALLBACK_ARGS)
 			 * into peer's v6_global and send updates out
 			 * with new nexthop addr.
 			 */
-			if (v6_ll_in_nh_global ||
-			    (peer->conf_if &&
-			     strcmp(peer->conf_if, ifc->ifp->name) == 0 &&
-			     (IS_MAPPED_IPV6(&peer->nexthop.v6_global) ||
-			      IN6_IS_ADDR_LINKLOCAL(&peer->nexthop.v6_global)))) {
+			if ((peer->conf_if &&
+			     (strcmp(peer->conf_if, ifc->ifp->name) == 0)) &&
+			    ((IS_MAPPED_IPV6(&peer->nexthop.v6_global)) ||
+			     IN6_IS_ADDR_LINKLOCAL(&peer->nexthop.v6_global))) {
 				if (bgp_debug_zebra(ifc->address)) {
 					zlog_debug("Update peer %pBP's current intf global addr from %pI6 to %pI6 and send updates",
 						   peer,
