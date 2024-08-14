@@ -7177,7 +7177,7 @@ int bgp_static_set(struct vty *vty, bool negate, const char *ip_str,
 			bgp_static->prd = prd;
 
 			if (rd_str)
-				bgp_static->prd_pretty = XSTRDUP(MTYPE_BGP,
+				bgp_static->prd_pretty = XSTRDUP(MTYPE_BGP_NAME,
 								 rd_str);
 
 			if (rmap) {
