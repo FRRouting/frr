@@ -334,11 +334,13 @@ static int bgp_interface_address_add(ZAPI_CALLBACK_ARGS)
 		if (IN6_IS_ADDR_LINKLOCAL(&ifc->address->u.prefix6)
 		    && !list_isempty(ifc->ifp->nbr_connected))
 			bgp_start_interface_nbrs(bgp, ifc->ifp);
-		else if (ifc->address->family == AF_INET6 &&
-			 !IN6_IS_ADDR_LINKLOCAL(&ifc->address->u.prefix6)) {
+		else {
 			addr = ifc->address;
 
 			for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer)) {
+				if (addr->family == AF_INET)
+					continue;
+
 				/*
 				 * If the Peer's interface name matches the
 				 * interface name for which BGP received the
@@ -352,6 +354,7 @@ static int bgp_interface_address_add(ZAPI_CALLBACK_ARGS)
 				if ((peer->conf_if &&
 				     (strcmp(peer->conf_if, ifc->ifp->name) ==
 				      0)) &&
+				    !IN6_IS_ADDR_LINKLOCAL(&addr->u.prefix6) &&
 				    ((IS_MAPPED_IPV6(
 					     &peer->nexthop.v6_global)) ||
 				     IN6_IS_ADDR_LINKLOCAL(
