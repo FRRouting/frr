@@ -937,7 +937,7 @@ DEFPY_YANG(no_set_min_metric, no_set_min_metric_cmd,
 	   "no set min-metric [(0-4294967295)]",
 	   NO_STR SET_STR
 	   "Minimum metric value for destination routing protocol\n"
-	   "Minumum metric value\n")
+	   "Minimum metric value\n")
 {
 	const char *xpath =
 		"./set-action[action='frr-route-map:set-min-metric']";
