@@ -1695,15 +1695,18 @@ DEFUN (no_router_bgp,
 
 		/* Cannot delete default instance if vrf instances exist */
 		if (bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT) {
-			struct listnode *node;
+			struct listnode *node, *nnode;
 			struct bgp *tmp_bgp;
 
-			for (ALL_LIST_ELEMENTS_RO(bm->bgp, node, tmp_bgp)) {
+			for (ALL_LIST_ELEMENTS(bm->bgp, node, nnode, tmp_bgp)) {
 				if (tmp_bgp->inst_type != BGP_INSTANCE_TYPE_VRF)
 					continue;
 
-				if (CHECK_FLAG(tmp_bgp->vrf_flags, BGP_VRF_AUTO))
+				if (CHECK_FLAG(tmp_bgp->vrf_flags,
+					       BGP_VRF_AUTO)) {
 					bgp_delete(tmp_bgp);
+					continue;
+				}
 
 				if (CHECK_FLAG(
 					    tmp_bgp->af_flags[AFI_IP]
