@@ -69,6 +69,27 @@
           "interfaceName":"eth-rt2"
         }
       ]
+    },
+    "2001:db8:1000::8/128":{
+      "isBestRoute":false,
+      "destinationType":"N",
+      "pathType":"E2",
+      "nextHops":[
+      {
+        "interfaceName":"eth-rt2"
+      }
+      ]
+    },
+    "2001:db8:1000::9/128":{
+      "isBestRoute":false,
+      "destinationType":"N",
+      "pathType":"E2",
+      "nextHops":[
+      {
+        "interfaceName":"eth-rt2"
+      }
+      ]
     }
+
   }
 }

@@ -10,42 +10,57 @@
 #
 
 """
-test_ospf6_elsa_topo1.py:
-
-             +---------+
-             |   RT1   |
-             | 1.1.1.1 |
-             +---------+
-                  |eth-rt2
-                  |
-                  |eth-rt1
-             +---------+
-             |   RT2   |
-             | 2.2.2.2 |
-             +---------+
-                  |eth-rt3
-                  |
-                  |eth-rt2
-             +---------+
-             |   RT3   |
-             | 3.3.3.3 |
-             +---------+
-          eth-rt4|  |eth-rt6
-                 |  |
-       +---------+  +--------+
-       |                     |
-       |eth-rt3              |eth-rt3
-  +---------+           +---------+
-  |   RT4   |           |   RT6   |
-  | 4.4.4.4 |           | 6.6.6.6 |
-  +---------+           +---------+
-       |eth-rt5              |eth-rt7
-       |                     |
-       |eth-rt4              |eth-rt6
-  +---------+           +---------+
-  |   RT5   |           |   RT7   |
-  | 5.5.5.5 |           | 7.7.7.7 |
-  +---------+           +---------+
+                     ┌─────────┐
+                     │   RT1   │
+                     │ 1.1.1.1 │
+                     └────┬────┘
+                          │eth-rt2                    ▲
+                          │                           │
+                     ┌────┴────┐                      │
+                     │   S1    │               area 1 │
+                     └────┬────┘                      │
+                          │                           │
+                          │eth-rt1                    ▼
+                     ┌────┴────┐
+                     │   RT2   │
+                     │ 2.2.2.2 │
+                     └────┬────┘
+                          │eth-rt3                    ▲
+                          │                    area 0 │
+                          │eth-rt2                    ▼
+                     ┌────┴────┐
+                     │   RT3   │
+                     │ 3.3.3.3 │
+                     └───┬──┬──┘
+                  eth-rt4│  │eth-rt6                  ▲
+                         │  │                         │
+               ┌─────────┘  └────────┐         area 0 │
+               │                     │                │
+               │eth-rt3              │eth-rt3         ▼
+          ┌────┴────┐           ┌────┴────┐
+          │   RT4   │           │   RT6   │
+          │ 4.4.4.4 │           │ 6.6.6.6 │
+          └┬──────┬─┘           └────┬────┘
+ ▲ eth-rt5 │      │eth-br9           │eth-rt7         ▲
+ │  area2  │      │                  │         area 3 │
+ ▼ eth-rt4 │      │                  │eth-rt6         ▼
+   ┌───────┴─┐    │             ┌────┴────┐
+   │   RT5   │    │             │   RT7   │
+   │ 5.5.5.5 │    │             │ 7.7.7.7 │
+   └─────────┘    │             └─────────┘
+                  │                                   ▲
+                  │                                   │
+          ┌───────┴─┐                                 │
+          │   S9    │                                 │
+          └───┬───┬─┘                          area 4 │
+              │   │                                   │
+              │   └──────────────────┐                │
+              │                      │                │
+              │eth-br9               │eth-br9         ▼
+          ┌───┴─────┐           ┌────┴────┐
+          │   RT8   │           │   RT9   │
+          │ 8.8.8.8 │           │ 9.9.9.9 │
+          └─────────┘           └─────────┘
 """
 
 import os
@@ -79,7 +94,7 @@ def build_topo(tgen):
     #
     # Define FRR Routers
     #
-    for router in ["rt1", "rt2", "rt3", "rt4", "rt5", "rt6", "rt7"]:
+    for router in ["rt1", "rt2", "rt3", "rt4", "rt5", "rt6", "rt7", "rt8", "rt9"]:
         tgen.add_router(router)
 
     #
@@ -115,6 +130,12 @@ def build_topo(tgen):
     switch = tgen.add_switch("s8")
     switch.add_link(tgen.gears["rt7"], nodeif="stub1")
 
+    switch = tgen.add_switch("s9")
+    switch.add_link(tgen.gears["rt4"], nodeif="eth-rt4-br9")
+    switch.add_link(tgen.gears["rt8"], nodeif="eth-rt8-br9")
+    switch.add_link(tgen.gears["rt9"], nodeif="eth-rt9-br9")
+
+
 
 def setup_module(mod):
     "Sets up the pytest environment"
@@ -133,7 +154,7 @@ def setup_module(mod):
         )
 
     tgen.start_router()
-
+    #tgen.mininet_cli()
 
 def teardown_module():
     "Teardown the pytest environment"
@@ -160,7 +181,7 @@ def router_compare_json_output(rname, command, reference, tries):
 
 def check_routers():
     tries = 100
-    for rname in ["rt1", "rt2", "rt3", "rt4", "rt5", "rt6", "rt7"]:
+    for rname in ["rt9", "rt1", "rt2", "rt3", "rt4", "rt5", "rt6", "rt7", "rt8", "rt9"]:
         router_compare_json_output(
             rname, "show ipv6 route ospf json", "show_ipv6_route.json", tries
         )
@@ -234,8 +255,75 @@ expected_e_router_lsa_detail_part = {
 }
 
 # FIXME:
-expected_e_network_lsa_part = {}
-expected_e_network_lsa_detail_part = {}
+expected_e_network_lsa_part = {
+    "areaScopedLinkStateDb": [
+    {
+        "areaId": "4",
+        "lsa": [
+        {
+            "type":"Net",
+            "advRouter":"4.4.4.4",
+            "payload":"4.4.4.4"
+        },
+        {
+            "type":"Net",
+            "advRouter":"4.4.4.4",
+            "payload":"8.8.8.8"
+        },
+        {
+            "type":"Net",
+            "advRouter":"4.4.4.4",
+            "payload":"9.9.9.9"
+        },
+        {
+            "type":"ENet",
+            "advRouter":"4.4.4.4",
+            "payload":"4.4.4.4"
+        },
+        {
+            "type":"ENet",
+            "advRouter":"4.4.4.4",
+            "payload":"8.8.8.8"
+        },
+        {
+            "type":"ENet",
+            "advRouter":"4.4.4.4",
+            "payload":"9.9.9.9"
+        }
+        ]
+    }
+    ]
+}
+
+expected_e_network_lsa_detail_part = {
+    "areaScopedLinkStateDb":[
+    {
+        "areaId":"4",
+        "lsa":[
+        {
+            "type":"Network",
+            "advertisingRouter":"4.4.4.4",
+            "options":"--|-|--|-|-|--|R|-|--|E|V6",
+            "attachedRouter":[
+                "4.4.4.4",
+                "8.8.8.8",
+                "9.9.9.9"
+            ]
+        },
+        {
+            "type":"E-Network",
+            "advertisingRouter":"4.4.4.4",
+            "options":"--|-|--|-|-|--|R|-|--|E|V6",
+            "attachedRouter":[
+                "4.4.4.4",
+                "8.8.8.8",
+                "9.9.9.9"
+            ]
+        }
+        ]
+    }
+    ]
+}
 
 expected_e_link_lsa_part = {
     "interfaceScopedLinkStateDb": [
@@ -332,22 +420,24 @@ expected_e_intra_area_prefix_lsa_detail_part = {
 
 expected_parts = {
     "E-Router": expected_e_router_lsa_part,
-    "E-Network": expected_e_network_lsa_part,
     "E-Link": expected_e_link_lsa_part,
     "E-Intra-Area_prefix": expected_e_intra_area_prefix_lsa_part,
 }
 
 expected_detail_parts = {
     "E-Router": expected_e_router_lsa_detail_part,
-    "E-Network": expected_e_network_lsa_detail_part,
     "E-Link": expected_e_link_lsa_detail_part,
     "E-Intra-Area_prefix": expected_e_intra_area_prefix_lsa_detail_part,
 }
 
 
+expected_area4_parts = {
+    "E-Network": expected_e_network_lsa_part,
+    "E-Network": expected_e_network_lsa_detail_part,
+}
 
 def test_elsa_presence():
-    logger.info("Test: verify presence of E-LSAs in ospf database")
+    logger.info("Test: verify presence of E-LSAs in OSPF database")
     tgen = get_topogen()
 
     # Skip if previous fatal error condition is raised
@@ -365,6 +455,47 @@ def test_elsa_presence():
         )
         _, result = topotest.run_and_expect(test_func, None, count=60, wait=1)
         assert result is None, f'{router} missing ELSA {elsa_name}.'
+
+def test_elsa_presence_area4():
+    logger.info("Test: verify presence of E-Network LSAs in OSPF database")
+    tgen = get_topogen()
+
+    # Skip if previous fatal error condition is raised
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    router = "rt9"
+    elsa_name, part = "E-Network", expected_e_network_lsa_part
+    logger.info('"%s" checking presence of e-lsa "%s"', router, elsa_name)
+    test_func = partial(
+            topotest.router_json_cmp,
+            tgen.gears[router],
+            "show ipv6 ospf6 database json",
+            part,
+    )
+    _, result = topotest.run_and_expect(test_func, None, count=60, wait=1)
+    assert result is None, f'{router} missing ELSA {elsa_name}.'
+
+
+def test_e_network_lsa_detail():
+    logger.info("Test: verify detail of E-Network LSAs in OSPF database")
+    tgen = get_topogen()
+
+    # Skip if previous fatal error condition is raised
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    router = "rt9"
+    elsa_name, part = "E-Network", expected_e_network_lsa_detail_part
+    logger.info('"%s" checking presence of e-lsa "%s"', router, elsa_name)
+    test_func = partial(
+            topotest.router_json_cmp,
+            tgen.gears[router],
+            "show ipv6 ospf6 database detail json",
+            part,
+    )
+    _, result = topotest.run_and_expect(test_func, None, count=60, wait=1)
+    assert result is None, f'{router} missing ELSA detail {elsa_name}.'
 
 
 def test_elsa_detail():

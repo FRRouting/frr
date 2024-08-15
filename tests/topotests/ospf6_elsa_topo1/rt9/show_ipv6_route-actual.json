@@ -1,0 +1,302 @@
+{
+  "2001:db8:1000::1/128": [
+    {
+      "prefix": "2001:db8:1000::1/128",
+      "prefixLen": 128,
+      "protocol": "ospf6",
+      "vrfId": 0,
+      "vrfName": "default",
+      "selected": true,
+      "destSelected": true,
+      "distance": 110,
+      "metric": 40,
+      "installed": true,
+      "table": 254,
+      "internalStatus": 16,
+      "internalFlags": 8,
+      "internalNextHopNum": 1,
+      "internalNextHopActiveNum": 1,
+      "nexthopGroupId": 16,
+      "installedNexthopGroupId": 16,
+      "uptime": "00:00:53",
+      "nexthops": [
+        {
+          "flags": 3,
+          "fib": true,
+          "ip": "fe80::e07e:cff:fee4:d743",
+          "afi": "ipv6",
+          "interfaceIndex": 2,
+          "interfaceName": "eth-rt9-br9",
+          "active": true,
+          "weight": 1
+        }
+      ]
+    }
+  ],
+  "2001:db8:1000::2/128": [
+    {
+      "prefix": "2001:db8:1000::2/128",
+      "prefixLen": 128,
+      "protocol": "ospf6",
+      "vrfId": 0,
+      "vrfName": "default",
+      "selected": true,
+      "destSelected": true,
+      "distance": 110,
+      "metric": 30,
+      "installed": true,
+      "table": 254,
+      "internalStatus": 16,
+      "internalFlags": 8,
+      "internalNextHopNum": 1,
+      "internalNextHopActiveNum": 1,
+      "nexthopGroupId": 16,
+      "installedNexthopGroupId": 16,
+      "uptime": "00:00:54",
+      "nexthops": [
+        {
+          "flags": 3,
+          "fib": true,
+          "ip": "fe80::e07e:cff:fee4:d743",
+          "afi": "ipv6",
+          "interfaceIndex": 2,
+          "interfaceName": "eth-rt9-br9",
+          "active": true,
+          "weight": 1
+        }
+      ]
+    }
+  ],
+  "2001:db8:1000::3/128": [
+    {
+      "prefix": "2001:db8:1000::3/128",
+      "prefixLen": 128,
+      "protocol": "ospf6",
+      "vrfId": 0,
+      "vrfName": "default",
+      "selected": true,
+      "destSelected": true,
+      "distance": 110,
+      "metric": 20,
+      "installed": true,
+      "table": 254,
+      "internalStatus": 16,
+      "internalFlags": 8,
+      "internalNextHopNum": 1,
+      "internalNextHopActiveNum": 1,
+      "nexthopGroupId": 16,
+      "installedNexthopGroupId": 16,
+      "uptime": "00:00:54",
+      "nexthops": [
+        {
+          "flags": 3,
+          "fib": true,
+          "ip": "fe80::e07e:cff:fee4:d743",
+          "afi": "ipv6",
+          "interfaceIndex": 2,
+          "interfaceName": "eth-rt9-br9",
+          "active": true,
+          "weight": 1
+        }
+      ]
+    }
+  ],
+  "2001:db8:1000::4/128": [
+    {
+      "prefix": "2001:db8:1000::4/128",
+      "prefixLen": 128,
+      "protocol": "ospf6",
+      "vrfId": 0,
+      "vrfName": "default",
+      "selected": true,
+      "destSelected": true,
+      "distance": 110,
+      "metric": 10,
+      "installed": true,
+      "table": 254,
+      "internalStatus": 16,
+      "internalFlags": 8,
+      "internalNextHopNum": 1,
+      "internalNextHopActiveNum": 1,
+      "nexthopGroupId": 16,
+      "installedNexthopGroupId": 16,
+      "uptime": "00:00:54",
+      "nexthops": [
+        {
+          "flags": 3,
+          "fib": true,
+          "ip": "fe80::e07e:cff:fee4:d743",
+          "afi": "ipv6",
+          "interfaceIndex": 2,
+          "interfaceName": "eth-rt9-br9",
+          "active": true,
+          "weight": 1
+        }
+      ]
+    }
+  ],
+  "2001:db8:1000::5/128": [
+    {
+      "prefix": "2001:db8:1000::5/128",
+      "prefixLen": 128,
+      "protocol": "ospf6",
+      "vrfId": 0,
+      "vrfName": "default",
+      "selected": true,
+      "destSelected": true,
+      "distance": 110,
+      "metric": 20,
+      "installed": true,
+      "table": 254,
+      "internalStatus": 16,
+      "internalFlags": 8,
+      "internalNextHopNum": 1,
+      "internalNextHopActiveNum": 1,
+      "nexthopGroupId": 16,
+      "installedNexthopGroupId": 16,
+      "uptime": "00:00:53",
+      "nexthops": [
+        {
+          "flags": 3,
+          "fib": true,
+          "ip": "fe80::e07e:cff:fee4:d743",
+          "afi": "ipv6",
+          "interfaceIndex": 2,
+          "interfaceName": "eth-rt9-br9",
+          "active": true,
+          "weight": 1
+        }
+      ]
+    }
+  ],
+  "2001:db8:1000::6/128": [
+    {
+      "prefix": "2001:db8:1000::6/128",
+      "prefixLen": 128,
+      "protocol": "ospf6",
+      "vrfId": 0,
+      "vrfName": "default",
+      "selected": true,
+      "destSelected": true,
+      "distance": 110,
+      "metric": 30,
+      "installed": true,
+      "table": 254,
+      "internalStatus": 16,
+      "internalFlags": 8,
+      "internalNextHopNum": 1,
+      "internalNextHopActiveNum": 1,
+      "nexthopGroupId": 16,
+      "installedNexthopGroupId": 16,
+      "uptime": "00:00:54",
+      "nexthops": [
+        {
+          "flags": 3,
+          "fib": true,
+          "ip": "fe80::e07e:cff:fee4:d743",
+          "afi": "ipv6",
+          "interfaceIndex": 2,
+          "interfaceName": "eth-rt9-br9",
+          "active": true,
+          "weight": 1
+        }
+      ]
+    }
+  ],
+  "2001:db8:1000::7/128": [
+    {
+      "prefix": "2001:db8:1000::7/128",
+      "prefixLen": 128,
+      "protocol": "ospf6",
+      "vrfId": 0,
+      "vrfName": "default",
+      "selected": true,
+      "destSelected": true,
+      "distance": 110,
+      "metric": 40,
+      "installed": true,
+      "table": 254,
+      "internalStatus": 16,
+      "internalFlags": 8,
+      "internalNextHopNum": 1,
+      "internalNextHopActiveNum": 1,
+      "nexthopGroupId": 16,
+      "installedNexthopGroupId": 16,
+      "uptime": "00:00:54",
+      "nexthops": [
+        {
+          "flags": 3,
+          "fib": true,
+          "ip": "fe80::e07e:cff:fee4:d743",
+          "afi": "ipv6",
+          "interfaceIndex": 2,
+          "interfaceName": "eth-rt9-br9",
+          "active": true,
+          "weight": 1
+        }
+      ]
+    }
+  ],
+  "2001:db8:1000::8/128": [
+    {
+      "prefix": "2001:db8:1000::8/128",
+      "prefixLen": 128,
+      "protocol": "ospf6",
+      "vrfId": 0,
+      "vrfName": "default",
+      "selected": true,
+      "destSelected": true,
+      "distance": 110,
+      "metric": 10,
+      "installed": true,
+      "table": 254,
+      "internalStatus": 16,
+      "internalFlags": 8,
+      "internalNextHopNum": 1,
+      "internalNextHopActiveNum": 1,
+      "nexthopGroupId": 14,
+      "installedNexthopGroupId": 14,
+      "uptime": "00:00:53",
+      "nexthops": [
+        {
+          "flags": 3,
+          "fib": true,
+          "ip": "fe80::847d:f1ff:fe19:ce4",
+          "afi": "ipv6",
+          "interfaceIndex": 2,
+          "interfaceName": "eth-rt9-br9",
+          "active": true,
+          "weight": 1
+        }
+      ]
+    }
+  ],
+  "2001:db8:1000::9/128": [
+    {
+      "prefix": "2001:db8:1000::9/128",
+      "prefixLen": 128,
+      "protocol": "ospf6",
+      "vrfId": 0,
+      "vrfName": "default",
+      "distance": 110,
+      "metric": 0,
+      "table": 254,
+      "internalStatus": 0,
+      "internalFlags": 0,
+      "internalNextHopNum": 1,
+      "internalNextHopActiveNum": 1,
+      "nexthopGroupId": 20,
+      "uptime": "00:00:53",
+      "nexthops": [
+        {
+          "flags": 1,
+          "directlyConnected": true,
+          "interfaceIndex": 1,
+          "interfaceName": "lo",
+          "active": true,
+          "weight": 1
+        }
+      ]
+    }
+  ]
+}
