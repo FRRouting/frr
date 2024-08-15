@@ -876,6 +876,7 @@ DECLARE_HOOK(bgp_inst_config_write,
 		(bgp, vty));
 DECLARE_HOOK(bgp_snmp_traps_config_write, (struct vty *vty), (vty));
 DECLARE_HOOK(bgp_config_end, (struct bgp *bgp), (bgp));
+DECLARE_HOOK(bgp_instance_state, (struct bgp *bgp), (bgp));
 DECLARE_HOOK(bgp_hook_vrf_update, (struct vrf *vrf, bool enabled),
 	     (vrf, enabled));
 
@@ -1697,8 +1698,11 @@ struct peer {
 	uint32_t stat_pfx_nh_invalid;
 	uint32_t stat_pfx_dup_withdraw;
 	uint32_t stat_upd_7606;  /* RFC7606: treat-as-withdraw */
-	uint64_t stat_pfx_loc_rib; /* RFC7854 : Number of routes in Loc-RIB */
-	uint64_t stat_pfx_adj_rib_in; /* RFC7854 : Number of routes in Adj-RIBs-In */
+	uint32_t stat_adj_in_count[AFI_MAX]
+				  [SAFI_MAX]; /* RFC7854 : Number of routes in Adj-RIB-In */
+	uint32_t stat_loc_rib_count[AFI_MAX]
+				   [SAFI_MAX]; /* RFC7854 : Number of routes in Loc-RIB */
+	/* no need for stat_adj_out_count here, it is in struct update_subgroup */
 
 	/* BGP state count */
 	uint32_t established; /* Established */

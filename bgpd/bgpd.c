@@ -85,6 +85,7 @@ DEFINE_QOBJ_TYPE(bgp_master);
 DEFINE_QOBJ_TYPE(bgp);
 DEFINE_QOBJ_TYPE(peer);
 DEFINE_HOOK(bgp_inst_delete, (struct bgp *bgp), (bgp));
+DEFINE_HOOK(bgp_instance_state, (struct bgp *bgp), (bgp));
 
 /* BGP process wide configuration.  */
 static struct bgp_master bgp_master;
@@ -3871,6 +3872,9 @@ void bgp_instance_up(struct bgp *bgp)
 	struct peer *peer;
 	struct listnode *node, *next;
 
+	/* notify BMP of instance state changed */
+	hook_call(bgp_instance_state, bgp);
+
 	bgp_set_redist_vrf_bitmaps(bgp, true);
 
 	/* Register with zebra. */
@@ -3895,6 +3899,9 @@ void bgp_instance_down(struct bgp *bgp)
 	struct peer *peer;
 	struct listnode *node;
 	struct listnode *next;
+
+	/* notify BMP of instance state changed */
+	hook_call(bgp_instance_state, bgp);
 
 	/* Cleanup evpn instance state */
 	bgp_evpn_instance_down(bgp);
