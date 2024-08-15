@@ -1322,7 +1322,10 @@ ferr_r pim_if_gm_join_add(struct interface *ifp, pim_addr group_addr,
 		return ferr_ok();
 	}
 
-	(void)gm_join_new(ifp, group_addr, source_addr);
+	if (!gm_join_new(ifp, group_addr, source_addr)) {
+		return ferr_cfg_invalid("can't join (%pPA,%pPA) on interface %s",
+					&source_addr, &group_addr, ifp->name);
+	}
 
 	if (PIM_DEBUG_GM_EVENTS) {
 		zlog_debug(
