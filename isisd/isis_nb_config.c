@@ -2436,6 +2436,8 @@ int isis_instance_segment_routing_prefix_sid_map_prefix_sid_create(
 	pcfg = isis_sr_cfg_prefix_add(area, &prefix, SR_ALGORITHM_SPF);
 	nb_running_set_entry(args->dnode, pcfg);
 
+	lsp_regenerate_schedule(area, area->is_type, 0);
+
 	return NB_OK;
 }
 
