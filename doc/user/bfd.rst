@@ -66,7 +66,7 @@ may also be specified (:ref:`common-invocation-options`).
 
      --dplaneaddr ipv6:[::1]:50701
 
-   (if ommited the default port is ``50700``).
+   (if omitted the default port is ``50700``).
 
    It is also possible to operate in client mode (instead of listening for
    connections). To connect to a data plane server append the letter 'c' to

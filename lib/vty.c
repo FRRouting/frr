@@ -3903,7 +3903,7 @@ static int vty_mgmt_error_notified(struct mgmt_fe_client *client,
 	const char *cname = mgmt_fe_client_name(client);
 
 	if (!vty->mgmt_req_pending_cmd) {
-		debug_fe_client("Erorr with no pending command: %d returned for client %s 0x%" PRIx64
+		debug_fe_client("Error with no pending command: %d returned for client %s 0x%" PRIx64
 				" session-id %" PRIu64 " req-id %" PRIu64
 				"error-str %s",
 				error, cname, client_id, session_id, req_id,
@@ -3914,7 +3914,7 @@ static int vty_mgmt_error_notified(struct mgmt_fe_client *client,
 		return CMD_WARNING;
 	}
 
-	debug_fe_client("Erorr %d returned for client %s 0x%" PRIx64
+	debug_fe_client("Error %d returned for client %s 0x%" PRIx64
 			" session-id %" PRIu64 " req-id %" PRIu64 "error-str %s",
 			error, cname, client_id, session_id, req_id, errstr);
 

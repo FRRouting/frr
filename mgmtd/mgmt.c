@@ -15,9 +15,9 @@
 #include "mgmtd/mgmt_history.h"
 #include "mgmtd/mgmt_memory.h"
 
-struct debug mgmt_debug_be = {.desc = "Management backend adapater"};
+struct debug mgmt_debug_be = { .desc = "Management backend adapter" };
 struct debug mgmt_debug_ds = {.desc = "Management datastore"};
-struct debug mgmt_debug_fe = {.desc = "Management frontend adapater"};
+struct debug mgmt_debug_fe = { .desc = "Management frontend adapter" };
 struct debug mgmt_debug_txn = {.desc = "Management transaction"};
 
 /* MGMTD process wide configuration.  */

@@ -2710,7 +2710,7 @@ int mgmt_txn_notify_error(struct mgmt_be_client_adapter *adapter,
 	case MGMTD_TXN_PROC_GETCFG:
 	case MGMTD_TXN_COMMITCFG_TIMEOUT:
 	default:
-		assert(!"non-native req event in native erorr path");
+		assert(!"non-native req event in native error path");
 		return -1;
 	}
 }

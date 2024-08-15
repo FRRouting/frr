@@ -9846,7 +9846,7 @@ DEFPY(ip_ospf_prefix_suppression, ip_ospf_prefix_suppression_addr_cmd,
       "[no] ip ospf prefix-suppression [A.B.C.D]$ip_addr", NO_STR
       "IP Information\n"
       "OSPF interface commands\n"
-      "Supress OSPF prefix advertisement on this interface\n"
+      "Suppress OSPF prefix advertisement on this interface\n"
       "Address of interface\n")
 {
 	VTY_DECLVAR_CONTEXT(interface, ifp);
