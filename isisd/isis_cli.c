@@ -2365,31 +2365,27 @@ DEFPY_YANG (isis_frr_lfa_tiebreaker,
 
 	if (!level || strmatch(level, "level-1")) {
 		if (no) {
-			snprintf(
-				xpath, XPATH_MAXLEN,
-				"./fast-reroute/level-1/lfa/tiebreaker[index='%s']",
-				index_str);
+			snprintf(xpath, XPATH_MAXLEN,
+				 "./fast-reroute/level-1/lfa/tiebreaker[index='%s'][type='%s']",
+				 index_str, type);
 			nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
 		} else {
-			snprintf(
-				xpath, XPATH_MAXLEN,
-				"./fast-reroute/level-1/lfa/tiebreaker[index='%s']/type",
-				index_str);
+			snprintf(xpath, XPATH_MAXLEN,
+				 "./fast-reroute/level-1/lfa/tiebreaker[index='%s'][type='%s']/type",
+				 index_str, type);
 			nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, type);
 		}
 	}
 	if (!level || strmatch(level, "level-2")) {
 		if (no) {
-			snprintf(
-				xpath, XPATH_MAXLEN,
-				"./fast-reroute/level-2/lfa/tiebreaker[index='%s']",
-				index_str);
+			snprintf(xpath, XPATH_MAXLEN,
+				 "./fast-reroute/level-2/lfa/tiebreaker[index='%s'][type='%s']",
+				 index_str, type);
 			nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
 		} else {
-			snprintf(
-				xpath, XPATH_MAXLEN,
-				"./fast-reroute/level-2/lfa/tiebreaker[index='%s']/type",
-				index_str);
+			snprintf(xpath, XPATH_MAXLEN,
+				 "./fast-reroute/level-2/lfa/tiebreaker[index='%s'][type='%s']/type",
+				 index_str, type);
 			nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, type);
 		}
 	}

@@ -403,7 +403,7 @@ module frr-isisd {
           "Limit backup computation up to the prefix priority.";
       }
       list tiebreaker {
-        key "index";
+        key "index type";
         unique "type";
         description
           "Configure tiebreaker for multiple backups.";
