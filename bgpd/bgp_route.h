@@ -798,8 +798,7 @@ extern void bgp_update(struct peer *peer, const struct prefix *p,
 extern void bgp_withdraw(struct peer *peer, const struct prefix *p,
 			 uint32_t addpath_id, afi_t afi, safi_t safi, int type,
 			 int sub_type, struct prefix_rd *prd,
-			 mpls_label_t *label, uint8_t num_labels,
-			 struct bgp_route_evpn *evpn);
+			 mpls_label_t *label, uint8_t num_labels);
 
 /* for bgp_nexthop and bgp_damp */
 extern void bgp_process(struct bgp *bgp, struct bgp_dest *dest,

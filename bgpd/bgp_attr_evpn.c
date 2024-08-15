@@ -24,6 +24,13 @@
 bool bgp_route_evpn_same(const struct bgp_route_evpn *e1,
 			 const struct bgp_route_evpn *e2)
 {
+	if (!e1 && e2)
+		return false;
+	if (!e2 && e1)
+		return false;
+	if (!e1 && !e2)
+		return true;
+
 	return (e1->type == e2->type &&
 		!memcmp(&(e1->eth_s_id), &(e2->eth_s_id), sizeof(esi_t)) &&
 		!ipaddr_cmp(&(e1->gw_ip), &(e2->gw_ip)));

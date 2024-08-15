@@ -1741,20 +1741,30 @@ static int update_evpn_type5_route(struct bgp *bgp_vrf, struct prefix_evpn *evp,
 		       BGP_L2VPN_EVPN_ADV_IPV6_UNICAST_GW_IP)) {
 		if (src_attr &&
 		    !IN6_IS_ADDR_UNSPECIFIED(&src_attr->mp_nexthop_global)) {
-			attr.evpn_overlay.type = OVERLAY_INDEX_GATEWAY_IP;
-			SET_IPADDR_V6(&attr.evpn_overlay.gw_ip);
-			memcpy(&attr.evpn_overlay.gw_ip.ipaddr_v6,
+			struct bgp_route_evpn *bre =
+				XCALLOC(MTYPE_BGP_EVPN_OVERLAY,
+					sizeof(struct bgp_route_evpn));
+
+			bre->type = OVERLAY_INDEX_GATEWAY_IP;
+			SET_IPADDR_V6(&bre->gw_ip);
+			memcpy(&bre->gw_ip.ipaddr_v6,
 			       &src_attr->mp_nexthop_global,
 			       sizeof(struct in6_addr));
+			bgp_attr_set_evpn_overlay(&attr, bre);
 		}
 	} else if (src_afi == AFI_IP &&
 		   CHECK_FLAG(bgp_vrf->af_flags[AFI_L2VPN][SAFI_EVPN],
 			      BGP_L2VPN_EVPN_ADV_IPV4_UNICAST_GW_IP)) {
 		if (src_attr && src_attr->nexthop.s_addr != 0) {
-			attr.evpn_overlay.type = OVERLAY_INDEX_GATEWAY_IP;
-			SET_IPADDR_V4(&attr.evpn_overlay.gw_ip);
-			memcpy(&attr.evpn_overlay.gw_ip.ipaddr_v4,
-			       &src_attr->nexthop, sizeof(struct in_addr));
+			struct bgp_route_evpn *bre =
+				XCALLOC(MTYPE_BGP_EVPN_OVERLAY,
+					sizeof(struct bgp_route_evpn));
+
+			bre->type = OVERLAY_INDEX_GATEWAY_IP;
+			SET_IPADDR_V4(&bre->gw_ip);
+			memcpy(&bre->gw_ip.ipaddr_v4, &src_attr->nexthop,
+			       sizeof(struct in_addr));
+			bgp_attr_set_evpn_overlay(&attr, bre);
 		}
 	}
 
@@ -3031,6 +3041,7 @@ static int install_evpn_route_entry_in_vrf(struct bgp *bgp_vrf,
 	bool use_l3nhg = false;
 	bool is_l3nhg_active = false;
 	char buf1[INET6_ADDRSTRLEN];
+	struct bgp_route_evpn *bre;
 
 	memset(pp, 0, sizeof(struct prefix));
 	ip_prefix_from_evpn_prefix(evp, pp);
@@ -3064,35 +3075,33 @@ static int install_evpn_route_entry_in_vrf(struct bgp *bgp_vrf,
 	 * make sure to set the flag for next hop attribute.
 	 */
 	attr = *parent_pi->attr;
-	if (attr.evpn_overlay.type != OVERLAY_INDEX_GATEWAY_IP) {
-		if (afi == AFI_IP6)
-			evpn_convert_nexthop_to_ipv6(&attr);
-		else {
-			attr.nexthop = attr.mp_nexthop_global_in;
-			attr.flag |= ATTR_FLAG_BIT(BGP_ATTR_NEXT_HOP);
-		}
-	} else {
-
+	bre = bgp_attr_get_evpn_overlay(&attr);
+	if (bre && bre->type == OVERLAY_INDEX_GATEWAY_IP) {
 		/*
 		 * If gateway IP overlay index is specified in the NLRI of
 		 * EVPN RT-5, this gateway IP should be used as the nexthop
 		 * for the prefix in the VRF
 		 */
 		if (bgp_debug_zebra(NULL)) {
-			zlog_debug(
-				"Install gateway IP %s as nexthop for prefix %pFX in vrf %s",
-				inet_ntop(pp->family, &attr.evpn_overlay.gw_ip,
-					  buf1, sizeof(buf1)), pp,
-					  vrf_id_to_name(bgp_vrf->vrf_id));
+			zlog_debug("Install gateway IP %s as nexthop for prefix %pFX in vrf %s",
+				   inet_ntop(pp->family, &bre->gw_ip, buf1,
+					     sizeof(buf1)),
+				   pp, vrf_id_to_name(bgp_vrf->vrf_id));
 		}
 
 		if (afi == AFI_IP6) {
-			memcpy(&attr.mp_nexthop_global,
-			       &attr.evpn_overlay.gw_ip.ipaddr_v6,
+			memcpy(&attr.mp_nexthop_global, &bre->gw_ip.ipaddr_v6,
 			       sizeof(struct in6_addr));
 			attr.mp_nexthop_len = IPV6_MAX_BYTELEN;
 		} else {
-			attr.nexthop = attr.evpn_overlay.gw_ip.ipaddr_v4;
+			attr.nexthop = bre->gw_ip.ipaddr_v4;
+			attr.flag |= ATTR_FLAG_BIT(BGP_ATTR_NEXT_HOP);
+		}
+	} else {
+		if (afi == AFI_IP6)
+			evpn_convert_nexthop_to_ipv6(&attr);
+		else {
+			attr.nexthop = attr.mp_nexthop_global_in;
 			attr.flag |= ATTR_FLAG_BIT(BGP_ATTR_NEXT_HOP);
 		}
 	}
@@ -3144,22 +3153,20 @@ static int install_evpn_route_entry_in_vrf(struct bgp *bgp_vrf,
 	}
 
 	/* Gateway IP nexthop should be resolved */
-	if (attr.evpn_overlay.type == OVERLAY_INDEX_GATEWAY_IP) {
+	if (bre && bre->type == OVERLAY_INDEX_GATEWAY_IP) {
 		if (bgp_find_or_add_nexthop(bgp_vrf, bgp_vrf, afi, safi, pi,
 					    NULL, 0, NULL))
 			bgp_path_info_set_flag(dest, pi, BGP_PATH_VALID);
 		else {
 			if (BGP_DEBUG(nht, NHT)) {
-				inet_ntop(pp->family,
-					  &attr.evpn_overlay.gw_ip,
-					  buf1, sizeof(buf1));
+				inet_ntop(pp->family, &bre->gw_ip, buf1,
+					  sizeof(buf1));
 				zlog_debug("%s: gateway IP NH unresolved",
 					   buf1);
 			}
 			bgp_path_info_unset_flag(dest, pi, BGP_PATH_VALID);
 		}
 	} else {
-
 		/* as it is an importation, change nexthop */
 		bgp_path_info_set_flag(dest, pi, BGP_PATH_ANNC_NH_SELF);
 	}
@@ -4690,7 +4697,6 @@ static int process_type2_route(struct peer *peer, afi_t afi, safi_t safi,
 {
 	struct prefix_rd prd;
 	struct prefix_evpn p = {};
-	struct bgp_route_evpn evpn = {};
 	uint8_t ipaddr_len;
 	uint8_t macaddr_len;
 	/* holds the VNI(s) as in packet */
@@ -4792,11 +4798,11 @@ static int process_type2_route(struct peer *peer, afi_t afi, safi_t safi,
 	if (attr)
 		bgp_update(peer, (struct prefix *)&p, addpath_id, attr, afi,
 			   safi, ZEBRA_ROUTE_BGP, BGP_ROUTE_NORMAL, &prd,
-			   &label[0], num_labels, 0, &evpn);
+			   &label[0], num_labels, 0, NULL);
 	else
 		bgp_withdraw(peer, (struct prefix *)&p, addpath_id, afi, safi,
 			     ZEBRA_ROUTE_BGP, BGP_ROUTE_NORMAL, &prd, &label[0],
-			     num_labels, &evpn);
+			     num_labels);
 	goto done;
 
 fail:
@@ -4886,8 +4892,7 @@ static int process_type3_route(struct peer *peer, afi_t afi, safi_t safi,
 			   0, 0, NULL);
 	else
 		bgp_withdraw(peer, (struct prefix *)&p, addpath_id, afi, safi,
-			     ZEBRA_ROUTE_BGP, BGP_ROUTE_NORMAL, &prd, NULL, 0,
-			     NULL);
+			     ZEBRA_ROUTE_BGP, BGP_ROUTE_NORMAL, &prd, NULL, 0);
 	return 0;
 }
 
@@ -4900,7 +4905,8 @@ static int process_type5_route(struct peer *peer, afi_t afi, safi_t safi,
 {
 	struct prefix_rd prd;
 	struct prefix_evpn p;
-	struct bgp_route_evpn evpn;
+	struct bgp_route_evpn *evpn = XCALLOC(MTYPE_BGP_EVPN_OVERLAY,
+					      sizeof(struct bgp_route_evpn));
 	uint8_t ippfx_len;
 	uint32_t eth_tag;
 	mpls_label_t label; /* holds the VNI as in the packet */
@@ -4930,12 +4936,9 @@ static int process_type5_route(struct peer *peer, afi_t afi, safi_t safi,
 	p.prefixlen = EVPN_ROUTE_PREFIXLEN;
 	p.prefix.route_type = BGP_EVPN_IP_PREFIX_ROUTE;
 
-	/* Additional information outside of prefix - ESI and GW IP */
-	memset(&evpn, 0, sizeof(evpn));
-
 	/* Fetch ESI overlay index */
 	if (attr)
-		memcpy(&evpn.eth_s_id, pfx, sizeof(esi_t));
+		memcpy(&evpn->eth_s_id, pfx, sizeof(esi_t));
 	pfx += ESI_BYTES;
 
 	/* Fetch Ethernet Tag. */
@@ -4962,16 +4965,16 @@ static int process_type5_route(struct peer *peer, afi_t afi, safi_t safi,
 		SET_IPADDR_V4(&p.prefix.prefix_addr.ip);
 		memcpy(&p.prefix.prefix_addr.ip.ipaddr_v4, pfx, 4);
 		pfx += 4;
-		SET_IPADDR_V4(&evpn.gw_ip);
-		memcpy(&evpn.gw_ip.ipaddr_v4, pfx, 4);
+		SET_IPADDR_V4(&evpn->gw_ip);
+		memcpy(&evpn->gw_ip.ipaddr_v4, pfx, 4);
 		pfx += 4;
 	} else {
 		SET_IPADDR_V6(&p.prefix.prefix_addr.ip);
 		memcpy(&p.prefix.prefix_addr.ip.ipaddr_v6, pfx,
 		       IPV6_MAX_BYTELEN);
 		pfx += IPV6_MAX_BYTELEN;
-		SET_IPADDR_V6(&evpn.gw_ip);
-		memcpy(&evpn.gw_ip.ipaddr_v6, pfx, IPV6_MAX_BYTELEN);
+		SET_IPADDR_V6(&evpn->gw_ip);
+		memcpy(&evpn->gw_ip.ipaddr_v6, pfx, IPV6_MAX_BYTELEN);
 		pfx += IPV6_MAX_BYTELEN;
 	}
 
@@ -4989,20 +4992,20 @@ static int process_type5_route(struct peer *peer, afi_t afi, safi_t safi,
 	 * An update containing a non-zero gateway IP and a non-zero ESI
 	 * at the same time is should be treated as withdraw
 	 */
-	if (bgp_evpn_is_esi_valid(&evpn.eth_s_id) &&
-	    !ipaddr_is_zero(&evpn.gw_ip)) {
+	if (bgp_evpn_is_esi_valid(&evpn->eth_s_id) &&
+	    !ipaddr_is_zero(&evpn->gw_ip)) {
 		flog_err(EC_BGP_EVPN_ROUTE_INVALID,
 			 "%s - Rx EVPN Type-5 ESI and gateway-IP both non-zero.",
 			 peer->host);
 		is_valid_update = false;
-	} else if (bgp_evpn_is_esi_valid(&evpn.eth_s_id))
-		evpn.type = OVERLAY_INDEX_ESI;
-	else if (!ipaddr_is_zero(&evpn.gw_ip))
-		evpn.type = OVERLAY_INDEX_GATEWAY_IP;
+	} else if (bgp_evpn_is_esi_valid(&evpn->eth_s_id))
+		evpn->type = OVERLAY_INDEX_ESI;
+	else if (!ipaddr_is_zero(&evpn->gw_ip))
+		evpn->type = OVERLAY_INDEX_GATEWAY_IP;
 	if (attr) {
 		if (is_zero_mac(&attr->rmac) &&
-		    !bgp_evpn_is_esi_valid(&evpn.eth_s_id) &&
-		    ipaddr_is_zero(&evpn.gw_ip) && label == 0) {
+		    !bgp_evpn_is_esi_valid(&evpn->eth_s_id) &&
+		    ipaddr_is_zero(&evpn->gw_ip) && label == 0) {
 			flog_err(EC_BGP_EVPN_ROUTE_INVALID,
 				 "%s - Rx EVPN Type-5 ESI, gateway-IP, RMAC and label all zero",
 				 peer->host);
@@ -5017,7 +5020,7 @@ static int process_type5_route(struct peer *peer, afi_t afi, safi_t safi,
 	if (attr && is_valid_update)
 		bgp_update(peer, (struct prefix *)&p, addpath_id, attr, afi,
 			   safi, ZEBRA_ROUTE_BGP, BGP_ROUTE_NORMAL, &prd,
-			   &label, 1, 0, &evpn);
+			   &label, 1, 0, evpn);
 	else {
 		if (!is_valid_update) {
 			char attr_str[BUFSIZ] = {0};
@@ -5029,8 +5032,7 @@ static int process_type5_route(struct peer *peer, afi_t afi, safi_t safi,
 				attr_str);
 		}
 		bgp_withdraw(peer, (struct prefix *)&p, addpath_id, afi, safi,
-			     ZEBRA_ROUTE_BGP, BGP_ROUTE_NORMAL, &prd, &label, 1,
-			     &evpn);
+			     ZEBRA_ROUTE_BGP, BGP_ROUTE_NORMAL, &prd, &label, 1);
 	}
 
 	return 0;
@@ -5044,11 +5046,15 @@ static void evpn_mpattr_encode_type5(struct stream *s, const struct prefix *p,
 	int len;
 	char temp[16];
 	const struct evpn_addr *p_evpn_p;
+	struct bgp_route_evpn *bre = NULL;
 
 	memset(&temp, 0, sizeof(temp));
 	if (p->family != AF_EVPN)
 		return;
 	p_evpn_p = &(p->u.prefix_evpn);
+
+	if (attr)
+		bre = bgp_attr_get_evpn_overlay(attr);
 
 	/* len denites the total len of IP and GW-IP in the route
 	   IP and GW-IP have to be both ipv4 or ipv6
@@ -5060,7 +5066,7 @@ static void evpn_mpattr_encode_type5(struct stream *s, const struct prefix *p,
 	/* Prefix contains RD, ESI, EthTag, IP length, IP, GWIP and VNI */
 	stream_putc(s, 8 + 10 + 4 + 1 + len + 3);
 	stream_put(s, prd->val, 8);
-	if (attr && attr->evpn_overlay.type == OVERLAY_INDEX_ESI)
+	if (attr && bre && bre->type == OVERLAY_INDEX_ESI)
 		stream_put(s, &attr->esi, sizeof(esi_t));
 	else
 		stream_put(s, 0, sizeof(esi_t));
@@ -5070,15 +5076,11 @@ static void evpn_mpattr_encode_type5(struct stream *s, const struct prefix *p,
 		stream_put_ipv4(s, p_evpn_p->prefix_addr.ip.ipaddr_v4.s_addr);
 	else
 		stream_put(s, &p_evpn_p->prefix_addr.ip.ipaddr_v6, 16);
-	if (attr && attr->evpn_overlay.type == OVERLAY_INDEX_GATEWAY_IP) {
-		const struct bgp_route_evpn *evpn_overlay =
-			bgp_attr_get_evpn_overlay(attr);
-
+	if (attr && bre && bre->type == OVERLAY_INDEX_GATEWAY_IP) {
 		if (IS_IPADDR_V4(&p_evpn_p->prefix_addr.ip))
-			stream_put_ipv4(s,
-					evpn_overlay->gw_ip.ipaddr_v4.s_addr);
+			stream_put_ipv4(s, bre->gw_ip.ipaddr_v4.s_addr);
 		else
-			stream_put(s, &(evpn_overlay->gw_ip.ipaddr_v6), 16);
+			stream_put(s, &(bre->gw_ip.ipaddr_v6), 16);
 	} else {
 		if (IS_IPADDR_V4(&p_evpn_p->prefix_addr.ip))
 			stream_put_ipv4(s, 0);

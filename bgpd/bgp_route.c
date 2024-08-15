@@ -4608,10 +4608,8 @@ void bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 		 * will not be interned. In which case, it is ok to update the
 		 * attr->evpn_overlay, so that, this can be stored in adj_in.
 		 */
-		if ((afi == AFI_L2VPN) && evpn) {
-			memcpy(&attr->evpn_overlay, evpn,
-			       sizeof(struct bgp_route_evpn));
-		}
+		if ((afi == AFI_L2VPN) && evpn)
+			bgp_attr_set_evpn_overlay(attr, evpn);
 		bgp_adj_in_set(dest, peer, attr, addpath_id, &bgp_labels);
 	}
 
@@ -4773,8 +4771,7 @@ void bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 	 * evpn to new_atr.evpn_overlay before it is interned.
 	 */
 	if (soft_reconfig && (afi == AFI_L2VPN) && evpn)
-		memcpy(&new_attr.evpn_overlay, evpn,
-		       sizeof(struct bgp_route_evpn));
+		bgp_attr_set_evpn_overlay(&new_attr, evpn);
 
 	/* Apply incoming route-map.
 	 * NB: new_attr may now contain newly allocated values from route-map
@@ -5450,7 +5447,7 @@ filtered:
 void bgp_withdraw(struct peer *peer, const struct prefix *p,
 		  uint32_t addpath_id, afi_t afi, safi_t safi, int type,
 		  int sub_type, struct prefix_rd *prd, mpls_label_t *label,
-		  uint8_t num_labels, struct bgp_route_evpn *evpn)
+		  uint8_t num_labels)
 {
 	struct bgp *bgp;
 	char pfx_buf[BGP_PRD_PATH_STRLEN];
@@ -5679,7 +5676,7 @@ static void bgp_soft_reconfig_table_update(struct peer *peer,
 	struct bgp_path_info *pi;
 	uint8_t num_labels;
 	mpls_label_t *label_pnt;
-	struct bgp_route_evpn evpn;
+	struct bgp_route_evpn *bre = NULL;
 
 	for (pi = bgp_dest_get_bgp_path_info(dest); pi; pi = pi->next)
 		if (pi->peer == peer)
@@ -5687,15 +5684,13 @@ static void bgp_soft_reconfig_table_update(struct peer *peer,
 
 	num_labels = ain->labels ? ain->labels->num_labels : 0;
 	label_pnt = num_labels ? &ain->labels->label[0] : NULL;
+
 	if (pi)
-		memcpy(&evpn, bgp_attr_get_evpn_overlay(pi->attr),
-		       sizeof(evpn));
-	else
-		memset(&evpn, 0, sizeof(evpn));
+		bre = bgp_attr_get_evpn_overlay(pi->attr);
 
 	bgp_update(peer, bgp_dest_get_prefix(dest), ain->addpath_rx_id,
 		   ain->attr, afi, safi, ZEBRA_ROUTE_BGP, BGP_ROUTE_NORMAL, prd,
-		   label_pnt, num_labels, 1, &evpn);
+		   label_pnt, num_labels, 1, bre);
 }
 
 static void bgp_soft_reconfig_table(struct peer *peer, afi_t afi, safi_t safi,
@@ -6614,7 +6609,7 @@ int bgp_nlri_parse_ip(struct peer *peer, struct attr *attr,
 		else
 			bgp_withdraw(peer, &p, addpath_id, afi, safi,
 				     ZEBRA_ROUTE_BGP, BGP_ROUTE_NORMAL, NULL,
-				     NULL, 0, NULL);
+				     NULL, 0);
 
 		/* Do not send BGP notification twice when maximum-prefix count
 		 * overflow. */
@@ -6745,15 +6740,25 @@ void bgp_static_update(struct bgp *bgp, const struct prefix *p,
 
 	if (afi == AFI_L2VPN) {
 		if (bgp_static->gatewayIp.family == AF_INET) {
-			SET_IPADDR_V4(&attr.evpn_overlay.gw_ip);
-			memcpy(&attr.evpn_overlay.gw_ip.ipaddr_v4,
+			struct bgp_route_evpn *bre =
+				XCALLOC(MTYPE_BGP_EVPN_OVERLAY,
+					sizeof(struct bgp_route_evpn));
+
+			SET_IPADDR_V4(&bre->gw_ip);
+			memcpy(&bre->gw_ip.ipaddr_v4,
 			       &bgp_static->gatewayIp.u.prefix4,
 			       IPV4_MAX_BYTELEN);
+			bgp_attr_set_evpn_overlay(&attr, bre);
 		} else if (bgp_static->gatewayIp.family == AF_INET6) {
-			SET_IPADDR_V6(&attr.evpn_overlay.gw_ip);
-			memcpy(&attr.evpn_overlay.gw_ip.ipaddr_v6,
+			struct bgp_route_evpn *bre =
+				XCALLOC(MTYPE_BGP_EVPN_OVERLAY,
+					sizeof(struct bgp_route_evpn));
+
+			SET_IPADDR_V6(&bre->gw_ip);
+			memcpy(&bre->gw_ip.ipaddr_v6,
 			       &bgp_static->gatewayIp.u.prefix6,
 			       IPV6_MAX_BYTELEN);
+			bgp_attr_set_evpn_overlay(&attr, bre);
 		}
 		memcpy(&attr.esi, bgp_static->eth_s_id, sizeof(esi_t));
 		if (bgp_static->encap_tunneltype == BGP_ENCAP_TYPE_VXLAN) {
@@ -10114,6 +10119,7 @@ void route_vty_out_overlay(struct vty *vty, const struct prefix *p,
 	json_object *json_path = NULL;
 	json_object *json_nexthop = NULL;
 	json_object *json_overlay = NULL;
+	struct bgp_route_evpn *bre = NULL;
 
 	if (!path->extra)
 		return;
@@ -10179,12 +10185,14 @@ void route_vty_out_overlay(struct vty *vty, const struct prefix *p,
 		}
 	}
 
-	const struct bgp_route_evpn *eo = bgp_attr_get_evpn_overlay(attr);
-
-	if (!json_path)
-		vty_out(vty, "/%pIA", &eo->gw_ip);
-	else
-		json_object_string_addf(json_overlay, "gw", "%pIA", &eo->gw_ip);
+	bre = bgp_attr_get_evpn_overlay(attr);
+	if (bre) {
+		if (!json_path)
+			vty_out(vty, "/%pIA", &bre->gw_ip);
+		else
+			json_object_string_addf(json_overlay, "gw", "%pIA",
+						&bre->gw_ip);
+	}
 
 	if (bgp_attr_get_ecommunity(attr)) {
 		char *mac = NULL;
@@ -10519,6 +10527,7 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct bgp_dest *bn,
 	mpls_label_t label = MPLS_INVALID_LABEL;
 	struct bgp_path_info *bpi_ultimate =
 		bgp_get_imported_bpi_ultimate(path);
+	struct bgp_route_evpn *bre = bgp_attr_get_evpn_overlay(attr);
 
 	if (json_paths) {
 		json_path = json_object_new_object();
@@ -10545,12 +10554,10 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct bgp_dest *bn,
 		}
 	}
 
-	if (safi == SAFI_EVPN
-	    && attr->evpn_overlay.type == OVERLAY_INDEX_GATEWAY_IP) {
+	if (safi == SAFI_EVPN && bre && bre->type == OVERLAY_INDEX_GATEWAY_IP) {
 		char gwip_buf[INET6_ADDRSTRLEN];
 
-		ipaddr2str(&attr->evpn_overlay.gw_ip, gwip_buf,
-			   sizeof(gwip_buf));
+		ipaddr2str(&bre->gw_ip, gwip_buf, sizeof(gwip_buf));
 
 		if (json_paths)
 			json_object_string_add(json_path, "gatewayIP",
