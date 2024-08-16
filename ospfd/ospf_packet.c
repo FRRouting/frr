@@ -3335,7 +3335,7 @@ static int ospf_make_ls_ack(struct ospf_interface *oi,
 	struct ospf_lsa_list_entry *ls_ack_list_entry;
 	uint16_t length = OSPF_LS_ACK_MIN_SIZE;
 	struct ospf_lsa *lsa;
-	struct in_addr first_dst_addr;
+	struct in_addr first_dst_addr = { INADDR_ANY };
 
 	/*
 	 * For direct LS Acks, assure the destination address doesn't
@@ -3346,8 +3346,7 @@ static int ospf_make_ls_ack(struct ospf_interface *oi,
 		if (ls_ack_list_first)
 			first_dst_addr.s_addr =
 				ls_ack_list_first->list_entry_dst.s_addr;
-	} else
-		first_dst_addr.s_addr = INADDR_ANY;
+	}
 
 	frr_each_safe (ospf_lsa_list, ls_ack_list, ls_ack_list_entry) {
 		lsa = ls_ack_list_entry->lsa;
