@@ -583,7 +583,7 @@ static int32_t zebra_gr_delete_stale_route(struct client_gr_info *info,
 	uint16_t instance;
 	struct zserv *s_client;
 	struct zserv *client;
-	time_t restart_time = time(NULL);
+	time_t restart_time;
 
 	if ((info == NULL) || (zvrf == NULL))
 		return -1;
