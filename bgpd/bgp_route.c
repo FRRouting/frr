@@ -1607,18 +1607,16 @@ int bgp_path_info_cmp(struct bgp *bgp, struct bgp_path_info *new,
 	if (ret == 1) {
 		*reason = bgp_path_selection_neighbor_ip;
 		if (debug)
-			zlog_debug(
-				"%s: %s loses to %s due to Neighor IP comparison",
-				pfx_buf, new_buf, exist_buf);
+			zlog_debug("%s: %s loses to %s due to Neighbor IP comparison",
+				   pfx_buf, new_buf, exist_buf);
 		return 0;
 	}
 
 	if (ret == -1) {
 		*reason = bgp_path_selection_neighbor_ip;
 		if (debug)
-			zlog_debug(
-				"%s: %s wins over %s due to Neighor IP comparison",
-				pfx_buf, new_buf, exist_buf);
+			zlog_debug("%s: %s wins over %s due to Neighbor IP comparison",
+				   pfx_buf, new_buf, exist_buf);
 		return 1;
 	}
 
