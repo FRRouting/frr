@@ -8041,7 +8041,7 @@ static int ospf_vty_dead_interval_set(struct vty *vty, const char *interval_str,
 	VTY_DECLVAR_CONTEXT(interface, ifp);
 	uint32_t seconds;
 	uint8_t hellomult;
-	struct in_addr addr;
+	struct in_addr addr = { INADDR_ANY };
 	int ret;
 	struct ospf_if_params *params;
 	struct ospf_interface *oi;
