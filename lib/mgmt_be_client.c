@@ -1061,7 +1061,7 @@ static void be_client_handle_notify(struct mgmt_be_client *client, void *msgbuf,
 	struct mgmt_msg_notify_data *notif_msg = msgbuf;
 	struct nb_node *nb_node;
 	struct lyd_node *dnode;
-	const char *data;
+	const char *data = NULL;
 	const char *notif;
 	LY_ERR err;
 

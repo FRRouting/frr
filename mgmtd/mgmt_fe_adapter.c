@@ -1518,7 +1518,6 @@ static void fe_adapter_handle_notify_select(struct mgmt_fe_session_ctx *session,
 	const char **selectors = NULL;
 	const char **new;
 
-	/* An empty message clears the selectors */
 	if (msg_len >= sizeof(*msg)) {
 		selectors = mgmt_msg_native_strings_decode(msg, msg_len,
 							   msg->selectors);
@@ -1531,7 +1530,7 @@ static void fe_adapter_handle_notify_select(struct mgmt_fe_session_ctx *session,
 	if (msg->replace) {
 		darr_free_free(session->notify_xpaths);
 		session->notify_xpaths = selectors;
-	} else {
+	} else if (selectors) {
 		new = darr_append_nz(session->notify_xpaths,
 				     darr_len(selectors));
 		memcpy(new, selectors, darr_len(selectors) * sizeof(*selectors));
