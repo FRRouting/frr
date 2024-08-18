@@ -1434,6 +1434,37 @@ DEFPY_YANG(isis_redistribute, isis_redistribute_cmd,
 		level);
 }
 
+DEFPY_YANG(isis_redistribute_isis, isis_redistribute_isis_cmd,
+      "[no] redistribute <ipv4|ipv6>$ip isis "
+	  "<level-1|level-2>$level "
+      "[{metric (0-16777215)|route-map RMAP_NAME$route_map}]",
+      NO_STR REDIST_STR
+      "Redistribute IPv4 routes\n"
+      "Redistribute IPv6 routes\n"
+      "Intermediate System to Intermediate System (IS-IS)\n"
+      "Redistribute into level-1\n"
+      "Redistribute into level-2\n"
+      "Metric for redistributed routes\n"
+      "IS-IS default metric\n"
+      "Route map reference\n"
+      "Pointer to route-map entries\n")
+{
+	if (no)
+		nb_cli_enqueue_change(vty, ".", NB_OP_DESTROY, NULL);
+	else {
+		nb_cli_enqueue_change(vty, ".", NB_OP_CREATE, NULL);
+		nb_cli_enqueue_change(vty, "./route-map",
+				      route_map ? NB_OP_MODIFY : NB_OP_DESTROY,
+				      route_map ? route_map : NULL);
+		nb_cli_enqueue_change(vty, "./metric", NB_OP_MODIFY,
+				      metric_str ? metric_str : NULL);
+	}
+
+	return nb_cli_apply_changes(vty,
+				    "./redistribute/%s[protocol='isis'][level='%s']",
+				    ip, level);
+}
+
 /*
  * XPath: /frr-isisd:isis/instance/redistribute/table
  */
@@ -4016,6 +4047,7 @@ void isis_cli_init(void)
 
 	install_element(ISIS_NODE, &isis_default_originate_cmd);
 	install_element(ISIS_NODE, &isis_redistribute_cmd);
+	install_element(ISIS_NODE, &isis_redistribute_isis_cmd);
 	install_element(ISIS_NODE, &isis_redistribute_table_cmd);
 
 	install_element(ISIS_NODE, &isis_topology_cmd);

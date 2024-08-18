@@ -931,6 +931,30 @@ static void lsp_build_internal_reach_ipv6(struct isis_lsp *lsp,
 				 metric, false, pcfgs);
 }
 
+static bool check_ip_in_self_level_db(const struct prefix_ipv4 *ipv4,
+				      struct isis_area *area, int level)
+{
+	struct isis_lsp *lsp = NULL;
+	struct lspdb_head *head = &area->lspdb[level - 1];
+
+	if (head) {
+		frr_each (lspdb, head, lsp) {
+			for (struct isis_item *i =
+				     lsp->tlvs->extended_ip_reach.head;
+			     i; i = i->next) {
+				struct isis_extended_ip_reach *rt =
+					(struct isis_extended_ip_reach *)i;
+
+				if (IPV4_ADDR_SAME(&ipv4->prefix,
+						   &rt->prefix.prefix) &&
+				    ipv4->prefixlen == rt->prefix.prefixlen) {
+					return true;
+				}
+			}
+		}
+	}
+	return false;
+}
 
 static void lsp_build_ext_reach_ipv4(struct isis_lsp *lsp,
 				     struct isis_area *area)
@@ -946,6 +970,13 @@ static void lsp_build_ext_reach_ipv4(struct isis_lsp *lsp,
 
 		struct prefix_ipv4 *ipv4 = (struct prefix_ipv4 *)&rn->p;
 		struct isis_ext_info *info = rn->info;
+
+		if (info && info->origin == ZEBRA_ROUTE_ISIS) {
+			if ((area->is_type != IS_LEVEL_1_AND_2) ||
+			    (ipv4 &&
+			     check_ip_in_self_level_db(ipv4, area, lsp->level)))
+				continue;
+		}
 
 		uint32_t metric = info->metric;
 		if (metric > MAX_WIDE_PATH_METRIC)
@@ -978,6 +1009,31 @@ static void lsp_build_ext_reach_ipv4(struct isis_lsp *lsp,
 	}
 }
 
+static bool check_ipv6_in_self_level_db(const struct prefix_ipv6 *ipv6,
+					struct isis_area *area, int level)
+{
+	struct isis_lsp *lsp = NULL;
+	struct lspdb_head *head = &area->lspdb[level - 1];
+
+	if (head) {
+		frr_each (lspdb, head, lsp) {
+			for (struct isis_item *i = lsp->tlvs->ipv6_reach.head;
+			     i; i = i->next) {
+				struct isis_ipv6_reach *rt =
+					(struct isis_ipv6_reach *)i;
+
+				if (IPV6_ADDR_SAME(&ipv6->prefix.s6_addr,
+						   rt->prefix.prefix.s6_addr) &&
+				    ipv6->prefixlen == rt->prefix.prefixlen) {
+					return true;
+				}
+			}
+		}
+	}
+	return false;
+}
+
+
 static void lsp_build_ext_reach_ipv6(struct isis_lsp *lsp,
 				     struct isis_area *area)
 {
@@ -991,10 +1047,17 @@ static void lsp_build_ext_reach_ipv6(struct isis_lsp *lsp,
 		if (!rn->info)
 			continue;
 		struct isis_ext_info *info = rn->info;
-		struct prefix_ipv6 *p, *src_p;
+		struct prefix_ipv6 *p = NULL, *src_p;
 
 		srcdest_rnode_prefixes(rn, (const struct prefix **)&p,
 				       (const struct prefix **)&src_p);
+
+		if (info && info->origin == ZEBRA_ROUTE_ISIS) {
+			if ((area->is_type != IS_LEVEL_1_AND_2) ||
+			    (p &&
+			     check_ipv6_in_self_level_db(p, area, lsp->level)))
+				continue;
+		}
 
 		uint32_t metric = info->metric;
 		if (info->metric > MAX_WIDE_PATH_METRIC)
