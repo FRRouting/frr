@@ -854,9 +854,9 @@ static int pm_sessions_update_ifp_walkcb(struct hash_bucket *backet, void *arg)
 	if (if_ctx != ifp)
 		return HASHWALK_CONTINUE;
 
-	if (enable)
+	if (enable && pm->ses_state != PM_UP)
 		pm_try_run(NULL, pm);
-	else
+	else if (!enable)
 		pm_echo_stop(pm, errormsg, sizeof(errormsg), true);
 
 	return HASHWALK_CONTINUE;
