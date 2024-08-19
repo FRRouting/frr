@@ -155,33 +155,44 @@ static void ospf6_vertex_delete(struct ospf6_vertex *v)
 }
 
 static struct ospf6_lsa *ospf6_lsdesc_lsa(struct ospf6_lsdesc *lsdesc,
-					  struct ospf6_vertex *v)
+					  struct ospf6_vertex *v,
+					  uint8_t elsa_support)
 {
 	struct ospf6_lsa *lsa = NULL;
 	uint16_t type = 0;
 	uint32_t id = 0, adv_router = 0;
 
 	if (VERTEX_IS_TYPE(NETWORK, v)) {
-		type = htons(OSPF6_LSTYPE_ROUTER);
+		if (elsa_support == OSPF6_E_LSA_SUP_LEGACY)
+			type = htons(OSPF6_LSTYPE_ROUTER);
+		else
+			type = htons(OSPF6_LSTYPE_E_ROUTER);
 		id = htonl(0);
 		adv_router = lsdesc->r.neighbor_router_id;
 	} else {
 		if (ROUTER_LSDESC_IS_TYPE(POINTTOPOINT, lsdesc)) {
-			type = htons(OSPF6_LSTYPE_ROUTER);
+			if (elsa_support == OSPF6_E_LSA_SUP_LEGACY)
+				type = htons(OSPF6_LSTYPE_ROUTER);
+			else
+				type = htons(OSPF6_LSTYPE_E_ROUTER);
 			id = htonl(0);
 			adv_router = lsdesc->r.neighbor_router_id;
 		} else if (ROUTER_LSDESC_IS_TYPE(TRANSIT_NETWORK, lsdesc)) {
-			type = htons(OSPF6_LSTYPE_NETWORK);
+			if (elsa_support == OSPF6_E_LSA_SUP_LEGACY)
+				type = htons(OSPF6_LSTYPE_NETWORK);
+			else
+				type = htons(OSPF6_LSTYPE_E_NETWORK);
 			id = lsdesc->r.neighbor_interface_id;
 			adv_router = lsdesc->r.neighbor_router_id;
 		}
 	}
 
-	if (type == htons(OSPF6_LSTYPE_NETWORK))
+	if (type == htons(OSPF6_LSTYPE_E_NETWORK) ||
+	    type == htons(OSPF6_LSTYPE_NETWORK))
 		lsa = ospf6_lsdb_lookup(type, id, adv_router, v->area->lsdb);
 	else
 		lsa = ospf6_create_single_router_lsa(v->area, v->area->lsdb,
-						     adv_router);
+						     adv_router, elsa_support);
 	if (IS_OSPF6_DEBUG_SPF(PROCESS)) {
 		char ibuf[16], abuf[16];
 		inet_ntop(AF_INET, &id, ibuf, sizeof(ibuf));
@@ -479,8 +490,14 @@ static int calc_nexthop_candidates(struct ospf6_lsdesc *lsdesc,
 {
 	struct ospf6_vertex *w;
 	struct ospf6_lsa *candidate_lsa;
+	uint8_t elsa_support = cbd->oa->ospf6->extended_lsa_support;
 
-	candidate_lsa = ospf6_lsdesc_lsa(lsdesc, cbd->v);
+	candidate_lsa = ospf6_lsdesc_lsa(lsdesc, cbd->v, elsa_support);
+
+	if (!candidate_lsa && (elsa_support == OSPF6_E_LSA_SUP_BOTH ||
+			       elsa_support == OSPF6_E_LSA_SUP_ELSA))
+		candidate_lsa = ospf6_lsdesc_lsa(lsdesc, cbd->v,
+						 OSPF6_E_LSA_SUP_LEGACY);
 
 	if (candidate_lsa == NULL)
 		return 0;
@@ -561,7 +578,8 @@ void ospf6_spf_calculation(uint32_t router_id,
 	ospf6_spf_table_finish(result_table);
 
 	/* Install the calculating router itself as the root of the SPF tree */
-	lsa = ospf6_create_single_router_lsa(oa, oa->lsdb_self, router_id);
+	lsa = ospf6_create_single_router_lsa(oa, oa->lsdb_self, router_id,
+				oa->ospf6->extended_lsa_support);
 	if (lsa == NULL) {
 		zlog_warn("%s: No router LSA for area %s", __func__, oa->name);
 		return;
@@ -1012,7 +1030,7 @@ void ospf6_spf_init(void)
  * the links are processed as if concatenated into a single LSA.*/
 struct ospf6_lsa *ospf6_create_single_router_lsa(struct ospf6_area *area,
 						 struct ospf6_lsdb *lsdb,
-						 uint32_t adv_router)
+						 uint32_t adv_router, uint8_t elsa_support)
 {
 	struct ospf6_lsa *lsa = NULL;
 	struct ospf6_lsa *rtr_lsa = NULL;
@@ -1025,10 +1043,18 @@ struct ospf6_lsa *ospf6_create_single_router_lsa(struct ospf6_area *area,
 	uint32_t interface_id;
 	caddr_t lsd;
 
-	lsa_length = sizeof(struct ospf6_lsa_header)
-		     + sizeof(struct ospf6_router_lsa);
+	if (IS_OSPF6_DEBUG_SPF(PROCESS))
+		zlog_debug("%s: E-LSA support ? %d", __func__, elsa_support);
+	lsa_length = sizeof(struct ospf6_lsa_header);
+
+	if (elsa_support == OSPF6_E_LSA_SUP_LEGACY) {
+		lsa_length += sizeof(struct ospf6_e_router_lsa);
+		type = htons(OSPF6_LSTYPE_ROUTER);
+	} else {
+		lsa_length += sizeof(struct ospf6_router_lsa);
+		type = htons(OSPF6_LSTYPE_E_ROUTER);
+	}
 	total_lsa_length = lsa_length;
-	type = htons(OSPF6_LSTYPE_ROUTER);
 
 	/* First check Aggregated LSA formed earlier in Cache */
 	lsa = ospf6_lsdb_lookup(type, htonl(0), adv_router,

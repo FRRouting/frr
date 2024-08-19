@@ -582,7 +582,8 @@ static int ipv6_ospf6_database_aggr_router_common(struct vty *vty,
 			lsdb = oa->lsdb_self;
 		else
 			lsdb = oa->lsdb;
-		if (ospf6_create_single_router_lsa(oa, lsdb, adv_router)
+		if (ospf6_create_single_router_lsa(oa, lsdb, adv_router,
+					oa->ospf6->extended_lsa_support)
 		    == NULL) {
 			vty_out(vty, "Adv router is not found in LSDB.");
 			return CMD_SUCCESS;

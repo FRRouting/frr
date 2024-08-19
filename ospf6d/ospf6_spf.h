@@ -150,7 +150,7 @@ extern void ospf6_spf_init(void);
 extern void ospf6_spf_reason_string(unsigned int reason, char *buf, int size);
 extern struct ospf6_lsa *ospf6_create_single_router_lsa(struct ospf6_area *area,
 							struct ospf6_lsdb *lsdb,
-							uint32_t adv_router);
+							uint32_t adv_router, uint8_t elsa_support);
 extern void ospf6_remove_temp_router_lsa(struct ospf6_area *area);
 extern void ospf6_ase_calculate_timer_add(struct ospf6 *ospf6);
 extern int ospf6_ase_calculate_route(struct ospf6 *ospf6, struct ospf6_lsa *lsa,
