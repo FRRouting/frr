@@ -600,7 +600,7 @@ static uint32_t evpn_overlay_hash_key_make(const void *p)
 			     array_size(bre->gw_ip.ipaddr_v6.s6_addr32), 0);
 
 	key = jhash_1word(bre->type, key);
-	key = jhash(bre->eth_s_id.val, sizeof(bre->eth_s_id.val), 0);
+	key = jhash(bre->eth_s_id.val, sizeof(bre->eth_s_id.val), key);
 	return key;
 }
 
