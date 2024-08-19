@@ -120,9 +120,7 @@ static struct ospf6_vertex *ospf6_vertex_create(struct ospf6_lsa *lsa)
 	if (IS_OSPF6_DEBUG_SPF(PROCESS))
 		zlog_debug("%s: Creating vertex %s of type %s (0x%04hx) lsa %s",
 			   __func__, v->name,
-			   ((ntohs(lsa->header->type) == OSPF6_LSTYPE_ROUTER)
-				    ? "Router"
-				    : "N/W"),
+			   ospf6_lstype_name(lsa->header->type),
 			   ntohs(lsa->header->type), lsa->name);
 
 
