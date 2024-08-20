@@ -850,6 +850,9 @@ AC_ARG_WITH([frr-format],
 AC_ARG_ENABLE([version-build-config],
   AS_HELP_STRING([--disable-version-build-config], [do not include build configs in show version command]))
 
+AC_ARG_ENABLE([python_runtime],
+  AS_HELP_STRING([--disable-python-runtime], [do not install python scripts or have python runtime dependency]))
+
 #if openssl, else use the internal
 AS_IF([test "$with_crypto" = "openssl"], [
 AC_CHECK_LIB([crypto], [EVP_DigestInit], [LIBS="$LIBS -lcrypto"], [], [])
@@ -2810,6 +2813,9 @@ AM_CONDITIONAL([VRRPD], [test "$enable_vrrpd" != "no"])
 AM_CONDITIONAL([PATHD], [test "$enable_pathd" != "no"])
 AM_CONDITIONAL([PATHD_PCEP], [test "$enable_pathd" != "no"])
 AM_CONDITIONAL([DP_DPDK], [test "$enable_dp_dpdk" = "yes"])
+
+
+AM_CONDITIONAL([PYTHON_RUNTIME_DEPENDENCY], [test "$enable_python_runtime" != "no"])
 
 AC_CONFIG_FILES([Makefile],[
 	test "$enable_dev_build" = "yes" && makefile_devbuild="--dev-build"
