@@ -2710,6 +2710,7 @@ static int bgp_capability_msg_parse(struct peer *peer, uint8_t *pnt,
 			zlog_info("%s Capability length error", peer->host);
 			bgp_notify_send(peer, BGP_NOTIFY_CEASE,
 					BGP_NOTIFY_SUBCODE_UNSPECIFIC);
+			pnt += length;
 			return BGP_Stop;
 		}
 		action = *pnt;
@@ -2722,7 +2723,7 @@ static int bgp_capability_msg_parse(struct peer *peer, uint8_t *pnt,
 				  peer->host, action);
 			bgp_notify_send(peer, BGP_NOTIFY_CEASE,
 					BGP_NOTIFY_SUBCODE_UNSPECIFIC);
-			return BGP_Stop;
+			goto done;
 		}
 
 		if (bgp_debug_neighbor_events(peer))
@@ -2743,6 +2744,7 @@ static int bgp_capability_msg_parse(struct peer *peer, uint8_t *pnt,
 			zlog_info("%s Capability length error", peer->host);
 			bgp_notify_send(peer, BGP_NOTIFY_CEASE,
 					BGP_NOTIFY_SUBCODE_UNSPECIFIC);
+			pnt += length;
 			return BGP_Stop;
 		}
 
@@ -2758,7 +2760,7 @@ static int bgp_capability_msg_parse(struct peer *peer, uint8_t *pnt,
 			/* Ignore capability when override-capability is set. */
 			if (CHECK_FLAG(peer->flags,
 				       PEER_FLAG_OVERRIDE_CAPABILITY))
-				continue;
+				goto done;
 
 			/* Convert AFI, SAFI to internal values. */
 			if (bgp_map_afi_safi_iana2int(pkt_afi, pkt_safi, &afi,
@@ -2805,6 +2807,8 @@ static int bgp_capability_msg_parse(struct peer *peer, uint8_t *pnt,
 				"%s unrecognized capability code: %d - ignored",
 				peer->host, hdr->code);
 		}
+		done:
+		pnt += hdr->length + 3;
 	}
 
 	/* No FSM action necessary */
