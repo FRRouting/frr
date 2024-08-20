@@ -1,0 +1,20 @@
+{
+  "neighbors":[
+    {
+      "neighborId":"3.3.3.3",
+      "priority":1,
+      "state":"Full",
+      "ifState":"PointToPoint",
+      "interfaceName":"eth-rt3",
+      "interfaceState":"PointToPoint"
+    },
+    {
+      "neighborId":"7.7.7.7",
+      "priority":1,
+      "state":"Full",
+      "ifState":"PointToPoint",
+      "interfaceName":"eth-rt7",
+      "interfaceState":"PointToPoint"
+    }
+  ]
+}
