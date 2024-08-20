@@ -213,14 +213,16 @@ void igmp_source_forward_stop(struct gm_source *source)
 			   IGMP_SOURCE_TEST_FORWARDING(source->source_flags));
 	}
 
+	group = source->source_group;
+	pim_oif = group->interface->info;
+
 	/* Prevent IGMP interface from removing multicast route multiple
 	   times */
 	if (!IGMP_SOURCE_TEST_FORWARDING(source->source_flags)) {
+		tib_sg_proxy_join_prune_check(pim_oif->pim, sg,
+					      group->interface, false);
 		return;
 	}
-
-	group = source->source_group;
-	pim_oif = group->interface->info;
 
 	tib_sg_gm_prune(pim_oif->pim, sg, group->interface,
 			&source->source_channel_oil);

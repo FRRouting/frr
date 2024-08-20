@@ -26,6 +26,7 @@
 #include "lib_errors.h"
 #include "pim_util.h"
 #include "pim6_mld.h"
+#include "pim_igmp.h"
 
 #if PIM_IPV == 6
 #define pim6_msdp_err(funcname, argtype)                                       \
@@ -3400,6 +3401,11 @@ int lib_interface_gmp_address_family_proxy_modify(struct nb_cb_modify_args *args
 		if (pim_ifp)
 			pim_ifp->gm_proxy = yang_dnode_get_bool(args->dnode,
 								NULL);
+
+		if (pim_ifp->gm_proxy)
+			pim_if_gm_proxy_init(pim_ifp->pim, ifp);
+		else
+			pim_if_gm_proxy_finis(pim_ifp->pim, ifp);
 	}
 	return NB_OK;
 }
@@ -3454,7 +3460,8 @@ int lib_interface_gmp_address_family_join_group_create(
 				       "./source-addr");
 		yang_dnode_get_pimaddr(&group_addr, args->dnode,
 				       "./group-addr");
-		result = pim_if_gm_join_add(ifp, group_addr, source_addr);
+		result = pim_if_gm_join_add(ifp, group_addr, source_addr,
+					    GM_JOIN_STATIC);
 		if (result) {
 			snprintf(args->errmsg, args->errmsg_len,
 				 "Failure joining " GM " group");
@@ -3483,7 +3490,8 @@ int lib_interface_gmp_address_family_join_group_destroy(
 				       "./source-addr");
 		yang_dnode_get_pimaddr(&group_addr, args->dnode,
 				       "./group-addr");
-		result = pim_if_gm_join_del(ifp, group_addr, source_addr);
+		result = pim_if_gm_join_del(ifp, group_addr, source_addr,
+					    GM_JOIN_STATIC);
 
 		if (result) {
 			snprintf(args->errmsg, args->errmsg_len,
