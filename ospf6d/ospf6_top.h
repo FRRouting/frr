@@ -115,6 +115,9 @@ struct ospf6 {
 	struct list *area_list;
 	struct ospf6_area *backbone;
 
+	/* RFC 8362 Extended LSA Support*/
+	uint8_t extended_lsa_support;
+
 	/* AS scope link state database */
 	struct ospf6_lsdb *lsdb;
 	struct ospf6_lsdb *lsdb_self;
@@ -229,6 +232,11 @@ DECLARE_QOBJ_TYPE(ospf6);
 
 #define OSPF6_DISABLED    0x01
 #define OSPF6_STUB_ROUTER 0x02
+
+/* RFC 8362 AreaExtendedLSAsupport */
+#define OSPF6_E_LSA_SUP_LEGACY 0
+#define OSPF6_E_LSA_SUP_ELSA   1
+#define OSPF6_E_LSA_SUP_BOTH   2
 
 /* global pointer for OSPF top data structure */
 extern struct ospf6 *ospf6;

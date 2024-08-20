@@ -425,6 +425,8 @@ static struct ospf6 *ospf6_create(const char *name)
 
 	o->oi_write_q = list_new();
 
+	o->extended_lsa_support = OSPF6_E_LSA_SUP_LEGACY;
+
 	ospf6_gr_helper_init(o);
 	QOBJ_REG(o, ospf6);
 
@@ -1804,6 +1806,50 @@ DEFPY (no_ospf6_route_aggregation_timer,
 	return CMD_SUCCESS;
 }
 
+DEFUN (ospf6_extended_lsa_support,
+       ospf6_extended_lsa_support_cmd,
+       "ospf6 extended-lsa-support <legacy|elsa|both>",
+       OSPF6_STR
+	   "RFC 8362 Extended LSA Support\n"
+       "Specify originate legacy LSA\n"
+       "Specify originate extended LSA\n"
+       "Specify originate extended and legacy LSA\n"
+       )
+{
+	VTY_DECLVAR_CONTEXT(ospf6, o);
+	int idx_support = 2;
+
+	if (strncmp(argv[idx_support]->arg, "l", 1) == 0) {
+		if (o->extended_lsa_support == OSPF6_E_LSA_SUP_LEGACY)
+			return CMD_SUCCESS;
+		o->extended_lsa_support = OSPF6_E_LSA_SUP_LEGACY;
+	} else if (strncmp(argv[idx_support]->arg, "e", 1) == 0) {
+		if (o->extended_lsa_support == OSPF6_E_LSA_SUP_ELSA)
+			return CMD_SUCCESS;
+		o->extended_lsa_support = OSPF6_E_LSA_SUP_ELSA;
+	} else if (strncmp(argv[idx_support]->arg, "b", 1) == 0) {
+		if (o->extended_lsa_support == OSPF6_E_LSA_SUP_BOTH)
+			return CMD_SUCCESS;
+		o->extended_lsa_support = OSPF6_E_LSA_SUP_BOTH;
+	}
+	return CMD_SUCCESS;
+}
+
+DEFUN (no_ospf6_extended_lsa_support,
+       no_ospf6_extended_lsa_support_cmd,
+       "no ospf6 extended-lsa-support <legacy|elsa|both>",
+       NO_STR OSPF6_STR
+	   "RFC 8362 Extended LSA Support\n"
+       "Specify originate legacy LSA\n"
+       "Specify originate extended LSA\n"
+       "Specify originate extended and legacy LSA\n"
+       )
+{
+	VTY_DECLVAR_CONTEXT(ospf6, o);
+	o->extended_lsa_support = OSPF6_E_LSA_SUP_LEGACY;
+	return CMD_SUCCESS;
+}
+
 static int
 ospf6_print_vty_external_routes_walkcb(struct hash_bucket *bucket, void *arg)
 {
@@ -2149,6 +2195,17 @@ static int config_write_ospf6(struct vty *vty)
 			vty_out(vty, " maximum-paths %d\n",
 				ospf6->max_multipath);
 
+		/* E-LSA Support*/
+		if (ospf6->extended_lsa_support == OSPF6_E_LSA_SUP_LEGACY)
+			vty_out(vty,
+				" ospf6 extended-lsa-support legacy\n");
+		else if (ospf6->extended_lsa_support == OSPF6_E_LSA_SUP_ELSA)
+			vty_out(vty,
+				" ospf6 extended-lsa-support elsa\n");
+		else if (ospf6->extended_lsa_support == OSPF6_E_LSA_SUP_BOTH)
+			vty_out(vty,
+				" ospf6 extended-lsa-support both\n");
+
 		ospf6_stub_router_config_write(vty, ospf6);
 		ospf6_redistribute_config_write(vty, ospf6);
 		ospf6_area_config_write(vty, ospf6);
@@ -2204,6 +2261,9 @@ void ospf6_top_init(void)
 	install_element(OSPF6_NODE, &no_ospf6_log_adjacency_changes_cmd);
 	install_element(OSPF6_NODE, &no_ospf6_log_adjacency_changes_detail_cmd);
 	install_element(OSPF6_NODE, &ospf6_send_extra_data_cmd);
+
+	install_element(OSPF6_NODE, &ospf6_extended_lsa_support_cmd);
+	install_element(OSPF6_NODE, &no_ospf6_extended_lsa_support_cmd);
 
 	/* LSA timers commands */
 	install_element(OSPF6_NODE, &ospf6_timers_lsa_cmd);

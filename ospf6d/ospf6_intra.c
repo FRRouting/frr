@@ -501,9 +501,18 @@ static void router_lsa_originate(struct ospf6_area *oa, int lstype)
 void ospf6_router_lsa_originate(struct event *thread)
 {
 	struct ospf6_area *oa = EVENT_ARG(thread);
-
-	router_lsa_originate(oa, OSPF6_LSTYPE_ROUTER);
-	router_lsa_originate(oa, OSPF6_LSTYPE_E_ROUTER);
+	switch (oa->ospf6->extended_lsa_support) {
+	case OSPF6_E_LSA_SUP_LEGACY:
+		router_lsa_originate(oa, OSPF6_LSTYPE_ROUTER);
+		break;
+	case OSPF6_E_LSA_SUP_ELSA:
+		router_lsa_originate(oa, OSPF6_LSTYPE_E_ROUTER);
+		break;
+	case OSPF6_E_LSA_SUP_BOTH:
+		router_lsa_originate(oa, OSPF6_LSTYPE_ROUTER);
+		router_lsa_originate(oa, OSPF6_LSTYPE_E_ROUTER);
+		break;
+	}
 }
 
 /*******************************/
@@ -1126,9 +1135,18 @@ static void link_lsa_originate(struct ospf6_interface *oi, int lstype)
 void ospf6_link_lsa_originate(struct event *thread)
 {
 	struct ospf6_interface *oi = EVENT_ARG(thread);
-
-	link_lsa_originate(oi, OSPF6_LSTYPE_LINK);
-	link_lsa_originate(oi, OSPF6_LSTYPE_E_LINK);
+	switch (oi->area->ospf6->extended_lsa_support) {
+	case OSPF6_E_LSA_SUP_LEGACY:
+		link_lsa_originate(oi, OSPF6_LSTYPE_LINK);
+		break;
+	case OSPF6_E_LSA_SUP_ELSA:
+		link_lsa_originate(oi, OSPF6_LSTYPE_E_LINK);
+		break;
+	case OSPF6_E_LSA_SUP_BOTH:
+		link_lsa_originate(oi, OSPF6_LSTYPE_LINK);
+		link_lsa_originate(oi, OSPF6_LSTYPE_E_LINK);
+		break;
+	}
 }
 
 
@@ -1504,9 +1522,18 @@ static void intra_prefix_lsa_originate_stub(struct ospf6_area *oa, int lstype)
 void ospf6_intra_prefix_lsa_originate_stub(struct event *thread)
 {
 	struct ospf6_area *oa = EVENT_ARG(thread);
-
-	intra_prefix_lsa_originate_stub(oa, OSPF6_LSTYPE_INTRA_PREFIX);
-	intra_prefix_lsa_originate_stub(oa, OSPF6_LSTYPE_E_INTRA_PREFIX);
+	switch (oa->ospf6->extended_lsa_support) {
+	case OSPF6_E_LSA_SUP_LEGACY:
+		intra_prefix_lsa_originate_stub(oa, OSPF6_LSTYPE_INTRA_PREFIX);
+		break;
+	case OSPF6_E_LSA_SUP_ELSA:
+		intra_prefix_lsa_originate_stub(oa, OSPF6_LSTYPE_E_INTRA_PREFIX);
+		break;
+	case OSPF6_E_LSA_SUP_BOTH:
+		intra_prefix_lsa_originate_stub(oa, OSPF6_LSTYPE_INTRA_PREFIX);
+		intra_prefix_lsa_originate_stub(oa, OSPF6_LSTYPE_E_INTRA_PREFIX);
+		break;
+	}
 }
 
 
