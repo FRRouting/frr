@@ -1417,6 +1417,11 @@ static struct nhg_hash_entry *depends_find_singleton(const struct nexthop *nh,
 	 */
 	nexthop_copy_no_recurse(&lookup, nh, NULL);
 
+	/*
+	 * So this is to intentionally cause the singleton nexthop
+	 * to be created with a weight of 1.
+	 */
+	lookup.weight = 1;
 	nhe = zebra_nhg_find_nexthop(0, &lookup, afi, type, from_dplane);
 
 	/* The copy may have allocated labels; free them if necessary. */
@@ -3010,13 +3015,14 @@ backups_done:
  * I'm pretty sure we only allow ONE level of group within group currently.
  * But making this recursive just in case that ever changes.
  */
-static uint8_t zebra_nhg_nhe2grp_internal(struct nh_grp *grp,
-					  uint8_t curr_index,
+static uint8_t zebra_nhg_nhe2grp_internal(struct nh_grp *grp, uint8_t curr_index,
 					  struct nhg_hash_entry *nhe,
+					  struct nhg_hash_entry *original,
 					  int max_num)
 {
 	struct nhg_connected *rb_node_dep = NULL;
 	struct nhg_hash_entry *depend = NULL;
+	struct nexthop *nexthop;
 	uint8_t i = curr_index;
 
 	frr_each(nhg_connected_tree, &nhe->nhg_depends, rb_node_dep) {
@@ -3043,8 +3049,11 @@ static uint8_t zebra_nhg_nhe2grp_internal(struct nh_grp *grp,
 
 		if (!zebra_nhg_depends_is_empty(depend)) {
 			/* This is a group within a group */
-			i = zebra_nhg_nhe2grp_internal(grp, i, depend, max_num);
+			i = zebra_nhg_nhe2grp_internal(grp, i, depend, nhe,
+						       max_num);
 		} else {
+			bool found;
+
 			if (!CHECK_FLAG(depend->flags, NEXTHOP_GROUP_VALID)) {
 				if (IS_ZEBRA_DEBUG_RIB_DETAILED
 				    || IS_ZEBRA_DEBUG_NHG)
@@ -3085,8 +3094,37 @@ static uint8_t zebra_nhg_nhe2grp_internal(struct nh_grp *grp,
 				continue;
 			}
 
+			/*
+			 * So we need to create the nexthop group with
+			 * the appropriate weights.  The nexthops weights
+			 * are stored in the fully resolved nexthops for
+			 * the nhg so we need to find the appropriate
+			 * nexthop associated with this and set the weight
+			 * appropriately
+			 */
+			found = false;
+			for (ALL_NEXTHOPS_PTR(&original->nhg, nexthop)) {
+				if (CHECK_FLAG(nexthop->flags,
+					       NEXTHOP_FLAG_RECURSIVE))
+					continue;
+
+				if (nexthop_cmp_no_weight(depend->nhg.nexthop,
+							  nexthop) != 0)
+					continue;
+
+				found = true;
+				break;
+			}
+
+			if (!found) {
+				if (IS_ZEBRA_DEBUG_RIB_DETAILED ||
+				    IS_ZEBRA_DEBUG_NHG)
+					zlog_debug("%s: Nexthop ID (%u) unable to find nexthop in Nexthop Gropu Entry, something is terribly wrong",
+						   __func__, depend->id);
+				continue;
+			}
 			grp[i].id = depend->id;
-			grp[i].weight = depend->nhg.nexthop->weight;
+			grp[i].weight = nexthop->weight;
 			i++;
 		}
 	}
@@ -3110,7 +3148,7 @@ uint8_t zebra_nhg_nhe2grp(struct nh_grp *grp, struct nhg_hash_entry *nhe,
 			  int max_num)
 {
 	/* Call into the recursive function */
-	return zebra_nhg_nhe2grp_internal(grp, 0, nhe, max_num);
+	return zebra_nhg_nhe2grp_internal(grp, 0, nhe, nhe, max_num);
 }
 
 void zebra_nhg_install_kernel(struct nhg_hash_entry *nhe)
