@@ -764,8 +764,18 @@ void ospf6_network_lsa_originate(struct event *thread)
 {
 	struct ospf6_interface *oi = EVENT_ARG(thread);
 
-	network_lsa_originate(oi, OSPF6_LSTYPE_NETWORK);
-	network_lsa_originate(oi, OSPF6_LSTYPE_E_NETWORK);
+	switch (oi->area->ospf6->extended_lsa_support) {
+	case OSPF6_E_LSA_SUP_LEGACY:
+		network_lsa_originate(oi, OSPF6_LSTYPE_NETWORK);
+		break;
+	case OSPF6_E_LSA_SUP_ELSA:
+		network_lsa_originate(oi, OSPF6_LSTYPE_E_NETWORK);
+		break;
+	case OSPF6_E_LSA_SUP_BOTH:
+		network_lsa_originate(oi, OSPF6_LSTYPE_NETWORK);
+		network_lsa_originate(oi, OSPF6_LSTYPE_E_NETWORK);
+		break;
+	}
 }
 
 /****************************/
