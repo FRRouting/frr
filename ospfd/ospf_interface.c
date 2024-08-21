@@ -860,10 +860,9 @@ int ospf_if_up(struct ospf_interface *oi)
 		return 0;
 
 	if (oi->type == OSPF_IFTYPE_LOOPBACK)
-		OSPF_ISM_EVENT_SCHEDULE(oi, ISM_LoopInd);
-	else {
-		OSPF_ISM_EVENT_SCHEDULE(oi, ISM_InterfaceUp);
-	}
+		OSPF_ISM_EVENT_EXECUTE(oi, ISM_LoopInd);
+	else
+		OSPF_ISM_EVENT_EXECUTE(oi, ISM_InterfaceUp);
 
 	return 1;
 }
