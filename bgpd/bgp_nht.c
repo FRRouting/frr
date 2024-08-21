@@ -351,9 +351,7 @@ int bgp_find_or_add_nexthop(struct bgp *bgp_route, struct bgp *bgp_nexthop,
 			}
 			return 0;
 		}
-		if (afi == AFI_IP6 && p.family == AF_INET)
-			/* IPv4 mapped IPv6 nexthop address */
-			afi = AFI_IP;
+
 		srte_color = bgp_attr_get_color(pi->attr);
 
 	} else if (peer) {
@@ -1080,25 +1078,14 @@ static int make_prefix(int afi, struct bgp_path_info *pi, struct prefix *p)
 							&ipv4);
 						p->u.prefix4 = ipv4;
 						p->prefixlen = IPV4_MAX_BITLEN;
-						p->family = AF_INET;
 					} else
 						p->u.prefix6 =
 							pi->attr->mp_nexthop_global;
 				} else
 					p->u.prefix6 =
 						pi->attr->mp_nexthop_local;
-			} else {
-				if (IS_MAPPED_IPV6(
-					    &pi->attr->mp_nexthop_global)) {
-					ipv4_mapped_ipv6_to_ipv4(&pi->attr->mp_nexthop_global,
-								 &ipv4);
-					p->u.prefix4 = ipv4;
-					p->prefixlen = IPV4_MAX_BITLEN;
-					p->family = AF_INET;
-				} else
-					p->u.prefix6 =
-						pi->attr->mp_nexthop_global;
-			}
+			} else
+				p->u.prefix6 = pi->attr->mp_nexthop_global;
 		}
 		break;
 	default:
