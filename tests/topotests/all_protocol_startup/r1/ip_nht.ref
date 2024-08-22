@@ -55,19 +55,19 @@ VRF default:
  Client list: pbr(fd XX)
 192.168.0.2
  resolved via connected
- is directly connected, r1-eth0 (vrf default)
+ is directly connected, r1-eth0 (vrf default), weight 1
  Client list: static(fd XX)
 192.168.0.4
  resolved via connected
- is directly connected, r1-eth0 (vrf default)
+ is directly connected, r1-eth0 (vrf default), weight 1
  Client list: static(fd XX)
 192.168.7.10
  resolved via connected
- is directly connected, r1-eth7 (vrf default)
+ is directly connected, r1-eth7 (vrf default), weight 1
  Client list: bgp(fd XX)
 192.168.7.20(Connected)
  resolved via connected
- is directly connected, r1-eth7 (vrf default)
+ is directly connected, r1-eth7 (vrf default), weight 1
  Client list: bgp(fd XX)
 192.168.161.4
  unresolved
