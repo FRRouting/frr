@@ -847,7 +847,7 @@ AC_ARG_WITH([crypto],
 AC_ARG_WITH([frr-format],
   AS_HELP_STRING([--with-frr-format[=<.../frr-format.so>]], [use frr-format GCC plugin]))
 
-AC_ARG_ENABLE([version-build-config],
+AC_ARG_ENABLE([version_build_config],
   AS_HELP_STRING([--disable-version-build-config], [do not include build configs in show version command]))
 
 #if openssl, else use the internal
