@@ -294,6 +294,12 @@ const struct frr_yang_module_info frr_pathd_info = {
 			}
 		},
 		{
+			.xpath = "/frr-pathd:pathd/srte/use-srv6-sid-manager",
+			.cbs = {
+				.modify = pathd_srv6_use_sid_manager_modify
+			}
+		},
+		{
 			.xpath = "/frr-pathd:pathd/srte/policy/candidate-path/constraints/objective-function/required",
 			.cbs = {.modify = dummy_modify}
 		},

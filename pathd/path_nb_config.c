@@ -831,3 +831,23 @@ int pathd_srte_policy_candidate_path_bandwidth_destroy(
 	srte_candidate_unset_bandwidth(candidate);
 	return NB_OK;
 }
+
+/*
+ * XPath: /frr-pathd:pathd/srte/srv6-use-sid-manager
+ */
+int pathd_srv6_use_sid_manager_modify(struct nb_cb_modify_args *args)
+{
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+		break;
+	case NB_EV_PREPARE:
+		break;
+	case NB_EV_ABORT:
+		break;
+	case NB_EV_APPLY:
+		srv6_use_sid_manager = yang_dnode_get_bool(args->dnode, NULL);
+		break;
+	}
+
+	return NB_OK;
+}
