@@ -279,7 +279,8 @@ static void rpki_delete_all_cache_nodes(void)
 	struct cache *cache;
 
 	for (ALL_LIST_ELEMENTS(cache_list, cache_node, cache_next, cache)) {
-		rtr_mgr_remove_group(rtr_config, cache->preference);
+		if (is_running())
+			rtr_mgr_remove_group(rtr_config, cache->preference);
 		listnode_delete(cache_list, cache);
 	}
 }
