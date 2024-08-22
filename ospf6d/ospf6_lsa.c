@@ -720,7 +720,6 @@ void ospf6_lsa_show_summary(struct vty *vty, struct ospf6_lsa *lsa,
 			    json_object *json_array, bool use_json)
 {
 	char adv_router[16], id[16];
-	int type;
 	const struct ospf6_lsa_handler *handler;
 	char buf[64];
 	int cnt = 0;
@@ -733,55 +732,13 @@ void ospf6_lsa_show_summary(struct vty *vty, struct ospf6_lsa *lsa,
 	inet_ntop(AF_INET, &lsa->header->adv_router, adv_router,
 		  sizeof(adv_router));
 
-	type = ntohs(lsa->header->type);
 	handler = ospf6_get_lsa_handler(lsa->header->type);
 
 	if (use_json)
 		json_obj = json_object_new_object();
 
-	switch (type) {
-	case OSPF6_LSTYPE_INTER_PREFIX:
-	case OSPF6_LSTYPE_INTER_ROUTER:
-	case OSPF6_LSTYPE_AS_EXTERNAL:
-	case OSPF6_LSTYPE_TYPE_7:
-	case OSPF6_LSTYPE_E_INTER_PREFIX:
-	case OSPF6_LSTYPE_E_INTER_ROUTER:
-	case OSPF6_LSTYPE_E_AS_EXTERNAL:
-	case OSPF6_LSTYPE_E_TYPE_7:
-		if (use_json) {
-			json_object_string_add(
-				json_obj, "type",
-				ospf6_lstype_short_name(lsa->header->type));
-			json_object_string_add(json_obj, "lsId", id);
-			json_object_string_add(json_obj, "advRouter",
-					       adv_router);
-			json_object_int_add(json_obj, "age",
-					    ospf6_lsa_age_current(lsa));
-			json_object_int_add(
-				json_obj, "seqNum",
-				(unsigned long)ntohl(lsa->header->seqnum));
-			json_object_string_add(
-				json_obj, "payload",
-				handler->lh_get_prefix_str(lsa, buf,
-							   sizeof(buf), 0));
-			json_object_array_add(json_array, json_obj);
-		} else
-			vty_out(vty, "%-4s %-15s%-15s%4hu %8lx %30s\n",
-				ospf6_lstype_short_name(lsa->header->type), id,
-				adv_router, ospf6_lsa_age_current(lsa),
-				(unsigned long)ntohl(lsa->header->seqnum),
-				handler->lh_get_prefix_str(lsa, buf,
-							   sizeof(buf), 0));
-		break;
-	case OSPF6_LSTYPE_ROUTER:
-	case OSPF6_LSTYPE_NETWORK:
-	case OSPF6_LSTYPE_GROUP_MEMBERSHIP:
-	case OSPF6_LSTYPE_LINK:
-	case OSPF6_LSTYPE_INTRA_PREFIX:
-	case OSPF6_LSTYPE_E_ROUTER:
-	case OSPF6_LSTYPE_E_NETWORK:
-	case OSPF6_LSTYPE_E_LINK:
-	case OSPF6_LSTYPE_E_INTRA_PREFIX:
+	if (handler && handler->lh_get_prefix_str) {
+
 		while (handler->lh_get_prefix_str(lsa, buf, sizeof(buf), cnt) !=
 		       NULL) {
 			if (use_json) {
@@ -814,8 +771,7 @@ void ospf6_lsa_show_summary(struct vty *vty, struct ospf6_lsa *lsa,
 		}
 		if (use_json)
 			json_object_free(json_obj);
-		break;
-	default:
+	} else {
 		if (use_json) {
 			json_object_string_add(
 				json_obj, "type",
@@ -834,7 +790,6 @@ void ospf6_lsa_show_summary(struct vty *vty, struct ospf6_lsa *lsa,
 				ospf6_lstype_short_name(lsa->header->type), id,
 				adv_router, ospf6_lsa_age_current(lsa),
 				(unsigned long)ntohl(lsa->header->seqnum));
-		break;
 	}
 }
 
