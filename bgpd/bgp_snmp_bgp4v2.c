@@ -340,7 +340,8 @@ static uint8_t *bgpv2PeerErrorsTable(struct variable *v, oid name[],
 		}
 		return SNMP_STRING("");
 	case BGP4V2_PEER_LAST_ERROR_RECEIVED_DATA:
-		if (peer->last_reset == PEER_DOWN_NOTIFY_RECEIVED)
+		if (peer->last_reset == PEER_DOWN_NOTIFY_RECEIVED &&
+		    peer->notify.data)
 			return SNMP_STRING(peer->notify.data);
 		else
 			return SNMP_STRING("");
