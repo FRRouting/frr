@@ -68,7 +68,12 @@ from lib.common_config import (
 from lib.topolog import logger
 from lib.topojson import build_config_from_json
 
-pytestmark = [pytest.mark.bgpd, pytest.mark.staticd, pytest.mark.mgmtd]
+pytestmark = [
+    pytest.mark.random_order(disabled=True),
+    pytest.mark.bgpd,
+    pytest.mark.staticd,
+    pytest.mark.mgmtd,
+]
 
 # Global variables
 ADDR_TYPES = check_address_types()

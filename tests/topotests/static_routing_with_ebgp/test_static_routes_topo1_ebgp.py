@@ -50,7 +50,11 @@ from lib.topolog import logger
 from lib.bgp import verify_bgp_convergence, create_router_bgp, verify_bgp_rib
 from lib.topojson import build_config_from_json
 
-pytestmark = [pytest.mark.bgpd, pytest.mark.staticd]
+pytestmark = [
+    pytest.mark.random_order(disabled=True),
+    pytest.mark.bgpd,
+    pytest.mark.staticd,
+]
 
 # Global variables
 ADDR_TYPES = check_address_types()

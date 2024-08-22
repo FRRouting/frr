@@ -64,7 +64,7 @@ from lib.topogen import get_topogen, Topogen
 from lib.common_config import step
 
 
-pytestmark = [pytest.mark.bgpd]
+pytestmark = [pytest.mark.random_order(disabled=True), pytest.mark.bgpd]
 
 
 fatal_error = ""

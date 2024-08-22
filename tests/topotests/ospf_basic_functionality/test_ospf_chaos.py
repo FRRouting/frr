@@ -43,7 +43,11 @@ from lib.ospf import verify_ospf_neighbor, verify_ospf_rib, create_router_ospf
 from lib.topolog import logger
 from lib.topojson import build_config_from_json
 
-pytestmark = [pytest.mark.ospfd, pytest.mark.staticd]
+pytestmark = [
+    pytest.mark.random_order(disabled=True),
+    pytest.mark.ospfd,
+    pytest.mark.staticd,
+]
 
 # Global variables
 topo = None

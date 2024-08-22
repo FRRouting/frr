@@ -49,7 +49,7 @@ from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
 
 
-pytestmark = [pytest.mark.bgpd]
+pytestmark = [pytest.mark.random_order(disabled=True), pytest.mark.bgpd]
 
 PREFIXES_R11 = ["172.31.0.11/32", "172.31.0.20/32", "172.31.0.111/32"]
 PREFIXES_R12 = ["172.31.0.12/32", "172.31.0.15/32"]

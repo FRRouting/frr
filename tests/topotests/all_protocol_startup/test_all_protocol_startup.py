@@ -22,6 +22,7 @@ import glob
 from time import sleep
 
 pytestmark = [
+    pytest.mark.random_order(disabled=True),
     pytest.mark.babeld,
     pytest.mark.bgpd,
     pytest.mark.isisd,

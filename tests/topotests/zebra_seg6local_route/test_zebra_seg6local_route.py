@@ -27,7 +27,7 @@ from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
 from lib.common_config import required_linux_kernel_version
 
-pytestmark = [pytest.mark.sharpd]
+pytestmark = [pytest.mark.random_order(disabled=True), pytest.mark.sharpd]
 
 
 def open_json_file(filename):

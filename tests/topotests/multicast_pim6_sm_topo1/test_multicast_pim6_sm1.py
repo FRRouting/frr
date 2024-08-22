@@ -102,7 +102,7 @@ HOLD_TIMER = 3
 PREFERRED_NEXT_HOP = "link_local"
 ASSERT_MSG = "Testcase {} : Failed Error: {}"
 
-pytestmark = [pytest.mark.pim6d]
+pytestmark = [pytest.mark.random_order(disabled=True), pytest.mark.pim6d]
 
 
 def setup_module(mod):

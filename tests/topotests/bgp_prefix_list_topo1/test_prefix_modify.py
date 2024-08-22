@@ -52,7 +52,7 @@ from lib.bgp import verify_bgp_convergence, create_router_bgp, clear_bgp
 
 from lib.topojson import build_config_from_json
 
-pytestmark = [pytest.mark.bgpd]
+pytestmark = [pytest.mark.random_order(disabled=True), pytest.mark.bgpd]
 
 
 # Global variables

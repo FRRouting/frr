@@ -32,7 +32,7 @@ from lib.common_config import required_linux_kernel_version, retry
 
 # Required to instantiate the topology builder class.
 
-pytestmark = [pytest.mark.nhrpd]
+pytestmark = [pytest.mark.random_order(disabled=True), pytest.mark.nhrpd]
 
 
 def build_topo(tgen):
@@ -228,8 +228,8 @@ def test_nhrp_connection():
     def relink_session():
         for r in ["r1", "r2"]:
             tgen.gears[r].vtysh_cmd("clear ip nhrp cache")
-            tgen.net[r].cmd("ip l del {}-gre0".format(r));
-        _populate_iface();
+            tgen.net[r].cmd("ip l del {}-gre0".format(r))
+        _populate_iface()
 
     @retry(retry_timeout=40, initial_wait=5)
     def verify_same_password():
@@ -255,23 +255,28 @@ def test_nhrp_connection():
 
     ### Passwords are different
     logger.info("Modify password and send ping again, should drop")
-    hubrouter.vtysh_cmd("""
+    hubrouter.vtysh_cmd(
+        """
         configure
             interface r2-gre0
                 ip nhrp authentication secret12
-    """)
+    """
+    )
     relink_session()
     verify_mismatched_password()
-    
+
     ### Passwords are the same - again
     logger.info("Recover password and verify conectivity is back")
-    hubrouter.vtysh_cmd("""
+    hubrouter.vtysh_cmd(
+        """
         configure
             interface r2-gre0
                 ip nhrp authentication secret
-    """)
+    """
+    )
     relink_session()
     verify_same_password()
+
 
 def test_route_install():
     "Test use of NHRP routes by other protocols (sharpd here)."

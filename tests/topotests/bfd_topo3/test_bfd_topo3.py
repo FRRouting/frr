@@ -29,7 +29,11 @@ from lib import topotest
 from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
 
-pytestmark = [pytest.mark.bfdd, pytest.mark.bgpd]
+pytestmark = [
+    pytest.mark.random_order(disabled=True),
+    pytest.mark.bfdd,
+    pytest.mark.bgpd,
+]
 
 
 def setup_module(mod):

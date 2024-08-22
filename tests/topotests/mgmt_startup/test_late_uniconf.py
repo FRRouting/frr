@@ -14,7 +14,11 @@ import pytest
 from lib.topogen import Topogen
 from util import _test_staticd_late_start
 
-pytestmark = [pytest.mark.staticd, pytest.mark.mgmtd]
+pytestmark = [
+    pytest.mark.random_order(disabled=True),
+    pytest.mark.staticd,
+    pytest.mark.mgmtd,
+]
 
 
 @pytest.fixture(scope="module")

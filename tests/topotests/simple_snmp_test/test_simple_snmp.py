@@ -26,7 +26,12 @@ from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.snmptest import SnmpTester
 
 
-pytestmark = [pytest.mark.bgpd, pytest.mark.isisd, pytest.mark.snmp]
+pytestmark = [
+    pytest.mark.random_order(disabled=True),
+    pytest.mark.bgpd,
+    pytest.mark.isisd,
+    pytest.mark.snmp,
+]
 
 
 def setup_module(mod):

@@ -78,7 +78,7 @@ from lib.common_config import (
 
 # Required to instantiate the topology builder class.
 
-pytestmark = [pytest.mark.ospfd]
+pytestmark = [pytest.mark.random_order(disabled=True), pytest.mark.ospfd]
 
 # Global multi-dimensional dictionary containing all expected outputs
 outputs = {}

@@ -25,7 +25,7 @@ from lib.topolog import logger
 from lib.common_config import required_linux_kernel_version
 from lib.checkping import check_ping
 
-pytestmark = [pytest.mark.bgpd]
+pytestmark = [pytest.mark.random_order(disabled=True), pytest.mark.bgpd]
 
 
 def build_topo(tgen):

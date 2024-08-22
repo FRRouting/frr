@@ -63,7 +63,7 @@ from lib.topolog import logger
 # and Finally pytest
 import pytest
 
-pytestmark = [pytest.mark.ospfd]
+pytestmark = [pytest.mark.random_order(disabled=True), pytest.mark.ospfd]
 
 
 def build_topo(tgen):

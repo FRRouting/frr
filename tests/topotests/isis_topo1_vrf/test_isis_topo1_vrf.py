@@ -29,7 +29,7 @@ from lib.topotest import iproute2_is_vrf_capable
 from lib.common_config import required_linux_kernel_version
 
 
-pytestmark = [pytest.mark.isisd]
+pytestmark = [pytest.mark.random_order(disabled=True), pytest.mark.isisd]
 
 VERTEX_TYPE_LIST = [
     "pseudo_IS",

@@ -45,7 +45,7 @@ from time import sleep
 import json
 import functools
 
-pytestmark = [pytest.mark.pimd]
+pytestmark = [pytest.mark.random_order(disabled=True), pytest.mark.pimd]
 
 # Save the Current Working Directory to find configuration files.
 CWD = os.path.dirname(os.path.realpath(__file__))
@@ -263,14 +263,11 @@ def verify_state_incremented(state_before, state_after):
         for intf, v2 in v1.items():
             for state, value in v2.items():
                 if value >= state_after[ttype][intf][state]:
-                    errormsg = (
-                        "[DUT: %s]: state %s value has not incremented, Initial value: %s, Current value: %s [FAILED!!]"
-                        % (
-                            intf,
-                            state,
-                            value,
-                            state_after[ttype][intf][state],
-                        )
+                    errormsg = "[DUT: %s]: state %s value has not incremented, Initial value: %s, Current value: %s [FAILED!!]" % (
+                        intf,
+                        state,
+                        value,
+                        state_after[ttype][intf][state],
                     )
                     return errormsg
 

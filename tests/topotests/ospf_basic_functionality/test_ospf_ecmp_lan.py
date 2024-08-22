@@ -43,7 +43,11 @@ from lib.ospf import (
     redistribute_ospf,
 )
 
-pytestmark = [pytest.mark.ospfd, pytest.mark.staticd]
+pytestmark = [
+    pytest.mark.random_order(disabled=True),
+    pytest.mark.ospfd,
+    pytest.mark.staticd,
+]
 
 
 # Global variables

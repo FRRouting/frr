@@ -90,7 +90,7 @@ ipv6_uptime_dict = {
 DEFAULT_ROUTES = {"ipv4": "0.0.0.0/0", "ipv6": "0::0/0"}
 NEXT_HOP_IP = {"ipv4": "Null0", "ipv6": "Null0"}
 
-pytestmark = [pytest.mark.bgpd]
+pytestmark = [pytest.mark.random_order(disabled=True), pytest.mark.bgpd]
 
 
 def setup_module(mod):

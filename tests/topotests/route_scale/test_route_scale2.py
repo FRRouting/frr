@@ -34,7 +34,7 @@ from scale_test_common import (
 )
 
 
-pytestmark = [pytest.mark.sharpd]
+pytestmark = [pytest.mark.random_order(disabled=True), pytest.mark.sharpd]
 
 
 def build(tgen):

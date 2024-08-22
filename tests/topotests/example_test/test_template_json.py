@@ -21,6 +21,7 @@ from lib import fixtures
 
 # TODO: select markers based on daemons used during test
 pytestmark = [
+    pytest.mark.random_order(disabled=True),
     pytest.mark.bgpd,
     # pytest.mark.ospfd,
     # pytest.mark.ospf6d

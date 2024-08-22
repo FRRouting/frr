@@ -20,7 +20,7 @@ from lib import topotest
 from lib.topogen import Topogen, TopoRouter
 from lib.topolog import logger
 
-pytestmark = [pytest.mark.sharpd]
+pytestmark = [pytest.mark.random_order(disabled=True), pytest.mark.sharpd]
 
 
 #####################################################
