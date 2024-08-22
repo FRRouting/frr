@@ -449,6 +449,11 @@ static void zebra_vrf_table_create(struct zebra_vrf *zvrf, afi_t afi,
 	memset(&p, 0, sizeof(p));
 	p.family = afi2family(afi);
 
+	if (route_node_lookup_maynull(zvrf->table[afi][safi], &p))
+		/* do not override the existing default route */
+		return;
+
+	/* create a fake default route */
 	rn = srcdest_rnode_get(zvrf->table[afi][safi], &p, NULL);
 	zebra_rib_create_dest(rn);
 }
