@@ -166,9 +166,10 @@ static int zebra_vrf_enable(struct vrf *vrf)
 static void zebra_vrf_disable_update_vrfid(struct zebra_vrf *zvrf, afi_t afi, safi_t safi)
 {
 	struct rib_table_info *info;
-	struct route_entry *re;
-	struct route_node *rn;
+	struct route_entry *re, *nre;
+	struct route_node *rn, *nrn;
 	bool empty_table = true;
+	bool rn_delete;
 
 	/* Assign the table to the default VRF.
 	 * Although the table is not technically owned by the default VRF,
@@ -187,13 +188,30 @@ static void zebra_vrf_disable_update_vrfid(struct zebra_vrf *zvrf, afi_t afi, sa
 			continue;
 		}
 
-		/* Assign the route entries to the default VRF,
+		/* Assign the kernel route entries to the default VRF,
 		 * even though they are not actually owned by it.
+		 *
+		 * Remove route nodes that have been created by FRR daemons.
+		 * They are not needed if the VRF is disabled.
 		 */
-		RNODE_FOREACH_RE (rn, re)
-			nexthop_vrf_update(rn, re, VRF_DEFAULT);
-
-		rn = route_next(rn);
+		rn_delete = true;
+		RNODE_FOREACH_RE_SAFE (rn, re, nre) {
+			if (re->type == ZEBRA_ROUTE_KERNEL) {
+				nexthop_vrf_update(rn, re, VRF_DEFAULT);
+				rn_delete = false;
+			} else
+				rib_unlink(rn, re);
+		}
+		if (rn_delete) {
+			nrn = route_next(rn);
+			zebra_node_info_cleanup(rn);
+			rn->info = NULL;
+			route_unlock_node(rn);
+			rn = nrn;
+		} else {
+			empty_table = false;
+			rn = route_next(rn);
+		}
 	}
 
 	if (empty_table)

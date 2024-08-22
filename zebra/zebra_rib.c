@@ -903,6 +903,11 @@ void zebra_rtable_node_cleanup(struct route_table *table,
 		rib_unlink(node, re);
 	}
 
+	zebra_node_info_cleanup(node);
+}
+
+void zebra_node_info_cleanup(struct route_node *node)
+{
 	if (node->info) {
 		rib_dest_t *dest = node->info;
 
