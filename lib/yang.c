@@ -1398,8 +1398,10 @@ LY_ERR yang_lyd_trim_xpath(struct lyd_node **root, const char *xpath)
 		}
 	}
 	darr_foreach_i (remove, i) {
-		if (remove[i] == *root)
+		if (remove[i] == *root) {
+			assert(*root);
 			*root = (*root)->next;
+		}
 		lyd_free_tree(remove[i]);
 	}
 	darr_free(remove);
