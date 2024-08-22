@@ -58,6 +58,12 @@ struct gm_join {
 	time_t sock_creation;
 };
 
+struct static_group {
+	pim_addr group_addr;
+	pim_addr source_addr;
+	struct channel_oil *oilp;
+};
+
 struct gm_sock {
 	int fd;
 	struct interface *interface;

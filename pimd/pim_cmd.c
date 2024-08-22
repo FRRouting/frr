@@ -682,6 +682,91 @@ static void igmp_show_interface_join(struct pim_instance *pim, struct vty *vty,
 		vty_json(vty, json);
 }
 
+static void igmp_show_interface_static_group(struct pim_instance *pim,
+					     struct vty *vty, bool uj)
+{
+	struct interface *ifp;
+	json_object *json = NULL;
+	json_object *json_iface = NULL;
+	json_object *json_grp = NULL;
+	json_object *json_grp_arr = NULL;
+
+	if (uj) {
+		json = json_object_new_object();
+		json_object_string_add(json, "vrf",
+				       vrf_id_to_name(pim->vrf->vrf_id));
+	} else {
+		vty_out(vty,
+			"Interface        Address         Source          Group\n");
+	}
+
+	FOR_ALL_INTERFACES (pim->vrf, ifp) {
+		struct pim_interface *pim_ifp;
+		struct listnode *node;
+		struct static_group *stgrp;
+		struct in_addr pri_addr;
+		char pri_addr_str[INET_ADDRSTRLEN];
+
+		pim_ifp = ifp->info;
+
+		if (!pim_ifp)
+			continue;
+
+		if (!pim_ifp->static_group_list)
+			continue;
+
+		pri_addr = pim_find_primary_addr(ifp);
+		pim_inet4_dump("<pri?>", pri_addr, pri_addr_str,
+			       sizeof(pri_addr_str));
+
+		for (ALL_LIST_ELEMENTS_RO(pim_ifp->static_group_list, node,
+					  stgrp)) {
+			char group_str[INET_ADDRSTRLEN];
+			char source_str[INET_ADDRSTRLEN];
+
+			pim_inet4_dump("<grp?>", stgrp->group_addr, group_str,
+				       sizeof(group_str));
+			pim_inet4_dump("<src?>", stgrp->source_addr, source_str,
+				       sizeof(source_str));
+
+			if (uj) {
+				json_object_object_get_ex(json, ifp->name,
+							  &json_iface);
+
+				if (!json_iface) {
+					json_iface = json_object_new_object();
+					json_object_string_add(json_iface,
+							       "name",
+							       ifp->name);
+					json_object_object_add(json, ifp->name,
+							       json_iface);
+					json_grp_arr = json_object_new_array();
+					json_object_object_add(json_iface,
+							       "groups",
+							       json_grp_arr);
+				}
+
+				json_grp = json_object_new_object();
+				json_object_string_add(json_grp, "source",
+						       source_str);
+				json_object_string_add(json_grp, "group",
+						       group_str);
+				json_object_string_add(json_grp, "primaryAddr",
+						       pri_addr_str);
+				json_object_array_add(json_grp_arr, json_grp);
+			} else {
+				vty_out(vty, "%-16s %-15s %-15s %-15s\n",
+					ifp->name, pri_addr_str, source_str,
+					group_str);
+			}
+		} /* for (pim_ifp->static_group_list) */
+
+	} /* for (iflist) */
+
+	if (uj)
+		vty_json(vty, json);
+}
+
 static void igmp_show_statistics(struct pim_instance *pim, struct vty *vty,
 				 const char *ifname, bool uj)
 {
@@ -1724,6 +1809,15 @@ DEFUN (show_ip_igmp_join,
 
 	return CMD_SUCCESS;
 }
+ALIAS (show_ip_igmp_join,
+       show_ip_igmp_join_group_cmd,
+       "show ip igmp [vrf NAME] join-group [json]",
+       SHOW_STR
+       IP_STR
+       IGMP_STR
+       VRF_CMD_HELP_STR
+       "IGMP static join information\n"
+       JSON_STR);
 
 DEFUN (show_ip_igmp_join_vrf_all,
        show_ip_igmp_join_vrf_all_cmd,
@@ -1750,6 +1844,69 @@ DEFUN (show_ip_igmp_join_vrf_all,
 		} else
 			vty_out(vty, "VRF: %s\n", vrf->name);
 		igmp_show_interface_join(vrf->info, vty, uj);
+	}
+	if (uj)
+		vty_out(vty, "}\n");
+
+	return CMD_SUCCESS;
+}
+ALIAS (show_ip_igmp_join_vrf_all,
+       show_ip_igmp_join_group_vrf_all_cmd,
+       "show ip igmp vrf all join-group [json]",
+       SHOW_STR
+       IP_STR
+       IGMP_STR
+       VRF_CMD_HELP_STR
+       "IGMP static join information\n"
+       JSON_STR);
+
+DEFUN (show_ip_igmp_static_group,
+       show_ip_igmp_static_group_cmd,
+       "show ip igmp [vrf NAME] static-group [json]",
+       SHOW_STR
+       IP_STR
+       IGMP_STR
+       VRF_CMD_HELP_STR
+       "Static group information\n"
+       JSON_STR)
+{
+	int idx = 2;
+	bool uj = use_json(argc, argv);
+	struct vrf *vrf = pim_cmd_lookup_vrf(vty, argv, argc, &idx, uj);
+
+	if (!vrf)
+		return CMD_WARNING;
+
+	igmp_show_interface_static_group(vrf->info, vty, uj);
+
+	return CMD_SUCCESS;
+}
+
+DEFUN (show_ip_igmp_static_group_vrf_all,
+       show_ip_igmp_static_group_vrf_all_cmd,
+       "show ip igmp vrf all static-group [json]",
+       SHOW_STR
+       IP_STR
+       IGMP_STR
+       VRF_CMD_HELP_STR
+       "Static group information\n"
+       JSON_STR)
+{
+	bool uj = use_json(argc, argv);
+	struct vrf *vrf;
+	bool first = true;
+
+	if (uj)
+		vty_out(vty, "{ ");
+	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
+		if (uj) {
+			if (!first)
+				vty_out(vty, ", ");
+			vty_out(vty, " \"%s\": ", vrf->name);
+			first = false;
+		} else
+			vty_out(vty, "VRF: %s\n", vrf->name);
+		igmp_show_interface_static_group(vrf->info, vty, uj);
 	}
 	if (uj)
 		vty_out(vty, "}\n");
@@ -4924,71 +5081,47 @@ DEFUN (interface_no_ip_igmp,
 				    "frr-routing:ipv4");
 }
 
-DEFUN (interface_ip_igmp_join,
-       interface_ip_igmp_join_cmd,
-       "ip igmp join A.B.C.D [A.B.C.D]",
-       IP_STR
-       IFACE_IGMP_STR
-       "IGMP join multicast group\n"
-       "Multicast group address\n"
-       "Source address\n")
+DEFPY_YANG_HIDDEN (interface_ip_igmp_join,
+                   interface_ip_igmp_join_cmd,
+                   "[no] ip igmp join A.B.C.D$grp [A.B.C.D]$src",
+                   NO_STR
+                   IP_STR
+                   IFACE_IGMP_STR
+                   "IGMP join multicast group\n"
+                   "Multicast group address\n"
+                   "Source address\n")
 {
-	int idx_group = 3;
-	int idx_source = 4;
-	const char *source_str;
-	char xpath[XPATH_MAXLEN];
-
-	if (argc == 5) {
-		source_str = argv[idx_source]->arg;
-
-		if (strcmp(source_str, "0.0.0.0") == 0) {
-			vty_out(vty, "Bad source address %s\n",
-				argv[idx_source]->arg);
-			return CMD_WARNING_CONFIG_FAILED;
-		}
-	} else
-		source_str = "0.0.0.0";
-
-	snprintf(xpath, sizeof(xpath), FRR_GMP_JOIN_XPATH,
-		 "frr-routing:ipv4", argv[idx_group]->arg, source_str);
-
-	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
-
-	return nb_cli_apply_changes(vty, NULL);
+	nb_cli_enqueue_change(vty, ".", (!no ? NB_OP_CREATE : NB_OP_DESTROY),
+			      NULL);
+	return nb_cli_apply_changes(vty, FRR_GMP_JOIN_GROUP_XPATH,
+				    "frr-routing:ipv4", grp_str,
+				    (src_str ? src_str : "0.0.0.0"));
 }
+ALIAS(interface_ip_igmp_join,
+      interface_ip_igmp_join_group_cmd,
+      "[no] ip igmp join-group A.B.C.D$grp [A.B.C.D]$src",
+      NO_STR
+      IP_STR
+      IFACE_IGMP_STR
+      "IGMP join multicast group\n"
+      "Multicast group address\n"
+      "Source address\n");
 
-DEFUN (interface_no_ip_igmp_join,
-       interface_no_ip_igmp_join_cmd,
-       "no ip igmp join A.B.C.D [A.B.C.D]",
-       NO_STR
-       IP_STR
-       IFACE_IGMP_STR
-       "IGMP join multicast group\n"
-       "Multicast group address\n"
-       "Source address\n")
+DEFPY_YANG (interface_ip_igmp_static_group,
+            interface_ip_igmp_static_group_cmd,
+            "[no] ip igmp static-group A.B.C.D$grp [A.B.C.D]$src",
+            NO_STR
+            IP_STR
+            IFACE_IGMP_STR
+            "Static multicast group\n"
+            "Multicast group address\n"
+            "Source address\n")
 {
-	int idx_group = 4;
-	int idx_source = 5;
-	const char *source_str;
-	char xpath[XPATH_MAXLEN];
-
-	if (argc == 6) {
-		source_str = argv[idx_source]->arg;
-
-		if (strcmp(source_str, "0.0.0.0") == 0) {
-			vty_out(vty, "Bad source address %s\n",
-				argv[idx_source]->arg);
-			return CMD_WARNING_CONFIG_FAILED;
-		}
-	} else
-		source_str = "0.0.0.0";
-
-	snprintf(xpath, sizeof(xpath), FRR_GMP_JOIN_XPATH,
-		 "frr-routing:ipv4", argv[idx_group]->arg, source_str);
-
-	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
-
-	return nb_cli_apply_changes(vty, NULL);
+	nb_cli_enqueue_change(vty, ".", (!no ? NB_OP_CREATE : NB_OP_DESTROY),
+			      NULL);
+	return nb_cli_apply_changes(vty, FRR_GMP_STATIC_GROUP_XPATH,
+				    "frr-routing:ipv4", grp_str,
+				    (src_str ? src_str : "0.0.0.0"));
 }
 
 DEFUN (interface_ip_igmp_query_interval,
@@ -8420,7 +8553,8 @@ void pim_cmd_init(void)
 	install_element(INTERFACE_NODE, &interface_ip_igmp_cmd);
 	install_element(INTERFACE_NODE, &interface_no_ip_igmp_cmd);
 	install_element(INTERFACE_NODE, &interface_ip_igmp_join_cmd);
-	install_element(INTERFACE_NODE, &interface_no_ip_igmp_join_cmd);
+	install_element(INTERFACE_NODE, &interface_ip_igmp_join_group_cmd);
+	install_element(INTERFACE_NODE, &interface_ip_igmp_static_group_cmd);
 	install_element(INTERFACE_NODE, &interface_ip_igmp_version_cmd);
 	install_element(INTERFACE_NODE, &interface_no_ip_igmp_version_cmd);
 	install_element(INTERFACE_NODE, &interface_ip_igmp_query_interval_cmd);
@@ -8480,7 +8614,11 @@ void pim_cmd_init(void)
 	install_element(VIEW_NODE, &show_ip_igmp_interface_cmd);
 	install_element(VIEW_NODE, &show_ip_igmp_interface_vrf_all_cmd);
 	install_element(VIEW_NODE, &show_ip_igmp_join_cmd);
+	install_element(VIEW_NODE, &show_ip_igmp_join_group_cmd);
 	install_element(VIEW_NODE, &show_ip_igmp_join_vrf_all_cmd);
+	install_element(VIEW_NODE, &show_ip_igmp_join_group_vrf_all_cmd);
+	install_element(VIEW_NODE, &show_ip_igmp_static_group_cmd);
+	install_element(VIEW_NODE, &show_ip_igmp_static_group_vrf_all_cmd);
 	install_element(VIEW_NODE, &show_ip_igmp_groups_cmd);
 	install_element(VIEW_NODE, &show_ip_igmp_groups_vrf_all_cmd);
 	install_element(VIEW_NODE, &show_ip_igmp_groups_retransmissions_cmd);

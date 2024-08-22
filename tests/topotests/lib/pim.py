@@ -332,6 +332,13 @@ def create_igmp_config(tgen, topo, input_dict=None, build=False):
                                 cmd = "no {}".format(cmd)
                             config_data.append(cmd)
 
+                    if attribute == "static-group":
+                        for group in data:
+                            cmd = "ip {} {} {}".format(protocol, attribute, group)
+                            if del_attr:
+                                cmd = "no {}".format(cmd)
+                            config_data.append(cmd)
+
                     if attribute == "query":
                         for query, value in data.items():
                             if query != "delete":
@@ -4253,6 +4260,75 @@ def verify_local_igmp_groups(tgen, dut, interface, group_addresses):
     logger.debug("Exiting lib API: {}".format(sys._getframe().f_code.co_name))
     return True
 
+@retry(retry_timeout=62)
+def verify_static_groups(tgen, dut, interface, group_addresses):
+    """
+    Verify static groups are received from an intended interface
+    by running "show ip igmp static-group json" command
+
+    Parameters
+    ----------
+    * `tgen`: topogen object
+    * `dut`: device under test
+    * `interface`: interface, from which IGMP groups are configured
+    * `group_addresses`: IGMP group address
+
+    Usage
+    -----
+    dut = "r1"
+    interface = "r1-r0-eth0"
+    group_address = "225.1.1.1"
+    result = verify_static_groups(tgen, dut, interface, group_address)
+
+    Returns
+    -------
+    errormsg(str) or True
+    """
+
+    logger.debug("Entering lib API: {}".format(sys._getframe().f_code.co_name))
+
+    if dut not in tgen.routers():
+        return False
+
+    rnode = tgen.routers()[dut]
+
+    logger.info("[DUT: %s]: Verifying static groups received:", dut)
+    show_static_group_json = run_frr_cmd(rnode, "show ip igmp static-group json", isjson=True)
+
+    if type(group_addresses) is not list:
+        group_addresses = [group_addresses]
+
+    if interface not in show_static_group_json:
+        errormsg = (
+            "[DUT %s]: Verifying static group received"
+            " from interface %s [FAILED]!! " % (dut, interface)
+        )
+        return errormsg
+
+    for grp_addr in group_addresses:
+        found = False
+        for index in show_static_group_json[interface]["groups"]:
+            if index["group"] == grp_addr:
+                found = True
+                break
+        if not found:
+            errormsg = (
+                "[DUT %s]: Verifying static group received"
+                " from interface %s [FAILED]!! "
+                " Expected: %s " % (dut, interface, grp_addr)
+            )
+            return errormsg
+
+        logger.info(
+            "[DUT %s]: Verifying static group %s received "
+            "from interface %s [PASSED]!! ",
+            dut,
+            grp_addr,
+            interface,
+        )
+
+    logger.debug("Exiting lib API: {}".format(sys._getframe().f_code.co_name))
+    return True
 
 def verify_pim_interface_traffic(tgen, input_dict, return_stats=True, addr_type="ipv4"):
     """
