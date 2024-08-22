@@ -67,6 +67,13 @@ version = "?.?"
 # The full version, including alpha/beta/rc tags.
 release = "?.?-?"
 
+# Set canonical URL from the Read the Docs Domain
+html_baseurl = os.environ.get("READTHEDOCS_CANONICAL_URL", "")
+
+# Tell Jinja2 templates the build is running on Read the Docs
+if os.environ.get("READTHEDOCS", "") == "True":
+    html_context["READTHEDOCS"] = True
+
 
 # -----------------------------------------------------------------------------
 # Extract values from codebase for substitution into docs.
