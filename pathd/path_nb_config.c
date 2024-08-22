@@ -846,6 +846,7 @@ int pathd_srv6_use_sid_manager_modify(struct nb_cb_modify_args *args)
 		break;
 	case NB_EV_APPLY:
 		srv6_use_sid_manager = yang_dnode_get_bool(args->dnode, NULL);
+		path_zebra_process_srv6_bsid(srv6_use_sid_manager);
 		break;
 	}
 

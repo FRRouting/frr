@@ -36,6 +36,7 @@ DEFINE_HOOK(pathd_candidate_removed, (struct srte_candidate * candidate),
 
 struct debug path_policy_debug;
 struct debug path_zebra_debug;
+bool srv6_use_sid_manager;
 
 #define PATH_POLICY_DEBUG(fmt, ...)                                            \
 	DEBUGD(&path_policy_debug, "policy: " fmt, ##__VA_ARGS__)
@@ -517,38 +518,56 @@ void srte_policy_update_srv6_binding_sid(struct srte_policy *policy,
 {
 	struct in6_addr srv6_binding_sid_zero = {};
 	struct srv6_sid_ctx ctx = {};
+	char endpoint[ENDPOINT_STR_LENGTH];
 
 	ctx.vrf_id = VRF_DEFAULT;
 	ctx.behavior = ZEBRA_SEG6_LOCAL_ACTION_END_B6_ENCAP;
 	memcpy(&ctx.nh6, &policy->endpoint.ip._v6_addr, sizeof(struct in6_addr));
 	ctx.color = policy->color;
 
+	ipaddr2str(&policy->endpoint, endpoint, sizeof(endpoint));
+
+	PATH_POLICY_DEBUG("SR-TE(%s, %u): srte policy, update srv6 bsid",
+			  endpoint, policy->color);
+
 	if (!srv6_binding_sid ||
 	    (srv6_binding_sid &&
 	     !IPV6_ADDR_SAME(&policy->srv6_binding_sid, srv6_binding_sid))) {
 		if (CHECK_FLAG(policy->flags, F_POLICY_BSID_IPV6_INSTALLED)) {
+			PATH_POLICY_DEBUG("SR-TE(%s, %u): srte policy, remove srv6 bsid",
+					  endpoint, policy->color);
 			(void)path_zebra_send_bsid(&policy->srv6_binding_sid, 0,
 						   ZEBRA_SEG6_LOCAL_ACTION_END_B6_ENCAP,
 						   NULL, 0);
 			UNSET_FLAG(policy->flags, F_POLICY_BSID_IPV6_INSTALLED);
 		}
-		if (CHECK_FLAG(policy->flags, F_POLICY_BSID_ALLOCATED))
+		if (CHECK_FLAG(policy->flags, F_POLICY_BSID_ALLOCATED)) {
 			path_zebra_srv6_manager_release_sid(&ctx);
+			PATH_POLICY_DEBUG("SR-TE(%s, %u): srte policy, deallocate srv6 bsid",
+					  endpoint, policy->color);
+		}
 		UNSET_FLAG(policy->flags, F_POLICY_BSID_ALLOCATED);
 	}
 
 	if (srv6_binding_sid) {
 		IPV6_ADDR_COPY(&policy->srv6_binding_sid, srv6_binding_sid);
-		if (!CHECK_FLAG(policy->flags, F_POLICY_BSID_ALLOCATED))
+		if (!CHECK_FLAG(policy->flags, F_POLICY_BSID_ALLOCATED) &&
+		    srv6_use_sid_manager) {
 			path_zebra_srv6_manager_get_sid(&ctx, srv6_binding_sid);
+			PATH_POLICY_DEBUG("SR-TE(%s, %u): srte policy, manager get srv6 bsid",
+					  endpoint, policy->color);
+		}
 	} else
 		IPV6_ADDR_COPY(&policy->srv6_binding_sid,
 			       &srv6_binding_sid_zero);
 
 	/* Reinstall the Binding-SID if necessary. */
-	if (policy->best_candidate)
+	if (policy->best_candidate) {
 		path_zebra_add_sr_policy(policy, policy->best_candidate->lsp
 							 ->segment_list);
+		PATH_POLICY_DEBUG("SR-TE(%s, %u): srte policy, reinstall srv6 bsid",
+				  endpoint, policy->color);
+	}
 }
 
 /**
@@ -1536,4 +1555,9 @@ int32_t srte_ted_do_query_type_f(struct srte_segment_entry *entry,
 		srte_segment_set_local_modification(entry->segment_list, entry,
 						    ted_sid);
 	return status;
+}
+
+void path_srv6_init(void)
+{
+	srv6_use_sid_manager = false;
 }

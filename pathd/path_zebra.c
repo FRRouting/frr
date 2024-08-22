@@ -526,7 +526,8 @@ path_zebra_add_sr_policy_internal(struct srte_policy *policy,
 		zp.segment_list.nexthop_resolved_num = nhtd->nh_num;
 	}
 	if (znh && !sid_zero_ipv6(&policy->srv6_binding_sid) && segment_list &&
-	    CHECK_FLAG(policy->flags, F_POLICY_BSID_ALLOCATED) &&
+	    (CHECK_FLAG(policy->flags, F_POLICY_BSID_ALLOCATED) ||
+	     !srv6_use_sid_manager) &&
 	    zp.segment_list.nexthop_resolved_num) {
 		(void)path_zebra_send_bsid(&policy->srv6_binding_sid,
 					   znh->ifindex,
@@ -834,13 +835,37 @@ struct path_locator_ctx {
 };
 DECLARE_DLIST(path_locator_list, struct path_locator_ctx, pll_entries);
 
+void path_zebra_process_srv6_bsid(bool allocate)
+{
+	struct srte_policy *policy;
+	struct srv6_sid_ctx sid_ctx = {};
+
+	RB_FOREACH (policy, srte_policy_head, &srte_policies) {
+		if (IPV6_ADDR_SAME(&policy->srv6_binding_sid, &in6addr_any))
+			continue;
+		sid_ctx.vrf_id = VRF_DEFAULT;
+		sid_ctx.behavior = ZEBRA_SEG6_LOCAL_ACTION_END_B6_ENCAP;
+		memcpy(&sid_ctx.nh6, &policy->endpoint.ip._v6_addr,
+		       sizeof(struct in6_addr));
+		sid_ctx.color = policy->color;
+		if (allocate &&
+		    !CHECK_FLAG(policy->flags, F_POLICY_BSID_ALLOCATED) &&
+		    srv6_use_sid_manager)
+			path_zebra_srv6_manager_get_sid(&sid_ctx,
+							&policy->srv6_binding_sid);
+		else if (!allocate &&
+			 CHECK_FLAG(policy->flags, F_POLICY_BSID_ALLOCATED) &&
+			 !srv6_use_sid_manager) {
+			path_zebra_srv6_manager_release_sid(&sid_ctx);
+			UNSET_FLAG(policy->flags, F_POLICY_BSID_ALLOCATED);
+		}
+	}
+}
 
 static int path_zebra_process_srv6_locator_add(ZAPI_CALLBACK_ARGS)
 {
 	struct srv6_locator locator = {};
 	struct path_locator_ctx *ctx;
-	struct srte_policy *policy;
-	struct srv6_sid_ctx sid_ctx = {};
 
 	if (zapi_srv6_locator_decode(zclient->ibuf, &locator) < 0)
 		return -1;
@@ -853,18 +878,7 @@ static int path_zebra_process_srv6_locator_add(ZAPI_CALLBACK_ARGS)
 		path_locator_list_add_tail(&path_srv6_locator_list, ctx);
 	}
 
-	RB_FOREACH (policy, srte_policy_head, &srte_policies) {
-		if (IPV6_ADDR_SAME(&policy->srv6_binding_sid, &in6addr_any))
-			continue;
-		sid_ctx.vrf_id = VRF_DEFAULT;
-		sid_ctx.behavior = ZEBRA_SEG6_LOCAL_ACTION_END_B6_ENCAP;
-		memcpy(&sid_ctx.nh6, &policy->endpoint.ip._v6_addr,
-		       sizeof(struct in6_addr));
-		sid_ctx.color = policy->color;
-		if (!CHECK_FLAG(policy->flags, F_POLICY_BSID_ALLOCATED))
-			path_zebra_srv6_manager_get_sid(&sid_ctx,
-							&policy->srv6_binding_sid);
-	}
+	path_zebra_process_srv6_bsid(true);
 	return 0;
 }
 
@@ -955,6 +969,10 @@ static int path_zebra_srv6_sid_notify(ZAPI_CALLBACK_ARGS)
 					 srv6_sid_ctx2str(buf, sizeof(buf),
 							  &ctx));
 			SET_FLAG(policy->flags, F_POLICY_BSID_ALLOCATED);
+
+			if (!srv6_use_sid_manager)
+				/* as SID allocation is asyncronous, release it */
+				path_zebra_srv6_manager_release_sid(&ctx);
 
 			context = path_zebra_locator_ctx_lookup_by_name(
 				(const char *)locator_name);
