@@ -1424,6 +1424,9 @@ static char *ospf6_inter_area_prefix_lsa_get_prefix_str(struct ospf6_lsa *lsa,
 	struct in6_addr in6;
 	char tbuf[16];
 
+	if (pos > 0)
+		return NULL; /*IAP contains one prefix. */
+
 	if (lsa != NULL) {
 		prefix_lsa = lsa_after_header(lsa->header);
 
@@ -1481,6 +1484,9 @@ static char *ospf6_inter_area_router_lsa_get_prefix_str(struct ospf6_lsa *lsa,
 							int pos)
 {
 	struct ospf6_inter_router_lsa *router_lsa;
+
+	if (pos > 0)
+		return NULL; /*IAR contains one prefix. */
 
 	if (lsa != NULL) {
 		router_lsa = lsa_after_header(lsa->header);

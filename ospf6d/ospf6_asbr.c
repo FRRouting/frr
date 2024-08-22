@@ -2412,40 +2412,38 @@ static void ospf6_routemap_init(void)
 
 /* Display functions */
 static char *ospf6_as_external_lsa_get_prefix_str(struct ospf6_lsa *lsa,
-						  char *buf, int buflen,
-						  int pos)
+						  char *buf, int buflen, int pos)
 {
 	struct ospf6_as_external_lsa *external;
 	struct in6_addr in6;
-	int prefix_length = 0;
+	int prefix_length;
 	char tbuf[16];
+	bool has_fa;
 
-	if (lsa) {
-		external = lsa_after_header(lsa->header);
+	if (!lsa || !buf || pos > 1)
+		return NULL;
 
-		if (pos == 0) {
-			ospf6_prefix_in6_addr(&in6, external,
-					      &external->prefix);
-			prefix_length = external->prefix.prefix_length;
-		} else {
-			in6 = *((struct in6_addr
-					 *)((caddr_t)external
-					    + sizeof(struct
-						     ospf6_as_external_lsa)
-					    + OSPF6_PREFIX_SPACE(
-						      external->prefix
-							      .prefix_length)));
-		}
-		if (buf) {
-			inet_ntop(AF_INET6, &in6, buf, buflen);
-			if (prefix_length) {
-				snprintf(tbuf, sizeof(tbuf), "/%d",
-					 prefix_length);
-				strlcat(buf, tbuf, buflen);
-			}
-		}
+	external = lsa_after_header(lsa->header);
+	prefix_length = external->prefix.prefix_length;
+	has_fa = CHECK_FLAG(external->bits_metric, OSPF6_ASBR_BIT_F);
+
+	if (pos == 0) {
+		/* Address Prefix */
+		ospf6_prefix_in6_addr(&in6, external, &external->prefix);
+		inet_ntop(AF_INET6, &in6, buf, buflen);
+		snprintf(tbuf, sizeof(tbuf), "/%d", prefix_length);
+		strlcat(buf, tbuf, buflen);
+		return buf;
+	} else if (has_fa) {
+		/* Forwarding Address */
+		in6 = *((struct in6_addr
+				 *)((caddr_t)external +
+				    sizeof(struct ospf6_as_external_lsa) +
+				    OSPF6_PREFIX_SPACE(prefix_length)));
+		inet_ntop(AF_INET6, &in6, buf, buflen);
+		return buf;
 	}
-	return (buf);
+	return NULL;
 }
 
 static int ospf6_as_external_lsa_show(struct vty *vty, struct ospf6_lsa *lsa,
