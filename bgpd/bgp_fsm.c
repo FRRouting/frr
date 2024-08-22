@@ -2933,7 +2933,7 @@ static inline bool gr_mode_matches(enum peer_mode peer_gr_mode,
 unsigned int bgp_peer_gr_action(struct peer *peer, enum peer_mode old_state,
 				enum peer_mode new_state)
 {
-	enum global_mode global_gr_mode = bgp_global_gr_mode_get(peer->bgp);
+	enum global_mode global_gr_mode;
 	bool session_reset = true;
 
 	if (old_state == new_state)
