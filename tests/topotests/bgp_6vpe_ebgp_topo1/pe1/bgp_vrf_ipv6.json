@@ -32,7 +32,7 @@
         "path": "65501",
         "nexthops": [
           {
-            "ip": "::ffff:c000:205",
+            "ip": "::ffff:192.0.2.5",
             "afi": "ipv6",
             "scope": "global",
             "used": true
@@ -50,7 +50,7 @@
         "path": "65501",
         "nexthops": [
           {
-            "ip": "::ffff:c000:205",
+            "ip": "::ffff:192.0.2.5",
             "afi": "ipv6",
             "scope": "global",
             "used": true
@@ -68,7 +68,7 @@
         "path": "65501",
         "nexthops": [
           {
-            "ip": "::ffff:c000:205",
+            "ip": "::ffff:192.0.2.5",
             "afi": "ipv6",
             "scope": "global",
             "used": true
@@ -86,7 +86,7 @@
         "path": "65501",
         "nexthops": [
           {
-            "ip": "::ffff:c000:205",
+            "ip": "::ffff:192.0.2.5",
             "afi": "ipv6",
             "scope": "global",
             "used": true
@@ -104,7 +104,7 @@
         "path": "65501",
         "nexthops": [
           {
-            "ip": "::ffff:c000:205",
+            "ip": "::ffff:192.0.2.5",
             "afi": "ipv6",
             "scope": "global",
             "used": true
