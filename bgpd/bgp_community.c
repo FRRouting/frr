@@ -18,6 +18,9 @@
 /* Hash of community attribute. */
 static struct hash *comhash;
 
+/* community foramt json variable */
+static bool community_format_json = false;
+
 /* Allocate a new communities value.  */
 static struct community *community_new(void)
 {
@@ -462,7 +465,7 @@ struct community *community_intern(struct community *com)
 
 	/* Make string.  */
 	if (!find->str)
-		set_community_string(find, false, true);
+		set_community_string(find, community_get_format_json(), true);
 
 	return find;
 }
@@ -1040,4 +1043,14 @@ void bgp_remove_comm_from_aggregate_hash(struct bgp_aggregate *aggregate,
 			community_free(&ret_comm);
 		}
 	}
+}
+
+void community_set_format_json(bool make_json)
+{
+	community_format_json = make_json;
+}
+
+bool community_get_format_json()
+{
+	return community_format_json;
 }

@@ -433,10 +433,9 @@ bool bgp_dump_attr(struct attr *attr, char *buf, size_t size)
 			 attr->med);
 
 	if (CHECK_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_COMMUNITIES)))
-		snprintf(buf + strlen(buf), size - strlen(buf),
-			 ", community %s",
-			 community_str(bgp_attr_get_community(attr), false,
-				       true));
+		snprintf(buf + strlen(buf), size - strlen(buf), ", community %s",
+			 community_str(bgp_attr_get_community(attr),
+				       community_get_format_json(), true));
 
 	if (CHECK_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_LARGE_COMMUNITIES)))
 		snprintf(buf + strlen(buf), size - strlen(buf),

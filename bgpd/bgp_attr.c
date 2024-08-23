@@ -5101,6 +5101,7 @@ void bgp_attr_init(void)
 	aspath_set_format_json(false);
 	attrhash_init();
 	community_init();
+	community_set_format_json(false);
 	ecommunity_init();
 	lcommunity_init();
 	lcommunity_set_format_json(false);

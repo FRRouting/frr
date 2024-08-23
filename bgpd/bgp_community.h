@@ -120,4 +120,8 @@ static inline void community_strip_accept_own(struct attr *attr)
 	}
 }
 
+extern bool community_get_format_json(void);
+
+extern void community_set_format_json(bool make_json);
+
 #endif /* _QUAGGA_BGP_COMMUNITY_H */
