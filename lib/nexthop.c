@@ -139,7 +139,7 @@ static int _nexthop_source_cmp(const struct nexthop *nh1,
 }
 
 static int _nexthop_cmp_no_labels(const struct nexthop *next1,
-				  const struct nexthop *next2)
+				  const struct nexthop *next2, bool use_weight)
 {
 	int ret = 0;
 
@@ -155,11 +155,13 @@ static int _nexthop_cmp_no_labels(const struct nexthop *next1,
 	if (next1->type > next2->type)
 		return 1;
 
-	if (next1->weight < next2->weight)
-		return -1;
+	if (use_weight) {
+		if (next1->weight < next2->weight)
+			return -1;
 
-	if (next1->weight > next2->weight)
-		return 1;
+		if (next1->weight > next2->weight)
+			return 1;
+	}
 
 	switch (next1->type) {
 	case NEXTHOP_TYPE_IPV4:
@@ -227,11 +229,12 @@ done:
 	return ret;
 }
 
-int nexthop_cmp(const struct nexthop *next1, const struct nexthop *next2)
+static int nexthop_cmp_internal(const struct nexthop *next1,
+				const struct nexthop *next2, bool use_weight)
 {
 	int ret = 0;
 
-	ret = _nexthop_cmp_no_labels(next1, next2);
+	ret = _nexthop_cmp_no_labels(next1, next2, use_weight);
 	if (ret != 0)
 		return ret;
 
@@ -242,6 +245,17 @@ int nexthop_cmp(const struct nexthop *next1, const struct nexthop *next2)
 	ret = _nexthop_srv6_cmp(next1, next2);
 
 	return ret;
+}
+
+int nexthop_cmp(const struct nexthop *next1, const struct nexthop *next2)
+{
+	return nexthop_cmp_internal(next1, next2, true);
+}
+
+int nexthop_cmp_no_weight(const struct nexthop *next1,
+			  const struct nexthop *next2)
+{
+	return nexthop_cmp_internal(next1, next2, false);
 }
 
 /*
@@ -441,7 +455,7 @@ bool nexthop_same_no_labels(const struct nexthop *nh1,
 	if (nh1 == nh2)
 		return true;
 
-	if (_nexthop_cmp_no_labels(nh1, nh2) != 0)
+	if (_nexthop_cmp_no_labels(nh1, nh2, true) != 0)
 		return false;
 
 	return true;
