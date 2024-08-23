@@ -110,6 +110,7 @@ extern struct aspath *aspath_empty_get(void);
 extern struct aspath *aspath_str2aspath(const char *str,
 					enum asnotation_mode asnotation);
 extern void aspath_str_update(struct aspath *as, bool make_json);
+extern void aspath_set_format_json(bool make_json);
 extern void aspath_free(struct aspath *aspath);
 extern struct aspath *aspath_intern(struct aspath *aspath);
 extern void aspath_unintern(struct aspath **aspath);

@@ -80,6 +80,9 @@ static struct stream *snmp_stream;
 /* as-path orphan exclude list */
 static struct as_list_list_head as_exclude_list_orphan;
 
+/* as-path foramt json variable */
+static bool aspath_format_json = false;
+
 /* Callers are required to initialize the memory */
 static as_t *assegment_data_new(int num)
 {
@@ -662,6 +665,11 @@ void aspath_str_update(struct aspath *as, bool make_json)
 	aspath_make_str_count(as, make_json);
 }
 
+void aspath_set_format_json(bool make_json)
+{
+	aspath_format_json = make_json;
+}
+
 /* Intern allocated AS path. */
 struct aspath *aspath_intern(struct aspath *aspath)
 {
@@ -1112,7 +1120,7 @@ struct aspath *aspath_aggregate(struct aspath *as1, struct aspath *as2)
 	}
 
 	assegment_normalise(aspath->segments);
-	aspath_str_update(aspath, false);
+	aspath_str_update(aspath, aspath_format_json);
 	return aspath;
 }
 
@@ -1267,7 +1275,7 @@ struct aspath *aspath_replace_regex_asn(struct aspath *aspath,
 		cur_seg = cur_seg->next;
 	}
 
-	aspath_str_update(new, false);
+	aspath_str_update(new, aspath_format_json);
 	return new;
 }
 
@@ -1292,7 +1300,7 @@ struct aspath *aspath_replace_specific_asn(struct aspath *aspath,
 		seg = seg->next;
 	}
 
-	aspath_str_update(new, false);
+	aspath_str_update(new, aspath_format_json);
 	return new;
 }
 
@@ -1314,7 +1322,7 @@ struct aspath *aspath_replace_all_asn(struct aspath *aspath, as_t our_asn)
 		seg = seg->next;
 	}
 
-	aspath_str_update(new, false);
+	aspath_str_update(new, aspath_format_json);
 	return new;
 }
 
@@ -1340,7 +1348,7 @@ struct aspath *aspath_replace_private_asns(struct aspath *aspath, as_t asn,
 		seg = seg->next;
 	}
 
-	aspath_str_update(new, false);
+	aspath_str_update(new, aspath_format_json);
 	return new;
 }
 
@@ -1410,9 +1418,10 @@ struct aspath *aspath_remove_private_asns(struct aspath *aspath, as_t peer_asn)
 		last_new_seg = new_seg;
 		seg = seg->next;
 	}
+
 	if (!aspath->refcnt)
 		aspath_free(aspath);
-	aspath_str_update(new, false);
+	aspath_str_update(new, aspath_format_json);
 	return new;
 }
 
@@ -1468,7 +1477,7 @@ static struct aspath *aspath_merge(struct aspath *as1, struct aspath *as2)
 	if (last)
 		last->next = as2->segments;
 	as2->segments = new;
-	aspath_str_update(as2, false);
+	aspath_str_update(as2, aspath_format_json);
 	return as2;
 }
 
@@ -1485,7 +1494,7 @@ struct aspath *aspath_prepend(struct aspath *as1, struct aspath *as2)
 	/* If as2 is empty, only need to dupe as1's chain onto as2 */
 	if (as2->segments == NULL) {
 		as2->segments = assegment_dup_all(as1->segments);
-		aspath_str_update(as2, false);
+		aspath_str_update(as2, aspath_format_json);
 		return as2;
 	}
 
@@ -1505,7 +1514,7 @@ struct aspath *aspath_prepend(struct aspath *as1, struct aspath *as2)
 
 	if (!as2->segments) {
 		as2->segments = assegment_dup_all(as1->segments);
-		aspath_str_update(as2, false);
+		aspath_str_update(as2, aspath_format_json);
 		return as2;
 	}
 
@@ -1550,7 +1559,7 @@ struct aspath *aspath_prepend(struct aspath *as1, struct aspath *as2)
 		/* we've now prepended as1's segment chain to as2, merging
 		 * the inbetween AS_SEQUENCE of seg2 in the process
 		 */
-		aspath_str_update(as2, false);
+		aspath_str_update(as2, aspath_format_json);
 		return as2;
 	} else {
 		/* AS_SET merge code is needed at here. */
@@ -1661,7 +1670,7 @@ struct aspath *aspath_filter_exclude(struct aspath *source,
 			lastseg->next = newseg;
 		lastseg = newseg;
 	}
-	aspath_str_update(newpath, false);
+	aspath_str_update(newpath, aspath_format_json);
 	/* We are happy returning even an empty AS_PATH, because the
 	 * administrator
 	 * might expect this very behaviour. There's a mean to avoid this, if
@@ -1679,7 +1688,7 @@ struct aspath *aspath_filter_exclude_all(struct aspath *source)
 
 	newpath = aspath_new(source->asnotation);
 
-	aspath_str_update(newpath, false);
+	aspath_str_update(newpath, aspath_format_json);
 	/* We are happy returning even an empty AS_PATH, because the
 	 * administrator
 	 * might expect this very behaviour. There's a mean to avoid this, if
@@ -1766,7 +1775,7 @@ struct aspath *aspath_filter_exclude_acl(struct aspath *source,
 	}
 
 
-	aspath_str_update(source, false);
+	aspath_str_update(source, aspath_format_json);
 	/* We are happy returning even an empty AS_PATH, because the
 	 * administrator
 	 * might expect this very behaviour. There's a mean to avoid this, if
@@ -1804,7 +1813,7 @@ static struct aspath *aspath_add_asns(struct aspath *aspath, as_t asno,
 		aspath->segments = newsegment;
 	}
 
-	aspath_str_update(aspath, false);
+	aspath_str_update(aspath, aspath_format_json);
 	return aspath;
 }
 
@@ -1895,7 +1904,7 @@ struct aspath *aspath_reconcile_as4(struct aspath *aspath,
 
 	if (!hops) {
 		newpath = aspath_dup(as4path);
-		aspath_str_update(newpath, false);
+		aspath_str_update(newpath, aspath_format_json);
 		return newpath;
 	}
 
@@ -1956,7 +1965,7 @@ struct aspath *aspath_reconcile_as4(struct aspath *aspath,
 	mergedpath = aspath_merge(newpath, aspath_dup(as4path));
 	aspath_free(newpath);
 	mergedpath->segments = assegment_normalise(mergedpath->segments);
-	aspath_str_update(mergedpath, false);
+	aspath_str_update(mergedpath, aspath_format_json);
 
 	if (BGP_DEBUG(as4, AS4))
 		zlog_debug("[AS4] result of synthesizing is %s",
@@ -2028,7 +2037,7 @@ struct aspath *aspath_delete_confed_seq(struct aspath *aspath)
 	}
 
 	if (removed_confed_segment)
-		aspath_str_update(aspath, false);
+		aspath_str_update(aspath, aspath_format_json);
 
 	return aspath;
 }
@@ -2079,7 +2088,7 @@ struct aspath *aspath_empty_get(void)
 	struct aspath *aspath;
 
 	aspath = aspath_new(bgp_get_asnotation(NULL));
-	aspath_make_str_count(aspath, false);
+	aspath_make_str_count(aspath, aspath_format_json);
 	return aspath;
 }
 
@@ -2220,7 +2229,7 @@ struct aspath *aspath_str2aspath(const char *str,
 		}
 	}
 
-	aspath_make_str_count(aspath, false);
+	aspath_make_str_count(aspath, aspath_format_json);
 
 	return aspath;
 }
@@ -2232,7 +2241,7 @@ unsigned int aspath_key_make(const void *p)
 	unsigned int key = 0;
 
 	if (!aspath->str)
-		aspath_str_update((struct aspath *)aspath, false);
+		aspath_str_update((struct aspath *)aspath, aspath_format_json);
 
 	key = jhash(aspath->str, aspath->str_len, 2334325);
 
