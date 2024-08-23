@@ -42,6 +42,10 @@
 #define ZEBRA_NS_POLLING_INTERVAL_MSEC     1000
 #define ZEBRA_NS_POLLING_MAX_RETRIES  200
 
+#if !defined(__GLIBC__)
+#define basename(src) (strrchr(src, '/') ? strrchr(src, '/') + 1 : src)
+#endif
+
 DEFINE_MTYPE_STATIC(ZEBRA, NETNS_MISC, "ZebraNetNSInfo");
 static struct event *zebra_netns_notify_current;
 
