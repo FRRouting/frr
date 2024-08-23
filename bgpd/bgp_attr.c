@@ -5098,13 +5098,13 @@ void bgp_packet_mpunreach_end(struct stream *s, size_t attrlen_pnt)
 void bgp_attr_init(void)
 {
 	aspath_init();
-	aspath_set_format_json(false);
+	aspath_set_format_json(true);
 	attrhash_init();
 	community_init();
-	community_set_format_json(false);
+	community_set_format_json(true);
 	ecommunity_init();
 	lcommunity_init();
-	lcommunity_set_format_json(false);
+	lcommunity_set_format_json(true);
 	cluster_init();
 	transit_init();
 	encap_init();
