@@ -311,6 +311,14 @@ Configuration Commands
 
    Specify the policy SRv6 SID
 
+
+.. clicmd:: use-srv6-sid-manager
+
+   SRTE 'use-srv6-sid-manager' command tells the SRTE service
+   to use or not BSIDs allocated from the SRv6 SIDs pool of the zebra
+   locators.
+
+
 .. clicmd:: candidate-path preference PREFERENCE name NAME explicit segment-list SEGMENT-LIST-NAME
 
    Delete or define an explicit candidate path.
