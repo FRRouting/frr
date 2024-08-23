@@ -78,4 +78,8 @@ extern void bgp_remove_lcomm_from_aggregate_hash(
 					struct lcommunity *lcommunity);
 extern void bgp_aggr_lcommunity_remove(void *arg);
 
+extern bool lcommunity_get_format_json(void);
+
+extern void lcommunity_set_format_json(bool make_json);
+
 #endif /* _QUAGGA_BGP_LCOMMUNITY_H */

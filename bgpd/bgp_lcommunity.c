@@ -22,6 +22,9 @@
 /* Hash of community attribute. */
 static struct hash *lcomhash;
 
+/* large-community foramt json variable */
+static bool lcommunity_format_json = false;
+
 /* Allocate a new lcommunities.  */
 static struct lcommunity *lcommunity_new(void)
 {
@@ -264,7 +267,7 @@ struct lcommunity *lcommunity_intern(struct lcommunity *lcom)
 	find->refcnt++;
 
 	if (!find->str)
-		set_lcommunity_string(find, false, true);
+		set_lcommunity_string(find, lcommunity_get_format_json(), true);
 
 	return find;
 }
@@ -671,4 +674,14 @@ void bgp_remove_lcomm_from_aggregate_hash(struct bgp_aggregate *aggregate,
 			lcommunity_free(&ret_lcomm);
 		}
 	}
+}
+
+void lcommunity_set_format_json(bool make_json)
+{
+	lcommunity_format_json = make_json;
+}
+
+bool lcommunity_get_format_json()
+{
+	return lcommunity_format_json;
 }

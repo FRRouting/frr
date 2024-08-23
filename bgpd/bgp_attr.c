@@ -5103,6 +5103,7 @@ void bgp_attr_init(void)
 	community_init();
 	ecommunity_init();
 	lcommunity_init();
+	lcommunity_set_format_json(false);
 	cluster_init();
 	transit_init();
 	encap_init();

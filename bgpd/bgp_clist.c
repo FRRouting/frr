@@ -614,7 +614,7 @@ static bool lcommunity_regexp_match(struct lcommunity *com, regex_t *reg)
 	if (com == NULL || com->size == 0)
 		str = "";
 	else
-		str = lcommunity_str(com, false, true);
+		str = lcommunity_str(com, lcommunity_get_format_json(), true);
 
 	regstr = bgp_alias2community_str(str);
 
