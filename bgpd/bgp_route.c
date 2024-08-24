@@ -4608,6 +4608,8 @@ void bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 		 */
 		if ((afi == AFI_L2VPN) && evpn)
 			bgp_attr_set_evpn_overlay(attr, evpn);
+		else
+			evpn_overlay_free(evpn);
 		bgp_adj_in_set(dest, peer, attr, addpath_id, &bgp_labels);
 	}
 
@@ -4770,6 +4772,8 @@ void bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 	 */
 	if (soft_reconfig && (afi == AFI_L2VPN) && evpn)
 		bgp_attr_set_evpn_overlay(&new_attr, evpn);
+	else
+		evpn_overlay_free(evpn);
 
 	/* Apply incoming route-map.
 	 * NB: new_attr may now contain newly allocated values from route-map

@@ -555,7 +555,7 @@ static void *evpn_overlay_hash_alloc(void *p)
 	return p;
 }
 
-static void evpn_overlay_free(struct bgp_route_evpn *bre)
+void evpn_overlay_free(struct bgp_route_evpn *bre)
 {
 	XFREE(MTYPE_BGP_EVPN_OVERLAY, bre);
 }

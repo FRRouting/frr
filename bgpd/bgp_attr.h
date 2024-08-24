@@ -646,5 +646,6 @@ bgp_attr_set_vnc_subtlvs(struct attr *attr,
 }
 
 extern bool route_matches_soo(struct bgp_path_info *pi, struct ecommunity *soo);
+extern void evpn_overlay_free(struct bgp_route_evpn *bre);
 
 #endif /* _QUAGGA_BGP_ATTR_H */
