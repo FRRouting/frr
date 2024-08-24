@@ -4861,6 +4861,7 @@ static int process_type5_route(struct peer *peer, afi_t afi, safi_t safi,
 		flog_err(EC_BGP_EVPN_ROUTE_INVALID,
 			 "%u:%s - Rx EVPN Type-5 NLRI with invalid length %d",
 			 peer->bgp->vrf_id, peer->host, psize);
+		evpn_overlay_free(evpn);
 		return -1;
 	}
 
@@ -4893,6 +4894,7 @@ static int process_type5_route(struct peer *peer, afi_t afi, safi_t safi,
 			EC_BGP_EVPN_ROUTE_INVALID,
 			"%u:%s - Rx EVPN Type-5 NLRI with invalid IP Prefix length %d",
 			peer->bgp->vrf_id, peer->host, ippfx_len);
+		evpn_overlay_free(evpn);
 		return -1;
 	}
 	p.prefix.prefix_addr.ip_prefix_length = ippfx_len;
@@ -4973,6 +4975,7 @@ static int process_type5_route(struct peer *peer, afi_t afi, safi_t safi,
 		}
 		bgp_withdraw(peer, (struct prefix *)&p, addpath_id, afi, safi,
 			     ZEBRA_ROUTE_BGP, BGP_ROUTE_NORMAL, &prd, &label, 1);
+		evpn_overlay_free(evpn);
 	}
 
 	return 0;
