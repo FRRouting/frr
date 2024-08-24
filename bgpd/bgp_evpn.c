@@ -5128,13 +5128,15 @@ static void evpn_auto_rt_import_add_for_vrf(struct bgp *bgp_vrf)
 {
 	struct bgp *bgp_evpn = NULL;
 
-	form_auto_rt(bgp_vrf, bgp_vrf->l3vni, bgp_vrf->vrf_import_rtl, true);
+	if (!is_l3vni_live(bgp_vrf))
+		return;
 
 	/* Map RT to VRF */
 	bgp_evpn = bgp_get_evpn();
-
 	if (!bgp_evpn)
 		return;
+
+	form_auto_rt(bgp_vrf, bgp_vrf->l3vni, bgp_vrf->vrf_import_rtl, true);
 
 	bgp_evpn_map_vrf_to_its_rts(bgp_vrf);
 }
@@ -5153,6 +5155,16 @@ static void evpn_auto_rt_import_delete_for_vrf(struct bgp *bgp_vrf)
  */
 static void evpn_auto_rt_export_add_for_vrf(struct bgp *bgp_vrf)
 {
+	struct bgp *bgp_evpn = NULL;
+
+	if (!is_l3vni_live(bgp_vrf))
+		return;
+
+	/* Map RT to VRF */
+	bgp_evpn = bgp_get_evpn();
+	if (!bgp_evpn)
+		return;
+
 	form_auto_rt(bgp_vrf, bgp_vrf->l3vni, bgp_vrf->vrf_export_rtl, true);
 }
 
