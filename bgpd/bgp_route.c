@@ -10571,8 +10571,7 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct bgp_dest *bn,
 		vty_out(vty, "\n");
 
 
-	if (path->extra && path->extra->vrfleak &&
-	    path->extra->vrfleak->parent && !json_paths) {
+	if (path->extra && path->extra->vrfleak && path->extra->vrfleak->parent) {
 		struct bgp_path_info *parent_ri;
 		struct bgp_dest *dest, *pdest;
 
@@ -10582,31 +10581,68 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct bgp_dest *bn,
 		if (dest && dest->pdest) {
 			pdest = dest->pdest;
 			if (is_pi_family_evpn(parent_ri)) {
-				vty_out(vty, "  Imported from ");
-				vty_out(vty, BGP_RD_AS_FORMAT(bgp->asnotation),
-					(struct prefix_rd *)bgp_dest_get_prefix(
-						pdest));
-				vty_out(vty, ":%pFX, VNI %s",
-					(struct prefix_evpn *)
-						bgp_dest_get_prefix(dest),
-					vni_buf);
-				if (CHECK_FLAG(attr->es_flags, ATTR_ES_L3_NHG))
+				if (json_paths) {
+					json_object_string_addf(
+						json_path, "importedFrom",
+						BGP_RD_AS_FORMAT(bgp->asnotation),
+						(struct prefix_rd *)
+							bgp_dest_get_prefix(
+								pdest));
+					if (safi != SAFI_EVPN)
+						json_object_string_add(json_path,
+								       "vni",
+								       vni_buf);
+				} else {
+					vty_out(vty, "  Imported from ");
+					vty_out(vty,
+						BGP_RD_AS_FORMAT(bgp->asnotation),
+						(struct prefix_rd *)
+							bgp_dest_get_prefix(
+								pdest));
+					vty_out(vty, ":%pFX, VNI %s",
+						(struct prefix_evpn *)
+							bgp_dest_get_prefix(dest),
+						vni_buf);
+				}
+				if (CHECK_FLAG(attr->es_flags, ATTR_ES_L3_NHG) &&
+				    !json_paths) {
 					vty_out(vty, ", L3NHG %s",
 						CHECK_FLAG(
 							attr->es_flags,
 							ATTR_ES_L3_NHG_ACTIVE)
 							? "active"
 							: "inactive");
-				vty_out(vty, "\n");
-
+					vty_out(vty, "\n");
+				} else if (json_paths) {
+					json_object_boolean_add(
+						json_path, "l3nhg",
+						CHECK_FLAG(attr->es_flags,
+							   ATTR_ES_L3_NHG));
+					json_object_boolean_add(
+						json_path, "l3nhgActive",
+						CHECK_FLAG(attr->es_flags,
+							   ATTR_ES_L3_NHG_ACTIVE));
+				}
 			} else {
-				vty_out(vty, "  Imported from ");
-				vty_out(vty, BGP_RD_AS_FORMAT(bgp->asnotation),
-					(struct prefix_rd *)bgp_dest_get_prefix(
-						pdest));
-				vty_out(vty, ":%pFX\n",
-					(struct prefix_evpn *)
-						bgp_dest_get_prefix(dest));
+				if (json_paths) {
+					json_object_string_addf(
+						json_path, "importedFrom",
+						BGP_RD_AS_FORMAT(bgp->asnotation),
+						(struct prefix_rd *)
+							bgp_dest_get_prefix(
+								pdest));
+				} else {
+					vty_out(vty, "  Imported from ");
+					vty_out(vty,
+						BGP_RD_AS_FORMAT(bgp->asnotation),
+						(struct prefix_rd *)
+							bgp_dest_get_prefix(
+								pdest));
+					vty_out(vty, ":%pFX\n",
+						(struct prefix_evpn *)
+							bgp_dest_get_prefix(
+								dest));
+				}
 			}
 		}
 	}
