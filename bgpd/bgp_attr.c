@@ -3300,6 +3300,9 @@ enum bgp_attr_parse_ret bgp_attr_prefix_sid(struct bgp_attr_parser_args *args)
 	size_t headersz = sizeof(type) + sizeof(length);
 	size_t psid_parsed_length = 0;
 
+	if (peer->discard_attrs[args->type] || peer->withdraw_attrs[args->type])
+		goto prefix_sid_ignore;
+
 	while (STREAM_READABLE(peer->curr) > 0
 	       && psid_parsed_length < args->length) {
 
@@ -3347,6 +3350,11 @@ enum bgp_attr_parse_ret bgp_attr_prefix_sid(struct bgp_attr_parser_args *args)
 	SET_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_PREFIX_SID));
 
 	return BGP_ATTR_PARSE_PROCEED;
+
+prefix_sid_ignore:
+	stream_forward_getp(peer->curr, args->length);
+
+	return bgp_attr_ignore(peer, args->type);
 }
 
 /* PMSI tunnel attribute (RFC 6514)
