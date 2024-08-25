@@ -2790,6 +2790,9 @@ static int bgp_attr_encap(struct bgp_attr_parser_args *args)
 	uint8_t type = args->type;
 	uint8_t flag = args->flags;
 
+	if (peer->discard_attrs[args->type] || peer->withdraw_attrs[args->type])
+		goto encap_ignore;
+
 	if (!CHECK_FLAG(flag, BGP_ATTR_FLAG_TRANS)
 	    || !CHECK_FLAG(flag, BGP_ATTR_FLAG_OPTIONAL)) {
 		zlog_err("Tunnel Encap attribute flag isn't optional and transitive %d",
@@ -2908,7 +2911,12 @@ static int bgp_attr_encap(struct bgp_attr_parser_args *args)
 					  args->total);
 	}
 
-	return 0;
+	return BGP_ATTR_PARSE_PROCEED;
+
+encap_ignore:
+	stream_forward_getp(peer->curr, length);
+
+	return bgp_attr_ignore(peer, type);
 }
 
 
