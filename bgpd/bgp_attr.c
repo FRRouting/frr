@@ -3369,6 +3369,9 @@ bgp_attr_pmsi_tunnel(struct bgp_attr_parser_args *args)
 	uint8_t tnl_type;
 	int attr_parse_len = 2 + BGP_LABEL_BYTES;
 
+	if (peer->discard_attrs[args->type] || peer->withdraw_attrs[args->type])
+		goto pmsi_tunnel_ignore;
+
 	/* Verify that the receiver is expecting "ingress replication" as we
 	 * can only support that.
 	 */
@@ -3405,6 +3408,11 @@ bgp_attr_pmsi_tunnel(struct bgp_attr_parser_args *args)
 	stream_forward_getp(peer->curr, length - attr_parse_len);
 
 	return BGP_ATTR_PARSE_PROCEED;
+
+pmsi_tunnel_ignore:
+	stream_forward_getp(peer->curr, length);
+
+	return bgp_attr_ignore(peer, args->type);
 }
 
 /* AIGP attribute (rfc7311) */
