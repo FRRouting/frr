@@ -2911,6 +2911,8 @@ static int bgp_attr_encap(struct bgp_attr_parser_args *args)
 					  args->total);
 	}
 
+	SET_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_ENCAP));
+
 	return BGP_ATTR_PARSE_PROCEED;
 
 encap_ignore:
