@@ -815,7 +815,7 @@ struct bpacket *subgroup_update_packet(struct update_subgroup *subgrp)
 				label_pnt = &label;
 				num_labels = 1;
 			} else {
-				num_labels = bgp_path_info_num_labels(path);
+				num_labels = BGP_PATH_INFO_NUM_LABELS(path);
 				label_pnt =
 					num_labels
 						? &path->extra->labels->label[0]
