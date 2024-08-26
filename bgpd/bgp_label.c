@@ -208,9 +208,8 @@ mpls_label_t bgp_adv_label(struct bgp_dest *dest, struct bgp_path_info *pi,
 	if (!dest || !pi || !to)
 		return MPLS_INVALID_LABEL;
 
-	remote_label = bgp_path_info_num_labels(pi)
-			       ? pi->extra->labels->label[0]
-			       : MPLS_INVALID_LABEL;
+	remote_label = BGP_PATH_INFO_NUM_LABELS(pi) ? pi->extra->labels->label[0]
+						    : MPLS_INVALID_LABEL;
 	from = pi->peer;
 	reflect =
 		((from->sort == BGP_PEER_IBGP) && (to->sort == BGP_PEER_IBGP));

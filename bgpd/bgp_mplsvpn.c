@@ -2326,8 +2326,7 @@ static void vpn_leak_to_vrf_update_onevrf(struct bgp *to_bgp,   /* to */
 				origin_local = 1;
 		}
 
-		num_labels = origin_local ? 0
-					  : bgp_path_info_num_labels(path_vpn);
+		num_labels = origin_local ? 0 : BGP_PATH_INFO_NUM_LABELS(path_vpn);
 		label_pnt = num_labels ? path_vpn->extra->labels->label : NULL;
 	}
 
@@ -4214,9 +4213,8 @@ void bgp_mplsvpn_nh_label_bind_register_local_label(struct bgp *bgp,
 	struct bgp_mplsvpn_nh_label_bind_cache_head *tree;
 	mpls_label_t label;
 
-	label = bgp_path_info_num_labels(pi)
-			? decode_label(&pi->extra->labels->label[0])
-			: MPLS_INVALID_LABEL;
+	label = BGP_PATH_INFO_NUM_LABELS(pi) ? decode_label(&pi->extra->labels->label[0])
+					     : MPLS_INVALID_LABEL;
 
 	tree = &bgp->mplsvpn_nh_label_bind;
 	bmnc = bgp_mplsvpn_nh_label_bind_find(tree, &pi->nexthop->prefix, label);

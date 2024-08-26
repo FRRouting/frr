@@ -1082,9 +1082,8 @@ route_match_vni(void *rule, const struct prefix *prefix, void *object)
 		&& evp->prefix.route_type != BGP_EVPN_IP_PREFIX_ROUTE))
 		return RMAP_NOOP;
 
-	for (label_cnt = 0; label_cnt < BGP_MAX_LABELS &&
-			    label_cnt < bgp_path_info_num_labels(path);
-	     label_cnt++) {
+	for (label_cnt = 0;
+	     label_cnt < BGP_MAX_LABELS && label_cnt < BGP_PATH_INFO_NUM_LABELS(path); label_cnt++) {
 		if (vni == label2vni(&path->extra->labels->label[label_cnt]))
 			return RMAP_MATCH;
 	}

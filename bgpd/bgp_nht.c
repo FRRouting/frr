@@ -505,9 +505,8 @@ int bgp_find_or_add_nexthop(struct bgp *bgp_route, struct bgp *bgp_nexthop,
 	 */
 	if (bgp_route->inst_type == BGP_INSTANCE_TYPE_VIEW)
 		return 1;
-	else if (safi == SAFI_UNICAST && pi &&
-		 pi->sub_type == BGP_ROUTE_IMPORTED &&
-		 bgp_path_info_num_labels(pi) && !bnc->is_evpn_gwip_nexthop)
+	else if (safi == SAFI_UNICAST && pi && pi->sub_type == BGP_ROUTE_IMPORTED &&
+		 BGP_PATH_INFO_NUM_LABELS(pi) && !bnc->is_evpn_gwip_nexthop)
 		return bgp_isvalid_nexthop_for_l3vpn(bnc, pi);
 	else if (safi == SAFI_MPLS_VPN && pi &&
 		 pi->sub_type != BGP_ROUTE_IMPORTED)
@@ -1092,7 +1091,7 @@ static int make_prefix(int afi, safi_t safi, struct bgp_path_info *pi, struct pr
 						pi->peer->afc[AFI_IP6][SAFI_LABELED_UNICAST];
 					is_imported = safi == SAFI_UNICAST &&
 						      pi->sub_type == BGP_ROUTE_IMPORTED;
-					has_labels = bgp_path_info_num_labels(pi) &&
+					has_labels = BGP_PATH_INFO_NUM_LABELS(pi) &&
 						     pi->extra->labels->label[0] !=
 							     MPLS_INVALID_LABEL;
 
@@ -1120,7 +1119,7 @@ static int make_prefix(int afi, safi_t safi, struct bgp_path_info *pi, struct pr
 						     pi->peer->afc[AFI_IP6][SAFI_LABELED_UNICAST];
 				is_imported = safi == SAFI_UNICAST &&
 					      pi->sub_type == BGP_ROUTE_IMPORTED;
-				has_labels = bgp_path_info_num_labels(pi) &&
+				has_labels = BGP_PATH_INFO_NUM_LABELS(pi) &&
 					     pi->extra->labels->label[0] != MPLS_INVALID_LABEL;
 
 				pi_prefix = bgp_dest_get_prefix(pi->net);
@@ -1356,7 +1355,7 @@ void evaluate_paths(struct bgp_nexthop_cache *bnc)
 
 		if (p->family == AF_INET6 && bnc->prefix.family == AF_INET6 &&
 		    IS_MAPPED_IPV6(&bnc->prefix.u.prefix6) && safi == SAFI_LABELED_UNICAST &&
-		    bgp_path_info_num_labels(path) &&
+		    BGP_PATH_INFO_NUM_LABELS(path) &&
 		    (bgp_is_dataplane_label(path->extra->labels->label,
 					    path->extra->labels->num_labels)))
 			/* labeled unicast: mpls values different than imp-null
@@ -1364,7 +1363,7 @@ void evaluate_paths(struct bgp_nexthop_cache *bnc)
 			 */
 			bnc_is_valid_nexthop = true;
 		else if (safi == SAFI_UNICAST && path->sub_type == BGP_ROUTE_IMPORTED &&
-			 bgp_path_info_num_labels(path) &&
+			 BGP_PATH_INFO_NUM_LABELS(path) &&
 			 (path->attr->evpn_overlay.type != OVERLAY_INDEX_GATEWAY_IP)) {
 			bnc_is_valid_nexthop = bgp_isvalid_nexthop_for_l3vpn(bnc, path) ? true
 											: false;
