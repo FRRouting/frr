@@ -12934,7 +12934,7 @@ DEFUN (show_ip_bgp_l2vpn_evpn_statistics,
 	struct json_object *json_afi_safi = NULL, *json = NULL;
 
 	bgp_vty_find_and_parse_afi_safi_bgp(vty, argv, argc, &idx, &afi, &safi,
-					    &bgp, false);
+					    &bgp, uj);
 	if (!idx)
 		return CMD_WARNING;
 
@@ -12972,7 +12972,7 @@ DEFUN(show_ip_bgp_afi_safi_statistics, show_ip_bgp_afi_safi_statistics_cmd,
 	struct json_object *json_afi_safi = NULL, *json = NULL;
 
 	bgp_vty_find_and_parse_afi_safi_bgp(vty, argv, argc, &idx, &afi, &safi,
-					    &bgp, false);
+					    &bgp, uj);
 	if (!idx)
 		return CMD_WARNING;
 
