@@ -169,7 +169,7 @@ static void bgp_process_mac_rescan_table(struct bgp *bgp, struct peer *peer,
 			    && !dest_affected)
 				continue;
 
-			num_labels = bgp_path_info_num_labels(pi);
+			num_labels = BGP_PATH_INFO_NUM_LABELS(pi);
 			label_pnt = num_labels ? &pi->extra->labels->label[0]
 					       : NULL;
 

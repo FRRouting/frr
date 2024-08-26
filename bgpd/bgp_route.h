@@ -561,6 +561,11 @@ struct bgp_aggregate {
 /* path PREFIX (addpath rxid NUMBER) */
 #define PATH_ADDPATH_STR_BUFFER PREFIX2STR_BUFFER + 32
 
+#define BGP_PATH_INFO_NUM_LABELS(pi)                                           \
+	((pi) && (pi)->extra && (pi)->extra->labels                            \
+		 ? (pi)->extra->labels->num_labels                             \
+		 : 0)
+
 enum bgp_path_type {
 	BGP_PATH_SHOW_ALL,
 	BGP_PATH_SHOW_BESTPATH,
@@ -748,7 +753,6 @@ extern void bgp_path_info_delete(struct bgp_dest *dest,
 extern struct bgp_path_info_extra *
 bgp_path_info_extra_get(struct bgp_path_info *path);
 extern bool bgp_path_info_has_valid_label(const struct bgp_path_info *path);
-extern uint8_t bgp_path_info_num_labels(const struct bgp_path_info *pi);
 extern void bgp_path_info_set_flag(struct bgp_dest *dest,
 				   struct bgp_path_info *path, uint32_t flag);
 extern void bgp_path_info_unset_flag(struct bgp_dest *dest,
