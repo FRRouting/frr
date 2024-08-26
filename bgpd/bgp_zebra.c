@@ -1336,7 +1336,7 @@ static void bgp_zebra_announce_parse_nexthop(
 		api_nh->srte_color = bgp_attr_get_color(info->attr);
 
 		if (bgp_debug_zebra(&api->prefix)) {
-			if (bgp_path_info_num_labels(mpinfo)) {
+			if (BGP_PATH_INFO_NUM_LABELS(mpinfo)) {
 				zlog_debug("%s: p=%pFX, bgp_is_valid_label: %d",
 					   __func__, p,
 					   bgp_is_valid_label(
@@ -1409,7 +1409,7 @@ static void bgp_zebra_announce_parse_nexthop(
 		     mpinfo->peer->sort == BGP_PEER_CONFED))
 			*allow_recursion = true;
 
-		num_labels = bgp_path_info_num_labels(mpinfo);
+		num_labels = BGP_PATH_INFO_NUM_LABELS(mpinfo);
 		labels = num_labels ? mpinfo->extra->labels->label : NULL;
 
 		if (num_labels && (is_evpn || bgp_is_valid_label(&labels[0]))) {

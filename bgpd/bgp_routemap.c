@@ -1082,7 +1082,7 @@ route_match_vni(void *rule, const struct prefix *prefix, void *object)
 		return RMAP_NOOP;
 
 	for (label_cnt = 0; label_cnt < BGP_MAX_LABELS &&
-			    label_cnt < bgp_path_info_num_labels(path);
+			    label_cnt < BGP_PATH_INFO_NUM_LABELS(path);
 	     label_cnt++) {
 		if (vni == label2vni(&path->extra->labels->label[label_cnt]))
 			return RMAP_MATCH;
