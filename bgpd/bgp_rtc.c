@@ -42,7 +42,7 @@ int bgp_nlri_parse_rtc(struct peer *peer, struct attr *attr,
 				prefix_list_get(AFI_IP, 0, 1, peer->host);
 			bgp_withdraw(peer, &p, 0, packet->afi, packet->safi,
 				     ZEBRA_ROUTE_BGP, BGP_ROUTE_NORMAL, NULL,
-				     NULL, 0, NULL);
+				     NULL, 0);
 		} else {
 			prefix_bgp_rtc_set(peer->host, &p, PREFIX_PERMIT, 1);
 			peer->rtc_plist =
