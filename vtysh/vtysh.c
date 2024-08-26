@@ -4953,6 +4953,7 @@ void vtysh_init_vty(void)
 	install_node(&bgp_vnc_l2_group_node);
 	install_node(&bgp_evpn_node);
 	install_node(&bgp_evpn_vni_node);
+	install_node(&bgp_rtc_node);
 	install_node(&rpki_node);
 	install_node(&bmp_node);
 	install_node(&bgp_srv6_node);
@@ -5120,7 +5121,6 @@ void vtysh_init_vty(void)
 	install_element(BGP_EVPN_VNI_NODE, &vtysh_end_all_cmd);
 	install_element(BGP_EVPN_VNI_NODE, &exit_vni_cmd);
 
-	install_node(&bgp_rtc_node);
 	install_element(BGP_NODE, &address_family_rtc_cmd);
 	install_element(BGP_RTC_NODE, &vtysh_exit_bgpd_cmd);
 	install_element(BGP_RTC_NODE, &vtysh_quit_bgpd_cmd);
