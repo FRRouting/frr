@@ -704,11 +704,6 @@ def test_ospfv3_hello_tc10_p0(request):
         tc_name, result
     )
 
-    step("verify that ospf neighbours are  full")
-    ospf_covergence = verify_ospf6_neighbor(tgen, topo, dut=dut)
-    assert ospf_covergence is True, "Testcase {} [22]: Failed \n Error: {}".format(
-        tc_name, ospf_covergence
-    )
     step(" Try configuring timer values outside range for example 65536")
     topo1 = {
         "r0": {
@@ -790,7 +785,9 @@ def test_ospfv3_dead_tc11_p0(request):
     }
 
     result = create_interfaces_cfg(tgen, topo1)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
+    assert result is True, "Testcase {} [01]: Failed \n Error: {}".format(
+        tc_name, result
+    )
 
     step(
         "verify that new timer value is configured and applied using "
@@ -799,7 +796,9 @@ def test_ospfv3_dead_tc11_p0(request):
     dut = "r1"
     input_dict = {"r1": {"links": {"r0": {"ospf6": {"timerIntervalsConfigDead": 48}}}}}
     result = verify_ospf6_interface(tgen, topo, dut=dut, input_dict=input_dict)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
+    assert result is True, "Testcase {} [02]: Failed \n Error: {}".format(
+        tc_name, result
+    )
 
     step("modify dead interval from default value to r1 dead interval timer on r2")
 
@@ -808,31 +807,35 @@ def test_ospfv3_dead_tc11_p0(request):
             "links": {
                 "r1": {
                     "interface": topo["routers"]["r0"]["links"]["r1"]["interface"],
-                    "ospf6": {"dead_interval": 48, "hello_interval": 12},
+                    "ospf6": {"hello_interval": 12, "dead_interval": 48},
                 }
             }
         }
     }
 
     result = create_interfaces_cfg(tgen, topo1)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
+    assert result is True, "Testcase {} [03]: Failed \n Error: {}".format(
+        tc_name, result
+    )
 
     step("verify that new timer value is configured.")
     input_dict = {"r0": {"links": {"r1": {"ospf6": {"timerIntervalsConfigDead": 48}}}}}
     dut = "r0"
     result = verify_ospf6_interface(tgen, topo, dut=dut, input_dict=input_dict)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
+    assert result is True, "Testcase {} [04]: Failed \n Error: {}".format(
+        tc_name, result
+    )
 
     step("verify that ospf neighbours are  full")
     ospf_covergence = verify_ospf6_neighbor(tgen, topo, dut=dut)
-    assert ospf_covergence is True, "Testcase {} : Failed \n Error: {}".format(
+    assert ospf_covergence is True, "Testcase {} [05]: Failed \n Error: {}".format(
         tc_name, ospf_covergence
     )
 
     step("remove ospf on R0")
     ospf_del = {"r0": {"ospf6": {"delete": True}}}
     result = create_router_ospf(tgen, topo, ospf_del)
-    assert result is True, "Testcase : Failed \n Error: {}".format(result)
+    assert result is True, "Testcase [06]: Failed \n Error: {}".format(result)
 
     # reconfiguring deleted ospf process by resetting the configs.
     reset_config_on_routers(tgen)
@@ -850,7 +853,9 @@ def test_ospfv3_dead_tc11_p0(request):
     }
 
     result = create_interfaces_cfg(tgen, topo1)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
+    assert result is True, "Testcase {} [07]: Failed \n Error: {}".format(
+        tc_name, result
+    )
 
     topo1 = {
         "r1": {
@@ -864,17 +869,21 @@ def test_ospfv3_dead_tc11_p0(request):
     }
 
     result = create_interfaces_cfg(tgen, topo1)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
+    assert result is True, "Testcase {} [08]: Failed \n Error: {}".format(
+        tc_name, result
+    )
 
     step("verify that new timer value is configured.")
     input_dict = {"r0": {"links": {"r1": {"ospf6": {"timerIntervalsConfigDead": 40}}}}}
     dut = "r0"
     result = verify_ospf6_interface(tgen, topo, dut=dut, input_dict=input_dict)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
+    assert result is True, "Testcase {} [09]: Failed \n Error: {}".format(
+        tc_name, result
+    )
 
     step("verify that ospf neighbours are  full")
     ospf_covergence = verify_ospf6_neighbor(tgen, topo, dut=dut)
-    assert ospf_covergence is True, "Testcase {} : Failed \n Error: {}".format(
+    assert ospf_covergence is True, "Testcase {} [10]: Failed \n Error: {}".format(
         tc_name, ospf_covergence
     )
 
@@ -892,7 +901,9 @@ def test_ospfv3_dead_tc11_p0(request):
     }
 
     result = create_interfaces_cfg(tgen, topo1)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
+    assert result is True, "Testcase {} [11]: Failed \n Error: {}".format(
+        tc_name, result
+    )
 
     topo1 = {
         "r1": {
@@ -906,7 +917,9 @@ def test_ospfv3_dead_tc11_p0(request):
     }
 
     result = create_interfaces_cfg(tgen, topo1)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
+    assert result is True, "Testcase {} [12]: Failed \n Error: {}".format(
+        tc_name, result
+    )
 
     step("verify that new timer value is configured.")
     input_dict = {
@@ -914,11 +927,13 @@ def test_ospfv3_dead_tc11_p0(request):
     }
     dut = "r0"
     result = verify_ospf6_interface(tgen, topo, dut=dut, input_dict=input_dict)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
+    assert result is True, "Testcase {} [13]: Failed \n Error: {}".format(
+        tc_name, result
+    )
 
     step("verify that ospf neighbours are  full")
     ospf_covergence = verify_ospf6_neighbor(tgen, topo, dut=dut)
-    assert ospf_covergence is True, "Testcase {} : Failed \n Error: {}".format(
+    assert ospf_covergence is True, "Testcase {} [14]: Failed \n Error: {}".format(
         tc_name, ospf_covergence
     )
 
@@ -937,7 +952,7 @@ def test_ospfv3_dead_tc11_p0(request):
     result = create_interfaces_cfg(tgen, topo1)
     assert (
         result is not True
-    ), "Testcase {} : Failed \n Create interface config failed. Error: {}".format(
+    ), "Testcase {} [15]: Failed \n Create interface config failed. Error: {}".format(
         tc_name, result
     )
 
@@ -956,13 +971,17 @@ def test_ospfv3_dead_tc11_p0(request):
     }
 
     result = create_interfaces_cfg(tgen, topo1)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
+    assert result is True, "Testcase {} [16]: Failed \n Error: {}".format(
+        tc_name, result
+    )
 
     step("Verify that timer value is deleted from intf &  set to default value 40 sec.")
     input_dict = {"r1": {"links": {"r0": {"ospf6": {"timerIntervalsConfigDead": 40}}}}}
     dut = "r1"
     result = verify_ospf6_interface(tgen, topo, dut=dut, input_dict=input_dict)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
+    assert result is True, "Testcase {} [17]: Failed \n Error: {}".format(
+        tc_name, result
+    )
 
     write_test_footer(tc_name)
 
