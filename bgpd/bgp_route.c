@@ -4797,22 +4797,21 @@ void bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 						false);
 	}
 
+	/* rfc7999:
+	 * A BGP speaker receiving an announcement tagged with the
+	 * BLACKHOLE community SHOULD add the NO_ADVERTISE or
+	 * NO_EXPORT community as defined in RFC1997, or a
+	 * similar community, to prevent propagation of the
+	 * prefix outside the local AS. The community to prevent
+	 * propagation SHOULD be chosen according to the operator's
+	 * routing policy.
+	 */
+	if (bgp_attr_get_community(&new_attr) &&
+	    community_include(bgp_attr_get_community(&new_attr),
+			      COMMUNITY_BLACKHOLE))
+		bgp_attr_add_no_export_community(&new_attr);
+
 	if (peer->sort == BGP_PEER_EBGP) {
-
-		/* rfc7999:
-		 * A BGP speaker receiving an announcement tagged with the
-		 * BLACKHOLE community SHOULD add the NO_ADVERTISE or
-		 * NO_EXPORT community as defined in RFC1997, or a
-		 * similar community, to prevent propagation of the
-		 * prefix outside the local AS. The community to prevent
-		 * propagation SHOULD be chosen according to the operator's
-		 * routing policy.
-		 */
-		if (bgp_attr_get_community(&new_attr) &&
-		    community_include(bgp_attr_get_community(&new_attr),
-				      COMMUNITY_BLACKHOLE))
-			bgp_attr_add_no_export_community(&new_attr);
-
 		/* If we receive the graceful-shutdown community from an eBGP
 		 * peer we must lower local-preference */
 		if (bgp_attr_get_community(&new_attr) &&
