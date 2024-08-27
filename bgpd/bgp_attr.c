@@ -2790,6 +2790,9 @@ static int bgp_attr_encap(struct bgp_attr_parser_args *args)
 	uint8_t type = args->type;
 	uint8_t flag = args->flags;
 
+	if (peer->discard_attrs[args->type] || peer->withdraw_attrs[args->type])
+		goto encap_ignore;
+
 	if (!CHECK_FLAG(flag, BGP_ATTR_FLAG_TRANS)
 	    || !CHECK_FLAG(flag, BGP_ATTR_FLAG_OPTIONAL)) {
 		zlog_err("Tunnel Encap attribute flag isn't optional and transitive %d",
@@ -2908,7 +2911,14 @@ static int bgp_attr_encap(struct bgp_attr_parser_args *args)
 					  args->total);
 	}
 
-	return 0;
+	SET_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_ENCAP));
+
+	return BGP_ATTR_PARSE_PROCEED;
+
+encap_ignore:
+	stream_forward_getp(peer->curr, length);
+
+	return bgp_attr_ignore(peer, type);
 }
 
 
@@ -3300,6 +3310,9 @@ enum bgp_attr_parse_ret bgp_attr_prefix_sid(struct bgp_attr_parser_args *args)
 	size_t headersz = sizeof(type) + sizeof(length);
 	size_t psid_parsed_length = 0;
 
+	if (peer->discard_attrs[args->type] || peer->withdraw_attrs[args->type])
+		goto prefix_sid_ignore;
+
 	while (STREAM_READABLE(peer->curr) > 0
 	       && psid_parsed_length < args->length) {
 
@@ -3347,6 +3360,11 @@ enum bgp_attr_parse_ret bgp_attr_prefix_sid(struct bgp_attr_parser_args *args)
 	SET_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_PREFIX_SID));
 
 	return BGP_ATTR_PARSE_PROCEED;
+
+prefix_sid_ignore:
+	stream_forward_getp(peer->curr, args->length);
+
+	return bgp_attr_ignore(peer, args->type);
 }
 
 /* PMSI tunnel attribute (RFC 6514)
@@ -3360,6 +3378,9 @@ bgp_attr_pmsi_tunnel(struct bgp_attr_parser_args *args)
 	const bgp_size_t length = args->length;
 	uint8_t tnl_type;
 	int attr_parse_len = 2 + BGP_LABEL_BYTES;
+
+	if (peer->discard_attrs[args->type] || peer->withdraw_attrs[args->type])
+		goto pmsi_tunnel_ignore;
 
 	/* Verify that the receiver is expecting "ingress replication" as we
 	 * can only support that.
@@ -3397,6 +3418,11 @@ bgp_attr_pmsi_tunnel(struct bgp_attr_parser_args *args)
 	stream_forward_getp(peer->curr, length - attr_parse_len);
 
 	return BGP_ATTR_PARSE_PROCEED;
+
+pmsi_tunnel_ignore:
+	stream_forward_getp(peer->curr, length);
+
+	return bgp_attr_ignore(peer, args->type);
 }
 
 /* AIGP attribute (rfc7311) */
