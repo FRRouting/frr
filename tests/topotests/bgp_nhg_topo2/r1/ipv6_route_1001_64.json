@@ -13,17 +13,9 @@
       "table":254,
       "nexthops":[
         {
-          "ip":"::ffff:c000:204",
+          "ip":"::ffff:192.0.2.4",
           "afi":"ipv6",
-          "active":true,
-          "recursive":true,
-          "weight":1
-        },
-        {
-          "ip":"172.31.0.4",
-          "afi":"ipv4",
           "interfaceName":"r1-eth0",
-          "resolver":true,
           "active":true,
           "weight":1
         }
