@@ -2656,13 +2656,6 @@ static unsigned nexthop_active_check(struct route_node *rn,
 			UNSET_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE);
 		break;
 	case NEXTHOP_TYPE_IPV6:
-		family = AFI_IP6;
-		if (nexthop_active(nexthop, nhe, &rn->p, re->type, re->flags,
-				   &mtu, vrf_id))
-			SET_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE);
-		else
-			UNSET_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE);
-		break;
 	case NEXTHOP_TYPE_IPV6_IFINDEX:
 		/* RFC 5549, v4 prefix with v6 NH */
 		if (rn->p.family != AF_INET)
