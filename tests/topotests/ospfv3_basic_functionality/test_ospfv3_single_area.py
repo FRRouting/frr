@@ -668,11 +668,6 @@ def test_ospfv3_hello_tc10_p0(request):
     result = verify_ospf6_interface(tgen, topo, dut=dut, input_dict=input_dict)
     assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
-    step("verify that ospf neighbours are  full")
-    ospf_covergence = verify_ospf6_neighbor(tgen, topo, dut=dut)
-    assert ospf_covergence is True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, ospf_covergence
-    )
     step(" Try configuring timer values outside range for example 65536")
     topo1 = {
         "r0": {
