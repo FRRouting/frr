@@ -172,6 +172,10 @@ void isis_link_params_update_asla(struct isis_circuit *circuit,
 	struct isis_ext_subtlvs *ext = circuit->ext;
 	int i;
 
+	if (!ext)
+		/* no extended subTLVs - nothing to update */
+		return;
+
 	if (!HAS_LINK_PARAMS(ifp)) {
 		list_delete_all_node(ext->aslas);
 		return;
