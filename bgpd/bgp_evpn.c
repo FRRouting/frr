@@ -3013,7 +3013,7 @@ bgp_create_evpn_bgp_path_info(struct bgp_path_info *parent_pi,
 	if (parent_pi->extra)
 		pi->extra->igpmetric = parent_pi->extra->igpmetric;
 
-	if (bgp_path_info_num_labels(parent_pi))
+	if (BGP_PATH_INFO_NUM_LABELS(parent_pi))
 		pi->extra->labels = bgp_labels_intern(parent_pi->extra->labels);
 
 	bgp_path_info_add(dest, pi);
