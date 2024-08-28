@@ -3029,6 +3029,23 @@ static void bgp_zebra_connected(struct zclient *zclient)
 	BGP_GR_ROUTER_DETECT_AND_SEND_CAPABILITY_TO_ZEBRA(bgp, bgp->peer);
 }
 
+void bgp_zebra_process_remote_routes_for_l2vni(struct event *e)
+{
+	/*
+	 * If we have learnt and retained remote routes (VTEPs, MACs)
+	 * for this VNI, install them.
+	 */
+	install_uninstall_routes_for_vni(NULL, NULL, true);
+
+	/*
+	 * If there are VNIs still pending to be processed, schedule them
+	 * after a small sleep so that CPU can be used for other purposes.
+	 */
+	if (zebra_l2_vni_count(&bm->zebra_l2_vni_head))
+		event_add_timer_msec(bm->master, bgp_zebra_process_remote_routes_for_l2vni, NULL,
+				     20, &bm->t_bgp_zebra_l2_vni);
+}
+
 static int bgp_zebra_process_local_es_add(ZAPI_CALLBACK_ARGS)
 {
 	esi_t esi;
