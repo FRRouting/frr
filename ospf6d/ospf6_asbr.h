@@ -136,6 +136,9 @@ extern void ospf6_asbr_routemap_update(const char *mapname);
 extern struct ospf6_lsa *
 ospf6_as_external_lsa_originate(struct ospf6_route *route,
 				struct ospf6 *ospf6);
+extern struct ospf6_lsa *
+ospf6_e_as_external_lsa_originate(struct ospf6_route *route,
+				struct ospf6 *ospf6);
 extern void ospf6_asbr_status_update(struct ospf6 *ospf6, int status);
 
 int ospf6_asbr_external_rt_advertise(struct ospf6 *ospf6,

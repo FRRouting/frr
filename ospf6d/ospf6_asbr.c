@@ -59,19 +59,34 @@ unsigned char conf_debug_ospf6_asbr = 0;
 #define ZROUTE_NAME(x) zebra_route_string(x)
 
 /* Originate Type-5 and Type-7 LSA */
-static struct ospf6_lsa *ospf6_originate_type5_type7_lsas(
-						struct ospf6_route *route,
-						struct ospf6 *ospf6)
+static struct ospf6_lsa *
+ospf6_originate_type5_type7_lsas(struct ospf6_route *route, struct ospf6 *ospf6)
 {
-	struct ospf6_lsa *lsa;
+	struct ospf6_lsa *lsa, *elsa;
 	struct listnode *lnode;
 	struct ospf6_area *oa = NULL;
 
-	lsa = ospf6_as_external_lsa_originate(route, ospf6);
+	switch (ospf6->extended_lsa_support) {
+	case OSPF6_E_LSA_SUP_LEGACY:
+		lsa = ospf6_as_external_lsa_originate(route, ospf6);
+		break;
+	case OSPF6_E_LSA_SUP_ELSA:
+		lsa = ospf6_e_as_external_lsa_originate(route, ospf6);
+		break;
+	case OSPF6_E_LSA_SUP_BOTH:
+		lsa = ospf6_as_external_lsa_originate(route, ospf6);
+		elsa = ospf6_e_as_external_lsa_originate(route, ospf6);
+		lsa = (lsa) ? lsa : elsa;
+		break;
+	default:
+		lsa = NULL;
+	}
 
 	for (ALL_LIST_ELEMENTS_RO(ospf6->area_list, lnode, oa)) {
-		if (IS_AREA_NSSA(oa))
+		if (IS_AREA_NSSA(oa)) {
+			/* TODO: LSTYPE */
 			ospf6_nssa_lsa_originate(route, oa, true);
+		}
 	}
 
 	return lsa;
@@ -167,6 +182,113 @@ struct ospf6_lsa *ospf6_as_external_lsa_originate(struct ospf6_route *route,
 		ospf6_new_ls_seqnum(lsa_header->type, lsa_header->id,
 				    lsa_header->adv_router, ospf6->lsdb);
 	lsa_header->length = htons((caddr_t)p - (caddr_t)lsa_header);
+
+	/* LSA checksum */
+	ospf6_lsa_checksum(lsa_header);
+
+	/* create LSA */
+	lsa = ospf6_lsa_create(lsa_header);
+
+	/* Originate */
+	ospf6_lsa_originate_process(lsa, ospf6);
+
+	return lsa;
+}
+
+/* E-AS External LSA origination */
+struct ospf6_lsa *ospf6_e_as_external_lsa_originate(struct ospf6_route *route,
+						    struct ospf6 *ospf6)
+{
+	char buffer[OSPF6_MAX_LSASIZE];
+	char *buf_end;
+	struct ospf6_external_info *info = route->route_option;
+	struct ospf6_lsa *lsa;
+	struct ospf6_lsa_header *lsa_header;
+	struct tlv_external_prefix *tlv_ext_prefix;
+	struct ospf6_prefix *prefix;
+
+	if (ospf6->gr_info.restart_in_progress) {
+		if (IS_DEBUG_OSPF6_GR)
+			zlog_debug(
+				"Graceful Restart in progress, don't originate LSA");
+		return NULL;
+	}
+
+	if (IS_OSPF6_DEBUG_ASBR || IS_OSPF6_DEBUG_ORIGINATE(AS_EXTERNAL))
+		zlog_debug("Originate E-AS-External-LSA for %pFX",
+			   &route->prefix);
+
+	/* prepare buffer */
+	memset(buffer, 0, sizeof(buffer));
+	lsa_header = (struct ospf6_lsa_header *)buffer;
+	tlv_ext_prefix = lsa_after_header(lsa_header);
+	prefix = (struct ospf6_prefix *)((char *)tlv_ext_prefix +
+					 sizeof(struct tlv_external_prefix));
+
+	/* Metric type */
+	if (route->path.metric_type == 2)
+		/* The metric is considered larger than any intra-AS path. */
+		SET_FLAG(tlv_ext_prefix->bits_metric, OSPF6_ASBR_BIT_E);
+	else
+		/*
+		 * The metric is expressed in the same units as other LSAs
+		 * (i.e., the same units as interface costs in router-LSAs).
+		 */
+		UNSET_FLAG(tlv_ext_prefix->bits_metric, OSPF6_ASBR_BIT_E);
+
+	/* Set metric */
+	OSPF6_ASBR_METRIC_SET(tlv_ext_prefix, route->path.cost);
+
+	/* prefixlen */
+	prefix->prefix_length = route->prefix.prefixlen;
+
+	/* PrefixOptions */
+	prefix->prefix_options = route->prefix_options;
+	/*
+	 * TODO:
+	 * The LA-bit MAY be set when the advertised host address is an
+	 * interface address. The IPv6 vs IPv4 language is unclear in RFC 8362.
+	 */
+
+	/* don't use refer LS-type */
+	prefix->prefix_refer_lstype = htons(0);
+
+	/* set Prefix */
+	memcpy(prefix->addr, &route->prefix.u.prefix6,
+	       OSPF6_PREFIX_SPACE(route->prefix.prefixlen));
+	ospf6_prefix_apply_mask(prefix);
+
+	/* End of Prefix, start of Sub-TLVs... */
+	buf_end = (char *)prefix->addr +
+		  OSPF6_PREFIX_SPACE(route->prefix.prefixlen);
+
+	/* forwarding address */
+	if (!IN6_IS_ADDR_UNSPECIFIED(&info->forwarding)) {
+		/* TODO:
+		 * create IPv6-Forwarding-Address sTLV or
+		 * IPv4-Forwarding-Address sTLV
+		 */
+	}
+
+	/* external route tag */
+	if (info->tag) {
+		/* TODO: create Route-Tag sub-TLV */
+	}
+
+	/* TLV header */
+	tlv_ext_prefix->header.type = htons(TLV_EXTERNAL_PREFIX_TYPE);
+	tlv_ext_prefix->header.length =
+		htons(buf_end - TLV_BODY(tlv_ext_prefix));
+
+	/* Fill LSA Header */
+	lsa_header->age = 0;
+	lsa_header->type = htons(OSPF6_LSTYPE_E_AS_EXTERNAL);
+	lsa_header->id = route->path.origin.id;
+	lsa_header->adv_router = ospf6->router_id;
+	lsa_header->seqnum =
+		ospf6_new_ls_seqnum(lsa_header->type, lsa_header->id,
+				    lsa_header->adv_router, ospf6->lsdb);
+	lsa_header->length = htons((caddr_t)buf_end - (caddr_t)lsa_header);
 
 	/* LSA checksum */
 	ospf6_lsa_checksum(lsa_header);
@@ -2423,7 +2545,18 @@ static char *ospf6_as_external_lsa_get_prefix_str(struct ospf6_lsa *lsa,
 	if (!lsa || !buf || pos > 1)
 		return NULL;
 
-	external = lsa_after_header(lsa->header);
+	if (OSPF6_LSA_IS_TYPE(AS_EXTERNAL, lsa) ||
+	    OSPF6_LSA_IS_TYPE(TYPE_7, lsa)) {
+		external = lsa_after_header(lsa->header);
+	} else {
+		/* OSPF6_LSTYPE_E_AS_EXTERNAL or OSPF6_LSTYPE_E_TYPE_7 */
+		external =
+			(struct ospf6_as_external_lsa
+				 *)((char *)lsa_after_header(lsa->header) +
+				    /* the LSA 'body' size (before TLV) is zero */
+				    sizeof(struct tlv_header));
+	}
+
 	prefix_length = external->prefix.prefix_length;
 	has_fa = CHECK_FLAG(external->bits_metric, OSPF6_ASBR_BIT_F);
 
@@ -2434,14 +2567,22 @@ static char *ospf6_as_external_lsa_get_prefix_str(struct ospf6_lsa *lsa,
 		snprintf(tbuf, sizeof(tbuf), "/%d", prefix_length);
 		strlcat(buf, tbuf, buflen);
 		return buf;
-	} else if (has_fa) {
-		/* Forwarding Address */
-		in6 = *((struct in6_addr
-				 *)((caddr_t)external +
-				    sizeof(struct ospf6_as_external_lsa) +
-				    OSPF6_PREFIX_SPACE(prefix_length)));
-		inet_ntop(AF_INET6, &in6, buf, buflen);
-		return buf;
+	}
+
+	if (has_fa) {
+		if (OSPF6_LSA_IS_TYPE(AS_EXTERNAL, lsa) ||
+		    OSPF6_LSA_IS_TYPE(TYPE_7, lsa)) {
+			/* Forwarding Address */
+			in6 = *((struct in6_addr
+					 *)((caddr_t)external +
+					    sizeof(struct ospf6_as_external_lsa) +
+					    OSPF6_PREFIX_SPACE(prefix_length)));
+			inet_ntop(AF_INET6, &in6, buf, buflen);
+			return buf;
+		}
+
+		zlog_debug("%s TODO: implement Forwarding-Address sub-TLV",
+				   __func__);
 	}
 	return NULL;
 }
@@ -2453,7 +2594,15 @@ static int ospf6_as_external_lsa_show(struct vty *vty, struct ospf6_lsa *lsa,
 	char buf[64];
 
 	assert(lsa->header);
-	external = lsa_after_header(lsa->header);
+	if (OSPF6_LSA_IS_TYPE(AS_EXTERNAL, lsa) ||
+	    OSPF6_LSA_IS_TYPE(TYPE_7, lsa))
+		external = lsa_after_header(lsa->header);
+	else
+		/* OSPF6_LSTYPE_E_AS_EXTERNAL or OSPF6_LSTYPE_E_TYPE_7 */
+		external = (struct ospf6_as_external_lsa
+				    *)((char *)lsa_after_header(lsa->header) +
+				       sizeof(struct tlv_header));
+
 
 	/* bits */
 	snprintf(buf, sizeof(buf), "%c%c%c",
@@ -2641,10 +2790,26 @@ static struct ospf6_lsa_handler as_external_handler = {
 	.lh_get_prefix_str = ospf6_as_external_lsa_get_prefix_str,
 	.lh_debug = 0};
 
+static struct ospf6_lsa_handler e_as_external_handler = {
+	.lh_type = OSPF6_LSTYPE_E_AS_EXTERNAL,
+	.lh_name = "E-AS-External",
+	.lh_short_name = "EASE",
+	.lh_show = ospf6_as_external_lsa_show,
+	.lh_get_prefix_str = ospf6_as_external_lsa_get_prefix_str,
+	.lh_debug = 0};
+
 static struct ospf6_lsa_handler nssa_external_handler = {
 	.lh_type = OSPF6_LSTYPE_TYPE_7,
 	.lh_name = "NSSA",
 	.lh_short_name = "Type7",
+	.lh_show = ospf6_as_external_lsa_show,
+	.lh_get_prefix_str = ospf6_as_external_lsa_get_prefix_str,
+	.lh_debug = 0};
+
+static struct ospf6_lsa_handler e_nssa_external_handler = {
+	.lh_type = OSPF6_LSTYPE_E_TYPE_7,
+	.lh_name = "E-NSSA",
+	.lh_short_name = "EType7",
 	.lh_show = ospf6_as_external_lsa_show,
 	.lh_get_prefix_str = ospf6_as_external_lsa_get_prefix_str,
 	.lh_debug = 0};
@@ -2654,7 +2819,9 @@ void ospf6_asbr_init(void)
 	ospf6_routemap_init();
 
 	ospf6_install_lsa_handler(&as_external_handler);
+	ospf6_install_lsa_handler(&e_as_external_handler);
 	ospf6_install_lsa_handler(&nssa_external_handler);
+	ospf6_install_lsa_handler(&e_nssa_external_handler);
 
 	install_element(VIEW_NODE, &show_ipv6_ospf6_redistribute_cmd);
 

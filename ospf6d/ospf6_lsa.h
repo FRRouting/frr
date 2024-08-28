@@ -234,9 +234,10 @@ struct ospf6_as_external_lsa {
 };
 
 /* E-AS-External-LSA
- * MUST contain a single External-Prefix TLV
+ * MUST contain a single External-Prefix TLV directly after ospf6_lsa_header.
+ * Does not contain any 'body' fields.
  */
-#define ospf6_e_as_external_lsa ospf6_as_external_lsa
+#define ospf6_e_as_external_lsa NULL
 
 /* FIXME: move nssa lsa here. */
 

@@ -1083,7 +1083,20 @@ static void ospf6_ase_lsa_refresh(struct ospf6 *o)
 			event_add_event(master, ospf6_lsa_refresh, old, 0,
 					&old->refresh);
 		} else {
-			ospf6_as_external_lsa_originate(route, o);
+			switch (o->extended_lsa_support) {
+			case OSPF6_E_LSA_SUP_LEGACY:
+				ospf6_as_external_lsa_originate(route, o);
+				break;
+			case OSPF6_E_LSA_SUP_ELSA:
+				ospf6_e_as_external_lsa_originate(route, o);
+				break;
+			case OSPF6_E_LSA_SUP_BOTH:
+				ospf6_as_external_lsa_originate(route, o);
+				ospf6_e_as_external_lsa_originate(route, o);
+				break;
+			default:
+				break;
+			}
 		}
 	}
 }
