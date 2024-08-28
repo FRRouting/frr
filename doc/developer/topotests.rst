@@ -33,6 +33,7 @@ Installing Topotest Requirements
        net-tools \
        python3-pip \
        iputils-ping \
+       iptables \
        tshark \
        valgrind
    python3 -m pip install wheel
