@@ -1619,6 +1619,10 @@ static bool rib_compare_routes(const struct route_entry *re1,
 	 * v6 link-locals, and we also support multiple addresses in the same
 	 * subnet on a single interface.
 	 */
+	if (re1->type == ZEBRA_ROUTE_CONNECT &&
+	    (re1->nhe->nhg.nexthop->ifindex == re2->nhe->nhg.nexthop->ifindex))
+		return true;
+
 	if (re1->type != ZEBRA_ROUTE_CONNECT && re1->type != ZEBRA_ROUTE_LOCAL)
 		return true;
 
@@ -2863,10 +2867,11 @@ static void process_subq_early_route_add(struct zebra_early_route *ere)
 
 	/* Link new re to node.*/
 	if (IS_ZEBRA_DEBUG_RIB) {
-		rnode_debug(
-			rn, re->vrf_id,
-			"Inserting route rn %p, re %p (%s) existing %p, same_count %d",
-			rn, re, zebra_route_string(re->type), same, same_count);
+		rnode_debug(rn, re->vrf_id,
+			    "Inserting route rn %p, re %p (%s/%s/%s) existing %p, same_count %d",
+			    rn, re, zebra_route_string(re->type),
+			    afi2str(ere->afi), safi2str(ere->safi), same,
+			    same_count);
 
 		if (IS_ZEBRA_DEBUG_RIB_DETAILED)
 			route_entry_dump(
@@ -4370,8 +4375,10 @@ int rib_add_multipath(afi_t afi, safi_t safi, struct prefix *p,
 		return -1;
 
 	/* We either need nexthop(s) or an existing nexthop id */
-	if (ng == NULL && re->nhe_id == 0)
+	if (ng == NULL && re->nhe_id == 0) {
+		zebra_rib_route_entry_free(re);
 		return -1;
+	}
 
 	/*
 	 * Use a temporary nhe to convey info to the common/main api.
@@ -4383,6 +4390,34 @@ int rib_add_multipath(afi_t afi, safi_t safi, struct prefix *p,
 		nhe.id = re->nhe_id;
 
 	n = zebra_nhe_copy(&nhe, 0);
+
+	if (re->type == ZEBRA_ROUTE_KERNEL) {
+		struct interface *ifp;
+		struct connected *connected;
+
+		if (p->family == AF_INET6 &&
+		    IN6_IS_ADDR_LINKLOCAL(&p->u.prefix6)) {
+			zebra_nhg_free(n);
+			zebra_rib_route_entry_free(re);
+			return -1;
+		}
+
+		ifp = if_lookup_prefix(p, re->vrf_id);
+		if (ifp) {
+			connected = connected_lookup_prefix(ifp, p);
+
+			if (connected && !CHECK_FLAG(connected->flags,
+						     ZEBRA_IFA_NOPREFIXROUTE)) {
+				zebra_nhg_free(n);
+				zebra_rib_route_entry_free(re);
+				return -1;
+			}
+
+			if (ifp->ifindex == ng->nexthop->ifindex)
+				re->type = ZEBRA_ROUTE_CONNECT;
+		}
+	}
+
 	ret = rib_add_multipath_nhe(afi, safi, p, src_p, re, n, startup);
 
 	/* In error cases, free the route also */
@@ -4393,8 +4428,8 @@ int rib_add_multipath(afi_t afi, safi_t safi, struct prefix *p,
 }
 
 void rib_delete(afi_t afi, safi_t safi, vrf_id_t vrf_id, int type,
-		unsigned short instance, uint32_t flags, struct prefix *p,
-		struct prefix_ipv6 *src_p, const struct nexthop *nh,
+		unsigned short instance, uint32_t flags, const struct prefix *p,
+		const struct prefix_ipv6 *src_p, const struct nexthop *nh,
 		uint32_t nhe_id, uint32_t table_id, uint32_t metric,
 		uint8_t distance, bool fromkernel)
 {
@@ -4458,6 +4493,9 @@ static const char *rib_update_event2str(enum rib_update_event event)
 	const char *ret = "UNKNOWN";
 
 	switch (event) {
+	case RIB_UPDATE_INTERFACE_DOWN:
+		ret = "RIB_UPDATE_INTERFACE_DOWN";
+		break;
 	case RIB_UPDATE_KERNEL:
 		ret = "RIB_UPDATE_KERNEL";
 		break;
@@ -4474,15 +4512,56 @@ static const char *rib_update_event2str(enum rib_update_event event)
 	return ret;
 }
 
+/*
+ * We now keep kernel routes, but we don't have any
+ * trigger events for them when they are implicitly
+ * deleted.  Since we are already walking the
+ * entire table on a down event let's look at
+ * the few kernel routes we may have
+ */
+static void
+rib_update_handle_kernel_route_down_possibility(struct route_node *rn,
+						struct route_entry *re)
+{
+	struct nexthop *nexthop = NULL;
+	bool alive = false;
+
+	for (ALL_NEXTHOPS(re->nhe->nhg, nexthop)) {
+		struct interface *ifp = if_lookup_by_index(nexthop->ifindex,
+							   nexthop->vrf_id);
+
+		if (ifp && if_is_up(ifp)) {
+			alive = true;
+			break;
+		}
+	}
+
+	if (!alive) {
+		struct rib_table_info *rib_table = srcdest_rnode_table_info(rn);
+		const struct prefix *p;
+		const struct prefix_ipv6 *src_p;
+
+		srcdest_rnode_prefixes(rn, &p, (const struct prefix **)&src_p);
+
+		rib_delete(rib_table->afi, rib_table->safi, re->vrf_id,
+			   re->type, re->instance, re->flags, p, src_p, NULL, 0,
+			   re->table, re->metric, re->distance, true);
+	}
+}
+
 
 /* Schedule route nodes to be processed if they match the type */
-static void rib_update_route_node(struct route_node *rn, int type)
+static void rib_update_route_node(struct route_node *rn, int type,
+				  enum rib_update_event event)
 {
 	struct route_entry *re, *next;
 	bool re_changed = false;
 
 	RNODE_FOREACH_RE_SAFE (rn, re, next) {
-		if (type == ZEBRA_ROUTE_ALL || type == re->type) {
+		if (event == RIB_UPDATE_INTERFACE_DOWN && type == re->type &&
+		    type == ZEBRA_ROUTE_KERNEL)
+			rib_update_handle_kernel_route_down_possibility(rn, re);
+		else if (type == ZEBRA_ROUTE_ALL || type == re->type) {
 			SET_FLAG(re->status, ROUTE_ENTRY_CHANGED);
 			re_changed = true;
 		}
@@ -4522,20 +4601,24 @@ void rib_update_table(struct route_table *table, enum rib_update_event event,
 		/*
 		 * If we are looking at a route node and the node
 		 * has already been queued  we don't
-		 * need to queue it up again
+		 * need to queue it up again, unless it is
+		 * an interface down event as that we need
+		 * to process this no matter what.
 		 */
-		if (rn->info
-		    && CHECK_FLAG(rib_dest_from_rnode(rn)->flags,
-				  RIB_ROUTE_ANY_QUEUED))
+		if (rn->info &&
+		    CHECK_FLAG(rib_dest_from_rnode(rn)->flags,
+			       RIB_ROUTE_ANY_QUEUED) &&
+		    event != RIB_UPDATE_INTERFACE_DOWN)
 			continue;
 
 		switch (event) {
+		case RIB_UPDATE_INTERFACE_DOWN:
 		case RIB_UPDATE_KERNEL:
-			rib_update_route_node(rn, ZEBRA_ROUTE_KERNEL);
+			rib_update_route_node(rn, ZEBRA_ROUTE_KERNEL, event);
 			break;
 		case RIB_UPDATE_RMAP_CHANGE:
 		case RIB_UPDATE_OTHER:
-			rib_update_route_node(rn, rtype);
+			rib_update_route_node(rn, rtype, event);
 			break;
 		case RIB_UPDATE_MAX:
 			break;
@@ -4543,7 +4626,7 @@ void rib_update_table(struct route_table *table, enum rib_update_event event,
 	}
 }
 
-static void rib_update_handle_vrf_all(enum rib_update_event event, int rtype)
+void rib_update_handle_vrf_all(enum rib_update_event event, int rtype)
 {
 	struct zebra_router_table *zrt;
 

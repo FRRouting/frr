@@ -799,8 +799,6 @@ int netlink_route_change_read_unicast_internal(struct nlmsghdr *h,
 		return 0;
 	if (rtm->rtm_protocol == RTPROT_REDIRECT)
 		return 0;
-	if (rtm->rtm_protocol == RTPROT_KERNEL)
-		return 0;
 
 	selfroute = is_selfroute(rtm->rtm_protocol);
 
