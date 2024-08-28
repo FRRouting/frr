@@ -2707,6 +2707,7 @@ static void process_subq_early_route_add(struct zebra_early_route *ere)
 	struct route_entry *same = NULL, *first_same = NULL;
 	int same_count = 0;
 	rib_dest_t *dest;
+	bool found = false;
 
 	/* Lookup table.  */
 	table = zebra_vrf_get_table_with_table_id(ere->afi, ere->safi,
@@ -2742,6 +2743,14 @@ static void process_subq_early_route_add(struct zebra_early_route *ere)
 	} else {
 		struct nexthop *tmp_nh;
 
+		nhe = zebra_presvd_nhg_lookup(ere->re_nhe);
+		if (nhe) {
+			if (IS_ZEBRA_DEBUG_RIB)
+				zlog_debug("Existing preserved nhe %p (%pNG) found, skipping new creation", nhe, nhe);
+			found = true;
+			goto skip_new;
+		}
+again:
 		/* Lookup nhe from route information */
 		nhe = zebra_nhg_rib_find_nhe(ere->re_nhe, ere->afi);
 		if (!nhe) {
@@ -2786,6 +2795,7 @@ static void process_subq_early_route_add(struct zebra_early_route *ere)
 	 */
 	route_entry_update_nhe(re, nhe);
 
+skip_new:
 	/* Make it sure prefixlen is applied to the prefix. */
 	apply_mask(&ere->p);
 	if (ere->src_p_provided)
@@ -2835,6 +2845,34 @@ static void process_subq_early_route_add(struct zebra_early_route *ere)
 			early_route_memory_free(ere);
 			return;
 		}
+	}
+
+	if (same && found) {
+		if (same->nhe->id != nhe->id) {
+			same_count = 0;
+			found = false;
+			goto again;
+		}
+		if (IS_ZEBRA_DEBUG_RIB)
+			rnode_debug(rn, re->vrf_id,
+			    "Reissuing route update rn %p, re %p (%s) with preserved nhe %p (%pNG)",
+			    rn, same, zebra_route_string(re->type),
+			    same->nhe, same->nhe);
+
+		route_entry_update_nhe(same, nhe);
+		SET_FLAG(same->status, ROUTE_ENTRY_CHANGED);
+		SET_FLAG(same->status, ROUTE_ENTRY_NHG_PRESERVED);
+
+		rib_queue_add(rn);
+
+		early_route_memory_free(ere);
+		return;
+	}
+
+	if (!same && found) {
+		same_count = 0;
+		found = false;
+		goto again;
 	}
 
 	/* Set default distance by route type. */

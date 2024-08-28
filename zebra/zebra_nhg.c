@@ -307,6 +307,25 @@ static int zebra_nhg_insert_id(struct nhg_hash_entry *nhe)
 	return 0;
 }
 
+struct nhg_hash_entry *zebra_presvd_nhg_lookup(struct nhg_hash_entry *lookup)
+{
+	if (lookup == NULL)
+		return lookup;
+	else
+		return hash_lookup(zrouter.nhgs_presvd, lookup);
+}
+
+static int zebra_presvd_nhg_insert(struct nhg_hash_entry *nhe)
+{
+	if (hash_lookup(zrouter.nhgs_presvd, nhe)) {
+		if (IS_ZEBRA_DEBUG_NHG)
+			zlog_debug("%s: NHG %pNG already exists", __func__, nhe);
+		return -1;
+	}
+	(void)hash_get(zrouter.nhgs_presvd, nhe, hash_alloc_intern);
+	return 0;
+}
+
 static void zebra_nhg_set_if(struct nhg_hash_entry *nhe, struct interface *ifp)
 {
 	struct zebra_if *zif = (struct zebra_if *)ifp->info;
@@ -478,6 +497,24 @@ uint32_t zebra_nhg_id_key(const void *arg)
 	return nhe->id;
 }
 
+uint32_t zebra_nhg_presvd_key(const void *arg)
+{
+	const struct nhg_hash_entry *nhe = arg;
+	uint32_t key = 0x5a351234;
+	uint32_t primary = 0;
+	uint32_t backup = 0;
+
+	primary = nexthop_group_hash_no_recurse(&(nhe->nhg));
+	if (nhe->backup_info)
+		backup = nexthop_group_hash_no_recurse(&(nhe->backup_info->nhe->nhg));
+
+	key = jhash_3words(primary, backup, nhe->type, key);
+
+	key = jhash_2words(nhe->vrf_id, nhe->afi, key);
+
+	return key;
+}
+
 /* Helper with common nhg/nhe nexthop comparison logic */
 static bool nhg_compare_nexthops(const struct nexthop *nh1,
 				 const struct nexthop *nh2)
@@ -601,6 +638,73 @@ bool zebra_nhg_hash_id_equal(const void *arg1, const void *arg2)
 	const struct nhg_hash_entry *nhe2 = arg2;
 
 	return nhe1->id == nhe2->id;
+}
+
+bool zebra_nhg_presvd_hash_equal(const void *arg1, const void *arg2)
+{
+	const struct nhg_hash_entry *nhe1 = arg1;
+	const struct nhg_hash_entry *nhe2 = arg2;
+	struct nexthop *nexthop1;
+	struct nexthop *nexthop2;
+
+	if (nhe1->id && nhe2->id && (nhe1->id != nhe2->id))
+		return false;
+
+	if (nhe1->type != nhe2->type)
+		return false;
+
+	if (nhe1->vrf_id != nhe2->vrf_id)
+		return false;
+
+	if (nhe1->afi != nhe2->afi)
+		return false;
+
+	/* Nexthops should be in-order, so we simply compare them in-place */
+	for (nexthop1 = nhe1->nhg.nexthop, nexthop2 = nhe2->nhg.nexthop;
+	     nexthop1 && nexthop2;
+	     nexthop1 = nexthop1->next, nexthop2 = nexthop2->next) {
+
+		if (!nexthop_same(nexthop1, nexthop2))
+			return false;
+	}
+
+	/* Check for unequal list lengths */
+	if (nexthop1 || nexthop2)
+		return false;
+
+	/* If there's no backup info, comparison is done. */
+	if ((nhe1->backup_info == NULL) && (nhe2->backup_info == NULL))
+		return true;
+
+	/* Compare backup info also - test the easy things first */
+	if (nhe1->backup_info && (nhe2->backup_info == NULL))
+		return false;
+	if (nhe2->backup_info && (nhe1->backup_info == NULL))
+		return false;
+
+	/* Compare number of backups before actually comparing any */
+	for (nexthop1 = nhe1->backup_info->nhe->nhg.nexthop,
+	     nexthop2 = nhe2->backup_info->nhe->nhg.nexthop;
+	     nexthop1 && nexthop2;
+	     nexthop1 = nexthop1->next, nexthop2 = nexthop2->next) {
+		;
+	}
+
+	/* Did we find the end of one list before the other? */
+	if (nexthop1 || nexthop2)
+		return false;
+
+	/* Have to compare the backup nexthops */
+	for (nexthop1 = nhe1->backup_info->nhe->nhg.nexthop,
+	     nexthop2 = nhe2->backup_info->nhe->nhg.nexthop;
+	     nexthop1 && nexthop2;
+	     nexthop1 = nexthop1->next, nexthop2 = nexthop2->next) {
+
+		if (!nexthop_same(nexthop1, nexthop2))
+			return false;
+	}
+
+	return true;
 }
 
 static int zebra_nhg_process_grp(struct nexthop_group *nhg,
@@ -833,6 +937,22 @@ static bool zebra_nhe_find(struct nhg_hash_entry **nhe, /* return value */
 		SET_FLAG(backup_nhe->flags, NEXTHOP_GROUP_RECURSIVE);
 
 done:
+	if (!zebra_nhg_depends_is_empty((*nhe))) {
+		struct nhg_connected *rb_node_dep = NULL;
+		recursive = true;
+		frr_each_safe(nhg_connected_tree, &(*nhe)->nhg_depends, rb_node_dep) {
+			if (!CHECK_FLAG(rb_node_dep->nhe->flags, NEXTHOP_GROUP_RECURSIVE)) {
+				recursive = false;
+				break;
+			}
+		}
+	} else
+		recursive = false;
+
+	if ((CHECK_FLAG((*nhe)->flags, NEXTHOP_GROUP_RECURSIVE) ||
+	    recursive) && created  && CHECK_FLAG((*nhe)->flags, NEXTHOP_GROUP_VALID))
+		zebra_presvd_nhg_insert((*nhe));
+
 	/* Reset time since last update */
 	(*nhe)->uptime = monotime(NULL);
 
@@ -1097,6 +1217,7 @@ static void zebra_nhg_release(struct nhg_hash_entry *nhe)
 		hash_release(zrouter.nhgs, nhe);
 
 	hash_release(zrouter.nhgs_id, nhe);
+	hash_release(zrouter.nhgs_presvd, nhe);
 }
 
 static void zebra_nhg_handle_uninstall(struct nhg_hash_entry *nhe)
@@ -1707,9 +1828,32 @@ void zebra_nhg_decrement_ref(struct nhg_hash_entry *nhe)
 		return;
 	}
 
+	if (!zebra_router_in_shutdown() && nhe->refcnt <= 0 &&
+	    !CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_INSTALLED) &&
+	    !CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_KEEP_AROUND) &&
+	    zebra_presvd_nhg_lookup(nhe)) {
+		nhe->refcnt = 1;
+		SET_FLAG(nhe->flags, NEXTHOP_GROUP_KEEP_AROUND);
+
+		if (!zebra_nhg_depends_is_empty(nhe))
+			nhg_connected_tree_decrement_ref(&nhe->nhg_depends);
+
+		zebra_nhg_release_all_deps(nhe);
+
+		event_add_timer(zrouter.master, zebra_nhg_timer, nhe,
+				zrouter.nhg_keep, &nhe->timer);
+		return;
+	}
+
+	if (nhe->refcnt <= 0 &&
+	    !CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_INSTALLED) &&
+	    zebra_presvd_nhg_lookup(nhe))
+		goto done;
+
 	if (!zebra_nhg_depends_is_empty(nhe))
 		nhg_connected_tree_decrement_ref(&nhe->nhg_depends);
 
+done:
 	if (ZEBRA_NHG_CREATED(nhe) && nhe->refcnt <= 0)
 		zebra_nhg_uninstall_kernel(nhe);
 }
@@ -2868,6 +3012,148 @@ static uint32_t proto_nhg_nexthop_active_update(struct nexthop_group *nhg)
 	return curr_active;
 }
 
+static int nexthop_presvd_update(struct route_node *rn, struct route_entry *re)
+{
+	struct nhg_hash_entry *curr_nhe;
+	uint32_t i, curr_active = 0, backup_active = 0;
+	struct nhg_hash_entry *backup_nhe;
+	struct nexthop *nh = NULL;
+	afi_t rt_afi = family2afi(rn->p.family);
+	bool recursive = false;
+	struct nexthop_group nhg;
+
+	curr_nhe = re->nhe;
+
+	memset(&nhg, 0, sizeof(nhg));
+	nexthop_group_copy(&nhg, &curr_nhe->nhg);
+
+	curr_active = nexthop_list_active_update(rn, re, curr_nhe, false);
+
+	if (IS_ZEBRA_DEBUG_NHG_DETAIL)
+		zlog_debug("%s: re %p curr_active %u", __func__, re,
+			   curr_active);
+
+	if (zebra_nhg_get_backup_nhg(curr_nhe)) {
+		backup_active = nexthop_list_active_update(
+			rn, re, curr_nhe->backup_info->nhe, true /*is_backup*/);
+
+		if (IS_ZEBRA_DEBUG_NHG_DETAIL)
+			zlog_debug("%s: re %p backup_active %u", __func__, re,
+				   backup_active);
+	}
+
+	if (curr_active)
+		zebra_nhg_set_valid_if_active(curr_nhe);
+
+	if (nexthop_group_equal(&curr_nhe->nhg, &nhg))
+		goto done;
+
+	/* Decrement since we bypass the rib unlink? */
+	for (i = 0; i < curr_nhe->refcnt - zebra_nhg_dependents_count(curr_nhe); i++)
+		nhg_connected_tree_decrement_ref(&curr_nhe->nhg_depends);
+
+	nhg_connected_tree_decrement_ref(&curr_nhe->nhg_depends);
+
+	zebra_nhg_depends_release(curr_nhe);
+	nhg_connected_tree_free(&curr_nhe->nhg_depends);
+	nhg_connected_tree_init(&curr_nhe->nhg_depends);
+
+	nh = curr_nhe->nhg.nexthop;
+
+	if (CHECK_FLAG(nh->flags, NEXTHOP_FLAG_ACTIVE))
+		SET_FLAG(curr_nhe->flags, NEXTHOP_GROUP_VALID);
+
+	if (nh->next == NULL && curr_nhe->id < ZEBRA_NHG_PROTO_LOWER) {
+		if (CHECK_FLAG(nh->flags, NEXTHOP_FLAG_RECURSIVE)) {
+			/* Single recursive nexthop */
+			handle_recursive_depend(&curr_nhe->nhg_depends,
+						nh->resolved, rt_afi,
+						curr_nhe->type);
+			recursive = true;
+		}
+	} else {
+		/* Proto-owned are groups by default */
+		/* List of nexthops */
+		for (nh = curr_nhe->nhg.nexthop; nh; nh = nh->next) {
+			if (IS_ZEBRA_DEBUG_NHG_DETAIL)
+				zlog_debug("%s: depends NH %pNHv %s",
+					   __func__, nh,
+					   CHECK_FLAG(nh->flags,
+						      NEXTHOP_FLAG_RECURSIVE) ?
+					   "(R)" : "");
+
+			depends_find_add(&curr_nhe->nhg_depends, nh, rt_afi,
+					 curr_nhe->type, false);
+		}
+	}
+
+	if (recursive)
+		SET_FLAG(curr_nhe->flags, NEXTHOP_GROUP_RECURSIVE);
+
+	/* Attach dependent backpointers to singletons */
+	zebra_nhg_connect_depends(curr_nhe, &curr_nhe->nhg_depends);
+
+	/**
+	 * Backup Nexthops
+	 */
+
+	if (zebra_nhg_get_backup_nhg(curr_nhe) &&
+	    zebra_nhg_get_backup_nhg(curr_nhe)->nexthop) {
+
+		/* If there are backup nexthops, add them to the backup
+		 * depends tree. The rules here are a little different.
+	 	*/
+		recursive = false;
+		backup_nhe = curr_nhe->backup_info->nhe;
+
+		nh = backup_nhe->nhg.nexthop;
+
+		/* Singleton recursive NH */
+		if (nh->next == NULL &&
+		    CHECK_FLAG(nh->flags, NEXTHOP_FLAG_RECURSIVE)) {
+			if (IS_ZEBRA_DEBUG_NHG_DETAIL)
+				zlog_debug("%s: backup depend NH %pNHv (R)",
+					   __func__, nh);
+
+			/* Single recursive nexthop */
+			handle_recursive_depend(&backup_nhe->nhg_depends, nh->resolved,
+						rt_afi, backup_nhe->type);
+			recursive = true;
+		} else {
+			/* One or more backup NHs */
+			for (; nh; nh = nh->next) {
+				if (IS_ZEBRA_DEBUG_NHG_DETAIL)
+					zlog_debug("%s: backup depend NH %pNHv %s",
+						   __func__, nh,
+						   CHECK_FLAG(nh->flags,
+							      NEXTHOP_FLAG_RECURSIVE) ?
+						   "(R)" : "");
+
+				depends_find_add(&backup_nhe->nhg_depends, nh, rt_afi,
+						 backup_nhe->type, false);
+			}
+		}
+
+		if (recursive)
+			SET_FLAG(backup_nhe->flags, NEXTHOP_GROUP_RECURSIVE);
+	}
+
+	/* Walk the NHE depends tree and toggle NEXTHOP_GROUP_VALID
+	* flag where appropriate.
+	*/
+	if (curr_active)
+		zebra_nhg_set_valid_if_active(re->nhe);
+
+	if (IS_ZEBRA_DEBUG_NHG_DETAIL)
+		zlog_debug("%s: re %p UPDATED: nhe %p (%u) (PRESERVED)", __func__, re, re->nhe,
+			   re->nhe->id);
+
+	for (i = 0; i < curr_nhe->refcnt - zebra_nhg_dependents_count(curr_nhe); i++)
+		nhg_connected_tree_increment_ref(&curr_nhe->nhg_depends);
+done:
+	return curr_active;
+}
+
 /*
  * Iterate over all nexthops of the given RIB entry and refresh their
  * ACTIVE flag.  If any nexthop is found to toggle the ACTIVE flag,
@@ -2886,6 +3172,11 @@ int nexthop_active_update(struct route_node *rn, struct route_entry *re)
 	afi_t rt_afi = family2afi(rn->p.family);
 
 	UNSET_FLAG(re->status, ROUTE_ENTRY_CHANGED);
+
+	if (CHECK_FLAG(re->status, ROUTE_ENTRY_NHG_PRESERVED)) {
+		UNSET_FLAG(re->status, ROUTE_ENTRY_NHG_PRESERVED);
+		return nexthop_presvd_update(rn, re);
+	}
 
 	/* Make a local copy of the existing nhe, so we don't work on/modify
 	 * the shared nhe.

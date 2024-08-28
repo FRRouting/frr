@@ -647,6 +647,41 @@ static void zebra_rnh_process_pseudowires(vrf_id_t vrfid, struct rnh *rnh)
 		zebra_pw_update(pw);
 }
 
+static void zebra_rnh_fixup_depends(uint32_t nhe_id, uint32_t new_nhe_id)
+{
+	struct nhg_hash_entry *nhe, *newnhe, *parent_nhe, *pparent_nhe;
+	struct nhg_connected *rb_node_dep, *rb_node_dep1;
+
+	nhe = zebra_nhg_lookup_id(nhe_id);
+	newnhe = zebra_nhg_lookup_id(new_nhe_id);
+
+	if (nhe && newnhe && ZEBRA_OWNED(nhe) && ZEBRA_OWNED(newnhe)) {
+		frr_each_safe(nhg_connected_tree, &nhe->nhg_dependents, rb_node_dep) {
+			parent_nhe = rb_node_dep->nhe;
+			frr_each_safe(nhg_connected_tree, &parent_nhe->nhg_dependents, rb_node_dep1) {
+				pparent_nhe = rb_node_dep1->nhe;
+				if (IS_ZEBRA_DEBUG_NHT)
+					zlog_debug("%s: pparent nhe %p (%pNG) -> parent nhe %p "
+						    "(%pNG) -> nhe %p (%pNG) : nhe %p (%pNG) (New)",
+						    __func__, pparent_nhe, pparent_nhe ,
+						    parent_nhe, parent_nhe, nhe, nhe, newnhe, newnhe);
+
+				/* TODO */
+				nhg_connected_tree_del_nhe(&parent_nhe->nhg_depends, nhe);
+				nhg_connected_tree_add_nhe(&parent_nhe->nhg_depends, newnhe);
+
+				if (IS_ZEBRA_DEBUG_NHT)
+					zlog_debug("%s: Quick fixup for nhe %p (%pNG)", __func__, newnhe, newnhe);
+
+				dplane_nexthop_add(pparent_nhe);
+
+				nhg_connected_tree_del_nhe(&parent_nhe->nhg_depends, newnhe);
+				nhg_connected_tree_add_nhe(&parent_nhe->nhg_depends, nhe);
+			}
+		}
+	}
+}
+
 /*
  * See if a tracked nexthop entry has undergone any change, and if so,
  * take appropriate action; this involves notifying any clients and/or
@@ -659,6 +694,7 @@ static void zebra_rnh_eval_nexthop_entry(struct zebra_vrf *zvrf, afi_t afi,
 					 struct route_entry *re)
 {
 	int state_changed = 0;
+	uint32_t startid = rnh->state ? rnh->state->nhe->id : 0;
 
 	/* If we're resolving over a different route, resolution has changed or
 	 * the resolving route has some change (e.g., metric), there is a state
@@ -688,6 +724,9 @@ static void zebra_rnh_eval_nexthop_entry(struct zebra_vrf *zvrf, afi_t afi,
 	zebra_rnh_store_in_routing_table(rnh);
 
 	if (state_changed || force) {
+		/* New added for dataplane quick fixup */
+		uint32_t newid = rnh->state ? rnh->state->nhe->id : 0;
+		zebra_rnh_fixup_depends(startid, newid);
 		/* NOTE: Use the "copy" of resolving route stored in 'rnh' i.e.,
 		 * rnh->state.
 		 */
@@ -849,7 +888,7 @@ static void copy_state(struct rnh *rnh, const struct route_entry *re,
 	state->vrf_id = re->vrf_id;
 	state->status = re->status;
 
-	state->nhe = zebra_nhe_copy(re->nhe, 0);
+	state->nhe = zebra_nhe_copy(re->nhe, re->nhe->id);
 
 	/* Copy the 'fib' nexthops also, if present - we want to capture
 	 * the true installed nexthops.
