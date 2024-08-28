@@ -323,7 +323,7 @@ void lua_pushnexthop_group(lua_State *L, const struct nexthop_group *ng)
 {
 	lua_newtable(L);
 	struct nexthop *nexthop;
-	int i = 0;
+	int i = 1;
 
 	for (ALL_NEXTHOPS_PTR(ng, nexthop)) {
 		lua_pushnexthop(L, nexthop);
