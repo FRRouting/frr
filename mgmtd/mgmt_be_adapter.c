@@ -249,6 +249,8 @@ static void mgmt_register_client_xpath(enum mgmt_be_client_id id,
 {
 	struct mgmt_be_xpath_map **maps, *map;
 
+	maps = NULL;
+
 	switch (type) {
 	case MGMT_BE_XPATH_SUBSCR_TYPE_CFG:
 		maps = &be_cfg_xpath_map;
