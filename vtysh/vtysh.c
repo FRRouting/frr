@@ -4639,6 +4639,7 @@ static int vtysh_connect(struct vtysh_client *vclient)
 	struct sockaddr_un addr;
 	struct stat s_stat;
 	const char *path;
+	uint32_t rcvbufsize = VTYSH_RCV_BUF_MAX;
 
 	if (!vclient->path[0])
 		snprintf(vclient->path, sizeof(vclient->path), "%s/%s.vty",
@@ -4688,6 +4689,22 @@ static int vtysh_connect(struct vtysh_client *vclient)
 		close(sock);
 		return -1;
 	}
+
+	/*
+	 * Increasing the RECEIVE socket buffer size so that the socket can hold
+	 * after receving from other process.
+	 */
+	ret = setsockopt(sock, SOL_SOCKET, SO_RCVBUF, (char *)&rcvbufsize,
+			 sizeof(rcvbufsize));
+	if (ret < 0) {
+#ifdef DEBUG
+		fprintf(stderr, "Cannot set socket %d rcv buffer size, %s\n",
+			sock, safe_strerror(errno));
+#endif /* DEBUG */
+		close(sock);
+		return -1;
+	}
+
 	vclient->fd = sock;
 
 	return 0;
