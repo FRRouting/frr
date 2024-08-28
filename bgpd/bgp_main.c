@@ -207,6 +207,7 @@ static __attribute__((__noreturn__)) void bgp_exit(int status)
 	bgp_nhg_finish();
 
 	zebra_announce_fini(&bm->zebra_announce_head);
+	zebra_l2_vni_fini(&bm->zebra_l2_vni_head);
 
 	/* reverse bgp_dump_init */
 	bgp_dump_finish();

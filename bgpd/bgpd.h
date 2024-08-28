@@ -19,6 +19,7 @@
 #include "asn.h"
 
 PREDECL_LIST(zebra_announce);
+PREDECL_LIST(zebra_l2_vni);
 
 /* For union sockunion.  */
 #include "queue.h"
@@ -203,6 +204,10 @@ struct bgp_master {
 
 	/* To preserve ordering of installations into zebra across all Vrfs */
 	struct zebra_announce_head zebra_announce_head;
+
+	struct event *t_bgp_zebra_l2_vni;
+	/* To preserve ordering of processing of L2 VNIs in BGP */
+	struct zebra_l2_vni_head zebra_l2_vni_head;
 
 	QOBJ_FIELDS;
 };
