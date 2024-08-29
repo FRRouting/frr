@@ -531,6 +531,42 @@ After Submitting Your Changes
    community members.
 -  Your submission is done once it is merged to the master branch.
 
+Reverting the changes
+=====================
+
+When you revert a regular commit in Git, the process is straightforward - it
+undoes the changes introduced by that commit. However, reverting a merge commit
+is more complex. While it undoes the data changes brought in by the merge, it
+does not alter the repository's history or the merge's effect on it.
+
+Reverting a Merge Commit
+------------------------
+
+When you revert a merge commit, the following occurs:
+
+* The changes made by the merge are undone;
+* The merge itself remains in the history: it continues to be recognized as the point where two branches were joined;
+* Future merges will still treat this as the last shared state, regardless of the revert.
+
+Thus, a "revert" in Git undoes data changes, but it does not serve as a true "undo"
+for the historical effects of a commit.
+
+Reverting a Merge and Bisectability
+-----------------------------------
+
+Consider the implications of reverting a merge and then reverting that revert.
+This scenario complicates the debugging process, especially when using tools like
+git bisect. A reverted merge effectively consolidates all changes from the original
+merge into a single commit, but in reverse. This creates a challenge for debugging,
+as you lose the granularity of individual commits, making it difficult to identify
+the specific change causing an issue.
+
+Considerations
+--------------
+
+When reverting the changes, e.g. a full Pull Request, we SHOULD revert every commit
+individually, and not use git revert on merge commits.
+
 Programming Languages, Tools and Libraries
 ==========================================
 
