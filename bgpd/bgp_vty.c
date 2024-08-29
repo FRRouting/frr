@@ -12617,6 +12617,9 @@ static int bgp_show_summary(struct vty *vty, struct bgp *bgp, int afi, int safi,
 				/* Make sure `Desc` column is the lastest in
 				 * the output.
 				 * If the description is not set, try
+				 * to print the hostname if the
+				 * capability is enabled and received.
+				 * If the hostname is not set, try
 				 * to print the software version if the
 				 * capability is enabled and received.
 				 */
@@ -12625,7 +12628,12 @@ static int bgp_show_summary(struct vty *vty, struct bgp *bgp, int afi, int safi,
 						bgp_peer_description_stripped(
 							peer->desc,
 							show_wide ? 64 : 20));
-				else if (peer->soft_version) {
+				else if (peer->hostname) {
+					vty_out(vty, " %s",
+						bgp_peer_description_stripped(
+							peer->hostname,
+							show_wide ? 64 : 20));
+				} else if (peer->soft_version) {
 					vty_out(vty, " %s",
 						bgp_peer_description_stripped(
 							peer->soft_version,
