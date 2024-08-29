@@ -329,6 +329,13 @@ const struct frr_yang_module_info frr_zebra_info = {
 			}
 		},
 		{
+			.xpath = "/frr-interface:lib/interface/frr-zebra:zebra/ipv4-addrs/setorder",
+			.cbs = {
+				.modify = lib_interface_zebra_ipv4_addrs_setorder_modify,
+				.destroy = lib_interface_zebra_ipv4_addrs_setorder_destroy,
+			}
+		},
+		{
 			.xpath = "/frr-interface:lib/interface/frr-zebra:zebra/ipv4-p2p-addrs",
 			.cbs = {
 				.create = lib_interface_zebra_ipv4_p2p_addrs_create,

@@ -1970,6 +1970,14 @@ module frr-zebra {
           description
             "Optional string label for the address.";
         }
+
+        leaf setorder {
+          type uint8 {
+            range "1..100";
+          }
+          description
+            "The order of the IP address.";
+        }
       }
 
       list ipv4-p2p-addrs {

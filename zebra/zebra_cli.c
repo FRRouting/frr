@@ -109,8 +109,8 @@ DEFPY_YANG_HIDDEN (multicast,
 	NO_STR
 	"Set multicast flag to interface\n")
 {
-	nb_cli_enqueue_change(vty, "./frr-zebra:zebra/multicast",
-			      NB_OP_CREATE, no ? "false" : "true");
+	nb_cli_enqueue_change(vty, "./frr-zebra:zebra/multicast", NB_OP_CREATE,
+			      no ? "false" : "true");
 
 	return nb_cli_apply_changes(vty, NULL);
 }
@@ -269,7 +269,8 @@ DEFUN_YANG (no_link_params,
 	NO_STR
 	LINK_PARAMS_STR)
 {
-	nb_cli_enqueue_change(vty, "./frr-zebra:zebra/link-params", NB_OP_DESTROY, NULL);
+	nb_cli_enqueue_change(vty, "./frr-zebra:zebra/link-params",
+			      NB_OP_DESTROY, NULL);
 
 	return nb_cli_apply_changes(vty, NULL);
 }
@@ -281,7 +282,8 @@ DEFUN_YANG_HIDDEN (link_params_enable,
 	"enable",
 	"Activate link parameters on this interface\n")
 {
-	vty_out(vty, "This command is deprecated. Link parameters are activated when \"link-params\" node is entered.\n");
+	vty_out(vty,
+		"This command is deprecated. Link parameters are activated when \"link-params\" node is entered.\n");
 
 	return CMD_SUCCESS;
 }
@@ -294,7 +296,8 @@ DEFUN_YANG_NOSH (no_link_params_enable,
 {
 	int ret;
 
-	vty_out(vty, "This command is deprecated. To disable link parameters use \"no link-params\" in the interface node.\n");
+	vty_out(vty,
+		"This command is deprecated. To disable link parameters use \"no link-params\" in the interface node.\n");
 
 	nb_cli_enqueue_change(vty, ".", NB_OP_DESTROY, NULL);
 
@@ -791,22 +794,24 @@ static void lib_interface_zebra_link_params_affinity_mode_cli_write(
 
 #ifdef HAVE_NETLINK
 DEFPY_YANG (ip_address,
-	ip_address_cmd,
-	"[no] ip address A.B.C.D/M [label LINE$label]",
-	NO_STR
-	"Interface Internet Protocol config commands\n"
-	"Set the IP address of an interface\n"
-	"IP address (e.g. 10.0.0.1/8)\n"
-	"Label of this address\n"
-	"Label\n")
+        ip_address_cmd,
+        "[no] ip address A.B.C.D/M [label LINE$label] [setorder (1-100)$setorder]",
+        NO_STR
+        "Interface Internet Protocol config commands\n"
+        "Set the IP address of an interface\n"
+        "IP address (e.g. 10.0.0.1/8)\n"
+        "Label of this address\n"
+        "Label\n"
+        "Set the order of the IP address\n"
+        "Setorder\n")
 #else
 DEFPY_YANG (ip_address,
-	ip_address_cmd,
-	"[no] ip address A.B.C.D/M",
-	NO_STR
-	"Interface Internet Protocol config commands\n"
-	"Set the IP address of an interface\n"
-	"IP address (e.g. 10.0.0.1/8)\n")
+        ip_address_cmd,
+        "[no] ip address A.B.C.D/M [setorder (1-100)$setorder]",
+        NO_STR
+        "Interface Internet Protocol config commands\n"
+        "Set the IP address of an interface\n"
+        "IP address (e.g. 10.0.0.1/8)\n")
 #endif
 {
 	char ip[INET_ADDRSTRLEN + 3];
@@ -817,12 +822,19 @@ DEFPY_YANG (ip_address,
 	} else {
 		nb_cli_enqueue_change(vty, ".", NB_OP_CREATE, NULL);
 #ifdef HAVE_NETLINK
-		if (label)
+		if (setorder) {
+			nb_cli_enqueue_change(vty, "./setorder", NB_OP_MODIFY,
+					      setorder_str);
+		}
+#endif
+#ifdef HAVE_NETLINK
+		if (label) {
 			nb_cli_enqueue_change(vty, "./label", NB_OP_MODIFY,
 					      label);
-		else
+		} else {
 			nb_cli_enqueue_change(vty, "./label", NB_OP_DESTROY,
 					      NULL);
+		}
 #endif
 	}
 
@@ -850,6 +862,12 @@ static void lib_interface_zebra_ipv4_addrs_cli_write(
 		const char *label = yang_dnode_get_string(dnode, "label");
 
 		vty_out(vty, " label %s", label);
+	}
+
+	if (yang_dnode_exists(dnode, "setorder")) {
+		const uint8_t setorder = yang_dnode_get_uint8(dnode, "setorder");
+
+		vty_out(vty, " setorder %d", setorder);
 	}
 
 	vty_out(vty, "\n");
@@ -1876,11 +1894,11 @@ DEFPY_YANG (ip_router_id,
        VRF_CMD_HELP_STR)
 {
 	if (!no)
-		nb_cli_enqueue_change(vty, "./frr-zebra:zebra/router-id", NB_OP_MODIFY,
-			      id_str);
+		nb_cli_enqueue_change(vty, "./frr-zebra:zebra/router-id",
+				      NB_OP_MODIFY, id_str);
 	else
-		nb_cli_enqueue_change(vty, "./frr-zebra:zebra/router-id", NB_OP_DESTROY,
-			      NULL);
+		nb_cli_enqueue_change(vty, "./frr-zebra:zebra/router-id",
+				      NB_OP_DESTROY, NULL);
 	return nb_cli_apply_changes(vty, "/frr-vrf:lib/vrf[name='%s']", vrf);
 }
 
@@ -1903,10 +1921,10 @@ DEFPY_YANG (ipv6_router_id,
 {
 	if (!no)
 		nb_cli_enqueue_change(vty, "./frr-zebra:zebra/ipv6-router-id",
-			      NB_OP_MODIFY, id_str);
+				      NB_OP_MODIFY, id_str);
 	else
 		nb_cli_enqueue_change(vty, "./frr-zebra:zebra/ipv6-router-id",
-			      NB_OP_DESTROY, NULL);
+				      NB_OP_DESTROY, NULL);
 	return nb_cli_apply_changes(vty, "/frr-vrf:lib/vrf[name='%s']", vrf);
 }
 
@@ -1919,11 +1937,11 @@ DEFPY_YANG (ip_router_id_in_vrf,
        "IP address to use for router-id\n")
 {
 	if (!no)
-		nb_cli_enqueue_change(vty, "./frr-zebra:zebra/router-id", NB_OP_MODIFY,
-			      id_str);
+		nb_cli_enqueue_change(vty, "./frr-zebra:zebra/router-id",
+				      NB_OP_MODIFY, id_str);
 	else
-		nb_cli_enqueue_change(vty, "./frr-zebra:zebra/router-id", NB_OP_DESTROY,
-			      NULL);
+		nb_cli_enqueue_change(vty, "./frr-zebra:zebra/router-id",
+				      NB_OP_DESTROY, NULL);
 
 	if (vty->node == CONFIG_NODE)
 		return nb_cli_apply_changes(vty, "/frr-vrf:lib/vrf[name='%s']",
@@ -1949,10 +1967,10 @@ DEFPY_YANG (ipv6_router_id_in_vrf,
 {
 	if (!no)
 		nb_cli_enqueue_change(vty, "./frr-zebra:zebra/ipv6-router-id",
-			      NB_OP_MODIFY, id_str);
+				      NB_OP_MODIFY, id_str);
 	else
 		nb_cli_enqueue_change(vty, "./frr-zebra:zebra/ipv6-router-id",
-			NB_OP_DESTROY, NULL);
+				      NB_OP_DESTROY, NULL);
 
 	if (vty->node == CONFIG_NODE)
 		return nb_cli_apply_changes(vty, "/frr-vrf:lib/vrf[name='%s']",
@@ -2318,11 +2336,11 @@ DEFPY_YANG (vni_mapping,
        "prefix-routes-only\n")
 {
 	if (!no)
-		nb_cli_enqueue_change(vty, "./frr-zebra:zebra/l3vni-id", NB_OP_MODIFY,
-			      vni_str);
+		nb_cli_enqueue_change(vty, "./frr-zebra:zebra/l3vni-id",
+				      NB_OP_MODIFY, vni_str);
 	else
-		nb_cli_enqueue_change(vty, "./frr-zebra:zebra/l3vni-id", NB_OP_DESTROY,
-			      NULL);
+		nb_cli_enqueue_change(vty, "./frr-zebra:zebra/l3vni-id",
+				      NB_OP_DESTROY, NULL);
 
 	if (filter)
 		nb_cli_enqueue_change(vty, "./frr-zebra:zebra/prefix-only",
@@ -2369,10 +2387,9 @@ DEFPY_YANG(
 	char xpath_value[XPATH_MAXLEN];
 
 	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
-	snprintf(
-		xpath_value, sizeof(xpath_value),
-		"%s/rmap-match-condition/frr-zebra-route-map:ipv4-prefix-length",
-		xpath);
+	snprintf(xpath_value, sizeof(xpath_value),
+		 "%s/rmap-match-condition/frr-zebra-route-map:ipv4-prefix-length",
+		 xpath);
 	nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY, length_str);
 
 	return nb_cli_apply_changes(vty, NULL);
@@ -2410,10 +2427,9 @@ DEFPY_YANG(
 	char xpath_value[XPATH_MAXLEN];
 
 	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
-	snprintf(
-		xpath_value, sizeof(xpath_value),
-		"%s/rmap-match-condition/frr-zebra-route-map:ipv6-prefix-length",
-		xpath);
+	snprintf(xpath_value, sizeof(xpath_value),
+		 "%s/rmap-match-condition/frr-zebra-route-map:ipv6-prefix-length",
+		 xpath);
 	nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY, length_str);
 
 	return nb_cli_apply_changes(vty, NULL);
@@ -2451,10 +2467,9 @@ DEFPY_YANG(
 	char xpath_value[XPATH_MAXLEN];
 
 	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
-	snprintf(
-		xpath_value, sizeof(xpath_value),
-		"%s/rmap-match-condition/frr-zebra-route-map:ipv4-prefix-length",
-		xpath);
+	snprintf(xpath_value, sizeof(xpath_value),
+		 "%s/rmap-match-condition/frr-zebra-route-map:ipv4-prefix-length",
+		 xpath);
 	nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY, length_str);
 
 	return nb_cli_apply_changes(vty, NULL);
@@ -2565,17 +2580,15 @@ DEFPY_YANG(
 
 	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
 	if (addrv4_str) {
-		snprintf(
-			xpath_value, sizeof(xpath_value),
-			"%s/rmap-set-action/frr-zebra-route-map:ipv4-src-address",
-			xpath);
+		snprintf(xpath_value, sizeof(xpath_value),
+			 "%s/rmap-set-action/frr-zebra-route-map:ipv4-src-address",
+			 xpath);
 		nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY,
 				      addrv4_str);
 	} else {
-		snprintf(
-			xpath_value, sizeof(xpath_value),
-			"%s/rmap-set-action/frr-zebra-route-map:ipv6-src-address",
-			xpath);
+		snprintf(xpath_value, sizeof(xpath_value),
+			 "%s/rmap-set-action/frr-zebra-route-map:ipv6-src-address",
+			 xpath);
 		nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY,
 				      addrv6_str);
 	}
