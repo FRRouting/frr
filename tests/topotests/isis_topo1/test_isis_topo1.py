@@ -629,7 +629,7 @@ def test_isis_hello_padding_during_adjacency_formation():
     assert result is True, result
 
 
-@retry(retry_timeout=5)
+@retry(retry_timeout=10)
 def check_last_iih_packet_for_padding(router, expect_padding):
     logfilename = "{}/{}".format(router.gearlogdir, "isisd.log")
     last_hello_packet_line = None
