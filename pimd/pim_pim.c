@@ -13,7 +13,6 @@
 #include "network.h"
 
 #include "pimd.h"
-#include "pim_instance.h"
 #include "pim_pim.h"
 #include "pim_time.h"
 #include "pim_iface.h"
@@ -355,13 +354,9 @@ int pim_pim_packet(struct interface *ifp, uint8_t *buf, size_t len,
 	}
 }
 
-static void pim_sock_read_on(struct interface *ifp);
-
-static void pim_sock_read(struct event *t)
+int pim_sock_read_helper(int fd, struct pim_instance *pim, bool is_mcast)
 {
-	struct interface *ifp, *orig_ifp;
-	struct pim_interface *pim_ifp;
-	int fd;
+	struct interface *ifp = NULL;
 	struct sockaddr_storage from;
 	struct sockaddr_storage to;
 	socklen_t fromlen = sizeof(from);
@@ -369,16 +364,9 @@ static void pim_sock_read(struct event *t)
 	uint8_t buf[PIM_PIM_BUFSIZE_READ];
 	int len;
 	ifindex_t ifindex = -1;
-	int result = -1; /* defaults to bad */
-	static long long count = 0;
-	int cont = 1;
+	int i;
 
-	orig_ifp = ifp = EVENT_ARG(t);
-	fd = EVENT_FD(t);
-
-	pim_ifp = ifp->info;
-
-	while (cont) {
+	for (i = 0; i < router->packet_process; i++) {
 		pim_sgaddr sg;
 
 		len = pim_socket_recvfromto(fd, buf, sizeof(buf), &from,
@@ -392,7 +380,7 @@ static void pim_sock_read(struct event *t)
 			if (PIM_DEBUG_PIM_PACKETS)
 				zlog_debug("Received errno: %d %s", errno,
 					   safe_strerror(errno));
-			goto done;
+			return -1;
 		}
 
 		/*
@@ -401,14 +389,21 @@ static void pim_sock_read(struct event *t)
 		 * the right ifindex, so just use it.  We know
 		 * it's the right interface because we bind to it
 		 */
-		ifp = if_lookup_by_index(ifindex, pim_ifp->pim->vrf->vrf_id);
-		if (!ifp || !ifp->info) {
+		if (pim != NULL)
+			ifp = if_lookup_by_index(ifindex, pim->vrf->vrf_id);
+
+		/*
+		 * unicast BSM pkts (C-RP) may arrive on non pim interfaces
+		 * mcast pkts are only expected in pim interfaces
+		 */
+		if (!ifp || (is_mcast && !ifp->info)) {
 			if (PIM_DEBUG_PIM_PACKETS)
-				zlog_debug(
-					"%s: Received incoming pim packet on interface(%s:%d) not yet configured for pim",
-					__func__, ifp ? ifp->name : "Unknown",
-					ifindex);
-			goto done;
+				zlog_debug("%s: Received incoming pim packet on interface(%s:%d)%s",
+					   __func__,
+					   ifp ? ifp->name : "Unknown", ifindex,
+					   is_mcast ? " not yet configured for pim"
+						    : "");
+			return -1;
 		}
 #if PIM_IPV == 4
 		sg.src = ((struct sockaddr_in *)&from)->sin_addr;
@@ -418,27 +413,34 @@ static void pim_sock_read(struct event *t)
 		sg.grp = ((struct sockaddr_in6 *)&to)->sin6_addr;
 #endif
 
-		int fail = pim_pim_packet(ifp, buf, len, sg, true);
+		int fail = pim_pim_packet(ifp, buf, len, sg, is_mcast);
 		if (fail) {
 			if (PIM_DEBUG_PIM_PACKETS)
 				zlog_debug("%s: pim_pim_packet() return=%d",
 					   __func__, fail);
-			goto done;
+			return -1;
 		}
-
-		count++;
-		if (count % router->packet_process == 0)
-			cont = 0;
 	}
+	return 0;
+}
 
-	result = 0; /* good */
+static void pim_sock_read_on(struct interface *ifp);
 
-done:
-	pim_sock_read_on(orig_ifp);
+static void pim_sock_read(struct event *t)
+{
+	struct interface *ifp;
+	struct pim_interface *pim_ifp;
+	int fd;
 
-	if (result) {
+	ifp = EVENT_ARG(t);
+	fd = EVENT_FD(t);
+
+	pim_ifp = ifp->info;
+
+	if (pim_sock_read_helper(fd, pim_ifp->pim, true) == 0)
 		++pim_ifp->pim_ifstat_hello_recvfail;
-	}
+
+	pim_sock_read_on(ifp);
 }
 
 static void pim_sock_read_on(struct interface *ifp)

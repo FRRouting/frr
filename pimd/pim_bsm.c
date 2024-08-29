@@ -258,66 +258,11 @@ static inline void pim_bs_timer_restart(struct bsm_scope *scope, int bs_timeout)
 static void bsm_unicast_sock_read(struct event *t)
 {
 	struct bsm_scope *scope = EVENT_ARG(t);
-	struct sockaddr_storage from;
-	struct sockaddr_storage to;
-	socklen_t fromlen = sizeof(from);
-	socklen_t tolen = sizeof(to);
-	ifindex_t ifindex = 0;
-	struct interface *ifp;
-	uint8_t buf[PIM_PIM_BUFSIZE_READ];
-	int len, i;
+
+	pim_sock_read_helper(scope->unicast_sock, scope->pim, false);
 
 	event_add_read(router->master, bsm_unicast_sock_read, scope,
 		       scope->unicast_sock, &scope->unicast_read);
-
-	for (i = 0; i < router->packet_process; i++) {
-		pim_sgaddr sg;
-
-		len = pim_socket_recvfromto(scope->unicast_sock, buf,
-					    sizeof(buf), &from, &fromlen, &to,
-					    &tolen, &ifindex);
-		if (len < 0) {
-			if (errno == EINTR)
-				continue;
-			if (errno == EWOULDBLOCK || errno == EAGAIN)
-				break;
-
-			if (PIM_DEBUG_PIM_PACKETS)
-				zlog_debug("Received errno: %d %s", errno,
-					   safe_strerror(errno));
-			break;
-		}
-
-#if PIM_IPV == 4
-		sg.src = ((struct sockaddr_in *)&from)->sin_addr;
-		sg.grp = ((struct sockaddr_in *)&to)->sin_addr;
-#else
-		sg.src = ((struct sockaddr_in6 *)&from)->sin6_addr;
-		sg.grp = ((struct sockaddr_in6 *)&to)->sin6_addr;
-#endif
-
-		/*
-		 * What?  So with vrf's the incoming packet is received
-		 * on the vrf interface but recvfromto above returns
-		 * the right ifindex, so just use it.  We know
-		 * it's the right interface because we bind to it
-		 */
-		ifp = if_lookup_by_index(ifindex, scope->pim->vrf->vrf_id);
-		if (!ifp) {
-			zlog_warn("Received incoming PIM packet on unknown ifindex %d",
-				  ifindex);
-			break;
-		}
-
-		int fail = pim_pim_packet(ifp, buf, len, sg, false);
-
-		if (fail) {
-			if (PIM_DEBUG_PIM_PACKETS)
-				zlog_debug("%s: pim_pim_packet() return=%d",
-					   __func__, fail);
-			break;
-		}
-	}
 }
 
 void pim_bsm_proc_init(struct pim_instance *pim)
