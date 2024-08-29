@@ -303,12 +303,11 @@ static int bgp_ifp_down(struct interface *ifp)
 
 static int bgp_interface_address_add(ZAPI_CALLBACK_ARGS)
 {
-	struct connected *ifc, *connected;
+	struct connected *ifc;
 	struct bgp *bgp;
 	struct peer *peer;
 	struct prefix *addr;
 	struct listnode *node, *nnode;
-	bool v6_ll_in_nh_global;
 	afi_t afi;
 	safi_t safi;
 
@@ -326,70 +325,56 @@ static int bgp_interface_address_add(ZAPI_CALLBACK_ARGS)
 	if (!bgp)
 		return 0;
 
-	if (!if_is_operative(ifc->ifp))
-		return 0;
+	if (if_is_operative(ifc->ifp)) {
+		bgp_connected_add(bgp, ifc);
 
-	bgp_connected_add(bgp, ifc);
+		/* If we have learnt of any neighbors on this interface,
+		 * check to kick off any BGP interface-based neighbors,
+		 * but only if this is a link-local address.
+		 */
+		if (IN6_IS_ADDR_LINKLOCAL(&ifc->address->u.prefix6)
+		    && !list_isempty(ifc->ifp->nbr_connected))
+			bgp_start_interface_nbrs(bgp, ifc->ifp);
+		else {
+			addr = ifc->address;
 
-	/* If we have learnt of any neighbors on this interface,
-	 * check to kick off any BGP interface-based neighbors,
-	 * but only if this is a link-local address.
-	 */
-	if (IN6_IS_ADDR_LINKLOCAL(&ifc->address->u.prefix6) &&
-	    !list_isempty(ifc->ifp->nbr_connected))
-		bgp_start_interface_nbrs(bgp, ifc->ifp);
-	else if (ifc->address->family == AF_INET6 &&
-		 !IN6_IS_ADDR_LINKLOCAL(&ifc->address->u.prefix6)) {
-		addr = ifc->address;
+			for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer)) {
+				if (addr->family == AF_INET)
+					continue;
 
-		for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer)) {
-			v6_ll_in_nh_global = false;
+				/*
+				 * If the Peer's interface name matches the
+				 * interface name for which BGP received the
+				 * update and if the received interface address
+				 * is a globalV6 and if the peer is currently
+				 * using a v4-mapped-v6 addr or a link local
+				 * address, then copy the Rxed global v6 addr
+				 * into peer's v6_global and send updates out
+				 * with new nexthop addr.
+				 */
+				if ((peer->conf_if &&
+				     (strcmp(peer->conf_if, ifc->ifp->name) ==
+				      0)) &&
+				    !IN6_IS_ADDR_LINKLOCAL(&addr->u.prefix6) &&
+				    ((IS_MAPPED_IPV6(
+					     &peer->nexthop.v6_global)) ||
+				     IN6_IS_ADDR_LINKLOCAL(
+					     &peer->nexthop.v6_global))) {
 
-			if (IN6_IS_ADDR_LINKLOCAL(&peer->nexthop.v6_global)) {
-				frr_each (if_connected, ifc->ifp->connected,
-					  connected) {
-					if (connected->address->family !=
-					    AF_INET6)
-						continue;
-					if (!IPV6_ADDR_SAME(&connected->address
-								     ->u.prefix6,
-							    &peer->nexthop
-								     .v6_global))
-						continue;
-					/* peer->nexthop.v6_global contains a link-local address
-					 * that needs to be replaced by the global address.
-					 */
-					v6_ll_in_nh_global = true;
-					break;
+					if (bgp_debug_zebra(ifc->address)) {
+						zlog_debug(
+							"Update peer %pBP's current intf addr %pI6 and send updates",
+							peer,
+							&peer->nexthop
+								 .v6_global);
+					}
+					memcpy(&peer->nexthop.v6_global,
+					       &addr->u.prefix6,
+					       IPV6_MAX_BYTELEN);
+					FOREACH_AFI_SAFI (afi, safi)
+						bgp_announce_route(peer, afi,
+								   safi, true);
 				}
-			}
-
-			/*
-			 * If the Peer's interface name matches the
-			 * interface name for which BGP received the
-			 * update and if the received interface address
-			 * is a globalV6 and if the peer is currently
-			 * using a v4-mapped-v6 addr or a link local
-			 * address, then copy the Rxed global v6 addr
-			 * into peer's v6_global and send updates out
-			 * with new nexthop addr.
-			 */
-			if (v6_ll_in_nh_global ||
-			    (peer->conf_if &&
-			     strcmp(peer->conf_if, ifc->ifp->name) == 0 &&
-			     (IS_MAPPED_IPV6(&peer->nexthop.v6_global) ||
-			      IN6_IS_ADDR_LINKLOCAL(&peer->nexthop.v6_global)))) {
-				if (bgp_debug_zebra(ifc->address)) {
-					zlog_debug("Update peer %pBP's current intf global addr from %pI6 to %pI6 and send updates",
-						   peer,
-						   &peer->nexthop.v6_global,
-						   &addr->u.prefix6);
-				}
-				memcpy(&peer->nexthop.v6_global,
-				       &addr->u.prefix6, IPV6_MAX_BYTELEN);
-				FOREACH_AFI_SAFI (afi, safi)
-					bgp_announce_route(peer, afi, safi,
-							   true);
 			}
 		}
 	}
@@ -400,14 +385,10 @@ static int bgp_interface_address_add(ZAPI_CALLBACK_ARGS)
 static int bgp_interface_address_delete(ZAPI_CALLBACK_ARGS)
 {
 	struct listnode *node, *nnode;
-	struct connected *ifc, *connected;
+	struct connected *ifc;
 	struct peer *peer;
 	struct bgp *bgp;
 	struct prefix *addr;
-	struct in6_addr *v6_global = NULL;
-	struct in6_addr *v6_local = NULL;
-	afi_t afi;
-	safi_t safi;
 
 	bgp = bgp_lookup_by_vrf_id(vrf_id);
 
@@ -426,18 +407,7 @@ static int bgp_interface_address_delete(ZAPI_CALLBACK_ARGS)
 
 	addr = ifc->address;
 
-	if (bgp && addr->family == AF_INET6 &&
-	    !IN6_IS_ADDR_LINKLOCAL(&addr->u.prefix6)) {
-		/* find another IPv6 global if possible and find the IPv6 link-local */
-		frr_each (if_connected, ifc->ifp->connected, connected) {
-			if (connected->address->family != AF_INET6)
-				continue;
-			if (IN6_IS_ADDR_LINKLOCAL(&connected->address->u.prefix6))
-				v6_local = &connected->address->u.prefix6;
-			else
-				v6_global = &connected->address->u.prefix6;
-		}
-
+	if (bgp) {
 		/*
 		 * When we are using the v6 global as part of the peering
 		 * nexthops and we are removing it, then we need to
@@ -446,17 +416,17 @@ static int bgp_interface_address_delete(ZAPI_CALLBACK_ARGS)
 		 * we do not want the peering to bounce.
 		 */
 		for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer)) {
-			if (IPV6_ADDR_SAME(&peer->nexthop.v6_global,
-					   &addr->u.prefix6)) {
-				if (v6_global)
-					IPV6_ADDR_COPY(&peer->nexthop.v6_global,
-						       v6_global);
-				else if (v6_local)
-					IPV6_ADDR_COPY(&peer->nexthop.v6_global,
-						       v6_local);
-				else
-					memset(&peer->nexthop.v6_global, 0,
-					       IPV6_MAX_BYTELEN);
+			afi_t afi;
+			safi_t safi;
+
+			if (addr->family == AF_INET)
+				continue;
+
+			if (!IN6_IS_ADDR_LINKLOCAL(&addr->u.prefix6)
+			    && memcmp(&peer->nexthop.v6_global,
+				      &addr->u.prefix6, 16)
+				       == 0) {
+				memset(&peer->nexthop.v6_global, 0, 16);
 				FOREACH_AFI_SAFI (afi, safi)
 					bgp_announce_route(peer, afi, safi,
 							   true);
