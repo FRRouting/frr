@@ -1230,6 +1230,13 @@ static void show_nexthop_group_out(struct vty *vty, struct nhg_hash_entry *nhe,
 			else
 				vty_out(vty, ", Installed");
 		}
+		if (CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_INITIAL_DELAY_INSTALL)) {
+			if (json)
+				json_object_boolean_true_add(json,
+							     "initialDelay");
+			else
+				vty_out(vty, ", Initial Delay");
+		}
 		if (!json)
 			vty_out(vty, "\n");
 	}

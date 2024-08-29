@@ -419,6 +419,14 @@ struct nhg_hash_entry *zebra_nhe_copy(const struct nhg_hash_entry *orig,
 	if (orig->backup_info)
 		nhe->backup_info = nhg_backup_copy(orig->backup_info);
 
+	/*
+	 * This is a special case, Zebra needs to track
+	 * whether or not this flag was set on a initial
+	 * unresolved NHG
+	 */
+	if (CHECK_FLAG(orig->flags, NEXTHOP_GROUP_INITIAL_DELAY_INSTALL))
+		SET_FLAG(nhe->flags, NEXTHOP_GROUP_INITIAL_DELAY_INSTALL);
+
 	return nhe;
 }
 
@@ -1159,7 +1167,7 @@ static void zebra_nhg_handle_install(struct nhg_hash_entry *nhe, bool install)
 					"%s nh id %u (flags 0x%x) associated dependent NHG %pNG install",
 					__func__, nhe->id, nhe->flags,
 					rb_node_dep->nhe);
-			zebra_nhg_install_kernel(rb_node_dep->nhe);
+			zebra_nhg_install_kernel(rb_node_dep->nhe, true);
 		}
 	}
 }
@@ -1178,7 +1186,7 @@ static void zebra_nhg_handle_kernel_state_change(struct nhg_hash_entry *nhe,
 			(is_delete ? "deleted" : "updated"), nhe);
 
 		UNSET_FLAG(nhe->flags, NEXTHOP_GROUP_INSTALLED);
-		zebra_nhg_install_kernel(nhe);
+		zebra_nhg_install_kernel(nhe, ZEBRA_ROUTE_MAX);
 	} else
 		zebra_nhg_handle_uninstall(nhe);
 }
@@ -3149,7 +3157,7 @@ uint8_t zebra_nhg_nhe2grp(struct nh_grp *grp, struct nhg_hash_entry *nhe,
 	return zebra_nhg_nhe2grp_internal(grp, 0, nhe, nhe, max_num);
 }
 
-void zebra_nhg_install_kernel(struct nhg_hash_entry *nhe)
+void zebra_nhg_install_kernel(struct nhg_hash_entry *nhe, uint8_t type)
 {
 	struct nhg_connected *rb_node_dep = NULL;
 
@@ -3162,9 +3170,16 @@ void zebra_nhg_install_kernel(struct nhg_hash_entry *nhe)
 				   nhe);
 	}
 
+	if ((type != ZEBRA_ROUTE_CONNECT && type != ZEBRA_ROUTE_LOCAL &&
+	     type != ZEBRA_ROUTE_KERNEL) &&
+	    CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_INITIAL_DELAY_INSTALL)) {
+		UNSET_FLAG(nhe->flags, NEXTHOP_GROUP_INITIAL_DELAY_INSTALL);
+		UNSET_FLAG(nhe->flags, NEXTHOP_GROUP_INSTALLED);
+	}
+
 	/* Make sure all depends are installed/queued */
 	frr_each(nhg_connected_tree, &nhe->nhg_depends, rb_node_dep) {
-		zebra_nhg_install_kernel(rb_node_dep->nhe);
+		zebra_nhg_install_kernel(rb_node_dep->nhe, type);
 	}
 
 	if (CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_VALID) &&
@@ -3188,9 +3203,6 @@ void zebra_nhg_install_kernel(struct nhg_hash_entry *nhe)
 				nhe);
 			break;
 		case ZEBRA_DPLANE_REQUEST_SUCCESS:
-			flog_err(EC_ZEBRA_DP_INVALID_RC,
-				 "DPlane returned an invalid result code for attempt of installation of %pNG into the kernel",
-				 nhe);
 			break;
 		}
 	}
@@ -3516,7 +3528,7 @@ struct nhg_hash_entry *zebra_nhg_proto_add(uint32_t id, int type,
 
 	zebra_nhg_set_valid_if_active(new);
 
-	zebra_nhg_install_kernel(new);
+	zebra_nhg_install_kernel(new, ZEBRA_ROUTE_MAX);
 
 	if (old) {
 		/*
@@ -3752,7 +3764,8 @@ void zebra_interface_nhg_reinstall(struct interface *ifp)
 					"%s install nhe %pNG nh type %u flags 0x%x",
 					__func__, rb_node_dep->nhe, nh->type,
 					rb_node_dep->nhe->flags);
-			zebra_nhg_install_kernel(rb_node_dep->nhe);
+			zebra_nhg_install_kernel(rb_node_dep->nhe,
+						 ZEBRA_ROUTE_MAX);
 
 			/* Don't need to modify dependents if installed */
 			if (CHECK_FLAG(rb_node_dep->nhe->flags,

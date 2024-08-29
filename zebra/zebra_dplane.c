@@ -4503,8 +4503,21 @@ dplane_nexthop_update_internal(struct nhg_hash_entry *nhe, enum dplane_op_e op)
 	ctx = dplane_ctx_alloc();
 
 	ret = dplane_ctx_nexthop_init(ctx, op, nhe);
-	if (ret == AOK)
+	if (ret == AOK) {
+		if (CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_INITIAL_DELAY_INSTALL)) {
+			UNSET_FLAG(nhe->flags, NEXTHOP_GROUP_QUEUED);
+			UNSET_FLAG(nhe->flags, NEXTHOP_GROUP_REINSTALL);
+			SET_FLAG(nhe->flags, NEXTHOP_GROUP_INSTALLED);
+
+			dplane_ctx_free(&ctx);
+			atomic_fetch_add_explicit(&zdplane_info.dg_nexthops_in,
+						  1, memory_order_relaxed);
+
+			return ZEBRA_DPLANE_REQUEST_SUCCESS;
+		}
+
 		ret = dplane_update_enqueue(ctx);
+	}
 
 	/* Update counter */
 	atomic_fetch_add_explicit(&zdplane_info.dg_nexthops_in, 1,

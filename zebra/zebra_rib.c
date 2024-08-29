@@ -688,7 +688,7 @@ void rib_install_kernel(struct route_node *rn, struct route_entry *re,
 	/*
 	 * Install the resolved nexthop object first.
 	 */
-	zebra_nhg_install_kernel(re->nhe);
+	zebra_nhg_install_kernel(re->nhe, re->type);
 
 	/*
 	 * If this is a replace to a new RE let the originator of the RE
@@ -4384,9 +4384,14 @@ int rib_add_multipath(afi_t afi, safi_t safi, struct prefix *p,
 	 * Use a temporary nhe to convey info to the common/main api.
 	 */
 	zebra_nhe_init(&nhe, afi, (ng ? ng->nexthop : NULL));
-	if (ng)
+	if (ng) {
 		nhe.nhg.nexthop = ng->nexthop;
-	else if (re->nhe_id > 0)
+
+		if (re->type == ZEBRA_ROUTE_CONNECT ||
+		    re->type == ZEBRA_ROUTE_LOCAL ||
+		    re->type == ZEBRA_ROUTE_KERNEL)
+			SET_FLAG(nhe.flags, NEXTHOP_GROUP_INITIAL_DELAY_INSTALL);
+	} else if (re->nhe_id > 0)
 		nhe.id = re->nhe_id;
 
 	n = zebra_nhe_copy(&nhe, 0);
