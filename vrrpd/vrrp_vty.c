@@ -738,21 +738,12 @@ DEFUN_NOSH (show_debugging_vrrp,
 {
 	vty_out(vty, "VRRP debugging status:\n");
 
-	vrrp_debug_status_write(vty);
-
 	cmd_show_lib_debugs(vty);
 
 	return CMD_SUCCESS;
 }
 
 /* clang-format on */
-
-static struct cmd_node debug_node = {
-	.name = "debug",
-	.node = DEBUG_NODE,
-	.prompt = "",
-	.config_write = vrrp_config_write_debug,
-};
 
 static struct cmd_node vrrp_node = {
 	.name = "vrrp",
@@ -763,7 +754,6 @@ static struct cmd_node vrrp_node = {
 
 void vrrp_vty_init(void)
 {
-	install_node(&debug_node);
 	install_node(&vrrp_node);
 	vrf_cmd_init(NULL);
 	if_cmd_init_default();
