@@ -4413,7 +4413,8 @@ int rib_add_multipath(afi_t afi, safi_t safi, struct prefix *p,
 				return -1;
 			}
 
-			if (ifp->ifindex == ng->nexthop->ifindex)
+			if (ng && ng->nexthop &&
+			    ifp->ifindex == ng->nexthop->ifindex)
 				re->type = ZEBRA_ROUTE_CONNECT;
 		}
 	}
