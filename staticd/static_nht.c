@@ -46,12 +46,11 @@ static void static_nht_update_path(struct static_path *pn, struct prefix *nhp,
 	}
 }
 
-static void static_nht_update_safi(struct prefix *sp, struct prefix *nhp,
+static void static_nht_update_safi(struct route_node *rn, struct prefix *nhp,
 				   uint32_t nh_num, afi_t afi, safi_t safi,
 				   struct static_vrf *svrf, vrf_id_t nh_vrf_id)
 {
 	struct route_table *stable;
-	struct route_node *rn;
 	struct static_path *pn;
 	struct static_route_info *si;
 
@@ -59,20 +58,18 @@ static void static_nht_update_safi(struct prefix *sp, struct prefix *nhp,
 	if (!stable)
 		return;
 
-	if (sp) {
-		rn = srcdest_rnode_lookup(stable, sp, NULL);
-		if (rn && rn->info) {
+	if (rn) {
+		if (rn->info) {
 			si = static_route_info_from_rnode(rn);
 			frr_each(static_path_list, &si->path_list, pn) {
 				static_nht_update_path(pn, nhp, nh_num,
 						       nh_vrf_id);
 			}
-			route_unlock_node(rn);
 		}
 		return;
 	}
 
-	for (rn = route_top(stable); rn; rn = route_next(rn)) {
+	for (rn = route_top(stable); rn; rn = srcdest_route_next(rn)) {
 		si = static_route_info_from_rnode(rn);
 		if (!si)
 			continue;
@@ -82,13 +79,14 @@ static void static_nht_update_safi(struct prefix *sp, struct prefix *nhp,
 	}
 }
 
-void static_nht_update(struct prefix *sp, struct prefix *nhp, uint32_t nh_num,
-		       afi_t afi, safi_t safi, vrf_id_t nh_vrf_id)
+void static_nht_update(struct route_node *rn, struct prefix *nhp,
+		       uint32_t nh_num, afi_t afi, safi_t safi,
+		       vrf_id_t nh_vrf_id)
 {
 	struct static_vrf *svrf;
 
 	RB_FOREACH (svrf, svrf_name_head, &svrfs)
-		static_nht_update_safi(sp, nhp, nh_num, afi, safi, svrf,
+		static_nht_update_safi(rn, nhp, nh_num, afi, safi, svrf,
 				       nh_vrf_id);
 }
 
@@ -106,7 +104,7 @@ static void static_nht_reset_start_safi(struct prefix *nhp, afi_t afi,
 	if (!stable)
 		return;
 
-	for (rn = route_top(stable); rn; rn = route_next(rn)) {
+	for (rn = route_top(stable); rn; rn = srcdest_route_next(rn)) {
 		si = static_route_info_from_rnode(rn);
 		if (!si)
 			continue;

@@ -16,14 +16,14 @@ extern "C" {
  * us call this function to find the nexthop we are tracking so it
  * can be installed or removed.
  *
- * sp -> The route we are looking at.  If NULL then look at all
+ * rn -> The route node we are looking at.  If NULL then look at all
  *       routes.
  * nhp -> The nexthop that is being tracked.
  * nh_num -> number of valid nexthops.
  * afi -> The afi we are working in.
  * vrf_id -> The vrf the nexthop is in.
  */
-extern void static_nht_update(struct prefix *sp, struct prefix *nhp,
+extern void static_nht_update(struct route_node *rn, struct prefix *nhp,
 			      uint32_t nh_num, afi_t afi, safi_t safi,
 			      vrf_id_t vrf_id);
 
