@@ -10,7 +10,6 @@
 import os
 import sys
 import json
-from time import sleep
 from functools import partial
 import pytest
 
@@ -196,17 +195,15 @@ def test_protocols_convergence():
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
-    logger.info("Checking NHRP cache and IPv4 routes for convergence")
+    logger.info("Checking NHRP cache for convergence")
     router_list = tgen.routers()
 
     # Check NHRP cache on servers and clients
     for rname, router in router_list.items():
-
-        json_file = "{}/{}/nhrp_cache.json".format(CWD, router.name)
-        if not os.path.isfile(json_file):
-            logger.info("skipping file {}".format(json_file))
+        if 'nh' not in rname:
             continue
 
+        json_file = "{}/{}/nhrp_cache.json".format(CWD, router.name)
         expected = json.loads(open(json_file).read())
         test_func = partial(
             topotest.router_json_cmp, router, "show ip nhrp cache json", expected
@@ -220,13 +217,12 @@ def test_protocols_convergence():
         assert result is None, assertmsg
 
     # Check NHRP IPV4 routes on servers and clients
+    logger.info("Checking IPv4 routes for convergence")
     for rname, router in router_list.items():
-
-        json_file = "{}/{}/nhrp_route.json".format(CWD, router.name)
-        if not os.path.isfile(json_file):
-            logger.info("skipping file {}".format(json_file))
+        if 'nh' not in rname:
             continue
 
+        json_file = "{}/{}/nhrp_route.json".format(CWD, router.name)
         expected = json.loads(open(json_file).read())
         test_func = partial(
             topotest.router_json_cmp, router, "show ip route nhrp json", expected
