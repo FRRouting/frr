@@ -2521,7 +2521,7 @@ static void gm_show_if_vrf(struct vty *vty, struct vrf *vrf, const char *ifname,
 	if (!js && !detail) {
 		table = ttable_dump(tt, "\n");
 		vty_out(vty, "%s\n", table);
-		XFREE(MTYPE_TMP, table);
+		XFREE(MTYPE_TMP_TTABLE, table);
 		ttable_del(tt);
 	}
 }
@@ -3005,7 +3005,7 @@ static void gm_show_groups(struct vty *vty, struct vrf *vrf, bool uj)
 		/* Dump the generated table. */
 		table = ttable_dump(tt, "\n");
 		vty_out(vty, "%s\n", table);
-		XFREE(MTYPE_TMP, table);
+		XFREE(MTYPE_TMP_TTABLE, table);
 		ttable_del(tt);
 	}
 }

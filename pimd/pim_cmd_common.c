@@ -972,7 +972,7 @@ void pim_show_rpf(struct pim_instance *pim, struct vty *vty, json_object *json)
 	if (!json) {
 		table = ttable_dump(tt, "\n");
 		vty_out(vty, "%s\n", table);
-		XFREE(MTYPE_TMP, table);
+		XFREE(MTYPE_TMP_TTABLE, table);
 		ttable_del(tt);
 	}
 }
@@ -1024,7 +1024,7 @@ void pim_show_neighbors_secondary(struct pim_instance *pim, struct vty *vty)
 	/* Dump the generated table. */
 	table = ttable_dump(tt, "\n");
 	vty_out(vty, "%s\n", table);
-	XFREE(MTYPE_TMP, table);
+	XFREE(MTYPE_TMP_TTABLE, table);
 	ttable_del(tt);
 }
 
@@ -1266,7 +1266,7 @@ void pim_show_state(struct pim_instance *pim, struct vty *vty,
 #else
 		table = ttable_dump(tt, "\n");
 		vty_out(vty, "%s\n", table);
-		XFREE(MTYPE_TMP, table);
+		XFREE(MTYPE_TMP_TTABLE, table);
 		ttable_del(tt);
 #endif
 	}
@@ -1499,7 +1499,7 @@ void pim_show_upstream(struct pim_instance *pim, struct vty *vty,
 	if (!json) {
 		table = ttable_dump(tt, "\n");
 		vty_out(vty, "%s\n", table);
-		XFREE(MTYPE_TMP, table);
+		XFREE(MTYPE_TMP_TTABLE, table);
 		ttable_del(tt);
 	}
 }
@@ -1576,7 +1576,7 @@ void pim_show_join_desired(struct pim_instance *pim, struct vty *vty, bool uj)
 		/* Dump the generated table. */
 		table = ttable_dump(tt, "\n");
 		vty_out(vty, "%s\n", table);
-		XFREE(MTYPE_TMP, table);
+		XFREE(MTYPE_TMP_TTABLE, table);
 		ttable_del(tt);
 	}
 }
@@ -1655,7 +1655,7 @@ void pim_show_upstream_rpf(struct pim_instance *pim, struct vty *vty, bool uj)
 		/* Dump the generated table. */
 		table = ttable_dump(tt, "\n");
 		vty_out(vty, "%s\n", table);
-		XFREE(MTYPE_TMP, table);
+		XFREE(MTYPE_TMP_TTABLE, table);
 		ttable_del(tt);
 	}
 }
@@ -1837,7 +1837,7 @@ void pim_show_join(struct pim_instance *pim, struct vty *vty, pim_sgaddr *sg,
 	if (!json) {
 		table = ttable_dump(tt, "\n");
 		vty_out(vty, "%s\n", table);
-		XFREE(MTYPE_TMP, table);
+		XFREE(MTYPE_TMP_TTABLE, table);
 		ttable_del(tt);
 	}
 }
@@ -1917,7 +1917,7 @@ void pim_show_jp_agg_list(struct pim_instance *pim, struct vty *vty)
 	/* Dump the generated table. */
 	table = ttable_dump(tt, "\n");
 	vty_out(vty, "%s\n", table);
-	XFREE(MTYPE_TMP, table);
+	XFREE(MTYPE_TMP_TTABLE, table);
 	ttable_del(tt);
 }
 
@@ -2060,7 +2060,7 @@ void pim_show_membership(struct pim_instance *pim, struct vty *vty, bool uj)
 		/* Dump the generated table. */
 		table = ttable_dump(tt, "\n");
 		vty_out(vty, "%s\n", table);
-		XFREE(MTYPE_TMP, table);
+		XFREE(MTYPE_TMP_TTABLE, table);
 		ttable_del(tt);
 	}
 }
@@ -2165,7 +2165,7 @@ void pim_show_channel(struct pim_instance *pim, struct vty *vty, bool uj)
 		/* Dump the generated table. */
 		table = ttable_dump(tt, "\n");
 		vty_out(vty, "%s\n", table);
-		XFREE(MTYPE_TMP, table);
+		XFREE(MTYPE_TMP_TTABLE, table);
 		ttable_del(tt);
 	}
 }
@@ -2348,7 +2348,7 @@ void pim_show_interfaces(struct pim_instance *pim, struct vty *vty, bool mlag,
 		/* Dump the generated table. */
 		table = ttable_dump(tt, "\n");
 		vty_out(vty, "%s\n", table);
-		XFREE(MTYPE_TMP, table);
+		XFREE(MTYPE_TMP_TTABLE, table);
 
 		ttable_del(tt);
 	}
@@ -2820,7 +2820,7 @@ static int pim_print_vty_pnc_cache_walkcb(struct hash_bucket *bucket, void *arg)
 	/* Dump the generated table. */
 	table = ttable_dump(tt, "\n");
 	vty_out(vty, "%s\n", table);
-	XFREE(MTYPE_TMP, table);
+	XFREE(MTYPE_TMP_TTABLE, table);
 	ttable_del(tt);
 
 	return CMD_SUCCESS;
@@ -3293,7 +3293,7 @@ void pim_show_neighbors(struct pim_instance *pim, struct vty *vty,
 	if (!json) {
 		table = ttable_dump(tt, "\n");
 		vty_out(vty, "%s\n", table);
-		XFREE(MTYPE_TMP, table);
+		XFREE(MTYPE_TMP_TTABLE, table);
 		ttable_del(tt);
 	}
 }
@@ -3581,7 +3581,7 @@ void show_multicast_interfaces(struct pim_instance *pim, struct vty *vty,
 	if (!json) {
 		table = ttable_dump(tt, "\n");
 		vty_out(vty, "%s\n", table);
-		XFREE(MTYPE_TMP, table);
+		XFREE(MTYPE_TMP_TTABLE, table);
 		ttable_del(tt);
 	}
 }
@@ -4020,7 +4020,7 @@ void show_mroute(struct pim_instance *pim, struct vty *vty, pim_sgaddr *sg,
 	if (!json) {
 		table = ttable_dump(tt, "\n");
 		vty_out(vty, "%s\n", table);
-		XFREE(MTYPE_TMP, table);
+		XFREE(MTYPE_TMP_TTABLE, table);
 		ttable_del(tt);
 	}
 }
@@ -4103,7 +4103,7 @@ void show_mroute_count(struct pim_instance *pim, struct vty *vty,
 	if (!json) {
 		table = ttable_dump(tt, "\n");
 		vty_out(vty, "%s\n", table);
-		XFREE(MTYPE_TMP, table);
+		XFREE(MTYPE_TMP_TTABLE, table);
 		ttable_del(tt);
 	}
 }
@@ -5406,7 +5406,7 @@ static void pim_show_group_rp_mappings_info(struct pim_instance *pim,
 
 			table = ttable_dump(tt, "\n");
 			vty_out(vty, "%s\n", table);
-			XFREE(MTYPE_TMP, table);
+			XFREE(MTYPE_TMP_TTABLE, table);
 			ttable_del(tt);
 			tt = NULL;
 		}
@@ -5460,7 +5460,7 @@ static void pim_show_group_rp_mappings_info(struct pim_instance *pim,
 
 			table = ttable_dump(tt, "\n");
 			vty_out(vty, "%s\n", table);
-			XFREE(MTYPE_TMP, table);
+			XFREE(MTYPE_TMP_TTABLE, table);
 			ttable_del(tt);
 		}
 		if (!bsm_rpinfos_count(bsgrp->partial_bsrp_list) && !uj)
