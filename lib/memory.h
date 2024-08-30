@@ -138,6 +138,7 @@ struct memgroup {
 
 DECLARE_MGROUP(LIB);
 DECLARE_MTYPE(TMP);
+DECLARE_MTYPE(TMP_TTABLE);
 
 
 extern void *qmalloc(struct memtype *mt, size_t size)
