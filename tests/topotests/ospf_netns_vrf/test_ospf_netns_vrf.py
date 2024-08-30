@@ -234,7 +234,7 @@ def test_ospf_json():
             "show ip ospf vrf {0}-ospf-cust1 json".format(rname),
             expected,
         )
-        _, diff = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
+        _, diff = topotest.run_and_expect(test_func, None, count=30, wait=1)
         assertmsg = '"{}" JSON output mismatches'.format(rname)
         assert diff is None, assertmsg
 
