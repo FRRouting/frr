@@ -310,6 +310,21 @@ Global Commands
    The descriptor for this bit should exist in :file:`/etc/iproute2/protodown_reasons.d/`
    to display with :clicmd:`ip -d link show`.
 
+Nexthop Objects
+===============
+
+If dataplane supports nexthop objects, zebra uses this feature to install
+nexthops, instead of embedding them in every route. This behavior can be toggled
+with
+
+.. clicmd:: [no] zebra nexthop kernel enable
+
+for linux kernel or ``[no] fpm use-next-hop-groups`` for
+:ref:`FPM <fpm-commands>`.
+
+However, linux kernel doesn't support referencing nexthop object in IPv6 source
+routes, so zebra will fallback to embeded nexthops for those.
+
 Nexthop Tracking
 ================
 
@@ -1339,6 +1354,8 @@ the FPM a complete copy of the forwarding table(s) when it reconnects.
 
 For more details on the implementation, please read the developer's manual FPM
 section.
+
+.. _fpm-commands:
 
 FPM Commands
 ============
