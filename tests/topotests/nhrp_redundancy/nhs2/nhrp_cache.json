@@ -4,7 +4,18 @@
     },
     "table": [
         {
-            "interface": "r3-gre0",
+            "interface": "nhs2-gre0",
+            "type": "local",
+            "protocol": "176.16.1.2",
+            "nbma": "192.168.1.2",
+            "claimed_nbma": "192.168.1.2",
+            "used": false,
+            "timeout": false,
+            "auth": false,
+            "identity": "-"
+        },
+        {
+            "interface": "nhs2-gre0",
             "type": "dynamic",
             "protocol": "176.16.1.4",
             "nbma": "192.168.2.4",
@@ -15,18 +26,7 @@
             "identity": ""
         },
         {
-            "interface": "r3-gre0",
-            "type": "local",
-            "protocol": "176.16.1.3",
-            "nbma": "192.168.1.3",
-            "claimed_nbma": "192.168.1.3",
-            "used": false,
-            "timeout": false,
-            "auth": false,
-            "identity": "-"
-        },
-        {
-            "interface": "r3-gre0",
+            "interface": "nhs2-gre0",
             "type": "dynamic",
             "protocol": "176.16.1.5",
             "nbma": "192.168.2.5",

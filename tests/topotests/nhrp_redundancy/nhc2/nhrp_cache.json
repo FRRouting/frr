@@ -4,7 +4,7 @@
     },
     "table": [
         {
-            "interface": "r4-gre0",
+            "interface": "nhc2-gre0",
             "type": "nhs",
             "protocol": "176.16.1.2",
             "nbma": "192.168.1.2",
@@ -15,18 +15,7 @@
             "identity": ""
         },
         {
-            "interface": "r4-gre0",
-            "type": "local",
-            "protocol": "176.16.1.4",
-            "nbma": "192.168.2.4",
-            "claimed_nbma": "192.168.2.4",
-            "used": false,
-            "timeout": false,
-            "auth": false,
-            "identity": "-"
-        },
-        {
-            "interface": "r4-gre0",
+            "interface": "nhc2-gre0",
             "type": "nhs",
             "protocol": "176.16.1.3",
             "nbma": "192.168.1.3",
@@ -37,7 +26,7 @@
             "identity": ""
         },
         {
-            "interface": "r4-gre0",
+            "interface": "nhc2-gre0",
             "type": "nhs",
             "protocol": "176.16.1.1",
             "nbma": "192.168.1.1",
@@ -46,6 +35,17 @@
             "timeout": true,
             "auth": false,
             "identity": ""
+        },
+        {
+            "interface": "nhc2-gre0",
+            "type": "local",
+            "protocol": "176.16.1.5",
+            "nbma": "192.168.2.5",
+            "claimed_nbma": "192.168.2.5",
+            "used": false,
+            "timeout": false,
+            "auth": false,
+            "identity": "-"
         }
     ]
 }

@@ -77,30 +77,26 @@ def build_topo(tgen):
     "Build function"
 
     # Create 7 routers
-    for routern in range(1, 8):
-        tgen.add_router("r{}".format(routern))
+    for rname in ["nhs1", "nhs2", "nhs3", "nhc1", "nhc2", "router", "host"]:
+        tgen.add_router(rname)
 
-    # Interconnect routers 1, 2, 3, 6
     switch = tgen.add_switch("s1")
-    switch.add_link(tgen.gears["r1"])
-    switch.add_link(tgen.gears["r2"])
-    switch.add_link(tgen.gears["r3"])
-    switch.add_link(tgen.gears["r6"])
+    switch.add_link(tgen.gears["nhs1"])
+    switch.add_link(tgen.gears["nhs2"])
+    switch.add_link(tgen.gears["nhs3"])
+    switch.add_link(tgen.gears["router"])
 
-    # Interconnect routers 4, 5, 6
     switch = tgen.add_switch("s2")
-    switch.add_link(tgen.gears["r4"])
-    switch.add_link(tgen.gears["r5"])
-    switch.add_link(tgen.gears["r6"])
+    switch.add_link(tgen.gears["nhc1"])
+    switch.add_link(tgen.gears["nhc2"])
+    switch.add_link(tgen.gears["router"])
 
-    # Connect router 4, 7
     switch = tgen.add_switch("s3")
-    switch.add_link(tgen.gears["r4"])
-    switch.add_link(tgen.gears["r7"])
+    switch.add_link(tgen.gears["nhc1"])
+    switch.add_link(tgen.gears["host"])
 
-    # Connect router 5
     switch = tgen.add_switch("s4")
-    switch.add_link(tgen.gears["r5"])
+    switch.add_link(tgen.gears["nhc2"])
 
 
 def _populate_iface():
@@ -123,40 +119,37 @@ def _populate_iface():
     ]
 
     for cmd in cmds_tot_hub:
-        # Router 1
-        input = cmd.format("r1", "1")
+        input = cmd.format("nhs1", "1")
         logger.info("input: " + input)
-        output = tgen.net["r1"].cmd(input)
+        output = tgen.net["nhs1"].cmd(input)
         logger.info("output: " + output)
 
-        # Router 2
-        input = cmd.format("r2", "2")
+        input = cmd.format("nhs2", "2")
         logger.info("input: " + input)
-        output = tgen.net["r2"].cmd(input)
+        output = tgen.net["nhs2"].cmd(input)
         logger.info("output: " + output)
 
-        # Router 3
-        input = cmd.format("r3", "3")
+        input = cmd.format("nhs3", "3")
         logger.info("input: " + input)
-        output = tgen.net["r3"].cmd(input)
+        output = tgen.net["nhs3"].cmd(input)
         logger.info("output: " + output)
 
     for cmd in cmds_tot:
-        input = cmd.format("r4", "4")
+        input = cmd.format("nhc1", "4")
         logger.info("input: " + input)
-        output = tgen.net["r4"].cmd(input)
+        output = tgen.net["nhc1"].cmd(input)
         logger.info("output: " + output)
 
-        input = cmd.format("r5", "5")
+        input = cmd.format("nhc2", "5")
         logger.info("input: " + input)
-        output = tgen.net["r5"].cmd(input)
+        output = tgen.net["nhc2"].cmd(input)
         logger.info("output: " + output)
 
 
 def _verify_iptables():
     tgen = get_topogen()
     # Verify iptables is installed. Required for shortcuts
-    rc, _, _ = tgen.net["r1"].cmd_status("iptables")
+    rc, _, _ = tgen.net["nhs1"].cmd_status("iptables")
     return False if rc == 127 else True
 
 
@@ -179,7 +172,7 @@ def setup_module(mod):
             TopoRouter.RD_ZEBRA,
             os.path.join(CWD, "{}/zebra.conf".format(rname)),
         )
-        if rname in ("r1", "r2", "r3", "r4", "r5"):
+        if rname in ("nhs1", "nhs2", "nhs3", "nhc1", "nhc2"):
             router.load_config(
                 TopoRouter.RD_NHRP, os.path.join(CWD, "{}/nhrpd.conf".format(rname))
             )
@@ -247,53 +240,53 @@ def test_protocols_convergence():
         assert result is None, assertmsg
 
     # Test connectivity from 1 NHRP server to all clients
-    pingrouter = tgen.gears["r1"]
-    logger.info("Check Ping IPv4 from  R1 to R4 = 176.16.1.4)")
+    pingrouter = tgen.gears["nhs1"]
+    logger.info("Check Ping IPv4 from  nhs1 to nhc1 = 176.16.1.4)")
     output = pingrouter.run("ping 176.16.1.4 -f -c 1000")
     logger.info(output)
     if "1000 packets transmitted, 1000 received" not in output:
-        assertmsg = "expected ping IPv4 from R1 to R4 should be ok"
+        assertmsg = "expected ping IPv4 from nhs1 to nhc1 should be ok"
         assert 0, assertmsg
     else:
-        logger.info("Check Ping IPv4 from R1 to R4 OK")
+        logger.info("Check Ping IPv4 from nhs1 to nhc1 OK")
 
-    logger.info("Check Ping IPv4 from  R1 to R5 = 176.16.1.5)")
+    logger.info("Check Ping IPv4 from  nhs1 to nhc2 = 176.16.1.5)")
     output = pingrouter.run("ping 176.16.1.5 -f -c 1000")
     logger.info(output)
     if "1000 packets transmitted, 1000 received" not in output:
-        assertmsg = "expected ping IPv4 from R1 to R5 should be ok"
+        assertmsg = "expected ping IPv4 from nhs1 to nhc2 should be ok"
         assert 0, assertmsg
     else:
-        logger.info("Check Ping IPv4 from R1 to R5 OK")
+        logger.info("Check Ping IPv4 from nhs1 to nhc2 OK")
 
     # Test connectivity from 1 NHRP client to all servers
-    pingrouter = tgen.gears["r4"]
-    logger.info("Check Ping IPv4 from  R4 to R1 = 176.16.1.1)")
+    pingrouter = tgen.gears["nhc1"]
+    logger.info("Check Ping IPv4 from  nhc1 to nhs1 = 176.16.1.1)")
     output = pingrouter.run("ping 176.16.1.1 -f -c 1000")
     logger.info(output)
     if "1000 packets transmitted, 1000 received" not in output:
-        assertmsg = "expected ping IPv4 from R4 to R1 should be ok"
+        assertmsg = "expected ping IPv4 from nhc1 to nhs1 should be ok"
         assert 0, assertmsg
     else:
-        logger.info("Check Ping IPv4 from R4 to R1 OK")
+        logger.info("Check Ping IPv4 from nhc1 to nhs1 OK")
 
-    logger.info("Check Ping IPv4 from  R4 to R2 = 176.16.1.2)")
+    logger.info("Check Ping IPv4 from  nhc1 to nhs2 = 176.16.1.2)")
     output = pingrouter.run("ping 176.16.1.2 -f -c 1000")
     logger.info(output)
     if "1000 packets transmitted, 1000 received" not in output:
-        assertmsg = "expected ping IPv4 from R4 to R2 should be ok"
+        assertmsg = "expected ping IPv4 from nhc1 to nhs2 should be ok"
         assert 0, assertmsg
     else:
-        logger.info("Check Ping IPv4 from R4 to R2 OK")
+        logger.info("Check Ping IPv4 from nhc1 to nhs2 OK")
 
-    logger.info("Check Ping IPv4 from  R4 to R3 = 176.16.1.3)")
+    logger.info("Check Ping IPv4 from  nhc1 to nhs3 = 176.16.1.3)")
     output = pingrouter.run("ping 176.16.1.3 -f -c 1000")
     logger.info(output)
     if "1000 packets transmitted, 1000 received" not in output:
-        assertmsg = "expected ping IPv4 from R4 to R3 should be ok"
+        assertmsg = "expected ping IPv4 from nhc1 to nhs3 should be ok"
         assert 0, assertmsg
     else:
-        logger.info("Check Ping IPv4 from R4 to R3 OK")
+        logger.info("Check Ping IPv4 from nhc1 to nhs3 OK")
 
 
 @retry(retry_timeout=30, initial_wait=5)
@@ -302,16 +295,16 @@ def verify_shortcut_path():
     Verifying that traffic flows through shortcut path
     """
     tgen = get_topogen()
-    pingrouter = tgen.gears["r7"]
-    logger.info("Check Ping IPv4 from  R7 to R5 = 5.5.5.5")
+    pingrouter = tgen.gears["host"]
+    logger.info("Check Ping IPv4 from  host to nhc2 = 5.5.5.5")
 
     output = pingrouter.run("ping 5.5.5.5 -f -c 1000")
     logger.info(output)
     if "1000 packets transmitted, 1000 received" not in output:
-        assertmsg = "expected ping IPv4 from R7 to R5 should be ok"
+        assertmsg = "expected ping IPv4 from host to nhc2 should be ok"
         assert 0, assertmsg
     else:
-        logger.info("Check Ping IPv4 from R7 to R5 OK")
+        logger.info("Check Ping IPv4 from host to nhc2 OK")
 
 
 def test_redundancy_shortcut():
@@ -328,8 +321,8 @@ def test_redundancy_shortcut():
 
     logger.info("Testing NHRP shortcuts with redundant servers")
 
-    # Verify R4 nhrp routes before shortcut creation
-    router = tgen.gears["r4"]
+    # Verify nhc1 nhrp routes before shortcut creation
+    router = tgen.gears["nhc1"]
     json_file = "{}/{}/nhrp_route.json".format(CWD, router.name)
     assertmsg = "No nhrp_route file found"
     assert os.path.isfile(json_file), assertmsg
@@ -347,16 +340,16 @@ def test_redundancy_shortcut():
     assert result is None, assertmsg
 
     # Initiate shortcut by pinging between clients
-    pingrouter = tgen.gears["r7"]
-    logger.info("Check Ping IPv4 from  R7 to R5 via shortcut = 5.5.5.5")
+    pingrouter = tgen.gears["host"]
+    logger.info("Check Ping IPv4 from  host to nhc2 via shortcut = 5.5.5.5")
 
     output = pingrouter.run("ping 5.5.5.5 -f -c 1000")
     logger.info(output)
     if "1000 packets transmitted, 1000 received" not in output:
-        assertmsg = "expected ping IPv4 from R7 to R5 via shortcut should be ok"
+        assertmsg = "expected ping IPv4 from host to nhc2 via shortcut should be ok"
         assert 0, assertmsg
     else:
-        logger.info("Check Ping IPv4 from R7 to R5 via shortcut OK")
+        logger.info("Check Ping IPv4 from host to nhc2 via shortcut OK")
 
     # Now check that NHRP shortcut route installed
     json_file = "{}/{}/nhrp_route_shortcut.json".format(CWD, router.name)
@@ -376,20 +369,20 @@ def test_redundancy_shortcut():
     assert result is None, assertmsg
 
     # Bring down primary GRE interface and verify shortcut is not disturbed
-    logger.info("Bringing down R1, primary NHRP server.")
-    shutdown_bringup_interface(tgen, "r1", "r1-gre0", False)
+    logger.info("Bringing down nhs1, primary NHRP server.")
+    shutdown_bringup_interface(tgen, "nhs1", "nhs1-gre0", False)
 
     # Verify shortcut is still active
-    pingrouter = tgen.gears["r7"]
-    logger.info("Check Ping IPv4 from  R7 to R5 via shortcut = 5.5.5.5")
+    pingrouter = tgen.gears["host"]
+    logger.info("Check Ping IPv4 from  host to nhc2 via shortcut = 5.5.5.5")
 
     output = pingrouter.run("ping 5.5.5.5 -f -c 1000")
     logger.info(output)
     if "1000 packets transmitted, 1000 received" not in output:
-        assertmsg = "expected ping IPv4 from R7 to R5 via shortcut should be ok"
+        assertmsg = "expected ping IPv4 from host to nhc2 via shortcut should be ok"
         assert 0, assertmsg
     else:
-        logger.info("Check Ping IPv4 from R7 to R5 via shortcut OK")
+        logger.info("Check Ping IPv4 from host to nhc2 via shortcut OK")
 
     # Now verify shortcut is purged with lack of traffic
     json_file = "{}/{}/nhrp_route.json".format(CWD, router.name)
