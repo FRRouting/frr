@@ -200,7 +200,7 @@ def test_protocols_convergence():
 
     # Check NHRP cache on servers and clients
     for rname, router in router_list.items():
-        if 'nh' not in rname:
+        if "nh" not in rname:
             continue
 
         json_file = "{}/{}/nhrp_cache.json".format(CWD, router.name)
@@ -219,7 +219,7 @@ def test_protocols_convergence():
     # Check NHRP IPV4 routes on servers and clients
     logger.info("Checking IPv4 routes for convergence")
     for rname, router in router_list.items():
-        if 'nh' not in rname:
+        if "nh" not in rname:
             continue
 
         json_file = "{}/{}/nhrp_route.json".format(CWD, router.name)
@@ -381,7 +381,7 @@ def test_redundancy_shortcut():
         logger.info("Check Ping IPv4 from host to nhc2 via shortcut OK")
 
     # Now verify shortcut is purged with lack of traffic
-    json_file = "{}/{}/nhrp_route.json".format(CWD, nhc1.name)
+    json_file = "{}/{}/nhrp_route_nhs1_down.json".format(CWD, nhc1.name)
     assertmsg = "No nhrp_route file found"
     assert os.path.isfile(json_file), assertmsg
 
