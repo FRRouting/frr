@@ -16,7 +16,7 @@
                 {
                     "fib": true,
                     "directlyConnected": true,
-                    "interfaceName": "r2-gre0",
+                    "interfaceName": "nhs1-gre0",
                     "active": true
                 }
             ]
@@ -39,7 +39,7 @@
                 {
                     "fib": true,
                     "directlyConnected": true,
-                    "interfaceName": "r2-gre0",
+                    "interfaceName": "nhs1-gre0",
                     "active": true
                 }
             ]

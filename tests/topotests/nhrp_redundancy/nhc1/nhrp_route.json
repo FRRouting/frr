@@ -16,7 +16,7 @@
                 {
                     "fib": true,
                     "directlyConnected": true,
-                    "interfaceName": "r4-gre0",
+                    "interfaceName": "nhc1-gre0",
                     "active": true
                 }
             ]
@@ -39,7 +39,7 @@
                 {
                     "fib": true,
                     "directlyConnected": true,
-                    "interfaceName": "r4-gre0",
+                    "interfaceName": "nhc1-gre0",
                     "active": true
                 }
             ]
@@ -62,7 +62,7 @@
                 {
                     "fib": true,
                     "directlyConnected": true,
-                    "interfaceName": "r4-gre0",
+                    "interfaceName": "nhc1-gre0",
                     "active": true
                 }
             ]
