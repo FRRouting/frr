@@ -306,7 +306,6 @@ def verify_shortcut_path():
 def test_redundancy_shortcut():
     """
     Assert that if shortcut created and then NHS goes down, there is no traffic disruption
-    Stop traffic and verify next time traffic started, shortcut is initiated by backup NHS
     """
     tgen = get_topogen()
     if tgen.routers_have_failure():
@@ -364,9 +363,65 @@ def test_redundancy_shortcut():
     assertmsg = '"{}" JSON output mismatches'.format(nhc1.name)
     assert result is None, assertmsg
 
+
+def test_redundancy_shortcut_backup():
+    """
+    Stop traffic and verify next time traffic started, shortcut is initiated by backup NHS
+    """
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    if not _verify_iptables():
+        pytest.skip("iptables not installed")
+
+    nhc1 = tgen.gears["nhc1"]
+    router_list = tgen.routers()
+
     # Bring down primary GRE interface and verify shortcut is not disturbed
     logger.info("Bringing down nhs1, primary NHRP server.")
     shutdown_bringup_interface(tgen, "nhs1", "nhs1-gre0", False)
+
+    # Check NHRP cache on servers and clients
+    for rname, router in router_list.items():
+        if "nh" not in rname:
+            continue
+        if "nhs1" in rname:
+            continue
+
+        json_file = "{}/{}/nhrp_cache_nhs1_down.json".format(CWD, router.name)
+        expected = json.loads(open(json_file).read())
+        test_func = partial(
+            topotest.router_json_cmp, router, "show ip nhrp cache json", expected
+        )
+        _, result = topotest.run_and_expect(test_func, None, count=40, wait=0.5)
+
+        output = router.vtysh_cmd("show ip nhrp cache")
+        logger.info(output)
+
+        assertmsg = '"{}" JSON output mismatches'.format(router.name)
+        assert result is None, assertmsg
+
+    # Check NHRP IPV4 routes on servers and clients
+    logger.info("Checking IPv4 routes for convergence")
+    for rname, router in router_list.items():
+        if "nh" not in rname:
+            continue
+        if "nhs1" in rname:
+            continue
+
+        json_file = "{}/{}/nhrp_route_nhs1_down.json".format(CWD, router.name)
+        expected = json.loads(open(json_file).read())
+        test_func = partial(
+            topotest.router_json_cmp, router, "show ip route nhrp json", expected
+        )
+        _, result = topotest.run_and_expect(test_func, None, count=40, wait=0.5)
+
+        output = router.vtysh_cmd("show ip route nhrp")
+        logger.info(output)
+
+        assertmsg = '"{}" JSON output mismatches'.format(router.name)
+        assert result is None, assertmsg
 
     # Verify shortcut is still active
     host = tgen.gears["host"]
@@ -379,6 +434,20 @@ def test_redundancy_shortcut():
         assert 0, assertmsg
     else:
         logger.info("Check Ping IPv4 from host to nhc2 via shortcut OK")
+
+    # Verify shortcut is present in routing table
+    json_file = "{}/{}/nhrp_route_shortcut_nhs1_down.json".format(CWD, nhc1.name)
+    assertmsg = "No nhrp_route file found"
+    assert os.path.isfile(json_file), assertmsg
+
+    expected = json.loads(open(json_file).read())
+    test_func = partial(
+        topotest.router_json_cmp, nhc1, "show ip route nhrp json", expected
+    )
+    _, result = topotest.run_and_expect(test_func, None, count=40, wait=0.5)
+
+    output = nhc1.vtysh_cmd("show ip route nhrp")
+    logger.info(output)
 
     # Now verify shortcut is purged with lack of traffic
     json_file = "{}/{}/nhrp_route_nhs1_down.json".format(CWD, nhc1.name)
