@@ -1023,9 +1023,7 @@ DEFUN(show_ip_nhrp, show_ip_nhrp_cmd,
 	} else if (argv[3]->text[0] == 's') {
 		nhrp_shortcut_foreach(ctx.afi, show_ip_nhrp_shortcut, &ctx);
 	} else {
-		if (!ctx.json)
-			vty_out(vty, "Status: ok\n\n");
-		else
+		if (ctx.json)
 			json_object_string_add(json_vrf, "status", "ok");
 
 		FOR_ALL_INTERFACES (vrf, ifp)
