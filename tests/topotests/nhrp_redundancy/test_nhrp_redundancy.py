@@ -195,6 +195,9 @@ def test_protocols_convergence():
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
+    if not _verify_iptables():
+        assert False, "iptables is missing"
+
     logger.info("Checking NHRP cache for convergence")
     router_list = tgen.routers()
 
@@ -311,9 +314,6 @@ def test_redundancy_shortcut():
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
-    if not _verify_iptables():
-        pytest.skip("iptables not installed")
-
     logger.info("Testing NHRP shortcuts with redundant servers")
 
     # Verify nhc1 nhrp routes before shortcut creation
@@ -398,9 +398,6 @@ def test_redundancy_shortcut_backup():
     tgen = get_topogen()
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
-
-    if not _verify_iptables():
-        pytest.skip("iptables not installed")
 
     nhc1 = tgen.gears["nhc1"]
     router_list = tgen.routers()
