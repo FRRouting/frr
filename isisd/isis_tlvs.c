@@ -2152,6 +2152,19 @@ static int unpack_item_ext_subtlvs(uint16_t mtid, uint8_t len, struct stream *s,
 			return 1;
 		}
 
+		if (subtlv_len == 0) {
+			sbuf_push(log, indent, "TLV %hhu: subtlv length is 0",
+				  subtlv_type);
+			return 1;
+		}
+
+		if (subtlv_len > STREAM_READABLE(s)) {
+			sbuf_push(log, indent,
+				  "TLV %hhu: Stream amount readable %lu is less than specified subtlv_len %u size",
+				  subtlv_type, STREAM_READABLE(s), subtlv_len);
+			return 1;
+		}
+
 		switch (subtlv_type) {
 		/* Standard Metric as defined in RFC5305 */
 		case ISIS_SUBTLV_ADMIN_GRP:
