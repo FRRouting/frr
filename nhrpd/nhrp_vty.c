@@ -934,6 +934,8 @@ static void show_ip_opennhrp_cache(struct nhrp_cache *c, void *pctx)
 	if (ctx->afi != family2afi(sockunion_family(&c->remote_addr)))
 		return;
 
+	if (ctx->count && !ctx->json)
+		vty_out(ctx->vty, "\n");
 	ctx->count++;
 
 	sockunion2str(&c->remote_addr, buf[0], sizeof(buf[0]));
@@ -988,8 +990,6 @@ static void show_ip_opennhrp_cache(struct nhrp_cache *c, void *pctx)
 
 	if (sockunion_family(&c->cur.remote_nbma_natoa) != AF_UNSPEC)
 		vty_out(ctx->vty, "NBMA-NAT-OA-Address: %s\n", buf[2]);
-
-	vty_out(ctx->vty, "\n\n");
 }
 
 DEFUN(show_ip_nhrp, show_ip_nhrp_cmd,
