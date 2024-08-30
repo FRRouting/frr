@@ -74,13 +74,13 @@ graph template {
   ];
   sw3 [
     shape=oval,
-    label="sw3\n4.4.4.0/24",
+    label="sw3\n10.4.4.0/24",
     fillcolor="#d0e0d0",
     style=filled,
   ];
   sw4 [
     shape=oval,
-    label="sw4\n5.5.5.0/24",
+    label="sw4\n10.5.5.0/24",
     fillcolor="#d0e0d0",
     style=filled,
   ];
