@@ -934,6 +934,8 @@ static void show_ip_opennhrp_cache(struct nhrp_cache *c, void *pctx)
 	if (ctx->afi != family2afi(sockunion_family(&c->remote_addr)))
 		return;
 
+	ctx->count++;
+
 	sockunion2str(&c->remote_addr, buf[0], sizeof(buf[0]));
 	if (c->cur.peer)
 		sockunion2str(&c->cur.peer->vc->remote.nbma, buf[1],
@@ -1031,7 +1033,6 @@ DEFUN(show_ip_nhrp, show_ip_nhrp_cmd,
 		else
 			json_object_string_add(json_vrf, "status", "ok");
 
-		ctx.count++;
 		FOR_ALL_INTERFACES (vrf, ifp)
 			nhrp_cache_foreach(ifp, show_ip_opennhrp_cache, &ctx);
 	}
