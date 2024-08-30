@@ -1281,7 +1281,7 @@ static int nb_cli_show_transactions(struct vty *vty)
 
 		table = ttable_dump(tt, "\n");
 		vty_out(vty, "%s\n", table);
-		XFREE(MTYPE_TMP, table);
+		XFREE(MTYPE_TMP_TTABLE, table);
 	} else
 		vty_out(vty, "No configuration transactions to display.\n\n");
 
@@ -1558,7 +1558,7 @@ DEFPY (show_yang_module,
 
 		table = ttable_dump(tt, "\n");
 		vty_out(vty, "%s\n", table);
-		XFREE(MTYPE_TMP, table);
+		XFREE(MTYPE_TMP_TTABLE, table);
 	} else
 		vty_out(vty, "No YANG modules to display.\n\n");
 
@@ -1668,7 +1668,7 @@ DEFPY (show_yang_module_translator,
 
 		table = ttable_dump(tt, "\n");
 		vty_out(vty, "%s\n", table);
-		XFREE(MTYPE_TMP, table);
+		XFREE(MTYPE_TMP_TTABLE, table);
 	} else
 		vty_out(vty, "No YANG module translators to display.\n\n");
 

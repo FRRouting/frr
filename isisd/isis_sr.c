@@ -1066,7 +1066,7 @@ static void show_node(struct vty *vty, struct isis_area *area, int level,
 
 		table = ttable_dump(tt, "\n");
 		vty_out(vty, "%s\n", table);
-		XFREE(MTYPE_TMP, table);
+		XFREE(MTYPE_TMP_TTABLE, table);
 	}
 	ttable_del(tt);
 }

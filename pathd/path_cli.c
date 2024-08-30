@@ -131,7 +131,7 @@ DEFPY(show_srte_policy,
 	/* Dump the generated table. */
 	table = ttable_dump(tt, "\n");
 	vty_out(vty, "%s\n", table);
-	XFREE(MTYPE_TMP, table);
+	XFREE(MTYPE_TMP_TTABLE, table);
 
 	ttable_del(tt);
 
