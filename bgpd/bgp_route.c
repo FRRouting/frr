@@ -12347,7 +12347,9 @@ void route_vty_out_detail_header(struct vty *vty, struct bgp *bgp,
 						VRF_DEFAULT_NAME);
 				else
 					vty_out(vty, ", vrf %s",
-						bgp->name);
+						(bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT)
+						? VRF_DEFAULT_NAME
+						: bgp->name);
 			}
 		} else
 			vty_out(vty, ", no best path");
