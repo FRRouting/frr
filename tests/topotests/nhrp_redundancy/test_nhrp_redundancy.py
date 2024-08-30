@@ -56,11 +56,11 @@ TOPOLOGY = """
 +------------+         |        +-------+----+                  +------+-----+     |          
 |            |         |        |            |                  |            |     |          
 |            |         +--------+            |                  |            |     |          
-|    Host    |.7       |        |    NHC 1   |                  |    NHC 2   +-----+5.5.5.0/24
+|    Host    |.7       |        |    NHC 1   |                  |    NHC 2   +-----+10.5.5.0/24
 |            +---------+        |            |                  |            |     |          
 +------------+         |        +------------+                  +------------+     |          
                        |                                                           |          
-                  4.4.4.0/24                                                                  
+                  10.4.4.0/24                                                                  
 """
 
 # Save the Current Working Directory to find configuration files.
@@ -237,8 +237,8 @@ def test_protocols_convergence():
 
     # Test connectivity from 1 NHRP server to all clients
     nhs1 = tgen.gears["nhs1"]
-    logger.info("Check Ping IPv4 from  nhs1 to nhc1 = 176.16.1.4)")
-    output = nhs1.run("ping 176.16.1.4 -f -c 1000")
+    logger.info("Check Ping IPv4 from  nhs1 to nhc1 = 172.16.1.4)")
+    output = nhs1.run("ping 172.16.1.4 -f -c 1000")
     logger.info(output)
     if "1000 packets transmitted, 1000 received" not in output:
         assertmsg = "expected ping IPv4 from nhs1 to nhc1 should be ok"
@@ -246,8 +246,8 @@ def test_protocols_convergence():
     else:
         logger.info("Check Ping IPv4 from nhs1 to nhc1 OK")
 
-    logger.info("Check Ping IPv4 from  nhs1 to nhc2 = 176.16.1.5)")
-    output = nhs1.run("ping 176.16.1.5 -f -c 1000")
+    logger.info("Check Ping IPv4 from  nhs1 to nhc2 = 172.16.1.5)")
+    output = nhs1.run("ping 172.16.1.5 -f -c 1000")
     logger.info(output)
     if "1000 packets transmitted, 1000 received" not in output:
         assertmsg = "expected ping IPv4 from nhs1 to nhc2 should be ok"
@@ -257,8 +257,8 @@ def test_protocols_convergence():
 
     # Test connectivity from 1 NHRP client to all servers
     nhc1 = tgen.gears["nhc1"]
-    logger.info("Check Ping IPv4 from  nhc1 to nhs1 = 176.16.1.1)")
-    output = nhc1.run("ping 176.16.1.1 -f -c 1000")
+    logger.info("Check Ping IPv4 from  nhc1 to nhs1 = 172.16.1.1)")
+    output = nhc1.run("ping 172.16.1.1 -f -c 1000")
     logger.info(output)
     if "1000 packets transmitted, 1000 received" not in output:
         assertmsg = "expected ping IPv4 from nhc1 to nhs1 should be ok"
@@ -266,8 +266,8 @@ def test_protocols_convergence():
     else:
         logger.info("Check Ping IPv4 from nhc1 to nhs1 OK")
 
-    logger.info("Check Ping IPv4 from  nhc1 to nhs2 = 176.16.1.2)")
-    output = nhc1.run("ping 176.16.1.2 -f -c 1000")
+    logger.info("Check Ping IPv4 from  nhc1 to nhs2 = 172.16.1.2)")
+    output = nhc1.run("ping 172.16.1.2 -f -c 1000")
     logger.info(output)
     if "1000 packets transmitted, 1000 received" not in output:
         assertmsg = "expected ping IPv4 from nhc1 to nhs2 should be ok"
@@ -275,8 +275,8 @@ def test_protocols_convergence():
     else:
         logger.info("Check Ping IPv4 from nhc1 to nhs2 OK")
 
-    logger.info("Check Ping IPv4 from  nhc1 to nhs3 = 176.16.1.3)")
-    output = nhc1.run("ping 176.16.1.3 -f -c 1000")
+    logger.info("Check Ping IPv4 from  nhc1 to nhs3 = 172.16.1.3)")
+    output = nhc1.run("ping 172.16.1.3 -f -c 1000")
     logger.info(output)
     if "1000 packets transmitted, 1000 received" not in output:
         assertmsg = "expected ping IPv4 from nhc1 to nhs3 should be ok"
@@ -292,9 +292,9 @@ def verify_shortcut_path():
     """
     tgen = get_topogen()
     host = tgen.gears["host"]
-    logger.info("Check Ping IPv4 from  host to nhc2 = 5.5.5.5")
+    logger.info("Check Ping IPv4 from  host to nhc2 = 10.5.5.5")
 
-    output = host.run("ping 5.5.5.5 -f -c 1000")
+    output = host.run("ping 10.5.5.5 -f -c 1000")
     logger.info(output)
     if "1000 packets transmitted, 1000 received" not in output:
         assertmsg = "expected ping IPv4 from host to nhc2 should be ok"
@@ -336,9 +336,9 @@ def test_redundancy_shortcut():
 
     # Initiate shortcut by pinging between clients
     host = tgen.gears["host"]
-    logger.info("Check Ping IPv4 from  host to nhc2 via shortcut = 5.5.5.5")
+    logger.info("Check Ping IPv4 from  host to nhc2 via shortcut = 10.5.5.5")
 
-    output = host.run("ping 5.5.5.5 -f -c 1000")
+    output = host.run("ping 10.5.5.5 -f -c 1000")
     logger.info(output)
     if "1000 packets transmitted, 1000 received" not in output:
         assertmsg = "expected ping IPv4 from host to nhc2 via shortcut should be ok"
@@ -452,9 +452,9 @@ def test_redundancy_shortcut_backup():
 
     # Verify shortcut is still active
     host = tgen.gears["host"]
-    logger.info("Check Ping IPv4 from  host to nhc2 via shortcut = 5.5.5.5")
+    logger.info("Check Ping IPv4 from  host to nhc2 via shortcut = 10.5.5.5")
 
-    output = host.run("ping 5.5.5.5 -f -c 1000")
+    output = host.run("ping 10.5.5.5 -f -c 1000")
     logger.info(output)
     if "1000 packets transmitted, 1000 received" not in output:
         assertmsg = "expected ping IPv4 from host to nhc2 via shortcut should be ok"
