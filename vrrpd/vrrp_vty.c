@@ -590,7 +590,7 @@ static void vrrp_show(struct vty *vty, struct vrrp_vrouter *vr)
 	char *table = ttable_dump(tt, "\n");
 
 	vty_out(vty, "\n%s\n", table);
-	XFREE(MTYPE_TMP, table);
+	XFREE(MTYPE_TMP_TTABLE, table);
 	ttable_del(tt);
 }
 
@@ -695,7 +695,7 @@ DEFPY_YANG(vrrp_vrid_show_summary,
 	char *table = ttable_dump(tt, "\n");
 
 	vty_out(vty, "\n%s\n", table);
-	XFREE(MTYPE_TMP, table);
+	XFREE(MTYPE_TMP_TTABLE, table);
 	ttable_del(tt);
 
 	list_delete(&ll);
