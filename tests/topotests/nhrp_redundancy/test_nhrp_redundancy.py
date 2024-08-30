@@ -207,7 +207,6 @@ def test_protocols_convergence():
 
     # Check NHRP cache on servers and clients
     for _, router in router_list.items():
-
         json_file = "{}/{}/nhrp_cache.json".format(CWD, router.name)
         if not os.path.isfile(json_file):
             logger.info("skipping file {}".format(json_file))
@@ -227,7 +226,6 @@ def test_protocols_convergence():
 
     # Check NHRP IPV4 routes on servers and clients
     for rname, router in router_list.items():
-
         json_file = "{}/{}/nhrp_route.json".format(CWD, router.name)
         if not os.path.isfile(json_file):
             logger.info("skipping file {}".format(json_file))
