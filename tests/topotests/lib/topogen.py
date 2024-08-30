@@ -832,10 +832,10 @@ class TopoRouter(TopoGear):
             for daemon in self.RD:
                 # This will not work for all daemons
                 daemonstr = self.RD.get(daemon).rstrip("d")
-                if daemonstr == "pim":
-                    grep_cmd = "grep 'ip {}' {}".format(daemonstr, source_path)
+                if daemonstr == "path":
+                    grep_cmd = "grep 'candidate-path' {}".format(source_path)
                 else:
-                    grep_cmd = "grep 'router {}' {}".format(daemonstr, source_path)
+                    grep_cmd = "grep -w '{}' {}".format(daemonstr, source_path)
                 result = self.run(grep_cmd, warn=False).strip()
                 if result:
                     self.load_config(daemon, "")
