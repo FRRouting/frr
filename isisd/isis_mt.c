@@ -226,7 +226,8 @@ struct isis_area_mt_setting **area_mt_settings(struct isis_area *area,
 
 		count++;
 		if (count > size) {
-			rv = XREALLOC(MTYPE_TMP, rv, count * sizeof(*rv));
+			rv = XREALLOC(MTYPE_MT_AREA_SETTING, rv,
+				      count * sizeof(*rv));
 			size = count;
 		}
 		rv[count - 1] = setting;
@@ -341,7 +342,8 @@ circuit_mt_settings(struct isis_circuit *circuit, unsigned int *mt_count)
 
 		count++;
 		if (count > size) {
-			rv = XREALLOC(MTYPE_TMP, rv, count * sizeof(*rv));
+			rv = XREALLOC(MTYPE_MT_AREA_SETTING, rv,
+				      count * sizeof(*rv));
 			size = count;
 		}
 		rv[count - 1] = setting;
@@ -376,8 +378,8 @@ bool tlvs_to_adj_mt_set(struct isis_tlvs *tlvs, bool v4_usable, bool v6_usable,
 
 	old_mt_count = adj->mt_count;
 	if (old_mt_count) {
-		old_mt_set =
-			XCALLOC(MTYPE_TMP, old_mt_count * sizeof(*old_mt_set));
+		old_mt_set = XCALLOC(MTYPE_MT_AREA_SETTING,
+				     old_mt_count * sizeof(*old_mt_set));
 		memcpy(old_mt_set, adj->mt_set,
 		       old_mt_count * sizeof(*old_mt_set));
 	}
@@ -436,7 +438,7 @@ bool tlvs_to_adj_mt_set(struct isis_tlvs *tlvs, bool v4_usable, bool v6_usable,
 		changed = true;
 
 	if (old_mt_count)
-		XFREE(MTYPE_TMP, old_mt_set);
+		XFREE(MTYPE_MT_AREA_SETTING, old_mt_set);
 
 	return changed;
 }
@@ -464,7 +466,7 @@ static void mt_set_add(uint16_t **mt_set, unsigned int *size,
 	}
 
 	if (*index >= *size) {
-		*mt_set = XREALLOC(MTYPE_TMP, *mt_set,
+		*mt_set = XREALLOC(MTYPE_MT_AREA_SETTING, *mt_set,
 				   sizeof(**mt_set) * ((*index) + 1));
 		*size = (*index) + 1;
 	}
