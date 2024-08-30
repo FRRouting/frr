@@ -363,6 +363,33 @@ def test_redundancy_shortcut():
     assertmsg = '"{}" JSON output mismatches'.format(nhc1.name)
     assert result is None, assertmsg
 
+    json_file = "{}/{}/nhrp_shortcut_present.json".format(CWD, nhc1.name)
+    expected = json.loads(open(json_file).read())
+    test_func = partial(
+        topotest.router_json_cmp, nhc1, "show ip nhrp shortcut json", expected
+    )
+    _, result = topotest.run_and_expect(test_func, None, count=40, wait=0.5)
+
+    output = nhc1.vtysh_cmd("show ip nhrp shortcut")
+    logger.info(output)
+
+    assertmsg = '"{}" JSON output mismatches'.format(nhc1.name)
+    assert result is None, assertmsg
+
+    # check the shortcut disappears because of no traffic
+    json_file = "{}/{}/nhrp_shortcut_absent.json".format(CWD, nhc1.name)
+    expected = json.loads(open(json_file).read())
+    test_func = partial(
+        topotest.router_json_cmp, nhc1, "show ip nhrp shortcut json", expected
+    )
+    _, result = topotest.run_and_expect(test_func, None, count=40, wait=0.5)
+
+    output = nhc1.vtysh_cmd("show ip nhrp shortcut")
+    logger.info(output)
+
+    assertmsg = '"{}" JSON output mismatches'.format(nhc1.name)
+    assert result is None, assertmsg
+
 
 def test_redundancy_shortcut_backup():
     """
@@ -449,6 +476,19 @@ def test_redundancy_shortcut_backup():
     output = nhc1.vtysh_cmd("show ip route nhrp")
     logger.info(output)
 
+    json_file = "{}/{}/nhrp_shortcut_present.json".format(CWD, nhc1.name)
+    expected = json.loads(open(json_file).read())
+    test_func = partial(
+        topotest.router_json_cmp, nhc1, "show ip nhrp shortcut json", expected
+    )
+    _, result = topotest.run_and_expect(test_func, None, count=40, wait=0.5)
+
+    output = nhc1.vtysh_cmd("show ip nhrp shortcut")
+    logger.info(output)
+
+    assertmsg = '"{}" JSON output mismatches'.format(nhc1.name)
+    assert result is None, assertmsg
+
     # Now verify shortcut is purged with lack of traffic
     json_file = "{}/{}/nhrp_route_nhs1_down.json".format(CWD, nhc1.name)
     assertmsg = "No nhrp_route file found"
@@ -461,6 +501,19 @@ def test_redundancy_shortcut_backup():
     _, result = topotest.run_and_expect(test_func, None, count=40, wait=0.5)
 
     output = nhc1.vtysh_cmd("show ip route nhrp")
+    logger.info(output)
+
+    assertmsg = '"{}" JSON output mismatches'.format(nhc1.name)
+    assert result is None, assertmsg
+
+    json_file = "{}/{}/nhrp_shortcut_absent.json".format(CWD, nhc1.name)
+    expected = json.loads(open(json_file).read())
+    test_func = partial(
+        topotest.router_json_cmp, nhc1, "show ip nhrp shortcut json", expected
+    )
+    _, result = topotest.run_and_expect(test_func, None, count=40, wait=0.5)
+
+    output = nhc1.vtysh_cmd("show ip nhrp shortcut")
     logger.info(output)
 
     assertmsg = '"{}" JSON output mismatches'.format(nhc1.name)
