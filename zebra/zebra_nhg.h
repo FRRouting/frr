@@ -152,6 +152,25 @@ struct nhg_hash_entry {
  * when installation is successful.
  */
 #define NEXTHOP_GROUP_REINSTALL (1 << 8)
+
+/*
+ * Connected routes and kernel routes received
+ * from the kernel or created by Zebra do no
+ * need to be installed.  For connected, this
+ * is because the routes are in the local table
+ * but not imported and we create an amalgram
+ * route for it.  For kernel routes if the route
+ * is an pre-nhg route, there is no nexthop associated
+ * with it and we should not create it until it
+ * is used by something else.
+ * The reason for this is because is that this just
+ * fills up the DPlane's nexthop slots when there
+ * are a bunch of interfaces or pre-existing routes
+ * As such let's not initially install it ( but
+ * pretend it was successful ) and if another route
+ * chooses this NHG then we can install it then.
+ */
+#define NEXTHOP_GROUP_INITIAL_DELAY_INSTALL (1 << 9)
 };
 
 /* Upper 4 bits of the NHG are reserved for indicating the NHG type */
@@ -364,7 +383,7 @@ extern uint8_t zebra_nhg_nhe2grp(struct nh_grp *grp, struct nhg_hash_entry *nhe,
 				 int size);
 
 /* Dataplane install/uninstall */
-extern void zebra_nhg_install_kernel(struct nhg_hash_entry *nhe);
+extern void zebra_nhg_install_kernel(struct nhg_hash_entry *nhe, uint8_t type);
 extern void zebra_nhg_uninstall_kernel(struct nhg_hash_entry *nhe);
 extern void zebra_interface_nhg_reinstall(struct interface *ifp);
 

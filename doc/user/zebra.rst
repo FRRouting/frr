@@ -1637,7 +1637,11 @@ zebra Terminal Mode Commands
    option as that nexthop groups are per namespace in linux.
    If you specify singleton you would like to see the singleton
    nexthop groups that do have an afi. [type] allows you to filter those
-   only coming from a specific NHG type (protocol).
+   only coming from a specific NHG type (protocol).  A nexthop group
+   that has `Initial Delay`, means that this nexthop group entry
+   was not installed because no-one was using it at that point and
+   Zebra can delay installing this route until it is used by something
+   else.
 
 .. clicmd:: show <ip|ipv6> zebra route dump [<vrf> VRFNAME]
 
