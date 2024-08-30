@@ -182,6 +182,8 @@ int pim_show_interface_traffic_helper(const char *vrf, const char *if_name,
 void clear_pim_interfaces(struct pim_instance *pim);
 void pim_show_bsr(struct pim_instance *pim, struct vty *vty, bool uj);
 int pim_show_bsr_helper(const char *vrf, struct vty *vty, bool uj);
+int pim_router_config_write(struct vty *vty);
+
 /*
  * Special Macro to allow us to get the correct pim_instance;
  */

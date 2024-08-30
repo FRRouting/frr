@@ -102,23 +102,25 @@ static void opt_extend(const struct optspec *os)
 #define OPTION_SCRIPTDIR 1009
 
 static const struct option lo_always[] = {
-	{"help", no_argument, NULL, 'h'},
-	{"version", no_argument, NULL, 'v'},
-	{"daemon", no_argument, NULL, 'd'},
-	{"module", no_argument, NULL, 'M'},
-	{"profile", required_argument, NULL, 'F'},
-	{"pathspace", required_argument, NULL, 'N'},
-	{"vrfdefaultname", required_argument, NULL, 'o'},
-	{"vty_socket", required_argument, NULL, OPTION_VTYSOCK},
-	{"moduledir", required_argument, NULL, OPTION_MODULEDIR},
-	{"scriptdir", required_argument, NULL, OPTION_SCRIPTDIR},
-	{"log", required_argument, NULL, OPTION_LOG},
-	{"log-level", required_argument, NULL, OPTION_LOGLEVEL},
-	{"command-log-always", no_argument, NULL, OPTION_LOGGING},
-	{"limit-fds", required_argument, NULL, OPTION_LIMIT_FDS},
-	{NULL}};
+	{ "help", no_argument, NULL, 'h' },
+	{ "version", no_argument, NULL, 'v' },
+	{ "daemon", no_argument, NULL, 'd' },
+	{ "module", no_argument, NULL, 'M' },
+	{ "profile", required_argument, NULL, 'F' },
+	{ "pathspace", required_argument, NULL, 'N' },
+	{ "vrfdefaultname", required_argument, NULL, 'o' },
+	{ "graceful_restart", optional_argument, NULL, 'K' },
+	{ "vty_socket", required_argument, NULL, OPTION_VTYSOCK },
+	{ "moduledir", required_argument, NULL, OPTION_MODULEDIR },
+	{ "scriptdir", required_argument, NULL, OPTION_SCRIPTDIR },
+	{ "log", required_argument, NULL, OPTION_LOG },
+	{ "log-level", required_argument, NULL, OPTION_LOGLEVEL },
+	{ "command-log-always", no_argument, NULL, OPTION_LOGGING },
+	{ "limit-fds", required_argument, NULL, OPTION_LIMIT_FDS },
+	{ NULL }
+};
 static const struct optspec os_always = {
-	"hvdM:F:N:o:",
+	"hvdM:F:N:o:K::",
 	"  -h, --help         Display this help and exit\n"
 	"  -v, --version      Print program version\n"
 	"  -d, --daemon       Runs in daemon mode\n"
@@ -126,13 +128,15 @@ static const struct optspec os_always = {
 	"  -F, --profile      Use specified configuration profile\n"
 	"  -N, --pathspace    Insert prefix into config & socket paths\n"
 	"  -o, --vrfdefaultname     Set default VRF name.\n"
+	"  -K, --graceful_restart   FRR starting in Graceful Restart mode, with optional route-cleanup timer\n"
 	"      --vty_socket   Override vty socket path\n"
 	"      --moduledir    Override modules directory\n"
 	"      --scriptdir    Override scripts directory\n"
 	"      --log          Set Logging to stdout, syslog, or file:<name>\n"
 	"      --log-level    Set Logging Level to use, debug, info, warn, etc\n"
 	"      --limit-fds    Limit number of fds supported\n",
-	lo_always};
+	lo_always
+};
 
 static bool logging_to_stdout = false; /* set when --log stdout specified */
 
@@ -358,6 +362,8 @@ void frr_preinit(struct frr_daemon_info *daemon, int argc, char **argv)
 	strlcpy(frr_protonameinst, di->logname, sizeof(frr_protonameinst));
 
 	di->cli_mode = FRR_CLI_CLASSIC;
+	di->graceful_restart = false;
+	di->gr_cleanup_time = 0;
 
 	/* we may be starting with extra FDs open for whatever purpose,
 	 * e.g. logging, some module, etc.  Recording them here allows later
@@ -520,6 +526,11 @@ static int frr_opt(int opt)
 		di->db_file = optarg;
 		break;
 #endif
+	case 'K':
+		di->graceful_restart = true;
+		if (optarg)
+			di->gr_cleanup_time = atoi(optarg);
+		break;
 	case 'C':
 		if (di->flags & FRR_NO_SPLIT_CONFIG)
 			return 1;
@@ -798,6 +809,7 @@ struct event_loop *frr_init(void)
 
 	vty_init(master, di->log_always);
 	lib_cmd_init();
+	debug_init();
 
 	frr_pthread_init();
 #ifdef HAVE_SCRIPTING
@@ -813,8 +825,6 @@ struct event_loop *frr_init(void)
 		flog_warn(EC_LIB_NB_DATABASE,
 			  "%s: failed to initialize northbound database",
 			  __func__);
-
-	debug_init_cli();
 
 	return master;
 }
@@ -1040,7 +1050,17 @@ void frr_config_fork(void)
 	zlog_tls_buffer_init();
 }
 
-void frr_vty_serv_start(void)
+static void frr_check_detach(void)
+{
+	if (nodetach_term || nodetach_daemon)
+		return;
+
+	if (daemon_ctl_sock != -1)
+		close(daemon_ctl_sock);
+	daemon_ctl_sock = -1;
+}
+
+void frr_vty_serv_start(bool check_detach)
 {
 	/* allow explicit override of vty_path in the future
 	 * (not currently set anywhere) */
@@ -1063,6 +1083,9 @@ void frr_vty_serv_start(void)
 	}
 
 	vty_serv_start(di->vty_addr, di->vty_port, di->vty_path);
+
+	if (check_detach)
+		frr_check_detach();
 }
 
 void frr_vty_serv_stop(void)
@@ -1071,16 +1094,6 @@ void frr_vty_serv_stop(void)
 
 	if (di->vty_path)
 		unlink(di->vty_path);
-}
-
-static void frr_check_detach(void)
-{
-	if (nodetach_term || nodetach_daemon)
-		return;
-
-	if (daemon_ctl_sock != -1)
-		close(daemon_ctl_sock);
-	daemon_ctl_sock = -1;
 }
 
 static void frr_terminal_close(int isexit)
@@ -1168,7 +1181,7 @@ void frr_run(struct event_loop *master)
 	char instanceinfo[64] = "";
 
 	if (!(di->flags & FRR_MANUAL_VTY_START))
-		frr_vty_serv_start();
+		frr_vty_serv_start(false);
 
 	if (di->instance)
 		snprintf(instanceinfo, sizeof(instanceinfo), "instance %u ",
@@ -1206,7 +1219,8 @@ void frr_run(struct event_loop *master)
 			close(nullfd);
 		}
 
-		frr_check_detach();
+		if (!(di->flags & FRR_MANUAL_VTY_START))
+			frr_check_detach();
 	}
 
 	/* end fixed stderr startup logging */
@@ -1251,6 +1265,8 @@ void frr_fini(void)
 	zlog_fini();
 	/* frrmod_init -> nothing needed / hooks */
 	rcu_shutdown();
+
+	frrmod_terminate();
 
 	/* also log memstats to stderr when stderr goes to a file*/
 	if (debug_memstats_at_exit || !isatty(STDERR_FILENO))
@@ -1446,7 +1462,10 @@ void _libfrr_version(void)
 	const char banner[] =
 		FRR_FULL_NAME " " FRR_VERSION ".\n"
 		FRR_COPYRIGHT GIT_INFO "\n"
-		"configured with:\n    " FRR_CONFIG_ARGS "\n";
+#ifdef ENABLE_VERSION_BUILD_CONFIG
+		"configured with:\n    " FRR_CONFIG_ARGS "\n"
+#endif
+	;
 	write(1, banner, sizeof(banner) - 1);
 	_exit(0);
 }
@@ -1458,4 +1477,12 @@ const char *frr_vers2str(uint32_t version, char *buf, int buflen)
 		 MINOR_FRRVERSION(version), SUB_FRRVERSION(version));
 
 	return buf;
+}
+
+bool frr_is_daemon(void)
+{
+	if (di)
+		return true;
+
+	return false;
 }

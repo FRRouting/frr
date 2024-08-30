@@ -1,0 +1,2 @@
+usr/lib/*/frr/libfrrgrpc_pb.*
+usr/lib/*/frr/modules/grpc.so

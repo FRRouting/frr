@@ -525,9 +525,18 @@ bool zebra_nhg_hash_equal(const void *arg1, const void *arg2)
 	struct nexthop *nexthop1;
 	struct nexthop *nexthop2;
 
-	/* No matter what if they equal IDs, assume equal */
-	if (nhe1->id && nhe2->id && (nhe1->id == nhe2->id))
-		return true;
+	/* If both NHG's have id's then we can just know that
+	 * they are either identical or not.  This comparison
+	 * is only ever used for hash equality.  NHE's id
+	 * is sufficient to distinguish them.  This is especially
+	 * true if NHG's are owned by an upper level protocol.
+	 */
+	if (nhe1->id && nhe2->id) {
+		if (nhe1->id == nhe2->id)
+			return true;
+
+		return false;
+	}
 
 	if (nhe1->type != nhe2->type)
 		return false;
@@ -1050,14 +1059,40 @@ static void zebra_nhg_set_valid(struct nhg_hash_entry *nhe, bool valid)
 	}
 
 	/* Update validity of nexthops depending on it */
-	frr_each(nhg_connected_tree, &nhe->nhg_dependents, rb_node_dep)
+	frr_each (nhg_connected_tree, &nhe->nhg_dependents, rb_node_dep) {
+		if (!valid) {
+			/*
+			 * Grab the first nexthop from the depending nexthop group
+			 * then let's find the nexthop in that group that matches
+			 * my individual nexthop and mark it as no longer ACTIVE
+			 */
+			struct nexthop *nexthop = rb_node_dep->nhe->nhg.nexthop;
+
+			while (nexthop) {
+				if (nexthop_same(nexthop, nhe->nhg.nexthop))
+					break;
+
+				nexthop = nexthop->next;
+			}
+
+			if (nexthop)
+				UNSET_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE);
+		}
 		zebra_nhg_set_valid(rb_node_dep->nhe, valid);
+	}
 }
 
 void zebra_nhg_check_valid(struct nhg_hash_entry *nhe)
 {
 	struct nhg_connected *rb_node_dep = NULL;
 	bool valid = false;
+
+	/*
+	 * If I have other nhe's depending on me, then this is a
+	 * singleton nhe so set this nexthops flag as appropriate.
+	 */
+	if (nhg_connected_tree_count(&nhe->nhg_depends))
+		UNSET_FLAG(nhe->nhg.nexthop->flags, NEXTHOP_FLAG_ACTIVE);
 
 	/* If anthing else in the group is valid, the group is valid */
 	frr_each(nhg_connected_tree, &nhe->nhg_depends, rb_node_dep) {
@@ -1382,6 +1417,11 @@ static struct nhg_hash_entry *depends_find_singleton(const struct nexthop *nh,
 	 */
 	nexthop_copy_no_recurse(&lookup, nh, NULL);
 
+	/*
+	 * So this is to intentionally cause the singleton nexthop
+	 * to be created with a weight of 1.
+	 */
+	lookup.weight = 1;
 	nhe = zebra_nhg_find_nexthop(0, &lookup, afi, type, from_dplane);
 
 	/* The copy may have allocated labels; free them if necessary. */
@@ -2616,13 +2656,6 @@ static unsigned nexthop_active_check(struct route_node *rn,
 			UNSET_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE);
 		break;
 	case NEXTHOP_TYPE_IPV6:
-		family = AFI_IP6;
-		if (nexthop_active(nexthop, nhe, &rn->p, re->type, re->flags,
-				   &mtu, vrf_id))
-			SET_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE);
-		else
-			UNSET_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE);
-		break;
 	case NEXTHOP_TYPE_IPV6_IFINDEX:
 		/* RFC 5549, v4 prefix with v6 NH */
 		if (rn->p.family != AF_INET)
@@ -2975,13 +3008,14 @@ backups_done:
  * I'm pretty sure we only allow ONE level of group within group currently.
  * But making this recursive just in case that ever changes.
  */
-static uint8_t zebra_nhg_nhe2grp_internal(struct nh_grp *grp,
-					  uint8_t curr_index,
+static uint8_t zebra_nhg_nhe2grp_internal(struct nh_grp *grp, uint8_t curr_index,
 					  struct nhg_hash_entry *nhe,
+					  struct nhg_hash_entry *original,
 					  int max_num)
 {
 	struct nhg_connected *rb_node_dep = NULL;
 	struct nhg_hash_entry *depend = NULL;
+	struct nexthop *nexthop;
 	uint8_t i = curr_index;
 
 	frr_each(nhg_connected_tree, &nhe->nhg_depends, rb_node_dep) {
@@ -3008,8 +3042,11 @@ static uint8_t zebra_nhg_nhe2grp_internal(struct nh_grp *grp,
 
 		if (!zebra_nhg_depends_is_empty(depend)) {
 			/* This is a group within a group */
-			i = zebra_nhg_nhe2grp_internal(grp, i, depend, max_num);
+			i = zebra_nhg_nhe2grp_internal(grp, i, depend, nhe,
+						       max_num);
 		} else {
+			bool found;
+
 			if (!CHECK_FLAG(depend->flags, NEXTHOP_GROUP_VALID)) {
 				if (IS_ZEBRA_DEBUG_RIB_DETAILED
 				    || IS_ZEBRA_DEBUG_NHG)
@@ -3050,8 +3087,37 @@ static uint8_t zebra_nhg_nhe2grp_internal(struct nh_grp *grp,
 				continue;
 			}
 
+			/*
+			 * So we need to create the nexthop group with
+			 * the appropriate weights.  The nexthops weights
+			 * are stored in the fully resolved nexthops for
+			 * the nhg so we need to find the appropriate
+			 * nexthop associated with this and set the weight
+			 * appropriately
+			 */
+			found = false;
+			for (ALL_NEXTHOPS_PTR(&original->nhg, nexthop)) {
+				if (CHECK_FLAG(nexthop->flags,
+					       NEXTHOP_FLAG_RECURSIVE))
+					continue;
+
+				if (nexthop_cmp_no_weight(depend->nhg.nexthop,
+							  nexthop) != 0)
+					continue;
+
+				found = true;
+				break;
+			}
+
+			if (!found) {
+				if (IS_ZEBRA_DEBUG_RIB_DETAILED ||
+				    IS_ZEBRA_DEBUG_NHG)
+					zlog_debug("%s: Nexthop ID (%u) unable to find nexthop in Nexthop Gropu Entry, something is terribly wrong",
+						   __func__, depend->id);
+				continue;
+			}
 			grp[i].id = depend->id;
-			grp[i].weight = depend->nhg.nexthop->weight;
+			grp[i].weight = nexthop->weight;
 			i++;
 		}
 	}
@@ -3075,7 +3141,7 @@ uint8_t zebra_nhg_nhe2grp(struct nh_grp *grp, struct nhg_hash_entry *nhe,
 			  int max_num)
 {
 	/* Call into the recursive function */
-	return zebra_nhg_nhe2grp_internal(grp, 0, nhe, max_num);
+	return zebra_nhg_nhe2grp_internal(grp, 0, nhe, nhe, max_num);
 }
 
 void zebra_nhg_install_kernel(struct nhg_hash_entry *nhe)

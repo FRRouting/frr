@@ -680,9 +680,8 @@ route_match_address_prefix_list(void *rule, afi_t afi,
 	plist = prefix_list_lookup(afi, (char *)rule);
 	if (plist == NULL) {
 		if (unlikely(CHECK_FLAG(rmap_debug, DEBUG_ROUTEMAP_DETAIL)))
-			zlog_debug(
-				"%s: Prefix List %s specified does not exist defaulting to NO_MATCH",
-				__func__, (char *)rule);
+			zlog_debug("%s: Prefix List %s (%s) specified does not exist defaulting to NO_MATCH",
+				   __func__, (char *)rule, afi2str(afi));
 		return RMAP_NOMATCH;
 	}
 
@@ -1082,7 +1081,7 @@ route_match_vni(void *rule, const struct prefix *prefix, void *object)
 		return RMAP_NOOP;
 
 	for (label_cnt = 0; label_cnt < BGP_MAX_LABELS &&
-			    label_cnt < bgp_path_info_num_labels(path);
+			    label_cnt < BGP_PATH_INFO_NUM_LABELS(path);
 	     label_cnt++) {
 		if (vni == label2vni(&path->extra->labels->label[label_cnt]))
 			return RMAP_MATCH;
@@ -1237,6 +1236,8 @@ route_set_evpn_gateway_ip(void *rule, const struct prefix *prefix, void *object)
 	struct ipaddr *gw_ip = rule;
 	struct bgp_path_info *path;
 	struct prefix_evpn *evp;
+	struct bgp_route_evpn *bre = XCALLOC(MTYPE_BGP_EVPN_OVERLAY,
+					     sizeof(struct bgp_route_evpn));
 
 	if (prefix->family != AF_EVPN)
 		return RMAP_OKAY;
@@ -1252,9 +1253,9 @@ route_set_evpn_gateway_ip(void *rule, const struct prefix *prefix, void *object)
 	path = object;
 
 	/* Set gateway-ip value. */
-	path->attr->evpn_overlay.type = OVERLAY_INDEX_GATEWAY_IP;
-	memcpy(&path->attr->evpn_overlay.gw_ip, &gw_ip->ip.addr,
-	       IPADDRSZ(gw_ip));
+	bre->type = OVERLAY_INDEX_GATEWAY_IP;
+	memcpy(&bre->gw_ip, &gw_ip->ip.addr, IPADDRSZ(gw_ip));
+	bgp_attr_set_evpn_overlay(path->attr, bre);
 
 	return RMAP_OKAY;
 }
@@ -2322,7 +2323,7 @@ static const struct route_map_rule_cmd route_set_aspath_prepend_cmd = {
 static void *route_aspath_exclude_compile(const char *arg)
 {
 	struct aspath_exclude *ase;
-	struct aspath_exclude_list *ael;
+	struct as_list *aux_aslist;
 	const char *str = arg;
 	static const char asp_acl[] = "as-path-access-list";
 
@@ -2334,17 +2335,16 @@ static void *route_aspath_exclude_compile(const char *arg)
 		while (*str == ' ')
 			str++;
 		ase->exclude_aspath_acl_name = XSTRDUP(MTYPE_TMP, str);
-		ase->exclude_aspath_acl = as_list_lookup(str);
+		aux_aslist = as_list_lookup(str);
+		if (!aux_aslist)
+			/* new orphan filter */
+			as_exclude_set_orphan(ase);
+		else
+			as_list_list_add_head(&aux_aslist->exclude_rule, ase);
+
+		ase->exclude_aspath_acl = aux_aslist;
 	} else
 		ase->aspath = aspath_str2aspath(str, bgp_get_asnotation(NULL));
-
-	if (ase->exclude_aspath_acl) {
-		ael = XCALLOC(MTYPE_ROUTE_MAP_COMPILED,
-				sizeof(struct aspath_exclude_list));
-		ael->bp_as_excl = ase;
-		ael->next = ase->exclude_aspath_acl->exclude_list;
-		ase->exclude_aspath_acl->exclude_list = ael;
-	}
 
 	return ase;
 }
@@ -2352,26 +2352,20 @@ static void *route_aspath_exclude_compile(const char *arg)
 static void route_aspath_exclude_free(void *rule)
 {
 	struct aspath_exclude *ase = rule;
-	struct aspath_exclude_list *cur_ael = NULL;
-	struct aspath_exclude_list *prev_ael = NULL;
+	struct as_list *acl;
+
+	/* manage references to that rule*/
+	if (ase->exclude_aspath_acl) {
+		acl = ase->exclude_aspath_acl;
+		as_list_list_del(&acl->exclude_rule, ase);
+	} else {
+		/* no ref to acl, this aspath exclude is orphan */
+		as_exclude_remove_orphan(ase);
+	}
 
 	aspath_free(ase->aspath);
 	if (ase->exclude_aspath_acl_name)
 		XFREE(MTYPE_TMP, ase->exclude_aspath_acl_name);
-	if (ase->exclude_aspath_acl)
-		cur_ael = ase->exclude_aspath_acl->exclude_list;
-	while (cur_ael) {
-		if (cur_ael->bp_as_excl == ase) {
-			if (prev_ael)
-				prev_ael->next = cur_ael->next;
-			else
-				ase->exclude_aspath_acl->exclude_list = NULL;
-			XFREE(MTYPE_ROUTE_MAP_COMPILED, cur_ael);
-			break;
-		}
-		prev_ael = cur_ael;
-		cur_ael = cur_ael->next;
-	}
 	XFREE(MTYPE_ROUTE_MAP_COMPILED, ase);
 }
 
@@ -2406,16 +2400,10 @@ route_set_aspath_exclude(void *rule, const struct prefix *dummy, void *object)
 	else if (ase->exclude_all)
 		path->attr->aspath = aspath_filter_exclude_all(new_path);
 
-	else if (ase->exclude_aspath_acl_name) {
-		if (!ase->exclude_aspath_acl)
-			ase->exclude_aspath_acl =
-				as_list_lookup(ase->exclude_aspath_acl_name);
-		if (ase->exclude_aspath_acl)
-			path->attr->aspath =
-				aspath_filter_exclude_acl(new_path,
-							  ase->exclude_aspath_acl);
-	}
-
+	else if (ase->exclude_aspath_acl)
+		path->attr->aspath =
+			aspath_filter_exclude_acl(new_path,
+						  ase->exclude_aspath_acl);
 	return RMAP_OKAY;
 }
 

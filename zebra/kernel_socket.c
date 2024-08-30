@@ -1468,10 +1468,12 @@ static void routing_socket(struct zebra_ns *zns)
 
 void interface_list_second(struct zebra_ns *zns)
 {
+	zebra_dplane_startup_stage(zns, ZEBRA_DPLANE_ADDRESSES_READ);
 }
 
 void interface_list_tunneldump(struct zebra_ns *zns)
 {
+	zebra_dplane_startup_stage(zns, ZEBRA_DPLANE_TUNNELS_READ);
 }
 
 /* Exported interface function.  This function simply calls

@@ -453,10 +453,6 @@ void vtysh_config_parse_line(void *arg, const char *line)
 			config = config_get(FORWARDING_NODE, line);
 		else if (strncmp(line, "debug vrf", strlen("debug vrf")) == 0)
 			config = config_get(VRF_DEBUG_NODE, line);
-		else if (strncmp(line, "debug northbound",
-				 strlen("debug northbound"))
-			 == 0)
-			config = config_get(NORTHBOUND_DEBUG_NODE, line);
 		else if (strncmp(line, "debug route-map",
 				 strlen("debug route-map"))
 			 == 0)
@@ -464,12 +460,6 @@ void vtysh_config_parse_line(void *arg, const char *line)
 		else if (strncmp(line, "debug resolver",
 				 strlen("debug resolver")) == 0)
 			config = config_get(RESOLVER_DEBUG_NODE, line);
-		else if (strncmp(line, "debug mgmt client frontend",
-				 strlen("debug mgmt client frontend")) == 0)
-			config = config_get(MGMT_FE_DEBUG_NODE, line);
-		else if (strncmp(line, "debug mgmt client backend",
-				 strlen("debug mgmt client backend")) == 0)
-			config = config_get(MGMT_BE_DEBUG_NODE, line);
 		else if (strncmp(line, "debug", strlen("debug")) == 0)
 			config = config_get(DEBUG_NODE, line);
 		else if (strncmp(line, "password", strlen("password")) == 0
@@ -497,6 +487,11 @@ void vtysh_config_parse_line(void *arg, const char *line)
 			config = config_get(BFD_NODE, line);
 		else if (strncmp(line, "rpki", strlen("rpki")) == 0)
 			config = config_get(RPKI_NODE, line);
+		else if (strncmp(line, "router pim", strlen("router pim")) == 0)
+			config = config_get(PIM_NODE, line);
+		else if (strncmp(line, "router pim6", strlen("router pim6")) ==
+			 0)
+			config = config_get(PIM6_NODE, line);
 		else {
 			if (strncmp(line, "log", strlen("log")) == 0 ||
 			    strncmp(line, "hostname", strlen("hostname")) == 0 ||
@@ -532,9 +527,8 @@ void vtysh_config_parse_line(void *arg, const char *line)
 	 (I) == ACCESS_IPV6_NODE || (I) == ACCESS_MAC_NODE ||                  \
 	 (I) == PREFIX_IPV6_NODE || (I) == FORWARDING_NODE ||                  \
 	 (I) == DEBUG_NODE || (I) == AAA_NODE || (I) == VRF_DEBUG_NODE ||      \
-	 (I) == NORTHBOUND_DEBUG_NODE || (I) == RMAP_DEBUG_NODE ||             \
-	 (I) == RESOLVER_DEBUG_NODE || (I) == MPLS_NODE ||                     \
-	 (I) == KEYCHAIN_KEY_NODE)
+	 (I) == RMAP_DEBUG_NODE || (I) == RESOLVER_DEBUG_NODE ||               \
+	 (I) == MPLS_NODE || (I) == KEYCHAIN_KEY_NODE)
 
 static void configvec_dump(vector vec, bool nested)
 {

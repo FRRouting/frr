@@ -97,7 +97,10 @@ static int pim_zebra_if_address_add(ZAPI_CALLBACK_ARGS)
 
 	if (PIM_DEBUG_ZEBRA) {
 		zlog_debug("%s: %s(%s) connected IP address %pFX flags %u %s",
-			   __func__, c->ifp->name, VRF_LOGNAME(pim_ifp->pim->vrf), p, c->flags,
+			   __func__, c->ifp->name,
+			   (pim_ifp ? VRF_LOGNAME(pim_ifp->pim->vrf)
+				    : "Unknown"),
+			   p, c->flags,
 			   CHECK_FLAG(c->flags, ZEBRA_IFA_SECONDARY)
 				   ? "secondary"
 				   : "primary");

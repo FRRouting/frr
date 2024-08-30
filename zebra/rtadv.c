@@ -1960,7 +1960,7 @@ uint32_t rtadv_get_interfaces_configured_from_bgp(void)
 void rtadv_init(void)
 {
 	if (CMSG_SPACE(sizeof(struct in6_pktinfo)) > RTADV_ADATA_SIZE) {
-		zlog_debug("%s: RTADV_ADATA_SIZE choosen will not work on this platform, please use a larger size",
+		zlog_debug("%s: RTADV_ADATA_SIZE chosen will not work on this platform, please use a larger size",
 			   __func__);
 
 		exit(-1);

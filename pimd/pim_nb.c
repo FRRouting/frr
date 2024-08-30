@@ -164,6 +164,33 @@ const struct frr_yang_module_info frr_pim_info = {
 			}
 		},
 		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-pim:pim/address-family/msdp-peer/sa-filter-in",
+			.cbs = {
+				.modify = pim_msdp_peer_sa_filter_in_modify,
+				.destroy = pim_msdp_peer_sa_filter_in_destroy,
+			}
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-pim:pim/address-family/msdp-peer/sa-filter-out",
+			.cbs = {
+				.modify = pim_msdp_peer_sa_filter_out_modify,
+				.destroy = pim_msdp_peer_sa_filter_out_destroy,
+			}
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-pim:pim/address-family/msdp-peer/authentication-type",
+			.cbs = {
+				.modify = pim_msdp_peer_authentication_type_modify,
+			}
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-pim:pim/address-family/msdp-peer/authentication-key",
+			.cbs = {
+				.modify = pim_msdp_peer_authentication_key_modify,
+				.destroy = pim_msdp_peer_authentication_key_destroy,
+			}
+		},
+		{
 			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-pim:pim/address-family/mlag",
 			.cbs = {
 				.create = routing_control_plane_protocols_control_plane_protocol_pim_address_family_mlag_create,
@@ -414,6 +441,13 @@ const struct frr_yang_module_info frr_gmp_info = {
 			}
 		},
 		{
+			.xpath = "/frr-interface:lib/interface/frr-gmp:gmp/address-family/join-group",
+			.cbs = {
+				.create = lib_interface_gmp_address_family_join_group_create,
+				.destroy = lib_interface_gmp_address_family_join_group_destroy,
+			}
+		},
+		{
 			.xpath = "/frr-interface:lib/interface/frr-gmp:gmp/address-family/static-group",
 			.cbs = {
 				.create = lib_interface_gmp_address_family_static_group_create,
@@ -425,4 +459,3 @@ const struct frr_yang_module_info frr_gmp_info = {
 		},
 	}
 };
-

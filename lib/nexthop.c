@@ -139,7 +139,7 @@ static int _nexthop_source_cmp(const struct nexthop *nh1,
 }
 
 static int _nexthop_cmp_no_labels(const struct nexthop *next1,
-				  const struct nexthop *next2)
+				  const struct nexthop *next2, bool use_weight)
 {
 	int ret = 0;
 
@@ -155,11 +155,13 @@ static int _nexthop_cmp_no_labels(const struct nexthop *next1,
 	if (next1->type > next2->type)
 		return 1;
 
-	if (next1->weight < next2->weight)
-		return -1;
+	if (use_weight) {
+		if (next1->weight < next2->weight)
+			return -1;
 
-	if (next1->weight > next2->weight)
-		return 1;
+		if (next1->weight > next2->weight)
+			return 1;
+	}
 
 	switch (next1->type) {
 	case NEXTHOP_TYPE_IPV4:
@@ -227,11 +229,12 @@ done:
 	return ret;
 }
 
-int nexthop_cmp(const struct nexthop *next1, const struct nexthop *next2)
+static int nexthop_cmp_internal(const struct nexthop *next1,
+				const struct nexthop *next2, bool use_weight)
 {
 	int ret = 0;
 
-	ret = _nexthop_cmp_no_labels(next1, next2);
+	ret = _nexthop_cmp_no_labels(next1, next2, use_weight);
 	if (ret != 0)
 		return ret;
 
@@ -242,6 +245,17 @@ int nexthop_cmp(const struct nexthop *next1, const struct nexthop *next2)
 	ret = _nexthop_srv6_cmp(next1, next2);
 
 	return ret;
+}
+
+int nexthop_cmp(const struct nexthop *next1, const struct nexthop *next2)
+{
+	return nexthop_cmp_internal(next1, next2, true);
+}
+
+int nexthop_cmp_no_weight(const struct nexthop *next1,
+			  const struct nexthop *next2)
+{
+	return nexthop_cmp_internal(next1, next2, false);
 }
 
 /*
@@ -441,7 +455,7 @@ bool nexthop_same_no_labels(const struct nexthop *nh1,
 	if (nh1 == nh2)
 		return true;
 
-	if (_nexthop_cmp_no_labels(nh1, nh2) != 0)
+	if (_nexthop_cmp_no_labels(nh1, nh2, true) != 0)
 		return false;
 
 	return true;
@@ -1166,6 +1180,7 @@ void nexthop_json_helper(json_object *json_nexthop,
 	json_object *json_labels = NULL;
 	json_object *json_backups = NULL;
 	json_object *json_seg6local = NULL;
+	json_object *json_seg6local_context = NULL;
 	json_object *json_seg6 = NULL;
 	json_object *json_segs = NULL;
 	int i;
@@ -1331,8 +1346,16 @@ void nexthop_json_helper(json_object *json_nexthop,
 				       seg6local_action2str(
 					       nexthop->nh_srv6
 						       ->seg6local_action));
+		json_seg6local_context = json_object_new_object();
 		json_object_object_add(json_nexthop, "seg6local",
 				       json_seg6local);
+
+		seg6local_context2json(&nexthop->nh_srv6->seg6local_ctx,
+				       nexthop->nh_srv6->seg6local_action,
+				       json_seg6local_context);
+		json_object_object_add(json_nexthop, "seg6localContext",
+				       json_seg6local_context);
+
 		if (nexthop->nh_srv6->seg6_segs &&
 		    nexthop->nh_srv6->seg6_segs->num_segs == 1) {
 			json_seg6 = json_object_new_object();

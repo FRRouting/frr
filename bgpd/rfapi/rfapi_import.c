@@ -1272,7 +1272,7 @@ rfapiRouteInfo2NextHopEntry(struct rfapi_ip_prefix *rprefix,
 
 		/* label comes from MP_REACH_NLRI label */
 		vo->v.l2addr.label =
-			bgp_path_info_num_labels(bpi)
+			BGP_PATH_INFO_NUM_LABELS(bpi)
 				? decode_label(&bpi->extra->labels->label[0])
 				: MPLS_INVALID_LABEL;
 
@@ -4167,7 +4167,7 @@ static void rfapiBgpTableFilteredImport(struct bgp *bgp,
 						       BGP_PATH_REMOVED))
 						continue;
 
-					if (bgp_path_info_num_labels(bpi))
+					if (BGP_PATH_INFO_NUM_LABELS(bpi))
 						label = decode_label(
 							&bpi->extra->labels
 								 ->label[0]);

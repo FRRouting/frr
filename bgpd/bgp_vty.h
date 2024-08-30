@@ -60,8 +60,6 @@ struct bgp;
 
 #define VTY_BGP_GR_ROUTER_DETECT(_bgp, _peer, _peer_list)                      \
 	do {                                                                   \
-		if (_peer->bgp->t_startup)                                     \
-			bgp_peer_gr_flags_update(_peer);                       \
 		for (ALL_LIST_ELEMENTS(_peer_list, node, nnode, peer_loop)) {  \
 			if (CHECK_FLAG(peer_loop->flags,                       \
 				       PEER_FLAG_GRACEFUL_RESTART))            \
@@ -84,30 +82,27 @@ struct bgp;
 		}                                                              \
 	} while (0)
 
-#define VTY_BGP_GR_ROUTER_DETECT_AND_SEND_CAPABILITY_TO_ZEBRA(                 \
-	_bgp, _peer_list, _ret)                                                \
-	do {                                                                   \
-		struct peer *peer_loop;                                        \
-		bool gr_router_detected = false;                               \
-		struct listnode *node = {0};                                   \
-		struct listnode *nnode = {0};                                  \
-		for (ALL_LIST_ELEMENTS(_peer_list, node, nnode, peer_loop)) {  \
-			if (peer_loop->bgp->t_startup)                         \
-				bgp_peer_gr_flags_update(peer_loop);           \
-			if (CHECK_FLAG(peer_loop->flags,                       \
-				       PEER_FLAG_GRACEFUL_RESTART))            \
-				gr_router_detected = true;                     \
-		}                                                              \
-		if (gr_router_detected                                         \
-		    && _bgp->present_zebra_gr_state == ZEBRA_GR_DISABLE) {     \
-			if (bgp_zebra_send_capabilities(_bgp, false))          \
-				_ret = BGP_ERR_INVALID_VALUE;                  \
-		} else if (!gr_router_detected                                 \
-			   && _bgp->present_zebra_gr_state                     \
-				      == ZEBRA_GR_ENABLE) {                    \
-			if (bgp_zebra_send_capabilities(_bgp, true))           \
-				_ret = BGP_ERR_INVALID_VALUE;                  \
-		}                                                              \
+#define VTY_BGP_GR_ROUTER_DETECT_AND_SEND_CAPABILITY_TO_ZEBRA(_bgp,             \
+							      _peer_list, _ret) \
+	do {                                                                    \
+		struct peer *peer_loop;                                         \
+		bool gr_router_detected = false;                                \
+		struct listnode *node = { 0 };                                  \
+		struct listnode *nnode = { 0 };                                 \
+		for (ALL_LIST_ELEMENTS(_peer_list, node, nnode, peer_loop)) {   \
+			if (CHECK_FLAG(peer_loop->flags,                        \
+				       PEER_FLAG_GRACEFUL_RESTART))             \
+				gr_router_detected = true;                      \
+		}                                                               \
+		if (gr_router_detected &&                                       \
+		    _bgp->present_zebra_gr_state == ZEBRA_GR_DISABLE) {         \
+			if (bgp_zebra_send_capabilities(_bgp, false))           \
+				_ret = BGP_ERR_INVALID_VALUE;                   \
+		} else if (!gr_router_detected &&                               \
+			   _bgp->present_zebra_gr_state == ZEBRA_GR_ENABLE) {   \
+			if (bgp_zebra_send_capabilities(_bgp, true))            \
+				_ret = BGP_ERR_INVALID_VALUE;                   \
+		}                                                               \
 	} while (0)
 
 
@@ -166,8 +161,9 @@ extern int bgp_vty_find_and_parse_afi_safi_bgp(struct vty *vty,
 int bgp_vty_find_and_parse_bgp(struct vty *vty, struct cmd_token **argv,
 			       int argc, struct bgp **bgp, bool use_json);
 extern int bgp_show_summary_vty(struct vty *vty, const char *name, afi_t afi,
-				safi_t safi, const char *neighbor, int as_type,
-				as_t as, uint16_t show_flags);
+				safi_t safi, const char *neighbor,
+				enum peer_asn_type as_type, as_t as,
+				uint16_t show_flags);
 extern bool peergroup_flag_check(struct peer *peer, uint64_t flag);
 extern bool peergroup_af_flag_check(struct peer *peer, afi_t afi, safi_t safi,
 				    uint64_t flag);

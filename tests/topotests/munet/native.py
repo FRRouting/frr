@@ -490,6 +490,10 @@ class NodeMixin:
                 gdbcmd += f" '-ex={cmd}'"
 
             self.run_in_window(gdbcmd, ns_only=True)
+
+            # We need somehow signal from the launched gdb that it has continued
+            # this is non-trivial so for now just wait a while. :/
+            time.sleep(5)
         elif should_gdb and use_emacs:
             gdbcmd = gdbcmd.replace("gdb ", "gdb -i=mi ")
             ecbin = self.get_exec_path("emacsclient")

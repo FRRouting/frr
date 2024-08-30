@@ -5,6 +5,10 @@ module frr-pim {
 
   prefix frr-pim;
 
+  import frr-filter {
+    prefix frr-filter;
+  }
+
   import frr-interface {
     prefix frr-interface;
   }
@@ -115,6 +119,37 @@ module frr-pim {
         "This period is used in the MSDP peer with the highest IP value
          in the pair and configures the interval between TCP connection
          attempts.";
+    }
+  }
+
+  grouping msdp-authentication {
+    description
+      "MSDP authentication options.";
+
+    leaf authentication-type {
+      type enumeration {
+        enum None {
+          value 0;
+          description
+            "No authentication.";
+        }
+        enum MD5 {
+          value 1;
+          description
+            "Use MD5 digest.";
+        }
+      }
+      default None;
+      description
+        "Authentication method.";
+    }
+
+    leaf authentication-key {
+      when "../authentication-type = 'MD5'";
+      mandatory true;
+      type string;
+      description
+        "Authentication key.";
     }
   }
 
@@ -267,6 +302,20 @@ module frr-pim {
         description
           "MSDP source IP address.";
       }
+
+      leaf sa-filter-in {
+        type frr-filter:access-list-name;
+        description
+          "Access list name used to filter the incoming SAs exchanged.";
+      }
+
+      leaf sa-filter-out {
+        type frr-filter:access-list-name;
+        description
+          "Access list name used to filter the outgoing SAs exchanged.";
+      }
+
+      uses msdp-authentication;
     }
 
     container mlag {

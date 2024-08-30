@@ -171,7 +171,6 @@ def test_bgp_no_export_local_as_communities_p0(request):
         )
 
     for comm_type in ["no-export", "local-AS"]:
-
         step("Create a route-map on R1 to set community as {}".format(comm_type))
 
         seq_id = 10

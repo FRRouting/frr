@@ -29,7 +29,7 @@ user_RSTFILES = \
 	doc/user/ospf6d.rst \
 	doc/user/ospfd.rst \
 	doc/user/ospf_fundamentals.rst \
-	doc/user/overview.rst \
+	doc/user/about.rst \
 	doc/user/packet-dumps.rst \
 	doc/user/pathd.rst \
 	doc/user/pim.rst \

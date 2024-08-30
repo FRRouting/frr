@@ -738,7 +738,17 @@ Interfaces
    retransmitting Database Description and Link State Request packets. The
    default value is 5 seconds.
 
-.. clicmd:: ip ospf transmit-delay (1-65535) [A.B.C.D]
+.. clicmd:: ip ospf retransmit-window (20-1000)
+
+
+   Set number of milliseconds in the window for neighbor LSA retransmission.
+   When a neighbor Link State (LS) retransmission timer expires, LSAs scheduled
+   to be retransmitted within the number of milliseconds configured are
+   retransmitted to the neighbor. Any expiring after the window will be
+   retransmitted the next time the neighbor LS retransmission timer expires.
+   The default is 50 milliseconds.
+
+ .. clicmd:: ip ospf transmit-delay (1-65535) [A.B.C.D]
 
 
    Set number of seconds for InfTransDelay value. LSAs' age should be

@@ -38,6 +38,7 @@ struct pim_nexthop_cache {
 	 * same BSR
 	 */
 	uint32_t bsr_count;
+	uint32_t candrp_count;
 };
 
 struct pnc_hash_walk_data {
@@ -71,4 +72,10 @@ void pim_nht_bsr_del(struct pim_instance *pim, pim_addr bsr_addr);
 bool pim_nht_bsr_rpf_check(struct pim_instance *pim, pim_addr bsr_addr,
 			   struct interface *src_ifp, pim_addr src_ip);
 void pim_upstream_nh_if_update(struct pim_instance *pim, struct interface *ifp);
+
+/* wrappers for usage with Candidate RPs in BSMs */
+bool pim_nht_candrp_add(struct pim_instance *pim, pim_addr addr);
+void pim_nht_candrp_del(struct pim_instance *pim, pim_addr addr);
+void pim_crp_nht_update(struct pim_instance *pim, struct pim_nexthop_cache *pnc);
+
 #endif

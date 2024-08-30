@@ -38,7 +38,8 @@
                               "gateway": "",
                               "interface": "r1-eth0",
                               "active": [null],
-                              "fib": [null]
+				"fib": [null],
+				"weight":1
                             }
                           ]
                         }
@@ -66,7 +67,8 @@
                               "gateway": "",
                               "interface": "r1-eth0",
                               "active": [null],
-                              "fib": [null]
+				"fib": [null],
+				"weight":1
                             }
                           ]
                         }
@@ -94,7 +96,8 @@
                               "gateway": "",
                               "interface": "r1-eth1",
                               "active": [null],
-                              "fib": [null]
+				"fib": [null],
+				"weight":1
                             }
                           ]
                         }
@@ -122,7 +125,8 @@
                               "gateway": "",
                               "interface": "r1-eth1",
                               "active": [null],
-                              "fib": [null]
+				"fib": [null],
+				"weight": 1
                             }
                           ]
                         }
@@ -245,7 +249,8 @@
                               "gateway": "",
                               "interface": "r1-eth0",
                               "active": [null],
-                              "fib": [null]
+				"fib": [null],
+				"weight":1
                             }
                           ]
                         }
@@ -271,7 +276,8 @@
                               "gateway": "",
                               "interface": "r1-eth0",
                               "active": [null],
-                              "fib": [null]
+				"fib": [null],
+				"weight":1
                             }
                           ]
                         }
@@ -297,7 +303,8 @@
                               "gateway": "",
                               "interface": "r1-eth1",
                               "active": [null],
-                              "fib": [null]
+				"fib": [null],
+				"weight": 1
                             }
                           ]
                         }
@@ -323,7 +330,8 @@
                               "gateway": "",
                               "interface": "r1-eth1",
                               "active": [null],
-                              "fib": [null]
+				"fib": [null],
+				"weight": 1
                             }
                           ]
                         }
@@ -360,7 +368,8 @@
                               "gateway": "",
                               "interface": "r1-eth0",
                               "active": [null],
-                              "fib": [null]
+				"fib": [null],
+				"weight": 1
                             }
                           ]
                         }
@@ -388,7 +397,8 @@
                               "gateway": "",
                               "interface": "r1-eth0",
                               "active": [null],
-                              "fib": [null]
+				"fib": [null],
+				"weight": 1
                             }
                           ]
                         }
@@ -416,7 +426,8 @@
                               "gateway": "",
                               "interface": "r1-eth1",
                               "active": [null],
-                              "fib": [null]
+				"fib": [null],
+				"weight": 1
                             }
                           ]
                         }
@@ -444,7 +455,8 @@
                               "gateway": "",
                               "interface": "r1-eth1",
                               "active": [null],
-                              "fib": [null]
+				"fib": [null],
+				"weight": 1
                             }
                           ]
                         }
@@ -479,7 +491,8 @@
                               "gateway": "",
                               "interface": "r1-eth0",
                               "active": [null],
-                              "fib": [null]
+				"fib": [null],
+				"weight": 1
                             }
                           ]
                         }
@@ -505,7 +518,8 @@
                               "gateway": "",
                               "interface": "r1-eth0",
                               "active": [null],
-                              "fib": [null]
+				"fib": [null],
+				"weight": 1
                             }
                           ]
                         }
@@ -531,7 +545,8 @@
                               "gateway": "",
                               "interface": "r1-eth1",
                               "active": [null],
-                              "fib": [null]
+				"fib": [null],
+				"weight": 1
                             }
                           ]
                         }
@@ -557,7 +572,8 @@
                               "gateway": "",
                               "interface": "r1-eth1",
                               "active": [null],
-                              "fib": [null]
+				"fib": [null],
+				"weight": 1
                             }
                           ]
                         }
@@ -607,7 +623,8 @@
                               "gateway": "",
                               "interface": "r1-eth2",
                               "active": [null],
-                              "fib": [null]
+				"fib": [null],
+				"weight": 1
                             }
                           ]
                         }
@@ -635,7 +652,8 @@
                               "gateway": "",
                               "interface": "r1-eth2",
                               "active": [null],
-                              "fib": [null]
+				"fib": [null],
+				"weight": 1
                             }
                           ]
                         }
@@ -663,7 +681,8 @@
                               "gateway": "",
                               "interface": "r1-eth3",
                               "active": [null],
-                              "fib": [null]
+				"fib": [null],
+				"weight": 1
                             }
                           ]
                         }
@@ -691,7 +710,8 @@
                               "gateway": "",
                               "interface": "r1-eth3",
                               "active": [null],
-                              "fib": [null]
+				"fib": [null],
+				"weight": 1
                             }
                           ]
                         }
@@ -814,7 +834,8 @@
                               "gateway": "",
                               "interface": "r1-eth2",
                               "active": [null],
-                              "fib": [null]
+				"fib": [null],
+				"weight": 1
                             }
                           ]
                         }
@@ -840,7 +861,8 @@
                               "gateway": "",
                               "interface": "r1-eth2",
                               "active": [null],
-                              "fib": [null]
+				"fib": [null],
+				"weight": 1
                             }
                           ]
                         }
@@ -866,7 +888,8 @@
                               "gateway": "",
                               "interface": "r1-eth3",
                               "active": [null],
-                              "fib": [null]
+				"fib": [null],
+				"weight": 1
                             }
                           ]
                         }
@@ -892,7 +915,8 @@
                               "gateway": "",
                               "interface": "r1-eth3",
                               "active": [null],
-                              "fib": [null]
+				"fib": [null],
+				"weight": 1
                             }
                           ]
                         }
@@ -929,7 +953,8 @@
                               "gateway": "",
                               "interface": "r1-eth2",
                               "active": [null],
-                              "fib": [null]
+				"fib": [null],
+				"weight": 1
                             }
                           ]
                         }
@@ -957,7 +982,8 @@
                               "gateway": "",
                               "interface": "r1-eth2",
                               "active": [null],
-                              "fib": [null]
+				"fib": [null],
+				"weight": 1
                             }
                           ]
                         }
@@ -985,7 +1011,8 @@
                               "gateway": "",
                               "interface": "r1-eth3",
                               "active": [null],
-                              "fib": [null]
+				"fib": [null],
+				"weight": 1
                             }
                           ]
                         }
@@ -1013,7 +1040,8 @@
                               "gateway": "",
                               "interface": "r1-eth3",
                               "active": [null],
-                              "fib": [null]
+				"fib": [null],
+				"weight": 1
                             }
                           ]
                         }
@@ -1048,7 +1076,8 @@
                               "gateway": "",
                               "interface": "r1-eth2",
                               "active": [null],
-                              "fib": [null]
+				"fib": [null],
+				"weight": 1
                             }
                           ]
                         }
@@ -1074,7 +1103,8 @@
                               "gateway": "",
                               "interface": "r1-eth2",
                               "active": [null],
-                              "fib": [null]
+				"fib": [null],
+				"weight": 1
                             }
                           ]
                         }
@@ -1100,7 +1130,8 @@
                               "gateway": "",
                               "interface": "r1-eth3",
                               "active": [null],
-                              "fib": [null]
+				"fib": [null],
+				"weight": 1
                             }
                           ]
                         }
@@ -1126,7 +1157,8 @@
                               "gateway": "",
                               "interface": "r1-eth3",
                               "active": [null],
-                              "fib": [null]
+				"fib": [null],
+				"weight": 1
                             }
                           ]
                         }

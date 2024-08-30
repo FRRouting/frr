@@ -84,9 +84,6 @@ static void _display_peer_header(struct vty *vty, struct bfd_session *bs)
 	if (bs->key.ifname[0])
 		vty_out(vty, " interface %s", bs->key.ifname);
 	vty_out(vty, "\n");
-
-	if (bs->pl)
-		vty_out(vty, "\t\tlabel: %s\n", bs->pl->pl_label);
 }
 
 static void _display_peer(struct vty *vty, struct bfd_session *bs)
@@ -199,9 +196,6 @@ static struct json_object *_peer_json_header(struct bfd_session *bs)
 		json_object_string_add(jo, "vrf", bs->key.vrfname);
 	if (bs->key.ifname[0])
 		json_object_string_add(jo, "interface", bs->key.ifname);
-
-	if (bs->pl)
-		json_object_string_add(jo, "label", bs->pl->pl_label);
 
 	return jo;
 }
@@ -561,17 +555,11 @@ _find_peer_or_error(struct vty *vty, int argc, struct cmd_token **argv,
 	int idx;
 	bool mhop;
 	struct bfd_session *bs = NULL;
-	struct peer_label *pl;
 	struct bfd_peer_cfg bpc;
 	struct sockaddr_any psa, lsa, *lsap;
 	char errormsg[128];
 
-	/* Look up the BFD peer. */
-	if (label) {
-		pl = pl_find(label);
-		if (pl)
-			bs = pl->pl_bs;
-	} else if (peer_str) {
+	if (peer_str) {
 		strtosa(peer_str, &psa);
 		if (local_str) {
 			strtosa(local_str, &lsa);
@@ -879,7 +867,6 @@ static int bfd_configure_peer(struct bfd_peer_cfg *bpc, bool mhop,
 	bpc->bpc_txinterval = BPC_DEF_TRANSMITINTERVAL;
 	bpc->bpc_echorecvinterval = BPC_DEF_ECHORECEIVEINTERVAL;
 	bpc->bpc_echotxinterval = BPC_DEF_ECHOTRANSMITINTERVAL;
-	bpc->bpc_lastevent = monotime(NULL);
 
 	/* Safety check: when no error buf is provided len must be zero. */
 	if (ebuf == NULL)

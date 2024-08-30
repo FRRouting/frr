@@ -19,67 +19,10 @@
  */
 
 /* clang-format off */
-struct debug static_dbg_events = {0, "Staticd events"};
-struct debug static_dbg_route = {0, "Staticd route"};
-struct debug static_dbg_bfd = {0, "Staticd bfd"};
-
-struct debug *static_debug_arr[] =  {
-	&static_dbg_events,
-	&static_dbg_route,
-	&static_dbg_bfd
-};
-
-const char *static_debugs_conflines[] = {
-	"debug static events",
-	"debug static route",
-	"debug static bfd"
-};
+struct debug static_dbg_events = {0, "debug static events", "Staticd events"};
+struct debug static_dbg_route = {0, "debug static route", "Staticd route"};
+struct debug static_dbg_bfd = {0, "debug static bfd", "Staticd bfd"};
 /* clang-format on */
-
-
-/*
- * Set or unset all staticd debugs
- *
- * flags
- *    The flags to set
- *
- * set
- *    Whether to set or unset the specified flags
- */
-static void static_debug_set_all(uint32_t flags, bool set)
-{
-	for (unsigned int i = 0; i < array_size(static_debug_arr); i++) {
-		DEBUG_FLAGS_SET(static_debug_arr[i], flags, set);
-
-		/* if all modes have been turned off, don't preserve options */
-		if (!DEBUG_MODE_CHECK(static_debug_arr[i], DEBUG_MODE_ALL))
-			DEBUG_CLEAR(static_debug_arr[i]);
-	}
-}
-
-static int static_debug_config_write_helper(struct vty *vty, bool config)
-{
-	uint32_t mode = DEBUG_MODE_ALL;
-
-	if (config)
-		mode = DEBUG_MODE_CONF;
-
-	for (unsigned int i = 0; i < array_size(static_debug_arr); i++)
-		if (DEBUG_MODE_CHECK(static_debug_arr[i], mode))
-			vty_out(vty, "%s\n", static_debugs_conflines[i]);
-
-	return 0;
-}
-
-int static_config_write_debug(struct vty *vty)
-{
-	return static_debug_config_write_helper(vty, true);
-}
-
-int static_debug_status_write(struct vty *vty)
-{
-	return static_debug_config_write_helper(vty, false);
-}
 
 /*
  * Set debugging status.
@@ -113,11 +56,9 @@ void static_debug_set(int vtynode, bool onoff, bool events, bool route,
  * Debug lib initialization
  */
 
-struct debug_callbacks static_dbg_cbs = {
-	.debug_set_all = static_debug_set_all
-};
-
 void static_debug_init(void)
 {
-	debug_init(&static_dbg_cbs);
+	debug_install(&static_dbg_events);
+	debug_install(&static_dbg_route);
+	debug_install(&static_dbg_bfd);
 }

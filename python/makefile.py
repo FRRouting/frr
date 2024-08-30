@@ -91,7 +91,7 @@ lines = before.splitlines()
 autoderp = "#AUTODERP# "
 out_lines = []
 bcdeps = []
-make_rule_re = re.compile("^([^:\s]+):\s*([^:\s]+)\s*($|\n)")
+make_rule_re = re.compile(r"^([^:\s]+):\s*([^:\s]+)\s*($|\n)")
 
 while lines:
     line = lines.pop(0)

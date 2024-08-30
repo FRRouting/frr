@@ -6,6 +6,9 @@ module frr-deviations-ietf-routing {
   import ietf-routing {
     prefix ietf-routing;
   }
+  import ietf-rip {
+    prefix ietf-rip;
+  }
 
   organization
     "FRRouting";

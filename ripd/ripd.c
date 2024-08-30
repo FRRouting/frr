@@ -1051,7 +1051,7 @@ static size_t rip_auth_md5_ah_write(struct stream *s, struct rip_interface *ri,
 	/* RFC2080: The value used in the sequence number is
 	   arbitrary, but two suggestions are the time of the
 	   message's creation or a simple message counter. */
-	stream_putl(s, ++seq);
+	stream_putl(s, seq++);
 
 	/* Reserved field must be zero. */
 	stream_putl(s, 0);
@@ -3054,7 +3054,10 @@ DEFUN (show_ip_rip,
 	}
 
 	vty_out(vty,
-		"Codes: R - RIP, C - connected, S - Static, O - OSPF, B - BGP\n"
+		"Codes: K - kernel route, C - connected, L - local, S - static,\n"
+		"       R - RIP, O - OSPF, I - IS-IS, B - BGP, E - EIGRP, N - NHRP,\n"
+		"       T - Table, v - VNC, V - VNC-Direct, A - Babel, F - PBR,\n"
+		"       f - OpenFabric, t - Table-Direct\n"
 		"Sub-codes:\n"
 		"      (n) - normal, (s) - static, (d) - default, (r) - redistribute,\n"
 		"      (i) - interface\n\n"

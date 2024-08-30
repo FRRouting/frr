@@ -826,7 +826,7 @@ static void free_state(vrf_id_t vrf_id, struct route_entry *re,
 
 	/* free RE and nexthops */
 	zebra_nhg_free(re->nhe);
-	XFREE(MTYPE_RE, re);
+	zebra_rib_route_entry_free(re);
 }
 
 static void copy_state(struct rnh *rnh, const struct route_entry *re,

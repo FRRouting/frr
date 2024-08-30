@@ -268,6 +268,7 @@ DECLARE_HOOK(isis_area_overload_bit_update, (struct isis_area * area), (area));
 
 void isis_terminate(void);
 void isis_master_init(struct event_loop *master);
+void isis_master_terminate(void);
 void isis_vrf_link(struct isis *isis, struct vrf *vrf);
 void isis_vrf_unlink(struct isis *isis, struct vrf *vrf);
 struct isis *isis_lookup_by_vrfid(vrf_id_t vrf_id);
@@ -285,10 +286,12 @@ void isis_area_add_circuit(struct isis_area *area,
 void isis_area_del_circuit(struct isis_area *area,
 			   struct isis_circuit *circuit);
 
+void isis_area_address_delete(void *arg);
 struct isis_area *isis_area_create(const char *, const char *);
 struct isis_area *isis_area_lookup(const char *, vrf_id_t vrf_id);
 struct isis_area *isis_area_lookup_by_vrf(const char *area_tag,
 					  const char *vrf_name);
+struct isis_area *isis_area_lookup_by_sysid(const uint8_t *sysid);
 int isis_area_get(struct vty *vty, const char *area_tag);
 void isis_area_destroy(struct isis_area *area);
 void isis_filter_update(struct access_list *access);

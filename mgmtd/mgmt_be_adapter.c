@@ -249,6 +249,8 @@ static void mgmt_register_client_xpath(enum mgmt_be_client_id id,
 {
 	struct mgmt_be_xpath_map **maps, *map;
 
+	maps = NULL;
+
 	switch (type) {
 	case MGMT_BE_XPATH_SUBSCR_TYPE_CFG:
 		maps = &be_cfg_xpath_map;
@@ -438,7 +440,7 @@ static int mgmt_be_send_subscr_reply(struct mgmt_be_client_adapter *adapter,
 	be_msg.message_case = MGMTD__BE_MESSAGE__MESSAGE_SUBSCR_REPLY;
 	be_msg.subscr_reply = &reply;
 
-	__dbg("Sending SUBSCR_REPLY client: %s sucess: %u", adapter->name,
+	__dbg("Sending SUBSCR_REPLY client: %s success: %u", adapter->name,
 	      success);
 
 	return mgmt_be_adapter_send_msg(adapter, &be_msg);

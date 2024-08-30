@@ -9,6 +9,7 @@
 #include "lib/json.h"
 #include "bgpd/bgp_route.h"
 #include "bgpd/bgp_filter.h"
+#include <typesafe.h>
 
 /* AS path segment type.  */
 #define AS_SET                       1
@@ -67,11 +68,14 @@ struct aspath {
 
 /* `set as-path exclude ASn' */
 struct aspath_exclude {
+	struct as_list_list_item exclude_list;
 	struct aspath *aspath;
 	bool exclude_all;
 	char *exclude_aspath_acl_name;
 	struct as_list *exclude_aspath_acl;
 };
+DECLARE_DLIST(as_list_list, struct aspath_exclude, exclude_list);
+
 
 /* Prototypes. */
 extern void aspath_init(void);
@@ -83,6 +87,9 @@ extern struct aspath *aspath_parse(struct stream *s, size_t length,
 extern struct aspath *aspath_dup(struct aspath *aspath);
 extern struct aspath *aspath_aggregate(struct aspath *as1, struct aspath *as2);
 extern struct aspath *aspath_prepend(struct aspath *as1, struct aspath *as2);
+extern void as_exclude_set_orphan(struct aspath_exclude *ase);
+extern void as_exclude_remove_orphan(struct aspath_exclude *ase);
+extern struct aspath_exclude *as_exclude_lookup_orphan(const char *acl_name);
 extern struct aspath *aspath_filter_exclude(struct aspath *source,
 					    struct aspath *exclude_list);
 extern struct aspath *aspath_filter_exclude_all(struct aspath *source);

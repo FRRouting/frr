@@ -24,45 +24,44 @@ vector vector_init(unsigned int size)
 	v->alloced = size;
 	v->active = 0;
 	v->count = 0;
+	v->dynamic = true;
 	v->index = XCALLOC(MTYPE_VECTOR_INDEX, sizeof(void *) * size);
 	return v;
 }
 
 void vector_free(vector v)
 {
-	XFREE(MTYPE_VECTOR_INDEX, v->index);
-	XFREE(MTYPE_VECTOR, v);
+	if (v->alloced)
+		XFREE(MTYPE_VECTOR_INDEX, v->index);
+	if (v->dynamic)
+		XFREE(MTYPE_VECTOR, v);
 }
 
-vector vector_copy(vector v)
-{
-	unsigned int size;
-	vector new = XCALLOC(MTYPE_VECTOR, sizeof(struct _vector));
-
-	new->active = v->active;
-	new->alloced = v->alloced;
-	new->count = v->count;
-
-	size = sizeof(void *) * (v->alloced);
-	new->index = XCALLOC(MTYPE_VECTOR_INDEX, size);
-	memcpy(new->index, v->index, size);
-
-	return new;
-}
-
-/* Check assigned index, and if it runs short double index pointer */
+/* resize vector to a minimum of num
+ * may resize larger to avoid excessive realloc overhead
+ */
 void vector_ensure(vector v, unsigned int num)
 {
+	unsigned int newsz;
+
 	if (v->alloced > num)
 		return;
 
-	v->index = XREALLOC(MTYPE_VECTOR_INDEX, v->index,
-			    sizeof(void *) * (v->alloced * 2));
-	memset(&v->index[v->alloced], 0, sizeof(void *) * v->alloced);
-	v->alloced *= 2;
+	newsz = MAX(v->active * 2, num + 1);
 
-	if (v->alloced <= num)
-		vector_ensure(v, num);
+	if (!v->alloced && v->index) {
+		/* currently using global variable, not malloc'd memory */
+		void **orig_index = v->index;
+
+		v->index = XMALLOC(MTYPE_VECTOR_INDEX, sizeof(void *) * newsz);
+		memcpy(v->index, orig_index, v->active * sizeof(void *));
+		v->alloced = v->active;
+	} else
+		v->index = XREALLOC(MTYPE_VECTOR_INDEX, v->index,
+				    sizeof(void *) * newsz);
+
+	memset(&v->index[v->alloced], 0, sizeof(void *) * (newsz - v->alloced));
+	v->alloced = newsz;
 }
 
 /* This function only returns next empty slot index.  It dose not mean
@@ -140,7 +139,7 @@ void *vector_lookup_ensure(vector v, unsigned int i)
 /* Unset value at specified index slot. */
 void vector_unset(vector v, unsigned int i)
 {
-	if (i >= v->alloced)
+	if (i >= v->active)
 		return;
 
 	if (v->index[i])

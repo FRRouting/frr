@@ -198,6 +198,7 @@ static struct hash *vnc_hash = NULL;
 #endif
 static struct hash *srv6_l3vpn_hash;
 static struct hash *srv6_vpn_hash;
+static struct hash *evpn_overlay_hash;
 
 struct bgp_attr_encap_subtlv *encap_tlv_dup(struct bgp_attr_encap_subtlv *orig)
 {
@@ -549,6 +550,81 @@ static bool bgp_attr_aigp_valid(uint8_t *pnt, int length)
 	return true;
 }
 
+static void *evpn_overlay_hash_alloc(void *p)
+{
+	return p;
+}
+
+void evpn_overlay_free(struct bgp_route_evpn *bre)
+{
+	XFREE(MTYPE_BGP_EVPN_OVERLAY, bre);
+}
+
+static struct bgp_route_evpn *evpn_overlay_intern(struct bgp_route_evpn *bre)
+{
+	struct bgp_route_evpn *find;
+
+	find = hash_get(evpn_overlay_hash, bre, evpn_overlay_hash_alloc);
+	if (find != bre)
+		evpn_overlay_free(bre);
+	find->refcnt++;
+	return find;
+}
+
+static void evpn_overlay_unintern(struct bgp_route_evpn **brep)
+{
+	struct bgp_route_evpn *bre = *brep;
+
+	if (!*brep)
+		return;
+
+	if (bre->refcnt)
+		bre->refcnt--;
+
+	if (bre->refcnt == 0) {
+		hash_release(evpn_overlay_hash, bre);
+		evpn_overlay_free(bre);
+		*brep = NULL;
+	}
+}
+
+static uint32_t evpn_overlay_hash_key_make(const void *p)
+{
+	const struct bgp_route_evpn *bre = p;
+	uint32_t key = 0;
+
+	if (IS_IPADDR_V4(&bre->gw_ip))
+		key = jhash_1word(bre->gw_ip.ipaddr_v4.s_addr, 0);
+	else
+		key = jhash2(bre->gw_ip.ipaddr_v6.s6_addr32,
+			     array_size(bre->gw_ip.ipaddr_v6.s6_addr32), 0);
+
+	key = jhash_1word(bre->type, key);
+	key = jhash(bre->eth_s_id.val, sizeof(bre->eth_s_id.val), key);
+	return key;
+}
+
+static bool evpn_overlay_hash_cmp(const void *p1, const void *p2)
+{
+	const struct bgp_route_evpn *bre1 = p1;
+	const struct bgp_route_evpn *bre2 = p2;
+
+	return bgp_route_evpn_same(bre1, bre2);
+}
+
+static void evpn_overlay_init(void)
+{
+	evpn_overlay_hash = hash_create(evpn_overlay_hash_key_make,
+					evpn_overlay_hash_cmp,
+					"BGP EVPN Overlay");
+}
+
+static void evpn_overlay_finish(void)
+{
+	hash_clean_and_free(&evpn_overlay_hash,
+			    (void (*)(void *))evpn_overlay_free);
+}
+
 static void *srv6_l3vpn_hash_alloc(void *p)
 {
 	return p;
@@ -788,6 +864,8 @@ unsigned int attrhash_key_make(const void *p)
 		MIX(encap_hash_key_make(attr->encap_subtlvs));
 	if (attr->srv6_l3vpn)
 		MIX(srv6_l3vpn_hash_key_make(attr->srv6_l3vpn));
+	if (bgp_attr_get_evpn_overlay(attr))
+		MIX(evpn_overlay_hash_key_make(bgp_attr_get_evpn_overlay(attr)));
 	if (attr->srv6_vpn)
 		MIX(srv6_vpn_hash_key_make(attr->srv6_vpn));
 #ifdef ENABLE_BGP_VNC
@@ -961,6 +1039,7 @@ struct attr *bgp_attr_intern(struct attr *attr)
 	struct ecommunity *ipv6_ecomm = NULL;
 	struct lcommunity *lcomm = NULL;
 	struct community *comm = NULL;
+	struct bgp_route_evpn *bre = NULL;
 
 	/* Intern referenced structure. */
 	if (attr->aspath) {
@@ -1027,6 +1106,16 @@ struct attr *bgp_attr_intern(struct attr *attr)
 		else
 			attr->encap_subtlvs->refcnt++;
 	}
+
+	bre = bgp_attr_get_evpn_overlay(attr);
+	if (bre) {
+		if (!bre->refcnt)
+			bgp_attr_set_evpn_overlay(attr,
+						  evpn_overlay_intern(bre));
+		else
+			bre->refcnt++;
+	}
+
 	if (attr->srv6_l3vpn) {
 		if (!attr->srv6_l3vpn->refcnt)
 			attr->srv6_l3vpn = srv6_l3vpn_intern(attr->srv6_l3vpn);
@@ -1216,6 +1305,7 @@ void bgp_attr_unintern_sub(struct attr *attr)
 	struct lcommunity *lcomm = NULL;
 	struct community *comm = NULL;
 	struct transit *transit;
+	struct bgp_route_evpn *bre;
 
 	/* aspath refcount shoud be decrement. */
 	aspath_unintern(&attr->aspath);
@@ -1257,6 +1347,10 @@ void bgp_attr_unintern_sub(struct attr *attr)
 
 	srv6_l3vpn_unintern(&attr->srv6_l3vpn);
 	srv6_vpn_unintern(&attr->srv6_vpn);
+
+	bre = bgp_attr_get_evpn_overlay(attr);
+	evpn_overlay_unintern(&bre);
+	bgp_attr_set_evpn_overlay(attr, NULL);
 }
 
 /* Free bgp attribute and aspath. */
@@ -1289,6 +1383,7 @@ void bgp_attr_flush(struct attr *attr)
 	struct cluster_list *cluster;
 	struct lcommunity *lcomm;
 	struct community *comm;
+	struct bgp_route_evpn *bre;
 
 	if (attr->aspath && !attr->aspath->refcnt) {
 		aspath_free(attr->aspath);
@@ -1347,6 +1442,11 @@ void bgp_attr_flush(struct attr *attr)
 		bgp_attr_set_vnc_subtlvs(attr, NULL);
 	}
 #endif
+	bre = bgp_attr_get_evpn_overlay(attr);
+	if (bre && !bre->refcnt) {
+		evpn_overlay_free(bre);
+		bgp_attr_set_evpn_overlay(attr, NULL);
+	}
 }
 
 /* Implement draft-scudder-idr-optional-transitive behaviour and
@@ -2575,7 +2675,6 @@ bgp_attr_ext_communities(struct bgp_attr_parser_args *args)
 	struct peer *const peer = args->peer;
 	struct attr *const attr = args->attr;
 	const bgp_size_t length = args->length;
-	uint8_t sticky = 0;
 	bool proxy = false;
 	struct ecommunity *ecomm;
 
@@ -2605,21 +2704,20 @@ bgp_attr_ext_communities(struct bgp_attr_parser_args *args)
 	attr->df_pref = bgp_attr_df_pref_from_ec(attr, &attr->df_alg);
 
 	/* Extract MAC mobility sequence number, if any. */
-	attr->mm_seqnum = bgp_attr_mac_mobility_seqnum(attr, &sticky);
-	attr->sticky = sticky;
+	attr->mm_seqnum = bgp_attr_mac_mobility_seqnum(attr);
 
 	/* Check if this is a Gateway MAC-IP advertisement */
-	attr->default_gw = bgp_attr_default_gw(attr);
+	bgp_attr_default_gw(attr);
 
 	/* Handle scenario where router flag ecommunity is not
 	 * set but default gw ext community is present.
 	 * Use default gateway, set and propogate R-bit.
 	 */
-	if (attr->default_gw)
-		attr->router_flag = 1;
+	if (CHECK_FLAG(attr->evpn_flags, ATTR_EVPN_FLAG_DEFAULT_GW))
+		SET_FLAG(attr->evpn_flags, ATTR_EVPN_FLAG_ROUTER);
 
 	/* Check EVPN Neighbor advertisement flags, R-bit */
-	bgp_attr_evpn_na_flag(attr, &attr->router_flag, &proxy);
+	bgp_attr_evpn_na_flag(attr, &proxy);
 	if (proxy)
 		attr->es_flags |= ATTR_ES_PROXY_ADVERT;
 
@@ -2692,6 +2790,9 @@ static int bgp_attr_encap(struct bgp_attr_parser_args *args)
 	uint8_t type = args->type;
 	uint8_t flag = args->flags;
 
+	if (peer->discard_attrs[args->type] || peer->withdraw_attrs[args->type])
+		goto encap_ignore;
+
 	if (!CHECK_FLAG(flag, BGP_ATTR_FLAG_TRANS)
 	    || !CHECK_FLAG(flag, BGP_ATTR_FLAG_OPTIONAL)) {
 		zlog_err("Tunnel Encap attribute flag isn't optional and transitive %d",
@@ -2721,17 +2822,20 @@ static int bgp_attr_encap(struct bgp_attr_parser_args *args)
 		}
 	}
 
-	while (length >= 4) {
+	while (STREAM_READABLE(BGP_INPUT(peer)) >= 4) {
 		uint16_t subtype = 0;
 		uint16_t sublength = 0;
 		struct bgp_attr_encap_subtlv *tlv;
 
 		if (BGP_ATTR_ENCAP == type) {
 			subtype = stream_getc(BGP_INPUT(peer));
-			sublength = (subtype < 128)
-					    ? stream_getc(BGP_INPUT(peer))
-					    : stream_getw(BGP_INPUT(peer));
-			length -= 2;
+			if (subtype < 128) {
+				sublength = stream_getc(BGP_INPUT(peer));
+				length -= 2;
+			} else {
+				sublength = stream_getw(BGP_INPUT(peer));
+				length -= 3;
+			}
 #ifdef ENABLE_BGP_VNC
 		} else {
 			subtype = stream_getw(BGP_INPUT(peer));
@@ -2743,6 +2847,14 @@ static int bgp_attr_encap(struct bgp_attr_parser_args *args)
 		if (sublength > length) {
 			zlog_err("Tunnel Encap attribute sub-tlv length %d exceeds remaining length %d",
 				 sublength, length);
+			return bgp_attr_malformed(args,
+						  BGP_NOTIFY_UPDATE_OPT_ATTR_ERR,
+						  args->total);
+		}
+
+		if (STREAM_READABLE(BGP_INPUT(peer)) < sublength) {
+			zlog_err("Tunnel Encap attribute sub-tlv length %d exceeds remaining stream length %zu",
+				 sublength, STREAM_READABLE(BGP_INPUT(peer)));
 			return bgp_attr_malformed(args,
 						  BGP_NOTIFY_UPDATE_OPT_ATTR_ERR,
 						  args->total);
@@ -2799,7 +2911,14 @@ static int bgp_attr_encap(struct bgp_attr_parser_args *args)
 					  args->total);
 	}
 
-	return 0;
+	SET_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_ENCAP));
+
+	return BGP_ATTR_PARSE_PROCEED;
+
+encap_ignore:
+	stream_forward_getp(peer->curr, length);
+
+	return bgp_attr_ignore(peer, type);
 }
 
 
@@ -3191,6 +3310,9 @@ enum bgp_attr_parse_ret bgp_attr_prefix_sid(struct bgp_attr_parser_args *args)
 	size_t headersz = sizeof(type) + sizeof(length);
 	size_t psid_parsed_length = 0;
 
+	if (peer->discard_attrs[args->type] || peer->withdraw_attrs[args->type])
+		goto prefix_sid_ignore;
+
 	while (STREAM_READABLE(peer->curr) > 0
 	       && psid_parsed_length < args->length) {
 
@@ -3238,6 +3360,11 @@ enum bgp_attr_parse_ret bgp_attr_prefix_sid(struct bgp_attr_parser_args *args)
 	SET_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_PREFIX_SID));
 
 	return BGP_ATTR_PARSE_PROCEED;
+
+prefix_sid_ignore:
+	stream_forward_getp(peer->curr, args->length);
+
+	return bgp_attr_ignore(peer, args->type);
 }
 
 /* PMSI tunnel attribute (RFC 6514)
@@ -3251,6 +3378,9 @@ bgp_attr_pmsi_tunnel(struct bgp_attr_parser_args *args)
 	const bgp_size_t length = args->length;
 	uint8_t tnl_type;
 	int attr_parse_len = 2 + BGP_LABEL_BYTES;
+
+	if (peer->discard_attrs[args->type] || peer->withdraw_attrs[args->type])
+		goto pmsi_tunnel_ignore;
 
 	/* Verify that the receiver is expecting "ingress replication" as we
 	 * can only support that.
@@ -3288,6 +3418,11 @@ bgp_attr_pmsi_tunnel(struct bgp_attr_parser_args *args)
 	stream_forward_getp(peer->curr, length - attr_parse_len);
 
 	return BGP_ATTR_PARSE_PROCEED;
+
+pmsi_tunnel_ignore:
+	stream_forward_getp(peer->curr, length);
+
+	return bgp_attr_ignore(peer, args->type);
 }
 
 /* AIGP attribute (rfc7311) */
@@ -4465,6 +4600,8 @@ bgp_size_t bgp_packet_attribute(struct bgp *bgp, struct peer *peer,
 		bgp_packet_mpattr_end(s, mpattrlen_pos);
 	}
 
+	(void)peer_sort(peer);
+
 	/* Origin attribute. */
 	stream_putc(s, BGP_ATTR_FLAG_TRANS);
 	stream_putc(s, BGP_ATTR_ORIGIN);
@@ -4995,6 +5132,7 @@ void bgp_attr_init(void)
 	transit_init();
 	encap_init();
 	srv6_init();
+	evpn_overlay_init();
 }
 
 void bgp_attr_finish(void)
@@ -5008,6 +5146,7 @@ void bgp_attr_finish(void)
 	transit_finish();
 	encap_finish();
 	srv6_finish();
+	evpn_overlay_finish();
 }
 
 /* Make attribute packet. */

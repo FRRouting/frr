@@ -40,7 +40,6 @@ try:
 
     try:
         sys.path[0:0] = [tmpdir]
-        print(sys.path)
         import frr_northbound_pb2
         import frr_northbound_pb2_grpc
 

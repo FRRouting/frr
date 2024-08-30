@@ -48,14 +48,20 @@
 #include "ospfd/ospf_apiserver.h"
 
 #define OSPFD_STATE_NAME	 "%s/ospfd.json", frr_libstatedir
-#define OSPFD_INST_STATE_NAME(i) "%s/ospfd-%d.json", frr_runstatedir, i
+#define OSPFD_INST_STATE_NAME(i) "%s/ospfd-%d.json", frr_libstatedir, i
 
 /* this one includes the path... because the instance number was in the path
  * before :( ... which totally didn't have a mkdir anywhere.
+ *
+ * ... and libstatedir & runstatedir got switched around while changing this;
+ * for non-instance it read the wrong path, for instance it wrote the wrong
+ * path.  (There is no COMPAT2 for non-instance because it was writing to the
+ * right place, i.e. no extra path to check exists from reading a wrong path.)
  */
-#define OSPFD_COMPAT_STATE_NAME "%s/ospfd-gr.json", frr_libstatedir
-#define OSPFD_COMPAT_INST_STATE_NAME(i)                                        \
+#define OSPFD_COMPAT_STATE_NAME "%s/ospfd-gr.json", frr_runstatedir
+#define OSPFD_COMPAT1_INST_STATE_NAME(i)                                       \
 	"%s-%d/ospfd-gr.json", frr_runstatedir, i
+#define OSPFD_COMPAT2_INST_STATE_NAME(i) "%s/ospfd-%d.json", frr_runstatedir, i
 
 /* ospfd privileges */
 zebra_capabilities_t _caps_p[] = {ZCAP_NET_RAW, ZCAP_BIND, ZCAP_NET_ADMIN,
@@ -139,10 +145,12 @@ static const struct frr_yang_module_info *const ospfd_yang_modules[] = {
 
 /* actual paths filled in main() */
 static char state_path[512];
-static char state_compat_path[512];
+static char state_compat1_path[512];
+static char state_compat2_path[512];
 static char *state_paths[] = {
 	state_path,
-	state_compat_path,
+	state_compat1_path,
+	state_compat2_path, /* NULLed out if not needed */
 	NULL,
 };
 
@@ -242,12 +250,18 @@ int main(int argc, char **argv)
 	if (ospf_instance) {
 		snprintf(state_path, sizeof(state_path),
 			 OSPFD_INST_STATE_NAME(ospf_instance));
-		snprintf(state_compat_path, sizeof(state_compat_path),
-			 OSPFD_COMPAT_INST_STATE_NAME(ospf_instance));
+		snprintf(state_compat1_path, sizeof(state_compat1_path),
+			 OSPFD_COMPAT1_INST_STATE_NAME(ospf_instance));
+		snprintf(state_compat2_path, sizeof(state_compat2_path),
+			 OSPFD_COMPAT2_INST_STATE_NAME(ospf_instance));
 	} else {
 		snprintf(state_path, sizeof(state_path), OSPFD_STATE_NAME);
-		snprintf(state_compat_path, sizeof(state_compat_path),
+		snprintf(state_compat1_path, sizeof(state_compat1_path),
 			 OSPFD_COMPAT_STATE_NAME);
+		/* no COMPAT2 here since it was reading that was broken,
+		 * there is no additional path that would've been written
+		 */
+		state_paths[2] = NULL;
 	}
 
 	/* OSPF master init. */

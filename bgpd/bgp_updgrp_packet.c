@@ -523,13 +523,11 @@ struct stream *bpacket_reformat_for_peer(struct bpacket *pkt,
 			gnh_modified = 1;
 		}
 
-		if (peer->nexthop.v4.s_addr != INADDR_ANY &&
-		    (IN6_IS_ADDR_UNSPECIFIED(mod_v6nhg) ||
-		     (IN6_IS_ADDR_LINKLOCAL(mod_v6nhg) &&
-		      peer->connection->su.sa.sa_family == AF_INET6 &&
-		      paf->afi == AFI_IP))) {
-			ipv4_to_ipv4_mapped_ipv6(mod_v6nhg, peer->nexthop.v4);
-			gnh_modified = 1;
+		if (IN6_IS_ADDR_UNSPECIFIED(mod_v6nhg)) {
+			if (peer->nexthop.v4.s_addr != INADDR_ANY) {
+				ipv4_to_ipv4_mapped_ipv6(mod_v6nhg,
+							 peer->nexthop.v4);
+			}
 		}
 
 		if (IS_MAPPED_IPV6(&peer->nexthop.v6_global)) {
@@ -815,7 +813,7 @@ struct bpacket *subgroup_update_packet(struct update_subgroup *subgrp)
 				label_pnt = &label;
 				num_labels = 1;
 			} else {
-				num_labels = bgp_path_info_num_labels(path);
+				num_labels = BGP_PATH_INFO_NUM_LABELS(path);
 				label_pnt =
 					num_labels
 						? &path->extra->labels->label[0]
@@ -863,7 +861,8 @@ struct bpacket *subgroup_update_packet(struct update_subgroup *subgrp)
 			bgp_debug_rdpfxpath2str(afi, safi, prd, dest_p,
 						label_pnt, num_labels,
 						addpath_capable, addpath_tx_id,
-						&adv->baa->attr->evpn_overlay,
+						bgp_attr_get_evpn_overlay(
+							adv->baa->attr),
 						pfx_buf, sizeof(pfx_buf));
 			zlog_debug("u%" PRIu64 ":s%" PRIu64 " send UPDATE %s",
 				   subgrp->update_group->id, subgrp->id,

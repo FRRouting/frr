@@ -38,9 +38,10 @@ from lib.common_config import (
     required_linux_kernel_version,
 )
 
-from lib.topolog import logger
 import json
+import functools
 
+# Global that must be set on a failure to stop subsequent tests from being run
 fatal_error = ""
 
 
@@ -153,7 +154,6 @@ def test_error_messages_vtysh():
     print("\n\n** Check for error messages on VTYSH")
     print("******************************************\n")
 
-    failures = 0
     for i in range(1, 2):
         #
         # First checking Standard Output
@@ -402,17 +402,27 @@ def test_converge_protocols():
 
 
 def route_get_nhg_id(route_str):
-    net = get_topogen().net
-    output = net["r1"].cmd(
-        'vtysh -c "show ip route {} nexthop-group"'.format(route_str)
-    )
-    match = re.search(r"Nexthop Group ID: (\d+)", output)
-    assert match is not None, "Nexthop Group ID not found for sharpd route {}".format(
-        route_str
-    )
+    global fatal_error
 
-    nhg_id = int(match.group(1))
-    return nhg_id
+    def get_func(route_str):
+        net = get_topogen().net
+        output = net["r1"].cmd(
+            'vtysh -c "show ip route {} nexthop-group"'.format(route_str)
+        )
+        match = re.search(r"Nexthop Group ID: (\d+)", output)
+        if match is not None:
+            nhg_id = int(match.group(1))
+            return nhg_id
+        else:
+            return None
+
+    test_func = functools.partial(get_func, route_str)
+    _, nhg_id = topotest.run_and_expect_type(test_func, int, count=30, wait=1)
+    if nhg_id == None:
+        fatal_error = "Nexthop Group ID not found for route {}".format(route_str)
+        assert nhg_id != None, fatal_error
+    else:
+        return nhg_id
 
 
 def verify_nexthop_group(nhg_id, recursive=False, ecmp=0):
@@ -489,8 +499,12 @@ def verify_nexthop_group(nhg_id, recursive=False, ecmp=0):
 
 
 def verify_route_nexthop_group(route_str, recursive=False, ecmp=0):
+    global fatal_error
+
     # Verify route and that zebra created NHGs for and they are valid/installed
+
     nhg_id = route_get_nhg_id(route_str)
+
     verify_nexthop_group(nhg_id, recursive, ecmp)
 
 
@@ -1650,7 +1664,12 @@ def test_mpls_interfaces():
 
 
 def test_resilient_nexthop_group():
+    global fatal_error
     net = get_topogen().net
+
+    # Skip if previous fatal error condition is raised
+    if fatal_error != "":
+        pytest.skip(fatal_error)
 
     result = required_linux_kernel_version("5.19")
     if result is not True:
@@ -1660,8 +1679,18 @@ def test_resilient_nexthop_group():
         'vtysh -c "conf" -c "nexthop-group resilience" -c "resilient buckets 64 idle-timer 128 unbalanced-timer 256" -c "nexthop 1.1.1.1 r1-eth1 onlink" -c "nexthop 1.1.1.2 r1-eth2 onlink"'
     )
 
-    output = net["r1"].cmd('vtysh -c "show nexthop-group rib sharp"')
-    buckets = re.findall(r"Buckets", output)
+    # Temporary helper function
+    def _show_func():
+        output = net["r1"].cmd('vtysh -c "show nexthop-group rib sharp"')
+        buckets = re.findall(r"Buckets", output)
+
+        return len(buckets)
+
+    _, result = topotest.run_and_expect(_show_func, 1, count=30, wait=1)
+    if result != 1:
+        fatal_error = "Resilient NHG not created in zebra"
+
+    assert result == 1, fatal_error
 
     output = net["r1"].cmd('vtysh -c "show nexthop-group rib sharp json"')
 
@@ -1674,8 +1703,14 @@ def test_resilient_nexthop_group():
         if "buckets" in n:
             break
 
+    if "buckets" not in n:
+        fatal_error = "Resilient NHG not found in json output"
+    assert "buckets" in n, fatal_error
+
     verify_nexthop_group(int(nhgid))
-    assert len(buckets) == 1, "Resilient NHG not created in zebra"
+
+    # Remove NHG
+    net["r1"].cmd('vtysh -c "conf" -c "no nexthop-group resilience"')
 
 
 def test_shutdown_check_stderr():

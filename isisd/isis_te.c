@@ -164,13 +164,17 @@ void isis_mpls_te_term(struct isis_area *area)
 	XFREE(MTYPE_ISIS_MPLS_TE, area->mta);
 }
 
-static void isis_link_params_update_asla(struct isis_circuit *circuit,
-					 struct interface *ifp)
+void isis_link_params_update_asla(struct isis_circuit *circuit,
+				  struct interface *ifp)
 {
 	struct isis_asla_subtlvs *asla;
 	struct listnode *node, *nnode;
 	struct isis_ext_subtlvs *ext = circuit->ext;
 	int i;
+
+	if (!ext)
+		/* no extended subTLVs - nothing to update */
+		return;
 
 	if (!HAS_LINK_PARAMS(ifp)) {
 		list_delete_all_node(ext->aslas);
@@ -1258,8 +1262,11 @@ static int lsp_to_subnet_cb(const struct prefix *prefix, uint32_t metric,
 	if (!args || !prefix)
 		return LSP_ITER_CONTINUE;
 
-	te_debug("  |- Process Extended %s Reachability %pFX",
-		 prefix->family == AF_INET ? "IP" : "IPv6", prefix);
+	if (args->srv6_locator)
+		te_debug("  |- Process SRv6 Locator %pFX", prefix);
+	else
+		te_debug("  |- Process Extended %s Reachability %pFX",
+			 prefix->family == AF_INET ? "IP" : "IPv6", prefix);
 
 	vertex = args->vertex;
 
@@ -1386,6 +1393,38 @@ static int lsp_to_subnet_cb(const struct prefix *prefix, uint32_t metric,
 		}
 	}
 
+	/* Update SRv6 SID and locator if any */
+	if (subtlvs && subtlvs->srv6_end_sids.count != 0) {
+		struct isis_srv6_end_sid_subtlv *psid;
+		struct ls_srv6_sid sr = {};
+
+		psid = (struct isis_srv6_end_sid_subtlv *)
+			       subtlvs->srv6_end_sids.head;
+		sr.behavior = psid->behavior;
+		sr.flags = psid->flags;
+		memcpy(&sr.sid, &psid->sid, sizeof(struct in6_addr));
+
+		if (!CHECK_FLAG(ls_pref->flags, LS_PREF_SRV6) ||
+		    memcmp(&ls_pref->srv6, &sr, sizeof(struct ls_srv6_sid))) {
+			memcpy(&ls_pref->srv6, &sr, sizeof(struct ls_srv6_sid));
+			SET_FLAG(ls_pref->flags, LS_PREF_SRV6);
+			if (subnet->status != NEW)
+				subnet->status = UPDATE;
+		} else {
+			if (subnet->status == ORPHAN)
+				subnet->status = SYNC;
+		}
+	} else {
+		if (CHECK_FLAG(ls_pref->flags, LS_PREF_SRV6)) {
+			UNSET_FLAG(ls_pref->flags, LS_PREF_SRV6);
+			if (subnet->status != NEW)
+				subnet->status = UPDATE;
+		} else {
+			if (subnet->status == ORPHAN)
+				subnet->status = SYNC;
+		}
+	}
+
 	/* Update status and Export Link State Edge if needed */
 	if (subnet->status != SYNC) {
 		if (args->export)
@@ -1454,12 +1493,18 @@ static void isis_te_parse_lsp(struct mpls_te_area *mta, struct isis_lsp *lsp)
 				  &args);
 
 	/* Process all Extended IP (v4 & v6) in LSP (all fragments) */
+	args.srv6_locator = false;
 	isis_lsp_iterate_ip_reach(lsp, AF_INET, ISIS_MT_IPV4_UNICAST,
 				  lsp_to_subnet_cb, &args);
 	isis_lsp_iterate_ip_reach(lsp, AF_INET6, ISIS_MT_IPV6_UNICAST,
 				  lsp_to_subnet_cb, &args);
 	isis_lsp_iterate_ip_reach(lsp, AF_INET6, ISIS_MT_IPV4_UNICAST,
 				  lsp_to_subnet_cb, &args);
+	args.srv6_locator = true;
+	isis_lsp_iterate_srv6_locator(lsp, ISIS_MT_STANDARD, lsp_to_subnet_cb,
+				      &args);
+	isis_lsp_iterate_srv6_locator(lsp, ISIS_MT_IPV6_UNICAST,
+				      lsp_to_subnet_cb, &args);
 
 	/* Clean remaining Orphan Edges or Subnets */
 	if (IS_EXPORT_TE(mta))

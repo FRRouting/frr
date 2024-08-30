@@ -127,7 +127,8 @@ static int mgmt_ds_load_cfg_from_file(const char *filepath,
 
 	*dnode = NULL;
 	ret = lyd_parse_data_path(ly_native_ctx, filepath, LYD_JSON,
-				  LYD_PARSE_STRICT, 0, dnode);
+				  LYD_PARSE_NO_STATE | LYD_PARSE_STRICT,
+				  LYD_VALIDATE_NO_STATE, dnode);
 
 	if (ret != LY_SUCCESS) {
 		if (*dnode)

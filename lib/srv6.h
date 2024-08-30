@@ -319,6 +319,8 @@ seg6local_action2str(uint32_t action);
 const char *seg6local_context2str(char *str, size_t size,
 				  const struct seg6local_context *ctx,
 				  uint32_t action);
+void seg6local_context2json(const struct seg6local_context *ctx,
+			    uint32_t action, json_object *json);
 
 static inline const char *srv6_sid_ctx2str(char *str, size_t size,
 					   const struct srv6_sid_ctx *ctx)
@@ -333,24 +335,23 @@ static inline const char *srv6_sid_ctx2str(char *str, size_t size,
 		break;
 
 	case ZEBRA_SEG6_LOCAL_ACTION_END:
-		len += snprintf(str + len, size - len, " USP");
+		snprintf(str + len, size - len, " USP");
 		break;
 
 	case ZEBRA_SEG6_LOCAL_ACTION_END_X:
 	case ZEBRA_SEG6_LOCAL_ACTION_END_DX6:
-		len += snprintfrr(str + len, size - len, " nh6 %pI6", &ctx->nh6);
+		snprintfrr(str + len, size - len, " nh6 %pI6", &ctx->nh6);
 		break;
 
 	case ZEBRA_SEG6_LOCAL_ACTION_END_DX4:
-		len += snprintfrr(str + len, size - len, " nh4 %pI4", &ctx->nh4);
+		snprintfrr(str + len, size - len, " nh4 %pI4", &ctx->nh4);
 		break;
 
 	case ZEBRA_SEG6_LOCAL_ACTION_END_T:
 	case ZEBRA_SEG6_LOCAL_ACTION_END_DT6:
 	case ZEBRA_SEG6_LOCAL_ACTION_END_DT4:
 	case ZEBRA_SEG6_LOCAL_ACTION_END_DT46:
-		len += snprintf(str + len, size - len, " vrf_id %u",
-				ctx->vrf_id);
+		snprintf(str + len, size - len, " vrf_id %u", ctx->vrf_id);
 		break;
 
 	case ZEBRA_SEG6_LOCAL_ACTION_END_DX2:
@@ -362,7 +363,7 @@ static inline const char *srv6_sid_ctx2str(char *str, size_t size,
 	case ZEBRA_SEG6_LOCAL_ACTION_END_AM:
 	case ZEBRA_SEG6_LOCAL_ACTION_END_BPF:
 	default:
-		len += snprintf(str + len, size - len, " unknown(%s)", __func__);
+		snprintf(str + len, size - len, " unknown(%s)", __func__);
 	}
 
 	return str;

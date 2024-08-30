@@ -682,6 +682,91 @@ static void igmp_show_interface_join(struct pim_instance *pim, struct vty *vty,
 		vty_json(vty, json);
 }
 
+static void igmp_show_interface_static_group(struct pim_instance *pim,
+					     struct vty *vty, bool uj)
+{
+	struct interface *ifp;
+	json_object *json = NULL;
+	json_object *json_iface = NULL;
+	json_object *json_grp = NULL;
+	json_object *json_grp_arr = NULL;
+
+	if (uj) {
+		json = json_object_new_object();
+		json_object_string_add(json, "vrf",
+				       vrf_id_to_name(pim->vrf->vrf_id));
+	} else {
+		vty_out(vty,
+			"Interface        Address         Source          Group\n");
+	}
+
+	FOR_ALL_INTERFACES (pim->vrf, ifp) {
+		struct pim_interface *pim_ifp;
+		struct listnode *node;
+		struct static_group *stgrp;
+		struct in_addr pri_addr;
+		char pri_addr_str[INET_ADDRSTRLEN];
+
+		pim_ifp = ifp->info;
+
+		if (!pim_ifp)
+			continue;
+
+		if (!pim_ifp->static_group_list)
+			continue;
+
+		pri_addr = pim_find_primary_addr(ifp);
+		pim_inet4_dump("<pri?>", pri_addr, pri_addr_str,
+			       sizeof(pri_addr_str));
+
+		for (ALL_LIST_ELEMENTS_RO(pim_ifp->static_group_list, node,
+					  stgrp)) {
+			char group_str[INET_ADDRSTRLEN];
+			char source_str[INET_ADDRSTRLEN];
+
+			pim_inet4_dump("<grp?>", stgrp->group_addr, group_str,
+				       sizeof(group_str));
+			pim_inet4_dump("<src?>", stgrp->source_addr, source_str,
+				       sizeof(source_str));
+
+			if (uj) {
+				json_object_object_get_ex(json, ifp->name,
+							  &json_iface);
+
+				if (!json_iface) {
+					json_iface = json_object_new_object();
+					json_object_string_add(json_iface,
+							       "name",
+							       ifp->name);
+					json_object_object_add(json, ifp->name,
+							       json_iface);
+					json_grp_arr = json_object_new_array();
+					json_object_object_add(json_iface,
+							       "groups",
+							       json_grp_arr);
+				}
+
+				json_grp = json_object_new_object();
+				json_object_string_add(json_grp, "source",
+						       source_str);
+				json_object_string_add(json_grp, "group",
+						       group_str);
+				json_object_string_add(json_grp, "primaryAddr",
+						       pri_addr_str);
+				json_object_array_add(json_grp_arr, json_grp);
+			} else {
+				vty_out(vty, "%-16s %-15s %-15s %-15s\n",
+					ifp->name, pri_addr_str, source_str,
+					group_str);
+			}
+		} /* for (pim_ifp->static_group_list) */
+
+	} /* for (iflist) */
+
+	if (uj)
+		vty_json(vty, json);
+}
+
 static void igmp_show_statistics(struct pim_instance *pim, struct vty *vty,
 				 const char *ifname, bool uj)
 {
@@ -1457,19 +1542,13 @@ static void clear_interfaces(struct pim_instance *pim)
 static void pim_cli_legacy_mesh_group_behavior(struct vty *vty,
 					       const char *gname)
 {
-	const char *vrfname;
-	char xpath_value[XPATH_MAXLEN];
+	char xpath_value[XPATH_MAXLEN + 26];
 	char xpath_member_value[XPATH_MAXLEN];
 	const struct lyd_node *member_dnode;
 
-	vrfname = pim_cli_get_vrf_name(vty);
-	if (vrfname == NULL)
-		return;
-
 	/* Get mesh group base XPath. */
 	snprintf(xpath_value, sizeof(xpath_value),
-		 FRR_PIM_VRF_XPATH "/msdp-mesh-groups[name='%s']",
-		 "frr-pim:pimd", "pim", vrfname, "frr-routing:ipv4", gname);
+		 "%s/msdp-mesh-groups[name='%s']", VTY_CURR_XPATH, gname);
 	/* Group must exists, otherwise just quit. */
 	if (!yang_dnode_exists(vty->candidate_config->dnode, xpath_value))
 		return;
@@ -1477,8 +1556,7 @@ static void pim_cli_legacy_mesh_group_behavior(struct vty *vty,
 	/* Group members check: */
 	strlcpy(xpath_member_value, xpath_value, sizeof(xpath_member_value));
 	strlcat(xpath_member_value, "/members", sizeof(xpath_member_value));
-	if (yang_dnode_exists(vty->candidate_config->dnode,
-			      xpath_member_value)) {
+	if (yang_dnode_exists(vty->candidate_config->dnode, xpath_member_value)) {
 		member_dnode = yang_dnode_get(vty->candidate_config->dnode,
 					      xpath_member_value);
 		if (!member_dnode || !yang_is_last_list_dnode(member_dnode))
@@ -1731,6 +1809,15 @@ DEFUN (show_ip_igmp_join,
 
 	return CMD_SUCCESS;
 }
+ALIAS (show_ip_igmp_join,
+       show_ip_igmp_join_group_cmd,
+       "show ip igmp [vrf NAME] join-group [json]",
+       SHOW_STR
+       IP_STR
+       IGMP_STR
+       VRF_CMD_HELP_STR
+       "IGMP static join information\n"
+       JSON_STR);
 
 DEFUN (show_ip_igmp_join_vrf_all,
        show_ip_igmp_join_vrf_all_cmd,
@@ -1757,6 +1844,69 @@ DEFUN (show_ip_igmp_join_vrf_all,
 		} else
 			vty_out(vty, "VRF: %s\n", vrf->name);
 		igmp_show_interface_join(vrf->info, vty, uj);
+	}
+	if (uj)
+		vty_out(vty, "}\n");
+
+	return CMD_SUCCESS;
+}
+ALIAS (show_ip_igmp_join_vrf_all,
+       show_ip_igmp_join_group_vrf_all_cmd,
+       "show ip igmp vrf all join-group [json]",
+       SHOW_STR
+       IP_STR
+       IGMP_STR
+       VRF_CMD_HELP_STR
+       "IGMP static join information\n"
+       JSON_STR);
+
+DEFUN (show_ip_igmp_static_group,
+       show_ip_igmp_static_group_cmd,
+       "show ip igmp [vrf NAME] static-group [json]",
+       SHOW_STR
+       IP_STR
+       IGMP_STR
+       VRF_CMD_HELP_STR
+       "Static group information\n"
+       JSON_STR)
+{
+	int idx = 2;
+	bool uj = use_json(argc, argv);
+	struct vrf *vrf = pim_cmd_lookup_vrf(vty, argv, argc, &idx, uj);
+
+	if (!vrf)
+		return CMD_WARNING;
+
+	igmp_show_interface_static_group(vrf->info, vty, uj);
+
+	return CMD_SUCCESS;
+}
+
+DEFUN (show_ip_igmp_static_group_vrf_all,
+       show_ip_igmp_static_group_vrf_all_cmd,
+       "show ip igmp vrf all static-group [json]",
+       SHOW_STR
+       IP_STR
+       IGMP_STR
+       VRF_CMD_HELP_STR
+       "Static group information\n"
+       JSON_STR)
+{
+	bool uj = use_json(argc, argv);
+	struct vrf *vrf;
+	bool first = true;
+
+	if (uj)
+		vty_out(vty, "{ ");
+	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
+		if (uj) {
+			if (!first)
+				vty_out(vty, ", ");
+			vty_out(vty, " \"%s\": ", vrf->name);
+			first = false;
+		} else
+			vty_out(vty, "VRF: %s\n", vrf->name);
+		igmp_show_interface_static_group(vrf->info, vty, uj);
 	}
 	if (uj)
 		vty_out(vty, "}\n");
@@ -2830,6 +2980,40 @@ DEFPY (clear_ip_mroute_count,
 	return clear_ip_mroute_count_command(vty, name);
 }
 
+DEFPY(clear_ip_msdp_peer, clear_ip_msdp_peer_cmd,
+      "clear ip msdp peer A.B.C.D$peer [vrf WORD$vrfname]",
+      CLEAR_STR
+      IP_STR
+      MSDP_STR
+      "Restart MSDP peer\n"
+      "MSDP peer address\n"
+      VRF_CMD_HELP_STR)
+{
+	const struct pim_instance *pim;
+	const struct listnode *node;
+	const struct vrf *vrf;
+	struct pim_msdp_peer *mp;
+
+	if (vrfname)
+		vrf = vrf_lookup_by_name(vrfname);
+	else
+		vrf = vrf_lookup_by_id(VRF_DEFAULT);
+
+	if (vrf == NULL || vrf->info == NULL)
+		return CMD_WARNING;
+
+	pim = vrf->info;
+	for (ALL_LIST_ELEMENTS_RO(pim->msdp.peer_list, node, mp)) {
+		if (mp->peer.s_addr != peer.s_addr)
+			continue;
+
+		pim_msdp_peer_restart(mp);
+		break;
+	}
+
+	return CMD_SUCCESS;
+}
+
 DEFPY (show_ip_mroute_count,
        show_ip_mroute_count_cmd,
        "show ip mroute [vrf NAME] count [json$json]",
@@ -2989,22 +3173,108 @@ DEFUN (show_ip_ssmpingd,
 	return CMD_SUCCESS;
 }
 
-DEFUN (ip_pim_spt_switchover_infinity,
-       ip_pim_spt_switchover_infinity_cmd,
-       "ip pim spt-switchover infinity-and-beyond",
-       IP_STR
-       PIM_STR
+DEFPY_NOSH (router_pim,
+				router_pim_cmd,
+				"router pim [vrf NAME]",
+				"Enable a routing process\n"
+				"Start PIM configuration\n"
+				VRF_CMD_HELP_STR)
+{
+	char xpath[XPATH_MAXLEN];
+	const char *vrf_name;
+
+	if (vrf)
+		vrf_name = vrf;
+	else
+		vrf_name = VRF_DEFAULT_NAME;
+
+	snprintf(xpath, sizeof(xpath), FRR_PIM_VRF_XPATH, "frr-pim:pimd", "pim",
+		 vrf_name, FRR_PIM_AF_XPATH_VAL);
+	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
+	if (nb_cli_apply_changes_clear_pending(vty, NULL) != CMD_SUCCESS)
+		return CMD_WARNING_CONFIG_FAILED;
+
+	VTY_PUSH_XPATH(PIM_NODE, xpath);
+	return CMD_SUCCESS;
+}
+
+DEFPY (no_router_pim,
+       no_router_pim_cmd,
+       "no router pim [vrf NAME]",
+       NO_STR
+       "Enable a routing process\n"
+       "Start PIM configuration\n"
+       VRF_CMD_HELP_STR)
+{
+	char xpath[XPATH_MAXLEN];
+	const char *vrf_name;
+
+	if (vrf)
+		vrf_name = vrf;
+	else
+		vrf_name = VRF_DEFAULT_NAME;
+
+	snprintf(xpath, sizeof(xpath), FRR_PIM_VRF_XPATH, "frr-pim:pimd", "pim",
+		 vrf_name, FRR_PIM_AF_XPATH_VAL);
+
+	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+
+DEFPY (pim_spt_switchover_infinity,
+       pim_spt_switchover_infinity_cmd,
+       "spt-switchover infinity-and-beyond",
        "SPT-Switchover\n"
        "Never switch to SPT Tree\n")
 {
 	return pim_process_spt_switchover_infinity_cmd(vty);
 }
+DEFPY_ATTR(ip_pim_spt_switchover_infinity,
+			  ip_pim_spt_switchover_infinity_cmd,
+			  "ip pim spt-switchover infinity-and-beyond",
+			  IP_STR
+			  PIM_STR
+			  "SPT-Switchover\n"
+			  "Never switch to SPT Tree\n",
+	   CMD_ATTR_HIDDEN | CMD_ATTR_DEPRECATED)
+{
+	int ret;
+	const char *vrfname;
+	char xpath[XPATH_MAXLEN];
+	int orig_node = -1;
 
-DEFPY (ip_pim_spt_switchover_infinity_plist,
-       ip_pim_spt_switchover_infinity_plist_cmd,
-       "ip pim spt-switchover infinity-and-beyond prefix-list PREFIXLIST4_NAME$plist",
-       IP_STR
-       PIM_STR
+	vrfname = pim_cli_get_vrf_name(vty);
+	if (vrfname) {
+		snprintf(xpath, sizeof(xpath), FRR_PIM_VRF_XPATH,
+			 "frr-pim:pimd", "pim", vrfname, FRR_PIM_AF_XPATH_VAL);
+		nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
+		if (nb_cli_apply_changes_clear_pending(vty, NULL) ==
+		    CMD_SUCCESS) {
+			orig_node = vty->node;
+			VTY_PUSH_XPATH(PIM_NODE, xpath);
+		} else {
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+	} else {
+		vty_out(vty, "%% Failed to determine vrf name\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	ret = pim_process_spt_switchover_infinity_cmd(vty);
+
+	if (orig_node != -1) {
+		vty->node = orig_node;
+		vty->xpath_index--;
+	}
+
+	return ret;
+}
+
+DEFPY (pim_spt_switchover_infinity_plist,
+       pim_spt_switchover_infinity_plist_cmd,
+       "spt-switchover infinity-and-beyond prefix-list PREFIXLIST4_NAME$plist",
        "SPT-Switchover\n"
        "Never switch to SPT Tree\n"
        "Prefix-List to control which groups to switch\n"
@@ -3012,25 +3282,104 @@ DEFPY (ip_pim_spt_switchover_infinity_plist,
 {
 	return pim_process_spt_switchover_prefixlist_cmd(vty, plist);
 }
+DEFPY_ATTR(ip_pim_spt_switchover_infinity_plist,
+			  ip_pim_spt_switchover_infinity_plist_cmd,
+			  "ip pim spt-switchover infinity-and-beyond prefix-list PREFIXLIST4_NAME$plist",
+			  IP_STR
+			  PIM_STR
+			  "SPT-Switchover\n"
+			  "Never switch to SPT Tree\n"
+			  "Prefix-List to control which groups to switch\n"
+			  "Prefix-List name\n",
+			  CMD_ATTR_HIDDEN | CMD_ATTR_DEPRECATED)
+{
+	int ret;
+	const char *vrfname;
+	char xpath[XPATH_MAXLEN];
+	int orig_node = -1;
 
-DEFUN (no_ip_pim_spt_switchover_infinity,
-       no_ip_pim_spt_switchover_infinity_cmd,
-       "no ip pim spt-switchover infinity-and-beyond",
+	vrfname = pim_cli_get_vrf_name(vty);
+	if (vrfname) {
+		snprintf(xpath, sizeof(xpath), FRR_PIM_VRF_XPATH,
+			 "frr-pim:pimd", "pim", vrfname, FRR_PIM_AF_XPATH_VAL);
+		nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
+		if (nb_cli_apply_changes_clear_pending(vty, NULL) ==
+		    CMD_SUCCESS) {
+			orig_node = vty->node;
+			VTY_PUSH_XPATH(PIM_NODE, xpath);
+		} else {
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+	} else {
+		vty_out(vty, "%% Failed to determine vrf name\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	ret = pim_process_spt_switchover_prefixlist_cmd(vty, plist);
+
+	if (orig_node != -1) {
+		vty->node = orig_node;
+		vty->xpath_index--;
+	}
+
+	return ret;
+}
+
+DEFPY (no_pim_spt_switchover_infinity,
+       no_pim_spt_switchover_infinity_cmd,
+       "no spt-switchover infinity-and-beyond",
        NO_STR
-       IP_STR
-       PIM_STR
        "SPT_Switchover\n"
        "Never switch to SPT Tree\n")
 {
 	return pim_process_no_spt_switchover_cmd(vty);
 }
+DEFPY_ATTR(no_ip_pim_spt_switchover_infinity,
+			  no_ip_pim_spt_switchover_infinity_cmd,
+			  "no ip pim spt-switchover infinity-and-beyond",
+			  NO_STR
+			  IP_STR
+			  PIM_STR
+			  "SPT_Switchover\n"
+			  "Never switch to SPT Tree\n",
+			  CMD_ATTR_HIDDEN | CMD_ATTR_DEPRECATED)
+{
+	int ret;
+	const char *vrfname;
+	char xpath[XPATH_MAXLEN];
+	int orig_node = -1;
 
-DEFUN (no_ip_pim_spt_switchover_infinity_plist,
-       no_ip_pim_spt_switchover_infinity_plist_cmd,
-       "no ip pim spt-switchover infinity-and-beyond prefix-list PREFIXLIST4_NAME",
+	vrfname = pim_cli_get_vrf_name(vty);
+	if (vrfname) {
+		snprintf(xpath, sizeof(xpath), FRR_PIM_VRF_XPATH,
+			 "frr-pim:pimd", "pim", vrfname, FRR_PIM_AF_XPATH_VAL);
+		nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
+		if (nb_cli_apply_changes_clear_pending(vty, NULL) ==
+		    CMD_SUCCESS) {
+			orig_node = vty->node;
+			VTY_PUSH_XPATH(PIM_NODE, xpath);
+		} else {
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+	} else {
+		vty_out(vty, "%% Failed to determine vrf name\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	ret = pim_process_no_spt_switchover_cmd(vty);
+
+	if (orig_node != -1) {
+		vty->node = orig_node;
+		vty->xpath_index--;
+	}
+
+	return ret;
+}
+
+DEFPY (no_pim_spt_switchover_infinity_plist,
+       no_pim_spt_switchover_infinity_plist_cmd,
+       "no spt-switchover infinity-and-beyond prefix-list PREFIXLIST4_NAME",
        NO_STR
-       IP_STR
-       PIM_STR
        "SPT_Switchover\n"
        "Never switch to SPT Tree\n"
        "Prefix-List to control which groups to switch\n"
@@ -3038,28 +3387,61 @@ DEFUN (no_ip_pim_spt_switchover_infinity_plist,
 {
 	return pim_process_no_spt_switchover_cmd(vty);
 }
+DEFPY_ATTR(no_ip_pim_spt_switchover_infinity_plist,
+			  no_ip_pim_spt_switchover_infinity_plist_cmd,
+			  "no ip pim spt-switchover infinity-and-beyond prefix-list PREFIXLIST4_NAME",
+			  NO_STR
+			  IP_STR
+			  PIM_STR
+			  "SPT_Switchover\n"
+			  "Never switch to SPT Tree\n"
+			  "Prefix-List to control which groups to switch\n"
+			  "Prefix-List name\n",
+			  CMD_ATTR_HIDDEN | CMD_ATTR_DEPRECATED)
+{
+	int ret;
+	const char *vrfname;
+	char xpath[XPATH_MAXLEN];
+	int orig_node = -1;
+
+	vrfname = pim_cli_get_vrf_name(vty);
+	if (vrfname) {
+		snprintf(xpath, sizeof(xpath), FRR_PIM_VRF_XPATH,
+			 "frr-pim:pimd", "pim", vrfname, FRR_PIM_AF_XPATH_VAL);
+		nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
+		if (nb_cli_apply_changes_clear_pending(vty, NULL) ==
+		    CMD_SUCCESS) {
+			orig_node = vty->node;
+			VTY_PUSH_XPATH(PIM_NODE, xpath);
+		} else {
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+	} else {
+		vty_out(vty, "%% Failed to determine vrf name\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	ret = pim_process_no_spt_switchover_cmd(vty);
+
+	if (orig_node != -1) {
+		vty->node = orig_node;
+		vty->xpath_index--;
+	}
+
+	return ret;
+}
 
 DEFPY (pim_register_accept_list,
        pim_register_accept_list_cmd,
-       "[no] ip pim register-accept-list PREFIXLIST4_NAME$word",
+       "[no] register-accept-list PREFIXLIST4_NAME$word",
        NO_STR
-       IP_STR
-       PIM_STR
        "Only accept registers from a specific source prefix list\n"
        "Prefix-List name\n")
 {
-	const char *vrfname;
 	char reg_alist_xpath[XPATH_MAXLEN];
 
-	vrfname = pim_cli_get_vrf_name(vty);
-	if (vrfname == NULL)
-		return CMD_WARNING_CONFIG_FAILED;
-
 	snprintf(reg_alist_xpath, sizeof(reg_alist_xpath),
-		 FRR_PIM_VRF_XPATH, "frr-pim:pimd", "pim", vrfname,
-		 "frr-routing:ipv4");
-	strlcat(reg_alist_xpath, "/register-accept-list",
-		sizeof(reg_alist_xpath));
+		 "./register-accept-list");
 
 	if (no)
 		nb_cli_enqueue_change(vty, reg_alist_xpath,
@@ -3070,122 +3452,559 @@ DEFPY (pim_register_accept_list,
 
 	return nb_cli_apply_changes(vty, NULL);
 }
+DEFPY_ATTR(ip_pim_register_accept_list,
+			  ip_pim_register_accept_list_cmd,
+			  "[no] ip pim register-accept-list PREFIXLIST4_NAME$word",
+			  NO_STR
+			  IP_STR
+			  PIM_STR
+			  "Only accept registers from a specific source prefix list\n"
+			  "Prefix-List name\n",
+			  CMD_ATTR_HIDDEN | CMD_ATTR_DEPRECATED)
+{
+	char reg_alist_xpath[XPATH_MAXLEN];
+	int ret;
+	const char *vrfname;
+	char xpath[XPATH_MAXLEN];
+	int orig_node = -1;
 
-DEFPY (ip_pim_joinprune_time,
-       ip_pim_joinprune_time_cmd,
-       "ip pim join-prune-interval (1-65535)$jpi",
-       IP_STR
-       "pim multicast routing\n"
+	vrfname = pim_cli_get_vrf_name(vty);
+	if (vrfname) {
+		snprintf(xpath, sizeof(xpath), FRR_PIM_VRF_XPATH,
+			 "frr-pim:pimd", "pim", vrfname, FRR_PIM_AF_XPATH_VAL);
+		nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
+		if (nb_cli_apply_changes_clear_pending(vty, NULL) ==
+		    CMD_SUCCESS) {
+			orig_node = vty->node;
+			VTY_PUSH_XPATH(PIM_NODE, xpath);
+		} else {
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+	} else {
+		vty_out(vty, "%% Failed to determine vrf name\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	snprintf(reg_alist_xpath, sizeof(reg_alist_xpath),
+		 "./register-accept-list");
+
+	if (no)
+		nb_cli_enqueue_change(vty, reg_alist_xpath, NB_OP_DESTROY, NULL);
+	else
+		nb_cli_enqueue_change(vty, reg_alist_xpath, NB_OP_MODIFY, word);
+
+	ret = nb_cli_apply_changes(vty, NULL);
+
+	if (orig_node != -1) {
+		vty->node = orig_node;
+		vty->xpath_index--;
+	}
+
+	return ret;
+}
+
+DEFPY (pim_joinprune_time,
+       pim_joinprune_time_cmd,
+       "join-prune-interval (1-65535)$jpi",
        "Join Prune Send Interval\n"
        "Seconds\n")
 {
 	return pim_process_join_prune_cmd(vty, jpi_str);
 }
+DEFPY_ATTR(ip_pim_joinprune_time,
+			  ip_pim_joinprune_time_cmd,
+			  "ip pim join-prune-interval (1-65535)$jpi",
+			  IP_STR
+			  PIM_STR
+			  "Join Prune Send Interval\n"
+			  "Seconds\n",
+	   CMD_ATTR_HIDDEN | CMD_ATTR_DEPRECATED)
+{
+	int ret;
+	const char *vrfname;
+	char xpath[XPATH_MAXLEN];
+	int orig_node = -1;
 
-DEFUN (no_ip_pim_joinprune_time,
-       no_ip_pim_joinprune_time_cmd,
-       "no ip pim join-prune-interval [(1-65535)]",
+	vrfname = pim_cli_get_vrf_name(vty);
+	if (vrfname) {
+		snprintf(xpath, sizeof(xpath), FRR_PIM_VRF_XPATH,
+			 "frr-pim:pimd", "pim", vrfname, FRR_PIM_AF_XPATH_VAL);
+		nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
+		if (nb_cli_apply_changes_clear_pending(vty, NULL) ==
+		    CMD_SUCCESS) {
+			orig_node = vty->node;
+			VTY_PUSH_XPATH(PIM_NODE, xpath);
+		} else {
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+	} else {
+		vty_out(vty, "%% Failed to determine vrf name\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	ret = pim_process_join_prune_cmd(vty, jpi_str);
+
+	if (orig_node != -1) {
+		vty->node = orig_node;
+		vty->xpath_index--;
+	}
+
+	return ret;
+}
+
+DEFPY (no_pim_joinprune_time,
+       no_pim_joinprune_time_cmd,
+       "no join-prune-interval [(1-65535)]",
        NO_STR
-       IP_STR
-       "pim multicast routing\n"
        "Join Prune Send Interval\n"
        IGNORED_IN_NO_STR)
 {
 	return pim_process_no_join_prune_cmd(vty);
 }
+DEFPY_ATTR(no_ip_pim_joinprune_time,
+			  no_ip_pim_joinprune_time_cmd,
+			  "no ip pim join-prune-interval [(1-65535)]",
+			  NO_STR
+			  IP_STR
+			  PIM_STR
+			  "Join Prune Send Interval\n"
+			  IGNORED_IN_NO_STR,
+			  CMD_ATTR_HIDDEN | CMD_ATTR_DEPRECATED)
+{
+	int ret;
+	const char *vrfname;
+	char xpath[XPATH_MAXLEN];
+	int orig_node = -1;
 
-DEFPY (ip_pim_register_suppress,
-       ip_pim_register_suppress_cmd,
-       "ip pim register-suppress-time (1-65535)$rst",
-       IP_STR
-       "pim multicast routing\n"
+	vrfname = pim_cli_get_vrf_name(vty);
+	if (vrfname) {
+		snprintf(xpath, sizeof(xpath), FRR_PIM_VRF_XPATH,
+			 "frr-pim:pimd", "pim", vrfname, FRR_PIM_AF_XPATH_VAL);
+		nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
+		if (nb_cli_apply_changes_clear_pending(vty, NULL) ==
+		    CMD_SUCCESS) {
+			orig_node = vty->node;
+			VTY_PUSH_XPATH(PIM_NODE, xpath);
+		} else {
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+	} else {
+		vty_out(vty, "%% Failed to determine vrf name\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	ret = pim_process_no_join_prune_cmd(vty);
+
+	if (orig_node != -1) {
+		vty->node = orig_node;
+		vty->xpath_index--;
+	}
+
+	return ret;
+}
+
+DEFPY (pim_register_suppress,
+       pim_register_suppress_cmd,
+       "register-suppress-time (1-65535)$rst",
        "Register Suppress Timer\n"
        "Seconds\n")
 {
 	return pim_process_register_suppress_cmd(vty, rst_str);
 }
+DEFPY_ATTR(ip_pim_register_suppress,
+			  ip_pim_register_suppress_cmd,
+			  "ip pim register-suppress-time (1-65535)$rst",
+			  IP_STR
+			  PIM_STR
+			  "Register Suppress Timer\n"
+			  "Seconds\n",
+			  CMD_ATTR_HIDDEN | CMD_ATTR_DEPRECATED)
+{
+	int ret;
+	const char *vrfname;
+	char xpath[XPATH_MAXLEN];
+	int orig_node = -1;
 
-DEFUN (no_ip_pim_register_suppress,
-       no_ip_pim_register_suppress_cmd,
-       "no ip pim register-suppress-time [(1-65535)]",
+	vrfname = pim_cli_get_vrf_name(vty);
+	if (vrfname) {
+		snprintf(xpath, sizeof(xpath), FRR_PIM_VRF_XPATH,
+			 "frr-pim:pimd", "pim", vrfname, FRR_PIM_AF_XPATH_VAL);
+		nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
+		if (nb_cli_apply_changes_clear_pending(vty, NULL) ==
+		    CMD_SUCCESS) {
+			orig_node = vty->node;
+			VTY_PUSH_XPATH(PIM_NODE, xpath);
+		} else {
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+	} else {
+		vty_out(vty, "%% Failed to determine vrf name\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	ret = pim_process_register_suppress_cmd(vty, rst_str);
+
+	if (orig_node != -1) {
+		vty->node = orig_node;
+		vty->xpath_index--;
+	}
+
+	return ret;
+}
+
+DEFPY (no_pim_register_suppress,
+       no_pim_register_suppress_cmd,
+       "no register-suppress-time [(1-65535)]",
        NO_STR
-       IP_STR
-       "pim multicast routing\n"
        "Register Suppress Timer\n"
        IGNORED_IN_NO_STR)
 {
 	return pim_process_no_register_suppress_cmd(vty);
 }
+DEFPY_ATTR(no_ip_pim_register_suppress,
+			  no_ip_pim_register_suppress_cmd,
+			  "no ip pim register-suppress-time [(1-65535)]",
+			  NO_STR
+			  IP_STR
+			  PIM_STR
+			  "Register Suppress Timer\n"
+			  IGNORED_IN_NO_STR,
+			  CMD_ATTR_HIDDEN | CMD_ATTR_DEPRECATED)
+{
+	int ret;
+	const char *vrfname;
+	char xpath[XPATH_MAXLEN];
+	int orig_node = -1;
 
-DEFPY (ip_pim_rp_keep_alive,
-       ip_pim_rp_keep_alive_cmd,
-       "ip pim rp keep-alive-timer (1-65535)$kat",
-       IP_STR
-       "pim multicast routing\n"
+	vrfname = pim_cli_get_vrf_name(vty);
+	if (vrfname) {
+		snprintf(xpath, sizeof(xpath), FRR_PIM_VRF_XPATH,
+			 "frr-pim:pimd", "pim", vrfname, FRR_PIM_AF_XPATH_VAL);
+		nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
+		if (nb_cli_apply_changes_clear_pending(vty, NULL) ==
+		    CMD_SUCCESS) {
+			orig_node = vty->node;
+			VTY_PUSH_XPATH(PIM_NODE, xpath);
+		} else {
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+	} else {
+		vty_out(vty, "%% Failed to determine vrf name\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	ret = pim_process_no_register_suppress_cmd(vty);
+
+	if (orig_node != -1) {
+		vty->node = orig_node;
+		vty->xpath_index--;
+	}
+
+	return ret;
+}
+
+DEFPY (pim_rp_keep_alive,
+       pim_rp_keep_alive_cmd,
+       "rp keep-alive-timer (1-65535)$kat",
        "Rendezvous Point\n"
        "Keep alive Timer\n"
        "Seconds\n")
 {
 	return pim_process_rp_kat_cmd(vty, kat_str);
 }
+DEFPY_ATTR(ip_pim_rp_keep_alive,
+			  ip_pim_rp_keep_alive_cmd,
+			  "ip pim rp keep-alive-timer (1-65535)$kat",
+			  IP_STR
+			  PIM_STR
+			  "Rendezvous Point\n"
+			  "Keep alive Timer\n"
+			  "Seconds\n",
+	   CMD_ATTR_HIDDEN | CMD_ATTR_DEPRECATED)
+{
+	int ret;
+	const char *vrfname;
+	char xpath[XPATH_MAXLEN];
+	int orig_node = -1;
 
-DEFUN (no_ip_pim_rp_keep_alive,
-       no_ip_pim_rp_keep_alive_cmd,
-       "no ip pim rp keep-alive-timer [(1-65535)]",
+	vrfname = pim_cli_get_vrf_name(vty);
+	if (vrfname) {
+		snprintf(xpath, sizeof(xpath), FRR_PIM_VRF_XPATH,
+			 "frr-pim:pimd", "pim", vrfname, FRR_PIM_AF_XPATH_VAL);
+		nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
+		if (nb_cli_apply_changes_clear_pending(vty, NULL) ==
+		    CMD_SUCCESS) {
+			orig_node = vty->node;
+			VTY_PUSH_XPATH(PIM_NODE, xpath);
+		} else {
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+	} else {
+		vty_out(vty, "%% Failed to determine vrf name\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	ret = pim_process_rp_kat_cmd(vty, kat_str);
+
+	if (orig_node != -1) {
+		vty->node = orig_node;
+		vty->xpath_index--;
+	}
+
+	return ret;
+}
+
+DEFPY (no_pim_rp_keep_alive,
+       no_pim_rp_keep_alive_cmd,
+       "no rp keep-alive-timer [(1-65535)]",
        NO_STR
-       IP_STR
-       "pim multicast routing\n"
        "Rendezvous Point\n"
        "Keep alive Timer\n"
        IGNORED_IN_NO_STR)
 {
 	return pim_process_no_rp_kat_cmd(vty);
 }
+DEFPY_ATTR(no_ip_pim_rp_keep_alive,
+			  no_ip_pim_rp_keep_alive_cmd,
+			  "no ip pim rp keep-alive-timer [(1-65535)]",
+			  NO_STR
+			  IP_STR
+			  PIM_STR
+			  "Rendezvous Point\n"
+			  "Keep alive Timer\n"
+			  IGNORED_IN_NO_STR,
+			  CMD_ATTR_HIDDEN | CMD_ATTR_DEPRECATED)
+{
+	int ret;
+	const char *vrfname;
+	char xpath[XPATH_MAXLEN];
+	int orig_node = -1;
 
-DEFPY (ip_pim_keep_alive,
-       ip_pim_keep_alive_cmd,
-       "ip pim keep-alive-timer (1-65535)$kat",
-       IP_STR
-       "pim multicast routing\n"
+	vrfname = pim_cli_get_vrf_name(vty);
+	if (vrfname) {
+		snprintf(xpath, sizeof(xpath), FRR_PIM_VRF_XPATH,
+			 "frr-pim:pimd", "pim", vrfname, FRR_PIM_AF_XPATH_VAL);
+		nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
+		if (nb_cli_apply_changes_clear_pending(vty, NULL) ==
+		    CMD_SUCCESS) {
+			orig_node = vty->node;
+			VTY_PUSH_XPATH(PIM_NODE, xpath);
+		} else {
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+	} else {
+		vty_out(vty, "%% Failed to determine vrf name\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	ret = pim_process_no_rp_kat_cmd(vty);
+
+	if (orig_node != -1) {
+		vty->node = orig_node;
+		vty->xpath_index--;
+	}
+
+	return ret;
+}
+
+DEFPY (pim_keep_alive,
+       pim_keep_alive_cmd,
+       "keep-alive-timer (1-65535)$kat",
        "Keep alive Timer\n"
        "Seconds\n")
 {
 	return pim_process_keepalivetimer_cmd(vty, kat_str);
 }
+DEFPY_ATTR(ip_pim_keep_alive,
+			  ip_pim_keep_alive_cmd,
+			  "ip pim keep-alive-timer (1-65535)$kat",
+			  IP_STR
+			  PIM_STR
+			  "Keep alive Timer\n"
+			  "Seconds\n",
+	   CMD_ATTR_HIDDEN | CMD_ATTR_DEPRECATED)
+{
+	int ret;
+	const char *vrfname;
+	char xpath[XPATH_MAXLEN];
+	int orig_node = -1;
 
-DEFUN (no_ip_pim_keep_alive,
-       no_ip_pim_keep_alive_cmd,
-       "no ip pim keep-alive-timer [(1-65535)]",
+	vrfname = pim_cli_get_vrf_name(vty);
+	if (vrfname) {
+		snprintf(xpath, sizeof(xpath), FRR_PIM_VRF_XPATH,
+			 "frr-pim:pimd", "pim", vrfname, FRR_PIM_AF_XPATH_VAL);
+		nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
+		if (nb_cli_apply_changes_clear_pending(vty, NULL) ==
+		    CMD_SUCCESS) {
+			orig_node = vty->node;
+			VTY_PUSH_XPATH(PIM_NODE, xpath);
+		} else {
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+	} else {
+		vty_out(vty, "%% Failed to determine vrf name\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	ret = pim_process_keepalivetimer_cmd(vty, kat_str);
+
+	if (orig_node != -1) {
+		vty->node = orig_node;
+		vty->xpath_index--;
+	}
+
+	return ret;
+}
+
+DEFPY (no_pim_keep_alive,
+       no_pim_keep_alive_cmd,
+       "no keep-alive-timer [(1-65535)]",
        NO_STR
-       IP_STR
-       "pim multicast routing\n"
        "Keep alive Timer\n"
        IGNORED_IN_NO_STR)
 {
 	return pim_process_no_keepalivetimer_cmd(vty);
 }
+DEFPY_ATTR(no_ip_pim_keep_alive,
+			  no_ip_pim_keep_alive_cmd,
+			  "no ip pim keep-alive-timer [(1-65535)]",
+			  NO_STR
+			  IP_STR
+			  PIM_STR
+			  "Keep alive Timer\n"
+			  IGNORED_IN_NO_STR,
+			  CMD_ATTR_HIDDEN | CMD_ATTR_DEPRECATED)
+{
+	int ret;
+	const char *vrfname;
+	char xpath[XPATH_MAXLEN];
+	int orig_node = -1;
 
-DEFPY (ip_pim_packets,
-       ip_pim_packets_cmd,
-       "ip pim packets (1-255)",
-       IP_STR
-       "pim multicast routing\n"
+	vrfname = pim_cli_get_vrf_name(vty);
+	if (vrfname) {
+		snprintf(xpath, sizeof(xpath), FRR_PIM_VRF_XPATH,
+			 "frr-pim:pimd", "pim", vrfname, FRR_PIM_AF_XPATH_VAL);
+		nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
+		if (nb_cli_apply_changes_clear_pending(vty, NULL) ==
+		    CMD_SUCCESS) {
+			orig_node = vty->node;
+			VTY_PUSH_XPATH(PIM_NODE, xpath);
+		} else {
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+	} else {
+		vty_out(vty, "%% Failed to determine vrf name\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	ret = pim_process_no_keepalivetimer_cmd(vty);
+
+	if (orig_node != -1) {
+		vty->node = orig_node;
+		vty->xpath_index--;
+	}
+
+	return ret;
+}
+
+DEFPY (pim_packets,
+       pim_packets_cmd,
+       "packets (1-255)",
        "packets to process at one time per fd\n"
        "Number of packets\n")
 {
 	return pim_process_pim_packet_cmd(vty, packets_str);
 }
+DEFPY_ATTR(ip_pim_packets,
+			  ip_pim_packets_cmd,
+			  "ip pim packets (1-255)",
+			  IP_STR
+			  PIM_STR
+			  "packets to process at one time per fd\n"
+			  "Number of packets\n",
+	   CMD_ATTR_HIDDEN | CMD_ATTR_DEPRECATED)
+{
+	int ret;
+	const char *vrfname;
+	char xpath[XPATH_MAXLEN];
+	int orig_node = -1;
 
-DEFUN (no_ip_pim_packets,
-       no_ip_pim_packets_cmd,
-       "no ip pim packets [(1-255)]",
+	vrfname = pim_cli_get_vrf_name(vty);
+	if (vrfname) {
+		snprintf(xpath, sizeof(xpath), FRR_PIM_VRF_XPATH,
+			 "frr-pim:pimd", "pim", vrfname, FRR_PIM_AF_XPATH_VAL);
+		nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
+		if (nb_cli_apply_changes_clear_pending(vty, NULL) ==
+		    CMD_SUCCESS) {
+			orig_node = vty->node;
+			VTY_PUSH_XPATH(PIM_NODE, xpath);
+		} else {
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+	} else {
+		vty_out(vty, "%% Failed to determine vrf name\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	ret = pim_process_pim_packet_cmd(vty, packets_str);
+
+	if (orig_node != -1) {
+		vty->node = orig_node;
+		vty->xpath_index--;
+	}
+
+	return ret;
+}
+
+DEFPY (no_pim_packets,
+       no_pim_packets_cmd,
+       "no packets [(1-255)]",
        NO_STR
-       IP_STR
-       "pim multicast routing\n"
        "packets to process at one time per fd\n"
        IGNORED_IN_NO_STR)
 {
 	return pim_process_no_pim_packet_cmd(vty);
+}
+DEFPY_ATTR(no_ip_pim_packets,
+			  no_ip_pim_packets_cmd,
+			  "no ip pim packets [(1-255)]",
+			  NO_STR
+			  IP_STR
+			  PIM_STR
+			  "packets to process at one time per fd\n"
+			  IGNORED_IN_NO_STR,
+			  CMD_ATTR_HIDDEN | CMD_ATTR_DEPRECATED)
+{
+	int ret;
+	const char *vrfname;
+	char xpath[XPATH_MAXLEN];
+	int orig_node = -1;
+
+	vrfname = pim_cli_get_vrf_name(vty);
+	if (vrfname) {
+		snprintf(xpath, sizeof(xpath), FRR_PIM_VRF_XPATH,
+			 "frr-pim:pimd", "pim", vrfname, FRR_PIM_AF_XPATH_VAL);
+		nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
+		if (nb_cli_apply_changes_clear_pending(vty, NULL) ==
+		    CMD_SUCCESS) {
+			orig_node = vty->node;
+			VTY_PUSH_XPATH(PIM_NODE, xpath);
+		} else {
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+	} else {
+		vty_out(vty, "%% Failed to determine vrf name\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	ret = pim_process_no_pim_packet_cmd(vty);
+
+	if (orig_node != -1) {
+		vty->node = orig_node;
+		vty->xpath_index--;
+	}
+
+	return ret;
 }
 
 DEFPY (ip_igmp_group_watermark,
@@ -3217,64 +4036,131 @@ DEFPY (no_ip_igmp_group_watermark,
 	return CMD_SUCCESS;
 }
 
-DEFUN (ip_pim_v6_secondary,
-       ip_pim_v6_secondary_cmd,
-       "ip pim send-v6-secondary",
-       IP_STR
-       "pim multicast routing\n"
+DEFPY (pim_v6_secondary,
+       pim_v6_secondary_cmd,
+       "send-v6-secondary",
        "Send v6 secondary addresses\n")
 {
-	const char *vrfname;
 	char send_v6_secondary_xpath[XPATH_MAXLEN];
 
-	vrfname = pim_cli_get_vrf_name(vty);
-	if (vrfname == NULL)
-		return CMD_WARNING_CONFIG_FAILED;
-
 	snprintf(send_v6_secondary_xpath, sizeof(send_v6_secondary_xpath),
-		 FRR_PIM_VRF_XPATH,
-		 "frr-pim:pimd", "pim", vrfname, "frr-routing:ipv4");
-	strlcat(send_v6_secondary_xpath, "/send-v6-secondary",
-		sizeof(send_v6_secondary_xpath));
+		 "./send-v6-secondary");
 
 	nb_cli_enqueue_change(vty, send_v6_secondary_xpath, NB_OP_MODIFY,
 			      "true");
 
 	return nb_cli_apply_changes(vty, NULL);
 }
-
-DEFUN (no_ip_pim_v6_secondary,
-       no_ip_pim_v6_secondary_cmd,
-       "no ip pim send-v6-secondary",
-       NO_STR
-       IP_STR
-       "pim multicast routing\n"
-       "Send v6 secondary addresses\n")
+DEFPY_ATTR(ip_pim_v6_secondary,
+			  ip_pim_v6_secondary_cmd,
+			  "ip pim send-v6-secondary",
+			  IP_STR
+			  PIM_STR
+			  "Send v6 secondary addresses\n",
+			  CMD_ATTR_HIDDEN | CMD_ATTR_DEPRECATED)
 {
-	const char *vrfname;
 	char send_v6_secondary_xpath[XPATH_MAXLEN];
+	int ret;
+	const char *vrfname;
+	char xpath[XPATH_MAXLEN];
+	int orig_node = -1;
 
 	vrfname = pim_cli_get_vrf_name(vty);
-	if (vrfname == NULL)
+	if (vrfname) {
+		snprintf(xpath, sizeof(xpath), FRR_PIM_VRF_XPATH,
+			 "frr-pim:pimd", "pim", vrfname, FRR_PIM_AF_XPATH_VAL);
+		nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
+		if (nb_cli_apply_changes_clear_pending(vty, NULL) ==
+		    CMD_SUCCESS) {
+			orig_node = vty->node;
+			VTY_PUSH_XPATH(PIM_NODE, xpath);
+		} else {
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+	} else {
+		vty_out(vty, "%% Failed to determine vrf name\n");
 		return CMD_WARNING_CONFIG_FAILED;
+	}
 
 	snprintf(send_v6_secondary_xpath, sizeof(send_v6_secondary_xpath),
-		 FRR_PIM_VRF_XPATH,
-		 "frr-pim:pimd", "pim", vrfname, "frr-routing:ipv4");
-	strlcat(send_v6_secondary_xpath, "/send-v6-secondary",
-		sizeof(send_v6_secondary_xpath));
+		 "./send-v6-secondary");
+	nb_cli_enqueue_change(vty, send_v6_secondary_xpath, NB_OP_MODIFY,
+			      "true");
+	ret = nb_cli_apply_changes(vty, NULL);
+
+	if (orig_node != -1) {
+		vty->node = orig_node;
+		vty->xpath_index--;
+	}
+
+	return ret;
+}
+
+DEFPY (no_pim_v6_secondary,
+       no_pim_v6_secondary_cmd,
+       "no send-v6-secondary",
+       NO_STR
+       "Send v6 secondary addresses\n")
+{
+	char send_v6_secondary_xpath[XPATH_MAXLEN];
+
+	snprintf(send_v6_secondary_xpath, sizeof(send_v6_secondary_xpath),
+		 "./send-v6-secondary");
 
 	nb_cli_enqueue_change(vty, send_v6_secondary_xpath, NB_OP_MODIFY,
 			      "false");
 
 	return nb_cli_apply_changes(vty, NULL);
 }
+DEFPY_ATTR(no_ip_pim_v6_secondary,
+			  no_ip_pim_v6_secondary_cmd,
+			  "no ip pim send-v6-secondary",
+			  NO_STR
+			  IP_STR
+			  PIM_STR
+			  "Send v6 secondary addresses\n",
+			  CMD_ATTR_HIDDEN | CMD_ATTR_DEPRECATED)
+{
+	char send_v6_secondary_xpath[XPATH_MAXLEN];
+	int ret;
+	const char *vrfname;
+	char xpath[XPATH_MAXLEN];
+	int orig_node = -1;
 
-DEFPY (ip_pim_rp,
-       ip_pim_rp_cmd,
-       "ip pim rp A.B.C.D$rp [A.B.C.D/M]$gp",
-       IP_STR
-       "pim multicast routing\n"
+	vrfname = pim_cli_get_vrf_name(vty);
+	if (vrfname) {
+		snprintf(xpath, sizeof(xpath), FRR_PIM_VRF_XPATH,
+			 "frr-pim:pimd", "pim", vrfname, FRR_PIM_AF_XPATH_VAL);
+		nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
+		if (nb_cli_apply_changes_clear_pending(vty, NULL) ==
+		    CMD_SUCCESS) {
+			orig_node = vty->node;
+			VTY_PUSH_XPATH(PIM_NODE, xpath);
+		} else {
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+	} else {
+		vty_out(vty, "%% Failed to determine vrf name\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	snprintf(send_v6_secondary_xpath, sizeof(send_v6_secondary_xpath),
+		 "./send-v6-secondary");
+	nb_cli_enqueue_change(vty, send_v6_secondary_xpath, NB_OP_MODIFY,
+			      "false");
+	ret = nb_cli_apply_changes(vty, NULL);
+
+	if (orig_node != -1) {
+		vty->node = orig_node;
+		vty->xpath_index--;
+	}
+
+	return ret;
+}
+
+DEFPY (pim_rp,
+       pim_rp_cmd,
+       "rp A.B.C.D$rp [A.B.C.D/M]$gp",
        "Rendezvous Point\n"
        "ip address of RP\n"
        "Group Address range to cover\n")
@@ -3283,12 +4169,52 @@ DEFPY (ip_pim_rp,
 
 	return pim_process_rp_cmd(vty, rp_str, group_str);
 }
+DEFPY_ATTR(ip_pim_rp,
+			  ip_pim_rp_cmd,
+			  "ip pim rp A.B.C.D$rp [A.B.C.D/M]$gp",
+			  IP_STR
+			  PIM_STR
+			  "Rendezvous Point\n"
+			  "ip address of RP\n"
+			  "Group Address range to cover\n",
+			  CMD_ATTR_HIDDEN | CMD_ATTR_DEPRECATED)
+{
+	const char *group_str = (gp_str) ? gp_str : "224.0.0.0/4";
+	int ret;
+	const char *vrfname;
+	char xpath[XPATH_MAXLEN];
+	int orig_node = -1;
 
-DEFPY (ip_pim_rp_prefix_list,
-       ip_pim_rp_prefix_list_cmd,
-       "ip pim rp A.B.C.D$rp prefix-list PREFIXLIST4_NAME$plist",
-       IP_STR
-       "pim multicast routing\n"
+	vrfname = pim_cli_get_vrf_name(vty);
+	if (vrfname) {
+		snprintf(xpath, sizeof(xpath), FRR_PIM_VRF_XPATH,
+			 "frr-pim:pimd", "pim", vrfname, FRR_PIM_AF_XPATH_VAL);
+		nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
+		if (nb_cli_apply_changes_clear_pending(vty, NULL) ==
+		    CMD_SUCCESS) {
+			orig_node = vty->node;
+			VTY_PUSH_XPATH(PIM_NODE, xpath);
+		} else {
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+	} else {
+		vty_out(vty, "%% Failed to determine vrf name\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	ret = pim_process_rp_cmd(vty, rp_str, group_str);
+
+	if (orig_node != -1) {
+		vty->node = orig_node;
+		vty->xpath_index--;
+	}
+
+	return ret;
+}
+
+DEFPY (pim_rp_prefix_list,
+       pim_rp_prefix_list_cmd,
+       "rp A.B.C.D$rp prefix-list PREFIXLIST4_NAME$plist",
        "Rendezvous Point\n"
        "ip address of RP\n"
        "group prefix-list filter\n"
@@ -3296,13 +4222,53 @@ DEFPY (ip_pim_rp_prefix_list,
 {
 	return pim_process_rp_plist_cmd(vty, rp_str, plist);
 }
+DEFPY_ATTR(ip_pim_rp_prefix_list,
+			  ip_pim_rp_prefix_list_cmd,
+			  "ip pim rp A.B.C.D$rp prefix-list PREFIXLIST4_NAME$plist",
+			  IP_STR
+			  PIM_STR
+			  "Rendezvous Point\n"
+			  "ip address of RP\n"
+			  "group prefix-list filter\n"
+			  "Name of a prefix-list\n",
+			  CMD_ATTR_HIDDEN | CMD_ATTR_DEPRECATED)
+{
+	int ret;
+	const char *vrfname;
+	char xpath[XPATH_MAXLEN];
+	int orig_node = -1;
 
-DEFPY (no_ip_pim_rp,
-       no_ip_pim_rp_cmd,
-       "no ip pim rp A.B.C.D$rp [A.B.C.D/M]$gp",
+	vrfname = pim_cli_get_vrf_name(vty);
+	if (vrfname) {
+		snprintf(xpath, sizeof(xpath), FRR_PIM_VRF_XPATH,
+			 "frr-pim:pimd", "pim", vrfname, FRR_PIM_AF_XPATH_VAL);
+		nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
+		if (nb_cli_apply_changes_clear_pending(vty, NULL) ==
+		    CMD_SUCCESS) {
+			orig_node = vty->node;
+			VTY_PUSH_XPATH(PIM_NODE, xpath);
+		} else {
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+	} else {
+		vty_out(vty, "%% Failed to determine vrf name\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	ret = pim_process_rp_plist_cmd(vty, rp_str, plist);
+
+	if (orig_node != -1) {
+		vty->node = orig_node;
+		vty->xpath_index--;
+	}
+
+	return ret;
+}
+
+DEFPY (no_pim_rp,
+       no_pim_rp_cmd,
+       "no rp A.B.C.D$rp [A.B.C.D/M]$gp",
        NO_STR
-       IP_STR
-       "pim multicast routing\n"
        "Rendezvous Point\n"
        "ip address of RP\n"
        "Group Address range to cover\n")
@@ -3311,13 +4277,54 @@ DEFPY (no_ip_pim_rp,
 
 	return pim_process_no_rp_cmd(vty, rp_str, group_str);
 }
+DEFPY_ATTR(no_ip_pim_rp,
+			  no_ip_pim_rp_cmd,
+			  "no ip pim rp A.B.C.D$rp [A.B.C.D/M]$gp",
+			  NO_STR
+			  IP_STR
+			  PIM_STR
+			  "Rendezvous Point\n"
+			  "ip address of RP\n"
+			  "Group Address range to cover\n",
+			  CMD_ATTR_HIDDEN | CMD_ATTR_DEPRECATED)
+{
+	const char *group_str = (gp_str) ? gp_str : "224.0.0.0/4";
+	int ret;
+	const char *vrfname;
+	char xpath[XPATH_MAXLEN];
+	int orig_node = -1;
 
-DEFPY (no_ip_pim_rp_prefix_list,
-       no_ip_pim_rp_prefix_list_cmd,
-       "no ip pim rp A.B.C.D$rp prefix-list PREFIXLIST4_NAME$plist",
+	vrfname = pim_cli_get_vrf_name(vty);
+	if (vrfname) {
+		snprintf(xpath, sizeof(xpath), FRR_PIM_VRF_XPATH,
+			 "frr-pim:pimd", "pim", vrfname, FRR_PIM_AF_XPATH_VAL);
+		nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
+		if (nb_cli_apply_changes_clear_pending(vty, NULL) ==
+		    CMD_SUCCESS) {
+			orig_node = vty->node;
+			VTY_PUSH_XPATH(PIM_NODE, xpath);
+		} else {
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+	} else {
+		vty_out(vty, "%% Failed to determine vrf name\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	ret = pim_process_no_rp_cmd(vty, rp_str, group_str);
+
+	if (orig_node != -1) {
+		vty->node = orig_node;
+		vty->xpath_index--;
+	}
+
+	return ret;
+}
+
+DEFPY (no_pim_rp_prefix_list,
+       no_pim_rp_prefix_list_cmd,
+       "no rp A.B.C.D$rp prefix-list PREFIXLIST4_NAME$plist",
        NO_STR
-       IP_STR
-       "pim multicast routing\n"
        "Rendezvous Point\n"
        "ip address of RP\n"
        "group prefix-list filter\n"
@@ -3325,103 +4332,263 @@ DEFPY (no_ip_pim_rp_prefix_list,
 {
 	return pim_process_no_rp_plist_cmd(vty, rp_str, plist);
 }
+DEFPY_ATTR(no_ip_pim_rp_prefix_list,
+			  no_ip_pim_rp_prefix_list_cmd,
+			  "no ip pim rp A.B.C.D$rp prefix-list PREFIXLIST4_NAME$plist",
+			  NO_STR
+			  IP_STR
+			  PIM_STR
+			  "Rendezvous Point\n"
+			  "ip address of RP\n"
+			  "group prefix-list filter\n"
+			  "Name of a prefix-list\n",
+			  CMD_ATTR_HIDDEN | CMD_ATTR_DEPRECATED)
+{
+	int ret;
+	const char *vrfname;
+	char xpath[XPATH_MAXLEN];
+	int orig_node = -1;
 
-DEFUN (ip_pim_ssm_prefix_list,
-       ip_pim_ssm_prefix_list_cmd,
-       "ip pim ssm prefix-list PREFIXLIST4_NAME",
-       IP_STR
-       "pim multicast routing\n"
+	vrfname = pim_cli_get_vrf_name(vty);
+	if (vrfname) {
+		snprintf(xpath, sizeof(xpath), FRR_PIM_VRF_XPATH,
+			 "frr-pim:pimd", "pim", vrfname, FRR_PIM_AF_XPATH_VAL);
+		nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
+		if (nb_cli_apply_changes_clear_pending(vty, NULL) ==
+		    CMD_SUCCESS) {
+			orig_node = vty->node;
+			VTY_PUSH_XPATH(PIM_NODE, xpath);
+		} else {
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+	} else {
+		vty_out(vty, "%% Failed to determine vrf name\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	ret = pim_process_no_rp_plist_cmd(vty, rp_str, plist);
+
+	if (orig_node != -1) {
+		vty->node = orig_node;
+		vty->xpath_index--;
+	}
+
+	return ret;
+}
+
+DEFPY (pim_ssm_prefix_list,
+       pim_ssm_prefix_list_cmd,
+       "ssm prefix-list PREFIXLIST4_NAME$plist",
        "Source Specific Multicast\n"
        "group range prefix-list filter\n"
        "Name of a prefix-list\n")
 {
-	const char *vrfname;
 	char ssm_plist_xpath[XPATH_MAXLEN];
 
-	vrfname = pim_cli_get_vrf_name(vty);
-	if (vrfname == NULL)
-		return CMD_WARNING_CONFIG_FAILED;
+	snprintf(ssm_plist_xpath, sizeof(ssm_plist_xpath), "./ssm-prefix-list");
 
-	snprintf(ssm_plist_xpath, sizeof(ssm_plist_xpath), FRR_PIM_VRF_XPATH,
-		 "frr-pim:pimd", "pim", vrfname, "frr-routing:ipv4");
-	strlcat(ssm_plist_xpath, "/ssm-prefix-list", sizeof(ssm_plist_xpath));
-
-	nb_cli_enqueue_change(vty, ssm_plist_xpath, NB_OP_MODIFY, argv[4]->arg);
+	nb_cli_enqueue_change(vty, ssm_plist_xpath, NB_OP_MODIFY, plist);
 
 	return nb_cli_apply_changes(vty, NULL);
 }
+DEFPY_ATTR(ip_pim_ssm_prefix_list,
+			  ip_pim_ssm_prefix_list_cmd,
+			  "ip pim ssm prefix-list PREFIXLIST4_NAME$plist",
+			  IP_STR
+			  PIM_STR
+			  "Source Specific Multicast\n"
+			  "group range prefix-list filter\n"
+			  "Name of a prefix-list\n",
+			  CMD_ATTR_HIDDEN | CMD_ATTR_DEPRECATED)
+{
+	char ssm_plist_xpath[XPATH_MAXLEN];
+	int ret;
+	const char *vrfname;
+	char xpath[XPATH_MAXLEN];
+	int orig_node = -1;
 
-DEFUN (no_ip_pim_ssm_prefix_list,
-       no_ip_pim_ssm_prefix_list_cmd,
-       "no ip pim ssm prefix-list",
+	vrfname = pim_cli_get_vrf_name(vty);
+	if (vrfname) {
+		snprintf(xpath, sizeof(xpath), FRR_PIM_VRF_XPATH,
+			 "frr-pim:pimd", "pim", vrfname, FRR_PIM_AF_XPATH_VAL);
+		nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
+		if (nb_cli_apply_changes_clear_pending(vty, NULL) ==
+		    CMD_SUCCESS) {
+			orig_node = vty->node;
+			VTY_PUSH_XPATH(PIM_NODE, xpath);
+		} else {
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+	} else {
+		vty_out(vty, "%% Failed to determine vrf name\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	snprintf(ssm_plist_xpath, sizeof(ssm_plist_xpath), "./ssm-prefix-list");
+	nb_cli_enqueue_change(vty, ssm_plist_xpath, NB_OP_MODIFY, plist);
+	ret = nb_cli_apply_changes(vty, NULL);
+
+	if (orig_node != -1) {
+		vty->node = orig_node;
+		vty->xpath_index--;
+	}
+
+	return ret;
+}
+
+DEFPY (no_pim_ssm_prefix_list,
+       no_pim_ssm_prefix_list_cmd,
+       "no ssm prefix-list",
        NO_STR
-       IP_STR
-       "pim multicast routing\n"
        "Source Specific Multicast\n"
        "group range prefix-list filter\n")
 {
-	const char *vrfname;
 	char ssm_plist_xpath[XPATH_MAXLEN];
 
-	vrfname = pim_cli_get_vrf_name(vty);
-	if (vrfname == NULL)
-		return CMD_WARNING_CONFIG_FAILED;
-
-	snprintf(ssm_plist_xpath, sizeof(ssm_plist_xpath),
-		 FRR_PIM_VRF_XPATH,
-		 "frr-pim:pimd", "pim", vrfname, "frr-routing:ipv4");
-	strlcat(ssm_plist_xpath, "/ssm-prefix-list", sizeof(ssm_plist_xpath));
+	snprintf(ssm_plist_xpath, sizeof(ssm_plist_xpath), "./ssm-prefix-list");
 
 	nb_cli_enqueue_change(vty, ssm_plist_xpath, NB_OP_DESTROY, NULL);
 
 	return nb_cli_apply_changes(vty, NULL);
 }
+DEFPY_ATTR(no_ip_pim_ssm_prefix_list,
+			  no_ip_pim_ssm_prefix_list_cmd,
+			  "no ip pim ssm prefix-list",
+			  NO_STR
+			  IP_STR
+			  PIM_STR
+			  "Source Specific Multicast\n"
+			  "group range prefix-list filter\n",
+			  CMD_ATTR_HIDDEN | CMD_ATTR_DEPRECATED)
+{
+	char ssm_plist_xpath[XPATH_MAXLEN];
+	int ret;
+	const char *vrfname;
+	char xpath[XPATH_MAXLEN];
+	int orig_node = -1;
 
-DEFUN (no_ip_pim_ssm_prefix_list_name,
-       no_ip_pim_ssm_prefix_list_name_cmd,
-       "no ip pim ssm prefix-list PREFIXLIST4_NAME",
+	vrfname = pim_cli_get_vrf_name(vty);
+	if (vrfname) {
+		snprintf(xpath, sizeof(xpath), FRR_PIM_VRF_XPATH,
+			 "frr-pim:pimd", "pim", vrfname, FRR_PIM_AF_XPATH_VAL);
+		nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
+		if (nb_cli_apply_changes_clear_pending(vty, NULL) ==
+		    CMD_SUCCESS) {
+			orig_node = vty->node;
+			VTY_PUSH_XPATH(PIM_NODE, xpath);
+		} else {
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+	} else {
+		vty_out(vty, "%% Failed to determine vrf name\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	snprintf(ssm_plist_xpath, sizeof(ssm_plist_xpath), "./ssm-prefix-list");
+	nb_cli_enqueue_change(vty, ssm_plist_xpath, NB_OP_DESTROY, NULL);
+	ret = nb_cli_apply_changes(vty, NULL);
+
+	if (orig_node != -1) {
+		vty->node = orig_node;
+		vty->xpath_index--;
+	}
+
+	return ret;
+}
+
+DEFPY (no_pim_ssm_prefix_list_name,
+       no_pim_ssm_prefix_list_name_cmd,
+       "no ssm prefix-list PREFIXLIST4_NAME$plist",
        NO_STR
-       IP_STR
-       "pim multicast routing\n"
        "Source Specific Multicast\n"
        "group range prefix-list filter\n"
        "Name of a prefix-list\n")
 {
-	const char *vrfname;
 	const struct lyd_node *ssm_plist_dnode;
-	char ssm_plist_xpath[XPATH_MAXLEN];
+	char ssm_plist_xpath[XPATH_MAXLEN + 16];
 	const char *ssm_plist_name;
 
-	vrfname = pim_cli_get_vrf_name(vty);
-	if (vrfname == NULL)
-		return CMD_WARNING_CONFIG_FAILED;
-
-	snprintf(ssm_plist_xpath, sizeof(ssm_plist_xpath),
-		 FRR_PIM_VRF_XPATH,
-		 "frr-pim:pimd", "pim", vrfname, "frr-routing:ipv4");
-	strlcat(ssm_plist_xpath, "/ssm-prefix-list", sizeof(ssm_plist_xpath));
+	snprintf(ssm_plist_xpath, sizeof(ssm_plist_xpath), "%s/ssm-prefix-list",
+		 VTY_CURR_XPATH);
 	ssm_plist_dnode = yang_dnode_get(vty->candidate_config->dnode,
 					 ssm_plist_xpath);
 
 	if (!ssm_plist_dnode) {
-		vty_out(vty,
-			"%% pim ssm prefix-list %s doesn't exist\n",
-			argv[5]->arg);
+		vty_out(vty, "%% pim ssm prefix-list %s doesn't exist\n", plist);
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
 	ssm_plist_name = yang_dnode_get_string(ssm_plist_dnode, ".");
 
-	if (ssm_plist_name && !strcmp(ssm_plist_name, argv[5]->arg)) {
-		nb_cli_enqueue_change(vty, ssm_plist_xpath, NB_OP_DESTROY,
-				      NULL);
-
+	if (ssm_plist_name && !strcmp(ssm_plist_name, plist)) {
+		nb_cli_enqueue_change(vty, ssm_plist_xpath, NB_OP_DESTROY, NULL);
 		return nb_cli_apply_changes(vty, NULL);
 	}
 
-	vty_out(vty, "%% pim ssm prefix-list %s doesn't exist\n", argv[5]->arg);
+	vty_out(vty, "%% pim ssm prefix-list %s doesn't exist\n", plist);
 
 	return CMD_WARNING_CONFIG_FAILED;
+}
+DEFPY_ATTR(no_ip_pim_ssm_prefix_list_name,
+			  no_ip_pim_ssm_prefix_list_name_cmd,
+			  "no ip pim ssm prefix-list PREFIXLIST4_NAME$plist",
+			  NO_STR
+			  IP_STR
+			  PIM_STR
+			  "Source Specific Multicast\n"
+			  "group range prefix-list filter\n"
+			  "Name of a prefix-list\n",
+			  CMD_ATTR_HIDDEN | CMD_ATTR_DEPRECATED)
+{
+	const struct lyd_node *ssm_plist_dnode;
+	char ssm_plist_xpath[XPATH_MAXLEN + 16];
+	const char *ssm_plist_name;
+	int ret = CMD_WARNING_CONFIG_FAILED;
+	const char *vrfname;
+	char xpath[XPATH_MAXLEN];
+	int orig_node = -1;
+
+	vrfname = pim_cli_get_vrf_name(vty);
+	if (vrfname) {
+		snprintf(xpath, sizeof(xpath), FRR_PIM_VRF_XPATH,
+			 "frr-pim:pimd", "pim", vrfname, FRR_PIM_AF_XPATH_VAL);
+		nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
+		if (nb_cli_apply_changes_clear_pending(vty, NULL) ==
+		    CMD_SUCCESS) {
+			orig_node = vty->node;
+			VTY_PUSH_XPATH(PIM_NODE, xpath);
+		} else {
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+	} else {
+		vty_out(vty, "%% Failed to determine vrf name\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	snprintf(ssm_plist_xpath, sizeof(ssm_plist_xpath), "%s/ssm-prefix-list",
+		 VTY_CURR_XPATH);
+	ssm_plist_dnode = yang_dnode_get(vty->candidate_config->dnode,
+					 ssm_plist_xpath);
+	if (ssm_plist_dnode) {
+		ssm_plist_name = yang_dnode_get_string(ssm_plist_dnode, ".");
+		if (ssm_plist_name && !strcmp(ssm_plist_name, plist)) {
+			nb_cli_enqueue_change(vty, ssm_plist_xpath,
+					      NB_OP_DESTROY, NULL);
+			ret = nb_cli_apply_changes(vty, NULL);
+		} else {
+			vty_out(vty, "%% pim ssm prefix-list %s doesn't exist\n",
+				plist);
+		}
+	} else {
+		vty_out(vty, "%% pim ssm prefix-list %s doesn't exist\n", plist);
+	}
+
+	if (orig_node != -1) {
+		vty->node = orig_node;
+		vty->xpath_index--;
+	}
+
+	return ret;
 }
 
 DEFUN (show_ip_pim_ssm_range,
@@ -3511,135 +4678,354 @@ DEFPY (show_ip_pim_bsr,
 	return pim_show_bsr_helper(vrf, vty, !!json);
 }
 
-DEFUN (ip_ssmpingd,
-       ip_ssmpingd_cmd,
-       "ip ssmpingd [A.B.C.D]",
-       IP_STR
+DEFPY (pim_ssmpingd,
+       pim_ssmpingd_cmd,
+       "ssmpingd [A.B.C.D]$src",
        CONF_SSMPINGD_STR
        "Source address\n")
 {
-	int idx_ipv4 = 2;
-	const char *src_str = (argc == 3) ? argv[idx_ipv4]->arg : "0.0.0.0";
+	if (src_str)
+		return pim_process_ssmpingd_cmd(vty, NB_OP_CREATE, src_str);
+	else
+		return pim_process_ssmpingd_cmd(vty, NB_OP_CREATE, "0.0.0.0");
+}
+DEFPY_ATTR(ip_pim_ssmpingd,
+			  ip_ssmpingd_cmd,
+			  "ip ssmpingd [A.B.C.D]$src",
+			  IP_STR
+			  CONF_SSMPINGD_STR
+			  "Source address\n",
+			  CMD_ATTR_HIDDEN | CMD_ATTR_DEPRECATED)
+{
+	int ret;
+	const char *vrfname;
+	char xpath[XPATH_MAXLEN];
+	int orig_node = -1;
 
-	return pim_process_ssmpingd_cmd(vty, NB_OP_CREATE, src_str);
+	vrfname = pim_cli_get_vrf_name(vty);
+	if (vrfname) {
+		snprintf(xpath, sizeof(xpath), FRR_PIM_VRF_XPATH,
+			 "frr-pim:pimd", "pim", vrfname, FRR_PIM_AF_XPATH_VAL);
+		nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
+		if (nb_cli_apply_changes_clear_pending(vty, NULL) ==
+		    CMD_SUCCESS) {
+			orig_node = vty->node;
+			VTY_PUSH_XPATH(PIM_NODE, xpath);
+		} else {
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+	} else {
+		vty_out(vty, "%% Failed to determine vrf name\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	if (src_str)
+		ret = pim_process_ssmpingd_cmd(vty, NB_OP_CREATE, src_str);
+	else
+		ret = pim_process_ssmpingd_cmd(vty, NB_OP_CREATE, "0.0.0.0");
+
+	if (orig_node != -1) {
+		vty->node = orig_node;
+		vty->xpath_index--;
+	}
+
+	return ret;
 }
 
-DEFUN (no_ip_ssmpingd,
-       no_ip_ssmpingd_cmd,
-       "no ip ssmpingd [A.B.C.D]",
+DEFPY (no_pim_ssmpingd,
+       no_pim_ssmpingd_cmd,
+       "no ssmpingd [A.B.C.D]$src",
        NO_STR
-       IP_STR
        CONF_SSMPINGD_STR
        "Source address\n")
 {
-	int idx_ipv4 = 3;
-	const char *src_str = (argc == 4) ? argv[idx_ipv4]->arg : "0.0.0.0";
+	if (src_str)
+		return pim_process_ssmpingd_cmd(vty, NB_OP_DESTROY, src_str);
+	else
+		return pim_process_ssmpingd_cmd(vty, NB_OP_DESTROY, "0.0.0.0");
+}
+DEFPY_ATTR(no_ip_pim_ssmpingd,
+			  no_ip_ssmpingd_cmd,
+			  "no ip ssmpingd [A.B.C.D]$src",
+			  NO_STR
+			  IP_STR
+			  CONF_SSMPINGD_STR
+			  "Source address\n",
+			  CMD_ATTR_HIDDEN | CMD_ATTR_DEPRECATED)
+{
+	int ret;
+	const char *vrfname;
+	char xpath[XPATH_MAXLEN];
+	int orig_node = -1;
 
-	return pim_process_ssmpingd_cmd(vty, NB_OP_DESTROY, src_str);
+	vrfname = pim_cli_get_vrf_name(vty);
+	if (vrfname) {
+		snprintf(xpath, sizeof(xpath), FRR_PIM_VRF_XPATH,
+			 "frr-pim:pimd", "pim", vrfname, FRR_PIM_AF_XPATH_VAL);
+		nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
+		if (nb_cli_apply_changes_clear_pending(vty, NULL) ==
+		    CMD_SUCCESS) {
+			orig_node = vty->node;
+			VTY_PUSH_XPATH(PIM_NODE, xpath);
+		} else {
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+	} else {
+		vty_out(vty, "%% Failed to determine vrf name\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	if (src_str)
+		ret = pim_process_ssmpingd_cmd(vty, NB_OP_DESTROY, src_str);
+	else
+		ret = pim_process_ssmpingd_cmd(vty, NB_OP_DESTROY, "0.0.0.0");
+
+	if (orig_node != -1) {
+		vty->node = orig_node;
+		vty->xpath_index--;
+	}
+
+	return ret;
 }
 
-DEFUN (ip_pim_ecmp,
-       ip_pim_ecmp_cmd,
-       "ip pim ecmp",
-       IP_STR
-       "pim multicast routing\n"
+DEFPY (pim_ecmp,
+       pim_ecmp_cmd,
+       "ecmp",
        "Enable PIM ECMP \n")
 {
-	const char *vrfname;
 	char ecmp_xpath[XPATH_MAXLEN];
 
-	vrfname = pim_cli_get_vrf_name(vty);
-	if (vrfname == NULL)
-		return CMD_WARNING_CONFIG_FAILED;
-
-	snprintf(ecmp_xpath, sizeof(ecmp_xpath), FRR_PIM_VRF_XPATH,
-		 "frr-pim:pimd", "pim", vrfname, "frr-routing:ipv4");
-	strlcat(ecmp_xpath, "/ecmp", sizeof(ecmp_xpath));
-
+	snprintf(ecmp_xpath, sizeof(ecmp_xpath), "./ecmp");
 	nb_cli_enqueue_change(vty, ecmp_xpath, NB_OP_MODIFY, "true");
+
 	return nb_cli_apply_changes(vty, NULL);
 }
-
-DEFUN (no_ip_pim_ecmp,
-       no_ip_pim_ecmp_cmd,
-       "no ip pim ecmp",
-       NO_STR
-       IP_STR
-       "pim multicast routing\n"
-       "Disable PIM ECMP \n")
+DEFPY_ATTR(ip_pim_ecmp,
+			  ip_pim_ecmp_cmd,
+			  "ip pim ecmp",
+			  IP_STR
+			  PIM_STR
+			  "Enable PIM ECMP \n",
+			  CMD_ATTR_HIDDEN | CMD_ATTR_DEPRECATED)
 {
-	const char *vrfname;
 	char ecmp_xpath[XPATH_MAXLEN];
+	int ret;
+	const char *vrfname;
+	char xpath[XPATH_MAXLEN];
+	int orig_node = -1;
 
 	vrfname = pim_cli_get_vrf_name(vty);
-	if (vrfname == NULL)
+	if (vrfname) {
+		snprintf(xpath, sizeof(xpath), FRR_PIM_VRF_XPATH,
+			 "frr-pim:pimd", "pim", vrfname, FRR_PIM_AF_XPATH_VAL);
+		nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
+		if (nb_cli_apply_changes_clear_pending(vty, NULL) ==
+		    CMD_SUCCESS) {
+			orig_node = vty->node;
+			VTY_PUSH_XPATH(PIM_NODE, xpath);
+		} else {
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+	} else {
+		vty_out(vty, "%% Failed to determine vrf name\n");
 		return CMD_WARNING_CONFIG_FAILED;
+	}
 
-	snprintf(ecmp_xpath, sizeof(ecmp_xpath), FRR_PIM_VRF_XPATH,
-		 "frr-pim:pimd", "pim", vrfname, "frr-routing:ipv4");
-	strlcat(ecmp_xpath, "/ecmp", sizeof(ecmp_xpath));
+	snprintf(ecmp_xpath, sizeof(ecmp_xpath), "./ecmp");
+	nb_cli_enqueue_change(vty, ecmp_xpath, NB_OP_MODIFY, "true");
+	ret = nb_cli_apply_changes(vty, NULL);
 
+	if (orig_node != -1) {
+		vty->node = orig_node;
+		vty->xpath_index--;
+	}
+
+	return ret;
+}
+
+DEFPY (no_pim_ecmp,
+       no_pim_ecmp_cmd,
+       "no ecmp",
+       NO_STR
+       "Disable PIM ECMP \n")
+{
+	char ecmp_xpath[XPATH_MAXLEN];
+
+	snprintf(ecmp_xpath, sizeof(ecmp_xpath), "./ecmp");
 	nb_cli_enqueue_change(vty, ecmp_xpath, NB_OP_MODIFY, "false");
 
 	return nb_cli_apply_changes(vty, NULL);
 }
+DEFPY_ATTR(no_ip_pim_ecmp,
+			  no_ip_pim_ecmp_cmd,
+			  "no ip pim ecmp",
+			  NO_STR
+			  IP_STR
+			  PIM_STR
+			  "Disable PIM ECMP \n",
+			  CMD_ATTR_HIDDEN | CMD_ATTR_DEPRECATED)
+{
+	char ecmp_xpath[XPATH_MAXLEN];
+	int ret;
+	const char *vrfname;
+	char xpath[XPATH_MAXLEN];
+	int orig_node = -1;
 
-DEFUN (ip_pim_ecmp_rebalance,
-       ip_pim_ecmp_rebalance_cmd,
-       "ip pim ecmp rebalance",
-       IP_STR
-       "pim multicast routing\n"
+	vrfname = pim_cli_get_vrf_name(vty);
+	if (vrfname) {
+		snprintf(xpath, sizeof(xpath), FRR_PIM_VRF_XPATH,
+			 "frr-pim:pimd", "pim", vrfname, FRR_PIM_AF_XPATH_VAL);
+		nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
+		if (nb_cli_apply_changes_clear_pending(vty, NULL) ==
+		    CMD_SUCCESS) {
+			orig_node = vty->node;
+			VTY_PUSH_XPATH(PIM_NODE, xpath);
+		} else {
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+	} else {
+		vty_out(vty, "%% Failed to determine vrf name\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	snprintf(ecmp_xpath, sizeof(ecmp_xpath), "./ecmp");
+	nb_cli_enqueue_change(vty, ecmp_xpath, NB_OP_MODIFY, "false");
+	ret = nb_cli_apply_changes(vty, NULL);
+
+	if (orig_node != -1) {
+		vty->node = orig_node;
+		vty->xpath_index--;
+	}
+
+	return ret;
+}
+
+DEFPY (pim_ecmp_rebalance,
+       pim_ecmp_rebalance_cmd,
+       "ecmp rebalance",
        "Enable PIM ECMP \n"
        "Enable PIM ECMP Rebalance\n")
 {
-	const char *vrfname;
 	char ecmp_xpath[XPATH_MAXLEN];
 	char ecmp_rebalance_xpath[XPATH_MAXLEN];
 
-	vrfname = pim_cli_get_vrf_name(vty);
-	if (vrfname == NULL)
-		return CMD_WARNING_CONFIG_FAILED;
-
-	snprintf(ecmp_xpath, sizeof(ecmp_xpath), FRR_PIM_VRF_XPATH,
-		 "frr-pim:pimd", "pim", vrfname, "frr-routing:ipv4");
-	strlcat(ecmp_xpath, "/ecmp", sizeof(ecmp_xpath));
+	snprintf(ecmp_xpath, sizeof(ecmp_xpath), "./ecmp");
 	snprintf(ecmp_rebalance_xpath, sizeof(ecmp_rebalance_xpath),
-		 FRR_PIM_VRF_XPATH,
-		 "frr-pim:pimd", "pim", vrfname, "frr-routing:ipv4");
-	strlcat(ecmp_rebalance_xpath, "/ecmp-rebalance",
-		sizeof(ecmp_rebalance_xpath));
+		 "./ecmp-rebalance");
 
 	nb_cli_enqueue_change(vty, ecmp_xpath, NB_OP_MODIFY, "true");
 	nb_cli_enqueue_change(vty, ecmp_rebalance_xpath, NB_OP_MODIFY, "true");
 
 	return nb_cli_apply_changes(vty, NULL);
 }
+DEFPY_ATTR(ip_pim_ecmp_rebalance,
+			  ip_pim_ecmp_rebalance_cmd,
+			  "ip pim ecmp rebalance",
+			  IP_STR
+			  PIM_STR
+			  "Enable PIM ECMP \n"
+			  "Enable PIM ECMP Rebalance\n",
+			  CMD_ATTR_HIDDEN | CMD_ATTR_DEPRECATED)
+{
+	char ecmp_xpath[XPATH_MAXLEN];
+	char ecmp_rebalance_xpath[XPATH_MAXLEN];
+	int ret;
+	const char *vrfname;
+	char xpath[XPATH_MAXLEN];
+	int orig_node = -1;
 
-DEFUN (no_ip_pim_ecmp_rebalance,
-       no_ip_pim_ecmp_rebalance_cmd,
-       "no ip pim ecmp rebalance",
+	vrfname = pim_cli_get_vrf_name(vty);
+	if (vrfname) {
+		snprintf(xpath, sizeof(xpath), FRR_PIM_VRF_XPATH,
+			 "frr-pim:pimd", "pim", vrfname, FRR_PIM_AF_XPATH_VAL);
+		nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
+		if (nb_cli_apply_changes_clear_pending(vty, NULL) ==
+		    CMD_SUCCESS) {
+			orig_node = vty->node;
+			VTY_PUSH_XPATH(PIM_NODE, xpath);
+		} else {
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+	} else {
+		vty_out(vty, "%% Failed to determine vrf name\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	snprintf(ecmp_xpath, sizeof(ecmp_xpath), "./ecmp");
+	snprintf(ecmp_rebalance_xpath, sizeof(ecmp_rebalance_xpath),
+		 "./ecmp-rebalance");
+	nb_cli_enqueue_change(vty, ecmp_xpath, NB_OP_MODIFY, "true");
+	nb_cli_enqueue_change(vty, ecmp_rebalance_xpath, NB_OP_MODIFY, "true");
+	ret = nb_cli_apply_changes(vty, NULL);
+
+	if (orig_node != -1) {
+		vty->node = orig_node;
+		vty->xpath_index--;
+	}
+
+	return ret;
+}
+
+DEFPY (no_pim_ecmp_rebalance,
+       no_pim_ecmp_rebalance_cmd,
+       "no ecmp rebalance",
        NO_STR
-       IP_STR
-       "pim multicast routing\n"
        "Disable PIM ECMP \n"
        "Disable PIM ECMP Rebalance\n")
 {
-	const char *vrfname;
 	char ecmp_rebalance_xpath[XPATH_MAXLEN];
 
-	vrfname = pim_cli_get_vrf_name(vty);
-	if (vrfname == NULL)
-		return CMD_WARNING_CONFIG_FAILED;
-
 	snprintf(ecmp_rebalance_xpath, sizeof(ecmp_rebalance_xpath),
-		 FRR_PIM_VRF_XPATH,
-		 "frr-pim:pimd", "pim", vrfname, "frr-routing:ipv4");
-	strlcat(ecmp_rebalance_xpath, "/ecmp-rebalance",
-		sizeof(ecmp_rebalance_xpath));
+		 "./ecmp-rebalance");
 
 	nb_cli_enqueue_change(vty, ecmp_rebalance_xpath, NB_OP_MODIFY, "false");
 
 	return nb_cli_apply_changes(vty, NULL);
+}
+DEFPY_ATTR(no_ip_pim_ecmp_rebalance,
+			  no_ip_pim_ecmp_rebalance_cmd,
+			  "no ip pim ecmp rebalance",
+			  NO_STR
+			  IP_STR
+			  PIM_STR
+			  "Disable PIM ECMP \n"
+			  "Disable PIM ECMP Rebalance\n",
+			  CMD_ATTR_HIDDEN | CMD_ATTR_DEPRECATED)
+{
+	char ecmp_rebalance_xpath[XPATH_MAXLEN];
+	int ret;
+	const char *vrfname;
+	char xpath[XPATH_MAXLEN];
+	int orig_node = -1;
+
+	vrfname = pim_cli_get_vrf_name(vty);
+	if (vrfname) {
+		snprintf(xpath, sizeof(xpath), FRR_PIM_VRF_XPATH,
+			 "frr-pim:pimd", "pim", vrfname, FRR_PIM_AF_XPATH_VAL);
+		nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
+		if (nb_cli_apply_changes_clear_pending(vty, NULL) ==
+		    CMD_SUCCESS) {
+			orig_node = vty->node;
+			VTY_PUSH_XPATH(PIM_NODE, xpath);
+		} else {
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+	} else {
+		vty_out(vty, "%% Failed to determine vrf name\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	snprintf(ecmp_rebalance_xpath, sizeof(ecmp_rebalance_xpath),
+		 "./ecmp-rebalance");
+	nb_cli_enqueue_change(vty, ecmp_rebalance_xpath, NB_OP_MODIFY, "false");
+	ret = nb_cli_apply_changes(vty, NULL);
+
+	if (orig_node != -1) {
+		vty->node = orig_node;
+		vty->xpath_index--;
+	}
+
+	return ret;
 }
 
 DEFUN (interface_ip_igmp,
@@ -3695,71 +5081,47 @@ DEFUN (interface_no_ip_igmp,
 				    "frr-routing:ipv4");
 }
 
-DEFUN (interface_ip_igmp_join,
-       interface_ip_igmp_join_cmd,
-       "ip igmp join A.B.C.D [A.B.C.D]",
-       IP_STR
-       IFACE_IGMP_STR
-       "IGMP join multicast group\n"
-       "Multicast group address\n"
-       "Source address\n")
+DEFPY_YANG_HIDDEN (interface_ip_igmp_join,
+                   interface_ip_igmp_join_cmd,
+                   "[no] ip igmp join A.B.C.D$grp [A.B.C.D]$src",
+                   NO_STR
+                   IP_STR
+                   IFACE_IGMP_STR
+                   "IGMP join multicast group\n"
+                   "Multicast group address\n"
+                   "Source address\n")
 {
-	int idx_group = 3;
-	int idx_source = 4;
-	const char *source_str;
-	char xpath[XPATH_MAXLEN];
-
-	if (argc == 5) {
-		source_str = argv[idx_source]->arg;
-
-		if (strcmp(source_str, "0.0.0.0") == 0) {
-			vty_out(vty, "Bad source address %s\n",
-				argv[idx_source]->arg);
-			return CMD_WARNING_CONFIG_FAILED;
-		}
-	} else
-		source_str = "0.0.0.0";
-
-	snprintf(xpath, sizeof(xpath), FRR_GMP_JOIN_XPATH,
-		 "frr-routing:ipv4", argv[idx_group]->arg, source_str);
-
-	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
-
-	return nb_cli_apply_changes(vty, NULL);
+	nb_cli_enqueue_change(vty, ".", (!no ? NB_OP_CREATE : NB_OP_DESTROY),
+			      NULL);
+	return nb_cli_apply_changes(vty, FRR_GMP_JOIN_GROUP_XPATH,
+				    "frr-routing:ipv4", grp_str,
+				    (src_str ? src_str : "0.0.0.0"));
 }
+ALIAS(interface_ip_igmp_join,
+      interface_ip_igmp_join_group_cmd,
+      "[no] ip igmp join-group A.B.C.D$grp [A.B.C.D]$src",
+      NO_STR
+      IP_STR
+      IFACE_IGMP_STR
+      "IGMP join multicast group\n"
+      "Multicast group address\n"
+      "Source address\n");
 
-DEFUN (interface_no_ip_igmp_join,
-       interface_no_ip_igmp_join_cmd,
-       "no ip igmp join A.B.C.D [A.B.C.D]",
-       NO_STR
-       IP_STR
-       IFACE_IGMP_STR
-       "IGMP join multicast group\n"
-       "Multicast group address\n"
-       "Source address\n")
+DEFPY_YANG (interface_ip_igmp_static_group,
+            interface_ip_igmp_static_group_cmd,
+            "[no] ip igmp static-group A.B.C.D$grp [A.B.C.D]$src",
+            NO_STR
+            IP_STR
+            IFACE_IGMP_STR
+            "Static multicast group\n"
+            "Multicast group address\n"
+            "Source address\n")
 {
-	int idx_group = 4;
-	int idx_source = 5;
-	const char *source_str;
-	char xpath[XPATH_MAXLEN];
-
-	if (argc == 6) {
-		source_str = argv[idx_source]->arg;
-
-		if (strcmp(source_str, "0.0.0.0") == 0) {
-			vty_out(vty, "Bad source address %s\n",
-				argv[idx_source]->arg);
-			return CMD_WARNING_CONFIG_FAILED;
-		}
-	} else
-		source_str = "0.0.0.0";
-
-	snprintf(xpath, sizeof(xpath), FRR_GMP_JOIN_XPATH,
-		 "frr-routing:ipv4", argv[idx_group]->arg, source_str);
-
-	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
-
-	return nb_cli_apply_changes(vty, NULL);
+	nb_cli_enqueue_change(vty, ".", (!no ? NB_OP_CREATE : NB_OP_DESTROY),
+			      NULL);
+	return nb_cli_apply_changes(vty, FRR_GMP_STATIC_GROUP_XPATH,
+				    "frr-routing:ipv4", grp_str,
+				    (src_str ? src_str : "0.0.0.0"));
 }
 
 DEFUN (interface_ip_igmp_query_interval,
@@ -4648,15 +6010,24 @@ DEFPY (debug_pim_zebra,
 	return CMD_SUCCESS;
 }
 
-DEFUN(debug_pim_mlag, debug_pim_mlag_cmd, "debug pim mlag",
-      DEBUG_STR DEBUG_PIM_STR DEBUG_PIM_MLAG_STR)
+DEFUN(debug_pim_mlag,
+		debug_pim_mlag_cmd,
+		"debug pim mlag",
+		DEBUG_STR
+		DEBUG_PIM_STR
+		DEBUG_PIM_MLAG_STR)
 {
 	PIM_DO_DEBUG_MLAG;
 	return CMD_SUCCESS;
 }
 
-DEFUN(no_debug_pim_mlag, no_debug_pim_mlag_cmd, "no debug pim mlag",
-      NO_STR DEBUG_STR DEBUG_PIM_STR DEBUG_PIM_MLAG_STR)
+DEFUN(no_debug_pim_mlag,
+		no_debug_pim_mlag_cmd,
+		"no debug pim mlag",
+		NO_STR
+		DEBUG_STR
+		DEBUG_PIM_STR
+		DEBUG_PIM_MLAG_STR)
 {
 	PIM_DONT_DEBUG_MLAG;
 	return CMD_SUCCESS;
@@ -5016,145 +6387,400 @@ ALIAS(no_ip_pim_bfd, no_ip_pim_bfd_param_cmd,
       "Desired min transmit interval\n")
 #endif /* !HAVE_BFDD */
 
-DEFPY(ip_msdp_peer, ip_msdp_peer_cmd,
-      "ip msdp peer A.B.C.D$peer source A.B.C.D$source",
-      IP_STR
+DEFPY(pim_msdp_peer, pim_msdp_peer_cmd,
+      "msdp peer A.B.C.D$peer source A.B.C.D$source",
       CFG_MSDP_STR
       "Configure MSDP peer\n"
       "Peer IP address\n"
       "Source address for TCP connection\n"
       "Local IP address\n")
 {
-	const char *vrfname;
-	char temp_xpath[XPATH_MAXLEN];
 	char msdp_peer_source_xpath[XPATH_MAXLEN];
 
-	vrfname = pim_cli_get_vrf_name(vty);
-	if (vrfname == NULL)
-		return CMD_WARNING_CONFIG_FAILED;
-
 	snprintf(msdp_peer_source_xpath, sizeof(msdp_peer_source_xpath),
-		 FRR_PIM_VRF_XPATH, "frr-pim:pimd", "pim", vrfname,
-		 "frr-routing:ipv4");
-	snprintf(temp_xpath, sizeof(temp_xpath),
-		 "/msdp-peer[peer-ip='%s']/source-ip", peer_str);
-	strlcat(msdp_peer_source_xpath, temp_xpath,
-		sizeof(msdp_peer_source_xpath));
-
+		 "./msdp-peer[peer-ip='%s']/source-ip", peer_str);
 	nb_cli_enqueue_change(vty, msdp_peer_source_xpath, NB_OP_MODIFY,
 			      source_str);
 
-	return nb_cli_apply_changes(vty,
-			FRR_PIM_INTERFACE_XPATH, "frr-routing:ipv4");
+	return nb_cli_apply_changes(vty, NULL);
+}
+DEFPY_ATTR(ip_pim_msdp_peer,
+			  ip_msdp_peer_cmd,
+			  "ip msdp peer A.B.C.D$peer source A.B.C.D$source",
+			  IP_STR
+			  CFG_MSDP_STR
+			  "Configure MSDP peer\n"
+			  "Peer IP address\n"
+			  "Source address for TCP connection\n"
+			  "Local IP address\n",
+			  CMD_ATTR_HIDDEN | CMD_ATTR_DEPRECATED)
+{
+	char msdp_peer_source_xpath[XPATH_MAXLEN];
+	int ret;
+	const char *vrfname;
+	char xpath[XPATH_MAXLEN];
+	int orig_node = -1;
+
+	vrfname = pim_cli_get_vrf_name(vty);
+	if (vrfname) {
+		snprintf(xpath, sizeof(xpath), FRR_PIM_VRF_XPATH,
+			 "frr-pim:pimd", "pim", vrfname, FRR_PIM_AF_XPATH_VAL);
+		nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
+		if (nb_cli_apply_changes_clear_pending(vty, NULL) ==
+		    CMD_SUCCESS) {
+			orig_node = vty->node;
+			VTY_PUSH_XPATH(PIM_NODE, xpath);
+		} else {
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+	} else {
+		vty_out(vty, "%% Failed to determine vrf name\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	snprintf(msdp_peer_source_xpath, sizeof(msdp_peer_source_xpath),
+		 "./msdp-peer[peer-ip='%s']/source-ip", peer_str);
+	nb_cli_enqueue_change(vty, msdp_peer_source_xpath, NB_OP_MODIFY,
+			      source_str);
+	ret = nb_cli_apply_changes(vty, NULL);
+
+	if (orig_node != -1) {
+		vty->node = orig_node;
+		vty->xpath_index--;
+	}
+
+	return ret;
 }
 
-DEFPY(ip_msdp_timers, ip_msdp_timers_cmd,
-      "ip msdp timers (1-65535)$keepalive (1-65535)$holdtime [(1-65535)$connretry]",
-      IP_STR
+DEFPY(msdp_peer_md5, msdp_peer_md5_cmd,
+      "msdp peer A.B.C.D$peer password WORD$psk",
+      CFG_MSDP_STR
+      "Configure MSDP peer\n"
+      "MSDP Peer address\n"
+      "Use MD5 authentication\n"
+      "MD5 pre shared key\n")
+{
+	const struct lyd_node *peer_node;
+	char xpath[XPATH_MAXLEN + 24];
+
+	snprintf(xpath, sizeof(xpath), "%s/msdp-peer[peer-ip='%s']",
+		 VTY_CURR_XPATH, peer_str);
+	peer_node = yang_dnode_get(vty->candidate_config->dnode, xpath);
+	if (peer_node == NULL) {
+		vty_out(vty, "%% MSDP peer %s not yet configured\n", peer_str);
+		return CMD_SUCCESS;
+	}
+
+	nb_cli_enqueue_change(vty, "./authentication-type", NB_OP_MODIFY, "MD5");
+	nb_cli_enqueue_change(vty, "./authentication-key", NB_OP_MODIFY, psk);
+
+	return nb_cli_apply_changes(vty, "%s", xpath);
+}
+
+DEFPY(no_msdp_peer_md5, no_msdp_peer_md5_cmd,
+      "no msdp peer A.B.C.D$peer password [WORD]",
+      NO_STR
+      CFG_MSDP_STR
+      "Configure MSDP peer\n"
+      "MSDP Peer address\n"
+      "Use MD5 authentication\n"
+      "MD5 pre shared key\n")
+{
+	const struct lyd_node *peer_node;
+	char xpath[XPATH_MAXLEN + 24];
+
+	snprintf(xpath, sizeof(xpath), "%s/msdp-peer[peer-ip='%s']",
+		 VTY_CURR_XPATH, peer_str);
+	peer_node = yang_dnode_get(vty->candidate_config->dnode, xpath);
+	if (peer_node == NULL) {
+		vty_out(vty, "%% MSDP peer %s not yet configured\n", peer_str);
+		return CMD_SUCCESS;
+	}
+
+	nb_cli_enqueue_change(vty, "./authentication-type", NB_OP_MODIFY,
+			      "None");
+
+	return nb_cli_apply_changes(vty, "%s", xpath);
+}
+
+DEFPY(pim_msdp_timers, pim_msdp_timers_cmd,
+      "msdp timers (1-65535)$keepalive (1-65535)$holdtime [(1-65535)$connretry]",
       CFG_MSDP_STR
       "MSDP timers configuration\n"
       "Keep alive period (in seconds)\n"
       "Hold time period (in seconds)\n"
       "Connection retry period (in seconds)\n")
 {
-	const char *vrfname;
-
-	vrfname = pim_cli_get_vrf_name(vty);
-	if (vrfname == NULL)
-		return CMD_WARNING_CONFIG_FAILED;
-
-	nb_cli_enqueue_change(vty, "./hold-time", NB_OP_MODIFY, holdtime_str);
-	nb_cli_enqueue_change(vty, "./keep-alive", NB_OP_MODIFY, keepalive_str);
+	nb_cli_enqueue_change(vty, "./msdp/hold-time", NB_OP_MODIFY,
+			      holdtime_str);
+	nb_cli_enqueue_change(vty, "./msdp/keep-alive", NB_OP_MODIFY,
+			      keepalive_str);
 	if (connretry_str)
-		nb_cli_enqueue_change(vty, "./connection-retry", NB_OP_MODIFY,
-				      connretry_str);
+		nb_cli_enqueue_change(vty, "./msdp/connection-retry",
+				      NB_OP_MODIFY, connretry_str);
 	else
-		nb_cli_enqueue_change(vty, "./connection-retry", NB_OP_DESTROY,
-				      NULL);
+		nb_cli_enqueue_change(vty, "./msdp/connection-retry",
+				      NB_OP_DESTROY, NULL);
 
-	nb_cli_apply_changes(vty, FRR_PIM_MSDP_XPATH, "frr-pim:pimd", "pim",
-			     vrfname, "frr-routing:ipv4");
+	nb_cli_apply_changes(vty, NULL);
 	return CMD_SUCCESS;
 }
+DEFPY_ATTR(ip_pim_msdp_timers,
+			  ip_msdp_timers_cmd,
+			  "ip msdp timers (1-65535)$keepalive (1-65535)$holdtime [(1-65535)$connretry]",
+			  IP_STR
+			  CFG_MSDP_STR
+			  "MSDP timers configuration\n"
+			  "Keep alive period (in seconds)\n"
+			  "Hold time period (in seconds)\n"
+			  "Connection retry period (in seconds)\n",
+			  CMD_ATTR_HIDDEN | CMD_ATTR_DEPRECATED)
+{
+	int ret;
+	const char *vrfname;
+	char xpath[XPATH_MAXLEN];
+	int orig_node = -1;
 
-DEFPY(no_ip_msdp_timers, no_ip_msdp_timers_cmd,
-      "no ip msdp timers [(1-65535) (1-65535) [(1-65535)]]",
+	vrfname = pim_cli_get_vrf_name(vty);
+	if (vrfname) {
+		snprintf(xpath, sizeof(xpath), FRR_PIM_VRF_XPATH,
+			 "frr-pim:pimd", "pim", vrfname, FRR_PIM_AF_XPATH_VAL);
+		nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
+		if (nb_cli_apply_changes_clear_pending(vty, NULL) ==
+		    CMD_SUCCESS) {
+			orig_node = vty->node;
+			VTY_PUSH_XPATH(PIM_NODE, xpath);
+		} else {
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+	} else {
+		vty_out(vty, "%% Failed to determine vrf name\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	nb_cli_enqueue_change(vty, "./msdp/hold-time", NB_OP_MODIFY,
+			      holdtime_str);
+	nb_cli_enqueue_change(vty, "./msdp/keep-alive", NB_OP_MODIFY,
+			      keepalive_str);
+	if (connretry_str)
+		nb_cli_enqueue_change(vty, "./msdp/connection-retry",
+				      NB_OP_MODIFY, connretry_str);
+	else
+		nb_cli_enqueue_change(vty, "./msdp/connection-retry",
+				      NB_OP_DESTROY, NULL);
+	ret = nb_cli_apply_changes(vty, NULL);
+
+	if (orig_node != -1) {
+		vty->node = orig_node;
+		vty->xpath_index--;
+	}
+
+	return ret;
+}
+
+DEFPY(no_pim_msdp_timers, no_pim_msdp_timers_cmd,
+      "no msdp timers [(1-65535) (1-65535) [(1-65535)]]",
       NO_STR
-      IP_STR
       CFG_MSDP_STR
       "MSDP timers configuration\n"
       IGNORED_IN_NO_STR
       IGNORED_IN_NO_STR
       IGNORED_IN_NO_STR)
 {
-	const char *vrfname;
-
-	vrfname = pim_cli_get_vrf_name(vty);
-	if (vrfname == NULL)
-		return CMD_WARNING_CONFIG_FAILED;
-
-	nb_cli_enqueue_change(vty, "./hold-time", NB_OP_DESTROY, NULL);
-	nb_cli_enqueue_change(vty, "./keep-alive", NB_OP_DESTROY, NULL);
-	nb_cli_enqueue_change(vty, "./connection-retry", NB_OP_DESTROY, NULL);
-
-	nb_cli_apply_changes(vty, FRR_PIM_MSDP_XPATH, "frr-pim:pimd", "pim",
-			     vrfname, "frr-routing:ipv4");
-
+	nb_cli_enqueue_change(vty, "./msdp/hold-time", NB_OP_DESTROY, NULL);
+	nb_cli_enqueue_change(vty, "./msdp/keep-alive", NB_OP_DESTROY, NULL);
+	nb_cli_enqueue_change(vty, "./msdp/connection-retry", NB_OP_DESTROY,
+			      NULL);
+	nb_cli_apply_changes(vty, NULL);
 	return CMD_SUCCESS;
 }
+DEFPY_ATTR(no_ip_pim_msdp_timers,
+			  no_ip_msdp_timers_cmd,
+			  "no ip msdp timers [(1-65535) (1-65535) [(1-65535)]]",
+			  NO_STR
+			  IP_STR
+			  CFG_MSDP_STR
+			  "MSDP timers configuration\n"
+			  IGNORED_IN_NO_STR
+			  IGNORED_IN_NO_STR
+			  IGNORED_IN_NO_STR,
+			  CMD_ATTR_HIDDEN | CMD_ATTR_DEPRECATED)
+{
+	int ret;
+	const char *vrfname;
+	char xpath[XPATH_MAXLEN];
+	int orig_node = -1;
 
-DEFUN (no_ip_msdp_peer,
-       no_ip_msdp_peer_cmd,
-       "no ip msdp peer A.B.C.D",
+	vrfname = pim_cli_get_vrf_name(vty);
+	if (vrfname) {
+		snprintf(xpath, sizeof(xpath), FRR_PIM_VRF_XPATH,
+			 "frr-pim:pimd", "pim", vrfname, FRR_PIM_AF_XPATH_VAL);
+		nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
+		if (nb_cli_apply_changes_clear_pending(vty, NULL) ==
+		    CMD_SUCCESS) {
+			orig_node = vty->node;
+			VTY_PUSH_XPATH(PIM_NODE, xpath);
+		} else {
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+	} else {
+		vty_out(vty, "%% Failed to determine vrf name\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	nb_cli_enqueue_change(vty, "./msdp/hold-time", NB_OP_DESTROY, NULL);
+	nb_cli_enqueue_change(vty, "./msdp/keep-alive", NB_OP_DESTROY, NULL);
+	nb_cli_enqueue_change(vty, "./msdp/connection-retry", NB_OP_DESTROY,
+			      NULL);
+	ret = nb_cli_apply_changes(vty, NULL);
+
+	if (orig_node != -1) {
+		vty->node = orig_node;
+		vty->xpath_index--;
+	}
+
+	return ret;
+}
+
+DEFPY (no_pim_msdp_peer,
+       no_pim_msdp_peer_cmd,
+       "no msdp peer A.B.C.D",
        NO_STR
-       IP_STR
        CFG_MSDP_STR
        "Delete MSDP peer\n"
        "peer ip address\n")
 {
-	const char *vrfname;
 	char msdp_peer_xpath[XPATH_MAXLEN];
-	char temp_xpath[XPATH_MAXLEN];
-
-	vrfname = pim_cli_get_vrf_name(vty);
-	if (vrfname == NULL)
-		return CMD_WARNING_CONFIG_FAILED;
 
 	snprintf(msdp_peer_xpath, sizeof(msdp_peer_xpath),
-		 FRR_PIM_VRF_XPATH,
-		 "frr-pim:pimd", "pim", vrfname, "frr-routing:ipv4");
-	snprintf(temp_xpath, sizeof(temp_xpath),
-		 "/msdp-peer[peer-ip='%s']",
-		 argv[4]->arg);
-
-	strlcat(msdp_peer_xpath, temp_xpath, sizeof(msdp_peer_xpath));
-
+		 "./msdp-peer[peer-ip='%s']", peer_str);
 	nb_cli_enqueue_change(vty, msdp_peer_xpath, NB_OP_DESTROY, NULL);
 
 	return nb_cli_apply_changes(vty, NULL);
 }
+DEFPY_ATTR(no_ip_pim_msdp_peer,
+			  no_ip_msdp_peer_cmd,
+			  "no ip msdp peer A.B.C.D",
+			  NO_STR
+			  IP_STR
+			  CFG_MSDP_STR
+			  "Delete MSDP peer\n"
+			  "peer ip address\n",
+			  CMD_ATTR_HIDDEN | CMD_ATTR_DEPRECATED)
+{
+	char msdp_peer_xpath[XPATH_MAXLEN];
+	int ret;
+	const char *vrfname;
+	char xpath[XPATH_MAXLEN];
+	int orig_node = -1;
 
-DEFPY(ip_msdp_mesh_group_member,
-      ip_msdp_mesh_group_member_cmd,
-      "ip msdp mesh-group WORD$gname member A.B.C.D$maddr",
-      IP_STR
+	vrfname = pim_cli_get_vrf_name(vty);
+	if (vrfname) {
+		snprintf(xpath, sizeof(xpath), FRR_PIM_VRF_XPATH,
+			 "frr-pim:pimd", "pim", vrfname, FRR_PIM_AF_XPATH_VAL);
+		nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
+		if (nb_cli_apply_changes_clear_pending(vty, NULL) ==
+		    CMD_SUCCESS) {
+			orig_node = vty->node;
+			VTY_PUSH_XPATH(PIM_NODE, xpath);
+		} else {
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+	} else {
+		vty_out(vty, "%% Failed to determine vrf name\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	snprintf(msdp_peer_xpath, sizeof(msdp_peer_xpath),
+		 "./msdp-peer[peer-ip='%s']", peer_str);
+	nb_cli_enqueue_change(vty, msdp_peer_xpath, NB_OP_DESTROY, NULL);
+	ret = nb_cli_apply_changes(vty, NULL);
+
+	if (orig_node != -1) {
+		vty->node = orig_node;
+		vty->xpath_index--;
+	}
+
+	return ret;
+}
+
+DEFPY(msdp_peer_sa_filter, msdp_peer_sa_filter_cmd,
+      "msdp peer A.B.C.D$peer sa-filter ACL_NAME$acl_name <in|out>$dir",
+      CFG_MSDP_STR
+      "Configure MSDP peer\n"
+      "MSDP Peer address\n"
+      "SA access-list filter\n"
+      "SA access-list name\n"
+      "Filter incoming SAs\n"
+      "Filter outgoing SAs\n")
+{
+	const struct lyd_node *peer_node;
+	char xpath[XPATH_MAXLEN + 24];
+
+	snprintf(xpath, sizeof(xpath), "%s/msdp-peer[peer-ip='%s']",
+		 VTY_CURR_XPATH, peer_str);
+	peer_node = yang_dnode_get(vty->candidate_config->dnode, xpath);
+	if (peer_node == NULL) {
+		vty_out(vty, "%% MSDP peer %s not yet configured\n", peer_str);
+		return CMD_SUCCESS;
+	}
+
+	if (strcmp(dir, "in") == 0)
+		nb_cli_enqueue_change(vty, "./sa-filter-in", NB_OP_MODIFY,
+				      acl_name);
+	else
+		nb_cli_enqueue_change(vty, "./sa-filter-out", NB_OP_MODIFY,
+				      acl_name);
+
+	return nb_cli_apply_changes(vty, "%s", xpath);
+}
+
+DEFPY(no_msdp_peer_sa_filter, no_ip_msdp_peer_sa_filter_cmd,
+      "no msdp peer A.B.C.D$peer sa-filter ACL_NAME <in|out>$dir",
+      NO_STR
+      CFG_MSDP_STR
+      "Configure MSDP peer\n"
+      "MSDP Peer address\n"
+      "SA access-list filter\n"
+      "SA access-list name\n"
+      "Filter incoming SAs\n"
+      "Filter outgoing SAs\n")
+{
+	const struct lyd_node *peer_node;
+	char xpath[XPATH_MAXLEN + 24];
+
+	snprintf(xpath, sizeof(xpath), "%s/msdp-peer[peer-ip='%s']",
+		 VTY_CURR_XPATH, peer_str);
+	peer_node = yang_dnode_get(vty->candidate_config->dnode, xpath);
+	if (peer_node == NULL) {
+		vty_out(vty, "%% MSDP peer %s not yet configured\n", peer_str);
+		return CMD_SUCCESS;
+	}
+
+	if (strcmp(dir, "in") == 0)
+		nb_cli_enqueue_change(vty, "./sa-filter-in", NB_OP_DESTROY,
+				      NULL);
+	else
+		nb_cli_enqueue_change(vty, "./sa-filter-out", NB_OP_DESTROY,
+				      NULL);
+
+	return nb_cli_apply_changes(vty, "%s", xpath);
+}
+
+DEFPY(pim_msdp_mesh_group_member,
+      pim_msdp_mesh_group_member_cmd,
+      "msdp mesh-group WORD$gname member A.B.C.D$maddr",
       CFG_MSDP_STR
       "Configure MSDP mesh-group\n"
       "Mesh group name\n"
       "Mesh group member\n"
       "Peer IP address\n")
 {
-	const char *vrfname;
 	char xpath_value[XPATH_MAXLEN];
-
-	vrfname = pim_cli_get_vrf_name(vty);
-	if (vrfname == NULL)
-		return CMD_WARNING_CONFIG_FAILED;
 
 	/* Create mesh group. */
 	snprintf(xpath_value, sizeof(xpath_value),
-		 FRR_PIM_VRF_XPATH "/msdp-mesh-groups[name='%s']",
-		 "frr-pim:pimd", "pim", vrfname, "frr-routing:ipv4", gname);
+		 "./msdp-mesh-groups[name='%s']", gname);
 	nb_cli_enqueue_change(vty, xpath_value, NB_OP_CREATE, NULL);
 
 	/* Create mesh group member. */
@@ -5165,30 +6791,76 @@ DEFPY(ip_msdp_mesh_group_member,
 
 	return nb_cli_apply_changes(vty, NULL);
 }
+DEFPY_ATTR(ip_pim_msdp_mesh_group_member,
+			  ip_msdp_mesh_group_member_cmd,
+			  "ip msdp mesh-group WORD$gname member A.B.C.D$maddr",
+			  IP_STR
+			  CFG_MSDP_STR
+			  "Configure MSDP mesh-group\n"
+			  "Mesh group name\n"
+			  "Mesh group member\n"
+			  "Peer IP address\n",
+			  CMD_ATTR_HIDDEN | CMD_ATTR_DEPRECATED)
+{
+	char xpath_value[XPATH_MAXLEN];
+	int ret;
+	const char *vrfname;
+	char xpath[XPATH_MAXLEN];
+	int orig_node = -1;
 
-DEFPY(no_ip_msdp_mesh_group_member,
-      no_ip_msdp_mesh_group_member_cmd,
-      "no ip msdp mesh-group WORD$gname member A.B.C.D$maddr",
+	vrfname = pim_cli_get_vrf_name(vty);
+	if (vrfname) {
+		snprintf(xpath, sizeof(xpath), FRR_PIM_VRF_XPATH,
+			 "frr-pim:pimd", "pim", vrfname, FRR_PIM_AF_XPATH_VAL);
+		nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
+		if (nb_cli_apply_changes_clear_pending(vty, NULL) ==
+		    CMD_SUCCESS) {
+			orig_node = vty->node;
+			VTY_PUSH_XPATH(PIM_NODE, xpath);
+		} else {
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+	} else {
+		vty_out(vty, "%% Failed to determine vrf name\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	/* Create mesh group. */
+	snprintf(xpath_value, sizeof(xpath_value),
+		 "./msdp-mesh-groups[name='%s']", gname);
+	nb_cli_enqueue_change(vty, xpath_value, NB_OP_CREATE, NULL);
+
+	/* Create mesh group member. */
+	strlcat(xpath_value, "/members[address='", sizeof(xpath_value));
+	strlcat(xpath_value, maddr_str, sizeof(xpath_value));
+	strlcat(xpath_value, "']", sizeof(xpath_value));
+	nb_cli_enqueue_change(vty, xpath_value, NB_OP_CREATE, NULL);
+	ret = nb_cli_apply_changes(vty, NULL);
+
+	if (orig_node != -1) {
+		vty->node = orig_node;
+		vty->xpath_index--;
+	}
+
+	return ret;
+}
+
+DEFPY(no_pim_msdp_mesh_group_member,
+      no_pim_msdp_mesh_group_member_cmd,
+      "no msdp mesh-group WORD$gname member A.B.C.D$maddr",
       NO_STR
-      IP_STR
       CFG_MSDP_STR
       "Delete MSDP mesh-group member\n"
       "Mesh group name\n"
       "Mesh group member\n"
       "Peer IP address\n")
 {
-	const char *vrfname;
-	char xpath_value[XPATH_MAXLEN];
+	char xpath_value[XPATH_MAXLEN + 26];
 	char xpath_member_value[XPATH_MAXLEN];
-
-	vrfname = pim_cli_get_vrf_name(vty);
-	if (vrfname == NULL)
-		return CMD_WARNING_CONFIG_FAILED;
 
 	/* Get mesh group base XPath. */
 	snprintf(xpath_value, sizeof(xpath_value),
-		 FRR_PIM_VRF_XPATH "/msdp-mesh-groups[name='%s']",
-		 "frr-pim:pimd", "pim", vrfname, "frr-routing:ipv4", gname);
+		 "%s/msdp-mesh-groups[name='%s']", VTY_CURR_XPATH, gname);
 
 	if (!yang_dnode_exists(vty->candidate_config->dnode, xpath_value)) {
 		vty_out(vty, "%% mesh-group does not exist\n");
@@ -5217,28 +6889,95 @@ DEFPY(no_ip_msdp_mesh_group_member,
 
 	return nb_cli_apply_changes(vty, NULL);
 }
+DEFPY_ATTR(no_ip_pim_msdp_mesh_group_member,
+			  no_ip_msdp_mesh_group_member_cmd,
+			  "no ip msdp mesh-group WORD$gname member A.B.C.D$maddr",
+			  NO_STR
+			  IP_STR
+			  CFG_MSDP_STR
+			  "Delete MSDP mesh-group member\n"
+			  "Mesh group name\n"
+			  "Mesh group member\n"
+			  "Peer IP address\n",
+			  CMD_ATTR_HIDDEN | CMD_ATTR_DEPRECATED)
+{
+	char xpath_value[XPATH_MAXLEN + 26];
+	char xpath_member_value[XPATH_MAXLEN];
+	int ret = CMD_WARNING_CONFIG_FAILED;
+	const char *vrfname;
+	char xpath[XPATH_MAXLEN];
+	int orig_node = -1;
 
-DEFPY(ip_msdp_mesh_group_source,
-      ip_msdp_mesh_group_source_cmd,
-      "ip msdp mesh-group WORD$gname source A.B.C.D$saddr",
-      IP_STR
+	vrfname = pim_cli_get_vrf_name(vty);
+	if (vrfname) {
+		snprintf(xpath, sizeof(xpath), FRR_PIM_VRF_XPATH,
+			 "frr-pim:pimd", "pim", vrfname, FRR_PIM_AF_XPATH_VAL);
+		nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
+		if (nb_cli_apply_changes_clear_pending(vty, NULL) ==
+		    CMD_SUCCESS) {
+			orig_node = vty->node;
+			VTY_PUSH_XPATH(PIM_NODE, xpath);
+		} else {
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+	} else {
+		vty_out(vty, "%% Failed to determine vrf name\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	/* Get mesh group base XPath. */
+	snprintf(xpath_value, sizeof(xpath_value),
+		 "%s/msdp-mesh-groups[name='%s']", VTY_CURR_XPATH, gname);
+
+	if (yang_dnode_exists(vty->candidate_config->dnode, xpath_value)) {
+		/* Remove mesh group member. */
+		strlcpy(xpath_member_value, xpath_value,
+			sizeof(xpath_member_value));
+		strlcat(xpath_member_value, "/members[address='",
+			sizeof(xpath_member_value));
+		strlcat(xpath_member_value, maddr_str,
+			sizeof(xpath_member_value));
+		strlcat(xpath_member_value, "']", sizeof(xpath_member_value));
+		if (yang_dnode_exists(vty->candidate_config->dnode,
+				      xpath_member_value)) {
+			nb_cli_enqueue_change(vty, xpath_member_value,
+					      NB_OP_DESTROY, NULL);
+
+			/*
+			 * If this is the last member, then we must remove the group altogether
+			 * to not break legacy CLI behaviour.
+			 */
+			pim_cli_legacy_mesh_group_behavior(vty, gname);
+			ret = nb_cli_apply_changes(vty, NULL);
+		} else {
+			vty_out(vty, "%% mesh-group member does not exist\n");
+		}
+	} else {
+		vty_out(vty, "%% mesh-group does not exist\n");
+	}
+
+	if (orig_node != -1) {
+		vty->node = orig_node;
+		vty->xpath_index--;
+	}
+
+	return ret;
+}
+
+DEFPY(pim_msdp_mesh_group_source,
+      pim_msdp_mesh_group_source_cmd,
+      "msdp mesh-group WORD$gname source A.B.C.D$saddr",
       CFG_MSDP_STR
       "Configure MSDP mesh-group\n"
       "Mesh group name\n"
       "Mesh group local address\n"
       "Source IP address for the TCP connection\n")
 {
-	const char *vrfname;
 	char xpath_value[XPATH_MAXLEN];
-
-	vrfname = pim_cli_get_vrf_name(vty);
-	if (vrfname == NULL)
-		return CMD_WARNING_CONFIG_FAILED;
 
 	/* Create mesh group. */
 	snprintf(xpath_value, sizeof(xpath_value),
-		 FRR_PIM_VRF_XPATH "/msdp-mesh-groups[name='%s']",
-		 "frr-pim:pimd", "pim", vrfname, "frr-routing:ipv4", gname);
+		 "./msdp-mesh-groups[name='%s']", gname);
 	nb_cli_enqueue_change(vty, xpath_value, NB_OP_CREATE, NULL);
 
 	/* Create mesh group source. */
@@ -5247,29 +6986,72 @@ DEFPY(ip_msdp_mesh_group_source,
 
 	return nb_cli_apply_changes(vty, NULL);
 }
+DEFPY_ATTR(ip_pim_msdp_mesh_group_source,
+			  ip_msdp_mesh_group_source_cmd,
+			  "ip msdp mesh-group WORD$gname source A.B.C.D$saddr",
+			  IP_STR
+			  CFG_MSDP_STR
+			  "Configure MSDP mesh-group\n"
+			  "Mesh group name\n"
+			  "Mesh group local address\n"
+			  "Source IP address for the TCP connection\n",
+			  CMD_ATTR_HIDDEN | CMD_ATTR_DEPRECATED)
+{
+	char xpath_value[XPATH_MAXLEN];
+	int ret;
+	const char *vrfname;
+	char xpath[XPATH_MAXLEN];
+	int orig_node = -1;
 
-DEFPY(no_ip_msdp_mesh_group_source,
-      no_ip_msdp_mesh_group_source_cmd,
-      "no ip msdp mesh-group WORD$gname source [A.B.C.D]",
+	vrfname = pim_cli_get_vrf_name(vty);
+	if (vrfname) {
+		snprintf(xpath, sizeof(xpath), FRR_PIM_VRF_XPATH,
+			 "frr-pim:pimd", "pim", vrfname, FRR_PIM_AF_XPATH_VAL);
+		nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
+		if (nb_cli_apply_changes_clear_pending(vty, NULL) ==
+		    CMD_SUCCESS) {
+			orig_node = vty->node;
+			VTY_PUSH_XPATH(PIM_NODE, xpath);
+		} else {
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+	} else {
+		vty_out(vty, "%% Failed to determine vrf name\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	/* Create mesh group. */
+	snprintf(xpath_value, sizeof(xpath_value),
+		 "./msdp-mesh-groups[name='%s']", gname);
+	nb_cli_enqueue_change(vty, xpath_value, NB_OP_CREATE, NULL);
+	/* Create mesh group source. */
+	strlcat(xpath_value, "/source", sizeof(xpath_value));
+	nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY, saddr_str);
+	ret = nb_cli_apply_changes(vty, NULL);
+
+	if (orig_node != -1) {
+		vty->node = orig_node;
+		vty->xpath_index--;
+	}
+
+	return ret;
+}
+
+DEFPY(no_pim_msdp_mesh_group_source,
+      no_pim_msdp_mesh_group_source_cmd,
+      "no msdp mesh-group WORD$gname source [A.B.C.D]",
       NO_STR
-      IP_STR
       CFG_MSDP_STR
       "Delete MSDP mesh-group source\n"
       "Mesh group name\n"
       "Mesh group source\n"
       "Mesh group local address\n")
 {
-	const char *vrfname;
 	char xpath_value[XPATH_MAXLEN];
-
-	vrfname = pim_cli_get_vrf_name(vty);
-	if (vrfname == NULL)
-		return CMD_WARNING_CONFIG_FAILED;
 
 	/* Get mesh group base XPath. */
 	snprintf(xpath_value, sizeof(xpath_value),
-		 FRR_PIM_VRF_XPATH "/msdp-mesh-groups[name='%s']",
-		 "frr-pim:pimd", "pim", vrfname, "frr-routing:ipv4", gname);
+		 "./msdp-mesh-groups[name='%s']", gname);
 	nb_cli_enqueue_change(vty, xpath_value, NB_OP_CREATE, NULL);
 
 	/* Create mesh group source. */
@@ -5284,32 +7066,131 @@ DEFPY(no_ip_msdp_mesh_group_source,
 
 	return nb_cli_apply_changes(vty, NULL);
 }
+DEFPY_ATTR(no_ip_pim_msdp_mesh_group_source,
+			  no_ip_msdp_mesh_group_source_cmd,
+			  "no ip msdp mesh-group WORD$gname source [A.B.C.D]",
+			  NO_STR
+			  IP_STR
+			  CFG_MSDP_STR
+			  "Delete MSDP mesh-group source\n"
+			  "Mesh group name\n"
+			  "Mesh group source\n"
+			  "Mesh group local address\n",
+			  CMD_ATTR_HIDDEN | CMD_ATTR_DEPRECATED)
+{
+	char xpath_value[XPATH_MAXLEN];
+	int ret;
+	const char *vrfname;
+	char xpath[XPATH_MAXLEN];
+	int orig_node = -1;
 
-DEFPY(no_ip_msdp_mesh_group,
-      no_ip_msdp_mesh_group_cmd,
-      "no ip msdp mesh-group WORD$gname",
+	vrfname = pim_cli_get_vrf_name(vty);
+	if (vrfname) {
+		snprintf(xpath, sizeof(xpath), FRR_PIM_VRF_XPATH,
+			 "frr-pim:pimd", "pim", vrfname, FRR_PIM_AF_XPATH_VAL);
+		nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
+		if (nb_cli_apply_changes_clear_pending(vty, NULL) ==
+		    CMD_SUCCESS) {
+			orig_node = vty->node;
+			VTY_PUSH_XPATH(PIM_NODE, xpath);
+		} else {
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+	} else {
+		vty_out(vty, "%% Failed to determine vrf name\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	/* Get mesh group base XPath. */
+	snprintf(xpath_value, sizeof(xpath_value),
+		 "./msdp-mesh-groups[name='%s']", gname);
+	nb_cli_enqueue_change(vty, xpath_value, NB_OP_CREATE, NULL);
+
+	/* Create mesh group source. */
+	strlcat(xpath_value, "/source", sizeof(xpath_value));
+	nb_cli_enqueue_change(vty, xpath_value, NB_OP_DESTROY, NULL);
+
+	/*
+	 * If this is the last member, then we must remove the group altogether
+	 * to not break legacy CLI behaviour.
+	 */
+	pim_cli_legacy_mesh_group_behavior(vty, gname);
+	ret = nb_cli_apply_changes(vty, NULL);
+
+	if (orig_node != -1) {
+		vty->node = orig_node;
+		vty->xpath_index--;
+	}
+
+	return ret;
+}
+
+DEFPY(no_pim_msdp_mesh_group,
+      no_pim_msdp_mesh_group_cmd,
+      "no msdp mesh-group WORD$gname",
       NO_STR
-      IP_STR
       CFG_MSDP_STR
       "Delete MSDP mesh-group\n"
       "Mesh group name\n")
 {
-	const char *vrfname;
-	char xpath_value[XPATH_MAXLEN];
-
-	vrfname = pim_cli_get_vrf_name(vty);
-	if (vrfname == NULL)
-		return CMD_WARNING_CONFIG_FAILED;
+	char xpath_value[XPATH_MAXLEN + 26];
 
 	/* Get mesh group base XPath. */
 	snprintf(xpath_value, sizeof(xpath_value),
-		 FRR_PIM_VRF_XPATH "/msdp-mesh-groups[name='%s']",
-		 "frr-pim:pimd", "pim", vrfname, "frr-routing:ipv4", gname);
+		 "%s/msdp-mesh-groups[name='%s']", VTY_CURR_XPATH, gname);
 	if (!yang_dnode_exists(vty->candidate_config->dnode, xpath_value))
 		return CMD_SUCCESS;
 
 	nb_cli_enqueue_change(vty, xpath_value, NB_OP_DESTROY, NULL);
 	return nb_cli_apply_changes(vty, NULL);
+}
+DEFPY_ATTR(no_ip_pim_msdp_mesh_group,
+			  no_ip_msdp_mesh_group_cmd,
+			  "no ip msdp mesh-group WORD$gname",
+			  NO_STR
+			  IP_STR
+			  CFG_MSDP_STR
+			  "Delete MSDP mesh-group\n"
+			  "Mesh group name\n",
+			  CMD_ATTR_HIDDEN | CMD_ATTR_DEPRECATED)
+{
+	char xpath_value[XPATH_MAXLEN + 26];
+	int ret = CMD_SUCCESS;
+	const char *vrfname;
+	char xpath[XPATH_MAXLEN];
+	int orig_node = -1;
+
+	vrfname = pim_cli_get_vrf_name(vty);
+	if (vrfname) {
+		snprintf(xpath, sizeof(xpath), FRR_PIM_VRF_XPATH,
+			 "frr-pim:pimd", "pim", vrfname, FRR_PIM_AF_XPATH_VAL);
+		nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
+		if (nb_cli_apply_changes_clear_pending(vty, NULL) ==
+		    CMD_SUCCESS) {
+			orig_node = vty->node;
+			VTY_PUSH_XPATH(PIM_NODE, xpath);
+		} else {
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+	} else {
+		vty_out(vty, "%% Failed to determine vrf name\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	/* Get mesh group base XPath. */
+	snprintf(xpath_value, sizeof(xpath_value),
+		 "%s/msdp-mesh-groups[name='%s']", VTY_CURR_XPATH, gname);
+	if (yang_dnode_exists(vty->candidate_config->dnode, xpath_value)) {
+		nb_cli_enqueue_change(vty, xpath_value, NB_OP_DESTROY, NULL);
+		ret = nb_cli_apply_changes(vty, NULL);
+	}
+
+	if (orig_node != -1) {
+		vty->node = orig_node;
+		vty->xpath_index--;
+	}
+
+	return ret;
 }
 
 static void ip_msdp_show_mesh_group(struct vty *vty, struct pim_msdp_mg *mg,
@@ -5329,7 +7210,8 @@ static void ip_msdp_show_mesh_group(struct vty *vty, struct pim_msdp_mg *mg,
 	if (json) {
 		/* currently there is only one mesh group but we should still
 		 * make
-		 * it a dict with mg-name as key */
+		 * it a dict with mg-name as key
+		 */
 		json_mg_row = json_object_new_object();
 		json_object_string_add(json_mg_row, "name",
 				       mg->mesh_group_name);
@@ -6311,31 +8193,66 @@ DEFUN_HIDDEN (show_ip_pim_vxlan_sg_work,
 	return CMD_SUCCESS;
 }
 
-DEFUN_HIDDEN (no_ip_pim_mlag,
-	      no_ip_pim_mlag_cmd,
-	      "no ip pim mlag",
+DEFPY_HIDDEN (no_pim_mlag,
+	      no_pim_mlag_cmd,
+	      "no mlag",
 	      NO_STR
-	      IP_STR
-	      PIM_STR
 	      "MLAG\n")
 {
 	char mlag_xpath[XPATH_MAXLEN];
 
-	snprintf(mlag_xpath, sizeof(mlag_xpath), FRR_PIM_VRF_XPATH,
-		 "frr-pim:pimd", "pim", "default", "frr-routing:ipv4");
-	strlcat(mlag_xpath, "/mlag", sizeof(mlag_xpath));
-
+	snprintf(mlag_xpath, sizeof(mlag_xpath), "./mlag");
 	nb_cli_enqueue_change(vty, mlag_xpath, NB_OP_DESTROY, NULL);
-
 
 	return nb_cli_apply_changes(vty, NULL);
 }
+DEFPY_ATTR(no_ip_pim_mlag,
+			  no_ip_pim_mlag_cmd,
+			  "no ip pim mlag",
+			  NO_STR
+			  IP_STR
+			  PIM_STR
+			  "MLAG\n",
+			  CMD_ATTR_HIDDEN | CMD_ATTR_DEPRECATED)
+{
+	char mlag_xpath[XPATH_MAXLEN];
+	int ret;
+	const char *vrfname;
+	char xpath[XPATH_MAXLEN];
+	int orig_node = -1;
 
-DEFUN_HIDDEN (ip_pim_mlag,
-	      ip_pim_mlag_cmd,
-	      "ip pim mlag INTERFACE role [primary|secondary] state [up|down] addr A.B.C.D",
-	      IP_STR
-	      PIM_STR
+	vrfname = pim_cli_get_vrf_name(vty);
+	if (vrfname) {
+		snprintf(xpath, sizeof(xpath), FRR_PIM_VRF_XPATH,
+			 "frr-pim:pimd", "pim", vrfname, FRR_PIM_AF_XPATH_VAL);
+		nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
+		if (nb_cli_apply_changes_clear_pending(vty, NULL) ==
+		    CMD_SUCCESS) {
+			orig_node = vty->node;
+			VTY_PUSH_XPATH(PIM_NODE, xpath);
+		} else {
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+	} else {
+		vty_out(vty, "%% Failed to determine vrf name\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	snprintf(mlag_xpath, sizeof(mlag_xpath), "./mlag");
+	nb_cli_enqueue_change(vty, mlag_xpath, NB_OP_DESTROY, NULL);
+	ret = nb_cli_apply_changes(vty, NULL);
+
+	if (orig_node != -1) {
+		vty->node = orig_node;
+		vty->xpath_index--;
+	}
+
+	return ret;
+}
+
+DEFPY_HIDDEN (pim_mlag,
+	      pim_mlag_cmd,
+	      "mlag INTERFACE$iface role [primary|secondary]$role state [up|down]$state addr A.B.C.D$addr",
 	      "MLAG\n"
 	      "peerlink sub interface\n"
 	      "MLAG role\n"
@@ -6347,83 +8264,153 @@ DEFUN_HIDDEN (ip_pim_mlag,
 	      "configure PIP\n"
 	      "unique ip address\n")
 {
-	int idx;
 	char mlag_peerlink_rif_xpath[XPATH_MAXLEN];
 	char mlag_my_role_xpath[XPATH_MAXLEN];
 	char mlag_peer_state_xpath[XPATH_MAXLEN];
 	char mlag_reg_address_xpath[XPATH_MAXLEN];
 
 	snprintf(mlag_peerlink_rif_xpath, sizeof(mlag_peerlink_rif_xpath),
-		 FRR_PIM_VRF_XPATH,
-		 "frr-pim:pimd", "pim", "default", "frr-routing:ipv4");
-	strlcat(mlag_peerlink_rif_xpath, "/mlag/peerlink-rif",
-		sizeof(mlag_peerlink_rif_xpath));
-
-	idx = 3;
-	nb_cli_enqueue_change(vty, mlag_peerlink_rif_xpath, NB_OP_MODIFY,
-			      argv[idx]->arg);
+		 "./mlag/peerlink-rif");
+	nb_cli_enqueue_change(vty, mlag_peerlink_rif_xpath, NB_OP_MODIFY, iface);
 
 	snprintf(mlag_my_role_xpath, sizeof(mlag_my_role_xpath),
-		 FRR_PIM_VRF_XPATH,
-		 "frr-pim:pimd", "pim", "default", "frr-routing:ipv4");
-	strlcat(mlag_my_role_xpath, "/mlag/my-role",
-		sizeof(mlag_my_role_xpath));
-
-	idx += 2;
-	if (!strcmp(argv[idx]->arg, "primary")) {
+		 "./mlag/my-role");
+	if (!strcmp(role, "primary")) {
 		nb_cli_enqueue_change(vty, mlag_my_role_xpath, NB_OP_MODIFY,
 				      "MLAG_ROLE_PRIMARY");
-
-	} else if (!strcmp(argv[idx]->arg, "secondary")) {
+	} else if (!strcmp(role, "secondary")) {
 		nb_cli_enqueue_change(vty, mlag_my_role_xpath, NB_OP_MODIFY,
 				      "MLAG_ROLE_SECONDARY");
-
 	} else {
-		vty_out(vty, "unknown MLAG role %s\n", argv[idx]->arg);
+		vty_out(vty, "unknown MLAG role %s\n", role);
 		return CMD_WARNING;
 	}
 
 	snprintf(mlag_peer_state_xpath, sizeof(mlag_peer_state_xpath),
-		 FRR_PIM_VRF_XPATH,
-		 "frr-pim:pimd", "pim", "default", "frr-routing:ipv4");
-	strlcat(mlag_peer_state_xpath, "/mlag/peer-state",
-		sizeof(mlag_peer_state_xpath));
-
-	idx += 2;
-	if (!strcmp(argv[idx]->arg, "up")) {
+		 "./mlag/peer-state");
+	if (!strcmp(state, "up")) {
 		nb_cli_enqueue_change(vty, mlag_peer_state_xpath, NB_OP_MODIFY,
 				      "true");
-
-	} else if (strcmp(argv[idx]->arg, "down")) {
+	} else if (strcmp(state, "down")) {
 		nb_cli_enqueue_change(vty, mlag_peer_state_xpath, NB_OP_MODIFY,
 				      "false");
-
 	} else {
-		vty_out(vty, "unknown MLAG state %s\n", argv[idx]->arg);
+		vty_out(vty, "unknown MLAG state %s\n", state);
 		return CMD_WARNING;
 	}
 
 	snprintf(mlag_reg_address_xpath, sizeof(mlag_reg_address_xpath),
-		 FRR_PIM_VRF_XPATH,
-		 "frr-pim:pimd", "pim", "default", "frr-routing:ipv4");
-	strlcat(mlag_reg_address_xpath, "/mlag/reg-address",
-		sizeof(mlag_reg_address_xpath));
-
-	idx += 2;
+		 "./mlag/reg-address");
 	nb_cli_enqueue_change(vty, mlag_reg_address_xpath, NB_OP_MODIFY,
-			      argv[idx]->arg);
+			      addr_str);
 
 	return nb_cli_apply_changes(vty, NULL);
 }
-
-void pim_cmd_init(void)
+DEFPY_ATTR(ip_pim_mlag,
+			  ip_pim_mlag_cmd,
+			  "ip pim mlag INTERFACE$iface role [primary|secondary]$role state [up|down]$state addr A.B.C.D$addr",
+			  IP_STR
+			  PIM_STR
+			  "MLAG\n"
+			  "peerlink sub interface\n"
+			  "MLAG role\n"
+			  "MLAG role primary\n"
+			  "MLAG role secondary\n"
+			  "peer session state\n"
+			  "peer session state up\n"
+			  "peer session state down\n"
+			  "configure PIP\n"
+			  "unique ip address\n",
+			  CMD_ATTR_HIDDEN | CMD_ATTR_DEPRECATED)
 {
-	if_cmd_init(pim_interface_config_write);
+	char mlag_peerlink_rif_xpath[XPATH_MAXLEN];
+	char mlag_my_role_xpath[XPATH_MAXLEN];
+	char mlag_peer_state_xpath[XPATH_MAXLEN];
+	char mlag_reg_address_xpath[XPATH_MAXLEN];
+	int ret;
+	const char *vrfname;
+	char xpath[XPATH_MAXLEN];
+	int orig_node = -1;
 
-	install_node(&debug_node);
+	vrfname = pim_cli_get_vrf_name(vty);
+	if (vrfname) {
+		snprintf(xpath, sizeof(xpath), FRR_PIM_VRF_XPATH,
+			 "frr-pim:pimd", "pim", vrfname, FRR_PIM_AF_XPATH_VAL);
+		nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
+		if (nb_cli_apply_changes_clear_pending(vty, NULL) ==
+		    CMD_SUCCESS) {
+			orig_node = vty->node;
+			VTY_PUSH_XPATH(PIM_NODE, xpath);
+		} else {
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+	} else {
+		vty_out(vty, "%% Failed to determine vrf name\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
 
-	install_element(ENABLE_NODE, &pim_test_sg_keepalive_cmd);
+	snprintf(mlag_peerlink_rif_xpath, sizeof(mlag_peerlink_rif_xpath),
+		 "./mlag/peerlink-rif");
+	nb_cli_enqueue_change(vty, mlag_peerlink_rif_xpath, NB_OP_MODIFY, iface);
 
+	snprintf(mlag_my_role_xpath, sizeof(mlag_my_role_xpath),
+		 "./mlag/my-role");
+	if (!strcmp(role, "primary")) {
+		nb_cli_enqueue_change(vty, mlag_my_role_xpath, NB_OP_MODIFY,
+				      "MLAG_ROLE_PRIMARY");
+	} else if (!strcmp(role, "secondary")) {
+		nb_cli_enqueue_change(vty, mlag_my_role_xpath, NB_OP_MODIFY,
+				      "MLAG_ROLE_SECONDARY");
+	} else {
+		vty_out(vty, "unknown MLAG role %s\n", role);
+		ret = CMD_WARNING;
+		goto done;
+	}
+
+	snprintf(mlag_peer_state_xpath, sizeof(mlag_peer_state_xpath),
+		 "./mlag/peer-state");
+	if (!strcmp(state, "up")) {
+		nb_cli_enqueue_change(vty, mlag_peer_state_xpath, NB_OP_MODIFY,
+				      "true");
+	} else if (strcmp(state, "down")) {
+		nb_cli_enqueue_change(vty, mlag_peer_state_xpath, NB_OP_MODIFY,
+				      "false");
+	} else {
+		vty_out(vty, "unknown MLAG state %s\n", state);
+		ret = CMD_WARNING;
+		goto done;
+	}
+
+	snprintf(mlag_reg_address_xpath, sizeof(mlag_reg_address_xpath),
+		 "./mlag/reg-address");
+	nb_cli_enqueue_change(vty, mlag_reg_address_xpath, NB_OP_MODIFY,
+			      addr_str);
+
+	ret = nb_cli_apply_changes(vty, NULL);
+
+done:
+	if (orig_node != -1) {
+		vty->node = orig_node;
+		vty->xpath_index--;
+	}
+
+	return ret;
+}
+
+struct cmd_node pim_node = {
+	.name = "pim",
+	.node = PIM_NODE,
+	.parent_node = CONFIG_NODE,
+	.prompt = "%s(config-pim)# ",
+	.config_write = pim_router_config_write,
+};
+
+/* This function installs all of the deprecated PIM configuration commands that live in the global config and/or VRF nodes
+ * This configuration has been moved to the new 'router pim' config node instead like all the other routing protocols.
+ * No new commands should be added here.
+ */
+static void pim_install_deprecated(void)
+{
 	install_element(CONFIG_NODE, &ip_pim_rp_cmd);
 	install_element(VRF_NODE, &ip_pim_rp_cmd);
 	install_element(CONFIG_NODE, &no_ip_pim_rp_cmd);
@@ -6449,8 +8436,8 @@ void pim_cmd_init(void)
 	install_element(CONFIG_NODE,
 			&no_ip_pim_spt_switchover_infinity_plist_cmd);
 	install_element(VRF_NODE, &no_ip_pim_spt_switchover_infinity_plist_cmd);
-	install_element(CONFIG_NODE, &pim_register_accept_list_cmd);
-	install_element(VRF_NODE, &pim_register_accept_list_cmd);
+	install_element(CONFIG_NODE, &ip_pim_register_accept_list_cmd);
+	install_element(VRF_NODE, &ip_pim_register_accept_list_cmd);
 	install_element(CONFIG_NODE, &ip_pim_joinprune_time_cmd);
 	install_element(CONFIG_NODE, &no_ip_pim_joinprune_time_cmd);
 	install_element(CONFIG_NODE, &ip_pim_keep_alive_cmd);
@@ -6467,14 +8454,6 @@ void pim_cmd_init(void)
 	install_element(VRF_NODE, &ip_pim_v6_secondary_cmd);
 	install_element(CONFIG_NODE, &no_ip_pim_v6_secondary_cmd);
 	install_element(VRF_NODE, &no_ip_pim_v6_secondary_cmd);
-	install_element(CONFIG_NODE, &ip_ssmpingd_cmd);
-	install_element(VRF_NODE, &ip_ssmpingd_cmd);
-	install_element(CONFIG_NODE, &no_ip_ssmpingd_cmd);
-	install_element(VRF_NODE, &no_ip_ssmpingd_cmd);
-	install_element(CONFIG_NODE, &ip_msdp_peer_cmd);
-	install_element(VRF_NODE, &ip_msdp_peer_cmd);
-	install_element(CONFIG_NODE, &no_ip_msdp_peer_cmd);
-	install_element(VRF_NODE, &no_ip_msdp_peer_cmd);
 	install_element(CONFIG_NODE, &ip_pim_ecmp_cmd);
 	install_element(VRF_NODE, &ip_pim_ecmp_cmd);
 	install_element(CONFIG_NODE, &no_ip_pim_ecmp_cmd);
@@ -6485,15 +8464,97 @@ void pim_cmd_init(void)
 	install_element(VRF_NODE, &no_ip_pim_ecmp_rebalance_cmd);
 	install_element(CONFIG_NODE, &ip_pim_mlag_cmd);
 	install_element(CONFIG_NODE, &no_ip_pim_mlag_cmd);
-	install_element(CONFIG_NODE, &ip_igmp_group_watermark_cmd);
-	install_element(VRF_NODE, &ip_igmp_group_watermark_cmd);
-	install_element(CONFIG_NODE, &no_ip_igmp_group_watermark_cmd);
-	install_element(VRF_NODE, &no_ip_igmp_group_watermark_cmd);
+
+	install_element(CONFIG_NODE, &ip_ssmpingd_cmd);
+	install_element(VRF_NODE, &ip_ssmpingd_cmd);
+	install_element(CONFIG_NODE, &no_ip_ssmpingd_cmd);
+	install_element(VRF_NODE, &no_ip_ssmpingd_cmd);
+
+	install_element(CONFIG_NODE, &ip_msdp_peer_cmd);
+	install_element(VRF_NODE, &ip_msdp_peer_cmd);
+	install_element(CONFIG_NODE, &no_ip_msdp_peer_cmd);
+	install_element(VRF_NODE, &no_ip_msdp_peer_cmd);
+	install_element(CONFIG_NODE, &ip_msdp_timers_cmd);
+	install_element(VRF_NODE, &ip_msdp_timers_cmd);
+	install_element(CONFIG_NODE, &no_ip_msdp_timers_cmd);
+	install_element(VRF_NODE, &no_ip_msdp_timers_cmd);
+	install_element(CONFIG_NODE, &ip_msdp_mesh_group_member_cmd);
+	install_element(VRF_NODE, &ip_msdp_mesh_group_member_cmd);
+	install_element(CONFIG_NODE, &no_ip_msdp_mesh_group_member_cmd);
+	install_element(VRF_NODE, &no_ip_msdp_mesh_group_member_cmd);
+	install_element(CONFIG_NODE, &ip_msdp_mesh_group_source_cmd);
+	install_element(VRF_NODE, &ip_msdp_mesh_group_source_cmd);
+	install_element(CONFIG_NODE, &no_ip_msdp_mesh_group_source_cmd);
+	install_element(VRF_NODE, &no_ip_msdp_mesh_group_source_cmd);
+	install_element(CONFIG_NODE, &no_ip_msdp_mesh_group_cmd);
+	install_element(VRF_NODE, &no_ip_msdp_mesh_group_cmd);
+}
+
+void pim_cmd_init(void)
+{
+	if_cmd_init(pim_interface_config_write);
+
+	install_node(&debug_node);
+
+	install_element(CONFIG_NODE, &router_pim_cmd);
+	install_element(CONFIG_NODE, &no_router_pim_cmd);
+
+	install_node(&pim_node);
+	install_default(PIM_NODE);
+
+	install_element(PIM_NODE, &pim_rp_cmd);
+	install_element(PIM_NODE, &no_pim_rp_cmd);
+	install_element(PIM_NODE, &pim_rp_prefix_list_cmd);
+	install_element(PIM_NODE, &no_pim_rp_prefix_list_cmd);
+	install_element(PIM_NODE, &no_pim_ssm_prefix_list_cmd);
+	install_element(PIM_NODE, &no_pim_ssm_prefix_list_name_cmd);
+	install_element(PIM_NODE, &pim_ssm_prefix_list_cmd);
+	install_element(PIM_NODE, &pim_register_suppress_cmd);
+	install_element(PIM_NODE, &no_pim_register_suppress_cmd);
+	install_element(PIM_NODE, &pim_spt_switchover_infinity_cmd);
+	install_element(PIM_NODE, &pim_spt_switchover_infinity_plist_cmd);
+	install_element(PIM_NODE, &no_pim_spt_switchover_infinity_cmd);
+	install_element(PIM_NODE, &no_pim_spt_switchover_infinity_plist_cmd);
+	install_element(PIM_NODE, &pim_register_accept_list_cmd);
+	install_element(PIM_NODE, &pim_joinprune_time_cmd);
+	install_element(PIM_NODE, &no_pim_joinprune_time_cmd);
+	install_element(PIM_NODE, &pim_keep_alive_cmd);
+	install_element(PIM_NODE, &pim_rp_keep_alive_cmd);
+	install_element(PIM_NODE, &no_pim_keep_alive_cmd);
+	install_element(PIM_NODE, &no_pim_rp_keep_alive_cmd);
+	install_element(PIM_NODE, &pim_packets_cmd);
+	install_element(PIM_NODE, &no_pim_packets_cmd);
+	install_element(PIM_NODE, &pim_v6_secondary_cmd);
+	install_element(PIM_NODE, &no_pim_v6_secondary_cmd);
+	install_element(PIM_NODE, &pim_ecmp_cmd);
+	install_element(PIM_NODE, &no_pim_ecmp_cmd);
+	install_element(PIM_NODE, &pim_ecmp_rebalance_cmd);
+	install_element(PIM_NODE, &no_pim_ecmp_rebalance_cmd);
+	install_element(PIM_NODE, &pim_mlag_cmd);
+	install_element(PIM_NODE, &no_pim_mlag_cmd);
+
+	install_element(PIM_NODE, &pim_ssmpingd_cmd);
+	install_element(PIM_NODE, &no_pim_ssmpingd_cmd);
+
+	install_element(PIM_NODE, &pim_msdp_peer_cmd);
+	install_element(PIM_NODE, &no_pim_msdp_peer_cmd);
+	install_element(PIM_NODE, &msdp_peer_md5_cmd);
+	install_element(PIM_NODE, &no_msdp_peer_md5_cmd);
+	install_element(PIM_NODE, &pim_msdp_timers_cmd);
+	install_element(PIM_NODE, &no_pim_msdp_timers_cmd);
+	install_element(PIM_NODE, &msdp_peer_sa_filter_cmd);
+	install_element(PIM_NODE, &no_ip_msdp_peer_sa_filter_cmd);
+	install_element(PIM_NODE, &pim_msdp_mesh_group_member_cmd);
+	install_element(PIM_NODE, &no_pim_msdp_mesh_group_member_cmd);
+	install_element(PIM_NODE, &pim_msdp_mesh_group_source_cmd);
+	install_element(PIM_NODE, &no_pim_msdp_mesh_group_source_cmd);
+	install_element(PIM_NODE, &no_pim_msdp_mesh_group_cmd);
 
 	install_element(INTERFACE_NODE, &interface_ip_igmp_cmd);
 	install_element(INTERFACE_NODE, &interface_no_ip_igmp_cmd);
 	install_element(INTERFACE_NODE, &interface_ip_igmp_join_cmd);
-	install_element(INTERFACE_NODE, &interface_no_ip_igmp_join_cmd);
+	install_element(INTERFACE_NODE, &interface_ip_igmp_join_group_cmd);
+	install_element(INTERFACE_NODE, &interface_ip_igmp_static_group_cmd);
 	install_element(INTERFACE_NODE, &interface_ip_igmp_version_cmd);
 	install_element(INTERFACE_NODE, &interface_no_ip_igmp_version_cmd);
 	install_element(INTERFACE_NODE, &interface_ip_igmp_query_interval_cmd);
@@ -6534,10 +8595,30 @@ void pim_cmd_init(void)
 	install_element(INTERFACE_NODE, &interface_ip_mroute_cmd);
 	install_element(INTERFACE_NODE, &interface_no_ip_mroute_cmd);
 
+	install_element(INTERFACE_NODE, &interface_pim_use_source_cmd);
+	install_element(INTERFACE_NODE, &interface_no_pim_use_source_cmd);
+	/* Install BSM command */
+	install_element(INTERFACE_NODE, &ip_pim_bsm_cmd);
+	install_element(INTERFACE_NODE, &no_ip_pim_bsm_cmd);
+	install_element(INTERFACE_NODE, &ip_pim_ucast_bsm_cmd);
+	install_element(INTERFACE_NODE, &no_ip_pim_ucast_bsm_cmd);
+	/* Install BFD command */
+	install_element(INTERFACE_NODE, &ip_pim_bfd_cmd);
+	install_element(INTERFACE_NODE, &ip_pim_bfd_param_cmd);
+	install_element(INTERFACE_NODE, &no_ip_pim_bfd_profile_cmd);
+	install_element(INTERFACE_NODE, &no_ip_pim_bfd_cmd);
+#if HAVE_BFDD == 0
+	install_element(INTERFACE_NODE, &no_ip_pim_bfd_param_cmd);
+#endif /* !HAVE_BFDD */
+
 	install_element(VIEW_NODE, &show_ip_igmp_interface_cmd);
 	install_element(VIEW_NODE, &show_ip_igmp_interface_vrf_all_cmd);
 	install_element(VIEW_NODE, &show_ip_igmp_join_cmd);
+	install_element(VIEW_NODE, &show_ip_igmp_join_group_cmd);
 	install_element(VIEW_NODE, &show_ip_igmp_join_vrf_all_cmd);
+	install_element(VIEW_NODE, &show_ip_igmp_join_group_vrf_all_cmd);
+	install_element(VIEW_NODE, &show_ip_igmp_static_group_cmd);
+	install_element(VIEW_NODE, &show_ip_igmp_static_group_vrf_all_cmd);
 	install_element(VIEW_NODE, &show_ip_igmp_groups_cmd);
 	install_element(VIEW_NODE, &show_ip_igmp_groups_vrf_all_cmd);
 	install_element(VIEW_NODE, &show_ip_igmp_groups_retransmissions_cmd);
@@ -6590,123 +8671,6 @@ void pim_cmd_init(void)
 	install_element(VIEW_NODE, &show_ip_pim_bsrp_cmd);
 	install_element(VIEW_NODE, &show_ip_pim_bsm_db_cmd);
 	install_element(VIEW_NODE, &show_ip_pim_statistics_cmd);
-
-	install_element(ENABLE_NODE, &clear_ip_mroute_count_cmd);
-	install_element(ENABLE_NODE, &clear_ip_interfaces_cmd);
-	install_element(ENABLE_NODE, &clear_ip_igmp_interfaces_cmd);
-	install_element(ENABLE_NODE, &clear_ip_mroute_cmd);
-	install_element(ENABLE_NODE, &clear_ip_pim_interfaces_cmd);
-	install_element(ENABLE_NODE, &clear_ip_pim_interface_traffic_cmd);
-	install_element(ENABLE_NODE, &clear_ip_pim_oil_cmd);
-	install_element(ENABLE_NODE, &clear_ip_pim_statistics_cmd);
-	install_element(ENABLE_NODE, &clear_ip_pim_bsr_db_cmd);
-
-	install_element(ENABLE_NODE, &show_debugging_pim_cmd);
-
-	install_element(ENABLE_NODE, &debug_igmp_cmd);
-	install_element(ENABLE_NODE, &no_debug_igmp_cmd);
-	install_element(ENABLE_NODE, &debug_igmp_events_cmd);
-	install_element(ENABLE_NODE, &no_debug_igmp_events_cmd);
-	install_element(ENABLE_NODE, &debug_igmp_packets_cmd);
-	install_element(ENABLE_NODE, &no_debug_igmp_packets_cmd);
-	install_element(ENABLE_NODE, &debug_igmp_trace_cmd);
-	install_element(ENABLE_NODE, &no_debug_igmp_trace_cmd);
-	install_element(ENABLE_NODE, &debug_igmp_trace_detail_cmd);
-	install_element(ENABLE_NODE, &no_debug_igmp_trace_detail_cmd);
-	install_element(ENABLE_NODE, &debug_mroute_cmd);
-	install_element(ENABLE_NODE, &debug_mroute_detail_cmd);
-	install_element(ENABLE_NODE, &no_debug_mroute_cmd);
-	install_element(ENABLE_NODE, &no_debug_mroute_detail_cmd);
-	install_element(ENABLE_NODE, &debug_pim_static_cmd);
-	install_element(ENABLE_NODE, &no_debug_pim_static_cmd);
-	install_element(ENABLE_NODE, &debug_pim_cmd);
-	install_element(ENABLE_NODE, &debug_pim_nht_cmd);
-	install_element(ENABLE_NODE, &debug_pim_nht_det_cmd);
-	install_element(ENABLE_NODE, &debug_pim_nht_rp_cmd);
-	install_element(ENABLE_NODE, &no_debug_pim_nht_rp_cmd);
-	install_element(ENABLE_NODE, &debug_pim_events_cmd);
-	install_element(ENABLE_NODE, &debug_pim_packets_cmd);
-	install_element(ENABLE_NODE, &debug_pim_packetdump_send_cmd);
-	install_element(ENABLE_NODE, &debug_pim_packetdump_recv_cmd);
-	install_element(ENABLE_NODE, &debug_pim_trace_cmd);
-	install_element(ENABLE_NODE, &debug_pim_trace_detail_cmd);
-	install_element(ENABLE_NODE, &debug_ssmpingd_cmd);
-	install_element(ENABLE_NODE, &no_debug_ssmpingd_cmd);
-	install_element(ENABLE_NODE, &debug_pim_zebra_cmd);
-	install_element(ENABLE_NODE, &debug_pim_mlag_cmd);
-	install_element(ENABLE_NODE, &no_debug_pim_mlag_cmd);
-	install_element(ENABLE_NODE, &debug_pim_vxlan_cmd);
-	install_element(ENABLE_NODE, &no_debug_pim_vxlan_cmd);
-	install_element(ENABLE_NODE, &debug_msdp_cmd);
-	install_element(ENABLE_NODE, &no_debug_msdp_cmd);
-	install_element(ENABLE_NODE, &debug_msdp_events_cmd);
-	install_element(ENABLE_NODE, &no_debug_msdp_events_cmd);
-	install_element(ENABLE_NODE, &debug_msdp_packets_cmd);
-	install_element(ENABLE_NODE, &no_debug_msdp_packets_cmd);
-	install_element(ENABLE_NODE, &debug_mtrace_cmd);
-	install_element(ENABLE_NODE, &no_debug_mtrace_cmd);
-	install_element(ENABLE_NODE, &debug_bsm_cmd);
-	install_element(ENABLE_NODE, &no_debug_bsm_cmd);
-
-	install_element(CONFIG_NODE, &debug_igmp_cmd);
-	install_element(CONFIG_NODE, &no_debug_igmp_cmd);
-	install_element(CONFIG_NODE, &debug_igmp_events_cmd);
-	install_element(CONFIG_NODE, &no_debug_igmp_events_cmd);
-	install_element(CONFIG_NODE, &debug_igmp_packets_cmd);
-	install_element(CONFIG_NODE, &no_debug_igmp_packets_cmd);
-	install_element(CONFIG_NODE, &debug_igmp_trace_cmd);
-	install_element(CONFIG_NODE, &no_debug_igmp_trace_cmd);
-	install_element(CONFIG_NODE, &debug_igmp_trace_detail_cmd);
-	install_element(CONFIG_NODE, &no_debug_igmp_trace_detail_cmd);
-	install_element(CONFIG_NODE, &debug_mroute_cmd);
-	install_element(CONFIG_NODE, &debug_mroute_detail_cmd);
-	install_element(CONFIG_NODE, &no_debug_mroute_cmd);
-	install_element(CONFIG_NODE, &no_debug_mroute_detail_cmd);
-	install_element(CONFIG_NODE, &debug_pim_static_cmd);
-	install_element(CONFIG_NODE, &no_debug_pim_static_cmd);
-	install_element(CONFIG_NODE, &debug_pim_cmd);
-	install_element(CONFIG_NODE, &debug_pim_nht_cmd);
-	install_element(CONFIG_NODE, &debug_pim_nht_det_cmd);
-	install_element(CONFIG_NODE, &debug_pim_nht_rp_cmd);
-	install_element(CONFIG_NODE, &no_debug_pim_nht_rp_cmd);
-	install_element(CONFIG_NODE, &debug_pim_events_cmd);
-	install_element(CONFIG_NODE, &debug_pim_packets_cmd);
-	install_element(CONFIG_NODE, &debug_pim_packetdump_send_cmd);
-	install_element(CONFIG_NODE, &debug_pim_packetdump_recv_cmd);
-	install_element(CONFIG_NODE, &debug_pim_trace_cmd);
-	install_element(CONFIG_NODE, &debug_pim_trace_detail_cmd);
-	install_element(CONFIG_NODE, &debug_ssmpingd_cmd);
-	install_element(CONFIG_NODE, &no_debug_ssmpingd_cmd);
-	install_element(CONFIG_NODE, &debug_pim_zebra_cmd);
-	install_element(CONFIG_NODE, &debug_pim_mlag_cmd);
-	install_element(CONFIG_NODE, &no_debug_pim_mlag_cmd);
-	install_element(CONFIG_NODE, &debug_pim_vxlan_cmd);
-	install_element(CONFIG_NODE, &no_debug_pim_vxlan_cmd);
-	install_element(CONFIG_NODE, &debug_msdp_cmd);
-	install_element(CONFIG_NODE, &no_debug_msdp_cmd);
-	install_element(CONFIG_NODE, &debug_msdp_events_cmd);
-	install_element(CONFIG_NODE, &no_debug_msdp_events_cmd);
-	install_element(CONFIG_NODE, &debug_msdp_packets_cmd);
-	install_element(CONFIG_NODE, &no_debug_msdp_packets_cmd);
-	install_element(CONFIG_NODE, &debug_mtrace_cmd);
-	install_element(CONFIG_NODE, &no_debug_mtrace_cmd);
-	install_element(CONFIG_NODE, &debug_bsm_cmd);
-	install_element(CONFIG_NODE, &no_debug_bsm_cmd);
-
-	install_element(CONFIG_NODE, &ip_msdp_timers_cmd);
-	install_element(VRF_NODE, &ip_msdp_timers_cmd);
-	install_element(CONFIG_NODE, &no_ip_msdp_timers_cmd);
-	install_element(VRF_NODE, &no_ip_msdp_timers_cmd);
-	install_element(CONFIG_NODE, &ip_msdp_mesh_group_member_cmd);
-	install_element(VRF_NODE, &ip_msdp_mesh_group_member_cmd);
-	install_element(CONFIG_NODE, &no_ip_msdp_mesh_group_member_cmd);
-	install_element(VRF_NODE, &no_ip_msdp_mesh_group_member_cmd);
-	install_element(CONFIG_NODE, &ip_msdp_mesh_group_source_cmd);
-	install_element(VRF_NODE, &ip_msdp_mesh_group_source_cmd);
-	install_element(CONFIG_NODE, &no_ip_msdp_mesh_group_source_cmd);
-	install_element(VRF_NODE, &no_ip_msdp_mesh_group_source_cmd);
-	install_element(CONFIG_NODE, &no_ip_msdp_mesh_group_cmd);
-	install_element(VRF_NODE, &no_ip_msdp_mesh_group_cmd);
 	install_element(VIEW_NODE, &show_ip_msdp_peer_detail_cmd);
 	install_element(VIEW_NODE, &show_ip_msdp_peer_detail_vrf_all_cmd);
 	install_element(VIEW_NODE, &show_ip_msdp_sa_detail_cmd);
@@ -6719,19 +8683,115 @@ void pim_cmd_init(void)
 	install_element(VIEW_NODE, &show_ip_pim_group_type_cmd);
 	install_element(VIEW_NODE, &show_ip_pim_vxlan_sg_cmd);
 	install_element(VIEW_NODE, &show_ip_pim_vxlan_sg_work_cmd);
-	install_element(INTERFACE_NODE, &interface_pim_use_source_cmd);
-	install_element(INTERFACE_NODE, &interface_no_pim_use_source_cmd);
-	/* Install BSM command */
-	install_element(INTERFACE_NODE, &ip_pim_bsm_cmd);
-	install_element(INTERFACE_NODE, &no_ip_pim_bsm_cmd);
-	install_element(INTERFACE_NODE, &ip_pim_ucast_bsm_cmd);
-	install_element(INTERFACE_NODE, &no_ip_pim_ucast_bsm_cmd);
-	/* Install BFD command */
-	install_element(INTERFACE_NODE, &ip_pim_bfd_cmd);
-	install_element(INTERFACE_NODE, &ip_pim_bfd_param_cmd);
-	install_element(INTERFACE_NODE, &no_ip_pim_bfd_profile_cmd);
-	install_element(INTERFACE_NODE, &no_ip_pim_bfd_cmd);
-#if HAVE_BFDD == 0
-	install_element(INTERFACE_NODE, &no_ip_pim_bfd_param_cmd);
-#endif /* !HAVE_BFDD */
+
+	install_element(ENABLE_NODE, &pim_test_sg_keepalive_cmd);
+
+	install_element(ENABLE_NODE, &clear_ip_mroute_count_cmd);
+	install_element(ENABLE_NODE, &clear_ip_msdp_peer_cmd);
+	install_element(ENABLE_NODE, &clear_ip_interfaces_cmd);
+	install_element(ENABLE_NODE, &clear_ip_igmp_interfaces_cmd);
+	install_element(ENABLE_NODE, &clear_ip_mroute_cmd);
+	install_element(ENABLE_NODE, &clear_ip_pim_interfaces_cmd);
+	install_element(ENABLE_NODE, &clear_ip_pim_interface_traffic_cmd);
+	install_element(ENABLE_NODE, &clear_ip_pim_oil_cmd);
+	install_element(ENABLE_NODE, &clear_ip_pim_statistics_cmd);
+	install_element(ENABLE_NODE, &clear_ip_pim_bsr_db_cmd);
+
+	install_element(ENABLE_NODE, &show_debugging_pim_cmd);
+
+	install_element(ENABLE_NODE, &debug_igmp_cmd);
+	install_element(CONFIG_NODE, &debug_igmp_cmd);
+	install_element(ENABLE_NODE, &no_debug_igmp_cmd);
+	install_element(CONFIG_NODE, &no_debug_igmp_cmd);
+	install_element(ENABLE_NODE, &debug_igmp_events_cmd);
+	install_element(CONFIG_NODE, &debug_igmp_events_cmd);
+	install_element(ENABLE_NODE, &no_debug_igmp_events_cmd);
+	install_element(CONFIG_NODE, &no_debug_igmp_events_cmd);
+	install_element(ENABLE_NODE, &debug_igmp_packets_cmd);
+	install_element(CONFIG_NODE, &debug_igmp_packets_cmd);
+	install_element(ENABLE_NODE, &no_debug_igmp_packets_cmd);
+	install_element(CONFIG_NODE, &no_debug_igmp_packets_cmd);
+	install_element(ENABLE_NODE, &debug_igmp_trace_cmd);
+	install_element(CONFIG_NODE, &debug_igmp_trace_cmd);
+	install_element(ENABLE_NODE, &no_debug_igmp_trace_cmd);
+	install_element(CONFIG_NODE, &no_debug_igmp_trace_cmd);
+	install_element(ENABLE_NODE, &debug_igmp_trace_detail_cmd);
+	install_element(CONFIG_NODE, &debug_igmp_trace_detail_cmd);
+	install_element(ENABLE_NODE, &no_debug_igmp_trace_detail_cmd);
+	install_element(CONFIG_NODE, &no_debug_igmp_trace_detail_cmd);
+	install_element(ENABLE_NODE, &debug_mroute_cmd);
+	install_element(CONFIG_NODE, &debug_mroute_cmd);
+	install_element(ENABLE_NODE, &debug_mroute_detail_cmd);
+	install_element(CONFIG_NODE, &debug_mroute_detail_cmd);
+	install_element(ENABLE_NODE, &no_debug_mroute_cmd);
+	install_element(CONFIG_NODE, &no_debug_mroute_cmd);
+	install_element(ENABLE_NODE, &no_debug_mroute_detail_cmd);
+	install_element(CONFIG_NODE, &no_debug_mroute_detail_cmd);
+	install_element(ENABLE_NODE, &debug_pim_static_cmd);
+	install_element(CONFIG_NODE, &debug_pim_static_cmd);
+	install_element(ENABLE_NODE, &no_debug_pim_static_cmd);
+	install_element(CONFIG_NODE, &no_debug_pim_static_cmd);
+	install_element(ENABLE_NODE, &debug_pim_cmd);
+	install_element(CONFIG_NODE, &debug_pim_cmd);
+	install_element(ENABLE_NODE, &debug_pim_nht_cmd);
+	install_element(CONFIG_NODE, &debug_pim_nht_cmd);
+	install_element(ENABLE_NODE, &debug_pim_nht_det_cmd);
+	install_element(CONFIG_NODE, &debug_pim_nht_det_cmd);
+	install_element(ENABLE_NODE, &debug_pim_nht_rp_cmd);
+	install_element(CONFIG_NODE, &debug_pim_nht_rp_cmd);
+	install_element(ENABLE_NODE, &no_debug_pim_nht_rp_cmd);
+	install_element(CONFIG_NODE, &no_debug_pim_nht_rp_cmd);
+	install_element(ENABLE_NODE, &debug_pim_events_cmd);
+	install_element(CONFIG_NODE, &debug_pim_events_cmd);
+	install_element(ENABLE_NODE, &debug_pim_packets_cmd);
+	install_element(CONFIG_NODE, &debug_pim_packets_cmd);
+	install_element(ENABLE_NODE, &debug_pim_packetdump_send_cmd);
+	install_element(CONFIG_NODE, &debug_pim_packetdump_send_cmd);
+	install_element(ENABLE_NODE, &debug_pim_packetdump_recv_cmd);
+	install_element(CONFIG_NODE, &debug_pim_packetdump_recv_cmd);
+	install_element(ENABLE_NODE, &debug_pim_trace_cmd);
+	install_element(CONFIG_NODE, &debug_pim_trace_cmd);
+	install_element(ENABLE_NODE, &debug_pim_trace_detail_cmd);
+	install_element(CONFIG_NODE, &debug_pim_trace_detail_cmd);
+	install_element(ENABLE_NODE, &debug_ssmpingd_cmd);
+	install_element(CONFIG_NODE, &debug_ssmpingd_cmd);
+	install_element(ENABLE_NODE, &no_debug_ssmpingd_cmd);
+	install_element(CONFIG_NODE, &no_debug_ssmpingd_cmd);
+	install_element(ENABLE_NODE, &debug_pim_zebra_cmd);
+	install_element(CONFIG_NODE, &debug_pim_zebra_cmd);
+	install_element(ENABLE_NODE, &debug_pim_mlag_cmd);
+	install_element(CONFIG_NODE, &debug_pim_mlag_cmd);
+	install_element(ENABLE_NODE, &no_debug_pim_mlag_cmd);
+	install_element(CONFIG_NODE, &no_debug_pim_mlag_cmd);
+	install_element(ENABLE_NODE, &debug_pim_vxlan_cmd);
+	install_element(CONFIG_NODE, &debug_pim_vxlan_cmd);
+	install_element(ENABLE_NODE, &no_debug_pim_vxlan_cmd);
+	install_element(CONFIG_NODE, &no_debug_pim_vxlan_cmd);
+	install_element(ENABLE_NODE, &debug_msdp_cmd);
+	install_element(CONFIG_NODE, &debug_msdp_cmd);
+	install_element(ENABLE_NODE, &no_debug_msdp_cmd);
+	install_element(CONFIG_NODE, &no_debug_msdp_cmd);
+	install_element(ENABLE_NODE, &debug_msdp_events_cmd);
+	install_element(CONFIG_NODE, &debug_msdp_events_cmd);
+	install_element(ENABLE_NODE, &no_debug_msdp_events_cmd);
+	install_element(CONFIG_NODE, &no_debug_msdp_events_cmd);
+	install_element(ENABLE_NODE, &debug_msdp_packets_cmd);
+	install_element(CONFIG_NODE, &debug_msdp_packets_cmd);
+	install_element(ENABLE_NODE, &no_debug_msdp_packets_cmd);
+	install_element(CONFIG_NODE, &no_debug_msdp_packets_cmd);
+	install_element(ENABLE_NODE, &debug_mtrace_cmd);
+	install_element(CONFIG_NODE, &debug_mtrace_cmd);
+	install_element(ENABLE_NODE, &no_debug_mtrace_cmd);
+	install_element(CONFIG_NODE, &no_debug_mtrace_cmd);
+	install_element(ENABLE_NODE, &debug_bsm_cmd);
+	install_element(CONFIG_NODE, &debug_bsm_cmd);
+	install_element(ENABLE_NODE, &no_debug_bsm_cmd);
+	install_element(CONFIG_NODE, &no_debug_bsm_cmd);
+
+	install_element(CONFIG_NODE, &ip_igmp_group_watermark_cmd);
+	install_element(VRF_NODE, &ip_igmp_group_watermark_cmd);
+	install_element(CONFIG_NODE, &no_ip_igmp_group_watermark_cmd);
+	install_element(VRF_NODE, &no_ip_igmp_group_watermark_cmd);
+
+	pim_install_deprecated();
 }

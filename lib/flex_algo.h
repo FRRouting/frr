@@ -115,11 +115,10 @@ struct flex_algos *flex_algos_alloc(flex_algo_allocator_t allocator,
 void flex_algos_free(struct flex_algos *flex_algos);
 struct flex_algo *flex_algo_alloc(struct flex_algos *flex_algos,
 				  uint8_t algorithm, void *arg);
+void flex_algo_free(struct flex_algos *flex_algos, struct flex_algo *fa);
 struct flex_algo *flex_algo_lookup(struct flex_algos *flex_algos,
 				   uint8_t algorithm);
-void flex_algos_free(struct flex_algos *flex_algos);
 bool flex_algo_definition_cmp(struct flex_algo *fa1, struct flex_algo *fa2);
-void flex_algo_delete(struct flex_algos *flex_algos, uint8_t algorithm);
 bool flex_algo_id_valid(uint16_t algorithm);
 char *flex_algo_metric_type_print(char *type_str, size_t sz,
 				  enum flex_algo_metric_type metric_type);

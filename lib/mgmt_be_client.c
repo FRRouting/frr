@@ -116,6 +116,7 @@ struct mgmt_be_client {
 	frr_each_safe (mgmt_be_txns, &(client_ctx)->txn_head, (txn))
 
 struct debug mgmt_dbg_be_client = {
+	.conf = "debug mgmt client backend",
 	.desc = "Management backend client operations"
 };
 
@@ -1061,7 +1062,7 @@ static void be_client_handle_notify(struct mgmt_be_client *client, void *msgbuf,
 	struct mgmt_msg_notify_data *notif_msg = msgbuf;
 	struct nb_node *nb_node;
 	struct lyd_node *dnode;
-	const char *data;
+	const char *data = NULL;
 	const char *notif;
 	LY_ERR err;
 
@@ -1258,31 +1259,6 @@ DEFPY(debug_mgmt_client_be, debug_mgmt_client_be_cmd,
 	return CMD_SUCCESS;
 }
 
-static int mgmt_debug_be_client_config_write(struct vty *vty)
-{
-	if (DEBUG_MODE_CHECK(&mgmt_dbg_be_client, DEBUG_MODE_CONF))
-		vty_out(vty, "debug mgmt client backend\n");
-
-	return 1;
-}
-
-void mgmt_debug_be_client_show_debug(struct vty *vty)
-{
-	if (debug_check_be_client())
-		vty_out(vty, "debug mgmt client backend\n");
-}
-
-static struct debug_callbacks mgmt_dbg_be_client_cbs = {
-	.debug_set_all = mgmt_debug_client_be_set
-};
-
-static struct cmd_node mgmt_dbg_node = {
-	.name = "debug mgmt client backend",
-	.node = MGMT_BE_DEBUG_NODE,
-	.prompt = "",
-	.config_write = mgmt_debug_be_client_config_write,
-};
-
 struct mgmt_be_client *mgmt_be_client_create(const char *client_name,
 					     struct mgmt_be_client_cbs *cbs,
 					     uintptr_t user_data,
@@ -1328,8 +1304,8 @@ struct mgmt_be_client *mgmt_be_client_create(const char *client_name,
 
 void mgmt_be_client_lib_vty_init(void)
 {
-	debug_init(&mgmt_dbg_be_client_cbs);
-	install_node(&mgmt_dbg_node);
+	debug_install(&mgmt_dbg_be_client);
+
 	install_element(ENABLE_NODE, &debug_mgmt_client_be_cmd);
 	install_element(CONFIG_NODE, &debug_mgmt_client_be_cmd);
 }

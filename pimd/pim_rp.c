@@ -543,6 +543,9 @@ int pim_rp_new(struct pim_instance *pim, pim_addr rp_addr, struct prefix group,
 				pim_zebra_update_all_interfaces(pim);
 
 			pim_rp_check_interfaces(pim, rp_all);
+			if (rp_all->i_am_rp && PIM_DEBUG_PIM_NHT_RP)
+				zlog_debug("new RP %pPA for %pFX is ourselves",
+					   &rp_all->rp.rpf_addr, &rp_all->group);
 			pim_rp_refresh_group_to_rp_mapping(pim);
 			pim_find_or_track_nexthop(pim, nht_p, NULL, rp_all,
 						  NULL);
@@ -634,6 +637,9 @@ int pim_rp_new(struct pim_instance *pim, pim_addr rp_addr, struct prefix group,
 		pim_zebra_update_all_interfaces(pim);
 
 	pim_rp_check_interfaces(pim, rp_info);
+	if (rp_info->i_am_rp && PIM_DEBUG_PIM_NHT_RP)
+		zlog_debug("new RP %pPA for %pFX is ourselves",
+			   &rp_info->rp.rpf_addr, &rp_info->group);
 	pim_rp_refresh_group_to_rp_mapping(pim);
 
 	/* Register addr with Zebra NHT */
@@ -1101,16 +1107,17 @@ int pim_rp_set_upstream_addr(struct pim_instance *pim, pim_addr *up,
 			     pim_addr source, pim_addr group)
 {
 	struct rp_info *rp_info;
-	struct prefix g;
+	struct prefix g = {};
 
-	memset(&g, 0, sizeof(g));
+	if (!pim_addr_is_any(source)) {
+		*up = source;
+		return 1;
+	}
 
 	pim_addr_to_prefix(&g, group);
-
 	rp_info = pim_rp_find_match_group(pim, &g);
 
-	if (!rp_info || ((pim_rpf_addr_is_inaddr_any(&rp_info->rp)) &&
-			 (pim_addr_is_any(source)))) {
+	if (!rp_info || pim_rpf_addr_is_inaddr_any(&rp_info->rp)) {
 		if (PIM_DEBUG_PIM_NHT_RP)
 			zlog_debug("%s: Received a (*,G) with no RP configured",
 				   __func__);
@@ -1118,16 +1125,11 @@ int pim_rp_set_upstream_addr(struct pim_instance *pim, pim_addr *up,
 		return 0;
 	}
 
-	if (pim_addr_is_any(source))
-		*up = rp_info->rp.rpf_addr;
-	else
-		*up = source;
-
+	*up = rp_info->rp.rpf_addr;
 	return 1;
 }
 
-int pim_rp_config_write(struct pim_instance *pim, struct vty *vty,
-			const char *spaces)
+int pim_rp_config_write(struct pim_instance *pim, struct vty *vty)
 {
 	struct listnode *node;
 	struct rp_info *rp_info;
@@ -1143,13 +1145,11 @@ int pim_rp_config_write(struct pim_instance *pim, struct vty *vty,
 
 		rp_addr = rp_info->rp.rpf_addr;
 		if (rp_info->plist)
-			vty_out(vty,
-				"%s" PIM_AF_NAME
-				" pim rp %pPA prefix-list %s\n",
-				spaces, &rp_addr, rp_info->plist);
+			vty_out(vty, " rp %pPA prefix-list %s\n", &rp_addr,
+				rp_info->plist);
 		else
-			vty_out(vty, "%s" PIM_AF_NAME " pim rp %pPA %pFX\n",
-				spaces, &rp_addr, &rp_info->group);
+			vty_out(vty, " rp %pPA %pFX\n", &rp_addr,
+				&rp_info->group);
 		count++;
 	}
 

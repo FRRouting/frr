@@ -58,8 +58,10 @@ extern "C" {
 #define OSPF_HELLO_DELAY_DEFAULT           10
 #define OSPF_ROUTER_PRIORITY_DEFAULT        1
 #define OSPF_RETRANSMIT_INTERVAL_DEFAULT    5
+#define OSPF_RETRANSMIT_WINDOW_DEFAULT	    50 /* milliseconds */
 #define OSPF_TRANSMIT_DELAY_DEFAULT         1
 #define OSPF_DEFAULT_BANDWIDTH		 10000	/* Mbps */
+#define OSPF_ACK_DELAY_DEFAULT		    1
 
 #define OSPF_DEFAULT_REF_BANDWIDTH	100000  /* Kbps */
 

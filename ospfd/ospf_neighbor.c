@@ -68,7 +68,7 @@ struct ospf_neighbor *ospf_nbr_new(struct ospf_interface *oi)
 	nbr->v_inactivity = OSPF_IF_PARAM(oi, v_wait);
 	nbr->v_db_desc = OSPF_IF_PARAM(oi, retransmit_interval);
 	nbr->v_ls_req = OSPF_IF_PARAM(oi, retransmit_interval);
-	nbr->v_ls_upd = OSPF_IF_PARAM(oi, retransmit_interval);
+	nbr->v_ls_rxmt = OSPF_IF_PARAM(oi, retransmit_interval);
 	nbr->priority = -1;
 
 	/* DD flags. */
@@ -80,8 +80,10 @@ struct ospf_neighbor *ospf_nbr_new(struct ospf_interface *oi)
 	nbr->nbr_nbma = NULL;
 
 	ospf_lsdb_init(&nbr->db_sum);
-	ospf_lsdb_init(&nbr->ls_rxmt);
+
+	ospf_lsdb_linked_init(&nbr->ls_rxmt);
 	ospf_lsdb_init(&nbr->ls_req);
+	ospf_lsa_list_init(&nbr->ls_rxmt_list);
 
 	nbr->crypt_seqnum = 0;
 
@@ -128,7 +130,7 @@ void ospf_nbr_free(struct ospf_neighbor *nbr)
 	EVENT_OFF(nbr->t_inactivity);
 	EVENT_OFF(nbr->t_db_desc);
 	EVENT_OFF(nbr->t_ls_req);
-	EVENT_OFF(nbr->t_ls_upd);
+	EVENT_OFF(nbr->t_ls_rxmt);
 
 	/* Cancel all events. */ /* Thread lookup cost would be negligible. */
 	event_cancel_event(master, nbr);

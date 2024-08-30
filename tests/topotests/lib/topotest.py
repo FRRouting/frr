@@ -1430,7 +1430,7 @@ class Router(Node):
         self.daemondir = None
         self.hasmpls = False
         self.routertype = "frr"
-        self.unified_config = None
+        self.unified_config = False
         self.daemons = {
             "zebra": 0,
             "ripd": 0,
@@ -1653,7 +1653,7 @@ class Router(Node):
         # print "Daemons before:", self.daemons
         if daemon in self.daemons.keys() or daemon == "frr":
             if daemon == "frr":
-                self.unified_config = 1
+                self.unified_config = True
             else:
                 self.daemons[daemon] = 1
             if param is not None:

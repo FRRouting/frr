@@ -19,6 +19,9 @@ import sys
 import pytest
 import json
 from functools import partial
+from lib.topolog import logger
+
+pytestmark = pytest.mark.random_order(disabled=True)
 
 # Save the Current Working Directory to find configuration files.
 CWD = os.path.dirname(os.path.realpath(__file__))
@@ -157,6 +160,46 @@ def test_zebra_noprefix_connected():
     )
     result, _ = topotest.run_and_expect(test_func, "", count=20, wait=1)
     assert result, "Connected Route should not have been added"
+
+
+def test_zebra_noprefix_connected_add():
+    "Test that a noprefixroute created with a manual route works as expected, this is for NetworkManager"
+
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    router = tgen.gears["r1"]
+    router.run("ip route add 192.168.44.0/24 dev r1-eth1")
+
+    connected = "{}/{}/ip_route_connected.json".format(CWD, router.name)
+    expected = json.loads(open(connected).read())
+
+    test_func = partial(
+        topotest.router_json_cmp, router, "show ip route 192.168.44.0/24 json", expected
+    )
+    result, _ = topotest.run_and_expect(test_func, None, count=20, wait=1)
+    assert result, "Connected Route should have been added\n{}".format(_)
+
+
+def test_zebra_kernel_route_add():
+    "Test that a random kernel route is properly handled as expected"
+
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    router = tgen.gears["r1"]
+    router.run("ip route add 4.5.6.7/32 dev r1-eth1")
+
+    kernel = "{}/{}/ip_route_kernel.json".format(CWD, router.name)
+    expected = json.loads(open(kernel).read())
+
+    test_func = partial(
+        topotest.router_json_cmp, router, "show ip route 4.5.6.7/32 json", expected
+    )
+    result, _ = topotest.run_and_expect(test_func, None, count=20, wait=1)
+    assert result, "Connected Route should have been added\n{}".format(_)
 
 
 if __name__ == "__main__":

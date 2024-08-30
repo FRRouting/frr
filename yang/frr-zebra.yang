@@ -626,6 +626,7 @@ module frr-zebra {
 
         leaf table-id {
           type uint32;
+	  default "254";
           description
             "Routing Table id (default id - 254).";
         }

@@ -16,9 +16,6 @@ module frr-bfdd {
   import frr-vrf {
     prefix frr-vrf;
   }
-  import frr-route-types {
-    prefix frr-route-types;
-  }
 
   organization "FRRouting";
   contact

@@ -506,7 +506,7 @@ parse_nexthop_unicast(ns_id_t ns_id, struct rtmsg *rtm, struct rtattr **tb,
 		      void *gate, afi_t afi, vrf_id_t vrf_id)
 {
 	struct interface *ifp = NULL;
-	struct nexthop nh = {0};
+	struct nexthop nh = {.weight = 1};
 	mpls_label_t labels[MPLS_MAX_LABELS] = {0};
 	int num_labels = 0;
 	enum seg6local_action_t seg6l_act = ZEBRA_SEG6_LOCAL_ACTION_UNSPEC;
@@ -799,8 +799,6 @@ int netlink_route_change_read_unicast_internal(struct nlmsghdr *h,
 		return 0;
 	if (rtm->rtm_protocol == RTPROT_REDIRECT)
 		return 0;
-	if (rtm->rtm_protocol == RTPROT_KERNEL)
-		return 0;
 
 	selfroute = is_selfroute(rtm->rtm_protocol);
 
@@ -1040,7 +1038,7 @@ int netlink_route_change_read_unicast_internal(struct nlmsghdr *h,
 			zlog_err(
 				"%s: %pFX multipath RTM_NEWROUTE has a invalid nexthop group from the kernel",
 				__func__, &p);
-			XFREE(MTYPE_RE, re);
+			zebra_rib_route_entry_free(re);
 		}
 	} else {
 		if (ctx) {
@@ -3210,7 +3208,7 @@ static struct nexthop netlink_nexthop_process_nh(struct rtattr **tb,
 						 struct interface **ifp,
 						 ns_id_t ns_id)
 {
-	struct nexthop nh = {};
+	struct nexthop nh = {.weight = 1};
 	void *gate = NULL;
 	enum nexthop_types_t type = 0;
 	int if_index = 0;
@@ -3357,7 +3355,7 @@ int netlink_nexthop_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 	vrf_id_t vrf_id = VRF_DEFAULT;
 	struct interface *ifp = NULL;
 	struct nhmsg *nhm = NULL;
-	struct nexthop nh = {};
+	struct nexthop nh = {.weight = 1};
 	struct nh_grp grp[MULTIPATH_NUM] = {};
 	/* Count of nexthops in group array */
 	uint8_t grp_count = 0;

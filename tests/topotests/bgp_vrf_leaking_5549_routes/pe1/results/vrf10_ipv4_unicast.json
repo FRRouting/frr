@@ -15,16 +15,15 @@
                 "origin": "incomplete",
                 "nexthops": [
                     {
-                        "ip": "::ffff:c000:202",
                         "hostname": "ce1",
                         "afi": "ipv6",
-                        "scope": "global"
+                        "scope": "global",
+                        "used": true
                     },
                     {
                         "hostname": "ce1",
                         "afi": "ipv6",
-                        "scope": "link-local",
-                        "used": true
+                        "scope": "link-local"
                     }
                 ]
             }

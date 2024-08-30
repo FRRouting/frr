@@ -32,7 +32,6 @@
 #include "zebra/zebra_ptm.h"
 #include "zebra/rt_netlink.h"
 #include "zebra/if_netlink.h"
-#include "zebra/interface.h"
 #include "zebra/zebra_vxlan.h"
 #include "zebra/zebra_errors.h"
 #include "zebra/zebra_evpn_mh.h"
@@ -1059,6 +1058,8 @@ void if_down(struct interface *ifp)
 
 	/* Delete all neighbor addresses learnt through IPv6 RA */
 	if_down_del_nbr_connected(ifp);
+
+	rib_update_handle_vrf_all(RIB_UPDATE_INTERFACE_DOWN, ZEBRA_ROUTE_KERNEL);
 }
 
 void if_refresh(struct interface *ifp)
@@ -1483,23 +1484,27 @@ static void interface_vrf_change(enum dplane_op_e op, ifindex_t ifindex,
 				"DPLANE_OP_INTF_UPDATE for VRF %s(%u) table %u",
 				name, ifindex, tableid);
 
-		if (!vrf_lookup_by_id((vrf_id_t)ifindex)) {
-			vrf_id_t exist_id;
+		/*
+		 * For a given tableid, if there already exists a vrf and it
+		 * is different from the current vrf to be operated, then there
+		 * is a misconfiguration and zebra will exit.
+		 */
+		vrf_id_t exist_id = zebra_vrf_lookup_by_table(tableid, ns_id);
 
-			exist_id = zebra_vrf_lookup_by_table(tableid, ns_id);
-			if (exist_id != VRF_DEFAULT) {
-				vrf = vrf_lookup_by_id(exist_id);
+		if (exist_id != VRF_DEFAULT) {
+			vrf = vrf_lookup_by_id(exist_id);
 
-				if (vrf)
-					flog_err(EC_ZEBRA_VRF_MISCONFIGURED,
-						 "VRF %s id %u table id overlaps existing vrf %s(%d), misconfiguration exiting",
-						 name, ifindex, vrf->name,
-						 vrf->vrf_id);
-				else
-					flog_err(EC_ZEBRA_VRF_NOT_FOUND,
-						 "VRF %s id %u does not exist",
-						 name, ifindex);
+			if (!vrf_lookup_by_id((vrf_id_t)ifindex) && !vrf) {
+				flog_err(EC_ZEBRA_VRF_NOT_FOUND,
+					 "VRF %s id %u does not exist", name,
+					 ifindex);
+				exit(-1);
+			}
 
+			if (vrf && strcmp(name, vrf->name)) {
+				flog_err(EC_ZEBRA_VRF_MISCONFIGURED,
+					 "VRF %s id %u table id overlaps existing vrf %s(%d), misconfiguration exiting",
+					 name, ifindex, vrf->name, vrf->vrf_id);
 				exit(-1);
 			}
 		}
@@ -1656,8 +1661,10 @@ static void interface_if_protodown(struct interface *ifp, bool protodown,
 				   uint32_t rc_bitfield)
 {
 	struct zebra_if *zif = ifp->info;
-	bool old_protodown;
+	bool old_protodown, reason_extern;
 
+	reason_extern = !!CHECK_FLAG(zif->protodown_rc,
+				     ZEBRA_PROTODOWN_EXTERNAL);
 	/*
 	 * Set our reason code to note it wasn't us.
 	 * If the reason we got from the kernel is ONLY frr though, don't
@@ -1673,8 +1680,8 @@ static void interface_if_protodown(struct interface *ifp, bool protodown,
 		return;
 
 	if (IS_ZEBRA_DEBUG_EVPN_MH_ES || IS_ZEBRA_DEBUG_DPLANE)
-		zlog_debug("interface %s dplane change, protodown %s",
-			   ifp->name, protodown ? "on" : "off");
+		zlog_debug("interface %s dplane change, protodown %s curr reason_extern %u",
+			   ifp->name, protodown ? "on" : "off", reason_extern);
 
 	/* Set protodown, respectively */
 	COND_FLAG(zif->flags, ZIF_FLAG_PROTODOWN, protodown);
@@ -1696,6 +1703,13 @@ static void interface_if_protodown(struct interface *ifp, bool protodown,
 				zlog_debug(
 					"bond mbr %s protodown off recv'd but already sent protodown off to the dplane",
 					ifp->name);
+			return;
+		}
+
+		if (!protodown && reason_extern) {
+			if (IS_ZEBRA_DEBUG_EVPN_MH_ES || IS_ZEBRA_DEBUG_KERNEL)
+				zlog_debug("bond member %s has protodown reason external and clear the reason, skip reinstall.",
+					   ifp->name);
 			return;
 		}
 

@@ -1078,9 +1078,8 @@ static void ospf_external_aggr_timer(struct ospf *ospf,
 		if (ospf->aggr_action == OSPF_ROUTE_AGGR_ADD) {
 
 			if (IS_DEBUG_OSPF(lsa, EXTNL_LSA_AGGR))
-				zlog_debug(
-					"%s: Not required to retsart timer,set is already added.",
-					__func__);
+				zlog_debug("%s: Not required to restart timer,set is already added.",
+					   __func__);
 			return;
 		}
 

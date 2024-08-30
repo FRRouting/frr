@@ -5,6 +5,7 @@
  */
 #include <zebra.h>
 
+#include "debug.h"
 #include "memory.h"
 #include "plist.h"
 #include "printfrr.h"
@@ -1348,6 +1349,7 @@ static void test_peer_attr(struct test *test, struct test_peer_attr *pa)
 static void bgp_startup(void)
 {
 	cmd_init(1);
+	debug_init();
 	zlog_aux_init("NONE: ", LOG_DEBUG);
 	zprivs_preinit(&bgpd_privs);
 	zprivs_init(&bgpd_privs);

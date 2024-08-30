@@ -1375,6 +1375,22 @@ const struct frr_yang_module_info frr_ripd_cli_info = {
 			.cbs.cli_show = cli_show_rip_non_passive_interface,
 		},
 		{
+			.xpath = "/frr-ripd:ripd/instance/distribute-list/in/access-list",
+			.cbs.cli_show = group_distribute_list_ipv4_cli_show,
+		},
+		{
+			.xpath = "/frr-ripd:ripd/instance/distribute-list/out/access-list",
+			.cbs.cli_show = group_distribute_list_ipv4_cli_show,
+		},
+		{
+			.xpath = "/frr-ripd:ripd/instance/distribute-list/in/prefix-list",
+			.cbs.cli_show = group_distribute_list_ipv4_cli_show,
+		},
+		{
+			.xpath = "/frr-ripd:ripd/instance/distribute-list/out/prefix-list",
+			.cbs.cli_show = group_distribute_list_ipv4_cli_show,
+		},
+		{
 			.xpath = "/frr-ripd:ripd/instance/redistribute",
 			.cbs.cli_show = cli_show_rip_redistribute,
 		},

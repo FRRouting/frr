@@ -25,6 +25,11 @@ DEFINE_MTYPE_STATIC(LIB, YANG_DATA, "YANG data structure");
 #define yang_lyd_find_xpath3(ctx_node, tree, xpath, format, prefix_data, vars, \
 			     set)                                              \
 	lyd_find_xpath3(ctx_node, tree, xpath, vars, set)
+
+#ifndef LYD_NEW_VAL_OUTPUT
+#define LYD_NEW_VAL_OUTPUT LYD_NEW_PATH_OUTPUT
+#endif
+
 #else
 #define yang_lyd_find_xpath3(ctx_node, tree, xpath, format, prefix_data, vars, \
 			     set)                                              \
@@ -671,7 +676,7 @@ void yang_dnode_rpc_output_add(struct lyd_node *output, const char *xpath,
 	LY_ERR err;
 
 	err = lyd_new_path(output, ly_native_ctx, xpath, value,
-			   LYD_NEW_PATH_OUTPUT | LYD_NEW_PATH_UPDATE, NULL);
+			   LYD_NEW_VAL_OUTPUT | LYD_NEW_PATH_UPDATE, NULL);
 	assert(err == LY_SUCCESS);
 }
 
@@ -1393,8 +1398,10 @@ LY_ERR yang_lyd_trim_xpath(struct lyd_node **root, const char *xpath)
 		}
 	}
 	darr_foreach_i (remove, i) {
-		if (remove[i] == *root)
+		if (remove[i] == *root) {
+			assert(*root);
 			*root = (*root)->next;
+		}
 		lyd_free_tree(remove[i]);
 	}
 	darr_free(remove);

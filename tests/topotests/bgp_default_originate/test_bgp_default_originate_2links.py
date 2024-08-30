@@ -17,7 +17,6 @@ import sys
 import time
 import pytest
 import datetime
-from copy import deepcopy
 from lib.topolog import logger
 from time import sleep
 
@@ -214,7 +213,6 @@ def get_rib_route_uptime(tgen, addr_type, dut, input_dict):
 
     logger.info("Entering lib API: get_rib_route_uptime()")
     route_time = []
-    out_route_dict = {}
     router_list = tgen.routers()
     for routerInput in input_dict.keys():
         for router, rnode in router_list.items():
@@ -234,7 +232,6 @@ def get_rib_route_uptime(tgen, addr_type, dut, input_dict):
 
                 for static_route in static_routes:
                     if "vrf" in static_route and static_route["vrf"] is not None:
-
                         logger.info(
                             "[DUT: {}]: Verifying routes for VRF:"
                             " {}".format(router, static_route["vrf"])
@@ -307,7 +304,6 @@ def get_best_path_route_in_FIB(tgen, topo, dut, network):
     on failure : return error message with boolean False
     """
     is_ipv4_best_path_found = False
-    is_ipv6_best_path_found = False
     rnode = tgen.routers()[dut]
     ipv4_show_bgp_json = run_frr_cmd(rnode, "sh ip bgp  json ", isjson=True)
     ipv6_show_bgp_json = run_frr_cmd(
@@ -1575,7 +1571,7 @@ def test_verify_default_originate_with_2way_ecmp_p2(request):
     ipv_dict = get_best_path_route_in_FIB(tgen, topo, dut="r2", network=network)
     dut_links = topo["routers"]["r1"]["links"]
     active_interface = None
-    for key, values in dut_links.items():
+    for key, _ in dut_links.items():
         ipv4_address = dut_links[key]["ipv4"].split("/")[0]
         ipv6_address = dut_links[key]["ipv6"].split("/")[0]
         if ipv_dict["ipv4"] == ipv4_address and ipv_dict["ipv6"] == ipv6_address:

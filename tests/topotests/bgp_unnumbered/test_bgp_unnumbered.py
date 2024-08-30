@@ -27,7 +27,6 @@ pytestmark = [pytest.mark.bgpd]
 
 
 def build_topo(tgen):
-
     tgen.add_router("r1")
     tgen.add_router("r2")
 

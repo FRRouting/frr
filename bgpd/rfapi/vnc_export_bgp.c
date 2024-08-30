@@ -388,7 +388,7 @@ void vnc_direct_bgp_del_route_ce(struct bgp *bgp, struct agg_node *rn,
 	bgp_withdraw(bpi->peer, p, 0, /* addpath_id */
 		     afi, SAFI_UNICAST, ZEBRA_ROUTE_VNC_DIRECT,
 		     BGP_ROUTE_REDISTRIBUTE, NULL, /* RD not used for unicast */
-		     NULL, 0, NULL); /* tag not used for unicast */
+		     NULL, 0); /* tag not used for unicast */
 }
 
 static void vnc_direct_bgp_vpn_enable_ce(struct bgp *bgp, afi_t afi)
@@ -473,16 +473,14 @@ static void vnc_direct_bgp_vpn_disable_ce(struct bgp *bgp, afi_t afi)
 
 			if (ri->type == ZEBRA_ROUTE_VNC_DIRECT
 			    && ri->sub_type == BGP_ROUTE_REDISTRIBUTE) {
-
-				bgp_withdraw(
-					ri->peer, bgp_dest_get_prefix(dest),
-					0,    /* addpath_id */
-					AFI_IP, SAFI_UNICAST,
-					ZEBRA_ROUTE_VNC_DIRECT,
-					BGP_ROUTE_REDISTRIBUTE,
-					NULL, /* RD not used for unicast */
-					NULL, 0,
-					NULL); /* tag not used for unicast */
+				bgp_withdraw(ri->peer, bgp_dest_get_prefix(dest),
+					     0, /* addpath_id */
+					     AFI_IP, SAFI_UNICAST,
+					     ZEBRA_ROUTE_VNC_DIRECT,
+					     BGP_ROUTE_REDISTRIBUTE,
+					     NULL, /* RD not used for unicast */
+					     NULL,
+					     0); /* tag not used for unicast */
 			}
 		}
 	}
@@ -863,9 +861,8 @@ void vnc_direct_bgp_del_prefix(struct bgp *bgp,
 				     0,		    /* addpath_id */
 				     afi, SAFI_UNICAST, ZEBRA_ROUTE_VNC_DIRECT,
 				     BGP_ROUTE_REDISTRIBUTE,
-				     NULL, /* RD not used for unicast */
-				     NULL, 0,
-				     NULL); /* tag not used for unicast */
+				     NULL,     /* RD not used for unicast */
+				     NULL, 0); /* tag not used for unicast */
 			/*
 			 * yuck!
 			 *  - but consistent with rest of function
@@ -892,9 +889,8 @@ void vnc_direct_bgp_del_prefix(struct bgp *bgp,
 				     0,		    /* addpath_id */
 				     afi, SAFI_UNICAST, ZEBRA_ROUTE_VNC_DIRECT,
 				     BGP_ROUTE_REDISTRIBUTE,
-				     NULL, /* RD not used for unicast */
-				     NULL, 0,
-				     NULL); /* tag not used for unicast */
+				     NULL,     /* RD not used for unicast */
+				     NULL, 0); /* tag not used for unicast */
 		}
 	}
 }
@@ -1125,13 +1121,13 @@ void vnc_direct_bgp_del_nve(struct bgp *bgp, struct rfapi_descriptor *rfd)
 						continue;
 
 					bgp_withdraw(irfd->peer, p, /* prefix */
-						     0,	   /* addpath_id */
+						     0, /* addpath_id */
 						     afi, SAFI_UNICAST,
 						     ZEBRA_ROUTE_VNC_DIRECT,
 						     BGP_ROUTE_REDISTRIBUTE,
 						     NULL, /* RD not used for
 							      unicast */
-						     NULL, 0, NULL); /* tag not
+						     NULL, 0); /* tag not
 								     used for
 								     unicast */
 				}
@@ -1359,7 +1355,7 @@ static void vnc_direct_del_rn_group_rd(struct bgp *bgp,
 		     0,					  /* addpath_id */
 		     afi, SAFI_UNICAST, ZEBRA_ROUTE_VNC_DIRECT,
 		     BGP_ROUTE_REDISTRIBUTE, NULL, /* RD not used for unicast */
-		     NULL, 0, NULL); /* tag not used for unicast */
+		     NULL, 0); /* tag not used for unicast */
 	return;
 }
 
@@ -1471,16 +1467,15 @@ static void vnc_direct_bgp_unexport_table(afi_t afi, struct agg_table *rt,
 
 				for (ALL_LIST_ELEMENTS_RO(nve_list, hln,
 							  irfd)) {
-
 					bgp_withdraw(irfd->peer,
 						     agg_node_get_prefix(rn),
-						     0,	   /* addpath_id */
+						     0, /* addpath_id */
 						     afi, SAFI_UNICAST,
 						     ZEBRA_ROUTE_VNC_DIRECT,
 						     BGP_ROUTE_REDISTRIBUTE,
 						     NULL, /* RD not used for
 							      unicast */
-						     NULL, 0, NULL); /* tag not
+						     NULL, 0); /* tag not
 								     used for
 								     unicast,
 								     EVPN
@@ -1715,8 +1710,7 @@ static void vncExportWithdrawTimer(struct event *t)
 	bgp_withdraw(eti->peer, p, 0, /* addpath_id */
 		     family2afi(p->family), SAFI_UNICAST, eti->type,
 		     eti->subtype, NULL, /* RD not used for unicast */
-		     NULL, 0,
-		     NULL); /* tag not used for unicast, EVPN neither */
+		     NULL, 0); /* tag not used for unicast, EVPN neither */
 
 	/*
 	 * Free the eti
@@ -2001,7 +1995,7 @@ void vnc_direct_bgp_rh_vpn_disable(struct bgp *bgp, afi_t afi)
 					     ZEBRA_ROUTE_VNC_DIRECT_RH,
 					     BGP_ROUTE_REDISTRIBUTE,
 					     NULL, /* RD not used for unicast */
-					     NULL, 0, NULL); /* tag not used for
+					     NULL, 0); /* tag not used for
 							     unicast, EVPN
 							     neither */
 			}

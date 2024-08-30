@@ -245,7 +245,7 @@ int bgp_nlri_parse_vpn(struct peer *peer, struct attr *attr,
 		} else {
 			bgp_withdraw(peer, &p, addpath_id, packet->afi,
 				     SAFI_MPLS_VPN, ZEBRA_ROUTE_BGP,
-				     BGP_ROUTE_NORMAL, &prd, &label, 1, NULL);
+				     BGP_ROUTE_NORMAL, &prd, &label, 1);
 		}
 	}
 	/* Packet length consistency check. */
@@ -280,7 +280,8 @@ done:
  *
  * Sending this vrf-label association is qualified by a) whether vrf->vpn
  * exporting is active ("export vpn" is enabled, vpn-policy RD and RT list
- * are set) and b) whether vpn-policy label is set.
+ * are set), b) whether vpn-policy label is set and c) the vrf loopback
+ * interface is up.
  *
  * If any of these conditions do not hold, then we send MPLS_LABEL_NONE
  * for this vrf, which zebra interprets to mean "delete this vrf-label
@@ -288,6 +289,7 @@ done:
  */
 void vpn_leak_zebra_vrf_label_update(struct bgp *bgp, afi_t afi)
 {
+	struct interface *ifp;
 	mpls_label_t label = MPLS_LABEL_NONE;
 	int debug = BGP_DEBUG(vpn, VPN_LEAK_LABEL);
 
@@ -301,7 +303,9 @@ void vpn_leak_zebra_vrf_label_update(struct bgp *bgp, afi_t afi)
 	}
 
 	if (vpn_leak_to_vpn_active(bgp, afi, NULL, false)) {
-		label = bgp->vpn_policy[afi].tovpn_label;
+		ifp = if_get_vrf_loopback(bgp->vrf_id);
+		if (ifp && if_is_vrf(ifp) && if_is_up(ifp))
+			label = bgp->vpn_policy[afi].tovpn_label;
 	}
 
 	if (debug) {
@@ -2318,7 +2322,7 @@ static void vpn_leak_to_vrf_update_onevrf(struct bgp *to_bgp,   /* to */
 		}
 
 		num_labels = origin_local ? 0
-					  : bgp_path_info_num_labels(path_vpn);
+					  : BGP_PATH_INFO_NUM_LABELS(path_vpn);
 		label_pnt = num_labels ? path_vpn->extra->labels->label : NULL;
 	}
 
@@ -3730,6 +3734,9 @@ void vpn_leak_postchange_all(void)
 		if (bgp->inst_type != BGP_INSTANCE_TYPE_VRF)
 			continue;
 
+		if (CHECK_FLAG(bgp->vrf_flags, BGP_VRF_AUTO))
+			continue;
+
 		vpn_leak_postchange(
 			BGP_VPN_POLICY_DIR_TOVPN,
 			AFI_IP,
@@ -3747,6 +3754,9 @@ void vpn_leak_postchange_all(void)
 	for (ALL_LIST_ELEMENTS_RO(bm->bgp, next, bgp)) {
 
 		if (bgp->inst_type != BGP_INSTANCE_TYPE_VRF)
+			continue;
+
+		if (CHECK_FLAG(bgp->vrf_flags, BGP_VRF_AUTO))
 			continue;
 
 		vpn_leak_postchange(
@@ -4202,7 +4212,7 @@ void bgp_mplsvpn_nh_label_bind_register_local_label(struct bgp *bgp,
 	struct bgp_mplsvpn_nh_label_bind_cache_head *tree;
 	mpls_label_t label;
 
-	label = bgp_path_info_num_labels(pi)
+	label = BGP_PATH_INFO_NUM_LABELS(pi)
 			? decode_label(&pi->extra->labels->label[0])
 			: MPLS_INVALID_LABEL;
 

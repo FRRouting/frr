@@ -489,7 +489,6 @@ int main(int argc, char **argv, char **env)
 
 	/* Make vty structure and register commands. */
 	vtysh_init_vty();
-	vtysh_init_cmd();
 	vtysh_user_init();
 	vtysh_config_init();
 

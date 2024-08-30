@@ -969,7 +969,7 @@ static int zebra_sr_config(struct vty *vty)
 				&srv6->encap_src_addr);
 		}
 	}
-	if (zebra_srv6_is_enable()) {
+	if (srv6 && zebra_srv6_is_enable()) {
 		vty_out(vty, "  locators\n");
 		for (ALL_LIST_ELEMENTS_RO(srv6->locators, node, locator)) {
 			inet_ntop(AF_INET6, &locator->prefix.prefix,

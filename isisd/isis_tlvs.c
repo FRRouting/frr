@@ -1010,7 +1010,7 @@ static void format_item_ext_subtlvs(struct isis_ext_subtlvs *exts,
 		struct isis_adj_sid *adj;
 
 		if (json) {
-			struct json_object *arr_adj_json, *flags_json;
+			struct json_object *arr_adj_json, *adj_sid_json;
 
 #if CONFDATE > 20240916
 			CPP_NOTICE("remove deprecated key format with -")
@@ -1022,42 +1022,37 @@ static void format_item_ext_subtlvs(struct isis_ext_subtlvs *exts,
 			     adj; adj = adj->next) {
 				snprintfrr(cnt_buf, sizeof(cnt_buf), "%d",
 					   adj->sid);
-				flags_json = json_object_new_object();
-				json_object_int_add(flags_json, "sid",
+				adj_sid_json = json_object_new_object();
+				json_object_int_add(adj_sid_json, "sid",
 						    adj->sid);
-				json_object_int_add(flags_json, "weight",
+				json_object_int_add(adj_sid_json, "weight",
 						    adj->weight);
-				json_object_string_add(
-					flags_json, "flag-f",
-					adj->flags & EXT_SUBTLV_LINK_ADJ_SID_FFLG
-						? "1"
-						: "0");
-				json_object_string_add(
-					flags_json, "flag-b",
-					adj->flags & EXT_SUBTLV_LINK_ADJ_SID_BFLG
-						? "1"
-						: "0");
-				json_object_string_add(
-					flags_json, "flag-v",
-					adj->flags & EXT_SUBTLV_LINK_ADJ_SID_VFLG
-						? "1"
-						: "0");
-				json_object_string_add(
-					flags_json, "flag-l",
-					adj->flags & EXT_SUBTLV_LINK_ADJ_SID_LFLG
-						? "1"
-						: "0");
-				json_object_string_add(
-					flags_json, "flag-s",
-					adj->flags & EXT_SUBTLV_LINK_ADJ_SID_SFLG
-						? "1"
-						: "0");
-				json_object_string_add(
-					flags_json, "flag-p",
-					adj->flags & EXT_SUBTLV_LINK_ADJ_SID_PFLG
-						? "1"
-						: "0");
-				json_object_array_add(arr_adj_json, flags_json);
+				json_object_string_add(adj_sid_json, "flag-f",
+						       adj->flags & EXT_SUBTLV_LINK_ADJ_SID_FFLG
+							       ? "1"
+							       : "0");
+				json_object_string_add(adj_sid_json, "flag-b",
+						       adj->flags & EXT_SUBTLV_LINK_ADJ_SID_BFLG
+							       ? "1"
+							       : "0");
+				json_object_string_add(adj_sid_json, "flag-v",
+						       adj->flags & EXT_SUBTLV_LINK_ADJ_SID_VFLG
+							       ? "1"
+							       : "0");
+				json_object_string_add(adj_sid_json, "flag-l",
+						       adj->flags & EXT_SUBTLV_LINK_ADJ_SID_LFLG
+							       ? "1"
+							       : "0");
+				json_object_string_add(adj_sid_json, "flag-s",
+						       adj->flags & EXT_SUBTLV_LINK_ADJ_SID_SFLG
+							       ? "1"
+							       : "0");
+				json_object_string_add(adj_sid_json, "flag-p",
+						       adj->flags & EXT_SUBTLV_LINK_ADJ_SID_PFLG
+							       ? "1"
+							       : "0");
+				json_object_array_add(arr_adj_json,
+						      adj_sid_json);
 			}
 			/* end old deprecated key format */
 
@@ -1067,35 +1062,37 @@ static void format_item_ext_subtlvs(struct isis_ext_subtlvs *exts,
 			     adj; adj = adj->next) {
 				snprintfrr(cnt_buf, sizeof(cnt_buf), "%d",
 					   adj->sid);
-				flags_json = json_object_new_object();
-				json_object_int_add(flags_json, "sid", adj->sid);
-				json_object_int_add(flags_json, "weight",
+				adj_sid_json = json_object_new_object();
+				json_object_int_add(adj_sid_json, "sid",
+						    adj->sid);
+				json_object_int_add(adj_sid_json, "weight",
 						    adj->weight);
-				json_object_boolean_add(flags_json, "flagF",
+				json_object_boolean_add(adj_sid_json, "flagF",
 							adj->flags & EXT_SUBTLV_LINK_ADJ_SID_FFLG
 								? true
 								: false);
-				json_object_boolean_add(flags_json, "flagB",
+				json_object_boolean_add(adj_sid_json, "flagB",
 							adj->flags & EXT_SUBTLV_LINK_ADJ_SID_BFLG
 								? true
 								: false);
-				json_object_boolean_add(flags_json, "flagV",
+				json_object_boolean_add(adj_sid_json, "flagV",
 							adj->flags & EXT_SUBTLV_LINK_ADJ_SID_VFLG
 								? true
 								: false);
-				json_object_boolean_add(flags_json, "flagL",
+				json_object_boolean_add(adj_sid_json, "flagL",
 							adj->flags & EXT_SUBTLV_LINK_ADJ_SID_LFLG
 								? true
 								: false);
-				json_object_boolean_add(flags_json, "flagS",
+				json_object_boolean_add(adj_sid_json, "flagS",
 							adj->flags & EXT_SUBTLV_LINK_ADJ_SID_SFLG
 								? true
 								: false);
-				json_object_boolean_add(flags_json, "flagP",
+				json_object_boolean_add(adj_sid_json, "flagP",
 							adj->flags & EXT_SUBTLV_LINK_ADJ_SID_PFLG
 								? true
 								: false);
-				json_object_array_add(arr_adj_json, flags_json);
+				json_object_array_add(arr_adj_json,
+						      adj_sid_json);
 			}
 		} else
 			for (adj = (struct isis_adj_sid *)exts->adj_sid.head;
@@ -1128,7 +1125,7 @@ static void format_item_ext_subtlvs(struct isis_ext_subtlvs *exts,
 	if (IS_SUBTLV(exts, EXT_LAN_ADJ_SID)) {
 		struct isis_lan_adj_sid *lan;
 		if (json) {
-			struct json_object *arr_adj_json, *flags_json;
+			struct json_object *arr_adj_json, *lan_adj_json;
 
 #if CONFDATE > 20240916
 			CPP_NOTICE("remove deprecated key format with -")
@@ -1147,42 +1144,37 @@ static void format_item_ext_subtlvs(struct isis_ext_subtlvs *exts,
 					continue;
 				snprintfrr(cnt_buf, sizeof(cnt_buf), "%d",
 					   lan->sid);
-				flags_json = json_object_new_object();
-				json_object_int_add(flags_json, "sid",
+				lan_adj_json = json_object_new_object();
+				json_object_int_add(lan_adj_json, "sid",
 						    lan->sid);
-				json_object_int_add(flags_json, "weight",
+				json_object_int_add(lan_adj_json, "weight",
 						    lan->weight);
-				json_object_string_add(
-					flags_json, "flag-f",
-					lan->flags & EXT_SUBTLV_LINK_ADJ_SID_FFLG
-						? "1"
-						: "0");
-				json_object_string_add(
-					flags_json, "flag-b",
-					lan->flags & EXT_SUBTLV_LINK_ADJ_SID_BFLG
-						? "1"
-						: "0");
-				json_object_string_add(
-					flags_json, "flag-v",
-					lan->flags & EXT_SUBTLV_LINK_ADJ_SID_VFLG
-						? "1"
-						: "0");
-				json_object_string_add(
-					flags_json, "flag-l",
-					lan->flags & EXT_SUBTLV_LINK_ADJ_SID_LFLG
-						? "1"
-						: "0");
-				json_object_string_add(
-					flags_json, "flag-s",
-					lan->flags & EXT_SUBTLV_LINK_ADJ_SID_SFLG
-						? "1"
-						: "0");
-				json_object_string_add(
-					flags_json, "flag-p",
-					lan->flags & EXT_SUBTLV_LINK_ADJ_SID_PFLG
-						? "1"
-						: "0");
-				json_object_array_add(arr_adj_json, flags_json);
+				json_object_string_add(lan_adj_json, "flag-f",
+						       lan->flags & EXT_SUBTLV_LINK_ADJ_SID_FFLG
+							       ? "1"
+							       : "0");
+				json_object_string_add(lan_adj_json, "flag-b",
+						       lan->flags & EXT_SUBTLV_LINK_ADJ_SID_BFLG
+							       ? "1"
+							       : "0");
+				json_object_string_add(lan_adj_json, "flag-v",
+						       lan->flags & EXT_SUBTLV_LINK_ADJ_SID_VFLG
+							       ? "1"
+							       : "0");
+				json_object_string_add(lan_adj_json, "flag-l",
+						       lan->flags & EXT_SUBTLV_LINK_ADJ_SID_LFLG
+							       ? "1"
+							       : "0");
+				json_object_string_add(lan_adj_json, "flag-s",
+						       lan->flags & EXT_SUBTLV_LINK_ADJ_SID_SFLG
+							       ? "1"
+							       : "0");
+				json_object_string_add(lan_adj_json, "flag-p",
+						       lan->flags & EXT_SUBTLV_LINK_ADJ_SID_PFLG
+							       ? "1"
+							       : "0");
+				json_object_array_add(arr_adj_json,
+						      lan_adj_json);
 			}
 			/* end old deprecated key format */
 
@@ -1197,35 +1189,37 @@ static void format_item_ext_subtlvs(struct isis_ext_subtlvs *exts,
 					continue;
 				snprintfrr(cnt_buf, sizeof(cnt_buf), "%d",
 					   lan->sid);
-				flags_json = json_object_new_object();
-				json_object_int_add(flags_json, "sid", lan->sid);
-				json_object_int_add(flags_json, "weight",
+				lan_adj_json = json_object_new_object();
+				json_object_int_add(lan_adj_json, "sid",
+						    lan->sid);
+				json_object_int_add(lan_adj_json, "weight",
 						    lan->weight);
-				json_object_boolean_add(flags_json, "flagF",
+				json_object_boolean_add(lan_adj_json, "flagF",
 							lan->flags & EXT_SUBTLV_LINK_ADJ_SID_FFLG
 								? true
 								: false);
-				json_object_boolean_add(flags_json, "flagB",
+				json_object_boolean_add(lan_adj_json, "flagB",
 							lan->flags & EXT_SUBTLV_LINK_ADJ_SID_BFLG
 								? true
 								: false);
-				json_object_boolean_add(flags_json, "flagV",
+				json_object_boolean_add(lan_adj_json, "flagV",
 							lan->flags & EXT_SUBTLV_LINK_ADJ_SID_VFLG
 								? true
 								: false);
-				json_object_boolean_add(flags_json, "flagL",
+				json_object_boolean_add(lan_adj_json, "flagL",
 							lan->flags & EXT_SUBTLV_LINK_ADJ_SID_LFLG
 								? true
 								: false);
-				json_object_boolean_add(flags_json, "flagS",
+				json_object_boolean_add(lan_adj_json, "flagS",
 							lan->flags & EXT_SUBTLV_LINK_ADJ_SID_SFLG
 								? true
 								: false);
-				json_object_boolean_add(flags_json, "flagP",
+				json_object_boolean_add(lan_adj_json, "flagP",
 							lan->flags & EXT_SUBTLV_LINK_ADJ_SID_PFLG
 								? true
 								: false);
-				json_object_array_add(arr_adj_json, flags_json);
+				json_object_array_add(arr_adj_json,
+						      lan_adj_json);
 			}
 		} else
 
@@ -1268,7 +1262,7 @@ static void format_item_ext_subtlvs(struct isis_ext_subtlvs *exts,
 		struct isis_srv6_endx_sid_subtlv *adj;
 
 		if (json) {
-			struct json_object *arr_adj_json, *flags_json;
+			struct json_object *arr_adj_json, *srv6_endx_sid_json;
 
 #if CONFDATE > 20240916
 			CPP_NOTICE("remove deprecated key format with -")
@@ -1282,76 +1276,85 @@ static void format_item_ext_subtlvs(struct isis_ext_subtlvs *exts,
 			     adj; adj = adj->next) {
 				snprintfrr(cnt_buf, sizeof(cnt_buf), "%pI6",
 					   &adj->sid);
-				flags_json = json_object_new_object();
-				json_object_string_addf(flags_json, "sid",
-							"%pI6", &adj->sid);
-				json_object_string_add(
-					flags_json, "algorithm",
-					sr_algorithm_string(adj->algorithm));
-				json_object_int_add(flags_json, "weight",
-						    adj->weight);
-				json_object_string_add(
-					flags_json, "behavior",
-					seg6local_action2str(adj->behavior));
-				json_object_string_add(
-					flags_json, "flag-b",
-					adj->flags & EXT_SUBTLV_LINK_SRV6_ENDX_SID_BFLG
-						? "1"
-						: "0");
-				json_object_string_add(
-					flags_json, "flag-s",
-					adj->flags & EXT_SUBTLV_LINK_SRV6_ENDX_SID_SFLG
-						? "1"
-						: "0");
-				json_object_string_add(
-					flags_json, "flag-p",
-					adj->flags & EXT_SUBTLV_LINK_SRV6_ENDX_SID_PFLG
-						? "1"
-						: "0");
-				json_object_array_add(arr_adj_json, flags_json);
+				srv6_endx_sid_json = json_object_new_object();
+				json_object_string_addf(srv6_endx_sid_json,
+							"sid", "%pI6",
+							&adj->sid);
+				json_object_string_add(srv6_endx_sid_json,
+						       "algorithm",
+						       sr_algorithm_string(
+							       adj->algorithm));
+				json_object_int_add(srv6_endx_sid_json,
+						    "weight", adj->weight);
+				json_object_string_add(srv6_endx_sid_json,
+						       "behavior",
+						       seg6local_action2str(
+							       adj->behavior));
+				json_object_string_add(srv6_endx_sid_json,
+						       "flag-b",
+						       adj->flags & EXT_SUBTLV_LINK_SRV6_ENDX_SID_BFLG
+							       ? "1"
+							       : "0");
+				json_object_string_add(srv6_endx_sid_json,
+						       "flag-s",
+						       adj->flags & EXT_SUBTLV_LINK_SRV6_ENDX_SID_SFLG
+							       ? "1"
+							       : "0");
+				json_object_string_add(srv6_endx_sid_json,
+						       "flag-p",
+						       adj->flags & EXT_SUBTLV_LINK_SRV6_ENDX_SID_PFLG
+							       ? "1"
+							       : "0");
+				json_object_array_add(arr_adj_json,
+						      srv6_endx_sid_json);
 				if (adj->subsubtlvs)
 					isis_format_subsubtlvs(adj->subsubtlvs,
 							       NULL,
-							       arr_adj_json,
+							       srv6_endx_sid_json,
 							       indent + 4);
 			}
 			/* end old deprecated key format */
 
 			arr_adj_json = json_object_new_array();
-			json_object_object_add(json, "srv6EndSID", arr_adj_json);
+			json_object_object_add(json, "srv6EndXSID",
+					       arr_adj_json);
 			for (adj = (struct isis_srv6_endx_sid_subtlv *)
 					   exts->srv6_endx_sid.head;
 			     adj; adj = adj->next) {
 				snprintfrr(cnt_buf, sizeof(cnt_buf), "%pI6",
 					   &adj->sid);
-				flags_json = json_object_new_object();
-				json_object_string_addf(flags_json, "sid",
-							"%pI6", &adj->sid);
-				json_object_string_add(flags_json, "algorithm",
+				srv6_endx_sid_json = json_object_new_object();
+				json_object_string_addf(srv6_endx_sid_json,
+							"sid", "%pI6",
+							&adj->sid);
+				json_object_string_add(srv6_endx_sid_json,
+						       "algorithm",
 						       sr_algorithm_string(
 							       adj->algorithm));
-				json_object_int_add(flags_json, "weight",
-						    adj->weight);
-				json_object_string_add(flags_json, "behavior",
+				json_object_int_add(srv6_endx_sid_json,
+						    "weight", adj->weight);
+				json_object_string_add(srv6_endx_sid_json,
+						       "behavior",
 						       seg6local_action2str(
 							       adj->behavior));
 				json_object_boolean_add(
-					flags_json, "flagB",
+					srv6_endx_sid_json, "flagB",
 					!!(adj->flags &
 					   EXT_SUBTLV_LINK_SRV6_ENDX_SID_BFLG));
 				json_object_boolean_add(
-					flags_json, "flagS",
+					srv6_endx_sid_json, "flagS",
 					!!(adj->flags &
 					   EXT_SUBTLV_LINK_SRV6_ENDX_SID_SFLG));
 				json_object_boolean_add(
-					flags_json, "flagP",
+					srv6_endx_sid_json, "flagP",
 					!!(adj->flags &
 					   EXT_SUBTLV_LINK_SRV6_ENDX_SID_PFLG));
-				json_object_array_add(arr_adj_json, flags_json);
+				json_object_array_add(arr_adj_json,
+						      srv6_endx_sid_json);
 				if (adj->subsubtlvs)
 					isis_format_subsubtlvs(adj->subsubtlvs,
 							       NULL,
-							       arr_adj_json,
+							       srv6_endx_sid_json,
 							       indent + 4);
 			}
 		} else
@@ -1384,7 +1387,8 @@ static void format_item_ext_subtlvs(struct isis_ext_subtlvs *exts,
 	if (IS_SUBTLV(exts, EXT_SRV6_LAN_ENDX_SID)) {
 		struct isis_srv6_lan_endx_sid_subtlv *lan;
 		if (json) {
-			struct json_object *arr_adj_json, *flags_json;
+			struct json_object *arr_adj_json,
+				*srv6_lan_endx_sid_json;
 
 #if CONFDATE > 20240916
 			CPP_NOTICE("remove deprecated key format with -")
@@ -1398,42 +1402,47 @@ static void format_item_ext_subtlvs(struct isis_ext_subtlvs *exts,
 			     lan; lan = lan->next) {
 				snprintfrr(cnt_buf, sizeof(cnt_buf), "%pI6",
 					   &lan->sid);
-				flags_json = json_object_new_object();
-				json_object_string_addf(flags_json, "sid",
-							"%pI6", &lan->sid);
-				json_object_int_add(flags_json, "weight",
-						    lan->weight);
-				json_object_string_add(
-					flags_json, "algorithm",
-					sr_algorithm_string(lan->algorithm));
-				json_object_int_add(flags_json, "weight",
-						    lan->weight);
-				json_object_string_add(
-					flags_json, "behavior",
-					seg6local_action2str(lan->behavior));
-				json_object_string_add(
-					flags_json, "flag-b",
-					lan->flags & EXT_SUBTLV_LINK_SRV6_ENDX_SID_BFLG
-						? "1"
-						: "0");
-				json_object_string_add(
-					flags_json, "flag-s",
-					lan->flags & EXT_SUBTLV_LINK_SRV6_ENDX_SID_SFLG
-						? "1"
-						: "0");
-				json_object_string_add(
-					flags_json, "flag-p",
-					lan->flags & EXT_SUBTLV_LINK_SRV6_ENDX_SID_PFLG
-						? "1"
-						: "0");
-				json_object_string_addf(flags_json,
+				srv6_lan_endx_sid_json =
+					json_object_new_object();
+				json_object_string_addf(srv6_lan_endx_sid_json,
+							"sid", "%pI6",
+							&lan->sid);
+				json_object_int_add(srv6_lan_endx_sid_json,
+						    "weight", lan->weight);
+				json_object_string_add(srv6_lan_endx_sid_json,
+						       "algorithm",
+						       sr_algorithm_string(
+							       lan->algorithm));
+				json_object_int_add(srv6_lan_endx_sid_json,
+						    "weight", lan->weight);
+				json_object_string_add(srv6_lan_endx_sid_json,
+						       "behavior",
+						       seg6local_action2str(
+							       lan->behavior));
+				json_object_string_add(srv6_lan_endx_sid_json,
+						       "flag-b",
+						       lan->flags & EXT_SUBTLV_LINK_SRV6_ENDX_SID_BFLG
+							       ? "1"
+							       : "0");
+				json_object_string_add(srv6_lan_endx_sid_json,
+						       "flag-s",
+						       lan->flags & EXT_SUBTLV_LINK_SRV6_ENDX_SID_SFLG
+							       ? "1"
+							       : "0");
+				json_object_string_add(srv6_lan_endx_sid_json,
+						       "flag-p",
+						       lan->flags & EXT_SUBTLV_LINK_SRV6_ENDX_SID_PFLG
+							       ? "1"
+							       : "0");
+				json_object_string_addf(srv6_lan_endx_sid_json,
 							"neighbor-id", "%pSY",
 							lan->neighbor_id);
-				json_object_array_add(arr_adj_json, flags_json);
+				json_object_array_add(arr_adj_json,
+						      srv6_lan_endx_sid_json);
 				if (lan->subsubtlvs)
 					isis_format_subsubtlvs(lan->subsubtlvs,
 							       NULL,
-							       arr_adj_json,
+							       srv6_lan_endx_sid_json,
 							       indent + 4);
 			}
 			/* end old deprecated key format */
@@ -1446,39 +1455,44 @@ static void format_item_ext_subtlvs(struct isis_ext_subtlvs *exts,
 			     lan; lan = lan->next) {
 				snprintfrr(cnt_buf, sizeof(cnt_buf), "%pI6",
 					   &lan->sid);
-				flags_json = json_object_new_object();
-				json_object_string_addf(flags_json, "sid",
-							"%pI6", &lan->sid);
-				json_object_int_add(flags_json, "weight",
-						    lan->weight);
-				json_object_string_add(flags_json, "algorithm",
+				srv6_lan_endx_sid_json =
+					json_object_new_object();
+				json_object_string_addf(srv6_lan_endx_sid_json,
+							"sid", "%pI6",
+							&lan->sid);
+				json_object_int_add(srv6_lan_endx_sid_json,
+						    "weight", lan->weight);
+				json_object_string_add(srv6_lan_endx_sid_json,
+						       "algorithm",
 						       sr_algorithm_string(
 							       lan->algorithm));
-				json_object_int_add(flags_json, "weight",
-						    lan->weight);
-				json_object_string_add(flags_json, "behavior",
+				json_object_int_add(srv6_lan_endx_sid_json,
+						    "weight", lan->weight);
+				json_object_string_add(srv6_lan_endx_sid_json,
+						       "behavior",
 						       seg6local_action2str(
 							       lan->behavior));
 				json_object_boolean_add(
-					flags_json, "flagB",
+					srv6_lan_endx_sid_json, "flagB",
 					!!(lan->flags &
 					   EXT_SUBTLV_LINK_SRV6_ENDX_SID_BFLG));
 				json_object_boolean_add(
-					flags_json, "flagS",
+					srv6_lan_endx_sid_json, "flagS",
 					!!(lan->flags &
 					   EXT_SUBTLV_LINK_SRV6_ENDX_SID_SFLG));
 				json_object_boolean_add(
-					flags_json, "flagP",
+					srv6_lan_endx_sid_json, "flagP",
 					!!(lan->flags &
 					   EXT_SUBTLV_LINK_SRV6_ENDX_SID_PFLG));
-				json_object_string_addf(flags_json,
-							"neighbor-id", "%pSY",
+				json_object_string_addf(srv6_lan_endx_sid_json,
+							"neighborID", "%pSY",
 							lan->neighbor_id);
-				json_object_array_add(arr_adj_json, flags_json);
+				json_object_array_add(arr_adj_json,
+						      srv6_lan_endx_sid_json);
 				if (lan->subsubtlvs)
 					isis_format_subsubtlvs(lan->subsubtlvs,
 							       NULL,
-							       arr_adj_json,
+							       srv6_lan_endx_sid_json,
 							       indent + 4);
 			}
 		} else

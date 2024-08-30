@@ -92,6 +92,7 @@ def _do_oper_test(tgen, qr):
         logging.error(
             "Error decoding json exp result: %s\noutput:\n%s", error, expected
         )
+        logging.warning("FILE: {}".format(qr[1]))
         raise
 
     if dd_json_cmp:
@@ -112,7 +113,9 @@ def _do_oper_test(tgen, qr):
                 "--------GOT----------\n%s\n-------END-GOT--------",
                 json.dumps(ojson, indent=4),
             )
-
+            logging.warning("----diff---\n{}".format(cmpout))
+            logging.warning("Command: {}".format(qcmd.format(qr[0], qr[2] if len(qr) > 2 else "")))
+            logging.warning("File: {}".format(qr[1]))
     assert cmpout is None
 
 

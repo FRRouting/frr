@@ -17,6 +17,7 @@
 #include <lib/version.h>
 
 #include "command.h"
+#include "debug.h"
 #include "frrstr.h"
 #include "memory.h"
 #include "log.h"
@@ -2463,8 +2464,7 @@ const char *host_config_get(void)
 void cmd_show_lib_debugs(struct vty *vty)
 {
 	route_map_show_debug(vty);
-	mgmt_debug_be_client_show_debug(vty);
-	mgmt_debug_fe_client_show_debug(vty);
+	debug_status_write(vty);
 }
 
 void install_default(enum node_type node)

@@ -94,6 +94,7 @@ struct buffered_update {
 
 /* init function */
 void babel_if_init(void);
+void babel_if_terminate(void);
 
 /* Callback functions for zebra client */
 int babel_interface_up (int, struct zclient *, zebra_size_t, vrf_id_t);

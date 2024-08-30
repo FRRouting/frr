@@ -81,6 +81,8 @@ import os
 import sys
 import time
 import pytest
+import functools
+import json
 
 # Save the Current Working Directory to find configuration files.
 CWD = os.path.dirname(os.path.realpath(__file__))
@@ -91,6 +93,7 @@ sys.path.append(os.path.join("../lib/"))
 # Import topogen and topotest helpers
 from lib.topogen import Topogen, get_topogen
 from lib.topolog import logger
+from lib import topotest
 
 # Required to instantiate the topology builder class.
 
@@ -101,8 +104,6 @@ from lib.bgp import (
     verify_bgp_rib,
     verify_graceful_restart,
     create_router_bgp,
-    verify_r_bit,
-    verify_f_bit,
     verify_bgp_convergence,
     verify_bgp_convergence_from_running_config,
 )
@@ -117,7 +118,6 @@ from lib.common_config import (
     check_address_types,
     write_test_footer,
     check_router_status,
-    shutdown_bringup_interface,
     step,
     get_frr_ipv6_linklocal,
     required_linux_kernel_version,
@@ -1676,6 +1676,304 @@ def BGP_GR_TC_52_p1(request):
         ), "Testcase {} :Failed \n Routes are still present \n Error {}".format(
             tc_name, result
         )
+
+    write_test_footer(tc_name)
+
+
+def test_BGP_GR_TC_53_p1(request):
+    """
+    Test Objective : Peer-level inherit from BGP wide Restarting
+    Global Mode : GR Restart
+    PerPeer Mode :  None
+    GR Mode effective : GR Restart
+
+    """
+
+    tgen = get_topogen()
+    tc_name = request.node.name
+    write_test_header(tc_name)
+
+    # Check router status
+    check_router_status(tgen)
+
+    # Don't run this test if we have any failure.
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    # Creating configuration from JSON
+    reset_config_on_routers(tgen)
+
+    step("Configure R1 as GR restarting node in global level")
+
+    input_dict = {
+        "r1": {"graceful-restart": {"graceful-restart": True}},
+        "r2": {"graceful-restart": {"graceful-restart-helper": True}},
+    }
+
+    output = tgen.gears["r1"].vtysh_cmd(
+        """
+        configure terminal
+        bgp graceful-restart
+        !
+        """
+    )
+
+    step("Verify that R2 receives GR restarting capabilities" " from R1")
+
+    for addr_type in ADDR_TYPES:
+        result = verify_graceful_restart(
+            tgen, topo, addr_type, input_dict, dut="r1", peer="r2"
+        )
+        assert result is True, "Testcase {} :Failed \n Error {}".format(tc_name, result)
+        result = verify_graceful_restart(
+            tgen, topo, addr_type, input_dict, dut="r2", peer="r1"
+        )
+        assert result is True, "Testcase {} :Failed \n Error {}".format(tc_name, result)
+
+    for addr_type in ADDR_TYPES:
+        dut = "r1"
+        peer = "r2"
+        protocol = "bgp"
+        next_hop = next_hop_per_address_family(
+            tgen, dut, peer, addr_type, NEXT_HOP_IP_2
+        )
+        input_topo = {"r2": topo["routers"]["r2"]}
+        result = verify_rib(tgen, addr_type, dut, input_topo, next_hop, protocol)
+        assert result is True, "Testcase {} :Failed \n Error {}".format(tc_name, result)
+
+        dut = "r2"
+        peer = "r1"
+        next_hop = next_hop_per_address_family(
+            tgen, dut, peer, addr_type, NEXT_HOP_IP_1
+        )
+        input_topo = {"r1": topo["routers"]["r1"]}
+        result = verify_bgp_rib(tgen, addr_type, dut, input_topo, next_hop)
+        assert result is True, "Testcase {} :Failed \n Error {}".format(tc_name, result)
+        result = verify_rib(tgen, addr_type, dut, input_topo, next_hop, protocol)
+        assert result is True, "Testcase {} :Failed \n Error {}".format(tc_name, result)
+
+    step("Kill BGPd on router R1")
+
+    kill_router_daemons(tgen, "r1", ["bgpd"])
+
+    step(
+        "Verify that R1 keeps the stale entries in FIB and R2 keeps stale entries in RIB & FIB"
+    )
+
+    for addr_type in ADDR_TYPES:
+        dut = "r1"
+        peer = "r2"
+        protocol = "bgp"
+        next_hop = next_hop_per_address_family(
+            tgen, dut, peer, addr_type, NEXT_HOP_IP_2
+        )
+        input_topo = {"r2": topo["routers"]["r2"]}
+        result = verify_rib(tgen, addr_type, dut, input_topo, next_hop, protocol)
+        assert result is True, "Testcase {} :Failed \n Error {}".format(tc_name, result)
+
+        dut = "r2"
+        peer = "r1"
+        next_hop = next_hop_per_address_family(
+            tgen, dut, peer, addr_type, NEXT_HOP_IP_1
+        )
+        input_topo = {"r1": topo["routers"]["r1"]}
+        result = verify_bgp_rib(tgen, addr_type, dut, input_topo, next_hop)
+        assert result is True, "Testcase {} :Failed \n Error {}".format(tc_name, result)
+        result = verify_rib(tgen, addr_type, dut, input_topo, next_hop, protocol)
+        assert result is True, "Testcase {} :Failed \n Error {}".format(tc_name, result)
+
+    # Configure graceful-restart-disable at config global level verify that the functionality works
+    step("Bring up BGP on R1 and configure graceful-restart-disable")
+
+    start_router_daemons(tgen, "r1", ["bgpd"])
+
+    input_dict = {
+        "r1": {"graceful-restart": {"graceful-restart-disable": True}},
+        "r2": {"graceful-restart": {"graceful-restart-helper": True}},
+    }
+
+    output = tgen.gears["r1"].vtysh_cmd(
+        """
+        configure terminal
+        bgp graceful-restart-disable
+        !
+        """
+    )
+
+    step("Verify on R2 that R1 does't advertise any GR capabilities")
+
+    for addr_type in ADDR_TYPES:
+        result = verify_graceful_restart(
+            tgen, topo, addr_type, input_dict, dut="r1", peer="r2"
+        )
+        assert result is True, "Testcase {} :Failed \n Error {}".format(tc_name, result)
+        result = verify_graceful_restart(
+            tgen, topo, addr_type, input_dict, dut="r2", peer="r1"
+        )
+        assert result is True, "Testcase {} :Failed \n Error {}".format(tc_name, result)
+
+    for addr_type in ADDR_TYPES:
+        dut = "r1"
+        peer = "r2"
+        protocol = "bgp"
+        next_hop = next_hop_per_address_family(
+            tgen, dut, peer, addr_type, NEXT_HOP_IP_2
+        )
+        input_topo = {"r2": topo["routers"]["r2"]}
+        result = verify_rib(tgen, addr_type, dut, input_topo, next_hop, protocol)
+        assert result is True, "Testcase {} :Failed \n Error {}".format(tc_name, result)
+
+        dut = "r2"
+        peer = "r1"
+        next_hop = next_hop_per_address_family(
+            tgen, dut, peer, addr_type, NEXT_HOP_IP_1
+        )
+        input_topo = {"r1": topo["routers"]["r1"]}
+        result = verify_bgp_rib(tgen, addr_type, dut, input_topo, next_hop)
+        assert result is True, "Testcase {} :Failed \n Error {}".format(tc_name, result)
+        result = verify_rib(tgen, addr_type, dut, input_topo, next_hop, protocol)
+        assert result is True, "Testcase {} :Failed \n Error {}".format(tc_name, result)
+
+    step("Kill BGP on R1")
+
+    kill_router_daemons(tgen, "r1", ["bgpd"])
+
+    step("Verify on R2 and R1 that none of the routers keep stale entries")
+
+    for addr_type in ADDR_TYPES:
+        dut = "r1"
+        peer = "r2"
+        protocol = "bgp"
+        next_hop = next_hop_per_address_family(
+            tgen, dut, peer, addr_type, NEXT_HOP_IP_2
+        )
+        input_topo = {"r2": topo["routers"]["r2"]}
+        result = verify_rib(
+            tgen, addr_type, dut, input_topo, next_hop, protocol, expected=False
+        )
+        assert result is not True, (
+            "Testcase {} : Failed \n "
+            "Expected: Routes should not be present in {} FIB \n "
+            "Found: {}".format(tc_name, dut, result)
+        )
+
+        dut = "r2"
+        peer = "r1"
+        next_hop = next_hop_per_address_family(
+            tgen, dut, peer, addr_type, NEXT_HOP_IP_1
+        )
+        input_topo = {"r1": topo["routers"]["r1"]}
+        result = verify_bgp_rib(
+            tgen, addr_type, dut, input_topo, next_hop, expected=False
+        )
+        assert result is not True, (
+            "Testcase {} : Failed \n "
+            "Expected: Routes should not be present in {} BGP RIB \n "
+            "Found: {}".format(tc_name, dut, result)
+        )
+
+        result = verify_rib(
+            tgen, addr_type, dut, input_topo, next_hop, protocol, expected=False
+        )
+        assert result is not True, (
+            "Testcase {} : Failed \n "
+            "Expected: Routes should not be present in {} FIB \n "
+            "Found: {}".format(tc_name, dut, result)
+        )
+
+    step(
+        "Bring up BGP on R1, enable GR and configure bgp graceful-restart restart-time at global level"
+    )
+
+    start_router_daemons(tgen, "r1", ["bgpd"])
+
+    output = tgen.gears["r1"].vtysh_cmd(
+        """
+        configure terminal
+        no bgp graceful-restart-disable
+        bgp graceful-restart
+        bgp graceful-restart stalepath-time 420
+        bgp graceful-restart restart-time 240
+        bgp graceful-restart select-defer-time 420
+        !
+        """
+    )
+
+    step("Verify on R2 that R1 sent the updated GR restart-time")
+
+    def _bgp_check_if_gr_restart_time_was_updated():
+        output = json.loads(tgen.gears["r2"].vtysh_cmd("show bgp neighbor json"))
+
+        expected = {
+            "192.168.0.1": {
+                "gracefulRestartInfo": {
+                    "localGrMode": "Helper*",
+                    "remoteGrMode": "Restart",
+                    "timers": {
+                        "configuredRestartTimer": 120,
+                        "receivedRestartTimer": 240,
+                    },
+                },
+            },
+            "fd00::1": {
+                "gracefulRestartInfo": {
+                    "localGrMode": "Helper*",
+                    "remoteGrMode": "Restart",
+                    "timers": {
+                        "configuredRestartTimer": 120,
+                        "receivedRestartTimer": 240,
+                    },
+                },
+            },
+        }
+        return topotest.json_cmp(output, expected)
+
+    test_func = functools.partial(
+        _bgp_check_if_gr_restart_time_was_updated,
+    )
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
+    assert result is None, "R2 did not receive the updated GR restart-time of 240s"
+
+    def _bgp_check_if_gr_timer_on_restarting_node_was_updated():
+        output = json.loads(tgen.gears["r1"].vtysh_cmd("show bgp neighbor json"))
+
+        expected = {
+            "192.168.0.2": {
+                "gracefulRestartInfo": {
+                    "localGrMode": "Restart*",
+                    "remoteGrMode": "Helper",
+                    "timers": {
+                        "configuredRestartTimer": 240,
+                        "receivedRestartTimer": 120,
+                    },
+                    "ipv4Unicast": {
+                        "timers": {"stalePathTimer": 420, "selectionDeferralTimer": 420}
+                    },
+                },
+            },
+            "fd00::2": {
+                "gracefulRestartInfo": {
+                    "localGrMode": "Restart*",
+                    "remoteGrMode": "Helper",
+                    "timers": {
+                        "configuredRestartTimer": 240,
+                        "receivedRestartTimer": 120,
+                    },
+                    "ipv6Unicast": {
+                        "timers": {"stalePathTimer": 420, "selectionDeferralTimer": 420}
+                    },
+                },
+            },
+        }
+        return topotest.json_cmp(output, expected)
+
+    test_func = functools.partial(
+        _bgp_check_if_gr_timer_on_restarting_node_was_updated,
+    )
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
+    assert (
+        result is None
+    ), "R1 did not update the GR select-deferral and stale-path timer to 420s"
 
     write_test_footer(tc_name)
 

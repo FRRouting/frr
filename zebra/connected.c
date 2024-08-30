@@ -185,6 +185,7 @@ void connected_up(struct interface *ifp, struct connected *ifc)
 		.type = NEXTHOP_TYPE_IFINDEX,
 		.ifindex = ifp->ifindex,
 		.vrf_id = ifp->vrf->vrf_id,
+		.weight = 1,
 	};
 	struct zebra_vrf *zvrf;
 	uint32_t metric;

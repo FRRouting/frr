@@ -636,17 +636,15 @@ static int pim_msg_send_frame(pim_addr src, pim_addr dst, ifindex_t ifindex,
 int pim_msg_send(int fd, pim_addr src, pim_addr dst, uint8_t *pim_msg,
 		 int pim_msg_size, struct interface *ifp)
 {
-	struct pim_interface *pim_ifp;
+	if (ifp) {
+		struct pim_interface *pim_ifp = ifp->info;
 
-
-	pim_ifp = ifp->info;
-
-	if (pim_ifp->pim_passive_enable) {
-		if (PIM_DEBUG_PIM_PACKETS)
-			zlog_debug(
-				"skip sending PIM message on passive interface %s",
-				ifp->name);
-		return 0;
+		if (pim_ifp->pim_passive_enable) {
+			if (PIM_DEBUG_PIM_PACKETS)
+				zlog_debug("skip sending PIM message on passive interface %s",
+					   ifp->name);
+			return 0;
+		}
 	}
 
 #if PIM_IPV == 4
@@ -710,7 +708,7 @@ int pim_msg_send(int fd, pim_addr src, pim_addr dst, uint8_t *pim_msg,
 
 	if (PIM_DEBUG_PIM_PACKETS)
 		zlog_debug("%s: to %pPA on %s: msg_size=%d checksum=%x",
-			   __func__, &dst, ifp->name, pim_msg_size,
+			   __func__, &dst, ifp ? ifp->name : "*", pim_msg_size,
 			   header->checksum);
 
 	if (PIM_DEBUG_PIM_PACKETDUMP_SEND) {
@@ -718,7 +716,7 @@ int pim_msg_send(int fd, pim_addr src, pim_addr dst, uint8_t *pim_msg,
 	}
 
 	pim_msg_send_frame(fd, (char *)buffer, sendlen, (struct sockaddr *)&to,
-			   tolen, ifp->name);
+			   tolen, ifp ? ifp->name : "*");
 	return 0;
 
 #else
@@ -727,7 +725,7 @@ int pim_msg_send(int fd, pim_addr src, pim_addr dst, uint8_t *pim_msg,
 	iovector[0].iov_base = pim_msg;
 	iovector[0].iov_len = pim_msg_size;
 
-	pim_msg_send_frame(src, dst, ifp->ifindex, &iovector[0], fd);
+	pim_msg_send_frame(src, dst, ifp ? ifp->ifindex : 0, &iovector[0], fd);
 
 	return 0;
 #endif

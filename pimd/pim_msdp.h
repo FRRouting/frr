@@ -89,6 +89,11 @@ enum pim_msdp_peer_flags {
 	PIM_MSDP_PEERF_IN_GROUP = (1 << 2),
 };
 
+enum msdp_auth_type {
+	MSDP_AUTH_NONE = 0,
+	MSDP_AUTH_MD5 = 1,
+};
+
 struct pim_msdp_peer {
 	struct pim_instance *pim;
 
@@ -97,6 +102,13 @@ struct pim_msdp_peer {
 	struct in_addr peer;
 	char *mesh_group_name;
 	char key_str[INET_ADDRSTRLEN];
+
+	/* Authentication data. */
+	enum msdp_auth_type auth_type;
+	char *auth_key;
+
+	int auth_listen_sock;
+	struct event *auth_listen_ev;
 
 	/* state */
 	enum pim_msdp_peer_state state;
@@ -138,6 +150,11 @@ struct pim_msdp_peer {
 
 	/* timestamps */
 	int64_t uptime;
+
+	/** SA input access list name. */
+	char *acl_in;
+	/** SA output access list name. */
+	char *acl_out;
 };
 
 struct pim_msdp_mg_mbr {
@@ -228,10 +245,8 @@ void pim_msdp_peer_pkt_rxed(struct pim_msdp_peer *mp);
 void pim_msdp_peer_stop_tcp_conn(struct pim_msdp_peer *mp, bool chg_state);
 void pim_msdp_peer_reset_tcp_conn(struct pim_msdp_peer *mp, const char *rc_str);
 void pim_msdp_write(struct event *thread);
-int pim_msdp_config_write(struct pim_instance *pim, struct vty *vty,
-			  const char *spaces);
-bool pim_msdp_peer_config_write(struct vty *vty, struct pim_instance *pim,
-				const char *spaces);
+int pim_msdp_config_write(struct pim_instance *pim, struct vty *vty);
+bool pim_msdp_peer_config_write(struct vty *vty, struct pim_instance *pim);
 void pim_msdp_peer_pkt_txed(struct pim_msdp_peer *mp);
 void pim_msdp_sa_ref(struct pim_instance *pim, struct pim_msdp_peer *mp,
 		     pim_sgaddr *sg, struct in_addr rp);
@@ -306,6 +321,15 @@ void pim_msdp_peer_del(struct pim_msdp_peer **mp);
 void pim_msdp_peer_change_source(struct pim_msdp_peer *mp,
 				 const struct in_addr *addr);
 
+/**
+ * Restart peer's connection.
+ *
+ * This is used internally in MSDP and should be used by northbound
+ * when wanting to immediately apply connections settings such as
+ * authentication.
+ */
+void pim_msdp_peer_restart(struct pim_msdp_peer *mp);
+
 #else /* PIM_IPV == 6 */
 static inline void pim_msdp_init(struct pim_instance *pim,
 				 struct event_loop *master)
@@ -339,14 +363,13 @@ static inline void pim_msdp_sa_local_del(struct pim_instance *pim,
 }
 
 static inline int pim_msdp_config_write(struct pim_instance *pim,
-					struct vty *vty, const char *spaces)
+					struct vty *vty)
 {
 	return 0;
 }
 
 static inline bool pim_msdp_peer_config_write(struct vty *vty,
-					      struct pim_instance *pim,
-					      const char *spaces)
+					      struct pim_instance *pim)
 {
 	return false;
 }

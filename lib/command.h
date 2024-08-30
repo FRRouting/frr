@@ -84,14 +84,12 @@ enum node_type {
 	CONFIG_NODE,		 /* Config node. Default mode of config file. */
 	PREFIX_NODE, /* ip prefix-list node. */
 	PREFIX_IPV6_NODE, /* ipv6 prefix-list node. */
+	LIB_DEBUG_NODE,		 /* frrlib debug node. */
 	DEBUG_NODE,		 /* Debug node. */
 	VRF_DEBUG_NODE,		 /* Vrf Debug node. */
-	NORTHBOUND_DEBUG_NODE,	 /* Northbound Debug node. */
 	DEBUG_VNC_NODE,		 /* Debug VNC node. */
 	RMAP_DEBUG_NODE,         /* Route-map debug node */
 	RESOLVER_DEBUG_NODE,	 /* Resolver debug node */
-	MGMT_BE_DEBUG_NODE,	 /* mgmtd backend-client debug node */
-	MGMT_FE_DEBUG_NODE,	 /* mgmtd frontend-client debug node */
 	AAA_NODE,		 /* AAA node. */
 	EXTLOG_NODE,		 /* RFC5424 & co. extended syslog */
 	KEYCHAIN_NODE,		 /* Key-chain node. */
@@ -182,6 +180,8 @@ enum node_type {
 	ISIS_SRV6_NODE_MSD_NODE,    /* ISIS SRv6 Node MSDs node */
 	MGMTD_NODE,		 /* MGMTD node. */
 	RPKI_VRF_NODE,  /* RPKI node for VRF */
+	PIM_NODE,		 /* PIM protocol mode */
+	PIM6_NODE,		 /* PIM protocol for IPv6 mode */
 	NODE_TYPE_MAX, /* maximum */
 };
 /* clang-format on */
@@ -250,9 +250,11 @@ struct cmd_node {
 /* Argc max counts. */
 #define CMD_ARGC_MAX   256
 
+/* clang-format off */
+
 /* helper defines for end-user DEFUN* macros */
 #define DEFUN_CMD_ELEMENT(funcname, cmdname, cmdstr, helpstr, attrs, dnum)     \
-	static const struct cmd_element cmdname = {                            \
+	const struct cmd_element cmdname = {                                   \
 		.string = cmdstr,                                              \
 		.func = funcname,                                              \
 		.doc = helpstr,                                                \
@@ -279,7 +281,7 @@ struct cmd_node {
 /* DEFPY variants */
 
 #define DEFPY_ATTR(funcname, cmdname, cmdstr, helpstr, attr)                   \
-	DEFUN_CMD_ELEMENT(funcname, cmdname, cmdstr, helpstr, attr, 0)         \
+	static DEFUN_CMD_ELEMENT(funcname, cmdname, cmdstr, helpstr, attr, 0)  \
 	funcdecl_##funcname
 
 #define DEFPY(funcname, cmdname, cmdstr, helpstr)                              \
@@ -306,7 +308,7 @@ struct cmd_node {
 
 #define DEFUN_ATTR(funcname, cmdname, cmdstr, helpstr, attr)                   \
 	DEFUN_CMD_FUNC_DECL(funcname)                                          \
-	DEFUN_CMD_ELEMENT(funcname, cmdname, cmdstr, helpstr, attr, 0)         \
+	static DEFUN_CMD_ELEMENT(funcname, cmdname, cmdstr, helpstr, attr, 0)  \
 	DEFUN_CMD_FUNC_TEXT(funcname)
 
 #define DEFUN(funcname, cmdname, cmdstr, helpstr)                              \
@@ -343,7 +345,8 @@ struct cmd_node {
 /* DEFUN + DEFSH */
 #define DEFUNSH_ATTR(daemon, funcname, cmdname, cmdstr, helpstr, attr)         \
 	DEFUN_CMD_FUNC_DECL(funcname)                                          \
-	DEFUN_CMD_ELEMENT(funcname, cmdname, cmdstr, helpstr, attr, daemon)    \
+	static DEFUN_CMD_ELEMENT(funcname, cmdname, cmdstr, helpstr, attr,     \
+				 daemon)                                       \
 	DEFUN_CMD_FUNC_TEXT(funcname)
 
 #define DEFUNSH(daemon, funcname, cmdname, cmdstr, helpstr)                    \
@@ -355,7 +358,7 @@ struct cmd_node {
 
 /* ALIAS macro which define existing command's alias. */
 #define ALIAS_ATTR(funcname, cmdname, cmdstr, helpstr, attr)                   \
-	DEFUN_CMD_ELEMENT(funcname, cmdname, cmdstr, helpstr, attr, 0)
+	static DEFUN_CMD_ELEMENT(funcname, cmdname, cmdstr, helpstr, attr, 0)
 
 #define ALIAS(funcname, cmdname, cmdstr, helpstr)                              \
 	ALIAS_ATTR(funcname, cmdname, cmdstr, helpstr, 0)
@@ -373,6 +376,8 @@ struct cmd_node {
 
 #define ALIAS_YANG(funcname, cmdname, cmdstr, helpstr)                         \
 	ALIAS_ATTR(funcname, cmdname, cmdstr, helpstr, CMD_ATTR_YANG)
+
+/* clang-format on */
 
 /* Some macroes */
 

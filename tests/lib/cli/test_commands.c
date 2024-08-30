@@ -21,6 +21,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 
+#include "debug.h"
 #include "command.h"
 #include "memory.h"
 #include "vector.h"
@@ -195,6 +196,7 @@ static void test_init(void)
 	struct cmd_element *cmd;
 
 	cmd_init(1);
+	debug_init();
 	nb_init(master, NULL, 0, false);
 
 	install_node(&bgp_node);

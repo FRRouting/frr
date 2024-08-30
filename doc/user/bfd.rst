@@ -1,12 +1,19 @@
 .. _bfd:
 
-**********************************
-Bidirectional Forwarding Detection
-**********************************
+***
+BFD
+***
 
-:abbr:`BFD (Bidirectional Forwarding Detection)` stands for
-Bidirectional Forwarding Detection and it is described and extended by
-the following RFCs:
+:abbr:`BFD (Bidirectional Forwarding Detection)` is:
+
+  a protocol intended to detect faults in the bidirectional path between two
+  forwarding engines, including interfaces, data link(s), and to the extent
+  possible the forwarding engines themselves, with potentially very low
+  latency.
+
+  -- :rfc:`5880`
+
+It is described and extended by the following RFCs:
 
 * :rfc:`5880`
 * :rfc:`5881`
@@ -38,19 +45,6 @@ may also be specified (:ref:`common-invocation-options`).
 
 .. program:: bfdd
 
-.. option:: --bfdctl <unix-socket>
-
-   Set the BFD daemon control socket location. If using a non-default
-   socket location::
-
-      /usr/lib/frr/bfdd --bfdctl /tmp/bfdd.sock
-
-
-   The default UNIX socket location is |INSTALL_PREFIX_STATE|/bfdd.sock
-
-   This option overrides the location addition that the -N option provides
-   to the bfdd.sock
-
 .. option:: --dplaneaddr <type>:<address>[<:port>]
 
    Configure the distributed BFD data plane listening socket bind address.
@@ -72,7 +66,7 @@ may also be specified (:ref:`common-invocation-options`).
 
      --dplaneaddr ipv6:[::1]:50701
 
-   (if ommited the default port is ``50700``).
+   (if omitted the default port is ``50700``).
 
    It is also possible to operate in client mode (instead of listening for
    connections). To connect to a data plane server append the letter 'c' to
