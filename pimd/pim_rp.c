@@ -1272,7 +1272,7 @@ void pim_rp_show_information(struct pim_instance *pim, struct prefix *range,
 	if (!json) {
 		table = ttable_dump(tt, "\n");
 		vty_out(vty, "%s\n", table);
-		XFREE(MTYPE_TMP, table);
+		XFREE(MTYPE_TMP_TTABLE, table);
 		ttable_del(tt);
 	} else {
 		if (prev_rp_info && json_rp_rows)
