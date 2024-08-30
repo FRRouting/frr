@@ -237,9 +237,9 @@ def test_protocols_convergence():
         assert result is None, assertmsg
 
     # Test connectivity from 1 NHRP server to all clients
-    pingrouter = tgen.gears["nhs1"]
+    nhs1 = tgen.gears["nhs1"]
     logger.info("Check Ping IPv4 from  nhs1 to nhc1 = 176.16.1.4)")
-    output = pingrouter.run("ping 176.16.1.4 -f -c 1000")
+    output = nhs1.run("ping 176.16.1.4 -f -c 1000")
     logger.info(output)
     if "1000 packets transmitted, 1000 received" not in output:
         assertmsg = "expected ping IPv4 from nhs1 to nhc1 should be ok"
@@ -248,7 +248,7 @@ def test_protocols_convergence():
         logger.info("Check Ping IPv4 from nhs1 to nhc1 OK")
 
     logger.info("Check Ping IPv4 from  nhs1 to nhc2 = 176.16.1.5)")
-    output = pingrouter.run("ping 176.16.1.5 -f -c 1000")
+    output = nhs1.run("ping 176.16.1.5 -f -c 1000")
     logger.info(output)
     if "1000 packets transmitted, 1000 received" not in output:
         assertmsg = "expected ping IPv4 from nhs1 to nhc2 should be ok"
@@ -257,9 +257,9 @@ def test_protocols_convergence():
         logger.info("Check Ping IPv4 from nhs1 to nhc2 OK")
 
     # Test connectivity from 1 NHRP client to all servers
-    pingrouter = tgen.gears["nhc1"]
+    nhc1 = tgen.gears["nhc1"]
     logger.info("Check Ping IPv4 from  nhc1 to nhs1 = 176.16.1.1)")
-    output = pingrouter.run("ping 176.16.1.1 -f -c 1000")
+    output = nhc1.run("ping 176.16.1.1 -f -c 1000")
     logger.info(output)
     if "1000 packets transmitted, 1000 received" not in output:
         assertmsg = "expected ping IPv4 from nhc1 to nhs1 should be ok"
@@ -268,7 +268,7 @@ def test_protocols_convergence():
         logger.info("Check Ping IPv4 from nhc1 to nhs1 OK")
 
     logger.info("Check Ping IPv4 from  nhc1 to nhs2 = 176.16.1.2)")
-    output = pingrouter.run("ping 176.16.1.2 -f -c 1000")
+    output = nhc1.run("ping 176.16.1.2 -f -c 1000")
     logger.info(output)
     if "1000 packets transmitted, 1000 received" not in output:
         assertmsg = "expected ping IPv4 from nhc1 to nhs2 should be ok"
@@ -277,7 +277,7 @@ def test_protocols_convergence():
         logger.info("Check Ping IPv4 from nhc1 to nhs2 OK")
 
     logger.info("Check Ping IPv4 from  nhc1 to nhs3 = 176.16.1.3)")
-    output = pingrouter.run("ping 176.16.1.3 -f -c 1000")
+    output = nhc1.run("ping 176.16.1.3 -f -c 1000")
     logger.info(output)
     if "1000 packets transmitted, 1000 received" not in output:
         assertmsg = "expected ping IPv4 from nhc1 to nhs3 should be ok"
@@ -292,10 +292,10 @@ def verify_shortcut_path():
     Verifying that traffic flows through shortcut path
     """
     tgen = get_topogen()
-    pingrouter = tgen.gears["host"]
+    host = tgen.gears["host"]
     logger.info("Check Ping IPv4 from  host to nhc2 = 5.5.5.5")
 
-    output = pingrouter.run("ping 5.5.5.5 -f -c 1000")
+    output = host.run("ping 5.5.5.5 -f -c 1000")
     logger.info(output)
     if "1000 packets transmitted, 1000 received" not in output:
         assertmsg = "expected ping IPv4 from host to nhc2 should be ok"
@@ -319,28 +319,28 @@ def test_redundancy_shortcut():
     logger.info("Testing NHRP shortcuts with redundant servers")
 
     # Verify nhc1 nhrp routes before shortcut creation
-    router = tgen.gears["nhc1"]
-    json_file = "{}/{}/nhrp_route.json".format(CWD, router.name)
+    nhc1 = tgen.gears["nhc1"]
+    json_file = "{}/{}/nhrp_route.json".format(CWD, nhc1.name)
     assertmsg = "No nhrp_route file found"
     assert os.path.isfile(json_file), assertmsg
 
     expected = json.loads(open(json_file).read())
     test_func = partial(
-        topotest.router_json_cmp, router, "show ip route nhrp json", expected
+        topotest.router_json_cmp, nhc1, "show ip route nhrp json", expected
     )
     _, result = topotest.run_and_expect(test_func, None, count=40, wait=0.5)
 
-    output = router.vtysh_cmd("show ip route nhrp")
+    output = nhc1.vtysh_cmd("show ip route nhrp")
     logger.info(output)
 
-    assertmsg = '"{}" JSON output mismatches'.format(router.name)
+    assertmsg = '"{}" JSON output mismatches'.format(nhc1.name)
     assert result is None, assertmsg
 
     # Initiate shortcut by pinging between clients
-    pingrouter = tgen.gears["host"]
+    host = tgen.gears["host"]
     logger.info("Check Ping IPv4 from  host to nhc2 via shortcut = 5.5.5.5")
 
-    output = pingrouter.run("ping 5.5.5.5 -f -c 1000")
+    output = host.run("ping 5.5.5.5 -f -c 1000")
     logger.info(output)
     if "1000 packets transmitted, 1000 received" not in output:
         assertmsg = "expected ping IPv4 from host to nhc2 via shortcut should be ok"
@@ -349,20 +349,20 @@ def test_redundancy_shortcut():
         logger.info("Check Ping IPv4 from host to nhc2 via shortcut OK")
 
     # Now check that NHRP shortcut route installed
-    json_file = "{}/{}/nhrp_route_shortcut.json".format(CWD, router.name)
+    json_file = "{}/{}/nhrp_route_shortcut.json".format(CWD, nhc1.name)
     assertmsg = "No nhrp_route file found"
     assert os.path.isfile(json_file), assertmsg
 
     expected = json.loads(open(json_file).read())
     test_func = partial(
-        topotest.router_json_cmp, router, "show ip route nhrp json", expected
+        topotest.router_json_cmp, nhc1, "show ip route nhrp json", expected
     )
     _, result = topotest.run_and_expect(test_func, None, count=40, wait=0.5)
 
-    output = router.vtysh_cmd("show ip route nhrp")
+    output = nhc1.vtysh_cmd("show ip route nhrp")
     logger.info(output)
 
-    assertmsg = '"{}" JSON output mismatches'.format(router.name)
+    assertmsg = '"{}" JSON output mismatches'.format(nhc1.name)
     assert result is None, assertmsg
 
     # Bring down primary GRE interface and verify shortcut is not disturbed
@@ -370,10 +370,10 @@ def test_redundancy_shortcut():
     shutdown_bringup_interface(tgen, "nhs1", "nhs1-gre0", False)
 
     # Verify shortcut is still active
-    pingrouter = tgen.gears["host"]
+    host = tgen.gears["host"]
     logger.info("Check Ping IPv4 from  host to nhc2 via shortcut = 5.5.5.5")
 
-    output = pingrouter.run("ping 5.5.5.5 -f -c 1000")
+    output = host.run("ping 5.5.5.5 -f -c 1000")
     logger.info(output)
     if "1000 packets transmitted, 1000 received" not in output:
         assertmsg = "expected ping IPv4 from host to nhc2 via shortcut should be ok"
@@ -382,20 +382,20 @@ def test_redundancy_shortcut():
         logger.info("Check Ping IPv4 from host to nhc2 via shortcut OK")
 
     # Now verify shortcut is purged with lack of traffic
-    json_file = "{}/{}/nhrp_route.json".format(CWD, router.name)
+    json_file = "{}/{}/nhrp_route.json".format(CWD, nhc1.name)
     assertmsg = "No nhrp_route file found"
     assert os.path.isfile(json_file), assertmsg
 
     expected = json.loads(open(json_file).read())
     test_func = partial(
-        topotest.router_json_cmp, router, "show ip route nhrp json", expected
+        topotest.router_json_cmp, nhc1, "show ip route nhrp json", expected
     )
     _, result = topotest.run_and_expect(test_func, None, count=40, wait=0.5)
 
-    output = router.vtysh_cmd("show ip route nhrp")
+    output = nhc1.vtysh_cmd("show ip route nhrp")
     logger.info(output)
 
-    assertmsg = '"{}" JSON output mismatches'.format(router.name)
+    assertmsg = '"{}" JSON output mismatches'.format(nhc1.name)
     assert result is None, assertmsg
 
 
