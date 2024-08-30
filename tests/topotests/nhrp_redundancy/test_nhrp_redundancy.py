@@ -106,7 +106,7 @@ def _populate_iface():
         "echo 0 > /proc/sys/net/ipv4/ip_forward_use_pmtu",
         "echo 1 > /proc/sys/net/ipv6/conf/{0}-eth0/disable_ipv6",
         "echo 1 > /proc/sys/net/ipv6/conf/{0}-gre0/disable_ipv6",
-        "iptables -A FORWARD -i {0}-gre0 -o {0}-gre0 -m hashlimit --hashlimit-upto 4/minute --hashlimit-burst 1 --hashlimit-mode srcip,dstip --hashlimit-srcmask 24 --hashlimit-dstmask 24 --hashlimit-name loglimit-0 -j NFLOG --nflog-group 1 --nflog-range 128",
+        "iptables -A FORWARD -i {0}-gre0 -o {0}-gre0 -m hashlimit --hashlimit-upto 4/minute --hashlimit-burst 1 --hashlimit-mode srcip,dstip --hashlimit-srcmask 24 --hashlimit-dstmask 24 --hashlimit-name loglimit-0 -j NFLOG --nflog-group 1 --nflog-size 128",
     ]
 
     cmds_tot = [
