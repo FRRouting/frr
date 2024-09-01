@@ -381,7 +381,7 @@ DEFPY(fpm_show_status,
 
 		out = ttable_dump(table, "\n");
 		vty_out(vty, "%s\n", out);
-		XFREE(MTYPE_TMP, out);
+		XFREE(MTYPE_TMP_TTABLE, out);
 
 		ttable_del(table);
 	}

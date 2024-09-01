@@ -2337,7 +2337,7 @@ static void isis_print_paths(struct vty *vty, struct isis_vertex_queue *queue,
 	if (json == NULL) {
 		table = ttable_dump(tt, "\n");
 		vty_out(vty, "%s\n", table);
-		XFREE(MTYPE_TMP, table);
+		XFREE(MTYPE_TMP_TTABLE, table);
 	} else
 		*json = ttable_json_with_json_text(
 			tt, "ssdsss",
@@ -3016,7 +3016,7 @@ void isis_print_routes(struct vty *vty, struct isis_spftree *spftree,
 
 		table = ttable_dump(tt, "\n");
 		vty_out(vty, "%s\n", table);
-		XFREE(MTYPE_TMP, table);
+		XFREE(MTYPE_TMP_TTABLE, table);
 	} else if (json) {
 		*json = ttable_json_with_json_text(
 			tt, prefix_sid ? "sdssdsdd" : "sdsss",
@@ -3458,7 +3458,7 @@ static void isis_print_frr_summary(struct vty *vty,
 	/* Dump the generated table. */
 	table = ttable_dump(tt, "\n");
 	vty_out(vty, "%s\n", table);
-	XFREE(MTYPE_TMP, table);
+	XFREE(MTYPE_TMP_TTABLE, table);
 	ttable_del(tt);
 }
 
