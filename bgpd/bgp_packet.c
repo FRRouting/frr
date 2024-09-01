@@ -1116,10 +1116,10 @@ void bgp_route_refresh_send(struct peer *peer, afi_t afi, safi_t safi,
 	s = stream_new(peer->max_packet_size);
 
 	/* Make BGP update packet. */
-	if (CHECK_FLAG(peer->cap, PEER_CAP_REFRESH_RCV))
-		bgp_packet_set_marker(s, BGP_MSG_ROUTE_REFRESH_NEW);
-	else
-		bgp_packet_set_marker(s, BGP_MSG_ROUTE_REFRESH_OLD);
+	if (!CHECK_FLAG(peer->cap, PEER_CAP_REFRESH_RCV))
+		return;
+
+	bgp_packet_set_marker(s, BGP_MSG_ROUTE_REFRESH_NEW);
 
 	/* Encode Route Refresh message. */
 	stream_putw(s, pkt_afi);
