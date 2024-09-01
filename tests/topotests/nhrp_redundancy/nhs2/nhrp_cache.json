@@ -1,0 +1,40 @@
+{
+    "attr": {
+        "entriesCount": 3
+    },
+    "table": [
+        {
+            "interface": "nhs2-gre0",
+            "type": "local",
+            "protocol": "172.16.1.2",
+            "nbma": "192.168.1.2",
+            "claimed_nbma": "192.168.1.2",
+            "used": false,
+            "timeout": false,
+            "auth": false,
+            "identity": "-"
+        },
+        {
+            "interface": "nhs2-gre0",
+            "type": "dynamic",
+            "protocol": "172.16.1.4",
+            "nbma": "192.168.2.4",
+            "claimed_nbma": "192.168.2.4",
+            "used": false,
+            "timeout": true,
+            "auth": false,
+            "identity": ""
+        },
+        {
+            "interface": "nhs2-gre0",
+            "type": "dynamic",
+            "protocol": "172.16.1.5",
+            "nbma": "192.168.2.5",
+            "claimed_nbma": "192.168.2.5",
+            "used": false,
+            "timeout": true,
+            "auth": false,
+            "identity": ""
+        }
+    ]
+}
