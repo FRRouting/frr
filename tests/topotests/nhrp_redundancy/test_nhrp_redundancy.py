@@ -291,6 +291,7 @@ def test_redundancy_shortcut():
     check_ping("host", "10.5.5.5", True, 10, 0.5)
 
     # Now check that NHRP shortcut route installed
+    logger.info("Check that NHRP shortcut route installed")
     json_file = "{}/{}/nhrp_route_shortcut.json".format(CWD, nhc1.name)
     assertmsg = "No nhrp_route file found"
     assert os.path.isfile(json_file), assertmsg
@@ -307,6 +308,7 @@ def test_redundancy_shortcut():
     assertmsg = '"{}" JSON output mismatches'.format(nhc1.name)
     assert result is None, assertmsg
 
+    logger.info("Check the shortcut")
     json_file = "{}/{}/nhrp_shortcut_present.json".format(CWD, nhc1.name)
     expected = json.loads(open(json_file).read())
     test_func = partial(
@@ -320,6 +322,22 @@ def test_redundancy_shortcut():
     assertmsg = '"{}" JSON output mismatches'.format(nhc1.name)
     assert result is None, assertmsg
 
+
+def test_redundancy_shortcut_nhc2_down():
+    """
+    Check that the traffic disappears after nhc2 is shutdown
+    """
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    nhc1 = tgen.gears["nhc1"]
+    router_list = tgen.routers()
+
+    logger.info("Bringing down nhc2.")
+    shutdown_bringup_interface(tgen, "nhc2", "nhc2-gre0", False)
+
+    logger.info("Check the shortcut disappears")
     # check the shortcut disappears because of no traffic
     json_file = "{}/{}/nhrp_shortcut_absent.json".format(CWD, nhc1.name)
     expected = json.loads(open(json_file).read())
@@ -335,7 +353,7 @@ def test_redundancy_shortcut():
     assert result is None, assertmsg
 
 
-def test_redundancy_shortcut_backup():
+def test_redundancy_shortcut_nhs1_down():
     """
     Stop traffic and verify next time traffic started, shortcut is initiated by backup NHS
     """
@@ -352,8 +370,10 @@ def test_redundancy_shortcut_backup():
     # Bring down primary GRE interface and verify shortcut is not disturbed
     logger.info("Bringing down nhs1, primary NHRP server.")
     shutdown_bringup_interface(tgen, "nhs1", "nhs1-gre0", False)
+    logger.info("Bringing up nhc2.")
+    shutdown_bringup_interface(tgen, "nhc2", "nhc2-gre0", True)
 
-    # Check NHRP cache on servers and clients
+    logger.info("Check NHRP cache on servers and clients")
     for rname, router in router_list.items():
         if "nh" not in rname:
             continue
@@ -397,7 +417,7 @@ def test_redundancy_shortcut_backup():
     logger.info("Check Ping IPv4 from  host to nhc2 via shortcut = 10.5.5.5")
     check_ping("host", "10.5.5.5", True, 10, 0.5)
 
-    # Verify shortcut is present in routing table
+    logger.info("Check that shortcut is present in routing table")
     json_file = "{}/{}/nhrp_route_shortcut_nhs1_down.json".format(CWD, nhc1.name)
     assertmsg = "No nhrp_route file found"
     assert os.path.isfile(json_file), assertmsg
@@ -424,7 +444,28 @@ def test_redundancy_shortcut_backup():
     assertmsg = '"{}" JSON output mismatches'.format(nhc1.name)
     assert result is None, assertmsg
 
-    # Now verify shortcut is purged with lack of traffic
+
+def test_redundancy_shortcut_del_arp():
+    """
+    Stop traffic and verify next time traffic started, shortcut is initiated by backup NHS
+    """
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    if not _verify_iptables():
+        pytest.skip("iptables not installed")
+
+    nhc1 = tgen.gears["nhc1"]
+    router_list = tgen.routers()
+
+    logger.info("Remove ARP on nhc1 to nhc2")
+    nhc1.cmd("ip neigh del 10.5.5.5 dev nhc1-gre0")
+    nhc1.cmd("ip neigh del 172.16.1.5 dev nhc1-gre0")
+
+    logger.info(
+        "Check that shortcut is purged with lack of traffic and neighbor entries"
+    )
     json_file = "{}/{}/nhrp_route_nhs1_down.json".format(CWD, nhc1.name)
     assertmsg = "No nhrp_route file found"
     assert os.path.isfile(json_file), assertmsg
