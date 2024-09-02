@@ -312,6 +312,35 @@ int isis_instance_flex_algo_affinity_mapping_value_modify(
 	struct nb_cb_modify_args *args);
 int isis_instance_flex_algo_affinity_mapping_value_destroy(
 	struct nb_cb_destroy_args *args);
+<<<<<<< HEAD
+=======
+int isis_instance_segment_routing_srv6_enabled_modify(
+	struct nb_cb_modify_args *args);
+void cli_show_isis_srv6_enabled(struct vty *vty, const struct lyd_node *dnode,
+				bool show_defaults);
+int isis_instance_segment_routing_srv6_locator_modify(
+	struct nb_cb_modify_args *args);
+int isis_instance_segment_routing_srv6_locator_destroy(
+	struct nb_cb_destroy_args *args);
+void cli_show_isis_srv6_locator(struct vty *vty, const struct lyd_node *dnode,
+				bool show_defaults);
+void cli_show_isis_srv6_locator_end(struct vty *vty,
+				    const struct lyd_node *dnode);
+int isis_instance_segment_routing_srv6_msd_node_msd_max_segs_left_modify(
+	struct nb_cb_modify_args *args);
+int isis_instance_segment_routing_srv6_msd_node_msd_max_end_pop_modify(
+	struct nb_cb_modify_args *args);
+int isis_instance_segment_routing_srv6_msd_node_msd_max_h_encaps_modify(
+	struct nb_cb_modify_args *args);
+int isis_instance_segment_routing_srv6_msd_node_msd_max_end_d_modify(
+	struct nb_cb_modify_args *args);
+void cli_show_isis_srv6_node_msd(struct vty *vty, const struct lyd_node *dnode,
+				 bool show_defaults);
+int isis_instance_segment_routing_srv6_interface_modify(
+	struct nb_cb_modify_args *args);
+void cli_show_isis_srv6_interface(struct vty *vty, const struct lyd_node *dnode,
+				bool show_defaults);
+>>>>>>> 8be8864ffd (isisd: Add missing `exit` statement)
 int isis_instance_mpls_ldp_sync_destroy(struct nb_cb_destroy_args *args);
 int isis_instance_mpls_ldp_sync_create(struct nb_cb_create_args *args);
 int isis_instance_mpls_ldp_sync_holddown_modify(struct nb_cb_modify_args *args);

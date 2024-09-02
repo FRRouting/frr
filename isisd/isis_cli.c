@@ -1935,6 +1935,243 @@ void cli_show_isis_prefix_sid_algorithm(struct vty *vty,
 }
 
 /*
+<<<<<<< HEAD
+=======
+ * XPath: /frr-isisd:isis/instance/segment-routing-srv6/locator
+ */
+DEFPY (isis_srv6_locator,
+       isis_srv6_locator_cmd,
+       "[no] locator NAME$loc_name",
+       NO_STR
+       "Specify SRv6 locator\n"
+       "Specify SRv6 locator\n")
+{
+	if (no)
+		nb_cli_enqueue_change(vty, "./locator", NB_OP_DESTROY, loc_name);
+	else
+		nb_cli_enqueue_change(vty, "./locator", NB_OP_MODIFY, loc_name);
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+void cli_show_isis_srv6_locator(struct vty *vty, const struct lyd_node *dnode,
+				bool show_defaults)
+{
+	vty_out(vty, "  locator %s\n", yang_dnode_get_string(dnode, NULL));
+}
+
+void cli_show_isis_srv6_locator_end(struct vty *vty,
+				    const struct lyd_node *dnode)
+{
+	vty_out(vty, " exit\n");
+}
+
+/*
+ * XPath: /frr-isisd:isis/instance/segment-routing-srv6/enabled
+ */
+DEFPY_YANG_NOSH (isis_srv6_enable,
+       isis_srv6_enable_cmd,
+       "segment-routing srv6",
+       SR_STR
+       "Enable Segment Routing over IPv6 (SRv6)\n")
+{
+	int ret;
+	char xpath[XPATH_MAXLEN + 37];
+
+	snprintf(xpath, sizeof(xpath), "%s/segment-routing-srv6",
+		 VTY_CURR_XPATH);
+
+	nb_cli_enqueue_change(vty, "./segment-routing-srv6/enabled",
+			      NB_OP_MODIFY, "true");
+
+	ret = nb_cli_apply_changes(vty, NULL);
+	if (ret == CMD_SUCCESS)
+		VTY_PUSH_XPATH(ISIS_SRV6_NODE, xpath);
+
+	return ret;
+}
+
+DEFPY_YANG (no_isis_srv6_enable,
+       no_isis_srv6_enable_cmd,
+       "no segment-routing srv6",
+       NO_STR
+       SR_STR
+       "Disable Segment Routing over IPv6 (SRv6)\n")
+{
+	nb_cli_enqueue_change(vty, "./segment-routing-srv6", NB_OP_DESTROY,
+			      NULL);
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+void cli_show_isis_srv6_enabled(struct vty *vty, const struct lyd_node *dnode,
+				bool show_defaults)
+{
+	if (!yang_dnode_get_bool(dnode, NULL))
+		vty_out(vty, " no");
+
+	vty_out(vty, " segment-routing srv6\n");
+}
+
+/*
+ * XPath: /frr-isisd:isis/instance/segment-routing-srv6/msd/node-msd
+ */
+DEFPY_YANG_NOSH (isis_srv6_node_msd,
+       isis_srv6_node_msd_cmd,
+       "[no] node-msd",
+       NO_STR
+       "Segment Routing over IPv6 (SRv6) Maximum SRv6 SID Depths\n")
+{
+	int ret = CMD_SUCCESS;
+	char xpath[XPATH_MAXLEN + 37];
+
+	snprintf(xpath, sizeof(xpath), "%s/msd/node-msd", VTY_CURR_XPATH);
+
+	if (no) {
+		nb_cli_enqueue_change(vty, "./msd/node_msd/max-segs-left",
+				      NB_OP_DESTROY, NULL);
+		nb_cli_enqueue_change(vty, "./msd/node_msd/end-pop",
+				      NB_OP_DESTROY, NULL);
+		nb_cli_enqueue_change(vty, "./msd/node_msd/h-encaps",
+				      NB_OP_DESTROY, NULL);
+		nb_cli_enqueue_change(vty, "./msd/node_msd/end-d",
+				      NB_OP_DESTROY, NULL);
+		ret = nb_cli_apply_changes(vty, NULL);
+	} else
+		VTY_PUSH_XPATH(ISIS_SRV6_NODE_MSD_NODE, xpath);
+
+	return ret;
+}
+
+/*
+ * XPath: /frr-isisd:isis/instance/segment-routing-srv6/msd/node-msd/max-segs-left
+ */
+DEFPY (isis_srv6_node_msd_max_segs_left,
+       isis_srv6_node_msd_max_segs_left_cmd,
+       "[no] max-segs-left (0-255)$max_segs_left",
+       NO_STR
+       "Specify Maximum Segments Left MSD\n"
+       "Specify Maximum Segments Left MSD\n")
+{
+	if (no)
+		nb_cli_enqueue_change(vty, "./max-segs-left", NB_OP_DESTROY,
+				      NULL);
+	else
+		nb_cli_enqueue_change(vty, "./max-segs-left", NB_OP_MODIFY,
+				      max_segs_left_str);
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+/*
+ * XPath: /frr-isisd:isis/instance/segment-routing-srv6/msd/node-msd/max-end-pop
+ */
+DEFPY (isis_srv6_node_msd_max_end_pop,
+       isis_srv6_node_msd_max_end_pop_cmd,
+       "[no] max-end-pop (0-255)$max_end_pop",
+       NO_STR
+       "Specify Maximum End Pop MSD\n"
+       "Specify Maximum End Pop MSD\n")
+{
+	if (no)
+		nb_cli_enqueue_change(vty, "./max-end-pop", NB_OP_DESTROY, NULL);
+	else
+		nb_cli_enqueue_change(vty, "./max-end-pop", NB_OP_MODIFY,
+				      max_end_pop_str);
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+/*
+ * XPath: /frr-isisd:isis/instance/segment-routing-srv6/msd/node-msd/max-h-encaps
+ */
+DEFPY (isis_srv6_node_msd_max_h_encaps,
+       isis_srv6_node_msd_max_h_encaps_cmd,
+       "[no] max-h-encaps (0-255)$max_h_encaps",
+       NO_STR
+       "Specify Maximum H.Encaps MSD\n"
+       "Specify Maximum H.Encaps MSD\n")
+{
+	if (no)
+		nb_cli_enqueue_change(vty, "./max-h-encaps", NB_OP_DESTROY,
+				      NULL);
+	else
+		nb_cli_enqueue_change(vty, "./max-h-encaps", NB_OP_MODIFY,
+				      max_h_encaps_str);
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+/*
+ * XPath: /frr-isisd:isis/instance/segment-routing-srv6/msd/node-msd/max-end-d
+ */
+DEFPY (isis_srv6_node_msd_max_end_d,
+       isis_srv6_node_msd_max_end_d_cmd,
+       "[no] max-end-d (0-255)$max_end_d",
+       NO_STR
+       "Specify Maximum End D MSD\n"
+       "Specify Maximum End D MSD\n")
+{
+	if (no)
+		nb_cli_enqueue_change(vty, "./max-end-d", NB_OP_DESTROY, NULL);
+	else
+		nb_cli_enqueue_change(vty, "./max-end-d", NB_OP_MODIFY,
+				      max_end_d_str);
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+void cli_show_isis_srv6_node_msd(struct vty *vty, const struct lyd_node *dnode,
+				 bool show_defaults)
+{
+	vty_out(vty, "  node-msd\n");
+	if (yang_dnode_get_uint8(dnode, "max-segs-left") !=
+	    yang_get_default_uint8("%s/msd/node-msd/max-segs-left", ISIS_SRV6))
+		vty_out(vty, "   max-segs-left %u\n",
+			yang_dnode_get_uint8(dnode, "max-segs-left"));
+	if (yang_dnode_get_uint8(dnode, "max-end-pop") !=
+	    yang_get_default_uint8("%s/msd/node-msd/max-end-pop", ISIS_SRV6))
+		vty_out(vty, "   max-end-pop %u\n",
+			yang_dnode_get_uint8(dnode, "max-end-pop"));
+	if (yang_dnode_get_uint8(dnode, "max-h-encaps") !=
+	    yang_get_default_uint8("%s/msd/node-msd/max-h-encaps", ISIS_SRV6))
+		vty_out(vty, "   max-h-encaps %u\n",
+			yang_dnode_get_uint8(dnode, "max-h-encaps"));
+	if (yang_dnode_get_uint8(dnode, "max-end-d") !=
+	    yang_get_default_uint8("%s/msd/node-msd/max-end-d", ISIS_SRV6))
+		vty_out(vty, "   max-end-d %u\n",
+			yang_dnode_get_uint8(dnode, "max-end-d"));
+}
+
+/*
+ * XPath: /frr-isisd:isis/instance/segment-routing-srv6/interface
+ */
+DEFPY (isis_srv6_interface,
+       isis_srv6_interface_cmd,
+       "[no] interface WORD$interface",
+       NO_STR
+       "Interface for Segment Routing over IPv6 (SRv6)\n"
+       "Interface for Segment Routing over IPv6 (SRv6)\n")
+{
+	if (no) {
+		nb_cli_enqueue_change(vty, "./interface",
+				      NB_OP_MODIFY, NULL);
+	} else {
+		nb_cli_enqueue_change(vty, "./interface",
+				      NB_OP_MODIFY, interface);
+	}
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+void cli_show_isis_srv6_interface(struct vty *vty, const struct lyd_node *dnode,
+				bool show_defaults)
+{
+	vty_out(vty, "  interface %s\n", yang_dnode_get_string(dnode, NULL));
+}
+
+/*
+>>>>>>> 8be8864ffd (isisd: Add missing `exit` statement)
  * XPath: /frr-isisd:isis/instance/fast-reroute/level-{1,2}/lfa/priority-limit
  */
 DEFPY_YANG (isis_frr_lfa_priority_limit,
