@@ -1827,16 +1827,13 @@ struct peer {
 	struct stream *last_reset_cause;
 
 	/* The kind of route-map Flags.*/
-	uint16_t rmap_type;
+	uint8_t rmap_type;
 #define PEER_RMAP_TYPE_IN             (1U << 0) /* neighbor route-map in */
 #define PEER_RMAP_TYPE_OUT            (1U << 1) /* neighbor route-map out */
 #define PEER_RMAP_TYPE_NETWORK        (1U << 2) /* network route-map */
 #define PEER_RMAP_TYPE_REDISTRIBUTE   (1U << 3) /* redistribute route-map */
 #define PEER_RMAP_TYPE_DEFAULT        (1U << 4) /* default-originate route-map */
-#define PEER_RMAP_TYPE_NOSET          (1U << 5) /* not allow to set commands */
-#define PEER_RMAP_TYPE_IMPORT         (1U << 6) /* neighbor route-map import */
-#define PEER_RMAP_TYPE_EXPORT         (1U << 7) /* neighbor route-map export */
-#define PEER_RMAP_TYPE_AGGREGATE      (1U << 8) /* aggregate-address route-map */
+#define PEER_RMAP_TYPE_AGGREGATE      (1U << 5) /* aggregate-address route-map */
 
 	/** Peer overwrite configuration. */
 	struct bfd_session_config {
