@@ -218,7 +218,7 @@ def get_normalized_es_id(line):
     """
     sub_strs = ["evpn mh es-id", "evpn mh es-sys-mac"]
     for sub_str in sub_strs:
-        obj = re.match(sub_str + " (?P<esi>\S*)", line)
+        obj = re.match(sub_str + r" (?P<esi>\S*)", line)
         if obj:
             line = "%s %s" % (sub_str, obj.group("esi").lower())
             break
@@ -829,7 +829,7 @@ def bgp_delete_nbr_remote_as_line(lines_to_add):
             if ctx_keys[0] not in pg_dict:
                 pg_dict[ctx_keys[0]] = dict()
             # find 'neighbor <pg_name> peer-group'
-            re_pg = re.match("neighbor (\S+) peer-group$", line)
+            re_pg = re.match(r"neighbor (\S+) peer-group$", line)
             if re_pg and re_pg.group(1) not in pg_dict[ctx_keys[0]]:
                 pg_dict[ctx_keys[0]][re_pg.group(1)] = {
                     "nbr": list(),
@@ -1025,7 +1025,7 @@ def delete_move_lines(lines_to_add, lines_to_del):
             if ctx_keys[0] not in del_dict:
                 del_dict[ctx_keys[0]] = dict()
             # find 'no neighbor <pg_name> peer-group'
-            re_pg = re.match("neighbor (\S+) peer-group$", line)
+            re_pg = re.match(r"neighbor (\S+) peer-group$", line)
             if re_pg and re_pg.group(1) not in del_dict[ctx_keys[0]]:
                 del_dict[ctx_keys[0]][re_pg.group(1)] = list()
                 found_pg_del_cmd = True
