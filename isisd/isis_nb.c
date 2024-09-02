@@ -873,6 +873,7 @@ const struct frr_yang_module_info frr_isisd_info = {
 				.modify = isis_instance_segment_routing_srv6_locator_modify,
 				.destroy = isis_instance_segment_routing_srv6_locator_destroy,
 				.cli_show = cli_show_isis_srv6_locator,
+				.cli_show_end = cli_show_isis_srv6_locator_end,
 			},
 		},
 		{
