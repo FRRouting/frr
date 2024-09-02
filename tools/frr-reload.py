@@ -14,6 +14,7 @@ This program
 
 from __future__ import print_function, unicode_literals
 import argparse
+import datetime
 import logging
 import os, os.path
 import random
@@ -1961,6 +1962,18 @@ def compare_context_objects(newconf, running):
     return (lines_to_add, lines_to_del)
 
 
+class LogFmtFormatter(logging.Formatter):
+    def format(self, record):
+        # Escape double quotes in the message, replace newlines with '\n'
+        record.msg = record.getMessage().replace('"', '\\"')
+        record.msg = record.msg.replace('\n', '\\n')
+        # Format the time in RFC 3339 format
+        record.asctime = datetime.datetime.fromtimestamp(record.created, datetime.timezone.utc).astimezone().isoformat(timespec='seconds')
+        # Create logfmt style log message, ignore extra fields
+        logfmt = f'ts={record.asctime} level={record.levelname} msg="{record.msg}"'
+        return logfmt
+
+
 if __name__ == "__main__":
     # Command line options
     parser = argparse.ArgumentParser(
@@ -2028,15 +2041,24 @@ if __name__ == "__main__":
         action="store_true",
         help="Used by topotest to not delete debug or log file commands",
     )
+    parser.add_argument(
+        "--logfmt",
+        action="store_true",
+        help="Use logfmt as log format",
+        default=False,
+    )
 
     args = parser.parse_args()
 
     # Logging
     # For --test log to stdout
     # For --reload log to /var/log/frr/frr-reload.log
-    if args.test or args.stdout:
-        logging.basicConfig(format="%(asctime)s %(levelname)5s: %(message)s")
-
+    # If --logfmt, use the logfmt format
+    formatter = logging.Formatter("%(asctime)s %(levelname)5s: %(message)s")
+    handler = logging.StreamHandler()
+    if args.logfmt:
+        formatter = LogFmtFormatter()
+    if (args.test or args.stdout) and not args.logfmt:
         # Color the errors and warnings in red
         logging.addLevelName(
             logging.ERROR, "\033[91m  %s\033[0m" % logging.getLevelName(logging.ERROR)
@@ -2044,20 +2066,16 @@ if __name__ == "__main__":
         logging.addLevelName(
             logging.WARNING, "\033[91m%s\033[0m" % logging.getLevelName(logging.WARNING)
         )
-
     elif args.reload:
         if not os.path.isdir("/var/log/frr/"):
             os.makedirs("/var/log/frr/", mode=0o0755)
-
-        logging.basicConfig(
-            filename="/var/log/frr/frr-reload.log",
-            format="%(asctime)s %(levelname)5s: %(message)s",
-        )
-
+        handler = logging.FileHandler('/var/log/frr/frr-reload.log')
     # argparse should prevent this from happening but just to be safe...
     else:
         raise Exception("Must specify --reload or --test")
+    handler.setFormatter(formatter)
     log = logging.getLogger(__name__)
+    log.addHandler(handler)
 
     if args.debug:
         log.setLevel(logging.DEBUG)
