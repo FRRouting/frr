@@ -8416,7 +8416,7 @@ DEFPY (bgp_condadv_period,
 
 DEFPY (bgp_def_originate_eval,
        bgp_def_originate_eval_cmd,
-       "[no$no] bgp default-originate timer (0-3600)$timer",
+       "[no$no] bgp default-originate timer (0-65535)$timer",
        NO_STR
        BGP_STR
        "Control default-originate\n"
