@@ -1564,8 +1564,8 @@ static int unpack_item_ext_subtlv_asla(uint16_t mtid, uint8_t subtlv_len,
 	uint8_t sabm_flag_len;
 	/* User-defined App Identifier Bit Flags/Length */
 	uint8_t uabm_flag_len;
-	uint8_t sabm[ASLA_APP_IDENTIFIER_BIT_LENGTH] = {0};
-	uint8_t uabm[ASLA_APP_IDENTIFIER_BIT_LENGTH] = {0};
+	uint8_t sabm[ASLA_APP_IDENTIFIER_BIT_MAX_LENGTH] = { 0 };
+	uint8_t uabm[ASLA_APP_IDENTIFIER_BIT_MAX_LENGTH] = { 0 };
 	uint8_t readable = subtlv_len;
 	uint8_t subsubtlv_type;
 	uint8_t subsubtlv_len;
@@ -1593,6 +1593,15 @@ static int unpack_item_ext_subtlv_asla(uint16_t mtid, uint8_t subtlv_len,
 	if (readable <
 	    asla->standard_apps_length + asla->user_def_apps_length) {
 		TLV_SIZE_MISMATCH(log, indent, "ASLA");
+		return -1;
+	}
+
+	if ((asla->standard_apps_length > ASLA_APP_IDENTIFIER_BIT_MAX_LENGTH) ||
+	    (asla->user_def_apps_length > ASLA_APP_IDENTIFIER_BIT_MAX_LENGTH)) {
+		zlog_err("Standard or User-Defined Application Identifier Bit Mask Length greater than %u bytes. Received respectively a length of %u and %u bytes.",
+			 ASLA_APP_IDENTIFIER_BIT_MAX_LENGTH,
+			 asla->standard_apps_length, asla->user_def_apps_length);
+		stream_forward_getp(s, readable);
 		return -1;
 	}
 
