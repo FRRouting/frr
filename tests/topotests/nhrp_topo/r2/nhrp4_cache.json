@@ -20,7 +20,7 @@
       "protocol":"10.255.255.1",
       "nbma":"10.1.1.1",
       "claimedNbma":"10.1.1.1",
-      "used":false,
+      "used": true,
       "timeout":true,
       "auth":false,
       "identity":""

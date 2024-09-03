@@ -9,7 +9,7 @@
             "protocol": "172.16.1.2",
             "nbma": "192.168.1.2",
             "claimedNbma": "192.168.1.2",
-            "used": false,
+            "used": true,
             "timeout": true,
             "auth": false,
             "identity": ""
@@ -31,7 +31,7 @@
             "protocol": "172.16.1.3",
             "nbma": "192.168.1.3",
             "claimedNbma": "192.168.1.3",
-            "used": false,
+            "used": true,
             "timeout": true,
             "auth": false,
             "identity": ""
@@ -42,7 +42,7 @@
             "protocol": "172.16.1.1",
             "nbma": "192.168.1.1",
             "claimedNbma": "192.168.1.1",
-            "used": false,
+            "used": true,
             "timeout": true,
             "auth": false,
             "identity": ""
