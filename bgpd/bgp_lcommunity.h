@@ -48,6 +48,7 @@ extern struct lcommunity *lcommunity_merge(struct lcommunity *,
 					   struct lcommunity *);
 extern struct lcommunity *lcommunity_uniq_sort(struct lcommunity *);
 extern struct lcommunity *lcommunity_intern(struct lcommunity *);
+extern json_object *lcommunity_get_json(struct lcommunity *lcom);
 extern bool lcommunity_cmp(const void *arg1, const void *arg2);
 extern void lcommunity_unintern(struct lcommunity **);
 extern unsigned int lcommunity_hash_make(const void *);

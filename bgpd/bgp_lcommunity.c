@@ -169,22 +169,25 @@ struct lcommunity *lcommunity_merge(struct lcommunity *lcom1,
  */
 static char *lcommunity_json_list(struct lcommunity *lcom,
 				  json_object *json_lcommunity_list,
-				  bool translate_alias)
+				  bool translate_alias, bool return_buffer,
+				  struct printbuf *pb)
 {
 	int i, len;
 	const uint8_t *pnt;
 	uint32_t global, local1, local2;
-	char *str_buf;
-	size_t str_buf_sz;
+	char *str_buf = NULL;
+	size_t str_buf_sz = 0;
 	json_object *json_string = NULL;
 
 	/* 1 space + lcom->size lcom strings + null terminator */
-	str_buf_sz = (LCOMMUNITY_STRLEN * lcom->size) + 2;
-	str_buf = XCALLOC(MTYPE_LCOMMUNITY_STR, str_buf_sz);
+	if (return_buffer) {
+		str_buf_sz = (LCOMMUNITY_STRLEN * lcom->size) + 2;
+		str_buf = XCALLOC(MTYPE_LCOMMUNITY_STR, str_buf_sz);
+	}
 
 	len = 0;
 	for (i = 0; i < lcom->size; i++) {
-		if (i > 0)
+		if (return_buffer && i > 0)
 			len = strlcat(str_buf, " ", str_buf_sz);
 
 		pnt = lcom->val + (i * LCOMMUNITY_SIZE);
@@ -207,15 +210,18 @@ static char *lcommunity_json_list(struct lcommunity *lcom,
 		const char *com2alias =
 			translate_alias ? bgp_community2alias(lcsb) : lcsb;
 		size_t individual_len = strlen(com2alias);
-		if (individual_len + len > str_buf_sz) {
-			str_buf_sz = individual_len + len + 1;
-			str_buf = XREALLOC(MTYPE_LCOMMUNITY_STR, str_buf,
-					   str_buf_sz);
+		if (str_buf) {
+			if (individual_len + len > str_buf_sz) {
+				str_buf_sz = individual_len + len + 1;
+				str_buf = XREALLOC(MTYPE_LCOMMUNITY_STR,
+						   str_buf, str_buf_sz);
+			}
+			len = strlcat(str_buf, com2alias, str_buf_sz);
 		}
 
-		len = strlcat(str_buf, com2alias, str_buf_sz);
-
-		if (json_lcommunity_list) {
+		if (pb)
+			sprintbuf(pb, "%s\"%s\"", i ? "," : "", com2alias);
+		else if (json_lcommunity_list) {
 			json_string = json_object_new_string(com2alias);
 			json_object_array_add(json_lcommunity_list,
 					      json_string);
@@ -253,7 +259,7 @@ static void set_lcommunity_string(struct lcommunity *lcom, bool make_json,
 
 	str_buf = lcommunity_json_list(lcom,
 				       make_json ? json_lcommunity_list : NULL,
-				       translate_alias);
+				       translate_alias, true, NULL);
 
 	if (make_json) {
 		json_object_string_add(lcom->json, "string", str_buf);
@@ -567,6 +573,26 @@ static void bgp_aggr_lcommunity_prepare(struct hash_bucket *hb, void *arg)
 		*aggr_lcommunity = lcommunity_dup(hb_lcommunity);
 }
 
+#if JSON_C_MINOR_VERSION >= 13 && JSON_C_MAJOR_VERSION >= 0
+static int lcommunity_json_to_string(struct json_object *jso,
+				     struct printbuf *pb, int level, int flags)
+{
+	struct lcommunity *lcom;
+
+	lcom = json_object_get_userdata(jso);
+	assert(lcom);
+	if (!lcom->str)
+		return 0;
+	printbuf_strappend(pb, "{\"string\":\"");
+	printbuf_memappend(pb, lcom->str, strlen(lcom->str));
+	printbuf_strappend(pb, "\",\"list\":[");
+
+	lcommunity_json_list(lcom, NULL, 0, false, pb);
+	printbuf_strappend(pb, "]}");
+	return 0;
+}
+#endif
+
 void bgp_aggr_lcommunity_remove(void *arg)
 {
 	struct lcommunity *lcommunity = arg;
@@ -686,4 +712,20 @@ void bgp_remove_lcomm_from_aggregate_hash(struct bgp_aggregate *aggregate,
 			lcommunity_free(&ret_lcomm);
 		}
 	}
+}
+
+json_object *lcommunity_get_json(struct lcommunity *lcom)
+{
+	json_object *json_lcommunity = NULL;
+
+#if JSON_C_MINOR_VERSION >= 13 && JSON_C_MAJOR_VERSION >= 0
+	json_lcommunity = json_object_new_object();
+	json_object_set_serializer(json_lcommunity, lcommunity_json_to_string,
+				   lcom, NULL);
+#else
+	if (!lcom->json)
+		lcommunity_str(lcom, true, true);
+	json_lcommunity = json_object_lock(lcom->json);
+#endif
+	return json_lcommunity;
 }
