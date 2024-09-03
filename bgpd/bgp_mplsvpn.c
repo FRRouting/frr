@@ -304,7 +304,7 @@ void vpn_leak_zebra_vrf_label_update(struct bgp *bgp, afi_t afi)
 
 	if (vpn_leak_to_vpn_active(bgp, afi, NULL, false)) {
 		ifp = if_get_vrf_loopback(bgp->vrf_id);
-		if (ifp && if_is_vrf(ifp) && if_is_up(ifp))
+		if (ifp && if_is_up(ifp))
 			label = bgp->vpn_policy[afi].tovpn_label;
 	}
 
