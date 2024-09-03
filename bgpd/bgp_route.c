@@ -10517,6 +10517,7 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct bgp_dest *bn,
 	json_object *json_adv_to = NULL;
 	json_object *json_aspath = NULL;
 	json_object *json_community = NULL;
+	json_object *json_lcommunity = NULL;
 	int first = 0;
 	struct listnode *node, *nnode;
 	struct peer *peer;
@@ -11259,13 +11260,10 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct bgp_dest *bn,
 	/* Line 6 display Large community */
 	if (attr->flag & ATTR_FLAG_BIT(BGP_ATTR_LARGE_COMMUNITIES)) {
 		if (json_paths) {
-			if (!bgp_attr_get_lcommunity(attr)->json)
-				lcommunity_str(bgp_attr_get_lcommunity(attr),
-					       true, true);
-			json_object_lock(bgp_attr_get_lcommunity(attr)->json);
-			json_object_object_add(
-				json_path, "largeCommunity",
-				bgp_attr_get_lcommunity(attr)->json);
+			json_lcommunity = lcommunity_get_json(
+				bgp_attr_get_lcommunity(attr));
+			json_object_object_add(json_path, "largeCommunity",
+					       json_lcommunity);
 		} else {
 			vty_out(vty, "      Large Community: %s\n",
 				bgp_attr_get_lcommunity(attr)->str);
