@@ -8425,8 +8425,7 @@ DEFPY (bgp_def_originate_eval,
 {
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
 
-	bgp->rmap_def_originate_eval_timer =
-		no ? RMAP_DEFAULT_ORIGINATE_EVAL_TIMER : timer;
+	bgp->rmap_def_originate_eval_timer = no ? 0 : timer;
 
 	if (bgp->t_rmap_def_originate_eval)
 		EVENT_OFF(bgp->t_rmap_def_originate_eval);
@@ -19778,8 +19777,9 @@ int bgp_config_write(struct vty *vty)
 				bgp->condition_check_period);
 
 		/* default-originate timer configuration */
-		if (bgp->rmap_def_originate_eval_timer !=
-		    RMAP_DEFAULT_ORIGINATE_EVAL_TIMER)
+		if (bgp->rmap_def_originate_eval_timer &&
+		    bgp->rmap_def_originate_eval_timer !=
+			    RMAP_DEFAULT_ORIGINATE_EVAL_TIMER)
 			vty_out(vty, " bgp default-originate timer %u\n",
 				bgp->rmap_def_originate_eval_timer);
 
