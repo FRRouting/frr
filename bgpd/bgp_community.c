@@ -164,6 +164,177 @@ struct community *community_uniq_sort(struct community *com)
 	return new;
 }
 
+/* Convert communities attribute to string and optionally add json objects
+ * into the pased json_community_list string
+ */
+static void community_json_list(struct community *com,
+				json_object *json_community_list, char *str,
+				int len, bool translate_alias)
+{
+	int i;
+	int first;
+	uint32_t comval;
+	json_object *json_string = NULL;
+	uint16_t as;
+	uint16_t val;
+	char buf[32];
+	const char *com2alias;
+
+	first = 1;
+
+	/* Fill in string.  */
+	for (i = 0; i < com->size; i++) {
+		memcpy(&comval, com_nthval(com, i), sizeof(uint32_t));
+		comval = ntohl(comval);
+
+		if (first)
+			first = 0;
+		else
+			strlcat(str, " ", len);
+
+		switch (comval) {
+		case COMMUNITY_GSHUT:
+			strlcat(str, "graceful-shutdown", len);
+			if (json_community_list) {
+				json_string = json_object_new_string(
+					"gracefulShutdown");
+				json_object_array_add(json_community_list,
+						      json_string);
+			}
+			break;
+		case COMMUNITY_ACCEPT_OWN:
+			strlcat(str, "accept-own", len);
+			if (json_community_list) {
+				json_string = json_object_new_string(
+					"acceptown");
+				json_object_array_add(json_community_list,
+						      json_string);
+			}
+			break;
+		case COMMUNITY_ROUTE_FILTER_TRANSLATED_v4:
+			strlcat(str, "route-filter-translated-v4", len);
+			if (json_community_list) {
+				json_string = json_object_new_string(
+					"routeFilterTranslatedV4");
+				json_object_array_add(json_community_list,
+						      json_string);
+			}
+			break;
+		case COMMUNITY_ROUTE_FILTER_v4:
+			strlcat(str, "route-filter-v4", len);
+			if (json_community_list) {
+				json_string = json_object_new_string(
+					"routeFilterV4");
+				json_object_array_add(json_community_list,
+						      json_string);
+			}
+			break;
+		case COMMUNITY_ROUTE_FILTER_TRANSLATED_v6:
+			strlcat(str, "route-filter-translated-v6", len);
+			if (json_community_list) {
+				json_string = json_object_new_string(
+					"routeFilterTranslatedV6");
+				json_object_array_add(json_community_list,
+						      json_string);
+			}
+			break;
+		case COMMUNITY_ROUTE_FILTER_v6:
+			strlcat(str, "route-filter-v6", len);
+			if (json_community_list) {
+				json_string = json_object_new_string(
+					"routeFilterV6");
+				json_object_array_add(json_community_list,
+						      json_string);
+			}
+			break;
+		case COMMUNITY_LLGR_STALE:
+			strlcat(str, "llgr-stale", len);
+			if (json_community_list) {
+				json_string = json_object_new_string(
+					"llgrStale");
+				json_object_array_add(json_community_list,
+						      json_string);
+			}
+			break;
+		case COMMUNITY_NO_LLGR:
+			strlcat(str, "no-llgr", len);
+			if (json_community_list) {
+				json_string = json_object_new_string(
+					"noLlgr");
+				json_object_array_add(json_community_list,
+						      json_string);
+			}
+			break;
+		case COMMUNITY_ACCEPT_OWN_NEXTHOP:
+			strlcat(str, "accept-own-nexthop", len);
+			if (json_community_list) {
+				json_string = json_object_new_string(
+					"acceptownnexthop");
+				json_object_array_add(json_community_list,
+						      json_string);
+			}
+			break;
+		case COMMUNITY_BLACKHOLE:
+			strlcat(str, "blackhole", len);
+			if (json_community_list) {
+				json_string = json_object_new_string(
+					"blackhole");
+				json_object_array_add(json_community_list,
+						      json_string);
+			}
+			break;
+		case COMMUNITY_NO_EXPORT:
+			strlcat(str, "no-export", len);
+			if (json_community_list) {
+				json_string =
+					json_object_new_string("noExport");
+				json_object_array_add(json_community_list,
+						      json_string);
+			}
+			break;
+		case COMMUNITY_NO_ADVERTISE:
+			strlcat(str, "no-advertise", len);
+			if (json_community_list) {
+				json_string =
+					json_object_new_string("noAdvertise");
+				json_object_array_add(json_community_list,
+						      json_string);
+			}
+			break;
+		case COMMUNITY_LOCAL_AS:
+			strlcat(str, "local-AS", len);
+			if (json_community_list) {
+				json_string = json_object_new_string("localAs");
+				json_object_array_add(json_community_list,
+						      json_string);
+			}
+			break;
+		case COMMUNITY_NO_PEER:
+			strlcat(str, "no-peer", len);
+			if (json_community_list) {
+				json_string = json_object_new_string("noPeer");
+				json_object_array_add(json_community_list,
+						      json_string);
+			}
+			break;
+		default:
+			as = CHECK_FLAG((comval >> 16), 0xFFFF);
+			val = CHECK_FLAG(comval, 0xFFFF);
+			snprintf(buf, sizeof(buf), "%u:%d", as, val);
+			com2alias = translate_alias ? bgp_community2alias(buf)
+						    : buf;
+
+			strlcat(str, com2alias, len);
+			if (json_community_list) {
+				json_string = json_object_new_string(com2alias);
+				json_object_array_add(json_community_list,
+						      json_string);
+			}
+			break;
+		}
+	}
+}
+
 /* Convert communities attribute to string.
 
    For Well-known communities value, below keyword is used.
@@ -190,12 +361,8 @@ static void set_community_string(struct community *com, bool make_json,
 	int i;
 	char *str;
 	int len;
-	int first;
 	uint32_t comval;
-	uint16_t as;
-	uint16_t val;
 	json_object *json_community_list = NULL;
-	json_object *json_string = NULL;
 
 	if (!com)
 		return;
@@ -278,160 +445,9 @@ static void set_community_string(struct community *com, bool make_json,
 
 	/* Allocate memory.  */
 	str = XCALLOC(MTYPE_COMMUNITY_STR, len);
-	first = 1;
 
-	/* Fill in string.  */
-	for (i = 0; i < com->size; i++) {
-		memcpy(&comval, com_nthval(com, i), sizeof(uint32_t));
-		comval = ntohl(comval);
-
-		if (first)
-			first = 0;
-		else
-			strlcat(str, " ", len);
-
-		switch (comval) {
-		case COMMUNITY_GSHUT:
-			strlcat(str, "graceful-shutdown", len);
-			if (make_json) {
-				json_string = json_object_new_string(
-					"gracefulShutdown");
-				json_object_array_add(json_community_list,
-						      json_string);
-			}
-			break;
-		case COMMUNITY_ACCEPT_OWN:
-			strlcat(str, "accept-own", len);
-			if (make_json) {
-				json_string = json_object_new_string(
-					"acceptown");
-				json_object_array_add(json_community_list,
-						      json_string);
-			}
-			break;
-		case COMMUNITY_ROUTE_FILTER_TRANSLATED_v4:
-			strlcat(str, "route-filter-translated-v4", len);
-			if (make_json) {
-				json_string = json_object_new_string(
-					"routeFilterTranslatedV4");
-				json_object_array_add(json_community_list,
-						      json_string);
-			}
-			break;
-		case COMMUNITY_ROUTE_FILTER_v4:
-			strlcat(str, "route-filter-v4", len);
-			if (make_json) {
-				json_string = json_object_new_string(
-					"routeFilterV4");
-				json_object_array_add(json_community_list,
-						      json_string);
-			}
-			break;
-		case COMMUNITY_ROUTE_FILTER_TRANSLATED_v6:
-			strlcat(str, "route-filter-translated-v6", len);
-			if (make_json) {
-				json_string = json_object_new_string(
-					"routeFilterTranslatedV6");
-				json_object_array_add(json_community_list,
-						      json_string);
-			}
-			break;
-		case COMMUNITY_ROUTE_FILTER_v6:
-			strlcat(str, "route-filter-v6", len);
-			if (make_json) {
-				json_string = json_object_new_string(
-					"routeFilterV6");
-				json_object_array_add(json_community_list,
-						      json_string);
-			}
-			break;
-		case COMMUNITY_LLGR_STALE:
-			strlcat(str, "llgr-stale", len);
-			if (make_json) {
-				json_string = json_object_new_string(
-					"llgrStale");
-				json_object_array_add(json_community_list,
-						      json_string);
-			}
-			break;
-		case COMMUNITY_NO_LLGR:
-			strlcat(str, "no-llgr", len);
-			if (make_json) {
-				json_string = json_object_new_string(
-					"noLlgr");
-				json_object_array_add(json_community_list,
-						      json_string);
-			}
-			break;
-		case COMMUNITY_ACCEPT_OWN_NEXTHOP:
-			strlcat(str, "accept-own-nexthop", len);
-			if (make_json) {
-				json_string = json_object_new_string(
-					"acceptownnexthop");
-				json_object_array_add(json_community_list,
-						      json_string);
-			}
-			break;
-		case COMMUNITY_BLACKHOLE:
-			strlcat(str, "blackhole", len);
-			if (make_json) {
-				json_string = json_object_new_string(
-					"blackhole");
-				json_object_array_add(json_community_list,
-						      json_string);
-			}
-			break;
-		case COMMUNITY_NO_EXPORT:
-			strlcat(str, "no-export", len);
-			if (make_json) {
-				json_string =
-					json_object_new_string("noExport");
-				json_object_array_add(json_community_list,
-						      json_string);
-			}
-			break;
-		case COMMUNITY_NO_ADVERTISE:
-			strlcat(str, "no-advertise", len);
-			if (make_json) {
-				json_string =
-					json_object_new_string("noAdvertise");
-				json_object_array_add(json_community_list,
-						      json_string);
-			}
-			break;
-		case COMMUNITY_LOCAL_AS:
-			strlcat(str, "local-AS", len);
-			if (make_json) {
-				json_string = json_object_new_string("localAs");
-				json_object_array_add(json_community_list,
-						      json_string);
-			}
-			break;
-		case COMMUNITY_NO_PEER:
-			strlcat(str, "no-peer", len);
-			if (make_json) {
-				json_string = json_object_new_string("noPeer");
-				json_object_array_add(json_community_list,
-						      json_string);
-			}
-			break;
-		default:
-			as = CHECK_FLAG((comval >> 16), 0xFFFF);
-			val = CHECK_FLAG(comval, 0xFFFF);
-			char buf[32];
-			snprintf(buf, sizeof(buf), "%u:%d", as, val);
-			const char *com2alias =
-				translate_alias ? bgp_community2alias(buf) : buf;
-
-			strlcat(str, com2alias, len);
-			if (make_json) {
-				json_string = json_object_new_string(com2alias);
-				json_object_array_add(json_community_list,
-						      json_string);
-			}
-			break;
-		}
-	}
+	community_json_list(com, make_json ? json_community_list : NULL, str,
+			    len, translate_alias);
 
 	if (make_json) {
 		json_object_string_add(com->json, "string", str);
