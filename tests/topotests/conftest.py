@@ -32,7 +32,7 @@ from lib import topolog, topotest
 
 try:
     # Used by munet native tests
-    from munet.testing.fixtures import event_loop, unet  # pylint: disable=all # noqa
+    from munet.testing.fixtures import unet  # pylint: disable=all # noqa
 
     @pytest.fixture(scope="module")
     def rundir_module(pytestconfig):
