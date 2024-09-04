@@ -332,6 +332,8 @@ int isis_instance_segment_routing_srv6_locator_destroy(
 	struct nb_cb_destroy_args *args);
 void cli_show_isis_srv6_locator(struct vty *vty, const struct lyd_node *dnode,
 				bool show_defaults);
+void cli_show_isis_srv6_locator_end(struct vty *vty,
+				    const struct lyd_node *dnode);
 int isis_instance_segment_routing_srv6_msd_node_msd_max_segs_left_modify(
 	struct nb_cb_modify_args *args);
 int isis_instance_segment_routing_srv6_msd_node_msd_max_end_pop_modify(
