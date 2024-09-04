@@ -2124,22 +2124,18 @@ static void evpn_zebra_reinstall_best_route(struct bgp *bgp,
 		}
 	}
 
-	if (curr_select && curr_select->type == ZEBRA_ROUTE_BGP
-			&& (curr_select->sub_type == BGP_ROUTE_IMPORTED ||
-				bgp_evpn_attr_is_sync(curr_select->attr)))
-		if (curr_select && curr_select->type == ZEBRA_ROUTE_BGP &&
-		    (curr_select->sub_type == BGP_ROUTE_IMPORTED ||
-		     bgp_evpn_attr_is_sync(curr_select->attr))) {
-			if (CHECK_FLAG(bgp->flags, BGP_FLAG_DELETE_IN_PROGRESS))
-				evpn_zebra_install(bgp, vpn,
-						   (const struct prefix_evpn *)
-							   bgp_dest_get_prefix(
-								   dest),
-						   curr_select);
-			else
-				bgp_zebra_route_install(dest, curr_select, bgp,
-							true, vpn, false);
-		}
+	if (curr_select && curr_select->type == ZEBRA_ROUTE_BGP &&
+	    (curr_select->sub_type == BGP_ROUTE_IMPORTED ||
+	     bgp_evpn_attr_is_sync(curr_select->attr))) {
+		if (CHECK_FLAG(bgp->flags, BGP_FLAG_DELETE_IN_PROGRESS))
+			evpn_zebra_install(bgp, vpn,
+					   (const struct prefix_evpn *)
+						   bgp_dest_get_prefix(dest),
+					   curr_select);
+		else
+			bgp_zebra_route_install(dest, curr_select, bgp, true,
+						vpn, false);
+	}
 }
 
 /*
