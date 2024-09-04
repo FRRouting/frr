@@ -2806,9 +2806,7 @@ static enum ospf_read_return_enum ospf_read_helper(struct ospf *ospf)
 	 * or header area is backbone but ospf_interface is not
 	 * check for VLINK interface
 	 */
-	if ((oi == NULL)
-	    || (OSPF_IS_AREA_ID_BACKBONE(ospfh->area_id)
-		&& !OSPF_IS_AREA_ID_BACKBONE(oi->area->area_id))) {
+	if (oi == NULL) {
 		if ((oi = ospf_associate_packet_vl(ospf, ifp, iph, ospfh))
 		    == NULL) {
 			if (!ospf->instance && IS_DEBUG_OSPF_EVENT)
