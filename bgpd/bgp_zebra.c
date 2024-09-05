@@ -3583,14 +3583,17 @@ void bgp_if_init(void)
 	hook_register_prio(if_del, 0, bgp_if_delete_hook);
 }
 
-static void bgp_start_label_manager(struct event *start)
-{
-	bgp_zebra_label_manager_connect();
-}
-
 static bool bgp_zebra_label_manager_ready(void)
 {
 	return (zclient_sync->sock > 0);
+}
+
+static void bgp_start_label_manager(struct event *start)
+{
+	if (!bgp_zebra_label_manager_ready() &&
+	    !bgp_zebra_label_manager_connect())
+		event_add_timer(bm->master, bgp_start_label_manager, NULL, 1,
+				&bm->t_bgp_start_label_manager);
 }
 
 static bool bgp_zebra_label_manager_connect(void)
