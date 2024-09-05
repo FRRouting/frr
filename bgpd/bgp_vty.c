@@ -302,17 +302,10 @@ static const char *get_afi_safi_json_str(afi_t afi, safi_t safi)
 /* unset srv6 locator */
 static int bgp_srv6_locator_unset(struct bgp *bgp)
 {
-	int ret;
 	struct listnode *node, *nnode;
 	struct srv6_locator_chunk *chunk;
 	struct bgp_srv6_function *func;
 	struct bgp *bgp_vrf;
-
-	/* release chunk notification via ZAPI */
-	ret = bgp_zebra_srv6_manager_release_locator_chunk(
-			bgp->srv6_locator_name);
-	if (ret < 0)
-		return -1;
 
 	/* refresh chunks */
 	for (ALL_LIST_ELEMENTS(bgp->srv6_locator_chunks, node, nnode, chunk)) {
@@ -352,19 +345,27 @@ static int bgp_srv6_locator_unset(struct bgp *bgp)
 			continue;
 
 		/* refresh vpnv4 tovpn_sid_locator */
-		srv6_locator_chunk_free(
-			&bgp_vrf->vpn_policy[AFI_IP].tovpn_sid_locator);
+		srv6_locator_free(bgp_vrf->vpn_policy[AFI_IP].tovpn_sid_locator);
+		bgp_vrf->vpn_policy[AFI_IP].tovpn_sid_locator = NULL;
 
 		/* refresh vpnv6 tovpn_sid_locator */
-		srv6_locator_chunk_free(
-			&bgp_vrf->vpn_policy[AFI_IP6].tovpn_sid_locator);
+		srv6_locator_free(
+			bgp_vrf->vpn_policy[AFI_IP6].tovpn_sid_locator);
+		bgp_vrf->vpn_policy[AFI_IP6].tovpn_sid_locator = NULL;
 
 		/* refresh per-vrf tovpn_sid_locator */
-		srv6_locator_chunk_free(&bgp_vrf->tovpn_sid_locator);
+		srv6_locator_free(bgp_vrf->tovpn_sid_locator);
+		bgp_vrf->tovpn_sid_locator = NULL;
 	}
 
 	/* clear locator name */
 	memset(bgp->srv6_locator_name, 0, sizeof(bgp->srv6_locator_name));
+
+	/* clear SRv6 locator */
+	if (bgp->srv6_locator) {
+		srv6_locator_free(bgp->srv6_locator);
+		bgp->srv6_locator = NULL;
+	}
 
 	return 0;
 }
@@ -10878,7 +10879,7 @@ DEFPY (bgp_srv6_locator,
 	snprintf(bgp->srv6_locator_name,
 		 sizeof(bgp->srv6_locator_name), "%s", name);
 
-	ret = bgp_zebra_srv6_manager_get_locator_chunk(name);
+	ret = bgp_zebra_srv6_manager_get_locator(name);
 	if (ret < 0)
 		return CMD_WARNING_CONFIG_FAILED;
 
@@ -10929,6 +10930,17 @@ DEFPY (show_bgp_srv6,
 		return CMD_SUCCESS;
 
 	vty_out(vty, "locator_name: %s\n", bgp->srv6_locator_name);
+	if (bgp->srv6_locator) {
+		vty_out(vty, "  prefix: %pFX\n", &bgp->srv6_locator->prefix);
+		vty_out(vty, "  block-length: %d\n",
+			bgp->srv6_locator->block_bits_length);
+		vty_out(vty, "  node-length: %d\n",
+			bgp->srv6_locator->node_bits_length);
+		vty_out(vty, "  func-length: %d\n",
+			bgp->srv6_locator->function_bits_length);
+		vty_out(vty, "  arg-length: %d\n",
+			bgp->srv6_locator->argument_bits_length);
+	}
 	vty_out(vty, "locator_chunks:\n");
 	for (ALL_LIST_ELEMENTS_RO(bgp->srv6_locator_chunks, node, chunk)) {
 		vty_out(vty, "- %pFX\n", &chunk->prefix);

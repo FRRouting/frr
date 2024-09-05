@@ -162,6 +162,38 @@ int pathd_srte_segment_list_segment_sid_value_destroy(
 	return NB_OK;
 }
 
+/*
+ * XPath: /frr-pathd:pathd/srte/segment-list/segment/srv6-sid-value
+ */
+int pathd_srte_segment_list_segment_srv6_sid_value_modify(
+	struct nb_cb_modify_args *args)
+{
+	struct srte_segment_entry *segment;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	segment = nb_running_get_entry(args->dnode, NULL, true);
+	yang_dnode_get_ipv6(&segment->srv6_sid_value, args->dnode, NULL);
+	SET_FLAG(segment->segment_list->flags, F_SEGMENT_LIST_MODIFIED);
+
+	return NB_OK;
+}
+
+int pathd_srte_segment_list_segment_srv6_sid_value_destroy(
+	struct nb_cb_destroy_args *args)
+{
+	struct srte_segment_entry *segment;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	segment = nb_running_get_entry(args->dnode, NULL, true);
+	memset(&segment->srv6_sid_value, 0, sizeof(segment->srv6_sid_value));
+	SET_FLAG(segment->segment_list->flags, F_SEGMENT_LIST_MODIFIED);
+
+	return NB_OK;
+}
 
 int pathd_srte_segment_list_segment_nai_destroy(struct nb_cb_destroy_args *args)
 {
@@ -359,6 +391,47 @@ int pathd_srte_policy_binding_sid_destroy(struct nb_cb_destroy_args *args)
 
 	policy = nb_running_get_entry(args->dnode, NULL, true);
 	srte_policy_update_binding_sid(policy, MPLS_LABEL_NONE);
+	SET_FLAG(policy->flags, F_POLICY_MODIFIED);
+
+	return NB_OK;
+}
+
+/*
+ * XPath: /frr-pathd:pathd/srte/policy/srv6-binding-sid
+ */
+int pathd_srte_policy_srv6_binding_sid_modify(struct nb_cb_modify_args *args)
+{
+	struct srte_policy *policy;
+	struct in6_addr srv6_binding_sid;
+
+	yang_dnode_get_ipv6(&srv6_binding_sid, args->dnode, NULL);
+
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+		break;
+	case NB_EV_PREPARE:
+		break;
+	case NB_EV_ABORT:
+		break;
+	case NB_EV_APPLY:
+		policy = nb_running_get_entry(args->dnode, NULL, true);
+		srte_policy_update_srv6_binding_sid(policy, &srv6_binding_sid);
+		SET_FLAG(policy->flags, F_POLICY_MODIFIED);
+		break;
+	}
+
+	return NB_OK;
+}
+
+int pathd_srte_policy_srv6_binding_sid_destroy(struct nb_cb_destroy_args *args)
+{
+	struct srte_policy *policy;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	policy = nb_running_get_entry(args->dnode, NULL, true);
+	srte_policy_update_srv6_binding_sid(policy, NULL);
 	SET_FLAG(policy->flags, F_POLICY_MODIFIED);
 
 	return NB_OK;
@@ -702,6 +775,7 @@ int pathd_srte_policy_candidate_path_segment_list_name_modify(
 	candidate = nb_running_get_entry(args->dnode, NULL, true);
 	segment_list_name = yang_dnode_get_string(args->dnode, NULL);
 
+	path_nht_removed(candidate);
 	candidate->segment_list = srte_segment_list_find(segment_list_name);
 	candidate->lsp->segment_list = candidate->segment_list;
 	assert(candidate->segment_list);
@@ -755,5 +829,26 @@ int pathd_srte_policy_candidate_path_bandwidth_destroy(
 	assert(args->context != NULL);
 	candidate = nb_running_get_entry(args->dnode, NULL, true);
 	srte_candidate_unset_bandwidth(candidate);
+	return NB_OK;
+}
+
+/*
+ * XPath: /frr-pathd:pathd/srte/srv6-use-sid-manager
+ */
+int pathd_srv6_use_sid_manager_modify(struct nb_cb_modify_args *args)
+{
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+		break;
+	case NB_EV_PREPARE:
+		break;
+	case NB_EV_ABORT:
+		break;
+	case NB_EV_APPLY:
+		srv6_use_sid_manager = yang_dnode_get_bool(args->dnode, NULL);
+		path_zebra_process_srv6_bsid(srv6_use_sid_manager);
+		break;
+	}
+
 	return NB_OK;
 }

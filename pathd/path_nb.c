@@ -83,6 +83,14 @@ const struct frr_yang_module_info frr_pathd_info = {
 			.priority = NB_DFLT_PRIORITY - 1
 		},
 		{
+			.xpath = "/frr-pathd:pathd/srte/segment-list/segment/srv6-sid-value",
+			.cbs = {
+				.modify = pathd_srte_segment_list_segment_srv6_sid_value_modify,
+				.destroy = pathd_srte_segment_list_segment_srv6_sid_value_destroy,
+			},
+			.priority = NB_DFLT_PRIORITY - 1
+		},
+		{
 			.xpath = "/frr-pathd:pathd/srte/segment-list/segment/nai",
 			.cbs = {
 				.create = dummy_create,
@@ -145,6 +153,14 @@ const struct frr_yang_module_info frr_pathd_info = {
 				.modify = pathd_srte_policy_binding_sid_modify,
 				.cli_show = cli_show_srte_policy_binding_sid,
 				.destroy = pathd_srte_policy_binding_sid_destroy,
+			}
+		},
+		{
+			.xpath = "/frr-pathd:pathd/srte/policy/srv6-binding-sid",
+			.cbs = {
+				.modify = pathd_srte_policy_srv6_binding_sid_modify,
+				.cli_show = cli_show_srte_policy_srv6_binding_sid,
+				.destroy = pathd_srte_policy_srv6_binding_sid_destroy,
 			}
 		},
 		{
@@ -275,6 +291,12 @@ const struct frr_yang_module_info frr_pathd_info = {
 				.create = dummy_create,
 				.destroy = pathd_srte_policy_candidate_path_objfun_destroy,
 				.apply_finish = pathd_srte_policy_candidate_path_objfun_apply_finish
+			}
+		},
+		{
+			.xpath = "/frr-pathd:pathd/srte/use-srv6-sid-manager",
+			.cbs = {
+				.modify = pathd_srv6_use_sid_manager_modify
 			}
 		},
 		{

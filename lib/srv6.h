@@ -254,7 +254,9 @@ struct srv6_sid_ctx {
 	/* Behavior-specific attributes */
 	struct in_addr nh4;
 	struct in6_addr nh6;
+	uint32_t color;
 	vrf_id_t vrf_id;
+	ifindex_t ifindex;
 };
 
 static inline const char *seg6_mode2str(enum seg6_mode_t mode)
@@ -354,9 +356,13 @@ static inline const char *srv6_sid_ctx2str(char *str, size_t size,
 		snprintf(str + len, size - len, " vrf_id %u", ctx->vrf_id);
 		break;
 
+	case ZEBRA_SEG6_LOCAL_ACTION_END_B6_ENCAP:
+		len += snprintf(str + len, size - len, " nh6 %pI6 color %u",
+				&ctx->nh6, ctx->color);
+		break;
+
 	case ZEBRA_SEG6_LOCAL_ACTION_END_DX2:
 	case ZEBRA_SEG6_LOCAL_ACTION_END_B6:
-	case ZEBRA_SEG6_LOCAL_ACTION_END_B6_ENCAP:
 	case ZEBRA_SEG6_LOCAL_ACTION_END_BM:
 	case ZEBRA_SEG6_LOCAL_ACTION_END_S:
 	case ZEBRA_SEG6_LOCAL_ACTION_END_AS:

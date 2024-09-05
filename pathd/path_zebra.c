@@ -10,6 +10,7 @@
 #include "lib_errors.h"
 #include "if.h"
 #include "prefix.h"
+#include "jhash.h"
 #include "zclient.h"
 #include "network.h"
 #include "stream.h"
@@ -48,6 +49,96 @@ struct in6_addr g_router_id_v6;
 pthread_mutex_t g_router_id_v4_mtx = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t g_router_id_v6_mtx = PTHREAD_MUTEX_INITIALIZER;
 
+DEFINE_MTYPE_STATIC(PATHD, LOCATOR_LIST_CTX, "Locator List context");
+DEFINE_MTYPE_STATIC(PATHD, PATH_NHT_DATA, "Pathd Nexthop tracking data");
+PREDECL_HASH(path_nht_hash);
+
+struct path_nht_data {
+	struct path_nht_hash_item itm;
+
+	struct prefix nh;
+
+	vrf_id_t nh_vrf_id;
+
+	uint32_t refcount;
+	uint8_t nh_num;
+	struct nexthop *nexthop;
+	bool registered;
+
+	uint32_t metric;
+	uint8_t distance;
+};
+
+static void
+path_zebra_add_sr_policy_internal(struct srte_policy *policy,
+				  struct srte_segment_list *segment_list,
+				  struct path_nht_data *nhtd);
+
+static int path_nht_data_cmp(const struct path_nht_data *nhtd1,
+			     const struct path_nht_data *nhtd2)
+{
+	if (nhtd1->nh_vrf_id != nhtd2->nh_vrf_id)
+		return numcmp(nhtd1->nh_vrf_id, nhtd2->nh_vrf_id);
+
+	return prefix_cmp(&nhtd1->nh, &nhtd2->nh);
+}
+
+static unsigned int path_nht_data_hash(const struct path_nht_data *nhtd)
+{
+	unsigned int key = 0;
+
+	key = prefix_hash_key(&nhtd->nh);
+	return jhash_1word(nhtd->nh_vrf_id, key);
+}
+
+DECLARE_HASH(path_nht_hash, struct path_nht_data, itm, path_nht_data_cmp,
+	     path_nht_data_hash);
+
+static struct path_nht_hash_head path_nht_hash[1];
+
+static struct path_nht_data *path_nht_hash_getref(const struct path_nht_data *ref)
+{
+	struct path_nht_data *nhtd;
+
+	nhtd = path_nht_hash_find(path_nht_hash, ref);
+	if (!nhtd) {
+		nhtd = XCALLOC(MTYPE_PATH_NHT_DATA, sizeof(*nhtd));
+
+		prefix_copy(&nhtd->nh, &ref->nh);
+		nhtd->nh_vrf_id = ref->nh_vrf_id;
+
+		path_nht_hash_add(path_nht_hash, nhtd);
+	}
+
+	nhtd->refcount++;
+	return nhtd;
+}
+
+static bool path_nht_hash_decref(struct path_nht_data **nhtd_p)
+{
+	struct path_nht_data *nhtd = *nhtd_p;
+
+	*nhtd_p = NULL;
+
+	if (--nhtd->refcount > 0)
+		return true;
+
+	path_nht_hash_del(path_nht_hash, nhtd);
+	XFREE(MTYPE_PATH_NHT_DATA, nhtd);
+	return false;
+}
+
+static void path_nht_hash_clear(void)
+{
+	struct path_nht_data *nhtd;
+
+	while ((nhtd = path_nht_hash_pop(path_nht_hash))) {
+		if (nhtd->nexthop)
+			nexthops_free(nhtd->nexthop);
+		XFREE(MTYPE_PATH_NHT_DATA, nhtd);
+	}
+}
+
 /**
  * Gives the IPv4 router ID received from Zebra.
  *
@@ -57,6 +148,7 @@ pthread_mutex_t g_router_id_v6_mtx = PTHREAD_MUTEX_INITIALIZER;
 bool get_ipv4_router_id(struct in_addr *router_id)
 {
 	bool retval = false;
+
 	assert(router_id != NULL);
 	pthread_mutex_lock(&g_router_id_v4_mtx);
 	if (g_has_router_id_v4) {
@@ -76,6 +168,7 @@ bool get_ipv4_router_id(struct in_addr *router_id)
 bool get_ipv6_router_id(struct in6_addr *router_id)
 {
 	bool retval = false;
+
 	assert(router_id != NULL);
 	pthread_mutex_lock(&g_router_id_v6_mtx);
 	if (g_has_router_id_v6) {
@@ -84,6 +177,97 @@ bool get_ipv6_router_id(struct in6_addr *router_id)
 	}
 	pthread_mutex_unlock(&g_router_id_v6_mtx);
 	return retval;
+}
+
+static bool path_zebra_segment_list_srv6(struct srte_segment_list *segment_list)
+{
+	struct srte_segment_entry *segment;
+
+	segment = RB_MIN(srte_segment_entry_head, &segment_list->segments);
+	if (segment && !IPV6_ADDR_SAME(&segment->srv6_sid_value, &in6addr_any))
+		return true;
+
+	return false;
+}
+
+static bool path_zebra_nht_get_srv6_prefix(struct srte_segment_list *segment_list,
+					   struct prefix *nh)
+{
+	struct srte_segment_entry *segment;
+	bool found = false;
+
+	if (!segment_list)
+		return false;
+
+	segment = RB_MIN(srte_segment_entry_head, &segment_list->segments);
+	if (segment && !IPV6_ADDR_SAME(&segment->srv6_sid_value, &in6addr_any)) {
+		nh->family = AF_INET6;
+		nh->prefixlen = IPV6_MAX_BITLEN;
+		memcpy(&nh->u.prefix6, &segment->srv6_sid_value,
+		       sizeof(struct in6_addr));
+		found = true;
+	}
+	return found;
+}
+
+static void path_zebra_add_srv6_policy_internal(struct srte_policy *policy)
+{
+	struct path_nht_data *nhtd, lookup = {};
+	uint32_t cmd;
+	struct srte_candidate *candidate;
+	struct srte_segment_list *segment_list = NULL;
+
+	candidate = policy->best_candidate;
+	if (candidate && candidate->lsp)
+		segment_list = candidate->lsp->segment_list;
+
+	if (!segment_list)
+		return;
+
+	if (!path_zebra_nht_get_srv6_prefix(segment_list, &lookup.nh))
+		return;
+
+	lookup.nh_vrf_id = VRF_DEFAULT;
+
+	if (CHECK_FLAG(segment_list->flags, F_SEGMENT_LIST_NHT_REGISTERED)) {
+		/* nh->nh_registered means we own a reference on the nhtd */
+		nhtd = path_nht_hash_find(path_nht_hash, &lookup);
+
+		assertf(nhtd, "BUG: NH %pFX registered but not in hashtable",
+			&lookup.nh);
+	} else {
+		nhtd = path_nht_hash_getref(&lookup);
+
+		if (nhtd->refcount > 1)
+			zlog_debug("Reusing registered nexthop(%pFX) for candidate %s pref %u (num %d)",
+				   &lookup.nh, candidate->name,
+				   candidate->preference, nhtd->nh_num);
+	}
+
+	SET_FLAG(segment_list->flags, F_SEGMENT_LIST_NHT_REGISTERED);
+
+	if (nhtd->nh_num) {
+		path_zebra_add_sr_policy_internal(candidate->policy,
+						  segment_list, nhtd);
+		return;
+	}
+	path_zebra_delete_sr_policy(candidate->policy);
+
+	if (nhtd->registered)
+		/* have no data, but did send register */
+		return;
+
+	cmd = ZEBRA_NEXTHOP_REGISTER;
+	PATH_ZEBRA_DEBUG("Registering nexthop(%pFX) for candidate %s pref %u",
+			 &lookup.nh, candidate->name, candidate->preference);
+
+	if (zclient_send_rnh(zclient, cmd, &lookup.nh, SAFI_UNICAST, false,
+			     false, VRF_DEFAULT) == ZCLIENT_SEND_FAILURE)
+		zlog_warn("%s: Failure to send nexthop %pFX for candidate %s pref %u to zebra",
+			  __func__, &lookup.nh, candidate->name,
+			  candidate->preference);
+	else
+		nhtd->registered = true;
 }
 
 static void path_zebra_connected(struct zclient *zclient)
@@ -105,8 +289,11 @@ static void path_zebra_connected(struct zclient *zclient)
 		segment_list = candidate->lsp->segment_list;
 		if (!segment_list)
 			continue;
-
-		path_zebra_add_sr_policy(policy, segment_list);
+		if (path_zebra_segment_list_srv6(segment_list))
+			path_zebra_add_srv6_policy_internal(policy);
+		else
+			path_zebra_add_sr_policy_internal(policy, segment_list,
+							  NULL);
 	}
 }
 
@@ -140,6 +327,7 @@ static int path_zebra_router_id_update(ZAPI_CALLBACK_ARGS)
 	struct prefix pref;
 	const char *family;
 	char buf[PREFIX2STR_BUFFER];
+
 	zebra_router_id_update_read(zclient->ibuf, &pref);
 	if (pref.family == AF_INET) {
 		pthread_mutex_lock(&g_router_id_v4_mtx);
@@ -167,6 +355,193 @@ static int path_zebra_router_id_update(ZAPI_CALLBACK_ARGS)
 }
 
 /**
+ * Disconnect from NHT
+ */
+void path_nht_removed(struct srte_candidate *candidate)
+{
+	struct path_nht_data *nhtd, lookup;
+	struct srte_segment_list *segment_list;
+	bool was_zebra_registered;
+
+	if (!candidate || !candidate->lsp)
+		return;
+
+	segment_list = candidate->lsp->segment_list;
+	if (!segment_list)
+		return;
+
+	if (!CHECK_FLAG(segment_list->flags, F_SEGMENT_LIST_NHT_REGISTERED))
+		return;
+
+	if (!path_zebra_nht_get_srv6_prefix(segment_list, &lookup.nh))
+		return;
+
+	lookup.nh_vrf_id = VRF_DEFAULT;
+
+	/* nh->nh_registered means we own a reference on the nhtd */
+	nhtd = path_nht_hash_find(path_nht_hash, &lookup);
+
+	assertf(nhtd, "BUG: NH %pFX registered but not in hashtable",
+		&lookup.nh);
+
+	was_zebra_registered = nhtd->registered;
+	UNSET_FLAG(segment_list->flags, F_SEGMENT_LIST_NHT_REGISTERED);
+	if (path_nht_hash_decref(&nhtd))
+		/* still got references alive */
+		return;
+
+	/* NB: nhtd is now NULL. */
+	if (!was_zebra_registered)
+		return;
+
+	PATH_ZEBRA_DEBUG("Unregistering nexthop(%pFX) for candidate %s pref %u",
+			 &lookup.nh, candidate->name, candidate->preference);
+
+	if (zclient_send_rnh(zclient, ZEBRA_NEXTHOP_UNREGISTER, &lookup.nh,
+			     SAFI_UNICAST, false, false,
+			     VRF_DEFAULT) == ZCLIENT_SEND_FAILURE)
+		zlog_warn("%s: Failure to send nexthop %pFX for candidate %s pref %u to zebra",
+			  __func__, &lookup.nh, candidate->name,
+			  candidate->preference);
+}
+
+/**
+ * Send SRv6 SID to ZEBRA for installation or deletion.
+ *
+ * @param cmd		ZEBRA_ROUTE_ADD or ZEBRA_ROUTE_DELETE
+ * @param sid		SRv6 BSID to install or delete
+ * @param prefixlen	Prefix length
+ * @param oif		Outgoing interface
+ * @param action	SID action
+ * @param context	SID context
+ */
+void path_zebra_send_bsid(const struct in6_addr *bsid, ifindex_t oif,
+			  enum seg6local_action_t action,
+			  struct in6_addr *srv6_segs, int num_segs)
+{
+	struct prefix_ipv6 p = {};
+	struct zapi_route api = {};
+	struct zapi_nexthop *znh;
+	uint16_t prefixlen = IPV6_MAX_BITLEN;
+	char opaque[1024];
+
+	if (prefixlen > IPV6_MAX_BITLEN) {
+		flog_warn(EC_LIB_DEVELOPMENT, "%s: wrong prefixlen %u",
+			  __func__, prefixlen);
+		return;
+	}
+
+	opaque[0] = '\0';
+	p.family = AF_INET6;
+	p.prefixlen = prefixlen;
+	memcpy(&p.prefix, bsid, IPV6_MAX_BYTELEN);
+
+	api.vrf_id = VRF_DEFAULT;
+	api.type = ZEBRA_ROUTE_SRTE;
+	api.distance = 50;
+
+	api.safi = SAFI_UNICAST;
+	memcpy(&api.prefix, &p, sizeof(p));
+
+	if (num_segs == 0)
+		return (void)zclient_route_send(ZEBRA_ROUTE_DELETE, zclient,
+						&api);
+
+	SET_FLAG(api.flags, ZEBRA_FLAG_ALLOW_RECURSION);
+	SET_FLAG(api.message, ZAPI_MESSAGE_NEXTHOP);
+	SET_FLAG(api.message, ZAPI_MESSAGE_DISTANCE);
+
+	if (strlen(opaque)) {
+		SET_FLAG(api.message, ZAPI_MESSAGE_OPAQUE);
+		api.opaque.length = strlen(opaque) + 1;
+		assert(api.opaque.length <= ZAPI_MESSAGE_OPAQUE_LENGTH);
+		memcpy(api.opaque.data, opaque, api.opaque.length);
+	}
+
+	znh = &api.nexthops[0];
+
+	memset(znh, 0, sizeof(*znh));
+
+	znh->type = NEXTHOP_TYPE_IFINDEX;
+	znh->ifindex = oif;
+	SET_FLAG(znh->flags, ZAPI_NEXTHOP_FLAG_SEG6LOCAL);
+	znh->seg6local_action = action;
+	znh->seg_num = num_segs;
+	memcpy(znh->seg6_segs, srv6_segs, sizeof(struct in6_addr) * num_segs);
+	memcpy(&znh->seg6local_ctx.nh6, bsid, sizeof(struct in6_addr));
+	api.nexthop_num = 1;
+
+	zclient_route_send(ZEBRA_ROUTE_ADD, zclient, &api);
+}
+
+/**
+ * Adds a segment routing policy to Zebra.
+ *
+ * @param policy The policy to add
+ * @param segment_list The segment list for the policy
+ */
+static void
+path_zebra_add_sr_policy_internal(struct srte_policy *policy,
+				  struct srte_segment_list *segment_list,
+				  struct path_nht_data *nhtd)
+{
+	struct zapi_sr_policy zp = {};
+	struct srte_segment_entry *segment = NULL;
+	struct zapi_nexthop *znh = NULL;
+	struct nexthop *nexthop;
+	int num = 0;
+
+	zp.color = policy->color;
+	zp.endpoint = policy->endpoint;
+	strlcpy(zp.name, policy->name, sizeof(zp.name));
+
+	if (!path_zebra_segment_list_srv6(segment_list)) {
+		zp.segment_list.type = ZEBRA_SR_LSP_SRTE;
+		zp.segment_list.local_label = policy->binding_sid;
+		zp.segment_list.label_num = 0;
+		RB_FOREACH (segment, srte_segment_entry_head,
+			    &segment_list->segments)
+			zp.segment_list.labels[zp.segment_list.label_num++] =
+				segment->sid_value;
+	} else {
+		zp.segment_list.type = ZEBRA_SR_SRV6_SRTE;
+		zp.segment_list.local_label = MPLS_LABEL_NONE;
+		zp.segment_list.srv6_segs.num_segs = 0;
+		RB_FOREACH (segment, srte_segment_entry_head,
+			    &segment_list->segments)
+			IPV6_ADDR_COPY(&zp.segment_list.srv6_segs
+						.segs[zp.segment_list.srv6_segs
+							      .num_segs++],
+				       &segment->srv6_sid_value);
+	}
+	policy->status = SRTE_POLICY_STATUS_GOING_UP;
+
+	if (nhtd && nhtd->nexthop) {
+		zp.segment_list.distance = nhtd->distance;
+		zp.segment_list.metric = nhtd->metric;
+		for (ALL_NEXTHOPS_PTR(nhtd, nexthop)) {
+			znh = &zp.segment_list.nexthop_resolved[num++];
+			zapi_nexthop_from_nexthop(znh, nexthop);
+		}
+		zp.segment_list.nexthop_resolved_num = nhtd->nh_num;
+	}
+	if (znh && !sid_zero_ipv6(&policy->srv6_binding_sid) && segment_list &&
+	    (CHECK_FLAG(policy->flags, F_POLICY_BSID_ALLOCATED) ||
+	     !srv6_use_sid_manager) &&
+	    zp.segment_list.nexthop_resolved_num) {
+		(void)path_zebra_send_bsid(&policy->srv6_binding_sid,
+					   znh->ifindex,
+					   ZEBRA_SEG6_LOCAL_ACTION_END_B6_ENCAP,
+					   &zp.segment_list.srv6_segs.segs[0],
+					   zp.segment_list.srv6_segs.num_segs);
+
+		SET_FLAG(policy->flags, F_POLICY_BSID_IPV6_INSTALLED);
+	}
+
+	(void)zebra_send_sr_policy(zclient, ZEBRA_SR_POLICY_SET, &zp);
+}
+
+/**
  * Adds a segment routing policy to Zebra.
  *
  * @param policy The policy to add
@@ -175,21 +550,10 @@ static int path_zebra_router_id_update(ZAPI_CALLBACK_ARGS)
 void path_zebra_add_sr_policy(struct srte_policy *policy,
 			      struct srte_segment_list *segment_list)
 {
-	struct zapi_sr_policy zp = {};
-	struct srte_segment_entry *segment;
-
-	zp.color = policy->color;
-	zp.endpoint = policy->endpoint;
-	strlcpy(zp.name, policy->name, sizeof(zp.name));
-	zp.segment_list.type = ZEBRA_LSP_SRTE;
-	zp.segment_list.local_label = policy->binding_sid;
-	zp.segment_list.label_num = 0;
-	RB_FOREACH (segment, srte_segment_entry_head, &segment_list->segments)
-		zp.segment_list.labels[zp.segment_list.label_num++] =
-			segment->sid_value;
-	policy->status = SRTE_POLICY_STATUS_GOING_UP;
-
-	(void)zebra_send_sr_policy(zclient, ZEBRA_SR_POLICY_SET, &zp);
+	if (path_zebra_segment_list_srv6(segment_list))
+		path_zebra_add_srv6_policy_internal(policy);
+	else
+		path_zebra_add_sr_policy_internal(policy, segment_list, NULL);
 }
 
 /**
@@ -200,13 +564,26 @@ void path_zebra_add_sr_policy(struct srte_policy *policy,
 void path_zebra_delete_sr_policy(struct srte_policy *policy)
 {
 	struct zapi_sr_policy zp = {};
+	struct srte_segment_entry *segment = NULL;
 
 	zp.color = policy->color;
 	zp.endpoint = policy->endpoint;
 	strlcpy(zp.name, policy->name, sizeof(zp.name));
-	zp.segment_list.type = ZEBRA_LSP_SRTE;
-	zp.segment_list.local_label = policy->binding_sid;
-	zp.segment_list.label_num = 0;
+
+	if (policy->best_candidate && policy->best_candidate->segment_list)
+		segment =
+			RB_MIN(srte_segment_entry_head,
+			       &policy->best_candidate->segment_list->segments);
+
+	if (segment && sid_zero_ipv6(&segment->srv6_sid_value)) {
+		zp.segment_list.type = ZEBRA_SR_LSP_SRTE;
+		zp.segment_list.local_label = policy->binding_sid;
+		zp.segment_list.label_num = 0;
+	} else {
+		zp.segment_list.local_label = MPLS_LABEL_NONE;
+		zp.segment_list.type = ZEBRA_SR_SRV6_SRTE;
+		zp.segment_list.srv6_segs.num_segs = 0;
+	}
 	policy->status = SRTE_POLICY_STATUS_DOWN;
 
 	(void)zebra_send_sr_policy(zclient, ZEBRA_SR_POLICY_DELETE, &zp);
@@ -292,6 +669,116 @@ static void path_zebra_label_manager_connect(struct event *event)
 	}
 }
 
+static void path_nht_srv6_update(struct prefix *nh, struct path_nht_data *nhtd)
+{
+	struct srte_policy *policy;
+	struct prefix sid_srv6 = {};
+	struct srte_candidate *candidate;
+	struct srte_segment_list *segment_list;
+
+	RB_FOREACH (policy, srte_policy_head, &srte_policies) {
+		if (policy->endpoint.ipa_type != AF_INET6)
+			continue;
+
+		candidate = policy->best_candidate;
+		if (!candidate)
+			continue;
+		if (!candidate->lsp)
+			continue;
+		segment_list = candidate->lsp->segment_list;
+		if (!segment_list)
+			continue;
+
+		/* srv6 segment lists are registered */
+		if (!CHECK_FLAG(segment_list->flags,
+				F_SEGMENT_LIST_NHT_REGISTERED))
+			continue;
+
+		if (!path_zebra_nht_get_srv6_prefix(segment_list, &sid_srv6))
+			continue;
+		if (!IPV6_ADDR_SAME(&sid_srv6.u.prefix6, &nh->u.prefix6))
+			continue;
+		if (nhtd->nh_num)
+			path_zebra_add_sr_policy_internal(policy, segment_list,
+							  nhtd);
+		else
+			path_zebra_delete_sr_policy(policy);
+	}
+}
+
+static bool path_zebra_srv6_nexthop_info_update(struct path_nht_data *nhtd,
+						struct zapi_route *nhr)
+{
+	struct nexthop *nexthop;
+	struct nexthop *nhlist_head = NULL;
+	struct nexthop *nhlist_tail = NULL;
+	struct nexthop *oldnh;
+	bool nh_changed = false;
+	int i;
+
+	if (nhtd && nhr)
+		nhtd->nh_num = nhr->nexthop_num;
+
+	if (!nhr->nexthop_num) {
+		nhtd->nh_num = nhr->nexthop_num;
+		if (nhtd->nexthop)
+			nexthop_free(nhtd->nexthop);
+		nhtd->nexthop = NULL;
+		return true;
+	}
+
+	if (nhtd->distance != nhr->distance || nhtd->metric != nhr->metric) {
+		nhtd->distance = nhr->distance;
+		nhtd->metric = nhr->metric;
+		nh_changed = true;
+	}
+
+	for (i = 0; i < nhr->nexthop_num; i++) {
+		nexthop = nexthop_from_zapi_nexthop(&nhr->nexthops[i]);
+
+		if (nhlist_tail) {
+			nhlist_tail->next = nexthop;
+			nhlist_tail = nexthop;
+		} else {
+			nhlist_tail = nexthop;
+			nhlist_head = nexthop;
+		}
+
+		for (oldnh = nhtd->nexthop; oldnh; oldnh = oldnh->next)
+			if (nexthop_same(oldnh, nexthop))
+				break;
+
+		if (!oldnh)
+			nh_changed = true;
+	}
+	if (nhtd->nexthop)
+		nexthop_free(nhtd->nexthop);
+	nhtd->nexthop = nhlist_head;
+	nhr->nexthop_num = nhr->nexthop_num;
+
+	return nh_changed;
+}
+
+static void path_zebra_nexthop_update(struct vrf *vrf, struct prefix *match,
+				      struct zapi_route *nhr)
+{
+	struct path_nht_data *nhtd, lookup;
+
+	if (match->family != AF_INET6)
+		return;
+
+	memset(&lookup, 0, sizeof(lookup));
+	prefix_copy(&lookup.nh, match);
+	lookup.nh_vrf_id = vrf->vrf_id;
+
+	nhtd = path_nht_hash_find(path_nht_hash, &lookup);
+
+	if (!nhtd)
+		zlog_err("Unable to find next-hop data for the given route.");
+	else if (path_zebra_srv6_nexthop_info_update(nhtd, nhr))
+		path_nht_srv6_update(&nhr->prefix, nhtd);
+}
+
 static int path_zebra_opaque_msg_handler(ZAPI_CALLBACK_ARGS)
 {
 	int ret = 0;
@@ -340,11 +827,212 @@ static int path_zebra_opaque_msg_handler(ZAPI_CALLBACK_ARGS)
 	return ret;
 }
 
+PREDECL_DLIST(path_locator_list);
+struct path_locator_list_head path_srv6_locator_list;
+struct path_locator_ctx {
+	struct srv6_locator *locator;
+	struct path_locator_list_item pll_entries;
+};
+DECLARE_DLIST(path_locator_list, struct path_locator_ctx, pll_entries);
+
+void path_zebra_process_srv6_bsid(bool allocate)
+{
+	struct srte_policy *policy;
+	struct srv6_sid_ctx sid_ctx = {};
+
+	RB_FOREACH (policy, srte_policy_head, &srte_policies) {
+		if (IPV6_ADDR_SAME(&policy->srv6_binding_sid, &in6addr_any))
+			continue;
+		sid_ctx.vrf_id = VRF_DEFAULT;
+		sid_ctx.behavior = ZEBRA_SEG6_LOCAL_ACTION_END_B6_ENCAP;
+		memcpy(&sid_ctx.nh6, &policy->endpoint.ip._v6_addr,
+		       sizeof(struct in6_addr));
+		sid_ctx.color = policy->color;
+		if (allocate &&
+		    !CHECK_FLAG(policy->flags, F_POLICY_BSID_ALLOCATED) &&
+		    srv6_use_sid_manager)
+			path_zebra_srv6_manager_get_sid(&sid_ctx,
+							&policy->srv6_binding_sid);
+		else if (!allocate &&
+			 CHECK_FLAG(policy->flags, F_POLICY_BSID_ALLOCATED) &&
+			 !srv6_use_sid_manager) {
+			path_zebra_srv6_manager_release_sid(&sid_ctx);
+			UNSET_FLAG(policy->flags, F_POLICY_BSID_ALLOCATED);
+		}
+	}
+}
+
+static int path_zebra_process_srv6_locator_add(ZAPI_CALLBACK_ARGS)
+{
+	struct srv6_locator locator = {};
+	struct path_locator_ctx *ctx;
+
+	if (zapi_srv6_locator_decode(zclient->ibuf, &locator) < 0)
+		return -1;
+
+	if (!path_zebra_locator_ctx_lookup_by_name((const char *)&locator.name)) {
+		ctx = XCALLOC(MTYPE_LOCATOR_LIST_CTX,
+			      sizeof(struct path_locator_ctx));
+		ctx->locator = srv6_locator_alloc((const char *)&locator.name);
+		srv6_locator_copy(ctx->locator, &locator);
+		path_locator_list_add_tail(&path_srv6_locator_list, ctx);
+	}
+
+	path_zebra_process_srv6_bsid(true);
+	return 0;
+}
+
+static int path_zebra_process_srv6_locator_delete(ZAPI_CALLBACK_ARGS)
+{
+	struct srv6_locator loc = {};
+	struct srv6_locator *locator;
+	struct srte_policy *policy;
+	struct srv6_sid_ctx ctx = {};
+	struct path_locator_ctx *context;
+
+	if (zapi_srv6_locator_decode(zclient->ibuf, &loc) < 0)
+		return -1;
+
+	context = path_zebra_locator_ctx_lookup_by_name((const char *)&loc.name);
+	if (!context || !context->locator)
+		return -1;
+
+	locator = context->locator;
+
+	PATH_ZEBRA_DEBUG("%s: Received SRv6 locator %s %pFX, loc-block-len=%u, loc-node-len=%u func-len=%u, arg-len=%u",
+			 __func__, locator->name, &locator->prefix,
+			 locator->block_bits_length, locator->node_bits_length,
+			 locator->function_bits_length,
+			 locator->argument_bits_length);
+
+	RB_FOREACH (policy, srte_policy_head, &srte_policies) {
+		if (IPV6_ADDR_SAME(&policy->srv6_binding_sid, &in6addr_any))
+			continue;
+		if (policy->srv6_locator == locator) {
+			ctx.vrf_id = VRF_DEFAULT;
+			ctx.behavior = ZEBRA_SEG6_LOCAL_ACTION_END_B6_ENCAP;
+			memcpy(&ctx.nh6, &policy->endpoint.ip._v6_addr,
+			       sizeof(struct in6_addr));
+			ctx.color = policy->color;
+			(void)path_zebra_send_bsid(&policy->srv6_binding_sid, 0,
+						   ZEBRA_SEG6_LOCAL_ACTION_END_B6_ENCAP,
+						   NULL, 0);
+			if (CHECK_FLAG(policy->flags, F_POLICY_BSID_ALLOCATED))
+				path_zebra_srv6_manager_release_sid(&ctx);
+			UNSET_FLAG(policy->flags, F_POLICY_BSID_ALLOCATED);
+			policy->srv6_locator = NULL;
+		}
+	}
+
+	srv6_locator_free(context->locator);
+	path_locator_list_del(&path_srv6_locator_list, context);
+	XFREE(MTYPE_LOCATOR_LIST_CTX, context);
+
+	return 0;
+}
+
+static int path_zebra_srv6_sid_notify(ZAPI_CALLBACK_ARGS)
+{
+	struct srv6_sid_ctx ctx;
+	struct in6_addr sid_addr;
+	enum zapi_srv6_sid_notify note;
+	uint32_t sid_func;
+	struct srte_policy *policy, *safe_pol;
+	char buf[256];
+	char *locator_name = NULL;
+	char **p_locator_name = &locator_name;
+	struct path_locator_ctx *context;
+
+	/* Decode the received notification message */
+	if (!zapi_srv6_sid_notify_decode(zclient->ibuf, &ctx, &sid_addr,
+					 &sid_func, NULL, &note,
+					 p_locator_name)) {
+		zlog_err("%s : error in msg decode", __func__);
+		return -1;
+	}
+	if (p_locator_name)
+		locator_name = *p_locator_name;
+
+	PATH_ZEBRA_DEBUG("%s: received SRv6 SID notify: ctx %s sid_value %pI6 %s",
+			 __func__, srv6_sid_ctx2str(buf, sizeof(buf), &ctx),
+			 &sid_addr, zapi_srv6_sid_notify2str(note));
+
+	/* Get the SR-TE policy which has requested that SID */
+	RB_FOREACH_SAFE (policy, srte_policy_head, &srte_policies, safe_pol) {
+		if (!IPV6_ADDR_SAME(&policy->srv6_binding_sid, &sid_addr))
+			continue;
+
+		switch (note) {
+		case ZAPI_SRV6_SID_ALLOCATED:
+			PATH_ZEBRA_DEBUG("SRv6 SID %pI6 %s : ALLOCATED",
+					 &sid_addr,
+					 srv6_sid_ctx2str(buf, sizeof(buf),
+							  &ctx));
+			SET_FLAG(policy->flags, F_POLICY_BSID_ALLOCATED);
+
+			if (!srv6_use_sid_manager)
+				/* as SID allocation is asyncronous, release it */
+				path_zebra_srv6_manager_release_sid(&ctx);
+
+			context = path_zebra_locator_ctx_lookup_by_name(
+				(const char *)locator_name);
+			if (context)
+				policy->srv6_locator = context->locator;
+			if (policy->best_candidate)
+				path_zebra_add_sr_policy(policy,
+							 policy->best_candidate
+								 ->lsp
+								 ->segment_list);
+			break;
+		case ZAPI_SRV6_SID_RELEASED:
+			PATH_ZEBRA_DEBUG("SRv6 SID %pI6 %s: RELEASED", &sid_addr,
+					 srv6_sid_ctx2str(buf, sizeof(buf),
+							  &ctx));
+			UNSET_FLAG(policy->flags, F_POLICY_BSID_ALLOCATED);
+			policy->srv6_locator = NULL;
+			break;
+		case ZAPI_SRV6_SID_FAIL_ALLOC:
+			PATH_ZEBRA_DEBUG("SRv6 SID %pI6 %s: Failed to allocate",
+					 &sid_addr,
+					 srv6_sid_ctx2str(buf, sizeof(buf),
+							  &ctx));
+
+			/* Error will be logged by zebra module */
+			break;
+		case ZAPI_SRV6_SID_FAIL_RELEASE:
+			zlog_warn("%s: SRv6 SID %pI6 %s failure to release",
+				  __func__, &sid_addr,
+				  srv6_sid_ctx2str(buf, sizeof(buf), &ctx));
+
+			/* Error will be logged by zebra module */
+			break;
+		}
+	}
+	return 0;
+}
+
 static zclient_handler *const path_handlers[] = {
 	[ZEBRA_SR_POLICY_NOTIFY_STATUS] = path_zebra_sr_policy_notify_status,
 	[ZEBRA_ROUTER_ID_UPDATE] = path_zebra_router_id_update,
 	[ZEBRA_OPAQUE_MESSAGE] = path_zebra_opaque_msg_handler,
+	[ZEBRA_SRV6_LOCATOR_ADD] = path_zebra_process_srv6_locator_add,
+	[ZEBRA_SRV6_LOCATOR_DELETE] = path_zebra_process_srv6_locator_delete,
+	[ZEBRA_SRV6_SID_NOTIFY] = path_zebra_srv6_sid_notify,
 };
+
+struct path_locator_ctx *
+path_zebra_locator_ctx_lookup_by_name(const char *locator_name)
+{
+	struct path_locator_ctx *ctx;
+
+	frr_each_safe (path_locator_list, &path_srv6_locator_list, ctx) {
+		if (ctx->locator &&
+		    strcmp(ctx->locator->name, locator_name) == 0) {
+			return ctx;
+		}
+	}
+	return NULL;
+}
 
 /**
  * Initializes Zebra asynchronous connection.
@@ -366,16 +1054,47 @@ void path_zebra_init(struct event_loop *master)
 	zclient_sync->instance = 1;
 	zclient_sync->privs = &pathd_privs;
 
+	zclient->nexthop_update = path_zebra_nexthop_update;
+
 	/* Connect to the LM. */
 	t_sync_connect = NULL;
 	path_zebra_label_manager_connect(NULL);
+
+	/* Pathd nht init */
+	path_nht_hash_init(path_nht_hash);
+	path_locator_list_init(&path_srv6_locator_list);
 }
 
 void path_zebra_stop(void)
 {
+	path_nht_hash_clear();
+	path_nht_hash_fini(path_nht_hash);
+
 	zclient_stop(zclient);
 	zclient_free(zclient);
 	event_cancel(&t_sync_connect);
 	zclient_stop(zclient_sync);
 	zclient_free(zclient_sync);
+}
+
+void path_zebra_srv6_manager_get_sid(struct srv6_sid_ctx *ctx,
+				     struct in6_addr *sid_addr)
+{
+	int ret;
+	uint32_t sid_func;
+
+	ret = srv6_manager_get_sid(zclient, ctx, sid_addr, NULL, &sid_func);
+	if (ret < 0)
+		/* TODO: need to re-send later GET_SID message */
+		zlog_warn("%s: error getting SRv6 SID!", __func__);
+}
+
+void path_zebra_srv6_manager_release_sid(struct srv6_sid_ctx *ctx)
+{
+	int ret;
+
+	ret = srv6_manager_release_sid(zclient, ctx);
+	if (ret < 0)
+		/* TODO: need to re-send later GET_SID message */
+		zlog_warn("%s: error releasing SRv6 SID!", __func__);
 }

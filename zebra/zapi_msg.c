@@ -1868,10 +1868,18 @@ static bool zapi_read_nexthops(struct zserv *client, struct prefix *p,
 					   __func__,
 					   seg6local_action2str(
 						   api_nh->seg6local_action));
-
-			nexthop_add_srv6_seg6local(nexthop,
-						   api_nh->seg6local_action,
-						   &api_nh->seg6local_ctx);
+			if (api_nh->seg6local_action ==
+			    ZEBRA_SEG6_LOCAL_ACTION_END_B6_ENCAP)
+				nexthop_add_srv6_seg6local(nexthop,
+							   api_nh->seg6local_action,
+							   &api_nh->seg6local_ctx,
+							   &api_nh->seg6_segs[0],
+							   api_nh->seg_num);
+			else
+				nexthop_add_srv6_seg6local(nexthop,
+							   api_nh->seg6local_action,
+							   &api_nh->seg6local_ctx,
+							   NULL, 0);
 		}
 
 		if (CHECK_FLAG(api_nh->flags, ZAPI_NEXTHOP_FLAG_SEG6)
@@ -2671,16 +2679,16 @@ static void zread_sr_policy_set(ZAPI_HANDLER_ARGS)
 				   __func__);
 		return;
 	}
+
 	zt = &zp.segment_list;
-	if (zt->label_num < 1) {
+	if (!(zt->label_num > 0 || zt->srv6_segs.num_segs > 0)) {
 		if (IS_ZEBRA_DEBUG_RECV)
-			zlog_debug(
-				"%s: SR-TE tunnel must contain at least one label",
-				__func__);
+			zlog_debug("%s: SR-TE tunnel must contain at least one label or SRv6 SID",
+				   __func__);
 		return;
 	}
 
-	if (!mpls_enabled)
+	if (!mpls_enabled && zt->type != ZEBRA_SR_SRV6_SRTE)
 		return;
 
 	policy = zebra_sr_policy_find(zp.color, &zp.endpoint);

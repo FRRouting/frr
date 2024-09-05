@@ -288,6 +288,7 @@ Configuration Commands
 .. clicmd:: index INDEX nai adjacency A.B.C.D A.B.C.D
 .. clicmd:: index INDEX nai prefix A.B.C.D/M algorithm <0|1>
 .. clicmd:: index INDEX nai prefix A.B.C.D/M iface (0-65535)
+.. clicmd:: index INDEX ipv6-address X:X::X:X
 
    Delete or specify a segment in a segment list definition.
 
@@ -305,6 +306,17 @@ Configuration Commands
 .. clicmd:: binding-sid LABEL
 
    Specify the policy SID.
+
+.. clicmd:: srv6-binding-sid X:X::X:X
+
+   Specify the policy SRv6 SID
+
+
+.. clicmd:: use-srv6-sid-manager
+
+   SRTE 'use-srv6-sid-manager' command tells the SRTE service
+   to use or not BSIDs allocated from the SRv6 SIDs pool of the zebra
+   locators.
 
 
 .. clicmd:: candidate-path preference PREFERENCE name NAME explicit segment-list SEGMENT-LIST-NAME

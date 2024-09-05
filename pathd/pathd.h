@@ -32,6 +32,20 @@ enum srte_protocol_origin {
 
 extern struct debug path_policy_debug;
 
+#define PATH_POLICY_DEBUG_BASIC 0x01
+
+extern struct debug path_zebra_debug;
+
+#define PATH_ZEBRA_DEBUG_BASIC 0x01
+
+#define PATH_ZEBRA_DEBUG(fmt, ...)                                             \
+	do {                                                                   \
+		if (DEBUG_FLAGS_CHECK(&path_zebra_debug,                       \
+				      PATH_ZEBRA_DEBUG_BASIC))                 \
+			DEBUGD(&path_zebra_debug, "policy: " fmt,              \
+			       ##__VA_ARGS__);                                 \
+	} while (0)
+
 enum srte_policy_status {
 	SRTE_POLICY_STATUS_UNKNOWN = 0,
 	SRTE_POLICY_STATUS_DOWN = 1,
@@ -167,6 +181,9 @@ struct srte_segment_entry {
 	/* Label Value. */
 	mpls_label_t sid_value;
 
+	/* SRv6 SID. */
+	struct in6_addr srv6_sid_value;
+
 	/* NAI Type */
 	enum srte_segment_nai_type nai_type;
 	/* NAI local address when nai type is not NONE */
@@ -207,6 +224,7 @@ struct srte_segment_list {
 #define F_SEGMENT_LIST_MODIFIED 0x0004
 #define F_SEGMENT_LIST_DELETED 0x0008
 #define F_SEGMENT_LIST_SID_CONFLICT 0x0010
+#define F_SEGMENT_LIST_NHT_REGISTERED 0x0020
 };
 RB_HEAD(srte_segment_list_head, srte_segment_list);
 RB_PROTOTYPE(srte_segment_list_head, srte_segment_list, entry,
@@ -332,6 +350,12 @@ struct srte_policy {
 	/* Binding SID */
 	mpls_label_t binding_sid;
 
+	/* SRv6 Binding SID */
+	struct in6_addr srv6_binding_sid;
+
+	/* SRv6 locator attached to SID */
+	struct srv6_locator *srv6_locator;
+
 	/* The Protocol-Origin. */
 	enum srte_protocol_origin protocol_origin;
 
@@ -351,6 +375,8 @@ struct srte_policy {
 #define F_POLICY_NEW 0x0002
 #define F_POLICY_MODIFIED 0x0004
 #define F_POLICY_DELETED 0x0008
+#define F_POLICY_BSID_ALLOCATED	     0x0010
+#define F_POLICY_BSID_IPV6_INSTALLED 0x0040
 	/* SRP id for PcInitiated support */
 	int srp_id;
 };
@@ -370,6 +396,8 @@ extern struct zebra_privs_t pathd_privs;
 
 /* master thread, defined in path_main.c */
 extern struct event_loop *master;
+
+extern bool srv6_use_sid_manager;
 
 /* pathd.c */
 struct srte_segment_list *srte_segment_list_add(const char *name);
@@ -394,6 +422,8 @@ struct srte_policy *srte_policy_find(uint32_t color, struct ipaddr *endpoint);
 int srte_policy_update_ted_sid(void);
 void srte_policy_update_binding_sid(struct srte_policy *policy,
 				    uint32_t binding_sid);
+void srte_policy_update_srv6_binding_sid(struct srte_policy *policy,
+					 struct in6_addr *srv6_binding_sid);
 void srte_apply_changes(void);
 void srte_clean_zebra(void);
 void srte_policy_apply_changes(struct srte_policy *policy);
@@ -435,9 +465,14 @@ void srte_candidate_status_update(struct srte_candidate *candidate, int status);
 void srte_candidate_unset_segment_list(const char *originator, bool force);
 const char *srte_origin2str(enum srte_protocol_origin origin);
 void pathd_shutdown(void);
+void path_zebra_show_debugging(struct vty *vty);
+void path_policy_show_debugging(struct vty *vty);
 
 /* path_cli.c */
 void path_cli_init(void);
+
+/* srv6 */
+void path_srv6_init(void);
 
 
 /**

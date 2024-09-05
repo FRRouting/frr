@@ -32,6 +32,10 @@ void pathd_srte_segment_list_segment_nai_apply_finish(
 	struct nb_cb_apply_finish_args *args);
 int pathd_srte_segment_list_segment_sid_value_destroy(
 	struct nb_cb_destroy_args *args);
+int pathd_srte_segment_list_segment_srv6_sid_value_modify(
+	struct nb_cb_modify_args *args);
+int pathd_srte_segment_list_segment_srv6_sid_value_destroy(
+	struct nb_cb_destroy_args *args);
 int pathd_srte_policy_create(struct nb_cb_create_args *args);
 int pathd_srte_policy_destroy(struct nb_cb_destroy_args *args);
 const void *pathd_srte_policy_get_next(struct nb_cb_get_next_args *args);
@@ -42,6 +46,8 @@ int pathd_srte_policy_name_modify(struct nb_cb_modify_args *args);
 int pathd_srte_policy_name_destroy(struct nb_cb_destroy_args *args);
 int pathd_srte_policy_binding_sid_modify(struct nb_cb_modify_args *args);
 int pathd_srte_policy_binding_sid_destroy(struct nb_cb_destroy_args *args);
+int pathd_srte_policy_srv6_binding_sid_modify(struct nb_cb_modify_args *args);
+int pathd_srte_policy_srv6_binding_sid_destroy(struct nb_cb_destroy_args *args);
 struct yang_data *
 pathd_srte_policy_is_operational_get_elem(struct nb_cb_get_elem_args *args);
 int pathd_srte_policy_candidate_path_create(struct nb_cb_create_args *args);
@@ -92,6 +98,7 @@ int pathd_srte_policy_candidate_path_segment_list_name_modify(
 	struct nb_cb_modify_args *args);
 int pathd_srte_policy_candidate_path_segment_list_name_destroy(
 	struct nb_cb_destroy_args *args);
+int pathd_srv6_use_sid_manager_modify(struct nb_cb_modify_args *args);
 
 /* Optional 'apply_finish' callbacks. */
 void pathd_apply_finish(struct nb_cb_apply_finish_args *args);
@@ -112,6 +119,9 @@ void cli_show_srte_policy_name(struct vty *vty, const struct lyd_node *dnode,
 void cli_show_srte_policy_binding_sid(struct vty *vty,
 				      const struct lyd_node *dnode,
 				      bool show_defaults);
+void cli_show_srte_policy_srv6_binding_sid(struct vty *vty,
+					   const struct lyd_node *dnode,
+					   bool show_defaults);
 void cli_show_srte_policy_candidate_path(struct vty *vty,
 					 const struct lyd_node *dnode,
 					 bool show_defaults);

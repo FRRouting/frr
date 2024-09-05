@@ -80,7 +80,7 @@
 
 DEFINE_MTYPE_STATIC(LIB, NH_SRV6, "Nexthop srv6");
 
-static vlanid_t filter_vlan = 0;
+static vlanid_t filter_vlan;
 
 /* We capture whether the current kernel supports nexthop ids; by
  * default, we'll use them if possible. There's also a configuration
@@ -92,6 +92,12 @@ struct gw_family_t {
 	uint16_t filler;
 	uint16_t family;
 	union g_addr gate;
+};
+
+struct buf_req {
+	struct nlmsghdr n;
+	struct nhmsg nhm;
+	char buf[];
 };
 
 static const char ipv4_ll_buf[16] = "169.254.0.1";
@@ -490,7 +496,8 @@ static int parse_encap_seg6(struct rtattr *tb, struct in6_addr *segs)
 			RTA_DATA(tb_encap[SEG6_IPTUNNEL_SRH]);
 
 		for (i = ipt->srh[0].first_segment; i >= 0; i--)
-			memcpy(&segs[i], &ipt->srh[0].segments[i],
+			memcpy(&segs[ipt->srh[0].first_segment - i],
+			       &ipt->srh[0].segments[i],
 			       sizeof(struct in6_addr));
 
 		return ipt->srh[0].first_segment + 1;
@@ -583,7 +590,7 @@ parse_nexthop_unicast(ns_id_t ns_id, struct rtmsg *rtm, struct rtattr **tb,
 	}
 
 	if (seg6l_act != ZEBRA_SEG6_LOCAL_ACTION_UNSPEC)
-		nexthop_add_srv6_seg6local(&nh, seg6l_act, &seg6l_ctx);
+		nexthop_add_srv6_seg6local(&nh, seg6l_act, &seg6l_ctx, NULL, 0);
 
 	if (num_segs)
 		nexthop_add_srv6_seg6(&nh, segs, num_segs);
@@ -702,7 +709,7 @@ static uint8_t parse_multipath_nexthops_unicast(ns_id_t ns_id,
 
 			if (seg6l_act != ZEBRA_SEG6_LOCAL_ACTION_UNSPEC)
 				nexthop_add_srv6_seg6local(nh, seg6l_act,
-							   &seg6l_ctx);
+							   &seg6l_ctx, NULL, 0);
 
 			if (num_segs)
 				nexthop_add_srv6_seg6(nh, segs, num_segs);
@@ -969,6 +976,7 @@ int netlink_route_change_read_unicast_internal(struct nlmsghdr *h,
 	}
 
 	afi_t afi = AFI_IP;
+
 	if (rtm->rtm_family == AF_INET6)
 		afi = AFI_IP6;
 
@@ -1082,7 +1090,7 @@ static int netlink_route_change_read_unicast(struct nlmsghdr *h, ns_id_t ns_id,
 							  NULL);
 }
 
-static struct mcast_route_data *mroute = NULL;
+static struct mcast_route_data *mroute;
 
 static int netlink_route_change_read_multicast(struct nlmsghdr *h,
 					       ns_id_t ns_id, int startup)
@@ -2704,6 +2712,58 @@ static bool _netlink_nexthop_build_group(struct nlmsghdr *n, size_t req_size,
 	return true;
 }
 
+static ssize_t fill_srh_end_b6_encaps(char *buffer, size_t buflen,
+				      struct seg6_seg_stack *segs)
+{
+	struct ipv6_sr_hdr *srh;
+	size_t srhlen;
+	int i;
+
+	if (!segs || segs->num_segs > SRV6_MAX_SEGS) {
+		/* Exceeding maximum supported SIDs */
+		return -1;
+	}
+
+	srhlen = SRH_BASE_HEADER_LENGTH + SRH_SEGMENT_LENGTH * segs->num_segs;
+
+	if (buflen < srhlen)
+		return -1;
+
+	memset(buffer, 0, buflen);
+
+	srh = (struct ipv6_sr_hdr *)buffer;
+	srh->hdrlen = (srhlen >> 3) - 1;
+	srh->type = 4;
+	srh->segments_left = segs->num_segs - 1;
+	srh->first_segment = segs->num_segs - 1;
+
+	for (i = 0; i < segs->num_segs; i++) {
+		memcpy(&srh->segments[segs->num_segs - i - 1], &segs->seg[i],
+		       sizeof(struct in6_addr));
+	}
+
+	return srhlen;
+}
+
+static int netlink_nexthop_msg_encode_end_b6_encaps(struct buf_req *req,
+						    const struct nexthop *nh,
+						    size_t buflen)
+{
+	int srh_len;
+	char srh_buf[4096];
+
+	if (!nl_attr_put32(&req->n, buflen, SEG6_LOCAL_ACTION,
+			   SEG6_LOCAL_ACTION_END_B6_ENCAP))
+		return 0;
+	srh_len = fill_srh_end_b6_encaps(srh_buf, sizeof(srh_buf),
+					 nh->nh_srv6->seg6_segs);
+	if (srh_len < 0)
+		return 0;
+	if (!nl_attr_put(&req->n, buflen, SEG6_LOCAL_SRH, srh_buf, srh_len))
+		return 0;
+	return 1;
+}
+
 /**
  * Next hop packet encoding helper function.
  *
@@ -3018,6 +3078,11 @@ ssize_t netlink_nexthop_msg_encode(uint16_t cmd,
 							    ctx->table))
 							return 0;
 						break;
+					case ZEBRA_SEG6_LOCAL_ACTION_END_B6_ENCAP:
+						netlink_nexthop_msg_encode_end_b6_encaps(
+							(struct buf_req *)req,
+							nh, buflen);
+						break;
 					default:
 						zlog_err("%s: unsupport seg6local behaviour action=%u",
 							 __func__, action);
@@ -3033,7 +3098,9 @@ ssize_t netlink_nexthop_msg_encode(uint16_t cmd,
 
 				if (nh->nh_srv6->seg6_segs &&
 				    nh->nh_srv6->seg6_segs->num_segs &&
-				    !sid_zero(nh->nh_srv6->seg6_segs)) {
+				    !sid_zero(nh->nh_srv6->seg6_segs) &&
+				    nh->nh_srv6->seg6local_action ==
+					    ZEBRA_SEG6_LOCAL_ACTION_UNSPEC) {
 					char tun_buf[4096];
 					ssize_t tun_len;
 					struct rtattr *nest;
@@ -3810,7 +3877,8 @@ static int netlink_macfdb_change(struct nlmsghdr *h, int len, ns_id_t ns_id)
 		return 0;
 
 	zif = (struct zebra_if *)ifp->info;
-	if ((br_if = zif->brslave_info.br_if) == NULL) {
+	br_if = zif->brslave_info.br_if;
+	if (br_if == NULL) {
 		if (IS_ZEBRA_DEBUG_KERNEL)
 			zlog_debug(
 				"%s AF_BRIDGE IF %s(%u) brIF %u - no bridge master",
@@ -3848,7 +3916,7 @@ static int netlink_macfdb_change(struct nlmsghdr *h, int len, ns_id_t ns_id)
 	 * so perform an implicit delete of any local entry (if it exists).
 	 */
 	if (h->nlmsg_type == RTM_NEWNEIGH) {
-                /* Drop "permanent" entries. */
+		/* Drop "permanent" entries. */
 		if (!vni_mcast_grp && (ndm->ndm_state & NUD_PERMANENT)) {
 			if (IS_ZEBRA_DEBUG_KERNEL)
 				zlog_debug(

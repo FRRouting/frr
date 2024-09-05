@@ -1070,7 +1070,8 @@ int zapi_nexthop_encode(struct stream *s, const struct zapi_nexthop *api_nh,
 			     sizeof(struct seg6local_context));
 	}
 
-	if (CHECK_FLAG(nh_flags, ZAPI_NEXTHOP_FLAG_SEG6)) {
+	if (CHECK_FLAG(nh_flags, ZAPI_NEXTHOP_FLAG_SEG6) ||
+	    api_nh->seg6local_action == ZEBRA_SEG6_LOCAL_ACTION_END_B6_ENCAP) {
 		stream_putc(s, api_nh->seg_num);
 		stream_put(s, &api_nh->seg6_segs[0],
 			   api_nh->seg_num * sizeof(struct in6_addr));
@@ -1450,7 +1451,8 @@ int zapi_nexthop_decode(struct stream *s, struct zapi_nexthop *api_nh,
 			   sizeof(struct seg6local_context));
 	}
 
-	if (CHECK_FLAG(api_nh->flags, ZAPI_NEXTHOP_FLAG_SEG6)) {
+	if (CHECK_FLAG(api_nh->flags, ZAPI_NEXTHOP_FLAG_SEG6) ||
+	    api_nh->seg6local_action == ZEBRA_SEG6_LOCAL_ACTION_END_B6_ENCAP) {
 		STREAM_GETC(s, api_nh->seg_num);
 		if (api_nh->seg_num > SRV6_MAX_SIDS) {
 			flog_err(EC_LIB_ZAPI_ENCODE,
@@ -2200,7 +2202,7 @@ struct nexthop *nexthop_from_zapi_nexthop(const struct zapi_nexthop *znh)
 
 	if (znh->seg6local_action != ZEBRA_SEG6_LOCAL_ACTION_UNSPEC)
 		nexthop_add_srv6_seg6local(n, znh->seg6local_action,
-					   &znh->seg6local_ctx);
+					   &znh->seg6local_ctx, NULL, 0);
 
 	if (znh->seg_num && !sid_zero_ipv6(znh->seg6_segs))
 		nexthop_add_srv6_seg6(n, &znh->seg6_segs[0], znh->seg_num);
@@ -2256,16 +2258,32 @@ int zapi_nexthop_from_nexthop(struct zapi_nexthop *znh,
 
 	if (nh->nh_srv6) {
 		if (nh->nh_srv6->seg6local_action !=
-		    ZEBRA_SEG6_LOCAL_ACTION_UNSPEC) {
+			    ZEBRA_SEG6_LOCAL_ACTION_UNSPEC &&
+		    nh->nh_srv6->seg6local_action !=
+			    ZEBRA_SEG6_LOCAL_ACTION_END_B6_ENCAP) {
 			SET_FLAG(znh->flags, ZAPI_NEXTHOP_FLAG_SEG6LOCAL);
 			znh->seg6local_action = nh->nh_srv6->seg6local_action;
 			memcpy(&znh->seg6local_ctx,
 			       &nh->nh_srv6->seg6local_ctx,
 			       sizeof(struct seg6local_context));
-		}
-
-		if (nh->nh_srv6->seg6_segs && nh->nh_srv6->seg6_segs->num_segs &&
-		    !sid_zero(nh->nh_srv6->seg6_segs)) {
+		} else if (nh->nh_srv6->seg6local_action ==
+				   ZEBRA_SEG6_LOCAL_ACTION_END_B6_ENCAP &&
+			   nh->nh_srv6->seg6_segs &&
+			   nh->nh_srv6->seg6_segs->num_segs > 0) {
+			SET_FLAG(znh->flags, ZAPI_NEXTHOP_FLAG_SEG6LOCAL);
+			znh->seg6local_action = nh->nh_srv6->seg6local_action;
+			memcpy(&znh->seg6local_ctx, &nh->nh_srv6->seg6local_ctx,
+			       sizeof(struct seg6local_context));
+			znh->seg_num = nh->nh_srv6->seg6_segs->num_segs;
+			for (i = 0; i < nh->nh_srv6->seg6_segs->num_segs; i++)
+				memcpy(&znh->seg6_segs[i],
+				       &nh->nh_srv6->seg6_segs->seg[i],
+				       sizeof(struct in6_addr));
+		} else if ((nh->nh_srv6->seg6local_action ==
+			    ZEBRA_SEG6_LOCAL_ACTION_UNSPEC) &&
+			   nh->nh_srv6->seg6_segs &&
+			   nh->nh_srv6->seg6_segs->num_segs &&
+			   !sid_zero(nh->nh_srv6->seg6_segs)) {
 			SET_FLAG(znh->flags, ZAPI_NEXTHOP_FLAG_SEG6);
 			znh->seg_num = nh->nh_srv6->seg6_segs->num_segs;
 			for (i = 0; i < nh->nh_srv6->seg6_segs->num_segs; i++)
@@ -2330,8 +2348,8 @@ const char *zapi_nexthop2str(const struct zapi_nexthop *znh, char *buf,
 /*
  * Decode the nexthop-tracking update message
  */
-static bool zapi_nexthop_update_decode(struct stream *s, struct prefix *match,
-				       struct zapi_route *nhr)
+bool zapi_nexthop_update_decode(struct stream *s, struct prefix *match,
+				struct zapi_route *nhr)
 {
 	uint32_t i;
 
@@ -3855,6 +3873,8 @@ enum zclient_send_status zebra_send_sr_policy(struct zclient *zclient, int cmd,
 int zapi_sr_policy_encode(struct stream *s, int cmd, struct zapi_sr_policy *zp)
 {
 	struct zapi_srte_tunnel *zt = &zp->segment_list;
+	struct zapi_nexthop *znh;
+	int i;
 
 	stream_reset(s);
 
@@ -3878,6 +3898,40 @@ int zapi_sr_policy_encode(struct stream *s, int cmd, struct zapi_sr_policy *zp)
 	for (int i = 0; i < zt->label_num; i++)
 		stream_putl(s, zt->labels[i]);
 
+	/* Encode SRv6-TE */
+	if (zt->srv6_segs.num_segs > SRV6_MAX_SEGS) {
+		flog_err(EC_LIB_ZAPI_ENCODE,
+			 "%s: can't encode %zu SRv6 SIDS (maximum is %u)",
+			 __func__, zt->srv6_segs.num_segs, SRV6_MAX_SEGS);
+		return -1;
+	}
+
+	stream_putw(s, zt->srv6_segs.num_segs);
+	if (zt->srv6_segs.num_segs)
+		stream_put(s, &zt->srv6_segs.segs[0],
+			   zt->srv6_segs.num_segs * sizeof(struct in6_addr));
+
+	stream_putw(s, zt->nexthop_resolved_num);
+
+	for (i = 0; i < zt->nexthop_resolved_num; i++) {
+		znh = &zt->nexthop_resolved[i];
+
+		if (zapi_nexthop_encode(s, znh, 0, 0) < 0)
+			return -1;
+	}
+
+	stream_putl(s, zt->metric);
+	stream_putc(s, zt->distance);
+
+	stream_putw(s, zt->nexthop_resolved_num);
+
+	for (i = 0; i < zt->nexthop_resolved_num; i++) {
+		znh = &zt->nexthop_resolved[i];
+
+		if (zapi_nexthop_encode(s, znh, 0, 0) < 0)
+			return -1;
+	}
+
 	/* Put length at the first point of the stream. */
 	stream_putw_at(s, 0, stream_get_endp(s));
 
@@ -3886,9 +3940,11 @@ int zapi_sr_policy_encode(struct stream *s, int cmd, struct zapi_sr_policy *zp)
 
 int zapi_sr_policy_decode(struct stream *s, struct zapi_sr_policy *zp)
 {
-	memset(zp, 0, sizeof(*zp));
-
 	struct zapi_srte_tunnel *zt = &zp->segment_list;
+	struct zapi_nexthop *znh;
+	int i;
+
+	memset(zp, 0, sizeof(*zp));
 
 	STREAM_GETL(s, zp->color);
 	STREAM_GET_IPADDR(s, &zp->endpoint);
@@ -3907,6 +3963,37 @@ int zapi_sr_policy_decode(struct stream *s, struct zapi_sr_policy *zp)
 	}
 	for (int i = 0; i < zt->label_num; i++)
 		STREAM_GETL(s, zt->labels[i]);
+
+	/* Decode SRv6-TE */
+	STREAM_GETW(s, zt->srv6_segs.num_segs);
+
+	if (zt->srv6_segs.num_segs > SRV6_MAX_SEGS) {
+		flog_err(EC_LIB_ZAPI_ENCODE,
+			 "%s: can't encode %zu SRv6 SIDS (maximum is %u)",
+			 __func__, zt->srv6_segs.num_segs, SRV6_MAX_SEGS);
+		return -1;
+	}
+	if (zt->srv6_segs.num_segs)
+		STREAM_GET(&zt->srv6_segs.segs[0], s,
+			   zt->srv6_segs.num_segs * sizeof(struct in6_addr));
+
+	STREAM_GETW(s, zt->nexthop_resolved_num);
+	if (zt->nexthop_resolved_num > MULTIPATH_NUM) {
+		flog_err(EC_LIB_ZAPI_ENCODE,
+			 "%s: invalid number of nexthops (%u)", __func__,
+			 zt->nexthop_resolved_num);
+		return -1;
+	}
+
+	for (i = 0; i < zt->nexthop_resolved_num; i++) {
+		znh = &zt->nexthop_resolved[i];
+
+		if (zapi_nexthop_decode(s, znh, 0, 0) != 0)
+			return -1;
+	}
+
+	STREAM_GETL(s, zt->metric);
+	STREAM_GETC(s, zt->distance);
 
 	return 0;
 

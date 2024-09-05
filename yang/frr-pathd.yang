@@ -58,6 +58,11 @@ module frr-pathd {
 
   container pathd {
     container srte {
+      leaf use-srv6-sid-manager {
+          type boolean;
+          default false;
+          description "Set it to true if SID manager should be used.";
+      }
       list segment-list {
         key "name";
         description "Segment-list properties";
@@ -88,6 +93,13 @@ module frr-pathd {
         leaf sid-value {
           type rt-types:mpls-label;
           description "MPLS label value";
+        }
+        leaf srv6-sid-value {
+          type inet:ipv6-address;
+          description "SRv6 SID value";
+        }
+        must "not(../segment/sid-value) or not(../segment/srv6-sid-value)" {
+          error-message "Only MPLS label or SRv6 SID value can be configured in the same moment.";
         }
         container nai {
           presence "The segment has a Node or Adjacency Identifier";
@@ -189,6 +201,11 @@ module frr-pathd {
           type rt-types:mpls-label;
           description
             "BSID of the SR Policy.";
+        }
+        leaf srv6-binding-sid {
+          type inet:ipv6-address;
+          description
+            "SRv6 BSID of the SR policy.";
         }
         leaf is-operational {
           type boolean;

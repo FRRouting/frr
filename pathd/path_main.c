@@ -137,6 +137,7 @@ int main(int argc, char **argv, char **envp)
 
 	path_error_init();
 	path_zebra_init(master);
+	path_srv6_init();
 	path_cli_init();
 	path_ted_init(master);
 
