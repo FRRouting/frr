@@ -405,12 +405,11 @@ int bgp_find_or_add_nexthop(struct bgp *bgp_route, struct bgp *bgp_nexthop,
 				   peer);
 	} else {
 		if (BGP_DEBUG(nht, NHT))
-			zlog_debug(
-				"Found existing bnc %pFX(%d)(%s) flags 0x%x ifindex %d #paths %d peer %p",
-				&bnc->prefix, bnc->ifindex_ipv6_ll,
-				bnc->bgp->name_pretty, bnc->flags,
-				bnc->ifindex_ipv6_ll, bnc->path_count,
-				bnc->nht_info);
+			zlog_debug("Found existing bnc %pFX(%d)(%s) flags 0x%x ifindex %d #paths %d peer %p, resolved prefix %pFX",
+				   &bnc->prefix, bnc->ifindex_ipv6_ll,
+				   bnc->bgp->name_pretty, bnc->flags,
+				   bnc->ifindex_ipv6_ll, bnc->path_count,
+				   bnc->nht_info, &bnc->resolved_prefix);
 	}
 
 	if (pi && is_route_parent_evpn(pi))
