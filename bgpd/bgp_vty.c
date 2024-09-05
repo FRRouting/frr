@@ -17072,8 +17072,13 @@ static int bgp_show_one_peer_group(struct vty *vty, struct peer_group *group,
 			vty_out(vty, "\nBGP peer-group %s\n", group->name);
 	}
 
-	if ((group->bgp->as == conf->as) ||
-	    CHECK_FLAG(conf->as_type, AS_INTERNAL)) {
+	if (CHECK_FLAG(conf->as_type, AS_AUTO)) {
+		if (json)
+			json_object_string_add(json_peer_group, "type", "auto");
+		else
+			vty_out(vty, "  Peer-group type is auto\n");
+	} else if ((group->bgp->as == conf->as) ||
+		   CHECK_FLAG(conf->as_type, AS_INTERNAL)) {
 		if (json)
 			json_object_string_add(json_peer_group, "type",
 					       "internal");
