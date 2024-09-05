@@ -295,10 +295,15 @@ DEFUN(tunnel_protection, tunnel_protection_cmd,
 }
 
 DEFUN(no_tunnel_protection, no_tunnel_protection_cmd,
-	"no tunnel protection",
+	"no tunnel protection [vici profile PROFILE [fallback-profile FALLBACK]]",
 	NO_STR
 	"NHRP/GRE integration\n"
-	"IPsec protection\n")
+	"IPsec protection\n"
+	"VICI (StrongSwan)\n"
+	"IPsec profile\n"
+	"IPsec profile name\n"
+	"Fallback IPsec profile\n"
+	"Fallback IPsec profile name\n")
 {
 	VTY_DECLVAR_CONTEXT(interface, ifp);
 
