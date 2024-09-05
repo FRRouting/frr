@@ -4708,6 +4708,7 @@ static const struct peer_flag_action peer_flag_action_list[] = {
 	{PEER_FLAG_CAPABILITY_FQDN, 0, peer_change_none},
 	{PEER_FLAG_AS_LOOP_DETECTION, 0, peer_change_none},
 	{PEER_FLAG_EXTENDED_LINK_BANDWIDTH, 0, peer_change_none},
+	{PEER_FLAG_LONESOUL, 0, peer_change_reset_out},
 	{0, 0, 0}};
 
 static const struct peer_flag_action peer_af_flag_action_list[] = {
