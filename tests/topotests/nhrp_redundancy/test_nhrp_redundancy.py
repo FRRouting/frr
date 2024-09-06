@@ -29,38 +29,38 @@ test_nhrp_redundancy.py: Test NHS redundancy for NHRP
 """
 
 TOPOLOGY = """
-+------------+                  +------------+                   +------------+               
-|            |                  |            |                   |            |               
-|            |                  |            |                   |            |               
-|   NHS 1    |                  |   NHS 2    |                   |    NHS 3   |               
-|            |                  |            |                   |            |               
-+-----+------+                  +-----+------+                   +-----+------+               
-      |.1                             |.2                              |.3                    
-      |                               |                                |                      
-      |                               |            192.168.1.0/24      |                      
-------+-------------------------------+------------------+-------------+------                
-                                                         |                                    
-                                                         |.6                                  
-         GRE P2MP between all NHS and NHC          +-----+------+                             
-               172.16.1.x/32                       |            |                             
-                                                   |            |                             
-                                                   |   Router   |                             
-                                                   |            |                             
-                                                   +-----+------+                             
-                                                         |                                    
-                                                         |                                    
-                               ---------+----------------+-------------+------                
-                                        |          192.168.2.0/24      |                      
-                                        |                              |                      
-                       |                |.4                            |.5                    
-+------------+         |        +-------+----+                  +------+-----+     |          
-|            |         |        |            |                  |            |     |          
-|            |         +--------+            |                  |            |     |          
++------------+                  +------------+                   +------------+
+|            |                  |            |                   |            |
+|            |                  |            |                   |            |
+|   NHS 1    |                  |   NHS 2    |                   |    NHS 3   |
+|            |                  |            |                   |            |
++-----+------+                  +-----+------+                   +-----+------+
+      |.1                             |.2                              |.3
+      |                               |                                |
+      |                               |            192.168.1.0/24      |
+------+-------------------------------+------------------+-------------+------
+                                                         |
+                                                         |.6
+         GRE P2MP between all NHS and NHC          +-----+------+
+               172.16.1.x/32                       |            |
+                                                   |            |
+                                                   |   Router   |
+                                                   |            |
+                                                   +-----+------+
+                                                         |
+                                                         |
+                               ---------+----------------+-------------+------
+                                        |          192.168.2.0/24      |
+                                        |                              |
+                       |                |.4                            |.5
++------------+         |        +-------+----+                  +------+-----+     |
+|            |         |        |            |                  |            |     |
+|            |         +--------+            |                  |            |     |
 |    Host    |.7       |        |    NHC 1   |                  |    NHC 2   +-----+10.5.5.0/24
-|            +---------+        |            |                  |            |     |          
-+------------+         |        +------------+                  +------------+     |          
-                       |                                                           |          
-                  10.4.4.0/24                                                                  
+|            +---------+        |            |                  |            |     |
++------------+         |        +------------+                  +------------+     |
+                       |                                                           |
+                  10.4.4.0/24
 """
 
 # Save the Current Working Directory to find configuration files.
@@ -148,8 +148,8 @@ def _populate_iface():
 def _verify_iptables():
     tgen = get_topogen()
     # Verify iptables is installed. Required for shortcuts
-    rc, _, _ = tgen.net["nhs1"].cmd_status("iptables")
-    return False if rc == 127 else True
+    rc, _, _ = tgen.net["nhs1"].cmd_status("iptables -V")
+    return True if rc == 0 else False
 
 
 def setup_module(mod):
@@ -167,14 +167,8 @@ def setup_module(mod):
     _populate_iface()
 
     for rname, router in router_list.items():
-        router.load_config(
-            TopoRouter.RD_ZEBRA,
-            os.path.join(CWD, "{}/zebra.conf".format(rname)),
-        )
-        if rname in ("nhs1", "nhs2", "nhs3", "nhc1", "nhc2"):
-            router.load_config(
-                TopoRouter.RD_NHRP, os.path.join(CWD, "{}/nhrpd.conf".format(rname))
-            )
+        logger.info("Loading router %s" % rname)
+        router.load_frr_config(os.path.join(CWD, "{}/frr.conf".format(rname)))
 
     # Initialize all routers.
     tgen.start_router()
