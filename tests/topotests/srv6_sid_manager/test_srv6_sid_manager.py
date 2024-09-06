@@ -304,6 +304,27 @@ def check_rib(name, cmd, expected_file):
     assert result is None, "Failed"
 
 
+#
+# Step 1
+#
+# Test initial network convergence
+#
+def test_isis_adjacencies():
+    logger.info("Test: check IS-IS adjacencies")
+    tgen = get_topogen()
+
+    # Skip if previous fatal error condition is raised
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    for rname in ["rt1", "rt2", "rt3", "rt4", "rt5", "rt6"]:
+        router_compare_json_output(
+            rname,
+            "show yang operational-data /frr-interface:lib isisd",
+            "show_yang_interface_isis_adjacencies.ref",
+        )
+
+
 if __name__ == "__main__":
     args = ["-s"] + sys.argv[1:]
     sys.exit(pytest.main(args))
