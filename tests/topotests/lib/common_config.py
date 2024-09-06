@@ -3371,7 +3371,7 @@ def verify_rib(
                                 found_hops = [
                                     rib_r["ip"]
                                     for rib_r in rib_routes_json[st_rt][0]["nexthops"]
-                                    if "ip" in rib_r
+                                    if "ip" in rib_r and "active" in rib_r
                                 ]
 
                                 # If somehow key "ip" is not found in nexthops JSON
