@@ -339,6 +339,20 @@ def test_rib_ipv4():
         )
 
 
+def test_rib_ipv6():
+    logger.info("Test: verify IPv6 RIB")
+    tgen = get_topogen()
+
+    # Skip if previous fatal error condition is raised
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    for rname in ["rt1", "rt2", "rt3", "rt4", "rt5", "rt6"]:
+        router_compare_json_output(
+            rname, "show ipv6 route json", "show_ipv6_route.ref"
+        )
+
+
 if __name__ == "__main__":
     args = ["-s"] + sys.argv[1:]
     sys.exit(pytest.main(args))
