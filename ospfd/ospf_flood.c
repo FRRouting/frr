@@ -1094,8 +1094,13 @@ void ospf_ls_retransmit_add(struct ospf_neighbor *nbr, struct ospf_lsa *lsa)
 			if (ls_rxmt_node->lsa_list_entry ==
 			    ospf_lsa_list_first(&nbr->ls_rxmt_list))
 				rxmt_head_replaced = true;
+
+			/* Keep SA happy */
+			assert(ls_rxmt_node->lsa_list_entry != NULL);
+
 			ospf_lsa_list_del(&nbr->ls_rxmt_list,
 					  ls_rxmt_node->lsa_list_entry);
+
 			XFREE(MTYPE_OSPF_LSA_LIST, ls_rxmt_node->lsa_list_entry);
 			ospf_lsdb_delete(&nbr->ls_rxmt, old);
 			if (IS_DEBUG_OSPF(lsa, LSA_FLOODING))
@@ -1163,8 +1168,13 @@ void ospf_ls_retransmit_delete(struct ospf_neighbor *nbr, struct ospf_lsa *lsa)
 			rxmt_timer_reset = false;
 
 		lsa->retransmit_counter--;
+
+		/* Keep SA happy */
+		assert(ls_rxmt_node->lsa_list_entry != NULL);
+
 		ospf_lsa_list_del(&nbr->ls_rxmt_list,
 				  ls_rxmt_node->lsa_list_entry);
+
 		XFREE(MTYPE_OSPF_LSA_LIST, ls_rxmt_node->lsa_list_entry);
 		ospf_lsdb_delete(&nbr->ls_rxmt, lsa);
 		if (IS_DEBUG_OSPF(lsa, LSA_FLOODING))
