@@ -1,0 +1,92 @@
+{
+  "2001:1::/64": [
+    {
+      "prefix": "2001:1::/64",
+      "protocol": "bgp",
+      "vrfName": "vrf10",
+      "selected": true,
+      "destSelected": true,
+      "distance": 20,
+      "metric": 0,
+      "installed": true,
+      "table": 10,
+      "internalStatus": 16,
+      "internalFlags": 9,
+      "internalNextHopNum": 3,
+      "internalNextHopActiveNum": 3,
+      "nexthops": [
+        {
+          "flags": 3,
+          "fib": true,
+          "afi": "ipv6",
+          "interfaceName": "eth-rt5",
+          "vrf": "default",
+          "active": true,
+          "weight": 1,
+          "seg6": {
+            "segs": "fc00:0:1:fe00::"
+          }
+        }
+      ],
+      "asPath": "1"
+    }
+  ],
+  "2001:2::/64": [
+    {
+      "prefix": "2001:2::/64",
+      "protocol": "connected",
+      "vrfName": "vrf10",
+      "selected": true,
+      "destSelected": true,
+      "distance": 0,
+      "metric": 0,
+      "installed": true,
+      "table": 10,
+      "internalStatus": 16,
+      "internalFlags": 8,
+      "internalNextHopNum": 1,
+      "internalNextHopActiveNum": 1,
+      "nexthops": [
+        {
+          "flags": 3,
+          "fib": true,
+          "directlyConnected": true,
+          "interfaceName": "eth-ce2",
+          "active": true
+        }
+      ]
+    }
+  ],
+  "2001:3::/64": [
+    {
+      "prefix": "2001:3::/64",
+      "protocol": "bgp",
+      "vrfName": "vrf10",
+      "selected": true,
+      "destSelected": true,
+      "distance": 20,
+      "metric": 0,
+      "installed": true,
+      "table": 10,
+      "internalStatus": 16,
+      "internalFlags": 9,
+      "internalNextHopNum": 3,
+      "internalNextHopActiveNum": 3,
+      "nexthops": [
+        {
+          "flags": 3,
+          "fib": true,
+          "afi": "ipv6",
+          "interfaceName": "eth-rt5",
+          "vrf": "default",
+          "active": true,
+          "weight": 1,
+          "seg6": {
+            "segs": "fc00:0:1:fe00::"
+          }
+        }
+      ],
+      "asPath": "1"
+    }
+  ]
+}
