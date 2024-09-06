@@ -325,6 +325,20 @@ def test_isis_adjacencies():
         )
 
 
+def test_rib_ipv4():
+    logger.info("Test: verify IPv4 RIB")
+    tgen = get_topogen()
+
+    # Skip if previous fatal error condition is raised
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    for rname in ["rt1", "rt2", "rt3", "rt4", "rt5", "rt6"]:
+        router_compare_json_output(
+            rname, "show ip route isis json", "show_ip_route.ref"
+        )
+
+
 if __name__ == "__main__":
     args = ["-s"] + sys.argv[1:]
     sys.exit(pytest.main(args))
