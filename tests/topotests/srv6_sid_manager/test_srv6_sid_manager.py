@@ -288,6 +288,22 @@ def open_json_file(filename):
         assert False, "Could not read file {}".format(filename)
 
 
+def check_rib(name, cmd, expected_file):
+    def _check(name, cmd, expected_file):
+        logger.info("polling")
+        tgen = get_topogen()
+        router = tgen.gears[name]
+        output = json.loads(router.vtysh_cmd(cmd))
+        expected = open_json_file("{}/{}".format(CWD, expected_file))
+        return topotest.json_cmp(output, expected)
+
+    logger.info('[+] check {} "{}" {}'.format(name, cmd, expected_file))
+    tgen = get_topogen()
+    func = functools.partial(_check, name, cmd, expected_file)
+    success, result = topotest.run_and_expect(func, None, count=10, wait=0.5)
+    assert result is None, "Failed"
+
+
 if __name__ == "__main__":
     args = ["-s"] + sys.argv[1:]
     sys.exit(pytest.main(args))
