@@ -264,6 +264,22 @@ def router_compare_json_output(rname, command, reference):
     assert diff is None, assertmsg
 
 
+def check_ping6(name, dest_addr, expect_connected):
+    def _check(name, dest_addr, match):
+        tgen = get_topogen()
+        output = tgen.gears[name].run("ping6 {} -c 1 -w 1".format(dest_addr))
+        logger.info(output)
+        if match not in output:
+            return "ping fail"
+
+    match = "{} packet loss".format("0%" if expect_connected else "100%")
+    logger.info("[+] check {} {} {}".format(name, dest_addr, match))
+    tgen = get_topogen()
+    func = functools.partial(_check, name, dest_addr, match)
+    success, result = topotest.run_and_expect(func, None, count=10, wait=1)
+    assert result is None, "Failed"
+
+
 if __name__ == "__main__":
     args = ["-s"] + sys.argv[1:]
     sys.exit(pytest.main(args))
