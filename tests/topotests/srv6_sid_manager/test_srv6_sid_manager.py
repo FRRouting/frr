@@ -240,6 +240,14 @@ def setup_module(mod):
     tgen.start_router()
 
 
+def teardown_module(mod):
+    "Teardown the pytest environment"
+
+    # Teardown the topology
+    tgen = get_topogen()
+    tgen.stop_topology()
+
+
 if __name__ == "__main__":
     args = ["-s"] + sys.argv[1:]
     sys.exit(pytest.main(args))
