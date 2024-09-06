@@ -204,7 +204,7 @@ static void babel_read_protocol(struct event *thread)
  making these inits have sense. */
 static void babel_init_routing_process(struct event *thread)
 {
-    myseqno = (frr_weak_random() & 0xFFFF);
+    myseqno = CHECK_FLAG(frr_weak_random(), 0xFFFF);
     babel_get_myid();
     babel_load_state_file();
     debugf(BABEL_DEBUG_COMMON, "My ID is : %s.", format_eui64(myid));
@@ -443,8 +443,8 @@ babel_fill_with_next_timeout(struct timeval *tv)
 #if (defined NO_DEBUG)
 #define printIfMin(a,b,c,d)
 #else
-#define printIfMin(a, b, c, d)                                                 \
-	if (unlikely(debug & BABEL_DEBUG_TIMEOUT)) {                           \
+#define printIfMin(a, b, c, d)                                         \
+	if (unlikely(CHECK_FLAG(debug, BABEL_DEBUG_TIMEOUT))) {            \
 		printIfMin(a, b, c, d);                                        \
 	}
 
