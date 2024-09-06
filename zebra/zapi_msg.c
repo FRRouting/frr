@@ -1953,6 +1953,7 @@ static int zapi_nhg_decode(struct stream *s, int cmd, struct zapi_nhg *api_nhg)
 
 	STREAM_GETW(s, api_nhg->proto);
 	STREAM_GETL(s, api_nhg->id);
+	STREAM_GETL(s, api_nhg->flags);
 
 	if (cmd == ZEBRA_NHG_DEL)
 		goto done;
