@@ -353,6 +353,20 @@ def test_rib_ipv6():
         )
 
 
+def test_srv6_locator():
+    logger.info("Test: verify SRv6 Locator")
+    tgen = get_topogen()
+
+    # Skip if previous fatal error condition is raised
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    for rname in ["rt1", "rt2", "rt3", "rt4", "rt5", "rt6"]:
+        router_compare_json_output(
+            rname, "show segment-routing srv6 locator json", "show_srv6_locator_table.ref"
+         )
+
+
 if __name__ == "__main__":
     args = ["-s"] + sys.argv[1:]
     sys.exit(pytest.main(args))
