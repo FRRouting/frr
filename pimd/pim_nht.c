@@ -343,7 +343,8 @@ bool pim_nht_bsr_rpf_check(struct pim_instance *pim, pim_addr bsr_addr,
 			if (!nbr)
 				continue;
 
-			return znh->ifindex == src_ifp->ifindex;
+			return znh->ifindex == src_ifp->ifindex &&
+			       (!pim_addr_cmp(znh->nexthop_addr, src_ip));
 		}
 		return false;
 	}
@@ -404,13 +405,12 @@ bool pim_nht_bsr_rpf_check(struct pim_instance *pim, pim_addr bsr_addr,
 			return true;
 
 		/* MRIB (IGP) may be pointing at a router where PIM is down */
-
 		nbr = pim_neighbor_find(ifp, nhaddr, true);
-
 		if (!nbr)
 			continue;
 
-		return nh->ifindex == src_ifp->ifindex;
+		return nh->ifindex == src_ifp->ifindex &&
+		       (!pim_addr_cmp(nhaddr, src_ip));
 	}
 	return false;
 }
