@@ -47,19 +47,19 @@ seqno_compare(unsigned short s1, unsigned short s2)
     if(s1 == s2)
         return 0;
     else
-        return ((s2 - s1) & 0x8000) ? 1 : -1;
+        return (CHECK_FLAG((s2 - s1), 0x8000)) ? 1 : -1;
 }
 
 static inline short
 seqno_minus(unsigned short s1, unsigned short s2)
 {
-    return (short)((s1 - s2) & 0xFFFF);
+    return (short)(CHECK_FLAG((s1 - s2), 0xFFFF));
 }
 
 static inline unsigned short
 seqno_plus(unsigned short s, int plus)
 {
-    return ((s + plus) & 0xFFFF);
+    return CHECK_FLAG((s + plus), 0xFFFF);
 }
 
 /* Returns a time in microseconds on 32 bits (thus modulo 2^32,
@@ -130,7 +130,7 @@ is_default(const unsigned char *prefix, int plen)
 
 #define debugf(level, ...)                                                     \
 	do {                                                                   \
-		if (unlikely(debug & level))                                   \
+		if (unlikely(CHECK_FLAG(debug, level)))                            \
 			zlog_debug(__VA_ARGS__);                               \
 	} while (0)
 

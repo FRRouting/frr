@@ -324,8 +324,8 @@ parse_request_subtlv(int ae, const unsigned char *a, int alen,
             have_src_prefix = 1;
         } else {
             debugf(BABEL_DEBUG_COMMON,"Received unknown%s Route Request sub-TLV %d.",
-                   ((type & 0x80) != 0) ? " mandatory" : "", type);
-            if((type & 0x80) != 0)
+                   (CHECK_FLAG(type, 0x80) != 0) ? " mandatory" : "", type);
+            if(CHECK_FLAG(type, 0x80) != 0)
                 return -1;
         }
 
@@ -588,7 +588,7 @@ parse_packet(const unsigned char *from, struct interface *ifp,
             else
                 rc = -1;
             if(rc < 0) {
-                if(message[3] & 0x80)
+                if(CHECK_FLAG(message[3], 0x80))
                     have_v4_prefix = have_v6_prefix = 0;
                 goto fail;
             }
@@ -596,7 +596,7 @@ parse_packet(const unsigned char *from, struct interface *ifp,
 
             plen = message[4] + (message[2] == 1 ? 96 : 0);
 
-            if(message[3] & 0x80) {
+            if(CHECK_FLAG(message[3], 0x80)) {
                 if(message[2] == 1) {
                     memcpy(v4_prefix, prefix, 16);
                     have_v4_prefix = 1;
@@ -605,7 +605,7 @@ parse_packet(const unsigned char *from, struct interface *ifp,
                     have_v6_prefix = 1;
                 }
             }
-            if(message[3] & 0x40) {
+            if(CHECK_FLAG(message[3], 0x40)) {
                 if(message[2] == 1) {
                     memset(router_id, 0, 4);
                     memcpy(router_id + 4, prefix + 12, 4);
@@ -620,8 +620,8 @@ parse_packet(const unsigned char *from, struct interface *ifp,
                 goto fail;
             }
             debugf(BABEL_DEBUG_COMMON,"Received update%s%s for %s from %s on %s.",
-                   (message[3] & 0x80) ? "/prefix" : "",
-                   (message[3] & 0x40) ? "/id" : "",
+                   ((CHECK_FLAG(message[3], 0x80)) ? "/prefix" : ""),
+                   ((CHECK_FLAG(message[3], 0x40)) ? "/id" : ""),
                    format_prefix(prefix, plen),
                    format_address(from), ifp->name);
 
@@ -1059,7 +1059,7 @@ void send_hello_noupdate(struct interface *ifp, unsigned interval)
            babel_ifp->hello_seqno, interval, ifp->name);
 
     start_message(ifp, MESSAGE_HELLO,
-                  (babel_ifp->flags & BABEL_IF_TIMESTAMPS) ? 12 : 6);
+                  (CHECK_FLAG(babel_ifp->flags, BABEL_IF_TIMESTAMPS) ? 12 : 6));
     babel_ifp->buffered_hello = babel_ifp->buffered - 2;
     accumulate_short(ifp, 0);
     accumulate_short(ifp, babel_ifp->hello_seqno);
