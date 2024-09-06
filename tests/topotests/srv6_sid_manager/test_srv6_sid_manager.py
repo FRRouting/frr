@@ -212,6 +212,34 @@ def build_topo(tgen):
     )
 
 
+def setup_module(mod):
+    """Sets up the pytest environment"""
+
+    # Verify if kernel requirements are satisfied
+    result = required_linux_kernel_version("4.10")
+    if result is not True:
+        pytest.skip("Kernel requirements are not met")
+
+    # Build the topology
+    tgen = Topogen(build_topo, mod.__name__)
+    tgen.start_topology()
+
+    # For all registered routers, load the zebra and isis configuration files
+    for rname, router in tgen.routers().items():
+        router.load_config(TopoRouter.RD_ZEBRA,
+                           os.path.join(CWD, '{}/zebra.conf'.format(rname)))
+        router.load_config(TopoRouter.RD_ISIS,
+                           os.path.join(CWD, '{}/isisd.conf'.format(rname)))
+        router.load_config(TopoRouter.RD_BGP,
+                           os.path.join(CWD, '{}/bgpd.conf'.format(rname)))
+        if (os.path.exists('{}/sharpd.conf'.format(rname))):
+            router.load_config(TopoRouter.RD_SHARP,
+                            os.path.join(CWD, '{}/sharpd.conf'.format(rname)))
+
+    # Start routers
+    tgen.start_router()
+
+
 if __name__ == "__main__":
     args = ["-s"] + sys.argv[1:]
     sys.exit(pytest.main(args))
