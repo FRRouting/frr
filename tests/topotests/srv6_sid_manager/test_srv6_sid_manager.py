@@ -367,6 +367,21 @@ def test_srv6_locator():
          )
 
 
+def test_vpn_rib():
+    check_rib("rt1", "show bgp ipv6 vpn json", "rt1/vpnv6_rib.ref")
+    check_rib("rt6", "show bgp ipv6 vpn json", "rt6/vpnv6_rib.ref")
+    check_rib("rt1", "show ipv6 route vrf vrf10 json", "rt1/vrf10_rib.ref")
+    check_rib("rt1", "show ipv6 route vrf vrf20 json", "rt1/vrf20_rib.ref")
+    check_rib("rt6", "show ipv6 route vrf vrf10 json", "rt6/vrf10_rib.ref")
+    check_rib("rt6", "show ipv6 route vrf vrf20 json", "rt6/vrf20_rib.ref")
+    check_rib("ce1", "show ipv6 route json", "ce1/ipv6_rib.json")
+    check_rib("ce2", "show ipv6 route json", "ce2/ipv6_rib.json")
+    check_rib("ce3", "show ipv6 route json", "ce3/ipv6_rib.json")
+    check_rib("ce4", "show ipv6 route json", "ce4/ipv6_rib.json")
+    check_rib("ce5", "show ipv6 route json", "ce5/ipv6_rib.json")
+    check_rib("ce6", "show ipv6 route json", "ce6/ipv6_rib.json")
+
+
 if __name__ == "__main__":
     args = ["-s"] + sys.argv[1:]
     sys.exit(pytest.main(args))
