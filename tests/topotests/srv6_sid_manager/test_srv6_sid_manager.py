@@ -406,6 +406,16 @@ def test_ping():
     check_ping("rt1", "fc00:0:9::1", True, 10, 1)
 
 
+# Memory leak test template
+def test_memory_leak():
+    "Run the memory leak test and report results."
+    tgen = get_topogen()
+    if not tgen.is_memleak_enabled():
+        pytest.skip("Memory leak test/report is disabled")
+
+    tgen.report_memory_leaks()
+
+
 if __name__ == "__main__":
     args = ["-s"] + sys.argv[1:]
     sys.exit(pytest.main(args))
