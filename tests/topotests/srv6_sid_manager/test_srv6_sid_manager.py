@@ -382,6 +382,30 @@ def test_vpn_rib():
     check_rib("ce6", "show ipv6 route json", "ce6/ipv6_rib.json")
 
 
+def test_ping():
+    logger.info("Test: verify ping")
+    tgen = get_topogen()
+
+    # Required linux kernel version for this suite to run.
+    result = required_linux_kernel_version("6.1")
+    if result is not True:
+        pytest.skip("Kernel requirements are not met, kernel version should be >=6.1")
+
+    # Skip if previous fatal error condition is raised
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    # Setup encap route on rt1, decap route on rt2
+    # tgen.gears["rt1"].vtysh_cmd("sharp install seg6-routes fc00:0:9::1 nexthop-seg6 2001:db8:1::2 encap fc00:0:2:6:fe00:: 1")
+    tgen.gears["rt1"].cmd("ip -6 r a fc00:0:9::1/128 encap seg6 mode encap segs fc00:0:2:6:fe00:: via 2001:db8:1::2")
+    # tgen.gears["rt6"].vtysh_cmd("sharp install seg6local-routes fc00:0:f00d:: nexthop-seg6local eth-dst End_DT6 254 1")
+    tgen.gears["rt6"].cmd("ip -6 r a fc00:0:9::1/128 via 2001:db8:10::2 vrf vrf10")
+    tgen.gears["dst"].cmd("ip -6 r a 2001:db8:1::1/128 via 2001:db8:10::1")
+
+    # Try to ping dst from rt1
+    check_ping("rt1", "fc00:0:9::1", True, 10, 1)
+
+
 if __name__ == "__main__":
     args = ["-s"] + sys.argv[1:]
     sys.exit(pytest.main(args))
