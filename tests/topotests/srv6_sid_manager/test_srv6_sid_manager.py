@@ -280,6 +280,14 @@ def check_ping6(name, dest_addr, expect_connected):
     assert result is None, "Failed"
 
 
+def open_json_file(filename):
+    try:
+        with open(filename, "r") as f:
+            return json.load(f)
+    except IOError:
+        assert False, "Could not read file {}".format(filename)
+
+
 if __name__ == "__main__":
     args = ["-s"] + sys.argv[1:]
     sys.exit(pytest.main(args))
