@@ -19,6 +19,7 @@
 #include "ospf6_proto.h"
 #include "ospf6_route.h"
 #include "ospf6_lsa.h"
+#include "ospf6_tlv.h"
 #include "ospf6_route.h"
 #include "ospf6_lsdb.h"
 #include "ospf6_message.h"
@@ -199,6 +200,86 @@ static void originate_inter_area_lsa(struct ospf6_route *route,
 		ospf6_new_ls_seqnum(lsa_header->type, lsa_header->id,
 				    lsa_header->adv_router, area->lsdb);
 	lsa_header->length = htons((char *)p - (char *)lsa_header);
+
+	/* LSA checksum */
+	ospf6_lsa_checksum(lsa_header);
+
+	/* create LSA */
+	lsa = ospf6_lsa_create(lsa_header);
+
+	/* Reset the unapproved flag */
+	UNSET_FLAG(lsa->flag, OSPF6_LSA_UNAPPROVED);
+
+	/* Originate */
+	ospf6_lsa_originate_area(lsa, area);
+}
+
+static void originate_inter_area_e_lsa(struct ospf6_route *route,
+				      struct ospf6_area *area, int origin_id)
+{
+	struct ospf6_lsa *lsa;
+	struct ospf6_lsa_header *lsa_header;
+	struct tlv_inter_area_prefix *prefix_tlv;
+	struct ospf6_prefix *prefix;
+	struct tlv_inter_area_router *router_tlv;
+	char *lsa_end;
+	uint16_t lsa_type;
+	char buffer[OSPF6_MAX_LSASIZE] = { 0 };
+
+	/* prepare buffer */
+	lsa_header = (struct ospf6_lsa_header *)buffer;
+
+	if (route->type == OSPF6_DEST_TYPE_ROUTER) {
+		router_tlv = lsa_after_header(lsa_header);
+		router_tlv->header.type = htons(TLV_INTER_AREA_ROUTER_TYPE);
+		router_tlv->header.length =
+			ntohs(sizeof(struct ospf6_prefix) +
+			      sizeof(struct tlv_inter_area_router));
+
+		/* Fill Inter-Area-Router TLV */
+		router_tlv->options[0] = route->path.options[0];
+		router_tlv->options[1] = route->path.options[1];
+		router_tlv->options[2] = route->path.options[2];
+		OSPF6_ABR_SUMMARY_METRIC_SET(router_tlv, route->path.cost);
+		router_tlv->router_id = ADV_ROUTER_IN_PREFIX(&route->prefix);
+
+		lsa_type = htons(OSPF6_LSTYPE_E_INTER_ROUTER);
+		lsa_end = (char *)router_tlv + TLV_SIZE(&router_tlv->header);
+	} else {
+		prefix_tlv = lsa_after_header(lsa_header);
+		prefix_tlv->header.type = htons(TLV_INTER_AREA_PREFIX_TYPE);
+		prefix_tlv->header.length =
+			htons(sizeof(struct ospf6_prefix) +
+			      TLV_INTER_AREA_PREFIX_MIN_LENGTH +
+			      OSPF6_PREFIX_SPACE(route->prefix.prefixlen));
+
+		/* Fill TLV Value */
+		OSPF6_ABR_SUMMARY_METRIC_SET(prefix_tlv, route->path.cost);
+
+		/* struct tlv_inter_area_prefix is followed by struct ospf6_prefix */
+		prefix = (struct ospf6_prefix *)((char *)prefix_tlv + sizeof(struct tlv_inter_area_prefix));
+		prefix->prefix_length = route->prefix.prefixlen;
+		prefix->prefix_options = route->prefix_options;
+
+		/* set Prefix Address */
+		memcpy(prefix->addr, &route->prefix.u.prefix6,
+		       OSPF6_PREFIX_SPACE(route->prefix.prefixlen));
+		ospf6_prefix_apply_mask(prefix);
+
+		lsa_type = htons(OSPF6_LSTYPE_E_INTER_PREFIX);
+		lsa_end = (char *)TLV_HDR_NEXT(&prefix_tlv->header);
+	}
+
+
+	/* Fill LSA Header */
+	lsa_header->age = 0;
+	lsa_header->type = lsa_type;
+	lsa_header->id = origin_id;
+	lsa_header->adv_router = area->ospf6->router_id;
+	lsa_header->seqnum =
+		ospf6_new_ls_seqnum(lsa_header->type, lsa_header->id,
+				    lsa_header->adv_router, area->lsdb);
+	lsa_header->length = htons((char *)lsa_end - (char *)lsa_header);
 
 	/* LSA checksum */
 	ospf6_lsa_checksum(lsa_header);
@@ -607,7 +688,20 @@ int ospf6_abr_originate_summary_to_area(struct ospf6_route *route,
 	summary->path.cost = route->path.cost;
 	/* summary->nexthop[0] = route->nexthop[0]; */
 
-	originate_inter_area_lsa(route, area, summary->path.origin.id);
+	switch (area->ospf6->extended_lsa_support) {
+	case OSPF6_E_LSA_SUP_LEGACY:
+		originate_inter_area_lsa(route, area, summary->path.origin.id);
+		break;
+	case OSPF6_E_LSA_SUP_ELSA:
+		originate_inter_area_e_lsa(route, area, summary->path.origin.id);
+		break;
+	case OSPF6_E_LSA_SUP_BOTH:
+		originate_inter_area_lsa(route, area, summary->path.origin.id);
+		originate_inter_area_e_lsa(route, area, summary->path.origin.id);
+		break;
+	default:
+		break;
+	}
 
 	if (IS_OSPF6_DEBUG_ABR)
 		zlog_debug("%s : finish area %s", __func__, area->name);
