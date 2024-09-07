@@ -63,7 +63,7 @@ def disable_debug(router):
 
 
 @retry(retry_timeout=30, initial_wait=1)
-def _do_oper_test(tgen, qr):
+def _do_oper_test(tgen, qr, seconds_left=None):
     r1 = tgen.gears["r1"].net
 
     qcmd = (
@@ -80,6 +80,8 @@ def _do_oper_test(tgen, qr):
     expected = open(qr[1], encoding="ascii").read()
     output = r1.cmd_nostatus(qcmd.format(qr[0], qr[2] if len(qr) > 2 else ""))
 
+    diag = logging.debug if seconds_left else logging.warning
+
     try:
         ojson = json.loads(output)
     except json.decoder.JSONDecodeError as error:
@@ -92,31 +94,31 @@ def _do_oper_test(tgen, qr):
         logging.error(
             "Error decoding json exp result: %s\noutput:\n%s", error, expected
         )
-        logging.warning("FILE: {}".format(qr[1]))
+        diag("FILE: {}".format(qr[1]))
         raise
 
     if dd_json_cmp:
         cmpout = json_cmp(ojson, ejson, exact_match=True)
         if cmpout:
-            logging.warning(
+            diag(
                 "-------DIFF---------\n%s\n---------DIFF----------",
                 pprint.pformat(cmpout),
             )
     else:
         cmpout = tt_json_cmp(ojson, ejson, exact=True)
         if cmpout:
-            logging.warning(
+            diag(
                 "-------EXPECT--------\n%s\n------END-EXPECT------",
                 json.dumps(ejson, indent=4),
             )
-            logging.warning(
+            diag(
                 "--------GOT----------\n%s\n-------END-GOT--------",
                 json.dumps(ojson, indent=4),
             )
-            logging.warning("----diff---\n{}".format(cmpout))
-            logging.warning("Command: {}".format(qcmd.format(qr[0], qr[2] if len(qr) > 2 else "")))
-            logging.warning("File: {}".format(qr[1]))
-    assert cmpout is None
+            diag("----diff---\n{}".format(cmpout))
+            diag("Command: {}".format(qcmd.format(qr[0], qr[2] if len(qr) > 2 else "")))
+            diag("File: {}".format(qr[1]))
+    return cmpout
 
 
 def do_oper_test(tgen, query_results):
