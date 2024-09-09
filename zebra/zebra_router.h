@@ -208,6 +208,9 @@ struct zebra_router {
 	struct hash *nhgs;
 	struct hash *nhgs_id;
 
+	/* The hash of preserved nexthop */
+	struct hash *nhgs_presvd;
+
 	/*
 	 * Does the underlying system provide an asic offload
 	 */
