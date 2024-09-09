@@ -4077,7 +4077,6 @@ static void bgp_process_internal(struct bgp *bgp, struct bgp_dest *dest,
 		pqnode = item->data;
 
 		if (CHECK_FLAG(pqnode->flags, BGP_PROCESS_QUEUE_EOIU_MARKER) ||
-		    pqnode->bgp != bgp ||
 		    (pqnode->queued >= ARBITRARY_PROCESS_QLEN && !early_process))
 			pqnode = bgp_processq_alloc(bgp);
 		else
