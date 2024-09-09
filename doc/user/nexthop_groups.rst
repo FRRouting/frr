@@ -27,3 +27,9 @@ listing of ECMP nexthops used to forward packets.
    will be automatically re-assigned.  This cli command must be the first
    command entered currently.  Additionally this command only works with linux 5.19
    kernels or newer.
+
+.. clicmd:: recursive
+
+   Flag a nexthop-group that allows recursive resolution for its
+   nexthops. Without this flag, zebra will not validate or resolve the
+   nexthops in the group.
