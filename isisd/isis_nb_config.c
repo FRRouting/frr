@@ -2890,29 +2890,22 @@ int isis_instance_flex_algo_destroy(struct nb_cb_destroy_args *args)
 	struct isis_area *area;
 	uint32_t algorithm;
 
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
 	algorithm = yang_dnode_get_uint32(args->dnode, "flex-algo");
 	area = nb_running_get_entry(args->dnode, NULL, true);
 
-	switch (args->event) {
-	case NB_EV_APPLY:
-		for (ALL_LIST_ELEMENTS(area->flex_algos->flex_algos, node,
-				       nnode, fa)) {
-			if (fa->algorithm == algorithm)
-				flex_algo_free(area->flex_algos, fa);
-		}
-		if (list_isempty(area->flex_algos->flex_algos)) {
-			for (ALL_LIST_ELEMENTS_RO(area->circuit_list, node,
-						  circuit))
-				isis_link_params_update_asla(circuit,
-							     circuit->interface);
-		}
-		lsp_regenerate_schedule(area, area->is_type, 0);
-		break;
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-		break;
+	for (ALL_LIST_ELEMENTS(area->flex_algos->flex_algos, node, nnode, fa)) {
+		if (fa->algorithm == algorithm)
+			flex_algo_free(area->flex_algos, fa);
 	}
+	if (list_isempty(area->flex_algos->flex_algos)) {
+		for (ALL_LIST_ELEMENTS_RO(area->circuit_list, node, circuit))
+			isis_link_params_update_asla(circuit,
+						     circuit->interface);
+	}
+	lsp_regenerate_schedule(area, area->is_type, 0);
 
 	return NB_OK;
 }
@@ -2960,26 +2953,22 @@ int isis_instance_flex_algo_advertise_definition_destroy(
 	struct flex_algo *fa;
 	uint32_t algorithm;
 
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
 	area = nb_running_get_entry(args->dnode, NULL, true);
 
 	algorithm = yang_dnode_get_uint32(args->dnode, "../flex-algo");
 
-	switch (args->event) {
-	case NB_EV_APPLY:
-		fa = flex_algo_lookup(area->flex_algos, algorithm);
-		if (!fa) {
-			snprintf(args->errmsg, args->errmsg_len,
-				 "flex-algo object not found");
-			return NB_ERR_RESOURCE;
-		}
-		fa->advertise_definition = false;
-		lsp_regenerate_schedule(area, area->is_type, 0);
-		break;
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-		break;
+	fa = flex_algo_lookup(area->flex_algos, algorithm);
+	if (!fa) {
+		snprintf(args->errmsg, args->errmsg_len,
+			 "flex-algo object not found");
+		return NB_ERR_RESOURCE;
 	}
+	fa->advertise_definition = false;
+	lsp_regenerate_schedule(area, area->is_type, 0);
 
 	return NB_OK;
 }
