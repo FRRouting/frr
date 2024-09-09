@@ -3156,19 +3156,16 @@ int isis_instance_flex_algo_affinity_exclude_any_destroy(
 int isis_instance_flex_algo_prefix_metric_create(struct nb_cb_create_args *args)
 {
 	struct isis_area *area;
-	const char *area_tag;
 	struct flex_algo *fa;
 	uint32_t algorithm;
-
-	area_tag = yang_dnode_get_string(args->dnode, "../../../area-tag");
-	area = isis_area_lookup(area_tag, VRF_DEFAULT);
-	if (!area)
-		return NB_ERR_RESOURCE;
 
 	algorithm = yang_dnode_get_uint32(args->dnode, "../flex-algo");
 
 	switch (args->event) {
 	case NB_EV_APPLY:
+		area = nb_running_get_entry(args->dnode, NULL, true);
+		if (!area)
+			return NB_ERR_RESOURCE;
 		fa = flex_algo_lookup(area->flex_algos, algorithm);
 		if (!fa) {
 			snprintf(args->errmsg, args->errmsg_len,
@@ -3191,19 +3188,17 @@ int isis_instance_flex_algo_prefix_metric_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	struct isis_area *area;
-	const char *area_tag;
 	struct flex_algo *fa;
 	uint32_t algorithm;
-
-	area_tag = yang_dnode_get_string(args->dnode, "../../../area-tag");
-	area = isis_area_lookup(area_tag, VRF_DEFAULT);
-	if (!area)
-		return NB_ERR_RESOURCE;
 
 	algorithm = yang_dnode_get_uint32(args->dnode, "../flex-algo");
 
 	switch (args->event) {
 	case NB_EV_APPLY:
+		area = nb_running_get_entry(args->dnode, NULL, true);
+		if (!area)
+			return NB_ERR_RESOURCE;
+
 		fa = flex_algo_lookup(area->flex_algos, algorithm);
 		if (!fa) {
 			snprintf(args->errmsg, args->errmsg_len,
@@ -3226,19 +3221,17 @@ static int isis_instance_flex_algo_dplane_set(struct nb_cb_create_args *args,
 					      int type)
 {
 	struct isis_area *area;
-	const char *area_tag;
 	struct flex_algo *fa;
 	uint32_t algorithm;
-
-	area_tag = yang_dnode_get_string(args->dnode, "../../../area-tag");
-	area = isis_area_lookup(area_tag, VRF_DEFAULT);
-	if (!area)
-		return NB_ERR_RESOURCE;
 
 	algorithm = yang_dnode_get_uint32(args->dnode, "../flex-algo");
 
 	switch (args->event) {
 	case NB_EV_APPLY:
+		area = nb_running_get_entry(args->dnode, NULL, true);
+		if (!area)
+			return NB_ERR_RESOURCE;
+
 		fa = flex_algo_lookup(area->flex_algos, algorithm);
 		if (!fa) {
 			snprintf(args->errmsg, args->errmsg_len,
@@ -3268,19 +3261,17 @@ static int isis_instance_flex_algo_dplane_unset(struct nb_cb_destroy_args *args,
 						int type)
 {
 	struct isis_area *area;
-	const char *area_tag;
 	struct flex_algo *fa;
 	uint32_t algorithm;
-
-	area_tag = yang_dnode_get_string(args->dnode, "../../../area-tag");
-	area = isis_area_lookup(area_tag, VRF_DEFAULT);
-	if (!area)
-		return NB_ERR_RESOURCE;
 
 	algorithm = yang_dnode_get_uint32(args->dnode, "../flex-algo");
 
 	switch (args->event) {
 	case NB_EV_APPLY:
+		area = nb_running_get_entry(args->dnode, NULL, true);
+		if (!area)
+			return NB_ERR_RESOURCE;
+
 		fa = flex_algo_lookup(area->flex_algos, algorithm);
 		if (!fa) {
 			snprintf(args->errmsg, args->errmsg_len,
@@ -3350,21 +3341,19 @@ int isis_instance_flex_algo_dplane_ip_destroy(struct nb_cb_destroy_args *args)
 int isis_instance_flex_algo_metric_type_modify(struct nb_cb_modify_args *args)
 {
 	struct isis_area *area;
-	const char *area_tag;
 	struct flex_algo *fa;
 	uint32_t algorithm;
 	enum flex_algo_metric_type metric_type;
-
-	area_tag = yang_dnode_get_string(args->dnode, "../../../area-tag");
-	area = isis_area_lookup(area_tag, VRF_DEFAULT);
-	if (!area)
-		return NB_ERR_RESOURCE;
 
 	algorithm = yang_dnode_get_uint32(args->dnode, "../flex-algo");
 	metric_type = yang_dnode_get_enum(args->dnode, NULL);
 
 	switch (args->event) {
 	case NB_EV_APPLY:
+		area = nb_running_get_entry(args->dnode, NULL, true);
+		if (!area)
+			return NB_ERR_RESOURCE;
+
 		fa = flex_algo_lookup(area->flex_algos, algorithm);
 		if (!fa) {
 			snprintf(args->errmsg, args->errmsg_len,
@@ -3390,21 +3379,19 @@ int isis_instance_flex_algo_metric_type_modify(struct nb_cb_modify_args *args)
 int isis_instance_flex_algo_priority_modify(struct nb_cb_modify_args *args)
 {
 	struct isis_area *area;
-	const char *area_tag;
 	struct flex_algo *fa;
 	uint32_t algorithm;
 	uint32_t priority;
-
-	area_tag = yang_dnode_get_string(args->dnode, "../../../area-tag");
-	area = isis_area_lookup(area_tag, VRF_DEFAULT);
-	if (!area)
-		return NB_ERR_RESOURCE;
 
 	algorithm = yang_dnode_get_uint32(args->dnode, "../flex-algo");
 	priority = yang_dnode_get_uint32(args->dnode, NULL);
 
 	switch (args->event) {
 	case NB_EV_APPLY:
+		area = nb_running_get_entry(args->dnode, NULL, true);
+		if (!area)
+			return NB_ERR_RESOURCE;
+
 		fa = flex_algo_lookup(area->flex_algos, algorithm);
 		if (!fa) {
 			snprintf(args->errmsg, args->errmsg_len,
@@ -3426,21 +3413,19 @@ int isis_instance_flex_algo_priority_modify(struct nb_cb_modify_args *args)
 int isis_instance_flex_algo_priority_destroy(struct nb_cb_destroy_args *args)
 {
 	struct isis_area *area;
-	const char *area_tag;
 	struct flex_algo *fa;
 	uint32_t algorithm;
 	uint32_t priority = FLEX_ALGO_PRIO_DEFAULT;
-
-	area_tag = yang_dnode_get_string(args->dnode, "../../../area-tag");
-	area = isis_area_lookup(area_tag, VRF_DEFAULT);
-	if (!area)
-		return NB_ERR_RESOURCE;
 
 	algorithm = yang_dnode_get_uint32(args->dnode, "../flex-algo");
 	priority = yang_dnode_get_uint32(args->dnode, NULL);
 
 	switch (args->event) {
 	case NB_EV_APPLY:
+		area = nb_running_get_entry(args->dnode, NULL, true);
+		if (!area)
+			return NB_ERR_RESOURCE;
+
 		fa = flex_algo_lookup(area->flex_algos, algorithm);
 		if (!fa) {
 			snprintf(args->errmsg, args->errmsg_len,
