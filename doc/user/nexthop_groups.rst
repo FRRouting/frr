@@ -56,3 +56,9 @@ listing of ECMP nexthops used to forward packets.
    * **buckets**: Number of buckets in the hash (1-256)
    * **idle-timer**: Idle timer in seconds (1-4294967295)
    * **unbalanced-timer**: Unbalanced timer in seconds (1-4294967295)
+
+.. clicmd:: recursive
+
+   Flag a nexthop-group that allows recursive resolution for its
+   nexthops. Without this flag, zebra will not validate or resolve the
+   nexthops in the group.
