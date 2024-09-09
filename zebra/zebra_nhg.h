@@ -178,6 +178,10 @@ struct nhg_hash_entry {
  * by the NHG layer, not the EVPN-MH layer.
  */
 #define NEXTHOP_GROUP_STALE_FDB (1 << 11)
+/*
+ * Recursion requested/allowed
+ */
+#define NEXTHOP_GROUP_RECURSION_REQ (1 << 12)
 };
 
 /* Upper 4 bits of the NHG are reserved for indicating the NHG type */
@@ -235,7 +239,7 @@ struct nhg_ctx {
 	afi_t afi;
 
 	/*
-	 * This should only ever be ZEBRA_ROUTE_NHG unless we get a a kernel
+	 * This should only ever be ZEBRA_ROUTE_NHG unless we get a kernel
 	 * created nexthop not made by us.
 	 */
 	int type;
@@ -420,6 +424,9 @@ extern const char *zebra_nhg_afi2str(struct nhg_hash_entry *nhe);
 
 /* Format NHG flags into a comma-separated string for display */
 extern void dump_nhg_flags(uint32_t flags, char *buf, size_t len);
+
+/* Determine nhg address-family, with special rules for singletons */
+afi_t zebra_nhg_get_afi(const struct nexthop_group *nhg, afi_t route_afi);
 
 #ifdef _FRR_ATTRIBUTE_PRINTFRR
 #pragma FRR printfrr_ext "%pNG" (const struct nhg_hash_entry *)
