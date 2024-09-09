@@ -2994,18 +2994,10 @@ static int isis_instance_flex_algo_affinity_set(struct nb_cb_create_args *args,
 	uint32_t algorithm;
 	const char *val;
 
-	algorithm = yang_dnode_get_uint32(args->dnode, "../../flex-algo");
-	area = nb_running_get_entry(args->dnode, NULL, true);
 	val = yang_dnode_get_string(args->dnode, ".");
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
-		fa = flex_algo_lookup(area->flex_algos, algorithm);
-		if (!fa) {
-			snprintf(args->errmsg, args->errmsg_len,
-				 "flex-algo object not found");
-			return NB_ERR_RESOURCE;
-		}
 		map = affinity_map_get(val);
 		if (!map) {
 			snprintf(args->errmsg, args->errmsg_len,
@@ -3017,6 +3009,9 @@ static int isis_instance_flex_algo_affinity_set(struct nb_cb_create_args *args,
 	case NB_EV_ABORT:
 		break;
 	case NB_EV_APPLY:
+		algorithm = yang_dnode_get_uint32(args->dnode,
+						  "../../flex-algo");
+		area = nb_running_get_entry(args->dnode, NULL, true);
 		fa = flex_algo_lookup(area->flex_algos, algorithm);
 		if (!fa) {
 			snprintf(args->errmsg, args->errmsg_len,
@@ -3057,18 +3052,10 @@ isis_instance_flex_algo_affinity_unset(struct nb_cb_destroy_args *args,
 	uint32_t algorithm;
 	const char *val;
 
-	algorithm = yang_dnode_get_uint32(args->dnode, "../../flex-algo");
-	area = nb_running_get_entry(args->dnode, NULL, true);
 	val = yang_dnode_get_string(args->dnode, ".");
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
-		fa = flex_algo_lookup(area->flex_algos, algorithm);
-		if (!fa) {
-			snprintf(args->errmsg, args->errmsg_len,
-				 "flex-algo object not found");
-			return NB_ERR_RESOURCE;
-		}
 		map = affinity_map_get(val);
 		if (!map) {
 			snprintf(args->errmsg, args->errmsg_len,
@@ -3080,6 +3067,9 @@ isis_instance_flex_algo_affinity_unset(struct nb_cb_destroy_args *args,
 	case NB_EV_ABORT:
 		break;
 	case NB_EV_APPLY:
+		algorithm = yang_dnode_get_uint32(args->dnode,
+						  "../../flex-algo");
+		area = nb_running_get_entry(args->dnode, NULL, true);
 		fa = flex_algo_lookup(area->flex_algos, algorithm);
 		if (!fa) {
 			snprintf(args->errmsg, args->errmsg_len,
