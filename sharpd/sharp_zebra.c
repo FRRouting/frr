@@ -529,17 +529,24 @@ void vrf_label_add(vrf_id_t vrf_id, afi_t afi, mpls_label_t label)
 	zclient_send_vrf_label(g_zclient, vrf_id, afi, label, ZEBRA_LSP_SHARP);
 }
 
-void nhg_add(uint32_t id, const struct nexthop_group *nhg,
-	     const struct nexthop_group *backup_nhg)
+void nhg_add(uint32_t id, const struct nexthop_group_cmd *nhgc,
+	     const struct nexthop_group_cmd *backup_nhgc)
 {
 	struct zapi_nhg api_nhg = {};
+	const struct nexthop_group *nhg;
 	struct zapi_nexthop *api_nh;
 	struct nexthop *nh;
 	bool is_valid = true;
 
 	api_nhg.id = id;
 
-	api_nhg.resilience = nhg->nhgr;
+	nhg = &(nhgc->nhg);
+
+	api_nhg.resilience = nhgc->nhg.nhgr;
+
+	/* Ask for recursion if needed */
+	if (CHECK_FLAG(nhgc->flags, NHG_CMD_FLAG_RECURSIVE))
+		SET_FLAG(api_nhg.flags, ZAPI_NHG_FLAG_RECURSIVE);
 
 	for (ALL_NEXTHOPS_PTR(nhg, nh)) {
 		if (api_nhg.nexthop_num >= MULTIPATH_NUM) {
@@ -552,7 +559,8 @@ void nhg_add(uint32_t id, const struct nexthop_group *nhg,
 		/* Unresolved nexthops will lead to failure - only send
 		 * nexthops that zebra will consider valid.
 		 */
-		if (nh->ifindex == 0)
+		if (!CHECK_FLAG(nhgc->flags, NHG_CMD_FLAG_RECURSIVE) &&
+		    nh->ifindex == 0)
 			continue;
 
 		api_nh = &api_nhg.nexthops[api_nhg.nexthop_num];
@@ -574,14 +582,18 @@ void nhg_add(uint32_t id, const struct nexthop_group *nhg,
 		goto done;
 	}
 
-	if (backup_nhg) {
-		for (ALL_NEXTHOPS_PTR(backup_nhg, nh)) {
+	if (backup_nhgc) {
+		nhg = &(backup_nhgc->nhg);
+
+		for (ALL_NEXTHOPS_PTR(nhg, nh)) {
 			if (api_nhg.backup_nexthop_num >= MULTIPATH_NUM) {
 				zlog_warn(
 					"%s: number of backup nexthops greater than max multipath size, truncating",
 					__func__);
 				break;
 			}
+
+			/* TODO-- */
 
 			/* Unresolved nexthop: will be rejected by zebra.
 			 * That causes a problem, since the primary nexthops
