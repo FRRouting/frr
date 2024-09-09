@@ -342,6 +342,61 @@ zebra_nhg_connect_depends(struct nhg_hash_entry *nhe,
 	}
 }
 
+/*
+ * Determine nhg address-family, with special rules for singletons
+ */
+afi_t zebra_nhg_get_afi(const struct nexthop_group *nhg, afi_t route_afi)
+{
+	afi_t afi = AF_UNSPEC, last_afi = AF_UNSPEC;
+	const struct nexthop *nh;
+	bool all_same = true;
+
+	nh = nhg->nexthop;
+
+	/* There are some special rules that apply to nexthops' AFIs. */
+	while (nh) {
+		switch (nh->type) {
+			/*
+			 * This switch case handles setting the afi different
+			 * for ipv4/v6 routes. Ifindex nexthop
+			 * objects cannot be ambiguous, they must be Address
+			 * Family specific as that the kernel relies on these
+			 * for some reason.  blackholes can be v6 because the
+			 * v4 kernel infrastructure allows the usage of v6
+			 * blackholes in this case.   if we get here, we will
+			 * either use the AF of the route, or the one we got
+			 * passed from here from the kernel.
+			 */
+		case NEXTHOP_TYPE_IFINDEX:
+			afi = route_afi;
+			break;
+		case NEXTHOP_TYPE_BLACKHOLE:
+			afi = AFI_IP6;
+			break;
+		case NEXTHOP_TYPE_IPV4_IFINDEX:
+		case NEXTHOP_TYPE_IPV4:
+			afi = AFI_IP;
+			break;
+		case NEXTHOP_TYPE_IPV6_IFINDEX:
+		case NEXTHOP_TYPE_IPV6:
+			afi = AFI_IP6;
+			break;
+		}
+
+		if (last_afi != AF_UNSPEC && last_afi != afi)
+			all_same = false;
+
+		last_afi = afi;
+		nh = nh->next;
+	}
+
+	if (!all_same)
+		zlog_warn("Not all Nexthops had equivalent AFIs; "
+			  "something is seriously wrong");
+
+	return afi;
+}
+
 /* Init an nhe, for use in a hash lookup for example */
 void zebra_nhe_init(struct nhg_hash_entry *nhe, afi_t afi,
 		    const struct nexthop *nh)
@@ -3711,6 +3766,13 @@ struct nhg_hash_entry *zebra_nhg_proto_add(struct nhg_hash_entry *nhe, struct ne
 	/* Capture zapi client info */
 	new->zapi_instance = instance;
 	new->zapi_session = session;
+
+	/*
+	 * If we have valid nexthops to install, ok to proceed and
+	 * install/update.
+	 * If not, if we had routes using the nhg, we need to get them fixed
+	 * to match the current status of the nhg.
+	 */
 
 	zebra_nhg_set_valid_if_active(new);
 
