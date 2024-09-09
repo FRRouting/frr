@@ -647,6 +647,149 @@ static void zebra_rnh_process_pseudowires(vrf_id_t vrfid, struct rnh *rnh)
 		zebra_pw_update(pw);
 }
 
+static uint8_t nexthop_count(uint8_t curr_index, struct nhg_hash_entry *nhe)
+{
+	struct nhg_connected *rb_node_dep = NULL;
+	struct nhg_hash_entry *depend = NULL;
+	uint8_t i = curr_index;
+
+	if (zebra_nhg_depends_is_empty(nhe))
+		return 1;
+
+	frr_each(nhg_connected_tree, &nhe->nhg_depends, rb_node_dep) {
+		depend = rb_node_dep->nhe;
+
+		if (CHECK_FLAG(depend->flags, NEXTHOP_GROUP_RECURSIVE)) {
+			depend = zebra_nhg_resolve(depend);
+			if (!depend)
+				continue;
+		}
+
+		if (!zebra_nhg_depends_is_empty(depend))
+			i = nexthop_count(i, depend);
+		else
+			i++;
+	}
+	return i;
+}
+
+static void zebra_rnh_fixup_depends(uint32_t old_id, uint32_t new_id)
+{
+	struct nhg_hash_entry *pnhe, *ppnhe;
+	struct nhg_connected *rb_node_dep_0 = NULL;
+	struct nhg_connected *rb_node_dep_1 = NULL;
+	struct nhg_hash_entry *old_nhe = zebra_nhg_lookup_id(old_id);
+	struct nhg_hash_entry *new_nhe = zebra_nhg_lookup_id(new_id);
+
+	/* Nexthop group has become unresolved */
+	if (new_id == 0 && old_nhe && ZEBRA_OWNED(old_nhe)) {
+		frr_each_safe(nhg_connected_tree, &old_nhe->nhg_dependents, rb_node_dep_0) {
+			pnhe = rb_node_dep_0->nhe;
+			nhg_connected_tree_del_nhe(&pnhe->nhg_depends, old_nhe);
+			frr_each_safe(nhg_connected_tree, &pnhe->nhg_dependents, rb_node_dep_1) {
+				ppnhe = rb_node_dep_1->nhe;
+				if (ppnhe->refcnt > 0) {
+					zlog_debug("%s: Quick fixup parent nhe (%pNG)",__func__, ppnhe);
+
+					if (zebra_nhg_depends_is_empty(pnhe))
+						nhg_connected_tree_del_nhe(&ppnhe->nhg_depends, pnhe);
+
+					SET_FLAG(ppnhe->flags, NEXTHOP_GROUP_FPM_REFRESH);
+					UNSET_FLAG(ppnhe->flags, NEXTHOP_GROUP_FPM);
+					dplane_nexthop_add(ppnhe);
+					UNSET_FLAG(ppnhe->flags, NEXTHOP_GROUP_FPM_REFRESH);
+
+					if (zebra_nhg_depends_is_empty(pnhe))
+						nhg_connected_tree_add_nhe(&ppnhe->nhg_depends, pnhe);
+				}
+			}
+			nhg_connected_tree_add_nhe(&pnhe->nhg_depends, old_nhe);
+		}
+	}
+
+	if (old_id && new_nhe && ZEBRA_OWNED(new_nhe)) {
+        /* Skip the recursive one; it should have been fixed up in the previous round */
+		frr_each_safe(nhg_connected_tree, &new_nhe->nhg_depends, rb_node_dep_0) {
+			if (CHECK_FLAG(rb_node_dep_0->nhe->flags, NEXTHOP_GROUP_RECURSIVE))
+				return;
+		}
+
+		if (CHECK_FLAG(new_nhe->flags, NEXTHOP_GROUP_INSTALLED)) {
+			/* We only consider performing a quick fixup when the valid path is reduced */
+			if (old_nhe && (nexthop_count(0, old_nhe) < nexthop_count(0, new_nhe)))
+				return;
+
+			new_nhe->id = old_id;
+			if (IS_ZEBRA_DEBUG_NHT)
+				zlog_debug("%s: Quick fixup current nhe %p (%pNG)",__func__, new_nhe, new_nhe);
+
+			/* Current nexthop group fixed up */
+			SET_FLAG(new_nhe->flags, NEXTHOP_GROUP_FPM_REFRESH);
+			UNSET_FLAG(new_nhe->flags, NEXTHOP_GROUP_FPM);
+			dplane_nexthop_add(new_nhe);
+			UNSET_FLAG(new_nhe->flags, NEXTHOP_GROUP_FPM_REFRESH);
+
+			/*
+			* In a Case for two paths changes to one path,
+			* a singleton nexthop replaces a nexthop group
+			* old_nhe is NULL, it means no one uses it,
+			* and it is a non-installed nhg which has already been released;
+			* Since the dplane didn't use it before, only the current nhg needs to be fixed up
+			*/
+			if (!old_nhe) {
+				new_nhe->id = new_id;
+				return;
+			}
+
+			/*
+			* In a Case for Nexthop Group in Group:
+			*
+			* B>  3.3.3.3/32 [200/0] (42) via 100.0.0.1 (recursive), weight 1, 00:00:17
+			*                              via 10.1.1.11, Ethernet1, weight 1, 00:00:17
+			*                              via 10.2.2.11, Ethernet2, weight 1, 00:00:17
+			*                              via 10.3.3.11, Ethernet3, weight 1, 00:00:17
+			*                             via 200.0.0.1 (recursive), weight 1, 00:00:17
+			*                              via 10.4.4.12, Ethernet4, weight 1, 00:00:17
+			*                              via 10.5.5.12, Ethernet5, weight 1, 00:00:17
+			*                              via 10.6.6.12, Ethernet6, weight 1, 00:00:17
+			* B>* 100.0.0.0/24 [200/0] (35) via 10.1.1.11, Ethernet1, weight 1, 00:00:17
+			*                             via 10.2.2.11, Ethernet2, weight 1, 00:00:17
+			*                             via 10.3.3.11, Ethernet3, weight 1, 00:00:17
+			* B>* 200.0.0.0/24 [200/0] (25) via 10.4.4.12, Ethernet4, weight 1, 00:00:18
+			*                             via 10.5.5.12, Ethernet5, weight 1, 00:00:18
+			*                             via 10.6.6.12, Ethernet6, weight 1, 00:00:18
+
+			* The current nhe is 25, the parent is 30
+			* 30 was created when building the dependency chain but not used by any route,
+			* and won't be installed in the dplane;
+			* Therefore, the fixup is needed for 25 and 42
+			*/
+			frr_each_safe(nhg_connected_tree, &old_nhe->nhg_dependents, rb_node_dep_0) {
+				pnhe = rb_node_dep_0->nhe;
+				nhg_connected_tree_del_nhe(&pnhe->nhg_depends, old_nhe);
+				nhg_connected_tree_add_nhe(&pnhe->nhg_depends, new_nhe);
+
+				frr_each_safe(nhg_connected_tree, &pnhe->nhg_dependents, rb_node_dep_1) {
+					ppnhe = rb_node_dep_1->nhe;
+					if (ppnhe->refcnt > 0) {
+						zlog_debug("%s: Quick fixup parent nhe (%pNG)",__func__, ppnhe);
+
+						/* Parent nexthop group fixed up */
+						SET_FLAG(ppnhe->flags, NEXTHOP_GROUP_FPM_REFRESH);
+						UNSET_FLAG(ppnhe->flags, NEXTHOP_GROUP_FPM);
+						dplane_nexthop_add(ppnhe);
+						UNSET_FLAG(ppnhe->flags, NEXTHOP_GROUP_FPM_REFRESH);
+					}
+				}
+				/* Restore the temporary modifications of the fixed-up nhe */
+				nhg_connected_tree_del_nhe(&pnhe->nhg_depends, new_nhe);
+				nhg_connected_tree_add_nhe(&pnhe->nhg_depends, old_nhe);
+			}
+			new_nhe->id = new_id;
+		}
+	}
+}
+
 /*
  * See if a tracked nexthop entry has undergone any change, and if so,
  * take appropriate action; this involves notifying any clients and/or
@@ -659,6 +802,7 @@ static void zebra_rnh_eval_nexthop_entry(struct zebra_vrf *zvrf, afi_t afi,
 					 struct route_entry *re)
 {
 	int state_changed = 0;
+	uint32_t old_id = rnh->state ? rnh->state->nhe->id : 0;
 
 	/* If we're resolving over a different route, resolution has changed or
 	 * the resolving route has some change (e.g., metric), there is a state
@@ -688,6 +832,9 @@ static void zebra_rnh_eval_nexthop_entry(struct zebra_vrf *zvrf, afi_t afi,
 	zebra_rnh_store_in_routing_table(rnh);
 
 	if (state_changed || force) {
+		/* FPM quick fixup */
+		uint32_t new_id = rnh->state ? rnh->state->nhe->id : 0;
+		zebra_rnh_fixup_depends(old_id, new_id);
 		/* NOTE: Use the "copy" of resolving route stored in 'rnh' i.e.,
 		 * rnh->state.
 		 */
@@ -849,7 +996,7 @@ static void copy_state(struct rnh *rnh, const struct route_entry *re,
 	state->vrf_id = re->vrf_id;
 	state->status = re->status;
 
-	state->nhe = zebra_nhe_copy(re->nhe, 0);
+	state->nhe = zebra_nhe_copy(re->nhe, re->nhe->id);
 
 	/* Copy the 'fib' nexthops also, if present - we want to capture
 	 * the true installed nexthops.

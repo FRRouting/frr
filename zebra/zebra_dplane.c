@@ -3678,6 +3678,10 @@ int dplane_ctx_nexthop_init(struct zebra_dplane_ctx *ctx, enum dplane_op_e op,
 		ctx->u.rinfo.nhe.nh_grp_count = zebra_nhg_nhe2grp(
 			ctx->u.rinfo.nhe.nh_grp, nhe, MULTIPATH_NUM);
 
+	/* This group is skipping kernel installation */
+	if (CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_FPM_REFRESH))
+		dplane_ctx_set_skip_kernel(ctx);
+
 	zvrf = vrf_info_lookup(nhe->vrf_id);
 
 	/*

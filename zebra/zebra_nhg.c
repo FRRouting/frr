@@ -3169,6 +3169,9 @@ void zebra_nhg_dplane_result(struct zebra_dplane_ctx *ctx)
 
 		/* We already free'd the data, nothing to do */
 	} else if (op == DPLANE_OP_NH_INSTALL || op == DPLANE_OP_NH_UPDATE) {
+		if (dplane_ctx_is_skip_kernel(ctx))
+			return;
+
 		nhe = zebra_nhg_lookup_id(id);
 
 		if (!nhe) {

@@ -152,6 +152,11 @@ struct nhg_hash_entry {
  * when installation is successful.
  */
 #define NEXTHOP_GROUP_REINSTALL (1 << 8)
+
+/*
+* The NHG is for FPM fixup, skip kernel installation..
+*/
+#define NEXTHOP_GROUP_FPM_REFRESH (1 << 9)
 };
 
 /* Upper 4 bits of the NHG are reserved for indicating the NHG type */
