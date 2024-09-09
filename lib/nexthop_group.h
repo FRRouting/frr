@@ -91,6 +91,8 @@ struct nexthop_group_cmd {
 
 	struct nexthop_group nhg;
 
+	uint32_t flags;
+
 	struct list *nhg_list;
 
 	QOBJ_FIELDS;
@@ -99,6 +101,13 @@ RB_HEAD(nhgc_entry_head, nexthp_group_cmd);
 RB_PROTOTYPE(nhgc_entry_head, nexthop_group_cmd, nhgc_entry,
 	     nexthop_group_cmd_compare)
 DECLARE_QOBJ_TYPE(nexthop_group_cmd);
+
+/*
+ * Flags values
+ */
+/* Request/allow recursive resolution for an NHG */
+#define NHG_CMD_FLAG_RECURSIVE (1 << 0)
+
 
 /*
  * Initialize nexthop_groups.  If you are interested in when
