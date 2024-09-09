@@ -4011,8 +4011,9 @@ static struct bgp_process_queue *bgp_processq_alloc(struct bgp *bgp)
 	return pqnode;
 }
 
-void bgp_process(struct bgp *bgp, struct bgp_dest *dest,
-		 struct bgp_path_info *pi, afi_t afi, safi_t safi)
+static void bgp_process_internal(struct bgp *bgp, struct bgp_dest *dest,
+				 struct bgp_path_info *pi, afi_t afi,
+				 safi_t safi, bool early_process)
 {
 #define ARBITRARY_PROCESS_QLEN		10000
 	struct work_queue *wq = bgp->process_queue;
@@ -4075,9 +4076,9 @@ void bgp_process(struct bgp *bgp, struct bgp_dest *dest,
 		struct work_queue_item *item = work_queue_last_item(wq);
 		pqnode = item->data;
 
-		if (CHECK_FLAG(pqnode->flags, BGP_PROCESS_QUEUE_EOIU_MARKER)
-		    || pqnode->bgp != bgp
-		    || pqnode->queued >= ARBITRARY_PROCESS_QLEN)
+		if (CHECK_FLAG(pqnode->flags, BGP_PROCESS_QUEUE_EOIU_MARKER) ||
+		    pqnode->bgp != bgp ||
+		    (pqnode->queued >= ARBITRARY_PROCESS_QLEN && !early_process))
 			pqnode = bgp_processq_alloc(bgp);
 		else
 			pqnode_reuse = 1;
@@ -4091,13 +4092,28 @@ void bgp_process(struct bgp *bgp, struct bgp_dest *dest,
 
 	/* can't be enqueued twice */
 	assert(STAILQ_NEXT(dest, pq) == NULL);
-	STAILQ_INSERT_TAIL(&pqnode->pqueue, dest, pq);
+	if (early_process)
+		STAILQ_INSERT_HEAD(&pqnode->pqueue, dest, pq);
+	else
+		STAILQ_INSERT_TAIL(&pqnode->pqueue, dest, pq);
 	pqnode->queued++;
 
 	if (!pqnode_reuse)
 		work_queue_add(wq, pqnode);
 
 	return;
+}
+
+void bgp_process(struct bgp *bgp, struct bgp_dest *dest,
+		 struct bgp_path_info *pi, afi_t afi, safi_t safi)
+{
+	bgp_process_internal(bgp, dest, pi, afi, safi, false);
+}
+
+void bgp_process_early(struct bgp *bgp, struct bgp_dest *dest,
+		       struct bgp_path_info *pi, afi_t afi, safi_t safi)
+{
+	bgp_process_internal(bgp, dest, pi, afi, safi, true);
 }
 
 void bgp_add_eoiu_mark(struct bgp *bgp)
