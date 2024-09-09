@@ -2227,6 +2227,9 @@ static void zread_nhg_add(ZAPI_HANDLER_ARGS)
 	nhe->zapi_instance = client->instance;
 	nhe->zapi_session = client->session_id;
 
+	/* TODO -- may need an AFI, so try to derive one */
+	nhe->afi = zebra_nhg_get_afi(nhg, AF_INET);
+
 	/* Take over the list(s) of nexthops */
 	nhe->nhg.nexthop = nhg->nexthop;
 	nhg->nexthop = NULL;
@@ -2235,12 +2238,6 @@ static void zread_nhg_add(ZAPI_HANDLER_ARGS)
 
 	nhe->backup_info = bnhg;
 	bnhg = NULL;
-
-	/*
-	 * TODO:
-	 * Assume fully resolved for now and install.
-	 * Resolution is going to need some more work.
-	 */
 
 	/* Enqueue to workqueue for processing */
 	rib_queue_nhe_add(nhe);
