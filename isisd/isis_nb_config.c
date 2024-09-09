@@ -2987,9 +2987,11 @@ int isis_instance_flex_algo_advertise_definition_destroy(
 static int isis_instance_flex_algo_affinity_set(struct nb_cb_create_args *args,
 						int type)
 {
-	struct affinity_map *map;
+	char xpathr[XPATH_MAXLEN];
+	struct lyd_node *dnode;
 	struct isis_area *area;
 	struct admin_group *ag;
+	uint16_t bit_position;
 	struct flex_algo *fa;
 	uint32_t algorithm;
 	const char *val;
@@ -2998,8 +3000,10 @@ static int isis_instance_flex_algo_affinity_set(struct nb_cb_create_args *args,
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
-		map = affinity_map_get(val);
-		if (!map) {
+		snprintf(xpathr, sizeof(xpathr),
+			 "/frr-affinity-map:lib/affinity-maps/affinity-map[name='%s']/value",
+			 val);
+		if (!yang_dnode_get(args->dnode, xpathr)) {
 			snprintf(args->errmsg, args->errmsg_len,
 				 "affinity map %s isn't found", val);
 			return NB_ERR_VALIDATION;
@@ -3018,8 +3022,11 @@ static int isis_instance_flex_algo_affinity_set(struct nb_cb_create_args *args,
 				 "flex-algo object not found");
 			return NB_ERR_RESOURCE;
 		}
-		map = affinity_map_get(val);
-		if (!map) {
+		snprintf(xpathr, sizeof(xpathr),
+			 "/frr-affinity-map:lib/affinity-maps/affinity-map[name='%s']/value",
+			 val);
+		dnode = yang_dnode_get(args->dnode, xpathr);
+		if (!dnode) {
 			snprintf(args->errmsg, args->errmsg_len,
 				 "affinity map %s isn't found", val);
 			return NB_ERR_RESOURCE;
@@ -3033,7 +3040,8 @@ static int isis_instance_flex_algo_affinity_set(struct nb_cb_create_args *args,
 		else
 			break;
 
-		admin_group_set(ag, map->bit_position);
+		bit_position = yang_dnode_get_uint16(dnode, NULL);
+		admin_group_set(ag, bit_position);
 		lsp_regenerate_schedule(area, area->is_type, 0);
 		break;
 	}
