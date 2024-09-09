@@ -2083,6 +2083,9 @@ static void zread_nhg_add(ZAPI_HANDLER_ARGS)
 	nhe->zapi_instance = client->instance;
 	nhe->zapi_session = client->session_id;
 
+	/* TODO -- may need an AFI, so try to derive one */
+	nhe->afi = zebra_nhg_get_afi(nhg, AF_INET);
+
 	/* Take over the list(s) of nexthops */
 	nhe->nhg.nexthop = nhg->nexthop;
 	nhg->nexthop = NULL;
@@ -2094,11 +2097,8 @@ static void zread_nhg_add(ZAPI_HANDLER_ARGS)
 		bnhg = NULL;
 	}
 
-	/*
-	 * TODO:
-	 * Assume fully resolved for now and install.
-	 * Resolution is going to need some more work.
-	 */
+	if (CHECK_FLAG(api_nhg.flags, ZAPI_NHG_FLAG_RECURSIVE))
+		SET_FLAG(nhe->flags, NEXTHOP_GROUP_RECURSION_REQ);
 
 	/* Enqueue to workqueue for processing */
 	rib_queue_nhe_add(nhe);
