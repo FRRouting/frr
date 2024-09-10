@@ -1543,6 +1543,31 @@ static char *ospf6_inter_area_prefix_lsa_get_prefix_str(struct ospf6_lsa *lsa,
 	return (buf);
 }
 
+static char *ospf6_e_inter_area_prefix_lsa_get_prefix_str(struct ospf6_lsa *lsa,
+							  char *buf, int buflen,
+							  int pos)
+{
+	struct tlv_inter_area_prefix *prefix_tlv;
+	struct ospf6_prefix *prefix;
+	struct in6_addr in6;
+	char tbuf[16];
+
+	if (pos > 0 || !lsa || !buf)
+		return NULL; /*IAP contains one prefix. */
+
+	prefix_tlv = lsa_after_header(lsa->header);
+	prefix = (struct ospf6_prefix *)((char *)prefix_tlv +
+					 sizeof(struct tlv_inter_area_prefix));
+
+	ospf6_prefix_in6_addr(&in6, prefix_tlv, prefix); // FIXME
+
+	inet_ntop(AF_INET6, &in6, buf, buflen);
+	snprintf(tbuf, sizeof(tbuf), "/%d", prefix->prefix_length);
+	strlcat(buf, tbuf, buflen);
+
+	return (buf);
+}
+
 static int ospf6_inter_area_prefix_lsa_show(struct vty *vty,
 					    struct ospf6_lsa *lsa,
 					    json_object *json_obj,
