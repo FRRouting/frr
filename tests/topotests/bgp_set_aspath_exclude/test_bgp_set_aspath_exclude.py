@@ -128,7 +128,6 @@ def test_bgp_set_aspath_exclude_access_list():
 conf
  bgp as-path access-list FIRST permit ^65 
  route-map r2 permit 6 
-  no set as-path exclude as-path-access-list SECOND
   set as-path exclude as-path-access-list FIRST
     """
     )
@@ -147,7 +146,6 @@ clear bgp *
         """
 conf
  route-map r2 permit 6
-  no set as-path exclude as-path-access-list FIRST
   set as-path exclude as-path-access-list SECOND
     """
     )
