@@ -405,12 +405,11 @@ int bgp_find_or_add_nexthop(struct bgp *bgp_route, struct bgp *bgp_nexthop,
 				   peer);
 	} else {
 		if (BGP_DEBUG(nht, NHT))
-			zlog_debug(
-				"Found existing bnc %pFX(%d)(%s) flags 0x%x ifindex %d #paths %d peer %p",
-				&bnc->prefix, bnc->ifindex_ipv6_ll,
-				bnc->bgp->name_pretty, bnc->flags,
-				bnc->ifindex_ipv6_ll, bnc->path_count,
-				bnc->nht_info);
+			zlog_debug("Found existing bnc %pFX(%d)(%s) flags 0x%x ifindex %d #paths %d peer %p, resolved prefix %pFX",
+				   &bnc->prefix, bnc->ifindex_ipv6_ll,
+				   bnc->bgp->name_pretty, bnc->flags,
+				   bnc->ifindex_ipv6_ll, bnc->path_count,
+				   bnc->nht_info, &bnc->resolved_prefix);
 	}
 
 	if (pi && is_route_parent_evpn(pi))
@@ -485,6 +484,8 @@ int bgp_find_or_add_nexthop(struct bgp *bgp_route, struct bgp *bgp_nexthop,
 				bnc->metric;
 		else if (bpi_ultimate->extra)
 			bpi_ultimate->extra->igpmetric = 0;
+
+		SET_FLAG(bnc->flags, BGP_NEXTHOP_ULTIMATE);
 	} else if (peer) {
 		/*
 		 * Let's not accidentally save the peer data for a peer
@@ -503,6 +504,10 @@ int bgp_find_or_add_nexthop(struct bgp *bgp_route, struct bgp *bgp_nexthop,
 	 */
 	if (bgp_route->inst_type == BGP_INSTANCE_TYPE_VIEW)
 		return 1;
+	else if (safi == SAFI_UNICAST && pi &&
+		 pi->sub_type == BGP_ROUTE_IMPORTED &&
+		 CHECK_FLAG(bnc->flags, BGP_NEXTHOP_ULTIMATE))
+		return bgp_isvalid_nexthop(bnc);
 	else if (safi == SAFI_UNICAST && pi &&
 		 pi->sub_type == BGP_ROUTE_IMPORTED &&
 		 BGP_PATH_INFO_NUM_LABELS(pi) && !bnc->is_evpn_gwip_nexthop)
