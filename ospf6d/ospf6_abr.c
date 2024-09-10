@@ -1570,36 +1570,44 @@ static char *ospf6_e_inter_area_prefix_lsa_get_prefix_str(struct ospf6_lsa *lsa,
 
 static int ospf6_inter_area_prefix_lsa_show(struct vty *vty,
 					    struct ospf6_lsa *lsa,
-					    json_object *json_obj,
-					    bool use_json)
+					    json_object *json_obj, bool use_json)
 {
 	struct ospf6_inter_prefix_lsa *prefix_lsa;
-	char buf[INET6_ADDRSTRLEN];
+	struct tlv_inter_area_prefix *prefix_tlv;
+	struct ospf6_prefix *prefix;
+	long unsigned int metric;
+	char prefix_buf[INET6_ADDRSTRLEN];
+	char opts_buf[INET6_ADDRSTRLEN];
 
-	prefix_lsa = lsa_after_header(lsa->header);
+	if (OSPF6_LSA_IS_TYPE(INTER_PREFIX, lsa)) {
+		prefix_lsa = lsa_after_header(lsa->header);
+		metric = OSPF6_ABR_SUMMARY_METRIC(prefix_lsa);
+		prefix = &prefix_lsa->prefix;
+		ospf6_inter_area_prefix_lsa_get_prefix_str(lsa, prefix_buf,
+							   sizeof(prefix_buf),
+							   0);
+	} else {
+		prefix_tlv = lsa_after_header(lsa->header);
+		prefix = (struct ospf6_prefix
+				  *)((char *)prefix_tlv +
+				     sizeof(struct tlv_inter_area_prefix));
+		metric = ntohl(prefix_tlv->metric);
+		ospf6_e_inter_area_prefix_lsa_get_prefix_str(lsa, prefix_buf,
+							     sizeof(prefix_buf),
+							     0);
+	}
+
+	ospf6_prefix_options_printbuf(prefix->prefix_options, opts_buf,
+				      sizeof(opts_buf));
 
 	if (use_json) {
-		json_object_int_add(
-			json_obj, "metric",
-			(unsigned long)OSPF6_ABR_SUMMARY_METRIC(prefix_lsa));
-		ospf6_prefix_options_printbuf(prefix_lsa->prefix.prefix_options,
-					      buf, sizeof(buf));
-		json_object_string_add(json_obj, "prefixOptions", buf);
-		json_object_string_add(
-			json_obj, "prefix",
-			ospf6_inter_area_prefix_lsa_get_prefix_str(
-				lsa, buf, sizeof(buf), 0));
+		json_object_int_add(json_obj, "metric", metric);
+		json_object_string_add(json_obj, "prefixOptions", opts_buf);
+		json_object_string_add(json_obj, "prefix", prefix_buf);
 	} else {
-		vty_out(vty, "     Metric: %lu\n",
-			(unsigned long)OSPF6_ABR_SUMMARY_METRIC(prefix_lsa));
-
-		ospf6_prefix_options_printbuf(prefix_lsa->prefix.prefix_options,
-					      buf, sizeof(buf));
-		vty_out(vty, "     Prefix Options: %s\n", buf);
-
-		vty_out(vty, "     Prefix: %s\n",
-			ospf6_inter_area_prefix_lsa_get_prefix_str(
-				lsa, buf, sizeof(buf), 0));
+		vty_out(vty, "     Metric: %lu\n", metric);
+		vty_out(vty, "     Prefix Options: %s\n", opts_buf);
+		vty_out(vty, "     Prefix: %s\n", prefix_buf);
 	}
 
 	return 0;
