@@ -208,7 +208,26 @@ clear bgp *
         """
 conf
  route-map r2 permit 6
-  no set as-path exclude as-path-access-list SECOND
+  set as-path exclude 65555
+    """
+    )
+
+    r1.vtysh_cmd(
+        """
+clear bgp *
+    """
+    )
+
+    test_func = functools.partial(bgp_converge, tgen.gears["r1"], expected_3)
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=0.5)
+
+    assert result is None, "Failed to renegotiate with peers 2"
+
+    r1.vtysh_cmd(
+        """
+conf
+ route-map r2 permit 6
+  set as-path exclude as-path-access-list NON-EXISTING
     """
     )
 
