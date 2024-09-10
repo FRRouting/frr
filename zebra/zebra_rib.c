@@ -651,8 +651,10 @@ struct route_entry *rib_lookup_ipv4(struct prefix_ipv4 *p, vrf_id_t vrf_id)
 int zebra_rib_labeled_unicast(struct route_entry *re)
 {
 	struct nexthop *nexthop = NULL;
+	struct zebra_vrf *zvrf = vrf_info_lookup(re->vrf_id);
 
-	if (re->type != ZEBRA_ROUTE_BGP)
+	if ((re->type != ZEBRA_ROUTE_BGP) &&
+	    !zvrf->zebra_mpls_fec_nexthop_resolution)
 		return 0;
 
 	for (ALL_NEXTHOPS(re->nhe->nhg, nexthop))
