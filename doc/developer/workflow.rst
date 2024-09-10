@@ -6,9 +6,10 @@ Process & Workflow
 
 .. highlight:: none
 
-FRR is a large project developed by many different groups. This section
-documents standards for code style & quality, commit messages, pull requests
-and best practices that all contributors are asked to follow.
+FRR is a large project developed by many different groups. This
+section documents standards for code style & quality, commit messages,
+pull requests (PRs) and best practices that all contributors are asked
+to follow.
 
 This chapter is "descriptive/post-factual" in that it documents pratices that
 are in use; it is not "definitive/pre-factual" in prescribing practices. This
@@ -241,7 +242,7 @@ discontinued.
 The LTS branch duties are the following ones:
 
 - organise meetings on a (bi-)weekly or monthly basis, the handling of issues
-  and pull requested relative to that branch. When time permits, this may be done
+  and pull requests relative to that branch. When time permits, this may be done
   during the regularly scheduled FRR meeting.
 
 - ensure the stability of the branch, by using and eventually adapting the
@@ -324,11 +325,17 @@ relevant to your work.
 Submitting Patches and Enhancements
 ===================================
 
-FRR accepts patches using GitHub pull requests.
+FRR accepts patches using GitHub pull requests (PRs). The typical FRR
+developer will maintain a fork of the FRR project in GitHub; see the
+GitHub documentation for help setting up an account and creating a
+fork repository. Keep the ``master`` branch of your fork up-to-date
+with the FRR version. Create a dev branch in your fork and commit your
+work there. When ready, create a pull-request between your dev branch
+in your fork and the main FRR repository in GitHub.
 
-The base branch for new contributions and non-critical bug fixes should be
-``master``. Please ensure your pull request is based on this branch when you
-submit it.
+The base branch for new contributions and non-critical bug fixes
+should be ``master``. Please ensure your pull request targets this
+branch when you submit it.
 
 Code submitted by pull request will be automatically tested by one or more CI
 systems. Once the automated tests succeed, other developers will review your
