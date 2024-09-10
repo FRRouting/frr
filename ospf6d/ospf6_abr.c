@@ -1651,31 +1651,39 @@ static char *ospf6_e_inter_area_router_lsa_get_prefix_str(struct ospf6_lsa *lsa,
 
 static int ospf6_inter_area_router_lsa_show(struct vty *vty,
 					    struct ospf6_lsa *lsa,
-					    json_object *json_obj,
-					    bool use_json)
+					    json_object *json_obj, bool use_json)
 {
 	struct ospf6_inter_router_lsa *router_lsa;
-	char buf[64];
+	struct tlv_inter_area_router *router_tlv;
+	unsigned long metric;
+	char opts_buf[64];
+	char id_buf[64];
 
-	router_lsa = lsa_after_header(lsa->header);
-
-	ospf6_options_printbuf(router_lsa->options, buf, sizeof(buf));
-	if (use_json) {
-		json_object_string_add(json_obj, "options", buf);
-		json_object_int_add(
-			json_obj, "metric",
-			(unsigned long)OSPF6_ABR_SUMMARY_METRIC(router_lsa));
+	if (OSPF6_LSA_IS_TYPE(INTER_ROUTER, lsa)) {
+		router_lsa = lsa_after_header(lsa->header);
+		metric = OSPF6_ABR_SUMMARY_METRIC(router_lsa);
+		ospf6_options_printbuf(router_lsa->options, opts_buf,
+				       sizeof(opts_buf));
+		inet_ntop(AF_INET, &router_lsa->router_id, id_buf,
+			  sizeof(id_buf));
 	} else {
-		vty_out(vty, "     Options: %s\n", buf);
-		vty_out(vty, "     Metric: %lu\n",
-			(unsigned long)OSPF6_ABR_SUMMARY_METRIC(router_lsa));
+		router_tlv = lsa_after_header(lsa->header);
+		metric = OSPF6_ABR_SUMMARY_METRIC(router_tlv);
+		ospf6_options_printbuf(router_tlv->options, opts_buf,
+				       sizeof(opts_buf));
+		inet_ntop(AF_INET, &router_tlv->router_id, id_buf,
+			  sizeof(id_buf));
 	}
 
-	inet_ntop(AF_INET, &router_lsa->router_id, buf, sizeof(buf));
-	if (use_json)
-		json_object_string_add(json_obj, "destinationRouterId", buf);
-	else
-		vty_out(vty, "     Destination Router ID: %s\n", buf);
+	if (use_json) {
+		json_object_string_add(json_obj, "options", opts_buf);
+		json_object_int_add(json_obj, "metric", metric);
+		json_object_string_add(json_obj, "destinationRouterId", id_buf);
+	} else {
+		vty_out(vty, "     Options: %s\n", opts_buf);
+		vty_out(vty, "     Metric: %lu\n", metric);
+		vty_out(vty, "     Destination Router ID: %s\n", id_buf);
+	}
 
 	return 0;
 }
