@@ -1753,9 +1753,18 @@ static struct ospf6_lsa_handler inter_router_handler = {
 	.lh_get_prefix_str = ospf6_inter_area_router_lsa_get_prefix_str,
 	.lh_debug = 0};
 
+static struct ospf6_lsa_handler e_inter_router_handler = {
+	.lh_type = OSPF6_LSTYPE_E_INTER_ROUTER,
+	.lh_name = "E-Inter-Router",
+	.lh_short_name = "EIAR",
+	.lh_show = ospf6_inter_area_router_lsa_show,
+	.lh_get_prefix_str = ospf6_e_inter_area_router_lsa_get_prefix_str,
+	.lh_debug = 0};
+
 void ospf6_abr_init(void)
 {
 	ospf6_install_lsa_handler(&inter_prefix_handler);
 	ospf6_install_lsa_handler(&e_inter_prefix_handler);
 	ospf6_install_lsa_handler(&inter_router_handler);
+	ospf6_install_lsa_handler(&e_inter_router_handler);
 }
