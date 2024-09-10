@@ -147,7 +147,7 @@ Front-End Interface:
     - change route_map_init() to route_map_init_new(false) and remove from
       VTYSH_ROUTE_MAP_CONFIG (leave in VTYSH_ROUTE_MAP_SHOW).
     - remove vrf_cmd_init(NULL)  => remove from VTYSH_INTERFACE_SUBSET
-    ...
+
 
 Back-End Interface:
 
