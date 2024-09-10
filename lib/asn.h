@@ -50,7 +50,8 @@ extern bool asn_str2asn_notation(const char *asstring, as_t *asn,
 				 enum asnotation_mode *asnotation);
 extern const char *asn_mode2str(enum asnotation_mode asnotation);
 void asn_asn2json_array(json_object *jseg_list, as_t asn,
-			enum asnotation_mode asnotation);
+			enum asnotation_mode asnotation, struct printbuf *pb,
+			bool incremental_print);
 void asn_asn2json(json_object *jseg_list, const char *attr,
 		  as_t asn, enum asnotation_mode asnotation);
 extern char *asn_asn2string(const as_t *as, char *buf, size_t len,

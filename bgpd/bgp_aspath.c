@@ -606,7 +606,7 @@ static void aspath_make_str_count(struct aspath *as, bool make_json)
 		for (i = 0; i < seg->length; i++) {
 			if (make_json)
 				asn_asn2json_array(jseg_list, seg->as[i],
-						   as->asnotation);
+						   as->asnotation, NULL, false);
 			len += snprintfrr(str_buf + len, str_size - len,
 					  ASN_FORMAT(as->asnotation),
 					  &seg->as[i]);
@@ -662,6 +662,60 @@ void aspath_str_update(struct aspath *as, bool make_json)
 	aspath_make_str_count(as, make_json);
 }
 
+static int aspath_json_string(struct json_object *jso, struct printbuf *pb,
+			      int level, int flags)
+{
+	struct aspath *as;
+	struct assegment *seg;
+	int count_seg = 0, i;
+	char num_str[12];
+	const char *seg_type;
+
+
+	as = json_object_get_userdata(jso);
+	assert(as);
+	seg = as->segments;
+	if (seg == NULL)
+		printbuf_strappend(pb, "{\"string\":\"Local\",\"segments\":[");
+	else {
+		printbuf_strappend(pb, "{\"string\":\"");
+		printbuf_memappend(pb, as->str, strlen(as->str));
+		printbuf_strappend(pb, "\",\"segments\":[");
+	}
+	while (seg) {
+		if (count_seg)
+			printbuf_strappend(pb, ",");
+		printbuf_strappend(pb, "{\"type\":\"");
+		seg_type = aspath_segment_type_str[seg->type];
+		printbuf_memappend(pb, seg_type, strlen(seg_type));
+		printbuf_strappend(pb, "\",\"list\":[");
+
+		for (i = 0; i < seg->length; i++) {
+			asn_asn2json_array(NULL, seg->as[i], as->asnotation, pb,
+					   true);
+			if (i < (seg->length - 1))
+				printbuf_strappend(pb, ",");
+		}
+		printbuf_strappend(pb, "]}");
+		seg = seg->next;
+		count_seg++;
+	}
+	printbuf_strappend(pb, "],\"length\":");
+	snprintf(num_str, sizeof(num_str), "%d}", aspath_count_hops(as));
+	return printbuf_memappend(pb, num_str, strlen(num_str));
+}
+
+json_object *aspath_get_json(struct aspath *aspath)
+{
+	json_object *json_aspath = NULL;
+
+	if (aspath->json)
+		return aspath->json;
+	json_aspath = json_object_new_object();
+	json_object_set_serializer(json_aspath, aspath_json_string, aspath,
+				   NULL);
+	return json_aspath;
+}
 /* Intern allocated AS path. */
 struct aspath *aspath_intern(struct aspath *aspath)
 {

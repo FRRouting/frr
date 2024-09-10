@@ -10515,6 +10515,7 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct bgp_dest *bn,
 	json_object *json_peer = NULL;
 	json_object *json_string = NULL;
 	json_object *json_adv_to = NULL;
+	json_object *json_aspath = NULL;
 	int first = 0;
 	struct listnode *node, *nnode;
 	struct peer *peer;
@@ -10654,11 +10655,9 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct bgp_dest *bn,
 	/* Line1 display AS-path, Aggregator */
 	if (attr->aspath) {
 		if (json_paths) {
-			if (!attr->aspath->json)
-				aspath_str_update(attr->aspath, true);
-			json_object_lock(attr->aspath->json);
+			json_aspath = aspath_get_json(attr->aspath);
 			json_object_object_add(json_path, "aspath",
-					       attr->aspath->json);
+					       json_aspath);
 		} else {
 			if (attr->aspath->segments)
 				vty_out(vty, "  %s", attr->aspath->str);

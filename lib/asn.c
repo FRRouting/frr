@@ -128,13 +128,17 @@ static bool asn_str2asn_internal(const char *asstring, as_t *asn,
 	return ret;
 }
 
-static void asn_asn2asdot(as_t asn, char *asstring, size_t len)
+static void asn_asn2asdot(as_t asn, char *asstring, size_t len,
+			  bool quotation_mark)
 {
 	uint16_t low, high;
 
 	high = (asn >> 16) & 0xffff;
 	low = asn & 0xffff;
-	snprintf(asstring, len, "%hu.%hu", high, low);
+	if (quotation_mark)
+		snprintf(asstring, len, "\"%hu.%hu\"", high, low);
+	else
+		snprintf(asstring, len, "%hu.%hu", high, low);
 }
 
 bool asn_str2asn(const char *asstring, as_t *asn)
@@ -202,23 +206,34 @@ void asn_asn2json(json_object *json, const char *attr,
 	    ((asnotation == ASNOTATION_DOT) && asn < UINT16_MAX))
 		json_object_int_add(json, attr, asn);
 	else {
-		asn_asn2asdot(asn, as_str, sizeof(as_str));
+		asn_asn2asdot(asn, as_str, sizeof(as_str), false);
 		json_object_string_add(json, attr, as_str);
 	}
 }
 
 void asn_asn2json_array(json_object *jseg_list, as_t asn,
-			enum asnotation_mode asnotation)
+			enum asnotation_mode asnotation, struct printbuf *pb,
+			bool incremental_print)
 {
-	static char as_str[ASN_STRING_MAX_SIZE];
+	static char as_str[ASN_STRING_MAX_SIZE + 2];
+	const char *const_str = as_str;
 
 	if ((asnotation == ASNOTATION_PLAIN) ||
 	    ((asnotation == ASNOTATION_DOT) && asn < UINT16_MAX))
-		json_object_array_add(jseg_list,
-				      json_object_new_int64(asn));
+		if (incremental_print) {
+			snprintf(as_str, sizeof(as_str), "%u", asn);
+			printbuf_memappend(pb, const_str, strlen(const_str));
+		} else
+			json_object_array_add(jseg_list,
+					      json_object_new_int64(asn));
 	else {
-		asn_asn2asdot(asn, as_str, sizeof(as_str));
-		json_array_string_add(jseg_list, as_str);
+		if (incremental_print) {
+			asn_asn2asdot(asn, as_str, sizeof(as_str), true);
+			printbuf_memappend(pb, const_str, strlen(const_str));
+		} else {
+			asn_asn2asdot(asn, as_str, sizeof(as_str), false);
+			json_array_string_add(jseg_list, as_str);
+		}
 	}
 }
 
@@ -229,7 +244,7 @@ char *asn_asn2string(const as_t *asn, char *buf, size_t len,
 	    ((asnotation == ASNOTATION_DOT) && *asn < UINT16_MAX))
 		snprintf(buf, len, "%u", *asn);
 	else
-		asn_asn2asdot(*asn, buf, len);
+		asn_asn2asdot(*asn, buf, len, false);
 	return buf;
 }
 
