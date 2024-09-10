@@ -496,8 +496,8 @@ static char *community_str_get(struct community *com, int i)
 		break;
 	default:
 		str = XSTRDUP(MTYPE_COMMUNITY_STR, "65536:65535");
-		as = (comval >> 16) & 0xFFFF;
-		val = comval & 0xFFFF;
+		as = CHECK_FLAG((comval >> 16), 0xFFFF);
+		val = CHECK_FLAG(comval, 0xFFFF);
 		snprintf(str, strlen(str), "%u:%d", as, val);
 		break;
 	}
