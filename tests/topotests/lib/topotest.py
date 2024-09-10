@@ -1658,7 +1658,7 @@ class Router(Node):
                 self.daemons[daemon] = 1
             if param is not None:
                 self.daemons_options[daemon] = param
-            conf_file = "/etc/{}/{}.conf".format(self.routertype, daemon)
+            conf_file = "/etc/{}/{}.confall".format(self.routertype, daemon)
             if source and not os.path.exists(source):
                 logger.warning(
                     "missing config '%s' for '%s' creating empty file '%s'",
@@ -1676,7 +1676,7 @@ class Router(Node):
             elif source:
                 # copy zebra.conf to mgmtd folder, which can be used during startup
                 if daemon == "zebra" and not self.unified_config:
-                    conf_file_mgmt = "/etc/{}/{}.conf".format(self.routertype, "mgmtd")
+                    conf_file_mgmt = "/etc/{}/{}.confall".format(self.routertype, "mgmtd")
                     logger.debug(
                         "copying '%s' as '%s' on '%s'",
                         source,

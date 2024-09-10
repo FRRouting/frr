@@ -37,6 +37,7 @@ import re
 import shlex
 import subprocess
 import sys
+import time
 from collections import OrderedDict
 
 import lib.topolog as topolog
@@ -915,6 +916,16 @@ class TopoRouter(TopoGear):
                 topotest.sysctl_assure(
                     nrouter, "net.mpls.conf.{}.input".format(interface), 1
                 )
+
+        for i in range(10):
+            if self.check_router_running() == "":
+                break
+            time.sleep(1)
+
+        self.cmd("for file in $(ls /etc/frr/*.confall); do echo >> $file; done")
+        # self.cmd("cat /etc/frr/*.confall | vtysh -f /dev/stdin")
+        self.cmd("cat /etc/frr/*.confall | sed 1iXFRR_start_configuration | sed 1iconfigure\ t\ file-lock | sed '$aXFRR_end_configuration' | vtysh")
+        self.cmd("for file in $(ls /etc/frr/*.confall); do mv $file ${file%.confall}.conf; done")
 
         return result
 
