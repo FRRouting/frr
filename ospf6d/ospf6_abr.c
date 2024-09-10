@@ -1599,6 +1599,23 @@ static char *ospf6_inter_area_router_lsa_get_prefix_str(struct ospf6_lsa *lsa,
 	return (buf);
 }
 
+static char *ospf6_e_inter_area_router_lsa_get_prefix_str(struct ospf6_lsa *lsa,
+							  char *buf, int buflen,
+							  int pos)
+{
+	struct tlv_inter_area_router *router_tlv;
+
+	if (pos > 0)
+		return NULL; /*IAR contains one prefix. */
+
+	if (lsa && buf) {
+		router_tlv = lsa_after_header(lsa->header);
+		inet_ntop(AF_INET, &router_tlv->router_id, buf, buflen);
+	}
+
+	return (buf);
+}
+
 static int ospf6_inter_area_router_lsa_show(struct vty *vty,
 					    struct ospf6_lsa *lsa,
 					    json_object *json_obj,
