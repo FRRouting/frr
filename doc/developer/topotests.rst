@@ -731,8 +731,8 @@ packages.
 
 Code coverage can automatically be gathered for any topotest run. To support
 this FRR must first be compiled with the ``--enable-gcov`` configure option.
-This will cause *.gnco files to be created during the build. When topotests are
-run the statistics are generated and stored in *.gcda files. Topotest
+This will cause \*.gnco files to be created during the build. When topotests are
+run the statistics are generated and stored in \*.gcda files. Topotest
 infrastructure will gather these files, capture the information into a
 ``coverage.info`` ``lcov`` file and also report the coverage summary.
 
@@ -741,7 +741,7 @@ If you build your FRR in a directory outside of the FRR source directory you
 will also need to pass the ``--cov-frr-build-dir`` argument specifying the build
 directory location.
 
-During the topotest run the *.gcda files are generated into a ``gcda``
+During the topotest run the \*.gcda files are generated into a ``gcda``
 sub-directory of the top-level run directory (i.e., normally
 ``/tmp/topotests/gcda``). These files will then be copied at the end of the
 topotest run into the FRR build directory where the ``gcov`` and ``lcov``
@@ -756,7 +756,7 @@ The ``coverage.info`` file can then be used to generate coverage reports or file
 markup (e.g., using the ``genhtml`` utility) or enable markup within your
 IDE/editor if supported (e.g., the emacs ``cov-mode`` package)
 
-NOTE: the *.gcda files in ``/tmp/topotests/gcda`` are cumulative so if you do
+NOTE: the \*.gcda files in ``/tmp/topotests/gcda`` are cumulative so if you do
 not remove them they will aggregate data across multiple topotest runs.
 
 How to reproduce failed Tests
