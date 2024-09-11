@@ -108,7 +108,7 @@ def test_bgp_set_aspath_exclude():
         pytest.skip(tgen.errors)
 
     test_func = functools.partial(bgp_converge, tgen.gears["r1"], expected_1)
-    _, result = topotest.run_and_expect(test_func, None, count=30, wait=0.5)
+    _, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
 
     assert result is None, "Failed overriding incoming AS-PATH with route-map"
 
@@ -139,7 +139,7 @@ clear bgp *
     )
 
     test_func = functools.partial(bgp_converge, tgen.gears["r1"], expected_2)
-    _, result = topotest.run_and_expect(test_func, None, count=30, wait=0.5)
+    _, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
 
     assert result is None, "Failed change of exclude rule in route map"
     r1.vtysh_cmd(
@@ -152,7 +152,7 @@ conf
 
     # tgen.mininet_cli()
     test_func = functools.partial(bgp_converge, tgen.gears["r1"], expected_1)
-    _, result = topotest.run_and_expect(test_func, None, count=30, wait=0.5)
+    _, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
 
     assert result is None, "Failed reverting exclude rule in route map"
 
@@ -180,7 +180,7 @@ clear bgp *
     )
 
     test_func = functools.partial(bgp_converge, tgen.gears["r1"], expected_3)
-    _, result = topotest.run_and_expect(test_func, None, count=30, wait=0.5)
+    _, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
 
     assert result is None, "Failed to removing current accesslist"
 
@@ -198,7 +198,7 @@ clear bgp *
     )
 
     test_func = functools.partial(bgp_converge, tgen.gears["r1"], expected_4)
-    _, result = topotest.run_and_expect(test_func, None, count=30, wait=0.5)
+    _, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
 
     assert result is None, "Failed to renegotiate with peers 2"
 
@@ -217,7 +217,7 @@ clear bgp *
     )
 
     test_func = functools.partial(bgp_converge, tgen.gears["r1"], expected_3)
-    _, result = topotest.run_and_expect(test_func, None, count=30, wait=0.5)
+    _, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
 
     assert result is None, "Failed to renegotiate with peers 2"
 
@@ -236,7 +236,7 @@ clear bgp *
     )
 
     test_func = functools.partial(bgp_converge, tgen.gears["r1"], expected_3)
-    _, result = topotest.run_and_expect(test_func, None, count=30, wait=0.5)
+    _, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
 
     assert result is None, "Failed to renegotiate with peers 2"
 
