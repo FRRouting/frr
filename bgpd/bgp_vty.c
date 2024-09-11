@@ -17083,6 +17083,7 @@ static int bgp_show_one_peer_group(struct vty *vty, struct peer_group *group,
 	json_object *json_peer_group_dynamic = NULL;
 	json_object *json_peer_group_dynamic_af = NULL;
 	json_object *json_peer_group_ranges = NULL;
+	uint16_t member_count = 0;
 
 	conf = group->conf;
 
@@ -17256,10 +17257,14 @@ static int bgp_show_one_peer_group(struct vty *vty, struct peer_group *group,
 					dynamic ? "(dynamic)" : "",
 					peer_status);
 			}
+			member_count++;
 		}
-		if (json)
+		if (json) {
+			json_object_int_add(json_peer_group_members,
+					    "memberCount", member_count);
 			json_object_object_add(json_peer_group, "members",
 					       json_peer_group_members);
+		}
 	}
 
 	if (json)
