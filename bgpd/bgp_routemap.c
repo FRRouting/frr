@@ -2361,7 +2361,7 @@ static void route_aspath_exclude_free(void *rule)
 	if (ase->exclude_aspath_acl) {
 		acl = ase->exclude_aspath_acl;
 		as_list_list_del(&acl->exclude_rule, ase);
-	} else {
+	} else if (ase->exclude_aspath_acl_name) {
 		/* no ref to acl, this aspath exclude is orphan */
 		as_exclude_remove_orphan(ase);
 	}
