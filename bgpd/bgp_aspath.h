@@ -52,9 +52,6 @@ struct aspath {
 	/* segment data */
 	struct assegment *segments;
 
-	/* AS path as a json object */
-	json_object *json;
-
 	/* String expression of AS path.  This string is used by vty output
 	   and AS path regular expression match.  */
 	char *str;
@@ -109,7 +106,7 @@ extern struct aspath *aspath_empty(enum asnotation_mode asnotation);
 extern struct aspath *aspath_empty_get(void);
 extern struct aspath *aspath_str2aspath(const char *str,
 					enum asnotation_mode asnotation);
-extern void aspath_str_update(struct aspath *as, bool make_json);
+extern void aspath_str_update(struct aspath *as);
 extern void aspath_free(struct aspath *aspath);
 extern struct aspath *aspath_intern(struct aspath *aspath);
 extern json_object *aspath_get_json(struct aspath *aspath);
