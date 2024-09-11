@@ -25,9 +25,6 @@ struct lcommunity {
 	/* Large Communities value.  */
 	uint8_t *val;
 
-	/* Large Communities as a json object */
-	json_object *json;
-
 	/* Human readable format string.  */
 	char *str;
 };
@@ -56,8 +53,7 @@ extern struct hash *lcommunity_hash(void);
 extern struct lcommunity *lcommunity_str2com(const char *);
 extern bool lcommunity_match(const struct lcommunity *,
 			     const struct lcommunity *);
-extern char *lcommunity_str(struct lcommunity *, bool make_json,
-			    bool translate_alias);
+extern char *lcommunity_str(struct lcommunity *, bool translate_alias);
 extern bool lcommunity_include(struct lcommunity *lcom, uint8_t *ptr);
 extern void lcommunity_del_val(struct lcommunity *lcom, uint8_t *ptr);
 
