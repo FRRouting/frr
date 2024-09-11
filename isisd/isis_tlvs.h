@@ -717,6 +717,7 @@ struct isis_ext_subtlvs {
 #define ISIS_SABM_FLAG_X 0x10 /* Flex-Algorithm - RFC9350 */
 
 #define ASLA_APP_IDENTIFIER_BIT_LENGTH 1
+#define ASLA_APP_IDENTIFIER_BIT_MAX_LENGTH 8
 #define ASLA_LEGACY_FLAG 0x80
 #define ASLA_APPS_LENGTH_MASK 0x7f
 
