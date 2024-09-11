@@ -62,7 +62,7 @@ enum ospf6_gr_helper_rejected_reason {
 };
 
 
-#define GRACE_PERIOD_TLV_SIZE sizeof(struct tlv_grace_period)
+#define GRACE_PERIOD_TLV_SIZE	      sizeof(struct tlv_grace_period)
 #define GRACE_RESTART_REASON_TLV_SIZE sizeof(struct tlv_grace_restart_reason)
 
 #define OSPF6_GRACE_LSA_MIN_SIZE                                               \

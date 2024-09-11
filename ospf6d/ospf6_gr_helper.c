@@ -147,7 +147,6 @@ static int ospf6_extract_grace_lsa_fields(struct ospf6_lsa *lsa,
 
 	for (tlvh = lsdesc_start(lsah); sum < length && tlvh;
 	     tlvh = TLV_HDR_NEXT(tlvh)) {
-
 		/* Check TLV len against overall LSA */
 		if (sum + TLV_SIZE(tlvh) > length) {
 			if (IS_DEBUG_OSPF6_GR)
@@ -1243,7 +1242,6 @@ static int ospf6_grace_lsa_show_info(struct vty *vty, struct ospf6_lsa *lsa,
 
 	for (tlvh = lsdesc_start(lsah); sum < length && tlvh;
 	     tlvh = TLV_HDR_NEXT(tlvh)) {
-
 		/* Check TLV len */
 		if (sum + TLV_SIZE(tlvh) > length) {
 			if (vty)

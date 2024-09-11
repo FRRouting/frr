@@ -88,7 +88,6 @@ struct ospf6_lsa_header {
 };
 
 
-
 static inline char *ospf6_lsa_header_end(struct ospf6_lsa_header *header)
 {
 	return (char *)header + sizeof(struct ospf6_lsa_header);
@@ -124,7 +123,7 @@ static inline uint16_t ospf6_lsa_size(struct ospf6_lsa_header *header)
 #define OSPF6_LSA_IS_SEQWRAP(L) ((L)->header->seqnum == htonl(OSPF_MAX_SEQUENCE_NUMBER + 1))
 
 /* Router-LSA */
-#define OSPF6_ROUTER_LSA_MIN_SIZE              4U
+#define OSPF6_ROUTER_LSA_MIN_SIZE 4U
 struct ospf6_router_lsa {
 	uint8_t bits;
 	uint8_t options[3];
@@ -132,7 +131,7 @@ struct ospf6_router_lsa {
 };
 
 /* Link State Description in Router-LSA */
-#define OSPF6_ROUTER_LSDESC_FIX_SIZE          16U
+#define OSPF6_ROUTER_LSDESC_FIX_SIZE 16U
 struct ospf6_router_lsdesc {
 	uint8_t type;
 	uint8_t reserved;
@@ -142,13 +141,13 @@ struct ospf6_router_lsdesc {
 	in_addr_t neighbor_router_id;
 };
 
-#define OSPF6_ROUTER_LSDESC_POINTTOPOINT       1
-#define OSPF6_ROUTER_LSDESC_TRANSIT_NETWORK    2
-#define OSPF6_ROUTER_LSDESC_STUB_NETWORK       3
-#define OSPF6_ROUTER_LSDESC_VIRTUAL_LINK       4
+#define OSPF6_ROUTER_LSDESC_POINTTOPOINT    1
+#define OSPF6_ROUTER_LSDESC_TRANSIT_NETWORK 2
+#define OSPF6_ROUTER_LSDESC_STUB_NETWORK    3
+#define OSPF6_ROUTER_LSDESC_VIRTUAL_LINK    4
 
 /* Network-LSA */
-#define OSPF6_NETWORK_LSA_MIN_SIZE             4U
+#define OSPF6_NETWORK_LSA_MIN_SIZE 4U
 struct ospf6_network_lsa {
 	uint8_t reserved;
 	uint8_t options[3];
@@ -156,7 +155,7 @@ struct ospf6_network_lsa {
 };
 
 /* Link State Description in Network-LSA */
-#define OSPF6_NETWORK_LSDESC_FIX_SIZE          4U
+#define OSPF6_NETWORK_LSDESC_FIX_SIZE 4U
 struct ospf6_network_lsdesc {
 	in_addr_t router_id;
 };
@@ -164,14 +163,14 @@ struct ospf6_network_lsdesc {
 	(((struct ospf6_network_lsdesc *)(x))->router_id)
 
 /* Inter-Area-Prefix-LSA */
-#define OSPF6_INTER_PREFIX_LSA_MIN_SIZE        4U /* w/o IPv6 prefix */
+#define OSPF6_INTER_PREFIX_LSA_MIN_SIZE 4U /* w/o IPv6 prefix */
 struct ospf6_inter_prefix_lsa {
 	uint32_t metric;
 	struct ospf6_prefix prefix;
 };
 
 /* Inter-Area-Router-LSA */
-#define OSPF6_INTER_ROUTER_LSA_FIX_SIZE       12U
+#define OSPF6_INTER_ROUTER_LSA_FIX_SIZE 12U
 struct ospf6_inter_router_lsa {
 	uint8_t mbz;
 	uint8_t options[3];
@@ -180,7 +179,7 @@ struct ospf6_inter_router_lsa {
 };
 
 /* AS-External-LSA */
-#define OSPF6_AS_EXTERNAL_LSA_MIN_SIZE         4U /* w/o IPv6 prefix */
+#define OSPF6_AS_EXTERNAL_LSA_MIN_SIZE 4U /* w/o IPv6 prefix */
 struct ospf6_as_external_lsa {
 	uint32_t bits_metric;
 
@@ -193,7 +192,7 @@ struct ospf6_as_external_lsa {
 /* FIXME: move nssa lsa here. */
 
 /* Link-LSA */
-#define OSPF6_LINK_LSA_MIN_SIZE               24U /* w/o 1st IPv6 prefix */
+#define OSPF6_LINK_LSA_MIN_SIZE 24U /* w/o 1st IPv6 prefix */
 struct ospf6_link_lsa {
 	uint8_t priority;
 	uint8_t options[3];
@@ -203,7 +202,7 @@ struct ospf6_link_lsa {
 };
 
 /* Intra-Area-Prefix-LSA */
-#define OSPF6_INTRA_PREFIX_LSA_MIN_SIZE       12U /* w/o 1st IPv6 prefix */
+#define OSPF6_INTRA_PREFIX_LSA_MIN_SIZE 12U /* w/o 1st IPv6 prefix */
 struct ospf6_intra_prefix_lsa {
 	uint16_t prefix_num;
 	uint16_t ref_type;

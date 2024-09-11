@@ -65,7 +65,8 @@ static int ospf6_gr_lsa_originate(struct ospf6_interface *oi,
 
 	/* Put restart reason. */
 	grace_lsa->tlv_reason.header.type = htons(TLV_GRACE_RESTART_REASON_TYPE);
-	grace_lsa->tlv_reason.header.length = htons(TLV_GRACE_RESTART_REASON_LENGTH);
+	grace_lsa->tlv_reason.header.length =
+		htons(TLV_GRACE_RESTART_REASON_LENGTH);
 	grace_lsa->tlv_reason.reason = reason;
 
 	/* Fill LSA Header */

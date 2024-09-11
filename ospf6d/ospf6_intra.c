@@ -592,8 +592,6 @@ static char *ospf6_link_lsa_get_prefix_str(struct ospf6_lsa *lsa, char *buf,
 	inet_ntop(AF_INET6, &in6, buf, buflen);
 
 	return buf;
-
-
 }
 
 static int ospf6_link_lsa_show(struct vty *vty, struct ospf6_lsa *lsa,
