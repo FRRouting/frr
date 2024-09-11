@@ -799,7 +799,36 @@ sed -i 's/ -M rpki//' %{_sysconfdir}/frr/daemons
 
 %changelog
 
-* Thu Jun 06 2024 Jafar Al-Gharaibeh <jafar@atcorp.com> - %{version}
+* Wed Sep 11 2024 Martin Winter <mwinter@opensourcerouting.org> - %{version}
+
+* Wed Sep 11 2024 Donatas Abraitis <donatas@opensourcerouting.org> - 9.1.2
+- bgpd
+-    Fix crash at no rpki
+-    Fix, do not access peer->notify.data when it is null
+-    Fix for CVE-2024-44070
+-    Ignore RFC8212 for BGP Confederations
+-    Check if we have really enough data before doing memcpy for software version
+-    Set last reset reason to admin shutdown if it was manually
+- isisd
+-    Fix crash when reading asla
+-    Add missing `exit` statement
+-    Fix update link params after circuit is up
+-    Fix crash when calculating the neighbor spanning tree based on the fragmented LSP
+- zebra
+-    Ensure non-equal id's are not same nhg's
+- pimd
+-    Fix msdp setting of sa->rp
+-    Fix crash on non-existent interface
+- ospfd
+-    Fix internal ldp-sync state flags when feature is disabled
+- zebra
+-    Fix missing static routes
+-    Fix to avoid two Vrfs with same table ids
+-    Fix evpn mh bond member proto reinstall
+- ldpd
+-    Fix wrong gtsm count
+- ripd
+-    Change the start value of sequence 1 to 0
 
 * Thu Jun 06 2024 Jafar Al-Gharaibeh <jafar@atcorp.com> - 9.1.1
 - bgpd
