@@ -10516,6 +10516,7 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct bgp_dest *bn,
 	json_object *json_string = NULL;
 	json_object *json_adv_to = NULL;
 	json_object *json_aspath = NULL;
+	json_object *json_community = NULL;
 	int first = 0;
 	struct listnode *node, *nnode;
 	struct peer *peer;
@@ -11215,13 +11216,10 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct bgp_dest *bn,
 	/* Line 4 display Community */
 	if (attr->flag & ATTR_FLAG_BIT(BGP_ATTR_COMMUNITIES)) {
 		if (json_paths) {
-			if (!bgp_attr_get_community(attr)->json)
-				community_str(bgp_attr_get_community(attr),
-					      true, true);
-			json_object_lock(bgp_attr_get_community(attr)->json);
-			json_object_object_add(
-				json_path, "community",
-				bgp_attr_get_community(attr)->json);
+			json_community =
+                          community_get_json(bgp_attr_get_community(attr));
+			json_object_object_add(json_path, "community",
+					       json_community);
 		} else {
 			vty_out(vty, "      Community: %s\n",
 				bgp_attr_get_community(attr)->str);
