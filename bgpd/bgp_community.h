@@ -21,9 +21,6 @@ struct community {
 	/* Communities value.  */
 	uint32_t *val;
 
-	/* Communities as a json object */
-	json_object *json;
-
 	/* String of community attribute.  This sring is used by vty output
 	   and expanded community-list for regular expression match.  */
 	char *str;
@@ -62,8 +59,7 @@ extern struct community *community_parse(uint32_t *pnt, unsigned short length);
 extern struct community *community_intern(struct community *com);
 extern json_object *community_get_json(struct community *com);
 extern void community_unintern(struct community **com);
-extern char *community_str(struct community *com, bool make_json,
-			   bool translate_alias);
+extern char *community_str(struct community *com, bool translate_alias);
 extern unsigned int community_hash_make(const struct community *com);
 extern struct community *community_str2com(const char *str);
 extern bool community_match(const struct community *com1,

@@ -16418,7 +16418,7 @@ static void community_show_all_iterator(struct hash_bucket *bucket,
 
 	com = (struct community *)bucket->data;
 	vty_out(vty, "[%p] (%ld) %s\n", (void *)com, com->refcnt,
-		community_str(com, false, false));
+		community_str(com, false));
 }
 
 /* Show BGP's community internal data. */
@@ -22204,7 +22204,7 @@ static const char *community_list_config_str(struct community_entry *entry)
 	const char *str;
 
 	if (entry->style == COMMUNITY_LIST_STANDARD)
-		str = community_str(entry->u.com, false, false);
+		str = community_str(entry->u.com, false);
 	else if (entry->style == LARGE_COMMUNITY_LIST_STANDARD)
 		str = lcommunity_str(entry->u.lcom, false, false);
 	else

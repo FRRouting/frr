@@ -989,7 +989,7 @@ static void attr_show_all_iterator(struct hash_bucket *bucket, struct vty *vty)
 		attr->origin, attr->weight, attr->label, sid, attr->aigp_metric);
 	vty_out(vty, "\taspath: %s Community: %s Large Community: %s\n",
 		aspath_print(attr->aspath),
-		community_str(attr->community, false, false),
+		community_str(attr->community, false),
 		lcommunity_str(attr->lcommunity, false, false));
 	vty_out(vty, "\tExtended Community: %s Extended IPv6 Community: %s\n",
 		ecommunity_str(attr->ecommunity),

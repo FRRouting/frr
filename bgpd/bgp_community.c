@@ -33,11 +33,6 @@ void community_free(struct community **com)
 	XFREE(MTYPE_COMMUNITY_VAL, (*com)->val);
 	XFREE(MTYPE_COMMUNITY_STR, (*com)->str);
 
-	if ((*com)->json) {
-		json_object_free((*com)->json);
-		(*com)->json = NULL;
-	}
-
 	XFREE(MTYPE_COMMUNITY, (*com));
 }
 
@@ -150,7 +145,6 @@ struct community *community_uniq_sort(struct community *com)
 		return NULL;
 
 	new = community_new();
-	new->json = NULL;
 
 	for (i = 0; i < com->size; i++) {
 		val = community_val_get(com, i);
@@ -167,16 +161,14 @@ struct community *community_uniq_sort(struct community *com)
 /* Convert communities attribute to string and optionally add json objects
  * into the pased json_community_list string
  */
-static void community_json_list(struct community *com,
-				json_object *json_community_list, char *str,
-				int len, bool translate_alias,
-				struct printbuf *pb, bool incremental_print)
+static void community_json_list(struct community *com, char *str, int len,
+				bool translate_alias, struct printbuf *pb,
+				bool incremental_print)
 {
 	int i;
 	int first;
 	first = 1;
 	uint32_t comval;
-	json_object *json_string = NULL;
 	uint16_t as;
 	uint16_t val;
 
@@ -197,24 +189,12 @@ static void community_json_list(struct community *com,
 			if (incremental_print)
 				sprintbuf(pb, "%s\"gracefulShutdown\"",
 					  i ? "," : "");
-			else if (json_community_list) {
-				json_string = json_object_new_string(
-					"gracefulShutdown");
-				json_object_array_add(json_community_list,
-						      json_string);
-			}
 			break;
 		case COMMUNITY_ACCEPT_OWN:
 			if (str)
 				strlcat(str, "accept-own", len);
 			if (incremental_print)
 				sprintbuf(pb, "%s\"acceptOwn\"", i ? "," : "");
-			else if (json_community_list) {
-				json_string = json_object_new_string(
-					"acceptown");
-				json_object_array_add(json_community_list,
-						      json_string);
-			}
 			break;
 		case COMMUNITY_ROUTE_FILTER_TRANSLATED_v4:
 			if (str)
@@ -222,12 +202,6 @@ static void community_json_list(struct community *com,
 			if (incremental_print)
 				sprintbuf(pb, "%s\"routeFilterTranslateV4\"",
 					  i ? "," : "");
-			else if (json_community_list) {
-				json_string = json_object_new_string(
-					"routeFilterTranslatedV4");
-				json_object_array_add(json_community_list,
-						      json_string);
-			}
 			break;
 		case COMMUNITY_ROUTE_FILTER_v4:
 			if (str)
@@ -235,12 +209,6 @@ static void community_json_list(struct community *com,
 			if (incremental_print)
 				sprintbuf(pb, "%s\"routeFilterV4\"",
 					  i ? "," : "");
-			else if (json_community_list) {
-				json_string = json_object_new_string(
-					"routeFilterV4");
-				json_object_array_add(json_community_list,
-						      json_string);
-			}
 			break;
 		case COMMUNITY_ROUTE_FILTER_TRANSLATED_v6:
 			if (str)
@@ -248,12 +216,6 @@ static void community_json_list(struct community *com,
 			if (incremental_print)
 				sprintbuf(pb, "%s\"routeFilterTranslatedV6\"",
 					  i ? "," : "");
-			else if (json_community_list) {
-				json_string = json_object_new_string(
-					"routeFilterTranslatedV6");
-				json_object_array_add(json_community_list,
-						      json_string);
-			}
 			break;
 		case COMMUNITY_ROUTE_FILTER_v6:
 			if (str)
@@ -261,36 +223,18 @@ static void community_json_list(struct community *com,
 			if (incremental_print)
 				sprintbuf(pb, "%s\"routeFilterV6\"",
 					  i ? "," : "");
-			else if (json_community_list) {
-				json_string = json_object_new_string(
-					"routeFilterV6");
-				json_object_array_add(json_community_list,
-						      json_string);
-			}
 			break;
 		case COMMUNITY_LLGR_STALE:
 			if (str)
 				strlcat(str, "llgr-stale", len);
 			if (incremental_print)
 				sprintbuf(pb, "%s\"llgrStale\"", i ? "," : "");
-			else if (json_community_list) {
-				json_string = json_object_new_string(
-					"llgrStale");
-				json_object_array_add(json_community_list,
-						      json_string);
-			}
 			break;
 		case COMMUNITY_NO_LLGR:
 			if (str)
 				strlcat(str, "no-llgr", len);
 			if (incremental_print)
 				sprintbuf(pb, "%s\"noLlgr\"", i ? "," : "");
-			else if (json_community_list) {
-				json_string = json_object_new_string(
-					"noLlgr");
-				json_object_array_add(json_community_list,
-						      json_string);
-			}
 			break;
 		case COMMUNITY_ACCEPT_OWN_NEXTHOP:
 			if (str)
@@ -298,70 +242,36 @@ static void community_json_list(struct community *com,
 			if (incremental_print)
 				sprintbuf(pb, "%s\"acceptownnexthop\"",
 					  i ? "," : "");
-			else if (json_community_list) {
-				json_string = json_object_new_string(
-					"acceptownnexthop");
-				json_object_array_add(json_community_list,
-						      json_string);
-			}
 			break;
 		case COMMUNITY_BLACKHOLE:
 			if (str)
 				strlcat(str, "blackhole", len);
 			if (incremental_print)
 				sprintbuf(pb, "%s\"blackhole\"", i ? "," : "");
-			else if (json_community_list) {
-				json_string = json_object_new_string(
-					"blackhole");
-				json_object_array_add(json_community_list,
-						      json_string);
-			}
 			break;
 		case COMMUNITY_NO_EXPORT:
 			if (str)
 				strlcat(str, "no-export", len);
 			if (incremental_print)
 				sprintbuf(pb, "%s\"noExport\"", i ? "," : "");
-			else if (json_community_list) {
-				json_string =
-					json_object_new_string("noExport");
-				json_object_array_add(json_community_list,
-						      json_string);
-			}
 			break;
 		case COMMUNITY_NO_ADVERTISE:
 			if (str)
 				strlcat(str, "no-advertise", len);
 			if (incremental_print)
 				sprintbuf(pb, "%s\"noAdvertise\"", i ? "," : "");
-			else if (json_community_list) {
-				json_string =
-					json_object_new_string("noAdvertise");
-				json_object_array_add(json_community_list,
-						      json_string);
-			}
 			break;
 		case COMMUNITY_LOCAL_AS:
 			if (str)
 				strlcat(str, "local-AS", len);
 			if (incremental_print)
 				sprintbuf(pb, "%s\"localAs\"", i ? "," : "");
-			else if (json_community_list) {
-				json_string = json_object_new_string("localAs");
-				json_object_array_add(json_community_list,
-						      json_string);
-			}
 			break;
 		case COMMUNITY_NO_PEER:
 			if (str)
 				strlcat(str, "no-peer", len);
 			if (incremental_print)
 				sprintbuf(pb, "%s\"noPeer\"", i ? "," : "");
-			else if (json_community_list) {
-				json_string = json_object_new_string("noPeer");
-				json_object_array_add(json_community_list,
-						      json_string);
-			}
 			break;
 		default:
 			as = CHECK_FLAG((comval >> 16), 0xFFFF);
@@ -378,11 +288,6 @@ static void community_json_list(struct community *com,
 					  translate_alias
 						  ? bgp_community2alias(buf)
 						  : buf);
-			else if (json_community_list) {
-				json_string = json_object_new_string(com2alias);
-				json_object_array_add(json_community_list,
-						      json_string);
-			}
 			break;
 		}
 	}
@@ -408,33 +313,21 @@ static void community_json_list(struct community *com,
    0xFFFFFF04      "no-peer"
 
    For other values, "AS:VAL" format is used.  */
-static void set_community_string(struct community *com, bool make_json,
-				 bool translate_alias)
+static void set_community_string(struct community *com, bool translate_alias)
 {
 	int i;
 	char *str;
 	int len;
 	uint32_t comval;
-	json_object *json_community_list = NULL;
 
 	if (!com)
 		return;
-
-	if (make_json) {
-		com->json = json_object_new_object();
-		json_community_list = json_object_new_array();
-	}
 
 	/* When communities attribute is empty.  */
 	if (com->size == 0) {
 		str = XMALLOC(MTYPE_COMMUNITY_STR, 1);
 		str[0] = '\0';
 
-		if (make_json) {
-			json_object_string_add(com->json, "string", "");
-			json_object_object_add(com->json, "list",
-					       json_community_list);
-		}
 		com->str = str;
 		return;
 	}
@@ -499,13 +392,8 @@ static void set_community_string(struct community *com, bool make_json,
 	/* Allocate memory.  */
 	str = XCALLOC(MTYPE_COMMUNITY_STR, len);
 
-	community_json_list(com, make_json ? json_community_list : NULL, str,
-			    len, translate_alias, NULL, false);
+	community_json_list(com, str, len, translate_alias, NULL, false);
 
-	if (make_json) {
-		json_object_string_add(com->json, "string", str);
-		json_object_object_add(com->json, "list", json_community_list);
-	}
 	com->str = str;
 }
 
@@ -530,7 +418,7 @@ struct community *community_intern(struct community *com)
 
 	/* Make string.  */
 	if (!find->str)
-		set_community_string(find, false, true);
+		set_community_string(find, true);
 
 	return find;
 }
@@ -591,16 +479,13 @@ struct community *community_dup(struct community *com)
 }
 
 /* Return string representation of communities attribute. */
-char *community_str(struct community *com, bool make_json, bool translate_alias)
+char *community_str(struct community *com, bool translate_alias)
 {
 	if (!com)
 		return NULL;
 
-	if (make_json && !com->json && com->str)
-		XFREE(MTYPE_COMMUNITY_STR, com->str);
-
 	if (!com->str)
-		set_community_string(com, make_json, translate_alias);
+		set_community_string(com, translate_alias);
 	return com->str;
 }
 
@@ -910,7 +795,6 @@ struct community *community_str2com(const char *str)
 		case community_token_no_peer:
 			if (com == NULL) {
 				com = community_new();
-				com->json = NULL;
 			}
 			community_add_val(com, val);
 			break;
@@ -1002,7 +886,7 @@ static int community_list_json_to_string(struct json_object *jso,
 	printbuf_memappend(pb, com->str, strlen(com->str));
 	printbuf_strappend(pb, "\",\"list\":[");
 
-	community_json_list(com, NULL, NULL, 0, true, pb, true);
+	community_json_list(com, NULL, 0, true, pb, true);
 	printbuf_strappend(pb, "]}");
 	return 0;
 }

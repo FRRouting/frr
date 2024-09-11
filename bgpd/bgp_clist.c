@@ -540,7 +540,7 @@ static bool community_regexp_match(struct community *com, regex_t *reg)
 	if (com == NULL || com->size == 0)
 		str = "";
 	else
-		str = community_str(com, false, true);
+		str = community_str(com, true);
 
 	regstr = bgp_alias2community_str(str);
 
