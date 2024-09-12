@@ -38,11 +38,19 @@ enum filter_type { FILTER_DENY, FILTER_PERMIT, FILTER_DYNAMIC };
 struct filter_cisco {
 	/* Cisco access-list */
 	int extended;
+	/* Use IPv6 */
+	bool ipv6;
+
 	union {
 		/* basic */
 		struct {
 			struct in_addr addr;
 			struct in_addr addr_mask;
+		};
+		/* basic IPv6 */
+		struct {
+			struct in6_addr addr6;
+			struct in6_addr addr6_mask;
 		};
 		/* "pseudo-prefix-list-mode", aka WTF mode */
 		struct {
@@ -58,6 +66,13 @@ struct filter_cisco {
 			struct in_addr dst;
 			struct in_addr dst_mask;
 		} sadr;
+		/* source /destination IPv6 address matching */
+		struct {
+			struct in6_addr src;
+			struct in6_addr src_mask;
+			struct in6_addr dst;
+			struct in6_addr dst_mask;
+		} sadr6;
 	};
 };
 
