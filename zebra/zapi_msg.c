@@ -735,11 +735,13 @@ static int route_notify_internal(const struct route_node *rn, int type,
 
 	client = zserv_find_client(type, instance);
 	if (!client || !client->notify_owner) {
-		if (IS_ZEBRA_DEBUG_PACKET)
-			zlog_debug(
-				"Not Notifying Owner: %s about prefix %pRN(%u) %d vrf: %u",
-				zebra_route_string(type), rn, table_id, note,
-				vrf_id);
+		if (IS_ZEBRA_DEBUG_PACKET) {
+			struct vrf *vrf = vrf_lookup_by_id(vrf_id);
+
+			zlog_debug("Not Notifying Owner: %s about prefix %pRN(%u) %d vrf: %s",
+				   zebra_route_string(type), rn, table_id, note,
+				   VRF_LOGNAME(vrf));
+		}
 		return 0;
 	}
 
@@ -2129,8 +2131,8 @@ static void zread_route_add(ZAPI_HANDLER_ARGS)
 	vrf_id = zvrf_id(zvrf);
 
 	if (IS_ZEBRA_DEBUG_RECV)
-		zlog_debug("%s: p=(%u:%u)%pFX, msg flags=0x%x, flags=0x%x",
-			   __func__, vrf_id, api.tableid, &api.prefix,
+		zlog_debug("%s: p=(%s:%u)%pFX, msg flags=0x%x, flags=0x%x",
+			   __func__, zvrf_name(zvrf), api.tableid, &api.prefix,
 			   (int)api.message, api.flags);
 
 	/* Allocate new route. */
