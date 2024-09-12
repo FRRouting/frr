@@ -597,6 +597,12 @@ static void nhrp_handle_resolution_req(struct nhrp_packet_parser *pp)
 				nhrp_ext_complete(zb, ext);
 			}
 			break;
+		case NHRP_EXTENSION_AUTHENTICATION:
+			/* Extensions can be copied from original packet except
+			 * authentication extension which must be regenerated
+			 * hop by hop.
+			 */
+			break;
 		default:
 			if (nhrp_ext_reply(zb, hdr, ifp, ext, &payload) < 0)
 				goto err;
