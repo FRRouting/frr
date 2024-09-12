@@ -797,7 +797,7 @@ int ospf_flood_through_interface(struct ospf_interface *oi,
 				ospf_ls_upd_send_lsa(nbr, lsa,
 						     OSPF_SEND_PACKET_DIRECT);
 		}
-	} else
+	} else {
 		/* If P2MP delayed reflooding is configured and the LSA was
 		   received from a neighbor on the P2MP interface, do not flood
 		   if back out on the interface. The LSA will be  retransmitted
@@ -815,9 +815,17 @@ int ospf_flood_through_interface(struct ospf_interface *oi,
 					inbr ? &(inbr->router_id)
 					     : &(oi->ospf->router_id),
 					IF_NAME(oi));
-		} else
-			ospf_ls_upd_send_lsa(oi->nbr_self, lsa,
-					     OSPF_SEND_PACKET_INDIRECT);
+			/*
+			 * If reflooding is delayed, a delayed acknowledge
+			 * should be sent since the LSA will not be immediately
+			 * reflooded and interpreted as an implied
+			 * acknowledgment by the sender.
+			 */
+			return 1;
+		}
+		ospf_ls_upd_send_lsa(oi->nbr_self, lsa,
+				     OSPF_SEND_PACKET_INDIRECT);
+	}
 
 	return 0;
 }
