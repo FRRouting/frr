@@ -805,7 +805,50 @@ sed -i 's/ -M rpki//' %{_sysconfdir}/frr/daemons
 
 %changelog
 
-* Fri Jul 26 2024 Jafar Al-Gharaibeh <jafar@atcorp.com> - %{version}
+* Wed Sep 11 2024 Martin Winter <mwinter@opensourcerouting.org> - %{version}
+
+* Wed Sep 11 2024 Donatas Abraitis <donatas@opensourcerouting.org> - 10.1.1
+- bgpd
+-    Fix as-path exclude modify crash
+-    Fix labels static-analyser
+-    Fix, do not access peer->notify.data when it is null
+-    Fix crash at no rpki
+-    Fix memory type for static->prd_pretty
+-    Revert "topotests: add an ebgp 6vpe test"
+-    Revert "topotests: add bgp_nexthop_mp_ipv4_6 test"
+-    Revert "bgpd: optimize bgp_interface_address_del"
+-    Revert "bgpd: fix removing ipv6 global nexhop"
+-    Revert "bgpd: fix "used" json key on link-local nexthop"
+-    Revert "tests: ipv6 global removal in bgp_nexthop_mp_ipv4_6"
+-    Revert "bgpd: set ipv4-mapped ipv6 for ipv4 with ipv6 nexthop"
+-    Revert "bgpd: prefer link-local to a ipv4-mapped ipv6 global"
+-    Revert "topotests: update bgp_vrf_leaking_5549_routes"
+-    Revert "bgpd: optimize bgp_interface_address_add"
+-    Revert "bgpd: reduce bgp_interface_address_add indentation"
+-    Revert "bgpd: log new ipv6 global in bgp_interface_address_add"
+-    Revert "bgpd: fix sending ipv6 local nexthop if global present"
+- isisd
+-    Fix crash when reading asla
+-    Add missing `exit` statement
+-    Fix update link params after circuit is up
+-    Fix crash at flex-algo without mpls-te
+-    Fix memory handling in isis_adj_process_threeway()
+- nhrpd
+-    Fix show nhrp shortcut json
+-    Fix sending /32 shortcut
+- pimd
+-    Fix crash in pimd
+- mgmtd
+-    Don't add implicit state data when reading config from file
+- lib
+-    Fix distribute-list deletion
+-    Fix crash on distribute-list delete
+-    Fix LYD_NEW_PATH_OUTPUT issue to support libyang v3.x
+- ripd
+-    Fix show run output for distribute-list
+- zebra
+-    Ensure non-equal id's are not same nhg's
+-    Mimic GNU basename() API for non-glibc library e.g. musl
 
 * Fri Jul 26 2024 Jafar Al-Gharaibeh <jafar@atcorp.com> - 10.1
 - Breaking changes
