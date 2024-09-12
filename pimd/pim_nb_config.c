@@ -2058,6 +2058,10 @@ int lib_interface_pim_address_family_bsm_modify(struct nb_cb_modify_args *args)
 	case NB_EV_APPLY:
 		ifp = nb_running_get_entry(args->dnode, NULL, true);
 		pim_ifp = ifp->info;
+		if (!pim_ifp) {
+			pim_ifp = pim_if_new(ifp, false, true, false, false);
+			ifp->info = pim_ifp;
+		}
 		pim_ifp->bsm_enable = yang_dnode_get_bool(args->dnode, NULL);
 
 		break;
@@ -2083,6 +2087,10 @@ int lib_interface_pim_address_family_unicast_bsm_modify(
 	case NB_EV_APPLY:
 		ifp = nb_running_get_entry(args->dnode, NULL, true);
 		pim_ifp = ifp->info;
+		if (!pim_ifp) {
+			pim_ifp = pim_if_new(ifp, false, true, false, false);
+			ifp->info = pim_ifp;
+		}
 		pim_ifp->ucast_bsm_accept =
 			yang_dnode_get_bool(args->dnode, NULL);
 
