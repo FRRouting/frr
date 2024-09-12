@@ -804,7 +804,59 @@ sed -i 's/ -M rpki//' %{_sysconfdir}/frr/daemons
 
 %changelog
 
-* Thu Jun 06 2024 Jafar Al-Gharaibeh <jafar@atcorp.com> - %{version}
+* Wed Sep 11 2024 Martin Winter <mwinter@opensourcerouting.org> - %{version}
+
+* Wed Sep 11 2024 Donatas Abraitis <donatas@opensourcerouting.org> - 10.0.2
+- bgpd
+-    Fix as-path exclude modify crash
+-    Fix, do not access peer->notify.data when it is null
+-    Fix crash at no rpki
+-    Ignore RFC8212 for BGP Confederations
+-    Fix for CVE-2024-44070
+-    Relax OAD (One-Administration-Domain) for RFC8212
+-    Fix "bgp as-pah access-list" with "set aspath exclude" set/unset issues
+-    Check if we have really enough data before doing memcpy for FQDN capability
+-    Check if we have really enough data before doing memcpy for software version
+-    Set last reset reason to admin shutdown if it was manually
+-    Fix do not use api.backup_nexthop in ZAPI message
+- isisd
+-    Fix crash when reading asla
+-    Add missing `exit` statement
+-    Fix update link params after circuit is up
+-    Fix crash at flex-algo without mpls-te
+-    Fix memory handling in isis_adj_process_threeway()
+-    Fix crash when calculating the neighbor spanning tree based on the fragmented LSP
+-    Fix crash when obtaining the next hop to calculate LFA on LAN links
+-    Fix memory leaks when the transition of neighbor state from non-UP to DOWN
+-    fix crash when displaying asla in json
+- pimd
+-    Fix crash in pimd
+-    Fix msdp setting of sa->rp
+-    Fix crash on non-existent interface
+- nhrpd
+-    Fix sending /32 shortcut
+- mgmtd
+-    Don't add implicit state data when reading config from file
+-    Fix too early daemon detach of mgmtd
+- ripd
+-    Fix show run output for distribute-list
+- lib
+-    Fix distribute-list deletion
+-    Fix crash on distribute-list delete
+-    Fix incorrect use of error checking macro
+- yang
+-    Added missed prefix to the yang file
+- ospfd
+-    Fix internal ldp-sync state flags when feature is disabled
+- ldpd
+-    Fix wrong gtsm count
+- ripd
+-    Change the start value of sequence 1 to 0
+- zebra
+-    Fix evpn mh bond member proto reinstall
+-    Fix to avoid two Vrfs with same table ids
+-    Fix missing static routes
+-    Ensure non-equal id's are not same nhg's
 
 * Thu Jun 06 2024 Jafar Al-Gharaibeh <jafar@atcorp.com> - 10.0.1
 - bgpd
