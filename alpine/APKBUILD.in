@@ -33,6 +33,8 @@ _localstatedir=/var/run/frr
 _user=frr
 
 build() {
+	export ABUILD_APK_INDEX_OPTS="--allow-untrusted"
+
 	cd "$builddir"
 
 	./configure \
