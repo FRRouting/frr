@@ -700,6 +700,7 @@ lib_access_list_entry_host_modify(struct nb_cb_modify_args *args)
 	f = nb_running_get_entry(args->dnode, NULL, true);
 	f->cisco = 1;
 	fc = &f->u.cfilter;
+	fc->ipv6 = false;
 	yang_dnode_get_ipv4(&fc->addr, args->dnode, NULL);
 	fc->addr_mask.s_addr = CISCO_BIN_HOST_WILDCARD_MASK;
 
@@ -717,6 +718,7 @@ lib_access_list_entry_host_destroy(struct nb_cb_destroy_args *args)
 
 	f = nb_running_get_entry(args->dnode, NULL, true);
 	fc = &f->u.cfilter;
+	fc->ipv6 = false;
 	cisco_unset_addr_mask(&fc->addr, &fc->addr_mask);
 
 	return NB_OK;
@@ -772,6 +774,7 @@ lib_access_list_entry_network_address_modify(struct nb_cb_modify_args *args)
 	f = nb_running_get_entry(args->dnode, NULL, true);
 	f->cisco = 1;
 	fc = &f->u.cfilter;
+	fc->ipv6 = false;
 	yang_dnode_get_ipv4(&fc->addr, args->dnode, NULL);
 
 	return NB_OK;
@@ -803,6 +806,7 @@ lib_access_list_entry_network_mask_modify(struct nb_cb_modify_args *args)
 	f = nb_running_get_entry(args->dnode, NULL, true);
 	f->cisco = 1;
 	fc = &f->u.cfilter;
+	fc->ipv6 = false;
 	yang_dnode_get_ipv4(&fc->addr_mask, args->dnode, NULL);
 
 	return NB_OK;
@@ -834,6 +838,7 @@ lib_access_list_entry_source_any_create(struct nb_cb_create_args *args)
 	f = nb_running_get_entry(args->dnode, NULL, true);
 	f->cisco = 1;
 	fc = &f->u.cfilter;
+	fc->ipv6 = false;
 	fc->addr.s_addr = INADDR_ANY;
 	fc->addr_mask.s_addr = CISCO_BIN_ANY_WILDCARD_MASK;
 
@@ -851,6 +856,7 @@ lib_access_list_entry_source_any_destroy(struct nb_cb_destroy_args *args)
 
 	f = nb_running_get_entry(args->dnode, NULL, true);
 	fc = &f->u.cfilter;
+	fc->ipv6 = false;
 	cisco_unset_addr_mask(&fc->addr, &fc->addr_mask);
 
 	return NB_OK;
@@ -881,6 +887,7 @@ static int lib_access_list_entry_destination_host_modify(
 
 	f = nb_running_get_entry(args->dnode, NULL, true);
 	fc = &f->u.cfilter;
+	fc->ipv6 = false;
 	fc->extended = 1;
 	yang_dnode_get_ipv4(&fc->wtf.mask, args->dnode, NULL);
 	fc->wtf.mask_mask.s_addr = CISCO_BIN_HOST_WILDCARD_MASK;
@@ -899,6 +906,7 @@ static int lib_access_list_entry_destination_host_destroy(
 
 	f = nb_running_get_entry(args->dnode, NULL, true);
 	fc = &f->u.cfilter;
+	fc->ipv6 = false;
 	fc->extended = 0;
 	cisco_unset_addr_mask(&fc->wtf.mask, &fc->wtf.mask_mask);
 
@@ -957,6 +965,7 @@ static int lib_access_list_entry_destination_network_address_modify(
 
 	f = nb_running_get_entry(args->dnode, NULL, true);
 	fc = &f->u.cfilter;
+	fc->ipv6 = false;
 	fc->extended = 1;
 	yang_dnode_get_ipv4(&fc->wtf.mask, args->dnode, NULL);
 
@@ -988,6 +997,7 @@ static int lib_access_list_entry_destination_network_mask_modify(
 
 	f = nb_running_get_entry(args->dnode, NULL, true);
 	fc = &f->u.cfilter;
+	fc->ipv6 = false;
 	fc->extended = 1;
 	yang_dnode_get_ipv4(&fc->wtf.mask_mask, args->dnode, NULL);
 
@@ -1019,6 +1029,7 @@ static int lib_access_list_entry_destination_any_create(
 
 	f = nb_running_get_entry(args->dnode, NULL, true);
 	fc = &f->u.cfilter;
+	fc->ipv6 = false;
 	fc->extended = 1;
 	fc->wtf.mask.s_addr = INADDR_ANY;
 	fc->wtf.mask_mask.s_addr = CISCO_BIN_ANY_WILDCARD_MASK;
@@ -1037,8 +1048,386 @@ static int lib_access_list_entry_destination_any_destroy(
 
 	f = nb_running_get_entry(args->dnode, NULL, true);
 	fc = &f->u.cfilter;
+	fc->ipv6 = false;
 	fc->extended = 0;
 	cisco_unset_addr_mask(&fc->wtf.mask, &fc->wtf.mask_mask);
+
+	return NB_OK;
+}
+
+/*
+ * XPath: /frr-filter:lib/access-list/entry/ipv6-host
+ */
+static int lib_access_list_entry_ipv6_host_modify(struct nb_cb_modify_args *args)
+{
+	struct filter_cisco *fc;
+	struct filter *f;
+
+	/* Don't allow duplicated values. */
+	if (args->event == NB_EV_VALIDATE) {
+		if (acl_cisco_is_dup(args->dnode)) {
+			snprintfrr(args->errmsg, args->errmsg_len,
+				   "duplicated access list value: %s",
+				   yang_dnode_get_string(args->dnode, NULL));
+			return NB_ERR_VALIDATION;
+		}
+		return NB_OK;
+	}
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	f = nb_running_get_entry(args->dnode, NULL, true);
+	f->cisco = 1;
+	fc = &f->u.cfilter;
+	fc->ipv6 = true;
+	yang_dnode_get_ipv6(&fc->addr6, args->dnode, NULL);
+	memset(&fc->addr6_mask, 0, sizeof(fc->addr6_mask));
+
+	return NB_OK;
+}
+
+static int lib_access_list_entry_ipv6_host_destroy(struct nb_cb_destroy_args *args)
+{
+	struct filter_cisco *fc;
+	struct filter *f;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	f = nb_running_get_entry(args->dnode, NULL, true);
+	fc = &f->u.cfilter;
+	fc->ipv6 = true;
+	memset(&fc->addr6, 0, sizeof(fc->addr6));
+	memset(&fc->addr6_mask, 0, sizeof(fc->addr6_mask));
+
+	return NB_OK;
+}
+
+/*
+ * XPath: /frr-filter:lib/access-list/entry/ipv6-network
+ */
+static int lib_access_list_entry_ipv6_network_create(struct nb_cb_create_args *args)
+{
+	/* Nothing to do here, everything is done in children callbacks */
+	return NB_OK;
+}
+
+static int lib_access_list_entry_ipv6_network_destroy(struct nb_cb_destroy_args *args)
+{
+	struct filter_cisco *fc;
+	struct filter *f;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	f = nb_running_get_entry(args->dnode, NULL, true);
+	fc = &f->u.cfilter;
+	fc->ipv6 = true;
+	fc->extended = 0;
+	memset(&fc->addr6, 0, sizeof(fc->addr6_mask));
+	memset(&fc->addr6_mask, 0, sizeof(fc->addr6_mask));
+
+	return NB_OK;
+}
+
+/*
+ * XPath: /frr-filter:lib/access-list/entry/ipv6-network/address
+ */
+static int lib_access_list_entry_ipv6_network_address_modify(struct nb_cb_modify_args *args)
+{
+	struct filter_cisco *fc;
+	struct filter *f;
+
+	/* Don't allow duplicated values. */
+	if (args->event == NB_EV_VALIDATE) {
+		if (acl_cisco_is_dup(args->dnode)) {
+			snprintfrr(args->errmsg, args->errmsg_len,
+				   "duplicated access list value: %s",
+				   yang_dnode_get_string(args->dnode, NULL));
+			return NB_ERR_VALIDATION;
+		}
+		return NB_OK;
+	}
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	f = nb_running_get_entry(args->dnode, NULL, true);
+	f->cisco = 1;
+	fc = &f->u.cfilter;
+	fc->ipv6 = true;
+	yang_dnode_get_ipv6(&fc->addr6, args->dnode, NULL);
+
+	return NB_OK;
+}
+
+/*
+ * XPath: /frr-filter:lib/access-list/entry/network/mask
+ */
+static int lib_access_list_entry_ipv6_network_mask_modify(struct nb_cb_modify_args *args)
+{
+	struct filter_cisco *fc;
+	struct filter *f;
+
+	/* Don't allow duplicated values. */
+	if (args->event == NB_EV_VALIDATE) {
+		if (acl_cisco_is_dup(args->dnode)) {
+			snprintfrr(args->errmsg, args->errmsg_len,
+				   "duplicated access list value: %s",
+				   yang_dnode_get_string(args->dnode, NULL));
+			return NB_ERR_VALIDATION;
+		}
+		return NB_OK;
+	}
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	f = nb_running_get_entry(args->dnode, NULL, true);
+	f->cisco = 1;
+	fc = &f->u.cfilter;
+	fc->ipv6 = true;
+	yang_dnode_get_ipv6(&fc->addr6_mask, args->dnode, NULL);
+
+	return NB_OK;
+}
+
+/*
+ * XPath: /frr-filter:lib/access-list/entry/ipv6-source-any
+ */
+static int lib_access_list_entry_ipv6_source_any_create(struct nb_cb_create_args *args)
+{
+	struct filter_cisco *fc;
+	struct filter *f;
+
+	/* Don't allow duplicated values. */
+	if (args->event == NB_EV_VALIDATE) {
+		if (acl_cisco_is_dup(args->dnode)) {
+			snprintfrr(args->errmsg, args->errmsg_len,
+				   "duplicated access list value: %s",
+				   yang_dnode_get_string(args->dnode, NULL));
+			return NB_ERR_VALIDATION;
+		}
+		return NB_OK;
+	}
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	f = nb_running_get_entry(args->dnode, NULL, true);
+	f->cisco = 1;
+	fc = &f->u.cfilter;
+	fc->ipv6 = true;
+	memset(&fc->addr6, 0, sizeof(fc->addr6));
+	memset(&fc->addr6_mask, 0xFF, sizeof(fc->addr6_mask));
+
+	return NB_OK;
+}
+
+static int lib_access_list_entry_ipv6_source_any_destroy(struct nb_cb_destroy_args *args)
+{
+	struct filter_cisco *fc;
+	struct filter *f;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	f = nb_running_get_entry(args->dnode, NULL, true);
+	fc = &f->u.cfilter;
+	fc->ipv6 = true;
+	memset(&fc->addr6, 0, sizeof(fc->addr6));
+	memset(&fc->addr6_mask, 0, sizeof(fc->addr6_mask));
+
+	return NB_OK;
+}
+
+/*
+ * XPath: /frr-filter:lib/access-list/entry/ipv6-destination-host
+ */
+static int lib_access_list_entry_ipv6_destination_host_modify(struct nb_cb_modify_args *args)
+{
+	struct filter_cisco *fc;
+	struct filter *f;
+
+	/* Don't allow duplicated values. */
+	if (args->event == NB_EV_VALIDATE) {
+		if (acl_cisco_is_dup(args->dnode)) {
+			snprintfrr(args->errmsg, args->errmsg_len,
+				   "duplicated access list value: %s",
+				   yang_dnode_get_string(args->dnode, NULL));
+			return NB_ERR_VALIDATION;
+		}
+		return NB_OK;
+	}
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	f = nb_running_get_entry(args->dnode, NULL, true);
+	fc = &f->u.cfilter;
+	fc->ipv6 = true;
+	fc->extended = 1;
+	yang_dnode_get_ipv6(&fc->sadr6.dst, args->dnode, NULL);
+	memset(&fc->sadr6.dst_mask, 0, sizeof(fc->sadr6.dst_mask));
+
+	return NB_OK;
+}
+
+static int lib_access_list_entry_ipv6_destination_host_destroy(struct nb_cb_destroy_args *args)
+{
+	struct filter_cisco *fc;
+	struct filter *f;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	f = nb_running_get_entry(args->dnode, NULL, true);
+	fc = &f->u.cfilter;
+	fc->ipv6 = true;
+	fc->extended = 0;
+	memset(&fc->sadr6.dst, 0, sizeof(fc->sadr6.dst));
+	memset(&fc->sadr6.dst_mask, 0, sizeof(fc->sadr6.dst_mask));
+
+	return NB_OK;
+}
+
+/*
+ * XPath: /frr-filter:lib/access-list/entry/ipv6-destination-network
+ */
+static int lib_access_list_entry_ipv6_destination_network_create(struct nb_cb_create_args *args)
+{
+	/* Nothing to do here, everything is done in children callbacks */
+	return NB_OK;
+}
+
+static int lib_access_list_entry_ipv6_destination_network_destroy(struct nb_cb_destroy_args *args)
+{
+	struct filter_cisco *fc;
+	struct filter *f;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	f = nb_running_get_entry(args->dnode, NULL, true);
+	fc = &f->u.cfilter;
+	fc->ipv6 = true;
+	fc->extended = 1;
+	memset(&fc->addr6, 0, sizeof(fc->addr6_mask));
+	memset(&fc->addr6_mask, 0, sizeof(fc->addr6_mask));
+
+	return NB_OK;
+}
+
+/*
+ * XPath: /frr-filter:lib/access-list/entry/ipv6-destination-network/address
+ */
+static int
+lib_access_list_entry_ipv6_destination_network_address_modify(struct nb_cb_modify_args *args)
+{
+	struct filter_cisco *fc;
+	struct filter *f;
+
+	/* Don't allow duplicated values. */
+	if (args->event == NB_EV_VALIDATE) {
+		if (acl_cisco_is_dup(args->dnode)) {
+			snprintfrr(args->errmsg, args->errmsg_len,
+				   "duplicated access list value: %s",
+				   yang_dnode_get_string(args->dnode, NULL));
+			return NB_ERR_VALIDATION;
+		}
+		return NB_OK;
+	}
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	f = nb_running_get_entry(args->dnode, NULL, true);
+	fc = &f->u.cfilter;
+	fc->ipv6 = true;
+	fc->extended = 1;
+	yang_dnode_get_ipv6(&fc->sadr6.dst, args->dnode, NULL);
+
+	return NB_OK;
+}
+
+/*
+ * XPath: /frr-filter:lib/access-list/entry/ipv6-destination-network/mask
+ */
+static int lib_access_list_entry_ipv6_destination_network_mask_modify(struct nb_cb_modify_args *args)
+{
+	struct filter_cisco *fc;
+	struct filter *f;
+
+	/* Don't allow duplicated values. */
+	if (args->event == NB_EV_VALIDATE) {
+		if (acl_cisco_is_dup(args->dnode)) {
+			snprintfrr(args->errmsg, args->errmsg_len,
+				   "duplicated access list value: %s",
+				   yang_dnode_get_string(args->dnode, NULL));
+			return NB_ERR_VALIDATION;
+		}
+		return NB_OK;
+	}
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	f = nb_running_get_entry(args->dnode, NULL, true);
+	fc = &f->u.cfilter;
+	fc->ipv6 = true;
+	fc->extended = 1;
+	yang_dnode_get_ipv6(&fc->sadr6.dst_mask, args->dnode, NULL);
+
+	return NB_OK;
+}
+
+/*
+ * XPath: /frr-filter:lib/access-list/entry/ipv6-destination-any
+ */
+static int lib_access_list_entry_ipv6_destination_any_create(struct nb_cb_create_args *args)
+{
+	struct filter_cisco *fc;
+	struct filter *f;
+
+	/* Don't allow duplicated values. */
+	if (args->event == NB_EV_VALIDATE) {
+		if (acl_cisco_is_dup(args->dnode)) {
+			snprintfrr(args->errmsg, args->errmsg_len,
+				   "duplicated access list value: %s",
+				   yang_dnode_get_string(args->dnode, NULL));
+			return NB_ERR_VALIDATION;
+		}
+		return NB_OK;
+	}
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	f = nb_running_get_entry(args->dnode, NULL, true);
+	fc = &f->u.cfilter;
+	fc->ipv6 = true;
+	fc->extended = 1;
+	memset(&fc->sadr6.dst, 0, sizeof(fc->sadr6.dst));
+	memset(&fc->sadr6.dst_mask, 0xFF, sizeof(fc->sadr6.dst_mask));
+
+	return NB_OK;
+}
+
+static int lib_access_list_entry_ipv6_destination_any_destroy(struct nb_cb_destroy_args *args)
+{
+	struct filter_cisco *fc;
+	struct filter *f;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	f = nb_running_get_entry(args->dnode, NULL, true);
+	fc = &f->u.cfilter;
+	fc->ipv6 = true;
+	fc->extended = 0;
+	memset(&fc->sadr6.dst, 0, sizeof(fc->sadr6.dst));
+	memset(&fc->sadr6.dst_mask, 0, sizeof(fc->sadr6.dst_mask));
 
 	return NB_OK;
 }
@@ -1693,6 +2082,72 @@ const struct frr_yang_module_info frr_filter_info = {
 			.cbs = {
 				.modify = lib_access_list_entry_ipv4_exact_match_modify,
 				.destroy = lib_access_list_entry_ipv4_exact_match_destroy,
+			}
+		},
+		{
+			.xpath = "/frr-filter:lib/access-list/entry/ipv6-host",
+			.cbs = {
+				.modify = lib_access_list_entry_ipv6_host_modify,
+				.destroy = lib_access_list_entry_ipv6_host_destroy,
+			}
+		},
+		{
+			.xpath = "/frr-filter:lib/access-list/entry/ipv6-network",
+			.cbs = {
+				.create = lib_access_list_entry_ipv6_network_create,
+				.destroy = lib_access_list_entry_ipv6_network_destroy,
+			}
+		},
+		{
+			.xpath = "/frr-filter:lib/access-list/entry/ipv6-network/address",
+			.cbs = {
+				.modify = lib_access_list_entry_ipv6_network_address_modify,
+			}
+		},
+		{
+			.xpath = "/frr-filter:lib/access-list/entry/ipv6-network/mask",
+			.cbs = {
+				.modify = lib_access_list_entry_ipv6_network_mask_modify,
+			}
+		},
+		{
+			.xpath = "/frr-filter:lib/access-list/entry/ipv6-source-any",
+			.cbs = {
+				.create = lib_access_list_entry_ipv6_source_any_create,
+				.destroy = lib_access_list_entry_ipv6_source_any_destroy,
+			}
+		},
+		{
+			.xpath = "/frr-filter:lib/access-list/entry/ipv6-destination-host",
+			.cbs = {
+				.modify = lib_access_list_entry_ipv6_destination_host_modify,
+				.destroy = lib_access_list_entry_ipv6_destination_host_destroy,
+			}
+		},
+		{
+			.xpath = "/frr-filter:lib/access-list/entry/ipv6-destination-network",
+			.cbs = {
+				.create = lib_access_list_entry_ipv6_destination_network_create,
+				.destroy = lib_access_list_entry_ipv6_destination_network_destroy,
+			}
+		},
+		{
+			.xpath = "/frr-filter:lib/access-list/entry/ipv6-destination-network/address",
+			.cbs = {
+				.modify = lib_access_list_entry_ipv6_destination_network_address_modify,
+			}
+		},
+		{
+			.xpath = "/frr-filter:lib/access-list/entry/ipv6-destination-network/mask",
+			.cbs = {
+				.modify = lib_access_list_entry_ipv6_destination_network_mask_modify,
+			}
+		},
+		{
+			.xpath = "/frr-filter:lib/access-list/entry/ipv6-destination-any",
+			.cbs = {
+				.create = lib_access_list_entry_ipv6_destination_any_create,
+				.destroy = lib_access_list_entry_ipv6_destination_any_destroy,
 			}
 		},
 		{
