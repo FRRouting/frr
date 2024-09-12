@@ -98,6 +98,8 @@ const void *lib_interface_state_isis_adjacencies_adjacency_get_next(
 			 * adjacencies list.
 			 */
 			list = circuit->u.bc.adjdb[ISIS_LEVEL2 - 1];
+			if (!list)
+				break;
 			adj_next = listnode_head(list);
 		}
 		break;
