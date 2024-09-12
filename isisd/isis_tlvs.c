@@ -6147,15 +6147,16 @@ static int unpack_tlv_router_cap(enum isis_tlv_context context,
 		return 0;
 	}
 
-	if (tlvs->router_cap)
-		/* Multiple Router Capability found */
-		rcap = tlvs->router_cap;
-	else {
-		/* Allocate router cap structure and initialize SR Algorithms */
-		rcap = XCALLOC(MTYPE_ISIS_TLV, sizeof(struct isis_router_cap));
+	if (!tlvs->router_cap) {
+		/* First Router Capability TLV.
+		 * Allocate router cap structure and initialize SR Algorithms */
+		tlvs->router_cap = XCALLOC(MTYPE_ISIS_TLV,
+					   sizeof(struct isis_router_cap));
 		for (int i = 0; i < SR_ALGORITHM_COUNT; i++)
-			rcap->algo[i] = SR_ALGORITHM_UNSET;
+			tlvs->router_cap->algo[i] = SR_ALGORITHM_UNSET;
 	}
+
+	rcap = tlvs->router_cap;
 
 	/* Get Router ID and Flags */
 	rcap->router_id.s_addr = stream_get_ipv4(s);
@@ -6178,7 +6179,6 @@ static int unpack_tlv_router_cap(enum isis_tlv_context context,
 				log, indent,
 				"WARNING: Router Capability subTLV length too large compared to expected size\n");
 			stream_forward_getp(s, STREAM_READABLE(s));
-			XFREE(MTYPE_ISIS_TLV, rcap);
 			return 0;
 		}
 
@@ -6489,7 +6489,6 @@ static int unpack_tlv_router_cap(enum isis_tlv_context context,
 		}
 		subtlv_len = subtlv_len - length - 2;
 	}
-	tlvs->router_cap = rcap;
 	return 0;
 }
 
