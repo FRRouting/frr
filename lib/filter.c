@@ -42,6 +42,14 @@ static struct access_master access_master_ipv6 = {
 	NULL,
 };
 
+/* clang-format off */
+static const struct in6_addr in6_mask_all = {
+	.s6_addr32 = {
+		0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF,
+	}
+};
+/* clang-format on */
+
 static struct access_master *access_master_get(afi_t afi)
 {
 	if (afi == AFI_IP)
@@ -79,8 +87,7 @@ static const char *filter_type_str(struct filter *filter)
 	}
 }
 
-/* If filter match to the prefix then return 1. */
-static int filter_match_cisco(struct filter *mfilter, const struct prefix *p)
+static int filter_match_cisco_ipv4(struct filter *mfilter, const struct prefix *p)
 {
 	struct filter_cisco *filter;
 	struct in_addr mask;
@@ -104,6 +111,41 @@ static int filter_match_cisco(struct filter *mfilter, const struct prefix *p)
 	return 0;
 }
 
+static int filter_match_cisco_ipv6(struct filter *mfilter, const struct prefix *p)
+{
+	struct filter_cisco *filter;
+	struct in6_addr mask;
+	struct in6_addr check_addr;
+	struct in6_addr check_mask;
+	size_t i;
+
+	filter = &mfilter->u.cfilter;
+	for (i = 0; i < sizeof(check_addr) / 4; i++)
+		check_addr.s6_addr32[i] = p->u.prefix6.s6_addr32[i] &
+					  ~filter->sadr6.src_mask.s6_addr32[i];
+
+	if (filter->extended) {
+		masklen2ip6(p->prefixlen, &mask);
+		for (i = 0; i < sizeof(check_mask) / 4; i++)
+			check_mask.s6_addr32[i] = mask.s6_addr32[i] &
+						  ~filter->sadr6.dst_mask.s6_addr32[i];
+
+		if (memcmp(&check_addr, &filter->sadr6.src, IPV6_MAX_BYTELEN) == 0 &&
+		    memcmp(&check_mask, &filter->sadr6.dst, IPV6_MAX_BYTELEN) == 0)
+			return 1;
+	} else if (memcmp(&check_addr, &filter->sadr6.src, IPV6_MAX_BYTELEN) == 0)
+		return 1;
+
+	return 0;
+}
+
+/* If filter match to the prefix then return 1. */
+static inline int filter_match_cisco(struct filter *mfilter, const struct prefix *p)
+{
+	return (mfilter->u.cfilter.ipv6) ? filter_match_cisco_ipv6(mfilter, p)
+					 : filter_match_cisco_ipv4(mfilter, p);
+}
+
 /* If filter match to the prefix then return 1. */
 static int filter_match_zebra(struct filter *mfilter, const struct prefix *p)
 {
@@ -123,10 +165,8 @@ static int filter_match_zebra(struct filter *mfilter, const struct prefix *p)
 		return 0;
 }
 
-/* If filter match to the prefix then return 1. */
-static int filter_match_cisco_sadr(struct filter *mfilter,
-				   const struct prefix *src,
-				   const struct prefix *dst)
+static int filter_match_cisco_sadr4(struct filter *mfilter, const struct prefix *src,
+				    const struct prefix *dst)
 {
 	struct filter_cisco *filter;
 
@@ -150,6 +190,54 @@ static int filter_match_cisco_sadr(struct filter *mfilter,
 	}
 
 	return 0;
+}
+
+static int filter_match_cisco_sadr6(struct filter *mfilter, const struct prefix *src,
+				    const struct prefix *dst)
+{
+	struct filter_cisco *filter;
+	size_t i;
+
+	filter = &mfilter->u.cfilter;
+
+	if (filter->extended) {
+		struct in6_addr src_m = src->u.prefix6;
+		struct in6_addr dst_m = dst->u.prefix6;
+		struct in6_addr fsrc_m = filter->sadr6.src;
+		struct in6_addr fdst_m = filter->sadr6.dst;
+
+		for (i = 0; i < sizeof(src_m) / 4; i++) {
+			src_m.s6_addr32[i] &= ~filter->sadr6.src_mask.s6_addr32[i];
+			dst_m.s6_addr32[i] &= ~filter->sadr6.dst_mask.s6_addr32[i];
+			fsrc_m.s6_addr32[i] &= ~filter->sadr6.src_mask.s6_addr32[i];
+			fdst_m.s6_addr32[i] &= ~filter->sadr6.dst_mask.s6_addr32[i];
+		}
+
+		if (memcmp(&src_m, &fsrc_m, sizeof(src_m)) == 0 &&
+		    memcmp(&dst_m, &fdst_m, sizeof(dst_m)) == 0)
+			return 1;
+	} else {
+		struct in6_addr check_addr = dst->u.prefix6;
+		struct in6_addr filter_addr = filter->sadr6.src;
+
+		for (i = 0; i < sizeof(check_addr) / 4; i++) {
+			check_addr.s6_addr32[i] &= ~filter->sadr6.src_mask.s6_addr32[i];
+			filter_addr.s6_addr32[i] &= ~filter->sadr6.src_mask.s6_addr32[i];
+		}
+
+		if (memcmp(&check_addr, &filter_addr, sizeof(check_addr)) == 0)
+			return 1;
+	}
+
+	return 0;
+}
+
+/* If filter match to the prefix then return 1. */
+static inline int filter_match_cisco_sadr(struct filter *mfilter, const struct prefix *src,
+					  const struct prefix *dst)
+{
+	return mfilter->u.cfilter.ipv6 ? filter_match_cisco_sadr6(mfilter, src, dst)
+				       : filter_match_cisco_sadr4(mfilter, src, dst);
 }
 
 /* If filter match to the prefix then return 1. */
@@ -728,32 +816,65 @@ static void config_write_access_cisco(struct vty *vty, struct filter *mfilter,
 
 	if (json) {
 		json_object_boolean_add(json, "extended", !!filter->extended);
-		json_object_string_addf(json, "sourceAddress", "%pI4",
-					&filter->addr);
-		json_object_string_addf(json, "sourceMask", "%pI4",
-					&filter->addr_mask);
-		json_object_string_addf(json, "destinationAddress", "%pI4",
-					&filter->wtf.mask);
-		json_object_string_addf(json, "destinationMask", "%pI4",
-					&filter->wtf.mask_mask);
-	} else {
-		vty_out(vty, " ip");
-		if (filter->wtf.addr_mask.s_addr == 0xffffffff)
-			vty_out(vty, " any");
-		else if (filter->wtf.addr_mask.s_addr == INADDR_ANY)
-			vty_out(vty, " host %pI4", &filter->wtf.addr);
-		else {
-			vty_out(vty, " %pI4", &filter->wtf.addr);
-			vty_out(vty, " %pI4", &filter->wtf.addr_mask);
+		if (filter->ipv6) {
+			json_object_string_addf(json, "sourceAddress", "%pI6", &filter->sadr6.src);
+			json_object_string_addf(json, "sourceMask", "%pI6",
+						&filter->sadr6.src_mask);
+			json_object_string_addf(json, "destinationAddress", "%pI6",
+						&filter->sadr6.dst);
+			json_object_string_addf(json, "destinationMask", "%pI6",
+						&filter->sadr6.dst_mask);
+		} else {
+			json_object_string_addf(json, "sourceAddress", "%pI4", &filter->addr);
+			json_object_string_addf(json, "sourceMask", "%pI4", &filter->addr_mask);
+			json_object_string_addf(json, "destinationAddress", "%pI4",
+						&filter->wtf.mask);
+			json_object_string_addf(json, "destinationMask", "%pI4",
+						&filter->wtf.mask_mask);
 		}
+	} else {
+		if (filter->ipv6) {
+			vty_out(vty, " ipv6");
+			if (memcmp(&filter->sadr6.src, &in6_mask_all, sizeof(filter->sadr6.src)) ==
+			    0)
+				vty_out(vty, " any");
+			else if (memcmp(&filter->sadr6.src_mask, &in6addr_any,
+					sizeof(filter->sadr6.src_mask)) == 0)
+				vty_out(vty, " host %pI6", &filter->sadr6.src);
+			else {
+				vty_out(vty, " %pI6", &filter->sadr6.src);
+				vty_out(vty, " %pI6", &filter->sadr6.src_mask);
+			}
 
-		if (filter->wtf.mask_mask.s_addr == 0xffffffff)
-			vty_out(vty, " any");
-		else if (filter->wtf.mask_mask.s_addr == INADDR_ANY)
-			vty_out(vty, " host %pI4", &filter->wtf.mask);
-		else {
-			vty_out(vty, " %pI4", &filter->wtf.mask);
-			vty_out(vty, " %pI4", &filter->wtf.mask_mask);
+			if (memcmp(&filter->sadr6.dst_mask, &in6_mask_all,
+				   sizeof(filter->sadr6.dst_mask)) == 0)
+				vty_out(vty, " any");
+			else if (memcmp(&filter->sadr6.dst_mask, &in6addr_any,
+					sizeof(filter->sadr6.dst_mask)) == 0)
+				vty_out(vty, " host %pI6", &filter->sadr6.dst);
+			else {
+				vty_out(vty, " %pI6", &filter->sadr6.dst);
+				vty_out(vty, " %pI6", &filter->sadr6.dst_mask);
+			}
+		} else {
+			vty_out(vty, " ip");
+			if (filter->wtf.addr_mask.s_addr == 0xffffffff)
+				vty_out(vty, " any");
+			else if (filter->wtf.addr_mask.s_addr == INADDR_ANY)
+				vty_out(vty, " host %pI4", &filter->wtf.addr);
+			else {
+				vty_out(vty, " %pI4", &filter->wtf.addr);
+				vty_out(vty, " %pI4", &filter->wtf.addr_mask);
+			}
+
+			if (filter->wtf.mask_mask.s_addr == 0xffffffff)
+				vty_out(vty, " any");
+			else if (filter->wtf.mask_mask.s_addr == INADDR_ANY)
+				vty_out(vty, " host %pI4", &filter->wtf.mask);
+			else {
+				vty_out(vty, " %pI4", &filter->wtf.mask);
+				vty_out(vty, " %pI4", &filter->wtf.mask_mask);
+			}
 		}
 		vty_out(vty, "\n");
 	}
