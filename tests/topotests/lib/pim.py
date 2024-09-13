@@ -1607,7 +1607,7 @@ def verify_pim_rp_info(
     if type(group_addresses) is not list:
         group_addresses = [group_addresses]
 
-    if type(oif) is not list:
+    if oif is not None and type(oif) is not list:
         oif = [oif]
 
     for grp in group_addresses:

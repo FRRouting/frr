@@ -26,6 +26,7 @@ struct pim_instance;
 
 int pim_socket_bind(int fd, struct interface *ifp);
 void pim_socket_ip_hdr(int fd);
+int pim_setsockopt_packetinfo(int fd);
 int pim_socket_raw(int protocol);
 int pim_socket_mcast(int protocol, pim_addr ifaddr, struct interface *ifp,
 		     uint8_t loop);

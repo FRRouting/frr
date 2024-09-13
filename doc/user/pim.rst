@@ -83,6 +83,41 @@ PIM Routers
    cannot see data flowing in better than 30 second chunks. This command is
    vrf aware, to configure for a vrf, specify the vrf in the router pim block.
 
+.. clicmd:: bsr candidate-bsr [priority (0-255)] [source [address A.B.C.D] | [interface INTERFACE] | [loopback] | [any]]
+
+   Configure the router to advertise itself as a candidate PIM-SM BSR. The candidate
+   with the highest priority becomes the BSR for the domain (high wins). When priority is the
+   same for more than one candidate BSR, the candidate with the highest IP address
+   becomes the BSR of the domain. The address can be configured explicitly
+   via ``address``, or be selecting an interface name using ``interface``.
+   If ``any`` is configured the highest address from any interface will be selected.
+   By default, the highest loopback address is selected, which can also be
+   configured via ``loopback``
+
+.. clicmd:: bsr candidate-rp [interval]
+
+   Configure the router to advertise itself as a candidate PIM-SM RP at the
+   specified ``interval`` in seconds.
+
+
+.. clicmd:: bsr candidate-rp group A.B.C.D/M
+
+   Configure the multicast group prefix that this candidate RP advertises itself for.
+   This command can be repeated for all desired groups that need to be added to the
+   candidate RP advertisement.
+
+.. clicmd:: bsr candidate-rp [priority (0-255)] [source [address A.B.C.D] | [interface INTERFACE] | [loopback] | [any]]
+
+   Configure the router to advertise itself as a candidate PIM-SM RP. ``interval``
+   can be used to configure the interval in seconds to send these advertisements.
+   The candidate with the lowest priority becomes the RP for the domain (low wins).
+   When priority is the same for more than one candidate RP, the candidate with
+   the highest IP address becomes the BSR of the domain. The address can be
+   configured explicitly via ``address``, or be selecting an interface name
+   using ``interface``. If ``any`` is configured the highest address from any
+   interface will be selected.By default, the highest loopback address is
+   selected, which can also be configured via ``loopback``.
+
 .. clicmd:: register-accept-list PLIST
 
    When pim receives a register packet the source of the packet will be compared
@@ -611,11 +646,28 @@ cause great confusion.
    Display PIM MLAG (multi-chassis link aggregation) session status and
    control message statistics.
 
-.. clicmd:: show ip pim bsr
+.. clicmd:: show ip pim bsr [vrf NAME] [json]
 
    Display current bsr, its uptime and last received bsm age.
 
-.. clicmd:: show ip pim bsrp-info [vrf NAME] [json]
+.. clicmd:: show ip pim bsr candidate-bsr [vrf NAME] [json]
+
+   Display information about the candidate BSR state on this router.
+
+.. clicmd:: show ip pim bsr candidate-rp [vrf NAME] [json]
+
+   Display information about the candidate RP state on this router.
+
+.. clicmd:: show ip pim bsr candidate-rp-database [vrf NAME] [json]
+
+   Display the current list of candidate RPs received by this router.
+
+.. clicmd:: show ip pim bsr groups [vrf NAME] [json]
+
+   Display the current list of multicast group mapping received by
+   this router from candidate RPs.
+
+.. clicmd:: show ip pim bsr rp-info [vrf NAME] [json]
 
    Display group-to-rp mappings received from E-BSR.
 

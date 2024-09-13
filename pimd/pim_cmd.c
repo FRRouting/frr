@@ -66,27 +66,6 @@ static struct cmd_node debug_node = {
 	.config_write = pim_debug_config_write,
 };
 
-static struct vrf *pim_cmd_lookup_vrf(struct vty *vty, struct cmd_token *argv[],
-				      const int argc, int *idx, bool uj)
-{
-	struct vrf *vrf;
-
-	if (argv_find(argv, argc, "NAME", idx))
-		vrf = vrf_lookup_by_name(argv[*idx]->arg);
-	else
-		vrf = vrf_lookup_by_id(VRF_DEFAULT);
-
-	if (!vrf) {
-		if (uj)
-			vty_json_empty(vty, NULL);
-		else
-			vty_out(vty, "Specified VRF: %s does not exist\n",
-				argv[*idx]->arg);
-	}
-
-	return vrf;
-}
-
 static void pim_show_assert_helper(struct vty *vty,
 				   struct pim_interface *pim_ifp,
 				   struct pim_ifchannel *ch, time_t now)
@@ -2864,7 +2843,7 @@ DEFPY (show_ip_pim_bsm_db,
 	return pim_show_bsm_db_helper(vrf, vty, !!json);
 }
 
-DEFPY (show_ip_pim_bsrp,
+DEFPY_HIDDEN (show_ip_pim_bsrp,
        show_ip_pim_bsrp_cmd,
        "show ip pim bsrp-info [vrf NAME] [json$json]",
        SHOW_STR
@@ -2875,6 +2854,109 @@ DEFPY (show_ip_pim_bsrp,
        JSON_STR)
 {
 	return pim_show_group_rp_mappings_info_helper(vrf, vty, !!json);
+}
+
+DEFPY (show_ip_pim_bsr_rpinfo,
+       show_ip_pim_bsr_rpinfo_cmd,
+       "show ip pim bsr rp-info [vrf NAME] [json$json]",
+       SHOW_STR
+       IP_STR
+       PIM_STR
+       BSR_STR
+       "PIM cached group-rp mappings information received from BSR\n"
+       VRF_CMD_HELP_STR
+       JSON_STR)
+{
+	return pim_show_group_rp_mappings_info_helper(vrf, vty, !!json);
+}
+
+DEFPY (show_ip_pim_bsr_cand_bsr,
+       show_ip_pim_bsr_cand_bsr_cmd,
+       "show ip pim bsr candidate-bsr [vrf NAME$vrfname] [json$json]",
+       SHOW_STR
+       IP_STR
+       PIM_STR
+       BSR_STR
+       "Current PIM router candidate BSR state\n"
+       VRF_CMD_HELP_STR
+       JSON_STR)
+{
+	int idx = 2;
+	struct vrf *vrf = pim_cmd_lookup_vrf(vty, argv, argc, &idx, !!json);
+
+	if (!vrf || !vrf->info)
+		return CMD_WARNING;
+
+	return pim_show_bsr_cand_bsr(vrf, vty, !!json);
+}
+
+
+DEFPY (show_ip_pim_bsr_cand_rp,
+       show_ip_pim_bsr_cand_rp_cmd,
+       "show ip pim bsr candidate-rp [vrf NAME$vrfname] [json$json]",
+       SHOW_STR
+       IP_STR
+       PIM_STR
+       BSR_STR
+       "Current PIM router candidate RP state\n"
+       VRF_CMD_HELP_STR
+       JSON_STR)
+{
+	int idx = 2;
+	struct vrf *vrf = pim_cmd_lookup_vrf(vty, argv, argc, &idx, !!json);
+
+
+	if (!vrf || !vrf->info)
+		return CMD_WARNING;
+
+
+	return pim_show_bsr_cand_rp(vrf, vty, !!json);
+}
+
+DEFPY (show_ip_pim_bsr_rpdb,
+       show_ip_pim_bsr_rpdb_cmd,
+       "show ip pim bsr candidate-rp-database [vrf NAME$vrfname] [json$json]",
+       SHOW_STR
+       IP_STR
+       PIM_STR
+       BSR_STR
+       "Candidate RPs database on this router (if it is the BSR)\n"
+       VRF_CMD_HELP_STR
+       JSON_STR)
+{
+	int idx = 2;
+	struct vrf *vrf = pim_cmd_lookup_vrf(vty, argv, argc, &idx, false);
+
+	if (!vrf || !vrf->info)
+		return CMD_WARNING;
+
+	struct pim_instance *pim = vrf->info;
+	struct bsm_scope *scope = &pim->global_scope;
+
+	return pim_crp_db_show(vty, scope, !!json);
+}
+
+DEFPY (show_ip_pim_bsr_groups,
+       show_ip_pim_bsr_groups_cmd,
+       "show ip pim bsr groups [vrf NAME$vrfname] [json$json]",
+       SHOW_STR
+       IP_STR
+       PIM_STR
+       "boot-strap router information\n"
+       "Candidate RP groups\n"
+       VRF_CMD_HELP_STR
+       JSON_STR)
+{
+	int idx = 2;
+	struct vrf *vrf = pim_cmd_lookup_vrf(vty, argv, argc, &idx, false);
+
+	if (!vrf || !vrf->info)
+		return CMD_WARNING;
+
+	struct pim_instance *pim = vrf->info;
+	struct bsm_scope *scope = &pim->global_scope;
+
+	return pim_crp_groups_show(vty, scope, !!json);
 }
 
 DEFPY (show_ip_pim_statistics,
@@ -4374,6 +4456,62 @@ DEFPY_ATTR(no_ip_pim_rp_prefix_list,
 	}
 
 	return ret;
+}
+
+DEFPY (pim_bsr_candidate_bsr,
+       pim_bsr_candidate_bsr_cmd,
+       "[no] bsr candidate-bsr [{priority (0-255)|source <address A.B.C.D|interface IFNAME|loopback$loopback|any$any>}]",
+       NO_STR
+       BSR_STR
+       "Make this router a Candidate BSR\n"
+       "BSR Priority (higher wins)\n"
+       "BSR Priority (higher wins)\n"
+       "Specify IP address for BSR operation\n"
+       "Local address to use\n"
+       "Local address to use\n"
+       "Interface to pick address from\n"
+       "Interface to pick address from\n"
+       "Pick highest loopback address (default)\n"
+       "Pick highest address from any interface\n")
+{
+	return pim_process_bsr_candidate_cmd(vty, FRR_PIM_CAND_BSR_XPATH, no,
+					     false, any, ifname, address_str,
+					     priority_str, NULL);
+}
+
+DEFPY (pim_bsr_candidate_rp,
+       pim_bsr_candidate_rp_cmd,
+       "[no] bsr candidate-rp [{priority (0-255)|interval (1-4294967295)|source <address A.B.C.D|interface IFNAME|loopback$loopback|any$any>}]",
+       NO_STR
+       BSR_STR
+       "Make this router a Candidate RP\n"
+       "RP Priority (lower wins)\n"
+       "RP Priority (lower wins)\n"
+       "Advertisement interval (seconds)\n"
+       "Advertisement interval (seconds)\n"
+       "Specify IP address for RP operation\n"
+       "Local address to use\n"
+       "Local address to use\n"
+       "Interface to pick address from\n"
+       "Interface to pick address from\n"
+       "Pick highest loopback address (default)\n"
+       "Pick highest address from any interface\n")
+{
+	return pim_process_bsr_candidate_cmd(vty, FRR_PIM_CAND_RP_XPATH, no,
+					     true, any, ifname, address_str,
+					     priority_str, interval_str);
+}
+
+DEFPY (pim_bsr_candidate_rp_group,
+       pim_bsr_candidate_rp_group_cmd,
+       "[no] bsr candidate-rp group A.B.C.D/M",
+       NO_STR
+       BSR_STR
+       "Make this router a Candidate RP\n"
+       "Configure groups to become candidate RP for (At least one group must be configured)\n"
+       "Multicast group prefix\n")
+{
+	return pim_process_bsr_crp_grp_cmd(vty, group_str, no);
 }
 
 DEFPY (pim_ssm_prefix_list,
@@ -8550,6 +8688,10 @@ void pim_cmd_init(void)
 	install_element(PIM_NODE, &no_pim_msdp_mesh_group_source_cmd);
 	install_element(PIM_NODE, &no_pim_msdp_mesh_group_cmd);
 
+	install_element(PIM_NODE, &pim_bsr_candidate_rp_cmd);
+	install_element(PIM_NODE, &pim_bsr_candidate_rp_group_cmd);
+	install_element(PIM_NODE, &pim_bsr_candidate_bsr_cmd);
+
 	install_element(INTERFACE_NODE, &interface_ip_igmp_cmd);
 	install_element(INTERFACE_NODE, &interface_no_ip_igmp_cmd);
 	install_element(INTERFACE_NODE, &interface_ip_igmp_join_cmd);
@@ -8670,6 +8812,11 @@ void pim_cmd_init(void)
 	install_element(VIEW_NODE, &show_ip_pim_nexthop_lookup_cmd);
 	install_element(VIEW_NODE, &show_ip_pim_bsrp_cmd);
 	install_element(VIEW_NODE, &show_ip_pim_bsm_db_cmd);
+	install_element(VIEW_NODE, &show_ip_pim_bsr_rpinfo_cmd);
+	install_element(VIEW_NODE, &show_ip_pim_bsr_cand_bsr_cmd);
+	install_element(VIEW_NODE, &show_ip_pim_bsr_cand_rp_cmd);
+	install_element(VIEW_NODE, &show_ip_pim_bsr_rpdb_cmd);
+	install_element(VIEW_NODE, &show_ip_pim_bsr_groups_cmd);
 	install_element(VIEW_NODE, &show_ip_pim_statistics_cmd);
 	install_element(VIEW_NODE, &show_ip_msdp_peer_detail_cmd);
 	install_element(VIEW_NODE, &show_ip_msdp_peer_detail_vrf_all_cmd);

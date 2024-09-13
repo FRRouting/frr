@@ -3389,6 +3389,55 @@ int pim_process_no_unicast_bsm_cmd(struct vty *vty)
 				    FRR_PIM_AF_XPATH_VAL);
 }
 
+/* helper for bsr/rp candidate commands*/
+int pim_process_bsr_candidate_cmd(struct vty *vty, const char *cand_str,
+				  bool no, bool is_rp, bool any,
+				  const char *ifname, const char *addr,
+				  const char *prio, const char *interval)
+{
+	if (no)
+		nb_cli_enqueue_change(vty, ".", NB_OP_DESTROY, NULL);
+	else {
+		nb_cli_enqueue_change(vty, ".", NB_OP_CREATE, NULL);
+
+		if (any)
+			nb_cli_enqueue_change(vty, "./if-any", NB_OP_CREATE,
+					      NULL);
+		else if (ifname)
+			nb_cli_enqueue_change(vty, "./interface", NB_OP_CREATE,
+					      ifname);
+		else if (addr)
+			nb_cli_enqueue_change(vty, "./address", NB_OP_CREATE,
+					      addr);
+		else
+			nb_cli_enqueue_change(vty, "./if-loopback",
+					      NB_OP_CREATE, NULL);
+
+		if (prio)
+			nb_cli_enqueue_change(vty,
+					      (is_rp ? "./rp-priority"
+						     : "./bsr-priority"),
+					      NB_OP_MODIFY, prio);
+
+		/* only valid for rp candidate case*/
+		if (is_rp && interval)
+			nb_cli_enqueue_change(vty, "./advertisement-interval",
+					      NB_OP_MODIFY, interval);
+	}
+
+	return nb_cli_apply_changes(vty, "%s", cand_str);
+}
+
+int pim_process_bsr_crp_grp_cmd(struct vty *vty, const char *grp, bool no)
+{
+	if (no)
+		nb_cli_enqueue_change(vty, ".", NB_OP_DESTROY, grp);
+	else
+		nb_cli_enqueue_change(vty, ".", NB_OP_CREATE, grp);
+
+	return nb_cli_apply_changes(vty, "%s/group-list", FRR_PIM_CAND_RP_XPATH);
+}
+
 static void show_scan_oil_stats(struct pim_instance *pim, struct vty *vty,
 				time_t now)
 {
@@ -4154,6 +4203,27 @@ struct vrf *pim_cmd_lookup(struct vty *vty, const char *name)
 
 	if (!vrf)
 		vty_out(vty, "Specified VRF: %s does not exist\n", name);
+
+	return vrf;
+}
+
+struct vrf *pim_cmd_lookup_vrf(struct vty *vty, struct cmd_token *argv[],
+			       const int argc, int *idx, bool uj)
+{
+	struct vrf *vrf;
+
+	if (argv_find(argv, argc, "NAME", idx))
+		vrf = vrf_lookup_by_name(argv[*idx]->arg);
+	else
+		vrf = vrf_lookup_by_id(VRF_DEFAULT);
+
+	if (!vrf) {
+		if (uj)
+			vty_json_empty(vty, NULL);
+		else
+			vty_out(vty, "Specified VRF: %s does not exist\n",
+				argv[*idx]->arg);
+	}
 
 	return vrf;
 }
@@ -5188,6 +5258,12 @@ void pim_show_bsr(struct pim_instance *pim, struct vty *vty, bool uj)
 	case ACCEPT_PREFERRED:
 		strlcpy(bsr_state, "ACCEPT_PREFERRED", sizeof(bsr_state));
 		break;
+	case BSR_PENDING:
+		strlcpy(bsr_state, "BSR_PENDING", sizeof(bsr_state));
+		break;
+	case BSR_ELECTED:
+		strlcpy(bsr_state, "BSR_ELECTED", sizeof(bsr_state));
+		break;
 	default:
 		strlcpy(bsr_state, "", sizeof(bsr_state));
 	}
@@ -5207,7 +5283,7 @@ void pim_show_bsr(struct pim_instance *pim, struct vty *vty, bool uj)
 	}
 
 	else {
-		vty_out(vty, "PIMv2 Bootstrap information\n");
+		vty_out(vty, "PIMv2 Bootstrap Router information\n");
 		vty_out(vty, "Current preferred BSR address: %pPA\n",
 			&pim->global_scope.current_bsr);
 		vty_out(vty,
@@ -5412,6 +5488,101 @@ int pim_show_group_rp_mappings_info_helper(const char *vrf, struct vty *vty,
 	}
 
 	pim_show_group_rp_mappings_info(v->info, vty, uj);
+
+	return CMD_SUCCESS;
+}
+
+int pim_show_bsr_cand_rp(const struct vrf *vrf, struct vty *vty, bool uj)
+{
+	struct pim_instance *pim;
+	struct bsm_scope *scope;
+	json_object *jsondata = NULL;
+
+	if (!vrf || !vrf->info)
+		return CMD_WARNING;
+
+	pim = (struct pim_instance *)vrf->info;
+	scope = &pim->global_scope;
+
+	if (!scope->cand_rp_addrsel.run) {
+		if (!!uj)
+			vty_out(vty, "{}\n");
+		else
+			vty_out(vty,
+				"This router is not currently operating as Candidate RP\n");
+		return CMD_SUCCESS;
+	}
+
+	if (!!uj) {
+		jsondata = json_object_new_object();
+		json_object_string_addf(jsondata, "address", "%pPA",
+					&scope->cand_rp_addrsel.run_addr);
+		json_object_int_add(jsondata, "priority", scope->cand_rp_prio);
+		json_object_int_add(jsondata, "nextAdvertisementMsec",
+				    event_timer_remain_msec(
+					    scope->cand_rp_adv_timer));
+
+		vty_json(vty, jsondata);
+		return CMD_SUCCESS;
+	}
+
+	vty_out(vty, "Candidate-RP\nAddress:   %pPA\nPriority:  %u\n\n",
+		&scope->cand_rp_addrsel.run_addr, scope->cand_rp_prio);
+	vty_out(vty, "Next adv.: %lu msec\n",
+		event_timer_remain_msec(scope->cand_rp_adv_timer));
+
+
+	return CMD_SUCCESS;
+}
+
+int pim_show_bsr_cand_bsr(const struct vrf *vrf, struct vty *vty, bool uj)
+{
+	struct pim_instance *pim;
+	struct bsm_scope *scope;
+	json_object *jsondata = NULL;
+
+	if (!vrf || !vrf->info)
+		return CMD_WARNING;
+
+	pim = (struct pim_instance *)vrf->info;
+	scope = &pim->global_scope;
+
+	if (!scope->bsr_addrsel.cfg_enable) {
+		if (!!uj)
+			vty_out(vty, "{}\n");
+		else
+			vty_out(vty,
+				"This router is not currently operating as Candidate BSR\n");
+		return CMD_SUCCESS;
+	}
+
+	if (uj) {
+		char buf[INET_ADDRSTRLEN];
+
+		jsondata = json_object_new_object();
+		inet_ntop(AF_INET, &scope->bsr_addrsel.run_addr, buf,
+			  sizeof(buf));
+		json_object_string_add(jsondata, "address", buf);
+		json_object_int_add(jsondata, "priority", scope->cand_bsr_prio);
+		json_object_boolean_add(jsondata, "elected",
+					pim->global_scope.state == BSR_ELECTED);
+
+		vty_out(vty, "%s\n",
+			json_object_to_json_string_ext(jsondata,
+						       JSON_C_TO_STRING_PRETTY));
+		json_object_free(jsondata);
+		return CMD_SUCCESS;
+	}
+
+	vty_out(vty,
+		"Candidate-BSR\nAddress:   %pPA\nPriority:  %u\nElected: %s\n",
+		&scope->bsr_addrsel.run_addr, scope->cand_bsr_prio,
+		(pim->global_scope.state == BSR_ELECTED) ? "  Yes" : "  No");
+
+	if (!pim_addr_cmp(scope->bsr_addrsel.run_addr, PIMADDR_ANY))
+		vty_out(vty,
+			"\nThis router is not currently operating as Candidate BSR\n"
+			"Configure a BSR address to enable this feature\n\n");
 
 	return CMD_SUCCESS;
 }
