@@ -314,36 +314,44 @@ static int ospf6_router_lsa_contains_adj(struct ospf6_area *area,
 	return RTR_LSA_ADJ_NOT_FOUND;
 }
 
+struct check_adjacency_cb_data {
+	struct ospf6_area *area;
+	in_addr_t router_id;
+	bool out_adjacency_found;
+};
+
+static int check_adjacency(void *desc, void *cb_data)
+{
+	struct ospf6_router_lsdesc *lsdesc = desc;
+	struct check_adjacency_cb_data *cbd = cb_data;
+
+	if (lsdesc->type == OSPF6_ROUTER_LSDESC_POINTTOPOINT)
+		cbd->out_adjacency_found &=
+			(ospf6_router_lsa_contains_adj(cbd->area,
+						       lsdesc->neighbor_router_id,
+						       cbd->router_id) ==
+			 RTR_LSA_ADJ_FOUND);
+	return 0;
+}
+
 static bool ospf6_gr_check_router_lsa_consistency(struct ospf6 *ospf6,
 						  struct ospf6_area *area,
 						  struct ospf6_lsa *lsa)
 {
+	struct check_adjacency_cb_data cbd = { .area = area,
+					       .router_id = ospf6->router_id,
+					       .out_adjacency_found = true };
+	static const struct tlv_handler handlers[] = {
+		{ .callback = check_adjacency },
+		{ 0 }
+	};
+	int err;
+
 	if (lsa->header->adv_router == ospf6->router_id) {
-		struct ospf6_router_lsa *router_lsa;
-		char *start, *end, *current;
+		err = foreach_lsdesc(lsa->header, handlers, &cbd);
 
-		router_lsa = (struct ospf6_router_lsa
-				      *)((char *)lsa->header
-					 + sizeof(struct ospf6_lsa_header));
-
-		/* Iterate over all interfaces in the Router-LSA. */
-		start = (char *)router_lsa + sizeof(struct ospf6_router_lsa);
-		end = (char *)lsa->header + ntohs(lsa->header->length);
-		for (current = start;
-		     current + sizeof(struct ospf6_router_lsdesc) <= end;
-		     current += sizeof(struct ospf6_router_lsdesc)) {
-			struct ospf6_router_lsdesc *lsdesc;
-
-			lsdesc = (struct ospf6_router_lsdesc *)current;
-			if (lsdesc->type != OSPF6_ROUTER_LSDESC_POINTTOPOINT)
-				continue;
-
-			if (ospf6_router_lsa_contains_adj(
-				    area, lsdesc->neighbor_router_id,
-				    ospf6->router_id)
-			    == RTR_LSA_ADJ_NOT_FOUND)
-				return false;
-		}
+		if (err || !cbd.out_adjacency_found)
+			return false;
 	} else {
 		int adj1, adj2;
 
