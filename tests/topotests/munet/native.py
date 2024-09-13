@@ -2733,7 +2733,7 @@ ff02::2\tip6-allrouters
                     ),
                     "format": "stdout HOST [HOST ...]",
                     "help": "tail -f on the stdout of the qemu/cmd for this node",
-                    "new-window": True,
+                    "new-window": {"background": True, "ns_only": True},
                 },
                 {
                     "name": "stderr",
@@ -2743,7 +2743,7 @@ ff02::2\tip6-allrouters
                     ),
                     "format": "stderr HOST [HOST ...]",
                     "help": "tail -f on the stdout of the qemu/cmd for this node",
-                    "new-window": True,
+                    "new-window": {"background": True, "ns_only": True},
                 },
             ]
         }
