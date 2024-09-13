@@ -13,6 +13,7 @@
 PREDECL_HASH(bgp_nhg_cache);
 PREDECL_RBTREE_UNIQ(bgp_nhg_parent_cache);
 PREDECL_RBTREE_UNIQ(bgp_nhg_connected_tree);
+PREDECL_RBTREE_UNIQ(bgp_nhg_peer_cache_tree);
 
 extern struct bgp_nhg_cache_head nhg_cache_table;
 extern struct bgp_nhg_parent_cache_head nhg_parent_cache_table;
@@ -61,6 +62,7 @@ struct bgp_nhg_cache {
 	unsigned int path_count;
 	time_t last_update;
 
+	struct bgp_nhg_peer_cache_tree_head peers;
 	/* Dependency tree between parent nhg and child nhg:
 	 * For instance, to represent 2 ECMP nexthops,
 	 * 1 parent nhg entry (ID 3) and 2 child nhg (ID 1 and ID 2)
@@ -112,5 +114,8 @@ void bgp_nhg_vty_init(void);
 void bgp_nhg_debug_parent(uint32_t child_ids[], int count, char *group_buf, size_t len);
 void bgp_nhg_parent_sort(uint32_t child_ids[], uint16_t nhg_num);
 void bgp_nhg_clear_nhg_nexthop(void);
+
+extern int bgp_nhg_peer_cache_tree_update_path_count(struct bgp_nhg_cache *nhg, struct peer *peer,
+						     bool add);
 
 #endif /* _BGP_NHG_H */

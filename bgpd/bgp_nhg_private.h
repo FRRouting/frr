@@ -54,6 +54,28 @@ extern struct bgp_nhg_cache *bgp_nhg_connected_tree_del_nhg(struct bgp_nhg_conne
 extern struct bgp_nhg_cache *bgp_nhg_connected_tree_add_nhg(struct bgp_nhg_connected_tree_head *head,
 							    struct bgp_nhg_cache *nhe);
 
+
+/* Abstraction for BGP peer trees */
+struct bgp_nhg_peer_cache {
+	struct bgp_nhg_peer_cache_tree_item entry;
+	struct peer *peer;
+	unsigned int path_count;
+};
+
+static int bgp_nhg_peer_cache_cmp(const struct bgp_nhg_peer_cache *p1,
+				  const struct bgp_nhg_peer_cache *p2)
+{
+	return !(p1->peer == p2->peer);
+}
+
+DECLARE_RBTREE_UNIQ(bgp_nhg_peer_cache_tree, struct bgp_nhg_peer_cache, entry,
+		    bgp_nhg_peer_cache_cmp);
+
+/* bgp nhg peer cache tree direct access functions */
+extern void bgp_nhg_peer_cache_tree_init(struct bgp_nhg_peer_cache_tree_head *head);
+extern void bgp_nhg_peer_cache_tree_free(struct bgp_nhg_peer_cache_tree_head *head);
+
+
 #ifdef __cplusplus
 }
 #endif
