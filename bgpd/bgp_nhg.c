@@ -21,6 +21,7 @@
 extern struct zclient *zclient;
 
 DEFINE_MTYPE_STATIC(BGPD, BGP_NHG_CONNECTED, "BGP NHG Connected");
+DEFINE_MTYPE_STATIC(BGPD, BGP_NHG_PEER, "BGP NHG Peer");
 
 /* BGP NHG hash table. */
 struct bgp_nhg_cache_head nhg_cache_table;
@@ -189,6 +190,95 @@ static __attribute__((__unused__)) void bgp_nhg_parents_del(struct bgp_nhg_cache
 static void bgp_nhg_parents_init(struct bgp_nhg_cache *nhg)
 {
 	bgp_nhg_connected_tree_init(&nhg->nhg_parents);
+}
+
+/* BGP NHGs may be used by multiple peers. To reflect that a nexthop belongs to
+ * multiple peers, a RBTree list indexed by peer is created in each child nexthop group.
+ * The inner structure will store the number of paths from that peer using that nexthop.
+ */
+static void bgp_nhg_peer_cache_free(struct bgp_nhg_peer_cache *p)
+{
+	XFREE(MTYPE_BGP_NHG_PEER, p);
+}
+
+static struct bgp_nhg_peer_cache *bgp_nhg_peer_cache_new(struct peer *peer)
+{
+	struct bgp_nhg_peer_cache *new = NULL;
+
+	new = XCALLOC(MTYPE_BGP_NHG_PEER, sizeof(struct bgp_nhg_peer_cache));
+	new->peer = peer;
+
+	return new;
+}
+
+static unsigned int bgp_nhg_peers_count(const struct bgp_nhg_cache *nhg)
+{
+	return bgp_nhg_peer_cache_tree_count(&nhg->peers);
+}
+
+static struct bgp_nhg_peer_cache *
+bgp_nhg_peer_cache_tree_add_peer(struct bgp_nhg_peer_cache_tree_head *head, struct peer *peer)
+{
+	struct bgp_nhg_peer_cache *new = NULL;
+
+	new = bgp_nhg_peer_cache_new(peer);
+
+	/* On success, NULL will be returned from the
+	 * RB code.
+	 */
+	if (new && (bgp_nhg_peer_cache_tree_add(head, new) == NULL))
+		return new;
+
+	/* If it wasn't successful, it must be a duplicate. We enforce the
+	 * unique property for the `nhg_connected` tree.
+	 */
+	bgp_nhg_peer_cache_free(new);
+
+	return NULL;
+}
+
+static void bgp_nhg_peer_cache_init(struct bgp_nhg_cache *nhg)
+{
+	bgp_nhg_peer_cache_tree_init(&nhg->peers);
+}
+
+/* return value returns -1 in case operation failed
+ * upon success, two values may be returned
+ * - return 1 if a struct bgp_nhg_peer_cache has been allocated or removed 
+ * - return 0 otherwise
+ */
+int bgp_nhg_peer_cache_tree_update_path_count(struct bgp_nhg_cache *nhg, struct peer *peer, bool add)
+{
+	struct bgp_nhg_peer_cache *p = NULL;
+	struct bgp_nhg_peer_cache lookup;
+	struct bgp_nhg_peer_cache_tree_head *head = &nhg->peers;
+
+	lookup.peer = peer;
+
+	/* Lookup to find the element, then remove it */
+	p = bgp_nhg_peer_cache_tree_find(head, &lookup);
+	if (p) {
+		if (add == false) {
+			p->path_count--;
+			if (p->path_count == 0) {
+				bgp_nhg_peer_cache_tree_del(head, p);
+				bgp_nhg_peer_cache_free(p);
+				return 1;
+			}
+		} else
+			p->path_count++;
+		return 0;
+	}
+	if (add == false)
+		return -1;
+
+	p = bgp_nhg_peer_cache_tree_add_peer(head, peer);
+	if (p) {
+		p->path_count++;
+		return 1;
+	}
+
+	return -1;
 }
 
 void bgp_nhg_init(void)
@@ -508,6 +598,7 @@ struct bgp_nhg_cache *bgp_nhg_new(uint32_t flags, uint16_t num, struct zapi_next
 	LIST_INIT(&(nhg->paths));
 	bgp_nhg_parents_init(nhg);
 	bgp_nhg_childs_init(nhg);
+	bgp_nhg_peer_cache_init(nhg);
 	if (CHECK_FLAG(nhg->flags, BGP_NHG_FLAG_TYPE_PARENT))
 		bgp_nhg_parent_cache_add(&nhg_parent_cache_table, nhg);
 	else
@@ -529,12 +620,21 @@ static void bgp_nhg_detach_child_from_parent(struct bgp_nhg_cache *nhg,
 	int i, j;
 	struct bgp_path_info *path, *safe;
 	char nexthop_buf[BGP_NEXTHOP_BUFFER_SIZE];
+	bool same_nexthop = true;
 
 	if (BGP_DEBUG(nexthop_group, NEXTHOP_GROUP)) {
 		bgp_debug_zebra_nh_buffer(&nhg_child->nexthops.nexthops[0], nexthop_buf,
 					  sizeof(nexthop_buf));
 		zlog_debug("NHG %u: detaching ID %u nexthop (%s)", nhg->id, nhg_child->id,
 			   nexthop_buf);
+	}
+
+	j = 0;
+	for (i = 0; i < nhg->childs.child_num; i++) {
+		if (i != j && nhg->childs.childs[j] != nhg->childs.childs[i]) {
+			same_nexthop = false;
+			break;
+		}
 	}
 
 	for (i = 0; i < nhg->childs.child_num; i++) {
@@ -559,9 +659,10 @@ static void bgp_nhg_detach_child_from_parent(struct bgp_nhg_cache *nhg,
 	}
 
 	/* remove it from original nhg */
-	bgp_nhg_parents_del(nhg_child, nhg);
-	bgp_nhg_childs_del(nhg, nhg_child);
-
+	if (same_nexthop == false || nhg->childs.child_num == 0) {
+		bgp_nhg_parents_del(nhg_child, nhg);
+		bgp_nhg_childs_del(nhg, nhg_child);
+	}
 	/* sort to always send ordered information to zebra */
 	bgp_nhg_parent_sort(nhg->childs.childs, nhg->childs.child_num);
 
@@ -637,6 +738,7 @@ void bgp_nhg_path_nexthop_unlink(struct bgp_path_info *pi, bool force)
 		/* detach nexthop */
 		LIST_REMOVE(pi, nhg_nexthop_cache_thread);
 		pi->bgp_nhg_nexthop->path_count--;
+		bgp_nhg_peer_cache_tree_update_path_count(pi->bgp_nhg_nexthop, pi->peer, false);
 		if (force && LIST_EMPTY(&(nhg_nexthop->paths)))
 			bgp_nhg_free(nhg_nexthop);
 		pi->bgp_nhg_nexthop = NULL;
@@ -754,6 +856,7 @@ static void bgp_nhg_remove_nexthops(struct bgp_nhg_cache *nhg)
 				LIST_REMOVE(path, nhg_nexthop_cache_thread);
 				path->bgp_nhg_nexthop = NULL;
 				nhg->path_count--;
+				bgp_nhg_peer_cache_tree_update_path_count(nhg, path->peer, false);
 			}
 		}
 		bgp_nhg_detach_child_from_parent(parent_nhg, nhg);
@@ -946,6 +1049,7 @@ static void show_bgp_nhg_id_helper(struct vty *vty, struct bgp_nhg_cache *nhg, j
 	int i;
 	bool first;
 	struct bgp_nhg_connected *rb_node_dep = NULL;
+	struct bgp_nhg_peer_cache *rb_node_peer = NULL;
 
 	if (json) {
 		json_object_int_add(json, "nhgId", nhg->id);
@@ -1011,12 +1115,17 @@ static void show_bgp_nhg_id_helper(struct vty *vty, struct bgp_nhg_cache *nhg, j
 	if (CHECK_FLAG(nhg->flags, BGP_NHG_FLAG_TYPE_PARENT)) {
 		if (bgp_nhg_childs_count(nhg)) {
 			if (json) {
+				json_object_int_add(json, "childListPeerCount",
+						    nhg->childs.child_num);
 				json_object_int_add(json, "childListCount",
 						    bgp_nhg_childs_count(nhg));
 				json_array = json_object_new_array();
 			} else {
-				vty_out(vty, "          child list count %u\n",
+				vty_out(vty, "          child list count %u",
 					bgp_nhg_childs_count(nhg));
+				if (nhg->childs.child_num != bgp_nhg_childs_count(nhg))
+					vty_out(vty, ", peer count %u", nhg->childs.child_num);
+				vty_out(vty, "\n");
 				vty_out(vty, "          child(s)");
 			}
 			frr_each_safe (bgp_nhg_connected_tree, &nhg->nhg_childs, rb_node_dep) {
@@ -1081,6 +1190,31 @@ static void show_bgp_nhg_id_helper(struct vty *vty, struct bgp_nhg_cache *nhg, j
 		}
 		if (json_array)
 			json_object_object_add(json, "parentList", json_array);
+		else
+			vty_out(vty, "\n");
+	}
+	if (bgp_nhg_peers_count(nhg)) {
+		if (json) {
+			json_object_int_add(json, "peersListCount", bgp_nhg_peers_count(nhg));
+			json_array = json_object_new_array();
+		} else {
+			vty_out(vty, "          peer(s) count %u\n", bgp_nhg_peers_count(nhg));
+			vty_out(vty, "          peers(s)");
+		}
+		frr_each_safe (bgp_nhg_peer_cache_tree, &nhg->peers, rb_node_peer) {
+			if (json) {
+				json_entry = json_object_new_object();
+				json_object_string_add(json_entry, "peerAddress",
+						       rb_node_peer->peer->host);
+				json_object_int_add(json_entry, "peerCount",
+						    rb_node_peer->path_count);
+				json_object_array_add(json_array, json_entry);
+			} else
+				vty_out(vty, " %s[%u]", rb_node_peer->peer->host,
+					rb_node_peer->path_count);
+		}
+		if (json_array)
+			json_object_object_add(json, "peerList", json_array);
 		else
 			vty_out(vty, "\n");
 	}
@@ -1161,6 +1295,7 @@ void bgp_nhg_clear_nhg_nexthop(void)
 	struct bgp_nhg_connected *rb_node_dep = NULL;
 	struct bgp_nhg_cache *nhg, *child_nhg;
 	struct bgp_path_info *path, *safe;
+	char nexthop_buf[BGP_NEXTHOP_BUFFER_SIZE];
 
 	frr_each_safe (bgp_nhg_parent_cache, &nhg_parent_cache_table, nhg) {
 		frr_each_safe (bgp_nhg_connected_tree, &nhg->nhg_childs, rb_node_dep) {
@@ -1176,6 +1311,30 @@ void bgp_nhg_clear_nhg_nexthop(void)
 				}
 
 				bgp_nhg_detach_child_from_parent(nhg, child_nhg);
+			}
+		}
+	}
+	bgp_nhg_parent_unused_clean();
+	frr_each_safe (bgp_nhg_parent_cache, &nhg_parent_cache_table, nhg) {
+		if (nhg->childs.child_num != bgp_nhg_childs_count(nhg)) {
+			if (bgp_nhg_childs_count(nhg) != 1)
+				continue;
+			frr_each_safe (bgp_nhg_connected_tree, &nhg->nhg_childs, rb_node_dep) {
+				child_nhg = rb_node_dep->nhg;
+				if (bgp_nhg_peers_count(child_nhg) < nhg->childs.child_num) {
+					/* we can decrease the number of nexthops */
+					if (BGP_DEBUG(nexthop_group, NEXTHOP_GROUP)) {
+						bgp_debug_zebra_nh_buffer(&child_nhg->nexthops
+										   .nexthops[0],
+									  nexthop_buf,
+									  sizeof(nexthop_buf));
+						zlog_debug("NHG %u: peer count changed (%u -> %u) for nexthop (%s)",
+							   child_nhg->id, nhg->childs.child_num,
+							   bgp_nhg_peers_count(child_nhg),
+							   nexthop_buf);
+					}
+					bgp_nhg_detach_child_from_parent(nhg, child_nhg);
+				}
 			}
 		}
 	}
