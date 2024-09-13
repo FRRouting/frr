@@ -515,7 +515,7 @@ static int ecommunity_encode_internal(uint8_t type, uint8_t sub_type,
 	/* Fill in the values. */
 	eval->val[0] = type;
 	if (!trans)
-		eval->val[0] |= ECOMMUNITY_FLAG_NON_TRANSITIVE;
+		SET_FLAG(eval->val[0], ECOMMUNITY_FLAG_NON_TRANSITIVE);
 	eval->val[1] = sub_type;
 	if (type == ECOMMUNITY_ENCODE_AS) {
 		encode_route_target_as(as, val, eval, trans);
@@ -1293,11 +1293,12 @@ char *ecommunity_ecom2str(struct ecommunity *ecom, int format, int filter)
 				   == ECOMMUNITY_EVPN_SUBTYPE_ESI_LABEL) {
 				uint8_t flags = *++pnt;
 
-				snprintf(encbuf,
-					sizeof(encbuf), "ESI-label-Rt:%s",
-					(flags &
-					 ECOMMUNITY_EVPN_SUBTYPE_ESI_SA_FLAG) ?
-					"SA":"AA");
+				snprintf(encbuf, sizeof(encbuf),
+					 "ESI-label-Rt:%s",
+					 CHECK_FLAG(flags,
+						    ECOMMUNITY_EVPN_SUBTYPE_ESI_SA_FLAG)
+						 ? "SA"
+						 : "AA");
 			} else if (*pnt
 				   == ECOMMUNITY_EVPN_SUBTYPE_DF_ELECTION) {
 				uint8_t alg;
@@ -1337,38 +1338,37 @@ char *ecommunity_ecom2str(struct ecommunity *ecom, int format, int filter)
 				char buf[ECOMMUNITY_STRLEN];
 
 				memset(buf, 0, sizeof(buf));
-				ecommunity_rt_soo_str_internal(buf, sizeof(buf),
-						(const uint8_t *)pnt,
-						type &
-						~ECOMMUNITY_ENCODE_TRANS_EXP,
-						ECOMMUNITY_ROUTE_TARGET,
-						format,
-						ecom->unit_size);
+				ecommunity_rt_soo_str_internal(
+					buf, sizeof(buf), (const uint8_t *)pnt,
+					CHECK_FLAG(type,
+						   ~ECOMMUNITY_ENCODE_TRANS_EXP),
+					ECOMMUNITY_ROUTE_TARGET, format,
+					ecom->unit_size);
 				snprintf(encbuf, sizeof(encbuf), "%s", buf);
 			} else if (sub_type ==
 				   ECOMMUNITY_FLOWSPEC_REDIRECT_IPV6) {
 				char buf[64];
 
 				memset(buf, 0, sizeof(buf));
-				ecommunity_rt_soo_str_internal(buf, sizeof(buf),
-						(const uint8_t *)pnt,
-						type &
-						~ECOMMUNITY_ENCODE_TRANS_EXP,
-						ECOMMUNITY_ROUTE_TARGET,
-						ECOMMUNITY_FORMAT_DISPLAY,
-						ecom->unit_size);
+				ecommunity_rt_soo_str_internal(
+					buf, sizeof(buf), (const uint8_t *)pnt,
+					CHECK_FLAG(type,
+						   ~ECOMMUNITY_ENCODE_TRANS_EXP),
+					ECOMMUNITY_ROUTE_TARGET,
+					ECOMMUNITY_FORMAT_DISPLAY,
+					ecom->unit_size);
 				snprintf(encbuf, sizeof(encbuf),
 					 "FS:redirect VRF %s", buf);
 			} else if (sub_type == ECOMMUNITY_REDIRECT_VRF) {
 				char buf[16];
 
 				memset(buf, 0, sizeof(buf));
-				ecommunity_rt_soo_str(buf, sizeof(buf),
-						(const uint8_t *)pnt,
-						type &
-						~ECOMMUNITY_ENCODE_TRANS_EXP,
-						ECOMMUNITY_ROUTE_TARGET,
-						ECOMMUNITY_FORMAT_DISPLAY);
+				ecommunity_rt_soo_str(
+					buf, sizeof(buf), (const uint8_t *)pnt,
+					CHECK_FLAG(type,
+						   ~ECOMMUNITY_ENCODE_TRANS_EXP),
+					ECOMMUNITY_ROUTE_TARGET,
+					ECOMMUNITY_FORMAT_DISPLAY);
 				snprintf(encbuf, sizeof(encbuf),
 					 "FS:redirect VRF %s", buf);
 				snprintf(encbuf, sizeof(encbuf),
@@ -1640,12 +1640,13 @@ int ecommunity_fill_pbr_action(struct ecommunity_val *ecom_eval,
 	} else if (ecom_eval->val[1] == ECOMMUNITY_TRAFFIC_ACTION) {
 		api->action = ACTION_TRAFFIC_ACTION;
 		/* else distribute code is set by default */
-		if (ecom_eval->val[5] & (1 << FLOWSPEC_TRAFFIC_ACTION_TERMINAL))
-			api->u.za.filter |= TRAFFIC_ACTION_TERMINATE;
+		if (CHECK_FLAG(ecom_eval->val[5],
+			       (1 << FLOWSPEC_TRAFFIC_ACTION_TERMINAL)))
+			SET_FLAG(api->u.za.filter, TRAFFIC_ACTION_TERMINATE);
 		else
-			api->u.za.filter |= TRAFFIC_ACTION_DISTRIBUTE;
+			SET_FLAG(api->u.za.filter, TRAFFIC_ACTION_DISTRIBUTE);
 		if (ecom_eval->val[5] == 1 << FLOWSPEC_TRAFFIC_ACTION_SAMPLE)
-			api->u.za.filter |= TRAFFIC_ACTION_SAMPLE;
+			SET_FLAG(api->u.za.filter, TRAFFIC_ACTION_SAMPLE);
 
 	} else if (ecom_eval->val[1] == ECOMMUNITY_TRAFFIC_MARKING) {
 		api->action = ACTION_MARKING;
@@ -1940,7 +1941,7 @@ struct ecommunity *ecommunity_replace_linkbw(as_t as, struct ecommunity *ecom,
 		return new;
 
 	type = *eval;
-	if (type & ECOMMUNITY_FLAG_NON_TRANSITIVE)
+	if (CHECK_FLAG(type, ECOMMUNITY_FLAG_NON_TRANSITIVE))
 		return new;
 
 	/* Transitive link-bandwidth exists, replace with the passed
