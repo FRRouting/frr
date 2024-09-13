@@ -1366,6 +1366,8 @@ static void bgp_zebra_nexthop_group_configure(struct bgp_path_info *info, const 
 						   p_nhg_childs[i]->id, nexthop_buf);
 				LIST_REMOVE(p_mpinfo[i], nhg_nexthop_cache_thread);
 				p_mpinfo[i]->bgp_nhg_nexthop->path_count--;
+				bgp_nhg_peer_cache_tree_update_path_count(p_mpinfo[i]->bgp_nhg_nexthop,
+									  p_mpinfo[i]->peer, false);
 				if (LIST_EMPTY(&(p_mpinfo[i]->bgp_nhg_nexthop->paths)))
 					bgp_nhg_free(p_mpinfo[i]->bgp_nhg_nexthop);
 			} else if (BGP_DEBUG(nexthop_group, NEXTHOP_GROUP_DETAIL))
@@ -1378,6 +1380,8 @@ static void bgp_zebra_nexthop_group_configure(struct bgp_path_info *info, const 
 			LIST_INSERT_HEAD(&(p_nhg_childs[i]->paths), p_mpinfo[i],
 					 nhg_nexthop_cache_thread);
 			p_nhg_childs[i]->path_count++;
+			bgp_nhg_peer_cache_tree_update_path_count(p_nhg_childs[i],
+								  p_mpinfo[i]->peer, true);
 		}
 		p_nhg_childs[i]->last_update = monotime(NULL);
 
