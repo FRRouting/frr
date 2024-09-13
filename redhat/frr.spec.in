@@ -793,7 +793,16 @@ sed -i 's/ -M rpki//' %{_sysconfdir}/frr/daemons
 
 %changelog
 
-* Thu Jun 06 2024 Martin Winter <mwinter@opensourcerouting.org> - %{version}
+* Wed Sep 11 2024 Martin Winter <mwinter@opensourcerouting.org> - %{version}
+
+* Wed Sep 11 2024 Donatas Abraitis <donatas@opensourcerouting.org> - 8.4.6
+- bgpd
+-    Fix for CVE-2024-44070
+-    Fix crash at no rpki
+- isisd
+-    Fix update link params after circuit is up
+- tools
+-    Ignore errors for frr reload stuff
 
 * Thu Jun 06 2024 Jafar Al-Gharaibeh <jafar@atcorp.com> - 8.4.5
 - babeld
