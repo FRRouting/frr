@@ -13245,6 +13245,10 @@ static void ospf_vty_if_init(void)
 	install_element(INTERFACE_NODE, &ip_ospf_hello_interval_cmd);
 	install_element(INTERFACE_NODE, &no_ip_ospf_hello_interval_cmd);
 
+	/* "ip ospf graceful-restart" commands. */
+	install_element(INTERFACE_NODE, &ip_ospf_gr_hdelay_cmd);
+	install_element(INTERFACE_NODE, &no_ip_ospf_gr_hdelay_cmd);
+
 	/* "ip ospf network" commands. */
 	install_element(INTERFACE_NODE, &ip_ospf_network_cmd);
 	install_element(INTERFACE_NODE, &no_ip_ospf_network_cmd);
