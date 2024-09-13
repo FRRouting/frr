@@ -2702,6 +2702,19 @@ static int bgp_notify_receive(struct peer_connection *connection,
 	    inner.subcode == BGP_NOTIFY_OPEN_UNSUP_PARAM)
 		UNSET_FLAG(peer->sflags, PEER_STATUS_CAPABILITY_OPEN);
 
+	/* Resend the next OPEN message with a global AS number if we received
+	 * a `Bad Peer AS` notification. This is only valid if `dual-as` is
+	 * configured.
+	 */
+	if (inner.code == BGP_NOTIFY_OPEN_ERR &&
+	    inner.subcode == BGP_NOTIFY_OPEN_BAD_PEER_AS &&
+	    CHECK_FLAG(peer->flags, PEER_FLAG_DUAL_AS)) {
+		if (peer->change_local_as != peer->bgp->as)
+			peer->change_local_as = peer->bgp->as;
+		else
+			peer->change_local_as = peer->local_as;
+	}
+
 	/* If Graceful-Restart N-bit (Notification) is exchanged,
 	 * and it's not a Hard Reset, let's retain the routes.
 	 */

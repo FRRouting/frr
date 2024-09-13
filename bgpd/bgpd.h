@@ -1507,6 +1507,7 @@ struct peer {
 #define PEER_FLAG_CAPABILITY_FQDN (1ULL << 37)  /* fqdn capability */
 #define PEER_FLAG_AS_LOOP_DETECTION (1ULL << 38) /* as path loop detection */
 #define PEER_FLAG_EXTENDED_LINK_BANDWIDTH (1ULL << 39)
+#define PEER_FLAG_DUAL_AS		  (1ULL << 40)
 
 	/*
 	 *GR-Disabled mode means unset PEER_FLAG_GRACEFUL_RESTART
@@ -2443,7 +2444,7 @@ extern int peer_allowas_in_set(struct peer *, afi_t, safi_t, int, int);
 extern int peer_allowas_in_unset(struct peer *, afi_t, safi_t);
 
 extern int peer_local_as_set(struct peer *peer, as_t as, bool no_prepend,
-			     bool replace_as, const char *as_str);
+			     bool replace_as, bool dual_as, const char *as_str);
 extern int peer_local_as_unset(struct peer *);
 
 extern int peer_prefix_list_set(struct peer *, afi_t, safi_t, int,

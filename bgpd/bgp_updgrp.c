@@ -783,8 +783,11 @@ static int update_group_show_walkcb(struct update_group *updgrp, void *arg)
 				json_updgrp, "replaceLocalAs",
 				CHECK_FLAG(updgrp->conf->flags,
 					   PEER_FLAG_LOCAL_AS_REPLACE_AS));
+			json_object_boolean_add(json_updgrp, "dualAs",
+						CHECK_FLAG(updgrp->conf->flags,
+							   PEER_FLAG_DUAL_AS));
 		} else {
-			vty_out(vty, "  Local AS %u%s%s\n",
+			vty_out(vty, "  Local AS %u%s%s%s\n",
 				updgrp->conf->change_local_as,
 				CHECK_FLAG(updgrp->conf->flags,
 					   PEER_FLAG_LOCAL_AS_NO_PREPEND)
@@ -793,6 +796,10 @@ static int update_group_show_walkcb(struct update_group *updgrp, void *arg)
 				CHECK_FLAG(updgrp->conf->flags,
 					   PEER_FLAG_LOCAL_AS_REPLACE_AS)
 					? " replace-as"
+					: "",
+				CHECK_FLAG(updgrp->conf->flags,
+					   PEER_FLAG_DUAL_AS)
+					? " dual-as"
 					: "");
 		}
 	}
