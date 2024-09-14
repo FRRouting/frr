@@ -73,6 +73,8 @@ static void ospf6_area_lsdb_hook_add(struct ospf6_lsa *lsa)
 {
 	switch (ntohs(lsa->header->type)) {
 
+	case OSPF6_LSTYPE_E_ROUTER:
+	case OSPF6_LSTYPE_E_NETWORK:
 	case OSPF6_LSTYPE_ROUTER:
 	case OSPF6_LSTYPE_NETWORK:
 		if (IS_OSPF6_DEBUG_EXAMIN_TYPE(lsa->header->type)) {
