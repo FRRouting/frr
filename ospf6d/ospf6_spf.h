@@ -95,12 +95,15 @@ static inline unsigned int ospf6_lsadd_to_spf_reason(struct ospf6_lsa *lsa)
 	unsigned int reason = 0;
 
 	switch (ntohs(lsa->header->type)) {
+	case OSPF6_LSTYPE_E_ROUTER:
 	case OSPF6_LSTYPE_ROUTER:
 		reason = OSPF6_SPF_FLAGS_ROUTER_LSA_ADDED;
 		break;
+	case OSPF6_LSTYPE_E_NETWORK:
 	case OSPF6_LSTYPE_NETWORK:
 		reason = OSPF6_SPF_FLAGS_NETWORK_LSA_ADDED;
 		break;
+	case OSPF6_LSTYPE_E_LINK:
 	case OSPF6_LSTYPE_LINK:
 		reason = OSPF6_SPF_FLAGS_LINK_LSA_ADDED;
 		break;
