@@ -71,22 +71,7 @@ enum stub_router_mode {
 };
 
 #define ROUTER_LSDESC_IS_TYPE(t, x)                                            \
-	((((struct ospf6_router_lsdesc *)(x))->type                            \
-	  == OSPF6_ROUTER_LSDESC_##t)                                          \
-		 ? 1                                                           \
-		 : 0)
-#define ROUTER_LSDESC_GET_METRIC(x)                                            \
-	(ntohs(((struct ospf6_router_lsdesc *)(x))->metric))
-
-#define ROUTER_LSDESC_GET_IFID(x)                                              \
-	(ntohl(((struct ospf6_router_lsdesc *)(x))->interface_id))
-
-#define ROUTER_LSDESC_GET_NBR_IFID(x)                                          \
-	(ntohl(((struct ospf6_router_lsdesc *)(x))->neighbor_interface_id))
-
-#define ROUTER_LSDESC_GET_NBR_ROUTERID(x)                                      \
-	(((struct ospf6_router_lsdesc *)(x))->neighbor_router_id)
-
+	(((x).type == OSPF6_ROUTER_LSDESC_##t)  ? 1 : 0)
 
 #define OSPF6_ROUTER_LSA_SCHEDULE(oa)                                          \
 	do {                                                                   \

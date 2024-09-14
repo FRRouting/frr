@@ -184,8 +184,6 @@ struct ospf6_network_lsa {
 struct ospf6_network_lsdesc {
 	in_addr_t router_id;
 };
-#define NETWORK_LSDESC_GET_NBR_ROUTERID(x)                                     \
-	(((struct ospf6_network_lsdesc *)(x))->router_id)
 
 struct ospf6_lsdesc {
 	union {

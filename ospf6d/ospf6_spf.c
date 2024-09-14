@@ -169,13 +169,13 @@ static struct ospf6_lsa *ospf6_lsdesc_lsa(struct ospf6_lsdesc *lsdesc,
 		id = htonl(0);
 		adv_router = lsdesc->n.router_id;
 	} else if (VERTEX_IS_TYPE(ROUTER, v) &&
-		   ROUTER_LSDESC_IS_TYPE(POINTTOPOINT, &lsdesc->r)) {
+		   ROUTER_LSDESC_IS_TYPE(POINTTOPOINT, lsdesc->r)) {
 		lstype = (legacy_lsa) ? htons(OSPF6_LSTYPE_ROUTER)
 				      : htons(OSPF6_LSTYPE_E_ROUTER);
 		id = htonl(0);
 		adv_router = lsdesc->r.neighbor_router_id;
 	} else if (VERTEX_IS_TYPE(ROUTER, v) &&
-		   ROUTER_LSDESC_IS_TYPE(TRANSIT_NETWORK, &lsdesc->r)) {
+		   ROUTER_LSDESC_IS_TYPE(TRANSIT_NETWORK, lsdesc->r)) {
 		lstype = (legacy_lsa) ? htons(OSPF6_LSTYPE_NETWORK)
 				      : htons(OSPF6_LSTYPE_E_NETWORK);
 		id = lsdesc->r.neighbor_interface_id;
@@ -208,34 +208,37 @@ static struct ospf6_lsa *ospf6_lsdesc_lsa(struct ospf6_lsdesc *lsdesc,
 	return lsa;
 }
 
-static char *ospf6_lsdesc_backlink(struct ospf6_lsa *lsa,
-				   struct ospf6_lsdesc *lsdesc,
-				   struct ospf6_vertex *v)
+static struct ospf6_lsdesc *ospf6_lsdesc_backlink(struct ospf6_lsa *lsa,
+						  struct ospf6_lsdesc *lsdesc,
+						  struct ospf6_vertex *v)
 {
-	caddr_t backlink, found = NULL;
+	caddr_t backlink;
+	struct ospf6_lsdesc *candidate, *found = NULL;
 	int size;
 
 	size = ((OSPF6_LSA_IS_TYPE(ROUTER, lsa) ||
 		 (OSPF6_LSA_IS_TYPE(E_ROUTER, lsa)))
 			? sizeof(struct ospf6_router_lsdesc)
 			: sizeof(struct ospf6_network_lsdesc));
-	for (backlink = ospf6_lsa_header_end(lsa->header) + 4;
+	for (backlink = lsdesc_start(lsa->header);
 	     backlink + size <= ospf6_lsa_end(lsa->header); backlink += size) {
-		assert(!(OSPF6_LSA_IS_TYPE(NETWORK, lsa)
-			 && VERTEX_IS_TYPE(NETWORK, v)));
+		assert(!(OSPF6_LSA_IS_TYPE(NETWORK, lsa) &&
+			 VERTEX_IS_TYPE(NETWORK, v)));
+
+		candidate = (struct ospf6_lsdesc *)backlink;
 
 		if (OSPF6_LSA_IS_TYPE(NETWORK, lsa) ||
 		    OSPF6_LSA_IS_TYPE(E_NETWORK, lsa)) {
-			if (NETWORK_LSDESC_GET_NBR_ROUTERID(backlink) ==
-			    v->lsa->header->adv_router)
-				found = backlink;
+			if (candidate->n.router_id == v->lsa->header->adv_router)
+				found = candidate;
 		} else if (VERTEX_IS_TYPE(NETWORK, v)) {
-			if (ROUTER_LSDESC_IS_TYPE(TRANSIT_NETWORK, backlink)
-			    && ROUTER_LSDESC_GET_NBR_ROUTERID(backlink)
-				       == v->lsa->header->adv_router
-			    && ROUTER_LSDESC_GET_NBR_IFID(backlink)
-				       == ntohl(v->lsa->header->id))
-				found = backlink;
+			if (ROUTER_LSDESC_IS_TYPE(TRANSIT_NETWORK,
+						  candidate->r) &&
+			    candidate->r.neighbor_router_id ==
+				    v->lsa->header->adv_router &&
+			    candidate->r.neighbor_interface_id ==
+				    v->lsa->header->id)
+				found = candidate;
 		} else {
 			assert((OSPF6_LSA_IS_TYPE(ROUTER, lsa) ||
 				OSPF6_LSA_IS_TYPE(E_ROUTER, lsa)) &&
@@ -243,23 +246,24 @@ static char *ospf6_lsdesc_backlink(struct ospf6_lsa *lsa,
 
 			/* need to get the right offset if its a tlv */
 			if (OSPF6_LSA_IS_TYPE(E_ROUTER, lsa))
-				backlink = TLV_BODY(backlink);
+				candidate = (struct ospf6_lsdesc *)TLV_BODY(
+					backlink);
 
-			if (!ROUTER_LSDESC_IS_TYPE(POINTTOPOINT, backlink) ||
-			    !ROUTER_LSDESC_IS_TYPE(POINTTOPOINT, &lsdesc->r))
+			if (!ROUTER_LSDESC_IS_TYPE(POINTTOPOINT, candidate->r) ||
+			    !ROUTER_LSDESC_IS_TYPE(POINTTOPOINT, lsdesc->r))
 				continue;
 
-			if (ROUTER_LSDESC_GET_NBR_IFID(backlink)
-				    != ntohl(lsdesc->r.interface_id)
-			    || ntohl(lsdesc->r.neighbor_interface_id)
-				       != ROUTER_LSDESC_GET_IFID(backlink))
+			if (candidate->r.neighbor_interface_id !=
+				    lsdesc->r.interface_id ||
+			    lsdesc->r.neighbor_interface_id !=
+				    candidate->r.interface_id)
 				continue;
-			if (ROUTER_LSDESC_GET_NBR_ROUTERID(backlink)
-				    != v->lsa->header->adv_router
-			    || lsdesc->r.neighbor_router_id !=
+			if (candidate->r.neighbor_router_id !=
+				    v->lsa->header->adv_router ||
+			    lsdesc->r.neighbor_router_id !=
 				    lsa->header->adv_router)
 				continue;
-			found = backlink;
+			found = candidate;
 		}
 	}
 
