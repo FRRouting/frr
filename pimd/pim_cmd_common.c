@@ -5567,10 +5567,7 @@ int pim_show_bsr_cand_bsr(const struct vrf *vrf, struct vty *vty, bool uj)
 		json_object_boolean_add(jsondata, "elected",
 					pim->global_scope.state == BSR_ELECTED);
 
-		vty_out(vty, "%s\n",
-			json_object_to_json_string_ext(jsondata,
-						       JSON_C_TO_STRING_PRETTY));
-		json_object_free(jsondata);
+		vty_json(vty, jsondata);
 		return CMD_SUCCESS;
 	}
 
