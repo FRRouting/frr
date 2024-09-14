@@ -756,6 +756,8 @@ async def remote_cli(unet, prompt, title, background):
             unet.cli_sockpath = sockpath
             logging.info("server created on :\n%s\n", sockpath)
 
+        wait_tmux = bool(os.getenv("TMUX", "")) and not sys.stdin.isatty()
+
         # Open a new window with a new CLI
         python_path = await unet.async_get_exec_path(["python3", "python"])
         us = os.path.realpath(__file__)
@@ -765,7 +767,25 @@ async def remote_cli(unet, prompt, title, background):
         if prompt:
             cmd += f" --prompt='{prompt}'"
         cmd += " " + unet.cli_sockpath
-        unet.run_in_window(cmd, title=title, background=False)
+
+        channel = None
+        if wait_tmux:
+            from .base import Commander  # pylint: disable=import-outside-toplevel
+
+            channel = "{}-{}".format(os.getpid(), Commander.tmux_wait_gen)
+            logger.info("XXX channel is %s", channel)
+            # If we don't have a tty to pause on pause for tmux windows to exit
+            if channel is not None:
+                Commander.tmux_wait_gen += 1
+
+        unet.run_in_window(cmd, title=title, background=False, wait_for=channel)
+
+        if wait_tmux and channel:
+            from .base import commander  # pylint: disable=import-outside-toplevel
+
+            await commander.async_cmd_raises(
+                [commander.get_exec_path("tmux"), "wait", channel]
+            )
     except Exception as error:
         logging.error("cli server: unexpected exception: %s", error)
 
