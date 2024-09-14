@@ -102,12 +102,14 @@ static struct ospf6_vertex *ospf6_vertex_create(struct ospf6_lsa *lsa)
 	v = XMALLOC(MTYPE_OSPF6_VERTEX, sizeof(struct ospf6_vertex));
 
 	/* type */
-	if (ntohs(lsa->header->type) == OSPF6_LSTYPE_ROUTER) {
+	if ((ntohs(lsa->header->type) == OSPF6_LSTYPE_ROUTER) ||
+	    (ntohs(lsa->header->type) == OSPF6_LSTYPE_E_ROUTER)) {
 		v->type = OSPF6_VERTEX_TYPE_ROUTER;
 		/* Router LSA use Link ID 0 as base in vertex_id */
 		ospf6_linkstate_prefix(lsa->header->adv_router, htonl(0),
 				       &v->vertex_id);
-	} else if (ntohs(lsa->header->type) == OSPF6_LSTYPE_NETWORK) {
+	} else if (ntohs(lsa->header->type) == OSPF6_LSTYPE_NETWORK ||
+		   (ntohs(lsa->header->type) == OSPF6_LSTYPE_E_NETWORK)) {
 		v->type = OSPF6_VERTEX_TYPE_NETWORK;
 		/* vertex_id */
 		ospf6_linkstate_prefix(lsa->header->adv_router, lsa->header->id,
