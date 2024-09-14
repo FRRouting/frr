@@ -204,7 +204,8 @@ static char *ospf6_lsdesc_backlink(struct ospf6_lsa *lsa,
 	caddr_t backlink, found = NULL;
 	int size;
 
-	size = (OSPF6_LSA_IS_TYPE(ROUTER, lsa)
+	size = ((OSPF6_LSA_IS_TYPE(ROUTER, lsa) ||
+		 (OSPF6_LSA_IS_TYPE(E_ROUTER, lsa)))
 			? sizeof(struct ospf6_router_lsdesc)
 			: sizeof(struct ospf6_network_lsdesc));
 	for (backlink = ospf6_lsa_header_end(lsa->header) + 4;
@@ -212,9 +213,10 @@ static char *ospf6_lsdesc_backlink(struct ospf6_lsa *lsa,
 		assert(!(OSPF6_LSA_IS_TYPE(NETWORK, lsa)
 			 && VERTEX_IS_TYPE(NETWORK, v)));
 
-		if (OSPF6_LSA_IS_TYPE(NETWORK, lsa)) {
-			if (NETWORK_LSDESC_GET_NBR_ROUTERID(backlink)
-			    == v->lsa->header->adv_router)
+		if (OSPF6_LSA_IS_TYPE(NETWORK, lsa) ||
+		    OSPF6_LSA_IS_TYPE(E_NETWORK, lsa)) {
+			if (NETWORK_LSDESC_GET_NBR_ROUTERID(backlink) ==
+			    v->lsa->header->adv_router)
 				found = backlink;
 		} else if (VERTEX_IS_TYPE(NETWORK, v)) {
 			if (ROUTER_LSDESC_IS_TYPE(TRANSIT_NETWORK, backlink)
@@ -224,8 +226,13 @@ static char *ospf6_lsdesc_backlink(struct ospf6_lsa *lsa,
 				       == ntohl(v->lsa->header->id))
 				found = backlink;
 		} else {
-			assert(OSPF6_LSA_IS_TYPE(ROUTER, lsa)
-			       && VERTEX_IS_TYPE(ROUTER, v));
+			assert((OSPF6_LSA_IS_TYPE(ROUTER, lsa) ||
+				OSPF6_LSA_IS_TYPE(E_ROUTER, lsa)) &&
+			       VERTEX_IS_TYPE(ROUTER, v));
+
+			/* need to get the right offset if its a tlv */
+			if (OSPF6_LSA_IS_TYPE(E_ROUTER, lsa))
+				backlink = TLV_BODY(backlink);
 
 			if (!ROUTER_LSDESC_IS_TYPE(POINTTOPOINT, backlink) ||
 			    !ROUTER_LSDESC_IS_TYPE(POINTTOPOINT, &lsdesc->r))
