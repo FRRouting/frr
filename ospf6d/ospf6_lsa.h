@@ -187,6 +187,13 @@ struct ospf6_network_lsdesc {
 #define NETWORK_LSDESC_GET_NBR_ROUTERID(x)                                     \
 	(((struct ospf6_network_lsdesc *)(x))->router_id)
 
+struct ospf6_lsdesc {
+	union {
+		struct ospf6_network_lsdesc n;
+		struct ospf6_router_lsdesc r;
+	};
+};
+
 /* Inter-Area-Prefix-LSA */
 #define OSPF6_INTER_PREFIX_LSA_MIN_SIZE 4U /* w/o IPv6 prefix */
 struct ospf6_inter_prefix_lsa {
