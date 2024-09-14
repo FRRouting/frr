@@ -1406,7 +1406,12 @@ static void fe_adapter_handle_edit(struct mgmt_fe_session_ctx *session,
 	bool lock, commit;
 	int ret;
 
-	if (msg->datastore != MGMT_MSG_DATASTORE_CANDIDATE) {
+	lock = CHECK_FLAG(msg->flags, EDIT_FLAG_IMPLICIT_LOCK);
+	commit = CHECK_FLAG(msg->flags, EDIT_FLAG_IMPLICIT_COMMIT);
+
+	if (lock && commit && msg->datastore == MGMT_MSG_DATASTORE_RUNNING)
+		;
+	else if (msg->datastore != MGMT_MSG_DATASTORE_CANDIDATE) {
 		fe_adapter_send_error(session, msg->req_id, false, -EINVAL,
 				      "Unsupported datastore");
 		return;
@@ -1426,9 +1431,6 @@ static void fe_adapter_handle_edit(struct mgmt_fe_session_ctx *session,
 	rds_id = MGMTD_DS_RUNNING;
 	rds_ctx = mgmt_ds_get_ctx_by_id(mm, rds_id);
 	assert(rds_ctx);
-
-	lock = CHECK_FLAG(msg->flags, EDIT_FLAG_IMPLICIT_LOCK);
-	commit = CHECK_FLAG(msg->flags, EDIT_FLAG_IMPLICIT_COMMIT);
 
 	if (lock) {
 		if (mgmt_fe_session_write_lock_ds(ds_id, ds_ctx, session)) {
