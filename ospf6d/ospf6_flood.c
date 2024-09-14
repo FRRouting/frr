@@ -311,7 +311,8 @@ void ospf6_install_lsa(struct ospf6_lsa *lsa)
 		ospf6_schedule_abr_task(area->ospf6);
 	}
 
-	if (ntohs(lsa->header->type) == OSPF6_LSTYPE_ROUTER) {
+	if ((ntohs(lsa->header->type) == OSPF6_LSTYPE_ROUTER) ||
+	    (ntohs(lsa->header->type) == OSPF6_LSTYPE_E_ROUTER)) {
 		area = OSPF6_AREA(lsa->lsdb->data);
 		if (old == NULL) {
 			if (IS_OSPF6_DEBUG_LSA_TYPE(lsa->header->type)
