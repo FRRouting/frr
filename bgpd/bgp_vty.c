@@ -1767,6 +1767,21 @@ DEFUN (no_router_bgp,
 	return CMD_SUCCESS;
 }
 
+DEFPY (bgp_use_underlying_igp_metric,
+       bgp_use_underlying_igp_metric_cmd,
+       "[no] bgp use-underlying-igp-metric-zebra-install",
+       NO_STR
+       BGP_STR
+       "Use the underlying igp metric for zebra route installation\n")
+{
+	if (no)
+		bm->use_underlying_igp_metric = false;
+	else
+		bm->use_underlying_igp_metric = true;
+
+	return CMD_SUCCESS;
+}
+
 /* bgp session-dscp */
 
 DEFPY (bgp_session_dscp,
@@ -19455,6 +19470,9 @@ int bgp_config_write(struct vty *vty)
 	if (CHECK_FLAG(bm->flags, BM_FLAG_SEND_EXTRA_DATA_TO_ZEBRA))
 		vty_out(vty, "bgp send-extra-data zebra\n");
 
+	if (bm->use_underlying_igp_metric)
+		vty_out(vty, "bgp use-underlying-igp-metric-zebra-install\n");
+
 	/* DSCP value for outgoing packets in BGP connections */
 	if (bm->ip_tos != IPTOS_PREC_INTERNETCONTROL)
 		vty_out(vty, "bgp session-dscp %u\n", bm->ip_tos >> 2);
@@ -20453,6 +20471,8 @@ void bgp_vty_init(void)
 
 	/* "no router bgp" commands. */
 	install_element(CONFIG_NODE, &no_router_bgp_cmd);
+
+	install_element(CONFIG_NODE, &bgp_use_underlying_igp_metric_cmd);
 
 	/* "bgp session-dscp command */
 	install_element(CONFIG_NODE, &bgp_session_dscp_cmd);

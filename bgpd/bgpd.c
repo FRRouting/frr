@@ -8550,6 +8550,7 @@ void bgp_master_init(struct event_loop *master, const int buffer_size,
 	bm->stalepath_time = BGP_DEFAULT_STALEPATH_TIME;
 	bm->select_defer_time = BGP_DEFAULT_SELECT_DEFERRAL_TIME;
 	bm->rib_stale_time = BGP_DEFAULT_RIB_STALE_TIME;
+	bm->use_underlying_igp_metric = false;
 
 	bgp_mac_init();
 	/* init the rd id space.

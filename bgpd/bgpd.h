@@ -200,6 +200,7 @@ struct bgp_master {
 
 	bool v6_with_v4_nexthops;
 
+	bool use_underlying_igp_metric;
 	/* To preserve ordering of installations into zebra across all Vrfs */
 	struct zebra_announce_head zebra_announce_head;
 
