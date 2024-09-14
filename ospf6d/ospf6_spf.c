@@ -1041,7 +1041,7 @@ struct ospf6_lsa *ospf6_create_single_router_lsa(struct ospf6_area *area,
 	uint16_t type = 0;
 	char ifbuf[16];
 	uint32_t interface_id;
-	caddr_t lsd;
+	struct ospf6_router_lsdesc *lsd;
 
 	if (IS_OSPF6_DEBUG_SPF(PROCESS))
 		zlog_debug("%s: E-LSA support ? %d", __func__, elsa_support);
@@ -1125,8 +1125,8 @@ struct ospf6_lsa *ospf6_create_single_router_lsa(struct ospf6_area *area,
 		}
 
 		if (IS_OSPF6_DEBUG_SPF(PROCESS)) {
-			lsd = ospf6_lsa_header_end(rtr_lsa->header) + 4;
-			interface_id = ROUTER_LSDESC_GET_IFID(lsd);
+			lsd = lsdesc_start(rtr_lsa->header);
+			interface_id = ntohl(lsd->interface_id);
 			inet_ntop(AF_INET, &interface_id, ifbuf, sizeof(ifbuf));
 			zlog_debug("%s: Next Router LSA %s to aggreat with len %u interface_id %s",
 				   __func__, rtr_lsa->name,
