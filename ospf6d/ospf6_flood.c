@@ -574,12 +574,14 @@ static void ospf6_flood_process(struct ospf6_neighbor *from,
 		    && oa != OSPF6_INTERFACE(lsa->lsdb->data)->area)
 			continue;
 
-		if (ntohs(lsa->header->type) == OSPF6_LSTYPE_AS_EXTERNAL
+		if ((ntohs(lsa->header->type) == OSPF6_LSTYPE_AS_EXTERNAL ||
+		    ntohs(lsa->header->type) == OSPF6_LSTYPE_E_AS_EXTERNAL)
 		    && (IS_AREA_STUB(oa) || IS_AREA_NSSA(oa)))
 			continue;
 
 		/* Check for NSSA LSA */
-		if (ntohs(lsa->header->type) == OSPF6_LSTYPE_TYPE_7
+		if ((ntohs(lsa->header->type) == OSPF6_LSTYPE_TYPE_7 ||
+		    ntohs(lsa->header->type) == OSPF6_LSTYPE_E_TYPE_7)
 		    && !IS_AREA_NSSA(oa) && !OSPF6_LSA_IS_MAXAGE(lsa))
 			continue;
 
