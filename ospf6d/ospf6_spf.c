@@ -67,7 +67,7 @@ static unsigned int ospf6_spf_get_ifindex_from_nh(struct ospf6_vertex *v)
 }
 
 static int ospf6_vertex_cmp(const struct ospf6_vertex *va,
-		const struct ospf6_vertex *vb)
+			    const struct ospf6_vertex *vb)
 {
 	/* ascending order */
 	if (va->cost != vb->cost)
@@ -77,7 +77,7 @@ static int ospf6_vertex_cmp(const struct ospf6_vertex *va,
 	return 0;
 }
 DECLARE_SKIPLIST_NONUNIQ(vertex_pqueue, struct ospf6_vertex, pqi,
-		ospf6_vertex_cmp);
+			 ospf6_vertex_cmp);
 
 static int ospf6_vertex_id_cmp(void *a, void *b)
 {
@@ -85,13 +85,13 @@ static int ospf6_vertex_id_cmp(void *a, void *b)
 	struct ospf6_vertex *vb = (struct ospf6_vertex *)b;
 	int ret = 0;
 
-	ret = ntohl(ospf6_linkstate_prefix_adv_router(&va->vertex_id))
-	      - ntohl(ospf6_linkstate_prefix_adv_router(&vb->vertex_id));
+	ret = ntohl(ospf6_linkstate_prefix_adv_router(&va->vertex_id)) -
+	      ntohl(ospf6_linkstate_prefix_adv_router(&vb->vertex_id));
 	if (ret)
 		return ret;
 
-	ret = ntohl(ospf6_linkstate_prefix_id(&va->vertex_id))
-	      - ntohl(ospf6_linkstate_prefix_id(&vb->vertex_id));
+	ret = ntohl(ospf6_linkstate_prefix_id(&va->vertex_id)) -
+	      ntohl(ospf6_linkstate_prefix_id(&vb->vertex_id));
 	return ret;
 }
 
@@ -1034,7 +1034,8 @@ void ospf6_spf_init(void)
  * the links are processed as if concatenated into a single LSA.*/
 struct ospf6_lsa *ospf6_create_single_router_lsa(struct ospf6_area *area,
 						 struct ospf6_lsdb *lsdb,
-						 uint32_t adv_router, uint8_t elsa_support)
+						 uint32_t adv_router,
+						 uint8_t elsa_support)
 {
 	struct ospf6_lsa *lsa = NULL;
 	struct ospf6_lsa *rtr_lsa = NULL;
