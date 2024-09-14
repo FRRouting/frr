@@ -151,7 +151,7 @@ static void ospf6_vertex_delete(struct ospf6_vertex *v)
 	XFREE(MTYPE_OSPF6_VERTEX, v);
 }
 
-static struct ospf6_lsa *ospf6_lsdesc_lsa(caddr_t lsdesc,
+static struct ospf6_lsa *ospf6_lsdesc_lsa(struct ospf6_lsdesc *lsdesc,
 					  struct ospf6_vertex *v)
 {
 	struct ospf6_lsa *lsa = NULL;
@@ -161,16 +161,16 @@ static struct ospf6_lsa *ospf6_lsdesc_lsa(caddr_t lsdesc,
 	if (VERTEX_IS_TYPE(NETWORK, v)) {
 		type = htons(OSPF6_LSTYPE_ROUTER);
 		id = htonl(0);
-		adv_router = NETWORK_LSDESC_GET_NBR_ROUTERID(lsdesc);
+		adv_router = lsdesc->r.neighbor_router_id;
 	} else {
 		if (ROUTER_LSDESC_IS_TYPE(POINTTOPOINT, lsdesc)) {
 			type = htons(OSPF6_LSTYPE_ROUTER);
 			id = htonl(0);
-			adv_router = ROUTER_LSDESC_GET_NBR_ROUTERID(lsdesc);
+			adv_router = lsdesc->r.neighbor_router_id;
 		} else if (ROUTER_LSDESC_IS_TYPE(TRANSIT_NETWORK, lsdesc)) {
 			type = htons(OSPF6_LSTYPE_NETWORK);
-			id = htonl(ROUTER_LSDESC_GET_NBR_IFID(lsdesc));
-			adv_router = ROUTER_LSDESC_GET_NBR_ROUTERID(lsdesc);
+			id = lsdesc->r.neighbor_interface_id;
+			adv_router = lsdesc->r.neighbor_router_id;
 		}
 	}
 
@@ -195,7 +195,8 @@ static struct ospf6_lsa *ospf6_lsdesc_lsa(caddr_t lsdesc,
 	return lsa;
 }
 
-static char *ospf6_lsdesc_backlink(struct ospf6_lsa *lsa, caddr_t lsdesc,
+static char *ospf6_lsdesc_backlink(struct ospf6_lsa *lsa,
+				   struct ospf6_lsdesc *lsdesc,
 				   struct ospf6_vertex *v)
 {
 	caddr_t backlink, found = NULL;
@@ -224,19 +225,19 @@ static char *ospf6_lsdesc_backlink(struct ospf6_lsa *lsa, caddr_t lsdesc,
 			assert(OSPF6_LSA_IS_TYPE(ROUTER, lsa)
 			       && VERTEX_IS_TYPE(ROUTER, v));
 
-			if (!ROUTER_LSDESC_IS_TYPE(POINTTOPOINT, backlink)
-			    || !ROUTER_LSDESC_IS_TYPE(POINTTOPOINT, lsdesc))
+			if (!ROUTER_LSDESC_IS_TYPE(POINTTOPOINT, backlink) ||
+			    !ROUTER_LSDESC_IS_TYPE(POINTTOPOINT, &lsdesc->r))
 				continue;
 
 			if (ROUTER_LSDESC_GET_NBR_IFID(backlink)
-				    != ROUTER_LSDESC_GET_IFID(lsdesc)
-			    || ROUTER_LSDESC_GET_NBR_IFID(lsdesc)
+				    != ntohl(lsdesc->r.interface_id)
+			    || ntohl(lsdesc->r.neighbor_interface_id)
 				       != ROUTER_LSDESC_GET_IFID(backlink))
 				continue;
 			if (ROUTER_LSDESC_GET_NBR_ROUTERID(backlink)
 				    != v->lsa->header->adv_router
-			    || ROUTER_LSDESC_GET_NBR_ROUTERID(lsdesc)
-				       != lsa->header->adv_router)
+			    || lsdesc->r.neighbor_router_id !=
+				    lsa->header->adv_router)
 				continue;
 			found = backlink;
 		}
@@ -250,7 +251,7 @@ static char *ospf6_lsdesc_backlink(struct ospf6_lsa *lsa, caddr_t lsdesc,
 }
 
 static void ospf6_nexthop_calc(struct ospf6_vertex *w, struct ospf6_vertex *v,
-			       caddr_t lsdesc, struct ospf6 *ospf6)
+			       struct ospf6_lsdesc *lsdesc, struct ospf6 *ospf6)
 {
 	int i;
 	ifindex_t ifindex;
@@ -263,7 +264,7 @@ static void ospf6_nexthop_calc(struct ospf6_vertex *w, struct ospf6_vertex *v,
 
 	assert(VERTEX_IS_TYPE(ROUTER, w));
 	ifindex = (VERTEX_IS_TYPE(NETWORK, v) ? ospf6_spf_get_ifindex_from_nh(v)
-					      : ROUTER_LSDESC_GET_IFID(lsdesc));
+					      : ntohl(lsdesc->r.interface_id));
 	if (ifindex == 0) {
 		flog_err(EC_LIB_DEVELOPMENT, "No nexthop ifindex at vertex %s",
 			 v->name);
@@ -277,15 +278,13 @@ static void ospf6_nexthop_calc(struct ospf6_vertex *w, struct ospf6_vertex *v,
 	}
 
 	type = htons(OSPF6_LSTYPE_LINK);
-	adv_router = (VERTEX_IS_TYPE(NETWORK, v)
-			      ? NETWORK_LSDESC_GET_NBR_ROUTERID(lsdesc)
-			      : ROUTER_LSDESC_GET_NBR_ROUTERID(lsdesc));
+	adv_router = (VERTEX_IS_TYPE(NETWORK, v) ? lsdesc->n.router_id
+						 : lsdesc->r.neighbor_router_id);
 
 	i = 0;
 	for (ALL_LSDB_TYPED_ADVRTR(oi->lsdb, type, adv_router, lsa)) {
-		if (VERTEX_IS_TYPE(ROUTER, v)
-		    && htonl(ROUTER_LSDESC_GET_NBR_IFID(lsdesc))
-			       != lsa->header->id)
+		if (VERTEX_IS_TYPE(ROUTER, v) &&
+		    (lsdesc->r.neighbor_interface_id != lsa->header->id))
 			continue;
 
 		link_lsa = lsa_after_header(lsa->header);
@@ -510,22 +509,22 @@ void ospf6_spf_calculation(uint32_t router_id,
 		for (lsdesc = ospf6_lsa_header_end(v->lsa->header) + 4;
 		     lsdesc + size <= ospf6_lsa_end(v->lsa->header);
 		     lsdesc += size) {
-			lsa = ospf6_lsdesc_lsa(lsdesc, v);
+			struct ospf6_lsdesc *desc = (struct ospf6_lsdesc *)lsdesc;
+			lsa = ospf6_lsdesc_lsa(desc, v);
 			if (lsa == NULL)
 				continue;
 
 			if (OSPF6_LSA_IS_MAXAGE(lsa))
 				continue;
 
-			if (!ospf6_lsdesc_backlink(lsa, lsdesc, v))
+			if (!ospf6_lsdesc_backlink(lsa, desc, v))
 				continue;
 
 			w = ospf6_vertex_create(lsa);
 			w->area = oa;
 			w->parent = v;
 			if (VERTEX_IS_TYPE(ROUTER, v)) {
-				w->cost = v->cost
-					  + ROUTER_LSDESC_GET_METRIC(lsdesc);
+				w->cost = v->cost + ntohs(desc->r.metric);
 				w->hops =
 					v->hops
 					+ (VERTEX_IS_TYPE(NETWORK, w) ? 0 : 1);
@@ -539,9 +538,9 @@ void ospf6_spf_calculation(uint32_t router_id,
 			if (w->hops == 0)
 				ospf6_add_nexthop(
 					w->nh_list,
-					ROUTER_LSDESC_GET_IFID(lsdesc), NULL);
+					ntohl(desc->r.interface_id), NULL);
 			else if (w->hops == 1 && v->hops == 0)
-				ospf6_nexthop_calc(w, v, lsdesc, oa->ospf6);
+				ospf6_nexthop_calc(w, v, desc, oa->ospf6);
 			else
 				ospf6_copy_nexthops(w->nh_list, v->nh_list);
 
