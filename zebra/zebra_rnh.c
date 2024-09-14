@@ -552,6 +552,8 @@ zebra_rnh_resolve_nexthop_entry(struct zebra_vrf *zvrf, afi_t afi,
 	struct route_table *route_table;
 	struct route_node *rn;
 	struct route_entry *re;
+	struct nexthop *nexthop;
+	struct prefix p;
 
 	*prn = NULL;
 
@@ -559,7 +561,10 @@ zebra_rnh_resolve_nexthop_entry(struct zebra_vrf *zvrf, afi_t afi,
 	if (!route_table)
 		return NULL;
 
-	rn = route_node_match(route_table, &nrn->p);
+	p = nrn->p;
+
+resolve_again:
+	rn = route_node_match(route_table, &p);
 	if (!rn)
 		return NULL;
 
@@ -571,9 +576,9 @@ zebra_rnh_resolve_nexthop_entry(struct zebra_vrf *zvrf, afi_t afi,
 	 */
 	while (rn) {
 		if (IS_ZEBRA_DEBUG_NHT_DETAILED)
-			zlog_debug("%s: %s(%u):%pRN Possible Match to %pRN",
+			zlog_debug("%s: %s(%u):%pFX Possible Match to %pRN",
 				   __func__, VRF_LOGNAME(zvrf->vrf),
-				   rnh->vrf_id, rnh->node, rn);
+				   rnh->vrf_id, &p, rn);
 
 		/* Do not resolve over default route unless allowed &&
 		 * match route to be exact if so specified
@@ -623,10 +628,34 @@ zebra_rnh_resolve_nexthop_entry(struct zebra_vrf *zvrf, afi_t afi,
 				break;
 		}
 
-		/* Route entry found, we're done; else, walk up the tree. */
+		/* Route entry found, we're done; else, walk up the tree.
+		 *
+		 * BGP routes are usually recursive, though. Keep resolving
+		 * on the nexthop until hitting a non-BGP route.
+		 */
 		if (re) {
-			*prn = rn;
-			return re;
+			if (re->type != ZEBRA_ROUTE_BGP) {
+				*prn = rn;
+				return re;
+			}
+
+			/*
+			 * Note an aggregate has the NEXTHOP_TYPE_BLACKHOLE
+			 * as the nexthop type.
+			 */
+			nexthop = re->nhe->nhg.nexthop;
+			if (!nexthop || ((nexthop->type != NEXTHOP_TYPE_IPV4) &&
+					 (nexthop->type != NEXTHOP_TYPE_IPV6))) {
+				*prn = rn;
+				return re;
+			}
+
+			addr2hostprefix(afi2family(afi), &nexthop->gate, &p);
+			if (IS_ZEBRA_DEBUG_NHT_DETAILED) {
+				zlog_debug("  Continue resolving on nexthop %pFX",
+					   &p);
+			}
+			goto resolve_again;
 		} else {
 			/* Resolve the nexthop recursively by finding matching
 			 * route with lower prefix length
