@@ -158,38 +158,37 @@ static struct ospf6_lsa *ospf6_lsdesc_lsa(struct ospf6_lsdesc *lsdesc,
 					  struct ospf6_vertex *v,
 					  uint8_t elsa_support)
 {
-	struct ospf6_lsa *lsa = NULL;
-	uint16_t type = 0;
-	uint32_t id = 0, adv_router = 0;
+	struct ospf6_lsa *lsa;
+	uint16_t lstype;
+	uint32_t id, adv_router;
+	bool legacy_lsa = (elsa_support == OSPF6_E_LSA_SUP_LEGACY);
 
 	if (VERTEX_IS_TYPE(NETWORK, v)) {
-		if (elsa_support == OSPF6_E_LSA_SUP_LEGACY)
-			type = htons(OSPF6_LSTYPE_ROUTER);
-		else
-			type = htons(OSPF6_LSTYPE_E_ROUTER);
+		lstype = (legacy_lsa) ? htons(OSPF6_LSTYPE_ROUTER)
+				      : htons(OSPF6_LSTYPE_E_ROUTER);
+		id = htonl(0);
+		adv_router = lsdesc->n.router_id;
+	} else if (VERTEX_IS_TYPE(ROUTER, v) &&
+		   ROUTER_LSDESC_IS_TYPE(POINTTOPOINT, &lsdesc->r)) {
+		lstype = (legacy_lsa) ? htons(OSPF6_LSTYPE_ROUTER)
+				      : htons(OSPF6_LSTYPE_E_ROUTER);
 		id = htonl(0);
 		adv_router = lsdesc->r.neighbor_router_id;
+	} else if (VERTEX_IS_TYPE(ROUTER, v) &&
+		   ROUTER_LSDESC_IS_TYPE(TRANSIT_NETWORK, &lsdesc->r)) {
+		lstype = (legacy_lsa) ? htons(OSPF6_LSTYPE_NETWORK)
+				      : htons(OSPF6_LSTYPE_E_NETWORK);
+		id = lsdesc->r.neighbor_interface_id;
+		adv_router = lsdesc->r.neighbor_router_id;
 	} else {
-		if (ROUTER_LSDESC_IS_TYPE(POINTTOPOINT, lsdesc)) {
-			if (elsa_support == OSPF6_E_LSA_SUP_LEGACY)
-				type = htons(OSPF6_LSTYPE_ROUTER);
-			else
-				type = htons(OSPF6_LSTYPE_E_ROUTER);
-			id = htonl(0);
-			adv_router = lsdesc->r.neighbor_router_id;
-		} else if (ROUTER_LSDESC_IS_TYPE(TRANSIT_NETWORK, lsdesc)) {
-			if (elsa_support == OSPF6_E_LSA_SUP_LEGACY)
-				type = htons(OSPF6_LSTYPE_NETWORK);
-			else
-				type = htons(OSPF6_LSTYPE_E_NETWORK);
-			id = lsdesc->r.neighbor_interface_id;
-			adv_router = lsdesc->r.neighbor_router_id;
-		}
+		lstype = 0;
+		id = 0;
+		adv_router = 0;
 	}
 
-	if (type == htons(OSPF6_LSTYPE_E_NETWORK) ||
-	    type == htons(OSPF6_LSTYPE_NETWORK))
-		lsa = ospf6_lsdb_lookup(type, id, adv_router, v->area->lsdb);
+	if (lstype == htons(OSPF6_LSTYPE_E_NETWORK) ||
+	    lstype == htons(OSPF6_LSTYPE_NETWORK))
+		lsa = ospf6_lsdb_lookup(lstype, id, adv_router, v->area->lsdb);
 	else
 		lsa = ospf6_create_single_router_lsa(v->area, v->area->lsdb,
 						     adv_router, elsa_support);
@@ -202,7 +201,8 @@ static struct ospf6_lsa *ospf6_lsdesc_lsa(struct ospf6_lsdesc *lsdesc,
 				   ospf6_lsa_size(lsa->header), v->name);
 		else
 			zlog_debug("  Link to: [%s Id:%s Adv:%s] No LSA , V %s",
-				   ospf6_lstype_name(type), ibuf, abuf, v->name);
+				   ospf6_lstype_name(lstype), ibuf, abuf,
+				   v->name);
 	}
 
 	return lsa;
