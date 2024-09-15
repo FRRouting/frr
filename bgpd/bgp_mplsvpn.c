@@ -453,6 +453,12 @@ void vpn_leak_zebra_vrf_sid_update_per_vrf(struct bgp *bgp)
 	if (!vrf)
 		return;
 
+	if (bgp->tovpn_sid_locator) {
+		ctx.block_len = bgp->tovpn_sid_locator->block_bits_length;
+		ctx.node_len = bgp->tovpn_sid_locator->node_bits_length;
+		ctx.function_len = bgp->tovpn_sid_locator->function_bits_length;
+		ctx.argument_len = bgp->tovpn_sid_locator->argument_bits_length;
+	}
 	ctx.table = vrf->data.l.table_id;
 	act = ZEBRA_SEG6_LOCAL_ACTION_END_DT46;
 	zclient_send_localsid(zclient, tovpn_sid, bgp->vrf_id, act, &ctx);
