@@ -925,6 +925,63 @@ and this section also helps that case.
     fcbb:bbbb:1:e000::    uA          Interface 'eth-sw1'    isis(0)            MAIN       dynamic
     fcbb:bbbb:1:e001::    uA          Interface 'eth-sw1'    isis(0)            MAIN       dynamic
 
+   router# show segment-routing srv6 sid fc00:0:1:e000:: detail
+    SID                   Behavior    Context                Daemon/Instance    Locator    Allocation Type
+    --------------------  ----------  ---------------------  -----------------  ---------  -----------------
+    fcbb:bbbb:1::         uN          -                      isis(0)            MAIN       dynamic
+    fcbb:bbbb:1:e000::    uA          Interface 'eth-sw1'    isis(0)            MAIN       dynamic
+
+   router# show segment-routing srv6 sid json
+   {
+      "fc00:0:1::":{
+         "sid":"fc00:0:1::",
+         "behavior":"uN",
+         "context":{},
+         "locator":"loc1",
+         "allocationMode":"dynamic",
+         "clients":[
+            {
+            "proto":"isis",
+            "instance":0
+            }
+         ]
+      },
+      "fc00:0:1:1::":{
+         "sid":"fc00:0:1:1::",
+         "behavior":"uA",
+         "context":{
+            "interfaceIndex":2,
+            "interfaceName":"eth-sw1",
+            "nexthopIpv6Address":"fe80::4423:f3ff:fe8b:fed"
+         },
+         "locator":"loc1",
+         "allocationMode":"dynamic",
+         "clients":[
+            {
+            "proto":"isis",
+            "instance":0
+            }
+         ]
+      },
+      "fc00:0:1:2::":{
+         "sid":"fc00:0:1:2::",
+         "behavior":"uA",
+         "context":{
+            "interfaceIndex":2,
+            "interfaceName":"eth-sw1",
+            "nexthopIpv6Address":"fe80::9005:fdff:fe18:1237"
+         },
+         "locator":"loc1",
+         "allocationMode":"dynamic",
+         "clients":[
+            {
+            "proto":"isis",
+            "instance":0
+            }
+         ]
+      }
+   }
+
 .. clicmd:: segment-routing
 
    Move from configure mode to segment-routing node.
