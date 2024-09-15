@@ -381,6 +381,12 @@ void vpn_leak_zebra_vrf_sid_update_per_af(struct bgp *bgp, afi_t afi)
 	if (!vrf)
 		return;
 
+	if (bgp->vpn_policy[afi].tovpn_sid_locator) {
+		ctx.block_len = bgp->vpn_policy[afi].tovpn_sid_locator->block_bits_length;
+		ctx.node_len = bgp->vpn_policy[afi].tovpn_sid_locator->node_bits_length;
+		ctx.function_len = bgp->vpn_policy[afi].tovpn_sid_locator->function_bits_length;
+		ctx.argument_len = bgp->vpn_policy[afi].tovpn_sid_locator->argument_bits_length;
+	}
 	ctx.table = vrf->data.l.table_id;
 	act = afi == AFI_IP ? ZEBRA_SEG6_LOCAL_ACTION_END_DT4
 		: ZEBRA_SEG6_LOCAL_ACTION_END_DT6;
