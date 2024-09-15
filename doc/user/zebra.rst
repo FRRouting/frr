@@ -914,6 +914,17 @@ and this section also helps that case.
 
    Displays the information regarding SRv6 local SID(s) allocated from a given locator.
 
+::
+
+   router# show segment-routing srv6 sid
+    SID                   Behavior    Context                Daemon/Instance    Locator    Allocation Type
+    --------------------  ----------  ---------------------  -----------------  ---------  -----------------
+    fcbb:bbbb:1::         uN          -                      isis(0)            MAIN       dynamic
+    fcbb:bbbb:1:fe00::    uDT6        VRF 'vrf10'            bgp(0)             MAIN       dynamic
+    fcbb:bbbb:1:fe01::    uDT6        VRF 'vrf20'            bgp(0)             MAIN       dynamic
+    fcbb:bbbb:1:e000::    uA          Interface 'eth-sw1'    isis(0)            MAIN       dynamic
+    fcbb:bbbb:1:e001::    uA          Interface 'eth-sw1'    isis(0)            MAIN       dynamic
+
 .. clicmd:: segment-routing
 
    Move from configure mode to segment-routing node.
