@@ -910,6 +910,10 @@ and this section also helps that case.
    Chunks:
    - prefix: 2001:db8:2:2::/64, owner: sharp
 
+.. clicmd:: show segment-routing srv6 [locator NAME] sid [X:X::X:X] [json]
+
+   Displays the information regarding SRv6 local SID(s) allocated from a given locator.
+
 .. clicmd:: segment-routing
 
    Move from configure mode to segment-routing node.
