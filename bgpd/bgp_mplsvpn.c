@@ -482,6 +482,7 @@ void vpn_leak_zebra_vrf_sid_update(struct bgp *bgp, afi_t afi)
 void vpn_leak_zebra_vrf_sid_withdraw_per_af(struct bgp *bgp, afi_t afi)
 {
 	int debug = BGP_DEBUG(vpn, VPN_LEAK_LABEL);
+	struct seg6local_context seg6localctx = {};
 
 	if (bgp->vrf_id == VRF_UNKNOWN) {
 		if (debug)
@@ -494,9 +495,16 @@ void vpn_leak_zebra_vrf_sid_withdraw_per_af(struct bgp *bgp, afi_t afi)
 		zlog_debug("%s: deleting sid for vrf %s afi (id=%d)", __func__,
 			   bgp->name_pretty, bgp->vrf_id);
 
-	zclient_send_localsid(zclient,
-		bgp->vpn_policy[afi].tovpn_zebra_vrf_sid_last_sent,
-		bgp->vrf_id, ZEBRA_SEG6_LOCAL_ACTION_UNSPEC, NULL);
+	if (bgp->vpn_policy[afi].tovpn_sid_locator) {
+		seg6localctx.block_len = bgp->vpn_policy[afi].tovpn_sid_locator->block_bits_length;
+		seg6localctx.node_len = bgp->vpn_policy[afi].tovpn_sid_locator->node_bits_length;
+		seg6localctx.function_len =
+			bgp->vpn_policy[afi].tovpn_sid_locator->function_bits_length;
+		seg6localctx.argument_len =
+			bgp->vpn_policy[afi].tovpn_sid_locator->argument_bits_length;
+	}
+	zclient_send_localsid(zclient, bgp->vpn_policy[afi].tovpn_zebra_vrf_sid_last_sent,
+			      bgp->vrf_id, ZEBRA_SEG6_LOCAL_ACTION_UNSPEC, &seg6localctx);
 	XFREE(MTYPE_BGP_SRV6_SID,
 	      bgp->vpn_policy[afi].tovpn_zebra_vrf_sid_last_sent);
 	bgp->vpn_policy[afi].tovpn_zebra_vrf_sid_last_sent = NULL;
