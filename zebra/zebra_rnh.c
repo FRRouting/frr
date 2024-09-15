@@ -1344,13 +1344,17 @@ static void print_rnh(struct route_node *rn, struct vty *vty, json_object *json)
 	}
 
 	if (rnh->state) {
-		if (json)
+		if (json) {
 			json_object_string_add(
 				json_nht, "resolvedProtocol",
 				zebra_route_string(rnh->state->type));
-		else
-			vty_out(vty, " resolved via %s\n",
-				zebra_route_string(rnh->state->type));
+			json_object_string_addf(json_nht, "prefix", "%pFX",
+						&rnh->resolved_route);
+		} else {
+			vty_out(vty, " resolved via %s, prefix %pFX\n",
+				zebra_route_string(rnh->state->type),
+				&rnh->resolved_route);
+		}
 
 		for (nexthop = rnh->state->nhe->nhg.nexthop; nexthop;
 		     nexthop = nexthop->next) {
