@@ -303,7 +303,7 @@ void zebra_evpn_deref_ip2mac(struct zebra_evpn *zevpn, struct zebra_mac *mac)
 	 */
 	if (CHECK_FLAG(mac->flags, ZEBRA_MAC_REMOTE) &&
 	    remote_neigh_count(mac) == 0) {
-		zebra_evpn_rem_mac_uninstall(zevpn, mac, false /*force*/);
+		zebra_evpn_rem_mac_uninstall(zevpn, mac, false);
 		zebra_evpn_es_mac_deref_entry(mac);
 		UNSET_FLAG(mac->flags, ZEBRA_MAC_REMOTE);
 	}
@@ -417,8 +417,7 @@ static void zebra_evpn_dad_mac_auto_recovery_exp(struct event *t)
 			if (CHECK_FLAG(nbr->flags, ZEBRA_NEIGH_LOCAL))
 				ZEBRA_NEIGH_SET_INACTIVE(nbr);
 			else if (CHECK_FLAG(nbr->flags, ZEBRA_NEIGH_REMOTE))
-				zebra_evpn_rem_neigh_install(zevpn, nbr,
-							     false /*was_static*/);
+				zebra_evpn_rem_neigh_install(zevpn, nbr, false);
 		}
 
 		UNSET_FLAG(nbr->flags, ZEBRA_NEIGH_DUPLICATE);
@@ -442,8 +441,7 @@ static void zebra_evpn_dad_mac_auto_recovery_exp(struct event *t)
 			return;
 
 		/* Process all neighbors associated with this MAC. */
-		zebra_evpn_process_neigh_on_local_mac_change(zevpn, mac, 0,
-							     0 /*es_change*/);
+		zebra_evpn_process_neigh_on_local_mac_change(zevpn, mac, 0, 0);
 
 	} else if (CHECK_FLAG(mac->flags, ZEBRA_MAC_REMOTE)) {
 		zebra_evpn_process_neigh_on_remote_mac_add(zevpn, mac);
@@ -1235,14 +1233,11 @@ static void zebra_evpn_mac_del_hash_entry(struct hash_bucket *bucket, void *arg)
 	}
 	if (wctx->uninstall) {
 		if (zebra_evpn_mac_is_static(mac))
-			zebra_evpn_sync_mac_dp_install(mac,
-						       false /* set_inactive */,
-						       true /* force_clear_static */,
+			zebra_evpn_sync_mac_dp_install(mac, false, true,
 						       __func__);
 
 		if (mac->flags & ZEBRA_MAC_REMOTE)
-			zebra_evpn_rem_mac_uninstall(wctx->zevpn, mac,
-						     false /*force*/);
+			zebra_evpn_rem_mac_uninstall(wctx->zevpn, mac, false);
 	}
 
 	zebra_evpn_mac_del(wctx->zevpn, mac);
@@ -1343,8 +1338,7 @@ int zebra_evpn_mac_send_del_to_client(vni_t vni, const struct ethaddr *macaddr,
 			state = ZEBRA_NEIGH_INACTIVE;
 	}
 
-	return zebra_evpn_macip_send_msg_to_client(vni, macaddr, NULL,
-						   0 /* flags */, 0 /* seq */,
+	return zebra_evpn_macip_send_msg_to_client(vni, macaddr, NULL, 0, 0,
 						   state, NULL, ZEBRA_MACIP_DEL);
 }
 
@@ -1445,11 +1439,9 @@ int zebra_evpn_sync_mac_dp_install(struct zebra_mac *mac, bool set_inactive,
 			/* XXX - old_static needs to be computed more
 			 * accurately
 			 */
-			zebra_evpn_rem_mac_install(zevpn, mac,
-						   true /* old_static */);
+			zebra_evpn_rem_mac_install(zevpn, mac, true);
 		else
-			zebra_evpn_rem_mac_uninstall(zevpn, mac,
-						     false /* force */);
+			zebra_evpn_rem_mac_uninstall(zevpn, mac, false);
 
 		return 0;
 	}
@@ -1481,7 +1473,7 @@ void zebra_evpn_mac_send_add_del_to_client(struct zebra_mac *mac,
 						  mac->loc_seq, mac->es);
 	else if (old_bgp_ready)
 		zebra_evpn_mac_send_del_to_client(mac->zevpn->vni, &mac->macaddr,
-						  mac->flags, true /* force */);
+						  mac->flags, true);
 }
 
 /* MAC hold timer is used to age out peer-active flag.
@@ -1525,9 +1517,7 @@ static void zebra_evpn_mac_hold_exp_cb(struct event *t)
 	 * longer static
 	 */
 	if (old_static != new_static)
-		zebra_evpn_sync_mac_dp_install(mac, false /* set_inactive */,
-					       false /* force_clear_static */,
-					       __func__);
+		zebra_evpn_sync_mac_dp_install(mac, false, false, __func__);
 
 	/* inform bgp if needed */
 	if (old_bgp_ready != new_bgp_ready)
@@ -1594,9 +1584,7 @@ void zebra_evpn_sync_mac_del(struct zebra_mac *mac)
 
 	if (old_static != new_static)
 		/* program the local mac in the kernel */
-		zebra_evpn_sync_mac_dp_install(mac, false /* set_inactive */,
-					       false /* force_clear_static */,
-					       __func__);
+		zebra_evpn_sync_mac_dp_install(mac, false, false, __func__);
 }
 
 static inline bool zebra_evpn_mac_is_bgp_seq_ok(struct zebra_evpn *zevpn,
@@ -1940,7 +1928,7 @@ void zebra_evpn_rem_mac_del(struct zebra_evpn *zevpn, struct zebra_mac *mac)
 	 * go away, we need to uninstall the MAC.
 	 */
 	if (remote_neigh_count(mac) == 0) {
-		zebra_evpn_rem_mac_uninstall(zevpn, mac, false /*force*/);
+		zebra_evpn_rem_mac_uninstall(zevpn, mac, false);
 		zebra_evpn_es_mac_deref_entry(mac);
 		UNSET_FLAG(mac->flags, ZEBRA_MAC_REMOTE);
 	}
@@ -2339,9 +2327,7 @@ int zebra_evpn_add_update_local_mac(struct zebra_vrf *zvrf,
 
 	/* Inform dataplane if required. */
 	if (inform_dataplane)
-		zebra_evpn_sync_mac_dp_install(mac, false /* set_inactive */,
-					       false /* force_clear_static */,
-					       __func__);
+		zebra_evpn_sync_mac_dp_install(mac, false, false, __func__);
 
 	/* Inform BGP if required. */
 	if (inform_client)
@@ -2395,9 +2381,7 @@ int zebra_evpn_del_local_mac(struct zebra_evpn *zevpn, struct zebra_mac *mac,
 		}
 
 		/* re-install the inactive entry in the kernel */
-		zebra_evpn_sync_mac_dp_install(mac, true /* set_inactive */,
-					       false /* force_clear_static */,
-					       __func__);
+		zebra_evpn_sync_mac_dp_install(mac, true, false, __func__);
 
 		return 0;
 	}
@@ -2410,7 +2394,7 @@ int zebra_evpn_del_local_mac(struct zebra_evpn *zevpn, struct zebra_mac *mac,
 
 	/* Remove MAC from BGP. */
 	zebra_evpn_mac_send_del_to_client(zevpn->vni, &mac->macaddr, mac->flags,
-					  clear_static /* force */);
+					  clear_static);
 
 	zebra_evpn_es_mac_deref_entry(mac);
 
