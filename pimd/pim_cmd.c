@@ -567,7 +567,7 @@ static void igmp_show_interfaces_single(struct pim_instance *pim,
 }
 
 static void igmp_show_interface_join(struct pim_instance *pim, struct vty *vty,
-				     bool uj)
+				     bool uj, enum gm_join_type join_type)
 {
 	struct interface *ifp;
 	time_t now;
@@ -611,6 +611,10 @@ static void igmp_show_interface_join(struct pim_instance *pim, struct vty *vty,
 			char group_str[INET_ADDRSTRLEN];
 			char source_str[INET_ADDRSTRLEN];
 			char uptime[10];
+
+			if (ij->join_type != join_type &&
+			    ij->join_type != GM_JOIN_BOTH)
+				continue;
 
 			pim_time_uptime(uptime, sizeof(uptime),
 					now - ij->sock_creation);
@@ -1784,7 +1788,7 @@ DEFUN (show_ip_igmp_join,
 	if (!vrf)
 		return CMD_WARNING;
 
-	igmp_show_interface_join(vrf->info, vty, uj);
+	igmp_show_interface_join(vrf->info, vty, uj, GM_JOIN_STATIC);
 
 	return CMD_SUCCESS;
 }
@@ -1822,7 +1826,61 @@ DEFUN (show_ip_igmp_join_vrf_all,
 			first = false;
 		} else
 			vty_out(vty, "VRF: %s\n", vrf->name);
-		igmp_show_interface_join(vrf->info, vty, uj);
+		igmp_show_interface_join(vrf->info, vty, uj, GM_JOIN_STATIC);
+	}
+	if (uj)
+		vty_out(vty, "}\n");
+
+	return CMD_SUCCESS;
+}
+
+DEFUN (show_ip_igmp_proxy,
+       show_ip_igmp_proxy_cmd,
+       "show ip igmp [vrf NAME] proxy [json]",
+       SHOW_STR
+       IP_STR
+       IGMP_STR
+       VRF_CMD_HELP_STR
+       "IGMP proxy join information\n"
+       JSON_STR)
+{
+	int idx = 2;
+	bool uj = use_json(argc, argv);
+	struct vrf *vrf = pim_cmd_lookup_vrf(vty, argv, argc, &idx, uj);
+
+	if (!vrf)
+		return CMD_WARNING;
+
+	igmp_show_interface_join(vrf->info, vty, uj, GM_JOIN_PROXY);
+
+	return CMD_SUCCESS;
+}
+
+DEFUN (show_ip_igmp_proxy_vrf_all,
+       show_ip_igmp_proxy_vrf_all_cmd,
+       "show ip igmp vrf all proxy [json]",
+       SHOW_STR
+       IP_STR
+       IGMP_STR
+       VRF_CMD_HELP_STR
+       "IGMP proxy join information\n"
+       JSON_STR)
+{
+	bool uj = use_json(argc, argv);
+	struct vrf *vrf;
+	bool first = true;
+
+	if (uj)
+		vty_out(vty, "{ ");
+	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
+		if (uj) {
+			if (!first)
+				vty_out(vty, ", ");
+			vty_out(vty, " \"%s\": ", vrf->name);
+			first = false;
+		} else
+			vty_out(vty, "VRF: %s\n", vrf->name);
+		igmp_show_interface_join(vrf->info, vty, uj, GM_JOIN_PROXY);
 	}
 	if (uj)
 		vty_out(vty, "}\n");
@@ -5764,7 +5822,7 @@ DEFPY (interface_ip_igmp_proxy,
        IGMP_STR
        "Proxy IGMP join/prune operations\n")
 {
-	return CMD_SUCCESS;
+	return pim_process_ip_gmp_proxy_cmd(vty, !no);
 }
 
 
@@ -8774,6 +8832,8 @@ void pim_cmd_init(void)
 	install_element(VIEW_NODE, &show_ip_igmp_join_group_vrf_all_cmd);
 	install_element(VIEW_NODE, &show_ip_igmp_static_group_cmd);
 	install_element(VIEW_NODE, &show_ip_igmp_static_group_vrf_all_cmd);
+	install_element(VIEW_NODE, &show_ip_igmp_proxy_cmd);
+	install_element(VIEW_NODE, &show_ip_igmp_proxy_vrf_all_cmd);
 	install_element(VIEW_NODE, &show_ip_igmp_groups_cmd);
 	install_element(VIEW_NODE, &show_ip_igmp_groups_vrf_all_cmd);
 	install_element(VIEW_NODE, &show_ip_igmp_groups_retransmissions_cmd);
