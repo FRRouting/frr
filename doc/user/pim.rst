@@ -71,6 +71,31 @@ PIM Routers
    prefix of group ranges covered. This command is vrf aware, to configure for
    a vrf, specify the vrf in the router pim block.
 
+.. clicmd:: no autorp discovery
+
+   In order to use pim, it is necessary to configure a RP for join messages to
+   be sent to. FRR supports learning RP information dynamically via the AutoRP
+   protocol and performs discovery by default. This command will disable the
+   AutoRP discovery protocol.
+   All routers in the pim network must agree on the network RP information, so
+   all routers in the network should have AutoRP either enabled or disabled.
+   This command is vrf aware, to configure for a vrf, specify the vrf in the
+   router pim block.
+
+.. clicmd:: autorp announce A.B.C.D [A.B.C.D/M | group-list PREFIX_LIST]
+
+   Configure the router to advertise itself as a candidate PIM-SM RP via AutoRP.
+   The supported groups can be defined as a single group range, or multiple
+   group ranges can be defined via a prefix list.
+
+.. clicmd:: autorp announce {scope (1-255) | interval (1-65535) | holdtime (0-65535)}
+
+   Configure the AutoRP advertise messages. The scope defines the TTL value in the
+   messages to limit the scope, defaults to 31. Interval defines the number of
+   seconds elapsed between advertise messages sent, defaults to 60. Hold time defines
+   how long the AutoRP mapping agent will consider the information valid, setting to
+   0 will disable expiration of the candidate RP information, defaults to 3 * interval.
+
 .. clicmd:: rp keep-alive-timer (1-65535)
 
    Modify the time out value for a S,G flow from 1-65535 seconds at RP.
@@ -616,6 +641,11 @@ cause great confusion.
       192.168.10.123   239.0.0.0/8         eth2              yes        Static   ASM
       192.168.10.123   239.4.0.0/24        eth2              yes        Static   SSM
 
+.. clicmd:: show ip pim [vrf NAME] autorp [json]
+
+   Display information about AutoRP. Including state of AutoRP Discovery parsing
+   and configured AutoRP candidate RP information.
+
 .. clicmd:: show ip pim rpf
 
    Display information about currently being used S,G's and their RPF lookup
@@ -760,6 +790,10 @@ the config was written out.
 .. clicmd:: debug pim zebra
 
    This gathers data about events from zebra that come up through the ZAPI.
+
+.. clicmd:: debug pim autorp
+
+   This turns on debugging for PIM AutoRP protocol events.
 
 PIM Clear Commands
 ==================
