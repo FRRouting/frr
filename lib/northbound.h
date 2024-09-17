@@ -1016,6 +1016,9 @@ extern int nb_candidate_edit(struct nb_config *candidate,
  * data
  *    New data tree for the node.
  *
+ * created
+ *    OUT param set accordingly if a node was created or just updated
+ *
  * xpath_created
  *    XPath of the created node if operation is "create".
  *
@@ -1030,9 +1033,9 @@ extern int nb_candidate_edit(struct nb_config *candidate,
  *    - NB_ERR for other errors.
  */
 extern int nb_candidate_edit_tree(struct nb_config *candidate,
-				  enum nb_operation operation,
-				  LYD_FORMAT format, const char *xpath,
-				  const char *data, char *xpath_created,
+				  enum nb_operation operation, LYD_FORMAT format,
+				  const char *xpath, const char *data,
+				  bool *created, char *xpath_created,
 				  char *errmsg, size_t errmsg_len);
 
 /*

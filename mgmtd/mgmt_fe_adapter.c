@@ -1164,7 +1164,9 @@ done:
 }
 
 static int fe_adapter_send_edit_reply(struct mgmt_fe_session_ctx *session,
-				      uint64_t req_id, const char *xpath)
+				      uint64_t req_id, bool changed,
+				      bool created, const char *xpath,
+				      const char *data)
 {
 	struct mgmt_msg_edit_reply *msg;
 	int ret;
@@ -1173,14 +1175,19 @@ static int fe_adapter_send_edit_reply(struct mgmt_fe_session_ctx *session,
 					MTYPE_MSG_NATIVE_EDIT_REPLY);
 	msg->refer_id = session->session_id;
 	msg->req_id = req_id;
+	msg->changed = changed;
+	msg->created = created;
 	msg->code = MGMT_MSG_CODE_EDIT_REPLY;
 
 	mgmt_msg_native_xpath_encode(msg, xpath);
 
+	if (data)
+		mgmt_msg_native_append(msg, data, strlen(data) + 1);
+
 	__dbg("Sending edit-reply from adapter %s to session-id %" PRIu64
-	      " req-id %" PRIu64 " len %u",
-	      session->adapter->name, session->session_id, req_id,
-	      mgmt_msg_native_get_msg_len(msg));
+	      " req-id %" PRIu64 " changed %u created %u len %u",
+	      session->adapter->name, session->session_id, req_id, changed,
+	      created, mgmt_msg_native_get_msg_len(msg));
 
 	ret = fe_adapter_send_native_msg(session->adapter, msg,
 					 mgmt_msg_native_get_msg_len(msg),
@@ -1977,8 +1984,8 @@ int mgmt_fe_adapter_send_rpc_reply(uint64_t session_id, uint64_t txn_id,
 
 int mgmt_fe_adapter_send_edit_reply(uint64_t session_id, uint64_t txn_id,
 				    uint64_t req_id, bool unlock, bool commit,
-				    const char *xpath, int16_t error,
-				    const char *errstr)
+				    bool created, const char *xpath,
+				    int16_t error, const char *errstr)
 {
 	struct mgmt_fe_session_ctx *session;
 	Mgmtd__DatastoreId ds_id, rds_id;
@@ -2009,11 +2016,12 @@ int mgmt_fe_adapter_send_edit_reply(uint64_t session_id, uint64_t txn_id,
 		}
 	}
 
-	if (error)
+	if (error != 0 && error != -EALREADY)
 		ret = fe_adapter_send_error(session, req_id, false, error, "%s",
 					    errstr);
 	else
-		ret = fe_adapter_send_edit_reply(session, req_id, xpath);
+		ret = fe_adapter_send_edit_reply(session, req_id, created,
+						 !error, xpath, errstr);
 
 	if (session->cfg_txn_id != MGMTD_TXN_ID_NONE && !commit)
 		mgmt_destroy_txn(&session->cfg_txn_id);

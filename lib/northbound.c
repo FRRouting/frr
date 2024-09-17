@@ -816,8 +816,9 @@ int nb_candidate_edit(struct nb_config *candidate, const struct nb_node *nb_node
 static int nb_candidate_edit_tree_add(struct nb_config *candidate,
 				      enum nb_operation operation,
 				      LYD_FORMAT format, const char *xpath,
-				      const char *data, char *xpath_created,
-				      char *errmsg, size_t errmsg_len)
+				      const char *data, bool *created,
+				      char *xpath_created, char *errmsg,
+				      size_t errmsg_len)
 {
 	struct lyd_node *tree = NULL;
 	struct lyd_node *parent = NULL;
@@ -897,10 +898,18 @@ static int nb_candidate_edit_tree_add(struct nb_config *candidate,
 	}
 
 	/* check if the node already exists in candidate */
-	if (operation == NB_OP_CREATE_EXCL || operation == NB_OP_REPLACE) {
+	if (operation == NB_OP_CREATE || operation == NB_OP_MODIFY)
+		existing = yang_dnode_get(candidate->dnode, xpath_created);
+	else if (operation == NB_OP_CREATE_EXCL || operation == NB_OP_REPLACE) {
 		existing = yang_dnode_get(candidate->dnode, xpath_created);
 
 		/* if the existing node is implicit default, ignore */
+		/* Q: Is this correct for CREATE_EXCL which is supposed to error
+		 * if the resouurce already exists? This is used by RESTCONF
+		 * when processing the POST command, for example. RFC8040
+		 * doesn't say POST fails if resource exists "unless it was a
+		 * default".
+		 */
 		if (existing && (existing->flags & LYD_DEFAULT))
 			existing = NULL;
 
@@ -930,7 +939,7 @@ static int nb_candidate_edit_tree_add(struct nb_config *candidate,
 				 LYD_MERGE_DESTRUCT | LYD_MERGE_WITH_FLAGS);
 	if (err) {
 		/* if replace failed, restore the original node */
-		if (existing) {
+		if (existing && operation == NB_OP_REPLACE) {
 			if (root) {
 				/* Restoring the whole config. */
 				candidate->dnode = existing;
@@ -954,6 +963,8 @@ static int nb_candidate_edit_tree_add(struct nb_config *candidate,
 		ret = NB_ERR;
 		goto done;
 	} else {
+		if (!existing)
+			*created = true;
 		/*
 		 * Free existing node after replace.
 		 * We're using `lyd_free_siblings` here to free the whole
@@ -961,7 +972,7 @@ static int nb_candidate_edit_tree_add(struct nb_config *candidate,
 		 * siblings if it wasn't root, because the existing node
 		 * was unlinked from the tree.
 		 */
-		if (existing)
+		if (existing && operation == NB_OP_REPLACE)
 			lyd_free_siblings(existing);
 
 		tree = NULL; /* LYD_MERGE_DESTRUCT deleted the tree */
@@ -1011,7 +1022,7 @@ static int nb_candidate_edit_tree_del(struct nb_config *candidate,
 
 int nb_candidate_edit_tree(struct nb_config *candidate,
 			   enum nb_operation operation, LYD_FORMAT format,
-			   const char *xpath, const char *data,
+			   const char *xpath, const char *data, bool *created,
 			   char *xpath_created, char *errmsg, size_t errmsg_len)
 {
 	int ret = NB_ERR;
@@ -1022,8 +1033,9 @@ int nb_candidate_edit_tree(struct nb_config *candidate,
 	case NB_OP_MODIFY:
 	case NB_OP_REPLACE:
 		ret = nb_candidate_edit_tree_add(candidate, operation, format,
-						 xpath, data, xpath_created,
-						 errmsg, errmsg_len);
+						 xpath, data, created,
+						 xpath_created, errmsg,
+						 errmsg_len);
 		break;
 	case NB_OP_DESTROY:
 	case NB_OP_DELETE:

@@ -94,6 +94,7 @@ DECLARE_LIST(mgmt_txn_batches, struct mgmt_txn_be_cfg_batch, list_linkage);
 
 struct mgmt_edit_req {
 	char xpath_created[XPATH_MAXLEN];
+	bool created;
 	bool unlock;
 };
 
@@ -741,6 +742,8 @@ static int mgmt_txn_send_commit_cfg_reply(struct mgmt_txn_ctx *txn,
 					    txn->commit_cfg_req->req.commit_cfg
 						    .edit->unlock,
 					    true,
+					    txn->commit_cfg_req->req.commit_cfg
+						    .edit->created,
 					    txn->commit_cfg_req->req.commit_cfg
 						    .edit->xpath_created,
 					    success ? 0 : -1,
@@ -2566,8 +2569,8 @@ int mgmt_txn_send_edit(uint64_t txn_id, uint64_t req_id,
 	assert(nb_config);
 
 	ret = nb_candidate_edit_tree(nb_config, operation, request_type, xpath,
-				     data, edit->xpath_created, errstr,
-				     sizeof(errstr));
+				     data, &edit->created, edit->xpath_created,
+				     errstr, sizeof(errstr));
 	if (ret)
 		goto reply;
 
@@ -2581,7 +2584,8 @@ int mgmt_txn_send_edit(uint64_t txn_id, uint64_t req_id,
 	}
 reply:
 	mgmt_fe_adapter_send_edit_reply(txn->session_id, txn->txn_id, req_id,
-					unlock, commit, edit->xpath_created,
+					unlock, commit, edit->created,
+					edit->xpath_created,
 					errno_from_nb_error(ret), errstr);
 
 	XFREE(MTYPE_MGMTD_TXN_REQ, edit);
