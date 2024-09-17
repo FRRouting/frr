@@ -69,6 +69,34 @@ static inline const char *mgmt_txn_type2str(enum mgmt_txn_type type)
 	return "Unknown";
 }
 
+
+static inline int16_t errno_from_nb_error(enum nb_error ret)
+{
+	switch (ret) {
+	case NB_OK:
+		return 0;
+	case NB_ERR_NO_CHANGES:
+		return -EALREADY;
+	case NB_ERR_NOT_FOUND:
+		return -ENOENT;
+	case NB_ERR_EXISTS:
+		return -EEXIST;
+	case NB_ERR_LOCKED:
+		return -EWOULDBLOCK;
+	case NB_ERR_VALIDATION:
+		return -EINVAL;
+	case NB_ERR_RESOURCE:
+		return -ENOMEM;
+	case NB_ERR:
+	case NB_ERR_INCONSISTENCY:
+		return -EINVAL;
+	case NB_YIELD:
+	default:
+		return -EINVAL;
+	}
+}
+
+
 /* Initialise transaction module. */
 extern int mgmt_txn_init(struct mgmt_master *cm, struct event_loop *tm);
 
