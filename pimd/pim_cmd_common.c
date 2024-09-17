@@ -606,6 +606,165 @@ int pim_process_no_rp_plist_cmd(struct vty *vty, const char *rp_str,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
+int pim_process_autorp_cmd(struct vty *vty)
+{
+	char xpath[XPATH_MAXLEN];
+
+	snprintf(xpath, sizeof(xpath), "%s/%s", FRR_PIM_AUTORP_XPATH,
+		 "discovery-enabled");
+
+	nb_cli_enqueue_change(vty, xpath, NB_OP_MODIFY, "true");
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+int pim_process_no_autorp_cmd(struct vty *vty)
+{
+	char xpath[XPATH_MAXLEN];
+
+	snprintf(xpath, sizeof(xpath), "%s/%s", FRR_PIM_AUTORP_XPATH,
+		 "discovery-enabled");
+
+	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+int pim_process_autorp_candidate_rp_cmd(struct vty *vty, bool no,
+					const char *rpaddr_str,
+					const struct prefix_ipv4 *grp,
+					const char *plist)
+{
+	char xpath[XPATH_MAXLEN];
+	char grpstr[64];
+
+	if (no) {
+		if (!is_default_prefix((const struct prefix *)grp) || plist) {
+			/* If any single values are set, only destroy those */
+			if (!is_default_prefix((const struct prefix *)grp)) {
+				snprintfrr(xpath, sizeof(xpath),
+					   "%s/candidate-rp-list[rp-address='%s']/group",
+					   FRR_PIM_AUTORP_XPATH, rpaddr_str);
+				nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY,
+						      NULL);
+			}
+			if (plist) {
+				snprintfrr(xpath, sizeof(xpath),
+					   "%s/candidate-rp-list[rp-address='%s']/prefix-list",
+					   FRR_PIM_AUTORP_XPATH, rpaddr_str);
+				nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY,
+						      NULL);
+			}
+		} else {
+			/* No values set, remove the entire RP */
+			snprintfrr(xpath, sizeof(xpath),
+				   "%s/candidate-rp-list[rp-address='%s']",
+				   FRR_PIM_AUTORP_XPATH, rpaddr_str);
+			nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+		}
+	} else {
+		if (!is_default_prefix((const struct prefix *)grp) || plist) {
+			snprintfrr(xpath, sizeof(xpath),
+				   "%s/candidate-rp-list[rp-address='%s']",
+				   FRR_PIM_AUTORP_XPATH, rpaddr_str);
+			nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
+			if (!is_default_prefix((const struct prefix *)grp)) {
+				snprintfrr(xpath, sizeof(xpath),
+					   "%s/candidate-rp-list[rp-address='%s']/group",
+					   FRR_PIM_AUTORP_XPATH, rpaddr_str);
+				nb_cli_enqueue_change(vty, xpath, NB_OP_MODIFY,
+						      prefix2str(grp, grpstr,
+								 sizeof(grpstr)));
+			}
+			if (plist) {
+				snprintfrr(xpath, sizeof(xpath),
+					   "%s/candidate-rp-list[rp-address='%s']/prefix-list",
+					   FRR_PIM_AUTORP_XPATH, rpaddr_str);
+				nb_cli_enqueue_change(vty, xpath, NB_OP_MODIFY,
+						      plist);
+			}
+		} else {
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+	}
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+int pim_process_autorp_announce_scope_int_cmd(struct vty *vty, bool no,
+					      const char *scope,
+					      const char *interval,
+					      const char *holdtime)
+{
+	char xpath[XPATH_MAXLEN];
+
+	if (no) {
+		if (scope || interval || holdtime) {
+			/* If any single values are set, only destroy those */
+			if (scope) {
+				snprintfrr(xpath, sizeof(xpath), "%s/%s",
+					   FRR_PIM_AUTORP_XPATH,
+					   "announce-scope");
+				nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY,
+						      NULL);
+			}
+			if (interval) {
+				snprintfrr(xpath, sizeof(xpath), "%s/%s",
+					   FRR_PIM_AUTORP_XPATH,
+					   "announce-interval");
+				nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY,
+						      NULL);
+			}
+			if (holdtime) {
+				snprintfrr(xpath, sizeof(xpath), "%s/%s",
+					   FRR_PIM_AUTORP_XPATH,
+					   "announce-holdtime");
+				nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY,
+						      NULL);
+			}
+		} else {
+			/* No values set, remove all */
+			snprintfrr(xpath, sizeof(xpath), "%s/%s",
+				   FRR_PIM_AUTORP_XPATH, "announce-scope");
+			nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+			snprintfrr(xpath, sizeof(xpath), "%s/%s",
+				   FRR_PIM_AUTORP_XPATH, "announce-interval");
+			nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+			snprintfrr(xpath, sizeof(xpath), "%s/%s",
+				   FRR_PIM_AUTORP_XPATH, "announce-holdtime");
+			nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+		}
+	} else {
+		if (scope || interval || holdtime) {
+			if (scope) {
+				snprintfrr(xpath, sizeof(xpath), "%s/%s",
+					   FRR_PIM_AUTORP_XPATH,
+					   "announce-scope");
+				nb_cli_enqueue_change(vty, xpath, NB_OP_MODIFY,
+						      scope);
+			}
+			if (interval) {
+				snprintfrr(xpath, sizeof(xpath), "%s/%s",
+					   FRR_PIM_AUTORP_XPATH,
+					   "announce-interval");
+				nb_cli_enqueue_change(vty, xpath, NB_OP_MODIFY,
+						      interval);
+			}
+			if (holdtime) {
+				snprintfrr(xpath, sizeof(xpath), "%s/%s",
+					   FRR_PIM_AUTORP_XPATH,
+					   "announce-holdtime");
+				nb_cli_enqueue_change(vty, xpath, NB_OP_MODIFY,
+						      holdtime);
+			}
+		} else {
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+	}
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
 bool pim_sgaddr_match(pim_sgaddr item, pim_sgaddr match)
 {
 	return (pim_addr_is_any(match.grp) ||

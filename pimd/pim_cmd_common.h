@@ -35,7 +35,16 @@ int pim_process_rp_plist_cmd(struct vty *vty, const char *rp_str,
 			     const char *prefix_list);
 int pim_process_no_rp_plist_cmd(struct vty *vty, const char *rp_str,
 				const char *prefix_list);
-
+int pim_process_autorp_cmd(struct vty *vty);
+int pim_process_no_autorp_cmd(struct vty *vty);
+int pim_process_autorp_candidate_rp_cmd(struct vty *vty, bool no,
+					const char *rpaddr_str,
+					const struct prefix_ipv4 *grp,
+					const char *plist);
+int pim_process_autorp_announce_scope_int_cmd(struct vty *vty, bool no,
+					      const char *scope,
+					      const char *interval,
+					      const char *holdtime);
 int pim_process_ip_pim_cmd(struct vty *vty);
 int pim_process_no_ip_pim_cmd(struct vty *vty);
 int pim_process_ip_pim_passive_cmd(struct vty *vty, bool enable);
