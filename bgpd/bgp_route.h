@@ -804,9 +804,19 @@ extern void bgp_withdraw(struct peer *peer, const struct prefix *p,
 			 int sub_type, struct prefix_rd *prd,
 			 mpls_label_t *label, uint8_t num_labels);
 
-/* for bgp_nexthop and bgp_damp */
+/*
+ * Add a route to be processed for bgp bestpath through the bgp
+ * workqueue.  This route is added to the end of all other routes
+ * queued for processing
+ *
+ * bgp_process_early adds the route for processing at the beginning
+ * of the current queue for processing.
+ */
 extern void bgp_process(struct bgp *bgp, struct bgp_dest *dest,
 			struct bgp_path_info *pi, afi_t afi, safi_t safi);
+
+extern void bgp_process_early(struct bgp *bgp, struct bgp_dest *dest,
+			      struct bgp_path_info *pi, afi_t afi, safi_t safi);
 
 /*
  * Add an end-of-initial-update marker to the process queue. This is just a
