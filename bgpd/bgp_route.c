@@ -1,4 +1,3 @@
-// SPDX-License-Identifier: GPL-2.0-or-later
 /* BGP routing information
  * Copyright (C) 1996, 97, 98, 99 Kunihiro Ishiguro
  * Copyright (C) 2016 Job Snijders <job@instituut.net>
@@ -75,6 +74,7 @@
 #include "bgpd/bgp_flowspec.h"
 #include "bgpd/bgp_flowspec_util.h"
 #include "bgpd/bgp_pbr.h"
+#include "bgpd/bgp_rtc.h"
 
 #include "bgpd/bgp_route_clippy.c"
 
@@ -2501,6 +2501,14 @@ bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
 	    bgp_otc_egress(peer, attr))
 		return false;
 
+	/* RTC-Filtering */
+	if (peer->afc[AFI_IP][SAFI_RTC]) {
+		/* The update group should only have one peer */
+		onlypeer = SUBGRP_PFIRST(subgrp)->peer;
+		if (bgp_rtc_filter(onlypeer, attr, p))
+			return false;
+	}
+
 	if (filter->advmap.update_type == UPDATE_TYPE_WITHDRAW &&
 	    filter->advmap.aname &&
 	    route_map_lookup_by_name(filter->advmap.aname)) {
@@ -3535,6 +3543,7 @@ static void bgp_lu_handle_label_allocation(struct bgp *bgp,
 		   CHECK_FLAG(dest->flags, BGP_NODE_LABEL_REQUESTED)) {
 		bgp_unregister_for_label(dest);
 	}
+
 }
 
 static struct interface *
@@ -6638,6 +6647,11 @@ static void bgp_nexthop_reachability_check(afi_t afi, safi_t safi,
 					   struct bgp *bgp,
 					   struct bgp *bgp_nexthop)
 {
+	if (safi == SAFI_RTC) {
+		bgp_unlink_nexthop(bpi);
+
+		bgp_path_info_set_flag(dest, bpi, BGP_PATH_VALID);
+	}
 	/* Nexthop reachability check. */
 	if (safi == SAFI_UNICAST || safi == SAFI_LABELED_UNICAST) {
 		if (CHECK_FLAG(bgp->flags, BGP_FLAG_IMPORT_CHECK)) {
@@ -6669,12 +6683,12 @@ static void bgp_nexthop_reachability_check(afi_t afi, safi_t safi,
 	}
 }
 
-static struct bgp_static *bgp_static_new(void)
+struct bgp_static *bgp_static_new(void)
 {
 	return XCALLOC(MTYPE_BGP_STATIC, sizeof(struct bgp_static));
 }
 
-static void bgp_static_free(struct bgp_static *bgp_static)
+void bgp_static_free(struct bgp_static *bgp_static)
 {
 	XFREE(MTYPE_ROUTE_MAP_NAME, bgp_static->rmap.name);
 	route_map_counter_decrement(bgp_static->rmap.map);
@@ -12077,6 +12091,69 @@ static int bgp_show_table(struct vty *vty, struct bgp *bgp, afi_t afi, safi_t sa
 	return CMD_SUCCESS;
 }
 
+int bgp_show_table_rtc(struct vty *vty, struct bgp *bgp, safi_t safi,
+		       struct bgp_table *table, enum bgp_show_type type,
+		       void *output_arg, uint16_t show_flags);
+int bgp_show_table_rtc(struct vty *vty, struct bgp *bgp, safi_t safi,
+		       struct bgp_table *table, enum bgp_show_type type,
+		       void *output_arg, uint16_t show_flags)
+{
+	struct bgp_dest *dest, *next;
+	unsigned long output_cum = 0;
+	unsigned long total_cum = 0;
+	struct bgp_table *itable;
+	bool show_msg;
+	bool use_json = !!CHECK_FLAG(show_flags, BGP_SHOW_OPT_JSON);
+
+	show_msg = (!use_json && type == bgp_show_type_normal);
+
+	for (dest = bgp_table_top(table); dest; dest = next) {
+		struct prefix local_p = {};
+		const struct prefix *dest_p = bgp_dest_get_prefix(dest);
+		local_p = *dest_p;
+
+		next = bgp_route_next(dest);
+
+		itable = bgp_dest_get_bgp_table_info(dest);
+		if (itable != NULL) {
+
+			struct bgp_path_info *pi =
+				bgp_dest_get_bgp_path_info(dest);
+			struct ecommunity *ecom = ecommunity_parse(
+				local_p.u.prefix_rtc.route_target, 8, true);
+			char *ecomstr = ecommunity_ecom2str(
+				ecom, ECOMMUNITY_FORMAT_DISPLAY, 0);
+			vty_out(vty,
+				"Prefix: \n\tRoute Target: %s/%u\n\tOrigin-as: %u\n",
+				ecomstr, local_p.prefixlen,
+				local_p.u.prefix_rtc.origin_as);
+			XFREE(MTYPE_ECOMMUNITY_STR, ecomstr);
+			ecommunity_unintern(&ecom);
+			route_vty_out_detail_header(vty, bgp, dest, &local_p,
+						    NULL, AFI_IP, safi, NULL,
+						    false);
+			route_vty_out_detail(vty, bgp, dest, &local_p, pi,
+					     AFI_IP, safi, RPKI_NOT_BEING_USED,
+					     NULL);
+			if (next == NULL)
+				show_msg = false;
+		}
+	}
+	if (show_msg) {
+		if (output_cum == 0)
+			vty_out(vty, "No BGP prefixes displayed, %ld exist\n",
+				total_cum);
+		else
+			vty_out(vty,
+				"\nDisplayed  %ld routes and %ld total paths\n",
+				output_cum, total_cum);
+	} else {
+		if (use_json && output_cum == 0)
+			vty_out(vty, "{}\n");
+	}
+	return CMD_SUCCESS;
+}
+
 int bgp_show_table_rd(struct vty *vty, struct bgp *bgp, afi_t afi, safi_t safi,
 		      struct bgp_table *table, struct prefix_rd *prd_match,
 		      enum bgp_show_type type, void *output_arg,
@@ -12528,6 +12605,7 @@ const struct prefix_rd *bgp_rd_from_dest(const struct bgp_dest *dest,
 	case SAFI_UNICAST:
 	case SAFI_MULTICAST:
 	case SAFI_LABELED_UNICAST:
+	case SAFI_RTC:
 	case SAFI_FLOWSPEC:
 	case SAFI_MAX:
 		return NULL;
@@ -16200,7 +16278,28 @@ void bgp_config_write_network(struct vty *vty, struct bgp *bgp, afi_t afi,
 
 		p = bgp_dest_get_prefix(dest);
 
-		vty_out(vty, "  network %pFX", p);
+		if (safi == SAFI_RTC) {
+			/* Only prefixes with a length of more than 48 have the
+			 * type and subtype field set. If those aren't set
+			 * ecommunity_ecom2str returns just UNK: */
+			if (p->prefixlen >= 48) {
+				struct ecommunity *ecom = ecommunity_parse(
+					(unsigned char *)&p->u.prefix_rtc
+						.route_target,
+					8, false);
+				char *b = ecommunity_ecom2str(
+					ecom, ECOMMUNITY_FORMAT_ROUTE_MAP,
+					ECOMMUNITY_ROUTE_TARGET);
+				vty_out(vty, "  rt %s", b);
+				ecommunity_unintern(&ecom);
+				XFREE(MTYPE_ECOMMUNITY_STR, b);
+			} else {
+				vty_out(vty, "  rt 0:0");
+			}
+			vty_out(vty, "/%d", p->prefixlen);
+		} else {
+			vty_out(vty, "  network %pFX", p);
+		}
 
 		if (bgp_static->label_index != BGP_INVALID_LABEL_INDEX)
 			vty_out(vty, " label-index %u",

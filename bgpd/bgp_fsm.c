@@ -1534,6 +1534,12 @@ enum bgp_fsm_state_progress bgp_stop(struct peer_connection *connection)
 		}
 	}
 
+	/* Reset the rtc-plist */
+	if (peer->rtc_plist != NULL) {
+		prefix_list_delete(peer->rtc_plist);
+		peer->rtc_plist = NULL;
+	}
+
 	/* Reset keepalive and holdtime */
 	if (CHECK_FLAG(peer->flags, PEER_FLAG_TIMER)) {
 		peer->v_keepalive = peer->keepalive;

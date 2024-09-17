@@ -28,6 +28,7 @@ DEFINE_MTYPE_STATIC(LIB, PREFIX_LIST_TRIE, "Prefix List Trie Table");
 #define PLC_BITS	8
 #define PLC_LEN		(1 << PLC_BITS)
 #define PLC_MAXLEVELV4	2	/* /24 for IPv4 */
+#define PLC_MAXLEVELRTC 3       /* /96 for RTC */
 #define PLC_MAXLEVELV6	4	/* /48 for IPv6 */
 #define PLC_MAXLEVEL	4	/* max(v4,v6) */
 
@@ -58,6 +59,10 @@ struct prefix_master {
 	/* number of bytes that have a trie level */
 	size_t trie_depth;
 
+	/* value to return if a prefix_list is empty and we are trying to get a
+	 * match */
+	enum prefix_list_type empty_action;
+
 	struct plist_head str;
 };
 static int prefix_list_compare_func(const struct prefix_list *a,
@@ -67,26 +72,36 @@ DECLARE_RBTREE_UNIQ(plist, struct prefix_list, plist_item,
 
 /* Static structure of IPv4 prefix_list's master. */
 static struct prefix_master prefix_master_ipv4 = {
-	NULL, NULL, NULL, PLC_MAXLEVELV4,
+	NULL, NULL, NULL, PLC_MAXLEVELV4, PREFIX_PERMIT,
 };
 
 /* Static structure of IPv6 prefix-list's master. */
 static struct prefix_master prefix_master_ipv6 = {
-	NULL, NULL, NULL, PLC_MAXLEVELV6,
+	NULL, NULL, NULL, PLC_MAXLEVELV6, PREFIX_PERMIT,
 };
 
 /* Static structure of BGP ORF prefix_list's master. */
 static struct prefix_master prefix_master_orf_v4 = {
-	NULL, NULL, NULL, PLC_MAXLEVELV4,
+	NULL, NULL, NULL, PLC_MAXLEVELV4, PREFIX_PERMIT,
 };
 
 /* Static structure of BGP ORF prefix_list's master. */
 static struct prefix_master prefix_master_orf_v6 = {
-	NULL, NULL, NULL, PLC_MAXLEVELV6,
+	NULL, NULL, NULL, PLC_MAXLEVELV6, PREFIX_PERMIT,
 };
 
-static struct prefix_master *prefix_master_get(afi_t afi, int orf)
+/* Satic structure of BGP Route target constrain prefix_list's master. */
+static struct prefix_master prefix_master_rtc = {
+	NULL, NULL, NULL, PLC_MAXLEVELRTC, PREFIX_DENY,
+};
+
+static struct prefix_master *prefix_master_get(afi_t afi, int orf, int rtc)
 {
+	if (orf && rtc)
+		return NULL;
+
+	if (rtc)
+		return &prefix_master_rtc;
 	if (afi == AFI_IP)
 		return orf ? &prefix_master_orf_v4 : &prefix_master_ipv4;
 	if (afi == AFI_IP6)
@@ -114,7 +129,7 @@ static int prefix_list_compare_func(const struct prefix_list *a,
 }
 
 /* Lookup prefix_list from list of prefix_list by name. */
-static struct prefix_list *prefix_list_lookup_do(afi_t afi, int orf,
+static struct prefix_list *prefix_list_lookup_do(afi_t afi, int orf, int rtc,
 						 const char *name)
 {
 	struct prefix_list *plist, lookup;
@@ -123,7 +138,7 @@ static struct prefix_list *prefix_list_lookup_do(afi_t afi, int orf,
 	if (name == NULL)
 		return NULL;
 
-	master = prefix_master_get(afi, orf);
+	master = prefix_master_get(afi, orf, rtc);
 	if (master == NULL)
 		return NULL;
 
@@ -135,12 +150,12 @@ static struct prefix_list *prefix_list_lookup_do(afi_t afi, int orf,
 
 struct prefix_list *prefix_list_lookup(afi_t afi, const char *name)
 {
-	return prefix_list_lookup_do(afi, 0, name);
+	return prefix_list_lookup_do(afi, 0, 0, name);
 }
 
 struct prefix_list *prefix_bgp_orf_lookup(afi_t afi, const char *name)
 {
-	return prefix_list_lookup_do(afi, 1, name);
+	return prefix_list_lookup_do(afi, 1, 0, name);
 }
 
 static struct prefix_list *prefix_list_new(void)
@@ -172,13 +187,13 @@ void prefix_list_entry_free(struct prefix_list_entry *pentry)
 
 /* Insert new prefix list to list of prefix_list.  Each prefix_list
    is sorted by the name. */
-static struct prefix_list *prefix_list_insert(afi_t afi, int orf,
+static struct prefix_list *prefix_list_insert(afi_t afi, int orf, int rtc,
 					      const char *name)
 {
 	struct prefix_list *plist;
 	struct prefix_master *master;
 
-	master = prefix_master_get(afi, orf);
+	master = prefix_master_get(afi, orf, rtc);
 	if (master == NULL)
 		return NULL;
 
@@ -194,14 +209,15 @@ static struct prefix_list *prefix_list_insert(afi_t afi, int orf,
 	return plist;
 }
 
-struct prefix_list *prefix_list_get(afi_t afi, int orf, const char *name)
+struct prefix_list *prefix_list_get(afi_t afi, int orf, int rtc,
+				    const char *name)
 {
 	struct prefix_list *plist;
 
-	plist = prefix_list_lookup_do(afi, orf, name);
+	plist = prefix_list_lookup_do(afi, orf, rtc, name);
 
 	if (plist == NULL)
-		plist = prefix_list_insert(afi, orf, name);
+		plist = prefix_list_insert(afi, orf, rtc, name);
 	return plist;
 }
 
@@ -789,7 +805,7 @@ enum prefix_list_type prefix_list_apply_ext(
 	if (plist->count == 0) {
 		if (which)
 			*which = NULL;
-		return PREFIX_PERMIT;
+		return plist->master->empty_action;
 	}
 
 	depth = plist->master->trie_depth;
@@ -1074,7 +1090,7 @@ static int vty_show_prefix_list(struct vty *vty, afi_t afi, const char *name,
 	int64_t seqnum = 0;
 	json_object *json = NULL;
 
-	master = prefix_master_get(afi, 0);
+	master = prefix_master_get(afi, 0, 0);
 	if (master == NULL)
 		return CMD_WARNING;
 
@@ -1185,7 +1201,7 @@ static int vty_clear_prefix_list(struct vty *vty, afi_t afi, const char *name,
 	int ret;
 	struct prefix p;
 
-	master = prefix_master_get(afi, 0);
+	master = prefix_master_get(afi, 0, 0);
 	if (master == NULL)
 		return CMD_WARNING;
 
@@ -1456,6 +1472,41 @@ struct stream *prefix_bgp_orf_entry(struct stream *s, struct prefix_list *plist,
 
 	return s;
 }
+int prefix_bgp_rtc_set(char *name, struct prefix *p, int permit, int set)
+{
+	struct prefix_list *plist;
+	struct prefix_list_entry *pentry;
+
+
+	plist = prefix_list_get(AFI_IP, 0, 1, name);
+	if (!plist) {
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+
+	if (set) {
+		pentry = prefix_list_entry_make(
+			p, (permit ? PREFIX_PERMIT : PREFIX_DENY), -1, 0, 0,
+			false);
+
+		if (prefix_entry_dup_check(plist, pentry)) {
+			prefix_list_entry_free(pentry);
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+		prefix_list_entry_add(plist, pentry);
+	} else {
+		pentry = prefix_list_entry_lookup(
+			plist, p, (permit ? PREFIX_PERMIT : PREFIX_DENY), -1, 0,
+			0);
+
+		if (!pentry)
+			return CMD_WARNING_CONFIG_FAILED;
+
+		prefix_list_entry_delete(plist, pentry, 0);
+	}
+
+	return CMD_SUCCESS;
+}
 
 int prefix_bgp_orf_set(char *name, afi_t afi, struct orf_prefix *orfp,
 		       int permit, int set)
@@ -1474,7 +1525,7 @@ int prefix_bgp_orf_set(char *name, afi_t afi, struct orf_prefix *orfp,
 	if (orfp->ge && orfp->le == (afi == AFI_IP ? 32 : 128))
 		orfp->le = 0;
 
-	plist = prefix_list_get(afi, 1, name);
+	plist = prefix_list_get(afi, 1, 0, name);
 	if (!plist)
 		return CMD_WARNING_CONFIG_FAILED;
 
@@ -1589,12 +1640,12 @@ int prefix_bgp_show_prefix_list(struct vty *vty, afi_t afi, char *name,
 	return plist->count;
 }
 
-static void prefix_list_reset_afi(afi_t afi, int orf)
+static void prefix_list_reset_afi(afi_t afi, int orf, int rtc)
 {
 	struct prefix_list *plist;
 	struct prefix_master *master;
 
-	master = prefix_master_get(afi, orf);
+	master = prefix_master_get(afi, orf, rtc);
 	if (master == NULL)
 		return;
 
@@ -1618,7 +1669,7 @@ static void plist_autocomplete_afi(afi_t afi, vector comps,
 	struct prefix_list *plist;
 	struct prefix_master *master;
 
-	master = prefix_master_get(afi, 0);
+	master = prefix_master_get(afi, 0, 0);
 	if (master == NULL)
 		return;
 
@@ -1693,6 +1744,7 @@ void prefix_list_init(void)
 	plist_init(&prefix_master_orf_v4.str);
 	plist_init(&prefix_master_ipv6.str);
 	plist_init(&prefix_master_orf_v6.str);
+	plist_init(&prefix_master_rtc.str);
 
 	cmd_variable_handler_register(plist_var_handlers);
 
@@ -1702,8 +1754,9 @@ void prefix_list_init(void)
 
 void prefix_list_reset(void)
 {
-	prefix_list_reset_afi(AFI_IP, 0);
-	prefix_list_reset_afi(AFI_IP6, 0);
-	prefix_list_reset_afi(AFI_IP, 1);
-	prefix_list_reset_afi(AFI_IP6, 1);
+	prefix_list_reset_afi(AFI_IP, 0, 0);
+	prefix_list_reset_afi(AFI_IP6, 0, 0);
+	prefix_list_reset_afi(AFI_IP, 1, 0);
+	prefix_list_reset_afi(AFI_IP6, 1, 0);
+	prefix_list_reset_afi(AFI_IP, 0, 1);
 }

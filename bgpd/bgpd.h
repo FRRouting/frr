@@ -89,6 +89,7 @@ enum bgp_af_index {
 	BGP_AF_IPV6_LBL_UNICAST,
 	BGP_AF_IPV4_FLOWSPEC,
 	BGP_AF_IPV6_FLOWSPEC,
+	BGP_AF_RTC,
 	BGP_AF_MAX
 };
 
@@ -1754,6 +1755,9 @@ struct peer {
 	/* ORF Prefix-list */
 	struct prefix_list *orf_plist[AFI_MAX][SAFI_MAX];
 
+	/* Route Target Constrain list */
+	struct prefix_list *rtc_plist;
+
 	/* Text description of last attribute rcvd */
 	char rcvd_attr_str[BUFSIZ];
 
@@ -2582,6 +2586,8 @@ static inline int afindex(afi_t afi, safi_t safi)
 			return BGP_AF_IPV4_ENCAP;
 		case SAFI_FLOWSPEC:
 			return BGP_AF_IPV4_FLOWSPEC;
+		case SAFI_RTC:
+			return BGP_AF_RTC;
 		case SAFI_EVPN:
 		case SAFI_UNSPEC:
 		case SAFI_MAX:
@@ -2602,6 +2608,7 @@ static inline int afindex(afi_t afi, safi_t safi)
 			return BGP_AF_IPV6_ENCAP;
 		case SAFI_FLOWSPEC:
 			return BGP_AF_IPV6_FLOWSPEC;
+		case SAFI_RTC:
 		case SAFI_EVPN:
 		case SAFI_UNSPEC:
 		case SAFI_MAX:
@@ -2619,6 +2626,7 @@ static inline int afindex(afi_t afi, safi_t safi)
 		case SAFI_ENCAP:
 		case SAFI_FLOWSPEC:
 		case SAFI_UNSPEC:
+		case SAFI_RTC:
 		case SAFI_MAX:
 			return BGP_AF_MAX;
 		}
@@ -2642,13 +2650,13 @@ static inline int peer_group_active(struct peer *peer)
 /* If peer is negotiated at least one address family return 1. */
 static inline int peer_afi_active_nego(const struct peer *peer, afi_t afi)
 {
-	if (peer->afc_nego[afi][SAFI_UNICAST]
-	    || peer->afc_nego[afi][SAFI_MULTICAST]
-	    || peer->afc_nego[afi][SAFI_LABELED_UNICAST]
-	    || peer->afc_nego[afi][SAFI_MPLS_VPN]
-	    || peer->afc_nego[afi][SAFI_ENCAP]
-	    || peer->afc_nego[afi][SAFI_FLOWSPEC]
-	    || peer->afc_nego[afi][SAFI_EVPN])
+	if (peer->afc_nego[afi][SAFI_UNICAST] ||
+	    peer->afc_nego[afi][SAFI_MULTICAST] ||
+	    peer->afc_nego[afi][SAFI_LABELED_UNICAST] ||
+	    peer->afc_nego[afi][SAFI_MPLS_VPN] ||
+	    peer->afc_nego[afi][SAFI_ENCAP] ||
+	    peer->afc_nego[afi][SAFI_FLOWSPEC] ||
+	    peer->afc_nego[afi][SAFI_EVPN] || peer->afc_nego[afi][SAFI_RTC])
 		return 1;
 	return 0;
 }
@@ -2658,17 +2666,18 @@ static inline int peer_group_af_configured(struct peer_group *group)
 {
 	struct peer *peer = group->conf;
 
-	if (peer->afc[AFI_IP][SAFI_UNICAST] || peer->afc[AFI_IP][SAFI_MULTICAST]
-	    || peer->afc[AFI_IP][SAFI_LABELED_UNICAST]
-	    || peer->afc[AFI_IP][SAFI_FLOWSPEC]
-	    || peer->afc[AFI_IP][SAFI_MPLS_VPN] || peer->afc[AFI_IP][SAFI_ENCAP]
-	    || peer->afc[AFI_IP6][SAFI_UNICAST]
-	    || peer->afc[AFI_IP6][SAFI_MULTICAST]
-	    || peer->afc[AFI_IP6][SAFI_LABELED_UNICAST]
-	    || peer->afc[AFI_IP6][SAFI_MPLS_VPN]
-	    || peer->afc[AFI_IP6][SAFI_ENCAP]
-	    || peer->afc[AFI_IP6][SAFI_FLOWSPEC]
-	    || peer->afc[AFI_L2VPN][SAFI_EVPN])
+	if (peer->afc[AFI_IP][SAFI_UNICAST] ||
+	    peer->afc[AFI_IP][SAFI_MULTICAST] ||
+	    peer->afc[AFI_IP][SAFI_LABELED_UNICAST] ||
+	    peer->afc[AFI_IP][SAFI_FLOWSPEC] ||
+	    peer->afc[AFI_IP][SAFI_MPLS_VPN] || peer->afc[AFI_IP][SAFI_ENCAP] ||
+	    peer->afc[AFI_IP][SAFI_RTC] || peer->afc[AFI_IP6][SAFI_UNICAST] ||
+	    peer->afc[AFI_IP6][SAFI_MULTICAST] ||
+	    peer->afc[AFI_IP6][SAFI_LABELED_UNICAST] ||
+	    peer->afc[AFI_IP6][SAFI_MPLS_VPN] ||
+	    peer->afc[AFI_IP6][SAFI_ENCAP] ||
+	    peer->afc[AFI_IP6][SAFI_FLOWSPEC] ||
+	    peer->afc[AFI_L2VPN][SAFI_EVPN])
 		return 1;
 	return 0;
 }

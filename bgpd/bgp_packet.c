@@ -50,6 +50,7 @@
 #include "bgpd/bgp_keepalives.h"
 #include "bgpd/bgp_flowspec.h"
 #include "bgpd/bgp_trace.h"
+#include "bgpd/bgp_rtc.h"
 
 DEFINE_HOOK(bgp_packet_dump,
 		(struct peer *peer, uint8_t type, bgp_size_t size,
@@ -351,6 +352,8 @@ int bgp_nlri_parse(struct peer *peer, struct attr *attr,
 		return bgp_nlri_parse_evpn(peer, attr, packet, mp_withdraw);
 	case SAFI_FLOWSPEC:
 		return bgp_nlri_parse_flowspec(peer, attr, packet, mp_withdraw);
+	case SAFI_RTC:
+		return bgp_nlri_parse_rtc(peer, attr, packet, mp_withdraw);
 	}
 	return BGP_NLRI_PARSE_ERROR;
 }
@@ -2146,6 +2149,7 @@ static int bgp_open_receive(struct peer_connection *connection,
 			peer->afc[AFI_IP][SAFI_LABELED_UNICAST];
 		peer->afc_nego[AFI_IP][SAFI_FLOWSPEC] =
 			peer->afc[AFI_IP][SAFI_FLOWSPEC];
+		peer->afc_nego[AFI_IP][SAFI_RTC] = peer->afc[AFI_IP][SAFI_RTC];
 		peer->afc_nego[AFI_IP6][SAFI_UNICAST] =
 			peer->afc[AFI_IP6][SAFI_UNICAST];
 		peer->afc_nego[AFI_IP6][SAFI_MULTICAST] =

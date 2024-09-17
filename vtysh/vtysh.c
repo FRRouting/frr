@@ -1466,6 +1466,13 @@ static struct cmd_node bgp_ipv6l_node = {
 	.no_xpath = true,
 };
 
+static struct cmd_node bgp_rtc_node = {
+	.name = "bgp rtc",
+	.node = BGP_RTC_NODE,
+	.parent_node = BGP_NODE,
+	.prompt = "%s(config-router-af-rtc)# ",
+};
+
 static struct cmd_node bgp_vnc_defaults_node = {
 	.name = "bgp vnc defaults",
 	.node = BGP_VNC_DEFAULTS_NODE,
@@ -1810,6 +1817,14 @@ DEFUNSH(VTYSH_BGPD, address_family_flowspecv6, address_family_flowspecv6_cmd,
 	BGP_AF_MODIFIER_STR)
 {
 	vty->node = BGP_FLOWSPECV6_NODE;
+	return CMD_SUCCESS;
+}
+
+DEFUNSH(VTYSH_BGPD, address_family_rtc, address_family_rtc_cmd,
+	"address-family ipv4 rt-constraint",
+	"Enter Address Family command mode\n" BGP_AF_STR BGP_AF_MODIFIER_STR)
+{
+	vty->node = BGP_RTC_NODE;
 	return CMD_SUCCESS;
 }
 
@@ -2485,13 +2500,12 @@ DEFUNSH(VTYSH_REALLYALL, vtysh_quit_all, vtysh_quit_all_cmd, "quit",
 DEFUNSH(VTYSH_BGPD, exit_address_family, exit_address_family_cmd,
 	"exit-address-family", "Exit from Address Family configuration mode\n")
 {
-	if (vty->node == BGP_IPV4_NODE || vty->node == BGP_IPV4M_NODE
-	    || vty->node == BGP_IPV4L_NODE || vty->node == BGP_VPNV4_NODE
-	    || vty->node == BGP_VPNV6_NODE || vty->node == BGP_IPV6_NODE
-	    || vty->node == BGP_IPV6L_NODE || vty->node == BGP_IPV6M_NODE
-	    || vty->node == BGP_EVPN_NODE
-	    || vty->node == BGP_FLOWSPECV4_NODE
-	    || vty->node == BGP_FLOWSPECV6_NODE)
+	if (vty->node == BGP_IPV4_NODE || vty->node == BGP_IPV4M_NODE ||
+	    vty->node == BGP_IPV4L_NODE || vty->node == BGP_VPNV4_NODE ||
+	    vty->node == BGP_VPNV6_NODE || vty->node == BGP_IPV6_NODE ||
+	    vty->node == BGP_IPV6L_NODE || vty->node == BGP_IPV6M_NODE ||
+	    vty->node == BGP_EVPN_NODE || vty->node == BGP_FLOWSPECV4_NODE ||
+	    vty->node == BGP_FLOWSPECV6_NODE || vty->node == BGP_RTC_NODE)
 		vty->node = BGP_NODE;
 	return CMD_SUCCESS;
 }
@@ -4956,6 +4970,7 @@ void vtysh_init_vty(void)
 	install_node(&bgp_vnc_l2_group_node);
 	install_node(&bgp_evpn_node);
 	install_node(&bgp_evpn_vni_node);
+	install_node(&bgp_rtc_node);
 	install_node(&rpki_node);
 	install_node(&bmp_node);
 	install_node(&bgp_srv6_node);
@@ -5122,6 +5137,12 @@ void vtysh_init_vty(void)
 	install_element(BGP_EVPN_VNI_NODE, &vtysh_quit_bgpd_cmd);
 	install_element(BGP_EVPN_VNI_NODE, &vtysh_end_all_cmd);
 	install_element(BGP_EVPN_VNI_NODE, &exit_vni_cmd);
+
+	install_element(BGP_NODE, &address_family_rtc_cmd);
+	install_element(BGP_RTC_NODE, &vtysh_exit_bgpd_cmd);
+	install_element(BGP_RTC_NODE, &vtysh_quit_bgpd_cmd);
+	install_element(BGP_RTC_NODE, &vtysh_end_all_cmd);
+	install_element(BGP_RTC_NODE, &exit_address_family_cmd);
 
 	install_element(CONFIG_NODE, &rpki_cmd);
 	install_element(RPKI_NODE, &rpki_exit_cmd);

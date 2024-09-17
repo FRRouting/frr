@@ -4184,6 +4184,7 @@ size_t bgp_packet_mpattr_start(struct stream *s, struct peer *peer, afi_t afi,
 	switch (nh_afi) {
 	case AFI_IP:
 		switch (safi) {
+		case SAFI_RTC:
 		case SAFI_UNICAST:
 		case SAFI_MULTICAST:
 		case SAFI_LABELED_UNICAST:
@@ -4217,6 +4218,7 @@ size_t bgp_packet_mpattr_start(struct stream *s, struct peer *peer, afi_t afi,
 		break;
 	case AFI_IP6:
 		switch (safi) {
+		case SAFI_RTC:
 		case SAFI_UNICAST:
 		case SAFI_MULTICAST:
 		case SAFI_LABELED_UNICAST:
@@ -4332,6 +4334,12 @@ void bgp_packet_mpattr_prefix(struct stream *s, afi_t afi, safi_t safi,
 	case SAFI_ENCAP:
 		assert(!"Please add proper encoding of SAFI_ENCAP");
 		break;
+	case SAFI_RTC:
+		stream_putc(s, p->prefixlen);
+		stream_putl(s, p->u.prefix_rtc.origin_as);
+		stream_put(s, &p->u.prefix_rtc.route_target,
+			   PSIZE(p->prefixlen) - 4);
+		break;
 	}
 }
 
@@ -4370,6 +4378,8 @@ size_t bgp_packet_mpattr_prefix_size(afi_t afi, safi_t safi,
 	case SAFI_FLOWSPEC:
 		size = ((struct prefix_fs *)p)->prefix.prefixlen;
 		break;
+	case SAFI_RTC:
+		size = p->prefixlen;
 	}
 
 	return size;
