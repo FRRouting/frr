@@ -1335,7 +1335,8 @@ static int txn_get_tree_data_done(struct mgmt_txn_ctx *txn,
 			  " req_id %" PRIu64 " to requested type %u",
 			  txn->txn_id, req_id, get_tree->result_type);
 
-		(void)mgmt_fe_adapter_txn_error(txn->txn_id, req_id, false, ret,
+		(void)mgmt_fe_adapter_txn_error(txn->txn_id, req_id, false,
+						errno_from_nb_error(ret),
 						"Error converting results of GETTREE");
 	}
 
@@ -1351,7 +1352,7 @@ static int txn_rpc_done(struct mgmt_txn_ctx *txn, struct mgmt_txn_req *txn_req)
 	EVENT_OFF(txn->rpc_timeout);
 
 	if (rpc->errstr)
-		mgmt_fe_adapter_txn_error(txn->txn_id, req_id, false, -1,
+		mgmt_fe_adapter_txn_error(txn->txn_id, req_id, false, -EINVAL,
 					  rpc->errstr);
 	else if (mgmt_fe_adapter_send_rpc_reply(txn->session_id, txn->txn_id,
 						req_id, rpc->result_type,
@@ -1360,7 +1361,8 @@ static int txn_rpc_done(struct mgmt_txn_ctx *txn, struct mgmt_txn_req *txn_req)
 			  " req_id %" PRIu64 " to requested type %u",
 			  txn->txn_id, req_id, rpc->result_type);
 
-		(void)mgmt_fe_adapter_txn_error(txn->txn_id, req_id, false, -1,
+		(void)mgmt_fe_adapter_txn_error(txn->txn_id, req_id, false,
+						-EINVAL,
 						"Error converting results of RPC");
 	}
 
@@ -2580,7 +2582,7 @@ int mgmt_txn_send_edit(uint64_t txn_id, uint64_t req_id,
 reply:
 	mgmt_fe_adapter_send_edit_reply(txn->session_id, txn->txn_id, req_id,
 					unlock, commit, edit->xpath_created,
-					ret ? -1 : 0, errstr);
+					errno_from_nb_error(ret), errstr);
 
 	XFREE(MTYPE_MGMTD_TXN_REQ, edit);
 

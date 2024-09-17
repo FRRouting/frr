@@ -908,7 +908,7 @@ static int nb_candidate_edit_tree_add(struct nb_config *candidate,
 			if (operation == NB_OP_CREATE_EXCL) {
 				snprintf(errmsg, errmsg_len,
 					 "Data already exists");
-				ret = NB_ERR;
+				ret = NB_ERR_EXISTS;
 				goto done;
 			}
 
@@ -995,7 +995,7 @@ static int nb_candidate_edit_tree_del(struct nb_config *candidate,
 	if (!dnode || (dnode->flags & LYD_DEFAULT)) {
 		if (operation == NB_OP_DELETE) {
 			snprintf(errmsg, errmsg_len, "Data missing");
-			return NB_ERR;
+			return NB_ERR_NOT_FOUND;
 		} else
 			return NB_OK;
 	}
@@ -2605,6 +2605,8 @@ const char *nb_err_name(enum nb_error error)
 		return "no changes";
 	case NB_ERR_NOT_FOUND:
 		return "element not found";
+	case NB_ERR_EXISTS:
+		return "element already exists";
 	case NB_ERR_LOCKED:
 		return "resource is locked";
 	case NB_ERR_VALIDATION:

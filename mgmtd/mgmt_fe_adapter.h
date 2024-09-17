@@ -194,7 +194,7 @@ extern int mgmt_fe_adapter_send_rpc_reply(uint64_t session_id, uint64_t txn_id,
  *     unlock: implicit-lock flag was set in the request
  *     commit: implicit-commit flag was set in the request
  *     xpath: the xpath of the data node that was created
- *     error: the error code, zero for successful request
+ *     error: >0 LY_ERR, < 0 -errno
  *     errstr: the error string, if error is non-zero
  */
 extern int mgmt_fe_adapter_send_edit_reply(uint64_t session_id, uint64_t txn_id,
@@ -210,7 +210,7 @@ extern int mgmt_fe_adapter_send_edit_reply(uint64_t session_id, uint64_t txn_id,
  * Args:
  *	txn_id: the txn_id this error pertains to.
  *	short_circuit_ok: True if OK to short-circuit the call.
- *	error: An integer error value.
+ *      error: >0 LY_ERR, < 0 -errno
  *	errfmt: An error format string (i.e., printfrr)
  *      ...: args for use by the `errfmt` format string.
  *
