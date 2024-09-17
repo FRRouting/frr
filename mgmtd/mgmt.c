@@ -57,6 +57,9 @@ void mgmt_init(void)
 	/* Initialize MGMTD Transaction module */
 	mgmt_txn_init(mm, mm->master);
 
+	/* Add yang-library module */
+	yang_module_load("ietf-yang-library", NULL);
+
 	/* Initialize the MGMTD Frontend Adapter Module */
 	mgmt_fe_adapter_init(mm->master);
 

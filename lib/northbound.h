@@ -1716,6 +1716,7 @@ extern void nb_terminate(void);
 
 extern void nb_oper_init(struct event_loop *loop);
 extern void nb_oper_terminate(void);
+extern bool nb_oper_is_yang_lib_query(const char *xpath);
 
 #ifdef __cplusplus
 }

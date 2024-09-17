@@ -1337,6 +1337,31 @@ static void fe_adapter_handle_get_data(struct mgmt_fe_session_ctx *session,
 		goto done;
 	}
 
+	/* Check for yang-library shortcut */
+	if (nb_oper_is_yang_lib_query(msg->xpath)) {
+		struct lyd_node *ylib = NULL;
+		LY_ERR err;
+
+		err = ly_ctx_get_yanglib_data(ly_native_ctx, &ylib, "%u",
+					      ly_ctx_get_change_count(
+						      ly_native_ctx));
+		if (err) {
+			fe_adapter_send_error(session, req_id, false, err,
+					      "Error getting yang-library data, session-id: %" PRIu64
+					      " error: %s",
+					      session->session_id,
+					      ly_last_errmsg());
+		} else {
+			yang_lyd_trim_xpath(&ylib, msg->xpath);
+			(void)fe_adapter_send_tree_data(session, req_id, false,
+							msg->result_type,
+							wd_options, ylib, 0);
+		}
+		if (ylib)
+			lyd_free_all(ylib);
+		goto done;
+	}
+
 	switch (msg->datastore) {
 	case MGMT_MSG_DATASTORE_CANDIDATE:
 		ds_id = MGMTD_DS_CANDIDATE;
