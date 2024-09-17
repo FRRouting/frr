@@ -1914,6 +1914,12 @@ static int pim_ifp_up(struct interface *ifp)
 		}
 	}
 
+#if PIM_IPV == 4
+	if (pim->autorp && pim->autorp->do_discovery && pim_ifp &&
+	    pim_ifp->pim_enable)
+		pim_autorp_add_ifp(ifp);
+#endif
+
 	pim_cand_addrs_changed();
 	return 0;
 }
@@ -1950,6 +1956,10 @@ static int pim_ifp_down(struct interface *ifp)
 		pim_if_del_vif(ifp);
 		pim_ifstat_reset(ifp);
 	}
+
+#if PIM_IPV == 4
+	pim_autorp_rm_ifp(ifp);
+#endif
 
 	pim_cand_addrs_changed();
 	return 0;
@@ -2022,6 +2032,11 @@ void pim_pim_interface_delete(struct interface *ifp)
 
 	if (!pim_ifp)
 		return;
+
+#if PIM_IPV == 4
+	if (pim_ifp->pim_enable)
+		pim_autorp_rm_ifp(ifp);
+#endif
 
 	pim_ifp->pim_enable = false;
 

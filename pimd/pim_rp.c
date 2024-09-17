@@ -1140,7 +1140,8 @@ int pim_rp_config_write(struct pim_instance *pim, struct vty *vty)
 		if (pim_rpf_addr_is_inaddr_any(&rp_info->rp))
 			continue;
 
-		if (rp_info->rp_src == RP_SRC_BSR)
+		if (rp_info->rp_src != RP_SRC_NONE &&
+		    rp_info->rp_src != RP_SRC_STATIC)
 			continue;
 
 		rp_addr = rp_info->rp.rpf_addr;
@@ -1200,6 +1201,8 @@ void pim_rp_show_information(struct pim_instance *pim, struct prefix *range,
 			strlcpy(source, "Static", sizeof(source));
 		else if (rp_info->rp_src == RP_SRC_BSR)
 			strlcpy(source, "BSR", sizeof(source));
+		else if (rp_info->rp_src == RP_SRC_AUTORP)
+			strlcpy(source, "AutoRP", sizeof(source));
 		else
 			strlcpy(source, "None", sizeof(source));
 		if (json) {
