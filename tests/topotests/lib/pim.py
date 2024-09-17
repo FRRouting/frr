@@ -1746,6 +1746,49 @@ def verify_pim_rp_info(
 
 
 @retry(retry_timeout=60, diag_pct=0)
+def verify_pim_rp_info_is_empty(tgen, dut, af="ipv4"):
+    """
+    Verify pim rp info by running "show ip pim rp-info" cli
+
+    Parameters
+    ----------
+    * `tgen`: topogen object
+    * `dut`: device under test
+
+    Usage
+    -----
+    dut = "r1"
+    result = verify_pim_rp_info_is_empty(tgen, dut)
+
+    Returns
+    -------
+    errormsg(str) or True
+    """
+
+    logger.debug("Entering lib API: {}".format(sys._getframe().f_code.co_name))
+
+    if dut not in tgen.routers():
+        return False
+
+    rnode = tgen.routers()[dut]
+
+    ip_cmd = "ip"
+    if af == "ipv6":
+        ip_cmd = "ipv6"
+
+    logger.info("[DUT: %s]: Verifying %s rp info", dut, ip_cmd)
+    cmd = "show {} pim rp-info json".format(ip_cmd)
+    show_ip_rp_info_json = run_frr_cmd(rnode, cmd, isjson=True)
+
+    if show_ip_rp_info_json:
+        errormsg = "[DUT %s]: Verifying empty rp-info [FAILED]!!" % (dut)
+        return errormsg
+
+    logger.debug("Exiting lib API: {}".format(sys._getframe().f_code.co_name))
+    return True
+
+
+@retry(retry_timeout=60, diag_pct=0)
 def verify_pim_state(
     tgen,
     dut,
@@ -2748,6 +2791,48 @@ def scapy_send_bsr_raw_packet(tgen, topo, senderRouter, receiverRouter, packet=N
         node.cmd_raises(cmd)
 
     logger.debug("Exiting lib API: scapy_send_bsr_raw_packet")
+    return True
+
+
+def scapy_send_autorp_raw_packet(tgen, senderRouter, senderInterface, packet=None):
+    """
+    Using scapy Raw() method to send AutoRP raw packet from one FRR
+    to other
+
+    Parameters:
+    -----------
+    * `tgen` : Topogen object
+    * `senderRouter` : Sender router
+    * `senderInterface` : SenderInterface
+    * `packet` : AutoRP packet in raw format
+
+    returns:
+    --------
+    errormsg or True
+    """
+
+    global CWD
+    result = ""
+    logger.debug("Entering lib API: {}".format(sys._getframe().f_code.co_name))
+
+    python3_path = tgen.net.get_exec_path(["python3", "python"])
+    # send_bsr_packet.py has no direct ties to bsr, just sends a raw packet out
+    # a given interface, so just reuse it
+    script_path = os.path.join(CWD, "send_bsr_packet.py")
+    node = tgen.net[senderRouter]
+
+    cmd = [
+        python3_path,
+        script_path,
+        packet,
+        senderInterface,
+        "--interval=1",
+        "--count=1",
+    ]
+    logger.info("Scapy cmd: \n %s", cmd)
+    node.cmd_raises(cmd)
+
+    logger.debug("Exiting lib API: scapy_send_autorp_raw_packet")
     return True
 
 
