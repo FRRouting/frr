@@ -316,6 +316,13 @@ struct route_table *zebra_vrf_get_table_with_table_id(afi_t afi, safi_t safi,
 	struct other_route_table *otable;
 	struct route_table *table;
 
+	/* VRF config could be deleted while some route messages for the VRF were
+	 * still in zebra metaq pending processing. Skip vrf table lookup for the
+	 * route if zvrf for vrf_id is already NULL
+	 */
+	if (zvrf == NULL)
+		return NULL;
+
 	table = zebra_vrf_lookup_table_with_table_id(afi, safi, vrf_id,
 						     table_id);
 
