@@ -936,7 +936,7 @@ def generate_support_bundle():
 
     tgen = get_topogen()
     if tgen is None:
-        logger.warn(
+        logger.warning(
             "Support bundle attempted to be generated, but topogen is not being used"
         )
         return True
