@@ -169,7 +169,7 @@ struct ecommunity_ip6 {
 
 /* Extended community value is eight octet.  */
 struct ecommunity_val {
-	char val[ECOMMUNITY_SIZE];
+	uint8_t val[ECOMMUNITY_SIZE];
 };
 
 /* Many places assume that an ecommunity_val can be used as a plain
@@ -180,7 +180,7 @@ static_assert(sizeof(struct ecommunity_val) == ECOMMUNITY_SIZE,
 
 /* IPv6 Extended community value is twenty octet.  */
 struct ecommunity_val_ipv6 {
-	char val[IPV6_ECOMMUNITY_SIZE];
+	uint8_t val[IPV6_ECOMMUNITY_SIZE];
 };
 
 static_assert(sizeof(struct ecommunity_val_ipv6) == IPV6_ECOMMUNITY_SIZE,
