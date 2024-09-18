@@ -8157,7 +8157,7 @@ DEFUN (ip_ospf_dead_interval_minimal,
 
 DEFUN (no_ip_ospf_dead_interval,
        no_ip_ospf_dead_interval_cmd,
-       "no ip ospf dead-interval [<(1-65535)|minimal hello-multiplier (2-20)> [A.B.C.D]]",
+       "no ip ospf dead-interval [<(1-65535)|minimal hello-multiplier [(2-20)]> [A.B.C.D]]",
        NO_STR
        "IP Information\n"
        "OSPF interface commands\n"
