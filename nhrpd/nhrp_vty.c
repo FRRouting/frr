@@ -467,7 +467,6 @@ DEFUN(if_no_nhrp_holdtime, if_no_nhrp_holdtime_cmd,
 	return CMD_SUCCESS;
 }
 
-#define NHRP_CISCO_PASS_LEN 8
 DEFPY(if_nhrp_authentication, if_nhrp_authentication_cmd,
       AFI_CMD "nhrp authentication PASSWORD$password",
       AFI_STR
