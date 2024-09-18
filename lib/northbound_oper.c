@@ -1741,6 +1741,16 @@ static enum nb_error nb_op_walk_start(struct nb_op_yield_state *ys)
 	return __walk(ys, false);
 }
 
+bool nb_oper_is_yang_lib_query(const char *xpath)
+{
+	const char *libstr = "/ietf-yang-library:";
+	const unsigned long liblen = strlen(libstr);
+
+	if (strncmp(libstr, xpath, liblen))
+		return false;
+
+	return strlen(xpath) > liblen;
+}
 
 void *nb_oper_walk(const char *xpath, struct yang_translator *translator,
 		   uint32_t flags, bool should_batch, nb_oper_data_cb cb,
