@@ -2543,9 +2543,9 @@ DEFPY(bmp_monitor_cfg, bmp_monitor_cmd,
 
 	prev = bt->afimon[afi][safi];
 	if (no)
-		bt->afimon[afi][safi] &= ~flag;
+		UNSET_FLAG(bt->afimon[afi][safi], flag);
 	else
-		bt->afimon[afi][safi] |= flag;
+		SET_FLAG(bt->afimon[afi][safi], flag);
 
 	if (prev == bt->afimon[afi][safi])
 		return CMD_SUCCESS;

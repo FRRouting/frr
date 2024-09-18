@@ -218,7 +218,8 @@ uint32_t bgp_attr_mac_mobility_seqnum(struct attr *attr)
 			continue;
 		flags = *pnt++;
 
-		if (flags & ECOMMUNITY_EVPN_SUBTYPE_MACMOBILITY_FLAG_STICKY)
+		if (CHECK_FLAG(flags,
+			       ECOMMUNITY_EVPN_SUBTYPE_MACMOBILITY_FLAG_STICKY))
 			SET_FLAG(attr->evpn_flags, ATTR_EVPN_FLAG_STICKY);
 		else
 			UNSET_FLAG(attr->evpn_flags, ATTR_EVPN_FLAG_STICKY);
@@ -258,11 +259,12 @@ void bgp_attr_evpn_na_flag(struct attr *attr, bool *proxy)
 		    sub_type == ECOMMUNITY_EVPN_SUBTYPE_ND) {
 			val = *pnt++;
 
-			if (val & ECOMMUNITY_EVPN_SUBTYPE_ND_ROUTER_FLAG)
+			if (CHECK_FLAG(val,
+				       ECOMMUNITY_EVPN_SUBTYPE_ND_ROUTER_FLAG))
 				SET_FLAG(attr->evpn_flags,
 					 ATTR_EVPN_FLAG_ROUTER);
 
-			if (val & ECOMMUNITY_EVPN_SUBTYPE_PROXY_FLAG)
+			if (CHECK_FLAG(val, ECOMMUNITY_EVPN_SUBTYPE_PROXY_FLAG))
 				*proxy = true;
 
 			break;

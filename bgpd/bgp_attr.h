@@ -353,7 +353,7 @@ struct transit {
 	__builtin_choose_expr((X) >= 1 && (X) <= 64, 1ULL << ((X)-1), (void)0)
 
 #define BGP_CLUSTER_LIST_LENGTH(attr)                                          \
-	(((attr)->flag & ATTR_FLAG_BIT(BGP_ATTR_CLUSTER_LIST))                 \
+	(CHECK_FLAG((attr)->flag, ATTR_FLAG_BIT(BGP_ATTR_CLUSTER_LIST))        \
 		 ? bgp_attr_get_cluster((attr))->length                        \
 		 : 0)
 
