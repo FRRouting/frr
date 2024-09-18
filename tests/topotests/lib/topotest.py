@@ -424,7 +424,7 @@ def run_and_expect(func, what, count=20, wait=3):
     minimum_wait_time = 15  # The overall minimum seconds for the test to wait
     wait_time = wait * count
     if wait_time < minimum_wait_time:
-        logger.warn(
+        logger.warning(
             f"Waiting time is too small (count={count}, wait={wait}), using default values (count={minimum_count}, wait={minimum_wait})"
         )
         count = minimum_count
