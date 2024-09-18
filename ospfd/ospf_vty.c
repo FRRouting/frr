@@ -2291,6 +2291,10 @@ static int ospf_timers_spf_set(struct vty *vty, unsigned int delay,
 {
 	VTY_DECLVAR_INSTANCE_CONTEXT(ospf, ospf);
 
+	if (ospf->spf_delay != delay || ospf->spf_holdtime != hold ||
+	    ospf->spf_max_holdtime != max)
+		ospf->spf_hold_multiplier = 1;
+
 	ospf->spf_delay = delay;
 	ospf->spf_holdtime = hold;
 	ospf->spf_max_holdtime = max;
