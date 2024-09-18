@@ -13672,6 +13672,8 @@ enum bgp_stats {
 	BGP_STATS_ASPATH_MAXSIZE,
 	BGP_STATS_ASPATH_TOTSIZE,
 	BGP_STATS_ASN_HIGHEST,
+	BGP_STATS_REDISTRIBUTED,
+	BGP_STATS_LOCAL_AGGREGATES,
 	BGP_STATS_MAX,
 };
 
@@ -13701,6 +13703,8 @@ static const char *table_stats_strs[][2] = {
 	[BGP_STATS_ASPATH_TOTSIZE] = {"Average AS-Path size (bytes)",
 				      "averageAsPathSizeBytes"},
 	[BGP_STATS_ASN_HIGHEST] = {"Highest public ASN", "highestPublicAsn"},
+	[BGP_STATS_REDISTRIBUTED] = {"Redistributed routes", "totalRedistributed"},
+	[BGP_STATS_LOCAL_AGGREGATES] = {"Local aggregates", "totalLocalAggregates"},
 	[BGP_STATS_MAX] = {NULL, NULL}
 };
 
@@ -13749,6 +13753,15 @@ static void bgp_table_stats_rn(struct bgp_dest *dest, struct bgp_dest *top,
 		if (CHECK_FLAG(pi->attr->flag,
 			       ATTR_FLAG_BIT(BGP_ATTR_ATOMIC_AGGREGATE)))
 			ts->counts[BGP_STATS_AGGREGATES]++;
+
+		if (pi->peer == ts->table->bgp->peer_self) {
+			if (pi->sub_type == BGP_ROUTE_REDISTRIBUTE)
+				ts->counts[BGP_STATS_REDISTRIBUTED]++;
+
+			if ((pi->type == ZEBRA_ROUTE_BGP) &&
+			    (pi->sub_type == BGP_ROUTE_AGGREGATE))
+				ts->counts[BGP_STATS_LOCAL_AGGREGATES]++;
+		}
 
 		/* as-path stats */
 		if (pi->attr->aspath) {
