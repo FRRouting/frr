@@ -1026,9 +1026,8 @@ static void link_lsa_originate(struct ospf6_interface *oi, int lstype)
 	/* can't make Link-LSA if linklocal address not set */
 	if (oi->linklocal_addr == NULL) {
 		if (IS_OSPF6_DEBUG_ORIGINATE(LINK))
-			zlog_debug(
-				"No Linklocal address on %s, defer originating",
-				oi->interface->name);
+			zlog_debug("No Linklocal address on %s, defer originating",
+				   oi->interface->name);
 		if (old)
 			ospf6_lsa_purge(old);
 		return;
@@ -1554,9 +1553,8 @@ void ospf6_intra_prefix_lsa_originate_transit(struct event *thread)
 	}
 
 	if (IS_OSPF6_DEBUG_ORIGINATE(INTRA_PREFIX))
-		zlog_debug(
-			"Originate Intra-Area-Prefix-LSA for interface %s's prefix",
-			oi->interface->name);
+		zlog_debug("Originate Intra-Area-Prefix-LSA for interface %s's prefix",
+			   oi->interface->name);
 
 	/* prepare buffer */
 	memset(buffer, 0, sizeof(buffer));
@@ -1735,8 +1733,7 @@ static void ospf6_intra_prefix_update_route_origin(struct ospf6_route *oa_route,
 		}
 	}
 
-	h_path = (struct ospf6_path *)listgetdata(
-				listhead(oa_route->paths));
+	h_path = (struct ospf6_path *)listgetdata(listhead(oa_route->paths));
 	oa_route->path.origin.type = h_path->origin.type;
 	oa_route->path.origin.id = h_path->origin.id;
 	oa_route->path.origin.adv_router = h_path->origin.adv_router;
@@ -1775,8 +1772,7 @@ void ospf6_intra_prefix_route_ecmp_path(struct ospf6_area *oa,
 		/* Current and New route has same origin,
 		 * delete old entry.
 		 */
-		for (ALL_LIST_ELEMENTS(old_route->paths, anode, anext,
-						  o_path)) {
+		for (ALL_LIST_ELEMENTS(old_route->paths, anode, anext, o_path)) {
 			/* Check old route path and route has same
 			 * origin.
 			 */
@@ -1803,8 +1799,7 @@ void ospf6_intra_prefix_route_ecmp_path(struct ospf6_area *oa,
 							rnode, rnext, rnh)) {
 					if (!ospf6_nexthop_is_same(rnh, nh))
 						continue;
-					listnode_delete(old_route->nh_list,
-								rnh);
+					listnode_delete(old_route->nh_list, rnh);
 					ospf6_nexthop_delete(rnh);
 					route_updated = true;
 				}
@@ -1917,17 +1912,15 @@ void ospf6_intra_prefix_route_ecmp_path(struct ospf6_area *oa,
 			} else {
 				list_delete_all_node(o_path->nh_list);
 				ospf6_copy_nexthops(o_path->nh_list,
-					    route->nh_list);
-
+						    route->nh_list);
 			}
 
 			list_delete_all_node(old_route->nh_list);
 
 			for (ALL_LIST_ELEMENTS_RO(old_route->paths, anode,
 						  o_path)) {
-				ls_entry = ospf6_route_lookup(
-							&o_path->ls_prefix,
-							oa->spf_table);
+				ls_entry = ospf6_route_lookup(&o_path->ls_prefix,
+							      oa->spf_table);
 				if (ls_entry == NULL) {
 					if (IS_OSPF6_DEBUG_EXAMIN(INTRA_PREFIX))
 						zlog_debug(
@@ -1941,8 +1934,7 @@ void ospf6_intra_prefix_route_ecmp_path(struct ospf6_area *oa,
 						o_path->origin.adv_router,
 						oa->lsdb);
 				if (lsa == NULL) {
-					if (IS_OSPF6_DEBUG_EXAMIN(
-								INTRA_PREFIX)) {
+					if (IS_OSPF6_DEBUG_EXAMIN(INTRA_PREFIX)) {
 						struct prefix adv_prefix;
 
 						ospf6_linkstate_prefix(
@@ -2050,8 +2042,7 @@ void ospf6_intra_prefix_lsa_add(struct ospf6_lsa *lsa)
 	ls_entry = ospf6_route_lookup(&ls_prefix, oa->spf_table);
 	if (ls_entry == NULL) {
 		if (IS_OSPF6_DEBUG_EXAMIN(INTRA_PREFIX)) {
-			ospf6_linkstate_prefix2str(&ls_prefix, buf,
-						   sizeof(buf));
+			ospf6_linkstate_prefix2str(&ls_prefix, buf, sizeof(buf));
 			zlog_debug("LS entry does not exist: %s", buf);
 		}
 		return;
@@ -2238,13 +2229,10 @@ static void ospf6_intra_prefix_lsa_remove_update_route(struct ospf6_lsa *lsa,
 		 * head.
 		 */
 		if ((route->path.origin.id == lsa->header->id) &&
-		    (route->path.origin.adv_router ==
-				lsa->header->adv_router)) {
-			ospf6_intra_prefix_update_route_origin(route,
-							       oa->ospf6);
+		    (route->path.origin.adv_router == lsa->header->adv_router)) {
+			ospf6_intra_prefix_update_route_origin(route, oa->ospf6);
 		}
 	}
-
 }
 
 void ospf6_intra_prefix_lsa_remove(struct ospf6_lsa *lsa)
@@ -2392,8 +2380,7 @@ void ospf6_intra_route_calculation(struct ospf6_area *oa)
 	}
 
 	if (IS_OSPF6_DEBUG_EXAMIN(INTRA_PREFIX))
-		zlog_debug("Re-examin intra-routes for area %s: Done",
-			   oa->name);
+		zlog_debug("Re-examin intra-routes for area %s: Done", oa->name);
 }
 
 static void ospf6_brouter_debug_print(struct ospf6_route *brouter)
@@ -2409,8 +2396,7 @@ static void ospf6_brouter_debug_print(struct ospf6_route *brouter)
 
 	brouter_id = ADV_ROUTER_IN_PREFIX(&brouter->prefix);
 	inet_ntop(AF_INET, &brouter_id, brouter_name, sizeof(brouter_name));
-	inet_ntop(AF_INET, &brouter->path.area_id, area_name,
-		  sizeof(area_name));
+	inet_ntop(AF_INET, &brouter->path.area_id, area_name, sizeof(area_name));
 	ospf6_linkstate_prefix2str(&brouter->prefix, destination,
 				   sizeof(destination));
 
@@ -2427,8 +2413,7 @@ static void ospf6_brouter_debug_print(struct ospf6_route *brouter)
 		  sizeof(adv_router));
 
 	ospf6_options_printbuf(brouter->path.options, options, sizeof(options));
-	ospf6_capability_printbuf(brouter->path.router_bits, capa,
-				  sizeof(capa));
+	ospf6_capability_printbuf(brouter->path.router_bits, capa, sizeof(capa));
 
 	zlog_info("Brouter: %s via area %s", brouter_name, area_name);
 	zlog_info("  memory: prev: %p this: %p next: %p parent rnode: %p",

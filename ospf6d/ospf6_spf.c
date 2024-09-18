@@ -189,8 +189,7 @@ static struct ospf6_lsa *ospf6_lsdesc_lsa(struct ospf6_lsdesc *lsdesc,
 				   ospf6_lsa_size(lsa->header), v->name);
 		else
 			zlog_debug("  Link to: [%s Id:%s Adv:%s] No LSA , V %s",
-				   ospf6_lstype_name(type), ibuf, abuf,
-				   v->name);
+				   ospf6_lstype_name(type), ibuf, abuf, v->name);
 	}
 
 	return lsa;
@@ -711,8 +710,7 @@ void ospf6_spf_schedule(struct ospf6 *ospf6, unsigned int reason)
 	if (IS_OSPF6_DEBUG_SPF(PROCESS) || IS_OSPF6_DEBUG_SPF(TIME)) {
 		char rbuf[32];
 		ospf6_spf_reason_string(reason, rbuf, sizeof(rbuf));
-		zlog_debug("SPF: calculation timer scheduled (reason %s)",
-			   rbuf);
+		zlog_debug("SPF: calculation timer scheduled (reason %s)", rbuf);
 	}
 
 	/* SPF calculation timer is already scheduled. */
@@ -797,8 +795,7 @@ void ospf6_spf_display_subtree(struct vty *vty, const char *prefix, int rest,
 					  json_child, use_json);
 
 		if (use_json)
-			json_object_object_add(json_childs, c->name,
-					       json_child);
+			json_object_object_add(json_childs, c->name, json_child);
 	}
 	if (use_json) {
 		json_object_boolean_add(json_obj, "isLeafNode",

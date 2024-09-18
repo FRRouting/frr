@@ -136,9 +136,8 @@ static void ospf6_gr_flush_grace_lsas(struct ospf6 *ospf6)
 		struct listnode *inode;
 
 		if (IS_DEBUG_OSPF6_GR)
-			zlog_debug(
-				"GR: flushing self-originated Grace-LSAs [area %pI4]",
-				&area->area_id);
+			zlog_debug("GR: flushing self-originated Grace-LSAs [area %pI4]",
+				   &area->area_id);
 
 		for (ALL_LIST_ELEMENTS_RO(area->if_list, inode, oi)) {
 			lsa = ospf6_lsdb_lookup(htons(OSPF6_LSTYPE_GRACE_LSA),
@@ -146,10 +145,9 @@ static void ospf6_gr_flush_grace_lsas(struct ospf6 *ospf6)
 						oi->area->ospf6->router_id,
 						oi->lsdb);
 			if (!lsa) {
-				zlog_warn(
-					"%s: Grace-LSA not found [interface %s] [area %pI4]",
-					__func__, oi->interface->name,
-					&area->area_id);
+				zlog_warn("%s: Grace-LSA not found [interface %s] [area %pI4]",
+					  __func__, oi->interface->name,
+					  &area->area_id);
 				continue;
 			}
 
@@ -251,9 +249,8 @@ void ospf6_gr_restart_enter(struct ospf6 *ospf6,
 	/* Schedule grace period timeout. */
 	remaining_time = timestamp - time(NULL);
 	if (IS_DEBUG_OSPF6_GR)
-		zlog_debug(
-			"GR: remaining time until grace period expires: %lu(s)",
-			remaining_time);
+		zlog_debug("GR: remaining time until grace period expires: %lu(s)",
+			   remaining_time);
 
 	event_add_timer(master, ospf6_gr_grace_period_expired, ospf6,
 			remaining_time, &ospf6->gr_info.t_grace_period);
@@ -460,9 +457,8 @@ static bool ospf6_gr_check_adjs_lsa_transit(struct ospf6_area *area,
 		nbr = ospf6_area_neighbor_lookup(area, neighbor_router_id);
 		if (!nbr || nbr->state < OSPF6_NEIGHBOR_FULL) {
 			if (IS_DEBUG_OSPF6_GR)
-				zlog_debug(
-					"GR: missing adjacency to DR router %pI4",
-					&neighbor_router_id);
+				zlog_debug("GR: missing adjacency to DR router %pI4",
+					   &neighbor_router_id);
 			return false;
 		}
 	}
@@ -536,8 +532,7 @@ static bool ospf6_gr_check_adjs(struct ospf6 *ospf6)
 
 		type = ntohs(OSPF6_LSTYPE_ROUTER);
 		router = ospf6->router_id;
-		for (ALL_LSDB_TYPED_ADVRTR(area->lsdb, type, router,
-					   lsa_self)) {
+		for (ALL_LSDB_TYPED_ADVRTR(area->lsdb, type, router, lsa_self)) {
 			found = true;
 			if (!ospf6_gr_check_adjs_lsa(area, lsa_self)) {
 				ospf6_lsa_unlock(&lsa_self);
@@ -598,8 +593,7 @@ static void ospf6_gr_nvm_update(struct ospf6 *ospf6, bool prepare)
 	json_object_object_get_ex(json_instances, inst_name, &json_instance);
 	if (!json_instance) {
 		json_instance = json_object_new_object();
-		json_object_object_add(json_instances, inst_name,
-				       json_instance);
+		json_object_object_add(json_instances, inst_name, json_instance);
 	}
 
 	json_object_int_add(json_instance, "gracePeriod",
@@ -670,8 +664,7 @@ void ospf6_gr_nvm_read(struct ospf6 *ospf6)
 	json_object_object_get_ex(json_instances, inst_name, &json_instance);
 	if (!json_instance) {
 		json_instance = json_object_new_object();
-		json_object_object_add(json_instances, inst_name,
-				       json_instance);
+		json_object_object_add(json_instances, inst_name, json_instance);
 	}
 
 	json_object_object_get_ex(json_instance, "gracePeriod",
@@ -699,8 +692,7 @@ void ospf6_gr_nvm_read(struct ospf6 *ospf6)
 		grace_period = json_object_get_int(json_grace_period);
 		ospf6->gr_info.grace_period = grace_period;
 		ospf6_gr_restart_enter(ospf6, OSPF6_GR_UNKNOWN_RESTART,
-				       time(NULL) +
-					       ospf6->gr_info.grace_period);
+				       time(NULL) + ospf6->gr_info.grace_period);
 	}
 
 	json_object_object_del(json_instance, "gracePeriod");

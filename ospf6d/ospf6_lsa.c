@@ -808,8 +808,7 @@ void ospf6_lsa_show_summary(struct vty *vty, struct ospf6_lsa *lsa,
 						lsa->header->type),
 					id, adv_router,
 					ospf6_lsa_age_current(lsa),
-					(unsigned long)ntohl(
-						lsa->header->seqnum),
+					(unsigned long)ntohl(lsa->header->seqnum),
 					buf);
 			cnt++;
 		}
@@ -905,8 +904,7 @@ void ospf6_lsa_show_internal(struct vty *vty, struct ospf6_lsa *lsa,
 
 	if (use_json) {
 		json_obj = json_object_new_object();
-		json_object_int_add(json_obj, "age",
-				    ospf6_lsa_age_current(lsa));
+		json_object_int_add(json_obj, "age", ospf6_lsa_age_current(lsa));
 		json_object_string_add(json_obj, "type",
 				       ospf6_lstype_name(lsa->header->type));
 		json_object_string_add(json_obj, "linkStateId", id);
@@ -965,8 +963,7 @@ void ospf6_lsa_show(struct vty *vty, struct ospf6_lsa *lsa,
 	timerstring(&res, duration, sizeof(duration));
 	if (use_json) {
 		json_obj = json_object_new_object();
-		json_object_int_add(json_obj, "age",
-				    ospf6_lsa_age_current(lsa));
+		json_object_int_add(json_obj, "age", ospf6_lsa_age_current(lsa));
 		json_object_string_add(json_obj, "type",
 				       ospf6_lstype_name(lsa->header->type));
 		json_object_string_add(json_obj, "linkStateId", id);
@@ -1247,8 +1244,7 @@ void ospf6_flush_self_originated_lsas_now(struct ospf6 *ospf6)
 unsigned short ospf6_lsa_checksum(struct ospf6_lsa_header *lsa_header)
 {
 	uint8_t *buffer = (uint8_t *)&lsa_header->type;
-	int type_offset =
-		buffer - (uint8_t *)&lsa_header->age; /* should be 2 */
+	int type_offset = buffer - (uint8_t *)&lsa_header->age; /* should be 2 */
 
 	/* Skip the AGE field */
 	uint16_t len = ospf6_lsa_size(lsa_header) - type_offset;
@@ -1263,14 +1259,12 @@ unsigned short ospf6_lsa_checksum(struct ospf6_lsa_header *lsa_header)
 int ospf6_lsa_checksum_valid(struct ospf6_lsa_header *lsa_header)
 {
 	uint8_t *buffer = (uint8_t *)&lsa_header->type;
-	int type_offset =
-		buffer - (uint8_t *)&lsa_header->age; /* should be 2 */
+	int type_offset = buffer - (uint8_t *)&lsa_header->age; /* should be 2 */
 
 	/* Skip the AGE field */
 	uint16_t len = ospf6_lsa_size(lsa_header) - type_offset;
 
-	return (fletcher_checksum(buffer, len, FLETCHER_CHECKSUM_VALIDATE)
-		== 0);
+	return (fletcher_checksum(buffer, len, FLETCHER_CHECKSUM_VALIDATE) == 0);
 }
 
 void ospf6_lsa_init(void)
@@ -1386,8 +1380,7 @@ DEFUN (debug_ospf6_lsa_type,
 		if (handler == NULL)
 			continue;
 		if (strncmp(argv[idx_lsa]->arg, ospf6_lsa_handler_name(handler),
-			    strlen(argv[idx_lsa]->arg))
-		    == 0)
+			    strlen(argv[idx_lsa]->arg)) == 0)
 			break;
 		if (!strcasecmp(argv[idx_lsa]->arg, handler->lh_name))
 			break;
@@ -1440,8 +1433,7 @@ DEFUN (no_debug_ospf6_lsa_type,
 		if (handler == NULL)
 			continue;
 		if (strncmp(argv[idx_lsa]->arg, ospf6_lsa_handler_name(handler),
-			    strlen(argv[idx_lsa]->arg))
-		    == 0)
+			    strlen(argv[idx_lsa]->arg)) == 0)
 			break;
 		if (!strcasecmp(argv[idx_lsa]->arg, handler->lh_name))
 			break;
@@ -1452,8 +1444,7 @@ DEFUN (no_debug_ospf6_lsa_type,
 
 	if (argc == 6) {
 		if (strmatch(argv[idx_type]->text, "originate"))
-			UNSET_FLAG(handler->lh_debug,
-				   OSPF6_LSA_DEBUG_ORIGINATE);
+			UNSET_FLAG(handler->lh_debug, OSPF6_LSA_DEBUG_ORIGINATE);
 		if (strmatch(argv[idx_type]->text, "examine"))
 			UNSET_FLAG(handler->lh_debug, OSPF6_LSA_DEBUG_EXAMIN);
 		if (strmatch(argv[idx_type]->text, "flooding"))

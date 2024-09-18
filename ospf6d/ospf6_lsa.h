@@ -469,8 +469,7 @@ extern void install_element_ospf6_debug_lsa(void);
 extern void ospf6_lsa_age_set(struct ospf6_lsa *lsa);
 extern void ospf6_flush_self_originated_lsas_now(struct ospf6 *ospf6);
 extern struct ospf6 *ospf6_get_by_lsdb(struct ospf6_lsa *lsa);
-struct ospf6_lsa *ospf6_find_external_lsa(struct ospf6 *ospf6,
-					  struct prefix *p);
+struct ospf6_lsa *ospf6_find_external_lsa(struct ospf6 *ospf6, struct prefix *p);
 
 void *lsdesc_start_lsa_type(struct ospf6_lsa_header *header, int lsa_type);
 void *lsdesc_start(struct ospf6_lsa_header *header);
