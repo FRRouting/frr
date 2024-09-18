@@ -2454,10 +2454,11 @@ def clear_igmp_interfaces(tgen, dut):
 
     # Verify uptime for groups
     for group in group_before_clear.keys():
-        d1 = datetime.datetime.strptime(group_before_clear[group], "%H:%M:%S")
-        d2 = datetime.datetime.strptime(group_after_clear[group], "%H:%M:%S")
-        if d2 >= d1:
-            errormsg = ("[DUT: %s]: IGMP group is not cleared", " [FAILED!!]", dut)
+        if group in group_after_clear:
+            d1 = datetime.datetime.strptime(group_before_clear[group], "%H:%M:%S")
+            d2 = datetime.datetime.strptime(group_after_clear[group], "%H:%M:%S")
+            if d2 >= d1:
+                errormsg = ("[DUT: %s]: IGMP group is not cleared", " [FAILED!!]", dut)
 
     logger.info("[DUT: %s]: IGMP group is cleared [PASSED!!]")
 
