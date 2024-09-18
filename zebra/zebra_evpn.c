@@ -223,11 +223,10 @@ void zebra_evpn_print_hash(struct hash_bucket *bucket, void *ctxt[])
 	num_macs = num_valid_macs(zevpn);
 	num_neigh = hashcount(zevpn->neigh_table);
 	if (json == NULL)
-		vty_out(vty, "%-10u %-4s %-21s %-8u %-8u %-15u %-37s\n",
-			zevpn->vni, "L2",
-			zevpn->vxlan_if ? zevpn->vxlan_if->name : "unknown",
-			num_macs, num_neigh, num_vteps,
-			vrf_id_to_name(zevpn->vrf_id));
+		vty_out(vty, "%-10u %-4s %-21s %-8u %-8u %-15u %-15s %-10u %-37s\n", zevpn->vni,
+			"L2", zevpn->vxlan_if ? zevpn->vxlan_if->name : "unknown", num_macs,
+			num_neigh, num_vteps, vrf_id_to_name(zevpn->vrf_id), zevpn->vid,
+			zevpn->bridge_if ? zevpn->bridge_if->name : "-");
 	else {
 		char vni_str[VNI_STR_LEN];
 		snprintf(vni_str, VNI_STR_LEN, "%u", zevpn->vni);
@@ -241,6 +240,9 @@ void zebra_evpn_print_hash(struct hash_bucket *bucket, void *ctxt[])
 		json_object_int_add(json_evpn, "numRemoteVteps", num_vteps);
 		json_object_string_add(json_evpn, "tenantVrf",
 				       vrf_id_to_name(zevpn->vrf_id));
+		json_object_int_add(json_evpn, "vlan", zevpn->vid);
+		json_object_string_add(json_evpn, "bridge",
+				       zevpn->bridge_if ? zevpn->bridge_if->name : "-");
 		if (num_vteps) {
 			json_vtep_list = json_object_new_array();
 			for (zvtep = zevpn->vteps; zvtep; zvtep = zvtep->next) {
