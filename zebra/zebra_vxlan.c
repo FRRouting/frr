@@ -3976,9 +3976,9 @@ void zebra_vxlan_print_vnis(struct vty *vty, struct zebra_vrf *zvrf,
 	}
 
 	if (!use_json)
-		vty_out(vty, "%-10s %-4s %-21s %-8s %-8s %-15s %-37s\n", "VNI",
-			"Type", "VxLAN IF", "# MACs", "# ARPs",
-			"# Remote VTEPs", "Tenant VRF");
+		vty_out(vty, "%-10s %-4s %-21s %-8s %-8s %-15s %-15s %-10s %-37s\n", "VNI", "Type",
+			"VxLAN IF", "# MACs", "# ARPs", "# Remote VTEPs", "Tenant VRF", "VLAN",
+			"BRIDGE");
 
 	args[0] = vty;
 	args[1] = json;
