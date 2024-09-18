@@ -5451,7 +5451,7 @@ DEFUN (neighbor_local_as,
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
-	ret = peer_local_as_set(peer, as, 0, 0, argv[idx_number]->arg);
+	ret = peer_local_as_set(peer, as, 0, 0, 0, argv[idx_number]->arg);
 	return bgp_vty_return(vty, ret);
 }
 
@@ -5480,19 +5480,20 @@ DEFUN (neighbor_local_as_no_prepend,
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
-	ret = peer_local_as_set(peer, as, 1, 0, argv[idx_number]->arg);
+	ret = peer_local_as_set(peer, as, 1, 0, 0, argv[idx_number]->arg);
 	return bgp_vty_return(vty, ret);
 }
 
-DEFUN (neighbor_local_as_no_prepend_replace_as,
+DEFPY (neighbor_local_as_no_prepend_replace_as,
        neighbor_local_as_no_prepend_replace_as_cmd,
-       "neighbor <A.B.C.D|X:X::X:X|WORD> local-as ASNUM no-prepend replace-as",
+       "neighbor <A.B.C.D|X:X::X:X|WORD> local-as ASNUM no-prepend replace-as [dual-as$dual_as]",
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
        "Specify a local-as number\n"
        "AS number expressed in dotted or plain format used as local AS\n"
        "Do not prepend local-as to updates from ebgp peers\n"
-       "Do not prepend local-as to updates from ibgp peers\n")
+       "Do not prepend local-as to updates from ibgp peers\n"
+       "Allow peering with a global AS number or local-as number\n")
 {
 	int idx_peer = 1;
 	int idx_number = 3;
@@ -5510,20 +5511,21 @@ DEFUN (neighbor_local_as_no_prepend_replace_as,
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
-	ret = peer_local_as_set(peer, as, 1, 1, argv[idx_number]->arg);
+	ret = peer_local_as_set(peer, as, 1, 1, dual_as, argv[idx_number]->arg);
 	return bgp_vty_return(vty, ret);
 }
 
 DEFUN (no_neighbor_local_as,
        no_neighbor_local_as_cmd,
-       "no neighbor <A.B.C.D|X:X::X:X|WORD> local-as [ASNUM [no-prepend [replace-as]]]",
+       "no neighbor <A.B.C.D|X:X::X:X|WORD> local-as [ASNUM [no-prepend [replace-as] [dual-as]]]",
        NO_STR
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
        "Specify a local-as number\n"
        "AS number expressed in dotted or plain format used as local AS\n"
        "Do not prepend local-as to updates from ebgp peers\n"
-       "Do not prepend local-as to updates from ibgp peers\n")
+       "Do not prepend local-as to updates from ibgp peers\n"
+       "Allow peering with a global AS number or local-as number\n")
 {
 	int idx_peer = 2;
 	struct peer *peer;
@@ -14051,6 +14053,10 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, bool use_json,
 		if (CHECK_FLAG(p->flags, PEER_FLAG_LOCAL_AS_REPLACE_AS))
 			json_object_boolean_true_add(json_neigh,
 						     "localAsReplaceAs");
+
+		json_object_boolean_add(json_neigh, "localAsReplaceAsDualAs",
+					!!CHECK_FLAG(p->flags,
+						     PEER_FLAG_DUAL_AS));
 	} else {
 		if (p->as_type == AS_SPECIFIED ||
 		    CHECK_FLAG(p->as_type, AS_AUTO) ||
@@ -14065,13 +14071,15 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, bool use_json,
 		vty_out(vty, ASN_FORMAT(bgp->asnotation),
 			p->change_local_as ? &p->change_local_as
 					   : &p->local_as);
-		vty_out(vty, "%s%s, ",
+		vty_out(vty, "%s%s%s, ",
 			CHECK_FLAG(p->flags, PEER_FLAG_LOCAL_AS_NO_PREPEND)
 				? " no-prepend"
 				: "",
 			CHECK_FLAG(p->flags, PEER_FLAG_LOCAL_AS_REPLACE_AS)
 				? " replace-as"
-				: "");
+				: "",
+			CHECK_FLAG(p->flags, PEER_FLAG_DUAL_AS) ? " dual-as"
+								: "");
 	}
 	/* peer type internal or confed-internal */
 	if ((p->as == p->local_as) || (CHECK_FLAG(p->as_type, AS_INTERNAL))) {
@@ -18663,6 +18671,8 @@ static void bgp_config_write_peer_global(struct vty *vty, struct bgp *bgp,
 			vty_out(vty, " no-prepend");
 		if (peergroup_flag_check(peer, PEER_FLAG_LOCAL_AS_REPLACE_AS))
 			vty_out(vty, " replace-as");
+		if (peergroup_flag_check(peer, PEER_FLAG_DUAL_AS))
+			vty_out(vty, " dual-as");
 		vty_out(vty, "\n");
 	}
 

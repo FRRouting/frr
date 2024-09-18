@@ -1818,7 +1818,7 @@ Configuring Peers
    Since sent prefix count is managed by update-groups, this option
    creates a separate update-group for outgoing updates.
 
-.. clicmd:: neighbor PEER local-as AS-NUMBER [no-prepend] [replace-as]
+.. clicmd:: neighbor PEER local-as AS-NUMBER [no-prepend [replace-as [dual-as]]]
 
    Specify an alternate AS for this BGP process when interacting with the
    specified peer. With no modifiers, the specified local-as is prepended to
@@ -1833,6 +1833,10 @@ Configuring Peers
    prepended to the AS_PATH when transmitting local-route updates to this peer.
 
    Note that replace-as can only be specified if no-prepend is.
+
+   The ``dual-as`` keyword is used to configure the neighbor to establish a peering
+   session using the real autonomous-system number (``router bgp ASN``) or by using
+   the autonomous system number configured with the ``local-as``.
 
    This command is only allowed for eBGP peers.
 

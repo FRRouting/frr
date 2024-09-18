@@ -4696,6 +4696,7 @@ static const struct peer_flag_action peer_flag_action_list[] = {
 	{PEER_FLAG_LOCAL_AS, 0, peer_change_reset},
 	{PEER_FLAG_LOCAL_AS_NO_PREPEND, 0, peer_change_reset},
 	{PEER_FLAG_LOCAL_AS_REPLACE_AS, 0, peer_change_reset},
+	{PEER_FLAG_DUAL_AS, 0, peer_change_reset},
 	{PEER_FLAG_UPDATE_SOURCE, 0, peer_change_none},
 	{PEER_FLAG_DISABLE_LINK_BW_ENCODING_IEEE, 0, peer_change_none},
 	{PEER_FLAG_EXTENDED_OPT_PARAMS, 0, peer_change_reset},
@@ -6646,9 +6647,9 @@ int peer_allowas_in_unset(struct peer *peer, afi_t afi, safi_t safi)
 }
 
 int peer_local_as_set(struct peer *peer, as_t as, bool no_prepend,
-		      bool replace_as, const char *as_str)
+		      bool replace_as, bool dual_as, const char *as_str)
 {
-	bool old_no_prepend, old_replace_as;
+	bool old_no_prepend, old_replace_as, old_dual_as;
 	struct bgp *bgp = peer->bgp;
 	struct peer *member;
 	struct listnode *node, *nnode;
@@ -6661,14 +6662,16 @@ int peer_local_as_set(struct peer *peer, as_t as, bool no_prepend,
 		!!CHECK_FLAG(peer->flags, PEER_FLAG_LOCAL_AS_NO_PREPEND);
 	old_replace_as =
 		!!CHECK_FLAG(peer->flags, PEER_FLAG_LOCAL_AS_REPLACE_AS);
+	old_dual_as = !!CHECK_FLAG(peer->flags, PEER_FLAG_DUAL_AS);
 
 	/* Set flag and configuration on peer. */
 	peer_flag_set(peer, PEER_FLAG_LOCAL_AS);
 	peer_flag_modify(peer, PEER_FLAG_LOCAL_AS_NO_PREPEND, no_prepend);
 	peer_flag_modify(peer, PEER_FLAG_LOCAL_AS_REPLACE_AS, replace_as);
+	peer_flag_modify(peer, PEER_FLAG_DUAL_AS, dual_as);
 
-	if (peer->change_local_as == as && old_no_prepend == no_prepend
-	    && old_replace_as == replace_as)
+	if (peer->change_local_as == as && old_no_prepend == no_prepend &&
+	    old_replace_as == replace_as && old_dual_as == dual_as)
 		return 0;
 	peer->change_local_as = as;
 	if (as_str) {
@@ -6697,10 +6700,11 @@ int peer_local_as_set(struct peer *peer, as_t as, bool no_prepend,
 					    PEER_FLAG_LOCAL_AS_NO_PREPEND);
 		old_replace_as = CHECK_FLAG(member->flags,
 					    PEER_FLAG_LOCAL_AS_REPLACE_AS);
-		if (member->change_local_as == as
-		    && CHECK_FLAG(member->flags, PEER_FLAG_LOCAL_AS)
-		    && old_no_prepend == no_prepend
-		    && old_replace_as == replace_as)
+		old_dual_as = !!CHECK_FLAG(member->flags, PEER_FLAG_DUAL_AS);
+		if (member->change_local_as == as &&
+		    CHECK_FLAG(member->flags, PEER_FLAG_LOCAL_AS) &&
+		    old_no_prepend == no_prepend &&
+		    old_replace_as == replace_as && old_dual_as == dual_as)
 			continue;
 
 		/* Set flag and configuration on peer-group member. */
@@ -6709,6 +6713,7 @@ int peer_local_as_set(struct peer *peer, as_t as, bool no_prepend,
 			  no_prepend);
 		COND_FLAG(member->flags, PEER_FLAG_LOCAL_AS_REPLACE_AS,
 			  replace_as);
+		COND_FLAG(member->flags, PEER_FLAG_DUAL_AS, dual_as);
 		member->change_local_as = as;
 		if (as_str)
 			member->change_local_as_pretty = XSTRDUP(MTYPE_BGP_NAME,
@@ -6731,12 +6736,14 @@ int peer_local_as_unset(struct peer *peer)
 		peer_flag_inherit(peer, PEER_FLAG_LOCAL_AS);
 		peer_flag_inherit(peer, PEER_FLAG_LOCAL_AS_NO_PREPEND);
 		peer_flag_inherit(peer, PEER_FLAG_LOCAL_AS_REPLACE_AS);
+		peer_flag_inherit(peer, PEER_FLAG_DUAL_AS);
 		PEER_ATTR_INHERIT(peer, peer->group, change_local_as);
 	} else {
 		/* Otherwise remove flag and configuration from peer. */
 		peer_flag_unset(peer, PEER_FLAG_LOCAL_AS);
 		peer_flag_unset(peer, PEER_FLAG_LOCAL_AS_NO_PREPEND);
 		peer_flag_unset(peer, PEER_FLAG_LOCAL_AS_REPLACE_AS);
+		peer_flag_unset(peer, PEER_FLAG_DUAL_AS);
 		peer->change_local_as = 0;
 		XFREE(MTYPE_BGP_NAME, peer->change_local_as_pretty);
 	}
@@ -6768,6 +6775,7 @@ int peer_local_as_unset(struct peer *peer)
 		UNSET_FLAG(member->flags, PEER_FLAG_LOCAL_AS);
 		UNSET_FLAG(member->flags, PEER_FLAG_LOCAL_AS_NO_PREPEND);
 		UNSET_FLAG(member->flags, PEER_FLAG_LOCAL_AS_REPLACE_AS);
+		UNSET_FLAG(member->flags, PEER_FLAG_DUAL_AS);
 		member->change_local_as = 0;
 		XFREE(MTYPE_BGP_NAME, member->change_local_as_pretty);
 		member->last_reset = PEER_DOWN_LOCAL_AS_CHANGE;
