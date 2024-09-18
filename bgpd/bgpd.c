@@ -3527,7 +3527,7 @@ static struct bgp *bgp_create(as_t *as, const char *name,
 	bgp_addpath_init_bgp_data(&bgp->tx_addpath);
 	bgp->fast_convergence = false;
 	bgp->llgr_stale_time = BGP_DEFAULT_LLGR_STALE_TIME;
-	bgp->rmap_def_originate_eval_timer = RMAP_DEFAULT_ORIGINATE_EVAL_TIMER;
+	bgp->rmap_def_originate_eval_timer = 0;
 
 #ifdef ENABLE_BGP_VNC
 	if (inst_type != BGP_INSTANCE_TYPE_VRF) {
@@ -5791,6 +5791,10 @@ int peer_default_originate_set(struct peer *peer, afi_t afi, safi_t safi,
 	subgrp = peer_subgroup(peer, afi, safi);
 
 	if (rmap) {
+		if (!peer->bgp->rmap_def_originate_eval_timer)
+			peer->bgp->rmap_def_originate_eval_timer =
+				RMAP_DEFAULT_ORIGINATE_EVAL_TIMER;
+
 		if (!peer->default_rmap[afi][safi].name
 		    || strcmp(rmap, peer->default_rmap[afi][safi].name) != 0) {
 			struct route_map *map = NULL;
@@ -5872,6 +5876,10 @@ int peer_default_originate_set(struct peer *peer, afi_t afi, safi_t safi,
 			 PEER_FLAG_DEFAULT_ORIGINATE);
 		if (rmap) {
 			struct route_map *map = NULL;
+
+			if (!member->bgp->rmap_def_originate_eval_timer)
+				member->bgp->rmap_def_originate_eval_timer =
+					RMAP_DEFAULT_ORIGINATE_EVAL_TIMER;
 
 			if (member->default_rmap[afi][safi].name) {
 				map = route_map_lookup_by_name(

@@ -1972,11 +1972,13 @@ Configuring Peers
    and will not be displayed as part of a `show run`.  The no form
    of the command turns off this ability.
 
-.. clicmd:: bgp default-originate timer (0-3600)
+.. clicmd:: bgp default-originate timer (0-65535)
 
    Set the period to rerun the default-originate route-map scanner process. The
    default is 5 seconds. With a full routing table, it might be useful to increase
    this setting to avoid scanning the whole BGP table aggressively.
+
+   Setting to 0 turns off the scanning at all.
 
 .. clicmd:: bgp default ipv4-unicast
 
