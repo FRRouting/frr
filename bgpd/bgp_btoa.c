@@ -69,7 +69,7 @@ static void attr_parse(struct stream *s, uint16_t len)
 		flag = stream_getc(s);
 		type = stream_getc(s);
 
-		if (flag & BGP_ATTR_FLAG_EXTLEN)
+		if (CHECK_FLAG(flag, BGP_ATTR_FLAG_EXTLEN))
 			length = stream_getw(s);
 		else
 			length = stream_getc(s);
