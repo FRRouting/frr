@@ -847,7 +847,7 @@ identity set-extcommunity-color {
     }
 
     case extcommunity-nt {
-      when "derived-from-or-self(/frr-route-map:lib/frr-route-map:route-map/frr-route-map:entry/frr-route-map:set-action/frr-route-map:action, 'frr-bgp-route-map:set-extcommunity-nt')";
+      when "derived-from-or-self(../frr-route-map:action, 'frr-bgp-route-map:set-extcommunity-nt')";
       description
         "Value of the ext-community";
       leaf extcommunity-nt {
@@ -1008,7 +1008,7 @@ identity set-extcommunity-color {
     }
 
     case aigp-metric {
-      when "derived-from-or-self(/frr-route-map:lib/frr-route-map:route-map/frr-route-map:entry/frr-route-map:set-action/frr-route-map:action, 'frr-bgp-route-map:aigp-metric')";
+      when "derived-from-or-self(../frr-route-map:action, 'frr-bgp-route-map:aigp-metric')";
       leaf aigp-metric {
         type string;
         description
@@ -1127,16 +1127,14 @@ identity set-extcommunity-color {
     case comm-list-name {
       when "derived-from-or-self(../frr-route-map:action, 'frr-bgp-route-map:comm-list-delete') or "
         + "derived-from-or-self(../frr-route-map:action, 'frr-bgp-route-map:large-comm-list-delete') or "
-        + "derived-from-or-self(../frr-route-map:action,
-'frr-bgp-route-map:extended-comm-list-delete')";
+        + "derived-from-or-self(../frr-route-map:action, 'frr-bgp-route-map:extended-comm-list-delete')";
       leaf comm-list-name {
         type bgp-filter:bgp-list-name;
       }
     }
     case evpn-gateway-ip-ipv4 {
       when
-      "derived-from-or-self(/frr-route-map:lib/frr-route-map:route-map/frr-route-map:entry/frr-route-map:set-action/frr-route-map:action,
-      'frr-bgp-route-map:set-evpn-gateway-ip-ipv4')";
+      "derived-from-or-self(../frr-route-map:action, 'frr-bgp-route-map:set-evpn-gateway-ip-ipv4')";
       description
         "Set EVPN gateway IP overlay index IPv4";
       leaf evpn-gateway-ip-ipv4 {
@@ -1145,8 +1143,7 @@ identity set-extcommunity-color {
     }
     case evpn-gateway-ip-ipv6 {
       when
-      "derived-from-or-self(/frr-route-map:lib/frr-route-map:route-map/frr-route-map:entry/frr-route-map:set-action/frr-route-map:action,
-      'frr-bgp-route-map:set-evpn-gateway-ip-ipv6')";
+      "derived-from-or-self(../frr-route-map:action, 'frr-bgp-route-map:set-evpn-gateway-ip-ipv6')";
       description
         "Set EVPN gateway IP overlay index IPv6";
       leaf evpn-gateway-ip-ipv6 {
@@ -1155,8 +1152,7 @@ identity set-extcommunity-color {
     }
     case l3vpn-nexthop-encapsulation {
       when
-      "derived-from-or-self(../frr-route-map:action,
-      'frr-bgp-route-map:set-l3vpn-nexthop-encapsulation')";
+      "derived-from-or-self(../frr-route-map:action, 'frr-bgp-route-map:set-l3vpn-nexthop-encapsulation')";
       description
         "Accept L3VPN traffic over other than LSP encapsulation";
       leaf l3vpn-nexthop-encapsulation {
