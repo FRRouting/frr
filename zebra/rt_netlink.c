@@ -1688,7 +1688,7 @@ static bool _netlink_route_build_singlepath(const struct prefix *p,
 					return false;
 				if (!nl_attr_put(nlmsg, req_size,
 						 SEG6_LOCAL_NH6, &ctx->nh6,
-						 sizeof(struct in_addr)))
+						 sizeof(struct in6_addr)))
 					return false;
 				break;
 			case ZEBRA_SEG6_LOCAL_ACTION_END_DT6:
@@ -2979,7 +2979,7 @@ ssize_t netlink_nexthop_msg_encode(uint16_t cmd,
 						if (!nl_attr_put(&req->n, buflen,
 								 SEG6_LOCAL_NH6,
 								 &ctx->nh6,
-								 sizeof(struct in_addr)))
+								 sizeof(struct in6_addr)))
 							return 0;
 						break;
 					case SEG6_LOCAL_ACTION_END_DT6:
