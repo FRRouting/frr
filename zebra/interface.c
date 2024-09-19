@@ -47,6 +47,20 @@ DEFINE_MTYPE_STATIC(ZEBRA, ZIF_DESC, "Intf desc");
 
 static void if_down_del_nbr_connected(struct interface *ifp);
 
+static const char *if_zebra_data_state(uint8_t state)
+{
+	switch (state) {
+	case IF_ZEBRA_DATA_UNSPEC:
+		return "Not specified by CLI";
+	case IF_ZEBRA_DATA_ON:
+		return "Enabled by CLI";
+	case IF_ZEBRA_DATA_OFF:
+		return "Disabled by CLI";
+	}
+
+	return "STATE IS WRONG DEV ESCAPE";
+}
+
 static void if_zebra_speed_update(struct event *thread)
 {
 	struct interface *ifp = EVENT_ARG(thread);
@@ -2627,8 +2641,8 @@ static void if_dump_vty(struct vty *vty, struct interface *ifp)
 		vty_out(vty, "mtu6 %d ", ifp->mtu6);
 	vty_out(vty, "\n  flags: %s\n", if_flag_dump(ifp->flags));
 
-	if (zebra_if->mpls)
-		vty_out(vty, "  MPLS enabled\n");
+	vty_out(vty, "  MPLS %s %s\n", zebra_if->mpls ? "enabled" : "",
+		if_zebra_data_state(zebra_if->multicast));
 
 	if (zebra_if->linkdown)
 		vty_out(vty, "  Ignore all v4 routes with linkdown\n");
@@ -2639,6 +2653,10 @@ static void if_dump_vty(struct vty *vty, struct interface *ifp)
 		vty_out(vty, "  v4 Multicast forwarding is on\n");
 	if (zebra_if->v6mcast_on)
 		vty_out(vty, "  v6 Multicast forwarding is on\n");
+
+	vty_out(vty, "  Multicast config is %s\n", if_zebra_data_state(zebra_if->multicast));
+
+	vty_out(vty, "  Shutdown config is %s\n", if_zebra_data_state(zebra_if->shutdown));
 
 	/* Hardware address. */
 	vty_out(vty, "  Type: %s\n", if_link_type_str(ifp->ll_type));
@@ -2988,10 +3006,14 @@ static void if_dump_vty_json(struct vty *vty, struct interface *ifp,
 	json_object_boolean_add(json_if, "mplsEnabled", zebra_if->mpls);
 	json_object_boolean_add(json_if, "linkDown", zebra_if->linkdown);
 	json_object_boolean_add(json_if, "linkDownV6", zebra_if->linkdownv6);
-	json_object_boolean_add(json_if, "mcForwardingV4",
-				zebra_if->v4mcast_on);
-	json_object_boolean_add(json_if, "mcForwardingV6",
-				zebra_if->v6mcast_on);
+	json_object_boolean_add(json_if, "mcForwardingV4", zebra_if->v4mcast_on);
+	json_object_boolean_add(json_if, "mcForwardingV6", zebra_if->v6mcast_on);
+
+	json_object_string_add(json_if, "multicastConfig", if_zebra_data_state(zebra_if->multicast));
+
+	json_object_string_add(json_if, "shutdownConfig", if_zebra_data_state(zebra_if->shutdown));
+
+	json_object_string_add(json_if, "mplsConfig", if_zebra_data_state(zebra_if->mpls_config));
 
 	if (ifp->ifindex == IFINDEX_INTERNAL) {
 		json_object_boolean_add(json_if, "pseudoInterface", true);
