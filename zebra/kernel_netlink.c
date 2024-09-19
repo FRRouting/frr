@@ -672,21 +672,6 @@ void netlink_parse_rtattr_nested(struct rtattr **tb, int max,
 	netlink_parse_rtattr(tb, max, RTA_DATA(rta), RTA_PAYLOAD(rta));
 }
 
-bool nl_addraw_l(struct nlmsghdr *n, unsigned int maxlen, const void *data,
-		 unsigned int len)
-{
-	if (NLMSG_ALIGN(n->nlmsg_len) + NLMSG_ALIGN(len) > maxlen) {
-		zlog_err("ERROR message exceeded bound of %d", maxlen);
-		return false;
-	}
-
-	memcpy(NLMSG_TAIL(n), data, len);
-	memset((uint8_t *)NLMSG_TAIL(n) + len, 0, NLMSG_ALIGN(len) - len);
-	n->nlmsg_len = NLMSG_ALIGN(n->nlmsg_len) + NLMSG_ALIGN(len);
-
-	return true;
-}
-
 bool nl_attr_put(struct nlmsghdr *n, unsigned int maxlen, int type,
 		 const void *data, unsigned int alen)
 {
