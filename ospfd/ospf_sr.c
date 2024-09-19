@@ -1459,7 +1459,8 @@ void ospf_sr_ri_lsa_update(struct ospf_lsa *lsa)
 	/* Update Algorithm, SRLB and MSD if present */
 	if (algo != NULL) {
 		int i;
-		for (i = 0; i < ntohs(algo->header.length); i++)
+		for (i = 0;
+		     i < ntohs(algo->header.length) && i < ALGORITHM_COUNT; i++)
 			srn->algo[i] = algo->value[0];
 		for (; i < ALGORITHM_COUNT; i++)
 			srn->algo[i] = SR_ALGORITHM_UNSET;
