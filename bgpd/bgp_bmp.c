@@ -64,6 +64,7 @@ DEFINE_MTYPE_STATIC(BMP, BMP,		"BMP instance state");
 DEFINE_MTYPE_STATIC(BMP, BMP_MIRRORQ,	"BMP route mirroring buffer");
 DEFINE_MTYPE_STATIC(BMP, BMP_PEER,	"BMP per BGP peer data");
 DEFINE_MTYPE_STATIC(BMP, BMP_OPEN,	"BMP stored BGP OPEN message");
+DEFINE_MTYPE_STATIC(BMP, BMP_IMPORTED_BGP, "BMP imported BGP instance");
 
 DEFINE_QOBJ_TYPE(bmp_targets);
 
@@ -140,6 +141,17 @@ static int bmp_targets_cmp(const struct bmp_targets *a,
 }
 
 DECLARE_SORTLIST_UNIQ(bmp_targets, struct bmp_targets, bti, bmp_targets_cmp);
+
+static int bmp_imported_bgps_cmp(const struct bmp_imported_bgp *a, const struct bmp_imported_bgp *b)
+{
+	if (a->name == NULL && b->name == NULL)
+		return 0;
+	if (a->name == NULL || b->name == NULL)
+		return 1;
+	return strcmp(a->name, b->name);
+}
+
+DECLARE_SORTLIST_UNIQ(bmp_imported_bgps, struct bmp_imported_bgp, bib, bmp_imported_bgps_cmp);
 
 DECLARE_LIST(bmp_session, struct bmp, bsi);
 
@@ -2145,16 +2157,25 @@ static struct bmp_targets *bmp_targets_get(struct bgp *bgp, const char *name)
 	bmp_qlist_init(&bt->locupdlist);
 	bmp_actives_init(&bt->actives);
 	bmp_listeners_init(&bt->listeners);
+	bmp_imported_bgps_init(&bt->imported_bgps);
 
 	QOBJ_REG(bt, bmp_targets);
 	bmp_targets_add(&bt->bmpbgp->targets, bt);
 	return bt;
 }
 
+static void bmp_imported_bgp_free(struct bmp_imported_bgp *bib)
+{
+	if (bib->name)
+		XFREE(MTYPE_BMP_IMPORTED_BGP, bib->name);
+	XFREE(MTYPE_BMP_IMPORTED_BGP, bib);
+}
+
 static void bmp_targets_put(struct bmp_targets *bt)
 {
 	struct bmp *bmp;
 	struct bmp_active *ba;
+	struct bmp_imported_bgp *bib;
 
 	EVENT_OFF(bt->t_stats);
 
@@ -2169,6 +2190,10 @@ static void bmp_targets_put(struct bmp_targets *bt)
 	bmp_targets_del(&bt->bmpbgp->targets, bt);
 	QOBJ_UNREG(bt);
 
+	frr_each_safe (bmp_imported_bgps, &bt->imported_bgps, bib)
+		bmp_imported_bgp_free(bib);
+
+	bmp_imported_bgps_fini(&bt->imported_bgps);
 	bmp_listeners_fini(&bt->listeners);
 	bmp_actives_fini(&bt->actives);
 	bmp_qhash_fini(&bt->updhash);
@@ -2211,6 +2236,36 @@ static struct bmp_listener *bmp_listener_get(struct bmp_targets *bt,
 
 	bmp_listeners_add(&bt->listeners, bl);
 	return bl;
+}
+
+static struct bmp_imported_bgp *bmp_imported_bgp_find(struct bmp_targets *bt, char *name)
+{
+	struct bmp_imported_bgp dummy;
+
+	dummy.name = name;
+	return bmp_imported_bgps_find(&bt->imported_bgps, &dummy);
+}
+
+static void bmp_imported_bgp_put(struct bmp_targets *bt, struct bmp_imported_bgp *bib)
+{
+	bmp_imported_bgps_del(&bt->imported_bgps, bib);
+	bmp_imported_bgp_free(bib);
+}
+
+static struct bmp_imported_bgp *bmp_imported_bgp_get(struct bmp_targets *bt, char *name)
+{
+	struct bmp_imported_bgp *bib = bmp_imported_bgp_find(bt, name);
+
+	if (bib)
+		return bib;
+
+	bib = XCALLOC(MTYPE_BMP_IMPORTED_BGP, sizeof(*bib));
+	if (name)
+		bib->name = XSTRDUP(MTYPE_BMP_IMPORTED_BGP, name);
+	bib->targets = bt;
+	bmp_imported_bgps_add(&bt->imported_bgps, bib);
+
+	return bib;
 }
 
 static void bmp_listener_start(struct bmp_listener *bl)
@@ -2570,6 +2625,47 @@ DEFPY(no_bmp_targets_main,
 		return CMD_WARNING;
 	}
 	bmp_targets_put(bt);
+	return CMD_SUCCESS;
+}
+
+DEFPY(bmp_import_vrf,
+      bmp_import_vrf_cmd,
+      "[no] bmp import-vrf-view VRFNAME$vrfname",
+      NO_STR
+      BMP_STR
+      "Import BMP information from another VRF\n"
+      "Specify the VRF or view instance name\n")
+{
+	VTY_DECLVAR_CONTEXT_SUB(bmp_targets, bt);
+	struct bmp_imported_bgp *bib;
+
+	if (!bt->bgp) {
+		vty_out(vty, "%% BMP target, BGP instance not found\n");
+		return CMD_WARNING;
+	}
+	if ((bt->bgp->name == NULL && vrfname == NULL) ||
+	    (bt->bgp->name && vrfname && strmatch(vrfname, bt->bgp->name))) {
+		vty_out(vty, "%% BMP target, can not import our own BGP instance\n");
+		return CMD_WARNING;
+	}
+	if (no) {
+		bib = bmp_imported_bgp_find(bt, (char *)vrfname);
+		if (!bib) {
+			vty_out(vty, "%% BMP imported BGP instance not found\n");
+			return CMD_WARNING;
+		}
+		/* TODO: handle loc-rib peer down change */
+		bmp_imported_bgp_put(bt, bib);
+		return CMD_SUCCESS;
+	}
+	bib = bmp_imported_bgp_find(bt, (char *)vrfname);
+	if (bib)
+		return CMD_SUCCESS;
+
+	bmp_imported_bgp_get(bt, (char *)vrfname);
+	/* TODO: handle loc-rib peer up and other peers state changes
+	 * TODO: Start the syncronisation
+	 */
 	return CMD_SUCCESS;
 }
 
@@ -3010,6 +3106,7 @@ static int bmp_config_write(struct bgp *bgp, struct vty *vty)
 	struct bmp_targets *bt;
 	struct bmp_listener *bl;
 	struct bmp_active *ba;
+	struct bmp_imported_bgp *bib;
 	afi_t afi;
 	safi_t safi;
 
@@ -3052,6 +3149,11 @@ static int bmp_config_write(struct bgp *bgp, struct vty *vty)
 				vty_out(vty, "  bmp monitor %s %s loc-rib\n",
 					afi2str_lower(afi), safi2str(safi));
 		}
+
+		frr_each (bmp_imported_bgps, &bt->imported_bgps, bib)
+			vty_out(vty, "  bmp import-vrf-view %s\n",
+				bib->name ? bib->name : VRF_DEFAULT_NAME);
+
 		frr_each (bmp_listeners, &bt->listeners, bl)
 			vty_out(vty, "   bmp listener %pSU port %d\n", &bl->addr, bl->port);
 
@@ -3089,6 +3191,7 @@ static int bgp_bmp_init(struct event_loop *tm)
 	install_element(BMP_NODE, &bmp_stats_cmd);
 	install_element(BMP_NODE, &bmp_monitor_cmd);
 	install_element(BMP_NODE, &bmp_mirror_cmd);
+	install_element(BMP_NODE, &bmp_import_vrf_cmd);
 
 	install_element(BGP_NODE, &bmp_mirror_limit_cmd);
 	install_element(BGP_NODE, &no_bmp_mirror_limit_cmd);
