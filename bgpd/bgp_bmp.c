@@ -50,6 +50,9 @@ static struct bmp_bgp_peer *bmp_bgp_peer_find(uint64_t peerid);
 static struct bmp_bgp_peer *bmp_bgp_peer_get(struct peer *peer);
 static void bmp_active_disconnected(struct bmp_active *ba);
 static void bmp_active_put(struct bmp_active *ba);
+static int bmp_route_update_bgpbmp(struct bmp_targets *bt, afi_t afi, safi_t safi,
+				   struct bgp_dest *bn, struct bgp_path_info *old_route,
+				   struct bgp_path_info *new_route);
 
 DEFINE_MGROUP(BMP, "BMP (BGP Monitoring Protocol)");
 
@@ -3207,11 +3210,12 @@ static int bmp_route_update(struct bgp *bgp, afi_t afi, safi_t safi,
 			    struct bgp_path_info *old_route,
 			    struct bgp_path_info *new_route)
 {
-	bool is_locribmon_enabled = false;
 	bool is_withdraw = old_route && !new_route;
 	struct bgp_path_info *updated_route =
 		is_withdraw ? old_route : new_route;
-
+	struct bmp_bgp *bmpbgp;
+	struct bmp_targets *bt;
+	int ret = 0;
 
 	/* this should never happen */
 	if (!updated_route) {
@@ -3219,23 +3223,25 @@ static int bmp_route_update(struct bgp *bgp, afi_t afi, safi_t safi,
 		return 0;
 	}
 
-	struct bmp_bgp *bmpbgp = bmp_bgp_find(bgp);
-	struct peer *peer = updated_route->peer;
-	struct bmp_targets *bt;
-	struct bmp *bmp;
-
+	bmpbgp = bmp_bgp_find(bgp);
 	if (!bmpbgp)
 		return 0;
 
-	frr_each (bmp_targets, &bmpbgp->targets, bt) {
-		if (CHECK_FLAG(bt->afimon[afi][safi], BMP_MON_LOC_RIB)) {
-			is_locribmon_enabled = true;
-			break;
-		}
-	}
+	frr_each (bmp_targets, &bmpbgp->targets, bt)
+		if (CHECK_FLAG(bt->afimon[afi][safi], BMP_MON_LOC_RIB))
+			ret = bmp_route_update_bgpbmp(bt, afi, safi, bn, old_route, new_route);
+	return ret;
+}
 
-	if (!is_locribmon_enabled)
-		return 0;
+static int bmp_route_update_bgpbmp(struct bmp_targets *bt, afi_t afi, safi_t safi,
+				   struct bgp_dest *bn, struct bgp_path_info *old_route,
+				   struct bgp_path_info *new_route)
+{
+	bool is_withdraw = old_route && !new_route;
+	struct bgp_path_info *updated_route = is_withdraw ? old_route : new_route;
+	struct peer *peer = updated_route->peer;
+	struct bmp *bmp;
+	struct bmp_queue_entry *last_item;
 
 	/* route is not installed in locrib anymore and rib uptime was saved */
 	if (old_route && old_route->extra)
@@ -3249,26 +3255,20 @@ static int bmp_route_update(struct bgp *bgp, afi_t afi, safi_t safi,
 		bgp_path_info_extra_get(new_route)->bgp_rib_uptime =
 			monotime(NULL);
 
-	frr_each (bmp_targets, &bmpbgp->targets, bt) {
-		if (CHECK_FLAG(bt->afimon[afi][safi], BMP_MON_LOC_RIB)) {
+	last_item = bmp_process_one(bt, &bt->locupdhash, &bt->locupdlist, bt->bgp, afi, safi, bn,
+				    peer);
 
-			struct bmp_queue_entry *last_item = bmp_process_one(
-				bt, &bt->locupdhash, &bt->locupdlist, bgp, afi,
-				safi, bn, peer);
+	/* if bmp_process_one returns NULL
+	 * we don't have anything to do next
+	 */
+	if (!last_item)
+		return 0;
 
-			/* if bmp_process_one returns NULL
-			 * we don't have anything to do next
-			 */
-			if (!last_item)
-				continue;
+	frr_each (bmp_session, &bt->sessions, bmp) {
+		if (!bmp->locrib_queuepos)
+			bmp->locrib_queuepos = last_item;
 
-			frr_each (bmp_session, &bt->sessions, bmp) {
-				if (!bmp->locrib_queuepos)
-					bmp->locrib_queuepos = last_item;
-
-				pullwr_bump(bmp->pullwr);
-			};
-		}
+		pullwr_bump(bmp->pullwr);
 	};
 
 	return 0;
