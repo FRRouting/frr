@@ -155,12 +155,12 @@ struct ecommunity_ip6 {
 
 /* Extended community value is eight octet.  */
 struct ecommunity_val {
-	char val[ECOMMUNITY_SIZE];
+	uint8_t val[ECOMMUNITY_SIZE];
 };
 
 /* IPv6 Extended community value is eight octet.  */
 struct ecommunity_val_ipv6 {
-	char val[IPV6_ECOMMUNITY_SIZE];
+	uint8_t val[IPV6_ECOMMUNITY_SIZE];
 };
 
 #define ecom_length_size(X, Y)    ((X)->size * (Y))

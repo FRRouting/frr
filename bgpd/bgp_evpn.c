@@ -117,7 +117,7 @@ int vni_list_cmp(void *p1, void *p2)
 static unsigned int vrf_import_rt_hash_key_make(const void *p)
 {
 	const struct vrf_irt_node *irt = p;
-	const char *pnt = irt->rt.val;
+	const uint8_t *pnt = irt->rt.val;
 
 	return jhash(pnt, 8, 0x5abc1234);
 }
@@ -229,7 +229,7 @@ static int is_vrf_present_in_irt_vrfs(struct list *vrfs, struct bgp *bgp_vrf)
 static unsigned int import_rt_hash_key_make(const void *p)
 {
 	const struct irt_node *irt = p;
-	const char *pnt = irt->rt.val;
+	const uint8_t *pnt = irt->rt.val;
 
 	return jhash(pnt, 8, 0xdeadbeef);
 }

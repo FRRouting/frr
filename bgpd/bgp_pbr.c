@@ -775,14 +775,12 @@ int bgp_pbr_build_and_validate_entry(const struct prefix *p,
 			}
 			api_action = &api->actions[action_count - 1];
 
-			if ((ecom_eval->val[1] ==
-			     (char)ECOMMUNITY_REDIRECT_VRF) &&
-			    (ecom_eval->val[0] ==
-			     (char)ECOMMUNITY_ENCODE_TRANS_EXP ||
+			if ((ecom_eval->val[1] == ECOMMUNITY_REDIRECT_VRF) &&
+			    (ecom_eval->val[0] == ECOMMUNITY_ENCODE_TRANS_EXP ||
 			     ecom_eval->val[0] ==
-			     (char)ECOMMUNITY_EXTENDED_COMMUNITY_PART_2 ||
+				     ECOMMUNITY_EXTENDED_COMMUNITY_PART_2 ||
 			     ecom_eval->val[0] ==
-			     (char)ECOMMUNITY_EXTENDED_COMMUNITY_PART_3)) {
+				     ECOMMUNITY_EXTENDED_COMMUNITY_PART_3)) {
 				struct ecommunity *eckey = ecommunity_new();
 				struct ecommunity_val ecom_copy;
 
@@ -800,9 +798,9 @@ int bgp_pbr_build_and_validate_entry(const struct prefix *p,
 								eckey);
 				ecommunity_free(&eckey);
 			} else if ((ecom_eval->val[0] ==
-				    (char)ECOMMUNITY_ENCODE_REDIRECT_IP_NH) &&
+				    ECOMMUNITY_ENCODE_REDIRECT_IP_NH) &&
 				   (ecom_eval->val[1] ==
-				    (char)ECOMMUNITY_REDIRECT_IP_NH)) {
+				    ECOMMUNITY_REDIRECT_IP_NH)) {
 				/* in case the 2 ecom present,
 				 * do not overwrite
 				 * draft-ietf-idr-flowspec-redirect
@@ -861,10 +859,9 @@ int bgp_pbr_build_and_validate_entry(const struct prefix *p,
 						= ecom_eval->val[7];
 					api_action_redirect_ip = api_action;
 				}
-			} else if ((ecom_eval->val[0] ==
-				    (char)ECOMMUNITY_ENCODE_IP) &&
+			} else if ((ecom_eval->val[0] == ECOMMUNITY_ENCODE_IP) &&
 				   (ecom_eval->val[1] ==
-				    (char)ECOMMUNITY_FLOWSPEC_REDIRECT_IPV4)) {
+				    ECOMMUNITY_FLOWSPEC_REDIRECT_IPV4)) {
 				/* in case the 2 ecom present,
 				 * overwrite simpson draft
 				 * update redirect ip fields
@@ -888,7 +885,7 @@ int bgp_pbr_build_and_validate_entry(const struct prefix *p,
 				}
 			} else {
 				if (ecom_eval->val[0] !=
-				    (char)ECOMMUNITY_ENCODE_TRANS_EXP)
+				    ECOMMUNITY_ENCODE_TRANS_EXP)
 					continue;
 				ret = ecommunity_fill_pbr_action(ecom_eval,
 								 api_action,
@@ -920,9 +917,9 @@ int bgp_pbr_build_and_validate_entry(const struct prefix *p,
 			}
 			api_action = &api->actions[action_count - 1];
 			if ((ipv6_ecom_eval->val[1] ==
-			     (char)ECOMMUNITY_FLOWSPEC_REDIRECT_IPV6) &&
+			     ECOMMUNITY_FLOWSPEC_REDIRECT_IPV6) &&
 			    (ipv6_ecom_eval->val[0] ==
-			     (char)ECOMMUNITY_ENCODE_TRANS_EXP)) {
+			     ECOMMUNITY_ENCODE_TRANS_EXP)) {
 				struct ecommunity *eckey = ecommunity_new();
 				struct ecommunity_val_ipv6 ecom_copy;
 
