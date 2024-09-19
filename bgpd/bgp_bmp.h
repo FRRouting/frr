@@ -195,6 +195,9 @@ struct bmp_listener {
 	int sock;
 };
 
+/* config for imported bgp instances */
+PREDECL_SORTLIST_UNIQ(bmp_imported_bgps);
+
 /* bmp_targets - plural since it may contain multiple bmp_listener &
  * bmp_active items.  If they have the same config, BMP session should be
  * put in the same targets since that's a bit more effective.
@@ -238,6 +241,8 @@ struct bmp_targets {
 	struct bmp_qhash_head locupdhash;
 	struct bmp_qlist_head locupdlist;
 
+	struct bmp_imported_bgps_head imported_bgps;
+
 	uint64_t cnt_accept, cnt_aclrefused;
 
 	bool stats_send_experimental;
@@ -272,6 +277,12 @@ enum bmp_vrf_state {
 	vrf_state_down = -1,
 	vrf_state_unknown = 0,
 	vrf_state_up = 1,
+};
+
+struct bmp_imported_bgp {
+	struct bmp_imported_bgps_item bib;
+	struct bmp_targets *targets;
+	char *name;
 };
 
 struct bmp_bgp {
