@@ -380,6 +380,7 @@ int if_subnet_delete(struct interface *ifp, struct connected *ifc)
 	return 0;
 }
 
+#ifndef HAVE_NETLINK
 /* if_flags_mangle: A place for hacks that require mangling
  * or tweaking the interface flags.
  *
@@ -431,6 +432,7 @@ void if_flags_update(struct interface *ifp, uint64_t newflags)
 			if_up(ifp, true);
 	}
 }
+#endif
 
 /* Wake up configured address if it is not in current kernel
    address. */
