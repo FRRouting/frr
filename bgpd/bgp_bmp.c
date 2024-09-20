@@ -752,11 +752,13 @@ static void bmp_mirror_cull(struct bmp_bgp *bmpbgp)
 static int bmp_mirror_packet(struct peer *peer, uint8_t type, bgp_size_t size,
 		struct stream *packet)
 {
-	struct bmp_bgp *bmpbgp = bmp_bgp_find(peer->bgp);
+	struct bmp_bgp *bmpbgp;
 	struct timeval tv;
-	struct bmp_mirrorq *qitem;
+	struct bmp_mirrorq *qitem = NULL;
 	struct bmp_targets *bt;
 	struct bmp *bmp;
+	struct bgp *bgp_vrf;
+	struct listnode *node;
 
 	frrtrace(3, frr_bgp, bmp_mirror_packet, peer, type, packet);
 
@@ -772,8 +774,6 @@ static int bmp_mirror_packet(struct peer *peer, uint8_t type, bgp_size_t size,
 		memcpy(bbpeer->open_rx, packet->data, size);
 	}
 
-	if (!bmpbgp)
-		return 0;
 
 	qitem = XCALLOC(MTYPE_BMP_MIRRORQ, sizeof(*qitem) + size);
 	qitem->peerid = peer->qobj_node.nid;
@@ -781,27 +781,41 @@ static int bmp_mirror_packet(struct peer *peer, uint8_t type, bgp_size_t size,
 	qitem->len = size;
 	memcpy(qitem->data, packet->data, size);
 
-	frr_each(bmp_targets, &bmpbgp->targets, bt) {
-		if (!bt->mirror)
+	for (ALL_LIST_ELEMENTS_RO(bm->bgp, node, bgp_vrf)) {
+		bmpbgp = bmp_bgp_find(bgp_vrf);
+		if (!bmpbgp)
 			continue;
-		frr_each(bmp_session, &bt->sessions, bmp) {
-			qitem->refcount++;
-			if (!bmp->mirrorpos)
-				bmp->mirrorpos = qitem;
-			pullwr_bump(bmp->pullwr);
+		frr_each (bmp_targets, &bmpbgp->targets, bt) {
+			if (!bt->mirror)
+				continue;
+
+			if (bgp_vrf != peer->bgp && !bmp_imported_bgp_find(bt, peer->bgp->name))
+				continue;
+
+			frr_each (bmp_session, &bt->sessions, bmp) {
+				if (!qitem) {
+					qitem = XCALLOC(MTYPE_BMP_MIRRORQ, sizeof(*qitem) + size);
+					qitem->peerid = peer->qobj_node.nid;
+					qitem->tv = tv;
+					qitem->len = size;
+					memcpy(qitem->data, packet->data, size);
+				}
+
+				qitem->refcount++;
+				if (!bmp->mirrorpos)
+					bmp->mirrorpos = qitem;
+				pullwr_bump(bmp->pullwr);
+			}
+			bmpbgp->mirror_qsize += sizeof(*qitem) + size;
+			bmp_mirrorq_add_tail(&bmpbgp->mirrorq, qitem);
+
+			bmp_mirror_cull(bmpbgp);
+
+			bmpbgp->mirror_qsizemax = MAX(bmpbgp->mirror_qsizemax, bmpbgp->mirror_qsize);
 		}
 	}
-	if (qitem->refcount == 0)
+	if (qitem && qitem->refcount == 0)
 		XFREE(MTYPE_BMP_MIRRORQ, qitem);
-	else {
-		bmpbgp->mirror_qsize += sizeof(*qitem) + size;
-		bmp_mirrorq_add_tail(&bmpbgp->mirrorq, qitem);
-
-		bmp_mirror_cull(bmpbgp);
-
-		bmpbgp->mirror_qsizemax = MAX(bmpbgp->mirror_qsizemax,
-				bmpbgp->mirror_qsize);
-	}
 	return 0;
 }
 
