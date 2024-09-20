@@ -1098,6 +1098,15 @@ struct ospf_interface *add_ospf_interface(struct connected *co,
 	oi->p2mp_delay_reflood = IF_DEF_PARAMS(co->ifp)->p2mp_delay_reflood;
 	oi->p2mp_non_broadcast = IF_DEF_PARAMS(co->ifp)->p2mp_non_broadcast;
 
+	/*
+	 * If a neighbor filter is configured, update the neighbor filter
+	 * for the interface.
+	 */
+	if (OSPF_IF_PARAM_CONFIGURED(IF_DEF_PARAMS(co->ifp), nbr_filter_name))
+		oi->nbr_filter = prefix_list_lookup(AFI_IP,
+						    IF_DEF_PARAMS(co->ifp)
+							    ->nbr_filter_name);
+
 	/* Add pseudo neighbor. */
 	ospf_nbr_self_reset(oi, oi->ospf->router_id);
 
