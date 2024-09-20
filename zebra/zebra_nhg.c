@@ -1132,7 +1132,12 @@ static void zebra_nhg_handle_install(struct nhg_hash_entry *nhe, bool install)
 					"%s nh id %u (flags 0x%x) associated dependent NHG %pNG install",
 					__func__, nhe->id, nhe->flags,
 					rb_node_dep->nhe);
+<<<<<<< HEAD
 			zebra_nhg_install_kernel(rb_node_dep->nhe);
+=======
+			zebra_nhg_install_kernel(rb_node_dep->nhe,
+						 ZEBRA_ROUTE_MAX);
+>>>>>>> 58722b9448 (zebra: Pass in ZEBRA_ROUTE_MAX instead of true)
 		}
 	}
 }
