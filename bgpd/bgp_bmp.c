@@ -3216,6 +3216,8 @@ static int bmp_route_update(struct bgp *bgp, afi_t afi, safi_t safi,
 	struct bmp_bgp *bmpbgp;
 	struct bmp_targets *bt;
 	int ret = 0;
+	struct bgp *bgp_vrf;
+	struct listnode *node;
 
 	/* this should never happen */
 	if (!updated_route) {
@@ -3223,13 +3225,18 @@ static int bmp_route_update(struct bgp *bgp, afi_t afi, safi_t safi,
 		return 0;
 	}
 
-	bmpbgp = bmp_bgp_find(bgp);
-	if (!bmpbgp)
-		return 0;
-
-	frr_each (bmp_targets, &bmpbgp->targets, bt)
-		if (CHECK_FLAG(bt->afimon[afi][safi], BMP_MON_LOC_RIB))
+	for (ALL_LIST_ELEMENTS_RO(bm->bgp, node, bgp_vrf)) {
+		bmpbgp = bmp_bgp_find(bgp_vrf);
+		if (!bmpbgp)
+			continue;
+		frr_each (bmp_targets, &bmpbgp->targets, bt) {
+			if (!CHECK_FLAG(bt->afimon[afi][safi], BMP_MON_LOC_RIB))
+				continue;
+			if (bgp_vrf != bgp && !bmp_imported_bgp_find(bt, bgp->name))
+				continue;
 			ret = bmp_route_update_bgpbmp(bt, afi, safi, bn, old_route, new_route);
+		}
+	}
 	return ret;
 }
 
