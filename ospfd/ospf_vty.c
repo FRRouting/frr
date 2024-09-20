@@ -2111,7 +2111,7 @@ DEFUN (ospf_abr_type,
 
 DEFUN (no_ospf_abr_type,
        no_ospf_abr_type_cmd,
-       "no ospf abr-type <cisco|ibm|shortcut|standard>",
+       "no ospf abr-type [<cisco|ibm|shortcut|standard>]",
        NO_STR
        "OSPF specific commands\n"
        "Set OSPF ABR type\n"
