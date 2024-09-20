@@ -51,6 +51,8 @@ void nexthop_group_copy_nh_sorted(struct nexthop_group *nhg,
 void copy_nexthops(struct nexthop **tnh, const struct nexthop *nh,
 		   struct nexthop *rparent);
 
+void copy_nexthops_nocontext(struct nexthop **tnh, const struct nexthop *nh,
+			     struct nexthop *rparent);
 uint32_t nexthop_group_hash_no_recurse(const struct nexthop_group *nhg);
 uint32_t nexthop_group_hash(const struct nexthop_group *nhg);
 void nexthop_group_mark_duplicates(struct nexthop_group *nhg);
@@ -58,6 +60,8 @@ void nexthop_group_mark_duplicates(struct nexthop_group *nhg);
 /* Add a nexthop to a list, enforcing the canonical sort order. */
 void nexthop_group_add_sorted(struct nexthop_group *nhg,
 			      struct nexthop *nexthop);
+bool nexthop_group_add_sorted_nodup(struct nexthop_group *nhg,
+				    struct nexthop *nexthop);
 
 /* The following for loop allows to iterate over the nexthop
  * structure of routes.
