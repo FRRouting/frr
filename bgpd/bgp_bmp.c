@@ -54,6 +54,7 @@ static int bmp_route_update_bgpbmp(struct bmp_targets *bt, afi_t afi, safi_t saf
 				   struct bgp_dest *bn, struct bgp_path_info *old_route,
 				   struct bgp_path_info *new_route);
 static void bmp_send_all_bgp(struct peer *peer, bool down);
+static struct bmp_imported_bgp *bmp_imported_bgp_find(struct bmp_targets *bt, char *name);
 
 DEFINE_MGROUP(BMP, "BMP (BGP Monitoring Protocol)");
 
@@ -1681,9 +1682,12 @@ bmp_process_one(struct bmp_targets *bt, struct bmp_qhash_head *updhash,
 static int bmp_process(struct bgp *bgp, afi_t afi, safi_t safi,
 		       struct bgp_dest *bn, struct peer *peer, bool withdraw)
 {
-	struct bmp_bgp *bmpbgp = bmp_bgp_find(peer->bgp);
+	struct bmp_bgp *bmpbgp;
 	struct bmp_targets *bt;
 	struct bmp *bmp;
+	struct bgp *bgp_vrf;
+	struct listnode *node;
+	struct bmp_queue_entry *last_item;
 
 	if (frrtrace_enabled(frr_bgp, bmp_process)) {
 		char pfxprint[PREFIX2STR_BUFFER];
@@ -1693,31 +1697,34 @@ static int bmp_process(struct bgp *bgp, afi_t afi, safi_t safi,
 			 withdraw);
 	}
 
-	if (!bmpbgp)
-		return 0;
-
-	frr_each(bmp_targets, &bmpbgp->targets, bt) {
-		/* check if any monitoring is enabled (ignoring loc-rib since it
-		 * uses another hook & queue
-		 */
-		if (!CHECK_FLAG(bt->afimon[afi][safi], ~BMP_MON_LOC_RIB))
+	for (ALL_LIST_ELEMENTS_RO(bm->bgp, node, bgp_vrf)) {
+		bmpbgp = bmp_bgp_find(bgp_vrf);
+		if (!bmpbgp)
 			continue;
+		frr_each (bmp_targets, &bmpbgp->targets, bt) {
+			/* check if any monitoring is enabled (ignoring loc-rib since it
+			 * uses another hook & queue
+			 */
+			if (!CHECK_FLAG(bt->afimon[afi][safi], ~BMP_MON_LOC_RIB))
+				continue;
 
-		struct bmp_queue_entry *last_item =
-			bmp_process_one(bt, &bt->updhash, &bt->updlist, bgp,
-					afi, safi, bn, peer);
+			if (bgp_vrf != peer->bgp && !bmp_imported_bgp_find(bt, peer->bgp->name))
+				continue;
 
-		/* if bmp_process_one returns NULL
-		 * we don't have anything to do next
-		 */
-		if (!last_item)
-			continue;
+			last_item = bmp_process_one(bt, &bt->updhash, &bt->updlist, bgp, afi, safi,
+						    bn, peer);
+			/* if bmp_process_one returns NULL
+			 * we don't have anything to do next
+			 */
+			if (!last_item)
+				continue;
 
-		frr_each(bmp_session, &bt->sessions, bmp) {
-			if (!bmp->queuepos)
-				bmp->queuepos = last_item;
+			frr_each (bmp_session, &bt->sessions, bmp) {
+				if (!bmp->queuepos)
+					bmp->queuepos = last_item;
 
-			pullwr_bump(bmp->pullwr);
+				pullwr_bump(bmp->pullwr);
+			}
 		}
 	}
 	return 0;
