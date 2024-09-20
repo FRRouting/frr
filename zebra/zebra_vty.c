@@ -939,14 +939,17 @@ static void do_show_route_helper(struct vty *vty, struct zebra_vrf *zvrf,
 					vty_out(vty, "\n");
 				if (ctx->multi || zvrf_id(zvrf) != VRF_DEFAULT
 				    || tableid) {
-					if (!tableid)
-						vty_out(vty, "VRF %s:\n",
-							zvrf_name(zvrf));
-					else
+					if (vrf_is_backend_netns() && tableid)
 						vty_out(vty,
 							"VRF %s table %u:\n",
 							zvrf_name(zvrf),
 							tableid);
+					else if (tableid)
+						vty_out(vty, "Table %u:\n",
+							tableid);
+					else
+						vty_out(vty, "VRF %s:\n",
+							zvrf_name(zvrf));
 				}
 				ctx->header_done = true;
 				first = 0;
