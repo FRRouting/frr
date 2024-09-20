@@ -2378,6 +2378,32 @@ DEFPY (show_ipv6_pim_bsrp,
 	return pim_show_group_rp_mappings_info_helper(vrf, vty, !!json);
 }
 
+DEFPY(clear_ipv6_mld_interfaces,
+      clear_ipv6_mld_interfaces_cmd,
+      "clear ipv6 mld [vrf NAME$vrf_name] interfaces",
+      CLEAR_STR
+      IPV6_STR
+      "MLD clear commands\n"
+      VRF_CMD_HELP_STR
+      "Reset MLD interfaces\n")
+{
+	struct interface *ifp;
+	struct vrf *vrf;
+
+	vrf = vrf_name ? vrf_lookup_by_name(vrf_name) : vrf_lookup_by_id(VRF_DEFAULT);
+	if (!vrf) {
+		vty_out(vty, "Specified VRF: %s does not exist\n", vrf_name);
+		return CMD_WARNING;
+	}
+
+	FOR_ALL_INTERFACES (vrf, ifp)
+		pim_if_addr_del_all(ifp);
+	FOR_ALL_INTERFACES (vrf, ifp)
+		pim_if_addr_add_all(ifp);
+
+	return CMD_SUCCESS;
+}
+
 DEFPY (clear_ipv6_pim_statistics,
        clear_ipv6_pim_statistics_cmd,
        "clear ipv6 pim statistics [vrf NAME]$name",
@@ -2975,6 +3001,7 @@ void pim_cmd_init(void)
 	install_element(VIEW_NODE, &show_ipv6_pim_bsr_cmd);
 	install_element(VIEW_NODE, &show_ipv6_pim_bsm_db_cmd);
 	install_element(VIEW_NODE, &show_ipv6_pim_bsrp_cmd);
+	install_element(ENABLE_NODE, &clear_ipv6_mld_interfaces_cmd);
 	install_element(ENABLE_NODE, &clear_ipv6_pim_statistics_cmd);
 	install_element(ENABLE_NODE, &clear_ipv6_mroute_cmd);
 	install_element(ENABLE_NODE, &clear_ipv6_pim_oil_cmd);
