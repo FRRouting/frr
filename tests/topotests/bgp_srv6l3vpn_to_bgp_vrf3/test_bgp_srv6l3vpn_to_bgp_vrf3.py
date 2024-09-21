@@ -21,7 +21,7 @@ from lib import topotest
 from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
 from lib.common_config import required_linux_kernel_version
-from lib.checkping import check_ping, check_ping
+from lib.checkping import check_ping
 
 pytestmark = [pytest.mark.bgpd]
 
