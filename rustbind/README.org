@@ -1,0 +1,22 @@
+* Rust Binary Daemon Skeleton
+
+This is the skeleton for a native rust based FRR daemon. The daemon is built as
+a rust binary with bindgen access to FRR infra.
+
+** Development
+*** Editor/LSP support
+
+In order for LSP support to work you will likely need to do a couple things if
+you use a build directory.
+
+- Create 2 symlinks from the generated files in ~BUILDDIR/rustbind~ for
+   `build.rs` and `wrapper.h` e.g. if your build dir is in `frr/build`:
+
+  #+begin_src bash
+    cd frr/rustbind
+    ln -s ../build/rustbind/build.rs .
+    ln -s ../build/rustbind/wrapper.h .
+  #+end_src
+
+- Copy the created `Cargo.toml` from BUILDDIR and modify the path value to be
+  `rustbin_main.rs` (i.e., no path prefix).

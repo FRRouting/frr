@@ -1,0 +1,21 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
+/*
+ * September 9 2024, Christian Hopps <chopps@labn.net>
+ *
+ * Copyright (C) 2024 LabN Consulting, L.L.C.
+ */
+#include "config.h"
+/* #include "typesafe.h" */
+/* #include "frratomic.h" */
+/* #include "sigevent.h" */
+/* #include "privs.h" */
+
+/* #include "log.h" */
+/* #include "getopt.h" */
+/* #include "module.h" */
+/* #include "hook.h" */
+/* #include "northbound.h" */
+
+#include <lib/libfrr.h>
+#include <lib/zebra.h>
+#include <lib/mgmt_msg_native.h>
