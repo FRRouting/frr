@@ -42,7 +42,7 @@ def setup_module(mod):
     tgen = Topogen({None: "r1"}, mod.__name__)
     tgen.start_topology()
     router_list = tgen.routers()
-    for rname, router in tgen.routers().items():
+    for rname, router in router_list.items():
         router.run(
             "/bin/bash {}".format(os.path.join(CWD, "{}/setup.sh".format(rname)))
         )
