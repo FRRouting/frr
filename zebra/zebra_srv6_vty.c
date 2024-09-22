@@ -752,6 +752,7 @@ DEFUN (no_srv6_locator,
 	struct listnode *node, *nnode;
 	struct zebra_srv6_sid_ctx *ctx;
 	struct srv6_locator *locator = zebra_srv6_locator_lookup(argv[2]->arg);
+
 	if (!locator) {
 		vty_out(vty, "%% Can't find SRv6 locator\n");
 		return CMD_WARNING_CONFIG_FAILED;
