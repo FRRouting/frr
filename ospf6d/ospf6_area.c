@@ -73,10 +73,10 @@ static void ospf6_area_lsdb_hook_add(struct ospf6_lsa *lsa)
 {
 	switch (ntohs(lsa->header->type)) {
 
-	case OSPF6_LSTYPE_E_ROUTER:
-	case OSPF6_LSTYPE_E_NETWORK:
 	case OSPF6_LSTYPE_ROUTER:
+	case OSPF6_LSTYPE_E_ROUTER:
 	case OSPF6_LSTYPE_NETWORK:
+	case OSPF6_LSTYPE_E_NETWORK:
 		if (IS_OSPF6_DEBUG_EXAMIN_TYPE(lsa->header->type)) {
 			zlog_debug("%s Examin LSA %s", __func__, lsa->name);
 			zlog_debug(" Schedule SPF Calculation for %s",
@@ -88,16 +88,20 @@ static void ospf6_area_lsdb_hook_add(struct ospf6_lsa *lsa)
 		break;
 
 	case OSPF6_LSTYPE_INTRA_PREFIX:
+	case OSPF6_LSTYPE_E_INTRA_PREFIX:
 		ospf6_intra_prefix_lsa_add(lsa);
 		break;
 
 	case OSPF6_LSTYPE_INTER_PREFIX:
+	case OSPF6_LSTYPE_E_INTER_PREFIX:
 	case OSPF6_LSTYPE_INTER_ROUTER:
+	case OSPF6_LSTYPE_E_INTER_ROUTER:
 		ospf6_abr_examin_summary(lsa,
 					 (struct ospf6_area *)lsa->lsdb->data);
 		break;
 
 	case OSPF6_LSTYPE_TYPE_7:
+	case OSPF6_LSTYPE_E_TYPE_7:
 		ospf6_asbr_lsa_add(lsa);
 		break;
 
@@ -110,7 +114,9 @@ static void ospf6_area_lsdb_hook_remove(struct ospf6_lsa *lsa)
 {
 	switch (ntohs(lsa->header->type)) {
 	case OSPF6_LSTYPE_ROUTER:
+	case OSPF6_LSTYPE_E_ROUTER:
 	case OSPF6_LSTYPE_NETWORK:
+	case OSPF6_LSTYPE_E_NETWORK:
 		if (IS_OSPF6_DEBUG_EXAMIN_TYPE(lsa->header->type)) {
 			zlog_debug("LSA disappearing: %s", lsa->name);
 			zlog_debug("Schedule SPF Calculation for %s",
@@ -122,15 +128,19 @@ static void ospf6_area_lsdb_hook_remove(struct ospf6_lsa *lsa)
 		break;
 
 	case OSPF6_LSTYPE_INTRA_PREFIX:
+	case OSPF6_LSTYPE_E_INTRA_PREFIX:
 		ospf6_intra_prefix_lsa_remove(lsa);
 		break;
 
 	case OSPF6_LSTYPE_INTER_PREFIX:
+	case OSPF6_LSTYPE_E_INTER_PREFIX:
 	case OSPF6_LSTYPE_INTER_ROUTER:
+	case OSPF6_LSTYPE_E_INTER_ROUTER:
 		ospf6_abr_examin_summary(lsa,
 					 (struct ospf6_area *)lsa->lsdb->data);
 		break;
 	case OSPF6_LSTYPE_TYPE_7:
+	case OSPF6_LSTYPE_E_TYPE_7:
 		ospf6_asbr_lsa_remove(lsa, NULL);
 		break;
 	default:
