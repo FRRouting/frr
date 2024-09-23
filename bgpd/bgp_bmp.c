@@ -617,20 +617,33 @@ static struct stream *bmp_peerstate(struct peer *peer, bool down)
 	return s;
 }
 
-
-static int bmp_send_peerup(struct bmp *bmp)
+static int bmp_send_peerup_per_instance(struct bmp *bmp, struct bgp *bgp)
 {
 	struct peer *peer;
 	struct listnode *node;
 	struct stream *s;
 
 	/* Walk down all peers */
-	for (ALL_LIST_ELEMENTS_RO(bmp->targets->bgp->peer, node, peer)) {
+	for (ALL_LIST_ELEMENTS_RO(bgp->peer, node, peer)) {
 		s = bmp_peerstate(peer, false);
 		if (s) {
 			pullwr_write_stream(bmp->pullwr, s);
 			stream_free(s);
 		}
+	}
+	return 0;
+}
+
+static int bmp_send_peerup(struct bmp *bmp)
+{
+	struct bmp_imported_bgp *bib;
+	struct bgp *bgp;
+
+	bmp_send_peerup_per_instance(bmp, bmp->targets->bgp);
+	frr_each (bmp_imported_bgps, &bmp->targets->imported_bgps, bib) {
+		bgp = bgp_lookup_by_name(bib->name);
+		if (bgp)
+			bmp_send_peerup_per_instance(bmp, bgp);
 	}
 
 	return 0;
@@ -2691,6 +2704,8 @@ DEFPY(bmp_import_vrf,
 {
 	VTY_DECLVAR_CONTEXT_SUB(bmp_targets, bt);
 	struct bmp_imported_bgp *bib;
+	struct bgp *bgp;
+	struct bmp *bmp;
 
 	if (!bt->bgp) {
 		vty_out(vty, "%% BMP target, BGP instance not found\n");
@@ -2715,10 +2730,18 @@ DEFPY(bmp_import_vrf,
 	if (bib)
 		return CMD_SUCCESS;
 
-	bmp_imported_bgp_get(bt, (char *)vrfname);
-	/* TODO: handle loc-rib peer up and other peers state changes
+	bib = bmp_imported_bgp_get(bt, (char *)vrfname);
+	bgp = bgp_lookup_by_name(bib->name);
+	if (!bgp)
+		return CMD_SUCCESS;
+	/* TODO: handle loc-rib peer up changes
 	 * TODO: Start the syncronisation
 	 */
+	frr_each (bmp_session, &bt->sessions, bmp) {
+		if (bmp->state != BMP_PeerUp && bmp->state != BMP_Run)
+			continue;
+		bmp_send_peerup_per_instance(bmp, bgp);
+	}
 	return CMD_SUCCESS;
 }
 
