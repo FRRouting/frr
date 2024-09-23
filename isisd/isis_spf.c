@@ -1469,13 +1469,12 @@ static void spf_adj_list_parse_tlv(struct isis_spftree *spftree,
 		sadj->metric = metric;
 	if (oldmetric)
 		SET_FLAG(flags, F_ISIS_SPF_ADJ_OLDMETRIC);
+	if ((oldmetric && sadj->metric == ISIS_NARROW_METRIC_INFINITY) ||
+	    (!oldmetric && sadj->metric == ISIS_WIDE_METRIC_INFINITY))
+		SET_FLAG(flags, F_ISIS_SPF_ADJ_METRIC_INFINITY);
 	sadj->lsp = lsp;
 	sadj->subtlvs = subtlvs;
 	sadj->flags = flags;
-
-	if ((oldmetric && metric == ISIS_NARROW_METRIC_INFINITY)
-	    || (!oldmetric && metric == ISIS_WIDE_METRIC_INFINITY))
-		SET_FLAG(flags, F_ISIS_SPF_ADJ_METRIC_INFINITY);
 
 	/* Set real adjacency. */
 	if (!CHECK_FLAG(spftree->flags, F_SPFTREE_NO_ADJACENCIES)
