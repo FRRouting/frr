@@ -1799,14 +1799,18 @@ int netlink_tunneldump_read(struct zebra_ns *zns)
 
 		ret = netlink_request_tunneldump(zns, PF_BRIDGE,
 						 tmp_if->ifindex);
-		if (ret < 0)
+		if (ret < 0) {
+			route_unlock_node(rn);
 			return ret;
+		}
 
 		ret = netlink_parse_info(netlink_link_change, netlink_cmd,
 					 &dp_info, 0, true);
 
-		if (ret < 0)
+		if (ret < 0) {
+			route_unlock_node(rn);
 			return ret;
+		}
 	}
 
 	return 0;
