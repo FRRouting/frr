@@ -399,14 +399,17 @@ static void bmp_put_info_tlv(struct stream *s, uint16_t type,
 /* put the vrf table name of the bgp instance bmp is bound to in a tlv on the
  * stream
  */
-static void bmp_put_vrftablename_info_tlv(struct stream *s, struct bgp *bgp)
+static void bmp_put_vrftablename_info_tlv(struct stream *s, struct peer *peer)
 {
 	const char *vrftablename = "global";
+	struct vrf *vrf;
 
 #define BMP_INFO_TYPE_VRFTABLENAME 3
 
-	if (bgp->inst_type != BGP_INSTANCE_TYPE_DEFAULT)
-		vrftablename = bgp->name;
+	if (peer->bgp->inst_type != BGP_INSTANCE_TYPE_DEFAULT) {
+		vrf = vrf_lookup_by_id(peer->bgp->vrf_id);
+		vrftablename = vrf ? vrf->name : NULL;
+	}
 
 	if (vrftablename != NULL)
 		bmp_put_info_tlv(s, BMP_INFO_TYPE_VRFTABLENAME, vrftablename);
@@ -590,7 +593,7 @@ static struct stream *bmp_peerstate(struct peer *peer, bool down)
 	}
 
 	if (is_locrib)
-		bmp_put_vrftablename_info_tlv(s, peer->bgp);
+		bmp_put_vrftablename_info_tlv(s, peer);
 
 	len = stream_get_endp(s);
 	stream_putl_at(s, BMP_LENGTH_POS, len); /* message length is set. */
@@ -847,8 +850,7 @@ static bool bmp_wrmirror(struct bmp *bmp, struct pullwr *pullwr)
 	s = stream_new(BGP_MAX_PACKET_SIZE);
 
 	bmp_common_hdr(s, BMP_VERSION_3, BMP_TYPE_ROUTE_MIRRORING);
-	bmp_per_peer_hdr(s, bmp->targets->bgp, peer, 0, peer_type_flag, peer_distinguisher,
-			 &bmq->tv);
+	bmp_per_peer_hdr(s, peer->bgp, peer, 0, peer_type_flag, peer_distinguisher, &bmq->tv);
 
 	/* BMP Mirror TLV. */
 	stream_putw(s, BMP_MIRROR_TLV_TYPE_BGP_MESSAGE);
@@ -1141,8 +1143,7 @@ static void bmp_monitor(struct bmp *bmp, struct peer *peer, uint8_t flags,
 
 	hdr = stream_new(BGP_MAX_PACKET_SIZE);
 	bmp_common_hdr(hdr, BMP_VERSION_3, BMP_TYPE_ROUTE_MONITORING);
-	bmp_per_peer_hdr(hdr, bmp->targets->bgp, peer, flags, peer_type_flag,
-			 peer_distinguisher,
+	bmp_per_peer_hdr(hdr, peer->bgp, peer, flags, peer_type_flag, peer_distinguisher,
 			 uptime == (time_t)(-1L) ? NULL : &uptime_real);
 
 	stream_putl_at(hdr, BMP_LENGTH_POS,
@@ -1446,7 +1447,7 @@ static bool bmp_wrqueue_locrib(struct bmp *bmp, struct pullwr *pullwr)
 		 */
 		goto out;
 	}
-	if (peer != bmp->targets->bgp->peer_self && !peer_established(peer->connection)) {
+	if (peer != peer->bgp->peer_self && !peer_established(peer->connection)) {
 		/* peer is neither self, nor established
 		 */
 		goto out;
@@ -1457,8 +1458,7 @@ static bool bmp_wrqueue_locrib(struct bmp *bmp, struct pullwr *pullwr)
 
 	struct prefix_rd *prd = is_vpn ? &bqe->rd : NULL;
 
-	bn = bgp_safi_node_lookup(bmp->targets->bgp->rib[afi][safi], safi,
-				  &bqe->p, prd);
+	bn = bgp_safi_node_lookup(peer->bgp->rib[afi][safi], safi, &bqe->p, prd);
 
 	struct bgp_path_info *bpi;
 
@@ -1534,8 +1534,7 @@ static bool bmp_wrqueue(struct bmp *bmp, struct pullwr *pullwr)
 		      (bqe->safi == SAFI_MPLS_VPN);
 
 	struct prefix_rd *prd = is_vpn ? &bqe->rd : NULL;
-	bn = bgp_safi_node_lookup(bmp->targets->bgp->rib[afi][safi], safi,
-				  &bqe->p, prd);
+	bn = bgp_safi_node_lookup(peer->bgp->rib[afi][safi], safi, &bqe->p, prd);
 
 	peer_type_flag = bmp_get_peer_type(peer);
 
