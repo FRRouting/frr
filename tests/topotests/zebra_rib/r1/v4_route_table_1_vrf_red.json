@@ -15,6 +15,39 @@
       ]
     }
   ],
+  "10.0.0.0/24": [
+    {
+      "protocol": "static",
+      "vrfName": "RED",
+      "installed": true,
+      "table": 1,
+      "nexthops": [
+        {
+          "fib": true,
+          "unreachable": true,
+          "blackhole": true,
+          "active": true
+        }
+      ]
+    }
+  ],
+  "10.1.0.0/24": [
+    {
+      "protocol": "static",
+      "vrfName": "RED",
+      "installed": true,
+      "table": 1,
+      "nexthops": [
+        {
+          "fib": true,
+          "ip": "192.168.211.254",
+          "interfaceName": "r1-eth1",
+          "vrf": "default",
+          "active": true
+        }
+      ]
+    }
+  ],
   "10.2.0.0/24": [
     {
       "protocol": "static",
