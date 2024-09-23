@@ -1,0 +1,22 @@
+{
+  "0.0.0.0/0": [
+    {
+      "protocol": "kernel",
+      "vrfName": "default",
+      "installed": true,
+      "table": 1,
+      "nexthops": [
+        {
+          "fib": true,
+          "unreachable": true,
+          "blackhole": true,
+          "active": true
+        }
+      ]
+    }
+  ],
+  "10.2.0.0/24": null,
+  "10.3.0.0/24": null,
+  "192.168.210.0/24": null,
+  "192.168.210.1/32": null
+}
