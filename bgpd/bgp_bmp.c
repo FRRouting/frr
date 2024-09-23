@@ -1733,6 +1733,8 @@ static void bmp_stats(struct event *thread)
 	struct peer *peer;
 	struct listnode *node;
 	struct timeval tv;
+	uint8_t peer_type_flag;
+	uint64_t peer_distinguisher = 0;
 
 	if (bt->stat_msec)
 		event_add_timer_msec(bm->master, bmp_stats, bt, bt->stat_msec,
@@ -1749,8 +1751,14 @@ static void bmp_stats(struct event *thread)
 
 		s = stream_new(BGP_MAX_PACKET_SIZE);
 		bmp_common_hdr(s, BMP_VERSION_3, BMP_TYPE_STATISTICS_REPORT);
-		bmp_per_peer_hdr(s, bt->bgp, peer, 0,
-				 BMP_PEER_TYPE_GLOBAL_INSTANCE, 0, &tv);
+		peer_type_flag = bmp_get_peer_type(peer);
+		if (bmp_get_peer_distinguisher(peer->bgp, AFI_UNSPEC, peer_type_flag,
+					       &peer_distinguisher)) {
+			zlog_warn("skipping bmp message for peer %s: can't get peer distinguisher",
+				  peer->host);
+			continue;
+		}
+		bmp_per_peer_hdr(s, bt->bgp, peer, 0, peer_type_flag, peer_distinguisher, &tv);
 
 		count_pos = stream_get_endp(s);
 		stream_putl(s, 0);
