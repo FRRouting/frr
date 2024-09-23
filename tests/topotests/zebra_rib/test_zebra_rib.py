@@ -139,6 +139,16 @@ def test_zebra_kernel_route_vrf():
     step("Add routes in table 1")
     r1.run("ip route add blackhole default table {}".format(table_id))
 
+    r1.vtysh_cmd(
+        """
+configure terminal
+ ip route 10.0.0.0/24 blackhole table {}
+ ip route 10.1.0.0/24 192.168.211.254 nexthop-vrf default table {}
+""".format(
+            table_id, table_id
+        )
+    )
+
     json_file = "{}/r1/v4_route_table_1_no_vrf.json".format(CWD)
     expected = json.loads(open(json_file).read())
     test_func = partial(
