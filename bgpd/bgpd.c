@@ -4095,7 +4095,8 @@ int bgp_delete(struct bgp *bgp)
 	}
 
 	/* unmap from RT list */
-	bgp_evpn_vrf_delete(bgp);
+	if (!IS_BGP_INSTANCE_HIDDEN(bgp))
+		bgp_evpn_vrf_delete(bgp);
 
 	/* unmap bgp vrf label */
 	vpn_leak_zebra_vrf_label_withdraw(bgp, AFI_IP);
