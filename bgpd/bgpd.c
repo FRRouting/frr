@@ -1255,7 +1255,6 @@ static void peer_free(struct peer *peer)
 		EVENT_OFF(peer->t_revalidate_all[afi][safi]);
 	assert(!peer->connection->t_write);
 	assert(!peer->connection->t_read);
-	event_cancel_event_ready(bm->master, peer->connection);
 
 	/* Free connected nexthop, if present */
 	if (CHECK_FLAG(peer->flags, PEER_FLAG_CONFIG_NODE)
