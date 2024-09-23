@@ -55,6 +55,7 @@ static int bmp_route_update_bgpbmp(struct bmp_targets *bt, afi_t afi, safi_t saf
 				   struct bgp_path_info *new_route);
 static void bmp_send_all_bgp(struct peer *peer, bool down);
 static struct bmp_imported_bgp *bmp_imported_bgp_find(struct bmp_targets *bt, char *name);
+static void bmp_stats_per_instance(struct bgp *bgp, struct bmp_targets *bt);
 
 DEFINE_MGROUP(BMP, "BMP (BGP Monitoring Protocol)");
 
@@ -1798,6 +1799,22 @@ static void bmp_stat_put_u64(struct stream *s, size_t *cnt, uint16_t type,
 static void bmp_stats(struct event *thread)
 {
 	struct bmp_targets *bt = EVENT_ARG(thread);
+	struct bmp_imported_bgp *bib;
+	struct bgp *bgp;
+
+	if (bt->stat_msec)
+		event_add_timer_msec(bm->master, bmp_stats, bt, bt->stat_msec, &bt->t_stats);
+
+	bmp_stats_per_instance(bt->bgp, bt);
+	frr_each (bmp_imported_bgps, &bt->imported_bgps, bib) {
+		bgp = bgp_lookup_by_name(bib->name);
+		if (bgp)
+			bmp_stats_per_instance(bgp, bt);
+	}
+}
+
+static void bmp_stats_per_instance(struct bgp *bgp, struct bmp_targets *bt)
+{
 	struct stream *s;
 	struct peer *peer;
 	struct listnode *node;
@@ -1805,14 +1822,10 @@ static void bmp_stats(struct event *thread)
 	uint8_t peer_type_flag;
 	uint64_t peer_distinguisher = 0;
 
-	if (bt->stat_msec)
-		event_add_timer_msec(bm->master, bmp_stats, bt, bt->stat_msec,
-				     &bt->t_stats);
-
 	gettimeofday(&tv, NULL);
 
 	/* Walk down all peers */
-	for (ALL_LIST_ELEMENTS_RO(bt->bgp->peer, node, peer)) {
+	for (ALL_LIST_ELEMENTS_RO(bgp->peer, node, peer)) {
 		size_t count = 0, count_pos, len;
 
 		if (!peer_established(peer->connection))
