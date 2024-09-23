@@ -27,12 +27,13 @@ sys.path.append(os.path.join(CWD, "../"))
 # pylint: disable=C0413
 # Import topogen and topotest helpers
 from lib import topotest
+from lib.common_config import step
 from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
 from time import sleep
 
 
-pytestmark = [pytest.mark.sharpd]
+pytestmark = [pytest.mark.sharpd, pytest.mark.staticd]
 krel = platform.release()
 
 
@@ -64,6 +65,7 @@ def setup_module(mod):
         router.load_config(
             TopoRouter.RD_SHARP, os.path.join(CWD, "{}/sharpd.conf".format(rname))
         )
+        router.load_config(TopoRouter.RD_STATIC, "/dev/null")
 
     # Macvlan interface for protodown func test */
     config_macvlan(tgen, "r1", "r1-eth0", "r1-eth0-macvlan")
@@ -77,14 +79,54 @@ def teardown_module():
     tgen.stop_topology()
 
 
+def check_routes_installed(expected, table=None):
+    tgen = get_topogen()
+    r1 = tgen.gears["r1"]
+
+    cmd = "ip route show"
+    if table:
+        cmd += " table {}".format(table)
+    actual = r1.run(cmd)
+    actual = ("\n".join(actual.splitlines()) + "\n").rstrip()
+    actual = re.sub(r" nhid [0-9][0-9]", "", actual)
+    actual = re.sub(r" proto sharp", " proto XXXX", actual)
+    actual = re.sub(r" proto static", " proto XXXX", actual)
+    actual = re.sub(r" proto 194", " proto XXXX", actual)
+    actual = re.sub(r" proto 196", " proto XXXX", actual)
+    actual = re.sub(r" proto kernel", " proto XXXX", actual)
+    actual = re.sub(r" proto 2", " proto XXXX", actual)
+    # Some platforms have double spaces?  Why??????
+    actual = re.sub(r"  proto XXXX  ", " proto XXXX ", actual)
+    actual = re.sub(r"  metric", " metric", actual)
+    actual = re.sub(r" link  ", " link ", actual)
+    actual = actual.splitlines()
+    actual = [
+        line.rstrip()
+        for line in actual
+        if not line.startswith("broadcast") and not line.startswith("local")
+    ]
+
+    expected = ("\n".join(expected.splitlines()) + "\n").rstrip()
+    expected = expected.splitlines()
+    expected = [line.rstrip() for line in expected]
+
+    return topotest.get_textdiff(
+        actual,
+        expected,
+        title1="Actual ip route show",
+        title2="Expected ip route show",
+    )
+
+
 def test_zebra_kernel_route_vrf():
     "Test kernel routes should be removed after interface changes vrf"
     logger.info("Test kernel routes should be removed after interface changes vrf")
     vrf = "RED"
+    table_id = 1
     tgen = get_topogen()
     r1 = tgen.gears["r1"]
 
-    # Add kernel routes, the interface is initially in default vrf
+    step("Add kernel routes, the interface is initially in default vrf")
     r1.run("ip route add 3.5.1.0/24 via 192.168.210.1 dev r1-eth0")
     json_file = "{}/r1/v4_route_1_vrf_before.json".format(CWD)
     expected = json.loads(open(json_file).read())
@@ -94,11 +136,59 @@ def test_zebra_kernel_route_vrf():
     _, result = topotest.run_and_expect(test_func, None, count=5, wait=1)
     assert result is None, '"r1" JSON output mismatches'
 
-    # Change the interface's vrf
-    r1.run("ip link add {} type vrf table 1".format(vrf))
+    step("Add routes in table 1")
+    r1.run("ip route add blackhole default table {}".format(table_id))
+
+    json_file = "{}/r1/v4_route_table_1_no_vrf.json".format(CWD)
+    expected = json.loads(open(json_file).read())
+    test_func = partial(
+        topotest.router_json_cmp, r1, "show ip route table 1 json", expected
+    )
+    _, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
+    assert result is None, '"r1" JSON output mismatches'
+
+    ipfile = "{}/r1/v4_route_table_1_no_vrf.txt".format(CWD)
+    expected = open(ipfile).read().rstrip()
+    expected = ("\n".join(expected.splitlines()) + "\n").rstrip()
+
+    test_func = partial(check_routes_installed, expected, table=1)
+    ok, result = topotest.run_and_expect(test_func, "", count=60, wait=0.5)
+    assert ok, result
+
+    step("Add VRF {} and assign it r1-eth0 interface".format(vrf))
+    r1.run("ip link add {} type vrf table {}".format(vrf, table_id))
     r1.run("ip link set {} up".format(vrf))
     r1.run("ip link set dev r1-eth0 master {}".format(vrf))
 
+    step("Add static routes to VRF {}".format(vrf))
+    r1.vtysh_cmd(
+        """
+configure terminal
+ vrf {}
+  ip route 10.2.0.0/24 192.168.210.254
+  ip route 10.3.0.0/24 192.168.212.254 nexthop-vrf default
+""".format(
+            vrf
+        )
+    )
+
+    json_file = "{}/r1/v4_route_table_1_vrf_red.json".format(CWD)
+    expected = json.loads(open(json_file).read())
+    test_func = partial(
+        topotest.router_json_cmp, r1, "show ip route table 1 json", expected
+    )
+    _, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
+    assert result is None, '"r1" JSON output mismatches'
+
+    ipfile = "{}/r1/v4_route_table_1_vrf_red.txt".format(CWD)
+    expected = open(ipfile).read().rstrip()
+    expected = ("\n".join(expected.splitlines()) + "\n").rstrip()
+
+    test_func = partial(check_routes_installed, expected, table=1)
+    ok, result = topotest.run_and_expect(test_func, "", count=60, wait=0.5)
+    assert ok, result
+
+    step("check 3.5.1.0/24 absence on VRF default")
     expected = "{}"
     test_func = partial(
         topotest.router_output_cmp, r1, "show ip route 3.5.1.0/24 json", expected
@@ -107,9 +197,25 @@ def test_zebra_kernel_route_vrf():
     assertmsg = "{} should not have the kernel route.\n{}".format('"r1"', diff)
     assert result, assertmsg
 
-    # Clean up
+    step("Remove VRF {}".format(vrf))
     r1.run("ip link set dev r1-eth0 nomaster")
     r1.run("ip link del dev {}".format(vrf))
+
+    json_file = "{}/r1/v4_route_table_1_no_vrf.json".format(CWD)
+    expected = json.loads(open(json_file).read())
+    test_func = partial(
+        topotest.router_json_cmp, r1, "show ip route table 1 json", expected
+    )
+    _, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
+    assert result is None, '"r1" JSON output mismatches'
+
+    ipfile = "{}/r1/v4_route_table_1_no_vrf.txt".format(CWD)
+    expected = open(ipfile).read().rstrip()
+    expected = ("\n".join(expected.splitlines()) + "\n").rstrip()
+
+    test_func = partial(check_routes_installed, expected, table=1)
+    ok, result = topotest.run_and_expect(test_func, "", count=60, wait=0.5)
+    assert ok, result
 
 
 def test_zebra_kernel_admin_distance():
@@ -295,28 +401,8 @@ def test_route_map_usage():
     expected = open(sharp_ipfile).read().rstrip()
     expected = ("\n".join(expected.splitlines()) + "\n").rstrip()
 
-    def check_routes_installed():
-        actual = r1.run("ip route show")
-        actual = ("\n".join(actual.splitlines()) + "\n").rstrip()
-        actual = re.sub(r" nhid [0-9][0-9]", "", actual)
-        actual = re.sub(r" proto sharp", " proto XXXX", actual)
-        actual = re.sub(r" proto static", " proto XXXX", actual)
-        actual = re.sub(r" proto 194", " proto XXXX", actual)
-        actual = re.sub(r" proto 196", " proto XXXX", actual)
-        actual = re.sub(r" proto kernel", " proto XXXX", actual)
-        actual = re.sub(r" proto 2", " proto XXXX", actual)
-        # Some platforms have double spaces?  Why??????
-        actual = re.sub(r"  proto XXXX  ", " proto XXXX ", actual)
-        actual = re.sub(r"  metric", " metric", actual)
-        actual = re.sub(r" link  ", " link ", actual)
-        return topotest.get_textdiff(
-            actual,
-            expected,
-            title1="Actual ip route show",
-            title2="Expected ip route show",
-        )
-
-    ok, result = topotest.run_and_expect(check_routes_installed, "", count=5, wait=1)
+    test_func = partial(check_routes_installed, expected)
+    ok, result = topotest.run_and_expect(test_func, "", count=60, wait=0.5)
     assert ok, result
 
 

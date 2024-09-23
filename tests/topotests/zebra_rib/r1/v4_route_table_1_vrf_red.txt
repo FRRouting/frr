@@ -1,0 +1,4 @@
+blackhole default
+10.2.0.0/24 via 192.168.210.254 dev r1-eth0 proto XXXX metric 20
+10.3.0.0/24 via 192.168.212.254 dev r1-eth2 proto XXXX metric 20
+192.168.210.0/24 dev r1-eth0 proto XXXX scope link src 192.168.210.1 

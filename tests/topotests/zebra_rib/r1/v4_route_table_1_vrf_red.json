@@ -1,0 +1,82 @@
+{
+  "0.0.0.0/0": [
+    {
+      "protocol": "kernel",
+      "vrfName": "RED",
+      "installed": true,
+      "table": 1,
+      "nexthops": [
+        {
+          "fib": true,
+          "unreachable": true,
+          "blackhole": true,
+          "active": true
+        }
+      ]
+    }
+  ],
+  "10.2.0.0/24": [
+    {
+      "protocol": "static",
+      "vrfName": "RED",
+      "installed": true,
+      "table": 1,
+      "nexthops": [
+        {
+          "fib": true,
+          "ip": "192.168.210.254",
+          "interfaceName": "r1-eth0",
+          "active": true
+        }
+      ]
+    }
+  ],
+  "10.3.0.0/24": [
+    {
+      "protocol": "static",
+      "vrfName": "RED",
+      "installed": true,
+      "table": 1,
+      "nexthops": [
+        {
+          "fib": true,
+          "ip": "192.168.212.254",
+          "interfaceName": "r1-eth2",
+          "vrf": "default",
+          "active": true
+        }
+      ]
+    }
+  ],
+  "192.168.210.0/24": [
+    {
+      "protocol": "connected",
+      "vrfName": "RED",
+      "installed": true,
+      "table": 1,
+      "nexthops": [
+        {
+          "fib": true,
+          "directlyConnected": true,
+          "interfaceName": "r1-eth0",
+          "active": true
+        }
+      ]
+    }
+  ],
+  "192.168.210.1/32": [
+    {
+      "protocol": "local",
+      "vrfName": "RED",
+      "installed": true,
+      "table": 1,
+      "nexthops": [
+        {
+          "fib": true,
+          "interfaceName": "r1-eth0",
+          "active": true
+        }
+      ]
+    }
+  ]
+}
