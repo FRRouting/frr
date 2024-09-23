@@ -191,13 +191,19 @@ static void zebra_vrf_disable_update_vrfid(struct zebra_vrf *zvrf, afi_t afi, sa
 		/* Assign the kernel route entries to the default VRF,
 		 * even though they are not actually owned by it.
 		 *
-		 * Remove route nodes that have been created by FRR daemons.
-		 * They are not needed if the VRF is disabled.
+		 * Remove route nodes that were created by FRR daemons,
+		 * unless they are associated with the table rather than the VRF.
+		 * Routes associated with the VRF are not needed once the VRF is
+		 * disabled.
 		 */
 		rn_delete = true;
 		RNODE_FOREACH_RE_SAFE (rn, re, nre) {
-			if (re->type == ZEBRA_ROUTE_KERNEL) {
+			if (re->type == ZEBRA_ROUTE_KERNEL ||
+			    CHECK_FLAG(re->flags, ZEBRA_FLAG_TABLEID)) {
 				nexthop_vrf_update(rn, re, VRF_DEFAULT);
+				if (CHECK_FLAG(re->flags, ZEBRA_FLAG_TABLEID))
+					/* reinstall routes */
+					rib_install_kernel(rn, re, NULL);
 				rn_delete = false;
 			} else
 				rib_unlink(rn, re);
