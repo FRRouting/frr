@@ -100,7 +100,6 @@ enum node_type {
 	INTERFACE_NODE,		 /* Interface mode node. */
 	NH_GROUP_NODE,		 /* Nexthop-Group mode node. */
 	ZEBRA_NODE,		 /* zebra connection node. */
-	TABLE_NODE,		 /* rtm_table selection node. */
 	RIP_NODE,		 /* RIP protocol mode node. */
 	RIPNG_NODE,		 /* RIPng protocol mode node. */
 	BABEL_NODE,		 /* BABEL protocol mode node. */
