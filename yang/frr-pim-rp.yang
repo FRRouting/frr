@@ -111,6 +111,70 @@ module frr-pim-rp {
     } // static-rp
   } // static-rp-container
 
+  grouping auto-rp-container {
+    description
+      "Grouping of AutoRP container.";
+
+    container auto-rp {
+      description
+        "Containing AutoRP attributes.";
+
+      leaf discovery-enabled {
+        type boolean;
+        description
+          "Flag indicating if Auto RP discovery is enabled.";
+      }
+
+      leaf announce-scope {
+        type uint8;
+        description
+          "The TTL of the C-RP Announcement packet.";
+      }
+
+      leaf announce-interval {
+        type uint16;
+        description
+          "The time between sending C-RP announcement packets.";
+      }
+
+      leaf announce-holdtime {
+        type uint16;
+        description
+          "The hold time in seconds advertised in the announcement packet.";
+      }
+
+      list candidate-rp-list {
+        key "rp-address";
+        description
+          "A list of Candidate RP addresses.";
+
+        leaf rp-address {
+          type inet:ip-address;
+          description
+            "Specifies a candidate RP address.";
+        }
+
+        choice group-or-prefix-list {
+          description "Use group or prefix-list";
+          case group {
+            leaf group {
+              type frr-route-types:ip-multicast-group-prefix;
+              description
+                "Multicast group prefix.";
+            }
+          }
+          case prefix-list {
+            leaf prefix-list {
+              type plist-ref;
+              description
+                "Group prefix-list filter";
+            }
+          }
+        }
+      } // candidate-rp-list
+    } // auto-rp
+  } // auto-rp-container
+
   /*
    * Configuration data nodes
    */
@@ -123,6 +187,13 @@ module frr-pim-rp {
       description
         "PIM RP configuration data.";
       uses static-rp-container;
+
+      uses auto-rp-container {
+        when "../frr-pim:address-family = 'frr-rt:ipv4'" {
+          description
+            "Only applicable to IPv4 address family.";
+        }
+      }
     } // rp
   } // augment
 }

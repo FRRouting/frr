@@ -2820,6 +2820,75 @@ DEFPY (show_ip_pim_rp_vrf_all,
 					  (struct prefix *)group, !!json);
 }
 
+DEFPY (show_ip_pim_autorp,
+       show_ip_pim_autorp_cmd,
+       "show ip pim [vrf NAME] autorp [json$json]",
+       SHOW_STR
+       IP_STR
+       PIM_STR
+       VRF_CMD_HELP_STR
+       "PIM AutoRP information\n"
+       JSON_STR)
+{
+	struct vrf *v;
+	json_object *json_parent = NULL;
+
+	v = vrf_lookup_by_name(vrf ? vrf : VRF_DEFAULT_NAME);
+	if (!v || !v->info) {
+		if (!json)
+			vty_out(vty, "%% Unable to find pim instance\n");
+		return CMD_WARNING;
+	}
+
+	if (json)
+		json_parent = json_object_new_object();
+
+	pim_autorp_show_autorp(vty, v->info, json_parent);
+
+	if (json)
+		vty_json(vty, json_parent);
+
+	return CMD_SUCCESS;
+}
+
+DEFPY (show_ip_pim_autorp_vrf_all,
+       show_ip_pim_autorp_vrf_all_cmd,
+       "show ip pim vrf all autorp [json$json]",
+       SHOW_STR
+       IP_STR
+       PIM_STR
+       VRF_CMD_HELP_STR
+       "PIM AutoRP information\n"
+       JSON_STR)
+{
+	struct vrf *vrf;
+	json_object *json_parent = NULL;
+	json_object *json_vrf = NULL;
+
+	if (json)
+		json_parent = json_object_new_object();
+
+	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
+		if (vrf->info) {
+			if (!json)
+				vty_out(vty, "VRF: %s\n", vrf->name);
+			else
+				json_vrf = json_object_new_object();
+
+			pim_autorp_show_autorp(vty, vrf->info, json_vrf);
+
+			if (json)
+				json_object_object_add(json_parent, vrf->name,
+						       json_vrf);
+		}
+	}
+
+	if (json)
+		vty_json(vty, json_parent);
+
+	return CMD_SUCCESS;
+}
+
 DEFPY (show_ip_pim_rpf,
        show_ip_pim_rpf_cmd,
        "show ip pim [vrf NAME] rpf [json$json]",
@@ -4514,6 +4583,52 @@ DEFPY_ATTR(no_ip_pim_rp_prefix_list,
 	}
 
 	return ret;
+}
+
+DEFPY (pim_autorp_discovery,
+       pim_autorp_discovery_cmd,
+       "[no] autorp discovery",
+       NO_STR
+       "AutoRP\n"
+       "Enable AutoRP discovery\n")
+{
+	if (no)
+		return pim_process_no_autorp_cmd(vty);
+	else
+		return pim_process_autorp_cmd(vty);
+}
+
+DEFPY (pim_autorp_announce_rp,
+       pim_autorp_announce_rp_cmd,
+       "[no] autorp announce A.B.C.D$rpaddr ![A.B.C.D/M$grp|group-list PREFIX_LIST$plist]",
+       NO_STR
+       "AutoRP\n"
+       "AutoRP Candidate RP announcement\n"
+       "AutoRP Candidate RP address\n"
+       "Group prefix\n"
+       "Prefix list\n"
+       "List name\n")
+{
+	return pim_process_autorp_candidate_rp_cmd(vty, no, rpaddr_str, grp,
+						   plist);
+}
+
+DEFPY (pim_autorp_announce_scope_int,
+       pim_autorp_announce_scope_int_cmd,
+       "[no] autorp announce ![{scope (1-255) | interval (1-65535) | holdtime (0-65535)}]",
+       NO_STR
+       "AutoRP\n"
+       "AutoRP Candidate RP announcement\n"
+       "Packet scope (TTL)\n"
+       "TTL value\n"
+       "Announcement interval\n"
+       "Time in seconds\n"
+       "Announcement holdtime\n"
+       "Time in seconds\n")
+{
+	return pim_process_autorp_announce_scope_int_cmd(vty, no, scope_str,
+							 interval_str,
+							 holdtime_str);
 }
 
 DEFPY (pim_bsr_candidate_bsr,
@@ -6374,6 +6489,29 @@ DEFUN (no_debug_bsm,
        DEBUG_PIM_BSM_STR)
 {
 	PIM_DONT_DEBUG_BSM;
+	return CMD_SUCCESS;
+}
+
+DEFUN (debug_autorp,
+       debug_autorp_cmd,
+       "debug pim autorp",
+       DEBUG_STR
+       DEBUG_PIM_STR
+       DEBUG_PIM_AUTORP_STR)
+{
+	PIM_DO_DEBUG_AUTORP;
+	return CMD_SUCCESS;
+}
+
+DEFUN (no_debug_autorp,
+       no_debug_autorp_cmd,
+       "no debug pim autorp",
+       NO_STR
+       DEBUG_STR
+       DEBUG_PIM_STR
+       DEBUG_PIM_AUTORP_STR)
+{
+	PIM_DONT_DEBUG_AUTORP;
 	return CMD_SUCCESS;
 }
 
@@ -8714,6 +8852,9 @@ void pim_cmd_init(void)
 	install_element(PIM_NODE, &no_pim_rp_cmd);
 	install_element(PIM_NODE, &pim_rp_prefix_list_cmd);
 	install_element(PIM_NODE, &no_pim_rp_prefix_list_cmd);
+	install_element(PIM_NODE, &pim_autorp_discovery_cmd);
+	install_element(PIM_NODE, &pim_autorp_announce_rp_cmd);
+	install_element(PIM_NODE, &pim_autorp_announce_scope_int_cmd);
 	install_element(PIM_NODE, &no_pim_ssm_prefix_list_cmd);
 	install_element(PIM_NODE, &no_pim_ssm_prefix_list_name_cmd);
 	install_element(PIM_NODE, &pim_ssm_prefix_list_cmd);
@@ -8868,6 +9009,8 @@ void pim_cmd_init(void)
 	install_element(VIEW_NODE, &show_ip_pim_upstream_rpf_cmd);
 	install_element(VIEW_NODE, &show_ip_pim_rp_cmd);
 	install_element(VIEW_NODE, &show_ip_pim_rp_vrf_all_cmd);
+	install_element(VIEW_NODE, &show_ip_pim_autorp_cmd);
+	install_element(VIEW_NODE, &show_ip_pim_autorp_vrf_all_cmd);
 	install_element(VIEW_NODE, &show_ip_pim_bsr_cmd);
 	install_element(VIEW_NODE, &show_ip_multicast_cmd);
 	install_element(VIEW_NODE, &show_ip_multicast_vrf_all_cmd);
@@ -8975,6 +9118,8 @@ void pim_cmd_init(void)
 	install_element(CONFIG_NODE, &debug_pim_trace_detail_cmd);
 	install_element(ENABLE_NODE, &debug_ssmpingd_cmd);
 	install_element(CONFIG_NODE, &debug_ssmpingd_cmd);
+	install_element(ENABLE_NODE, &debug_autorp_cmd);
+	install_element(ENABLE_NODE, &no_debug_autorp_cmd);
 	install_element(ENABLE_NODE, &no_debug_ssmpingd_cmd);
 	install_element(CONFIG_NODE, &no_debug_ssmpingd_cmd);
 	install_element(ENABLE_NODE, &debug_pim_zebra_cmd);
@@ -9007,6 +9152,8 @@ void pim_cmd_init(void)
 	install_element(CONFIG_NODE, &debug_bsm_cmd);
 	install_element(ENABLE_NODE, &no_debug_bsm_cmd);
 	install_element(CONFIG_NODE, &no_debug_bsm_cmd);
+	install_element(CONFIG_NODE, &debug_autorp_cmd);
+	install_element(CONFIG_NODE, &no_debug_autorp_cmd);
 
 	install_element(CONFIG_NODE, &ip_igmp_group_watermark_cmd);
 	install_element(VRF_NODE, &ip_igmp_group_watermark_cmd);

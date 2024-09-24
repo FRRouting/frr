@@ -16,11 +16,7 @@
 
 struct pim_interface;
 
-enum rp_source {
-	RP_SRC_NONE = 0,
-	RP_SRC_STATIC,
-	RP_SRC_BSR
-};
+enum rp_source { RP_SRC_NONE = 0, RP_SRC_STATIC, RP_SRC_BSR, RP_SRC_AUTORP };
 
 struct rp_info {
 	struct prefix group;

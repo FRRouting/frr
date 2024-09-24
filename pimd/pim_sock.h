@@ -32,6 +32,8 @@ int pim_socket_mcast(int protocol, pim_addr ifaddr, struct interface *ifp,
 		     uint8_t loop);
 int pim_socket_join(int fd, pim_addr group, pim_addr ifaddr, ifindex_t ifindex,
 		    struct pim_interface *pim_ifp);
+int pim_socket_leave(int fd, pim_addr group, pim_addr ifaddr, ifindex_t ifindex,
+		     struct pim_interface *pim_ifp);
 int pim_socket_recvfromto(int fd, uint8_t *buf, size_t len,
 			  struct sockaddr_storage *from, socklen_t *fromlen,
 			  struct sockaddr_storage *to, socklen_t *tolen,
