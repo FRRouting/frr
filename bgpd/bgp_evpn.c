@@ -1610,11 +1610,15 @@ static int update_evpn_type5_route_entry(struct bgp *bgp_evpn,
 	struct bgp_labels bgp_labels = {};
 	struct bgp_path_info *local_pi = NULL;
 	struct bgp_path_info *tmp_pi = NULL;
+	struct aspath *new_aspath;
+	struct attr static_attr = { 0 };
 
 	*route_changed = 0;
 
 	/* See if this is an update of an existing route, or a new add. */
 	local_pi = bgp_evpn_route_get_local_path(bgp_evpn, dest);
+
+	static_attr = *attr;
 
 	/*
 	 * create a new route entry if one doesn't exist.
@@ -1625,8 +1629,19 @@ static int update_evpn_type5_route_entry(struct bgp *bgp_evpn,
 		/* route has changed as this is the first entry */
 		*route_changed = 1;
 
+		/*
+		 * if the asn values are different, copy the as of
+		 * source vrf to the target entry
+		 */
+		if (bgp_vrf->as != bgp_evpn->as) {
+			new_aspath = aspath_dup(static_attr.aspath);
+			new_aspath = aspath_add_seq(new_aspath, bgp_vrf->as);
+			static_attr.aspath = new_aspath;
+		}
+
 		/* Add (or update) attribute to hash. */
-		attr_new = bgp_attr_intern(attr);
+		attr_new = bgp_attr_intern(&static_attr);
+		bgp_attr_flush(&static_attr);
 
 		/* create the route info from attribute */
 		pi = info_make(ZEBRA_ROUTE_BGP, BGP_ROUTE_STATIC, 0,
