@@ -153,7 +153,7 @@ def cleanup_config(r1, tempdir, logpath):
     yield
 
     r1.cmd_nostatus("vtysh -c 'conf t' -c 'no allow-external-route-update'")
-    r1.cmd_nostatus("vtysh -c 'conf t' -c 'no ip multicast rpf-lookup-mode urib-only'")
+    r1.cmd_nostatus("vtysh -c 'conf t' -c 'no router-id 1.2.3.4'")
     r1.cmd_nostatus("vtysh -c 'conf t' -c 'no ip table range 2 3'")
 
     logbuf = save_log_snippet(logpath, logbuf, "/dev/null")
@@ -290,9 +290,7 @@ def test_zebra_one_exit_file(r1, confdir, tempdir, logpath):
 
     showrun = r1.cmd_nostatus("vtysh -c 'show running'")
     assert "allow-external-route-update" in showrun, "zebra conf missing"
-    assert (
-        "ip multicast rpf-lookup-mode urib-only" not in showrun
-    ), "zebra second conf present, unexpected"
+    assert "router-id 1.2.3.4" not in showrun, "zebra second conf present, unexpected"
 
 
 def test_zebra_one_exit_redir(r1, confdir, tempdir, logpath):
@@ -307,9 +305,7 @@ def test_zebra_one_exit_redir(r1, confdir, tempdir, logpath):
     showrun = r1.cmd_nostatus("vtysh -c 'show running'")
 
     assert "allow-external-route-update" in showrun, "zebra conf missing"
-    assert (
-        "ip multicast rpf-lookup-mode urib-only" not in showrun
-    ), "zebra second conf present, unexpected"
+    assert "router-id 1.2.3.4" not in showrun, "zebra second conf present, unexpected"
 
 
 def test_zebra_early_exit_file(r1, confdir, tempdir, logpath):
@@ -324,9 +320,7 @@ def test_zebra_early_exit_file(r1, confdir, tempdir, logpath):
     showrun = r1.cmd_nostatus("vtysh -c 'show running'")
 
     assert "allow-external-route-update" in showrun, "zebra conf missing"
-    assert (
-        "ip multicast rpf-lookup-mode urib-only" not in showrun
-    ), "zebra second conf present, unexpected"
+    assert "router-id 1.2.3.4" not in showrun, "zebra second conf present, unexpected"
     assert "ip table range 2 3" not in showrun, "zebra third conf present, unexpected"
 
 
@@ -342,9 +336,7 @@ def test_zebra_early_exit_redir(r1, confdir, tempdir, logpath):
     showrun = r1.cmd_nostatus("vtysh -c 'show running'")
 
     assert "allow-external-route-update" in showrun, "zebra conf missing"
-    assert (
-        "ip multicast rpf-lookup-mode urib-only" not in showrun
-    ), "zebra second conf present, unexpected"
+    assert "router-id 1.2.3.4" not in showrun, "zebra second conf present, unexpected"
     assert "ip table range 2 3" not in showrun, "zebra third conf present, unexpected"
 
 
@@ -360,9 +352,7 @@ def test_zebra_early_end_file(r1, confdir, tempdir, logpath):
     showrun = r1.cmd_nostatus("vtysh -c 'show running'")
 
     assert "allow-external-route-update" in showrun, "zebra conf missing"
-    assert (
-        "ip multicast rpf-lookup-mode urib-only" in showrun
-    ), "zebra second conf missing"
+    assert "router-id 1.2.3.4" in showrun, "zebra second conf missing"
     assert "ip table range 2 3" in showrun, "zebra third missing"
 
 
@@ -378,7 +368,5 @@ def test_zebra_early_end_redir(r1, confdir, tempdir, logpath):
     showrun = r1.cmd_nostatus("vtysh -c 'show running'")
 
     assert "allow-external-route-update" in showrun, "zebra conf missing"
-    assert (
-        "ip multicast rpf-lookup-mode urib-only" not in showrun
-    ), "zebra second conf present, unexpected"
+    assert "router-id 1.2.3.4" not in showrun, "zebra second conf present, unexpected"
     assert "ip table range 2 3" not in showrun, "zebra third conf present, unexpected"
