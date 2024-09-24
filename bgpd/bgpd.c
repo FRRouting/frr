@@ -1394,6 +1394,9 @@ int bgp_global_gr_init(struct bgp *bgp)
 	bgp->global_gr_present_state = GLOBAL_HELPER;
 	bgp->present_zebra_gr_state = ZEBRA_GR_DISABLE;
 
+	if (CHECK_FLAG(bm->flags, BM_FLAG_IPV6_NO_AUTO_RA))
+		SET_FLAG(bgp->flags, BGP_FLAG_IPV6_NO_AUTO_RA);
+
 	return BGP_GR_SUCCESS;
 }
 
