@@ -4260,6 +4260,7 @@ def verify_local_igmp_groups(tgen, dut, interface, group_addresses):
     logger.debug("Exiting lib API: {}".format(sys._getframe().f_code.co_name))
     return True
 
+
 @retry(retry_timeout=62)
 def verify_static_groups(tgen, dut, interface, group_addresses):
     """
@@ -4293,7 +4294,9 @@ def verify_static_groups(tgen, dut, interface, group_addresses):
     rnode = tgen.routers()[dut]
 
     logger.info("[DUT: %s]: Verifying static groups received:", dut)
-    show_static_group_json = run_frr_cmd(rnode, "show ip igmp static-group json", isjson=True)
+    show_static_group_json = run_frr_cmd(
+        rnode, "show ip igmp static-group json", isjson=True
+    )
 
     if type(group_addresses) is not list:
         group_addresses = [group_addresses]
@@ -4329,6 +4332,71 @@ def verify_static_groups(tgen, dut, interface, group_addresses):
 
     logger.debug("Exiting lib API: {}".format(sys._getframe().f_code.co_name))
     return True
+
+
+@retry(retry_timeout=62)
+def verify_local_igmp_proxy_groups(
+    tgen, dut, group_addresses_present, group_addresses_not_present
+):
+    """
+    Verify igmp proxy groups are as expected by running
+    "show ip igmp static-group json" command
+
+    Parameters
+    ----------
+    * `tgen`: topogen object
+    * `dut`: device under test
+    * `group_addresses_present`: IGMP group addresses which should
+                                 currently be proxied
+    * `group_addresses_not_present`: IGMP group addresses which should
+                                     not currently be proxied
+
+    Usage
+    -----
+    dut = "r1"
+    group_addresses_present = "225.1.1.1"
+    group_addresses_not_present = "225.2.2.2"
+    result = verify_igmp_proxy_groups(tgen, dut, group_p, group_np)
+
+    Returns
+    -------
+    errormsg(str) or True
+    """
+
+    if dut not in tgen.routers():
+        errormsg = "[DUT %s]: Device not found!"
+        return errormsg
+
+    rnode = tgen.routers()[dut]
+
+    logger.info("[DUT: %s]: Verifying local IGMP proxy groups:", dut)
+
+    out = rnode.vtysh_cmd("show ip igmp proxy json", isjson=True)
+    groups = [g["group"] if "group" in g else None for g in out["r1-eth1"]["groups"]]
+
+    if type(group_addresses_present) is not list:
+        group_addresses_present = [group_addresses_present]
+    if type(group_addresses_not_present) is not list:
+        group_addresses_not_present = [group_addresses_not_present]
+
+    for test_addr in group_addresses_present:
+        if not test_addr in groups:
+            errormsg = (
+                "[DUT %s]: Verifying local IGMP proxy joins FAILED!! "
+                " Expected but not found: %s " % (dut, test_addr)
+            )
+            return errormsg
+
+    for test_addr in group_addresses_not_present:
+        if test_addr in groups:
+            errormsg = (
+                "[DUT %s]: Verifying local IGMP proxy join removed FAILED!! "
+                " Unexpected but found: %s " % (dut, test_addr)
+            )
+            return errormsg
+
+    return True
+
 
 def verify_pim_interface_traffic(tgen, input_dict, return_stats=True, addr_type="ipv4"):
     """

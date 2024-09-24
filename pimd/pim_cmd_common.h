@@ -47,6 +47,7 @@ int pim_process_no_ip_pim_hello_cmd(struct vty *vty);
 int pim_process_ip_pim_activeactive_cmd(struct vty *vty, const char *no);
 int pim_process_ip_pim_boundary_oil_cmd(struct vty *vty, const char *oil);
 int pim_process_no_ip_pim_boundary_oil_cmd(struct vty *vty);
+int pim_process_ip_gmp_proxy_cmd(struct vty *vty, bool enable);
 int pim_process_ip_mroute_cmd(struct vty *vty, const char *interface,
 			      const char *group_str, const char *source_str);
 int pim_process_no_ip_mroute_cmd(struct vty *vty, const char *interface,

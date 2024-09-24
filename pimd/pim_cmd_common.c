@@ -420,6 +420,17 @@ int pim_process_no_ip_pim_boundary_oil_cmd(struct vty *vty)
 				    FRR_PIM_AF_XPATH_VAL);
 }
 
+int pim_process_ip_gmp_proxy_cmd(struct vty *vty, bool enable)
+{
+	if (enable)
+		nb_cli_enqueue_change(vty, "./proxy", NB_OP_MODIFY, "true");
+	else
+		nb_cli_enqueue_change(vty, "./proxy", NB_OP_DESTROY, NULL);
+
+	return nb_cli_apply_changes(vty, FRR_GMP_INTERFACE_XPATH,
+				    FRR_PIM_AF_XPATH_VAL);
+}
+
 int pim_process_ip_mroute_cmd(struct vty *vty, const char *interface,
 			      const char *group_str, const char *source_str)
 {

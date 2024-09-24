@@ -270,6 +270,11 @@ static int gm_config_write(struct vty *vty, int writes,
 		++writes;
 	}
 
+	if (pim_ifp->gm_proxy) {
+		vty_out(vty, " ip igmp proxy\n");
+		++writes;
+	}
+
 	/* ip igmp version */
 	if (pim_ifp->igmp_version != IGMP_DEFAULT_VERSION) {
 		vty_out(vty, " ip igmp version %d\n", pim_ifp->igmp_version);

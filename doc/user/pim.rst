@@ -302,6 +302,12 @@ is in a vrf, enter the interface command with the vrf keyword at the end.
    Add a static multicast group or source-group on an interface. This will behave
    as if there is a receiver on this interface without any IGMP reports.
 
+.. clicmd:: ip igmp proxy
+
+   Tell pim to send proxy IGMP reports for joins occuring on all other
+   interfaces on this interface. Join-groups on other interfaces will
+   also be proxied. The default version is v3.
+
 .. clicmd:: ip igmp query-interval (1-65535)
 
    Set the IGMP query interval that PIM will use.
@@ -474,6 +480,10 @@ cause great confusion.
 .. clicmd:: show ip igmp groups retransmissions
 
    Display IGMP group retransmission information.
+
+.. clicmd:: show ip igmp [vrf NAME] proxy [json]
+
+   Display IGMP proxy join information.
 
 .. clicmd:: show ip igmp [vrf NAME] sources [json]
 

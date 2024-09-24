@@ -1294,7 +1294,8 @@ static int gm_join_sock(const char *ifname, ifindex_t ifindex,
 }
 
 static struct gm_join *gm_join_new(struct interface *ifp, pim_addr group_addr,
-				   pim_addr source_addr)
+				   pim_addr source_addr,
+				   enum gm_join_type join_type)
 {
 	struct pim_interface *pim_ifp;
 	struct gm_join *ij;
@@ -1317,6 +1318,7 @@ static struct gm_join *gm_join_new(struct interface *ifp, pim_addr group_addr,
 	ij->sock_fd = join_fd;
 	ij->group_addr = group_addr;
 	ij->source_addr = source_addr;
+	ij->join_type = join_type;
 	ij->sock_creation = pim_time_monotonic_sec();
 
 	listnode_add(pim_ifp->gm_join_list, ij);
@@ -1353,7 +1355,7 @@ static struct static_group *static_group_new(struct interface *ifp,
 }
 
 ferr_r pim_if_gm_join_add(struct interface *ifp, pim_addr group_addr,
-			  pim_addr source_addr)
+			  pim_addr source_addr, enum gm_join_type join_type)
 {
 	struct pim_interface *pim_ifp;
 	struct gm_join *ij;
@@ -1375,10 +1377,13 @@ ferr_r pim_if_gm_join_add(struct interface *ifp, pim_addr group_addr,
 	 * group
 	 */
 	if (ij) {
+		/* turn an existing join into a "both" join */
+		if (ij->join_type != join_type)
+			ij->join_type = GM_JOIN_BOTH;
 		return ferr_ok();
 	}
 
-	if (!gm_join_new(ifp, group_addr, source_addr)) {
+	if (!gm_join_new(ifp, group_addr, source_addr, join_type)) {
 		return ferr_cfg_invalid("can't join (%pPA,%pPA) on interface %s",
 					&source_addr, &group_addr, ifp->name);
 	}
@@ -1394,7 +1399,7 @@ ferr_r pim_if_gm_join_add(struct interface *ifp, pim_addr group_addr,
 }
 
 int pim_if_gm_join_del(struct interface *ifp, pim_addr group_addr,
-		       pim_addr source_addr)
+		       pim_addr source_addr, enum gm_join_type join_type)
 {
 	struct pim_interface *pim_ifp;
 	struct gm_join *ij;
@@ -1418,6 +1423,20 @@ int pim_if_gm_join_del(struct interface *ifp, pim_addr group_addr,
 			  " group %pPAs source %pPAs on interface %s",
 			  __func__, &group_addr, &source_addr, ifp->name);
 		return -3;
+	}
+
+	if (ij->join_type != join_type) {
+		if (ij->join_type != GM_JOIN_BOTH) {
+			zlog_warn("%s: wrong  " GM
+				  " gm_join_type %pPAs source %pPAs on interface %s",
+				  __func__, &group_addr, &source_addr,
+				  ifp->name);
+			return -4;
+		}
+		/* drop back to a single join type from current setting of GM_JOIN_BOTH */
+		ij->join_type = (join_type == GM_JOIN_STATIC ? GM_JOIN_PROXY
+							     : GM_JOIN_STATIC);
+		return 0;
 	}
 
 	if (close(ij->sock_fd)) {
@@ -1456,7 +1475,8 @@ static void pim_if_gm_join_del_all(struct interface *ifp)
 		return;
 
 	for (ALL_LIST_ELEMENTS(pim_ifp->gm_join_list, node, nextnode, ij))
-		pim_if_gm_join_del(ifp, ij->group_addr, ij->source_addr);
+		pim_if_gm_join_del(ifp, ij->group_addr, ij->source_addr,
+				   GM_JOIN_STATIC);
 }
 
 ferr_r pim_if_static_group_add(struct interface *ifp, pim_addr group_addr,
@@ -1560,6 +1580,55 @@ static void pim_if_static_group_del_all(struct interface *ifp)
 			       stgrp))
 		pim_if_static_group_del(ifp, stgrp->group_addr,
 					stgrp->source_addr);
+}
+
+void pim_if_gm_proxy_init(struct pim_instance *pim, struct interface *oif)
+{
+	struct interface *ifp;
+
+	FOR_ALL_INTERFACES (pim->vrf, ifp) {
+		struct pim_interface *pim_ifp = ifp->info;
+		struct listnode *source_node, *group_node;
+		struct gm_group *group;
+		struct gm_source *src;
+
+		if (!pim_ifp)
+			continue;
+
+		if (ifp == oif) /* skip the source interface */
+			continue;
+
+		for (ALL_LIST_ELEMENTS_RO(pim_ifp->gm_group_list, group_node,
+					  group)) {
+			for (ALL_LIST_ELEMENTS_RO(group->group_source_list,
+						  source_node, src)) {
+				pim_if_gm_join_add(oif, group->group_addr,
+						   src->source_addr,
+						   GM_JOIN_PROXY);
+			}
+		}
+	} /* scan interfaces */
+}
+
+void pim_if_gm_proxy_finis(struct pim_instance *pim, struct interface *ifp)
+{
+	struct pim_interface *pim_ifp = ifp->info;
+	struct listnode *join_node;
+	struct listnode *next_join_node;
+	struct gm_join *join;
+
+	if (!pim_ifp) {
+		zlog_warn("%s: multicast not enabled on interface %s", __func__,
+			  ifp->name);
+		return;
+	}
+
+	for (ALL_LIST_ELEMENTS(pim_ifp->gm_join_list, join_node, next_join_node,
+			       join)) {
+		if (join)
+			pim_if_gm_join_del(ifp, join->group_addr,
+					   join->source_addr, GM_JOIN_PROXY);
+	}
 }
 
 /*
