@@ -162,7 +162,7 @@ static int zclient_read_nexthop(struct pim_instance *pim,
 
 	s = zlookup->ibuf;
 
-	while (command != ZEBRA_NEXTHOP_LOOKUP_MRIB) {
+	while (command != ZEBRA_NEXTHOP_LOOKUP) {
 		stream_reset(s);
 		err = zclient_read_header(s, zlookup->sock, &length, &marker,
 					  &version, &vrf_id, &command);
@@ -337,8 +337,9 @@ static int zclient_lookup_nexthop_once(struct pim_instance *pim,
 
 	s = zlookup->obuf;
 	stream_reset(s);
-	zclient_create_header(s, ZEBRA_NEXTHOP_LOOKUP_MRIB, pim->vrf->vrf_id);
+	zclient_create_header(s, ZEBRA_NEXTHOP_LOOKUP, pim->vrf->vrf_id);
 	stream_put_ipaddr(s, &ipaddr);
+	stream_putc(s, SAFI_MULTICAST); // TODO NEB Set the real safi
 	stream_putw_at(s, 0, stream_get_endp(s));
 
 	ret = writen(zlookup->sock, s->data, stream_get_endp(s));
