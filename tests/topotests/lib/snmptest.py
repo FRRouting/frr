@@ -104,12 +104,16 @@ class SnmpTester(object):
             return None
         return self._get_snmp_value(result)
 
-    def walk(self, oid):
+    def walk(self, oid, raw=False):
         cmd = "snmpwalk {0} {1} 2>&1 | grep -v SNMPv2-PDU".format(
             self._snmp_config(), oid
         )
 
         result = self.router.cmd(cmd)
+
+        if raw:
+            return result
+
         return self._parse_multiline(result)
 
     def parse_notif_ipv4(self, notif):
