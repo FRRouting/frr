@@ -25,7 +25,8 @@ Router Advertisement
 .. clicmd:: ipv6 nd suppress-ra
 
    Don't send router advertisement messages. The ``no`` form of this command
-   enables sending RA messages.
+   enables sending RA messages. Note that while being suppressed, RA messages
+   might still be enabled by other daemons, such as bgpd or vrrpd.
 
 .. clicmd:: ipv6 nd prefix ipv6prefix [valid-lifetime] [preferred-lifetime] [off-link] [no-autoconfig] [router-address]
 

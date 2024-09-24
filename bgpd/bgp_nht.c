@@ -552,11 +552,12 @@ static void bgp_process_nexthop_update(struct bgp_nexthop_cache *bnc,
 			 * we receive from bgp.  This is to allow us
 			 * to work with v4 routing over v6 nexthops
 			 */
-			if (peer && !peer->ifp
-			    && CHECK_FLAG(peer->flags,
-					  PEER_FLAG_CAPABILITY_ENHE)
-			    && nhr->prefix.family == AF_INET6
-			    && nexthop->type != NEXTHOP_TYPE_BLACKHOLE) {
+			if (peer && !peer->ifp &&
+			    CHECK_FLAG(peer->flags, PEER_FLAG_CAPABILITY_ENHE) &&
+			    !CHECK_FLAG(bnc->bgp->flags,
+					BGP_FLAG_IPV6_NO_AUTO_RA) &&
+			    nhr->prefix.family == AF_INET6 &&
+			    nexthop->type != NEXTHOP_TYPE_BLACKHOLE) {
 				struct interface *ifp;
 
 				ifp = if_lookup_by_index(nexthop->ifindex,
@@ -1293,7 +1294,15 @@ void bgp_nht_reg_enhe_cap_intfs(struct peer *peer)
 		return;
 
 	bgp = peer->bgp;
+<<<<<<< HEAD
 	if (!sockunion2hostprefix(&peer->su, &p)) {
+=======
+
+	if (CHECK_FLAG(bgp->flags, BGP_FLAG_IPV6_NO_AUTO_RA))
+		return;
+
+	if (!sockunion2hostprefix(&peer->connection->su, &p)) {
+>>>>>>> 7b1c0c23fc (bgpd: add `bgp ipv6-auto-ra` command)
 		zlog_warn("%s: Unable to convert sockunion to prefix for %s",
 			  __func__, peer->host);
 		return;
