@@ -155,6 +155,27 @@ struct bgp_master {
 	uint32_t flags;
 #define BM_FLAG_GRACEFUL_SHUTDOWN        (1 << 0)
 #define BM_FLAG_SEND_EXTRA_DATA_TO_ZEBRA (1 << 1)
+<<<<<<< HEAD
+=======
+#define BM_FLAG_MAINTENANCE_MODE	 (1 << 2)
+#define BM_FLAG_GR_RESTARTER		 (1 << 3)
+#define BM_FLAG_GR_DISABLED		 (1 << 4)
+#define BM_FLAG_GR_PRESERVE_FWD		 (1 << 5)
+#define BM_FLAG_GRACEFUL_RESTART	 (1 << 6)
+#define BM_FLAG_GR_COMPLETE		 (1 << 7)
+#define BM_FLAG_IPV6_NO_AUTO_RA		 (1 << 8)
+
+#define BM_FLAG_GR_CONFIGURED (BM_FLAG_GR_RESTARTER | BM_FLAG_GR_DISABLED)
+
+	/* BGP-wide graceful restart config params */
+	uint32_t restart_time;
+	uint32_t stalepath_time;
+	uint32_t select_defer_time;
+	uint32_t rib_stale_time;
+
+	time_t startup_time;
+	time_t gr_completion_time;
+>>>>>>> 7b1c0c23fc (bgpd: add `bgp ipv6-auto-ra` command)
 
 	bool terminating;	/* global flag that sigint terminate seen */
 
@@ -514,6 +535,15 @@ struct bgp {
 /* For BGP-LU, force IPv6 local prefixes to use ipv6-explicit-null label */
 #define BGP_FLAG_LU_IPV6_EXPLICIT_NULL (1ULL << 34)
 #define BGP_FLAG_SOFT_VERSION_CAPABILITY (1ULL << 35)
+<<<<<<< HEAD
+=======
+#define BGP_FLAG_ENFORCE_FIRST_AS (1ULL << 36)
+#define BGP_FLAG_DYNAMIC_CAPABILITY (1ULL << 37)
+#define BGP_FLAG_VNI_DOWN		 (1ULL << 38)
+#define BGP_FLAG_INSTANCE_HIDDEN	 (1ULL << 39)
+/* Prohibit BGP from enabling IPv6 RA on interfaces */
+#define BGP_FLAG_IPV6_NO_AUTO_RA (1ULL << 40)
+>>>>>>> 7b1c0c23fc (bgpd: add `bgp ipv6-auto-ra` command)
 
 	/* BGP default address-families.
 	 * New peers inherit enabled afi/safis from bgp instance.
