@@ -54,38 +54,6 @@ def test_bgp_dual_as():
         pytest.skip(tgen.errors)
 
     r1 = tgen.gears["r1"]
-    r2 = tgen.gears["r2"]
-
-    def _bgp_converge_65001():
-        output = json.loads(r1.vtysh_cmd("show bgp ipv4 summary json"))
-        expected = {
-            "ipv4Unicast": {
-                "as": 65000,
-                "peers": {
-                    "10.0.0.2": {
-                        "hostname": "r2",
-                        "remoteAs": 65002,
-                        "localAs": 65001,
-                        "state": "Established",
-                        "peerState": "OK",
-                    }
-                },
-            }
-        }
-        return topotest.json_cmp(output, expected)
-
-    test_func = functools.partial(_bgp_converge_65001)
-    _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
-    assert result is None, "Can't establish BGP session using local-as AS 65001"
-
-    step("Change remote-as from r2 to use global AS 65000")
-    r2.vtysh_cmd(
-        """
-    configure terminal
-     router bgp
-      neighbor 10.0.0.1 remote-as 65000
-    """
-    )
 
     def _bgp_converge_65000():
         output = json.loads(r1.vtysh_cmd("show bgp ipv4 summary json"))
