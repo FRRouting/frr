@@ -2111,7 +2111,7 @@ DEFUN (ospf_abr_type,
 
 DEFUN (no_ospf_abr_type,
        no_ospf_abr_type_cmd,
-       "no ospf abr-type <cisco|ibm|shortcut|standard>",
+       "no ospf abr-type [<cisco|ibm|shortcut|standard>]",
        NO_STR
        "OSPF specific commands\n"
        "Set OSPF ABR type\n"
@@ -8161,7 +8161,7 @@ DEFUN (ip_ospf_dead_interval_minimal,
 
 DEFUN (no_ip_ospf_dead_interval,
        no_ip_ospf_dead_interval_cmd,
-       "no ip ospf dead-interval [<(1-65535)|minimal hello-multiplier (2-20)> [A.B.C.D]]",
+       "no ip ospf dead-interval [<(1-65535)|minimal hello-multiplier [(2-20)]> [A.B.C.D]]",
        NO_STR
        "IP Information\n"
        "OSPF interface commands\n"
