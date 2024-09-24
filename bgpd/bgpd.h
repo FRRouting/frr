@@ -172,6 +172,7 @@ struct bgp_master {
 #define BM_FLAG_GR_PRESERVE_FWD		 (1 << 5)
 #define BM_FLAG_GRACEFUL_RESTART	 (1 << 6)
 #define BM_FLAG_GR_COMPLETE		 (1 << 7)
+#define BM_FLAG_IPV6_NO_AUTO_RA		 (1 << 8)
 
 #define BM_FLAG_GR_CONFIGURED (BM_FLAG_GR_RESTARTER | BM_FLAG_GR_DISABLED)
 
@@ -551,6 +552,8 @@ struct bgp {
 #define BGP_FLAG_DYNAMIC_CAPABILITY (1ULL << 37)
 #define BGP_FLAG_VNI_DOWN		 (1ULL << 38)
 #define BGP_FLAG_INSTANCE_HIDDEN	 (1ULL << 39)
+/* Prohibit BGP from enabling IPv6 RA on interfaces */
+#define BGP_FLAG_IPV6_NO_AUTO_RA (1ULL << 40)
 
 	/* BGP default address-families.
 	 * New peers inherit enabled afi/safis from bgp instance.
