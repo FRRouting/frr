@@ -251,7 +251,7 @@ route_match_peer(void *rule, const struct prefix *prefix, void *object)
 	peer = ((struct bgp_path_info *)object)->peer;
 
 	if (pc->interface) {
-		if (!peer->conf_if || !peer->group)
+		if (!peer->conf_if && !peer->group)
 			return RMAP_NOMATCH;
 
 		if (peer->conf_if && strcmp(peer->conf_if, pc->interface) == 0)
