@@ -1,3 +1,4 @@
+IPv4 unicast VRF default:
 C>* 192.168.0.0/24 is directly connected, r1-eth0, weight 1, XX:XX:XX
 C>* 192.168.1.0/26 is directly connected, r1-eth1, weight 1, XX:XX:XX
 C>* 192.168.2.0/26 is directly connected, r1-eth2, weight 1, XX:XX:XX
