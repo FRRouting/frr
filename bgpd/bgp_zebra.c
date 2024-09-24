@@ -2173,6 +2173,9 @@ void bgp_zebra_initiate_radv(struct bgp *bgp, struct peer *peer)
 {
 	uint32_t ra_interval = BGP_UNNUM_DEFAULT_RA_INTERVAL;
 
+	if (CHECK_FLAG(bgp->flags, BGP_FLAG_IPV6_NO_AUTO_RA))
+		return;
+
 	/* Don't try to initiate if we're not connected to Zebra */
 	if (zclient->sock < 0)
 		return;
