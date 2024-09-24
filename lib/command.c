@@ -1454,7 +1454,7 @@ DEFUN (config_help,
        "Description of the interactive help system\n")
 {
 	vty_out(vty,
-		"Quagga VTY provides advanced help feature.  When you need help,\n\
+		"FRR VTY provides advanced help feature.  When you need help,\n\
 anytime at the command line please press '?'.\n\
 \n\
 If nothing matches, the help list will be empty and you must backup\n\
