@@ -491,23 +491,23 @@ static uint8_t *ipFwTable(struct variable *v, oid objid[], size_t *objid_len,
 		*val_len = sizeof(int);
 		return (uint8_t *)&result;
 	case IPFORWARDMETRIC1:
-		result = 0;
+		result = re->metric;
 		*val_len = sizeof(int);
 		return (uint8_t *)&result;
 	case IPFORWARDMETRIC2:
-		result = 0;
+		result = -1;
 		*val_len = sizeof(int);
 		return (uint8_t *)&result;
 	case IPFORWARDMETRIC3:
-		result = 0;
+		result = -1;
 		*val_len = sizeof(int);
 		return (uint8_t *)&result;
 	case IPFORWARDMETRIC4:
-		result = 0;
+		result = -1;
 		*val_len = sizeof(int);
 		return (uint8_t *)&result;
 	case IPFORWARDMETRIC5:
-		result = 0;
+		result = -1;
 		*val_len = sizeof(int);
 		return (uint8_t *)&result;
 	default:
