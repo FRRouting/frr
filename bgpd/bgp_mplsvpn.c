@@ -1520,6 +1520,15 @@ vpn_leak_from_vrf_get_per_nexthop_label(afi_t afi, struct bgp_path_info *pi,
 		return from_bgp->vpn_policy[afi].tovpn_label;
 	}
 
+	if (is_bgp_static_route &&
+	    pi->nexthop->nexthop->type == NEXTHOP_TYPE_IFINDEX) {
+		/* "network" imported prefixes from vrf
+		 * fallback to per-vrf label.
+		 */
+		bgp_mplsvpn_path_nh_label_unlink(pi);
+		return from_bgp->vpn_policy[afi].tovpn_label;
+	}
+
 	return _vpn_leak_from_vrf_get_per_nexthop_label(pi, to_bgp, from_bgp,
 							afi);
 }
