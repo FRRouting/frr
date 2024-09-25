@@ -540,9 +540,13 @@ static void autorp_send_announcement(struct event *evt)
 	inet_pton(PIM_AF, PIM_AUTORP_ANNOUNCEMENT_GRP, &announceGrp.sin_addr);
 
 	if (autorp->annouce_pkt_sz >= MIN_AUTORP_PKT_SZ) {
-		setsockopt(autorp->sock, IPPROTO_IP, IP_MULTICAST_TTL,
-			   &(autorp->announce_scope),
-			   sizeof(autorp->announce_scope));
+		if (setsockopt(autorp->sock, IPPROTO_IP, IP_MULTICAST_TTL,
+			       &(autorp->announce_scope),
+			       sizeof(autorp->announce_scope)) < 0) {
+			if (PIM_DEBUG_AUTORP)
+				zlog_err("%s: Failed to set Multicast TTL for sending AutoRP announcement message, errno=%d, %s",
+					 __func__, errno, safe_strerror(errno));
+		}
 
 		FOR_ALL_INTERFACES (autorp->pim->vrf, ifp) {
 			pim_ifp = ifp->info;
@@ -553,14 +557,25 @@ static void autorp_send_announcement(struct event *evt)
 			    pim_ifp && pim_ifp->pim_enable &&
 			    !pim_ifp->pim_passive_enable &&
 			    !pim_addr_is_any(pim_ifp->primary_address)) {
-				setsockopt(autorp->sock, IPPROTO_IP,
-					   IP_MULTICAST_IF,
-					   &(pim_ifp->primary_address),
-					   sizeof(pim_ifp->primary_address));
-				sendto(autorp->sock, autorp->annouce_pkt,
-				       autorp->annouce_pkt_sz, 0,
-				       (struct sockaddr *)&announceGrp,
-				       sizeof(announceGrp));
+				if (setsockopt(autorp->sock, IPPROTO_IP,
+					       IP_MULTICAST_IF,
+					       &(pim_ifp->primary_address),
+					       sizeof(pim_ifp->primary_address)) <
+				    0) {
+					if (PIM_DEBUG_AUTORP)
+						zlog_err("%s: Failed to set Multicast Interface for sending AutoRP announcement message, errno=%d, %s",
+							 __func__, errno,
+							 safe_strerror(errno));
+				}
+				if (sendto(autorp->sock, autorp->annouce_pkt,
+					   autorp->annouce_pkt_sz, 0,
+					   (struct sockaddr *)&announceGrp,
+					   sizeof(announceGrp)) <= 0) {
+					if (PIM_DEBUG_AUTORP)
+						zlog_err("%s: Failed to send AutoRP announcement message, errno=%d, %s",
+							 __func__, errno,
+							 safe_strerror(errno));
+				}
 			}
 		}
 	}
