@@ -94,6 +94,12 @@ module frr-bgp-route-map {
       "Match peer address";
   }
 
+  identity src-peer {
+    base frr-route-map:rmap-match-type;
+    description
+      "Match source peer address";
+  }
+
   identity mac-address-list {
     base frr-route-map:rmap-match-type;
     description
@@ -683,6 +689,37 @@ identity set-extcommunity-color {
             "Static or Redistributed routes";
           leaf peer-local {
             type boolean;
+          }
+        }
+      }
+    }
+
+    case src-peer {
+      when "derived-from-or-self(../frr-route-map:condition, 'frr-bgp-route-map:src-peer')";
+      choice peer {
+        description
+          "Value of the peer";
+        case src-peer-ipv4-address {
+          description
+            "IP address of peer";
+          leaf src-peer-ipv4-address {
+            type inet:ipv4-address;
+          }
+        }
+
+        case src-peer-interface {
+          description
+            "Interface name of peer";
+          leaf src-peer-interface {
+            type string;
+          }
+        }
+
+        case src-peer-ipv6-address {
+          description
+            "IPv6 address of peer";
+          leaf src-peer-ipv6-address {
+            type inet:ipv6-address;
           }
         }
       }
