@@ -2512,8 +2512,8 @@ bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
 		struct attr dummy_attr = *attr;
 
 		/* Fill temp path_info */
-		prep_for_rmap_apply(&rmap_path, &dummy_rmap_path_extra, dest,
-				    pi, peer, &dummy_attr);
+		prep_for_rmap_apply(&rmap_path, &dummy_rmap_path_extra, dest, pi, peer, NULL,
+				    &dummy_attr);
 
 		struct route_map *amap =
 			route_map_lookup_by_name(filter->advmap.aname);
@@ -2537,9 +2537,13 @@ bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
 		struct bgp_path_info_extra dummy_rmap_path_extra = {0};
 		struct attr dummy_attr = {0};
 
-		/* Fill temp path_info */
-		prep_for_rmap_apply(&rmap_path, &dummy_rmap_path_extra, dest,
-				    pi, peer, attr);
+		/* Fill temp path_info.
+		 * Inject the peer structure of the source peer (from).
+		 * This is useful for e.g. `match peer ...` in outgoing
+		 * direction.
+		 */
+		prep_for_rmap_apply(&rmap_path, &dummy_rmap_path_extra, dest, pi, peer, from, attr);
+
 		/*
 		 * The route reflector is not allowed to modify the attributes
 		 * of the reflected IBGP routes unless explicitly allowed.
@@ -3428,9 +3432,8 @@ static void bgp_process_evpn_route_injection(struct bgp *bgp, afi_t afi,
 			dummy_attr = *new_select->attr;
 
 			/* Fill temp path_info */
-			prep_for_rmap_apply(&rmap_path, &rmap_path_extra, dest,
-					    new_select, new_select->peer,
-					    &dummy_attr);
+			prep_for_rmap_apply(&rmap_path, &rmap_path_extra, dest, new_select,
+					    new_select->peer, NULL, &dummy_attr);
 
 			RESET_FLAG(dummy_attr.rmap_change_flags);
 
@@ -11789,8 +11792,8 @@ static int bgp_show_table(struct vty *vty, struct bgp *bgp, afi_t afi, safi_t sa
 
 				dummy_attr = *pi->attr;
 
-				prep_for_rmap_apply(&path, &extra, dest, pi,
-						    pi->peer, &dummy_attr);
+				prep_for_rmap_apply(&path, &extra, dest, pi, pi->peer, NULL,
+						    &dummy_attr);
 
 				ret = route_map_apply(rmap, dest_p, &path);
 				bgp_attr_flush(&dummy_attr);
