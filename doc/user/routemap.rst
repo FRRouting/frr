@@ -190,6 +190,12 @@ Route Map Match Command
    do the exact matching of the communities, while ``any`` - can match any
    community specified in COMMUNITY_LIST.
 
+.. clicmd:: match src-peer [IPV4_ADDR|IPV6_ADDR|INTERFACE_NAME|PEER_GROUP_NAME]
+
+   This is a BGP specific match command. Matches the source peer if the neighbor
+   was specified in this manner. Useful to announce the routes that was originated
+   by the source peer.
+
 .. clicmd:: match peer IPV4_ADDR
 
    This is a BGP specific match command. Matches the peer ip address
