@@ -208,32 +208,6 @@ struct route_node *route_node_match(struct route_table *table,
 	return NULL;
 }
 
-struct route_node *route_node_match_ipv4(struct route_table *table,
-					 const struct in_addr *addr)
-{
-	struct prefix_ipv4 p;
-
-	memset(&p, 0, sizeof(p));
-	p.family = AF_INET;
-	p.prefixlen = IPV4_MAX_BITLEN;
-	p.prefix = *addr;
-
-	return route_node_match(table, (struct prefix *)&p);
-}
-
-struct route_node *route_node_match_ipv6(struct route_table *table,
-					 const struct in6_addr *addr)
-{
-	struct prefix_ipv6 p;
-
-	memset(&p, 0, sizeof(p));
-	p.family = AF_INET6;
-	p.prefixlen = IPV6_MAX_BITLEN;
-	p.prefix = *addr;
-
-	return route_node_match(table, &p);
-}
-
 /* Lookup same prefix node.  Return NULL when we can't find route. */
 struct route_node *route_node_lookup(struct route_table *table,
 				     union prefixconstptr pu)
