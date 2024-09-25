@@ -10609,13 +10609,6 @@ DEFPY(bgp_imexport_vrf, bgp_imexport_vrf_cmd,
 			 */
 			SET_FLAG(vrf_bgp->vrf_flags, BGP_VRF_AUTO);
 		}
-
-		if (ret) {
-			vty_out(vty,
-				"VRF %s is not configured as a bgp instance\n",
-				import_name);
-			return CMD_WARNING;
-		}
 	}
 
 	if (remove) {
