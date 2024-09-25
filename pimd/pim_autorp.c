@@ -557,10 +557,15 @@ static void autorp_send_announcement(struct event *evt)
 					   IP_MULTICAST_IF,
 					   &(pim_ifp->primary_address),
 					   sizeof(pim_ifp->primary_address));
-				sendto(autorp->sock, autorp->annouce_pkt,
-				       autorp->annouce_pkt_sz, 0,
-				       (struct sockaddr *)&announceGrp,
-				       sizeof(announceGrp));
+				if (sendto(autorp->sock, autorp->annouce_pkt,
+					   autorp->annouce_pkt_sz, 0,
+					   (struct sockaddr *)&announceGrp,
+					   sizeof(announceGrp)) <= 0) {
+					if (PIM_DEBUG_AUTORP)
+						zlog_err("%s: Failed to send AutoRP announcement message, errno=%d, %s",
+							 __func__, errno,
+							 safe_strerror(errno));
+				}
 			}
 		}
 	}
