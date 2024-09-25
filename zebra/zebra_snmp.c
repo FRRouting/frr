@@ -229,6 +229,8 @@ static int proto_trans(int type)
 		return 3; /* static route */
 	case ZEBRA_ROUTE_RIP:
 		return 8; /* rip */
+	case ZEBRA_ROUTE_ISIS:
+		return 9;
 	case ZEBRA_ROUTE_RIPNG:
 		return 1; /* shouldn't happen */
 	case ZEBRA_ROUTE_OSPF:
@@ -237,6 +239,8 @@ static int proto_trans(int type)
 		return 1; /* shouldn't happen */
 	case ZEBRA_ROUTE_BGP:
 		return 14; /* bgp */
+	case ZEBRA_ROUTE_EIGRP:
+		return 16;
 	default:
 		return 1; /* other */
 	}
