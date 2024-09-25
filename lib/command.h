@@ -100,7 +100,6 @@ enum node_type {
 	INTERFACE_NODE,		 /* Interface mode node. */
 	NH_GROUP_NODE,		 /* Nexthop-Group mode node. */
 	ZEBRA_NODE,		 /* zebra connection node. */
-	TABLE_NODE,		 /* rtm_table selection node. */
 	RIP_NODE,		 /* RIP protocol mode node. */
 	RIPNG_NODE,		 /* RIPng protocol mode node. */
 	BABEL_NODE,		 /* BABEL protocol mode node. */
@@ -118,7 +117,6 @@ enum node_type {
 	BGP_VNC_DEFAULTS_NODE,   /* BGP VNC nve defaults */
 	BGP_VNC_NVE_GROUP_NODE,  /* BGP VNC nve group */
 	BGP_VNC_L2_GROUP_NODE,   /* BGP VNC L2 group */
-	RFP_DEFAULTS_NODE,       /* RFP defaults node */
 	BGP_EVPN_NODE,		 /* BGP EVPN node. */
 	BGP_SRV6_NODE,		 /* BGP SRv6 node. */
 	OSPF_NODE,		 /* OSPF protocol mode */

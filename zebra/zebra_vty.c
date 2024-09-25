@@ -4151,12 +4151,6 @@ DEFUN (zebra_show_routing_tables_summary,
 	return CMD_SUCCESS;
 }
 
-/* Table configuration write function. */
-static int config_write_table(struct vty *vty)
-{
-	return 0;
-}
-
 /* IPForwarding configuration write function. */
 static int config_write_forwarding(struct vty *vty)
 {
@@ -4333,14 +4327,6 @@ static struct cmd_node protocol_node = {
 	.prompt = "",
 	.config_write = config_write_protocol,
 };
-/* table node for routing tables. */
-static int config_write_table(struct vty *vty);
-static struct cmd_node table_node = {
-	.name = "table",
-	.node = TABLE_NODE,
-	.prompt = "",
-	.config_write = config_write_table,
-};
 static int config_write_forwarding(struct vty *vty);
 static struct cmd_node forwarding_node = {
 	.name = "forwarding",
@@ -4353,7 +4339,6 @@ static struct cmd_node forwarding_node = {
 void zebra_vty_init(void)
 {
 	/* Install configuration write function. */
-	install_node(&table_node);
 	install_node(&forwarding_node);
 
 	install_element(VIEW_NODE, &show_ip_forwarding_cmd);
