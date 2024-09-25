@@ -3763,14 +3763,15 @@ int lib_interface_gmp_address_family_proxy_modify(struct nb_cb_modify_args *args
 	case NB_EV_APPLY:
 		ifp = nb_running_get_entry(args->dnode, NULL, true);
 		pim_ifp = ifp->info;
-		if (pim_ifp)
+		if (pim_ifp) {
 			pim_ifp->gm_proxy = yang_dnode_get_bool(args->dnode,
 								NULL);
 
-		if (pim_ifp->gm_proxy)
-			pim_if_gm_proxy_init(pim_ifp->pim, ifp);
-		else
-			pim_if_gm_proxy_finis(pim_ifp->pim, ifp);
+			if (pim_ifp->gm_proxy)
+				pim_if_gm_proxy_init(pim_ifp->pim, ifp);
+			else
+				pim_if_gm_proxy_finis(pim_ifp->pim, ifp);
+		}
 	}
 	return NB_OK;
 }
