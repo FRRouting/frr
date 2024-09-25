@@ -300,14 +300,8 @@ static void get_fwtable_route_node(struct variable *v, oid objid[],
 	int i;
 
 	/* Init index variables */
-
-	pnt = (uint8_t *)&dest;
-	for (i = 0; i < 4; i++)
-		*pnt++ = 0;
-
-	pnt = (uint8_t *)&nexthop;
-	for (i = 0; i < 4; i++)
-		*pnt++ = 0;
+	memset(&dest, 0, sizeof(dest));
+	memset(&nexthop, 0, sizeof(nexthop));
 
 	proto = 0;
 	policy = 0;
