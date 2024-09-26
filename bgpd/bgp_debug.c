@@ -2159,6 +2159,17 @@ DEFPY (debug_bgp_cond_adv,
 	return CMD_SUCCESS;
 }
 
+DEFPY(debug_bgp_optmem_max, debug_bgp_optmem_max_cmd,
+      "debug bgp memory optmem-max",
+      DEBUG_STR
+      BGP_STR
+      "BGP Memory Management\n"
+      "Display Optmem Max Information\n")
+{
+	bgp_optmem_max_display(vty);
+	return CMD_SUCCESS;
+}
+
 DEFUN (no_debug_bgp,
        no_debug_bgp_cmd,
        "no debug bgp",
@@ -2573,6 +2584,8 @@ void bgp_debug_init(void)
 	/* debug bgp conditional advertisement */
 	install_element(ENABLE_NODE, &debug_bgp_cond_adv_cmd);
 	install_element(CONFIG_NODE, &debug_bgp_cond_adv_cmd);
+
+	install_element(CONFIG_NODE, &debug_bgp_optmem_max_cmd);
 }
 
 /* Return true if this prefix is on the per_prefix_list of prefixes to debug

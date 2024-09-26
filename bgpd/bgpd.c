@@ -123,7 +123,8 @@ unsigned int bgp_optmem_max_value = 0;
 /* Number of bgp instances configured for suppress fib config */
 unsigned int bgp_suppress_fib_count;
 
-static unsigned int bgp_optmem_max_peer_count;
+static unsigned int bgp_optmem_max_calls, bgp_optmem_max_changes,
+	bgp_optmem_max_peer_count;
 
 static void bgp_if_finish(struct bgp *bgp);
 static void peer_drop_dynamic_neighbor(struct peer *peer);
@@ -6747,6 +6748,7 @@ static void bgp_update_optmem_max(unsigned int peers_configured)
 	unsigned int proposed_optmem_max_value;
 	unsigned int max_limit_configured = peers_configured;
 
+	bgp_optmem_max_calls++;
 	snprintf(buf, sizeof(buf), "/proc/sys/net/core/optmem_max");
 
 	if (bgp_optmem_max_value == 0) {
@@ -6777,6 +6779,7 @@ static void bgp_update_optmem_max(unsigned int peers_configured)
 		BGP_OPTMEM_MAX_SIZE_PER_PEER * max_limit_configured;
 
 	if (proposed_optmem_max_value > bgp_optmem_max_value) {
+		bgp_optmem_max_changes++;
 		bgp_optmem_max_peer_count = max_limit_configured;
 		zlog_debug(
 			"%s(): %d peers detected, increasing optmem_max value (%d -> %d)",
@@ -6789,6 +6792,14 @@ static void bgp_update_optmem_max(unsigned int peers_configured)
 		fclose(fp);
 		bgp_optmem_max_value = proposed_optmem_max_value;
 	}
+}
+
+void bgp_optmem_max_display(struct vty *vty)
+{
+	vty_out(vty, "Optmem Max Peer count %u, configured value %u\n",
+		bgp_optmem_max_peer_count, bgp_optmem_max_value);
+	vty_out(vty, "\tNumber of calls %u, changes %u\n", bgp_optmem_max_calls,
+		bgp_optmem_max_changes);
 }
 
 void peer_password_update_count()
