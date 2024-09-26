@@ -51,11 +51,9 @@
 #include "sockunion.h"
 #include "log.h"
 #include "network.h"
+#include "zebra/zebra_privs.h"
 
 /* GLOBAL VARS */
-
-extern struct zebra_privs_t zserv_privs;
-
 struct event *t_irdp_raw;
 
 /* Timer interval of irdp. */
