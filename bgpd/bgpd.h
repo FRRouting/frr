@@ -375,6 +375,33 @@ struct as_confed {
 struct bgp_mplsvpn_nh_label_bind_cache;
 PREDECL_RBTREE_UNIQ(bgp_mplsvpn_nh_label_bind_cache);
 
+/* List of peers that have connection errors in the io pthread */
+PREDECL_LIST(bgp_peer_conn_errlist);
+
+/* List of info about peers that are being cleared from BGP RIBs in a batch */
+PREDECL_LIST(bgp_clearing_info);
+
+/* Hash of peers in clearing info object */
+PREDECL_HASH(bgp_clearing_hash);
+
+/* Info about a batch of peers that need to be cleared from the RIB.
+ * If many peers need to be cleared, we process them in batches, taking
+ * one walk through the RIB for each batch.
+ */
+struct bgp_clearing_info {
+	/* Hash of peers */
+	struct bgp_clearing_hash_head peers;
+
+	/* Event to schedule/reschedule processing */
+	struct thread *t_sched;
+
+	/* RIB dest for rescheduling */
+	struct bgp_dest *last_dest;
+
+	/* Linkage for list of batches per-bgp */
+	struct bgp_clearing_info_item link;
+};
+
 /* BGP instance structure.  */
 struct bgp {
 	/* AS number of this BGP instance.  */
@@ -854,6 +881,21 @@ struct bgp {
 	uint16_t tcp_keepalive_intvl;
 	uint16_t tcp_keepalive_probes;
 
+	/* List of peers that have connection errors in the IO pthread */
+	struct bgp_peer_conn_errlist_head peer_conn_errlist;
+
+	/* Mutex that guards the connection-errors list */
+	pthread_mutex_t peer_errs_mtx;
+
+	/* Event indicating that there have been connection errors; this
+	 * is typically signalled in the IO pthread; it's handled in the
+	 * main pthread.
+	 */
+	struct event *t_conn_errors;
+
+	/* List of batches of peers being cleared from BGP RIBs */
+	struct bgp_clearing_info_head clearing_list;
+
 	struct timeval ebgprequirespolicywarning;
 #define FIFTEENMINUTE2USEC (int64_t)15 * 60 * 1000000
 
@@ -1229,7 +1271,6 @@ struct peer_connection {
 
 	struct event *t_routeadv;
 	struct event *t_process_packet;
-	struct event *t_process_packet_error;
 
 	struct event *t_stop_with_notify;
 
@@ -1916,6 +1957,15 @@ struct peer {
 	/* Add-Path Paths-Limit */
 	struct addpath_paths_limit addpath_paths_limit[AFI_MAX][SAFI_MAX];
 
+	/* Linkage for list of peers with connection errors from IO pthread */
+	struct bgp_peer_conn_errlist_item conn_err_link;
+
+	/* Connection error code */
+	uint16_t connection_errcode;
+
+	/* Linkage for hash of clearing peers being cleared in a batch */
+	struct bgp_clearing_hash_item clear_hash_link;
+
 	QOBJ_FIELDS;
 };
 DECLARE_QOBJ_TYPE(peer);
@@ -2552,6 +2602,10 @@ void bgp_gr_apply_running_config(void);
 int bgp_global_gr_init(struct bgp *bgp);
 int bgp_peer_gr_init(struct peer *peer);
 
+/* APIs for the per-bgp peer connection error list */
+int bgp_enqueue_conn_err_peer(struct bgp *bgp, struct peer *peer, int errcode);
+struct peer *bgp_dequeue_conn_err_peer(struct bgp *bgp, bool *more_p);
+void bgp_conn_err_reschedule(struct bgp *bgp);
 
 #define BGP_GR_ROUTER_DETECT_AND_SEND_CAPABILITY_TO_ZEBRA(_bgp, _peer_list)    \
 	do {                                                                   \

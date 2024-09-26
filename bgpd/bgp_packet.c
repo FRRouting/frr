@@ -4198,35 +4198,60 @@ void bgp_send_delayed_eor(struct bgp *bgp)
 }
 
 /*
- * Task callback to handle socket error encountered in the io pthread. We avoid
- * having the io pthread try to enqueue fsm events or mess with the peer
- * struct.
+ * Task callback in the main pthread to handle socket error
+ * encountered in the io pthread. We avoid having the io pthread try
+ * to enqueue fsm events or mess with the peer struct.
  */
+
+/* Max number of peers to process without rescheduling */
+#define BGP_CONN_ERROR_DEQUEUE_MAX 10
+
 void bgp_packet_process_error(struct event *thread)
 {
 	struct peer_connection *connection;
 	struct peer *peer;
-	int code;
+	struct bgp *bgp;
+	int counter = 0;
+	bool more_p = false;
 
-	connection = EVENT_ARG(thread);
-	peer = connection->peer;
-	code = EVENT_VAL(thread);
+	bgp = EVENT_ARG(thread);
 
-	if (bgp_debug_neighbor_events(peer))
-		zlog_debug("%s [Event] BGP error %d on fd %d", peer->host, code,
-			   connection->fd);
+	/* Dequeue peers from the error list */
+	while ((peer = bgp_dequeue_conn_err_peer(bgp, &more_p)) != NULL) {
+		connection = peer->connection;
 
-	/* Closed connection or error on the socket */
-	if (peer_established(connection)) {
-		if ((CHECK_FLAG(peer->flags, PEER_FLAG_GRACEFUL_RESTART)
-		     || CHECK_FLAG(peer->flags,
-				   PEER_FLAG_GRACEFUL_RESTART_HELPER))
-		    && CHECK_FLAG(peer->sflags, PEER_STATUS_NSF_MODE)) {
-			peer->last_reset = PEER_DOWN_NSF_CLOSE_SESSION;
-			SET_FLAG(peer->sflags, PEER_STATUS_NSF_WAIT);
-		} else
-			peer->last_reset = PEER_DOWN_CLOSE_SESSION;
+		if (bgp_debug_neighbor_events(peer))
+			zlog_debug("%s [Event] BGP error %d on fd %d",
+				   peer->host, peer->connection_errcode,
+				   connection->fd);
+
+		/* Closed connection or error on the socket */
+		if (peer_established(connection)) {
+			if ((CHECK_FLAG(peer->flags, PEER_FLAG_GRACEFUL_RESTART)
+			     || CHECK_FLAG(peer->flags,
+					   PEER_FLAG_GRACEFUL_RESTART_HELPER))
+			    && CHECK_FLAG(peer->sflags, PEER_STATUS_NSF_MODE)) {
+				peer->last_reset = PEER_DOWN_NSF_CLOSE_SESSION;
+				SET_FLAG(peer->sflags, PEER_STATUS_NSF_WAIT);
+			} else
+				peer->last_reset = PEER_DOWN_CLOSE_SESSION;
+		}
+
+		/* No need for keepalives, if enabled */
+		bgp_keepalives_off(connection);
+
+		bgp_event_update(connection, peer->connection_errcode);
+
+		counter++;
+		if (counter >= BGP_CONN_ERROR_DEQUEUE_MAX)
+			break;
 	}
 
-	bgp_event_update(connection, code);
+	/* Reschedule event if necessary */
+	if (more_p)
+		bgp_conn_err_reschedule(bgp);
+
+	if (bgp_debug_neighbor_events(NULL))
+		zlog_debug("%s: dequeued and processed %d peers", __func__,
+			   counter);
 }

@@ -87,6 +87,9 @@ DEFINE_QOBJ_TYPE(peer);
 DEFINE_HOOK(bgp_inst_delete, (struct bgp *bgp), (bgp));
 DEFINE_HOOK(bgp_instance_state, (struct bgp *bgp), (bgp));
 
+/* Peers with connection error/failure, per bgp instance */
+DECLARE_LIST(bgp_peer_conn_errlist, struct peer, conn_err_link);
+
 /* BGP process wide configuration.  */
 static struct bgp_master bgp_master;
 
@@ -2710,6 +2713,9 @@ int peer_delete(struct peer *peer)
 
 	assert(peer->connection->status != Deleted);
 
+	if (bgp_debug_neighbor_events(peer))
+		zlog_debug("%s: peer %pBP", __func__, peer);
+
 	bgp = peer->bgp;
 	accept_peer = CHECK_FLAG(peer->sflags, PEER_STATUS_ACCEPT_PEER);
 
@@ -2726,6 +2732,13 @@ int peer_delete(struct peer *peer)
 	assert(!CHECK_FLAG(peer->connection->thread_flags,
 			   PEER_THREAD_READS_ON));
 	assert(!CHECK_FLAG(peer->thread_flags, PEER_THREAD_KEEPALIVES_ON));
+
+	/* Ensure the peer is removed from the connection error list */
+	frr_with_mutex (&bgp->peer_errs_mtx) {
+		if (bgp_peer_conn_errlist_anywhere(peer))
+			bgp_peer_conn_errlist_del(&bgp->peer_conn_errlist,
+						  peer);
+	}
 
 	if (CHECK_FLAG(peer->sflags, PEER_STATUS_NSF_WAIT))
 		peer_nsf_stop(peer);
@@ -3634,6 +3647,10 @@ peer_init:
 	memset(&bgp->ebgprequirespolicywarning, 0,
 	       sizeof(bgp->ebgprequirespolicywarning));
 
+	/* Init peer connection error info */
+	pthread_mutex_init(&bgp->peer_errs_mtx, NULL);
+	bgp_peer_conn_errlist_init(&bgp->peer_conn_errlist);
+
 	return bgp;
 }
 
@@ -4128,6 +4145,18 @@ int bgp_delete(struct bgp *bgp)
 			if (i != ZEBRA_ROUTE_BGP)
 				bgp_redistribute_unset(bgp, afi, i, 0);
 
+	/* Clear list of peers with connection errors - each
+	 * peer will need to check again, in case the io pthread is racing
+	 * with us, but this batch cleanup should make the per-peer check
+	 * cheaper.
+	 */
+	frr_with_mutex (&bgp->peer_errs_mtx) {
+		do {
+			peer = bgp_peer_conn_errlist_pop(
+				&bgp->peer_conn_errlist);
+		} while (peer != NULL);
+	}
+
 	/* Free peers and peer-groups. */
 	for (ALL_LIST_ELEMENTS(bgp->group, node, next, group))
 		peer_group_delete(group);
@@ -4143,6 +4172,9 @@ int bgp_delete(struct bgp *bgp)
 	}
 
 	update_bgp_group_free(bgp);
+
+	/* Cancel peer connection errors event */
+	EVENT_OFF(bgp->t_conn_errors);
 
 /* TODO - Other memory may need to be freed - e.g., NHT */
 
@@ -4311,6 +4343,9 @@ void bgp_free(struct bgp *bgp)
 	}
 	bgp_srv6_cleanup(bgp);
 	bgp_confederation_id_unset(bgp);
+
+	bgp_peer_conn_errlist_init(&bgp->peer_conn_errlist);
+	pthread_mutex_destroy(&bgp->peer_errs_mtx);
 
 	for (int i = 0; i < bgp->confed_peers_cnt; i++)
 		XFREE(MTYPE_BGP_NAME, bgp->confed_peers[i].as_pretty);
@@ -8943,6 +8978,59 @@ void bgp_gr_apply_running_config(void)
 
 		gr_router_detected = false;
 	}
+}
+
+/*
+ * Enqueue a peer with a connection error to be handled in the main pthread
+ */
+int bgp_enqueue_conn_err_peer(struct bgp *bgp, struct peer *peer, int errcode)
+{
+	frr_with_mutex (&bgp->peer_errs_mtx) {
+		peer->connection_errcode = errcode;
+
+		/* Careful not to double-enqueue */
+		if (!bgp_peer_conn_errlist_anywhere(peer)) {
+			bgp_peer_conn_errlist_add_tail(&bgp->peer_conn_errlist,
+						       peer);
+		}
+	}
+	/* Ensure an event is scheduled */
+	event_add_event(bm->master, bgp_packet_process_error, bgp, 0,
+			&bgp->t_conn_errors);
+	return 0;
+}
+
+/*
+ * Dequeue a peer that encountered a connection error; signal whether there
+ * are more queued peers.
+ */
+struct peer *bgp_dequeue_conn_err_peer(struct bgp *bgp, bool *more_p)
+{
+	struct peer *peer = NULL;
+	bool more = false;
+
+	frr_with_mutex (&bgp->peer_errs_mtx) {
+		peer = bgp_peer_conn_errlist_pop(&bgp->peer_conn_errlist);
+
+		if (bgp_peer_conn_errlist_const_first(
+			    &bgp->peer_conn_errlist) != NULL)
+			more = true;
+	}
+
+	if (more_p)
+		*more_p = more;
+
+	return peer;
+}
+
+/*
+ * Reschedule the connection error event - probably after processing
+ * some of the peers on the list.
+ */
+void bgp_conn_err_reschedule(struct bgp *bgp)
+{
+	event_add_event(bm->master, bgp_packet_process_error, bgp, 0,
+			&bgp->t_conn_errors);
 }
 
 printfrr_ext_autoreg_p("BP", printfrr_bp);
