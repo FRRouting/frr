@@ -1,3 +1,8 @@
+# SPDX-License-Identifier: GPL-2.0-or-later
+# FRR bgpd socket communicator
+#
+# Copyright (C) 2024 Ofer Chen
+
 import socket
 import os
 import argparse
