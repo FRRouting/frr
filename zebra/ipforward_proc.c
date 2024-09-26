@@ -12,8 +12,7 @@
 #include "privs.h"
 
 #include "zebra/ipforward.h"
-
-extern struct zebra_privs_t zserv_privs;
+#include "zebra/zebra_privs.h"
 
 static const char proc_net_snmp[] = "/proc/net/snmp";
 

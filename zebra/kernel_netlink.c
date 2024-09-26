@@ -40,6 +40,7 @@
 #include "zebra/netconf_netlink.h"
 #include "zebra/zebra_errors.h"
 #include "zebra/ge_netlink.h"
+#include "zebra/zebra_privs.h"
 
 #ifndef SO_RCVBUFFORCE
 #define SO_RCVBUFFORCE  (33)
@@ -167,8 +168,6 @@ static const struct message rttype_str[] = {{RTN_UNSPEC, "none"},
 					    {0}};
 
 extern struct event_loop *master;
-
-extern struct zebra_privs_t zserv_privs;
 
 DEFINE_MTYPE_STATIC(ZEBRA, NL_BUF, "Zebra Netlink buffers");
 
