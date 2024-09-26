@@ -24,8 +24,7 @@
 #include "table_manager.h"
 #include "zebra_errors.h"
 #include "zebra_dplane.h"
-
-extern struct zebra_privs_t zserv_privs;
+#include "zebra_privs.h"
 
 DEFINE_MTYPE_STATIC(ZEBRA, ZEBRA_NS, "Zebra Name Space");
 DEFINE_MTYPE_STATIC(ZEBRA, ZNS_IFP, "Zebra NS Ifp");

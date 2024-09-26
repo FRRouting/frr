@@ -177,6 +177,7 @@ noinst_HEADERS += \
 	zebra/zebra_nhg_private.h \
 	zebra/zebra_ns.h \
 	zebra/zebra_opaque.h \
+	zebra/zebra_privs.h \
 	zebra/zebra_pbr.h \
 	zebra/zebra_ptm.h \
 	zebra/zebra_ptm_redistribute.h \

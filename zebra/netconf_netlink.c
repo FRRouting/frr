@@ -22,6 +22,7 @@
 #include "zebra/kernel_netlink.h"
 #include "zebra/netconf_netlink.h"
 #include "zebra/debug.h"
+#include "zebra/zebra_privs.h"
 
 static struct rtattr *netconf_rta(struct netconfmsg *ncm)
 {
@@ -175,7 +176,6 @@ int netlink_request_netconf(int sockfd)
 	return netlink_request(nls, &req);
 }
 
-extern struct zebra_privs_t zserv_privs;
 /*
  * Currently netconf has no ability to set from netlink.
  * So we've received a request to do this work in the data plane.

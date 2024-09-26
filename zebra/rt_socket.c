@@ -28,8 +28,7 @@
 #include "zebra/kernel_socket.h"
 #include "zebra/zebra_mpls.h"
 #include "zebra/zebra_errors.h"
-
-extern struct zebra_privs_t zserv_privs;
+#include "zebra/zebra_privs.h"
 
 #ifdef __OpenBSD__
 static int kernel_rtm_add_labels(struct mpls_label_stack *nh_label,

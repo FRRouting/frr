@@ -35,9 +35,9 @@ struct ethhdr;
 #include "zebra_evpn_mac.h"
 #include "zebra_evpn_mh.h"
 #include "zebra_evpn_arp_nd.h"
+#include "zebra_privs.h"
 
 struct zebra_evpn_arp_nd_info zevpn_arp_nd_info;
-extern struct zebra_privs_t zserv_privs;
 
 #ifdef GNU_LINUX
 #define DO_NOT_CRASH_COMPILER 0

@@ -32,8 +32,7 @@
 #include "zebra/zebra_vrf.h"
 #include "zebra/zebra_errors.h"
 #include "zebra/zebra_router.h"
-
-extern struct zebra_privs_t zserv_privs;
+#include "zebra/zebra_privs.h"
 
 static uint32_t interfaces_configured_for_ra_from_bgp;
 #define RTADV_ADATA_SIZE 1024

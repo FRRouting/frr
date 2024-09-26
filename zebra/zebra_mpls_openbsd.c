@@ -21,8 +21,7 @@
 #include "interface.h"
 #include "log.h"
 #include "lib_errors.h"
-
-extern struct zebra_privs_t zserv_privs;
+#include "zebra/zebra_privs.h"
 
 struct {
 	uint32_t rtseq;

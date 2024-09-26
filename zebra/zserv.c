@@ -49,10 +49,9 @@
 #include "zebra/zserv.h"          /* for zserv */
 #include "zebra/zebra_router.h"
 #include "zebra/zebra_errors.h"   /* for error messages */
+#include "zebra/zebra_privs.h"
 /* clang-format on */
 
-/* privileges */
-extern struct zebra_privs_t zserv_privs;
 
 /* The listener socket for clients connecting to us */
 static int zsock;
