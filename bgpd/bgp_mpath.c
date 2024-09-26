@@ -472,10 +472,10 @@ bool bgp_path_info_mpath_chkwtd(struct bgp *bgp, struct bgp_path_info *path)
 	 */
 	if (bgp->lb_handling != BGP_LINK_BW_SKIP_MISSING &&
 	    bgp->lb_handling != BGP_LINK_BW_DEFWT_4_MISSING)
-		return (path->mpath->mp_flags & BGP_MP_LB_ALL);
+		return CHECK_FLAG(path->mpath->mp_flags, BGP_MP_LB_ALL);
 
 	/* At least one path should have bandwidth. */
-	return (path->mpath->mp_flags & BGP_MP_LB_PRESENT);
+	return CHECK_FLAG(path->mpath->mp_flags, BGP_MP_LB_PRESENT);
 }
 
 /*
