@@ -411,6 +411,10 @@ static void bgp_path_info_mpath_count_set(struct bgp_path_info *path,
  * bgp_path_info_mpath_lb_update
  *
  * Update cumulative info related to link-bandwidth
+ *
+ * This is only set on the first mpath of the list
+ * as such we should UNSET the flags when removing
+ * to ensure nothing accidently happens
  */
 static void bgp_path_info_mpath_lb_update(struct bgp_path_info *path, bool set,
 					  bool all_paths_lb, uint64_t cum_bw)

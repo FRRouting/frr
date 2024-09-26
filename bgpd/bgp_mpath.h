@@ -25,15 +25,18 @@ struct bgp_path_info_mpath {
 	/* When attached to best path, the number of selected multipaths */
 	uint16_t mp_count;
 
-	/* Flags - relevant as noted. */
+	/* Flags - relevant as noted, attached to bestpath. */
 	uint16_t mp_flags;
 #define BGP_MP_LB_PRESENT 0x1 /* Link-bandwidth present for >= 1 path */
 #define BGP_MP_LB_ALL 0x2 /* Link-bandwidth present for all multipaths */
 
-	/* Aggregated attribute for advertising multipath route */
+	/*
+	 * Aggregated attribute for advertising multipath route,
+	 * attached to bestpath
+	 */
 	struct attr *mp_attr;
 
-	/* Cumulative bandiwdth of all multipaths - attached to best path. */
+	/* Cumulative bandiwdth of all multipaths - attached to bestpath. */
 	uint64_t cum_bw;
 };
 
