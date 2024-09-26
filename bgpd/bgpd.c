@@ -101,9 +101,29 @@ struct bgp_master *bm;
 struct community_list_handler *bgp_clist;
 
 unsigned int multipath_num = MULTIPATH_NUM;
+unsigned int bgp_optmem_max_value = 0;
+
+/* value estimate of ancillary data consumed by one BGP peer
+ * this value is derived from experience where only 150 peers
+ * could be done with an optmem max value set to 20480:
+ * 20480 / 150 = 136
+ */
+#define BGP_OPTMEM_MAX_SIZE_PER_PEER 140
+
+/* to avoid intempestive sysctl write, changing optmem max should
+ * only be done only for adding a minimum number of peers,
+ * determined by the below value.
+ * At configuration update, if one extra peer count is requested,
+ * then the added ancillary data will be done for 50 peers. Next
+ * time one extra peer count is requested, the optmem_max value
+ * will be greater than the wished one, and no sysctl will be done.
+ */
+#define BGP_OPTMEM_MAX_CHANGE_PEER_COUNT 50
 
 /* Number of bgp instances configured for suppress fib config */
 unsigned int bgp_suppress_fib_count;
+
+static unsigned int bgp_optmem_max_peer_count;
 
 static void bgp_if_finish(struct bgp *bgp);
 static void peer_drop_dynamic_neighbor(struct peer *peer);
@@ -6717,6 +6737,112 @@ int peer_local_as_unset(struct peer *peer)
 	}
 
 	return 0;
+}
+
+static void bgp_update_optmem_max(unsigned int peers_configured)
+{
+	char buf[MAXPATHLEN];
+	char buf2[32];
+	FILE *fp;
+	unsigned int proposed_optmem_max_value;
+	unsigned int max_limit_configured = peers_configured;
+
+	snprintf(buf, sizeof(buf), "/proc/sys/net/core/optmem_max");
+
+	if (bgp_optmem_max_value == 0) {
+		/* synchronise with configured value in the system */
+		fp = fopen(buf, "r");
+		if (fp == NULL)
+			return;
+		/* Read optmem_max value
+		 */
+		if (!fgets(buf2, sizeof(buf2), fp))
+			return;
+		sscanf(buf2, "%d\n", &bgp_optmem_max_value);
+		fclose(fp);
+	}
+	if (bgp_optmem_max_peer_count) {
+		/* ignore request if max_limit is less than max_peer_count */
+		if (peers_configured <= bgp_optmem_max_peer_count)
+			return;
+		/* reduce the number of sysctl write operations by enlarging
+		 * max_limit */
+		if (peers_configured - bgp_optmem_max_peer_count
+		    < BGP_OPTMEM_MAX_CHANGE_PEER_COUNT)
+			max_limit_configured +=
+				BGP_OPTMEM_MAX_CHANGE_PEER_COUNT;
+	}
+
+	proposed_optmem_max_value =
+		BGP_OPTMEM_MAX_SIZE_PER_PEER * max_limit_configured;
+
+	if (proposed_optmem_max_value > bgp_optmem_max_value) {
+		bgp_optmem_max_peer_count = max_limit_configured;
+		zlog_debug(
+			"%s(): %d peers detected, increasing optmem_max value (%d -> %d)",
+			__func__, peers_configured, bgp_optmem_max_value,
+			proposed_optmem_max_value);
+		fp = fopen(buf, "w");
+		if (fp == NULL)
+			return;
+		fprintf(fp, "%d\n", proposed_optmem_max_value);
+		fclose(fp);
+		bgp_optmem_max_value = proposed_optmem_max_value;
+	}
+}
+
+void peer_password_update_count()
+{
+	struct peer *peer;
+	struct listnode *node, *nnode, *mnode, *mnnode;
+	struct peer_group *group;
+	struct bgp *bgp;
+	int max_limit_configured = 0;
+	afi_t afi;
+	int lr_count;
+
+	/* if 'bgp listen range' is used, and password option too on peer
+	 * groups, then max-limit is determined by 'bgp listen limit'
+	 */
+	for (ALL_LIST_ELEMENTS(bm->bgp, mnode, mnnode, bgp)) {
+		for (ALL_LIST_ELEMENTS(bgp->group, node, nnode, group)) {
+			lr_count = 0;
+			for (afi = AFI_IP; afi < AFI_MAX; afi++)
+				lr_count += listcount(group->listen_range[afi]);
+
+			if (lr_count == 0)
+				continue;
+			if (group->conf == NULL)
+				continue;
+			if (CHECK_FLAG(group->conf->flags, PEER_FLAG_PASSWORD))
+				max_limit_configured +=
+					bgp->dynamic_neighbors_limit;
+		}
+	}
+
+	for (ALL_LIST_ELEMENTS(bm->bgp, mnode, mnnode, bgp)) {
+		/* count the configured peers from the peer group that do not
+		 * use listen limit */
+		for (ALL_LIST_ELEMENTS(bgp->group, node, nnode, group)) {
+			lr_count = 0;
+			for (afi = AFI_IP; afi < AFI_MAX; afi++)
+				lr_count += listcount(group->listen_range[afi]);
+			if (lr_count == 0
+			    && CHECK_FLAG(group->conf->flags,
+					  PEER_FLAG_PASSWORD)) {
+				max_limit_configured += listcount(group->peer);
+			}
+		}
+		/* count the configured peers with no peer-group */
+		for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer)) {
+			if (peer_group_active(peer))
+				continue;
+			if (CHECK_FLAG(peer->flags, PEER_FLAG_PASSWORD))
+				max_limit_configured++;
+		}
+	}
+	if (max_limit_configured)
+		bgp_update_optmem_max(max_limit_configured);
 }
 
 /* Set password for authenticating with the peer. */

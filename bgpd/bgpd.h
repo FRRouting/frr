@@ -2786,6 +2786,8 @@ void peer_nsf_stop(struct peer *peer);
 void peer_tcp_mss_set(struct peer *peer, uint32_t tcp_mss);
 void peer_tcp_mss_unset(struct peer *peer);
 
+extern void peer_password_update_count(void);
+
 extern void bgp_recalculate_afi_safi_bestpaths(struct bgp *bgp, afi_t afi,
 					       safi_t safi);
 extern void peer_on_policy_change(struct peer *peer, afi_t afi, safi_t safi,

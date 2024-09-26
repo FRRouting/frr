@@ -4554,6 +4554,7 @@ DEFUN (bgp_listen_limit,
 	listen_limit = strtoul(argv[idx_number]->arg, NULL, 10);
 
 	bgp_listen_limit_set(bgp, listen_limit);
+	peer_password_update_count();
 
 	return CMD_SUCCESS;
 }
@@ -4671,6 +4672,7 @@ DEFUN (bgp_listen_range,
 	}
 
 	ret = peer_group_listen_range_add(group, &range);
+	peer_password_update_count();
 	return bgp_vty_return(vty, ret);
 }
 
@@ -5057,12 +5059,15 @@ DEFUN (neighbor_interface_config,
 {
 	int idx_word = 1;
 	int idx_peer_group_word = 4;
+	int ret;
 
-	if (argc > idx_peer_group_word)
-		return peer_conf_interface_get(
-			vty, argv[idx_word]->arg, 0,
-			argv[idx_peer_group_word]->arg, NULL);
-	else
+	if (argc > idx_peer_group_word) {
+		ret = peer_conf_interface_get(vty, argv[idx_word]->arg, 0,
+					      argv[idx_peer_group_word]->arg,
+					      NULL);
+		peer_password_update_count();
+		return ret;
+	} else
 		return peer_conf_interface_get(vty, argv[idx_word]->arg, 0,
 					       NULL, NULL);
 }
@@ -5079,12 +5084,15 @@ DEFUN (neighbor_interface_config_v6only,
 {
 	int idx_word = 1;
 	int idx_peer_group_word = 5;
+	int ret;
 
-	if (argc > idx_peer_group_word)
-		return peer_conf_interface_get(
-			vty, argv[idx_word]->arg, 1,
-			argv[idx_peer_group_word]->arg, NULL);
-
+	if (argc > idx_peer_group_word) {
+		ret = peer_conf_interface_get(vty, argv[idx_word]->arg, 1,
+					      argv[idx_peer_group_word]->arg,
+					      NULL);
+		peer_password_update_count();
+		return ret;
+	}
 	return peer_conf_interface_get(vty, argv[idx_word]->arg, 1, NULL, NULL);
 }
 
@@ -5477,6 +5485,7 @@ DEFUN (neighbor_password,
 		return CMD_WARNING_CONFIG_FAILED;
 
 	ret = peer_password_set(peer, argv[idx_line]->arg);
+	peer_password_update_count();
 	return bgp_vty_return(vty, ret);
 }
 
@@ -5599,6 +5608,8 @@ DEFUN (neighbor_set_peer_group,
 	}
 
 	ret = peer_group_bind(bgp, &su, peer, group, &as);
+
+	peer_password_update_count();
 
 	return bgp_vty_return(vty, ret);
 }
