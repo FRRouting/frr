@@ -348,6 +348,15 @@ static enum route_map_cmd_result_t route_match_src_peer(void *rule, const struct
 	bpi = object;
 	peer = bpi->from;
 
+	/* Fallback to destination (current) peer. This is mostly
+	 * happens if `match src-peer ...` is used at incoming direction.
+	 */
+	if (!peer)
+		peer = bpi->peer;
+
+	if (!peer)
+		return RMAP_NOMATCH;
+
 	if (pc->interface) {
 		if (!peer->conf_if && !peer->group)
 			return RMAP_NOMATCH;
