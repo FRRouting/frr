@@ -851,6 +851,7 @@ void pim_autorp_add_candidate_rp_plist(struct pim_instance *pim,
 	snprintf(rp->grplist, sizeof(rp->grplist), "%s", plist);
 	/* A new group prefix list implies that any previous group prefix is now invalid */
 	memset(&(rp->grp), 0, sizeof(rp->grp));
+	rp->grp.family = AF_INET;
 
 	pim_autorp_new_announcement(pim);
 }
@@ -1155,7 +1156,7 @@ void pim_autorp_show_autorp(struct vty *vty, struct pim_instance *pim,
 
 		table = ttable_dump(tt, "\n");
 		vty_out(vty, "%s\n", table);
-		XFREE(MTYPE_TMP, table);
+		XFREE(MTYPE_TMP_TTABLE, table);
 	}
 
 	ttable_del(tt);

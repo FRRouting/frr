@@ -639,9 +639,9 @@ int pim_process_autorp_candidate_rp_cmd(struct vty *vty, bool no,
 	char grpstr[64];
 
 	if (no) {
-		if (!is_default_prefix((const struct prefix *)grp) || plist) {
+		if ((grp && !is_default_prefix((const struct prefix *)grp)) || plist) {
 			/* If any single values are set, only destroy those */
-			if (!is_default_prefix((const struct prefix *)grp)) {
+			if (grp && !is_default_prefix((const struct prefix *)grp)) {
 				snprintfrr(xpath, sizeof(xpath),
 					   "%s/candidate-rp-list[rp-address='%s']/group",
 					   FRR_PIM_AUTORP_XPATH, rpaddr_str);
@@ -663,12 +663,12 @@ int pim_process_autorp_candidate_rp_cmd(struct vty *vty, bool no,
 			nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
 		}
 	} else {
-		if (!is_default_prefix((const struct prefix *)grp) || plist) {
+		if ((grp && !is_default_prefix((const struct prefix *)grp)) || plist) {
 			snprintfrr(xpath, sizeof(xpath),
 				   "%s/candidate-rp-list[rp-address='%s']",
 				   FRR_PIM_AUTORP_XPATH, rpaddr_str);
 			nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
-			if (!is_default_prefix((const struct prefix *)grp)) {
+			if (grp && !is_default_prefix((const struct prefix *)grp)) {
 				snprintfrr(xpath, sizeof(xpath),
 					   "%s/candidate-rp-list[rp-address='%s']/group",
 					   FRR_PIM_AUTORP_XPATH, rpaddr_str);
