@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: ISC
 
 #
-# test_ospf6_elsa_topo1.py
+# test_ospf6_elsa_both.py
 #
 # Based on test_ospf6_gr_topo1.py which claims
 # Copyright (c) 2021 by
