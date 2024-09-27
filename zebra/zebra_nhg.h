@@ -175,6 +175,12 @@ struct nhg_hash_entry {
  * chooses this NHG then we can install it then.
  */
 #define NEXTHOP_GROUP_INITIAL_DELAY_INSTALL (1 << 9)
+
+/* at NHG_ADD, when an update of an already installed NHG happens,
+ * the nhg_depends must be refreshed. This flag is used to check
+ * if the dependency still exists or has been removed.
+ */
+#define NEXTHOP_GROUP_DEPEND_TO_DETACH (1 << 11)
 };
 
 /* Upper 4 bits of the NHG are reserved for indicating the NHG type */

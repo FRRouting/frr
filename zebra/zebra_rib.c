@@ -424,6 +424,9 @@ int route_entry_update_nhe(struct route_entry *re,
 	int ret = 0;
 	struct nhg_hash_entry *old_nhg = NULL;
 
+	if (re->nhe == new_nhghe)
+		return ret;
+
 	if (new_nhghe == NULL) {
 		old_nhg = re->nhe;
 
@@ -468,6 +471,8 @@ int rib_handle_nhg_replace(struct nhg_hash_entry *old_entry,
 	struct route_entry *re, *next;
 	int ret = 0;
 
+	if (old_entry == new_entry)
+		return ret;
 	if (IS_ZEBRA_DEBUG_RIB_DETAILED || IS_ZEBRA_DEBUG_NHG_DETAIL)
 		zlog_debug("%s: replacing routes nhe (%u) OLD %p NEW %p",
 			   __func__, new_entry->id, new_entry, old_entry);
