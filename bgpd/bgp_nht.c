@@ -347,12 +347,11 @@ int bgp_find_or_add_nexthop(struct bgp *bgp_route, struct bgp *bgp_nexthop,
 				   &p.u.prefix6))
 			ifindex = pi->peer->connection->su.sin6.sin6_scope_id;
 
-		if (!is_bgp_static_route && orig_prefix
-		    && prefix_same(&p, orig_prefix)) {
+		if (!is_bgp_static_route && orig_prefix && prefix_same(&p, orig_prefix) &&
+		    CHECK_FLAG(bgp_route->flags, BGP_FLAG_IMPORT_CHECK)) {
 			if (BGP_DEBUG(nht, NHT)) {
-				zlog_debug(
-					"%s(%pFX): prefix loops through itself",
-					__func__, &p);
+				zlog_debug("%s(%pFX): prefix loops through itself (import-check enabled)",
+					   __func__, &p);
 			}
 			return 0;
 		}
