@@ -1064,7 +1064,7 @@ static void lfa_calc_reach_nodes(struct isis_spftree *spftree,
 	for (ALL_QUEUE_ELEMENTS_RO(&spftree->paths, node, vertex)) {
 		char buf[VID2STR_BUFFER];
 
-		if (!VTYPE_IS(vertex->type))
+		if (vertex->type != VTYPE_NONPSEUDO_IS && vertex->type != VTYPE_NONPSEUDO_TE_IS)
 			continue;
 
 		/* Skip root node. */
