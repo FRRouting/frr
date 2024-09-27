@@ -3576,11 +3576,13 @@ struct nhg_hash_entry *zebra_nhg_proto_add(struct nhg_hash_entry *nhe,
 	struct nhg_hash_entry lookup;
 	struct nhg_hash_entry *new, *old;
 	struct nhg_connected *rb_node_dep = NULL;
-	struct nexthop *newhop;
+	struct nexthop *newhop, *oldhop;
 	bool replace = false;
 	int ret = 0, type;
 	uint32_t id, session, flags = 0;
 	uint16_t instance;
+	bool new_attach_needed = true;
+	struct nexthop *temp;
 
 	id = nhe->id;
 	type = nhe->type;
@@ -3653,7 +3655,40 @@ struct nhg_hash_entry *zebra_nhg_proto_add(struct nhg_hash_entry *nhe,
 
 	old = zebra_nhg_lookup_id(id);
 
-	if (old) {
+	if (old && !CHECK_FLAG(old->flags, NEXTHOP_GROUP_PROTO_RELEASED) &&
+	    old->nhg.flags == nhg->flags &&
+	    old->nhg.nhgr.buckets == nhg->nhgr.buckets &&
+	    old->nhg.nhgr.idle_timer == nhg->nhgr.idle_timer &&
+	    old->nhg.nhgr.unbalanced_timer == nhg->nhgr.unbalanced_timer &&
+	    old->nhg.nhgr.unbalanced_time == nhg->nhgr.unbalanced_time) {
+		/* check if the new nexthop has changed with the previous one
+		 * in order to not look at recurse nexthops, do only care about
+		 * nexthop groups with recursive flag
+		 */
+		oldhop = old->nhg.nexthop;
+		newhop = nhg->nexthop;
+		do {
+			if (oldhop &&
+			    !CHECK_FLAG(oldhop->flags, NEXTHOP_FLAG_RECURSIVE))
+				break;
+
+			if (oldhop == NULL && newhop == NULL) {
+				new_attach_needed = false;
+				break;
+			}
+			if (oldhop == NULL || newhop == NULL)
+				break;
+			if (nexthop_cmp(oldhop, newhop))
+				break;
+			if (oldhop)
+				oldhop = oldhop->next;
+			if (newhop)
+				newhop = newhop->next;
+
+		} while (1);
+	}
+
+	if (old && new_attach_needed) {
 		/*
 		 * This is a replace, just release NHE from ID for now, The
 		 * depends/dependents may still be used in the replacement so
@@ -3667,19 +3702,33 @@ struct nhg_hash_entry *zebra_nhg_proto_add(struct nhg_hash_entry *nhe,
 		zebra_nhg_release_all_deps(old);
 	}
 
-	new = zebra_nhg_rib_find_nhe(&lookup, afi);
+	if (new_attach_needed) {
+		new = zebra_nhg_rib_find_nhe(&lookup, afi);
 
-	zebra_nhg_increment_ref(new);
+		zebra_nhg_increment_ref(new);
 
-	/* Capture zapi client info */
-	new->zapi_instance = instance;
-	new->zapi_session = session;
+		/* Capture zapi client info */
+		new->zapi_instance = instance;
+		new->zapi_session = session;
 
-	zebra_nhg_set_valid_if_active(new);
+		zebra_nhg_set_valid_if_active(new);
 
-	zebra_nhg_install_kernel(new, ZEBRA_ROUTE_MAX);
+		zebra_nhg_install_kernel(new, ZEBRA_ROUTE_MAX);
+	} else {
+		/* update the recursivity, by copying the new nexthop
+		 * with the new recursion
+		 */
+		temp = old->nhg.nexthop;
+		old->nhg.nexthop = nhg->nexthop;
+		SET_FLAG(old->flags, NEXTHOP_GROUP_REINSTALL);
+		zebra_nhg_set_valid_if_active(old);
+		zebra_nhg_install_kernel(old, ZEBRA_ROUTE_MAX);
+		nhg->nexthop = NULL;
+		nexthops_free(temp);
+		new = old;
+	}
 
-	if (old) {
+	if (old && new_attach_needed) {
 		/*
 		 * Check to handle recving DEL while routes still in use then
 		 * a replace.
@@ -3720,8 +3769,10 @@ struct nhg_hash_entry *zebra_nhg_proto_add(struct nhg_hash_entry *nhe,
 
 	if (IS_ZEBRA_DEBUG_NHG_DETAIL)
 		zlog_debug("%s: %s nhe %p (%u), vrf %d, type %s", __func__,
-			   (replace ? "replaced" : "added"), new, new->id,
-			   new->vrf_id, zebra_route_string(new->type));
+			   (replace ? "replaced"
+				    : (new_attach_needed ? "updated" : "added")),
+			   new, new->id, new->vrf_id,
+			   zebra_route_string(new->type));
 
 	return new;
 }
