@@ -11,12 +11,18 @@
 import os
 import sys
 import pytest
+from functools import partial
 
 # pylint: disable=C0413
 # Import topogen and topotest helpers
+from lib import topotest
 from lib.topogen import Topogen, get_topogen
 from lib.topolog import logger
-from lib.pim import scapy_send_autorp_raw_packet, verify_pim_rp_info, verify_pim_rp_info_is_empty
+from lib.pim import (
+    scapy_send_autorp_raw_packet,
+    verify_pim_rp_info,
+    verify_pim_rp_info_is_empty,
+)
 from lib.common_config import step, write_test_header
 
 from time import sleep
@@ -55,6 +61,7 @@ def build_topo(tgen):
     switch.add_link(tgen.gears["r1"])
     switch.add_link(tgen.gears["r2"])
 
+
 def setup_module(mod):
     logger.info("PIM AutoRP basic functionality:\n {}".format(TOPOLOGY))
 
@@ -87,6 +94,7 @@ def teardown_module(mod):
     tgen = get_topogen()
     tgen.stop_topology()
 
+
 def test_pim_autorp_discovery_single_rp(request):
     "Test PIM AutoRP Discovery with single RP"
     tgen = get_topogen()
@@ -106,12 +114,24 @@ def test_pim_autorp_discovery_single_rp(request):
     scapy_send_autorp_raw_packet(tgen, "r1", "r1-eth0", data)
 
     step("Verify rp-info from AutoRP packet")
-    result = verify_pim_rp_info(tgen, None, "r2", "224.0.0.0/4", "r2-eth0", "10.10.76.1", "AutoRP", False, "ipv4", True)
+    result = verify_pim_rp_info(
+        tgen,
+        None,
+        "r2",
+        "224.0.0.0/4",
+        "r2-eth0",
+        "10.10.76.1",
+        "AutoRP",
+        False,
+        "ipv4",
+        True,
+    )
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
 
     step("Verify AutoRP configuration times out")
     result = verify_pim_rp_info_is_empty(tgen, "r2")
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
+
 
 def test_pim_autorp_discovery_multiple_rp(request):
     "Test PIM AutoRP Discovery with multiple RP's"
@@ -132,9 +152,31 @@ def test_pim_autorp_discovery_multiple_rp(request):
     scapy_send_autorp_raw_packet(tgen, "r1", "r1-eth0", data)
 
     step("Verify rp-info from AutoRP packet")
-    result = verify_pim_rp_info(tgen, None, "r2", "224.0.0.0/8", "r2-eth0", "10.10.76.1", "AutoRP", False, "ipv4", True)
+    result = verify_pim_rp_info(
+        tgen,
+        None,
+        "r2",
+        "224.0.0.0/8",
+        "r2-eth0",
+        "10.10.76.1",
+        "AutoRP",
+        False,
+        "ipv4",
+        True,
+    )
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
-    result = verify_pim_rp_info(tgen, None, "r2", "225.0.0.0/8", "r2-eth0", "10.10.76.3", "AutoRP", False, "ipv4", True)
+    result = verify_pim_rp_info(
+        tgen,
+        None,
+        "r2",
+        "225.0.0.0/8",
+        "r2-eth0",
+        "10.10.76.3",
+        "AutoRP",
+        False,
+        "ipv4",
+        True,
+    )
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
 
 
@@ -156,7 +198,18 @@ def test_pim_autorp_discovery_static(request):
     rnode.cmd("vtysh -c 'conf t' -c 'router pim' -c 'rp 10.10.76.3 224.0.0.0/4'")
 
     step("Verify static rp-info from r2")
-    result = verify_pim_rp_info(tgen, None, "r2", "224.0.0.0/4", "r2-eth0", "10.10.76.3", "Static", False, "ipv4", True)
+    result = verify_pim_rp_info(
+        tgen,
+        None,
+        "r2",
+        "224.0.0.0/4",
+        "r2-eth0",
+        "10.10.76.3",
+        "Static",
+        False,
+        "ipv4",
+        True,
+    )
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
 
     step("Send AutoRP packet from r1 to r2")
@@ -165,8 +218,85 @@ def test_pim_autorp_discovery_static(request):
     scapy_send_autorp_raw_packet(tgen, "r1", "r1-eth0", data)
 
     step("Verify rp-info from AutoRP packet")
-    result = verify_pim_rp_info(tgen, None, "r2", "224.0.0.0/4", "r2-eth0", "10.10.76.1", "AutoRP", False, "ipv4", True)
+    result = verify_pim_rp_info(
+        tgen,
+        None,
+        "r2",
+        "224.0.0.0/4",
+        "r2-eth0",
+        "10.10.76.1",
+        "AutoRP",
+        False,
+        "ipv4",
+        True,
+    )
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
+
+
+def test_pim_autorp_announce_cli(request):
+    "Test PIM AutoRP Announcement CLI commands"
+    tgen = get_topogen()
+    tc_name = request.node.name
+    write_test_header(tc_name)
+
+    if tgen.routers_have_failure():
+        pytest.skip("skipped because of router(s) failure")
+
+    step("Add AutoRP announcement configuration to r1")
+    r1 = tgen.routers()["r1"]
+    r1.vtysh_cmd(
+        """
+        conf
+         router pim
+          autorp announce holdtime 90
+          autorp announce interval 120
+          autorp announce scope 5
+          autorp announce 10.2.3.4 225.0.0.0/24
+"""
+    )
+
+    expected = {
+        "discoveryEnabled": True,
+        "announce": {
+            "scope": 5,
+            "interval": 120,
+            "holdtime": 90,
+            "rpList": [
+                {"rpAddress": "10.2.3.4", "group": "225.0.0.0/24", "prefixList": ""}
+            ],
+        },
+    }
+
+    test_func = partial(
+        topotest.router_json_cmp, r1, "show ip pim autorp json", expected
+    )
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
+    assertmsg = '"{}" JSON output mismatches'.format(r1.name)
+    assert result is None, assertmsg
+
+    r1.vtysh_cmd(
+        """
+        conf
+         router pim
+          autorp announce 10.2.3.4 group-list ListA
+"""
+    )
+    expected = {
+        "discoveryEnabled": True,
+        "announce": {
+            "scope": 5,
+            "interval": 120,
+            "holdtime": 90,
+            "rpList": [{"rpAddress": "10.2.3.4", "group": "", "prefixList": "ListA"}],
+        },
+    }
+
+    test_func = partial(
+        topotest.router_json_cmp, r1, "show ip pim autorp json", expected
+    )
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
+    assertmsg = '"{}" JSON output mismatches'.format(r1.name)
+    assert result is None, assertmsg
 
 
 def test_pim_autorp_announce_group(request):
@@ -180,17 +310,21 @@ def test_pim_autorp_announce_group(request):
 
     step("Add candidate RP configuration to r1")
     rnode = tgen.routers()["r1"]
-    rnode.cmd("vtysh -c 'conf t' -c 'router pim' -c 'send-rp-announce 10.10.76.1 224.0.0.0/4'")
+    rnode.cmd(
+        "vtysh -c 'conf t' -c 'router pim' -c 'send-rp-announce 10.10.76.1 224.0.0.0/4'"
+    )
     step("Verify Announcement sent data")
     # TODO: Verify AutoRP mapping agent receives candidate RP announcement
     # Mapping agent is not yet implemented
-    #sleep(10)
+    # sleep(10)
     step("Change AutoRP Announcement packet parameters")
-    rnode.cmd("vtysh -c 'conf t' -c 'router pim' -c 'send-rp-announce scope 8 interval 10 holdtime 60'")
+    rnode.cmd(
+        "vtysh -c 'conf t' -c 'router pim' -c 'send-rp-announce scope 8 interval 10 holdtime 60'"
+    )
     step("Verify Announcement sent data")
     # TODO: Verify AutoRP mapping agent receives updated candidate RP announcement
     # Mapping agent is not yet implemented
-    #sleep(10)
+    # sleep(10)
 
 
 def test_memory_leak():
