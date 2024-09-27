@@ -72,6 +72,7 @@ sys.path.append(os.path.join(CWD, "../"))
 from lib import topotest
 from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
+from lib.common_config import ( write_test_header, write_test_footer, step )
 
 # Required to instantiate the topology builder class.
 
@@ -115,17 +116,20 @@ def setup_module(mod):
     tgen.start_router()
 
 
-def test_wait_protocol_convergence():
+def test_wait_protocol_convergence(request):
     "Wait for OSPFv3 to converge"
+    tc_name = request.node.name
+    write_test_header(tc_name)
+
     tgen = get_topogen()
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
-    logger.info("waiting for protocols to converge")
+    step("waiting for protocols to converge")
 
     def expect_neighbor_full(router, neighbor):
         "Wait until OSPFv3 neighborship is full"
-        logger.info(
+        step(
             "waiting for OSPFv3 router '{}' neighborship with '{}'".format(
                 router, neighbor
             )
@@ -159,9 +163,14 @@ def test_wait_protocol_convergence():
 #    expect_neighbor_full("r7", "10.254.254.6")
     expect_neighbor_full("r8", "10.254.254.6")
 
+    write_test_footer(tc_name)
 
-def test_ecmp_inter_area():
+
+def test_ecmp_inter_area(request):
     "Test whether OSPFv3 ECMP nexthops are properly updated for inter-area routes after link down"
+    tc_name = request.node.name
+    write_test_header(tc_name)
+
     tgen = get_topogen()
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
@@ -180,7 +189,7 @@ def test_ecmp_inter_area():
 
     def expect_num_nexthops(router, expected_num_nexthops, count, stepmsg):
         "Wait until number of nexthops for routes matches expectation"
-        logger.info(
+        step(
             "waiting for OSPFv3 router '{}' nexthops {} ({})".format(
                 router, expected_num_nexthops, stepmsg
             )
@@ -205,6 +214,8 @@ def test_ecmp_inter_area():
     expect_num_nexthops("r1", [1, 1, 1, 1, 2, 3, 2], 10,
                         "after link-up")
 
+    write_test_footer(tc_name)
+
 
 def teardown_module(_mod):
     "Teardown the pytest environment"
@@ -212,13 +223,18 @@ def teardown_module(_mod):
     tgen.stop_topology()
 
 
-def test_memory_leak():
+def test_memory_leak(request):
     "Run the memory leak test and report results."
+    tc_name = request.node.name
+    write_test_header(tc_name)
+
     tgen = get_topogen()
     if not tgen.is_memleak_enabled():
         pytest.skip("Memory leak test/report is disabled")
 
     tgen.report_memory_leaks()
+
+    write_test_footer(tc_name)
 
 
 if __name__ == "__main__":
