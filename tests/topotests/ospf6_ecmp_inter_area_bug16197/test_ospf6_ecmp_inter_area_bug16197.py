@@ -16,10 +16,7 @@ Reliably reproduce a test failture that happens only occasionally in
 test_ospf6_ecmp_inter_area.py which this one is based one. Strictly
 speaking, this is no longer an ECMP test, because the error is not
 related to ECMP but simply to multiple ABRs. We just use ECMP and
-count nexthops to determine which path is taken (checking nexthop
-interfaces would have been another option that would have allowed
-us to drop ECMP completely, but that would have required more
-rewrite).
+check nexthops to determine which path is taken.
 
 Topology:
                   .
@@ -36,27 +33,19 @@ R1 --- R3 ------ R6 ------ R7
 
 Note: Link R6-R7 is down initially.
 
-We check route nexthops on R1 and the error occurs on the route to R8. We
-expect 2 nexthops, because there are 2 ECMP paths to R6 and R6 is the best
+We check routes on R1 and the error occurs on the route to R8. We
+expect 2 nexthops via R3 and R4, because there are 2 ECMP paths to R6 and R6 is the best
 ABR regardless of the state of the R6-R7 link. However, what happens with
 #16197 is that after link up, the path via R2, R5, R7, R6 is taken,
-resulting in only one nexthop.
+resulting in only one nexthop via R2.
 
 Note: In the original test case, the error occured intermittently on the
 route from R1 to R7. This will probably still happen with this modified
 test case, but on the route from R1 to R8, the same error occurs every
 time.
-
-Routes we check nexthops for are (in this order):
-2001:db8:2::/64
-2001:db8:3::/64
-2001:db8:4::/64
-2001:db8:5::/64
-2001:db8:6::/64
-2001:db8:7::/64
-2001:db8:8::/64
 """
 
+import json
 import os
 import sys
 import time
@@ -116,6 +105,32 @@ def setup_module(mod):
     tgen.start_router()
 
 
+def expect_routes_json(rname, rjson, count, stepmsg):
+    step(
+        "waiting for OSPFv3 router '{}' routes/nexthops to match {} ({})".format(
+            rname, rjson, stepmsg
+        )
+    )
+    tgen = get_topogen()
+    router = tgen.gears[rname]
+    json_file = "{}/{}/{}".format(CWD, rname, rjson)
+    expected = json.loads(open(json_file).read())
+    test_func = partial(
+        topotest.router_json_cmp,
+        router,
+        "show ipv6 route ospf6 json",
+        expected,
+    )
+    _, result = topotest.run_and_expect(test_func, None, count=count, wait=1)
+    # Log LSDB and routes at the end of the wait time for debugging
+    lsdb = router.vtysh_cmd("show ipv6 ospf6 database detail json")
+    rt_rib = router.vtysh_cmd("show ipv6 route ospf6 json")
+    rt_ospf6 = router.vtysh_cmd("show ipv6 ospf6 route detail json")
+    logger.info(f"expect_routes_json on router {rname}:\nLSDB: {lsdb}\nOSPF6 routes: {rt_ospf6}\nRIB routes: {rt_rib}")
+    assertmsg = '"{}" JSON output mismatches ({})'.format(rname, stepmsg)
+    assert result is None, assertmsg
+
+
 def test_wait_protocol_convergence(request):
     "Wait for OSPFv3 to converge"
     tc_name = request.node.name
@@ -163,11 +178,13 @@ def test_wait_protocol_convergence(request):
 #    expect_neighbor_full("r7", "10.254.254.6")
     expect_neighbor_full("r8", "10.254.254.6")
 
+    expect_routes_json("r1", "show_ipv6_routes_ospf6-1.json", 5, "post-convergence")
+
     write_test_footer(tc_name)
 
 
 def test_ecmp_inter_area(request):
-    "Test whether OSPFv3 ECMP nexthops are properly updated for inter-area routes after link down"
+    "Test whether OSPFv3 ECMP nexthops are properly updated for inter-area routes after link up"
     tc_name = request.node.name
     write_test_header(tc_name)
 
@@ -175,44 +192,9 @@ def test_ecmp_inter_area(request):
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
-    def num_nexthops(router):
-        # Careful: "show ipv6 ospf6 route json" doesn't work here. It will
-        # only list one route type per prefix and that might not necessarily
-        # be the best/selected route. "show ipv6 route ospf6 json" only
-        # lists selected routes, so that's more useful in this case.
-        routes = tgen.gears[router].vtysh_cmd("show ipv6 route ospf6 json", isjson=True)
-        route_prefixes_infos = sorted(routes.items())
-        # Note: ri may contain one entry per routing protocol, but since
-        # we've explicitly requested only ospf6 above, we can count on ri[0]
-        # being the entry we're looking for.
-        return [ri[0]["internalNextHopActiveNum"] for rp, ri in route_prefixes_infos]
-
-    def expect_num_nexthops(router, expected_num_nexthops, count, stepmsg):
-        "Wait until number of nexthops for routes matches expectation"
-        step(
-            "waiting for OSPFv3 router '{}' nexthops {} ({})".format(
-                router, expected_num_nexthops, stepmsg
-            )
-        )
-        test_func = partial(num_nexthops, router)
-        _, result = topotest.run_and_expect(
-            test_func, expected_num_nexthops, count=count, wait=3
-        )
-        # Log nexthops, LSDB and routes at the end of the wait time for debugging
-        lsdb = tgen.gears[router].vtysh_cmd("show ipv6 ospf6 database detail json")
-        rt_rib = tgen.gears[router].vtysh_cmd("show ipv6 route ospf6 json")
-        rt_ospf6 = tgen.gears[router].vtysh_cmd("show ipv6 ospf6 route detail json")
-        logger.info(f"expect_num_nexthops on router {router}, nexthops: {result}, expected nexthops: {expected_num_nexthops}:\nLSDB: {lsdb}\nOSPF6 routes: {rt_ospf6}\nRIB routes: {rt_rib}")
-        assert (
-            result == expected_num_nexthops
-        ), "'{}' wrong number of route nexthops ({})".format(router, stepmsg)
-
     # tgen.mininet_cli()
-    expect_num_nexthops("r1", [1, 1, 1, 1, 2, 1, 2], 4,
-                        "init (link-down)")
     tgen.gears["r6"].link_enable("r6-eth2", True)
-    expect_num_nexthops("r1", [1, 1, 1, 1, 2, 3, 2], 10,
-                        "after link-up")
+    expect_routes_json("r1", "show_ipv6_routes_ospf6-2.json", 30, "after link-up")
 
     write_test_footer(tc_name)
 
