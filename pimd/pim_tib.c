@@ -181,7 +181,14 @@ void tib_sg_gm_prune(struct pim_instance *pim, pim_sgaddr sg,
 	 Making the call to pim_channel_del_oif and ignoring the return code
 	 fixes the issue without ill effect, similar to
 	 pim_forward_stop below.
+
+	 Also on shutdown when the PIM upstream is removed the channel removal
+	 may have already happened, so just return here instead of trying to
+	 access an invalid pointer.
 	*/
+	if (pim->stopping)
+		return;
+
 	result = pim_channel_del_oif(*oilp, oif, PIM_OIF_FLAG_PROTO_GM,
 				     __func__);
 	if (result) {

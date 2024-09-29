@@ -192,6 +192,8 @@ struct pim_instance {
 
 	uint64_t gm_rx_drop_sys;
 
+	bool stopping;
+
 #if PIM_IPV == 6
 	struct {
 		/** Embedded RP enable state. */
