@@ -376,9 +376,8 @@ static int pim_rp_check_interface_addrs(struct rp_info *rp_info,
 	if (!pim_addr_cmp(pim_ifp->primary_address, rp_info->rp.rpf_addr))
 		return 1;
 
-	if (!pim_ifp->sec_addr_list) {
+	if (!pim_ifp->sec_addr_list)
 		return 0;
-	}
 
 	for (ALL_LIST_ELEMENTS_RO(pim_ifp->sec_addr_list, node, sec_addr)) {
 		sec_paddr = pim_addr_from_prefix(&sec_addr->addr);
