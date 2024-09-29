@@ -1140,14 +1140,14 @@ def pim_delete_move_lines(lines_to_add, lines_to_del):
     # they are implicitly deleted by 'no ip pim'.
     # Remove all such depdendent options from delete
     # pending list.
-    pim_disable = False
+    pim_disable = []
     lines_to_del_to_del = []
 
     index = -1
     for ctx_keys, line in lines_to_del:
         index = index + 1
         if ctx_keys[0].startswith("interface") and line and line == "ip pim":
-            pim_disable = True
+            pim_disable.append(ctx_keys[0])
 
         # no ip msdp peer <> does not accept source so strip it off.
         if line and line.startswith("ip msdp peer "):
@@ -1158,14 +1158,14 @@ def pim_delete_move_lines(lines_to_add, lines_to_del):
                 lines_to_del.remove((ctx_keys, line))
                 lines_to_del.insert(index, (ctx_keys, new_line))
 
-    if pim_disable:
-        for ctx_keys, line in lines_to_del:
-            if (
-                ctx_keys[0].startswith("interface")
-                and line
-                and (line.startswith("ip pim ") or line.startswith("ip multicast "))
-            ):
-                lines_to_del_to_del.append((ctx_keys, line))
+    for ctx_keys, line in lines_to_del:
+        if (
+            ctx_keys[0] in pim_disable
+            and ctx_keys[0].startswith("interface")
+            and line
+            and (line.startswith("ip pim ") or line.startswith("ip multicast "))
+        ):
+            lines_to_del_to_del.append((ctx_keys, line))
 
     for ctx_keys, line in lines_to_del_to_del:
         lines_to_del.remove((ctx_keys, line))
