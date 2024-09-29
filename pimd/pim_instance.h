@@ -188,6 +188,8 @@ struct pim_instance {
 	int64_t last_route_change_time;
 
 	uint64_t gm_rx_drop_sys;
+
+	bool stopping;
 };
 
 void pim_vrf_init(void);
