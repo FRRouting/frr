@@ -247,6 +247,8 @@ struct nhg_ctx {
 	struct nhg_resilience resilience;
 	enum nhg_ctx_op_e op;
 	enum nhg_ctx_status status;
+
+	bool startup;
 };
 
 /* Global control to disable use of kernel nexthops, if available. We can't
