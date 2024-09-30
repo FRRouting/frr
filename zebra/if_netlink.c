@@ -1489,6 +1489,14 @@ int netlink_link_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 		return 0;
 	}
 
+	if (ifi->ifi_change == IFF_PROMISC) {
+		/* Ingore interface promiscuous changes */
+		if (IS_ZEBRA_DEBUG_KERNEL)
+			zlog_debug("%s: ignoring IFF_PROMISC change",
+				   __func__);
+		return 0;
+	}
+
 	len = h->nlmsg_len - NLMSG_LENGTH(sizeof(struct ifinfomsg));
 	if (len < 0) {
 		zlog_err(
