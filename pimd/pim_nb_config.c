@@ -934,10 +934,9 @@ int routing_control_plane_protocols_control_plane_protocol_pim_address_family_ss
 		yang_dnode_get_pimaddr(&source_addr, args->dnode, NULL);
 		result = pim_ssmpingd_start(pim, source_addr);
 		if (result) {
-			snprintf(
-				args->errmsg, args->errmsg_len,
-				"%% Failure starting ssmpingd for source %pPA: %d",
-				&source_addr, result);
+			snprintfrr(args->errmsg, args->errmsg_len,
+				   "%% Failure starting ssmpingd for source %pPA: %d", &source_addr,
+				   result);
 			return NB_ERR_INCONSISTENCY;
 		}
 	}
@@ -964,10 +963,9 @@ int routing_control_plane_protocols_control_plane_protocol_pim_address_family_ss
 		yang_dnode_get_pimaddr(&source_addr, args->dnode, NULL);
 		result = pim_ssmpingd_stop(pim, source_addr);
 		if (result) {
-			snprintf(
-				args->errmsg, args->errmsg_len,
-				"%% Failure stopping ssmpingd for source %pPA: %d",
-				&source_addr, result);
+			snprintfrr(args->errmsg, args->errmsg_len,
+				   "%% Failure stopping ssmpingd for source %pPA: %d", &source_addr,
+				   result);
 			return NB_ERR_INCONSISTENCY;
 		}
 
@@ -3860,10 +3858,9 @@ int lib_interface_gmp_address_family_join_group_destroy(
 					    GM_JOIN_STATIC);
 
 		if (result) {
-			snprintf(args->errmsg, args->errmsg_len,
-				 "%% Failure leaving " GM
-				 " group %pPAs %pPAs on interface %s: %d",
-				 &source_addr, &group_addr, ifp->name, result);
+			snprintfrr(args->errmsg, args->errmsg_len,
+				   "%% Failure leaving " GM " group %pPAs %pPAs on interface %s: %d",
+				   &source_addr, &group_addr, ifp->name, result);
 
 			return NB_ERR_INCONSISTENCY;
 		}
@@ -3952,9 +3949,9 @@ int lib_interface_gmp_address_family_static_group_destroy(
 		result = pim_if_static_group_del(ifp, group_addr, source_addr);
 
 		if (result) {
-			snprintf(args->errmsg, args->errmsg_len,
-				 "%% Failure removing static group %pPAs %pPAs on interface %s: %d",
-				 &source_addr, &group_addr, ifp->name, result);
+			snprintfrr(args->errmsg, args->errmsg_len,
+				   "%% Failure removing static group %pPAs %pPAs on interface %s: %d",
+				   &source_addr, &group_addr, ifp->name, result);
 
 			return NB_ERR_INCONSISTENCY;
 		}
