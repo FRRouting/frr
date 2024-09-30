@@ -282,7 +282,7 @@ static void resolver_cb_literal(struct event *t)
 	callback = query->callback;
 	query->callback = NULL;
 
-	callback(query, ARES_SUCCESS, 1, &query->literal_addr);
+	callback(query, (const char *)ARES_SUCCESS, 1, &query->literal_addr);
 }
 
 void resolver_resolve(struct resolver_query *query, int af, vrf_id_t vrf_id,
