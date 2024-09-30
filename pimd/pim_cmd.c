@@ -4609,7 +4609,7 @@ DEFPY (pim_autorp_announce_rp,
        "Prefix list\n"
        "List name\n")
 {
-	return pim_process_autorp_candidate_rp_cmd(vty, no, rpaddr_str, grp,
+	return pim_process_autorp_candidate_rp_cmd(vty, no, rpaddr_str, (grp_str ? grp : NULL),
 						   plist);
 }
 
