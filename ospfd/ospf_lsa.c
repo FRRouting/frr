@@ -3616,6 +3616,49 @@ int ospf_lsa_more_recent(struct ospf_lsa *l1, struct ospf_lsa *l2)
 	return 0;
 }
 
+int ospf_lsa_more_recent_with_trans_delay(struct ospf_lsa *l1, struct ospf_lsa *l2, int trans_delay)
+{
+	int r;
+	int x, y;
+
+	if (l1 == NULL && l2 == NULL)
+		return 0;
+	if (l1 == NULL)
+		return -1;
+	if (l2 == NULL)
+		return 1;
+
+	/* compare LS sequence number. */
+	x = (int)ntohl(l1->data->ls_seqnum);
+	y = (int)ntohl(l2->data->ls_seqnum);
+	if (x > y)
+		return 1;
+	if (x < y)
+		return -1;
+
+	/* compare LS checksum. */
+	r = ntohs(l1->data->checksum) - ntohs(l2->data->checksum);
+	if (r)
+		return r;
+
+	/* compare LS age. */
+	if (IS_LSA_MAXAGE(l1) && !IS_LSA_MAXAGE(l2))
+		return 1;
+	else if (!IS_LSA_MAXAGE(l1) && IS_LSA_MAXAGE(l2))
+		return -1;
+
+	int l1_trans_age = LS_AGE(l1) + trans_delay;
+	l1_trans_age = l1_trans_age > OSPF_LSA_MAXAGE ? OSPF_LSA_MAXAGE : l1_trans_age;
+	/* compare LS age with MaxAgeDiff. */
+	if (l1_trans_age - LS_AGE(l2) > OSPF_LSA_MAXAGE_DIFF)
+		return -1;
+	else if (LS_AGE(l2) - l1_trans_age > OSPF_LSA_MAXAGE_DIFF)
+		return 1;
+
+	/* LSAs are identical. */
+	return 0;
+}
+
 /*
  * Check if two LSAs are different.
  *

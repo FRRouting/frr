@@ -2076,6 +2076,8 @@ static void ospf_ls_upd(struct ospf *ospf, struct ip *iph,
 	list_delete(&lsas);
 }
 
+static int ls_age_increment(struct ospf_lsa *lsa, int delay);
+
 /* OSPF Link State Acknowledgment message read -- RFC2328 Section 13.7. */
 static void ospf_ls_ack(struct ip *iph, struct ospf_header *ospfh,
 			struct stream *s, struct ospf_interface *oi,
@@ -2124,7 +2126,9 @@ static void ospf_ls_ack(struct ip *iph, struct ospf_header *ospfh,
 
 		lsr = ospf_ls_retransmit_lookup(nbr, lsa);
 
-		if (lsr != NULL && ospf_lsa_more_recent(lsr, lsa) == 0) {
+		if (lsr != NULL &&
+		    ospf_lsa_more_recent_with_trans_delay(lsr, lsa,
+							  OSPF_IF_PARAM(oi, transmit_delay)) == 0) {
 			ospf_ls_retransmit_delete(nbr, lsr);
 			ospf_check_and_gen_init_seq_lsa(oi, lsa);
 		}

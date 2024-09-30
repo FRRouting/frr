@@ -292,6 +292,9 @@ extern struct ospf_lsa *ospf_lsa_lookup_by_id(struct ospf_area *, uint32_t,
 extern struct ospf_lsa *ospf_lsa_lookup_by_header(struct ospf_area *,
 						  struct lsa_header *);
 extern int ospf_lsa_more_recent(struct ospf_lsa *, struct ospf_lsa *);
+extern int ospf_lsa_more_recent_with_trans_delay(struct ospf_lsa *l1, struct ospf_lsa *l2,
+						 int trans_delay);
+
 extern int ospf_lsa_different(struct ospf_lsa *, struct ospf_lsa *,
 			      bool ignore_rcvd_flag);
 extern void ospf_flush_self_originated_lsas_now(struct ospf *);
