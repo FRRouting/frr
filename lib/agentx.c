@@ -34,14 +34,14 @@ static struct event_loop *agentx_tm;
 static struct event *timeout_thr = NULL;
 static struct list *events = NULL;
 
-static void agentx_events_update(void);
+static void agentx_events_update(struct event *t);
 
 static void agentx_timeout(struct event *t)
 {
 	snmp_timeout();
 	run_alarms();
 	netsnmp_check_outstanding_agent_requests();
-	agentx_events_update();
+	agentx_events_update(NULL);
 }
 
 static void agentx_read(struct event *t)
@@ -87,11 +87,11 @@ static void agentx_read(struct event *t)
 	}
 
 	netsnmp_check_outstanding_agent_requests();
-	agentx_events_update();
+	agentx_events_update(NULL);
 	netsnmp_large_fd_set_cleanup(&lfds);
 }
 
-static void agentx_events_update(void)
+static void agentx_events_update(struct event *t)
 {
 	int maxfd = 0;
 	int block = 1;
@@ -198,7 +198,7 @@ static int agentx_cli_on(void)
 	if (!agentx_enabled) {
 		init_snmp(FRR_SMUX_NAME);
 		events = list_new();
-		agentx_events_update();
+		agentx_events_update(NULL);
 		agentx_enabled = true;
 		hook_call(agentx_enabled);
 	}
@@ -247,7 +247,7 @@ void smux_agentx_enable(void)
 	if (!agentx_enabled) {
 		init_snmp(FRR_SMUX_NAME);
 		events = list_new();
-		agentx_events_update();
+		agentx_events_update(NULL);
 		agentx_enabled = true;
 	}
 }
@@ -368,13 +368,13 @@ int smux_trap_multi_index(struct variable *vp, size_t vp_len, const oid *ename,
 
 	send_v2trap(notification_vars);
 	snmp_free_varbind(notification_vars);
-	agentx_events_update();
+	agentx_events_update(NULL);
 	return 1;
 }
 
 void smux_events_update(void)
 {
-	agentx_events_update();
+	agentx_events_update(NULL);
 }
 
 static void smux_events_delete_thread(void *arg)
