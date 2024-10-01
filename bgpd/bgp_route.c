@@ -525,8 +525,6 @@ struct bgp_dest *bgp_path_info_reap(struct bgp_dest *dest,
 	else
 		bgp_dest_set_bgp_path_info(dest, pi->next);
 
-	bgp_path_info_mpath_dequeue(pi);
-
 	pi->next = NULL;
 	pi->prev = NULL;
 
@@ -541,8 +539,6 @@ struct bgp_dest *bgp_path_info_reap(struct bgp_dest *dest,
 static struct bgp_dest *bgp_path_info_reap_unsorted(struct bgp_dest *dest,
 						    struct bgp_path_info *pi)
 {
-	bgp_path_info_mpath_dequeue(pi);
-
 	pi->next = NULL;
 	pi->prev = NULL;
 

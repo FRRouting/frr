@@ -247,19 +247,6 @@ bgp_path_info_mpath_get(struct bgp_path_info *path)
 }
 
 /*
- * bgp_path_info_mpath_dequeue
- *
- * Remove a path from the multipath list
- */
-void bgp_path_info_mpath_dequeue(struct bgp_path_info *path)
-{
-	struct bgp_path_info_mpath *mpath = path->mpath;
-
-	if (!mpath)
-		return;
-}
-
-/*
  * bgp_path_info_mpath_next
  *
  * Given a bgp_path_info, return the next multipath entry

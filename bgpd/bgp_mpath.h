@@ -56,7 +56,6 @@ bgp_path_info_mpath_aggregate_update(struct bgp_path_info *new_best,
 				     struct bgp_path_info *old_best);
 
 /* Unlink and free multipath information associated with a bgp_path_info */
-extern void bgp_path_info_mpath_dequeue(struct bgp_path_info *path);
 extern void bgp_path_info_mpath_free(struct bgp_path_info_mpath **mpath);
 
 /* Walk list of multipaths associated with a best path */
