@@ -971,9 +971,6 @@ extern bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info 
 				    struct attr *attr, struct attr *post_attr,
 				    uint8_t special_cond);
 
-extern void bgp_peer_clear_node_queue_drain_immediate(struct peer *peer);
-extern void bgp_process_queues_drain_immediate(void);
-
 /* for encap/vpn */
 extern struct bgp_dest *bgp_safi_node_lookup(struct bgp_table *table,
 					     safi_t safi,
