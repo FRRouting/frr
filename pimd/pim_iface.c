@@ -527,77 +527,66 @@ void pim_if_addr_add(struct connected *ifc)
 
 	detect_address_change(ifp, 0, __func__);
 
-	// if (ifc->address->family != AF_INET)
-	//  return;
-
 #if PIM_IPV == 4
-	struct in_addr ifaddr = ifc->address->u.prefix4;
+	if (ifc->address->family == AF_INET) {
+		struct in_addr ifaddr = ifc->address->u.prefix4;
 
-	if (pim_ifp->gm_enable) {
-		struct gm_sock *igmp;
+		if (pim_ifp->gm_enable) {
+			struct gm_sock *igmp;
 
-		/* lookup IGMP socket */
-		igmp = pim_igmp_sock_lookup_ifaddr(pim_ifp->gm_socket_list,
-						   ifaddr);
-		if (!igmp) {
-			/* if addr new, add IGMP socket */
-			if (ifc->address->family == AF_INET)
+			/* lookup IGMP socket */
+			igmp = pim_igmp_sock_lookup_ifaddr(pim_ifp->gm_socket_list, ifaddr);
+			if (!igmp) {
+				/* if addr new, add IGMP socket */
 				pim_igmp_sock_add(pim_ifp->gm_socket_list,
 						  ifaddr, ifp, false);
-		} else if (igmp->mtrace_only) {
-			igmp_sock_delete(igmp);
-			pim_igmp_sock_add(pim_ifp->gm_socket_list, ifaddr, ifp,
-					  false);
-		}
-
-		/* Replay Static IGMP groups */
-		if (pim_ifp->gm_join_list) {
-			struct listnode *node;
-			struct listnode *nextnode;
-			struct gm_join *ij;
-			int join_fd;
-
-			for (ALL_LIST_ELEMENTS(pim_ifp->gm_join_list, node,
-					       nextnode, ij)) {
-				/* Close socket and reopen with Source and Group
-				 */
-				close(ij->sock_fd);
-				join_fd = gm_join_sock(
-					ifp->name, ifp->ifindex, ij->group_addr,
-					ij->source_addr, pim_ifp);
-				if (join_fd < 0) {
-					char group_str[INET_ADDRSTRLEN];
-					char source_str[INET_ADDRSTRLEN];
-					pim_inet4_dump("<grp?>", ij->group_addr,
-						       group_str,
-						       sizeof(group_str));
-					pim_inet4_dump(
-						"<src?>", ij->source_addr,
-						source_str, sizeof(source_str));
-					zlog_warn(
-						"%s: gm_join_sock() failure for IGMP group %s source %s on interface %s",
-						__func__, group_str, source_str,
-						ifp->name);
-					/* warning only */
-				} else
-					ij->sock_fd = join_fd;
+			} else if (igmp->mtrace_only) {
+				igmp_sock_delete(igmp);
+				pim_igmp_sock_add(pim_ifp->gm_socket_list, ifaddr, ifp, false);
 			}
-		}
-	} /* igmp */
-	else {
-		struct gm_sock *igmp;
 
-		/* lookup IGMP socket */
-		igmp = pim_igmp_sock_lookup_ifaddr(pim_ifp->gm_socket_list,
-						   ifaddr);
-		if (ifc->address->family == AF_INET) {
+			/* Replay Static IGMP groups */
+			if (pim_ifp->gm_join_list) {
+				struct listnode *node;
+				struct listnode *nextnode;
+				struct gm_join *ij;
+				int join_fd;
+
+				for (ALL_LIST_ELEMENTS(pim_ifp->gm_join_list, node, nextnode, ij)) {
+					/* Close socket and reopen with Source and Group
+					 */
+					close(ij->sock_fd);
+					join_fd = gm_join_sock(ifp->name, ifp->ifindex,
+							       ij->group_addr, ij->source_addr,
+							       pim_ifp);
+					if (join_fd < 0) {
+						char group_str[INET_ADDRSTRLEN];
+						char source_str[INET_ADDRSTRLEN];
+						pim_inet4_dump("<grp?>", ij->group_addr, group_str,
+							       sizeof(group_str));
+						pim_inet4_dump("<src?>", ij->source_addr,
+							       source_str, sizeof(source_str));
+						zlog_warn("%s: gm_join_sock() failure for IGMP group %s source %s on interface %s",
+							  __func__, group_str, source_str,
+							  ifp->name);
+						/* warning only */
+					} else
+						ij->sock_fd = join_fd;
+				}
+			}
+		} /* igmp */
+		else {
+			struct gm_sock *igmp;
+
+			/* lookup IGMP socket */
+			igmp = pim_igmp_sock_lookup_ifaddr(pim_ifp->gm_socket_list, ifaddr);
 			if (igmp)
 				igmp_sock_delete(igmp);
 			/* if addr new, add IGMP socket */
 			pim_igmp_sock_add(pim_ifp->gm_socket_list, ifaddr, ifp,
 					  true);
-		}
-	} /* igmp mtrace only */
+		} /* igmp mtrace only */
+	}
 #endif
 
 	if (pim_ifp->pim_enable) {
