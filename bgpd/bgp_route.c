@@ -80,6 +80,8 @@
 
 DEFINE_MTYPE_STATIC(BGPD, BGP_EOIU_MARKER_INFO, "BGP EOIU Marker info");
 DEFINE_MTYPE_STATIC(BGPD, BGP_METAQ, "BGP MetaQ");
+/* Memory for batched clearing of peers from the RIB */
+DEFINE_MTYPE(BGPD, CLEARING_BATCH, "Clearing batch");
 
 DEFINE_HOOK(bgp_snmp_update_stats,
 	    (struct bgp_dest *rn, struct bgp_path_info *pi, bool added),
@@ -6476,10 +6478,243 @@ void bgp_clear_route(struct peer *peer, afi_t afi, safi_t safi)
 		peer_unlock(peer);
 }
 
+/*
+ * Callback scheduled to process prefixes/dests for batch clearing; the
+ * dests were found via a rib walk.
+ * The one-peer version of this uses a per-peer workqueue to manage
+ * rescheduling, but we're just using a fixed limit here.
+ */
+
+/* Limit the number of dests we'll process per callback */
+#define BGP_CLEARING_BATCH_MAX_DESTS 100
+
+static void bgp_clear_batch_dests_task(struct event *event)
+{
+	struct bgp_clearing_info *cinfo = EVENT_ARG(event);
+	struct bgp_dest *dest;
+	struct bgp_path_info *pi, *next;
+	struct bgp_table *table;
+	struct bgp *bgp;
+	afi_t afi;
+	safi_t safi;
+	int counter = 0;
+
+	bgp = cinfo->bgp;
+
+next_dest:
+
+	dest = bgp_clearing_batch_next_dest(cinfo);
+	if (dest == NULL)
+		goto done;
+
+	table = bgp_dest_table(dest);
+	afi = table->afi;
+	safi = table->safi;
+
+	/* Have to check every path: it is possible that we have multiple paths
+	 * for a prefix from a peer if that peer is using AddPath.
+	 * Note that the clearing action may change the pi list; we try to do
+	 * a "safe" iteration.
+	 */
+	for (pi = bgp_dest_get_bgp_path_info(dest); pi; pi = next) {
+		next = pi ? pi->next : NULL;
+
+		if (!bgp_clearing_batch_check_peer(cinfo, pi->peer))
+			continue;
+
+		/* graceful restart STALE flag set. */
+		if (((CHECK_FLAG(pi->peer->sflags, PEER_STATUS_NSF_WAIT)
+		      && pi->peer->nsf[afi][safi])
+		     || CHECK_FLAG(pi->peer->af_sflags[afi][safi],
+				   PEER_STATUS_ENHANCED_REFRESH))
+		    && !CHECK_FLAG(pi->flags, BGP_PATH_STALE)
+		    && !CHECK_FLAG(pi->flags, BGP_PATH_UNUSEABLE))
+			bgp_path_info_set_flag(dest, pi, BGP_PATH_STALE);
+		else {
+			/* If this is an EVPN route, process for
+			 * un-import. */
+			if (safi == SAFI_EVPN)
+				bgp_evpn_unimport_route(
+					bgp, afi, safi,
+					bgp_dest_get_prefix(dest), pi);
+			/* Handle withdraw for VRF route-leaking and L3VPN */
+			if (SAFI_UNICAST == safi
+			    && (bgp->inst_type == BGP_INSTANCE_TYPE_VRF ||
+				bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT)) {
+				vpn_leak_from_vrf_withdraw(bgp_get_default(),
+							   bgp, pi);
+			}
+			if (SAFI_MPLS_VPN == safi &&
+			    bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT) {
+				vpn_leak_to_vrf_withdraw(pi);
+			}
+
+			bgp_rib_remove(dest, pi, pi->peer, afi, safi);
+		}
+	}
+
+	/* Unref this dest and table */
+	bgp_dest_unlock_node(dest);
+	bgp_table_unlock(table);
+
+	counter++;
+	if (counter < BGP_CLEARING_BATCH_MAX_DESTS)
+		goto next_dest;
+
+done:
+
+	/* If there are still dests to process, reschedule. */
+	if (bgp_clearing_batch_dests_present(cinfo)) {
+		if (bgp_debug_neighbor_events(NULL))
+			zlog_debug("%s: Batch %p: Rescheduled after processing %d dests",
+				   __func__, cinfo, counter);
+
+		event_add_event(bm->master, bgp_clear_batch_dests_task, cinfo,
+				0, &cinfo->t_sched);
+	} else {
+		if (bgp_debug_neighbor_events(NULL))
+			zlog_debug("%s: Batch %p: Done after processing %d dests",
+				   __func__, cinfo, counter);
+		bgp_clearing_batch_completed(cinfo);
+	}
+
+	return;
+}
+
+/*
+ * Walk a single table for batch peer clearing processing
+ */
+static void clear_batch_table_helper(struct bgp_clearing_info *cinfo,
+				     struct bgp_table *table)
+{
+	struct bgp_dest *dest;
+	bool force = (cinfo->bgp->process_queue == NULL);
+	uint32_t examined = 0, queued = 0;
+
+	for (dest = bgp_table_top(table); dest; dest = bgp_route_next(dest)) {
+		struct bgp_path_info *pi, *next;
+		struct bgp_adj_in *ain;
+		struct bgp_adj_in *ain_next;
+
+		examined++;
+
+		ain = dest->adj_in;
+		while (ain) {
+			ain_next = ain->next;
+
+			if (bgp_clearing_batch_check_peer(cinfo, ain->peer))
+				bgp_adj_in_remove(&dest, ain);
+
+			ain = ain_next;
+
+			assert(dest != NULL);
+		}
+
+		for (pi = bgp_dest_get_bgp_path_info(dest); pi; pi = next) {
+			next = pi->next;
+			if (!bgp_clearing_batch_check_peer(cinfo, pi->peer))
+				continue;
+
+			queued++;
+
+			if (force) {
+				bgp_path_info_reap(dest, pi);
+			} else {
+				/* Unlocked after processing */
+				bgp_table_lock(bgp_dest_table(dest));
+				bgp_dest_lock_node(dest);
+
+				bgp_clearing_batch_add_dest(cinfo, dest);
+				break;
+			}
+		}
+	}
+
+	if (examined > 0) {
+		if (bgp_debug_neighbor_events(NULL))
+			zlog_debug("%s: %s/%s: examined %u, queued %u",
+				   __func__, afi2str(table->afi),
+				   safi2str(table->safi), examined, queued);
+	}
+}
+
+/*
+ * RIB-walking helper for batch clearing work: walk all tables, identify
+ * dests that are affected by the peers in the batch, enqueue the dests for
+ * async processing.
+ */
+static void clear_batch_rib_helper(struct bgp_clearing_info *cinfo)
+{
+	afi_t afi;
+	safi_t safi;
+	struct bgp_dest *dest;
+	struct bgp_table *table;
+
+	FOREACH_AFI_SAFI (afi, safi) {
+		/* Identify table to be examined */
+		if (safi != SAFI_MPLS_VPN && safi != SAFI_ENCAP &&
+		    safi != SAFI_EVPN) {
+			table = cinfo->bgp->rib[afi][safi];
+			if (!table)
+				continue;
+
+			clear_batch_table_helper(cinfo, table);
+		} else {
+			for (dest = bgp_table_top(cinfo->bgp->rib[afi][safi]);
+			     dest; dest = bgp_route_next(dest)) {
+				table = bgp_dest_get_bgp_table_info(dest);
+				if (!table)
+					continue;
+
+				/* TODO -- record the tables we've seen
+				 * and don't repeat any?
+				 */
+
+				clear_batch_table_helper(cinfo, table);
+			}
+		}
+	}
+}
+
+/*
+ * Identify prefixes that need to be cleared for a batch of peers in 'cinfo'.
+ * The actual clearing processing will be done async...
+ */
+void bgp_clear_route_batch(struct bgp_clearing_info *cinfo)
+{
+	if (bgp_debug_neighbor_events(NULL))
+		zlog_debug("%s: BGP %s, batch %p", __func__,
+			   cinfo->bgp->name_pretty, cinfo);
+
+	/* Walk the rib, checking the peers in the batch */
+	clear_batch_rib_helper(cinfo);
+
+	/* If we found some prefixes, schedule a task to begin work. */
+	if (bgp_clearing_batch_dests_present(cinfo))
+		event_add_event(bm->master, bgp_clear_batch_dests_task, cinfo,
+				0, &cinfo->t_sched);
+
+	/* NB -- it's the caller's job to clean up, release refs, etc. if
+	 * we didn't find any dests
+	 */
+}
+
 void bgp_clear_route_all(struct peer *peer)
 {
 	afi_t afi;
 	safi_t safi;
+
+	/* We may be able to batch multiple peers' clearing work: check
+	 * and see.
+	 */
+	if (bgp_clearing_batch_add_peer(peer->bgp, peer)) {
+		if (bgp_debug_neighbor_events(peer))
+			zlog_debug("%s: peer %pBP batched", __func__, peer);
+		return;
+	}
+
+	if (bgp_debug_neighbor_events(peer))
+		zlog_debug("%s: peer %pBP", __func__, peer);
 
 	FOREACH_AFI_SAFI (afi, safi)
 		bgp_clear_route(peer, afi, safi);
