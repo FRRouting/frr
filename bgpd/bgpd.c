@@ -89,7 +89,20 @@ DEFINE_HOOK(bgp_instance_state, (struct bgp *bgp), (bgp));
 DEFINE_HOOK(bgp_routerid_update, (struct bgp *bgp, bool withdraw), (bgp, withdraw));
 
 /* Peers with connection error/failure, per bgp instance */
-DECLARE_LIST(bgp_peer_conn_errlist, struct peer, conn_err_link);
+DECLARE_DLIST(bgp_peer_conn_errlist, struct peer, conn_err_link);
+
+/* List of info about peers that are being cleared from BGP RIBs in a batch */
+DECLARE_DLIST(bgp_clearing_info, struct bgp_clearing_info, link);
+
+/* List of dests that need to be processed in a clearing batch */
+DECLARE_LIST(bgp_clearing_destlist, struct bgp_clearing_dest, link);
+
+/* Hash of peers in clearing info object */
+static int peer_clearing_hash_cmp(const struct peer *p1, const struct peer *p2);
+static uint32_t peer_clearing_hashfn(const struct peer *p1);
+
+DECLARE_HASH(bgp_clearing_hash, struct peer, clear_hash_link,
+	     peer_clearing_hash_cmp, peer_clearing_hashfn);
 
 /* BGP process wide configuration.  */
 static struct bgp_master bgp_master;
@@ -3653,6 +3666,7 @@ peer_init:
 	/* Init peer connection error info */
 	pthread_mutex_init(&bgp->peer_errs_mtx, NULL);
 	bgp_peer_conn_errlist_init(&bgp->peer_conn_errlist);
+	bgp_clearing_info_init(&bgp->clearing_list);
 
 	return bgp;
 }
@@ -4037,11 +4051,12 @@ int bgp_delete(struct bgp *bgp)
 	struct bgp *bgp_to_proc = NULL;
 	struct bgp *bgp_to_proc_next = NULL;
 	struct bgp *bgp_default = bgp_get_default();
+	struct bgp_clearing_info *cinfo;
 
 	assert(bgp);
 
 	/*
-	 * Iterate the pending dest list and remove all the dest pertaininig to
+	 * Iterate the pending dest list and remove all the dest pertaining to
 	 * the bgp under delete.
 	 */
 	b_ann_cnt = zebra_announce_count(&bm->zebra_announce_head);
@@ -4086,6 +4101,10 @@ int bgp_delete(struct bgp *bgp)
 			   bgp->name_pretty, b_ann_cnt, a_ann_cnt, b_l2_cnt, a_l2_cnt, b_l3_cnt,
 			   a_l3_cnt);
 	}
+
+	/* Cleanup for peer connection batching */
+	while ((cinfo = bgp_clearing_info_first(&bgp->clearing_list)) != NULL)
+		bgp_clearing_batch_completed(cinfo);
 
 	bgp_soft_reconfig_table_task_cancel(bgp, NULL, NULL);
 
@@ -4252,6 +4271,10 @@ int bgp_delete(struct bgp *bgp)
 
 	/* Cancel peer connection errors event */
 	EVENT_OFF(bgp->t_conn_errors);
+
+	/* Cleanup for peer connection batching */
+	while ((cinfo = bgp_clearing_info_pop(&bgp->clearing_list)) != NULL)
+		bgp_clearing_batch_completed(cinfo);
 
 /* TODO - Other memory may need to be freed - e.g., NHT */
 
@@ -9026,8 +9049,303 @@ void bgp_gr_apply_running_config(void)
 	}
 }
 
+/* Hash of peers in clearing info object */
+static int peer_clearing_hash_cmp(const struct peer *p1, const struct peer *p2)
+{
+	if (p1 == p2)
+		return 0;
+	else if (p1 < p2)
+		return -1;
+	else
+		return 1;
+}
+
+static uint32_t peer_clearing_hashfn(const struct peer *p1)
+{
+	return (uint32_t)((intptr_t)p1 & 0xffffffffULL);
+}
+
 /*
- * Enqueue a peer with a connection error to be handled in the main pthread
+ * Free a clearing batch: this really just does the memory cleanup; the
+ * clearing code is expected to manage the peer, dest, table, etc refcounts
+ */
+static void bgp_clearing_batch_free(struct bgp *bgp,
+				    struct bgp_clearing_info **pinfo)
+{
+	struct bgp_clearing_info *cinfo = *pinfo;
+	struct bgp_clearing_dest *destinfo;
+
+	if (bgp_clearing_info_anywhere(cinfo))
+		bgp_clearing_info_del(&bgp->clearing_list, cinfo);
+
+	while ((destinfo = bgp_clearing_destlist_pop(&cinfo->destlist)) != NULL)
+		XFREE(MTYPE_CLEARING_BATCH, destinfo);
+
+	bgp_clearing_hash_fini(&cinfo->peers);
+
+	XFREE(MTYPE_CLEARING_BATCH, *pinfo);
+}
+
+/*
+ * Done with a peer that was part of a clearing batch
+ */
+static void bgp_clearing_peer_done(struct peer *peer)
+{
+	UNSET_FLAG(peer->flags, PEER_FLAG_CLEARING_BATCH);
+
+	/* Tickle FSM to start moving again */
+	BGP_EVENT_ADD(peer->connection, Clearing_Completed);
+
+	peer_unlock(peer); /* bgp_clear_route */
+}
+
+/*
+ * Initialize a new batch struct for clearing peer(s) from the RIB
+ */
+static void bgp_clearing_batch_begin(struct bgp *bgp)
+{
+	struct bgp_clearing_info *cinfo;
+
+	cinfo = XCALLOC(MTYPE_CLEARING_BATCH, sizeof(struct bgp_clearing_info));
+
+	cinfo->bgp = bgp;
+
+	/* Init hash of peers and list of dests */
+	bgp_clearing_hash_init(&cinfo->peers);
+	bgp_clearing_destlist_init(&cinfo->destlist);
+
+	/* Batch is open for more peers */
+	SET_FLAG(cinfo->flags, BGP_CLEARING_INFO_FLAG_OPEN);
+
+	bgp_clearing_info_add_head(&bgp->clearing_list, cinfo);
+}
+
+/*
+ * Close a batch of clearing peers, and begin working on the RIB
+ */
+static void bgp_clearing_batch_end(struct bgp *bgp)
+{
+	struct bgp_clearing_info *cinfo;
+
+	cinfo = bgp_clearing_info_first(&bgp->clearing_list);
+
+	assert(cinfo != NULL);
+	assert(CHECK_FLAG(cinfo->flags, BGP_CLEARING_INFO_FLAG_OPEN));
+
+	/* Batch is closed */
+	UNSET_FLAG(cinfo->flags, BGP_CLEARING_INFO_FLAG_OPEN);
+
+	/* If we have no peers to examine, just discard the batch info */
+	if (bgp_clearing_hash_count(&cinfo->peers) == 0) {
+		bgp_clearing_batch_free(bgp, &cinfo);
+		return;
+	}
+
+	/* Do a RIB walk for the current batch. If it finds dests/prefixes
+	 * to work on, this will schedule a task to process
+	 * the dests/prefixes in the batch.
+	 */
+	bgp_clear_route_batch(cinfo);
+
+	/* If we found no prefixes/dests, just discard the batch,
+	 * remembering that we're holding a ref for each peer.
+	 */
+	if (bgp_clearing_destlist_count(&cinfo->destlist) == 0) {
+		bgp_clearing_batch_completed(cinfo);
+	}
+}
+
+/* Check whether a dest's peer is relevant to a clearing batch */
+bool bgp_clearing_batch_check_peer(struct bgp_clearing_info *cinfo,
+				   const struct peer *peer)
+{
+	struct peer *p;
+
+	p = bgp_clearing_hash_find(&cinfo->peers, peer);
+	return (p != NULL);
+}
+
+/*
+ * Check whether a clearing batch has any dests to process
+ */
+bool bgp_clearing_batch_dests_present(struct bgp_clearing_info *cinfo)
+{
+	return (bgp_clearing_destlist_count(&cinfo->destlist) > 0);
+}
+
+/*
+ * Done with a peer clearing batch; deal with refcounts, free memory
+ */
+void bgp_clearing_batch_completed(struct bgp_clearing_info *cinfo)
+{
+	struct peer *peer;
+	struct bgp_dest *dest;
+	struct bgp_clearing_dest *destinfo;
+	struct bgp_table *table;
+
+	/* Ensure event is not scheduled */
+	event_cancel_event(bm->master, &cinfo->t_sched);
+
+	/* Remove all peers and un-ref */
+	while ((peer = bgp_clearing_hash_pop(&cinfo->peers)) != NULL)
+		bgp_clearing_peer_done(peer);
+
+	/* Remove any dests/prefixes and unlock */
+	destinfo = bgp_clearing_destlist_pop(&cinfo->destlist);
+	while (destinfo) {
+		dest = destinfo->dest;
+		XFREE(MTYPE_CLEARING_BATCH, destinfo);
+
+		table = bgp_dest_table(dest);
+		bgp_dest_unlock_node(dest);
+		bgp_table_unlock(table);
+
+		destinfo = bgp_clearing_destlist_pop(&cinfo->destlist);
+	}
+
+	/* Free memory */
+	bgp_clearing_batch_free(cinfo->bgp, &cinfo);
+}
+
+/*
+ * Add a prefix/dest to a clearing batch
+ */
+void bgp_clearing_batch_add_dest(struct bgp_clearing_info *cinfo,
+				 struct bgp_dest *dest)
+{
+	struct bgp_clearing_dest *destinfo;
+
+	destinfo = XCALLOC(MTYPE_CLEARING_BATCH,
+			   sizeof(struct bgp_clearing_dest));
+
+	destinfo->dest = dest;
+	bgp_clearing_destlist_add_tail(&cinfo->destlist, destinfo);
+}
+
+/*
+ * Return the next dest for batch clear processing
+ */
+struct bgp_dest *bgp_clearing_batch_next_dest(struct bgp_clearing_info *cinfo)
+{
+	struct bgp_clearing_dest *destinfo;
+	struct bgp_dest *dest = NULL;
+
+	destinfo = bgp_clearing_destlist_pop(&cinfo->destlist);
+	if (destinfo) {
+		dest = destinfo->dest;
+		XFREE(MTYPE_CLEARING_BATCH, destinfo);
+	}
+
+	return dest;
+}
+
+/* If a clearing batch is available for 'peer', add it and return 'true',
+ * else return 'false'.
+ */
+bool bgp_clearing_batch_add_peer(struct bgp *bgp, struct peer *peer)
+{
+	struct bgp_clearing_info *cinfo;
+
+	cinfo = bgp_clearing_info_first(&bgp->clearing_list);
+
+	if (cinfo && CHECK_FLAG(cinfo->flags, BGP_CLEARING_INFO_FLAG_OPEN)) {
+		if (!CHECK_FLAG(peer->flags, PEER_FLAG_CLEARING_BATCH)) {
+			/* Add a peer ref */
+			peer_lock(peer);
+
+			bgp_clearing_hash_add(&cinfo->peers, peer);
+			SET_FLAG(peer->flags, PEER_FLAG_CLEARING_BATCH);
+		}
+		return true;
+	}
+
+	return false;
+}
+
+/*
+ * Task callback in the main pthread to handle socket errors
+ * encountered in the io pthread. We avoid having the io pthread try
+ * to enqueue fsm events or mess with the peer struct.
+ */
+
+/* TODO -- should this be configurable? */
+/* Max number of peers to process without rescheduling */
+#define BGP_CONN_ERROR_DEQUEUE_MAX 10
+
+static void bgp_process_conn_error(struct event *event)
+{
+	struct bgp *bgp;
+	struct peer *peer;
+	struct peer_connection *connection;
+	int counter = 0;
+	size_t list_count = 0;
+	bool more_p = false;
+
+	bgp = EVENT_ARG(event);
+
+	frr_with_mutex (&bgp->peer_errs_mtx) {
+		peer = bgp_peer_conn_errlist_pop(&bgp->peer_conn_errlist);
+
+		list_count =
+			bgp_peer_conn_errlist_count(&bgp->peer_conn_errlist);
+	}
+
+	/* If we have multiple peers with errors, try to batch some
+	 * clearing work.
+	 */
+	if (list_count > 0)
+		bgp_clearing_batch_begin(bgp);
+
+	/* Dequeue peers from the error list */
+	while (peer != NULL) {
+		connection = peer->connection;
+
+		if (bgp_debug_neighbor_events(peer))
+			zlog_debug("%s [Event] BGP error %d on fd %d",
+				   peer->host, peer->connection_errcode,
+				   connection->fd);
+
+		/* Closed connection or error on the socket */
+		if (peer_established(connection)) {
+			if ((CHECK_FLAG(peer->flags, PEER_FLAG_GRACEFUL_RESTART)
+			     || CHECK_FLAG(peer->flags,
+					   PEER_FLAG_GRACEFUL_RESTART_HELPER))
+			    && CHECK_FLAG(peer->sflags, PEER_STATUS_NSF_MODE)) {
+				peer->last_reset = PEER_DOWN_NSF_CLOSE_SESSION;
+				SET_FLAG(peer->sflags, PEER_STATUS_NSF_WAIT);
+			} else
+				peer->last_reset = PEER_DOWN_CLOSE_SESSION;
+		}
+
+		/* No need for keepalives, if enabled */
+		bgp_keepalives_off(peer->connection);
+
+		/* Drive into state-machine changes */
+		bgp_event_update(connection, peer->connection_errcode);
+
+		counter++;
+		if (counter >= BGP_CONN_ERROR_DEQUEUE_MAX)
+			break;
+
+		peer = bgp_dequeue_conn_err_peer(bgp, &more_p);
+	}
+
+	/* Reschedule event if necessary */
+	if (more_p)
+		bgp_conn_err_reschedule(bgp);
+
+	/* Done with a clearing batch */
+	if (list_count > 0)
+		bgp_clearing_batch_end(bgp);
+
+	if (bgp_debug_neighbor_events(NULL))
+		zlog_debug("%s: dequeued and processed %d peers", __func__,
+			   counter);
+}
+
+/*
+ * Enqueue a peer with a connection error to be handled in the main pthread;
+ * this is called from the io pthread.
  */
 int bgp_enqueue_conn_err_peer(struct bgp *bgp, struct peer *peer, int errcode)
 {
@@ -9041,7 +9359,7 @@ int bgp_enqueue_conn_err_peer(struct bgp *bgp, struct peer *peer, int errcode)
 		}
 	}
 	/* Ensure an event is scheduled */
-	event_add_event(bm->master, bgp_packet_process_error, bgp, 0,
+	event_add_event(bm->master, bgp_process_conn_error, bgp, 0,
 			&bgp->t_conn_errors);
 	return 0;
 }
@@ -9075,7 +9393,7 @@ struct peer *bgp_dequeue_conn_err_peer(struct bgp *bgp, bool *more_p)
  */
 void bgp_conn_err_reschedule(struct bgp *bgp)
 {
-	event_add_event(bm->master, bgp_packet_process_error, bgp, 0,
+	event_add_event(bm->master, bgp_process_conn_error, bgp, 0,
 			&bgp->t_conn_errors);
 }
 

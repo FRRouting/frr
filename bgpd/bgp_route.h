@@ -779,6 +779,9 @@ extern void bgp_soft_reconfig_table_task_cancel(const struct bgp *bgp,
 extern bool bgp_soft_reconfig_in(struct peer *peer, afi_t afi, safi_t safi);
 extern void bgp_clear_route(struct peer *, afi_t, safi_t);
 extern void bgp_clear_route_all(struct peer *);
+/* Clear routes for a batch of peers */
+void bgp_clear_route_batch(struct bgp_clearing_info *cinfo);
+
 extern void bgp_clear_adj_in(struct peer *, afi_t, safi_t);
 extern void bgp_clear_stale_route(struct peer *, afi_t, safi_t);
 extern void bgp_set_stale_route(struct peer *peer, afi_t afi, safi_t safi);
