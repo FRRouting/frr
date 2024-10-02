@@ -313,6 +313,11 @@ struct bgp_path_info {
 #define BGP_PATH_STALE (1 << 8)
 #define BGP_PATH_REMOVED (1 << 9)
 #define BGP_PATH_COUNTED (1 << 10)
+/*
+ * A BGP_PATH_MULTIPATH flag is not set on the best path
+ * it is set on every other node that is part of ECMP
+ * for that particular dest
+ */
 #define BGP_PATH_MULTIPATH (1 << 11)
 #define BGP_PATH_MULTIPATH_CHG (1 << 12)
 #define BGP_PATH_RIB_ATTR_CHG (1 << 13)
@@ -322,6 +327,15 @@ struct bgp_path_info {
 #define BGP_PATH_MPLSVPN_LABEL_NH (1 << 17)
 #define BGP_PATH_MPLSVPN_NH_LABEL_BIND (1 << 18)
 #define BGP_PATH_UNSORTED (1 << 19)
+/*
+ * BGP_PATH_MULTIPATH_NEW is set on those bgp_path_info
+ * nodes that we have decided should possibly be in the
+ * ecmp path for a particular dest.  This flag is
+ * removed when the bgp_path_info's are looked at to
+ * decide on whether or not a bgp_path_info is on
+ * the actual ecmp path.
+ */
+#define BGP_PATH_MULTIPATH_NEW (1 << 20)
 
 	/* BGP route type.  This can be static, RIP, OSPF, BGP etc.  */
 	uint8_t type;

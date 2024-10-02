@@ -3220,7 +3220,7 @@ route_set_ecommunity_lb(void *rule, const struct prefix *prefix, void *object)
 			return RMAP_OKAY;
 
 		bw_bytes = (peer->bgp->lb_ref_bw * 1000 * 1000) / 8;
-		mpath_count = bgp_path_info_mpath_count(path) + 1;
+		mpath_count = bgp_path_info_mpath_count(path);
 		bw_bytes *= mpath_count;
 	}
 
