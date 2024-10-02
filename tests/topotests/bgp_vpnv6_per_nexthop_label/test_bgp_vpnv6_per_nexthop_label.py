@@ -342,10 +342,37 @@ def check_show_bgp_vpn_prefix_found(router, ipversion, prefix, rd):
     return topotest.json_cmp(output, expected)
 
 
-def check_show_mpls_table_entry_label_found(router, inlabel, interface):
-    output = json.loads(router.vtysh_cmd("show mpls table {} json".format(inlabel)))
+def check_show_mpls_table_entry_label_found_nexthop(
+    expected_router, get_router, network, nexthop
+):
+    label = get_mpls_label(get_router, network)
+    if label < 0:
+        return False
+
+    output = json.loads(
+        expected_router.vtysh_cmd("show mpls table {} json".format(label))
+    )
     expected = {
-        "inLabel": inlabel,
+        "inLabel": label,
+        "installed": True,
+        "nexthops": [{"nexthop": nexthop}],
+    }
+    return topotest.json_cmp(output, expected)
+
+
+def check_show_mpls_table_entry_label_found(
+    expected_router, get_router, interface, network=None, label=None
+):
+    if not label:
+        label = get_mpls_label(get_router, network)
+        if label < 0:
+            return False
+
+    output = json.loads(
+        expected_router.vtysh_cmd("show mpls table {} json".format(label))
+    )
+    expected = {
+        "inLabel": label,
         "installed": True,
         "nexthops": [{"interface": interface}],
     }
@@ -364,6 +391,17 @@ def check_show_mpls_table_entry_label_not_found(router, inlabel):
 def get_table_version(router):
     table = router.vtysh_cmd("show bgp ipv6 vpn json", isjson=True)
     return table["tableVersion"]
+
+
+def get_mpls_label(router, network):
+    label = router.vtysh_cmd(
+        "show ipv6 route vrf vrf1 %s json" % network,
+        isjson=True,
+    )
+    label = label.get(f"{network}", [{}])[0].get("nexthops", [{}])[0]
+    label = int(label.get("labels", [-1])[0])
+
+    return label
 
 
 def mpls_entry_get_interface(router, label):
@@ -724,7 +762,11 @@ def test_changing_default_label_value():
         "r1, mpls table, check that MPLS entry with inLabel set to 222 has vrf1 interface"
     )
     test_func = functools.partial(
-        check_show_mpls_table_entry_label_found, router, 222, "vrf1"
+        check_show_mpls_table_entry_label_found,
+        tgen.gears["r1"],
+        router,
+        "vrf1",
+        label=222,
     )
     success, _ = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
     assert success, "r1, mpls entry with label 222 not found"
@@ -835,6 +877,133 @@ def test_reconfigure_allocation_mode_nexthop():
     # Check mpls table with all values
     logger.info("Checking MPLS values on show mpls table of r1")
     mpls_table_check(router, label_list=label_list)
+
+
+def test_network_command():
+    """
+    Test with network declaration
+    """
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+    logger.info("Disabling redistribute static")
+    tgen.gears["r1"].vtysh_cmd(
+        "configure terminal\nrouter bgp 65500 vrf vrf1\naddress-family ipv6 unicast\nno redistribute static\n",
+        isjson=False,
+    )
+    logger.info("Checking BGP VPNv6 labels on r2")
+    for p in ["172:31::14/128", "172:31::15/128"]:
+        test_func = functools.partial(
+            check_show_bgp_vpn_prefix_not_found, tgen.gears["r2"], "ipv6", p, "444:1"
+        )
+        success, _ = topotest.run_and_expect(test_func, None, count=10, wait=3)
+        assert success, "network %s should not present on r2" % p
+
+    logger.info("Use network command for host networks declared in static instead")
+    tgen.gears["r1"].vtysh_cmd(
+        "configure terminal\nrouter bgp 65500 vrf vrf1\naddress-family ipv6 unicast\nnetwork 172:31::14/128\n",
+        isjson=False,
+    )
+    tgen.gears["r1"].vtysh_cmd(
+        "configure terminal\nrouter bgp 65500 vrf vrf1\naddress-family ipv6 unicast\nnetwork 172:31::15/128\n",
+        isjson=False,
+    )
+    logger.info("Checking BGP VPNv6 labels on r2")
+    # 172:31::12 uses LL as nexthop
+    # 172:31::16 uses GA as nexthop
+    bgp_vpnv6_table_check(tgen.gears["r2"], group=["172:31::12/128"])
+    bgp_vpnv6_table_check(tgen.gears["r2"], group=["172:31::15/128"])
+
+    bgp_vpnv6_table_check(tgen.gears["r2"], group=["172:31::14/128"])
+    mpls_table_check(tgen.gears["r1"], whitelist=["192:2::14"])
+
+    logger.info(" Remove network to 172:31::14/128")
+    tgen.gears["r1"].vtysh_cmd(
+        "configure terminal\nrouter bgp 65500 vrf vrf1\naddress-family ipv6 unicast\nno network 172:31::14/128\n",
+        isjson=False,
+    )
+    logger.info("Checking BGP VPNv6 labels on r2")
+    test_func = functools.partial(
+        check_show_bgp_vpn_prefix_not_found,
+        tgen.gears["r2"],
+        "ipv6",
+        "172:31::14/128",
+        "444:1",
+    )
+    success, _ = topotest.run_and_expect(test_func, None, count=10, wait=3)
+    assert success, "network %s should not present on r2" % p
+    mpls_table_check(tgen.gears["r1"], blacklist=["192:2::14"])
+
+    logger.info("Disabling redistribute connected and enabling redistribute static")
+    tgen.gears["r1"].vtysh_cmd(
+        "configure terminal\nrouter bgp 65500 vrf vrf1\naddress-family ipv4 unicast\n"
+        "redistribute static\n no redistribute connected",
+        isjson=False,
+    )
+    logger.info(
+        "Use network command for connected host network 192:168::255:0/112 in vrf"
+    )
+    tgen.gears["r1"].vtysh_cmd(
+        "configure terminal\nrouter bgp 65500 vrf vrf1\naddress-family ipv6 unicast\n"
+        "network 192:168::255:0/112\n",
+        isjson=False,
+    )
+    logger.info("Checking BGP VPNv6 labels on r2")
+    bgp_vpnv6_table_check(tgen.gears["r2"], group=["192:168::255:0/112"])
+    logger.info("Checking no mpls entry associated to 192:168::255:0/112")
+    mpls_table_check(tgen.gears["r1"], blacklist=["192:168:255::0"])
+    logger.info("Checking 192:168::255:0/112 fallback to vrf")
+    test_func = functools.partial(
+        check_show_mpls_table_entry_label_found,
+        tgen.gears["r1"],
+        tgen.gears["r2"],
+        "vrf1",
+        network="192:168::255:0/112",
+    )
+    success, _ = topotest.run_and_expect(test_func, None, count=10, wait=3)
+    assert success, "192:168::255:0/112 does not fallback to vrf"
+
+    logger.info(
+        "Use network command for statically routed network 192:168::3:0/112 in vrf"
+    )
+    tgen.gears["r1"].vtysh_cmd(
+        "configure terminal\nvrf vrf1\n" "ipv6 route 192:168::3:0/112 192:2::11\n"
+    )
+    tgen.gears["r1"].vtysh_cmd(
+        "configure terminal\nrouter bgp 65500 vrf vrf1\naddress-family ipv6 unicast\n"
+        "network 192:168::3:0/112\n",
+        isjson=False,
+    )
+    logger.info("Checking 192:168::3:0/112 route on r2")
+    test_func = functools.partial(
+        check_show_mpls_table_entry_label_found_nexthop,
+        tgen.gears["r1"],
+        tgen.gears["r2"],
+        "192:168::3:0/112",
+        "192:2::11",
+    )
+    success, _ = topotest.run_and_expect(test_func, None, count=10, wait=3)
+    assert success, "label from r2 is not present on r1 for 192:168::3:0/112"
+
+    # diagnostic
+    logger.info("Dumping label nexthop table")
+    tgen.gears["r1"].vtysh_cmd("show bgp vrf vrf1 label-nexthop detail", isjson=False)
+    logger.info("Dumping bgp network import-check-table")
+    tgen.gears["r1"].vtysh_cmd(
+        "show bgp vrf vrf1 import-check-table detail", isjson=False
+    )
+
+    logger.info("Restoring 172:31::14 prefix on r1")
+    tgen.gears["r1"].vtysh_cmd(
+        "configure terminal\nrouter bgp 65500 vrf vrf1\naddress-family ipv6 unicast\nnetwork 172:31::14/128\n",
+        isjson=False,
+    )
+    logger.info("Restoring redistribute connected")
+    tgen.gears["r1"].vtysh_cmd(
+        "configure terminal\nrouter bgp 65500 vrf vrf1\naddress-family ipv6 unicast\n"
+        "no redistribute static\n redistribute connected",
+        isjson=False,
+    )
 
 
 def test_memory_leak():
