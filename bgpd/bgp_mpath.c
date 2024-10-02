@@ -570,24 +570,6 @@ void bgp_path_info_mpath_update(struct bgp *bgp, struct bgp_dest *dest,
 }
 
 /*
- * bgp_mp_dmed_deselect
- *
- * Clean up multipath information for BGP_PATH_DMED_SELECTED path that
- * is not selected as best path
- */
-void bgp_mp_dmed_deselect(struct bgp_path_info *dmed_best)
-{
-	if (!dmed_best)
-		return;
-
-	bgp_path_info_mpath_count_set(dmed_best, 0);
-	UNSET_FLAG(dmed_best->flags, BGP_PATH_MULTIPATH_CHG);
-	UNSET_FLAG(dmed_best->flags, BGP_PATH_LINK_BW_CHG);
-
-	assert(bgp_path_info_mpath_first(dmed_best) == NULL);
-}
-
-/*
  * bgp_path_info_mpath_aggregate_update
  *
  * Set the multipath aggregate attribute. We need to see if the
