@@ -64,6 +64,14 @@ module frr-pim-rp {
       "RFC XXXX: A YANG Data Model for PIM RP";
   }
 
+  revision 2024-09-26 {
+    description
+      "Add support for embedded RP.";
+    reference
+      "RFC 3956: Embedding the Rendezvous Point (RP) Address in an IPv6
+       Multicast Address";
+  }
+
   typedef plist-ref {
     type string;
   }
@@ -110,6 +118,42 @@ module frr-pim-rp {
       }
     } // static-rp
   } // static-rp-container
+
+  grouping embedded-rp-group {
+    container embedded-rp {
+      description "Embedded RP configurations.";
+
+      leaf enable {
+        description
+          "Toggle embedded RP state:
+
+           When enabled the learned RP from the multicast group address
+           will be preferred over any static or dynamic RP configuration.
+
+           When disabled the packet will be processed as usual.";
+        type boolean;
+        default "false";
+      }
+
+      leaf group-list {
+        description
+          "Restrict embedded RP prefix ranges.
+
+           The default is to treat all multicast groups in FF70::/12
+           range as embedded RP. When a group prefix list is configured
+           and group does not match one of its permit entries it will
+           be treated as regular multicast group.";
+        type plist-ref;
+      }
+
+      leaf maximum-rps {
+        description
+          "Maximum allowed number of RPs to learn.";
+        type uint32;
+        default 25;
+      }
+    } // embedded-rp container
+  } // embedded-rp group
 
   grouping auto-rp-container {
     description
@@ -192,6 +236,13 @@ module frr-pim-rp {
         when "../frr-pim:address-family = 'frr-rt:ipv4'" {
           description
             "Only applicable to IPv4 address family.";
+        }
+      }
+
+      uses embedded-rp-group {
+        when "../frr-pim:address-family = 'frr-rt:ipv6'" {
+          description
+            "Only available for IPv6 addresses.";
         }
       }
     } // rp
