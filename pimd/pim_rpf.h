@@ -41,6 +41,17 @@ struct pim_rpf {
 
 enum pim_rpf_result { PIM_RPF_OK = 0, PIM_RPF_CHANGED, PIM_RPF_FAILURE };
 
+/* RPF lookup behaviour */
+enum pim_rpf_lookup_mode {
+	MCAST_NO_CONFIG = 0,  /* MIX_MRIB_FIRST, but no show in config write */
+	MCAST_MRIB_ONLY,      /* MRIB only */
+	MCAST_URIB_ONLY,      /* URIB only */
+	MCAST_MIX_MRIB_FIRST, /* MRIB, if nothing at all then URIB */
+	MCAST_MIX_DISTANCE,   /* MRIB & URIB, lower distance wins */
+	MCAST_MIX_PFXLEN,     /* MRIB & URIB, longer prefix wins */
+			      /* on equal value, MRIB wins for last 2 */
+};
+
 struct pim_upstream;
 
 unsigned int pim_rpf_hash_key(const void *arg);

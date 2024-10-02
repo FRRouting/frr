@@ -8851,6 +8851,24 @@ done:
 	return ret;
 }
 
+DEFPY_YANG(pim_rpf_lookup_mode, pim_rpf_lookup_mode_cmd,
+           "[no] rpf-lookup-mode ![urib-only|mrib-only|mrib-then-urib|lower-distance|longer-prefix]$mode",
+           NO_STR
+           "RPF lookup behavior\n"
+           "Lookup in unicast RIB only\n"
+           "Lookup in multicast RIB only\n"
+           "Try multicast RIB first, fall back to unicast RIB\n"
+           "Lookup both, use entry with lower distance\n"
+           "Lookup both, use entry with longer prefix\n")
+{
+	if (no)
+		nb_cli_enqueue_change(vty, "./mcast-rpf-lookup", NB_OP_DESTROY, NULL);
+	else
+		nb_cli_enqueue_change(vty, "./mcast-rpf-lookup", NB_OP_MODIFY, mode);
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
 struct cmd_node pim_node = {
 	.name = "pim",
 	.node = PIM_NODE,
@@ -9016,6 +9034,8 @@ void pim_cmd_init(void)
 	install_element(PIM_NODE, &pim_bsr_candidate_rp_cmd);
 	install_element(PIM_NODE, &pim_bsr_candidate_rp_group_cmd);
 	install_element(PIM_NODE, &pim_bsr_candidate_bsr_cmd);
+
+	install_element(PIM_NODE, &pim_rpf_lookup_mode_cmd);
 
 	install_element(INTERFACE_NODE, &interface_ip_igmp_cmd);
 	install_element(INTERFACE_NODE, &interface_no_ip_igmp_cmd);

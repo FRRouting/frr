@@ -83,6 +83,47 @@ module frr-pim {
   }
 
   /*
+   * Multicast RPF mode configurable type
+   */
+
+  typedef mcast-rpf-lookup-mode {
+    type enumeration {
+      enum "none" {
+        value 0;
+        description
+          "No mode set.";
+      }
+      enum "mrib-only" {
+        value 1;
+        description
+          "Lookup in unicast RIB only.";
+      }
+      enum "urib-only" {
+        value 2;
+        description
+          "Lookup in multicast RIB only.";
+      }
+      enum "mrib-then-urib" {
+        value 3;
+        description
+          "Try multicast RIB first, fall back to unicast RIB.";
+      }
+      enum "lower-distance" {
+        value 4;
+        description
+          "Lookup both unicast and mcast, use entry with lower distance.";
+      }
+      enum "longer-prefix" {
+        value 5;
+        description
+          "Lookup both unicast and mcast, use entry with longer prefix.";
+      }
+    }
+    description
+      "Multicast RPF lookup behavior";
+  }
+
+  /*
    * Groupings
    */
 
@@ -161,20 +202,27 @@ module frr-pim {
     description
       "A grouping defining per address family pim global attributes";
 
+    leaf mcast-rpf-lookup {
+      type mcast-rpf-lookup-mode;
+      default "none";
+      description
+        "Multicast RPF lookup behavior.";
+    }
+
     leaf ecmp {
       type boolean;
       default "false";
       description
         "Enable PIM ECMP.";
     }
-    
+
     leaf ecmp-rebalance {
       type boolean;
       default "false";
       description
         "Enable PIM ECMP Rebalance.";
     }
-    
+
     leaf keep-alive-timer {
       type uint16 {
         range "1..max";
@@ -183,7 +231,7 @@ module frr-pim {
       description
         "Keep alive Timer in seconds.";
     }
-    
+
     leaf rp-keep-alive-timer {
       type uint16 {
         range "1..max";
