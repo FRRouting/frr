@@ -115,8 +115,13 @@ bool tib_sg_gm_join(struct pim_instance *pim, pim_sgaddr sg,
 		return false;
 	}
 
-	if (!*oilp)
+	if (!*oilp) {
 		*oilp = tib_sg_oil_setup(pim, sg, oif);
+#if PIM_IPV == 6
+		if (pim_embedded_rp_is_embedded(&sg.grp))
+			(*oilp)->oil_ref_count--;
+#endif /* PIM_IPV == 6 */
+	}
 	if (!*oilp)
 		return false;
 
