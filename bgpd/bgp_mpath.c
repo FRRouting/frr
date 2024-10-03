@@ -12,7 +12,6 @@
 
 #include "command.h"
 #include "prefix.h"
-#include "linklist.h"
 #include "sockunion.h"
 #include "memory.h"
 #include "queue.h"
