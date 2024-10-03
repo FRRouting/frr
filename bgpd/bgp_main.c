@@ -64,17 +64,15 @@ DEFINE_HOOK(bgp_hook_vrf_update, (struct vrf *vrf, bool enabled),
 
 /* bgpd options, we use GNU getopt library. */
 static const struct option longopts[] = {
-	{ "bgp_port", required_argument, NULL, 'p' },
-	{ "listenon", required_argument, NULL, 'l' },
-	{ "no_kernel", no_argument, NULL, 'n' },
-	{ "skip_runas", no_argument, NULL, 'S' },
-	{ "ecmp", required_argument, NULL, 'e' },
-	{ "int_num", required_argument, NULL, 'I' },
-	{ "no_zebra", no_argument, NULL, 'Z' },
-	{ "socket_size", required_argument, NULL, 's' },
-	{ "v6-with-v4-nexthops", no_argument, NULL, 'v' },
-	{ 0 }
-};
+	{"bgp_port", required_argument, NULL, 'p'},
+	{"listenon", required_argument, NULL, 'l'},
+	{"no_kernel", no_argument, NULL, 'n'},
+	{"skip_runas", no_argument, NULL, 'S'},
+	{"ecmp", required_argument, NULL, 'e'},
+	{"int_num", required_argument, NULL, 'I'},
+	{"no_zebra", no_argument, NULL, 'Z'},
+	{"socket_size", required_argument, NULL, 's'},
+	{0}};
 
 /* signal definitions */
 void sighup(void);
@@ -426,16 +424,16 @@ int main(int argc, char **argv)
 	addresses->cmp = (int (*)(void *, void *))strcmp;
 
 	frr_preinit(&bgpd_di, argc, argv);
-	frr_opt_add("p:l:SnZe:I:s:" DEPRECATED_OPTIONS, longopts,
-		    "  -p, --bgp_port           Set BGP listen port number (0 means do not listen).\n"
-		    "  -l, --listenon           Listen on specified address (implies -n)\n"
-		    "  -n, --no_kernel          Do not install route to kernel.\n"
-		    "  -Z, --no_zebra           Do not communicate with Zebra.\n"
-		    "  -S, --skip_runas         Skip capabilities checks, and changing user and group IDs.\n"
-		    "  -e, --ecmp               Specify ECMP to use.\n"
-		    "  -I, --int_num            Set instance number (label-manager)\n"
-		    "  -s, --socket_size        Set BGP peer socket send buffer size\n"
-		    "    , --v6-with-v4-nexthop Allow BGP to form v6 neighbors using v4 nexthops\n");
+	frr_opt_add(
+		"p:l:SnZe:I:s:" DEPRECATED_OPTIONS, longopts,
+		"  -p, --bgp_port     Set BGP listen port number (0 means do not listen).\n"
+		"  -l, --listenon     Listen on specified address (implies -n)\n"
+		"  -n, --no_kernel    Do not install route to kernel.\n"
+		"  -Z, --no_zebra     Do not communicate with Zebra.\n"
+		"  -S, --skip_runas   Skip capabilities checks, and changing user and group IDs.\n"
+		"  -e, --ecmp         Specify ECMP to use.\n"
+		"  -I, --int_num      Set instance number (label-manager)\n"
+		"  -s, --socket_size  Set BGP peer socket send buffer size\n");
 
 	/* Command line argument treatment. */
 	while (1) {
@@ -496,9 +494,6 @@ int main(int argc, char **argv)
 			break;
 		case 's':
 			buffer_size = atoi(optarg);
-			break;
-		case 'v':
-			bm->v6_with_v4_nexthops = true;
 			break;
 		default:
 			frr_help_exit(1);
