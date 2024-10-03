@@ -46,7 +46,6 @@ extern int bgp_maximum_paths_unset(struct bgp *bgp, afi_t afi, safi_t safi,
  * multipath selections
  */
 extern int bgp_path_info_nexthop_cmp(struct bgp_path_info *bpi1, struct bgp_path_info *bpi2);
-extern void bgp_mp_dmed_deselect(struct bgp_path_info *dmed_best);
 extern void bgp_path_info_mpath_update(struct bgp *bgp, struct bgp_dest *dest,
 				       struct bgp_path_info *new_best,
 				       struct bgp_path_info *old_best, uint32_t num_candidates,
