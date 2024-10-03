@@ -490,11 +490,12 @@ void bgp_path_info_mpath_update(struct bgp *bgp, struct bgp_dest *dest,
 
 				cur_iterator = cur_iterator->next;
 			}
-			break;
 
 			if (debug)
 				zlog_debug("%pBD(%s): Mpath count %u is equal to maximum paths allowed, finished comparision for MPATHS",
 					   dest, bgp->name_pretty, mpath_count);
+
+			break;
 		}
 
 		if (debug)
