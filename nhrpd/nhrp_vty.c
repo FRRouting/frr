@@ -826,7 +826,7 @@ static void show_ip_nhrp_shortcut(struct nhrp_shortcut *s, void *pctx)
 	char buf1[PREFIX_STRLEN], buf2[SU_ADDRSTRLEN];
 	struct json_object *json = NULL;
 
-	if (!ctx->count) {
+	if (!ctx->count && !ctx->json) {
 		vty_out(vty, "%-8s %-24s %-24s %s\n", "Type", "Prefix", "Via",
 			"Identity");
 	}

@@ -16,43 +16,43 @@ graph template {
   label="nhrp-topo-redundant-nhs";
 
   # Routers
-  r1 [
+  nhs1 [
     shape=doubleoctagon,
     label="NHS 1",
     fillcolor="#f08080",
     style=filled,
   ];
-  r2 [
+  nhs2 [
     shape=doubleoctagon
     label="NHS 2",
     fillcolor="#f08080",
     style=filled,
   ];
-  r3 [
+  nhs3 [
     shape=doubleoctagon
     label="NHS 3",
     fillcolor="#f08080",
     style=filled,
   ];
-  r4 [
+  nhc1 [
     shape=doubleoctagon
     label="NHC 1",
     fillcolor="#f08080",
     style=filled,
   ];
-  r5 [
+  nhc2 [
     shape=doubleoctagon
     label="NHC 2",
     fillcolor="#f08080",
     style=filled,
   ];
-  r6 [
+  router [
     shape=doubleoctagon
     label="router",
     fillcolor="#f08080",
     style=filled,
   ];
-  r7 [
+  host [
     shape=doubleoctagon
     label="host",
     fillcolor="#f08080",
@@ -74,30 +74,30 @@ graph template {
   ];
   sw3 [
     shape=oval,
-    label="sw3\n4.4.4.0/24",
+    label="sw3\n10.4.4.0/24",
     fillcolor="#d0e0d0",
     style=filled,
   ];
   sw4 [
     shape=oval,
-    label="sw4\n5.5.5.0/24",
+    label="sw4\n10.5.5.0/24",
     fillcolor="#d0e0d0",
     style=filled,
   ];
 
   # Connections
-  r1 -- sw1 [label="eth0"];
-  r2 -- sw1 [label="eth0"];
-  r3 -- sw1 [label="eth0"];
-  r6 -- sw1 [label="eth0"];
+  nhs1 -- sw1 [label="eth0"];
+  nhs2 -- sw1 [label="eth0"];
+  nhs3 -- sw1 [label="eth0"];
+  router -- sw1 [label="eth0"];
 
-  r4 -- sw2 [label="eth0"];
-  r5 -- sw2 [label="eth0"];
-  r6 -- sw2 [label="eth1"];
+  nhc1 -- sw2 [label="eth0"];
+  nhc2 -- sw2 [label="eth0"];
+  router -- sw2 [label="eth1"];
 
-  r4 -- sw3 [label="eth1"];
-  r7 -- sw3 [label="eth0"];
+  nhc1 -- sw3 [label="eth1"];
+  host -- sw3 [label="eth0"];
 
-  r5 -- sw4 [label="eth1"];
+  nhc2 -- sw4 [label="eth1"];
 
 }
