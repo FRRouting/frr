@@ -8610,6 +8610,12 @@ static ssize_t printfrr_bp(struct fbuf *buf, struct printfrr_eargs *ea,
 	if (!peer)
 		return bputs(buf, "(null)");
 
+	if (!peer->host) {
+		if (peer->conf_if)
+			return bprintfrr(buf, "%s", peer->conf_if);
+		return bprintfrr(buf, "%pSU", &peer->connection->su);
+	}
+
 	return bprintfrr(buf, "%s(%s)", peer->host,
 			 peer->hostname ? peer->hostname : "Unknown");
 }
