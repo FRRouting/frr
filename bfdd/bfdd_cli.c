@@ -338,11 +338,12 @@ void bfd_cli_show_minimum_ttl(struct vty *vty, const struct lyd_node *dnode,
 
 DEFPY_YANG(
 	bfd_peer_mult, bfd_peer_mult_cmd,
-	"detect-multiplier (2-255)$multiplier",
+	"[no] detect-multiplier ![(2-255)$multiplier]",
+	NO_STR
 	"Configure peer detection multiplier\n"
 	"Configure peer detection multiplier value\n")
 {
-	nb_cli_enqueue_change(vty, "./detection-multiplier", NB_OP_MODIFY,
+	nb_cli_enqueue_change(vty, "./detection-multiplier", no ? NB_OP_DESTROY : NB_OP_MODIFY,
 			      multiplier_str);
 	return nb_cli_apply_changes(vty, NULL);
 }
@@ -576,7 +577,8 @@ void bfd_cli_show_profile(struct vty *vty, const struct lyd_node *dnode,
 }
 
 ALIAS_YANG(bfd_peer_mult, bfd_profile_mult_cmd,
-      "detect-multiplier (2-255)$multiplier",
+      "[no] detect-multiplier ![(2-255)$multiplier]",
+      NO_STR
       "Configure peer detection multiplier\n"
       "Configure peer detection multiplier value\n")
 
@@ -619,7 +621,8 @@ ALIAS_YANG(bfd_peer_echo, bfd_profile_echo_cmd,
       "Configure echo mode\n")
 
 ALIAS_YANG(bfd_peer_echo_interval, bfd_profile_echo_interval_cmd,
-      "echo-interval (10-60000)$interval",
+      "[no] echo-interval ![(10-60000)$interval]",
+      NO_STR
       "Configure peer echo interval\n"
       "Configure peer echo interval value in milliseconds\n")
 
