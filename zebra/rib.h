@@ -637,6 +637,10 @@ extern pid_t pid;
 
 extern uint32_t rt_table_main_id;
 
+void route_entry_dump_nh(const struct route_entry *re, const char *straddr,
+			 const struct vrf *re_vrf,
+			 const struct nexthop *nexthop);
+
 /* Name of hook calls */
 #define ZEBRA_ON_RIB_PROCESS_HOOK_CALL "on_rib_process_dplane_results"
 

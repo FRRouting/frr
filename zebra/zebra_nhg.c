@@ -1101,11 +1101,15 @@ void zebra_nhg_check_valid(struct nhg_hash_entry *nhe)
 	bool valid = false;
 
 	/*
-	 * If I have other nhe's depending on me, then this is a
+	 * If I have other nhe's depending on me, or I have nothing
+	 * I am depending on then this is a
 	 * singleton nhe so set this nexthops flag as appropriate.
 	 */
-	if (nhg_connected_tree_count(&nhe->nhg_depends))
+	if (nhg_connected_tree_count(&nhe->nhg_depends) ||
+	    nhg_connected_tree_count(&nhe->nhg_dependents) == 0) {
+		UNSET_FLAG(nhe->nhg.nexthop->flags, NEXTHOP_FLAG_FIB);
 		UNSET_FLAG(nhe->nhg.nexthop->flags, NEXTHOP_FLAG_ACTIVE);
+	}
 
 	/* If anthing else in the group is valid, the group is valid */
 	frr_each(nhg_connected_tree, &nhe->nhg_depends, rb_node_dep) {
@@ -2922,13 +2926,162 @@ static uint32_t proto_nhg_nexthop_active_update(struct nexthop_group *nhg)
 }
 
 /*
+ * This function takes the start of two comparable nexthops from two different
+ * nexthop groups and walks them to see if they can be considered the same
+ * or not.  This is being used to determine if zebra should reuse a nhg
+ * from the old_re to the new_re, when an interface goes down and the
+ * new nhg sent down from the upper level protocol would resolve to it
+ */
+static bool zebra_nhg_nexthop_compare(const struct nexthop *nhop,
+				      const struct nexthop *old_nhop,
+				      const struct route_node *rn)
+{
+	bool same = true;
+
+	while (nhop && old_nhop) {
+		if (IS_ZEBRA_DEBUG_NHG_DETAIL)
+			zlog_debug("%s: %pRN Comparing %pNHvv(%u) to old: %pNHvv(%u)",
+				   __func__, rn, nhop, nhop->flags, old_nhop,
+				   old_nhop->flags);
+		if (!CHECK_FLAG(old_nhop->flags, NEXTHOP_FLAG_ACTIVE)) {
+			if (IS_ZEBRA_DEBUG_NHG_DETAIL)
+				zlog_debug("%s: %pRN Old is not active going to the next one",
+					   __func__, rn);
+			old_nhop = old_nhop->next;
+			continue;
+		}
+
+		if (nexthop_same(nhop, old_nhop)) {
+			struct nexthop *new_recursive, *old_recursive;
+
+			if (IS_ZEBRA_DEBUG_NHG_DETAIL)
+				zlog_debug("%s: %pRN New and old are same, continuing search",
+					   __func__, rn);
+
+			new_recursive = nhop->resolved;
+			old_recursive = old_nhop->resolved;
+
+			while (new_recursive && old_recursive) {
+				if (!nexthop_same(new_recursive, old_recursive)) {
+					same = false;
+					break;
+				}
+
+				new_recursive = new_recursive->next;
+				old_recursive = old_recursive->next;
+			}
+
+			if (new_recursive)
+				same = false;
+			else if (old_recursive) {
+				while (old_recursive) {
+					if (CHECK_FLAG(old_recursive->flags,
+						       NEXTHOP_FLAG_ACTIVE))
+						break;
+					old_recursive = old_recursive->next;
+				}
+
+				if (old_recursive)
+					same = false;
+			}
+
+			if (!same)
+				break;
+
+			nhop = nhop->next;
+			old_nhop = old_nhop->next;
+			continue;
+		} else {
+			if (IS_ZEBRA_DEBUG_NHG_DETAIL)
+				zlog_debug("%s:%pRN They are not the same, stopping using new nexthop entry",
+					   __func__, rn);
+			same = false;
+			break;
+		}
+	}
+
+	if (nhop)
+		same = false;
+	else if (old_nhop) {
+		while (old_nhop) {
+			if (CHECK_FLAG(old_nhop->flags, NEXTHOP_FLAG_ACTIVE))
+				break;
+			old_nhop = old_nhop->next;
+		}
+
+		if (old_nhop)
+			same = false;
+	}
+
+	return same;
+}
+
+static struct nhg_hash_entry *zebra_nhg_rib_compare_old_nhe(
+	const struct route_node *rn, const struct route_entry *re,
+	struct nhg_hash_entry *new_nhe, struct nhg_hash_entry *old_nhe)
+{
+	struct nexthop *nhop, *old_nhop;
+	bool same = true;
+	struct vrf *vrf = vrf_lookup_by_id(re->vrf_id);
+
+	if (IS_ZEBRA_DEBUG_NHG_DETAIL) {
+		char straddr[PREFIX_STRLEN];
+
+		prefix2str(&rn->p, straddr, sizeof(straddr));
+		zlog_debug("%s: %pRN new id: %u old id: %u", __func__, rn,
+			   new_nhe->id, old_nhe->id);
+		zlog_debug("%s: %pRN NEW", __func__, rn);
+		for (ALL_NEXTHOPS(new_nhe->nhg, nhop))
+			route_entry_dump_nh(re, straddr, vrf, nhop);
+
+		zlog_debug("%s: %pRN OLD", __func__, rn);
+		for (ALL_NEXTHOPS(old_nhe->nhg, nhop))
+			route_entry_dump_nh(re, straddr, vrf, nhop);
+	}
+
+	nhop = new_nhe->nhg.nexthop;
+	old_nhop = old_nhe->nhg.nexthop;
+
+	same = zebra_nhg_nexthop_compare(nhop, old_nhop, rn);
+
+	if (same) {
+		struct nexthop_group *bnhg, *old_bnhg;
+
+		bnhg = zebra_nhg_get_backup_nhg(new_nhe);
+		old_bnhg = zebra_nhg_get_backup_nhg(old_nhe);
+
+		if (bnhg || old_bnhg) {
+			if (bnhg && !old_bnhg)
+				same = false;
+			else if (!bnhg && old_bnhg)
+				same = false;
+			else
+				same = zebra_nhg_nexthop_compare(bnhg->nexthop,
+								 old_bnhg->nexthop,
+								 rn);
+		}
+	}
+
+	if (IS_ZEBRA_DEBUG_NHG_DETAIL)
+		zlog_debug("%s:%pRN They are %sthe same, using the %s nhg entry",
+			   __func__, rn, same ? "" : "not ",
+			   same ? "old" : "new");
+
+	if (same)
+		return old_nhe;
+	else
+		return new_nhe;
+}
+
+/*
  * Iterate over all nexthops of the given RIB entry and refresh their
  * ACTIVE flag.  If any nexthop is found to toggle the ACTIVE flag,
  * the whole re structure is flagged with ROUTE_ENTRY_CHANGED.
  *
  * Return value is the new number of active nexthops.
  */
-int nexthop_active_update(struct route_node *rn, struct route_entry *re)
+int nexthop_active_update(struct route_node *rn, struct route_entry *re,
+			  struct route_entry *old_re)
 {
 	struct nhg_hash_entry *curr_nhe;
 	uint32_t curr_active = 0, backup_active = 0;
@@ -2983,6 +3136,11 @@ backups_done:
 		struct nhg_hash_entry *new_nhe = NULL;
 
 		new_nhe = zebra_nhg_rib_find_nhe(curr_nhe, rt_afi);
+
+		if (old_re && old_re->type == re->type &&
+		    old_re->instance == re->instance)
+			new_nhe = zebra_nhg_rib_compare_old_nhe(rn, re, new_nhe,
+								old_re->nhe);
 
 		if (IS_ZEBRA_DEBUG_NHG_DETAIL)
 			zlog_debug(
@@ -3779,6 +3937,17 @@ void zebra_interface_nhg_reinstall(struct interface *ifp)
 			frr_each_safe (nhg_connected_tree,
 				       &rb_node_dep->nhe->nhg_dependents,
 				       rb_node_dependent) {
+				struct nexthop *nhop_dependent =
+					rb_node_dependent->nhe->nhg.nexthop;
+
+				while (nhop_dependent &&
+				       !nexthop_same(nhop_dependent, nh))
+					nhop_dependent = nhop_dependent->next;
+
+				if (nhop_dependent)
+					SET_FLAG(nhop_dependent->flags,
+						 NEXTHOP_FLAG_ACTIVE);
+
 				if (IS_ZEBRA_DEBUG_NHG)
 					zlog_debug("%s dependent nhe %pNG Setting Reinstall flag",
 						   __func__,

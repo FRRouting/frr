@@ -546,13 +546,7 @@ def test_verify_default_originate_route_with_non_default_VRF_p1(request):
             tc_name, result
         )
 
-        result = verify_rib(
-            tgen,
-            addr_type,
-            "r2",
-            static_routes_input,
-            next_hop=DEFAULT_ROUTE_NXT_HOP_R1[addr_type],
-        )
+        result = verify_rib(tgen, addr_type, "r2", static_routes_input)
         assert result is True, "Testcase {} : Failed \n Error: {}".format(
             tc_name, result
         )
