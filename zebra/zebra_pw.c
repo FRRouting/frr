@@ -147,7 +147,6 @@ void zebra_pw_update(struct zebra_pw *pw)
 {
 	if (zebra_pw_check_reachability(pw) < 0) {
 		zebra_pw_uninstall(pw);
-		zebra_pw_install_failure(pw, PW_NOT_FORWARDING);
 		/* wait for NHT and try again later */
 	} else {
 		/*
@@ -167,6 +166,14 @@ static void zebra_pw_install(struct zebra_pw *pw)
 
 	hook_call(pw_install, pw);
 	if (dplane_pw_install(pw) == ZEBRA_DPLANE_REQUEST_FAILURE) {
+		/*
+		 * Realistically this is never going to fail passing
+		 * the pw data down to the dplane.  The failure modes
+		 * look like impossible events but we still return
+		 * on them.... but I don't see a real clean way to remove this
+		 * at all.  So let's just leave the retry mechanism for
+		 * the moment.
+		 */
 		zebra_pw_install_failure(pw, PW_NOT_FORWARDING);
 		return;
 	}
