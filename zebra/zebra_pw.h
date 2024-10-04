@@ -64,6 +64,7 @@ void zebra_pw_init_vrf(struct zebra_vrf *);
 void zebra_pw_exit_vrf(struct zebra_vrf *);
 void zebra_pw_terminate(void);
 void zebra_pw_vty_init(void);
+void zebra_pw_handle_dplane_results(struct zebra_dplane_ctx *ctx);
 
 #ifdef __cplusplus
 }
