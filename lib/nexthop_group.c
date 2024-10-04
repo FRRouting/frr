@@ -31,6 +31,7 @@ struct nexthop_hold {
 	vni_t vni;
 	uint32_t weight;
 	char *backup_str;
+	uint32_t color;
 };
 
 struct nexthop_group_hooks {
@@ -51,7 +52,7 @@ nexthop_group_cmd_compare(const struct nexthop_group_cmd *nhgc1,
 RB_GENERATE(nhgc_entry_head, nexthop_group_cmd, nhgc_entry,
 	    nexthop_group_cmd_compare)
 
-static struct nhgc_entry_head nhgc_entries;
+struct nhgc_entry_head nhgc_entries;
 
 static inline int
 nexthop_group_cmd_compare(const struct nexthop_group_cmd *nhgc1,
@@ -258,6 +259,7 @@ void nexthop_group_copy(struct nexthop_group *to,
 			const struct nexthop_group *from)
 {
 	to->nhgr = from->nhgr;
+	to->flags = from->flags;
 	/* Copy everything, including recursive info */
 	copy_nexthops(&to->nexthop, from->nexthop, NULL);
 }
@@ -646,6 +648,43 @@ DEFPY(nexthop_group_backup, nexthop_group_backup_cmd,
 	return CMD_SUCCESS;
 }
 
+DEFPY(nexthop_group_allow_recursion,
+      nexthop_group_allow_recursion_cmd,
+      "[no] allow-recursion",
+      NO_STR
+      "Allow recursion when the nexthop is not directly connected\n")
+{
+	VTY_DECLVAR_CONTEXT(nexthop_group_cmd, nhgc);
+
+	if (!!no == !CHECK_FLAG(nhgc->nhg.flags, NEXTHOP_GROUP_ALLOW_RECURSION))
+		return CMD_SUCCESS;
+
+	if (no)
+		UNSET_FLAG(nhgc->nhg.flags, NEXTHOP_GROUP_ALLOW_RECURSION);
+	else
+		SET_FLAG(nhgc->nhg.flags, NEXTHOP_GROUP_ALLOW_RECURSION);
+
+	if (nhg_hooks.modify)
+		nhg_hooks.modify(nhgc);
+
+	return CMD_SUCCESS;
+}
+
+static void nhgc_configure_color(struct nexthop_group_cmd *nhgc, bool enable)
+{
+	if (enable ==
+	    !!CHECK_FLAG(nhgc->nhg.message, NEXTHOP_GROUP_MESSAGE_SRTE))
+		return;
+
+	if (enable)
+		SET_FLAG(nhgc->nhg.message, NEXTHOP_GROUP_MESSAGE_SRTE);
+	else
+		UNSET_FLAG(nhgc->nhg.message, NEXTHOP_GROUP_MESSAGE_SRTE);
+
+	if (nhg_hooks.modify)
+		nhg_hooks.modify(nhgc);
+}
+
 DEFPY(no_nexthop_group_backup, no_nexthop_group_backup_cmd,
       "no backup-group [WORD$name]",
       NO_STR
@@ -703,12 +742,11 @@ DEFPY(no_nexthop_group_resilience,
 	return CMD_SUCCESS;
 }
 
-static void nexthop_group_save_nhop(struct nexthop_group_cmd *nhgc,
-				    const char *nhvrf_name,
-				    const union sockunion *addr,
-				    const char *intf, bool onlink,
-				    const char *labels, const uint32_t weight,
-				    const char *backup_str)
+static void
+nexthop_group_save_nhop(struct nexthop_group_cmd *nhgc, const char *nhvrf_name,
+			const union sockunion *addr, const char *intf,
+			bool onlink, const char *labels, const uint32_t weight,
+			const char *backup_str, const uint32_t color)
 {
 	struct nexthop_hold *nh;
 
@@ -726,6 +764,8 @@ static void nexthop_group_save_nhop(struct nexthop_group_cmd *nhgc,
 	nh->onlink = onlink;
 
 	nh->weight = weight;
+
+	nh->color = color;
 
 	if (backup_str)
 		nh->backup_str = XSTRDUP(MTYPE_TMP, backup_str);
@@ -775,8 +815,8 @@ static bool nexthop_group_parse_nexthop(struct nexthop *nhop,
 					const union sockunion *addr,
 					const char *intf, bool onlink,
 					const char *name, const char *labels,
-					vni_t vni, int *lbl_ret,
-					uint32_t weight, const char *backup_str)
+					vni_t vni, int *lbl_ret, uint32_t weight,
+					const char *backup_str, uint32_t color)
 {
 	int ret = 0;
 	struct vrf *vrf;
@@ -843,6 +883,7 @@ static bool nexthop_group_parse_nexthop(struct nexthop *nhop,
 	}
 
 	nhop->weight = weight;
+	nhop->srte_color = color;
 
 	if (backup_str) {
 		/* Parse backup indexes */
@@ -864,9 +905,11 @@ static bool nexthop_group_parse_nexthop(struct nexthop *nhop,
 static bool nexthop_group_parse_nhh(struct nexthop *nhop,
 				    const struct nexthop_hold *nhh)
 {
-	return (nexthop_group_parse_nexthop(
-		nhop, nhh->addr, nhh->intf, nhh->onlink, nhh->nhvrf_name,
-		nhh->labels, nhh->vni, NULL, nhh->weight, nhh->backup_str));
+	return (nexthop_group_parse_nexthop(nhop, nhh->addr, nhh->intf,
+					    nhh->onlink, nhh->nhvrf_name,
+					    nhh->labels, nhh->vni, NULL,
+					    nhh->weight, nhh->backup_str,
+					    nhh->color));
 }
 
 DEFPY(ecmp_nexthops, ecmp_nexthops_cmd,
@@ -881,6 +924,7 @@ DEFPY(ecmp_nexthops, ecmp_nexthops_cmd,
 	   |vni (1-16777215) \
            |weight (1-255) \
            |backup-idx WORD \
+           |color (1-4294967295) \
 	}]",
       NO_STR
       "Specify one of the nexthops in this ECMP group\n"
@@ -898,7 +942,9 @@ DEFPY(ecmp_nexthops, ecmp_nexthops_cmd,
       "Weight to be used by the nexthop for purposes of ECMP\n"
       "Weight value to be used\n"
       "Specify backup nexthop indexes in another group\n"
-      "One or more indexes in the range (0-254) separated by ','\n")
+      "One or more indexes in the range (0-254) separated by ','\n"
+      SRTE_STR
+      SRTE_COLOR_STR)
 {
 	VTY_DECLVAR_CONTEXT(nexthop_group_cmd, nhgc);
 	struct nexthop nhop;
@@ -907,7 +953,9 @@ DEFPY(ecmp_nexthops, ecmp_nexthops_cmd,
 	bool legal;
 	int num;
 	uint8_t backups[NEXTHOP_MAX_BACKUPS];
-	bool yes = !no;
+	bool yes = !no, color_config = false;
+	struct nexthop_hold *nhh;
+	struct listnode *node;
 
 	/* Pre-parse backup string to validate */
 	if (backup_idx) {
@@ -920,7 +968,7 @@ DEFPY(ecmp_nexthops, ecmp_nexthops_cmd,
 
 	legal = nexthop_group_parse_nexthop(&nhop, addr, intf, !!onlink,
 					    vrf_name, label, vni, &lbl_ret,
-					    weight, backup_idx);
+					    weight, backup_idx, color);
 
 	if (nhop.type == NEXTHOP_TYPE_IPV6
 	    && IN6_IS_ADDR_LINKLOCAL(&nhop.gate.ipv6)) {
@@ -983,10 +1031,17 @@ DEFPY(ecmp_nexthops, ecmp_nexthops_cmd,
 
 		/* Save config always */
 		nexthop_group_save_nhop(nhgc, vrf_name, addr, intf, !!onlink,
-					label, weight, backup_idx);
+					label, weight, backup_idx, color);
+		nhgc_configure_color(nhgc, !!color);
 
 		if (legal && nhg_hooks.add_nexthop)
 			nhg_hooks.add_nexthop(nhgc, nh);
+	} else {
+		for (ALL_LIST_ELEMENTS_RO(nhgc->nhg_list, node, nhh)) {
+			if (nhh->color)
+				color_config = true;
+		}
+		nhgc_configure_color(nhgc, color_config);
 	}
 
 	return CMD_SUCCESS;
@@ -1059,6 +1114,9 @@ void nexthop_group_write_nexthop(struct vty *vty, const struct nexthop *nh)
 	if (nh->weight)
 		vty_out(vty, " weight %u", nh->weight);
 
+	if (nh->srte_color)
+		vty_out(vty, " color %u", nh->srte_color);
+
 	if (CHECK_FLAG(nh->flags, NEXTHOP_FLAG_HAS_BACKUP)) {
 		vty_out(vty, " backup-idx %d", nh->backup_idx[0]);
 
@@ -1116,6 +1174,9 @@ void nexthop_group_json_nexthop(json_object *j, const struct nexthop *nh)
 	if (nh->weight)
 		json_object_int_add(j, "weight", nh->weight);
 
+	if (nh->srte_color)
+		json_object_int_add(j, "color", nh->srte_color);
+
 	if (CHECK_FLAG(nh->flags, NEXTHOP_FLAG_HAS_BACKUP)) {
 		json_backups = json_object_new_array();
 		for (i = 0; i < nh->backup_num; i++)
@@ -1153,6 +1214,9 @@ static void nexthop_group_write_nexthop_internal(struct vty *vty,
 	if (nh->weight)
 		vty_out(vty, " weight %u", nh->weight);
 
+	if (nh->color)
+		vty_out(vty, " color %u", nh->color);
+
 	if (nh->backup_str)
 		vty_out(vty, " backup-idx %s", nh->backup_str);
 
@@ -1168,6 +1232,9 @@ static int nexthop_group_write(struct vty *vty)
 		struct listnode *node;
 
 		vty_out(vty, "nexthop-group %s\n", nhgc->name);
+
+		if (CHECK_FLAG(nhgc->nhg.flags, NEXTHOP_GROUP_ALLOW_RECURSION))
+			vty_out(vty, " allow-recursion\n");
 
 		if (nhgc->nhg.nhgr.buckets)
 			vty_out(vty,
@@ -1372,6 +1439,7 @@ void nexthop_group_init(void (*new)(const char *name),
 
 	install_element(NH_GROUP_NODE, &nexthop_group_resilience_cmd);
 	install_element(NH_GROUP_NODE, &no_nexthop_group_resilience_cmd);
+	install_element(NH_GROUP_NODE, &nexthop_group_allow_recursion_cmd);
 
 	memset(&nhg_hooks, 0, sizeof(nhg_hooks));
 

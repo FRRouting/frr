@@ -34,6 +34,14 @@ struct nexthop_group {
 	struct nexthop *nexthop;
 
 	struct nhg_resilience nhgr;
+
+	/* nexthop group flags */
+#define NEXTHOP_GROUP_ALLOW_RECURSION (1 << 0)
+#define NEXTHOP_GROUP_IBGP	      (1 << 1)
+	uint8_t flags;
+	/* nexthop group messages */
+#define NEXTHOP_GROUP_MESSAGE_SRTE (1 << 0)
+	uint8_t message;
 };
 
 struct nexthop_group *nexthop_group_new(void);
@@ -99,6 +107,7 @@ RB_HEAD(nhgc_entry_head, nexthp_group_cmd);
 RB_PROTOTYPE(nhgc_entry_head, nexthop_group_cmd, nhgc_entry,
 	     nexthop_group_cmd_compare)
 DECLARE_QOBJ_TYPE(nexthop_group_cmd);
+extern struct nhgc_entry_head nhgc_entries;
 
 /*
  * Initialize nexthop_groups.  If you are interested in when

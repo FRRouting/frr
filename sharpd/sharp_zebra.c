@@ -133,11 +133,6 @@ int sharp_install_lsps_helper(bool install_p, bool update_p,
 			    nh->nh_label->num_labels == 0)
 				continue;
 
-			if (nh->type == NEXTHOP_TYPE_IFINDEX ||
-			    nh->type == NEXTHOP_TYPE_BLACKHOLE)
-				/* Hmm - can't really deal with these types */
-				continue;
-
 			ret = zapi_nexthop_from_nexthop(znh, nh);
 			if (ret < 0)
 				return -1;
@@ -166,11 +161,6 @@ int sharp_install_lsps_helper(bool install_p, bool update_p,
 			/* Must have labels to be useful */
 			if (nh->nh_label == NULL ||
 			    nh->nh_label->num_labels == 0)
-				return -1;
-
-			if (nh->type == NEXTHOP_TYPE_IFINDEX ||
-			    nh->type == NEXTHOP_TYPE_BLACKHOLE)
-				/* Hmm - can't really deal with these types */
 				return -1;
 
 			ret = zapi_nexthop_from_nexthop(znh, nh);
@@ -248,8 +238,7 @@ static bool route_add(const struct prefix *p, vrf_id_t vrf_id, uint8_t instance,
 
 	api.flags = flags;
 
-	/* Only send via ID if nhgroup has been successfully installed */
-	if (nhgid && sharp_nhgroup_id_is_installed(nhgid)) {
+	if (nhgid) {
 		zapi_route_set_nhg_id(&api, &nhgid);
 	} else {
 		SET_FLAG(api.message, ZAPI_MESSAGE_NEXTHOP);
@@ -539,6 +528,11 @@ void nhg_add(uint32_t id, const struct nexthop_group *nhg,
 
 	api_nhg.id = id;
 
+	api_nhg.flags = nhg->flags;
+
+	if (CHECK_FLAG(nhg->message, NEXTHOP_GROUP_MESSAGE_SRTE))
+		SET_FLAG(api_nhg.message, ZAPI_MESSAGE_SRTE);
+
 	api_nhg.resilience = nhg->nhgr;
 
 	for (ALL_NEXTHOPS_PTR(nhg, nh)) {
@@ -549,11 +543,9 @@ void nhg_add(uint32_t id, const struct nexthop_group *nhg,
 			break;
 		}
 
-		/* Unresolved nexthops will lead to failure - only send
-		 * nexthops that zebra will consider valid.
+		/*
+		 * Let zebra decide if the nexthop is valid or not
 		 */
-		if (nh->ifindex == 0)
-			continue;
 
 		api_nh = &api_nhg.nexthops[api_nhg.nexthop_num];
 
@@ -583,18 +575,9 @@ void nhg_add(uint32_t id, const struct nexthop_group *nhg,
 				break;
 			}
 
-			/* Unresolved nexthop: will be rejected by zebra.
-			 * That causes a problem, since the primary nexthops
-			 * rely on array indexing into the backup nexthops. If
-			 * that array isn't valid, the backup indexes won't be
-			 * valid.
+			/*
+			 * Let zebra decide if the nexthop is valid or not
 			 */
-			if (nh->ifindex == 0) {
-				zlog_debug("%s: nhg %u: invalid backup nexthop",
-					   __func__, id);
-				is_valid = false;
-				break;
-			}
 
 			api_nh = &api_nhg.backup_nexthops
 					  [api_nhg.backup_nexthop_num];
@@ -677,15 +660,57 @@ static void sharp_nexthop_update(struct vrf *vrf, struct prefix *matched,
 				 struct zapi_route *nhr)
 {
 	struct sharp_nh_tracker *nht;
+	struct nexthop_group_cmd *nhgc;
+	struct nexthop_group *nhg;
+	struct nexthop *nexthop;
+	uint32_t nhg_id;
 
 	zlog_debug("Received update for %pFX actual match: %pFX metric: %u",
 		   matched, &nhr->prefix, nhr->metric);
 
 	nht = sharp_nh_tracker_get(matched);
-	nht->nhop_num = nhr->nexthop_num;
-	nht->updates++;
+
+	if (!nht->color || nhr->srte_color == nht->color) {
+		nht->nhop_num = nhr->nexthop_num;
+		nht->updates++;
+	}
 
 	sharp_debug_nexthops(nhr);
+
+	if (!nht->color)
+		return;
+
+	/* check any nhg with same match, color */
+	RB_FOREACH (nhgc, nhgc_entry_head, &nhgc_entries) {
+		nhg_id = sharp_nhgroup_get_id(nhgc->name);
+		if (!nhg_id)
+			continue;
+
+		nhg = &nhgc->nhg;
+
+		if (!CHECK_FLAG(nhg->message, NEXTHOP_GROUP_MESSAGE_SRTE))
+			continue;
+
+		for (nexthop = nhg->nexthop; nexthop; nexthop = nexthop->next) {
+			if (nexthop->srte_color != nht->color) {
+				nexthop = nexthop->next;
+				continue;
+			}
+			if (matched->family == AF_INET &&
+			    (nexthop->type == NEXTHOP_TYPE_IPV4_IFINDEX ||
+			     nexthop->type == NEXTHOP_TYPE_IPV4) &&
+			    IPV4_ADDR_SAME(&matched->u.prefix4,
+					   &nexthop->gate.ipv4)) {
+				nhg_add(nhg_id, nhg, NULL);
+			} else if (matched->family == AF_INET6 &&
+				   (nexthop->type == NEXTHOP_TYPE_IPV6_IFINDEX ||
+				    nexthop->type == NEXTHOP_TYPE_IPV6) &&
+				   IPV6_ADDR_SAME(&matched->u.prefix6,
+						  &nexthop->gate.ipv6)) {
+				nhg_add(nhg_id, nhg, NULL);
+			}
+		}
+	}
 }
 
 static int sharp_redistribute_route(ZAPI_CALLBACK_ARGS)
