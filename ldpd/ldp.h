@@ -12,6 +12,12 @@
 #ifndef _LDP_H_
 #define _LDP_H_
 
+/* this does not include "%s/", frr_runstatedir because the command-line
+ * override option specifies a *directory* rather than a full file name.
+ * Therefore the final part is needed on its own.
+ */
+#define LDPD_SOCK_NAME		"ldpd.sock"
+
 /* misc */
 #define LDP_VERSION		1
 #define LDP_PORT		646

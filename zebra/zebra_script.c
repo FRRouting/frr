@@ -396,6 +396,7 @@ void lua_pushzebra_dplane_ctx(lua_State *L, const struct zebra_dplane_ctx *ctx)
 			lua_setfield(L, -2, "mtu");
 		}
 		lua_setfield(L, -2, "gre");
+		break;
 
 	case DPLANE_OP_ADDR_INSTALL:
 	case DPLANE_OP_ADDR_UNINSTALL:
@@ -414,7 +415,9 @@ void lua_pushzebra_dplane_ctx(lua_State *L, const struct zebra_dplane_ctx *ctx)
 	case DPLANE_OP_TC_FILTER_UPDATE:
 		/* Not currently handled */
 	case DPLANE_OP_INTF_NETCONFIG: /*NYI*/
+	case DPLANE_OP_SRV6_ENCAP_SRCADDR_SET:
 	case DPLANE_OP_NONE:
+	case DPLANE_OP_STARTUP_STAGE:
 		break;
 	} /* Dispatch by op code */
 }

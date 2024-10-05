@@ -50,6 +50,7 @@ def create_router_bgp(tgen, topo=None, input_dict=None, build=False, load_config
             "bgp": {
                 "local_as": "200",
                 "router_id": "22.22.22.22",
+                "bgp_always_compare_med": True,
                 "graceful-restart": {
                     "graceful-restart": True,
                     "preserve-fw-state": True,
@@ -164,7 +165,6 @@ def create_router_bgp(tgen, topo=None, input_dict=None, build=False, load_config
                         router,
                     )
                 else:
-
                     ipv4_data = bgp_addr_data.setdefault("ipv4", {})
                     ipv6_data = bgp_addr_data.setdefault("ipv6", {})
                     l2vpn_data = bgp_addr_data.setdefault("l2vpn", {})
@@ -333,7 +333,7 @@ def __create_bgp_global(tgen, input_dict, router, build=False):
             else:
                 del_action = False
 
-            for rs_timer, value in timer.items():
+            for rs_timer, _ in timer.items():
                 rs_timer_value = timer.setdefault(rs_timer, None)
 
                 if rs_timer_value and rs_timer != "delete":
@@ -343,6 +343,13 @@ def __create_bgp_global(tgen, input_dict, router, build=False):
                         cmd = "no {}".format(cmd)
 
                 config_data.append(cmd)
+
+    if "bgp_always_compare_med" in bgp_data:
+        bgp_always_compare_med = bgp_data["bgp_always_compare_med"]
+        if bgp_always_compare_med == True:
+            config_data.append("bgp always-compare-med")
+        elif bgp_always_compare_med == False:
+            config_data.append("no bgp always-compare-med")
 
     logger.debug("Exiting lib API: {}".format(sys._getframe().f_code.co_name))
     return config_data
@@ -530,6 +537,7 @@ def __create_bgp_unicast_neighbor(
 
             config_data.extend(neigh_addr_data)
 
+    config_data.append("exit")
     logger.debug("Exiting lib API: {}".format(sys._getframe().f_code.co_name))
     return config_data
 
@@ -645,7 +653,6 @@ def __create_l2vpn_evpn_address_family(
 
         if advertise_data:
             for address_type, unicast_type in advertise_data.items():
-
                 if type(unicast_type) is dict:
                     for key, value in unicast_type.items():
                         cmd = "advertise {} {}".format(address_type, key)
@@ -1222,7 +1229,7 @@ def modify_bgp_config_when_bgpd_down(tgen, topo, input_dict):
         # Copy bgp config file to /etc/frr
         for dut in input_dict.keys():
             router_list = tgen.routers()
-            for router, rnode in router_list.items():
+            for router, _ in router_list.items():
                 if router != dut:
                     continue
 
@@ -1318,7 +1325,7 @@ def verify_router_id(tgen, topo, input_dict, expected=True):
 
 
 @retry(retry_timeout=150)
-def verify_bgp_convergence(tgen, topo=None, dut=None, expected=True):
+def verify_bgp_convergence(tgen, topo=None, dut=None, expected=True, addr_type=None):
     """
     API will verify if BGP is converged with in the given time frame.
     Running "show bgp summary json" command and verify bgp neighbor
@@ -1329,6 +1336,7 @@ def verify_bgp_convergence(tgen, topo=None, dut=None, expected=True):
     * `tgen`: topogen object
     * `topo`: input json file data
     * `dut`: device under test
+    * `addr_type` : address type for which verification to be done, by-default both v4 and v6
 
     Usage
     -----
@@ -1432,20 +1440,27 @@ def verify_bgp_convergence(tgen, topo=None, dut=None, expected=True):
                     return errormsg
             else:
                 total_peer = 0
-                for addr_type in bgp_addr_type.keys():
-                    if not check_address_types(addr_type):
+                for _addr_type in bgp_addr_type.keys():
+                    if not check_address_types(_addr_type):
                         continue
 
-                    bgp_neighbors = bgp_addr_type[addr_type]["unicast"]["neighbor"]
+                    if addr_type and addr_type != _addr_type:
+                        continue
+
+                    bgp_neighbors = bgp_addr_type[_addr_type]["unicast"]["neighbor"]
 
                     for bgp_neighbor in bgp_neighbors:
                         total_peer += len(bgp_neighbors[bgp_neighbor]["dest_link"])
 
                 no_of_peer = 0
-                for addr_type in bgp_addr_type.keys():
+                for _addr_type in bgp_addr_type.keys():
                     if not check_address_types(addr_type):
                         continue
-                    bgp_neighbors = bgp_addr_type[addr_type]["unicast"]["neighbor"]
+
+                    if addr_type and addr_type != _addr_type:
+                        continue
+
+                    bgp_neighbors = bgp_addr_type[_addr_type]["unicast"]["neighbor"]
 
                     for bgp_neighbor, peer_data in bgp_neighbors.items():
                         for dest_link in peer_data["dest_link"].keys():
@@ -1466,7 +1481,7 @@ def verify_bgp_convergence(tgen, topo=None, dut=None, expected=True):
                                 elif "source_link" in peer_details:
                                     neighbor_ip = topo["routers"][bgp_neighbor][
                                         "links"
-                                    ][peer_details["source_link"]][addr_type].split(
+                                    ][peer_details["source_link"]][_addr_type].split(
                                         "/"
                                     )[
                                         0
@@ -1477,12 +1492,12 @@ def verify_bgp_convergence(tgen, topo=None, dut=None, expected=True):
                                 ):
                                     neighbor_ip = data[dest_link]["peer-interface"]
                                 else:
-                                    neighbor_ip = data[dest_link][addr_type].split("/")[
-                                        0
-                                    ]
+                                    neighbor_ip = data[dest_link][_addr_type].split(
+                                        "/"
+                                    )[0]
                                 nh_state = None
                                 neighbor_ip = neighbor_ip.lower()
-                                if addr_type == "ipv4":
+                                if _addr_type == "ipv4":
                                     ipv4_data = show_bgp_json[vrf]["ipv4Unicast"][
                                         "peers"
                                     ]
@@ -1651,7 +1666,6 @@ def modify_as_number(tgen, topo, input_dict):
 
     logger.debug("Entering lib API: {}".format(sys._getframe().f_code.co_name))
     try:
-
         new_topo = deepcopy(topo["routers"])
         router_dict = {}
         for router in input_dict.keys():
@@ -1736,7 +1750,7 @@ def verify_as_numbers(tgen, topo, input_dict, expected=True):
 
             for bgp_neighbor, peer_data in bgp_neighbors.items():
                 remote_as = input_dict[bgp_neighbor]["bgp"]["local_as"]
-                for dest_link, peer_dict in peer_data["dest_link"].items():
+                for dest_link, _ in peer_data["dest_link"].items():
                     neighbor_ip = None
                     data = topo["routers"][bgp_neighbor]["links"]
 
@@ -1819,7 +1833,7 @@ def verify_bgp_convergence_from_running_config(tgen, dut=None, expected=True):
             return errormsg
 
         for vrf, addr_family_data in show_bgp_json.items():
-            for address_family, neighborship_data in addr_family_data.items():
+            for _, neighborship_data in addr_family_data.items():
                 total_peer = 0
                 no_of_peer = 0
 
@@ -1953,7 +1967,6 @@ def clear_bgp_and_verify(tgen, topo, router, rid=None):
 
         total_peer = 0
         for addr_type in bgp_addr_type.keys():
-
             if not check_address_types(addr_type):
                 continue
 
@@ -1967,7 +1980,7 @@ def clear_bgp_and_verify(tgen, topo, router, rid=None):
             bgp_neighbors = bgp_addr_type[addr_type]["unicast"]["neighbor"]
 
             for bgp_neighbor, peer_data in bgp_neighbors.items():
-                for dest_link, peer_dict in peer_data["dest_link"].items():
+                for dest_link, _ in peer_data["dest_link"].items():
                     data = topo["routers"][bgp_neighbor]["links"]
 
                     if dest_link in data:
@@ -2022,7 +2035,6 @@ def clear_bgp_and_verify(tgen, topo, router, rid=None):
     peer_uptime_after_clear_bgp = {}
     # Verifying BGP convergence after bgp clear command
     for retry in range(50):
-
         # Waiting for BGP to converge
         logger.info(
             "Waiting for %s sec for BGP to converge on router" " %s...",
@@ -3219,7 +3231,7 @@ def verify_graceful_restart(
                 if bgp_neighbor != peer:
                     continue
 
-                for dest_link, peer_dict in peer_data["dest_link"].items():
+                for dest_link, _ in peer_data["dest_link"].items():
                     data = topo["routers"][bgp_neighbor]["links"]
 
                     if dest_link in data:
@@ -3254,31 +3266,46 @@ def verify_graceful_restart(
 
             lmode = None
             rmode = None
-            # Local GR mode
-            if "address_family" in input_dict[dut]["bgp"]:
-                bgp_neighbors = input_dict[dut]["bgp"]["address_family"][addr_type][
-                    "unicast"
-                ]["neighbor"][peer]["dest_link"]
 
-                for dest_link, data in bgp_neighbors.items():
-                    if (
-                        "graceful-restart-helper" in data
-                        and data["graceful-restart-helper"]
-                    ):
-                        lmode = "Helper"
-                    elif "graceful-restart" in data and data["graceful-restart"]:
-                        lmode = "Restart"
-                    elif (
-                        "graceful-restart-disable" in data
-                        and data["graceful-restart-disable"]
-                    ):
-                        lmode = "Disable"
-                    else:
-                        lmode = None
+            # Local GR mode
+            if "bgp" not in input_dict[dut] and "graceful-restart" in input_dict[dut]:
+                if (
+                    "graceful-restart" in input_dict[dut]["graceful-restart"]
+                    and input_dict[dut]["graceful-restart"]["graceful-restart"]
+                ):
+                    lmode = "Restart*"
+                elif (
+                    "graceful-restart-disable" in input_dict[dut]["graceful-restart"]
+                    and input_dict[dut]["graceful-restart"]["graceful-restart-disable"]
+                ):
+                    lmode = "Disable*"
+                else:
+                    lmode = "Helper*"
+
+            if lmode is None:
+                if "address_family" in input_dict[dut]["bgp"]:
+                    bgp_neighbors = input_dict[dut]["bgp"]["address_family"][addr_type][
+                        "unicast"
+                    ]["neighbor"][peer]["dest_link"]
+
+                    for dest_link, data in bgp_neighbors.items():
+                        if (
+                            "graceful-restart-helper" in data
+                            and data["graceful-restart-helper"]
+                        ):
+                            lmode = "Helper"
+                        elif "graceful-restart" in data and data["graceful-restart"]:
+                            lmode = "Restart"
+                        elif (
+                            "graceful-restart-disable" in data
+                            and data["graceful-restart-disable"]
+                        ):
+                            lmode = "Disable"
+                        else:
+                            lmode = None
 
             if lmode is None:
                 if "graceful-restart" in input_dict[dut]["bgp"]:
-
                     if (
                         "graceful-restart" in input_dict[dut]["bgp"]["graceful-restart"]
                         and input_dict[dut]["bgp"]["graceful-restart"][
@@ -3303,7 +3330,11 @@ def verify_graceful_restart(
                 return True
 
             # Remote GR mode
-            if "address_family" in input_dict[peer]["bgp"]:
+
+            if (
+                "bgp" in input_dict[peer]
+                and "address_family" in input_dict[peer]["bgp"]
+            ):
                 bgp_neighbors = input_dict[peer]["bgp"]["address_family"][addr_type][
                     "unicast"
                 ]["neighbor"][dut]["dest_link"]
@@ -3325,8 +3356,10 @@ def verify_graceful_restart(
                         rmode = None
 
             if rmode is None:
-                if "graceful-restart" in input_dict[peer]["bgp"]:
-
+                if (
+                    "bgp" in input_dict[peer]
+                    and "graceful-restart" in input_dict[peer]["bgp"]
+                ):
                     if (
                         "graceful-restart"
                         in input_dict[peer]["bgp"]["graceful-restart"]
@@ -3339,6 +3372,27 @@ def verify_graceful_restart(
                         "graceful-restart-disable"
                         in input_dict[peer]["bgp"]["graceful-restart"]
                         and input_dict[peer]["bgp"]["graceful-restart"][
+                            "graceful-restart-disable"
+                        ]
+                    ):
+                        rmode = "Disable"
+                    else:
+                        rmode = "Helper"
+
+            if rmode is None:
+                if (
+                    "bgp" not in input_dict[peer]
+                    and "graceful-restart" in input_dict[peer]
+                ):
+                    if (
+                        "graceful-restart" in input_dict[peer]["graceful-restart"]
+                        and input_dict[peer]["graceful-restart"]["graceful-restart"]
+                    ):
+                        rmode = "Restart"
+                    elif (
+                        "graceful-restart-disable"
+                        in input_dict[peer]["graceful-restart"]
+                        and input_dict[peer]["graceful-restart"][
                             "graceful-restart-disable"
                         ]
                     ):
@@ -3469,7 +3523,7 @@ def verify_r_bit(tgen, topo, addr_type, input_dict, dut, peer, expected=True):
                 if bgp_neighbor != peer:
                     continue
 
-                for dest_link, peer_dict in peer_data["dest_link"].items():
+                for dest_link, _ in peer_data["dest_link"].items():
                     data = topo["routers"][bgp_neighbor]["links"]
 
                     if dest_link in data:
@@ -3587,7 +3641,7 @@ def verify_eor(tgen, topo, addr_type, input_dict, dut, peer, expected=True):
                 if bgp_neighbor != peer:
                     continue
 
-                for dest_link, peer_dict in peer_data["dest_link"].items():
+                for dest_link, _ in peer_data["dest_link"].items():
                     data = topo["routers"][bgp_neighbor]["links"]
 
                     if dest_link in data:
@@ -3628,7 +3682,6 @@ def verify_eor(tgen, topo, addr_type, input_dict, dut, peer, expected=True):
 
             eor_json = show_bgp_graceful_json_out[afi]["endOfRibStatus"]
             if "endOfRibSend" in eor_json:
-
                 if eor_json["endOfRibSend"]:
                     logger.info(
                         "[DUT: %s]: EOR Send true for %s " "%s", dut, neighbor_ip, afi
@@ -3753,7 +3806,7 @@ def verify_f_bit(tgen, topo, addr_type, input_dict, dut, peer, expected=True):
                 if bgp_neighbor != peer:
                     continue
 
-                for dest_link, peer_dict in peer_data["dest_link"].items():
+                for dest_link, _ in peer_data["dest_link"].items():
                     data = topo["routers"][bgp_neighbor]["links"]
 
                     if dest_link in data:
@@ -3881,7 +3934,7 @@ def verify_graceful_restart_timers(tgen, topo, addr_type, input_dict, dut, peer)
                 if bgp_neighbor != peer:
                     continue
 
-                for dest_link, peer_dict in peer_data["dest_link"].items():
+                for dest_link, _ in peer_data["dest_link"].items():
                     data = topo["routers"][bgp_neighbor]["links"]
 
                     if dest_link in data:
@@ -3918,7 +3971,6 @@ def verify_graceful_restart_timers(tgen, topo, addr_type, input_dict, dut, peer)
                         "timer"
                     ].items():
                         if rs_timer == "restart-time":
-
                             receivedTimer = value
                             if (
                                 show_bgp_graceful_json_out["timers"][
@@ -4777,7 +4829,6 @@ def get_prefix_count_route(
     tgen = get_topogen()
     for router, rnode in tgen.routers().items():
         if router == dut:
-
             if vrf:
                 ipv4_cmd = "sh ip bgp vrf {} summary json".format(vrf)
                 show_bgp_json_ipv4 = run_frr_cmd(rnode, ipv4_cmd, isjson=True)
@@ -4871,7 +4922,6 @@ def verify_rib_default_route(
     connected_routes = {}
     for router, rnode in tgen.routers().items():
         if router == dut:
-
             ipv4_routes = run_frr_cmd(rnode, "sh ip bgp json", isjson=True)
             ipv6_routes = run_frr_cmd(rnode, "sh ip bgp ipv6 unicast json", isjson=True)
     is_ipv4_default_attrib_found = False

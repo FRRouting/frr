@@ -65,9 +65,9 @@ an example)
    setenv CPPFLAGS -I/usr/local/include
    ln -s /usr/local/bin/sphinx-build-3.6 /usr/local/bin/sphinx-build
    ./configure \
-       --sysconfdir=/usr/local/etc/frr \
+       --sysconfdir=/usr/local/etc \
+       --localstatedir=/var \
        --enable-pkgsrcrcdir=/usr/pkg/share/examples/rc.d \
-       --localstatedir=/var/run/frr \
        --prefix=/usr/local \
        --enable-multipath=64 \
        --enable-user=frr \

@@ -52,10 +52,7 @@ static int ospf6_abr_nssa_am_elected(struct ospf6_area *oa)
 
 	/* Verify all the router LSA to compare the router ID */
 	for (ALL_LSDB_TYPED(oa->lsdb, type, lsa)) {
-
-		router_lsa = (struct ospf6_router_lsa
-				      *)((caddr_t)lsa->header
-					 + sizeof(struct ospf6_lsa_header));
+		router_lsa = lsa_after_header(lsa->header);
 
 		/* ignore non-ABR routers */
 		if (!CHECK_FLAG(router_lsa->bits, OSPF6_ROUTER_BIT_B))
@@ -416,8 +413,7 @@ static struct ospf6_lsa *ospf6_lsa_translated_nssa_new(struct ospf6_area *area,
 	}
 
 	/* find the translated Type-5 for this Type-7 */
-	nssa = (struct ospf6_as_external_lsa *)OSPF6_LSA_HEADER_END(
-		type7->header);
+	nssa = lsa_after_header(type7->header);
 	prefix.family = AF_INET6;
 	prefix.prefixlen = nssa->prefix.prefix_length;
 	ospf6_prefix_in6_addr(&prefix.u.prefix6, nssa, &nssa->prefix);
@@ -437,12 +433,8 @@ static struct ospf6_lsa *ospf6_lsa_translated_nssa_new(struct ospf6_area *area,
 	/* prepare buffer */
 	memset(buffer, 0, sizeof(buffer));
 	lsa_header = (struct ospf6_lsa_header *)buffer;
-	extnew = (struct ospf6_as_external_lsa
-			  *)((caddr_t)lsa_header
-			     + sizeof(struct ospf6_lsa_header));
-	ext = (struct ospf6_as_external_lsa
-		       *)((caddr_t)(type7->header)
-			  + sizeof(struct ospf6_lsa_header));
+	extnew = lsa_after_header(lsa_header);
+	ext = lsa_after_header(type7->header);
 	old_ptr =
 		(caddr_t)((caddr_t)ext + sizeof(struct ospf6_as_external_lsa));
 	new_ptr = (caddr_t)((caddr_t)extnew
@@ -550,8 +542,7 @@ struct ospf6_lsa *ospf6_translated_nssa_refresh(struct ospf6_area *area,
 				"%s: try to find translated Type-5 LSA for %s",
 				__func__, type7->name);
 
-		ext_lsa = (struct ospf6_as_external_lsa *)OSPF6_LSA_HEADER_END(
-			type7->header);
+		ext_lsa = lsa_after_header(type7->header);
 		prefix.family = AF_INET6;
 		prefix.prefixlen = ext_lsa->prefix.prefix_length;
 		ospf6_prefix_in6_addr(&prefix.u.prefix6, ext_lsa,
@@ -618,8 +609,7 @@ static void ospf6_abr_translate_nssa(struct ospf6_area *area,
 	struct ospf6 *ospf6;
 
 	ospf6 = area->ospf6;
-	nssa_lsa = (struct ospf6_as_external_lsa *)OSPF6_LSA_HEADER_END(
-		lsa->header);
+	nssa_lsa = lsa_after_header(lsa->header);
 
 	if (!CHECK_FLAG(nssa_lsa->prefix.prefix_options,
 			OSPF6_PREFIX_OPTION_P)) {
@@ -1244,9 +1234,7 @@ void ospf6_nssa_lsa_originate(struct ospf6_route *route,
 	/* prepare buffer */
 	memset(buffer, 0, sizeof(buffer));
 	lsa_header = (struct ospf6_lsa_header *)buffer;
-	as_external_lsa = (struct ospf6_as_external_lsa
-				   *)((caddr_t)lsa_header
-				      + sizeof(struct ospf6_lsa_header));
+	as_external_lsa = lsa_after_header(lsa_header);
 	p = (caddr_t)((caddr_t)as_external_lsa
 		      + sizeof(struct ospf6_as_external_lsa));
 
@@ -1436,7 +1424,7 @@ DEFPY (no_area_nssa_range,
 		SET_FLAG(range->flag, OSPF6_ROUTE_REMOVE);
 
 		/* Redo summaries if required */
-		event_execute(master, ospf6_abr_task_timer, ospf6, 0);
+		event_execute(master, ospf6_abr_task_timer, ospf6, 0, NULL);
 	}
 
 	ospf6_route_remove(range, oa->nssa_range_table);

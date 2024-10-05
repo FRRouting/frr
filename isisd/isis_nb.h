@@ -121,6 +121,11 @@ int isis_instance_redistribute_ipv4_route_map_destroy(
 	struct nb_cb_destroy_args *args);
 int isis_instance_redistribute_ipv4_metric_modify(
 	struct nb_cb_modify_args *args);
+int isis_instance_redistribute_ipv4_metric_destroy(
+	struct nb_cb_destroy_args *args);
+int isis_instance_redistribute_ipv4_table_create(struct nb_cb_create_args *args);
+int isis_instance_redistribute_ipv4_table_destroy(
+	struct nb_cb_destroy_args *args);
 int isis_instance_redistribute_ipv6_create(struct nb_cb_create_args *args);
 int isis_instance_redistribute_ipv6_destroy(struct nb_cb_destroy_args *args);
 int isis_instance_redistribute_ipv6_route_map_modify(
@@ -129,6 +134,11 @@ int isis_instance_redistribute_ipv6_route_map_destroy(
 	struct nb_cb_destroy_args *args);
 int isis_instance_redistribute_ipv6_metric_modify(
 	struct nb_cb_modify_args *args);
+int isis_instance_redistribute_ipv6_metric_destroy(
+	struct nb_cb_destroy_args *args);
+int isis_instance_redistribute_ipv6_table_create(struct nb_cb_create_args *args);
+int isis_instance_redistribute_ipv6_table_destroy(
+	struct nb_cb_destroy_args *args);
 int isis_instance_multi_topology_ipv4_multicast_create(
 	struct nb_cb_create_args *args);
 int isis_instance_multi_topology_ipv4_multicast_destroy(
@@ -312,6 +322,32 @@ int isis_instance_flex_algo_affinity_mapping_value_modify(
 	struct nb_cb_modify_args *args);
 int isis_instance_flex_algo_affinity_mapping_value_destroy(
 	struct nb_cb_destroy_args *args);
+int isis_instance_segment_routing_srv6_enabled_modify(
+	struct nb_cb_modify_args *args);
+void cli_show_isis_srv6_enabled(struct vty *vty, const struct lyd_node *dnode,
+				bool show_defaults);
+int isis_instance_segment_routing_srv6_locator_modify(
+	struct nb_cb_modify_args *args);
+int isis_instance_segment_routing_srv6_locator_destroy(
+	struct nb_cb_destroy_args *args);
+void cli_show_isis_srv6_locator(struct vty *vty, const struct lyd_node *dnode,
+				bool show_defaults);
+void cli_show_isis_srv6_locator_end(struct vty *vty,
+				    const struct lyd_node *dnode);
+int isis_instance_segment_routing_srv6_msd_node_msd_max_segs_left_modify(
+	struct nb_cb_modify_args *args);
+int isis_instance_segment_routing_srv6_msd_node_msd_max_end_pop_modify(
+	struct nb_cb_modify_args *args);
+int isis_instance_segment_routing_srv6_msd_node_msd_max_h_encaps_modify(
+	struct nb_cb_modify_args *args);
+int isis_instance_segment_routing_srv6_msd_node_msd_max_end_d_modify(
+	struct nb_cb_modify_args *args);
+void cli_show_isis_srv6_node_msd(struct vty *vty, const struct lyd_node *dnode,
+				 bool show_defaults);
+int isis_instance_segment_routing_srv6_interface_modify(
+	struct nb_cb_modify_args *args);
+void cli_show_isis_srv6_interface(struct vty *vty, const struct lyd_node *dnode,
+				bool show_defaults);
 int isis_instance_mpls_ldp_sync_destroy(struct nb_cb_destroy_args *args);
 int isis_instance_mpls_ldp_sync_create(struct nb_cb_create_args *args);
 int isis_instance_mpls_ldp_sync_holddown_modify(struct nb_cb_modify_args *args);
@@ -587,6 +623,12 @@ void cli_show_isis_redistribute_ipv6(struct vty *vty,
 void cli_show_isis_mt_ipv4_multicast(struct vty *vty,
 				     const struct lyd_node *dnode,
 				     bool show_defaults);
+void cli_show_isis_redistribute_ipv4_table(struct vty *vty,
+					   const struct lyd_node *dnode,
+					   bool show_defaults);
+void cli_show_isis_redistribute_ipv6_table(struct vty *vty,
+					   const struct lyd_node *dnode,
+					   bool show_defaults);
 void cli_show_isis_mt_ipv4_mgmt(struct vty *vty, const struct lyd_node *dnode,
 				bool show_defaults);
 void cli_show_isis_mt_ipv6_unicast(struct vty *vty,
@@ -742,6 +784,9 @@ void isis_notif_seqno_skipped(const struct isis_circuit *circuit,
 			      const uint8_t *lsp_id);
 void isis_notif_own_lsp_purge(const struct isis_circuit *circuit,
 			      const uint8_t *lsp_id);
+/* cmp */
+int cli_cmp_isis_redistribute_table(const struct lyd_node *dnode1,
+				    const struct lyd_node *dnode2);
 
 /* We also declare hook for every notification */
 

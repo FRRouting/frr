@@ -49,8 +49,50 @@ lib_interface_zebra_state_down_count_get_elem(struct nb_cb_get_elem_args *args)
 struct yang_data *
 lib_interface_zebra_state_zif_type_get_elem(struct nb_cb_get_elem_args *args)
 {
-	/* TODO: implement me. */
-	return NULL;
+	const struct interface *ifp = args->list_entry;
+	struct zebra_if *zebra_if;
+	const char *type = NULL;
+
+	zebra_if = ifp->info;
+
+	/*
+	 * NOTE: when adding a new type to the switch, make sure it is defined
+	 * in it's YANG model.
+	 */
+	switch (zebra_if->zif_type) {
+	case ZEBRA_IF_OTHER:
+		type = "frr-zebra:zif-other";
+		break;
+	case ZEBRA_IF_VXLAN:
+		type = "frr-zebra:zif-vxlan";
+		break;
+	case ZEBRA_IF_VRF:
+		type = "frr-zebra:zif-vrf";
+		break;
+	case ZEBRA_IF_BRIDGE:
+		type = "frr-zebra:zif-bridge";
+		break;
+	case ZEBRA_IF_VLAN:
+		type = "frr-zebra:zif-vlan";
+		break;
+	case ZEBRA_IF_MACVLAN:
+		type = "frr-zebra:zif-macvlan";
+		break;
+	case ZEBRA_IF_VETH:
+		type = "frr-zebra:zif-veth";
+		break;
+	case ZEBRA_IF_BOND:
+		type = "frr-zebra:zif-bond";
+		break;
+	case ZEBRA_IF_GRE:
+		type = "frr-zebra:zif-gre";
+		break;
+	}
+
+	if (!type)
+		return NULL;
+
+	return yang_data_new_string(args->xpath, type);
 }
 
 /*
@@ -145,6 +187,28 @@ lib_interface_zebra_state_mcast_group_get_elem(struct nb_cb_get_elem_args *args)
 	return yang_data_new_ipv4(args->xpath, &vni->mcast_grp);
 }
 
+/*
+ * XPath: /frr-interface:lib/interface/frr-zebra:zebra/state/bond
+ */
+struct yang_data *
+lib_interface_zebra_state_bond_get_elem(struct nb_cb_get_elem_args *args)
+{
+	const struct interface *ifp = args->list_entry;
+	struct zebra_if *zebra_if;
+	struct interface *bond;
+
+	if (!IS_ZEBRA_IF_BOND_SLAVE(ifp))
+		return NULL;
+
+	zebra_if = ifp->info;
+	bond = zebra_if->bondslave_info.bond_if;
+
+	if (!bond)
+		return NULL;
+
+	return yang_data_new_string(args->xpath, bond->name);
+}
+
 const void *lib_vrf_zebra_ribs_rib_get_next(struct nb_cb_get_next_args *args)
 {
 	struct vrf *vrf = (struct vrf *)args->parent_list_entry;
@@ -156,6 +220,8 @@ const void *lib_vrf_zebra_ribs_rib_get_next(struct nb_cb_get_next_args *args)
 	safi_t safi;
 
 	zvrf = zebra_vrf_lookup_by_id(vrf->vrf_id);
+	if (!zvrf)
+		return NULL;
 
 	if (args->list_entry == NULL) {
 		afi = AFI_IP;
@@ -167,7 +233,8 @@ const void *lib_vrf_zebra_ribs_rib_get_next(struct nb_cb_get_next_args *args)
 	} else {
 		zrt = RB_NEXT(zebra_router_table_head, zrt);
 		/* vrf_id/ns_id do not match, only walk for the given VRF */
-		while (zrt && zrt->ns_id != zvrf->zns->ns_id)
+		while (zrt && (zrt->tableid != zvrf->table_id ||
+			       zrt->ns_id != zvrf->zns->ns_id))
 			zrt = RB_NEXT(zebra_router_table_head, zrt);
 	}
 
@@ -198,6 +265,8 @@ lib_vrf_zebra_ribs_rib_lookup_entry(struct nb_cb_lookup_entry_args *args)
 	uint32_t table_id = 0;
 
 	zvrf = zebra_vrf_lookup_by_id(vrf->vrf_id);
+	if (!zvrf)
+		return NULL;
 
 	yang_afi_safi_identity2value(args->keys->key[0], &afi, &safi);
 	table_id = yang_str2uint32(args->keys->key[1]);
@@ -206,6 +275,28 @@ lib_vrf_zebra_ribs_rib_lookup_entry(struct nb_cb_lookup_entry_args *args)
 		table_id = zvrf->table_id;
 
 	return zebra_router_find_zrt(zvrf, table_id, afi, safi);
+}
+
+const void *
+lib_vrf_zebra_ribs_rib_lookup_next(struct nb_cb_lookup_entry_args *args)
+{
+	struct vrf *vrf = (struct vrf *)args->parent_list_entry;
+	struct zebra_vrf *zvrf;
+	afi_t afi;
+	safi_t safi;
+	uint32_t table_id = 0;
+
+	zvrf = zebra_vrf_lookup_by_id(vrf->vrf_id);
+	if (!zvrf)
+		return NULL;
+
+	yang_afi_safi_identity2value(args->keys->key[0], &afi, &safi);
+	table_id = yang_str2uint32(args->keys->key[1]);
+	/* table_id 0 assume vrf's table_id. */
+	if (!table_id)
+		table_id = zvrf->table_id;
+
+	return zebra_router_find_next_zrt(zvrf, table_id, afi, safi);
 }
 
 /*
@@ -276,6 +367,25 @@ lib_vrf_zebra_ribs_rib_route_lookup_entry(struct nb_cb_lookup_entry_args *args)
 	yang_str2prefix(args->keys->key[0], &p);
 
 	rn = route_node_lookup(zrt->table, &p);
+
+	if (!rn)
+		return NULL;
+
+	route_unlock_node(rn);
+
+	return rn;
+}
+
+const void *
+lib_vrf_zebra_ribs_rib_route_lookup_next(struct nb_cb_lookup_entry_args *args)
+{
+	const struct zebra_router_table *zrt = args->parent_list_entry;
+	struct prefix p;
+	struct route_node *rn;
+
+	yang_str2prefix(args->keys->key[0], &p);
+
+	rn = route_table_get_next(zrt->table, &p);
 
 	if (!rn)
 		return NULL;
@@ -502,7 +612,7 @@ struct yang_data *lib_vrf_zebra_ribs_rib_route_route_entry_uptime_get_elem(
 {
 	struct route_entry *re = (struct route_entry *)args->list_entry;
 
-	return yang_data_new_date_and_time(args->xpath, re->uptime);
+	return yang_data_new_date_and_time(args->xpath, re->uptime, true);
 }
 
 /*
@@ -839,6 +949,58 @@ lib_vrf_zebra_ribs_rib_route_route_entry_nexthop_group_nexthop_color_get_elem(
 
 	return NULL;
 }
+
+/*
+ * XPath:
+ * /frr-vrf:lib/vrf/frr-zebra:zebra/ribs/rib/route/route-entry/nexthop-group/nexthop/srv6-segs-stack/entry
+ */
+const void *
+lib_vrf_zebra_ribs_rib_route_route_entry_nexthop_group_nexthop_srv6_segs_stack_entry_get_next(
+	struct nb_cb_get_next_args *args)
+{
+	/* TODO: implement me. */
+	return NULL;
+}
+
+int lib_vrf_zebra_ribs_rib_route_route_entry_nexthop_group_nexthop_srv6_segs_stack_entry_get_keys(
+	struct nb_cb_get_keys_args *args)
+{
+	/* TODO: implement me. */
+	return NB_OK;
+}
+
+const void *
+lib_vrf_zebra_ribs_rib_route_route_entry_nexthop_group_nexthop_srv6_segs_stack_entry_lookup_entry(
+	struct nb_cb_lookup_entry_args *args)
+{
+	/* TODO: implement me. */
+	return NULL;
+}
+
+/*
+ * XPath:
+ * /frr-vrf:lib/vrf/frr-zebra:zebra/ribs/rib/route/route-entry/nexthop-group/nexthop/srv6-segs-stack/entry/id
+ */
+struct yang_data *
+lib_vrf_zebra_ribs_rib_route_route_entry_nexthop_group_nexthop_srv6_segs_stack_entry_id_get_elem(
+	struct nb_cb_get_elem_args *args)
+{
+	/* TODO: implement me. */
+	return NULL;
+}
+
+/*
+ * XPath:
+ * /frr-vrf:lib/vrf/frr-zebra:zebra/ribs/rib/route/route-entry/nexthop-group/nexthop/srv6-segs-stack/entry/seg
+ */
+struct yang_data *
+lib_vrf_zebra_ribs_rib_route_route_entry_nexthop_group_nexthop_srv6_segs_stack_entry_seg_get_elem(
+	struct nb_cb_get_elem_args *args)
+{
+	/* TODO: implement me. */
+	return NULL;
+}
+
 
 /*
  * XPath:

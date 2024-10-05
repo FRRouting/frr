@@ -93,11 +93,11 @@ def test_r1_receive_and_advertise_prefix_sid_type1():
         return topotest.json_cmp(output, expected)
 
     test_func = functools.partial(_check_type1_r1, router, "3.0.0.1/32", 800001, 1)
-    success, result = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
+    _, result = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
     assert result is None, 'Failed _check_type1_r1 in "{}"'.format(router)
 
     test_func = functools.partial(_check_type1_r1, router, "3.0.0.2/32", 800002, 2)
-    success, result = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
+    _, result = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
     assert result is None, 'Failed _check_type1_r1 in "{}"'.format(router)
 
 
@@ -120,13 +120,9 @@ def exabgp_get_update_prefix(filename, afi, nexthop, prefix):
             ret = ret.get(afi)
             if ret is None:
                 continue
-            ret = ret.get(nexthop)
-            if ret is None:
-                continue
-            ret = ret.get(prefix)
-            if ret is None:
-                continue
-            return output
+            for nh in ret.get(nexthop, []):
+                if nh.get("nlri") == prefix:
+                    return output
         return "Not found"
 
 
@@ -135,34 +131,40 @@ def test_peer2_receive_prefix_sid_type1():
     peer2 = tgen.gears["peer2"]
     logfile = "{}/{}-received.log".format(peer2.gearlogdir, peer2.name)
 
-    def _check_type1_peer2(prefix, labelindex):
+    def _check_type1_peer2(prefix, label):
         output = exabgp_get_update_prefix(
             logfile, "ipv4 nlri-mpls", "10.0.0.101", prefix
         )
         expected = {
             "type": "update",
             "neighbor": {
-                "ip": "10.0.0.1",
+                "address": {
+                    "peer": "10.0.0.1",
+                },
                 "message": {
                     "update": {
-                        "attribute": {
-                            "attribute-0x28-0xE0": "0x010007000000{:08x}".format(
-                                labelindex
-                            )
+                        "announce": {
+                            "ipv4 nlri-mpls": {
+                                "10.0.0.101": [
+                                    {
+                                        "nlri": prefix,
+                                        "label": [[label]],
+                                    }
+                                ]
+                            }
                         },
-                        "announce": {"ipv4 nlri-mpls": {"10.0.0.101": {}}},
                     }
                 },
             },
         }
         return topotest.json_cmp(output, expected)
 
-    test_func = functools.partial(_check_type1_peer2, "3.0.0.1/32", labelindex=1)
-    success, result = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
+    test_func = functools.partial(_check_type1_peer2, "3.0.0.1/32", label=8001)
+    _, result = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
     assert result is None, 'Failed _check_type1_peer2 in "{}"'.format("peer2")
 
-    test_func = functools.partial(_check_type1_peer2, "3.0.0.2/32", labelindex=2)
-    success, result = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
+    test_func = functools.partial(_check_type1_peer2, "3.0.0.2/32", label=8002)
+    _, result = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
     assert result is None, 'Failed _check_type1_peer2 in "{}"'.format("peer2")
 
 

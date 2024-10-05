@@ -12,6 +12,7 @@
 #include "vector.h"
 #include "vty.h"
 
+#include "ospf6d/ospf6_proto.h" /* for struct ospf6_prefix */
 #include "ospf6d/ospf6_lsa.h"
 #include "ospf6d/ospf6_lsdb.h"
 
@@ -59,7 +60,7 @@ DEFPY(lsa_set, lsa_set_cmd,
 
 	lsa_check_resize(idx + 1);
 	if (lsas[idx])
-		ospf6_lsa_unlock(lsas[idx]);
+		ospf6_lsa_unlock(&lsas[idx]);
 	lsas[idx] = ospf6_lsa_create_headeronly(&hdr);
 	ospf6_lsa_lock(lsas[idx]);
 	return CMD_SUCCESS;
@@ -75,7 +76,7 @@ DEFPY(lsa_drop, lsa_drop_cmd,
 		return CMD_SUCCESS;
 	if (lsas[idx]->lock != 1)
 		vty_out(vty, "refcount at %u\n", lsas[idx]->lock);
-	ospf6_lsa_unlock(lsas[idx]);
+	ospf6_lsa_unlock(&lsas[idx]);
 	lsas[idx] = NULL;
 	return CMD_SUCCESS;
 }

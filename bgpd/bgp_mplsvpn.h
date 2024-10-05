@@ -13,6 +13,7 @@
 #include "bgpd/bgp_rd.h"
 #include "bgpd/bgp_zebra.h"
 #include "bgpd/bgp_vty.h"
+#include "bgpd/bgp_label.h"
 
 #define MPLS_LABEL_IS_SPECIAL(label) ((label) <= MPLS_LABEL_EXTENSION)
 #define MPLS_LABEL_IS_NULL(label)                                              \
@@ -31,6 +32,7 @@
 #define BGP_PREFIX_SID_SRV6_MAX_FUNCTION_LENGTH 20
 
 extern void bgp_mplsvpn_init(void);
+extern void bgp_mplsvpn_path_nh_label_unlink(struct bgp_path_info *pi);
 extern int bgp_nlri_parse_vpn(struct peer *, struct attr *, struct bgp_nlri *);
 extern uint32_t decode_label(mpls_label_t *);
 extern void encode_label(mpls_label_t, mpls_label_t *);
@@ -55,10 +57,17 @@ extern void vpn_leak_from_vrf_update_all(struct bgp *to_bgp,
 
 extern void vpn_leak_to_vrf_withdraw_all(struct bgp *to_bgp, afi_t afi);
 
+extern void vpn_leak_no_retain(struct bgp *to_bgp, struct bgp *vpn_from,
+			       afi_t afi);
+
 extern void vpn_leak_to_vrf_update_all(struct bgp *to_bgp, struct bgp *from_bgp,
 				       afi_t afi);
 
-extern bool vpn_leak_to_vrf_update(struct bgp *from_bgp,
+extern bool vpn_leak_to_vrf_no_retain_filter_check(struct bgp *from_bgp,
+						   struct attr *attr,
+						   afi_t afi);
+
+extern void vpn_leak_to_vrf_update(struct bgp *from_bgp,
 				   struct bgp_path_info *path_vpn,
 				   struct prefix_rd *prd);
 
@@ -104,7 +113,8 @@ static inline bool is_bgp_vrf_mplsvpn(struct bgp *bgp)
 }
 
 static inline int vpn_leak_to_vpn_active(struct bgp *bgp_vrf, afi_t afi,
-					 const char **pmsg)
+					 const char **pmsg,
+					 bool ignore_export_rt_list)
 {
 	if (bgp_vrf->inst_type != BGP_INSTANCE_TYPE_VRF
 		&& bgp_vrf->inst_type != BGP_INSTANCE_TYPE_DEFAULT) {
@@ -124,8 +134,21 @@ static inline int vpn_leak_to_vpn_active(struct bgp *bgp_vrf, afi_t afi,
 		return 0;
 	}
 
-	/* Is there an RT list set? */
-	if (!bgp_vrf->vpn_policy[afi].rtlist[BGP_VPN_POLICY_DIR_TOVPN]) {
+	/* Before performing withdrawal, VPN activation is checked; however,
+	 * when the route-map modifies the export route-target (RT) list, it
+	 * becomes challenging to determine if VPN prefixes were previously
+	 * present, or not. The 'ignore_export_rt_list' parameter will be
+	 * used to force the withdraw operation by not checking the possible
+	 * route-map changes.
+	 * Of the 'ignore_export_rt_list' is set to false, check the following:
+	 * - Is there an RT list set?
+	 * - Is there a route-map that sets RT communities
+	 */
+	if (!ignore_export_rt_list &&
+	    !bgp_vrf->vpn_policy[afi].rtlist[BGP_VPN_POLICY_DIR_TOVPN] &&
+	    (!bgp_vrf->vpn_policy[afi].rmap[BGP_VPN_POLICY_DIR_TOVPN] ||
+	     !bgp_route_map_has_extcommunity_rt(
+		     bgp_vrf->vpn_policy[afi].rmap[BGP_VPN_POLICY_DIR_TOVPN]))) {
 		if (pmsg)
 			*pmsg = "rtlist tovpn not defined";
 		return 0;
@@ -147,14 +170,23 @@ static inline int vpn_leak_to_vpn_active(struct bgp *bgp_vrf, afi_t afi,
 		return 0;
 	}
 
-	/* Is there an "auto" export label that isn't allocated yet? */
-	if (CHECK_FLAG(bgp_vrf->vpn_policy[afi].flags,
-		BGP_VPN_POLICY_TOVPN_LABEL_AUTO) &&
-		(bgp_vrf->vpn_policy[afi].tovpn_label == MPLS_LABEL_NONE)) {
-
-		if (pmsg)
-			*pmsg = "auto label not allocated";
-		return 0;
+	/* Is there a "manual" export label that isn't allocated yet? */
+	if (!CHECK_FLAG(bgp_vrf->vpn_policy[afi].flags,
+			BGP_VPN_POLICY_TOVPN_LABEL_AUTO) &&
+	    bgp_vrf->vpn_policy[afi].tovpn_label != BGP_PREVENT_VRF_2_VRF_LEAK &&
+	    bgp_vrf->vpn_policy[afi].tovpn_label != MPLS_LABEL_NONE &&
+	    (bgp_vrf->vpn_policy[afi].tovpn_label >= MPLS_LABEL_UNRESERVED_MIN &&
+	     !CHECK_FLAG(bgp_vrf->vpn_policy[afi].flags,
+			 BGP_VPN_POLICY_TOVPN_LABEL_MANUAL_REG))) {
+		if (!bgp_zebra_request_label_range(bgp_vrf->vpn_policy[afi]
+							   .tovpn_label,
+						   1, false)) {
+			if (pmsg)
+				*pmsg = "manual label could not be allocated";
+			return 0;
+		}
+		SET_FLAG(bgp_vrf->vpn_policy[afi].flags,
+			 BGP_VPN_POLICY_TOVPN_LABEL_MANUAL_REG);
 	}
 
 	return 1;
@@ -218,8 +250,7 @@ static inline void vpn_leak_prechange(enum vpn_policy_direction direction,
 		vpn_leak_to_vrf_withdraw_all(bgp_vrf, afi);
 	}
 	if ((direction == BGP_VPN_POLICY_DIR_TOVPN) &&
-		vpn_leak_to_vpn_active(bgp_vrf, afi, NULL)) {
-
+	    vpn_leak_to_vpn_active(bgp_vrf, afi, NULL, true)) {
 		vpn_leak_from_vrf_withdraw_all(bgp_vpn, bgp_vrf, afi);
 	}
 }
@@ -237,8 +268,7 @@ static inline void vpn_leak_postchange(enum vpn_policy_direction direction,
 		if (!CHECK_FLAG(bgp_vpn->af_flags[afi][SAFI_MPLS_VPN],
 				BGP_VPNVX_RETAIN_ROUTE_TARGET_ALL))
 			bgp_clear_soft_in(bgp_vpn, afi, SAFI_MPLS_VPN);
-		else
-			vpn_leak_to_vrf_update_all(bgp_vrf, bgp_vpn, afi);
+		vpn_leak_to_vrf_update_all(bgp_vrf, bgp_vpn, afi);
 	}
 	if (direction == BGP_VPN_POLICY_DIR_TOVPN) {
 
@@ -290,12 +320,11 @@ static inline bool is_route_injectable_into_vpn(struct bgp_path_info *pi)
 	struct bgp_table *table;
 	struct bgp_dest *dest;
 
-	if (pi->sub_type != BGP_ROUTE_IMPORTED ||
-	    !pi->extra ||
-	    !pi->extra->parent)
+	if (pi->sub_type != BGP_ROUTE_IMPORTED || !pi->extra ||
+	    !pi->extra->vrfleak || !pi->extra->vrfleak->parent)
 		return true;
 
-	parent_pi = (struct bgp_path_info *)pi->extra->parent;
+	parent_pi = (struct bgp_path_info *)pi->extra->vrfleak->parent;
 	dest = parent_pi->net;
 	if (!dest)
 		return true;
@@ -323,5 +352,75 @@ extern void vpn_handle_router_id_update(struct bgp *bgp, bool withdraw,
 					bool is_config);
 extern void bgp_vpn_leak_unimport(struct bgp *from_bgp);
 extern void bgp_vpn_leak_export(struct bgp *from_bgp);
+
+extern bool bgp_mplsvpn_path_uses_valid_mpls_label(struct bgp_path_info *pi);
+extern int
+bgp_mplsvpn_nh_label_bind_cmp(const struct bgp_mplsvpn_nh_label_bind_cache *a,
+			      const struct bgp_mplsvpn_nh_label_bind_cache *b);
+extern void bgp_mplsvpn_path_nh_label_bind_unlink(struct bgp_path_info *pi);
+extern void bgp_mplsvpn_nh_label_bind_register_local_label(
+	struct bgp *bgp, struct bgp_dest *dest, struct bgp_path_info *pi);
+mpls_label_t bgp_mplsvpn_nh_label_bind_get_label(struct bgp_path_info *pi);
+
+/* used to bind a local label to the (label, nexthop) values
+ * from an incoming BGP mplsvpn update
+ */
+struct bgp_mplsvpn_nh_label_bind_cache {
+
+	/* RB-tree entry. */
+	struct bgp_mplsvpn_nh_label_bind_cache_item entry;
+
+	/* The nexthop and the vpn label are the key of the list.
+	 * Only received BGP MPLSVPN updates may use that structure.
+	 * orig_label is the original label received from the BGP Update.
+	 */
+	struct prefix nexthop;
+	mpls_label_t orig_label;
+
+	/* resolved interface for the paths */
+	struct nexthop *nh;
+
+	/* number of mplsvpn path */
+	unsigned int path_count;
+
+	/* back pointer to bgp instance */
+	struct bgp *bgp_vpn;
+
+	/* MPLS label allocated value.
+	 * When the next-hop is changed because of 'next-hop-self' or
+	 * because it is an eBGP peer, the redistributed orig_label value
+	 * is unmodified, unless the 'l3vpn-multi-domain-switching'
+	 * is enabled: a new_label value is allocated:
+	 * - The new_label value is sent in the advertised BGP update,
+	 * instead of the label value.
+	 * - An MPLS entry is set to swap <new_label> with <orig_label>.
+	 */
+	mpls_label_t new_label;
+
+	/* list of path_vrfs using it */
+	LIST_HEAD(mplsvpn_nh_label_bind_path_lists, bgp_path_info) paths;
+
+	time_t last_update;
+
+	bool allocation_in_progress;
+};
+
+DECLARE_RBTREE_UNIQ(bgp_mplsvpn_nh_label_bind_cache,
+		    struct bgp_mplsvpn_nh_label_bind_cache, entry,
+		    bgp_mplsvpn_nh_label_bind_cmp);
+
+void bgp_mplsvpn_nh_label_bind_free(
+	struct bgp_mplsvpn_nh_label_bind_cache *bmnc);
+
+struct bgp_mplsvpn_nh_label_bind_cache *
+bgp_mplsvpn_nh_label_bind_new(struct bgp_mplsvpn_nh_label_bind_cache_head *tree,
+			      struct prefix *p, mpls_label_t orig_label);
+struct bgp_mplsvpn_nh_label_bind_cache *bgp_mplsvpn_nh_label_bind_find(
+	struct bgp_mplsvpn_nh_label_bind_cache_head *tree, struct prefix *p,
+	mpls_label_t orig_label);
+void bgp_mplsvpn_nexthop_init(void);
+extern void sid_register(struct bgp *bgp, const struct in6_addr *sid,
+			 const char *locator_name);
+extern void sid_unregister(struct bgp *bgp, const struct in6_addr *sid);
 
 #endif /* _QUAGGA_BGP_MPLSVPN_H */

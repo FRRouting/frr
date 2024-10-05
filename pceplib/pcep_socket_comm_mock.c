@@ -115,7 +115,7 @@ bool initialize_socket_comm_external_infra(
 	return true;
 }
 
-bool destroy_socket_comm_loop()
+bool destroy_socket_comm_loop(void)
 {
 	mock_socket_metadata.destroy_socket_comm_loop_times_called++;
 

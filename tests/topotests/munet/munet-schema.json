@@ -93,11 +93,23 @@
           "image": {
             "type": "string"
           },
+          "hostnet": {
+            "type": "boolean"
+          },
           "server": {
             "type": "string"
           },
           "server-port": {
             "type": "number"
+          },
+          "ssh-identity-file": {
+            "type": "string"
+          },
+          "ssh-user": {
+            "type": "string"
+          },
+          "ssh-password": {
+            "type": "string"
           },
           "qemu": {
             "type": "object",
@@ -106,6 +118,15 @@
                 "type": "string"
               },
               "disk": {
+                "type": "string"
+              },
+              "disk-driver": {
+                "type": "string"
+              },
+              "disk-template": {
+                "type": "string"
+              },
+              "initial-cmd": {
                 "type": "string"
               },
               "kerenel": {
@@ -139,6 +160,9 @@
                     "type": "string"
                   },
                   "password": {
+                    "type": "string"
+                  },
+                  "initial-password": {
                     "type": "string"
                   },
                   "expects": {
@@ -362,6 +386,9 @@
               },
               "ipv6": {
                 "type": "string"
+              },
+              "external": {
+                "type": "boolean"
               }
             }
           }
@@ -401,11 +428,23 @@
               "image": {
                 "type": "string"
               },
+              "hostnet": {
+                "type": "boolean"
+              },
               "server": {
                 "type": "string"
               },
               "server-port": {
                 "type": "number"
+              },
+              "ssh-identity-file": {
+                "type": "string"
+              },
+              "ssh-user": {
+                "type": "string"
+              },
+              "ssh-password": {
+                "type": "string"
               },
               "qemu": {
                 "type": "object",
@@ -414,6 +453,15 @@
                     "type": "string"
                   },
                   "disk": {
+                    "type": "string"
+                  },
+                  "disk-driver": {
+                    "type": "string"
+                  },
+                  "disk-template": {
+                    "type": "string"
+                  },
+                  "initial-cmd": {
                     "type": "string"
                   },
                   "kerenel": {
@@ -447,6 +495,9 @@
                         "type": "string"
                       },
                       "password": {
+                        "type": "string"
+                      },
+                      "initial-password": {
                         "type": "string"
                       },
                       "expects": {

@@ -4,8 +4,12 @@
  */
 
 #include <zebra.h>
+#include <sys/stat.h>
 
 #ifdef HAVE_NETLINK
+
+#include <linux/netlink.h>
+#include <linux/rtnetlink.h>
 
 #include "zebra/debug.h"
 #include "zebra/rt.h"

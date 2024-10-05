@@ -5,6 +5,7 @@
 
 #include "zebra.h"
 
+#include <fcntl.h>
 #include <sys/un.h>
 #include <syslog.h>
 

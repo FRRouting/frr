@@ -7,19 +7,22 @@
  */
 
 #include <zebra.h>
+#include "debug.h"
 #include "mgmtd/mgmt.h"
-#include "mgmtd/mgmt_be_server.h"
 #include "mgmtd/mgmt_be_adapter.h"
-#include "mgmtd/mgmt_fe_server.h"
-#include "mgmtd/mgmt_fe_adapter.h"
 #include "mgmtd/mgmt_ds.h"
+#include "mgmtd/mgmt_fe_adapter.h"
 #include "mgmtd/mgmt_history.h"
 #include "mgmtd/mgmt_memory.h"
 
-bool mgmt_debug_be;
-bool mgmt_debug_fe;
-bool mgmt_debug_ds;
-bool mgmt_debug_txn;
+struct debug mgmt_debug_be = { .conf = "debug mgmt backend",
+			       .desc = "Management backend adapter" };
+struct debug mgmt_debug_ds = { .conf = "debug mgmt datastore",
+			       .desc = "Management datastore" };
+struct debug mgmt_debug_fe = { .conf = "debug mgmt frontend",
+			       .desc = "Management frontend adapter" };
+struct debug mgmt_debug_txn = { .conf = "debug mgmt transaction",
+				.desc = "Management transaction" };
 
 /* MGMTD process wide configuration.  */
 static struct mgmt_master mgmt_master;
@@ -40,12 +43,10 @@ void mgmt_master_init(struct event_loop *master, const int buffer_size)
 
 void mgmt_init(void)
 {
-
-	/*
-	 * Allocates some vital data structures used by peer commands in
-	 * vty_init
-	 */
-	vty_init_mgmt_fe();
+	debug_install(&mgmt_debug_be);
+	debug_install(&mgmt_debug_ds);
+	debug_install(&mgmt_debug_fe);
+	debug_install(&mgmt_debug_txn);
 
 	/* Initialize datastores */
 	mgmt_ds_init(mm);
@@ -56,27 +57,39 @@ void mgmt_init(void)
 	/* Initialize MGMTD Transaction module */
 	mgmt_txn_init(mm, mm->master);
 
-	/* Initialize the MGMTD Backend Adapter Module */
-	mgmt_be_adapter_init(mm->master);
+	/* Add yang-library module */
+	yang_module_load("ietf-yang-library", NULL);
 
 	/* Initialize the MGMTD Frontend Adapter Module */
-	mgmt_fe_adapter_init(mm->master, mm);
+	mgmt_fe_adapter_init(mm->master);
 
-	/* Start the MGMTD Backend Server for clients to connect */
-	mgmt_be_server_init(mm->master);
+	/*
+	 * Initialize the CLI frontend client -- this queues an event for the
+	 * client to short-circuit connect to the server (ourselves).
+	 */
+	vty_init_mgmt_fe();
 
-	/* Start the MGMTD Frontend Server for clients to connect */
-	mgmt_fe_server_init(mm->master);
-
-	/* MGMTD VTY commands installation. */
+	/*
+	 * MGMTD VTY commands installation -- the frr lib code will queue an
+	 * event to read the config files which needs to happen after the
+	 * connect from above is made.
+	 */
 	mgmt_vty_init();
+
+	/*
+	 * Initialize the MGMTD Backend Adapter Module
+	 *
+	 * We do this after the FE stuff so that we have read our config file
+	 * prior to any BE connection. Setting up the server will queue a
+	 * "socket read" event to accept BE connections. So the code is counting
+	 * on the above 2 events to run prior to any `accept` event from here.
+	 */
+	mgmt_be_adapter_init(mm->master);
 }
 
 void mgmt_terminate(void)
 {
-	mgmt_fe_server_destroy();
 	mgmt_fe_adapter_destroy();
-	mgmt_be_server_destroy();
 	mgmt_be_adapter_destroy();
 	mgmt_txn_destroy();
 	mgmt_history_destroy();

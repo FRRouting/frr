@@ -23,7 +23,7 @@ sys.path.append(os.path.join(CWD, "../../"))
 
 
 from lib import topotest
-from lib.topogen import Topogen, TopoRouter, get_topogen
+from lib.topogen import Topogen, get_topogen
 
 from lib.common_config import (
     write_test_header,

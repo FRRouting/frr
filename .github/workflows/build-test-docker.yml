@@ -1,0 +1,163 @@
+name: build-test
+
+on:
+  pull_request:
+  push:
+    branches:
+      - 'master'
+      - 'stable/**'
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  build-docker:
+    name: Build the ubuntu 22.04 docker image
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+      - name: Build docker image
+        run: |
+          docker build -t frr-ubuntu22 -f docker/ubuntu-ci/Dockerfile .
+          docker save --output /tmp/frr-ubuntu22.tar frr-ubuntu22
+      - name: Upload docker image artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ubuntu-image
+          path: /tmp/frr-ubuntu22.tar
+      - name: Clear any previous results
+        # So if all jobs are re-run then all tests will be re-run
+        run: |
+          rm -rf test-results*
+          mkdir -p test-results
+          touch test-results/cleared-results.txt
+      - name: Save cleared previous results
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: test-results
+          overwrite: true
+      - name: Cleanup
+        if: ${{ always() }}
+        run: rm -rf test-results* /tmp/frr-ubuntu22.tar
+
+  test-docker:
+    name: Test ubuntu docker image
+    needs: build-docker
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+      - name: Fetch docker image artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: ubuntu-image
+          path: /tmp
+      - name: Fetch previous results
+        if: ${{ github.run_attempt > 1 }}
+        uses: actions/download-artifact@v4
+        with:
+          name: test-results
+          path: test-results
+      - name: Run topotests
+        run: |
+          uname -a
+          MODPKGVER=$(uname -r)
+          sudo apt-get update -y
+          # Github is running old kernels but installing newer packages :(
+          sudo apt-get install -y linux-modules-extra-azure linux-modules-${MODPKGVER} linux-modules-extra-${MODPKGVER} python3-xmltodict
+          sudo modprobe vrf || true
+          sudo modprobe mpls-iptunnel
+          sudo modprobe mpls-router
+          docker load --input /tmp/frr-ubuntu22.tar
+
+          if ! grep CONFIG_IP_MROUTE_MULTIPLE_TABLES=y /boot/config*; then
+            ADD_DOCKER_ENV+="-e MROUTE_VRF_MISSING=1"
+          fi
+          echo "ADD_DOCKER_ENV: ${ADD_DOCKER_ENV}"
+
+          if [ -f test-results/topotests.xml ]; then
+            ./tests/topotests/analyze.py -r test-results
+            ls -l test-results/topotests.xml
+            run_tests=$(./tests/topotests/analyze.py -r test-results | cut -f1 -d: | sort -u)
+          else
+            echo "No test results dir"
+            run_tests=""
+          fi
+          rm -rf test-results* /tmp/topotests
+
+          echo RUN_TESTS: $run_tests
+          if docker run --init -i --privileged --name frr-ubuntu-cont ${ADD_DOCKER_ENV} -v /lib/modules:/lib/modules frr-ubuntu22 \
+            bash -c 'cd ~/frr/tests/topotests ; sudo -E pytest -n$(($(nproc) * 5 / 2)) --dist=loadfile '$run_tests; then
+            echo "All tests passed."
+            exit 0
+          fi
+
+          # Grab the results from the container
+          if ! ./tests/topotests/analyze.py -Ar test-results -C frr-ubuntu-cont; then
+            if [ ! -d test-results ]; then
+              echo "ERROR: Basic failure in docker run, no test results directory available." >&2
+              exit 1;
+            fi
+            if [ ! -f test-results/topotests.xml ]; then
+            # In this case we may be missing topotests.xml
+              echo "ERROR: No topotests.xml available perhaps docker run aborted?" >&2
+              exit 1;
+            fi
+            echo "WARNING: analyyze.py returned error but grabbed results anyway." >&2
+          fi
+
+          # Save some information useful for debugging
+          cp /boot/config* test-results/
+          sysctl -a > test-results/sysctl.out 2> /dev/null
+
+          # Now get the failed tests (if any) from the archived results directory.
+          rerun_tests=$(./tests/topotests/analyze.py -r test-results | cut -f1 -d: | sort -u)
+          if [ -z "$rerun_tests" ]; then
+            echo "All tests passed during parallel run."
+            exit 0
+          fi
+
+          echo "ERROR: Some tests failed during parallel run, rerunning serially." >&2
+          echo RERUN_TESTS: $rerun_tests >&2
+          docker stop frr-ubuntu-cont
+          docker rm frr-ubuntu-cont
+
+          mv test-results test-results-initial
+          if docker run --init -i --privileged --name frr-ubuntu-cont ${ADD_DOCKER_ENV} -v /lib/modules:/lib/modules frr-ubuntu22 \
+            bash -c 'cd ~/frr/tests/topotests ; sudo -E pytest '$rerun_tests; then
+            echo "All rerun tests passed."
+            exit 0
+          fi
+          echo "Some rerun tests still failed."
+          exit 1
+      - name: Gather results
+        if: ${{ always() }}
+        run: |
+          if [ ! -d test-results ]; then
+            if ! ./tests/topotests/analyze.py -Ar test-results -C frr-ubuntu-cont; then
+              echo "ERROR: gathering results produced an error, perhaps due earlier run cancellation." >&2
+            fi
+          fi
+      - name: Upload test results
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: |
+            test-results
+            test-results-initial
+          overwrite: true
+      - name: Cleanup
+        if: ${{ always() }}
+        run: |
+          rm -rf test-results* /tmp/frr-ubuntu22.tar
+          docker stop frr-ubuntu-cont || true
+          docker rm frr-ubuntu-cont || true
+

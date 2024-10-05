@@ -302,7 +302,6 @@ def __create_ospf_global(tgen, input_dict, router, build, load_config, ospf):
     # ospf gr information
     gr_data = ospf_data.setdefault("graceful-restart", {})
     if gr_data:
-
         if "opaque" in gr_data and gr_data["opaque"]:
             cmd = "capability opaque"
             if gr_data.setdefault("delete", False):
@@ -338,6 +337,7 @@ def __create_ospf_global(tgen, input_dict, router, build, load_config, ospf):
                 cmd = "no {}".format(cmd)
             config_data.append(cmd)
 
+    config_data.append("exit")
     logger.debug("Exiting lib API: create_ospf_global()")
 
     return config_data
@@ -426,6 +426,10 @@ def config_ospf_interface(
                     cmd = "ip ospf authentication null"
                 elif data_ospf_auth == "message-digest":
                     cmd = "ip ospf authentication message-digest"
+                elif data_ospf_auth == "key-chain":
+                    cmd = "ip ospf authentication key-chain {}".format(
+                        ospf_data["keychain"]
+                    )
                 else:
                     cmd = "ip ospf authentication"
 
@@ -710,6 +714,7 @@ def verify_ospf_neighbor(
                 else:
                     data_ip = topo["routers"][ospf_nbr]["links"]
                     data_rid = topo["routers"][ospf_nbr]["ospf"]["router_id"]
+                logger.info("ospf neighbor %s:   router-id: %s", router, data_rid)
                 if ospf_nbr in data_ip:
                     nbr_details = nbr_data[ospf_nbr]
                 elif lan:
@@ -728,8 +733,10 @@ def verify_ospf_neighbor(
                 try:
                     nh_state = show_ospf_json[nbr_rid][0]["nbrState"].split("/")[0]
                 except KeyError:
-                    errormsg = "[DUT: {}] OSPF peer {} missing,from " "{} ".format(
-                        router, nbr_rid, ospf_nbr
+                    errormsg = (
+                        "[DUT: {}] missing OSPF neighbor {} with router-id {}".format(
+                            router, ospf_nbr, nbr_rid
+                        )
                     )
                     return errormsg
 
@@ -843,7 +850,6 @@ def verify_ospf6_neighbor(tgen, topo=None, dut=None, input_dict=None, lan=False)
                     return errormsg
 
             for ospf_nbr, nbr_data in ospf_nbr_list.items():
-
                 try:
                     data_ip = data_rid = topo["routers"][ospf_nbr]["ospf6"]["router_id"]
                 except KeyError:
@@ -914,7 +920,6 @@ def verify_ospf6_neighbor(tgen, topo=None, dut=None, input_dict=None, lan=False)
                         return errormsg
                 continue
     else:
-
         for router, rnode in tgen.routers().items():
             if "ospf6" not in topo["routers"][router]:
                 continue
@@ -945,7 +950,7 @@ def verify_ospf6_neighbor(tgen, topo=None, dut=None, input_dict=None, lan=False)
                     data_ip = data_rid = topo["routers"][nbr_data["nbr"]]["ospf6"][
                         "router_id"
                     ]
-
+                logger.info("ospf neighbor %s:   router-id: %s", ospf_nbr, data_rid)
                 if ospf_nbr in data_ip:
                     nbr_details = nbr_data[ospf_nbr]
                 elif lan:
@@ -968,8 +973,10 @@ def verify_ospf6_neighbor(tgen, topo=None, dut=None, input_dict=None, lan=False)
                     nh_state = get_index_val.get(neighbor_ip)["state"]
                     intf_state = get_index_val.get(neighbor_ip)["ifState"]
                 except TypeError:
-                    errormsg = "[DUT: {}] OSPF peer {} missing,from " "{} ".format(
-                        router, nbr_rid, ospf_nbr
+                    errormsg = (
+                        "[DUT: {}] missing OSPF neighbor {} with router-id {}".format(
+                            router, ospf_nbr, nbr_rid
+                        )
                     )
                     return errormsg
 
@@ -1538,7 +1545,7 @@ def verify_ospf_database(
                             )
                             return errormsg
     if ospf_external_lsa:
-        for ospf_ext_lsa, ext_lsa_data in ospf_external_lsa.items():
+        for ospf_ext_lsa, _ in ospf_external_lsa.items():
             if ospf_ext_lsa in show_ospf_json["AS External Link States"]:
                 logger.info(
                     "[DUT: %s]  OSPF LSDB:External LSA %s", router, ospf_ext_lsa
@@ -1761,7 +1768,6 @@ def verify_ospf6_rib(
                             continue
 
                         if st_rt in ospf_rib_json:
-
                             st_found = True
                             found_routes.append(st_rt)
 
@@ -2503,7 +2509,7 @@ def verify_ospf_gr_helper(tgen, topo, dut, input_dict=None):
         raise ValueError(errormsg)
         return errormsg
 
-    for ospf_gr, gr_data in input_dict.items():
+    for ospf_gr, _ in input_dict.items():
         try:
             if input_dict[ospf_gr] == show_ospf_json[ospf_gr]:
                 logger.info(

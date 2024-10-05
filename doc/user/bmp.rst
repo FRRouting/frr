@@ -23,6 +23,8 @@ The `BMP` implementation in FRR has the following properties:
   - 3: count of **prefixes** with loop in cluster id
   - 4: count of **prefixes** with loop in AS-path
   - 5: count of **prefixes** with loop in originator
+  - 7: count of **routes** in adj-rib-in
+  - 8: count of **routes** in Loc-RIB
   - 11: count of updates subjected to :rfc:`7607` "treat as withdrawal"
     handling due to errors
   - 65531: *experimental* count of prefixes rejected due to invalid next-hop
@@ -36,8 +38,8 @@ The `BMP` implementation in FRR has the following properties:
   successfully.  OPEN messages for failed sessions cannot currently be
   mirrored.
 
-- **route monitoring** is available for IPv4 and IPv6 AFIs, unicast and
-  multicast SAFIs.  Other SAFIs (VPN, Labeled-Unicast, Flowspec, etc.) are not
+- **route monitoring** is available for IPv4 and IPv6 AFIs, unicast, multicast,
+  EVPN and VPN SAFIs. Other SAFIs (VPN, Labeled-Unicast, Flowspec, etc.) are not
   currently supported.
 
 - monitoring peers that have BGP **add-path** enabled on the session will
@@ -146,10 +148,15 @@ associated with a particular ``bmp targets``:
    Send BMP Statistics (counter) messages at the specified interval (in
    milliseconds.)
 
-.. clicmd:: bmp monitor AFI SAFI <pre-policy|post-policy>
+.. clicmd:: bmp stats send-experimental
+
+   Send BMP Statistics (counter) messages whose code is defined as
+   experimental (in the [65531-65534] range).
+
+.. clicmd:: bmp monitor AFI SAFI <pre-policy|post-policy|loc-rib>
 
    Perform Route Monitoring for the specified AFI and SAFI.  Only IPv4 and
-   IPv6 are currently valid for AFI. SAFI valid values are currently 
+   IPv6 are currently valid for AFI. SAFI valid values are currently
    unicast, multicast, evpn and vpn.
    Other AFI/SAFI combinations may be added in the future.
 

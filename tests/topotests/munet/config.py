@@ -191,17 +191,18 @@ class ConfigOptionsProxy:
         else:
             self.option = ConfigOptionsProxy.DefNoneObject()
 
-    def getoption(self, opt, defval=None):
+    def getoption(self, opt, default=None):
         if not self.config:
-            return defval
+            return default
 
         try:
-            return self.config.getoption(opt, default=defval)
+            value = self.config.getoption(opt)
+            return value if value is not None else default
         except ValueError:
-            return defval
+            return default
 
-    def get_option(self, opt, defval=None):
-        return self.getoption(opt, defval)
+    def get_option(self, opt, default=None):
+        return self.getoption(opt, default)
 
     def get_option_list(self, opt):
         value = self.get_option(opt, "")

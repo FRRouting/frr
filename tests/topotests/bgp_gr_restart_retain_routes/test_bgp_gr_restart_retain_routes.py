@@ -21,7 +21,7 @@ sys.path.append(os.path.join(CWD, "../"))
 
 # pylint: disable=C0413
 from lib import topotest
-from lib.topogen import Topogen, TopoRouter, get_topogen
+from lib.topogen import Topogen, get_topogen
 from lib.common_config import step, stop_router
 
 pytestmark = [pytest.mark.bgpd]
@@ -42,13 +42,8 @@ def setup_module(mod):
 
     router_list = tgen.routers()
 
-    for i, (rname, router) in enumerate(router_list.items(), 1):
-        router.load_config(
-            TopoRouter.RD_ZEBRA, os.path.join(CWD, "{}/zebra.conf".format(rname))
-        )
-        router.load_config(
-            TopoRouter.RD_BGP, os.path.join(CWD, "{}/bgpd.conf".format(rname))
-        )
+    for _, (rname, router) in enumerate(router_list.items(), 1):
+        router.load_frr_config(os.path.join(CWD, "{}/frr.conf".format(rname)))
 
     tgen.start_router()
 
@@ -83,8 +78,10 @@ def test_bgp_gr_restart_retain_routes():
         return topotest.json_cmp(output, expected)
 
     def _bgp_check_kernel_retained_routes():
-        output = json.loads(r2.cmd("ip -j route show 172.16.255.1/32 proto bgp dev r2-eth0"))
-        expected = [{"dst":"172.16.255.1","gateway":"192.168.255.1","metric":20}]
+        output = json.loads(
+            r2.cmd("ip -j route show 172.16.255.1/32 proto bgp dev r2-eth0")
+        )
+        expected = [{"dst": "172.16.255.1", "gateway": "192.168.255.1", "metric": 20}]
         return topotest.json_cmp(output, expected)
 
     step("Initial BGP converge")
@@ -101,7 +98,9 @@ def test_bgp_gr_restart_retain_routes():
     assert result is None, "Failed to see BGP retained routes on R2"
 
     step("Check if routes (Kernel) are retained at R2")
-    assert _bgp_check_kernel_retained_routes() is None, "Failed to retain BGP routes in kernel on R2"
+    assert (
+        _bgp_check_kernel_retained_routes() is None
+    ), "Failed to retain BGP routes in kernel on R2"
 
 
 if __name__ == "__main__":

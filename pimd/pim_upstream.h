@@ -331,8 +331,7 @@ int pim_upstream_is_sg_rpt(struct pim_upstream *up);
 void pim_upstream_set_sptbit(struct pim_upstream *up,
 			     struct interface *incoming);
 
-void pim_upstream_start_register_stop_timer(struct pim_upstream *up,
-					    int null_register);
+void pim_upstream_start_register_probe_timer(struct pim_upstream *up);
 
 void pim_upstream_send_join(struct pim_upstream *up);
 
@@ -383,4 +382,6 @@ uint32_t pim_up_mlag_local_cost(struct pim_upstream *up);
 uint32_t pim_up_mlag_peer_cost(struct pim_upstream *up);
 void pim_upstream_reeval_use_rpt(struct pim_instance *pim);
 int pim_upstream_could_register(struct pim_upstream *up);
+bool pim_sg_is_reevaluate_oil_req(struct pim_instance *pim,
+				  struct pim_upstream *up);
 #endif /* PIM_UPSTREAM_H */

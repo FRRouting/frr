@@ -10,13 +10,12 @@
 #include "sockunion.h"
 #include "lib_errors.h"
 
-#if (defined(__FreeBSD__)                                                      \
-     && ((__FreeBSD_version >= 500022 && __FreeBSD_version < 700000)           \
-	 || (__FreeBSD_version < 500000 && __FreeBSD_version >= 440000)))      \
-	|| (defined(__NetBSD__) && defined(__NetBSD_Version__)                 \
-	    && __NetBSD_Version__ >= 106010000)                                \
-	|| defined(__OpenBSD__) || defined(__APPLE__)                          \
-	|| defined(__DragonFly__) || defined(__sun)
+#if (defined(__FreeBSD__) &&                                                   \
+     ((__FreeBSD_version >= 500022 && __FreeBSD_version < 700000) ||           \
+      (__FreeBSD_version < 500000 && __FreeBSD_version >= 440000))) ||         \
+	(defined(__NetBSD__) && defined(__NetBSD_Version__) &&                 \
+	 __NetBSD_Version__ >= 106010000) ||                                   \
+	defined(__OpenBSD__) || defined(__DragonFly__) || defined(__sun)
 #define HAVE_BSD_STRUCT_IP_MREQ_HACK
 #endif
 
@@ -24,9 +23,12 @@ void setsockopt_so_recvbuf(int sock, int size)
 {
 	int orig_req = size;
 
-	while (setsockopt(sock, SOL_SOCKET, SO_RCVBUF, &size, sizeof(size))
-	       == -1)
+	while (setsockopt(sock, SOL_SOCKET, SO_RCVBUF, &size, sizeof(size)) ==
+	       -1) {
+		if (size == 0)
+			break;
 		size /= 2;
+	}
 
 	if (size != orig_req)
 		flog_err(EC_LIB_SOCKET,
@@ -38,9 +40,12 @@ void setsockopt_so_sendbuf(const int sock, int size)
 {
 	int orig_req = size;
 
-	while (setsockopt(sock, SOL_SOCKET, SO_SNDBUF, &size, sizeof(size))
-	       == -1)
+	while (setsockopt(sock, SOL_SOCKET, SO_SNDBUF, &size, sizeof(size)) ==
+	       -1) {
+		if (size == 0)
+			break;
 		size /= 2;
+	}
 
 	if (size != orig_req)
 		flog_err(EC_LIB_SOCKET,
@@ -666,6 +671,9 @@ int sockopt_tcp_mss_get(int sock)
 	int ret = 0;
 	int tcp_maxseg = 0;
 	socklen_t tcp_maxseg_len = sizeof(tcp_maxseg);
+
+	if (sock < 0)
+		return 0;
 
 	ret = getsockopt(sock, IPPROTO_TCP, TCP_MAXSEG, &tcp_maxseg,
 			 &tcp_maxseg_len);

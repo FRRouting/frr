@@ -511,8 +511,8 @@ static int bgp_init_snmp_stats(struct bgp *bgp)
 {
 	if (is_bgp_vrf_mplsvpn(bgp)) {
 		if (bgp->snmp_stats == NULL) {
-			bgp->snmp_stats = XCALLOC(
-				MTYPE_BGP, sizeof(struct bgp_snmp_stats));
+			bgp->snmp_stats = XCALLOC(MTYPE_BGP_NAME,
+						  sizeof(struct bgp_snmp_stats));
 			/* fix up added routes */
 			if (bgp->snmp_stats) {
 				bgp->snmp_stats->routes_added =
@@ -523,7 +523,7 @@ static int bgp_init_snmp_stats(struct bgp *bgp)
 		}
 	} else {
 		if (bgp->snmp_stats) {
-			XFREE(MTYPE_BGP, bgp->snmp_stats);
+			XFREE(MTYPE_BGP_NAME, bgp->snmp_stats);
 			bgp->snmp_stats = NULL;
 		}
 	}
@@ -589,6 +589,11 @@ static int bgp_vrf_check_update_active(struct bgp *bgp, struct interface *ifp)
 	if (bgp->snmp_stats->active != new_active) {
 		/* add trap in here */
 		bgp->snmp_stats->active = new_active;
+
+		if (!CHECK_FLAG(bm->options, BGP_OPT_TRAPS_RFC4382)) {
+			bgp_mpls_l3vpn_update_last_changed(bgp);
+			return 0;
+		}
 
 		/* send relevent trap */
 		if (bgp->snmp_stats->active)

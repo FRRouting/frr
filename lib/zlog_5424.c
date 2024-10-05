@@ -13,6 +13,9 @@
  */
 
 #include "zebra.h"
+#include <fcntl.h>
+
+#include "frrsendmmsg.h"
 
 #include "zlog_5424.h"
 
@@ -877,10 +880,15 @@ static int zlog_5424_open(struct zlog_cfg_5424 *zcf, int sock_type)
 
 	switch (zcf->dst) {
 	case ZLOG_5424_DST_NONE:
-		break;
+		return -1;
 
 	case ZLOG_5424_DST_FD:
 		fd = dup(zcf->fd);
+		if (fd < 0) {
+			flog_err_sys(EC_LIB_SYSTEM_CALL,
+				     "failed to dup() log file descriptor: %m (FD limit too low?)");
+			return -1;
+		}
 
 		optlen = sizeof(sock_type);
 		if (!getsockopt(fd, SOL_SOCKET, SO_TYPE, &sock_type, &optlen)) {
@@ -891,7 +899,7 @@ static int zlog_5424_open(struct zlog_cfg_5424 *zcf, int sock_type)
 
 	case ZLOG_5424_DST_FIFO:
 		if (!zcf->filename)
-			break;
+			return -1;
 
 		if (!zcf->file_nocreate) {
 			frr_with_privs (lib_privs) {
@@ -904,15 +912,15 @@ static int zlog_5424_open(struct zlog_cfg_5424 *zcf, int sock_type)
 			if (err == 0)
 				do_chown = true;
 			else if (errno != EEXIST)
-				break;
+				return -1;
 		}
 
 		flags = O_NONBLOCK;
-		/* fallthru */
+		fallthrough;
 
 	case ZLOG_5424_DST_FILE:
 		if (!zcf->filename)
-			break;
+			return -1;
 
 		frr_with_privs (lib_privs) {
 			fd = open(zcf->filename, flags | O_WRONLY | O_APPEND |
@@ -924,7 +932,7 @@ static int zlog_5424_open(struct zlog_cfg_5424 *zcf, int sock_type)
 			flog_err_sys(EC_LIB_SYSTEM_CALL,
 				     "could not open log file %pSE: %m",
 				     zcf->filename);
-			break;
+			return -1;
 		}
 
 		frr_with_privs (lib_privs) {
@@ -952,11 +960,11 @@ static int zlog_5424_open(struct zlog_cfg_5424 *zcf, int sock_type)
 		flog_err_sys(EC_LIB_SYSTEM_CALL,
 			     "could not open or create log file %pSE: %m",
 			     zcf->filename);
-		break;
+		return -1;
 
 	case ZLOG_5424_DST_UNIX:
 		if (!zcf->filename)
-			break;
+			return -1;
 
 		memset(&sa, 0, sizeof(sa));
 		sa.sun_family = AF_UNIX;
@@ -988,6 +996,7 @@ static int zlog_5424_open(struct zlog_cfg_5424 *zcf, int sock_type)
 				"could not connect to log unix path %pSE: %m",
 				zcf->filename);
 			need_reconnect = true;
+			/* no return -1 here, trigger retry code below */
 		} else {
 			/* datagram sockets are connectionless, restarting
 			 * the receiver may lose some packets but will resume

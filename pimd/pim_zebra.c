@@ -51,49 +51,15 @@ static int pim_router_id_update_zebra(ZAPI_CALLBACK_ARGS)
 	return 0;
 }
 
-static int pim_zebra_interface_vrf_update(ZAPI_CALLBACK_ARGS)
-{
-	struct interface *ifp;
-	vrf_id_t new_vrf_id;
-	struct pim_instance *pim;
-	struct pim_interface *pim_ifp;
-
-	ifp = zebra_interface_vrf_update_read(zclient->ibuf, vrf_id,
-					      &new_vrf_id);
-	if (!ifp)
-		return 0;
-
-	if (PIM_DEBUG_ZEBRA)
-		zlog_debug("%s: %s updating from %u to %u", __func__, ifp->name,
-			   vrf_id, new_vrf_id);
-
-	pim = pim_get_pim_instance(new_vrf_id);
-	if (!pim)
-		return 0;
-
-	if_update_to_new_vrf(ifp, new_vrf_id);
-
-	pim_ifp = ifp->info;
-	if (!pim_ifp)
-		return 0;
-
-	pim_ifp->pim->mcast_if_count--;
-	pim_ifp->pim = pim;
-	pim_ifp->pim->mcast_if_count++;
-
-	return 0;
-}
-
 #ifdef PIM_DEBUG_IFADDR_DUMP
 static void dump_if_address(struct interface *ifp)
 {
 	struct connected *ifc;
-	struct listnode *node;
 
 	zlog_debug("%s %s: interface %s addresses:", __FILE__, __func__,
 		   ifp->name);
 
-	for (ALL_LIST_ELEMENTS_RO(ifp->connected, node, ifc)) {
+	frr_each (if_connected, ifp->connected, ifc) {
 		struct prefix *p = ifc->address;
 
 		if (p->family != AF_INET)
@@ -130,8 +96,11 @@ static int pim_zebra_if_address_add(ZAPI_CALLBACK_ARGS)
 	p = c->address;
 
 	if (PIM_DEBUG_ZEBRA) {
-		zlog_debug("%s: %s(%u) connected IP address %pFX flags %u %s",
-			   __func__, c->ifp->name, vrf_id, p, c->flags,
+		zlog_debug("%s: %s(%s) connected IP address %pFX flags %u %s",
+			   __func__, c->ifp->name,
+			   (pim_ifp ? VRF_LOGNAME(pim_ifp->pim->vrf)
+				    : "Unknown"),
+			   p, c->flags,
 			   CHECK_FLAG(c->flags, ZEBRA_IFA_SECONDARY)
 				   ? "secondary"
 				   : "primary");
@@ -188,6 +157,8 @@ static int pim_zebra_if_address_add(ZAPI_CALLBACK_ARGS)
 				pim_if_addr_add_all(ifp);
 		}
 	}
+
+	pim_cand_addrs_changed();
 	return 0;
 }
 
@@ -216,8 +187,8 @@ static int pim_zebra_if_address_del(ZAPI_CALLBACK_ARGS)
 
 	if (PIM_DEBUG_ZEBRA) {
 		zlog_debug(
-			"%s: %s(%u) disconnected IP address %pFX flags %u %s",
-			__func__, c->ifp->name, vrf_id, p, c->flags,
+			"%s: %s(%s) disconnected IP address %pFX flags %u %s",
+			__func__, c->ifp->name, VRF_LOGNAME(vrf), p, c->flags,
 			CHECK_FLAG(c->flags, ZEBRA_IFA_SECONDARY)
 				? "secondary"
 				: "primary");
@@ -236,6 +207,8 @@ static int pim_zebra_if_address_del(ZAPI_CALLBACK_ARGS)
 	}
 
 	connected_free(&c);
+
+	pim_cand_addrs_changed();
 	return 0;
 }
 
@@ -359,7 +332,7 @@ static int pim_zebra_vxlan_sg_proc(ZAPI_CALLBACK_ARGS)
 	stream_get(&sg.grp, s, prefixlen);
 
 	if (PIM_DEBUG_ZEBRA)
-		zlog_debug("%u:recv SG %s %pSG", vrf_id,
+		zlog_debug("%s:recv SG %s %pSG", VRF_LOGNAME(pim->vrf),
 			   (cmd == ZEBRA_VXLAN_SG_ADD) ? "add" : "del", &sg);
 
 	if (cmd == ZEBRA_VXLAN_SG_ADD)
@@ -461,9 +434,7 @@ static zclient_handler *const pim_handlers[] = {
 	[ZEBRA_INTERFACE_ADDRESS_ADD] = pim_zebra_if_address_add,
 	[ZEBRA_INTERFACE_ADDRESS_DELETE] = pim_zebra_if_address_del,
 
-	[ZEBRA_NEXTHOP_UPDATE] = pim_parse_nexthop_update,
 	[ZEBRA_ROUTER_ID_UPDATE] = pim_router_id_update_zebra,
-	[ZEBRA_INTERFACE_VRF_UPDATE] = pim_zebra_interface_vrf_update,
 
 #if PIM_IPV == 4
 	[ZEBRA_VXLAN_SG_ADD] = pim_zebra_vxlan_sg_proc,
@@ -483,6 +454,7 @@ void pim_zebra_init(void)
 
 	zclient->zebra_capabilities = pim_zebra_capabilities;
 	zclient->zebra_connected = pim_zebra_connected;
+	zclient->nexthop_update = pim_nexthop_update;
 
 	zclient_init(zclient, ZEBRA_ROUTE_PIM, 0, &pimd_privs);
 	if (PIM_DEBUG_PIM_TRACE) {

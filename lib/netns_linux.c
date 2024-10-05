@@ -5,6 +5,7 @@
  */
 
 #include <zebra.h>
+#include <fcntl.h>
 
 #ifdef HAVE_NETNS
 #undef _GNU_SOURCE
@@ -502,11 +503,18 @@ void ns_init_management(ns_id_t default_ns_id, ns_id_t internal_ns)
 void ns_terminate(void)
 {
 	struct ns *ns;
+	struct ns_map_nsid *ns_map;
 
 	while (!RB_EMPTY(ns_head, &ns_tree)) {
 		ns = RB_ROOT(ns_head, &ns_tree);
 
 		ns_delete(ns);
+	}
+
+	while (!RB_EMPTY(ns_map_nsid_head, &ns_map_nsid_list)) {
+		ns_map = RB_ROOT(ns_map_nsid_head, &ns_map_nsid_list);
+		RB_REMOVE(ns_map_nsid_head, &ns_map_nsid_list, ns_map);
+		XFREE(MTYPE_NS, ns_map);
 	}
 }
 

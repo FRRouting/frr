@@ -23,7 +23,7 @@
           "recursive":true
         },
         {
-          "fib":true,
+          "duplicate":true,
           "ip":"10.0.3.2",
           "active":true
         }

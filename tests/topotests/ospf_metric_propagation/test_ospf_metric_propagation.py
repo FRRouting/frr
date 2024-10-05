@@ -11,14 +11,13 @@
 import os
 import sys
 import json
-from time import sleep
 from functools import partial
 import pytest
 
 # pylint: disable=C0413
 # Import topogen and topotest helpers
 from lib import topotest
-from lib.topogen import Topogen, TopoRouter, get_topogen
+from lib.topogen import Topogen, get_topogen
 from lib.topolog import logger
 
 
@@ -70,7 +69,6 @@ def build_topo(tgen):
     tgen.add_router("rc")
     tgen.add_router("h1")
     tgen.add_router("h2")
-
 
     # Interconect router 1, 2
     switch = tgen.add_switch("s1-2")
@@ -127,6 +125,7 @@ def build_topo(tgen):
     switch.add_link(tgen.gears["r3"])
     switch.add_link(tgen.gears["rc"])
 
+
 def setup_module(mod):
     logger.info("OSPF Metric Propagation:\n {}".format(TOPOLOGY))
 
@@ -148,8 +147,12 @@ def setup_module(mod):
         for cmd in vrf_setup_cmds:
             tgen.net["r{}".format(routern)].cmd(cmd)
     for routern in range(1, 5):
-        tgen.net["r{}".format(routern)].cmd("ip link set dev r{}-eth1 vrf blue up".format(routern))
-        tgen.net["r{}".format(routern)].cmd("ip link set dev r{}-eth2 vrf green up".format(routern))
+        tgen.net["r{}".format(routern)].cmd(
+            "ip link set dev r{}-eth1 vrf blue up".format(routern)
+        )
+        tgen.net["r{}".format(routern)].cmd(
+            "ip link set dev r{}-eth2 vrf green up".format(routern)
+        )
 
     for rname, router in router_list.items():
         logger.info("Loading router %s" % rname)
@@ -162,7 +165,7 @@ def setup_module(mod):
             tgen.set_error("unsupported version")
 
 
-def teardown_module(mod):
+def teardown_module():
     "Teardown the pytest environment"
     tgen = get_topogen()
     tgen.stop_topology()
@@ -181,7 +184,7 @@ def test_all_links_up():
     test_func = partial(
         topotest.router_json_cmp, r1, "show ip route vrf green 10.0.94.2 json", expected
     )
-    _, result = topotest.run_and_expect(test_func, None, count=40, wait=1)
+    _, result = topotest.run_and_expect(test_func, None, count=60, wait=1)
 
     assertmsg = "r1 JSON output mismatches"
     assert result is None, assertmsg
@@ -202,7 +205,7 @@ def test_link_1_down():
     test_func = partial(
         topotest.router_json_cmp, r1, "show ip route vrf green 10.0.94.2 json", expected
     )
-    _, result = topotest.run_and_expect(test_func, None, count=20, wait=1)
+    _, result = topotest.run_and_expect(test_func, None, count=60, wait=1)
 
     assertmsg = "r1 JSON output mismatches"
     assert result is None, assertmsg
@@ -216,6 +219,10 @@ def test_link_1_2_down():
         pytest.skip("skipped because of router(s) failure")
 
     tgen.net["r2"].cmd("ip link set dev r2-eth1 down")
+    tgen.net["r1"].cmd("ip link set dev r1-eth0 down")
+    tgen.net["r2"].cmd("ip link set dev r2-eth2 down")
+    tgen.net["r2"].cmd("ip link set dev r2-eth2 up")
+    tgen.net["r1"].cmd("ip link set dev r1-eth0 up")
     r1 = tgen.gears["r1"]
 
     json_file = "{}/r1/show_ip_route-3.json".format(CWD)
@@ -223,7 +230,7 @@ def test_link_1_2_down():
     test_func = partial(
         topotest.router_json_cmp, r1, "show ip route vrf green 10.0.94.2 json", expected
     )
-    _, result = topotest.run_and_expect(test_func, None, count=20, wait=1)
+    _, result = topotest.run_and_expect(test_func, None, count=60, wait=1)
 
     assertmsg = "r1 JSON output mismatches"
     assert result is None, assertmsg
@@ -236,11 +243,11 @@ def test_link_1_2_3_down():
     if tgen.routers_have_failure():
         pytest.skip("skipped because of router(s) failure")
 
-    tgen.net["r3"].cmd("ip link set dev r3-eth0 down")
     tgen.net["r3"].cmd("ip link set dev r3-eth1 down")
-    # ospf dead-interval is set to 3 seconds, wait 5 seconds to clear the neighbor
-    sleep(5)
+    tgen.net["r1"].cmd("ip link set dev r1-eth0 down")
+    tgen.net["r3"].cmd("ip link set dev r3-eth0 down")
     tgen.net["r3"].cmd("ip link set dev r3-eth0 up")
+    tgen.net["r1"].cmd("ip link set dev r1-eth0 up")
     r1 = tgen.gears["r1"]
 
     json_file = "{}/r1/show_ip_route-4.json".format(CWD)
@@ -248,10 +255,11 @@ def test_link_1_2_3_down():
     test_func = partial(
         topotest.router_json_cmp, r1, "show ip route vrf green 10.0.94.2 json", expected
     )
-    _, result = topotest.run_and_expect(test_func, None, count=20, wait=1)
+    _, result = topotest.run_and_expect(test_func, None, count=60, wait=1)
 
     assertmsg = "r1 JSON output mismatches"
     assert result is None, assertmsg
+
 
 def test_link_1_2_3_4_down():
     "Test path R1 -> R2 -> Rc -> R3  -> R4"
@@ -268,12 +276,13 @@ def test_link_1_2_3_4_down():
     test_func = partial(
         topotest.router_json_cmp, r1, "show ip route vrf green 10.0.94.2 json", expected
     )
-    _, result = topotest.run_and_expect(test_func, None, count=20, wait=1)
+    _, result = topotest.run_and_expect(test_func, None, count=60, wait=1)
 
     assertmsg = "r1 JSON output mismatches"
     assert result is None, assertmsg
 
-def test_link_1_2_4_down():
+
+def test_link_1_2_4_down_3_up():
     "Test path R1 -> R2 -> Rc -> R3  -> R4"
     tgen = get_topogen()
 
@@ -289,12 +298,13 @@ def test_link_1_2_4_down():
     test_func = partial(
         topotest.router_json_cmp, r1, "show ip route vrf green 10.0.94.2 json", expected
     )
-    _, result = topotest.run_and_expect(test_func, None, count=20, wait=1)
+    _, result = topotest.run_and_expect(test_func, None, count=60, wait=1)
 
     assertmsg = "r1 JSON output mismatches"
     assert result is None, assertmsg
 
-def test_link_1_4_down():
+
+def test_link_1_4_down_2_up():
     "Test path R1 -> R2 -> Ra -> Rb -> R3  -> R4"
     tgen = get_topogen()
 
@@ -310,13 +320,13 @@ def test_link_1_4_down():
     test_func = partial(
         topotest.router_json_cmp, r1, "show ip route vrf green 10.0.94.2 json", expected
     )
-    _, result = topotest.run_and_expect(test_func, None, count=20, wait=1)
+    _, result = topotest.run_and_expect(test_func, None, count=120, wait=2)
 
     assertmsg = "r1 JSON output mismatches"
     assert result is None, assertmsg
 
 
-def test_link_4_down():
+def test_link_4_down_1_up():
     "Test path R1 -> Ra -> Rb -> R3  -> R4"
     tgen = get_topogen()
 
@@ -332,7 +342,7 @@ def test_link_4_down():
     test_func = partial(
         topotest.router_json_cmp, r1, "show ip route vrf green 10.0.94.2 json", expected
     )
-    _, result = topotest.run_and_expect(test_func, None, count=20, wait=1)
+    _, result = topotest.run_and_expect(test_func, None, count=120, wait=2)
 
     assertmsg = "r1 JSON output mismatches"
     assert result is None, assertmsg
@@ -354,7 +364,7 @@ def test_link_1_2_3_4_up():
     test_func = partial(
         topotest.router_json_cmp, r1, "show ip route vrf green 10.0.94.2 json", expected
     )
-    _, result = topotest.run_and_expect(test_func, None, count=20, wait=1)
+    _, result = topotest.run_and_expect(test_func, None, count=120, wait=2)
 
     assertmsg = "r1 JSON output mismatches"
     assert result is None, assertmsg

@@ -405,10 +405,10 @@ enum matcher_rv command_complete(struct graph *graph, vector vline,
 				listnode_add(next, newstack);
 				break;
 			case partly_match:
-				trace_matcher("trivial_match\n");
+				trace_matcher("partly_match\n");
 				if (exact_match_exists && !last_token)
 					break;
-			/* fallthru */
+				fallthrough;
 			case exact_match:
 				trace_matcher("exact_match\n");
 				if (last_token) {
@@ -566,9 +566,9 @@ static int score_precedence(enum cmd_token_type type)
 	case IPV6_PREFIX_TKN:
 	case MAC_TKN:
 	case MAC_PREFIX_TKN:
-	case ASNUM_TKN:
 	case RANGE_TKN:
 		return 2;
+	case ASNUM_TKN:
 	case WORD_TKN:
 		return 3;
 	case VARIABLE_TKN:

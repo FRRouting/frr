@@ -1,0 +1,9 @@
+{
+   "parameters": {
+      "encapsulation":{
+         "sourceAddress": {
+            "configured": "::"
+         }
+      }
+   }
+}

@@ -25,6 +25,8 @@ DEFINE_MTYPE_STATIC(LIB, SCRIPT, "Scripting");
 
 struct frrscript_names_head frrscript_names_hash;
 
+void _lua_decode_noop(lua_State *L, ...) {}
+
 /*
  * Wrapper for frrscript_names_add
  * Use this to register hook calls when a daemon starts up
@@ -133,9 +135,6 @@ struct frrscript_codec frrscript_codecs_lib[] = {
 	{.typename = "sockunion",
 	 .encoder = (encoder_func)lua_pushsockunion,
 	 .decoder = lua_tosockunion},
-	{.typename = "time_t",
-	 .encoder = (encoder_func)lua_pushtimet,
-	 .decoder = lua_totimet},
 	{}};
 
 /* Type codecs */
@@ -348,6 +347,9 @@ int frrscript_load(struct frrscript *fs, const char *function_name,
 
 	/* Set up the Lua script */
 	lua_State *L = luaL_newstate();
+
+	/* Load basic built-in Lua functions, e.g. ipairs, string, etc. */
+	luaL_openlibs(L);
 
 	frrlua_export_logging(L);
 

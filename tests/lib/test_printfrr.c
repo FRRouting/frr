@@ -143,6 +143,8 @@ int main(int argc, char **argv)
 		NAN,
 	};
 	uint64_t ui64 = 0xfeed1278cafef00d;
+	uint16_t i16 = -23456;
+	int_fast8_t if8 = 123;
 	struct in_addr ip;
 	char *p;
 	char buf[256];
@@ -165,6 +167,19 @@ int main(int argc, char **argv)
 
 	printchk("-77385308584349683 18369358765125201933 feed1278cafef00d",
 		 "%Ld %Lu %Lx", ui64, ui64, ui64);
+
+	FMT_NSTD(printchk("11110000000011111010010111000011", "%b", 0xf00fa5c3));
+	FMT_NSTD(printchk("0b01011010", "%#010b", 0x5a));
+
+/* FMT_NSTD is conditional on the frr-format plugin being NOT enabled.
+ * However, the frr-format plugin does not support %wd/%wfd yet, so this needs
+ * to be unconditional.
+ */
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wformat"
+	printchk("123 -23456 feed1278cafef00d 9876", "%wf8d %w16d %w64x %d",
+		 if8, i16, ui64, 9876);
+#pragma GCC diagnostic pop
 
 	inet_aton("192.168.1.2", &ip);
 	printchk("192.168.1.2", "%pI4", &ip);
@@ -215,18 +230,24 @@ int main(int argc, char **argv)
 	printchk("02:ca:fe:f0:0d:1e", "%pFXh", &pfx);
 
 	struct prefix_sg sg;
-	sg.src.s_addr = INADDR_ANY;
+	SET_IPADDR_V4(&sg.src);
+	sg.src.ipaddr_v4.s_addr = INADDR_ANY;
 	sg.grp.s_addr = INADDR_ANY;
 	printchk("(*,*)", "%pPSG4", &sg);
 
-	inet_aton("192.168.1.2", &sg.src);
+	inet_aton("192.168.1.2", &sg.src.ipaddr_v4);
 	printchk("(192.168.1.2,*)", "%pPSG4", &sg);
 
 	inet_aton("224.1.2.3", &sg.grp);
 	printchk("(192.168.1.2,224.1.2.3)", "%pPSG4", &sg);
 
-	sg.src.s_addr = INADDR_ANY;
+	SET_IPADDR_NONE(&sg.src);
+	sg.src.ipaddr_v4.s_addr = INADDR_ANY;
 	printchk("(*,224.1.2.3)", "%pPSG4", &sg);
+
+	SET_IPADDR_V6(&sg.src);
+	inet_pton(AF_INET6, "1:2:3:4::5", &sg.src.ipaddr_v6);
+	printchk("(1:2:3:4::5,224.1.2.3)", "%pPSG4", &sg);
 
 	uint8_t randhex[] = { 0x12, 0x34, 0x00, 0xca, 0xfe, 0x00, 0xaa, 0x55 };
 

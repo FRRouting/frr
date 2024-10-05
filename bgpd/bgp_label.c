@@ -15,6 +15,7 @@
 #include "memory.h"
 #include "nexthop.h"
 #include "mpls.h"
+#include "jhash.h"
 
 #include "bgpd/bgpd.h"
 #include "bgpd/bgp_table.h"
@@ -26,6 +27,124 @@
 #include "bgpd/bgp_errors.h"
 
 extern struct zclient *zclient;
+
+
+/* MPLS Labels hash routines. */
+static struct hash *labels_hash;
+
+static void *bgp_labels_hash_alloc(void *p)
+{
+	const struct bgp_labels *labels = p;
+	struct bgp_labels *new;
+	uint8_t i;
+
+	new = XMALLOC(MTYPE_BGP_LABELS, sizeof(struct bgp_labels));
+
+	new->num_labels = labels->num_labels;
+	for (i = 0; i < labels->num_labels; i++)
+		new->label[i] = labels->label[i];
+
+	return new;
+}
+
+static uint32_t bgp_labels_hash_key_make(const void *p)
+{
+	const struct bgp_labels *labels = p;
+	uint32_t key = 0;
+
+	if (labels->num_labels)
+		key = jhash(&labels->label,
+			    labels->num_labels * sizeof(mpls_label_t), key);
+
+	return key;
+}
+
+static bool bgp_labels_hash_cmp(const void *p1, const void *p2)
+{
+	return bgp_labels_cmp(p1, p2);
+}
+
+void bgp_labels_init(void)
+{
+	labels_hash = hash_create(bgp_labels_hash_key_make, bgp_labels_hash_cmp,
+				  "BGP Labels hash");
+}
+
+/*
+ * special for hash_clean below
+ */
+static void bgp_labels_free(void *labels)
+{
+	XFREE(MTYPE_BGP_LABELS, labels);
+}
+
+void bgp_labels_finish(void)
+{
+	hash_clean_and_free(&labels_hash, bgp_labels_free);
+}
+
+struct bgp_labels *bgp_labels_intern(struct bgp_labels *labels)
+{
+	struct bgp_labels *find;
+
+	if (!labels)
+		return NULL;
+
+	if (!labels->num_labels)
+		/* do not intern void labels structure */
+		return NULL;
+
+	find = (struct bgp_labels *)hash_get(labels_hash, labels,
+					     bgp_labels_hash_alloc);
+	find->refcnt++;
+
+	return find;
+}
+
+void bgp_labels_unintern(struct bgp_labels **plabels)
+{
+	struct bgp_labels *labels = *plabels;
+	struct bgp_labels *ret;
+
+	if (!*plabels)
+		return;
+
+	/* Decrement labels reference. */
+	labels->refcnt--;
+
+	/* If reference becomes zero then free labels object. */
+	if (labels->refcnt == 0) {
+		ret = hash_release(labels_hash, labels);
+		assert(ret != NULL);
+		bgp_labels_free(labels);
+		*plabels = NULL;
+	}
+}
+
+bool bgp_labels_cmp(const struct bgp_labels *labels1,
+		    const struct bgp_labels *labels2)
+{
+	uint8_t i;
+
+	if (!labels1 && !labels2)
+		return true;
+
+	if (!labels1 && labels2)
+		return false;
+
+	if (labels1 && !labels2)
+		return false;
+
+	if (labels1->num_labels != labels2->num_labels)
+		return false;
+
+	for (i = 0; i < labels1->num_labels; i++) {
+		if (labels1->label[i] != labels2->label[i])
+			return false;
+	}
+
+	return true;
+}
 
 int bgp_parse_fec_update(void)
 {
@@ -74,7 +193,7 @@ int bgp_parse_fec_update(void)
 		bgp_set_valid_label(&dest->local_label);
 	}
 	SET_FLAG(dest->flags, BGP_NODE_LABEL_CHANGED);
-	bgp_process(bgp, dest, afi, safi);
+	bgp_process(bgp, dest, NULL, afi, safi);
 	bgp_dest_unlock_node(dest);
 	return 1;
 }
@@ -89,7 +208,9 @@ mpls_label_t bgp_adv_label(struct bgp_dest *dest, struct bgp_path_info *pi,
 	if (!dest || !pi || !to)
 		return MPLS_INVALID_LABEL;
 
-	remote_label = pi->extra ? pi->extra->label[0] : MPLS_INVALID_LABEL;
+	remote_label = BGP_PATH_INFO_NUM_LABELS(pi)
+			       ? pi->extra->labels->label[0]
+			       : MPLS_INVALID_LABEL;
 	from = pi->peer;
 	reflect =
 		((from->sort == BGP_PEER_IBGP) && (to->sort == BGP_PEER_IBGP));
@@ -132,9 +253,8 @@ static void bgp_send_fec_register_label_msg(struct bgp_dest *dest, bool reg,
 		return;
 
 	if (BGP_DEBUG(labelpool, LABELPOOL))
-		zlog_debug("%s: FEC %sregister %pRN label_index=%u label=%u",
-			   __func__, reg ? "" : "un", bgp_dest_to_rnode(dest),
-			   label_index, label);
+		zlog_debug("%s: FEC %sregister %pBD label_index=%u label=%u",
+			   __func__, reg ? "" : "un", dest, label_index, label);
 	/* If the route node has a local_label assigned or the
 	 * path node has an MPLS SR label index allowing zebra to
 	 * derive the label, proceed with registration. */
@@ -195,11 +315,12 @@ int bgp_reg_for_label_callback(mpls_label_t new_label, void *labelid,
 		return -1;
 	}
 
-	bgp_dest_unlock_node(dest);
+	dest = bgp_dest_unlock_node(dest);
+	assert(dest);
 
 	if (BGP_DEBUG(labelpool, LABELPOOL))
-		zlog_debug("%s: FEC %pRN label=%u, allocated=%d", __func__,
-			   bgp_dest_to_rnode(dest), new_label, allocated);
+		zlog_debug("%s: FEC %pBD label=%u, allocated=%d", __func__,
+			   dest, new_label, allocated);
 
 	if (!allocated) {
 		/*
@@ -455,7 +576,7 @@ int bgp_nlri_parse_label(struct peer *peer, struct attr *attr,
 		} else {
 			bgp_withdraw(peer, &p, addpath_id, packet->afi,
 				     SAFI_UNICAST, ZEBRA_ROUTE_BGP,
-				     BGP_ROUTE_NORMAL, NULL, &label, 1, NULL);
+				     BGP_ROUTE_NORMAL, NULL, &label, 1);
 		}
 	}
 
@@ -469,4 +590,21 @@ int bgp_nlri_parse_label(struct peer *peer, struct attr *attr,
 	}
 
 	return BGP_NLRI_PARSE_OK;
+}
+
+bool bgp_labels_same(const mpls_label_t *tbl_a, const uint8_t num_labels_a,
+		     const mpls_label_t *tbl_b, const uint8_t num_labels_b)
+{
+	uint32_t i;
+
+	if (num_labels_a != num_labels_b)
+		return false;
+	if (num_labels_a == 0)
+		return true;
+
+	for (i = 0; i < num_labels_a; i++) {
+		if (tbl_a[i] != tbl_b[i])
+			return false;
+	}
+	return true;
 }

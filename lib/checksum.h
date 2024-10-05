@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
+
 #ifndef _FRR_CHECKSUM_H
 #define _FRR_CHECKSUM_H
 

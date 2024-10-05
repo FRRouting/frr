@@ -22,6 +22,7 @@
 #include "if_rmap.h"
 #include "libfrr.h"
 #include "routemap.h"
+#include "mgmt_be_client.h"
 
 #include "ripngd/ripngd.h"
 #include "ripngd/ripng_nb.h"
@@ -31,6 +32,8 @@ struct option longopts[] = {{0}};
 
 /* ripngd privileges */
 zebra_capabilities_t _caps_p[] = {ZCAP_NET_RAW, ZCAP_BIND, ZCAP_SYS_ADMIN};
+
+uint32_t zebra_ecmp_count = MULTIPATH_NUM;
 
 struct zebra_privs_t ripngd_privs = {
 #if defined(FRR_USER)
@@ -50,6 +53,8 @@ struct zebra_privs_t ripngd_privs = {
 /* Master of threads. */
 struct event_loop *master;
 
+struct mgmt_be_client *mgmt_be_client;
+
 static struct frr_daemon_info ripngd_di;
 
 /* SIGHUP handler. */
@@ -64,11 +69,27 @@ static void sighup(void)
 /* SIGINT handler. */
 static void sigint(void)
 {
+	struct vrf *vrf;
+
 	zlog_notice("Terminating on signal");
+
+	nb_oper_cancel_all_walks();
+	mgmt_be_client_destroy(mgmt_be_client);
+	mgmt_be_client = NULL;
+
+	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
+		if (!vrf->info)
+			continue;
+
+		ripng_clean(vrf->info);
+	}
 
 	ripng_vrf_terminate();
 	if_rmap_terminate();
 	ripng_zebra_stop();
+
+	route_map_finish();
+
 	frr_fini();
 	exit(0);
 }
@@ -106,18 +127,23 @@ static const struct frr_yang_module_info *const ripngd_yang_modules[] = {
 	&frr_vrf_info,
 };
 
-FRR_DAEMON_INFO(ripngd, RIPNG, .vty_port = RIPNG_VTY_PORT,
+/* clang-format off */
+FRR_DAEMON_INFO(ripngd, RIPNG,
+	.vty_port = RIPNG_VTY_PORT,
+	.proghelp = "Implementation of the RIPng routing protocol.",
 
-		.proghelp = "Implementation of the RIPng routing protocol.",
+	.signals = ripng_signals,
+	.n_signals = array_size(ripng_signals),
 
-		.signals = ripng_signals,
-		.n_signals = array_size(ripng_signals),
+	.privs = &ripngd_privs,
 
-		.privs = &ripngd_privs,
+	.yang_modules = ripngd_yang_modules,
+	.n_yang_modules = array_size(ripngd_yang_modules),
 
-		.yang_modules = ripngd_yang_modules,
-		.n_yang_modules = array_size(ripngd_yang_modules),
+	/* mgmtd will load the per-daemon config file now */
+	.flags = FRR_NO_SPLIT_CONFIG,
 );
+/* clang-format on */
 
 #define DEPRECATED_OPTIONS ""
 
@@ -158,7 +184,9 @@ int main(int argc, char **argv)
 
 	/* RIPngd inits. */
 	ripng_init();
-	ripng_cli_init();
+
+	mgmt_be_client = mgmt_be_client_create("ripngd", NULL, 0, master);
+
 	zebra_init(master);
 
 	frr_config_fork();

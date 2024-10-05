@@ -52,7 +52,7 @@ void zd_dpdk_stat_show(struct vty *vty)
 static void zd_dpdk_flow_stat_show(struct vty *vty, int in_ifindex,
 				   intptr_t dp_flow_ptr)
 {
-	struct rte_flow_action_count count = {.shared = 0, .id = 0};
+	struct rte_flow_action_count count = { .id = 0 };
 	const struct rte_flow_action actions[] = {
 		{
 			.type = RTE_FLOW_ACTION_TYPE_COUNT,
@@ -105,8 +105,7 @@ static int zd_dpdk_pbr_show_rules_walkcb(struct hash_bucket *bucket, void *arg)
 			ifp = if_lookup_by_name_vrf(rule->ifname, vrf);
 
 		if (ifp)
-			zd_dpdk_flow_stat_show(vty, ifp->ifindex,
-					       zaction->dp_flow_ptr);
+			zd_dpdk_flow_stat_show(vty, ifp->ifindex, zaction->dp_flow_ptr);
 	}
 	return HASHWALK_CONTINUE;
 }
@@ -153,8 +152,7 @@ static void zd_dpdk_rule_add(struct zebra_dplane_ctx *ctx)
 		if (IS_ZEBRA_DEBUG_DPLANE_DPDK_DETAIL)
 			zlog_debug(
 				"PBR dpdk flow create ifname %s seq %d pri %u unique %d failed; in_port %d missing\n",
-				dplane_ctx_rule_get_ifname(ctx), seq, pri,
-				unique, in_ifindex);
+				dplane_ctx_rule_get_ifname(ctx), seq, pri, unique, in_ifindex);
 		return;
 	}
 
@@ -163,8 +161,7 @@ static void zd_dpdk_rule_add(struct zebra_dplane_ctx *ctx)
 		if (IS_ZEBRA_DEBUG_DPLANE_DPDK_DETAIL)
 			zlog_debug(
 				"PBR dpdk flow create ifname %s seq %d pri %u unique %d failed; out_port %d missing\n",
-				dplane_ctx_rule_get_ifname(ctx), seq, pri,
-				unique, out_ifindex);
+				dplane_ctx_rule_get_ifname(ctx), seq, pri, unique, out_ifindex);
 		return;
 	}
 
@@ -180,7 +177,7 @@ static void zd_dpdk_rule_add(struct zebra_dplane_ctx *ctx)
 
 	memset(&ip, 0, sizeof(ip));
 	memset(&ip_mask, 0, sizeof(ip_mask));
-	if (filter_bm & PBR_FILTER_SRC_IP) {
+	if (CHECK_FLAG(filter_bm, PBR_FILTER_SRC_IP)) {
 		const struct prefix *src_ip;
 
 		src_ip = dplane_ctx_rule_get_src_ip(ctx);
@@ -188,7 +185,7 @@ static void zd_dpdk_rule_add(struct zebra_dplane_ctx *ctx)
 		masklen2ip(src_ip->prefixlen, &tmp_mask);
 		ip_mask.hdr.src_addr = tmp_mask.s_addr;
 	}
-	if (filter_bm & PBR_FILTER_DST_IP) {
+	if (CHECK_FLAG(filter_bm, PBR_FILTER_DST_IP)) {
 		const struct prefix *dst_ip;
 
 		dst_ip = dplane_ctx_rule_get_dst_ip(ctx);
@@ -196,7 +193,7 @@ static void zd_dpdk_rule_add(struct zebra_dplane_ctx *ctx)
 		masklen2ip(dst_ip->prefixlen, &tmp_mask);
 		ip_mask.hdr.dst_addr = tmp_mask.s_addr;
 	}
-	if (filter_bm & PBR_FILTER_IP_PROTOCOL) {
+	if (CHECK_FLAG(filter_bm, PBR_FILTER_IP_PROTOCOL)) {
 		ip.hdr.next_proto_id = dplane_ctx_rule_get_ipproto(ctx);
 		ip_mask.hdr.next_proto_id = UINT8_MAX;
 	}
@@ -206,17 +203,15 @@ static void zd_dpdk_rule_add(struct zebra_dplane_ctx *ctx)
 	items[item_cnt].last = NULL;
 	++item_cnt;
 
-	if ((filter_bm & (PBR_FILTER_SRC_PORT | PBR_FILTER_DST_PORT))) {
+	if (CHECK_FLAG(filter_bm, (PBR_FILTER_SRC_PORT | PBR_FILTER_DST_PORT))) {
 		memset(&udp, 0, sizeof(udp));
 		memset(&udp_mask, 0, sizeof(udp_mask));
-		if (filter_bm & PBR_FILTER_SRC_PORT) {
-			udp.hdr.src_port =
-				RTE_BE16(dplane_ctx_rule_get_src_port(ctx));
+		if (CHECK_FLAG(filter_bm, PBR_FILTER_SRC_PORT)) {
+			udp.hdr.src_port = RTE_BE16(dplane_ctx_rule_get_src_port(ctx));
 			udp_mask.hdr.src_port = UINT16_MAX;
 		}
-		if (filter_bm & PBR_FILTER_DST_PORT) {
-			udp.hdr.dst_port =
-				RTE_BE16(dplane_ctx_rule_get_dst_port(ctx));
+		if (CHECK_FLAG(filter_bm, PBR_FILTER_DST_PORT)) {
+			udp.hdr.dst_port = RTE_BE16(dplane_ctx_rule_get_dst_port(ctx));
 			udp_mask.hdr.dst_port = UINT16_MAX;
 		}
 		items[item_cnt].type = RTE_FLOW_ITEM_TYPE_UDP;
@@ -273,8 +268,7 @@ static void zd_dpdk_rule_add(struct zebra_dplane_ctx *ctx)
 	} else {
 		zlog_warn(
 			"PBR dpdk flow create failed ifname %s seq %d pri %u unique %d; rc %d\n",
-			dplane_ctx_rule_get_ifname(ctx), seq, pri, unique,
-			error.type);
+			dplane_ctx_rule_get_ifname(ctx), seq, pri, unique, error.type);
 	}
 }
 
@@ -504,9 +498,11 @@ static void zd_dpdk_port_show_entry(struct zd_dpdk_port *dport, struct vty *vty,
 	if (detail) {
 		vty_out(vty, "DPDK port: %u\n", dport->port_id);
 		vty_out(vty, " Device: %s\n",
-			dev_info->device ? dev_info->device->name : "-");
+			dev_info->device ? rte_dev_name(dev_info->device) : "-");
 		vty_out(vty, " Driver: %s\n",
-			dev_info->driver_name ? dev_info->driver_name : "-");
+			dev_info->driver_name ? rte_driver_name(rte_dev_driver(
+							dev_info->device))
+					      : "-");
 		vty_out(vty, " Interface: %s (%d)\n",
 			ifindex2ifname(dev_info->if_index, VRF_DEFAULT),
 			dev_info->if_index);
@@ -516,9 +512,8 @@ static void zd_dpdk_port_show_entry(struct zd_dpdk_port *dport, struct vty *vty,
 			dev_info->switch_info.port_id);
 		vty_out(vty, "\n");
 	} else {
-		vty_out(vty, "%-4u %-16s %-16s %-16d %s,%u,%u\n",
-			dport->port_id,
-			dev_info->device ? dev_info->device->name : "-",
+		vty_out(vty, "%-4u %-16s %-16s %-16d %s,%u,%u\n", dport->port_id,
+			dev_info->device ? rte_dev_name(dev_info->device) : "-",
 			ifindex2ifname(dev_info->if_index, VRF_DEFAULT),
 			dev_info->if_index, dev_info->switch_info.name,
 			dev_info->switch_info.domain_id,
@@ -562,7 +557,7 @@ void zd_dpdk_port_show(struct vty *vty, uint16_t port_id, bool uj, int detail)
 
 	for (count = 0; count < RTE_MAX_ETHPORTS; ++count) {
 		dport = &dpdk_ctx->dpdk_ports[count];
-		if (dport->flags & ZD_DPDK_PORT_FLAG_INITED)
+		if (CHECK_FLAG(dport->flags, ZD_DPDK_PORT_FLAG_INITED))
 			zd_dpdk_port_show_entry(dport, vty, detail);
 	}
 }
@@ -592,31 +587,31 @@ static void zd_dpdk_port_init(void)
 		dport = &dpdk_ctx->dpdk_ports[count];
 		count++;
 		dport->port_id = port_id;
-		dport->flags |= ZD_DPDK_PORT_FLAG_PROBED;
+		SET_FLAG(dport->flags, ZD_DPDK_PORT_FLAG_PROBED);
 		dev_info = &dport->dev_info;
 		if (rte_eth_dev_info_get(port_id, dev_info) < 0) {
 			zlog_warn("failed to get dev info for %u, %s", port_id,
 				  rte_strerror(rte_errno));
 			continue;
 		}
-		dport->flags |= ZD_DPDK_PORT_FLAG_INITED;
+		SET_FLAG(dport->flags, ZD_DPDK_PORT_FLAG_INITED);
 		if (IS_ZEBRA_DEBUG_DPLANE_DPDK)
-			zlog_debug(
-				"port %u, dev %s, ifI %d, sw_name %s, sw_domain %u, sw_port %u",
-				port_id,
-				dev_info->device ? dev_info->device->name : "-",
-				dev_info->if_index, dev_info->switch_info.name,
-				dev_info->switch_info.domain_id,
-				dev_info->switch_info.port_id);
+			zlog_debug("port %u, dev %s, ifI %d, sw_name %s, sw_domain %u, sw_port %u",
+				   port_id,
+				   dev_info->device
+					   ? rte_dev_name(dev_info->device)
+					   : "-",
+				   dev_info->if_index,
+				   dev_info->switch_info.name,
+				   dev_info->switch_info.domain_id,
+				   dev_info->switch_info.port_id);
 		if (rte_flow_isolate(port_id, 1, &error)) {
 			if (IS_ZEBRA_DEBUG_DPLANE_DPDK)
 				zlog_debug(
-					"Flow isolate on port %u failed %d\n",
-					port_id, error.type);
+					"Flow isolate on port %u failed %d", port_id, error.type);
 		} else {
 			if (IS_ZEBRA_DEBUG_DPLANE_DPDK)
-				zlog_debug("Flow isolate on port %u\n",
-					   port_id);
+				zlog_debug("Flow isolate on port %u", port_id);
 		}
 		rc = rte_eth_dev_start(port_id);
 		if (rc) {
@@ -625,8 +620,7 @@ static void zd_dpdk_port_init(void)
 			continue;
 		}
 		if (IS_ZEBRA_DEBUG_DPLANE_DPDK)
-			zlog_debug("DPDK port %d started in promiscuous mode ",
-				   port_id);
+			zlog_debug("DPDK port %d started in promiscuous mode ", port_id);
 	}
 
 	if (!count) {
@@ -639,13 +633,12 @@ static void zd_dpdk_port_init(void)
 static int zd_dpdk_init(void)
 {
 	int rc;
-	static const char *argv[] = {(char *)"/usr/lib/frr/zebra",
-				     (char *)"--"};
+	static const char *argv[] = {(char *)"/usr/lib/frr/zebra", (char *)"--"};
 
 	zd_dpdk_vty_init();
 
 	frr_with_privs (&zserv_privs) {
-		rc = rte_eal_init(array_size(argv), argv);
+		rc = rte_eal_init(array_size(argv), (char **)argv);
 	}
 	if (rc < 0) {
 		zlog_warn("EAL init failed %s", rte_strerror(rte_errno));
@@ -674,8 +667,7 @@ static int zd_dpdk_finish(struct zebra_dplane_provider *prov, bool early)
 
 	if (early) {
 		if (IS_ZEBRA_DEBUG_DPLANE_DPDK)
-			zlog_debug("%s early finish",
-				   dplane_provider_get_name(prov));
+			zlog_debug("%s early finish", dplane_provider_get_name(prov));
 
 		return 0;
 	}

@@ -228,13 +228,6 @@ static void set_community_string(struct community *com, bool make_json,
 		comval = ntohl(comval);
 
 		switch (comval) {
-#if CONFDATE > 20230801
-CPP_NOTICE("Deprecate COMMUNITY_INTERNET BGP community")
-#endif
-		case COMMUNITY_INTERNET:
-			len += strlen(" internet");
-			zlog_warn("`internet` community is deprecated");
-			break;
 		case COMMUNITY_GSHUT:
 			len += strlen(" graceful-shutdown");
 			break;
@@ -298,19 +291,6 @@ CPP_NOTICE("Deprecate COMMUNITY_INTERNET BGP community")
 			strlcat(str, " ", len);
 
 		switch (comval) {
-#if CONFDATE > 20230801
-CPP_NOTICE("Deprecate COMMUNITY_INTERNET BGP community")
-#endif
-		case COMMUNITY_INTERNET:
-			strlcat(str, "internet", len);
-			if (make_json) {
-				json_string =
-					json_object_new_string("internet");
-				json_object_array_add(json_community_list,
-						      json_string);
-			}
-			zlog_warn("`internet` community is deprecated");
-			break;
 		case COMMUNITY_GSHUT:
 			strlcat(str, "graceful-shutdown", len);
 			if (make_json) {
@@ -436,13 +416,12 @@ CPP_NOTICE("Deprecate COMMUNITY_INTERNET BGP community")
 			}
 			break;
 		default:
-			as = (comval >> 16) & 0xFFFF;
-			val = comval & 0xFFFF;
+			as = CHECK_FLAG((comval >> 16), 0xFFFF);
+			val = CHECK_FLAG(comval, 0xFFFF);
 			char buf[32];
 			snprintf(buf, sizeof(buf), "%u:%d", as, val);
 			const char *com2alias =
-				translate_alias ? bgp_community2alias(buf)
-						: buf;
+				translate_alias ? bgp_community2alias(buf) : buf;
 
 			strlcat(str, com2alias, len);
 			if (make_json) {
@@ -680,16 +659,6 @@ community_gettoken(const char *buf, enum community_token *token, uint32_t *val)
 
 	/* Well known community string check. */
 	if (isalpha((unsigned char)*p)) {
-#if CONFDATE > 20230801
-CPP_NOTICE("Deprecate COMMUNITY_INTERNET BGP community")
-#endif
-		if (strncmp(p, "internet", strlen("internet")) == 0) {
-			*val = COMMUNITY_INTERNET;
-			*token = community_token_no_export;
-			p += strlen("internet");
-			zlog_warn("`internet` community is deprecated");
-			return p;
-		}
 		if (strncmp(p, "graceful-shutdown", strlen("graceful-shutdown"))
 		    == 0) {
 			*val = COMMUNITY_GSHUT;

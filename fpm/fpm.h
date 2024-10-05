@@ -63,11 +63,6 @@
 #define FPM_DEFAULT_IP              (htonl (INADDR_LOOPBACK))
 
 /*
- * default port for fpm connections
- */
-#define FPM_DEFAULT_PORT 2620
-
-/*
  * Largest message that can be sent to or received from the FPM.
  */
 #define FPM_MAX_MSG_LEN 4096

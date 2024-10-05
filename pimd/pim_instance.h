@@ -17,6 +17,7 @@
 #include "pim_oil.h"
 #include "pim_upstream.h"
 #include "pim_mroute.h"
+#include "pim_autorp.h"
 
 enum pim_spt_switchover {
 	PIM_SPT_IMMEDIATE,
@@ -97,7 +98,7 @@ struct pim_router {
 	struct in_addr local_vtep_ip;
 	struct pim_mlag_stats mlag_stats;
 	enum pim_mlag_flags mlag_flags;
-	char peerlink_rif[INTERFACE_NAMSIZ];
+	char peerlink_rif[IFNAMSIZ];
 	struct interface *peerlink_rif_p;
 };
 
@@ -151,6 +152,8 @@ struct pim_instance {
 
 	struct pim_msdp msdp;
 	struct pim_vxlan_instance vxlan;
+
+	struct pim_autorp *autorp;
 
 	struct list *ssmpingd_list;
 	pim_addr ssmpingd_group_addr;

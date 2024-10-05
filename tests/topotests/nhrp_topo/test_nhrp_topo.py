@@ -28,7 +28,7 @@ sys.path.append(os.path.join(CWD, "../"))
 from lib import topotest
 from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
-from lib.common_config import required_linux_kernel_version
+from lib.common_config import required_linux_kernel_version, retry
 
 # Required to instantiate the topology builder class.
 
@@ -108,6 +108,12 @@ def setup_module(mod):
                 TopoRouter.RD_NHRP, os.path.join(CWD, "{}/nhrpd.conf".format(rname))
             )
 
+        # Include sharpd for r1
+        if rname == "r1":
+            router.load_config(
+                TopoRouter.RD_SHARP, os.path.join(CWD, "{}/sharpd.conf".format(rname))
+            )
+
     # Initialize all routers.
     logger.info("Launching NHRP")
     for name in router_list:
@@ -176,6 +182,27 @@ def test_protocols_convergence():
         assertmsg = '"{}" JSON output mismatches'.format(router.name)
         assert result is None, assertmsg
 
+    # check that the NOARP flag is removed from rX-gre0 interfaces
+    for rname, router in router_list.items():
+        if rname == "r3":
+            continue
+
+        expected = {
+            "{}-gre0".format(rname): {
+                "flags": "<UP,LOWER_UP,RUNNING>",
+            }
+        }
+        test_func = partial(
+            topotest.router_json_cmp,
+            router,
+            "show interface {}-gre0 json".format(rname),
+            expected,
+        )
+        _, result = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
+
+        assertmsg = '"{}-gre0 interface flags incorrect'.format(router.name)
+        assert result is None, assertmsg
+
     for rname, router in router_list.items():
         if rname == "r3":
             continue
@@ -187,18 +214,95 @@ def test_protocols_convergence():
 def test_nhrp_connection():
     "Assert that the NHRP peers can find themselves."
     tgen = get_topogen()
+    pingrouter = tgen.gears["r1"]
+    hubrouter = tgen.gears["r2"]
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
-    pingrouter = tgen.gears["r1"]
-    logger.info("Check Ping IPv4 from  R1 to R2 = 10.255.255.2)")
-    output = pingrouter.run("ping 10.255.255.2 -f -c 1000")
+    def ping_helper():
+        output = pingrouter.run("ping 10.255.255.2 -f -c 100")
+        logger.info(output)
+        return output
+
+    # force session to reinitialize
+    def relink_session():
+        for r in ["r1", "r2"]:
+            tgen.gears[r].vtysh_cmd("clear ip nhrp cache")
+            tgen.net[r].cmd("ip l del {}-gre0".format(r));
+        _populate_iface();
+
+    @retry(retry_timeout=40, initial_wait=5)
+    def verify_same_password():
+        output = ping_helper()
+        if "100 packets transmitted, 100 received" not in output:
+            assertmsg = "expected ping IPv4 from R1 to R2 should be ok"
+            assert 0, assertmsg
+        else:
+            logger.info("Check Ping IPv4 from R1 to R2 OK")
+
+    @retry(retry_timeout=40, initial_wait=5)
+    def verify_mismatched_password():
+        output = ping_helper()
+        if "Network is unreachable" not in output:
+            assertmsg = "expected ping IPv4 from R1 to R2 - should be down"
+            assert 0, assertmsg
+        else:
+            logger.info("Check Ping IPv4 from R1 to R2 missing - OK")
+
+    ### Passwords are the same
+    logger.info("Check Ping IPv4 from  R1 to R2 = 10.255.255.2")
+    verify_same_password()
+
+    ### Passwords are different
+    logger.info("Modify password and send ping again, should drop")
+    hubrouter.vtysh_cmd("""
+        configure
+            interface r2-gre0
+                ip nhrp authentication secret12
+    """)
+    relink_session()
+    verify_mismatched_password()
+    
+    ### Passwords are the same - again
+    logger.info("Recover password and verify conectivity is back")
+    hubrouter.vtysh_cmd("""
+        configure
+            interface r2-gre0
+                ip nhrp authentication secret
+    """)
+    relink_session()
+    verify_same_password()
+
+def test_route_install():
+    "Test use of NHRP routes by other protocols (sharpd here)."
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    logger.info("Testing route install over NHRP tunnel")
+
+    # Install sharpd routes over an NHRP route
+    r1 = tgen.gears["r1"]
+
+    # Install one recursive and one non-recursive sharpd route
+    r1.vtysh_cmd("sharp install route 4.4.4.1 nexthop 10.255.255.2 1")
+
+    r1.vtysh_cmd("sharp install route 5.5.5.1 nexthop 10.255.255.2 1 no-recurse")
+
+    json_file = "{}/{}/sharp_route4.json".format(CWD, "r1")
+    expected = json.loads(open(json_file).read())
+
+    test_func = partial(
+        topotest.router_json_cmp, r1, "show ip route sharp json", expected
+    )
+    _, result = topotest.run_and_expect(test_func, None, count=20, wait=0.5)
+
+    logger.info("Sharp routes:")
+    output = r1.vtysh_cmd("show ip route sharp")
     logger.info(output)
-    if "1000 packets transmitted, 1000 received" not in output:
-        assertmsg = "expected ping IPv4 from R1 to R2 should be ok"
-        assert 0, assertmsg
-    else:
-        logger.info("Check Ping IPv4 from R1 to R2 OK")
+
+    assertmsg = '"{}" JSON route output mismatches'.format(r1.name)
+    assert result is None, assertmsg
 
 
 def test_memory_leak():

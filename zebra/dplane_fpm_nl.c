@@ -19,6 +19,9 @@
 #include <string.h>
 
 #include "lib/zebra.h"
+
+#include <linux/rtnetlink.h>
+
 #include "lib/json.h"
 #include "lib/libfrr.h"
 #include "lib/frratomic.h"
@@ -27,22 +30,28 @@
 #include "lib/network.h"
 #include "lib/ns.h"
 #include "lib/frr_pthread.h"
+#include "lib/termtable.h"
 #include "zebra/debug.h"
 #include "zebra/interface.h"
 #include "zebra/zebra_dplane.h"
 #include "zebra/zebra_mpls.h"
 #include "zebra/zebra_router.h"
-#include "zebra/interface.h"
 #include "zebra/zebra_vxlan_private.h"
 #include "zebra/zebra_evpn.h"
 #include "zebra/zebra_evpn_mac.h"
 #include "zebra/kernel_netlink.h"
 #include "zebra/rt_netlink.h"
-#include "zebra/debug.h"
 #include "fpm/fpm.h"
 
+#include "zebra/dplane_fpm_nl_clippy.c"
+
 #define SOUTHBOUND_DEFAULT_ADDR INADDR_LOOPBACK
-#define SOUTHBOUND_DEFAULT_PORT 2620
+
+/*
+ * Time in seconds that if the other end is not responding
+ * something terrible has gone wrong.  Let's fix that.
+ */
+#define DPLANE_FPM_NL_WEDGIE_TIME 15
 
 /**
  * FPM header:
@@ -65,6 +74,7 @@ struct fpm_nl_ctx {
 	bool disabled;
 	bool connecting;
 	bool use_nhg;
+	bool use_route_replace;
 	struct sockaddr_storage addr;
 
 	/* data plane buffers. */
@@ -89,6 +99,7 @@ struct fpm_nl_ctx {
 	struct event *t_event;
 	struct event *t_nhg;
 	struct event *t_dequeue;
+	struct event *t_wedged;
 
 	/* zebra events. */
 	struct event *t_lspreset;
@@ -123,8 +134,6 @@ struct fpm_nl_ctx {
 
 		/* Amount of data plane context processed. */
 		_Atomic uint32_t dplane_contexts;
-		/* Amount of data plane contexts enqueued. */
-		_Atomic uint32_t ctxqueue_len;
 		/* Peak amount of data plane contexts enqueued. */
 		_Atomic uint32_t ctxqueue_len_peak;
 
@@ -206,7 +215,7 @@ DEFUN(fpm_set_address, fpm_set_address_cmd,
 		memset(sin, 0, sizeof(*sin));
 		sin->sin_family = AF_INET;
 		sin->sin_port =
-			port ? htons(port) : htons(SOUTHBOUND_DEFAULT_PORT);
+			port ? htons(port) : htons(FPM_DEFAULT_PORT);
 #ifdef HAVE_STRUCT_SOCKADDR_SA_LEN
 		sin->sin_len = sizeof(*sin);
 #endif /* HAVE_STRUCT_SOCKADDR_SA_LEN */
@@ -224,7 +233,7 @@ DEFUN(fpm_set_address, fpm_set_address_cmd,
 	sin6 = (struct sockaddr_in6 *)&gfnc->addr;
 	memset(sin6, 0, sizeof(*sin6));
 	sin6->sin6_family = AF_INET6;
-	sin6->sin6_port = port ? htons(port) : htons(SOUTHBOUND_DEFAULT_PORT);
+	sin6->sin6_port = port ? htons(port) : htons(FPM_DEFAULT_PORT);
 #ifdef HAVE_STRUCT_SOCKADDR_SA_LEN
 	sin6->sin6_len = sizeof(*sin6);
 #endif /* HAVE_STRUCT_SOCKADDR_SA_LEN */
@@ -282,6 +291,25 @@ DEFUN(no_fpm_use_nhg, no_fpm_use_nhg_cmd,
 	return CMD_SUCCESS;
 }
 
+DEFUN(fpm_use_route_replace, fpm_use_route_replace_cmd,
+      "fpm use-route-replace",
+      FPM_STR
+      "Use netlink route replace semantics\n")
+{
+	gfnc->use_route_replace = true;
+	return CMD_SUCCESS;
+}
+
+DEFUN(no_fpm_use_route_replace, no_fpm_use_route_replace_cmd,
+      "no fpm use-route-replace",
+      NO_STR
+      FPM_STR
+      "Use netlink route replace semantics\n")
+{
+	gfnc->use_route_replace = false;
+	return CMD_SUCCESS;
+}
+
 DEFUN(fpm_reset_counters, fpm_reset_counters_cmd,
       "clear fpm counters",
       CLEAR_STR
@@ -293,12 +321,86 @@ DEFUN(fpm_reset_counters, fpm_reset_counters_cmd,
 	return CMD_SUCCESS;
 }
 
+DEFPY(fpm_show_status,
+      fpm_show_status_cmd,
+      "show fpm status [json]$json",
+      SHOW_STR FPM_STR "FPM status\n" JSON_STR)
+{
+	struct json_object *j;
+	bool connected;
+	uint16_t port;
+	struct sockaddr_in *sin;
+	struct sockaddr_in6 *sin6;
+	char buf[BUFSIZ];
+
+	connected = gfnc->socket > 0 ? true : false;
+
+	switch (gfnc->addr.ss_family) {
+	case AF_INET:
+		sin = (struct sockaddr_in *)&gfnc->addr;
+		snprintfrr(buf, sizeof(buf), "%pI4", &sin->sin_addr);
+		port = ntohs(sin->sin_port);
+		break;
+	case AF_INET6:
+		sin6 = (struct sockaddr_in6 *)&gfnc->addr;
+		snprintfrr(buf, sizeof(buf), "%pI6", &sin6->sin6_addr);
+		port = ntohs(sin6->sin6_port);
+		break;
+	default:
+		strlcpy(buf, "Unknown", sizeof(buf));
+		port = FPM_DEFAULT_PORT;
+		break;
+	}
+
+	if (json) {
+		j = json_object_new_object();
+
+		json_object_boolean_add(j, "connected", connected);
+		json_object_boolean_add(j, "useNHG", gfnc->use_nhg);
+		json_object_boolean_add(j, "useRouteReplace",
+					gfnc->use_route_replace);
+		json_object_boolean_add(j, "disabled", gfnc->disabled);
+		json_object_string_add(j, "address", buf);
+		json_object_int_add(j, "port", port);
+
+		vty_json(vty, j);
+	} else {
+		struct ttable *table = ttable_new(&ttable_styles[TTSTYLE_BLANK]);
+		char *out;
+
+		ttable_rowseps(table, 0, BOTTOM, true, '-');
+		ttable_add_row(table, "Address to connect to|%s", buf);
+		ttable_add_row(table, "Port|%u", port);
+		ttable_add_row(table, "Connected|%s", connected ? "Yes" : "No");
+		ttable_add_row(table, "Use Nexthop Groups|%s",
+			       gfnc->use_nhg ? "Yes" : "No");
+		ttable_add_row(table, "Use Route Replace Semantics|%s",
+			       gfnc->use_route_replace ? "Yes" : "No");
+		ttable_add_row(table, "Disabled|%s",
+			       gfnc->disabled ? "Yes" : "No");
+
+		out = ttable_dump(table, "\n");
+		vty_out(vty, "%s\n", out);
+		XFREE(MTYPE_TMP_TTABLE, out);
+
+		ttable_del(table);
+	}
+
+	return CMD_SUCCESS;
+}
+
 DEFUN(fpm_show_counters, fpm_show_counters_cmd,
       "show fpm counters",
       SHOW_STR
       FPM_STR
       "FPM statistic counters\n")
 {
+	uint32_t curr_queue_len;
+
+	frr_with_mutex (&gfnc->ctxqueue_mutex) {
+		curr_queue_len = dplane_ctx_queue_count(&gfnc->ctxqueue);
+	}
+
 	vty_out(vty, "%30s\n%30s\n", "FPM counters", "============");
 
 #define SHOW_COUNTER(label, counter) \
@@ -312,8 +414,7 @@ DEFUN(fpm_show_counters, fpm_show_counters_cmd,
 	SHOW_COUNTER("Connection errors", gfnc->counters.connection_errors);
 	SHOW_COUNTER("Data plane items processed",
 		     gfnc->counters.dplane_contexts);
-	SHOW_COUNTER("Data plane items enqueued",
-		     gfnc->counters.ctxqueue_len);
+	SHOW_COUNTER("Data plane items enqueued", curr_queue_len);
 	SHOW_COUNTER("Data plane items queue peak",
 		     gfnc->counters.ctxqueue_len_peak);
 	SHOW_COUNTER("Buffer full hits", gfnc->counters.buffer_full);
@@ -332,6 +433,12 @@ DEFUN(fpm_show_counters_json, fpm_show_counters_json_cmd,
       "FPM statistic counters\n"
       JSON_STR)
 {
+	uint32_t curr_queue_len;
+
+	frr_with_mutex (&gfnc->ctxqueue_mutex) {
+		curr_queue_len = dplane_ctx_queue_count(&gfnc->ctxqueue);
+	}
+
 	struct json_object *jo;
 
 	jo = json_object_new_object();
@@ -345,8 +452,7 @@ DEFUN(fpm_show_counters_json, fpm_show_counters_json_cmd,
 			    gfnc->counters.connection_errors);
 	json_object_int_add(jo, "data-plane-contexts",
 			    gfnc->counters.dplane_contexts);
-	json_object_int_add(jo, "data-plane-contexts-queue",
-			    gfnc->counters.ctxqueue_len);
+	json_object_int_add(jo, "data-plane-contexts-queue", curr_queue_len);
 	json_object_int_add(jo, "data-plane-contexts-queue-peak",
 			    gfnc->counters.ctxqueue_len_peak);
 	json_object_int_add(jo, "buffer-full-hits", gfnc->counters.buffer_full);
@@ -372,7 +478,7 @@ static int fpm_write_config(struct vty *vty)
 		written = 1;
 		sin = (struct sockaddr_in *)&gfnc->addr;
 		vty_out(vty, "fpm address %pI4", &sin->sin_addr);
-		if (sin->sin_port != htons(SOUTHBOUND_DEFAULT_PORT))
+		if (sin->sin_port != htons(FPM_DEFAULT_PORT))
 			vty_out(vty, " port %d", ntohs(sin->sin_port));
 
 		vty_out(vty, "\n");
@@ -381,7 +487,7 @@ static int fpm_write_config(struct vty *vty)
 		written = 1;
 		sin6 = (struct sockaddr_in6 *)&gfnc->addr;
 		vty_out(vty, "fpm address %pI6", &sin6->sin6_addr);
-		if (sin6->sin6_port != htons(SOUTHBOUND_DEFAULT_PORT))
+		if (sin6->sin6_port != htons(FPM_DEFAULT_PORT))
 			vty_out(vty, " port %d", ntohs(sin6->sin6_port));
 
 		vty_out(vty, "\n");
@@ -393,6 +499,11 @@ static int fpm_write_config(struct vty *vty)
 
 	if (!gfnc->use_nhg) {
 		vty_out(vty, "no fpm use-next-hop-groups\n");
+		written = 1;
+	}
+
+	if (!gfnc->use_route_replace) {
+		vty_out(vty, "no fpm use-route-replace\n");
 		written = 1;
 	}
 
@@ -549,14 +660,6 @@ static void fpm_read(struct event *t)
 		hdr_available_bytes = fpm.msg_len - FPM_MSG_HDR_LEN;
 		available_bytes -= hdr_available_bytes;
 
-		/* Sanity check: must be at least header size. */
-		if (hdr->nlmsg_len < sizeof(*hdr)) {
-			zlog_warn(
-				"%s: [seq=%u] invalid message length %u (< %zu)",
-				__func__, hdr->nlmsg_seq, hdr->nlmsg_len,
-				sizeof(*hdr));
-			continue;
-		}
 		if (hdr->nlmsg_len > fpm.msg_len) {
 			zlog_warn(
 				"%s: Received a inner header length of %u that is greater than the fpm total length of %u",
@@ -586,8 +689,17 @@ static void fpm_read(struct event *t)
 
 		switch (hdr->nlmsg_type) {
 		case RTM_NEWROUTE:
+			/* Sanity check: need at least route msg header size. */
+			if (hdr->nlmsg_len < sizeof(struct rtmsg)) {
+				zlog_warn("%s: [seq=%u] invalid message length %u (< %zu)",
+					  __func__, hdr->nlmsg_seq,
+					  hdr->nlmsg_len, sizeof(struct rtmsg));
+				break;
+			}
+
 			ctx = dplane_ctx_alloc();
-			dplane_ctx_set_op(ctx, DPLANE_OP_ROUTE_NOTIFY);
+			dplane_ctx_route_init(ctx, DPLANE_OP_ROUTE_NOTIFY, NULL,
+					      NULL);
 			if (netlink_route_change_read_unicast_internal(
 				    hdr, 0, false, ctx) != 1) {
 				dplane_ctx_fini(&ctx);
@@ -806,12 +918,20 @@ static int fpm_nl_enqueue(struct fpm_nl_ctx *fnc, struct zebra_dplane_ctx *ctx)
 
 	frr_mutex_lock_autounlock(&fnc->obuf_mutex);
 
+	/*
+	 * If route replace is enabled then directly encode the install which
+	 * is going to use `NLM_F_REPLACE` (instead of delete/add operations).
+	 */
+	if (fnc->use_route_replace && op == DPLANE_OP_ROUTE_UPDATE)
+		op = DPLANE_OP_ROUTE_INSTALL;
+
 	switch (op) {
 	case DPLANE_OP_ROUTE_UPDATE:
 	case DPLANE_OP_ROUTE_DELETE:
 		rv = netlink_route_multipath_msg_encode(RTM_DELROUTE, ctx,
 							nl_buf, sizeof(nl_buf),
-							true, fnc->use_nhg);
+							true, fnc->use_nhg,
+							false);
 		if (rv <= 0) {
 			zlog_err(
 				"%s: netlink_route_multipath_msg_encode failed",
@@ -825,11 +945,14 @@ static int fpm_nl_enqueue(struct fpm_nl_ctx *fnc, struct zebra_dplane_ctx *ctx)
 		if (op == DPLANE_OP_ROUTE_DELETE)
 			break;
 
-		/* FALL THROUGH */
+		fallthrough;
 	case DPLANE_OP_ROUTE_INSTALL:
-		rv = netlink_route_multipath_msg_encode(
-			RTM_NEWROUTE, ctx, &nl_buf[nl_buf_len],
-			sizeof(nl_buf) - nl_buf_len, true, fnc->use_nhg);
+		rv = netlink_route_multipath_msg_encode(RTM_NEWROUTE, ctx,
+							&nl_buf[nl_buf_len],
+							sizeof(nl_buf) -
+								nl_buf_len,
+							true, fnc->use_nhg,
+							fnc->use_route_replace);
 		if (rv <= 0) {
 			zlog_err(
 				"%s: netlink_route_multipath_msg_encode failed",
@@ -932,7 +1055,9 @@ static int fpm_nl_enqueue(struct fpm_nl_ctx *fnc, struct zebra_dplane_ctx *ctx)
 	case DPLANE_OP_TC_FILTER_ADD:
 	case DPLANE_OP_TC_FILTER_DELETE:
 	case DPLANE_OP_TC_FILTER_UPDATE:
+	case DPLANE_OP_SRV6_ENCAP_SRCADDR_SET:
 	case DPLANE_OP_NONE:
+	case DPLANE_OP_STARTUP_STAGE:
 		break;
 
 	}
@@ -1211,7 +1336,7 @@ static void fpm_enqueue_l3vni_table(struct hash_bucket *bucket, void *arg)
 	struct zebra_l3vni *zl3vni = bucket->data;
 
 	fra->zl3vni = zl3vni;
-	hash_iterate(zl3vni->rmac_table, fpm_enqueue_rmac_table, zl3vni);
+	hash_iterate(zl3vni->rmac_table, fpm_enqueue_rmac_table, fra);
 }
 
 static void fpm_rmac_send(struct event *t)
@@ -1326,6 +1451,18 @@ static void fpm_rmac_reset(struct event *t)
 			&fnc->t_rmacwalk);
 }
 
+static void fpm_process_wedged(struct event *t)
+{
+	struct fpm_nl_ctx *fnc = EVENT_ARG(t);
+
+	zlog_warn("%s: Connection unable to write to peer for over %u seconds, resetting",
+		  __func__, DPLANE_FPM_NL_WEDGIE_TIME);
+
+	atomic_fetch_add_explicit(&fnc->counters.connection_errors, 1,
+				  memory_order_relaxed);
+	FPM_RECONNECT(fnc);
+}
+
 static void fpm_process_queue(struct event *t)
 {
 	struct fpm_nl_ctx *fnc = EVENT_ARG(t);
@@ -1334,8 +1471,14 @@ static void fpm_process_queue(struct event *t)
 	uint64_t processed_contexts = 0;
 
 	while (true) {
+		size_t writeable_amount;
+
+		frr_with_mutex (&fnc->obuf_mutex) {
+			writeable_amount = STREAM_WRITEABLE(fnc->obuf);
+		}
+
 		/* No space available yet. */
-		if (STREAM_WRITEABLE(fnc->obuf) < NL_PKT_BUF_SIZE) {
+		if (writeable_amount < NL_PKT_BUF_SIZE) {
 			no_bufs = true;
 			break;
 		}
@@ -1358,8 +1501,6 @@ static void fpm_process_queue(struct event *t)
 
 		/* Account the processed entries. */
 		processed_contexts++;
-		atomic_fetch_sub_explicit(&fnc->counters.ctxqueue_len, 1,
-					  memory_order_relaxed);
 
 		dplane_ctx_set_status(ctx, ZEBRA_DPLANE_REQUEST_SUCCESS);
 		dplane_provider_enqueue_out_ctx(fnc->prov, ctx);
@@ -1370,9 +1511,13 @@ static void fpm_process_queue(struct event *t)
 				  processed_contexts, memory_order_relaxed);
 
 	/* Re-schedule if we ran out of buffer space */
-	if (no_bufs)
-		event_add_timer(fnc->fthread->master, fpm_process_queue, fnc, 0,
+	if (no_bufs) {
+		event_add_event(fnc->fthread->master, fpm_process_queue, fnc, 0,
 				&fnc->t_dequeue);
+		event_add_timer(fnc->fthread->master, fpm_process_wedged, fnc,
+				DPLANE_FPM_NL_WEDGIE_TIME, &fnc->t_wedged);
+	} else
+		EVENT_OFF(fnc->t_wedged);
 
 	/*
 	 * Let the dataplane thread know if there are items in the
@@ -1467,6 +1612,7 @@ static int fpm_nl_start(struct zebra_dplane_provider *prov)
 
 	/* Set default values. */
 	fnc->use_nhg = true;
+	fnc->use_route_replace = true;
 
 	return 0;
 }
@@ -1528,10 +1674,29 @@ static int fpm_nl_process(struct zebra_dplane_provider *prov)
 	struct zebra_dplane_ctx *ctx;
 	struct fpm_nl_ctx *fnc;
 	int counter, limit;
-	uint64_t cur_queue, peak_queue = 0, stored_peak_queue;
+	uint64_t cur_queue = 0, peak_queue = 0, stored_peak_queue;
 
 	fnc = dplane_provider_get_data(prov);
 	limit = dplane_provider_get_work_limit(prov);
+
+	frr_with_mutex (&fnc->ctxqueue_mutex) {
+		cur_queue = dplane_ctx_queue_count(&fnc->ctxqueue);
+	}
+
+	if (cur_queue >= (uint64_t)limit) {
+		if (IS_ZEBRA_DEBUG_FPM)
+			zlog_debug("%s: Already at a limit(%" PRIu64
+				   ") of internal work, hold off",
+				   __func__, cur_queue);
+		limit = 0;
+	} else if (cur_queue != 0) {
+		if (IS_ZEBRA_DEBUG_FPM)
+			zlog_debug("%s: current queue is %" PRIu64
+				   ", limiting to lesser amount of %" PRIu64,
+				   __func__, cur_queue, limit - cur_queue);
+		limit -= cur_queue;
+	}
+
 	for (counter = 0; counter < limit; counter++) {
 		ctx = dplane_provider_dequeue_in_ctx(prov);
 		if (ctx == NULL)
@@ -1542,20 +1707,12 @@ static int fpm_nl_process(struct zebra_dplane_provider *prov)
 		 * anyway.
 		 */
 		if (fnc->socket != -1 && fnc->connecting == false) {
-			/*
-			 * Update the number of queued contexts *before*
-			 * enqueueing, to ensure counter consistency.
-			 */
-			atomic_fetch_add_explicit(&fnc->counters.ctxqueue_len,
-						  1, memory_order_relaxed);
-
 			frr_with_mutex (&fnc->ctxqueue_mutex) {
 				dplane_ctx_enqueue_tail(&fnc->ctxqueue, ctx);
+				cur_queue =
+					dplane_ctx_queue_count(&fnc->ctxqueue);
 			}
 
-			cur_queue = atomic_load_explicit(
-				&fnc->counters.ctxqueue_len,
-				memory_order_relaxed);
 			if (peak_queue < cur_queue)
 				peak_queue = cur_queue;
 			continue;
@@ -1572,10 +1729,8 @@ static int fpm_nl_process(struct zebra_dplane_provider *prov)
 		atomic_store_explicit(&fnc->counters.ctxqueue_len_peak,
 				      peak_queue, memory_order_relaxed);
 
-	if (atomic_load_explicit(&fnc->counters.ctxqueue_len,
-				 memory_order_relaxed)
-	    > 0)
-		event_add_timer(fnc->fthread->master, fpm_process_queue, fnc, 0,
+	if (cur_queue > 0)
+		event_add_event(fnc->fthread->master, fpm_process_queue, fnc, 0,
 				&fnc->t_dequeue);
 
 	/* Ensure dataplane thread is rescheduled if we hit the work limit */
@@ -1600,6 +1755,7 @@ static int fpm_nl_new(struct event_loop *tm)
 		zlog_debug("%s register status: %d", prov_name, rv);
 
 	install_node(&fpm_node);
+	install_element(ENABLE_NODE, &fpm_show_status_cmd);
 	install_element(ENABLE_NODE, &fpm_show_counters_cmd);
 	install_element(ENABLE_NODE, &fpm_show_counters_json_cmd);
 	install_element(ENABLE_NODE, &fpm_reset_counters_cmd);
@@ -1607,6 +1763,8 @@ static int fpm_nl_new(struct event_loop *tm)
 	install_element(CONFIG_NODE, &no_fpm_set_address_cmd);
 	install_element(CONFIG_NODE, &fpm_use_nhg_cmd);
 	install_element(CONFIG_NODE, &no_fpm_use_nhg_cmd);
+	install_element(CONFIG_NODE, &fpm_use_route_replace_cmd);
+	install_element(CONFIG_NODE, &no_fpm_use_route_replace_cmd);
 
 	return 0;
 }

@@ -28,6 +28,7 @@
 #include "stream.h"
 #include "network.h"
 #include "libfrr.h"
+#include "zlog_live.h"
 
 static void		 lde_shutdown(void);
 static void lde_dispatch_imsg(struct event *thread);
@@ -87,7 +88,7 @@ static struct list *label_chunk_list;
 static struct listnode *current_label_chunk;
 
 /* Synchronous zclient to request labels */
-static struct zclient *zclient_sync;
+struct zclient *zclient_sync;
 
 /* SIGINT / SIGTERM handler. */
 static void
@@ -116,6 +117,8 @@ static struct frr_signal_t lde_signals[] =
 void
 lde(void)
 {
+	static struct zlog_live_cfg child_log;
+
 #ifdef HAVE_SETPROCTITLE
 	setproctitle("label decision engine");
 #endif
@@ -123,6 +126,8 @@ lde(void)
 	log_procname = log_procnames[PROC_LDE_ENGINE];
 
 	master = frr_init();
+	zlog_live_open_fd(&child_log, LOG_DEBUG, LDPD_FD_LOG);
+
 	/* no frr_config_fork() here, allow frr_pthread to create threads */
 	frr_is_after_fork = true;
 
@@ -2135,12 +2140,8 @@ static void zclient_sync_retry(struct event *thread)
  */
 static void zclient_sync_init(void)
 {
-	struct zclient_options options = zclient_options_default;
-
-	options.synchronous = true;
-
 	/* Initialize special zclient for synchronous message exchanges. */
-	zclient_sync = zclient_new(master, &options, NULL, 0);
+	zclient_sync = zclient_new(master, &zclient_options_sync, NULL, 0);
 	zclient_sync->sock = -1;
 	zclient_sync->redist_default = ZEBRA_ROUTE_LDP;
 	zclient_sync->session_id = 1; /* Distinguish from main session */

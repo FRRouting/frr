@@ -25,7 +25,8 @@ extern "C" {
 #define RKERNEL_ROUTE(type) ((type) == ZEBRA_ROUTE_KERNEL)
 
 #define RSYSTEM_ROUTE(type)                                                    \
-	((RKERNEL_ROUTE(type)) || (type) == ZEBRA_ROUTE_CONNECT)
+	((RKERNEL_ROUTE(type)) || (type) == ZEBRA_ROUTE_CONNECT ||             \
+	 (type) == ZEBRA_ROUTE_LOCAL)
 
 #ifndef HAVE_NETLINK
 /*
@@ -84,6 +85,8 @@ extern int kernel_get_ipmr_sg_stats(struct zebra_vrf *zvrf, void *mroute);
  * state.
  */
 extern void interface_list(struct zebra_ns *zns);
+extern void interface_list_tunneldump(struct zebra_ns *zns);
+extern void interface_list_second(struct zebra_ns *zns);
 extern void kernel_init(struct zebra_ns *zns);
 extern void kernel_terminate(struct zebra_ns *zns, bool complete);
 extern void macfdb_read(struct zebra_ns *zns);

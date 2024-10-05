@@ -13,6 +13,7 @@
  */
 
 #include <zebra.h>
+#include <netinet/icmp6.h>
 #include <netinet/ip6.h>
 
 #include "lib/memory.h"
@@ -61,7 +62,6 @@ static void gm_sg_timer_start(struct gm_if *gm_ifp, struct gm_sg *sg,
 		sg->iface->ifp->name, &sg->sgaddr
 
 /* clang-format off */
-#if PIM_IPV == 6
 static const pim_addr gm_all_hosts = {
 	.s6_addr = {
 		0xff, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
@@ -83,13 +83,6 @@ static const pim_addr gm_dummy_untracked = {
 		0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
 	},
 };
-#else
-/* 224.0.0.1 */
-static const pim_addr gm_all_hosts = { .s_addr = htonl(0xe0000001), };
-/* 224.0.0.22 */
-static const pim_addr gm_all_routers = { .s_addr = htonl(0xe0000016), };
-static const pim_addr gm_dummy_untracked = { .s_addr = 0xffffffff, };
-#endif
 /* clang-format on */
 
 #define IPV6_MULTICAST_SCOPE_LINK 2
@@ -344,7 +337,8 @@ static const char *const gm_states[] = {
 };
 /* clang-format on */
 
-CPP_NOTICE("TODO: S,G entries in EXCLUDE (i.e. prune) unsupported");
+/* TODO: S,G entries in EXCLUDE (i.e. prune) unsupported" */
+
 /* tib_sg_gm_prune() below is an "un-join", it doesn't prune S,G when *,G is
  * joined.  Whether we actually want/need to support this is a separate
  * question - it is almost never used.  In fact this is exactly what RFC5790
@@ -354,6 +348,7 @@ CPP_NOTICE("TODO: S,G entries in EXCLUDE (i.e. prune) unsupported");
 static void gm_sg_update(struct gm_sg *sg, bool has_expired)
 {
 	struct gm_if *gm_ifp = sg->iface;
+	struct pim_interface *pim_ifp = gm_ifp->ifp->info;
 	enum gm_sg_state prev, desired;
 	bool new_join;
 	struct gm_sg *grp = NULL;
@@ -403,9 +398,12 @@ static void gm_sg_update(struct gm_sg *sg, bool has_expired)
 			gm_sg_timer_start(gm_ifp, sg, timers.expire_wait);
 
 			EVENT_OFF(sg->t_sg_query);
-			sg->n_query = gm_ifp->cur_lmqc;
 			sg->query_sbit = false;
-			gm_trigger_specific(sg);
+			/* Trigger the specific queries only for querier. */
+			if (IPV6_ADDR_SAME(&gm_ifp->querier, &pim_ifp->ll_lowest)) {
+				sg->n_query = gm_ifp->cur_lmqc;
+				gm_trigger_specific(sg);
+			}
 		}
 	}
 	prev = sg->state;
@@ -645,7 +643,7 @@ static void gm_handle_v2_pass1(struct gm_packet_state *pkt,
 			 */
 			gm_packet_sg_drop(old_grp);
 			gm_sg_update(grp, false);
-			CPP_NOTICE("need S,G PRUNE => NO_INFO transition here");
+/* TODO "need S,G PRUNE => NO_INFO transition here" */
 		}
 		break;
 
@@ -793,7 +791,8 @@ static void gm_handle_v2_pass2_excl(struct gm_packet_state *pkt, size_t offs)
 	gm_sg_update(sg_grp, false);
 }
 
-CPP_NOTICE("TODO: QRV/QQIC are not copied from queries to local state");
+/* TODO: QRV/QQIC are not copied from queries to local state" */
+
 /* on receiving a query, we need to update our robustness/query interval to
  * match, so we correctly process group/source specific queries after last
  * member leaves
@@ -949,7 +948,8 @@ static void gm_handle_v1_report(struct gm_if *gm_ifp,
 
 	item = gm_packet_sg_setup(pkt, grp, true, false);
 	item->n_exclude = 0;
-	CPP_NOTICE("set v1-seen timer on grp here");
+
+/* TODO "set v1-seen timer on grp here" */
 
 	/* } */
 
@@ -1012,7 +1012,9 @@ static void gm_handle_v1_leave(struct gm_if *gm_ifp,
 		if (old_grp) {
 			gm_packet_sg_drop(old_grp);
 			gm_sg_update(grp, false);
-			CPP_NOTICE("need S,G PRUNE => NO_INFO transition here");
+
+/* TODO "need S,G PRUNE => NO_INFO transition here" */
+
 		}
 	}
 
@@ -1234,6 +1236,7 @@ static void gm_handle_q_groupsrc(struct gm_if *gm_ifp,
 
 	for (i = 0; i < n_src; i++) {
 		sg = gm_sg_find(gm_ifp, grp, srcs[i]);
+		GM_UPDATE_SG_STATE(sg);
 		gm_sg_timer_start(gm_ifp, sg, timers->expire_wait);
 	}
 }
@@ -1308,6 +1311,7 @@ static void gm_handle_q_group(struct gm_if *gm_ifp,
 		if (PIM_DEBUG_GM_TRACE)
 			zlog_debug(log_ifp("*,%pPAs expiry timer starting"),
 				   &grp);
+		GM_UPDATE_SG_STATE(sg);
 		gm_sg_timer_start(gm_ifp, sg, timers->expire_wait);
 
 		sg = gm_sgs_next(gm_ifp->sgs, sg);
@@ -1356,7 +1360,7 @@ static void gm_bump_querier(struct gm_if *gm_ifp)
 
 	gm_ifp->n_startup = gm_ifp->cur_qrv;
 
-	event_execute(router->master, gm_t_query, gm_ifp, 0);
+	event_execute(router->master, gm_t_query, gm_ifp, 0, NULL);
 }
 
 static void gm_t_other_querier(struct event *t)
@@ -1369,7 +1373,7 @@ static void gm_t_other_querier(struct event *t)
 	gm_ifp->querier = pim_ifp->ll_lowest;
 	gm_ifp->n_startup = gm_ifp->cur_qrv;
 
-	event_execute(router->master, gm_t_query, gm_ifp, 0);
+	event_execute(router->master, gm_t_query, gm_ifp, 0, NULL);
 }
 
 static void gm_handle_query(struct gm_if *gm_ifp,
@@ -1919,7 +1923,6 @@ static void gm_t_gsq_pend(struct event *t)
 static void gm_trigger_specific(struct gm_sg *sg)
 {
 	struct gm_if *gm_ifp = sg->iface;
-	struct pim_interface *pim_ifp = gm_ifp->ifp->info;
 	struct gm_gsq_pending *pend_gsq, ref = {};
 
 	sg->n_query--;
@@ -1928,8 +1931,20 @@ static void gm_trigger_specific(struct gm_sg *sg)
 				     gm_ifp->cur_query_intv_trig,
 				     &sg->t_sg_query);
 
-	if (!IPV6_ADDR_SAME(&gm_ifp->querier, &pim_ifp->ll_lowest))
-		return;
+	/* As per RFC 2271, s6 p14:
+	 * E.g. a router that starts as a Querier, receives a
+	 * Done message for a group and then receives a Query from a router with
+	 * a lower address (causing a transition to the Non-Querier state)
+	 * continues to send multicast-address-specific queries for the group in
+	 * question until it either receives a Report or its timer expires, at
+	 * which time it starts performing the actions of a Non-Querier for this
+	 * group.
+	 */
+	 /* Therefore here we do not need to check if this router is querier or
+	  * not. This is called only for querier, hence it will work even if the
+	  * router transitions from querier to non-querier.
+	  */
+
 	if (gm_ifp->pim->gm_socket == -1)
 		return;
 
@@ -2245,7 +2260,7 @@ static void gm_update_ll(struct interface *ifp)
 		return;
 
 	gm_ifp->n_startup = gm_ifp->cur_qrv;
-	event_execute(router->master, gm_t_query, gm_ifp, 0);
+	event_execute(router->master, gm_t_query, gm_ifp, 0, NULL);
 }
 
 void gm_ifp_update(struct interface *ifp)
@@ -2514,7 +2529,7 @@ static void gm_show_if_vrf(struct vty *vty, struct vrf *vrf, const char *ifname,
 	if (!js && !detail) {
 		table = ttable_dump(tt, "\n");
 		vty_out(vty, "%s\n", table);
-		XFREE(MTYPE_TMP, table);
+		XFREE(MTYPE_TMP_TTABLE, table);
 		ttable_del(tt);
 	}
 }
@@ -2998,7 +3013,7 @@ static void gm_show_groups(struct vty *vty, struct vrf *vrf, bool uj)
 		/* Dump the generated table. */
 		table = ttable_dump(tt, "\n");
 		vty_out(vty, "%s\n", table);
-		XFREE(MTYPE_TMP, table);
+		XFREE(MTYPE_TMP_TTABLE, table);
 		ttable_del(tt);
 	}
 }

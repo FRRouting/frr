@@ -47,9 +47,9 @@ an example.)
     cd frr
     ./bootstrap.sh
     ./configure \
-        --localstatedir=/var/opt/frr \
+        --sysconfdir=/etc \
+        --localstatedir=/var \
         --sbindir=/usr/lib/frr \
-        --sysconfdir=/etc/frr \
         --enable-multipath=64 \
         --enable-user=frr \
         --enable-group=frr \

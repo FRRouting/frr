@@ -83,6 +83,7 @@ from lib.bgp import (
     create_router_bgp,
     clear_bgp_and_verify,
 )
+from lib.ospf import verify_ospf_neighbor, clear_ospf
 
 # Global variables
 topo = None
@@ -882,6 +883,154 @@ def test_bgp_unique_rid_chaos4_p2():
     assert bgp_convergence is True, "Testcase {} : Failed \n Error: {}".format(
         tc_name, bgp_convergence
     )
+
+    write_test_footer(tc_name)
+
+
+def test_bgp_unique_rid_chaos2_p2():
+    """
+    TC: 8
+    8. Chaos - Verify bgp unique rid functionality when ospf and bgp share the same router ids.
+
+    """
+    tgen = get_topogen()
+    global bgp_convergence
+
+    if bgp_convergence is not True:
+        pytest.skip("skipped because of BGP Convergence failure")
+
+    # test case name
+    tc_name = inspect.stack()[0][3]
+    write_test_header(tc_name)
+    if tgen.routers_have_failure():
+        check_router_status(tgen)
+
+    step("Configure base config as per the topology")
+    step("Redistribute routes between bgp and ospf.")
+    reset_config_on_routers(tgen)
+
+    step(
+        "Base config should be up, verify using BGP convergence on all \
+    the routers for IPv4 and IPv6 nbrs"
+    )
+
+    result = verify_bgp_convergence(tgen, topo)
+    assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
+
+    ospf_covergence = verify_ospf_neighbor(tgen, topo, dut="r3")
+    assert ospf_covergence is True, "Testcase :Failed \n Error:" " {}".format(
+        ospf_covergence
+    )
+
+    step(
+        "Configure ospf between R3 and R4 with same router ids in both ospf and bgp 10.10.10.10 on R3 BGP and OSPF, and 10.10.10.10 in R4 BGP and 11.11.11.11 in R4 OSPF."
+    )
+    input_dict = {
+        "r3": {"bgp": {"router_id": "10.10.10.10"}},
+        "r4": {"bgp": {"router_id": "10.10.10.10"}},
+        "r5": {"bgp": {"router_id": "10.10.10.10"}},
+    }
+    result = create_router_bgp(tgen, topo, input_dict)
+    assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
+
+    step(
+        "The session should be established between R3 & R4 between BGP process and neighborship should be full between OSPF too."
+    )
+
+    result = verify_bgp_convergence(tgen, topo)
+    assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
+
+    ospf_covergence = verify_ospf_neighbor(tgen, topo, dut="r3")
+    assert ospf_covergence is True, "Testcase :Failed \n Error:" " {}".format(
+        ospf_covergence
+    )
+
+    step("All the routes should be calculated and installed.")
+    # Verifying RIB routes
+    protocol = "bgp"
+    input_dict = topo["routers"]
+    verify_rib_rtes = {
+        "ipv4": {
+            "r3": {
+                "static_routes": [
+                    {"network": NETWORK["ipv4"], "next_hop": "Null0"},
+                ]
+            }
+        },
+        "ipv6": {
+            "r3": {
+                "static_routes": [
+                    {
+                        "network": NETWORK["ipv6"],
+                        "next_hop": "Null0",
+                    }
+                ]
+            }
+        },
+    }
+    dut = "r3"
+    for addr_type in ADDR_TYPES:
+        result4 = verify_rib(
+            tgen,
+            addr_type,
+            dut,
+            verify_rib_rtes,
+            protocol=protocol,
+        )
+        assert result4 is True, "Testcase {} : Failed \n Error: {}".format(
+            tc_name, result4
+        )
+
+    step("Clear ospf process.")
+    clear_ospf(tgen, "r3")
+
+    step("All the routes should be calculated and installed.")
+    for addr_type in ADDR_TYPES:
+        result4 = verify_rib(
+            tgen,
+            addr_type,
+            dut,
+            verify_rib_rtes,
+            protocol=protocol,
+        )
+        assert result4 is True, "Testcase {} : Failed \n Error: {}".format(
+            tc_name, result4
+        )
+
+    step("Clear bgp process.")
+    clear_bgp_and_verify(tgen, topo, "r3")
+
+    step("All the routes should be calculated and installed.")
+    for addr_type in ADDR_TYPES:
+        result4 = verify_rib(
+            tgen,
+            addr_type,
+            dut,
+            verify_rib_rtes,
+            protocol=protocol,
+        )
+        assert result4 is True, "Testcase {} : Failed \n Error: {}".format(
+            tc_name, result4
+        )
+
+    step(
+        "Configure ospf between R3 and R5.  Configure static routes in R5 and redistribute static routes in ospf on R5."
+    )
+    # Covered as base config.
+
+    step("Verify routes are installed in R3 and R4 route tables.")
+    dut = "r4"
+    for addr_type in ADDR_TYPES:
+        result4 = verify_rib(
+            tgen,
+            addr_type,
+            dut,
+            verify_rib_rtes,
+            protocol=protocol,
+        )
+        assert result4 is True, "Testcase {} : Failed \n Error: {}".format(
+            tc_name, result4
+        )
 
     write_test_footer(tc_name)
 

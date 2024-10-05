@@ -49,6 +49,9 @@ struct pim_vxlan_sg {
 	struct interface *iif;
 	/* on a MLAG setup the peerlink is added as a static OIF */
 	struct interface *orig_oif;
+
+	struct event *null_register;
+	uint32_t null_register_sent;
 };
 
 enum pim_vxlan_mlag_flags {
@@ -134,6 +137,9 @@ extern void pim_vxlan_mlag_update(bool enable, bool peer_state, uint32_t role,
 extern bool pim_vxlan_do_mlag_reg(void);
 extern void pim_vxlan_inherit_mlag_flags(struct pim_instance *pim,
 		struct pim_upstream *up, bool inherit);
+
+extern void pim_vxlan_rp_info_is_alive(struct pim_instance *pim,
+				       struct pim_rpf *rpg_changed);
 
 /* Shutdown of PIM stop the thread */
 extern void pim_vxlan_terminate(void);

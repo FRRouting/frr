@@ -62,6 +62,11 @@ DEFINE_MTYPE_STATIC(OSPFD, APISERVER_MSGFILTER, "API Server Message Filter");
 /* List of all active connections. */
 struct list *apiserver_list;
 
+/* Indicates that API the server socket local addresss has been
+ * specified.
+ */
+struct in_addr ospf_apiserver_addr;
+
 /* -----------------------------------------------------------
  * Functions to lookup interfaces
  * -----------------------------------------------------------
@@ -109,7 +114,21 @@ struct ospf_interface *ospf_apiserver_if_lookup_by_ifp(struct interface *ifp)
 
 unsigned short ospf_apiserver_getport(void)
 {
-	struct servent *sp = getservbyname("ospfapi", "tcp");
+	struct servent *sp = NULL;
+	char sbuf[16];
+
+	/*
+	 * Allow the OSPF API server port to be specified per-instance by
+	 * including the instance ID in the /etc/services name. Use the
+	 * prior name if no per-instance service is specified.
+	 */
+	if (ospf_instance) {
+		snprintfrr(sbuf, sizeof(sbuf), "ospfapi-%d", ospf_instance);
+		sp = getservbyname(sbuf, "tcp");
+	}
+
+	if (!sp)
+		sp = getservbyname("ospfapi", "tcp");
 
 	return sp ? ntohs(sp->s_port) : OSPF_API_SYNC_PORT;
 }
@@ -557,8 +576,10 @@ int ospf_apiserver_serv_sock_family(unsigned short port, int family)
 	sockopt_reuseaddr(accept_sock);
 	sockopt_reuseport(accept_sock);
 
-	/* Bind socket to address and given port. */
-	rc = sockunion_bind(accept_sock, &su, port, NULL);
+	/* Bind socket to optional lcoal address and port. */
+	if (ospf_apiserver_addr.s_addr)
+		sockunion2ip(&su) = ospf_apiserver_addr.s_addr;
+	rc = sockunion_bind(accept_sock, &su, port, &su);
 	if (rc < 0) {
 		close(accept_sock); /* Close socket */
 		return rc;
@@ -1764,6 +1785,12 @@ int ospf_apiserver_originate1(struct ospf_lsa *lsa, struct ospf_lsa *old)
 		 * session. Dump it, but increment past it's seqnum.
 		 */
 		assert(!ospf_opaque_is_owned(old));
+		if (IS_DEBUG_OSPF_CLIENT_API)
+			zlog_debug(
+				"LSA[Type%d:%pI4]: OSPF API Server Originate LSA Old Seq: 0x%x Age: %d",
+				old->data->type, &old->data->id,
+				ntohl(old->data->ls_seqnum),
+				ntohl(old->data->ls_age));
 		if (IS_LSA_MAX_SEQ(old)) {
 			flog_warn(EC_OSPF_LSA_INSTALL_FAILURE,
 				  "%s: old LSA at maxseq", __func__);
@@ -1772,6 +1799,11 @@ int ospf_apiserver_originate1(struct ospf_lsa *lsa, struct ospf_lsa *old)
 		lsa->data->ls_seqnum = lsa_seqnum_increment(old);
 		ospf_discard_from_db(ospf, old->lsdb, old);
 	}
+	if (IS_DEBUG_OSPF_CLIENT_API)
+		zlog_debug(
+			"LSA[Type%d:%pI4]: OSPF API Server Originate LSA New Seq: 0x%x Age: %d",
+			lsa->data->type, &lsa->data->id,
+			ntohl(lsa->data->ls_seqnum), ntohl(lsa->data->ls_age));
 
 	/* Install this LSA into LSDB. */
 	if (ospf_lsa_install(ospf, lsa->oi, lsa) == NULL) {
@@ -1846,6 +1878,11 @@ struct ospf_lsa *ospf_apiserver_lsa_refresher(struct ospf_lsa *lsa)
 	ospf = ospf_lookup_by_vrf_id(VRF_DEFAULT);
 	assert(ospf);
 
+	if (IS_DEBUG_OSPF(lsa, LSA_GENERATE)) {
+		zlog_debug("LSA[Type%d:%pI4]: OSPF API Server LSA Refresher",
+			   lsa->data->type, &lsa->data->id);
+	}
+
 	apiserv = lookup_apiserver_by_lsa(lsa);
 	if (!apiserv) {
 		zlog_warn("%s: LSA[%s]: No apiserver?", __func__,
@@ -1855,14 +1892,14 @@ struct ospf_lsa *ospf_apiserver_lsa_refresher(struct ospf_lsa *lsa)
 		goto out;
 	}
 
-	if (IS_LSA_MAXAGE(lsa)) {
-		ospf_opaque_lsa_flush_schedule(lsa);
-		goto out;
-	}
-
 	/* Check if updated version of LSA instance has already prepared. */
 	new = ospf_lsdb_lookup(&apiserv->reserve, lsa);
 	if (!new) {
+		if (IS_LSA_MAXAGE(lsa)) {
+			ospf_opaque_lsa_flush_schedule(lsa);
+			goto out;
+		}
+
 		/* This is a periodic refresh, driven by core OSPF mechanism. */
 		new = ospf_apiserver_opaque_lsa_new(lsa->area, lsa->oi,
 						    lsa->data);
@@ -2076,7 +2113,7 @@ void ospf_apiserver_flush_opaque_lsa(struct ospf_apiserver *apiserv,
 					lsa, (void *)&param, 0);
 		break;
 	case OSPF_OPAQUE_AS_LSA:
-		LSDB_LOOP (OPAQUE_LINK_LSDB(ospf), rn, lsa)
+		LSDB_LOOP (OPAQUE_AS_LSDB(ospf), rn, lsa)
 			apiserver_flush_opaque_type_callback(lsa,
 							     (void *)&param, 0);
 		break;

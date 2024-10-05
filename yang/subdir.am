@@ -35,9 +35,14 @@ dist_yangmodels_DATA += yang/frr-bgp-route-map.yang
 dist_yangmodels_DATA += yang/frr-vrf.yang
 dist_yangmodels_DATA += yang/frr-route-types.yang
 dist_yangmodels_DATA += yang/frr-routing.yang
+dist_yangmodels_DATA += yang/ietf/frr-deviations-ietf-key-chain.yang
 dist_yangmodels_DATA += yang/ietf/ietf-routing-types.yang
 dist_yangmodels_DATA += yang/ietf/ietf-interfaces.yang
 dist_yangmodels_DATA += yang/ietf/ietf-bgp-types.yang
+dist_yangmodels_DATA += yang/ietf/ietf-key-chain.yang
+dist_yangmodels_DATA += yang/ietf/ietf-netconf-acm.yang
+dist_yangmodels_DATA += yang/ietf/ietf-netconf.yang
+dist_yangmodels_DATA += yang/ietf/ietf-netconf-with-defaults.yang
 
 if BFDD
 dist_yangmodels_DATA += yang/frr-bfdd.yang
@@ -75,6 +80,7 @@ if PIMD
 dist_yangmodels_DATA += yang/frr-gmp.yang
 dist_yangmodels_DATA += yang/frr-pim.yang
 dist_yangmodels_DATA += yang/frr-pim-rp.yang
+dist_yangmodels_DATA += yang/frr-pim-candidate.yang
 endif
 
 if BGPD
@@ -101,31 +107,4 @@ endif
 CLEANFILES += \
 	yang/*.c \
 	yang/ietf/*.c \
-	yang/confd/*.c \
 	#
-
-if CONFD
-
-SUBMODULES = $(shell cd $(top_srcdir); grep -l belongs-to $(dist_yangmodels_DATA))
-EXCLUDED_MODULES = $(SUBMODULES) yang/frr-module-translator.yang
-YANG_MODULES = $(filter-out $(EXCLUDED_MODULES),$(dist_yangmodels_DATA))
-
-fxsdir = $(sysconfdir)/confd
-fxs_DATA = $(YANG_MODULES:.yang=.fxs)
-
-SUFFIXES += .fxs
-CLEANFILES += $(fxs_DATA)
-
-AM_V_CONFDC = $(AM_V_CONFDC_@AM_V@)
-AM_V_CONFDC_ = $(AM_V_CONFDC_@AM_DEFAULT_V@)
-AM_V_CONFDC_0 = @echo "  CONFDC  " $@;
-
-CONFDC_FLAGS = --yangpath $(srcdir)/yang --yangpath $(srcdir)/yang/ietf
-
-yang/%.fxs: yang/%.yang yang/confd/confd.%.yang
-	$(AM_V_CONFDC)$(CONFDC) $(CONFDC_FLAGS) -c -o $@ -a $(srcdir)/yang/confd/confd.$*.yang -- $<
-
-yang/%.fxs: yang/%.yang
-	$(AM_V_CONFDC)$(CONFDC) $(CONFDC_FLAGS) -c -o $@ -- $<
-
-endif

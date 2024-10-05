@@ -176,6 +176,11 @@ void isis_master_init(struct event_loop *master)
 	im->master = master;
 }
 
+void isis_master_terminate(void)
+{
+	list_delete(&im->isis);
+}
+
 struct isis *isis_new(const char *vrf_name)
 {
 	struct vrf *vrf;
@@ -272,7 +277,7 @@ void isis_area_del_circuit(struct isis_area *area, struct isis_circuit *circuit)
 	isis_csm_state_change(ISIS_DISABLE, circuit, area);
 }
 
-static void delete_area_addr(void *arg)
+void isis_area_address_delete(void *arg)
 {
 	struct iso_address *addr = (struct iso_address *)arg;
 
@@ -330,13 +335,14 @@ struct isis_area *isis_area_create(const char *area_tag, const char *vrf_name)
 	area->circuit_list = list_new();
 	area->adjacency_list = list_new();
 	area->area_addrs = list_new();
-	area->area_addrs->del = delete_area_addr;
+	area->area_addrs->del = isis_area_address_delete;
 
 	if (!CHECK_FLAG(im->options, F_ISIS_UNIT_TEST))
 		event_add_timer(master, lsp_tick, area, 1, &area->t_tick);
 	flags_initialize(&area->flags);
 
 	isis_sr_area_init(area);
+	isis_srv6_area_init(area);
 
 	/*
 	 * Default values
@@ -470,6 +476,29 @@ struct isis_area *isis_area_lookup(const char *area_tag, vrf_id_t vrf_id)
 	return NULL;
 }
 
+struct isis_area *isis_area_lookup_by_sysid(const uint8_t *sysid)
+{
+	struct isis_area *area;
+	struct listnode *node;
+	struct isis *isis;
+	struct iso_address *addr = NULL;
+
+	isis = isis_lookup_by_sysid(sysid);
+	if (isis == NULL)
+		return NULL;
+
+	for (ALL_LIST_ELEMENTS_RO(isis->area_list, node, area)) {
+		if (listcount(area->area_addrs) > 0) {
+			addr = listgetdata(listhead(area->area_addrs));
+			if (!memcmp(addr->area_addr + addr->addr_len, sysid,
+				    ISIS_SYS_ID_LEN))
+				return area;
+			}
+		}
+
+	return NULL;
+}
+
 int isis_area_get(struct vty *vty, const char *area_tag)
 {
 	struct isis_area *area;
@@ -495,6 +524,7 @@ void isis_area_destroy(struct isis_area *area)
 {
 	struct listnode *node, *nnode;
 	struct isis_circuit *circuit;
+	struct iso_address *addr;
 
 	QOBJ_UNREG(area);
 
@@ -520,7 +550,12 @@ void isis_area_destroy(struct isis_area *area)
 	isis_area_invalidate_routes(area, area->is_type);
 	isis_area_verify_routes(area);
 
+#ifndef FABRICD
+	flex_algos_free(area->flex_algos);
+#endif /* ifndef FABRICD */
+
 	isis_sr_area_term(area);
+	isis_srv6_area_term(area);
 
 	isis_mpls_te_term(area);
 
@@ -538,6 +573,15 @@ void isis_area_destroy(struct isis_area *area)
 
 	if (!CHECK_FLAG(im->options, F_ISIS_UNIT_TEST))
 		isis_redist_area_finish(area);
+
+	if (listcount(area->area_addrs) > 0) {
+		addr = listgetdata(listhead(area->area_addrs));
+		if (!memcmp(addr->area_addr + addr->addr_len, area->isis->sysid,
+			    ISIS_SYS_ID_LEN)) {
+			memset(area->isis->sysid, 0, ISIS_SYS_ID_LEN);
+			area->isis->sysid_set = 0;
+		}
+	}
 
 	list_delete(&area->area_addrs);
 
@@ -595,64 +639,66 @@ static int isis_vrf_delete(struct vrf *vrf)
 
 static void isis_set_redist_vrf_bitmaps(struct isis *isis, bool set)
 {
-	struct listnode *node;
+	struct listnode *node, *lnode;
 	struct isis_area *area;
 	int type;
 	int level;
 	int protocol;
-
-	char do_subscribe[REDIST_PROTOCOL_COUNT][ZEBRA_ROUTE_MAX + 1];
-
-	memset(do_subscribe, 0, sizeof(do_subscribe));
+	struct isis_redist *redist;
 
 	for (ALL_LIST_ELEMENTS_RO(isis->area_list, node, area))
 		for (protocol = 0; protocol < REDIST_PROTOCOL_COUNT; protocol++)
 			for (type = 0; type < ZEBRA_ROUTE_MAX + 1; type++)
-				for (level = 0; level < ISIS_LEVELS; level++)
-					if (area->redist_settings[protocol]
-								 [type][level]
-									 .redist
-					    == 1)
-						do_subscribe[protocol][type] =
-							1;
+				for (level = 0; level < ISIS_LEVELS; level++) {
+					if (area->redist_settings[protocol][type]
+								 [level] == NULL)
+						continue;
+					for (ALL_LIST_ELEMENTS_RO(area->redist_settings
+									  [protocol]
+									  [type]
+									  [level],
+								  lnode,
+								  redist)) {
+						if (redist->redist == 0)
+							continue;
+						/* This field is actually
+						 * controlling transmission of
+						 * the IS-IS
+						 * routes to Zebra and has
+						 * nothing to do with
+						 * redistribution,
+						 * so skip it. */
+						afi_t afi =
+							afi_for_redist_protocol(
+								protocol);
 
-	for (protocol = 0; protocol < REDIST_PROTOCOL_COUNT; protocol++)
-		for (type = 0; type < ZEBRA_ROUTE_MAX + 1; type++) {
-			/* This field is actually controlling transmission of
-			 * the IS-IS
-			 * routes to Zebra and has nothing to do with
-			 * redistribution,
-			 * so skip it. */
-			if (type == PROTO_TYPE)
-				continue;
-
-			if (!do_subscribe[protocol][type])
-				continue;
-
-			afi_t afi = afi_for_redist_protocol(protocol);
-
-			if (type == DEFAULT_ROUTE) {
-				if (set)
-					vrf_bitmap_set(
-						zclient->default_information
-							[afi],
-						isis->vrf_id);
-				else
-					vrf_bitmap_unset(
-						zclient->default_information
-							[afi],
-						isis->vrf_id);
-			} else {
-				if (set)
-					vrf_bitmap_set(
-						zclient->redist[afi][type],
-						isis->vrf_id);
-				else
-					vrf_bitmap_unset(
-						zclient->redist[afi][type],
-						isis->vrf_id);
-			}
-		}
+						if (type == DEFAULT_ROUTE) {
+							if (set)
+								vrf_bitmap_set(
+									&zclient->default_information
+										 [afi],
+									isis->vrf_id);
+							else
+								vrf_bitmap_unset(
+									&zclient->default_information
+										 [afi],
+									isis->vrf_id);
+						} else {
+							if (set)
+								vrf_bitmap_set(
+									&zclient->redist
+										 [afi]
+										 [type],
+									isis->vrf_id);
+							else
+								vrf_bitmap_unset(
+									&zclient->redist
+										 [afi]
+										 [type],
+									isis->vrf_id);
+						}
+					}
+				}
 }
 
 static int isis_vrf_enable(struct vrf *vrf)
@@ -980,63 +1026,17 @@ int show_isis_interface_common_json(struct json_object *json,
 				       "no");
 		return CMD_SUCCESS;
 	}
-	if (vrf_name) {
-		if (all_vrf) {
-			for (ALL_LIST_ELEMENTS_RO(im->isis, inode, isis)) {
-				areas_json = json_object_new_array();
-				json_object_object_add(json, "areas",
-						       areas_json);
-				for (ALL_LIST_ELEMENTS_RO(isis->area_list,
-							  anode, area)) {
-					area_json = json_object_new_object();
-					json_object_string_add(
-						area_json, "area",
-						area->area_tag ? area->area_tag
-							       : "null");
-					circuits_json = json_object_new_array();
-					json_object_object_add(area_json,
-							       "circuits",
-							       circuits_json);
-					for (ALL_LIST_ELEMENTS_RO(
-						     area->circuit_list, cnode,
-						     circuit)) {
-						circuit_json =
-							json_object_new_object();
-						json_object_int_add(
-							circuit_json, "circuit",
-							circuit->circuit_id);
-						if (!ifname)
-							isis_circuit_print_json(
-								circuit,
-								circuit_json,
-								detail);
-						else if (strcmp(circuit->interface->name, ifname) == 0)
-							isis_circuit_print_json(
-								circuit,
-								circuit_json,
-								detail);
-						json_object_array_add(
-							circuits_json,
-							circuit_json);
-					}
-					json_object_array_add(areas_json,
-							      area_json);
-				}
-			}
-			return CMD_SUCCESS;
-		}
-		isis = isis_lookup_by_vrfname(vrf_name);
-		if (isis != NULL) {
+
+	if (all_vrf) {
+		for (ALL_LIST_ELEMENTS_RO(im->isis, inode, isis)) {
 			areas_json = json_object_new_array();
 			json_object_object_add(json, "areas", areas_json);
-			for (ALL_LIST_ELEMENTS_RO(isis->area_list, anode,
-						  area)) {
+			for (ALL_LIST_ELEMENTS_RO(isis->area_list, anode, area)) {
 				area_json = json_object_new_object();
 				json_object_string_add(area_json, "area",
 						       area->area_tag
 							       ? area->area_tag
 							       : "null");
-
 				circuits_json = json_object_new_array();
 				json_object_object_add(area_json, "circuits",
 						       circuits_json);
@@ -1047,22 +1047,56 @@ int show_isis_interface_common_json(struct json_object *json,
 						circuit_json, "circuit",
 						circuit->circuit_id);
 					if (!ifname)
-						isis_circuit_print_json(
-							circuit, circuit_json,
-							detail);
-					else if (
-						strcmp(circuit->interface->name,
-						       ifname) == 0)
-						isis_circuit_print_json(
-							circuit, circuit_json,
-							detail);
+						isis_circuit_print_json(circuit,
+									circuit_json,
+									detail);
+					else if (strcmp(circuit->interface->name,
+							ifname) == 0)
+						isis_circuit_print_json(circuit,
+									circuit_json,
+									detail);
 					json_object_array_add(circuits_json,
 							      circuit_json);
 				}
 				json_object_array_add(areas_json, area_json);
 			}
 		}
+		return CMD_SUCCESS;
 	}
+	isis = isis_lookup_by_vrfname(vrf_name);
+	if (isis != NULL) {
+		areas_json = json_object_new_array();
+		json_object_object_add(json, "areas", areas_json);
+		for (ALL_LIST_ELEMENTS_RO(isis->area_list, anode, area)) {
+			area_json = json_object_new_object();
+			json_object_string_add(area_json, "area",
+					       area->area_tag ? area->area_tag
+							      : "null");
+
+			circuits_json = json_object_new_array();
+			json_object_object_add(area_json, "circuits",
+					       circuits_json);
+			for (ALL_LIST_ELEMENTS_RO(area->circuit_list, cnode,
+						  circuit)) {
+				circuit_json = json_object_new_object();
+				json_object_int_add(circuit_json, "circuit",
+						    circuit->circuit_id);
+				if (!ifname)
+					isis_circuit_print_json(circuit,
+								circuit_json,
+								detail);
+				else if (strcmp(circuit->interface->name,
+						ifname) == 0)
+					isis_circuit_print_json(circuit,
+								circuit_json,
+								detail);
+				json_object_array_add(circuits_json,
+						      circuit_json);
+			}
+			json_object_array_add(areas_json, area_json);
+		}
+	}
+
 	return CMD_SUCCESS;
 }
 
@@ -1079,37 +1113,10 @@ int show_isis_interface_common_vty(struct vty *vty, const char *ifname,
 		vty_out(vty, "IS-IS Routing Process not enabled\n");
 		return CMD_SUCCESS;
 	}
-	if (vrf_name) {
-		if (all_vrf) {
-			for (ALL_LIST_ELEMENTS_RO(im->isis, inode, isis)) {
-				for (ALL_LIST_ELEMENTS_RO(isis->area_list,
-							  anode, area)) {
-					vty_out(vty, "Area %s:\n",
-						area->area_tag);
 
-					if (detail == ISIS_UI_LEVEL_BRIEF)
-						vty_out(vty,
-							"  Interface   CircId   State    Type     Level\n");
-
-					for (ALL_LIST_ELEMENTS_RO(
-						     area->circuit_list, cnode,
-						     circuit))
-						if (!ifname)
-							isis_circuit_print_vty(
-								circuit, vty,
-								detail);
-						else if (strcmp(circuit->interface->name, ifname) == 0)
-							isis_circuit_print_vty(
-								circuit, vty,
-								detail);
-				}
-			}
-			return CMD_SUCCESS;
-		}
-		isis = isis_lookup_by_vrfname(vrf_name);
-		if (isis != NULL) {
-			for (ALL_LIST_ELEMENTS_RO(isis->area_list, anode,
-						  area)) {
+	if (all_vrf) {
+		for (ALL_LIST_ELEMENTS_RO(im->isis, inode, isis)) {
+			for (ALL_LIST_ELEMENTS_RO(isis->area_list, anode, area)) {
 				vty_out(vty, "Area %s:\n", area->area_tag);
 
 				if (detail == ISIS_UI_LEVEL_BRIEF)
@@ -1119,14 +1126,36 @@ int show_isis_interface_common_vty(struct vty *vty, const char *ifname,
 				for (ALL_LIST_ELEMENTS_RO(area->circuit_list,
 							  cnode, circuit))
 					if (!ifname)
-						isis_circuit_print_vty(
-							circuit, vty, detail);
-					else if (
-						strcmp(circuit->interface->name,
-						       ifname) == 0)
-						isis_circuit_print_vty(
-							circuit, vty, detail);
+						isis_circuit_print_vty(circuit,
+								       vty,
+								       detail);
+					else if (strcmp(circuit->interface->name,
+							ifname) == 0)
+						isis_circuit_print_vty(circuit,
+								       vty,
+								       detail);
 			}
+		}
+		return CMD_SUCCESS;
+	}
+	isis = isis_lookup_by_vrfname(vrf_name);
+	if (isis != NULL) {
+		for (ALL_LIST_ELEMENTS_RO(isis->area_list, anode, area)) {
+			vty_out(vty, "Area %s:\n", area->area_tag);
+
+			if (detail == ISIS_UI_LEVEL_BRIEF)
+				vty_out(vty,
+					"  Interface   CircId   State    Type     Level\n");
+
+			for (ALL_LIST_ELEMENTS_RO(area->circuit_list, cnode,
+						  circuit))
+				if (!ifname)
+					isis_circuit_print_vty(circuit, vty,
+							       detail);
+				else if (strcmp(circuit->interface->name,
+						ifname) == 0)
+					isis_circuit_print_vty(circuit, vty,
+							       detail);
 		}
 	}
 
@@ -1310,7 +1339,7 @@ static void isis_neighbor_common_vty(struct vty *vty, const char *id,
 
 		if (detail == ISIS_UI_LEVEL_BRIEF)
 			vty_out(vty,
-				"  System Id           Interface   L  State        Holdtime SNPA\n");
+				" System Id           Interface   L  State         Holdtime SNPA\n");
 
 		for (ALL_LIST_ELEMENTS_RO(area->circuit_list, cnode, circuit)) {
 			if (circuit->circ_type == CIRCUIT_T_BROADCAST) {
@@ -1368,28 +1397,23 @@ int show_isis_neighbor_common(struct vty *vty, struct json_object *json,
 		return CMD_SUCCESS;
 	}
 
-	if (vrf_name) {
-		if (all_vrf) {
-			for (ALL_LIST_ELEMENTS_RO(im->isis, node, isis)) {
-				if (id_to_sysid(isis, id, sysid)) {
-					vty_out(vty, "Invalid system id %s\n",
-						id);
-					return CMD_SUCCESS;
-				}
-				isis_neighbor_common(vty, json, id, detail,
-						     isis, sysid);
-			}
-			return CMD_SUCCESS;
-		}
-		isis = isis_lookup_by_vrfname(vrf_name);
-		if (isis != NULL) {
+	if (all_vrf) {
+		for (ALL_LIST_ELEMENTS_RO(im->isis, node, isis)) {
 			if (id_to_sysid(isis, id, sysid)) {
 				vty_out(vty, "Invalid system id %s\n", id);
 				return CMD_SUCCESS;
 			}
-			isis_neighbor_common(vty, json, id, detail, isis,
-					     sysid);
+			isis_neighbor_common(vty, json, id, detail, isis, sysid);
 		}
+		return CMD_SUCCESS;
+	}
+	isis = isis_lookup_by_vrfname(vrf_name);
+	if (isis != NULL) {
+		if (id_to_sysid(isis, id, sysid)) {
+			vty_out(vty, "Invalid system id %s\n", id);
+			return CMD_SUCCESS;
+		}
+		isis_neighbor_common(vty, json, id, detail, isis, sysid);
 	}
 
 	return CMD_SUCCESS;
@@ -1453,27 +1477,23 @@ int clear_isis_neighbor_common(struct vty *vty, const char *id, const char *vrf_
 		return CMD_SUCCESS;
 	}
 
-	if (vrf_name) {
-		if (all_vrf) {
-			for (ALL_LIST_ELEMENTS_RO(im->isis, node, isis)) {
-				if (id_to_sysid(isis, id, sysid)) {
-					vty_out(vty, "Invalid system id %s\n",
-						id);
-					return CMD_SUCCESS;
-				}
-				isis_neighbor_common_clear(vty, id, sysid,
-							   isis);
-			}
-			return CMD_SUCCESS;
-		}
-		isis = isis_lookup_by_vrfname(vrf_name);
-		if (isis != NULL) {
+	if (all_vrf) {
+		for (ALL_LIST_ELEMENTS_RO(im->isis, node, isis)) {
 			if (id_to_sysid(isis, id, sysid)) {
 				vty_out(vty, "Invalid system id %s\n", id);
 				return CMD_SUCCESS;
 			}
 			isis_neighbor_common_clear(vty, id, sysid, isis);
 		}
+		return CMD_SUCCESS;
+	}
+	isis = isis_lookup_by_vrfname(vrf_name);
+	if (isis != NULL) {
+		if (id_to_sysid(isis, id, sysid)) {
+			vty_out(vty, "Invalid system id %s\n", id);
+			return CMD_SUCCESS;
+		}
+		isis_neighbor_common_clear(vty, id, sysid, isis);
 	}
 
 	return CMD_SUCCESS;
@@ -2226,17 +2246,16 @@ DEFUN (show_hostname,
 	struct isis *isis;
 
 	ISIS_FIND_VRF_ARGS(argv, argc, idx_vrf, vrf_name, all_vrf);
-	if (vrf_name) {
-		if (all_vrf) {
-			for (ALL_LIST_ELEMENTS_RO(im->isis, node, isis))
-				dynhn_print_all(vty, isis);
 
-			return CMD_SUCCESS;
-		}
-		isis = isis_lookup_by_vrfname(vrf_name);
-		if (isis != NULL)
+	if (all_vrf) {
+		for (ALL_LIST_ELEMENTS_RO(im->isis, node, isis))
 			dynhn_print_all(vty, isis);
+
+		return CMD_SUCCESS;
 	}
+	isis = isis_lookup_by_vrfname(vrf_name);
+	if (isis != NULL)
+		dynhn_print_all(vty, isis);
 
 	return CMD_SUCCESS;
 }
@@ -2299,17 +2318,15 @@ DEFUN(show_isis_spf_ietf, show_isis_spf_ietf_cmd,
 		return CMD_SUCCESS;
 	}
 
-	if (vrf_name) {
-		if (all_vrf) {
-			for (ALL_LIST_ELEMENTS_RO(im->isis, node, isis))
-				isis_spf_ietf_common(vty, isis);
-
-			return CMD_SUCCESS;
-		}
-		isis = isis_lookup_by_vrfname(vrf_name);
-		if (isis != NULL)
+	if (all_vrf) {
+		for (ALL_LIST_ELEMENTS_RO(im->isis, node, isis))
 			isis_spf_ietf_common(vty, isis);
+
+		return CMD_SUCCESS;
 	}
+	isis = isis_lookup_by_vrfname(vrf_name);
+	if (isis != NULL)
+		isis_spf_ietf_common(vty, isis);
 
 	return CMD_SUCCESS;
 }
@@ -2588,17 +2605,16 @@ DEFUN(show_isis_summary, show_isis_summary_cmd,
 	}
 	if (uj)
 		json = json_object_new_object();
-	if (vrf_name) {
-		if (all_vrf) {
-			for (ALL_LIST_ELEMENTS_RO(im->isis, node, isis))
-				common_isis_summary(vty, json, isis);
 
-			return CMD_SUCCESS;
-		}
-		isis = isis_lookup_by_vrfname(vrf_name);
-		if (isis != NULL)
+	if (all_vrf) {
+		for (ALL_LIST_ELEMENTS_RO(im->isis, node, isis))
 			common_isis_summary(vty, json, isis);
+
+		return CMD_SUCCESS;
 	}
+	isis = isis_lookup_by_vrfname(vrf_name);
+	if (isis != NULL)
+		common_isis_summary(vty, json, isis);
 
 	if (uj)
 		vty_json(vty, json);
@@ -2671,8 +2687,10 @@ void show_isis_database_lspdb_json(struct json_object *json,
 				   struct lspdb_head *lspdb,
 				   const char *sysid_str, int ui_level)
 {
+	struct json_object *array_json, *lsp_json;
 	struct isis_lsp *lsp;
 	int lsp_count;
+	struct json_object *lsp_arr_json;
 
 	if (lspdb_count(lspdb) > 0) {
 		lsp = lsp_for_sysid(lspdb, sysid_str, area->isis);
@@ -2682,16 +2700,27 @@ void show_isis_database_lspdb_json(struct json_object *json,
 		}
 
 		if (lsp) {
+			json_object_object_get_ex(json, "lsps", &array_json);
+			if (!array_json) {
+				array_json = json_object_new_array();
+				json_object_object_add(json, "lsps", array_json);
+			}
+			lsp_json = json_object_new_object();
+			json_object_array_add(array_json, lsp_json);
+
 			if (ui_level == ISIS_UI_LEVEL_DETAIL)
-				lsp_print_detail(lsp, NULL, json,
+				lsp_print_detail(lsp, NULL, lsp_json,
 						 area->dynhostname, area->isis);
 			else
-				lsp_print_json(lsp, json, area->dynhostname,
+				lsp_print_json(lsp, lsp_json, area->dynhostname,
 					       area->isis);
 		} else if (sysid_str == NULL) {
-			lsp_count =
-				lsp_print_all(NULL, json, lspdb, ui_level,
-					      area->dynhostname, area->isis);
+			lsp_arr_json = json_object_new_array();
+			json_object_object_add(json, "lsps", lsp_arr_json);
+
+			lsp_count = lsp_print_all(NULL, lsp_arr_json, lspdb,
+						  ui_level, area->dynhostname,
+						  area->isis);
 
 			json_object_int_add(json, "count", lsp_count);
 		}
@@ -2757,6 +2786,8 @@ static void show_isis_database_json(struct json_object *json, const char *sysid_
 		json_object_object_add(area_json,"area",tag_area_json);
 		json_object_object_add(area_json,"levels",arr_json);
 		for (level = 0; level < ISIS_LEVELS; level++) {
+			if (lspdb_count(&area->lspdb[level]) == 0)
+				continue;
 			lsp_json = json_object_new_object();
 			show_isis_database_lspdb_json(lsp_json, area, level,
 						      &area->lspdb[level],
@@ -2820,19 +2851,16 @@ static int show_isis_database(struct vty *vty, struct json_object *json, const c
 	struct listnode *node;
 	struct isis *isis;
 
-	if (vrf_name) {
-		if (all_vrf) {
-			for (ALL_LIST_ELEMENTS_RO(im->isis, node, isis))
-				show_isis_database_common(vty, json, sysid_str,
-							  ui_level, isis);
-
-			return CMD_SUCCESS;
-		}
-		isis = isis_lookup_by_vrfname(vrf_name);
-		if (isis)
+	if (all_vrf) {
+		for (ALL_LIST_ELEMENTS_RO(im->isis, node, isis))
 			show_isis_database_common(vty, json, sysid_str,
 						  ui_level, isis);
+
+		return CMD_SUCCESS;
 	}
+	isis = isis_lookup_by_vrfname(vrf_name);
+	if (isis)
+		show_isis_database_common(vty, json, sysid_str, ui_level, isis);
 
 	return CMD_SUCCESS;
 }
@@ -3338,34 +3366,18 @@ void isis_area_advertise_high_metrics_set(struct isis_area *area,
 }
 
 /*
- * Returns the path of the file (non-volatile memory) that contains restart
- * information.
- */
-char *isis_restart_filepath(void)
-{
-	static char filepath[MAXPATHLEN];
-	snprintf(filepath, sizeof(filepath), ISISD_RESTART, "");
-	return filepath;
-}
-
-/*
  * Record in non-volatile memory the overload on startup time.
  */
 void isis_restart_write_overload_time(struct isis_area *isis_area,
 				      uint32_t overload_time)
 {
-	char *filepath;
 	const char *area_name;
 	json_object *json;
 	json_object *json_areas;
 	json_object *json_area;
 
-	filepath = isis_restart_filepath();
+	json = frr_daemon_state_load();
 	area_name = isis_area->area_tag;
-
-	json = json_object_from_file(filepath);
-	if (json == NULL)
-		json = json_object_new_object();
 
 	json_object_object_get_ex(json, "areas", &json_areas);
 	if (!json_areas) {
@@ -3381,8 +3393,8 @@ void isis_restart_write_overload_time(struct isis_area *isis_area,
 
 	json_object_int_add(json_area, "overload_time",
 			    isis_area->overload_on_startup_time);
-	json_object_to_file_ext(filepath, json, JSON_C_TO_STRING_PRETTY);
-	json_object_free(json);
+
+	frr_daemon_state_save(&json);
 }
 
 /*
@@ -3390,7 +3402,6 @@ void isis_restart_write_overload_time(struct isis_area *isis_area,
  */
 uint32_t isis_restart_read_overload_time(struct isis_area *isis_area)
 {
-	char *filepath;
 	const char *area_name;
 	json_object *json;
 	json_object *json_areas;
@@ -3398,12 +3409,9 @@ uint32_t isis_restart_read_overload_time(struct isis_area *isis_area)
 	json_object *json_overload_time;
 	uint32_t overload_time = 0;
 
-	filepath = isis_restart_filepath();
 	area_name = isis_area->area_tag;
 
-	json = json_object_from_file(filepath);
-	if (json == NULL)
-		json = json_object_new_object();
+	json = frr_daemon_state_load();
 
 	json_object_object_get_ex(json, "areas", &json_areas);
 	if (!json_areas) {
@@ -3425,8 +3433,7 @@ uint32_t isis_restart_read_overload_time(struct isis_area *isis_area)
 
 	json_object_object_del(json_areas, area_name);
 
-	json_object_to_file_ext(filepath, json, JSON_C_TO_STRING_PRETTY);
-	json_object_free(json);
+	frr_daemon_state_save(&json);
 
 	return overload_time;
 }
@@ -3824,6 +3831,20 @@ struct cmd_node isis_flex_algo_node = {
 };
 #endif /* ifdnef FABRICD */
 
+struct cmd_node isis_srv6_node = {
+	.name = "isis-srv6",
+	.node = ISIS_SRV6_NODE,
+	.parent_node = ISIS_NODE,
+	.prompt = "%s(config-router-srv6)# ",
+};
+
+struct cmd_node isis_srv6_node_msd_node = {
+	.name = "isis-srv6-node-msd",
+	.node = ISIS_SRV6_NODE_MSD_NODE,
+	.parent_node = ISIS_SRV6_NODE,
+	.prompt = "%s(config-router-srv6-node-msd)# ",
+};
+
 void isis_init(void)
 {
 	/* Install IS-IS top node */
@@ -3935,6 +3956,12 @@ void isis_init(void)
 	install_node(&isis_flex_algo_node);
 	install_default(ISIS_FLEX_ALGO_NODE);
 #endif /* ifdnef FABRICD */
+
+	install_node(&isis_srv6_node);
+	install_default(ISIS_SRV6_NODE);
+
+	install_node(&isis_srv6_node_msd_node);
+	install_default(ISIS_SRV6_NODE_MSD_NODE);
 
 	spf_backoff_cmd_init();
 }

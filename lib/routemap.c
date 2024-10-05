@@ -1070,20 +1070,17 @@ static int vty_show_route_map(struct vty *vty, const char *name, bool use_json)
 {
 	struct route_map *map;
 	json_object *json = NULL;
-	json_object *json_proto = NULL;
 
-	if (use_json) {
+	if (use_json)
 		json = json_object_new_object();
-		json_proto = json_object_new_object();
-		json_object_object_add(json, frr_protonameinst, json_proto);
-	} else
+	else
 		vty_out(vty, "%s:\n", frr_protonameinst);
 
 	if (name) {
 		map = route_map_lookup_by_name(name);
 
 		if (map) {
-			vty_show_route_map_entry(vty, map, json_proto);
+			vty_show_route_map_entry(vty, map, json);
 		} else if (!use_json) {
 			vty_out(vty, "%s: 'route-map %s' not found\n",
 				frr_protonameinst, name);
@@ -1099,7 +1096,7 @@ static int vty_show_route_map(struct vty *vty, const char *name, bool use_json)
 		list_sort(maplist, sort_route_map);
 
 		for (ALL_LIST_ELEMENTS_RO(maplist, ln, map))
-			vty_show_route_map_entry(vty, map, json_proto);
+			vty_show_route_map_entry(vty, map, json);
 
 		list_delete(&maplist);
 	}
@@ -2551,9 +2548,11 @@ route_map_result_t route_map_apply_ext(struct route_map *map,
 	struct route_map_index *index = NULL;
 	struct route_map_rule *set = NULL;
 	bool skip_match_clause = false;
-	struct prefix conv;
 
 	if (recursion > RMAP_RECURSION_LIMIT) {
+		if (map)
+			map->applied++;
+
 		flog_warn(
 			EC_LIB_RMAP_RECURSION_LIMIT,
 			"route-map recursion limit (%d) reached, discarding route",
@@ -2563,37 +2562,22 @@ route_map_result_t route_map_apply_ext(struct route_map *map,
 	}
 
 	if (map == NULL || map->head == NULL) {
+		if (map)
+			map->applied++;
 		ret = RMAP_DENYMATCH;
 		goto route_map_apply_end;
 	}
 
 	map->applied++;
 
-	/*
-	 * Handling for matching evpn_routes in the prefix table.
-	 *
-	 * We convert type2/5 prefix to ipv4/6 prefix to do longest
-	 * prefix matching on.
-	 */
 	if (prefix->family == AF_EVPN) {
-		if (evpn_prefix2prefix(prefix, &conv) != 0) {
-			if (unlikely(CHECK_FLAG(rmap_debug,
-						DEBUG_ROUTEMAP_DETAIL)))
-				zlog_debug(
-					"Unable to convert EVPN prefix %pFX into IPv4/IPv6 prefix. Falling back to non-optimized route-map lookup",
-					prefix);
-		} else {
-			if (unlikely(CHECK_FLAG(rmap_debug,
-						DEBUG_ROUTEMAP_DETAIL)))
-				zlog_debug(
-					"Converted EVPN prefix %pFX into %pFX for optimized route-map lookup",
-					prefix, &conv);
-
-			prefix = &conv;
-		}
+		index = map->head;
+	} else {
+		skip_match_clause = true;
+		index = route_map_get_index(map, prefix, match_object,
+					    &match_ret);
 	}
 
-	index = route_map_get_index(map, prefix, match_object, &match_ret);
 	if (index) {
 		index->applied++;
 		if (unlikely(CHECK_FLAG(rmap_debug, DEBUG_ROUTEMAP)))
@@ -2617,7 +2601,6 @@ route_map_result_t route_map_apply_ext(struct route_map *map,
 			ret = RMAP_DENYMATCH;
 		goto route_map_apply_end;
 	}
-	skip_match_clause = true;
 
 	for (; index; index = index->next) {
 		if (!skip_match_clause) {
@@ -3140,13 +3123,13 @@ DEFPY (rmap_clear_counters,
 
 }
 
-DEFUN (rmap_show_name,
-       rmap_show_name_cmd,
-       "show route-map [WORD] [json]",
-       SHOW_STR
-       "route-map information\n"
-       "route-map name\n"
-       JSON_STR)
+DEFUN_NOSH (rmap_show_name,
+            rmap_show_name_cmd,
+            "show route-map [WORD] [json]",
+            SHOW_STR
+            "route-map information\n"
+            "route-map name\n"
+            JSON_STR)
 {
 	bool uj = use_json(argc, argv);
 	int idx = 0;
@@ -3407,7 +3390,7 @@ DEFUN_HIDDEN(show_route_map_pfx_tbl, show_route_map_pfx_tbl_cmd,
 }
 
 /* Initialization of route map vector. */
-void route_map_init(void)
+void route_map_init_new(bool in_backend)
 {
 	int i;
 
@@ -3422,7 +3405,10 @@ void route_map_init(void)
 
 	UNSET_FLAG(rmap_debug, DEBUG_ROUTEMAP);
 
-	route_map_cli_init();
+	if (!in_backend) {
+		/* we do not want to handle config commands in the backend */
+		route_map_cli_init();
+	}
 
 	/* Install route map top node. */
 	install_node(&rmap_debug_node);
@@ -3441,4 +3427,9 @@ void route_map_init(void)
 	install_element(ENABLE_NODE, &no_debug_rmap_cmd);
 
 	install_element(ENABLE_NODE, &show_route_map_pfx_tbl_cmd);
+}
+
+void route_map_init(void)
+{
+	route_map_init_new(false);
 }

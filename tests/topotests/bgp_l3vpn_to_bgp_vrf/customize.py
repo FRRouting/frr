@@ -161,6 +161,17 @@ def ltemplatePreRouterStartHook():
         logger.info(
             "setup {0} vrf {0}-cust1, {0}-eth4. enabled mpls input.".format(rtr)
         )
+    # configure cust4 VRFs & MPLS
+    cmds = [
+        "ip link add {0}-cust4 type vrf table 30",
+        "ip link set dev {0}-cust4 up",
+        "ip link add {0}-cust5 type vrf table 40",
+        "ip link set dev {0}-cust5 up",
+    ]
+    rtr = "r1"
+    for cmd in cmds:
+        cc.doCmd(tgen, rtr, cmd.format(rtr))
+    logger.info("setup {0} vrf {0}-cust3 and{0}-cust4.".format(rtr))
     # configure cust2 VRFs & MPLS
     rtrs = ["r4"]
     cmds = [

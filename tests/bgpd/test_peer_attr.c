@@ -5,6 +5,7 @@
  */
 #include <zebra.h>
 
+#include "debug.h"
 #include "memory.h"
 #include "plist.h"
 #include "printfrr.h"
@@ -18,6 +19,7 @@
 #include "bgpd/bgp_vty.h"
 #include "bgpd/bgp_zebra.h"
 #include "bgpd/bgp_network.h"
+#include "bgpd/bgp_label.h"
 
 #ifdef ENABLE_BGP_VNC
 #include "bgpd/rfapi/rfapi_backend.h"
@@ -262,23 +264,9 @@ static struct test_peer_attr test_peer_attrs[] = {
 		.type = PEER_AT_GLOBAL_FLAG,
 	},
 	{
-		.cmd = "capability extended-nexthop",
-		.u.flag = PEER_FLAG_CAPABILITY_ENHE,
-		.type = PEER_AT_GLOBAL_FLAG,
-		.o.invert_peer = true,
-		.o.use_iface_peer = true,
-	},
-	{
 		.cmd = "capability software-version",
 		.u.flag = PEER_FLAG_CAPABILITY_SOFT_VERSION,
 		.type = PEER_AT_GLOBAL_FLAG,
-	},
-	{
-		.cmd = "capability software-version",
-		.u.flag = PEER_FLAG_CAPABILITY_SOFT_VERSION,
-		.type = PEER_AT_GLOBAL_FLAG,
-		.o.invert_peer = true,
-		.o.use_iface_peer = true,
 	},
 	{
 		.cmd = "description",
@@ -297,9 +285,11 @@ static struct test_peer_attr test_peer_attrs[] = {
 		.type = PEER_AT_GLOBAL_FLAG,
 	},
 	{
-		.cmd = "enforce-first-as",
-		.u.flag = PEER_FLAG_ENFORCE_FIRST_AS,
+		.cmd = "capability fqdn",
+		.u.flag = PEER_FLAG_CAPABILITY_FQDN,
 		.type = PEER_AT_GLOBAL_FLAG,
+		.o.invert_peer = true,
+		.o.invert_group = true,
 	},
 	{
 		.cmd = "local-as",
@@ -1359,6 +1349,7 @@ static void test_peer_attr(struct test *test, struct test_peer_attr *pa)
 static void bgp_startup(void)
 {
 	cmd_init(1);
+	debug_init();
 	zlog_aux_init("NONE: ", LOG_DEBUG);
 	zprivs_preinit(&bgpd_privs);
 	zprivs_init(&bgpd_privs);
@@ -1386,6 +1377,7 @@ static void bgp_shutdown(void)
 	bgp_route_finish();
 	bgp_route_map_terminate();
 	bgp_attr_finish();
+	bgp_labels_finish();
 	bgp_pthreads_finish();
 	access_list_add_hook(NULL);
 	access_list_delete_hook(NULL);

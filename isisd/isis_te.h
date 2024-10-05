@@ -69,9 +69,10 @@ typedef enum _status_t { disable, enable, learn } status_t;
 /* Mode for Inter-AS LSP */ /* TODO: Check how if LSP is flooded in RFC5316 */
 typedef enum _interas_mode_t { off, region, as, emulate } interas_mode_t;
 
-#define IS_EXT_TE(e)    (e && e->status != 0			\
-			   && e->status != EXT_ADJ_SID		\
-			   && e->status != EXT_LAN_ADJ_SID)
+#define IS_EXT_TE(e)                                                           \
+	(e && e->status != 0 && e->status != EXT_ADJ_SID &&                    \
+	 e->status != EXT_LAN_ADJ_SID && e->status != EXT_SRV6_ENDX_SID &&     \
+	 e->status != EXT_SRV6_LAN_ENDX_SID)
 #define IS_MPLS_TE(a)	(a && a->status == enable)
 #define IS_EXPORT_TE(a) (a->export)
 
@@ -102,6 +103,7 @@ struct isis_te_args {
 	struct ls_ted *ted;
 	struct ls_vertex *vertex;
 	bool export;
+	bool srv6_locator;
 };
 
 enum lsp_event { LSP_UNKNOWN, LSP_ADD, LSP_UPD, LSP_DEL, LSP_INC, LSP_TICK };
@@ -111,6 +113,8 @@ void isis_mpls_te_init(void);
 void isis_mpls_te_create(struct isis_area *area);
 void isis_mpls_te_disable(struct isis_area *area);
 void isis_mpls_te_term(struct isis_area *area);
+void isis_link_params_update_asla(struct isis_circuit *circuit,
+				  struct interface *ifp);
 void isis_link_params_update(struct isis_circuit *, struct interface *);
 int isis_mpls_te_update(struct interface *);
 void isis_te_lsp_event(struct isis_lsp *lsp, enum lsp_event event);

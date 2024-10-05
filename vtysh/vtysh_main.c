@@ -5,6 +5,9 @@
 
 #include <zebra.h>
 
+#include <fcntl.h>
+#include <signal.h>
+#include <sys/stat.h>
 #include <sys/un.h>
 #include <setjmp.h>
 #include <pwd.h>
@@ -221,7 +224,9 @@ static struct event *vtysh_rl_read_thread;
 
 static void vtysh_rl_read(struct event *thread)
 {
-	event_add_read(master, vtysh_rl_read, NULL, STDIN_FILENO,
+	bool *suppress_warnings = EVENT_ARG(thread);
+
+	event_add_read(master, vtysh_rl_read, suppress_warnings, STDIN_FILENO,
 		       &vtysh_rl_read_thread);
 	rl_callback_read_char();
 }
@@ -230,11 +235,12 @@ static void vtysh_rl_read(struct event *thread)
 static void vtysh_rl_run(void)
 {
 	struct event thread;
+	bool suppress_warnings = true;
 
 	master = event_master_create(NULL);
 
 	rl_callback_handler_install(vtysh_prompt(), vtysh_rl_callback);
-	event_add_read(master, vtysh_rl_read, NULL, STDIN_FILENO,
+	event_add_read(master, vtysh_rl_read, &suppress_warnings, STDIN_FILENO,
 		       &vtysh_rl_read_thread);
 
 	while (!vtysh_loop_exited && event_fetch(master, &thread))
@@ -359,8 +365,7 @@ int main(int argc, char **argv, char **env)
 
 	strlcpy(sysconfdir, frr_sysconfdir, sizeof(sysconfdir));
 
-	frr_init_vtydir();
-	strlcpy(vtydir, frr_vtydir, sizeof(vtydir));
+	strlcpy(vtydir, frr_runstatedir, sizeof(vtydir));
 
 	/* Option handling. */
 	while (1) {
@@ -463,7 +468,7 @@ int main(int argc, char **argv, char **env)
 	}
 	if (inputfile && (writeconfig || boot_flag)) {
 		fprintf(stderr,
-			"WARNING: Combinining the -f option with -b or -w is NOT SUPPORTED since its\nresults are inconsistent!\n");
+			"WARNING: Combining the -f option with -b or -w is NOT SUPPORTED since its\nresults are inconsistent!\n");
 	}
 
 	snprintf(vtysh_config, sizeof(vtysh_config), "%s%s%s", sysconfdir,
@@ -484,7 +489,6 @@ int main(int argc, char **argv, char **env)
 
 	/* Make vty structure and register commands. */
 	vtysh_init_vty();
-	vtysh_init_cmd();
 	vtysh_user_init();
 	vtysh_config_init();
 

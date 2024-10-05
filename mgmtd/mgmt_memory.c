@@ -18,19 +18,19 @@
  */
 
 DEFINE_MGROUP(MGMTD, "mgmt");
-DEFINE_MTYPE(MGMTD, MGMTD, "MGMTD instance");
-DEFINE_MTYPE(MGMTD, MGMTD_BE_ADPATER, "MGMTD backend adapter");
-DEFINE_MTYPE(MGMTD, MGMTD_FE_ADPATER, "MGMTD Frontend adapter");
-DEFINE_MTYPE(MGMTD, MGMTD_FE_SESSION, "MGMTD Frontend Client Session");
-DEFINE_MTYPE(MGMTD, MGMTD_TXN, "MGMTD Transaction");
-DEFINE_MTYPE(MGMTD, MGMTD_TXN_REQ, "MGMTD Transaction Requests");
-DEFINE_MTYPE(MGMTD, MGMTD_TXN_SETCFG_REQ,
-	     "MGMTD Transaction Set-Config Requests");
-DEFINE_MTYPE(MGMTD, MGMTD_TXN_COMMCFG_REQ,
-	     "MGMTD Transaction Commit-Config Requests");
-DEFINE_MTYPE(MGMTD, MGMTD_TXN_GETDATA_REQ,
-	     "MGMTD Transaction Get-Data Requests");
-DEFINE_MTYPE(MGMTD, MGMTD_TXN_GETDATA_REPLY,
-	     "MGMTD Transaction Get-Data Replies");
-DEFINE_MTYPE(MGMTD, MGMTD_TXN_CFG_BATCH, "MGMTD Transaction Gonfig Batches");
-DEFINE_MTYPE(MGMTD, MGMTD_CMT_INFO, "MGMTD commit info for tracking commits");
+DEFINE_MTYPE(MGMTD, MGMTD, "instance");
+DEFINE_MTYPE(MGMTD, MGMTD_XPATH, "xpath regex");
+DEFINE_MTYPE(MGMTD, MGMTD_ERR, "error");
+DEFINE_MTYPE(MGMTD, MGMTD_BE_ADPATER, "backend adapter");
+DEFINE_MTYPE(MGMTD, MGMTD_FE_ADPATER, "frontend adapter");
+DEFINE_MTYPE(MGMTD, MGMTD_FE_SESSION, "frontend session");
+DEFINE_MTYPE(MGMTD, MGMTD_TXN, "txn");
+DEFINE_MTYPE(MGMTD, MGMTD_TXN_REQ, "txn request");
+DEFINE_MTYPE(MGMTD, MGMTD_TXN_SETCFG_REQ, "txn set-config requests");
+DEFINE_MTYPE(MGMTD, MGMTD_TXN_COMMCFG_REQ, "txn commit-config requests");
+DEFINE_MTYPE(MGMTD, MGMTD_TXN_GETDATA_REQ, "txn get-data requests");
+DEFINE_MTYPE(MGMTD, MGMTD_TXN_GETDATA_REPLY, "txn get-data replies");
+DEFINE_MTYPE(MGMTD, MGMTD_TXN_GETTREE_REQ, "txn get-tree requests");
+DEFINE_MTYPE(MGMTD, MGMTD_TXN_RPC_REQ, "txn rpc requests");
+DEFINE_MTYPE(MGMTD, MGMTD_TXN_CFG_BATCH, "txn config batches");
+DEFINE_MTYPE(MGMTD, MGMTD_CMT_INFO, "commit info");

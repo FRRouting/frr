@@ -23,6 +23,7 @@
 #include "privs.h"
 #include "sigevent.h"
 #include "libfrr.h"
+#include "zlog_live.h"
 
 static void	 ldpe_shutdown(void);
 static void ldpe_dispatch_main(struct event *thread);
@@ -93,6 +94,8 @@ char *pkt_ptr; /* packet buffer */
 void
 ldpe(void)
 {
+	static struct zlog_live_cfg child_log;
+
 #ifdef HAVE_SETPROCTITLE
 	setproctitle("ldp engine");
 #endif
@@ -100,6 +103,8 @@ ldpe(void)
 	log_procname = log_procnames[ldpd_process];
 
 	master = frr_init();
+	zlog_live_open_fd(&child_log, LOG_DEBUG, LDPD_FD_LOG);
+
 	/* no frr_config_fork() here, allow frr_pthread to create threads */
 	frr_is_after_fork = true;
 
@@ -257,8 +262,7 @@ ldpe_imsg_compose_lde(int type, uint32_t peerid, pid_t pid, void *data,
 {
 	if (iev_lde->ibuf.fd == -1)
 		return (0);
-	return (imsg_compose_event(iev_lde, type, peerid, pid, -1,
-	    data, datalen));
+	return (imsg_compose_event(iev_lde, type, peerid, pid, -1, data, datalen));
 }
 
 /* ARGSUSED */
@@ -309,8 +313,7 @@ static void ldpe_dispatch_main(struct event *thread)
 
 		switch (imsg.hdr.type) {
 		case IMSG_IFSTATUS:
-			if (imsg.hdr.len != IMSG_HEADER_SIZE +
-			    sizeof(struct kif))
+			if (imsg.hdr.len != IMSG_HEADER_SIZE + sizeof(struct kif))
 				fatalx("IFSTATUS imsg with wrong len");
 			kif = imsg.data;
 
@@ -336,15 +339,13 @@ static void ldpe_dispatch_main(struct event *thread)
 			}
 			break;
 		case IMSG_NEWADDR:
-			if (imsg.hdr.len != IMSG_HEADER_SIZE +
-			    sizeof(struct kaddr))
+			if (imsg.hdr.len != IMSG_HEADER_SIZE + sizeof(struct kaddr))
 				fatalx("NEWADDR imsg with wrong len");
 
 			if_addr_add(imsg.data);
 			break;
 		case IMSG_DELADDR:
-			if (imsg.hdr.len != IMSG_HEADER_SIZE +
-			    sizeof(struct kaddr))
+			if (imsg.hdr.len != IMSG_HEADER_SIZE + sizeof(struct kaddr))
 				fatalx("DELADDR imsg with wrong len");
 
 			if_addr_del(imsg.data);
@@ -369,8 +370,7 @@ static void ldpe_dispatch_main(struct event *thread)
 			iev_lde->ev_write = NULL;
 			break;
 		case IMSG_INIT:
-			if (imsg.hdr.len != IMSG_HEADER_SIZE +
-			    sizeof(struct ldpd_init))
+			if (imsg.hdr.len != IMSG_HEADER_SIZE + sizeof(struct ldpd_init))
 				fatalx("INIT imsg with wrong len");
 
 			memcpy(&init, imsg.data, sizeof(init));
@@ -398,14 +398,11 @@ static void ldpe_dispatch_main(struct event *thread)
 			disc_socket = -1;
 			edisc_socket = -1;
 			session_socket = -1;
-			if ((ldp_af_conf_get(leconf, af))->flags &
-			    F_LDPD_AF_ENABLED)
-				ldpe_imsg_compose_parent(IMSG_REQUEST_SOCKETS,
-				    af, NULL, 0);
+			if (CHECK_FLAG((ldp_af_conf_get(leconf, af))->flags, F_LDPD_AF_ENABLED))
+				ldpe_imsg_compose_parent(IMSG_REQUEST_SOCKETS, af, NULL, 0);
 			break;
 		case IMSG_SOCKET_NET:
-			if (imsg.hdr.len != IMSG_HEADER_SIZE +
-			    sizeof(enum socket_type))
+			if (imsg.hdr.len != IMSG_HEADER_SIZE + sizeof(enum socket_type))
 				fatalx("SOCKET_NET imsg with wrong len");
 			socket_type = imsg.data;
 
@@ -434,15 +431,13 @@ static void ldpe_dispatch_main(struct event *thread)
 				break;
 			}
 
-			ldpe_setup_sockets(af, disc_socket, edisc_socket,
-			    session_socket);
+			ldpe_setup_sockets(af, disc_socket, edisc_socket, session_socket);
 			if_update_all(af);
 			tnbr_update_all(af);
 			RB_FOREACH(nbr, nbr_id_head, &nbrs_by_id) {
 				if (nbr->af != af)
 					continue;
-				nbr->laddr = (ldp_af_conf_get(leconf,
-				    af))->trans_addr;
+				nbr->laddr = (ldp_af_conf_get(leconf, af))->trans_addr;
 #ifdef __OpenBSD__
 				nbrp = nbr_params_find(leconf, nbr->id);
 				if (nbrp) {
@@ -456,8 +451,7 @@ static void ldpe_dispatch_main(struct event *thread)
 			}
 			break;
 		case IMSG_RTRID_UPDATE:
-			memcpy(&global.rtr_id, imsg.data,
-			    sizeof(global.rtr_id));
+			memcpy(&global.rtr_id, imsg.data, sizeof(global.rtr_id));
 			if (leconf->rtr_id.s_addr == INADDR_ANY) {
 				ldpe_reset_nbrs(AF_UNSPEC);
 			}
@@ -465,8 +459,7 @@ static void ldpe_dispatch_main(struct event *thread)
 			tnbr_update_all(AF_UNSPEC);
 			break;
 		case IMSG_RECONF_CONF:
-			if ((nconf = malloc(sizeof(struct ldpd_conf))) ==
-			    NULL)
+			if ((nconf = malloc(sizeof(struct ldpd_conf))) == NULL)
 				fatal(NULL);
 			memcpy(nconf, imsg.data, sizeof(struct ldpd_conf));
 
@@ -546,16 +539,13 @@ static void ldpe_dispatch_main(struct event *thread)
 			memcpy(&ldp_debug, imsg.data, sizeof(ldp_debug));
 			break;
 		case IMSG_FILTER_UPDATE:
-			if (imsg.hdr.len != IMSG_HEADER_SIZE +
-			    sizeof(struct ldp_access)) {
+			if (imsg.hdr.len != IMSG_HEADER_SIZE + sizeof(struct ldp_access)) {
 				log_warnx("%s: wrong imsg len", __func__);
 				break;
 			}
 			laccess = imsg.data;
-			ldpe_check_filter_af(AF_INET, &leconf->ipv4,
-				laccess->name);
-			ldpe_check_filter_af(AF_INET6, &leconf->ipv6,
-				laccess->name);
+			ldpe_check_filter_af(AF_INET, &leconf->ipv4, laccess->name);
+			ldpe_check_filter_af(AF_INET6, &leconf->ipv6, laccess->name);
 			break;
 		case IMSG_LDP_SYNC_IF_STATE_REQUEST:
 			if (imsg.hdr.len != IMSG_HEADER_SIZE +
@@ -605,8 +595,7 @@ static void ldpe_dispatch_main(struct event *thread)
 			}
 			break;
 		default:
-			log_debug("%s: error handling imsg %d",
-			    __func__, imsg.hdr.type);
+			log_debug("%s: error handling imsg %d", __func__, imsg.hdr.type);
 			break;
 		}
 		imsg_free(&imsg);
@@ -650,8 +639,7 @@ static void ldpe_dispatch_lde(struct event *thread)
 		case IMSG_RELEASE_ADD:
 		case IMSG_REQUEST_ADD:
 		case IMSG_WITHDRAW_ADD:
-			if (imsg.hdr.len - IMSG_HEADER_SIZE !=
-			    sizeof(struct map))
+			if (imsg.hdr.len - IMSG_HEADER_SIZE != sizeof(struct map))
 				fatalx("invalid size of map request");
 			map = imsg.data;
 
@@ -706,8 +694,7 @@ static void ldpe_dispatch_lde(struct event *thread)
 			}
 			break;
 		case IMSG_NOTIFICATION_SEND:
-			if (imsg.hdr.len - IMSG_HEADER_SIZE !=
-			    sizeof(struct notify_msg))
+			if (imsg.hdr.len - IMSG_HEADER_SIZE != sizeof(struct notify_msg))
 				fatalx("invalid size of OE request");
 			nm = imsg.data;
 
@@ -741,8 +728,7 @@ static void ldpe_dispatch_lde(struct event *thread)
 			session_shutdown(nbr,S_SHUTDOWN,0,0);
 			break;
 		default:
-			log_debug("%s: error handling imsg %d",
-			    __func__, imsg.hdr.type);
+			log_debug("%s: error handling imsg %d", __func__, imsg.hdr.type);
 			break;
 		}
 		imsg_free(&imsg);
@@ -860,7 +846,7 @@ ldpe_remove_dynamic_tnbrs(int af)
 		if (tnbr->af != af)
 			continue;
 
-		tnbr->flags &= ~F_TNBR_DYNAMIC;
+		UNSET_FLAG(tnbr->flags, F_TNBR_DYNAMIC);
 		tnbr_check(leconf, tnbr);
 	}
 }

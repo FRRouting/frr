@@ -616,7 +616,6 @@ def test_json_object_asterisk_matching():
 
 
 def test_json_list_nested_with_objects():
-
     dcomplete = [{"key": 1, "list": [123]}, {"key": 2, "list": [123]}]
 
     dsub1 = [{"key": 2, "list": [123]}, {"key": 1, "list": [123]}]

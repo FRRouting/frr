@@ -41,6 +41,7 @@
 #include "isisd/isisd.h"
 #include "isisd/isis_csm.h"
 #include "isisd/isis_events.h"
+#include "isisd/isis_srv6.h"
 #include "isisd/isis_te.h"
 #include "isisd/isis_mt.h"
 #include "isisd/isis_errors.h"
@@ -197,8 +198,8 @@ void isis_circuit_del(struct isis_circuit *circuit)
 	ldp_sync_info_free(&circuit->ldp_sync_info);
 
 	circuit_mt_finish(circuit);
-	isis_lfa_excluded_ifaces_clear(circuit, ISIS_LEVEL1);
-	isis_lfa_excluded_ifaces_clear(circuit, ISIS_LEVEL2);
+	isis_lfa_excluded_ifaces_delete(circuit, ISIS_LEVEL1);
+	isis_lfa_excluded_ifaces_delete(circuit, ISIS_LEVEL2);
 
 	list_delete(&circuit->ip_addrs);
 	list_delete(&circuit->ipv6_link);
@@ -488,7 +489,6 @@ static uint8_t isis_circuit_id_gen(struct isis *isis, struct interface *ifp)
 
 void isis_circuit_if_add(struct isis_circuit *circuit, struct interface *ifp)
 {
-	struct listnode *node, *nnode;
 	struct connected *conn;
 
 	if (if_is_broadcast(ifp)) {
@@ -508,20 +508,18 @@ void isis_circuit_if_add(struct isis_circuit *circuit, struct interface *ifp)
 		circuit->circ_type = CIRCUIT_T_UNKNOWN;
 	}
 
-	for (ALL_LIST_ELEMENTS(ifp->connected, node, nnode, conn))
+	frr_each (if_connected, ifp->connected, conn)
 		isis_circuit_add_addr(circuit, conn);
-
 }
 
 void isis_circuit_if_del(struct isis_circuit *circuit, struct interface *ifp)
 {
-	struct listnode *node, *nnode;
 	struct connected *conn;
 
 	assert(circuit->interface == ifp);
 
 	/* destroy addresses */
-	for (ALL_LIST_ELEMENTS(ifp->connected, node, nnode, conn))
+	frr_each_safe (if_connected, ifp->connected, conn)
 		isis_circuit_del_addr(circuit, conn);
 
 	circuit->circ_type = CIRCUIT_T_UNKNOWN;
@@ -1631,6 +1629,9 @@ static int isis_ifp_up(struct interface *ifp)
 		isis_csm_state_change(IF_UP_FROM_Z, circuit, ifp);
 	}
 
+	/* Notify SRv6 that the interface went up */
+	isis_srv6_ifp_up_notify(ifp);
+
 	return 0;
 }
 
@@ -1676,6 +1677,8 @@ void isis_circuit_init(void)
 #else
 	if_cmd_init_default();
 #endif
-	if_zapi_callbacks(isis_ifp_create, isis_ifp_up,
-			  isis_ifp_down, isis_ifp_destroy);
+	hook_register_prio(if_real, 0, isis_ifp_create);
+	hook_register_prio(if_up, 0, isis_ifp_up);
+	hook_register_prio(if_down, 0, isis_ifp_down);
+	hook_register_prio(if_unreal, 0, isis_ifp_destroy);
 }

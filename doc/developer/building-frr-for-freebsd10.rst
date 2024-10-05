@@ -60,9 +60,9 @@ an example)
     export LDFLAGS="-L/usr/local/lib"
     export CPPFLAGS="-I/usr/local/include"
     ./configure \
-        --sysconfdir=/usr/local/etc/frr \
+        --sysconfdir=/usr/local/etc \
+        --localstatedir=/var \
         --enable-pkgsrcrcdir=/usr/pkg/share/examples/rc.d \
-        --localstatedir=/var/run/frr \
         --prefix=/usr/local \
         --enable-multipath=64 \
         --enable-user=frr \

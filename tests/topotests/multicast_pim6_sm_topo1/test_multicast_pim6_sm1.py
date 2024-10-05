@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+# -*- coding: utf-8 eval: (blacken-mode 1) -*-
 # SPDX-License-Identifier: ISC
 
 #
@@ -30,61 +30,43 @@ should get update accordingly
 data traffic
 """
 
-import os
-import sys
-import json
-import time
 import datetime
+import sys
+import time
+
 import pytest
-
-# Save the Current Working Directory to find configuration files.
-CWD = os.path.dirname(os.path.realpath(__file__))
-sys.path.append(os.path.join(CWD, "../"))
-sys.path.append(os.path.join(CWD, "../lib/"))
-
-# Required to instantiate the topology builder class.
-
-# pylint: disable=C0413
-# Import topogen and topotest helpers
-from lib.topogen import Topogen, get_topogen
-
 from lib.common_config import (
-    start_topology,
-    write_test_header,
-    write_test_footer,
-    step,
+    get_frr_ipv6_linklocal,
+    required_linux_kernel_version,
     reset_config_on_routers,
     shutdown_bringup_interface,
-    start_router,
-    stop_router,
-    create_static_routes,
-    required_linux_kernel_version,
-    socat_send_mld_join,
-    socat_send_pim6_traffic,
-    get_frr_ipv6_linklocal,
-    kill_socat,
+    start_topology,
+    step,
+    write_test_footer,
+    write_test_header,
 )
-from lib.bgp import create_router_bgp
 from lib.pim import (
-    create_pim_config,
-    create_mld_config,
-    verify_mld_groups,
-    verify_mroutes,
-    clear_pim6_interface_traffic,
-    verify_upstream_iif,
-    clear_pim6_mroute,
-    verify_pim_interface_traffic,
-    verify_pim_state,
     McastTesterHelper,
-    verify_pim_join,
-    verify_mroute_summary,
-    verify_pim_nexthop,
-    verify_sg_traffic,
+    clear_pim6_mroute,
+    create_mld_config,
+    create_pim_config,
     verify_mld_config,
+    verify_mld_groups,
+    verify_mroute_summary,
+    verify_mroutes,
+    verify_pim_interface_traffic,
+    verify_pim_join,
+    verify_pim_nexthop,
+    verify_pim_state,
+    verify_sg_traffic,
+    verify_upstream_iif,
 )
-
-from lib.topolog import logger
+from lib.bgp import (
+    verify_bgp_convergence,
+)
+from lib.topogen import Topogen, get_topogen
 from lib.topojson import build_config_from_json
+from lib.topolog import logger
 
 # Global variables
 GROUP_RANGE = "ff00::/8"
@@ -141,8 +123,7 @@ def setup_module(mod):
 
     logger.info("Running setup_module to create topology")
 
-    testdir = os.path.dirname(os.path.realpath(__file__))
-    json_file = "{}/multicast_pim6_sm_topo1.json".format(testdir)
+    json_file = "multicast_pim6_sm_topo1.json"
     tgen = Topogen(json_file, mod.__name__)
     global topo
     topo = tgen.json_topo
@@ -159,6 +140,15 @@ def setup_module(mod):
     # Creating configuration from JSON
     build_config_from_json(tgen, tgen.json_topo)
 
+    global app_helper
+    app_helper = McastTesterHelper(tgen)
+
+    # Verify BGP convergence
+    BGP_CONVERGENCE = verify_bgp_convergence(tgen, topo, addr_type="ipv6")
+    assert BGP_CONVERGENCE is True, "setup_module : Failed \n Error:" " {}".format(
+        BGP_CONVERGENCE
+    )
+
     logger.info("Running setup_module() done")
 
 
@@ -169,8 +159,7 @@ def teardown_module():
 
     tgen = get_topogen()
 
-    # Clean up socat
-    kill_socat(tgen)
+    app_helper.cleanup()
 
     # Stop toplogy and Remove tmp files
     tgen.stop_topology()
@@ -232,7 +221,7 @@ def verify_state_incremented(state_before, state_after):
     """
 
     for router, state_data in state_before.items():
-        for state, value in state_data.items():
+        for state, _ in state_data.items():
             if state_before[router][state] >= state_after[router][state]:
                 errormsg = (
                     "[DUT: %s]: state %s value has not"
@@ -296,6 +285,12 @@ def test_multicast_data_traffic_static_RP_send_traffic_then_join_p0(request):
     # Creating configuration from JSON
     reset_config_on_routers(tgen)
 
+    # Verify BGP convergence
+    result = verify_bgp_convergence(tgen, topo, addr_type="ipv6")
+    assert result is True, "Testcase {} : Failed \n Error {}".format(tc_name, result)
+
+    app_helper.stop_all_hosts()
+
     # Don"t run this test if we have any failure.
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
@@ -334,9 +329,7 @@ def test_multicast_data_traffic_static_RP_send_traffic_then_join_p0(request):
 
     step("Send multicast traffic from FRR3 to all the receivers" "ffaa::1-5")
 
-    intf_ip = topo["routers"]["i2"]["links"]["r3"]["ipv6"].split("/")[0]
-    intf = topo["routers"]["i2"]["links"]["r3"]["interface"]
-    result = socat_send_pim6_traffic(tgen, "i2", "UDP6-SEND", MLD_JOIN_RANGE_1, intf)
+    result = app_helper.run_traffic("i2", MLD_JOIN_RANGE_1, "r3")
     assert result is True, "Testcase {}: Failed Error: {}".format(tc_name, result)
 
     source = topo["routers"]["i2"]["links"]["r3"]["ipv6"].split("/")[0]
@@ -375,11 +368,7 @@ def test_multicast_data_traffic_static_RP_send_traffic_then_join_p0(request):
     )
 
     step("send mld join (ffaa::1-5) to R1")
-    intf = topo["routers"]["i1"]["links"]["r1"]["interface"]
-    intf_ip = topo["routers"]["i1"]["links"]["r1"]["ipv6"].split("/")[0]
-    result = socat_send_mld_join(
-        tgen, "i1", "UDP6-RECV", MLD_JOIN_RANGE_1, intf, intf_ip
-    )
+    result = app_helper.run_join("i1", MLD_JOIN_RANGE_1, "r1")
     assert result is True, "Testcase {}: Failed Error: {}".format(tc_name, result)
 
     step(
@@ -504,6 +493,10 @@ def test_verify_mroute_when_receiver_is_outside_frr_p0(request):
     # Creating configuration from JSON
     reset_config_on_routers(tgen)
 
+    # Verify BGP convergence
+    result = verify_bgp_convergence(tgen, topo, addr_type="ipv6")
+    assert result is True, "Testcase {} : Failed \n Error {}".format(tc_name, result)
+
     # Don"t run this test if we have any failure.
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
@@ -532,11 +525,7 @@ def test_verify_mroute_when_receiver_is_outside_frr_p0(request):
     assert result is True, "Testcase {} : Failed Error: {}".format(tc_name, result)
 
     step("send mld join (ffaa::1-5) to R1")
-    intf = topo["routers"]["i1"]["links"]["r1"]["interface"]
-    intf_ip = topo["routers"]["i1"]["links"]["r1"]["ipv6"].split("/")[0]
-    result = socat_send_mld_join(
-        tgen, "i1", "UDP6-RECV", _MLD_JOIN_RANGE, intf, intf_ip
-    )
+    result = app_helper.run_join("i1", _MLD_JOIN_RANGE, "r1")
     assert result is True, "Testcase {}: Failed Error: {}".format(tc_name, result)
 
     step("verify MLD joins received on r1")
@@ -546,9 +535,7 @@ def test_verify_mroute_when_receiver_is_outside_frr_p0(request):
     assert result is True, "Testcase {} : Failed Error: {}".format(tc_name, result)
 
     step("Send multicast traffic from FRR3 to all the receivers" "ffaa::1-5")
-    intf_ip = topo["routers"]["i2"]["links"]["r3"]["ipv6"].split("/")[0]
-    intf = topo["routers"]["i2"]["links"]["r3"]["interface"]
-    result = socat_send_pim6_traffic(tgen, "i2", "UDP6-SEND", _MLD_JOIN_RANGE, intf)
+    result = app_helper.run_traffic("i2", _MLD_JOIN_RANGE, "r3")
     assert result is True, "Testcase {}: Failed Error: {}".format(tc_name, result)
 
     step(
@@ -561,11 +548,7 @@ def test_verify_mroute_when_receiver_is_outside_frr_p0(request):
     result = create_mld_config(tgen, topo, input_dict)
     assert result is True, "Testcase {}: Failed Error: {}".format(tc_name, result)
 
-    i5_r5 = topo["routers"]["i5"]["links"]["r5"]["interface"]
-    intf_ip = topo["routers"]["i5"]["links"]["r5"]["ipv6"].split("/")[0]
-    result = socat_send_mld_join(
-        tgen, "i5", "UDP6-RECV", _MLD_JOIN_RANGE, i5_r5, intf_ip
-    )
+    result = app_helper.run_join("i5", _MLD_JOIN_RANGE, "r5")
     assert result is True, "Testcase {}: Failed Error: {}".format(tc_name, result)
 
     step("FRR1 has 10 (*.G) and 10 (S,G) verify using 'show ipv6 mroute'")
@@ -682,6 +665,12 @@ def test_verify_mroute_when_frr_is_transit_router_p2(request):
     # Creating configuration from JSON
     reset_config_on_routers(tgen)
 
+    # Verify BGP convergence
+    result = verify_bgp_convergence(tgen, topo, addr_type="ipv6")
+    assert result is True, "Testcase {} : Failed \n Error {}".format(tc_name, result)
+
+    app_helper.stop_all_hosts()
+
     # Don"t run this test if we have any failure.
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
@@ -708,11 +697,7 @@ def test_verify_mroute_when_frr_is_transit_router_p2(request):
     step("Enable mld on FRR1 interface and send mld join ")
 
     step("send mld join (ffaa::1-5) to R1")
-    intf = topo["routers"]["i1"]["links"]["r1"]["interface"]
-    intf_ip = topo["routers"]["i1"]["links"]["r1"]["ipv6"].split("/")[0]
-    result = socat_send_mld_join(
-        tgen, "i1", "UDP6-RECV", MLD_JOIN_RANGE_1, intf, intf_ip
-    )
+    result = app_helper.run_join("i1", MLD_JOIN_RANGE_1, "r1")
     assert result is True, "Testcase {}: Failed Error: {}".format(tc_name, result)
 
     step("verify mld groups received on R1")
@@ -722,9 +707,7 @@ def test_verify_mroute_when_frr_is_transit_router_p2(request):
     assert result is True, "Testcase {} : Failed Error: {}".format(tc_name, result)
 
     step("Send multicast traffic from FRR3 to ffaa::1-5 receivers")
-    intf_ip = topo["routers"]["i2"]["links"]["r3"]["ipv6"].split("/")[0]
-    intf = topo["routers"]["i2"]["links"]["r3"]["interface"]
-    result = socat_send_pim6_traffic(tgen, "i2", "UDP6-SEND", MLD_JOIN_RANGE_1, intf)
+    result = app_helper.run_traffic("i2", MLD_JOIN_RANGE_1, "r3")
     assert result is True, "Testcase {}: Failed Error: {}".format(tc_name, result)
 
     step("shut the direct link to R1 ")
@@ -841,6 +824,12 @@ def test_verify_mroute_when_RP_unreachable_p1(request):
     # Creating configuration from JSON
     reset_config_on_routers(tgen)
 
+    # Verify BGP convergence
+    result = verify_bgp_convergence(tgen, topo, addr_type="ipv6")
+    assert result is True, "Testcase {} : Failed \n Error {}".format(tc_name, result)
+
+    app_helper.stop_all_hosts()
+
     # Don"t run this test if we have any failure.
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
@@ -868,17 +857,11 @@ def test_verify_mroute_when_RP_unreachable_p1(request):
     step("Enable mld on FRR1 interface and send mld join ffaa::1-5")
 
     step("send mld join (ffaa::1-5) to R1")
-    intf = topo["routers"]["i1"]["links"]["r1"]["interface"]
-    intf_ip = topo["routers"]["i1"]["links"]["r1"]["ipv6"].split("/")[0]
-    result = socat_send_mld_join(
-        tgen, "i1", "UDP6-RECV", MLD_JOIN_RANGE_1, intf, intf_ip
-    )
+    result = app_helper.run_join("i1", MLD_JOIN_RANGE_1, "r1")
     assert result is True, "Testcase {}: Failed Error: {}".format(tc_name, result)
 
     step("Send multicast traffic from FRR3 to ffaa::1-5 receivers")
-    intf_ip = topo["routers"]["i2"]["links"]["r3"]["ipv6"].split("/")[0]
-    intf = topo["routers"]["i2"]["links"]["r3"]["interface"]
-    result = socat_send_pim6_traffic(tgen, "i2", "UDP6-SEND", MLD_JOIN_RANGE_1, intf)
+    result = app_helper.run_traffic("i2", MLD_JOIN_RANGE_1, "r3")
     assert result is True, "Testcase {}: Failed Error: {}".format(tc_name, result)
 
     step("Configure one MLD interface on FRR3 node and send MLD" " join (ffcc::1)")
@@ -888,11 +871,7 @@ def test_verify_mroute_when_RP_unreachable_p1(request):
     assert result is True, "Testcase {}: Failed Error: {}".format(tc_name, result)
 
     step("send mld join (ffaa::1-5) to R1")
-    intf = topo["routers"]["i8"]["links"]["r3"]["interface"]
-    intf_ip = topo["routers"]["i8"]["links"]["r3"]["ipv6"].split("/")[0]
-    result = socat_send_mld_join(
-        tgen, "i8", "UDP6-RECV", MLD_JOIN_RANGE_1, intf, intf_ip
-    )
+    result = app_helper.run_join("i8", MLD_JOIN_RANGE_1, "r3")
     assert result is True, "Testcase {}: Failed Error: {}".format(tc_name, result)
 
     step("verify MLD groups received ")
@@ -975,16 +954,18 @@ def test_modify_mld_query_timer_p0(request):
     # Creating configuration from JSON
     reset_config_on_routers(tgen)
 
+    # Verify BGP convergence
+    result = verify_bgp_convergence(tgen, topo, addr_type="ipv6")
+    assert result is True, "Testcase {} : Failed \n Error {}".format(tc_name, result)
+
+    app_helper.stop_all_hosts()
+
     # Don"t run this test if we have any failure.
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
     step("send mld join (ffaa::1-5) to R1")
-    intf = topo["routers"]["i8"]["links"]["r3"]["interface"]
-    intf_ip = topo["routers"]["i8"]["links"]["r3"]["ipv6"].split("/")[0]
-    result = socat_send_mld_join(
-        tgen, "i8", "UDP6-RECV", MLD_JOIN_RANGE_1, intf, intf_ip
-    )
+    result = app_helper.run_join("i8", MLD_JOIN_RANGE_1, "r3")
     assert result is True, "Testcase {}: Failed Error: {}".format(tc_name, result)
 
     step("Enable MLD on receiver interface")
@@ -1023,9 +1004,7 @@ def test_modify_mld_query_timer_p0(request):
     assert result is True, "Testcase {} : Failed Error: {}".format(tc_name, result)
 
     step("Send multicast traffic from FRR3 to ffaa::1-5 receivers")
-    intf_ip = topo["routers"]["i2"]["links"]["r3"]["ipv6"].split("/")[0]
-    intf = topo["routers"]["i2"]["links"]["r3"]["interface"]
-    result = socat_send_pim6_traffic(tgen, "i2", "UDP6-SEND", MLD_JOIN_RANGE_1, intf)
+    result = app_helper.run_traffic("i2", MLD_JOIN_RANGE_1, "r3")
     assert result is True, "Testcase {}: Failed Error: {}".format(tc_name, result)
 
     step(
@@ -1158,17 +1137,19 @@ def test_modify_mld_max_query_response_timer_p0(request):
     # Creating configuration from JSON
     reset_config_on_routers(tgen)
 
+    # Verify BGP convergence
+    result = verify_bgp_convergence(tgen, topo, addr_type="ipv6")
+    assert result is True, "Testcase {} : Failed \n Error {}".format(tc_name, result)
+
+    app_helper.stop_all_hosts()
+
     # Don"t run this test if we have any failure.
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
     step("Enable mld on FRR1 interface and send MLD join")
     step("send mld join (ffaa::1-5) to R1")
-    intf = topo["routers"]["i1"]["links"]["r1"]["interface"]
-    intf_ip = topo["routers"]["i1"]["links"]["r1"]["ipv6"].split("/")[0]
-    result = socat_send_mld_join(
-        tgen, "i1", "UDP6-RECV", MLD_JOIN_RANGE_1, intf, intf_ip
-    )
+    result = app_helper.run_join("i1", MLD_JOIN_RANGE_1, "r1")
     assert result is True, "Testcase {}: Failed Error: {}".format(tc_name, result)
 
     r1_i1 = topo["routers"]["r1"]["links"]["i1"]["interface"]
@@ -1214,9 +1195,7 @@ def test_modify_mld_max_query_response_timer_p0(request):
     assert result is True, "Testcase {} : Failed Error: {}".format(tc_name, result)
 
     step("Send multicast traffic from FRR3 to ffaa::1-5 receivers")
-    intf_ip = topo["routers"]["i2"]["links"]["r3"]["ipv6"].split("/")[0]
-    intf = topo["routers"]["i2"]["links"]["r3"]["interface"]
-    result = socat_send_pim6_traffic(tgen, "i2", "UDP6-SEND", MLD_JOIN_RANGE_1, intf)
+    result = app_helper.run_traffic("i2", MLD_JOIN_RANGE_1, "r3")
     assert result is True, "Testcase {}: Failed Error: {}".format(tc_name, result)
 
     step(
@@ -1431,6 +1410,12 @@ def test_verify_impact_on_multicast_traffic_when_RP_removed_p0(request):
     # Creating configuration from JSON
     reset_config_on_routers(tgen)
 
+    # Verify BGP convergence
+    result = verify_bgp_convergence(tgen, topo, addr_type="ipv6")
+    assert result is True, "Testcase {} : Failed \n Error {}".format(tc_name, result)
+
+    app_helper.stop_all_hosts()
+
     # Don"t run this test if we have any failure.
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
@@ -1438,9 +1423,7 @@ def test_verify_impact_on_multicast_traffic_when_RP_removed_p0(request):
     step("send multicast traffic for group range ffaa::1-5")
 
     step("Send multicast traffic from FRR3 to ffaa::1-5 receivers")
-    intf_ip = topo["routers"]["i2"]["links"]["r3"]["ipv6"].split("/")[0]
-    intf = topo["routers"]["i2"]["links"]["r3"]["interface"]
-    result = socat_send_pim6_traffic(tgen, "i2", "UDP6-SEND", MLD_JOIN_RANGE_1, intf)
+    result = app_helper.run_traffic("i2", MLD_JOIN_RANGE_1, "r3")
     assert result is True, "Testcase {}: Failed Error: {}".format(tc_name, result)
 
     step("Configure static RP for group (ffaa::1) on r5")
@@ -1464,11 +1447,7 @@ def test_verify_impact_on_multicast_traffic_when_RP_removed_p0(request):
 
     step("Enable mld on FRR1 interface and send MLD join")
     step("send mld join (ffaa::1-5) to R1")
-    intf = topo["routers"]["i1"]["links"]["r1"]["interface"]
-    intf_ip = topo["routers"]["i1"]["links"]["r1"]["ipv6"].split("/")[0]
-    result = socat_send_mld_join(
-        tgen, "i1", "UDP6-RECV", MLD_JOIN_RANGE_1, intf, intf_ip
-    )
+    result = app_helper.run_join("i1", MLD_JOIN_RANGE_1, "r1")
     assert result is True, "Testcase {}: Failed Error: {}".format(tc_name, result)
 
     step(

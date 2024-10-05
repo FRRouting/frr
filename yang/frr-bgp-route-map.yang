@@ -23,6 +23,10 @@ module frr-bgp-route-map {
     prefix rt-types;
   }
 
+  import frr-route-types {
+    prefix frr-route-types;
+  }
+
   organization
     "Free Range Routing";
   contact
@@ -168,6 +172,12 @@ module frr-bgp-route-map {
       "Match IPv6 next hop address";
   }
 
+  identity source-protocol {
+    base frr-route-map:rmap-match-type;
+    description
+      "Match protocol via which the route was learnt";
+  }
+
   identity distance {
     base frr-route-map:rmap-set-type;
     description
@@ -186,6 +196,12 @@ module frr-bgp-route-map {
       "Set BGP extended community attribute";
   }
 
+  identity set-extcommunity-nt {
+    base frr-route-map:rmap-set-type;
+    description
+      "Set BGP extended community attribute";
+  }
+
   identity set-extcommunity-soo {
     base frr-route-map:rmap-set-type;
     description
@@ -193,6 +209,12 @@ module frr-bgp-route-map {
   }
 
   identity set-extcommunity-lb {
+    base frr-route-map:rmap-set-type;
+    description
+      "Set BGP extended community attribute";
+  }
+
+identity set-extcommunity-color {
     base frr-route-map:rmap-set-type;
     description
       "Set BGP extended community attribute";
@@ -330,6 +352,12 @@ module frr-bgp-route-map {
       "Set BGP large community list (for deletion)";
   }
 
+  identity extended-comm-list-delete {
+    base frr-route-map:rmap-set-type;
+    description
+      "Set BGP extended community list (for deletion)";
+  }
+
   identity set-evpn-gateway-ip-ipv4 {
     base frr-route-map:rmap-set-type;
     description
@@ -351,6 +379,7 @@ module frr-bgp-route-map {
   grouping extcommunity-non-transitive-types {
     leaf two-octet-as-specific {
       type boolean;
+      default false;
       description
         "Non-Transitive Two-Octet AS-Specific Extended Community";
     }
@@ -495,9 +524,25 @@ module frr-bgp-route-map {
     }
   }
 
+  typedef color-list {
+    type string {
+      pattern '((429496729[0-5]|42949672[0-8][0-9]|'
+      +	    '4294967[0-1][0-9]{2}|429496[0-6][0-9]{3}|'
+      +	    '42949[0-5][0-9]{4}|4294[0-8][0-9]{5}|'
+      +	    '429[0-3][0-9]{6}|42[0-8][0-9]{7}|'
+      +	    '4[0-1][0-9]{8}|[1-3][0-9]{9}|'
+      +	    '[1-9][0-9]{0,8})(\s*))+';
+    }
+    description
+      "The color-list type represent a set of colors of value (1..4294967295)
+       values are separated by white spaces";
+    reference
+      "RFC 9012 - The BGP Tunnel Encapsulation Attribute";
+  }
+
   augment "/frr-route-map:lib/frr-route-map:route-map/frr-route-map:entry/frr-route-map:match-condition/frr-route-map:rmap-match-condition/frr-route-map:match-condition" {
     case local-preference {
-      when "derived-from-or-self(/frr-route-map:lib/frr-route-map:route-map/frr-route-map:entry/frr-route-map:match-condition/frr-route-map:condition, 'frr-bgp-route-map:match-local-preference')";
+      when "derived-from-or-self(../frr-route-map:condition, 'frr-bgp-route-map:match-local-preference')";
       leaf local-preference {
         type uint32 {
           range "0..4294967295";
@@ -506,21 +551,21 @@ module frr-bgp-route-map {
     }
 
     case alias {
-      when "derived-from-or-self(/frr-route-map:lib/frr-route-map:route-map/frr-route-map:entry/frr-route-map:match-condition/frr-route-map:condition, 'frr-bgp-route-map:match-alias')";
+      when "derived-from-or-self(../frr-route-map:condition, 'frr-bgp-route-map:match-alias')";
       leaf alias {
         type string;
       }
     }
 
     case script {
-      when "derived-from-or-self(/frr-route-map:lib/frr-route-map:route-map/frr-route-map:entry/frr-route-map:match-condition/frr-route-map:condition, 'frr-bgp-route-map:match-script')";
+      when "derived-from-or-self(../frr-route-map:condition, 'frr-bgp-route-map:match-script')";
       leaf script {
         type string;
       }
     }
 
     case origin {
-      when "derived-from-or-self(/frr-route-map:lib/frr-route-map:route-map/frr-route-map:entry/frr-route-map:match-condition/frr-route-map:condition, 'frr-bgp-route-map:match-origin')";
+      when "derived-from-or-self(../frr-route-map:condition, 'frr-bgp-route-map:match-origin')";
       leaf origin {
         type enumeration {
           enum "egp" {
@@ -543,7 +588,7 @@ module frr-bgp-route-map {
     }
 
     case rpki {
-      when "derived-from-or-self(/frr-route-map:lib/frr-route-map:route-map/frr-route-map:entry/frr-route-map:match-condition/frr-route-map:condition, 'frr-bgp-route-map:rpki')";
+      when "derived-from-or-self(../frr-route-map:condition, 'frr-bgp-route-map:rpki')";
       leaf rpki {
         type enumeration {
           enum "invalid" {
@@ -589,7 +634,7 @@ module frr-bgp-route-map {
     }
 
     case probability {
-      when "derived-from-or-self(/frr-route-map:lib/frr-route-map:route-map/frr-route-map:entry/frr-route-map:match-condition/frr-route-map:condition, 'frr-bgp-route-map:probability')";
+      when "derived-from-or-self(../frr-route-map:condition, 'frr-bgp-route-map:probability')";
       leaf probability {
         type uint8 {
           range "0..100";
@@ -598,14 +643,14 @@ module frr-bgp-route-map {
     }
 
     case source-vrf {
-      when "derived-from-or-self(/frr-route-map:lib/frr-route-map:route-map/frr-route-map:entry/frr-route-map:match-condition/frr-route-map:condition, 'frr-bgp-route-map:source-vrf')";
+      when "derived-from-or-self(../frr-route-map:condition, 'frr-bgp-route-map:source-vrf')";
       leaf source-vrf {
         type string;
       }
     }
 
     case peer {
-      when "derived-from-or-self(/frr-route-map:lib/frr-route-map:route-map/frr-route-map:entry/frr-route-map:match-condition/frr-route-map:condition, 'frr-bgp-route-map:peer')";
+      when "derived-from-or-self(../frr-route-map:condition, 'frr-bgp-route-map:peer')";
       choice peer {
         description
           "Value of the peer";
@@ -644,10 +689,10 @@ module frr-bgp-route-map {
     }
 
     case access-list-name {
-      when "derived-from-or-self(/frr-route-map:lib/frr-route-map:route-map/frr-route-map:entry/frr-route-map:match-condition/frr-route-map:condition, 'frr-bgp-route-map:mac-address-list') or "
-        + "derived-from-or-self(/frr-route-map:lib/frr-route-map:route-map/frr-route-map:entry/frr-route-map:match-condition/frr-route-map:condition, 'frr-bgp-route-map:as-path-list') or "
-        + "derived-from-or-self(/frr-route-map:lib/frr-route-map:route-map/frr-route-map:entry/frr-route-map:match-condition/frr-route-map:condition, 'frr-bgp-route-map:ip-route-source') or "
-        + "derived-from-or-self(/frr-route-map:lib/frr-route-map:route-map/frr-route-map:entry/frr-route-map:match-condition/frr-route-map:condition, 'frr-bgp-route-map:ip-route-source-prefix-list')";
+      when "derived-from-or-self(../frr-route-map:condition, 'frr-bgp-route-map:mac-address-list') or "
+        + "derived-from-or-self(../frr-route-map:condition, 'frr-bgp-route-map:as-path-list') or "
+        + "derived-from-or-self(../frr-route-map:condition, 'frr-bgp-route-map:ip-route-source') or "
+        + "derived-from-or-self(../frr-route-map:condition, 'frr-bgp-route-map:ip-route-source-prefix-list')";
       description
         "Access-list name";
       leaf list-name {
@@ -656,7 +701,7 @@ module frr-bgp-route-map {
     }
 
     case evpn-default-route {
-      when "derived-from-or-self(/frr-route-map:lib/frr-route-map:route-map/frr-route-map:entry/frr-route-map:match-condition/frr-route-map:condition, 'frr-bgp-route-map:evpn-default-route')";
+      when "derived-from-or-self(../frr-route-map:condition, 'frr-bgp-route-map:evpn-default-route')";
       description
         "Match default EVPN type-5 route";
       leaf evpn-default-route {
@@ -665,7 +710,7 @@ module frr-bgp-route-map {
     }
 
     case evpn-vni {
-      when "derived-from-or-self(/frr-route-map:lib/frr-route-map:route-map/frr-route-map:entry/frr-route-map:match-condition/frr-route-map:condition, 'frr-bgp-route-map:evpn-vni')";
+      when "derived-from-or-self(../frr-route-map:condition, 'frr-bgp-route-map:evpn-vni')";
       description
         "Match eVPN VNI";
       leaf evpn-vni {
@@ -676,7 +721,7 @@ module frr-bgp-route-map {
     }
 
     case evpn-route-type {
-      when "derived-from-or-self(/frr-route-map:lib/frr-route-map:route-map/frr-route-map:entry/frr-route-map:match-condition/frr-route-map:condition, 'frr-bgp-route-map:evpn-route-type')";
+      when "derived-from-or-self(../frr-route-map:condition, 'frr-bgp-route-map:evpn-route-type')";
       description
         "Match eVPN route-type";
       leaf evpn-route-type {
@@ -711,7 +756,7 @@ module frr-bgp-route-map {
     }
 
     case evpn-rd {
-      when "derived-from-or-self(/frr-route-map:lib/frr-route-map:route-map/frr-route-map:entry/frr-route-map:match-condition/frr-route-map:condition, 'frr-bgp-route-map:evpn-rd')";
+      when "derived-from-or-self(../frr-route-map:condition, 'frr-bgp-route-map:evpn-rd')";
       description
         "Match eVPN route-distinguisher";
       leaf route-distinguisher {
@@ -720,11 +765,12 @@ module frr-bgp-route-map {
     }
 
     case comm-list-name {
-      when "derived-from-or-self(/frr-route-map:lib/frr-route-map:route-map/frr-route-map:entry/frr-route-map:match-condition/frr-route-map:condition, 'frr-bgp-route-map:match-community') or "
-        + "derived-from-or-self(/frr-route-map:lib/frr-route-map:route-map/frr-route-map:entry/frr-route-map:match-condition/frr-route-map:condition, 'frr-bgp-route-map:match-large-community') or "
-        + "derived-from-or-self(/frr-route-map:lib/frr-route-map:route-map/frr-route-map:entry/frr-route-map:match-condition/frr-route-map:condition, 'frr-bgp-route-map:match-extcommunity')";
+      when "derived-from-or-self(../frr-route-map:condition, 'frr-bgp-route-map:match-community') or "
+        + "derived-from-or-self(../frr-route-map:condition, 'frr-bgp-route-map:match-large-community') or "
+        + "derived-from-or-self(../frr-route-map:condition, 'frr-bgp-route-map:match-extcommunity')";
       container comm-list {
         leaf comm-list-name {
+          mandatory true;
           type bgp-filter:bgp-list-name;
         }
 
@@ -733,11 +779,18 @@ module frr-bgp-route-map {
           description
             "Do exact matching of communities";
         }
+
+        leaf comm-list-name-any {
+          type boolean;
+          description
+            "Do matching of any community";
+        }
+
       }
     }
 
     case ipv4-address {
-      when "derived-from-or-self(/frr-route-map:lib/frr-route-map:route-map/frr-route-map:entry/frr-route-map:match-condition/frr-route-map:condition, 'frr-bgp-route-map:ipv4-nexthop')";
+      when "derived-from-or-self(../frr-route-map:condition, 'frr-bgp-route-map:ipv4-nexthop')";
       leaf ipv4-address {
         type inet:ipv4-address;
         description
@@ -746,18 +799,25 @@ module frr-bgp-route-map {
     }
 
     case ipv6-address {
-      when "derived-from-or-self(/frr-route-map:lib/frr-route-map:route-map/frr-route-map:entry/frr-route-map:match-condition/frr-route-map:condition, 'frr-bgp-route-map:ipv6-nexthop')";
+      when "derived-from-or-self(../frr-route-map:condition, 'frr-bgp-route-map:ipv6-nexthop')";
       leaf ipv6-address {
         type inet:ipv6-address;
         description
           "IPv6 address";
       }
     }
+
+    case source-protocol {
+      when "derived-from-or-self(../frr-route-map:condition, 'frr-bgp-route-map:source-protocol')";
+      leaf source-protocol {
+        type frr-route-types:frr-route-types;
+      }
+    }
   }
 
   augment "/frr-route-map:lib/frr-route-map:route-map/frr-route-map:entry/frr-route-map:set-action/frr-route-map:rmap-set-action/frr-route-map:set-action" {
     case distance {
-      when "derived-from-or-self(/frr-route-map:lib/frr-route-map:route-map/frr-route-map:entry/frr-route-map:set-action/frr-route-map:action, 'frr-bgp-route-map:distance')";
+      when "derived-from-or-self(../frr-route-map:action, 'frr-bgp-route-map:distance')";
       leaf distance {
         type uint8 {
           range "1..255";
@@ -766,7 +826,7 @@ module frr-bgp-route-map {
     }
 
     case extcommunity-none {
-      when "derived-from-or-self(/frr-route-map:lib/frr-route-map:route-map/frr-route-map:entry/frr-route-map:set-action/frr-route-map:action, 'frr-bgp-route-map:set-extcommunity-none')";
+      when "derived-from-or-self(../frr-route-map:action, 'frr-bgp-route-map:set-extcommunity-none')";
       description
         "Value of the BGP extended community attribute";
       leaf extcommunity-none {
@@ -776,7 +836,7 @@ module frr-bgp-route-map {
     }
 
     case extcommunity-rt {
-      when "derived-from-or-self(/frr-route-map:lib/frr-route-map:route-map/frr-route-map:entry/frr-route-map:set-action/frr-route-map:action, 'frr-bgp-route-map:set-extcommunity-rt')";
+      when "derived-from-or-self(../frr-route-map:action, 'frr-bgp-route-map:set-extcommunity-rt')";
       description
         "Value of the ext-community";
       leaf extcommunity-rt {
@@ -786,8 +846,19 @@ module frr-bgp-route-map {
       }
     }
 
+    case extcommunity-nt {
+      when "derived-from-or-self(../frr-route-map:action, 'frr-bgp-route-map:set-extcommunity-nt')";
+      description
+        "Value of the ext-community";
+      leaf extcommunity-nt {
+        type string;
+        description
+          "Set BGP ext-community node-target attribute";
+      }
+    }
+
     case extcommunity-soo {
-      when "derived-from-or-self(/frr-route-map:lib/frr-route-map:route-map/frr-route-map:entry/frr-route-map:set-action/frr-route-map:action, 'frr-bgp-route-map:set-extcommunity-soo')";
+      when "derived-from-or-self(../frr-route-map:action, 'frr-bgp-route-map:set-extcommunity-soo')";
       description
         "Value of the ext-community";
       leaf extcommunity-soo {
@@ -798,19 +869,19 @@ module frr-bgp-route-map {
     }
 
     case extcommunity-lb {
-      when "derived-from-or-self(/frr-route-map:lib/frr-route-map:route-map/frr-route-map:entry/frr-route-map:set-action/frr-route-map:action, 'frr-bgp-route-map:set-extcommunity-lb')";
+      when "derived-from-or-self(../frr-route-map:action, 'frr-bgp-route-map:set-extcommunity-lb')";
       container extcommunity-lb {
         description
           "Value of the ext-community.";
         leaf lb-type {
+          mandatory true;
           type frr-bgp-route-map:extcommunity-lb-type;
         }
 
         leaf bandwidth {
           when "../lb-type = 'explicit-bandwidth'";
-          type uint16 {
-            range "1..25600";
-          }
+          mandatory true;
+          type uint32;
           description
             "Bandwidth value in Mbps";
         }
@@ -818,8 +889,21 @@ module frr-bgp-route-map {
       }
     }
 
+   case extcommunity-color {
+      when "derived-from-or-self(../frr-route-map:action, 'frr-bgp-route-map:set-extcommunity-color')";
+      description
+        "Value of the ext-community";
+      leaf extcommunity-color {
+        type color-list;
+        description
+          "Set BGP ext-community color attribute with a list of colors";
+	reference
+	  "RFC9012";
+      }
+    }
+
     case ipv4-address {
-      when "derived-from-or-self(/frr-route-map:lib/frr-route-map:route-map/frr-route-map:entry/frr-route-map:set-action/frr-route-map:action, 'frr-bgp-route-map:ipv4-vpn-address')";
+      when "derived-from-or-self(../frr-route-map:action, 'frr-bgp-route-map:ipv4-vpn-address')";
       description
         "Set the IPv4 address";
       leaf ipv4-address {
@@ -828,15 +912,15 @@ module frr-bgp-route-map {
     }
 
     case ipv4-nexthop {
-      when "derived-from-or-self(/frr-route-map:lib/frr-route-map:route-map/frr-route-map:entry/frr-route-map:set-action/frr-route-map:action, 'frr-bgp-route-map:set-ipv4-nexthop')";
+      when "derived-from-or-self(../frr-route-map:action, 'frr-bgp-route-map:set-ipv4-nexthop')";
       leaf ipv4-nexthop {
         type string;
       }
     }
 
     case ipv6-address {
-      when "derived-from-or-self(/frr-route-map:lib/frr-route-map:route-map/frr-route-map:entry/frr-route-map:set-action/frr-route-map:action, 'frr-bgp-route-map:ipv6-nexthop-global') or "
-        + "derived-from-or-self(/frr-route-map:lib/frr-route-map:route-map/frr-route-map:entry/frr-route-map:set-action/frr-route-map:action, 'frr-bgp-route-map:ipv6-vpn-address')";
+      when "derived-from-or-self(../frr-route-map:action, 'frr-bgp-route-map:ipv6-nexthop-global') or "
+        + "derived-from-or-self(../frr-route-map:action, 'frr-bgp-route-map:ipv6-vpn-address')";
       description
         "Set the IPv6 address";
       leaf ipv6-address {
@@ -845,15 +929,15 @@ module frr-bgp-route-map {
     }
 
     case preference {
-      when "derived-from-or-self(/frr-route-map:lib/frr-route-map:route-map/frr-route-map:entry/frr-route-map:set-action/frr-route-map:action, 'frr-bgp-route-map:ipv6-prefer-global') or "
-        + "derived-from-or-self(/frr-route-map:lib/frr-route-map:route-map/frr-route-map:entry/frr-route-map:set-action/frr-route-map:action, 'frr-bgp-route-map:ipv6-peer-address')";
+      when "derived-from-or-self(../frr-route-map:action, 'frr-bgp-route-map:ipv6-prefer-global') or "
+        + "derived-from-or-self(../frr-route-map:action, 'frr-bgp-route-map:ipv6-peer-address')";
       leaf preference {
         type boolean;
       }
     }
 
     case label-index {
-      when "derived-from-or-self(/frr-route-map:lib/frr-route-map:route-map/frr-route-map:entry/frr-route-map:set-action/frr-route-map:action, 'frr-bgp-route-map:label-index')";
+      when "derived-from-or-self(../frr-route-map:action, 'frr-bgp-route-map:label-index')";
       leaf label-index {
         type uint32 {
           range "0..1048560";
@@ -862,14 +946,14 @@ module frr-bgp-route-map {
     }
 
     case local-pref {
-      when "derived-from-or-self(/frr-route-map:lib/frr-route-map:route-map/frr-route-map:entry/frr-route-map:set-action/frr-route-map:action, 'frr-bgp-route-map:set-local-preference')";
+      when "derived-from-or-self(../frr-route-map:action, 'frr-bgp-route-map:set-local-preference')";
       leaf local-pref {
         type string;
       }
     }
 
     case weight {
-      when "derived-from-or-self(/frr-route-map:lib/frr-route-map:route-map/frr-route-map:entry/frr-route-map:set-action/frr-route-map:action, 'frr-bgp-route-map:weight')";
+      when "derived-from-or-self(../frr-route-map:action, 'frr-bgp-route-map:weight')";
       leaf weight {
         type uint32 {
           range "0..4294967295";
@@ -878,7 +962,7 @@ module frr-bgp-route-map {
     }
 
     case origin {
-      when "derived-from-or-self(/frr-route-map:lib/frr-route-map:route-map/frr-route-map:entry/frr-route-map:set-action/frr-route-map:action, 'frr-bgp-route-map:set-origin')";
+      when "derived-from-or-self(../frr-route-map:action, 'frr-bgp-route-map:set-origin')";
       leaf origin {
         type enumeration {
           enum "egp" {
@@ -901,14 +985,14 @@ module frr-bgp-route-map {
     }
 
     case originator-id {
-      when "derived-from-or-self(/frr-route-map:lib/frr-route-map:route-map/frr-route-map:entry/frr-route-map:set-action/frr-route-map:action, 'frr-bgp-route-map:originator-id')";
+      when "derived-from-or-self(../frr-route-map:action, 'frr-bgp-route-map:originator-id')";
       leaf originator-id {
         type inet:ipv4-address;
       }
     }
 
     case table {
-      when "derived-from-or-self(/frr-route-map:lib/frr-route-map:route-map/frr-route-map:entry/frr-route-map:set-action/frr-route-map:action, 'frr-bgp-route-map:table')";
+      when "derived-from-or-self(../frr-route-map:action, 'frr-bgp-route-map:table')";
       leaf table {
         type uint32 {
           range "1..4294967295";
@@ -917,14 +1001,14 @@ module frr-bgp-route-map {
     }
 
     case atomic-aggregate {
-      when "derived-from-or-self(/frr-route-map:lib/frr-route-map:route-map/frr-route-map:entry/frr-route-map:set-action/frr-route-map:action, 'frr-bgp-route-map:atomic-aggregate')";
+      when "derived-from-or-self(../frr-route-map:action, 'frr-bgp-route-map:atomic-aggregate')";
       leaf atomic-aggregate {
         type empty;
       }
     }
 
     case aigp-metric {
-      when "derived-from-or-self(/frr-route-map:lib/frr-route-map:route-map/frr-route-map:entry/frr-route-map:set-action/frr-route-map:action, 'frr-bgp-route-map:aigp-metric')";
+      when "derived-from-or-self(../frr-route-map:action, 'frr-bgp-route-map:aigp-metric')";
       leaf aigp-metric {
         type string;
         description
@@ -933,7 +1017,7 @@ module frr-bgp-route-map {
     }
 
     case as-path-prepend {
-      when "derived-from-or-self(/frr-route-map:lib/frr-route-map:route-map/frr-route-map:entry/frr-route-map:set-action/frr-route-map:action, 'frr-bgp-route-map:as-path-prepend')";
+      when "derived-from-or-self(../frr-route-map:action, 'frr-bgp-route-map:as-path-prepend')";
       choice as-path-prepend {
         description
           "Value of the BGP AS-path attribute";
@@ -958,7 +1042,7 @@ module frr-bgp-route-map {
     }
 
     case as-path-exclude {
-      when "derived-from-or-self(/frr-route-map:lib/frr-route-map:route-map/frr-route-map:entry/frr-route-map:set-action/frr-route-map:action, 'frr-bgp-route-map:as-path-exclude')";
+      when "derived-from-or-self(../frr-route-map:action, 'frr-bgp-route-map:as-path-exclude')";
       leaf exclude-as-path {
         type string;
         description
@@ -967,7 +1051,7 @@ module frr-bgp-route-map {
     }
 
     case as-path-replace {
-      when "derived-from-or-self(/frr-route-map:lib/frr-route-map:route-map/frr-route-map:entry/frr-route-map:set-action/frr-route-map:action, 'frr-bgp-route-map:as-path-replace')";
+      when "derived-from-or-self(../frr-route-map:action, 'frr-bgp-route-map:as-path-replace')";
       leaf replace-as-path {
         type string;
         description
@@ -976,7 +1060,7 @@ module frr-bgp-route-map {
     }
 
     case community {
-      when "derived-from-or-self(/frr-route-map:lib/frr-route-map:route-map/frr-route-map:entry/frr-route-map:set-action/frr-route-map:action, 'frr-bgp-route-map:set-community')";
+      when "derived-from-or-self(../frr-route-map:action, 'frr-bgp-route-map:set-community')";
       choice community {
         description
           "Value of the BGP community attribute";
@@ -999,7 +1083,7 @@ module frr-bgp-route-map {
     }
 
     case large-community {
-      when "derived-from-or-self(/frr-route-map:lib/frr-route-map:route-map/frr-route-map:entry/frr-route-map:set-action/frr-route-map:action, 'frr-bgp-route-map:set-large-community')";
+      when "derived-from-or-self(../frr-route-map:action, 'frr-bgp-route-map:set-large-community')";
       choice large-community {
         description
           "Value of the BGP large-community attribute";
@@ -1022,16 +1106,18 @@ module frr-bgp-route-map {
     }
 
     case aggregator {
-      when "derived-from-or-self(/frr-route-map:lib/frr-route-map:route-map/frr-route-map:entry/frr-route-map:set-action/frr-route-map:action, 'frr-bgp-route-map:aggregator')";
+      when "derived-from-or-self(../frr-route-map:action, 'frr-bgp-route-map:aggregator')";
       container aggregator {
         leaf aggregator-asn {
           type asn-type;
+          mandatory true;
           description
             "ASN of the aggregator";
         }
 
         leaf aggregator-address {
           type inet:ipv4-address;
+          mandatory true;
           description
             "IPv4 address of the aggregator";
         }
@@ -1039,16 +1125,16 @@ module frr-bgp-route-map {
     }
 
     case comm-list-name {
-      when "derived-from-or-self(/frr-route-map:lib/frr-route-map:route-map/frr-route-map:entry/frr-route-map:set-action/frr-route-map:action, 'frr-bgp-route-map:comm-list-delete') or "
-        + "derived-from-or-self(/frr-route-map:lib/frr-route-map:route-map/frr-route-map:entry/frr-route-map:set-action/frr-route-map:action, 'frr-bgp-route-map:large-comm-list-delete')";
+      when "derived-from-or-self(../frr-route-map:action, 'frr-bgp-route-map:comm-list-delete') or "
+        + "derived-from-or-self(../frr-route-map:action, 'frr-bgp-route-map:large-comm-list-delete') or "
+        + "derived-from-or-self(../frr-route-map:action, 'frr-bgp-route-map:extended-comm-list-delete')";
       leaf comm-list-name {
         type bgp-filter:bgp-list-name;
       }
     }
     case evpn-gateway-ip-ipv4 {
       when
-      "derived-from-or-self(/frr-route-map:lib/frr-route-map:route-map/frr-route-map:entry/frr-route-map:set-action/frr-route-map:action,
-      'frr-bgp-route-map:set-evpn-gateway-ip-ipv4')";
+      "derived-from-or-self(../frr-route-map:action, 'frr-bgp-route-map:set-evpn-gateway-ip-ipv4')";
       description
         "Set EVPN gateway IP overlay index IPv4";
       leaf evpn-gateway-ip-ipv4 {
@@ -1057,8 +1143,7 @@ module frr-bgp-route-map {
     }
     case evpn-gateway-ip-ipv6 {
       when
-      "derived-from-or-self(/frr-route-map:lib/frr-route-map:route-map/frr-route-map:entry/frr-route-map:set-action/frr-route-map:action,
-      'frr-bgp-route-map:set-evpn-gateway-ip-ipv6')";
+      "derived-from-or-self(../frr-route-map:action, 'frr-bgp-route-map:set-evpn-gateway-ip-ipv6')";
       description
         "Set EVPN gateway IP overlay index IPv6";
       leaf evpn-gateway-ip-ipv6 {
@@ -1067,8 +1152,7 @@ module frr-bgp-route-map {
     }
     case l3vpn-nexthop-encapsulation {
       when
-      "derived-from-or-self(/frr-route-map:lib/frr-route-map:route-map/frr-route-map:entry/frr-route-map:set-action/frr-route-map:action,
-      'frr-bgp-route-map:set-l3vpn-nexthop-encapsulation')";
+      "derived-from-or-self(../frr-route-map:action, 'frr-bgp-route-map:set-l3vpn-nexthop-encapsulation')";
       description
         "Accept L3VPN traffic over other than LSP encapsulation";
       leaf l3vpn-nexthop-encapsulation {

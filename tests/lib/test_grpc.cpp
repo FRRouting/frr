@@ -9,6 +9,7 @@
 #include <unistd.h>
 #include <zebra.h>
 
+#include "debug.h"
 #include "filter.h"
 #include "frr_pthread.h"
 #include "libfrr.h"
@@ -34,8 +35,8 @@
 #include <grpcpp/security/credentials.h>
 #include "grpc/frr-northbound.grpc.pb.h"
 
-DEFINE_HOOK(frr_late_init, (struct event_loop * tm), (tm));
-DEFINE_KOOH(frr_fini, (), ());
+DEFINE_HOOK(test_grpc_late_init, (struct event_loop * tm), (tm));
+DEFINE_KOOH(test_grpc_fini, (), ());
 
 struct vty *vty;
 
@@ -79,16 +80,28 @@ static void static_startup(void)
 	// static struct option_chain *oc;
 
 	cmd_init(1);
+	debug_init();
 
 	zlog_aux_init("NONE: ", LOG_DEBUG);
 	zprivs_preinit(&static_privs);
 	zprivs_init(&static_privs);
 
 	/* Load the server side module -- check libtool path first */
-	std::string modpath = std::string(binpath) + std::string("../../../lib/.libs");
+	std::string modpath = std::string(binpath) + std::string("../../lib/.libs");
 	grpc_module = frrmod_load("grpc:50051", modpath.c_str(), 0, 0);
 	if (!grpc_module) {
 		modpath = std::string(binpath) +  std::string("../../lib");
+		grpc_module = frrmod_load("grpc:50051", modpath.c_str(),
+					  _err_print, 0);
+	}
+	if (!grpc_module) {
+		modpath = std::string(binpath) +
+			  std::string("../../../lib/.libs");
+		grpc_module = frrmod_load("grpc:50051", modpath.c_str(),
+					  _err_print, 0);
+	}
+	if (!grpc_module) {
+		modpath = std::string(binpath) + std::string("../../../lib");
 		grpc_module = frrmod_load("grpc:50051", modpath.c_str(),
 					  _err_print, 0);
 	}
@@ -108,13 +121,15 @@ static void static_startup(void)
 
 	hook_register(routing_conf_event,
 		      routing_control_plane_protocols_name_validate);
-
-	routing_control_plane_protocols_register_vrf_dependency();
+	hook_register(routing_create,
+		      routing_control_plane_protocols_staticd_create);
+	hook_register(routing_destroy,
+		      routing_control_plane_protocols_staticd_destroy);
 
 	// Add a route
 	vty = vty_new();
 	vty->type = vty::VTY_TERM;
-	vty_config_enter(vty, true, false);
+	vty_config_enter(vty, true, false, false);
 
 	auto ret = cmd_execute(vty, "ip route 11.0.0.0/8 Null0", NULL, 0);
 	assert(!ret);
@@ -127,12 +142,12 @@ static void static_startup(void)
 	frr_pthread_init();
 
 	// frr_config_fork();
-	hook_call(frr_late_init, master);
+	hook_call(test_grpc_late_init, master);
 }
 
 static void static_shutdown(void)
 {
-	hook_call(frr_fini);
+	hook_call(test_grpc_fini);
 	vty_close(vty);
 	vrf_terminate();
 	vty_terminate();

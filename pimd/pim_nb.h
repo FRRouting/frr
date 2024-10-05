@@ -9,6 +9,7 @@
 
 extern const struct frr_yang_module_info frr_pim_info;
 extern const struct frr_yang_module_info frr_pim_rp_info;
+extern const struct frr_yang_module_info frr_pim_candidate_info;
 extern const struct frr_yang_module_info frr_gmp_info;
 
 /* frr-pim prototypes*/
@@ -65,6 +66,13 @@ int routing_control_plane_protocols_control_plane_protocol_pim_address_family_ms
 	struct nb_cb_destroy_args *args);
 int routing_control_plane_protocols_control_plane_protocol_pim_address_family_msdp_peer_source_ip_modify(
 	struct nb_cb_modify_args *args);
+int pim_msdp_peer_sa_filter_in_modify(struct nb_cb_modify_args *args);
+int pim_msdp_peer_sa_filter_in_destroy(struct nb_cb_destroy_args *args);
+int pim_msdp_peer_sa_filter_out_modify(struct nb_cb_modify_args *args);
+int pim_msdp_peer_sa_filter_out_destroy(struct nb_cb_destroy_args *args);
+int pim_msdp_peer_authentication_type_modify(struct nb_cb_modify_args *args);
+int pim_msdp_peer_authentication_key_modify(struct nb_cb_modify_args *args);
+int pim_msdp_peer_authentication_key_destroy(struct nb_cb_destroy_args *args);
 int routing_control_plane_protocols_control_plane_protocol_pim_address_family_mlag_create(
 	struct nb_cb_create_args *args);
 int routing_control_plane_protocols_control_plane_protocol_pim_address_family_mlag_destroy(
@@ -151,6 +159,68 @@ int routing_control_plane_protocols_control_plane_protocol_pim_address_family_rp
 	struct nb_cb_modify_args *args);
 int routing_control_plane_protocols_control_plane_protocol_pim_address_family_rp_static_rp_rp_list_prefix_list_destroy(
 	struct nb_cb_destroy_args *args);
+int routing_control_plane_protocols_control_plane_protocol_pim_address_family_rp_auto_rp_discovery_enabled_modify(
+	struct nb_cb_modify_args *args);
+int routing_control_plane_protocols_control_plane_protocol_pim_address_family_rp_auto_rp_discovery_enabled_destroy(
+	struct nb_cb_destroy_args *args);
+int routing_control_plane_protocols_control_plane_protocol_pim_address_family_rp_auto_rp_announce_scope_modify(
+	struct nb_cb_modify_args *args);
+int routing_control_plane_protocols_control_plane_protocol_pim_address_family_rp_auto_rp_announce_scope_destroy(
+	struct nb_cb_destroy_args *args);
+int routing_control_plane_protocols_control_plane_protocol_pim_address_family_rp_auto_rp_announce_interval_modify(
+	struct nb_cb_modify_args *args);
+int routing_control_plane_protocols_control_plane_protocol_pim_address_family_rp_auto_rp_announce_interval_destroy(
+	struct nb_cb_destroy_args *args);
+int routing_control_plane_protocols_control_plane_protocol_pim_address_family_rp_auto_rp_announce_holdtime_modify(
+	struct nb_cb_modify_args *args);
+int routing_control_plane_protocols_control_plane_protocol_pim_address_family_rp_auto_rp_announce_holdtime_destroy(
+	struct nb_cb_destroy_args *args);
+int routing_control_plane_protocols_control_plane_protocol_pim_address_family_rp_auto_rp_candidate_rp_list_create(
+	struct nb_cb_create_args *args);
+int routing_control_plane_protocols_control_plane_protocol_pim_address_family_rp_auto_rp_candidate_rp_list_destroy(
+	struct nb_cb_destroy_args *args);
+int routing_control_plane_protocols_control_plane_protocol_pim_address_family_rp_auto_rp_candidate_rp_list_group_modify(
+	struct nb_cb_modify_args *args);
+int routing_control_plane_protocols_control_plane_protocol_pim_address_family_rp_auto_rp_candidate_rp_list_group_destroy(
+	struct nb_cb_destroy_args *args);
+int routing_control_plane_protocols_control_plane_protocol_pim_address_family_rp_auto_rp_candidate_rp_list_prefix_list_modify(
+	struct nb_cb_modify_args *args);
+int routing_control_plane_protocols_control_plane_protocol_pim_address_family_rp_auto_rp_candidate_rp_list_prefix_list_destroy(
+	struct nb_cb_destroy_args *args);
+
+/* frr-cand-bsr */
+int routing_control_plane_protocols_control_plane_protocol_pim_address_family_candidate_bsr_create(
+	struct nb_cb_create_args *args);
+int routing_control_plane_protocols_control_plane_protocol_pim_address_family_candidate_bsr_destroy(
+	struct nb_cb_destroy_args *args);
+int routing_control_plane_protocols_control_plane_protocol_pim_address_family_candidate_bsr_priority_modify(
+	struct nb_cb_modify_args *args);
+int routing_control_plane_protocols_control_plane_protocol_pim_address_family_candidate_bsr_addrsel_create(
+	struct nb_cb_create_args *args);
+int routing_control_plane_protocols_control_plane_protocol_pim_address_family_candidate_bsr_addrsel_modify(
+	struct nb_cb_modify_args *args);
+int routing_control_plane_protocols_control_plane_protocol_pim_address_family_candidate_bsr_addrsel_destroy(
+	struct nb_cb_destroy_args *args);
+
+/* frr-candidate */
+int routing_control_plane_protocols_control_plane_protocol_pim_address_family_candidate_rp_create(
+	struct nb_cb_create_args *args);
+int routing_control_plane_protocols_control_plane_protocol_pim_address_family_candidate_rp_destroy(
+	struct nb_cb_destroy_args *args);
+int routing_control_plane_protocols_control_plane_protocol_pim_address_family_candidate_rp_priority_modify(
+	struct nb_cb_modify_args *args);
+int routing_control_plane_protocols_control_plane_protocol_pim_address_family_candidate_rp_adv_interval_modify(
+	struct nb_cb_modify_args *args);
+int routing_control_plane_protocols_control_plane_protocol_pim_address_family_candidate_rp_group_list_create(
+	struct nb_cb_create_args *args);
+int routing_control_plane_protocols_control_plane_protocol_pim_address_family_candidate_rp_group_list_destroy(
+	struct nb_cb_destroy_args *args);
+int routing_control_plane_protocols_control_plane_protocol_pim_address_family_candidate_rp_addrsel_create(
+	struct nb_cb_create_args *args);
+int routing_control_plane_protocols_control_plane_protocol_pim_address_family_candidate_rp_addrsel_modify(
+	struct nb_cb_modify_args *args);
+int routing_control_plane_protocols_control_plane_protocol_pim_address_family_candidate_rp_addrsel_destroy(
+	struct nb_cb_destroy_args *args);
 
 /* frr-gmp prototypes*/
 int lib_interface_gmp_address_family_create(
@@ -175,6 +245,11 @@ int lib_interface_gmp_address_family_last_member_query_interval_modify(
 		struct nb_cb_modify_args *args);
 int lib_interface_gmp_address_family_robustness_variable_modify(
 		struct nb_cb_modify_args *args);
+int lib_interface_gmp_address_family_join_group_create(
+	struct nb_cb_create_args *args);
+int lib_interface_gmp_address_family_join_group_destroy(
+	struct nb_cb_destroy_args *args);
+int lib_interface_gmp_address_family_proxy_modify(struct nb_cb_modify_args *args);
 int lib_interface_gmp_address_family_static_group_create(
 		struct nb_cb_create_args *args);
 int lib_interface_gmp_address_family_static_group_destroy(
@@ -193,6 +268,9 @@ int routing_control_plane_protocols_name_validate(
 #define FRR_PIM_AF_XPATH_VAL "frr-routing:ipv6"
 #endif
 
+#define FRR_PIM_CAND_RP_XPATH  "./frr-pim-candidate:candidate-rp"
+#define FRR_PIM_CAND_BSR_XPATH "./frr-pim-candidate:candidate-bsr"
+
 #define FRR_PIM_VRF_XPATH                                               \
 	"/frr-routing:routing/control-plane-protocols/"                 \
 	"control-plane-protocol[type='%s'][name='%s'][vrf='%s']/"       \
@@ -207,17 +285,17 @@ int routing_control_plane_protocols_name_validate(
 	"./frr-pim:pim/address-family[address-family='%s']/"            \
 	"mroute[source-addr='%s'][group-addr='%s']"
 #define FRR_PIM_STATIC_RP_XPATH                                         \
-	"/frr-routing:routing/control-plane-protocols/"                 \
-	"control-plane-protocol[type='%s'][name='%s'][vrf='%s']/"       \
-	"frr-pim:pim/address-family[address-family='%s']/"              \
 	"frr-pim-rp:rp/static-rp/rp-list[rp-address='%s']"
+#define FRR_PIM_AUTORP_XPATH "./frr-pim-rp:rp/auto-rp"
 #define FRR_GMP_INTERFACE_XPATH                                         \
 	"./frr-gmp:gmp/address-family[address-family='%s']"
 #define FRR_GMP_ENABLE_XPATH                                            \
 	"%s/frr-gmp:gmp/address-family[address-family='%s']/enable"
-#define FRR_GMP_JOIN_XPATH                                              \
-	"./frr-gmp:gmp/address-family[address-family='%s']/"            \
+#define FRR_GMP_JOIN_GROUP_XPATH                                               \
+	"./frr-gmp:gmp/address-family[address-family='%s']/"                   \
+	"join-group[group-addr='%s'][source-addr='%s']"
+#define FRR_GMP_STATIC_GROUP_XPATH                                             \
+	"./frr-gmp:gmp/address-family[address-family='%s']/"                   \
 	"static-group[group-addr='%s'][source-addr='%s']"
-#define FRR_PIM_MSDP_XPATH FRR_PIM_VRF_XPATH "/msdp"
 
 #endif /* _FRR_PIM_NB_H_ */

@@ -259,6 +259,8 @@ DECLARE_QOBJ_TYPE(route_map);
 	(strmatch(C, "frr-zebra-route-map:ipv4-next-hop-prefix-length"))
 #define IS_MATCH_SRC_PROTO(C)                                                  \
 	(strmatch(C, "frr-zebra-route-map:source-protocol"))
+#define IS_MATCH_BGP_SRC_PROTO(C)                                              \
+	(strmatch(C, "frr-bgp-route-map:source-protocol"))
 #define IS_MATCH_SRC_INSTANCE(C)                                               \
 	(strmatch(C, "frr-zebra-route-map:source-instance"))
 /* BGP route-map match conditions */
@@ -346,6 +348,8 @@ DECLARE_QOBJ_TYPE(route_map);
 	(strmatch(A, "frr-bgp-route-map:comm-list-delete"))
 #define IS_SET_LCOMM_LIST_DEL(A)                                               \
 	(strmatch(A, "frr-bgp-route-map:large-comm-list-delete"))
+#define IS_SET_EXTCOMM_LIST_DEL(A)                                                \
+	(strmatch(A, "frr-bgp-route-map:extended-comm-list-delete"))
 #define IS_SET_LCOMMUNITY(A)                                                   \
 	(strmatch(A, "frr-bgp-route-map:set-large-community"))
 #define IS_SET_COMMUNITY(A)                                                    \
@@ -354,10 +358,15 @@ DECLARE_QOBJ_TYPE(route_map);
 	(strmatch(A, "frr-bgp-route-map:set-extcommunity-none"))
 #define IS_SET_EXTCOMMUNITY_RT(A)                                              \
 	(strmatch(A, "frr-bgp-route-map:set-extcommunity-rt"))
+#define IS_SET_EXTCOMMUNITY_NT(A)                                              \
+	(strmatch(A, "frr-bgp-route-map:set-extcommunity-nt"))
 #define IS_SET_EXTCOMMUNITY_SOO(A)                                             \
 	(strmatch(A, "frr-bgp-route-map:set-extcommunity-soo"))
 #define IS_SET_EXTCOMMUNITY_LB(A)                                              \
 	(strmatch(A, "frr-bgp-route-map:set-extcommunity-lb"))
+#define IS_SET_EXTCOMMUNITY_COLOR(A)                                           \
+	(strmatch(A, "frr-bgp-route-map:set-extcommunity-color"))
+
 #define IS_SET_AGGREGATOR(A)                                                   \
 	(strmatch(A, "frr-bgp-route-map:aggregator"))
 #define IS_SET_AS_PREPEND(A)                                                   \
@@ -392,6 +401,7 @@ enum ecommunity_lb_type {
 
 /* Prototypes. */
 extern void route_map_init(void);
+extern void route_map_init_new(bool in_backend);
 
 /*
  * This should only be called on shutdown
@@ -1015,6 +1025,7 @@ routemap_hook_context_insert(struct route_map_index *rmi);
 void routemap_hook_context_free(struct routemap_hook_context *rhc);
 
 extern const struct frr_yang_module_info frr_route_map_info;
+extern const struct frr_yang_module_info frr_route_map_cli_info;
 
 /* routemap_cli.c */
 extern int route_map_instance_cmp(const struct lyd_node *dnode1,

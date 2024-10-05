@@ -112,8 +112,14 @@ test# show yang operational-data /frr-test-module:frr-test-module
           }
         }
       ]
+    },
+    "c1value": 21,
+    "c2cont": {
+      "c2value": 2868969987
     }
   }
 }
+test# test rpc
+vrf testname data testdata
 test# 
 end.

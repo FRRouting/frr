@@ -442,47 +442,6 @@ void set_overload_on_start_timer(struct event *thread)
 		isis_area_overload_bit_set(area, false);
 }
 
-static void isis_reset_attach_bit(struct isis_adjacency *adj)
-{
-	struct isis_area *area = adj->circuit->area;
-	struct lspdb_head *head;
-	struct isis_lsp *lsp;
-	uint8_t lspid[ISIS_SYS_ID_LEN + 2];
-
-	/*
-	 * If an L2 adjacency changed its state in L-1-2 area, we have to:
-	 * - set the attached bit in L1 LSPs if it's the first L2 adjacency
-	 * - remove the attached bit in L1 LSPs if it's the last L2 adjacency
-	 */
-
-	if (area->is_type != IS_LEVEL_1_AND_2 || adj->level == ISIS_ADJ_LEVEL1)
-		return;
-
-	if (!area->attached_bit_send)
-		return;
-
-	head = &area->lspdb[IS_LEVEL_1 - 1];
-	memset(lspid, 0, ISIS_SYS_ID_LEN + 2);
-	memcpy(lspid, area->isis->sysid, ISIS_SYS_ID_LEN);
-
-	lsp = lsp_search(head, lspid);
-	if (!lsp)
-		return;
-
-	if (adj->adj_state == ISIS_ADJ_UP
-	    && !(lsp->hdr.lsp_bits & LSPBIT_ATT)) {
-		sched_debug("ISIS (%s): adj going up regenerate lsp-bits",
-			    area->area_tag);
-		lsp_regenerate_schedule(area, IS_LEVEL_1, 0);
-	} else if (adj->adj_state == ISIS_ADJ_DOWN
-		   && (lsp->hdr.lsp_bits & LSPBIT_ATT)
-		   && !isis_level2_adj_up(area)) {
-		sched_debug("ISIS (%s): adj going down regenerate lsp-bits",
-			    area->area_tag);
-		lsp_regenerate_schedule(area, IS_LEVEL_1, 0);
-	}
-}
-
 static uint8_t lsp_bits_generate(int level, int overload_bit, int attached_bit,
 				 struct isis_area *area)
 {
@@ -523,13 +482,19 @@ static void lsp_update_data(struct isis_lsp *lsp, struct isis_lsp_hdr *hdr,
 
 	lsp->tlvs = tlvs;
 
-	if (area->dynhostname && lsp->tlvs->hostname
-	    && lsp->hdr.rem_lifetime) {
-		isis_dynhn_insert(
-			area->isis, lsp->hdr.lsp_id, lsp->tlvs->hostname,
-			(lsp->hdr.lsp_bits & LSPBIT_IST) == IS_LEVEL_1_AND_2
-				? IS_LEVEL_2
-				: IS_LEVEL_1);
+	if (area->dynhostname && lsp->hdr.rem_lifetime) {
+		if (lsp->tlvs->hostname) {
+			isis_dynhn_insert(area->isis, lsp->hdr.lsp_id,
+					  lsp->tlvs->hostname,
+					  (lsp->hdr.lsp_bits & LSPBIT_IST) ==
+							  IS_LEVEL_1_AND_2
+						  ? IS_LEVEL_2
+						  : IS_LEVEL_1);
+		} else {
+			if (!LSP_PSEUDO_ID(lsp->hdr.lsp_id) &&
+			    !LSP_FRAGMENT(lsp->hdr.lsp_id))
+				isis_dynhn_remove(area->isis, lsp->hdr.lsp_id);
+		}
 	}
 
 	return;
@@ -703,7 +668,7 @@ void lspid_print(uint8_t *lsp_id, char *dest, size_t dest_len, char dynhost,
 	else if (!memcmp(isis->sysid, lsp_id, ISIS_SYS_ID_LEN) && dynhost)
 		snprintf(id, sizeof(id), "%.14s", cmd_hostname_get());
 	else
-		snprintf(id, sizeof(id), "%pSY", lsp_id);
+		snprintfrr(id, sizeof(id), "%pSY", lsp_id);
 
 	if (frag)
 		snprintf(dest, dest_len, "%s.%02x-%02x", id,
@@ -760,9 +725,11 @@ void lsp_print_json(struct isis_lsp *lsp, struct json_object *json,
 	json_object_object_add(json, "lsp", own_json);
 	json_object_string_add(own_json, "id", LSPid);
 	json_object_string_add(own_json, "own", lsp->own_lsp ? "*" : " ");
-	json_object_int_add(json, "pdu-len", lsp->hdr.pdu_len);
+	if (lsp->own_lsp)
+		json_object_boolean_add(own_json, "ownLSP", true);
+	json_object_int_add(json, "pduLen", lsp->hdr.pdu_len);
 	snprintfrr(buf, sizeof(buf), "0x%08x", lsp->hdr.seqno);
-	json_object_string_add(json, "seq-number", buf);
+	json_object_string_add(json, "seqNumber", buf);
 	snprintfrr(buf, sizeof(buf), "0x%04hx", lsp->hdr.checksum);
 	json_object_string_add(json, "chksum", buf);
 	if (lsp->hdr.rem_lifetime == 0) {
@@ -772,8 +739,8 @@ void lsp_print_json(struct isis_lsp *lsp, struct json_object *json,
 	} else {
 		json_object_int_add(json, "holdtime", lsp->hdr.rem_lifetime);
 	}
-	json_object_string_add(
-		json, "att-p-ol", lsp_bits2string(lsp->hdr.lsp_bits, b, sizeof(b)));
+	json_object_string_add(json, "attPOl",
+			       lsp_bits2string(lsp->hdr.lsp_bits, b, sizeof(b)));
 }
 
 void lsp_print_vty(struct isis_lsp *lsp, struct vty *vty,
@@ -822,15 +789,24 @@ int lsp_print_all(struct vty *vty, struct json_object *json,
 {
 	struct isis_lsp *lsp;
 	int lsp_count = 0;
+	struct json_object *lsp_json = NULL;
 
 	if (detail == ISIS_UI_LEVEL_BRIEF) {
 		frr_each (lspdb, head, lsp) {
-			lsp_print_common(lsp, vty, json, dynhost, isis);
+			if (json) {
+				lsp_json = json_object_new_object();
+				json_object_array_add(json, lsp_json);
+			}
+			lsp_print_common(lsp, vty, lsp_json, dynhost, isis);
 			lsp_count++;
 		}
 	} else if (detail == ISIS_UI_LEVEL_DETAIL) {
 		frr_each (lspdb, head, lsp) {
-			lsp_print_detail(lsp, vty, json, dynhost, isis);
+			if (json) {
+				lsp_json = json_object_new_object();
+				json_object_array_add(json, lsp_json);
+			}
+			lsp_print_detail(lsp, vty, lsp_json, dynhost, isis);
 			lsp_count++;
 		}
 	}
@@ -1191,8 +1167,11 @@ static void lsp_build(struct isis_lsp *lsp, struct isis_area *area)
 					rcap_fad = NULL;
 
 				if (!isis_flex_algo_elected_supported_local_fad(
-					    fa->algorithm, area, &rcap_fad))
+					    fa->algorithm, area, &rcap_fad)) {
+					fa->state = false;
 					continue;
+				}
+				fa->state = true;
 				lsp_debug("ISIS (%s):   SR Algorithm %u",
 					  area->area_tag, fa->algorithm);
 				rcap->algo[fa->algorithm] = fa->algorithm;
@@ -1207,6 +1186,57 @@ static void lsp_build(struct isis_lsp *lsp, struct isis_area *area)
 			/* And finally MSD */
 			rcap->msd = srdb->config.msd;
 		}
+
+		/* Add SRv6 Sub-TLVs if SRv6 is enabled */
+		if (area->srv6db.config.enabled) {
+			struct isis_srv6_db *srv6db = &area->srv6db;
+
+			rcap->srv6_cap.is_srv6_capable = true;
+
+			/* SRv6 flags */
+			rcap->srv6_cap.flags = 0;
+
+			/* And finally MSDs */
+			rcap->srv6_msd.max_seg_left_msd =
+				srv6db->config.max_seg_left_msd;
+			rcap->srv6_msd.max_end_pop_msd =
+				srv6db->config.max_end_pop_msd;
+			rcap->srv6_msd.max_h_encaps_msd =
+				srv6db->config.max_h_encaps_msd;
+			rcap->srv6_msd.max_end_d_msd =
+				srv6db->config.max_end_d_msd;
+		} else {
+			rcap->srv6_cap.is_srv6_capable = false;
+		}
+	}
+
+	/* Add SRv6 Locator TLV. */
+	if (area->srv6db.config.enabled && area->srv6db.srv6_locator) {
+		struct isis_srv6_locator locator = {};
+
+		locator.metric = 0;
+		locator.prefix = area->srv6db.srv6_locator->prefix;
+		locator.flags = 0;
+		locator.algorithm = 0;
+
+		struct listnode *sid_node;
+		struct isis_srv6_sid *sid;
+		locator.srv6_sid = list_new();
+		for (ALL_LIST_ELEMENTS_RO(area->srv6db.srv6_sids, sid_node,
+					  sid)) {
+			listnode_add(locator.srv6_sid, sid);
+		}
+
+		isis_tlvs_add_srv6_locator(lsp->tlvs, 0, &locator);
+		lsp_debug("ISIS (%s): Adding SRv6 Locator information",
+			  area->area_tag);
+
+		list_delete(&locator.srv6_sid);
+
+		isis_tlvs_add_ipv6_reach(lsp->tlvs,
+					 isis_area_ipv6_topology(area),
+					 &area->srv6db.srv6_locator->prefix, 0,
+					 false, NULL);
 	}
 
 	/* IPv4 address and TE router ID TLVs.
@@ -2179,6 +2209,10 @@ void lsp_tick(struct event *thread)
 							&area->lspdb[level],
 							next);
 
+				if (!LSP_PSEUDO_ID(lsp->hdr.lsp_id))
+					isis_dynhn_remove(area->isis,
+							  lsp->hdr.lsp_id);
+
 				lspdb_del(&area->lspdb[level], lsp);
 				lsp_destroy(lsp);
 				lsp = NULL;
@@ -2286,12 +2320,57 @@ static int lsp_handle_adj_state_change(struct isis_adjacency *adj)
 {
 	lsp_regenerate_schedule(adj->circuit->area, IS_LEVEL_1 | IS_LEVEL_2, 0);
 
-	/* when an adjacency state changes determine if we need to
-	 * change attach_bits in other area's LSPs
-	 */
-	isis_reset_attach_bit(adj);
-
 	return 0;
+}
+
+/*
+ * Iterate over all SRv6 locator TLVs
+ */
+int isis_lsp_iterate_srv6_locator(struct isis_lsp *lsp, uint16_t mtid,
+				  lsp_ip_reach_iter_cb cb, void *arg)
+{
+	bool pseudo_lsp = LSP_PSEUDO_ID(lsp->hdr.lsp_id);
+	struct isis_lsp *frag;
+	struct listnode *node;
+
+	if (lsp->hdr.seqno == 0 || lsp->hdr.rem_lifetime == 0)
+		return LSP_ITER_CONTINUE;
+
+	/* Parse LSP */
+	if (lsp->tlvs) {
+		if (!pseudo_lsp) {
+			struct isis_item_list *srv6_locator_reachs;
+			struct isis_srv6_locator_tlv *r;
+
+			srv6_locator_reachs =
+				isis_lookup_mt_items(&lsp->tlvs->srv6_locator,
+						     mtid);
+
+			for (r = srv6_locator_reachs
+					 ? (struct isis_srv6_locator_tlv *)
+						   srv6_locator_reachs->head
+					 : NULL;
+			     r; r = r->next) {
+				if ((*cb)((struct prefix *)&r->prefix,
+					  r->metric, false /* ignore */,
+					  r->subtlvs, arg) == LSP_ITER_STOP)
+					return LSP_ITER_STOP;
+			}
+		}
+	}
+
+	/* Parse LSP fragments if it is not a fragment itself */
+	if (!LSP_FRAGMENT(lsp->hdr.lsp_id))
+		for (ALL_LIST_ELEMENTS_RO(lsp->lspu.frags, node, frag)) {
+			if (!frag->tlvs)
+				continue;
+
+			if (isis_lsp_iterate_srv6_locator(frag, mtid, cb,
+							  arg) == LSP_ITER_STOP)
+				return LSP_ITER_STOP;
+		}
+
+	return LSP_ITER_CONTINUE;
 }
 
 /*

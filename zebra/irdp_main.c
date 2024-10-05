@@ -197,7 +197,6 @@ void irdp_send_thread(struct event *t_advert)
 	struct zebra_if *zi = ifp->info;
 	struct irdp_interface *irdp = zi->irdp;
 	struct prefix *p;
-	struct listnode *node, *nnode;
 	struct connected *ifc;
 
 	if (!irdp)
@@ -205,16 +204,15 @@ void irdp_send_thread(struct event *t_advert)
 
 	irdp->flags &= ~IF_SOLICIT;
 
-	if (ifp->connected)
-		for (ALL_LIST_ELEMENTS(ifp->connected, node, nnode, ifc)) {
-			p = ifc->address;
+	frr_each (if_connected, ifp->connected, ifc) {
+		p = ifc->address;
 
-			if (p->family != AF_INET)
-				continue;
+		if (p->family != AF_INET)
+			continue;
 
-			irdp_advertisement(ifp, p);
-			irdp->irdp_sent++;
-		}
+		irdp_advertisement(ifp, p);
+		irdp->irdp_sent++;
+	}
 
 	tmp = irdp->MaxAdvertInterval - irdp->MinAdvertInterval;
 	timer = frr_weak_random() % (tmp + 1);
@@ -237,7 +235,6 @@ void irdp_advert_off(struct interface *ifp)
 {
 	struct zebra_if *zi = ifp->info;
 	struct irdp_interface *irdp = zi->irdp;
-	struct listnode *node, *nnode;
 	int i;
 	struct connected *ifc;
 	struct prefix *p;
@@ -247,19 +244,21 @@ void irdp_advert_off(struct interface *ifp)
 
 	EVENT_OFF(irdp->t_advertise);
 
-	if (ifp->connected)
-		for (ALL_LIST_ELEMENTS(ifp->connected, node, nnode, ifc)) {
-			p = ifc->address;
+	frr_each (if_connected, ifp->connected, ifc) {
+		p = ifc->address;
 
-			/* Output some packets with Lifetime 0
-			   we should add a wait...
-			*/
+		if (p->family != AF_INET)
+			continue;
 
-			for (i = 0; i < IRDP_LAST_ADVERT_MESSAGES; i++) {
-				irdp->irdp_sent++;
-				irdp_advertisement(ifp, p);
-			}
+		/* Output some packets with Lifetime 0
+		   we should add a wait...
+		*/
+
+		for (i = 0; i < IRDP_LAST_ADVERT_MESSAGES; i++) {
+			irdp->irdp_sent++;
+			irdp_advertisement(ifp, p);
 		}
+	}
 }
 
 

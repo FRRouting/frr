@@ -26,6 +26,7 @@
 #include "pim_nb.h"
 #include "pim6_cmd.h"
 #include "pim6_mld.h"
+#include "pim_zlookup.h"
 
 zebra_capabilities_t _caps_p[] = {
 	ZCAP_SYS_ADMIN,
@@ -93,6 +94,7 @@ struct frr_signal_t pim6d_signals[] = {
 	},
 };
 
+/* clang-format off */
 static const struct frr_yang_module_info *const pim6d_yang_modules[] = {
 	&frr_filter_info,
 	&frr_interface_info,
@@ -101,10 +103,10 @@ static const struct frr_yang_module_info *const pim6d_yang_modules[] = {
 	&frr_routing_info,
 	&frr_pim_info,
 	&frr_pim_rp_info,
+	&frr_pim_candidate_info,
 	&frr_gmp_info,
 };
 
-/* clang-format off */
 FRR_DAEMON_INFO(pim6d, PIM6,
 	.vty_port = PIM6D_VTY_PORT,
 	.proghelp = "Protocol Independent Multicast (RFC7761) for IPv6",
@@ -189,11 +191,20 @@ int main(int argc, char **argv, char **envp)
 
 static void pim6_terminate(void)
 {
+	struct zclient *zclient;
+
 	pim_vrf_terminate();
 	pim_router_terminate();
 
 	prefix_list_reset();
 	access_list_reset();
 
+	zclient = pim_zebra_zclient_get();
+	if (zclient) {
+		zclient_stop(zclient);
+		zclient_free(zclient);
+	}
+
+	zclient_lookup_free();
 	frr_fini();
 }

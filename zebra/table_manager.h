@@ -18,6 +18,22 @@
 extern "C" {
 #endif
 
+/* routing table identifiers
+ *
+ */
+#if !defined(GNU_LINUX)
+/* BSD systems
+ */
+#else
+/* Linux Systems
+ */
+#define RT_TABLE_ID_LOCAL   255
+#define RT_TABLE_ID_MAIN    254
+#define RT_TABLE_ID_DEFAULT 253
+#define RT_TABLE_ID_COMPAT  252
+#define RT_TABLE_ID_UNSPEC  0
+#endif /* !def(GNU_LINUX) */
+
 /*
  * Table chunk struct
  * Client daemon which the chunk belongs to can be identified by either
@@ -56,8 +72,8 @@ int release_table_chunk(uint8_t proto, uint16_t instance, uint32_t start,
 			uint32_t end, struct zebra_vrf *zvrf);
 int release_daemon_table_chunks(struct zserv *client);
 void table_manager_disable(struct zebra_vrf *zvrf);
-int table_manager_range(struct vty *vty, bool add, struct zebra_vrf *zvrf,
-			const char *min, const char *max);
+void table_manager_range(bool add, struct zebra_vrf *zvrf, uint32_t start,
+			 uint32_t end);
 
 #ifdef __cplusplus
 }

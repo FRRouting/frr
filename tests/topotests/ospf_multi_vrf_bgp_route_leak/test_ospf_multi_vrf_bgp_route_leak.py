@@ -16,7 +16,7 @@ import pytest
 # pylint: disable=C0413
 # Import topogen and topotest helpers
 from lib import topotest
-from lib.topogen import Topogen, TopoRouter, get_topogen
+from lib.topogen import Topogen, get_topogen
 from lib.topolog import logger
 
 
@@ -139,7 +139,7 @@ def setup_module(mod):
             tgen.set_error("unsupported version")
 
 
-def teardown_module(mod):
+def teardown_module():
     "Teardown the pytest environment"
     tgen = get_topogen()
     tgen.stop_topology()
@@ -182,9 +182,7 @@ def test_ospf_convergence():
                     "show ip ospf vrf {} route".format(vrf),
                     expected,
                 )
-                result, diff = topotest.run_and_expect(
-                    test_func, "", count=80, wait=1
-                )
+                result, diff = topotest.run_and_expect(test_func, "", count=80, wait=1)
                 assertmsg = "OSPF did not converge on {}:\n{}".format(rname, diff)
                 assert result, assertmsg
 
@@ -207,9 +205,7 @@ def test_ospf_kernel_route():
                 test_func = partial(
                     compare_show_ip_route_vrf, router.name, expected, vrf
                 )
-                result, diff = topotest.run_and_expect(
-                    test_func, "", count=80, wait=1
-                )
+                result, diff = topotest.run_and_expect(test_func, "", count=80, wait=1)
                 assertmsg = 'OSPF IPv4 route mismatch in router "{}": {}'.format(
                     router.name, diff
                 )

@@ -83,6 +83,11 @@ struct flex_algo {
 #define FLEX_ALGO_IP 0x04
 	uint8_t dataplanes;
 
+	/* True if the Algorithm is locally enabled (ie. a definition has been
+	 * found and is supported).
+	 */
+	bool state;
+
 	/*
 	 * This property can be freely extended among different routing
 	 * protocols. Since Flex-Algo is an IGP protocol agnostic, both IS-IS
@@ -107,15 +112,19 @@ struct flex_algos {
  */
 struct flex_algos *flex_algos_alloc(flex_algo_allocator_t allocator,
 				    flex_algo_releaser_t releaser);
+void flex_algos_free(struct flex_algos *flex_algos);
 struct flex_algo *flex_algo_alloc(struct flex_algos *flex_algos,
 				  uint8_t algorithm, void *arg);
+void flex_algo_free(struct flex_algos *flex_algos, struct flex_algo *fa);
 struct flex_algo *flex_algo_lookup(struct flex_algos *flex_algos,
 				   uint8_t algorithm);
-void flex_algos_free(struct flex_algos *flex_algos);
 bool flex_algo_definition_cmp(struct flex_algo *fa1, struct flex_algo *fa2);
-void flex_algo_delete(struct flex_algos *flex_algos, uint8_t algorithm);
 bool flex_algo_id_valid(uint16_t algorithm);
 char *flex_algo_metric_type_print(char *type_str, size_t sz,
 				  enum flex_algo_metric_type metric_type);
 
+bool flex_algo_get_state(struct flex_algos *flex_algos, uint8_t algorithm);
+
+void flex_algo_set_state(struct flex_algos *flex_algos, uint8_t algorithm,
+			 bool state);
 #endif /* _FRR_FLEX_ALGO_H */

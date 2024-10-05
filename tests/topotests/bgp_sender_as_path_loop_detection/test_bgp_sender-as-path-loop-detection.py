@@ -50,7 +50,7 @@ def setup_module(mod):
 
     router_list = tgen.routers()
 
-    for i, (rname, router) in enumerate(router_list.items(), 1):
+    for _, (rname, router) in enumerate(router_list.items(), 1):
         router.load_config(
             TopoRouter.RD_ZEBRA, os.path.join(CWD, "{}/zebra.conf".format(rname))
         )
@@ -119,6 +119,83 @@ def test_bgp_sender_as_path_loop_detection():
     test_func = functools.partial(_bgp_has_route_from_r1)
     _, result = topotest.run_and_expect(test_func, None, count=30, wait=0.5)
     assert result is None, "Failed to see a route from r1"
+
+    test_func = functools.partial(_bgp_suppress_route_to_r3)
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=0.5)
+    assert result is None, "Route 172.16.255.253/32 should not be sent to r3 from r2"
+
+    test_func = functools.partial(_bgp_suppress_route_to_r1)
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=0.5)
+    assert result is None, "Routes should not be sent to r1 from r2"
+
+
+def test_remove_loop_detection_on_one_peer():
+    tgen = get_topogen()
+
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    r2 = tgen.gears["r2"]
+
+    def _bgp_reset_route_to_r1():
+        output = json.loads(
+            r2.vtysh_cmd("show ip bgp neighbor 192.168.255.2 advertised-routes json")
+        )
+        expected = {"totalPrefixCounter": 3}
+        return topotest.json_cmp(output, expected)
+
+    r2.vtysh_cmd(
+        """
+        configure terminal
+         router bgp 65002
+          no neighbor 192.168.255.2 sender-as-path-loop-detection
+        """
+    )
+
+    r2.vtysh_cmd(
+        """
+        clear bgp *
+        """
+    )
+    test_func = functools.partial(_bgp_reset_route_to_r1)
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=0.5)
+    assert result is None, "Failed bgp to reset route"
+
+
+def test_loop_detection_on_peer_group():
+    tgen = get_topogen()
+
+    r2 = tgen.gears["r2"]
+
+    def _bgp_suppress_route_to_r1():
+        output = json.loads(
+            r2.vtysh_cmd("show ip bgp neighbor 192.168.255.2 advertised-routes json")
+        )
+        expected = {"totalPrefixCounter": 0}
+        return topotest.json_cmp(output, expected)
+
+    def _bgp_suppress_route_to_r3():
+        output = json.loads(
+            r2.vtysh_cmd("show ip bgp neighbor 192.168.254.2 advertised-routes json")
+        )
+        expected = {"totalPrefixCounter": 2}
+        return topotest.json_cmp(output, expected)
+
+    r2.vtysh_cmd(
+        """
+        configure terminal
+         router bgp 65002
+          neighbor loop_group peer-group
+          neighbor 192.168.255.2 peer-group loop_group
+          neighbor loop_group sender-as-path-loop-detection
+        """
+    )
+
+    r2.vtysh_cmd(
+        """
+        clear bgp *
+        """
+    )
 
     test_func = functools.partial(_bgp_suppress_route_to_r3)
     _, result = topotest.run_and_expect(test_func, None, count=30, wait=0.5)

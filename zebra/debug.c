@@ -7,6 +7,7 @@
 #include <zebra.h>
 #include "command.h"
 #include "debug.h"
+#include "mgmt_be_client.h"
 
 #include "zebra/debug_clippy.c"
 
@@ -846,4 +847,7 @@ void zebra_debug_init(void)
 	install_element(CONFIG_NODE, &no_debug_zebra_pbr_cmd);
 	install_element(CONFIG_NODE, &debug_zebra_mlag_cmd);
 	install_element(CONFIG_NODE, &debug_zebra_evpn_mh_cmd);
+
+	/* Init mgmtd backend client debug commands. */
+	mgmt_be_client_lib_vty_init();
 }

@@ -6,6 +6,8 @@
 
 #include <zebra.h>
 
+#include <sys/ioctl.h>
+
 #include "linklist.h"
 #include "if.h"
 #include "prefix.h"

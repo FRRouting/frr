@@ -163,6 +163,8 @@ extern void _hook_unregister(struct hook *hook, void *funcptr, void *arg,
 	_hook_unregister(&_hook_##hookname,                                    \
 			 _hook_typecheck_arg_##hookname(func), arg, true)
 
+#define hook_have_hooks(hookname) (_hook_##hookname.entries != NULL)
+
 /* invoke hooks
  * this is private (static) to the file that has the DEFINE_HOOK statement
  */

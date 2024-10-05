@@ -15,6 +15,7 @@ import errno
 import logging
 import os
 import re
+import select
 import shlex
 import signal
 import subprocess
@@ -119,9 +120,15 @@ def exit_with_status(status):
     sys.exit(ec)
 
 
-def waitpid(tag):
-    logging.debug("%s: waitid for exiting process", tag)
-    idobj = os.waitid(os.P_ALL, 0, os.WEXITED)
+def __waitpid(tag, nohang=False):  # pylint: disable=inconsistent-return-statements
+    if nohang:
+        idobj = os.waitid(os.P_ALL, 0, os.WEXITED | os.WNOHANG)
+        if idobj is None:
+            return True
+    else:
+        idobj = os.waitid(os.P_ALL, 0, os.WEXITED)
+        assert idobj is not None
+
     pid = idobj.si_pid
     status = idobj.si_status
 
@@ -130,11 +137,21 @@ def waitpid(tag):
         logging.debug(
             "%s: reaped zombie %s (%s) w/ status %s", tag, pid, pidname, status
         )
-        return
+        return False
 
     logging.debug("reaped child with status %s", status)
     exit_with_status(status)
     # NOTREACHED
+
+
+def waitpid(tag):
+    logging.debug("%s: waitid for exiting process", tag)
+    __waitpid(tag, False)
+
+    while True:
+        logging.debug("%s: checking for another exiting process", tag)
+        if __waitpid(tag, True):
+            return
 
 
 def sig_trasmit(signum, _):
@@ -158,10 +175,6 @@ def sig_trasmit(signum, _):
 
 def sig_sigchld(signum, _):
     assert signum == S.SIGCHLD
-    try:
-        waitpid("SIGCHLD")
-    except ChildProcessError as error:
-        logging.warning("got SIGCHLD but no pid to wait on: %s", error)
 
 
 def setup_init_signals():
@@ -250,6 +263,19 @@ def is_creating_pid_namespace():
     return p1name != p2name
 
 
+def poll_for_pids(msg, tag):
+    poller = select.poll()
+    while True:
+        logging.info("%s", msg)
+        events = poller.poll(1000)
+        logging.info("init: poll: checking for zombies and child exit: %s", events)
+        try:
+            waitpid(tag)
+        except ChildProcessError as error:
+            logging.warning("init: got SIGCHLD but no pid to wait on: %s", error)
+    # NOTREACHED
+
+
 def be_init(new_pg, exec_args):
     #
     # Arrange for us to be killed when our parent dies, this will subsequently also kill
@@ -299,10 +325,7 @@ def be_init(new_pg, exec_args):
         # Reap children as init process
         vdebug("installing local handler for SIGCHLD")
         signal.signal(signal.SIGCHLD, sig_sigchld)
-
-        while True:
-            logging.info("init: waiting to reap zombies")
-            linux.pause()
+        poll_for_pids("init: waiting to reap zombies", "PAUSE-EXIT")
         # NOTREACHED
 
     # Set (parent) signal handlers before any fork to avoid race
@@ -321,9 +344,8 @@ def be_init(new_pg, exec_args):
         os.execvp(exec_args[0], exec_args)
         # NOTREACHED
 
-    while True:
-        logging.info("parent: waiting for child pid %s to exit", g.child_pid)
-        waitpid("parent")
+    poll_for_pids(f"parent: waiting for child pid {g.child_pid} to exit", "PARENT")
+    # NOTREACHED
 
 
 def unshare(flags):
@@ -411,9 +433,7 @@ def main():
 
         if g.orig_pid != 1 and not new_pid:
             # Simply hold the namespaces
-            while True:
-                logging.info("holding namespace waiting to be signaled to exit")
-                linux.pause()
+            poll_for_pids("holding namespace waiting to be signaled to exit", "PARENT")
             # NOTREACHED
 
         be_init(not args.no_proc_group, args.rest)

@@ -8,6 +8,8 @@
 
 #include "lib/json.h"
 #include "bgpd/bgp_route.h"
+#include "bgpd/bgp_filter.h"
+#include <typesafe.h>
 
 /* AS path segment type.  */
 #define AS_SET                       1
@@ -64,6 +66,17 @@ struct aspath {
 
 #define ASPATH_STR_DEFAULT_LEN 32
 
+/* `set as-path exclude ASn' */
+struct aspath_exclude {
+	struct as_list_list_item exclude_list;
+	struct aspath *aspath;
+	bool exclude_all;
+	char *exclude_aspath_acl_name;
+	struct as_list *exclude_aspath_acl;
+};
+DECLARE_DLIST(as_list_list, struct aspath_exclude, exclude_list);
+
+
 /* Prototypes. */
 extern void aspath_init(void);
 extern void aspath_finish(void);
@@ -74,8 +87,14 @@ extern struct aspath *aspath_parse(struct stream *s, size_t length,
 extern struct aspath *aspath_dup(struct aspath *aspath);
 extern struct aspath *aspath_aggregate(struct aspath *as1, struct aspath *as2);
 extern struct aspath *aspath_prepend(struct aspath *as1, struct aspath *as2);
+extern void as_exclude_set_orphan(struct aspath_exclude *ase);
+extern void as_exclude_remove_orphan(struct aspath_exclude *ase);
+extern struct aspath_exclude *as_exclude_lookup_orphan(const char *acl_name);
 extern struct aspath *aspath_filter_exclude(struct aspath *source,
 					    struct aspath *exclude_list);
+extern struct aspath *aspath_filter_exclude_all(struct aspath *source);
+extern struct aspath *aspath_filter_exclude_acl(struct aspath *source,
+						struct as_list *acl_list);
 extern struct aspath *aspath_add_seq_n(struct aspath *aspath, as_t asno,
 				       unsigned num);
 extern struct aspath *aspath_add_seq(struct aspath *aspath, as_t asno);
@@ -103,6 +122,9 @@ extern unsigned int aspath_get_last_as(struct aspath *aspath);
 extern int aspath_loop_check(struct aspath *aspath, as_t asno);
 extern int aspath_loop_check_confed(struct aspath *aspath, as_t asno);
 extern bool aspath_private_as_check(struct aspath *aspath);
+extern struct aspath *aspath_replace_regex_asn(struct aspath *aspath,
+					       struct as_list *acl_list,
+					       as_t our_asn);
 extern struct aspath *aspath_replace_specific_asn(struct aspath *aspath,
 						  as_t target_asn,
 						  as_t our_asn);

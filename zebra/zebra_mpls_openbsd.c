@@ -4,6 +4,8 @@
  */
 
 #include <zebra.h>
+#include <sys/ioctl.h>
+#include <sys/uio.h>
 
 #ifdef OPEN_BSD
 
@@ -62,8 +64,8 @@ static int kernel_send_rtmsg_v4(int action, mpls_label_t in_label,
 	sa_label_in.smpls_family = AF_MPLS;
 	sa_label_in.smpls_label = htonl(in_label << MPLS_LABEL_OFFSET);
 	/* adjust header */
-	hdr.rtm_flags |= RTF_MPLS | RTF_MPATH;
-	hdr.rtm_addrs |= RTA_DST;
+	SET_FLAG(hdr.rtm_flags, (RTF_MPLS | RTF_MPATH));
+	SET_FLAG(hdr.rtm_addrs, RTA_DST);
 	hdr.rtm_msglen += sizeof(sa_label_in);
 	/* adjust iovec */
 	iov[iovcnt].iov_base = &sa_label_in;
@@ -75,8 +77,8 @@ static int kernel_send_rtmsg_v4(int action, mpls_label_t in_label,
 	nexthop.sin_family = AF_INET;
 	nexthop.sin_addr = nhlfe->nexthop->gate.ipv4;
 	/* adjust header */
-	hdr.rtm_flags |= RTF_GATEWAY;
-	hdr.rtm_addrs |= RTA_GATEWAY;
+	SET_FLAG(hdr.rtm_flags, RTF_GATEWAY);
+	SET_FLAG(hdr.rtm_addrs, RTA_GATEWAY);
 	hdr.rtm_msglen += sizeof(nexthop);
 	/* adjust iovec */
 	iov[iovcnt].iov_base = &nexthop;
@@ -91,8 +93,8 @@ static int kernel_send_rtmsg_v4(int action, mpls_label_t in_label,
 			htonl(nhlfe->nexthop->nh_label->label[0]
 			      << MPLS_LABEL_OFFSET);
 		/* adjust header */
-		hdr.rtm_addrs |= RTA_SRC;
-		hdr.rtm_flags |= RTF_MPLS;
+		SET_FLAG(hdr.rtm_addrs, RTA_SRC);
+		SET_FLAG(hdr.rtm_flags, RTF_MPLS);
 		hdr.rtm_msglen += sizeof(sa_label_out);
 		/* adjust iovec */
 		iov[iovcnt].iov_base = &sa_label_out;
@@ -157,8 +159,8 @@ static int kernel_send_rtmsg_v6(int action, mpls_label_t in_label,
 	sa_label_in.smpls_family = AF_MPLS;
 	sa_label_in.smpls_label = htonl(in_label << MPLS_LABEL_OFFSET);
 	/* adjust header */
-	hdr.rtm_flags |= RTF_MPLS | RTF_MPATH;
-	hdr.rtm_addrs |= RTA_DST;
+	SET_FLAG(hdr.rtm_flags, (RTF_MPLS | RTF_MPATH));
+	SET_FLAG(hdr.rtm_addrs, RTA_DST);
 	hdr.rtm_msglen += sizeof(sa_label_in);
 	/* adjust iovec */
 	iov[iovcnt].iov_base = &sa_label_in;
@@ -182,8 +184,8 @@ static int kernel_send_rtmsg_v6(int action, mpls_label_t in_label,
 	}
 
 	/* adjust header */
-	hdr.rtm_flags |= RTF_GATEWAY;
-	hdr.rtm_addrs |= RTA_GATEWAY;
+	SET_FLAG(hdr.rtm_flags, RTF_GATEWAY);
+	SET_FLAG(hdr.rtm_addrs, RTA_GATEWAY);
 	hdr.rtm_msglen += ROUNDUP(sizeof(struct sockaddr_in6));
 	/* adjust iovec */
 	iov[iovcnt].iov_base = &nexthop;
@@ -198,8 +200,8 @@ static int kernel_send_rtmsg_v6(int action, mpls_label_t in_label,
 			htonl(nhlfe->nexthop->nh_label->label[0]
 			      << MPLS_LABEL_OFFSET);
 		/* adjust header */
-		hdr.rtm_addrs |= RTA_SRC;
-		hdr.rtm_flags |= RTF_MPLS;
+		SET_FLAG(hdr.rtm_addrs, RTA_SRC);
+		SET_FLAG(hdr.rtm_flags, RTF_MPLS);
 		hdr.rtm_msglen += sizeof(sa_label_out);
 		/* adjust iovec */
 		iov[iovcnt].iov_base = &sa_label_out;
@@ -229,70 +231,18 @@ static int kernel_lsp_cmd(struct zebra_dplane_ctx *ctx)
 	const struct nexthop *nexthop = NULL;
 	unsigned int nexthop_num = 0;
 	int action;
+	enum dplane_op_e op;
 
-	switch (dplane_ctx_get_op(ctx)) {
-	case DPLANE_OP_LSP_DELETE:
+	op = dplane_ctx_get_op(ctx);
+
+	if (op == DPLANE_OP_LSP_DELETE)
 		action = RTM_DELETE;
-		break;
-	case DPLANE_OP_LSP_INSTALL:
+	else if (op == DPLANE_OP_LSP_INSTALL)
 		action = RTM_ADD;
-		break;
-	case DPLANE_OP_LSP_UPDATE:
+	else if (op == DPLANE_OP_LSP_UPDATE)
 		action = RTM_CHANGE;
-		break;
-	case DPLANE_OP_NONE:
-	case DPLANE_OP_ROUTE_INSTALL:
-	case DPLANE_OP_ROUTE_UPDATE:
-	case DPLANE_OP_ROUTE_DELETE:
-	case DPLANE_OP_ROUTE_NOTIFY:
-	case DPLANE_OP_NH_INSTALL:
-	case DPLANE_OP_NH_UPDATE:
-	case DPLANE_OP_NH_DELETE:
-	case DPLANE_OP_LSP_NOTIFY:
-	case DPLANE_OP_PW_INSTALL:
-	case DPLANE_OP_PW_UNINSTALL:
-	case DPLANE_OP_SYS_ROUTE_ADD:
-	case DPLANE_OP_SYS_ROUTE_DELETE:
-	case DPLANE_OP_ADDR_INSTALL:
-	case DPLANE_OP_ADDR_UNINSTALL:
-	case DPLANE_OP_MAC_INSTALL:
-	case DPLANE_OP_MAC_DELETE:
-	case DPLANE_OP_NEIGH_INSTALL:
-	case DPLANE_OP_NEIGH_UPDATE:
-	case DPLANE_OP_NEIGH_DELETE:
-	case DPLANE_OP_VTEP_ADD:
-	case DPLANE_OP_VTEP_DELETE:
-	case DPLANE_OP_RULE_ADD:
-	case DPLANE_OP_RULE_DELETE:
-	case DPLANE_OP_RULE_UPDATE:
-	case DPLANE_OP_NEIGH_DISCOVER:
-	case DPLANE_OP_BR_PORT_UPDATE:
-	case DPLANE_OP_IPTABLE_ADD:
-	case DPLANE_OP_IPTABLE_DELETE:
-	case DPLANE_OP_IPSET_ADD:
-	case DPLANE_OP_IPSET_DELETE:
-	case DPLANE_OP_IPSET_ENTRY_ADD:
-	case DPLANE_OP_IPSET_ENTRY_DELETE:
-	case DPLANE_OP_NEIGH_IP_INSTALL:
-	case DPLANE_OP_NEIGH_IP_DELETE:
-	case DPLANE_OP_NEIGH_TABLE_UPDATE:
-	case DPLANE_OP_GRE_SET:
-	case DPLANE_OP_INTF_ADDR_ADD:
-	case DPLANE_OP_INTF_ADDR_DEL:
-	case DPLANE_OP_INTF_NETCONFIG:
-	case DPLANE_OP_INTF_INSTALL:
-	case DPLANE_OP_INTF_UPDATE:
-	case DPLANE_OP_INTF_DELETE:
-	case DPLANE_OP_TC_QDISC_INSTALL:
-	case DPLANE_OP_TC_QDISC_UNINSTALL:
-	case DPLANE_OP_TC_CLASS_ADD:
-	case DPLANE_OP_TC_CLASS_DELETE:
-	case DPLANE_OP_TC_CLASS_UPDATE:
-	case DPLANE_OP_TC_FILTER_ADD:
-	case DPLANE_OP_TC_FILTER_DELETE:
-	case DPLANE_OP_TC_FILTER_UPDATE:
+	else
 		return -1;
-	}
 
 	head = dplane_ctx_get_nhlfe_list(ctx);
 	frr_each(nhlfe_list_const, head, nhlfe) {
@@ -374,8 +324,8 @@ static enum zebra_dplane_result kmpw_install(struct zebra_dplane_ctx *ctx)
 		return ZEBRA_DPLANE_REQUEST_FAILURE;
 	}
 
-	if (dplane_ctx_get_pw_flags(ctx) & F_PSEUDOWIRE_CWORD)
-		imr.imr_flags |= IMR_FLAG_CONTROLWORD;
+	if (CHECK_FLAG(dplane_ctx_get_pw_flags(ctx), F_PSEUDOWIRE_CWORD))
+		SET_FLAG(imr.imr_flags, IMR_FLAG_CONTROLWORD);
 
 	/* pseudowire nexthop */
 	memset(&ss, 0, sizeof(ss));
@@ -442,68 +392,14 @@ static enum zebra_dplane_result kmpw_uninstall(struct zebra_dplane_ctx *ctx)
 enum zebra_dplane_result kernel_pw_update(struct zebra_dplane_ctx *ctx)
 {
 	enum zebra_dplane_result result = ZEBRA_DPLANE_REQUEST_FAILURE;
+	enum dplane_op_e op;
 
-	switch (dplane_ctx_get_op(ctx)) {
-	case DPLANE_OP_PW_INSTALL:
+	op = dplane_ctx_get_op(ctx);
+
+	if (op == DPLANE_OP_PW_INSTALL)
 		result = kmpw_install(ctx);
-		break;
-	case DPLANE_OP_PW_UNINSTALL:
+	else if (op == DPLANE_OP_PW_UNINSTALL)
 		result = kmpw_uninstall(ctx);
-		break;
-	case DPLANE_OP_NONE:
-	case DPLANE_OP_ROUTE_INSTALL:
-	case DPLANE_OP_ROUTE_UPDATE:
-	case DPLANE_OP_ROUTE_DELETE:
-	case DPLANE_OP_ROUTE_NOTIFY:
-	case DPLANE_OP_NH_INSTALL:
-	case DPLANE_OP_NH_UPDATE:
-	case DPLANE_OP_NH_DELETE:
-	case DPLANE_OP_LSP_INSTALL:
-	case DPLANE_OP_LSP_UPDATE:
-	case DPLANE_OP_LSP_DELETE:
-	case DPLANE_OP_LSP_NOTIFY:
-	case DPLANE_OP_SYS_ROUTE_ADD:
-	case DPLANE_OP_SYS_ROUTE_DELETE:
-	case DPLANE_OP_ADDR_INSTALL:
-	case DPLANE_OP_ADDR_UNINSTALL:
-	case DPLANE_OP_MAC_INSTALL:
-	case DPLANE_OP_MAC_DELETE:
-	case DPLANE_OP_NEIGH_INSTALL:
-	case DPLANE_OP_NEIGH_UPDATE:
-	case DPLANE_OP_NEIGH_DELETE:
-	case DPLANE_OP_VTEP_ADD:
-	case DPLANE_OP_VTEP_DELETE:
-	case DPLANE_OP_RULE_ADD:
-	case DPLANE_OP_RULE_DELETE:
-	case DPLANE_OP_RULE_UPDATE:
-	case DPLANE_OP_NEIGH_DISCOVER:
-	case DPLANE_OP_BR_PORT_UPDATE:
-	case DPLANE_OP_IPTABLE_ADD:
-	case DPLANE_OP_IPTABLE_DELETE:
-	case DPLANE_OP_IPSET_ADD:
-	case DPLANE_OP_IPSET_DELETE:
-	case DPLANE_OP_IPSET_ENTRY_ADD:
-	case DPLANE_OP_IPSET_ENTRY_DELETE:
-	case DPLANE_OP_NEIGH_IP_INSTALL:
-	case DPLANE_OP_NEIGH_IP_DELETE:
-	case DPLANE_OP_NEIGH_TABLE_UPDATE:
-	case DPLANE_OP_GRE_SET:
-	case DPLANE_OP_INTF_ADDR_ADD:
-	case DPLANE_OP_INTF_ADDR_DEL:
-	case DPLANE_OP_INTF_NETCONFIG:
-	case DPLANE_OP_INTF_INSTALL:
-	case DPLANE_OP_INTF_UPDATE:
-	case DPLANE_OP_INTF_DELETE:
-	case DPLANE_OP_TC_QDISC_INSTALL:
-	case DPLANE_OP_TC_QDISC_UNINSTALL:
-	case DPLANE_OP_TC_CLASS_ADD:
-	case DPLANE_OP_TC_CLASS_DELETE:
-	case DPLANE_OP_TC_CLASS_UPDATE:
-	case DPLANE_OP_TC_FILTER_ADD:
-	case DPLANE_OP_TC_FILTER_DELETE:
-	case DPLANE_OP_TC_FILTER_UPDATE:
-		break;
-	}
 
 	return result;
 }

@@ -18,7 +18,7 @@ import pytest
 import json
 from functools import partial
 
-pytestmark = pytest.mark.pimd
+pytestmark = [pytest.mark.pimd]
 
 CWD = os.path.dirname(os.path.realpath(__file__))
 sys.path.append(os.path.join(CWD, "../"))
@@ -27,9 +27,6 @@ sys.path.append(os.path.join(CWD, "../"))
 from lib import topotest
 from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
-
-
-pytestmark = [pytest.mark.pimd]
 
 
 def build_topo(tgen):
@@ -91,7 +88,7 @@ def setup_module(mod):
     # tgen.mininet_cli()
 
 
-def teardown_module(mod):
+def teardown_module():
     "Teardown the pytest environment"
     tgen = get_topogen()
 

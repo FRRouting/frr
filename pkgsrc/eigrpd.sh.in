@@ -16,7 +16,7 @@ fi
 
 name="eigrpd"
 rcvar=$name
-required_files="@sysconfdir@/${name}.conf"
+required_files="@e_sysconfdir@/${name}.conf"
 command="@prefix@/sbin/${name}"
 command_args="-d"
 

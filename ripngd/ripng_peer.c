@@ -15,6 +15,7 @@
 #include "linklist.h"
 #include "frrevent.h"
 #include "memory.h"
+#include "frrdistance.h"
 
 #include "ripngd/ripngd.h"
 #include "ripngd/ripng_nexthop.h"

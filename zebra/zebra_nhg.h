@@ -85,7 +85,7 @@ struct nhg_hash_entry {
 	 * nhg(1)->nhg_dependents is 3 in the tree
 	 *
 	 * nhg(2)->nhg_depends is empty
-	 * nhg(3)->nhg_dependents is 3 in the tree
+	 * nhg(2)->nhg_dependents is 3 in the tree
 	 */
 	struct nhg_connected_tree_head nhg_depends, nhg_dependents;
 
@@ -143,7 +143,34 @@ struct nhg_hash_entry {
 /*
  * Track FPM installation status..
  */
-#define NEXTHOP_GROUP_FPM (1 << 6)
+#define NEXTHOP_GROUP_FPM (1 << 7)
+
+/*
+ * When an interface comes up install the
+ * singleton's and schedule the NHG's that
+ * are using this nhg to be reinstalled
+ * when installation is successful.
+ */
+#define NEXTHOP_GROUP_REINSTALL (1 << 8)
+
+/*
+ * Connected routes and kernel routes received
+ * from the kernel or created by Zebra do no
+ * need to be installed.  For connected, this
+ * is because the routes are in the local table
+ * but not imported and we create an amalgram
+ * route for it.  For kernel routes if the route
+ * is an pre-nhg route, there is no nexthop associated
+ * with it and we should not create it until it
+ * is used by something else.
+ * The reason for this is because is that this just
+ * fills up the DPlane's nexthop slots when there
+ * are a bunch of interfaces or pre-existing routes
+ * As such let's not initially install it ( but
+ * pretend it was successful ) and if another route
+ * chooses this NHG then we can install it then.
+ */
+#define NEXTHOP_GROUP_INITIAL_DELAY_INSTALL (1 << 9)
 };
 
 /* Upper 4 bits of the NHG are reserved for indicating the NHG type */
@@ -356,8 +383,9 @@ extern uint8_t zebra_nhg_nhe2grp(struct nh_grp *grp, struct nhg_hash_entry *nhe,
 				 int size);
 
 /* Dataplane install/uninstall */
-extern void zebra_nhg_install_kernel(struct nhg_hash_entry *nhe);
+extern void zebra_nhg_install_kernel(struct nhg_hash_entry *nhe, uint8_t type);
 extern void zebra_nhg_uninstall_kernel(struct nhg_hash_entry *nhe);
+extern void zebra_interface_nhg_reinstall(struct interface *ifp);
 
 /* Forward ref of dplane update context type */
 struct zebra_dplane_ctx;
@@ -376,7 +404,8 @@ extern void zebra_nhg_mark_keep(void);
 
 /* Nexthop resolution processing */
 struct route_entry; /* Forward ref to avoid circular includes */
-extern int nexthop_active_update(struct route_node *rn, struct route_entry *re);
+extern int nexthop_active_update(struct route_node *rn, struct route_entry *re,
+				 struct route_entry *old_re);
 
 #ifdef _FRR_ATTRIBUTE_PRINTFRR
 #pragma FRR printfrr_ext "%pNG" (const struct nhg_hash_entry *)

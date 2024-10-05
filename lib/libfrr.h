@@ -22,6 +22,8 @@
 extern "C" {
 #endif
 
+#define ZAPI_SOCK_NAME "%s/zserv.api", frr_runstatedir
+
 /* The following options disable specific command line options that
  * are not applicable for a particular daemon.
  */
@@ -39,6 +41,11 @@ extern "C" {
  * Does nothing if -d isn't used.
  */
 #define FRR_DETACH_LATER	(1 << 6)
+/* If FRR_MANUAL_VTY_START is used, frr_run() will not automatically start
+ * listening on for vty connection (either TCP or Unix socket based). The daemon
+ * is responsible for calling frr_vty_serv() itself.
+ */
+#define FRR_MANUAL_VTY_START (1 << 7)
 
 PREDECL_DLIST(log_args);
 struct log_arg {
@@ -47,6 +54,49 @@ struct log_arg {
 	char target[0];
 };
 DECLARE_DLIST(log_args, struct log_arg, itm);
+
+/* Registry of daemons' port defaults. Many of these are VTY ports; some
+ * daemons have default ports for other features such as ospfapi, or zebra's
+ * FPM.
+ */
+
+/* default zebra TCP port for zapi; this is currently disabled for security
+ * reasons.
+ */
+#define ZEBRA_TCP_PORT 2600
+
+#define ZEBRA_VTY_PORT 2601
+#define RIP_VTY_PORT 2602
+#define RIPNG_VTY_PORT 2603
+#define OSPF_VTY_PORT 2604
+#define BGP_VTY_PORT 2605
+#define OSPF6_VTY_PORT 2606
+
+/* Default API server port to accept connection request from client-side.
+ * This value could be overridden by "ospfapi" entry in "/etc/services".
+ */
+#define OSPF_API_SYNC_PORT 2607
+
+#define ISISD_VTY_PORT 2608
+#define BABEL_VTY_PORT 2609
+#define NHRP_VTY_PORT 2610
+#define PIMD_VTY_PORT 2611
+#define LDP_VTY_PORT 2612
+#define EIGRP_VTY_PORT 2613
+#define SHARP_VTY_PORT 2614
+#define PBR_VTY_PORT 2615
+#define STATIC_VTY_PORT 2616
+#define BFDD_VTY_PORT 2617
+#define FABRICD_VTY_PORT 2618
+#define VRRP_VTY_PORT 2619
+
+/* default port for FPM connections */
+#define FPM_DEFAULT_PORT 2620
+
+#define PATH_VTY_PORT 2621
+#define PIM6D_VTY_PORT 2622
+#define MGMTD_VTY_PORT 2623
+/* Registry of daemons' port defaults */
 
 enum frr_cli_mode {
 	FRR_CLI_CLASSIC = 0,
@@ -68,6 +118,8 @@ struct frr_daemon_info {
 	bool dryrun;
 	bool daemon_mode;
 	bool terminal;
+	bool graceful_restart;
+	int gr_cleanup_time;
 	enum frr_cli_mode cli_mode;
 
 	struct event *read_in;
@@ -80,6 +132,7 @@ struct frr_daemon_info {
 	const char *vty_path;
 	const char *module_path;
 	const char *script_path;
+	char **state_paths;
 
 	const char *pathspace;
 	bool zpathspace;
@@ -125,7 +178,6 @@ struct frr_daemon_info {
 			  .version = FRR_VERSION, );                           \
 	MACRO_REQUIRE_SEMICOLON() /* end */
 
-extern void frr_init_vtydir(void);
 extern void frr_preinit(struct frr_daemon_info *daemon, int argc, char **argv);
 extern void frr_opt_add(const char *optstr, const struct option *longopts,
 			const char *helpstr);
@@ -138,7 +190,7 @@ extern const char *frr_get_progname(void);
 extern enum frr_cli_mode frr_get_cli_mode(void);
 extern uint32_t frr_get_fd_limit(void);
 extern bool frr_is_startup_fd(int fd);
-
+extern bool frr_is_daemon(void);
 /* call order of these hooks is as ordered here */
 DECLARE_HOOK(frr_early_init, (struct event_loop * tm), (tm));
 DECLARE_HOOK(frr_late_init, (struct event_loop * tm), (tm));
@@ -150,9 +202,15 @@ extern void frr_config_fork(void);
 
 extern void frr_run(struct event_loop *master);
 extern void frr_detach(void);
+extern void frr_vty_serv_start(bool check_detach);
+extern void frr_vty_serv_stop(void);
 
 extern bool frr_zclient_addr(struct sockaddr_storage *sa, socklen_t *sa_len,
 			     const char *path);
+
+struct json_object;
+extern struct json_object *frr_daemon_state_load(void);
+extern void frr_daemon_state_save(struct json_object **statep);
 
 /* these two are before the protocol daemon does its own shutdown
  * it's named this way being the counterpart to frr_late_init */
@@ -163,10 +221,40 @@ DECLARE_KOOH(frr_fini, (), ());
 extern void frr_fini(void);
 
 extern char config_default[512];
-extern char frr_zclientpath[256];
+extern char frr_zclientpath[512];
+
+/* refer to lib/config_paths.h (generated during ./configure) for build config
+ * values of the following:
+ */
+
+/* sysconfdir is generally /etc/frr/, some BSDs may use /usr/local/etc/frr/.
+ * Will NOT include "pathspace" (namespace) suffix from -N. (libfrr.c handles
+ * pathspace'ing config files.)  Has a slash at the end for "historical"
+ * reasons.
+ */
 extern const char frr_sysconfdir[];
-extern char frr_vtydir[256];
+
+/* runstatedir is *ephemeral* across reboots.  It may either be a ramdisk,
+ * or be wiped during boot.  Use only for pid files, sockets, and the like,
+ * not state.  Commonly /run/frr or /var/run/frr.
+ * Will include "pathspace" (namespace) suffix from -N.
+ */
+extern char frr_runstatedir[256];
+
+/* libstatedir is *persistent*.  It's the place to put state like sequence
+ * numbers or databases.  Commonly /var/lib/frr.
+ * Will include "pathspace" (namespace) suffix from -N.
+ */
+extern char frr_libstatedir[256];
+
+/* moduledir is something along the lines of /usr/lib/frr/modules or
+ * /usr/lib/x86_64-linux-gnu/frr/modules.  It is not guaranteed to be a
+ * subdirectory of the directory that the daemon binaries reside in.  (e.g.
+ * the "x86_64-linux-gnu" component will be absent from daemon paths.)
+ */
 extern const char frr_moduledir[];
+
+/* scriptdir is for Lua scripts, generally ${frr_sysconfdir}/scripts */
 extern const char frr_scriptdir[];
 
 extern char frr_protoname[];
@@ -175,6 +263,17 @@ extern char frr_protonameinst[];
 extern bool frr_is_after_fork;
 
 extern bool debug_memstats_at_exit;
+
+/*
+ * Version numbering: MAJOR (8) | MINOR (16) | SUB (8)
+ */
+#define MAKE_FRRVERSION(maj, min, sub)                                         \
+	((((maj) & 0xff) << 24) | (((min) & 0xffff) << 8) | ((sub) & 0xff))
+#define MAJOR_FRRVERSION(v) (((v) >> 24) & 0xff)
+#define MINOR_FRRVERSION(v) (((v) >> 8) & 0xffff)
+#define SUB_FRRVERSION(v)  ((v) & 0xff)
+
+const char *frr_vers2str(uint32_t version, char *buf, int buflen);
 
 #ifdef __cplusplus
 }

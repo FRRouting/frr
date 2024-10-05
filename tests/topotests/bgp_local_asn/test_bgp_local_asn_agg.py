@@ -25,7 +25,6 @@ sys.path.append(os.path.join(CWD, "../lib/"))
 # pylint: disable=C0413
 # Import topogen and topotest helpers
 from lib.topogen import Topogen, get_topogen
-from lib.topotest import version_cmp
 
 from lib.common_config import (
     start_topology,
@@ -35,7 +34,7 @@ from lib.common_config import (
     verify_rib,
     step,
     check_address_types,
-    check_router_status
+    check_router_status,
 )
 
 from lib.topolog import logger

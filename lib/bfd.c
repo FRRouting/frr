@@ -541,7 +541,7 @@ static void _bfd_sess_remove(struct bfd_session_params *bsp)
 
 	/* Send request to remove any session. */
 	bsp->lastev = BSE_UNINSTALL;
-	event_execute(bsglobal.tm, _bfd_sess_send, bsp, 0);
+	event_execute(bsglobal.tm, _bfd_sess_send, bsp, 0, NULL);
 }
 
 void bfd_sess_free(struct bfd_session_params **bsp)
@@ -894,7 +894,7 @@ int zclient_bfd_session_replay(ZAPI_CALLBACK_ARGS)
 
 		/* Ask for installation. */
 		bsp->lastev = BSE_INSTALL;
-		event_execute(bsglobal.tm, _bfd_sess_send, bsp, 0);
+		event_execute(bsglobal.tm, _bfd_sess_send, bsp, 0, NULL);
 	}
 
 	return 0;
@@ -1282,7 +1282,6 @@ static bool bfd_source_cache_update(struct bfd_source_cache *source,
 		const struct zapi_nexthop *nh = &route->nexthops[nh_index];
 		const struct interface *interface;
 		const struct connected *connected;
-		const struct listnode *node;
 
 		interface = if_lookup_by_index(nh->ifindex, nh->vrf_id);
 		if (interface == NULL) {
@@ -1291,8 +1290,7 @@ static bool bfd_source_cache_update(struct bfd_source_cache *source,
 			continue;
 		}
 
-		for (ALL_LIST_ELEMENTS_RO(interface->connected, node,
-					  connected)) {
+		frr_each (if_connected_const, interface->connected, connected) {
 			if (source->address.family !=
 			    connected->address->family)
 				continue;
@@ -1335,4 +1333,10 @@ int bfd_nht_update(const struct prefix *match, const struct zapi_route *route)
 	}
 
 	return 0;
+}
+
+bool bfd_session_is_down(const struct bfd_session_params *session)
+{
+	return session->bss.state == BSS_DOWN ||
+	       session->bss.state == BSS_ADMIN_DOWN;
 }

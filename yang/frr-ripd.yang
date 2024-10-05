@@ -13,6 +13,12 @@ module frr-ripd {
   import frr-if-rmap {
     prefix frr-if-rmap;
   }
+  import frr-bfdd {
+    prefix frr-bfdd;
+  }
+  import frr-filter {
+    prefix frr-filter;
+  }
   import frr-interface {
     prefix frr-interface;
   }
@@ -116,8 +122,8 @@ module frr-ripd {
           "VRF name.";
       }
       leaf allow-ecmp {
-        type boolean;
-        default "false";
+        type uint8;
+        default 0;
         description
           "Allow equal-cost multi-path.";
       }
@@ -255,6 +261,9 @@ module frr-ripd {
           "A list of interfaces where the sending of RIP packets
            is enabled.";
       }
+
+      uses frr-filter:distribute-list-group;
+
       list redistribute {
         key "protocol";
         description
@@ -374,6 +383,12 @@ module frr-ripd {
           description
             "Advertisement transmission - Version control.";
         }
+      }
+
+      leaf default-bfd-profile {
+        type frr-bfdd:profile-ref;
+        description
+          "Use this BFD profile for all peers by default.";
       }
 
       /*
@@ -676,6 +691,25 @@ module frr-ripd {
           type string;
           description
             "Key-chain name.";
+        }
+      }
+
+      container bfd-monitoring {
+        presence
+          "Present if BFD is configured for RIP peers in this interface.";
+        description "Configure BFD use in RIPD";
+
+        leaf enable {
+          type boolean;
+          default false;
+          description
+            "Enable/disable BFD monitoring.";
+        }
+
+        leaf profile {
+          type frr-bfdd:profile-ref;
+          description
+            "BFD profile to use.";
         }
       }
     }

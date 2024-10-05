@@ -9,6 +9,7 @@
 
 #include <ospfd/ospf_gr.h>
 #include <ospfd/ospf_packet.h>
+#include <ospfd/ospf_flood.h>
 
 /* Neighbor Data Structure */
 struct ospf_neighbor {
@@ -44,6 +45,7 @@ struct ospf_neighbor {
 
 	/* LSA data. */
 	struct ospf_lsdb ls_rxmt;
+	struct ospf_lsa_list_head ls_rxmt_list;
 	struct ospf_lsdb db_sum;
 	struct ospf_lsdb ls_req;
 	struct ospf_lsa *ls_req_last;
@@ -54,13 +56,13 @@ struct ospf_neighbor {
 	uint32_t v_inactivity;
 	uint32_t v_db_desc;
 	uint32_t v_ls_req;
-	uint32_t v_ls_upd;
+	uint32_t v_ls_rxmt;
 
 	/* Threads. */
 	struct event *t_inactivity;
 	struct event *t_db_desc;
 	struct event *t_ls_req;
-	struct event *t_ls_upd;
+	struct event *t_ls_rxmt;
 	struct event *t_hello_reply;
 
 	/* NBMA configured neighbour */
@@ -71,6 +73,7 @@ struct ospf_neighbor {
 	struct timeval ts_last_regress;  /* last regressive NSM change     */
 	const char *last_regress_str;    /* Event which last regressed NSM */
 	uint32_t state_change;		 /* NSM state change counter       */
+	uint32_t ls_rxmt_lsa;		 /* Number of LSAs retransmited.   */
 
 	/* BFD information */
 	struct bfd_session_params *bfd_session;

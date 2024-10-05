@@ -54,9 +54,9 @@ PKT_PROCESS_TRACEPOINT_INSTANCE(refresh_process)
 TRACEPOINT_EVENT(
 	frr_bgp,
 	packet_read,
-	TP_ARGS(struct peer *, peer, struct stream *, pkt),
+	TP_ARGS(struct peer_connection *, connection, struct stream *, pkt),
 	TP_FIELDS(
-		ctf_string(peer, PEER_HOSTNAME(peer))
+		ctf_string(peer, PEER_HOSTNAME(connection->peer))
 		ctf_sequence_hex(uint8_t, packet, pkt->data, size_t,
 				 STREAM_READABLE(pkt))
 	)
@@ -135,11 +135,12 @@ TRACEPOINT_LOGLEVEL(frr_bgp, bmp_mirror_packet, TRACE_INFO)
 TRACEPOINT_EVENT(
 	frr_bgp,
 	bmp_eor,
-	TP_ARGS(afi_t, afi, safi_t, safi, uint8_t, flags),
+	TP_ARGS(afi_t, afi, safi_t, safi, uint8_t, flags, uint8_t, peer_type_flag),
 	TP_FIELDS(
 		ctf_integer(afi_t, afi, afi)
 		ctf_integer(safi_t, safi, safi)
 		ctf_integer(uint8_t, flags, flags)
+		ctf_integer(uint8_t, peer_type_flag, peer_type_flag)
 	)
 )
 
@@ -307,7 +308,8 @@ TRACEPOINT_EVENT(
 		struct in_addr, vtep, esi_t *, esi),
 	TP_FIELDS(
 		ctf_string(action, add ? "add" : "del")
-		ctf_integer(vni_t, vni, vpn->vni)
+		ctf_integer(vni_t, vni, (vpn ? vpn->vni : 0))
+		ctf_integer(uint32_t, eth_tag, &pfx->prefix.macip_addr.eth_tag)
 		ctf_array(unsigned char, mac, &pfx->prefix.macip_addr.mac,
 			sizeof(struct ethaddr))
 		ctf_array(unsigned char, ip, &pfx->prefix.macip_addr.ip,
@@ -325,7 +327,7 @@ TRACEPOINT_EVENT(
 		const struct prefix_evpn *, pfx),
 	TP_FIELDS(
 		ctf_string(action, add ? "add" : "del")
-		ctf_integer(vni_t, vni, vpn->vni)
+		ctf_integer(vni_t, vni, (vpn ? vpn->vni : 0))
 		ctf_integer_network_hex(unsigned int, vtep,
 			pfx->prefix.imet_addr.ip.ipaddr_v4.s_addr)
 	)
@@ -436,6 +438,64 @@ TRACEPOINT_LOGLEVEL(frr_bgp, evpn_mh_local_es_evi_del_zrecv, TRACE_INFO)
 
 TRACEPOINT_EVENT(
 	frr_bgp,
+	evpn_mh_es_evi_vtep_add,
+	TP_ARGS(esi_t *, esi, vni_t, vni, struct in_addr, vtep,
+		uint8_t, ead_es),
+	TP_FIELDS(
+		ctf_array(unsigned char, esi, esi, sizeof(esi_t))
+		ctf_integer(vni_t, vni, vni)
+		ctf_integer_network_hex(unsigned int, vtep, vtep.s_addr)
+		ctf_integer(uint8_t, ead_es, ead_es)
+	)
+)
+TRACEPOINT_LOGLEVEL(frr_bgp, evpn_mh_es_evi_vtep_add, TRACE_INFO)
+
+TRACEPOINT_EVENT(
+	frr_bgp,
+	evpn_mh_es_evi_vtep_del,
+	TP_ARGS(esi_t *, esi, vni_t, vni, struct in_addr, vtep,
+		uint8_t, ead_es),
+	TP_FIELDS(
+		ctf_array(unsigned char, esi, esi, sizeof(esi_t))
+		ctf_integer(vni_t, vni, vni)
+		ctf_integer_network_hex(unsigned int, vtep, vtep.s_addr)
+		ctf_integer(uint8_t, ead_es, ead_es)
+	)
+)
+TRACEPOINT_LOGLEVEL(frr_bgp, evpn_mh_es_evi_vtep_del, TRACE_INFO)
+
+TRACEPOINT_EVENT(
+	frr_bgp,
+	evpn_mh_local_ead_es_evi_route_upd,
+	TP_ARGS(esi_t *, esi, vni_t, vni,
+		uint8_t, route_type,
+		struct in_addr, vtep),
+	TP_FIELDS(
+		ctf_array(unsigned char, esi, esi, sizeof(esi_t))
+		ctf_integer(vni_t, vni, vni)
+		ctf_integer(uint8_t, route_type, route_type)
+		ctf_integer_network_hex(unsigned int, vtep, vtep.s_addr)
+	)
+)
+TRACEPOINT_LOGLEVEL(frr_bgp, evpn_mh_local_ead_es_evi_route_upd, TRACE_INFO)
+
+TRACEPOINT_EVENT(
+	frr_bgp,
+	evpn_mh_local_ead_es_evi_route_del,
+	TP_ARGS(esi_t *, esi, vni_t, vni,
+		uint8_t, route_type,
+		struct in_addr, vtep),
+	TP_FIELDS(
+		ctf_array(unsigned char, esi, esi, sizeof(esi_t))
+		ctf_integer(vni_t, vni, vni)
+		ctf_integer(uint8_t, route_type, route_type)
+		ctf_integer_network_hex(unsigned int, vtep, vtep.s_addr)
+	)
+)
+TRACEPOINT_LOGLEVEL(frr_bgp, evpn_mh_local_ead_es_evi_route_del, TRACE_INFO)
+
+TRACEPOINT_EVENT(
+	frr_bgp,
 	evpn_local_vni_add_zrecv,
 	TP_ARGS(vni_t, vni, struct in_addr, vtep, vrf_id_t, vrf,
 			struct in_addr, mc_grp),
@@ -493,6 +553,34 @@ TRACEPOINT_EVENT(
 	)
 )
 TRACEPOINT_LOGLEVEL(frr_bgp, evpn_local_macip_del_zrecv, TRACE_INFO)
+
+TRACEPOINT_EVENT(
+	frr_bgp,
+	evpn_advertise_type5,
+	TP_ARGS(vrf_id_t, vrf, const struct prefix_evpn *, pfx,
+		struct ethaddr *, rmac, struct in_addr, vtep),
+	TP_FIELDS(
+		ctf_integer(int, vrf_id, vrf)
+		ctf_array(unsigned char, ip, &pfx->prefix.prefix_addr.ip,
+			sizeof(struct ipaddr))
+		ctf_array(unsigned char, rmac, rmac,
+			sizeof(struct ethaddr))
+		ctf_integer_network_hex(unsigned int, vtep, vtep.s_addr)
+	)
+)
+TRACEPOINT_LOGLEVEL(frr_bgp, evpn_advertise_type5, TRACE_INFO)
+
+TRACEPOINT_EVENT(
+	frr_bgp,
+	evpn_withdraw_type5,
+	TP_ARGS(vrf_id_t, vrf, const struct prefix_evpn *, pfx),
+	TP_FIELDS(
+		ctf_integer(int, vrf_id, vrf)
+		ctf_array(unsigned char, ip, &pfx->prefix.prefix_addr.ip,
+			sizeof(struct ipaddr))
+	)
+)
+TRACEPOINT_LOGLEVEL(frr_bgp, evpn_withdraw_type5, TRACE_INFO)
 
 TRACEPOINT_EVENT(
 	frr_bgp,

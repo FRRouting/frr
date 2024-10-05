@@ -75,24 +75,6 @@ static void nhrp_route_update_zebra(const struct prefix *p,
 	}
 }
 
-static void nhrp_zebra_register_neigh(vrf_id_t vrf_id, afi_t afi, bool reg)
-{
-	struct stream *s;
-
-	if (!zclient || zclient->sock < 0)
-		return;
-
-	s = zclient->obuf;
-	stream_reset(s);
-
-	zclient_create_header(s, reg ? ZEBRA_NHRP_NEIGH_REGISTER :
-			      ZEBRA_NHRP_NEIGH_UNREGISTER,
-			      vrf_id);
-	stream_putw(s, afi);
-	stream_putw_at(s, 0, stream_get_endp(s));
-	zclient_send_message(zclient);
-}
-
 void nhrp_route_update_nhrp(const struct prefix *p, struct interface *ifp)
 {
 	struct route_node *rn;
@@ -108,11 +90,10 @@ void nhrp_route_update_nhrp(const struct prefix *p, struct interface *ifp)
 
 void nhrp_route_announce(int add, enum nhrp_cache_type type,
 			 const struct prefix *p, struct interface *ifp,
-			 const union sockunion *nexthop, uint32_t mtu)
+			 const union sockunion *nexthop_ref, uint32_t mtu)
 {
 	struct zapi_route api;
 	struct zapi_nexthop *api_nh;
-	union sockunion *nexthop_ref = (union sockunion *)nexthop;
 
 	if (zclient->sock < 0)
 		return;
@@ -125,9 +106,10 @@ void nhrp_route_announce(int add, enum nhrp_cache_type type,
 
 	switch (type) {
 	case NHRP_CACHE_NEGATIVE:
+		/* Fill in a blackhole nexthop */
 		zapi_route_set_blackhole(&api, BLACKHOLE_REJECT);
 		ifp = NULL;
-		nexthop = NULL;
+		nexthop_ref = NULL;
 		break;
 	case NHRP_CACHE_DYNAMIC:
 	case NHRP_CACHE_NHS:
@@ -235,6 +217,10 @@ int nhrp_route_read(ZAPI_CALLBACK_ARGS)
 
 	/* ignore our routes */
 	if (api.type == ZEBRA_ROUTE_NHRP)
+		return 0;
+
+	/* ignore local routes */
+	if (api.type == ZEBRA_ROUTE_LOCAL)
 		return 0;
 
 	sockunion_family(&nexthop_addr) = AF_UNSPEC;
@@ -368,8 +354,8 @@ static void nhrp_zebra_connected(struct zclient *zclient)
 				ZEBRA_ROUTE_ALL, 0, VRF_DEFAULT);
 	zebra_redistribute_send(ZEBRA_REDISTRIBUTE_ADD, zclient, AFI_IP6,
 				ZEBRA_ROUTE_ALL, 0, VRF_DEFAULT);
-	nhrp_zebra_register_neigh(VRF_DEFAULT, AFI_IP, true);
-	nhrp_zebra_register_neigh(VRF_DEFAULT, AFI_IP6, true);
+	zclient_register_neigh(zclient, VRF_DEFAULT, AFI_IP, true);
+	zclient_register_neigh(zclient, VRF_DEFAULT, AFI_IP6, true);
 }
 
 static zclient_handler *const nhrp_handlers[] = {
@@ -377,9 +363,9 @@ static zclient_handler *const nhrp_handlers[] = {
 	[ZEBRA_INTERFACE_ADDRESS_DELETE] = nhrp_interface_address_delete,
 	[ZEBRA_REDISTRIBUTE_ROUTE_ADD] = nhrp_route_read,
 	[ZEBRA_REDISTRIBUTE_ROUTE_DEL] = nhrp_route_read,
-	[ZEBRA_NHRP_NEIGH_ADDED] = nhrp_neighbor_operation,
-	[ZEBRA_NHRP_NEIGH_REMOVED] = nhrp_neighbor_operation,
-	[ZEBRA_NHRP_NEIGH_GET] = nhrp_neighbor_operation,
+	[ZEBRA_NEIGH_ADDED] = nhrp_neighbor_operation,
+	[ZEBRA_NEIGH_REMOVED] = nhrp_neighbor_operation,
+	[ZEBRA_NEIGH_GET] = nhrp_neighbor_operation,
 	[ZEBRA_GRE_UPDATE] = nhrp_gre_update,
 };
 
@@ -456,10 +442,11 @@ void nhrp_send_zebra_nbr(union sockunion *in,
 		return;
 	s = zclient->obuf;
 	stream_reset(s);
-	zclient_neigh_ip_encode(s, out ? ZEBRA_NEIGH_IP_ADD :
-				ZEBRA_NEIGH_IP_DEL, in, out,
-				ifp, out ? ZEBRA_NEIGH_STATE_REACHABLE
-				: ZEBRA_NEIGH_STATE_FAILED);
+	zclient_neigh_ip_encode(s, out ? ZEBRA_NEIGH_IP_ADD : ZEBRA_NEIGH_IP_DEL,
+				in, out, ifp,
+				out ? ZEBRA_NEIGH_STATE_REACHABLE
+				    : ZEBRA_NEIGH_STATE_FAILED,
+				0);
 	stream_putw_at(s, 0, stream_get_endp(s));
 	zclient_send_message(zclient);
 }
@@ -469,10 +456,16 @@ int nhrp_send_zebra_gre_request(struct interface *ifp)
 	return zclient_send_zebra_gre_request(zclient, ifp);
 }
 
+void nhrp_interface_update_arp(struct interface *ifp, bool arp_enable)
+{
+	zclient_interface_set_arp(zclient, ifp, arp_enable);
+}
+
+
 void nhrp_zebra_terminate(void)
 {
-	nhrp_zebra_register_neigh(VRF_DEFAULT, AFI_IP, false);
-	nhrp_zebra_register_neigh(VRF_DEFAULT, AFI_IP6, false);
+	zclient_register_neigh(zclient, VRF_DEFAULT, AFI_IP, false);
+	zclient_register_neigh(zclient, VRF_DEFAULT, AFI_IP6, false);
 	zclient_stop(zclient);
 	zclient_free(zclient);
 

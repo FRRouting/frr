@@ -9,6 +9,7 @@
 
 #ifdef HAVE_NETLINK
 
+#include <linux/rtnetlink.h>
 #include <linux/pkt_cls.h>
 #include <linux/pkt_sched.h>
 #include <netinet/if_ether.h>
@@ -160,7 +161,7 @@ static ssize_t netlink_qdisc_msg_encode(int cmd, struct zebra_dplane_ctx *ctx,
 		struct nlmsghdr n;
 		struct tcmsg t;
 		char buf[0];
-	} *req = (void *)data;
+	} *req = data;
 
 	if (datalen < sizeof(*req))
 		return 0;
@@ -236,7 +237,7 @@ static ssize_t netlink_tclass_msg_encode(int cmd, struct zebra_dplane_ctx *ctx,
 		struct nlmsghdr n;
 		struct tcmsg t;
 		char buf[0];
-	} *req = (void *)data;
+	} *req = data;
 
 	if (datalen < sizeof(*req))
 		return 0;
@@ -486,7 +487,7 @@ static ssize_t netlink_tfilter_msg_encode(int cmd, struct zebra_dplane_ctx *ctx,
 		struct nlmsghdr n;
 		struct tcmsg t;
 		char buf[0];
-	} *req = (void *)data;
+	} *req = data;
 
 	if (datalen < sizeof(*req))
 		return 0;
@@ -703,6 +704,8 @@ int netlink_qdisc_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 {
 	struct tcmsg *tcm;
 	struct zebra_tc_qdisc qdisc = {};
+	enum tc_qdisc_kind kind = TC_QDISC_UNSPEC;
+	const char *kind_str = "Unknown";
 
 	int len;
 	struct rtattr *tb[TCA_MAX + 1];
@@ -722,9 +725,11 @@ int netlink_qdisc_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 	tcm = NLMSG_DATA(h);
 	netlink_parse_rtattr(tb, TCA_MAX, TCA_RTA(tcm), len);
 
-	const char *kind_str = (const char *)RTA_DATA(tb[TCA_KIND]);
+	if (RTA_DATA(tb[TCA_KIND])) {
+		kind_str = (const char *)RTA_DATA(tb[TCA_KIND]);
 
-	enum tc_qdisc_kind kind = tc_qdisc_str2kind(kind_str);
+		kind = tc_qdisc_str2kind(kind_str);
+	}
 
 	qdisc.qdisc.ifindex = tcm->tcm_ifindex;
 

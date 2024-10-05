@@ -17,6 +17,8 @@
  */
 #define LP_TYPE_VRF	0x00000001
 #define LP_TYPE_BGP_LU	0x00000002
+#define LP_TYPE_NEXTHOP 0x00000003
+#define LP_TYPE_BGP_L3VPN_BIND 0x00000004
 
 PREDECL_LIST(lp_fifo);
 
@@ -36,9 +38,60 @@ extern void bgp_lp_finish(void);
 extern void bgp_lp_get(int type, void *labelid,
 	int (*cbfunc)(mpls_label_t label, void *labelid, bool allocated));
 extern void bgp_lp_release(int type, void *labelid, mpls_label_t label);
-extern void bgp_lp_event_chunk(uint8_t keep, uint32_t first, uint32_t last);
+extern void bgp_lp_event_chunk(uint32_t first, uint32_t last);
 extern void bgp_lp_event_zebra_down(void);
 extern void bgp_lp_event_zebra_up(void);
 extern void bgp_lp_vty_init(void);
 
+struct bgp_label_per_nexthop_cache;
+PREDECL_RBTREE_UNIQ(bgp_label_per_nexthop_cache);
+
+extern int
+bgp_label_per_nexthop_cache_cmp(const struct bgp_label_per_nexthop_cache *a,
+				const struct bgp_label_per_nexthop_cache *b);
+
+struct bgp_label_per_nexthop_cache {
+
+	/* RB-tree entry. */
+	struct bgp_label_per_nexthop_cache_item entry;
+
+	/* the nexthop is the key of the list */
+	struct prefix nexthop;
+
+	/* calculated label */
+	mpls_label_t label;
+
+	/* number of path_vrfs */
+	unsigned int path_count;
+
+	/* back pointer to bgp instance */
+	struct bgp *to_bgp;
+
+	/* copy a nexthop resolution from bgp nexthop tracking
+	 * used to extract the interface nexthop
+	 */
+	struct nexthop *nh;
+
+	/* list of path_vrfs using it */
+	LIST_HEAD(path_lists, bgp_path_info) paths;
+
+	time_t last_update;
+
+	/* Back pointer to the cache tree this entry belongs to. */
+	struct bgp_label_per_nexthop_cache_head *tree;
+};
+
+DECLARE_RBTREE_UNIQ(bgp_label_per_nexthop_cache,
+		    struct bgp_label_per_nexthop_cache, entry,
+		    bgp_label_per_nexthop_cache_cmp);
+
+void bgp_label_per_nexthop_free(struct bgp_label_per_nexthop_cache *blnc);
+
+struct bgp_label_per_nexthop_cache *
+bgp_label_per_nexthop_new(struct bgp_label_per_nexthop_cache_head *tree,
+			  struct prefix *nexthop);
+struct bgp_label_per_nexthop_cache *
+bgp_label_per_nexthop_find(struct bgp_label_per_nexthop_cache_head *tree,
+			   struct prefix *nexthop);
+void bgp_label_per_nexthop_init(void);
 #endif /* _FRR_BGP_LABELPOOL_H */

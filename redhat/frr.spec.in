@@ -16,6 +16,7 @@
 %{!?with_cumulus:       %global  with_cumulus       0 }
 %{!?with_eigrpd:        %global  with_eigrpd        1 }
 %{!?with_fpm:           %global  with_fpm           1 }
+%{!?with_mgmtd_test_be_client: %global with_mgmtd_test_be_client 0 }
 %{!?with_ldpd:          %global  with_ldpd          1 }
 %{!?with_multipath:     %global  with_multipath     256 }
 %{!?with_nhrpd:         %global  with_nhrpd         1 }
@@ -29,6 +30,7 @@
 %{!?with_rtadv:         %global  with_rtadv         1 }
 %{!?with_watchfrr:      %global  with_watchfrr      1 }
 %{!?with_pathd:         %global  with_pathd         1 }
+%{!?with_grpc:          %global  with_grpc          0 }
 
 # user and group
 %{!?frr_user:           %global  frr_user           frr }
@@ -42,8 +44,9 @@
 %define     zeb_docs    %{zeb_src}/doc
 %define     frr_tools   %{zeb_src}/tools
 
-# defines for configure
-%define     rundir  %{_localstatedir}/run/%{name}
+%if 0%{!?_runstatedir:1}
+%define _runstatedir %{_localstatedir}/run
+%endif
 
 ############################################################################
 
@@ -180,11 +183,12 @@ BuildRequires:  flex
 BuildRequires:  gcc
 BuildRequires:  json-c-devel
 BuildRequires:  libcap-devel
+BuildRequires:  protobuf-c-devel
 BuildRequires:  make
 BuildRequires:  ncurses-devel
 BuildRequires:  readline-devel
 BuildRequires:  texinfo
-BuildRequires:  libyang2-devel
+BuildRequires:  libyang-devel >= 2.1.128
 %if 0%{?rhel} && 0%{?rhel} < 7
 #python27-devel is available from ius community repo for RedHat/CentOS 6
 BuildRequires:  python27-devel
@@ -197,6 +201,12 @@ BuildRequires:  python-sphinx
 BuildRequires:  python3-devel
 BuildRequires:  python3-sphinx
 %endif
+%endif
+%if %{with_grpc}
+BuildRequires:  grpc-devel >= 1.16.1
+BuildRequires:  protobuf-devel >= 3.6.1
+BuildRequires:  protobuf-compiler >= 3.6.1
+BuildRequires:  protobuf-c-devel
 %endif
 %if 0%{?rhel} > 7
 #platform-python-devel is needed for /usr/bin/pathfix.py
@@ -298,6 +308,17 @@ through the AgentX protocol.  Provides read-only access to current
 routing state through standard SNMP MIBs.
 
 
+%if %{with_grpc}
+%package grpc
+Summary: GRPC support for FRR daemons
+Group: System Environment/Daemons
+License: GPLv3+
+Requires: %{name} = %{version}-%{release}
+
+%description grpc
+Adds GRPC support to the individual FRR daemons.
+%endif
+
 %prep
 %setup -q -n frr-%{frrversion}
 
@@ -316,11 +337,13 @@ routing state through standard SNMP MIBs.
 
 %configure \
     --sbindir=%{_sbindir} \
-    --sysconfdir=%{configdir} \
-    --localstatedir=%{rundir} \
+    --sysconfdir=%{_sysconfdir} \
+    --localstatedir=%{_localstatedir} \
     --disable-static \
     --disable-werror \
-    --enable-irdp \
+%if %{with_mgmtd_test_be_client}
+    --enable-mgmtd-test-be-client \
+%endif
 %if %{with_multipath}
     --enable-multipath=%{with_multipath} \
 %endif
@@ -420,6 +443,11 @@ routing state through standard SNMP MIBs.
 %else
     --disable-pathd \
 %endif
+%if %{with_grpc}
+    --enable-grpc \
+%else
+    --disable-grpc \
+%endif
     --enable-snmp
     # end
 
@@ -470,7 +498,7 @@ install %{zeb_src}/tools/etc/frr/daemons %{buildroot}%{_sysconfdir}/frr
 install %{zeb_src}/tools/etc/frr/frr.conf %{buildroot}%{_sysconfdir}/frr/frr.conf.template
 install -m644 %{zeb_rh_src}/frr.pam %{buildroot}%{_sysconfdir}/pam.d/frr
 install -m644 %{zeb_src}/tools/etc/logrotate.d/frr %{buildroot}%{_sysconfdir}/logrotate.d/frr
-install -d -m750 %{buildroot}%{rundir}
+install -d -m750 %{buildroot}%{_runstatedir}/frr
 
 %if 0%{?rhel} > 7 || 0%{?fedora} > 29
 # avoid `ERROR: ambiguous python shebang in` errors
@@ -494,7 +522,7 @@ rm -f %{buildroot}%{_sbindir}/ospfclient.py
     getent passwd %{frr_user} >/dev/null || \
     useradd -r -u %{frr_uid} -g %{frr_user} \
         -s /sbin/nologin -c "FRRouting suite" \
-        -d %{rundir} %{frr_user}
+        -d %{_runstatedir}/frr %{frr_user}
 
     %if 0%{?vty_group:1}
         usermod -a -G %{vty_group} %{frr_user}
@@ -654,11 +682,11 @@ fi
 %if 0%{?frr_user:1}
     %dir %attr(751,%{frr_user},%{frr_user}) %{configdir}
     %dir %attr(755,%{frr_user},%{frr_user}) %{_localstatedir}/log/frr
-    %dir %attr(751,%{frr_user},%{frr_user}) %{rundir}
+    %dir %attr(751,%{frr_user},%{frr_user}) %{_runstatedir}/frr
 %else
     %dir %attr(750,root,root) %{configdir}
     %dir %attr(755,root,root) %{_localstatedir}/log/frr
-    %dir %attr(750,root,root) %{rundir}
+    %dir %attr(750,root,root) %{_runstatedir}/frr
 %endif
 %{_infodir}/frr.info.gz
 %{_mandir}/man*/*
@@ -668,7 +696,11 @@ fi
 %{_sbindir}/ripd
 %{_sbindir}/bgpd
 %{_sbindir}/mgmtd
+%if %{with_mgmtd_test_be_client}
+    %{_sbindir}/mgmtd_testc
+%endif
 %exclude %{_sbindir}/ssd
+%exclude %{_sbindir}/fpm_listener
 %if %{with_watchfrr}
     %{_sbindir}/watchfrr
 %endif
@@ -715,7 +747,6 @@ fi
 %endif
 %{_libdir}/frr/modules/zebra_cumulus_mlag.so
 %{_libdir}/frr/modules/dplane_fpm_nl.so
-%{_libdir}/frr/modules/zebra_irdp.so
 %{_libdir}/frr/modules/bgpd_bmp.so
 %{_libdir}/libfrr_pb.so*
 %{_libdir}/libfrrfpm_pb.so*
@@ -775,12 +806,16 @@ sed -i 's/ -M rpki//' %{_sysconfdir}/frr/daemons
 %{_libdir}/frr/modules/*snmp.so
 
 
+%if %{with_grpc}
+%files grpc
+%{_libdir}/libfrrgrpc_pb.*
+%{_libdir}/frr/modules/grpc.so
+%endif
+
 %files devel
 %{_libdir}/lib*.so
 %dir %{_includedir}/%{name}
 %{_includedir}/%{name}/*.h
-%dir %{_includedir}/%{name}/mgmtd
-%{_includedir}/%{name}/mgmtd/*.h
 %dir %{_includedir}/%{name}/ospfd
 %{_includedir}/%{name}/ospfd/*.h
 %if %{with_bfdd}
@@ -799,9 +834,80 @@ sed -i 's/ -M rpki//' %{_sysconfdir}/frr/daemons
 
 %changelog
 
-* Tue Feb 07 2023 Martin Winter <mwinter@opensourcerouting.org> - %{version}
+* Mon Mar 25 2024 Jafar Al-Gharaibeh <jafar@atcorp.com> - %{version}
 
-* Tue Feb 07 2023 Donatas Abraitis <donatas@opensourcerouting.org> - 8.5
+* Mon Mar 25 2024 Jafar Al-Gharaibeh <jafar@atcorp.com> - 10.0
+- Major highlights:
+-   Introduce local host routes
+-   Require libyang 2.1.128
+-   Add suport to configire a log file per daemon
+-   BGP BMP Loc-RIB (RFC9069) support
+-   eBGP-OAD (One Administrative Domain) support
+-   BGP RPKI VRF support
+-   BGP SNMP traps for BGP4-MIBV2
+-   Management (mgmtd) daemon "replace" operation support
+-   BGP dynamic capabilities for addpath, fqdn, orf capabilities
+-   SRv6 encapsulation source address feature
+-   OSPFv3 Point-To-Multipoint mode
+
+* Mon Oct 09 2023 Donatas Abraitis <donatas@opensourcerouting.org> - 9.1
+- Major highlights:
+-   OSPFv2 HMAC-SHA Cryptographic Authentication
+-   BGP MAC-VRF Site-Of-Origin support
+-   BGP Dynamic capability support
+-   IS-IS SRv6 uSID support (RFC 9352)
+-   Change next-hop resolution via the default route for a traditional profile
+-   Add support for VLAN, ECN, DSCP mangling/filtering
+-   Zebra support for route replace semantics in FPM
+-   New command for BGP `neighbor x addpath-tx-best-selected`
+-   New command for BGP `mpls bgp l3vpn-multi-domain-switching`
+-   A couple more new BGP route-map commands for as-path, communities manipulation
+
+* Tue Jun 06 2023 Jafar Al-Gharaibeh <jafar@atcorp.com> - 9.0
+- Major highlights:
+-   Centralized Management Daemon (mgmtd)
+-   Switched to libyang minimum version 2.1.80
+-   Memory footprint for BGP reduced drastically
+-   Add BGP `neighbor path-attribute treat-as-withdraw` command
+-   Add BGP ASN dot notation support (RFC 5396)
+-   Add BGP Software Version capability
+-   Allow BGP peering via 127.0.0.0/8
+-   Deprecate BGP `internet` community - this is the Cisco-specific community, which is never been RFC-defined and confusing
+-   Implement `match source-protocol` for BGP route maps
+-   Implement BGP Node Target extended communities (draft-ietf-idr-node-target-ext-comm)
+-   Implement Flex-Algo for SR-MPLS (RFC 9350)
+-   Add support for IS-IS `advertise-passive-only`
+-   Add IS-IS `affinity-map` support
+-   Add the `graceful-restart hello-delay` OSPFv2/OSPFv3 command
+-   Add the `ipv6 mld join` PIMv6 command
+-   Add `allow-ecmp x` RIP/RIPng command
+-   Add BFD support for RIP
+- For a full list of new features and bug fixes, please refer to:
+-   https://frrouting.org/release/
+
+* Fri Mar 10 2023 Jafar Al-Gharaibeh <jafar@atcorp.com> - 8.5
+- Major Highlights:
+-   Add support for per-VRF SRv6 SID
+-   Add BGP labeled-unicast Add-Path functionality
+-   Implementation of SNMP BGP4v2-MIB (IPv6 support) for better network management and monitoring
+-   Add BGP new command neighbor path-attribute discard
+-   Add BGP new command neighbor path-attribute treat-as-withdraw
+-   Implement L3 route-target auto/wildcard configuration
+-   Implement BGP ACCEPT_OWN Community Attribute (rfc7611)
+-   Implement The Accumulated IGP Metric Attribute for BGP (rfc7311)
+-   Implement graceful-shutdown command per neighbor
+-   Add BGP new command to configure TCP keepalives for a peer bgp tcp-keepalive
+-   Traffic control (TC) ZAPI implementation
+-   SRv6 uSID (microSID) implementation
+-   Start deprecating start-shell, ssh, and telnet commands due to security reasons
+-   Add VRRPv3 an ability to disable IPv4 pseudo-header checksum
+-   BFD integration for static routes
+-   Allow protocols to configure BFD sessions with automatic source selection
+-   Allow zero-length opaque LSAs for OSPF (rfc5250)
+-   Add ISIS new command set-overload-bit on-startup
+-   PIMv6 BSM support
+- For a full list of new features and bug fixes, please refer to:
+-   https://frrouting.org/release/
 
 * Tue Nov 01 2022 Jafar Al-Gharaibeh <jafar@atcorp.com> - 8.4
 - New BGP command (neighbor PEER soo) to configure SoO to prevent routing loops and suboptimal routing on dual-homed sites.

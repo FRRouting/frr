@@ -59,6 +59,7 @@ struct zebra_privs_t pimd_privs = {
 	.cap_num_p = array_size(_caps_p),
 	.cap_num_i = 0};
 
+/* clang-format off */
 static const struct frr_yang_module_info *const pimd_yang_modules[] = {
 	&frr_filter_info,
 	&frr_interface_info,
@@ -67,20 +68,23 @@ static const struct frr_yang_module_info *const pimd_yang_modules[] = {
 	&frr_routing_info,
 	&frr_pim_info,
 	&frr_pim_rp_info,
+	&frr_pim_candidate_info,
 	&frr_gmp_info,
 };
 
-FRR_DAEMON_INFO(pimd, PIM, .vty_port = PIMD_VTY_PORT,
+FRR_DAEMON_INFO(pimd, PIM,
+	.vty_port = PIMD_VTY_PORT,
+	.proghelp = "Implementation of the PIM routing protocol.",
 
-		.proghelp = "Implementation of the PIM routing protocol.",
+	.signals = pimd_signals,
+	.n_signals = 4 /* XXX array_size(pimd_signals) XXX*/,
 
-		.signals = pimd_signals,
-		.n_signals = 4 /* XXX array_size(pimd_signals) XXX*/,
+	.privs = &pimd_privs,
 
-		.privs = &pimd_privs, .yang_modules = pimd_yang_modules,
-		.n_yang_modules = array_size(pimd_yang_modules),
+	.yang_modules = pimd_yang_modules,
+	.n_yang_modules = array_size(pimd_yang_modules),
 );
-
+/* clang-format on */
 
 int main(int argc, char **argv, char **envp)
 {

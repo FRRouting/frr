@@ -98,7 +98,7 @@ static int lib_route_map_create(struct nb_cb_create_args *args)
 		/* NOTHING */
 		break;
 	case NB_EV_APPLY:
-		rm_name = yang_dnode_get_string(args->dnode, "./name");
+		rm_name = yang_dnode_get_string(args->dnode, "name");
 		rm = route_map_get(rm_name);
 		nb_running_set_entry(args->dnode, rm);
 		break;
@@ -167,8 +167,8 @@ static int lib_route_map_entry_create(struct nb_cb_create_args *args)
 		/* NOTHING */
 		break;
 	case NB_EV_APPLY:
-		sequence = yang_dnode_get_uint16(args->dnode, "./sequence");
-		action = yang_dnode_get_enum(args->dnode, "./action") == 0
+		sequence = yang_dnode_get_uint16(args->dnode, "sequence");
+		action = yang_dnode_get_enum(args->dnode, "action") == 0
 				 ? RMAP_PERMIT
 				 : RMAP_DENY;
 		rm = nb_running_get_entry(args->dnode, NULL, true);
@@ -353,6 +353,7 @@ static int
 lib_route_map_entry_exit_policy_modify(struct nb_cb_modify_args *args)
 {
 	struct route_map_index *rmi;
+	struct route_map *map;
 	int rm_action;
 	int policy;
 
@@ -363,7 +364,6 @@ lib_route_map_entry_exit_policy_modify(struct nb_cb_modify_args *args)
 		case 0: /* permit-or-deny */
 			break;
 		case 1: /* next */
-			/* FALLTHROUGH */
 		case 2: /* goto */
 			rm_action =
 				yang_dnode_get_enum(args->dnode, "../action");
@@ -382,6 +382,7 @@ lib_route_map_entry_exit_policy_modify(struct nb_cb_modify_args *args)
 		break;
 	case NB_EV_APPLY:
 		rmi = nb_running_get_entry(args->dnode, NULL, true);
+		map = rmi->map;
 		policy = yang_dnode_get_enum(args->dnode, NULL);
 
 		switch (policy) {
@@ -395,6 +396,14 @@ lib_route_map_entry_exit_policy_modify(struct nb_cb_modify_args *args)
 			rmi->exitpolicy = RMAP_GOTO;
 			break;
 		}
+
+		/* Execute event hook. */
+		if (route_map_master.event_hook) {
+			(*route_map_master.event_hook)(map->name);
+			route_map_notify_dependencies(map->name,
+						      RMAP_EVENT_CALL_ADDED);
+		}
+
 		break;
 	}
 
@@ -875,7 +884,7 @@ static int lib_route_map_entry_set_action_ipv4_address_modify(
 		yang_dnode_get_ipv4(&ia, args->dnode, NULL);
 		if (ia.s_addr == INADDR_ANY || !ipv4_unicast_valid(&ia))
 			return NB_ERR_VALIDATION;
-		/* FALLTHROUGH */
+		return NB_OK;
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
 		return NB_OK;
@@ -934,7 +943,7 @@ static int lib_route_map_entry_set_action_ipv6_address_modify(
 		yang_dnode_get_ipv6(&i6a, args->dnode, NULL);
 		if (!IN6_IS_ADDR_LINKLOCAL(&i6a))
 			return NB_ERR_VALIDATION;
-		/* FALLTHROUGH */
+		return NB_OK;
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
 		return NB_OK;
@@ -1536,6 +1545,48 @@ const struct frr_yang_module_info frr_route_map_info = {
 			}
 		},
 
+		{
+			.xpath = NULL,
+		},
+	}
+};
+
+const struct frr_yang_module_info frr_route_map_cli_info = {
+	.name = "frr-route-map",
+	.ignore_cfg_cbs = true,
+	.nodes = {
+		{
+			.xpath = "/frr-route-map:lib/route-map/optimization-disabled",
+			.cbs.cli_show = route_map_optimization_disabled_show,
+		},
+		{
+			.xpath = "/frr-route-map:lib/route-map/entry",
+			.cbs = {
+				.cli_cmp = route_map_instance_cmp,
+				.cli_show = route_map_instance_show,
+				.cli_show_end = route_map_instance_show_end,
+			}
+		},
+		{
+			.xpath = "/frr-route-map:lib/route-map/entry/description",
+			.cbs.cli_show = route_map_description_show,
+		},
+		{
+			.xpath = "/frr-route-map:lib/route-map/entry/call",
+			.cbs.cli_show = route_map_call_show,
+		},
+		{
+			.xpath = "/frr-route-map:lib/route-map/entry/exit-policy",
+			.cbs.cli_show = route_map_exit_policy_show,
+		},
+		{
+			.xpath = "/frr-route-map:lib/route-map/entry/match-condition",
+			.cbs.cli_show = route_map_condition_show,
+		},
+		{
+			.xpath = "/frr-route-map:lib/route-map/entry/set-action",
+			.cbs.cli_show = route_map_action_show,
+		},
 		{
 			.xpath = NULL,
 		},

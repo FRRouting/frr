@@ -33,15 +33,13 @@ DEFINE_HOOK(pathd_candidate_updated, (struct srte_candidate * candidate),
 DEFINE_HOOK(pathd_candidate_removed, (struct srte_candidate * candidate),
 	    (candidate));
 
-struct debug path_policy_debug;
+struct debug path_policy_debug = {
+	.conf = "debug pathd policy",
+	.desc = "Pathd policy",
+};
 
 #define PATH_POLICY_DEBUG(fmt, ...)                                            \
-	do {                                                                   \
-		if (DEBUG_FLAGS_CHECK(&path_policy_debug,                      \
-				      PATH_POLICY_DEBUG_BASIC))                \
-			DEBUGD(&path_policy_debug, "policy: " fmt,             \
-			       ##__VA_ARGS__);                                 \
-	} while (0)
+	DEBUGD(&path_policy_debug, "policy: " fmt, ##__VA_ARGS__)
 
 
 static void trigger_pathd_candidate_created(struct srte_candidate *candidate);
@@ -146,6 +144,16 @@ void srte_segment_list_del(struct srte_segment_list *segment_list)
 	}
 	RB_REMOVE(srte_segment_list_head, &srte_segment_lists, segment_list);
 	XFREE(MTYPE_PATH_SEGMENT_LIST, segment_list);
+}
+
+static void srte_segment_list_terminate(void)
+{
+	while (!RB_EMPTY(srte_segment_list_head, &srte_segment_lists)) {
+		struct srte_segment_list *sl = RB_ROOT(srte_segment_list_head,
+						       &srte_segment_lists);
+
+		srte_segment_list_del(sl);
+	}
 }
 
 /**
@@ -1271,16 +1279,15 @@ const char *srte_origin2str(enum srte_protocol_origin origin)
 	assert(!"Reached end of function we should never hit");
 }
 
-void path_policy_show_debugging(struct vty *vty)
-{
-	if (DEBUG_FLAGS_CHECK(&path_policy_debug, PATH_POLICY_DEBUG_BASIC))
-		vty_out(vty, "  Path policy debugging is on\n");
-}
-
 void pathd_shutdown(void)
 {
 	path_ted_teardown();
 	srte_clean_zebra();
+
+	srte_segment_list_terminate();
+
+	vrf_terminate();
+
 	frr_fini();
 }
 

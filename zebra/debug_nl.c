@@ -534,6 +534,12 @@ const char *rtm_rta2str(int type)
 		return "NH_ID";
 	case RTA_EXPIRES:
 		return "EXPIRES";
+	case RTA_VIA:
+		return "VIA";
+	case RTA_ENCAP_TYPE:
+		return "RTA_ENCAP_TYPE";
+	case RTA_ENCAP:
+		return "RTA_ENCAP";
 	default:
 		return "UNKNOWN";
 	}
@@ -983,6 +989,7 @@ next_rta:
 	zlog_debug("    rta [len=%d (payload=%zu) type=(%d) %s]", rta->rta_len,
 		   plen, rta_type, rta_type2str(rta_type));
 	switch (rta_type) {
+	case IFLA_IFNAME:
 	case IFLA_IFALIAS:
 		if (plen == 0) {
 			zlog_debug("      invalid length");

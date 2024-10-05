@@ -139,7 +139,8 @@ clone_counters_subgroup(struct counters_subgroup *subgroup,
 		if (counter != NULL) {
 			create_subgroup_counter(cloned_subgroup,
 						counter->counter_id,
-						counter->counter_name);
+						counter->counter_name,
+						counter->counter_name_json);
 		}
 	}
 
@@ -180,7 +181,8 @@ bool add_counters_subgroup(struct counters_group *group,
 }
 
 bool create_subgroup_counter(struct counters_subgroup *subgroup,
-			     uint32_t counter_id, const char *counter_name)
+			     uint32_t counter_id, const char *counter_name,
+			     const char *counter_name_json)
 {
 	if (subgroup == NULL) {
 		pcep_log(
@@ -212,7 +214,9 @@ bool create_subgroup_counter(struct counters_subgroup *subgroup,
 	counter->counter_id = counter_id;
 	strlcpy(counter->counter_name, counter_name,
 		sizeof(counter->counter_name));
-
+	if (counter_name_json)
+		strlcpy(counter->counter_name_json, counter_name_json,
+			sizeof(counter->counter_name_json));
 	subgroup->num_counters++;
 	subgroup->counters[counter->counter_id] = counter;
 

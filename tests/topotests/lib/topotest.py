@@ -24,13 +24,16 @@ import subprocess
 import sys
 import tempfile
 import time
+import logging
 from collections.abc import Mapping
 from copy import deepcopy
+from pathlib import Path
 
 import lib.topolog as topolog
 from lib.micronet_compat import Node
 from lib.topolog import logger
-from munet.base import Timeout
+from munet.base import commander, get_exec_path_host, Timeout
+from munet.testing.util import retry
 
 from lib import micronet
 
@@ -38,38 +41,94 @@ g_pytest_config = None
 
 
 def get_logs_path(rundir):
-    logspath = topolog.get_test_logdir()
+    logspath = topolog.get_test_logdir(module=True)
     return os.path.join(rundir, logspath)
 
 
 def gdb_core(obj, daemon, corefiles):
-    gdbcmds = """
-        info threads
-        bt full
-        disassemble
-        up
-        disassemble
-        up
-        disassemble
-        up
-        disassemble
-        up
-        disassemble
-        up
-        disassemble
+    gdbcmds = r"""
+set print elements 1024
+echo -------\n
+echo threads\n
+echo -------\n
+info threads
+echo ---------\n
+echo registers\n
+echo ---------\n
+info registers
+echo ---------\n
+echo backtrace\n
+echo ---------\n
+bt
     """
     gdbcmds = [["-ex", i.strip()] for i in gdbcmds.strip().split("\n")]
     gdbcmds = [item for sl in gdbcmds for item in sl]
 
     daemon_path = os.path.join(obj.daemondir, daemon)
-    backtrace = subprocess.check_output(
-        ["gdb", daemon_path, corefiles[0], "--batch"] + gdbcmds
+    p = subprocess.run(
+        ["gdb", daemon_path, corefiles[0], "--batch"] + gdbcmds,
+        encoding="utf-8",
+        errors="ignore",
+        capture_output=True,
     )
+    backtrace = p.stdout
+
+    #
+    # Grab the disassemble of top couple frames
+    #
+    m = re.search(r"#(\d+) .*assert.*", backtrace)
+    if not m:
+        m = re.search(r"#(\d+) .*abort.*", backtrace)
+    frames = re.findall(r"\n#(\d+) ", backtrace)
+    if m:
+        frstart = -1
+        astart = int(m.group(1)) + 1
+        ocount = f"-{int(frames[-1]) - astart + 1}"
+    else:
+        astart = -1
+        frstart = 0
+        ocount = ""
+        m = re.search(r"#(\d+) .*core_handler.*", backtrace)
+        if m:
+            frstart = int(m.group(1)) + 2
+            ocount = f"-{int(frames[-1]) - frstart + 1}"
+
     sys.stderr.write(
-        "\n%s: %s crashed. Core file found - Backtrace follows:\n" % (obj.name, daemon)
+        f"\nCORE FOUND: {obj.name}: {daemon} crashed: see log for backtrace and more\n"
     )
-    sys.stderr.write("%s" % backtrace)
-    return backtrace
+
+    gdbcmds = rf"""
+set print elements 1024
+echo -------------------------\n
+echo backtrace with local args\n
+echo -------------------------\n
+bt full {ocount}
+"""
+    if frstart >= 0:
+        gdbcmds += rf"""echo ---------------------------------------\n
+echo disassemble of failing funciton (guess)\n
+echo ---------------------------------------\n
+fr {frstart}
+disassemble /m
+"""
+
+    gdbcmds = [["-ex", i.strip()] for i in gdbcmds.strip().split("\n")]
+    gdbcmds = [item for sl in gdbcmds for item in sl]
+
+    daemon_path = os.path.join(obj.daemondir, daemon)
+    p = subprocess.run(
+        ["gdb", daemon_path, corefiles[0], "-q", "--batch"] + gdbcmds,
+        encoding="utf-8",
+        errors="ignore",
+        capture_output=True,
+    )
+    btdump = p.stdout
+
+    # sys.stderr.write(
+    #     "\n%s: %s crashed. Core file found - Backtrace follows:\n" % (obj.name, daemon)
+    # )
+
+    return backtrace + btdump
 
 
 class json_cmp_result(object):
@@ -97,7 +156,7 @@ class json_cmp_result(object):
         )
 
 
-def gen_json_diff_report(d1, d2, exact=False, path="> $", acc=(0, "")):
+def gen_json_diff_report(output, expected, exact=False, path="> $", acc=(0, "")):
     """
     Internal workhorse which compares two JSON data structures and generates an error report suited to be read by a human eye.
     """
@@ -145,60 +204,62 @@ def gen_json_diff_report(d1, d2, exact=False, path="> $", acc=(0, "")):
     def has_errors(other_acc):
         return other_acc[0] > 0
 
-    if d2 == "*" or (
-        not isinstance(d1, (list, dict))
-        and not isinstance(d2, (list, dict))
-        and d1 == d2
+    if expected == "*" or (
+        not isinstance(output, (list, dict))
+        and not isinstance(expected, (list, dict))
+        and output == expected
     ):
         return acc
     elif (
-        not isinstance(d1, (list, dict))
-        and not isinstance(d2, (list, dict))
-        and d1 != d2
+        not isinstance(output, (list, dict))
+        and not isinstance(expected, (list, dict))
+        and output != expected
     ):
         acc = add_error(
             acc,
-            "d1 has element with value '{}' but in d2 it has value '{}'".format(d1, d2),
+            "output has element with value '{}' but in expected it has value '{}'".format(
+                output, expected
+            ),
         )
     elif (
-        isinstance(d1, list)
-        and isinstance(d2, list)
-        and ((len(d2) > 0 and d2[0] == "__ordered__") or exact)
+        isinstance(output, list)
+        and isinstance(expected, list)
+        and ((len(expected) > 0 and expected[0] == "__ordered__") or exact)
     ):
         if not exact:
-            del d2[0]
-        if len(d1) != len(d2):
+            del expected[0]
+        if len(output) != len(expected):
             acc = add_error(
                 acc,
-                "d1 has Array of length {} but in d2 it is of length {}".format(
-                    len(d1), len(d2)
+                "output has Array of length {} but in expected it is of length {}".format(
+                    len(output), len(expected)
                 ),
             )
         else:
-            for idx, v1, v2 in zip(range(0, len(d1)), d1, d2):
+            for idx, v1, v2 in zip(range(0, len(output)), output, expected):
                 acc = merge_errors(
                     acc, gen_json_diff_report(v1, v2, exact=exact, path=add_idx(idx))
                 )
-    elif isinstance(d1, list) and isinstance(d2, list):
-        if len(d1) < len(d2):
+    elif isinstance(output, list) and isinstance(expected, list):
+        if len(output) < len(expected):
             acc = add_error(
                 acc,
-                "d1 has Array of length {} but in d2 it is of length {}".format(
-                    len(d1), len(d2)
+                "output has Array of length {} but in expected it is of length {}".format(
+                    len(output), len(expected)
                 ),
             )
         else:
-            for idx2, v2 in zip(range(0, len(d2)), d2):
+            for idx2, v2 in zip(range(0, len(expected)), expected):
                 found_match = False
                 closest_diff = None
                 closest_idx = None
-                for idx1, v1 in zip(range(0, len(d1)), d1):
+                for idx1, v1 in zip(range(0, len(output)), output):
                     tmp_v1 = deepcopy(v1)
                     tmp_v2 = deepcopy(v2)
                     tmp_diff = gen_json_diff_report(tmp_v1, tmp_v2, path=add_idx(idx1))
                     if not has_errors(tmp_diff):
                         found_match = True
-                        del d1[idx1]
+                        del output[idx1]
                         break
                     elif not closest_diff or get_errors_n(tmp_diff) < get_errors_n(
                         closest_diff
@@ -212,50 +273,62 @@ def gen_json_diff_report(d1, d2, exact=False, path="> $", acc=(0, "")):
                     acc = add_error(
                         acc,
                         (
-                            "d2 has the following element at index {} which is not present in d1: "
-                            + "\n\n{}\n\n\tClosest match in d1 is at index {} with the following errors: {}"
+                            "expected has the following element at index {} which is not present in output: "
+                            + "\n\n{}\n\n\tClosest match in output is at index {} with the following errors: {}"
                         ).format(idx2, dump_json(v2), closest_idx, sub_error),
                     )
                 if not found_match and not isinstance(v2, (list, dict)):
                     acc = add_error(
                         acc,
-                        "d2 has the following element at index {} which is not present in d1: {}".format(
+                        "expected has the following element at index {} which is not present in output: {}".format(
                             idx2, dump_json(v2)
                         ),
                     )
-    elif isinstance(d1, dict) and isinstance(d2, dict) and exact:
-        invalid_keys_d1 = [k for k in d1.keys() if k not in d2.keys()]
-        invalid_keys_d2 = [k for k in d2.keys() if k not in d1.keys()]
+    elif isinstance(output, dict) and isinstance(expected, dict) and exact:
+        invalid_keys_d1 = [k for k in output.keys() if k not in expected.keys()]
+        invalid_keys_d2 = [k for k in expected.keys() if k not in output.keys()]
         for k in invalid_keys_d1:
-            acc = add_error(acc, "d1 has key '{}' which is not present in d2".format(k))
+            acc = add_error(
+                acc, "output has key '{}' which is not present in expected".format(k)
+            )
         for k in invalid_keys_d2:
-            acc = add_error(acc, "d2 has key '{}' which is not present in d1".format(k))
-        valid_keys_intersection = [k for k in d1.keys() if k in d2.keys()]
+            acc = add_error(
+                acc, "expected has key '{}' which is not present in output".format(k)
+            )
+        valid_keys_intersection = [k for k in output.keys() if k in expected.keys()]
         for k in valid_keys_intersection:
             acc = merge_errors(
-                acc, gen_json_diff_report(d1[k], d2[k], exact=exact, path=add_key(k))
+                acc,
+                gen_json_diff_report(
+                    output[k], expected[k], exact=exact, path=add_key(k)
+                ),
             )
-    elif isinstance(d1, dict) and isinstance(d2, dict):
-        none_keys = [k for k, v in d2.items() if v == None]
-        none_keys_present = [k for k in d1.keys() if k in none_keys]
+    elif isinstance(output, dict) and isinstance(expected, dict):
+        none_keys = [k for k, v in expected.items() if v == None]
+        none_keys_present = [k for k in output.keys() if k in none_keys]
         for k in none_keys_present:
             acc = add_error(
-                acc, "d1 has key '{}' which is not supposed to be present".format(k)
+                acc, "output has key '{}' which is not supposed to be present".format(k)
             )
-        keys = [k for k, v in d2.items() if v != None]
-        invalid_keys_intersection = [k for k in keys if k not in d1.keys()]
+        keys = [k for k, v in expected.items() if v != None]
+        invalid_keys_intersection = [k for k in keys if k not in output.keys()]
         for k in invalid_keys_intersection:
-            acc = add_error(acc, "d2 has key '{}' which is not present in d1".format(k))
-        valid_keys_intersection = [k for k in keys if k in d1.keys()]
+            acc = add_error(
+                acc, "expected has key '{}' which is not present in output".format(k)
+            )
+        valid_keys_intersection = [k for k in keys if k in output.keys()]
         for k in valid_keys_intersection:
             acc = merge_errors(
-                acc, gen_json_diff_report(d1[k], d2[k], exact=exact, path=add_key(k))
+                acc,
+                gen_json_diff_report(
+                    output[k], expected[k], exact=exact, path=add_key(k)
+                ),
             )
     else:
         acc = add_error(
             acc,
-            "d1 has element of type '{}' but the corresponding element in d2 is of type '{}'".format(
-                json_type(d1), json_type(d2)
+            "output has element of type '{}' but the corresponding element in expected is of type '{}'".format(
+                json_type(output), json_type(expected)
             ),
             points=2,
         )
@@ -263,29 +336,31 @@ def gen_json_diff_report(d1, d2, exact=False, path="> $", acc=(0, "")):
     return acc
 
 
-def json_cmp(d1, d2, exact=False):
+def json_cmp(output, expected, exact=False):
     """
     JSON compare function. Receives two parameters:
-    * `d1`: parsed JSON data structure
-    * `d2`: parsed JSON data structure
+    * `output`: parsed JSON data structure from outputed vtysh command
+    * `expected``: parsed JSON data structure from what is expected to be seen
 
-    Returns 'None' when all JSON Object keys and all Array elements of d2 have a match
-    in d1, i.e., when d2 is a "subset" of d1 without honoring any order. Otherwise an
+    Returns 'None' when all JSON Object keys and all Array elements of expected have a match
+    in output, i.e., when expected is a "subset" of output without honoring any order. Otherwise an
     error report is generated and wrapped in a 'json_cmp_result()'. There are special
     parameters and notations explained below which can be used to cover rather unusual
     cases:
 
-    * when 'exact is set to 'True' then d1 and d2 are tested for equality (including
+    * when 'exact is set to 'True' then output and expected are tested for equality (including
       order within JSON Arrays)
     * using 'null' (or 'None' in Python) as JSON Object value is checking for key
-      absence in d1
-    * using '*' as JSON Object value or Array value is checking for presence in d1
+      absence in output
+    * using '*' as JSON Object value or Array value is checking for presence in output
       without checking the values
-    * using '__ordered__' as first element in a JSON Array in d2 will also check the
-      order when it is compared to an Array in d1
+    * using '__ordered__' as first element in a JSON Array in expected will also check the
+      order when it is compared to an Array in output
     """
 
-    (errors_n, errors) = gen_json_diff_report(deepcopy(d1), deepcopy(d2), exact=exact)
+    (errors_n, errors) = gen_json_diff_report(
+        deepcopy(output), deepcopy(expected), exact=exact
+    )
 
     if errors_n > 0:
         result = json_cmp_result()
@@ -321,6 +396,9 @@ def run_and_expect(func, what, count=20, wait=3):
     waiting `wait` seconds between tries. By default it tries 20 times with
     3 seconds delay between tries.
 
+    Changing default count/wait values, please change them below also for
+    `minimum_wait`, and `minimum_count`.
+
     Returns (True, func-return) on success or
     (False, func-return) on failure.
 
@@ -339,13 +417,18 @@ def run_and_expect(func, what, count=20, wait=3):
 
     # Just a safety-check to avoid running topotests with very
     # small wait/count arguments.
+    # If too low count/wait values are defined, override them
+    # with the minimum values.
+    minimum_count = 20
+    minimum_wait = 3
+    minimum_wait_time = 15  # The overall minimum seconds for the test to wait
     wait_time = wait * count
-    if wait_time < 5:
-        assert (
-            wait_time >= 5
-        ), "Waiting time is too small (count={}, wait={}), adjust timer values".format(
-            count, wait
+    if wait_time < minimum_wait_time:
+        logger.warning(
+            f"Waiting time is too small (count={count}, wait={wait}), using default values (count={minimum_count}, wait={minimum_wait})"
         )
+        count = minimum_count
+        wait = minimum_wait
 
     logger.debug(
         "'{}' polling started (interval {} secs, maximum {} tries)".format(
@@ -524,6 +607,30 @@ def is_linux():
 
     if os.uname()[0] == "Linux":
         return True
+    return False
+
+
+def iproute2_is_json_capable():
+    """
+    Checks if the iproute2 version installed on the system is capable of
+    handling JSON outputss
+
+    Returns True if capability can be detected, returns False otherwise.
+    """
+    if is_linux():
+        try:
+            subp = subprocess.Popen(
+                ["ip", "-json", "route", "show"],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                stdin=subprocess.PIPE,
+            )
+            iproute2_err = subp.communicate()[1].splitlines()[0].split()[0]
+
+            if iproute2_err != "Error:":
+                return True
+        except Exception:
+            pass
     return False
 
 
@@ -988,7 +1095,7 @@ def checkAddressSanitizerError(output, router, component, logdir=""):
         )
         if addressSanitizerLog:
             # Find Calling Test. Could be multiple steps back
-            testframe = sys._current_frames().values()[0]
+            testframe = list(sys._current_frames().values())[0]
             level = 0
             while level < 10:
                 test = os.path.splitext(
@@ -1100,7 +1207,7 @@ def _sysctl_atleast(commander, variable, min_value):
         else:
             valstr = str(min_value)
         logger.debug("Increasing sysctl %s from %s to %s", variable, cur_val, valstr)
-        commander.cmd_raises('sysctl -w {}="{}"\n'.format(variable, valstr))
+        commander.cmd_raises('sysctl -w {}="{}"'.format(variable, valstr))
 
 
 def _sysctl_assure(commander, variable, value):
@@ -1137,7 +1244,9 @@ def _sysctl_assure(commander, variable, value):
 def sysctl_atleast(commander, variable, min_value, raises=False):
     try:
         if commander is None:
-            commander = micronet.Commander("topotest")
+            logger = logging.getLogger("topotest")
+            commander = micronet.Commander("sysctl", logger=logger)
+
         return _sysctl_atleast(commander, variable, min_value)
     except subprocess.CalledProcessError as error:
         logger.warning(
@@ -1153,7 +1262,8 @@ def sysctl_atleast(commander, variable, min_value, raises=False):
 def sysctl_assure(commander, variable, value, raises=False):
     try:
         if commander is None:
-            commander = micronet.Commander("topotest")
+            logger = logging.getLogger("topotest")
+            commander = micronet.Commander("sysctl", logger=logger)
         return _sysctl_assure(commander, variable, value)
     except subprocess.CalledProcessError as error:
         logger.warning(
@@ -1218,6 +1328,8 @@ def fix_netns_limits(ns):
 
     sysctl_assure(ns, "net.ipv4.conf.all.ignore_routes_with_linkdown", 1)
     sysctl_assure(ns, "net.ipv6.conf.all.ignore_routes_with_linkdown", 1)
+    sysctl_assure(ns, "net.ipv4.conf.default.ignore_routes_with_linkdown", 1)
+    sysctl_assure(ns, "net.ipv6.conf.default.ignore_routes_with_linkdown", 1)
 
     # igmp
     sysctl_atleast(ns, "net.ipv4.igmp_max_memberships", 1000)
@@ -1287,6 +1399,8 @@ def setup_node_tmpdir(logdir, name):
 class Router(Node):
     "A Node with IPv4/IPv6 forwarding enabled"
 
+    gdb_emacs_router = None
+
     def __init__(self, name, *posargs, **params):
         # Backward compatibility:
         #   Load configuration defaults like topogen.
@@ -1304,6 +1418,8 @@ class Router(Node):
         )
 
         self.perf_daemons = {}
+        self.rr_daemons = {}
+        self.valgrind_gdb_daemons = {}
 
         # If this topology is using old API and doesn't have logdir
         # specified, then attempt to generate an unique logdir.
@@ -1322,7 +1438,7 @@ class Router(Node):
         self.daemondir = None
         self.hasmpls = False
         self.routertype = "frr"
-        self.unified_config = None
+        self.unified_config = False
         self.daemons = {
             "zebra": 0,
             "ripd": 0,
@@ -1344,6 +1460,8 @@ class Router(Node):
             "pathd": 0,
             "snmpd": 0,
             "mgmtd": 0,
+            "snmptrapd": 0,
+            "fpm_listener": 0,
         }
         self.daemons_options = {"zebra": ""}
         self.reportCores = True
@@ -1440,7 +1558,7 @@ class Router(Node):
                 pass
         return ret
 
-    def stopRouter(self, assertOnError=True, minErrorVersion="5.1"):
+    def stopRouter(self, assertOnError=True):
         # Stop Running FRR Daemons
         running = self.listDaemons()
         if not running:
@@ -1469,26 +1587,24 @@ class Router(Node):
                 if not running:
                     break
 
-        if not running:
-            return ""
+        if running:
+            logger.warning(
+                "%s: sending SIGBUS to: %s",
+                self.name,
+                ", ".join([x[0] for x in running]),
+            )
+            for name, pid in running:
+                pidfile = "/var/run/{}/{}.pid".format(self.routertype, name)
+                logger.info("%s: killing %s", self.name, name)
+                self.cmd("kill -SIGBUS %d" % pid)
+                self.cmd("rm -- " + pidfile)
 
-        logger.warning(
-            "%s: sending SIGBUS to: %s", self.name, ", ".join([x[0] for x in running])
-        )
-        for name, pid in running:
-            pidfile = "/var/run/{}/{}.pid".format(self.routertype, name)
-            logger.info("%s: killing %s", self.name, name)
-            self.cmd("kill -SIGBUS %d" % pid)
-            self.cmd("rm -- " + pidfile)
-
-        sleep(
-            0.5, "%s: waiting for daemons to exit/core after initial SIGBUS" % self.name
-        )
+            sleep(
+                0.5,
+                "%s: waiting for daemons to exit/core after initial SIGBUS" % self.name,
+            )
 
         errors = self.checkRouterCores(reportOnce=True)
-        if self.checkRouterVersion("<", minErrorVersion):
-            # ignore errors in old versions
-            errors = ""
         if assertOnError and (errors is not None) and len(errors) > 0:
             assert "Errors found - details follow:" == 0, errors
         return errors
@@ -1526,6 +1642,11 @@ class Router(Node):
         """
 
         # Unfortunately this API allowsfor source to not exist for any and all routers.
+        source_was_none = source is None
+        if source_was_none:
+            source = f"{daemon}.conf"
+
+        # "" to avoid loading a default config which is present in router dir
         if source:
             head, tail = os.path.split(source)
             if not head and not self.path_exists(tail):
@@ -1540,24 +1661,46 @@ class Router(Node):
         # print "Daemons before:", self.daemons
         if daemon in self.daemons.keys() or daemon == "frr":
             if daemon == "frr":
-                self.unified_config = 1
+                self.unified_config = True
             else:
                 self.daemons[daemon] = 1
             if param is not None:
                 self.daemons_options[daemon] = param
             conf_file = "/etc/{}/{}.conf".format(self.routertype, daemon)
-            if source is None or not os.path.exists(source):
+            if source and not os.path.exists(source):
+                logger.warning(
+                    "missing config '%s' for '%s' creating empty file '%s'",
+                    self.name,
+                    source,
+                    conf_file,
+                )
                 if daemon == "frr" or not self.unified_config:
                     self.cmd_raises("rm -f " + conf_file)
                     self.cmd_raises("touch " + conf_file)
-            else:
+                    self.cmd_raises(
+                        "chown {0}:{0} {1}".format(self.routertype, conf_file)
+                    )
+                    self.cmd_raises("chmod 664 {}".format(conf_file))
+            elif source:
                 # copy zebra.conf to mgmtd folder, which can be used during startup
-                if daemon == "zebra":
+                if daemon == "zebra" and not self.unified_config:
                     conf_file_mgmt = "/etc/{}/{}.conf".format(self.routertype, "mgmtd")
+                    logger.debug(
+                        "copying '%s' as '%s' on '%s'",
+                        source,
+                        conf_file_mgmt,
+                        self.name,
+                    )
                     self.cmd_raises("cp {} {}".format(source, conf_file_mgmt))
-                self.cmd_raises("cp {} {}".format(source, conf_file))
+                    self.cmd_raises(
+                        "chown {0}:{0} {1}".format(self.routertype, conf_file_mgmt)
+                    )
+                    self.cmd_raises("chmod 664 {}".format(conf_file_mgmt))
 
-            if not self.unified_config or daemon == "frr":
+                logger.debug(
+                    "copying '%s' as '%s' on '%s'", source, conf_file, self.name
+                )
+                self.cmd_raises("cp {} {}".format(source, conf_file))
                 self.cmd_raises("chown {0}:{0} {1}".format(self.routertype, conf_file))
                 self.cmd_raises("chmod 664 {}".format(conf_file))
 
@@ -1584,7 +1727,8 @@ class Router(Node):
 
         else:
             logger.warning("No daemon {} known".format(daemon))
-        # print "Daemons after:", self.daemons
+
+        return source if os.path.exists(source) else ""
 
     def runInWindow(self, cmd, title=None):
         return self.run_in_window(cmd, title)
@@ -1609,8 +1753,6 @@ class Router(Node):
         # TODO remove the following lines after all tests are migrated to Topogen.
         # Try to find relevant old logfiles in /tmp and delete them
         map(os.remove, glob.glob("{}/{}/*.log".format(self.logdir, self.name)))
-        # Remove old core files
-        map(os.remove, glob.glob("{}/{}/*.dmp".format(self.logdir, self.name)))
         # Remove IP addresses from OS first - we have them in zebra.conf
         self.removeIPs()
         # If ldp is used, check for LDP to be compiled and Linux Kernel to be 4.5 or higher
@@ -1683,16 +1825,27 @@ class Router(Node):
         return self.getLog("out", daemon)
 
     def getLog(self, log, daemon):
-        return self.cmd("cat {}/{}/{}.{}".format(self.logdir, self.name, daemon, log))
+        filename = "{}/{}/{}.{}".format(self.logdir, self.name, daemon, log)
+        log = ""
+        with open(filename) as file:
+            log = file.read()
+        return log
 
     def startRouterDaemons(self, daemons=None, tgen=None):
         "Starts FRR daemons for this router."
 
         asan_abort = bool(g_pytest_config.option.asan_abort)
+        cov_option = bool(g_pytest_config.option.cov_topotest)
+        cov_dir = Path(g_pytest_config.option.rundir) / "gcda"
         gdb_breakpoints = g_pytest_config.get_option_list("--gdb-breakpoints")
         gdb_daemons = g_pytest_config.get_option_list("--gdb-daemons")
         gdb_routers = g_pytest_config.get_option_list("--gdb-routers")
+        gdb_use_emacs = bool(g_pytest_config.option.gdb_use_emacs)
+        rr_daemons = g_pytest_config.get_option_list("--rr-daemons")
+        rr_routers = g_pytest_config.get_option_list("--rr-routers")
+        rr_options = g_pytest_config.get_option("--rr-options", "")
         valgrind_extra = bool(g_pytest_config.option.valgrind_extra)
+        valgrind_leak_kinds = g_pytest_config.option.valgrind_leak_kinds
         valgrind_memleaks = bool(g_pytest_config.option.valgrind_memleaks)
         strace_daemons = g_pytest_config.get_option_list("--strace-daemons")
 
@@ -1716,13 +1869,6 @@ class Router(Node):
 
         # Re-enable to allow for report per run
         self.reportCores = True
-
-        # XXX: glue code forward ported from removed function.
-        if self.version is None:
-            self.version = self.cmd(
-                os.path.join(self.daemondir, "bgpd") + " -v"
-            ).split()[2]
-            logger.info("{}: running version: {}".format(self.name, self.version))
 
         perfds = {}
         perf_options = g_pytest_config.get_option("--perf-options", "-g")
@@ -1768,14 +1914,36 @@ class Router(Node):
             # do not since apparently presence of the pidfile impacts BGP GR
             self.cmd_status("rm -f {0}.pid {0}.vty".format(runbase))
 
+            def do_gdb_or_rr(gdb):
+                routers = gdb_routers if gdb else rr_routers
+                daemons = gdb_daemons if gdb else rr_daemons
+                return (
+                    (routers or daemons)
+                    and (not routers or self.name in routers or "all" in routers)
+                    and (not daemons or daemon in daemons or "all" in daemons)
+                )
+
             rediropt = " > {0}.out 2> {0}.err".format(daemon)
-            if daemon == "snmpd":
+            if daemon == "fpm_listener":
+                binary = "/usr/lib/frr/fpm_listener"
+                cmdenv = ""
+                cmdopt = "-d {}".format(daemon_opts)
+            elif daemon == "snmpd":
                 binary = "/usr/sbin/snmpd"
                 cmdenv = ""
                 cmdopt = "{} -C -c /etc/frr/snmpd.conf -p ".format(
                     daemon_opts
                 ) + "{}.pid -x /etc/frr/agentx".format(runbase)
                 # check_daemon_files.append(runbase + ".pid")
+            elif daemon == "snmptrapd":
+                binary = "/usr/sbin/snmptrapd"
+                cmdenv = ""
+                cmdopt = (
+                    "{} ".format(daemon_opts)
+                    + "-C -c /etc/{}/snmptrapd.conf".format(self.routertype)
+                    + " -p {}.pid".format(runbase)
+                    + " -LF 6-7 {}/{}/snmptrapd.log".format(self.logdir, self.name)
+                )
             else:
                 binary = os.path.join(self.daemondir, daemon)
                 check_daemon_files.extend([runbase + ".pid", runbase + ".vty"])
@@ -1787,6 +1955,10 @@ class Router(Node):
                     self.logdir, self.name, daemon
                 )
 
+                if cov_option:
+                    scount = os.environ["GCOV_PREFIX_STRIP"]
+                    cmdenv += f"GCOV_PREFIX_STRIP={scount} GCOV_PREFIX={cov_dir}"
+
                 if valgrind_memleaks:
                     this_dir = os.path.dirname(
                         os.path.abspath(os.path.realpath(__file__))
@@ -1794,13 +1966,23 @@ class Router(Node):
                     supp_file = os.path.abspath(
                         os.path.join(this_dir, "../../../tools/valgrind.supp")
                     )
-                    cmdenv += " /usr/bin/valgrind --num-callers=50 --log-file={1}/{2}.valgrind.{0}.%p --leak-check=full --suppressions={3}".format(
-                        daemon, self.logdir, self.name, supp_file
+
+                    valgrind_logbase = f"{self.logdir}/{self.name}.valgrind.{daemon}"
+                    if do_gdb_or_rr(True):
+                        cmdenv += " exec"
+                    cmdenv += (
+                        " /usr/bin/valgrind --num-callers=50"
+                        f" --log-file={valgrind_logbase}.%p"
+                        f" --leak-check=full --suppressions={supp_file}"
                     )
+                    if valgrind_leak_kinds:
+                        cmdenv += f" --show-leak-kinds={valgrind_leak_kinds}"
                     if valgrind_extra:
                         cmdenv += (
                             " --gen-suppressions=all --expensive-definedness-checks=yes"
                         )
+                    if do_gdb_or_rr(True):
+                        cmdenv += " --vgdb-error=0"
                 elif daemon in strace_daemons or "all" in strace_daemons:
                     cmdenv = "strace -f -D -o {1}/{2}.strace.{0} ".format(
                         daemon, self.logdir, self.name
@@ -1815,16 +1997,22 @@ class Router(Node):
                         tail_log_files.append(
                             "{}/{}/{}.log".format(self.logdir, self.name, daemon)
                         )
+
             if extra_opts:
                 cmdopt += " " + extra_opts
 
+            if do_gdb_or_rr(True) and do_gdb_or_rr(False):
+                logger.warning("cant' use gdb and rr at same time")
+
             if (
-                (gdb_routers or gdb_daemons)
-                and (
-                    not gdb_routers or self.name in gdb_routers or "all" in gdb_routers
-                )
-                and (not gdb_daemons or daemon in gdb_daemons or "all" in gdb_daemons)
-            ):
+                not gdb_use_emacs or Router.gdb_emacs_router or valgrind_memleaks
+            ) and do_gdb_or_rr(True):
+                if Router.gdb_emacs_router is not None:
+                    logger.warning(
+                        "--gdb-use-emacs can only run a single router and daemon, using"
+                        " new window"
+                    )
+
                 if daemon == "snmpd":
                     cmdopt += " -f "
 
@@ -1834,16 +2022,144 @@ class Router(Node):
                     gdbcmd += " -ex 'set breakpoint pending on'"
                 for bp in gdb_breakpoints:
                     gdbcmd += " -ex 'b {}'".format(bp)
-                gdbcmd += " -ex 'run {}'".format(cmdopt)
 
-                self.run_in_window(gdbcmd, daemon)
+                if not valgrind_memleaks:
+                    gdbcmd += " -ex 'run {}'".format(cmdopt)
+                    self.run_in_window(gdbcmd, daemon)
+
+                    logger.info(
+                        "%s: %s %s launched in gdb window",
+                        self,
+                        self.routertype,
+                        daemon,
+                    )
+
+                else:
+                    cmd = " ".join([cmdenv, binary, cmdopt])
+                    p = self.popen(cmd)
+                    self.valgrind_gdb_daemons[daemon] = p
+                    if p.poll() and p.returncode:
+                        self.logger.error(
+                            '%s: Failed to launch "%s" (%s) with perf using: %s',
+                            self,
+                            daemon,
+                            p.returncode,
+                            cmd,
+                        )
+                        assert False, "Faled to launch valgrind with gdb"
+                    logger.debug(
+                        "%s: %s %s started with perf", self, self.routertype, daemon
+                    )
+                    # Now read the erorr log file until we ae given launch priority
+                    timeout = Timeout(30)
+                    vpid = None
+                    for remaining in timeout:
+                        try:
+                            fname = f"{valgrind_logbase}.{p.pid}"
+                            logging.info("Checking %s for valgrind launch info", fname)
+                            o = open(fname, encoding="ascii").read()
+                        except FileNotFoundError:
+                            logging.info("%s not present yet", fname)
+                        else:
+                            m = re.search(r"target remote \| (.*vgdb) --pid=(\d+)", o)
+                            if m:
+                                vgdb_cmd = m.group(0)
+                                break
+                        time.sleep(1)
+                    else:
+                        assert False, "Faled to get launch info for valgrind with gdb"
+
+                    gdbcmd += f" -ex '{vgdb_cmd}'"
+                    gdbcmd += " -ex 'c'"
+                    self.run_in_window(gdbcmd, daemon)
+
+                    logger.info(
+                        "%s: %s %s launched in gdb window",
+                        self,
+                        self.routertype,
+                        daemon,
+                    )
+            elif gdb_use_emacs and do_gdb_or_rr(True):
+                assert Router.gdb_emacs_router is None
+                Router.gdb_emacs_router = self
+
+                assert not valgrind_memleaks, "vagrind gdb in emacs not supported yet"
+
+                if daemon == "snmpd":
+                    cmdopt += " -f "
+                cmdopt += rediropt
+
+                sudo_path = get_exec_path_host("sudo")
+                ecbin = [
+                    sudo_path,
+                    "-Eu",
+                    os.environ["SUDO_USER"],
+                    get_exec_path_host("emacsclient"),
+                ]
+                pre_cmd = self._get_pre_cmd(True, False, ns_only=True, root_level=True)
+                # why fail:? gdb -i=mi -iex='set debuginfod enabled off' {binary} "
+                gdbcmd = f"{sudo_path} {pre_cmd} gdb -i=mi {binary} "
+
+                commander.cmd_raises(
+                    ecbin
+                    + [
+                        "--eval",
+                        f'(gdb "{gdbcmd}"))',
+                    ]
+                )
+
+                elcheck = (
+                    '(ignore-errors (with-current-buffer "*gud-nsenter*"'
+                    " (and (string-match-p"
+                    ' "(gdb) "'
+                    " (buffer-substring-no-properties "
+                    '  (- (point-max) 10) (point-max))) "ready")))'
+                )
+
+                @retry(10)
+                def emacs_gdb_ready():
+                    check = commander.cmd_nostatus(ecbin + ["--eval", elcheck])
+                    return None if "ready" in check else False
+
+                emacs_gdb_ready()
+
+                # target gdb commands
+                cmd = "set breakpoint pending on"
+                self.cmd_raises(
+                    ecbin
+                    + [
+                        "--eval",
+                        f'(gud-gdb-run-command-fetch-lines "{cmd}" "*gud-gdb*")',
+                    ]
+                )
+                # gdb breakpoints
+                for bp in gdb_breakpoints:
+                    self.cmd_raises(
+                        ecbin
+                        + [
+                            "--eval",
+                            f'(gud-gdb-run-command-fetch-lines "br {bp}" "*gud-gdb*")',
+                        ]
+                    )
+
+                self.cmd_raises(
+                    ecbin
+                    + [
+                        "--eval",
+                        f'(gud-gdb-run-command-fetch-lines "run {cmdopt}" "*gud-gdb*")',
+                    ]
+                )
 
                 logger.info(
                     "%s: %s %s launched in gdb window", self, self.routertype, daemon
                 )
-            elif daemon in perfds and (self.name in perfds[daemon] or "all" in perfds[daemon]):
+            elif daemon in perfds and (
+                self.name in perfds[daemon] or "all" in perfds[daemon]
+            ):
                 cmdopt += rediropt
-                cmd = " ".join(["perf record {} --".format(perf_options), binary, cmdopt])
+                cmd = " ".join(
+                    ["perf record {} --".format(perf_options), binary, cmdopt]
+                )
                 p = self.popen(cmd)
                 self.perf_daemons[daemon] = p
                 if p.poll() and p.returncode:
@@ -1858,8 +2174,35 @@ class Router(Node):
                     logger.debug(
                         "%s: %s %s started with perf", self, self.routertype, daemon
                     )
+            elif do_gdb_or_rr(False):
+                cmdopt += rediropt
+                cmd = " ".join(
+                    [
+                        "rr record -o {} {} --".format(self.rundir / "rr", rr_options),
+                        binary,
+                        cmdopt,
+                    ]
+                )
+                p = self.popen(cmd)
+                self.rr_daemons[daemon] = p
+                if p.poll() and p.returncode:
+                    self.logger.error(
+                        '%s: Failed to launch "%s" (%s) with rr using: %s',
+                        self,
+                        daemon,
+                        p.returncode,
+                        cmd,
+                    )
+                else:
+                    logger.debug(
+                        "%s: %s %s started with rr", self, self.routertype, daemon
+                    )
             else:
-                if daemon != "snmpd":
+                if (
+                    daemon != "snmpd"
+                    and daemon != "snmptrapd"
+                    and daemon != "fpm_listener"
+                ):
                     cmdopt += " -d "
                 cmdopt += rediropt
 
@@ -1872,12 +2215,16 @@ class Router(Node):
                         daemon,
                         error.returncode,
                         error.cmd,
-                        '\n:stdout: "{}"'.format(error.stdout.strip())
-                        if error.stdout
-                        else "",
-                        '\n:stderr: "{}"'.format(error.stderr.strip())
-                        if error.stderr
-                        else "",
+                        (
+                            '\n:stdout: "{}"'.format(error.stdout.strip())
+                            if error.stdout
+                            else ""
+                        ),
+                        (
+                            '\n:stderr: "{}"'.format(error.stderr.strip())
+                            if error.stderr
+                            else ""
+                        ),
                     )
                 else:
                     logger.debug("%s: %s %s started", self, self.routertype, daemon)
@@ -1908,6 +2255,11 @@ class Router(Node):
             start_daemon("snmpd")
             while "snmpd" in daemons_list:
                 daemons_list.remove("snmpd")
+
+        if "fpm_listener" in daemons_list:
+            start_daemon("fpm_listener")
+            while "fpm_listener" in daemons_list:
+                daemons_list.remove("fpm_listener")
 
         # Now start all the other daemons
         for daemon in daemons_list:
@@ -1943,7 +2295,7 @@ class Router(Node):
                 tail_log_files.append("{}/{}/frr.log".format(self.logdir, self.name))
 
         for tailf in tail_log_files:
-            self.run_in_window("tail -f " + tailf, title=tailf, background=True)
+            self.run_in_window("tail -n10000 -F " + tailf, title=tailf, background=True)
 
         return ""
 
@@ -1960,9 +2312,7 @@ class Router(Node):
         rc, o, e = self.cmd_status("kill -0 " + str(pid), warn=False)
         return rc == 0 or "No such process" not in e
 
-    def killRouterDaemons(
-        self, daemons, wait=True, assertOnError=True, minErrorVersion="5.1"
-    ):
+    def killRouterDaemons(self, daemons, wait=True, assertOnError=True):
         # Kill Running FRR
         # Daemons(user specified daemon only) using SIGKILL
         rundaemons = self.cmd("ls -1 /var/run/%s/*.pid" % self.routertype)
@@ -2022,9 +2372,6 @@ class Router(Node):
                         self.cmd("rm -- {}".format(daemonpidfile))
                     if wait:
                         errors = self.checkRouterCores(reportOnce=True)
-                        if self.checkRouterVersion("<", minErrorVersion):
-                            # ignore errors in old versions
-                            errors = ""
                         if assertOnError and len(errors) > 0:
                             assert "Errors found - details follow:" == 0, errors
             else:
@@ -2049,8 +2396,7 @@ class Router(Node):
                     backtrace = gdb_core(self, daemon, corefiles)
                     traces = (
                         traces
-                        + "\n%s: %s crashed. Core file found - Backtrace follows:\n%s"
-                        % (self.name, daemon, backtrace)
+                        + f"\nCORE FOUND: {self.name}: {daemon} crashed. Backtrace follows:\n{backtrace}"
                     )
                     reportMade = True
                 elif reportLeaks:
@@ -2102,6 +2448,10 @@ class Router(Node):
 
         for daemon in self.daemons:
             if daemon == "snmpd":
+                continue
+            if daemon == "snmptrapd":
+                continue
+            if daemon == "fpm_listener":
                 continue
             if (self.daemons[daemon] == 1) and not (daemon in daemonsRunning):
                 sys.stderr.write("%s: Daemon %s not running\n" % (self.name, daemon))

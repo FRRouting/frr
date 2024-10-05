@@ -8,8 +8,10 @@
 # pylint: disable=protected-access
 """A module that defines objects for standalone use."""
 import asyncio
+import base64
 import errno
 import getpass
+import glob
 import ipaddress
 import logging
 import os
@@ -20,12 +22,16 @@ import socket
 import subprocess
 import time
 
+from pathlib import Path
+
 from . import cli
 from .base import BaseMunet
 from .base import Bridge
 from .base import Commander
+from .base import InterfaceMixin
 from .base import LinuxNamespace
 from .base import MunetError
+from .base import SharedNamespace
 from .base import Timeout
 from .base import _async_get_exec_path
 from .base import _get_exec_path
@@ -38,6 +44,7 @@ from .config import config_to_dict_with_key
 from .config import find_matching_net_config
 from .config import find_with_kv
 from .config import merge_kind_config
+from .watchlog import WatchLog
 
 
 class L3ContainerNotRunningError(MunetError):
@@ -125,6 +132,22 @@ def convert_ranges_to_bitmask(ranges):
             for b in range(x, y + 1):
                 bitmask |= 1 << b
     return bitmask
+
+
+class ExternalNetwork(SharedNamespace, InterfaceMixin):
+    """A network external to munet."""
+
+    def __init__(self, name=None, unet=None, logger=None, mtu=None, config=None):
+        """Create an external network."""
+        del logger  # avoid linter
+        del mtu  # avoid linter
+        # Do we want to use os.getpid() rather than unet.pid?
+        super().__init__(name, pid=unet.pid, nsflags=unet.nsflags, unet=unet)
+        self.config = config if config else {}
+
+    async def _async_delete(self):
+        self.logger.debug("%s: deleting", self)
+        await super()._async_delete()
 
 
 class L2Bridge(Bridge):
@@ -391,6 +414,10 @@ class NodeMixin:
 
     async def async_cleanup_cmd(self):
         """Run the configured cleanup commands for this node."""
+        if self.cleanup_called:
+            return
+        self.cleanup_called = True
+
         return await self._async_cleanup_cmd()
 
     def has_ready_cmd(self) -> bool:
@@ -430,14 +457,14 @@ class NodeMixin:
         outopt = outopt if outopt is not None else ""
         if outopt == "all" or self.name in outopt.split(","):
             outname = stdout.name if hasattr(stdout, "name") else stdout
-            self.run_in_window(f"tail -F {outname}", title=f"O:{self.name}")
+            self.run_in_window(f"tail -n+1 -F {outname}", title=f"O:{self.name}")
 
         if stderr:
             erropt = self.unet.cfgopt.getoption("--stderr")
             erropt = erropt if erropt is not None else ""
             if erropt == "all" or self.name in erropt.split(","):
                 errname = stderr.name if hasattr(stderr, "name") else stderr
-                self.run_in_window(f"tail -F {errname}", title=f"E:{self.name}")
+                self.run_in_window(f"tail -n+1 -F {errname}", title=f"E:{self.name}")
 
     def pytest_hook_open_shell(self):
         if not self.unet:
@@ -455,13 +482,18 @@ class NodeMixin:
 
             bps = self.unet.cfgopt.getoption("--gdb-breakpoints", "").split(",")
             for bp in bps:
-                gdbcmd += f" '-ex=b {bp}'"
+                if bp:
+                    gdbcmd += f" '-ex=b {bp}'"
 
-            cmds = self.config.get("gdb-run-cmd", [])
+            cmds = self.config.get("gdb-run-cmds", [])
             for cmd in cmds:
                 gdbcmd += f" '-ex={cmd}'"
 
-            self.run_in_window(gdbcmd)
+            self.run_in_window(gdbcmd, ns_only=True)
+
+            # We need somehow signal from the launched gdb that it has continued
+            # this is non-trivial so for now just wait a while. :/
+            time.sleep(5)
         elif should_gdb and use_emacs:
             gdbcmd = gdbcmd.replace("gdb ", "gdb -i=mi ")
             ecbin = self.get_exec_path("emacsclient")
@@ -545,17 +577,38 @@ class NodeMixin:
         await super()._async_delete()
 
 
+class HostnetNode(NodeMixin, LinuxNamespace):
+    """A node for running commands in the host network namespace."""
+
+    def __init__(self, name, pid=True, **kwargs):
+        if "net" in kwargs:
+            del kwargs["net"]
+        super().__init__(name, pid=pid, net=False, **kwargs)
+
+        self.logger.debug("%s: creating", self)
+
+        self.mgmt_ip = None
+        self.mgmt_ip6 = None
+        self.set_ns_cwd(self.rundir)
+
+        super().pytest_hook_open_shell()
+        self.logger.info("%s: created", self)
+
+    def get_ifname(self, netname):  # pylint: disable=useless-return
+        del netname
+        return None
+
+    async def _async_delete(self):
+        self.logger.debug("%s: deleting", self)
+        await super()._async_delete()
+
+
 class SSHRemote(NodeMixin, Commander):
     """SSHRemote a node representing an ssh connection to something."""
 
     def __init__(
         self,
         name,
-        server,
-        port=22,
-        user=None,
-        password=None,
-        idfile=None,
         **kwargs,
     ):
         super().__init__(name, **kwargs)
@@ -570,32 +623,33 @@ class SSHRemote(NodeMixin, Commander):
         self.mgmt_ip = None
         self.mgmt_ip6 = None
 
-        self.port = port
-
-        if user:
-            self.user = user
-        elif "SUDO_USER" in os.environ:
-            self.user = os.environ["SUDO_USER"]
-        else:
+        self.server = self.config["server"]
+        self.port = int(self.config.get("server-port", 22))
+        self.sudo_user = os.environ.get("SUDO_USER")
+        self.user = self.config.get("ssh-user")
+        if not self.user:
+            self.user = self.sudo_user
+        if not self.user:
             self.user = getpass.getuser()
-        self.password = password
-        self.idfile = idfile
-
-        self.server = f"{self.user}@{server}"
+        self.password = self.config.get("ssh-password")
+        self.idfile = self.config.get("ssh-identity-file")
+        self.use_host_network = None
 
         # Setup our base `pre-cmd` values
         #
         # We maybe should add environment variable transfer here in particular
         # MUNET_NODENAME. The problem is the user has to explicitly approve
         # of SendEnv variables.
-        self.__base_cmd = [
-            get_exec_path_host("sudo"),
-            "-E",
-            f"-u{self.user}",
-            get_exec_path_host("ssh"),
-        ]
-        if port != 22:
-            self.__base_cmd.append(f"-p{port}")
+        self.__base_cmd = []
+        if self.idfile and self.sudo_user:
+            self.__base_cmd += [
+                get_exec_path_host("sudo"),
+                "-E",
+                f"-u{self.sudo_user}",
+            ]
+        self.__base_cmd.append(get_exec_path_host("ssh"))
+        if self.port != 22:
+            self.__base_cmd.append(f"-p{self.port}")
         self.__base_cmd.append("-q")
         self.__base_cmd.append("-oStrictHostKeyChecking=no")
         self.__base_cmd.append("-oUserKnownHostsFile=/dev/null")
@@ -605,18 +659,34 @@ class SSHRemote(NodeMixin, Commander):
         # self.__base_cmd.append("-oSendVar='TEST'")
         self.__base_cmd_pty = list(self.__base_cmd)
         self.__base_cmd_pty.append("-t")
-        self.__base_cmd.append(self.server)
-        self.__base_cmd_pty.append(self.server)
+        server_str = f"{self.user}@{self.server}"
+        self.__base_cmd.append(server_str)
+        self.__base_cmd_pty.append(server_str)
         # self.set_pre_cmd(pre_cmd, pre_cmd_tty)
 
         self.logger.info("%s: created", self)
 
-    def has_ready_cmd(self) -> bool:
-        return bool(self.config.get("ready-cmd", "").strip())
-
     def _get_pre_cmd(self, use_str, use_pty, ns_only=False, **kwargs):
-        pre_cmd = []
-        if self.unet:
+        # None on first use, set after
+        if self.use_host_network is None:
+            # We have networks now so try and ping the server in the namespace
+            if not self.unet:
+                self.use_host_network = True
+            else:
+                rc, _, _ = self.unet.cmd_status(f"ping -w1 -c1 {self.server}")
+                if rc:
+                    self.use_host_network = True
+                else:
+                    self.use_host_network = False
+
+            if self.use_host_network:
+                self.logger.debug("Using host namespace for ssh connection")
+            else:
+                self.logger.debug("Using munet namespace for ssh connection")
+
+        if self.use_host_network:
+            pre_cmd = []
+        else:
             pre_cmd = self.unet._get_pre_cmd(False, use_pty, ns_only=False, **kwargs)
         if ns_only:
             return pre_cmd
@@ -664,6 +734,7 @@ class L3NodeMixin(NodeMixin):
         self.phycount = 0
         self.phy_odrivers = {}
         self.tapmacs = {}
+        self.watched_logs = {}
 
         self.intf_tc_count = 0
 
@@ -722,6 +793,26 @@ ff02::2\tip6-allrouters
             )
         if hasattr(self, "bind_mount"):
             self.bind_mount(hosts_file, "/etc/hosts")
+
+    def add_watch_log(self, path, watchfor_re=None):
+        """Add a WatchLog to this nodes watched logs.
+
+        Args:
+            path: If relative is relative to the nodes ``rundir``
+            watchfor_re: Regular expression to watch the log for and raise an exception
+                         if found.
+
+        Return:
+            The watching task if request or None otherwise.
+        """
+        path = Path(path)
+        if not path.is_absolute():
+            path = self.rundir.joinpath(path)
+
+        wl = WatchLog(path)
+        self.watched_logs[wl.path] = wl
+        task = wl.raise_if_match_task(watchfor_re) if watchfor_re else None
+        return task
 
     async def console(
         self,
@@ -938,8 +1029,31 @@ ff02::2\tip6-allrouters
         if hname in self.host_intfs:
             return
         self.host_intfs[hname] = lname
+
+        # See if this interace is missing and needs to be fixed
+        rc, o, _ = self.unet.rootcmd.cmd_status("ip -o link show")
+        m = re.search(rf"\d+:\s+(\S+):.*altname {re.escape(hname)}\W", o)
+        if m:
+            # need to rename
+            dname = m.group(1)
+            self.logger.info("Fixing misnamed %s to %s", dname, hname)
+            self.unet.rootcmd.cmd_status(
+                f"ip link property del dev {dname} altname {hname}"
+            )
+            self.unet.rootcmd.cmd_status(f"ip link set {dname} name {hname}")
+
+        # Make sure the interface is there.
+        self.unet.rootcmd.cmd_raises(f"ip -o link show {hname}")
         self.unet.rootcmd.cmd_nostatus(f"ip link set {hname} down ")
         self.unet.rootcmd.cmd_raises(f"ip link set {hname} netns {self.pid}")
+
+        # Wait for interface to show up in namespace
+        for retry in range(0, 10):
+            rc, o, _ = self.cmd_status(f"ip -o link show {hname}")
+            if not rc:
+                break
+            if retry > 0:
+                await asyncio.sleep(1)
         self.cmd_raises(f"ip link set {hname} name {lname}")
         if mtu:
             self.cmd_raises(f"ip link set {lname} mtu {mtu}")
@@ -949,7 +1063,11 @@ ff02::2\tip6-allrouters
         lname = self.host_intfs[hname]
         self.cmd_raises(f"ip link set {lname} down")
         self.cmd_raises(f"ip link set {lname} name {hname}")
-        self.cmd_raises(f"ip link set {hname} netns 1")
+        # We need to NOT run this command in the new pid namespace so that pid 1 is the
+        # root init process and so the interface gets returned to the root namespace
+        self.unet.rootcmd.cmd_raises(
+            f"nsenter -t {self.pid} -n ip link set netns 1 dev {hname}"
+        )
         del self.host_intfs[hname]
 
     async def add_phy_intf(self, devaddr, lname):
@@ -1019,12 +1137,13 @@ ff02::2\tip6-allrouters
                     "Physical PCI device %s already bound to vfio-pci", devaddr
                 )
                 return
+
             self.logger.info(
                 "Unbinding physical PCI device %s from driver %s", devaddr, driver
             )
             self.phy_odrivers[devaddr] = driver
             self.unet.rootcmd.cmd_raises(
-                f"echo {devaddr} > /sys/bus/pci/drivers/{driver}/unbind"
+                f"echo {devaddr} | timeout 10 tee /sys/bus/pci/drivers/{driver}/unbind"
             )
 
         # Add the device vendor and device id to vfio-pci in case it's the first time
@@ -1035,7 +1154,14 @@ ff02::2\tip6-allrouters
             f"echo {vendor} {devid} > /sys/bus/pci/drivers/vfio-pci/new_id", warn=False
         )
 
-        if not self.unet.rootcmd.path_exists(f"/sys/bus/pci/driver/vfio-pci/{devaddr}"):
+        for retry in range(0, 10):
+            if self.unet.rootcmd.path_exists(
+                f"/sys/bus/pci/drivers/vfio-pci/{devaddr}"
+            ):
+                break
+            if retry > 0:
+                await asyncio.sleep(1)
+
             # Bind to vfio-pci if wasn't added with new_id
             self.logger.info("Binding physical PCI device %s to vfio-pci", devaddr)
             ec, _, _ = self.unet.rootcmd.cmd_status(
@@ -1066,7 +1192,7 @@ ff02::2\tip6-allrouters
             "Unbinding physical PCI device %s from driver vfio-pci", devaddr
         )
         self.unet.rootcmd.cmd_status(
-            f"echo {devaddr} > /sys/bus/pci/drivers/vfio-pci/unbind"
+            f"echo {devaddr} | timeout 10 tee /sys/bus/pci/drivers/vfio-pci/unbind"
         )
 
         self.logger.info("Binding physical PCI device %s to driver %s", devaddr, driver)
@@ -1085,12 +1211,12 @@ ff02::2\tip6-allrouters
         for hname in list(self.host_intfs):
             await self.rem_host_intf(hname)
 
-        # remove any hostintf interfaces
-        for devaddr in list(self.phy_intfs):
-            await self.rem_phy_intf(devaddr)
-
         # delete the LinuxNamespace/InterfaceMixin
         await super()._async_delete()
+
+        # remove any hostintf interfaces, needs to come after normal exits
+        for devaddr in list(self.phy_intfs):
+            await self.rem_phy_intf(devaddr)
 
 
 class L3NamespaceNode(L3NodeMixin, LinuxNamespace):
@@ -1123,6 +1249,7 @@ class L3ContainerNode(L3NodeMixin, LinuxNamespace):
         assert self.container_image
 
         self.cmd_p = None
+        self.cmd_pid = None
         self.__base_cmd = []
         self.__base_cmd_pty = []
 
@@ -1393,7 +1520,13 @@ class L3ContainerNode(L3NodeMixin, LinuxNamespace):
             start_new_session=True,  # keeps main tty signals away from podman
         )
 
-        self.logger.debug("%s: async_popen => %s", self, self.cmd_p.pid)
+        # If our process is actually the child of an nsenter fetch its pid.
+        if self.nsenter_fork:
+            self.cmd_pid = await self.get_proc_child_pid(self.cmd_p)
+
+        self.logger.debug(
+            "%s: async_popen => %s (%s)", self, self.cmd_p.pid, self.cmd_pid
+        )
 
         self.pytest_hook_run_cmd(stdout, stderr)
 
@@ -1453,11 +1586,14 @@ class L3ContainerNode(L3NodeMixin, LinuxNamespace):
 
     async def async_cleanup_cmd(self):
         """Run the configured cleanup commands for this node."""
+        if self.cleanup_called:
+            return
         self.cleanup_called = True
 
         if "cleanup-cmd" not in self.config:
             return
 
+        # The opposite of other types, the container needs cmd_p running
         if not self.cmd_p:
             self.logger.warning("async_cleanup_cmd: container no longer running")
             return
@@ -1542,6 +1678,7 @@ class L3QemuVM(L3NodeMixin, LinuxNamespace):
         """Create a Container Node."""
         self.cont_exec_paths = {}
         self.launch_p = None
+        self.launch_pid = None
         self.qemu_config = config["qemu"]
         self.extra_mounts = []
         assert self.qemu_config
@@ -1569,7 +1706,15 @@ class L3QemuVM(L3NodeMixin, LinuxNamespace):
             rundir=os.path.join(self.rundir, self.name),
             configdir=self.unet.config_dirname,
         )
-        self.ssh_keyfile = self.qemu_config.get("sshkey")
+        self.ssh_keyfile = self.config.get("ssh-identity-file")
+        if not self.ssh_keyfile:
+            self.ssh_keyfile = self.qemu_config.get("sshkey")
+
+        self.ssh_user = self.config.get("ssh-user")
+        if not self.ssh_user:
+            self.ssh_user = self.qemu_config.get("sshuser", "root")
+
+        self.disk_created = False
 
     @property
     def is_vm(self):
@@ -1610,10 +1755,9 @@ class L3QemuVM(L3NodeMixin, LinuxNamespace):
         self.__base_cmd_pty = list(self.__base_cmd)
         self.__base_cmd_pty.append("-t")
 
-        user = self.qemu_config.get("sshuser", "root")
-        self.__base_cmd.append(f"{user}@{mgmt_ip}")
+        self.__base_cmd.append(f"{self.ssh_user}@{mgmt_ip}")
         self.__base_cmd.append("--")
-        self.__base_cmd_pty.append(f"{user}@{mgmt_ip}")
+        self.__base_cmd_pty.append(f"{self.ssh_user}@{mgmt_ip}")
         # self.__base_cmd_pty.append("--")
         return True
 
@@ -1740,15 +1884,15 @@ class L3QemuVM(L3NodeMixin, LinuxNamespace):
         if args:
             self.extra_mounts += args
 
-    async def run_cmd(self):
+    async def _run_cmd(self, cmd_node):
         """Run the configured commands for this node inside VM."""
         self.logger.debug(
             "[rundir %s exists %s]", self.rundir, os.path.exists(self.rundir)
         )
 
-        cmd = self.config.get("cmd", "").strip()
+        cmd = self.config.get(cmd_node, "").strip()
         if not cmd:
-            self.logger.debug("%s: no `cmd` to run", self)
+            self.logger.debug("%s: no `%s` to run", self, cmd_node)
             return None
 
         shell_cmd = self.config.get("shell", "/bin/bash")
@@ -1767,15 +1911,17 @@ class L3QemuVM(L3NodeMixin, LinuxNamespace):
             cmd += "\n"
 
             # Write a copy to the rundir
-            cmdpath = os.path.join(self.rundir, "cmd.shebang")
+            cmdpath = os.path.join(self.rundir, f"{cmd_node}.shebang")
             with open(cmdpath, mode="w+", encoding="utf-8") as cmdfile:
                 cmdfile.write(cmd)
             commander.cmd_raises(f"chmod 755 {cmdpath}")
 
             # Now write a copy inside the VM
-            self.conrepl.cmd_status("cat > /tmp/cmd.shebang << EOF\n" + cmd + "\nEOF")
-            self.conrepl.cmd_status("chmod 755 /tmp/cmd.shebang")
-            cmds = "/tmp/cmd.shebang"
+            self.conrepl.cmd_status(
+                f"cat > /tmp/{cmd_node}.shebang << EOF\n" + cmd + "\nEOF"
+            )
+            self.conrepl.cmd_status(f"chmod 755 /tmp/{cmd_node}.shebang")
+            cmds = f"/tmp/{cmd_node}.shebang"
         else:
             cmd = cmd.replace("%CONFIGDIR%", str(self.unet.config_dirname))
             cmd = cmd.replace("%RUNDIR%", str(self.rundir))
@@ -1813,20 +1959,30 @@ class L3QemuVM(L3NodeMixin, LinuxNamespace):
 
             # When run_command supports async_ arg we can use the above...
             self.cmd_p = now_proc(self.cmdrepl.run_command(cmds, timeout=120))
-
-            # stdout and err both combined into logfile from the spawned repl
-            stdout = os.path.join(self.rundir, "_cmdcon-log.txt")
-            self.pytest_hook_run_cmd(stdout, None)
         else:
             # If we only have a console we can't run in parallel, so run to completion
             self.cmd_p = now_proc(self.conrepl.run_command(cmds, timeout=120))
 
         return self.cmd_p
 
+    async def run_cmd(self):
+        if self.disk_created:
+            await self._run_cmd("initial-cmd")
+        await self._run_cmd("cmd")
+
+        # stdout and err both combined into logfile from the spawned repl
+        if self.cmdrepl:
+            stdout = os.path.join(self.rundir, "_cmdcon-log.txt")
+            self.pytest_hook_run_cmd(stdout, None)
+
     # InterfaceMixin override
     # We need a name unique in the shared namespace.
     def get_ns_ifname(self, ifname):
-        return self.name + ifname
+        ifname = self.name + ifname
+        ifname = re.sub("gigabitethernet", "GE", ifname, flags=re.I)
+        if len(ifname) >= 16:
+            ifname = ifname[0:7] + ifname[-8:]
+        return ifname
 
     async def add_host_intf(self, hname, lname, mtu=None):
         # L3QemuVM needs it's own add_host_intf for macvtap, We need to create the tap
@@ -1968,29 +2124,56 @@ class L3QemuVM(L3NodeMixin, LinuxNamespace):
                     con.cmd_raises(f"ip -6 route add default via {switch.ip6_address}")
         con.cmd_raises("ip link set lo up")
 
-        if self.unet.cfgopt.getoption("--coverage"):
-            con.cmd_raises("mount -t debugfs none /sys/kernel/debug")
+        # This is already mounted now
+        # if self.unet.cfgopt.getoption("--coverage"):
+        #     con.cmd_raises("mount -t debugfs none /sys/kernel/debug")
 
     async def gather_coverage_data(self):
         con = self.conrepl
+        gcda_root = "/sys/kernel/debug/gcov"
+        dest = "/tmp/gcov-data.tgz"
 
-        gcda = "/sys/kernel/debug/gcov"
-        tmpdir = con.cmd_raises("mktemp -d").strip()
-        dest = "/gcov-data.tgz"
-        con.cmd_raises(rf"find {gcda} -type d -exec mkdir -p {tmpdir}/{{}} \;")
-        con.cmd_raises(
-            rf"find {gcda} -name '*.gcda' -exec sh -c 'cat < $0 > {tmpdir}/$0' {{}} \;"
-        )
-        con.cmd_raises(
-            rf"find {gcda} -name '*.gcno' -exec sh -c 'cp -d $0 {tmpdir}/$0' {{}} \;"
-        )
-        con.cmd_raises(rf"tar cf - -C {tmpdir} sys | gzip -c > {dest}")
-        con.cmd_raises(rf"rm -rf {tmpdir}")
-        self.logger.info("Saved coverage data in VM at %s", dest)
+        if gcda_root != "/sys/kernel/debug/gcov":
+            con.cmd_raises(
+                rf"cd {gcda_root} && find * -name '*.gc??' "
+                "| tar -cf - -T - | gzip -c > {dest}"
+            )
+        else:
+            # Some tars dont try and read 0 length files so we need to copy them.
+            tmpdir = con.cmd_raises("mktemp -d").strip()
+            con.cmd_raises(
+                rf"cd {gcda_root} && find -type d -exec mkdir -p {tmpdir}/{{}} \;"
+            )
+            con.cmd_raises(
+                rf"cd {gcda_root} && "
+                rf"find -name '*.gcda' -exec sh -c 'cat < $0 > {tmpdir}/$0' {{}} \;"
+            )
+            con.cmd_raises(
+                rf"cd {gcda_root} && "
+                rf"find -name '*.gcno' -exec sh -c 'cp -d $0 {tmpdir}/$0' {{}} \;"
+            )
+            con.cmd_raises(
+                rf"cd {tmpdir} && "
+                rf"find * -name '*.gc??' | tar -cf - -T - | gzip -c > {dest}"
+            )
+            con.cmd_raises(rf"rm -rf {tmpdir}")
+
+        self.logger.debug("Saved coverage data in VM at %s", dest)
+        ldest = os.path.join(self.rundir, "gcov-data.tgz")
         if self.use_ssh:
-            ldest = os.path.join(self.rundir, "gcov-data.tgz")
             self.cmd_raises(["/bin/cat", dest], stdout=open(ldest, "wb"))
-            self.logger.info("Saved coverage data on host at %s", ldest)
+            self.logger.debug("Saved coverage data on host at %s", ldest)
+        else:
+            output = con.cmd_raises(rf"base64 {dest}")
+            with open(ldest, "wb") as f:
+                f.write(base64.b64decode(output))
+            self.logger.debug("Saved coverage data on host at %s", ldest)
+        self.logger.info("Extracting coverage for %s into %s", self.name, ldest)
+
+        # We need to place the gcda files where munet expects to find them
+        gcdadir = Path(os.environ["GCOV_PREFIX"]) / self.name
+        self.unet.cmd_raises_nsonly(f"mkdir -p {gcdadir}")
+        self.unet.cmd_raises_nsonly(f"tar -C {gcdadir} -xzf {ldest}")
 
     async def _opencons(
         self,
@@ -2048,6 +2231,7 @@ class L3QemuVM(L3NodeMixin, LinuxNamespace):
                         expects=expects,
                         sends=sends,
                         timeout=timeout,
+                        init_newline=True,
                         trace=True,
                     )
                 )
@@ -2176,30 +2360,45 @@ class L3QemuVM(L3NodeMixin, LinuxNamespace):
         if not nnics:
             args += ["-nic", "none"]
 
-        dtpl = qc.get("disk-template")
+        dtplpath = dtpl = qc.get("disk-template")
         diskpath = disk = qc.get("disk")
-        if dtpl and not disk:
-            disk = qc["disk"] = f"{self.name}-{os.path.basename(dtpl)}"
-            diskpath = os.path.join(self.rundir, disk)
+        if diskpath:
+            if diskpath[0] != "/":
+                diskpath = os.path.join(self.unet.config_dirname, diskpath)
+
+        if dtpl and (not disk or not os.path.exists(diskpath)):
+            if not disk:
+                disk = qc["disk"] = f"{self.name}-{os.path.basename(dtpl)}"
+                diskpath = os.path.join(self.rundir, disk)
             if self.path_exists(diskpath):
                 logging.debug("Disk '%s' file exists, using.", diskpath)
             else:
-                dtplpath = os.path.abspath(
-                    os.path.join(
-                        os.path.dirname(self.unet.config["config_pathname"]), dtpl
-                    )
-                )
+                if dtplpath[0] != "/":
+                    dtplpath = os.path.join(self.unet.config_dirname, dtpl)
                 logging.info("Create disk '%s' from template '%s'", diskpath, dtplpath)
                 self.cmd_raises(
                     f"qemu-img create -f qcow2 -F qcow2 -b {dtplpath} {diskpath}"
                 )
+                self.disk_created = True
 
+        disk_driver = qc.get("disk-driver", "virtio")
         if diskpath:
-            args.extend(
-                ["-drive", f"file={diskpath},if=none,id=sata-disk0,format=qcow2"]
-            )
-            args.extend(["-device", "ahci,id=ahci"])
-            args.extend(["-device", "ide-hd,bus=ahci.0,drive=sata-disk0"])
+            if disk_driver == "virtio":
+                args.extend(["-drive", f"file={diskpath},if=virtio,format=qcow2"])
+            else:
+                args.extend(
+                    ["-drive", f"file={diskpath},if=none,id=sata-disk0,format=qcow2"]
+                )
+                args.extend(["-device", "ahci,id=ahci"])
+                args.extend(["-device", "ide-hd,bus=ahci.0,drive=sata-disk0"])
+
+        cidiskpath = qc.get("cloud-init-disk")
+        if cidiskpath:
+            if cidiskpath[0] != "/":
+                cidiskpath = os.path.join(self.unet.config_dirname, cidiskpath)
+            args.extend(["-drive", f"file={cidiskpath},if=virtio,format=qcow2"])
+
+        # args.extend(["-display", "vnc=0.0.0.0:40"])
 
         use_stdio = cc.get("stdio", True)
         has_cmd = self.config.get("cmd")
@@ -2261,17 +2460,19 @@ class L3QemuVM(L3NodeMixin, LinuxNamespace):
 
         stdout = open(os.path.join(self.rundir, "qemu.out"), "wb")
         stderr = open(os.path.join(self.rundir, "qemu.err"), "wb")
-        self.launch_p = await self.async_popen(
+        self.launch_p = await self.async_popen_nsonly(
             args,
             stdin=subprocess.DEVNULL,
             stdout=stdout,
             stderr=stderr,
             pass_fds=pass_fds,
-            # We don't need this here b/c we are only ever running qemu and that's all
-            # we need to kill for cleanup
-            # XXX reconcile this
-            start_new_session=True,  # allows us to signal all children to exit
+            # Don't want Keybaord interrupt etc to pass to child.
+            # start_new_session=True,
+            preexec_fn=os.setsid,
         )
+
+        if self.nsenter_fork:
+            self.launch_pid = await self.get_proc_child_pid(self.launch_p)
 
         self.pytest_hook_run_cmd(stdout, stderr)
 
@@ -2279,11 +2480,17 @@ class L3QemuVM(L3NodeMixin, LinuxNamespace):
         for fd in pass_fds:
             os.close(fd)
 
-        self.logger.debug("%s: async_popen => %s", self, self.launch_p.pid)
+        self.logger.debug(
+            "%s: popen => %s (%s)", self, self.launch_p.pid, self.launch_pid
+        )
 
         confiles = ["_console"]
         if use_cmdcon:
             confiles.append("_cmdcon")
+
+        password = cc.get("password", "")
+        if self.disk_created:
+            password = cc.get("initial-password", password)
 
         #
         # Connect to the console socket, retrying
@@ -2294,7 +2501,7 @@ class L3QemuVM(L3NodeMixin, LinuxNamespace):
             prompt=prompt,
             is_bourne=not bool(prompt),
             user=cc.get("user", "root"),
-            password=cc.get("password", ""),
+            password=password,
             expects=cc.get("expects"),
             sends=cc.get("sends"),
             timeout=int(cc.get("timeout", 60)),
@@ -2307,10 +2514,10 @@ class L3QemuVM(L3NodeMixin, LinuxNamespace):
         # the monitor output has super annoying ANSI escapes in it
 
         output = self.monrepl.cmd_nostatus("info status")
-        self.logger.info("VM status: %s", output)
+        self.logger.debug("VM status: %s", output)
 
         output = self.monrepl.cmd_nostatus("info kvm")
-        self.logger.info("KVM status: %s", output)
+        self.logger.debug("KVM status: %s", output)
 
         #
         # Set thread affinity
@@ -2348,13 +2555,10 @@ class L3QemuVM(L3NodeMixin, LinuxNamespace):
                 "%s: node launch (qemu) cmd wait() canceled: %s", future, error
             )
 
-    async def cleanup_qemu(self):
-        """Launch qemu."""
-        if self.launch_p:
-            await self.async_cleanup_proc(self.launch_p)
-
     async def async_cleanup_cmd(self):
         """Run the configured cleanup commands for this node."""
+        if self.cleanup_called:
+            return
         self.cleanup_called = True
 
         if "cleanup-cmd" not in self.config:
@@ -2372,7 +2576,7 @@ class L3QemuVM(L3NodeMixin, LinuxNamespace):
 
         # Need to cleanup early b/c it is running on the VM
         if self.cmd_p:
-            await self.async_cleanup_proc(self.cmd_p)
+            await self.async_cleanup_proc(self.cmd_p, self.cmd_pid)
             self.cmd_p = None
 
         try:
@@ -2388,9 +2592,9 @@ class L3QemuVM(L3NodeMixin, LinuxNamespace):
             if not self.launch_p:
                 self.logger.warning("async_delete: qemu is not running")
             else:
-                await self.cleanup_qemu()
+                await self.async_cleanup_proc(self.launch_p, self.launch_pid)
         except Exception as error:
-            self.logger.warning("%s: failued to cleanup qemu process: %s", self, error)
+            self.logger.warning("%s: failed to cleanup qemu process: %s", self, error)
 
         await super()._async_delete()
 
@@ -2529,7 +2733,7 @@ ff02::2\tip6-allrouters
                     ),
                     "format": "stdout HOST [HOST ...]",
                     "help": "tail -f on the stdout of the qemu/cmd for this node",
-                    "new-window": True,
+                    "new-window": {"background": True, "ns_only": True},
                 },
                 {
                     "name": "stderr",
@@ -2539,7 +2743,7 @@ ff02::2\tip6-allrouters
                     ),
                     "format": "stderr HOST [HOST ...]",
                     "help": "tail -f on the stdout of the qemu/cmd for this node",
-                    "new-window": True,
+                    "new-window": {"background": True, "ns_only": True},
                 },
             ]
         }
@@ -2745,7 +2949,9 @@ ff02::2\tip6-allrouters
         else:
             node2.set_lan_addr(node1, c2)
 
-        if "physical" not in c1 and not node1.is_vm:
+        if isinstance(node1, ExternalNetwork):
+            pass
+        elif "physical" not in c1 and not node1.is_vm:
             node1.set_intf_constraints(if1, **c1)
         if "physical" not in c2 and not node2.is_vm:
             node2.set_intf_constraints(if2, **c2)
@@ -2758,14 +2964,8 @@ ff02::2\tip6-allrouters
             cls = L3QemuVM
         elif config and config.get("server"):
             cls = SSHRemote
-            kwargs["server"] = config["server"]
-            kwargs["port"] = int(config.get("server-port", 22))
-            if "ssh-identity-file" in config:
-                kwargs["idfile"] = config.get("ssh-identity-file")
-            if "ssh-user" in config:
-                kwargs["user"] = config.get("ssh-user")
-            if "ssh-password" in config:
-                kwargs["password"] = config.get("ssh-password")
+        elif config and config.get("hostnet"):
+            cls = HostnetNode
         else:
             cls = L3NamespaceNode
         return super().add_host(name, cls=cls, config=config, **kwargs)
@@ -2775,20 +2975,113 @@ ff02::2\tip6-allrouters
         if config is None:
             config = {}
 
-        cls = L3Bridge if config.get("ip") else L2Bridge
+        if config.get("external"):
+            cls = ExternalNetwork
+        elif config.get("ip"):
+            cls = L3Bridge
+        else:
+            cls = L2Bridge
         mtu = kwargs.get("mtu", config.get("mtu"))
         return super().add_switch(name, cls=cls, config=config, mtu=mtu, **kwargs)
 
+    def coverage_setup(self):
+        bdir = self.cfgopt.getoption("--cov-build-dir")
+        if not bdir:
+            # Try and find the build dir using common prefix of gcno files
+            common = None
+            cwd = os.getcwd()
+            for f in glob.iglob(rf"{cwd}/**/*.gcno", recursive=True):
+                if not common:
+                    common = os.path.dirname(f)
+                else:
+                    common = os.path.commonprefix([common, f])
+                    if not common:
+                        break
+        assert (
+            bdir
+        ), "Can't locate build directory for coverage data, use --cov-build-dir"
+
+        bdir = Path(bdir).resolve()
+        rundir = Path(self.rundir).resolve()
+        gcdadir = rundir / "gcda"
+        os.environ["GCOV_BUILD_DIR"] = str(bdir)
+        os.environ["GCOV_PREFIX_STRIP"] = str(len(bdir.parts) - 1)
+        os.environ["GCOV_PREFIX"] = str(gcdadir)
+
+        # commander.cmd_raises(f"find {bdir} -name '*.gc??' -exec chmod o+rw {{}} +")
+        group_id = bdir.stat().st_gid
+        commander.cmd_raises(f"mkdir -p {gcdadir}")
+        commander.cmd_raises(f"chown -R root:{group_id} {gcdadir}")
+        commander.cmd_raises(f"chmod 2775 {gcdadir}")
+
+    async def coverage_finish(self):
+        rundir = Path(self.rundir).resolve()
+        bdir = Path(os.environ["GCOV_BUILD_DIR"])
+        gcdadir = Path(os.environ["GCOV_PREFIX"])
+
+        # Create .gcno symlinks if they don't already exist, for kernel they will
+        self.logger.info("Creating .gcno symlinks from '%s' to '%s'", gcdadir, bdir)
+        commander.cmd_raises(
+            f'cd "{gcdadir}"; bdir="{bdir}"'
+            + """
+for f in $(find . -name '*.gcda'); do
+    f=${f#./};
+    f=${f%.gcda}.gcno;
+    if [ ! -h "$f" ]; then
+        ln -fs $bdir/$f $f;
+        touch -h -r $bdir/$f $f;
+        echo $f;
+    fi;
+done"""
+        )
+
+        # Get the results into a summary file
+        data_file = rundir / "coverage.info"
+        self.logger.info("Gathering coverage data into: %s", data_file)
+        commander.cmd_raises(
+            f"lcov --directory {gcdadir} --capture --output-file {data_file}"
+        )
+
+        # Get coverage info filtered to a specific set of files
+        report_file = rundir / "coverage.info"
+        self.logger.debug("Generating coverage summary: %s", report_file)
+        output = commander.cmd_raises(f"lcov --summary {data_file}")
+        self.logger.info("\nCOVERAGE-SUMMARY-START\n%s\nCOVERAGE-SUMMARY-END", output)
+        # terminalreporter.write(
+        #     f"\nCOVERAGE-SUMMARY-START\n{output}\nCOVERAGE-SUMMARY-END\n"
+        # )
+
+    async def load_images(self, images):
+        tasks = []
+        for image in images:
+            logging.debug("Checking for image %s", image)
+            rc, _, _ = self.rootcmd.cmd_status(
+                f"podman image inspect {image}", warn=False
+            )
+            if not rc:
+                continue
+            logging.info("Pulling missing image %s", image)
+            aw = self.rootcmd.async_cmd_raises(f"podman pull {image}")
+            tasks.append(asyncio.create_task(aw))
+        if not tasks:
+            return
+        _, pending = await asyncio.wait(tasks, timeout=600)
+        assert not pending, "Failed to pull container images"
+
     async def run(self):
         tasks = []
-
         hosts = self.hosts.values()
+
+        images = {x.container_image for x in hosts if hasattr(x, "container_image")}
+        await self.load_images(images)
+
         launch_nodes = [x for x in hosts if hasattr(x, "launch")]
         launch_nodes = [x for x in launch_nodes if x.config.get("qemu")]
-        run_nodes = [x for x in hosts if hasattr(x, "has_run_cmd") and x.has_run_cmd()]
-        ready_nodes = [
-            x for x in hosts if hasattr(x, "has_ready_cmd") and x.has_ready_cmd()
-        ]
+        run_nodes = [x for x in hosts if x.has_run_cmd()]
+        ready_nodes = [x for x in hosts if x.has_ready_cmd()]
+
+        if self.cfgopt.getoption("--coverage"):
+            self.coverage_setup()
 
         pcapopt = self.cfgopt.getoption("--pcap")
         pcapopt = pcapopt if pcapopt else ""
@@ -2814,6 +3107,8 @@ ff02::2\tip6-allrouters
             logging.debug("Launching nodes")
             await asyncio.gather(*[x.launch() for x in launch_nodes])
 
+        logging.debug("Launched nodes -- Queueing Waits")
+
         # Watch for launched processes to exit
         for node in launch_nodes:
             task = asyncio.create_task(
@@ -2822,16 +3117,22 @@ ff02::2\tip6-allrouters
             task.add_done_callback(node.launch_completed)
             tasks.append(task)
 
+        logging.debug("Wait complete queued, running cmd")
+
         if run_nodes:
             # would like a info when verbose here.
             logging.debug("Running `cmd` on nodes")
             await asyncio.gather(*[x.run_cmd() for x in run_nodes])
+
+        logging.debug("Ran cmds -- Queueing Waits")
 
         # Watch for run_cmd processes to exit
         for node in run_nodes:
             task = asyncio.create_task(node.cmd_p.wait(), name=f"Node-{node.name}-cmd")
             task.add_done_callback(node.cmd_completed)
             tasks.append(task)
+
+        logging.debug("Wait complete queued, waiting for ready")
 
         # Wait for nodes to be ready
         if ready_nodes:
@@ -2842,10 +3143,10 @@ ff02::2\tip6-allrouters
                     await asyncio.sleep(0.25)
                 logging.debug("%s is ready!", x)
 
+            tasks = [asyncio.create_task(wait_until_ready(x)) for x in ready_nodes]
+
             logging.debug("Waiting for ready on nodes: %s", ready_nodes)
-            _, pending = await asyncio.wait(
-                [wait_until_ready(x) for x in ready_nodes], timeout=30
-            )
+            _, pending = await asyncio.wait(tasks, timeout=30)
             if pending:
                 logging.warning("Timeout waiting for ready: %s", pending)
                 for nr in pending:
@@ -2853,21 +3154,14 @@ ff02::2\tip6-allrouters
                 raise asyncio.TimeoutError()
             logging.debug("All nodes ready")
 
+        logging.debug("All done returning tasks: %s", tasks)
+
         return tasks
 
     async def _async_delete(self):
         from .testing.util import async_pause_test  # pylint: disable=C0415
 
         self.logger.debug("%s: deleting.", self)
-
-        if self.cfgopt.getoption("--coverage"):
-            nodes = (
-                x for x in self.hosts.values() if hasattr(x, "gather_coverage_data")
-            )
-            try:
-                await asyncio.gather(*(x.gather_coverage_data() for x in nodes))
-            except Exception as error:
-                logging.warning("Error gathering coverage data: %s", error)
 
         pause = bool(self.cfgopt.getoption("--pause-at-end"))
         pause = pause or bool(self.cfgopt.getoption("--pause"))
@@ -2878,6 +3172,25 @@ ff02::2\tip6-allrouters
                 print("^C...continuing")
             except Exception as error:
                 self.logger.error("\n...continuing after error: %s", error)
+
+        # Run cleanup-cmd's.
+        nodes = (x for x in self.hosts.values() if x.has_cleanup_cmd())
+        try:
+            await asyncio.gather(*(x.async_cleanup_cmd() for x in nodes))
+        except Exception as error:
+            logging.warning("Error running cleanup cmds: %s", error)
+
+        # Gather any coverage data
+        if self.cfgopt.getoption("--coverage"):
+            nodes = (
+                x for x in self.hosts.values() if hasattr(x, "gather_coverage_data")
+            )
+            try:
+                await asyncio.gather(*(x.gather_coverage_data() for x in nodes))
+            except Exception as error:
+                logging.warning("Error gathering coverage data: %s", error)
+
+            await self.coverage_finish()
 
         # XXX should we cancel launch and run tasks?
 

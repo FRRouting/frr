@@ -8,41 +8,54 @@ Topotests is a suite of topology tests for FRR built on top of micronet.
 Installation and Setup
 ----------------------
 
-Topotests run under python3. Additionally, for ExaBGP (which is used
-in some of the BGP tests) an older python2 version (and the python2
-version of ``pip``) must be installed.
+Topotests run under python3.
 
-Tested with Ubuntu 20.04,Ubuntu 18.04, and Debian 11.
+Tested with Ubuntu 22.04,Ubuntu 20.04, and Debian 12.
 
-Instructions are the same for all setups (i.e. ExaBGP is only used for
-BGP tests).
+Python protobuf version < 4 is required b/c python protobuf >= 4 requires a
+protoc >= 3.19, and older package versions are shipped by in the above distros.
+
+Instructions are the same for all setups. However, ExaBGP is only used for
+BGP tests.
+
+Tshark is only required if you enable any packet captures on test runs.
+
+Valgrind is only required if you enable valgrind on test runs.
 
 Installing Topotest Requirements
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. code:: shell
 
-   apt-get install gdb
-   apt-get install iproute2
-   apt-get install net-tools
-   apt-get install python3-pip
+   apt-get install \
+       gdb \
+       iproute2 \
+       net-tools \
+       python3-pip \
+       iputils-ping \
+       iptables \
+       tshark \
+       valgrind
    python3 -m pip install wheel
-   python3 -m pip install 'pytest>=6.2.4'
-   python3 -m pip install 'pytest-xdist>=2.3.0'
+   python3 -m pip install 'pytest>=8.3.2' 'pytest-asyncio>=0.24.0' 'pytest-xdist>=3.6.1'
    python3 -m pip install 'scapy>=2.4.5'
    python3 -m pip install xmltodict
-   # Use python2 pip to install older ExaBGP
-   python2 -m pip install 'exabgp<4.0.0'
+   python3 -m pip install git+https://github.com/Exa-Networks/exabgp@0659057837cd6c6351579e9f0fa47e9fb7de7311
    useradd -d /var/run/exabgp/ -s /bin/false exabgp
 
-   # To enable the gRPC topotest install:
-   python3 -m pip install grpcio grpcio-tools
+The version of protobuf package that is installed on your system will determine
+which versions of the python protobuf packages you need to install.
 
-   # Install Socat tool to run PIMv6 tests,
-   # Socat code can be taken from below url,
-   # which has latest changes done for PIMv6,
-   # join and traffic:
-   https://github.com/opensourcerouting/socat/
+.. code:: shell
+
+   # - Either - For protobuf version <= 3.12
+   python3 -m pip install 'protobuf<4'
+
+   # - OR- for protobuf version >= 3.21
+   python3 -m pip install 'protobuf>=4'
+
+   # To enable the gRPC topotest also install:
+   python3 -m pip install grpcio grpcio-tools
 
 
 Enable Coredumps
@@ -114,11 +127,12 @@ If you prefer to manually build FRR, then use the following suggested config:
 
    ./configure \
        --prefix=/usr \
-       --localstatedir=/var/run/frr \
+       --sysconfdir=/etc \
+       --localstatedir=/var \
        --sbindir=/usr/lib/frr \
-       --sysconfdir=/etc/frr \
        --enable-vtysh \
        --enable-pimd \
+       --enable-pim6d \
        --enable-sharpd \
        --enable-multipath=64 \
        --enable-user=frr \
@@ -187,13 +201,15 @@ Analyze Test Results (``analyze.py``)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 By default router and execution logs are saved in ``/tmp/topotests`` and an XML
-results file is saved in ``/tmp/topotests.xml``. An analysis tool ``analyze.py``
-is provided to archive and analyze these results after the run completes.
+results file is saved in ``/tmp/topotests/topotests.xml``. An analysis tool
+``analyze.py`` is provided to archive and analyze these results after the run
+completes.
 
 After the test run completes one should pick an archive directory to store the
 results in and pass this value to ``analyze.py``. On first execution the results
-are copied to that directory from ``/tmp``, and subsequent runs use that
-directory for analyzing the results. Below is an example of this which also
+are moved to that directory from ``/tmp/topotests``. Subsequent runs of
+``analyze.py`` with the same args will use that directories contents for instead
+of copying any new results from ``/tmp``. Below is an example of this which also
 shows the default behavior which is to display all failed and errored tests in
 the run.
 
@@ -205,7 +221,7 @@ the run.
    bgp_gr_functionality_topo2/test_bgp_gr_functionality_topo2.py::test_BGP_GR_10_p2
    bgp_multiview_topo1/test_bgp_multiview_topo1.py::test_bgp_routingTable
 
-Here we see that 4 tests have failed. We an dig deeper by displaying the
+Here we see that 4 tests have failed. We can dig deeper by displaying the
 captured logs and errors. First let's redisplay the results enumerated by adding
 the ``-E`` flag
 
@@ -225,8 +241,8 @@ the number of the test we are interested in along with ``--errmsg`` option.
     ~/frr/tests/topotests# ./analyze.py -Ar run-save -T0 --errmsg
     bgp_multiview_topo1/test_bgp_multiview_topo1.py::test_bgp_converge: AssertionError: BGP did not converge:
 
-      IPv4 Unicast Summary (VIEW 1):
-      BGP router identifier 172.30.1.1, local AS number 100 vrf-id -1
+      IPv4 Unicast Summary:
+      BGP router identifier 172.30.1.1, local AS number 100 VIEW 1 vrf-id -1
       BGP table version 1
       RIB entries 1, using 184 bytes of memory
       Peers 3, using 2169 KiB of memory
@@ -240,9 +256,11 @@ the number of the test we are interested in along with ``--errmsg`` option.
 
      assert False
 
-Now to look at the full text of the error for a failed test we use ``-T N``
-where N is the number of the test we are interested in along with ``--errtext``
-option.
+Now to look at the error text for a failed test we can use ``-T RANGES`` where
+``RANGES`` can be a number (e.g., ``5``), a range (e.g., ``0-10``), or a comma
+separated list numbers and ranges (e.g., ``5,10-20,30``) of the test cases we
+are interested in along with ``--errtext`` option. In the example below we'll
+select the first failed test case.
 
 .. code:: shell
 
@@ -259,8 +277,8 @@ option.
     >           assert False, "BGP did not converge:\n%s" % bgpStatus
     E           AssertionError: BGP did not converge:
     E
-    E             IPv4 Unicast Summary (VIEW 1):
-    E             BGP router identifier 172.30.1.1, local AS number 100 vrf-id -1
+    E             IPv4 Unicast Summary:
+    E             BGP router identifier 172.30.1.1, local AS number 100 VIEW 1 vrf-id -1
                   [...]
     E             Neighbor        V         AS   MsgRcvd   MsgSent   TblVer  InQ OutQ  Up/Down State/PfxRcd   PfxSnt Desc
     E             172.16.1.1      4      65001         0         0        0    0    0    never      Connect        0 N/A
@@ -268,8 +286,8 @@ option.
                   [...]
 
 To look at the full capture for a test including the stdout and stderr which
-includes full debug logs, just use the ``-T N`` option without the ``--errmsg``
-or ``--errtext`` options.
+includes full debug logs, use ``--full`` option, or specify a ``-T RANGES`` without
+specifying ``--errmsg`` or ``--errtext``.
 
 .. code:: shell
 
@@ -288,6 +306,46 @@ or ``--errtext`` options.
     2021-08-09 02:57:27,636 DEBUG: topolog.r1: LinuxNamespace(r1): cmd_status("['/bin/bash', '-c', 'vtysh -c "show ip bgp view 1 summary"']", kwargs: {'encoding': 'utf-8', 'stdout': -1, 'stderr': -2, 'shell': False})
     --------------------------------- Captured Out ---------------------------------
     system-err: --------------------------------- Captured Err ---------------------------------
+
+Filtered results
+""""""""""""""""
+
+There are 4 types of test results, [e]rrored, [f]ailed, [p]assed, and
+[s]kipped. One can select the set of results to show with the ``-S`` or
+``--select`` flags along with the letters for each type (i.e., ``-S efps``
+would select all results). By default ``analyze.py`` will use ``-S ef`` (i.e.,
+[e]rrors and [f]ailures) unless the ``--search`` filter is given in which case
+the default is to search all results (i.e., ``-S efps``).
+
+One can find all results which contain a ``REGEXP``. To filter results using a
+regular expression use the ``--search REGEXP`` option. In this case, by default,
+all result types will be searched for a match against the given ``REGEXP``. If a
+test result output contains a match it is selected into the set of results to show.
+
+An example of using ``--search`` would be to search all tests results for some
+log message, perhaps a warning or error.
+
+Using XML Results File from CI
+""""""""""""""""""""""""""""""
+
+``analyze.py`` actually only needs the ``topotests.xml`` file to run. This is
+very useful for analyzing a CI run failure where one only need download the
+``topotests.xml`` artifact from the run and then pass that to ``analyze.py``
+with the ``-r`` or ``--results`` option.
+
+For local runs if you wish to simply copy the ``topotests.xml`` file (leaving
+the log files where they are), you can pass the ``-a`` (or ``--save-xml``)
+instead of the ``-A`` (or ``-save``) options.
+
+Analyze Results from a Container Run
+""""""""""""""""""""""""""""""""""""
+
+``analyze.py`` can also be used with ``docker`` or ``podman`` containers.
+Everything works exactly as with a host run except that you specify the name of
+the container, or the container-id, using the `-C` or ``--container`` option.
+``analyze.py`` will then use the results inside that containers
+``/tmp/topotests`` directory. It will extract and save those results when you
+pass the ``-A`` or ``-a`` options just as withe host results.
 
 
 Execute single test
@@ -310,32 +368,6 @@ For further options, refer to pytest documentation.
 Test will set exit code which can be used with ``git bisect``.
 
 For the simulated topology, see the description in the python file.
-
-StdErr log from daemos after exit
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-To enable the reporting of any messages seen on StdErr after the daemons exit,
-the following env variable can be set::
-
-   export TOPOTESTS_CHECK_STDERR=Yes
-
-(The value doesn't matter at this time. The check is whether the env
-variable exists or not.) There is no pass/fail on this reporting; the
-Output will be reported to the console.
-
-Collect Memory Leak Information
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-FRR processes can report unfreed memory allocations upon exit. To
-enable the reporting of memory leaks, define an environment variable
-``TOPOTESTS_CHECK_MEMLEAK`` with the file prefix, i.e.::
-
-   export TOPOTESTS_CHECK_MEMLEAK="/home/mydir/memleak_"
-
-This will enable the check and output to console and the writing of
-the information to files with the given prefix (followed by testname),
-ie :file:`/home/mydir/memcheck_test_bgp_multiview_topo1.txt` in case
-of a memory leak.
 
 Running Topotests with AddressSanitizer
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -365,8 +397,9 @@ for ``master`` branch:
    ./bootstrap.sh
    ./configure \
        --enable-address-sanitizer \
-       --prefix=/usr/lib/frr --sysconfdir=/etc/frr \
-       --localstatedir=/var/run/frr \
+       --prefix=/usr/lib/frr \
+       --sysconfdir=/etc \
+       --localstatedir=/var \
        --sbindir=/usr/lib/frr --bindir=/usr/lib/frr \
        --with-moduledir=/usr/lib/frr/modules \
        --enable-multipath=0 --enable-rtadv \
@@ -378,6 +411,14 @@ for ``master`` branch:
    sudo ln -s /usr/lib/frr/vtysh /usr/bin/
 
 and create ``frr`` user and ``frrvty`` group as shown above.
+
+Newer versions of Address Sanitizers require a sysctl to be changed
+to allow for the tests to be successfully run.  This is also true
+for Undefined behavior Sanitizers as well as Memory Sanitizer.
+
+.. code:: shell
+
+   sysctl vm.mmap_rnd_bits=28
 
 Debugging Topotest Failures
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -422,7 +463,7 @@ as shown in the examples below.
 
 For each capture a window is opened displaying a live summary of the captured
 packets. Additionally, the entire packet stream is captured in a pcap file in
-the tests log directory e.g.,::
+the tests log directory e.g.,:
 
 .. code:: console
 
@@ -432,7 +473,7 @@ the tests log directory e.g.,::
    -rw------- 1 root root 45172 Apr 19 05:30 capture-r2-r2-eth0.pcap
    -rw------- 1 root root 48412 Apr 19 05:30 capture-sw1.pcap
    ...
--
+
 Viewing Live Daemon Logs
 """"""""""""""""""""""""
 
@@ -449,10 +490,10 @@ One can live view daemon or the frr logs in separate windows using the
 
 For each capture a window is opened displaying a live summary of the captured
 packets. Additionally, the entire packet stream is captured in a pcap file in
-the tests log directory e.g.,::
+the tests log directory e.g.,
 
-When using a unified log file `frr.log` one substitutes `frr` for the daemon
-name in the ``--logd`` CLI option, e.g.,
+When using a unified log file ``frr.log`` one substitutes ``frr`` for the
+daemon name in the ``--logd`` CLI option, e.g.,
 
 .. code:: shell
 
@@ -538,6 +579,8 @@ Here's an example of launching ``vtysh`` on routers ``rt1`` and ``rt2``.
 
    sudo -E pytest --vtysh=rt1,rt2 all-protocol-startup
 
+.. _debug_with_gdb:
+
 Debugging with GDB
 """"""""""""""""""
 
@@ -562,19 +605,79 @@ Here's an example of launching ``zebra`` and ``bgpd`` inside ``gdb`` on router
           --gdb-breakpoints=nb_config_diff \
           all-protocol-startup
 
+Finally, for Emacs users, you can specify ``--gdb-use-emacs``. When specified
+the first router and daemon to be launched in gdb will be launched and run with
+Emacs gdb functionality by using `emacsclient --eval` commands. This provides an
+IDE debugging experience for Emacs users. This functionality works best when
+using password-less sudo.
+
+Reporting Memleaks with FRR Memory Statistics
+"""""""""""""""""""""""""""""""""""""""""""""
+
+FRR reports all allocated FRR memory objects on exit to standard error.
+Topotest can be run to report such output as errors in order to check for
+memleaks in FRR memory allocations. Specifying the CLI argument
+``--memleaks`` will enable reporting FRR-based memory allocations at exit as errors.
+
+.. code:: shell
+
+   sudo -E pytest --memleaks all-protocol-startup
+
+
+StdErr log from daemos after exit
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+When running with ``--memleaks``, to enable the reporting of other,
+non-memory related, messages seen on StdErr after the daemons exit,
+the following env variable can be set::
+
+   export TOPOTESTS_CHECK_STDERR=Yes
+
+(The value doesn't matter at this time. The check is whether the env
+variable exists or not.) There is no pass/fail on this reporting; the
+Output will be reported to the console.
+
+Collect Memory Leak Information
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+When running with ``--memleaks``, FRR processes report unfreed memory
+allocations upon exit. To enable also reporting of memory leaks to a specific
+location, define an environment variable ``TOPOTESTS_CHECK_MEMLEAK`` with the
+file prefix, i.e.:
+
+::
+
+   export TOPOTESTS_CHECK_MEMLEAK="/home/mydir/memleak_"
+
+For tests that support the TOPOTESTS_CHECK_MEMLEAK environment variable, this
+will enable output to the information to files with the given prefix (followed
+by testname), e.g.,:
+file:`/home/mydir/memcheck_test_bgp_multiview_topo1.txt` in case
+of a memory leak.
+
 Detecting Memleaks with Valgrind
 """"""""""""""""""""""""""""""""
 
 Topotest can automatically launch all daemons with ``valgrind`` to check for
-memleaks. This is enabled by specifying 1 or 2 CLI arguments.
-``--valgrind-memleaks`` will enable general memleak detection, and
-``--valgrind-extra`` enables extra functionality including generating a
-suppression file. The suppression file ``tools/valgrind.supp`` is used when
-memleak detection is enabled.
+memleaks. This is enabled by specifying 1 to 3 CLI arguments.
+``--valgrind-memleaks`` enables memleak detection. ``--valgrind-extra`` enables
+extra functionality including generating a suppression file. The suppression
+file ``tools/valgrind.supp`` is used when memleak detection is enabled. Finally,
+``--valgrind-leak-kinds=KINDS`` can be used to modify what types of links are
+reported. This corresponds to valgrind's ``--show-link-kinds`` arg. The value is
+either ``all`` or a comma-separated list of types:
+``definite,indirect,possible,reachable``. The default is ``definite,possible``.
 
 .. code:: shell
 
    sudo -E pytest --valgrind-memleaks all-protocol-startup
+
+.. note:: GDB can be used in conjection with valgrind.
+
+   When you enable ``--valgrind-memleaks`` and you also launch various daemons
+   under GDB (debug_with_gdb_) topotest will connect the two utilities using
+   ``--vgdb-error=0`` and attaching to a ``vgdb`` process. This is very
+   useful for debugging bugs with use of uninitialized errors, et al.
 
 Collecting Performance Data using perf(1)
 """""""""""""""""""""""""""""""""""""""""
@@ -596,6 +699,106 @@ during the config_timing test.
 
 To specify different arguments for ``perf record``, one can use the
 ``--perf-options`` this will replace the ``-g`` used by default.
+
+Running Daemons under RR Debug (``rr record``)
+""""""""""""""""""""""""""""""""""""""""""""""
+
+Topotest can automatically launch any daemon under ``rr(1)`` to collect
+execution state. The daemon is run in the foreground with ``rr record``.
+
+The execution state will be saved in the router specific directory
+(in a `rr` subdir that rr creates) under the test's run directoy.
+
+Here's an example of collecting ``rr`` execution state from ``mgmtd`` on router
+``r1`` during the ``config_timing`` test.
+
+.. code:: console
+
+   $ sudo -E pytest --rr-routers=r1 --rr-daemons=mgmtd config_timing
+   ...
+   $ find /tmp/topotests/ -name '*perf.data*'
+   /tmp/topotests/config_timing.test_config_timing/r1/perf.data
+
+To specify additional arguments for ``rr record``, one can use the
+``--rr-options``.
+
+.. _code_coverage:
+
+Code coverage
+"""""""""""""
+Code coverage reporting requires installation of the ``gcov`` and ``lcov``
+packages.
+
+Code coverage can automatically be gathered for any topotest run. To support
+this FRR must first be compiled with the ``--enable-gcov`` configure option.
+This will cause \*.gnco files to be created during the build. When topotests are
+run the statistics are generated and stored in \*.gcda files. Topotest
+infrastructure will gather these files, capture the information into a
+``coverage.info`` ``lcov`` file and also report the coverage summary.
+
+To enable code coverage support pass the ``--cov-topotest`` argument to pytest.
+If you build your FRR in a directory outside of the FRR source directory you
+will also need to pass the ``--cov-frr-build-dir`` argument specifying the build
+directory location.
+
+During the topotest run the \*.gcda files are generated into a ``gcda``
+sub-directory of the top-level run directory (i.e., normally
+``/tmp/topotests/gcda``). These files will then be copied at the end of the
+topotest run into the FRR build directory where the ``gcov`` and ``lcov``
+utilities expect to find them. This is done to deal with the various different
+file ownership and permissions.
+
+At the end of the run ``lcov`` will be run to capture all of the coverage data
+into a ``coverage.info`` file. This file will be located in the top-level run
+directory (i.e., normally ``/tmp/topotests/coverage.info``).
+
+The ``coverage.info`` file can then be used to generate coverage reports or file
+markup (e.g., using the ``genhtml`` utility) or enable markup within your
+IDE/editor if supported (e.g., the emacs ``cov-mode`` package)
+
+NOTE: the \*.gcda files in ``/tmp/topotests/gcda`` are cumulative so if you do
+not remove them they will aggregate data across multiple topotest runs.
+
+How to reproduce failed Tests
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Generally tests fail but recreating the test failure reliably is not necessarily
+easy, or it happens once every 10 runs locally.  Here are some generic strategies
+that are employed to allow for the test to be reproduced reliably
+
+.. code:: console
+
+   cd <test directory>
+   ln -s test_the_test_name.py test_a.py
+   ln -s test_the_test_name.py test_b.py
+
+This allows you to run multiple copies of the same test with one full test run.
+Additionally if you need to modify the test you don't need to recopy everything
+to make it work.  By adding multiple copies of the same occassionally failing test
+you raise the odds of it failing again.  Additionally you have easily accessible
+good and bad runs to compare.
+
+.. code:: console
+
+   sudo -E python3 -m pytest -n <some value> --dist=loadfile
+
+Choose a n value that is greater than the number of cpu's avalaible on the system.
+This changes the timing and may or may not make it more likely that the test fails.
+Be aware, though, that this changes memory requirements as well as may make other
+tests fail more often as well.  You should choose values that do not cause the system
+to go into swap usage.
+
+.. code:: console
+
+   stress -n <number of cpu's to put at 100%>
+
+By filling up cpu's with programs that do nothing you also change the timing again and
+may cause the problem to happen more often.
+
+There is no magic bullet here.  You as a developer might have to experiment with different
+values and different combinations of the above to cause the problem to happen more often.
+These are just the tools that we know of at this point in time.
+
 
 .. _topotests_docker:
 
@@ -1138,6 +1341,15 @@ Example:
            router.load_config(TopoRouter.RD_ZEBRA, "zebra.conf")
            router.load_config(TopoRouter.RD_OSPF)
 
+or using unified config (specifying which daemons to run is optional):
+
+.. code:: py
+
+      for _, (rname, router) in enumerate(router_list.items(), 1):
+         router.load_frr_config(os.path.join(CWD, "{}/frr.conf".format(rname)), [
+            TopoRouter.RD_ZEBRA
+            TopoRouter.RD_MGMTD,
+            TopoRouter.RD_BGP])
 
 - The topology definition or build function
 

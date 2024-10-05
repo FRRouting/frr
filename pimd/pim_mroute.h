@@ -25,8 +25,19 @@
 #include <netinet/in.h>
 #if defined(HAVE_LINUX_MROUTE_H)
 #include <linux/mroute.h>
-#else
-#include "linux/mroute.h"
+#endif
+
+#if defined(HAVE_NETINET_IP_MROUTE_H)
+#include <netinet/ip_mroute.h>
+/*
+ * MRT_TABLE of 155 is needed because it is not defined
+ * on FreeBSD.  MRT_TABLE is for vrf's.  There is no
+ * equivalent on BSD at this point in time.  Let's
+ * just get it compiling
+ */
+#ifndef MRT_TABLE
+#define MRT_TABLE 155
+#endif
 #endif
 
 typedef struct vifctl pim_vifctl;
@@ -70,8 +81,17 @@ typedef struct sioc_sg_req pim_sioc_sg_req;
 
 #if defined(HAVE_LINUX_MROUTE6_H)
 #include <linux/mroute6.h>
-#else
-#include "linux/mroute6.h"
+#endif
+#if defined(HAVE_NETINET_IP6_MROUTE_H)
+#include <sys/param.h>
+#include <netinet6/ip6_mroute.h>
+
+/*
+ * See the v4 discussion above
+ */
+#ifndef MRT_TABLE
+#define MRT_TABLE 155
+#endif
 #endif
 
 #ifndef MRT_INIT

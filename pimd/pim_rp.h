@@ -16,11 +16,7 @@
 
 struct pim_interface;
 
-enum rp_source {
-	RP_SRC_NONE = 0,
-	RP_SRC_STATIC,
-	RP_SRC_BSR
-};
+enum rp_source { RP_SRC_NONE = 0, RP_SRC_STATIC, RP_SRC_BSR, RP_SRC_AUTORP };
 
 struct rp_info {
 	struct prefix group;
@@ -46,8 +42,7 @@ int pim_rp_change(struct pim_instance *pim, pim_addr new_rp_addr,
 void pim_rp_prefix_list_update(struct pim_instance *pim,
 			       struct prefix_list *plist);
 
-int pim_rp_config_write(struct pim_instance *pim, struct vty *vty,
-			const char *spaces);
+int pim_rp_config_write(struct pim_instance *pim, struct vty *vty);
 
 void pim_rp_setup(struct pim_instance *pim);
 

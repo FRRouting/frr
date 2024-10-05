@@ -84,9 +84,6 @@ static void _display_peer_header(struct vty *vty, struct bfd_session *bs)
 	if (bs->key.ifname[0])
 		vty_out(vty, " interface %s", bs->key.ifname);
 	vty_out(vty, "\n");
-
-	if (bs->pl)
-		vty_out(vty, "\t\tlabel: %s\n", bs->pl->pl_label);
 }
 
 static void _display_peer(struct vty *vty, struct bfd_session *bs)
@@ -200,9 +197,6 @@ static struct json_object *_peer_json_header(struct bfd_session *bs)
 	if (bs->key.ifname[0])
 		json_object_string_add(jo, "interface", bs->key.ifname);
 
-	if (bs->pl)
-		json_object_string_add(jo, "label", bs->pl->pl_label);
-
 	return jo;
 }
 
@@ -213,6 +207,8 @@ static struct json_object *__display_peer_json(struct bfd_session *bs)
 	uint32_t avg = 0;
 	uint32_t max = 0;
 
+	if (bs->key.ifname[0])
+		json_object_string_add(jo, "interface", bs->key.ifname);
 	json_object_int_add(jo, "id", bs->discrs.my_discr);
 	json_object_int_add(jo, "remote-id", bs->discrs.remote_discr);
 	json_object_boolean_add(jo, "passive-mode",
@@ -246,6 +242,10 @@ static struct json_object *__display_peer_json(struct bfd_session *bs)
 	json_object_string_add(jo, "diagnostic", diag2str(bs->local_diag));
 	json_object_string_add(jo, "remote-diagnostic",
 			       diag2str(bs->remote_diag));
+	if (CHECK_FLAG(bs->flags, BFD_SESS_FLAG_CONFIG))
+		json_object_string_add(jo, "type", "configured");
+	else
+		json_object_string_add(jo, "type", "dynamic");
 
 	json_object_int_add(jo, "receive-interval",
 			    bs->timers.required_min_rx / 1000);
@@ -555,17 +555,11 @@ _find_peer_or_error(struct vty *vty, int argc, struct cmd_token **argv,
 	int idx;
 	bool mhop;
 	struct bfd_session *bs = NULL;
-	struct peer_label *pl;
 	struct bfd_peer_cfg bpc;
 	struct sockaddr_any psa, lsa, *lsap;
 	char errormsg[128];
 
-	/* Look up the BFD peer. */
-	if (label) {
-		pl = pl_find(label);
-		if (pl)
-			bs = pl->pl_bs;
-	} else if (peer_str) {
+	if (peer_str) {
 		strtosa(peer_str, &psa);
 		if (local_str) {
 			strtosa(local_str, &lsa);
@@ -873,7 +867,6 @@ static int bfd_configure_peer(struct bfd_peer_cfg *bpc, bool mhop,
 	bpc->bpc_txinterval = BPC_DEF_TRANSMITINTERVAL;
 	bpc->bpc_echorecvinterval = BPC_DEF_ECHORECEIVEINTERVAL;
 	bpc->bpc_echotxinterval = BPC_DEF_ECHOTRANSMITINTERVAL;
-	bpc->bpc_lastevent = monotime(NULL);
 
 	/* Safety check: when no error buf is provided len must be zero. */
 	if (ebuf == NULL)

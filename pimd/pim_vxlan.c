@@ -32,6 +32,70 @@ static void pim_vxlan_work_timer_setup(bool start);
 static void pim_vxlan_set_peerlink_rif(struct pim_instance *pim,
 			struct interface *ifp);
 
+#define PIM_VXLAN_STARTUP_NULL_REGISTERS 10
+
+static void pim_vxlan_rp_send_null_register_startup(struct event *e)
+{
+	struct pim_vxlan_sg *vxlan_sg = EVENT_ARG(e);
+
+	vxlan_sg->null_register_sent++;
+
+	if (vxlan_sg->null_register_sent > PIM_VXLAN_STARTUP_NULL_REGISTERS) {
+		if (PIM_DEBUG_VXLAN)
+			zlog_debug("Null registering stopping for %s",
+				   vxlan_sg->sg_str);
+		return;
+	}
+
+	pim_null_register_send(vxlan_sg->up);
+
+	if (PIM_DEBUG_VXLAN)
+		zlog_debug("Sent null register for %s", vxlan_sg->sg_str);
+
+	event_add_timer(router->master, pim_vxlan_rp_send_null_register_startup,
+			vxlan_sg, PIM_VXLAN_WORK_TIME, &vxlan_sg->null_register);
+}
+
+/*
+ * The rp info has gone from no path to having a
+ * path.  Let's immediately send out the null pim register
+ * as that else we will be sitting for up to 60 seconds waiting
+ * for it too pop.  Which is not cool.
+ */
+void pim_vxlan_rp_info_is_alive(struct pim_instance *pim,
+				struct pim_rpf *rpg_changed)
+{
+	struct listnode *listnode;
+	struct pim_vxlan_sg *vxlan_sg;
+	struct pim_rpf *rpg;
+
+	/*
+	 * No vxlan here, move along, nothing to see
+	 */
+	if (!vxlan_info.work_list)
+		return;
+
+	for (listnode = vxlan_info.work_list->head; listnode;
+	     listnode = listnode->next) {
+		vxlan_sg = listgetdata(listnode);
+
+		rpg = RP(pim, vxlan_sg->up->sg.grp);
+
+		/*
+		 * If the rp is the same we should send
+		 */
+		if (rpg == rpg_changed) {
+			if (PIM_DEBUG_VXLAN)
+				zlog_debug("VXLAN RP info for %s alive sending",
+					   vxlan_sg->sg_str);
+			vxlan_sg->null_register_sent = 0;
+			event_add_event(router->master,
+					pim_vxlan_rp_send_null_register_startup,
+					vxlan_sg, 0, &vxlan_sg->null_register);
+		}
+	}
+}
+
 /*************************** vxlan work list **********************************
  * A work list is maintained for staggered generation of pim null register
  * messages for vxlan SG entries that are in a reg_join state.
@@ -66,6 +130,7 @@ static void pim_vxlan_do_reg_work(void)
 
 	for (; listnode; listnode = listnode->next) {
 		vxlan_sg = (struct pim_vxlan_sg *)listnode->data;
+
 		if (vxlan_sg->up && (vxlan_sg->up->reg_state == PIM_REG_JOIN)) {
 			if (PIM_DEBUG_VXLAN)
 				zlog_debug("vxlan SG %s periodic NULL register",
@@ -165,8 +230,18 @@ void pim_vxlan_update_sg_reg_state(struct pim_instance *pim,
 	 */
 	if (reg_join)
 		pim_vxlan_add_work(vxlan_sg);
-	else
+	else {
+		/*
+		 * Stop the event that is sending NULL Registers on startup
+		 * there is no need to keep spamming it
+		 */
+		if (PIM_DEBUG_VXLAN)
+			zlog_debug("Received Register stop for %s",
+				   vxlan_sg->sg_str);
+
+		EVENT_OFF(vxlan_sg->null_register);
 		pim_vxlan_del_work(vxlan_sg);
+	}
 }
 
 static void pim_vxlan_work_timer_cb(struct event *t)
@@ -768,6 +843,7 @@ static void pim_vxlan_sg_del_item(struct pim_vxlan_sg *vxlan_sg)
 {
 	vxlan_sg->flags |= PIM_VXLAN_SGF_DEL_IN_PROG;
 
+	EVENT_OFF(vxlan_sg->null_register);
 	pim_vxlan_del_work(vxlan_sg);
 
 	if (pim_vxlan_is_orig_mroute(vxlan_sg))
@@ -1174,6 +1250,9 @@ void pim_vxlan_exit(struct pim_instance *pim)
 {
 	hash_clean_and_free(&pim->vxlan.sg_hash,
 			    (void (*)(void *))pim_vxlan_sg_del_item);
+
+	if (vxlan_info.work_list)
+		list_delete(&vxlan_info.work_list);
 }
 
 void pim_vxlan_terminate(void)

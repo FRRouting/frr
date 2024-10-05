@@ -40,7 +40,7 @@ def setup_module(mod):
 
     router_list = tgen.routers()
 
-    for i, (rname, router) in enumerate(router_list.items(), 1):
+    for _, (rname, router) in enumerate(router_list.items(), 1):
         router.load_config(
             TopoRouter.RD_ZEBRA, os.path.join(CWD, "{}/zebra.conf".format(rname))
         )
@@ -69,32 +69,36 @@ def test_bgp_default_originate_route_map():
         expected = {
             "192.168.255.1": {
                 "bgpState": "Established",
-                "addressFamilyInfo": {"ipv4Unicast": {"acceptedPrefixCounter": 1}},
+                "addressFamilyInfo": {"ipv4Unicast": {"acceptedPrefixCounter": 2}},
             }
         }
         return topotest.json_cmp(output, expected)
 
     def _bgp_check_if_originated():
         output = json.loads(tgen.gears["r1"].vtysh_cmd("show ip bgp summary json"))
-        expected = {"ipv4Unicast": {"peers": {"192.168.255.2": {"pfxSnt": 1}}}}
+        expected = {"ipv4Unicast": {"peers": {"192.168.255.2": {"pfxSnt": 2}}}}
         return topotest.json_cmp(output, expected)
 
-    def _bgp_default_route_is_valid(router):
-        output = json.loads(router.vtysh_cmd("show ip bgp 0.0.0.0/0 json"))
+    def _bgp_route_is_valid(router, prefix):
+        output = json.loads(router.vtysh_cmd("show ip bgp {} json".format(prefix)))
         expected = {"paths": [{"valid": True}]}
         return topotest.json_cmp(output, expected)
 
     test_func = functools.partial(_bgp_check_if_received)
-    success, result = topotest.run_and_expect(test_func, None, count=30, wait=0.5)
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=0.5)
     assert result is None, "No 0.0.0.0/0 at r2 from r1"
 
     test_func = functools.partial(_bgp_check_if_originated)
-    success, result = topotest.run_and_expect(test_func, None, count=30, wait=0.5)
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=0.5)
     assert result is None, "No 0.0.0.0/0 from r1 to r2"
 
-    test_func = functools.partial(_bgp_default_route_is_valid, tgen.gears["r2"])
-    success, result = topotest.run_and_expect(test_func, None, count=30, wait=0.5)
+    test_func = functools.partial(_bgp_route_is_valid, tgen.gears["r2"], "0.0.0.0/0")
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=0.5)
     assert result is None, "Failed to see 0.0.0.0/0 in r2"
+
+    test_func = functools.partial(_bgp_route_is_valid, tgen.gears["r2"], "0.0.0.0/1")
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=0.5)
+    assert result is None, "Failed to see 0.0.0.0/1 in r2"
 
 
 if __name__ == "__main__":

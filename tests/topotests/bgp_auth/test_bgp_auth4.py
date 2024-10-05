@@ -32,14 +32,12 @@ for bgp instances
 """
 # pylint: disable=C0413
 
-import json
 import os
 import platform
 import sys
-from time import sleep
 
 import pytest
-from lib import common_config, topotest
+from lib import topotest
 from lib.common_config import (
     save_initial_config_on_routers,
     reset_with_new_configs,
@@ -155,10 +153,10 @@ def setup_module(mod):
     router_list = tgen.routers()
 
     # For all registered routers, load the zebra configuration file
-    for rname, router in router_list.items():
+    for _, router in router_list.items():
         router.load_config(TopoRouter.RD_ZEBRA, "zebra.conf")
-        router.load_config(TopoRouter.RD_OSPF)
-        router.load_config(TopoRouter.RD_BGP)
+        router.load_config(TopoRouter.RD_OSPF, "")
+        router.load_config(TopoRouter.RD_BGP, "")
 
     # After copying the configurations, this function loads configured daemons.
     tgen.start_router()

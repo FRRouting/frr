@@ -238,10 +238,10 @@ void isis_lfa_excluded_ifaces_init(struct isis_circuit *circuit, int level)
  *
  * @param nodes		List of SPF nodes
  */
-void isis_lfa_excluded_ifaces_clear(struct isis_circuit *circuit, int level)
+void isis_lfa_excluded_ifaces_delete(struct isis_circuit *circuit, int level)
 {
-	hash_clean(circuit->lfa_excluded_ifaces[level - 1],
-		   lfa_excl_interface_hash_free);
+	hash_clean_and_free(&circuit->lfa_excluded_ifaces[level - 1],
+			    lfa_excl_interface_hash_free);
 }
 
 /**
@@ -916,9 +916,8 @@ int isis_tilfa_check(struct isis_spftree *spftree_pc,
 
 		adj = isis_adj_find(spftree_pc->area, spftree_pc->level,
 				    vertex->N.id);
-		if (adj
-		    && isis_sr_adj_sid_find(adj, spftree_pc->family,
-					    ISIS_SR_LAN_BACKUP)) {
+		if (adj && isis_sr_adj_sid_find(adj, spftree_pc->family,
+						ISIS_SR_ADJ_BACKUP)) {
 			if (IS_DEBUG_LFA)
 				zlog_debug(
 					"ISIS-LFA: %s %s already covered by node protection",
@@ -2127,9 +2126,16 @@ void isis_lfa_compute(struct isis_area *area, struct isis_circuit *circuit,
 		}
 
 		vadj_primary = listnode_head(vertex->Adj_N);
+		if (!vadj_primary) {
+			if (IS_DEBUG_LFA)
+				zlog_debug(
+					"ISIS-LFA: skipping computing LFAs due to no adjacencies");
+			continue;
+		}
 		sadj_primary = vadj_primary->sadj;
 
 		parent_vertex = listnode_head(vertex->parents);
+		assert(parent_vertex);
 		prefix_metric = vertex->d_N - parent_vertex->d_N;
 
 		/*

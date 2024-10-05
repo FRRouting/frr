@@ -111,13 +111,13 @@ static void zebra_l2_bond_lacp_bypass_eval(struct zebra_if *bond_zif)
 {
 	struct listnode *node;
 	struct zebra_if *bond_mbr;
-	bool old_bypass = !!(bond_zif->flags & ZIF_FLAG_LACP_BYPASS);
+	bool old_bypass = !!CHECK_FLAG(bond_zif->flags, ZIF_FLAG_LACP_BYPASS);
 	bool new_bypass = false;
 
 	if (bond_zif->bond_info.mbr_zifs) {
 		for (ALL_LIST_ELEMENTS_RO(bond_zif->bond_info.mbr_zifs, node,
 					  bond_mbr)) {
-			if (bond_mbr->flags & ZIF_FLAG_LACP_BYPASS) {
+			if (CHECK_FLAG(bond_mbr->flags, ZIF_FLAG_LACP_BYPASS)) {
 				new_bypass = true;
 				break;
 			}
@@ -132,9 +132,9 @@ static void zebra_l2_bond_lacp_bypass_eval(struct zebra_if *bond_zif)
 			   bond_zif->ifp->name, new_bypass ? "on" : "off");
 
 	if (new_bypass)
-		bond_zif->flags |= ZIF_FLAG_LACP_BYPASS;
+		SET_FLAG(bond_zif->flags, ZIF_FLAG_LACP_BYPASS);
 	else
-		bond_zif->flags &= ~ZIF_FLAG_LACP_BYPASS;
+		UNSET_FLAG(bond_zif->flags, ZIF_FLAG_LACP_BYPASS);
 
 	if (bond_zif->es_info.es)
 		zebra_evpn_es_bypass_update(bond_zif->es_info.es, bond_zif->ifp,
@@ -174,8 +174,7 @@ void zebra_l2_map_slave_to_bond(struct zebra_if *zif, vrf_id_t vrf_id)
 		}
 	} else {
 		if (IS_ZEBRA_DEBUG_EVPN_MH_ES || IS_ZEBRA_DEBUG_EVENT)
-			zlog_debug("bond mbr %s link to bond skipped",
-				   zif->ifp->name);
+			zlog_debug("bond mbr %s link to bond skipped", zif->ifp->name);
 	}
 }
 
@@ -186,8 +185,7 @@ void zebra_l2_unmap_slave_from_bond(struct zebra_if *zif)
 
 	if (!bond_slave->bond_if) {
 		if (IS_ZEBRA_DEBUG_EVPN_MH_ES || IS_ZEBRA_DEBUG_EVENT)
-			zlog_debug("bond mbr %s unlink from bond skipped",
-				   zif->ifp->name);
+			zlog_debug("bond mbr %s unlink from bond skipped", zif->ifp->name);
 		return;
 	}
 
@@ -218,8 +216,7 @@ void zebra_l2if_update_bond(struct interface *ifp, bool add)
 	if (add) {
 		if (!bond->mbr_zifs) {
 			if (IS_ZEBRA_DEBUG_EVPN_MH_ES || IS_ZEBRA_DEBUG_EVENT)
-				zlog_debug("bond %s mbr list create",
-					   ifp->name);
+				zlog_debug("bond %s mbr list create", ifp->name);
 			bond->mbr_zifs = list_new();
 		}
 	} else {
@@ -244,8 +241,7 @@ void zebra_l2if_update_bond(struct interface *ifp, bool add)
  * map slaves (if any) to the bridge.
  */
 void zebra_l2_bridge_add_update(struct interface *ifp,
-				struct zebra_l2info_bridge *bridge_info,
-				int add)
+				const struct zebra_l2info_bridge *bridge_info)
 {
 	struct zebra_if *zif;
 	struct zebra_l2_bridge_if *br;
@@ -284,7 +280,7 @@ void zebra_l2if_update_bridge(struct interface *ifp, uint8_t chgflags)
  * VLAN Id and this cannot change.
  */
 void zebra_l2_vlanif_update(struct interface *ifp,
-			    struct zebra_l2info_vlan *vlan_info)
+			    const struct zebra_l2info_vlan *vlan_info)
 {
 	struct zebra_if *zif;
 
@@ -301,7 +297,7 @@ void zebra_l2_vlanif_update(struct interface *ifp,
  * clients about GRE information.
  */
 void zebra_l2_greif_add_update(struct interface *ifp,
-			       struct zebra_l2info_gre *gre_info, int add)
+			       const struct zebra_l2info_gre *gre_info, int add)
 {
 	struct zebra_if *zif;
 	struct in_addr old_vtep_ip;
@@ -328,7 +324,8 @@ void zebra_l2_greif_add_update(struct interface *ifp,
  * IP and VLAN mapping, but the latter is handled separately.
  */
 void zebra_l2_vxlanif_add_update(struct interface *ifp,
-				 struct zebra_l2info_vxlan *vxlan_info, int add)
+				 const struct zebra_l2info_vxlan *vxlan_info,
+				 int add)
 {
 	struct zebra_if *zif;
 	uint16_t chgflags = 0;
@@ -347,7 +344,7 @@ void zebra_l2_vxlanif_add_update(struct interface *ifp,
 	ctx.old_vtep_ip = zif->l2info.vxl.vtep_ip;
 
 	if (!IPV4_ADDR_SAME(&ctx.old_vtep_ip, &vxlan_info->vtep_ip)) {
-		chgflags |= ZEBRA_VXLIF_LOCAL_IP_CHANGE;
+		SET_FLAG(chgflags, ZEBRA_VXLIF_LOCAL_IP_CHANGE);
 		zif->l2info.vxl.vtep_ip = vxlan_info->vtep_ip;
 	}
 
@@ -355,7 +352,7 @@ void zebra_l2_vxlanif_add_update(struct interface *ifp,
 		ctx.old_vni = vxlan_info->vni_info.vni;
 		if (!IPV4_ADDR_SAME(&zif->l2info.vxl.vni_info.vni.mcast_grp,
 				    &vxlan_info->vni_info.vni.mcast_grp)) {
-			chgflags |= ZEBRA_VXLIF_MCAST_GRP_CHANGE;
+			SET_FLAG(chgflags, ZEBRA_VXLIF_MCAST_GRP_CHANGE);
 			zif->l2info.vxl.vni_info.vni.mcast_grp =
 				vxlan_info->vni_info.vni.mcast_grp;
 		}
@@ -383,10 +380,11 @@ void zebra_l2_vxlanif_update_access_vlan(struct interface *ifp,
 	assert(zif);
 
 	/* This would be called only in non svd case */
-	assert(IS_ZEBRA_VXLAN_IF_VNI(zif));
+	if (!IS_ZEBRA_VXLAN_IF_VNI(zif))
+		return;
 
 	old_access_vlan = zif->l2info.vxl.vni_info.vni.access_vlan;
-	;
+
 	if (old_access_vlan == access_vlan)
 		return;
 
@@ -440,11 +438,11 @@ void zebra_l2if_update_bridge_slave(struct interface *ifp,
 
 	if (zif->zif_type == ZEBRA_IF_VXLAN
 	    && chgflags != ZEBRA_BRIDGE_NO_ACTION) {
-		if (chgflags & ZEBRA_BRIDGE_MASTER_MAC_CHANGE) {
+		if (CHECK_FLAG(chgflags, ZEBRA_BRIDGE_MASTER_MAC_CHANGE)) {
 			ctx.chgflags = ZEBRA_VXLIF_MASTER_MAC_CHANGE;
 			zebra_vxlan_if_update(ifp, &ctx);
 		}
-		if (chgflags & ZEBRA_BRIDGE_MASTER_UP) {
+		if (CHECK_FLAG(chgflags, ZEBRA_BRIDGE_MASTER_UP)) {
 			ctx.chgflags = ZEBRA_VXLIF_MASTER_CHANGE;
 			zebra_vxlan_if_update(ifp, &ctx);
 		}
@@ -493,16 +491,16 @@ void zebra_l2if_update_bond_slave(struct interface *ifp, ifindex_t bond_ifindex,
 	zif = ifp->info;
 	assert(zif);
 
-	old_bypass = !!(zif->flags & ZIF_FLAG_LACP_BYPASS);
+	old_bypass = !!CHECK_FLAG(zif->flags, ZIF_FLAG_LACP_BYPASS);
 	if (old_bypass != new_bypass) {
 		if (IS_ZEBRA_DEBUG_EVPN_MH_ES || IS_ZEBRA_DEBUG_EVENT)
 			zlog_debug("bond-mbr %s lacp bypass changed to %s",
 				   zif->ifp->name, new_bypass ? "on" : "off");
 
 		if (new_bypass)
-			zif->flags |= ZIF_FLAG_LACP_BYPASS;
+			SET_FLAG(zif->flags, ZIF_FLAG_LACP_BYPASS);
 		else
-			zif->flags &= ~ZIF_FLAG_LACP_BYPASS;
+			UNSET_FLAG(zif->flags, ZIF_FLAG_LACP_BYPASS);
 
 		bond_mbr = &zif->bondslave_info;
 		if (bond_mbr->bond_if) {

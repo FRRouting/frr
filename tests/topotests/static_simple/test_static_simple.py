@@ -13,11 +13,10 @@ import datetime
 import ipaddress
 import math
 import os
-import sys
 import re
 
 import pytest
-from lib.topogen import TopoRouter, Topogen, get_topogen
+from lib.topogen import TopoRouter, Topogen
 from lib.topolog import logger
 from lib.common_config import retry, step
 
@@ -40,6 +39,8 @@ def tgen(request):
         router.net.add_loop("lo-red")
         router.net.attach_iface_to_l3vrf("lo-red", "red")
         router.net.attach_iface_to_l3vrf(rname + "-eth1", "red")
+        #
+        # router.load_frr_config("frr.conf")
         # and select daemons to run
         router.load_config(TopoRouter.RD_ZEBRA, "zebra.conf")
         router.load_config(TopoRouter.RD_MGMTD)
@@ -68,7 +69,7 @@ def disable_debug(router):
     router.vtysh_cmd("no debug northbound callbacks configuration")
 
 
-@retry(retry_timeout=3, initial_wait=0.1)
+@retry(retry_timeout=30, initial_wait=0.1)
 def check_kernel(r1, super_prefix, count, add, is_blackhole, vrf, matchvia):
     network = ipaddress.ip_network(super_prefix)
     vrfstr = f" vrf {vrf}" if vrf else ""
@@ -78,7 +79,7 @@ def check_kernel(r1, super_prefix, count, add, is_blackhole, vrf, matchvia):
         kernel = r1.run(f"ip -4 route show{vrfstr}")
 
     logger.debug("checking kernel routing table%s:\n%s", vrfstr, kernel)
-    for i, net in enumerate(get_ip_networks(super_prefix, count)):
+    for _, net in enumerate(get_ip_networks(super_prefix, count)):
         if not add:
             assert str(net) not in kernel
             continue
@@ -114,7 +115,6 @@ def do_config(
     else:
         super_prefix = "2001::/48" if do_ipv6 else "10.0.0.0/8"
 
-    matchtype = ""
     matchvia = ""
     if via == "blackhole":
         pass
@@ -144,7 +144,7 @@ def do_config(
         if vrf:
             f.write("vrf {}\n".format(vrf))
 
-        for i, net in enumerate(get_ip_networks(super_prefix, count)):
+        for _, net in enumerate(get_ip_networks(super_prefix, count)):
             if add:
                 f.write("ip route {} {}\n".format(net, via))
             else:
@@ -181,10 +181,11 @@ def guts(tgen, vrf, use_cli):
 
     r1 = tgen.routers()["r1"]
 
-    step("add via gateway", reset=True)
-    do_config(r1, 1, True, False, vrf=vrf, use_cli=use_cli)
-    step("remove via gateway")
-    do_config(r1, 1, False, False, vrf=vrf, use_cli=use_cli)
+    count = 10
+    step(f"add {count} via gateway", reset=True)
+    do_config(r1, count, True, False, vrf=vrf, use_cli=use_cli)
+    step(f"remove {count} via gateway")
+    do_config(r1, count, False, False, vrf=vrf, use_cli=use_cli)
 
     via = f"lo-{vrf}" if vrf else "lo"
     step("add via loopback")

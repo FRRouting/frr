@@ -6,6 +6,7 @@
  */
 
 #include <zebra.h>
+#include <sys/stat.h>
 #include <sys/un.h>
 
 #include "ldpd.h"
@@ -106,8 +107,7 @@ static void control_accept(struct event *thread)
 		 */
 		if (errno == ENFILE || errno == EMFILE)
 			accept_pause();
-		else if (errno != EWOULDBLOCK && errno != EINTR &&
-		    errno != ECONNABORTED)
+		else if (errno != EWOULDBLOCK && errno != EINTR && errno != ECONNABORTED)
 			log_warn("%s: accept", __func__);
 		return;
 	}
@@ -192,8 +192,7 @@ static void control_dispatch_imsg(struct event *thread)
 
 	c->iev.ev_read = NULL;
 
-	if (((n = imsg_read(&c->iev.ibuf)) == -1 && errno != EAGAIN) ||
-	    n == 0) {
+	if (((n = imsg_read(&c->iev.ibuf)) == -1 && errno != EAGAIN) || n == 0) {
 		control_close(fd);
 		return;
 	}
@@ -217,12 +216,10 @@ static void control_dispatch_imsg(struct event *thread)
 			/* ignore */
 			break;
 		case IMSG_CTL_SHOW_INTERFACE:
-			if (imsg.hdr.len == IMSG_HEADER_SIZE +
-			    sizeof(ifidx)) {
+			if (imsg.hdr.len == IMSG_HEADER_SIZE + sizeof(ifidx)) {
 				memcpy(&ifidx, imsg.data, sizeof(ifidx));
 				ldpe_iface_ctl(c, ifidx);
-				imsg_compose_event(&c->iev, IMSG_CTL_END, 0,
-				    0, -1, NULL, 0);
+				imsg_compose_event(&c->iev, IMSG_CTL_END, 0, 0, -1, NULL, 0);
 			}
 			break;
 		case IMSG_CTL_SHOW_DISCOVERY:
@@ -242,8 +239,7 @@ static void control_dispatch_imsg(struct event *thread)
 			ldpe_nbr_ctl(c);
 			break;
 		case IMSG_CTL_CLEAR_NBR:
-			if (imsg.hdr.len != IMSG_HEADER_SIZE +
-			    sizeof(struct ctl_nbr))
+			if (imsg.hdr.len != IMSG_HEADER_SIZE + sizeof(struct ctl_nbr))
 				break;
 
 			nbr_clear_ctl(imsg.data);
@@ -255,8 +251,7 @@ static void control_dispatch_imsg(struct event *thread)
 			/* ignore */
 			break;
 		default:
-			log_debug("%s: error handling imsg %d", __func__,
-			    imsg.hdr.type);
+			log_debug("%s: error handling imsg %d", __func__, imsg.hdr.type);
 			break;
 		}
 		imsg_free(&imsg);

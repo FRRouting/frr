@@ -11,8 +11,8 @@
 
 #include "mgmt_fe_client.h"
 #include "northbound.h"
+#include "mgmt_defines.h"
 
-#include "mgmtd/mgmt_defines.h"
 #include "mgmtd/mgmt_be_adapter.h"
 #include "mgmtd/mgmt_fe_adapter.h"
 
@@ -28,12 +28,9 @@
 	for ((id) = MGMTD_DS_NONE; (id) < MGMTD_DS_MAX_ID; (id)++)
 
 #define MGMTD_MAX_COMMIT_LIST 10
-#define MGMTD_MD5_HASH_LEN 16
-#define MGMTD_MD5_HASH_STR_HEX_LEN 33
 
-#define MGMTD_COMMIT_FILE_PATH DAEMON_DB_DIR "/commit-%s.json"
-#define MGMTD_COMMIT_INDEX_FILE_NAME DAEMON_DB_DIR "/commit-index.dat"
-#define MGMTD_COMMIT_TIME_STR_LEN 100
+#define MGMTD_COMMIT_FILE_PATH(id)   "%s/commit-%s.json", frr_libstatedir, id
+#define MGMTD_COMMIT_INDEX_FILE_PATH "%s/commit-index.dat", frr_libstatedir
 
 extern struct nb_config *running_config;
 
@@ -182,19 +179,19 @@ extern struct mgmt_ds_ctx *mgmt_ds_get_ctx_by_id(struct mgmt_master *mm,
 extern bool mgmt_ds_is_config(struct mgmt_ds_ctx *ds_ctx);
 
 /*
- * Acquire read lock to a ds given a ds_handle
+ * Check if a given datastore is locked by a given session
  */
-extern int mgmt_ds_read_lock(struct mgmt_ds_ctx *ds_ctx);
+extern bool mgmt_ds_is_locked(struct mgmt_ds_ctx *ds_ctx, uint64_t session_id);
 
 /*
  * Acquire write lock to a ds given a ds_handle
  */
-extern int mgmt_ds_write_lock(struct mgmt_ds_ctx *ds_ctx);
+extern int mgmt_ds_lock(struct mgmt_ds_ctx *ds_ctx, uint64_t session_id);
 
 /*
  * Remove a lock from ds given a ds_handle
  */
-extern int mgmt_ds_unlock(struct mgmt_ds_ctx *ds_ctx);
+extern void mgmt_ds_unlock(struct mgmt_ds_ctx *ds_ctx);
 
 /*
  * Copy from source to destination datastore.
@@ -221,39 +218,6 @@ extern int mgmt_ds_copy_dss(struct mgmt_ds_ctx *src_ds_ctx,
 extern struct nb_config *mgmt_ds_get_nb_config(struct mgmt_ds_ctx *ds_ctx);
 
 /*
- * Lookup YANG data nodes.
- *
- * ds_ctx
- *    Datastore context.
- *
- * xpath
- *    YANG base xpath.
- *
- * dxpaths
- *    Out param - array of YANG data xpaths.
- *
- * num_nodes
- *    In-out param - number of YANG data xpaths.
- *    Note - Caller should init this to the size of the array
- *    provided in dxpaths.
- *    On return this will have the actual number of xpaths
- *    being returned.
- *
- * get_childs_as_well
- *    TRUE if child nodes needs to be fetched as well, FALSE otherwise.
- *
- * alloc_xp_copy
- *    TRUE if the caller is interested in getting a copy of the xpath.
- *
- * Returns:
- *    0 on success, -1 on failure.
- */
-extern int mgmt_ds_lookup_data_nodes(struct mgmt_ds_ctx *ds_ctx,
-				     const char *xpath, char *dxpaths[],
-				     int *num_nodes, bool get_childs_as_well,
-				     bool alloc_xp_copy);
-
-/*
  * Find YANG data node given a datastore handle YANG xpath.
  */
 extern struct lyd_node *
@@ -269,8 +233,11 @@ extern int mgmt_ds_delete_data_nodes(struct mgmt_ds_ctx *ds_ctx,
 /*
  * Iterate over datastore data.
  *
- * ds_ctx
- *    Datastore context.
+ * ds_id
+ *    Datastore ID..
+ *
+ * root
+ *    The root of the tree to iterate over.
  *
  * base_xpath
  *    Base YANG xpath from where needs to be iterated.
@@ -284,18 +251,15 @@ extern int mgmt_ds_delete_data_nodes(struct mgmt_ds_ctx *ds_ctx,
  *    be passed to the iterator function provided in
  *    'iter_fn'.
  *
- * alloc_xp_copy
- *    TRUE if the caller is interested in getting a copy of the xpath.
- *
  * Returns:
  *    0 on success, -1 on failure.
  */
 extern int mgmt_ds_iter_data(
-	struct mgmt_ds_ctx *ds_ctx, char *base_xpath,
-	void (*mgmt_ds_node_iter_fn)(struct mgmt_ds_ctx *ds_ctx, char *xpath,
-				     struct lyd_node *node,
+	Mgmtd__DatastoreId ds_id, struct nb_config *root,
+	const char *base_xpath,
+	void (*mgmt_ds_node_iter_fn)(const char *xpath, struct lyd_node *node,
 				     struct nb_node *nb_node, void *ctx),
-	void *ctx, bool alloc_xp_copy);
+	void *ctx);
 
 /*
  * Load config to datastore from a file.

@@ -87,12 +87,12 @@ static const char *inet_2a(uint32_t a, char *b, size_t b_len)
 
 static struct prefix *irdp_get_prefix(struct interface *ifp)
 {
-	struct listnode *node;
 	struct connected *ifc;
 
-	if (ifp->connected)
-		for (ALL_LIST_ELEMENTS_RO(ifp->connected, node, ifc))
+	frr_each (if_connected, ifp->connected, ifc) {
+		if (ifc->address->family == AF_INET)
 			return ifc->address;
+	}
 
 	return NULL;
 }
@@ -198,7 +198,6 @@ static void irdp_if_start(struct interface *ifp, int multicast,
 {
 	struct zebra_if *zi = ifp->info;
 	struct irdp_interface *irdp = zi->irdp;
-	struct listnode *node;
 	struct connected *ifc;
 	uint32_t timer, seed;
 
@@ -247,11 +246,12 @@ static void irdp_if_start(struct interface *ifp, int multicast,
 	/* The spec suggests this for randomness */
 
 	seed = 0;
-	if (ifp->connected)
-		for (ALL_LIST_ELEMENTS_RO(ifp->connected, node, ifc)) {
+	frr_each (if_connected, ifp->connected, ifc) {
+		if (ifc->address->family == AF_INET) {
 			seed = ifc->address->u.prefix4.s_addr;
 			break;
 		}
+	}
 
 	srandom(seed);
 	timer = (frr_weak_random() % IRDP_DEFAULT_INTERVAL) + 1;
@@ -694,7 +694,6 @@ DEFUN (ip_irdp_debug_disable,
 
 void irdp_if_init(void)
 {
-	hook_register(zebra_if_config_wr, irdp_config_write);
 	hook_register(if_del, irdp_if_delete);
 
 	install_element(INTERFACE_NODE, &ip_irdp_broadcast_cmd);

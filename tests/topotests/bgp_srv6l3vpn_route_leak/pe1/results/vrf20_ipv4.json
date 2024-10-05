@@ -12,7 +12,7 @@
                 {
                     "fib": true,
                     "directlyConnected": true,
-                    "interfaceName": "eth0",
+                    "interfaceName": "vrf10",
                     "vrf": "vrf10",
                     "active": true
                 }

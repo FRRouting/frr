@@ -62,6 +62,7 @@
 *.cg.dot
 *.cg.svg
 *.xref
+*_tsexpand.h
 
 ### gcov outputs
 
@@ -106,6 +107,7 @@ GSYMS
 GRTAGS
 GPATH
 compile_commands.json
+.ccls
 .ccls-cache
 .dirstamp
 refix
@@ -116,3 +118,4 @@ refix
 /test-suite.log
 pceplib/test/*.log
 pceplib/test/*.trs
+/tests/topotests/lib/mgmt_pb2.py

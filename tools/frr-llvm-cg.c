@@ -231,7 +231,7 @@ static void walk_const_fptrs(struct json_object *js_call, LLVMValueRef value,
 				"%s: calls function pointer from unhandled const GEP\n",
 				prefix);
 			*hdr_written = true;
-			/* fallthru */
+			fallthrough;
 		default:
 			/* to help the user / development */
 			if (!*hdr_written) {

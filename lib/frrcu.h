@@ -40,6 +40,12 @@ extern "C" {
 /* opaque */
 struct rcu_thread;
 
+/* sets up rcu thread info
+ *
+ * return value must be passed into the thread's call to rcu_thread_start()
+ */
+extern struct rcu_thread *rcu_thread_new(void *arg);
+
 /* called before new thread creation, sets up rcu thread info for new thread
  * before it actually exits.  This ensures possible RCU references are held
  * for thread startup.
@@ -150,7 +156,7 @@ extern void rcu_enqueue(struct rcu_head *head, const struct rcu_action *action);
 #define rcu_call(func, ptr, field)                                             \
 	do {                                                                   \
 		typeof(ptr) _ptr = (ptr);                                      \
-		void (*fptype)(typeof(ptr));                                   \
+		void (*_fptype)(typeof(ptr));                                  \
 		struct rcu_head *_rcu_head = &_ptr->field;                     \
 		static const struct rcu_action _rcu_action = {                 \
 			.type = RCUA_CALL,                                     \

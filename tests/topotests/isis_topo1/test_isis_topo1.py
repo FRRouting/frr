@@ -104,7 +104,7 @@ def setup_module(mod):
     tgen.start_router()
 
 
-def teardown_module(mod):
+def teardown_module():
     "Teardown the pytest environment"
     tgen = get_topogen()
 
@@ -120,19 +120,13 @@ def test_isis_convergence():
         pytest.skip(tgen.errors)
 
     logger.info("waiting for ISIS protocol to converge")
-    # Code to generate the json files.
-    # for rname, router in tgen.routers().items():
-    #     open('/tmp/{}_topology.json'.format(rname), 'w').write(
-    #         json.dumps(show_isis_topology(router), indent=2, sort_keys=True)
-    #     )
-
     for rname, router in tgen.routers().items():
         filename = "{0}/{1}/{1}_topology.json".format(CWD, rname)
         expected = json.loads(open(filename).read())
 
         def compare_isis_topology(router, expected):
             "Helper function to test ISIS topology convergence."
-            actual = show_isis_topology(router)
+            actual = json.loads(router.vtysh_cmd("show isis topology json"))
             return topotest.json_cmp(actual, expected)
 
         test_func = functools.partial(compare_isis_topology, router, expected)
@@ -160,7 +154,7 @@ def test_isis_route_installation():
             return topotest.json_cmp(actual, expected)
 
         test_func = functools.partial(compare_isis_installed_routes, router, expected)
-        (result, diff) = topotest.run_and_expect(test_func, None, wait=1, count=10)
+        (result, _) = topotest.run_and_expect(test_func, None, wait=1, count=10)
         assertmsg = "Router '{}' routes mismatch".format(rname)
         assert result, assertmsg
 
@@ -205,7 +199,7 @@ def test_isis_route6_installation():
         test_func = functools.partial(
             compare_isis_v6_installed_routes, router, expected
         )
-        (result, diff) = topotest.run_and_expect(test_func, None, wait=1, count=10)
+        (result, _) = topotest.run_and_expect(test_func, None, wait=1, count=10)
         assertmsg = "Router '{}' routes mismatch".format(rname)
         assert result, assertmsg
 
@@ -237,7 +231,7 @@ def test_isis_summary_json():
         pytest.skip(tgen.errors)
 
     logger.info("Checking 'show isis summary json'")
-    for rname, router in tgen.routers().items():
+    for rname, _ in tgen.routers().items():
         logger.info("Checking router %s", rname)
         json_output = tgen.gears[rname].vtysh_cmd("show isis summary json", isjson=True)
         assertmsg = "Test isis summary json failed in '{}' data '{}'".format(
@@ -257,7 +251,7 @@ def test_isis_interface_json():
         pytest.skip(tgen.errors)
 
     logger.info("Checking 'show isis interface json'")
-    for rname, router in tgen.routers().items():
+    for rname, _ in tgen.routers().items():
         logger.info("Checking router %s", rname)
         json_output = tgen.gears[rname].vtysh_cmd(
             "show isis interface json", isjson=True
@@ -294,7 +288,7 @@ def test_isis_neighbor_json():
 
     # tgen.mininet_cli()
     logger.info("Checking 'show isis neighbor json'")
-    for rname, router in tgen.routers().items():
+    for rname, _ in tgen.routers().items():
         logger.info("Checking router %s", rname)
         json_output = tgen.gears[rname].vtysh_cmd(
             "show isis neighbor json", isjson=True
@@ -330,7 +324,7 @@ def test_isis_database_json():
 
     # tgen.mininet_cli()
     logger.info("Checking 'show isis database json'")
-    for rname, router in tgen.routers().items():
+    for rname, _ in tgen.routers().items():
         logger.info("Checking router %s", rname)
         json_output = tgen.gears[rname].vtysh_cmd(
             "show isis database json", isjson=True
@@ -629,7 +623,7 @@ def test_isis_hello_padding_during_adjacency_formation():
     assert result is True, result
 
 
-@retry(retry_timeout=5)
+@retry(retry_timeout=10)
 def check_last_iih_packet_for_padding(router, expect_padding):
     logfilename = "{}/{}".format(router.gearlogdir, "isisd.log")
     last_hello_packet_line = None
@@ -685,7 +679,10 @@ def _check_lsp_overload_bit(router, overloaded_router_lsp, att_p_ol_expected):
     )
 
     database_json = json.loads(isis_database_output)
-    att_p_ol = database_json["areas"][0]["levels"][1]["att-p-ol"]
+    if "lsps" not in database_json["areas"][0]["levels"][1]:
+        return "The LSP of {} has not been synchronized yet ".format(router.name)
+
+    att_p_ol = database_json["areas"][0]["levels"][1]["lsps"][0]["attPOl"]
     if att_p_ol == att_p_ol_expected:
         return True
     return "{} peer with expected att_p_ol {} got {} ".format(
@@ -708,9 +705,9 @@ def _check_overload_timer(router, timer_expected):
 
     tgen = get_topogen()
     router = tgen.gears[router]
-    thread_output = router.vtysh_cmd("show thread timers")
+    output = router.vtysh_cmd("show event timers")
 
-    timer_running = "set_overload_on_start_timer" in thread_output
+    timer_running = "set_overload_on_start_timer" in output
     if timer_running == timer_expected:
         return True
     return "Expected timer running status: {}".format(timer_expected)
@@ -755,7 +752,7 @@ def dict_merge(dct, merge_dct):
     Source:
     https://gist.github.com/angstwad/bf22d1822c38a92ec0a9
     """
-    for k, v in merge_dct.items():
+    for k, _ in merge_dct.items():
         if k in dct and isinstance(dct[k], dict) and topotest.is_mapping(merge_dct[k]):
             dict_merge(dct[k], merge_dct[k])
         else:
@@ -845,52 +842,3 @@ def parse_topology(lines, level):
             continue
 
     return areas
-
-
-def show_isis_topology(router):
-    """
-    Get the ISIS topology in a dictionary format.
-
-    Sample:
-    {
-      'area-name': {
-        'level-1': [
-          {
-            'vertex': 'r1'
-          }
-        ],
-        'level-2': [
-          {
-            'vertex': '10.0.0.1/24',
-            'type': 'IP',
-            'parent': '0',
-            'metric': 'internal'
-          }
-        ]
-      },
-      'area-name-2': {
-        'level-2': [
-          {
-            "interface": "rX-ethY",
-            "metric": "Z",
-            "next-hop": "rA",
-            "parent": "rC(B)",
-            "type": "TE-IS",
-            "vertex": "rD"
-          }
-        ]
-      }
-    }
-    """
-    l1out = topotest.normalize_text(
-        router.vtysh_cmd("show isis topology level-1")
-    ).splitlines()
-    l2out = topotest.normalize_text(
-        router.vtysh_cmd("show isis topology level-2")
-    ).splitlines()
-
-    l1 = parse_topology(l1out, "level-1")
-    l2 = parse_topology(l2out, "level-2")
-
-    dict_merge(l1, l2)
-    return l1

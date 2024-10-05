@@ -388,11 +388,6 @@ static inline bool bgp_evpn_attr_is_local_es(struct attr *attr)
 	return attr ? !!(attr->es_flags & ATTR_ES_IS_LOCAL) : false;
 }
 
-static inline uint32_t bgp_evpn_attr_get_df_pref(struct attr *attr)
-{
-	return (attr) ? attr->df_pref : 0;
-}
-
 static inline bool bgp_evpn_local_es_is_active(struct bgp_evpn_es *es)
 {
 	return (es->flags & BGP_EVPNES_OPER_UP)
@@ -423,10 +418,12 @@ extern int bgp_evpn_local_es_add(struct bgp *bgp, esi_t *esi,
 extern int bgp_evpn_local_es_del(struct bgp *bgp, esi_t *esi);
 extern int bgp_evpn_local_es_evi_add(struct bgp *bgp, esi_t *esi, vni_t vni);
 extern int bgp_evpn_local_es_evi_del(struct bgp *bgp, esi_t *esi, vni_t vni);
-extern int bgp_evpn_remote_es_evi_add(struct bgp *bgp, struct bgpevpn *vpn,
-		const struct prefix_evpn *p);
-extern int bgp_evpn_remote_es_evi_del(struct bgp *bgp, struct bgpevpn *vpn,
-		const struct prefix_evpn *p);
+extern enum zclient_send_status
+bgp_evpn_remote_es_evi_add(struct bgp *bgp, struct bgpevpn *vpn,
+			   const struct prefix_evpn *p);
+extern enum zclient_send_status
+bgp_evpn_remote_es_evi_del(struct bgp *bgp, struct bgpevpn *vpn,
+			   const struct prefix_evpn *p);
 extern void bgp_evpn_mh_init(void);
 extern void bgp_evpn_mh_finish(void);
 void bgp_evpn_vni_es_init(struct bgpevpn *vpn);

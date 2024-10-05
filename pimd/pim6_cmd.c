@@ -41,45 +41,207 @@ static struct cmd_node debug_node = {
 	.config_write = pim_debug_config_write,
 };
 
-DEFPY (ipv6_pim_joinprune_time,
-       ipv6_pim_joinprune_time_cmd,
-       "ipv6 pim join-prune-interval (1-65535)$jpi",
-       IPV6_STR
-       PIM_STR
+DEFPY_NOSH (router_pim6,
+            router_pim6_cmd,
+            "router pim6 [vrf NAME]",
+            "Enable a routing process\n"
+            "Start PIM6 configuration\n"
+            VRF_CMD_HELP_STR)
+{
+	char xpath[XPATH_MAXLEN];
+	const char *vrf_name;
+
+	if (vrf)
+		vrf_name = vrf;
+	else
+		vrf_name = VRF_DEFAULT_NAME;
+
+	snprintf(xpath, sizeof(xpath), FRR_PIM_VRF_XPATH, "frr-pim:pimd", "pim",
+		 vrf_name, FRR_PIM_AF_XPATH_VAL);
+	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
+	if (nb_cli_apply_changes_clear_pending(vty, NULL) != CMD_SUCCESS)
+		return CMD_WARNING_CONFIG_FAILED;
+
+	VTY_PUSH_XPATH(PIM6_NODE, xpath);
+
+	return CMD_SUCCESS;
+}
+
+DEFPY (no_router_pim6,
+       no_router_pim6_cmd,
+       "no router pim6 [vrf NAME]",
+       NO_STR
+       "Enable a routing process\n"
+       "Start PIM6 configuration\n"
+       VRF_CMD_HELP_STR)
+{
+	char xpath[XPATH_MAXLEN];
+	const char *vrf_name;
+
+	if (vrf)
+		vrf_name = vrf;
+	else
+		vrf_name = VRF_DEFAULT_NAME;
+
+	snprintf(xpath, sizeof(xpath), FRR_PIM_VRF_XPATH, "frr-pim:pimd", "pim",
+		 vrf_name, FRR_PIM_AF_XPATH_VAL);
+
+	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFPY (pim6_joinprune_time,
+       pim6_joinprune_time_cmd,
+       "join-prune-interval (1-65535)$jpi",
        "Join Prune Send Interval\n"
        "Seconds\n")
 {
 	return pim_process_join_prune_cmd(vty, jpi_str);
 }
+DEFPY_ATTR(ipv6_joinprune_time,
+           ipv6_pim_joinprune_time_cmd,
+           "ipv6 pim join-prune-interval (1-65535)$jpi",
+           IPV6_STR PIM_STR
+           "Join Prune Send Interval\n"
+           "Seconds\n",
+           CMD_ATTR_HIDDEN | CMD_ATTR_DEPRECATED)
+{
+	int ret;
+	const char *vrfname;
+	char xpath[XPATH_MAXLEN];
+	int orig_node = -1;
 
-DEFPY (no_ipv6_pim_joinprune_time,
-       no_ipv6_pim_joinprune_time_cmd,
-       "no ipv6 pim join-prune-interval [(1-65535)]",
+	vrfname = pim_cli_get_vrf_name(vty);
+	if (vrfname) {
+		snprintf(xpath, sizeof(xpath), FRR_PIM_VRF_XPATH,
+			 "frr-pim:pimd", "pim", vrfname, FRR_PIM_AF_XPATH_VAL);
+		nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
+		if (nb_cli_apply_changes_clear_pending(vty, NULL) ==
+		    CMD_SUCCESS) {
+			orig_node = vty->node;
+			VTY_PUSH_XPATH(PIM6_NODE, xpath);
+		} else {
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+	} else {
+		vty_out(vty, "%% Failed to determine vrf name\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	ret = pim_process_join_prune_cmd(vty, jpi_str);
+
+	if (orig_node != -1) {
+		vty->node = orig_node;
+		vty->xpath_index--;
+	}
+
+	return ret;
+}
+
+DEFPY (no_pim6_joinprune_time,
+       no_pim6_joinprune_time_cmd,
+       "no join-prune-interval [(1-65535)]",
        NO_STR
-       IPV6_STR
-       PIM_STR
        "Join Prune Send Interval\n"
        IGNORED_IN_NO_STR)
 {
 	return pim_process_no_join_prune_cmd(vty);
 }
+DEFPY_ATTR(no_ipv6_pim_joinprune_time,
+           no_ipv6_pim_joinprune_time_cmd,
+           "no ipv6 pim join-prune-interval [(1-65535)]",
+           NO_STR
+           IPV6_STR
+           PIM_STR
+           "Join Prune Send Interval\n"
+           IGNORED_IN_NO_STR,
+           CMD_ATTR_HIDDEN | CMD_ATTR_DEPRECATED)
+{
+	int ret;
+	const char *vrfname;
+	char xpath[XPATH_MAXLEN];
+	int orig_node = -1;
 
-DEFPY (ipv6_pim_spt_switchover_infinity,
-       ipv6_pim_spt_switchover_infinity_cmd,
-       "ipv6 pim spt-switchover infinity-and-beyond",
-       IPV6_STR
-       PIM_STR
+	vrfname = pim_cli_get_vrf_name(vty);
+	if (vrfname) {
+		snprintf(xpath, sizeof(xpath), FRR_PIM_VRF_XPATH,
+			 "frr-pim:pimd", "pim", vrfname, FRR_PIM_AF_XPATH_VAL);
+		nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
+		if (nb_cli_apply_changes_clear_pending(vty, NULL) ==
+		    CMD_SUCCESS) {
+			orig_node = vty->node;
+			VTY_PUSH_XPATH(PIM6_NODE, xpath);
+		} else {
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+	} else {
+		vty_out(vty, "%% Failed to determine vrf name\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	ret = pim_process_no_join_prune_cmd(vty);
+
+	if (orig_node != -1) {
+		vty->node = orig_node;
+		vty->xpath_index--;
+	}
+
+	return ret;
+}
+
+DEFPY (pim6_spt_switchover_infinity,
+       pim6_spt_switchover_infinity_cmd,
+       "spt-switchover infinity-and-beyond",
        "SPT-Switchover\n"
        "Never switch to SPT Tree\n")
 {
 	return pim_process_spt_switchover_infinity_cmd(vty);
 }
+DEFPY_ATTR(ipv6_spt_switchover_infinity,
+           ipv6_pim_spt_switchover_infinity_cmd,
+           "ipv6 pim spt-switchover infinity-and-beyond",
+           IPV6_STR
+           PIM_STR
+           "SPT-Switchover\n"
+           "Never switch to SPT Tree\n",
+           CMD_ATTR_HIDDEN | CMD_ATTR_DEPRECATED)
+{
+	int ret;
+	const char *vrfname;
+	char xpath[XPATH_MAXLEN];
+	int orig_node = -1;
 
-DEFPY (ipv6_pim_spt_switchover_infinity_plist,
-       ipv6_pim_spt_switchover_infinity_plist_cmd,
-       "ipv6 pim spt-switchover infinity-and-beyond prefix-list WORD$plist",
-       IPV6_STR
-       PIM_STR
+	vrfname = pim_cli_get_vrf_name(vty);
+	if (vrfname) {
+		snprintf(xpath, sizeof(xpath), FRR_PIM_VRF_XPATH,
+			 "frr-pim:pimd", "pim", vrfname, FRR_PIM_AF_XPATH_VAL);
+		nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
+		if (nb_cli_apply_changes_clear_pending(vty, NULL) ==
+		    CMD_SUCCESS) {
+			orig_node = vty->node;
+			VTY_PUSH_XPATH(PIM6_NODE, xpath);
+		} else {
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+	} else {
+		vty_out(vty, "%% Failed to determine vrf name\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	ret = pim_process_spt_switchover_infinity_cmd(vty);
+
+	if (orig_node != -1) {
+		vty->node = orig_node;
+		vty->xpath_index--;
+	}
+
+	return ret;
+}
+
+DEFPY (pim6_spt_switchover_infinity_plist,
+       pim6_spt_switchover_infinity_plist_cmd,
+       "spt-switchover infinity-and-beyond prefix-list PREFIXLIST6_NAME$plist",
        "SPT-Switchover\n"
        "Never switch to SPT Tree\n"
        "Prefix-List to control which groups to switch\n"
@@ -87,25 +249,104 @@ DEFPY (ipv6_pim_spt_switchover_infinity_plist,
 {
 	return pim_process_spt_switchover_prefixlist_cmd(vty, plist);
 }
+DEFPY_ATTR(ipv6_spt_switchover_infinity_plist,
+           ipv6_pim_spt_switchover_infinity_plist_cmd,
+           "ipv6 pim spt-switchover infinity-and-beyond prefix-list PREFIXLIST6_NAME$plist",
+           IPV6_STR
+           PIM_STR
+           "SPT-Switchover\n"
+           "Never switch to SPT Tree\n"
+           "Prefix-List to control which groups to switch\n"
+           "Prefix-List name\n",
+           CMD_ATTR_HIDDEN | CMD_ATTR_DEPRECATED)
+{
+	int ret;
+	const char *vrfname;
+	char xpath[XPATH_MAXLEN];
+	int orig_node = -1;
 
-DEFPY (no_ipv6_pim_spt_switchover_infinity,
-       no_ipv6_pim_spt_switchover_infinity_cmd,
-       "no ipv6 pim spt-switchover infinity-and-beyond",
+	vrfname = pim_cli_get_vrf_name(vty);
+	if (vrfname) {
+		snprintf(xpath, sizeof(xpath), FRR_PIM_VRF_XPATH,
+			 "frr-pim:pimd", "pim", vrfname, FRR_PIM_AF_XPATH_VAL);
+		nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
+		if (nb_cli_apply_changes_clear_pending(vty, NULL) ==
+		    CMD_SUCCESS) {
+			orig_node = vty->node;
+			VTY_PUSH_XPATH(PIM6_NODE, xpath);
+		} else {
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+	} else {
+		vty_out(vty, "%% Failed to determine vrf name\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	ret = pim_process_spt_switchover_prefixlist_cmd(vty, plist);
+
+	if (orig_node != -1) {
+		vty->node = orig_node;
+		vty->xpath_index--;
+	}
+
+	return ret;
+}
+
+DEFPY (no_pim6_spt_switchover_infinity,
+       no_pim6_spt_switchover_infinity_cmd,
+       "no spt-switchover infinity-and-beyond",
        NO_STR
-       IPV6_STR
-       PIM_STR
        "SPT_Switchover\n"
        "Never switch to SPT Tree\n")
 {
 	return pim_process_no_spt_switchover_cmd(vty);
 }
+DEFPY_ATTR(no_ipv6_pim_spt_switchover_infinity,
+           no_ipv6_pim_spt_switchover_infinity_cmd,
+           "no ipv6 pim spt-switchover infinity-and-beyond",
+           NO_STR
+           IPV6_STR
+           PIM_STR
+           "SPT_Switchover\n"
+           "Never switch to SPT Tree\n",
+           CMD_ATTR_HIDDEN | CMD_ATTR_DEPRECATED)
+{
+	int ret;
+	const char *vrfname;
+	char xpath[XPATH_MAXLEN];
+	int orig_node = -1;
 
-DEFPY (no_ipv6_pim_spt_switchover_infinity_plist,
-       no_ipv6_pim_spt_switchover_infinity_plist_cmd,
-       "no ipv6 pim spt-switchover infinity-and-beyond prefix-list WORD",
+	vrfname = pim_cli_get_vrf_name(vty);
+	if (vrfname) {
+		snprintf(xpath, sizeof(xpath), FRR_PIM_VRF_XPATH,
+			 "frr-pim:pimd", "pim", vrfname, FRR_PIM_AF_XPATH_VAL);
+		nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
+		if (nb_cli_apply_changes_clear_pending(vty, NULL) ==
+		    CMD_SUCCESS) {
+			orig_node = vty->node;
+			VTY_PUSH_XPATH(PIM6_NODE, xpath);
+		} else {
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+	} else {
+		vty_out(vty, "%% Failed to determine vrf name\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	ret = pim_process_no_spt_switchover_cmd(vty);
+
+	if (orig_node != -1) {
+		vty->node = orig_node;
+		vty->xpath_index--;
+	}
+
+	return ret;
+}
+
+DEFPY (no_pim6_spt_switchover_infinity_plist,
+       no_pim6_spt_switchover_infinity_plist_cmd,
+       "no spt-switchover infinity-and-beyond prefix-list PREFIXLIST6_NAME",
        NO_STR
-       IPV6_STR
-       PIM_STR
        "SPT_Switchover\n"
        "Never switch to SPT Tree\n"
        "Prefix-List to control which groups to switch\n"
@@ -113,99 +354,452 @@ DEFPY (no_ipv6_pim_spt_switchover_infinity_plist,
 {
 	return pim_process_no_spt_switchover_cmd(vty);
 }
+DEFPY_ATTR(no_ipv6_pim_spt_switchover_infinity_plist,
+           no_ipv6_pim_spt_switchover_infinity_plist_cmd,
+           "no ipv6 pim spt-switchover infinity-and-beyond prefix-list PREFIXLIST6_NAME",
+           NO_STR
+           IPV6_STR
+           PIM_STR
+           "SPT_Switchover\n"
+           "Never switch to SPT Tree\n"
+           "Prefix-List to control which groups to switch\n"
+           "Prefix-List name\n",
+           CMD_ATTR_HIDDEN | CMD_ATTR_DEPRECATED)
+{
+	int ret;
+	const char *vrfname;
+	char xpath[XPATH_MAXLEN];
+	int orig_node = -1;
 
-DEFPY (ipv6_pim_packets,
-       ipv6_pim_packets_cmd,
-       "ipv6 pim packets (1-255)",
-       IPV6_STR
-       PIM_STR
+	vrfname = pim_cli_get_vrf_name(vty);
+	if (vrfname) {
+		snprintf(xpath, sizeof(xpath), FRR_PIM_VRF_XPATH,
+			 "frr-pim:pimd", "pim", vrfname, FRR_PIM_AF_XPATH_VAL);
+		nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
+		if (nb_cli_apply_changes_clear_pending(vty, NULL) ==
+		    CMD_SUCCESS) {
+			orig_node = vty->node;
+			VTY_PUSH_XPATH(PIM6_NODE, xpath);
+		} else {
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+	} else {
+		vty_out(vty, "%% Failed to determine vrf name\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	ret = pim_process_no_spt_switchover_cmd(vty);
+
+	if (orig_node != -1) {
+		vty->node = orig_node;
+		vty->xpath_index--;
+	}
+
+	return ret;
+}
+
+DEFPY (pim6_packets,
+       pim6_packets_cmd,
+       "packets (1-255)",
        "packets to process at one time per fd\n"
        "Number of packets\n")
 {
 	return pim_process_pim_packet_cmd(vty, packets_str);
 }
+DEFPY_ATTR(ipv6_pim_packets,
+           ipv6_pim_packets_cmd,
+           "ipv6 pim packets (1-255)",
+           IPV6_STR
+           PIM_STR
+           "packets to process at one time per fd\n"
+           "Number of packets\n",
+           CMD_ATTR_HIDDEN | CMD_ATTR_DEPRECATED)
+{
+	int ret;
+	const char *vrfname;
+	char xpath[XPATH_MAXLEN];
+	int orig_node = -1;
 
-DEFPY (no_ipv6_pim_packets,
-       no_ipv6_pim_packets_cmd,
-       "no ipv6 pim packets [(1-255)]",
+	vrfname = pim_cli_get_vrf_name(vty);
+	if (vrfname) {
+		snprintf(xpath, sizeof(xpath), FRR_PIM_VRF_XPATH,
+			 "frr-pim:pimd", "pim", vrfname, FRR_PIM_AF_XPATH_VAL);
+		nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
+		if (nb_cli_apply_changes_clear_pending(vty, NULL) ==
+		    CMD_SUCCESS) {
+			orig_node = vty->node;
+			VTY_PUSH_XPATH(PIM6_NODE, xpath);
+		} else {
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+	} else {
+		vty_out(vty, "%% Failed to determine vrf name\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	ret = pim_process_pim_packet_cmd(vty, packets_str);
+
+	if (orig_node != -1) {
+		vty->node = orig_node;
+		vty->xpath_index--;
+	}
+
+	return ret;
+}
+
+DEFPY (no_pim6_packets,
+       no_pim6_packets_cmd,
+       "no packets [(1-255)]",
        NO_STR
-       IPV6_STR
-       PIM_STR
        "packets to process at one time per fd\n"
        IGNORED_IN_NO_STR)
 {
 	return pim_process_no_pim_packet_cmd(vty);
 }
+DEFPY_ATTR(no_ipv6_pim_packets,
+           no_ipv6_pim_packets_cmd,
+           "no ipv6 pim packets [(1-255)]",
+           NO_STR
+           IPV6_STR
+           PIM_STR
+           "packets to process at one time per fd\n"
+           IGNORED_IN_NO_STR,
+           CMD_ATTR_HIDDEN | CMD_ATTR_DEPRECATED)
+{
+	int ret;
+	const char *vrfname;
+	char xpath[XPATH_MAXLEN];
+	int orig_node = -1;
 
-DEFPY (ipv6_pim_keep_alive,
-       ipv6_pim_keep_alive_cmd,
-       "ipv6 pim keep-alive-timer (1-65535)$kat",
-       IPV6_STR
-       PIM_STR
+	vrfname = pim_cli_get_vrf_name(vty);
+	if (vrfname) {
+		snprintf(xpath, sizeof(xpath), FRR_PIM_VRF_XPATH,
+			 "frr-pim:pimd", "pim", vrfname, FRR_PIM_AF_XPATH_VAL);
+		nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
+		if (nb_cli_apply_changes_clear_pending(vty, NULL) ==
+		    CMD_SUCCESS) {
+			orig_node = vty->node;
+			VTY_PUSH_XPATH(PIM6_NODE, xpath);
+		} else {
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+	} else {
+		vty_out(vty, "%% Failed to determine vrf name\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	ret = pim_process_no_pim_packet_cmd(vty);
+
+	if (orig_node != -1) {
+		vty->node = orig_node;
+		vty->xpath_index--;
+	}
+
+	return ret;
+}
+
+DEFPY (pim6_keep_alive,
+       pim6_keep_alive_cmd,
+       "keep-alive-timer (1-65535)$kat",
        "Keep alive Timer\n"
        "Seconds\n")
 {
 	return pim_process_keepalivetimer_cmd(vty, kat_str);
 }
+DEFPY_ATTR(ipv6_pim_keep_alive,
+           ipv6_pim_keep_alive_cmd,
+           "ipv6 pim keep-alive-timer (1-65535)$kat",
+           IPV6_STR
+           PIM_STR
+           "Keep alive Timer\n"
+           "Seconds\n",
+           CMD_ATTR_HIDDEN | CMD_ATTR_DEPRECATED)
+{
+	int ret;
+	const char *vrfname;
+	char xpath[XPATH_MAXLEN];
+	int orig_node = -1;
 
-DEFPY (no_ipv6_pim_keep_alive,
-       no_ipv6_pim_keep_alive_cmd,
-       "no ipv6 pim keep-alive-timer [(1-65535)]",
+	vrfname = pim_cli_get_vrf_name(vty);
+	if (vrfname) {
+		snprintf(xpath, sizeof(xpath), FRR_PIM_VRF_XPATH,
+			 "frr-pim:pimd", "pim", vrfname, FRR_PIM_AF_XPATH_VAL);
+		nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
+		if (nb_cli_apply_changes_clear_pending(vty, NULL) ==
+		    CMD_SUCCESS) {
+			orig_node = vty->node;
+			VTY_PUSH_XPATH(PIM6_NODE, xpath);
+		} else {
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+	} else {
+		vty_out(vty, "%% Failed to determine vrf name\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	ret = pim_process_keepalivetimer_cmd(vty, kat_str);
+
+	if (orig_node != -1) {
+		vty->node = orig_node;
+		vty->xpath_index--;
+	}
+
+	return ret;
+}
+
+DEFPY (no_pim6_keep_alive,
+       no_pim6_keep_alive_cmd,
+       "no keep-alive-timer [(1-65535)]",
        NO_STR
-       IPV6_STR
-       PIM_STR
        "Keep alive Timer\n"
        IGNORED_IN_NO_STR)
 {
 	return pim_process_no_keepalivetimer_cmd(vty);
 }
+DEFPY_ATTR(no_ipv6_pim_keep_alive,
+           no_ipv6_pim_keep_alive_cmd,
+           "no ipv6 pim keep-alive-timer [(1-65535)]",
+           NO_STR
+           IPV6_STR
+           PIM_STR
+           "Keep alive Timer\n"
+           IGNORED_IN_NO_STR,
+           CMD_ATTR_HIDDEN | CMD_ATTR_DEPRECATED)
+{
+	int ret;
+	const char *vrfname;
+	char xpath[XPATH_MAXLEN];
+	int orig_node = -1;
 
-DEFPY (ipv6_pim_rp_keep_alive,
-       ipv6_pim_rp_keep_alive_cmd,
-       "ipv6 pim rp keep-alive-timer (1-65535)$kat",
-       IPV6_STR
-       PIM_STR
+	vrfname = pim_cli_get_vrf_name(vty);
+	if (vrfname) {
+		snprintf(xpath, sizeof(xpath), FRR_PIM_VRF_XPATH,
+			 "frr-pim:pimd", "pim", vrfname, FRR_PIM_AF_XPATH_VAL);
+		nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
+		if (nb_cli_apply_changes_clear_pending(vty, NULL) ==
+		    CMD_SUCCESS) {
+			orig_node = vty->node;
+			VTY_PUSH_XPATH(PIM6_NODE, xpath);
+		} else {
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+	} else {
+		vty_out(vty, "%% Failed to determine vrf name\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	ret = pim_process_no_keepalivetimer_cmd(vty);
+
+	if (orig_node != -1) {
+		vty->node = orig_node;
+		vty->xpath_index--;
+	}
+
+	return ret;
+}
+
+DEFPY (pim6_rp_keep_alive,
+       pim6_rp_keep_alive_cmd,
+       "rp keep-alive-timer (1-65535)$kat",
        "Rendezvous Point\n"
        "Keep alive Timer\n"
        "Seconds\n")
 {
 	return pim_process_rp_kat_cmd(vty, kat_str);
 }
+DEFPY_ATTR(ipv6_pim_rp_keep_alive,
+           ipv6_pim_rp_keep_alive_cmd,
+           "ipv6 pim rp keep-alive-timer (1-65535)$kat",
+           IPV6_STR
+           PIM_STR
+           "Rendezvous Point\n"
+           "Keep alive Timer\n"
+           "Seconds\n",
+           CMD_ATTR_HIDDEN | CMD_ATTR_DEPRECATED)
+{
+	int ret;
+	const char *vrfname;
+	char xpath[XPATH_MAXLEN];
+	int orig_node = -1;
 
-DEFPY (no_ipv6_pim_rp_keep_alive,
-       no_ipv6_pim_rp_keep_alive_cmd,
-       "no ipv6 pim rp keep-alive-timer [(1-65535)]",
+	vrfname = pim_cli_get_vrf_name(vty);
+	if (vrfname) {
+		snprintf(xpath, sizeof(xpath), FRR_PIM_VRF_XPATH,
+			 "frr-pim:pimd", "pim", vrfname, FRR_PIM_AF_XPATH_VAL);
+		nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
+		if (nb_cli_apply_changes_clear_pending(vty, NULL) ==
+		    CMD_SUCCESS) {
+			orig_node = vty->node;
+			VTY_PUSH_XPATH(PIM6_NODE, xpath);
+		} else {
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+	} else {
+		vty_out(vty, "%% Failed to determine vrf name\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	ret = pim_process_rp_kat_cmd(vty, kat_str);
+
+	if (orig_node != -1) {
+		vty->node = orig_node;
+		vty->xpath_index--;
+	}
+
+	return ret;
+}
+
+DEFPY (no_pim6_rp_keep_alive,
+       no_pim6_rp_keep_alive_cmd,
+       "no rp keep-alive-timer [(1-65535)]",
        NO_STR
-       IPV6_STR
-       PIM_STR
        "Rendezvous Point\n"
        "Keep alive Timer\n"
        IGNORED_IN_NO_STR)
 {
 	return pim_process_no_rp_kat_cmd(vty);
 }
+DEFPY_ATTR(no_ipv6_pim_rp_keep_alive,
+           no_ipv6_pim_rp_keep_alive_cmd,
+           "no ipv6 pim rp keep-alive-timer [(1-65535)]",
+           NO_STR
+           IPV6_STR
+           PIM_STR
+           "Rendezvous Point\n"
+           "Keep alive Timer\n"
+           IGNORED_IN_NO_STR,
+           CMD_ATTR_HIDDEN | CMD_ATTR_DEPRECATED)
+{
+	int ret;
+	const char *vrfname;
+	char xpath[XPATH_MAXLEN];
+	int orig_node = -1;
 
-DEFPY (ipv6_pim_register_suppress,
-       ipv6_pim_register_suppress_cmd,
-       "ipv6 pim register-suppress-time (1-65535)$rst",
-       IPV6_STR
-       PIM_STR
+	vrfname = pim_cli_get_vrf_name(vty);
+	if (vrfname) {
+		snprintf(xpath, sizeof(xpath), FRR_PIM_VRF_XPATH,
+			 "frr-pim:pimd", "pim", vrfname, FRR_PIM_AF_XPATH_VAL);
+		nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
+		if (nb_cli_apply_changes_clear_pending(vty, NULL) ==
+		    CMD_SUCCESS) {
+			orig_node = vty->node;
+			VTY_PUSH_XPATH(PIM6_NODE, xpath);
+		} else {
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+	} else {
+		vty_out(vty, "%% Failed to determine vrf name\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	ret = pim_process_no_rp_kat_cmd(vty);
+
+	if (orig_node != -1) {
+		vty->node = orig_node;
+		vty->xpath_index--;
+	}
+
+	return ret;
+}
+
+DEFPY (pim6_register_suppress,
+       pim6_register_suppress_cmd,
+       "register-suppress-time (1-65535)$rst",
        "Register Suppress Timer\n"
        "Seconds\n")
 {
 	return pim_process_register_suppress_cmd(vty, rst_str);
 }
+DEFPY_ATTR(ipv6_pim_register_suppress,
+           ipv6_pim_register_suppress_cmd,
+           "ipv6 pim register-suppress-time (1-65535)$rst",
+           IPV6_STR
+           PIM_STR
+           "Register Suppress Timer\n"
+           "Seconds\n",
+           CMD_ATTR_HIDDEN | CMD_ATTR_DEPRECATED)
+{
+	int ret;
+	const char *vrfname;
+	char xpath[XPATH_MAXLEN];
+	int orig_node = -1;
 
-DEFPY (no_ipv6_pim_register_suppress,
-       no_ipv6_pim_register_suppress_cmd,
-       "no ipv6 pim register-suppress-time [(1-65535)]",
+	vrfname = pim_cli_get_vrf_name(vty);
+	if (vrfname) {
+		snprintf(xpath, sizeof(xpath), FRR_PIM_VRF_XPATH,
+			 "frr-pim:pimd", "pim", vrfname, FRR_PIM_AF_XPATH_VAL);
+		nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
+		if (nb_cli_apply_changes_clear_pending(vty, NULL) ==
+		    CMD_SUCCESS) {
+			orig_node = vty->node;
+			VTY_PUSH_XPATH(PIM6_NODE, xpath);
+		} else {
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+	} else {
+		vty_out(vty, "%% Failed to determine vrf name\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	ret = pim_process_register_suppress_cmd(vty, rst_str);
+
+	if (orig_node != -1) {
+		vty->node = orig_node;
+		vty->xpath_index--;
+	}
+
+	return ret;
+}
+
+DEFPY (no_pim6_register_suppress,
+       no_pim6_register_suppress_cmd,
+       "no register-suppress-time [(1-65535)]",
        NO_STR
-       IPV6_STR
-       PIM_STR
        "Register Suppress Timer\n"
        IGNORED_IN_NO_STR)
 {
 	return pim_process_no_register_suppress_cmd(vty);
+}
+DEFPY_ATTR(no_ipv6_pim_register_suppress,
+           no_ipv6_pim_register_suppress_cmd,
+           "no ipv6 pim register-suppress-time [(1-65535)]",
+           NO_STR
+           IPV6_STR
+           PIM_STR
+           "Register Suppress Timer\n"
+           IGNORED_IN_NO_STR,
+           CMD_ATTR_HIDDEN | CMD_ATTR_DEPRECATED)
+{
+	int ret;
+	const char *vrfname;
+	char xpath[XPATH_MAXLEN];
+	int orig_node = -1;
+
+	vrfname = pim_cli_get_vrf_name(vty);
+	if (vrfname) {
+		snprintf(xpath, sizeof(xpath), FRR_PIM_VRF_XPATH,
+			 "frr-pim:pimd", "pim", vrfname, FRR_PIM_AF_XPATH_VAL);
+		nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
+		if (nb_cli_apply_changes_clear_pending(vty, NULL) ==
+		    CMD_SUCCESS) {
+			orig_node = vty->node;
+			VTY_PUSH_XPATH(PIM6_NODE, xpath);
+		} else {
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+	} else {
+		vty_out(vty, "%% Failed to determine vrf name\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	ret = pim_process_no_register_suppress_cmd(vty);
+
+	if (orig_node != -1) {
+		vty->node = orig_node;
+		vty->xpath_index--;
+	}
+
+	return ret;
 }
 
 DEFPY (interface_ipv6_pim,
@@ -244,7 +838,7 @@ DEFPY (interface_no_ipv6_pim,
 
 DEFPY (interface_ipv6_pim_drprio,
        interface_ipv6_pim_drprio_cmd,
-       "ipv6 pim drpriority (1-4294967295)",
+       "ipv6 pim drpriority (0-4294967295)",
        IPV6_STR
        PIM_STR
        "Set the Designated Router Election Priority\n"
@@ -255,7 +849,7 @@ DEFPY (interface_ipv6_pim_drprio,
 
 DEFPY (interface_no_ipv6_pim_drprio,
        interface_no_ipv6_pim_drprio_cmd,
-       "no ipv6 pim drpriority [(1-4294967295)]",
+       "no ipv6 pim drpriority [(0-4294967295)]",
        NO_STR
        IPV6_STR
        PIM_STR
@@ -405,11 +999,9 @@ DEFPY (interface_no_ipv6_mroute,
 					    source_str);
 }
 
-DEFPY (ipv6_pim_rp,
-       ipv6_pim_rp_cmd,
-       "ipv6 pim rp X:X::X:X$rp [X:X::X:X/M]$gp",
-       IPV6_STR
-       PIM_STR
+DEFPY (pim6_rp,
+       pim6_rp_cmd,
+       "rp X:X::X:X$rp [X:X::X:X/M]$gp",
        "Rendezvous Point\n"
        "ipv6 address of RP\n"
        "Group Address range to cover\n")
@@ -418,13 +1010,53 @@ DEFPY (ipv6_pim_rp,
 
 	return pim_process_rp_cmd(vty, rp_str, group_str);
 }
+DEFPY_ATTR(ipv6_pim_rp,
+           ipv6_pim_rp_cmd,
+           "ipv6 pim rp X:X::X:X$rp [X:X::X:X/M]$gp",
+           IPV6_STR
+           PIM_STR
+           "Rendezvous Point\n"
+           "ipv6 address of RP\n"
+           "Group Address range to cover\n",
+           CMD_ATTR_HIDDEN | CMD_ATTR_DEPRECATED)
+{
+	int ret;
+	const char *group_str = (gp_str) ? gp_str : "FF00::0/8";
+	const char *vrfname;
+	char xpath[XPATH_MAXLEN];
+	int orig_node = -1;
 
-DEFPY (no_ipv6_pim_rp,
-       no_ipv6_pim_rp_cmd,
-       "no ipv6 pim rp X:X::X:X$rp [X:X::X:X/M]$gp",
+	vrfname = pim_cli_get_vrf_name(vty);
+	if (vrfname) {
+		snprintf(xpath, sizeof(xpath), FRR_PIM_VRF_XPATH,
+			 "frr-pim:pimd", "pim", vrfname, FRR_PIM_AF_XPATH_VAL);
+		nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
+		if (nb_cli_apply_changes_clear_pending(vty, NULL) ==
+		    CMD_SUCCESS) {
+			orig_node = vty->node;
+			VTY_PUSH_XPATH(PIM6_NODE, xpath);
+		} else {
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+	} else {
+		vty_out(vty, "%% Failed to determine vrf name\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	ret = pim_process_rp_cmd(vty, rp_str, group_str);
+
+	if (orig_node != -1) {
+		vty->node = orig_node;
+		vty->xpath_index--;
+	}
+
+	return ret;
+}
+
+DEFPY (no_pim6_rp,
+       no_pim6_rp_cmd,
+       "no rp X:X::X:X$rp [X:X::X:X/M]$gp",
        NO_STR
-       IPV6_STR
-       PIM_STR
        "Rendezvous Point\n"
        "ipv6 address of RP\n"
        "Group Address range to cover\n")
@@ -433,12 +1065,53 @@ DEFPY (no_ipv6_pim_rp,
 
 	return pim_process_no_rp_cmd(vty, rp_str, group_str);
 }
+DEFPY_ATTR(no_ipv6_pim_rp,
+           no_ipv6_pim_rp_cmd,
+           "no ipv6 pim rp X:X::X:X$rp [X:X::X:X/M]$gp",
+           NO_STR
+           IPV6_STR
+           PIM_STR
+           "Rendezvous Point\n"
+           "ipv6 address of RP\n"
+           "Group Address range to cover\n",
+           CMD_ATTR_HIDDEN | CMD_ATTR_DEPRECATED)
+{
+	int ret;
+	const char *group_str = (gp_str) ? gp_str : "FF00::0/8";
+	const char *vrfname;
+	char xpath[XPATH_MAXLEN];
+	int orig_node = -1;
 
-DEFPY (ipv6_pim_rp_prefix_list,
-       ipv6_pim_rp_prefix_list_cmd,
-       "ipv6 pim rp X:X::X:X$rp prefix-list WORD$plist",
-       IPV6_STR
-       PIM_STR
+	vrfname = pim_cli_get_vrf_name(vty);
+	if (vrfname) {
+		snprintf(xpath, sizeof(xpath), FRR_PIM_VRF_XPATH,
+			 "frr-pim:pimd", "pim", vrfname, FRR_PIM_AF_XPATH_VAL);
+		nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
+		if (nb_cli_apply_changes_clear_pending(vty, NULL) ==
+		    CMD_SUCCESS) {
+			orig_node = vty->node;
+			VTY_PUSH_XPATH(PIM6_NODE, xpath);
+		} else {
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+	} else {
+		vty_out(vty, "%% Failed to determine vrf name\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	ret = pim_process_no_rp_cmd(vty, rp_str, group_str);
+
+	if (orig_node != -1) {
+		vty->node = orig_node;
+		vty->xpath_index--;
+	}
+
+	return ret;
+}
+
+DEFPY (pim6_rp_prefix_list,
+       pim6_rp_prefix_list_cmd,
+       "rp X:X::X:X$rp prefix-list PREFIXLIST6_NAME$plist",
        "Rendezvous Point\n"
        "ipv6 address of RP\n"
        "group prefix-list filter\n"
@@ -446,19 +1119,102 @@ DEFPY (ipv6_pim_rp_prefix_list,
 {
 	return pim_process_rp_plist_cmd(vty, rp_str, plist);
 }
+DEFPY_ATTR(ipv6_pim_rp_prefix_list,
+           ipv6_pim_rp_prefix_list_cmd,
+           "ipv6 pim rp X:X::X:X$rp prefix-list PREFIXLIST6_NAME$plist",
+           IPV6_STR
+           PIM_STR
+           "Rendezvous Point\n"
+           "ipv6 address of RP\n"
+           "group prefix-list filter\n"
+           "Name of a prefix-list\n",
+           CMD_ATTR_HIDDEN | CMD_ATTR_DEPRECATED)
+{
+	int ret;
+	const char *vrfname;
+	char xpath[XPATH_MAXLEN];
+	int orig_node = -1;
 
-DEFPY (no_ipv6_pim_rp_prefix_list,
-       no_ipv6_pim_rp_prefix_list_cmd,
-       "no ipv6 pim rp X:X::X:X$rp prefix-list WORD$plist",
+	vrfname = pim_cli_get_vrf_name(vty);
+	if (vrfname) {
+		snprintf(xpath, sizeof(xpath), FRR_PIM_VRF_XPATH,
+			 "frr-pim:pimd", "pim", vrfname, FRR_PIM_AF_XPATH_VAL);
+		nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
+		if (nb_cli_apply_changes_clear_pending(vty, NULL) ==
+		    CMD_SUCCESS) {
+			orig_node = vty->node;
+			VTY_PUSH_XPATH(PIM6_NODE, xpath);
+		} else {
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+	} else {
+		vty_out(vty, "%% Failed to determine vrf name\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	ret = pim_process_rp_plist_cmd(vty, rp_str, plist);
+
+	if (orig_node != -1) {
+		vty->node = orig_node;
+		vty->xpath_index--;
+	}
+
+	return ret;
+}
+
+DEFPY (no_pim6_rp_prefix_list,
+       no_pim6_rp_prefix_list_cmd,
+       "no rp X:X::X:X$rp prefix-list PREFIXLIST6_NAME$plist",
        NO_STR
-       IPV6_STR
-       PIM_STR
        "Rendezvous Point\n"
        "ipv6 address of RP\n"
        "group prefix-list filter\n"
        "Name of a prefix-list\n")
 {
 	return pim_process_no_rp_plist_cmd(vty, rp_str, plist);
+}
+DEFPY_ATTR(no_ipv6_pim_rp_prefix_list,
+           no_ipv6_pim_rp_prefix_list_cmd,
+           "no ipv6 pim rp X:X::X:X$rp prefix-list PREFIXLIST6_NAME$plist",
+           NO_STR
+           IPV6_STR
+           PIM_STR
+           "Rendezvous Point\n"
+           "ipv6 address of RP\n"
+           "group prefix-list filter\n"
+           "Name of a prefix-list\n",
+           CMD_ATTR_HIDDEN | CMD_ATTR_DEPRECATED)
+{
+	int ret;
+	const char *vrfname;
+	char xpath[XPATH_MAXLEN];
+	int orig_node = -1;
+
+	vrfname = pim_cli_get_vrf_name(vty);
+	if (vrfname) {
+		snprintf(xpath, sizeof(xpath), FRR_PIM_VRF_XPATH,
+			 "frr-pim:pimd", "pim", vrfname, FRR_PIM_AF_XPATH_VAL);
+		nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
+		if (nb_cli_apply_changes_clear_pending(vty, NULL) ==
+		    CMD_SUCCESS) {
+			orig_node = vty->node;
+			VTY_PUSH_XPATH(PIM6_NODE, xpath);
+		} else {
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+	} else {
+		vty_out(vty, "%% Failed to determine vrf name\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	ret = pim_process_no_rp_plist_cmd(vty, rp_str, plist);
+
+	if (orig_node != -1) {
+		vty->node = orig_node;
+		vty->xpath_index--;
+	}
+
+	return ret;
 }
 
 DEFPY (ipv6_pim_bsm,
@@ -503,10 +1259,65 @@ DEFPY (no_ipv6_pim_ucast_bsm,
 	return pim_process_no_unicast_bsm_cmd(vty);
 }
 
-DEFPY (ipv6_ssmpingd,
-      ipv6_ssmpingd_cmd,
-      "ipv6 ssmpingd [X:X::X:X]$source",
-      IPV6_STR
+DEFPY (pim6_bsr_candidate_bsr,
+       pim6_bsr_candidate_bsr_cmd,
+       "[no] bsr candidate-bsr [{priority (0-255)|source <address X:X::X:X|interface IFNAME|loopback$loopback|any$any>}]",
+       NO_STR
+       BSR_STR
+       "Make this router a Candidate BSR\n"
+       "BSR Priority (higher wins)\n"
+       "BSR Priority (higher wins)\n"
+       "Specify IP address for BSR operation\n"
+       "Local address to use\n"
+       "Local address to use\n"
+       "Interface to pick address from\n"
+       "Interface to pick address from\n"
+       "Pick highest loopback address (default)\n"
+       "Pick highest address from any interface\n")
+{
+	return pim_process_bsr_candidate_cmd(vty, FRR_PIM_CAND_BSR_XPATH, no,
+					     false, any, ifname, address_str,
+					     priority_str, NULL);
+}
+
+DEFPY (pim6_bsr_candidate_rp,
+       pim6_bsr_candidate_rp_cmd,
+       "[no] bsr candidate-rp [{priority (0-255)|interval (1-4294967295)|source <address X:X::X:X|interface IFNAME|loopback$loopback|any$any>}]",
+       NO_STR
+       "Bootstrap Router configuration\n"
+       "Make this router a Candidate RP\n"
+       "RP Priority (lower wins)\n"
+       "RP Priority (lower wins)\n"
+       "Advertisement interval (seconds)\n"
+       "Advertisement interval (seconds)\n"
+       "Specify IP address for RP operation\n"
+       "Local address to use\n"
+       "Local address to use\n"
+       "Interface to pick address from\n"
+       "Interface to pick address from\n"
+       "Pick highest loopback address (default)\n"
+       "Pick highest address from any interface\n")
+{
+	return pim_process_bsr_candidate_cmd(vty, FRR_PIM_CAND_RP_XPATH, no,
+					     true, any, ifname, address_str,
+					     priority_str, interval_str);
+}
+
+DEFPY (pim6_bsr_candidate_rp_group,
+       pim6_bsr_candidate_rp_group_cmd,
+       "[no] bsr candidate-rp group X:X::X:X/M",
+       NO_STR
+       "Bootstrap Router configuration\n"
+       "Make this router a Candidate RP\n"
+       "Configure groups to become candidate RP for\n"
+       "Multicast group prefix\n")
+{
+	return pim_process_bsr_crp_grp_cmd(vty, group_str, no);
+}
+
+DEFPY (pim6_ssmpingd,
+       pim6_ssmpingd_cmd,
+       "ssmpingd [X:X::X:X]$source",
       CONF_SSMPINGD_STR
       "Source address\n")
 {
@@ -514,61 +1325,151 @@ DEFPY (ipv6_ssmpingd,
 
 	return pim_process_ssmpingd_cmd(vty, NB_OP_CREATE, src_str);
 }
+DEFPY_ATTR(ipv6_ssmpingd,
+           ipv6_ssmpingd_cmd,
+           "ipv6 ssmpingd [X:X::X:X]$source",
+           IPV6_STR
+           CONF_SSMPINGD_STR
+           "Source address\n",
+           CMD_ATTR_HIDDEN | CMD_ATTR_DEPRECATED)
+{
+	int ret;
+	const char *src_str = (source_str) ? source_str : "::";
+	const char *vrfname;
+	char xpath[XPATH_MAXLEN];
+	int orig_node = -1;
 
+	vrfname = pim_cli_get_vrf_name(vty);
+	if (vrfname) {
+		snprintf(xpath, sizeof(xpath), FRR_PIM_VRF_XPATH,
+			 "frr-pim:pimd", "pim", vrfname, FRR_PIM_AF_XPATH_VAL);
+		nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
+		if (nb_cli_apply_changes_clear_pending(vty, NULL) ==
+		    CMD_SUCCESS) {
+			orig_node = vty->node;
+			VTY_PUSH_XPATH(PIM6_NODE, xpath);
+		} else {
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+	} else {
+		vty_out(vty, "%% Failed to determine vrf name\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
 
-DEFPY (no_ipv6_ssmpingd,
-      no_ipv6_ssmpingd_cmd,
-      "no ipv6 ssmpingd [X:X::X:X]$source",
-      NO_STR
-      IPV6_STR
-      CONF_SSMPINGD_STR
-      "Source address\n")
+	ret = pim_process_ssmpingd_cmd(vty, NB_OP_CREATE, src_str);
+
+	if (orig_node != -1) {
+		vty->node = orig_node;
+		vty->xpath_index--;
+	}
+
+	return ret;
+}
+
+DEFPY (no_pim6_ssmpingd,
+       no_pim6_ssmpingd_cmd,
+       "no ssmpingd [X:X::X:X]$source",
+       NO_STR
+       CONF_SSMPINGD_STR
+       "Source address\n")
 {
 	const char *src_str = (source_str) ? source_str : "::";
 
 	return pim_process_ssmpingd_cmd(vty, NB_OP_DESTROY, src_str);
 }
-
-DEFPY (interface_ipv6_mld_join,
-       interface_ipv6_mld_join_cmd,
-       "ipv6 mld join X:X::X:X$group [X:X::X:X$source]",
-       IPV6_STR
-       IFACE_MLD_STR
-       "MLD join multicast group\n"
-       "Multicast group address\n"
-       "Source address\n")
+DEFPY_ATTR(no_ipv6_ssmpingd,
+           no_ipv6_ssmpingd_cmd,
+           "no ipv6 ssmpingd [X:X::X:X]$source",
+           NO_STR
+           IPV6_STR
+           CONF_SSMPINGD_STR
+           "Source address\n",
+           CMD_ATTR_HIDDEN | CMD_ATTR_DEPRECATED)
 {
+	int ret;
+	const char *src_str = (source_str) ? source_str : "::";
+	const char *vrfname;
 	char xpath[XPATH_MAXLEN];
+	int orig_node = -1;
 
-	if (!IN6_IS_ADDR_MULTICAST(&group)) {
-		vty_out(vty, "Invalid Multicast Address\n");
+	vrfname = pim_cli_get_vrf_name(vty);
+	if (vrfname) {
+		snprintf(xpath, sizeof(xpath), FRR_PIM_VRF_XPATH,
+			 "frr-pim:pimd", "pim", vrfname, FRR_PIM_AF_XPATH_VAL);
+		nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
+		if (nb_cli_apply_changes_clear_pending(vty, NULL) ==
+		    CMD_SUCCESS) {
+			orig_node = vty->node;
+			VTY_PUSH_XPATH(PIM6_NODE, xpath);
+		} else {
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+	} else {
+		vty_out(vty, "%% Failed to determine vrf name\n");
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
-	if (source_str) {
-		if (IPV6_ADDR_SAME(&source, &in6addr_any)) {
-			vty_out(vty, "Bad source address %s\n", source_str);
-			return CMD_WARNING_CONFIG_FAILED;
-		}
-	} else
-		source_str = "::";
+	ret = pim_process_ssmpingd_cmd(vty, NB_OP_DESTROY, src_str);
 
-	snprintf(xpath, sizeof(xpath), FRR_GMP_JOIN_XPATH, "frr-routing:ipv6",
-		 group_str, source_str);
+	if (orig_node != -1) {
+		vty->node = orig_node;
+		vty->xpath_index--;
+	}
 
-	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
-
-	return nb_cli_apply_changes(vty, NULL);
+	return ret;
 }
 
-DEFPY (interface_no_ipv6_mld_join,
-       interface_no_ipv6_mld_join_cmd,
-       "no ipv6 mld join X:X::X:X$group [X:X::X:X$source]",
+DEFPY_YANG_HIDDEN (interface_ipv6_mld_join,
+                   interface_ipv6_mld_join_cmd,
+                   "[no] ipv6 mld join X:X::X:X$grp [X:X::X:X]$src",
+                   NO_STR
+                   IPV6_STR
+                   IFACE_MLD_STR
+                   "MLD join multicast group\n"
+                   "Multicast group address\n"
+                   "Source address\n")
+{
+	nb_cli_enqueue_change(vty, ".", (!no ? NB_OP_CREATE : NB_OP_DESTROY),
+			      NULL);
+	return nb_cli_apply_changes(vty, FRR_GMP_JOIN_GROUP_XPATH,
+				    "frr-routing:ipv6", grp_str,
+				    (src_str ? src_str : "::"));
+}
+ALIAS (interface_ipv6_mld_join,
+       interface_ipv6_mld_join_group_cmd,
+       "[no] ipv6 mld join-group X:X::X:X$grp [X:X::X:X]$src",
        NO_STR
        IPV6_STR
        IFACE_MLD_STR
        "MLD join multicast group\n"
        "Multicast group address\n"
+       "Source address\n");
+
+DEFPY_YANG (interface_ipv6_mld_static_group,
+            interface_ipv6_mld_static_group_cmd,
+            "[no] ipv6 mld static-group X:X::X:X$grp [X:X::X:X]$src",
+            NO_STR
+            IPV6_STR
+            IFACE_MLD_STR
+            "Static multicast group\n"
+            "Multicast group address\n"
+            "Source address\n")
+{
+	nb_cli_enqueue_change(vty, ".", (!no ? NB_OP_CREATE : NB_OP_DESTROY),
+			      NULL);
+	return nb_cli_apply_changes(vty, FRR_GMP_STATIC_GROUP_XPATH,
+				    "frr-routing:ipv6", grp_str,
+				    (src_str ? src_str : "::"));
+}
+
+DEFPY (interface_no_ipv6_mld_static_group,
+       interface_no_ipv6_mld_static_group_cmd,
+       "no ipv6 mld static-group X:X::X:X$group [X:X::X:X$source]",
+       NO_STR
+       IPV6_STR
+       IFACE_MLD_STR
+       "Static multicast group\n"
+       "Multicast group address\n"
        "Source address\n")
 {
 	char xpath[XPATH_MAXLEN];
@@ -581,8 +1482,8 @@ DEFPY (interface_no_ipv6_mld_join,
 	} else
 		source_str = "::";
 
-	snprintf(xpath, sizeof(xpath), FRR_GMP_JOIN_XPATH, "frr-routing:ipv6",
-		 group_str, source_str);
+	snprintf(xpath, sizeof(xpath), FRR_GMP_STATIC_GROUP_XPATH,
+		 "frr-routing:ipv6", group_str, source_str);
 
 	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
 
@@ -743,7 +1644,7 @@ DEFPY (interface_ipv6_mld_query_max_response_time,
        IPV6_STR
        IFACE_MLD_STR
        IFACE_MLD_QUERY_MAX_RESPONSE_TIME_STR
-       "Query response value in milliseconds\n")
+       "Query response value in deci-seconds\n")
 {
 	return gm_process_query_max_response_time_cmd(vty, qmrt_str);
 }
@@ -873,6 +1774,90 @@ DEFPY (show_ipv6_pim_secondary,
 {
 	return pim_show_secondary_helper(vrf, vty);
 }
+
+DEFPY (show_ipv6_pim_bsr_cand_bsr,
+       show_ipv6_pim_bsr_cand_bsr_cmd,
+       "show ipv6 pim bsr candidate-bsr [vrf NAME$vrfname] [json$json]",
+       SHOW_STR
+       IPV6_STR
+       PIM_STR
+       BSR_STR
+       "Current PIM router candidate BSR state\n"
+       VRF_CMD_HELP_STR
+       JSON_STR)
+{
+	int idx = 2;
+	struct vrf *vrf = pim_cmd_lookup_vrf(vty, argv, argc, &idx, !!json);
+
+	if (!vrf || !vrf->info)
+		return CMD_WARNING;
+
+	return pim_show_bsr_cand_bsr(vrf, vty, !!json);
+}
+
+DEFPY (show_ipv6_pim_bsr_cand_rp,
+       show_ipv6_pim_bsr_cand_rp_cmd,
+       "show ipv6 pim bsr candidate-rp [vrf VRF_NAME] [json$json]",
+       SHOW_STR
+       IPV6_STR
+       PIM_STR
+       BSR_STR
+       "Current PIM router candidate RP state\n"
+       VRF_CMD_HELP_STR
+       JSON_STR)
+{
+	struct vrf *vrf = pim_cmd_lookup(vty, vrf_name);
+
+	if (!vrf || !vrf->info)
+		return CMD_WARNING;
+
+	return pim_show_bsr_cand_rp(vrf, vty, !!json);
+}
+
+DEFPY (show_ipv6_pim_bsr_rpdb,
+       show_ipv6_pim_bsr_rpdb_cmd,
+       "show ipv6 pim bsr candidate-rp-database [vrf VRF_NAME] [json$json]",
+       SHOW_STR
+       IPV6_STR
+       PIM_STR
+       BSR_STR
+       "Candidate RPs database on this router (if it is the BSR)\n"
+       VRF_CMD_HELP_STR
+       JSON_STR)
+{
+	struct vrf *vrf = pim_cmd_lookup(vty, vrf_name);
+
+	if (!vrf || !vrf->info)
+		return CMD_WARNING;
+
+	struct pim_instance *pim = vrf->info;
+	struct bsm_scope *scope = &pim->global_scope;
+
+	return pim_crp_db_show(vty, scope, !!json);
+}
+
+DEFPY (show_ipv6_pim_bsr_groups,
+       show_ipv6_pim_bsr_groups_cmd,
+       "show ipv6 pim bsr groups [vrf VRF_NAME] [json$json]",
+       SHOW_STR
+       IPV6_STR
+       PIM_STR
+       "boot-strap router information\n"
+       "Candidate RP groups\n"
+       VRF_CMD_HELP_STR
+       JSON_STR)
+{
+	struct vrf *vrf = pim_cmd_lookup(vty, vrf_name);
+
+	if (!vrf || !vrf->info)
+		return CMD_WARNING;
+
+	struct pim_instance *pim = vrf->info;
+	struct bsm_scope *scope = &pim->global_scope;
+
+	return pim_crp_groups_show(vty, scope, !!json);
+}
+
 
 DEFPY (show_ipv6_pim_statistics,
        show_ipv6_pim_statistics_cmd,
@@ -1733,12 +2718,16 @@ DEFPY (debug_pimv6_bsm,
 	return CMD_SUCCESS;
 }
 
-void pim_cmd_init(void)
+struct cmd_node pim6_node = {
+	.name = "pim6",
+	.node = PIM6_NODE,
+	.parent_node = CONFIG_NODE,
+	.prompt = "%s(config-pim6)# ",
+	.config_write = pim_router_config_write,
+};
+
+static void pim_install_deprecated(void)
 {
-	if_cmd_init(pim_interface_config_write);
-
-	install_node(&debug_node);
-
 	install_element(CONFIG_NODE, &ipv6_pim_joinprune_time_cmd);
 	install_element(CONFIG_NODE, &no_ipv6_pim_joinprune_time_cmd);
 	install_element(CONFIG_NODE, &ipv6_pim_spt_switchover_infinity_cmd);
@@ -1753,28 +2742,6 @@ void pim_cmd_init(void)
 	install_element(CONFIG_NODE, &no_ipv6_pim_rp_keep_alive_cmd);
 	install_element(CONFIG_NODE, &ipv6_pim_register_suppress_cmd);
 	install_element(CONFIG_NODE, &no_ipv6_pim_register_suppress_cmd);
-	install_element(INTERFACE_NODE, &interface_ipv6_pim_cmd);
-	install_element(INTERFACE_NODE, &interface_no_ipv6_pim_cmd);
-	install_element(INTERFACE_NODE, &interface_ipv6_pim_drprio_cmd);
-	install_element(INTERFACE_NODE, &interface_no_ipv6_pim_drprio_cmd);
-	install_element(INTERFACE_NODE, &interface_ipv6_pim_hello_cmd);
-	install_element(INTERFACE_NODE, &interface_no_ipv6_pim_hello_cmd);
-	install_element(INTERFACE_NODE, &interface_ipv6_pim_activeactive_cmd);
-	install_element(INTERFACE_NODE, &interface_ipv6_pim_ssm_cmd);
-	install_element(INTERFACE_NODE, &interface_no_ipv6_pim_ssm_cmd);
-	install_element(INTERFACE_NODE, &interface_ipv6_pim_sm_cmd);
-	install_element(INTERFACE_NODE, &interface_no_ipv6_pim_sm_cmd);
-	install_element(INTERFACE_NODE,
-			&interface_ipv6_pim_boundary_oil_cmd);
-	install_element(INTERFACE_NODE,
-			&interface_no_ipv6_pim_boundary_oil_cmd);
-	install_element(INTERFACE_NODE, &interface_ipv6_mroute_cmd);
-	install_element(INTERFACE_NODE, &interface_no_ipv6_mroute_cmd);
-	/* Install BSM command */
-	install_element(INTERFACE_NODE, &ipv6_pim_bsm_cmd);
-	install_element(INTERFACE_NODE, &no_ipv6_pim_bsm_cmd);
-	install_element(INTERFACE_NODE, &ipv6_pim_ucast_bsm_cmd);
-	install_element(INTERFACE_NODE, &no_ipv6_pim_ucast_bsm_cmd);
 	install_element(CONFIG_NODE, &ipv6_pim_rp_cmd);
 	install_element(VRF_NODE, &ipv6_pim_rp_cmd);
 	install_element(CONFIG_NODE, &no_ipv6_pim_rp_cmd);
@@ -1787,19 +2754,82 @@ void pim_cmd_init(void)
 	install_element(VRF_NODE, &ipv6_ssmpingd_cmd);
 	install_element(CONFIG_NODE, &no_ipv6_ssmpingd_cmd);
 	install_element(VRF_NODE, &no_ipv6_ssmpingd_cmd);
+}
+
+void pim_cmd_init(void)
+{
+	if_cmd_init(pim_interface_config_write);
+
+	install_node(&debug_node);
+
+	pim_install_deprecated();
+
+	install_element(CONFIG_NODE, &router_pim6_cmd);
+	install_element(CONFIG_NODE, &no_router_pim6_cmd);
+
+	install_node(&pim6_node);
+	install_default(PIM6_NODE);
+
+	install_element(PIM6_NODE, &pim6_joinprune_time_cmd);
+	install_element(PIM6_NODE, &no_pim6_joinprune_time_cmd);
+	install_element(PIM6_NODE, &pim6_spt_switchover_infinity_cmd);
+	install_element(PIM6_NODE, &pim6_spt_switchover_infinity_plist_cmd);
+	install_element(PIM6_NODE, &no_pim6_spt_switchover_infinity_cmd);
+	install_element(PIM6_NODE, &no_pim6_spt_switchover_infinity_plist_cmd);
+	install_element(PIM6_NODE, &pim6_packets_cmd);
+	install_element(PIM6_NODE, &no_pim6_packets_cmd);
+	install_element(PIM6_NODE, &pim6_keep_alive_cmd);
+	install_element(PIM6_NODE, &no_pim6_keep_alive_cmd);
+	install_element(PIM6_NODE, &pim6_rp_keep_alive_cmd);
+	install_element(PIM6_NODE, &no_pim6_rp_keep_alive_cmd);
+	install_element(PIM6_NODE, &pim6_register_suppress_cmd);
+	install_element(PIM6_NODE, &no_pim6_register_suppress_cmd);
+	install_element(PIM6_NODE, &pim6_rp_cmd);
+	install_element(PIM6_NODE, &no_pim6_rp_cmd);
+	install_element(PIM6_NODE, &pim6_rp_prefix_list_cmd);
+	install_element(PIM6_NODE, &no_pim6_rp_prefix_list_cmd);
+	install_element(PIM6_NODE, &pim6_ssmpingd_cmd);
+	install_element(PIM6_NODE, &no_pim6_ssmpingd_cmd);
+	install_element(PIM6_NODE, &pim6_bsr_candidate_rp_cmd);
+	install_element(PIM6_NODE, &pim6_bsr_candidate_rp_group_cmd);
+	install_element(PIM6_NODE, &pim6_bsr_candidate_bsr_cmd);
+
+	install_element(CONFIG_NODE, &ipv6_mld_group_watermark_cmd);
+	install_element(VRF_NODE, &ipv6_mld_group_watermark_cmd);
+	install_element(CONFIG_NODE, &no_ipv6_mld_group_watermark_cmd);
+	install_element(VRF_NODE, &no_ipv6_mld_group_watermark_cmd);
+
+	install_element(INTERFACE_NODE, &interface_ipv6_pim_cmd);
+	install_element(INTERFACE_NODE, &interface_no_ipv6_pim_cmd);
+	install_element(INTERFACE_NODE, &interface_ipv6_pim_drprio_cmd);
+	install_element(INTERFACE_NODE, &interface_no_ipv6_pim_drprio_cmd);
+	install_element(INTERFACE_NODE, &interface_ipv6_pim_hello_cmd);
+	install_element(INTERFACE_NODE, &interface_no_ipv6_pim_hello_cmd);
+	install_element(INTERFACE_NODE, &interface_ipv6_pim_activeactive_cmd);
+	install_element(INTERFACE_NODE, &interface_ipv6_pim_ssm_cmd);
+	install_element(INTERFACE_NODE, &interface_no_ipv6_pim_ssm_cmd);
+	install_element(INTERFACE_NODE, &interface_ipv6_pim_sm_cmd);
+	install_element(INTERFACE_NODE, &interface_no_ipv6_pim_sm_cmd);
+	install_element(INTERFACE_NODE, &interface_ipv6_pim_boundary_oil_cmd);
+	install_element(INTERFACE_NODE, &interface_no_ipv6_pim_boundary_oil_cmd);
+	install_element(INTERFACE_NODE, &interface_ipv6_mroute_cmd);
+	install_element(INTERFACE_NODE, &interface_no_ipv6_mroute_cmd);
+	/* Install BSM command */
+	install_element(INTERFACE_NODE, &ipv6_pim_bsm_cmd);
+	install_element(INTERFACE_NODE, &no_ipv6_pim_bsm_cmd);
+	install_element(INTERFACE_NODE, &ipv6_pim_ucast_bsm_cmd);
+	install_element(INTERFACE_NODE, &no_ipv6_pim_ucast_bsm_cmd);
+
 	install_element(INTERFACE_NODE, &interface_ipv6_mld_cmd);
 	install_element(INTERFACE_NODE, &interface_no_ipv6_mld_cmd);
 	install_element(INTERFACE_NODE, &interface_ipv6_mld_join_cmd);
-	install_element(INTERFACE_NODE, &interface_no_ipv6_mld_join_cmd);
+	install_element(INTERFACE_NODE, &interface_ipv6_mld_join_group_cmd);
+	install_element(INTERFACE_NODE, &interface_ipv6_mld_static_group_cmd);
 	install_element(INTERFACE_NODE, &interface_ipv6_mld_version_cmd);
 	install_element(INTERFACE_NODE, &interface_no_ipv6_mld_version_cmd);
 	install_element(INTERFACE_NODE, &interface_ipv6_mld_query_interval_cmd);
 	install_element(INTERFACE_NODE,
 			&interface_no_ipv6_mld_query_interval_cmd);
-	install_element(CONFIG_NODE, &ipv6_mld_group_watermark_cmd);
-	install_element(VRF_NODE, &ipv6_mld_group_watermark_cmd);
-	install_element(CONFIG_NODE, &no_ipv6_mld_group_watermark_cmd);
-	install_element(VRF_NODE, &no_ipv6_mld_group_watermark_cmd);
 	install_element(INTERFACE_NODE,
 			&interface_ipv6_mld_query_max_response_time_cmd);
 	install_element(INTERFACE_NODE,
@@ -1818,6 +2848,10 @@ void pim_cmd_init(void)
 	install_element(VIEW_NODE, &show_ipv6_pim_rpf_cmd);
 	install_element(VIEW_NODE, &show_ipv6_pim_rpf_vrf_all_cmd);
 	install_element(VIEW_NODE, &show_ipv6_pim_secondary_cmd);
+	install_element(VIEW_NODE, &show_ipv6_pim_bsr_cand_bsr_cmd);
+	install_element(VIEW_NODE, &show_ipv6_pim_bsr_cand_rp_cmd);
+	install_element(VIEW_NODE, &show_ipv6_pim_bsr_rpdb_cmd);
+	install_element(VIEW_NODE, &show_ipv6_pim_bsr_groups_cmd);
 	install_element(VIEW_NODE, &show_ipv6_pim_statistics_cmd);
 	install_element(VIEW_NODE, &show_ipv6_pim_upstream_cmd);
 	install_element(VIEW_NODE, &show_ipv6_pim_upstream_vrf_all_cmd);

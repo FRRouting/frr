@@ -32,7 +32,7 @@ int main(int argc, char **argv)
 	assert(result == 0);
 	result = frrscript_call(fs, "bar", ("a", &a), ("b", &b));
 	assert(result == 0);
-	long long *cptr = frrscript_get_result(fs, "bar", "c", lua_tointegerp);
+	long long *cptr = frrscript_get_result(fs, "bar", "c", lua_tolonglongp);
 
 	/* a should not occur in the returned table in script */
 	assert(a == 100);
@@ -47,7 +47,7 @@ int main(int argc, char **argv)
 	result = frrscript_call(fs, "fact", ("n", &n));
 	assert(result == 0);
 	long long *ansptr =
-		frrscript_get_result(fs, "fact", "ans", lua_tointegerp);
+		frrscript_get_result(fs, "fact", "ans", lua_tolonglongp);
 	assert(*ansptr == 120);
 
 	/* check consecutive call + get_result without re-loading */

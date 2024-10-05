@@ -66,9 +66,11 @@ static void ospf_area_range_add(struct ospf_area *area,
 	apply_mask_ipv4(&p);
 
 	rn = route_node_get(ranges, (struct prefix *)&p);
-	if (rn->info)
+	if (rn->info) {
 		route_unlock_node(rn);
-	else
+		ospf_area_range_free(rn->info);
+		rn->info = range;
+	} else
 		rn->info = range;
 }
 
@@ -1748,11 +1750,10 @@ static void ospf_abr_announce_non_dna_routers(struct event *thread)
 		OSPF_LOG_DEBUG(IS_DEBUG_OSPF_EVENT,
 			       "%s: Area %pI4 FR enabled: %d", __func__,
 			       &area->area_id, area->fr_info.enabled);
-		OSPF_LOG_DEBUG(
-			IS_DEBUG_OSPF_EVENT,
-			"LSA with DC bit clear: %d Recived indication LSA: %d",
-			area->fr_info.area_dc_clear,
-			area->fr_info.area_ind_lsa_recvd);
+		OSPF_LOG_DEBUG(IS_DEBUG_OSPF_EVENT,
+			       "LSA with DC bit clear: %d Received indication LSA: %d",
+			       area->fr_info.area_dc_clear,
+			       area->fr_info.area_ind_lsa_recvd);
 		OSPF_LOG_DEBUG(IS_DEBUG_OSPF_EVENT, "FR state change: %d",
 			       area->fr_info.state_changed);
 		if (!OSPF_IS_AREA_BACKBONE(area) &&

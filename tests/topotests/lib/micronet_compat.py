@@ -12,49 +12,6 @@ from munet import cli
 from munet.base import BaseMunet, LinuxNamespace
 
 
-def cli_opt_list(option_list):
-    if not option_list:
-        return []
-    if isinstance(option_list, str):
-        return [x for x in option_list.split(",") if x]
-    return [x for x in option_list if x]
-
-
-def name_in_cli_opt_str(name, option_list):
-    ol = cli_opt_list(option_list)
-    return name in ol or "all" in ol
-
-
-class ConfigOptionsProxy:
-    def __init__(self, pytestconfig=None):
-        if isinstance(pytestconfig, ConfigOptionsProxy):
-            self.config = pytestconfig.config
-        else:
-            self.config = pytestconfig
-        self.option = self.config.option
-
-    def getoption(self, opt, defval=None):
-        if not self.config:
-            return defval
-
-        value = self.config.getoption(opt)
-        if value is None:
-            return defval
-
-        return value
-
-    def get_option(self, opt, defval=None):
-        return self.getoption(opt, defval)
-
-    def get_option_list(self, opt):
-        value = self.get_option(opt, "")
-        return cli_opt_list(value)
-
-    def name_in_option_list(self, name, opt):
-        optlist = self.get_option_list(opt)
-        return "all" in optlist or name in optlist
-
-
 class Node(LinuxNamespace):
     """Node (mininet compat)."""
 
@@ -164,7 +121,7 @@ class Mininet(BaseMunet):
 
     g_mnet_inst = None
 
-    def __init__(self, rundir=None, pytestconfig=None):
+    def __init__(self, rundir=None, pytestconfig=None, logger=None):
         """
         Create a Micronet.
         """
@@ -182,7 +139,9 @@ class Mininet(BaseMunet):
         # to set permissions to root:frr 770 to make this unneeded in that case
         # os.umask(0)
 
-        super(Mininet, self).__init__(pid=False, rundir=rundir)
+        super(Mininet, self).__init__(
+            pid=False, rundir=rundir, pytestconfig=pytestconfig, logger=logger
+        )
 
         # From munet/munet/native.py
         with open(os.path.join(self.rundir, "nspid"), "w", encoding="ascii") as f:
@@ -314,7 +273,7 @@ ff02::2\tip6-allrouters
 
         shellopt = self.cfgopt.get_option_list("--shell")
         if "all" in shellopt or "." in shellopt:
-            self.run_in_window("bash")
+            self.run_in_window("bash", title="munet")
 
         # This is expected by newer munet CLI code
         self.config_dirname = ""

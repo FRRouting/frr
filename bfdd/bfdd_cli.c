@@ -219,24 +219,24 @@ static void _bfd_cli_show_peer(struct vty *vty, const struct lyd_node *dnode,
 			       bool show_defaults __attribute__((__unused__)),
 			       bool mhop)
 {
-	const char *vrf = yang_dnode_get_string(dnode, "./vrf");
+	const char *vrf = yang_dnode_get_string(dnode, "vrf");
 
 	vty_out(vty, " peer %s",
-		yang_dnode_get_string(dnode, "./dest-addr"));
+		yang_dnode_get_string(dnode, "dest-addr"));
 
 	if (mhop)
 		vty_out(vty, " multihop");
 
-	if (yang_dnode_exists(dnode, "./source-addr"))
+	if (yang_dnode_exists(dnode, "source-addr"))
 		vty_out(vty, " local-address %s",
-			yang_dnode_get_string(dnode, "./source-addr"));
+			yang_dnode_get_string(dnode, "source-addr"));
 
 	if (strcmp(vrf, VRF_DEFAULT_NAME))
 		vty_out(vty, " vrf %s", vrf);
 
 	if (!mhop) {
 		const char *ifname =
-			yang_dnode_get_string(dnode, "./interface");
+			yang_dnode_get_string(dnode, "interface");
 		if (strcmp(ifname, "*"))
 			vty_out(vty, " interface %s", ifname);
 	}
@@ -338,11 +338,12 @@ void bfd_cli_show_minimum_ttl(struct vty *vty, const struct lyd_node *dnode,
 
 DEFPY_YANG(
 	bfd_peer_mult, bfd_peer_mult_cmd,
-	"detect-multiplier (2-255)$multiplier",
+	"[no] detect-multiplier ![(2-255)$multiplier]",
+	NO_STR
 	"Configure peer detection multiplier\n"
 	"Configure peer detection multiplier value\n")
 {
-	nb_cli_enqueue_change(vty, "./detection-multiplier", NB_OP_MODIFY,
+	nb_cli_enqueue_change(vty, "./detection-multiplier", no ? NB_OP_DESTROY : NB_OP_MODIFY,
 			      multiplier_str);
 	return nb_cli_apply_changes(vty, NULL);
 }
@@ -356,14 +357,15 @@ void bfd_cli_show_mult(struct vty *vty, const struct lyd_node *dnode,
 
 DEFPY_YANG(
 	bfd_peer_rx, bfd_peer_rx_cmd,
-	"receive-interval (10-60000)$interval",
+	"[no] receive-interval ![(10-60000)$interval]",
+	NO_STR
 	"Configure peer receive interval\n"
 	"Configure peer receive interval value in milliseconds\n")
 {
 	char value[32];
 
 	snprintf(value, sizeof(value), "%ld", interval * 1000);
-	nb_cli_enqueue_change(vty, "./required-receive-interval", NB_OP_MODIFY,
+	nb_cli_enqueue_change(vty, "./required-receive-interval", no ? NB_OP_DESTROY : NB_OP_MODIFY,
 			      value);
 
 	return nb_cli_apply_changes(vty, NULL);
@@ -379,7 +381,8 @@ void bfd_cli_show_rx(struct vty *vty, const struct lyd_node *dnode,
 
 DEFPY_YANG(
 	bfd_peer_tx, bfd_peer_tx_cmd,
-	"transmit-interval (10-60000)$interval",
+	"[no] transmit-interval ![(10-60000)$interval]",
+	NO_STR
 	"Configure peer transmit interval\n"
 	"Configure peer transmit interval value in milliseconds\n")
 {
@@ -387,7 +390,7 @@ DEFPY_YANG(
 
 	snprintf(value, sizeof(value), "%ld", interval * 1000);
 	nb_cli_enqueue_change(vty, "./desired-transmission-interval",
-			      NB_OP_MODIFY, value);
+			      no ? NB_OP_DESTROY : NB_OP_MODIFY, value);
 
 	return nb_cli_apply_changes(vty, NULL);
 }
@@ -436,7 +439,8 @@ void bfd_cli_show_echo(struct vty *vty, const struct lyd_node *dnode,
 
 DEFPY_YANG(
 	bfd_peer_echo_interval, bfd_peer_echo_interval_cmd,
-	"echo-interval (10-60000)$interval",
+	"[no] echo-interval ![(10-60000)$interval]",
+	NO_STR
 	"Configure peer echo intervals\n"
 	"Configure peer echo rx/tx intervals value in milliseconds\n")
 {
@@ -449,16 +453,17 @@ DEFPY_YANG(
 
 	snprintf(value, sizeof(value), "%ld", interval * 1000);
 	nb_cli_enqueue_change(vty, "./desired-echo-transmission-interval",
-			      NB_OP_MODIFY, value);
+			      no ? NB_OP_DESTROY : NB_OP_MODIFY, value);
 	nb_cli_enqueue_change(vty, "./required-echo-receive-interval",
-			      NB_OP_MODIFY, value);
+			      no ? NB_OP_DESTROY : NB_OP_MODIFY, value);
 
 	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFPY_YANG(
 	bfd_peer_echo_transmit_interval, bfd_peer_echo_transmit_interval_cmd,
-	"echo transmit-interval (10-60000)$interval",
+	"[no] echo transmit-interval ![(10-60000)$interval]",
+	NO_STR
 	"Configure peer echo intervals\n"
 	"Configure desired transmit interval\n"
 	"Configure interval value in milliseconds\n")
@@ -472,7 +477,7 @@ DEFPY_YANG(
 
 	snprintf(value, sizeof(value), "%ld", interval * 1000);
 	nb_cli_enqueue_change(vty, "./desired-echo-transmission-interval",
-			      NB_OP_MODIFY, value);
+			      no ? NB_OP_DESTROY : NB_OP_MODIFY, value);
 
 	return nb_cli_apply_changes(vty, NULL);
 }
@@ -487,7 +492,8 @@ void bfd_cli_show_desired_echo_transmission_interval(
 
 DEFPY_YANG(
 	bfd_peer_echo_receive_interval, bfd_peer_echo_receive_interval_cmd,
-	"echo receive-interval <disabled$disabled|(10-60000)$interval>",
+	"[no] echo receive-interval ![<disabled$disabled|(10-60000)$interval>]",
+	NO_STR
 	"Configure peer echo intervals\n"
 	"Configure required receive interval\n"
 	"Disable echo packets receive\n"
@@ -504,9 +510,9 @@ DEFPY_YANG(
 		snprintf(value, sizeof(value), "0");
 	else
 		snprintf(value, sizeof(value), "%ld", interval * 1000);
-	
+
 	nb_cli_enqueue_change(vty, "./required-echo-receive-interval",
-			      NB_OP_MODIFY, value);
+			      no ? NB_OP_DESTROY : NB_OP_MODIFY, value);
 
 	return nb_cli_apply_changes(vty, NULL);
 }
@@ -567,21 +573,24 @@ DEFPY_YANG(no_bfd_profile, no_bfd_profile_cmd,
 void bfd_cli_show_profile(struct vty *vty, const struct lyd_node *dnode,
 			  bool show_defaults)
 {
-	vty_out(vty, " profile %s\n", yang_dnode_get_string(dnode, "./name"));
+	vty_out(vty, " profile %s\n", yang_dnode_get_string(dnode, "name"));
 }
 
 ALIAS_YANG(bfd_peer_mult, bfd_profile_mult_cmd,
-      "detect-multiplier (2-255)$multiplier",
+      "[no] detect-multiplier ![(2-255)$multiplier]",
+      NO_STR
       "Configure peer detection multiplier\n"
       "Configure peer detection multiplier value\n")
 
 ALIAS_YANG(bfd_peer_tx, bfd_profile_tx_cmd,
-      "transmit-interval (10-60000)$interval",
+      "[no] transmit-interval ![(10-60000)$interval]",
+      NO_STR
       "Configure peer transmit interval\n"
       "Configure peer transmit interval value in milliseconds\n")
 
 ALIAS_YANG(bfd_peer_rx, bfd_profile_rx_cmd,
-      "receive-interval (10-60000)$interval",
+      "[no] receive-interval ![(10-60000)$interval]",
+      NO_STR
       "Configure peer receive interval\n"
       "Configure peer receive interval value in milliseconds\n")
 
@@ -612,20 +621,23 @@ ALIAS_YANG(bfd_peer_echo, bfd_profile_echo_cmd,
       "Configure echo mode\n")
 
 ALIAS_YANG(bfd_peer_echo_interval, bfd_profile_echo_interval_cmd,
-      "echo-interval (10-60000)$interval",
+      "[no] echo-interval ![(10-60000)$interval]",
+      NO_STR
       "Configure peer echo interval\n"
       "Configure peer echo interval value in milliseconds\n")
 
 ALIAS_YANG(
 	bfd_peer_echo_transmit_interval, bfd_profile_echo_transmit_interval_cmd,
-	"echo transmit-interval (10-60000)$interval",
+	"[no] echo transmit-interval ![(10-60000)$interval]",
+	NO_STR
 	"Configure peer echo intervals\n"
 	"Configure desired transmit interval\n"
 	"Configure interval value in milliseconds\n")
 
 ALIAS_YANG(
 	bfd_peer_echo_receive_interval, bfd_profile_echo_receive_interval_cmd,
-	"echo receive-interval <disabled$disabled|(10-60000)$interval>",
+	"[no] echo receive-interval ![<disabled$disabled|(10-60000)$interval>]",
+	NO_STR
 	"Configure peer echo intervals\n"
 	"Configure required receive interval\n"
 	"Disable echo packets receive\n"

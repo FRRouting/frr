@@ -444,7 +444,7 @@ DEFUN_NOSH(show_hash_stats,
 		ttable_colseps(tt, 0, RIGHT, true, '|');
 		char *table = ttable_dump(tt, "\n");
 		vty_out(vty, "%s\n", table);
-		XFREE(MTYPE_TMP, table);
+		XFREE(MTYPE_TMP_TTABLE, table);
 	} else
 		vty_out(vty, "No named hash tables to display.\n");
 

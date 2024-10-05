@@ -40,6 +40,11 @@ struct sharp_nh_tracker *sharp_nh_tracker_get(struct prefix *p)
 	return nht;
 }
 
+void sharp_nh_tracker_free(struct sharp_nh_tracker *nht)
+{
+	XFREE(MTYPE_NH_TRACKER, nht);
+}
+
 void sharp_nh_tracker_dump(struct vty *vty)
 {
 	struct listnode *node;
@@ -169,7 +174,8 @@ static void sharp_nhgroup_delete_cb(const char *name)
 	if (!snhg)
 		return;
 
-	nhg_del(snhg->id);
+	if (sharp_nhgroup_id_is_installed(snhg->id))
+		nhg_del(snhg->id);
 	sharp_nhg_rb_del(&nhg_head, snhg);
 	XFREE(MTYPE_NHG, snhg);
 }

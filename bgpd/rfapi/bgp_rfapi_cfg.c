@@ -531,7 +531,7 @@ rfapi_group_new(struct bgp *bgp, rfapi_group_cfg_type_t type, const char *name)
 	rfg = XCALLOC(MTYPE_RFAPI_GROUP_CFG,
 		      sizeof(struct rfapi_nve_group_cfg));
 	rfg->type = type;
-	rfg->name = strdup(name);
+	rfg->name = XSTRDUP(MTYPE_RFAPI_GROUP_CFG, name);
 	/* add to tail of list */
 	listnode_add(bgp->rfapi_cfg->nve_groups_sequential, rfg);
 	rfg->label = MPLS_LABEL_NONE;
@@ -832,8 +832,8 @@ DEFUN (vnc_redistribute_protocol,
 		if (bgp->rfapi_cfg->redist_bgp_exterior_view_name) {
 			VNC_REDIST_DISABLE(bgp, afi,
 					   type); /* disabled view implicitly */
-			free(bgp->rfapi_cfg->redist_bgp_exterior_view_name);
-			bgp->rfapi_cfg->redist_bgp_exterior_view_name = NULL;
+			XFREE(MTYPE_RFAPI_GROUP_CFG,
+			      bgp->rfapi_cfg->redist_bgp_exterior_view_name);
 		}
 		bgp->rfapi_cfg->redist_bgp_exterior_view = bgp;
 	}
@@ -873,10 +873,8 @@ DEFUN (vnc_no_redistribute_protocol,
 	VNC_REDIST_DISABLE(bgp, afi, type);
 
 	if (type == ZEBRA_ROUTE_BGP_DIRECT_EXT) {
-		if (bgp->rfapi_cfg->redist_bgp_exterior_view_name) {
-			free(bgp->rfapi_cfg->redist_bgp_exterior_view_name);
-			bgp->rfapi_cfg->redist_bgp_exterior_view_name = NULL;
-		}
+		XFREE(MTYPE_RFAPI_GROUP_CFG,
+		      bgp->rfapi_cfg->redist_bgp_exterior_view_name);
 		bgp->rfapi_cfg->redist_bgp_exterior_view = NULL;
 	}
 
@@ -905,9 +903,10 @@ DEFUN (vnc_redistribute_bgp_exterior,
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
-	if (bgp->rfapi_cfg->redist_bgp_exterior_view_name)
-		free(bgp->rfapi_cfg->redist_bgp_exterior_view_name);
-	bgp->rfapi_cfg->redist_bgp_exterior_view_name = strdup(argv[5]->arg);
+	XFREE(MTYPE_RFAPI_GROUP_CFG,
+	      bgp->rfapi_cfg->redist_bgp_exterior_view_name);
+	bgp->rfapi_cfg->redist_bgp_exterior_view_name =
+		XSTRDUP(MTYPE_RFAPI_GROUP_CFG, argv[5]->arg);
 	/* could be NULL if name is not defined yet */
 	bgp->rfapi_cfg->redist_bgp_exterior_view =
 		bgp_lookup_by_name(argv[5]->arg);
@@ -935,9 +934,9 @@ DEFUN (vnc_redistribute_nvegroup,
 	 */
 	bgp->rfapi_cfg->rfg_redist = bgp_rfapi_cfg_match_byname(
 		bgp, argv[3]->arg, RFAPI_GROUP_CFG_NVE);
-	if (bgp->rfapi_cfg->rfg_redist_name)
-		free(bgp->rfapi_cfg->rfg_redist_name);
-	bgp->rfapi_cfg->rfg_redist_name = strdup(argv[3]->arg);
+	XFREE(MTYPE_RFAPI_GROUP_CFG, bgp->rfapi_cfg->rfg_redist_name);
+	bgp->rfapi_cfg->rfg_redist_name = XSTRDUP(MTYPE_RFAPI_GROUP_CFG,
+						  argv[3]->arg);
 
 	vnc_redistribute_postchange(bgp);
 
@@ -959,9 +958,7 @@ DEFUN (vnc_redistribute_no_nvegroup,
 	vnc_redistribute_prechange(bgp);
 
 	bgp->rfapi_cfg->rfg_redist = NULL;
-	if (bgp->rfapi_cfg->rfg_redist_name)
-		free(bgp->rfapi_cfg->rfg_redist_name);
-	bgp->rfapi_cfg->rfg_redist_name = NULL;
+	XFREE(MTYPE_RFAPI_GROUP_CFG, bgp->rfapi_cfg->rfg_redist_name);
 
 	vnc_redistribute_postchange(bgp);
 
@@ -1030,9 +1027,7 @@ DEFUN (vnc_redist_bgpdirect_no_prefixlist,
 
 	vnc_redistribute_prechange(bgp);
 
-	if (hc->plist_redist_name[route_type][afi])
-		free(hc->plist_redist_name[route_type][afi]);
-	hc->plist_redist_name[route_type][afi] = NULL;
+	XFREE(MTYPE_RFAPI_GROUP_CFG, hc->plist_redist_name[route_type][afi]);
 	hc->plist_redist[route_type][afi] = NULL;
 
 	vnc_redistribute_postchange(bgp);
@@ -1074,9 +1069,9 @@ DEFUN (vnc_redist_bgpdirect_prefixlist,
 
 	vnc_redistribute_prechange(bgp);
 
-	if (hc->plist_redist_name[route_type][afi])
-		free(hc->plist_redist_name[route_type][afi]);
-	hc->plist_redist_name[route_type][afi] = strdup(argv[5]->arg);
+	XFREE(MTYPE_RFAPI_GROUP_CFG, hc->plist_redist_name[route_type][afi]);
+	hc->plist_redist_name[route_type][afi] = XSTRDUP(MTYPE_RFAPI_GROUP_CFG,
+							 argv[5]->arg);
 	hc->plist_redist[route_type][afi] =
 		prefix_list_lookup(afi, argv[5]->arg);
 
@@ -1110,9 +1105,7 @@ DEFUN (vnc_redist_bgpdirect_no_routemap,
 
 	vnc_redistribute_prechange(bgp);
 
-	if (hc->routemap_redist_name[route_type])
-		free(hc->routemap_redist_name[route_type]);
-	hc->routemap_redist_name[route_type] = NULL;
+	XFREE(MTYPE_RFAPI_GROUP_CFG, hc->routemap_redist_name[route_type]);
 	hc->routemap_redist[route_type] = NULL;
 
 	vnc_redistribute_postchange(bgp);
@@ -1144,15 +1137,16 @@ DEFUN (vnc_redist_bgpdirect_routemap,
 
 	vnc_redistribute_prechange(bgp);
 
-	if (hc->routemap_redist_name[route_type])
-		free(hc->routemap_redist_name[route_type]);
+	XFREE(MTYPE_RFAPI_GROUP_CFG, hc->routemap_redist_name[route_type]);
 
 	/* If the old route map config overwrite with new
 	 * route map config , old routemap counter have to be
 	 * reduced.
 	 */
 	route_map_counter_decrement(hc->routemap_redist[route_type]);
-	hc->routemap_redist_name[route_type] = strdup(argv[4]->arg);
+	hc->routemap_redist_name[route_type] = XSTRDUP(MTYPE_RFAPI_GROUP_CFG,
+						       argv[4]->arg);
+
 	hc->routemap_redist[route_type] =
 		route_map_lookup_by_name(argv[4]->arg);
 	route_map_counter_increment(hc->routemap_redist[route_type]);
@@ -1197,9 +1191,8 @@ DEFUN (vnc_nve_group_redist_bgpdirect_no_prefixlist,
 
 	vnc_redistribute_prechange(bgp);
 
-	if (rfg->plist_redist_name[ZEBRA_ROUTE_BGP_DIRECT][afi])
-		free(rfg->plist_redist_name[ZEBRA_ROUTE_BGP_DIRECT][afi]);
-	rfg->plist_redist_name[ZEBRA_ROUTE_BGP_DIRECT][afi] = NULL;
+	XFREE(MTYPE_RFAPI_GROUP_CFG,
+	      rfg->plist_redist_name[ZEBRA_ROUTE_BGP_DIRECT][afi]);
 	rfg->plist_redist[ZEBRA_ROUTE_BGP_DIRECT][afi] = NULL;
 
 	vnc_redistribute_postchange(bgp);
@@ -1238,10 +1231,10 @@ DEFUN (vnc_nve_group_redist_bgpdirect_prefixlist,
 
 	vnc_redistribute_prechange(bgp);
 
-	if (rfg->plist_redist_name[ZEBRA_ROUTE_BGP_DIRECT][afi])
-		free(rfg->plist_redist_name[ZEBRA_ROUTE_BGP_DIRECT][afi]);
+	XFREE(MTYPE_RFAPI_GROUP_CFG,
+	      rfg->plist_redist_name[ZEBRA_ROUTE_BGP_DIRECT][afi]);
 	rfg->plist_redist_name[ZEBRA_ROUTE_BGP_DIRECT][afi] =
-		strdup(argv[4]->arg);
+		XSTRDUP(MTYPE_RFAPI_GROUP_CFG, argv[4]->arg);
 	rfg->plist_redist[ZEBRA_ROUTE_BGP_DIRECT][afi] =
 		prefix_list_lookup(afi, argv[4]->arg);
 
@@ -1272,11 +1265,10 @@ DEFUN (vnc_nve_group_redist_bgpdirect_no_routemap,
 
 	vnc_redistribute_prechange(bgp);
 
-	if (rfg->routemap_redist_name[ZEBRA_ROUTE_BGP_DIRECT])
-		free(rfg->routemap_redist_name[ZEBRA_ROUTE_BGP_DIRECT]);
+	XFREE(MTYPE_RFAPI_GROUP_CFG,
+	      rfg->routemap_redist_name[ZEBRA_ROUTE_BGP_DIRECT]);
 	route_map_counter_decrement(
 		rfg->routemap_redist[ZEBRA_ROUTE_BGP_DIRECT]);
-	rfg->routemap_redist_name[ZEBRA_ROUTE_BGP_DIRECT] = NULL;
 	rfg->routemap_redist[ZEBRA_ROUTE_BGP_DIRECT] = NULL;
 
 	vnc_redistribute_postchange(bgp);
@@ -1305,12 +1297,12 @@ DEFUN (vnc_nve_group_redist_bgpdirect_routemap,
 
 	vnc_redistribute_prechange(bgp);
 
-	if (rfg->routemap_redist_name[ZEBRA_ROUTE_BGP_DIRECT])
-		free(rfg->routemap_redist_name[ZEBRA_ROUTE_BGP_DIRECT]);
+	XFREE(MTYPE_RFAPI_GROUP_CFG,
+	      rfg->routemap_redist_name[ZEBRA_ROUTE_BGP_DIRECT]);
 	route_map_counter_decrement(
 		rfg->routemap_redist[ZEBRA_ROUTE_BGP_DIRECT]);
 	rfg->routemap_redist_name[ZEBRA_ROUTE_BGP_DIRECT] =
-		strdup(argv[3]->arg);
+		XSTRDUP(MTYPE_RFAPI_GROUP_CFG, argv[3]->arg);
 	rfg->routemap_redist[ZEBRA_ROUTE_BGP_DIRECT] =
 		route_map_lookup_by_name(argv[3]->arg);
 	route_map_counter_increment(
@@ -1451,7 +1443,7 @@ DEFUN (vnc_export_nvegroup,
 		}
 
 		rfgn = rfgn_new();
-		rfgn->name = strdup(argv[5]->arg);
+		rfgn->name = XSTRDUP(MTYPE_RFAPI_GROUP_CFG, argv[5]->arg);
 		rfgn->rfg = rfg_new; /* OK if not set yet */
 
 		listnode_add(bgp->rfapi_cfg->rfg_export_direct_bgp_l, rfgn);
@@ -1487,7 +1479,7 @@ DEFUN (vnc_export_nvegroup,
 		}
 
 		rfgn = rfgn_new();
-		rfgn->name = strdup(argv[5]->arg);
+		rfgn->name = XSTRDUP(MTYPE_RFAPI_GROUP_CFG, argv[5]->arg);
 		rfgn->rfg = rfg_new; /* OK if not set yet */
 
 		listnode_add(bgp->rfapi_cfg->rfg_export_zebra_l, rfgn);
@@ -1531,7 +1523,7 @@ DEFUN (vnc_no_export_nvegroup,
 				if (rfgn->rfg)
 					vnc_direct_bgp_del_group(bgp,
 								 rfgn->rfg);
-				free(rfgn->name);
+				XFREE(MTYPE_RFAPI_GROUP_CFG, rfgn->name);
 				list_delete_node(
 					bgp->rfapi_cfg->rfg_export_direct_bgp_l,
 					node);
@@ -1548,7 +1540,7 @@ DEFUN (vnc_no_export_nvegroup,
 			if (rfgn->name && !strcmp(rfgn->name, argv[6]->arg)) {
 				if (rfgn->rfg)
 					vnc_zebra_del_group(bgp, rfgn->rfg);
-				free(rfgn->name);
+				XFREE(MTYPE_RFAPI_GROUP_CFG, rfgn->name);
 				list_delete_node(
 					bgp->rfapi_cfg->rfg_export_zebra_l,
 					node);
@@ -1612,9 +1604,8 @@ DEFUN (vnc_nve_group_export_no_prefixlist,
 		    || (rfg->plist_export_zebra_name[afi]
 			&& strmatch(argv[idx]->arg,
 				    rfg->plist_export_zebra_name[afi]))) {
-			if (rfg->plist_export_zebra_name[afi])
-				free(rfg->plist_export_zebra_name[afi]);
-			rfg->plist_export_zebra_name[afi] = NULL;
+			XFREE(MTYPE_RFAPI_GROUP_CFG,
+			      rfg->plist_export_zebra_name[afi]);
 			rfg->plist_export_zebra[afi] = NULL;
 
 			vnc_zebra_reexport_group_afi(bgp, rfg, afi);
@@ -1667,18 +1658,18 @@ DEFUN (vnc_nve_group_export_prefixlist,
 	idx = argc - 1;
 
 	if (is_bgp) {
-		if (rfg->plist_export_bgp_name[afi])
-			free(rfg->plist_export_bgp_name[afi]);
-		rfg->plist_export_bgp_name[afi] = strdup(argv[idx]->arg);
+		XFREE(MTYPE_RFAPI_GROUP_CFG, rfg->plist_export_bgp_name[afi]);
+		rfg->plist_export_bgp_name[afi] = XSTRDUP(MTYPE_RFAPI_GROUP_CFG,
+							  argv[idx]->arg);
 		rfg->plist_export_bgp[afi] =
 			prefix_list_lookup(afi, argv[idx]->arg);
 
 		vnc_direct_bgp_reexport_group_afi(bgp, rfg, afi);
 
 	} else {
-		if (rfg->plist_export_zebra_name[afi])
-			free(rfg->plist_export_zebra_name[afi]);
-		rfg->plist_export_zebra_name[afi] = strdup(argv[idx]->arg);
+		XFREE(MTYPE_RFAPI_GROUP_CFG, rfg->plist_export_zebra_name[afi]);
+		rfg->plist_export_zebra_name[afi] =
+			XSTRDUP(MTYPE_RFAPI_GROUP_CFG, argv[idx]->arg);
 		rfg->plist_export_zebra[afi] =
 			prefix_list_lookup(afi, argv[idx]->arg);
 
@@ -1720,7 +1711,8 @@ DEFUN (vnc_nve_group_export_no_routemap,
 	switch (argv[idx]->text[0]) {
 	case 'z':
 		is_bgp = 0;
-	/* fall thru */
+		idx += 2;
+		break;
 	case 'b':
 		idx += 2;
 		break;
@@ -1734,10 +1726,9 @@ DEFUN (vnc_nve_group_export_no_routemap,
 		    || (rfg->routemap_export_bgp_name
 			&& strmatch(argv[idx]->arg,
 				    rfg->routemap_export_bgp_name))) {
-			if (rfg->routemap_export_bgp_name)
-				free(rfg->routemap_export_bgp_name);
+			XFREE(MTYPE_RFAPI_GROUP_CFG,
+			      rfg->routemap_export_bgp_name);
 			route_map_counter_decrement(rfg->routemap_export_bgp);
-			rfg->routemap_export_bgp_name = NULL;
 			rfg->routemap_export_bgp = NULL;
 
 			vnc_direct_bgp_reexport_group_afi(bgp, rfg, AFI_IP);
@@ -1748,10 +1739,8 @@ DEFUN (vnc_nve_group_export_no_routemap,
 		    || (rfg->routemap_export_zebra_name
 			&& strmatch(argv[idx]->arg,
 				    rfg->routemap_export_zebra_name))) {
-			if (rfg->routemap_export_zebra_name)
-				free(rfg->routemap_export_zebra_name);
+			XFREE(MTYPE_RFAPI_GROUP_CFG, rfg->routemap_export_zebra_name);
 			route_map_counter_decrement(rfg->routemap_export_zebra);
-			rfg->routemap_export_zebra_name = NULL;
 			rfg->routemap_export_zebra = NULL;
 
 			vnc_zebra_reexport_group_afi(bgp, rfg, AFI_IP);
@@ -1795,20 +1784,20 @@ DEFUN (vnc_nve_group_export_routemap,
 	idx = argc - 1;
 
 	if (is_bgp) {
-		if (rfg->routemap_export_bgp_name)
-			free(rfg->routemap_export_bgp_name);
+		XFREE(MTYPE_RFAPI_GROUP_CFG, rfg->routemap_export_bgp_name);
 		route_map_counter_decrement(rfg->routemap_export_bgp);
-		rfg->routemap_export_bgp_name = strdup(argv[idx]->arg);
+		rfg->routemap_export_bgp_name = XSTRDUP(MTYPE_RFAPI_GROUP_CFG,
+							argv[idx]->arg);
 		rfg->routemap_export_bgp =
 			route_map_lookup_by_name(argv[idx]->arg);
 		route_map_counter_increment(rfg->routemap_export_bgp);
 		vnc_direct_bgp_reexport_group_afi(bgp, rfg, AFI_IP);
 		vnc_direct_bgp_reexport_group_afi(bgp, rfg, AFI_IP6);
 	} else {
-		if (rfg->routemap_export_zebra_name)
-			free(rfg->routemap_export_zebra_name);
+		XFREE(MTYPE_RFAPI_GROUP_CFG, rfg->routemap_export_zebra_name);
 		route_map_counter_decrement(rfg->routemap_export_zebra);
-		rfg->routemap_export_zebra_name = strdup(argv[idx]->arg);
+		rfg->routemap_export_zebra_name = XSTRDUP(MTYPE_RFAPI_GROUP_CFG,
+							  argv[idx]->arg);
 		rfg->routemap_export_zebra =
 			route_map_lookup_by_name(argv[idx]->arg);
 		route_map_counter_increment(rfg->routemap_export_zebra);
@@ -1853,9 +1842,8 @@ DEFUN (vnc_nve_export_no_prefixlist,
 		if (((argc > 6) && hc->plist_export_bgp_name[afi]
 		     && strmatch(argv[6]->text, hc->plist_export_bgp_name[afi]))
 		    || (argc <= 6)) {
-
-			free(hc->plist_export_bgp_name[afi]);
-			hc->plist_export_bgp_name[afi] = NULL;
+			XFREE(MTYPE_RFAPI_GROUP_CFG,
+			      hc->plist_export_bgp_name[afi]);
 			hc->plist_export_bgp[afi] = NULL;
 			vnc_direct_bgp_reexport(bgp, afi);
 		}
@@ -1864,9 +1852,8 @@ DEFUN (vnc_nve_export_no_prefixlist,
 		     && strmatch(argv[6]->text,
 				 hc->plist_export_zebra_name[afi]))
 		    || (argc <= 6)) {
-
-			free(hc->plist_export_zebra_name[afi]);
-			hc->plist_export_zebra_name[afi] = NULL;
+			XFREE(MTYPE_RFAPI_GROUP_CFG,
+			      hc->plist_export_zebra_name[afi]);
 			hc->plist_export_zebra[afi] = NULL;
 			/* TBD vnc_zebra_rh_reexport(bgp, afi); */
 		}
@@ -1899,16 +1886,16 @@ DEFUN (vnc_nve_export_prefixlist,
 	}
 
 	if (argv[2]->arg[0] == 'b') {
-		if (hc->plist_export_bgp_name[afi])
-			free(hc->plist_export_bgp_name[afi]);
-		hc->plist_export_bgp_name[afi] = strdup(argv[5]->arg);
+		XFREE(MTYPE_RFAPI_GROUP_CFG, hc->plist_export_bgp_name[afi]);
+		hc->plist_export_bgp_name[afi] = XSTRDUP(MTYPE_RFAPI_GROUP_CFG,
+							 argv[5]->arg);
 		hc->plist_export_bgp[afi] =
 			prefix_list_lookup(afi, argv[5]->arg);
 		vnc_direct_bgp_reexport(bgp, afi);
 	} else {
-		if (hc->plist_export_zebra_name[afi])
-			free(hc->plist_export_zebra_name[afi]);
-		hc->plist_export_zebra_name[afi] = strdup(argv[5]->arg);
+		XFREE(MTYPE_RFAPI_GROUP_CFG, hc->plist_export_zebra_name[afi]);
+		hc->plist_export_zebra_name[afi] =
+			XSTRDUP(MTYPE_RFAPI_GROUP_CFG, argv[5]->arg);
 		hc->plist_export_zebra[afi] =
 			prefix_list_lookup(afi, argv[5]->arg);
 		/* TBD vnc_zebra_rh_reexport(bgp, afi); */
@@ -1936,10 +1923,9 @@ DEFUN (vnc_nve_export_no_routemap,
 		if (((argc > 5) && hc->routemap_export_bgp_name
 		     && strmatch(argv[5]->text, hc->routemap_export_bgp_name))
 		    || (argc <= 5)) {
-
-			free(hc->routemap_export_bgp_name);
+			XFREE(MTYPE_RFAPI_GROUP_CFG,
+			      hc->routemap_export_bgp_name);
 			route_map_counter_decrement(hc->routemap_export_bgp);
-			hc->routemap_export_bgp_name = NULL;
 			hc->routemap_export_bgp = NULL;
 			vnc_direct_bgp_reexport(bgp, AFI_IP);
 			vnc_direct_bgp_reexport(bgp, AFI_IP6);
@@ -1949,9 +1935,8 @@ DEFUN (vnc_nve_export_no_routemap,
 		     && strmatch(argv[5]->text, hc->routemap_export_zebra_name))
 		    || (argc <= 5)) {
 
-			free(hc->routemap_export_zebra_name);
+			XFREE(MTYPE_RFAPI_GROUP_CFG, hc->routemap_export_zebra_name);
 			route_map_counter_decrement(hc->routemap_export_zebra);
-			hc->routemap_export_zebra_name = NULL;
 			hc->routemap_export_zebra = NULL;
 			/* TBD vnc_zebra_rh_reexport(bgp, AFI_IP); */
 			/* TBD vnc_zebra_rh_reexport(bgp, AFI_IP6); */
@@ -1976,20 +1961,20 @@ DEFUN (vnc_nve_export_routemap,
 	hc = bgp->rfapi_cfg;
 
 	if (argv[2]->arg[0] == 'b') {
-		if (hc->routemap_export_bgp_name)
-			free(hc->routemap_export_bgp_name);
+		XFREE(MTYPE_RFAPI_GROUP_CFG, hc->routemap_export_bgp_name);
 		route_map_counter_decrement(hc->routemap_export_bgp);
-		hc->routemap_export_bgp_name = strdup(argv[4]->arg);
+		hc->routemap_export_bgp_name = XSTRDUP(MTYPE_RFAPI_GROUP_CFG,
+						       argv[4]->arg);
 		hc->routemap_export_bgp =
 			route_map_lookup_by_name(argv[4]->arg);
 		route_map_counter_increment(hc->routemap_export_bgp);
 		vnc_direct_bgp_reexport(bgp, AFI_IP);
 		vnc_direct_bgp_reexport(bgp, AFI_IP6);
 	} else {
-		if (hc->routemap_export_zebra_name)
-			free(hc->routemap_export_zebra_name);
+		XFREE(MTYPE_RFAPI_GROUP_CFG, hc->routemap_export_zebra_name);
 		route_map_counter_decrement(hc->routemap_export_zebra);
-		hc->routemap_export_zebra_name = strdup(argv[4]->arg);
+		hc->routemap_export_zebra_name = XSTRDUP(MTYPE_RFAPI_GROUP_CFG,
+							 argv[4]->arg);
 		hc->routemap_export_zebra =
 			route_map_lookup_by_name(argv[4]->arg);
 		route_map_counter_increment(hc->routemap_export_zebra);
@@ -2319,7 +2304,7 @@ static void bgp_rfapi_delete_nve_group(struct vty *vty, /* NULL = no output */
 	}
 
 	/* delete it */
-	free(rfg->name);
+	XFREE(MTYPE_RFAPI_GROUP_CFG, rfg->name);
 	if (rfg->rfapi_import_table)
 		rfapiImportTableRefDelByIt(bgp, rfg->rfapi_import_table);
 	if (rfg->rt_import_list)
@@ -3410,7 +3395,7 @@ DEFUN_NOSH (vnc_l2_group,
 			vty_out(vty, "Can't allocate memory for L2 group\n");
 			return CMD_WARNING_CONFIG_FAILED;
 		}
-		rfg->name = strdup(argv[2]->arg);
+		rfg->name = XSTRDUP(MTYPE_RFAPI_GROUP_CFG, argv[2]->arg);
 		/* add to tail of list */
 		listnode_add(bgp->rfapi_cfg->l2_groups, rfg);
 	}
@@ -3428,7 +3413,7 @@ static void bgp_rfapi_delete_l2_group(struct vty *vty, /* NULL = no output */
 				      struct rfapi_l2_group_cfg *rfg)
 {
 	/* delete it */
-	free(rfg->name);
+	XFREE(MTYPE_RFAPI_GROUP_CFG, rfg->name);
 	if (rfg->rt_import_list)
 		ecommunity_free(&rfg->rt_import_list);
 	if (rfg->rt_export_list)
@@ -3590,7 +3575,9 @@ DEFUN (vnc_l2_group_rt,
 
 	switch (argv[1]->arg[0]) {
 	case 'b':
-		do_export = 1; /* fall through */
+		do_export = 1;
+		do_import = 1;
+		break;
 	case 'i':
 		do_import = 1;
 		break;
@@ -3840,7 +3827,8 @@ struct rfapi_cfg *bgp_rfapi_cfg_new(struct rfapi_rfp_cfg *cfg)
 static void bgp_rfapi_rfgn_list_delete(void *data)
 {
 	struct rfapi_rfg_name *rfgn = data;
-	free(rfgn->name);
+
+	XFREE(MTYPE_RFAPI_GROUP_CFG, rfgn->name);
 	rfgn_free(rfgn);
 }
 

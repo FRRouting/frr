@@ -32,7 +32,6 @@ All conditions are tested against an eBGP peer in a public ASN.
 import os
 import sys
 import json
-import time
 import pytest
 
 CWD = os.path.dirname(os.path.realpath(__file__))
@@ -109,7 +108,7 @@ def setup_module(mod):
 
     router_list = tgen.routers()
 
-    for i, (rname, router) in enumerate(router_list.items(), 1):
+    for _, (rname, router) in enumerate(router_list.items(), 1):
         router.load_config(
             TopoRouter.RD_ZEBRA, os.path.join(CWD, f"{rname}/zebra.conf")
         )
@@ -408,8 +407,6 @@ def test_bgp_remove_private_as():
         # each variation sets a separate peer flag in bgpd. we need to clear
         # the old flag after each iteration so we only test the flags we expect.
         _change_remove_type(rmv_type, "del")
-
-    return True
 
 
 if __name__ == "__main__":

@@ -27,8 +27,35 @@
 
 DEFINE_MTYPE_STATIC(SHARPD, SRV6_LOCATOR, "SRv6 Locator");
 
+DEFPY(watch_neighbor, watch_neighbor_cmd,
+      "sharp watch [vrf NAME$vrf_name] neighbor",
+      "Sharp routing Protocol\n"
+      "Watch for changes\n"
+      "The vrf we would like to watch if non-default\n"
+      "The NAME of the vrf\n"
+      "Neighbor events\n")
+{
+	struct vrf *vrf;
+
+	if (!vrf_name)
+		vrf_name = VRF_DEFAULT_NAME;
+	vrf = vrf_lookup_by_name(vrf_name);
+
+	if (!vrf) {
+		vty_out(vty, "The vrf NAME specified: %s does not exist\n",
+			vrf_name);
+		return CMD_WARNING;
+	}
+
+	sharp_zebra_register_neigh(vrf->vrf_id, AFI_IP, true);
+
+	return CMD_SUCCESS;
+}
+
+
 DEFPY(watch_redistribute, watch_redistribute_cmd,
-      "sharp watch [vrf NAME$vrf_name] redistribute " FRR_REDIST_STR_SHARPD,
+      "[no] sharp watch [vrf NAME$vrf_name] redistribute " FRR_REDIST_STR_SHARPD,
+      NO_STR
       "Sharp routing Protocol\n"
       "Watch for changes\n"
       "The vrf we would like to watch if non-default\n"
@@ -49,7 +76,7 @@ DEFPY(watch_redistribute, watch_redistribute_cmd,
 	}
 
 	source = proto_redistnum(AFI_IP, argv[argc-1]->text);
-	sharp_redistribute_vrf(vrf, source);
+	sharp_redistribute_vrf(vrf, source, !no);
 
 	return CMD_SUCCESS;
 }
@@ -179,7 +206,7 @@ DEFPY (install_routes,
 	  <nexthop <A.B.C.D$nexthop4|X:X::X:X$nexthop6>|\
 	   nexthop-group NHGNAME$nexthop_group>\
 	  [backup$backup <A.B.C.D$backup_nexthop4|X:X::X:X$backup_nexthop6>] \
-	  (1-1000000)$routes [instance (0-255)$instance] [repeat (2-1000)$rpt] [opaque WORD]",
+	  (1-1000000)$routes [instance (0-255)$instance] [repeat (2-1000)$rpt] [opaque WORD] [no-recurse$norecurse]",
        "Sharp routing Protocol\n"
        "install some routes\n"
        "Routes to install\n"
@@ -201,7 +228,8 @@ DEFPY (install_routes,
        "Should we repeat this command\n"
        "How many times to repeat this command\n"
        "What opaque data to send down\n"
-       "The opaque data\n")
+       "The opaque data\n"
+       "No recursive nexthops\n")
 {
 	struct vrf *vrf;
 	struct prefix prefix;
@@ -210,6 +238,7 @@ DEFPY (install_routes,
 
 	sg.r.total_routes = routes;
 	sg.r.installed_routes = 0;
+	sg.r.flags = 0;
 
 	if (rpt >= 2)
 		sg.r.repeat = rpt * 2;
@@ -317,12 +346,16 @@ DEFPY (install_routes,
 	else
 		sg.r.opaque[0] = '\0';
 
+	/* Default is to ask for recursive nexthop resolution */
+	if (norecurse == NULL)
+		SET_FLAG(sg.r.flags, ZEBRA_FLAG_ALLOW_RECURSION);
+
 	sg.r.inst = instance;
 	sg.r.vrf_id = vrf->vrf_id;
 	rts = routes;
 	sharp_install_routes_helper(&prefix, sg.r.vrf_id, sg.r.inst, nhgid,
 				    &sg.r.nhop_group, &sg.r.backup_nhop_group,
-				    rts, 0, sg.r.opaque);
+				    rts, sg.r.flags, sg.r.opaque);
 
 	return CMD_SUCCESS;
 }
@@ -396,7 +429,7 @@ DEFPY (install_seg6_routes,
 	sg.r.nhop.gate.ipv6 = seg6_nh6;
 	sg.r.nhop.vrf_id = vrf->vrf_id;
 	sg.r.nhop_group.nexthop = &sg.r.nhop;
-	nexthop_add_srv6_seg6(&sg.r.nhop, &seg6_seg);
+	nexthop_add_srv6_seg6(&sg.r.nhop, &seg6_seg, 1);
 
 	sg.r.vrf_id = vrf->vrf_id;
 	sharp_install_routes_helper(&prefix, sg.r.vrf_id, sg.r.inst, 0,
@@ -415,6 +448,7 @@ DEFPY (install_seg6local_routes,
 	      End_X$seg6l_endx X:X::X:X$seg6l_endx_nh6|\
 	      End_T$seg6l_endt (1-4294967295)$seg6l_endt_table|\
 	      End_DX4$seg6l_enddx4 A.B.C.D$seg6l_enddx4_nh4|\
+	      End_DX6$seg6l_enddx6 X:X::X:X$seg6l_enddx6_nh6|\
 	      End_DT6$seg6l_enddt6 (1-4294967295)$seg6l_enddt6_table|\
 	      End_DT4$seg6l_enddt4 (1-4294967295)$seg6l_enddt4_table|\
 	      End_DT46$seg6l_enddt46 (1-4294967295)$seg6l_enddt46_table>\
@@ -434,6 +468,8 @@ DEFPY (install_seg6local_routes,
        "Redirect table id to use\n"
        "SRv6 End.DX4 function to use\n"
        "V4 Nexthop address to use\n"
+       "SRv6 End.DX6 function to use\n"
+       "V6 Nexthop address to use\n"
        "SRv6 End.DT6 function to use\n"
        "Redirect table id to use\n"
        "SRv6 End.DT4 function to use\n"
@@ -483,6 +519,9 @@ DEFPY (install_seg6local_routes,
 	if (seg6l_enddx4) {
 		action = ZEBRA_SEG6_LOCAL_ACTION_END_DX4;
 		ctx.nh4 = seg6l_enddx4_nh4;
+	} else if (seg6l_enddx6) {
+		action = ZEBRA_SEG6_LOCAL_ACTION_END_DX6;
+		ctx.nh6 = seg6l_enddx6_nh6;
 	} else if (seg6l_endx) {
 		action = ZEBRA_SEG6_LOCAL_ACTION_END_X;
 		ctx.nh6 = seg6l_endx_nh6;
@@ -865,6 +904,24 @@ DEFPY (send_opaque_reg,
 	return CMD_SUCCESS;
 }
 
+/* Opaque notifications - register or unregister */
+DEFPY (send_opaque_notif_reg,
+       send_opaque_notif_reg_cmd,
+       "sharp send opaque notify <reg$reg | unreg> type (1-1000)",
+       SHARP_STR
+       "Send messages for testing\n"
+       "Send opaque messages\n"
+       "Opaque notification messages\n"
+       "Send notify registration\n"
+       "Send notify unregistration\n"
+       "Opaque sub-type code\n"
+       "Opaque sub-type code\n")
+{
+	sharp_zebra_opaque_notif_reg((reg != NULL), type);
+
+	return CMD_SUCCESS;
+}
+
 DEFPY (neigh_discover,
        neigh_discover_cmd,
        "sharp neigh discover [vrf NAME$vrf_name] <A.B.C.D$dst4|X:X::X:X$dst6> IFNAME$ifname",
@@ -924,7 +981,7 @@ DEFPY (import_te,
 
 static void sharp_srv6_locator_chunk_free(struct prefix_ipv6 *chunk)
 {
-	prefix_ipv6_free((struct prefix_ipv6 **)&chunk);
+	prefix_ipv6_free(&chunk);
 }
 
 DEFPY (sharp_srv6_manager_get_locator_chunk,
@@ -1395,6 +1452,7 @@ void sharp_vty_init(void)
 	install_element(ENABLE_NODE, &remove_routes_cmd);
 	install_element(ENABLE_NODE, &vrf_label_cmd);
 	install_element(ENABLE_NODE, &sharp_nht_data_dump_cmd);
+	install_element(ENABLE_NODE, &watch_neighbor_cmd);
 	install_element(ENABLE_NODE, &watch_redistribute_cmd);
 	install_element(ENABLE_NODE, &watch_nexthop_v6_cmd);
 	install_element(ENABLE_NODE, &watch_nexthop_v4_cmd);
@@ -1406,6 +1464,7 @@ void sharp_vty_init(void)
 	install_element(ENABLE_NODE, &send_opaque_cmd);
 	install_element(ENABLE_NODE, &send_opaque_unicast_cmd);
 	install_element(ENABLE_NODE, &send_opaque_reg_cmd);
+	install_element(ENABLE_NODE, &send_opaque_notif_reg_cmd);
 	install_element(ENABLE_NODE, &neigh_discover_cmd);
 	install_element(ENABLE_NODE, &import_te_cmd);
 

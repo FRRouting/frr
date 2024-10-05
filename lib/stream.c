@@ -921,7 +921,7 @@ int stream_put_in_addr(struct stream *s, const struct in_addr *addr)
 	return sizeof(uint32_t);
 }
 
-bool stream_put_ipaddr(struct stream *s, struct ipaddr *ip)
+bool stream_put_ipaddr(struct stream *s, const struct ipaddr *ip)
 {
 	stream_putw(s, ip->ipa_type);
 
@@ -1241,9 +1241,7 @@ void stream_fifo_init(struct stream_fifo *fifo)
 /* Add new stream to fifo. */
 void stream_fifo_push(struct stream_fifo *fifo, struct stream *s)
 {
-#if defined DEV_BUILD
 	size_t max, curmax;
-#endif
 
 	if (fifo->tail)
 		fifo->tail->next = s;
@@ -1252,15 +1250,11 @@ void stream_fifo_push(struct stream_fifo *fifo, struct stream *s)
 
 	fifo->tail = s;
 	fifo->tail->next = NULL;
-#if !defined DEV_BUILD
-	atomic_fetch_add_explicit(&fifo->count, 1, memory_order_release);
-#else
 	max = atomic_fetch_add_explicit(&fifo->count, 1, memory_order_release);
 	curmax = atomic_load_explicit(&fifo->max_count, memory_order_relaxed);
 	if (max > curmax)
 		atomic_store_explicit(&fifo->max_count, max,
 				      memory_order_relaxed);
-#endif
 }
 
 void stream_fifo_push_safe(struct stream_fifo *fifo, struct stream *s)

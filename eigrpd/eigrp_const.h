@@ -61,9 +61,6 @@
 /* IP TTL for EIGRP protocol. */
 #define EIGRP_IP_TTL             1
 
-/* VTY port number. */
-#define EIGRP_VTY_PORT          2613
-
 /* Default configuration file name for eigrp. */
 #define EIGRP_DEFAULT_CONFIG   "eigrpd.conf"
 

@@ -9,22 +9,23 @@
 #ifndef _FRR_MGMTD_TXN_H_
 #define _FRR_MGMTD_TXN_H_
 
+#include "lib/mgmt_msg_native.h"
 #include "mgmtd/mgmt_be_adapter.h"
 #include "mgmtd/mgmt.h"
 #include "mgmtd/mgmt_ds.h"
 
-#define MGMTD_TXN_PROC_DELAY_MSEC 5
 #define MGMTD_TXN_PROC_DELAY_USEC 10
 #define MGMTD_TXN_MAX_NUM_SETCFG_PROC 128
 #define MGMTD_TXN_MAX_NUM_GETCFG_PROC 128
 #define MGMTD_TXN_MAX_NUM_GETDATA_PROC 128
 
-#define MGMTD_TXN_SEND_CFGVALIDATE_DELAY_MSEC 100
-#define MGMTD_TXN_SEND_CFGAPPLY_DELAY_MSEC 100
-#define MGMTD_TXN_CFG_COMMIT_MAX_DELAY_MSEC 30000 /* 30 seconds */
+#define MGMTD_TXN_CFG_COMMIT_MAX_DELAY_SEC 600
+#define MGMTD_TXN_GET_TREE_MAX_DELAY_SEC   600
+#define MGMTD_TXN_RPC_MAX_DELAY_SEC	   60
 
-#define MGMTD_TXN_CLEANUP_DELAY_MSEC 100
 #define MGMTD_TXN_CLEANUP_DELAY_USEC 10
+
+#define MGMTD_TXN_ID_NONE 0
 
 /*
  * The following definition enables local validation of config
@@ -43,11 +44,13 @@
 PREDECL_LIST(mgmt_txns);
 
 struct mgmt_master;
+struct mgmt_edit_req;
 
 enum mgmt_txn_type {
 	MGMTD_TXN_TYPE_NONE = 0,
 	MGMTD_TXN_TYPE_CONFIG,
-	MGMTD_TXN_TYPE_SHOW
+	MGMTD_TXN_TYPE_SHOW,
+	MGMTD_TXN_TYPE_RPC,
 };
 
 static inline const char *mgmt_txn_type2str(enum mgmt_txn_type type)
@@ -59,10 +62,40 @@ static inline const char *mgmt_txn_type2str(enum mgmt_txn_type type)
 		return "CONFIG";
 	case MGMTD_TXN_TYPE_SHOW:
 		return "SHOW";
+	case MGMTD_TXN_TYPE_RPC:
+		return "RPC";
 	}
 
 	return "Unknown";
 }
+
+
+static inline int16_t errno_from_nb_error(enum nb_error ret)
+{
+	switch (ret) {
+	case NB_OK:
+		return 0;
+	case NB_ERR_NO_CHANGES:
+		return -EALREADY;
+	case NB_ERR_NOT_FOUND:
+		return -ENOENT;
+	case NB_ERR_EXISTS:
+		return -EEXIST;
+	case NB_ERR_LOCKED:
+		return -EWOULDBLOCK;
+	case NB_ERR_VALIDATION:
+		return -EINVAL;
+	case NB_ERR_RESOURCE:
+		return -ENOMEM;
+	case NB_ERR:
+	case NB_ERR_INCONSISTENCY:
+		return -EINVAL;
+	case NB_YIELD:
+	default:
+		return -EINVAL;
+	}
+}
+
 
 /* Initialise transaction module. */
 extern int mgmt_txn_init(struct mgmt_master *cm, struct event_loop *tm);
@@ -71,12 +104,18 @@ extern int mgmt_txn_init(struct mgmt_master *cm, struct event_loop *tm);
 extern void mgmt_txn_destroy(void);
 
 /*
- * Check if transaction is in progress.
+ * Check if configuration transaction is in progress.
  *
  * Returns:
- *    session ID if in-progress, MGMTD_SESSION_ID_NONE otherwise.
+ *    true if in-progress, false otherwise.
  */
-extern uint64_t mgmt_config_txn_in_progress(void);
+extern bool mgmt_config_txn_in_progress(void);
+
+/**
+ * Get the session ID associated with the given ``txn-id``.
+ *
+ */
+extern uint64_t mgmt_txn_get_session_id(uint64_t txn_id);
 
 /*
  * Create transaction.
@@ -99,16 +138,6 @@ extern uint64_t mgmt_create_txn(uint64_t session_id, enum mgmt_txn_type type);
  *     Unique transaction identifier.
  */
 extern void mgmt_destroy_txn(uint64_t *txn_id);
-
-/*
- * Check if transaction is valid given an ID.
- */
-extern bool mgmt_txn_id_is_valid(uint64_t txn_id);
-
-/*
- * Returns the type of transaction given an ID.
- */
-extern enum mgmt_txn_type mgmt_get_txn_type(uint64_t txn_id);
 
 /*
  * Send set-config request to be processed later in transaction.
@@ -175,42 +204,98 @@ extern int mgmt_txn_send_set_config_req(uint64_t txn_id, uint64_t req_id,
  * implicit
  *    TRUE if the commit is implicit, FALSE otherwise.
  *
+ * edit
+ *    Additional info when triggered from native edit request.
+ *
  * Returns:
  *    0 on success, -1 on failures.
  */
-extern int mgmt_txn_send_commit_config_req(uint64_t txn_id, uint64_t req_id,
-					    Mgmtd__DatastoreId src_ds_id,
-					    struct mgmt_ds_ctx *dst_ds_ctx,
-					    Mgmtd__DatastoreId dst_ds_id,
-					    struct mgmt_ds_ctx *src_ds_ctx,
-					    bool validate_only, bool abort,
-					    bool implicit);
-
-extern int mgmt_txn_send_commit_config_reply(uint64_t txn_id,
-					      enum mgmt_result result,
-					      const char *error_if_any);
+extern int mgmt_txn_send_commit_config_req(
+	uint64_t txn_id, uint64_t req_id, Mgmtd__DatastoreId src_ds_id,
+	struct mgmt_ds_ctx *dst_ds_ctx, Mgmtd__DatastoreId dst_ds_id,
+	struct mgmt_ds_ctx *src_ds_ctx, bool validate_only, bool abort,
+	bool implicit, struct mgmt_edit_req *edit);
 
 /*
- * Send get-config request to be processed later in transaction.
+ * Send get-{cfg,data} request to be processed later in transaction.
  *
- * Similar to set-config request.
+ * Is get-config if cfg_root is provided and the config is gathered locally,
+ * otherwise it's get-data and data is fetched from backedn clients.
  */
-extern int mgmt_txn_send_get_config_req(uint64_t txn_id, uint64_t req_id,
-					 Mgmtd__DatastoreId ds_id,
-					 struct mgmt_ds_ctx *ds_ctx,
-					 Mgmtd__YangGetDataReq **data_req,
-					 size_t num_reqs);
+extern int mgmt_txn_send_get_req(uint64_t txn_id, uint64_t req_id,
+				 Mgmtd__DatastoreId ds_id,
+				 struct nb_config *cfg_root,
+				 Mgmtd__YangGetDataReq **data_req,
+				 size_t num_reqs);
 
-/*
- * Send get-data request to be processed later in transaction.
+
+/**
+ * Send get-tree to the backend `clients`.
  *
- * Similar to get-config request, but here data is fetched from backedn client.
+ * Args:
+ *	txn_id: Transaction identifier.
+ *	req_id: FE client request identifier.
+ *	clients: Bitmask of clients to send get-tree to.
+ *	ds_id: datastore ID.
+ *	result_type: LYD_FORMAT result format.
+ *	flags: option flags for the request.
+ *	wd_options: LYD_PRINT_WD_* flags for the result.
+ *	simple_xpath: true if xpath is simple (only key predicates).
+ *	xpath: The xpath to get the tree from.
+ *
+ * Return:
+ *	0 on success.
  */
-extern int mgmt_txn_send_get_data_req(uint64_t txn_id, uint64_t req_id,
+extern int mgmt_txn_send_get_tree_oper(uint64_t txn_id, uint64_t req_id,
+				       uint64_t clients,
 				       Mgmtd__DatastoreId ds_id,
-				       struct mgmt_ds_ctx *ds_ctx,
-				       Mgmtd__YangGetDataReq **data_req,
-				       size_t num_reqs);
+				       LYD_FORMAT result_type, uint8_t flags,
+				       uint32_t wd_options, bool simple_xpath,
+				       const char *xpath);
+
+/**
+ * Send edit request.
+ *
+ * Args:
+ *	txn_id: Transaction identifier.
+ *	req_id: FE client request identifier.
+ *	ds_id: Datastore ID.
+ *	ds_ctx: Datastore context.
+ *	commit_ds_id: Commit datastore ID.
+ *	commit_ds_ctx: Commit datastore context.
+ *	unlock: Unlock datastores after the edit.
+ *	commit: Commit the candidate datastore after the edit.
+ *	request_type: LYD_FORMAT request type.
+ *	flags: option flags for the request.
+ *	operation: The operation to perform.
+ *	xpath: The xpath of data node to edit.
+ *	data: The data tree.
+ */
+extern int
+mgmt_txn_send_edit(uint64_t txn_id, uint64_t req_id, Mgmtd__DatastoreId ds_id,
+		   struct mgmt_ds_ctx *ds_ctx, Mgmtd__DatastoreId commit_ds_id,
+		   struct mgmt_ds_ctx *commit_ds_ctx, bool unlock, bool commit,
+		   LYD_FORMAT request_type, uint8_t flags, uint8_t operation,
+		   const char *xpath, const char *data);
+
+/**
+ * Send RPC request.
+ *
+ * Args:
+ *	txn_id: Transaction identifier.
+ *	req_id: FE client request identifier.
+ *	clients: Bitmask of clients to send RPC to.
+ *	result_type: LYD_FORMAT result format.
+ *	xpath: The xpath of the RPC.
+ *	data: The input parameters data tree.
+ *	data_len: The length of the input parameters data.
+ *
+ * Return:
+ *	0 on success.
+ */
+extern int mgmt_txn_send_rpc(uint64_t txn_id, uint64_t req_id, uint64_t clients,
+			     LYD_FORMAT result_type, const char *xpath,
+			     const char *data, size_t data_len);
 
 /*
  * Notifiy backend adapter on connection.
@@ -230,8 +315,8 @@ mgmt_txn_notify_be_txn_reply(uint64_t txn_id, bool create, bool success,
  * Reply to backend adapater with config data create request.
  */
 extern int
-mgmt_txn_notify_be_cfgdata_reply(uint64_t txn_id, uint64_t batch_id,
-				     bool success, char *error_if_any,
+mgmt_txn_notify_be_cfgdata_reply(uint64_t txn_id, bool success,
+				     char *error_if_any,
 				     struct mgmt_be_client_adapter *adapter);
 
 /*
@@ -247,9 +332,48 @@ extern int mgmt_txn_notify_be_cfg_validate_reply(
  */
 extern int
 mgmt_txn_notify_be_cfg_apply_reply(uint64_t txn_id, bool success,
-				       uint64_t batch_ids[],
-				       size_t num_batch_ids, char *error_if_any,
+				       char *error_if_any,
 				       struct mgmt_be_client_adapter *adapter);
+
+
+/**
+ * Process a reply from a backend client to our get-tree request
+ *
+ * Args:
+ *	adapter: The adapter that received the result.
+ *	txn_id: The transaction for this get-tree request.
+ *	req_id: The request ID for this transaction.
+ *	error: the integer error value (negative)
+ *	errstr: the string description of the error.
+ */
+int mgmt_txn_notify_error(struct mgmt_be_client_adapter *adapter,
+			  uint64_t txn_id, uint64_t req_id, int error,
+			  const char *errstr);
+
+/**
+ * Process a reply from a backend client to our get-tree request
+ *
+ * Args:
+ *	adapter: The adapter that received the result.
+ *      data_msg: The message from the backend.
+ *	msg_len: Total length of the message.
+ */
+
+extern int mgmt_txn_notify_tree_data_reply(struct mgmt_be_client_adapter *adapter,
+					   struct mgmt_msg_tree_data *data_msg,
+					   size_t msg_len);
+
+/**
+ * Process a reply from a backend client to our RPC request
+ *
+ * Args:
+ *	adapter: The adapter that received the result.
+ *	reply_msg: The message from the backend.
+ *	msg_len: Total length of the message.
+ */
+extern int mgmt_txn_notify_rpc_reply(struct mgmt_be_client_adapter *adapter,
+				     struct mgmt_msg_rpc_reply *reply_msg,
+				     size_t msg_len);
 
 /*
  * Dump transaction status to vty.

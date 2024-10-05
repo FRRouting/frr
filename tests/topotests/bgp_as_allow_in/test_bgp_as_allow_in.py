@@ -28,7 +28,6 @@ Following tests are covered to test bgp allowas-in functionality:
 import os
 import sys
 import time
-import json
 import pytest
 
 # Save the Current Working Directory to find configuration files.
@@ -59,7 +58,7 @@ from lib.bgp import (
     create_router_bgp,
     verify_bgp_rib,
 )
-from lib.topojson import build_topo_from_json, build_config_from_json
+from lib.topojson import build_config_from_json
 
 pytestmark = [pytest.mark.bgpd, pytest.mark.staticd]
 

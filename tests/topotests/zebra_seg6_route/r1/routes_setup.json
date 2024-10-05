@@ -1,0 +1,28 @@
+{
+  "2001::/64":[
+    {
+      "prefix":"2001::/64",
+      "prefixLen":64,
+      "protocol":"connected",
+      "vrfName":"default",
+      "selected":true,
+      "destSelected":true,
+      "distance":0,
+      "metric":0,
+      "installed":true,
+      "internalStatus":16,
+      "internalFlags":8,
+      "internalNextHopNum":1,
+      "internalNextHopActiveNum":1,
+      "nexthops":[
+        {
+          "flags":3,
+          "fib":true,
+          "directlyConnected":true,
+          "interfaceName":"dum0",
+          "active":true
+        }
+      ]
+    }
+  ]
+}

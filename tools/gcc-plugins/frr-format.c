@@ -66,6 +66,8 @@ static GTY(()) tree local_pid_t_node;
 static GTY(()) tree local_uid_t_node;
 static GTY(()) tree local_gid_t_node;
 static GTY(()) tree local_time_t_node;
+static GTY(()) tree local_suseconds_t_node;
+static GTY(()) tree local_suseconds64_t_node;
 
 static GTY(()) tree local_socklen_t_node;
 static GTY(()) tree local_in_addr_t_node;
@@ -85,6 +87,8 @@ static struct type_special {
   { &local_uid_t_node,		NULL,			&local_uid_t_node, },
   { &local_gid_t_node,		NULL,			&local_gid_t_node, },
   { &local_time_t_node,		NULL,			&local_time_t_node, },
+  { &local_suseconds_t_node,	NULL,			&local_suseconds_t_node, },
+  { &local_suseconds64_t_node,	NULL,			&local_suseconds64_t_node, },
   { NULL,			NULL,			NULL, }
 };
 
@@ -486,7 +490,7 @@ static const format_char_info print_char_table[] =
   /* C89 conversion specifiers.  */
                       /* none,    hh,      h,       l,       ll,      L,       z,       t,       j,       H,       D,       DD     */
   { "di",  0, STD_C89, { T89_I,   T99_SC,  T89_S,   T89_L,   T9L_LL,  TEX_S64, T99_SST, T99_PD,  T99_IM,  BADLEN,  BADLEN,  BADLEN },   "-wp0 +'I",  "i",  NULL, ext_d },
-  { "oxX", 0, STD_C89, { T89_UI,  T99_UC,  T89_US,  T89_UL,  T9L_ULL, TEX_U64, T99_ST,  T99_UPD, T99_UIM, BADLEN,  BADLEN,  BADLEN },   "-wp0#",     "i",  NULL, NULL },
+  { "oxXb",0, STD_C89, { T89_UI,  T99_UC,  T89_US,  T89_UL,  T9L_ULL, TEX_U64, T99_ST,  T99_UPD, T99_UIM, BADLEN,  BADLEN,  BADLEN },   "-wp0#",     "i",  NULL, NULL },
   { "u",   0, STD_C89, { T89_UI,  T99_UC,  T89_US,  T89_UL,  T9L_ULL, TEX_U64, T99_ST,  T99_UPD, T99_UIM, BADLEN,  BADLEN,  BADLEN },   "-wp0'I",    "i",  NULL, NULL },
   { "fgG", 0, STD_C89, { T89_D,   BADLEN,  BADLEN,  T99_D,   BADLEN,  T89_LD,  BADLEN,  BADLEN,  BADLEN,  TEX_D32, TEX_D64, TEX_D128 }, "-wp0 +#'I", "",   NULL, NULL },
   { "eE",  0, STD_C89, { T89_D,   BADLEN,  BADLEN,  T99_D,   BADLEN,  T89_LD,  BADLEN,  BADLEN,  BADLEN,  TEX_D32, TEX_D64, TEX_D128 }, "-wp0 +#I",  "",   NULL, NULL },
@@ -3464,7 +3468,7 @@ class frr_range_label_for_type_mismatch : public range_label
   {
   }
 
-  label_text get_text (unsigned range_idx) const OVERRIDE;
+  label_text get_text (unsigned range_idx) const override;
 
  protected:
   tree m_labelled_type;
@@ -3564,19 +3568,26 @@ class range_label_for_format_type_mismatch
   {
   }
 
-  label_text get_text (unsigned range_idx) const FINAL OVERRIDE
+#if BUILDING_GCC_VERSION >= 13000
+#define text_get(text) text.get()
+#define text_return(text, result) return label_text::take(result)
+#else
+#define text_get(text) text.m_buffer
+#define text_return(text, result) text.maybe_free(); return label_take(result)
+#endif
+
+  label_text get_text (unsigned range_idx) const final override
   {
     label_text text = range_label_for_type_mismatch::get_text (range_idx);
-    if (text.m_buffer == NULL)
+    if (text_get(text) == NULL)
       return text;
 
     indirection_suffix suffix (m_pointer_count);
     char *p = (char *) alloca (suffix.get_buffer_size ());
     suffix.fill_buffer (p);
 
-    char *result = concat (text.m_buffer, p, NULL);
-    text.maybe_free ();
-    return label_take(result);
+    char *result = concat (text_get(text), p, NULL);
+    text_return(text, result);
   }
 
  private:
@@ -4169,6 +4180,8 @@ handle_finish_parse (void *event_data, void *data)
   setup_type ("uid_t", &local_uid_t_node);
   setup_type ("gid_t", &local_gid_t_node);
   setup_type ("time_t", &local_time_t_node);
+  setup_type ("__suseconds_t", &local_suseconds_t_node);
+  setup_type ("__suseconds64_t", &local_suseconds64_t_node);
 
   setup_type ("socklen_t", &local_socklen_t_node);
   setup_type ("in_addr_t", &local_in_addr_t_node);

@@ -88,8 +88,6 @@ enum zebra_link_type {
    FreeBSD define value in /usr/include/net/if.h.
    #define IFNAMSIZ        16
 */
-
-#define INTERFACE_NAMSIZ      IFNAMSIZ
 #define INTERFACE_HWADDR_MAX  20
 
 typedef signed int ifindex_t;
@@ -197,7 +195,7 @@ struct if_link_params {
 	uint32_t min_delay;		/* Link Min Delay */
 	uint32_t max_delay;		/* Link Max Delay */
 	uint32_t delay_var;		/* Link Delay Variation */
-	float pkt_loss;			/* Link Packet Loss */
+	uint32_t pkt_loss;		/* Link Packet Loss */
 	float res_bw;			/* Residual Bandwidth */
 	float ava_bw;			/* Available Bandwidth */
 	float use_bw;			/* Utilized Bandwidth */
@@ -205,6 +203,8 @@ struct if_link_params {
 
 #define INTERFACE_LINK_PARAMS_SIZE   sizeof(struct if_link_params)
 #define HAS_LINK_PARAMS(ifp)  ((ifp)->link_params != NULL)
+
+PREDECL_DLIST(if_connected);
 
 /* Interface structure */
 struct interface {
@@ -218,7 +218,7 @@ struct interface {
 	   To delete, just set ifindex to IFINDEX_INTERNAL to indicate that the
 	   interface does not exist in the kernel.
 	 */
-	char name[INTERFACE_NAMSIZ];
+	char name[IFNAMSIZ];
 
 	/* Interface index (should be IFINDEX_INTERNAL for non-kernel or
 	   deleted interfaces).
@@ -252,6 +252,9 @@ struct interface {
 	/* Interface Speed in Mb/s */
 	uint32_t speed;
 
+	/* TX queue len */
+	uint32_t txqlen;
+
 	/* Interface MTU. */
 	unsigned int mtu; /* IPv4 MTU */
 	unsigned int
@@ -272,12 +275,8 @@ struct interface {
 	/* description of the interface. */
 	char *desc;
 
-	/* Distribute list. */
-	void *distribute_in;
-	void *distribute_out;
-
 	/* Connected address list. */
-	struct list *connected;
+	struct if_connected_head connected[1];
 
 	/* Neighbor connected address list. */
 	struct list *nbr_connected;
@@ -372,9 +371,6 @@ DECLARE_QOBJ_TYPE(interface);
 	if (vrf)                                                               \
 		RB_FOREACH (ifp, if_name_head, &vrf->ifaces_by_name)
 
-#define FOR_ALL_INTERFACES_ADDRESSES(ifp, connected, node)                     \
-	for (ALL_LIST_ELEMENTS_RO(ifp->connected, node, connected))
-
 /* called from the library code whenever interfaces are created/deleted
  * note: interfaces may not be fully realized at that point; also they
  * may not exist in the system (ifindex = IFINDEX_INTERNAL)
@@ -383,13 +379,34 @@ DECLARE_QOBJ_TYPE(interface);
  * can use 1000+ so they run after the daemon has initialised daemon-specific
  * interface data
  */
-DECLARE_HOOK(if_add, (struct interface * ifp), (ifp));
-DECLARE_KOOH(if_del, (struct interface * ifp), (ifp));
+DECLARE_HOOK(if_add, (struct interface *ifp), (ifp));
+DECLARE_KOOH(if_del, (struct interface *ifp), (ifp));
+
+/* called (in daemons) when ZAPI tells us the interface actually exists
+ * (ifindex != IFINDEX_INTERNAL)
+ *
+ * WARNING: these 2 hooks NEVER CALLED inside zebra!
+ */
+DECLARE_HOOK(if_real, (struct interface *ifp), (ifp));
+DECLARE_KOOH(if_unreal, (struct interface *ifp), (ifp));
+
+/* called (in daemons) on state changes on interfaces.  Whether this is admin
+ * state (= pure config) or carrier state (= hardware link plugged) depends on
+ * zebra's "link-detect" configuration.  By default, it's carrier state, so
+ * this won't happen until the interface actually has a link.
+ *
+ * WARNING: these 2 hooks NEVER CALLED inside zebra!
+ */
+DECLARE_HOOK(if_up, (struct interface *ifp), (ifp));
+DECLARE_KOOH(if_down, (struct interface *ifp), (ifp));
+
 
 #define METRIC_MAX (~0)
 
 /* Connected address structure. */
 struct connected {
+	struct if_connected_item item;
+
 	/* Attached interface. */
 	struct interface *ifp;
 
@@ -417,6 +434,8 @@ struct connected {
 #define ZEBRA_IFA_SECONDARY    (1 << 0)
 #define ZEBRA_IFA_PEER         (1 << 1)
 #define ZEBRA_IFA_UNNUMBERED   (1 << 2)
+#define ZEBRA_IFA_NOPREFIXROUTE (1 << 3)
+
 	/* N.B. the ZEBRA_IFA_PEER flag should be set if and only if
 	   a peer address has been configured.  If this flag is set,
 	   the destination field must contain the peer address.
@@ -438,6 +457,8 @@ struct connected {
 	 */
 	uint32_t metric;
 };
+
+DECLARE_DLIST(if_connected, struct connected, item);
 
 /* Nbr Connected address structure. */
 struct nbr_connected {
@@ -509,9 +530,9 @@ extern int if_cmp_name_func(const char *p1, const char *p2);
  * This is useful for vrf route-leaking.  So more than anything
  * else think before you use VRF_UNKNOWN
  */
-extern void if_update_to_new_vrf(struct interface *, vrf_id_t vrf_id);
+extern void if_update_to_new_vrf(struct interface *ifp, vrf_id_t vrf_id);
 
-extern struct interface *if_lookup_by_index(ifindex_t, vrf_id_t vrf_id);
+extern struct interface *if_lookup_by_index(ifindex_t ifindex, vrf_id_t vrf_id);
 extern struct interface *if_vrf_lookup_by_index_next(ifindex_t ifindex,
 						     vrf_id_t vrf_id);
 extern struct interface *if_lookup_address_local(const void *matchaddr,
@@ -542,7 +563,7 @@ extern int if_set_index(struct interface *ifp, ifindex_t ifindex);
 /* Delete the interface, but do not free the structure, and leave it in the
    interface list.  It is often advisable to leave the pseudo interface
    structure because there may be configuration information attached. */
-extern void if_delete_retain(struct interface *);
+extern void if_delete_retain(struct interface *ifp);
 
 /* Delete and free the interface structure: calls if_delete_retain and then
    deletes it from the interface list and frees the structure. */
@@ -560,13 +581,13 @@ extern int if_is_pointopoint(const struct interface *ifp);
 extern int if_is_multicast(const struct interface *ifp);
 extern void if_terminate(struct vrf *vrf);
 extern void if_dump_all(void);
-extern const char *if_flag_dump(unsigned long);
-extern const char *if_link_type_str(enum zebra_link_type);
+extern const char *if_flag_dump(unsigned long flags);
+extern const char *if_link_type_str(enum zebra_link_type zlt);
 
 /* Please use ifindex2ifname instead of if_indextoname where possible;
    ifindex2ifname uses internal interface info, whereas if_indextoname must
    make a system call. */
-extern const char *ifindex2ifname(ifindex_t, vrf_id_t vrf_id);
+extern const char *ifindex2ifname(ifindex_t ifindex, vrf_id_t vrf_id);
 
 /* Please use ifname2ifindex instead of if_nametoindex where possible;
    ifname2ifindex uses internal interface info, whereas if_nametoindex must
@@ -576,19 +597,20 @@ extern ifindex_t ifname2ifindex(const char *ifname, vrf_id_t vrf_id);
 /* Connected address functions. */
 extern struct connected *connected_new(void);
 extern void connected_free(struct connected **connected);
-extern void connected_add(struct interface *, struct connected *);
-extern struct connected *
-connected_add_by_prefix(struct interface *, struct prefix *, struct prefix *);
-extern struct connected *connected_delete_by_prefix(struct interface *,
-						    struct prefix *);
-extern struct connected *connected_lookup_prefix(struct interface *,
-						 const struct prefix *);
-extern struct connected *connected_lookup_prefix_exact(struct interface *,
-						       const struct prefix *);
-extern unsigned int connected_count_by_family(struct interface *, int family);
+extern struct connected *connected_add_by_prefix(struct interface *ifp,
+						 struct prefix *p,
+						 struct prefix *dest);
+extern struct connected *connected_delete_by_prefix(struct interface *ifp,
+						    struct prefix *p);
+extern struct connected *connected_lookup_prefix(struct interface *ifp,
+						 const struct prefix *p);
+extern struct connected *connected_lookup_prefix_exact(struct interface *ifp,
+						       const struct prefix *p);
+extern unsigned int connected_count_by_family(struct interface *ifp, int family);
 extern struct nbr_connected *nbr_connected_new(void);
-extern void nbr_connected_free(struct nbr_connected *);
-struct nbr_connected *nbr_connected_check(struct interface *, struct prefix *);
+extern void nbr_connected_free(struct nbr_connected *connected);
+struct nbr_connected *nbr_connected_check(struct interface *ifp,
+					  struct prefix *p);
 struct connected *connected_get_linklocal(struct interface *ifp);
 
 /* link parameters */
@@ -596,10 +618,10 @@ bool if_link_params_cmp(struct if_link_params *iflp1,
 			struct if_link_params *iflp2);
 void if_link_params_copy(struct if_link_params *dst,
 			 struct if_link_params *src);
-struct if_link_params *if_link_params_get(struct interface *);
+struct if_link_params *if_link_params_get(struct interface *ifp);
 struct if_link_params *if_link_params_enable(struct interface *ifp);
 struct if_link_params *if_link_params_init(struct interface *ifp);
-void if_link_params_free(struct interface *);
+void if_link_params_free(struct interface *ifp);
 
 /* Northbound. */
 struct vty;
@@ -607,10 +629,6 @@ extern void if_vty_config_start(struct vty *vty, struct interface *ifp);
 extern void if_vty_config_end(struct vty *vty);
 extern void if_cmd_init(int (*config_write)(struct vty *));
 extern void if_cmd_init_default(void);
-extern void if_zapi_callbacks(int (*create)(struct interface *ifp),
-			      int (*up)(struct interface *ifp),
-			      int (*down)(struct interface *ifp),
-			      int (*destroy)(struct interface *ifp));
 
 extern void if_new_via_zapi(struct interface *ifp);
 extern void if_up_via_zapi(struct interface *ifp);
@@ -618,6 +636,7 @@ extern void if_down_via_zapi(struct interface *ifp);
 extern void if_destroy_via_zapi(struct interface *ifp);
 
 extern const struct frr_yang_module_info frr_interface_info;
+extern const struct frr_yang_module_info frr_interface_cli_info;
 
 #ifdef __cplusplus
 }

@@ -26,6 +26,7 @@
 #include "bfd.h"
 #include "libfrr.h"
 #include "ns.h"
+#include "libagentx.h"
 
 #include "bgpd/bgpd.h"
 #include "bgpd/bgp_attr.h"
@@ -47,25 +48,31 @@
 #include "bgpd/bgp_errors.h"
 #include "bgpd/bgp_script.h"
 #include "bgpd/bgp_evpn_mh.h"
-#include "bgpd/bgp_nht.h"
+#include "bgpd/bgp_nhg.h"
 #include "bgpd/bgp_routemap_nb.h"
 #include "bgpd/bgp_community_alias.h"
+
+DEFINE_HOOK(bgp_hook_config_write_vrf, (struct vty *vty, struct vrf *vrf),
+	    (vty, vrf));
 
 #ifdef ENABLE_BGP_VNC
 #include "bgpd/rfapi/rfapi_backend.h"
 #endif
 
+DEFINE_HOOK(bgp_hook_vrf_update, (struct vrf *vrf, bool enabled),
+	    (vrf, enabled));
+
 /* bgpd options, we use GNU getopt library. */
-static const struct option longopts[] = {
-	{"bgp_port", required_argument, NULL, 'p'},
-	{"listenon", required_argument, NULL, 'l'},
-	{"no_kernel", no_argument, NULL, 'n'},
-	{"skip_runas", no_argument, NULL, 'S'},
-	{"ecmp", required_argument, NULL, 'e'},
-	{"int_num", required_argument, NULL, 'I'},
-	{"no_zebra", no_argument, NULL, 'Z'},
-	{"socket_size", required_argument, NULL, 's'},
-	{0}};
+static const struct option longopts[] = { { "bgp_port", required_argument, NULL, 'p' },
+					  { "listenon", required_argument, NULL, 'l' },
+					  { "no_kernel", no_argument, NULL, 'n' },
+					  { "skip_runas", no_argument, NULL, 'S' },
+					  { "ecmp", required_argument, NULL, 'e' },
+					  { "int_num", required_argument, NULL, 'I' },
+					  { "no_zebra", no_argument, NULL, 'Z' },
+					  { "socket_size", required_argument, NULL, 's' },
+					  { "v6-with-v4-nexthops", no_argument, NULL, 'x' },
+					  { 0 } };
 
 /* signal definitions */
 void sighup(void);
@@ -197,7 +204,9 @@ static __attribute__((__noreturn__)) void bgp_exit(int status)
 		bgp_delete(bgp_default);
 
 	bgp_evpn_mh_finish();
-	bgp_l3nhg_finish();
+	bgp_nhg_finish();
+
+	zebra_announce_fini(&bm->zebra_announce_head);
 
 	/* reverse bgp_dump_init */
 	bgp_dump_finish();
@@ -213,6 +222,9 @@ static __attribute__((__noreturn__)) void bgp_exit(int status)
 
 	/* reverse bgp_attr_init */
 	bgp_attr_finish();
+
+	/* reverse bgp_labels_init */
+	bgp_labels_finish();
 
 	/* stop pthreads */
 	bgp_pthreads_finish();
@@ -285,6 +297,7 @@ static int bgp_vrf_enable(struct vrf *vrf)
 
 		bgp_handle_socket(bgp, vrf, old_vrf_id, true);
 		bgp_instance_up(bgp);
+		hook_call(bgp_hook_vrf_update, vrf, true);
 		vpn_leak_zebra_vrf_label_update(bgp, AFI_IP);
 		vpn_leak_zebra_vrf_label_update(bgp, AFI_IP6);
 		vpn_leak_zebra_vrf_sid_update(bgp, AFI_IP);
@@ -331,15 +344,36 @@ static int bgp_vrf_disable(struct vrf *vrf)
 		 * "down". */
 		bgp_instance_down(bgp);
 		bgp_vrf_unlink(bgp, vrf);
+		hook_call(bgp_hook_vrf_update, vrf, false);
 	}
 
 	/* Note: This is a callback, the VRF will be deleted by the caller. */
 	return 0;
 }
 
+static int bgp_vrf_config_write(struct vty *vty)
+{
+	struct vrf *vrf;
+
+	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
+		if (vrf->vrf_id == VRF_DEFAULT) {
+			vty_out(vty, "!\n");
+			continue;
+		}
+		vty_out(vty, "vrf %s\n", vrf->name);
+
+		hook_call(bgp_hook_config_write_vrf, vty, vrf);
+
+		vty_out(vty, "exit-vrf\n!\n");
+	}
+
+	return 0;
+}
+
 static void bgp_vrf_init(void)
 {
 	vrf_init(bgp_vrf_new, bgp_vrf_enable, bgp_vrf_disable, bgp_vrf_delete);
+	vrf_cmd_init(bgp_vrf_config_write);
 }
 
 static void bgp_vrf_terminate(void)
@@ -355,15 +389,20 @@ static const struct frr_yang_module_info *const bgpd_yang_modules[] = {
 	&frr_bgp_route_map_info,
 };
 
-FRR_DAEMON_INFO(bgpd, BGP, .vty_port = BGP_VTY_PORT,
+/* clang-format off */
+FRR_DAEMON_INFO(bgpd, BGP,
+	.vty_port = BGP_VTY_PORT,
+	.proghelp = "Implementation of the BGP routing protocol.",
 
-		.proghelp = "Implementation of the BGP routing protocol.",
+	.signals = bgp_signals,
+	.n_signals = array_size(bgp_signals),
 
-		.signals = bgp_signals, .n_signals = array_size(bgp_signals),
+	.privs = &bgpd_privs,
 
-		.privs = &bgpd_privs, .yang_modules = bgpd_yang_modules,
-		.n_yang_modules = array_size(bgpd_yang_modules),
+	.yang_modules = bgpd_yang_modules,
+	.n_yang_modules = array_size(bgpd_yang_modules),
 );
+/* clang-format on */
 
 #define DEPRECATED_OPTIONS ""
 
@@ -383,20 +422,21 @@ int main(int argc, char **argv)
 	int buffer_size = BGP_SOCKET_SNDBUF_SIZE;
 	char *address;
 	struct listnode *node;
+	bool v6_with_v4_nexthops = false;
 
 	addresses->cmp = (int (*)(void *, void *))strcmp;
 
 	frr_preinit(&bgpd_di, argc, argv);
-	frr_opt_add(
-		"p:l:SnZe:I:s:" DEPRECATED_OPTIONS, longopts,
-		"  -p, --bgp_port     Set BGP listen port number (0 means do not listen).\n"
-		"  -l, --listenon     Listen on specified address (implies -n)\n"
-		"  -n, --no_kernel    Do not install route to kernel.\n"
-		"  -Z, --no_zebra     Do not communicate with Zebra.\n"
-		"  -S, --skip_runas   Skip capabilities checks, and changing user and group IDs.\n"
-		"  -e, --ecmp         Specify ECMP to use.\n"
-		"  -I, --int_num      Set instance number (label-manager)\n"
-		"  -s, --socket_size  Set BGP peer socket send buffer size\n");
+	frr_opt_add("p:l:SnZe:I:s:x" DEPRECATED_OPTIONS, longopts,
+		    "  -p, --bgp_port           Set BGP listen port number (0 means do not listen).\n"
+		    "  -l, --listenon           Listen on specified address (implies -n)\n"
+		    "  -n, --no_kernel          Do not install route to kernel.\n"
+		    "  -Z, --no_zebra           Do not communicate with Zebra.\n"
+		    "  -S, --skip_runas         Skip capabilities checks, and changing user and group IDs.\n"
+		    "  -e, --ecmp               Specify ECMP to use.\n"
+		    "  -I, --int_num            Set instance number (label-manager)\n"
+		    "  -s, --socket_size        Set BGP peer socket send buffer size\n"
+		    "  -x, --v6-with-v4-nexthop Allow BGP to form v6 neighbors using v4 nexthops\n");
 
 	/* Command line argument treatment. */
 	while (1) {
@@ -458,6 +498,9 @@ int main(int argc, char **argv)
 		case 's':
 			buffer_size = atoi(optarg);
 			break;
+		case 'x':
+			v6_with_v4_nexthops = true;
+			break;
 		default:
 			frr_help_exit(1);
 		}
@@ -467,16 +510,23 @@ int main(int argc, char **argv)
 
 	/* BGP master init. */
 	bgp_master_init(frr_init(), buffer_size, addresses);
+	bm->startup_time = monotime(NULL);
 	bm->port = bgp_port;
+	bm->v6_with_v4_nexthops = v6_with_v4_nexthops;
 	if (bgp_port == 0)
 		bgp_option_set(BGP_OPT_NO_LISTEN);
 	if (no_fib_flag || no_zebra_flag)
 		bgp_option_set(BGP_OPT_NO_FIB);
 	if (no_zebra_flag)
 		bgp_option_set(BGP_OPT_NO_ZEBRA);
+	if (bgpd_di.graceful_restart)
+		SET_FLAG(bm->flags, BM_FLAG_GRACEFUL_RESTART);
+
 	bgp_error_init();
 	/* Initializations. */
+	libagentx_init();
 	bgp_vrf_init();
+
 
 #ifdef HAVE_SCRIPTING
 	bgp_script_init();

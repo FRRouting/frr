@@ -18,6 +18,8 @@ extern "C" {
 #endif
 
 #ifdef HAVE_NETLINK
+#include <linux/netlink.h>
+
 /* Socket interface to kernel */
 struct nlsock {
 	int sock;
@@ -47,6 +49,8 @@ struct zebra_ns {
 	struct nlsock netlink_dplane_out;
 	struct nlsock netlink_dplane_in;
 	struct event *t_netlink;
+
+	struct nlsock ge_netlink_cmd; /* command channel for generic netlink */
 #endif
 
 	struct route_table *if_table;
@@ -66,7 +70,8 @@ int zebra_ns_early_shutdown(struct ns *ns,
 int zebra_ns_final_shutdown(struct ns *ns,
 			    void *param_in __attribute__((unused)),
 			    void **param_out __attribute__((unused)));
-int zebra_ns_config_write(struct vty *vty, struct ns *ns);
+
+void zebra_ns_startup_continue(struct zebra_dplane_ctx *ctx);
 
 #ifdef __cplusplus
 }

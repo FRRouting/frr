@@ -118,7 +118,7 @@ def setup_module(mod):
     tgen.start_router()
 
 
-def teardown_module(mod):
+def teardown_module():
     "Teardown the pytest environment"
     tgen = get_topogen()
     # move back rx-eth0 to default VRF
@@ -141,8 +141,9 @@ def test_isis_convergence():
 
         def compare_isis_topology(router, expected):
             "Helper function to test ISIS vrf topology convergence."
-            actual = show_isis_topology(router)
-
+            actual = json.loads(
+                router.vtysh_cmd(f"show isis vrf {router.name}-cust1 topology json")
+            )
             return topotest.json_cmp(actual, expected)
 
         test_func = functools.partial(compare_isis_topology, router, expected)
@@ -287,7 +288,7 @@ def dict_merge(dct, merge_dct):
     Source:
     https://gist.github.com/angstwad/bf22d1822c38a92ec0a9
     """
-    for k, v in merge_dct.items():
+    for k, _ in merge_dct.items():
         if k in dct and isinstance(dct[k], dict) and topotest.is_mapping(merge_dct[k]):
             dict_merge(dct[k], merge_dct[k])
         else:
@@ -377,52 +378,3 @@ def parse_topology(lines, level):
             continue
 
     return areas
-
-
-def show_isis_topology(router):
-    """
-    Get the ISIS vrf topology in a dictionary format.
-
-    Sample:
-    {
-      'area-name': {
-        'level-1': [
-          {
-            'vertex': 'r1'
-          }
-        ],
-        'level-2': [
-          {
-            'vertex': '10.0.0.1/24',
-            'type': 'IP',
-            'parent': '0',
-            'metric': 'internal'
-          }
-        ]
-      },
-      'area-name-2': {
-        'level-2': [
-          {
-            "interface": "rX-ethY",
-            "metric": "Z",
-            "next-hop": "rA",
-            "parent": "rC(B)",
-            "type": "TE-IS",
-            "vertex": "rD"
-          }
-        ]
-      }
-    }
-    """
-    l1out = topotest.normalize_text(
-        router.vtysh_cmd("show isis vrf {}-cust1 topology level-1".format(router.name))
-    ).splitlines()
-    l2out = topotest.normalize_text(
-        router.vtysh_cmd("show isis vrf {}-cust1 topology level-2".format(router.name))
-    ).splitlines()
-
-    l1 = parse_topology(l1out, "level-1")
-    l2 = parse_topology(l2out, "level-2")
-
-    dict_merge(l1, l2)
-    return l1

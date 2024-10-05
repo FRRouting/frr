@@ -12,6 +12,11 @@
  */
 
 #include <zebra.h>
+#include <sys/ioctl.h>
+
+#ifdef GNU_LINUX
+#include <linux/filter.h>
+#endif
 
 #ifdef BFD_LINUX
 #include <linux/if_packet.h>
@@ -768,6 +773,37 @@ static void cp_debug(bool mhop, struct sockaddr_any *peer,
 		   mhop ? "yes" : "no", peerstr, localstr, portstr, vrfstr);
 }
 
+static bool bfd_check_auth(const struct bfd_session *bfd,
+			   const struct bfd_pkt *cp)
+{
+	if (CHECK_FLAG(cp->flags, BFD_ABIT)) {
+		/* RFC5880 4.1: Authentication Section is present. */
+		struct bfd_auth *auth = (struct bfd_auth *)(cp + 1);
+		uint16_t pkt_auth_type = ntohs(auth->type);
+
+		if (cp->len < BFD_PKT_LEN + sizeof(struct bfd_auth))
+			return false;
+
+		if (cp->len < BFD_PKT_LEN + auth->length)
+			return false;
+
+		switch (pkt_auth_type) {
+		case BFD_AUTH_NULL:
+			return false;
+		case BFD_AUTH_SIMPLE:
+			/* RFC5880 6.7: To be finshed. */
+			return false;
+		case BFD_AUTH_CRYPTOGRAPHIC:
+			/* RFC5880 6.7: To be finshed. */
+			return false;
+		default:
+			/* RFC5880 6.7: To be finshed. */
+			return false;
+		}
+	}
+	return true;
+}
+
 void bfd_recv_cb(struct event *t)
 {
 	int sd = EVENT_FD(t);
@@ -862,6 +898,12 @@ void bfd_recv_cb(struct event *t)
 		return;
 	}
 
+	if (BFD_GETMBIT(cp->flags)) {
+		cp_debug(is_mhop, &peer, &local, ifindex, vrfid,
+			 "detect non-zero Multipoint (M) flag");
+		return;
+	}
+
 	if (cp->discrs.my_discr == 0) {
 		cp_debug(is_mhop, &peer, &local, ifindex, vrfid,
 			 "'my discriminator' is zero");
@@ -878,7 +920,7 @@ void bfd_recv_cb(struct event *t)
 	/*
 	 * We may have a situation where received packet is on wrong vrf
 	 */
-	if (bfd && bfd->vrf && bfd->vrf != bvrf->vrf) {
+	if (bfd && bfd->vrf && bfd->vrf->vrf_id != vrfid) {
 		cp_debug(is_mhop, &peer, &local, ifindex, vrfid,
 			 "wrong vrfid.");
 		return;
@@ -932,8 +974,15 @@ void bfd_recv_cb(struct event *t)
 
 	bfd->discrs.remote_discr = ntohl(cp->discrs.my_discr);
 
+	/* Check authentication. */
+	if (!bfd_check_auth(bfd, cp)) {
+		cp_debug(is_mhop, &peer, &local, ifindex, vrfid,
+			 "Authentication failed");
+		return;
+	}
+
 	/* Save remote diagnostics before state switch. */
-	bfd->remote_diag = cp->diag & BFD_DIAGMASK;
+	bfd->remote_diag = CHECK_FLAG(cp->diag, BFD_DIAGMASK);
 
 	/* Update remote timers settings. */
 	bfd->remote_timers.desired_min_tx = ntohl(cp->timers.desired_min_tx);
@@ -1689,7 +1738,7 @@ void bfd_peer_mac_set(int sd, struct bfd_session *bfd,
 
 	if (CHECK_FLAG(bfd->flags, BFD_SESS_FLAG_MAC_SET))
 		return;
-	if (ifp->flags & IFF_NOARP)
+	if (CHECK_FLAG(ifp->flags, IFF_NOARP))
 		return;
 
 	if (peer->sa_sin.sin_family == AF_INET) {
@@ -1704,9 +1753,10 @@ void bfd_peer_mac_set(int sd, struct bfd_session *bfd,
 		strlcpy(arpreq_.arp_dev, ifp->name, sizeof(arpreq_.arp_dev));
 
 		if (ioctl(sd, SIOCGARP, &arpreq_) < 0) {
-			zlog_warn(
-				"BFD: getting peer's mac on %s failed error %s",
-				ifp->name, strerror(errno));
+			if (bglobal.debug_network)
+				zlog_debug(
+					"BFD: getting peer's mac on %s failed error %s",
+					ifp->name, strerror(errno));
 			UNSET_FLAG(bfd->flags, BFD_SESS_FLAG_MAC_SET);
 			memset(bfd->peer_hw_addr, 0, sizeof(bfd->peer_hw_addr));
 

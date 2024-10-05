@@ -31,6 +31,7 @@
 #include "link_state.h"
 #include "zclient.h"
 #include "printfrr.h"
+#include <lib/json.h>
 
 #include "ospfd/ospfd.h"
 #include "ospfd/ospf_interface.h"
@@ -980,8 +981,8 @@ static void ospf_mpls_te_nsm_change(struct ospf_neighbor *nbr, int old_state)
 	struct ospf_interface *oi = nbr->oi;
 	struct mpls_te_link *lp;
 
-	/* Process Neighbor only when its state is NSM Full */
-	if (nbr->state != NSM_Full)
+	/* Process Link only when neighbor old or new state is NSM Full */
+	if (nbr->state != NSM_Full && old_state != NSM_Full)
 		return;
 
 	/* Get interface information for Traffic Engineering */
@@ -1669,6 +1670,11 @@ static struct ls_edge *get_edge(struct ls_ted *ted, struct ls_node_id adv,
 	struct ls_edge *edge;
 	struct ls_attributes *attr;
 
+	/* Check that Link ID and Node ID are valid */
+	if (IPV4_NET0(link_id.s_addr) || IPV4_NET0(adv.id.ip.addr.s_addr) ||
+	    adv.origin != OSPFv2)
+		return NULL;
+
 	/* Search Edge that corresponds to the Link ID */
 	key.family = AF_INET;
 	IPV4_ADDR_COPY(&key.k.addr, &link_id);
@@ -1742,6 +1748,10 @@ static void ospf_te_update_link(struct ls_ted *ted, struct ls_vertex *vertex,
 
 	/* Get Corresponding Edge from Link State Data Base */
 	edge = get_edge(ted, vertex->node->adv, link_data);
+	if (!edge) {
+		ote_debug("  |- Found no edge from Link Data. Abort!");
+		return;
+	}
 	attr = edge->attributes;
 
 	/* re-attached edge to vertex if needed */
@@ -1839,6 +1849,7 @@ static void ospf_te_delete_subnet(struct ls_ted *ted, struct in_addr addr)
 	p.family = AF_INET;
 	p.prefixlen = IPV4_MAX_BITLEN;
 	p.u.prefix4 = addr;
+	ote_debug("  |- Delete Subnet info. for Prefix %pFX", &p);
 	subnet = ls_find_subnet(ted, &p);
 
 	/* Remove subnet if found */
@@ -1851,8 +1862,7 @@ static void ospf_te_delete_subnet(struct ls_ted *ted, struct in_addr addr)
 
 /**
  * Parse Router LSA. This function will create or update corresponding Vertex,
- * Edge and Subnet. It also remove Edge and Subnet if they are marked as Orphan
- * once Router LSA is parsed.
+ * Edge and Subnet.
  *
  * @param ted	Link State Traffic Engineering Database
  * @param lsa	OSPF Link State Advertisement
@@ -1864,9 +1874,6 @@ static int ospf_te_parse_router_lsa(struct ls_ted *ted, struct ospf_lsa *lsa)
 	struct router_lsa *rl;
 	enum ls_node_type type;
 	struct ls_vertex *vertex;
-	struct ls_edge *edge;
-	struct ls_subnet *subnet;
-	struct listnode *node;
 	int len, links;
 
 	/* Sanity Check */
@@ -1909,13 +1916,6 @@ static int ospf_te_parse_router_lsa(struct ls_ted *ted, struct ospf_lsa *lsa)
 		vertex->status = SYNC;
 	}
 
-	/* Mark outgoing Edge and Subnet as ORPHAN to detect deletion */
-	for (ALL_LIST_ELEMENTS_RO(vertex->outgoing_edges, node, edge))
-		edge->status = ORPHAN;
-
-	for (ALL_LIST_ELEMENTS_RO(vertex->prefixes, node, subnet))
-		subnet->status = ORPHAN;
-
 	/* Then, process Link Information */
 	len = lsa->size - OSPF_LSA_HEADER_SIZE - OSPF_ROUTER_LSA_MIN_SIZE;
 	links = ntohs(rl->links);
@@ -1948,11 +1948,6 @@ static int ospf_te_parse_router_lsa(struct ls_ted *ted, struct ospf_lsa *lsa)
 			break;
 		}
 	}
-	/* Clean remaining Orphan Edges or Subnets */
-	if (OspfMplsTE.export)
-		ls_vertex_clean(ted, vertex, zclient);
-	else
-		ls_vertex_clean(ted, vertex, NULL);
 
 	return 0;
 }
@@ -2261,6 +2256,10 @@ static int ospf_te_parse_te(struct ls_ted *ted, struct ospf_lsa *lsa)
 
 	/* Get corresponding Edge from Link State Data Base */
 	edge = get_edge(ted, attr.adv, attr.standard.local);
+	if (!edge) {
+		ote_debug("  |- Found no edge from Link local add./ID. Abort!");
+		return -1;
+	}
 	old = edge->attributes;
 
 	ote_debug("  |- Process Traffic Engineering LSA %pI4 for Edge %pI4",
@@ -2405,7 +2404,10 @@ static int ospf_te_delete_te(struct ls_ted *ted, struct ospf_lsa *lsa)
 	ote_debug("  |- Delete TE info. for Edge %pI4",
 		  &edge->attributes->standard.local);
 
-	/* Remove Link State Attributes TE information */
+	/* First remove the associated Subnet */
+	ospf_te_delete_subnet(ted, attr->standard.local);
+
+	/* Then ,remove Link State Attributes TE information */
 	memset(&attr->standard, 0, sizeof(struct ls_standard));
 	attr->flags &= 0x0FFFF;
 	memset(&attr->extended, 0, sizeof(struct ls_extended));
@@ -2420,7 +2422,6 @@ static int ospf_te_delete_te(struct ls_ted *ted, struct ospf_lsa *lsa)
 		edge->status = SYNC;
 	} else {
 		/* Remove completely the Edge if Segment Routing is not set */
-		ospf_te_delete_subnet(ted, attr->standard.local);
 		edge->status = DELETE;
 		ospf_te_export(LS_MSG_TYPE_ATTRIBUTES, edge);
 		ls_edge_del_all(ted, edge);
@@ -2464,6 +2465,9 @@ static int ospf_te_parse_ri(struct ls_ted *ted, struct ospf_lsa *lsa)
 
 		switch (ntohs(tlvh->type)) {
 		case RI_SR_TLV_SR_ALGORITHM:
+			if (TLV_BODY_SIZE(tlvh) < 1 ||
+			    TLV_BODY_SIZE(tlvh) > ALGORITHM_COUNT)
+				break;
 			algo = (struct ri_sr_tlv_sr_algorithm *)tlvh;
 
 			for (int i = 0; i < ntohs(algo->header.length); i++) {
@@ -2488,6 +2492,8 @@ static int ospf_te_parse_ri(struct ls_ted *ted, struct ospf_lsa *lsa)
 			break;
 
 		case RI_SR_TLV_SRGB_LABEL_RANGE:
+			if (TLV_BODY_SIZE(tlvh) != RI_SR_TLV_LABEL_RANGE_SIZE)
+				break;
 			range = (struct ri_sr_tlv_sid_label_range *)tlvh;
 			size = GET_RANGE_SIZE(ntohl(range->size));
 			lower = GET_LABEL(ntohl(range->lower.value));
@@ -2505,6 +2511,8 @@ static int ospf_te_parse_ri(struct ls_ted *ted, struct ospf_lsa *lsa)
 			break;
 
 		case RI_SR_TLV_SRLB_LABEL_RANGE:
+			if (TLV_BODY_SIZE(tlvh) != RI_SR_TLV_LABEL_RANGE_SIZE)
+				break;
 			range = (struct ri_sr_tlv_sid_label_range *)tlvh;
 			size = GET_RANGE_SIZE(ntohl(range->size));
 			lower = GET_LABEL(ntohl(range->lower.value));
@@ -2522,6 +2530,8 @@ static int ospf_te_parse_ri(struct ls_ted *ted, struct ospf_lsa *lsa)
 			break;
 
 		case RI_SR_TLV_NODE_MSD:
+			if (TLV_BODY_SIZE(tlvh) < RI_SR_TLV_NODE_MSD_SIZE)
+				break;
 			msd = (struct ri_sr_tlv_node_msd *)tlvh;
 			if ((CHECK_FLAG(node->flags, LS_NODE_MSD))
 			    && (node->msd == msd->value))
@@ -2619,6 +2629,7 @@ static int ospf_te_parse_ext_pref(struct ls_ted *ted, struct ospf_lsa *lsa)
 	struct ext_tlv_prefix *ext;
 	struct ext_subtlv_prefix_sid *pref_sid;
 	uint32_t label;
+	uint16_t len, size;
 
 	/* Get corresponding Subnet from Link State Data Base */
 	ext = (struct ext_tlv_prefix *)TLV_HDR_TOP(lsa->data);
@@ -2639,6 +2650,18 @@ static int ospf_te_parse_ext_pref(struct ls_ted *ted, struct ospf_lsa *lsa)
 
 	ote_debug("  |- Process Extended Prefix LSA %pI4 for subnet %pFX",
 		  &lsa->data->id, &pref);
+
+	/*
+	 * Check Extended Prefix TLV size against LSA size
+	 * as only one TLV is allowed per LSA
+	 */
+	len = TLV_BODY_SIZE(&ext->header);
+	size = lsa->size - (OSPF_LSA_HEADER_SIZE + TLV_HDR_SIZE);
+	if (len != size || len <= 0) {
+		ote_debug("  |- Wrong TLV size: %u instead of %u",
+			  (uint32_t)len, (uint32_t)size);
+		return -1;
+	}
 
 	/* Initialize TLV browsing */
 	ls_pref = subnet->ls_pref;
@@ -2745,13 +2768,29 @@ static int ospf_te_parse_ext_link(struct ls_ted *ted, struct ospf_lsa *lsa)
 	lnid.id.ip.area_id = lsa->area->area_id;
 	ext = (struct ext_tlv_link *)TLV_HDR_TOP(lsa->data);
 	edge = get_edge(ted, lnid, ext->link_data);
+	if (!edge) {
+		ote_debug("  |- Found no edge from Extended Link Data. Abort!");
+		return -1;
+	}
 	atr = edge->attributes;
 
 	ote_debug("  |- Process Extended Link LSA %pI4 for edge %pI4",
 		  &lsa->data->id, &edge->attributes->standard.local);
 
-	/* Initialize TLV browsing */
-	len = TLV_BODY_SIZE(&ext->header) - EXT_TLV_LINK_SIZE;
+	/*
+	 * Check Extended Link TLV size against LSA size
+	 * as only one TLV is allowed per LSA
+	 */
+	len = TLV_BODY_SIZE(&ext->header);
+	i = lsa->size - (OSPF_LSA_HEADER_SIZE + TLV_HDR_SIZE);
+	if (len != i || len <= 0) {
+		ote_debug("  |- Wrong TLV size: %u instead of %u",
+			  (uint32_t)len, (uint32_t)i);
+		return -1;
+	}
+
+	/* Initialize subTLVs browsing */
+	len -= EXT_TLV_LINK_SIZE;
 	tlvh = (struct tlv_header *)((char *)(ext) + TLV_HDR_SIZE
 				     + EXT_TLV_LINK_SIZE);
 	for (; sum < len; tlvh = TLV_HDR_NEXT(tlvh)) {
@@ -2761,6 +2800,8 @@ static int ospf_te_parse_ext_link(struct ls_ted *ted, struct ospf_lsa *lsa)
 
 		switch (ntohs(tlvh->type)) {
 		case EXT_SUBTLV_ADJ_SID:
+			if (TLV_BODY_SIZE(tlvh) != EXT_SUBTLV_ADJ_SID_SIZE)
+				break;
 			adj = (struct ext_subtlv_adj_sid *)tlvh;
 			label = CHECK_FLAG(adj->flags,
 					   EXT_SUBTLV_LINK_ADJ_SID_VFLG)
@@ -2787,6 +2828,8 @@ static int ospf_te_parse_ext_link(struct ls_ted *ted, struct ospf_lsa *lsa)
 
 			break;
 		case EXT_SUBTLV_LAN_ADJ_SID:
+			if (TLV_BODY_SIZE(tlvh) != EXT_SUBTLV_LAN_ADJ_SID_SIZE)
+				break;
 			ladj = (struct ext_subtlv_lan_adj_sid *)tlvh;
 			label = CHECK_FLAG(ladj->flags,
 					   EXT_SUBTLV_LINK_ADJ_SID_VFLG)
@@ -2816,6 +2859,8 @@ static int ospf_te_parse_ext_link(struct ls_ted *ted, struct ospf_lsa *lsa)
 
 			break;
 		case EXT_SUBTLV_RMT_ITF_ADDR:
+			if (TLV_BODY_SIZE(tlvh) != EXT_SUBTLV_RMT_ITF_ADDR_SIZE)
+				break;
 			rmt = (struct ext_subtlv_rmt_itf_addr *)tlvh;
 			if (CHECK_FLAG(atr->flags, LS_ATTR_NEIGH_ADDR)
 			    && IPV4_ADDR_SAME(&atr->standard.remote,
@@ -3154,14 +3199,19 @@ static void ospf_te_init_ted(struct ls_ted *ted, struct ospf *ospf)
 		}                                                              \
 	} while (0)
 
-static uint16_t show_vty_router_addr(struct vty *vty, struct tlv_header *tlvh)
+static uint16_t show_vty_router_addr(struct vty *vty, struct tlv_header *tlvh,
+				     json_object *json)
 {
 	struct te_tlv_router_addr *top = (struct te_tlv_router_addr *)tlvh;
 
 	check_tlv_size(TE_LINK_SUBTLV_DEF_SIZE, "Router Address");
 
 	if (vty != NULL)
-		vty_out(vty, "  Router-Address: %pI4\n", &top->value);
+		if (!json)
+			vty_out(vty, "  Router-Address: %pI4\n", &top->value);
+		else
+			json_object_string_addf(json, "routerAddress", "%pI4",
+						&top->value);
 	else
 		zlog_debug("    Router-Address: %pI4", &top->value);
 
@@ -3169,7 +3219,7 @@ static uint16_t show_vty_router_addr(struct vty *vty, struct tlv_header *tlvh)
 }
 
 static uint16_t show_vty_link_header(struct vty *vty, struct tlv_header *tlvh,
-				     size_t buf_size)
+				     size_t buf_size, json_object *json)
 {
 	struct te_tlv_link *top = (struct te_tlv_link *)tlvh;
 
@@ -3186,8 +3236,12 @@ static uint16_t show_vty_link_header(struct vty *vty, struct tlv_header *tlvh,
 	}
 
 	if (vty != NULL)
-		vty_out(vty, "  Link: %u octets of data\n",
-			ntohs(top->header.length));
+		if (!json)
+			vty_out(vty, "  Link: %u octets of data\n",
+				ntohs(top->header.length));
+		else
+			json_object_int_add(json, "teLinkDataLength",
+					    ntohs(top->header.length));
 	else
 		zlog_debug("    Link: %u octets of data",
 			   ntohs(top->header.length));
@@ -3196,7 +3250,8 @@ static uint16_t show_vty_link_header(struct vty *vty, struct tlv_header *tlvh,
 }
 
 static uint16_t show_vty_link_subtlv_link_type(struct vty *vty,
-					       struct tlv_header *tlvh)
+					       struct tlv_header *tlvh,
+					       json_object *json)
 {
 	struct te_link_subtlv_link_type *top;
 	const char *cp = "Unknown";
@@ -3216,8 +3271,11 @@ static uint16_t show_vty_link_subtlv_link_type(struct vty *vty,
 	}
 
 	if (vty != NULL)
-		vty_out(vty, "  Link-Type: %s (%u)\n", cp,
-			top->link_type.value);
+		if (!json)
+			vty_out(vty, "  Link-Type: %s (%u)\n", cp,
+				top->link_type.value);
+		else
+			json_object_string_add(json, "accessType", cp);
 	else
 		zlog_debug("    Link-Type: %s (%u)", cp, top->link_type.value);
 
@@ -3225,7 +3283,8 @@ static uint16_t show_vty_link_subtlv_link_type(struct vty *vty,
 }
 
 static uint16_t show_vty_link_subtlv_link_id(struct vty *vty,
-					     struct tlv_header *tlvh)
+					     struct tlv_header *tlvh,
+					     json_object *json)
 {
 	struct te_link_subtlv_link_id *top;
 
@@ -3233,7 +3292,11 @@ static uint16_t show_vty_link_subtlv_link_id(struct vty *vty,
 
 	top = (struct te_link_subtlv_link_id *)tlvh;
 	if (vty != NULL)
-		vty_out(vty, "  Link-ID: %pI4\n", &top->value);
+		if (!json)
+			vty_out(vty, "  Link-ID: %pI4\n", &top->value);
+		else
+			json_object_string_addf(json, "linkID", "%pI4",
+						&top->value);
 	else
 		zlog_debug("    Link-ID: %pI4", &top->value);
 
@@ -3242,9 +3305,12 @@ static uint16_t show_vty_link_subtlv_link_id(struct vty *vty,
 
 static uint16_t show_vty_link_subtlv_lclif_ipaddr(struct vty *vty,
 						  struct tlv_header *tlvh,
-						  size_t buf_size)
+						  size_t buf_size,
+						  json_object *json)
 {
 	struct te_link_subtlv_lclif_ipaddr *top;
+	json_object *json_addr, *json_obj;
+	char buf[4];
 	int i, n;
 
 	if (TLV_SIZE(tlvh) > buf_size) {
@@ -3263,13 +3329,29 @@ static uint16_t show_vty_link_subtlv_lclif_ipaddr(struct vty *vty,
 	n = ntohs(tlvh->length) / sizeof(top->value[0]);
 
 	if (vty != NULL)
-		vty_out(vty, "  Local Interface IP Address(es): %d\n", n);
+		if (!json)
+			vty_out(vty, "  Local Interface IP Address(es): %d\n",
+				n);
+		else {
+			json_addr = json_object_new_array();
+			json_object_object_add(json, "localIPAddresses",
+					       json_addr);
+		}
 	else
 		zlog_debug("    Local Interface IP Address(es): %d", n);
 
 	for (i = 0; i < n; i++) {
 		if (vty != NULL)
-			vty_out(vty, "    #%d: %pI4\n", i, &top->value[i]);
+			if (!json)
+				vty_out(vty, "    #%d: %pI4\n", i,
+					&top->value[i]);
+			else {
+				json_obj = json_object_new_object();
+				snprintfrr(buf, 2, "%d", i);
+				json_object_string_addf(json_obj, buf, "%pI4",
+							&top->value[i]);
+				json_object_array_add(json_addr, json_obj);
+			}
 		else
 			zlog_debug("      #%d: %pI4", i, &top->value[i]);
 	}
@@ -3278,9 +3360,12 @@ static uint16_t show_vty_link_subtlv_lclif_ipaddr(struct vty *vty,
 
 static uint16_t show_vty_link_subtlv_rmtif_ipaddr(struct vty *vty,
 						  struct tlv_header *tlvh,
-						  size_t buf_size)
+						  size_t buf_size,
+						  json_object *json)
 {
 	struct te_link_subtlv_rmtif_ipaddr *top;
+	json_object *json_addr, *json_obj;
+	char buf[4];
 	int i, n;
 
 	if (TLV_SIZE(tlvh) > buf_size) {
@@ -3298,13 +3383,29 @@ static uint16_t show_vty_link_subtlv_rmtif_ipaddr(struct vty *vty,
 	top = (struct te_link_subtlv_rmtif_ipaddr *)tlvh;
 	n = ntohs(tlvh->length) / sizeof(top->value[0]);
 	if (vty != NULL)
-		vty_out(vty, "  Remote Interface IP Address(es): %d\n", n);
+		if (!json)
+			vty_out(vty, "  Remote Interface IP Address(es): %d\n",
+				n);
+		else {
+			json_addr = json_object_new_array();
+			json_object_object_add(json, "remoteIPAddresses",
+					       json_addr);
+		}
 	else
 		zlog_debug("    Remote Interface IP Address(es): %d", n);
 
 	for (i = 0; i < n; i++) {
 		if (vty != NULL)
-			vty_out(vty, "    #%d: %pI4\n", i, &top->value[i]);
+			if (!json)
+				vty_out(vty, "    #%d: %pI4\n", i,
+					&top->value[i]);
+			else {
+				json_obj = json_object_new_object();
+				snprintfrr(buf, 2, "%d", i);
+				json_object_string_addf(json_obj, buf, "%pI4",
+							&top->value[i]);
+				json_object_array_add(json_addr, json_obj);
+			}
 		else
 			zlog_debug("      #%d: %pI4", i, &top->value[i]);
 	}
@@ -3312,7 +3413,8 @@ static uint16_t show_vty_link_subtlv_rmtif_ipaddr(struct vty *vty,
 }
 
 static uint16_t show_vty_link_subtlv_te_metric(struct vty *vty,
-					       struct tlv_header *tlvh)
+					       struct tlv_header *tlvh,
+					       json_object *json)
 {
 	struct te_link_subtlv_te_metric *top;
 
@@ -3320,8 +3422,12 @@ static uint16_t show_vty_link_subtlv_te_metric(struct vty *vty,
 
 	top = (struct te_link_subtlv_te_metric *)tlvh;
 	if (vty != NULL)
-		vty_out(vty, "  Traffic Engineering Metric: %u\n",
-			(uint32_t)ntohl(top->value));
+		if (!json)
+			vty_out(vty, "  Traffic Engineering Metric: %u\n",
+				(uint32_t)ntohl(top->value));
+		else
+			json_object_int_add(json, "teDefaultMetric",
+					    (uint32_t)ntohl(top->value));
 	else
 		zlog_debug("    Traffic Engineering Metric: %u",
 			   (uint32_t)ntohl(top->value));
@@ -3330,7 +3436,8 @@ static uint16_t show_vty_link_subtlv_te_metric(struct vty *vty,
 }
 
 static uint16_t show_vty_link_subtlv_max_bw(struct vty *vty,
-					    struct tlv_header *tlvh)
+					    struct tlv_header *tlvh,
+					    json_object *json)
 {
 	struct te_link_subtlv_max_bw *top;
 	float fval;
@@ -3341,7 +3448,11 @@ static uint16_t show_vty_link_subtlv_max_bw(struct vty *vty,
 	fval = ntohf(top->value);
 
 	if (vty != NULL)
-		vty_out(vty, "  Maximum Bandwidth: %g (Bytes/sec)\n", fval);
+		if (!json)
+			vty_out(vty, "  Maximum Bandwidth: %g (Bytes/sec)\n",
+				fval);
+		else
+			json_object_double_add(json, "maxLinkBandwidth", fval);
 	else
 		zlog_debug("    Maximum Bandwidth: %g (Bytes/sec)", fval);
 
@@ -3349,7 +3460,8 @@ static uint16_t show_vty_link_subtlv_max_bw(struct vty *vty,
 }
 
 static uint16_t show_vty_link_subtlv_max_rsv_bw(struct vty *vty,
-						struct tlv_header *tlvh)
+						struct tlv_header *tlvh,
+						json_object *json)
 {
 	struct te_link_subtlv_max_rsv_bw *top;
 	float fval;
@@ -3360,8 +3472,12 @@ static uint16_t show_vty_link_subtlv_max_rsv_bw(struct vty *vty,
 	fval = ntohf(top->value);
 
 	if (vty != NULL)
-		vty_out(vty, "  Maximum Reservable Bandwidth: %g (Bytes/sec)\n",
-			fval);
+		if (!json)
+			vty_out(vty, "  Maximum Reservable Bandwidth: %g (Bytes/sec)\n",
+				fval);
+		else
+			json_object_double_add(json, "maxResvLinkBandwidth",
+					       fval);
 	else
 		zlog_debug("    Maximum Reservable Bandwidth: %g (Bytes/sec)",
 			   fval);
@@ -3370,18 +3486,27 @@ static uint16_t show_vty_link_subtlv_max_rsv_bw(struct vty *vty,
 }
 
 static uint16_t show_vty_link_subtlv_unrsv_bw(struct vty *vty,
-					      struct tlv_header *tlvh)
+					      struct tlv_header *tlvh,
+					      json_object *json)
 {
 	struct te_link_subtlv_unrsv_bw *top;
+	json_object *json_bw, *json_obj;
 	float fval1, fval2;
+	char buf[16];
 	int i;
 
 	check_tlv_size(TE_LINK_SUBTLV_UNRSV_SIZE, "Unreserved Bandwidth");
 
 	top = (struct te_link_subtlv_unrsv_bw *)tlvh;
 	if (vty != NULL)
-		vty_out(vty,
-			"  Unreserved Bandwidth per Class Type in Byte/s:\n");
+		if (!json)
+			vty_out(vty,
+				"  Unreserved Bandwidth per Class Type in Byte/s:\n");
+		else {
+			json_bw = json_object_new_array();
+			json_object_object_add(json, "unreservedBandwidth",
+					       json_bw);
+		}
 	else
 		zlog_debug(
 			"    Unreserved Bandwidth per Class Type in Byte/s:");
@@ -3390,9 +3515,20 @@ static uint16_t show_vty_link_subtlv_unrsv_bw(struct vty *vty,
 		fval2 = ntohf(top->value[i + 1]);
 
 		if (vty != NULL)
-			vty_out(vty,
-				"    [%d]: %g (Bytes/sec),\t[%d]: %g (Bytes/sec)\n",
-				i, fval1, i + 1, fval2);
+			if (!json)
+				vty_out(vty,
+					"    [%d]: %g (Bytes/sec),\t[%d]: %g (Bytes/sec)\n",
+					i, fval1, i + 1, fval2);
+			else {
+				json_obj = json_object_new_object();
+				snprintfrr(buf, 12, "classType-%u", i);
+				json_object_double_add(json_obj, buf, fval1);
+				json_object_array_add(json_bw, json_obj);
+				json_obj = json_object_new_object();
+				snprintfrr(buf, 12, "classType-%u", i + 1);
+				json_object_double_add(json_obj, buf, fval2);
+				json_object_array_add(json_bw, json_obj);
+			}
 		else
 			zlog_debug(
 				"      [%d]: %g (Bytes/sec),  [%d]: %g (Bytes/sec)",
@@ -3403,7 +3539,8 @@ static uint16_t show_vty_link_subtlv_unrsv_bw(struct vty *vty,
 }
 
 static uint16_t show_vty_link_subtlv_rsc_clsclr(struct vty *vty,
-						struct tlv_header *tlvh)
+						struct tlv_header *tlvh,
+						json_object *json)
 {
 	struct te_link_subtlv_rsc_clsclr *top;
 
@@ -3411,8 +3548,13 @@ static uint16_t show_vty_link_subtlv_rsc_clsclr(struct vty *vty,
 
 	top = (struct te_link_subtlv_rsc_clsclr *)tlvh;
 	if (vty != NULL)
-		vty_out(vty, "  Resource class/color: 0x%x\n",
-			(uint32_t)ntohl(top->value));
+		if (!json)
+			vty_out(vty, "  Resource class/color: 0x%x\n",
+				(uint32_t)ntohl(top->value));
+		else
+			json_object_string_addf(json, "administrativeGroup",
+						"0x%x",
+						(uint32_t)ntohl(top->value));
 	else
 		zlog_debug("    Resource Class/Color: 0x%x",
 			   (uint32_t)ntohl(top->value));
@@ -3421,7 +3563,8 @@ static uint16_t show_vty_link_subtlv_rsc_clsclr(struct vty *vty,
 }
 
 static uint16_t show_vty_link_subtlv_lrrid(struct vty *vty,
-					   struct tlv_header *tlvh)
+					   struct tlv_header *tlvh,
+					   json_object *json)
 {
 	struct te_link_subtlv_lrrid *top;
 
@@ -3430,10 +3573,17 @@ static uint16_t show_vty_link_subtlv_lrrid(struct vty *vty,
 	top = (struct te_link_subtlv_lrrid *)tlvh;
 
 	if (vty != NULL) {
-		vty_out(vty, "  Local  TE Router ID: %pI4\n",
-			&top->local);
-		vty_out(vty, "  Remote TE Router ID: %pI4\n",
-			&top->remote);
+		if (!json) {
+			vty_out(vty, "  Local  TE Router ID: %pI4\n",
+				&top->local);
+			vty_out(vty, "  Remote TE Router ID: %pI4\n",
+				&top->remote);
+		} else {
+			json_object_string_addf(json, "localTeRouterID", "%pI4",
+						&top->local);
+			json_object_string_addf(json, "remoteTeRouterID",
+						"%pI4", &top->remote);
+		}
 	} else {
 		zlog_debug("    Local  TE Router ID: %pI4",
 			   &top->local);
@@ -3445,7 +3595,8 @@ static uint16_t show_vty_link_subtlv_lrrid(struct vty *vty,
 }
 
 static uint16_t show_vty_link_subtlv_llri(struct vty *vty,
-					  struct tlv_header *tlvh)
+					  struct tlv_header *tlvh,
+					  json_object *json)
 {
 	struct te_link_subtlv_llri *top;
 
@@ -3454,10 +3605,17 @@ static uint16_t show_vty_link_subtlv_llri(struct vty *vty,
 	top = (struct te_link_subtlv_llri *)tlvh;
 
 	if (vty != NULL) {
-		vty_out(vty, "  Link Local  ID: %d\n",
-			(uint32_t)ntohl(top->local));
-		vty_out(vty, "  Link Remote ID: %d\n",
-			(uint32_t)ntohl(top->remote));
+		if (!json) {
+			vty_out(vty, "  Link Local  ID: %d\n",
+				(uint32_t)ntohl(top->local));
+			vty_out(vty, "  Link Remote ID: %d\n",
+				(uint32_t)ntohl(top->remote));
+		} else {
+			json_object_int_add(json, "localLinkID",
+					    (uint32_t)ntohl(top->local));
+			json_object_int_add(json, "remoteLinkID",
+					    (uint32_t)ntohl(top->remote));
+		}
 	} else {
 		zlog_debug("    Link Local  ID: %d",
 			   (uint32_t)ntohl(top->local));
@@ -3469,7 +3627,8 @@ static uint16_t show_vty_link_subtlv_llri(struct vty *vty,
 }
 
 static uint16_t show_vty_link_subtlv_rip(struct vty *vty,
-					 struct tlv_header *tlvh)
+					 struct tlv_header *tlvh,
+					 json_object *json)
 {
 	struct te_link_subtlv_rip *top;
 
@@ -3478,8 +3637,12 @@ static uint16_t show_vty_link_subtlv_rip(struct vty *vty,
 	top = (struct te_link_subtlv_rip *)tlvh;
 
 	if (vty != NULL)
-		vty_out(vty, "  Inter-AS TE Remote ASBR IP address: %pI4\n",
-			&top->value);
+		if (!json)
+			vty_out(vty, "  Inter-AS TE Remote ASBR IP address: %pI4\n",
+				&top->value);
+		else
+			json_object_string_addf(json, "remoteAsbrAddress",
+						"%pI4", &top->value);
 	else
 		zlog_debug("    Inter-AS TE Remote ASBR IP address: %pI4",
 			   &top->value);
@@ -3488,7 +3651,8 @@ static uint16_t show_vty_link_subtlv_rip(struct vty *vty,
 }
 
 static uint16_t show_vty_link_subtlv_ras(struct vty *vty,
-					 struct tlv_header *tlvh)
+					 struct tlv_header *tlvh,
+					 json_object *json)
 {
 	struct te_link_subtlv_ras *top;
 
@@ -3497,8 +3661,12 @@ static uint16_t show_vty_link_subtlv_ras(struct vty *vty,
 	top = (struct te_link_subtlv_ras *)tlvh;
 
 	if (vty != NULL)
-		vty_out(vty, "  Inter-AS TE Remote AS number: %u\n",
-			ntohl(top->value));
+		if (!json)
+			vty_out(vty, "  Inter-AS TE Remote AS number: %u\n",
+				ntohl(top->value));
+		else
+			json_object_int_add(json, "remoteAsbrNumber",
+					    ntohl(top->value));
 	else
 		zlog_debug("    Inter-AS TE Remote AS number: %u",
 			   ntohl(top->value));
@@ -3507,7 +3675,8 @@ static uint16_t show_vty_link_subtlv_ras(struct vty *vty,
 }
 
 static uint16_t show_vty_link_subtlv_av_delay(struct vty *vty,
-					      struct tlv_header *tlvh)
+					      struct tlv_header *tlvh,
+					      json_object *json)
 {
 	struct te_link_subtlv_av_delay *top;
 	uint32_t delay;
@@ -3520,8 +3689,15 @@ static uint16_t show_vty_link_subtlv_av_delay(struct vty *vty,
 	anomalous = (uint32_t)ntohl(top->value) & TE_EXT_ANORMAL;
 
 	if (vty != NULL)
-		vty_out(vty, "  %s Average Link Delay: %d (micro-sec)\n",
-			anomalous ? "Anomalous" : "Normal", delay);
+		if (!json)
+			vty_out(vty, "  %s Average Link Delay: %d (micro-sec)\n",
+				anomalous ? "Anomalous" : "Normal", delay);
+		else {
+			json_object_int_add(json, "oneWayDelay", delay);
+			json_object_string_add(json, "oneWayDelayNormality",
+					       anomalous ? "abnormal"
+							 : "normal");
+		}
 	else
 		zlog_debug("    %s Average Link Delay: %d (micro-sec)",
 			   anomalous ? "Anomalous" : "Normal", delay);
@@ -3530,7 +3706,8 @@ static uint16_t show_vty_link_subtlv_av_delay(struct vty *vty,
 }
 
 static uint16_t show_vty_link_subtlv_mm_delay(struct vty *vty,
-					      struct tlv_header *tlvh)
+					      struct tlv_header *tlvh,
+					      json_object *json)
 {
 	struct te_link_subtlv_mm_delay *top;
 	uint32_t low, high;
@@ -3544,8 +3721,20 @@ static uint16_t show_vty_link_subtlv_mm_delay(struct vty *vty,
 	high = (uint32_t)ntohl(top->high);
 
 	if (vty != NULL)
-		vty_out(vty, "  %s Min/Max Link Delay: %d/%d (micro-sec)\n",
-			anomalous ? "Anomalous" : "Normal", low, high);
+		if (!json)
+			vty_out(vty,
+				"  %s Min/Max Link Delay: %d/%d (micro-sec)\n",
+				anomalous ? "Anomalous" : "Normal", low, high);
+		else {
+			json_object_int_add(json, "oneWayMinDelay", low);
+			json_object_string_add(json, "oneWayMinDelayNormality",
+					       anomalous ? "abnormal"
+							 : "normal");
+			json_object_int_add(json, "oneWayMaxDelay", high);
+			json_object_string_add(json, "oneWayMaxDelayNormality",
+					       anomalous ? "abnormal"
+							 : "normal");
+		}
 	else
 		zlog_debug("    %s Min/Max Link Delay: %d/%d (micro-sec)",
 			   anomalous ? "Anomalous" : "Normal", low, high);
@@ -3554,7 +3743,8 @@ static uint16_t show_vty_link_subtlv_mm_delay(struct vty *vty,
 }
 
 static uint16_t show_vty_link_subtlv_delay_var(struct vty *vty,
-					       struct tlv_header *tlvh)
+					       struct tlv_header *tlvh,
+					       json_object *json)
 {
 	struct te_link_subtlv_delay_var *top;
 	uint32_t jitter;
@@ -3565,7 +3755,12 @@ static uint16_t show_vty_link_subtlv_delay_var(struct vty *vty,
 	jitter = (uint32_t)ntohl(top->value) & TE_EXT_MASK;
 
 	if (vty != NULL)
-		vty_out(vty, "  Delay Variation: %d (micro-sec)\n", jitter);
+		if (!json)
+			vty_out(vty, "  Delay Variation: %d (micro-sec)\n",
+				jitter);
+		else
+			json_object_int_add(json, "oneWayDelayVariation",
+					    jitter);
 	else
 		zlog_debug("    Delay Variation: %d (micro-sec)", jitter);
 
@@ -3573,7 +3768,8 @@ static uint16_t show_vty_link_subtlv_delay_var(struct vty *vty,
 }
 
 static uint16_t show_vty_link_subtlv_pkt_loss(struct vty *vty,
-					      struct tlv_header *tlvh)
+					      struct tlv_header *tlvh,
+					      json_object *json)
 {
 	struct te_link_subtlv_pkt_loss *top;
 	uint32_t loss;
@@ -3588,8 +3784,16 @@ static uint16_t show_vty_link_subtlv_pkt_loss(struct vty *vty,
 	anomalous = (uint32_t)ntohl(top->value) & TE_EXT_ANORMAL;
 
 	if (vty != NULL)
-		vty_out(vty, "  %s Link Loss: %g (%%)\n",
-			anomalous ? "Anomalous" : "Normal", fval);
+		if (!json)
+			vty_out(vty, "  %s Link Loss: %g (%%)\n",
+				anomalous ? "Anomalous" : "Normal", fval);
+		else {
+			json_object_double_add(json, "oneWayPacketLoss", fval);
+			json_object_string_add(json,
+					       "oneWayPacketLossNormality",
+					       anomalous ? "abnormal"
+							 : "normal");
+		}
 	else
 		zlog_debug("    %s Link Loss: %g (%%)",
 			   anomalous ? "Anomalous" : "Normal", fval);
@@ -3598,7 +3802,8 @@ static uint16_t show_vty_link_subtlv_pkt_loss(struct vty *vty,
 }
 
 static uint16_t show_vty_link_subtlv_res_bw(struct vty *vty,
-					    struct tlv_header *tlvh)
+					    struct tlv_header *tlvh,
+					    json_object *json)
 {
 	struct te_link_subtlv_res_bw *top;
 	float fval;
@@ -3609,9 +3814,13 @@ static uint16_t show_vty_link_subtlv_res_bw(struct vty *vty,
 	fval = ntohf(top->value);
 
 	if (vty != NULL)
-		vty_out(vty,
-			"  Unidirectional Residual Bandwidth: %g (Bytes/sec)\n",
-			fval);
+		if (!json)
+			vty_out(vty,
+				"  Unidirectional Residual Bandwidth: %g (Bytes/sec)\n",
+				fval);
+		else
+			json_object_double_add(json, "oneWayResidualBandwidth",
+					       fval);
 	else
 		zlog_debug(
 			"    Unidirectional Residual Bandwidth: %g (Bytes/sec)",
@@ -3621,7 +3830,8 @@ static uint16_t show_vty_link_subtlv_res_bw(struct vty *vty,
 }
 
 static uint16_t show_vty_link_subtlv_ava_bw(struct vty *vty,
-					    struct tlv_header *tlvh)
+					    struct tlv_header *tlvh,
+					    json_object *json)
 {
 	struct te_link_subtlv_ava_bw *top;
 	float fval;
@@ -3632,9 +3842,13 @@ static uint16_t show_vty_link_subtlv_ava_bw(struct vty *vty,
 	fval = ntohf(top->value);
 
 	if (vty != NULL)
-		vty_out(vty,
-			"  Unidirectional Available Bandwidth: %g (Bytes/sec)\n",
-			fval);
+		if (!json)
+			vty_out(vty,
+				"  Unidirectional Available Bandwidth: %g (Bytes/sec)\n",
+				fval);
+		else
+			json_object_double_add(json, "oneWayAvailableBandwidth",
+					       fval);
 	else
 		zlog_debug(
 			"    Unidirectional Available Bandwidth: %g (Bytes/sec)",
@@ -3644,7 +3858,8 @@ static uint16_t show_vty_link_subtlv_ava_bw(struct vty *vty,
 }
 
 static uint16_t show_vty_link_subtlv_use_bw(struct vty *vty,
-					    struct tlv_header *tlvh)
+					    struct tlv_header *tlvh,
+					    json_object *json)
 {
 	struct te_link_subtlv_use_bw *top;
 	float fval;
@@ -3655,9 +3870,13 @@ static uint16_t show_vty_link_subtlv_use_bw(struct vty *vty,
 	fval = ntohf(top->value);
 
 	if (vty != NULL)
-		vty_out(vty,
-			"  Unidirectional Utilized Bandwidth: %g (Bytes/sec)\n",
-			fval);
+		if (!json)
+			vty_out(vty,
+				"  Unidirectional Utilized Bandwidth: %g (Bytes/sec)\n",
+				fval);
+		else
+			json_object_double_add(json, "oneWayUtilizedBandwidth",
+					       fval);
 	else
 		zlog_debug(
 			"    Unidirectional Utilized Bandwidth: %g (Bytes/sec)",
@@ -3667,8 +3886,10 @@ static uint16_t show_vty_link_subtlv_use_bw(struct vty *vty,
 }
 
 static uint16_t show_vty_unknown_tlv(struct vty *vty, struct tlv_header *tlvh,
-				     size_t buf_size)
+				     size_t buf_size, json_object *json)
 {
+	json_object *obj;
+
 	if (TLV_SIZE(tlvh) > buf_size) {
 		if (vty != NULL)
 			vty_out(vty,
@@ -3682,8 +3903,17 @@ static uint16_t show_vty_unknown_tlv(struct vty *vty, struct tlv_header *tlvh,
 	}
 
 	if (vty != NULL)
-		vty_out(vty, "  Unknown TLV: [type(0x%x), length(0x%x)]\n",
-			ntohs(tlvh->type), ntohs(tlvh->length));
+		if (!json)
+			vty_out(vty, "  Unknown TLV: [type(0x%x), length(0x%x)]\n",
+				ntohs(tlvh->type), ntohs(tlvh->length));
+		else {
+			obj = json_object_new_object();
+			json_object_string_addf(obj, "type", "0x%x",
+						ntohs(tlvh->type));
+			json_object_string_addf(obj, "length", "0x%x",
+						ntohs(tlvh->length));
+			json_object_object_add(json, "unknownTLV", obj);
+		}
 	else
 		zlog_debug("    Unknown TLV: [type(0x%x), length(0x%x)]",
 			   ntohs(tlvh->type), ntohs(tlvh->length));
@@ -3693,7 +3923,8 @@ static uint16_t show_vty_unknown_tlv(struct vty *vty, struct tlv_header *tlvh,
 
 static uint16_t ospf_mpls_te_show_link_subtlv(struct vty *vty,
 					      struct tlv_header *tlvh0,
-					      uint16_t subtotal, uint16_t total)
+					      uint16_t subtotal, uint16_t total,
+					      json_object *json)
 {
 	struct tlv_header *tlvh;
 	uint16_t sum = subtotal;
@@ -3701,69 +3932,72 @@ static uint16_t ospf_mpls_te_show_link_subtlv(struct vty *vty,
 	for (tlvh = tlvh0; sum < total; tlvh = TLV_HDR_NEXT(tlvh)) {
 		switch (ntohs(tlvh->type)) {
 		case TE_LINK_SUBTLV_LINK_TYPE:
-			sum += show_vty_link_subtlv_link_type(vty, tlvh);
+			sum += show_vty_link_subtlv_link_type(vty, tlvh, json);
 			break;
 		case TE_LINK_SUBTLV_LINK_ID:
-			sum += show_vty_link_subtlv_link_id(vty, tlvh);
+			sum += show_vty_link_subtlv_link_id(vty, tlvh, json);
 			break;
 		case TE_LINK_SUBTLV_LCLIF_IPADDR:
 			sum += show_vty_link_subtlv_lclif_ipaddr(vty, tlvh,
-								 total - sum);
+								 total - sum,
+								 json);
 			break;
 		case TE_LINK_SUBTLV_RMTIF_IPADDR:
 			sum += show_vty_link_subtlv_rmtif_ipaddr(vty, tlvh,
-								 total - sum);
+								 total - sum,
+								 json);
 			break;
 		case TE_LINK_SUBTLV_TE_METRIC:
-			sum += show_vty_link_subtlv_te_metric(vty, tlvh);
+			sum += show_vty_link_subtlv_te_metric(vty, tlvh, json);
 			break;
 		case TE_LINK_SUBTLV_MAX_BW:
-			sum += show_vty_link_subtlv_max_bw(vty, tlvh);
+			sum += show_vty_link_subtlv_max_bw(vty, tlvh, json);
 			break;
 		case TE_LINK_SUBTLV_MAX_RSV_BW:
-			sum += show_vty_link_subtlv_max_rsv_bw(vty, tlvh);
+			sum += show_vty_link_subtlv_max_rsv_bw(vty, tlvh, json);
 			break;
 		case TE_LINK_SUBTLV_UNRSV_BW:
-			sum += show_vty_link_subtlv_unrsv_bw(vty, tlvh);
+			sum += show_vty_link_subtlv_unrsv_bw(vty, tlvh, json);
 			break;
 		case TE_LINK_SUBTLV_RSC_CLSCLR:
-			sum += show_vty_link_subtlv_rsc_clsclr(vty, tlvh);
+			sum += show_vty_link_subtlv_rsc_clsclr(vty, tlvh, json);
 			break;
 		case TE_LINK_SUBTLV_LRRID:
-			sum += show_vty_link_subtlv_lrrid(vty, tlvh);
+			sum += show_vty_link_subtlv_lrrid(vty, tlvh, json);
 			break;
 		case TE_LINK_SUBTLV_LLRI:
-			sum += show_vty_link_subtlv_llri(vty, tlvh);
+			sum += show_vty_link_subtlv_llri(vty, tlvh, json);
 			break;
 		case TE_LINK_SUBTLV_RIP:
-			sum += show_vty_link_subtlv_rip(vty, tlvh);
+			sum += show_vty_link_subtlv_rip(vty, tlvh, json);
 			break;
 		case TE_LINK_SUBTLV_RAS:
-			sum += show_vty_link_subtlv_ras(vty, tlvh);
+			sum += show_vty_link_subtlv_ras(vty, tlvh, json);
 			break;
 		case TE_LINK_SUBTLV_AV_DELAY:
-			sum += show_vty_link_subtlv_av_delay(vty, tlvh);
+			sum += show_vty_link_subtlv_av_delay(vty, tlvh, json);
 			break;
 		case TE_LINK_SUBTLV_MM_DELAY:
-			sum += show_vty_link_subtlv_mm_delay(vty, tlvh);
+			sum += show_vty_link_subtlv_mm_delay(vty, tlvh, json);
 			break;
 		case TE_LINK_SUBTLV_DELAY_VAR:
-			sum += show_vty_link_subtlv_delay_var(vty, tlvh);
+			sum += show_vty_link_subtlv_delay_var(vty, tlvh, json);
 			break;
 		case TE_LINK_SUBTLV_PKT_LOSS:
-			sum += show_vty_link_subtlv_pkt_loss(vty, tlvh);
+			sum += show_vty_link_subtlv_pkt_loss(vty, tlvh, json);
 			break;
 		case TE_LINK_SUBTLV_RES_BW:
-			sum += show_vty_link_subtlv_res_bw(vty, tlvh);
+			sum += show_vty_link_subtlv_res_bw(vty, tlvh, json);
 			break;
 		case TE_LINK_SUBTLV_AVA_BW:
-			sum += show_vty_link_subtlv_ava_bw(vty, tlvh);
+			sum += show_vty_link_subtlv_ava_bw(vty, tlvh, json);
 			break;
 		case TE_LINK_SUBTLV_USE_BW:
-			sum += show_vty_link_subtlv_use_bw(vty, tlvh);
+			sum += show_vty_link_subtlv_use_bw(vty, tlvh, json);
 			break;
 		default:
-			sum += show_vty_unknown_tlv(vty, tlvh, total - sum);
+			sum += show_vty_unknown_tlv(vty, tlvh, total - sum,
+						    json);
 			break;
 		}
 	}
@@ -3775,12 +4009,11 @@ static void ospf_mpls_te_show_info(struct vty *vty, struct json_object *json,
 {
 	struct lsa_header *lsah = lsa->data;
 	struct tlv_header *tlvh, *next;
-	uint16_t sum, total;
+	uint16_t sum, sub, total;
 	uint16_t (*subfunc)(struct vty * vty, struct tlv_header * tlvh,
-			    uint16_t subtotal, uint16_t total) = NULL;
-
-	if (json)
-		return;
+			    uint16_t subtotal, uint16_t total,
+			    struct json_object *json) = NULL;
+	json_object *jobj = NULL;
 
 	sum = 0;
 	total = lsa->size - OSPF_LSA_HEADER_SIZE;
@@ -3788,24 +4021,34 @@ static void ospf_mpls_te_show_info(struct vty *vty, struct json_object *json,
 	for (tlvh = TLV_HDR_TOP(lsah); sum < total && tlvh;
 	     tlvh = (next ? next : TLV_HDR_NEXT(tlvh))) {
 		if (subfunc != NULL) {
-			sum = (*subfunc)(vty, tlvh, sum, total);
+			sum = (*subfunc)(vty, tlvh, sum, total, jobj);
 			next = (struct tlv_header *)((char *)tlvh + sum);
 			subfunc = NULL;
 			continue;
 		}
 
 		next = NULL;
+		sub = total - sum;
 		switch (ntohs(tlvh->type)) {
 		case TE_TLV_ROUTER_ADDR:
-			sum += show_vty_router_addr(vty, tlvh);
+			if (json) {
+				jobj = json_object_new_object();
+				json_object_object_add(json, "teRouterAddress",
+						       jobj);
+			}
+			sum += show_vty_router_addr(vty, tlvh, jobj);
 			break;
 		case TE_TLV_LINK:
-			sum += show_vty_link_header(vty, tlvh, total - sum);
+			if (json) {
+				jobj = json_object_new_object();
+				json_object_object_add(json, "teLink", jobj);
+			}
+			sum += show_vty_link_header(vty, tlvh, sub, jobj);
 			subfunc = ospf_mpls_te_show_link_subtlv;
 			next = TLV_DATA(tlvh);
 			break;
 		default:
-			sum += show_vty_unknown_tlv(vty, tlvh, total - sum);
+			sum += show_vty_unknown_tlv(vty, tlvh, sub, json);
 			break;
 		}
 	}
@@ -4139,7 +4382,8 @@ DEFUN (show_ip_ospf_mpls_te_router,
 
 		if (ntohs(OspfMplsTE.router_addr.header.type) != 0)
 			show_vty_router_addr(vty,
-					     &OspfMplsTE.router_addr.header);
+					     &OspfMplsTE.router_addr.header,
+					     NULL);
 		else
 			vty_out(vty, "  Router address is not set\n");
 		vty_out(vty, "  Link State distribution is %s\n",
@@ -4148,7 +4392,8 @@ DEFUN (show_ip_ospf_mpls_te_router,
 	return CMD_SUCCESS;
 }
 
-static void show_mpls_te_link_sub(struct vty *vty, struct interface *ifp)
+static void show_mpls_te_link_sub(struct vty *vty, struct interface *ifp,
+				  json_object *json)
 {
 	struct mpls_te_link *lp;
 
@@ -4178,53 +4423,69 @@ static void show_mpls_te_link_sub(struct vty *vty, struct interface *ifp)
 
 		if (TLV_TYPE(lp->link_type) != 0)
 			show_vty_link_subtlv_link_type(vty,
-						       &lp->link_type.header);
+						       &lp->link_type.header,
+						       json);
 		if (TLV_TYPE(lp->link_id) != 0)
-			show_vty_link_subtlv_link_id(vty, &lp->link_id.header);
+			show_vty_link_subtlv_link_id(vty, &lp->link_id.header,
+						     json);
 		if (TLV_TYPE(lp->lclif_ipaddr) != 0)
 			show_vty_link_subtlv_lclif_ipaddr(
 				vty, &lp->lclif_ipaddr.header,
-				lp->lclif_ipaddr.header.length);
+				lp->lclif_ipaddr.header.length,
+				json);
 		if (TLV_TYPE(lp->rmtif_ipaddr) != 0)
 			show_vty_link_subtlv_rmtif_ipaddr(
 				vty, &lp->rmtif_ipaddr.header,
-				lp->rmtif_ipaddr.header.length);
+				lp->rmtif_ipaddr.header.length,
+				json);
 		if (TLV_TYPE(lp->rip) != 0)
-			show_vty_link_subtlv_rip(vty, &lp->rip.header);
+			show_vty_link_subtlv_rip(vty, &lp->rip.header, json);
 		if (TLV_TYPE(lp->ras) != 0)
-			show_vty_link_subtlv_ras(vty, &lp->ras.header);
+			show_vty_link_subtlv_ras(vty, &lp->ras.header, json);
 		if (TLV_TYPE(lp->te_metric) != 0)
 			show_vty_link_subtlv_te_metric(vty,
-						       &lp->te_metric.header);
+						       &lp->te_metric.header,
+						       json);
 		if (TLV_TYPE(lp->max_bw) != 0)
-			show_vty_link_subtlv_max_bw(vty, &lp->max_bw.header);
+			show_vty_link_subtlv_max_bw(vty, &lp->max_bw.header,
+						    json);
 		if (TLV_TYPE(lp->max_rsv_bw) != 0)
 			show_vty_link_subtlv_max_rsv_bw(vty,
-							&lp->max_rsv_bw.header);
+							&lp->max_rsv_bw.header,
+							json);
 		if (TLV_TYPE(lp->unrsv_bw) != 0)
 			show_vty_link_subtlv_unrsv_bw(vty,
-						      &lp->unrsv_bw.header);
+						      &lp->unrsv_bw.header,
+						      json);
 		if (TLV_TYPE(lp->rsc_clsclr) != 0)
 			show_vty_link_subtlv_rsc_clsclr(vty,
-							&lp->rsc_clsclr.header);
+							&lp->rsc_clsclr.header,
+							json);
 		if (TLV_TYPE(lp->av_delay) != 0)
 			show_vty_link_subtlv_av_delay(vty,
-						      &lp->av_delay.header);
+						      &lp->av_delay.header,
+						      json);
 		if (TLV_TYPE(lp->mm_delay) != 0)
 			show_vty_link_subtlv_mm_delay(vty,
-						      &lp->mm_delay.header);
+						      &lp->mm_delay.header,
+						      json);
 		if (TLV_TYPE(lp->delay_var) != 0)
 			show_vty_link_subtlv_delay_var(vty,
-						       &lp->delay_var.header);
+						       &lp->delay_var.header,
+						       json);
 		if (TLV_TYPE(lp->pkt_loss) != 0)
 			show_vty_link_subtlv_pkt_loss(vty,
-						      &lp->pkt_loss.header);
+						      &lp->pkt_loss.header,
+						      json);
 		if (TLV_TYPE(lp->res_bw) != 0)
-			show_vty_link_subtlv_res_bw(vty, &lp->res_bw.header);
+			show_vty_link_subtlv_res_bw(vty, &lp->res_bw.header,
+						    json);
 		if (TLV_TYPE(lp->ava_bw) != 0)
-			show_vty_link_subtlv_ava_bw(vty, &lp->ava_bw.header);
+			show_vty_link_subtlv_ava_bw(vty, &lp->ava_bw.header,
+						    json);
 		if (TLV_TYPE(lp->use_bw) != 0)
-			show_vty_link_subtlv_use_bw(vty, &lp->use_bw.header);
+			show_vty_link_subtlv_use_bw(vty, &lp->use_bw.header,
+						    json);
 		vty_out(vty, "---------------\n\n");
 	} else {
 		vty_out(vty, "  %s: MPLS-TE is disabled on this interface\n",
@@ -4253,7 +4514,6 @@ DEFUN (show_ip_ospf_mpls_te_link,
 	ospf = ospf_lookup_by_vrf_id(VRF_DEFAULT);
 	if (ospf == NULL || !ospf->oi_running)
 		return CMD_SUCCESS;
-
 	vrf = vrf_lookup_by_id(VRF_DEFAULT);
 	if (!vrf)
 		return CMD_SUCCESS;
@@ -4267,11 +4527,11 @@ DEFUN (show_ip_ospf_mpls_te_link,
 	}
 	if (!ifp) {
 		FOR_ALL_INTERFACES (vrf, ifp)
-			show_mpls_te_link_sub(vty, ifp);
+			show_mpls_te_link_sub(vty, ifp, NULL);
 		return CMD_SUCCESS;
 	}
 
-	show_mpls_te_link_sub(vty, ifp);
+	show_mpls_te_link_sub(vty, ifp, NULL);
 	return CMD_SUCCESS;
 }
 

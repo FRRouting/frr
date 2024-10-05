@@ -531,7 +531,7 @@ static const struct route_map_rule_cmd route_set_tag_cmd = {
 /* Route-map init */
 void rip_route_map_init(void)
 {
-	route_map_init();
+	route_map_init_new(true);
 
 	route_map_match_interface_hook(generic_match_add);
 	route_map_no_match_interface_hook(generic_match_delete);

@@ -125,6 +125,12 @@ struct nexthop {
 		vni_t vni;
 	} nh_encap;
 
+	/* EVPN router's MAC.
+	 * Don't support multiple RMAC from the same VTEP yet, so it's not
+	 * included in hash key.
+	 */
+	struct ethaddr rmac;
+
 	/* SR-TE color used for matching SR-TE policies */
 	uint32_t srte_color;
 
@@ -151,8 +157,8 @@ void nexthop_del_labels(struct nexthop *);
 void nexthop_add_srv6_seg6local(struct nexthop *nexthop, uint32_t action,
 				const struct seg6local_context *ctx);
 void nexthop_del_srv6_seg6local(struct nexthop *nexthop);
-void nexthop_add_srv6_seg6(struct nexthop *nexthop,
-			   const struct in6_addr *segs);
+void nexthop_add_srv6_seg6(struct nexthop *nexthop, const struct in6_addr *seg,
+			   int num_segs);
 void nexthop_del_srv6_seg6(struct nexthop *nexthop);
 
 /*
@@ -201,6 +207,8 @@ extern bool nexthop_same(const struct nexthop *nh1, const struct nexthop *nh2);
 extern bool nexthop_same_no_labels(const struct nexthop *nh1,
 				   const struct nexthop *nh2);
 extern int nexthop_cmp(const struct nexthop *nh1, const struct nexthop *nh2);
+extern int nexthop_cmp_no_weight(const struct nexthop *nh1,
+				 const struct nexthop *nh2);
 extern int nexthop_g_addr_cmp(enum nexthop_types_t type,
 			      const union g_addr *addr1,
 			      const union g_addr *addr2);
@@ -217,6 +225,8 @@ extern bool nexthop_labels_match(const struct nexthop *nh1,
 extern const char *nexthop2str(const struct nexthop *nexthop,
 			       char *str, int size);
 extern struct nexthop *nexthop_next(const struct nexthop *nexthop);
+extern struct nexthop *nexthop_next_resolution(const struct nexthop *nexthop,
+					       bool nexthop_resolution);
 extern struct nexthop *
 nexthop_next_active_resolved(const struct nexthop *nexthop);
 extern unsigned int nexthop_level(const struct nexthop *nexthop);
@@ -234,6 +244,9 @@ extern struct nexthop *nexthop_dup(const struct nexthop *nexthop,
 extern struct nexthop *nexthop_dup_no_recurse(const struct nexthop *nexthop,
 					      struct nexthop *rparent);
 
+/* Is this nexthop a blackhole? */
+extern bool nexthop_is_blackhole(const struct nexthop *nh);
+
 /*
  * Parse one or more backup index values, as comma-separated numbers,
  * into caller's array of uint8_ts. The array must be NEXTHOP_MAX_BACKUPS
@@ -242,6 +255,12 @@ extern struct nexthop *nexthop_dup_no_recurse(const struct nexthop *nexthop,
  */
 int nexthop_str2backups(const char *str, int *num_backups,
 			uint8_t *backups);
+
+void nexthop_json_helper(json_object *json_nexthop,
+			 const struct nexthop *nexthop, bool display_vrfid,
+			 uint8_t rn_family);
+void nexthop_vty_helper(struct vty *vty, const struct nexthop *nexthop,
+			bool display_vrfid, uint8_t rn_family);
 
 #ifdef _FRR_ATTRIBUTE_PRINTFRR
 #pragma FRR printfrr_ext "%pNH"  (struct nexthop *)

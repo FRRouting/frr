@@ -9,12 +9,14 @@
 #include "pimd.h"
 #include "pim_nb.h"
 #include "lib/northbound_cli.h"
+#include "lib/sockopt.h"
 #include "pim_igmpv3.h"
 #include "pim_neighbor.h"
 #include "pim_nht.h"
 #include "pim_pim.h"
 #include "pim_mlag.h"
 #include "pim_bfd.h"
+#include "pim_msdp_socket.h"
 #include "pim_static.h"
 #include "pim_ssm.h"
 #include "pim_ssmpingd.h"
@@ -24,6 +26,8 @@
 #include "lib_errors.h"
 #include "pim_util.h"
 #include "pim6_mld.h"
+#include "pim_autorp.h"
+#include "pim_igmp.h"
 
 #if PIM_IPV == 6
 #define pim6_msdp_err(funcname, argtype)                                       \
@@ -44,20 +48,6 @@ MACRO_REQUIRE_SEMICOLON()
 
 #define yang_dnode_get_pimaddr yang_dnode_get_ipv4
 #endif /* PIM_IPV != 6 */
-
-static void pim_if_membership_clear(struct interface *ifp)
-{
-	struct pim_interface *pim_ifp;
-
-	pim_ifp = ifp->info;
-	assert(pim_ifp);
-
-	if (pim_ifp->pim_enable && pim_ifp->gm_enable) {
-		return;
-	}
-
-	pim_ifchannel_membership_clear(ifp);
-}
 
 /*
  * When PIM is disabled on interface, IGMPv3 local membership
@@ -81,15 +71,17 @@ static void pim_if_membership_refresh(struct interface *ifp)
 
 	pim_ifp = ifp->info;
 	assert(pim_ifp);
-#if PIM_IPV == 6
-	gm_ifp = pim_ifp->mld;
-#endif
 
 	if (!pim_ifp->pim_enable)
 		return;
 	if (!pim_ifp->gm_enable)
 		return;
 
+#if PIM_IPV == 6
+	gm_ifp = pim_ifp->mld;
+	if (!gm_ifp)
+		return;
+#endif
 	/*
 	 * First clear off membership from all PIM (S,G) entries on the
 	 * interface
@@ -156,31 +148,10 @@ static int pim_cmd_interface_add(struct interface *ifp)
 	pim_if_membership_refresh(ifp);
 
 	pim_if_create_pimreg(pim_ifp->pim);
-	return 1;
-}
 
-static int pim_cmd_interface_delete(struct interface *ifp)
-{
-	struct pim_interface *pim_ifp = ifp->info;
-
-	if (!pim_ifp)
-		return 1;
-
-	pim_ifp->pim_enable = false;
-
-	pim_if_membership_clear(ifp);
-
-	/*
-	 * pim_sock_delete() removes all neighbors from
-	 * pim_ifp->pim_neighbor_list.
-	 */
-	pim_sock_delete(ifp, "pim unconfigured on interface");
-	pim_upstream_nh_if_update(pim_ifp->pim, ifp);
-
-	if (!pim_ifp->gm_enable) {
-		pim_if_addr_del_all(ifp);
-		pim_if_delete(ifp);
-	}
+#if PIM_IPV == 4
+	pim_autorp_add_ifp(ifp);
+#endif
 
 	return 1;
 }
@@ -276,7 +247,7 @@ static int pim_rp_cmd_worker(struct pim_instance *pim, pim_addr rp_addr,
 	if (result == PIM_RP_NO_PATH) {
 		snprintfrr(errmsg, errmsg_len,
 			   "No Path to RP address specified: %pPA", &rp_addr);
-		return NB_ERR_INCONSISTENCY;
+		return NB_OK;
 	}
 
 	if (result == PIM_GROUP_OVERLAP) {
@@ -523,7 +494,7 @@ int routing_control_plane_protocols_name_validate(
 {
 	const char *name;
 
-	name = yang_dnode_get_string(args->dnode, "./name");
+	name = yang_dnode_get_string(args->dnode, "name");
 	if (!strmatch(name, "pim")) {
 		snprintf(args->errmsg, args->errmsg_len,
 				"pim supports only one instance with name pimd");
@@ -817,7 +788,7 @@ void routing_control_plane_protocols_control_plane_protocol_pim_address_family_s
 
 	vrf = nb_running_get_entry(args->dnode, NULL, true);
 	pim = vrf->info;
-	spt_switch_action = yang_dnode_get_enum(args->dnode, "./spt-action");
+	spt_switch_action = yang_dnode_get_enum(args->dnode, "spt-action");
 
 	switch (spt_switch_action) {
 	case PIM_SPT_INFINITY:
@@ -960,14 +931,12 @@ int routing_control_plane_protocols_control_plane_protocol_pim_address_family_ss
 	case NB_EV_APPLY:
 		vrf = nb_running_get_entry(args->dnode, NULL, true);
 		pim = vrf->info;
-		yang_dnode_get_pimaddr(&source_addr, args->dnode,
-				       "./source-addr");
+		yang_dnode_get_pimaddr(&source_addr, args->dnode, NULL);
 		result = pim_ssmpingd_start(pim, source_addr);
 		if (result) {
-			snprintf(
-				args->errmsg, args->errmsg_len,
-				"%% Failure starting ssmpingd for source %pPA: %d",
-				&source_addr, result);
+			snprintfrr(args->errmsg, args->errmsg_len,
+				   "%% Failure starting ssmpingd for source %pPA: %d", &source_addr,
+				   result);
 			return NB_ERR_INCONSISTENCY;
 		}
 	}
@@ -991,14 +960,12 @@ int routing_control_plane_protocols_control_plane_protocol_pim_address_family_ss
 	case NB_EV_APPLY:
 		vrf = nb_running_get_entry(args->dnode, NULL, true);
 		pim = vrf->info;
-		yang_dnode_get_pimaddr(&source_addr, args->dnode,
-				       "./source-addr");
+		yang_dnode_get_pimaddr(&source_addr, args->dnode, NULL);
 		result = pim_ssmpingd_stop(pim, source_addr);
 		if (result) {
-			snprintf(
-				args->errmsg, args->errmsg_len,
-				"%% Failure stopping ssmpingd for source %pPA: %d",
-				&source_addr, result);
+			snprintfrr(args->errmsg, args->errmsg_len,
+				   "%% Failure stopping ssmpingd for source %pPA: %d", &source_addr,
+				   result);
 			return NB_ERR_INCONSISTENCY;
 		}
 
@@ -1093,6 +1060,9 @@ pim6_msdp_err(routing_control_plane_protocols_control_plane_protocol_pim_address
 	      nb_cb_destroy_args);
 pim6_msdp_err(routing_control_plane_protocols_control_plane_protocol_pim_address_family_msdp_peer_create,
 	      nb_cb_create_args);
+pim6_msdp_err(pim_msdp_peer_authentication_type_modify, nb_cb_modify_args);
+pim6_msdp_err(pim_msdp_peer_authentication_key_modify, nb_cb_modify_args);
+pim6_msdp_err(pim_msdp_peer_authentication_key_destroy, nb_cb_destroy_args);
 
 #if PIM_IPV != 6
 /*
@@ -1194,6 +1164,81 @@ int pim_msdp_mesh_group_source_destroy(struct nb_cb_destroy_args *args)
 	return NB_OK;
 }
 
+/*
+ * XPath:
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-pim:pim/address-family/msdp-peer/authentication-type
+ */
+int pim_msdp_peer_authentication_type_modify(struct nb_cb_modify_args *args)
+{
+	struct pim_msdp_peer *mp;
+
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		/* NOTHING */
+		break;
+	case NB_EV_APPLY:
+		mp = nb_running_get_entry(args->dnode, NULL, true);
+		mp->auth_type = yang_dnode_get_enum(args->dnode, NULL);
+		break;
+	}
+
+	return NB_OK;
+}
+
+/*
+ * XPath:
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-pim:pim/address-family/msdp-peer/authentication-key
+ */
+int pim_msdp_peer_authentication_key_modify(struct nb_cb_modify_args *args)
+{
+	struct pim_msdp_peer *mp;
+
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		if (strlen(yang_dnode_get_string(args->dnode, NULL)) >
+		    TCP_MD5SIG_MAXKEYLEN) {
+			snprintf(args->errmsg, args->errmsg_len,
+				 "MD5 authentication key too long");
+			return NB_ERR_VALIDATION;
+		}
+		break;
+	case NB_EV_APPLY:
+		mp = nb_running_get_entry(args->dnode, NULL, true);
+		XFREE(MTYPE_PIM_MSDP_AUTH_KEY, mp->auth_key);
+		mp->auth_key = XSTRDUP(MTYPE_PIM_MSDP_AUTH_KEY,
+				       yang_dnode_get_string(args->dnode, NULL));
+
+		/* We must start listening the new authentication key now. */
+		if (PIM_MSDP_PEER_IS_LISTENER(mp))
+			pim_msdp_sock_auth_listen(mp);
+		break;
+	}
+
+	return NB_OK;
+}
+
+int pim_msdp_peer_authentication_key_destroy(struct nb_cb_destroy_args *args)
+{
+	struct pim_msdp_peer *mp;
+
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		/* NOTHING */
+		break;
+	case NB_EV_APPLY:
+		mp = nb_running_get_entry(args->dnode, NULL, true);
+		XFREE(MTYPE_PIM_MSDP_AUTH_KEY, mp->auth_key);
+		break;
+	}
+
+	return NB_OK;
+}
 
 /*
  * XPath:
@@ -1271,8 +1316,8 @@ int routing_control_plane_protocols_control_plane_protocol_pim_address_family_ms
 	case NB_EV_APPLY:
 		vrf = nb_running_get_entry(args->dnode, NULL, true);
 		pim = vrf->info;
-		yang_dnode_get_ip(&peer_ip, args->dnode, "./peer-ip");
-		yang_dnode_get_ip(&source_ip, args->dnode, "./source-ip");
+		yang_dnode_get_ip(&peer_ip, args->dnode, "peer-ip");
+		yang_dnode_get_ip(&source_ip, args->dnode, "source-ip");
 		mp = pim_msdp_peer_add(pim, &peer_ip.ipaddr_v4,
 				       &source_ip.ipaddr_v4, NULL);
 		nb_running_set_entry(args->dnode, mp);
@@ -1327,6 +1372,94 @@ int routing_control_plane_protocols_control_plane_protocol_pim_address_family_ms
 #endif /* PIM_IPV != 6 */
 
 /*
+ * XPath:
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-pim:pim/address-family/msdp-peer/sa-filter-in
+ */
+int pim_msdp_peer_sa_filter_in_modify(struct nb_cb_modify_args *args)
+{
+	struct pim_msdp_peer *mp;
+
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		/* NOTHING */
+		break;
+	case NB_EV_APPLY:
+		mp = nb_running_get_entry(args->dnode, NULL, true);
+		XFREE(MTYPE_TMP, mp->acl_in);
+		mp->acl_in = XSTRDUP(MTYPE_TMP,
+				     yang_dnode_get_string(args->dnode, NULL));
+		break;
+	}
+
+	return NB_OK;
+}
+
+int pim_msdp_peer_sa_filter_in_destroy(struct nb_cb_destroy_args *args)
+{
+	struct pim_msdp_peer *mp;
+
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		/* NOTHING */
+		break;
+	case NB_EV_APPLY:
+		mp = nb_running_get_entry(args->dnode, NULL, true);
+		XFREE(MTYPE_TMP, mp->acl_in);
+		break;
+	}
+
+	return NB_OK;
+}
+
+/*
+ * XPath:
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-pim:pim/address-family/msdp-peer/sa-filter-out
+ */
+int pim_msdp_peer_sa_filter_out_modify(struct nb_cb_modify_args *args)
+{
+	struct pim_msdp_peer *mp;
+
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		/* NOTHING */
+		break;
+	case NB_EV_APPLY:
+		mp = nb_running_get_entry(args->dnode, NULL, true);
+		XFREE(MTYPE_TMP, mp->acl_out);
+		mp->acl_out = XSTRDUP(MTYPE_TMP,
+				      yang_dnode_get_string(args->dnode, NULL));
+		break;
+	}
+
+	return NB_OK;
+}
+
+int pim_msdp_peer_sa_filter_out_destroy(struct nb_cb_destroy_args *args)
+{
+	struct pim_msdp_peer *mp;
+
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		/* NOTHING */
+		break;
+	case NB_EV_APPLY:
+		mp = nb_running_get_entry(args->dnode, NULL, true);
+		XFREE(MTYPE_TMP, mp->acl_out);
+		break;
+	}
+
+	return NB_OK;
+}
+
+/*
  * XPath: /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-pim:pim/address-family/mlag
  */
 int routing_control_plane_protocols_control_plane_protocol_pim_address_family_mlag_create(
@@ -1376,16 +1509,16 @@ void routing_control_plane_protocols_control_plane_protocol_pim_address_family_m
 	struct interface *ifp;
 	struct ipaddr reg_addr;
 
-	ifname = yang_dnode_get_string(args->dnode, "./peerlink-rif");
+	ifname = yang_dnode_get_string(args->dnode, "peerlink-rif");
 	ifp = if_lookup_by_name(ifname, VRF_DEFAULT);
 	if (!ifp) {
 		snprintf(args->errmsg, args->errmsg_len,
 			 "No such interface name %s", ifname);
 		return;
 	}
-	role = yang_dnode_get_enum(args->dnode, "./my-role");
-	peer_state = yang_dnode_get_bool(args->dnode, "./peer-state");
-	yang_dnode_get_ip(&reg_addr, args->dnode, "./reg-address");
+	role = yang_dnode_get_enum(args->dnode, "my-role");
+	peer_state = yang_dnode_get_bool(args->dnode, "peer-state");
+	yang_dnode_get_ip(&reg_addr, args->dnode, "reg-address");
 
 	pim_vxlan_mlag_update(true, peer_state, role, ifp,
 			&reg_addr.ip._v4_addr);
@@ -1544,11 +1677,19 @@ int routing_control_plane_protocols_control_plane_protocol_pim_address_family_re
  */
 int lib_interface_pim_address_family_create(struct nb_cb_create_args *args)
 {
+	struct interface *ifp;
+
 	switch (args->event) {
 	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
 	case NB_EV_APPLY:
+	case NB_EV_ABORT:
+		break;
+	case NB_EV_PREPARE:
+		ifp = nb_running_get_entry(args->dnode, NULL, true);
+		if (ifp->info)
+			return NB_OK;
+
+		pim_if_new(ifp, false, false, false, false);
 		break;
 	}
 
@@ -1571,12 +1712,7 @@ int lib_interface_pim_address_family_destroy(struct nb_cb_destroy_args *args)
 		if (!pim_ifp)
 			return NB_OK;
 
-		if (!pim_cmd_interface_delete(ifp)) {
-			snprintf(args->errmsg, args->errmsg_len,
-				 "Unable to delete interface information %s",
-				 ifp->name);
-			return NB_ERR_INCONSISTENCY;
-		}
+		pim_pim_interface_delete(ifp);
 	}
 
 	return NB_OK;
@@ -1624,11 +1760,7 @@ int lib_interface_pim_address_family_pim_enable_modify(struct nb_cb_modify_args 
 			if (!pim_ifp)
 				return NB_ERR_INCONSISTENCY;
 
-			if (!pim_cmd_interface_delete(ifp)) {
-				snprintf(args->errmsg, args->errmsg_len,
-					 "Unable to delete interface information");
-				return NB_ERR_INCONSISTENCY;
-			}
+			pim_pim_interface_delete(ifp);
 		}
 		break;
 	}
@@ -1680,7 +1812,7 @@ int lib_interface_pim_address_family_hello_interval_modify(
 		ifp = nb_running_get_entry(args->dnode, NULL, true);
 		pim_ifp = ifp->info;
 		pim_ifp->pim_hello_period =
-			yang_dnode_get_uint8(args->dnode, NULL);
+			yang_dnode_get_uint16(args->dnode, NULL);
 		pim_ifp->pim_default_holdtime = -1;
 		break;
 	}
@@ -1806,11 +1938,11 @@ void lib_interface_pim_address_family_bfd_apply_finish(
 	}
 
 	pim_ifp->bfd_config.detection_multiplier =
-		yang_dnode_get_uint8(args->dnode, "./detect_mult");
+		yang_dnode_get_uint8(args->dnode, "detect_mult");
 	pim_ifp->bfd_config.min_rx =
-		yang_dnode_get_uint16(args->dnode, "./min-rx-interval");
+		yang_dnode_get_uint16(args->dnode, "min-rx-interval");
 	pim_ifp->bfd_config.min_tx =
-		yang_dnode_get_uint16(args->dnode, "./min-tx-interval");
+		yang_dnode_get_uint16(args->dnode, "min-tx-interval");
 
 	pim_bfd_reg_dereg_all_nbr(ifp);
 }
@@ -1931,6 +2063,10 @@ int lib_interface_pim_address_family_bsm_modify(struct nb_cb_modify_args *args)
 	case NB_EV_APPLY:
 		ifp = nb_running_get_entry(args->dnode, NULL, true);
 		pim_ifp = ifp->info;
+		if (!pim_ifp) {
+			pim_ifp = pim_if_new(ifp, false, true, false, false);
+			ifp->info = pim_ifp;
+		}
 		pim_ifp->bsm_enable = yang_dnode_get_bool(args->dnode, NULL);
 
 		break;
@@ -1956,6 +2092,10 @@ int lib_interface_pim_address_family_unicast_bsm_modify(
 	case NB_EV_APPLY:
 		ifp = nb_running_get_entry(args->dnode, NULL, true);
 		pim_ifp = ifp->info;
+		if (!pim_ifp) {
+			pim_ifp = pim_if_new(ifp, false, true, false, false);
+			ifp->info = pim_ifp;
+		}
 		pim_ifp->ucast_bsm_accept =
 			yang_dnode_get_bool(args->dnode, NULL);
 
@@ -2238,7 +2378,7 @@ int lib_interface_pim_address_family_mroute_destroy(
 		pim_iifp = iif->info;
 		pim = pim_iifp->pim;
 
-		oifname = yang_dnode_get_string(args->dnode, "./oif");
+		oifname = yang_dnode_get_string(args->dnode, "oif");
 		oif = if_lookup_by_name(oifname, pim->vrf->vrf_id);
 
 		if (!oif) {
@@ -2248,8 +2388,8 @@ int lib_interface_pim_address_family_mroute_destroy(
 			return NB_ERR_INCONSISTENCY;
 		}
 
-		yang_dnode_get_pimaddr(&source_addr, args->dnode, "./source-addr");
-		yang_dnode_get_pimaddr(&group_addr, args->dnode, "./group-addr");
+		yang_dnode_get_pimaddr(&source_addr, args->dnode, "source-addr");
+		yang_dnode_get_pimaddr(&group_addr, args->dnode, "group-addr");
 
 		if (pim_static_del(pim, iif, oif, group_addr, source_addr)) {
 			snprintf(args->errmsg, args->errmsg_len,
@@ -2388,9 +2528,9 @@ int routing_control_plane_protocols_control_plane_protocol_pim_address_family_rp
 	case NB_EV_APPLY:
 		vrf = nb_running_get_entry(args->dnode, NULL, true);
 		pim = vrf->info;
-		yang_dnode_get_pimaddr(&rp_addr, args->dnode, "./rp-address");
+		yang_dnode_get_pimaddr(&rp_addr, args->dnode, "rp-address");
 
-		if (yang_dnode_get(args->dnode, "./group-list")) {
+		if (yang_dnode_get(args->dnode, "group-list")) {
 			yang_dnode_get_prefix(&group, args->dnode,
 					      "./group-list");
 			apply_mask(&group);
@@ -2399,7 +2539,7 @@ int routing_control_plane_protocols_control_plane_protocol_pim_address_family_rp
 						      args->errmsg_len);
 		}
 
-		else if (yang_dnode_get(args->dnode, "./prefix-list")) {
+		else if (yang_dnode_get(args->dnode, "prefix-list")) {
 			plist = yang_dnode_get_string(args->dnode,
 					"./prefix-list");
 			if (!pim_get_all_mcast_group(&group)) {
@@ -2545,6 +2685,750 @@ int routing_control_plane_protocols_control_plane_protocol_pim_address_family_rp
 }
 
 /*
+ * XPath: /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-pim:pim/address-family/frr-pim-rp:rp/auto-rp/discovery-enabled
+ */
+int routing_control_plane_protocols_control_plane_protocol_pim_address_family_rp_auto_rp_discovery_enabled_modify(
+	struct nb_cb_modify_args *args)
+{
+#if PIM_IPV == 4
+	struct vrf *vrf;
+	struct pim_instance *pim;
+	bool enabled;
+
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		break;
+	case NB_EV_APPLY:
+		vrf = nb_running_get_entry(args->dnode, NULL, true);
+		pim = vrf->info;
+		enabled = yang_dnode_get_bool(args->dnode, NULL);
+		if (enabled)
+			pim_autorp_start_discovery(pim);
+		else
+			pim_autorp_stop_discovery(pim);
+		break;
+	}
+#endif
+
+	return NB_OK;
+}
+int routing_control_plane_protocols_control_plane_protocol_pim_address_family_rp_auto_rp_discovery_enabled_destroy(
+	struct nb_cb_destroy_args *args)
+{
+#if PIM_IPV == 4
+	struct vrf *vrf;
+	struct pim_instance *pim;
+	bool enabled;
+
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		break;
+	case NB_EV_APPLY:
+		vrf = nb_running_get_entry(args->dnode, NULL, true);
+		pim = vrf->info;
+		enabled = yang_dnode_get_bool(args->dnode, NULL);
+		/* Run AutoRP discovery by default */
+		if (!enabled)
+			pim_autorp_start_discovery(pim);
+		break;
+	}
+#endif
+
+	return NB_OK;
+}
+
+/*
+ * XPath: /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-pim:pim/address-family/frr-pim-rp:rp/auto-rp/announce-scope
+ */
+int routing_control_plane_protocols_control_plane_protocol_pim_address_family_rp_auto_rp_announce_scope_modify(
+	struct nb_cb_modify_args *args)
+{
+#if PIM_IPV == 4
+	struct vrf *vrf;
+	struct pim_instance *pim;
+	uint8_t scope;
+
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		break;
+	case NB_EV_APPLY:
+		vrf = nb_running_get_entry(args->dnode, NULL, true);
+		pim = vrf->info;
+		scope = yang_dnode_get_uint8(args->dnode, NULL);
+		pim_autorp_announce_scope(pim, scope);
+	}
+#endif
+
+	return NB_OK;
+}
+int routing_control_plane_protocols_control_plane_protocol_pim_address_family_rp_auto_rp_announce_scope_destroy(
+	struct nb_cb_destroy_args *args)
+{
+#if PIM_IPV == 4
+	struct vrf *vrf;
+	struct pim_instance *pim;
+
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		break;
+	case NB_EV_APPLY:
+		vrf = nb_running_get_entry(args->dnode, NULL, true);
+		pim = vrf->info;
+		pim_autorp_announce_scope(pim, 0);
+	}
+#endif
+
+	return NB_OK;
+}
+
+/*
+ * XPath: /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-pim:pim/address-family/frr-pim-rp:rp/auto-rp/announce-interval
+ */
+int routing_control_plane_protocols_control_plane_protocol_pim_address_family_rp_auto_rp_announce_interval_modify(
+	struct nb_cb_modify_args *args)
+{
+#if PIM_IPV == 4
+	struct vrf *vrf;
+	struct pim_instance *pim;
+	uint16_t interval;
+
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		break;
+	case NB_EV_APPLY:
+		vrf = nb_running_get_entry(args->dnode, NULL, true);
+		pim = vrf->info;
+		interval = yang_dnode_get_uint16(args->dnode, NULL);
+		pim_autorp_announce_interval(pim, interval);
+	}
+#endif
+
+	return NB_OK;
+}
+int routing_control_plane_protocols_control_plane_protocol_pim_address_family_rp_auto_rp_announce_interval_destroy(
+	struct nb_cb_destroy_args *args)
+{
+#if PIM_IPV == 4
+	struct vrf *vrf;
+	struct pim_instance *pim;
+
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		break;
+	case NB_EV_APPLY:
+		vrf = nb_running_get_entry(args->dnode, NULL, true);
+		pim = vrf->info;
+		pim_autorp_announce_interval(pim, 0);
+	}
+#endif
+
+	return NB_OK;
+}
+
+/*
+ * XPath: /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-pim:pim/address-family/frr-pim-rp:rp/auto-rp/announce-holdtime
+ */
+int routing_control_plane_protocols_control_plane_protocol_pim_address_family_rp_auto_rp_announce_holdtime_modify(
+	struct nb_cb_modify_args *args)
+{
+#if PIM_IPV == 4
+	struct vrf *vrf;
+	struct pim_instance *pim;
+	uint16_t holdtime;
+
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		break;
+	case NB_EV_APPLY:
+		vrf = nb_running_get_entry(args->dnode, NULL, true);
+		pim = vrf->info;
+		holdtime = yang_dnode_get_uint16(args->dnode, NULL);
+		pim_autorp_announce_holdtime(pim, holdtime);
+	}
+#endif
+
+	return NB_OK;
+}
+int routing_control_plane_protocols_control_plane_protocol_pim_address_family_rp_auto_rp_announce_holdtime_destroy(
+	struct nb_cb_destroy_args *args)
+{
+#if PIM_IPV == 4
+	struct vrf *vrf;
+	struct pim_instance *pim;
+
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		break;
+	case NB_EV_APPLY:
+		vrf = nb_running_get_entry(args->dnode, NULL, true);
+		pim = vrf->info;
+		/* 0 is a valid value, so -1 indicates deleting (go back to default) */
+		pim_autorp_announce_holdtime(pim, -1);
+	}
+#endif
+
+	return NB_OK;
+}
+
+/*
+ * XPath: /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-pim:pim/address-family/frr-pim-rp:rp/auto-rp/candidate-rp-list
+ */
+int routing_control_plane_protocols_control_plane_protocol_pim_address_family_rp_auto_rp_candidate_rp_list_create(
+	struct nb_cb_create_args *args)
+{
+#if PIM_IPV == 4
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+	case NB_EV_APPLY:
+		break;
+	}
+#endif
+
+	return NB_OK;
+}
+int routing_control_plane_protocols_control_plane_protocol_pim_address_family_rp_auto_rp_candidate_rp_list_destroy(
+	struct nb_cb_destroy_args *args)
+{
+#if PIM_IPV == 4
+	struct vrf *vrf;
+	struct pim_instance *pim;
+	pim_addr rp_addr;
+
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		break;
+	case NB_EV_APPLY:
+		vrf = nb_running_get_entry(args->dnode, NULL, true);
+		pim = vrf->info;
+		yang_dnode_get_pimaddr(&rp_addr, args->dnode, "rp-address");
+		if (!pim_autorp_rm_candidate_rp(pim, rp_addr))
+			return NB_ERR_INCONSISTENCY;
+		break;
+	}
+#endif
+
+	return NB_OK;
+}
+
+/*
+ * XPath: /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-pim:pim/address-family/frr-pim-rp:rp/auto-rp/candidate-rp-list/group
+ */
+int routing_control_plane_protocols_control_plane_protocol_pim_address_family_rp_auto_rp_candidate_rp_list_group_modify(
+	struct nb_cb_modify_args *args)
+{
+#if PIM_IPV == 4
+	struct vrf *vrf;
+	struct pim_instance *pim;
+	struct prefix group;
+	pim_addr rp_addr;
+
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		break;
+	case NB_EV_APPLY:
+		vrf = nb_running_get_entry(args->dnode, NULL, true);
+		pim = vrf->info;
+		yang_dnode_get_pimaddr(&rp_addr, args->dnode, "../rp-address");
+		yang_dnode_get_prefix(&group, args->dnode, NULL);
+		apply_mask(&group);
+		pim_autorp_add_candidate_rp_group(pim, rp_addr, group);
+	}
+#endif
+
+	return NB_OK;
+}
+int routing_control_plane_protocols_control_plane_protocol_pim_address_family_rp_auto_rp_candidate_rp_list_group_destroy(
+	struct nb_cb_destroy_args *args)
+{
+#if PIM_IPV == 4
+	struct vrf *vrf;
+	struct pim_instance *pim;
+	struct prefix group;
+	pim_addr rp_addr;
+
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		break;
+	case NB_EV_APPLY:
+		vrf = nb_running_get_entry(args->dnode, NULL, true);
+		pim = vrf->info;
+		yang_dnode_get_pimaddr(&rp_addr, args->dnode, "../rp-address");
+		yang_dnode_get_prefix(&group, args->dnode, NULL);
+		apply_mask(&group);
+		if (!pim_autorp_rm_candidate_rp_group(pim, rp_addr, group))
+			return NB_ERR_INCONSISTENCY;
+	}
+#endif
+
+	return NB_OK;
+}
+
+/*
+ * XPath: /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-pim:pim/address-family/frr-pim-rp:rp/auto-rp/candidate-rp-list/prefix-list
+ */
+int routing_control_plane_protocols_control_plane_protocol_pim_address_family_rp_auto_rp_candidate_rp_list_prefix_list_modify(
+	struct nb_cb_modify_args *args)
+{
+#if PIM_IPV == 4
+	struct vrf *vrf;
+	struct pim_instance *pim;
+	pim_addr rp_addr;
+	const char *plist;
+
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		break;
+	case NB_EV_APPLY:
+		vrf = nb_running_get_entry(args->dnode, NULL, true);
+		pim = vrf->info;
+		plist = yang_dnode_get_string(args->dnode, NULL);
+		yang_dnode_get_pimaddr(&rp_addr, args->dnode, "../rp-address");
+		pim_autorp_add_candidate_rp_plist(pim, rp_addr, plist);
+	}
+#endif
+
+	return NB_OK;
+}
+int routing_control_plane_protocols_control_plane_protocol_pim_address_family_rp_auto_rp_candidate_rp_list_prefix_list_destroy(
+	struct nb_cb_destroy_args *args)
+{
+#if PIM_IPV == 4
+	struct vrf *vrf;
+	struct pim_instance *pim;
+	pim_addr rp_addr;
+	const char *plist;
+
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		break;
+	case NB_EV_APPLY:
+		vrf = nb_running_get_entry(args->dnode, NULL, true);
+		pim = vrf->info;
+		yang_dnode_get_pimaddr(&rp_addr, args->dnode, "../rp-address");
+		plist = yang_dnode_get_string(args->dnode, NULL);
+		if (!pim_autorp_rm_candidate_rp_plist(pim, rp_addr, plist))
+			return NB_ERR_INCONSISTENCY;
+		break;
+	}
+#endif
+
+	return NB_OK;
+}
+
+static void yang_addrsel(struct cand_addrsel *addrsel,
+			 const struct lyd_node *node)
+{
+	memset(addrsel->cfg_ifname, 0, sizeof(addrsel->cfg_ifname));
+	addrsel->cfg_addr = PIMADDR_ANY;
+
+	if (yang_dnode_exists(node, "if-any")) {
+		addrsel->cfg_mode = CAND_ADDR_ANY;
+	} else if (yang_dnode_exists(node, "address")) {
+		addrsel->cfg_mode = CAND_ADDR_EXPLICIT;
+		yang_dnode_get_pimaddr(&addrsel->cfg_addr, node, "address");
+	} else if (yang_dnode_exists(node, "interface")) {
+		addrsel->cfg_mode = CAND_ADDR_IFACE;
+		strlcpy(addrsel->cfg_ifname,
+			yang_dnode_get_string(node, "interface"),
+			sizeof(addrsel->cfg_ifname));
+	} else if (yang_dnode_exists(node, "if-loopback")) {
+		addrsel->cfg_mode = CAND_ADDR_LO;
+	}
+}
+
+static int candidate_bsr_addrsel(struct bsm_scope *scope,
+				 const struct lyd_node *cand_bsr_node)
+{
+	yang_addrsel(&scope->bsr_addrsel, cand_bsr_node);
+	pim_cand_bsr_apply(scope);
+	return NB_OK;
+}
+
+int routing_control_plane_protocols_control_plane_protocol_pim_address_family_candidate_bsr_create(
+	struct nb_cb_create_args *args)
+{
+	struct vrf *vrf;
+	struct pim_instance *pim;
+	struct bsm_scope *scope;
+
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		break;
+	case NB_EV_APPLY:
+		vrf = nb_running_get_entry(args->dnode, NULL, true);
+		pim = vrf->info;
+		scope = &pim->global_scope;
+
+		scope->bsr_addrsel.cfg_enable = true;
+		scope->cand_bsr_prio = yang_dnode_get_uint8(args->dnode,
+							    "bsr-priority");
+
+		candidate_bsr_addrsel(scope, args->dnode);
+		break;
+	}
+
+	return NB_OK;
+}
+
+int routing_control_plane_protocols_control_plane_protocol_pim_address_family_candidate_bsr_destroy(
+	struct nb_cb_destroy_args *args)
+{
+	struct vrf *vrf;
+	struct pim_instance *pim;
+	struct bsm_scope *scope;
+
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		break;
+	case NB_EV_APPLY:
+		vrf = nb_running_get_entry(args->dnode, NULL, true);
+		pim = vrf->info;
+		scope = &pim->global_scope;
+
+		scope->bsr_addrsel.cfg_enable = false;
+
+		pim_cand_bsr_apply(scope);
+		break;
+	}
+
+	return NB_OK;
+}
+
+int routing_control_plane_protocols_control_plane_protocol_pim_address_family_candidate_bsr_priority_modify(
+	struct nb_cb_modify_args *args)
+{
+	struct vrf *vrf;
+	struct pim_instance *pim;
+	struct bsm_scope *scope;
+
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		break;
+	case NB_EV_APPLY:
+		vrf = nb_running_get_entry(args->dnode, NULL, true);
+		pim = vrf->info;
+		scope = &pim->global_scope;
+
+		scope->cand_bsr_prio = yang_dnode_get_uint8(args->dnode, NULL);
+
+		/* FIXME: force prio update */
+		candidate_bsr_addrsel(scope, args->dnode);
+		break;
+	}
+
+	return NB_OK;
+}
+
+int routing_control_plane_protocols_control_plane_protocol_pim_address_family_candidate_bsr_addrsel_create(
+	struct nb_cb_create_args *args)
+{
+	struct vrf *vrf;
+	struct pim_instance *pim;
+	struct bsm_scope *scope;
+	const struct lyd_node *cand_bsr_node;
+
+	cand_bsr_node = yang_dnode_get_parent(args->dnode, "candidate-bsr");
+
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		break;
+	case NB_EV_APPLY:
+		vrf = nb_running_get_entry(args->dnode, NULL, true);
+		pim = vrf->info;
+		scope = &pim->global_scope;
+
+		return candidate_bsr_addrsel(scope, cand_bsr_node);
+	}
+	return NB_OK;
+}
+
+int routing_control_plane_protocols_control_plane_protocol_pim_address_family_candidate_bsr_addrsel_modify(
+	struct nb_cb_modify_args *args)
+{
+	struct vrf *vrf;
+	struct pim_instance *pim;
+	struct bsm_scope *scope;
+	const struct lyd_node *cand_bsr_node;
+
+	cand_bsr_node = yang_dnode_get_parent(args->dnode, "candidate-bsr");
+
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		break;
+	case NB_EV_APPLY:
+		vrf = nb_running_get_entry(args->dnode, NULL, true);
+		pim = vrf->info;
+		scope = &pim->global_scope;
+
+		return candidate_bsr_addrsel(scope, cand_bsr_node);
+	}
+	return NB_OK;
+}
+
+int routing_control_plane_protocols_control_plane_protocol_pim_address_family_candidate_bsr_addrsel_destroy(
+	struct nb_cb_destroy_args *args)
+{
+	/* nothing to do here, we'll get a CREATE for something else */
+	return NB_OK;
+}
+
+static int candidate_rp_addrsel(struct bsm_scope *scope,
+				const struct lyd_node *cand_rp_node)
+{
+	yang_addrsel(&scope->cand_rp_addrsel, cand_rp_node);
+	pim_cand_rp_apply(scope);
+	return NB_OK;
+}
+
+int routing_control_plane_protocols_control_plane_protocol_pim_address_family_candidate_rp_create(
+	struct nb_cb_create_args *args)
+{
+	struct vrf *vrf;
+	struct pim_instance *pim;
+	struct bsm_scope *scope;
+
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		break;
+	case NB_EV_APPLY:
+		vrf = nb_running_get_entry(args->dnode, NULL, true);
+		pim = vrf->info;
+		scope = &pim->global_scope;
+
+		scope->cand_rp_addrsel.cfg_enable = true;
+		scope->cand_rp_prio = yang_dnode_get_uint8(args->dnode,
+							   "rp-priority");
+		scope->cand_rp_interval =
+			yang_dnode_get_uint32(args->dnode,
+					      "advertisement-interval");
+
+		candidate_rp_addrsel(scope, args->dnode);
+		break;
+	}
+
+	return NB_OK;
+}
+
+int routing_control_plane_protocols_control_plane_protocol_pim_address_family_candidate_rp_destroy(
+	struct nb_cb_destroy_args *args)
+{
+	struct vrf *vrf;
+	struct pim_instance *pim;
+	struct bsm_scope *scope;
+
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		break;
+	case NB_EV_APPLY:
+		vrf = nb_running_get_entry(args->dnode, NULL, true);
+		pim = vrf->info;
+		scope = &pim->global_scope;
+
+		scope->cand_rp_addrsel.cfg_enable = false;
+
+		pim_cand_rp_apply(scope);
+		break;
+	}
+
+	return NB_OK;
+}
+
+int routing_control_plane_protocols_control_plane_protocol_pim_address_family_candidate_rp_priority_modify(
+	struct nb_cb_modify_args *args)
+{
+	struct vrf *vrf;
+	struct pim_instance *pim;
+	struct bsm_scope *scope;
+
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		break;
+	case NB_EV_APPLY:
+		vrf = nb_running_get_entry(args->dnode, NULL, true);
+		pim = vrf->info;
+		scope = &pim->global_scope;
+
+		scope->cand_rp_prio = yang_dnode_get_uint8(args->dnode, NULL);
+
+		pim_cand_rp_trigger(scope);
+		break;
+	}
+
+	return NB_OK;
+}
+
+int routing_control_plane_protocols_control_plane_protocol_pim_address_family_candidate_rp_adv_interval_modify(
+	struct nb_cb_modify_args *args)
+{
+	struct vrf *vrf;
+	struct pim_instance *pim;
+	struct bsm_scope *scope;
+
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		break;
+	case NB_EV_APPLY:
+		vrf = nb_running_get_entry(args->dnode, NULL, true);
+		pim = vrf->info;
+		scope = &pim->global_scope;
+
+		scope->cand_rp_interval = yang_dnode_get_uint32(args->dnode,
+								NULL);
+
+		pim_cand_rp_trigger(scope);
+		break;
+	}
+
+	return NB_OK;
+}
+
+#if PIM_IPV == 4
+#define yang_dnode_get_pim_p yang_dnode_get_ipv4p
+#else
+#define yang_dnode_get_pim_p yang_dnode_get_ipv6p
+#endif
+
+int routing_control_plane_protocols_control_plane_protocol_pim_address_family_candidate_rp_group_list_create(
+	struct nb_cb_create_args *args)
+{
+	struct vrf *vrf;
+	struct pim_instance *pim;
+	struct bsm_scope *scope;
+	prefix_pim p;
+
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		break;
+	case NB_EV_APPLY:
+		vrf = nb_running_get_entry(args->dnode, NULL, true);
+		pim = vrf->info;
+		scope = &pim->global_scope;
+
+		yang_dnode_get_pim_p(&p, args->dnode, ".");
+		pim_cand_rp_grp_add(scope, &p);
+		break;
+	}
+	return NB_OK;
+}
+
+int routing_control_plane_protocols_control_plane_protocol_pim_address_family_candidate_rp_group_list_destroy(
+	struct nb_cb_destroy_args *args)
+{
+	struct vrf *vrf;
+	struct pim_instance *pim;
+	struct bsm_scope *scope;
+	prefix_pim p;
+
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		break;
+	case NB_EV_APPLY:
+		vrf = nb_running_get_entry(args->dnode, NULL, true);
+		pim = vrf->info;
+		scope = &pim->global_scope;
+
+		yang_dnode_get_pim_p(&p, args->dnode, ".");
+		pim_cand_rp_grp_del(scope, &p);
+		break;
+	}
+	return NB_OK;
+}
+
+static int candidate_rp_addrsel_common(enum nb_event event,
+				       const struct lyd_node *dnode)
+{
+	struct vrf *vrf;
+	struct pim_instance *pim;
+	struct bsm_scope *scope;
+
+	dnode = lyd_parent(dnode);
+
+	switch (event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		break;
+	case NB_EV_APPLY:
+		vrf = nb_running_get_entry(dnode, NULL, true);
+		pim = vrf->info;
+		scope = &pim->global_scope;
+
+		candidate_rp_addrsel(scope, dnode);
+		break;
+	}
+	return NB_OK;
+}
+
+int routing_control_plane_protocols_control_plane_protocol_pim_address_family_candidate_rp_addrsel_create(
+	struct nb_cb_create_args *args)
+{
+	return candidate_rp_addrsel_common(args->event, args->dnode);
+}
+
+int routing_control_plane_protocols_control_plane_protocol_pim_address_family_candidate_rp_addrsel_modify(
+	struct nb_cb_modify_args *args)
+{
+	return candidate_rp_addrsel_common(args->event, args->dnode);
+}
+
+int routing_control_plane_protocols_control_plane_protocol_pim_address_family_candidate_rp_addrsel_destroy(
+	struct nb_cb_destroy_args *args)
+{
+	/* nothing to do here - we'll get a create or modify event too */
+	return NB_OK;
+}
+
+/*
  * XPath: /frr-interface:lib/interface/frr-gmp:gmp/address-family
  */
 int lib_interface_gmp_address_family_create(struct nb_cb_create_args *args)
@@ -2563,7 +3447,6 @@ int lib_interface_gmp_address_family_create(struct nb_cb_create_args *args)
 int lib_interface_gmp_address_family_destroy(struct nb_cb_destroy_args *args)
 {
 	struct interface *ifp;
-	struct pim_interface *pim_ifp;
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
@@ -2572,19 +3455,7 @@ int lib_interface_gmp_address_family_destroy(struct nb_cb_destroy_args *args)
 		break;
 	case NB_EV_APPLY:
 		ifp = nb_running_get_entry(args->dnode, NULL, true);
-		pim_ifp = ifp->info;
-
-		if (!pim_ifp)
-			return NB_OK;
-
-		pim_ifp->gm_enable = false;
-
-		pim_if_membership_clear(ifp);
-
-		pim_if_addr_del_all_igmp(ifp);
-
-		if (!pim_ifp->pim_enable)
-			pim_if_delete(ifp);
+		pim_gm_interface_delete(ifp);
 	}
 
 	return NB_OK;
@@ -2598,7 +3469,6 @@ int lib_interface_gmp_address_family_enable_modify(
 {
 	struct interface *ifp;
 	bool gm_enable;
-	struct pim_interface *pim_ifp;
 	int mcast_if_count;
 	const char *ifp_name;
 	const struct lyd_node *if_dnode;
@@ -2628,25 +3498,8 @@ int lib_interface_gmp_address_family_enable_modify(
 		if (gm_enable)
 			return pim_cmd_gm_start(ifp);
 
-		else {
-			pim_ifp = ifp->info;
-
-			if (!pim_ifp)
-				return NB_ERR_INCONSISTENCY;
-
-			pim_ifp->gm_enable = false;
-
-			pim_if_membership_clear(ifp);
-
-#if PIM_IPV == 4
-			pim_if_addr_del_all_igmp(ifp);
-#else
-			gm_ifp_teardown(ifp);
-#endif
-
-			if (!pim_ifp->pim_enable)
-				pim_if_delete(ifp);
-		}
+		else
+			pim_gm_interface_delete(ifp);
 	}
 	return NB_OK;
 }
@@ -2893,9 +3746,37 @@ int lib_interface_gmp_address_family_robustness_variable_modify(
 }
 
 /*
- * XPath: /frr-interface:lib/interface/frr-gmp:gmp/address-family/static-group
+ * XPath: /frr-interface:lib/interface/frr-gmp:gmp/address-family/proxy
  */
-int lib_interface_gmp_address_family_static_group_create(
+int lib_interface_gmp_address_family_proxy_modify(struct nb_cb_modify_args *args)
+{
+	struct interface *ifp;
+	struct pim_interface *pim_ifp;
+
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		break;
+	case NB_EV_APPLY:
+		ifp = nb_running_get_entry(args->dnode, NULL, true);
+		pim_ifp = ifp->info;
+		if (pim_ifp) {
+			pim_ifp->gm_proxy = yang_dnode_get_bool(args->dnode,
+								NULL);
+
+			if (pim_ifp->gm_proxy)
+				pim_if_gm_proxy_init(pim_ifp->pim, ifp);
+			else
+				pim_if_gm_proxy_finis(pim_ifp->pim, ifp);
+		}
+	}
+	return NB_OK;
+}
+/*
+ * XPath: /frr-interface:lib/interface/frr-gmp:gmp/address-family/join-group
+ */
+int lib_interface_gmp_address_family_join_group_create(
 	struct nb_cb_create_args *args)
 {
 	struct interface *ifp;
@@ -2943,10 +3824,104 @@ int lib_interface_gmp_address_family_static_group_create(
 				       "./source-addr");
 		yang_dnode_get_pimaddr(&group_addr, args->dnode,
 				       "./group-addr");
-		result = pim_if_gm_join_add(ifp, group_addr, source_addr);
+		result = pim_if_gm_join_add(ifp, group_addr, source_addr,
+					    GM_JOIN_STATIC);
 		if (result) {
 			snprintf(args->errmsg, args->errmsg_len,
 				 "Failure joining " GM " group");
+			return NB_ERR_INCONSISTENCY;
+		}
+	}
+	return NB_OK;
+}
+
+int lib_interface_gmp_address_family_join_group_destroy(
+	struct nb_cb_destroy_args *args)
+{
+	struct interface *ifp;
+	pim_addr source_addr;
+	pim_addr group_addr;
+	int result;
+
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		break;
+	case NB_EV_APPLY:
+		ifp = nb_running_get_entry(args->dnode, NULL, true);
+		yang_dnode_get_pimaddr(&source_addr, args->dnode,
+				       "./source-addr");
+		yang_dnode_get_pimaddr(&group_addr, args->dnode,
+				       "./group-addr");
+		result = pim_if_gm_join_del(ifp, group_addr, source_addr,
+					    GM_JOIN_STATIC);
+
+		if (result) {
+			snprintfrr(args->errmsg, args->errmsg_len,
+				   "%% Failure leaving " GM " group %pPAs %pPAs on interface %s: %d",
+				   &source_addr, &group_addr, ifp->name, result);
+
+			return NB_ERR_INCONSISTENCY;
+		}
+
+		break;
+	}
+
+	return NB_OK;
+}
+
+/*
+ * XPath: /frr-interface:lib/interface/frr-gmp:gmp/address-family/static-group
+ */
+int lib_interface_gmp_address_family_static_group_create(
+	struct nb_cb_create_args *args)
+{
+	struct interface *ifp;
+	pim_addr source_addr;
+	pim_addr group_addr;
+	int result;
+	const char *ifp_name;
+	const struct lyd_node *if_dnode;
+
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+		if_dnode = yang_dnode_get_parent(args->dnode, "interface");
+		if (!is_pim_interface(if_dnode)) {
+			ifp_name = yang_dnode_get_string(if_dnode, "name");
+			snprintf(args->errmsg, args->errmsg_len,
+				 "multicast not enabled on interface %s",
+				 ifp_name);
+			return NB_ERR_VALIDATION;
+		}
+
+		yang_dnode_get_pimaddr(&group_addr, args->dnode, "./group-addr");
+#if PIM_IPV == 4
+		if (pim_is_group_224_0_0_0_24(group_addr)) {
+			snprintf(args->errmsg, args->errmsg_len,
+				 "Groups within 224.0.0.0/24 are reserved and cannot be joined");
+			return NB_ERR_VALIDATION;
+		}
+#else
+		if (ipv6_mcast_reserved(&group_addr)) {
+			snprintf(args->errmsg, args->errmsg_len,
+				 "Groups within ffx2::/16 are reserved and cannot be joined");
+			return NB_ERR_VALIDATION;
+		}
+#endif
+		break;
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		break;
+	case NB_EV_APPLY:
+		ifp = nb_running_get_entry(args->dnode, NULL, true);
+		yang_dnode_get_pimaddr(&source_addr, args->dnode,
+				       "./source-addr");
+		yang_dnode_get_pimaddr(&group_addr, args->dnode, "./group-addr");
+		result = pim_if_static_group_add(ifp, group_addr, source_addr);
+		if (result) {
+			snprintf(args->errmsg, args->errmsg_len,
+				 "Failure adding static group");
 			return NB_ERR_INCONSISTENCY;
 		}
 	}
@@ -2970,15 +3945,13 @@ int lib_interface_gmp_address_family_static_group_destroy(
 		ifp = nb_running_get_entry(args->dnode, NULL, true);
 		yang_dnode_get_pimaddr(&source_addr, args->dnode,
 				       "./source-addr");
-		yang_dnode_get_pimaddr(&group_addr, args->dnode,
-				       "./group-addr");
-		result = pim_if_gm_join_del(ifp, group_addr, source_addr);
+		yang_dnode_get_pimaddr(&group_addr, args->dnode, "./group-addr");
+		result = pim_if_static_group_del(ifp, group_addr, source_addr);
 
 		if (result) {
-			snprintf(args->errmsg, args->errmsg_len,
-				 "%% Failure leaving " GM
-				 " group %pPAs %pPAs on interface %s: %d",
-				 &source_addr, &group_addr, ifp->name, result);
+			snprintfrr(args->errmsg, args->errmsg_len,
+				   "%% Failure removing static group %pPAs %pPAs on interface %s: %d",
+				   &source_addr, &group_addr, ifp->name, result);
 
 			return NB_ERR_INCONSISTENCY;
 		}

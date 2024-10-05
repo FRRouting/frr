@@ -21,6 +21,8 @@
 #include "log.h"
 #include "lib_errors.h"
 
+XREF_SETUP();
+
 DEFINE_MTYPE_STATIC(LIB, ZEROMQ_CB, "ZeroMQ callback");
 
 /* libzmq's context */

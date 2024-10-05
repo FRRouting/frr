@@ -211,8 +211,8 @@ mask_prefix(unsigned char *restrict ret,
     memset(ret, 0, 16);
     memcpy(ret, prefix, plen / 8);
     if(plen % 8 != 0)
-        ret[plen / 8] =
-            (prefix[plen / 8] & ((0xFF << (8 - (plen % 8))) & 0xFF));
+        ret[plen / 8] = CHECK_FLAG(prefix[plen / 8],
+                CHECK_FLAG((0xFF << (8 - (plen % 8))), 0xFF));
     return ret;
 }
 
@@ -353,12 +353,13 @@ martian_prefix(const unsigned char *prefix, int plen)
 {
     return
         (plen >= 8 && prefix[0] == 0xFF) ||
-        (plen >= 10 && prefix[0] == 0xFE && (prefix[1] & 0xC0) == 0x80) ||
+        (plen >= 10 && prefix[0] == 0xFE &&
+         (CHECK_FLAG(prefix[1], 0xC0) == 0x80)) ||
         (plen >= 128 && memcmp(prefix, zeroes, 15) == 0 &&
          (prefix[15] == 0 || prefix[15] == 1)) ||
         (plen >= 96 && v4mapped(prefix) &&
          ((plen >= 104 && (prefix[12] == 127 || prefix[12] == 0)) ||
-          (plen >= 100 && (prefix[12] & 0xE0) == 0xE0)));
+          (plen >= 100 && CHECK_FLAG(prefix[12], 0xE0) == 0xE0)));
 }
 
 int

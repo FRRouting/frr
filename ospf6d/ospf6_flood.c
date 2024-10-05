@@ -26,6 +26,7 @@
 
 #include "ospf6_flood.h"
 #include "ospf6_nssa.h"
+#include "ospf6_tlv.h"
 #include "ospf6_gr.h"
 
 unsigned char conf_debug_ospf6_flooding;
@@ -295,9 +296,7 @@ void ospf6_install_lsa(struct ospf6_lsa *lsa)
 	lsa->installed = now;
 
 	/* Topo change handling */
-	if (CHECK_LSA_TOPO_CHG_ELIGIBLE(ntohs(lsa->header->type))
-	    && !CHECK_FLAG(lsa->flag, OSPF6_LSA_DUPLICATE)) {
-
+	if (CHECK_LSA_TOPO_CHG_ELIGIBLE(ntohs(lsa->header->type))) {
 		/* check if it is new lsa ? or existing lsa got modified ?*/
 		if (!old || OSPF6_LSA_IS_CHANGED(old, lsa))
 			ospf6_helper_handle_topo_chg(ospf6, lsa);
@@ -389,7 +388,7 @@ void ospf6_flood_interface(struct ospf6_neighbor *from, struct ospf6_lsa *lsa,
 					if (req == on->last_ls_req) {
 						/* sanity check refcount */
 						assert(req->lock >= 2);
-						req = ospf6_lsa_unlock(req);
+						ospf6_lsa_unlock(&req);
 						on->last_ls_req = NULL;
 					}
 					if (req)
@@ -406,7 +405,7 @@ void ospf6_flood_interface(struct ospf6_neighbor *from, struct ospf6_lsa *lsa,
 						zlog_debug(
 							"Received is newer, remove requesting");
 					if (req == on->last_ls_req) {
-						req = ospf6_lsa_unlock(req);
+						ospf6_lsa_unlock(&req);
 						on->last_ls_req = NULL;
 					}
 					if (req)
@@ -1045,6 +1044,7 @@ void ospf6_receive_lsa(struct ospf6_neighbor *from,
 						zlog_debug(
 							"%s, GraceLSA doesn't exist in lsdb, so discarding GraceLSA",
 							__func__);
+					ospf6_lsa_delete(new);
 					return;
 				}
 			} else {

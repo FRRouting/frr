@@ -11,45 +11,22 @@ The following sections discuss commands common to all the routing daemons.
 Config Commands
 ===============
 
-
-
-
-
-In a config file, you can write the debugging options, a vty's password,
+In the config file, you can write the debugging options, a vty's password,
 routing daemon configurations, a log file name, and so forth. This information
 forms the initial command set for a routing beast as it is starting.
 
-Config files are generally found in |INSTALL_PREFIX_ETC|.
+.. _config-file:
 
-Config Methods
---------------
+Integrated Config File
+----------------------
 
-There are two ways of configuring FRR.
+FRR uses a single configuration file located in |INSTALL_PREFIX_ETC|/frr.conf.
+When FRR is started using an init script or ``systemd``, ``vtysh`` is invoked to
+read the config file and send the appropriate portions to only the daemons
+interested in them. Running configuration updates are persisted back to this
+single file using ``vtysh`` as well.
 
-Traditionally each of the daemons had its own config file. The daemon name plus
-``.conf`` was the default config file name. For example, zebra's default config
-file was :file:`zebra.conf`. This method is deprecated.
-
-Because of the amount of config files this creates, and the tendency of one
-daemon to rely on others for certain functionality, most deployments now use
-"integrated" configuration. In this setup all configuration goes into a single
-file, typically :file:`/etc/frr/frr.conf`. When starting up FRR using an init
-script or systemd, ``vtysh`` is invoked to read the config file and send the
-appropriate portions to only the daemons interested in them. Running
-configuration updates are persisted back to this single file using ``vtysh``.
-This is the recommended method. To use this method, add the following line to
-:file:`/etc/frr/vtysh.conf`:
-
-.. code-block:: frr
-
-   service integrated-vtysh-config
-
-If you installed from source or used a package, this is probably already
-present.
-
-If desired, you can specify a config file using the :option:`-f` or
-:option:`--config_file` options when starting a daemon.
-
+.. include:: prior-config-files.rst
 
 .. _basic-config-commands:
 
@@ -92,9 +69,6 @@ Basic Config Commands
    of some routine in FRR mistakenly blocking/hogging the processing loop and
    should be reported as a FRR bug.
 
-   The default limit is 5 seconds (i.e. 5000), but this can be changed by the
-   deprecated ``--enable-time-check=...`` compile-time option.
-
    This command has no effect if :clicmd:`service cputime-stats` is disabled.
 
 .. clicmd:: service walltime-warning (1-4294967295)
@@ -105,9 +79,6 @@ Basic Config Commands
    warnings if the system is overloaded.  (This may still be useful to
    provide an immediate sign that FRR is not operating correctly due to
    externally caused starvation.)
-
-   The default limit is 5 seconds as above, including the same deprecated
-   ``--enable-time-check=...`` compile-time option.
 
 .. clicmd:: log trap LEVEL
 
@@ -157,6 +128,20 @@ Basic Config Commands
    the default logging level (typically debugging, but can be changed using the
    deprecated ``log trap`` command) will be used. The ``no`` form of the command
    disables logging to a file.
+
+.. clicmd:: log daemon DAEMON file [FILENAME [LEVEL]]
+
+   Configure file logging for a single FRR daemon. If you want to log
+   into a file, please specify ``filename`` as in this example:
+
+   ::
+
+      log daemon bgpd file /var/log/frr/bgpd.log informational
+
+   If the optional second argument specifying the logging level is not present,
+   the default logging level (typically debugging, but can be changed using the
+   deprecated ``log trap`` command) will be used. The ``no`` form of the command
+   disables logging to a file for a single FRR daemon.
 
 .. clicmd:: log syslog [LEVEL]
 
@@ -221,7 +206,7 @@ Basic Config Commands
    enabled log destinations. The note that logging includes full command lines,
    including passwords. If the daemon startup option `--command-log-always`
    is used to start the daemon then this command is turned on by default
-   and cannot be turned off and the [no] form of the command is dissallowed.
+   and cannot be turned off and the [no] form of the command is disallowed.
 
 .. clicmd:: log filtered-file [FILENAME [LEVEL]]
 
@@ -679,24 +664,28 @@ Terminal Mode Commands
 
 .. _common-show-commands:
 
-.. clicmd:: show thread cpu [r|w|t|e|x]
+.. clicmd:: show event cpu [r|w|t|e|x]
 
    This command displays system run statistics for all the different event
    types. If no options is specified all different run types are displayed
    together.  Additionally you can ask to look at (r)ead, (w)rite, (t)imer,
-   (e)vent and e(x)ecute thread event types.  If you have compiled with
-   disable-cpu-time then this command will not show up.
+   (e)vent and e(x)ecute thread event types.
 
-.. clicmd:: show thread poll
+.. clicmd:: show event poll
 
    This command displays FRR's poll data.  It allows a glimpse into how
    we are setting each individual fd for the poll command at that point
    in time.
 
-.. clicmd:: show thread timers
+.. clicmd:: show event timers
 
    This command displays FRR's timer data for timers that will pop in
    the future.
+
+.. clicmd:: show configuration running [<json|xml> [translate WORD]] [with-defaults] DAEMON
+
+   This command displays the northbound/YANG configuration data for a
+   daemon in text/vty, json, or xml format.
 
 .. clicmd:: show yang operational-data XPATH [{format <json|xml>|translate TRANSLATOR|with-config}] DAEMON
 
@@ -780,7 +769,7 @@ These options apply to all |PACKAGE_NAME| daemons.
 .. option:: --command-log-always
 
    Cause the daemon to always log commands entered to the specified log file.
-   This also makes the `no log commands` command dissallowed.  Enabling this
+   This also makes the `no log commands` command disallowed. Enabling this
    is suggested if you have need to track what the operator is doing on
    this router.
 

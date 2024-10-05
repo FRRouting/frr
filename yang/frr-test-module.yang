@@ -80,6 +80,41 @@ module frr-test-module {
             }
           }
         }
+        action ping {
+          input {
+            leaf data {
+              type string;
+            }
+          }
+          output {
+            leaf vrf {
+              type string;
+            }
+            // can't use the same name in input and output
+            // because of a bug in libyang < 2.1.148
+            leaf data-out {
+              type string;
+            }
+          }
+        }
+      }
+    }
+    choice achoice {
+      description "a choice statement";
+      case case1 {
+        leaf c1value {
+          type uint8;
+          description "A uint8 value for case 1";
+        }
+      }
+      case case2 {
+        container c2cont {
+          description "case 2 container";
+          leaf c2value {
+            type uint32;
+            description "A uint32 value for case 2";
+          }
+        }
       }
     }
   }

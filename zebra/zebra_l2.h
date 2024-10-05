@@ -80,6 +80,12 @@ struct zebra_vxlan_vni {
 	vni_t vni;	      /* VNI */
 	vlanid_t access_vlan; /* Access VLAN - for VLAN-aware bridge. */
 	struct in_addr mcast_grp;
+	uint16_t flags;
+};
+
+struct zebra_vxlan_vni_array {
+	uint16_t count;
+	struct zebra_vxlan_vni vnis[0];
 };
 
 enum {
@@ -159,18 +165,19 @@ extern void zebra_l2_map_slave_to_bridge(struct zebra_l2info_brslave *br_slave,
 					 struct zebra_ns *zns);
 extern void
 zebra_l2_unmap_slave_from_bridge(struct zebra_l2info_brslave *br_slave);
-extern void zebra_l2_bridge_add_update(struct interface *ifp,
-				       struct zebra_l2info_bridge *bridge_info,
-				       int add);
+extern void
+zebra_l2_bridge_add_update(struct interface *ifp,
+			   const struct zebra_l2info_bridge *bridge_info);
 extern void zebra_l2_bridge_del(struct interface *ifp);
 extern void zebra_l2_vlanif_update(struct interface *ifp,
-				   struct zebra_l2info_vlan *vlan_info);
+				   const struct zebra_l2info_vlan *vlan_info);
 extern void zebra_l2_greif_add_update(struct interface *ifp,
-				      struct zebra_l2info_gre *vxlan_info,
+				      const struct zebra_l2info_gre *vxlan_info,
 				      int add);
-extern void zebra_l2_vxlanif_add_update(struct interface *ifp,
-					struct zebra_l2info_vxlan *vxlan_info,
-					int add);
+extern void
+zebra_l2_vxlanif_add_update(struct interface *ifp,
+			    const struct zebra_l2info_vxlan *vxlan_info,
+			    int add);
 extern void zebra_l2_vxlanif_update_access_vlan(struct interface *ifp,
 						vlanid_t access_vlan);
 extern void zebra_l2_greif_del(struct interface *ifp);

@@ -62,11 +62,11 @@ DEFPY_YANG(vrrp_vrid,
 
 void cli_show_vrrp(struct vty *vty, const struct lyd_node *dnode, bool show_defaults)
 {
-	const char *vrid = yang_dnode_get_string(dnode, "./virtual-router-id");
-	const char *ver = yang_dnode_get_string(dnode, "./version");
+	const char *vrid = yang_dnode_get_string(dnode, "virtual-router-id");
+	const char *ver = yang_dnode_get_string(dnode, "version");
 
 	vty_out(vty, " vrrp %s", vrid);
-	if (show_defaults || !yang_dnode_is_default(dnode, "./version"))
+	if (show_defaults || !yang_dnode_is_default(dnode, "version"))
 		vty_out(vty, " version %s", ver);
 	vty_out(vty, "\n");
 }
@@ -200,7 +200,11 @@ DEFPY_YANG(vrrp_ip,
       VRRP_IP_STR)
 {
 	int op = no ? NB_OP_DESTROY : NB_OP_CREATE;
-	nb_cli_enqueue_change(vty, "./v4/virtual-address", op, ip_str);
+	char xpath[XPATH_MAXLEN];
+
+	snprintf(xpath, sizeof(xpath), "./v4/virtual-address[.='%s']", ip_str);
+
+	nb_cli_enqueue_change(vty, xpath, op, NULL);
 
 	return nb_cli_apply_changes(vty, VRRP_XPATH_ENTRY, vrid);
 }
@@ -228,7 +232,11 @@ DEFPY_YANG(vrrp_ip6,
       VRRP_IP_STR)
 {
 	int op = no ? NB_OP_DESTROY : NB_OP_CREATE;
-	nb_cli_enqueue_change(vty, "./v6/virtual-address", op, ipv6_str);
+	char xpath[XPATH_MAXLEN];
+
+	snprintf(xpath, sizeof(xpath), "./v6/virtual-address[.='%s']", ipv6_str);
+
+	nb_cli_enqueue_change(vty, xpath, op, NULL);
 
 	return nb_cli_apply_changes(vty, VRRP_XPATH_ENTRY, vrid);
 }
@@ -398,6 +406,7 @@ static struct json_object *vrrp_build_json(struct vrrp_vrouter *vr)
 	json_object_string_add(j, "interface", vr->ifp->name);
 	json_object_int_add(j, "advertisementInterval",
 			    vr->advertisement_interval * CS2MS);
+	json_object_int_add(j, "priority", vr->priority);
 	/* v4 */
 	json_object_string_add(v4, "interface",
 			       vr->v4->mvl_ifp ? vr->v4->mvl_ifp->name : "");
@@ -581,7 +590,7 @@ static void vrrp_show(struct vty *vty, struct vrrp_vrouter *vr)
 	char *table = ttable_dump(tt, "\n");
 
 	vty_out(vty, "\n%s\n", table);
-	XFREE(MTYPE_TMP, table);
+	XFREE(MTYPE_TMP_TTABLE, table);
 	ttable_del(tt);
 }
 
@@ -686,7 +695,7 @@ DEFPY_YANG(vrrp_vrid_show_summary,
 	char *table = ttable_dump(tt, "\n");
 
 	vty_out(vty, "\n%s\n", table);
-	XFREE(MTYPE_TMP, table);
+	XFREE(MTYPE_TMP_TTABLE, table);
 	ttable_del(tt);
 
 	list_delete(&ll);
@@ -729,21 +738,12 @@ DEFUN_NOSH (show_debugging_vrrp,
 {
 	vty_out(vty, "VRRP debugging status:\n");
 
-	vrrp_debug_status_write(vty);
-
 	cmd_show_lib_debugs(vty);
 
 	return CMD_SUCCESS;
 }
 
 /* clang-format on */
-
-static struct cmd_node debug_node = {
-	.name = "debug",
-	.node = DEBUG_NODE,
-	.prompt = "",
-	.config_write = vrrp_config_write_debug,
-};
 
 static struct cmd_node vrrp_node = {
 	.name = "vrrp",
@@ -754,7 +754,6 @@ static struct cmd_node vrrp_node = {
 
 void vrrp_vty_init(void)
 {
-	install_node(&debug_node);
 	install_node(&vrrp_node);
 	vrf_cmd_init(NULL);
 	if_cmd_init_default();

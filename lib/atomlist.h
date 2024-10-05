@@ -7,7 +7,9 @@
 #define _FRR_ATOMLIST_H
 
 #include "typesafe.h"
+#ifndef _TYPESAFE_EXPAND_MACROS
 #include "frratomic.h"
+#endif /* _TYPESAFE_EXPAND_MACROS */
 
 #ifdef __cplusplus
 extern "C" {

@@ -112,7 +112,7 @@ static inline pim_addr *oil_mcastgrp(struct channel_oil *c_oil)
 	return &c_oil->oil.mfcc_mcastgrp;
 }
 
-static inline vifi_t *oil_parent(struct channel_oil *c_oil)
+static inline vifi_t *oil_incoming_vif(struct channel_oil *c_oil)
 {
 	return &c_oil->oil.mfcc_parent;
 }
@@ -143,7 +143,7 @@ static inline pim_addr *oil_mcastgrp(struct channel_oil *c_oil)
 	return &c_oil->oil.mf6cc_mcastgrp.sin6_addr;
 }
 
-static inline mifi_t *oil_parent(struct channel_oil *c_oil)
+static inline mifi_t *oil_incoming_vif(struct channel_oil *c_oil)
 {
 	return &c_oil->oil.mf6cc_parent;
 }
@@ -182,6 +182,7 @@ struct channel_oil *pim_find_channel_oil(struct pim_instance *pim,
 					 pim_sgaddr *sg);
 struct channel_oil *pim_channel_oil_add(struct pim_instance *pim,
 					pim_sgaddr *sg, const char *name);
+void pim_clear_nocache_state(struct pim_interface *pim_ifp);
 struct channel_oil *pim_channel_oil_del(struct channel_oil *c_oil,
 					const char *name);
 

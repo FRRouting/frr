@@ -22,8 +22,7 @@ interface information from *zebra* in order to function. Therefore *zebra* must
 be running before invoking *isisd*. Also, if *zebra* is restarted then *isisd*
 must be too.
 
-Like other daemons, *isisd* configuration is done in :abbr:`ISIS` specific
-configuration file :file:`isisd.conf`.
+.. include:: config-include.rst
 
 .. _isis-router:
 
@@ -124,7 +123,7 @@ ISIS Timer
    Set LSP refresh interval in seconds, globally, for an area (level-1) or a
    domain (level-2).
 
-.. clicmd:: max-lsp-lifetime [level-1 | level-2] (360-65535)
+.. clicmd:: max-lsp-lifetime [level-1 | level-2] (350-65535)
 
    Set LSP maximum LSP lifetime in seconds, globally, for an area (level-1) or
    a domain (level-2).
@@ -165,6 +164,11 @@ flavors (local LFA, Remote LFA and TI-LFA).
 
    Configure a prefix-list to select eligible PQ nodes for remote LFA
    backups (valid for all protected interfaces).
+
+.. clicmd:: redistribute <ipv4 | ipv6> table (1-65535) <level-1 | level-2> [metric (0-16777215)|route-map WORD]
+
+   Redistribute routes from a given routing table into the given ISIS
+   level database.
 
 .. _isis-region:
 
@@ -220,17 +224,17 @@ ISIS interface
 
    Add padding to IS-IS hello packets during adjacency formation only.
 
-.. clicmd:: isis hello-interval (1-600) [level-1 | level-2]
+.. clicmd:: isis hello-interval [level-1 | level-2] (1-600)
 
    Set Hello interval in seconds globally, for an area (level-1) or a domain
    (level-2).
 
-.. clicmd:: isis hello-multiplier (2-100) [level-1 | level-2]
+.. clicmd:: isis hello-multiplier [level-1 | level-2] (2-100)
 
    Set multiplier for Hello holding time globally, for an area (level-1) or a
    domain (level-2).
 
-.. clicmd:: isis metric [(0-255) | (0-16777215)] [level-1 | level-2]
+.. clicmd:: isis metric [level-1 | level-2] [(0-255) | (0-16777215)]
 
    Set default metric value globally, for an area (level-1) or a domain
    (level-2).  Max value depend if metric support narrow or wide value (see
@@ -297,7 +301,7 @@ Showing ISIS information
 
    Show summary information about ISIS.
 
-.. clicmd:: show isis hostname
+.. clicmd:: show isis [vrf <NAME|all>] hostname
 
    Show information about ISIS node.
 
@@ -316,17 +320,17 @@ Showing ISIS information
    Show the ISIS database globally, for a specific LSP id without or with
    details.
 
-.. clicmd:: show isis topology [level-1|level-2] [algorithm (128-255)]
+.. clicmd:: show isis [vrf <NAME|all>] topology [level-1|level-2] [algorithm [(128-255)]]
 
    Show topology IS-IS paths to Intermediate Systems, globally, in area
    (level-1) or domain (level-2).
 
-.. clicmd:: show isis route [level-1|level-2] [prefix-sid|backup] [algorithm (128-255)]
+.. clicmd:: show isis [vrf <NAME|all>] route [level-1|level-2] [prefix-sid] [backup] [algorithm [(128-255)]]
 
    Show the ISIS routing table, as determined by the most recent SPF
    calculation.
 
-.. clicmd:: show isis fast-reroute summary [level-1|level-2]
+.. clicmd:: show isis [vrf <NAME|all>] fast-reroute summary [level-1|level-2]
 
    Show information about the number of prefixes having LFA protection,
    and network-wide LFA coverage.
@@ -431,7 +435,7 @@ Known limitations:
    clear the Node flag that is set by default for Prefix-SIDs associated to
    loopback addresses. This option is necessary to configure Anycast-SIDs.
 
-.. clicmd:: show isis segment-routing node [algorithm (128-255)]
+.. clicmd:: show isis segment-routing node [algorithm [(128-255)]]
 
    Show detailed information about all learned Segment Routing Nodes.
 
@@ -458,10 +462,14 @@ To do so, it defines a set of Flex-Algo Definitions (FAD) which
 have the following characteristics:
 
 - a numeric identifier (ID) between 128 and 255 inclusive
+
 - a set of constraints (basically, include or exclude a certain given set of
 	links, designated by a admin-group)
+
 - the calculation type (only the `Shortest-Path-First` is currently supported)
+
 - the metric type (only the IGP inherited metric type is currently supported)
+
 - some additional flags (not supported for the moment).
 
 A subset of routers advertises the Flex-Algo Definitions (FAD) to the other
@@ -471,13 +479,18 @@ rules:
 
 - If a locally configured FAD is not advertised to the area, the router does not
 	participate in the particular flex algorithm.
+
 - If a given flex algorithm is running, the participation in this particular
 	flex algorithm stops when its advertisements are over.
+
 - A router includes its own FAD in the election process if and only if it is
 	advertised to the other routers.
+
 - If only one router advertises the FAD, the FAD is elected.
+
 - If several FADs are advertised with different priorities, the one with the
 	highest priority value is selected.
+
 - If there are multiple advertisements of the FAD with the same highest
 	priority, the FAD of the router with the highest IS-IS system-ID is
 	selected.
@@ -493,14 +506,10 @@ which flex algorithm they must use for a given packet.
 The following commands configure Flex-Algo at the 'router isis' configuration
 level. Segment-Routing prefixes must be configured for the Flex-Algo.
 
-.. clicmd:: flexible-algorithm (128-255)
+.. clicmd:: flex-algo (128-255)
 
    Add a Flex-Algo Definition (FAD) and enter the FAD configuration
    level. The algorithm ID value is in the range of 128 to 255 inclusive.
-
-.. clicmd:: no flexible-algorithm (128-255)
-
-   Unconfigure a Flex-Algo Definition.
 
 .. clicmd:: affinity-map NAME bit-position (0-255)
 
@@ -513,7 +522,7 @@ level. Segment-Routing prefixes must be configured for the Flex-Algo.
    admin-group 'bit-position' is set 1, else it is set to 0.
 
 The following commands configure Flex-Algo at the 'router isis' and
-'flexible-algorithm (128-255)' configuration level.
+'flex-algo (128-255)' configuration level.
 
 .. clicmd:: advertise-definition
 
@@ -589,6 +598,40 @@ The following command show Flex-Algo information:
 includes an 'algorithm (128-255)' optional argument. See
 :ref:`showing-isis-information` and :ref:`isis-segment-routing`.
 
+.. _isis-srv6:
+
+Segment Routing over IPv6 (SRv6)
+================================
+
+This feature enables extensions in IS-IS to support Segment Routing over IPv6
+data plane (SRv6) as per RFC 9352.
+
+.. clicmd:: segment-routing srv6
+
+   Enable Segment Routing over IPv6 data plane (SRv6).
+
+.. clicmd:: locator NAME
+
+   Specify the SRv6 locator to use for SRv6. The locator must be configured in
+   Zebra. Once the locator is configured, IS-IS automatically allocates prefix
+   SID and adjacency SIDs, creates local SID entries in the data plane, and
+   advertises them in the IGP domain.
+
+.. clicmd:: interface NAME
+
+   Specify the dummy interface used to install SRv6 SIDs in the Linux data plane.
+   The interface must be created manually. By default, the interface is 'sr0'.
+   The interface can be created using the iproute2 utility:
+
+   .. code-block:: bash
+
+      ip link add sr0 type dummy
+      ip link set sr0 up
+
+.. clicmd:: show isis segment-routing srv6 node
+
+   Show detailed information about all learned SRv6 Nodes.
+
 Debugging ISIS
 ==============
 
@@ -596,25 +639,13 @@ Debugging ISIS
 
    IS-IS Adjacency related packets.
 
-.. clicmd:: debug isis checksum-errors
-
-   IS-IS LSP checksum errors.
-
 .. clicmd:: debug isis events
 
    IS-IS Events.
 
-.. clicmd:: debug isis local-updates
-
-   IS-IS local update packets.
-
 .. clicmd:: debug isis packet-dump
 
    IS-IS packet dump.
-
-.. clicmd:: debug isis protocol-errors
-
-   IS-IS LSP protocol errors.
 
 .. clicmd:: debug isis route-events
 
@@ -625,11 +656,8 @@ Debugging ISIS
    IS-IS CSNP/PSNP packets.
 
 .. clicmd:: debug isis spf-events
-.. clicmd:: debug isis spf-statistics
-.. clicmd:: debug isis spf-triggers
 
-   IS-IS Shortest Path First Events, Timing and Statistic Data and triggering
-   events.
+   IS-IS Shortest Path First Events.
 
 .. clicmd:: debug isis update-packets
 
@@ -769,6 +797,33 @@ A Segment Routing configuration, with IPv4, IPv6, SRGB and MSD configuration.
     segment-routing prefix 2001:db8:1000::1/128 index 101 explicit-null
    !
 
+An SRv6 configuration:
+
+.. code-block:: frr
+
+   hostname HOSTNAME
+   password PASSWORD
+   log file /var/log/isisd.log
+   !
+   !
+   interface eth0
+   ipv6 router isis FOO
+   ip router isis FOO
+   isis hello-interval 5
+   !
+   interface eth1
+   ip router isis FOO
+   !
+   !
+   router isis FOO
+   net 49.0001.1111.1111.1111.00
+   is-type level-2-only
+   metric-style wide
+   segment-routing srv6
+      locator loc1
+   !
+   line vty
+
 
 .. _isis-vrf-config-examples:
 
@@ -781,7 +836,7 @@ A simple vrf example:
 
    !
    interface eth0 vrf RED
-    ip router isis FOO vrf RED
+    ip router isis FOO
     isis network point-to-point
     isis circuit-type level-2-only
    !

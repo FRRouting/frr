@@ -125,6 +125,9 @@ static inline void zlog_ref(const struct xref_logmsg *xref,
 
 extern void zlog_sigsafe(const char *text, size_t len);
 
+/* recirculate a log message from zlog_live */
+extern void zlog_recirculate_live_msg(uint8_t *data, size_t len);
+
 /* extra priority value to disable a target without deleting it */
 #define ZLOG_DISABLED	(LOG_EMERG-1)
 
@@ -276,6 +279,7 @@ extern void zlog_tls_buffer_fini(void);
 
 /* Enable or disable 'immediate' output - default is to buffer messages. */
 extern void zlog_set_immediate(bool set_p);
+bool zlog_get_immediate_mode(void);
 
 extern const char *zlog_priority_str(int priority);
 

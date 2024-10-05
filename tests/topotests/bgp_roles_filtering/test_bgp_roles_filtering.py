@@ -16,7 +16,6 @@ test_bgp_roles_filtering: test leaks prevention and mitigation with roles
 import json
 import os
 import sys
-import functools
 import pytest
 
 CWD = os.path.dirname(os.path.realpath(__file__))
@@ -24,9 +23,7 @@ sys.path.append(os.path.join(CWD, "../"))
 
 # pylint: disable=C0413
 from lib import topotest
-from lib.bgp import verify_bgp_convergence_from_running_config
-from lib.topogen import Topogen, TopoRouter, get_topogen
-from lib.topolog import logger
+from lib.topogen import Topogen, TopoRouter
 
 pytestmark = [pytest.mark.bgpd]
 
@@ -39,7 +36,7 @@ def tgen(request):
     tgen = Topogen(topodef, request.module.__name__)
     tgen.start_topology()
     router_list = tgen.routers()
-    for rname, router in router_list.items():
+    for _, router in router_list.items():
         router.load_config(TopoRouter.RD_ZEBRA, "zebra.conf")
         router.load_config(TopoRouter.RD_BGP, "bgpd.conf")
     tgen.start_router()
@@ -69,9 +66,7 @@ def test_r10_routes(tgen):
         ]
         return output == expected
 
-    success, result = topotest.run_and_expect(
-        _routes_half_converged, True, count=20, wait=3
-    )
+    success, _ = topotest.run_and_expect(_routes_half_converged, True, count=20, wait=3)
     assert success, "Routes did not converged"
 
     routes_with_otc = list()

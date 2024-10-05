@@ -36,7 +36,7 @@ struct pbr_nexthop_cache {
 	struct pbr_nexthop_group_cache *parent;
 
 	char vrf_name[VRF_NAMSIZ + 1];
-	char intf_name[INTERFACE_NAMSIZ + 1];
+	char intf_name[IFNAMSIZ + 1];
 
 	struct nexthop nexthop;
 

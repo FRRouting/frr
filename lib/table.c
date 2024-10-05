@@ -334,7 +334,6 @@ void route_node_delete(struct route_node *node)
 	struct route_node *parent;
 
 	assert(node->lock == 0);
-	assert(node->info == NULL);
 
 	if (node->l_left && node->l_right)
 		return;

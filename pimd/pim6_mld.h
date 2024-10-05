@@ -36,6 +36,21 @@ enum gm_sg_state {
 	GM_SG_NOPRUNE_EXPIRING,
 };
 
+/* If the timer gm_t_sg_expire is started without a leave message being received,
+ * the sg->state should be moved to expiring states.
+ * When the timer expires, we do not expect the state to be in join state.
+ * If a JOIN message is received while the timer is running,
+ * the state will be moved to JOIN and this timer will be switched off.
+ * Hence the below state transition is done.
+ */
+#define GM_UPDATE_SG_STATE(sg)                                                 \
+	do {                                                                   \
+		if (sg->state == GM_SG_JOIN)                                   \
+			sg->state = GM_SG_JOIN_EXPIRING;                       \
+		else if (sg->state == GM_SG_NOPRUNE)                           \
+			sg->state = GM_SG_NOPRUNE_EXPIRING;                    \
+	} while (0)
+
 static inline bool gm_sg_state_want_join(enum gm_sg_state state)
 {
 	return state != GM_SG_NOINFO && state != GM_SG_PRUNE;

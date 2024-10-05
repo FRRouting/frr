@@ -74,8 +74,7 @@ log_addr(int af, const union ldpd_addr *addr)
 	switch (af) {
 	case AF_INET:
 		round = (round + 1) % NUM_LOGS;
-		if (inet_ntop(AF_INET, &addr->v4, buf[round],
-		    sizeof(buf[round])) == NULL)
+		if (inet_ntop(AF_INET, &addr->v4, buf[round], sizeof(buf[round])) == NULL)
 			return ("???");
 		return (buf[round]);
 	case AF_INET6:
@@ -166,8 +165,7 @@ log_hello_src(const struct hello_source *src)
 
 	switch (src->type) {
 	case HELLO_LINK:
-		snprintf(buf, sizeof(buf), "iface %s",
-		    src->link.ia->iface->name);
+		snprintf(buf, sizeof(buf), "iface %s", src->link.ia->iface->name);
 		break;
 	case HELLO_TARGETED:
 		snprintf(buf, sizeof(buf), "source %s",

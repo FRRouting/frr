@@ -7,7 +7,7 @@
 ##
 AC_PREREQ([2.69])
 
-AC_INIT([frr], [9.0-dev], [https://github.com/frrouting/frr/issues])
+AC_INIT([frr], [10.2-dev], [https://github.com/frrouting/frr/issues])
 PACKAGE_URL="https://frrouting.org/"
 AC_SUBST([PACKAGE_URL])
 PACKAGE_FULLNAME="FRRouting"
@@ -19,6 +19,79 @@ AC_SUBST([CONFIG_ARGS])
 AC_CONFIG_SRCDIR([lib/zebra.h])
 AC_CONFIG_MACRO_DIR([m4])
 AC_CONFIG_AUX_DIR([m4/ac])
+
+dnl ------------------------------
+dnl system paths
+dnl ------------------------------
+dnl Versions of FRR (or Quagga, or Zebra) before ca. 9.2 used sysconfdir and
+dnl localstatedir as-is, without appending /frr.  The /frr was expected to be
+dnl given on ./configure invocations.
+dnl
+dnl This does not match standard behavior by other packages and makes FRR
+dnl specific packaging changes necessary to add these options.  localstatedir
+dnl was also misused to include the /run part (it normally is only /var),
+dnl leaving no path configuration option that references /var itself.  This
+dnl is because runstatedir did not exist in ancient autoconf.
+dnl
+dnl The path options have been changed to expect plain / system prefix
+dnl directories.  As a temporary workaround to not break packaging, eventual
+dnl /frr suffixes are stripped and a warning is printed.
+
+path_warn_banner=false
+
+AC_MSG_CHECKING([whether --sysconfdir option is FRR-specific])
+case "$sysconfdir" in
+  */frr)
+    AC_MSG_RESULT([yes, ends in /frr - removing suffix])
+    AC_MSG_WARN([Please remove /frr suffix from --sysconfdir="${sysconfdir}" (it should be /etc in 99% of cases)])
+    sysconfdir="${sysconfdir%/frr}"
+    path_warn_banner=true
+    ;;
+  *)
+    AC_MSG_RESULT([no, as expected])
+    ;;
+esac
+
+frr_sysconfdir="\${sysconfdir}/frr"
+
+AC_MSG_CHECKING([whether --localstatedir option is FRR-specific])
+case "$localstatedir" in
+  */run/frr)
+    AC_MSG_RESULT([yes, ends in /run/frr - removing suffix])
+    AC_MSG_WARN([Please remove /run/frr suffix from --localstatedir=${localstatedir} (it should be /var in 99% of cases)])
+    localstatedir="${localstatedir%/run/frr}"
+    path_warn_banner=true
+    ;;
+  */frr)
+    AC_MSG_RESULT([yes, ends in /frr - removing suffix])
+    AC_MSG_WARN([The --localstatedir=${localstatedir} option seems to include /frr but not /run, this is unexpected.  Please check for consistency.)])
+    localstatedir="${localstatedir%/frr}"
+    path_warn_banner=true
+    ;;
+  *)
+    AC_MSG_RESULT([no, as expected])
+    ;;
+esac
+
+dnl runstatedir is either ${localstatedir}/run or plain /run
+dnl the change of localstatedir above may impact this
+dnl
+dnl note runstatedir was never used with /frr as the other two above, so does
+dnl not need the same cleanup hack
+: "${runstatedir:=\${localstatedir\}/run}"
+frr_runstatedir="\${runstatedir}/frr"
+
+if $path_warn_banner; then
+  AC_MSG_WARN([^])
+  AC_MSG_WARN([^])
+  AC_MSG_WARN([^ warnings regarding system path configuration were printed above])
+  AC_MSG_WARN([^ paths have been adjusted by temporary workarounds])
+  AC_MSG_WARN([^ please fix your ./configure invocation (remove /frr) so it will work without the workarounds])
+  AC_MSG_WARN([^])
+  AC_MSG_WARN([^])
+fi
+
+frr_libstatedir="\${localstatedir}/lib/frr"
 
 dnl -----------------------------------
 dnl Get hostname and other information.
@@ -130,10 +203,10 @@ AC_ARG_WITH([moduledir], [AS_HELP_STRING([--with-moduledir=DIR], [module directo
 ])
 AC_SUBST([moduledir], [$moduledir])
 
-AC_ARG_WITH([scriptdir], [AS_HELP_STRING([--with-scriptdir=DIR], [script directory (${sysconfdir}/scripts)])], [
+AC_ARG_WITH([scriptdir], [AS_HELP_STRING([--with-scriptdir=DIR], [script directory (${sysconfdir}/frr/scripts)])], [
 	scriptdir="$withval"
 ], [
-	scriptdir="\${sysconfdir}/scripts"
+	scriptdir="\${frr_sysconfdir}/scripts"
 ])
 AC_SUBST([scriptdir], [$scriptdir])
 
@@ -202,7 +275,16 @@ AC_DEFUN([AC_C_FLAG], [{
     AC_CACHE_CHECK([[whether $CC supports $1]], cachename, [
 	AC_LANG_PUSH([C])
 	ac_c_flag_save="$CFLAGS"
-	CFLAGS="$CFLAGS $1"
+	dnl GCC ignores unknown -Wno-whatever flags, but errors on -Wwhatever
+	dnl except when it ignores them it prints:
+	dnl   cc1: note: unrecognized command-line option ‘-Wno-whatever’ may have been intended to silence earlier diagnostics
+	dnl which is annoying as hell.  So check for the positive flag instead.
+	flag_add="$1"
+	if test "$flag_add" != "${flag_add#-Wno-}"; then
+	    CFLAGS="$CFLAGS -W${flag_add#-Wno-}"
+	else
+	    CFLAGS="$CFLAGS $flag_add"
+	fi
 	AC_COMPILE_IFELSE(
 		[AC_LANG_PROGRAM([[$4]])],
 		[
@@ -365,6 +447,7 @@ AC_C_FLAG([-Wpointer-arith])
 AC_C_FLAG([-Wbad-function-cast])
 AC_C_FLAG([-Wwrite-strings])
 AC_C_FLAG([-Wundef])
+AC_C_FLAG([-Wimplicit-fallthrough])
 if test "$enable_gcc_ultra_verbose" = "yes" ; then
   AC_C_FLAG([-Wcast-qual])
   AC_C_FLAG([-Wmissing-noreturn])
@@ -378,6 +461,8 @@ else
 fi
 AC_C_FLAG([-Wno-unused-parameter])
 AC_C_FLAG([-Wno-missing-field-initializers])
+AC_C_FLAG([-Wno-microsoft-anon-tag])
+AC_C_FLAG([-Wno-error=deprecated-declarations])
 
 AC_C_FLAG([-Wc++-compat], [], [CXX_COMPAT_CFLAGS="-Wc++-compat"])
 AC_SUBST([CXX_COMPAT_CFLAGS])
@@ -626,6 +711,10 @@ AC_ARG_ENABLE([mgmtd],
   AS_HELP_STRING([--disable-mgmtd], [do not build mgmtd]))
 AC_ARG_ENABLE([mgmtd_local_validations],
   AS_HELP_STRING([--enable-mgmtd-local-validations], [dev: unimplemented local validation]))
+AC_ARG_ENABLE([mgmtd_test_be_client],
+  AS_HELP_STRING([--enable-mgmtd-test-be-client], [build test backend client]))
+AC_ARG_ENABLE([fpm_listener],
+  AS_HELP_STRING([--enable-fpm-listener], [build fpm listener test program]))
 AC_ARG_ENABLE([ripd],
   AS_HELP_STRING([--disable-ripd], [do not build ripd]))
 AC_ARG_ENABLE([ripngd],
@@ -672,8 +761,6 @@ AC_ARG_ENABLE([snmp],
   AS_HELP_STRING([--enable-snmp], [enable SNMP support for agentx]))
 AC_ARG_ENABLE([config_rollbacks],
   AS_HELP_STRING([--enable-config-rollbacks], [enable configuration rollbacks (requires sqlite3)]))
-AC_ARG_ENABLE([confd],
-  AS_HELP_STRING([--enable-confd=ARG], [enable confd integration]))
 AC_ARG_ENABLE([sysrepo],
   AS_HELP_STRING([--enable-sysrepo], [enable sysrepo integration]))
 AC_ARG_ENABLE([grpc],
@@ -691,6 +778,8 @@ AC_ARG_ENABLE([ospfapi],
 AC_ARG_ENABLE([ospfclient],
   AS_HELP_STRING([--disable-ospfclient], [do not build OSPFAPI client for OSPFAPI,
                           (this is the default if --disable-ospfapi is set)]))
+AC_ARG_WITH([log_timestamp_precision],
+  AS_HELP_STRING([--with-log-timestamp-precision=ARG], [set startup log timestamp precision, ARG must be 0-12]))
 AC_ARG_ENABLE([multipath],
   AS_HELP_STRING([--enable-multipath=ARG], [enable multipath function, ARG must be digit]))
 AC_ARG_WITH([service_timeout],
@@ -705,24 +794,18 @@ AC_ARG_ENABLE([configfile_mask],
   AS_HELP_STRING([--enable-configfile-mask=ARG], [set mask for config files]))
 AC_ARG_ENABLE([logfile_mask],
   AS_HELP_STRING([--enable-logfile-mask=ARG], [set mask for log files]))
-AC_ARG_ENABLE([shell_access],
-  AS_HELP_STRING([--enable-shell-access], [Allow users to access shell/telnet/ssh]))
 AC_ARG_ENABLE([realms],
   AS_HELP_STRING([--enable-realms], [enable REALMS support under Linux]))
 AC_ARG_ENABLE([rtadv],
   AS_HELP_STRING([--disable-rtadv], [disable IPV6 router advertisement feature]))
 AC_ARG_ENABLE([irdp],
-  AS_HELP_STRING([--disable-irdp], [disable IRDP server support in zebra (enabled by default if supported)]))
+  AS_HELP_STRING([--enable-irdp], [enable IRDP server support in zebra]))
 AC_ARG_ENABLE([capabilities],
   AS_HELP_STRING([--disable-capabilities], [disable using POSIX capabilities]))
 AC_ARG_ENABLE([gcc_ultra_verbose],
   AS_HELP_STRING([--enable-gcc-ultra-verbose], [enable ultra verbose GCC warnings]))
 AC_ARG_ENABLE([backtrace],
   AS_HELP_STRING([--disable-backtrace], [disable crash backtraces (default autodetect)]))
-AC_ARG_ENABLE([time-check],
-  AS_HELP_STRING([--disable-time-check], [disable slow thread warning messages]))
-AC_ARG_ENABLE([cpu-time],
-  AS_HELP_STRING([--disable-cpu-time], [disable cpu usage data gathering]))
 AC_ARG_ENABLE([pcreposix],
   AS_HELP_STRING([--enable-pcreposix], [enable using PCRE Posix libs for regex functions]))
 AC_ARG_ENABLE([pcre2posix],
@@ -735,8 +818,6 @@ AC_ARG_ENABLE([cumulus],
   AS_HELP_STRING([--enable-cumulus], [enable Cumulus Switch Special Extensions]))
 AC_ARG_ENABLE([datacenter],
   AS_HELP_STRING([--enable-datacenter], [enable Compilation for Data Center Extensions]))
-AC_ARG_ENABLE([rr-semantics],
-  AS_HELP_STRING([--disable-rr-semantics], [disable the v6 Route Replace semantics]))
 AC_ARG_ENABLE([protobuf],
   AS_HELP_STRING([--enable-protobuf], [Enable experimental protobuf support]))
 AC_ARG_ENABLE([oldvpn_commands],
@@ -766,8 +847,11 @@ AC_ARG_WITH([crypto],
 AC_ARG_WITH([frr-format],
   AS_HELP_STRING([--with-frr-format[=<.../frr-format.so>]], [use frr-format GCC plugin]))
 
-AC_ARG_ENABLE([version-build-config],
+AC_ARG_ENABLE([version_build_config],
   AS_HELP_STRING([--disable-version-build-config], [do not include build configs in show version command]))
+
+AC_ARG_ENABLE([python_runtime],
+  AS_HELP_STRING([--disable-python-runtime], [do not install python scripts or have python runtime dependency]))
 
 #if openssl, else use the internal
 AS_IF([test "$with_crypto" = "openssl"], [
@@ -792,6 +876,9 @@ if test "$ac_cv_lib_json_c_json_object_get" = "no"; then
 fi
 ])
 
+AC_ARG_ENABLE([ccls],
+AS_HELP_STRING([--enable-ccls], [Write .ccls config for this build]))
+
 AC_ARG_ENABLE([dev_build],
     AS_HELP_STRING([--enable-dev-build], [build for development]))
 
@@ -807,26 +894,6 @@ fi
 
 AM_CONDITIONAL([NETLINK_DEBUG], [test "$enable_netlink_debug" != "no"])
 
-if test "$enable_time_check" != "no" ; then
-  if test "$enable_time_check" = "yes" -o "$enable_time_check" = "" ; then
-    AC_DEFINE([CONSUMED_TIME_CHECK], [5000000], [Consumed Time Check])
-  else
-    AC_DEFINE_UNQUOTED([CONSUMED_TIME_CHECK], [$enable_time_check], [Consumed Time Check])
-  fi
-fi
-
-case "${enable_cpu_time}" in
-  "no")
-  AC_DEFINE([EXCLUDE_CPU_TIME], [1], [Exclude getrusage data gathering])
-  ;;
-  "*")
-  ;;
-esac
-
-if test "$enable_rr_semantics" != "no" ; then
-  AC_DEFINE([HAVE_V6_RR_SEMANTICS], [1], [Compile in v6 Route Replacement Semantics])
-fi
-
 if test "$enable_datacenter" = "yes" ; then
   AC_DEFINE([HAVE_DATACENTER], [1], [Compile extensions for a DataCenter])
   DFLT_NAME="datacenter"
@@ -840,10 +907,6 @@ fi
 
 AC_SUBST([DFLT_NAME])
 AC_DEFINE_UNQUOTED([DFLT_NAME], ["$DFLT_NAME"], [Name of the configuration default set])
-
-if test "$enable_shell_access" = "yes"; then
-   AC_DEFINE([HAVE_SHELL_ACCESS], [1], [Allow user to use ssh/telnet/bash, be aware this is considered insecure])
-fi
 
 #
 # Python for clippy
@@ -962,8 +1025,19 @@ esac
 
 AC_DEFINE_UNQUOTED([MULTIPATH_NUM], [$MPATH_NUM], [Maximum number of paths for a route])
 
-AC_DEFINE_UNQUOTED([VTYSH_PAGER], ["$VTYSH_PAGER"], [What pager to use])
+case "${with_log_timestamp_precision}" in
+[[0-9]|1[012]])
+;;
+"")
+;;
+*)
+AC_MSG_FAILURE([Please specify a number from 0-12 for log precision ARG])
+;;
+esac
+with_log_timestamp_precision=${with_log_timestamp_precision:-0}
+AC_DEFINE_UNQUOTED([LOG_TIMESTAMP_PRECISION], [${with_log_timestamp_precision}], [Startup zlog timestamp precision])
 
+AC_DEFINE_UNQUOTED([VTYSH_PAGER], ["$VTYSH_PAGER"], [What pager to use])
 
 TIMEOUT_MIN=2
 case "${with_service_timeout}" in
@@ -1033,6 +1107,8 @@ dnl Check other header files.
 dnl -------------------------
 AC_CHECK_HEADERS([stropts.h sys/ksym.h \
 	linux/version.h asm/types.h endian.h sys/endian.h])
+
+AC_CHECK_LIB([atomic], [main], [LIBS="$LIBS -latomic"], [], [])
 
 ac_stdatomic_ok=false
 AC_DEFINE([FRR_AUTOCONF_ATOMIC], [1], [did autoconf checks for atomic funcs])
@@ -1189,9 +1265,6 @@ m4_define([FRR_INCLUDES],
 /* Required for MAXSIG */
 #include <signal.h>
 #include <sys/socket.h>
-#ifdef __APPLE__
-# define __APPLE_USE_RFC_3542
-#endif
 #include <netinet/in.h>
 #include <sys/time.h>
 #include <time.h>
@@ -1369,7 +1442,9 @@ if test "$enable_protobuf3" = "yes"; then
                   [PROTO3=false && AC_MSG_FAILURE([protobuf3 requested but protobuf-c.h not found.  Install protobuf-c.])])
 fi
 
-AC_DEFINE([HAVE_PROTOBUF], [1], [protobuf])
+if test "$enable_protobuf" != "no"; then
+  AC_DEFINE([HAVE_PROTOBUF], [1], [protobuf])
+fi
 #
 # End of logic for protobuf support.
 #
@@ -1590,6 +1665,21 @@ FRR_INCLUDES
 #endif
 ])dnl
 
+AC_CHECK_HEADERS([netinet6/ip6_mroute.h], [], [],[
+	#include <sys/socket.h>
+	#include <sys/param.h>
+	#include <sys/types.h>
+	#include <netinet/in.h>
+	#include <net/route.h>
+])
+
+m4_define([FRR_INCLUDES],
+FRR_INCLUDES
+[#ifdef HAVE_NETINET_IP6_MROUTE_H
+# include <netinet6/ip6_mroute.h>
+#endif
+])dnl
+
 AC_MSG_CHECKING([for RFC3678 protocol-independed API])
 AC_COMPILE_IFELSE(
 [ AC_LANG_PROGRAM([[
@@ -1745,6 +1835,14 @@ AS_IF([test "$enable_mgmtd" != "no"], [
   AS_IF([test "$enable_mgmtd_local_validations" == "yes"], [
     AC_DEFINE([MGMTD_LOCAL_VALIDATIONS_ENABLED], [1], [Enable mgmtd local validations.])
   ])
+])
+
+AS_IF([test "$enable_mgmtd_test_be_client" = "yes"], [
+  AC_DEFINE([HAVE_MGMTD_TESTC], [1], [mgmtd_testc])
+])
+
+AS_IF([test "$enable_fpm_listener" = "yes"], [
+  AC_DEFINE([HAVE_FPM_LISTENER], [1], [fpm_listener])
 ])
 
 AS_IF([test "$enable_ripd" != "no"], [
@@ -1962,9 +2060,9 @@ AC_SUBST([SNMP_CFLAGS])
 dnl ---------------
 dnl libyang
 dnl ---------------
-PKG_CHECK_MODULES([LIBYANG], [libyang >= 2.0.0], , [
-  AC_MSG_ERROR([libyang (>= 2.0.0) was not found on your system.])
-])
+PKG_CHECK_MODULES([LIBYANG], [libyang >= 2.1.128], , [
+AC_MSG_ERROR([m4_normalize([libyang >= 2.1.128 is required, and was not found on your system.
+Please consult doc/developer/building-libyang.rst for instructions on installing or building libyang.])])])
 ac_cflags_save="$CFLAGS"
 CFLAGS="$CFLAGS $LIBYANG_CFLAGS"
 AC_CHECK_MEMBER([struct lyd_node.priv], [], [
@@ -1973,6 +2071,13 @@ AC_CHECK_MEMBER([struct lyd_node.priv], [], [
     Instructions for this are included in the build documentation for your platform at http://docs.frrouting.org/projects/dev-guide/en/latest/building.html])
   ])
 ], [[#include <libyang/libyang.h>]])
+
+AC_CHECK_LIB([yang],[lyd_find_xpath3],[],[AC_MSG_ERROR([m4_normalize([
+libyang missing lyd_find_xpath3])])])
+dnl -- don't add lyd_new_list3 to this list unless bug is fixed upstream
+dnl -- https://github.com/CESNET/libyang/issues/2149
+AC_CHECK_FUNCS([ly_strerrcode ly_strvecode lyd_trim_xpath])
+
 CFLAGS="$ac_cflags_save"
 
 dnl ---------------
@@ -1987,22 +2092,6 @@ if test "$enable_config_rollbacks" = "yes"; then
   ], [
     AC_MSG_ERROR([--enable-config-rollbacks given but sqlite3 was not found on your system.])
   ])
-fi
-
-dnl ---------------
-dnl confd
-dnl ---------------
-if test "$enable_confd" != "" -a "$enable_confd" != "no"; then
-   AC_CHECK_PROG([CONFD], [confd], [confd], [/bin/false], "${enable_confd}/bin")
-   if test "$CONFD" = "/bin/false"; then
-      AC_MSG_ERROR([confd was not found on your system.])]
-   fi
-   AC_CHECK_PROG([CONFDC], [confdc], [confdc], [/bin/false], "${enable_confd}/bin")
-   CONFD_CFLAGS="-I${enable_confd}/include -L${enable_confd}/lib"
-   AC_SUBST([CONFD_CFLAGS])
-   CONFD_LIBS="-lconfd"
-   AC_SUBST([CONFD_LIBS])
-   AC_DEFINE([HAVE_CONFD], [1], [Enable confd integration])
 fi
 
 dnl ---------------
@@ -2261,6 +2350,9 @@ yes)
   $IRDP || AC_MSG_ERROR(['IRDP requires in_pktinfo at the moment!'])
   ;;
 no)
+  IRDP=false
+  ;;
+*)
   IRDP=false
   ;;
 esac
@@ -2643,87 +2735,27 @@ else
 fi
 AC_SUBST([CONFDATE])
 
-dnl ------------------------------
-dnl set paths for state directory
-dnl ------------------------------
-AC_MSG_CHECKING([directory to use for state file])
-if test "$prefix" = "NONE"; then
-  frr_statedir_prefix="";
-else
-  frr_statedir_prefix=${prefix}
-fi
-if test "$localstatedir" = '${prefix}/var'; then
-  for FRR_STATE_DIR in ${frr_statedir_prefix}/var/run dnl
-			${frr_statedir_prefix}/var/adm dnl
-			${frr_statedir_prefix}/etc dnl
-			/var/run	dnl
-                        /var/adm	dnl
-                        /etc		dnl
-                        /dev/null;
-  do
-    test -d $FRR_STATE_DIR && break
-  done
-  frr_statedir=$FRR_STATE_DIR
-else
-  frr_statedir=${localstatedir}
-fi
-if test "$frr_statedir" = "/dev/null"; then
-    AC_MSG_ERROR([STATE DIRECTORY NOT FOUND! FIX OR SPECIFY --localstatedir!])
-fi
-AC_MSG_RESULT([${frr_statedir}])
-AC_SUBST([frr_statedir])
-
-AC_DEFINE_UNQUOTED([LDPD_SOCKET], ["$frr_statedir%s%s/ldpd.sock"], [ldpd control socket])
-AC_DEFINE_UNQUOTED([ZEBRA_SERV_PATH], ["$frr_statedir%s%s/zserv.api"], [zebra api socket])
-AC_DEFINE_UNQUOTED([BFDD_CONTROL_SOCKET], ["$frr_statedir%s%s/bfdd.sock"], [bfdd control socket])
-AC_DEFINE_UNQUOTED([OSPFD_GR_STATE], ["$frr_statedir%s/ospfd-gr.json"], [ospfd GR state information])
-AC_DEFINE_UNQUOTED([MGMTD_FE_SERVER_PATH], ["$frr_statedir/mgmtd_fe.sock"], [mgmtd frontend server socket])
-AC_DEFINE_UNQUOTED([MGMTD_BE_SERVER_PATH], ["$frr_statedir/mgmtd_be.sock"], [mgmtd backend server socket])
-AC_DEFINE_UNQUOTED([OSPF6D_GR_STATE], ["$frr_statedir/ospf6d-gr.json"], [ospf6d GR state information])
-AC_DEFINE_UNQUOTED([ISISD_RESTART], ["$frr_statedir%s/isid-restart.json"], [isisd restart information])
-AC_DEFINE_UNQUOTED([OSPF6_AUTH_SEQ_NUM_FILE], ["$frr_statedir/ospf6d-at-seq-no.dat"], [ospf6d AT Sequence number information])
-AC_DEFINE_UNQUOTED([DAEMON_VTY_DIR], ["$frr_statedir%s%s"], [daemon vty directory])
-AC_DEFINE_UNQUOTED([DAEMON_DB_DIR], ["$frr_statedir"], [daemon database directory])
-
-dnl autoconf does this, but it does it too late...
-test "$prefix" = "NONE" && prefix=$ac_default_prefix
-test "$exec_prefix" = "NONE" && exec_prefix='${prefix}'
-
 dnl get the full path, recursing through variables...
-vtysh_bin="$bindir/vtysh"
-for I in 1 2 3 4 5 6 7 8 9 10; do
-	eval vtysh_bin="\"$vtysh_bin\""
-done
-AC_DEFINE_UNQUOTED([VTYSH_BIN_PATH], ["$vtysh_bin"], [path to vtysh binary])
-AC_SUBST([vtysh_bin])
+AC_DEFUN([AX_SUBST_EXPANDED], [
+  AX_RECURSIVE_EVAL([[$]$1], [e_$1])
+  AC_SUBST([e_$1])
+])
 
-CFG_SYSCONF="$sysconfdir"
-CFG_SBIN="$sbindir"
-CFG_BIN="$bindir"
-CFG_STATE="$frr_statedir"
-CFG_MODULE="$moduledir"
-CFG_YANGMODELS="$yangmodelsdir"
-CFG_SCRIPT="$scriptdir"
-for I in 1 2 3 4 5 6 7 8 9 10; do
-	eval CFG_SYSCONF="\"$CFG_SYSCONF\""
-	eval CFG_SBIN="\"$CFG_SBIN\""
-	eval CFG_BIN="\"$CFG_BIN\""
-	eval CFG_STATE="\"$CFG_STATE\""
-	eval CFG_MODULE="\"$CFG_MODULE\""
-	eval CFG_YANGMODELS="\"$CFG_YANGMODELS\""
-	eval CFG_SCRIPT="\"$CFG_SCRIPT\""
-done
-AC_SUBST([CFG_SYSCONF])
-AC_SUBST([CFG_SBIN])
-AC_SUBST([CFG_BIN])
-AC_SUBST([CFG_STATE])
-AC_SUBST([CFG_MODULE])
-AC_SUBST([CFG_SCRIPT])
-AC_SUBST([CFG_YANGMODELS])
-AC_DEFINE_UNQUOTED([MODULE_PATH], ["$CFG_MODULE"], [path to modules])
-AC_DEFINE_UNQUOTED([SCRIPT_PATH], ["$CFG_SCRIPT"], [path to scripts])
-AC_DEFINE_UNQUOTED([YANG_MODELS_PATH], ["$CFG_YANGMODELS"], [path to YANG data models])
-AC_DEFINE_UNQUOTED([WATCHFRR_SH_PATH], ["${CFG_SBIN%/}/watchfrr.sh"], [path to watchfrr.sh])
+AX_SUBST_EXPANDED([bindir])
+AX_SUBST_EXPANDED([sbindir])
+AX_SUBST_EXPANDED([frr_sysconfdir])
+AX_SUBST_EXPANDED([frr_runstatedir])
+AX_SUBST_EXPANDED([frr_libstatedir])
+AX_SUBST_EXPANDED([moduledir])
+AX_SUBST_EXPANDED([yangmodelsdir])
+AX_SUBST_EXPANDED([scriptdir])
+
+dnl strip duplicate trailing slashes if necessary
+dnl note this uses e_bindir / e_sbindir created above
+watchfrr_sh="\${e_sbindir%/}/watchfrr.sh"
+AX_SUBST_EXPANDED([watchfrr_sh])
+vtysh_bin="\${e_bindir%/}/vtysh"
+AX_SUBST_EXPANDED([vtysh_bin])
 
 dnl various features
 AM_CONDITIONAL([SUPPORT_REALMS], [test "$enable_realms" = "yes"])
@@ -2731,7 +2763,6 @@ AM_CONDITIONAL([ENABLE_BGP_VNC], [test "$enable_bgp_vnc" != "no"])
 AM_CONDITIONAL([BGP_BMP], [$bgpd_bmp])
 dnl northbound
 AM_CONDITIONAL([SQLITE3], [$SQLITE3])
-AM_CONDITIONAL([CONFD], [test "$enable_confd" != ""])
 AM_CONDITIONAL([SYSREPO], [test "$enable_sysrepo" = "yes"])
 AM_CONDITIONAL([GRPC], [test "$enable_grpc" = "yes"])
 AM_CONDITIONAL([ZEROMQ], [test "$ZEROMQ" = "true"])
@@ -2758,6 +2789,8 @@ AM_CONDITIONAL([VTYSH], [test "$VTYSH" = "vtysh"])
 AM_CONDITIONAL([ZEBRA], [test "$enable_zebra" != "no"])
 AM_CONDITIONAL([BGPD], [test "$enable_bgpd" != "no"])
 AM_CONDITIONAL([MGMTD], [test "$enable_mgmtd" != "no"])
+AM_CONDITIONAL([MGMTD_TESTC], [test "$enable_mgmtd_test_be_client" = "yes"])
+AM_CONDITIONAL([FPM_LISTENER], [test "enable_fpm_listener" = "yes"])
 AM_CONDITIONAL([RIPD], [test "$enable_ripd" != "no"])
 AM_CONDITIONAL([OSPFD], [test "$enable_ospfd" != "no"])
 AM_CONDITIONAL([LDPD], [test "$enable_ldpd" != "no"])
@@ -2781,6 +2814,9 @@ AM_CONDITIONAL([PATHD], [test "$enable_pathd" != "no"])
 AM_CONDITIONAL([PATHD_PCEP], [test "$enable_pathd" != "no"])
 AM_CONDITIONAL([DP_DPDK], [test "$enable_dp_dpdk" = "yes"])
 
+
+AM_CONDITIONAL([PYTHON_RUNTIME_DEPENDENCY], [test "$enable_python_runtime" != "no"])
+
 AC_CONFIG_FILES([Makefile],[
 	test "$enable_dev_build" = "yes" && makefile_devbuild="--dev-build"
 	${PYTHON} "${ac_abs_top_srcdir}/python/makefile.py" ${makefile_devbuild} || exit 1
@@ -2795,6 +2831,7 @@ AC_CONFIG_FILES([
 	  alpine/APKBUILD
 	  snapcraft/snapcraft.yaml
 	  lib/version.h
+	  lib/config_paths.h
 	  tests/lib/cli/test_cli.refout pkgsrc/mgmtd.sh
 	  pkgsrc/bgpd.sh pkgsrc/ospf6d.sh pkgsrc/ospfd.sh
 	  pkgsrc/ripd.sh pkgsrc/ripngd.sh pkgsrc/zebra.sh
@@ -2806,6 +2843,43 @@ AC_CONFIG_FILES([tools/frrinit.sh], [chmod +x tools/frrinit.sh])
 AC_CONFIG_FILES([tools/frrcommon.sh])
 AC_CONFIG_FILES([tools/frr.service])
 AC_CONFIG_FILES([tools/frr@.service])
+
+# dnl write out a ccls file with our compile configuration
+# dnl have to add -Wno-unused-function otherwise foobar_cmd_magic causes
+# dnl all DEFPY(), et al., macros to flag as errors.
+AS_IF([test "$enable_ccls" = "yes"], [
+    AC_CONFIG_COMMANDS([gen-dot-ccls], [
+        cat > "${srcdir}/.ccls" <<EOF
+clang
+-DHAVE_CONFIG_H
+-I.
+-I./include
+-I./lib
+-I./lib/assert
+-DSYSCONFDIR="${ac_frr_sysconfdir}"
+-DCONFDATE=${ac_frr_confdate}
+EOF
+        if test "$ac_abs_top_builddir" != "$ac_abs_top_srcdir"; then
+            echo "-I${ac_abs_top_builddir}" >> "${srcdir}/.ccls"
+        fi
+        if test -n "$FRR_ALL_CCLS_FLAGS"; then
+            echo ${FRR_ALL_CCLS_FLAGS} | tr ' ' '\n' >> "${srcdir}/.ccls"
+        fi
+        if test -n "$FRR_ALL_CCLS_CFLAGS"; then
+            cat >> "${srcdir}/.ccls" <<EOF
+%c $(echo ${FRR_ALL_CCLS_CFLAGS} | sed -e 's/  */\n%c /g')
+%c -Wno-unused-function
+%c -Wno-microsoft
+EOF
+fi
+    ], [
+    FRR_ALL_CCLS_FLAGS="$(echo ${LIBYANG_CFLAGS} ${LUA_INCLUDE} ${SQLITE3_CFLAGS} | sed -e 's/  */ /g')"
+    FRR_ALL_CCLS_CFLAGS="$(echo ${CFLAGS} ${WERROR} ${AC_CFLAGS} ${SAN_FLAGS} | sed -e 's/  */ /g')"
+    ac_frr_confdate="${CONFDATE}"
+    ac_frr_sysconfdir="${frr_sysconfdir}/"
+    ])
+])
+
 
 AS_IF([test "$with_pkg_git_version" = "yes"], [
     AC_CONFIG_COMMANDS([lib/gitversion.h], [
@@ -2845,10 +2919,11 @@ compiler                : ${CC}
 compiler flags          : ${CFLAGS} ${WERROR} ${AC_CFLAGS} ${SAN_FLAGS}
 make                    : ${MAKE-make}
 linker flags            : ${LDFLAGS} ${SAN_FLAGS} ${LIBS} ${LIBCAP} ${LIBREADLINE} ${LIBM}
-state file directory    : ${frr_statedir}
-config file directory   : `eval echo \`echo ${sysconfdir}\``
-module directory        : ${CFG_MODULE}
-script directory        : ${CFG_SCRIPT}
+local state file dir    : ${e_frr_libstatedir}
+run state file dir      : ${e_frr_runstatedir}
+config file directory   : ${e_frr_sysconfdir}
+module directory        : ${e_moduledir}
+script directory        : ${e_scriptdir}
 user to run as          : ${enable_user}
 group to run as         : ${enable_group}
 group for vty sockets   : ${enable_vty_group}
@@ -2863,16 +2938,18 @@ directory and to the config files in the config file directory."
 if test -n "$enable_datacenter"; then
   AC_MSG_WARN([The --enable-datacenter compile time option is deprecated.  Please modify the init script to pass -F datacenter to the daemons instead.])
 fi
-if test -n "$enable_time_check"; then
-  AC_MSG_WARN([The --enable-time-check compile time option is deprecated.  Please use the service cputime-stats configuration option instead.])
-fi
-if test -n "$enable_cpu_time"; then
-  AC_MSG_WARN([The --enable-cpu-time compile time option is deprecated.  Please use the service cputime-warning NNN configuration option instead.])
-fi
 
 if test "$enable_doc" != "no" -a "$frr_py_mod_sphinx" = "false"; then
   AC_MSG_WARN([sphinx is missing but required to build documentation])
 fi
 if test "$frr_py_mod_pytest" = "false"; then
   AC_MSG_WARN([pytest is missing, unit tests cannot be performed])
+fi
+
+if $path_warn_banner; then
+  AC_MSG_WARN([^])
+  AC_MSG_WARN([^])
+  AC_MSG_WARN([^ warnings regarding system path configuration were printed at the very top of output])
+  AC_MSG_WARN([^ paths have been adjusted by temporary workarounds])
+  AC_MSG_WARN([^ please fix your ./configure invocation (remove /frr) so it will work without the workarounds])
 fi

@@ -19,9 +19,9 @@ static struct log_ref ferr_ospf_warn[] = {
 		.suggestion = "Do not use this particular set command for an ospf route-map",
 	},
 	{
-		.code = EC_OSPF_MD5,
-		.title = "OSPF has noticed a MD5 issue",
-		.description = "Something has gone wrong with the calculation of the MD5 data",
+		.code = EC_OSPF_AUTH,
+		.title = "OSPF has noticed an authentication issue",
+		.description = "Something has gone wrong with the calculation of the authentication data",
 		.suggestion = "Ensure your key is correct, gather log data from this side as well as peer and open an Issue",
 	},
 	{

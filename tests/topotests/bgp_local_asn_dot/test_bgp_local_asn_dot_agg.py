@@ -38,7 +38,6 @@ sys.path.append(os.path.join(CWD, "../lib/"))
 # pylint: disable=C0413
 # Import topogen and topotest helpers
 from lib.topogen import Topogen, get_topogen
-from lib.topotest import version_cmp
 
 from lib.common_config import (
     start_topology,
@@ -48,7 +47,7 @@ from lib.common_config import (
     verify_rib,
     step,
     check_address_types,
-    check_router_status
+    check_router_status,
 )
 
 from lib.topolog import logger
@@ -163,7 +162,9 @@ def test_verify_bgp_local_as_agg_in_EBGP_p0(request):
                                     "neighbor": {
                                         neighbor: {
                                             "dest_link": {
-                                                "r3": {"local_asn": {"local_as": "1.110"}}
+                                                "r3": {
+                                                    "local_asn": {"local_as": "1.110"}
+                                                }
                                             }
                                         }
                                     }
@@ -190,7 +191,9 @@ def test_verify_bgp_local_as_agg_in_EBGP_p0(request):
                                     "neighbor": {
                                         neighbor: {
                                             "dest_link": {
-                                                dut: {"local_asn": {"remote_as": "1.110"}}
+                                                dut: {
+                                                    "local_asn": {"remote_as": "1.110"}
+                                                }
                                             }
                                         }
                                     }

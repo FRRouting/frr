@@ -85,7 +85,7 @@ void pim_register_stop_send(struct interface *ifp, pim_sgaddr *sg, pim_addr src,
 			zlog_debug("%s: No pinfo!", __func__);
 		return;
 	}
-	if (pim_msg_send(pinfo->pim_sock_fd, src, originator, buffer,
+	if (pim_msg_send(pinfo->pim->reg_sock, src, originator, buffer,
 			 b1length + PIM_MSG_REGISTER_STOP_LEN, ifp)) {
 		if (PIM_DEBUG_PIM_TRACE) {
 			zlog_debug(
@@ -109,12 +109,12 @@ static void pim_reg_stop_upstream(struct pim_instance *pim,
 		up->reg_state = PIM_REG_PRUNE;
 		pim_channel_del_oif(up->channel_oil, pim->regiface,
 				    PIM_OIF_FLAG_PROTO_PIM, __func__);
-		pim_upstream_start_register_stop_timer(up, 0);
+		pim_upstream_start_register_probe_timer(up);
 		pim_vxlan_update_sg_reg_state(pim, up, false);
 		break;
 	case PIM_REG_JOIN_PENDING:
 		up->reg_state = PIM_REG_PRUNE;
-		pim_upstream_start_register_stop_timer(up, 0);
+		pim_upstream_start_register_probe_timer(up);
 		return;
 	}
 }
@@ -416,11 +416,8 @@ void pim_null_register_send(struct pim_upstream *up)
 	memset(buffer, 0, (sizeof(ip6_hdr) + sizeof(pim_msg_header)));
 	memcpy(buffer, &ip6_hdr, sizeof(ip6_hdr));
 
-	pim_msg_header.ver = 0;
-	pim_msg_header.type = 0;
-	pim_msg_header.reserved = 0;
-
-	pim_msg_header.checksum = 0;
+	memset(&pim_msg_header, 0, sizeof(pim_msg_header));
+	memset(&ph, 0, sizeof(ph));
 
 	ph.src = up->sg.src;
 	ph.dst = up->sg.grp;
@@ -494,6 +491,7 @@ int pim_register_recv(struct interface *ifp, pim_addr dest_addr,
 	struct pim_interface *pim_ifp = ifp->info;
 	struct pim_instance *pim = pim_ifp->pim;
 	pim_addr rp_addr;
+	struct pim_rpf *rpg;
 
 	if (pim_ifp->pim_passive_enable) {
 		if (PIM_DEBUG_PIM_PACKETS)
@@ -602,7 +600,14 @@ int pim_register_recv(struct interface *ifp, pim_addr dest_addr,
 		}
 	}
 
-	rp_addr = (RP(pim, sg.grp))->rpf_addr;
+	rpg = RP(pim, sg.grp);
+	if (!rpg) {
+		zlog_warn("%s: Received Register Message %pSG from %pPA on %s where the RP could not be looked up",
+			  __func__, &sg, &src_addr, ifp->name);
+		return 0;
+	}
+
+	rp_addr = rpg->rpf_addr;
 	if (i_am_rp && (!pim_addr_cmp(dest_addr, rp_addr))) {
 		sentRegisterStop = 0;
 
@@ -745,6 +750,7 @@ void pim_reg_del_on_couldreg_fail(struct interface *ifp)
 					    PIM_OIF_FLAG_PROTO_PIM, __func__);
 			EVENT_OFF(up->t_rs_timer);
 			up->reg_state = PIM_REG_NOINFO;
+			PIM_UPSTREAM_FLAG_UNSET_FHR(up->flags);
 		}
 	}
 }

@@ -6,6 +6,12 @@
 
 #include <zebra.h>
 
+#include <net/if.h>
+
+#ifdef GNU_LINUX
+#include <linux/if.h>
+#endif /* GNU_LINUX */
+
 #include "linklist.h"
 #include "vector.h"
 #include "lib_errors.h"
@@ -42,15 +48,14 @@ RB_GENERATE(if_index_head, interface, index_entry, if_cmp_index_func);
 
 DEFINE_QOBJ_TYPE(interface);
 
-DEFINE_HOOK(if_add, (struct interface * ifp), (ifp));
-DEFINE_KOOH(if_del, (struct interface * ifp), (ifp));
+DEFINE_HOOK(if_add, (struct interface *ifp), (ifp));
+DEFINE_KOOH(if_del, (struct interface *ifp), (ifp));
 
-static struct interface_master{
-	int (*create_hook)(struct interface *ifp);
-	int (*up_hook)(struct interface *ifp);
-	int (*down_hook)(struct interface *ifp);
-	int (*destroy_hook)(struct interface *ifp);
-} ifp_master = { 0, };
+DEFINE_HOOK(if_real, (struct interface *ifp), (ifp));
+DEFINE_KOOH(if_unreal, (struct interface *ifp), (ifp));
+
+DEFINE_HOOK(if_up, (struct interface *ifp), (ifp));
+DEFINE_KOOH(if_down, (struct interface *ifp), (ifp));
 
 /* Compare interface names, returning an integer greater than, equal to, or
  * less than 0, (following the strcmp convention), according to the
@@ -98,8 +103,8 @@ int if_cmp_name_func(const char *p1, const char *p2)
 		if (!*p2)
 			return 1;
 
-		x1 = strtol(p1, (char **)&tmp1, 10);
-		x2 = strtol(p2, (char **)&tmp2, 10);
+		x1 = strtol(p1, &tmp1, 10);
+		x2 = strtol(p2, &tmp2, 10);
 
 		/* let's compare numbers now */
 		if (x1 < x2)
@@ -165,8 +170,7 @@ static struct interface *if_new(struct vrf *vrf)
 
 	ifp->vrf = vrf;
 
-	ifp->connected = list_new();
-	ifp->connected->del = ifp_connected_free;
+	if_connected_init(ifp->connected);
 
 	ifp->nbr_connected = list_new();
 	ifp->nbr_connected->del = (void (*)(void *))nbr_connected_free;
@@ -180,14 +184,12 @@ static struct interface *if_new(struct vrf *vrf)
 
 void if_new_via_zapi(struct interface *ifp)
 {
-	if (ifp_master.create_hook)
-		(*ifp_master.create_hook)(ifp);
+	hook_call(if_real, ifp);
 }
 
 void if_destroy_via_zapi(struct interface *ifp)
 {
-	if (ifp_master.destroy_hook)
-		(*ifp_master.destroy_hook)(ifp);
+	hook_call(if_unreal, ifp);
 
 	ifp->oldifindex = ifp->ifindex;
 	if_set_index(ifp, IFINDEX_INTERNAL);
@@ -198,14 +200,12 @@ void if_destroy_via_zapi(struct interface *ifp)
 
 void if_up_via_zapi(struct interface *ifp)
 {
-	if (ifp_master.up_hook)
-		(*ifp_master.up_hook)(ifp);
+	hook_call(if_up, ifp);
 }
 
 void if_down_via_zapi(struct interface *ifp)
 {
-	if (ifp_master.down_hook)
-		(*ifp_master.down_hook)(ifp);
+	hook_call(if_down, ifp);
 }
 
 static struct interface *if_create_name(const char *name, struct vrf *vrf)
@@ -248,11 +248,14 @@ void if_update_to_new_vrf(struct interface *ifp, vrf_id_t vrf_id)
 /* Delete interface structure. */
 void if_delete_retain(struct interface *ifp)
 {
+	struct connected *ifc;
+
 	hook_call(if_del, ifp);
 	QOBJ_UNREG(ifp);
 
 	/* Free connected address list */
-	list_delete_all_node(ifp->connected);
+	while ((ifc = if_connected_pop(ifp->connected)))
+		ifp_connected_free(ifc);
 
 	/* Free connected nbr address list */
 	list_delete_all_node(ifp->nbr_connected);
@@ -270,7 +273,7 @@ void if_delete(struct interface **ifp)
 
 	if_delete_retain(ptr);
 
-	list_delete(&ptr->connected);
+	if_connected_fini(ptr->connected);
 	list_delete(&ptr->nbr_connected);
 
 	if_link_params_free(ptr);
@@ -367,8 +370,7 @@ struct interface *if_lookup_by_name(const char *name, vrf_id_t vrf_id)
 	struct vrf *vrf = vrf_lookup_by_id(vrf_id);
 	struct interface if_tmp;
 
-	if (!vrf || !name
-	    || strnlen(name, INTERFACE_NAMSIZ) == INTERFACE_NAMSIZ)
+	if (!vrf || !name || strnlen(name, IFNAMSIZ) == IFNAMSIZ)
 		return NULL;
 
 	strlcpy(if_tmp.name, name, sizeof(if_tmp.name));
@@ -379,7 +381,7 @@ struct interface *if_lookup_by_name_vrf(const char *name, struct vrf *vrf)
 {
 	struct interface if_tmp;
 
-	if (!name || strnlen(name, INTERFACE_NAMSIZ) == INTERFACE_NAMSIZ)
+	if (!name || strnlen(name, IFNAMSIZ) == IFNAMSIZ)
 		return NULL;
 
 	strlcpy(if_tmp.name, name, sizeof(if_tmp.name));
@@ -391,7 +393,7 @@ static struct interface *if_lookup_by_name_all_vrf(const char *name)
 	struct vrf *vrf;
 	struct interface *ifp;
 
-	if (!name || strnlen(name, INTERFACE_NAMSIZ) == INTERFACE_NAMSIZ)
+	if (!name || strnlen(name, IFNAMSIZ) == IFNAMSIZ)
 		return NULL;
 
 	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
@@ -433,7 +435,6 @@ struct interface *if_lookup_address_local(const void *src, int family,
 					  vrf_id_t vrf_id)
 {
 	struct vrf *vrf = vrf_lookup_by_id(vrf_id);
-	struct listnode *cnode;
 	struct interface *ifp, *best_down = NULL;
 	struct prefix *p;
 	struct connected *c;
@@ -442,7 +443,7 @@ struct interface *if_lookup_address_local(const void *src, int family,
 		return NULL;
 
 	FOR_ALL_INTERFACES (vrf, ifp) {
-		for (ALL_LIST_ELEMENTS_RO(ifp->connected, cnode, c)) {
+		frr_each (if_connected, ifp->connected, c) {
 			p = c->address;
 
 			if (!p || p->family != family)
@@ -474,7 +475,6 @@ struct connected *if_lookup_address(const void *matchaddr, int family,
 	struct vrf *vrf = vrf_lookup_by_id(vrf_id);
 	struct prefix addr;
 	int bestlen = 0;
-	struct listnode *cnode;
 	struct interface *ifp;
 	struct connected *c;
 	struct connected *match;
@@ -493,7 +493,7 @@ struct connected *if_lookup_address(const void *matchaddr, int family,
 	match = NULL;
 
 	FOR_ALL_INTERFACES (vrf, ifp) {
-		for (ALL_LIST_ELEMENTS_RO(ifp->connected, cnode, c)) {
+		frr_each (if_connected, ifp->connected, c) {
 			if (c->address && (c->address->family == AF_INET)
 			    && prefix_match(CONNECTED_PREFIX(c), &addr)
 			    && (c->address->prefixlen > bestlen)) {
@@ -509,12 +509,11 @@ struct connected *if_lookup_address(const void *matchaddr, int family,
 struct interface *if_lookup_prefix(const struct prefix *prefix, vrf_id_t vrf_id)
 {
 	struct vrf *vrf = vrf_lookup_by_id(vrf_id);
-	struct listnode *cnode;
 	struct interface *ifp;
 	struct connected *c;
 
 	FOR_ALL_INTERFACES (vrf, ifp) {
-		for (ALL_LIST_ELEMENTS_RO(ifp->connected, cnode, c)) {
+		frr_each (if_connected, ifp->connected, c) {
 			if (prefix_cmp(c->address, prefix) == 0) {
 				return ifp;
 			}
@@ -675,21 +674,26 @@ int if_is_running(const struct interface *ifp)
    if ptm checking is enabled, then ptm check has passed */
 int if_is_operative(const struct interface *ifp)
 {
-	return ((ifp->flags & IFF_UP)
-		&& (((ifp->flags & IFF_RUNNING)
-		     && (ifp->ptm_status || !ifp->ptm_enable))
-		    || !CHECK_FLAG(ifp->status,
-				   ZEBRA_INTERFACE_LINKDETECTION)));
+	return ((ifp->flags & IFF_UP) &&
+		(((ifp->flags & IFF_RUNNING)
+#ifdef IFF_LOWER_UP
+		  && (ifp->flags & IFF_LOWER_UP)
+#endif /* IFF_LOWER_UP */
+		  && (ifp->ptm_status || !ifp->ptm_enable)) ||
+		 !CHECK_FLAG(ifp->status, ZEBRA_INTERFACE_LINKDETECTION)));
 }
 
 /* Is the interface operative, eg. either UP & RUNNING
    or UP & !ZEBRA_INTERFACE_LINK_DETECTION, without PTM check */
 int if_is_no_ptm_operative(const struct interface *ifp)
 {
-	return ((ifp->flags & IFF_UP)
-		&& ((ifp->flags & IFF_RUNNING)
-		    || !CHECK_FLAG(ifp->status,
-				   ZEBRA_INTERFACE_LINKDETECTION)));
+	return ((ifp->flags & IFF_UP) &&
+		(((ifp->flags & IFF_RUNNING)
+#ifdef IFF_LOWER_UP
+		  && (ifp->flags & IFF_LOWER_UP)
+#endif /* IFF_LOWER_UP */
+			  ) ||
+		 !CHECK_FLAG(ifp->status, ZEBRA_INTERFACE_LINKDETECTION)));
 }
 
 /* Is this loopback interface ? */
@@ -751,6 +755,9 @@ const char *if_flag_dump(unsigned long flag)
 
 	strlcpy(logbuf, "<", BUFSIZ);
 	IFF_OUT_LOG(IFF_UP, "UP");
+#ifdef IFF_LOWER_UP
+	IFF_OUT_LOG(IFF_LOWER_UP, "LOWER_UP");
+#endif /* IFF_LOWER_UP */
 	IFF_OUT_LOG(IFF_BROADCAST, "BROADCAST");
 	IFF_OUT_LOG(IFF_DEBUG, "DEBUG");
 	IFF_OUT_LOG(IFF_LOOPBACK, "LOOPBACK");
@@ -781,10 +788,9 @@ const char *if_flag_dump(unsigned long flag)
 /* For debugging */
 static void if_dump(const struct interface *ifp)
 {
-	struct listnode *node;
-	struct connected *c __attribute__((unused));
+	const struct connected *c;
 
-	for (ALL_LIST_ELEMENTS_RO(ifp->connected, node, c))
+	frr_each (if_connected_const, ifp->connected, c)
 		zlog_info(
 			"Interface %s vrf %s(%u) index %d metric %d mtu %d mtu6 %d %s",
 			ifp->name, ifp->vrf->name, ifp->vrf->vrf_id,
@@ -893,29 +899,13 @@ nbr_connected_log(struct nbr_connected *connected, char *str)
 	zlog_info("%s", logbuf);
 }
 
-/* If two connected address has same prefix return 1. */
-static int connected_same_prefix(const struct prefix *p1,
-				 const struct prefix *p2)
-{
-	if (p1->family == p2->family) {
-		if (p1->family == AF_INET
-		    && IPV4_ADDR_SAME(&p1->u.prefix4, &p2->u.prefix4))
-			return 1;
-		if (p1->family == AF_INET6
-		    && IPV6_ADDR_SAME(&p1->u.prefix6, &p2->u.prefix6))
-			return 1;
-	}
-	return 0;
-}
-
 /* count the number of connected addresses that are in the given family */
 unsigned int connected_count_by_family(struct interface *ifp, int family)
 {
-	struct listnode *cnode;
 	struct connected *connected;
 	unsigned int cnt = 0;
 
-	for (ALL_LIST_ELEMENTS_RO(ifp->connected, cnode, connected))
+	frr_each (if_connected, ifp->connected, connected)
 		if (connected->address->family == family)
 			cnt++;
 
@@ -925,15 +915,10 @@ unsigned int connected_count_by_family(struct interface *ifp, int family)
 struct connected *connected_lookup_prefix_exact(struct interface *ifp,
 						const struct prefix *p)
 {
-	struct listnode *node;
-	struct listnode *next;
 	struct connected *ifc;
 
-	for (node = listhead(ifp->connected); node; node = next) {
-		ifc = listgetdata(node);
-		next = node->next;
-
-		if (connected_same_prefix(ifc->address, p))
+	frr_each (if_connected, ifp->connected, ifc) {
+		if (prefix_same(ifc->address, p))
 			return ifc;
 	}
 	return NULL;
@@ -942,17 +927,12 @@ struct connected *connected_lookup_prefix_exact(struct interface *ifp,
 struct connected *connected_delete_by_prefix(struct interface *ifp,
 					     struct prefix *p)
 {
-	struct listnode *node;
-	struct listnode *next;
 	struct connected *ifc;
 
 	/* In case of same prefix come, replace it with new one. */
-	for (node = listhead(ifp->connected); node; node = next) {
-		ifc = listgetdata(node);
-		next = node->next;
-
-		if (connected_same_prefix(ifc->address, p)) {
-			listnode_delete(ifp->connected, ifc);
+	frr_each_safe (if_connected, ifp->connected, ifc) {
+		if (prefix_same(ifc->address, p)) {
+			if_connected_del(ifp->connected, ifc);
 			return ifc;
 		}
 	}
@@ -964,13 +944,12 @@ struct connected *connected_delete_by_prefix(struct interface *ifp,
 struct connected *connected_lookup_prefix(struct interface *ifp,
 					  const struct prefix *addr)
 {
-	struct listnode *cnode;
 	struct connected *c;
 	struct connected *match;
 
 	match = NULL;
 
-	for (ALL_LIST_ELEMENTS_RO(ifp->connected, cnode, c)) {
+	frr_each (if_connected, ifp->connected, c) {
 		if (c->address && (c->address->family == addr->family)
 		    && prefix_match(CONNECTED_PREFIX(c), addr)
 		    && (!match
@@ -1001,16 +980,15 @@ struct connected *connected_add_by_prefix(struct interface *ifp,
 	}
 
 	/* Add connected address to the interface. */
-	listnode_add(ifp->connected, ifc);
+	if_connected_add_tail(ifp->connected, ifc);
 	return ifc;
 }
 
 struct connected *connected_get_linklocal(struct interface *ifp)
 {
-	struct listnode *n;
 	struct connected *c = NULL;
 
-	for (ALL_LIST_ELEMENTS_RO(ifp->connected, n, c)) {
+	frr_each (if_connected, ifp->connected, c) {
 		if (c->address->family == AF_INET6
 		    && IN6_IS_ADDR_LINKLOCAL(&c->address->u.prefix6))
 			break;
@@ -1028,6 +1006,7 @@ void if_terminate(struct vrf *vrf)
 		if (ifp->node) {
 			ifp->node->info = NULL;
 			route_unlock_node(ifp->node);
+			ifp->node = NULL;
 		}
 		if_delete(&ifp);
 	}
@@ -1339,14 +1318,14 @@ static void cli_show_interface(struct vty *vty, const struct lyd_node *dnode,
 		char ifname[XPATH_MAXLEN];
 		char vrfname[XPATH_MAXLEN];
 
-		netns_ifname_split(yang_dnode_get_string(dnode, "./name"),
+		netns_ifname_split(yang_dnode_get_string(dnode, "name"),
 				   ifname, vrfname);
 
 		vty_out(vty, "interface %s", ifname);
 		if (!strmatch(vrfname, VRF_DEFAULT_NAME))
 			vty_out(vty, " vrf %s", vrfname);
 	} else {
-		const char *ifname = yang_dnode_get_string(dnode, "./name");
+		const char *ifname = yang_dnode_get_string(dnode, "name");
 
 		vty_out(vty, "interface %s", ifname);
 	}
@@ -1358,6 +1337,15 @@ static void cli_show_interface_end(struct vty *vty,
 				   const struct lyd_node *dnode)
 {
 	vty_out(vty, "exit\n");
+}
+
+static int cli_cmp_interface(const struct lyd_node *dnode1,
+			     const struct lyd_node *dnode2)
+{
+	const char *ifname1 = yang_dnode_get_string(dnode1, "name");
+	const char *ifname2 = yang_dnode_get_string(dnode2, "name");
+
+	return if_cmp_name_func(ifname1, ifname2);
 }
 
 void if_vty_config_start(struct vty *vty, struct interface *ifp)
@@ -1476,17 +1464,6 @@ void if_cmd_init_default(void)
 	if_cmd_init(if_nb_config_write);
 }
 
-void if_zapi_callbacks(int (*create)(struct interface *ifp),
-		       int (*up)(struct interface *ifp),
-		       int (*down)(struct interface *ifp),
-		       int (*destroy)(struct interface *ifp))
-{
-	ifp_master.create_hook = create;
-	ifp_master.up_hook = up;
-	ifp_master.down_hook = down;
-	ifp_master.destroy_hook = destroy;
-}
-
 /* ------- Northbound callbacks ------- */
 
 /*
@@ -1497,7 +1474,7 @@ static int lib_interface_create(struct nb_cb_create_args *args)
 	const char *ifname;
 	struct interface *ifp;
 
-	ifname = yang_dnode_get_string(args->dnode, "./name");
+	ifname = yang_dnode_get_string(args->dnode, "name");
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
@@ -1708,7 +1685,7 @@ lib_interface_state_mtu_get_elem(struct nb_cb_get_elem_args *args)
 {
 	const struct interface *ifp = args->list_entry;
 
-	return yang_data_new_uint16(args->xpath, ifp->mtu);
+	return yang_data_new_uint32(args->xpath, ifp->mtu);
 }
 
 /*
@@ -1779,6 +1756,8 @@ lib_interface_state_phy_address_get_elem(struct nb_cb_get_elem_args *args)
 }
 
 /* clang-format off */
+
+/* cli_show callbacks are kept here for daemons not yet converted to mgmtd */
 const struct frr_yang_module_info frr_interface_info = {
 	.name = "frr-interface",
 	.nodes = {
@@ -1789,6 +1768,7 @@ const struct frr_yang_module_info frr_interface_info = {
 				.destroy = lib_interface_destroy,
 				.cli_show = cli_show_interface,
 				.cli_show_end = cli_show_interface_end,
+				.cli_cmp = cli_cmp_interface,
 				.get_next = lib_interface_get_next,
 				.get_keys = lib_interface_get_keys,
 				.lookup_entry = lib_interface_lookup_entry,
@@ -1855,6 +1835,30 @@ const struct frr_yang_module_info frr_interface_info = {
 			.cbs = {
 				.get_elem = lib_interface_state_phy_address_get_elem,
 			}
+		},
+		{
+			.xpath = NULL,
+		},
+	}
+};
+
+const struct frr_yang_module_info frr_interface_cli_info = {
+	.name = "frr-interface",
+	.ignore_cfg_cbs = true,
+	.nodes = {
+		{
+			.xpath = "/frr-interface:lib/interface",
+			.cbs = {
+				.cli_show = cli_show_interface,
+				.cli_show_end = cli_show_interface_end,
+				.cli_cmp = cli_cmp_interface,
+			},
+		},
+		{
+			.xpath = "/frr-interface:lib/interface/description",
+			.cbs = {
+				.cli_show = cli_show_interface_desc,
+			},
 		},
 		{
 			.xpath = NULL,

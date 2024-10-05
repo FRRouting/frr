@@ -108,7 +108,7 @@ def setup_module(mod):
     r2.run("ip link set r2-eth3 master vrf1")
 
     # Load FRR config and initialize all routers
-    for i, (rname, router) in enumerate(router_list.items(), 1):
+    for _, (rname, router) in enumerate(router_list.items(), 1):
         router.load_config(
             TopoRouter.RD_ZEBRA, os.path.join(CWD, "{}/zebra.conf".format(rname))
         )

@@ -17,12 +17,7 @@ Need to verify if the tcp-mss value is reflected in the TCP session and in VRF.
 
 import os
 import sys
-import json
 import pytest
-import functools
-import platform
-import socket
-import subprocess
 
 # add after imports, before defining classes or functions:
 pytestmark = [pytest.mark.bgpd]
@@ -31,45 +26,29 @@ CWD = os.path.dirname(os.path.realpath(__file__))
 sys.path.append(os.path.join(CWD, "../"))
 
 # pylint: disable=C0413
-from lib import topotest
-from lib.topogen import Topogen, TopoRouter, get_topogen
+from lib.topogen import Topogen, get_topogen
 from lib.topojson import build_config_from_json
-from lib.topolog import logger
 import time
 from lib.bgp import (
     clear_bgp,
-    clear_bgp_and_verify,
     create_router_bgp,
-    modify_as_number,
-    verify_as_numbers,
     verify_bgp_convergence,
     verify_bgp_rib,
-    verify_bgp_timers_and_functionality,
-    verify_router_id,
-    verify_tcp_mss
+    verify_tcp_mss,
 )
 from lib.common_config import (
     kill_router_daemons,
     start_router_daemons,
-    addKernelRoute,
     apply_raw_config,
     check_address_types,
-    create_prefix_lists,
-    create_route_maps,
+    check_router_status,
     create_static_routes,
     required_linux_kernel_version,
-    reset_config_on_routers,
     start_topology,
     step,
-    verify_admin_distance_for_static_routes,
-    verify_bgp_community,
-    verify_fib_routes,
-    verify_rib,
     write_test_footer,
-    write_test_header
 )
 
-pytestmark = [pytest.mark.bgpd]
 # Global variables
 NETWORK1_1 = {"ipv4": "1.1.1.1/32", "ipv6": "1::1/128"}
 NETWORK1_2 = {"ipv4": "1.1.1.2/32", "ipv6": "1::2/128"}
@@ -85,7 +64,8 @@ NETWORK5_2 = {"ipv4": "5.1.1.2/32", "ipv6": "5::2/128"}
 NEXT_HOP_IP = {"ipv4": "Null0", "ipv6": "Null0"}
 
 ## File name
-TCPDUMP_FILE="test_tcp_packet_test.txt"
+TCPDUMP_FILE = "test_tcp_packet_test.txt"
+
 
 def setup_module(mod):
     """
@@ -93,7 +73,7 @@ def setup_module(mod):
 
     * `mod`: module name
     """
-    global topo,TCPDUMP_FILE
+    global topo, TCPDUMP_FILE
 
     # Required linux kernel version for this suite to run.
     result = required_linux_kernel_version("4.15")
@@ -128,6 +108,7 @@ def setup_module(mod):
 
     step("Running setup_module() done")
 
+
 def teardown_module():
     """Teardown the pytest environment"""
 
@@ -138,9 +119,7 @@ def teardown_module():
     # Stop toplogy and Remove tmp files
     tgen.stop_topology()
 
-    step(
-        "Testsuite end time: {}".format(time.asctime(time.localtime(time.time())))
-    )
+    step("Testsuite end time: {}".format(time.asctime(time.localtime(time.time()))))
     step("=" * 40)
 
 
@@ -149,6 +128,7 @@ def teardown_module():
 #   Testcases
 #
 #####################################################
+
 
 def test_bgp_vrf_tcp_mss(request):
     tgen = get_topogen()
@@ -280,34 +260,34 @@ def test_bgp_vrf_tcp_mss(request):
     step("Verify the static Routes in R2 on RED VRF")
     for addr_type in ADDR_TYPES:
         static_routes_input = {
-        "r3": {
-            "static_routes": [
-                {
-                    "network": [NETWORK1_1[addr_type]] + [NETWORK1_2[addr_type]],
-                    "next_hop": NEXT_HOP_IP[addr_type],
-                    "vrf": "RED",
-                },
-                {
-                    "network": [NETWORK2_1[addr_type]] + [NETWORK2_2[addr_type]],
-                    "next_hop": NEXT_HOP_IP[addr_type],
-                    "vrf": "RED",
-                },
-                {
-                    "network": [NETWORK3_1[addr_type]] + [NETWORK3_2[addr_type]],
-                    "next_hop": NEXT_HOP_IP[addr_type],
-                    "vrf": "RED",
-                },
-                {
-                    "network": [NETWORK4_1[addr_type]] + [NETWORK4_2[addr_type]],
-                    "next_hop": NEXT_HOP_IP[addr_type],
-                    "vrf": "RED",
-                },
-                {
-                    "network": [NETWORK5_1[addr_type]] + [NETWORK5_2[addr_type]],
-                    "next_hop": NEXT_HOP_IP[addr_type],
-                    "vrf": "RED",
-                },
-            ]
+            "r3": {
+                "static_routes": [
+                    {
+                        "network": [NETWORK1_1[addr_type]] + [NETWORK1_2[addr_type]],
+                        "next_hop": NEXT_HOP_IP[addr_type],
+                        "vrf": "RED",
+                    },
+                    {
+                        "network": [NETWORK2_1[addr_type]] + [NETWORK2_2[addr_type]],
+                        "next_hop": NEXT_HOP_IP[addr_type],
+                        "vrf": "RED",
+                    },
+                    {
+                        "network": [NETWORK3_1[addr_type]] + [NETWORK3_2[addr_type]],
+                        "next_hop": NEXT_HOP_IP[addr_type],
+                        "vrf": "RED",
+                    },
+                    {
+                        "network": [NETWORK4_1[addr_type]] + [NETWORK4_2[addr_type]],
+                        "next_hop": NEXT_HOP_IP[addr_type],
+                        "vrf": "RED",
+                    },
+                    {
+                        "network": [NETWORK5_1[addr_type]] + [NETWORK5_2[addr_type]],
+                        "next_hop": NEXT_HOP_IP[addr_type],
+                        "vrf": "RED",
+                    },
+                ]
             }
         }
         dut = "r2"
@@ -317,34 +297,34 @@ def test_bgp_vrf_tcp_mss(request):
     step("Verify the static Routes in R1 on RED VRF")
     for addr_type in ADDR_TYPES:
         static_routes_input = {
-        "r3": {
-            "static_routes": [
-                {
-                    "network": [NETWORK1_1[addr_type]] + [NETWORK1_2[addr_type]],
-                    "next_hop": NEXT_HOP_IP[addr_type],
-                    "vrf": "RED",
-                },
-                {
-                    "network": [NETWORK2_1[addr_type]] + [NETWORK2_2[addr_type]],
-                    "next_hop": NEXT_HOP_IP[addr_type],
-                    "vrf": "RED",
-                },
-                {
-                    "network": [NETWORK3_1[addr_type]] + [NETWORK3_2[addr_type]],
-                    "next_hop": NEXT_HOP_IP[addr_type],
-                    "vrf": "RED",
-                },
-                {
-                    "network": [NETWORK4_1[addr_type]] + [NETWORK4_2[addr_type]],
-                    "next_hop": NEXT_HOP_IP[addr_type],
-                    "vrf": "RED",
-                },
-                {
-                    "network": [NETWORK5_1[addr_type]] + [NETWORK5_2[addr_type]],
-                    "next_hop": NEXT_HOP_IP[addr_type],
-                    "vrf": "RED",
-                },
-            ]
+            "r3": {
+                "static_routes": [
+                    {
+                        "network": [NETWORK1_1[addr_type]] + [NETWORK1_2[addr_type]],
+                        "next_hop": NEXT_HOP_IP[addr_type],
+                        "vrf": "RED",
+                    },
+                    {
+                        "network": [NETWORK2_1[addr_type]] + [NETWORK2_2[addr_type]],
+                        "next_hop": NEXT_HOP_IP[addr_type],
+                        "vrf": "RED",
+                    },
+                    {
+                        "network": [NETWORK3_1[addr_type]] + [NETWORK3_2[addr_type]],
+                        "next_hop": NEXT_HOP_IP[addr_type],
+                        "vrf": "RED",
+                    },
+                    {
+                        "network": [NETWORK4_1[addr_type]] + [NETWORK4_2[addr_type]],
+                        "next_hop": NEXT_HOP_IP[addr_type],
+                        "vrf": "RED",
+                    },
+                    {
+                        "network": [NETWORK5_1[addr_type]] + [NETWORK5_2[addr_type]],
+                        "next_hop": NEXT_HOP_IP[addr_type],
+                        "vrf": "RED",
+                    },
+                ]
             }
         }
         dut = "r1"
@@ -404,9 +384,6 @@ def test_bgp_vrf_tcp_mss(request):
             tcp_mss_result
         )
 
-
-
-
     step("Enabling tcp-mss 500 between R2 and R3 of VRF Default")
     TCP_MSS = 500
     raw_config = {
@@ -439,8 +416,6 @@ def test_bgp_vrf_tcp_mss(request):
     }
     result = apply_raw_config(tgen, raw_config)
     assert result is True, "Testcase {} : Failed Error: {}".format(tc_name, result)
-
-
 
     step("Clear BGP at router R2 and R3")
     for addr_type in ADDR_TYPES:
@@ -549,7 +524,6 @@ def test_bgp_vrf_tcp_mss(request):
         assert (
             tcp_mss_result is not True
         ), " TCP-MSS mismatch :Failed \n Error: {}".format(tcp_mss_result)
-
 
     step("Removing tcp-mss 500 between R2 and R3 of VRF Default ")
     TCP_MSS = 500

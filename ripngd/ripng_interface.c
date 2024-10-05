@@ -128,16 +128,15 @@ static int ripng_multicast_leave(struct interface *ifp, int sock)
 /* How many link local IPv6 address could be used on the interface ? */
 static int ripng_if_ipv6_lladdress_check(struct interface *ifp)
 {
-	struct listnode *nn;
 	struct connected *connected;
 	int count = 0;
 
-	for (ALL_LIST_ELEMENTS_RO(ifp->connected, nn, connected)) {
+	frr_each (if_connected, ifp->connected, connected) {
 		struct prefix *p;
 		p = connected->address;
 
-		if ((p->family == AF_INET6)
-		    && IN6_IS_ADDR_LINKLOCAL(&p->u.prefix6))
+		if ((p->family == AF_INET6) &&
+		    IN6_IS_ADDR_LINKLOCAL(&p->u.prefix6))
 			count++;
 	}
 
@@ -260,31 +259,6 @@ static int ripng_ifp_destroy(struct interface *ifp)
 			ifp->name, ifp->vrf->name, ifp->vrf->vrf_id,
 			ifp->ifindex, (unsigned long long)ifp->flags,
 			ifp->metric, ifp->mtu6);
-
-	return 0;
-}
-
-/* VRF update for an interface. */
-int ripng_interface_vrf_update(ZAPI_CALLBACK_ARGS)
-{
-	struct interface *ifp;
-	vrf_id_t new_vrf_id;
-
-	ifp = zebra_interface_vrf_update_read(zclient->ibuf, vrf_id,
-					      &new_vrf_id);
-	if (!ifp)
-		return 0;
-
-	if (IS_RIPNG_DEBUG_ZEBRA) {
-		struct vrf *nvrf = vrf_lookup_by_id(new_vrf_id);
-
-		zlog_debug("interface %s VRF change vrf %s(%u) new vrf %s(%u)",
-			   ifp->name, ifp->vrf->name, vrf_id, VRF_LOGNAME(nvrf),
-			   new_vrf_id);
-	}
-
-	if_update_to_new_vrf(ifp, new_vrf_id);
-	ripng_interface_sync(ifp);
 
 	return 0;
 }
@@ -433,14 +407,13 @@ static int ripng_enable_network_lookup_if(struct interface *ifp)
 {
 	struct ripng_interface *ri = ifp->info;
 	struct ripng *ripng = ri->ripng;
-	struct listnode *node;
 	struct connected *connected;
 	struct prefix_ipv6 address;
 
 	if (!ripng)
 		return -1;
 
-	for (ALL_LIST_ELEMENTS_RO(ifp->connected, node, connected)) {
+	frr_each (if_connected, ifp->connected, connected) {
 		struct prefix *p;
 		struct agg_node *n;
 
@@ -615,11 +588,10 @@ static void ripng_connect_set(struct interface *ifp, int set)
 {
 	struct ripng_interface *ri = ifp->info;
 	struct ripng *ripng = ri->ripng;
-	struct listnode *node, *nnode;
 	struct connected *connected;
 	struct prefix_ipv6 address;
 
-	for (ALL_LIST_ELEMENTS(ifp->connected, node, nnode, connected)) {
+	frr_each (if_connected, ifp->connected, connected) {
 		struct prefix *p;
 		p = connected->address;
 
@@ -634,9 +606,9 @@ static void ripng_connect_set(struct interface *ifp, int set)
 		if (set) {
 			/* Check once more whether this prefix is within a
 			 * "network IF_OR_PREF" one */
-			if ((ripng_enable_if_lookup(ripng, connected->ifp->name)
-			     >= 0)
-			    || (ripng_enable_network_lookup2(connected) >= 0))
+			if ((ripng_enable_if_lookup(
+				     ripng, connected->ifp->name) >= 0) ||
+			    (ripng_enable_network_lookup2(connected) >= 0))
 				ripng_redistribute_add(
 					ripng, ZEBRA_ROUTE_CONNECT,
 					RIPNG_ROUTE_INTERFACE, &address,
@@ -901,7 +873,8 @@ void ripng_if_init(void)
 	hook_register_prio(if_del, 0, ripng_if_delete_hook);
 
 	/* Install interface node. */
-	if_cmd_init_default();
-	if_zapi_callbacks(ripng_ifp_create, ripng_ifp_up,
-			  ripng_ifp_down, ripng_ifp_destroy);
+	hook_register_prio(if_real, 0, ripng_ifp_create);
+	hook_register_prio(if_up, 0, ripng_ifp_up);
+	hook_register_prio(if_down, 0, ripng_ifp_down);
+	hook_register_prio(if_unreal, 0, ripng_ifp_destroy);
 }

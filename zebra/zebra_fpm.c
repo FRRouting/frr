@@ -8,6 +8,10 @@
 
 #include <zebra.h>
 
+#ifdef GNU_LINUX
+#include <linux/rtnetlink.h>
+#endif
+
 #include "log.h"
 #include "libfrr.h"
 #include "stream.h"
@@ -497,6 +501,11 @@ static inline void zfpm_connect_off(void)
 	EVENT_OFF(zfpm_g->t_connect);
 }
 
+static inline void zfpm_conn_down_off(void)
+{
+	EVENT_OFF(zfpm_g->t_conn_down);
+}
+
 /*
  * zfpm_conn_up_thread_cb
  *
@@ -635,8 +644,6 @@ static void zfpm_conn_down_thread_cb(struct event *thread)
 	while ((mac = TAILQ_FIRST(&zfpm_g->mac_q)) != NULL)
 		zfpm_mac_info_del(mac);
 
-	zfpm_g->t_conn_down = NULL;
-
 	iter = &zfpm_g->t_conn_down_state.iter;
 
 	while ((rnode = zfpm_rnodes_iter_next(iter))) {
@@ -667,7 +674,6 @@ static void zfpm_conn_down_thread_cb(struct event *thread)
 
 		zfpm_g->stats.t_conn_down_yields++;
 		zfpm_rnodes_iter_pause(iter);
-		zfpm_g->t_conn_down = NULL;
 		event_add_timer_msec(zfpm_g->master, zfpm_conn_down_thread_cb,
 				     NULL, 0, &zfpm_g->t_conn_down);
 		return;
@@ -712,7 +718,7 @@ static void zfpm_connection_down(const char *detail)
 	 */
 	assert(!zfpm_g->t_conn_down);
 	zfpm_rnodes_iter_init(&zfpm_g->t_conn_down_state.iter);
-	zfpm_g->t_conn_down = NULL;
+	zfpm_conn_down_off();
 	event_add_timer_msec(zfpm_g->master, zfpm_conn_down_thread_cb, NULL, 0,
 			     &zfpm_g->t_conn_down);
 	zfpm_g->stats.t_conn_down_starts++;
@@ -2042,10 +2048,13 @@ static int zfpm_fini(void)
 	zfpm_write_off();
 	zfpm_read_off();
 	zfpm_connect_off();
+	zfpm_conn_down_off();
 
 	zfpm_stop_stats_timer();
 
 	hook_unregister(rib_update, zfpm_trigger_update);
+	hook_unregister(zebra_rmac_update, zfpm_trigger_rmac_update);
+
 	return 0;
 }
 

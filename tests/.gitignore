@@ -29,6 +29,7 @@ frr_northbound*
 /lib/test_buffer
 /lib/test_checksum
 /lib/test_frrscript
+/lib/test_darr
 /lib/test_frrlua
 /lib/test_graph
 /lib/test_grpc

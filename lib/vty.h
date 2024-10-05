@@ -43,6 +43,7 @@ struct json_object;
 struct vty_error {
 	char error_buf[VTY_BUFSIZ];
 	uint32_t line_num;
+	int cmd_ret;
 };
 
 struct vty_cfg_change {
@@ -71,7 +72,11 @@ struct vty {
 	bool is_paged;
 
 	/* Is this vty connect to file or not */
-	enum { VTY_TERM, VTY_FILE, VTY_SHELL, VTY_SHELL_SERV } type;
+	enum { VTY_TERM,       /* telnet conn or stdin/stdout UI */
+	       VTY_FILE,       /* reading and writing config files */
+	       VTY_SHELL,      /* vtysh client side UI */
+	       VTY_SHELL_SERV, /* server-side vtysh connection */
+	} type;
 
 	/* Node status of this vty */
 	int node;
@@ -117,6 +122,10 @@ struct vty {
 	size_t num_cfg_changes;
 	struct nb_cfg_change cfg_changes[VTY_MAXCFGCHANGES];
 
+	/* Input parameters */
+	size_t num_rpc_params;
+	struct nb_cfg_change rpc_params[VTY_MAXCFGCHANGES];
+
 	/* XPath of the current node */
 	int xpath_index;
 	char xpath[VTY_MAXDEPTH][XPATH_MAXLEN];
@@ -142,7 +151,6 @@ struct vty {
 	/* Dynamic transaction information. */
 	bool pending_allowed;
 	bool pending_commit;
-	bool no_implicit_commit;
 	char *pending_cmds_buf;
 	size_t pending_cmds_buflen;
 	size_t pending_cmds_bufpos;
@@ -218,11 +226,17 @@ struct vty {
 	size_t frame_pos;
 	char frame[1024];
 
-	uintptr_t mgmt_session_id;
-	uint64_t mgmt_client_id;
+	uint64_t mgmt_session_id; /* FE adapter identifies session w/ this */
+	uint64_t mgmt_client_id;  /* FE vty client identifies w/ this ID */
 	uint64_t mgmt_req_id;
-	bool mgmt_req_pending;
+	/* set when we have sent mgmtd a *REQ command in response to some vty
+	 * CLI command and we are waiting on the reply so we can respond to the
+	 * vty user. */
+	const char *mgmt_req_pending_cmd;
+	uintptr_t mgmt_req_pending_data;
 	bool mgmt_locked_candidate_ds;
+	bool mgmt_locked_running_ds;
+	uint64_t vty_buf_size_accumulated;
 };
 
 static inline void vty_push_context(struct vty *vty, int node, uint64_t id)
@@ -298,10 +312,10 @@ static inline void vty_push_context(struct vty *vty, int node, uint64_t id)
 
 #define VTY_CHECK_XPATH                                                        \
 	do {                                                                   \
-		if (vty->type != VTY_FILE && !vty->private_config              \
-		    && vty->xpath_index > 0                                    \
-		    && !yang_dnode_exists(vty->candidate_config->dnode,        \
-					  VTY_CURR_XPATH)) {                   \
+		if (vty->type != VTY_FILE && !vty->private_config &&           \
+		    vty->xpath_index > 0 &&                                    \
+		    !yang_dnode_exists(vty->candidate_config->dnode,           \
+				       VTY_CURR_XPATH)) {                      \
 			vty_out(vty,                                           \
 				"Current configuration object was deleted "    \
 				"by another process.\n\n");                    \
@@ -325,6 +339,12 @@ struct vty_arg {
 /* Vty read buffer size. */
 #define VTY_READ_BUFSIZ 512
 
+/* Vty max send buffer size */
+#define VTY_SEND_BUF_MAX 16777216
+
+/* Vty flush intermediate size */
+#define VTY_MAX_INTERMEDIATE_FLUSH 131072
+
 /* Directory separator. */
 #ifndef DIRECTORY_SEP
 #define DIRECTORY_SEP '/'
@@ -335,6 +355,10 @@ struct vty_arg {
 #endif
 
 extern struct nb_config *vty_mgmt_candidate_config;
+extern bool vty_log_commands;
+
+extern char const *const mgmt_daemons[];
+extern uint mgmt_daemons_count;
 
 /* Prototypes. */
 extern void vty_init(struct event_loop *m, bool do_command_logging);
@@ -361,22 +385,27 @@ extern bool vty_set_include(struct vty *vty, const char *regexp);
  */
 extern int vty_json(struct vty *vty, struct json_object *json);
 extern int vty_json_no_pretty(struct vty *vty, struct json_object *json);
-extern void vty_json_empty(struct vty *vty);
+void vty_json_key(struct vty *vty, const char *key, bool *first_key);
+void vty_json_close(struct vty *vty, bool first_key);
+extern void vty_json_empty(struct vty *vty, struct json_object *json);
 /* post fd to be passed to the vtysh client
  * fd is owned by the VTY code after this and will be closed when done
  */
 extern void vty_pass_fd(struct vty *vty, int fd);
 
+extern FILE *vty_open_config(const char *config_file, char *config_default_dir);
 extern bool vty_read_config(struct nb_config *config, const char *config_file,
 			    char *config_default_dir);
 extern void vty_read_file(struct nb_config *config, FILE *confp);
+extern void vty_read_file_finish(struct vty *vty, struct nb_config *config);
 extern void vty_time_print(struct vty *, int);
-extern void vty_serv_sock(const char *, unsigned short, const char *);
+extern void vty_serv_start(const char *, unsigned short, const char *);
+extern void vty_serv_stop(void);
 extern void vty_close(struct vty *);
 extern char *vty_get_cwd(void);
 extern void vty_update_xpath(const char *oldpath, const char *newpath);
 extern int vty_config_enter(struct vty *vty, bool private_config,
-			    bool exclusive);
+			    bool exclusive, bool file_lock);
 extern void vty_config_exit(struct vty *);
 extern int vty_config_node_exit(struct vty *);
 extern int vty_shell(struct vty *);
@@ -390,25 +419,32 @@ extern void vty_stdio_close(void);
 
 extern void vty_init_mgmt_fe(void);
 extern bool vty_mgmt_fe_enabled(void);
-extern int vty_mgmt_send_config_data(struct vty *vty);
+extern bool vty_mgmt_should_process_cli_apply_changes(struct vty *vty);
+
+extern bool mgmt_vty_read_configs(void);
+extern int vty_mgmt_send_config_data(struct vty *vty, const char *xpath_base,
+				     bool implicit_commit);
 extern int vty_mgmt_send_commit_config(struct vty *vty, bool validate_only,
 				       bool abort);
-extern int vty_mgmt_send_get_config(struct vty *vty,
-				    Mgmtd__DatastoreId datastore,
-				    const char **xpath_list, int num_req);
-extern int vty_mgmt_send_get_data(struct vty *vty, Mgmtd__DatastoreId datastore,
-				  const char **xpath_list, int num_req);
+extern int vty_mgmt_send_get_req(struct vty *vty, bool is_config,
+				 Mgmtd__DatastoreId datastore,
+				 const char **xpath_list, int num_req);
+extern int vty_mgmt_send_get_data_req(struct vty *vty, uint8_t datastore,
+				      LYD_FORMAT result_type, uint8_t flags,
+				      uint8_t defaults, const char *xpath);
+extern int vty_mgmt_send_edit_req(struct vty *vty, uint8_t datastore,
+				  LYD_FORMAT request_type, uint8_t flags,
+				  uint8_t operation, const char *xpath,
+				  const char *data);
+extern int vty_mgmt_send_rpc_req(struct vty *vty, LYD_FORMAT request_type,
+				 const char *xpath, const char *data);
 extern int vty_mgmt_send_lockds_req(struct vty *vty, Mgmtd__DatastoreId ds_id,
-				    bool lock);
-extern void vty_mgmt_resume_response(struct vty *vty, bool success);
+				    bool lock, bool scok);
+extern void vty_mgmt_resume_response(struct vty *vty, int ret);
 
 static inline bool vty_needs_implicit_commit(struct vty *vty)
 {
-	return (frr_get_cli_mode() == FRR_CLI_CLASSIC
-			? ((vty->pending_allowed || vty->no_implicit_commit)
-				   ? false
-				   : true)
-			: false);
+	return frr_get_cli_mode() == FRR_CLI_CLASSIC && !vty->pending_allowed;
 }
 
 #ifdef __cplusplus

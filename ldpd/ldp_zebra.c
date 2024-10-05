@@ -22,8 +22,7 @@
 #include "ldp_debug.h"
 
 static void	 ifp2kif(struct interface *, struct kif *);
-static void	 ifc2kaddr(struct interface *, struct connected *,
-		    struct kaddr *);
+static void	 ifc2kaddr(struct interface *, struct connected *, struct kaddr *);
 static int	 ldp_zebra_send_mpls_labels(int, struct kroute *);
 static int	 ldp_router_id_update(ZAPI_CALLBACK_ARGS);
 static int	 ldp_interface_address_add(ZAPI_CALLBACK_ARGS);
@@ -40,6 +39,7 @@ static int 	ldp_zebra_opaque_msg_handler(ZAPI_CALLBACK_ARGS);
 static void 	ldp_sync_zebra_init(void);
 
 static struct zclient	*zclient;
+extern struct zclient *zclient_sync;
 static bool zebra_registered = false;
 
 static void
@@ -295,8 +295,7 @@ kmpw_add(struct zapi_pw *zpw)
 	debug_zebra_out("pseudowire %s nexthop %s (add)",
 	    zpw->ifname, log_addr(zpw->af, (union ldpd_addr *)&zpw->nexthop));
 
-	return zebra_send_pw(zclient, ZEBRA_PW_ADD, zpw)
-	       == ZCLIENT_SEND_FAILURE;
+	return zebra_send_pw(zclient, ZEBRA_PW_ADD, zpw) == ZCLIENT_SEND_FAILURE;
 }
 
 int
@@ -305,8 +304,7 @@ kmpw_del(struct zapi_pw *zpw)
 	debug_zebra_out("pseudowire %s nexthop %s (del)",
 	    zpw->ifname, log_addr(zpw->af, (union ldpd_addr *)&zpw->nexthop));
 
-	return zebra_send_pw(zclient, ZEBRA_PW_DELETE, zpw)
-	       == ZCLIENT_SEND_FAILURE;
+	return zebra_send_pw(zclient, ZEBRA_PW_DELETE, zpw) == ZCLIENT_SEND_FAILURE;
 }
 
 int
@@ -316,8 +314,7 @@ kmpw_set(struct zapi_pw *zpw)
 	    zpw->ifname, log_addr(zpw->af, (union ldpd_addr *)&zpw->nexthop),
 	    zpw->local_label, zpw->remote_label);
 
-	return zebra_send_pw(zclient, ZEBRA_PW_SET, zpw)
-	       == ZCLIENT_SEND_FAILURE;
+	return zebra_send_pw(zclient, ZEBRA_PW_SET, zpw) == ZCLIENT_SEND_FAILURE;
 }
 
 int
@@ -326,15 +323,13 @@ kmpw_unset(struct zapi_pw *zpw)
 	debug_zebra_out("pseudowire %s nexthop %s (unset)",
 	    zpw->ifname, log_addr(zpw->af, (union ldpd_addr *)&zpw->nexthop));
 
-	return zebra_send_pw(zclient, ZEBRA_PW_UNSET, zpw)
-	       == ZCLIENT_SEND_FAILURE;
+	return zebra_send_pw(zclient, ZEBRA_PW_UNSET, zpw) == ZCLIENT_SEND_FAILURE;
 }
 
 void
 kif_redistribute(const char *ifname)
 {
 	struct vrf		*vrf = vrf_lookup_by_id(VRF_DEFAULT);
-	struct listnode		*cnode;
 	struct interface	*ifp;
 	struct connected	*ifc;
 	struct kif		 kif;
@@ -347,7 +342,7 @@ kif_redistribute(const char *ifname)
 		ifp2kif(ifp, &kif);
 		main_imsg_compose_both(IMSG_IFSTATUS, &kif, sizeof(kif));
 
-		for (ALL_LIST_ELEMENTS_RO(ifp->connected, cnode, ifc)) {
+		frr_each (if_connected, ifp->connected, ifc) {
 			ifc2kaddr(ifp, ifc, &ka);
 			main_imsg_compose_ldpe(IMSG_NEWADDR, 0, &ka, sizeof(ka));
 		}
@@ -404,7 +399,6 @@ ldp_ifp_destroy(struct interface *ifp)
 static int
 ldp_interface_status_change(struct interface *ifp)
 {
-	struct listnode		*node;
 	struct connected	*ifc;
 	struct kif		 kif;
 	struct kaddr		 ka;
@@ -415,12 +409,12 @@ ldp_interface_status_change(struct interface *ifp)
 	main_imsg_compose_both(IMSG_IFSTATUS, &kif, sizeof(kif));
 
 	if (if_is_operative(ifp)) {
-		for (ALL_LIST_ELEMENTS_RO(ifp->connected, node, ifc)) {
+		frr_each (if_connected, ifp->connected, ifc) {
 			ifc2kaddr(ifp, ifc, &ka);
 			main_imsg_compose_ldpe(IMSG_NEWADDR, 0, &ka, sizeof(ka));
 		}
 	} else {
-		for (ALL_LIST_ELEMENTS_RO(ifp->connected, node, ifc)) {
+		frr_each (if_connected, ifp->connected, ifc) {
 			ifc2kaddr(ifp, ifc, &ka);
 			main_imsg_compose_ldpe(IMSG_DELADDR, 0, &ka, sizeof(ka));
 		}
@@ -686,7 +680,10 @@ static zclient_handler *const ldp_handlers[] = {
 
 void ldp_zebra_init(struct event_loop *master)
 {
-	if_zapi_callbacks(ldp_ifp_create, ldp_ifp_up, ldp_ifp_down, ldp_ifp_destroy);
+	hook_register_prio(if_real, 0, ldp_ifp_create);
+	hook_register_prio(if_up, 0, ldp_ifp_up);
+	hook_register_prio(if_down, 0, ldp_ifp_down);
+	hook_register_prio(if_unreal, 0, ldp_ifp_destroy);
 
 	/* Set default values. */
 	zclient = zclient_new(master, &zclient_options_default, ldp_handlers,
@@ -708,4 +705,10 @@ ldp_zebra_destroy(void)
 	zclient_stop(zclient);
 	zclient_free(zclient);
 	zclient = NULL;
+
+	if (zclient_sync == NULL)
+		return;
+	zclient_stop(zclient_sync);
+	zclient_free(zclient_sync);
+	zclient_sync = NULL;
 }

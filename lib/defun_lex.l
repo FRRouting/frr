@@ -140,6 +140,7 @@ SPECIAL		[(),]
 "DEFPY_ATTR"			value = strdup(yytext); return DEFUNNY;
 "DEFPY_HIDDEN"			value = strdup(yytext); return DEFUNNY;
 "DEFPY_YANG"			value = strdup(yytext); return DEFUNNY;
+"DEFPY_YANG_HIDDEN"		value = strdup(yytext); return DEFUNNY;
 "DEFPY_YANG_NOSH"		value = strdup(yytext); return DEFUNNY;
 "ALIAS"				value = strdup(yytext); return DEFUNNY;
 "ALIAS_HIDDEN"			value = strdup(yytext); return DEFUNNY;

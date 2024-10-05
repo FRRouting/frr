@@ -6,10 +6,12 @@
 #ifndef _FRR_TYPESAFE_H
 #define _FRR_TYPESAFE_H
 
+#ifndef _TYPESAFE_EXPAND_MACROS
 #include <stddef.h>
 #include <stdint.h>
 #include <stdbool.h>
 #include "compiler.h"
+#endif /* _TYPESAFE_EXPAND_MACROS */
 
 #ifdef __cplusplus
 extern "C" {
@@ -17,12 +19,14 @@ extern "C" {
 
 /* generic macros for all list-like types */
 
+/* to iterate using the const variants of the functions, append "_const" to
+ * the name of the container, e.g. "frr_each (my_list, head, item)" becomes
+ * "frr_each (my_list_const, head, item)"
+ */
+
 #define frr_each(prefix, head, item)                                           \
 	for (item = prefix##_first(head); item;                                \
 			item = prefix##_next(head, item))
-#define frr_each_const(prefix, head, item)                                     \
-	for (item = prefix##_const_first(head); item;                          \
-	     item = prefix##_const_next(head, item))
 #define frr_each_safe(prefix, head, item)                                      \
 	for (typeof(prefix##_next_safe(head, NULL)) prefix##_safe =            \
 			prefix##_next_safe(head,                               \
@@ -793,13 +797,16 @@ struct thash_head {
 	uint8_t minshift, maxshift;
 };
 
-#define _HASH_SIZE(tabshift) \
-	((1U << (tabshift)) >> 1)
+#define _HASH_SIZE(tabshift)                                                   \
+	({                                                                     \
+		assume((tabshift) <= 31);                                      \
+		(1U << (tabshift)) >> 1;                                       \
+	})
 #define HASH_SIZE(head) \
 	_HASH_SIZE((head).tabshift)
 #define _HASH_KEY(tabshift, val)                                               \
 	({                                                                     \
-		assume((tabshift) >= 2 && (tabshift) <= 33);                   \
+		assume((tabshift) >= 2 && (tabshift) <= 31);                   \
 		(val) >> (33 - (tabshift));                                    \
 	})
 #define HASH_KEY(head, val) \

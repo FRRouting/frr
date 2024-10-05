@@ -83,6 +83,7 @@ static void circuit_commence_level(struct isis_circuit *circuit, int level)
 
 		send_hello_sched(circuit, level, TRIGGERED_IIH_DELAY);
 		circuit->u.bc.lan_neighs[level - 1] = list_new();
+		circuit->u.bc.adjdb[level - 1] = list_new();
 	}
 }
 
@@ -108,6 +109,10 @@ static void circuit_resign_level(struct isis_circuit *circuit, int level)
 		circuit->u.bc.is_dr[idx] = 0;
 		if (circuit->u.bc.lan_neighs[idx] != NULL)
 			list_delete(&circuit->u.bc.lan_neighs[idx]);
+		if (circuit->u.bc.adjdb[idx]) {
+			circuit->u.bc.adjdb[idx]->del = isis_delete_adj;
+			list_delete(&circuit->u.bc.adjdb[idx]);
+		}
 	}
 
 	return;

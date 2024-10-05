@@ -30,8 +30,6 @@ int show_adj_route_vpn(struct vty *vty, struct peer *peer,
 	int rd_header;
 	int header = 1;
 	json_object *json = NULL;
-	json_object *json_scode = NULL;
-	json_object *json_ocode = NULL;
 	json_object *json_adv = NULL;
 	json_object *json_routes = NULL;
 	char rd_str[BUFSIZ];
@@ -47,21 +45,8 @@ int show_adj_route_vpn(struct vty *vty, struct peer *peer,
 	}
 
 	if (use_json) {
-		json_scode = json_object_new_object();
-		json_ocode = json_object_new_object();
 		json = json_object_new_object();
 		json_adv = json_object_new_object();
-
-		json_object_string_add(json_scode, "suppressed", "s");
-		json_object_string_add(json_scode, "damped", "d");
-		json_object_string_add(json_scode, "history", "h");
-		json_object_string_add(json_scode, "valid", "*");
-		json_object_string_add(json_scode, "best", ">");
-		json_object_string_add(json_scode, "internal", "i");
-
-		json_object_string_add(json_ocode, "igp", "i");
-		json_object_string_add(json_ocode, "egp", "e");
-		json_object_string_add(json_ocode, "incomplete", "?");
 	}
 
 	for (dest = bgp_table_top(bgp->rib[afi][safi]); dest;
@@ -117,12 +102,6 @@ int show_adj_route_vpn(struct vty *vty, struct peer *peer,
 					json_object_int_add(
 						json, "localAS",
 						bgp->as);
-					json_object_object_add(json,
-							       "bgpStatusCodes",
-							       json_scode);
-					json_object_object_add(json,
-							       "bgpOriginCodes",
-							       json_ocode);
 				} else {
 					vty_out(vty,
 						"BGP table version is 0, local router ID is %pI4\n",
@@ -212,7 +191,7 @@ int show_adj_route_vpn(struct vty *vty, struct peer *peer,
 				}
 				rd_header = 0;
 			}
-			route_vty_out_tmp(vty, rm, bgp_dest_get_prefix(rm),
+			route_vty_out_tmp(vty, bgp, rm, bgp_dest_get_prefix(rm),
 					  attr, safi, use_json, json_routes,
 					  false);
 			output_count++;

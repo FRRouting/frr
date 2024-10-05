@@ -1,7 +1,7 @@
 BGP table version is 1, local router ID is 192.168.0.1
-Status codes: s suppressed, d damped, h history, * valid, > best, = multipath,
+Status codes: s suppressed, d damped, h history, u unsorted, * valid, > best, = multipath,
               i internal, r RIB-failure, S Stale, R Removed
 Origin codes: i - IGP, e - EGP, ? - incomplete
 
-    Network          Next Hop            Metric LocPrf Weight Path
- *> fc00::/64        ::                       0         32768 i
+     Network          Next Hop            Metric LocPrf Weight Path
+ *>  fc00::/64        ::                       0         32768 i

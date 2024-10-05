@@ -3,6 +3,9 @@
  * PBR-map Code
  * Copyright (C) 2018 Cumulus Networks, Inc.
  *               Donald Sharp
+ * Portions:
+ *		Copyright (c) 2021 The MITRE Corporation.
+ *		Copyright (c) 2023 LabN Consulting, L.L.C.
  */
 #include <zebra.h>
 
@@ -16,6 +19,7 @@
 #include "memory.h"
 #include "log.h"
 #include "vty.h"
+#include "pbr.h"
 
 #include "pbr_nht.h"
 #include "pbr_map.h"
@@ -58,7 +62,7 @@ static int pbr_map_sequence_compare(const struct pbr_map_sequence *pbrms1,
 	return 1;
 }
 
-static void pbr_map_sequence_delete(struct pbr_map_sequence *pbrms)
+void pbr_map_sequence_delete(struct pbr_map_sequence *pbrms)
 {
 	XFREE(MTYPE_TMP, pbrms->internal_nhg_name);
 
@@ -353,6 +357,11 @@ extern void pbr_map_delete(struct pbr_map_sequence *pbrms)
 	if (pbrms->nhg)
 		pbr_nht_delete_individual_nexthop(pbrms);
 
+	if (pbrms->nhgrp_name)
+		XFREE(MTYPE_TMP, pbrms->nhgrp_name);
+
+	prefix_free(&pbrms->dst);
+
 	listnode_delete(pbrm->seqnumbers, pbrms);
 
 	if (pbrm->seqnumbers->count == 0) {
@@ -486,9 +495,9 @@ uint8_t pbr_map_decode_dscp_enum(const char *name)
 
 struct pbr_map_sequence *pbrms_get(const char *name, uint32_t seqno)
 {
-	struct pbr_map *pbrm;
-	struct pbr_map_sequence *pbrms;
-	struct listnode *node;
+	struct pbr_map *pbrm = NULL;
+	struct pbr_map_sequence *pbrms = NULL;
+	struct listnode *node = NULL;
 
 	pbrm = pbrm_find(name);
 	if (!pbrm) {
@@ -525,10 +534,6 @@ struct pbr_map_sequence *pbrms_get(const char *name, uint32_t seqno)
 		pbrms->seqno = seqno;
 		pbrms->ruleno = pbr_nht_get_next_rule(seqno);
 		pbrms->parent = pbrm;
-
-		pbrms->action_vlan_id = 0;
-		pbrms->action_vlan_flags = 0;
-		pbrms->action_pcp = 0;
 
 		pbrms->action_queue_id = PBR_MAP_UNDEFINED_QUEUE_ID;
 
@@ -594,11 +599,42 @@ pbr_map_sequence_check_nexthops_valid(struct pbr_map_sequence *pbrms)
 
 static void pbr_map_sequence_check_not_empty(struct pbr_map_sequence *pbrms)
 {
-	if (!pbrms->src && !pbrms->dst && !pbrms->mark && !pbrms->dsfield
-	    && !pbrms->action_vlan_id && !pbrms->action_vlan_flags
-	    && !pbrms->action_pcp
-	    && pbrms->action_queue_id == PBR_MAP_UNDEFINED_QUEUE_ID)
+	/* clang-format off */
+	if (
+		!CHECK_FLAG(pbrms->filter_bm, (
+			PBR_FILTER_SRC_IP |
+			PBR_FILTER_DST_IP |
+			PBR_FILTER_SRC_PORT |
+			PBR_FILTER_DST_PORT |
+
+			PBR_FILTER_IP_PROTOCOL |
+			PBR_FILTER_DSCP |
+			PBR_FILTER_ECN |
+
+			PBR_FILTER_FWMARK |
+			PBR_FILTER_PCP |
+			PBR_FILTER_VLAN_ID |
+			PBR_FILTER_VLAN_FLAGS
+		)) &&
+		!CHECK_FLAG(pbrms->action_bm, (
+			PBR_ACTION_SRC_IP |
+			PBR_ACTION_DST_IP |
+			PBR_ACTION_SRC_PORT |
+			PBR_ACTION_DST_PORT |
+
+			PBR_ACTION_DSCP |
+			PBR_ACTION_ECN |
+
+			PBR_ACTION_PCP |
+			PBR_ACTION_VLAN_ID |
+			PBR_ACTION_VLAN_STRIP_INNER_ANY |
+
+			PBR_ACTION_QUEUE_ID
+		))
+	) {
 		pbrms->reason |= PBR_MAP_INVALID_EMPTY;
+	}
+	/* clang-format on */
 }
 
 static void pbr_map_sequence_check_vlan_actions(struct pbr_map_sequence *pbrms)
@@ -611,7 +647,8 @@ static void pbr_map_sequence_check_vlan_actions(struct pbr_map_sequence *pbrms)
 	 * The strip vlan action removes any inner tag, so it is invalid to
 	 * specify both a set and strip action.
 	 */
-	if ((pbrms->action_vlan_id != 0) && (pbrms->action_vlan_flags != 0))
+	if (CHECK_FLAG(pbrms->action_bm, PBR_ACTION_VLAN_ID) &&
+	    (CHECK_FLAG(pbrms->action_bm, PBR_ACTION_VLAN_STRIP_INNER_ANY)))
 		pbrms->reason |= PBR_MAP_INVALID_SET_STRIP_VLAN;
 }
 
@@ -733,7 +770,6 @@ void pbr_map_policy_delete(struct pbr_map *pbrm, struct pbr_map_interface *pmi)
 	struct listnode *node;
 	struct pbr_map_sequence *pbrms;
 	bool sent = false;
-
 
 	for (ALL_LIST_ELEMENTS_RO(pbrm->seqnumbers, node, pbrms))
 		if (pbr_send_pbr_map(pbrms, pmi, false, true))

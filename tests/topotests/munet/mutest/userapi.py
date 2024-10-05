@@ -65,8 +65,11 @@ import json
 import logging
 import pprint
 import re
+import subprocess
+import sys
 import time
 
+from argparse import Namespace
 from pathlib import Path
 from typing import Any
 from typing import Union
@@ -74,6 +77,51 @@ from typing import Union
 from deepdiff import DeepDiff as json_cmp
 
 from munet.base import Commander
+
+
+class ScriptError(Exception):
+    """An unrecoverable script failure."""
+
+
+class CLIOnErrorError(Exception):
+    """Enter CLI after error."""
+
+
+def pause_test(desc=""):
+    isatty = sys.stdout.isatty()
+    if not isatty:
+        desc = f" for {desc}" if desc else ""
+        logging.info("NO PAUSE on non-tty terminal%s", desc)
+        return
+
+    while True:
+        if desc:
+            print(f"\n== PAUSING: {desc} ==")
+        try:
+            user = input('PAUSED, "cli" for CLI, "pdb" to debug, "Enter" to continue: ')
+        except EOFError:
+            print("^D...continuing")
+            break
+        user = user.strip()
+        if user == "cli":
+            raise CLIOnErrorError()
+        if user == "pdb":
+            breakpoint()  # pylint: disable=W1515
+        elif user:
+            print(f'Unrecognized input: "{user}"')
+        else:
+            break
+
+
+def act_on_result(success, args, desc=""):
+    if args.pause:
+        pause_test(desc)
+    elif success:
+        return
+    if args.cli_on_error:
+        raise CLIOnErrorError()
+    if args.pause_on_error:
+        pause_test(desc)
 
 
 class TestCaseInfo:
@@ -140,11 +188,11 @@ class TestCase:
         name: str,
         path: Path,
         targets: dict,
+        args: Namespace,
         output_logger: logging.Logger = None,
         result_logger: logging.Logger = None,
         full_summary: bool = False,
     ):
-
         self.info = TestCaseInfo(tag, name, path)
         self.__saved_info = []
         self.__short_doc_header = not full_summary
@@ -158,6 +206,7 @@ class TestCase:
         self.__in_section = False
 
         self.targets = targets
+        self.args = args
 
         self.last = ""
         self.last_m = None
@@ -248,7 +297,6 @@ class TestCase:
         self.rlog.info("%s. %s", tag, header)
 
     def __exec_script(self, path, print_header, add_newline):
-
         # Below was the original method to avoid the global TestCase
         # variable; however, we need global functions so we can import them
         # into test scripts. Without imports pylint will complain about undefined
@@ -287,7 +335,10 @@ class TestCase:
 
             # Extract any docstring as a title.
             if print_header:
-                title = locals()[f"_{name}"].__doc__.lstrip()
+                title = locals()[f"_{name}"].__doc__
+                if title is None:
+                    title = ""
+                title = title.lstrip()
                 if self.__short_doc_header and (title := title.lstrip()):
                     if (idx := title.find("\n")) != -1:
                         title = title[:idx].strip()
@@ -301,6 +352,10 @@ class TestCase:
 
             # Here's where we can do async in the future if we want.
             # result = await locals()[f"_{name}"](_ok_result)
+        except ScriptError as error:
+            return error
+        except CLIOnErrorError:
+            raise
         except Exception as error:
             logging.error(
                 "Unexpected exception executing %s: %s", name, error, exc_info=True
@@ -383,7 +438,9 @@ class TestCase:
             target: the target to execute the command on.
             cmd: string to execut on the target.
         """
-        out = self.targets[target].cmd_nostatus(cmd, warn=False)
+        out = self.targets[target].cmd_nostatus(
+            cmd, stdin=subprocess.DEVNULL, warn=False
+        )
         self.last = out = out.rstrip()
         report = out if out else "<no output>"
         self.logf("COMMAND OUTPUT:\n%s", report)
@@ -393,19 +450,21 @@ class TestCase:
         self,
         target: str,
         cmd: str,
-    ) -> dict:
+    ) -> Union[list, dict]:
         """Execute a json ``cmd`` and return json result.
 
         Args:
             target: the target to execute the command on.
-            cmd: string to execut on the target.
+            cmd: string to execute on the target.
         """
-        out = self.targets[target].cmd_nostatus(cmd, warn=False)
+        out = self.targets[target].cmd_nostatus(
+            cmd, stdin=subprocess.DEVNULL, warn=False
+        )
         self.last = out = out.rstrip()
         try:
             js = json.loads(out)
         except Exception as error:
-            js = {}
+            js = None
             self.olog.warning(
                 "JSON load failed. Check command output is in JSON format: %s",
                 error,
@@ -420,6 +479,7 @@ class TestCase:
         match: str,
         expect_fail: bool,
         flags: int,
+        exact_match: bool,
     ) -> (bool, Union[str, list]):
         """Execute a ``cmd`` and check result.
 
@@ -429,6 +489,8 @@ class TestCase:
             match: regex to ``re.search()`` for in output.
             expect_fail: if True then succeed when the regexp doesn't match.
             flags: python regex flags to modify matching behavior
+            exact_match: if True then ``match`` must be exactly matched somewhere
+                in the output of ``cmd`` using ``str.find()``.
 
         Returns:
             (success, matches): if the match fails then "matches" will be None,
@@ -436,6 +498,17 @@ class TestCase:
             ``matches`` otherwise group(0) (i.e., the matching text).
         """
         out = self._command(target, cmd)
+        if exact_match:
+            if match not in out:
+                success = expect_fail
+                ret = None
+            else:
+                success = not expect_fail
+                ret = match
+                level = logging.DEBUG if success else logging.WARNING
+                self.olog.log(level, "exactly matched:%s:", ret)
+            return success, ret
+
         search = re.search(match, out, flags)
         self.last_m = search
         if search is None:
@@ -455,28 +528,63 @@ class TestCase:
         self,
         target: str,
         cmd: str,
-        match: Union[str, dict],
+        match: Union[str, list, dict],
         expect_fail: bool,
-    ) -> Union[str, dict]:
+        exact_match: bool,
+    ) -> (bool, Union[list, dict]):
         """Execute a json ``cmd`` and check result.
 
         Args:
             target: the target to execute the command on.
             cmd: string to execut on the target.
-            match: A json ``str`` or object (``dict``) to compare against the json
-                output from ``cmd``.
+            match: A json ``str``, object (``dict``), or array (``list``) to
+                compare against the json output from ``cmd``.
             expect_fail: if True then succeed when the json doesn't match.
+            exact_match: if True then the json must exactly match.
         """
         js = self._command_json(target, cmd)
+        if js is None:
+            # Always fail on bad json, even if user expected failure
+            # return expect_fail, {}
+            return False, {}
+
         try:
+            # Convert to string to validate the input is valid JSON
+            if not isinstance(match, str):
+                match = json.dumps(match)
             expect = json.loads(match)
         except Exception as error:
             expect = {}
             self.olog.warning(
                 "JSON load failed. Check match value is in JSON format: %s", error
             )
+            # Always fail on bad json, even if user expected failure
+            # return expect_fail, {}
+            return False, {}
 
-        if json_diff := json_cmp(expect, js):
+        if exact_match:
+            deep_diff = json_cmp(expect, js)
+            # Convert DeepDiff completely into dicts or lists at all levels
+            json_diff = json.loads(deep_diff.to_json())
+        else:
+            deep_diff = json_cmp(
+                expect, js, ignore_order=True, cutoff_intersection_for_pairs=1
+            )
+            # Convert DeepDiff completely into dicts or lists at all levels
+            json_diff = json.loads(deep_diff.to_json())
+            # Remove new fields in json object from diff
+            if json_diff.get("dictionary_item_added") is not None:
+                del json_diff["dictionary_item_added"]
+            # Remove new json objects in json array from diff
+            if (new_items := json_diff.get("iterable_item_added")) is not None:
+                new_item_paths = list(new_items.keys())
+                for path in new_item_paths:
+                    if type(new_items[path]) is dict:
+                        del new_items[path]
+                if len(new_items) == 0:
+                    del json_diff["iterable_item_added"]
+
+        if json_diff:
             success = expect_fail
             if not success:
                 self.logf("JSON DIFF:%s:" % json_diff)
@@ -489,14 +597,24 @@ class TestCase:
         self,
         target: str,
         cmd: str,
-        match: Union[str, dict],
+        match: Union[str, list, dict],
         is_json: bool,
         timeout: float,
         interval: float,
         expect_fail: bool,
         flags: int,
-    ) -> Union[str, dict]:
-        """Execute a command repeatedly waiting for result until timeout."""
+        exact_match: bool,
+    ) -> Union[str, list, dict]:
+        """Execute a command repeatedly waiting for result until timeout.
+
+        ``match`` is a regular expression to search for in the output of ``cmd``
+        when ``is_json`` is False.
+
+        When ``is_json`` is True ``match`` must be a json object, a json array,
+        or a ``str`` which parses into a json object. Likewise, the ``cmd`` output
+        is parsed into a json object or array and then a comparison is done between
+        the two json objects or arrays.
+        """
         startt = time.time()
         endt = startt + timeout
 
@@ -504,10 +622,12 @@ class TestCase:
         ret = None
         while not success and time.time() < endt:
             if is_json:
-                success, ret = self._match_command_json(target, cmd, match, expect_fail)
+                success, ret = self._match_command_json(
+                    target, cmd, match, expect_fail, exact_match
+                )
             else:
                 success, ret = self._match_command(
-                    target, cmd, match, expect_fail, flags
+                    target, cmd, match, expect_fail, flags, exact_match
                 )
             if not success:
                 time.sleep(interval)
@@ -524,6 +644,7 @@ class TestCase:
         """
         path = Path(pathname)
         path = self.info.path.parent.joinpath(path)
+        do_cli = False
 
         self.oplogf(
             "include: new path: %s create section: %s currently __in_section: %s",
@@ -543,7 +664,12 @@ class TestCase:
             self.info.path = path
             self.oplogf("include: swapped info path: new %s old %s", path, old_path)
 
-        self.__exec_script(path, print_header=new_section, add_newline=new_section)
+        try:
+            e = self.__exec_script(
+                path, print_header=new_section, add_newline=new_section
+            )
+        except CLIOnErrorError:
+            do_cli = True
 
         if new_section:
             # Something within the section creating include has also created a section
@@ -569,6 +695,11 @@ class TestCase:
             # we are returning to
             self.info.path = old_path
             self.oplogf("include: restored info path: %s", old_path)
+
+        if do_cli:
+            raise CLIOnErrorError()
+        if e:
+            raise ScriptError(e)
 
     def __end_section(self):
         self.oplogf("__end_section: __in_section: %s", self.__in_section)
@@ -626,7 +757,7 @@ class TestCase:
         )
         return self._command(target, cmd)
 
-    def step_json(self, target: str, cmd: str) -> dict:
+    def step_json(self, target: str, cmd: str) -> Union[list, dict]:
         """See :py:func:`~munet.mutest.userapi.step_json`.
 
         :meta private:
@@ -649,13 +780,14 @@ class TestCase:
         desc: str = "",
         expect_fail: bool = False,
         flags: int = re.DOTALL,
+        exact_match: bool = False,
     ) -> (bool, Union[str, list]):
         """See :py:func:`~munet.mutest.userapi.match_step`.
 
         :meta private:
         """
         self.logf(
-            "#%s.%s:%s:MATCH_STEP:%s:%s:%s:%s:%s:%s",
+            "#%s.%s:%s:MATCH_STEP:%s:%s:%s:%s:%s:%s:%s",
             self.tag,
             self.steps + 1,
             self.info.path,
@@ -665,10 +797,14 @@ class TestCase:
             desc,
             expect_fail,
             flags,
+            exact_match,
         )
-        success, ret = self._match_command(target, cmd, match, expect_fail, flags)
+        success, ret = self._match_command(
+            target, cmd, match, expect_fail, flags, exact_match
+        )
         if desc:
             self.__post_result(target, success, desc)
+        act_on_result(success, self.args, desc)
         return success, ret
 
     def test_step(self, expr_or_value: Any, desc: str, target: str = "") -> bool:
@@ -678,22 +814,24 @@ class TestCase:
         """
         success = bool(expr_or_value)
         self.__post_result(target, success, desc)
+        act_on_result(success, self.args, desc)
         return success
 
     def match_step_json(
         self,
         target: str,
         cmd: str,
-        match: Union[str, dict],
+        match: Union[str, list, dict],
         desc: str = "",
         expect_fail: bool = False,
-    ) -> (bool, Union[str, dict]):
+        exact_match: bool = False,
+    ) -> (bool, Union[list, dict]):
         """See :py:func:`~munet.mutest.userapi.match_step_json`.
 
         :meta private:
         """
         self.logf(
-            "#%s.%s:%s:MATCH_STEP_JSON:%s:%s:%s:%s:%s",
+            "#%s.%s:%s:MATCH_STEP_JSON:%s:%s:%s:%s:%s:%s",
             self.tag,
             self.steps + 1,
             self.info.path,
@@ -702,10 +840,14 @@ class TestCase:
             match,
             desc,
             expect_fail,
+            exact_match,
         )
-        success, ret = self._match_command_json(target, cmd, match, expect_fail)
+        success, ret = self._match_command_json(
+            target, cmd, match, expect_fail, exact_match
+        )
         if desc:
             self.__post_result(target, success, desc)
+        act_on_result(success, self.args, desc)
         return success, ret
 
     def wait_step(
@@ -718,8 +860,57 @@ class TestCase:
         interval=0.5,
         expect_fail: bool = False,
         flags: int = re.DOTALL,
+        exact_match: bool = False,
     ) -> (bool, Union[str, list]):
         """See :py:func:`~munet.mutest.userapi.wait_step`.
+
+        :meta private:
+        """
+        if interval is None:
+            interval = min(timeout / 20, 0.25)
+        self.logf(
+            "#%s.%s:%s:WAIT_STEP:%s:%s:%s:%s:%s:%s:%s:%s:%s",
+            self.tag,
+            self.steps + 1,
+            self.info.path,
+            target,
+            cmd,
+            match,
+            timeout,
+            interval,
+            desc,
+            expect_fail,
+            flags,
+            exact_match,
+        )
+        success, ret = self._wait(
+            target,
+            cmd,
+            match,
+            False,
+            timeout,
+            interval,
+            expect_fail,
+            flags,
+            exact_match,
+        )
+        if desc:
+            self.__post_result(target, success, desc)
+        act_on_result(success, self.args, desc)
+        return success, ret
+
+    def wait_step_json(
+        self,
+        target: str,
+        cmd: str,
+        match: Union[str, list, dict],
+        desc: str = "",
+        timeout=10,
+        interval=None,
+        expect_fail: bool = False,
+        exact_match: bool = False,
+    ) -> (bool, Union[list, dict]):
+        """See :py:func:`~munet.mutest.userapi.wait_step_json`.
 
         :meta private:
         """
@@ -737,49 +928,14 @@ class TestCase:
             interval,
             desc,
             expect_fail,
-            flags,
+            exact_match,
         )
         success, ret = self._wait(
-            target, cmd, match, False, timeout, interval, expect_fail, flags
+            target, cmd, match, True, timeout, interval, expect_fail, 0, exact_match
         )
         if desc:
             self.__post_result(target, success, desc)
-        return success, ret
-
-    def wait_step_json(
-        self,
-        target: str,
-        cmd: str,
-        match: Union[str, dict],
-        desc: str = "",
-        timeout=10,
-        interval=None,
-        expect_fail: bool = False,
-    ) -> (bool, Union[str, dict]):
-        """See :py:func:`~munet.mutest.userapi.wait_step_json`.
-
-        :meta private:
-        """
-        if interval is None:
-            interval = min(timeout / 20, 0.25)
-        self.logf(
-            "#%s.%s:%s:WAIT_STEP:%s:%s:%s:%s:%s:%s:%s",
-            self.tag,
-            self.steps + 1,
-            self.info.path,
-            target,
-            cmd,
-            match,
-            timeout,
-            interval,
-            desc,
-            expect_fail,
-        )
-        success, ret = self._wait(
-            target, cmd, match, True, timeout, interval, expect_fail, 0
-        )
-        if desc:
-            self.__post_result(target, success, desc)
+        act_on_result(success, self.args, desc)
         return success, ret
 
 
@@ -864,15 +1020,15 @@ def step(target: str, cmd: str) -> str:
     return TestCase.g_tc.step(target, cmd)
 
 
-def step_json(target: str, cmd: str) -> dict:
-    """Execute a json ``cmd`` on a ``target`` and return the json object.
+def step_json(target: str, cmd: str) -> Union[list, dict]:
+    """Execute a json ``cmd`` on a ``target`` and return the json object or array.
 
     Args:
         target: the target to execute the ``cmd`` on.
         cmd: string to execute on the target.
 
     Returns:
-        Returns the json object after parsing the ``cmd`` output.
+        Returns the json object or array after parsing the ``cmd`` output.
 
         If json parse fails, a warning is logged and an empty ``dict`` is used.
     """
@@ -904,6 +1060,7 @@ def match_step(
     desc: str = "",
     expect_fail: bool = False,
     flags: int = re.DOTALL,
+    exact_match: bool = False,
 ) -> (bool, Union[str, list]):
     """Execute a ``cmd`` on a ``target`` check result.
 
@@ -922,44 +1079,53 @@ def match_step(
         desc: description of test, if no description then no result is logged.
         expect_fail: if True then succeed when the regexp doesn't match.
         flags: python regex flags to modify matching behavior
+        exact_match: if True then ``match`` must be exactly matched somewhere
+            in the output of ``cmd`` using ``str.find()``.
 
     Returns:
         Returns a 2-tuple. The first value is a bool indicating ``success``.
         The second value will be a list from ``re.Match.groups()`` if non-empty,
         otherwise ``re.Match.group(0)`` if there was a match otherwise None.
     """
-    return TestCase.g_tc.match_step(target, cmd, match, desc, expect_fail, flags)
+    return TestCase.g_tc.match_step(
+        target, cmd, match, desc, expect_fail, flags, exact_match
+    )
 
 
 def match_step_json(
     target: str,
     cmd: str,
-    match: Union[str, dict],
+    match: Union[str, list, dict],
     desc: str = "",
     expect_fail: bool = False,
-) -> (bool, Union[str, dict]):
+    exact_match: bool = False,
+) -> (bool, Union[list, dict]):
     """Execute a ``cmd`` on a ``target`` check result.
 
-    Execute ``cmd`` on ``target`` and check if the json object in ``match``
+    Execute ``cmd`` on ``target`` and check if the json object or array in ``match``
     matches or doesn't match (according to the ``expect_fail`` value) the
     json output from ``cmd``.
 
     Args:
         target: the target to execute the ``cmd`` on.
         cmd: string to execut on the ``target``.
-        match: A json ``str`` or object (``dict``) to compare against the json
-            output from ``cmd``.
+        match: A json ``str``, object (``dict``), or array (``list``) to compare
+            against the json output from ``cmd``.
         desc: description of test, if no description then no result is logged.
         expect_fail: if True then succeed if the a json doesn't match.
+        exact_match: if True then the json must exactly match.
 
     Returns:
         Returns a 2-tuple. The first value is a bool indicating ``success``. The
-        second value is a ``str`` diff if there is a difference found in the json
-        compare, otherwise the value is the json object (``dict``) from the ``cmd``.
+        second value is a ``dict`` of the diff if there is a difference found in
+        the json compare, otherwise the value is the json object (``dict``) or
+        array (``list``) from the ``cmd``.
 
         If json parse fails, a warning is logged and an empty ``dict`` is used.
     """
-    return TestCase.g_tc.match_step_json(target, cmd, match, desc, expect_fail)
+    return TestCase.g_tc.match_step_json(
+        target, cmd, match, desc, expect_fail, exact_match
+    )
 
 
 def wait_step(
@@ -971,6 +1137,7 @@ def wait_step(
     interval: float = 0.5,
     expect_fail: bool = False,
     flags: int = re.DOTALL,
+    exact_match: bool = False,
 ) -> (bool, Union[str, list]):
     """Execute a ``cmd`` on a ``target`` repeatedly, looking for a result.
 
@@ -991,6 +1158,8 @@ def wait_step(
         desc: description of test, if no description then no result is logged.
         expect_fail: if True then succeed when the regexp *doesn't* match.
         flags: python regex flags to modify matching behavior
+        exact_match: if True then ``match`` must be exactly matched somewhere
+            in the output of ``cmd`` using ``str.find()``.
 
     Returns:
         Returns a 2-tuple. The first value is a bool indicating ``success``.
@@ -998,37 +1167,31 @@ def wait_step(
         otherwise ``re.Match.group(0)`` if there was a match otherwise None.
     """
     return TestCase.g_tc.wait_step(
-        target, cmd, match, desc, timeout, interval, expect_fail, flags
+        target, cmd, match, desc, timeout, interval, expect_fail, flags, exact_match
     )
 
 
 def wait_step_json(
     target: str,
     cmd: str,
-    match: Union[str, dict],
+    match: Union[str, list, dict],
     desc: str = "",
     timeout=10,
     interval=None,
     expect_fail: bool = False,
-) -> (bool, Union[str, dict]):
+    exact_match: bool = False,
+) -> (bool, Union[list, dict]):
     """Execute a cmd repeatedly and wait for matching result.
 
     Execute ``cmd`` on ``target``, every ``interval`` seconds until
     the output of ``cmd`` matches or doesn't match (according to the
     ``expect_fail`` value) ``match``, for up to ``timeout`` seconds.
 
-    ``match`` is a regular expression to search for in the output of ``cmd`` when
-    ``is_json`` is False.
-
-    When ``is_json`` is True ``match`` must be a json object or a ``str`` which
-    parses into a json object. Likewise, the ``cmd`` output is parsed into a json
-    object and then a comparison is done between the two json objects.
-
     Args:
         target: the target to execute the ``cmd`` on.
         cmd: string to execut on the ``target``.
-        match: A json object or str representation of one to compare against json
-            output from ``cmd``.
+        match: A json object, json array, or str representation of json to compare
+            against json output from ``cmd``.
         desc: description of test, if no description then no result is logged.
         timeout: The number of seconds to repeat the ``cmd`` looking for a match
             (or non-match if ``expect_fail`` is True).
@@ -1037,17 +1200,18 @@ def wait_step_json(
             average the cmd will execute 10 times. The minimum calculated interval
             is .25s, shorter values can be passed explicitly.
         expect_fail: if True then succeed if the a json doesn't match.
+        exact_match: if True then the json must exactly match.
 
     Returns:
         Returns a 2-tuple. The first value is a bool indicating ``success``.
-        The second value is a ``str`` diff if there is a difference found in the
-        json compare, otherwise the value is a json object (dict) from the ``cmd``
-        output.
+        The second value is a ``dict`` of the diff if there is a difference
+        found in the json compare, otherwise the value is a json object (``dict``)
+        or array (``list``) from the ``cmd`` output.
 
         If json parse fails, a warning is logged and an empty ``dict`` is used.
     """
     return TestCase.g_tc.wait_step_json(
-        target, cmd, match, desc, timeout, interval, expect_fail
+        target, cmd, match, desc, timeout, interval, expect_fail, exact_match
     )
 
 

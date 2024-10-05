@@ -43,8 +43,7 @@
 #include "eigrpd/eigrp_types.h"
 #include "eigrpd/eigrp_metric.h"
 
-DEFINE_MTYPE_STATIC(EIGRPD, EIGRP_IF,      "EIGRP interface");
-DEFINE_MTYPE_STATIC(EIGRPD, EIGRP_IF_INFO, "EIGRP Interface Information");
+DEFINE_MTYPE_STATIC(EIGRPD, EIGRP_IF, "EIGRP interface");
 
 struct eigrp_interface *eigrp_if_new(struct eigrp *eigrp, struct interface *ifp,
 				     struct prefix *p)
@@ -110,7 +109,7 @@ int eigrp_if_delete_hook(struct interface *ifp)
 
 	eigrp_fifo_free(ei->obuf);
 
-	XFREE(MTYPE_EIGRP_IF_INFO, ifp->info);
+	XFREE(MTYPE_EIGRP_IF, ifp->info);
 
 	return 0;
 }
@@ -203,8 +202,10 @@ struct list *eigrp_iflist;
 
 void eigrp_if_init(void)
 {
-	if_zapi_callbacks(eigrp_ifp_create, eigrp_ifp_up,
-			  eigrp_ifp_down, eigrp_ifp_destroy);
+	hook_register_prio(if_real, 0, eigrp_ifp_create);
+	hook_register_prio(if_up, 0, eigrp_ifp_up);
+	hook_register_prio(if_down, 0, eigrp_ifp_down);
+	hook_register_prio(if_unreal, 0, eigrp_ifp_destroy);
 	/* Initialize Zebra interface data structure. */
 	// hook_register_prio(if_add, 0, eigrp_if_new);
 	hook_register_prio(if_del, 0, eigrp_if_delete_hook);

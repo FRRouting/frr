@@ -6,9 +6,10 @@ Process & Workflow
 
 .. highlight:: none
 
-FRR is a large project developed by many different groups. This section
-documents standards for code style & quality, commit messages, pull requests
-and best practices that all contributors are asked to follow.
+FRR is a large project developed by many different groups. This
+section documents standards for code style & quality, commit messages,
+pull requests (PRs) and best practices that all contributors are asked
+to follow.
 
 This chapter is "descriptive/post-factual" in that it documents pratices that
 are in use; it is not "definitive/pre-factual" in prescribing practices. This
@@ -166,29 +167,27 @@ as early as possible, i.e. the first 2-week window.
 
 For reference, the expected release schedule according to the above is:
 
-+---------+------------+------------+------------+------------+------------+
-| Release | 2023-03-07 | 2023-07-04 | 2023-10-31 | 2024-02-27 | 2024-06-25 |
-+---------+------------+------------+------------+------------+------------+
-| RC      | 2023-02-21 | 2023-06-20 | 2023-10-17 | 2024-02-13 | 2024-06-11 |
-+---------+------------+------------+------------+------------+------------+
-| dev/X.Y | 2023-02-07 | 2023-06-06 | 2023-10-03 | 2024-01-30 | 2024-05-28 |
-+---------+------------+------------+------------+------------+------------+
-| freeze  | 2023-01-24 | 2023-05-23 | 2023-09-19 | 2024-01-16 | 2024-05-14 |
-+---------+------------+------------+------------+------------+------------+
++---------+------------+------------+------------+
+| Release | 2024-03-12 | 2024-07-02 | 2024-11-05 |
++---------+------------+------------+------------+
+| RC      | 2024-02-27 | 2024-06-18 | 2024-10-22 |
++---------+------------+------------+------------+
+| dev/X.Y | 2024-02-13 | 2024-06-04 | 2024-10-08 |
++---------+------------+------------+------------+
+| freeze  | 2024-01-30 | 2024-05-21 | 2024-09-24 |
++---------+------------+------------+------------+
 
 Here is the hint on how to get the dates easily:
 
    .. code-block:: console
 
-      ~$ # Last freeze date was 2023-09-19
-      ~$ date +%F --date='2023-09-19 +119 days' # Next freeze date
-      2024-01-16
-      ~$ date +%F --date='2024-01-16 +14 days'  # Next dev/X.Y date
-      2024-01-30
-      ~$ date +%F --date='2024-01-30 +14 days'  # Next RC date
-      2024-02-13
-      ~$ date +%F --date='2024-02-13 +14 days'  # Next Release date
-      2024-02-27
+      ~$ # Release date is 2023-11-07 (First Tuesday each March/July/November)
+      ~$ date +%F --date='2023-11-07 -42 days' # Next freeze date
+      2023-09-26
+      ~$ date +%F --date='2023-11-07 -28 days' # Next dev/X.Y date
+      2023-10-10
+      ~$ date +%F --date='2023-11-07 -14 days' # Next RC date
+      2023-10-24
 
 Each release is managed by one or more volunteer release managers from the FRR
 community.  These release managers are expected to handle the branch for a period
@@ -243,7 +242,7 @@ discontinued.
 The LTS branch duties are the following ones:
 
 - organise meetings on a (bi-)weekly or monthly basis, the handling of issues
-  and pull requested relative to that branch. When time permits, this may be done
+  and pull requests relative to that branch. When time permits, this may be done
   during the regularly scheduled FRR meeting.
 
 - ensure the stability of the branch, by using and eventually adapting the
@@ -326,11 +325,17 @@ relevant to your work.
 Submitting Patches and Enhancements
 ===================================
 
-FRR accepts patches using GitHub pull requests.
+FRR accepts patches using GitHub pull requests (PRs). The typical FRR
+developer will maintain a fork of the FRR project in GitHub; see the
+GitHub documentation for help setting up an account and creating a
+fork repository. Keep the ``master`` branch of your fork up-to-date
+with the FRR version. Create a dev branch in your fork and commit your
+work there. When ready, create a pull-request between your dev branch
+in your fork and the main FRR repository in GitHub.
 
-The base branch for new contributions and non-critical bug fixes should be
-``master``. Please ensure your pull request is based on this branch when you
-submit it.
+The base branch for new contributions and non-critical bug fixes
+should be ``master``. Please ensure your pull request targets this
+branch when you submit it.
 
 Code submitted by pull request will be automatically tested by one or more CI
 systems. Once the automated tests succeed, other developers will review your
@@ -533,11 +538,48 @@ After Submitting Your Changes
    community members.
 -  Your submission is done once it is merged to the master branch.
 
+Reverting the changes
+=====================
+
+When you revert a regular commit in Git, the process is straightforward - it
+undoes the changes introduced by that commit. However, reverting a merge commit
+is more complex. While it undoes the data changes brought in by the merge, it
+does not alter the repository's history or the merge's effect on it.
+
+Reverting a Merge Commit
+------------------------
+
+When you revert a merge commit, the following occurs:
+
+* The changes made by the merge are undone;
+* The merge itself remains in the history: it continues to be recognized as the point where two branches were joined;
+* Future merges will still treat this as the last shared state, regardless of the revert.
+
+Thus, a "revert" in Git undoes data changes, but it does not serve as a true "undo"
+for the historical effects of a commit.
+
+Reverting a Merge and Bisectability
+-----------------------------------
+
+Consider the implications of reverting a merge and then reverting that revert.
+This scenario complicates the debugging process, especially when using tools like
+git bisect. A reverted merge effectively consolidates all changes from the original
+merge into a single commit, but in reverse. This creates a challenge for debugging,
+as you lose the granularity of individual commits, making it difficult to identify
+the specific change causing an issue.
+
+Considerations
+--------------
+
+When reverting the changes, e.g. a full Pull Request, we SHOULD revert every commit
+individually, and not use git revert on merge commits.
+
 Programming Languages, Tools and Libraries
 ==========================================
 
 The core of FRR is written in C (gcc or clang supported) and makes
-use of GNU compiler extensions. A few non-essential scripts are
+use of GNU compiler extensions. Additionally, the CLI generation
+tool, `clippy`, requires Python. A few other non-essential scripts are
 implemented in Perl and Python. FRR requires the following tools
 to build distribution packages: automake, autoconf, texinfo, libtool and
 gawk and various libraries (i.e. libpam and libjson-c).
@@ -760,6 +802,13 @@ following requirements have achieved consensus:
   tools can catch uninitialized value use that would otherwise be suppressed by
   the (incorrect) zero initialization.
 
+- Usage of ``system()`` or other c library routines that cause signals to
+  possibly be ignored are not allowed.  This includes the ``fork()`` and
+  ``execXX`` call patterns, which is actually what system() does underneath
+  the covers.  This pattern causes the system shutdown to never work properly
+  as the SIGINT sent is never received.  It is better to just prohibit code
+  that does this instead of having to debug shutdown issues again.
+
 Other than these specific rules, coding practices from the Linux kernel as
 well as CERT or MISRA C guidelines may provide useful input on safe C code.
 However, these rules are not applied as-is;  some of them expressly collide
@@ -811,6 +860,7 @@ The project provides multiple tools to allow you to correctly style your code
 as painlessly as possible, primarily built around ``clang-format``.
 
 clang-format
+
    In the project root there is a :file:`.clang-format` configuration file
    which can be used with the ``clang-format`` source formatter tool from the
    LLVM project. Most of the time, this is the easiest and smartest tool to
@@ -867,14 +917,19 @@ clang-format
    https://clang.llvm.org/docs/ClangFormat.html
 
 checkpatch.sh
+checkpatch.pl
+
+   .. seealso:: :ref:`checkpatch`
+
    In the Linux kernel source tree there is a Perl script used to check
-   incoming patches for style errors. FRR uses an adapted version of this
-   script for the same purpose. It can be found at
-   :file:`tools/checkpatch.sh`. This script takes a git-formatted diff or
-   patch file, applies it to a clean FRR tree, and inspects the result to catch
-   potential style errors. Running this script on your patches before
-   submission is highly recommended. The CI system runs this script as well and
-   will comment on the PR with the results if style errors are found.
+   incoming patches for style errors. FRR uses a shell script front end and an
+   adapted version of the perl script for the same purpose. These scripts can
+   be found at :file:`tools/checkpatch.sh` and :file:`tools/checkpatch.pl`.
+   This script takes a git-formatted diff or patch file, applies it to a clean
+   FRR tree, and inspects the result to catch potential style errors. Running
+   this script on your patches before submission is highly recommended. The CI
+   system runs this script as well and will comment on the PR with the results
+   if style errors are found.
 
    It is run like this::
 
@@ -914,6 +969,10 @@ checkpatch.sh
 
    If the script finds one or more WARNINGs it will exit with 1. If it finds
    one or more ERRORs it will exit with 2.
+
+   For convenience the Linux documentation for the :file:`tools/checkpatch.pl`
+   script has been included unmodified (i.e., it has not been updated to
+   reflect local changes) :doc:`here <checkpatch>`
 
 
 Please remember that while FRR provides these tools for your convenience,
@@ -1290,6 +1349,16 @@ MemorySanitizer
 
    to ``configure``.
 
+UndefinedSanitizer
+   Similar to AddressSanitizer, this tool provides runtime instrumentation for
+   detecting use of undefined behavior in C.  Testing your own code with this
+   tool before submission is encouraged.  You can enable it by passing::
+
+      --enable-undefined-sanitizer
+
+    to ``configure``.  If you run FRR with this you will probably also have
+    to set ``sudo sysctl vm.mmap_rnd_bits=28``
+
 All of the above tools are available in the Clang/LLVM toolchain since 3.4.
 AddressSanitizer and ThreadSanitizer are available in recent versions of GCC,
 but are no longer actively maintained. MemorySanitizer is not available in GCC.
@@ -1298,6 +1367,14 @@ but are no longer actively maintained. MemorySanitizer is not available in GCC.
 
    The different Sanitizers are mostly incompatible with each other.  Please
    refer to GCC/LLVM documentation for details.
+
+.. note::
+
+   The different sanitizers also require setting
+
+   sysctl vm.mmap_rnd_bits=28
+
+   in order to work properly.
 
 frr-format plugin
    This is a GCC plugin provided with FRR that does extended type checks for
@@ -1330,10 +1407,23 @@ frr-format plugin
       Using the plugin also changes the string for ``PRI[udx]64`` from the
       system value to ``%L[udx]`` (normally ``%ll[udx]`` or ``%l[udx]``.)
 
-Additionally, the FRR codebase is regularly scanned with Coverity.
-Unfortunately Coverity does not have the ability to handle scanning pull
-requests, but after code is merged it will send an email notifying project
-members with Coverity access of newly introduced defects.
+Additionally, the FRR codebase is regularly scanned for static analysis
+errors with Coverity and pull request changes are scanned as part of the
+Continuous Integration (CI) process. Developers can scan their commits for
+Coverity static analysis errors prior to submission using the
+``scan-build`` command. To use this command, the ``clang-tools`` package must
+be installed. For example, this can be accomplished on Ubuntu with the
+``sudo apt-get install clang-tools`` command.  Then, touch the files you want scanned and
+invoke the ``scan-build`` command. For example::
+
+  cd ~/GitHub/frr
+  touch ospfd/ospf_flood.c ospfd/ospf_vty.c ospfd/ospf_opaque.c
+  cd build
+  scan-build make -j32
+
+The results of the scan including any static analysis errors will appear inline.
+Additionally, there will a directory in the /tmp containing the Coverity
+reports (e.g., scan-build-2023-06-09-120100-473730-1).
 
 Executing non-installed dynamic binaries
 ----------------------------------------

@@ -3,8 +3,10 @@
  */
 
 #include <zebra.h>
+#include <sys/stat.h>
 
 #include <lib/version.h>
+#include "debug.h"
 #include "getopt.h"
 #include "frrevent.h"
 #include "vty.h"
@@ -140,6 +142,7 @@ int main(int argc, char **argv)
 	cmd_init(1);
 	vty_init(master, false);
 	lib_cmd_init();
+	debug_init();
 	nb_init(master, NULL, 0, false);
 
 	/* OSPF vty inits. */
@@ -152,7 +155,7 @@ int main(int argc, char **argv)
 	}
 
 	/* Create VTY socket */
-	vty_serv_sock(vty_addr, vty_port, "/tmp/.heavy.sock");
+	vty_serv_start(vty_addr, vty_port, "/tmp/.heavy.sock");
 
 	/* Configuration file read*/
 	if (!config_file)

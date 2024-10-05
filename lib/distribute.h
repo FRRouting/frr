@@ -9,6 +9,7 @@
 #include <zebra.h>
 #include "if.h"
 #include "filter.h"
+#include "northbound.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -69,11 +70,43 @@ extern enum filter_type distribute_apply_in(struct interface *,
 extern enum filter_type distribute_apply_out(struct interface *,
 					     struct prefix *);
 
-extern int distribute_list_parser(bool prefix, bool v4, const char *dir,
-				  const char *list, const char *ifname);
-extern int distribute_list_no_parser(struct vty *vty, bool prefix, bool v4,
+extern int distribute_list_parser(struct distribute_ctx *ctx, bool prefix,
+				  bool v4, const char *dir, const char *list,
+				  const char *ifname);
+extern int distribute_list_no_parser(struct distribute_ctx *ctx,
+				     struct vty *vty, bool prefix, bool v4,
 				     const char *dir, const char *list,
 				     const char *ifname);
+
+/*
+ * Northbound
+ */
+
+/*
+ * Define your own create callback and then call thes helper with your
+ * distribute list context when a list entry is created. Additionally, plug the
+ * destroy callback into the frr_module_yang_info struct, or call it if you have
+ * your own callback destroy function.
+ */
+extern int group_distribute_list_create_helper(struct nb_cb_create_args *args,
+					       struct distribute_ctx *ctx);
+extern int group_distribute_list_destroy(struct nb_cb_destroy_args *args);
+
+/*
+ * Plug 3 of these handlers in for your distribute-list for all the northbound
+ * distribute_list leaf callbacks. If you need multi-protocol then use the
+ * grouping twice under 2 different containers.
+ */
+extern int group_distribute_list_ipv4_modify(struct nb_cb_modify_args *args);
+extern int group_distribute_list_ipv4_destroy(struct nb_cb_destroy_args *args);
+extern void group_distribute_list_ipv4_cli_show(struct vty *vty,
+						const struct lyd_node *dnode,
+						bool show_defaults);
+extern int group_distribute_list_ipv6_modify(struct nb_cb_modify_args *args);
+extern int group_distribute_list_ipv6_destroy(struct nb_cb_destroy_args *args);
+extern void group_distribute_list_ipv6_cli_show(struct vty *vty,
+						const struct lyd_node *dnode,
+						bool show_defaults);
 #ifdef __cplusplus
 }
 #endif

@@ -35,26 +35,4 @@ void pbr_debug_init(void);
  */
 void pbr_debug_set_all(uint32_t flags, bool set);
 
-/*
- * Config write helper.
- *
- * vty
- *    Vty to write to
- *
- * config
- *    Whether we are writing to show run or saving config file
- *
- * Returns:
- *    0 for convenience
- */
-int pbr_debug_config_write_helper(struct vty *vty, bool config);
-
-/*
- * Print PBR debugging configuration.
- *
- * vty
- *    VTY to print debugging configuration to.
- */
-int pbr_debug_config_write(struct vty *vty);
-
 #endif /* __PBR_DEBUG_H__ */

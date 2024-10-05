@@ -57,6 +57,10 @@ static void pim_instance_terminate(struct pim_instance *pim)
 
 	pim_mroute_socket_disable(pim);
 
+#if PIM_IPV == 4
+	pim_autorp_finish(pim);
+#endif
+
 	XFREE(MTYPE_PIM_PLIST_NAME, pim->spt.plist);
 	XFREE(MTYPE_PIM_PLIST_NAME, pim->register_plist);
 
@@ -125,6 +129,10 @@ static struct pim_instance *pim_instance_init(struct vrf *vrf)
 	pim->msdp.keep_alive = PIM_MSDP_PEER_KA_TIME;
 	pim->msdp.connection_retry = PIM_MSDP_PEER_CONNECT_RETRY_TIME;
 
+#if PIM_IPV == 4
+	pim_autorp_init(pim);
+#endif
+
 	return pim;
 }
 
@@ -178,6 +186,8 @@ static int pim_vrf_enable(struct vrf *vrf)
 
 	zlog_debug("%s: for %s %u", __func__, vrf->name, vrf->vrf_id);
 
+	pim_mroute_socket_enable(pim);
+
 	FOR_ALL_INTERFACES (vrf, ifp) {
 		if (!ifp->info)
 			continue;
@@ -185,8 +195,6 @@ static int pim_vrf_enable(struct vrf *vrf)
 		pim_if_create_pimreg(pim);
 		break;
 	}
-
-	pim_mroute_socket_enable(pim);
 
 	return 0;
 }
@@ -201,6 +209,7 @@ static int pim_vrf_config_write(struct vty *vty)
 {
 	struct vrf *vrf;
 	struct pim_instance *pim;
+	char spaces[10];
 
 	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
 		pim = vrf->info;
@@ -208,10 +217,24 @@ static int pim_vrf_config_write(struct vty *vty)
 		if (!pim)
 			continue;
 
-		if (vrf->vrf_id != VRF_DEFAULT)
+		if (vrf->vrf_id != VRF_DEFAULT) {
 			vty_frame(vty, "vrf %s\n", vrf->name);
+			snprintf(spaces, sizeof(spaces), "%s", " ");
+		} else {
+			snprintf(spaces, sizeof(spaces), "%s", "");
+		}
 
-		pim_global_config_write_worker(pim, vty);
+		/* Global IGMP/MLD configuration */
+		if (pim->gm_watermark_limit != 0) {
+#if PIM_IPV == 4
+			vty_out(vty,
+				"%s" PIM_AF_NAME " igmp watermark-warn %u\n",
+				spaces, pim->gm_watermark_limit);
+#else
+			vty_out(vty, "%s" PIM_AF_NAME " mld watermark-warn %u\n",
+				spaces, pim->gm_watermark_limit);
+#endif
+		}
 
 		if (vrf->vrf_id != VRF_DEFAULT)
 			vty_endframe(vty, "exit-vrf\n!\n");
@@ -238,6 +261,7 @@ void pim_vrf_terminate(void)
 		if (!pim)
 			continue;
 
+		pim_crp_db_clear(&pim->global_scope);
 		pim_ssmpingd_destroy(pim);
 		pim_instance_terminate(pim);
 

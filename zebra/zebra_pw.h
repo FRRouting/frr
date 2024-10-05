@@ -24,7 +24,7 @@ extern "C" {
 struct zebra_pw {
 	RB_ENTRY(zebra_pw) pw_entry, static_pw_entry;
 	vrf_id_t vrf_id;
-	char ifname[INTERFACE_NAMSIZ];
+	char ifname[IFNAMSIZ];
 	ifindex_t ifindex;
 	int type;
 	int af;
@@ -60,8 +60,9 @@ void zebra_pw_change(struct zebra_pw *, ifindex_t, int, int, union g_addr *,
 struct zebra_pw *zebra_pw_find(struct zebra_vrf *, const char *);
 void zebra_pw_update(struct zebra_pw *);
 void zebra_pw_install_failure(struct zebra_pw *pw, int pwstatus);
-void zebra_pw_init(struct zebra_vrf *);
-void zebra_pw_exit(struct zebra_vrf *);
+void zebra_pw_init_vrf(struct zebra_vrf *);
+void zebra_pw_exit_vrf(struct zebra_vrf *);
+void zebra_pw_terminate(void);
 void zebra_pw_vty_init(void);
 
 #ifdef __cplusplus

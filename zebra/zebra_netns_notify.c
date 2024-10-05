@@ -5,6 +5,7 @@
  */
 
 #include <zebra.h>
+#include <fcntl.h>
 
 #ifdef HAVE_NETLINK
 #ifdef HAVE_NETNS
@@ -14,6 +15,7 @@
 #include <sched.h>
 #endif
 #include <dirent.h>
+#include <libgen.h>
 #include <sys/inotify.h>
 #include <sys/stat.h>
 
@@ -39,6 +41,10 @@
  */
 #define ZEBRA_NS_POLLING_INTERVAL_MSEC     1000
 #define ZEBRA_NS_POLLING_MAX_RETRIES  200
+
+#if !defined(__GLIBC__)
+#define basename(src) (strrchr(src, '/') ? strrchr(src, '/') + 1 : src)
+#endif
 
 DEFINE_MTYPE_STATIC(ZEBRA, NETNS_MISC, "ZebraNetNSInfo");
 static struct event *zebra_netns_notify_current;
@@ -233,6 +239,7 @@ static void zebra_ns_ready_read(struct event *t)
 {
 	struct zebra_netns_info *zns_info = EVENT_ARG(t);
 	const char *netnspath;
+	const char *netnspath_basename;
 	int err, stop_retry = 0;
 
 	if (!zns_info)
@@ -260,23 +267,24 @@ static void zebra_ns_ready_read(struct event *t)
 		zebra_ns_continue_read(zns_info, stop_retry);
 		return;
 	}
+	netnspath_basename = basename(strdupa(netnspath));
 
 	/* check default name is not already set */
-	if (strmatch(VRF_DEFAULT_NAME, basename(netnspath))) {
-		zlog_warn("NS notify : NS %s is already default VRF.Cancel VRF Creation", basename(netnspath));
+	if (strmatch(VRF_DEFAULT_NAME, netnspath_basename)) {
+		zlog_warn("NS notify : NS %s is already default VRF.Cancel VRF Creation", netnspath_basename);
 		zebra_ns_continue_read(zns_info, 1);
 		return;
 	}
-	if (zebra_ns_notify_is_default_netns(basename(netnspath))) {
+	if (zebra_ns_notify_is_default_netns(netnspath_basename)) {
 		zlog_warn(
 			"NS notify : NS %s is default VRF. Ignore VRF creation",
-			basename(netnspath));
+			netnspath_basename);
 		zebra_ns_continue_read(zns_info, 1);
 		return;
 	}
 
 	/* success : close fd and create zns context */
-	zebra_ns_notify_create_context_from_entry_name(basename(netnspath));
+	zebra_ns_notify_create_context_from_entry_name(netnspath_basename);
 	zebra_ns_continue_read(zns_info, 1);
 }
 
@@ -303,7 +311,7 @@ static void zebra_ns_notify_read(struct event *t)
 		char *netnspath;
 		struct zebra_netns_info *netnsinfo;
 
-		if (!(event->mask & (IN_CREATE | IN_DELETE)))
+		if (!CHECK_FLAG(event->mask, (IN_CREATE | IN_DELETE)))
 			continue;
 
 		if (offsetof(struct inotify_event, name) + event->len
@@ -349,7 +357,7 @@ static void zebra_ns_notify_read(struct event *t)
 		memcpy(event_name, event->name, event->len);
 		event_name[event->len - 1] = 0;
 
-		if (event->mask & IN_DELETE) {
+		if (CHECK_FLAG(event->mask, IN_DELETE)) {
 			zebra_ns_delete(event_name);
 			continue;
 		}
@@ -395,7 +403,7 @@ void zebra_ns_notify_parse(void)
 			continue;
 		}
 		/* check default name is not already set */
-		if (strmatch(VRF_DEFAULT_NAME, basename(dent->d_name))) {
+		if (strmatch(VRF_DEFAULT_NAME, basename(strdupa(dent->d_name)))) {
 			zlog_warn("NS notify : NS %s is already default VRF.Cancel VRF Creation", dent->d_name);
 			continue;
 		}
