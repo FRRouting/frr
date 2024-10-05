@@ -1163,7 +1163,12 @@ def pim_delete_move_lines(lines_to_add, lines_to_del):
             ctx_keys[0] in pim_disable
             and ctx_keys[0].startswith("interface")
             and line
-            and (line.startswith("ip pim ") or line.startswith("ip multicast "))
+            and (
+                line.startswith("ip pim ")
+                or line.startswith("no ip pim ")
+                or line.startswith("ip multicast ")
+                or line.startswith("no ip multicast ")
+            )
         ):
             lines_to_del_to_del.append((ctx_keys, line))
 
