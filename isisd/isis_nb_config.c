@@ -4299,14 +4299,6 @@ static int lib_interface_isis_multi_topology_common(
 
 	switch (event) {
 	case NB_EV_VALIDATE:
-		circuit = nb_running_get_entry(dnode, NULL, false);
-		if (circuit && circuit->area && circuit->area->oldmetric) {
-			snprintf(
-				errmsg, errmsg_len,
-				"Multi topology IS-IS can only be used with wide metrics");
-			return NB_ERR_VALIDATION;
-		}
-		break;
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
 		break;
