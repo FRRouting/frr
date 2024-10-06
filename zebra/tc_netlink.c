@@ -852,23 +852,4 @@ int netlink_qdisc_read(struct zebra_ns *zns)
 	return 0;
 }
 
-int netlink_tfilter_read_for_interface(struct zebra_ns *zns, ifindex_t ifindex)
-{
-	int ret;
-	struct zebra_dplane_info dp_info;
-
-	zebra_dplane_info_from_zns(&dp_info, zns, true);
-
-	ret = netlink_request_filters(zns, AF_UNSPEC, RTM_GETTFILTER, ifindex);
-	if (ret < 0)
-		return ret;
-
-	ret = netlink_parse_info(netlink_tfilter_change, &zns->netlink_cmd,
-				 &dp_info, 0, true);
-	if (ret < 0)
-		return ret;
-
-	return 0;
-}
-
 #endif /* HAVE_NETLINK */
