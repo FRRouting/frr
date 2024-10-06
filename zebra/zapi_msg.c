@@ -2477,22 +2477,6 @@ stream_failure:
 	return;
 }
 
-/* Unregister all information in a VRF. */
-static void zread_vrf_unregister(ZAPI_HANDLER_ARGS)
-{
-	int i;
-	afi_t afi;
-
-	for (afi = AFI_IP; afi < AFI_MAX; afi++) {
-		for (i = 0; i < ZEBRA_ROUTE_MAX; i++)
-			vrf_bitmap_unset(&client->redist[afi][i],
-					 zvrf_id(zvrf));
-		vrf_bitmap_unset(&client->redist_default[afi], zvrf_id(zvrf));
-		vrf_bitmap_unset(&client->ridinfo[afi], zvrf_id(zvrf));
-		vrf_bitmap_unset(&client->neighinfo[afi], zvrf_id(zvrf));
-	}
-}
-
 /*
  * Validate incoming zapi mpls lsp / labels message
  */
@@ -4055,7 +4039,6 @@ void (*const zserv_handlers[])(ZAPI_HANDLER_ARGS) = {
 #if HAVE_BFDD > 0
 	[ZEBRA_BFD_DEST_REPLAY] = zebra_ptm_bfd_dst_replay,
 #endif /* HAVE_BFDD */
-	[ZEBRA_VRF_UNREGISTER] = zread_vrf_unregister,
 	[ZEBRA_VRF_LABEL] = zread_vrf_label,
 	[ZEBRA_BFD_CLIENT_REGISTER] = zebra_ptm_bfd_client_register,
 	[ZEBRA_INTERFACE_ENABLE_RADV] = zebra_interface_radv_enable,
