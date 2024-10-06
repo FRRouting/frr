@@ -611,45 +611,6 @@ struct route_entry *rib_match_multicast(afi_t afi, vrf_id_t vrf_id,
 	return re;
 }
 
-struct route_entry *rib_lookup_ipv4(struct prefix_ipv4 *p, vrf_id_t vrf_id)
-{
-	struct route_table *table;
-	struct route_node *rn;
-	struct route_entry *match = NULL;
-	rib_dest_t *dest;
-
-	/* Lookup table.  */
-	table = zebra_vrf_table(AFI_IP, SAFI_UNICAST, vrf_id);
-	if (!table)
-		return 0;
-
-	rn = route_node_lookup(table, (struct prefix *)p);
-
-	/* No route for this prefix. */
-	if (!rn)
-		return NULL;
-
-	/* Unlock node. */
-	route_unlock_node(rn);
-	dest = rib_dest_from_rnode(rn);
-
-	if (dest && dest->selected_fib
-	    && !CHECK_FLAG(dest->selected_fib->status, ROUTE_ENTRY_REMOVED))
-		match = dest->selected_fib;
-
-	if (!match)
-		return NULL;
-
-	if (match->type == ZEBRA_ROUTE_CONNECT ||
-	    match->type == ZEBRA_ROUTE_LOCAL)
-		return match;
-
-	if (CHECK_FLAG(match->status, ROUTE_ENTRY_INSTALLED))
-		return match;
-
-	return NULL;
-}
-
 /*
  * Is this RIB labeled-unicast? It must be of type BGP and all paths
  * (nexthops) must have a label.
