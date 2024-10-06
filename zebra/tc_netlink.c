@@ -661,27 +661,6 @@ netlink_put_tc_filter_update_msg(struct nl_batch *bth,
 }
 
 /*
- * Request filters from the kernel
- */
-static int netlink_request_filters(struct zebra_ns *zns, int family, int type,
-				   ifindex_t ifindex)
-{
-	struct {
-		struct nlmsghdr n;
-		struct tcmsg tc;
-	} req;
-
-	memset(&req, 0, sizeof(req));
-	req.n.nlmsg_type = type;
-	req.n.nlmsg_flags = NLM_F_ROOT | NLM_F_MATCH | NLM_F_REQUEST;
-	req.n.nlmsg_len = NLMSG_LENGTH(sizeof(struct tcmsg));
-	req.tc.tcm_family = family;
-	req.tc.tcm_ifindex = ifindex;
-
-	return netlink_request(&zns->netlink_cmd, &req);
-}
-
-/*
  * Request queue discipline from the kernel
  */
 static int netlink_request_qdiscs(struct zebra_ns *zns, int family, int type)
