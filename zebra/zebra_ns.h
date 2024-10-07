@@ -66,7 +66,14 @@ int zebra_ns_early_shutdown(struct ns *ns,
 int zebra_ns_final_shutdown(struct ns *ns,
 			    void *param_in __attribute__((unused)),
 			    void **param_out __attribute__((unused)));
+<<<<<<< HEAD
 int zebra_ns_config_write(struct vty *vty, struct ns *ns);
+=======
+int zebra_ns_kernel_shutdown(struct ns *ns, void *param_in __attribute__((unused)),
+			     void **param_out __attribute__((unused)));
+
+void zebra_ns_startup_continue(struct zebra_dplane_ctx *ctx);
+>>>>>>> 7ae70eb5ef (zebra: fix heap-use-after free on ns shutdown)
 
 #ifdef __cplusplus
 }
