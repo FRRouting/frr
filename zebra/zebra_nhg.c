@@ -2648,7 +2648,7 @@ static unsigned nexthop_active_check(struct route_node *rn,
 
 		ifp = if_lookup_by_index(nexthop->ifindex, nexthop->vrf_id);
 
-		if (ifp && ifp->vrf->vrf_id == vrf_id && if_is_up(ifp)) {
+		if (ifp && ifp->vrf->vrf_id == vrf_id && if_is_up(ifp) && if_connected_count(ifp->connected)) {
 			SET_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE);
 			goto skip_check;
 		}
