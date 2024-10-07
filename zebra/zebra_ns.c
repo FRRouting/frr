@@ -175,6 +175,23 @@ int zebra_ns_early_shutdown(struct ns *ns,
 	return NS_WALK_CONTINUE;
 }
 
+/* During zebra shutdown, do kernel cleanup
+ * netlink sockets, ..
+ */
+int zebra_ns_kernel_shutdown(struct ns *ns,
+			    void *param_in __attribute__((unused)),
+			    void **param_out __attribute__((unused)))
+{
+	struct zebra_ns *zns = ns->info;
+
+	if (zns == NULL)
+		return 0;
+
+	kernel_terminate(zns, true);
+
+	return NS_WALK_CONTINUE;
+}
+
 /* During zebra shutdown, do final cleanup
  * after all dataplane work is complete.
  */
@@ -186,8 +203,6 @@ int zebra_ns_final_shutdown(struct ns *ns,
 
 	if (zns == NULL)
 		return 0;
-
-	kernel_terminate(zns, true);
 
 	zebra_ns_delete(ns);
 
