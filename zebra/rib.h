@@ -408,9 +408,6 @@ extern struct route_entry *rib_match_multicast(afi_t afi, vrf_id_t vrf_id,
 					       union g_addr *gaddr,
 					       struct route_node **rn_out);
 
-extern struct route_entry *rib_lookup_ipv4(struct prefix_ipv4 *p,
-					   vrf_id_t vrf_id);
-
 extern void rib_update(enum rib_update_event event);
 extern void rib_update_table(struct route_table *table,
 			     enum rib_update_event event, int rtype);
