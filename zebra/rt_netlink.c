@@ -591,12 +591,9 @@ parse_nexthop_unicast(ns_id_t ns_id, struct rtmsg *rtm, struct rtattr **tb,
 	return nh;
 }
 
-static uint8_t parse_multipath_nexthops_unicast(ns_id_t ns_id,
-						struct nexthop_group *ng,
-						struct rtmsg *rtm,
-						struct rtnexthop *rtnh,
-						struct rtattr **tb,
-						void *prefsrc, vrf_id_t vrf_id)
+static uint16_t parse_multipath_nexthops_unicast(ns_id_t ns_id, struct nexthop_group *ng,
+						 struct rtmsg *rtm, struct rtnexthop *rtnh,
+						 struct rtattr **tb, void *prefsrc, vrf_id_t vrf_id)
 {
 	void *gate = NULL;
 	struct interface *ifp = NULL;
@@ -721,7 +718,7 @@ static uint8_t parse_multipath_nexthops_unicast(ns_id_t ns_id,
 		rtnh = RTNH_NEXT(rtnh);
 	}
 
-	uint8_t nhop_num = nexthop_group_nexthop_num(ng);
+	uint16_t nhop_num = nexthop_group_nexthop_num(ng);
 
 	return nhop_num;
 }
@@ -1000,7 +997,7 @@ int netlink_route_change_read_unicast_internal(struct nlmsghdr *h,
 				(struct rtnexthop *)RTA_DATA(tb[RTA_MULTIPATH]);
 
 			if (!nhe_id) {
-				uint8_t nhop_num;
+				uint16_t nhop_num;
 
 				/* Use temporary list of nexthops; parse
 				 * message payload's nexthops.
@@ -2644,11 +2641,9 @@ int kernel_get_ipmr_sg_stats(struct zebra_vrf *zvrf, void *in)
 /* Char length to debug ID with */
 #define ID_LENGTH 10
 
-static bool _netlink_nexthop_build_group(struct nlmsghdr *n, size_t req_size,
-					 uint32_t id,
-					 const struct nh_grp *z_grp,
-					 const uint8_t count, bool resilient,
-					 const struct nhg_resilience *nhgr)
+static bool _netlink_nexthop_build_group(struct nlmsghdr *n, size_t req_size, uint32_t id,
+					 const struct nh_grp *z_grp, const uint16_t count,
+					 bool resilient, const struct nhg_resilience *nhgr)
 {
 	struct nexthop_grp grp[count];
 	/* Need space for max group size, "/", and null term */
@@ -3285,7 +3280,7 @@ static int netlink_nexthop_process_group(struct rtattr **tb,
 					 struct nh_grp *z_grp, int z_grp_size,
 					 struct nhg_resilience *nhgr)
 {
-	uint8_t count = 0;
+	uint16_t count = 0;
 	/* linux/nexthop.h group struct */
 	struct nexthop_grp *n_grp = NULL;
 
@@ -3358,7 +3353,7 @@ int netlink_nexthop_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 	struct nexthop nh = {.weight = 1};
 	struct nh_grp grp[MULTIPATH_NUM] = {};
 	/* Count of nexthops in group array */
-	uint8_t grp_count = 0;
+	uint16_t grp_count = 0;
 	struct rtattr *tb[NHA_MAX + 1] = {};
 
 	frrtrace(3, frr_zebra, netlink_nexthop_change, h, ns_id, startup);

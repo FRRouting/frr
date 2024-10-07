@@ -23,7 +23,7 @@ struct pim_nexthop_cache {
 	uint32_t metric;
 	uint32_t distance;
 	/* Nexthop number and nexthop linked list. */
-	uint8_t nexthop_num;
+	uint16_t nexthop_num;
 	struct nexthop *nexthop;
 	int64_t last_update;
 	uint16_t flags;

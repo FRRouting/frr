@@ -38,7 +38,7 @@ struct bgp_nexthop_cache {
 	uint32_t metric;
 
 	/* Nexthop number and nexthop linked list.*/
-	uint8_t nexthop_num;
+	uint16_t nexthop_num;
 
 	/* This flag is set to TRUE for a bnc that is gateway IP overlay index
 	 * nexthop.

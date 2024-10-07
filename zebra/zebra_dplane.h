@@ -597,7 +597,7 @@ const struct nexthop_group *
 dplane_ctx_get_nhe_ng(const struct zebra_dplane_ctx *ctx);
 const struct nh_grp *
 dplane_ctx_get_nhe_nh_grp(const struct zebra_dplane_ctx *ctx);
-uint8_t dplane_ctx_get_nhe_nh_grp_count(const struct zebra_dplane_ctx *ctx);
+uint16_t dplane_ctx_get_nhe_nh_grp_count(const struct zebra_dplane_ctx *ctx);
 
 /* Accessors for LSP information */
 
