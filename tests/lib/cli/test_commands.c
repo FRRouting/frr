@@ -197,7 +197,7 @@ static void test_init(void)
 
 	cmd_init(1);
 	debug_init();
-	nb_init(master, NULL, 0, false);
+	nb_init(master, NULL, 0, false, false);
 
 	install_node(&bgp_node);
 	install_node(&rip_node);

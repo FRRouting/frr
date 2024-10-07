@@ -111,8 +111,7 @@ static void static_startup(void)
 	static_debug_init();
 
 	master = event_master_create(NULL);
-	nb_init(master, staticd_yang_modules, array_size(staticd_yang_modules),
-		false);
+	nb_init(master, staticd_yang_modules, array_size(staticd_yang_modules), false, false);
 
 	static_zebra_init();
 	vty_init(master, true);

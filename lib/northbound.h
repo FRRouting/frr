@@ -1703,10 +1703,12 @@ void nb_validate_callbacks(void);
  *
  * db_enabled
  *    Set this to record the transactions in the transaction log.
+ *
+ * load_library
+ *    Set this to have libyang to load/implement the ietf-yang-library.
  */
-extern void nb_init(struct event_loop *tm,
-		    const struct frr_yang_module_info *const modules[],
-		    size_t nmodules, bool db_enabled);
+extern void nb_init(struct event_loop *tm, const struct frr_yang_module_info *const modules[],
+		    size_t nmodules, bool db_enabled, bool load_library);
 
 /*
  * Finish the northbound layer gracefully. Should be called only when the daemon
