@@ -290,8 +290,8 @@ static bool pim_autorp_add_rp(struct pim_autorp *autorp, pim_addr rpaddr,
 		event_add_timer(router->master, autorp_rp_holdtime, trp,
 				holdtime, &(trp->hold_timer));
 		if (PIM_DEBUG_AUTORP)
-			zlog_debug("%s: Started %u second hold timer for RP %pI4",
-				   __func__, holdtime, &rp->addr);
+			zlog_debug("%s: Started %u second hold timer for RP %pI4", __func__,
+				   holdtime, &trp->addr);
 	} else {
 		/* If hold time is zero, make sure there doesn't exist a hold timer for it already */
 		event_cancel(&trp->hold_timer);
