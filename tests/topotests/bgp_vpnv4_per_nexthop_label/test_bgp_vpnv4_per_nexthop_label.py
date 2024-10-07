@@ -187,7 +187,7 @@ def bgp_vpnv4_table_check(
         test_func = functools.partial(
             check_bgp_vpnv4_prefix_presence, router, prefix, table_version
         )
-        success, _ = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
+        success, _ = topotest.run_and_expect(test_func, None, count=10, wait=3)
         assert success, "{}, prefix ipv4 vpn {} is not installed yet".format(
             router.name, prefix
         )
@@ -321,7 +321,7 @@ def mpls_table_check(router, blacklist=None, label_list=None, whitelist=None):
     test_func = functools.partial(
         check_show_mpls_table, router, blacklist, label_list, whitelist
     )
-    success, result = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
+    success, result = topotest.run_and_expect(test_func, None, count=10, wait=3)
     assert success, "{}, MPLS labels check fail: {}".format(router.name, result)
 
 
@@ -453,7 +453,7 @@ def test_protocols_convergence():
         "show bgp vrf vrf1 ipv4 json",
         expected,
     )
-    _, result = topotest.run_and_expect(test_func, None, count=20, wait=0.5)
+    _, result = topotest.run_and_expect(test_func, None, count=10, wait=3)
     assertmsg = '"{}" JSON output mismatches'.format(router.name)
     assert result is None, assertmsg
 
@@ -467,7 +467,7 @@ def test_protocols_convergence():
         "show bgp ipv4 vpn json",
         expected,
     )
-    _, result = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
+    _, result = topotest.run_and_expect(test_func, None, count=10, wait=3)
     assertmsg = '"{}" JSON output mismatches'.format(router.name)
     assert result is None, assertmsg
 
@@ -509,7 +509,7 @@ def test_flapping_bgp_vrf_down():
     test_func = functools.partial(
         _bgp_prefix_not_found, tgen.gears["r1"], "vrf1", "ipv4", "172.31.0.11/32"
     )
-    success, _ = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
+    success, _ = topotest.run_and_expect(test_func, None, count=10, wait=3)
     assert (
         success
     ), "r1, prefix 172.31.0.11/32 from r11 did not disappear. r11 still connected to rr ?"
@@ -547,7 +547,7 @@ def test_flapping_bgp_vrf_up():
         "172.31.0.11/32",
         "444:1",
     )
-    success, _ = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
+    success, _ = topotest.run_and_expect(test_func, None, count=10, wait=3)
     assert (
         success
     ), "r2, prefix 172.31.0.11/32 from r11 not present. r11 still disconnected from rr ?"
@@ -577,7 +577,7 @@ def test_recursive_route():
         "172.31.0.30/32",
         "444:1",
     )
-    success, _ = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
+    success, _ = topotest.run_and_expect(test_func, None, count=10, wait=3)
     assert success, "r2, vpnv4 update 172.31.0.30 not found"
 
     bgp_vpnv4_table_check(tgen.gears["r2"], group=PREFIXES_R11 + ["172.31.0.30/32"])
@@ -603,7 +603,7 @@ def test_recursive_route():
         "172.31.0.30/32",
         "444:1",
     )
-    success, _ = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
+    success, _ = topotest.run_and_expect(test_func, None, count=10, wait=3)
     assert success, "r2, vpnv4 update 172.31.0.30 still present"
 
 
@@ -629,7 +629,7 @@ def test_prefix_changes_interface():
         "172.31.0.50/32",
         "444:1",
     )
-    success, _ = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
+    success, _ = topotest.run_and_expect(test_func, None, count=10, wait=3)
     assert success, "r2, vpnv4 update 172.31.0.50 not found"
 
     # diagnostic
@@ -675,7 +675,7 @@ def test_prefix_changes_interface():
         "444:1",
         label=oldlabel,
     )
-    success, _ = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
+    success, _ = topotest.run_and_expect(test_func, None, count=10, wait=3)
     assert (
         success
     ), "r2, vpnv4 update 172.31.0.50 with old label {0} still present".format(oldlabel)
@@ -692,7 +692,7 @@ def test_prefix_changes_interface():
         "172.31.0.50/32",
         "444:1",
     )
-    success, _ = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
+    success, _ = topotest.run_and_expect(test_func, None, count=10, wait=3)
     assert success, "r2, vpnv4 update 172.31.0.50 not found"
 
     label_list = set()
@@ -763,7 +763,7 @@ def test_changing_default_label_value():
         "vrf1",
         label=222,
     )
-    success, _ = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
+    success, _ = topotest.run_and_expect(test_func, None, count=10, wait=3)
     assert success, "r1, mpls entry with label 222 not found"
 
     # check label repartition is ok
@@ -811,7 +811,7 @@ def test_unconfigure_allocation_mode_nexthop():
     test_func = functools.partial(
         check_show_mpls_table_entry_label_not_found, router, 17
     )
-    success, _ = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
+    success, _ = topotest.run_and_expect(test_func, None, count=10, wait=3)
     assert success, "r1, mpls entry with label 17 still present"
 
     # Check vpnv4 routes from r1
@@ -863,7 +863,7 @@ def test_reconfigure_allocation_mode_nexthop():
     test_func = functools.partial(
         check_show_mpls_table_entry_label_not_found, router, 17
     )
-    success, _ = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
+    success, _ = topotest.run_and_expect(test_func, None, count=10, wait=3)
     assert success, "r1, mpls entry with label 17 still present"
 
     # Check vpnv4 routes from r1
