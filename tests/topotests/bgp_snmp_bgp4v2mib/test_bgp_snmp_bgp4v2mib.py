@@ -158,7 +158,7 @@ def test_bgp_snmp_bgp4v2():
     _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
     assert result is None, "Can't see prefixes from R1"
 
-    snmp = SnmpTester(r2, "localhost", "public", "2c", "-Ln -On")
+    snmp = SnmpTester(r2, "localhost", "public", "2c", "-Ln -Oe -On")
 
     def _snmpwalk_remote_addr():
         expected = {
