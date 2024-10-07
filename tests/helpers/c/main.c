@@ -143,7 +143,7 @@ int main(int argc, char **argv)
 	vty_init(master, false);
 	lib_cmd_init();
 	debug_init();
-	nb_init(master, NULL, 0, false);
+	nb_init(master, NULL, 0, false, false);
 
 	/* OSPF vty inits. */
 	test_vty_init();

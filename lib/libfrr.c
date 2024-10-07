@@ -820,7 +820,8 @@ struct event_loop *frr_init(void)
 	log_ref_vty_init();
 	lib_error_init();
 
-	nb_init(master, di->yang_modules, di->n_yang_modules, true);
+	nb_init(master, di->yang_modules, di->n_yang_modules, true,
+		(di->flags & FRR_LOAD_YANG_LIBRARY) != 0);
 	if (nb_db_init() != NB_OK)
 		flog_warn(EC_LIB_NB_DATABASE,
 			  "%s: failed to initialize northbound database",

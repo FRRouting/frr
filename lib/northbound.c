@@ -2701,7 +2701,7 @@ void nb_validate_callbacks(void)
 
 void nb_init(struct event_loop *tm,
 	     const struct frr_yang_module_info *const modules[],
-	     size_t nmodules, bool db_enabled)
+	     size_t nmodules, bool db_enabled, bool load_library)
 {
 	struct yang_module *loaded[nmodules], **loadedp = loaded;
 
@@ -2717,7 +2717,7 @@ void nb_init(struct event_loop *tm,
 
 	nb_db_enabled = db_enabled;
 
-	yang_init(true, explicit_compile);
+	yang_init(true, explicit_compile, load_library);
 
 	/* Load YANG modules and their corresponding northbound callbacks. */
 	for (size_t i = 0; i < nmodules; i++) {

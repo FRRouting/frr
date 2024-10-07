@@ -46,6 +46,11 @@ extern "C" {
  * is responsible for calling frr_vty_serv() itself.
  */
 #define FRR_MANUAL_VTY_START (1 << 7)
+/* If FRR_LOAD_YANG_LIBRARY is set then libyang will be told to load and
+ * implement it's internal ietf-yang-library implementation. This should
+ * normally only be done from mgmtd.
+ */
+#define FRR_LOAD_YANG_LIBRARY (1 << 8)
 
 PREDECL_DLIST(log_args);
 struct log_arg {

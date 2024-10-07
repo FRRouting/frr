@@ -77,7 +77,7 @@ int main(int argc, char **argv)
 	for (yangcount = 0; test_yang_modules && test_yang_modules[yangcount];
 	     yangcount++)
 		;
-	nb_init(master, test_yang_modules, yangcount, false);
+	nb_init(master, test_yang_modules, yangcount, false, false);
 
 	test_init(argc, argv);
 
