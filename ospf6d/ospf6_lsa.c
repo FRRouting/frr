@@ -1308,18 +1308,25 @@ DEFPY (debug_ospf6_lsa_aggregation,
 
 DEFUN (debug_ospf6_lsa_type,
        debug_ospf6_lsa_hex_cmd,
-       "debug ospf6 lsa <router|network|inter-prefix|inter-router|as-external|nssa|link|intra-prefix|unknown> [<originate|examine|flooding>]",
+       "debug ospf6 lsa <router|e-router|network|e-network|inter-prefix|e-inter-prefix|inter-router|e-inter-router|as-external|e-as-external|nssa|link|e-link|intra-prefix|e-intra-prefix|unknown> [<originate|examine|flooding>]",
        DEBUG_STR
        OSPF6_STR
        "Debug Link State Advertisements (LSAs)\n"
        "Display Router LSAs\n"
+       "Display E-Router LSAs\n"
        "Display Network LSAs\n"
+       "Display E-Network LSAs\n"
        "Display Inter-Area-Prefix LSAs\n"
+       "Display E-Inter-Area-Prefix LSAs\n"
        "Display Inter-Router LSAs\n"
+       "Display E-Inter-Router LSAs\n"
        "Display As-External LSAs\n"
+       "Display E-As-External LSAs\n"
        "Display NSSA LSAs\n"
        "Display Link LSAs\n"
+       "Display E-Link LSAs\n"
        "Display Intra-Area-Prefix LSAs\n"
+       "Display E-Intra-Area-Prefix LSAs\n"
        "Display LSAs of unknown origin\n"
        "Display details of LSAs\n"
        "Dump LSAs\n"
@@ -1360,19 +1367,26 @@ DEFUN (debug_ospf6_lsa_type,
 
 DEFUN (no_debug_ospf6_lsa_type,
        no_debug_ospf6_lsa_hex_cmd,
-       "no debug ospf6 lsa <router|network|inter-prefix|inter-router|as-external|nssa|link|intra-prefix|unknown> [<originate|examine|flooding>]",
+       "no debug ospf6 lsa <router|e-router|network|e-network|inter-prefix|e-inter-prefix|inter-router|e-inter-router|as-external|e-as-external|nssa|link|e-link|intra-prefix|e-intra-prefix|unknown> [<originate|examine|flooding>]",
        NO_STR
        DEBUG_STR
        OSPF6_STR
        "Debug Link State Advertisements (LSAs)\n"
        "Display Router LSAs\n"
+       "Display E-Router LSAs\n"
        "Display Network LSAs\n"
+       "Display E-Network LSAs\n"
        "Display Inter-Area-Prefix LSAs\n"
+       "Display E-Inter-Area-Prefix LSAs\n"
        "Display Inter-Router LSAs\n"
+       "Display E-Inter-Router LSAs\n"
        "Display As-External LSAs\n"
+       "Display E-As-External LSAs\n"
        "Display NSSA LSAs\n"
        "Display Link LSAs\n"
+       "Display E-Link LSAs\n"
        "Display Intra-Area-Prefix LSAs\n"
+       "Display E-Intra-Area-Prefix LSAs\n"
        "Display LSAs of unknown origin\n"
        "Display details of LSAs\n"
        "Dump LSAs\n"
