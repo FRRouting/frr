@@ -244,7 +244,7 @@ void zebra_finalize(struct event *dummy)
 	zebra_ns_notify_close();
 
 	/* Final shutdown of ns resources */
-	ns_walk_func(zebra_ns_final_shutdown, NULL, NULL);
+	ns_walk_func(zebra_ns_kernel_shutdown, NULL, NULL);
 
 	zebra_rib_terminate();
 	zebra_router_terminate();
@@ -256,6 +256,8 @@ void zebra_finalize(struct event *dummy)
 	zebra_srv6_terminate();
 
 	label_manager_terminate();
+
+	ns_walk_func(zebra_ns_final_shutdown, NULL, NULL);
 
 	ns_terminate();
 	frr_fini();
