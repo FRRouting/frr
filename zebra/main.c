@@ -230,10 +230,23 @@ void zebra_finalize(struct event *dummy)
 	zebra_ns_notify_close();
 
 	/* Final shutdown of ns resources */
-	ns_walk_func(zebra_ns_final_shutdown, NULL, NULL);
+	ns_walk_func(zebra_ns_kernel_shutdown, NULL, NULL);
 
 	zebra_router_terminate();
 
+<<<<<<< HEAD
+=======
+	zebra_mpls_terminate();
+
+	zebra_pw_terminate();
+
+	zebra_srv6_terminate();
+
+	label_manager_terminate();
+
+	ns_walk_func(zebra_ns_final_shutdown, NULL, NULL);
+
+>>>>>>> 7ae70eb5ef (zebra: fix heap-use-after free on ns shutdown)
 	ns_terminate();
 	frr_fini();
 	exit(0);
