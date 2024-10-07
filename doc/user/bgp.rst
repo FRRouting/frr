@@ -86,7 +86,7 @@ be specified (:ref:`common-invocation-options`).
    be done to see if this is helping or not at the scale you are running
    at.
 
-.. option:: --v6-with-v4-nexthops
+.. option:: -x, --v6-with-v4-nexthops
 
    Allow BGP to peer in the V6 afi, when the interface only has v4 addresses.
    This allows bgp to install the v6 routes with a v6 nexthop that has the
