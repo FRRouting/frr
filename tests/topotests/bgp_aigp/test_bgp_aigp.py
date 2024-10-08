@@ -17,6 +17,8 @@ and 10 appropriately.
 r1 receives routes with aigp-metric TLV 81, 91 and 82, 92 respectively.
 
 r1 advertises MED from IGP protocol (set metric igp) to r8.
+
+r1 advertises MED from AIGP (set metric aigp) to r8.
 """
 
 import os
@@ -150,9 +152,16 @@ def test_bgp_aigp():
         expected = {"paths": [{"aigpMetric": aigp, "valid": True}]}
         return topotest.json_cmp(output, expected)
 
-    def _bgp_check_received_med(med):
-        output = json.loads(r8.vtysh_cmd("show bgp ipv4 unicast 10.0.0.71/32 json"))
-        expected = {"paths": [{"metric": med, "valid": True}]}
+    def _bgp_check_received_med():
+        output = json.loads(
+            r8.vtysh_cmd("show bgp ipv4 unicast 10.0.0.64/28 longer-prefixes json")
+        )
+        expected = {
+            "routes": {
+                "10.0.0.71/32": [{"valid": True, "metric": 20}],
+                "10.0.0.72/32": [{"valid": True, "metric": 112}],
+            }
+        }
         return topotest.json_cmp(output, expected)
 
     def _bgp_check_aigp_metric_bestpath():
@@ -264,23 +273,12 @@ def test_bgp_aigp():
     _, result = topotest.run_and_expect(test_func, None, count=60, wait=1)
     assert result is None, "AIGP attribute is not considered in best-path selection"
 
-    # r8, check if MED is set to 20 (derived from `set metric igp`)
-    test_func = functools.partial(_bgp_check_received_med, 20)
+    # r8, check if MED is set derived from `set metric igp`, and `set metric aigp`
+    test_func = functools.partial(_bgp_check_received_med)
     _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
-    assert result is None, "MED attribute value is not 20"
-
-    r1.vtysh_cmd(
-        """
-configure terminal
-route-map r8 permit 10
- set metric aigp
-"""
-    )
-
-    # r8, check if MED is set to 111 (derived from `set metric aigp`)
-    test_func = functools.partial(_bgp_check_received_med, 111)
-    _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
-    assert result is None, "MED attribute value is not 111"
+    assert (
+        result is None
+    ), "MED attribute values are not derived from `set metric [a]igp`"
 
 
 if __name__ == "__main__":
