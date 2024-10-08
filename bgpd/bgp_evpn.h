@@ -180,4 +180,8 @@ extern bool is_route_injectable_into_evpn_non_supp(struct bgp_path_info *pi);
 extern void bgp_aggr_supp_withdraw_from_evpn(struct bgp *bgp, afi_t afi,
 					     safi_t safi);
 
+bool bgp_evpn_skip_vrf_import_of_local_es(struct bgp *bgp_vrf, const struct prefix_evpn *evp,
+					  struct bgp_path_info *pi, int install);
+int uninstall_evpn_route_entry_in_vrf(struct bgp *bgp_vrf, const struct prefix_evpn *evp,
+				      struct bgp_path_info *parent_pi);
 #endif /* _QUAGGA_BGP_EVPN_H */
