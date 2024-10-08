@@ -1223,7 +1223,7 @@ static void fpm_enqueue_l3vni_table(struct hash_bucket *bucket, void *arg)
 	struct zebra_l3vni *zl3vni = bucket->data;
 
 	fra->zl3vni = zl3vni;
-	hash_iterate(zl3vni->rmac_table, fpm_enqueue_rmac_table, zl3vni);
+	hash_iterate(zl3vni->rmac_table, fpm_enqueue_rmac_table, fra);
 }
 
 static void fpm_rmac_send(struct thread *t)
