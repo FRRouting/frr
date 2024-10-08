@@ -1177,8 +1177,7 @@ struct attr *bgp_attr_aggregate_intern(
 	SET_FLAG(attr.flag, ATTR_FLAG_BIT(BGP_ATTR_ORIGIN));
 
 	/* MED */
-	attr.med = 0;
-	SET_FLAG(attr.flag, ATTR_FLAG_BIT(BGP_ATTR_MULTI_EXIT_DISC));
+	bgp_attr_set_med(&attr, 0);
 
 	/* AS path attribute. */
 	if (aspath)
@@ -1933,9 +1932,7 @@ static enum bgp_attr_parse_ret bgp_attr_med(struct bgp_attr_parser_args *args)
 					  args->total);
 	}
 
-	attr->med = stream_getl(peer->curr);
-
-	SET_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_MULTI_EXIT_DISC));
+	bgp_attr_set_med(attr, stream_getl(peer->curr));
 
 	return BGP_ATTR_PARSE_PROCEED;
 }

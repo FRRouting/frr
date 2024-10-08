@@ -2222,8 +2222,7 @@ route_set_metric(void *rule, const struct prefix *prefix, void *object)
 	if (path->attr->flag & ATTR_FLAG_BIT(BGP_ATTR_MULTI_EXIT_DISC))
 		med = path->attr->med;
 
-	path->attr->med = route_value_adjust(rv, med, path->peer);
-	path->attr->flag |= ATTR_FLAG_BIT(BGP_ATTR_MULTI_EXIT_DISC);
+	bgp_attr_set_med(path->attr, route_value_adjust(rv, med, path->peer));
 
 	return RMAP_OKAY;
 }
