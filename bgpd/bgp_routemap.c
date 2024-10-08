@@ -125,6 +125,9 @@ o Local extensions
 #define RMAP_VALUE_ADD 1
 #define RMAP_VALUE_SUB 2
 
+#define RMAP_VALUE_TYPE_RTT  1
+#define RMAP_VALUE_TYPE_IGP  2
+
 struct rmap_value {
 	uint8_t action;
 	uint8_t variable;
@@ -140,13 +143,17 @@ static int route_value_match(struct rmap_value *rv, uint32_t value)
 }
 
 static uint32_t route_value_adjust(struct rmap_value *rv, uint32_t current,
-				   struct peer *peer)
+				   struct bgp_path_info *bpi)
 {
 	uint32_t value;
+	struct peer *peer = bpi->peer;
 
 	switch (rv->variable) {
-	case 1:
+	case RMAP_VALUE_TYPE_RTT:
 		value = peer->rtt;
+		break;
+	case RMAP_VALUE_TYPE_IGP:
+		value = bpi->extra ? bpi->extra->igpmetric : 0;
 		break;
 	default:
 		value = rv->value;
@@ -187,11 +194,12 @@ static void *route_value_compile(const char *arg)
 		larg = strtoul(arg, &endptr, 10);
 		if (*arg == 0 || *endptr != 0 || errno || larg > UINT32_MAX)
 			return NULL;
+	} else if (strmatch(arg, "rtt")) {
+		var = RMAP_VALUE_TYPE_RTT;
+	} else if (strmatch(arg, "igp")) {
+		var = RMAP_VALUE_TYPE_IGP;
 	} else {
-		if (strcmp(arg, "rtt") == 0)
-			var = 1;
-		else
-			return NULL;
+		return NULL;
 	}
 
 	rv = XMALLOC(MTYPE_ROUTE_MAP_COMPILED, sizeof(struct rmap_value));
@@ -2145,7 +2153,7 @@ route_set_local_pref(void *rule, const struct prefix *prefix, void *object)
 		locpref = path->attr->local_pref;
 
 	path->attr->flag |= ATTR_FLAG_BIT(BGP_ATTR_LOCAL_PREF);
-	path->attr->local_pref = route_value_adjust(rv, locpref, path->peer);
+	path->attr->local_pref = route_value_adjust(rv, locpref, path);
 
 	return RMAP_OKAY;
 }
@@ -2172,7 +2180,7 @@ route_set_weight(void *rule, const struct prefix *prefix, void *object)
 	path = object;
 
 	/* Set weight value. */
-	path->attr->weight = route_value_adjust(rv, 0, path->peer);
+	path->attr->weight = route_value_adjust(rv, 0, path);
 
 	return RMAP_OKAY;
 }
@@ -2222,7 +2230,7 @@ route_set_metric(void *rule, const struct prefix *prefix, void *object)
 	if (path->attr->flag & ATTR_FLAG_BIT(BGP_ATTR_MULTI_EXIT_DISC))
 		med = path->attr->med;
 
-	bgp_attr_set_med(path->attr, route_value_adjust(rv, med, path->peer));
+	bgp_attr_set_med(path->attr, route_value_adjust(rv, med, path));
 
 	return RMAP_OKAY;
 }
