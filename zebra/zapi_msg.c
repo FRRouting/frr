@@ -517,7 +517,7 @@ int zsend_redistribute_route(int cmd, struct zserv *client,
 	struct zapi_nexthop *api_nh;
 	struct nexthop *nexthop;
 	const struct prefix *p, *src_p;
-	uint8_t count = 0;
+	uint16_t count = 0;
 	afi_t afi;
 	size_t stream_size =
 		MAX(ZEBRA_MAX_PACKET_SIZ, sizeof(struct zapi_route));

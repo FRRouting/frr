@@ -86,7 +86,7 @@ struct dplane_nexthop_info {
 
 	struct nexthop_group ng;
 	struct nh_grp nh_grp[MULTIPATH_NUM];
-	uint8_t nh_grp_count;
+	uint16_t nh_grp_count;
 };
 
 /*
@@ -2316,7 +2316,7 @@ dplane_ctx_get_nhe_nh_grp(const struct zebra_dplane_ctx *ctx)
 	return ctx->u.rinfo.nhe.nh_grp;
 }
 
-uint8_t dplane_ctx_get_nhe_nh_grp_count(const struct zebra_dplane_ctx *ctx)
+uint16_t dplane_ctx_get_nhe_nh_grp_count(const struct zebra_dplane_ctx *ctx)
 {
 	DPLANE_CTX_VALID(ctx);
 	return ctx->u.rinfo.nhe.nh_grp_count;

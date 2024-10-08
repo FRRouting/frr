@@ -573,7 +573,7 @@ static int pim_ecmp_nexthop_search(struct pim_instance *pim,
 	ifindex_t first_ifindex;
 	struct interface *ifp = NULL;
 	uint32_t hash_val = 0, mod_val = 0;
-	uint8_t nh_iter = 0, found = 0;
+	uint16_t nh_iter = 0, found = 0;
 	uint32_t i, num_nbrs = 0;
 	struct pim_interface *pim_ifp;
 
@@ -947,7 +947,7 @@ int pim_ecmp_nexthop_lookup(struct pim_instance *pim,
 	struct interface *ifps[router->multipath], *ifp;
 	int first_ifindex;
 	int found = 0;
-	uint8_t i = 0;
+	uint16_t i = 0;
 	uint32_t hash_val = 0, mod_val = 0;
 	uint32_t num_nbrs = 0;
 	struct pim_interface *pim_ifp;

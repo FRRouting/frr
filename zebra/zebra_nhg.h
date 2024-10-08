@@ -231,7 +231,7 @@ struct nhg_ctx {
 	int type;
 
 	/* If its a group array, how many? */
-	uint8_t count;
+	uint16_t count;
 
 	/* Its either a single nexthop or an array of ID's */
 	union {
@@ -317,10 +317,8 @@ extern int nhg_ctx_process(struct nhg_ctx *ctx);
 void nhg_ctx_free(struct nhg_ctx **ctx);
 
 /* Find via kernel nh creation */
-extern int zebra_nhg_kernel_find(uint32_t id, struct nexthop *nh,
-				 struct nh_grp *grp, uint8_t count,
-				 vrf_id_t vrf_id, afi_t afi, int type,
-				 int startup,
+extern int zebra_nhg_kernel_find(uint32_t id, struct nexthop *nh, struct nh_grp *grp,
+				 uint16_t count, vrf_id_t vrf_id, afi_t afi, int type, int startup,
 				 struct nhg_resilience *resilience);
 /* Del via kernel */
 extern int zebra_nhg_kernel_del(uint32_t id, vrf_id_t vrf_id);
@@ -379,8 +377,7 @@ extern void zebra_nhg_increment_ref(struct nhg_hash_entry *nhe);
 extern void zebra_nhg_check_valid(struct nhg_hash_entry *nhe);
 
 /* Convert nhe depends to a grp context that can be passed around safely */
-extern uint8_t zebra_nhg_nhe2grp(struct nh_grp *grp, struct nhg_hash_entry *nhe,
-				 int size);
+extern uint16_t zebra_nhg_nhe2grp(struct nh_grp *grp, struct nhg_hash_entry *nhe, int size);
 
 /* Dataplane install/uninstall */
 extern void zebra_nhg_install_kernel(struct nhg_hash_entry *nhe, uint8_t type);

@@ -760,7 +760,7 @@ static void bgp_nht_ifp_table_handle(struct bgp *bgp,
 {
 	struct bgp_nexthop_cache *bnc;
 	struct nexthop *nhop;
-	uint8_t other_nh_count;
+	uint16_t other_nh_count;
 	bool nhop_ll_found = false;
 	bool nhop_found = false;
 

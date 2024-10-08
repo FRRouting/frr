@@ -62,13 +62,11 @@ bool bgp_addpath_tx_path(enum bgp_addpath_strat strat,
  * Change the type of addpath used for a peer.
  */
 void bgp_addpath_set_peer_type(struct peer *peer, afi_t afi, safi_t safi,
-			       enum bgp_addpath_strat addpath_type,
-			       uint8_t paths);
+			       enum bgp_addpath_strat addpath_type, uint16_t paths);
 
 void bgp_addpath_update_ids(struct bgp *bgp, struct bgp_dest *dest, afi_t afi,
 			    safi_t safi);
 
 void bgp_addpath_type_changed(struct bgp *bgp);
-extern int bgp_addpath_capability_action(enum bgp_addpath_strat addpath_type,
-					 uint8_t paths);
+extern int bgp_addpath_capability_action(enum bgp_addpath_strat addpath_type, uint16_t paths);
 #endif

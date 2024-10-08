@@ -625,9 +625,8 @@ bool zebra_nhg_hash_id_equal(const void *arg1, const void *arg2)
 	return nhe1->id == nhe2->id;
 }
 
-static int zebra_nhg_process_grp(struct nexthop_group *nhg,
-				 struct nhg_connected_tree_head *depends,
-				 struct nh_grp *grp, uint8_t count,
+static int zebra_nhg_process_grp(struct nexthop_group *nhg, struct nhg_connected_tree_head *depends,
+				 struct nh_grp *grp, uint16_t count,
 				 struct nhg_resilience *resilience)
 {
 	nhg_connected_tree_init(depends);
@@ -982,7 +981,7 @@ static struct nexthop *nhg_ctx_get_nh(struct nhg_ctx *ctx)
 	return &ctx->u.nh;
 }
 
-static uint8_t nhg_ctx_get_count(const struct nhg_ctx *ctx)
+static uint16_t nhg_ctx_get_count(const struct nhg_ctx *ctx)
 {
 	return ctx->count;
 }
@@ -1028,9 +1027,8 @@ done:
 	XFREE(MTYPE_NHG_CTX, *ctx);
 }
 
-static struct nhg_ctx *nhg_ctx_init(uint32_t id, struct nexthop *nh,
-				    struct nh_grp *grp, vrf_id_t vrf_id,
-				    afi_t afi, int type, uint8_t count,
+static struct nhg_ctx *nhg_ctx_init(uint32_t id, struct nexthop *nh, struct nh_grp *grp,
+				    vrf_id_t vrf_id, afi_t afi, int type, uint16_t count,
 				    struct nhg_resilience *resilience)
 {
 	struct nhg_ctx *ctx = NULL;
@@ -1204,7 +1202,7 @@ static int nhg_ctx_process_new(struct nhg_ctx *ctx)
 	struct nhg_hash_entry *nhe = NULL;
 
 	uint32_t id = nhg_ctx_get_id(ctx);
-	uint8_t count = nhg_ctx_get_count(ctx);
+	uint16_t count = nhg_ctx_get_count(ctx);
 	vrf_id_t vrf_id = nhg_ctx_get_vrf_id(ctx);
 	int type = nhg_ctx_get_type(ctx);
 	afi_t afi = nhg_ctx_get_afi(ctx);
@@ -1356,9 +1354,9 @@ int nhg_ctx_process(struct nhg_ctx *ctx)
 }
 
 /* Kernel-side, you either get a single new nexthop or a array of ID's */
-int zebra_nhg_kernel_find(uint32_t id, struct nexthop *nh, struct nh_grp *grp,
-			  uint8_t count, vrf_id_t vrf_id, afi_t afi, int type,
-			  int startup, struct nhg_resilience *nhgr)
+int zebra_nhg_kernel_find(uint32_t id, struct nexthop *nh, struct nh_grp *grp, uint16_t count,
+			  vrf_id_t vrf_id, afi_t afi, int type, int startup,
+			  struct nhg_resilience *nhgr)
 {
 	struct nhg_ctx *ctx = NULL;
 
@@ -3180,15 +3178,14 @@ backups_done:
  * I'm pretty sure we only allow ONE level of group within group currently.
  * But making this recursive just in case that ever changes.
  */
-static uint8_t zebra_nhg_nhe2grp_internal(struct nh_grp *grp, uint8_t curr_index,
-					  struct nhg_hash_entry *nhe,
-					  struct nhg_hash_entry *original,
-					  int max_num)
+static uint16_t zebra_nhg_nhe2grp_internal(struct nh_grp *grp, uint16_t curr_index,
+					   struct nhg_hash_entry *nhe,
+					   struct nhg_hash_entry *original, int max_num)
 {
 	struct nhg_connected *rb_node_dep = NULL;
 	struct nhg_hash_entry *depend = NULL;
 	struct nexthop *nexthop;
-	uint8_t i = curr_index;
+	uint16_t i = curr_index;
 
 	frr_each(nhg_connected_tree, &nhe->nhg_depends, rb_node_dep) {
 		bool duplicate = false;
@@ -3309,8 +3306,7 @@ done:
 }
 
 /* Convert a nhe into a group array */
-uint8_t zebra_nhg_nhe2grp(struct nh_grp *grp, struct nhg_hash_entry *nhe,
-			  int max_num)
+uint16_t zebra_nhg_nhe2grp(struct nh_grp *grp, struct nhg_hash_entry *nhe, int max_num)
 {
 	/* Call into the recursive function */
 	return zebra_nhg_nhe2grp_internal(grp, 0, nhe, nhe, max_num);
