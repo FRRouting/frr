@@ -302,8 +302,8 @@ static int bgp_get_instance_for_inc_conn(int sock, struct bgp **bgp_inst)
 	}
 
 	if (!strlen(name)) {
-		*bgp_inst = bgp_get_default();
-		return 0; /* default instance. */
+		*bgp_inst = bgp_get_default(); /* default instance. */
+		return !*bgp_inst; 
 	}
 
 	/* First try match to instance; if that fails, check for interfaces. */
@@ -520,10 +520,15 @@ static void bgp_accept(struct event *thread)
 
 	if (!peer1) {
 		if (bgp_debug_neighbor_events(NULL)) {
-			zlog_debug(
-				"[Event] %s connection rejected(%s:%u:%s) - not configured and not valid for dynamic",
-				inet_sutop(&su, buf), bgp->name_pretty, bgp->as,
-				VRF_LOGNAME(vrf_lookup_by_id(bgp->vrf_id)));
+			if(bgp) {
+				zlog_debug(
+					"[Event] %s connection rejected(%s:%u:%s) - not configured and not valid for dynamic",
+					inet_sutop(&su, buf), bgp->name_pretty, bgp->as,
+					VRF_LOGNAME(vrf_lookup_by_id(bgp->vrf_id)));
+			} else {
+				zlog_debug("[Event] %s connection rejected - not configured and not valid for dynamic",
+                                        inet_sutop(&su, buf));
+			}
 		}
 		close(bgp_sock);
 		return;
