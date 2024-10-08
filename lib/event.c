@@ -1690,6 +1690,35 @@ static void thread_process_io(struct event_loop *m, unsigned int num)
 	for (i = 0; i < last_read && ready < num; ++i)
 		thread_process_io_inner_loop(m, num, pfds, &i, &ready);
 
+	/*
+	 * At this point any fd's that were processed
+	 * have possibly had their .events == 0
+	 * so we should remove them now from the list
+	 * in it's entirety.  This is being done
+	 * because if we leave a fd in the poll even
+	 * with a .events of 0, if the fd is closed
+	 * poll will return a .revents of POLLERR
+	 * This is not desirable, as that we are attempting
+	 * to handle something we have absolutely no
+	 * way to handle it at all.
+	 */
+	i = 0;
+	while (i < m->handler.pfdcount) {
+		if (m->handler.pfds[i].events != 0) {
+			i++;
+		} else {
+			memmove(m->handler.pfds + i, m->handler.pfds + i + 1,
+				(m->handler.pfdcount - i - 1) * sizeof(struct pollfd));
+			m->handler.pfdcount--;
+			m->handler.pfds[m->handler.pfdcount].fd = 0;
+			m->handler.pfds[m->handler.pfdcount].events = 0;
+			/*
+			 * Intentionally keeping i the same
+			 * We need to look at it again
+			 */
+		}
+	}
+
 	m->last_read++;
 }
 
