@@ -492,7 +492,16 @@ class Topogen(object):
                 "Errors found post shutdown - details follow: {}".format(errors)
             )
 
-        self.net.stop()
+        try:
+            self.net.stop()
+
+        except OSError as error:
+            # OSError exception is raised when mininet tries to stop switch
+            # though switch is stopped once but mininet tries to stop same
+            # switch again, where it ended up with exception
+
+            logger.info(error)
+            logger.info("Exception ignored: switch is already stopped")
 
     def get_exabgp_cmd(self):
         if not self.exabgp_cmd:
