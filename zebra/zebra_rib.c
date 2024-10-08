@@ -4851,29 +4851,6 @@ void rib_close_table(struct route_table *table)
 }
 
 /*
- * Handler for async dataplane results after a pseudowire installation
- */
-static void handle_pw_result(struct zebra_dplane_ctx *ctx)
-{
-	struct zebra_pw *pw;
-	struct zebra_vrf *vrf;
-
-	/* The pseudowire code assumes success - we act on an error
-	 * result for installation attempts here.
-	 */
-	if (dplane_ctx_get_op(ctx) != DPLANE_OP_PW_INSTALL)
-		return;
-
-	if (dplane_ctx_get_status(ctx) != ZEBRA_DPLANE_REQUEST_SUCCESS) {
-		vrf = zebra_vrf_lookup_by_id(dplane_ctx_get_vrf(ctx));
-		pw = zebra_pw_find(vrf, dplane_ctx_get_ifname(ctx));
-		if (pw)
-			zebra_pw_install_failure(pw,
-						 dplane_ctx_get_pw_status(ctx));
-	}
-}
-
-/*
  * Handle results from the dataplane system. Dequeue update context
  * structs, dispatch to appropriate internal handlers.
  */
@@ -4979,7 +4956,7 @@ static void rib_process_dplane_results(struct event *thread)
 
 			case DPLANE_OP_PW_INSTALL:
 			case DPLANE_OP_PW_UNINSTALL:
-				handle_pw_result(ctx);
+				zebra_pw_handle_dplane_results(ctx);
 				break;
 
 			case DPLANE_OP_SYS_ROUTE_ADD:
