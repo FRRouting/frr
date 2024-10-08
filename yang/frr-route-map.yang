@@ -363,6 +363,14 @@ module frr-route-map {
                   "Use metric from IGP procotol";
               }
             }
+
+            case use-aigp {
+              leaf use-aigp {
+                type boolean;
+                description
+                  "Use metric from AIGP (Accumulated IGP)";
+              }
+            }
           }
         }
 

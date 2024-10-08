@@ -127,6 +127,7 @@ o Local extensions
 
 #define RMAP_VALUE_TYPE_RTT  1
 #define RMAP_VALUE_TYPE_IGP  2
+#define RMAP_VALUE_TYPE_AIGP 3
 
 struct rmap_value {
 	uint8_t action;
@@ -154,6 +155,9 @@ static uint32_t route_value_adjust(struct rmap_value *rv, uint32_t current,
 		break;
 	case RMAP_VALUE_TYPE_IGP:
 		value = bpi->extra ? bpi->extra->igpmetric : 0;
+		break;
+	case RMAP_VALUE_TYPE_AIGP:
+		value = MIN(bpi->attr->aigp_metric, UINT32_MAX);
 		break;
 	default:
 		value = rv->value;
@@ -198,6 +202,8 @@ static void *route_value_compile(const char *arg)
 		var = RMAP_VALUE_TYPE_RTT;
 	} else if (strmatch(arg, "igp")) {
 		var = RMAP_VALUE_TYPE_IGP;
+	} else if (strmatch(arg, "aigp")) {
+		var = RMAP_VALUE_TYPE_AIGP;
 	} else {
 		return NULL;
 	}
