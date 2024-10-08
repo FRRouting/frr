@@ -15,6 +15,8 @@ r2 and r3 receives those routes with aigp-metric TLV increased by 20,
 and 10 appropriately.
 
 r1 receives routes with aigp-metric TLV 81, 91 and 82, 92 respectively.
+
+r1 advertises MED from IGP protocol (set metric igp) to r8.
 """
 
 import os
@@ -34,7 +36,7 @@ pytestmark = [pytest.mark.bgpd]
 
 
 def build_topo(tgen):
-    for routern in range(1, 8):
+    for routern in range(1, 9):
         tgen.add_router("r{}".format(routern))
 
     switch = tgen.add_switch("s1")
@@ -64,6 +66,10 @@ def build_topo(tgen):
     switch = tgen.add_switch("s7")
     switch.add_link(tgen.gears["r6"])
     switch.add_link(tgen.gears["r7"])
+
+    switch = tgen.add_switch("s8")
+    switch.add_link(tgen.gears["r1"])
+    switch.add_link(tgen.gears["r8"])
 
 
 def setup_module(mod):
@@ -102,6 +108,7 @@ def test_bgp_aigp():
     r3 = tgen.gears["r3"]
     r4 = tgen.gears["r4"]
     r5 = tgen.gears["r5"]
+    r8 = tgen.gears["r8"]
 
     def _bgp_converge():
         output = json.loads(r1.vtysh_cmd("show bgp ipv4 unicast 10.0.0.71/32 json"))
@@ -141,6 +148,11 @@ def test_bgp_aigp():
             router.vtysh_cmd("show bgp ipv4 unicast {} json".format(prefix))
         )
         expected = {"paths": [{"aigpMetric": aigp, "valid": True}]}
+        return topotest.json_cmp(output, expected)
+
+    def _bgp_check_received_med(med):
+        output = json.loads(r8.vtysh_cmd("show bgp ipv4 unicast 10.0.0.71/32 json"))
+        expected = {"paths": [{"metric": med, "valid": True}]}
         return topotest.json_cmp(output, expected)
 
     def _bgp_check_aigp_metric_bestpath():
@@ -251,6 +263,24 @@ def test_bgp_aigp():
     test_func = functools.partial(_bgp_check_aigp_metric_bestpath)
     _, result = topotest.run_and_expect(test_func, None, count=60, wait=1)
     assert result is None, "AIGP attribute is not considered in best-path selection"
+
+    # r8, check if MED is set to 20 (derived from `set metric igp`)
+    test_func = functools.partial(_bgp_check_received_med, 20)
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
+    assert result is None, "MED attribute value is not 20"
+
+    r1.vtysh_cmd(
+        """
+configure terminal
+route-map r8 permit 10
+ set metric aigp
+"""
+    )
+
+    # r8, check if MED is set to 111 (derived from `set metric aigp`)
+    test_func = functools.partial(_bgp_check_received_med, 111)
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
+    assert result is None, "MED attribute value is not 111"
 
 
 if __name__ == "__main__":
