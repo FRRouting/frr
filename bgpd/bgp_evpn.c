@@ -3332,9 +3332,8 @@ uninstall_evpn_route_entry_in_vni_mac(struct bgp *bgp, struct bgpevpn *vpn,
  * Uninstall route entry from the VRF routing table and send message
  * to zebra, if appropriate.
  */
-static int uninstall_evpn_route_entry_in_vrf(struct bgp *bgp_vrf,
-					     const struct prefix_evpn *evp,
-					     struct bgp_path_info *parent_pi)
+int uninstall_evpn_route_entry_in_vrf(struct bgp *bgp_vrf, const struct prefix_evpn *evp,
+				      struct bgp_path_info *parent_pi)
 {
 	struct bgp_dest *dest;
 	struct bgp_path_info *pi;
@@ -3689,10 +3688,8 @@ static int bgp_evpn_route_rmac_self_check(struct bgp *bgp_vrf,
 }
 
 /* don't import hosts that are locally attached */
-static inline bool
-bgp_evpn_skip_vrf_import_of_local_es(struct bgp *bgp_vrf,
-				     const struct prefix_evpn *evp,
-				     struct bgp_path_info *pi, int install)
+bool bgp_evpn_skip_vrf_import_of_local_es(struct bgp *bgp_vrf, const struct prefix_evpn *evp,
+					  struct bgp_path_info *pi, int install)
 {
 	esi_t *esi;
 

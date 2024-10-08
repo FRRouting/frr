@@ -3770,6 +3770,7 @@ int bgp_evpn_local_es_evi_add(struct bgp *bgp, esi_t *esi, vni_t vni)
 		bgp_evpn_ead_evi_route_update(bgp, es, vpn, &p);
 	}
 
+	bgp_evpn_local_es_evi_unistall_local_routes_in_vrfs(es, es_evi);
 	/* update EAD-ES */
 	if (bgp_evpn_local_es_is_active(es))
 		bgp_evpn_ead_es_route_update(bgp, es);
@@ -5010,5 +5011,40 @@ void bgp_evpn_switch_ead_evi_rx(void)
 					       vtep_node, vtep_next, vtep))
 				bgp_evpn_es_evi_vtep_re_eval_active(bgp, vtep);
 		}
+	}
+}
+
+void bgp_evpn_local_es_evi_unistall_local_routes_in_vrfs(struct bgp_evpn_es *es,
+							 struct bgp_evpn_es_evi *es_evi)
+{
+	struct listnode *node;
+	struct bgp_path_es_info *es_info;
+	struct bgp_path_info *pi;
+	const struct prefix_evpn *evp;
+	struct bgp_evpn_es_vrf *es_vrf = es_evi->es_vrf;
+
+	if (!es_vrf)
+		return;
+
+	for (ALL_LIST_ELEMENTS_RO(es->macip_global_path_list, node, es_info)) {
+		pi = es_info->pi;
+
+		if (!bgp_evpn_is_macip_path(pi))
+			continue;
+
+		evp = (const struct prefix_evpn *)bgp_dest_get_prefix(pi->net);
+
+		if (!(CHECK_FLAG(pi->flags, BGP_PATH_VALID) && pi->type == ZEBRA_ROUTE_BGP &&
+		      pi->sub_type == BGP_ROUTE_NORMAL))
+			continue;
+
+		if (BGP_DEBUG(evpn_mh, EVPN_MH_RT))
+			zlog_debug("route %pFX is matched on local esi %s, uninstall from %s route table",
+				   evp, es->esi_str, es_vrf->bgp_vrf->name_pretty);
+
+		if (!bgp_evpn_skip_vrf_import_of_local_es(es_vrf->bgp_vrf, evp, pi, 0))
+			continue;
+
+		uninstall_evpn_route_entry_in_vrf(es_vrf->bgp_vrf, evp, pi);
 	}
 }

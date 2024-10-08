@@ -183,4 +183,19 @@ extern bool bgp_evpn_mpath_has_dvni(const struct bgp *bgp_vrf,
 				    struct bgp_path_info *mpinfo);
 extern bool is_route_injectable_into_evpn(struct bgp_path_info *pi);
 
+<<<<<<< HEAD
+=======
+extern enum zclient_send_status evpn_zebra_install(struct bgp *bgp,
+						   struct bgpevpn *vpn,
+						   const struct prefix_evpn *p,
+						   struct bgp_path_info *pi);
+extern enum zclient_send_status
+evpn_zebra_uninstall(struct bgp *bgp, struct bgpevpn *vpn,
+		     const struct prefix_evpn *p, struct bgp_path_info *pi,
+		     bool is_sync);
+bool bgp_evpn_skip_vrf_import_of_local_es(struct bgp *bgp_vrf, const struct prefix_evpn *evp,
+					  struct bgp_path_info *pi, int install);
+int uninstall_evpn_route_entry_in_vrf(struct bgp *bgp_vrf, const struct prefix_evpn *evp,
+				      struct bgp_path_info *parent_pi);
+>>>>>>> 3f00709a39 (bgpd: fix evpn mh esi flap remove local routes)
 #endif /* _QUAGGA_BGP_EVPN_H */
