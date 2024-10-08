@@ -1187,24 +1187,6 @@ static void event_cancel_rw(struct event_loop *master, int fd, short state,
 		master->handler.pfds[master->handler.pfdcount].fd = 0;
 		master->handler.pfds[master->handler.pfdcount].events = 0;
 	}
-
-	/*
-	 * If we have the same pollfd in the copy, perform the same operations,
-	 * otherwise return.
-	 */
-	if (i >= master->handler.copycount)
-		return;
-
-	master->handler.copy[i].events &= ~(state);
-
-	if (master->handler.copy[i].events == 0) {
-		memmove(master->handler.copy + i, master->handler.copy + i + 1,
-			(master->handler.copycount - i - 1)
-				* sizeof(struct pollfd));
-		master->handler.copycount--;
-		master->handler.copy[master->handler.copycount].fd = 0;
-		master->handler.copy[master->handler.copycount].events = 0;
-	}
 }
 
 /*
@@ -1649,12 +1631,6 @@ static inline void thread_process_io_inner_loop(struct event_loop *m,
 		m->handler.pfdcount--;
 		m->handler.pfds[m->handler.pfdcount].fd = 0;
 		m->handler.pfds[m->handler.pfdcount].events = 0;
-
-		memmove(pfds + *i, pfds + *i + 1,
-			(m->handler.copycount - *i - 1) * sizeof(struct pollfd));
-		m->handler.copycount--;
-		m->handler.copy[m->handler.copycount].fd = 0;
-		m->handler.copy[m->handler.copycount].events = 0;
 
 		*i = *i - 1;
 	}
