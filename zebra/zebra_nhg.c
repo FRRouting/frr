@@ -3779,17 +3779,6 @@ void zebra_interface_nhg_reinstall(struct interface *ifp)
 			frr_each_safe (nhg_connected_tree,
 				       &rb_node_dep->nhe->nhg_dependents,
 				       rb_node_dependent) {
-				struct nexthop *nhop_dependent =
-					rb_node_dependent->nhe->nhg.nexthop;
-
-				while (nhop_dependent &&
-				       !nexthop_same(nhop_dependent, nh))
-					nhop_dependent = nhop_dependent->next;
-
-				if (nhop_dependent)
-					SET_FLAG(nhop_dependent->flags,
-						 NEXTHOP_FLAG_ACTIVE);
-
 				if (IS_ZEBRA_DEBUG_NHG)
 					zlog_debug("%s dependent nhe %pNG Setting Reinstall flag",
 						   __func__,
