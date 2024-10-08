@@ -158,8 +158,8 @@ def test_bgp_aigp():
         )
         expected = {
             "routes": {
-                "10.0.0.71/32": [{"valid": True, "metric": 20}],
-                "10.0.0.72/32": [{"valid": True, "metric": 112}],
+                "10.0.0.71/32": [{"valid": True, "metric": 10}],
+                "10.0.0.72/32": [{"valid": True, "metric": 92}],
             }
         }
         return topotest.json_cmp(output, expected)

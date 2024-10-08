@@ -305,7 +305,7 @@ Route Map Set Command
 
    Set the route's weight.
 
-.. clicmd:: set metric <[+|-](1-4294967295)|rtt|+rtt|-rtt|igp>
+.. clicmd:: set metric <[+|-](1-4294967295)|rtt|+rtt|-rtt|igp|aigp>
 
    Set the route metric. When used with BGP, set the BGP attribute MED to a
    specific value. Use `+`/`-` to add or subtract the specified value to/from
@@ -313,6 +313,9 @@ Route Map Set Command
    `+rtt`/`-rtt` to add/subtract the round trip time to/from the MED.
 
    If ``igp`` is specified, then the actual value from the IGP protocol is used.
+
+   If ``aigp`` is specified, then the actual value from the AIGP metric is used
+   (encoded as MED instead of AIGP attribute).
 
 .. clicmd:: set min-metric <(0-4294967295)>
 
