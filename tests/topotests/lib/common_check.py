@@ -87,3 +87,22 @@ def iproute2_check_path_selection(
             return f"problem: invalid nhid {entry['nhid']}, expected {nhg_id}"
 
     return topotest.json_cmp(output, expected)
+
+
+def ip_check_path_not_present(router, ipaddr_str):
+    output = json.loads(router.vtysh_cmd(f"show ip route {ipaddr_str} json"))
+    if ipaddr_str in output.keys():
+        return "Not Good"
+    return None
+
+
+def iproute2_check_path_not_present(router, ipaddr_str):
+    if not topotest.iproute2_is_json_capable():
+        return None
+
+    output = json.loads(router.run(f"ip -json route show {ipaddr_str}"))
+    for entry in output:
+        for nhid_entry in entry:
+            return f"The following entry is found: {nhid_entry['dst']}."
+
+    return None

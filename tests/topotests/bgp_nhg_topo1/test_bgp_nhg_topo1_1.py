@@ -40,7 +40,14 @@ sys.path.append(os.path.join(CWD, "../"))
 # pylint: disable=C0413
 # Import topogen and topotest helpers
 from lib import topotest
-from lib.common_check import ip_check_path_selection, iproute2_check_path_selection
+from lib.bgpcheck import bgp_check_path_selection_unicast, bgp_check_path_selection_vpn
+
+from lib.common_check import (
+    ip_check_path_not_present,
+    ip_check_path_selection,
+    iproute2_check_path_not_present,
+    iproute2_check_path_selection,
+)
 from lib.common_config import step
 from lib.nexthopgroup import route_check_nhg_id_is_protocol
 from lib.topogen import Topogen, TopoRouter, get_topogen
@@ -193,35 +200,6 @@ def teardown_module(_mod):
     tgen = get_topogen()
 
     tgen.stop_topology()
-
-
-def bgp_check_path_selection_unicast(router, expected):
-    output = json.loads(router.vtysh_cmd("show bgp ipv4 unicast 192.0.2.9/32 json"))
-    return topotest.json_cmp(output, expected)
-
-
-def bgp_check_path_selection_vpn(router, prefix, expected, vrf_name="vrf1"):
-    output = json.loads(router.vtysh_cmd(f"show bgp vrf {vrf_name} ipv4 {prefix} json"))
-    return topotest.json_cmp(output, expected)
-
-
-def ip_check_path_not_present(router, ipaddr_str):
-    output = json.loads(router.vtysh_cmd(f"show ip route {ipaddr_str} json"))
-    if ipaddr_str in output.keys():
-        return "Not Good"
-    return None
-
-
-def iproute2_check_path_not_present(router, ipaddr_str):
-    if not topotest.iproute2_is_json_capable():
-        return None
-
-    output = json.loads(router.run(f"ip -json route show {ipaddr_str}"))
-    for entry in output:
-        for nhid_entry in entry:
-            return f"The following entry is found: {nhid_entry['dst']}."
-
-    return None
 
 
 def test_bgp_ipv4_route_presence():
