@@ -2155,6 +2155,7 @@ bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
 	bool nh_reset = false;
 	uint64_t cum_bw;
 	mpls_label_t label;
+	bool global_and_ll = false;
 
 	if (DISABLE_BGP_ANNOUNCE)
 		return false;
@@ -2465,22 +2466,26 @@ bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
 	 * we do not announce LL address as `::`.
 	 */
 	if (NEXTHOP_IS_V6) {
-		attr->mp_nexthop_len = BGP_ATTR_NHLEN_IPV6_GLOBAL;
-		if ((CHECK_FLAG(peer->af_flags[afi][safi],
-				PEER_FLAG_NEXTHOP_LOCAL_UNCHANGED)
-		     && IN6_IS_ADDR_LINKLOCAL(&attr->mp_nexthop_local))
-		    || (!reflect && !transparent
-			&& IN6_IS_ADDR_LINKLOCAL(&peer->nexthop.v6_local)
-			&& peer->shared_network
-			&& (from == bgp->peer_self
-			    || peer->sort == BGP_PEER_EBGP))) {
+		if (CHECK_FLAG(peer->af_flags[afi][safi], PEER_FLAG_NEXTHOP_LOCAL_UNCHANGED)) {
+			/* nexthop local unchanged: only include the link-local nexthop if it
+			 * was already present.
+			 */
+			if (IN6_IS_ADDR_LINKLOCAL(&attr->mp_nexthop_local))
+				global_and_ll = true;
+		} else if (!reflect && !transparent &&
+			   IN6_IS_ADDR_LINKLOCAL(&peer->nexthop.v6_local) && peer->shared_network &&
+			   (from == bgp->peer_self || peer->sort == BGP_PEER_EBGP))
+			global_and_ll = true;
+
+		if (global_and_ll) {
 			if (safi == SAFI_MPLS_VPN)
 				attr->mp_nexthop_len =
 					BGP_ATTR_NHLEN_VPNV6_GLOBAL_AND_LL;
 			else
 				attr->mp_nexthop_len =
 					BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL;
-		}
+		} else
+			attr->mp_nexthop_len = BGP_ATTR_NHLEN_IPV6_GLOBAL;
 
 		/* Clear off link-local nexthop in source, whenever it is not
 		 * needed to
