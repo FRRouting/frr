@@ -205,9 +205,11 @@ void zebra_pw_handle_dplane_results(struct zebra_dplane_ctx *ctx)
 	vrf = zebra_vrf_lookup_by_id(dplane_ctx_get_vrf(ctx));
 	pw = zebra_pw_find(vrf, dplane_ctx_get_ifname(ctx));
 
+	if (!pw)
+		return;
+
 	if (dplane_ctx_get_status(ctx) != ZEBRA_DPLANE_REQUEST_SUCCESS) {
-		if (pw)
-			zebra_pw_install_failure(pw, dplane_ctx_get_pw_status(ctx));
+		zebra_pw_install_failure(pw, dplane_ctx_get_pw_status(ctx));
 	} else {
 		if (op == DPLANE_OP_PW_INSTALL && pw->status != PW_FORWARDING)
 			zebra_pw_update_status(pw, PW_FORWARDING);
