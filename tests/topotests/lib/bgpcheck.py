@@ -61,3 +61,13 @@ def check_show_bgp_vpn_prefix_found(
         else:
             expected = {rd: {"prefix": prefix}}
     return topotest.json_cmp(output, expected)
+
+
+def bgp_check_path_selection_unicast(router, expected):
+    output = json.loads(router.vtysh_cmd("show bgp ipv4 unicast 192.0.2.9/32 json"))
+    return topotest.json_cmp(output, expected)
+
+
+def bgp_check_path_selection_vpn(router, prefix, expected, vrf_name="vrf1"):
+    output = json.loads(router.vtysh_cmd(f"show bgp vrf {vrf_name} ipv4 {prefix} json"))
+    return topotest.json_cmp(output, expected)
