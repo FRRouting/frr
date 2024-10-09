@@ -402,6 +402,9 @@ struct route_entry; /* Forward ref to avoid circular includes */
 extern int nexthop_active_update(struct route_node *rn, struct route_entry *re,
 				 struct route_entry *old_re);
 
+/* Determine nhg address-family, with special rules for singletons */
+afi_t zebra_nhg_get_afi(const struct nexthop_group *nhg, afi_t route_afi);
+
 #ifdef _FRR_ATTRIBUTE_PRINTFRR
 #pragma FRR printfrr_ext "%pNG" (const struct nhg_hash_entry *)
 #endif

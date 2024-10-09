@@ -342,19 +342,19 @@ zebra_nhg_connect_depends(struct nhg_hash_entry *nhe,
 	}
 }
 
-/* Init an nhe, for use in a hash lookup for example */
-void zebra_nhe_init(struct nhg_hash_entry *nhe, afi_t afi,
-		    const struct nexthop *nh)
+/*
+ * Determine nhg address-family, with special rules for singletons
+ */
+afi_t zebra_nhg_get_afi(const struct nexthop_group *nhg, afi_t route_afi)
 {
-	memset(nhe, 0, sizeof(struct nhg_hash_entry));
-	nhe->vrf_id = VRF_DEFAULT;
-	nhe->type = ZEBRA_ROUTE_NHG;
-	nhe->afi = AFI_UNSPEC;
+	afi_t afi = AF_UNSPEC, last_afi = AF_UNSPEC;
+	const struct nexthop *nh;
+	bool all_same = true;
 
-	/* There are some special rules that apply to groups representing
-	 * a single nexthop.
-	 */
-	if (nh && (nh->next == NULL)) {
+	nh = nhg->nexthop;
+
+	/* There are some special rules that apply to nexthops' AFIs. */
+	while (nh) {
 		switch (nh->type) {
 			/*
 			 * This switch case handles setting the afi different
@@ -368,21 +368,42 @@ void zebra_nhe_init(struct nhg_hash_entry *nhe, afi_t afi,
 			 * passed from here from the kernel.
 			 */
 		case NEXTHOP_TYPE_IFINDEX:
-			nhe->afi = afi;
+			afi = route_afi;
 			break;
 		case NEXTHOP_TYPE_BLACKHOLE:
-			nhe->afi = AFI_IP6;
+			afi = AFI_IP6;
 			break;
 		case NEXTHOP_TYPE_IPV4_IFINDEX:
 		case NEXTHOP_TYPE_IPV4:
-			nhe->afi = AFI_IP;
+			afi = AFI_IP;
 			break;
 		case NEXTHOP_TYPE_IPV6_IFINDEX:
 		case NEXTHOP_TYPE_IPV6:
-			nhe->afi = AFI_IP6;
+			afi = AFI_IP6;
 			break;
 		}
+
+		if (last_afi != AF_UNSPEC && last_afi != afi)
+			all_same = false;
+
+		last_afi = afi;
+		nh = nh->next;
 	}
+
+	if (!all_same)
+		zlog_warn("Not all Nexthops had equivalent AFIs; "
+			  "something is seriously wrong");
+
+	return afi;
+}
+
+/* Init an nhe, for use in a hash lookup for example */
+void zebra_nhe_init(struct nhg_hash_entry *nhe, afi_t afi, const struct nexthop *nh)
+{
+	memset(nhe, 0, sizeof(struct nhg_hash_entry));
+	nhe->vrf_id = VRF_DEFAULT;
+	nhe->type = ZEBRA_ROUTE_NHG;
+	nhe->afi = afi;
 }
 
 struct nhg_hash_entry *zebra_nhg_alloc(void)

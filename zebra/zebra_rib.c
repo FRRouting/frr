@@ -2556,7 +2556,7 @@ static void process_subq_nhg(struct listnode *lnode)
 						 ZAPI_NHG_REMOVE_FAIL);
 
 		} else {
-			newnhe = zebra_nhg_proto_add(nhe, &nhe->nhg, 0);
+			newnhe = zebra_nhg_proto_add(nhe, &nhe->nhg, nhe->afi);
 
 			/* Report error to daemon via ZAPI */
 			if (newnhe == NULL)
