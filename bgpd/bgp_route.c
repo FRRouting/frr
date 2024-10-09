@@ -2492,8 +2492,11 @@ bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
 		 * ensure more prefixes share the same attribute for
 		 * announcement.
 		 */
-		if (!(CHECK_FLAG(peer->af_flags[afi][safi],
-				 PEER_FLAG_NEXTHOP_LOCAL_UNCHANGED)))
+		if (!(CHECK_FLAG(peer->af_flags[afi][safi], PEER_FLAG_NEXTHOP_LOCAL_UNCHANGED)) ||
+		    !IPV6_ADDR_SAME(&peer->nexthop.v6_global, &from->nexthop.v6_global))
+			/* Reset if "nexthop-local unchanged" is not set or originating and destination peer
+			 * does not share the same subnet.
+			 */
 			memset(&attr->mp_nexthop_local, 0, IPV6_MAX_BYTELEN);
 	}
 
