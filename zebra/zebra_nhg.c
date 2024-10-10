@@ -3624,22 +3624,44 @@ static int zebra_nhg_update_nhg_list_valid(struct nexthop_group *nhg, struct nhg
 	return 0;
 }
 
+static struct nhg_hash_entry *zebra_nhg_get_new_nhe(struct nhg_hash_entry *nhe,
+						    struct nexthop_group *nhg, afi_t afi)
+{
+	struct nhg_hash_entry lookup;
+	struct nhg_hash_entry *new;
+
+	zebra_nhe_init(&lookup, afi, nhg->nexthop);
+	lookup.nhg.nexthop = nhg->nexthop;
+	lookup.nhg.nhgr = nhg->nhgr;
+	lookup.id = nhe->id;
+	lookup.type = nhe->type;
+	lookup.nhg.flags = nhg->flags;
+
+	new = zebra_nhg_rib_find_nhe(&lookup, afi);
+
+	zebra_nhg_increment_ref(new);
+
+	/* Capture zapi client info */
+	new->zapi_instance = nhe->zapi_instance;
+	new->zapi_session = nhe->zapi_session;
+
+	zebra_nhg_set_valid_if_active(new);
+
+	zebra_nhg_install_kernel(new, ZEBRA_ROUTE_MAX);
+	return new;
+}
+
 /* Add NHE from upper level proto */
 struct nhg_hash_entry *zebra_nhg_proto_add(struct nhg_hash_entry *nhe, struct nexthop_group *nhg,
 					   afi_t afi)
 {
-	struct nhg_hash_entry lookup;
 	struct nhg_hash_entry *new, *old;
 	struct nhg_connected *rb_node_dep = NULL;
 	bool replace = false;
-	int ret = 0, type;
-	uint32_t id, session;
-	uint16_t instance;
+	int ret = 0;
+	uint32_t id;
 
 	id = nhe->id;
-	type = nhe->type;
-	session = nhe->zapi_session;
-	instance = nhe->zapi_instance;
 
 	if (!nhg->nexthop) {
 		if (IS_ZEBRA_DEBUG_NHG)
@@ -3649,13 +3671,6 @@ struct nhg_hash_entry *zebra_nhg_proto_add(struct nhg_hash_entry *nhe, struct ne
 
 	if (zebra_nhg_update_nhg_list_valid(nhg, nhe) == -1)
 		return NULL;
-
-	zebra_nhe_init(&lookup, afi, nhg->nexthop);
-	lookup.nhg.nexthop = nhg->nexthop;
-	lookup.nhg.nhgr = nhg->nhgr;
-	lookup.id = id;
-	lookup.type = type;
-	lookup.nhg.flags = nhg->flags;
 
 	old = zebra_nhg_lookup_id(id);
 
@@ -3673,17 +3688,7 @@ struct nhg_hash_entry *zebra_nhg_proto_add(struct nhg_hash_entry *nhe, struct ne
 		zebra_nhg_release_all_deps(old);
 	}
 
-	new = zebra_nhg_rib_find_nhe(&lookup, afi);
-
-	zebra_nhg_increment_ref(new);
-
-	/* Capture zapi client info */
-	new->zapi_instance = instance;
-	new->zapi_session = session;
-
-	zebra_nhg_set_valid_if_active(new);
-
-	zebra_nhg_install_kernel(new, ZEBRA_ROUTE_MAX);
+	new = zebra_nhg_get_new_nhe(nhe, nhg, afi);
 
 	if (old) {
 		/*
