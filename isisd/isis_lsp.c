@@ -119,6 +119,10 @@ static void lsp_destroy(struct isis_lsp *lsp)
 	lsp_clear_data(lsp);
 
 	if (!LSP_FRAGMENT(lsp->hdr.lsp_id)) {
+		/* Only non-pseudo nodes and non-fragment LSPs can delete nodes. */
+		if (!LSP_PSEUDO_ID(lsp->hdr.lsp_id))
+			isis_dynhn_remove(lsp->area->isis, lsp->hdr.lsp_id);
+
 		if (lsp->lspu.frags) {
 			lsp_remove_frags(&lsp->area->lspdb[lsp->level - 1],
 					lsp->lspu.frags);
@@ -2208,10 +2212,6 @@ void lsp_tick(struct event *thread)
 						next = lspdb_next(
 							&area->lspdb[level],
 							next);
-
-				if (!LSP_PSEUDO_ID(lsp->hdr.lsp_id))
-					isis_dynhn_remove(area->isis,
-							  lsp->hdr.lsp_id);
 
 				lspdb_del(&area->lspdb[level], lsp);
 				lsp_destroy(lsp);
