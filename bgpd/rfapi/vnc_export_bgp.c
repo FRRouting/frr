@@ -96,15 +96,16 @@ static void encap_attr_export_ce(struct attr *new, struct attr *orig,
 	 *          neighbor NEIGHBOR attribute-unchanged med
 	 */
 	if (!CHECK_FLAG(new->flag, BGP_ATTR_MULTI_EXIT_DISC)) {
+		uint32_t med = 255;
+
 		if (CHECK_FLAG(new->flag, BGP_ATTR_LOCAL_PREF)) {
 			if (new->local_pref > 255)
-				new->med = 0;
+				med = 0;
 			else
-				new->med = 255 - new->local_pref;
-		} else {
-			new->med = 255; /* shouldn't happen */
+				med = 255 - new->local_pref;
 		}
-		new->flag |= ATTR_FLAG_BIT(BGP_ATTR_MULTI_EXIT_DISC);
+
+		bgp_attr_set_med(new, med);
 	}
 
 	/*
@@ -642,15 +643,16 @@ encap_attr_export(struct attr *new, struct attr *orig,
 	 *          neighbor NEIGHBOR attribute-unchanged med
 	 */
 	if (!CHECK_FLAG(new->flag, BGP_ATTR_MULTI_EXIT_DISC)) {
+		uint32_t med = 255;
+
 		if (CHECK_FLAG(new->flag, BGP_ATTR_LOCAL_PREF)) {
 			if (new->local_pref > 255)
-				new->med = 0;
+				med = 0;
 			else
-				new->med = 255 - new->local_pref;
-		} else {
-			new->med = 255; /* shouldn't happen */
+				med = 255 - new->local_pref;
 		}
-		new->flag |= ATTR_FLAG_BIT(BGP_ATTR_MULTI_EXIT_DISC);
+
+		bgp_attr_set_med(new, med);
 	}
 
 	/*

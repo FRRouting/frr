@@ -598,6 +598,12 @@ static inline void bgp_attr_set_aigp_metric(struct attr *attr, uint64_t aigp)
 		SET_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_AIGP));
 }
 
+static inline void bgp_attr_set_med(struct attr *attr, uint32_t med)
+{
+	attr->med = med;
+	SET_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_MULTI_EXIT_DISC));
+}
+
 static inline struct cluster_list *bgp_attr_get_cluster(const struct attr *attr)
 {
 	return attr->cluster1;
