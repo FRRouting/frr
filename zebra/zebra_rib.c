@@ -723,6 +723,7 @@ void rib_uninstall_kernel(struct route_node *rn, struct route_entry *re)
 	struct nexthop *nexthop;
 	struct rib_table_info *info = srcdest_rnode_table_info(rn);
 	struct zebra_vrf *zvrf = zebra_vrf_lookup_by_id(re->vrf_id);
+	struct nhg_hash_entry *nhe;
 
 	if (info->safi != SAFI_UNICAST) {
 		UNSET_FLAG(re->status, ROUTE_ENTRY_INSTALLED);
@@ -736,6 +737,14 @@ void rib_uninstall_kernel(struct route_node *rn, struct route_entry *re)
 	 * the dataplane.
 	 */
 	hook_call(rib_update, rn, "uninstalling from kernel");
+
+	if (re->nhe_id) {
+		nhe = zebra_nhg_lookup_id(re->nhe_id);
+		if (!nhe)
+			/* nothing to process, as there is no NHG to delete
+			 */
+			return;
+	}
 
 	switch (dplane_route_delete(rn, re)) {
 	case ZEBRA_DPLANE_REQUEST_QUEUED:
