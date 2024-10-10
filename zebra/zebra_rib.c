@@ -795,13 +795,77 @@ void zebra_rib_evaluate_rn_nexthops(struct route_node *rn, uint32_t seq,
 	struct rnh *rnh;
 
 	/*
-	 * We are storing the rnh's associated withb
-	 * the tracked nexthop as a list of the rn's.
+	 * We are storing the rnh's associated with
+	 * the tracked nexthop as a list of the rnh's
+	 * on the rn that we have matched to.  As an
+	 * example if you have these rnh's:
+	 * rnh 1.1.1.1
+	 * rnh 1.1.1.2
+	 * rnh 1.1.3.4
+	 * rnh 4.5.6.7
+	 * Now imagine that you have in the tree these
+	 * prefix's:
+	 * 1.1.1.1/32
+	 * 1.1.1.0/24
+	 * 1.1.0.0/16
+	 * 0.0.0.0/0
+	 *
+	 * The 1.1.1.1 rnh would be stored on 1.1.1.1/32
+	 * The 1.1.1.2 rnh would be stored on 1.1.1.0/24
+	 * The 1.1.3.4 rnh would be stored on the 1.1.0.0/16
+	 * and finally the 4.5.6.7 would be stored on the 0.0.0.0/0
+	 * prefix.
+	 *
 	 * Unresolved rnh's are placed at the top
 	 * of the tree list.( 0.0.0.0/0 for v4 and 0::0/0 for v6 )
 	 * As such for each rn we need to walk up the tree
 	 * and see if any rnh's need to see if they
 	 * would match a more specific route
+	 *
+	 * Now if a 1.1.1.2/32 prefix was added to the tree
+	 * this function would start at this new node and
+	 * see that the 1.1.1.2/32 node has no rnh's and
+	 * there is nothing to do on this node currently,
+	 * so the function would walk the parent pointers, until the
+	 * 1.1.1.0/24 node is hit with the 1.1.1.2 rnh.  This function
+	 * would then call zebra_evaluate_rnh() which would then
+	 * do a LPM and match on the 1.1.1.2/32 node.  This function
+	 * would then pull the 1.1.1.2 rnh off the 1.1.1.0/24 node
+	 * and place it on the 1.1.1.1/32 node and notify the upper
+	 * level protocols interested about the change( as necessary ).
+	 * At this point in time a sequence number is added to note
+	 * that the rnh has been moved.
+	 * The function would also continue to walk up the tree
+	 * looking at the list of rnh's and moving them around
+	 * as necessary.  Since in this example nothing else
+	 * would change no further actions are made.
+	 *
+	 * Another case to consider is a node being deleted
+	 * suppose the 1.1.1.2/32 route is being deleted.
+	 * This function would start at the 1.1.1.1/32 node,
+	 * perform a LPM and settle on the 1.1.1.0/24 node
+	 * as where it belongs.  The code would update appropriate
+	 * interested parties and additionally also mark the sequence
+	 * number and walk up the tree.  Eventually it would get to
+	 * the 1.1.1.0/24 node and since the seqno matches we would
+	 * know that it is not necessary to reconsider this node
+	 * as it was already moved to this spot.
+	 *
+	 * This all works because each node's parent pointer points
+	 * to a node that has a prefix that contains this node.  Eventually
+	 * the parent traversal will hit the 0.0.0.0/0 node and we know
+	 * we are done.  We know this is pretty efficient because when
+	 * a more specific is added as we walk the tree we can
+	 * find the rnh's that matched to a less specific very easily
+	 * and move them to a more specific node.  Also vice-versa as a
+	 * more specific node is removed.
+	 *
+	 * Long term the rnh code might be improved some as the rnh's
+	 * are stored as a list.  This might be transformed to a better
+	 * data structure.  This has not proven to be necessary yet as
+	 * that we have not seen any particular case where a rn is
+	 * storing more than a couple rnh's.  If we find a case
+	 * where this matters something might need to be done.
 	 */
 	while (rn) {
 		if (IS_ZEBRA_DEBUG_NHT_DETAILED)
