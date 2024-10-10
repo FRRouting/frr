@@ -732,7 +732,7 @@ int zebra_add_import_table_entry(struct zebra_vrf *zvrf, struct route_node *rn,
 	newre = zebra_rib_route_entry_new(
 		0, ZEBRA_ROUTE_TABLE, re->table, re->flags, re->nhe_id,
 		zvrf->table_id, re->metric, re->mtu,
-		zebra_import_table_distance[afi][re->table], re->tag);
+		zebra_import_table_distance[afi][re->table], re->tag, false);
 
 	ng = nexthop_group_new();
 	copy_nexthops(&ng->nexthop, re->nhe->nhg.nexthop, NULL);

@@ -352,7 +352,7 @@ struct route_entry *
 zebra_rib_route_entry_new(vrf_id_t vrf_id, int type, uint8_t instance,
 			  uint32_t flags, uint32_t nhe_id, uint32_t table_id,
 			  uint32_t metric, uint32_t mtu, uint8_t distance,
-			  route_tag_t tag);
+			  route_tag_t tag, bool startup);
 
 #define ZEBRA_RIB_LOOKUP_ERROR -1
 #define ZEBRA_RIB_FOUND_EXACT 0
