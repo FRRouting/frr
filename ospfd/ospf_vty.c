@@ -8050,6 +8050,7 @@ static int ospf_vty_dead_interval_set(struct vty *vty, const char *interval_str,
 	struct ospf_if_params *params;
 	struct ospf_interface *oi;
 	struct route_node *rn;
+	uint32_t reset_wait_time;
 
 	params = IF_DEF_PARAMS(ifp);
 
@@ -8083,6 +8084,7 @@ static int ospf_vty_dead_interval_set(struct vty *vty, const char *interval_str,
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
+	reset_wait_time = seconds >= params->v_wait ? seconds - params->v_wait : seconds;
 	SET_IF_PARAM(params, v_wait);
 	params->v_wait = seconds;
 	params->is_v_wait_set = true;
@@ -8101,6 +8103,30 @@ static int ospf_vty_dead_interval_set(struct vty *vty, const char *interval_str,
 		for (rn = route_top(IF_OIFS(ifp)); rn; rn = route_next(rn))
 			if ((oi = rn->info))
 				ospf_nbr_timer_update(oi);
+	}
+
+	/*Update wait timer.*/
+	if (reset_wait_time) {
+		if (nbr_str) {
+			struct ospf *ospf = NULL;
+			ospf = ifp->vrf->info;
+			if (ospf) {
+				oi = ospf_if_lookup_by_local_addr(ospf, ifp, addr);
+				//Wait timer is currently running
+				if (oi && oi->state == ISM_Waiting) {
+					EVENT_OFF(oi->t_wait);
+					OSPF_ISM_TIMER_ON(oi->t_wait, ospf_wait_timer,
+							  reset_wait_time);
+				}
+			}
+		} else {
+			for (rn = route_top(IF_OIFS(ifp)); rn; rn = route_next(rn))
+				if ((oi = rn->info) && oi->state == ISM_Waiting) {
+					EVENT_OFF(oi->t_wait);
+					OSPF_ISM_TIMER_ON(oi->t_wait, ospf_wait_timer,
+							  reset_wait_time);
+				}
+		}
 	}
 
 	if (params->fast_hello != OSPF_FAST_HELLO_DEFAULT)
