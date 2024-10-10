@@ -2075,6 +2075,8 @@ static void zread_nhg_add(ZAPI_HANDLER_ARGS)
 	nhe->zapi_instance = client->instance;
 	nhe->zapi_session = client->session_id;
 
+	nhe->afi = zebra_nhg_get_afi(nhg, AF_INET);
+
 	/* Take over the list(s) of nexthops */
 	nhe->nhg.nexthop = nhg->nexthop;
 	nhg->nexthop = NULL;

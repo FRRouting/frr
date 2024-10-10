@@ -347,9 +347,7 @@ zebra_nhg_rib_find_nhe(struct nhg_hash_entry *rt_nhe, afi_t rt_afi);
  *
  * Returns allocated NHE on success, otherwise NULL.
  */
-struct nhg_hash_entry *zebra_nhg_proto_add(uint32_t id, int type,
-					   uint16_t instance, uint32_t session,
-					   struct nexthop_group *nhg,
+struct nhg_hash_entry *zebra_nhg_proto_add(struct nhg_hash_entry *nhe, struct nexthop_group *nhg,
 					   afi_t afi);
 
 /*
@@ -403,6 +401,9 @@ extern void zebra_nhg_mark_keep(void);
 struct route_entry; /* Forward ref to avoid circular includes */
 extern int nexthop_active_update(struct route_node *rn, struct route_entry *re,
 				 struct route_entry *old_re);
+
+/* Determine nhg address-family, with special rules for singletons */
+afi_t zebra_nhg_get_afi(const struct nexthop_group *nhg, afi_t route_afi);
 
 #ifdef _FRR_ATTRIBUTE_PRINTFRR
 #pragma FRR printfrr_ext "%pNG" (const struct nhg_hash_entry *)
