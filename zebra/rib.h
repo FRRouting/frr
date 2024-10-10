@@ -91,6 +91,9 @@ struct route_entry {
 	uint32_t nhe_id;
 	uint32_t nhe_installed_id;
 
+	uint32_t pic_nhe_id;
+	uint32_t pic_nhe_installed_id;
+
 	/* Type of this route. */
 	int type;
 
@@ -640,6 +643,8 @@ void route_entry_dump_nh(const struct route_entry *re, const char *straddr,
 
 /* Name of hook calls */
 #define ZEBRA_ON_RIB_PROCESS_HOOK_CALL "on_rib_process_dplane_results"
+
+extern bool fpm_pic_nexthop;
 
 #ifdef __cplusplus
 }

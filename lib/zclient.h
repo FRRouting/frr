@@ -460,6 +460,7 @@ struct zapi_nexthop {
 	/* SRv6 Headend-behaviour */
 	int seg_num;
 	struct in6_addr seg6_segs[SRV6_MAX_SEGS];
+	struct in6_addr seg6_src;
 };
 
 /*
@@ -475,6 +476,7 @@ struct zapi_nexthop {
 #define ZAPI_NEXTHOP_FLAG_SEG6		0x10
 #define ZAPI_NEXTHOP_FLAG_SEG6LOCAL	0x20
 #define ZAPI_NEXTHOP_FLAG_EVPN		0x40
+#define ZAPI_NEXTHOP_FLAG_SEG6_SRC	0x80
 
 /*
  * ZAPI Nexthop Group. For use with protocol creation of nexthop groups.
@@ -568,6 +570,13 @@ struct zapi_route {
  * kernel (NLM_F_APPEND at the very least )
  */
 #define ZEBRA_FLAG_OUTOFSYNC          0x400
+
+/*
+ * This flag lets us know that the route entry is set to bypass
+ * kernel for some reason (e.g. route-map, etc)
+ */
+#define ZEBRA_FLAG_KERNEL_BYPASS 0x800
+
 
 	/* The older XXX_MESSAGE flags live here */
 	uint32_t message;

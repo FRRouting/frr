@@ -193,6 +193,7 @@ struct nexthop_srv6 {
 
 	/* SRv6 Headend-behaviour */
 	struct seg6_seg_stack *seg6_segs;
+	struct in6_addr seg6_src;
 };
 
 /* SID format type */
