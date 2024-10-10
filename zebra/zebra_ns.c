@@ -123,6 +123,17 @@ void zebra_ns_startup_continue(struct zebra_dplane_ctx *ctx)
 		vlan_read(zns);
 		kernel_read_pbr_rules(zns);
 		kernel_read_tc_qdisc(zns);
+
+		/*
+		 * At this point FRR has requested and read a bunch
+		 * of data from the dplane about initial state of
+		 * the system.  Zebra now needs to initialize
+		 * the gr subsystem ( or the route sweeping
+		 * subsystem ) to allow that to properly work.
+		 * This must be done *immediately* after the
+		 * load of all data from the underlying dplane.
+		 */
+		zebra_main_router_started();
 		break;
 	}
 }
