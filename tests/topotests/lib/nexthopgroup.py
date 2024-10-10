@@ -3,6 +3,7 @@
 # Copyright (C) 2023 NVIDIA Corporation
 # Copyright (C) 2023 6WIND
 #
+import json
 import re
 from time import sleep
 
@@ -111,3 +112,20 @@ def verify_route_nexthop_group(route_str, rname, recursive=False, ecmp=0):
     # Verify route and that zebra created NHGs for and they are valid/installed
     nhg_id = route_get_nhg_id(route_str, rname)
     verify_nexthop_group(nhg_id, rname, recursive, ecmp)
+
+
+def verify_nexthop_group_has_nexthop(router, nexthop, client="sharp"):
+    net = get_topogen().net
+    cmd_str = "show nexthop-group rib {} json".format(client)
+
+    output = router.vtysh_cmd(cmd_str)
+    joutput = json.loads(output)
+    for nhgid in joutput:
+        n = joutput[nhgid]
+        if "nexthops" not in n:
+            continue
+        if "ip" not in n["nexthops"][0].keys():
+            continue
+        if n["nexthops"][0]["ip"] == nexthop:
+            return None
+    return f"nexthop {nexthop} not found in show nexthop-group rib"
