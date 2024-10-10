@@ -1703,6 +1703,90 @@ void bgp_zebra_announce_table_all_subtypes(struct bgp *bgp, afi_t afi,
 							NULL, false);
 }
 
+/* Announce label change explicit null to implicit null */
+void bgp_zebra_label_set_to_imp_null(struct bgp *bgp, afi_t afi)
+{
+	struct bgp_dest *dest;
+	struct bgp_table *table;
+	struct bgp_path_info *pi;
+	mpls_label_t exp_null_label;
+
+	/* Don't try to install if we're not connected to Zebra or Zebra doesn't
+	 * know of this instance.
+	 */
+	if (!bgp_install_info_to_zebra(bgp))
+		return;
+
+	table = bgp->rib[afi][SAFI_UNICAST];
+
+	if (!table)
+		return;
+
+	if (afi == AFI_IP)
+		exp_null_label = MPLS_LABEL_IPV4_EXPLICIT_NULL;
+	else
+		exp_null_label = MPLS_LABEL_IPV6_EXPLICIT_NULL;
+
+	for (dest = bgp_table_top(table); dest; dest = bgp_route_next(dest)) {
+		/* consider only node with explicit null label*/
+		if (dest->local_label != exp_null_label)
+			continue;
+
+		for (pi = bgp_dest_get_bgp_path_info(dest); pi; pi = pi->next) {
+			if ((pi->type == ZEBRA_ROUTE_BGP) &&
+			    (pi->sub_type == BGP_ROUTE_STATIC ||
+			     pi->sub_type == BGP_ROUTE_AGGREGATE ||
+			     pi->sub_type == BGP_ROUTE_REDISTRIBUTE)) {
+				dest->local_label = MPLS_LABEL_IMPLICIT_NULL;
+				SET_FLAG(dest->flags, BGP_NODE_LABEL_CHANGED);
+				bgp_process(bgp, dest, pi, afi, SAFI_UNICAST);
+				break;
+			}
+		}
+	}
+}
+/* Announce label change implicit null to explicit null */
+void bgp_zebra_label_set_to_exp_null(struct bgp *bgp, afi_t afi)
+{
+	struct bgp_dest *dest;
+	struct bgp_table *table;
+	struct bgp_path_info *pi;
+	mpls_label_t exp_null_label;
+
+	/* Don't try to install if we're not connected to Zebra or Zebra doesn't
+	 * know of this instance.
+	 */
+	if (!bgp_install_info_to_zebra(bgp))
+		return;
+
+	table = bgp->rib[afi][SAFI_UNICAST];
+	if (!table)
+		return;
+
+	if (afi == AFI_IP)
+		exp_null_label = MPLS_LABEL_IPV4_EXPLICIT_NULL;
+	else
+		exp_null_label = MPLS_LABEL_IPV6_EXPLICIT_NULL;
+
+
+	for (dest = bgp_table_top(table); dest; dest = bgp_route_next(dest)) {
+		if (dest->local_label != MPLS_LABEL_IMPLICIT_NULL)
+			continue;
+
+		for (pi = bgp_dest_get_bgp_path_info(dest); pi; pi = pi->next) {
+			if ((pi->type == ZEBRA_ROUTE_BGP) &&
+			    (pi->sub_type == BGP_ROUTE_STATIC ||
+			     pi->sub_type == BGP_ROUTE_AGGREGATE ||
+			     pi->sub_type == BGP_ROUTE_REDISTRIBUTE)) {
+				dest->local_label = exp_null_label;
+				SET_FLAG(dest->flags, BGP_NODE_LABEL_CHANGED);
+				bgp_process(bgp, dest, pi, afi, SAFI_UNICAST);
+				break;
+			}
+		}
+	}
+}
+
 enum zclient_send_status bgp_zebra_withdraw_actual(struct bgp_dest *dest,
 						   struct bgp_path_info *info,
 						   struct bgp *bgp)
