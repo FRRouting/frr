@@ -53,6 +53,13 @@ struct rnh {
 	struct prefix resolved_route;
 	struct list *client_list;
 
+	/* For the fully resolved route */
+	uint8_t resolved_type;
+	uint8_t resolved_distance;
+	uint16_t resolved_instance;
+	uint32_t resolved_metric;
+	struct prefix resolved_prefix;
+
 	/* pseudowires dependent on this nh */
 	struct list *zebra_pseudowire_list;
 
