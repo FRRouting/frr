@@ -107,6 +107,7 @@ int router_id_get(afi_t afi, struct prefix *p, struct zebra_vrf *zvrf)
 	}
 
 	assert(!"Reached end of function we should never hit");
+	return -1;
 }
 
 int router_id_set(afi_t afi, struct prefix *p, struct zebra_vrf *zvrf)
