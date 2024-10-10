@@ -241,13 +241,16 @@ static void eigrp_network_run_interface(struct eigrp *eigrp, struct prefix *p,
 		if (CHECK_FLAG(co->flags, ZEBRA_IFA_SECONDARY))
 			continue;
 
-		if (p->family == co->address->family && !ifp->info
-		    && eigrp_network_match_iface(co->address, p)) {
+		ei = ifp->info;
+		if (p->family == co->address->family && !ei->initialized &&
+			eigrp_network_match_iface(co->address, p)) {
 
-			ei = eigrp_if_new(eigrp, ifp, co->address);
+			prefix_copy(&ei->address, co->address);
+			listnode_add(eigrp->eiflist, ei);
 
 			/* Relate eigrp interface to eigrp instance. */
 			ei->eigrp = eigrp;
+			ei->initialized = true;
 
 			/* if router_id is not configured, dont bring up
 			 * interfaces.
