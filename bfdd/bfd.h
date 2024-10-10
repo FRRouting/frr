@@ -610,6 +610,8 @@ void bfd_sessions_remove_manual(void);
 void bfd_profiles_remove(void);
 void bfd_rtt_init(struct bfd_session *bfd);
 
+extern void bfd_vrf_toggle_echo(struct bfd_vrf_global *bfd_vrf);
+
 /**
  * Set the BFD session echo state.
  *
