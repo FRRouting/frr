@@ -2820,9 +2820,9 @@ static void evpn_show_route_rd_macip(struct vty *vty, struct bgp *bgp,
 		path_cnt++;
 	}
 
-	if (json && path_cnt) {
+	if (json) {
 		if (path_cnt)
-			json_object_object_addf(json, json_paths, "%pFX", &p);
+			json_object_object_add(json, "paths", json_paths);
 		json_object_int_add(json, "numPaths", path_cnt);
 	} else {
 		vty_out(vty, "\nDisplayed %u paths for requested prefix\n",
