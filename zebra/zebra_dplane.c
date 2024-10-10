@@ -35,6 +35,8 @@ DEFINE_MTYPE_STATIC(ZEBRA, DP_PROV, "Zebra DPlane Provider");
 DEFINE_MTYPE_STATIC(ZEBRA, DP_NETFILTER, "Zebra Netfilter Internal Object");
 DEFINE_MTYPE_STATIC(ZEBRA, DP_NS, "DPlane NSes");
 
+DEFINE_MTYPE(ZEBRA, VLAN_CHANGE_ARR, "Vlan Change Array");
+
 #ifndef AOK
 #  define AOK 0
 #endif
@@ -371,6 +373,14 @@ struct dplane_srv6_encap_ctx {
 };
 
 /*
+ * VLAN info for the dataplane
+ */
+struct dplane_vlan_info {
+	ifindex_t ifindex;
+	struct zebra_vxlan_vlan_array *vlan_array;
+};
+
+/*
  * The context block used to exchange info about route updates across
  * the boundary between the zebra main context (and pthread) and the
  * dataplane layer (and pthread).
@@ -416,6 +426,7 @@ struct zebra_dplane_ctx {
 		struct dplane_pw_info pw;
 		struct dplane_br_port_info br_port;
 		struct dplane_intf_info intf;
+		struct dplane_vlan_info vlan_info;
 		struct dplane_mac_info macinfo;
 		struct dplane_neigh_info neigh;
 		struct dplane_rule_info rule;
@@ -885,6 +896,11 @@ static void dplane_ctx_free_internal(struct zebra_dplane_ctx *ctx)
 	case DPLANE_OP_STARTUP_STAGE:
 	case DPLANE_OP_SRV6_ENCAP_SRCADDR_SET:
 		break;
+	case DPLANE_OP_VLAN_INSTALL:
+		if (ctx->u.vlan_info.vlan_array)
+			XFREE(MTYPE_VLAN_CHANGE_ARR,
+			      ctx->u.vlan_info.vlan_array);
+		break;
 	}
 }
 
@@ -1218,6 +1234,10 @@ const char *dplane_op2str(enum dplane_op_e op)
 
 	case DPLANE_OP_SRV6_ENCAP_SRCADDR_SET:
 		ret = "SRV6_ENCAP_SRCADDR_SET";
+		break;
+
+	case DPLANE_OP_VLAN_INSTALL:
+		ret = "NEW_VLAN";
 		break;
 	}
 
@@ -3319,6 +3339,35 @@ uint32_t dplane_get_in_queue_len(void)
 {
 	return atomic_load_explicit(&zdplane_info.dg_routes_queued,
 				    memory_order_seq_cst);
+}
+
+void dplane_ctx_set_vlan_ifindex(struct zebra_dplane_ctx *ctx, ifindex_t ifindex)
+{
+	DPLANE_CTX_VALID(ctx);
+	ctx->u.vlan_info.ifindex = ifindex;
+}
+
+ifindex_t dplane_ctx_get_vlan_ifindex(struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	return ctx->u.vlan_info.ifindex;
+}
+
+void dplane_ctx_set_vxlan_vlan_array(struct zebra_dplane_ctx *ctx,
+				     struct zebra_vxlan_vlan_array *vlan_array)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	ctx->u.vlan_info.vlan_array = vlan_array;
+}
+
+const struct zebra_vxlan_vlan_array *
+dplane_ctx_get_vxlan_vlan_array(struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	return ctx->u.vlan_info.vlan_array;
 }
 
 /*
@@ -6720,6 +6769,12 @@ static void kernel_dplane_log_detail(struct zebra_dplane_ctx *ctx)
 			   dplane_op2str(dplane_ctx_get_op(ctx)),
 			   &ctx->u.srv6_encap.srcaddr);
 		break;
+
+	case DPLANE_OP_VLAN_INSTALL:
+		zlog_debug("Dplane %s on idx %u",
+			   dplane_op2str(dplane_ctx_get_op(ctx)),
+			   dplane_ctx_get_vlan_ifindex(ctx));
+		break;
 	}
 }
 
@@ -6888,6 +6943,7 @@ static void kernel_dplane_handle_result(struct zebra_dplane_ctx *ctx)
 	case DPLANE_OP_INTF_ADDR_ADD:
 	case DPLANE_OP_INTF_ADDR_DEL:
 	case DPLANE_OP_INTF_NETCONFIG:
+	case DPLANE_OP_VLAN_INSTALL:
 		break;
 
 	case DPLANE_OP_SRV6_ENCAP_SRCADDR_SET:
