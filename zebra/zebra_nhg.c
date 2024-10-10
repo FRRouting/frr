@@ -3563,31 +3563,16 @@ bool zebra_nhg_proto_nexthops_only(void)
 	return proto_nexthops_only;
 }
 
-/* Add NHE from upper level proto */
-struct nhg_hash_entry *zebra_nhg_proto_add(struct nhg_hash_entry *nhe,
-					   struct nexthop_group *nhg, afi_t afi)
+/* mark nexthops of an NHG as valid or not
+ * return -1 if an error happened, 0 otherwise */
+static int zebra_nhg_update_nhg_list_valid(struct nexthop_group *nhg, struct nhg_hash_entry *nhe)
 {
-	struct nhg_hash_entry lookup;
-	struct nhg_hash_entry *new, *old;
-	struct nhg_connected *rb_node_dep = NULL;
 	struct nexthop *newhop;
-	bool replace = false;
-	int ret = 0, type;
-	uint32_t id, session, flags = 0;
-	uint16_t instance;
+	uint32_t flags = 0, id;
+	int type;
 
 	id = nhe->id;
 	type = nhe->type;
-	session = nhe->zapi_session;
-	instance = nhe->zapi_instance;
-
-	if (!nhg->nexthop) {
-		if (IS_ZEBRA_DEBUG_NHG)
-			zlog_debug("%s: id %u, no nexthops passed to add",
-				   __func__, id);
-		return NULL;
-	}
-
 
 	/* Set nexthop list as active, since they wont go through rib
 	 * processing.
@@ -3602,7 +3587,7 @@ struct nhg_hash_entry *zebra_nhg_proto_add(struct nhg_hash_entry *nhe,
 				zlog_debug(
 					"%s: id %u, backup nexthops not supported",
 					__func__, id);
-			return NULL;
+			return -1;
 		}
 
 		if (newhop->type == NEXTHOP_TYPE_BLACKHOLE) {
@@ -3610,7 +3595,7 @@ struct nhg_hash_entry *zebra_nhg_proto_add(struct nhg_hash_entry *nhe,
 				zlog_debug(
 					"%s: id %u, blackhole nexthop not supported",
 					__func__, id);
-			return NULL;
+			return -1;
 		}
 
 		if (newhop->type == NEXTHOP_TYPE_IFINDEX) {
@@ -3618,13 +3603,12 @@ struct nhg_hash_entry *zebra_nhg_proto_add(struct nhg_hash_entry *nhe,
 				zlog_debug(
 					"%s: id %u, nexthop without gateway not supported",
 					__func__, id);
-			return NULL;
+			return -1;
 		}
 
 		if (CHECK_FLAG(nhg->flags, NEXTHOP_GROUP_ALLOW_RECURSION))
 			/* Tell zebra that the route may be recursively resolved */
 			flags = ZEBRA_FLAG_ALLOW_RECURSION;
-
 
 		if (CHECK_FLAG(nhg->flags, NEXTHOP_GROUP_IBGP))
 			/* Tell zebra that the prefix originates from an IBGP peer */
@@ -3637,6 +3621,34 @@ struct nhg_hash_entry *zebra_nhg_proto_add(struct nhg_hash_entry *nhe,
 		else
 			UNSET_FLAG(newhop->flags, NEXTHOP_FLAG_ACTIVE);
 	}
+	return 0;
+}
+
+/* Add NHE from upper level proto */
+struct nhg_hash_entry *zebra_nhg_proto_add(struct nhg_hash_entry *nhe, struct nexthop_group *nhg,
+					   afi_t afi)
+{
+	struct nhg_hash_entry lookup;
+	struct nhg_hash_entry *new, *old;
+	struct nhg_connected *rb_node_dep = NULL;
+	bool replace = false;
+	int ret = 0, type;
+	uint32_t id, session;
+	uint16_t instance;
+
+	id = nhe->id;
+	type = nhe->type;
+	session = nhe->zapi_session;
+	instance = nhe->zapi_instance;
+
+	if (!nhg->nexthop) {
+		if (IS_ZEBRA_DEBUG_NHG)
+			zlog_debug("%s: id %u, no nexthops passed to add", __func__, id);
+		return NULL;
+	}
+
+	if (zebra_nhg_update_nhg_list_valid(nhg, nhe) == -1)
+		return NULL;
 
 	zebra_nhe_init(&lookup, afi, nhg->nexthop);
 	lookup.nhg.nexthop = nhg->nexthop;
