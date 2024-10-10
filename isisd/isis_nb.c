@@ -454,6 +454,64 @@ const struct frr_yang_module_info frr_isisd_info = {
 			},
 		},
 		{
+			.xpath = "/frr-isisd:isis/instance/route_leaking/ipv4",
+			.cbs = {
+				.apply_finish = leaking_ipv4_apply_finish,
+				.cli_show = cli_show_isis_leaking_ipv4,
+				.create = isis_instance_leaking_ipv4_create,
+				.destroy = isis_instance_leaking_ipv4_destroy,
+			},
+		},
+		{
+			.xpath = "/frr-isisd:isis/instance/route_leaking/ipv4/route-map",
+			.cbs = {
+				.destroy = isis_instance_route_leaking_ipv4_route_map_destroy,
+				.modify = isis_instance_route_leaking_ipv4_route_map_modify,
+			},
+		},
+		{
+			.xpath = "/frr-isisd:isis/instance/route_leaking/ipv4/metric",
+			.cbs = {
+				.modify = isis_instance_route_leaking_ipv4_metric_modify,
+			},
+		},
+		{
+			.xpath = "/frr-isisd:isis/instance/route_leaking/ipv6",
+			.cbs = {
+				.apply_finish = leaking_ipv6_apply_finish,
+				.cli_show = cli_show_isis_leaking_ipv6,
+				.create = isis_instance_leaking_ipv6_create,
+				.destroy = isis_instance_leaking_ipv6_destroy,
+			},
+		},
+		{
+			.xpath = "/frr-isisd:isis/instance/route_leaking/ipv6/route-map",
+			.cbs = {
+				.destroy = isis_instance_route_leaking_ipv6_route_map_destroy,
+				.modify = isis_instance_route_leaking_ipv6_route_map_modify,
+			},
+		},
+		{
+			.xpath = "/frr-isisd:isis/instance/route_leaking/ipv6/metric",
+			.cbs = {
+				.modify = isis_instance_route_leaking_ipv6_metric_modify,
+			},
+		},
+		{
+			.xpath = "/frr-isisd:isis/instance/redistribute/ipv4/level_from",
+			.cbs = {
+				.destroy = isis_instance_route_leaking_ipv6_route_map_destroy,
+				.modify = isis_instance_route_leaking_ipv6_metric_modify,
+			},
+		},
+		{
+			.xpath = "/frr-isisd:isis/instance/redistribute/ipv6/level_from",
+			.cbs = {
+				.destroy = isis_instance_route_leaking_ipv6_route_map_destroy,
+				.modify = isis_instance_route_leaking_ipv6_metric_modify,
+			},
+		},
+		{
 			.xpath = "/frr-isisd:isis/instance/multi-topology/ipv4-multicast",
 			.cbs = {
 				.cli_show = cli_show_isis_mt_ipv4_multicast,
