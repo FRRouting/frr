@@ -1,20 +1,26 @@
 {
-  "routerId": "10.10.10.2",
-  "localAS": 65000,
+  "routerId": "10.10.10.4",
+  "localAS": 65004,
   "routes": {
     "2001:db8:1::/64": [
       {
         "nexthops": [
           {
-            "ip": "2001:db8:1::2",
-            "hostname": "r1",
+            "ip": "::",
+            "hostname": "r4",
             "afi": "ipv6",
-            "scope": "global"
-          },
+            "scope": "global",
+            "used": true
+          }
+        ]
+      },
+      {
+        "nexthops": [
           {
-            "hostname": "r1",
+            "ip": "2001:db8:1::4",
+            "hostname": "r2",
             "afi": "ipv6",
-            "scope": "link-local",
+            "scope": "global",
             "used": true
           }
         ]
@@ -25,12 +31,13 @@
         "nexthops": [
           {
             "ip": "2001:db8:3::2",
-            "hostname": "r3",
+            "hostname": "r2",
             "afi": "ipv6",
             "scope": "global"
           },
           {
-            "hostname": "r3",
+            "ip": "link-local:r2:r2-eth0",
+            "hostname": "r2",
             "afi": "ipv6",
             "scope": "link-local",
             "used": true
@@ -43,12 +50,13 @@
         "nexthops": [
           {
             "ip": "2001:db8:1::2",
-            "hostname": "r1",
+            "hostname": "r2",
             "afi": "ipv6",
             "scope": "global"
           },
           {
-            "hostname": "r1",
+            "ip": "link-local:r1:r1-eth0",
+            "hostname": "r2",
             "afi": "ipv6",
             "scope": "link-local",
             "used": true
@@ -61,14 +69,41 @@
         "nexthops": [
           {
             "ip": "2001:db8:3::2",
-            "hostname": "r3",
+            "hostname": "r2",
             "afi": "ipv6",
             "scope": "global"
           },
           {
-            "hostname": "r3",
+            "ip": "link-local:r2:r2-eth0",
+            "hostname": "r2",
             "afi": "ipv6",
             "scope": "link-local",
+            "used": true
+          }
+        ]
+      }
+    ],
+    "2001:db8:f::4/128": [
+      {
+        "nexthops": [
+          {
+            "ip": "::",
+            "hostname": "r4",
+            "afi": "ipv6",
+            "scope": "global",
+            "used": true
+          }
+        ]
+      }
+    ],
+    "2001:db8:f::5/128": [
+      {
+        "nexthops": [
+          {
+            "ip": "2001:db8:1::4",
+            "hostname": "r2",
+            "afi": "ipv6",
+            "scope": "global",
             "used": true
           }
         ]

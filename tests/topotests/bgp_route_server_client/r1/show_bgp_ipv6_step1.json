@@ -13,6 +13,17 @@
             "used": true
           }
         ]
+      },
+      {
+        "nexthops": [
+          {
+            "ip": "2001:db8:1::4",
+            "hostname": "r2",
+            "afi": "ipv6",
+            "scope": "global",
+            "used": true
+          }
+        ]
       }
     ],
     "2001:db8:3::/64": [
@@ -46,6 +57,32 @@
         "nexthops": [
           {
             "ip": "2001:db8:3::2",
+            "hostname": "r2",
+            "afi": "ipv6",
+            "scope": "global",
+            "used": true
+          }
+        ]
+      }
+    ],
+    "2001:db8:f::4/128": [
+      {
+        "nexthops": [
+          {
+            "ip": "2001:db8:1::3",
+            "hostname": "r2",
+            "afi": "ipv6",
+            "scope": "global",
+            "used": true
+          }
+        ]
+      }
+    ],
+    "2001:db8:f::5/128": [
+      {
+        "nexthops": [
+          {
+            "ip": "2001:db8:1::4",
             "hostname": "r2",
             "afi": "ipv6",
             "scope": "global",
