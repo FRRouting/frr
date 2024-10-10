@@ -63,8 +63,8 @@
 #include "zebra/zebra_l2.h"
 #include "zebra/netconf_netlink.h"
 #include "zebra/zebra_trace.h"
-
-extern struct zebra_privs_t zserv_privs;
+#include "zebra/zebra_evpn_arp_nd.h"
+#include "zebra/zebra_privs.h"
 
 /* Utility function to parse hardware link-layer address and update ifp */
 static void netlink_interface_update_hw_addr(struct rtattr **tb,
