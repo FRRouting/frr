@@ -2467,16 +2467,13 @@ bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
 	if (NEXTHOP_IS_V6) {
 		attr->mp_nexthop_len = BGP_ATTR_NHLEN_IPV6_GLOBAL;
 		if ((CHECK_FLAG(peer->af_flags[afi][safi],
-				PEER_FLAG_NEXTHOP_LOCAL_UNCHANGED) &&
-		     IN6_IS_ADDR_LINKLOCAL(&attr->mp_nexthop_local)) ||
-		    (!reflect && !transparent &&
-		     IN6_IS_ADDR_LINKLOCAL(&peer->nexthop.v6_local) &&
-		     peer->shared_network &&
-		     ((from == bgp->peer_self && peer->sort == BGP_PEER_EBGP) ||
-		      (from == bgp->peer_self && peer->sort != BGP_PEER_EBGP) ||
-		      (from != bgp->peer_self &&
-		       IN6_IS_ADDR_LINKLOCAL(&attr->mp_nexthop_local) &&
-		       peer->sort == BGP_PEER_EBGP)))) {
+				PEER_FLAG_NEXTHOP_LOCAL_UNCHANGED)
+		     && IN6_IS_ADDR_LINKLOCAL(&attr->mp_nexthop_local))
+		    || (!reflect && !transparent
+			&& IN6_IS_ADDR_LINKLOCAL(&peer->nexthop.v6_local)
+			&& peer->shared_network
+			&& (from == bgp->peer_self
+			    || peer->sort == BGP_PEER_EBGP))) {
 			if (safi == SAFI_MPLS_VPN)
 				attr->mp_nexthop_len =
 					BGP_ATTR_NHLEN_VPNV6_GLOBAL_AND_LL;
@@ -9705,11 +9702,7 @@ void route_vty_out(struct vty *vty, const struct prefix *p,
 				json_object_string_add(json_nexthop_ll, "scope",
 						       "link-local");
 
-				if ((IPV6_ADDR_CMP(&attr->mp_nexthop_global,
-						   &attr->mp_nexthop_local) !=
-				     0) &&
-				    !CHECK_FLAG(attr->nh_flags,
-						BGP_ATTR_NH_MP_PREFER_GLOBAL))
+				if (!CHECK_FLAG(attr->nh_flags, BGP_ATTR_NH_MP_PREFER_GLOBAL))
 					json_object_boolean_true_add(
 						json_nexthop_ll, "used");
 				else
