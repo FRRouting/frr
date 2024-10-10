@@ -3321,6 +3321,16 @@ uint32_t dplane_get_in_queue_len(void)
 				    memory_order_seq_cst);
 }
 
+void dplane_sub_in_queue_len(uint32_t counter)
+{
+	if (dplane_get_in_queue_len() >= counter)
+		atomic_fetch_sub_explicit(&zdplane_info.dg_routes_queued,
+					  counter, memory_order_relaxed);
+	else
+		zlog_err("%s:error counter, dg_routes_queued:%u, counter:%u",
+			 __func__, dplane_get_in_queue_len(), counter);
+}
+
 /*
  * Internal helper that copies information from a zebra ns object; this is
  * called in the zebra main pthread context as part of dplane ctx init.
@@ -6536,6 +6546,8 @@ void dplane_provider_enqueue_to_zebra(struct zebra_dplane_ctx *ctx)
 
 	/* Zebra's api takes a list, so we need to use a temporary list */
 	dplane_ctx_list_init(&temp_list);
+	atomic_fetch_add_explicit(&(zdplane_info.dg_routes_queued), 1,
+				  memory_order_seq_cst);
 
 	dplane_ctx_list_add_tail(&temp_list, ctx);
 	(zdplane_info.dg_results_cb)(&temp_list);
@@ -7396,9 +7408,6 @@ static void dplane_thread_loop(struct event *event)
 
 	DPLANE_UNLOCK();
 
-	atomic_fetch_sub_explicit(&zdplane_info.dg_routes_queued, counter,
-				  memory_order_relaxed);
-
 	if (IS_ZEBRA_DEBUG_DPLANE_DETAIL)
 		zlog_debug("dplane: incoming new work counter: %d", counter);
 
@@ -7565,12 +7574,14 @@ static void dplane_thread_loop(struct event *event)
 	 */
 
 	/* Call through to zebra main */
-	(zdplane_info.dg_results_cb)(&error_list);
+	if (!dplane_ctx_list_count(&error_list))
+		(zdplane_info.dg_results_cb)(&error_list);
 
 	dplane_ctx_list_init(&error_list);
 
 	/* Call through to zebra main */
-	(zdplane_info.dg_results_cb)(&work_list);
+	if (!dplane_ctx_list_count(&work_list))
+		(zdplane_info.dg_results_cb)(&work_list);
 
 	dplane_ctx_list_init(&work_list);
 }
