@@ -2935,35 +2935,31 @@ static int bgp_route_refresh_receive(struct peer_connection *connection,
 					if (bgp_debug_neighbor_events(peer)) {
 						char buf[INET6_BUFSIZ];
 
-						zlog_debug(
-							"%pBP rcvd %s %s seq %u %s/%d ge %d le %d%s",
-							peer,
-							(common & ORF_COMMON_PART_REMOVE
-								 ? "Remove"
-								 : "Add"),
-							(common & ORF_COMMON_PART_DENY
-								 ? "deny"
-								 : "permit"),
-							orfp.seq,
-							inet_ntop(
-								orfp.p.family,
-								&orfp.p.u.prefix,
-								buf,
-								INET6_BUFSIZ),
-							orfp.p.prefixlen,
-							orfp.ge, orfp.le,
-							ok ? "" : " MALFORMED");
+						zlog_debug("%pBP rcvd %s %s seq %u %s/%d ge %d le %d%s",
+							   peer,
+							   (CHECK_FLAG(common, ORF_COMMON_PART_REMOVE)
+								    ? "Remove"
+								    : "Add"),
+							   (CHECK_FLAG(common, ORF_COMMON_PART_DENY)
+								    ? "deny"
+								    : "permit"),
+							   orfp.seq,
+							   inet_ntop(orfp.p.family, &orfp.p.u.prefix,
+								     buf, INET6_BUFSIZ),
+							   orfp.p.prefixlen, orfp.ge, orfp.le,
+							   ok ? "" : " MALFORMED");
 					}
 
 					if (ok)
-						ret = prefix_bgp_orf_set(
-							name, afi, &orfp,
-							(common & ORF_COMMON_PART_DENY
-								 ? 0
-								 : 1),
-							(common & ORF_COMMON_PART_REMOVE
-								 ? 0
-								 : 1));
+						ret = prefix_bgp_orf_set(name, afi, &orfp,
+									 (CHECK_FLAG(common,
+										     ORF_COMMON_PART_DENY)
+										  ? 0
+										  : 1),
+									 (CHECK_FLAG(common,
+										     ORF_COMMON_PART_REMOVE)
+										  ? 0
+										  : 1));
 
 					if (!ok || (ok && ret != CMD_SUCCESS)) {
 						zlog_info(
@@ -3190,17 +3186,11 @@ static void bgp_dynamic_capability_addpath(uint8_t *pnt, int action,
 
 			if (bgp_debug_neighbor_events(peer))
 				zlog_debug("%s OPEN has %s capability for afi/safi: %s/%s%s%s",
-					   peer->host,
-					   lookup_msg(capcode_str, hdr->code,
-						      NULL),
-					   iana_afi2str(pkt_afi),
-					   iana_safi2str(pkt_safi),
-					   (bac.flags & BGP_ADDPATH_RX)
-						   ? ", receive"
-						   : "",
-					   (bac.flags & BGP_ADDPATH_TX)
-						   ? ", transmit"
-						   : "");
+					   peer->host, lookup_msg(capcode_str, hdr->code, NULL),
+					   iana_afi2str(pkt_afi), iana_safi2str(pkt_safi),
+					   CHECK_FLAG(bac.flags, BGP_ADDPATH_RX) ? ", receive" : "",
+					   CHECK_FLAG(bac.flags, BGP_ADDPATH_TX) ? ", transmit"
+										 : "");
 
 			if (bgp_map_afi_safi_iana2int(pkt_afi, pkt_safi, &afi,
 						      &safi)) {

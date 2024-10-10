@@ -528,14 +528,12 @@ bool bgp_nexthop_self(struct bgp *bgp, afi_t afi, uint8_t type,
 			tmp_addr.p.prefixlen = p->prefixlen;
 		} else {
 			/* Here we need to find out which nexthop to be used*/
-			if (attr->flag & ATTR_FLAG_BIT(BGP_ATTR_NEXT_HOP)) {
+			if (CHECK_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_NEXT_HOP))) {
 				tmp_addr.p.u.prefix4 = attr->nexthop;
 				tmp_addr.p.prefixlen = IPV4_MAX_BITLEN;
-			} else if ((attr->mp_nexthop_len)
-				   && ((attr->mp_nexthop_len
-					== BGP_ATTR_NHLEN_IPV4)
-				       || (attr->mp_nexthop_len
-					   == BGP_ATTR_NHLEN_VPNV4))) {
+			} else if ((attr->mp_nexthop_len) &&
+				   ((attr->mp_nexthop_len == BGP_ATTR_NHLEN_IPV4) ||
+				    (attr->mp_nexthop_len == BGP_ATTR_NHLEN_VPNV4))) {
 				tmp_addr.p.u.prefix4 =
 					attr->mp_nexthop_global_in;
 				tmp_addr.p.prefixlen = IPV4_MAX_BITLEN;
@@ -564,11 +562,11 @@ bool bgp_nexthop_self(struct bgp *bgp, afi_t afi, uint8_t type,
 		memset(&tmp_tip, 0, sizeof(tmp_tip));
 		tmp_tip.addr = attr->nexthop;
 
-		if (attr->flag & ATTR_FLAG_BIT(BGP_ATTR_NEXT_HOP)) {
+		if (CHECK_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_NEXT_HOP))) {
 			tmp_tip.addr = attr->nexthop;
 		} else if ((attr->mp_nexthop_len) &&
-			   ((attr->mp_nexthop_len == BGP_ATTR_NHLEN_IPV4)
-			    || (attr->mp_nexthop_len == BGP_ATTR_NHLEN_VPNV4))) {
+			   ((attr->mp_nexthop_len == BGP_ATTR_NHLEN_IPV4) ||
+			    (attr->mp_nexthop_len == BGP_ATTR_NHLEN_VPNV4))) {
 			tmp_tip.addr = attr->mp_nexthop_global_in;
 		}
 
