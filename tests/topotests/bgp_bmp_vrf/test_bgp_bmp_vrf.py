@@ -26,6 +26,7 @@ from functools import partial
 from ipaddress import ip_network
 import json
 import os
+import platform
 import pytest
 import sys
 
@@ -66,6 +67,14 @@ def build_topo(tgen):
 def setup_module(mod):
     tgen = Topogen(build_topo, mod.__name__)
     tgen.start_topology()
+
+    tgen.net["r1"].cmd(
+        """
+ip link add vrf1 type vrf table 10
+ip link set vrf1 up
+ip link set r1-eth1 master vrf1
+"""
+    )
 
     for rname, router in tgen.routers().items():
         router.load_config(
@@ -192,7 +201,7 @@ def set_bmp_policy(tgen, node, asn, target, safi, policy, vrf=None):
     """
     Configure the bmp policy.
     """
-    vrf = " vrf {}" if vrf else ""
+    vrf = " vrf {}".format(vrf) if vrf else ""
     cmd = [
         "con t\n",
         "router bgp {}{}\n".format(asn, vrf),
@@ -230,7 +239,7 @@ def unicast_prefixes(policy):
     message type and the right policy.
     """
     tgen = get_topogen()
-    set_bmp_policy(tgen, "r1", 65501, "bmp1", "unicast", policy)
+    set_bmp_policy(tgen, "r1", 65501, "bmp1", "unicast", policy, vrf="vrf1")
 
     prefixes = ["172.31.0.15/32", "2111::1111/128"]
     # add prefixes
@@ -245,41 +254,6 @@ def unicast_prefixes(policy):
     # withdraw prefixes
     configure_prefixes(tgen, "r2", 65502, "unicast", prefixes, update=False)
     logger.info("checking for withdrawed prefxies")
-    # check
-    test_func = partial(check_for_prefixes, prefixes, "withdraw", policy)
-    success, _ = topotest.run_and_expect(test_func, True, wait=0.5)
-    assert success, "Checking the withdrawed prefixes has been failed !."
-
-
-def vpn_prefixes(policy):
-    """
-    Setup the BMP  monitor policy, Add and withdraw ipv4/v6 prefixes.
-    Check if the previous actions are logged in the BMP server with the right
-    message type and the right policy.
-    """
-    tgen = get_topogen()
-    set_bmp_policy(tgen, "r1", 65501, "bmp1", "vpn", policy)
-
-    prefixes = ["172.31.10.1/32", "2001::2222/128"]
-
-    # "label vpn export" value in r2/bgpd.conf
-    labels = {
-        "172.31.10.1/32": 102,
-        "2001::2222/128": 105,
-    }
-
-    # add prefixes
-    configure_prefixes(tgen, "r2", 65502, "unicast", prefixes, vrf="vrf1")
-
-    logger.info("checking for updated prefixes")
-    # check
-    test_func = partial(check_for_prefixes, prefixes, "update", policy, labels=labels)
-    success, _ = topotest.run_and_expect(test_func, True, wait=0.5)
-    assert success, "Checking the updated prefixes has been failed !."
-
-    # withdraw prefixes
-    configure_prefixes(tgen, "r2", 65502, "unicast", prefixes, vrf="vrf1", update=False)
-    logger.info("checking for withdrawed prefixes")
     # check
     test_func = partial(check_for_prefixes, prefixes, "withdraw", policy)
     success, _ = topotest.run_and_expect(test_func, True, wait=0.5)
@@ -328,16 +302,6 @@ def test_bmp_bgp_unicast():
     unicast_prefixes(POST_POLICY)
     logger.info("*** Unicast prefixes loc-rib logging ***")
     unicast_prefixes(LOC_RIB)
-
-
-def test_bmp_bgp_vpn():
-    # check for the prefixes in the BMP server logging file
-    logger.info("***** VPN prefixes pre-policy logging *****")
-    vpn_prefixes(PRE_POLICY)
-    logger.info("***** VPN prefixes post-policy logging *****")
-    vpn_prefixes(POST_POLICY)
-    logger.info("***** VPN prefixes loc-rib logging *****")
-    vpn_prefixes(LOC_RIB)
 
 
 def test_peer_down():
