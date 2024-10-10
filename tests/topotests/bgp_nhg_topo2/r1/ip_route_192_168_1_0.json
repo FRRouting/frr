@@ -1,0 +1,37 @@
+{   
+  "192.168.1.0/24":[
+    {
+      "prefix":"192.168.1.0/24",
+      "prefixLen":24,
+      "protocol":"bgp",
+      "vrfId":0,
+      "vrfName":"default",
+      "selected":true,
+      "destSelected":true,
+      "distance":200,
+      "metric":0,
+      "installed":true,
+      "table":254,
+      "internalNextHopNum":2,
+      "internalNextHopActiveNum":2,
+      "nexthops":[
+        {
+          "ip":"172.31.2.4",
+          "afi":"ipv4",
+          "active":true,
+          "recursive":true,
+          "weight":1
+        },
+        {
+          "fib":true,
+          "ip":"172.31.0.2",
+          "afi":"ipv4",
+          "interfaceName":"r1-eth0",
+          "resolver":true,
+          "active":true,
+          "weight":1
+        }
+      ]
+    }
+  ]
+}

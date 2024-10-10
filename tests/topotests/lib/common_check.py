@@ -11,7 +11,12 @@ from lib import topotest
 
 
 def ip_check_path_selection(
-    router, ipaddr_str, expected, vrf_name=None, check_fib=False
+    router,
+    ipaddr_str,
+    expected,
+    vrf_name=None,
+    check_fib=False,
+    ignore_duplicate_nh=False,
 ):
     if vrf_name:
         cmdstr = f"show ip route vrf {vrf_name} {ipaddr_str} json"
@@ -25,7 +30,15 @@ def ip_check_path_selection(
     ret = topotest.json_cmp(output, expected)
     if ret is None:
         num_nh_expected = len(expected[ipaddr_str][0]["nexthops"])
-        num_nh_observed = len(output[ipaddr_str][0]["nexthops"])
+        if ignore_duplicate_nh:
+            num_nh_observed = 0
+            for nh in output[ipaddr_str][0]["nexthops"]:
+                if "duplicate" in nh.keys() and nh["duplicate"]:
+                    continue
+                num_nh_observed += 1
+        else:
+            num_nh_observed = len(output[ipaddr_str][0]["nexthops"])
+
         if num_nh_expected == num_nh_observed:
             if check_fib:
                 # special case: when fib flag is unset,
@@ -49,7 +62,9 @@ def ip_check_path_selection(
     return ret
 
 
-def iproute2_check_path_selection(router, ipaddr_str, expected, vrf_name=None):
+def iproute2_check_path_selection(
+    router, ipaddr_str, expected, vrf_name=None, nhg_id=None
+):
     if not topotest.iproute2_is_json_capable():
         return None
 
@@ -62,4 +77,32 @@ def iproute2_check_path_selection(router, ipaddr_str, expected, vrf_name=None):
     except:
         output = []
 
+    if nhg_id is None:
+        return topotest.json_cmp(output, expected)
+
+    for entry in output:
+        if "nhid" not in entry.keys():
+            return "problem. nhid not found"
+        if entry["nhid"] != nhg_id:
+            return f"problem: invalid nhid {entry['nhid']}, expected {nhg_id}"
+
     return topotest.json_cmp(output, expected)
+
+
+def ip_check_path_not_present(router, ipaddr_str):
+    output = json.loads(router.vtysh_cmd(f"show ip route {ipaddr_str} json"))
+    if ipaddr_str in output.keys():
+        return "Not Good"
+    return None
+
+
+def iproute2_check_path_not_present(router, ipaddr_str):
+    if not topotest.iproute2_is_json_capable():
+        return None
+
+    output = json.loads(router.run(f"ip -json route show {ipaddr_str}"))
+    for entry in output:
+        for nhid_entry in entry:
+            return f"The following entry is found: {nhid_entry['dst']}."
+
+    return None
