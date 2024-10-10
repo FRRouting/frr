@@ -13,6 +13,7 @@ import os
 import sys
 import json
 import pytest
+from functools import partial
 import functools
 
 pytestmark = [pytest.mark.bgpd]
@@ -60,67 +61,56 @@ def teardown_module(mod):
     tgen.stop_topology()
 
 
-def test_bgp_route_server_client():
+def test_converge_protocols():
+    "Wait for protocol convergence"
+
+    tgen = get_topogen()
+    # Don't run this test if we have any failure.
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    r2 = tgen.gears["r2"]
+    ref_file = "{}/{}/show_bgp_ipv6_summary.json".format(CWD, r2.name)
+    expected = json.loads(open(ref_file).read())
+
+    test_func = partial(
+        topotest.router_json_cmp,
+        r2,
+        "show bgp view RS ipv6 summary json",
+        expected,
+    )
+    _, res = topotest.run_and_expect(test_func, None, count=30, wait=1)
+    assertmsg = "{}: BGP convergence failed".format(r2.name)
+    assert res is None, assertmsg
+
+
+def test_bgp_route_server_client_step1():
     tgen = get_topogen()
 
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
-    r1 = tgen.gears["r1"]
-    r2 = tgen.gears["r2"]
+    router_list = tgen.routers().values()
+    for router in router_list:
+        if router.name == "r2":
+            # route-server
+            cmd = "show bgp view RS ipv6 unicast json"
+        else:
+            cmd = "show bgp ipv6 unicast json"
 
-    def _bgp_converge(router):
-        output = json.loads(router.vtysh_cmd("show bgp ipv6 unicast summary json"))
-        expected = {"peers": {"2001:db8:1::1": {"state": "Established", "pfxRcd": 2}}}
-        return topotest.json_cmp(output, expected)
+        # router.cmd("vtysh -c 'sh bgp ipv6 json' >/tmp/show_bgp_ipv6_%s.json" % router.name)
+        ref_file = "{}/{}/show_bgp_ipv6.json".format(CWD, router.name)
+        expected = json.loads(open(ref_file).read())
 
-    test_func = functools.partial(_bgp_converge, r1)
-    _, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
-    assert result is None, "Cannot see BGP sessions to be up"
-
-    def _bgp_prefix_received(router):
-        output = json.loads(router.vtysh_cmd("show bgp 2001:db8:f::3/128 json"))
-        expected = {
-            "prefix": "2001:db8:f::3/128",
-            "paths": [{"nexthops": [{"ip": "2001:db8:3::2"}]}],
-        }
-        return topotest.json_cmp(output, expected)
-
-    test_func = functools.partial(_bgp_prefix_received, r1)
-    _, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
-    assert result is None, "Cannot see BGP GUA next hop from r3 in r1"
-
-    def _bgp_single_next_hop(router):
-        output = json.loads(router.vtysh_cmd("show bgp 2001:db8:f::3/128 json"))
-        return len(output["paths"][0]["nexthops"])
-
-    assert (
-        _bgp_single_next_hop(r1) == 1
-    ), "Not ONLY one Next Hop received for 2001:db8:f::3/128"
-
-    def _bgp_gua_lla_next_hop(router):
-        output = json.loads(router.vtysh_cmd("show bgp view RS 2001:db8:f::3/128 json"))
-        expected = {
-            "prefix": "2001:db8:f::3/128",
-            "paths": [
-                {
-                    "nexthops": [
-                        {
-                            "ip": "2001:db8:3::2",
-                            "hostname": "r3",
-                            "afi": "ipv6",
-                            "scope": "global",
-                        },
-                        {"hostname": "r3", "afi": "ipv6", "scope": "link-local"},
-                    ]
-                }
-            ],
-        }
-        return topotest.json_cmp(output, expected)
-
-    test_func = functools.partial(_bgp_gua_lla_next_hop, r2)
-    _, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
-    assert result is None, "Cannot see BGP LLA next hop from r3 in r2"
+        test_func = partial(
+            topotest.router_json_cmp,
+            router,
+            cmd,
+            expected,
+        )
+        _, res = topotest.run_and_expect(test_func, None, count=30, wait=1)
+        assertmsg = "{}: BGP IPv6 table failure".format(router.name)
+        assert res is None, assertmsg
 
 
 if __name__ == "__main__":

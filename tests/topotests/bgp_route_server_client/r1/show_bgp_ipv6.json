@@ -1,0 +1,58 @@
+{
+  "routerId": "10.10.10.1",
+  "localAS": 65001,
+  "routes": {
+    "2001:db8:1::/64": [
+      {
+        "nexthops": [
+          {
+            "ip": "::",
+            "hostname": "r1",
+            "afi": "ipv6",
+            "scope": "global",
+            "used": true
+          }
+        ]
+      }
+    ],
+    "2001:db8:3::/64": [
+      {
+        "nexthops": [
+          {
+            "ip": "2001:db8:3::2",
+            "hostname": "r2",
+            "afi": "ipv6",
+            "scope": "global",
+            "used": true
+          }
+        ]
+      }
+    ],
+    "2001:db8:f::1/128": [
+      {
+        "nexthops": [
+          {
+            "ip": "::",
+            "hostname": "r1",
+            "afi": "ipv6",
+            "scope": "global",
+            "used": true
+          }
+        ]
+      }
+    ],
+    "2001:db8:f::3/128": [
+      {
+        "nexthops": [
+          {
+            "ip": "2001:db8:3::2",
+            "hostname": "r2",
+            "afi": "ipv6",
+            "scope": "global",
+            "used": true
+          }
+        ]
+      }
+    ]
+  }
+}
