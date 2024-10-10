@@ -112,6 +112,7 @@ extern struct aspath *aspath_str2aspath(const char *str,
 extern void aspath_str_update(struct aspath *as, bool make_json);
 extern void aspath_free(struct aspath *aspath);
 extern struct aspath *aspath_intern(struct aspath *aspath);
+extern json_object *aspath_get_json(struct aspath *aspath);
 extern void aspath_unintern(struct aspath **aspath);
 extern const char *aspath_print(struct aspath *aspath);
 extern void aspath_print_vty(struct vty *vty, struct aspath *aspath);
