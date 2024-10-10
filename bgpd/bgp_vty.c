@@ -161,9 +161,8 @@ static struct peer_group *listen_range_exists(struct bgp *bgp,
 static void bgp_show_global_graceful_restart_mode_vty(struct vty *vty,
 						      struct bgp *bgp);
 
-static int bgp_show_neighbor_graceful_restart_afi_all(struct vty *vty,
-						      enum show_type type,
-						      const char *ip_str,
+static int bgp_show_neighbor_graceful_restart_afi_all(struct vty *vty, struct bgp *bgp,
+						      enum show_type type, const char *ip_str,
 						      afi_t afi, bool use_json);
 
 static enum node_type bgp_node_type(afi_t afi, safi_t safi)
@@ -16144,20 +16143,12 @@ static int bgp_show_neighbor(struct vty *vty, struct bgp *bgp,
 	return CMD_SUCCESS;
 }
 
-static void bgp_show_neighbor_graceful_restart_vty(struct vty *vty,
-						   enum show_type type,
-						   const char *ip_str,
+static void bgp_show_neighbor_graceful_restart_vty(struct vty *vty, struct bgp *bgp,
+						   enum show_type type, const char *ip_str,
 						   afi_t afi, json_object *json)
 {
-
 	int ret;
-	struct bgp *bgp;
 	union sockunion su;
-
-	bgp = bgp_get_default();
-
-	if (!bgp)
-		return;
 
 	if (!json)
 		bgp_show_global_graceful_restart_mode_vty(vty, bgp);
@@ -16313,48 +16304,41 @@ static int bgp_show_neighbor_vty(struct vty *vty, const char *name,
 	return CMD_SUCCESS;
 }
 
-
-
 /* "show [ip] bgp neighbors graceful-restart" commands.  */
-DEFUN (show_ip_bgp_neighbors_graceful_restart,
-	show_ip_bgp_neighbors_graceful_restart_cmd,
-	"show bgp [<ipv4|ipv6>] neighbors [<A.B.C.D|X:X::X:X|WORD>] graceful-restart [json]",
-	SHOW_STR
-	BGP_STR
-	IP_STR
-	IPV6_STR
-	NEIGHBOR_STR
-	"Neighbor to display information about\n"
-	"Neighbor to display information about\n"
-	"Neighbor on BGP configured interface\n"
-	GR_SHOW
+DEFPY (show_ip_bgp_neighbors_graceful_restart,
+       show_ip_bgp_neighbors_graceful_restart_cmd,
+       "show bgp [<ipv4|ipv6>]$afi [<view|vrf> VIEWVRFNAME$vrf] neighbors [<A.B.C.D|X:X::X:X|WORD>$neigh] graceful-restart [json]$json",
+       SHOW_STR
+       BGP_STR
+       IP_STR
+       IPV6_STR
+       BGP_INSTANCE_HELP_STR
+       NEIGHBOR_STR
+       "Neighbor to display information about\n"
+       "Neighbor to display information about\n"
+       "Neighbor on BGP configured interface\n"
+       GR_SHOW
        JSON_STR)
 {
-	char *sh_arg = NULL;
-	enum show_type sh_type;
-	int idx = 0;
-	afi_t afi = AFI_MAX;
-	bool uj = use_json(argc, argv);
+	enum show_type sh_type = show_all;
+	afi_t afiz = AFI_IP;
+	bool uj = !!json;
+	struct bgp *bgp;
 
-	if (!argv_find_and_parse_afi(argv, argc, &idx, &afi))
-		afi = AFI_MAX;
+	if (afi)
+		afiz = bgp_vty_afi_from_str(afi);
 
-	idx++;
-
-	if (argv_find(argv, argc, "A.B.C.D", &idx)
-	    || argv_find(argv, argc, "X:X::X:X", &idx)
-	    || argv_find(argv, argc, "WORD", &idx)) {
+	if (neigh)
 		sh_type = show_peer;
-		sh_arg = argv[idx]->arg;
-	} else
-		sh_type = show_all;
 
-	if (!argv_find(argv, argc, "graceful-restart", &idx))
-		return CMD_SUCCESS;
+	bgp = vrf ? bgp_lookup_by_name(vrf) : bgp_get_default();
 
+	if (!bgp) {
+		vty_out(vty, "No such bgp instance %s", vrf ? vrf : "");
+		return CMD_WARNING;
+	}
 
-	return bgp_show_neighbor_graceful_restart_afi_all(vty, sh_type, sh_arg,
-							  afi, uj);
+	return bgp_show_neighbor_graceful_restart_afi_all(vty, bgp, sh_type, neigh, afiz, uj);
 }
 
 /* "show [ip] bgp neighbors" commands.  */
@@ -16528,9 +16512,8 @@ static void bgp_show_global_graceful_restart_mode_vty(struct vty *vty,
 	vty_out(vty, "\n");
 }
 
-static int bgp_show_neighbor_graceful_restart_afi_all(struct vty *vty,
-						      enum show_type type,
-						      const char *ip_str,
+static int bgp_show_neighbor_graceful_restart_afi_all(struct vty *vty, struct bgp *bgp,
+						      enum show_type type, const char *ip_str,
 						      afi_t afi, bool use_json)
 {
 	json_object *json = NULL;
@@ -16542,14 +16525,11 @@ static int bgp_show_neighbor_graceful_restart_afi_all(struct vty *vty,
 		afi = AFI_IP;
 
 		while ((afi != AFI_L2VPN) && (afi < AFI_MAX)) {
-
-			bgp_show_neighbor_graceful_restart_vty(
-				vty, type, ip_str, afi, json);
+			bgp_show_neighbor_graceful_restart_vty(vty, bgp, type, ip_str, afi, json);
 			afi++;
 		}
 	} else if (afi != AFI_MAX) {
-		bgp_show_neighbor_graceful_restart_vty(vty, type, ip_str, afi,
-						       json);
+		bgp_show_neighbor_graceful_restart_vty(vty, bgp, type, ip_str, afi, json);
 	} else {
 		if (json)
 			json_object_free(json);
