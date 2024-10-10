@@ -284,6 +284,9 @@ struct bgp_path_info {
 	/* Peer structure.  */
 	struct peer *peer;
 
+	/* From peer structure */
+	struct peer *from;
+
 	/* Attribute structure.  */
 	struct attr *attr;
 
@@ -619,13 +622,13 @@ static inline bool is_pi_family_matching(struct bgp_path_info *pi,
 }
 
 static inline void prep_for_rmap_apply(struct bgp_path_info *dst_pi,
-				       struct bgp_path_info_extra *dst_pie,
-				       struct bgp_dest *dest,
-				       struct bgp_path_info *src_pi,
-				       struct peer *peer, struct attr *attr)
+				       struct bgp_path_info_extra *dst_pie, struct bgp_dest *dest,
+				       struct bgp_path_info *src_pi, struct peer *peer,
+				       struct peer *from, struct attr *attr)
 {
 	memset(dst_pi, 0, sizeof(struct bgp_path_info));
 	dst_pi->peer = peer;
+	dst_pi->from = from;
 	dst_pi->attr = attr;
 	dst_pi->net = dest;
 	dst_pi->flags = src_pi->flags;

@@ -278,6 +278,7 @@ DECLARE_QOBJ_TYPE(route_map);
 #define IS_MATCH_SRC_VRF(C)                                                    \
 	(strmatch(C, "frr-bgp-route-map:source-vrf"))
 #define IS_MATCH_PEER(C) (strmatch(C, "frr-bgp-route-map:peer"))
+#define IS_MATCH_SRC_PEER(C) (strmatch(C, "frr-bgp-route-map:src-peer"))
 #define IS_MATCH_AS_LIST(C)                                                    \
 	(strmatch(C, "frr-bgp-route-map:as-path-list"))
 #define IS_MATCH_MAC_LIST(C)                                                   \
