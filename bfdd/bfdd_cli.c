@@ -338,7 +338,7 @@ void bfd_cli_show_minimum_ttl(struct vty *vty, const struct lyd_node *dnode,
 
 DEFPY_YANG(
 	bfd_peer_mult, bfd_peer_mult_cmd,
-	"[no] detect-multiplier ![(2-255)$multiplier]",
+	"[no] detect-multiplier ![(1-255)$multiplier]",
 	NO_STR
 	"Configure peer detection multiplier\n"
 	"Configure peer detection multiplier value\n")
@@ -357,7 +357,7 @@ void bfd_cli_show_mult(struct vty *vty, const struct lyd_node *dnode,
 
 DEFPY_YANG(
 	bfd_peer_rx, bfd_peer_rx_cmd,
-	"[no] receive-interval ![(10-60000)$interval]",
+	"[no] receive-interval ![(10-4294967)$interval]",
 	NO_STR
 	"Configure peer receive interval\n"
 	"Configure peer receive interval value in milliseconds\n")
@@ -381,7 +381,7 @@ void bfd_cli_show_rx(struct vty *vty, const struct lyd_node *dnode,
 
 DEFPY_YANG(
 	bfd_peer_tx, bfd_peer_tx_cmd,
-	"[no] transmit-interval ![(10-60000)$interval]",
+	"[no] transmit-interval ![(10-4294967)$interval]",
 	NO_STR
 	"Configure peer transmit interval\n"
 	"Configure peer transmit interval value in milliseconds\n")
@@ -439,7 +439,7 @@ void bfd_cli_show_echo(struct vty *vty, const struct lyd_node *dnode,
 
 DEFPY_YANG(
 	bfd_peer_echo_interval, bfd_peer_echo_interval_cmd,
-	"[no] echo-interval ![(10-60000)$interval]",
+	"[no] echo-interval ![(10-4294967)$interval]",
 	NO_STR
 	"Configure peer echo intervals\n"
 	"Configure peer echo rx/tx intervals value in milliseconds\n")
@@ -462,7 +462,7 @@ DEFPY_YANG(
 
 DEFPY_YANG(
 	bfd_peer_echo_transmit_interval, bfd_peer_echo_transmit_interval_cmd,
-	"[no] echo transmit-interval ![(10-60000)$interval]",
+	"[no] echo transmit-interval ![(10-4294967)$interval]",
 	NO_STR
 	"Configure peer echo intervals\n"
 	"Configure desired transmit interval\n"
@@ -492,7 +492,7 @@ void bfd_cli_show_desired_echo_transmission_interval(
 
 DEFPY_YANG(
 	bfd_peer_echo_receive_interval, bfd_peer_echo_receive_interval_cmd,
-	"[no] echo receive-interval ![<disabled$disabled|(10-60000)$interval>]",
+	"[no] echo receive-interval ![<disabled$disabled|(10-4294967)$interval>]",
 	NO_STR
 	"Configure peer echo intervals\n"
 	"Configure required receive interval\n"
@@ -577,19 +577,19 @@ void bfd_cli_show_profile(struct vty *vty, const struct lyd_node *dnode,
 }
 
 ALIAS_YANG(bfd_peer_mult, bfd_profile_mult_cmd,
-      "[no] detect-multiplier ![(2-255)$multiplier]",
+      "[no] detect-multiplier ![(1-255)$multiplier]",
       NO_STR
       "Configure peer detection multiplier\n"
       "Configure peer detection multiplier value\n")
 
 ALIAS_YANG(bfd_peer_tx, bfd_profile_tx_cmd,
-      "[no] transmit-interval ![(10-60000)$interval]",
+      "[no] transmit-interval ![(10-4294967)$interval]",
       NO_STR
       "Configure peer transmit interval\n"
       "Configure peer transmit interval value in milliseconds\n")
 
 ALIAS_YANG(bfd_peer_rx, bfd_profile_rx_cmd,
-      "[no] receive-interval ![(10-60000)$interval]",
+      "[no] receive-interval ![(10-4294967)$interval]",
       NO_STR
       "Configure peer receive interval\n"
       "Configure peer receive interval value in milliseconds\n")
@@ -621,14 +621,14 @@ ALIAS_YANG(bfd_peer_echo, bfd_profile_echo_cmd,
       "Configure echo mode\n")
 
 ALIAS_YANG(bfd_peer_echo_interval, bfd_profile_echo_interval_cmd,
-      "[no] echo-interval ![(10-60000)$interval]",
+      "[no] echo-interval ![(10-4294967)$interval]",
       NO_STR
       "Configure peer echo interval\n"
       "Configure peer echo interval value in milliseconds\n")
 
 ALIAS_YANG(
 	bfd_peer_echo_transmit_interval, bfd_profile_echo_transmit_interval_cmd,
-	"[no] echo transmit-interval ![(10-60000)$interval]",
+	"[no] echo transmit-interval ![(10-4294967)$interval]",
 	NO_STR
 	"Configure peer echo intervals\n"
 	"Configure desired transmit interval\n"
@@ -636,7 +636,7 @@ ALIAS_YANG(
 
 ALIAS_YANG(
 	bfd_peer_echo_receive_interval, bfd_profile_echo_receive_interval_cmd,
-	"[no] echo receive-interval ![<disabled$disabled|(10-60000)$interval>]",
+	"[no] echo receive-interval ![<disabled$disabled|(10-4294967)$interval>]",
 	NO_STR
 	"Configure peer echo intervals\n"
 	"Configure required receive interval\n"

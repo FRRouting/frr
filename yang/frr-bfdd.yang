@@ -65,7 +65,7 @@ module frr-bfdd {
   typedef multiplier {
     description "Detection multiplier";
     type uint8 {
-      range "2..255";
+      range "1..255";
     }
   }
 
@@ -169,7 +169,7 @@ module frr-bfdd {
 
     leaf desired-transmission-interval {
       type uint32 {
-          range "10000..60000000";
+          range "10000..max";
       }
       units microseconds;
       default 300000;
@@ -178,7 +178,7 @@ module frr-bfdd {
 
     leaf required-receive-interval {
       type uint32 {
-          range "10000..60000000";
+          range "10000..max";
       }
       units microseconds;
       default 300000;
@@ -210,7 +210,7 @@ module frr-bfdd {
 
     leaf desired-echo-transmission-interval {
       type uint32 {
-          range "10000..60000000";
+          range "10000..max";
       }
       units microseconds;
       default 50000;
@@ -219,7 +219,7 @@ module frr-bfdd {
 
     leaf required-echo-receive-interval {
       type uint32 {
-          range "0 | 10000..60000000";
+          range "0 | 10000..max";
       }
       units microseconds;
       default 50000;
