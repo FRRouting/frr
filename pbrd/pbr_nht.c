@@ -1402,6 +1402,7 @@ struct pbr_nht_show {
 	struct vty *vty;
 	json_object *json;
 	const char *name;
+	uint16_t nhg_count;
 };
 
 static void pbr_nht_show_nhg(struct hash_bucket *b, void *data)
@@ -1447,7 +1448,8 @@ static void pbr_nht_json_nhg(struct hash_bucket *b, void *data)
 		json_object_object_add(this_group, "nexthops", group_hops);
 	}
 
-	json_object_array_add(j, this_group);
+	json_object_object_addf(j, this_group, "%u", pnhgc->table_id);
+	pns->nhg_count++;
 }
 
 void pbr_nht_show_nexthop_group(struct vty *vty, const char *name)
@@ -1460,14 +1462,17 @@ void pbr_nht_show_nexthop_group(struct vty *vty, const char *name)
 	hash_iterate(pbr_nhg_hash, pbr_nht_show_nhg, &pns);
 }
 
-void pbr_nht_json_nexthop_group(json_object *j, const char *name)
+void pbr_nht_json_nexthop_group(json_object *j, const char *name,
+				uint16_t *pbr_nhg_count)
 {
 	struct pbr_nht_show pns;
 
 	pns.name = name;
 	pns.json = j;
+	pns.nhg_count = 0;
 
 	hash_iterate(pbr_nhg_hash, pbr_nht_json_nhg, &pns);
+	*pbr_nhg_count = pns.nhg_count;
 }
 
 void pbr_nht_init(void)
