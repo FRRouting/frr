@@ -834,7 +834,23 @@ sed -i 's/ -M rpki//' %{_sysconfdir}/frr/daemons
 
 %changelog
 
-* Mon Mar 25 2024 Jafar Al-Gharaibeh <jafar@atcorp.com> - %{version}
+* Thu Oct 10  2024 Jafar Al-Gharaibeh <jafar@atcorp.com> - %{version}
+
+* Thu Oct 10 2024 Jafar Al-Gharaibeh <jafar@atcorp.com> - 10.3-dev
+- FRR 10.3 Development
+
+* Fri Jul 26 2024 Jafar Al-Gharaibeh <jafar@atcorp.com> - 10.1
+- Breaking changes
+-   Enable BGP dynamic capability by default for datacenter profile
+-   Split BGP `rpki cache` command into separate per SSH/TCP
+-   Add deprecation cycle for OSPF `router-info X [A.B.C.D]` command
+- Major highlights:
+-   BGP dampening per-neighbor support
+-   BMP send-experimental stats
+-   Implement extended link-bandwidth for BGP
+-   Paths Limit for Multiple Paths in BGP
+-   New command for OSPFv2 `ip ospf neighbor-filter NAME [A.B.C.D]`
+-   Implement non-broadcast support for point-to-multipoint networks
 
 * Mon Mar 25 2024 Jafar Al-Gharaibeh <jafar@atcorp.com> - 10.0
 - Major highlights:
