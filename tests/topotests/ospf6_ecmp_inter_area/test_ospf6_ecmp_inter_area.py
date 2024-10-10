@@ -49,6 +49,7 @@ The test is successful if the number of nexthops for the routes on R1 is as
 expected.
 """
 
+import json
 import os
 import sys
 from functools import partial
@@ -156,6 +157,20 @@ def test_wait_protocol_convergence():
     expect_neighbor_full("r8", "10.254.254.5")
     expect_neighbor_full("r8", "10.254.254.6")
 
+    router = tgen.gears["r1"]
+
+    json_file = "{}/{}/show_ipv6_routes_ospf6-1.json".format(CWD, router.name)
+    expected = json.loads(open(json_file).read())
+    test_func = partial(
+        topotest.router_json_cmp,
+        router,
+        "show ipv6 route ospf6 json",
+        expected,
+    )
+    _, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
+    assertmsg = '"{}" JSON output mismatches'.format(router.name)
+    assert result is None, assertmsg
+
 
 def test_ecmp_inter_area():
     "Test whether OSPFv3 ECMP nexthops are properly updated for inter-area routes after link down"
@@ -163,50 +178,37 @@ def test_ecmp_inter_area():
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
-    def num_nexthops(router):
-        # Careful: "show ipv6 ospf6 route json" doesn't work here. It will
-        # only list one route type per prefix and that might not necessarily
-        # be the best/selected route. "show ipv6 route ospf6 json" only
-        # lists selected routes, so that's more useful in this case.
-        routes = tgen.gears[router].vtysh_cmd("show ipv6 route ospf6 json", isjson=True)
-        route_prefixes_infos = sorted(routes.items())
-        # Note: ri may contain one entry per routing protocol, but since
-        # we've explicitly requested only ospf6 above, we can count on ri[0]
-        # being the entry we're looking for.
-        return [ri[0]["internalNextHopActiveNum"] for rp, ri in route_prefixes_infos]
-
-    def expect_num_nexthops(router, expected_num_nexthops, count):
-        "Wait until number of nexthops for routes matches expectation"
-        logger.info(
-            "waiting for OSPFv3 router '{}' nexthops {}".format(
-                router, expected_num_nexthops
-            )
-        )
-        test_func = partial(num_nexthops, router)
-        _, result = topotest.run_and_expect(
-            test_func, expected_num_nexthops, count=count, wait=3
-        )
-        assert (
-            result == expected_num_nexthops
-        ), "'{}' wrong number of route nexthops".format(router)
-
-    # Check nexthops pre link-down
-    # tgen.mininet_cli()
-    expect_num_nexthops("r1", [1, 1, 1, 1, 2, 3, 3, 3, 3], 4)
+    router = tgen.gears["r1"]
 
     logger.info("triggering R3-R6 link down")
     tgen.gears["r3"].run("ip link set r3-eth1 down")
 
-    # tgen.mininet_cli()
-    # Check nexthops post link-down
-    expect_num_nexthops("r1", [1, 1, 1, 1, 1, 2, 2, 2, 2], 8)
+    json_file = "{}/{}/show_ipv6_routes_ospf6-2.json".format(CWD, router.name)
+    expected = json.loads(open(json_file).read())
+    test_func = partial(
+        topotest.router_json_cmp,
+        router,
+        "show ipv6 route ospf6 json",
+        expected,
+    )
+    _, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
+    assertmsg = '"{}" JSON output mismatches'.format(router.name)
+    assert result is None, assertmsg
 
     logger.info("triggering R2-R5 link down")
     tgen.gears["r2"].run("ip link set r2-eth1 down")
 
-    # tgen.mininet_cli()
-    # Check nexthops post link-down
-    expect_num_nexthops("r1", [1, 1, 1, 1, 1, 1, 1, 1, 1], 8)
+    json_file = "{}/{}/show_ipv6_routes_ospf6-3.json".format(CWD, router.name)
+    expected = json.loads(open(json_file).read())
+    test_func = partial(
+        topotest.router_json_cmp,
+        router,
+        "show ipv6 route ospf6 json",
+        expected,
+    )
+    _, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
+    assertmsg = '"{}" JSON output mismatches'.format(router.name)
+    assert result is None, assertmsg
 
 
 def teardown_module(_mod):
