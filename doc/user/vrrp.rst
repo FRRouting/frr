@@ -519,6 +519,7 @@ Check:
 - Do you have unusual ``sysctls`` enabled that could affect the operation of
   multicast traffic?
 - Are you running in ESXi? See below.
+- Are you running in a linux VM with a bridged network? See below.
 
 
 My master router is not forwarding traffic
@@ -549,6 +550,24 @@ This is a significant security issue in some deployments so make sure you
 understand what you're doing. On 6.7 and later, you can use the MAC Learning
 feature instead, explained `here
 <https://www.virtuallyghetto.com/2018/04/native-mac-learning-in-vsphere-6-7-removes-the-need-for-promiscuous-mode-for-nested-esxi.html>`_.
+
+Issue reference: https://github.com/FRRouting/frr/issues/5386
+
+My router is running in a linux VM with a bridged host network and VRRP has issues
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Issues can arise with VRRP (especially IPv6) when you have a VM running on top
+of a linux host, where your physical network is in a bridge, and the VM
+has an interface attached to the bridge. By default, the linux bridge will
+snoop multicast traffic, and you will likely see sporadic VRRP advertisements failing
+to be received. IPv6 traffic was be particularly affected.
+
+This was observed on a VM running on proxmox, and the solution was to disable
+multicast snooping on the bridge:
+
+.. code-block:: console
+
+   echo 0 > /sys/devices/virtual/net/vmbr0/bridge/multicast_snooping
 
 Issue reference: https://github.com/FRRouting/frr/issues/5386
 
