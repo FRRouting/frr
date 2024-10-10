@@ -294,7 +294,7 @@ struct zapi_cap {
 	int cmd, struct zclient *zclient, uint16_t length, vrf_id_t vrf_id
 
 /* function-type typedef (pointer not included) */
-typedef int (zclient_handler)(ZAPI_CALLBACK_ARGS);
+typedef void (zclient_handler)(ZAPI_CALLBACK_ARGS);
 /* clang-format on */
 
 struct zapi_route;
@@ -388,8 +388,8 @@ struct zclient {
 };
 
 /* lib handlers added in bfd.c */
-extern int zclient_bfd_session_replay(ZAPI_CALLBACK_ARGS);
-extern int zclient_bfd_session_update(ZAPI_CALLBACK_ARGS);
+extern void zclient_bfd_session_replay(ZAPI_CALLBACK_ARGS);
+extern void zclient_bfd_session_update(ZAPI_CALLBACK_ARGS);
 
 /* Zebra API message flag. */
 #define ZAPI_MESSAGE_NEXTHOP  0x01
@@ -1146,8 +1146,7 @@ extern int zapi_srv6_locator_chunk_decode(struct stream *s,
 
 extern enum zclient_send_status zebra_send_pw(struct zclient *zclient,
 					      int command, struct zapi_pw *pw);
-extern int zebra_read_pw_status_update(ZAPI_CALLBACK_ARGS,
-				       struct zapi_pw_status *pw);
+extern void zebra_read_pw_status_update(ZAPI_CALLBACK_ARGS, struct zapi_pw_status *pw);
 
 extern enum zclient_send_status zclient_route_send(uint8_t, struct zclient *,
 						   struct zapi_route *);

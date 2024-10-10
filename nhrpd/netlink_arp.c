@@ -145,7 +145,7 @@ void netlink_set_nflog_group(int nlgroup)
 	}
 }
 
-int nhrp_neighbor_operation(ZAPI_CALLBACK_ARGS)
+void nhrp_neighbor_operation(ZAPI_CALLBACK_ARGS)
 {
 	union sockunion addr = {}, lladdr = {};
 	struct interface *ifp;
@@ -156,10 +156,10 @@ int nhrp_neighbor_operation(ZAPI_CALLBACK_ARGS)
 	zclient_neigh_ip_decode(zclient->ibuf, &api);
 
 	if (api.ip_len != IPV4_MAX_BYTELEN && api.ip_len != 0)
-		return 0;
+		return;
 
 	if (api.ip_in.ipa_type == AF_UNSPEC)
-		return 0;
+		return;
 	sockunion_family(&addr) = api.ip_in.ipa_type;
 	memcpy((uint8_t *)sockunion_get_addr(&addr), &api.ip_in.ip.addr,
 	       family2addrsize(api.ip_in.ipa_type));
@@ -174,10 +174,10 @@ int nhrp_neighbor_operation(ZAPI_CALLBACK_ARGS)
 	ndm_state = api.ndm_state;
 
 	if (!ifp)
-		return 0;
+		return;
 	c = nhrp_cache_get(ifp, &addr, 0);
 	if (!c)
-		return 0;
+		return;
 	debugf(NHRP_DEBUG_KERNEL,
 	       "Netlink: %s %pSU dev %s lladdr %pSU nud 0x%x cache used %u type %u",
 	       (cmd == ZEBRA_NEIGH_GET)	    ? "who-has"
@@ -206,5 +206,4 @@ int nhrp_neighbor_operation(ZAPI_CALLBACK_ARGS)
 						   : ZEBRA_NEIGH_STATE_FAILED;
 		nhrp_cache_set_used(c, state == ZEBRA_NEIGH_STATE_REACHABLE);
 	}
-	return 0;
 }
