@@ -228,6 +228,12 @@ static int group_announce_route_walkcb(struct update_group *updgrp, void *arg)
 			   afi2str(afi), safi2str(safi), ctx->dest);
 
 	UPDGRP_FOREACH_SUBGRP (updgrp, subgrp) {
+		/* withdraw stale addpath without waiting for the coalesce timer timeout.
+		 * Otherwise, since adj->addpath_tx_id is overwritten, the code never
+		 * notice anymore it has to do a withdrawal.
+		 */
+		if (addpath_capable)
+			subgrp_withdraw_stale_addpath(ctx, subgrp);
 		/*
 		 * Skip the subgroups that have coalesce timer running. We will
 		 * walk the entire prefix table for those subgroups when the
@@ -237,8 +243,6 @@ static int group_announce_route_walkcb(struct update_group *updgrp, void *arg)
 
 			/* An update-group that uses addpath */
 			if (addpath_capable) {
-				subgrp_withdraw_stale_addpath(ctx, subgrp);
-
 				subgrp_announce_addpath_best_selected(ctx->dest,
 								      subgrp);
 
