@@ -314,11 +314,11 @@ Route Map Set Command
 
 .. clicmd:: set min-metric <(0-4294967295)>
 
-   Set the minimum meric for the route.
+   Set the minimum metric for the route.
 
 .. clicmd:: set max-metric <(0-4294967295)>
 
-   Set the maximum meric for the route.
+   Set the maximum metric for the route.
 
 .. clicmd:: set aigp-metric <igp-metric|(1-4294967295)>
 
