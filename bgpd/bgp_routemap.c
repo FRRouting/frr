@@ -7236,43 +7236,6 @@ DEFUN_YANG (no_set_aggregator_as,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFUN_YANG (match_ipv6_next_hop,
-	    match_ipv6_next_hop_cmd,
-	    "match ipv6 next-hop ACCESSLIST6_NAME",
-	    MATCH_STR
-	    IPV6_STR
-	    "Match IPv6 next-hop address of route\n"
-	    "IPv6 access-list name\n")
-{
-	const char *xpath =
-		"./match-condition[condition='frr-route-map:ipv6-next-hop-list']";
-	char xpath_value[XPATH_MAXLEN];
-
-	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
-	snprintf(xpath_value, sizeof(xpath_value),
-		 "%s/rmap-match-condition/list-name", xpath);
-	nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY,
-			      argv[argc - 1]->arg);
-
-	return nb_cli_apply_changes(vty, NULL);
-}
-
-DEFUN_YANG (no_match_ipv6_next_hop,
-	    no_match_ipv6_next_hop_cmd,
-	    "no match ipv6 next-hop [ACCESSLIST6_NAME]",
-	    NO_STR
-	    MATCH_STR
-	    IPV6_STR
-	    "Match IPv6 next-hop address of route\n"
-	    "IPv6 access-list name\n")
-{
-	const char *xpath =
-		"./match-condition[condition='frr-route-map:ipv6-next-hop-list']";
-
-	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
-	return nb_cli_apply_changes(vty, NULL);
-}
-
 DEFUN_YANG (match_ipv6_next_hop_address,
 	    match_ipv6_next_hop_address_cmd,
 	    "match ipv6 next-hop address X:X::X:X",
@@ -7329,45 +7292,6 @@ ALIAS_HIDDEN (no_match_ipv6_next_hop_address,
 	      IPV6_STR
 	      "Match IPv6 next-hop address of route\n"
 	      "IPv6 address of next hop\n")
-
-DEFUN_YANG (match_ipv6_next_hop_prefix_list,
-	    match_ipv6_next_hop_prefix_list_cmd,
-	    "match ipv6 next-hop prefix-list PREFIXLIST_NAME",
-	    MATCH_STR
-	    IPV6_STR
-	    "Match IPv6 next-hop address of route\n"
-	    "Match entries by prefix-list\n"
-	    "IPv6 prefix-list name\n")
-{
-	const char *xpath =
-		"./match-condition[condition='frr-route-map:ipv6-next-hop-prefix-list']";
-	char xpath_value[XPATH_MAXLEN];
-
-	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
-	snprintf(xpath_value, sizeof(xpath_value),
-		 "%s/rmap-match-condition/list-name", xpath);
-	nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY,
-			      argv[argc - 1]->arg);
-
-	return nb_cli_apply_changes(vty, NULL);
-}
-
-DEFUN_YANG (no_match_ipv6_next_hop_prefix_list,
-	    no_match_ipv6_next_hop_prefix_list_cmd,
-	    "no match ipv6 next-hop prefix-list [PREFIXLIST_NAME]",
-	    NO_STR
-	    MATCH_STR
-	    IPV6_STR
-	    "Match IPv6 next-hop address of route\n"
-	    "Match entries by prefix-list\n"
-	    "IPv6 prefix-list name\n")
-{
-	const char *xpath =
-		"./match-condition[condition='frr-route-map:ipv6-next-hop-prefix-list']";
-
-	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
-	return nb_cli_apply_changes(vty, NULL);
-}
 
 DEFPY_YANG (match_ipv4_next_hop,
        match_ipv4_next_hop_cmd,
@@ -8041,12 +7965,8 @@ void bgp_route_map_init(void)
 	route_map_install_set(&route_set_ipv6_nexthop_peer_cmd);
 	route_map_install_match(&route_match_rpki_extcommunity_cmd);
 
-	install_element(RMAP_NODE, &match_ipv6_next_hop_cmd);
 	install_element(RMAP_NODE, &match_ipv6_next_hop_address_cmd);
-	install_element(RMAP_NODE, &match_ipv6_next_hop_prefix_list_cmd);
-	install_element(RMAP_NODE, &no_match_ipv6_next_hop_cmd);
 	install_element(RMAP_NODE, &no_match_ipv6_next_hop_address_cmd);
-	install_element(RMAP_NODE, &no_match_ipv6_next_hop_prefix_list_cmd);
 	install_element(RMAP_NODE, &match_ipv6_next_hop_old_cmd);
 	install_element(RMAP_NODE, &no_match_ipv6_next_hop_old_cmd);
 	install_element(RMAP_NODE, &match_ipv4_next_hop_cmd);
