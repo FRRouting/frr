@@ -1169,6 +1169,14 @@ BGP GR Peer Mode Commands
    at the peer level.
 
 
+BGP GR Show Commands
+^^^^^^^^^^^^^^^^^^^^
+
+.. clicmd:: show bgp [<ipv4|ipv6>] [<view|vrf> VRF] neighbors [<A.B.C.D|X:X::X:X|WORD>] graceful-restart [json]
+
+   This command will display information about the neighbors graceful-restart status
+
+
 Long-lived Graceful Restart
 ---------------------------
 
