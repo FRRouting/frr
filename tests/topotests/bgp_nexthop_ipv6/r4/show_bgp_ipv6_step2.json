@@ -9,13 +9,7 @@
             "ip": "fd00:0:2::1",
             "hostname": "rr",
             "afi": "ipv6",
-            "scope": "global"
-          },
-          {
-            "ip": "link-local:rr:eth-sw",
-            "hostname": "rr",
-            "afi": "ipv6",
-            "scope": "link-local",
+            "scope": "global",
             "used": true
           }
         ]
@@ -28,13 +22,7 @@
             "ip": "fd00:0:2::2",
             "hostname": "rr",
             "afi": "ipv6",
-            "scope": "global"
-          },
-          {
-            "ip": "link-local:rr:eth-sw",
-            "hostname": "rr",
-            "afi": "ipv6",
-            "scope": "link-local",
+            "scope": "global",
             "used": true
           }
         ]
@@ -47,13 +35,7 @@
             "ip": "fd00:0:2::3",
             "hostname": "rr",
             "afi": "ipv6",
-            "scope": "global"
-          },
-          {
-            "ip": "link-local:rr:eth-sw",
-            "hostname": "rr",
-            "afi": "ipv6",
-            "scope": "link-local",
+            "scope": "global",
             "used": true
           }
         ]
@@ -117,13 +99,7 @@
             "ip": "fd00:0:2::1",
             "hostname": "rr",
             "afi": "ipv6",
-            "scope": "global"
-          },
-          {
-            "ip": "link-local:rr:eth-sw",
-            "hostname": "rr",
-            "afi": "ipv6",
-            "scope": "link-local",
+            "scope": "global",
             "used": true
           }
         ]
@@ -136,13 +112,7 @@
             "ip": "fd00:0:2::2",
             "hostname": "rr",
             "afi": "ipv6",
-            "scope": "global"
-          },
-          {
-            "ip": "link-local:rr:eth-sw",
-            "hostname": "rr",
-            "afi": "ipv6",
-            "scope": "link-local",
+            "scope": "global",
             "used": true
           }
         ]
@@ -155,13 +125,7 @@
             "ip": "fd00:0:2::3",
             "hostname": "rr",
             "afi": "ipv6",
-            "scope": "global"
-          },
-          {
-            "ip": "link-local:rr:eth-sw",
-            "hostname": "rr",
-            "afi": "ipv6",
-            "scope": "link-local",
+            "scope": "global",
             "used": true
           }
         ]

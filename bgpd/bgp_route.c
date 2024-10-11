@@ -2472,6 +2472,7 @@ bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
 			if (IN6_IS_ADDR_LINKLOCAL(&attr->mp_nexthop_local))
 				global_and_ll = true;
 		} else if (!ibgp_to_ibgp && !transparent &&
+			   !CHECK_FLAG(from->af_flags[afi][safi], PEER_FLAG_REFLECTOR_CLIENT) &&
 			   IN6_IS_ADDR_LINKLOCAL(&peer->nexthop.v6_local) && peer->shared_network &&
 			   (from == bgp->peer_self || peer->sort == BGP_PEER_EBGP))
 			global_and_ll = true;
