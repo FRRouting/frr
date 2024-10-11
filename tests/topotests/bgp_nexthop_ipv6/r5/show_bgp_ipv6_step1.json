@@ -47,13 +47,7 @@
             "ip": "fd00:0:3::9",
             "hostname": "rr",
             "afi": "ipv6",
-            "scope": "global"
-          },
-          {
-            "ip": "link-local:rr:eth-r5",
-            "hostname": "rr",
-            "afi": "ipv6",
-            "scope": "link-local",
+            "scope": "global",
             "used": true
           }
         ]
@@ -155,13 +149,7 @@
             "ip": "fd00:0:3::9",
             "hostname": "rr",
             "afi": "ipv6",
-            "scope": "global"
-          },
-          {
-            "ip": "link-local:rr:eth-r5",
-            "hostname": "rr",
-            "afi": "ipv6",
-            "scope": "link-local",
+            "scope": "global",
             "used": true
           }
         ]

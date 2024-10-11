@@ -165,6 +165,21 @@ def replace_link_local(expected, cache):
             nexthop["ip"] = ip
 
 
+def check_rr_sub_group(expected):
+    tgen = get_topogen()
+
+    rr = tgen.gears["rr"]
+
+    output = json.loads(rr.vtysh_cmd("show bgp update-groups json"))
+    actual = [
+        subgroup["peers"]
+        for entry in output.get("default", {}).values()
+        for subgroup in entry["subGroup"]
+    ]
+
+    return topotest.json_cmp(actual, expected)
+
+
 def teardown_module(_mod):
     "Teardown the pytest environment"
     tgen = get_topogen()
@@ -222,6 +237,19 @@ def test_bgp_ipv6_table_step1():
         assertmsg = "{}: BGP IPv6 Nexthop failure".format(router.name)
         assert res is None, assertmsg
 
+    # check rr sub-groups
+    expected = [
+        ["fd00:0:2::1", "fd00:0:2::2"],
+        ["fd00:0:2::3"],
+        ["fd00:0:2::4"],
+        ["fd00:0:3::5"],
+        ["fd00:0:4::6"],
+    ]
+
+    test_func = partial(check_rr_sub_group, expected)
+    _, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
+    assert result is None, "Peer group split failed"
+
 
 def test_bgp_ipv6_table_step2():
     tgen = get_topogen()
@@ -236,7 +264,12 @@ def test_bgp_ipv6_table_step2():
 configure terminal
 router bgp 65000
  address-family ipv6 unicast
+  no neighbor fd00:0:2::1 nexthop-local unchanged
+  no neighbor fd00:0:2::2 nexthop-local unchanged
+  no neighbor fd00:0:2::3 nexthop-local unchanged
   no neighbor fd00:0:2::4 nexthop-local unchanged
+  no neighbor fd00:0:3::5 nexthop-local unchanged
+  no neighbor fd00:0:4::6 nexthop-local unchanged
 """
     )
 
@@ -256,6 +289,71 @@ router bgp 65000
         _, res = topotest.run_and_expect(test_func, None, count=30, wait=1)
         assertmsg = "{}: BGP IPv6 Nexthop failure".format(router.name)
         assert res is None, assertmsg
+
+    # check rr sub-groups
+    expected = [
+        ["fd00:0:2::1", "fd00:0:2::2"],
+        ["fd00:0:2::3"],
+        ["fd00:0:3::5", "fd00:0:2::4"],
+        ["fd00:0:4::6"],
+    ]
+
+    test_func = partial(check_rr_sub_group, expected)
+    _, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
+    assert result is None, "Peer group split failed"
+
+
+def test_bgp_ipv6_table_step3():
+    tgen = get_topogen()
+
+    # Don't run this test if we have any failure.
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    rr = tgen.gears["rr"]
+    rr.vtysh_cmd(
+        """
+configure terminal
+router bgp 65000
+ address-family ipv6 unicast
+  neighbor fd00:0:2::1 nexthop-local unchanged
+  neighbor fd00:0:2::2 nexthop-local unchanged
+  neighbor fd00:0:2::3 nexthop-local unchanged
+  neighbor fd00:0:2::4 nexthop-local unchanged
+  neighbor fd00:0:3::5 nexthop-local unchanged
+  neighbor fd00:0:4::6 nexthop-local unchanged
+"""
+    )
+
+    router_list = tgen.routers().values()
+    for router in router_list:
+        # router.cmd("vtysh -c 'sh bgp ipv6 json' >/tmp/show_bgp_ipv6_%s.json" % router.name)
+        ref_file = "{}/{}/show_bgp_ipv6_step1.json".format(CWD, router.name)
+        expected = json.loads(open(ref_file).read())
+        replace_link_local(expected, link_local_cache)
+
+        test_func = partial(
+            topotest.router_json_cmp,
+            router,
+            "show bgp ipv6 unicast json",
+            expected,
+        )
+        _, res = topotest.run_and_expect(test_func, None, count=30, wait=1)
+        assertmsg = "{}: BGP IPv6 Nexthop failure".format(router.name)
+        assert res is None, assertmsg
+
+    # check rr sub-groups
+    expected = [
+        ["fd00:0:2::1", "fd00:0:2::2"],
+        ["fd00:0:2::3"],
+        ["fd00:0:2::4"],
+        ["fd00:0:3::5"],
+        ["fd00:0:4::6"],
+    ]
+
+    test_func = partial(check_rr_sub_group, expected)
+    _, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
+    assert result is None, "Peer group split failed"
 
 
 if __name__ == "__main__":
