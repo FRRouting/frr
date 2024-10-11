@@ -718,7 +718,7 @@ DEFUN (ospf_area_range_not_advertise,
 
 DEFUN (no_ospf_area_range,
        no_ospf_area_range_cmd,
-       "no area <A.B.C.D|(0-4294967295)> range A.B.C.D/M [<cost (0-16777215)|advertise [cost (0-16777215)]|not-advertise>]",
+       "no area <A.B.C.D|(0-4294967295)> range A.B.C.D/M [<cost [(0-16777215)]|advertise [cost [(0-16777215)]]|not-advertise>]",
        NO_STR
        "OSPF area parameters\n"
        "OSPF area ID in IP address format\n"
