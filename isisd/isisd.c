@@ -1043,20 +1043,14 @@ int show_isis_interface_common_json(struct json_object *json,
 				for (ALL_LIST_ELEMENTS_RO(area->circuit_list,
 							  cnode, circuit)) {
 					circuit_json = json_object_new_object();
-					json_object_int_add(
-						circuit_json, "circuit",
-						circuit->circuit_id);
-					if (!ifname)
-						isis_circuit_print_json(circuit,
-									circuit_json,
+					if (!ifname ||
+					    strcmp(circuit->interface->name, ifname) == 0) {
+						isis_circuit_print_json(circuit, circuit_json,
 									detail);
-					else if (strcmp(circuit->interface->name,
-							ifname) == 0)
-						isis_circuit_print_json(circuit,
-									circuit_json,
-									detail);
-					json_object_array_add(circuits_json,
-							      circuit_json);
+						json_object_array_add(circuits_json, circuit_json);
+						if (ifname)
+							break;
+					}
 				}
 				json_object_array_add(areas_json, area_json);
 			}
@@ -1079,19 +1073,12 @@ int show_isis_interface_common_json(struct json_object *json,
 			for (ALL_LIST_ELEMENTS_RO(area->circuit_list, cnode,
 						  circuit)) {
 				circuit_json = json_object_new_object();
-				json_object_int_add(circuit_json, "circuit",
-						    circuit->circuit_id);
-				if (!ifname)
-					isis_circuit_print_json(circuit,
-								circuit_json,
-								detail);
-				else if (strcmp(circuit->interface->name,
-						ifname) == 0)
-					isis_circuit_print_json(circuit,
-								circuit_json,
-								detail);
-				json_object_array_add(circuits_json,
-						      circuit_json);
+				if (!ifname || strcmp(circuit->interface->name, ifname) == 0) {
+					isis_circuit_print_json(circuit, circuit_json, detail);
+					json_object_array_add(circuits_json, circuit_json);
+					if (ifname)
+						break;
+				}
 			}
 			json_object_array_add(areas_json, area_json);
 		}
