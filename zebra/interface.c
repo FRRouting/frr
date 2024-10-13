@@ -1999,10 +1999,9 @@ static void zebra_if_dplane_ifp_handling(struct zebra_dplane_ctx *ctx)
 		    !CHECK_FLAG(ifp->status, ZEBRA_INTERFACE_ACTIVE)) {
 			/* Add interface notification from kernel */
 			if (IS_ZEBRA_DEBUG_KERNEL)
-				zlog_debug(
-					"RTM_NEWLINK ADD for %s(%u) vrf_id %u type %d sl_type %d master %u",
-					name, ifindex, vrf_id, zif_type,
-					zif_slave_type, master_ifindex);
+				zlog_debug("RTM_NEWLINK ADD for %s(%u) vrf_id %u type %d sl_type %d master %u flags 0x%llx",
+					   name, ifindex, vrf_id, zif_type, zif_slave_type,
+					   master_ifindex, (unsigned long long)flags);
 
 			if (ifp == NULL) {
 				/* unknown interface */
@@ -2087,10 +2086,9 @@ static void zebra_if_dplane_ifp_handling(struct zebra_dplane_ctx *ctx)
 
 			/* Interface update. */
 			if (IS_ZEBRA_DEBUG_KERNEL)
-				zlog_debug(
-					"RTM_NEWLINK update for %s(%u) sl_type %d master %u",
-					name, ifp->ifindex, zif_slave_type,
-					master_ifindex);
+				zlog_debug("RTM_NEWLINK update for %s(%u) sl_type %d master %u flags 0x%llx",
+					   name, ifp->ifindex, zif_slave_type, master_ifindex,
+					   (unsigned long long)flags);
 
 			set_ifindex(ifp, ifindex, zns);
 			ifp->mtu6 = ifp->mtu = mtu;
