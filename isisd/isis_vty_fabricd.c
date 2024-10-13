@@ -218,16 +218,8 @@ DEFUN (ip_router_isis,
 	if (!area)
 		isis_area_create(area_tag, VRF_DEFAULT_NAME);
 
-	if (!circuit) {
+	if (!circuit)
 		circuit = isis_circuit_new(ifp, area_tag);
-
-		if (circuit->state != C_STATE_CONF
-		    && circuit->state != C_STATE_UP) {
-			vty_out(vty,
-				"Couldn't bring up interface, please check log.\n");
-			return CMD_WARNING_CONFIG_FAILED;
-		}
-	}
 
 	bool ip = circuit->ip_router, ipv6 = circuit->ipv6_router;
 	if (af[2] != '\0')
