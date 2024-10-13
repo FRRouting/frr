@@ -1,70 +1,46 @@
 {
-  "routerId": "10.6.6.6",
+  "routerId": "10.10.10.2",
   "localAS": 65000,
   "routes": {
-    "2001:db8::1/128": [
+    "2001:db8:1::/64": [
       {
         "nexthops": [
           {
-            "ip": "fd00:0:2::1",
-            "hostname": "rr",
-            "afi": "ipv6",
-            "scope": "global"
-          },
-          {
-            "ip": "link-local:rr:eth-r6",
-            "hostname": "rr",
-            "afi": "ipv6",
-            "scope": "link-local",
-            "used": true
-          }
-        ]
-      }
-    ],
-    "2001:db8::2/128": [
-      {
-        "nexthops": [
-          {
-            "ip": "fd00:0:2::2",
-            "hostname": "rr",
-            "afi": "ipv6",
-            "scope": "global"
-          },
-          {
-            "ip": "link-local:rr:eth-r6",
-            "hostname": "rr",
-            "afi": "ipv6",
-            "scope": "link-local",
-            "used": true
-          }
-        ]
-      }
-    ],
-    "2001:db8::3/128": [
-      {
-        "nexthops": [
-          {
-            "ip": "fd00:0:2::3",
-            "hostname": "rr",
+            "ip": "2001:db8:1::4",
             "afi": "ipv6",
             "scope": "global",
             "used": true
           }
         ]
-      }
-    ],
-    "2001:db8::4/128": [
+      },
       {
         "nexthops": [
           {
-            "ip": "fd00:0:2::4",
-            "hostname": "rr",
+            "ip": "2001:db8:1::2",
+            "hostname": "r1",
             "afi": "ipv6",
             "scope": "global"
           },
           {
-            "ip": "link-local:rr:eth-r6",
-            "hostname": "rr",
+            "ip": "link-local:r1:r1-eth0",
+            "hostname": "r1",
+            "afi": "ipv6",
+            "scope": "link-local",
+            "used": true
+          }
+        ]
+      },
+      {
+        "nexthops": [
+          {
+            "ip": "2001:db8:1::3",
+            "hostname": "r4",
+            "afi": "ipv6",
+            "scope": "global"
+          },
+          {
+            "ip": "link-local:r4:r4-eth0",
+            "hostname": "r4",
             "afi": "ipv6",
             "scope": "link-local",
             "used": true
@@ -72,18 +48,18 @@
         ]
       }
     ],
-    "2001:db8::5/128": [
+    "2001:db8:3::/64": [
       {
         "nexthops": [
           {
-            "ip": "fd00:0:3::5",
-            "hostname": "rr",
+            "ip": "2001:db8:3::2",
+            "hostname": "r3",
             "afi": "ipv6",
             "scope": "global"
           },
           {
-            "ip": "link-local:rr:eth-r6",
-            "hostname": "rr",
+            "ip": "link-local:r3:r3-eth0",
+            "hostname": "r3",
             "afi": "ipv6",
             "scope": "link-local",
             "used": true
@@ -91,116 +67,138 @@
         ]
       }
     ],
-    "2001:db8::6/128": [
+    "2001:db8:f::1/128": [
       {
         "nexthops": [
           {
-            "ip": "::",
-            "hostname": "r6",
+            "ip": "2001:db8:1::2",
+            "hostname": "r1",
+            "afi": "ipv6",
+            "scope": "global"
+          },
+          {
+            "ip": "link-local:r1:r1-eth0",
+            "hostname": "r1",
+            "afi": "ipv6",
+            "scope": "link-local",
+            "used": true
+          }
+        ]
+      },
+      {
+        "nexthops": [
+          {
+            "ip": "2001:db8:1::3",
+            "hostname": "r4",
+            "afi": "ipv6",
+            "scope": "global"
+          },
+          {
+            "ip": "link-local:r4:r4-eth0",
+            "hostname": "r4",
+            "afi": "ipv6",
+            "scope": "link-local",
+            "used": true
+          }
+        ]
+      }
+    ],
+    "2001:db8:f::3/128": [
+      {
+        "nexthops": [
+          {
+            "ip": "2001:db8:3::2",
+            "hostname": "r3",
+            "afi": "ipv6",
+            "scope": "global"
+          },
+          {
+            "ip": "link-local:r3:r3-eth0",
+            "hostname": "r3",
+            "afi": "ipv6",
+            "scope": "link-local",
+            "used": true
+          }
+        ]
+      }
+    ],
+    "2001:db8:f::4/128": [
+      {
+        "nexthops": [
+          {
+            "ip": "2001:db8:1::3",
+            "hostname": "r4",
+            "afi": "ipv6",
+            "scope": "global"
+          },
+          {
+            "ip": "link-local:r4:r4-eth0",
+            "hostname": "r4",
+            "afi": "ipv6",
+            "scope": "link-local",
+            "used": true
+          }
+        ]
+      },
+      {
+        "nexthops": [
+          {
+            "ip": "2001:db8:1::2",
+            "hostname": "r1",
+            "afi": "ipv6",
+            "scope": "global"
+          },
+          {
+            "ip": "link-local:r1:r1-eth0",
+            "hostname": "r1",
+            "afi": "ipv6",
+            "scope": "link-local",
+            "used": true
+          }
+        ]
+      }
+    ],
+    "2001:db8:f::5/128": [
+      {
+        "nexthops": [
+          {
+            "ip": "2001:db8:1::4",
             "afi": "ipv6",
             "scope": "global",
             "used": true
           }
         ]
-      }
-    ],
-    "fd00:100::/64": [
+      },
       {
         "nexthops": [
           {
-            "ip": "fd00:0:2::1",
-            "hostname": "rr",
+            "ip": "2001:db8:1::2",
+            "hostname": "r1",
             "afi": "ipv6",
             "scope": "global"
           },
           {
-            "ip": "link-local:rr:eth-r6",
-            "hostname": "rr",
+            "ip": "link-local:r1:r1-eth0",
+            "hostname": "r1",
             "afi": "ipv6",
             "scope": "link-local",
             "used": true
           }
         ]
-      }
-    ],
-    "fd00:200::/64": [
+      },
       {
         "nexthops": [
           {
-            "ip": "fd00:0:2::2",
-            "hostname": "rr",
+            "ip": "2001:db8:1::3",
+            "hostname": "r4",
             "afi": "ipv6",
             "scope": "global"
           },
           {
-            "ip": "link-local:rr:eth-r6",
-            "hostname": "rr",
+            "ip": "link-local:r4:r4-eth0",
+            "hostname": "r4",
             "afi": "ipv6",
             "scope": "link-local",
-            "used": true
-          }
-        ]
-      }
-    ],
-    "fd00:300::/64": [
-      {
-        "nexthops": [
-          {
-            "ip": "fd00:0:2::3",
-            "hostname": "rr",
-            "afi": "ipv6",
-            "scope": "global",
-            "used": true
-          }
-        ]
-      }
-    ],
-    "fd00:400::/64": [
-      {
-        "nexthops": [
-          {
-            "ip": "fd00:0:2::4",
-            "hostname": "rr",
-            "afi": "ipv6",
-            "scope": "global"
-          },
-          {
-            "ip": "link-local:rr:eth-r6",
-            "hostname": "rr",
-            "afi": "ipv6",
-            "scope": "link-local",
-            "used": true
-          }
-        ]
-      }
-    ],
-    "fd00:500::/64": [
-      {
-        "nexthops": [
-          {
-            "ip": "fd00:0:3::5",
-            "hostname": "rr",
-            "afi": "ipv6",
-            "scope": "global"
-          },
-          {
-            "ip": "link-local:rr:eth-r6",
-            "hostname": "rr",
-            "afi": "ipv6",
-            "scope": "link-local",
-            "used": true
-          }
-        ]
-      }
-    ],
-    "fd00:600::/64": [
-      {
-        "nexthops": [
-          {
-            "ip": "::",
-            "hostname": "r6",
-            "afi": "ipv6",
-            "scope": "global",
             "used": true
           }
         ]
