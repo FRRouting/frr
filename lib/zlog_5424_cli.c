@@ -670,7 +670,7 @@ static int log_5424_config_write(struct vty *vty)
 	struct zlog_cfg_5424_user *cfg;
 
 	frr_each (targets, &targets, cfg) {
-		const char *fmt_str = "";
+		const char *fmt_str;
 
 		vty_out(vty, "log extended %s\n", cfg->name);
 

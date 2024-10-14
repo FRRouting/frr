@@ -1256,7 +1256,8 @@ static int rfapiShowRemoteRegistrationsIt(struct bgp *bgp, void *stream,
 				if (!printed_rtlist_hdr) {
 					const char *agetype = "";
 					char *s;
-					const char *type = "";
+					const char *type;
+
 					if (show_imported) {
 						type = "Imported";
 					} else {

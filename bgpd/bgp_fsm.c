@@ -2829,7 +2829,7 @@ const char *print_peer_gr_cmd(enum peer_gr_command pr_gr_cmd)
 
 const char *print_global_gr_mode(enum global_mode gl_mode)
 {
-	const char *global_gr_mode = "???";
+	const char *global_gr_mode;
 
 	switch (gl_mode) {
 	case GLOBAL_HELPER:

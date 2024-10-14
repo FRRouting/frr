@@ -1030,7 +1030,7 @@ enum dplane_op_e dplane_ctx_get_op(const struct zebra_dplane_ctx *ctx)
 
 const char *dplane_op2str(enum dplane_op_e op)
 {
-	const char *ret = "UNKNOWN";
+	const char *ret;
 
 	switch (op) {
 	case DPLANE_OP_NONE:
@@ -1226,7 +1226,7 @@ const char *dplane_op2str(enum dplane_op_e op)
 
 const char *dplane_res2str(enum zebra_dplane_result res)
 {
-	const char *ret = "<Unknown>";
+	const char *ret;
 
 	switch (res) {
 	case ZEBRA_DPLANE_REQUEST_FAILURE:

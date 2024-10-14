@@ -895,7 +895,7 @@ lib_vrf_zebra_ribs_rib_route_route_entry_nexthop_group_nexthop_bh_type_get_elem(
 	struct nb_cb_get_elem_args *args)
 {
 	struct nexthop *nexthop = (struct nexthop *)args->list_entry;
-	const char *type_str = "";
+	const char *type_str;
 
 	if (nexthop->type != NEXTHOP_TYPE_BLACKHOLE)
 		return NULL;

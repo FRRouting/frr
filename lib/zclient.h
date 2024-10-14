@@ -251,7 +251,7 @@ enum zebra_error_types {
 
 static inline const char *zebra_error_type2str(enum zebra_error_types type)
 {
-	const char *ret = "UNKNOWN";
+	const char *ret;
 
 	switch (type) {
 	case ZEBRA_UNKNOWN_ERROR:
@@ -780,7 +780,7 @@ enum zclient_send_status {
 static inline const char *
 zapi_nhg_notify_owner2str(enum zapi_nhg_notify_owner note)
 {
-	const char *ret = "UNKNOWN";
+	const char *ret;
 
 	switch (note) {
 	case ZAPI_NHG_FAIL_INSTALL:
@@ -803,7 +803,7 @@ zapi_nhg_notify_owner2str(enum zapi_nhg_notify_owner note)
 static inline const char *
 zapi_rule_notify_owner2str(enum zapi_rule_notify_owner note)
 {
-	const char *ret = "UNKNOWN";
+	const char *ret;
 
 	switch (note) {
 	case ZAPI_RULE_FAIL_INSTALL:
@@ -825,7 +825,7 @@ zapi_rule_notify_owner2str(enum zapi_rule_notify_owner note)
 
 static inline const char *zapi_srv6_sid_notify2str(enum zapi_srv6_sid_notify note)
 {
-	const char *ret = "UNKNOWN";
+	const char *ret;
 
 	switch (note) {
 	case ZAPI_SRV6_SID_FAIL_ALLOC:

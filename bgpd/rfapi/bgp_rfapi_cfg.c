@@ -4401,7 +4401,7 @@ int bgp_rfapi_cfg_write(struct vty *vty, struct bgp *bgp)
 
 	if (hc->redist_mode) /* ! default */
 	{
-		const char *s = "";
+		const char *s;
 
 		switch (hc->redist_mode) {
 		case VNC_REDIST_MODE_PLAIN:
