@@ -3711,47 +3711,25 @@ static void zebra_nhg_update_nhe(struct nhg_hash_entry *nhe, struct nexthop_grou
 	new_nhg->nexthop = NULL;
 	nexthops_free(temp);
 
-	/* flag all the nhg_depend NHGs to remember which one to remove
-	 * when the dependency refresh is done
-	 */
-	frr_each (nhg_connected_tree, &nhe->nhg_depends, rb_node_dep)
-		SET_FLAG(rb_node_dep->nhe->flags, NEXTHOP_GROUP_DEPEND_TO_DETACH);
+	/* Free all the things */
+	zebra_nhg_release_all_deps(nhe);
+
+	if (!zebra_nhg_depends_is_empty(nhe)) {
+		frr_each (nhg_connected_tree, &nhe->nhg_depends,
+			  rb_node_dep)
+			zebra_nhg_decrement_ref(
+				rb_node_dep->nhe);
+		nhg_connected_tree_free(&nhe->nhg_depends);
+	}
 
 	/* instead of creating a new nhe, just update the dependencies
 	 * from the new nexthops
 	 */
 	for (newhop = nhe->nhg.nexthop; newhop; newhop = newhop->next) {
-		if (IS_ZEBRA_DEBUG_NHG_DETAIL)
-			zlog_debug("%s: depends NH %pNHv %s", __func__, newhop,
-				   CHECK_FLAG(newhop->flags, NEXTHOP_FLAG_RECURSIVE) ? "(R)" : "");
-
-		nhe_temp = depends_find_add(&nhe->nhg_depends, newhop, afi, nhe->type, false);
-		if (nhe_temp) {
-			if (CHECK_FLAG(nhe_temp->flags, NEXTHOP_GROUP_DEPEND_TO_DETACH))
-				UNSET_FLAG(nhe_temp->flags, NEXTHOP_GROUP_DEPEND_TO_DETACH);
-			else
-				/* a new dependency is found, which was not already present.
-				 * update the refcnt
-				 */
-				zebra_nhg_increment_ref(nhe_temp);
-		}
-	}
-
-	frr_each_safe (nhg_connected_tree, &nhe->nhg_depends, rb_node_dep) {
-		if (CHECK_FLAG(rb_node_dep->nhe->flags, NEXTHOP_GROUP_DEPEND_TO_DETACH)) {
-			/* detach the useless dependency from the NHG
-			 */
-			UNSET_FLAG(rb_node_dep->nhe->flags, NEXTHOP_GROUP_DEPEND_TO_DETACH);
-			if (IS_ZEBRA_DEBUG_NHG_DETAIL)
-				zlog_debug("%s: NHE %u, removed dependency %u (%pNG)", __func__,
-					   nhe->id, rb_node_dep->nhe->id, rb_node_dep->nhe);
-			nhe_temp = nhg_connected_tree_del_nhe(&nhe->nhg_depends, rb_node_dep->nhe);
-			if (nhe_temp) {
-				/* detach nhg_dependent */
-				nhg_connected_tree_del_nhe(&nhe_temp->nhg_dependents, nhe);
-				zebra_nhg_decrement_ref(nhe_temp);
-			}
-		}
+		nhe_temp = depends_find_add(&nhe->nhg_depends, newhop, afi,
+					    nhe->type, false);
+		if (nhe_temp)
+                          zebra_nhg_increment_ref(nhe_temp);
 	}
 
 	/* Attach dependent backpointers to singletons
