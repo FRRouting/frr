@@ -499,7 +499,12 @@ int pim_crp_process(struct interface *ifp, pim_sgaddr *src_dst, uint8_t *buf,
 	remain -= PIM_MSG_HEADER_LEN;
 
 	crp_hdr = (struct cand_rp_msg *)buf;
-	buf += sizeof(*crp_hdr);
+	/*
+	 * buf += sizeof(*crp_hdr);
+	 * Buff is not used for the remainder of the function
+	 * but if it is we need to uncomment out the above set of the
+	 * ptr for buf
+	 */
 	remain -= sizeof(*crp_hdr);
 
 	size_t ngroups = crp_hdr->prefix_cnt;
