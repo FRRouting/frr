@@ -154,7 +154,7 @@ static bool mgmt_history_dump_cmt_record_index(void)
 	FILE *fp;
 	int ret = 0;
 	struct mgmt_cmt_info_t *cmt_info;
-	struct mgmt_cmt_info_t cmt_info_set[10];
+	struct mgmt_cmt_info_t cmt_info_set[MGMTD_MAX_COMMIT_LIST];
 	int cnt = 0;
 
 	snprintf(index_path, sizeof(index_path), MGMTD_COMMIT_INDEX_FILE_PATH);
@@ -166,6 +166,7 @@ static bool mgmt_history_dump_cmt_record_index(void)
 		return false;
 	}
 
+	assert(mgmt_cmt_infos_count(&mm->cmts) <= MGMTD_MAX_COMMIT_LIST);
 	FOREACH_CMT_REC (mm, cmt_info) {
 		memcpy(&cmt_info_set[cnt], cmt_info,
 		       sizeof(struct mgmt_cmt_info_t));

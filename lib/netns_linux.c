@@ -194,7 +194,7 @@ static int ns_enable_internal(struct ns *ns, void (*func)(ns_id_t, void *))
 		if (have_netns()) {
 			ns->fd = open(ns->name, O_RDONLY);
 		} else {
-			ns->fd = -2;
+			ns->fd = -1;
 			/* Remember ns_enable_hook has been called */
 			errno = -ENOTSUP;
 		}

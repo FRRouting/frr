@@ -350,6 +350,7 @@ int main(int argc, char **argv, char **env)
 	char pathspace[MAXPATHLEN] = "";
 	const char *histfile = NULL;
 	const char *histfile_env = getenv("VTYSH_HISTFILE");
+	const char *logpath;
 
 	/* SUID: drop down to calling user & go back up when needed */
 	elevuid = geteuid();
@@ -643,9 +644,8 @@ int main(int argc, char **argv, char **env)
 		}
 	}
 
-	if (getenv("VTYSH_LOG")) {
-		const char *logpath = getenv("VTYSH_LOG");
-
+	logpath = getenv("VTYSH_LOG");
+	if (logpath) {
 		logfile = fopen(logpath, "a");
 		if (!logfile) {
 			fprintf(stderr, "Failed to open logfile (%s): %s\n",

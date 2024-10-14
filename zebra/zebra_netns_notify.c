@@ -386,11 +386,19 @@ void zebra_ns_notify_parse(void)
 	}
 	while ((dent = readdir(srcdir)) != NULL) {
 		struct stat st;
+		int dfd;
 
 		if (strcmp(dent->d_name, ".") == 0
 		    || strcmp(dent->d_name, "..") == 0)
 			continue;
-		if (fstatat(dirfd(srcdir), dent->d_name, &st, 0) < 0) {
+
+		dfd = dirfd(srcdir);
+		if (dfd == -1) {
+			flog_err_sys(EC_LIB_SYSTEM_CALL, "NS parsing directory: %s(%u)",
+				     safe_strerror(errno), errno);
+			continue;
+		}
+		if (fstatat(dfd, dent->d_name, &st, 0) < 0) {
 			flog_err_sys(
 				EC_LIB_SYSTEM_CALL,
 				"NS parsing init: failed to parse entry %s",
