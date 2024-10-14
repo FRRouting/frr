@@ -1338,7 +1338,7 @@ static void rib_process(struct route_node *rn)
 		 */
 		if (CHECK_FLAG(re->status, ROUTE_ENTRY_CHANGED)) {
 			proto_re_changed = re;
-			if (!nexthop_active_update(rn, re, old_fib)) {
+			if (!nexthop_active_update(rn, re)) {
 				const struct prefix *p;
 				struct rib_table_info *info;
 
