@@ -178,6 +178,40 @@ static void connected_update(struct interface *ifp, struct connected *ifc)
 		connected_announce(ifp, ifc);
 }
 
+/*
+ * This function goes through and handles the deletion of a kernel route that happened
+ * to be the exact same as the connected route, so that the connected route wins.
+ * This can happen during processing if we happen to receive events in a slightly
+ * unexpected order.  This is similiar to code in the other direction where if we
+ * have a kernel route don't install it if it perfectly matches a connected route.
+ */
+static void connected_remove_kernel_for_connected(afi_t afi, safi_t safi, struct zebra_vrf *zvrf,
+						  struct prefix *p, struct nexthop *nh)
+{
+	struct route_node *rn;
+	struct route_entry *re;
+	rib_dest_t *dest;
+	struct route_table *table = zebra_vrf_table(afi, SAFI_UNICAST, zvrf->vrf->vrf_id);
+
+	rn = route_node_match(table, p);
+	if (!rn)
+		return;
+
+	if (!prefix_same(&rn->p, p))
+		return;
+
+	dest = rib_dest_from_rnode(rn);
+	if (!dest || !dest->selected_fib)
+		return;
+
+	re = dest->selected_fib;
+	if (re->type != ZEBRA_ROUTE_KERNEL)
+		return;
+
+	rib_delete(afi, SAFI_UNICAST, zvrf->vrf->vrf_id, ZEBRA_ROUTE_KERNEL, 0, 0, p, NULL, nh, 0,
+		   zvrf->table_id, 0, 0, false);
+}
+
 /* Called from if_up(). */
 void connected_up(struct interface *ifp, struct connected *ifc)
 {
@@ -276,6 +310,7 @@ void connected_up(struct interface *ifp, struct connected *ifc)
 			return;
 	}
 
+<<<<<<< HEAD
 	rib_add(afi, SAFI_UNICAST, zvrf->vrf->vrf_id, ZEBRA_ROUTE_CONNECT, 0,
 		flags, &p, NULL, &nh, 0, zvrf->table_id, metric, 0, 0, 0,
 		false);
@@ -283,6 +318,29 @@ void connected_up(struct interface *ifp, struct connected *ifc)
 	rib_add(afi, SAFI_MULTICAST, zvrf->vrf->vrf_id, ZEBRA_ROUTE_CONNECT, 0,
 		flags, &p, NULL, &nh, 0, zvrf->table_id, metric, 0, 0, 0,
 		false);
+=======
+	if (!CHECK_FLAG(ifc->flags, ZEBRA_IFA_NOPREFIXROUTE)) {
+		connected_remove_kernel_for_connected(afi, SAFI_UNICAST, zvrf, &p, &nh);
+
+		rib_add(afi, SAFI_UNICAST, zvrf->vrf->vrf_id,
+			ZEBRA_ROUTE_CONNECT, 0, flags, &p, NULL, &nh, 0,
+			zvrf->table_id, metric, 0, 0, 0, false);
+
+		connected_remove_kernel_for_connected(afi, SAFI_MULTICAST, zvrf, &p, &nh);
+		rib_add(afi, SAFI_MULTICAST, zvrf->vrf->vrf_id,
+			ZEBRA_ROUTE_CONNECT, 0, flags, &p, NULL, &nh, 0,
+			zvrf->table_id, metric, 0, 0, 0, false);
+	}
+
+	if (install_local) {
+		rib_add(afi, SAFI_UNICAST, zvrf->vrf->vrf_id, ZEBRA_ROUTE_LOCAL,
+			0, flags, &plocal, NULL, &nh, 0, zvrf->table_id, 0, 0,
+			0, 0, false);
+		rib_add(afi, SAFI_MULTICAST, zvrf->vrf->vrf_id,
+			ZEBRA_ROUTE_LOCAL, 0, flags, &plocal, NULL, &nh, 0,
+			zvrf->table_id, 0, 0, 0, 0, false);
+	}
+>>>>>>> 74e25198e7 (zebra: Prevent a kernel route from being there when a connected should)
 
 	/* Schedule LSP forwarding entries for processing, if appropriate. */
 	if (zvrf->vrf->vrf_id == VRF_DEFAULT) {
