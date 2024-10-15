@@ -489,7 +489,7 @@ static struct stream *bmp_peerstate(struct peer *peer, bool down)
 				 &uptime_real);
 
 		/* Local Address (16 bytes) */
-		if (!peer->su_local || is_locrib)
+		if (is_locrib)
 			stream_put(s, 0, 16);
 		else if (peer->su_local->sa.sa_family == AF_INET6)
 			stream_put(s, &peer->su_local->sin6.sin6_addr, 16);
