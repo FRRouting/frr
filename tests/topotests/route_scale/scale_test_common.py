@@ -151,7 +151,7 @@ def route_install_helper(iter):
         logger.info(
             "Limited memory available: {}, skipping x32 testcase".format(total_mem)
         )
-        return;
+        return
 
     installed_file = "{}/r1/installed.routes.json".format(CWD)
     expected_installed = json.loads(open(installed_file).read())

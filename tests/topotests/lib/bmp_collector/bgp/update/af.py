@@ -19,7 +19,7 @@ SAFI_IP_FLOWSPEC = 133
 SAFI_VPN_FLOWSPEC = 134
 
 
-#------------------------------------------------------------------------------
+# ------------------------------------------------------------------------------
 class AddressFamily:
     def __init__(self, afi, safi):
         self.afi = afi
@@ -31,13 +31,13 @@ class AddressFamily:
         return (self.afi, self.safi) == (other.afi, other.safi)
 
     def __str__(self):
-        return f'afi: {self.afi}, safi: {self.safi}'
+        return f"afi: {self.afi}, safi: {self.safi}"
 
     def __hash__(self):
         return hash((self.afi, self.safi))
 
 
-#------------------------------------------------------------------------------
+# ------------------------------------------------------------------------------
 class AF:
     IPv4_UNICAST = AddressFamily(AFI_IP, SAFI_UNICAST)
     IPv6_UNICAST = AddressFamily(AFI_IP6, SAFI_UNICAST)

@@ -63,16 +63,16 @@ def teardown_module(mod):
 
 def test_zebra_srv6_encap_src_addr(tgen):
     "Test SRv6 encapsulation source address."
-    logger.info(
-        "Test SRv6 encapsulation source address."
-    )
+    logger.info("Test SRv6 encapsulation source address.")
     r1 = tgen.gears["r1"]
 
     # Generate expected results
     json_file = "{}/r1/expected_srv6_encap_src_addr.json".format(CWD)
     expected = json.loads(open(json_file).read())
 
-    ok = topotest.router_json_cmp_retry(r1, "show segment-routing srv6 manager json", expected)
+    ok = topotest.router_json_cmp_retry(
+        r1, "show segment-routing srv6 manager json", expected
+    )
     assert ok, '"r1" JSON output mismatches'
 
     output = r1.cmd("ip sr tunsrc show")
@@ -81,9 +81,7 @@ def test_zebra_srv6_encap_src_addr(tgen):
 
 def test_zebra_srv6_encap_src_addr_unset(tgen):
     "Test SRv6 encapsulation source address unset."
-    logger.info(
-        "Test SRv6 encapsulation source address unset."
-    )
+    logger.info("Test SRv6 encapsulation source address unset.")
     r1 = tgen.gears["r1"]
 
     # Unset SRv6 encapsulation source address
@@ -101,7 +99,9 @@ def test_zebra_srv6_encap_src_addr_unset(tgen):
     json_file = "{}/r1/expected_srv6_encap_src_addr_unset.json".format(CWD)
     expected = json.loads(open(json_file).read())
 
-    ok = topotest.router_json_cmp_retry(r1, "show segment-routing srv6 manager json", expected)
+    ok = topotest.router_json_cmp_retry(
+        r1, "show segment-routing srv6 manager json", expected
+    )
     assert ok, '"r1" JSON output mismatches'
 
     output = r1.cmd("ip sr tunsrc show")
@@ -110,9 +110,7 @@ def test_zebra_srv6_encap_src_addr_unset(tgen):
 
 def test_zebra_srv6_encap_src_addr_set(tgen):
     "Test SRv6 encapsulation source address set."
-    logger.info(
-        "Test SRv6 encapsulation source address set."
-    )
+    logger.info("Test SRv6 encapsulation source address set.")
     r1 = tgen.gears["r1"]
 
     # Set SRv6 encapsulation source address
@@ -130,7 +128,9 @@ def test_zebra_srv6_encap_src_addr_set(tgen):
     json_file = "{}/r1/expected_srv6_encap_src_addr_set.json".format(CWD)
     expected = json.loads(open(json_file).read())
 
-    ok = topotest.router_json_cmp_retry(r1, "show segment-routing srv6 manager json", expected)
+    ok = topotest.router_json_cmp_retry(
+        r1, "show segment-routing srv6 manager json", expected
+    )
     assert ok, '"r1" JSON output mismatches'
 
     output = r1.cmd("ip sr tunsrc show")

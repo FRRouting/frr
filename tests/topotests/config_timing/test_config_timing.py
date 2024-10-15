@@ -97,8 +97,8 @@ def test_static_timing():
         optype = "adding" if add else "removing"
         iptype = "IPv6" if do_ipv6 else "IPv4"
         if super_prefix is None:
-            super_prefix = u"2001::/48" if do_ipv6 else u"10.0.0.0/8"
-        via = u"lo"
+            super_prefix = "2001::/48" if do_ipv6 else "10.0.0.0/8"
+        via = "lo"
         optyped = "added" if add else "removed"
 
         for rname, router in router_list.items():
@@ -161,8 +161,8 @@ def test_static_timing():
         prefix_count = 50
 
     prefix_base = [
-        [u"10.0.0.0/8", u"11.0.0.0/8"],
-        [u"2100:1111:2220::/44", u"2100:3333:4440::/44"],
+        ["10.0.0.0/8", "11.0.0.0/8"],
+        ["2100:1111:2220::/44", "2100:3333:4440::/44"],
     ]
 
     # This apparently needed to allow for various mgmtd/staticd/zebra connections to form

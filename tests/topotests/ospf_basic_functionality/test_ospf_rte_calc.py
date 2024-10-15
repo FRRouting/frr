@@ -177,7 +177,7 @@ def test_ospf_redistribution_tc5_p0(request):
 
     step("verify intra area route is calculated for r0-r3 interface ip in R1")
     ip = topo["routers"]["r0"]["links"]["r3"]["ipv4"]
-    ip_net = str(ipaddress.ip_interface(u"{}".format(ip)).network)
+    ip_net = str(ipaddress.ip_interface("{}".format(ip)).network)
     nh = topo["routers"]["r0"]["links"]["r1"]["ipv4"].split("/")[0]
     input_dict = {
         "r1": {"static_routes": [{"network": ip_net, "no_of_ip": 1, "routeType": "N"}]}
@@ -301,7 +301,7 @@ def test_ospf_redistribution_tc6_p0(request):
 
     step("verify intra area route is calculated for r0-r3 interface ip in R1")
     ip = topo["routers"]["r0"]["links"]["r3"]["ipv4"]
-    ip_net = str(ipaddress.ip_interface(u"{}".format(ip)).network)
+    ip_net = str(ipaddress.ip_interface("{}".format(ip)).network)
     nh = topo["routers"]["r0"]["links"]["r1"]["ipv4"].split("/")[0]
     input_dict = {
         "r1": {"static_routes": [{"network": ip_net, "no_of_ip": 1, "routeType": "N"}]}

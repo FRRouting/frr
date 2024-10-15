@@ -117,7 +117,9 @@ def test_bgp_color_extended_communities():
 
     test_func = functools.partial(_bgp_check_route, r2, True)
     _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
-    assert result is None, "10.10.10.0/24 ext community is correctly not installed, but SHOULD be"
+    assert (
+        result is None
+    ), "10.10.10.0/24 ext community is correctly not installed, but SHOULD be"
 
 
 if __name__ == "__main__":

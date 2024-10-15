@@ -410,7 +410,7 @@ def test_ospfv3_learning_tc15_p0(request):
 
     step("Verify that Type 3 summary LSA is originated for the same Area 0")
     ip = topo["routers"]["r1"]["links"]["r3-link0"]["ipv6"]
-    ip_net = str(ipaddress.ip_interface(u"{}".format(ip)).network)
+    ip_net = str(ipaddress.ip_interface("{}".format(ip)).network)
 
     input_dict = {
         "r1": {

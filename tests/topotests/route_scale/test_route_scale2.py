@@ -30,34 +30,50 @@ from lib import topotest
 from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
 
-from scale_test_common import scale_build_common, scale_setup_module, route_install_helper, scale_test_memory_leak, scale_converge_protocols, scale_teardown_module
+from scale_test_common import (
+    scale_build_common,
+    scale_setup_module,
+    route_install_helper,
+    scale_test_memory_leak,
+    scale_converge_protocols,
+    scale_teardown_module,
+)
 
 
 pytestmark = [pytest.mark.sharpd]
 
+
 def build(tgen):
     scale_build_common(tgen)
+
 
 def setup_module(module):
     scale_setup_module(module)
 
+
 def teardown_module(_mod):
     scale_teardown_module(_mod)
+
 
 def test_converge_protocols():
     scale_converge_protocols()
 
+
 def test_route_install_1nh():
     route_install_helper(0)
+
 
 def test_route_install_8nh():
     route_install_helper(3)
 
+
 def test_route_install_32nh():
     route_install_helper(5)
 
+
 def test_memory_leak():
     scale_test_memory_leak()
+
 
 if __name__ == "__main__":
     args = ["-s"] + sys.argv[1:]

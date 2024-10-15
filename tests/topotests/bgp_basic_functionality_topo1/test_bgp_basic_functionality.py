@@ -831,7 +831,6 @@ def test_bgp_with_loopback_interface(request):
         for bgp_neighbor in topo["routers"][routerN]["bgp"]["address_family"]["ipv4"][
             "unicast"
         ]["neighbor"].keys():
-
             # Adding ['source_link'] = 'lo' key:value pair
             topo["routers"][routerN]["bgp"]["address_family"]["ipv4"]["unicast"][
                 "neighbor"
@@ -910,7 +909,6 @@ def test_bgp_with_loopback_with_same_subnet_p1(request):
             for bgp_neighbor in topo_modify["routers"][routerN]["bgp"][
                 "address_family"
             ][addr_type]["unicast"]["neighbor"].keys():
-
                 # Adding ['source_link'] = 'lo' key:value pair
                 topo_modify["routers"][routerN]["bgp"]["address_family"][addr_type][
                     "unicast"

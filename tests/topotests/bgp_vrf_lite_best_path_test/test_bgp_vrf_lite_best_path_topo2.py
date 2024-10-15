@@ -43,7 +43,7 @@ from lib.common_config import (
     step,
     create_static_routes,
     check_router_status,
-    apply_raw_config
+    apply_raw_config,
 )
 
 from lib.topolog import logger
@@ -51,7 +51,7 @@ from lib.bgp import (
     verify_bgp_convergence,
     create_router_bgp,
     verify_bgp_rib,
-    verify_bgp_bestpath
+    verify_bgp_bestpath,
 )
 from lib.topojson import build_config_from_json
 
@@ -84,10 +84,8 @@ VRF_LIST = ["RED", "BLUE", "GREEN"]
 COMM_VAL_1 = "100:100"
 COMM_VAL_2 = "500:500"
 COMM_VAL_3 = "600:600"
-BESTPATH = {
-    "ipv4": "0.0.0.0",
-    "ipv6": "::"
-}
+BESTPATH = {"ipv4": "0.0.0.0", "ipv6": "::"}
+
 
 def setup_module(mod):
     """
@@ -158,6 +156,7 @@ def teardown_module():
 #
 #####################################################
 
+
 def test_dynamic_import_ecmp_imported_routed_diffrent_vrfs_p0(request):
     """
     Verify ECMP for imported routes from different VRFs.
@@ -170,136 +169,130 @@ def test_dynamic_import_ecmp_imported_routed_diffrent_vrfs_p0(request):
         check_router_status(tgen)
     reset_config_on_routers(tgen)
 
-    step("Configure same static routes in tenant vrfs RED and GREEN on router "
-         "R3 and redistribute in respective BGP process")
+    step(
+        "Configure same static routes in tenant vrfs RED and GREEN on router "
+        "R3 and redistribute in respective BGP process"
+    )
 
     for vrf_name in ["RED", "GREEN"]:
         for addr_type in ADDR_TYPES:
             if vrf_name == "GREEN":
-                next_hop_vrf = topo["routers"]["r1"]["links"][
-                    "r3-link3"][addr_type].split("/")[0]
+                next_hop_vrf = topo["routers"]["r1"]["links"]["r3-link3"][
+                    addr_type
+                ].split("/")[0]
             else:
-                next_hop_vrf = topo["routers"]["r2"]["links"][
-                    "r3-link1"][addr_type].split("/")[0]
+                next_hop_vrf = topo["routers"]["r2"]["links"]["r3-link1"][
+                    addr_type
+                ].split("/")[0]
             static_routes = {
                 "r3": {
                     "static_routes": [
                         {
                             "network": [NETWORK1_1[addr_type]],
                             "next_hop": next_hop_vrf,
-                            "vrf": vrf_name
+                            "vrf": vrf_name,
                         }
                     ]
                 }
             }
 
             result = create_static_routes(tgen, static_routes)
-            assert result is True, "Testcase {} :Failed \n Error: {}". \
-                format(tc_name, result)
+            assert result is True, "Testcase {} :Failed \n Error: {}".format(
+                tc_name, result
+            )
 
         step("Redistribute static route on BGP VRF : {}".format(vrf_name))
         temp = {}
         for addr_type in ADDR_TYPES:
-            temp.update({
-                addr_type: {
-                    "unicast": {
-                        "redistribute": [{
-                            "redist_type": "static"
-                        }]
-                    }
-                }
-            })
+            temp.update(
+                {addr_type: {"unicast": {"redistribute": [{"redist_type": "static"}]}}}
+            )
 
-        redist_dict = {"r3": {"bgp": [{
-            "vrf": vrf_name, "local_as": 3, "address_family": temp
-        }]}}
+        redist_dict = {
+            "r3": {"bgp": [{"vrf": vrf_name, "local_as": 3, "address_family": temp}]}
+        }
 
         result = create_router_bgp(tgen, topo, redist_dict)
-        assert result is True, "Testcase {} :Failed \n Error: {}". \
-            format(tc_name, result)
+        assert result is True, "Testcase {} :Failed \n Error: {}".format(
+            tc_name, result
+        )
 
-    step("Verify that configured static routes are installed in respective "
-         "BGP table for vrf RED & GREEN")
+    step(
+        "Verify that configured static routes are installed in respective "
+        "BGP table for vrf RED & GREEN"
+    )
     for vrf_name in ["RED", "GREEN"]:
         for addr_type in ADDR_TYPES:
             if vrf_name == "GREEN":
-                next_hop_vrf = topo["routers"]["r1"]["links"][
-                    "r3-link3"][addr_type].split("/")[0]
+                next_hop_vrf = topo["routers"]["r1"]["links"]["r3-link3"][
+                    addr_type
+                ].split("/")[0]
             else:
-                next_hop_vrf = topo["routers"]["r2"]["links"][
-                    "r3-link1"][addr_type].split("/")[0]
+                next_hop_vrf = topo["routers"]["r2"]["links"]["r3-link1"][
+                    addr_type
+                ].split("/")[0]
             static_routes = {
                 "r3": {
                     "static_routes": [
-                        {
-                            "network": [NETWORK1_1[addr_type]],
-                            "vrf": vrf_name
-                        }
+                        {"network": [NETWORK1_1[addr_type]], "vrf": vrf_name}
                     ]
                 }
             }
 
-            result = verify_bgp_rib(tgen, addr_type, "r3", static_routes,
-                                    next_hop=next_hop_vrf)
-            assert result is True, "Testcase {} : Failed \n Error {}". \
-                format(tc_name, result)
+            result = verify_bgp_rib(
+                tgen, addr_type, "r3", static_routes, next_hop=next_hop_vrf
+            )
+            assert result is True, "Testcase {} : Failed \n Error {}".format(
+                tc_name, result
+            )
 
-            result = verify_rib(tgen, addr_type, "r3", static_routes,
-                                next_hop=next_hop_vrf)
-            assert result is True, "Testcase {} : Failed \n Error {}". \
-                format(tc_name, result)
+            result = verify_rib(
+                tgen, addr_type, "r3", static_routes, next_hop=next_hop_vrf
+            )
+            assert result is True, "Testcase {} : Failed \n Error {}".format(
+                tc_name, result
+            )
 
     step("Import vrf RED and GREEN into default vrf and Configure ECMP")
     bgp_val = []
     for vrf_name in ["RED", "GREEN"]:
         temp = {}
         for addr_type in ADDR_TYPES:
-            temp.update({
-                addr_type: {
-                    "unicast": {
-                        "import": {
-                            "vrf": vrf_name
-                        },
-                        "maximum_paths": {
-                            "ebgp": 2
+            temp.update(
+                {
+                    addr_type: {
+                        "unicast": {
+                            "import": {"vrf": vrf_name},
+                            "maximum_paths": {"ebgp": 2},
                         }
                     }
                 }
-            })
+            )
 
-        bgp_val.append({
-            "local_as": 3, "address_family": temp
-        })
+        bgp_val.append({"local_as": 3, "address_family": temp})
 
     import_dict = {"r3": {"bgp": bgp_val}}
 
     result = create_router_bgp(tgen, topo, import_dict)
-    assert result is True, "Testcase {} :Failed \n Error: {}". \
-        format(tc_name, result)
+    assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
 
     step("Configure bgp bestpath on router r3")
     r3_raw_config = {
-        "r3": {
-            "raw_config": [
-                "router bgp 3",
-                "bgp bestpath as-path multipath-relax"
-            ]
-        }
+        "r3": {"raw_config": ["router bgp 3", "bgp bestpath as-path multipath-relax"]}
     }
     result = apply_raw_config(tgen, r3_raw_config)
-    assert result is True, "Testcase {} :Failed \n Error: {}". \
-        format(tc_name, result)
+    assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
 
-    step("Verify that routes are imported with two different next-hop vrfs "
-         "and IPs. Additionally R3 must do ECMP for both the routes.")
+    step(
+        "Verify that routes are imported with two different next-hop vrfs "
+        "and IPs. Additionally R3 must do ECMP for both the routes."
+    )
 
     for addr_type in ADDR_TYPES:
         next_hop_vrf = [
-            topo["routers"]["r2"]["links"]["r3-link1"][addr_type]. \
-                split("/")[0],
-            topo["routers"]["r1"]["links"]["r3-link3"][addr_type]. \
-                split("/")[0]
-            ]
+            topo["routers"]["r2"]["links"]["r3-link1"][addr_type].split("/")[0],
+            topo["routers"]["r1"]["links"]["r3-link3"][addr_type].split("/")[0],
+        ]
         static_routes = {
             "r3": {
                 "static_routes": [
@@ -310,54 +303,61 @@ def test_dynamic_import_ecmp_imported_routed_diffrent_vrfs_p0(request):
             }
         }
 
-        result = verify_bgp_rib(tgen, addr_type, "r3", static_routes,
-                                next_hop=next_hop_vrf)
-        assert result is True, "Testcase {} : Failed \n Error {}". \
-            format(tc_name, result)
+        result = verify_bgp_rib(
+            tgen, addr_type, "r3", static_routes, next_hop=next_hop_vrf
+        )
+        assert result is True, "Testcase {} : Failed \n Error {}".format(
+            tc_name, result
+        )
 
-        result = verify_rib(tgen, addr_type, "r3", static_routes,
-                            next_hop=next_hop_vrf)
-        assert result is True, "Testcase {} : Failed \n Error {}". \
-            format(tc_name, result)
+        result = verify_rib(tgen, addr_type, "r3", static_routes, next_hop=next_hop_vrf)
+        assert result is True, "Testcase {} : Failed \n Error {}".format(
+            tc_name, result
+        )
 
-    step("Now change the next-hop of static routes in vrf RED and GREEN to "
-         "same IP address")
+    step(
+        "Now change the next-hop of static routes in vrf RED and GREEN to "
+        "same IP address"
+    )
     for addr_type in ADDR_TYPES:
-        next_hop_vrf = topo["routers"]["r1"]["links"][
-            "r3-link3"][addr_type].split("/")[0]
+        next_hop_vrf = topo["routers"]["r1"]["links"]["r3-link3"][addr_type].split("/")[
+            0
+        ]
         static_routes = {
             "r3": {
                 "static_routes": [
                     {
                         "network": [NETWORK1_1[addr_type]],
                         "next_hop": next_hop_vrf,
-                        "vrf": "RED"
+                        "vrf": "RED",
                     },
                     {
                         "network": [NETWORK1_1[addr_type]],
-                        "next_hop":  topo["routers"]["r2"]["links"][
-                                    "r3-link1"][addr_type].split("/")[0],
+                        "next_hop": topo["routers"]["r2"]["links"]["r3-link1"][
+                            addr_type
+                        ].split("/")[0],
                         "vrf": "RED",
-                        "delete": True
-                    }
+                        "delete": True,
+                    },
                 ]
             }
         }
 
         result = create_static_routes(tgen, static_routes)
-        assert result is True, "Testcase {} :Failed \n Error: {}". \
-            format(tc_name, result)
+        assert result is True, "Testcase {} :Failed \n Error: {}".format(
+            tc_name, result
+        )
 
-    step("Verify that now routes are imported with two different next-hop "
-         "vrfs but same IPs. Additionally R3 must do ECMP for both the routes")
+    step(
+        "Verify that now routes are imported with two different next-hop "
+        "vrfs but same IPs. Additionally R3 must do ECMP for both the routes"
+    )
 
     for addr_type in ADDR_TYPES:
         next_hop_vrf = [
-            topo["routers"]["r1"]["links"]["r3-link3"][addr_type].\
-                split("/")[0],
-            topo["routers"]["r1"]["links"]["r3-link3"][addr_type]. \
-                split("/")[0]
-            ]
+            topo["routers"]["r1"]["links"]["r3-link3"][addr_type].split("/")[0],
+            topo["routers"]["r1"]["links"]["r3-link3"][addr_type].split("/")[0],
+        ]
         static_routes = {
             "r3": {
                 "static_routes": [
@@ -368,20 +368,24 @@ def test_dynamic_import_ecmp_imported_routed_diffrent_vrfs_p0(request):
             }
         }
 
-        result = verify_bgp_rib(tgen, addr_type, "r3", static_routes,
-                                next_hop=next_hop_vrf)
-        assert result is True, "Testcase {} : Failed \n Error {}". \
-            format(tc_name, result)
+        result = verify_bgp_rib(
+            tgen, addr_type, "r3", static_routes, next_hop=next_hop_vrf
+        )
+        assert result is True, "Testcase {} : Failed \n Error {}".format(
+            tc_name, result
+        )
 
-        result = verify_rib(tgen, addr_type, "r3", static_routes,
-                            next_hop=next_hop_vrf)
-        assert result is True, "Testcase {} : Failed \n Error {}". \
-            format(tc_name, result)
+        result = verify_rib(tgen, addr_type, "r3", static_routes, next_hop=next_hop_vrf)
+        assert result is True, "Testcase {} : Failed \n Error {}".format(
+            tc_name, result
+        )
 
     write_test_footer(tc_name)
 
 
-def test_locally_imported_routes_selected_as_bestpath_over_ebgp_imported_routes_p0(request):
+def test_locally_imported_routes_selected_as_bestpath_over_ebgp_imported_routes_p0(
+    request,
+):
     """
     Verify ECMP for imported routes from different VRFs.
     """
@@ -393,13 +397,15 @@ def test_locally_imported_routes_selected_as_bestpath_over_ebgp_imported_routes_
         check_router_status(tgen)
     reset_config_on_routers(tgen)
 
-    step("Configure same static routes on R2 and R3 vrfs and redistribute in BGP "
-         "for GREEN and RED vrf instances")
-    for dut, network in zip(["r2", "r3"], [
-        [NETWORK1_1, NETWORK1_2], [NETWORK1_1, NETWORK1_2]]):
+    step(
+        "Configure same static routes on R2 and R3 vrfs and redistribute in BGP "
+        "for GREEN and RED vrf instances"
+    )
+    for dut, network in zip(
+        ["r2", "r3"], [[NETWORK1_1, NETWORK1_2], [NETWORK1_1, NETWORK1_2]]
+    ):
         for vrf_name, network_vrf in zip(["RED", "GREEN"], network):
-            step("Configure static route for VRF : {} on {}".format(vrf_name,
-                                                                    dut))
+            step("Configure static route for VRF : {} on {}".format(vrf_name, dut))
             for addr_type in ADDR_TYPES:
                 static_routes = {
                     dut: {
@@ -407,44 +413,50 @@ def test_locally_imported_routes_selected_as_bestpath_over_ebgp_imported_routes_
                             {
                                 "network": [network_vrf[addr_type]],
                                 "next_hop": "blackhole",
-                                "vrf": vrf_name
+                                "vrf": vrf_name,
                             }
                         ]
                     }
                 }
 
                 result = create_static_routes(tgen, static_routes)
-                assert result is True, "Testcase {} :Failed \n Error: {}". \
-                    format(tc_name, result)
+                assert result is True, "Testcase {} :Failed \n Error: {}".format(
+                    tc_name, result
+                )
 
     for dut, as_num in zip(["r2", "r3"], ["2", "3"]):
         for vrf_name in ["RED", "GREEN"]:
             step("Redistribute static route on BGP VRF : {}".format(vrf_name))
             temp = {}
             for addr_type in ADDR_TYPES:
-                temp.update({
-                    addr_type: {
-                        "unicast": {
-                            "redistribute": [{
-                                "redist_type": "static"
-                            }]
+                temp.update(
+                    {
+                        addr_type: {
+                            "unicast": {"redistribute": [{"redist_type": "static"}]}
                         }
                     }
-                })
+                )
 
-            redist_dict = {dut: {"bgp": [{
-                "vrf": vrf_name, "local_as": as_num, "address_family": temp
-            }]}}
+            redist_dict = {
+                dut: {
+                    "bgp": [
+                        {"vrf": vrf_name, "local_as": as_num, "address_family": temp}
+                    ]
+                }
+            }
 
             result = create_router_bgp(tgen, topo, redist_dict)
-            assert result is True, "Testcase {} :Failed \n Error: {}". \
-                format(tc_name, result)
+            assert result is True, "Testcase {} :Failed \n Error: {}".format(
+                tc_name, result
+            )
 
-    step("Verify that R2 and R3 has installed redistributed routes in default "
-         "and RED vrfs and GREEN respectively:")
-    for dut, network in zip(["r2", "r3"],
-                            [[NETWORK1_1, NETWORK1_2],
-                             [NETWORK1_1, NETWORK1_2]]):
+    step(
+        "Verify that R2 and R3 has installed redistributed routes in default "
+        "and RED vrfs and GREEN respectively:"
+    )
+    for dut, network in zip(
+        ["r2", "r3"], [[NETWORK1_1, NETWORK1_2], [NETWORK1_1, NETWORK1_2]]
+    ):
         for vrf_name, network_vrf in zip(["RED", "GREEN"], network):
             for addr_type in ADDR_TYPES:
                 static_routes = {
@@ -453,38 +465,32 @@ def test_locally_imported_routes_selected_as_bestpath_over_ebgp_imported_routes_
                             {
                                 "network": [network_vrf[addr_type]],
                                 "next_hop": "blackhole",
-                                "vrf": vrf_name
+                                "vrf": vrf_name,
                             }
                         ]
                     }
                 }
                 result = verify_bgp_rib(tgen, addr_type, dut, static_routes)
-                assert result is True, "Testcase {} : Failed \n Error {}". \
-                    format(tc_name, result)
+                assert result is True, "Testcase {} : Failed \n Error {}".format(
+                    tc_name, result
+                )
 
     step("Import vrf RED's route in vrf GREEN on R3")
     temp = {}
     for addr_type in ADDR_TYPES:
-        temp.update({
-            addr_type: {
-                "unicast": {
-                    "import": {
-                        "vrf": "RED"
-                    }
-                }
-            }
-        })
+        temp.update({addr_type: {"unicast": {"import": {"vrf": "RED"}}}})
 
-    import_dict = {"r3": {"bgp": [{
-        "vrf": "GREEN", "local_as": 3, "address_family": temp
-    }]}}
+    import_dict = {
+        "r3": {"bgp": [{"vrf": "GREEN", "local_as": 3, "address_family": temp}]}
+    }
 
     result = create_router_bgp(tgen, topo, import_dict)
-    assert result is True, "Testcase {} :Failed \n Error: {}". \
-        format(tc_name, result)
+    assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
 
-    step("Verify that locally imported routes are installed over eBGP imported"
-        " routes from VRF RED into VRF GREEN")
+    step(
+        "Verify that locally imported routes are installed over eBGP imported"
+        " routes from VRF RED into VRF GREEN"
+    )
     for addr_type in ADDR_TYPES:
         static_routes = {
             "r3": {
@@ -492,7 +498,7 @@ def test_locally_imported_routes_selected_as_bestpath_over_ebgp_imported_routes_
                     {
                         "network": [NETWORK1_2[addr_type]],
                         "next_hop": "blackhole",
-                        "vrf": "GREEN"
+                        "vrf": "GREEN",
                     }
                 ]
             }
@@ -504,19 +510,21 @@ def test_locally_imported_routes_selected_as_bestpath_over_ebgp_imported_routes_
                     {
                         "network": NETWORK1_2[addr_type],
                         "bestpath": BESTPATH[addr_type],
-                        "vrf": "GREEN"
+                        "vrf": "GREEN",
                     }
                 ]
             }
         }
 
         result = verify_bgp_bestpath(tgen, addr_type, input_routes)
-        assert result is True, "Testcase {} : Failed \n Error {}". \
-            format(tc_name, result)
+        assert result is True, "Testcase {} : Failed \n Error {}".format(
+            tc_name, result
+        )
 
         result = verify_rib(tgen, addr_type, "r3", static_routes)
-        assert result is True, "Testcase {} : Failed \n Error {}". \
-            format(tc_name, result)
+        assert result is True, "Testcase {} : Failed \n Error {}".format(
+            tc_name, result
+        )
 
     write_test_footer(tc_name)
 

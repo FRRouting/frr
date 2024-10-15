@@ -35,7 +35,7 @@ from lib.common_config import (
     verify_rib,
     step,
     check_address_types,
-    check_router_status
+    check_router_status,
 )
 
 from lib.topolog import logger

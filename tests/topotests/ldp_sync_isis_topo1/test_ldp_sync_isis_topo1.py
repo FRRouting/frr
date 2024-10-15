@@ -541,7 +541,6 @@ def parse_show_isis_interface_detail(lines, rname):
                     line = next(it)
 
                 while line.startswith(" Level-"):
-
                     level = {}
 
                     level_name = line.split()[0]
@@ -569,7 +568,6 @@ def parse_show_isis_interface_detail(lines, rname):
             areas[area_id] = area
 
         except StopIteration:
-
             areas[area_id] = area
             break
 

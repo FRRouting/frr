@@ -220,7 +220,6 @@ def compare_show_ipv6(rname, expected):
 
 
 def test_ospfv3_routingTable():
-
     tgen = get_topogen()
     if tgen.routers_have_failure():
         pytest.skip("skipped because of router(s) failure")
@@ -243,7 +242,6 @@ def test_ospfv3_routingTable():
 
 
 def test_linux_ipv6_kernel_routingTable():
-
     tgen = get_topogen()
 
     if tgen.routers_have_failure():
@@ -335,7 +333,6 @@ def test_linux_ipv6_kernel_routingTable():
 
 
 def test_ospfv3_routingTable_write_multiplier():
-
     tgen = get_topogen()
     if tgen.routers_have_failure():
         pytest.skip("skipped because of router(s) failure")
@@ -365,7 +362,6 @@ def test_ospfv3_routingTable_write_multiplier():
 
 
 def test_shutdown_check_stderr():
-
     tgen = get_topogen()
 
     if tgen.routers_have_failure():
@@ -413,7 +409,6 @@ def test_shutdown_check_memleak():
 
 
 if __name__ == "__main__":
-
     # To suppress tracebacks, either use the following pytest call or
     # add "--tb=no" to cli
     # retval = pytest.main(["-s", "--tb=no"])

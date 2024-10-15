@@ -75,7 +75,6 @@ pytestmark = [pytest.mark.ldpd, pytest.mark.ospfd]
 
 
 def build_topo(tgen):
-
     # Setup Routers
     for i in range(1, 5):
         tgen.add_router("r%s" % i)
@@ -837,7 +836,6 @@ def test_shutdown_check_memleak():
 
 
 if __name__ == "__main__":
-
     # To suppress tracebacks, either use the following pytest call or add "--tb=no" to cli
     # retval = pytest.main(["-s", "--tb=no"])
     retval = pytest.main(["-s"])

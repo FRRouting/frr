@@ -22,9 +22,8 @@ sys.path.append(os.path.join(CWD, "../lib/"))
 from lib.topogen import Topogen, TopoRouter
 from lib.topolog import logger
 
-pytestmark = [
-    pytest.mark.sharpd
-]
+pytestmark = [pytest.mark.sharpd]
+
 
 def build_topo(tgen):
     "Build function"
@@ -41,6 +40,7 @@ def build_topo(tgen):
 
     switch = tgen.add_switch("s2")
     switch.add_link(r2)
+
 
 # New form of setup/teardown using pytest fixture
 @pytest.fixture(scope="module")
@@ -79,22 +79,28 @@ def skip_on_failure(tgen):
     if tgen.routers_have_failure():
         pytest.skip("skipped because of previous test failure")
 
+
 def fetch_iproute2_tc_info(r, interface):
     qdisc = r.cmd("tc qdisc show dev %s" % interface)
     tclass = r.cmd("tc class show dev %s" % interface)
     tfilter = r.cmd("tc filter show dev %s" % interface)
     return qdisc, tclass, tfilter
 
+
 # ===================
 # The tests functions
 # ===================
+
 
 def test_tc_basic(tgen):
     "Test installing one pair of filter & class by sharpd"
 
     r1 = tgen.gears["r1"]
     intf = "r1-eth0"
-    r1.vtysh_cmd("sharp tc dev %s source 192.168.100.0/24 destination 192.168.101.0/24 ip-protocol tcp src-port 8000 dst-port 8001 rate 20mbit" % intf)
+    r1.vtysh_cmd(
+        "sharp tc dev %s source 192.168.100.0/24 destination 192.168.101.0/24 ip-protocol tcp src-port 8000 dst-port 8001 rate 20mbit"
+        % intf
+    )
 
     time.sleep(3)
 
@@ -114,6 +120,7 @@ def test_tc_basic(tgen):
     assert "src_ip 192.168.100.0/24" in tfilter
     assert "dst_port 8001" in tfilter
     assert "src_port 8000" in tfilter
+
 
 if __name__ == "__main__":
     args = ["-s"] + sys.argv[1:]

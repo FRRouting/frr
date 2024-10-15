@@ -99,7 +99,6 @@ def teardown_module():
 
 
 def static_or_nw(tgen, topo, tc_name, test_type, dut):
-
     if test_type == "redist_static":
         input_dict_static = {
             dut: {

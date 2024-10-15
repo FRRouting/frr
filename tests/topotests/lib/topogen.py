@@ -94,7 +94,9 @@ def get_exabgp_cmd(commander=None):
             return False
         version = m.group(1)
         if topotest.version_cmp(version, "4.2.11") < 0:
-            logging.debug("found exabgp version < 4.2.11 in %s will keep looking", exacmd)
+            logging.debug(
+                "found exabgp version < 4.2.11 in %s will keep looking", exacmd
+            )
             return False
         logger.info("Using ExaBGP version %s in %s", version, exacmd)
         return True

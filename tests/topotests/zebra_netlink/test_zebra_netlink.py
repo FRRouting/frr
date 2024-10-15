@@ -94,7 +94,7 @@ def test_zebra_netlink_batching(tgen):
     }
 
     match = {}
-    base = int(ipaddress.ip_address(u"2.1.3.7"))
+    base = int(ipaddress.ip_address("2.1.3.7"))
     for i in range(base, base + count):
         pfx = str(ipaddress.ip_network((i, 32)))
         match[pfx] = [dict(entry, prefix=pfx)]

@@ -179,7 +179,6 @@ def test_route_map_inbound_outbound_same_neighbor_p0(request):
     reset_config_on_routers(tgen)
 
     for adt in ADDR_TYPES:
-
         # Create Static routes
         input_dict = {
             "r1": {

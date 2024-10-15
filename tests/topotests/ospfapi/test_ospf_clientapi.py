@@ -277,9 +277,7 @@ def _test_add_data(tgen, apibin):
                             "linkStateId": "230.0.0.2",
                             "advertisingRouter": "1.0.0.0",
                             "lsaSeqNumber": "80000001",
-                            "opaqueValues": {
-                              "opaqueData": "00000202"
-                            }
+                            "opaqueValues": {"opaqueData": "00000202"},
                         },
                     ],
                 }
@@ -330,8 +328,8 @@ def _test_add_data(tgen, apibin):
                             "advertisingRouter": "1.0.0.0",
                             "lsaSeqNumber": "80000001",
                             "opaqueValues": {
-                              "opaqueData": "00010101",
-                            }
+                                "opaqueData": "00010101",
+                            },
                         },
                     ],
                 }
@@ -381,8 +379,8 @@ def _test_add_data(tgen, apibin):
                     "advertisingRouter": "1.0.0.0",
                     "lsaSeqNumber": "80000001",
                     "opaqueValues": {
-                      "opaqueData": "deadbeaf01234567",
-                    }
+                        "opaqueData": "deadbeaf01234567",
+                    },
                 },
             ]
         }
@@ -434,8 +432,8 @@ def _test_add_data(tgen, apibin):
                     "advertisingRouter": "1.0.0.0",
                     "lsaSeqNumber": "80000002",
                     "opaqueValues": {
-                      "opaqueData": "ebadf00d",
-                    }
+                        "opaqueData": "ebadf00d",
+                    },
                 },
             ]
         }
@@ -1664,8 +1662,8 @@ def _test_opaque_link_local_lsa_crash(tgen, apibin):
                             "advertisingRouter": "1.0.0.0",
                             "lsaSeqNumber": "80000001",
                             "opaqueValues": {
-                              "opaqueData": "feedaceedeadbeef",
-                            }
+                                "opaqueData": "feedaceedeadbeef",
+                            },
                         },
                     ],
                 }
@@ -1695,8 +1693,8 @@ def _test_opaque_link_local_lsa_crash(tgen, apibin):
                             "advertisingRouter": "1.0.0.0",
                             "lsaSeqNumber": "80000001",
                             "opaqueValues": {
-                              "opaqueData": "feedaceecafebeef",
-                            }
+                                "opaqueData": "feedaceecafebeef",
+                            },
                         },
                     ],
                 }

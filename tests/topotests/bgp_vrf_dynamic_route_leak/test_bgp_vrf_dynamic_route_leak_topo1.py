@@ -473,7 +473,6 @@ def test_dynamic_imported_routes_advertised_to_iBGP_peer_p0(request):
         check_router_status(tgen)
 
     for addr_type in ADDR_TYPES:
-
         step(
             "Redistribute configured static routes into BGP process" " on R1 and R3/R4"
         )
@@ -505,7 +504,6 @@ def test_dynamic_imported_routes_advertised_to_iBGP_peer_p0(request):
         )
 
     for addr_type in ADDR_TYPES:
-
         step("Verify that R1 receives BGP routes from R3 and R4 in " "vrf default.")
 
         input_routes_r3 = {
@@ -553,7 +551,6 @@ def test_dynamic_imported_routes_advertised_to_iBGP_peer_p0(request):
             )
 
     for addr_type in ADDR_TYPES:
-
         step("Import from default vrf into vrf ISR on R1")
 
         input_dict_isr = {}
@@ -581,7 +578,6 @@ def test_dynamic_imported_routes_advertised_to_iBGP_peer_p0(request):
         )
 
     for addr_type in ADDR_TYPES:
-
         step(
             "Verify that default vrf's imported routes are installed "
             "in RIB/FIB of vrf ISR on R1:"
@@ -634,7 +630,6 @@ def test_dynamic_imported_routes_advertised_to_iBGP_peer_p0(request):
 
     intf_r2_r1 = topo["routers"]["r2"]["links"]["r1-link1"]
     for addr_type in ADDR_TYPES:
-
         step(
             "Create a loopback10 interface on R1 with below IP address and "
             "associate with vrf ISR:"
@@ -649,7 +644,6 @@ def test_dynamic_imported_routes_advertised_to_iBGP_peer_p0(request):
         )
 
     for addr_type in ADDR_TYPES:
-
         step(
             "On router R1 Change the next-hop of static routes in vrf "
             "ISR to LOOPBACK_2"
@@ -689,7 +683,6 @@ def test_dynamic_imported_routes_advertised_to_iBGP_peer_p0(request):
         )
 
     for addr_type in ADDR_TYPES:
-
         step(
             "Verify that, though R1 originating BGP routes with next-hop"
             " 24.1.1.2/24::1:2, which is local to R2(but in default vrf)"
@@ -719,7 +712,6 @@ def test_dynamic_imported_routes_advertised_to_iBGP_peer_p0(request):
         )
 
     for addr_type in ADDR_TYPES:
-
         step("On router R1 delete static routes in vrf ISR to LOOPBACK_1")
 
         input_routes_r1 = {
@@ -758,7 +750,6 @@ def test_dynamic_imported_matching_prefix_based_on_community_list_p0(request):
         check_router_status(tgen)
 
     for addr_type in ADDR_TYPES:
-
         step(
             "Configure route-map to set community attribute for a specific"
             "prefix on R1 in vrf ISR"
@@ -823,7 +814,6 @@ def test_dynamic_imported_matching_prefix_based_on_community_list_p0(request):
         )
 
     for addr_type in ADDR_TYPES:
-
         step(
             "Apply this route-map on R1 to vrf ISR while redistributing the"
             " prefixes into BGP"
@@ -865,7 +855,6 @@ def test_dynamic_imported_matching_prefix_based_on_community_list_p0(request):
         )
 
     for addr_type in ADDR_TYPES:
-
         step(
             "Configure another route-map for filtering the prefixes based on"
             " community attribute while importing into default vrf"
@@ -890,7 +879,6 @@ def test_dynamic_imported_matching_prefix_based_on_community_list_p0(request):
         )
 
     for addr_type in ADDR_TYPES:
-
         step(
             "Apply the route-map while Importing vrf ISR's prefixes into "
             "default vrf on router R1:"
@@ -937,7 +925,6 @@ def test_dynamic_imported_matching_prefix_based_on_community_list_p0(request):
         )
 
     for addr_type in ADDR_TYPES:
-
         step(
             "Verify on R1 that only prefixes with community value 100:100"
             "in vrf ISR are imported to vrf default. While importing, the"
@@ -974,7 +961,6 @@ def test_dynamic_imported_matching_prefix_based_on_community_list_p0(request):
         )
 
     for addr_type in ADDR_TYPES:
-
         step("Remove/re-add route-map XYZ from redistribution.")
 
         input_dict_1 = {}
@@ -1014,7 +1000,6 @@ def test_dynamic_imported_matching_prefix_based_on_community_list_p0(request):
         )
 
     for addr_type in ADDR_TYPES:
-
         step(
             "Verify that all the routes disappear from vrf default when "
             "route-map is removed from redistribution, and appear again "
@@ -1037,7 +1022,6 @@ def test_dynamic_imported_matching_prefix_based_on_community_list_p0(request):
         )
 
     for addr_type in ADDR_TYPES:
-
         input_dict_1 = {}
         DUT = ["r1"]
         VRFS = ["ISR"]
@@ -1074,7 +1058,6 @@ def test_dynamic_imported_matching_prefix_based_on_community_list_p0(request):
         )
 
     for addr_type in ADDR_TYPES:
-
         input_routes_r1 = {
             "r1": {
                 "static_routes": [
@@ -1089,7 +1072,6 @@ def test_dynamic_imported_matching_prefix_based_on_community_list_p0(request):
         )
 
     for addr_type in ADDR_TYPES:
-
         step("Remove/re-add route-map IMP form import statement.")
 
         input_dict_isr = {}
@@ -1134,7 +1116,6 @@ def test_dynamic_imported_matching_prefix_based_on_community_list_p0(request):
         )
 
     for addr_type in ADDR_TYPES:
-
         step(
             "Verify that when route-map IMP is removed all the prefixes of"
             " vrf ISR are imported to vrf default. However when route-map "
@@ -1156,7 +1137,6 @@ def test_dynamic_imported_matching_prefix_based_on_community_list_p0(request):
         )
 
     for addr_type in ADDR_TYPES:
-
         input_dict_isr = {}
         DUT = ["r1"]
         VRFS = ["default"]
@@ -1198,7 +1178,6 @@ def test_dynamic_imported_matching_prefix_based_on_community_list_p0(request):
         )
 
     for addr_type in ADDR_TYPES:
-
         input_routes_r1 = {
             "r1": {
                 "static_routes": [
@@ -1213,7 +1192,6 @@ def test_dynamic_imported_matching_prefix_based_on_community_list_p0(request):
         )
 
     for addr_type in ADDR_TYPES:
-
         step("Delete/Re-add prefix-list ABC.")
 
         input_dict_pf = {
@@ -1411,7 +1389,6 @@ def test_routemap_operatons_with_dynamic_import_p0(request):
         check_router_status(tgen)
 
     for addr_type in ADDR_TYPES:
-
         step(
             "Configure route-map to set community attribute for a specific"
             "prefix on R1 in vrf ISR"
@@ -1476,7 +1453,6 @@ def test_routemap_operatons_with_dynamic_import_p0(request):
         )
 
     for addr_type in ADDR_TYPES:
-
         step(
             "Apply this route-map on R1 to vrf ISR while redistributing the"
             " prefixes into BGP"
@@ -1518,7 +1494,6 @@ def test_routemap_operatons_with_dynamic_import_p0(request):
         )
 
     for addr_type in ADDR_TYPES:
-
         step(
             "Configure another route-map for filtering the prefixes based on"
             " community attribute while importing into default vrf"
@@ -1543,7 +1518,6 @@ def test_routemap_operatons_with_dynamic_import_p0(request):
         )
 
     for addr_type in ADDR_TYPES:
-
         step(
             "Apply the route-map while Importing vrf ISR's prefixes into "
             "default vrf on router R1:"
@@ -1590,7 +1564,6 @@ def test_routemap_operatons_with_dynamic_import_p0(request):
         )
 
     for addr_type in ADDR_TYPES:
-
         step(
             "Verify on R1 that only prefixes with community value 100:100"
             "in vrf ISR are imported to vrf default. While importing, the"
@@ -1611,7 +1584,6 @@ def test_routemap_operatons_with_dynamic_import_p0(request):
         )
 
     for addr_type in ADDR_TYPES:
-
         step("Applying route-map first followed by import VRF command.")
         step(
             "Apply the route-map while Importing vrf ISR's prefixes into "
@@ -1661,7 +1633,6 @@ def test_routemap_operatons_with_dynamic_import_p0(request):
         )
 
     for addr_type in ADDR_TYPES:
-
         step(
             "Verify that until 'import VRF command' is not configured, "
             "routes are not imported. After configuring 'import VRF command'"
@@ -1684,7 +1655,6 @@ def test_routemap_operatons_with_dynamic_import_p0(request):
         )
 
     for addr_type in ADDR_TYPES:
-
         input_dict_isr = {}
         DUT = ["r1"]
         VRFS = ["default"]
@@ -1726,7 +1696,6 @@ def test_routemap_operatons_with_dynamic_import_p0(request):
         )
 
     for addr_type in ADDR_TYPES:
-
         input_routes_r1 = {
             "r1": {
                 "static_routes": [
@@ -1741,7 +1710,6 @@ def test_routemap_operatons_with_dynamic_import_p0(request):
         )
 
     for addr_type in ADDR_TYPES:
-
         step("Delete/re-add import vrf ISR command multiple times in default" "vrf.")
 
         input_dict_isr = {}
@@ -1806,7 +1774,6 @@ def test_routemap_operatons_with_dynamic_import_p0(request):
         )
 
     for addr_type in ADDR_TYPES:
-
         step(
             "Delete and re-configure route-map IMP from global config when "
             "import and route-maps are applied in a ISR vrf."

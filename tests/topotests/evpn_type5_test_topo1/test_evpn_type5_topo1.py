@@ -1125,7 +1125,6 @@ def test_active_standby_evpn_implementation_p1(request):
     )
 
     for addr_type in ADDR_TYPES:
-
         logger.info("Verifying only ipv4 routes")
         if addr_type != "ipv4":
             continue

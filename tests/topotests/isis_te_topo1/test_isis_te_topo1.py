@@ -189,10 +189,18 @@ def test_step3():
 
     tgen = setup_testcase("Step3: Add IPv6 on r1 and r2 interfaces")
 
-    tgen.net["r1"].cmd('vtysh -c "conf t" -c "interface r1-eth0" -c "ipv6 address 2001:db8:0::1/64"')
-    tgen.net["r1"].cmd('vtysh -c "conf t" -c "interface r1-eth0" -c "ipv6 router isis TE"')
-    tgen.net["r2"].cmd('vtysh -c "conf t" -c "interface r2-eth0" -c "ipv6 address 2001:db8:0::2/64"')
-    tgen.net["r2"].cmd('vtysh -c "conf t" -c "interface r2-eth0" -c "ipv6 router isis TE"')
+    tgen.net["r1"].cmd(
+        'vtysh -c "conf t" -c "interface r1-eth0" -c "ipv6 address 2001:db8:0::1/64"'
+    )
+    tgen.net["r1"].cmd(
+        'vtysh -c "conf t" -c "interface r1-eth0" -c "ipv6 router isis TE"'
+    )
+    tgen.net["r2"].cmd(
+        'vtysh -c "conf t" -c "interface r2-eth0" -c "ipv6 address 2001:db8:0::2/64"'
+    )
+    tgen.net["r2"].cmd(
+        'vtysh -c "conf t" -c "interface r2-eth0" -c "ipv6 router isis TE"'
+    )
     for rname in ["r1", "r2", "r3", "r4"]:
         compare_ted_json_output(tgen, rname, "ted_step3.json")
 
@@ -202,8 +210,12 @@ def test_step4():
 
     tgen = setup_testcase("Step4: Modify Prefix SID on router r4")
 
-    tgen.net["r4"].cmd('vtysh -c "conf t" -c "router isis TE" -c "segment-routing prefix 10.0.255.4/32 index 40"')
-    tgen.net["r4"].cmd('vtysh -c "conf t" -c "router isis TE" -c "segment-routing prefix 2001:db8:ffff::4/128 index 1040"')
+    tgen.net["r4"].cmd(
+        'vtysh -c "conf t" -c "router isis TE" -c "segment-routing prefix 10.0.255.4/32 index 40"'
+    )
+    tgen.net["r4"].cmd(
+        'vtysh -c "conf t" -c "router isis TE" -c "segment-routing prefix 2001:db8:ffff::4/128 index 1040"'
+    )
 
     for rname in ["r1", "r2", "r3", "r4"]:
         compare_ted_json_output(tgen, rname, "ted_step4.json")
@@ -229,9 +241,15 @@ def test_step6():
 
     tgen = setup_testcase("Step6: Modify link parameters on r2 & r4")
 
-    tgen.net["r2"].cmd('vtysh -c "conf t" -c "interface r2-eth3" -c "link-params" -c "no use-bw"')
-    tgen.net["r4"].cmd('vtysh -c "conf t" -c "interface r4-eth0" -c "link-params" -c "delay 20000"')
-    tgen.net["r4"].cmd('vtysh -c "conf t" -c "interface r4-eth0" -c "link-params" -c "delay-variation 10000"')
+    tgen.net["r2"].cmd(
+        'vtysh -c "conf t" -c "interface r2-eth3" -c "link-params" -c "no use-bw"'
+    )
+    tgen.net["r4"].cmd(
+        'vtysh -c "conf t" -c "interface r4-eth0" -c "link-params" -c "delay 20000"'
+    )
+    tgen.net["r4"].cmd(
+        'vtysh -c "conf t" -c "interface r4-eth0" -c "link-params" -c "delay-variation 10000"'
+    )
 
     for rname in ["r1", "r2", "r3", "r4"]:
         compare_ted_json_output(tgen, rname, "ted_step6.json")

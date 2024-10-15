@@ -2231,7 +2231,6 @@ def test_verify_default_originate_after_shut_no_shut_bgp_neighbor_p1(request):
     routers = ["r1", "r2"]
     for dut in routers:
         for addr_type in ADDR_TYPES:
-
             clear_bgp(tgen, addr_type, dut)
 
             DEFAULT_ROUTES = {"ipv4": "0.0.0.0/0", "ipv6": "0::0/0"}

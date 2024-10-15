@@ -182,7 +182,6 @@ def teardown_module():
 
 
 def clear_bsrp_data(tgen, topo):
-
     """
     clear bsm databas after test"
     Parameters
@@ -198,7 +197,6 @@ def clear_bsrp_data(tgen, topo):
     """
 
     for dut in tgen.routers():
-
         rnode = tgen.routers()[dut]
 
         logger.info("[DUT: %s]: clear_bsrp_data")

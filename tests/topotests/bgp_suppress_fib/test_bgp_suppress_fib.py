@@ -217,6 +217,7 @@ def test_bgp_allow_as_in():
     assertmsg = '"r2" 192.168.1.1/32 route should be gone'
     assert result is None, assertmsg
 
+
 def test_local_vs_non_local():
     tgen = get_topogen()
 
@@ -229,7 +230,7 @@ def test_local_vs_non_local():
     paths = output["paths"]
     for i in range(len(paths)):
         if "fibPending" in paths[i]:
-            assert(False),  "Route 60.0.0.0/24 should not have fibPending"
+            assert False, "Route 60.0.0.0/24 should not have fibPending"
 
 
 if __name__ == "__main__":

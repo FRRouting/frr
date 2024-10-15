@@ -320,7 +320,6 @@ def test_dynamic_import_recursive_import_tenant_vrf_p1(request):
     for dut, vrf_name, vrf_import, as_num in zip(
         ["r2", "r4"], ["GREEN", "BLUE"], ["RED", "default"], [2, 4]
     ):
-
         for action, value in zip(["Delete", "Re-add"], [True, False]):
             step("{} the import command on {} router".format(action, dut))
             temp = {}
@@ -357,23 +356,25 @@ def test_dynamic_import_recursive_import_tenant_vrf_p1(request):
                     result = verify_bgp_rib(
                         tgen, addr_type, "r4", static_routes, expected=False
                     )
-                    assert (
-                        result is not True
-                    ), "Testcase {} : Failed \nError {}\n" "Routes {} still in BGP table".format(
-                        tc_name,
-                        result,
-                        static_routes["r4"]["static_routes"][0]["network"],
+                    assert result is not True, (
+                        "Testcase {} : Failed \nError {}\n"
+                        "Routes {} still in BGP table".format(
+                            tc_name,
+                            result,
+                            static_routes["r4"]["static_routes"][0]["network"],
+                        )
                     )
 
                     result = verify_rib(
                         tgen, addr_type, "r4", static_routes, expected=False
                     )
-                    assert (
-                        result is not True
-                    ), "Testcase {} : Failed Error {}" "Routes {} still in Route table".format(
-                        tc_name,
-                        result,
-                        static_routes["r4"]["static_routes"][0]["network"],
+                    assert result is not True, (
+                        "Testcase {} : Failed Error {}"
+                        "Routes {} still in Route table".format(
+                            tc_name,
+                            result,
+                            static_routes["r4"]["static_routes"][0]["network"],
+                        )
                     )
                 else:
                     result = verify_bgp_rib(tgen, addr_type, "r4", static_routes)

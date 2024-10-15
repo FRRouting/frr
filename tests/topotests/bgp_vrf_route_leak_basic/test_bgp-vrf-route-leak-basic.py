@@ -214,7 +214,6 @@ def test_vrf_route_leak_eva():
     assert result, "BGP VRF EVA check failed:\n{}".format(diff)
 
 
-
 def test_vrf_route_leak_default():
     logger.info("Ensure that routes are leaked back and forth")
     tgen = get_topogen()

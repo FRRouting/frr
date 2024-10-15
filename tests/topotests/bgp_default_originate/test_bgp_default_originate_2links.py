@@ -234,7 +234,6 @@ def get_rib_route_uptime(tgen, addr_type, dut, input_dict):
 
                 for static_route in static_routes:
                     if "vrf" in static_route and static_route["vrf"] is not None:
-
                         logger.info(
                             "[DUT: {}]: Verifying routes for VRF:"
                             " {}".format(router, static_route["vrf"])
