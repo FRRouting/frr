@@ -600,6 +600,16 @@ static inline void bgp_attr_set_aigp_metric(struct attr *attr, uint64_t aigp)
 		SET_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_AIGP));
 }
 
+static inline uint64_t bgp_aigp_metric_total(struct bgp_path_info *bpi)
+{
+	uint64_t aigp = bgp_attr_get_aigp_metric(bpi->attr);
+
+	if (bpi->nexthop)
+		return aigp + bpi->nexthop->metric;
+	else
+		return aigp;
+}
+
 static inline struct cluster_list *bgp_attr_get_cluster(const struct attr *attr)
 {
 	return attr->cluster1;

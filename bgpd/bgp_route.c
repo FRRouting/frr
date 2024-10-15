@@ -1067,8 +1067,8 @@ int bgp_path_info_cmp(struct bgp *bgp, struct bgp_path_info *new,
 	if (CHECK_FLAG(newattr->flag, ATTR_FLAG_BIT(BGP_ATTR_AIGP)) &&
 	    CHECK_FLAG(existattr->flag, ATTR_FLAG_BIT(BGP_ATTR_AIGP)) &&
 	    CHECK_FLAG(bgp->flags, BGP_FLAG_COMPARE_AIGP)) {
-		uint64_t new_aigp = bgp_attr_get_aigp_metric(newattr);
-		uint64_t exist_aigp = bgp_attr_get_aigp_metric(existattr);
+		uint64_t new_aigp = bgp_aigp_metric_total(new);
+		uint64_t exist_aigp = bgp_aigp_metric_total(exist);
 
 		if (new_aigp < exist_aigp) {
 			*reason = bgp_path_selection_aigp;
