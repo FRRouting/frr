@@ -2066,6 +2066,11 @@ int zebra_evpn_mac_remote_macip_add(struct zebra_evpn *zevpn, struct zebra_vrf *
 			zebra_evpn_mac_clear_sync_info(mac);
 			zebra_evpn_mac_send_del_to_client(zevpn->vni, macaddr,
 							  mac->flags, false);
+			if (CHECK_FLAG(mac->flags, ZEBRA_MAC_STICKY)) {
+				zlog_warn("Received remote mac add for MAC %pEA VNI %u VTEP %pI4, "
+					  "but it is already learnt as local sticky MAC on Intf %s",
+					  macaddr, zevpn->vni, &vtep_ip, mac->ifp->name);
+			}
 		}
 
 		/* Set "auto" and "remote" forwarding info. */
