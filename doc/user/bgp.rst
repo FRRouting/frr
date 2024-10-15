@@ -1850,7 +1850,8 @@ Configuring Peers
 
 .. clicmd:: neighbor <A.B.C.D|X:X::X:X|WORD> as-override
 
-   Override AS number of the originating router with the local AS number.
+   Override any AS number in the AS path that matches the neighbor's AS number
+   with the local AS number.
 
    Usually this configuration is used in PEs (Provider Edge) to replace
    the incoming customer AS number so the connected CE (Customer Edge)
