@@ -15,6 +15,10 @@ r2 and r3 receives those routes with aigp-metric TLV increased by 20,
 and 10 appropriately.
 
 r1 receives routes with aigp-metric TLV 81, 91 and 82, 92 respectively.
+
+r1 advertises MED from IGP protocol (set metric igp) to r8.
+
+r1 advertises MED from AIGP (set metric aigp) to r8.
 """
 
 import os
@@ -34,7 +38,7 @@ pytestmark = [pytest.mark.bgpd]
 
 
 def build_topo(tgen):
-    for routern in range(1, 8):
+    for routern in range(1, 9):
         tgen.add_router("r{}".format(routern))
 
     switch = tgen.add_switch("s1")
@@ -64,6 +68,10 @@ def build_topo(tgen):
     switch = tgen.add_switch("s7")
     switch.add_link(tgen.gears["r6"])
     switch.add_link(tgen.gears["r7"])
+
+    switch = tgen.add_switch("s8")
+    switch.add_link(tgen.gears["r1"])
+    switch.add_link(tgen.gears["r8"])
 
 
 def setup_module(mod):
@@ -102,6 +110,7 @@ def test_bgp_aigp():
     r3 = tgen.gears["r3"]
     r4 = tgen.gears["r4"]
     r5 = tgen.gears["r5"]
+    r8 = tgen.gears["r8"]
 
     def _bgp_converge():
         output = json.loads(r1.vtysh_cmd("show bgp ipv4 unicast 10.0.0.71/32 json"))
@@ -141,6 +150,18 @@ def test_bgp_aigp():
             router.vtysh_cmd("show bgp ipv4 unicast {} json".format(prefix))
         )
         expected = {"paths": [{"aigpMetric": aigp, "valid": True}]}
+        return topotest.json_cmp(output, expected)
+
+    def _bgp_check_received_med():
+        output = json.loads(
+            r8.vtysh_cmd("show bgp ipv4 unicast 10.0.0.64/28 longer-prefixes json")
+        )
+        expected = {
+            "routes": {
+                "10.0.0.71/32": [{"valid": True, "metric": 10}],
+                "10.0.0.72/32": [{"valid": True, "metric": 92}],
+            }
+        }
         return topotest.json_cmp(output, expected)
 
     def _bgp_check_aigp_metric_bestpath():
@@ -251,6 +272,13 @@ def test_bgp_aigp():
     test_func = functools.partial(_bgp_check_aigp_metric_bestpath)
     _, result = topotest.run_and_expect(test_func, None, count=60, wait=1)
     assert result is None, "AIGP attribute is not considered in best-path selection"
+
+    # r8, check if MED is set derived from `set metric igp`, and `set metric aigp`
+    test_func = functools.partial(_bgp_check_received_med)
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
+    assert (
+        result is None
+    ), "MED attribute values are not derived from `set metric [a]igp`"
 
 
 if __name__ == "__main__":
