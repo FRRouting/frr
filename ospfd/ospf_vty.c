@@ -2302,34 +2302,9 @@ static int ospf_timers_spf_set(struct vty *vty, unsigned int delay,
 	return CMD_SUCCESS;
 }
 
-DEFUN (ospf_timers_min_ls_interval,
+DEFPY (ospf_timers_min_ls_interval,
        ospf_timers_min_ls_interval_cmd,
-       "timers throttle lsa all (0-5000)",
-       "Adjust routing timers\n"
-       "Throttling adaptive timer\n"
-       "LSA delay between transmissions\n"
-       "All LSA types\n"
-       "Delay (msec) between sending LSAs\n")
-{
-	VTY_DECLVAR_INSTANCE_CONTEXT(ospf, ospf);
-	int idx_number = 4;
-	unsigned int interval;
-
-	if (argc < 5) {
-		vty_out(vty, "Insufficient arguments\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	interval = strtoul(argv[idx_number]->arg, NULL, 10);
-
-	ospf->min_ls_interval = interval;
-
-	return CMD_SUCCESS;
-}
-
-DEFUN (no_ospf_timers_min_ls_interval,
-       no_ospf_timers_min_ls_interval_cmd,
-       "no timers throttle lsa all [(0-5000)]",
+       "[no] timers throttle lsa all ![(0-5000)]$lsa_refresh_interval",
        NO_STR
        "Adjust routing timers\n"
        "Throttling adaptive timer\n"
@@ -2338,7 +2313,11 @@ DEFUN (no_ospf_timers_min_ls_interval,
        "Delay (msec) between sending LSAs\n")
 {
 	VTY_DECLVAR_INSTANCE_CONTEXT(ospf, ospf);
-	ospf->min_ls_interval = OSPF_MIN_LS_INTERVAL;
+
+	if (no)
+		ospf->min_ls_interval = OSPF_MIN_LS_INTERVAL;
+	else
+		ospf->min_ls_interval = strtoul(lsa_refresh_interval_str, NULL, 10);
 
 	return CMD_SUCCESS;
 }
@@ -2387,40 +2366,35 @@ DEFUN (no_ospf_timers_throttle_spf,
 }
 
 
-DEFUN (ospf_timers_lsa_min_arrival,
+DEFPY (ospf_timers_lsa_min_arrival,
        ospf_timers_lsa_min_arrival_cmd,
-       "timers lsa min-arrival (0-600000)",
-       "Adjust routing timers\n"
-       "OSPF LSA timers\n"
-       "Minimum delay in receiving new version of a LSA\n"
-       "Delay in milliseconds\n")
-{
-	VTY_DECLVAR_INSTANCE_CONTEXT(ospf, ospf);
-	ospf->min_ls_arrival = strtoul(argv[argc - 1]->arg, NULL, 10);
-	return CMD_SUCCESS;
-}
-
-DEFUN (no_ospf_timers_lsa_min_arrival,
-       no_ospf_timers_lsa_min_arrival_cmd,
-       "no timers lsa min-arrival [(0-600000)]",
+       "[no] timers lsa min-arrival ![(0-5000)]$min_arrival",
        NO_STR
        "Adjust routing timers\n"
        "OSPF LSA timers\n"
-       "Minimum delay in receiving new version of a LSA\n"
+       "Minimum delay in receiving new version of an LSA\n"
        "Delay in milliseconds\n")
 {
 	VTY_DECLVAR_INSTANCE_CONTEXT(ospf, ospf);
-	unsigned int minarrival;
+	if (no)
+		ospf->min_ls_arrival = OSPF_MIN_LS_ARRIVAL;
+	else
+		ospf->min_ls_arrival = strtoul(min_arrival_str, NULL, 10);
+	return CMD_SUCCESS;
+}
 
-	if (argc > 4) {
-		minarrival = strtoul(argv[argc - 1]->arg, NULL, 10);
-
-		if (ospf->min_ls_arrival != minarrival
-		    || minarrival == OSPF_MIN_LS_ARRIVAL)
-			return CMD_SUCCESS;
-	}
-
-	ospf->min_ls_arrival = OSPF_MIN_LS_ARRIVAL;
+DEFPY_HIDDEN (ospf_timers_lsa_min_arrival_deprecated,
+	      ospf_timers_lsa_min_arrival_deprecated_cmd,
+	      "timers lsa min-arrival [(5001-60000)]$min_arrival",
+	      "Adjust routing timers\n"
+	      "OSPF LSA timers\n"
+	      "Minimum delay in receiving new version of an LSA\n"
+	      "Deprecated delay in milliseconds - delays in this range default to 5000 msec\n")
+{
+	VTY_DECLVAR_INSTANCE_CONTEXT(ospf, ospf);
+	vty_out(vty, "%% OSPF `timers lsa min-arrival` set to the maximum of %u milliseconds\n",
+		OSPF_MIN_LS_ARRIVAL_MAX);
+	ospf->min_ls_arrival = OSPF_MIN_LS_ARRIVAL_MAX;
 
 	return CMD_SUCCESS;
 }
@@ -13707,9 +13681,8 @@ void ospf_vty_init(void)
 
 	/* LSA timers commands */
 	install_element(OSPF_NODE, &ospf_timers_min_ls_interval_cmd);
-	install_element(OSPF_NODE, &no_ospf_timers_min_ls_interval_cmd);
 	install_element(OSPF_NODE, &ospf_timers_lsa_min_arrival_cmd);
-	install_element(OSPF_NODE, &no_ospf_timers_lsa_min_arrival_cmd);
+	install_element(OSPF_NODE, &ospf_timers_lsa_min_arrival_deprecated_cmd);
 
 	/* refresh timer commands */
 	install_element(OSPF_NODE, &ospf_refresh_timer_cmd);
