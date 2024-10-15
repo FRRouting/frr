@@ -58,7 +58,7 @@ def iproute2_check_path_selection(router, ipaddr_str, expected, vrf_name=None):
     else:
         cmdstr = f"ip -json route show {ipaddr_str}"
     try:
-        output = json.loads(cmdstr)
+        output = json.loads(router.cmd(cmdstr))
     except:
         output = []
 
