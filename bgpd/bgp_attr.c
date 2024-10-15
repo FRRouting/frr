@@ -479,16 +479,6 @@ static bool bgp_attr_aigp_get_tlv_metric(uint8_t *pnt, int length,
 	return false;
 }
 
-static uint64_t bgp_aigp_metric_total(struct bgp_path_info *bpi)
-{
-	uint64_t aigp = bgp_attr_get_aigp_metric(bpi->attr);
-
-	if (bpi->nexthop)
-		return aigp + bpi->nexthop->metric;
-	else
-		return aigp;
-}
-
 static void stream_put_bgp_aigp_tlv_metric(struct stream *s,
 					   struct bgp_path_info *bpi)
 {
