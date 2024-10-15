@@ -2148,7 +2148,7 @@ bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
 	struct attr *piattr;
 	route_map_result_t ret;
 	int transparent;
-	int reflect;
+	int ibgp_to_ibgp;
 	afi_t afi;
 	safi_t safi;
 	int samepeer_safe = 0; /* for synthetic mplsvpns routes */
@@ -2357,14 +2357,14 @@ bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
 		}
 	}
 
-	/* Route-Reflect check. */
+	/* iBGP to iBGP check. */
 	if (from->sort == BGP_PEER_IBGP && peer->sort == BGP_PEER_IBGP)
-		reflect = 1;
+		ibgp_to_ibgp = 1;
 	else
-		reflect = 0;
+		ibgp_to_ibgp = 0;
 
 	/* IBGP reflection check. */
-	if (reflect && !samepeer_safe) {
+	if (ibgp_to_ibgp && !samepeer_safe) {
 		/* A route from a Client peer. */
 		if (CHECK_FLAG(from->af_flags[afi][safi],
 			       PEER_FLAG_REFLECTOR_CLIENT)) {
@@ -2410,8 +2410,7 @@ bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
 
 	/* If originator-id is not set and the route is to be reflected,
 	   set the originator id */
-	if (reflect
-	    && (!(attr->flag & ATTR_FLAG_BIT(BGP_ATTR_ORIGINATOR_ID)))) {
+	if (ibgp_to_ibgp && (!(attr->flag & ATTR_FLAG_BIT(BGP_ATTR_ORIGINATOR_ID)))) {
 		IPV4_ADDR_COPY(&(attr->originator_id), &(from->remote_id));
 		SET_FLAG(attr->flag, BGP_ATTR_ORIGINATOR_ID);
 	}
@@ -2444,7 +2443,7 @@ bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
 	 * announced to an EBGP peer (and they have the same attributes barring
 	 * their nexthop).
 	 */
-	if (reflect)
+	if (ibgp_to_ibgp)
 		SET_FLAG(attr->rmap_change_flags, BATTR_REFLECTED);
 
 #define NEXTHOP_IS_V6                                                          \
@@ -2472,7 +2471,8 @@ bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
 			 */
 			if (IN6_IS_ADDR_LINKLOCAL(&attr->mp_nexthop_local))
 				global_and_ll = true;
-		} else if (!reflect && !transparent &&
+		} else if (!ibgp_to_ibgp && !transparent &&
+			   !CHECK_FLAG(from->af_flags[afi][safi], PEER_FLAG_REFLECTOR_CLIENT) &&
 			   IN6_IS_ADDR_LINKLOCAL(&peer->nexthop.v6_local) && peer->shared_network &&
 			   (from == bgp->peer_self || peer->sort == BGP_PEER_EBGP))
 			global_and_ll = true;
@@ -2694,9 +2694,8 @@ bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
 			       PEER_FLAG_NEXTHOP_SELF)
 		    || CHECK_FLAG(peer->af_flags[afi][safi],
 				  PEER_FLAG_FORCE_NEXTHOP_SELF)) {
-			if (!reflect
-			    || CHECK_FLAG(peer->af_flags[afi][safi],
-					  PEER_FLAG_FORCE_NEXTHOP_SELF)) {
+			if (!ibgp_to_ibgp ||
+			    CHECK_FLAG(peer->af_flags[afi][safi], PEER_FLAG_FORCE_NEXTHOP_SELF)) {
 				subgroup_announce_reset_nhop(
 					(peer_cap_enhe(peer, afi, safi)
 						 ? AF_INET6
