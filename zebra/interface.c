@@ -43,7 +43,7 @@ DEFINE_MTYPE_STATIC(ZEBRA, ZINFO, "Zebra Interface Information");
 DEFINE_HOOK(zebra_if_extra_info, (struct vty * vty, struct interface *ifp),
 	    (vty, ifp));
 
-DEFINE_MTYPE(ZEBRA, ZIF_DESC, "Intf desc");
+DEFINE_MTYPE_STATIC(ZEBRA, ZIF_DESC, "Intf desc");
 
 static void if_down_del_nbr_connected(struct interface *ifp);
 
