@@ -43,7 +43,7 @@ struct static_nht_data {
 	vrf_id_t nh_vrf_id;
 
 	uint32_t refcount;
-	uint8_t nh_num;
+	uint16_t nh_num;
 	bool registered;
 };
 
