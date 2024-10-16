@@ -695,7 +695,7 @@ static char *trim(char *s)
 int vtysh_mark_file(const char *filename)
 {
 	struct vty *vty;
-	FILE *confp = NULL;
+	FILE *confp = NULL, *closefp = NULL;
 	int ret;
 	vector vline;
 	int tried = 0;
@@ -708,7 +708,7 @@ int vtysh_mark_file(const char *filename)
 	if (strncmp("-", filename, 1) == 0)
 		confp = stdin;
 	else
-		confp = fopen(filename, "r");
+		confp = closefp = fopen(filename, "r");
 
 	if (confp == NULL) {
 		fprintf(stderr, "%% Can't open config file %s due to '%s'.\n",
@@ -848,9 +848,8 @@ int vtysh_mark_file(const char *filename)
 	vty_close(vty);
 	XFREE(MTYPE_VTYSH_CMD, vty_buf_copy);
 
-	if (confp != stdin)
-		fclose(confp);
-
+	if (closefp)
+		fclose(closefp);
 	return 0;
 }
 
