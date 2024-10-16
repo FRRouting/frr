@@ -756,6 +756,18 @@ void route_map_condition_show(struct vty *vty, const struct lyd_node *dnode,
 			acl = "local";
 
 		vty_out(vty, " match peer %s\n", acl);
+	} else if (IS_MATCH_SRC_PEER(condition)) {
+		acl = NULL;
+		ln = yang_dnode_get(dnode,
+				    "./rmap-match-condition/frr-bgp-route-map:src-peer-ipv4-address");
+		if (!ln)
+			ln = yang_dnode_get(dnode,
+					    "./rmap-match-condition/frr-bgp-route-map:src-peer-ipv6-address");
+		if (!ln)
+			ln = yang_dnode_get(dnode,
+					    "./rmap-match-condition/frr-bgp-route-map:src-peer-interface");
+		acl = yang_dnode_get_string(ln, NULL);
+		vty_out(vty, " match src-peer %s\n", acl);
 	} else if (IS_MATCH_AS_LIST(condition)) {
 		vty_out(vty, " match as-path %s\n",
 			yang_dnode_get_string(

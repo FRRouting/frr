@@ -347,6 +347,66 @@ static const struct route_map_rule_cmd route_match_peer_cmd = {
 	route_match_peer_free
 };
 
+static enum route_map_cmd_result_t route_match_src_peer(void *rule, const struct prefix *prefix,
+							void *object)
+{
+	struct bgp_match_peer_compiled *pc;
+	union sockunion *su;
+	struct peer_group *group;
+	struct peer *peer;
+	struct listnode *node, *nnode;
+	struct bgp_path_info *bpi;
+
+	pc = rule;
+	su = &pc->su;
+	bpi = object;
+	peer = bpi->from;
+
+	/* Fallback to destination (current) peer. This is mostly
+	 * happens if `match src-peer ...` is used at incoming direction.
+	 */
+	if (!peer)
+		peer = bpi->peer;
+
+	if (!peer)
+		return RMAP_NOMATCH;
+
+	if (pc->interface) {
+		if (!peer->conf_if && !peer->group)
+			return RMAP_NOMATCH;
+
+		if (peer->conf_if && strcmp(peer->conf_if, pc->interface) == 0)
+			return RMAP_MATCH;
+
+		if (peer->group && strcmp(peer->group->name, pc->interface) == 0)
+			return RMAP_MATCH;
+
+		return RMAP_NOMATCH;
+	}
+
+	if (!CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP)) {
+		if (sockunion_same(su, &peer->connection->su))
+			return RMAP_MATCH;
+
+		return RMAP_NOMATCH;
+	}
+
+	group = peer->group;
+	for (ALL_LIST_ELEMENTS(group->peer, node, nnode, peer)) {
+		if (sockunion_same(su, &peer->connection->su))
+			return RMAP_MATCH;
+	}
+
+	return RMAP_NOMATCH;
+}
+
+static const struct route_map_rule_cmd route_match_src_peer_cmd = {
+	"src-peer",
+	route_match_src_peer,
+	route_match_peer_compile,
+	route_match_peer_free
+};
+
 #ifdef HAVE_SCRIPTING
 
 enum frrlua_rm_status {
@@ -5287,6 +5347,52 @@ DEFUN_YANG (no_match_peer,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
+DEFPY_YANG (match_src_peer,
+       match_src_peer_cmd,
+       "match src-peer <A.B.C.D$addrv4|X:X::X:X$addrv6|WORD$intf>",
+       MATCH_STR
+       "Match source peer address\n"
+       "IP address of peer\n"
+       "IPv6 address of peer\n"
+       "Interface name of peer or peer group name\n")
+{
+	const char *xpath = "./match-condition[condition='frr-bgp-route-map:src-peer']";
+	char xpath_value[XPATH_MAXLEN];
+
+	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
+
+	snprintf(xpath_value, sizeof(xpath_value),
+		 "%s/rmap-match-condition/frr-bgp-route-map:src-peer-ipv4-address", xpath);
+	nb_cli_enqueue_change(vty, xpath_value, addrv4_str ? NB_OP_MODIFY : NB_OP_DESTROY,
+			      addrv4_str);
+	snprintf(xpath_value, sizeof(xpath_value),
+		 "%s/rmap-match-condition/frr-bgp-route-map:src-peer-ipv6-address", xpath);
+	nb_cli_enqueue_change(vty, xpath_value, addrv6_str ? NB_OP_MODIFY : NB_OP_DESTROY,
+			      addrv6_str);
+	snprintf(xpath_value, sizeof(xpath_value),
+		 "%s/rmap-match-condition/frr-bgp-route-map:src-peer-interface", xpath);
+	nb_cli_enqueue_change(vty, xpath_value, intf ? NB_OP_MODIFY : NB_OP_DESTROY, intf);
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFUN_YANG (no_match_src_peer,
+	    no_match_src_peer_cmd,
+	    "no match src-peer [<A.B.C.D|X:X::X:X|WORD>]",
+	    NO_STR
+	    MATCH_STR
+	    "Match peer address\n"
+	    "IP address of peer\n"
+	    "IPv6 address of peer\n"
+	    "Interface name of peer\n")
+{
+	const char *xpath = "./match-condition[condition='frr-bgp-route-map:src-peer']";
+
+	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
 #ifdef HAVE_SCRIPTING
 DEFUN_YANG (match_script,
 	    match_script_cmd,
@@ -7778,6 +7884,7 @@ void bgp_route_map_init(void)
 	route_map_no_set_tag_hook(generic_set_delete);
 
 	route_map_install_match(&route_match_peer_cmd);
+	route_map_install_match(&route_match_src_peer_cmd);
 	route_map_install_match(&route_match_alias_cmd);
 	route_map_install_match(&route_match_local_pref_cmd);
 #ifdef HAVE_SCRIPTING
@@ -7845,6 +7952,8 @@ void bgp_route_map_init(void)
 
 	install_element(RMAP_NODE, &match_peer_cmd);
 	install_element(RMAP_NODE, &match_peer_local_cmd);
+	install_element(RMAP_NODE, &match_src_peer_cmd);
+	install_element(RMAP_NODE, &no_match_src_peer_cmd);
 	install_element(RMAP_NODE, &no_match_peer_cmd);
 	install_element(RMAP_NODE, &match_ip_route_source_cmd);
 	install_element(RMAP_NODE, &no_match_ip_route_source_cmd);

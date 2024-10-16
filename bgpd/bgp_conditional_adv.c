@@ -30,8 +30,8 @@ bgp_check_rmap_prefixes_in_bgp_table(struct bgp_table *table,
 			dummy_attr = *pi->attr;
 
 			/* Fill temp path_info */
-			prep_for_rmap_apply(&path, &path_extra, dest, pi,
-					    pi->peer, &dummy_attr);
+			prep_for_rmap_apply(&path, &path_extra, dest, pi, pi->peer, NULL,
+					    &dummy_attr);
 
 			RESET_FLAG(dummy_attr.rmap_change_flags);
 
@@ -99,8 +99,8 @@ static void bgp_conditional_adv_routes(struct peer *peer, afi_t afi,
 			advmap_attr = *pi->attr;
 
 			/* Fill temp path_info */
-			prep_for_rmap_apply(&path, &path_extra, dest, pi,
-					    pi->peer, &advmap_attr);
+			prep_for_rmap_apply(&path, &path_extra, dest, pi, pi->peer, NULL,
+					    &advmap_attr);
 
 			RESET_FLAG(advmap_attr.rmap_change_flags);
 
