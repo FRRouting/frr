@@ -776,13 +776,11 @@ void interface_up(struct event *thread)
 	event_cancel(&oi->thread_sso);
 
 	if (IS_OSPF6_DEBUG_INTERFACE)
-		zlog_debug("Interface Event %s: [InterfaceUp]",
-			   oi->interface->name);
+		zlog_debug("Interface Event %s: [InterfaceUp]", oi->interface->name);
 
 	/* check physical interface is up */
 	if (!if_is_operative(oi->interface)) {
-		zlog_warn("Interface %s is down, can't execute [InterfaceUp]",
-			  oi->interface->name);
+		zlog_warn("Interface %s is down, can't execute [InterfaceUp]", oi->interface->name);
 		return;
 	}
 
@@ -800,8 +798,7 @@ void interface_up(struct event *thread)
 	/* if already enabled, do nothing */
 	if (oi->state > OSPF6_INTERFACE_DOWN) {
 		if (IS_OSPF6_DEBUG_INTERFACE)
-			zlog_debug("Interface %s already enabled",
-				   oi->interface->name);
+			zlog_debug("Interface %s already enabled", oi->interface->name);
 		return;
 	}
 
@@ -892,8 +889,7 @@ void wait_timer(struct event *thread)
 	assert(oi && oi->interface);
 
 	if (IS_OSPF6_DEBUG_INTERFACE)
-		zlog_debug("Interface Event %s: [WaitTimer]",
-			   oi->interface->name);
+		zlog_debug("Interface Event %s: [WaitTimer]", oi->interface->name);
 
 	if (oi->state == OSPF6_INTERFACE_WAITING)
 		ospf6_interface_state_change(dr_election(oi), oi);
@@ -907,8 +903,7 @@ void backup_seen(struct event *thread)
 	assert(oi && oi->interface);
 
 	if (IS_OSPF6_DEBUG_INTERFACE)
-		zlog_debug("Interface Event %s: [BackupSeen]",
-			   oi->interface->name);
+		zlog_debug("Interface Event %s: [BackupSeen]", oi->interface->name);
 
 	if (oi->state == OSPF6_INTERFACE_WAITING)
 		ospf6_interface_state_change(dr_election(oi), oi);
@@ -922,8 +917,7 @@ void neighbor_change(struct event *thread)
 	assert(oi && oi->interface);
 
 	if (IS_OSPF6_DEBUG_INTERFACE)
-		zlog_debug("Interface Event %s: [NeighborChange]",
-			   oi->interface->name);
+		zlog_debug("Interface Event %s: [NeighborChange]", oi->interface->name);
 
 	if (oi->state == OSPF6_INTERFACE_DROTHER ||
 	    oi->state == OSPF6_INTERFACE_BDR || oi->state == OSPF6_INTERFACE_DR)
@@ -941,8 +935,7 @@ void interface_down(struct event *thread)
 	assert(oi && oi->interface);
 
 	if (IS_OSPF6_DEBUG_INTERFACE)
-		zlog_debug("Interface Event %s: [InterfaceDown]",
-			   oi->interface->name);
+		zlog_debug("Interface Event %s: [InterfaceDown]", oi->interface->name);
 
 	/* Stop Hellos */
 	EVENT_OFF(oi->thread_send_hello);
@@ -2906,8 +2899,7 @@ static int ospf6_ifp_up(struct interface *ifp)
 {
 	if (IS_OSPF6_DEBUG_ZEBRA(RECV))
 		zlog_debug("Zebra Interface state change: %s index %d flags %llx metric %d mtu %d bandwidth %d",
-			   ifp->name, ifp->ifindex,
-			   (unsigned long long)ifp->flags, ifp->metric,
+			   ifp->name, ifp->ifindex, (unsigned long long)ifp->flags, ifp->metric,
 			   ifp->mtu6, ifp->bandwidth);
 
 	ospf6_interface_state_update(ifp);
@@ -2919,8 +2911,7 @@ static int ospf6_ifp_down(struct interface *ifp)
 {
 	if (IS_OSPF6_DEBUG_ZEBRA(RECV))
 		zlog_debug("Zebra Interface state change: %s index %d flags %llx metric %d mtu %d bandwidth %d",
-			   ifp->name, ifp->ifindex,
-			   (unsigned long long)ifp->flags, ifp->metric,
+			   ifp->name, ifp->ifindex, (unsigned long long)ifp->flags, ifp->metric,
 			   ifp->mtu6, ifp->bandwidth);
 
 	ospf6_interface_state_update(ifp);
@@ -2931,12 +2922,11 @@ static int ospf6_ifp_down(struct interface *ifp)
 static int ospf6_ifp_destroy(struct interface *ifp)
 {
 	if (if_is_up(ifp))
-		zlog_warn("Zebra: got delete of %s, but interface is still up",
-			  ifp->name);
+		zlog_warn("Zebra: got delete of %s, but interface is still up", ifp->name);
 
 	if (IS_OSPF6_DEBUG_ZEBRA(RECV))
-		zlog_debug("Zebra Interface delete: %s index %d mtu %d",
-			   ifp->name, ifp->ifindex, ifp->mtu6);
+		zlog_debug("Zebra Interface delete: %s index %d mtu %d", ifp->name, ifp->ifindex,
+			   ifp->mtu6);
 
 	if (ifp->info)
 		ospf6_interface_stop(ifp->info);
