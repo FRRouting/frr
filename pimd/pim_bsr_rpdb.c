@@ -502,6 +502,9 @@ int pim_crp_process(struct interface *ifp, pim_sgaddr *src_dst, uint8_t *buf,
 	buf += sizeof(*crp_hdr);
 	remain -= sizeof(*crp_hdr);
 
+	/* ignore trailing data */
+	(void)buf;
+
 	size_t ngroups = crp_hdr->prefix_cnt;
 
 	if (remain < ngroups * sizeof(struct pim_encoded_group_ipv4)) {
