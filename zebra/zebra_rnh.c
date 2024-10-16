@@ -220,10 +220,9 @@ void zebra_free_rnh(struct rnh *rnh)
 		if (rern) {
 			rib_dest_t *dest;
 
-			route_unlock_node(rern);
-
 			dest = rib_dest_from_rnode(rern);
 			rnh_list_del(&dest->nht, rnh);
+			route_unlock_node(rern);
 		}
 	}
 	free_state(rnh->vrf_id, rnh->state, rnh->node);
