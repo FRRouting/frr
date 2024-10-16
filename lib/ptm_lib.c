@@ -308,22 +308,18 @@ static int _ptm_lib_read_ptm_socket(int fd, char *buf, int len)
 	while (bytes_read != len) {
 		rc = recv(fd, (void *)(buf + bytes_read), (len - bytes_read),
 			  MSG_DONTWAIT);
-		if (rc <= 0) {
-			if (errno && (errno != EAGAIN)
-			    && (errno != EWOULDBLOCK)) {
-				ERRLOG("fatal recv error(%s), closing connection, rc %d\n",
-				       strerror(errno), rc);
-				return (rc);
-			} else {
-				if (retries++ < 2) {
-					usleep(10000);
-					continue;
-				}
-				DLOG("max retries - recv error(%d - %s) bytes read %d (%d)\n",
-				     errno, strerror(errno), bytes_read, len);
-				return (bytes_read);
+		if (rc < 0 && (errno != EAGAIN) && (errno != EWOULDBLOCK)) {
+			ERRLOG("fatal recv error(%s), closing connection, rc %d\n", strerror(errno),
+			       rc);
+			return (rc);
+		} else if (rc <= 0) {
+			if (retries++ < 2) {
+				usleep(10000);
+				continue;
 			}
-			break;
+			DLOG("max retries - recv error(%d - %s) bytes read %d (%d)\n", errno,
+			     strerror(errno), bytes_read, len);
+			return (bytes_read);
 		} else {
 			bytes_read += rc;
 		}
