@@ -70,7 +70,9 @@ DEFINE_HOOK(bgp_packet_send,
  */
 int bgp_packet_set_marker(struct stream *s, uint8_t type)
 {
-	int i;
+	int i = 0;
+
+	i = 0;
 
 	/* Fill in marker. */
 	for (i = 0; i < BGP_MARKER_SIZE; i++)
