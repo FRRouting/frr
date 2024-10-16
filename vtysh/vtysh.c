@@ -280,9 +280,6 @@ static int vtysh_client_run(struct vtysh_client *vclient, const char *line,
 		nread = vtysh_client_receive(
 			vclient, bufvalid, buf + bufsz - bufvalid - 1, pass_fd);
 
-		if (nread < 0 && (errno == EINTR || errno == EAGAIN))
-			continue;
-
 		if (nread <= 0) {
 			if (vty->of)
 				vty_out(vty,
