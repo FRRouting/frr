@@ -1068,8 +1068,8 @@ int bgp_path_info_cmp(struct bgp *bgp, struct bgp_path_info *new,
 	if (CHECK_FLAG(newattr->flag, ATTR_FLAG_BIT(BGP_ATTR_AIGP)) &&
 	    CHECK_FLAG(existattr->flag, ATTR_FLAG_BIT(BGP_ATTR_AIGP)) &&
 	    CHECK_FLAG(bgp->flags, BGP_FLAG_COMPARE_AIGP)) {
-		uint64_t new_aigp = bgp_attr_get_aigp_metric(newattr);
-		uint64_t exist_aigp = bgp_attr_get_aigp_metric(existattr);
+		uint64_t new_aigp = bgp_aigp_metric_total(new);
+		uint64_t exist_aigp = bgp_aigp_metric_total(exist);
 
 		if (new_aigp < exist_aigp) {
 			*reason = bgp_path_selection_aigp;
@@ -2148,7 +2148,7 @@ bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
 	struct attr *piattr;
 	route_map_result_t ret;
 	int transparent;
-	int reflect;
+	int ibgp_to_ibgp;
 	afi_t afi;
 	safi_t safi;
 	int samepeer_safe = 0; /* for synthetic mplsvpns routes */
@@ -2357,14 +2357,14 @@ bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
 		}
 	}
 
-	/* Route-Reflect check. */
+	/* iBGP to iBGP check. */
 	if (from->sort == BGP_PEER_IBGP && peer->sort == BGP_PEER_IBGP)
-		reflect = 1;
+		ibgp_to_ibgp = 1;
 	else
-		reflect = 0;
+		ibgp_to_ibgp = 0;
 
 	/* IBGP reflection check. */
-	if (reflect && !samepeer_safe) {
+	if (ibgp_to_ibgp && !samepeer_safe) {
 		/* A route from a Client peer. */
 		if (CHECK_FLAG(from->af_flags[afi][safi],
 			       PEER_FLAG_REFLECTOR_CLIENT)) {
@@ -2410,8 +2410,7 @@ bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
 
 	/* If originator-id is not set and the route is to be reflected,
 	   set the originator id */
-	if (reflect
-	    && (!(attr->flag & ATTR_FLAG_BIT(BGP_ATTR_ORIGINATOR_ID)))) {
+	if (ibgp_to_ibgp && (!(attr->flag & ATTR_FLAG_BIT(BGP_ATTR_ORIGINATOR_ID)))) {
 		IPV4_ADDR_COPY(&(attr->originator_id), &(from->remote_id));
 		SET_FLAG(attr->flag, BGP_ATTR_ORIGINATOR_ID);
 	}
@@ -2444,7 +2443,7 @@ bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
 	 * announced to an EBGP peer (and they have the same attributes barring
 	 * their nexthop).
 	 */
-	if (reflect)
+	if (ibgp_to_ibgp)
 		SET_FLAG(attr->rmap_change_flags, BATTR_REFLECTED);
 
 #define NEXTHOP_IS_V6                                                          \
@@ -2472,7 +2471,8 @@ bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
 			 */
 			if (IN6_IS_ADDR_LINKLOCAL(&attr->mp_nexthop_local))
 				global_and_ll = true;
-		} else if (!reflect && !transparent &&
+		} else if (!ibgp_to_ibgp && !transparent &&
+			   !CHECK_FLAG(from->af_flags[afi][safi], PEER_FLAG_REFLECTOR_CLIENT) &&
 			   IN6_IS_ADDR_LINKLOCAL(&peer->nexthop.v6_local) && peer->shared_network &&
 			   (from == bgp->peer_self || peer->sort == BGP_PEER_EBGP))
 			global_and_ll = true;
@@ -2694,9 +2694,8 @@ bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
 			       PEER_FLAG_NEXTHOP_SELF)
 		    || CHECK_FLAG(peer->af_flags[afi][safi],
 				  PEER_FLAG_FORCE_NEXTHOP_SELF)) {
-			if (!reflect
-			    || CHECK_FLAG(peer->af_flags[afi][safi],
-					  PEER_FLAG_FORCE_NEXTHOP_SELF)) {
+			if (!ibgp_to_ibgp ||
+			    CHECK_FLAG(peer->af_flags[afi][safi], PEER_FLAG_FORCE_NEXTHOP_SELF)) {
 				subgroup_announce_reset_nhop(
 					(peer_cap_enhe(peer, afi, safi)
 						 ? AF_INET6
@@ -3727,11 +3726,10 @@ static void bgp_process_main_one(struct bgp *bgp, struct bgp_dest *dest,
 
 		/* If there is a change of interest to peers, reannounce the
 		 * route. */
-		if (CHECK_FLAG(old_select->flags, BGP_PATH_ATTR_CHANGED)
-		    || CHECK_FLAG(old_select->flags, BGP_PATH_LINK_BW_CHG)
-		    || CHECK_FLAG(dest->flags, BGP_NODE_LABEL_CHANGED)) {
+		if (CHECK_FLAG(old_select->flags, BGP_PATH_ATTR_CHANGED) ||
+		    CHECK_FLAG(dest->flags, BGP_NODE_LABEL_CHANGED) ||
+		    bgp_zebra_has_route_changed(old_select)) {
 			group_announce_route(bgp, afi, safi, dest, new_select);
-
 			/* unicast routes must also be annouced to
 			 * labeled-unicast update-groups */
 			if (safi == SAFI_UNICAST)
@@ -6747,8 +6745,8 @@ void bgp_static_update(struct bgp *bgp, const struct prefix *p,
 	bgp_attr_default_set(&attr, bgp, BGP_ORIGIN_IGP);
 
 	attr.nexthop = bgp_static->igpnexthop;
-	attr.med = bgp_static->igpmetric;
-	attr.flag |= ATTR_FLAG_BIT(BGP_ATTR_MULTI_EXIT_DISC);
+
+	bgp_attr_set_med(&attr, bgp_static->igpmetric);
 
 	if (afi == AFI_IP)
 		attr.mp_nexthop_len = BGP_ATTR_NHLEN_IPV4;
@@ -9015,9 +9013,8 @@ void bgp_redistribute_add(struct bgp *bgp, struct prefix *p,
 	else
 		UNSET_FLAG(attr.nh_flags, BGP_ATTR_NH_IF_OPERSTATE);
 
-	attr.med = metric;
+	bgp_attr_set_med(&attr, metric);
 	attr.distance = distance;
-	attr.flag |= ATTR_FLAG_BIT(BGP_ATTR_MULTI_EXIT_DISC);
 	attr.tag = tag;
 
 	if (metric)

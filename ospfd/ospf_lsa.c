@@ -2619,8 +2619,7 @@ void ospf_external_lsa_refresh_default(struct ospf *ospf)
 	}
 }
 
-void ospf_external_lsa_refresh_type(struct ospf *ospf, uint8_t type,
-				    unsigned short instance, int force)
+void ospf_external_lsa_refresh_type(struct ospf *ospf, uint8_t type, uint8_t instance, int force)
 {
 	struct route_node *rn;
 	struct external_info *ei;
@@ -3176,9 +3175,9 @@ int ospf_check_nbr_status(struct ospf *ospf)
 }
 
 
-void ospf_maxage_lsa_remover(struct event *thread)
+void ospf_maxage_lsa_remover(struct event *event)
 {
-	struct ospf *ospf = EVENT_ARG(thread);
+	struct ospf *ospf = EVENT_ARG(event);
 	struct ospf_lsa *lsa, *old;
 	struct route_node *rn;
 	int reschedule = 0;
@@ -3208,7 +3207,7 @@ void ospf_maxage_lsa_remover(struct event *thread)
 			}
 
 			/* TODO: maybe convert this function to a work-queue */
-			if (event_should_yield(thread)) {
+			if (event_should_yield(event)) {
 				OSPF_TIMER_ON(ospf->t_maxage,
 					      ospf_maxage_lsa_remover, 0);
 				route_unlock_node(
@@ -3424,9 +3423,9 @@ static int ospf_lsa_maxage_walker_remover(struct ospf *ospf,
 }
 
 /* Periodical check of MaxAge LSA. */
-void ospf_lsa_maxage_walker(struct event *thread)
+void ospf_lsa_maxage_walker(struct event *event)
 {
-	struct ospf *ospf = EVENT_ARG(thread);
+	struct ospf *ospf = EVENT_ARG(event);
 	struct route_node *rn;
 	struct ospf_lsa *lsa;
 	struct ospf_area *area;
@@ -4163,11 +4162,11 @@ void ospf_refresher_unregister_lsa(struct ospf *ospf, struct ospf_lsa *lsa)
 	}
 }
 
-void ospf_lsa_refresh_walker(struct event *t)
+void ospf_lsa_refresh_walker(struct event *e)
 {
 	struct list *refresh_list;
 	struct listnode *node, *nnode;
-	struct ospf *ospf = EVENT_ARG(t);
+	struct ospf *ospf = EVENT_ARG(e);
 	struct ospf_lsa *lsa;
 	int i;
 	struct list *lsa_to_refresh = list_new();

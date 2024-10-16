@@ -480,16 +480,6 @@ static bool bgp_attr_aigp_get_tlv_metric(uint8_t *pnt, int length,
 	return false;
 }
 
-static uint64_t bgp_aigp_metric_total(struct bgp_path_info *bpi)
-{
-	uint64_t aigp = bgp_attr_get_aigp_metric(bpi->attr);
-
-	if (bpi->nexthop)
-		return aigp + bpi->nexthop->metric;
-	else
-		return aigp;
-}
-
 static void stream_put_bgp_aigp_tlv_metric(struct stream *s,
 					   struct bgp_path_info *bpi)
 {
@@ -1187,8 +1177,7 @@ struct attr *bgp_attr_aggregate_intern(
 	SET_FLAG(attr.flag, ATTR_FLAG_BIT(BGP_ATTR_ORIGIN));
 
 	/* MED */
-	attr.med = 0;
-	SET_FLAG(attr.flag, ATTR_FLAG_BIT(BGP_ATTR_MULTI_EXIT_DISC));
+	bgp_attr_set_med(&attr, 0);
 
 	/* AS path attribute. */
 	if (aspath)
@@ -1943,9 +1932,7 @@ static enum bgp_attr_parse_ret bgp_attr_med(struct bgp_attr_parser_args *args)
 					  args->total);
 	}
 
-	attr->med = stream_getl(peer->curr);
-
-	SET_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_MULTI_EXIT_DISC));
+	bgp_attr_set_med(attr, stream_getl(peer->curr));
 
 	return BGP_ATTR_PARSE_PROCEED;
 }

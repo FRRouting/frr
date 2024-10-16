@@ -1377,16 +1377,9 @@ char *bgp_nexthop_dump_bnc_change_flags(struct bgp_nexthop_cache *bnc,
 		return buf;
 	}
 
-	snprintfrr(buf, len, "%s%s%s",
-		   CHECK_FLAG(bnc->change_flags, BGP_NEXTHOP_CHANGED)
-			   ? "Changed "
-			   : "",
-		   CHECK_FLAG(bnc->change_flags, BGP_NEXTHOP_METRIC_CHANGED)
-			   ? "Metric "
-			   : "",
-		   CHECK_FLAG(bnc->change_flags, BGP_NEXTHOP_CONNECTED_CHANGED)
-			   ? "Connected "
-			   : "");
+	snprintfrr(buf, len, "%s%s",
+		   CHECK_FLAG(bnc->change_flags, BGP_NEXTHOP_CHANGED) ? "Changed " : "",
+		   CHECK_FLAG(bnc->change_flags, BGP_NEXTHOP_METRIC_CHANGED) ? "Metric " : "");
 
 	return buf;
 }

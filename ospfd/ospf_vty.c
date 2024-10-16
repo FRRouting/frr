@@ -781,6 +781,8 @@ DEFUN (no_ospf_area_range_substitute,
 
 	ospf_area_range_substitute_unset(ospf, area, &p);
 
+	ospf_area_check_free(ospf, area_id);
+
 	return CMD_SUCCESS;
 }
 

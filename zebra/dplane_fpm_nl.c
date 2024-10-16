@@ -1058,6 +1058,7 @@ static int fpm_nl_enqueue(struct fpm_nl_ctx *fnc, struct zebra_dplane_ctx *ctx)
 	case DPLANE_OP_SRV6_ENCAP_SRCADDR_SET:
 	case DPLANE_OP_NONE:
 	case DPLANE_OP_STARTUP_STAGE:
+	case DPLANE_OP_VLAN_INSTALL:
 		break;
 
 	}
@@ -1512,8 +1513,12 @@ static void fpm_process_queue(struct event *t)
 
 	/* Re-schedule if we ran out of buffer space */
 	if (no_bufs) {
-		event_add_event(fnc->fthread->master, fpm_process_queue, fnc, 0,
-				&fnc->t_dequeue);
+		if (processed_contexts)
+			event_add_event(fnc->fthread->master, fpm_process_queue, fnc, 0,
+					&fnc->t_dequeue);
+		else
+			event_add_timer_msec(fnc->fthread->master, fpm_process_queue, fnc, 10,
+					     &fnc->t_dequeue);
 		event_add_timer(fnc->fthread->master, fpm_process_wedged, fnc,
 				DPLANE_FPM_NL_WEDGIE_TIME, &fnc->t_wedged);
 	} else
@@ -1525,7 +1530,7 @@ static void fpm_process_queue(struct event *t)
 	 * until the dataplane thread gets scheduled for new,
 	 * unrelated work.
 	 */
-	if (dplane_provider_out_ctx_queue_len(fnc->prov) > 0)
+	if (processed_contexts)
 		dplane_provider_work_ready();
 }
 

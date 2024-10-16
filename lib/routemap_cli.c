@@ -922,13 +922,15 @@ DEFPY_YANG(
 
 DEFPY_YANG(
 	set_metric, set_metric_cmd,
-	"set metric <(-4294967295-4294967295)$metric|rtt$rtt|+rtt$artt|-rtt$srtt>",
+	"set metric <(-4294967295-4294967295)$metric|rtt$rtt|+rtt$artt|-rtt$srtt|igp$igp|aigp$aigp>",
 	SET_STR
 	"Metric value for destination routing protocol\n"
 	"Metric value (use +/- for additions or subtractions)\n"
 	"Assign round trip time\n"
 	"Add round trip time\n"
-	"Subtract round trip time\n")
+	"Subtract round trip time\n"
+	"Metric value from IGP protocol\n"
+	"Metric value from AIGP (Accumulated IGP)\n")
 {
 	const char *xpath = "./set-action[action='frr-route-map:set-metric']";
 	char xpath_value[XPATH_MAXLEN];
@@ -938,6 +940,12 @@ DEFPY_YANG(
 	if (rtt) {
 		snprintf(xpath_value, sizeof(xpath_value),
 			 "%s/rmap-set-action/use-round-trip-time", xpath);
+		snprintf(value, sizeof(value), "true");
+	} else if (igp) {
+		snprintf(xpath_value, sizeof(xpath_value), "%s/rmap-set-action/use-igp", xpath);
+		snprintf(value, sizeof(value), "true");
+	} else if (aigp) {
+		snprintf(xpath_value, sizeof(xpath_value), "%s/rmap-set-action/use-aigp", xpath);
 		snprintf(value, sizeof(value), "true");
 	} else if (artt) {
 		snprintf(xpath_value, sizeof(xpath_value),
@@ -1148,23 +1156,19 @@ void route_map_action_show(struct vty *vty, const struct lyd_node *dnode,
 		if (yang_dnode_get(dnode,
 				   "./rmap-set-action/use-round-trip-time")) {
 			vty_out(vty, " set metric rtt\n");
-		} else if (yang_dnode_get(
-				   dnode,
-				   "./rmap-set-action/add-round-trip-time")) {
+		} else if (yang_dnode_get(dnode, "./rmap-set-action/use-igp")) {
+			vty_out(vty, " set metric igp\n");
+		} else if (yang_dnode_get(dnode, "./rmap-set-action/use-aigp")) {
+			vty_out(vty, " set metric aigp\n");
+		} else if (yang_dnode_get(dnode, "./rmap-set-action/add-round-trip-time")) {
 			vty_out(vty, " set metric +rtt\n");
-		} else if (
-			yang_dnode_get(
-				dnode,
-				"./rmap-set-action/subtract-round-trip-time")) {
+		} else if (yang_dnode_get(dnode, "./rmap-set-action/subtract-round-trip-time")) {
 			vty_out(vty, " set metric -rtt\n");
-		} else if (yang_dnode_get(dnode,
-					  "./rmap-set-action/add-metric")) {
+		} else if (yang_dnode_get(dnode, "./rmap-set-action/add-metric")) {
 			vty_out(vty, " set metric +%s\n",
 				yang_dnode_get_string(
 					dnode, "./rmap-set-action/add-metric"));
-		} else if (yang_dnode_get(
-				   dnode,
-				   "./rmap-set-action/subtract-metric")) {
+		} else if (yang_dnode_get(dnode, "./rmap-set-action/subtract-metric")) {
 			vty_out(vty, " set metric -%s\n",
 				yang_dnode_get_string(
 					dnode,
