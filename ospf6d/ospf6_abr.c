@@ -1138,6 +1138,35 @@ void ospf6_abr_examin_summary(struct ospf6_lsa *lsa, struct ospf6_area *oa)
 		options[2] = router_lsa->options[2];
 		cost = OSPF6_ABR_SUMMARY_METRIC(router_lsa);
 		SET_FLAG(router_bits, OSPF6_ROUTER_BIT_E);
+	} else if (lsa->header->type == htons(OSPF6_LSTYPE_E_INTER_ROUTER)) {
+		zlog_debug("%s: LSA %s", __func__, lsa->name);
+
+		if (IS_OSPF6_DEBUG_EXAMIN(INTER_ROUTER)) {
+			is_debug++;
+			zlog_debug("%s: LSA %s age %d in area %s", __func__,
+				   lsa->name, ospf6_lsa_age_current(lsa),
+				   oa->name);
+		}
+		struct tlv_header *tlv = lsa_after_header(lsa->header);
+		if (ntohs(tlv->type) != OSPF6_TLV_INTER_AREA_ROUTER) {
+			zlog_warn("Malformed LSA %s", lsa->name);
+			return;
+		}
+		struct tlv_inter_area_router *tlv_iar =
+			(struct tlv_inter_area_router *)tlv;
+
+		ospf6_linkstate_prefix(tlv_iar->router_id, htonl(0), &prefix);
+		if (is_debug)
+			inet_ntop(AF_INET, &tlv_iar->router_id, buf,
+				  sizeof(buf));
+
+		table = oa->ospf6->brouter_table;
+		type = OSPF6_DEST_TYPE_ROUTER;
+		options[0] = tlv_iar->options[0];
+		options[1] = tlv_iar->options[1];
+		options[2] = tlv_iar->options[2];
+		cost = OSPF6_ABR_SUMMARY_METRIC(tlv_iar);
+		SET_FLAG(router_bits, OSPF6_ROUTER_BIT_E);
 	} else
 		assert(0);
 
