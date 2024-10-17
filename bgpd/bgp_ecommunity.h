@@ -398,6 +398,7 @@ extern struct ecommunity *ecommunity_new(void);
 extern bool ecommunity_strip(struct ecommunity *ecom, uint8_t type,
 			     uint8_t subtype);
 extern struct ecommunity *ecommunity_new(void);
+extern bool ecommunity_strip_non_transitive(struct ecommunity *ecom);
 extern bool ecommunity_del_val(struct ecommunity *ecom,
 			       struct ecommunity_val *eval);
 struct bgp_pbr_entry_action;
