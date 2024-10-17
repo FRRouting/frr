@@ -1419,7 +1419,7 @@ char *ecommunity_ecom2str(struct ecommunity *ecom, int format, int filter)
 						       pnt, len);
 			else
 				unk_ecom = true;
-		} else if (type == ECOMMUNITY_ENCODE_IP_NON_TRANS) {
+		} else if (CHECK_FLAG(type, ECOMMUNITY_ENCODE_IP_NON_TRANS)) {
 			sub_type = *pnt++;
 			if (sub_type == ECOMMUNITY_NODE_TARGET)
 				ecommunity_node_target_str(
