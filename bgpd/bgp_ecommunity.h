@@ -32,9 +32,7 @@
 #define ECOMMUNITY_EXTENDED_COMMUNITY_PART_3 0x82
 
 /* Non-transitive extended community types. */
-#define ECOMMUNITY_ENCODE_AS_NON_TRANS      0x40
 #define ECOMMUNITY_ENCODE_IP_NON_TRANS      0x41
-#define ECOMMUNITY_ENCODE_AS4_NON_TRANS     0x42
 #define ECOMMUNITY_ENCODE_OPAQUE_NON_TRANS  0x43
 
 /* Low-order octet of the Extended Communities type field.  */
@@ -398,6 +396,7 @@ extern struct ecommunity *ecommunity_new(void);
 extern bool ecommunity_strip(struct ecommunity *ecom, uint8_t type,
 			     uint8_t subtype);
 extern struct ecommunity *ecommunity_new(void);
+extern bool ecommunity_strip_non_transitive(struct ecommunity *ecom);
 extern bool ecommunity_del_val(struct ecommunity *ecom,
 			       struct ecommunity_val *eval);
 struct bgp_pbr_entry_action;
