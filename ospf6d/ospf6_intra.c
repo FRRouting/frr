@@ -80,6 +80,7 @@ struct cbd_lsdesc_printer {
 	struct vty *vty;
 	json_object *json_arr;
 	bool use_json;
+	char *lsa_end;
 };
 
 static int print_router_lsdesc(struct ospf6_router_lsdesc *lsdesc,
@@ -155,7 +156,9 @@ static int ospf6_router_lsa_show(struct vty *vty, struct ospf6_lsa *lsa,
 {
 	char bits[16], options[32];
 	struct ospf6_router_lsa *router_lsa;
-	struct cbd_lsdesc_printer cbd = { .vty = vty, .use_json = use_json };
+	struct cbd_lsdesc_printer cbd = { .vty = vty,
+					  .use_json = use_json,
+					  .lsa_end = ospf6_lsa_end(lsa->header) };
 	static const struct tlv_handler handlers[] = {
 		{ OSPF6_TLV_RESERVED, cb_print_router_lsdesc },
 		{ OSPF6_TLV_ROUTER_LINK, cb_print_tlv_router_link },
@@ -587,8 +590,21 @@ static int cb_print_tlv_attached_routers(void *desc, void *cb_data)
 {
 	struct tlv_attached_routers *tlv = desc;
 	struct cbd_lsdesc_printer *cbd = cb_data;
+	char *end = cbd->lsa_end;
+	int length = ntohs(tlv->header.length);
+	in_addr_t *neigh = tlv->router_id;
+	int err;
 
-	return print_router_id(tlv->router_id, cbd);
+	if (length == 0 || length % 4 != 0)
+		zlog_debug("%s: Attached Routers TLV has invalid length %d", __func__, length);
+
+	while ((char *)(neigh + 1) <= end) {
+		err = print_router_id(*neigh, cbd);
+		if (err)
+			return err;
+		neigh++;
+	}
+	return 0;
 }
 
 static int ospf6_network_lsa_show(struct vty *vty, struct ospf6_lsa *lsa,
@@ -596,7 +612,9 @@ static int ospf6_network_lsa_show(struct vty *vty, struct ospf6_lsa *lsa,
 {
 	struct ospf6_network_lsa *network_lsa;
 	char options[32];
-	struct cbd_lsdesc_printer cbd = { .vty = vty, .use_json = use_json };
+	struct cbd_lsdesc_printer cbd = { .vty = vty,
+					  .use_json = use_json,
+					  .lsa_end = ospf6_lsa_end(lsa->header) };
 	static const struct tlv_handler handlers[] = {
 		{ OSPF6_TLV_RESERVED, cb_print_network_lsdesc },
 		{ OSPF6_TLV_ATTACHED_ROUTERS, cb_print_tlv_attached_routers },
