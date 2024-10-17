@@ -1588,6 +1588,50 @@ bool ecommunity_strip(struct ecommunity *ecom, uint8_t type,
 	return true;
 }
 
+/* Delete all non-transitive extended communities */
+bool ecommunity_strip_non_transitive(struct ecommunity *ecom)
+{
+	uint8_t *p, *q, *new;
+	uint32_t c, found = 0;
+
+	if (!ecom || !ecom->val)
+		return false;
+
+	/* Certain extended communities like the Route Target can be present
+	 * multiple times, handle that.
+	 */
+	c = 0;
+	for (p = ecom->val; c < ecom->size; p += ecom->unit_size, c++)
+		if (CHECK_FLAG(*p, ECOMMUNITY_FLAG_NON_TRANSITIVE))
+			found++;
+
+	if (!found)
+		return false;
+
+	/* Handle the case where everything needs to be stripped. */
+	if (found == ecom->size) {
+		XFREE(MTYPE_ECOMMUNITY_VAL, ecom->val);
+		ecom->size = 0;
+		return true;
+	}
+
+	/* Strip extended communities with non-transitive flag set */
+	new = XMALLOC(MTYPE_ECOMMUNITY_VAL, (ecom->size - found) * ecom->unit_size);
+	q = new;
+	for (c = 0, p = ecom->val; c < ecom->size; c++, p += ecom->unit_size) {
+		if (!CHECK_FLAG(*p, ECOMMUNITY_FLAG_NON_TRANSITIVE)) {
+			memcpy(q, p, ecom->unit_size);
+			q += ecom->unit_size;
+		}
+	}
+
+	XFREE(MTYPE_ECOMMUNITY_VAL, ecom->val);
+	ecom->val = new;
+	ecom->size -= found;
+
+	return true;
+}
+
 /*
  * Remove specified extended community value from extended community.
  * Returns 1 if value was present (and hence, removed), 0 otherwise.
