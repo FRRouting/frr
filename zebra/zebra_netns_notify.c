@@ -378,19 +378,28 @@ void zebra_ns_notify_parse(void)
 {
 	struct dirent *dent;
 	DIR *srcdir = opendir(NS_RUN_DIR);
+	int srcdirfd;
 
 	if (srcdir == NULL) {
 		flog_err_sys(EC_LIB_SYSTEM_CALL,
 			     "NS parsing init: failed to parse %s", NS_RUN_DIR);
 		return;
 	}
+
+	srcdirfd = dirfd(srcdir);
+	if (srcdirfd < 0) {
+		closedir(srcdir);
+		flog_err_sys(EC_LIB_SYSTEM_CALL, "NS parsing init: failed to parse %s", NS_RUN_DIR);
+		return;
+	}
+
 	while ((dent = readdir(srcdir)) != NULL) {
 		struct stat st;
 
 		if (strcmp(dent->d_name, ".") == 0
 		    || strcmp(dent->d_name, "..") == 0)
 			continue;
-		if (fstatat(dirfd(srcdir), dent->d_name, &st, 0) < 0) {
+		if (fstatat(srcdirfd, dent->d_name, &st, 0) < 0) {
 			flog_err_sys(
 				EC_LIB_SYSTEM_CALL,
 				"NS parsing init: failed to parse entry %s",

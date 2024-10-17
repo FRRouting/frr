@@ -468,6 +468,8 @@ static void gm_sg_update(struct gm_sg *sg, bool has_expired)
 
 static void gm_packet_free(struct gm_packet_state *pkt)
 {
+	assert(pkt->iface);
+
 	gm_packet_expires_del(pkt->iface->expires, pkt);
 	gm_packets_del(pkt->subscriber->packets, pkt);
 	gm_subscriber_drop(&pkt->subscriber);

@@ -2776,99 +2776,72 @@ int bgp_gr_update_all(struct bgp *bgp, enum global_gr_command global_gr_cmd)
 
 const char *print_peer_gr_mode(enum peer_mode pr_mode)
 {
-	const char *peer_gr_mode = NULL;
-
 	switch (pr_mode) {
 	case PEER_HELPER:
-		peer_gr_mode = "PEER_HELPER";
-		break;
+		return "PEER_HELPER";
 	case PEER_GR:
-		peer_gr_mode = "PEER_GR";
-		break;
+		return "PEER_GR";
 	case PEER_DISABLE:
-		peer_gr_mode = "PEER_DISABLE";
-		break;
+		return "PEER_DISABLE";
 	case PEER_INVALID:
-		peer_gr_mode = "PEER_INVALID";
-		break;
+		return "PEER_INVALID";
 	case PEER_GLOBAL_INHERIT:
-		peer_gr_mode = "PEER_GLOBAL_INHERIT";
-		break;
+		return "PEER_GLOBAL_INHERIT";
 	}
 
-	return peer_gr_mode;
+	return NULL;
 }
 
 const char *print_peer_gr_cmd(enum peer_gr_command pr_gr_cmd)
 {
-	const char *peer_gr_cmd = NULL;
-
 	switch (pr_gr_cmd) {
 	case PEER_GR_CMD:
-		peer_gr_cmd = "PEER_GR_CMD";
-		break;
+		return "PEER_GR_CMD";
 	case NO_PEER_GR_CMD:
-		peer_gr_cmd = "NO_PEER_GR_CMD";
-		break;
+		return "NO_PEER_GR_CMD";
 	case PEER_DISABLE_CMD:
-		peer_gr_cmd = "PEER_DISABLE_GR_CMD";
-		break;
+		return "PEER_DISABLE_GR_CMD";
 	case NO_PEER_DISABLE_CMD:
-		peer_gr_cmd = "NO_PEER_DISABLE_GR_CMD";
-		break;
+		return "NO_PEER_DISABLE_GR_CMD";
 	case PEER_HELPER_CMD:
-		peer_gr_cmd = "PEER_HELPER_CMD";
-		break;
+		return "PEER_HELPER_CMD";
 	case NO_PEER_HELPER_CMD:
-		peer_gr_cmd = "NO_PEER_HELPER_CMD";
-		break;
+		return "NO_PEER_HELPER_CMD";
 	}
 
-	return peer_gr_cmd;
+	return NULL;
 }
 
 const char *print_global_gr_mode(enum global_mode gl_mode)
 {
-	const char *global_gr_mode = "???";
-
 	switch (gl_mode) {
 	case GLOBAL_HELPER:
-		global_gr_mode = "GLOBAL_HELPER";
-		break;
+		return "GLOBAL_HELPER";
 	case GLOBAL_GR:
-		global_gr_mode = "GLOBAL_GR";
-		break;
+		return "GLOBAL_GR";
 	case GLOBAL_DISABLE:
-		global_gr_mode = "GLOBAL_DISABLE";
-		break;
+		return "GLOBAL_DISABLE";
 	case GLOBAL_INVALID:
-		global_gr_mode = "GLOBAL_INVALID";
-		break;
+		return "GLOBAL_INVALID";
 	}
 
-	return global_gr_mode;
+	return "???";
 }
 
 const char *print_global_gr_cmd(enum global_gr_command gl_gr_cmd)
 {
-	const char *global_gr_cmd = NULL;
-
 	switch (gl_gr_cmd) {
 	case GLOBAL_GR_CMD:
-		global_gr_cmd = "GLOBAL_GR_CMD";
-		break;
+		return "GLOBAL_GR_CMD";
 	case NO_GLOBAL_GR_CMD:
-		global_gr_cmd = "NO_GLOBAL_GR_CMD";
-		break;
+		return "NO_GLOBAL_GR_CMD";
 	case GLOBAL_DISABLE_CMD:
-		global_gr_cmd = "GLOBAL_DISABLE_CMD";
-		break;
+		return "GLOBAL_DISABLE_CMD";
 	case NO_GLOBAL_DISABLE_CMD:
-		global_gr_cmd = "NO_GLOBAL_DISABLE_CMD";
-		break;
+		return "NO_GLOBAL_DISABLE_CMD";
 	}
 
-	return global_gr_cmd;
+	return NULL;
 }
 
 enum global_mode bgp_global_gr_mode_get(struct bgp *bgp)
