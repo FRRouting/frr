@@ -1408,10 +1408,12 @@ char *ecommunity_ecom2str(struct ecommunity *ecom, int format, int filter)
 					 "FS:marking %u", *(pnt + 5));
 			} else
 				unk_ecom = true;
-		} else if (CHECK_FLAG(type, ECOMMUNITY_ENCODE_AS_NON_TRANS) ||
-			   CHECK_FLAG(type, ECOMMUNITY_FLAG_NON_TRANSITIVE)) {
+		} else if (CHECK_FLAG(type, ECOMMUNITY_FLAG_NON_TRANSITIVE) ||
+			   type == ECOMMUNITY_ENCODE_OPAQUE_NON_TRANS) {
 			sub_type = *pnt++;
-			if (sub_type == ECOMMUNITY_LINK_BANDWIDTH)
+			if (sub_type == ECOMMUNITY_ORIGIN_VALIDATION_STATE)
+				ecommunity_origin_validation_state_str(encbuf, sizeof(encbuf), pnt);
+			else if (sub_type == ECOMMUNITY_LINK_BANDWIDTH)
 				ecommunity_lb_str(encbuf, sizeof(encbuf), pnt,
 						  ecom->disable_ieee_floating);
 			else if (sub_type == ECOMMUNITY_EXTENDED_LINK_BANDWIDTH)
@@ -1424,13 +1426,6 @@ char *ecommunity_ecom2str(struct ecommunity *ecom, int format, int filter)
 			if (sub_type == ECOMMUNITY_NODE_TARGET)
 				ecommunity_node_target_str(
 					encbuf, sizeof(encbuf), pnt, format);
-			else
-				unk_ecom = true;
-		} else if (type == ECOMMUNITY_ENCODE_OPAQUE_NON_TRANS) {
-			sub_type = *pnt++;
-			if (sub_type == ECOMMUNITY_ORIGIN_VALIDATION_STATE)
-				ecommunity_origin_validation_state_str(
-					encbuf, sizeof(encbuf), pnt);
 			else
 				unk_ecom = true;
 		} else {
@@ -1588,6 +1583,13 @@ bool ecommunity_strip(struct ecommunity *ecom, uint8_t type,
 	return true;
 }
 
+static bool ecommunity_non_transitive(uint8_t type)
+{
+	return (CHECK_FLAG(type, ECOMMUNITY_FLAG_NON_TRANSITIVE) ||
+		CHECK_FLAG(type, ECOMMUNITY_ENCODE_IP_NON_TRANS) ||
+		type == ECOMMUNITY_ENCODE_OPAQUE_NON_TRANS);
+}
+
 /* Delete all non-transitive extended communities */
 bool ecommunity_strip_non_transitive(struct ecommunity *ecom)
 {
@@ -1602,7 +1604,7 @@ bool ecommunity_strip_non_transitive(struct ecommunity *ecom)
 	 */
 	c = 0;
 	for (p = ecom->val; c < ecom->size; p += ecom->unit_size, c++)
-		if (CHECK_FLAG(*p, ECOMMUNITY_FLAG_NON_TRANSITIVE))
+		if (ecommunity_non_transitive(*p))
 			found++;
 
 	if (!found)
@@ -1619,7 +1621,7 @@ bool ecommunity_strip_non_transitive(struct ecommunity *ecom)
 	new = XMALLOC(MTYPE_ECOMMUNITY_VAL, (ecom->size - found) * ecom->unit_size);
 	q = new;
 	for (c = 0, p = ecom->val; c < ecom->size; c++, p += ecom->unit_size) {
-		if (!CHECK_FLAG(*p, ECOMMUNITY_FLAG_NON_TRANSITIVE)) {
+		if (!ecommunity_non_transitive(*p)) {
 			memcpy(q, p, ecom->unit_size);
 			q += ecom->unit_size;
 		}
@@ -1928,9 +1930,7 @@ const uint8_t *ecommunity_linkbw_present(struct ecommunity *ecom, uint64_t *bw)
 		if (len < ecom->unit_size)
 			return NULL;
 
-		if ((type == ECOMMUNITY_ENCODE_AS ||
-		     type == ECOMMUNITY_ENCODE_AS_NON_TRANS) &&
-		    sub_type == ECOMMUNITY_LINK_BANDWIDTH) {
+		if ((type == ECOMMUNITY_ENCODE_AS) && sub_type == ECOMMUNITY_LINK_BANDWIDTH) {
 			uint32_t bwval;
 
 			pnt += 2; /* bandwidth is encoded as AS:val */
