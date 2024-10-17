@@ -32,9 +32,7 @@
 #define ECOMMUNITY_EXTENDED_COMMUNITY_PART_3 0x82
 
 /* Non-transitive extended community types. */
-#define ECOMMUNITY_ENCODE_AS_NON_TRANS      0x40
 #define ECOMMUNITY_ENCODE_IP_NON_TRANS      0x41
-#define ECOMMUNITY_ENCODE_AS4_NON_TRANS     0x42
 #define ECOMMUNITY_ENCODE_OPAQUE_NON_TRANS  0x43
 
 /* Low-order octet of the Extended Communities type field.  */
