@@ -3524,19 +3524,15 @@ route_set_aigp_metric(void *rule, const struct prefix *pfx, void *object)
 {
 	const char *aigp_metric = rule;
 	struct bgp_path_info *path = object;
-	uint32_t aigp = 0;
+	uint32_t aigp;
 
-	if (strmatch(aigp_metric, "igp-metric")) {
-		if (!path->nexthop)
-			return RMAP_NOMATCH;
-
-		bgp_attr_set_aigp_metric(path->attr, path->nexthop->metric);
-	} else {
+	/* Note: the metric is stored as MED for a locally redistributed. */
+	if (strmatch(aigp_metric, "igp-metric"))
+		aigp = path->nexthop ? path->nexthop->metric : path->attr->med;
+	else
 		aigp = atoi(aigp_metric);
-		bgp_attr_set_aigp_metric(path->attr, aigp);
-	}
 
-	path->attr->flag |= ATTR_FLAG_BIT(BGP_ATTR_AIGP);
+	bgp_attr_set_aigp_metric(path->attr, aigp);
 
 	return RMAP_OKAY;
 }
