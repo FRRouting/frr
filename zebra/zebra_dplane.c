@@ -82,6 +82,7 @@ const uint32_t DPLANE_DEFAULT_NEW_WORK = 100;
 struct dplane_nexthop_info {
 	uint32_t id;
 	uint32_t old_id;
+	uint32_t pic_nhe_id;
 	afi_t afi;
 	vrf_id_t vrf_id;
 	int type;
@@ -771,7 +772,10 @@ static void dplane_ctx_free_internal(struct zebra_dplane_ctx *ctx)
 
 	case DPLANE_OP_NH_INSTALL:
 	case DPLANE_OP_NH_UPDATE:
-	case DPLANE_OP_NH_DELETE: {
+	case DPLANE_OP_NH_DELETE:
+	case DPLANE_OP_PIC_CONTEXT_INSTALL:
+	case DPLANE_OP_PIC_CONTEXT_UPDATE:
+	case DPLANE_OP_PIC_CONTEXT_DELETE: {
 		if (ctx->u.rinfo.nhe.ng.nexthop) {
 			/* This deals with recursive nexthops too */
 			nexthops_free(ctx->u.rinfo.nhe.ng.nexthop);
@@ -1077,7 +1081,15 @@ const char *dplane_op2str(enum dplane_op_e op)
 	case DPLANE_OP_NH_DELETE:
 		ret = "NH_DELETE";
 		break;
-
+	case DPLANE_OP_PIC_CONTEXT_INSTALL:
+		ret = "PIC_CONTEXT_INSTALL";
+		break;
+	case DPLANE_OP_PIC_CONTEXT_UPDATE:
+		ret = "PIC_CONTEXT_UPDATE";
+		break;
+	case DPLANE_OP_PIC_CONTEXT_DELETE:
+		ret = "PIC_CONTEXT_DELETE";
+		break;
 	case DPLANE_OP_LSP_INSTALL:
 		ret = "LSP_INSTALL";
 		break;
@@ -2296,6 +2308,12 @@ uint32_t dplane_ctx_get_nhe_id(const struct zebra_dplane_ctx *ctx)
 {
 	DPLANE_CTX_VALID(ctx);
 	return ctx->u.rinfo.nhe.id;
+}
+
+uint32_t dplane_ctx_get_pic_nhe_id(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+	return ctx->u.rinfo.nhe.pic_nhe_id;
 }
 
 uint32_t dplane_ctx_get_old_nhe_id(const struct zebra_dplane_ctx *ctx)
@@ -3571,10 +3589,20 @@ int dplane_ctx_route_init(struct zebra_dplane_ctx *ctx, enum dplane_op_e op,
 
 #ifdef HAVE_NETLINK
 	{
-		struct nhg_hash_entry *nhe = zebra_nhg_resolve(re->nhe);
+		struct nexthop *nh = NULL;
+		struct nhg_hash_entry *nhe = re->nhe;
+		nh = nhe->nhg.nexthop;
+		/*no need to resolve for srv6 nh*/
+		if (nh && !nh->nh_srv6) {
+			nhe = zebra_nhg_resolve(nhe);
+		}
 
 		ctx->u.rinfo.nhe.id = nhe->id;
 		ctx->u.rinfo.nhe.old_id = 0;
+		if (nhe->pic_nhe) {
+			/**/
+			ctx->u.rinfo.nhe.pic_nhe_id = nhe->pic_nhe->id;
+		}
 		/*
 		 * Check if the nhe is installed/queued before doing anything
 		 * with this route.
@@ -3590,6 +3618,9 @@ int dplane_ctx_route_init(struct zebra_dplane_ctx *ctx, enum dplane_op_e op,
 			return ENOENT;
 
 		re->nhe_installed_id = nhe->id;
+		if (nhe->pic_nhe) {
+			re->pic_nhe_installed_id = nhe->pic_nhe->id;
+		}
 	}
 #endif /* HAVE_NETLINK */
 
@@ -3694,6 +3725,50 @@ static int dplane_ctx_tc_filter_init(struct zebra_dplane_ctx *ctx,
 	return ret;
 }
 
+static void dplane_ctx_nexthop_fill_routeinfo(struct zebra_dplane_ctx *ctx,
+					      struct nhg_hash_entry *nhe)
+{
+	uint8_t i = 0;
+	uint32_t flags = 0;
+	struct nexthop *nh = NULL;
+	struct nhg_hash_entry *depend = NULL;
+	struct nhg_connected *rb_node_dep = NULL;
+
+	nh = nhe->nhg.nexthop;
+	if (nh->nh_srv6)
+		SET_FLAG(flags, ZEBRA_FLAG_KERNEL_BYPASS);
+	if (CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_PIC_NON_RECURSIVE))
+		SET_FLAG(flags, ZEBRA_FLAG_KERNEL_BYPASS);
+
+	nexthop_group_copy(&(ctx->u.rinfo.nhe.ng), &(nhe->nhg));
+
+
+	/* If this is a group, convert it to a grp array of ids */
+	if (!zebra_nhg_depends_is_empty(nhe) &&
+	    !CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_RECURSIVE) &&
+	    !CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_PIC_NON_RECURSIVE))
+		ctx->u.rinfo.nhe.nh_grp_count =
+			zebra_nhg_nhe2grp(ctx->u.rinfo.nhe.nh_grp, nhe,
+					  MULTIPATH_NUM);
+
+	if ((nh->nh_srv6 ||
+	     CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_PIC_NON_RECURSIVE)) &&
+	    zebra_nhg_depends_count(nhe) > 1) {
+		frr_each (nhg_connected_tree, &nhe->nhg_depends, rb_node_dep) {
+			if (!CHECK_FLAG(rb_node_dep->nhe->flags,
+					NEXTHOP_GROUP_VALID))
+				continue;
+			depend = rb_node_dep->nhe;
+			ctx->u.rinfo.nhe.nh_grp[i].id = depend->id;
+			ctx->u.rinfo.nhe.nh_grp[i].weight =
+				depend->nhg.nexthop->weight;
+			i++;
+		}
+		ctx->u.rinfo.nhe.nh_grp_count = i;
+	}
+
+	dplane_ctx_set_flags(ctx, flags);
+}
 /**
  * dplane_ctx_nexthop_init() - Initialize a context block for a nexthop update
  *
@@ -3722,13 +3797,7 @@ int dplane_ctx_nexthop_init(struct zebra_dplane_ctx *ctx, enum dplane_op_e op,
 	ctx->u.rinfo.nhe.vrf_id = nhe->vrf_id;
 	ctx->u.rinfo.nhe.type = nhe->type;
 
-	nexthop_group_copy(&(ctx->u.rinfo.nhe.ng), &(nhe->nhg));
-
-	/* If this is a group, convert it to a grp array of ids */
-	if (!zebra_nhg_depends_is_empty(nhe)
-	    && !CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_RECURSIVE))
-		ctx->u.rinfo.nhe.nh_grp_count = zebra_nhg_nhe2grp(
-			ctx->u.rinfo.nhe.nh_grp, nhe, MULTIPATH_NUM);
+	dplane_ctx_nexthop_fill_routeinfo(ctx, nhe);
 
 	zvrf = vrf_info_lookup(nhe->vrf_id);
 
@@ -4293,6 +4362,8 @@ dplane_route_update_internal(struct route_node *rn,
 	enum zebra_dplane_result result = ZEBRA_DPLANE_REQUEST_FAILURE;
 	int ret = EINVAL;
 	struct zebra_dplane_ctx *ctx = NULL;
+	struct nexthop *nexthop;
+	uint32_t flags = 0;
 
 	/* Obtain context block */
 	ctx = dplane_ctx_alloc();
@@ -4300,6 +4371,12 @@ dplane_route_update_internal(struct route_node *rn,
 	/* Init context with info from zebra data structs */
 	ret = dplane_ctx_route_init(ctx, op, rn, re);
 	if (ret == AOK) {
+		nexthop = re->nhe->nhg.nexthop;
+		flags = re->flags;
+		if (nexthop && nexthop->nh_srv6) {
+			SET_FLAG(flags, ZEBRA_FLAG_KERNEL_BYPASS);
+		}
+		dplane_ctx_set_flags(ctx, flags);
 		/* Capture some extra info for update case
 		 * where there's a different 'old' route.
 		 */
@@ -4745,6 +4822,17 @@ done:
 /*
  * Enqueue a nexthop add for the dataplane.
  */
+enum zebra_dplane_result dplane_pic_context_add(struct nhg_hash_entry *nhe)
+{
+	enum zebra_dplane_result ret = ZEBRA_DPLANE_REQUEST_FAILURE;
+
+	if (nhe)
+		ret = dplane_nexthop_update_internal(nhe,
+						     DPLANE_OP_PIC_CONTEXT_INSTALL);
+	return ret;
+}
+
+
 enum zebra_dplane_result dplane_nexthop_add(struct nhg_hash_entry *nhe)
 {
 	enum zebra_dplane_result ret = ZEBRA_DPLANE_REQUEST_FAILURE;
@@ -4777,6 +4865,17 @@ enum zebra_dplane_result dplane_nexthop_delete(struct nhg_hash_entry *nhe)
 
 	if (nhe)
 		ret = dplane_nexthop_update_internal(nhe, DPLANE_OP_NH_DELETE);
+
+	return ret;
+}
+
+enum zebra_dplane_result dplane_pic_context_delete(struct nhg_hash_entry *nhe)
+{
+	enum zebra_dplane_result ret = ZEBRA_DPLANE_REQUEST_FAILURE;
+
+	if (nhe)
+		ret = dplane_nexthop_update_internal(nhe,
+						     DPLANE_OP_PIC_CONTEXT_DELETE);
 
 	return ret;
 }
@@ -6611,6 +6710,9 @@ static void kernel_dplane_log_detail(struct zebra_dplane_ctx *ctx)
 	case DPLANE_OP_NH_INSTALL:
 	case DPLANE_OP_NH_UPDATE:
 	case DPLANE_OP_NH_DELETE:
+	case DPLANE_OP_PIC_CONTEXT_INSTALL:
+	case DPLANE_OP_PIC_CONTEXT_UPDATE:
+	case DPLANE_OP_PIC_CONTEXT_DELETE:
 		zlog_debug("ID (%u) Dplane nexthop update ctx %p op %s",
 			   dplane_ctx_get_nhe_id(ctx), ctx,
 			   dplane_op2str(dplane_ctx_get_op(ctx)));
@@ -6816,6 +6918,9 @@ static void kernel_dplane_handle_result(struct zebra_dplane_ctx *ctx)
 	case DPLANE_OP_NH_INSTALL:
 	case DPLANE_OP_NH_UPDATE:
 	case DPLANE_OP_NH_DELETE:
+	case DPLANE_OP_PIC_CONTEXT_INSTALL:
+	case DPLANE_OP_PIC_CONTEXT_UPDATE:
+	case DPLANE_OP_PIC_CONTEXT_DELETE:
 		if (res != ZEBRA_DPLANE_REQUEST_SUCCESS)
 			atomic_fetch_add_explicit(
 				&zdplane_info.dg_nexthop_errors, 1,

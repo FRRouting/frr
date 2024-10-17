@@ -1543,6 +1543,9 @@ void kernel_update_multi(struct dplane_ctx_list_head *ctx_list)
 		case DPLANE_OP_NH_INSTALL:
 		case DPLANE_OP_NH_UPDATE:
 		case DPLANE_OP_NH_DELETE:
+		case DPLANE_OP_PIC_CONTEXT_INSTALL:
+		case DPLANE_OP_PIC_CONTEXT_UPDATE:
+		case DPLANE_OP_PIC_CONTEXT_DELETE:
 			res = kernel_nexthop_update(ctx);
 			break;
 

@@ -1255,6 +1255,7 @@ static void bgp_zebra_announce_parse_nexthop(
 	uint32_t ttl = 0;
 	uint32_t bos = 0;
 	uint32_t exp = 0;
+	bool src = false;
 	struct bgp_route_evpn *bre = NULL;
 
 	/* Determine if we're doing weighted ECMP or not */
@@ -1425,6 +1426,15 @@ static void bgp_zebra_announce_parse_nexthop(
 			memcpy(&api_nh->seg6_segs[0], sid_tmp,
 			       sizeof(api_nh->seg6_segs[0]));
 
+			if (mpinfo->peer->connection->status == Established &&
+			    mpinfo->peer->su_local->sa.sa_family == AF_INET6) {
+				memcpy(&api_nh->seg6_src,
+				       &mpinfo->peer->su_local->sin6.sin6_addr,
+				       sizeof(api_nh->seg6_src));
+				src = true;
+			}
+
+
 			if (mpinfo->attr->srv6_l3vpn &&
 			    mpinfo->attr->srv6_l3vpn->transposition_len != 0) {
 				mpls_lse_decode(labels[0], &nh_label, &ttl,
@@ -1446,6 +1456,11 @@ static void bgp_zebra_announce_parse_nexthop(
 
 			api_nh->seg_num = 1;
 			SET_FLAG(api_nh->flags, ZAPI_NEXTHOP_FLAG_SEG6);
+			if (src) {
+				SET_FLAG(api_nh->flags,
+					 ZAPI_NEXTHOP_FLAG_SEG6_SRC);
+				src = false;
+			}
 		}
 
 		(*valid_nh_count)++;

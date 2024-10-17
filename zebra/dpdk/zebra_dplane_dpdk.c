@@ -365,6 +365,9 @@ static void zd_dpdk_rule_update(struct zebra_dplane_ctx *ctx)
 	case DPLANE_OP_NH_INSTALL:
 	case DPLANE_OP_NH_UPDATE:
 	case DPLANE_OP_NH_DELETE:
+	case DPLANE_OP_PIC_CONTEXT_INSTALL:
+	case DPLANE_OP_PIC_CONTEXT_UPDATE:
+	case DPLANE_OP_PIC_CONTEXT_DELETE:
 	case DPLANE_OP_LSP_INSTALL:
 	case DPLANE_OP_LSP_UPDATE:
 	case DPLANE_OP_LSP_DELETE:
@@ -425,6 +428,9 @@ static void zd_dpdk_process_update(struct zebra_dplane_ctx *ctx)
 	case DPLANE_OP_NH_INSTALL:
 	case DPLANE_OP_NH_UPDATE:
 	case DPLANE_OP_NH_DELETE:
+	case DPLANE_OP_PIC_CONTEXT_INSTALL:
+	case DPLANE_OP_PIC_CONTEXT_UPDATE:
+	case DPLANE_OP_PIC_CONTEXT_DELETE:
 	case DPLANE_OP_LSP_INSTALL:
 	case DPLANE_OP_LSP_UPDATE:
 	case DPLANE_OP_LSP_DELETE:

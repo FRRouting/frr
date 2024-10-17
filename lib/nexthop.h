@@ -158,7 +158,7 @@ void nexthop_add_srv6_seg6local(struct nexthop *nexthop, uint32_t action,
 				const struct seg6local_context *ctx);
 void nexthop_del_srv6_seg6local(struct nexthop *nexthop);
 void nexthop_add_srv6_seg6(struct nexthop *nexthop, const struct in6_addr *seg,
-			   int num_segs);
+			   const struct in6_addr *segs_src, int num_segs);
 void nexthop_del_srv6_seg6(struct nexthop *nexthop);
 
 /*
@@ -237,6 +237,9 @@ extern void nexthop_copy(struct nexthop *copy, const struct nexthop *nexthop,
 extern void nexthop_copy_no_recurse(struct nexthop *copy,
 				    const struct nexthop *nexthop,
 				    struct nexthop *rparent);
+
+struct nexthop *nexthop_dup_no_context(const struct nexthop *nexthop,
+				       struct nexthop *rparent);
 /* Duplicates a nexthop and returns the newly allocated nexthop */
 extern struct nexthop *nexthop_dup(const struct nexthop *nexthop,
 				   struct nexthop *rparent);

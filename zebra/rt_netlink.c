@@ -586,7 +586,7 @@ parse_nexthop_unicast(ns_id_t ns_id, struct rtmsg *rtm, struct rtattr **tb,
 		nexthop_add_srv6_seg6local(&nh, seg6l_act, &seg6l_ctx);
 
 	if (num_segs)
-		nexthop_add_srv6_seg6(&nh, segs, num_segs);
+		nexthop_add_srv6_seg6(&nh, segs, NULL, num_segs);
 
 	return nh;
 }
@@ -702,7 +702,7 @@ static uint16_t parse_multipath_nexthops_unicast(ns_id_t ns_id, struct nexthop_g
 							   &seg6l_ctx);
 
 			if (num_segs)
-				nexthop_add_srv6_seg6(nh, segs, num_segs);
+				nexthop_add_srv6_seg6(nh, segs, NULL, num_segs);
 
 			if (rtnh->rtnh_flags & RTNH_F_ONLINK)
 				SET_FLAG(nh->flags, NEXTHOP_FLAG_ONLINK);
@@ -2286,6 +2286,9 @@ ssize_t netlink_route_multipath_msg_encode(int cmd, struct zebra_dplane_ctx *ctx
 
 	/* Table corresponding to this route. */
 	table_id = dplane_ctx_get_table(ctx);
+	if (fpm)
+		table_id = dplane_ctx_get_vrf(ctx);
+
 	if (table_id < 256)
 		req->r.rtm_table = table_id;
 	else {
@@ -2758,6 +2761,15 @@ ssize_t netlink_nexthop_msg_encode(uint16_t cmd,
 		return 0;
 	}
 
+	uint32_t flag = dplane_ctx_get_flags(ctx);
+
+	if (CHECK_FLAG(flag, ZEBRA_FLAG_KERNEL_BYPASS) && !fpm) {
+		if (IS_ZEBRA_DEBUG_KERNEL || IS_ZEBRA_DEBUG_NHG)
+			zlog_debug("%s: nhg_id %u (%s): this nexthops no need to install kernel, ignoring",
+				   __func__, id, zebra_route_string(type));
+		return 0;
+	}
+
 	label_buf[0] = '\0';
 
 	if (buflen < sizeof(*req))
@@ -2836,7 +2848,7 @@ ssize_t netlink_nexthop_msg_encode(uint16_t cmd,
 				break;
 			}
 
-			if (!nh->ifindex) {
+			if (!nh->ifindex && !fpm) {
 				flog_err(
 					EC_ZEBRA_NHG_FIB_UPDATE,
 					"Context received for kernel nexthop update without an interface");
@@ -3087,9 +3099,11 @@ static ssize_t netlink_nexthop_msg_encoder(struct zebra_dplane_ctx *ctx,
 	int cmd = 0;
 
 	op = dplane_ctx_get_op(ctx);
-	if (op == DPLANE_OP_NH_INSTALL || op == DPLANE_OP_NH_UPDATE)
+	if (op == DPLANE_OP_NH_INSTALL || op == DPLANE_OP_NH_UPDATE ||
+	    op == DPLANE_OP_PIC_CONTEXT_INSTALL ||
+	    op == DPLANE_OP_PIC_CONTEXT_UPDATE)
 		cmd = RTM_NEWNEXTHOP;
-	else if (op == DPLANE_OP_NH_DELETE)
+	else if (op == DPLANE_OP_NH_DELETE || op == DPLANE_OP_PIC_CONTEXT_DELETE)
 		cmd = RTM_DELNEXTHOP;
 	else {
 		flog_err(EC_ZEBRA_NHG_FIB_UPDATE,
@@ -3105,8 +3119,11 @@ enum netlink_msg_status
 netlink_put_nexthop_update_msg(struct nl_batch *bth,
 			       struct zebra_dplane_ctx *ctx)
 {
+	uint32_t flag;
+	flag = dplane_ctx_get_flags(ctx);
 	/* Nothing to do if the kernel doesn't support nexthop objects */
-	if (!kernel_nexthops_supported())
+	if (!kernel_nexthops_supported() ||
+	    CHECK_FLAG(flag, ZEBRA_FLAG_KERNEL_BYPASS))
 		return FRR_NETLINK_SUCCESS;
 
 	return netlink_batch_add_msg(bth, ctx, netlink_nexthop_msg_encoder,
