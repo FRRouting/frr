@@ -227,6 +227,11 @@ def test_bgp_aigp():
     """
     )
 
+    # r4, 10.0.6.6/32 with aigp-metric 20
+    test_func = functools.partial(_bgp_check_aigp_metric, r4, "10.0.6.6/32", 20)
+    _, result = topotest.run_and_expect(test_func, None, count=60, wait=1)
+    assert result is None, "aigp-metric for 10.0.6.6/32 is not 20"
+
     # r4, 10.0.0.71/32 with aigp-metric 71
     test_func = functools.partial(_bgp_check_aigp_metric, r4, "10.0.0.71/32", 71)
     _, result = topotest.run_and_expect(test_func, None, count=60, wait=1)
