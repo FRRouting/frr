@@ -1730,6 +1730,8 @@ int ospf_area_nssa_unset(struct ospf *ospf, struct in_addr area_id)
 	area->no_summary = 0;
 	area->suppress_fa = 0;
 	area->NSSATranslatorRole = OSPF_NSSA_ROLE_CANDIDATE;
+	if (area->NSSATranslatorState == OSPF_NSSA_TRANSLATE_ENABLED)
+		ospf_asbr_status_update(ospf, --ospf->redistribute);
 	area->NSSATranslatorState = OSPF_NSSA_TRANSLATE_DISABLED;
 	area->NSSATranslatorStabilityInterval = OSPF_NSSA_TRANS_STABLE_DEFAULT;
 	ospf_area_type_set(area, OSPF_AREA_DEFAULT);
