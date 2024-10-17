@@ -49,16 +49,17 @@ const char *prng_fuzz(struct prng *prng, const char *string,
 		      const char *charset, unsigned int operations)
 {
 	static char buf[256];
-	unsigned int charset_len;
+	size_t charset_len = strlen(charset);
+	size_t str_len = strlen(string);
 	unsigned int i;
 	unsigned int offset;
 	unsigned int op;
 	unsigned int character;
 
-	assert(strlen(string) < sizeof(buf));
+	assert(str_len < sizeof(buf));
 
-	strncpy(buf, string, sizeof(buf));
-	charset_len = strlen(charset);
+	memset(buf, 0, sizeof(buf));
+	memcpy(buf, string, str_len);
 
 	for (i = 0; i < operations; i++) {
 		offset = prng_rand(prng) % strlen(buf);
