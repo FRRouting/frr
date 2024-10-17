@@ -1408,7 +1408,8 @@ char *ecommunity_ecom2str(struct ecommunity *ecom, int format, int filter)
 					 "FS:marking %u", *(pnt + 5));
 			} else
 				unk_ecom = true;
-		} else if (type == ECOMMUNITY_ENCODE_AS_NON_TRANS) {
+		} else if (CHECK_FLAG(type, ECOMMUNITY_ENCODE_AS_NON_TRANS) ||
+			   CHECK_FLAG(type, ECOMMUNITY_FLAG_NON_TRANSITIVE)) {
 			sub_type = *pnt++;
 			if (sub_type == ECOMMUNITY_LINK_BANDWIDTH)
 				ecommunity_lb_str(encbuf, sizeof(encbuf), pnt,
