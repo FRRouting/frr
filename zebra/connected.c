@@ -191,6 +191,9 @@ static void connected_remove_kernel_for_connected(afi_t afi, safi_t safi, struct
 	rib_dest_t *dest;
 	struct route_table *table = zebra_vrf_table(afi, SAFI_UNICAST, zvrf->vrf->vrf_id);
 
+	if (!table)
+		return;
+
 	rn = route_node_match(table, p);
 	if (!rn)
 		return;
