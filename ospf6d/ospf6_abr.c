@@ -1092,6 +1092,32 @@ void ospf6_abr_examin_summary(struct ospf6_lsa *lsa, struct ospf6_area *oa)
 		type = OSPF6_DEST_TYPE_NETWORK;
 		prefix_options = prefix_lsa->prefix.prefix_options;
 		cost = OSPF6_ABR_SUMMARY_METRIC(prefix_lsa);
+	} else if (lsa->header->type == htons(OSPF6_LSTYPE_E_INTER_PREFIX)) {
+		if (IS_OSPF6_DEBUG_EXAMIN(INTER_PREFIX)) {
+			is_debug++;
+			zlog_debug("%s: LSA %s age %d in area %s", __func__,
+				   lsa->name, ospf6_lsa_age_current(lsa),
+				   oa->name);
+		}
+		struct tlv_header *tlv = lsa_after_header(lsa->header);
+		if (ntohs(tlv->type) != OSPF6_TLV_INTER_AREA_PREFIX) {
+			zlog_warn("Malformed LSA %s", lsa->name);
+			return;
+		}
+		struct tlv_inter_area_prefix *tlv_iap =
+			(struct tlv_inter_area_prefix *)tlv;
+		struct ospf6_prefix *p = (struct ospf6_prefix *)(tlv_iap + 1);
+		prefix.family = AF_INET6;
+		prefix.prefixlen = p->prefix_length;
+		memset(&prefix.u.prefix6, 0, sizeof(struct in6_addr));
+		memcpy(&prefix.u.prefix6, p->addr,
+		       OSPF6_PREFIX_SPACE(p->prefix_length));
+		if (is_debug)
+			prefix2str(&prefix, buf, sizeof(buf));
+		table = oa->ospf6->route_table;
+		type = OSPF6_DEST_TYPE_NETWORK;
+		prefix_options = p->prefix_options;
+		cost = OSPF6_ABR_SUMMARY_METRIC(tlv_iap);
 	} else if (lsa->header->type == htons(OSPF6_LSTYPE_INTER_ROUTER)) {
 		if (IS_OSPF6_DEBUG_EXAMIN(INTER_ROUTER)) {
 			is_debug++;
