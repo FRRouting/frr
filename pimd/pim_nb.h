@@ -159,6 +159,10 @@ int routing_control_plane_protocols_control_plane_protocol_pim_address_family_rp
 	struct nb_cb_modify_args *args);
 int routing_control_plane_protocols_control_plane_protocol_pim_address_family_rp_static_rp_rp_list_prefix_list_destroy(
 	struct nb_cb_destroy_args *args);
+int pim_embedded_rp_enable_modify(struct nb_cb_modify_args *args);
+int pim_embedded_rp_group_list_modify(struct nb_cb_modify_args *args);
+int pim_embedded_rp_group_list_destroy(struct nb_cb_destroy_args *args);
+int pim_embedded_rp_maximum_rps_modify(struct nb_cb_modify_args *args);
 int routing_control_plane_protocols_control_plane_protocol_pim_address_family_rp_auto_rp_discovery_enabled_modify(
 	struct nb_cb_modify_args *args);
 int routing_control_plane_protocols_control_plane_protocol_pim_address_family_rp_auto_rp_discovery_enabled_destroy(
@@ -286,6 +290,9 @@ int routing_control_plane_protocols_name_validate(
 	"mroute[source-addr='%s'][group-addr='%s']"
 #define FRR_PIM_STATIC_RP_XPATH                                         \
 	"frr-pim-rp:rp/static-rp/rp-list[rp-address='%s']"
+#define FRR_PIM_EMBEDDED_RP_XPATH	      "./frr-pim-rp:rp/embedded-rp/enable"
+#define FRR_PIM_EMBEDDED_RP_GROUP_LIST_XPATH  "./frr-pim-rp:rp/embedded-rp/group-list"
+#define FRR_PIM_EMBEDDED_RP_MAXIMUM_RPS_XPATH "./frr-pim-rp:rp/embedded-rp/maximum-rps"
 #define FRR_PIM_AUTORP_XPATH "./frr-pim-rp:rp/auto-rp"
 #define FRR_GMP_INTERFACE_XPATH                                         \
 	"./frr-gmp:gmp/address-family[address-family='%s']"
