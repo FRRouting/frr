@@ -1244,8 +1244,8 @@ def _sysctl_assure(commander, variable, value):
 def sysctl_atleast(commander, variable, min_value, raises=False):
     try:
         if commander is None:
-            logger = logging.getLogger("topotest")
-            commander = micronet.Commander("sysctl", logger=logger)
+            topotest_logger = logging.getLogger("topotest")
+            commander = micronet.Commander("sysctl", logger=topotest_logger)
 
         return _sysctl_atleast(commander, variable, min_value)
     except subprocess.CalledProcessError as error:
@@ -1262,8 +1262,8 @@ def sysctl_atleast(commander, variable, min_value, raises=False):
 def sysctl_assure(commander, variable, value, raises=False):
     try:
         if commander is None:
-            logger = logging.getLogger("topotest")
-            commander = micronet.Commander("sysctl", logger=logger)
+            topotest_logger = logging.getLogger("topotest")
+            commander = micronet.Commander("sysctl", logger=topotest_logger)
         return _sysctl_assure(commander, variable, value)
     except subprocess.CalledProcessError as error:
         logger.warning(
