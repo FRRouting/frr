@@ -975,7 +975,7 @@ int netlink_route_change_read_unicast_internal(struct nlmsghdr *h,
 
 		re = zebra_rib_route_entry_new(vrf_id, proto, 0, flags, nhe_id,
 					       table, metric, mtu, distance,
-					       tag);
+					       tag, startup);
 		if (!nhe_id)
 			ng = nexthop_group_new();
 

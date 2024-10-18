@@ -2139,7 +2139,7 @@ static void zread_route_add(ZAPI_HANDLER_ARGS)
 	re = zebra_rib_route_entry_new(
 		vrf_id, api.type, api.instance, api.flags, api.nhgid,
 		api.tableid ? api.tableid : zvrf->table_id, api.metric, api.mtu,
-		api.distance, api.tag);
+		api.distance, api.tag, false);
 
 	if (!CHECK_FLAG(api.message, ZAPI_MESSAGE_NHG)
 	    && (!CHECK_FLAG(api.message, ZAPI_MESSAGE_NEXTHOP)
