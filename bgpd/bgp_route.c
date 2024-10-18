@@ -4220,6 +4220,8 @@ void bgp_process_gr_deferral_complete(struct bgp *bgp, afi_t afi, safi_t safi)
 
 	if (!route_sync_pending) {
 		bgp->gr_route_sync_pending = false;
+		/* Set bgp master GR COMPLETE flag */
+		frrtrace(3, frr_bgp, gr_update_complete, bgp->name_pretty, afi, safi);
 		bgp_update_gr_completion();
 	}
 }
@@ -4454,7 +4456,20 @@ static inline void bgp_evpn_handle_deferred_bestpath_for_vrfs(void)
 	}
 }
 
-/* Process the routes with the flag BGP_NODE_SELECT_DEFER set */
+/*
+ * Process the routes with the flag BGP_NODE_SELECT_DEFER set
+ *
+ * NOTE: Few important places where bgp_do_deferred_path_selection() is
+ * invoked are as below
+ *  1) For default VRF when EORs are received.
+ *  2) Start of deferral time when config read is done and peers are not in
+ *     admin down in peer_unshut_after_cfg()
+ *  3) Via bgp_gr_start_route_select_timer() in 2 cases
+ *      a) When there are still routes to be processed at the end of this
+ *         function
+ *      b) For non default Vrfs if EVPN is enabled in default vrf via
+ *         bgp_evpn_handle_deferred_bestpath_for_vrfs()
+ */
 void bgp_do_deferred_path_selection(struct bgp *bgp, afi_t afi, safi_t safi)
 {
 	struct afi_safi_info *thread_info;
@@ -4516,6 +4531,9 @@ void bgp_do_deferred_path_selection(struct bgp *bgp, afi_t afi, safi_t safi)
 		 * is not GR enabled. In which case, none of the GR timers will
 		 * be started/running. So for such VRFs, this trigger will do
 		 * the deferred bestpath selection.
+		 *
+		 * This also handles the case where default BGP has EVPN enabled
+		 * and non default VRFs(Tenant VRFs) dont have any peer.
 		 */
 		bgp_evpn_handle_deferred_bestpath_for_vrfs();
 	} else if (safi == SAFI_UNICAST && (afi == AFI_IP || afi == AFI_IP6)) {
@@ -4543,7 +4561,7 @@ void bgp_do_deferred_path_selection(struct bgp *bgp, afi_t afi, safi_t safi)
 			 * OR
 			 *
 			 * 2. GR is enabled for l2vpn evpn afi safi in EVPN
-			 * default VRF and GR is complete
+			 * default VRF and GR is complete for default VRF
 			 */
 			bgp_deferred_path_selection(bgp, afi, safi, bgp->rib[afi][safi], cnt, NULL,
 						    false);
