@@ -1271,7 +1271,7 @@ void show_nexthop_json_helper(json_object *json_nexthop,
 	bool display_vrfid = false;
 	uint8_t rn_family;
 
-	if (re == NULL || nexthop->vrf_id != re->vrf_id)
+	if ((re == NULL || nexthop->vrf_id != re->vrf_id) && nexthop->type != NEXTHOP_TYPE_BLACKHOLE)
 		display_vrfid = true;
 
 	if (rn)
@@ -1292,7 +1292,7 @@ void show_route_nexthop_helper(struct vty *vty, const struct route_node *rn,
 	bool display_vrfid = false;
 	uint8_t rn_family;
 
-	if (re == NULL || nexthop->vrf_id != re->vrf_id)
+	if ((re == NULL || nexthop->vrf_id != re->vrf_id) && nexthop->type != NEXTHOP_TYPE_BLACKHOLE)
 		display_vrfid = true;
 
 	if (rn)
