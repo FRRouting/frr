@@ -44,6 +44,8 @@ struct frrscript_names_entry {
 
 extern struct frrscript_names_head frrscript_names_hash;
 
+extern void frrscript_names_config_write(struct vty *vty);
+
 int frrscript_names_hash_cmp(const struct frrscript_names_entry *snhe1,
 			     const struct frrscript_names_entry *snhe2);
 uint32_t frrscript_names_hash_key(const struct frrscript_names_entry *snhe);
