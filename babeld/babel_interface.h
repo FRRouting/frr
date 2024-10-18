@@ -97,12 +97,12 @@ void babel_if_init(void);
 void babel_if_terminate(void);
 
 /* Callback functions for zebra client */
-int babel_interface_up (int, struct zclient *, zebra_size_t, vrf_id_t);
-int babel_interface_down (int, struct zclient *, zebra_size_t, vrf_id_t);
-int babel_interface_add (int, struct zclient *, zebra_size_t, vrf_id_t);
-int babel_interface_delete (int, struct zclient *, zebra_size_t, vrf_id_t);
-int babel_interface_address_add (int, struct zclient *, zebra_size_t, vrf_id_t);
-int babel_interface_address_delete (int, struct zclient *, zebra_size_t, vrf_id_t);
+void babel_interface_up(ZAPI_CALLBACK_ARGS);
+void babel_interface_down(ZAPI_CALLBACK_ARGS);
+void babel_interface_add(ZAPI_CALLBACK_ARGS);
+void babel_interface_delete(ZAPI_CALLBACK_ARGS);
+void babel_interface_address_add(ZAPI_CALLBACK_ARGS);
+void babel_interface_address_delete(ZAPI_CALLBACK_ARGS);
 
 int babel_ifp_create(struct interface *ifp);
 int babel_ifp_up(struct interface *ifp);

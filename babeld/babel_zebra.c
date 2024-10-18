@@ -38,25 +38,22 @@ static const struct {
 };
 
 /* Zebra route add and delete treatment. */
-static int
-babel_zebra_read_route (ZAPI_CALLBACK_ARGS)
+static void babel_zebra_read_route(ZAPI_CALLBACK_ARGS)
 {
     struct zapi_route api;
 
     if (zapi_route_decode(zclient->ibuf, &api) < 0)
-        return -1;
+	    return;
 
     /* we completely ignore srcdest routes for now. */
     if (CHECK_FLAG(api.message, ZAPI_MESSAGE_SRCPFX))
-        return 0;
+	    return;
 
     if (cmd == ZEBRA_REDISTRIBUTE_ROUTE_ADD) {
         babel_route_add(&api);
     } else {
         babel_route_delete(&api);
     }
-
-    return 0;
 }
 
 /* [Babel Command] */
