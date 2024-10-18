@@ -1483,7 +1483,6 @@ module frr-isisd {
             "IPv4 route redistribution.";
           leaf protocol {
             type frr-route-types:frr-route-types-v4;
-            must ". != \"isis\"";
             description
               "Originating routing protocol for the IPv4 routes.";
           }
@@ -1527,7 +1526,6 @@ module frr-isisd {
             "IPv6 route redistribution.";
           leaf protocol {
             type frr-route-types:frr-route-types-v6;
-            must ". != \"isis\"";
             description
               "Originating routing protocol for the IPv6 routes.";
           }
