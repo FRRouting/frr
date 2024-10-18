@@ -4232,6 +4232,7 @@ dplane_route_update_internal(struct route_node *rn,
 	enum zebra_dplane_result result = ZEBRA_DPLANE_REQUEST_FAILURE;
 	int ret = EINVAL;
 	struct zebra_dplane_ctx *ctx = NULL;
+	struct nhg_hash_entry *nhe;
 
 	/* Obtain context block */
 	ctx = dplane_ctx_alloc();
@@ -4294,8 +4295,10 @@ dplane_route_update_internal(struct route_node *rn,
 					"%s: Ignoring Route exactly the same",
 					__func__);
 
-			for (ALL_NEXTHOPS_PTR(dplane_ctx_get_ng(ctx),
-					      nexthop)) {
+			nhe = zebra_nhg_lookup_id(dplane_ctx_get_nhe_id(ctx));
+			if (PROTO_OWNED(nhe))
+				nexthop_group_mark_duplicates(&nhe->nhg);
+			for (ALL_NEXTHOPS_PTR(&nhe->nhg, nexthop)) {
 				if (CHECK_FLAG(nexthop->flags,
 					       NEXTHOP_FLAG_RECURSIVE))
 					continue;
