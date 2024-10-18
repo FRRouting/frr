@@ -148,35 +148,108 @@ int qmem_walk(qmem_walk_fn *func, void *arg)
 }
 
 struct exit_dump_args {
-	FILE *fp;
-	const char *prefix;
+	const char *daemon_name;
+	bool do_log;
+	bool do_file;
+	bool do_stderr;
 	int error;
+	FILE *fp;
+	struct memgroup *last_mg;
 };
+
+static void qmem_exit_fopen(struct exit_dump_args *eda)
+{
+	char filename[128];
+
+	if (eda->fp || !eda->do_file || !eda->daemon_name)
+		return;
+
+	snprintf(filename, sizeof(filename), "/tmp/frr-memstats-%s-%llu-%llu", eda->daemon_name,
+		 (unsigned long long)getpid(), (unsigned long long)time(NULL));
+	eda->fp = fopen(filename, "w");
+
+	if (!eda->fp) {
+		zlog_err("failed to open memstats dump file %pSQq: %m", filename);
+		/* don't try opening file over and over again */
+		eda->do_file = false;
+	}
+}
 
 static int qmem_exit_walker(void *arg, struct memgroup *mg, struct memtype *mt)
 {
 	struct exit_dump_args *eda = arg;
+	const char *prefix = eda->daemon_name ?: "NONE";
+	char size[32];
 
-	if (!mt) {
-		fprintf(eda->fp,
-			"%s: showing active allocations in memory group %s\n",
-			eda->prefix, mg->name);
+	if (!mt)
+		/* iterator calls mg=X, mt=NULL first */
+		return 0;
 
-	} else if (mt->n_alloc) {
-		char size[32];
-		if (!mg->active_at_exit)
-			eda->error++;
+	if (!mt->n_alloc)
+		return 0;
+
+	if (mt->size != SIZE_VAR)
 		snprintf(size, sizeof(size), "%10zu", mt->size);
-		fprintf(eda->fp, "%s: memstats:  %-30s: %6zu * %s\n",
-			eda->prefix, mt->name, mt->n_alloc,
-			mt->size == SIZE_VAR ? "(variably sized)" : size);
+	else
+		snprintf(size, sizeof(size), "(variably sized)");
+
+	if (mg->active_at_exit) {
+		/* not an error - this memgroup has allocations remain active
+		 * at exit.  Only printed to zlog_debug.
+		 */
+		if (!eda->do_log)
+			return 0;
+
+		if (eda->last_mg != mg) {
+			zlog_debug("showing active allocations in memory group %s (not an error)",
+				   mg->name);
+			eda->last_mg = mg;
+		}
+		zlog_debug("memstats:  %-30s: %6zu * %s", mt->name, mt->n_alloc, size);
+		return 0;
 	}
+
+	eda->error++;
+	if (eda->do_file)
+		qmem_exit_fopen(eda);
+
+	if (eda->last_mg != mg) {
+		if (eda->do_log)
+			zlog_warn("showing active allocations in memory group %s", mg->name);
+		if (eda->do_stderr)
+			fprintf(stderr, "%s: showing active allocations in memory group %s\n",
+				prefix, mg->name);
+		if (eda->fp)
+			fprintf(eda->fp, "%s: showing active allocations in memory group %s\n",
+				prefix, mg->name);
+		eda->last_mg = mg;
+	}
+
+	if (eda->do_log)
+		zlog_warn("memstats:  %-30s: %6zu * %s", mt->name, mt->n_alloc, size);
+	if (eda->do_stderr)
+		fprintf(stderr, "%s: memstats:  %-30s: %6zu * %s\n", prefix, mt->name, mt->n_alloc,
+			size);
+	if (eda->fp)
+		fprintf(eda->fp, "%s: memstats:  %-30s: %6zu * %s\n", prefix, mt->name, mt->n_alloc,
+			size);
 	return 0;
 }
 
-int log_memstats(FILE *fp, const char *prefix)
+int log_memstats(const char *daemon_name, bool enabled)
 {
-	struct exit_dump_args eda = {.fp = fp, .prefix = prefix, .error = 0};
+	struct exit_dump_args eda = {
+		.daemon_name = daemon_name,
+		.do_log = enabled,
+		.do_file = enabled,
+		.do_stderr = enabled || !isatty(STDERR_FILENO),
+		.error = 0,
+	};
+
 	qmem_walk(qmem_exit_walker, &eda);
+	if (eda.fp)
+		fclose(eda.fp);
+	if (eda.error && eda.do_log)
+		zlog_warn("exiting with %d leaked MTYPEs", eda.error);
 	return eda.error;
 }
