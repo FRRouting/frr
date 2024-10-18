@@ -3735,7 +3735,10 @@ enum bgp_attr_parse_ret bgp_attr_parse(struct peer *peer, struct attr *attr,
 				 * a stack buffer, since they perform bounds checking
 				 * and we are working with untrusted data.
 				 */
-				unsigned char ndata[peer->max_packet_size];
+				uint32_t max_packet_size =
+					atomic_load_explicit(&peer->max_packet_size,
+							     memory_order_relaxed);
+				unsigned char ndata[max_packet_size];
 
 				memset(ndata, 0x00, sizeof(ndata));
 				size_t lfl =
