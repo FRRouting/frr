@@ -239,7 +239,7 @@ static int bgp_ifp_up(struct interface *ifp)
 		vpn_leak_zebra_vrf_label_update(bgp, AFI_IP6);
 		vpn_leak_zebra_vrf_sid_update(bgp, AFI_IP);
 		vpn_leak_zebra_vrf_sid_update(bgp, AFI_IP6);
-		vpn_leak_postchange_all();
+		vpn_leak_postchange_all(true);
 	}
 
 	return 0;
@@ -294,7 +294,7 @@ static int bgp_ifp_down(struct interface *ifp)
 		vpn_leak_zebra_vrf_label_withdraw(bgp, AFI_IP6);
 		vpn_leak_zebra_vrf_sid_withdraw(bgp, AFI_IP);
 		vpn_leak_zebra_vrf_sid_withdraw(bgp, AFI_IP6);
-		vpn_leak_postchange_all();
+		vpn_leak_postchange_all(true);
 	}
 
 	return 0;
@@ -3343,7 +3343,7 @@ static int bgp_ifp_create(struct interface *ifp)
 		vpn_leak_zebra_vrf_label_update(bgp, AFI_IP6);
 		vpn_leak_zebra_vrf_sid_update(bgp, AFI_IP);
 		vpn_leak_zebra_vrf_sid_update(bgp, AFI_IP6);
-		vpn_leak_postchange_all();
+		vpn_leak_postchange_all(true);
 	}
 
 	return 0;
@@ -3375,7 +3375,7 @@ static int bgp_zebra_process_srv6_locator_chunk(ZAPI_CALLBACK_ARGS)
 	}
 
 	listnode_add(bgp->srv6_locator_chunks, chunk);
-	vpn_leak_postchange_all();
+	vpn_leak_postchange_all(true);
 	return 0;
 }
 
@@ -3414,7 +3414,7 @@ static int bgp_zebra_process_srv6_locator_internal(struct srv6_locator *locator)
 	 * Process VPN-to-VRF and VRF-to-VPN leaks to advertise new locator
 	 * and SIDs.
 	 */
-	vpn_leak_postchange_all();
+	vpn_leak_postchange_all(true);
 
 	return 0;
 }
@@ -3559,7 +3559,7 @@ static int bgp_zebra_srv6_sid_notify(ZAPI_CALLBACK_ARGS)
 		sid_register(bgp, tovpn_sid, bgp->srv6_locator_name);
 
 		/* Export VPN to VRF routes */
-		vpn_leak_postchange_all();
+		vpn_leak_postchange_all(false);
 
 		break;
 	case ZAPI_SRV6_SID_RELEASED:
@@ -3624,7 +3624,7 @@ static int bgp_zebra_srv6_sid_notify(ZAPI_CALLBACK_ARGS)
 		}
 
 		/* Export VPN to VRF routes*/
-		vpn_leak_postchange_all();
+		vpn_leak_postchange_all(false);
 		break;
 	case ZAPI_SRV6_SID_FAIL_ALLOC:
 		if (BGP_DEBUG(zebra, ZEBRA))
@@ -3746,7 +3746,7 @@ static int bgp_zebra_process_srv6_locator_delete(ZAPI_CALLBACK_ARGS)
 		}
 	}
 
-	vpn_leak_postchange_all();
+	vpn_leak_postchange_all(false);
 
 	/* refresh tovpn_sid_locator */
 	for (ALL_LIST_ELEMENTS_RO(bm->bgp, node, bgp_vrf)) {
@@ -3908,7 +3908,8 @@ static bool bgp_zebra_label_manager_connect(void)
 
 	/* tell BGP L3VPN that label manager is available */
 	if (bgp_get_default())
-		vpn_leak_postchange_all();
+		vpn_leak_postchange_all(false);
+
 	return true;
 }
 
