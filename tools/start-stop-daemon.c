@@ -749,8 +749,7 @@ static void do_stop(int signal_nr, int quietmode, int *n_killed,
 
 static void set_what_stop(const char *str)
 {
-	strncpy(what_stop, str, sizeof(what_stop));
-	what_stop[sizeof(what_stop) - 1] = '\0';
+	strlcpy(what_stop, str, sizeof(what_stop));
 }
 
 static int run_stop_schedule(void)

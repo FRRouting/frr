@@ -43,7 +43,7 @@ static char *sortlines(char *in)
 	}
 
 	if (line_count == 1) {
-		strncpy(rv, in, rv_len);
+		memcpy(rv, in, rv_len);
 		return rv;
 	}
 
