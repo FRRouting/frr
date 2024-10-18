@@ -370,7 +370,7 @@ static void show_nexthop_detail_helper(struct vty *vty,
 		break;
 	}
 
-	if (re->vrf_id != nexthop->vrf_id) {
+	if (re->vrf_id != nexthop->vrf_id && nexthop->type != NEXTHOP_TYPE_BLACKHOLE) {
 		struct vrf *vrf = vrf_lookup_by_id(nexthop->vrf_id);
 
 		vty_out(vty, "(vrf %s)", VRF_LOGNAME(vrf));
