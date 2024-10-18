@@ -3098,16 +3098,27 @@ happened automatically if local-role is set.
    value of his role (by setting local-role on his side). Otherwise, a Role
    Mismatch Notification will be sent.
 
-Labeled unicast
----------------
+Default null label
+-------------------
 
 *bgpd* supports labeled information, as per :rfc:`3107`.
 
-.. clicmd:: bgp labeled-unicast <explicit-null|ipv4-explicit-null|ipv6-explicit-null>
+.. clicmd:: label explicit null
 
 By default, locally advertised prefixes use the `implicit-null` label to
-encode in the outgoing NLRI. The following command uses the `explicit-null`
-label value for all the BGP instances.
+encode in the outgoing NLRI. This command activate the 'explicit-null'
+label value for the related address-family.
+Only labeled-unicast families are accepted.
+
+This configuration example sets up use of "explicit-null" label for
+ipv4 labeled-unicast in the outgoing NLRI that are locally advertised.
+
+.. code-block:: frr
+    router bgp 1
+       address-family ipv4 labeled-unicast
+        label explicit-null
+       exit-address-family
+
 
 .. _bgp-l3vpn-vrfs:
 
