@@ -1868,7 +1868,7 @@ struct peer {
 	char *domainname;
 
 	/* Extended Message Support */
-	uint16_t max_packet_size;
+	_Atomic uint16_t max_packet_size;
 
 	/* Conditional advertisement */
 	bool advmap_config_change[AFI_MAX][SAFI_MAX];
@@ -2633,6 +2633,7 @@ static inline int afindex(afi_t afi, safi_t safi)
 	}
 
 	assert(!"Reached end of function we should never hit");
+	return BGP_AF_MAX;
 }
 
 /* If the peer is not a peer-group but is bound to a peer-group return 1 */
