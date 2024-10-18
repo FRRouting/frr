@@ -70,7 +70,7 @@ def disable_debug(router):
 
 
 @retry(retry_timeout=30, initial_wait=0.1)
-def check_kernel(r1, super_prefix, count, add, is_blackhole, vrf, matchvia):
+def check_kernel(r1, super_prefix, count, add, is_blackhole, vrf, matchvia, src):
     network = ipaddress.ip_network(super_prefix)
     vrfstr = f" vrf {vrf}" if vrf else ""
     if network.version == 6:
@@ -81,14 +81,14 @@ def check_kernel(r1, super_prefix, count, add, is_blackhole, vrf, matchvia):
     logger.debug("checking kernel routing table%s:\n%s", vrfstr, kernel)
     for _, net in enumerate(get_ip_networks(super_prefix, count)):
         if not add:
-            assert str(net) not in kernel
+            assert f"{str(net)}{src}" not in kernel
             continue
 
         if is_blackhole:
-            route = f"blackhole {str(net)} proto (static|196) metric 20"
+            route = f"blackhole {str(net)}{src} proto (static|196) metric 20"
         else:
             route = (
-                f"{str(net)}(?: nhid [0-9]+)? {matchvia} "
+                f"{str(net)}{src}(?: nhid [0-9]+)? {matchvia} "
                 "proto (static|196) metric 20"
             )
         assert re.search(route, kernel), f"Failed to find \n'{route}'\n in \n'{kernel}'"
@@ -99,6 +99,7 @@ def do_config(
     count,
     add=True,
     do_ipv6=False,
+    do_ipv6_src=False,
     via=None,
     vrf=None,
     use_cli=False,
@@ -114,6 +115,8 @@ def do_config(
         super_prefix = "2002::/48" if do_ipv6 else "20.0.0.0/8"
     else:
         super_prefix = "2001::/48" if do_ipv6 else "10.0.0.0/8"
+
+    src = " from 2003::/48" if do_ipv6 and do_ipv6_src else ""
 
     matchvia = ""
     if via == "blackhole":
@@ -146,9 +149,9 @@ def do_config(
 
         for _, net in enumerate(get_ip_networks(super_prefix, count)):
             if add:
-                f.write("ip route {} {}\n".format(net, via))
+                f.write("ip route {}{} {}\n".format(net, src, via))
             else:
-                f.write("no ip route {} {}\n".format(net, via))
+                f.write("no ip route {}{} {}\n".format(net, src, via))
 
     #
     # Load config file.
@@ -165,7 +168,7 @@ def do_config(
     #
     # Verify the results are in the kernel
     #
-    check_kernel(r1, super_prefix, count, add, via == "blackhole", vrf, matchvia)
+    check_kernel(r1, super_prefix, count, add, via == "blackhole", vrf, matchvia, src)
 
     optyped = "added" if add else "removed"
     logger.debug(
@@ -186,6 +189,12 @@ def guts(tgen, vrf, use_cli):
     do_config(r1, count, True, False, vrf=vrf, use_cli=use_cli)
     step(f"remove {count} via gateway")
     do_config(r1, count, False, False, vrf=vrf, use_cli=use_cli)
+
+    count = 10
+    step(f"add {count} IPv6 source route via gateway", reset=True)
+    do_config(r1, count, True, True, do_ipv6_src=True, vrf=vrf, use_cli=use_cli)
+    step(f"remove {count} IPv6 source route via gateway")
+    do_config(r1, count, False, True, do_ipv6_src=True, vrf=vrf, use_cli=use_cli)
 
     via = f"lo-{vrf}" if vrf else "lo"
     step("add via loopback")

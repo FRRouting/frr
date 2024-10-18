@@ -344,7 +344,7 @@ void static_zebra_nht_register(struct static_nexthop *nh, bool reg)
 			if (nh->state == STATIC_NOT_INSTALLED ||
 			    nh->state == STATIC_SENT_TO_ZEBRA)
 				nh->state = STATIC_START;
-			static_nht_update(&rn->p, &nhtd->nh, nhtd->nh_num, afi,
+			static_nht_update(rn, &nhtd->nh, nhtd->nh_num, afi,
 					  si->safi, nh->nh_vrf_id);
 			return;
 		}
