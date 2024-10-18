@@ -195,10 +195,6 @@ extern struct route_node *route_node_lookup_maynull(struct route_table *table,
 						    union prefixconstptr pu);
 extern struct route_node *route_node_match(struct route_table *table,
 					   union prefixconstptr pu);
-extern struct route_node *route_node_match_ipv4(struct route_table *table,
-						const struct in_addr *addr);
-extern struct route_node *route_node_match_ipv6(struct route_table *table,
-						const struct in6_addr *addr);
 
 extern unsigned long route_table_count(struct route_table *table);
 
