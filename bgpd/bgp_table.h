@@ -98,6 +98,9 @@ struct bgp_dest {
 #define BGP_NODE_PROCESS_CLEAR (1 << 9)
 #define BGP_NODE_SCHEDULE_FOR_INSTALL	(1 << 10)
 #define BGP_NODE_SCHEDULE_FOR_DELETE	(1 << 11)
+#define BGP_NODE_FIB_UPDATE_UNNEEDED	(1 << 12)
+/* this flag overrides previous one, when present */
+#define BGP_NODE_FIB_UPDATE_OVERRIDE (1 << 13)
 
 	struct bgp_addpath_node_data tx_addpath;
 

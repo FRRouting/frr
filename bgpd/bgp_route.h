@@ -17,6 +17,7 @@
 
 struct bgp_nexthop_cache;
 struct bgp_route_evpn;
+struct bgp_nhg_cache;
 
 enum bgp_show_type {
 	bgp_show_type_normal,
@@ -367,6 +368,18 @@ struct bgp_path_info {
 		struct bgp_mplsvpn_label_nh blnc;
 		struct bgp_mplsvpn_nh_label_bind bmnc;
 	} mplsvpn;
+
+	/* Back pointer to the BGP nhg structure */
+	struct bgp_nhg_cache *bgp_nhg;
+
+	/* For nexthop group cache linked list */
+	LIST_ENTRY(bgp_path_info) nhg_cache_thread;
+
+	/* Back pointer to the BGP nhg nexthop structure */
+	struct bgp_nhg_cache *bgp_nhg_nexthop;
+
+	/* For nexthop group cache linked list */
+	LIST_ENTRY(bgp_path_info) nhg_nexthop_cache_thread;
 };
 
 /* Structure used in BGP path selection */
@@ -744,7 +757,7 @@ extern void bgp_soft_reconfig_table_task_cancel(const struct bgp *bgp,
  * and return true.  If it is not return false; and do nothing
  */
 extern bool bgp_soft_reconfig_in(struct peer *peer, afi_t afi, safi_t safi);
-extern void bgp_clear_route(struct peer *, afi_t, safi_t);
+extern void bgp_clear_route(struct peer *peer, afi_t afi, safi_t safi, bool nexthop_unlink);
 extern void bgp_clear_route_all(struct peer *);
 extern void bgp_clear_adj_in(struct peer *, afi_t, safi_t);
 extern void bgp_clear_stale_route(struct peer *, afi_t, safi_t);

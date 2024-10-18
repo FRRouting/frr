@@ -1,0 +1,31 @@
+[{
+      "prefix":"192.168.0.1/32",
+      "prefixLen":32,
+      "protocol":"sharp",
+      "vrfId":0,
+      "vrfName":"default",
+      "selected":true,
+      "destSelected":true,
+      "distance":150,
+      "metric":0,
+      "installed":true,
+      "table":254,
+      "nexthops":[
+        {
+          "ip":"172.31.0.55",
+          "afi":"ipv4",
+          "active":true,
+          "recursive":true,
+          "weight":1
+        },
+        {
+          "fib":true,
+          "ip":"192.0.2.102",
+          "afi":"ipv4",
+          "interfaceName":"dum0",
+          "resolver":true,
+          "active":true,
+          "weight":1
+        }
+      ]
+}]
