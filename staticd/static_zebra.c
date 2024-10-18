@@ -34,6 +34,8 @@
 DEFINE_MTYPE_STATIC(STATIC, STATIC_NHT_DATA, "Static Nexthop tracking data");
 PREDECL_HASH(static_nht_hash);
 
+#define STATIC_ZEBRA_GR_STALE_TIME  120
+
 struct static_nht_data {
 	struct static_nht_hash_item itm;
 
@@ -162,6 +164,23 @@ static int route_notify_owner(ZAPI_CALLBACK_ARGS)
 	return 0;
 }
 
+static void static_send_zebra_gr_cap(struct zclient *zclient, vrf_id_t vrf_id)
+{
+	struct zapi_cap api;
+
+	/* always enable graceful-retart with zebra */
+	api.cap = ZEBRA_CLIENT_GR_CAPABILITIES;
+	api.stale_removal_time = STATIC_ZEBRA_GR_STALE_TIME;
+	api.vrf_id = vrf_id;
+
+	if (zclient_capabilities_send(ZEBRA_CLIENT_CAPABILITIES, zclient, &api)
+		== ZCLIENT_SEND_FAILURE) {
+		zlog_err("Failure to send GR capability to zebra for vrf_id %d", vrf_id);
+	} else {
+		zlog_info("Send GR capability to zebra was successful for vrf_id %d", vrf_id);
+	}
+}
+
 static void zebra_connected(struct zclient *zclient)
 {
 	struct vrf *vrf;
@@ -172,6 +191,7 @@ static void zebra_connected(struct zclient *zclient)
 	vrf = vrf_lookup_by_id(VRF_DEFAULT);
 	assert(vrf);
 	static_fixup_vrf_ids(vrf);
+	static_send_zebra_gr_cap(zclient, VRF_DEFAULT);
 }
 
 /* API to check whether the configured nexthop address is
@@ -573,6 +593,7 @@ void static_zebra_vrf_register(struct vrf *vrf)
 	if (vrf->vrf_id == VRF_DEFAULT)
 		return;
 	zclient_send_reg_requests(zclient, vrf->vrf_id);
+	static_send_zebra_gr_cap(zclient, vrf->vrf_id);
 }
 
 void static_zebra_vrf_unregister(struct vrf *vrf)
