@@ -1,0 +1,30 @@
+{
+  "attr":{
+    "entriesCount":2
+  },
+  "table":[
+    {
+      "interface":"r4-gre0",
+      "type":"local",
+      "protocol":"10.255.255.4",
+      "nbma":"10.1.1.4",
+      "claimed_nbma":"10.1.1.4",
+      "used":false,
+      "timeout":false,
+      "auth":false,
+      "identity":"-"
+    },
+    {
+      "interface":"r4-gre0",
+      "type":"nhs",
+      "protocol":"10.255.255.2",
+      "nbma":"10.2.1.2",
+      "claimed_nbma":"10.2.1.2",
+      "used":false,
+      "timeout":true,
+      "auth":false,
+      "identity":""
+    }
+  ]
+}
+
