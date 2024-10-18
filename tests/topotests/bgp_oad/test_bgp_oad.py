@@ -8,6 +8,8 @@
 """
 Test if local-preference is passed between different EBGP peers when
 EBGP-OAD is configured.
+
+Also check if no-export community is passed to the EBGP-OAD peer.
 """
 
 import os
@@ -55,6 +57,9 @@ def test_bgp_dynamic_capability_role():
         pytest.skip(tgen.errors)
 
     r1 = tgen.gears["r1"]
+    r2 = tgen.gears["r2"]
+    r3 = tgen.gears["r3"]
+    r4 = tgen.gears["r4"]
 
     def _bgp_converge():
         output = json.loads(r1.vtysh_cmd("show bgp ipv4 unicast 10.10.10.10/32 json"))
@@ -88,6 +93,37 @@ def test_bgp_dynamic_capability_role():
     )
     _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
     assert result is None, "Can't converge"
+
+    def _bgp_check_no_export(router, arg=[{"valid": True}]):
+        output = json.loads(router.vtysh_cmd("show bgp ipv4 unicast json"))
+        expected = {
+            "routes": {
+                "10.10.10.1/32": arg,
+            }
+        }
+        return topotest.json_cmp(output, expected)
+
+    test_func = functools.partial(
+        _bgp_check_no_export,
+        r2,
+    )
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
+    assert result is None, "10.10.10.1/32 should be advertised to r2"
+
+    test_func = functools.partial(
+        _bgp_check_no_export,
+        r3,
+    )
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
+    assert result is None, "10.10.10.1/32 should be advertised to r3"
+
+    test_func = functools.partial(
+        _bgp_check_no_export,
+        r4,
+        None,
+    )
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
+    assert result is None, "10.10.10.1/32 should not be advertised to r4 (not OAD peer)"
 
 
 if __name__ == "__main__":
