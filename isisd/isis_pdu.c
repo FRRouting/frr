@@ -844,6 +844,42 @@ static void lsp_flood_or_update(struct isis_lsp *lsp,
 }
 
 /*
+	* Flags required to track redistribution between layers
+                if lsp level-1, then it is necessary to update lsp at level-2 if the edge is 1_2 type
+                                or there is redistribution into  level-2
+                if lsp level 2, then it is necessary to update lsp at level-1 if there is redistribution to level-1
+
+                It is necessary to add all available prefixes from 1 to 2,
+                        but if there is redistribution from 1 to 2, then only the hit prefixes are added
+*/
+
+
+static int check_redistribute_settings(struct isis_area *area)
+{
+	struct listnode *node;
+	struct isis_levels_redist *redist;
+
+	for (ALL_LIST_ELEMENTS_RO(area->levels_redist_sett, node, redist)) {
+		if (redist->level_to == LVL_ISIS_LEAKING_2) return REDISTRIBUTE_TO_L2;
+		if (redist->level_to == LVL_ISIS_LEAKING_1) return REDISTRIBUTE_TO_L1;
+	}
+
+	return 0;
+}
+
+static void check_redist_update(struct isis_area *area, struct isis_lsp *lsp)
+{
+	int redistribute_flag = check_redistribute_settings(area);
+
+	if (lsp->level == IS_LEVEL_1 &&
+	    (area->is_type == IS_LEVEL_1_AND_2 || redistribute_flag == REDISTRIBUTE_TO_L2))
+		lsp_regenerate_schedule(area, IS_LEVEL_2, 0);
+
+	if (lsp->level == IS_LEVEL_2 && redistribute_flag == REDISTRIBUTE_TO_L1)
+		lsp_regenerate_schedule(area, IS_LEVEL_1, 0);
+}
+
+/*
  * Process Level 1/2 Link State
  * ISO - 10589
  * Section 7.3.15.1 - Action on receipt of a link state PDU
@@ -1285,6 +1321,7 @@ dontcheckadj:
 				lsp_update(lsp, &hdr, tlvs, circuit->rcv_stream,
 					   circuit->area, level, false);
 				tlvs = NULL;
+				check_redist_update(circuit->area, lsp);
 			}
 			lsp_flood_or_update(lsp, circuit, circuit_scoped);
 
