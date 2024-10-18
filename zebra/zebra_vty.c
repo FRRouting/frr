@@ -1160,8 +1160,54 @@ DEFPY (show_ip_nht,
 	return CMD_SUCCESS;
 }
 
+struct show_nhe_prefix_list_context {
+	struct vty *vty;
+	json_object *json;
+};
+
+static void show_nhe_prefix_proto_nhgs_entry(struct hash_bucket *bucket,
+					     void *data)
+{
+	struct vty *vty;
+	json_object *json = NULL;
+	json_object *json_entry = NULL;
+	struct nhg_prefix_proto_nhgs *entry = bucket->data;
+	struct show_nhe_prefix_list_context *ctx = data;
+	struct vrf *vrf;
+
+	vty = ctx->vty;
+	json = ctx->json;
+	if (json) {
+		json_entry = json_object_new_object();
+		json_object_string_addf(json_entry, "prefix", "%pFX",
+					&entry->prefix);
+		if (entry->prefix.family == AF_INET6 &&
+		    entry->src_prefix.family != AF_UNSPEC)
+			json_object_string_addf(json_entry, "srcPrefix", "%pFX",
+						&entry->src_prefix);
+		json_object_string_add(json_entry, "afi", afi2str(entry->afi));
+		json_object_string_add(json_entry, "safi",
+				       safi2str(entry->safi));
+		json_object_int_add(json_entry, "table", entry->table_id);
+		json_object_int_add(json_entry, "vrfId", entry->vrf_id);
+		json_object_string_add(json_entry, "vrfName",
+				       vrf_id_to_name(entry->vrf_id));
+		json_object_array_add(json, json_entry);
+	} else if (vty) {
+		vrf = vrf_lookup_by_id(entry->vrf_id);
+
+		vty_out(vty, "       %pFX", &entry->prefix);
+		if (entry->prefix.family == AF_INET6 &&
+		    entry->src_prefix.family != AF_UNSPEC)
+			vty_out(vty, ", src %pFX", &entry->src_prefix);
+		vty_out(vty, ", afi %s, safi %s, table %d (vrf %s)\n",
+			afi2str(entry->afi), safi2str(entry->safi),
+			entry->table_id, VRF_LOGNAME(vrf));
+	}
+}
+
 static void show_nexthop_group_out(struct vty *vty, struct nhg_hash_entry *nhe,
-				   json_object *json_nhe_hdr)
+				   bool detail, json_object *json_nhe_hdr)
 {
 	struct nexthop *nexthop = NULL;
 	struct nhg_connected *rb_node_dep = NULL;
@@ -1175,7 +1221,8 @@ static void show_nexthop_group_out(struct vty *vty, struct nhg_hash_entry *nhe,
 	json_object *json = NULL;
 	json_object *json_backup_nexthop_array = NULL;
 	json_object *json_backup_nexthops = NULL;
-
+	json_object *json_prefix_list = NULL;
+	struct show_nhe_prefix_list_context ctx;
 
 	uptime2str(nhe->uptime, up_str, sizeof(up_str));
 
@@ -1196,7 +1243,6 @@ static void show_nexthop_group_out(struct vty *vty, struct nhg_hash_entry *nhe,
 		json_object_string_add(json, "vrf",
 				       vrf_id_to_name(nhe->vrf_id));
 		json_object_string_add(json, "afi", afi2str(nhe->afi));
-
 	} else {
 		vty_out(vty, "ID: %u (%s)\n", nhe->id,
 			zebra_route_string(nhe->type));
@@ -1411,17 +1457,31 @@ static void show_nexthop_group_out(struct vty *vty, struct nhg_hash_entry *nhe,
 
 	if (json_nhe_hdr)
 		json_object_object_addf(json_nhe_hdr, json, "%u", nhe->id);
+
+	if (detail && nhe->id >= ZEBRA_NHG_PROTO_LOWER) {
+		if (json)
+			json_prefix_list = json_object_new_array();
+		else
+			vty_out(vty, "     Prefix list:\n");
+		ctx.vty = vty;
+		ctx.json = json_prefix_list;
+		hash_iterate(nhe->prefix_proto_nhgs,
+			     show_nhe_prefix_proto_nhgs_entry, &ctx);
+		if (json)
+			json_object_object_add(json, "prefixList",
+					       json_prefix_list);
+	}
 }
 
 static int show_nexthop_group_id_cmd_helper(struct vty *vty, uint32_t id,
-					    json_object *json)
+					    bool detail, json_object *json)
 {
 	struct nhg_hash_entry *nhe = NULL;
 
 	nhe = zebra_nhg_lookup_id(id);
 
 	if (nhe)
-		show_nexthop_group_out(vty, nhe, json);
+		show_nexthop_group_out(vty, nhe, detail, json);
 	else {
 		if (json)
 			vty_json(vty, json);
@@ -1445,6 +1505,7 @@ struct nhe_show_context {
 	afi_t afi;
 	int type;
 	json_object *json;
+	bool detail;
 };
 
 static int nhe_show_walker(struct hash_bucket *bucket, void *arg)
@@ -1463,7 +1524,7 @@ static int nhe_show_walker(struct hash_bucket *bucket, void *arg)
 	if (ctx->type && nhe->type != ctx->type)
 		goto done;
 
-	show_nexthop_group_out(ctx->vty, nhe, ctx->json);
+	show_nexthop_group_out(ctx->vty, nhe, ctx->detail, ctx->json);
 
 done:
 	return HASHWALK_CONTINUE;
@@ -1471,7 +1532,8 @@ done:
 
 static void show_nexthop_group_cmd_helper(struct vty *vty,
 					  struct zebra_vrf *zvrf, afi_t afi,
-					  int type, json_object *json)
+					  int type, bool detail,
+					  json_object *json)
 {
 	struct nhe_show_context ctx;
 
@@ -1480,6 +1542,7 @@ static void show_nexthop_group_cmd_helper(struct vty *vty,
 	ctx.vrf_id = zvrf->vrf->vrf_id;
 	ctx.type = type;
 	ctx.json = json;
+	ctx.detail = detail;
 
 	hash_walk(zrouter.nhgs_id, nhe_show_walker, &ctx);
 }
@@ -1499,7 +1562,7 @@ static void if_nexthop_group_dump_vty(struct vty *vty, struct interface *ifp)
 		}
 
 		vty_out(vty, "   ");
-		show_nexthop_group_out(vty, rb_node_dep->nhe, NULL);
+		show_nexthop_group_out(vty, rb_node_dep->nhe, false, NULL);
 	}
 }
 
@@ -1539,7 +1602,7 @@ DEFPY (show_interface_nexthop_group,
 
 DEFPY(show_nexthop_group,
       show_nexthop_group_cmd,
-      "show nexthop-group rib <(0-4294967295)$id|[singleton <ip$v4|ipv6$v6>] [<kernel|zebra|bgp|sharp>$type_str] [vrf <NAME$vrf_name|all$vrf_all>]> [json]",
+      "show nexthop-group rib <(0-4294967295)$id|[singleton <ip$v4|ipv6$v6>] [<kernel|zebra|bgp|sharp>$type_str] [vrf <NAME$vrf_name|all$vrf_all>]> [detail$detail] [json]",
       SHOW_STR
       "Show Nexthop Groups\n"
       "RIB information\n"
@@ -1552,6 +1615,7 @@ DEFPY(show_nexthop_group,
       "Border Gateway Protocol (BGP)\n"
       "Super Happy Advanced Routing Protocol (SHARP)\n"
       VRF_FULL_CMD_HELP_STR
+      "Show detailed information\n"
       JSON_STR)
 {
 
@@ -1566,7 +1630,7 @@ DEFPY(show_nexthop_group,
 		json = json_object_new_object();
 
 	if (id)
-		return show_nexthop_group_id_cmd_helper(vty, id, json);
+		return show_nexthop_group_id_cmd_helper(vty, id, !!detail, json);
 
 	if (v4)
 		afi = AFI_IP;
@@ -1605,7 +1669,7 @@ DEFPY(show_nexthop_group,
 				vty_out(vty, "VRF: %s\n", vrf->name);
 
 			show_nexthop_group_cmd_helper(vty, zvrf, afi, type,
-						      json_vrf);
+						      !!detail, json_vrf);
 			if (uj)
 				json_object_object_add(json, vrf->name,
 						       json_vrf);
@@ -1631,7 +1695,7 @@ DEFPY(show_nexthop_group,
 		return CMD_WARNING;
 	}
 
-	show_nexthop_group_cmd_helper(vty, zvrf, afi, type, json);
+	show_nexthop_group_cmd_helper(vty, zvrf, afi, type, !!detail, json);
 
 	if (uj)
 		vty_json(vty, json);
