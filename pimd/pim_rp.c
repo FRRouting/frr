@@ -115,10 +115,38 @@ void pim_rp_init(struct pim_instance *pim)
 		zlog_debug("Allocated: %p for rp_info: %p(%pFX) Lock: %d", rn,
 			   rp_info, &rp_info->group,
 			   route_node_get_lock_count(rn));
+
+#if PIM_IPV == 6
+	/*
+	 * Embedded RP defaults
+	 */
+	pim->embedded_rp.enable = false;
+	pim->embedded_rp.group_list = NULL;
+	pim->embedded_rp.maximum_rps = PIM_EMBEDDED_RP_MAXIMUM;
+
+	pim->embedded_rp.table = route_table_init();
+#endif /* PIM_IPV == 6 */
 }
 
 void pim_rp_free(struct pim_instance *pim)
 {
+#if PIM_IPV == 6
+	struct route_node *rn;
+
+	pim_embedded_rp_set_group_list(pim, NULL);
+
+	for (rn = route_top(pim->embedded_rp.table); rn; rn = route_next(rn)) {
+		if (rn->info == NULL)
+			continue;
+
+		pim_embedded_rp_free(pim, rn->info);
+		rn->info = NULL;
+	}
+
+	route_table_finish(pim->embedded_rp.table);
+	pim->embedded_rp.table = NULL;
+#endif /* PIM_IPV == 6 */
+
 	if (pim->rp_table)
 		route_table_finish(pim->rp_table);
 	pim->rp_table = NULL;
@@ -215,6 +243,24 @@ struct rp_info *pim_rp_find_match_group(struct pim_instance *pim,
 	const struct prefix *bp;
 	const struct prefix_list_entry *entry;
 	struct route_node *rn;
+
+#if PIM_IPV == 6
+	/*
+	 * Embedded RP search. Always try to match against embedded RP first.
+	 */
+	rn = route_node_match(pim->embedded_rp.table, group);
+	if (rn != NULL) {
+		rp_info = rn->info ? rn->info : NULL;
+
+		if (rp_info && PIM_DEBUG_PIM_TRACE_DETAIL) {
+			zlog_debug("Lookedup(%pFX): rn %p found:%pFX", group, rn, &rp_info->group);
+		}
+
+		route_unlock_node(rn);
+		if (rp_info)
+			return rp_info;
+	}
+#endif /* PIM_IPV == 6 */
 
 	bp = NULL;
 	for (ALL_LIST_ELEMENTS_RO(pim->rp_list, node, rp_info)) {
@@ -330,9 +376,8 @@ static int pim_rp_check_interface_addrs(struct rp_info *rp_info,
 	if (!pim_addr_cmp(pim_ifp->primary_address, rp_info->rp.rpf_addr))
 		return 1;
 
-	if (!pim_ifp->sec_addr_list) {
+	if (!pim_ifp->sec_addr_list)
 		return 0;
-	}
 
 	for (ALL_LIST_ELEMENTS_RO(pim_ifp->sec_addr_list, node, sec_addr)) {
 		sec_paddr = pim_addr_from_prefix(&sec_addr->addr);
@@ -1203,6 +1248,10 @@ void pim_rp_show_information(struct pim_instance *pim, struct prefix *range,
 			strlcpy(source, "BSR", sizeof(source));
 		else if (rp_info->rp_src == RP_SRC_AUTORP)
 			strlcpy(source, "AutoRP", sizeof(source));
+#if PIM_IPV == 6
+		else if (rp_info->rp_src == RP_SRC_EMBEDDED_RP)
+			strlcpy(source, "Embedded-RP", sizeof(source));
+#endif /* PIM_IPV == 6 */
 		else
 			strlcpy(source, "None", sizeof(source));
 		if (json) {
@@ -1329,3 +1378,208 @@ void pim_resolve_rp_nh(struct pim_instance *pim, struct pim_neighbor *nbr)
 		}
 	}
 }
+
+#if PIM_IPV == 6
+DEFINE_MTYPE_STATIC(PIMD, PIM_EMBEDDED_RP_GROUP_LIST, "PIM embedded RP group list");
+DEFINE_MTYPE_STATIC(PIMD, PIM_EMBEDDED_RP_ENTRY, "PIM embedded RP configuration");
+
+void pim_embedded_rp_enable(struct pim_instance *pim, bool enable)
+{
+	struct route_node *rn;
+
+	pim->embedded_rp.enable = enable;
+	if (enable)
+		return;
+
+	/* Remove all learned embedded RPs and reallocate data structure. */
+	for (rn = route_top(pim->embedded_rp.table); rn; rn = route_next(rn)) {
+		pim_embedded_rp_free(pim, rn->info);
+		rn->info = NULL;
+	}
+	route_table_finish(pim->embedded_rp.table);
+
+	pim->embedded_rp.table = route_table_init();
+}
+
+void pim_embedded_rp_set_group_list(struct pim_instance *pim, const char *group_list)
+{
+	if (pim->embedded_rp.group_list)
+		XFREE(MTYPE_PIM_EMBEDDED_RP_GROUP_LIST, pim->embedded_rp.group_list);
+
+	if (group_list == NULL)
+		return;
+
+	pim->embedded_rp.group_list = XSTRDUP(MTYPE_PIM_EMBEDDED_RP_GROUP_LIST, group_list);
+}
+
+void pim_embedded_rp_set_maximum_rps(struct pim_instance *pim, uint32_t maximum)
+{
+	pim->embedded_rp.maximum_rps = maximum;
+}
+
+bool pim_embedded_rp_filter_match(const struct pim_instance *pim, const pim_addr *group)
+{
+	struct prefix_list *list;
+	struct prefix group_prefix = {
+		.family = PIM_AF,
+		.prefixlen = PIM_MAX_BITLEN,
+		.u.prefix6 = *group,
+	};
+
+	list = prefix_list_lookup(PIM_AFI, pim->embedded_rp.group_list);
+	if (list == NULL)
+		return false;
+
+	if (prefix_list_apply_ext(list, NULL, &group_prefix, true) == PREFIX_DENY) {
+		if (PIM_DEBUG_PIM_TRACE)
+			zlog_debug("filtering embedded-rp group %pPA", group);
+		return true;
+	}
+
+	return false;
+}
+
+bool pim_embedded_rp_is_embedded(const pim_addr *group)
+{
+	/*
+	 * Embedded RP basic format:
+	 * - First byte:         0xFF
+	 * - Third nibble:       0x7 (binary 0111)
+	 * - Fourth nibble:      Scope
+	 * - Fifth nibble:       Reserved (zero)
+	 * - Sixth nibble:       RIID (RP interface ID)
+	 * - Fourth byte:        Prefix length (1..64)
+	 * - Fifth byte and on:  RP address prefix
+	 * - Last four bytes:    Multicast group ID
+	 */
+	if (group->s6_addr[0] != 0xFF)
+		return false;
+	/* Embedded RP flags must all be set. */
+	if ((group->s6_addr[1] & 0xF0) != 0x70)
+		return false;
+	/* Reserved nibble */
+	if ((group->s6_addr[2] & 0xF0) != 0x00)
+		return false;
+	/* RP Interface ID must not be zero */
+	if ((group->s6_addr[2] & 0x0F) == 0x00)
+		return false;
+	/* Prefix length must be between 1 and 64. */
+	if (group->s6_addr[3] == 0 || group->s6_addr[3] > 64)
+		return false;
+
+	return true;
+}
+
+bool pim_embedded_rp_extract(const pim_addr *group, pim_addr *rp)
+{
+	struct prefix prefix;
+
+	if (!pim_embedded_rp_is_embedded(group))
+		return false;
+
+	/* Copy at most the prefix bytes length to RP prefix. */
+	prefix = (struct prefix){
+		.family = PIM_AF,
+		.prefixlen = group->s6_addr[3],
+	};
+	memcpy(&prefix.u.prefix6, &group->s6_addr[4],
+	       (prefix.prefixlen % 8) == 0 ? (prefix.prefixlen / 8) : (prefix.prefixlen / 8) + 1);
+	/* Zero unused address bits. */
+	apply_mask(&prefix);
+
+	/* Return assembled RP address. */
+	*rp = prefix.u.prefix6;
+	rp->s6_addr[15] = group->s6_addr[2] & 0x0F;
+	return true;
+}
+
+void pim_embedded_rp_new(struct pim_instance *pim, const pim_addr *group, const pim_addr *rp)
+{
+	struct route_node *rnode;
+	struct rp_info *rp_info;
+	struct prefix group_prefix = {
+		.family = PIM_AF,
+		.prefixlen = PIM_MAX_BITLEN,
+		.u.prefix6 = *group,
+	};
+
+	rnode = route_node_get(pim->embedded_rp.table, &group_prefix);
+	if (rnode->info != NULL) {
+		route_unlock_node(rnode);
+		return;
+	}
+
+	if (pim->embedded_rp.rp_count >= pim->embedded_rp.maximum_rps) {
+		zlog_info("Embedded RP maximum (%u) has been reached. Disregarding new RP %pPA",
+			  pim->embedded_rp.maximum_rps, rp);
+		route_unlock_node(rnode);
+		return;
+	}
+
+	pim->embedded_rp.rp_count++;
+
+	rnode->info = rp_info = XCALLOC(MTYPE_PIM_EMBEDDED_RP_ENTRY, sizeof(struct rp_info));
+	rp_info->rp.rpf_addr = *rp;
+	prefix_copy(&rp_info->group, &group_prefix);
+	rp_info->rp_src = RP_SRC_EMBEDDED_RP;
+	listnode_add_sort(pim->rp_list, rp_info);
+	if (PIM_DEBUG_TRACE)
+		zlog_debug("add embedded RP %pPA for group %pPA", rp, group);
+
+	/*
+	 * PIM RP regular maintenance
+	 */
+	pim_zebra_update_all_interfaces(pim);
+	pim_rp_check_interfaces(pim, rp_info);
+	if (rp_info->i_am_rp && PIM_DEBUG_PIM_NHT_RP)
+		zlog_debug("new RP %pPA for %pFX is ourselves", &rp_info->rp.rpf_addr,
+			   &rp_info->group);
+
+	pim_rp_refresh_group_to_rp_mapping(pim);
+	if (PIM_DEBUG_PIM_NHT_RP)
+		zlog_debug("%s: NHT Register RP addr %pPA grp %pFX with Zebra", __func__,
+			   &rp_info->rp.rpf_addr, &rp_info->group);
+
+	pim_find_or_track_nexthop(pim, rp_info->rp.rpf_addr, NULL, rp_info, NULL);
+	pim_ecmp_nexthop_lookup(pim, &rp_info->rp.source_nexthop, rp_info->rp.rpf_addr,
+				&rp_info->group, 1);
+}
+
+void pim_embedded_rp_delete(struct pim_instance *pim, const pim_addr *group)
+{
+	struct route_node *rnode;
+	struct prefix group_prefix = {
+		.family = PIM_AF,
+		.prefixlen = PIM_MAX_BITLEN,
+		.u.prefix6 = *group,
+	};
+
+	/* Avoid NULL accesses during shutdown */
+	if (pim->embedded_rp.table == NULL)
+		return;
+
+	rnode = route_node_lookup(pim->embedded_rp.table, &group_prefix);
+	if (rnode == NULL)
+		return;
+
+	pim_embedded_rp_free(pim, rnode->info);
+	rnode->info = NULL;
+
+	/* Unlock twice to remove the node */
+	route_unlock_node(rnode);
+	route_unlock_node(rnode);
+}
+
+void pim_embedded_rp_free(struct pim_instance *pim, struct rp_info *rp_info)
+{
+	if (pim->embedded_rp.rp_count > 0)
+		pim->embedded_rp.rp_count--;
+
+	if (PIM_DEBUG_TRACE)
+		zlog_debug("delete embedded RP %pPA", &rp_info->rp.rpf_addr);
+
+	pim_delete_tracked_nexthop(pim, rp_info->rp.rpf_addr, NULL, rp_info);
+	listnode_delete(pim->rp_list, rp_info);
+	XFREE(MTYPE_PIM_EMBEDDED_RP_ENTRY, rp_info);
+}
+#endif /* PIM_IPV == 6 */
