@@ -25,6 +25,21 @@ DEFINE_MTYPE_STATIC(LIB, SCRIPT, "Scripting");
 
 struct frrscript_names_head frrscript_names_hash;
 
+<<<<<<< HEAD
+=======
+void _lua_decode_noop(lua_State *L, ...) {}
+
+void frrscript_names_config_write(struct vty *vty)
+{
+	struct frrscript_names_entry *lua_script_entry;
+
+	frr_each (frrscript_names, &frrscript_names_hash, lua_script_entry)
+		if (lua_script_entry->script_name[0] != '\0')
+			vty_out(vty, "zebra on-rib-process script %s\n",
+				lua_script_entry->script_name);
+}
+
+>>>>>>> 1fe1f8d87c (lib, zebra: Keep `zebra on-rib-process script` in frr.conf)
 /*
  * Wrapper for frrscript_names_add
  * Use this to register hook calls when a daemon starts up
