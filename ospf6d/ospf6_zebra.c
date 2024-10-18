@@ -72,7 +72,7 @@ void ospf6_zebra_vrf_deregister(struct ospf6 *ospf6)
 }
 
 /* Router-id update message from zebra. */
-static int ospf6_router_id_update_zebra(ZAPI_CALLBACK_ARGS)
+static void ospf6_router_id_update_zebra(ZAPI_CALLBACK_ARGS)
 {
 	struct prefix router_id;
 	struct ospf6 *o;
@@ -86,13 +86,11 @@ static int ospf6_router_id_update_zebra(ZAPI_CALLBACK_ARGS)
 
 	o = ospf6_lookup_by_vrf_id(vrf_id);
 	if (o == NULL)
-		return 0;
+		return;
 
 	o->router_id_zebra = router_id.u.prefix4.s_addr;
 
 	ospf6_router_id_update(o, false);
-
-	return 0;
 }
 
 /* redistribute function */
@@ -166,14 +164,14 @@ static void ospf6_zebra_import_check_update(struct vrf *vrf,
 	ospf6_abr_nssa_type_7_defaults(ospf6);
 }
 
-static int ospf6_zebra_if_address_update_add(ZAPI_CALLBACK_ARGS)
+static void ospf6_zebra_if_address_update_add(ZAPI_CALLBACK_ARGS)
 {
 	struct connected *c;
 
 	c = zebra_interface_address_read(ZEBRA_INTERFACE_ADDRESS_ADD,
 					 zclient->ibuf, vrf_id);
 	if (c == NULL)
-		return 0;
+		return;
 
 	if (IS_OSPF6_DEBUG_ZEBRA(RECV))
 		zlog_debug("Zebra Interface address add: %s %5s %pFX",
@@ -184,17 +182,16 @@ static int ospf6_zebra_if_address_update_add(ZAPI_CALLBACK_ARGS)
 		ospf6_interface_state_update(c->ifp);
 		ospf6_interface_connected_route_update(c->ifp);
 	}
-	return 0;
 }
 
-static int ospf6_zebra_if_address_update_delete(ZAPI_CALLBACK_ARGS)
+static void ospf6_zebra_if_address_update_delete(ZAPI_CALLBACK_ARGS)
 {
 	struct connected *c;
 
 	c = zebra_interface_address_read(ZEBRA_INTERFACE_ADDRESS_DELETE,
 					 zclient->ibuf, vrf_id);
 	if (c == NULL)
-		return 0;
+		return;
 
 	if (IS_OSPF6_DEBUG_ZEBRA(RECV))
 		zlog_debug("Zebra Interface address delete: %s %5s %pFX",
@@ -207,8 +204,6 @@ static int ospf6_zebra_if_address_update_delete(ZAPI_CALLBACK_ARGS)
 	}
 
 	connected_free(&c);
-
-	return 0;
 }
 
 static int ospf6_zebra_gr_update(struct ospf6 *ospf6, int command,
@@ -247,7 +242,7 @@ int ospf6_zebra_gr_disable(struct ospf6 *ospf6)
 	return ospf6_zebra_gr_update(ospf6, ZEBRA_CLIENT_GR_DISABLE, 0);
 }
 
-static int ospf6_zebra_read_route(ZAPI_CALLBACK_ARGS)
+static void ospf6_zebra_read_route(ZAPI_CALLBACK_ARGS)
 {
 	struct zapi_route api;
 	unsigned long ifindex;
@@ -258,17 +253,17 @@ static int ospf6_zebra_read_route(ZAPI_CALLBACK_ARGS)
 	ospf6 = ospf6_lookup_by_vrf_id(vrf_id);
 
 	if (ospf6 == NULL)
-		return 0;
+		return;
 
 	if (zapi_route_decode(zclient->ibuf, &api) < 0)
-		return -1;
+		return;
 
 	/* we completely ignore srcdest routes for now. */
 	if (CHECK_FLAG(api.message, ZAPI_MESSAGE_SRCPFX))
-		return 0;
+		return;
 
 	if (IN6_IS_ADDR_LINKLOCAL(&api.prefix.u.prefix6))
-		return 0;
+		return;
 
 	ifindex = api.nexthops[0].ifindex;
 	if (api.nexthops[0].type == NEXTHOP_TYPE_IPV6
@@ -292,10 +287,7 @@ static int ospf6_zebra_read_route(ZAPI_CALLBACK_ARGS)
 					    api.nexthop_num, nexthop, api.tag,
 					    ospf6, api.metric);
 	else
-		ospf6_asbr_redistribute_remove(api.type, ifindex, &api.prefix,
-					       ospf6);
-
-	return 0;
+		ospf6_asbr_redistribute_remove(api.type, ifindex, &api.prefix, ospf6);
 }
 
 DEFUN(show_zebra,

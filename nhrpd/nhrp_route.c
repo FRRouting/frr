@@ -200,7 +200,7 @@ void nhrp_route_announce(int add, enum nhrp_cache_type type,
 			   &api);
 }
 
-int nhrp_route_read(ZAPI_CALLBACK_ARGS)
+void nhrp_route_read(ZAPI_CALLBACK_ARGS)
 {
 	struct zapi_route api;
 	struct zapi_nexthop *api_nh;
@@ -209,19 +209,19 @@ int nhrp_route_read(ZAPI_CALLBACK_ARGS)
 	int added;
 
 	if (zapi_route_decode(zclient->ibuf, &api) < 0)
-		return -1;
+		return;
 
 	/* we completely ignore srcdest routes for now. */
 	if (CHECK_FLAG(api.message, ZAPI_MESSAGE_SRCPFX))
-		return 0;
+		return;
 
 	/* ignore our routes */
 	if (api.type == ZEBRA_ROUTE_NHRP)
-		return 0;
+		return;
 
 	/* ignore local routes */
 	if (api.type == ZEBRA_ROUTE_LOCAL)
-		return 0;
+		return;
 
 	sockunion_family(&nexthop_addr) = AF_UNSPEC;
 	if (CHECK_FLAG(api.message, ZAPI_MESSAGE_NEXTHOP)) {
@@ -248,8 +248,6 @@ int nhrp_route_read(ZAPI_CALLBACK_ARGS)
 
 	nhrp_route_update_zebra(&api.prefix, &nexthop_addr, added ? ifp : NULL);
 	nhrp_shortcut_prefix_change(&api.prefix, !added);
-
-	return 0;
 }
 
 int nhrp_route_get_nexthop(const union sockunion *addr, struct prefix *p,
@@ -475,7 +473,7 @@ void nhrp_zebra_terminate(void)
 	route_table_finish(zebra_rib[AFI_IP6]);
 }
 
-int nhrp_gre_update(ZAPI_CALLBACK_ARGS)
+void nhrp_gre_update(ZAPI_CALLBACK_ARGS)
 {
 	struct stream *s;
 	struct nhrp_gre_info gre_info, *val;
@@ -484,7 +482,7 @@ int nhrp_gre_update(ZAPI_CALLBACK_ARGS)
 	/* result */
 	s = zclient->ibuf;
 	if (vrf_id != VRF_DEFAULT)
-		return 0;
+		return;
 
 	/* read GRE information */
 	STREAM_GETL(s, gre_info.ifindex);
@@ -515,9 +513,7 @@ int nhrp_gre_update(ZAPI_CALLBACK_ARGS)
 	       ifp ? ifp->name : "<none>", gre_info.ifindex, vrf_id);
 	if (ifp)
 		nhrp_interface_update_nbma(ifp, val);
-	return 0;
 
 stream_failure:
-	zlog_err("%s(): error reading response ..", __func__);
-	return -1;
+	return;
 }
