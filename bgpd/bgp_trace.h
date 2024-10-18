@@ -689,6 +689,17 @@ TRACEPOINT_EVENT(
 )
 TRACEPOINT_LOGLEVEL(frr_bgp, gr_eors, TRACE_INFO)
 
+TRACEPOINT_EVENT(
+	frr_bgp,
+	gr_update_complete,
+	TP_ARGS(char *, bgp_name, uint8_t, afi, uint8_t, safi),
+	TP_FIELDS(ctf_string(bgp_instance, bgp_name)
+		ctf_integer(uint8_t, afi, afi)
+		ctf_integer(uint8_t, safi, safi)
+	)
+)
+TRACEPOINT_LOGLEVEL(frr_bgp, gr_update_complete, TRACE_INFO)
+
 /*
  * Loc1: gr_eor_awaited_from
  * Loc2: gr_eor_ignore
