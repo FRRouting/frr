@@ -3794,6 +3794,10 @@ static int config_write_protocol(struct vty *vty)
 	if (!zebra_nhg_recursive_use_backups())
 		vty_out(vty, "no zebra nexthop resolve-via-backup\n");
 
+#ifdef HAVE_SCRIPTING
+	frrscript_names_config_write(vty);
+#endif
+
 	if (rnh_get_hide_backups())
 		vty_out(vty, "ip nht hide-backup-events\n");
 
