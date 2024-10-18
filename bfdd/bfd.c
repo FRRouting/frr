@@ -1172,6 +1172,9 @@ void bfd_set_echo(struct bfd_session *bs, bool echo)
 		if (bs->bdc == NULL)
 			ptm_bfd_echo_stop(bs);
 	}
+
+	if (bs->vrf && bs->vrf->info)
+		bfd_vrf_toggle_echo(bs->vrf->info);
 }
 
 void bfd_set_shutdown(struct bfd_session *bs, bool shutdown)
@@ -1800,6 +1803,69 @@ void bfd_profiles_remove(void)
 		bfd_profile_free(bp);
 }
 
+struct _bfd_session_has_echo {
+	/* VRF peers must match */
+	struct vrf *vrf;
+	/* Echo enabled or not */
+	bool enabled;
+};
+
+static int _bfd_session_has_echo(struct hash_bucket *hb, void *arg)
+{
+	const struct bfd_session *session = hb->data;
+	struct _bfd_session_has_echo *has_echo = arg;
+
+	if (session->vrf != has_echo->vrf)
+		return HASHWALK_CONTINUE;
+	if (!CHECK_FLAG(session->flags, BFD_SESS_FLAG_ECHO))
+		return HASHWALK_CONTINUE;
+
+	has_echo->enabled = true;
+	return HASHWALK_ABORT;
+}
+
+void bfd_vrf_toggle_echo(struct bfd_vrf_global *bfd_vrf)
+{
+	struct _bfd_session_has_echo has_echo = {
+		.enabled = false,
+		.vrf = bfd_vrf->vrf,
+	};
+
+	/* Check for peers using echo */
+	hash_walk(bfd_id_hash, _bfd_session_has_echo, &has_echo);
+
+	/*
+	 * No peers using echo, close all echo sockets.
+	 */
+	if (!has_echo.enabled) {
+		if (bfd_vrf->bg_echo != -1) {
+			close(bfd_vrf->bg_echo);
+			bfd_vrf->bg_echo = 0;
+			event_cancel(&bfd_vrf->bg_ev[4]);
+		}
+
+		if (bfd_vrf->bg_echov6 != -1) {
+			close(bfd_vrf->bg_echov6);
+			bfd_vrf->bg_echov6 = 0;
+			event_cancel(&bfd_vrf->bg_ev[5]);
+		}
+		return;
+	}
+
+	/*
+	 * At least one peer using echo, open echo sockets.
+	 */
+	if (!bfd_vrf->bg_echo)
+		bfd_vrf->bg_echo = bp_echo_socket(bfd_vrf->vrf);
+	if (!bfd_vrf->bg_echov6)
+		bfd_vrf->bg_echov6 = bp_echov6_socket(bfd_vrf->vrf);
+
+	if (!bfd_vrf->bg_ev[4] && bfd_vrf->bg_echo != -1)
+		event_add_read(master, bfd_recv_cb, bfd_vrf, bfd_vrf->bg_echo, &bfd_vrf->bg_ev[4]);
+	if (!bfd_vrf->bg_ev[5] && bfd_vrf->bg_echov6 != -1)
+		event_add_read(master, bfd_recv_cb, bfd_vrf, bfd_vrf->bg_echov6, &bfd_vrf->bg_ev[5]);
+}
+
 /*
  * Profile related hash functions.
  */
@@ -1889,10 +1955,6 @@ static int bfd_vrf_enable(struct vrf *vrf)
 		bvrf->bg_shop6 = bp_udp6_shop(vrf);
 	if (!bvrf->bg_mhop6)
 		bvrf->bg_mhop6 = bp_udp6_mhop(vrf);
-	if (!bvrf->bg_echo)
-		bvrf->bg_echo = bp_echo_socket(vrf);
-	if (!bvrf->bg_echov6)
-		bvrf->bg_echov6 = bp_echov6_socket(vrf);
 
 	if (!bvrf->bg_ev[0] && bvrf->bg_shop != -1)
 		event_add_read(master, bfd_recv_cb, bvrf, bvrf->bg_shop,
@@ -1906,17 +1968,15 @@ static int bfd_vrf_enable(struct vrf *vrf)
 	if (!bvrf->bg_ev[3] && bvrf->bg_mhop6 != -1)
 		event_add_read(master, bfd_recv_cb, bvrf, bvrf->bg_mhop6,
 			       &bvrf->bg_ev[3]);
-	if (!bvrf->bg_ev[4] && bvrf->bg_echo != -1)
-		event_add_read(master, bfd_recv_cb, bvrf, bvrf->bg_echo,
-			       &bvrf->bg_ev[4]);
-	if (!bvrf->bg_ev[5] && bvrf->bg_echov6 != -1)
-		event_add_read(master, bfd_recv_cb, bvrf, bvrf->bg_echov6,
-			       &bvrf->bg_ev[5]);
 
 	if (vrf->vrf_id != VRF_DEFAULT) {
 		bfdd_zclient_register(vrf->vrf_id);
 		bfdd_sessions_enable_vrf(vrf);
 	}
+
+	/* Toggle echo if VRF was disabled. */
+	bfd_vrf_toggle_echo(bvrf);
+
 	return 0;
 }
 
