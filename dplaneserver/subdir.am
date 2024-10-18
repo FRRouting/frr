@@ -1,0 +1,23 @@
+sbin_PROGRAMS += dplaneserver/dplaneserver
+
+dplaneserver_dplaneserver_CFLAGS = -g $(AM_CPPFLAGS) $(PROTOBUF_C_CFLAGS) -std=gnu11
+dplaneserver_dplaneserver_LDADD = lib/libfrr.la $(LIBCAP) $(UST_LIBS) $(PROTOBUF_C_LIBS)
+
+dplaneserver_dplaneserver_SOURCES = \
+	dplaneserver/main.c \
+	dplaneserver/dplaneserver.h \
+	dplaneserver/dplaneserver.c \
+	qpb/qpb.c \
+	qpb/qpb_allocator.c \
+	fpm/fpm.h \
+	fpm/fpm_pb.h \
+	fpm/fpm_pb.c \
+	qpb/linear_allocator.h \
+	qpb/qpb.h \
+	qpb/qpb_allocator.h \
+	# end
+
+nodist_dplaneserver_dplaneserver_SOURCES = \
+	fpm/fpm.pb-c.c \
+	qpb/qpb.pb-c.c \
+	# end
