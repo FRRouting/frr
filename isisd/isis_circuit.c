@@ -955,6 +955,8 @@ void isis_circuit_print_json(struct isis_circuit *circuit,
 	char buf_prx[INET6_BUFSIZ];
 	char buf[255];
 
+	json_object_int_add(json, "circuit", circuit->circuit_id);
+
 	snprintfrr(buf, sizeof(buf), "0x%x", circuit->circuit_id);
 	if (detail == ISIS_UI_LEVEL_BRIEF) {
 		iface_json = json_object_new_object();
