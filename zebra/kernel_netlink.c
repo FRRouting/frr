@@ -405,10 +405,6 @@ static int netlink_information_fetch(struct nlmsghdr *h, ns_id_t ns_id,
 		return netlink_route_change(h, ns_id, startup);
 	case RTM_DELROUTE:
 		return netlink_route_change(h, ns_id, startup);
-	case RTM_NEWLINK:
-		return netlink_link_change(h, ns_id, startup);
-	case RTM_DELLINK:
-		return 0;
 	case RTM_NEWNEIGH:
 	case RTM_DELNEIGH:
 	case RTM_GETNEIGH:
@@ -438,6 +434,8 @@ static int netlink_information_fetch(struct nlmsghdr *h, ns_id_t ns_id,
 		return 0;
 
 	/* Messages handled in the dplane thread */
+	case RTM_NEWLINK:
+	case RTM_DELLINK:
 	case RTM_NEWADDR:
 	case RTM_DELADDR:
 	case RTM_NEWNETCONF:
