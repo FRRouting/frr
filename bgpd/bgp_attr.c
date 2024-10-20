@@ -480,12 +480,11 @@ static bool bgp_attr_aigp_get_tlv_metric(uint8_t *pnt, int length,
 	return false;
 }
 
-static void stream_put_bgp_aigp_tlv_metric(struct stream *s,
-					   struct bgp_path_info *bpi)
+static void stream_put_bgp_aigp_tlv_metric(struct stream *s, uint64_t aigp)
 {
 	stream_putc(s, BGP_AIGP_TLV_METRIC);
 	stream_putw(s, BGP_AIGP_TLV_METRIC_LEN);
-	stream_putq(s, bgp_aigp_metric_total(bpi));
+	stream_putq(s, aigp);
 }
 
 static bool bgp_attr_aigp_valid(uint8_t *pnt, int length)
@@ -4552,8 +4551,7 @@ bgp_size_t bgp_packet_attribute(struct bgp *bgp, struct peer *peer,
 				struct prefix *p, afi_t afi, safi_t safi,
 				struct peer *from, struct prefix_rd *prd,
 				mpls_label_t *label, uint8_t num_labels,
-				bool addpath_capable, uint32_t addpath_tx_id,
-				struct bgp_path_info *bpi)
+				bool addpath_capable, uint32_t addpath_tx_id)
 {
 	size_t cp;
 	size_t aspath_sizep;
@@ -5032,10 +5030,8 @@ bgp_size_t bgp_packet_attribute(struct bgp *bgp, struct peer *peer,
 	}
 
 	/* AIGP */
-	if (bpi && CHECK_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_AIGP)) &&
-	    (CHECK_FLAG(peer->flags, PEER_FLAG_AIGP) ||
-	     peer->sub_sort == BGP_PEER_EBGP_OAD ||
-	     peer->sort != BGP_PEER_EBGP)) {
+	if (CHECK_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_AIGP)) &&
+	    AIGP_TRANSMIT_ALLOWED(peer)) {
 		/* At the moment only AIGP Metric TLV exists for AIGP
 		 * attribute. If more comes in, do not forget to update
 		 * attr_len variable to include new ones.
@@ -5045,7 +5041,7 @@ bgp_size_t bgp_packet_attribute(struct bgp *bgp, struct peer *peer,
 		stream_putc(s, BGP_ATTR_FLAG_OPTIONAL);
 		stream_putc(s, BGP_ATTR_AIGP);
 		stream_putc(s, attr_len);
-		stream_put_bgp_aigp_tlv_metric(s, bpi);
+		stream_put_bgp_aigp_tlv_metric(s, attr->aigp_metric);
 	}
 
 	/* Unknown transit attribute. */
@@ -5314,7 +5310,7 @@ void bgp_dump_routes_attr(struct stream *s, struct bgp_path_info *bpi,
 		stream_putc(s, BGP_ATTR_FLAG_OPTIONAL | BGP_ATTR_FLAG_TRANS);
 		stream_putc(s, BGP_ATTR_AIGP);
 		stream_putc(s, attr_len);
-		stream_put_bgp_aigp_tlv_metric(s, bpi);
+		stream_put_bgp_aigp_tlv_metric(s, attr->aigp_metric);
 	}
 
 	/* Return total size of attribute. */
