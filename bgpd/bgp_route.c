@@ -8760,6 +8760,7 @@ void bgp_redistribute_add(struct bgp *bgp, struct prefix *p,
 			memset(&rmap_path, 0, sizeof(rmap_path));
 			rmap_path.peer = bgp->peer_self;
 			rmap_path.attr = &attr_new;
+			rmap_path.type = type;
 
 			SET_FLAG(bgp->peer_self->rmap_type,
 				 PEER_RMAP_TYPE_REDISTRIBUTE);
