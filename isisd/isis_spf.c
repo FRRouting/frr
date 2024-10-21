@@ -3258,6 +3258,7 @@ DEFUN(show_isis_route, show_isis_route_cmd,
 	json_object *json = NULL, *json_vrf = NULL;
 	uint8_t algorithm = SR_ALGORITHM_SPF;
 
+	ISIS_FIND_VRF_ARGS(argv, argc, idx, vrf_name, all_vrf);
 	if (argv_find(argv, argc, "level-1", &idx))
 		levels = ISIS_LEVEL1;
 	else if (argv_find(argv, argc, "level-2", &idx))
@@ -3269,7 +3270,6 @@ DEFUN(show_isis_route, show_isis_route_cmd,
 		vty_out(vty, "IS-IS Routing Process not enabled\n");
 		return CMD_SUCCESS;
 	}
-	ISIS_FIND_VRF_ARGS(argv, argc, idx, vrf_name, all_vrf);
 
 	if (argv_find(argv, argc, "prefix-sid", &idx))
 		prefix_sid = true;
@@ -3520,6 +3520,7 @@ DEFUN(show_isis_frr_summary, show_isis_frr_summary_cmd,
 	bool all_vrf = false;
 	int idx = 0;
 
+	ISIS_FIND_VRF_ARGS(argv, argc, idx, vrf_name, all_vrf);
 	if (argv_find(argv, argc, "level-1", &idx))
 		levels = ISIS_LEVEL1;
 	else if (argv_find(argv, argc, "level-2", &idx))
@@ -3531,7 +3532,6 @@ DEFUN(show_isis_frr_summary, show_isis_frr_summary_cmd,
 		vty_out(vty, "IS-IS Routing Process not enabled\n");
 		return CMD_SUCCESS;
 	}
-	ISIS_FIND_VRF_ARGS(argv, argc, idx, vrf_name, all_vrf);
 
 	if (all_vrf) {
 		for (ALL_LIST_ELEMENTS_RO(im->isis, node, isis))
