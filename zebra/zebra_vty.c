@@ -942,11 +942,27 @@ static void do_show_route_helper(struct vty *vty, struct zebra_vrf *zvrf,
 					if (!tableid)
 						vty_out(vty, "VRF %s:\n",
 							zvrf_name(zvrf));
-					else
-						vty_out(vty,
-							"VRF %s table %u:\n",
-							zvrf_name(zvrf),
-							tableid);
+					else {
+						if (vrf_is_backend_netns())
+							vty_out(vty, "VRF %s table %u:\n",
+								zvrf_name(zvrf), tableid);
+						else {
+							vrf_id_t vrf =
+								zebra_vrf_lookup_by_table(tableid,
+											  zvrf->zns->ns_id);
+
+							if (vrf == VRF_DEFAULT &&
+							    tableid != RT_TABLE_ID_MAIN)
+								vty_out(vty, "table %u:\n", tableid);
+							else {
+								struct zebra_vrf *zvrf2 =
+									zebra_vrf_lookup_by_id(vrf);
+
+								vty_out(vty, "VRF %s table %u:\n",
+									zvrf_name(zvrf2), tableid);
+							}
+						}
+					}
 				}
 				ctx->header_done = true;
 				first = 0;
