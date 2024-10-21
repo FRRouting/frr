@@ -3918,7 +3918,7 @@ static int bgp_capability_msg_parse(struct peer *peer, uint8_t *pnt,
 				peer->afc_nego[afi][safi] = 0;
 
 				if (peer_active_nego(peer))
-					bgp_clear_route(peer, afi, safi);
+					bgp_clear_route(peer, afi, safi, false);
 				else
 					goto done;
 			}
