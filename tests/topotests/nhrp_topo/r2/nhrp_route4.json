@@ -12,7 +12,31 @@
       "installed":true,
       "internalNextHopNum":1,
       "internalNextHopActiveNum":1,
-      "nexthops":[
+      "nexthops": [
+        {
+          "fib":true,
+          "directlyConnected":true,
+          "interfaceName":"r2-gre0",
+          "active":true
+        }
+      ]
+    }
+  ],
+  "10.255.255.4\/32": [
+    {
+      "prefix":"10.255.255.4\/32",
+      "prefixLen":32,
+      "protocol":"nhrp",
+      "vrfId":0,
+      "vrfName":"default",
+      "selected":true,
+      "destSelected":true,
+      "distance":10,
+      "metric":0,
+      "installed":true,
+      "internalNextHopNum":1,
+      "internalNextHopActiveNum":1,
+      "nexthops": [
         {
           "fib":true,
           "directlyConnected":true,
