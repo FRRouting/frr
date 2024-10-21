@@ -670,10 +670,15 @@ def test_configure_gua_on_unnumbered_intf(request):
                 {
                     "nexthops": [
                         {
-                            "ip": "::ffff:10.0.5.1",
                             "hostname": "r1",
                             "afi": "ipv6",
                             "scope": "global",
+                        },
+                        {
+                            "hostname": "r1",
+                            "afi": "ipv6",
+                            "scope": "link-local",
+                            "used": True,
                         }
                     ]
                 }
@@ -748,13 +753,12 @@ def test_configure_gua_on_unnumbered_intf(request):
         !
         """
     )
-    # verify that r1 has rcvd the prefix with v4-mapped-v6 address as the nexthop
+    # verify that r1 has rcvd the prefix with a link-local as the nexthop
     test_func = functools.partial(bgp_prefix_received_v4_mapped_v6_nh, r2)
     _, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
     assert (
         result is None
-    ), "Testcase {} : Failed \n Error: Nexthop for prefix 11.0.20.1 \
-    is not ::ffff:10.0.5.1".format(
+    ), "Testcase {} : Failed \n Error: Nexthop for prefix 11.0.20.1 is not the link-local address.".format(
         tc_name
     )
 
