@@ -933,7 +933,9 @@ static uint8_t *bgp4v2PathAttrTable(struct variable *v, oid name[],
 		else
 			return SNMP_IPADDRESS(bgp_empty_addr);
 	case BGP4V2_NLRI_AS_PATH_CALC_LENGTH:
-		return SNMP_INTEGER(path->attr->aspath->segments->length);
+		return SNMP_INTEGER((path->attr->aspath && path->attr->aspath->segments)
+					    ? path->attr->aspath->segments->length
+					    : 0);
 	case BGP4V2_NLRI_AS_PATH:
 		return aspath_snmp_pathseg(path->attr->aspath, var_len);
 	case BGP4V2_NLRI_PATH_ATTR_UNKNOWN:
