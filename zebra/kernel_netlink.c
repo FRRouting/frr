@@ -406,7 +406,6 @@ static int netlink_information_fetch(struct nlmsghdr *h, ns_id_t ns_id,
 	case RTM_DELROUTE:
 		return netlink_route_change(h, ns_id, startup);
 	case RTM_NEWLINK:
-		return netlink_link_change(h, ns_id, startup);
 	case RTM_DELLINK:
 		return 0;
 	case RTM_NEWNEIGH:
