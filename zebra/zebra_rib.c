@@ -2618,12 +2618,8 @@ static void process_subq_nhg(struct listnode *lnode)
 				zsend_nhg_notify(nhe->type, nhe->zapi_instance,
 						 nhe->zapi_session, nhe->id,
 						 ZAPI_NHG_REMOVE_FAIL);
-
 		} else {
-			newnhe = zebra_nhg_proto_add(nhe->id, nhe->type,
-						     nhe->zapi_instance,
-						     nhe->zapi_session,
-						     &nhe->nhg, 0);
+			newnhe = zebra_nhe_proto_add(nhe);
 
 			/* Report error to daemon via ZAPI */
 			if (newnhe == NULL)
