@@ -469,13 +469,13 @@ int nhrp_ifp_down(struct interface *ifp)
 	return 0;
 }
 
-int nhrp_interface_address_add(ZAPI_CALLBACK_ARGS)
+void nhrp_interface_address_add(ZAPI_CALLBACK_ARGS)
 {
 	struct connected *ifc;
 
 	ifc = zebra_interface_address_read(cmd, zclient->ibuf, vrf_id);
 	if (ifc == NULL)
-		return 0;
+		return;
 
 	debugf(NHRP_DEBUG_IF, "if-addr-add: %s: %pFX", ifc->ifp->name,
 	       ifc->address);
@@ -483,16 +483,15 @@ int nhrp_interface_address_add(ZAPI_CALLBACK_ARGS)
 	nhrp_interface_update_address(
 		ifc->ifp, family2afi(PREFIX_FAMILY(ifc->address)), 0);
 	nhrp_interface_update_cache_config(ifc->ifp, true, PREFIX_FAMILY(ifc->address));
-	return 0;
 }
 
-int nhrp_interface_address_delete(ZAPI_CALLBACK_ARGS)
+void nhrp_interface_address_delete(ZAPI_CALLBACK_ARGS)
 {
 	struct connected *ifc;
 
 	ifc = zebra_interface_address_read(cmd, zclient->ibuf, vrf_id);
 	if (ifc == NULL)
-		return 0;
+		return;
 
 	debugf(NHRP_DEBUG_IF, "if-addr-del: %s: %pFX", ifc->ifp->name,
 	       ifc->address);
@@ -500,8 +499,6 @@ int nhrp_interface_address_delete(ZAPI_CALLBACK_ARGS)
 	nhrp_interface_update_address(
 		ifc->ifp, family2afi(PREFIX_FAMILY(ifc->address)), 0);
 	connected_free(&ifc);
-
-	return 0;
 }
 
 void nhrp_interface_notify_add(struct interface *ifp, struct notifier_block *n,
