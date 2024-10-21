@@ -190,6 +190,12 @@ Route Map Match Command
    do the exact matching of the communities, while ``any`` - can match any
    community specified in COMMUNITY_LIST.
 
+.. clicmd:: match src-peer [IPV4_ADDR|IPV6_ADDR|INTERFACE_NAME|PEER_GROUP_NAME]
+
+   This is a BGP specific match command. Matches the source peer if the neighbor
+   was specified in this manner. Useful to announce the routes that was originated
+   by the source peer.
+
 .. clicmd:: match peer IPV4_ADDR
 
    This is a BGP specific match command. Matches the peer ip address
@@ -305,12 +311,17 @@ Route Map Set Command
 
    Set the route's weight.
 
-.. clicmd:: set metric <[+|-](1-4294967295)|rtt|+rtt|-rtt>
+.. clicmd:: set metric <[+|-](1-4294967295)|rtt|+rtt|-rtt|igp|aigp>
 
    Set the route metric. When used with BGP, set the BGP attribute MED to a
    specific value. Use `+`/`-` to add or subtract the specified value to/from
    the existing/MED. Use `rtt` to set the MED to the round trip time or
    `+rtt`/`-rtt` to add/subtract the round trip time to/from the MED.
+
+   If ``igp`` is specified, then the actual value from the IGP protocol is used.
+
+   If ``aigp`` is specified, then the actual value from the AIGP metric is used
+   (encoded as MED instead of AIGP attribute).
 
 .. clicmd:: set min-metric <(0-4294967295)>
 
@@ -320,7 +331,7 @@ Route Map Set Command
 
    Set the maximum metric for the route.
 
-.. clicmd:: set aigp-metric <igp-metric|(1-4294967295)>
+.. clicmd:: set aigp-metric <igp-metric|(0-4294967295)>
 
    Set the BGP attribute AIGP to a specific value. If ``igp-metric`` is specified,
    then the value is taken from the IGP protocol, otherwise an arbitrary value.

@@ -251,21 +251,16 @@ enum zebra_error_types {
 
 static inline const char *zebra_error_type2str(enum zebra_error_types type)
 {
-	const char *ret = "UNKNOWN";
-
 	switch (type) {
 	case ZEBRA_UNKNOWN_ERROR:
-		ret = "ZEBRA_UNKNOWN_ERROR";
-		break;
+		return "ZEBRA_UNKNOWN_ERROR";
 	case ZEBRA_NO_VRF:
-		ret = "ZEBRA_NO_VRF";
-		break;
+		return "ZEBRA_NO_VRF";
 	case ZEBRA_INVALID_MSG_TYPE:
-		ret = "ZEBRA_INVALID_MSG_TYPE";
-		break;
+		return "ZEBRA_INVALID_MSG_TYPE";
 	}
 
-	return ret;
+	return "UNKNOWN";
 }
 
 struct redist_proto {
@@ -780,69 +775,51 @@ enum zclient_send_status {
 static inline const char *
 zapi_nhg_notify_owner2str(enum zapi_nhg_notify_owner note)
 {
-	const char *ret = "UNKNOWN";
-
 	switch (note) {
 	case ZAPI_NHG_FAIL_INSTALL:
-		ret = "ZAPI_NHG_FAIL_INSTALL";
-		break;
+		return "ZAPI_NHG_FAIL_INSTALL";
 	case ZAPI_NHG_INSTALLED:
-		ret = "ZAPI_NHG_INSTALLED";
-		break;
+		return "ZAPI_NHG_INSTALLED";
 	case ZAPI_NHG_REMOVE_FAIL:
-		ret = "ZAPI_NHG_REMOVE_FAIL";
-		break;
+		return "ZAPI_NHG_REMOVE_FAIL";
 	case ZAPI_NHG_REMOVED:
-		ret = "ZAPI_NHG_REMOVED";
-		break;
+		return "ZAPI_NHG_REMOVED";
 	}
 
-	return ret;
+	return "UNKNOWN";
 }
 
 static inline const char *
 zapi_rule_notify_owner2str(enum zapi_rule_notify_owner note)
 {
-	const char *ret = "UNKNOWN";
-
 	switch (note) {
 	case ZAPI_RULE_FAIL_INSTALL:
-		ret = "ZAPI_RULE_FAIL_INSTALL";
-		break;
+		return "ZAPI_RULE_FAIL_INSTALL";
 	case ZAPI_RULE_INSTALLED:
-		ret = "ZAPI_RULE_INSTALLED";
-		break;
+		return "ZAPI_RULE_INSTALLED";
 	case ZAPI_RULE_FAIL_REMOVE:
-		ret = "ZAPI_RULE_FAIL_REMOVE";
-		break;
+		return "ZAPI_RULE_FAIL_REMOVE";
 	case ZAPI_RULE_REMOVED:
-		ret = "ZAPI_RULE_REMOVED";
-		break;
+		return "ZAPI_RULE_REMOVED";
 	}
 
-	return ret;
+	return "UNKNOWN";
 }
 
 static inline const char *zapi_srv6_sid_notify2str(enum zapi_srv6_sid_notify note)
 {
-	const char *ret = "UNKNOWN";
-
 	switch (note) {
 	case ZAPI_SRV6_SID_FAIL_ALLOC:
-		ret = "ZAPI_SRV6_SID_FAIL_ALLOC";
-		break;
+		return "ZAPI_SRV6_SID_FAIL_ALLOC";
 	case ZAPI_SRV6_SID_ALLOCATED:
-		ret = "ZAPI_SRV6_SID_ALLOCATED";
-		break;
+		return "ZAPI_SRV6_SID_ALLOCATED";
 	case ZAPI_SRV6_SID_FAIL_RELEASE:
-		ret = "ZAPI_SRV6_SID_FAIL_RELEASE";
-		break;
+		return "ZAPI_SRV6_SID_FAIL_RELEASE";
 	case ZAPI_SRV6_SID_RELEASED:
-		ret = "ZAPI_SRV6_SID_RELEASED";
-		break;
+		return "ZAPI_SRV6_SID_RELEASED";
 	}
 
-	return ret;
+	return "UNKNOWN";
 }
 
 /* Zebra MAC types */

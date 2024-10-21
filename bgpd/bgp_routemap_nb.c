@@ -110,6 +110,27 @@ const struct frr_yang_module_info frr_bgp_route_map_info = {
 			}
 		},
 		{
+			.xpath = "/frr-route-map:lib/route-map/entry/match-condition/rmap-match-condition/frr-bgp-route-map:src-peer-ipv4-address",
+			.cbs = {
+				.modify = lib_route_map_entry_match_condition_rmap_match_condition_src_peer_ipv4_address_modify,
+				.destroy = lib_route_map_entry_match_condition_rmap_match_condition_src_peer_ipv4_address_destroy,
+			}
+		},
+		{
+			.xpath = "/frr-route-map:lib/route-map/entry/match-condition/rmap-match-condition/frr-bgp-route-map:src-peer-interface",
+			.cbs = {
+				.modify = lib_route_map_entry_match_condition_rmap_match_condition_src_peer_interface_modify,
+				.destroy = lib_route_map_entry_match_condition_rmap_match_condition_src_peer_interface_destroy,
+			}
+		},
+		{
+			.xpath = "/frr-route-map:lib/route-map/entry/match-condition/rmap-match-condition/frr-bgp-route-map:src-peer-ipv6-address",
+			.cbs = {
+				.modify = lib_route_map_entry_match_condition_rmap_match_condition_src_peer_ipv6_address_modify,
+				.destroy = lib_route_map_entry_match_condition_rmap_match_condition_src_peer_ipv6_address_destroy,
+			}
+		},
+		{
 			.xpath = "/frr-route-map:lib/route-map/entry/match-condition/rmap-match-condition/frr-bgp-route-map:list-name",
 			.cbs = {
 				.modify = lib_route_map_entry_match_condition_rmap_match_condition_list_name_modify,

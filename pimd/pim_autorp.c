@@ -308,7 +308,7 @@ static bool pim_autorp_discovery(struct pim_autorp *autorp, uint8_t rpcnt,
 	struct autorp_pkt_grp *grp;
 	size_t offset = 0;
 	pim_addr rp_addr;
-	struct prefix grppfix;
+	struct prefix grppfix = {};
 	char plname[32];
 	struct prefix_list *pl;
 	struct prefix_list_entry *ple;

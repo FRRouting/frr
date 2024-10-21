@@ -648,7 +648,7 @@ static bool use_bgp_med_value(struct attr *attr, struct bgp *bgp)
    missing-as-worst" is specified, treat it as the worst value. */
 static uint32_t bgp_med_value(struct attr *attr, struct bgp *bgp)
 {
-	if (attr->flag & ATTR_FLAG_BIT(BGP_ATTR_MULTI_EXIT_DISC))
+	if (CHECK_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_MULTI_EXIT_DISC)))
 		return attr->med;
 	else {
 		if (CHECK_FLAG(bgp->flags, BGP_FLAG_MED_MISSING_AS_WORST))
@@ -996,9 +996,9 @@ int bgp_path_info_cmp(struct bgp *bgp, struct bgp_path_info *new,
 	/* 2. Local preference check. */
 	new_pref = exist_pref = bgp->default_local_pref;
 
-	if (newattr->flag & ATTR_FLAG_BIT(BGP_ATTR_LOCAL_PREF))
+	if (CHECK_FLAG(newattr->flag, ATTR_FLAG_BIT(BGP_ATTR_LOCAL_PREF)))
 		new_pref = newattr->local_pref;
-	if (existattr->flag & ATTR_FLAG_BIT(BGP_ATTR_LOCAL_PREF))
+	if (CHECK_FLAG(existattr->flag, ATTR_FLAG_BIT(BGP_ATTR_LOCAL_PREF)))
 		exist_pref = existattr->local_pref;
 
 	if (new_pref > exist_pref) {
@@ -1038,10 +1038,10 @@ int bgp_path_info_cmp(struct bgp *bgp, struct bgp_path_info *new,
 		bool exist_accept_own = false;
 		uint32_t accept_own = COMMUNITY_ACCEPT_OWN;
 
-		if (newattr->flag & ATTR_FLAG_BIT(BGP_ATTR_COMMUNITIES))
+		if (CHECK_FLAG(newattr->flag, ATTR_FLAG_BIT(BGP_ATTR_COMMUNITIES)))
 			new_accept_own = community_include(
 				bgp_attr_get_community(newattr), accept_own);
-		if (existattr->flag & ATTR_FLAG_BIT(BGP_ATTR_COMMUNITIES))
+		if (CHECK_FLAG(existattr->flag, ATTR_FLAG_BIT(BGP_ATTR_COMMUNITIES)))
 			exist_accept_own = community_include(
 				bgp_attr_get_community(existattr), accept_own);
 
@@ -1068,8 +1068,8 @@ int bgp_path_info_cmp(struct bgp *bgp, struct bgp_path_info *new,
 	if (CHECK_FLAG(newattr->flag, ATTR_FLAG_BIT(BGP_ATTR_AIGP)) &&
 	    CHECK_FLAG(existattr->flag, ATTR_FLAG_BIT(BGP_ATTR_AIGP)) &&
 	    CHECK_FLAG(bgp->flags, BGP_FLAG_COMPARE_AIGP)) {
-		uint64_t new_aigp = bgp_attr_get_aigp_metric(newattr);
-		uint64_t exist_aigp = bgp_attr_get_aigp_metric(existattr);
+		uint64_t new_aigp = bgp_aigp_metric_total(new);
+		uint64_t exist_aigp = bgp_aigp_metric_total(exist);
 
 		if (new_aigp < exist_aigp) {
 			*reason = bgp_path_selection_aigp;
@@ -1500,11 +1500,11 @@ int bgp_path_info_cmp(struct bgp *bgp, struct bgp_path_info *new,
 	 * be 0 and would always win over the other path. If originator id is
 	 * used for the comparison, it will decide which path is better.
 	 */
-	if (newattr->flag & ATTR_FLAG_BIT(BGP_ATTR_ORIGINATOR_ID))
+	if (CHECK_FLAG(newattr->flag, ATTR_FLAG_BIT(BGP_ATTR_ORIGINATOR_ID)))
 		new_id.s_addr = newattr->originator_id.s_addr;
 	else
 		new_id.s_addr = peer_new->remote_id.s_addr;
-	if (existattr->flag & ATTR_FLAG_BIT(BGP_ATTR_ORIGINATOR_ID))
+	if (CHECK_FLAG(existattr->flag, ATTR_FLAG_BIT(BGP_ATTR_ORIGINATOR_ID)))
 		exist_id.s_addr = existattr->originator_id.s_addr;
 	else
 		exist_id.s_addr = peer_exist->remote_id.s_addr;
@@ -1801,7 +1801,7 @@ static bool bgp_cluster_filter(struct peer *peer, struct attr *attr)
 	struct cluster_list *cluster = bgp_attr_get_cluster(attr);
 
 	if (cluster) {
-		if (peer->bgp->config & BGP_CONFIG_CLUSTER_ID)
+		if (CHECK_FLAG(peer->bgp->config, BGP_CONFIG_CLUSTER_ID))
 			cluster_id = peer->bgp->cluster_id;
 		else
 			cluster_id = peer->bgp->router_id;
@@ -1814,7 +1814,7 @@ static bool bgp_cluster_filter(struct peer *peer, struct attr *attr)
 
 static bool bgp_otc_filter(struct peer *peer, struct attr *attr)
 {
-	if (attr->flag & ATTR_FLAG_BIT(BGP_ATTR_OTC)) {
+	if (CHECK_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_OTC))) {
 		if (peer->local_role == ROLE_PROVIDER ||
 		    peer->local_role == ROLE_RS_SERVER)
 			return true;
@@ -1825,7 +1825,7 @@ static bool bgp_otc_filter(struct peer *peer, struct attr *attr)
 	if (peer->local_role == ROLE_CUSTOMER ||
 	    peer->local_role == ROLE_PEER ||
 	    peer->local_role == ROLE_RS_CLIENT) {
-		attr->flag |= ATTR_FLAG_BIT(BGP_ATTR_OTC);
+		SET_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_OTC));
 		attr->otc = peer->as;
 	}
 	return false;
@@ -1833,7 +1833,7 @@ static bool bgp_otc_filter(struct peer *peer, struct attr *attr)
 
 static bool bgp_otc_egress(struct peer *peer, struct attr *attr)
 {
-	if (attr->flag & ATTR_FLAG_BIT(BGP_ATTR_OTC)) {
+	if (CHECK_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_OTC))) {
 		if (peer->local_role == ROLE_CUSTOMER ||
 		    peer->local_role == ROLE_RS_CLIENT ||
 		    peer->local_role == ROLE_PEER)
@@ -1843,7 +1843,7 @@ static bool bgp_otc_egress(struct peer *peer, struct attr *attr)
 	if (peer->local_role == ROLE_PROVIDER ||
 	    peer->local_role == ROLE_PEER ||
 	    peer->local_role == ROLE_RS_SERVER) {
-		attr->flag |= ATTR_FLAG_BIT(BGP_ATTR_OTC);
+		SET_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_OTC));
 		attr->otc = peer->bgp->as;
 	}
 	return false;
@@ -2100,7 +2100,7 @@ void bgp_attr_add_gshut_community(struct attr *attr)
 
 	/* When we add the graceful-shutdown community we must also
 	 * lower the local-preference */
-	attr->flag |= ATTR_FLAG_BIT(BGP_ATTR_LOCAL_PREF);
+	SET_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_LOCAL_PREF));
 	attr->local_pref = BGP_GSHUT_LOCAL_PREF;
 }
 
@@ -2148,7 +2148,7 @@ bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
 	struct attr *piattr;
 	route_map_result_t ret;
 	int transparent;
-	int reflect;
+	int ibgp_to_ibgp;
 	afi_t afi;
 	safi_t safi;
 	int samepeer_safe = 0; /* for synthetic mplsvpns routes */
@@ -2304,8 +2304,8 @@ bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
 
 	/* If the attribute has originator-id and it is same as remote
 	   peer's id. */
-	if (onlypeer && piattr->flag & ATTR_FLAG_BIT(BGP_ATTR_ORIGINATOR_ID)
-	    && (IPV4_ADDR_SAME(&onlypeer->remote_id, &piattr->originator_id))) {
+	if (onlypeer && (CHECK_FLAG(piattr->flag, ATTR_FLAG_BIT(BGP_ATTR_ORIGINATOR_ID))) &&
+	    (IPV4_ADDR_SAME(&onlypeer->remote_id, &piattr->originator_id))) {
 		if (bgp_debug_update(NULL, p, subgrp->update_group, 0))
 			zlog_debug(
 				"%pBP [Update:SEND] %pFX originator-id is same as remote router-id",
@@ -2357,14 +2357,14 @@ bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
 		}
 	}
 
-	/* Route-Reflect check. */
+	/* iBGP to iBGP check. */
 	if (from->sort == BGP_PEER_IBGP && peer->sort == BGP_PEER_IBGP)
-		reflect = 1;
+		ibgp_to_ibgp = 1;
 	else
-		reflect = 0;
+		ibgp_to_ibgp = 0;
 
 	/* IBGP reflection check. */
-	if (reflect && !samepeer_safe) {
+	if (ibgp_to_ibgp && !samepeer_safe) {
 		/* A route from a Client peer. */
 		if (CHECK_FLAG(from->af_flags[afi][safi],
 			       PEER_FLAG_REFLECTOR_CLIENT)) {
@@ -2402,16 +2402,15 @@ bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
 	RESET_FLAG(attr->rmap_change_flags);
 
 	/* If local-preference is not set. */
-	if ((peer->sort == BGP_PEER_IBGP || peer->sort == BGP_PEER_CONFED)
-	    && (!(attr->flag & ATTR_FLAG_BIT(BGP_ATTR_LOCAL_PREF)))) {
-		attr->flag |= ATTR_FLAG_BIT(BGP_ATTR_LOCAL_PREF);
+	if ((peer->sort == BGP_PEER_IBGP || peer->sort == BGP_PEER_CONFED) &&
+	    (!CHECK_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_LOCAL_PREF)))) {
+		SET_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_LOCAL_PREF));
 		attr->local_pref = bgp->default_local_pref;
 	}
 
 	/* If originator-id is not set and the route is to be reflected,
 	   set the originator id */
-	if (reflect
-	    && (!(attr->flag & ATTR_FLAG_BIT(BGP_ATTR_ORIGINATOR_ID)))) {
+	if (ibgp_to_ibgp && (!CHECK_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_ORIGINATOR_ID)))) {
 		IPV4_ADDR_COPY(&(attr->originator_id), &(from->remote_id));
 		SET_FLAG(attr->flag, BGP_ATTR_ORIGINATOR_ID);
 	}
@@ -2419,12 +2418,11 @@ bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
 	/* Remove MED if its an EBGP peer - will get overwritten by route-maps
 	 */
 	if (peer->sort == BGP_PEER_EBGP && peer->sub_sort != BGP_PEER_EBGP_OAD &&
-	    attr->flag & ATTR_FLAG_BIT(BGP_ATTR_MULTI_EXIT_DISC)) {
+	    CHECK_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_MULTI_EXIT_DISC))) {
 		if (from != bgp->peer_self && !transparent
 		    && !CHECK_FLAG(peer->af_flags[afi][safi],
 				   PEER_FLAG_MED_UNCHANGED))
-			attr->flag &=
-				~(ATTR_FLAG_BIT(BGP_ATTR_MULTI_EXIT_DISC));
+			UNSET_FLAG(attr->flag, (ATTR_FLAG_BIT(BGP_ATTR_MULTI_EXIT_DISC)));
 	}
 
 	/* Since the nexthop attribute can vary per peer, it is not explicitly
@@ -2444,7 +2442,7 @@ bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
 	 * announced to an EBGP peer (and they have the same attributes barring
 	 * their nexthop).
 	 */
-	if (reflect)
+	if (ibgp_to_ibgp)
 		SET_FLAG(attr->rmap_change_flags, BATTR_REFLECTED);
 
 #define NEXTHOP_IS_V6                                                          \
@@ -2472,7 +2470,8 @@ bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
 			 */
 			if (IN6_IS_ADDR_LINKLOCAL(&attr->mp_nexthop_local))
 				global_and_ll = true;
-		} else if (!reflect && !transparent &&
+		} else if (!ibgp_to_ibgp && !transparent &&
+			   !CHECK_FLAG(from->af_flags[afi][safi], PEER_FLAG_REFLECTOR_CLIENT) &&
 			   IN6_IS_ADDR_LINKLOCAL(&peer->nexthop.v6_local) && peer->shared_network &&
 			   (from == bgp->peer_self || peer->sort == BGP_PEER_EBGP))
 			global_and_ll = true;
@@ -2512,8 +2511,8 @@ bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
 		struct attr dummy_attr = *attr;
 
 		/* Fill temp path_info */
-		prep_for_rmap_apply(&rmap_path, &dummy_rmap_path_extra, dest,
-				    pi, peer, &dummy_attr);
+		prep_for_rmap_apply(&rmap_path, &dummy_rmap_path_extra, dest, pi, peer, NULL,
+				    &dummy_attr);
 
 		struct route_map *amap =
 			route_map_lookup_by_name(filter->advmap.aname);
@@ -2537,9 +2536,13 @@ bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
 		struct bgp_path_info_extra dummy_rmap_path_extra = {0};
 		struct attr dummy_attr = {0};
 
-		/* Fill temp path_info */
-		prep_for_rmap_apply(&rmap_path, &dummy_rmap_path_extra, dest,
-				    pi, peer, attr);
+		/* Fill temp path_info.
+		 * Inject the peer structure of the source peer (from).
+		 * This is useful for e.g. `match peer ...` in outgoing
+		 * direction.
+		 */
+		prep_for_rmap_apply(&rmap_path, &dummy_rmap_path_extra, dest, pi, peer, from, attr);
+
 		/*
 		 * The route reflector is not allowed to modify the attributes
 		 * of the reflected IBGP routes unless explicitly allowed.
@@ -2615,8 +2618,7 @@ bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
 	 * one. If they match, do not announce, to prevent routing
 	 * loops.
 	 */
-	if ((attr->flag & ATTR_FLAG_BIT(BGP_ATTR_EXT_COMMUNITIES)) &&
-	    peer->soo[afi][safi]) {
+	if (CHECK_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_EXT_COMMUNITIES)) && peer->soo[afi][safi]) {
 		struct ecommunity *ecomm_soo = peer->soo[afi][safi];
 		struct ecommunity *ecomm = bgp_attr_get_ecommunity(attr);
 
@@ -2643,7 +2645,7 @@ bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
 		if (peer->sort == BGP_PEER_IBGP ||
 		    peer->sort == BGP_PEER_CONFED ||
 		    peer->sub_sort == BGP_PEER_EBGP_OAD) {
-			attr->flag |= ATTR_FLAG_BIT(BGP_ATTR_LOCAL_PREF);
+			SET_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_LOCAL_PREF));
 			attr->local_pref = BGP_GSHUT_LOCAL_PREF;
 		} else {
 			bgp_attr_add_gshut_community(attr);
@@ -2694,9 +2696,8 @@ bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
 			       PEER_FLAG_NEXTHOP_SELF)
 		    || CHECK_FLAG(peer->af_flags[afi][safi],
 				  PEER_FLAG_FORCE_NEXTHOP_SELF)) {
-			if (!reflect
-			    || CHECK_FLAG(peer->af_flags[afi][safi],
-					  PEER_FLAG_FORCE_NEXTHOP_SELF)) {
+			if (!ibgp_to_ibgp ||
+			    CHECK_FLAG(peer->af_flags[afi][safi], PEER_FLAG_FORCE_NEXTHOP_SELF)) {
 				subgroup_announce_reset_nhop(
 					(peer_cap_enhe(peer, afi, safi)
 						 ? AF_INET6
@@ -3427,9 +3428,8 @@ static void bgp_process_evpn_route_injection(struct bgp *bgp, afi_t afi,
 			dummy_attr = *new_select->attr;
 
 			/* Fill temp path_info */
-			prep_for_rmap_apply(&rmap_path, &rmap_path_extra, dest,
-					    new_select, new_select->peer,
-					    &dummy_attr);
+			prep_for_rmap_apply(&rmap_path, &rmap_path_extra, dest, new_select,
+					    new_select->peer, NULL, &dummy_attr);
 
 			RESET_FLAG(dummy_attr.rmap_change_flags);
 
@@ -3727,11 +3727,10 @@ static void bgp_process_main_one(struct bgp *bgp, struct bgp_dest *dest,
 
 		/* If there is a change of interest to peers, reannounce the
 		 * route. */
-		if (CHECK_FLAG(old_select->flags, BGP_PATH_ATTR_CHANGED)
-		    || CHECK_FLAG(old_select->flags, BGP_PATH_LINK_BW_CHG)
-		    || CHECK_FLAG(dest->flags, BGP_NODE_LABEL_CHANGED)) {
+		if (CHECK_FLAG(old_select->flags, BGP_PATH_ATTR_CHANGED) ||
+		    CHECK_FLAG(dest->flags, BGP_NODE_LABEL_CHANGED) ||
+		    bgp_zebra_has_route_changed(old_select)) {
 			group_announce_route(bgp, afi, safi, dest, new_select);
-
 			/* unicast routes must also be annouced to
 			 * labeled-unicast update-groups */
 			if (safi == SAFI_UNICAST)
@@ -4418,7 +4417,7 @@ bool bgp_update_martian_nexthop(struct bgp *bgp, afi_t afi, safi_t safi,
 		return false;
 
 	/* If NEXT_HOP is present, validate it. */
-	if (attr->flag & ATTR_FLAG_BIT(BGP_ATTR_NEXT_HOP)) {
+	if (CHECK_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_NEXT_HOP))) {
 		if (attr->nexthop.s_addr == INADDR_ANY ||
 		    !ipv4_unicast_valid(&attr->nexthop) ||
 		    bgp_nexthop_self(bgp, afi, type, stype, attr, dest))
@@ -4518,7 +4517,7 @@ static bool bgp_accept_own(struct peer *peer, afi_t afi, safi_t safi,
 		return false;
 
 	/* The route in question carries the ACCEPT_OWN community */
-	if (attr->flag & ATTR_FLAG_BIT(BGP_ATTR_COMMUNITIES)) {
+	if (CHECK_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_COMMUNITIES))) {
 		struct community *comm = bgp_attr_get_community(attr);
 
 		if (community_include(comm, COMMUNITY_ACCEPT_OWN))
@@ -4705,8 +4704,8 @@ void bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 	 */
 	bool accept_own = false;
 
-	if (attr->flag & ATTR_FLAG_BIT(BGP_ATTR_ORIGINATOR_ID)
-	    && IPV4_ADDR_SAME(&bgp->router_id, &attr->originator_id)) {
+	if (CHECK_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_ORIGINATOR_ID)) &&
+	    IPV4_ADDR_SAME(&bgp->router_id, &attr->originator_id)) {
 		accept_own =
 			bgp_accept_own(peer, afi, safi, attr, p, &sub_type);
 		if (!accept_own) {
@@ -4743,7 +4742,7 @@ void bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 	/* If the route has Node Target Extended Communities, check
 	 * if it's allowed to be installed locally.
 	 */
-	if ((attr->flag & ATTR_FLAG_BIT(BGP_ATTR_EXT_COMMUNITIES))) {
+	if (CHECK_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_EXT_COMMUNITIES))) {
 		struct ecommunity *ecomm = bgp_attr_get_ecommunity(attr);
 
 		if (ecommunity_lookup(ecomm, ECOMMUNITY_ENCODE_IP,
@@ -4845,7 +4844,7 @@ void bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 		if (bgp_attr_get_community(&new_attr) &&
 		    community_include(bgp_attr_get_community(&new_attr),
 				      COMMUNITY_GSHUT)) {
-			new_attr.flag |= ATTR_FLAG_BIT(BGP_ATTR_LOCAL_PREF);
+			SET_FLAG(new_attr.flag, ATTR_FLAG_BIT(BGP_ATTR_LOCAL_PREF));
 			new_attr.local_pref = BGP_GSHUT_LOCAL_PREF;
 
 			/* If graceful-shutdown is configured globally or
@@ -5066,10 +5065,8 @@ void bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 		 */
 		if (((safi == SAFI_EVPN) || (safi == SAFI_MPLS_VPN))
 		    && !same_attr) {
-			if ((pi->attr->flag
-			     & ATTR_FLAG_BIT(BGP_ATTR_EXT_COMMUNITIES))
-			    && (attr_new->flag
-				& ATTR_FLAG_BIT(BGP_ATTR_EXT_COMMUNITIES))) {
+			if (CHECK_FLAG(pi->attr->flag, ATTR_FLAG_BIT(BGP_ATTR_EXT_COMMUNITIES)) &&
+			    CHECK_FLAG(attr_new->flag, ATTR_FLAG_BIT(BGP_ATTR_EXT_COMMUNITIES))) {
 				int cmp;
 
 				cmp = ecommunity_cmp(
@@ -6747,22 +6744,19 @@ void bgp_static_update(struct bgp *bgp, const struct prefix *p,
 	bgp_attr_default_set(&attr, bgp, BGP_ORIGIN_IGP);
 
 	attr.nexthop = bgp_static->igpnexthop;
-	attr.med = bgp_static->igpmetric;
-	attr.flag |= ATTR_FLAG_BIT(BGP_ATTR_MULTI_EXIT_DISC);
+
+	bgp_attr_set_med(&attr, bgp_static->igpmetric);
 
 	if (afi == AFI_IP)
 		attr.mp_nexthop_len = BGP_ATTR_NHLEN_IPV4;
 
-	if (bgp_static->igpmetric)
-		bgp_attr_set_aigp_metric(&attr, bgp_static->igpmetric);
-
 	if (bgp_static->atomic)
-		attr.flag |= ATTR_FLAG_BIT(BGP_ATTR_ATOMIC_AGGREGATE);
+		SET_FLAG(attr.flag, ATTR_FLAG_BIT(BGP_ATTR_ATOMIC_AGGREGATE));
 
 	/* Store label index, if required. */
 	if (bgp_static->label_index != BGP_INVALID_LABEL_INDEX) {
 		attr.label_index = bgp_static->label_index;
-		attr.flag |= ATTR_FLAG_BIT(BGP_ATTR_PREFIX_SID);
+		SET_FLAG(attr.flag, ATTR_FLAG_BIT(BGP_ATTR_PREFIX_SID));
 	}
 
 	if (safi == SAFI_EVPN || safi == SAFI_MPLS_VPN || safi == SAFI_ENCAP) {
@@ -8055,8 +8049,7 @@ bool bgp_aggregate_route(struct bgp *bgp, const struct prefix *p, afi_t afi,
 			if (BGP_PATH_HOLDDOWN(pi))
 				continue;
 
-			if (pi->attr->flag
-			    & ATTR_FLAG_BIT(BGP_ATTR_ATOMIC_AGGREGATE))
+			if (CHECK_FLAG(pi->attr->flag, ATTR_FLAG_BIT(BGP_ATTR_ATOMIC_AGGREGATE)))
 				atomic_aggregate = 1;
 
 			if (pi->sub_type == BGP_ROUTE_AGGREGATE)
@@ -9015,13 +9008,9 @@ void bgp_redistribute_add(struct bgp *bgp, struct prefix *p,
 	else
 		UNSET_FLAG(attr.nh_flags, BGP_ATTR_NH_IF_OPERSTATE);
 
-	attr.med = metric;
+	bgp_attr_set_med(&attr, metric);
 	attr.distance = distance;
-	attr.flag |= ATTR_FLAG_BIT(BGP_ATTR_MULTI_EXIT_DISC);
 	attr.tag = tag;
-
-	if (metric)
-		bgp_attr_set_aigp_metric(&attr, metric);
 
 	afi = family2afi(p->family);
 
@@ -9032,10 +9021,8 @@ void bgp_redistribute_add(struct bgp *bgp, struct prefix *p,
 		/* Copy attribute for modification. */
 		attr_new = attr;
 
-		if (red->redist_metric_flag) {
+		if (red->redist_metric_flag)
 			attr_new.med = red->redist_metric;
-			bgp_attr_set_aigp_metric(&attr_new, red->redist_metric);
-		}
 
 		/* Apply route-map. */
 		if (red->rmap.name) {
@@ -9801,7 +9788,7 @@ void route_vty_out(struct vty *vty, const struct prefix *p,
 	}
 
 	/* Local Pref */
-	if (attr->flag & ATTR_FLAG_BIT(BGP_ATTR_LOCAL_PREF))
+	if (CHECK_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_LOCAL_PREF)))
 		if (json_paths)
 			json_object_int_add(json_path, "locPrf",
 					    attr->local_pref);
@@ -9842,7 +9829,7 @@ void route_vty_out(struct vty *vty, const struct prefix *p,
 					esi_buf, sizeof(esi_buf)));
 		}
 		if (safi == SAFI_EVPN &&
-		    attr->flag & ATTR_FLAG_BIT(BGP_ATTR_EXT_COMMUNITIES)) {
+		    CHECK_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_EXT_COMMUNITIES))) {
 			json_ext_community = json_object_new_object();
 			json_object_string_add(
 				json_ext_community, "string",
@@ -9896,8 +9883,7 @@ void route_vty_out(struct vty *vty, const struct prefix *p,
 
 				vty_out(vty, "\n");
 			}
-			if (attr->flag &
-				ATTR_FLAG_BIT(BGP_ATTR_EXT_COMMUNITIES)) {
+			if (CHECK_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_EXT_COMMUNITIES))) {
 				vty_out(vty, "%*s", 20, " ");
 				vty_out(vty, "%s\n",
 					bgp_attr_get_ecommunity(attr)->str);
@@ -9979,7 +9965,7 @@ void route_vty_out_tmp(struct vty *vty, struct bgp *bgp, struct bgp_dest *dest,
 				json_object_int_add(json_net, "metric", value);
 			}
 
-			if (attr->flag & ATTR_FLAG_BIT(BGP_ATTR_LOCAL_PREF))
+			if (CHECK_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_LOCAL_PREF)))
 				json_object_int_add(json_net, "locPrf",
 						    attr->local_pref);
 
@@ -10030,7 +10016,7 @@ void route_vty_out_tmp(struct vty *vty, struct bgp *bgp, struct bgp_dest *dest,
 			else
 				vty_out(vty, "          ");
 
-			if (attr->flag & ATTR_FLAG_BIT(BGP_ATTR_LOCAL_PREF))
+			if (CHECK_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_LOCAL_PREF)))
 				vty_out(vty, "%7u", attr->local_pref);
 			else
 				vty_out(vty, "       ");
@@ -10942,7 +10928,7 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct bgp_dest *bn,
 						&path->peer->connection->su);
 			}
 
-			if (attr->flag & ATTR_FLAG_BIT(BGP_ATTR_ORIGINATOR_ID))
+			if (CHECK_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_ORIGINATOR_ID)))
 				vty_out(vty, " (%pI4)", &attr->originator_id);
 			else
 				vty_out(vty, " (%pI4)", &path->peer->remote_id);
@@ -11065,7 +11051,7 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct bgp_dest *bn,
 			vty_out(vty, ", metric %u", value);
 	}
 
-	if (attr->flag & ATTR_FLAG_BIT(BGP_ATTR_LOCAL_PREF)) {
+	if (CHECK_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_LOCAL_PREF))) {
 		if (json_paths)
 			json_object_int_add(json_path, "locPrf",
 					    attr->local_pref);
@@ -11073,7 +11059,7 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct bgp_dest *bn,
 			vty_out(vty, ", localpref %u", attr->local_pref);
 	}
 
-	if (attr->flag & ATTR_FLAG_BIT(BGP_ATTR_AIGP)) {
+	if (CHECK_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_AIGP))) {
 		if (json_paths)
 			json_object_int_add(json_path, "aigpMetric",
 					    bgp_attr_get_aigp_metric(attr));
@@ -11173,7 +11159,7 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct bgp_dest *bn,
 		}
 	}
 
-	if (attr->flag & ATTR_FLAG_BIT(BGP_ATTR_ATOMIC_AGGREGATE)) {
+	if (CHECK_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_ATOMIC_AGGREGATE))) {
 		if (json_paths)
 			json_object_boolean_true_add(json_path,
 						     "atomicAggregate");
@@ -11181,7 +11167,7 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct bgp_dest *bn,
 			vty_out(vty, ", atomic-aggregate");
 	}
 
-	if (attr->flag & ATTR_FLAG_BIT(BGP_ATTR_OTC)) {
+	if (CHECK_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_OTC))) {
 		if (json_paths)
 			json_object_int_add(json_path, "otc", attr->otc);
 		else
@@ -11245,7 +11231,7 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct bgp_dest *bn,
 		vty_out(vty, "\n");
 
 	/* Line 4 display Community */
-	if (attr->flag & ATTR_FLAG_BIT(BGP_ATTR_COMMUNITIES)) {
+	if (CHECK_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_COMMUNITIES))) {
 		if (json_paths) {
 			if (!bgp_attr_get_community(attr)->json)
 				community_str(bgp_attr_get_community(attr),
@@ -11261,7 +11247,7 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct bgp_dest *bn,
 	}
 
 	/* Line 5 display Extended-community */
-	if (attr->flag & ATTR_FLAG_BIT(BGP_ATTR_EXT_COMMUNITIES)) {
+	if (CHECK_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_EXT_COMMUNITIES))) {
 		if (json_paths) {
 			json_ext_community = json_object_new_object();
 			json_object_string_add(
@@ -11275,7 +11261,7 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct bgp_dest *bn,
 		}
 	}
 
-	if (attr->flag & ATTR_FLAG_BIT(BGP_ATTR_IPV6_EXT_COMMUNITIES)) {
+	if (CHECK_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_IPV6_EXT_COMMUNITIES))) {
 		if (json_paths) {
 			json_ext_ipv6_community = json_object_new_object();
 			json_object_string_add(json_ext_ipv6_community, "string",
@@ -11291,7 +11277,7 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct bgp_dest *bn,
 	}
 
 	/* Line 6 display Large community */
-	if (attr->flag & ATTR_FLAG_BIT(BGP_ATTR_LARGE_COMMUNITIES)) {
+	if (CHECK_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_LARGE_COMMUNITIES))) {
 		if (json_paths) {
 			if (!bgp_attr_get_lcommunity(attr)->json)
 				lcommunity_str(bgp_attr_get_lcommunity(attr),
@@ -11307,11 +11293,11 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct bgp_dest *bn,
 	}
 
 	/* Line 7 display Originator, Cluster-id */
-	if ((attr->flag & ATTR_FLAG_BIT(BGP_ATTR_ORIGINATOR_ID))
-	    || (attr->flag & ATTR_FLAG_BIT(BGP_ATTR_CLUSTER_LIST))) {
+	if (CHECK_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_ORIGINATOR_ID)) ||
+	    CHECK_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_CLUSTER_LIST))) {
 		char buf[BUFSIZ] = {0};
 
-		if (attr->flag & ATTR_FLAG_BIT(BGP_ATTR_ORIGINATOR_ID)) {
+		if (CHECK_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_ORIGINATOR_ID))) {
 			if (json_paths)
 				json_object_string_addf(json_path,
 							"originatorId", "%pI4",
@@ -11321,7 +11307,7 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct bgp_dest *bn,
 					&attr->originator_id);
 		}
 
-		if (attr->flag & ATTR_FLAG_BIT(BGP_ATTR_CLUSTER_LIST)) {
+		if (CHECK_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_CLUSTER_LIST))) {
 			struct cluster_list *cluster =
 				bgp_attr_get_cluster(attr);
 			int i;
@@ -11490,7 +11476,7 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct bgp_dest *bn,
 		vty_out(vty, "      Last update: %s", ctime_r(&tbuf, timebuf));
 
 	/* Line 10 display PMSI tunnel attribute, if present */
-	if (attr->flag & ATTR_FLAG_BIT(BGP_ATTR_PMSI_TUNNEL)) {
+	if (CHECK_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_PMSI_TUNNEL))) {
 		const char *str = lookup_msg(bgp_pmsi_tnltype_str,
 					     bgp_attr_get_pmsi_tnl_type(attr),
 					     PMSI_TNLTYPE_STR_DEFAULT);
@@ -11787,8 +11773,8 @@ static int bgp_show_table(struct vty *vty, struct bgp *bgp, afi_t afi, safi_t sa
 
 				dummy_attr = *pi->attr;
 
-				prep_for_rmap_apply(&path, &extra, dest, pi,
-						    pi->peer, &dummy_attr);
+				prep_for_rmap_apply(&path, &extra, dest, pi, pi->peer, NULL,
+						    &dummy_attr);
 
 				ret = route_map_apply(rmap, dest_p, &path);
 				bgp_attr_flush(&dummy_attr);

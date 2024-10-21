@@ -4493,16 +4493,6 @@ DEFUN (bgp_network_import_check,
 	return CMD_SUCCESS;
 }
 
-#if CONFDATE > 20241013
-CPP_NOTICE("Drop `bgp network import-check exact` command")
-#endif
-ALIAS_HIDDEN(bgp_network_import_check, bgp_network_import_check_exact_cmd,
-	     "bgp network import-check exact",
-	     BGP_STR
-	     "BGP network command\n"
-	     "Check BGP network route exists in IGP\n"
-	     "Match route precisely\n")
-
 DEFUN (no_bgp_network_import_check,
        no_bgp_network_import_check_cmd,
        "no bgp network import-check",
@@ -20658,7 +20648,6 @@ void bgp_vty_init(void)
 
 	/* "bgp network import-check" commands. */
 	install_element(BGP_NODE, &bgp_network_import_check_cmd);
-	install_element(BGP_NODE, &bgp_network_import_check_exact_cmd);
 	install_element(BGP_NODE, &no_bgp_network_import_check_cmd);
 
 	/* "bgp default local-preference" commands. */

@@ -5392,9 +5392,8 @@ void bgp_evpn_advertise_type5_routes(struct bgp *bgp_vrf, afi_t afi,
 					tmp_attr = *pi->attr;
 
 					/* Fill temp path_info */
-					prep_for_rmap_apply(&tmp_pi, &tmp_pie,
-							    dest, pi, pi->peer,
-							    &tmp_attr);
+					prep_for_rmap_apply(&tmp_pi, &tmp_pie, dest, pi, pi->peer,
+							    NULL, &tmp_attr);
 
 					RESET_FLAG(tmp_attr.rmap_change_flags);
 

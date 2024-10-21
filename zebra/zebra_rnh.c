@@ -220,10 +220,9 @@ void zebra_free_rnh(struct rnh *rnh)
 		if (rern) {
 			rib_dest_t *dest;
 
-			route_unlock_node(rern);
-
 			dest = rib_dest_from_rnode(rern);
 			rnh_list_del(&dest->nht, rnh);
+			route_unlock_node(rern);
 		}
 	}
 	free_state(rnh->vrf_id, rnh->state, rnh->node);
@@ -1141,7 +1140,7 @@ int zebra_send_rnh_update(struct rnh *rnh, struct zserv *client,
 	struct stream *s = NULL;
 	struct route_entry *re;
 	unsigned long nump;
-	uint8_t num;
+	uint16_t num;
 	struct nexthop *nh;
 	struct route_node *rn;
 	int ret;
@@ -1212,7 +1211,7 @@ int zebra_send_rnh_update(struct rnh *rnh, struct zserv *client,
 		stream_putl(s, re->metric);
 		num = 0;
 		nump = stream_get_endp(s);
-		stream_putc(s, 0);
+		stream_putw(s, 0);
 
 		nhg = rib_get_fib_nhg(re);
 		for (ALL_NEXTHOPS_PTR(nhg, nh))
@@ -1240,13 +1239,13 @@ int zebra_send_rnh_update(struct rnh *rnh, struct zserv *client,
 				}
 		}
 
-		stream_putc_at(s, nump, num);
+		stream_putw_at(s, nump, num);
 	} else {
 		stream_putc(s, 0); // type
 		stream_putw(s, 0); // instance
 		stream_putc(s, 0); // distance
 		stream_putl(s, 0); // metric
-		stream_putc(s, 0); // nexthops
+		stream_putw(s, 0); // nexthops
 	}
 	stream_putw_at(s, 0, stream_get_endp(s));
 

@@ -718,7 +718,7 @@ DEFUN (ospf_area_range_not_advertise,
 
 DEFUN (no_ospf_area_range,
        no_ospf_area_range_cmd,
-       "no area <A.B.C.D|(0-4294967295)> range A.B.C.D/M [<cost (0-16777215)|advertise [cost (0-16777215)]|not-advertise>]",
+       "no area <A.B.C.D|(0-4294967295)> range A.B.C.D/M [<cost [(0-16777215)]|advertise [cost [(0-16777215)]]|not-advertise>]",
        NO_STR
        "OSPF area parameters\n"
        "OSPF area ID in IP address format\n"
@@ -1355,12 +1355,13 @@ DEFUN (ospf_area_shortcut,
 
 DEFUN (no_ospf_area_shortcut,
        no_ospf_area_shortcut_cmd,
-       "no area <A.B.C.D|(0-4294967295)> shortcut <enable|disable>",
+       "no area <A.B.C.D|(0-4294967295)> shortcut <default|enable|disable>",
        NO_STR
        "OSPF area parameters\n"
        "OSPF area ID in IP address format\n"
        "OSPF area ID as a decimal value\n"
        "Deconfigure the area's shortcutting mode\n"
+       "Deconfigure default shortcutting through the area\n"
        "Deconfigure enabled shortcutting through the area\n"
        "Deconfigure disabled shortcutting through the area\n")
 {
