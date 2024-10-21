@@ -156,6 +156,6 @@ int main(int argc, char **argv)
 	test_ATOMSORT_UNIQ();
 	test_ATOMSORT_NONUNIQ();
 
-	log_memstats_stderr("test: ");
+	log_memstats(NULL, true);
 	return 0;
 }
