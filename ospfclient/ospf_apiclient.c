@@ -81,7 +81,7 @@ struct ospf_apiclient *ospf_apiclient_connect(char *host, int syncport)
 	struct sockaddr_in myaddr_sync;
 	struct sockaddr_in myaddr_async;
 	struct sockaddr_in peeraddr;
-	struct hostent *hp;
+	struct addrinfo hints, *res;
 	struct ospf_apiclient *new;
 	int size = 0;
 	unsigned int peeraddrlen;
@@ -155,8 +155,10 @@ struct ospf_apiclient *ospf_apiclient_connect(char *host, int syncport)
 
 	/* Make connection for synchronous requests and connect to server */
 	/* Resolve address of server */
-	hp = gethostbyname(host);
-	if (!hp) {
+	memset(&hints, 0, sizeof(hints));
+	hints.ai_family = AF_INET;
+	hints.ai_socktype = SOCK_STREAM;
+	if (getaddrinfo(host, NULL, &hints, &res) != 0) {
 		fprintf(stderr, "ospf_apiclient_connect: no such host %s\n",
 			host);
 		close(async_server_sock);
@@ -217,7 +219,7 @@ struct ospf_apiclient *ospf_apiclient_connect(char *host, int syncport)
 	}
 
 	/* Prepare address structure for connect */
-	memcpy(&myaddr_sync.sin_addr, hp->h_addr, hp->h_length);
+	myaddr_sync = *(struct sockaddr_in *)res->ai_addr;
 	myaddr_sync.sin_family = AF_INET;
 	myaddr_sync.sin_port = htons(ospf_apiclient_getport());
 #ifdef HAVE_STRUCT_SOCKADDR_IN_SIN_LEN
