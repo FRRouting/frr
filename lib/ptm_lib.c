@@ -450,7 +450,7 @@ ptm_lib_handle_t *ptm_lib_register(char *client_name, ptm_cmd_cb cmd_cb,
 	hdl = calloc(1, sizeof(*hdl));
 
 	if (hdl) {
-		strncpy(hdl->client_name, client_name, PTMLIB_MAXNAMELEN - 1);
+		strlcpy(hdl->client_name, client_name, sizeof(hdl->client_name));
 		hdl->cmd_cb = cmd_cb;
 		hdl->notify_cb = notify_cb;
 		hdl->response_cb = response_cb;
