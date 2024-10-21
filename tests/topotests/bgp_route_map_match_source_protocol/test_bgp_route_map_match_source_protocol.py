@@ -46,8 +46,20 @@ def setup_module(mod):
 
     router_list = tgen.routers()
 
+<<<<<<< HEAD
     for i, (rname, router) in enumerate(router_list.items(), 1):
         router.load_frr_config(os.path.join(CWD, "{}/frr.conf".format(rname)))
+=======
+    for _, (rname, router) in enumerate(router_list.items(), 1):
+        router.load_frr_config(
+            os.path.join(CWD, "{}/frr.conf".format(rname)),
+            [
+                (TopoRouter.RD_ZEBRA, None),
+                (TopoRouter.RD_SHARP, None),
+                (TopoRouter.RD_BGP, None),
+            ],
+        )
+>>>>>>> 68358c0f92 (bgpd: Fix for match source-protocol in route-map for redistribute cmd)
 
     tgen.start_router()
 
@@ -108,6 +120,68 @@ def test_bgp_route_map_match_source_protocol():
     test_func = functools.partial(_bgp_check_advertised_routes_r3)
     _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
     assert result is None, "Failed to filter routes by source-protocol for r3"
+
+    def _bgp_check_advertised_routes_r4():
+        # Remove match source-protocol towards Nbr out policy for Nbr 192.168.1.2 so it receives all routes
+        tgen.gears["r1"].vtysh_cmd(
+            """
+              configure terminal
+                route-map r2 permit 10
+                  no match source-protocol
+            """
+        )
+
+        tgen.gears["r1"].vtysh_cmd(
+            "sharp install route 192.168.11.0 nexthop 172.16.255.1 5"
+        )
+
+        # Configure a r4 with source protocol sharp and apply it to all redistribute cmds
+        tgen.gears["r1"].vtysh_cmd(
+            """
+              configure terminal
+                route-map r4 permit 10
+                  match source-protocol sharp
+                router bgp 65001
+                  address-family ipv4 unicast
+                    redistribute connected route-map r4
+                    redistribute static route-map r4
+                    redistribute sharp route-map r4
+            """
+        )
+
+        # Since match protocol is sharp, only sharp protocol routes are to be advertised
+        output = json.loads(
+            tgen.gears["r1"].vtysh_cmd(
+                "show bgp ipv4 unicast neighbors 192.168.1.2 advertised-routes json"
+            )
+        )
+
+        expected = {
+            "advertisedRoutes": {
+                "192.168.11.0/32": {
+                    "valid": True,
+                },
+                "192.168.11.1/32": {
+                    "valid": True,
+                },
+                "192.168.11.2/32": {
+                    "valid": True,
+                },
+                "192.168.11.3/32": {
+                    "valid": True,
+                },
+                "192.168.11.4/32": {
+                    "valid": True,
+                },
+            },
+            "totalPrefixCounter": 5,
+        }
+
+        return topotest.json_cmp(output, expected)
+
+    test_func = functools.partial(_bgp_check_advertised_routes_r4)
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
+    assert result is None, "Failed to match the source-protocol for redistribute cmds"
 
 
 if __name__ == "__main__":
