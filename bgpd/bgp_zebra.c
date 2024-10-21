@@ -1339,6 +1339,10 @@ static void bgp_zebra_announce_parse_nexthop(
 				if (tag)
 					*tag = mpinfo_cp->attr->tag;
 			}
+		} else {
+			if (bm->use_underlying_igp_metric && mpinfo == info &&
+			    metric && *metric == 0)
+				*metric = info->nexthop->metric;
 		}
 
 		BGP_ORIGINAL_UPDATE(bgp_orig, mpinfo, bgp);
