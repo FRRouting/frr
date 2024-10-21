@@ -1779,14 +1779,13 @@ static bool bgp_community_filter(struct peer *peer, struct attr *attr)
 			return true;
 
 		/* NO_EXPORT check. */
-		if (peer->sort == BGP_PEER_EBGP &&
-		    community_include(bgp_attr_get_community(attr),
-				      COMMUNITY_NO_EXPORT))
+		if (peer->sort == BGP_PEER_EBGP && peer->sub_sort != BGP_PEER_EBGP_OAD &&
+		    community_include(bgp_attr_get_community(attr), COMMUNITY_NO_EXPORT))
 			return true;
 
 		/* NO_EXPORT_SUBCONFED check. */
-		if (peer->sort == BGP_PEER_EBGP
-		    || peer->sort == BGP_PEER_CONFED)
+		if ((peer->sort == BGP_PEER_EBGP && peer->sub_sort != BGP_PEER_EBGP_OAD) ||
+		    peer->sort == BGP_PEER_CONFED)
 			if (community_include(bgp_attr_get_community(attr),
 					      COMMUNITY_NO_EXPORT_SUBCONFED))
 				return true;
