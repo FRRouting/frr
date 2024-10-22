@@ -2051,7 +2051,7 @@ void ospf_opaque_lsa_refresh_schedule(struct ospf_lsa *lsa0)
 	struct opaque_info_per_type *oipt;
 	struct opaque_info_per_id *oipi;
 	struct ospf_lsa *lsa;
-	struct ospf *top;
+	struct ospf *ospf;
 	int delay;
 
 	if ((oipt = lookup_opaque_info_by_type(lsa0)) == NULL
@@ -2076,6 +2076,11 @@ void ospf_opaque_lsa_refresh_schedule(struct ospf_lsa *lsa0)
 		goto out;
 	}
 
+	if ((lsa0->area != NULL) && (lsa0->area->ospf != NULL))
+		ospf = lsa0->area->ospf;
+	else
+		ospf = ospf_lookup_by_vrf_id(VRF_DEFAULT);
+
 	/* Delete this lsa from neighbor retransmit-list. */
 	switch (lsa->data->type) {
 	case OSPF_OPAQUE_LINK_LSA:
@@ -2083,10 +2088,7 @@ void ospf_opaque_lsa_refresh_schedule(struct ospf_lsa *lsa0)
 		ospf_ls_retransmit_delete_nbr_area(lsa->area, lsa);
 		break;
 	case OSPF_OPAQUE_AS_LSA:
-		top = ospf_lookup_by_vrf_id(VRF_DEFAULT);
-		if ((lsa0->area != NULL) && (lsa0->area->ospf != NULL))
-			top = lsa0->area->ospf;
-		ospf_ls_retransmit_delete_nbr_as(top, lsa);
+		ospf_ls_retransmit_delete_nbr_as(ospf, lsa);
 		break;
 	default:
 		flog_warn(EC_OSPF_LSA_UNEXPECTED, "%s: Unexpected LSA-type(%u)",
@@ -2094,17 +2096,14 @@ void ospf_opaque_lsa_refresh_schedule(struct ospf_lsa *lsa0)
 		goto out;
 	}
 
-	delay = ospf_lsa_refresh_delay(lsa);
+	delay = ospf_lsa_refresh_delay(ospf, lsa);
 
 	if (IS_DEBUG_OSPF_EVENT)
-		zlog_debug(
-			"Schedule Type-%u Opaque-LSA to REFRESH in %d sec later: [opaque-type=%u, opaque-id=%x]",
-			lsa->data->type, delay,
-			GET_OPAQUE_TYPE(ntohl(lsa->data->id.s_addr)),
-			GET_OPAQUE_ID(ntohl(lsa->data->id.s_addr)));
+		zlog_debug("Schedule Type-%u Opaque-LSA to REFRESH in %d msec later: [opaque-type=%u, opaque-id=%x]",
+			   lsa->data->type, delay, GET_OPAQUE_TYPE(ntohl(lsa->data->id.s_addr)),
+			   GET_OPAQUE_ID(ntohl(lsa->data->id.s_addr)));
 
-	OSPF_OPAQUE_TIMER_ON(oipi->t_opaque_lsa_self,
-			     ospf_opaque_lsa_refresh_timer, oipi, delay * 1000);
+	OSPF_OPAQUE_TIMER_ON(oipi->t_opaque_lsa_self, ospf_opaque_lsa_refresh_timer, oipi, delay);
 out:
 	return;
 }
