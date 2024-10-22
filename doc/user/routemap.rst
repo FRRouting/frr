@@ -320,7 +320,7 @@ Route Map Set Command
 
    Set the maximum meric for the route.
 
-.. clicmd:: set aigp-metric <igp-metric|(1-4294967295)>
+.. clicmd:: set aigp-metric <igp-metric|(0-4294967295)>
 
    Set the BGP attribute AIGP to a specific value. If ``igp-metric`` is specified,
    then the value is taken from the IGP protocol, otherwise an arbitrary value.
