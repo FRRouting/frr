@@ -1568,6 +1568,15 @@ static int netlink_request_tunneldump(struct zebra_ns *zns, int family,
 	return netlink_request(&zns->netlink_cmd, &req);
 }
 
+/* Prototype for tunneldump walker */
+static int tunneldump_walk_cb(struct interface *ifp, void *arg);
+
+struct tunneldump_ctx {
+	struct zebra_ns *zns;
+	struct zebra_dplane_info *dp_info;
+	int ret;
+};
+
 /*
  * Currently we only ask for vxlan l3svd vni information.
  * In the future this can be expanded.
@@ -1575,39 +1584,48 @@ static int netlink_request_tunneldump(struct zebra_ns *zns, int family,
 int netlink_tunneldump_read(struct zebra_ns *zns)
 {
 	int ret = 0;
+	struct tunneldump_ctx ctx = {};
 	struct zebra_dplane_info dp_info;
-	struct route_node *rn;
-	struct interface *tmp_if = NULL;
-	struct zebra_if *zif;
-	struct nlsock *netlink_cmd = &zns->netlink_cmd;
 
 	zebra_dplane_info_from_zns(&dp_info, zns, true /*is_cmd*/);
 
-	for (rn = route_top(zns->if_table); rn; rn = route_next(rn)) {
-		tmp_if = (struct interface *)rn->info;
-		if (!tmp_if)
-			continue;
-		zif = tmp_if->info;
-		if (!zif || zif->zif_type != ZEBRA_IF_VXLAN)
-			continue;
+	/* Set up context and call iterator */
+	ctx.zns = zns;
+	ctx.dp_info = &dp_info;
 
-		ret = netlink_request_tunneldump(zns, PF_BRIDGE,
-						 tmp_if->ifindex);
-		if (ret < 0) {
-			route_unlock_node(rn);
-			return ret;
-		}
+	zebra_ns_ifp_walk(zns, tunneldump_walk_cb, &ctx);
 
-		ret = netlink_parse_info(netlink_link_change, netlink_cmd,
-					 &dp_info, 0, true);
+	ret = ctx.ret;
 
-		if (ret < 0) {
-			route_unlock_node(rn);
-			return ret;
-		}
+	return ret;
+}
+
+static int tunneldump_walk_cb(struct interface *ifp, void *arg)
+{
+	int ret;
+	struct tunneldump_ctx *ctx = arg;
+	struct zebra_if *zif;
+
+	zif = ifp->info;
+	if (!zif || zif->zif_type != ZEBRA_IF_VXLAN)
+		goto done;
+
+	ret = netlink_request_tunneldump(ctx->zns, PF_BRIDGE, ifp->ifindex);
+	if (ret < 0) {
+		ctx->ret = ret;
+		return NS_WALK_STOP;
 	}
 
-	return 0;
+	ret = netlink_parse_info(netlink_link_change, &(ctx->zns->netlink_cmd),
+				 ctx->dp_info, 0, true);
+
+	if (ret < 0) {
+		ctx->ret = ret;
+		return NS_WALK_STOP;
+	}
+
+done:
+	return NS_WALK_CONTINUE;
 }
 
 static uint8_t netlink_get_dplane_vlan_state(uint8_t state)
