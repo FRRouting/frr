@@ -4416,6 +4416,33 @@ static inline void bgp_evpn_handle_deferred_bestpath_for_vrfs(void)
 					   get_afi_safi_str(tmp_afi, tmp_safi, false));
 
 			/*
+			 * Below piece of code is to handle non default EVPN VRF
+			 * instances where the variables are to be set
+			 * appropriately.
+			 *
+			 * NOTE:
+			 * - Prior to this change, peer_unshut_after_cfg() sends
+			 *   UPD_PENDING + UPD_COMPLETE for non default VRFs
+			 *   prematurely.
+			 * - So, when default vrf deferral calculation is
+			 *   complete, it invokes this function to queue the
+			 *   deferral for non default vrfs.
+			 * - However it then ends up sending the UPDATE_COMPLETE
+			 *   and marks GR done for all instances since the below
+			 *   variables (especially gr_route_sync_pending) are
+			 *   not set for non default vrfs.
+			 *
+			 * Sending UPDATE_PENDING here makes sense to tell zebra
+			 * that the non default VRF is a work in progress and is
+			 * yet to go through the deferred path selection.
+			 */
+			bgp_vrf->gr_route_sync_pending = true;
+			bgp_vrf->gr_info[tmp_afi][tmp_safi].af_enabled = true;
+			bgp_zebra_update(bgp_vrf, tmp_afi, tmp_safi,
+					 ZEBRA_CLIENT_ROUTE_UPDATE_PENDING);
+			bgp_vrf->gr_info[tmp_afi][tmp_safi].select_defer_over = true;
+
+			/*
 			 * The reason why we are starting the timer and
 			 * not doing deferred BP calculation in place is
 			 * because, if this route table has more than
