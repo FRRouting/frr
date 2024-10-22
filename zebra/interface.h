@@ -212,6 +212,9 @@ struct zebra_if {
 	char neigh_mac[6];
 	struct in6_addr v6_2_v4_ll_addr6;
 
+	/* Linkage for per-vrf/per-NS ifp container */
+	struct ifp_tree_link *ns_tree_link;
+
 	/* The description of the interface */
 	char *desc;
 };
@@ -259,12 +262,10 @@ extern void zebra_if_init(void);
 extern struct interface *if_lookup_by_index_per_ns(struct zebra_ns *, uint32_t);
 extern struct interface *if_lookup_by_name_per_ns(struct zebra_ns *,
 						  const char *);
-extern struct interface *if_link_per_ns(struct zebra_ns *, struct interface *);
 extern struct interface *if_lookup_by_index_per_nsid(ns_id_t nsid,
 						     uint32_t ifindex);
 extern const char *ifindex2ifname_per_ns(struct zebra_ns *, unsigned int);
 
-extern void if_unlink_per_ns(struct interface *);
 extern void if_nbr_mac_to_ipv4ll_neigh_update(struct interface *fip,
 					      char mac[6],
 					      struct in6_addr *address,
