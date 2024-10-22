@@ -1,0 +1,69 @@
+Usage of FRR names/logos
+========================
+
+
+As FRRouting has become a popular open source suite of routing protocol
+implementations, it has also become popular to use FRRouting as an environment
+to prototype or test new features/protocols/etc. in.  Such use is absolutely
+welcome (and a freedom guaranteed by the GPL license).
+
+However, references to FRRouting in such context can be misunderstood both as
+endorsements as well as promises of current or future availability.  To contain
+such misunderstandings, we would like to place the following limitations on the
+use of the "FRRouting" name (or "FRR" where clear by context) as well as the
+"chicken-head" logo (as they are ultimately "valuable trademarks"):
+
+- Advertisements, presentations, announcements, etc. of projects based on 
+  FRRouting may only reference the 3 above-mentioned marks if the full source
+  code of said project is publicly available (under terms compatible with
+  FRRouting's licenses and without any access barriers) and locatable (either
+  by direct link or a reasonable search) on the internet.
+
+- References to code or features using the wording "in" FRRouting may only be
+  made for bits that are part of FRRouting's "master" or "stable" branches (or
+  history).  This is specifically about the word "in".
+
+- use in previously created documents/publications/... is permitted
+  ("grandfathered"), so long as the use retains its context.  Noone is
+  expected to scan their history and eliminate references.
+
+
+The intent is as follows:
+
+- you are under no obligation to publish code just because it exists.  The
+  above are only restrictions on the use of FRRouting trademarks.
+
+- The code itself being derivative of FRRouting (and therefore containing the
+  name/logo) is not considered use of the trademarks.  You do not need to
+  eliminate the name from your private codebase.
+
+- pushing your code to github and/or opening a (maybe draft) PR trivially
+  fulfills the availability condition above, and we'd like to encourage this
+  as the "default".  However, publishing on your own hosting services is also
+  acceptable.
+
+- please use phrasing like "available *for* FRRouting" or "we have implemented
+  XYZ *using* FRRouting", and refrain from "available *in* FRRouting" or "we
+  have implemented XYZ *in* FRRouting".  In particular due to the world-wide
+  and multilingual nature of the FRRouting community, *in* carries too high a
+  risk for confusion - and conversely, reserving this term also allows clear
+  and meaningful signaling of some (your?) code in fact becoming part of
+  FRRouting.
+
+- while "advertisement" may create an impression of "sales call" or "vendor
+  presentation", this also applies to engineering processes such as IETF
+  standards development work.
+
+
+These rules, while lawyer-y to some degree, are intended to convey FRRouting
+community consensus and help clarify communication.  We certainly hope we will
+never need to pick them apart or even legally enforce them.  However, in the
+spirit of all legalese:
+
+This document is not to be construed as any grant of rights, guarantees,
+agreement or other similar, even implicit.
+
+
+P.S.: note that "Free Range Routing" is not a name we use, and neither should
+you - there seem to be conflicting trademarks from completely unrelated
+parties.
