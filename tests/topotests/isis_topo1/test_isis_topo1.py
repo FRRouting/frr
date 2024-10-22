@@ -237,9 +237,9 @@ def test_isis_summary_json():
         assertmsg = "Test isis summary json failed in '{}' data '{}'".format(
             rname, json_output
         )
-        assert json_output["vrf"] == "default", assertmsg
-        assert json_output["areas"][0]["area"] == "1", assertmsg
-        assert json_output["areas"][0]["levels"][0]["id"] != "3", assertmsg
+        assert json_output["vrfs"][0]["vrf"] == "default", assertmsg
+        assert json_output["vrfs"][0]["areas"][0]["area"] == "1", assertmsg
+        assert json_output["vrfs"][0]["areas"][0]["levels"][0]["id"] != "3", assertmsg
 
 
 def test_isis_interface_json():

@@ -2366,34 +2366,33 @@ static void common_isis_summary_json(struct json_object *json,
 				     struct isis *isis)
 {
 	int level;
-	json_object *areas_json, *area_json, *tx_pdu_json, *rx_pdu_json,
-		*levels_json, *level_json;
+	json_object *vrf_json, *areas_json, *area_json, *tx_pdu_json, *rx_pdu_json, *levels_json,
+		*level_json;
 	struct listnode *node, *node2;
 	struct isis_area *area;
 	time_t cur;
 	char uptime[MONOTIME_STRLEN];
 	char stier[5];
 
-	json_object_string_add(json, "vrf", isis->name);
-	json_object_int_add(json, "process-id", isis->process_id);
+	vrf_json = json_object_new_object();
+	json_object_string_add(vrf_json, "vrf", isis->name);
+	json_object_int_add(vrf_json, "process-id", isis->process_id);
 	if (isis->sysid_set)
-		json_object_string_addf(json, "system-id", "%pSY", isis->sysid);
+		json_object_string_addf(vrf_json, "system-id", "%pSY", isis->sysid);
 
 	cur = time(NULL);
 	cur -= isis->uptime;
 	frrtime_to_interval(cur, uptime, sizeof(uptime));
-	json_object_string_add(json, "up-time", uptime);
+	json_object_string_add(vrf_json, "up-time", uptime);
 	if (isis->area_list)
-		json_object_int_add(json, "number-areas",
-				    isis->area_list->count);
+		json_object_int_add(vrf_json, "number-areas", isis->area_list->count);
 	areas_json = json_object_new_array();
-	json_object_object_add(json, "areas", areas_json);
+	json_object_object_add(vrf_json, "areas", areas_json);
 	for (ALL_LIST_ELEMENTS_RO(isis->area_list, node, area)) {
 		area_json = json_object_new_object();
 		json_object_string_add(area_json, "area",
 				       area->area_tag ? area->area_tag
 						      : "null");
-
 
 		if (fabricd) {
 			uint8_t tier = fabricd_tier(area);
@@ -2471,6 +2470,7 @@ static void common_isis_summary_json(struct json_object *json,
 		}
 		json_object_array_add(areas_json, area_json);
 	}
+	json_object_array_add(json, vrf_json);
 }
 
 static void common_isis_summary_vty(struct vty *vty, struct isis *isis)
@@ -2573,13 +2573,27 @@ static void common_isis_summary_vty(struct vty *vty, struct isis *isis)
 	}
 }
 
-static void common_isis_summary(struct vty *vty, struct json_object *json,
-				struct isis *isis)
+static void common_isis_summary(struct vty *vty, struct json_object *json, const char *vrf_name,
+				bool all_vrf)
 {
-	if (json) {
-		common_isis_summary_json(json, isis);
+	struct listnode *node;
+	struct isis *isis;
+
+	if (all_vrf) {
+		for (ALL_LIST_ELEMENTS_RO(im->isis, node, isis)) {
+			if (json)
+				common_isis_summary_json(json, isis);
+			else
+				common_isis_summary_vty(vty, isis);
+		}
 	} else {
-		common_isis_summary_vty(vty, isis);
+		isis = isis_lookup_by_vrfname(vrf_name);
+		if (isis != NULL) {
+			if (json)
+				common_isis_summary_json(json, isis);
+			else
+				common_isis_summary_vty(vty, isis);
+		}
 	}
 }
 
@@ -2590,31 +2604,24 @@ DEFUN(show_isis_summary, show_isis_summary_cmd,
        "json output\n"
       "summary\n")
 {
-	struct listnode *node;
 	int idx_vrf = 0;
-	struct isis *isis;
 	const char *vrf_name = VRF_DEFAULT_NAME;
 	bool all_vrf = false;
 	bool uj = use_json(argc, argv);
-	json_object *json = NULL;
+	json_object *json = NULL, *vrfs_json = NULL;
 
 	ISIS_FIND_VRF_ARGS(argv, argc, idx_vrf, vrf_name, all_vrf)
 	if (!im) {
 		vty_out(vty, PROTO_NAME " is not running\n");
 		return CMD_SUCCESS;
 	}
-	if (uj)
+	if (uj) {
 		json = json_object_new_object();
-
-	if (all_vrf) {
-		for (ALL_LIST_ELEMENTS_RO(im->isis, node, isis))
-			common_isis_summary(vty, json, isis);
-
-		return CMD_SUCCESS;
+		vrfs_json = json_object_new_array();
+		json_object_object_add(json, "vrfs", vrfs_json);
 	}
-	isis = isis_lookup_by_vrfname(vrf_name);
-	if (isis != NULL)
-		common_isis_summary(vty, json, isis);
+
+	common_isis_summary(vty, vrfs_json, vrf_name, all_vrf);
 
 	if (uj)
 		vty_json(vty, json);
