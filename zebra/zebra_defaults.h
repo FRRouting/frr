@@ -18,6 +18,10 @@ FRR_CFG_DEFAULT_BOOL(ZEBRA_IP_NHT_RESOLVE_VIA_DEFAULT,
 			     .val_bool = true,
 			     .match_profile = "traditional",
 		     },
+		     {
+			     .val_bool = false,
+			     .match_profile = "vsr-6wind",
+		     },
 		     { .val_bool = false },
 		     );
 

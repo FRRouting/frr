@@ -18,6 +18,7 @@ static struct frr_default *dflt_first = NULL, **dflt_next = &dflt_first;
 const char *frr_defaults_profiles[] = {
 	"traditional",
 	"datacenter",
+	"vsr-6wind",
 	NULL,
 };
 
