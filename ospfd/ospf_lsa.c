@@ -101,24 +101,30 @@ struct timeval msec2tv(int a)
 	return ret;
 }
 
-int ospf_lsa_refresh_delay(struct ospf_lsa *lsa)
+int tv2msec(struct timeval tv)
+{
+	int msecs;
+
+	msecs = tv.tv_sec * 1000;
+	msecs += tv.tv_usec / 1000;
+
+	return msecs;
+}
+
+int ospf_lsa_refresh_delay(struct ospf *ospf, struct ospf_lsa *lsa)
 {
 	struct timeval delta;
 	int delay = 0;
 
-	if (monotime_since(&lsa->tv_orig, &delta)
-	    < OSPF_MIN_LS_INTERVAL * 1000LL) {
-		struct timeval minv = msec2tv(OSPF_MIN_LS_INTERVAL);
-		timersub(&minv, &delta, &minv);
+	if (monotime_since(&lsa->tv_orig, &delta) < ospf->min_ls_interval * 1000LL) {
+		struct timeval minv = msec2tv(ospf->min_ls_interval);
 
-		/* TBD: remove padding to full sec, return timeval instead */
-		delay = minv.tv_sec + !!minv.tv_usec;
+		timersub(&minv, &delta, &minv);
+		delay = tv2msec(minv);
 
 		if (IS_DEBUG_OSPF(lsa, LSA_GENERATE))
-			zlog_debug(
-				"LSA[Type%d:%pI4]: Refresh timer delay %d seconds",
-				lsa->data->type, &lsa->data->id,
-				delay);
+			zlog_debug("LSA[Type%d:%pI4]: Refresh timer delay %d milliseconds",
+				   lsa->data->type, &lsa->data->id, delay);
 
 		assert(delay > 0);
 	}
