@@ -1982,6 +1982,8 @@ static void bmp_bgp_peer_vrf(struct bmp_bgp_peer *bbpeer, struct bgp *bgp)
 
 	bbpeer->open_tx_len = open_len;
 	bbpeer->open_tx = bbpeer->open_rx;
+
+	stream_free(s);
 }
 
 /* update the vrf status of the bmpbgp struct for vrf peer up/down
