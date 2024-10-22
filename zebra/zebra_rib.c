@@ -424,6 +424,9 @@ int route_entry_update_nhe(struct route_entry *re,
 	int ret = 0;
 	struct nhg_hash_entry *old_nhg = NULL;
 
+	if (re->nhe == new_nhghe)
+		return ret;
+
 	if (new_nhghe == NULL) {
 		old_nhg = re->nhe;
 
@@ -468,6 +471,8 @@ int rib_handle_nhg_replace(struct nhg_hash_entry *old_entry,
 	struct route_entry *re, *next;
 	int ret = 0;
 
+	if (old_entry == new_entry)
+		return ret;
 	if (IS_ZEBRA_DEBUG_RIB_DETAILED || IS_ZEBRA_DEBUG_NHG_DETAIL)
 		zlog_debug("%s: replacing routes nhe (%u) OLD %p NEW %p",
 			   __func__, new_entry->id, new_entry, old_entry);
@@ -483,6 +488,8 @@ int rib_handle_nhg_replace(struct nhg_hash_entry *old_entry,
 			}
 		}
 	}
+
+	zebra_nhg_prefix_copy(new_entry, old_entry);
 
 	/*
 	 * if ret > 0, some previous re->nhe has freed the address to which
@@ -1338,7 +1345,7 @@ static void rib_process(struct route_node *rn)
 		 */
 		if (CHECK_FLAG(re->status, ROUTE_ENTRY_CHANGED)) {
 			proto_re_changed = re;
-			if (!nexthop_active_update(rn, re, old_fib)) {
+			if (!nexthop_active_update(rn, re)) {
 				const struct prefix *p;
 				struct rib_table_info *info;
 
@@ -1769,6 +1776,7 @@ static bool rib_update_re_from_ctx(struct route_entry *re,
 	bool changed_p = false; /* Change to nexthops? */
 	rib_dest_t *dest;
 	struct vrf *vrf;
+	uint32_t ctxnhgid;
 
 	vrf = vrf_lookup_by_id(re->vrf_id);
 
@@ -1788,6 +1796,7 @@ static bool rib_update_re_from_ctx(struct route_entry *re,
 	 */
 	matched = false;
 	ctxnhg = dplane_ctx_get_ng(ctx);
+	ctxnhgid = dplane_ctx_get_nhg_id(ctx);
 
 	/* Check route's fib group and incoming notif group for equivalence.
 	 *
@@ -1847,6 +1856,9 @@ static bool rib_update_re_from_ctx(struct route_entry *re,
 		changed_p = true;
 		goto no_nexthops;
 	}
+
+	if (ctxnhgid >= ZEBRA_NHG_PROTO_LOWER)
+		nexthop_group_mark_duplicates(&(re->nhe->nhg));
 
 	matched = rib_update_nhg_from_ctx(&(re->nhe->nhg), ctxnhg, &changed_p);
 
@@ -1999,7 +2011,86 @@ done:
 }
 
 
+static void zebra_rib_evaluate_prefix_nhg(struct hash_bucket *b, void *data)
+{
+	struct zebra_router_table *zrt;
+	struct nhg_prefix_proto_nhgs *nhg_p = b->data;
+	struct zebra_vrf *zvrf = zebra_vrf_lookup_by_id(nhg_p->vrf_id);
+	struct route_node *rn;
+	struct route_entry *re, *next;
+	rib_dest_t *dest;
 
+	if (!zvrf)
+		return;
+
+	zrt = zebra_router_find_zrt(zvrf, nhg_p->table_id, nhg_p->afi,
+				    nhg_p->safi);
+
+	if (!zrt)
+		return;
+
+	if (nhg_p->src_prefix.family)
+		rn = srcdest_rnode_get(zrt->table, &nhg_p->prefix,
+				       (const struct prefix_ipv6 *)&nhg_p
+					       ->src_prefix);
+	else
+		rn = srcdest_rnode_get(zrt->table, &nhg_p->prefix, NULL);
+	if (!rn)
+		return;
+
+	if (IS_ZEBRA_DEBUG_NHG_DETAIL)
+		zlog_debug("%s: => NHG updated, evaluating prefix %pRN",
+			   __func__, rn);
+
+	RNODE_FOREACH_RE_SAFE (rn, re, next) {
+		/* re did not change, an, still selected */
+		dest = rib_dest_from_rnode(rn);
+		/* Redistribute if this is the selected re */
+		if (dest && re == dest->selected_fib)
+			redistribute_update(rn, re, re);
+		zebra_rib_evaluate_rn_nexthops(rn,
+					       zebra_router_get_next_sequence(),
+					       false);
+		zebra_rib_evaluate_mpls(rn);
+	}
+}
+/*
+ * update results processing after async dataplane update.
+ */
+static void rib_nhg_process_result(struct zebra_dplane_ctx *ctx)
+{
+	enum dplane_op_e op;
+	enum zebra_dplane_result status;
+	uint32_t id;
+	struct nhg_hash_entry *nhe;
+
+	op = dplane_ctx_get_op(ctx);
+	status = dplane_ctx_get_status(ctx);
+
+	id = dplane_ctx_get_nhe_id(ctx);
+
+	if (op == DPLANE_OP_NH_DELETE)
+		/* We already free'd the data, nothing to do */
+		return;
+
+	nhe = zebra_nhg_lookup_id(id);
+	if (!nhe)
+		/* nothing to process, as there is no NHG add or update */
+		return;
+
+	if (status != ZEBRA_DPLANE_REQUEST_SUCCESS)
+		/* no sucess, means that the attempt to change did not work */
+		return;
+
+	if (IS_ZEBRA_DEBUG_RIB_DETAILED || IS_ZEBRA_DEBUG_NHG_DETAIL)
+		zlog_debug("%s: Evaluating routes using updated nhe (%u)",
+			   __func__, id);
+
+	/* We have to do them ALL */
+	if (nhe->prefix_proto_nhgs)
+		hash_iterate(nhe->prefix_proto_nhgs,
+			     zebra_rib_evaluate_prefix_nhg, NULL);
+}
 /*
  * Route-update results processing after async dataplane update.
  */
@@ -2017,6 +2108,10 @@ static void rib_process_result(struct zebra_dplane_ctx *ctx)
 	bool fib_changed = false;
 	struct rib_table_info *info;
 	bool rt_delete = false;
+	struct nhg_hash_entry *nhe;
+	struct nhg_prefix_proto_nhgs nhg_p = {}, *p_nhg_p;
+	const struct prefix *p;
+	const struct prefix *src_p = NULL;
 
 	zvrf = zebra_vrf_lookup_by_id(dplane_ctx_get_vrf(ctx));
 	vrf = vrf_lookup_by_id(dplane_ctx_get_vrf(ctx));
@@ -2110,6 +2205,25 @@ static void rib_process_result(struct zebra_dplane_ctx *ctx)
 	}
 
 	if (op == DPLANE_OP_ROUTE_INSTALL || op == DPLANE_OP_ROUTE_UPDATE) {
+		if (re && re->nhe_id >= ZEBRA_NHG_PROTO_LOWER) {
+			nhe = zebra_nhg_lookup_id(re->nhe_id);
+			if (nhe) {
+				srcdest_rnode_prefixes(rn, &p, &src_p);
+				prefix_copy(&nhg_p.prefix, p);
+				if (src_p)
+					prefix_copy(&nhg_p.src_prefix, src_p);
+				nhg_p.table_id = dplane_ctx_get_table(ctx);
+				nhg_p.afi = dplane_ctx_get_afi(ctx);
+				nhg_p.safi = dplane_ctx_get_safi(ctx);
+				nhg_p.vrf_id = dplane_ctx_get_vrf(ctx);
+				nhg_p.nhe = nhe;
+				hash_get(nhe->prefix_proto_nhgs, &nhg_p,
+					 zebra_nhg_prefix_proto_nhgs_alloc);
+				if (IS_ZEBRA_DEBUG_NHG_DETAIL)
+					zlog_debug("%s: => attach prefix %pFX to NHG (%pNG)",
+						   __func__, p, nhe);
+			}
+		}
 		if (status == ZEBRA_DPLANE_REQUEST_SUCCESS) {
 			if (re) {
 				UNSET_FLAG(re->status, ROUTE_ENTRY_FAILED);
@@ -2213,6 +2327,32 @@ static void rib_process_result(struct zebra_dplane_ctx *ctx)
 			if (re) {
 				UNSET_FLAG(re->status, ROUTE_ENTRY_INSTALLED);
 				UNSET_FLAG(re->status, ROUTE_ENTRY_FAILED);
+
+				if (re->nhe && re->nhe->prefix_proto_nhgs) {
+					/* remove prefix from nhe_id list */
+					srcdest_rnode_prefixes(rn, &p, &src_p);
+					prefix_copy(&nhg_p.prefix, p);
+					if (src_p)
+						prefix_copy(&nhg_p.src_prefix,
+							    src_p);
+					nhg_p.table_id =
+						dplane_ctx_get_table(ctx);
+					nhg_p.afi = dplane_ctx_get_afi(ctx);
+					nhg_p.safi = dplane_ctx_get_safi(ctx);
+					nhg_p.vrf_id = dplane_ctx_get_vrf(ctx);
+					p_nhg_p =
+						hash_lookup(re->nhe->prefix_proto_nhgs,
+							    &nhg_p);
+					if (IS_ZEBRA_DEBUG_NHG_DETAIL)
+						zlog_debug("%s: => detach prefix %pFX from NHG (%pNG)",
+							   __func__, p, re->nhe);
+					if (p_nhg_p) {
+						hash_release(re->nhe->prefix_proto_nhgs,
+							     p_nhg_p);
+						zebra_nhg_prefix_proto_nhgs_hash_free(
+							p_nhg_p);
+					}
+				}
 			}
 			zsend_route_notify_owner_ctx(ctx, ZAPI_ROUTE_REMOVED);
 
@@ -2620,10 +2760,7 @@ static void process_subq_nhg(struct listnode *lnode)
 						 ZAPI_NHG_REMOVE_FAIL);
 
 		} else {
-			newnhe = zebra_nhg_proto_add(nhe->id, nhe->type,
-						     nhe->zapi_instance,
-						     nhe->zapi_session,
-						     &nhe->nhg, 0);
+			newnhe = zebra_nhg_proto_add(nhe, &nhe->nhg, 0);
 
 			/* Report error to daemon via ZAPI */
 			if (newnhe == NULL)
@@ -5001,6 +5138,8 @@ static void rib_process_dplane_results(struct event *thread)
 			case DPLANE_OP_NH_UPDATE:
 			case DPLANE_OP_NH_DELETE:
 				zebra_nhg_dplane_result(ctx);
+				if (dplane_ctx_get_notif_provider(ctx) == 0)
+					rib_nhg_process_result(ctx);
 				break;
 
 			case DPLANE_OP_LSP_INSTALL:

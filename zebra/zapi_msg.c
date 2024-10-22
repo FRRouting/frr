@@ -1740,6 +1740,118 @@ done:
 	return nexthop;
 }
 
+static struct nhg_backup_info *
+zapi_read_nexthop_group_backup(struct zserv *client,
+			       struct zapi_nhg_group *api_nhg_group, bool *err)
+{
+	uint16_t nexthopgroup_num;
+	struct nhg_backup_info *bnhg = NULL;
+	uint16_t i;
+	uint32_t nhgid;
+	struct nhg_hash_entry *nhe;
+
+	assert(api_nhg_group);
+	assert(err);
+
+	*err = false;
+
+	nexthopgroup_num = api_nhg_group->backup_child_group_num;
+	if (nexthopgroup_num == 0)
+		return NULL;
+
+	if (IS_ZEBRA_DEBUG_RECV)
+		zlog_debug("%s: adding %d backup nexthop groups", __func__,
+			   nexthopgroup_num);
+
+	bnhg = zebra_nhg_backup_alloc();
+
+	for (i = 0; i < nexthopgroup_num; i++) {
+		nhgid = api_nhg_group->backup_child_group_id[i];
+		if (!nhgid) {
+			flog_warn(EC_ZEBRA_NEXTHOP_CREATION_FAILED,
+				  "%s: Nexthops Groups Specified: %u(%u) but we failed to properly create one",
+				  __func__, nexthopgroup_num, i);
+			zebra_nhg_backup_free(&bnhg);
+			*err = true;
+			return NULL;
+		}
+		if (IS_ZEBRA_DEBUG_RECV)
+			zlog_debug("%s: nhgroup=%u)", __func__, nhgid);
+
+		/* find nexthop associated to id */
+		nhe = zebra_nhg_lookup_id(nhgid);
+		if (!nhe) {
+			flog_warn(EC_ZEBRA_NEXTHOP_CREATION_FAILED,
+				  "%s: Nexthops Groups Specified: %u(%u) not found",
+				  __func__, nexthopgroup_num, nhgid);
+			zebra_nhg_backup_free(&bnhg);
+			*err = true;
+			return NULL;
+		}
+
+		/* Note that the order of the backup groups is
+		 * significant, so we don't sort this list as we do the
+		 * primary group, we just append.
+		 */
+		nexthop_group_append_nexthops(&bnhg->nhe->nhg, &nhe->nhg);
+	}
+
+	return bnhg;
+}
+
+static struct nexthop_group *
+zapi_read_nexthop_group(struct zserv *client,
+			struct zapi_nhg_group *api_nhg_group)
+{
+	uint16_t nexthopgroup_num;
+	struct nexthop_group *nhg = NULL, nhg_tmp = { 0 };
+	uint16_t i;
+	uint32_t nhgid;
+	struct nhg_hash_entry *nhe;
+	struct nexthop *nh, *nh_next;
+
+	assert(api_nhg_group);
+
+	nexthopgroup_num = api_nhg_group->child_group_num;
+	for (i = 0; i < nexthopgroup_num; i++) {
+		nhgid = api_nhg_group->child_group_id[i];
+		if (!nhgid) {
+			flog_warn(EC_ZEBRA_NEXTHOP_CREATION_FAILED,
+				  "%s: Nexthops Groups Specified: %u(%u) but we failed to properly create one",
+				  __func__, nexthopgroup_num, i);
+			nexthops_free(nhg_tmp.nexthop);
+			return NULL;
+		}
+		if (IS_ZEBRA_DEBUG_RECV)
+			zlog_debug("%s: nhgroup=%u)", __func__, nhgid);
+
+		/* find nexthop associated to id */
+		nhe = zebra_nhg_lookup_id(nhgid);
+		if (!nhe) {
+			flog_warn(EC_ZEBRA_NEXTHOP_CREATION_FAILED,
+				  "%s: Nexthops Groups Specified: %u(%u) not found",
+				  __func__, nexthopgroup_num, nhgid);
+			nexthops_free(nhg_tmp.nexthop);
+			return NULL;
+		}
+
+		nexthop_group_append_nexthops(&nhg_tmp, &nhe->nhg);
+	}
+
+	nhg = nexthop_group_new();
+
+	/* The list of nexthops must be sorted. */
+	nh = nhg_tmp.nexthop;
+	while (nh) {
+		nh_next = nh->next;
+		nh->next = NULL;
+		nexthop_group_add_sorted(nhg, nh);
+		nh = nh_next;
+	}
+
+	return nhg;
+}
+
 static bool zapi_read_nexthops(struct zserv *client, struct prefix *p,
 			       struct zapi_nexthop *nhops, uint32_t flags,
 			       uint32_t message, uint16_t nexthop_num,
@@ -1954,6 +2066,9 @@ static int zapi_nhg_decode(struct stream *s, int cmd, struct zapi_nhg *api_nhg)
 	STREAM_GETL(s, api_nhg->resilience.idle_timer);
 	STREAM_GETL(s, api_nhg->resilience.unbalanced_timer);
 
+	STREAM_GETL(s, api_nhg->message);
+	STREAM_GETC(s, api_nhg->flags);
+
 	/* Nexthops */
 	STREAM_GETW(s, api_nhg->nexthop_num);
 
@@ -1969,7 +2084,7 @@ static int zapi_nhg_decode(struct stream *s, int cmd, struct zapi_nhg *api_nhg)
 	for (i = 0; i < api_nhg->nexthop_num; i++) {
 		znh = &((api_nhg->nexthops)[i]);
 
-		if (zapi_nexthop_decode(s, znh, 0, 0) != 0) {
+		if (zapi_nexthop_decode(s, znh, 0, api_nhg->message) != 0) {
 			flog_warn(EC_ZEBRA_NEXTHOP_CREATION_FAILED,
 				  "%s: Nexthop creation failed", __func__);
 			return -1;
@@ -1985,7 +2100,7 @@ static int zapi_nhg_decode(struct stream *s, int cmd, struct zapi_nhg *api_nhg)
 	for (i = 0; i < api_nhg->backup_nexthop_num; i++) {
 		znh = &((api_nhg->backup_nexthops)[i]);
 
-		if (zapi_nexthop_decode(s, znh, 0, 0) != 0) {
+		if (zapi_nexthop_decode(s, znh, 0, api_nhg->message) != 0) {
 			flog_warn(EC_ZEBRA_NEXTHOP_CREATION_FAILED,
 				  "%s: Backup Nexthop creation failed",
 				  __func__);
@@ -2001,6 +2116,47 @@ stream_failure:
 		EC_ZEBRA_NEXTHOP_CREATION_FAILED,
 		"%s: Nexthop Group decode failed with some sort of stream read failure",
 		__func__);
+	return -1;
+}
+
+static int zapi_nhg_child_decode(struct stream *s,
+				 struct zapi_nhg_group *api_nhg_group)
+{
+	uint16_t i;
+
+	STREAM_GETW(s, api_nhg_group->proto);
+	STREAM_GETL(s, api_nhg_group->id);
+
+	STREAM_GETW(s, api_nhg_group->child_group_num);
+
+	if (api_nhg_group->child_group_num == 0) {
+		flog_warn(EC_ZEBRA_NEXTHOP_CREATION_FAILED,
+			  "%s: grp count should not be 0 when NHG_CHILD_ADD is used",
+			  __func__);
+		return -1;
+	}
+
+	for (i = 0; i < api_nhg_group->child_group_num; i++)
+		STREAM_GETL(s, api_nhg_group->child_group_id[i]);
+
+	STREAM_GETW(s, api_nhg_group->backup_child_group_num);
+
+	for (i = 0; i < api_nhg_group->backup_child_group_num; i++)
+		STREAM_GETL(s, api_nhg_group->backup_child_group_id[i]);
+
+	STREAM_GETW(s, api_nhg_group->resilience.buckets);
+	STREAM_GETL(s, api_nhg_group->resilience.idle_timer);
+	STREAM_GETL(s, api_nhg_group->resilience.unbalanced_timer);
+
+	STREAM_GETC(s, api_nhg_group->flags);
+	STREAM_GETC(s, api_nhg_group->message);
+
+	return 0;
+
+stream_failure:
+	flog_warn(EC_ZEBRA_NEXTHOP_CREATION_FAILED,
+		  "%s: Nexthop Group decode failed with some sort of stream read failure",
+		  __func__);
 	return -1;
 }
 
@@ -2051,13 +2207,12 @@ static void zread_nhg_add(ZAPI_HANDLER_ARGS)
 		return;
 	}
 
-	if ((!zapi_read_nexthops(client, NULL, api_nhg.nexthops, 0, 0,
-				 api_nhg.nexthop_num,
-				 api_nhg.backup_nexthop_num, &nhg, NULL))
-	    || (!zapi_read_nexthops(client, NULL, api_nhg.backup_nexthops, 0, 0,
-				    api_nhg.backup_nexthop_num,
-				    api_nhg.backup_nexthop_num, NULL, &bnhg))) {
-
+	if ((!zapi_read_nexthops(client, NULL, api_nhg.nexthops, 0,
+				 api_nhg.message, api_nhg.nexthop_num,
+				 api_nhg.backup_nexthop_num, &nhg, NULL)) ||
+	    (!zapi_read_nexthops(client, NULL, api_nhg.backup_nexthops, 0, 0,
+				 api_nhg.backup_nexthop_num,
+				 api_nhg.backup_nexthop_num, NULL, &bnhg))) {
 		flog_warn(EC_ZEBRA_NEXTHOP_CREATION_FAILED,
 			  "%s: Nexthop Group Creation failed", __func__);
 
@@ -2072,6 +2227,9 @@ static void zread_nhg_add(ZAPI_HANDLER_ARGS)
 	nhe = zebra_nhg_alloc();
 	nhe->id = api_nhg.id;
 	nhe->type = api_nhg.proto;
+	nhe->nhg.flags = api_nhg.flags;
+	if (CHECK_FLAG(api_nhg.message, ZAPI_MESSAGE_SRTE))
+		SET_FLAG(nhe->nhg.message, NEXTHOP_GROUP_MESSAGE_SRTE);
 	nhe->zapi_instance = client->instance;
 	nhe->zapi_session = client->session_id;
 
@@ -2081,10 +2239,8 @@ static void zread_nhg_add(ZAPI_HANDLER_ARGS)
 
 	nhe->nhg.nhgr = api_nhg.resilience;
 
-	if (bnhg) {
-		nhe->backup_info = bnhg;
-		bnhg = NULL;
-	}
+	nhe->backup_info = bnhg;
+	bnhg = NULL;
 
 	/*
 	 * TODO:
@@ -2102,6 +2258,69 @@ static void zread_nhg_add(ZAPI_HANDLER_ARGS)
 	/* Stats */
 	nhe_tmp = zebra_nhg_lookup_id(api_nhg.id);
 	if (nhe_tmp)
+		client->nhg_upd8_cnt++;
+	else
+		client->nhg_add_cnt++;
+}
+
+static void zread_nhg_child_add(ZAPI_HANDLER_ARGS)
+{
+	struct stream *s;
+	struct zapi_nhg_group api_nhg_group = {};
+	struct nexthop_group *nhg = NULL;
+	struct nhg_backup_info *bnhg = NULL;
+	struct nhg_hash_entry *nhe;
+	bool err = false;
+
+	s = msg;
+	if (zapi_nhg_child_decode(s, &api_nhg_group) < 0) {
+		if (IS_ZEBRA_DEBUG_RECV)
+			zlog_debug("%s: unable to decode the received zapi_nhg_group",
+				   __func__);
+		return;
+	}
+
+	if (IS_ZEBRA_DEBUG_RECV)
+		zlog_debug("%s: nhid=%u)", __func__, api_nhg_group.id);
+
+	nhg = zapi_read_nexthop_group(client, &api_nhg_group);
+	if (!nhg)
+		return;
+
+	bnhg = zapi_read_nexthop_group_backup(client, &api_nhg_group, &err);
+	if (!bnhg && err)
+		return;
+
+	/* Create a temporary nhe */
+	nhe = zebra_nhg_alloc();
+	nhe->id = api_nhg_group.id;
+	nhe->type = api_nhg_group.proto;
+	nhe->nhg.flags = api_nhg_group.flags;
+	nhe->zapi_instance = client->instance;
+	nhe->zapi_session = client->session_id;
+
+	/* Take over the list(s) of nexthops */
+	nhe->nhg.nexthop = nhg->nexthop;
+	nhg->nexthop = NULL;
+
+	nhe->nhg.nhgr = api_nhg_group.resilience;
+
+	nhe->backup_info = bnhg;
+
+	/*
+	 * TODO:
+	 * Assume fully resolved for now and install.
+	 * Resolution is going to need some more work.
+	 */
+
+	/* Enqueue to workqueue for processing */
+	rib_queue_nhe_add(nhe);
+
+	/* Free any local allocations */
+	nexthop_group_delete(&nhg);
+
+	/* Stats */
+	if (zebra_nhg_lookup_id(api_nhg_group.id))
 		client->nhg_upd8_cnt++;
 	else
 		client->nhg_add_cnt++;
@@ -4097,6 +4316,7 @@ void (*const zserv_handlers[])(ZAPI_HANDLER_ARGS) = {
 	[ZEBRA_NEIGH_DISCOVER] = zread_neigh_discover,
 	[ZEBRA_NHG_ADD] = zread_nhg_add,
 	[ZEBRA_NHG_DEL] = zread_nhg_del,
+	[ZEBRA_NHG_CHILD_ADD] = zread_nhg_child_add,
 	[ZEBRA_ROUTE_NOTIFY_REQUEST] = zread_route_notify_request,
 	[ZEBRA_EVPN_REMOTE_NH_ADD] = zebra_evpn_proc_remote_nh,
 	[ZEBRA_EVPN_REMOTE_NH_DEL] = zebra_evpn_proc_remote_nh,

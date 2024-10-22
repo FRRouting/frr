@@ -19,6 +19,9 @@
 /* Default weight for next hop, if doing weighted ECMP. */
 #define BGP_ZEBRA_DEFAULT_NHOP_WEIGHT 1
 
+/* bgp nexthop buffer size to pass when using bgp_debug_zebra_nh_buffer() */
+#define BGP_NEXTHOP_BUFFER_SIZE 512
+
 extern void bgp_zebra_init(struct event_loop *master, unsigned short instance);
 extern void bgp_if_init(void);
 extern void bgp_zebra_init_tm_connect(struct bgp *bgp);
@@ -135,4 +138,6 @@ extern void bgp_zebra_release_label_range(uint32_t start, uint32_t end);
 extern enum zclient_send_status
 bgp_zebra_withdraw_actual(struct bgp_dest *dest, struct bgp_path_info *info,
 			  struct bgp *bgp);
+void bgp_debug_zebra_nh(struct zapi_nexthop api_nexthops[], int count);
+void bgp_debug_zebra_nh_buffer(struct zapi_nexthop *api_nh, char *nexthop_buf, size_t len);
 #endif /* _QUAGGA_BGP_ZEBRA_H */

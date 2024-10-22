@@ -91,6 +91,10 @@ struct nhg_hash_entry {
 
 	struct event *timer;
 
+	/* list of prefixes using that nexthop group
+	 * only populated for protocol nexthop groups
+	 */
+	struct hash *prefix_proto_nhgs;
 /*
  * Is this nexthop group valid, ie all nexthops are fully resolved.
  * What is fully resolved?  It's a nexthop that is either self contained
@@ -171,6 +175,12 @@ struct nhg_hash_entry {
  * chooses this NHG then we can install it then.
  */
 #define NEXTHOP_GROUP_INITIAL_DELAY_INSTALL (1 << 9)
+
+/* at NHG_ADD, when an update of an already installed NHG happens,
+ * the nhg_depends must be refreshed. This flag is used to check
+ * if the dependency still exists or has been removed.
+ */
+#define NEXTHOP_GROUP_DEPEND_TO_DETACH (1 << 11)
 };
 
 /* Upper 4 bits of the NHG are reserved for indicating the NHG type */
@@ -244,6 +254,18 @@ struct nhg_ctx {
 	enum nhg_ctx_status status;
 };
 
+struct nhg_prefix_proto_nhgs {
+	/* key */
+	struct prefix prefix;
+	struct prefix src_prefix;
+	afi_t afi;
+	safi_t safi;
+	uint32_t table_id;
+	vrf_id_t vrf_id;
+
+	struct nhg_hash_entry *nhe;
+};
+
 /* Global control to disable use of kernel nexthops, if available. We can't
  * force the kernel to support nexthop ids, of course, but we can disable
  * zebra's use of them, for testing e.g. By default, if the kernel supports
@@ -282,6 +304,13 @@ void zebra_nhe_init(struct nhg_hash_entry *nhe, afi_t afi,
  */
 struct nhg_hash_entry *zebra_nhe_copy(const struct nhg_hash_entry *orig,
 				      uint32_t id);
+
+/* Allocate/Free prefix_proto_nhgs object */
+void *zebra_nhg_prefix_proto_nhgs_alloc(void *arg);
+void zebra_nhg_prefix_proto_nhgs_hash_free(void *p);
+/* Utility to copy hash list of prefixes in a new nhg */
+void zebra_nhg_prefix_copy(struct nhg_hash_entry *new,
+			   struct nhg_hash_entry *old);
 
 /* Allocate, free backup nexthop info objects */
 struct nhg_backup_info *zebra_nhg_backup_alloc(void);
@@ -347,10 +376,8 @@ zebra_nhg_rib_find_nhe(struct nhg_hash_entry *rt_nhe, afi_t rt_afi);
  *
  * Returns allocated NHE on success, otherwise NULL.
  */
-struct nhg_hash_entry *zebra_nhg_proto_add(uint32_t id, int type,
-					   uint16_t instance, uint32_t session,
-					   struct nexthop_group *nhg,
-					   afi_t afi);
+struct nhg_hash_entry *zebra_nhg_proto_add(struct nhg_hash_entry *nhe,
+					   struct nexthop_group *nhg, afi_t afi);
 
 /*
  * Del NHE.
@@ -401,8 +428,7 @@ extern void zebra_nhg_mark_keep(void);
 
 /* Nexthop resolution processing */
 struct route_entry; /* Forward ref to avoid circular includes */
-extern int nexthop_active_update(struct route_node *rn, struct route_entry *re,
-				 struct route_entry *old_re);
+extern int nexthop_active_update(struct route_node *rn, struct route_entry *re);
 
 #ifdef _FRR_ATTRIBUTE_PRINTFRR
 #pragma FRR printfrr_ext "%pNG" (const struct nhg_hash_entry *)
