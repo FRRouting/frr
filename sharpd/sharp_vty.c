@@ -82,7 +82,7 @@ DEFPY(watch_redistribute, watch_redistribute_cmd,
 }
 
 DEFPY(watch_nexthop_v6, watch_nexthop_v6_cmd,
-      "sharp watch [vrf NAME$vrf_name] <nexthop$n X:X::X:X$nhop|import$import X:X::X:X/M$inhop>  [connected$connected]",
+      "sharp watch [vrf NAME$vrf_name] <nexthop$n X:X::X:X$nhop|import$import X:X::X:X/M$inhop>  [connected$connected] [color (1-4294967295)]",
       "Sharp routing Protocol\n"
       "Watch for changes\n"
       "The vrf we would like to watch if non-default\n"
@@ -91,11 +91,14 @@ DEFPY(watch_nexthop_v6, watch_nexthop_v6_cmd,
       "The v6 nexthop to signal for watching\n"
       "Watch for import check changes\n"
       "The v6 prefix to signal for watching\n"
-      "Should the route be connected\n")
+      "Should the route be connected\n"
+      SRTE_STR
+      SRTE_COLOR_STR)
 {
 	struct vrf *vrf;
 	struct prefix p;
 	bool type_import;
+	struct sharp_nh_tracker *nht;
 
 	if (!vrf_name)
 		vrf_name = VRF_DEFAULT_NAME;
@@ -118,7 +121,10 @@ DEFPY(watch_nexthop_v6, watch_nexthop_v6_cmd,
 		prefix_copy(&p, inhop);
 	}
 
-	sharp_nh_tracker_get(&p);
+	nht = sharp_nh_tracker_get(&p);
+	if (color)
+		nht->color = color;
+
 	sharp_zebra_nexthop_watch(&p, vrf->vrf_id, type_import,
 				  true, !!connected);
 
@@ -126,7 +132,7 @@ DEFPY(watch_nexthop_v6, watch_nexthop_v6_cmd,
 }
 
 DEFPY(watch_nexthop_v4, watch_nexthop_v4_cmd,
-      "sharp watch [vrf NAME$vrf_name] <nexthop$n A.B.C.D$nhop|import$import A.B.C.D/M$inhop> [connected$connected]",
+      "sharp watch [vrf NAME$vrf_name] <nexthop$n A.B.C.D$nhop|import$import A.B.C.D/M$inhop> [connected$connected] [color (1-4294967295)]",
       "Sharp routing Protocol\n"
       "Watch for changes\n"
       "The vrf we would like to watch if non-default\n"
@@ -135,11 +141,14 @@ DEFPY(watch_nexthop_v4, watch_nexthop_v4_cmd,
       "The v4 address to signal for watching\n"
       "Watch for import check changes\n"
       "The v4 prefix for import check to watch\n"
-      "Should the route be connected\n")
+      "Should the route be connected\n"
+      SRTE_STR
+      SRTE_COLOR_STR)
 {
 	struct vrf *vrf;
 	struct prefix p;
 	bool type_import;
+	struct sharp_nh_tracker *nht;
 
 	if (!vrf_name)
 		vrf_name = VRF_DEFAULT_NAME;
@@ -163,7 +172,9 @@ DEFPY(watch_nexthop_v4, watch_nexthop_v4_cmd,
 		prefix_copy(&p, inhop);
 	}
 
-	sharp_nh_tracker_get(&p);
+	nht = sharp_nh_tracker_get(&p);
+	if (color)
+		nht->color = color;
 	sharp_zebra_nexthop_watch(&p, vrf->vrf_id, type_import,
 				  true, !!connected);
 
@@ -206,7 +217,7 @@ DEFPY (install_routes,
 	  <nexthop <A.B.C.D$nexthop4|X:X::X:X$nexthop6>|\
 	   nexthop-group NHGNAME$nexthop_group>\
 	  [backup$backup <A.B.C.D$backup_nexthop4|X:X::X:X$backup_nexthop6>] \
-	  (1-1000000)$routes [instance (0-255)$instance] [repeat (2-1000)$rpt] [opaque WORD] [no-recurse$norecurse]",
+	  (1-1000000)$routes [instance (0-255)$instance] [repeat (2-1000)$rpt] [opaque WORD] [no-recurse$norecurse] [use-protocol-nexthop-group$useprotonhg]",
        "Sharp routing Protocol\n"
        "install some routes\n"
        "Routes to install\n"
@@ -229,7 +240,8 @@ DEFPY (install_routes,
        "How many times to repeat this command\n"
        "What opaque data to send down\n"
        "The opaque data\n"
-       "No recursive nexthops\n")
+       "No recursive nexthops\n"
+       "Force to use protocol nexthop-groups\n")
 {
 	struct vrf *vrf;
 	struct prefix prefix;
@@ -291,7 +303,14 @@ DEFPY (install_routes,
 		}
 
 		nhgid = sharp_nhgroup_get_id(nexthop_group);
-		sg.r.nhgid = nhgid;
+		/* Only send via ID if nhgroup has been successfully installed or use-protocol-nexthop-group is used */
+		if (nhgid &&
+		    (sharp_nhgroup_id_is_installed(nhgid) || useprotonhg))
+			sg.r.nhgid = nhgid;
+		else {
+			sg.r.nhgid = 0;
+			nhgid = 0;
+		}
 		sg.r.nhop_group.nexthop = nhgc->nhg.nexthop;
 
 		/* Use group's backup nexthop info if present */
