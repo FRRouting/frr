@@ -411,10 +411,9 @@ static void pim_vxlan_orig_mr_up_add(struct pim_vxlan_sg *vxlan_sg)
 		 * we must dereg the old nexthop and force to new "static"
 		 * iif
 		 */
-		if (!PIM_UPSTREAM_FLAG_TEST_STATIC_IIF(up->flags)) {
-			pim_delete_tracked_nexthop(vxlan_sg->pim,
-						   up->upstream_addr, up, NULL);
-		}
+		if (!PIM_UPSTREAM_FLAG_TEST_STATIC_IIF(up->flags))
+			pim_nht_delete_tracked(vxlan_sg->pim, up->upstream_addr, up, NULL);
+
 		/* We are acting FHR; clear out use_rpt setting if any */
 		pim_upstream_update_use_rpt(up, false /*update_mroute*/);
 		pim_upstream_ref(up, flags, __func__);
