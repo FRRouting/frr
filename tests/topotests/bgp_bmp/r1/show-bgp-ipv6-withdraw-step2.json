@@ -1,0 +1,10 @@
+{
+    "routes": {
+        "routeDistinguishers": {
+            "555:2": {
+                "2001::2222/128": null
+            }
+        }
+    }
+}
+

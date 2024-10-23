@@ -1,0 +1,36 @@
+{
+    "post-policy": {
+        "update": {
+            "172.31.0.15/32": {
+                "as_path": "65501 65502",
+                "bgp_nexthop": "192.168.0.2",
+                "bmp_log_type": "update",
+                "ip_prefix": "172.31.0.15/32",
+                "ipv6": false,
+                "origin": "IGP",
+                "peer_asn": 65502,
+                "peer_bgp_id": "192.168.0.2",
+                "peer_distinguisher": "0:0",
+                "peer_ip": "192.168.0.2",
+                "peer_type": "global instance",
+                "policy": "post-policy"
+            },
+            "2111::1111/128": {
+                "afi": 2,
+                "as_path": "65501 65502",
+                "bmp_log_type": "update",
+                "ip_prefix": "2111::1111/128",
+                "ipv6": true,
+                "nxhp_ip": "192:168::2",
+                "origin": "IGP",
+                "peer_asn": 65502,
+                "peer_bgp_id": "192.168.0.2",
+                "peer_distinguisher": "0:0",
+                "peer_ip": "192:168::2",
+                "peer_type": "global instance",
+                "policy": "post-policy",
+                "safi": 1
+            }
+        }
+    }
+}
