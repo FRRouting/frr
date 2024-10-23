@@ -34,6 +34,9 @@ def main():
         try:
             while True:
                 data = connection.recv(BGP_MAX_SIZE)
+                if not data:
+                    # connection closed
+                    break
                 while len(data) > BMPMsg.MIN_LEN:
                     data = BMPMsg.dissect(data, log_file=LOG_FILE)
         except Exception as e:
