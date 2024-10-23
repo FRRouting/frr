@@ -239,7 +239,7 @@ def unicast_prefixes(policy):
     logger.info("checking for updated prefixes")
     # check
     test_func = partial(check_for_prefixes, prefixes, "update", policy)
-    success, _ = topotest.run_and_expect(test_func, True, wait=0.5)
+    success, _ = topotest.run_and_expect(test_func, True, count=30, wait=1)
     assert success, "Checking the updated prefixes has been failed !."
 
     # withdraw prefixes
@@ -247,7 +247,7 @@ def unicast_prefixes(policy):
     logger.info("checking for withdrawed prefxies")
     # check
     test_func = partial(check_for_prefixes, prefixes, "withdraw", policy)
-    success, _ = topotest.run_and_expect(test_func, True, wait=0.5)
+    success, _ = topotest.run_and_expect(test_func, True, count=30, wait=1)
     assert success, "Checking the withdrawed prefixes has been failed !."
 
 
@@ -274,7 +274,7 @@ def vpn_prefixes(policy):
     logger.info("checking for updated prefixes")
     # check
     test_func = partial(check_for_prefixes, prefixes, "update", policy, labels=labels)
-    success, _ = topotest.run_and_expect(test_func, True, wait=0.5)
+    success, _ = topotest.run_and_expect(test_func, True, count=30, wait=1)
     assert success, "Checking the updated prefixes has been failed !."
 
     # withdraw prefixes
@@ -282,7 +282,7 @@ def vpn_prefixes(policy):
     logger.info("checking for withdrawed prefixes")
     # check
     test_func = partial(check_for_prefixes, prefixes, "withdraw", policy)
-    success, _ = topotest.run_and_expect(test_func, True, wait=0.5)
+    success, _ = topotest.run_and_expect(test_func, True, count=30, wait=1)
     assert success, "Checking the withdrawed prefixes has been failed !."
 
 
@@ -300,7 +300,7 @@ def test_bmp_server_logging():
             return False
         return True
 
-    success, _ = topotest.run_and_expect(check_for_log_file, True, wait=0.5)
+    success, _ = topotest.run_and_expect(check_for_log_file, True, count=30, wait=1)
     assert success, "The BMP server is not logging"
 
 
@@ -314,7 +314,7 @@ def test_peer_up():
     logger.info("checking for BMP peers up messages")
 
     test_func = partial(check_for_peer_message, peers, "peer up")
-    success, _ = topotest.run_and_expect(test_func, True, wait=0.5)
+    success, _ = topotest.run_and_expect(test_func, True, count=30, wait=1)
     assert success, "Checking the updated prefixes has been failed !."
 
 
@@ -353,7 +353,7 @@ def test_peer_down():
     logger.info("checking for BMP peers down messages")
 
     test_func = partial(check_for_peer_message, peers, "peer down")
-    success, _ = topotest.run_and_expect(test_func, True, wait=0.5)
+    success, _ = topotest.run_and_expect(test_func, True, count=30, wait=1)
     assert success, "Checking the updated prefixes has been failed !."
 
 
