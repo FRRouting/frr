@@ -2914,7 +2914,7 @@ DEFPY (show_ip_pim_nexthop,
 
 DEFPY (show_ip_pim_nexthop_lookup,
        show_ip_pim_nexthop_lookup_cmd,
-       "show ip pim [vrf NAME] nexthop-lookup A.B.C.D$source A.B.C.D$group",
+       "show ip pim [vrf NAME] nexthop-lookup A.B.C.D$source [A.B.C.D$group]",
        SHOW_STR
        IP_STR
        PIM_STR
@@ -2925,6 +2925,14 @@ DEFPY (show_ip_pim_nexthop_lookup,
 {
 	return pim_show_nexthop_lookup_cmd_helper(vrf, vty, source, group);
 }
+
+ALIAS_DEPRECATED (show_ip_pim_nexthop_lookup,
+                  show_ip_rpf_source_cmd,
+                  "show ip rpf A.B.C.D$source",
+                  SHOW_STR
+                  IP_STR
+                  "Display RPF information for multicast source\n"
+                  "Nexthop lookup for specific source address\n");
 
 DEFPY (show_ip_pim_interface_traffic,
        show_ip_pim_interface_traffic_cmd,
@@ -9160,6 +9168,7 @@ void pim_cmd_init(void)
 	install_element(VIEW_NODE, &show_ip_ssmpingd_cmd);
 	install_element(VIEW_NODE, &show_ip_pim_nexthop_cmd);
 	install_element(VIEW_NODE, &show_ip_pim_nexthop_lookup_cmd);
+	install_element(VIEW_NODE, &show_ip_rpf_source_cmd);
 	install_element(VIEW_NODE, &show_ip_pim_bsrp_cmd);
 	install_element(VIEW_NODE, &show_ip_pim_bsm_db_cmd);
 	install_element(VIEW_NODE, &show_ip_pim_bsr_rpinfo_cmd);
