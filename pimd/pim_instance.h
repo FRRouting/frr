@@ -115,7 +115,7 @@ struct pim_instance {
 	/* The name of the register-accept prefix-list */
 	char *register_plist;
 
-	struct hash *rpf_hash;
+	struct hash *nht_hash;
 	enum pim_rpf_lookup_mode rpf_mode;
 
 	void *ssm_info; /* per-vrf SSM configuration */

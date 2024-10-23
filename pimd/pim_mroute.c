@@ -35,6 +35,7 @@
 #include "pim_sock.h"
 #include "pim_vxlan.h"
 #include "pim_msg.h"
+#include "pim_nht.h"
 
 static void mroute_read_on(struct pim_instance *pim);
 static int pim_upstream_mroute_update(struct channel_oil *c_oil,
@@ -563,8 +564,7 @@ int pim_mroute_msg_wrvifwhole(int fd, struct interface *ifp, const char *buf,
 			 * setting the SPTBIT to true
 			 */
 			if (!(pim_addr_is_any(up->upstream_register)) &&
-			    pim_nexthop_lookup(pim_ifp->pim, &source,
-					       up->upstream_register, 0)) {
+			    pim_nht_lookup(pim_ifp->pim, &source, up->upstream_register, 0)) {
 				pim_register_stop_send(source.interface, &sg,
 						       pim_ifp->primary_address,
 						       up->upstream_register);
@@ -577,9 +577,7 @@ int pim_mroute_msg_wrvifwhole(int fd, struct interface *ifp, const char *buf,
 							__func__);
 		} else {
 			if (I_am_RP(pim_ifp->pim, up->sg.grp)) {
-				if (pim_nexthop_lookup(pim_ifp->pim, &source,
-						       up->upstream_register,
-						       0))
+				if (pim_nht_lookup(pim_ifp->pim, &source, up->upstream_register, 0))
 					pim_register_stop_send(
 						source.interface, &sg,
 						pim_ifp->primary_address,

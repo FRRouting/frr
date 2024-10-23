@@ -601,26 +601,13 @@ void pim_if_addr_add(struct connected *ifc)
 						ifp->name);
 				}
 			}
-			struct pim_nexthop_cache *pnc = NULL;
-			struct pim_rpf rpf;
-			struct zclient *zclient = NULL;
 
-			zclient = pim_zebra_zclient_get();
-			/* RP config might come prior to (local RP's interface)
-			   IF UP event.
-			   In this case, pnc would not have pim enabled
-			   nexthops.
-			   Once Interface is UP and pim info is available,
-			   reregister
-			   with RNH address to receive update and add the
-			   interface as nexthop. */
-			memset(&rpf, 0, sizeof(struct pim_rpf));
-			rpf.rpf_addr = pim_addr_from_prefix(ifc->address);
-			pnc = pim_nexthop_cache_find(pim_ifp->pim, &rpf);
-			if (pnc)
-				pim_sendmsg_zebra_rnh(pim_ifp->pim, zclient,
-						      pnc,
-						      ZEBRA_NEXTHOP_REGISTER);
+			/* RP config might come prior to local RP's interface IF UP event.
+			 * In this case, pnc would not have pim enabled nexthops. Once
+			 * Interface is UP and pim info is available, reregister with RNH
+			 * address to receive update and add the interface as nexthop.
+			 */
+			pim_nht_get(pim_ifp->pim, pim_addr_from_prefix(ifc->address));
 		}
 	} /* pim */
 
@@ -2036,7 +2023,7 @@ void pim_pim_interface_delete(struct interface *ifp)
 	 * pim_ifp->pim_neighbor_list.
 	 */
 	pim_sock_delete(ifp, "pim unconfigured on interface");
-	pim_upstream_nh_if_update(pim_ifp->pim, ifp);
+	pim_nht_upstream_if_update(pim_ifp->pim, ifp);
 
 	if (!pim_ifp->gm_enable) {
 		pim_if_addr_del_all(ifp);
