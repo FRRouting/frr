@@ -727,7 +727,7 @@ void pim_bsm_clear(struct pim_instance *pim)
 				   __func__, &nht_p);
 		}
 
-		pim_delete_tracked_nexthop(pim, nht_p, NULL, rp_info);
+		pim_nht_delete_tracked(pim, nht_p, NULL, rp_info);
 
 		if (!pim_get_all_mcast_group(&g_all))
 			return;

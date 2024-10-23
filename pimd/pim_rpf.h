@@ -11,6 +11,7 @@
 #include "pim_str.h"
 
 struct pim_instance;
+struct pim_upstream;
 
 /*
   RFC 4601:
@@ -52,13 +53,6 @@ enum pim_rpf_lookup_mode {
 			      /* on equal value, MRIB wins for last 2 */
 };
 
-struct pim_upstream;
-
-unsigned int pim_rpf_hash_key(const void *arg);
-bool pim_rpf_equal(const void *arg1, const void *arg2);
-
-bool pim_nexthop_lookup(struct pim_instance *pim, struct pim_nexthop *nexthop,
-			pim_addr addr, int neighbor_needed);
 enum pim_rpf_result pim_rpf_update(struct pim_instance *pim,
 				   struct pim_upstream *up,
 				   struct pim_rpf *old, const char *caller);

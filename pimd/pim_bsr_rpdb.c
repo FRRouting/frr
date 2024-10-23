@@ -413,11 +413,11 @@ void pim_crp_nht_update(struct pim_instance *pim, struct pim_nexthop_cache *pnc)
 	struct bsr_crp_rp *rp, ref;
 	bool ok;
 
-	ref.addr = pnc->rpf.rpf_addr;
+	ref.addr = pnc->addr;
 	rp = bsr_crp_rps_find(scope->ebsr_rps, &ref);
 	assertf(rp, "addr=%pPA", &ref.addr);
 
-	ok = CHECK_FLAG(pnc->flags, PIM_NEXTHOP_VALID);
+	ok = pim_nht_pnc_is_valid(pim, pnc);
 	if (ok == rp->nht_ok)
 		return;
 

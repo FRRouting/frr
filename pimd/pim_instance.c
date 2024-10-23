@@ -15,6 +15,7 @@
 #include "pim_ssm.h"
 #include "pim_rpf.h"
 #include "pim_rp.h"
+#include "pim_nht.h"
 #include "pim_mroute.h"
 #include "pim_oil.h"
 #include "pim_static.h"
@@ -46,8 +47,7 @@ static void pim_instance_terminate(struct pim_instance *pim)
 
 	pim_bsm_proc_free(pim);
 
-	/* Traverse and cleanup rpf_hash */
-	hash_clean_and_free(&pim->rpf_hash, (void *)pim_rp_list_hash_clean);
+	pim_nht_terminate(pim);
 
 	pim_if_terminate(pim);
 
@@ -75,7 +75,6 @@ static void pim_instance_terminate(struct pim_instance *pim)
 static struct pim_instance *pim_instance_init(struct vrf *vrf)
 {
 	struct pim_instance *pim;
-	char hash_name[64];
 
 	pim = XCALLOC(MTYPE_PIM_PIM_INSTANCE, sizeof(struct pim_instance));
 
@@ -98,12 +97,7 @@ static struct pim_instance *pim_instance_init(struct vrf *vrf)
 #endif /* PIM_IPV == 4 */
 	pim_vxlan_init(pim);
 
-	snprintf(hash_name, sizeof(hash_name), "PIM %s RPF Hash", vrf->name);
-	pim->rpf_hash = hash_create_size(256, pim_rpf_hash_key, pim_rpf_equal,
-					 hash_name);
-
-	if (PIM_DEBUG_ZEBRA)
-		zlog_debug("%s: NHT rpf hash init ", __func__);
+	pim_nht_init(pim);
 
 	pim->ssm_info = pim_ssm_init();
 

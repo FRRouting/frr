@@ -157,7 +157,7 @@ static int pim_cmd_interface_add(struct interface *ifp)
 		pim_ifp->pim_enable = true;
 
 	pim_if_addr_add_all(ifp);
-	pim_upstream_nh_if_update(pim_ifp->pim, ifp);
+	pim_nht_upstream_if_update(pim_ifp->pim, ifp);
 	pim_if_membership_refresh(ifp);
 
 	pim_if_create_pimreg(pim_ifp->pim);
