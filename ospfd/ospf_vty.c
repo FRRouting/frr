@@ -748,6 +748,8 @@ DEFUN (no_ospf_area_range,
 
 	ospf_area_range_unset(ospf, area, area->ranges, &p);
 
+	ospf_area_check_free(ospf, area_id);
+
 	return CMD_SUCCESS;
 }
 
