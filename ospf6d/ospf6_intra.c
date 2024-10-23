@@ -522,16 +522,37 @@ static char *ospf6_network_lsa_get_ar_id(struct ospf6_lsa *lsa, char *buf,
 	return buf;
 }
 
-static char *ospf6_e_network_lsa_get_ar_id(struct ospf6_lsa *lsa, char *buf,
-					 int buflen, int pos)
+/*
+ * E-Network LSA has exactly one TLV and its type is Attached-Routers,
+ * but it contains multiple neighbors.
+ */
+static char *ospf6_e_network_lsa_get_ar_id(struct ospf6_lsa *lsa, char *buf, int buflen, int pos)
 {
-	struct tlv_attached_routers *tlv = nth_tlv(lsa->header, pos);
+	struct tlv_attached_routers *tlv = nth_tlv(lsa->header, 0);
+	char *end = ospf6_lsa_end(lsa->header);
+	int length;
+	in_addr_t *neigh;
 
 	if (!tlv || !buf || buflen < (1 + INET_ADDRSTRLEN))
 		return NULL;
 
-	inet_ntop(AF_INET, &tlv->router_id, buf, buflen);
-	return buf;
+	length = ntohs(tlv->header.length);
+	if (length == 0 || length % 4 != 0) {
+		zlog_debug("%s: Attached Routers TLV has invalid length %d", __func__, length);
+		return NULL;
+	}
+
+	neigh = tlv->router_id + pos;
+
+	/* This length check is needed because  ospf6_lsa_show_summary()
+	 * doesn't call foreach_lsdesc() and therefore doesn't have the TLV
+	 * length checks
+	 */
+	if ((char *)(neigh + 1) <= end) {
+		inet_ntop(AF_INET, neigh, buf, buflen);
+		return buf;
+	}
+	return NULL;
 }
 
 static int print_router_id(in_addr_t router_id, struct cbd_lsdesc_printer *cbd)
