@@ -1108,12 +1108,9 @@ static void frr_terminal_close(int isexit)
 		 * don't redirect when stdout is set with --log stdout
 		 */
 		for (fd = 2; fd >= 0; fd--)
-			if (logging_to_stdout && isatty(fd) &&
-			    fd == STDOUT_FILENO) {
-				/* Do nothing. */
-			} else {
+			if (isatty(fd) &&
+			    (fd != STDOUT_FILENO || !logging_to_stdout))
 				dup2(nullfd, fd);
-			}
 		close(nullfd);
 	}
 }
@@ -1199,12 +1196,9 @@ void frr_run(struct event_loop *master)
 			 * stdout
 			 */
 			for (fd = 2; fd >= 0; fd--)
-				if (logging_to_stdout && isatty(fd) &&
-				    fd == STDOUT_FILENO) {
-					/* Do nothing. */
-				} else {
+				if (isatty(fd) &&
+				    (fd != STDOUT_FILENO || !logging_to_stdout))
 					dup2(nullfd, fd);
-				}
 			close(nullfd);
 		}
 
