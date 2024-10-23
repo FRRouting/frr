@@ -72,6 +72,10 @@ struct seg6local_context {
 	struct in_addr nh4;
 	struct in6_addr nh6;
 	uint32_t table;
+	uint8_t block_len;
+	uint8_t node_len;
+	uint8_t function_len;
+	uint8_t argument_len;
 };
 
 struct srv6_locator {
