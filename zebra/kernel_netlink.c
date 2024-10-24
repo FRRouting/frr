@@ -1981,6 +1981,12 @@ static void kernel_nlsock_fini(struct nlsock *nls)
 	}
 }
 
+/* Callback for dplane_clean_ctx_queue() to filter dplane contexts by ns_id */
+static bool dplane_context_cb_ns_id(struct zebra_dplane_ctx *ctx, void *ns_id)
+{
+	return dplane_ctx_get_ns_id(ctx) == *(ns_id_t *)ns_id;
+}
+
 void kernel_terminate(struct zebra_ns *zns, bool complete)
 {
 	EVENT_OFF(zns->t_netlink);
@@ -1997,9 +2003,9 @@ void kernel_terminate(struct zebra_ns *zns, bool complete)
 	 * around until all work is done.
 	 */
 	if (complete) {
+		/* Clean up outstanding update contexts */
+		dplane_clean_ctx_queue(dplane_context_cb_ns_id, &zns->ns_id);
 		kernel_nlsock_fini(&zns->netlink_dplane_out);
-
-		XFREE(MTYPE_NL_BUF, nl_batch_tx_buf);
 	}
 }
 
@@ -2024,6 +2030,8 @@ void kernel_router_terminate(void)
 
 	hash_free(nlsock_hash);
 	nlsock_hash = NULL;
+
+	XFREE(MTYPE_NL_BUF, nl_batch_tx_buf);
 }
 
 #endif /* HAVE_NETLINK */
