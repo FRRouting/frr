@@ -2141,19 +2141,133 @@ void ospf6_intra_prefix_route_ecmp_path(struct ospf6_area *oa,
 	}
 }
 
+static int ospf6_intra_prefix_route_configure(struct ospf6_prefix *op, struct ospf6_lsa *lsa,
+					      struct ospf6_route *ls_entry, struct prefix ls_prefix)
+{
+	struct interface *ifp = NULL;
+	struct ospf6_path *path;
+	struct ospf6_route *route, *old;
+	char buf[PREFIX2STR_BUFFER];
+	struct ospf6_area *area = OSPF6_AREA(lsa->lsdb->data);
+	struct ospf6_intra_prefix_lsa *intra_prefix_lsa = lsa_after_header(lsa->header);
+
+	/* Appendix A.4.1.1 */
+	if (CHECK_FLAG(op->prefix_options, OSPF6_PREFIX_OPTION_NU)) {
+		if (IS_OSPF6_DEBUG_EXAMIN(INTRA_PREFIX)) {
+			ospf6_linkstate_prefix2str((struct prefix *)OSPF6_PREFIX_BODY(op), buf,
+						   sizeof(buf));
+			zlog_debug("%s: Skipping Prefix %s has NU option set", __func__, buf);
+		}
+		return -1;
+	}
+
+	route = ospf6_route_create(area->ospf6);
+
+	memset(&route->prefix, 0, sizeof(struct prefix));
+	route->prefix.family = AF_INET6;
+	route->prefix.prefixlen = op->prefix_length;
+	ospf6_prefix_in6_addr(&route->prefix.u.prefix6, intra_prefix_lsa, op);
+	route->prefix_options = op->prefix_options;
+
+	route->type = OSPF6_DEST_TYPE_NETWORK;
+	route->path.origin.type = lsa->header->type;
+	route->path.origin.id = lsa->header->id;
+	route->path.origin.adv_router = lsa->header->adv_router;
+	route->path.area_id = area->area_id;
+	route->path.type = OSPF6_PATH_TYPE_INTRA;
+	route->path.metric_type = 1;
+	route->path.cost = ls_entry->path.cost + ntohs(op->prefix_metric);
+	memcpy(&route->path.ls_prefix, &ls_prefix, sizeof(struct prefix));
+
+	if (intra_prefix_lsa->ref_adv_router == area->ospf6->router_id) {
+		/* the intra-prefix are directly connected */
+		ifp = if_lookup_prefix(&route->prefix, area->ospf6->vrf_id);
+	}
+
+	if (ifp) {
+		/* Nexthop interface found */
+		ospf6_route_add_nexthop(route, ifp->ifindex, NULL);
+	} else {
+		/* The connected interfaces between routers can be in
+		 * different networks. In this case the matching
+		 * interface is not found. Copy nexthops from the
+		 * link state entry
+		 */
+		ospf6_route_copy_nexthops(route, ls_entry);
+	}
+
+	path = ospf6_path_dup(&route->path);
+	ospf6_copy_nexthops(path->nh_list, route->path.nh_list);
+	listnode_add_sort(route->paths, path);
+
+	old = ospf6_route_lookup(&route->prefix, area->route_table);
+	if (old) {
+		if (IS_OSPF6_DEBUG_EXAMIN(INTRA_PREFIX)) {
+			prefix2str(&route->prefix, buf, sizeof(buf));
+			zlog_debug("%s Update route: %s old cost %u new cost %u paths %u nh %u",
+				   __func__, buf, old->path.cost, route->path.cost,
+				   listcount(route->paths), listcount(route->nh_list));
+		}
+		ospf6_intra_prefix_route_ecmp_path(area, old, route);
+	} else {
+		if (IS_OSPF6_DEBUG_EXAMIN(INTRA_PREFIX)) {
+			prefix2str(&route->prefix, buf, sizeof(buf));
+			zlog_debug("%s route %s add with cost %u paths %u nh %u", __func__, buf,
+				   route->path.cost, listcount(route->paths),
+				   listcount(route->nh_list));
+		}
+		ospf6_route_add(route, area->route_table);
+	}
+
+	return 0;
+}
+
+
+struct cbd_intra_prefix_add {
+	struct ospf6_lsa *lsa;
+	struct ospf6_route *ls_entry;
+	struct prefix *ls_prefix;
+};
+
+static int cb_intra_prefix_add(void *desc, void *cb_data)
+{
+	struct ospf6_prefix *prefix = desc;
+	struct cbd_intra_prefix_add *cbd = cb_data;
+	struct ospf6_route *ls_entry;
+	struct ospf6_lsa *lsa = cbd->lsa;
+	struct prefix ls_prefix = *(cbd->ls_prefix);
+
+	ls_entry = cbd->ls_entry;
+	return ospf6_intra_prefix_route_configure(prefix, lsa, ls_entry, ls_prefix);
+}
+
+static int cb_e_intra_prefix_add(void *desc, void *cb_data)
+{
+	struct tlv_intra_area_prefix *tlv = desc;
+	struct cbd_intra_prefix_add *cbd = cb_data;
+	struct ospf6_prefix *prefix;
+	struct ospf6_lsa *lsa = cbd->lsa;
+	struct ospf6_route *ls_entry;
+	struct prefix ls_prefix = *(cbd->ls_prefix);
+
+	ls_entry = cbd->ls_entry;
+	prefix = tlv->prefix;
+	return ospf6_intra_prefix_route_configure(prefix, lsa, ls_entry, ls_prefix);
+}
+
 void ospf6_intra_prefix_lsa_add(struct ospf6_lsa *lsa)
 {
 	struct ospf6_area *oa;
 	struct ospf6_intra_prefix_lsa *intra_prefix_lsa;
 	struct prefix ls_prefix;
-	struct ospf6_route *route, *ls_entry, *old;
-	int prefix_num;
-	struct ospf6_prefix *op;
-	char *start, *current, *end;
+	struct ospf6_route *ls_entry;
 	char buf[PREFIX2STR_BUFFER];
-	struct interface *ifp = NULL;
-	int direct_connect = 0;
-	struct ospf6_path *path;
+	static const struct tlv_handler handlers[] = {
+		{ OSPF6_TLV_RESERVED, cb_intra_prefix_add },
+		{ OSPF6_TLV_INTRA_AREA_PREFIX, cb_e_intra_prefix_add },
+		{ 0 }
+	};
+	struct cbd_intra_prefix_add cbd = { .lsa = lsa };
 
 	if (OSPF6_LSA_IS_MAXAGE(lsa))
 		return;
@@ -2161,20 +2275,26 @@ void ospf6_intra_prefix_lsa_add(struct ospf6_lsa *lsa)
 	if (IS_OSPF6_DEBUG_EXAMIN(INTRA_PREFIX))
 		zlog_debug("%s: LSA %s found", __func__, lsa->name);
 
-	oa = OSPF6_AREA(lsa->lsdb->data);
-
 	intra_prefix_lsa = lsa_after_header(lsa->header);
-	if (intra_prefix_lsa->ref_type == htons(OSPF6_LSTYPE_ROUTER) ||
-	    intra_prefix_lsa->ref_type == htons(OSPF6_LSTYPE_NETWORK))
+
+	/* find the link state reference prefix */
+	switch (ntohs(intra_prefix_lsa->ref_type)) {
+	case OSPF6_LSTYPE_ROUTER:
+	case OSPF6_LSTYPE_NETWORK:
+	case OSPF6_LSTYPE_E_ROUTER:
+	case OSPF6_LSTYPE_E_NETWORK:
 		ospf6_linkstate_prefix(intra_prefix_lsa->ref_adv_router,
 				       intra_prefix_lsa->ref_id, &ls_prefix);
-	else {
+		break;
+	default:
 		if (IS_OSPF6_DEBUG_EXAMIN(INTRA_PREFIX))
 			zlog_debug("Unknown reference LS-type: %#hx",
 				   ntohs(intra_prefix_lsa->ref_type));
 		return;
 	}
 
+	/* find the route for the link state reference prefix */
+	oa = OSPF6_AREA(lsa->lsdb->data);
 	ls_entry = ospf6_route_lookup(&ls_prefix, oa->spf_table);
 	if (ls_entry == NULL) {
 		if (IS_OSPF6_DEBUG_EXAMIN(INTRA_PREFIX)) {
@@ -2184,104 +2304,10 @@ void ospf6_intra_prefix_lsa_add(struct ospf6_lsa *lsa)
 		return;
 	}
 
-	if (intra_prefix_lsa->ref_adv_router == oa->ospf6->router_id) {
-		/* the intra-prefix are directly connected */
-		direct_connect = 1;
-	}
+	cbd.ls_entry = ls_entry;
+	cbd.ls_prefix = &ls_prefix;
 
-	prefix_num = ntohs(intra_prefix_lsa->prefix_num);
-	start = (caddr_t)intra_prefix_lsa
-		+ sizeof(struct ospf6_intra_prefix_lsa);
-	end = ospf6_lsa_end(lsa->header);
-	for (current = start; current < end; current += OSPF6_PREFIX_SIZE(op)) {
-		op = (struct ospf6_prefix *)current;
-		if (prefix_num == 0)
-			break;
-		if (end < current + OSPF6_PREFIX_SIZE(op))
-			break;
-
-		/* Appendix A.4.1.1 */
-		if (CHECK_FLAG(op->prefix_options, OSPF6_PREFIX_OPTION_NU)) {
-			if (IS_OSPF6_DEBUG_EXAMIN(INTRA_PREFIX)) {
-				ospf6_linkstate_prefix2str(
-					(struct prefix *)OSPF6_PREFIX_BODY(op),
-					buf, sizeof(buf));
-				zlog_debug(
-					"%s: Skipping Prefix %s has NU option set",
-					__func__, buf);
-			}
-			continue;
-		}
-
-		route = ospf6_route_create(oa->ospf6);
-
-		memset(&route->prefix, 0, sizeof(struct prefix));
-		route->prefix.family = AF_INET6;
-		route->prefix.prefixlen = op->prefix_length;
-		ospf6_prefix_in6_addr(&route->prefix.u.prefix6,
-				      intra_prefix_lsa, op);
-		route->prefix_options = op->prefix_options;
-
-		route->type = OSPF6_DEST_TYPE_NETWORK;
-		route->path.origin.type = lsa->header->type;
-		route->path.origin.id = lsa->header->id;
-		route->path.origin.adv_router = lsa->header->adv_router;
-		route->path.area_id = oa->area_id;
-		route->path.type = OSPF6_PATH_TYPE_INTRA;
-		route->path.metric_type = 1;
-		route->path.cost =
-			ls_entry->path.cost + ntohs(op->prefix_metric);
-		memcpy(&route->path.ls_prefix, &ls_prefix,
-		       sizeof(struct prefix));
-		if (direct_connect) {
-			ifp = if_lookup_prefix(&route->prefix,
-					       oa->ospf6->vrf_id);
-		}
-
-		if (ifp) {
-			/* Nexthop interface found */
-			ospf6_route_add_nexthop(route, ifp->ifindex, NULL);
-		} else {
-			/* The connected interfaces between routers can be in
-			 * different networks. In this case the matching
-			 * interface is not found. Copy nexthops from the
-			 * link state entry
-			 */
-			ospf6_route_copy_nexthops(route, ls_entry);
-		}
-
-		path = ospf6_path_dup(&route->path);
-		ospf6_copy_nexthops(path->nh_list, route->path.nh_list);
-		listnode_add_sort(route->paths, path);
-
-		old = ospf6_route_lookup(&route->prefix, oa->route_table);
-		if (old) {
-			if (IS_OSPF6_DEBUG_EXAMIN(INTRA_PREFIX)) {
-				prefix2str(&route->prefix, buf, sizeof(buf));
-				zlog_debug(
-					"%s Update route: %s old cost %u new cost %u paths %u nh %u",
-					__func__, buf, old->path.cost,
-					route->path.cost,
-					listcount(route->paths),
-					listcount(route->nh_list));
-			}
-			ospf6_intra_prefix_route_ecmp_path(oa, old, route);
-		} else {
-			if (IS_OSPF6_DEBUG_EXAMIN(INTRA_PREFIX)) {
-				prefix2str(&route->prefix, buf, sizeof(buf));
-				zlog_debug(
-					"%s route %s add with cost %u paths %u nh %u",
-					__func__, buf, route->path.cost,
-					listcount(route->paths),
-					listcount(route->nh_list));
-			}
-			ospf6_route_add(route, oa->route_table);
-		}
-		prefix_num--;
-	}
-
-	if (current != end && IS_OSPF6_DEBUG_EXAMIN(INTRA_PREFIX))
-		zlog_debug("Trailing garbage ignored");
+	foreach_lsdesc(lsa->header, handlers, &cbd);
 }
 
 static void ospf6_intra_prefix_lsa_remove_update_route(struct ospf6_lsa *lsa,
@@ -2472,6 +2498,11 @@ void ospf6_intra_route_calculation(struct ospf6_area *oa)
 		route->flag = OSPF6_ROUTE_REMOVE;
 
 	type = htons(OSPF6_LSTYPE_INTRA_PREFIX);
+	for (ALL_LSDB_TYPED(oa->lsdb, type, lsa))
+		ospf6_intra_prefix_lsa_add(lsa);
+
+	/* install E_INTRA_PREFIX's */
+	type = htons(OSPF6_LSTYPE_E_INTRA_PREFIX);
 	for (ALL_LSDB_TYPED(oa->lsdb, type, lsa))
 		ospf6_intra_prefix_lsa_add(lsa);
 

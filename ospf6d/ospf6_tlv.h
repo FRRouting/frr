@@ -118,6 +118,7 @@ struct tlv_intra_area_prefix {
 	struct tlv_header header;
 	uint32_t metric; /* of which 8bits must be zero */
 	/* followed by ospf6 prefix */
+	struct ospf6_prefix prefix[];
 };
 
 #define TLV_IPV6_LINK_LOCAL_ADDRESS_TYPE 7
