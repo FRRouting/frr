@@ -918,6 +918,64 @@ and this section also helps that case.
    Chunks:
    - prefix: 2001:db8:2:2::/64, owner: sharp
 
+.. clicmd:: show segment-routing srv6 [locator NAME] sid [X:X::X:X] [detail] [json]
+
+   Displays the information regarding SRv6 local SID(s) allocated from a given locator.
+
+::
+
+   router# show segment-routing srv6 sid
+
+   SID                Behavior    Context                Daemon/Instance
+   -----------------  ----------  ---------------------  -----------------
+   fc00:0:1::         uN          -                      isis(0)
+   fc00:0:1:fe00::    uDT6        VRF 'vrf10'            bgp(0)
+   fc00:0:1:fe01::    uDT6        VRF 'vrf20'            bgp(0)
+   fc00:0:1:e000::    uA          Interface 'eth-sw1'    isis(0)
+   fc00:0:1:e001::    uA          Interface 'eth-sw1'    isis(0)
+
+   router# show segment-routing srv6 sid fc00:0:1:e000:: detail
+   SID                Behavior    Context                Daemon/Instance
+   -----------------  ----------  ---------------------  -----------------
+   fc00:0:1:e000::    uA          Interface 'eth-sw1'    isis(0)
+
+   Locator: loc1
+   Allocation type: dynamic
+
+   router# show segment-routing srv6 sid json
+   [
+   {
+      "sid":"fc00:0:1::",
+      "behavior":"uN",
+      "context":"-",
+      "daemons":"isis(0)"
+   },
+   {
+      "sid":"fc00:0:1:fe00::",
+      "behavior":"uDT6",
+      "context":"VRF 'vrf10'",
+      "daemons":"bgp(0)"
+   },
+   {
+      "sid":"fc00:0:1:fe01::",
+      "behavior":"uDT6",
+      "context":"VRF 'vrf20'",
+      "daemons":"bgp(0)"
+   },
+   {
+      "sid":"fc00:0:1:e000::",
+      "behavior":"uA",
+      "context":"Interface 'eth-sw1'",
+      "daemons":"isis(0)"
+   },
+   {
+      "sid":"fc00:0:1:e001::",
+      "behavior":"uA",
+      "context":"Interface 'eth-sw1'",
+      "daemons":"isis(0)"
+   }
+   ]
+
 .. clicmd:: segment-routing
 
    Move from configure mode to segment-routing node.
