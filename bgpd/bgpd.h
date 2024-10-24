@@ -542,15 +542,11 @@ struct bgp {
 #define BGP_FLAG_HARD_ADMIN_RESET (1ULL << 31)
 /* Evaluate the AIGP attribute during the best path selection process */
 #define BGP_FLAG_COMPARE_AIGP (1ULL << 32)
-/* For BGP-LU, force IPv4 local prefixes to use ipv4-explicit-null label */
-#define BGP_FLAG_LU_IPV4_EXPLICIT_NULL (1ULL << 33)
-/* For BGP-LU, force IPv6 local prefixes to use ipv6-explicit-null label */
-#define BGP_FLAG_LU_IPV6_EXPLICIT_NULL (1ULL << 34)
-#define BGP_FLAG_SOFT_VERSION_CAPABILITY (1ULL << 35)
-#define BGP_FLAG_ENFORCE_FIRST_AS (1ULL << 36)
-#define BGP_FLAG_DYNAMIC_CAPABILITY (1ULL << 37)
-#define BGP_FLAG_VNI_DOWN		 (1ULL << 38)
-#define BGP_FLAG_INSTANCE_HIDDEN	 (1ULL << 39)
+#define BGP_FLAG_SOFT_VERSION_CAPABILITY (1ULL << 33)
+#define BGP_FLAG_ENFORCE_FIRST_AS	 (1ULL << 34)
+#define BGP_FLAG_DYNAMIC_CAPABILITY	 (1ULL << 35)
+#define BGP_FLAG_VNI_DOWN		 (1ULL << 36)
+#define BGP_FLAG_INSTANCE_HIDDEN	 (1ULL << 37)
 
 	/* BGP default address-families.
 	 * New peers inherit enabled afi/safis from bgp instance.
@@ -587,6 +583,8 @@ struct bgp {
 #define BGP_CONFIG_VRF_TO_VRF_EXPORT (1 << 10)
 /* vpnvx retain flag */
 #define BGP_VPNVX_RETAIN_ROUTE_TARGET_ALL (1 << 11)
+/* for implicit/explicit null label use  */
+#define BGP_LU_EXPLICIT_NULL (1 << 12)
 
 	/* BGP per AF peer count */
 	uint32_t af_peer_count[AFI_MAX][SAFI_MAX];
