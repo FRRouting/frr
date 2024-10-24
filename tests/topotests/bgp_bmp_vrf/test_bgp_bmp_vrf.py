@@ -289,22 +289,6 @@ def check_for_peer_message(expected_peers, bmp_log_type):
     return True
 
 
-def set_bmp_policy(tgen, node, asn, target, safi, policy, vrf=None):
-    """
-    Configure the bmp policy.
-    """
-    vrf = " vrf {}".format(vrf) if vrf else ""
-    cmd = [
-        "con t\n",
-        "router bgp {}{}\n".format(asn, vrf),
-        "bmp targets {}\n".format(target),
-        "bmp monitor ipv4 {} {}\n".format(safi, policy),
-        "bmp monitor ipv6 {} {}\n".format(safi, policy),
-        "end\n",
-    ]
-    tgen.gears[node].vtysh_cmd("".join(cmd))
-
-
 def configure_prefixes(tgen, node, asn, safi, prefixes, vrf=None, update=True):
     """
     Configure the bgp prefixes.
@@ -331,7 +315,6 @@ def _test_prefixes(policy, step=1):
     message type and the right policy.
     """
     tgen = get_topogen()
-    set_bmp_policy(tgen, "r1", 65501, "bmp1", "unicast", policy, vrf="vrf1")
 
     prefixes = ["172.31.0.15/32", "2111::1111/128"]
 
