@@ -241,8 +241,11 @@ static bool pim_autorp_add_rp(struct pim_autorp *autorp, pim_addr rpaddr,
 {
 	struct pim_autorp_rp *rp;
 	struct pim_autorp_rp *trp = NULL;
+	int ret;
 
-	if (pim_rp_new(autorp->pim, rpaddr, grp, listname, RP_SRC_AUTORP)) {
+	ret = pim_rp_new(autorp->pim, rpaddr, grp, listname, RP_SRC_AUTORP);
+	/* There may not be a path to the RP right now, but that doesn't mean it failed to add the RP */
+	if (ret != PIM_SUCCESS && ret != PIM_RP_NO_PATH) {
 		zlog_err("%s: Failed to add new RP addr=%pI4, grp=%pFX, grplist=%s",
 			 __func__, &rpaddr, &grp,
 			 (listname ? listname : "NONE"));
