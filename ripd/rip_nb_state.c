@@ -392,6 +392,7 @@ struct yang_data *ripd_instance_state_routes_route_next_hop_get_elem(
 	}
 
 	assert(!"Reached end of function where we do not expect to reach");
+	return NULL;
 }
 
 /*
@@ -418,6 +419,7 @@ struct yang_data *ripd_instance_state_routes_route_interface_get_elem(
 	}
 
 	assert(!"Reached end of function where we do not expect to reach");
+	return NULL;
 }
 
 /*
