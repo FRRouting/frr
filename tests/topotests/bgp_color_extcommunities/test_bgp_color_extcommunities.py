@@ -105,7 +105,7 @@ def test_bgp_color_extended_communities():
                     {
                         "valid": True,
                         "extendedCommunity": {
-                            "string": "RT:80:987 Color:100 Color:200 Color:55555"
+                            "string": "RT:80:987 Color:01:100 Color:01:200 Color:01:55555"
                         },
                     }
                 ],
