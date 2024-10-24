@@ -1,0 +1,21 @@
+{
+    "routes": {
+        "172.31.0.15/32": [
+            {
+                "bestpath": true,
+                "pathFrom": "external",
+                "path": "65502",
+                "origin": "IGP",
+                "nexthops": [
+                    {
+                        "ip": "192.168.0.2",
+                        "hostname": "r2",
+                        "afi": "ipv4",
+                        "used": true
+                    }
+                ]
+            }
+        ]
+    }
+}
+
