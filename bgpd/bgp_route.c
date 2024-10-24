@@ -1133,9 +1133,9 @@ int bgp_path_info_cmp(struct bgp *bgp, struct bgp_path_info *new,
 	/* 4. AS path length check. */
 	if (!CHECK_FLAG(bgp->flags, BGP_FLAG_ASPATH_IGNORE)) {
 		int exist_hops = aspath_count_hops(existattr->aspath);
-		int exist_confeds = aspath_count_confeds(existattr->aspath);
 
 		if (CHECK_FLAG(bgp->flags, BGP_FLAG_ASPATH_CONFED)) {
+			int exist_confeds = aspath_count_confeds(existattr->aspath);
 			int aspath_hops;
 
 			aspath_hops = aspath_count_hops(newattr->aspath);
