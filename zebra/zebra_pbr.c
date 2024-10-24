@@ -156,31 +156,24 @@ void zebra_pbr_rules_free(void *arg)
 
 uint32_t zebra_pbr_rules_hash_key(const void *arg)
 {
-	const struct zebra_pbr_rule *rule;
+	const struct zebra_pbr_rule *rule = arg;
 	uint32_t key;
 
-	rule = arg;
-	key = jhash_3words(rule->rule.seq, rule->rule.priority,
-			   rule->rule.action.table,
-			   prefix_hash_key(&rule->rule.filter.src_ip));
-
-	key = jhash_3words(rule->rule.filter.fwmark, rule->vrf_id,
-			   rule->rule.filter.ip_proto, key);
+	key = jhash_2words(rule->rule.unique, rule->sock, rule->vrf_id);
 
 	key = jhash(rule->ifname, strlen(rule->ifname), key);
-
-	key = jhash_3words(rule->rule.filter.pcp, rule->rule.filter.vlan_id,
-			   rule->rule.filter.vlan_flags, key);
-
-	key = jhash_3words(rule->rule.filter.src_port,
-			   rule->rule.filter.dst_port,
-			   prefix_hash_key(&rule->rule.filter.dst_ip), key);
-
-	key = jhash_2words(rule->rule.unique, rule->sock, key);
 
 	return key;
 }
 
+/*
+ * In zebra's PBR rule database, a rule is uniquely identified by
+ * two fields:
+ *
+ *   socket number (i.e., originating daemon)
+ *   interface name
+ *   unique field (originating daemon must ensure unique for itself+interface)
+ */
 bool zebra_pbr_rules_hash_equal(const void *arg1, const void *arg2)
 {
 	const struct zebra_pbr_rule *r1, *r2;
@@ -188,84 +181,16 @@ bool zebra_pbr_rules_hash_equal(const void *arg1, const void *arg2)
 	r1 = (const struct zebra_pbr_rule *)arg1;
 	r2 = (const struct zebra_pbr_rule *)arg2;
 
-	if (r1->rule.seq != r2->rule.seq)
-		return false;
-
-	if (r1->rule.priority != r2->rule.priority)
-		return false;
-
 	if (r1->sock != r2->sock)
-		return false;
-
-	if (r1->rule.unique != r2->rule.unique)
-		return false;
-
-	if (r1->rule.action.table != r2->rule.action.table)
-		return false;
-
-	if (r1->rule.filter.src_port != r2->rule.filter.src_port)
-		return false;
-
-	if (r1->rule.filter.dst_port != r2->rule.filter.dst_port)
-		return false;
-
-	if (r1->rule.filter.fwmark != r2->rule.filter.fwmark)
-		return false;
-
-	if (r1->rule.filter.ip_proto != r2->rule.filter.ip_proto)
-		return false;
-
-	if (!prefix_same(&r1->rule.filter.src_ip, &r2->rule.filter.src_ip))
-		return false;
-
-	if (!prefix_same(&r1->rule.filter.dst_ip, &r2->rule.filter.dst_ip))
 		return false;
 
 	if (strcmp(r1->rule.ifname, r2->rule.ifname) != 0)
 		return false;
 
-	if (r1->vrf_id != r2->vrf_id)
+	if (r1->rule.unique != r2->rule.unique)
 		return false;
 
 	return true;
-}
-
-struct pbr_rule_unique_lookup {
-	struct zebra_pbr_rule *rule;
-	int sock;
-	uint32_t unique;
-	char ifname[IFNAMSIZ + 1];
-	vrf_id_t vrf_id;
-};
-
-static int pbr_rule_lookup_unique_walker(struct hash_bucket *b, void *data)
-{
-	struct pbr_rule_unique_lookup *pul = data;
-	struct zebra_pbr_rule *rule = b->data;
-
-	if (pul->sock == rule->sock && pul->unique == rule->rule.unique &&
-	    strmatch(pul->ifname, rule->rule.ifname) &&
-	    pul->vrf_id == rule->vrf_id) {
-		pul->rule = rule;
-		return HASHWALK_ABORT;
-	}
-
-	return HASHWALK_CONTINUE;
-}
-
-static struct zebra_pbr_rule *
-pbr_rule_lookup_unique(struct zebra_pbr_rule *zrule)
-{
-	struct pbr_rule_unique_lookup pul;
-
-	pul.unique = zrule->rule.unique;
-	strlcpy(pul.ifname, zrule->rule.ifname, IFNAMSIZ);
-	pul.rule = NULL;
-	pul.vrf_id = zrule->vrf_id;
-	pul.sock = zrule->sock;
-	hash_walk(zrouter.rules_hash, &pbr_rule_lookup_unique_walker, &pul);
-
-	return pul.rule;
 }
 
 void zebra_pbr_ipset_free(void *arg)
@@ -702,11 +627,8 @@ void zebra_pbr_add_rule(struct zebra_pbr_rule *rule)
 	struct zebra_pbr_rule *old;
 	struct zebra_pbr_rule *new;
 
-	/**
-	 * Check if we already have it (this checks via a unique ID, walking
-	 * over the hash table, not via a hash operation).
-	 */
-	found = pbr_rule_lookup_unique(rule);
+	/* Check if we already have it */
+	found = hash_lookup(zrouter.rules_hash, rule);
 
 	/* If found, this is an update */
 	if (found) {
