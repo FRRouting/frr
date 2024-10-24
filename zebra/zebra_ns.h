@@ -67,8 +67,6 @@ struct zebra_ns {
 	struct nlsock ge_netlink_cmd; /* command channel for generic netlink */
 #endif
 
-	struct route_table *if_table;
-
 	/* Tree of interfaces in this ns */
 	struct ifp_tree_head ifp_tree;
 
