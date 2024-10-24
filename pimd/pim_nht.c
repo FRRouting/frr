@@ -313,7 +313,19 @@ bool pim_nht_bsr_rpf_check(struct pim_instance *pim, pim_addr bsr_addr,
 			if (!nbr)
 				continue;
 
-			return znh->ifindex == src_ifp->ifindex;
+			/* Are we on the correct interface? */
+			if (znh->ifindex == src_ifp->ifindex) {
+				/* Do we have the correct NH ? */
+				if (!pim_addr_cmp(znh->nexthop_addr, src_ip))
+					return true;
+				/*
+				 * check If the packet came from the neighbor,
+				 * and the dst is a secondary address on the connected interface
+				 */
+				return (!pim_addr_cmp(nbr->source_addr, src_ip) &&
+					pim_if_connected_to_source(ifp, znh->nexthop_addr));
+			}
+			return false;
 		}
 		return false;
 	}
@@ -380,7 +392,19 @@ bool pim_nht_bsr_rpf_check(struct pim_instance *pim, pim_addr bsr_addr,
 		if (!nbr)
 			continue;
 
-		return nh->ifindex == src_ifp->ifindex;
+		/* Are we on the correct interface? */
+		if (nh->ifindex == src_ifp->ifindex) {
+			/* Do we have the correct NH ? */
+			if (!pim_addr_cmp(nhaddr, src_ip))
+				return true;
+			/*
+			 * check If the packet came from the neighbor,
+			 * and the dst is a secondary address on the connected interface
+			 */
+			return (!pim_addr_cmp(nbr->source_addr, src_ip) &&
+				pim_if_connected_to_source(ifp, nhaddr));
+		}
+		return false;
 	}
 	return false;
 }
