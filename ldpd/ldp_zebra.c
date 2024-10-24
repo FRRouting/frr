@@ -124,6 +124,15 @@ ldp_sync_zebra_send_state_update(struct ldp_igp_sync_if_state *state)
 		return 0;
 }
 
+int ldp_sync_zebra_send_configure_if_mpls(struct ldp_igp_configure_if_mpls *config)
+{
+	if (zebra_send_interface_mpls_set(zclient, VRF_DEFAULT, config->ifindex,
+					  config->enabled) <= 0)
+		return -1;
+
+	return zclient_send_message(zclient);
+}
+
 static int
 ldp_sync_zebra_send_announce(void)
 {
