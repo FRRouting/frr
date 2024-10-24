@@ -119,6 +119,7 @@ struct zebra_from_svi_param {
 	struct interface *ret_ifp;
 	struct zebra_if *zif;
 	struct zebra_evpn *zevpn;
+	struct zebra_l3vni *zl3vni;
 	uint8_t bridge_vlan_aware;
 	vlanid_t vid;
 };
