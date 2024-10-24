@@ -24,18 +24,18 @@
 static void	 ifp2kif(struct interface *, struct kif *);
 static void	 ifc2kaddr(struct interface *, struct connected *, struct kaddr *);
 static int	 ldp_zebra_send_mpls_labels(int, struct kroute *);
-static int	 ldp_router_id_update(ZAPI_CALLBACK_ARGS);
-static int	 ldp_interface_address_add(ZAPI_CALLBACK_ARGS);
-static int	 ldp_interface_address_delete(ZAPI_CALLBACK_ARGS);
-static int	 ldp_zebra_read_route(ZAPI_CALLBACK_ARGS);
-static int	 ldp_zebra_read_pw_status_update(ZAPI_CALLBACK_ARGS);
+static void ldp_router_id_update(ZAPI_CALLBACK_ARGS);
+static void ldp_interface_address_add(ZAPI_CALLBACK_ARGS);
+static void ldp_interface_address_delete(ZAPI_CALLBACK_ARGS);
+static void ldp_zebra_read_route(ZAPI_CALLBACK_ARGS);
+static void ldp_zebra_read_pw_status_update(ZAPI_CALLBACK_ARGS);
 static void	 ldp_zebra_connected(struct zclient *);
 static void	 ldp_zebra_filter_update(struct access_list *access);
 
 static void 	ldp_zebra_opaque_register(void);
 static void 	ldp_zebra_opaque_unregister(void);
 static int 	ldp_sync_zebra_send_announce(void);
-static int 	ldp_zebra_opaque_msg_handler(ZAPI_CALLBACK_ARGS);
+static void ldp_zebra_opaque_msg_handler(ZAPI_CALLBACK_ARGS);
 static void 	ldp_sync_zebra_init(void);
 
 static struct zclient	*zclient;
@@ -153,8 +153,7 @@ int ldp_zebra_send_rlfa_labels(struct zapi_rlfa_response *rlfa_labels)
 	return 0;
 }
 
-static int
-ldp_zebra_opaque_msg_handler(ZAPI_CALLBACK_ARGS)
+static void ldp_zebra_opaque_msg_handler(ZAPI_CALLBACK_ARGS)
 {
 	struct stream *s;
 	struct zapi_opaque_msg info;
@@ -165,7 +164,7 @@ ldp_zebra_opaque_msg_handler(ZAPI_CALLBACK_ARGS)
 	s = zclient->ibuf;
 
 	if(zclient_opaque_decode(s, &info) != 0)
-		return -1;
+		return;
 
 	switch (info.type) {
 	case LDP_IGP_SYNC_IF_STATE_REQUEST:
@@ -186,7 +185,7 @@ ldp_zebra_opaque_msg_handler(ZAPI_CALLBACK_ARGS)
 	}
 
 stream_failure:
-        return 0;
+	return;
 }
 
 static void
@@ -349,23 +348,19 @@ kif_redistribute(const char *ifname)
 	}
 }
 
-static int
-ldp_router_id_update(ZAPI_CALLBACK_ARGS)
+static void ldp_router_id_update(ZAPI_CALLBACK_ARGS)
 {
 	struct prefix	 router_id;
 
 	zebra_router_id_update_read(zclient->ibuf, &router_id);
 
 	if (bad_addr_v4(router_id.u.prefix4))
-		return (0);
+		return;
 
 	debug_zebra_in("router-id update %pI4", &router_id.u.prefix4);
 
 	global.rtr_id.s_addr = router_id.u.prefix4.s_addr;
-	main_imsg_compose_ldpe(IMSG_RTRID_UPDATE, 0, &global.rtr_id,
-	    sizeof(global.rtr_id));
-
-	return (0);
+	main_imsg_compose_ldpe(IMSG_RTRID_UPDATE, 0, &global.rtr_id, sizeof(global.rtr_id));
 }
 
 static int
@@ -433,8 +428,7 @@ static int ldp_ifp_down(struct interface *ifp)
 	return ldp_interface_status_change(ifp);
 }
 
-static int
-ldp_interface_address_add(ZAPI_CALLBACK_ARGS)
+static void ldp_interface_address_add(ZAPI_CALLBACK_ARGS)
 {
 	struct connected	*ifc;
 	struct interface	*ifp;
@@ -442,26 +436,23 @@ ldp_interface_address_add(ZAPI_CALLBACK_ARGS)
 
 	ifc = zebra_interface_address_read(cmd, zclient->ibuf, vrf_id);
 	if (ifc == NULL)
-		return (0);
+		return;
 
 	ifp = ifc->ifp;
 	ifc2kaddr(ifp, ifc, &ka);
 
 	/* Filter invalid addresses.  */
 	if (bad_addr(ka.af, &ka.addr))
-		return (0);
+		return;
 
 	debug_zebra_in("address add %s/%u interface %s",
 	    log_addr(ka.af, &ka.addr), ka.prefixlen, ifp->name);
 
 	/* notify ldpe about new address */
 	main_imsg_compose_ldpe(IMSG_NEWADDR, 0, &ka, sizeof(ka));
-
-	return (0);
 }
 
-static int
-ldp_interface_address_delete(ZAPI_CALLBACK_ARGS)
+static void ldp_interface_address_delete(ZAPI_CALLBACK_ARGS)
 {
 	struct connected	*ifc;
 	struct interface	*ifp;
@@ -469,7 +460,7 @@ ldp_interface_address_delete(ZAPI_CALLBACK_ARGS)
 
 	ifc = zebra_interface_address_read(cmd, zclient->ibuf, vrf_id);
 	if (ifc == NULL)
-		return (0);
+		return;
 
 	ifp = ifc->ifp;
 	ifc2kaddr(ifp, ifc, &ka);
@@ -477,19 +468,16 @@ ldp_interface_address_delete(ZAPI_CALLBACK_ARGS)
 
 	/* Filter invalid addresses.  */
 	if (bad_addr(ka.af, &ka.addr))
-		return (0);
+		return;
 
 	debug_zebra_in("address delete %s/%u interface %s",
 	    log_addr(ka.af, &ka.addr), ka.prefixlen, ifp->name);
 
 	/* notify ldpe about removed address */
 	main_imsg_compose_ldpe(IMSG_DELADDR, 0, &ka, sizeof(ka));
-
-	return (0);
 }
 
-static int
-ldp_zebra_read_route(ZAPI_CALLBACK_ARGS)
+static void ldp_zebra_read_route(ZAPI_CALLBACK_ARGS)
 {
 	struct zapi_route	 api;
 	struct zapi_nexthop	*api_nh;
@@ -497,11 +485,11 @@ ldp_zebra_read_route(ZAPI_CALLBACK_ARGS)
 	int			 i, add = 0;
 
 	if (zapi_route_decode(zclient->ibuf, &api) < 0)
-		return -1;
+		return;
 
 	/* we completely ignore srcdest routes for now. */
 	if (CHECK_FLAG(api.message, ZAPI_MESSAGE_SRCPFX))
-		return (0);
+		return;
 
 	memset(&kr, 0, sizeof(kr));
 	kr.af = api.prefix.family;
@@ -525,14 +513,14 @@ ldp_zebra_read_route(ZAPI_CALLBACK_ARGS)
 		break;
 	case ZEBRA_ROUTE_BGP:
 		/* LDP should follow the IGP and ignore BGP routes */
-		return (0);
+		return;
 	default:
 		break;
 	}
 
 	if (bad_addr(kr.af, &kr.prefix) ||
 	    (kr.af == AF_INET6 && IN6_IS_SCOPE_EMBED(&kr.prefix.v6)))
-		return (0);
+		return;
 
 	if (cmd == ZEBRA_REDISTRIBUTE_ROUTE_ADD)
 		add = 1;
@@ -588,15 +576,12 @@ ldp_zebra_read_route(ZAPI_CALLBACK_ARGS)
 	}
 
 	main_imsg_compose_lde(IMSG_NETWORK_UPDATE, 0, &kr, sizeof(kr));
-
-	return (0);
 }
 
 /*
  * Receive PW status update from Zebra and send it to LDE process.
  */
-static int
-ldp_zebra_read_pw_status_update(ZAPI_CALLBACK_ARGS)
+static void ldp_zebra_read_pw_status_update(ZAPI_CALLBACK_ARGS)
 {
 	struct zapi_pw_status	 zpw;
 
@@ -607,8 +592,6 @@ ldp_zebra_read_pw_status_update(ZAPI_CALLBACK_ARGS)
 	    zpw.status);
 
 	main_imsg_compose_lde(IMSG_PW_UPDATE, 0, &zpw, sizeof(zpw));
-
-	return (0);
 }
 
 void ldp_zebra_regdereg_zebra_info(bool want_register)
