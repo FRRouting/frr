@@ -101,9 +101,10 @@ cont
 
 .. clicmd:: clear route-map counter [WORD]
 
-   Clear counters that are being stored about the route-map utilization
-   so that subsuquent show commands will indicate since the last clear.
-   If WORD is specified clear just that particular route-map's counters.
+   Clear counters as well as cpu time spent that are being stored about
+   the route-map utilization so that subsequent show commands will indicate
+   since the last clear. If WORD is specified clear just that particular
+   route-map's counters.
 
 .. _route-map-command:
 
