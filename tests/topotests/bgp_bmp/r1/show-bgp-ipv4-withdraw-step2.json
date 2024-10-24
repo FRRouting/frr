@@ -2,7 +2,7 @@
     "routes": {
         "routeDistinguishers": {
             "444:2": {
-                "172.31.10.1/32": null
+                "2001::1111/128": null
             }
         }
     }

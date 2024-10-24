@@ -1,10 +1,10 @@
 {
     "post-policy": {
         "withdraw": {
-            "2001::2222/128": {
+            "2001::1111/128": {
                 "afi": 2,
                 "bmp_log_type": "withdraw",
-                "ip_prefix": "2001::2222/128",
+                "ip_prefix": "2001::1111/128",
                 "ipv6": true,
                 "label": 0,
                 "peer_asn": 65502,
@@ -16,10 +16,10 @@
                 "rd": "555:2",
                 "safi": 128
             },
-            "172.31.10.1/32": {
+            "172.31.0.15/32": {
                 "afi": 1,
                 "bmp_log_type": "withdraw",
-                "ip_prefix": "172.31.10.1/32",
+                "ip_prefix": "172.31.0.15/32",
                 "ipv6": false,
                 "label": 0,
                 "peer_asn": 65502,
