@@ -1223,6 +1223,8 @@ struct peer_connection {
 	struct event *t_process_packet;
 	struct event *t_process_packet_error;
 
+	struct event *t_stop_with_notify;
+
 	union sockunion su;
 #define BGP_CONNECTION_SU_UNSPEC(connection)                                   \
 	(connection->su.sa.sa_family == AF_UNSPEC)
