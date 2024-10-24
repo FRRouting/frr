@@ -182,6 +182,14 @@ int pim_mroute_msg_nocache(int fd, struct interface *ifp, const kernmsg *msg)
 		 * so the kernel doesn't keep nagging us.
 		 */
 		struct pim_rpf *rpg;
+#if PIM_IPV == 6
+		pim_addr embedded_rp;
+
+		if (pim_ifp->pim->embedded_rp.enable &&
+		    pim_embedded_rp_extract(&sg.grp, &embedded_rp) &&
+		    !pim_embedded_rp_filter_match(pim_ifp->pim, &sg.grp))
+			pim_embedded_rp_new(pim_ifp->pim, &sg.grp, &embedded_rp);
+#endif /* PIM_IPV == 6 */
 
 		rpg = RP(pim_ifp->pim, msg->msg_im_dst);
 		if (!rpg) {
