@@ -97,6 +97,7 @@ def test_zebra_kernel_route_vrf():
     # Change the interface's vrf
     r1.run("ip link add {} type vrf table 1".format(vrf))
     r1.run("ip link set {} up".format(vrf))
+
     r1.run("ip link set dev r1-eth0 master {}".format(vrf))
 
     expected = "{}"
