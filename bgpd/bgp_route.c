@@ -1064,7 +1064,32 @@ int bgp_path_info_cmp(struct bgp *bgp, struct bgp_path_info *new,
 		}
 	}
 
-	/* Tie-breaker - AIGP (Metric TLV) attribute */
+	/* 3. Local route check. We prefer:
+	 *  - BGP_ROUTE_STATIC
+	 *  - BGP_ROUTE_AGGREGATE
+	 *  - BGP_ROUTE_REDISTRIBUTE
+	 */
+	new_origin = !(new->sub_type == BGP_ROUTE_NORMAL || new->sub_type == BGP_ROUTE_IMPORTED);
+	exist_origin = !(exist->sub_type == BGP_ROUTE_NORMAL ||
+			 exist->sub_type == BGP_ROUTE_IMPORTED);
+
+	if (new_origin && !exist_origin) {
+		*reason = bgp_path_selection_local_route;
+		if (debug)
+			zlog_debug("%s: %s wins over %s due to preferred BGP_ROUTE type", pfx_buf,
+				   new_buf, exist_buf);
+		return 1;
+	}
+
+	if (!new_origin && exist_origin) {
+		*reason = bgp_path_selection_local_route;
+		if (debug)
+			zlog_debug("%s: %s loses to %s due to preferred BGP_ROUTE type", pfx_buf,
+				   new_buf, exist_buf);
+		return 0;
+	}
+
+	/* 3.5. Tie-breaker - AIGP (Metric TLV) attribute */
 	if (CHECK_FLAG(newattr->flag, ATTR_FLAG_BIT(BGP_ATTR_AIGP)) &&
 	    CHECK_FLAG(existattr->flag, ATTR_FLAG_BIT(BGP_ATTR_AIGP)) &&
 	    CHECK_FLAG(bgp->flags, BGP_FLAG_COMPARE_AIGP)) {
@@ -1092,34 +1117,6 @@ int bgp_path_info_cmp(struct bgp *bgp, struct bgp_path_info *new,
 					exist_aigp);
 			return 0;
 		}
-	}
-
-	/* 3. Local route check. We prefer:
-	 *  - BGP_ROUTE_STATIC
-	 *  - BGP_ROUTE_AGGREGATE
-	 *  - BGP_ROUTE_REDISTRIBUTE
-	 */
-	new_origin = !(new->sub_type == BGP_ROUTE_NORMAL ||
-		       new->sub_type == BGP_ROUTE_IMPORTED);
-	exist_origin = !(exist->sub_type == BGP_ROUTE_NORMAL ||
-			 exist->sub_type == BGP_ROUTE_IMPORTED);
-
-	if (new_origin && !exist_origin) {
-		*reason = bgp_path_selection_local_route;
-		if (debug)
-			zlog_debug(
-				"%s: %s wins over %s due to preferred BGP_ROUTE type",
-				pfx_buf, new_buf, exist_buf);
-		return 1;
-	}
-
-	if (!new_origin && exist_origin) {
-		*reason = bgp_path_selection_local_route;
-		if (debug)
-			zlog_debug(
-				"%s: %s loses to %s due to preferred BGP_ROUTE type",
-				pfx_buf, new_buf, exist_buf);
-		return 0;
 	}
 
 	/* Here if these are imported routes then get ultimate pi for
