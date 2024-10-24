@@ -59,7 +59,7 @@ CWD = os.path.dirname(os.path.realpath(__file__))
 sys.path.append(os.path.join(CWD, "../"))
 
 # Required to instantiate the topology builder class.
-pytestmark = [pytest.mark.pimd]
+pytestmark = [pytest.mark.pimd, pytest.mark.pim6d, pytest.mark.ospfd, pytest.mark.ospf6d]
 
 
 def build_topo(tgen):
@@ -307,6 +307,80 @@ def test_pim_bsr_rp_info_fallback(request):
 
     result = verify_pim_rp_info(tgen, None, "r5", "239.0.0.0/16", None, "10.0.3.4",
                                 "BSR", False, "ipv4", True, retry_timeout = 30)
+    assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
+
+
+def test_pimv6_bsr_election_r1(request):
+    "Test PIMv6 BSR Election"
+    tgen = get_topogen()
+    tc_name = request.node.name
+    write_test_header(tc_name)
+
+    if tgen.routers_have_failure():
+        pytest.skip("skipped because of router(s) failure")
+
+    r2 = tgen.gears["r2"]
+    # r1 should be the BSR winner because it has higher priority
+    expected = {
+        "bsr":"fd00::1",
+        "priority":200,
+        "state":"ACCEPT_PREFERRED",
+    }
+
+    test_func = partial(
+        topotest.router_json_cmp, r2, "show ipv6 pim bsr json", expected
+    )
+    _, result = topotest.run_and_expect(test_func, None, count=60, wait=1)
+
+    assertmsg = "r2: r1 was not elected, IPv6 bsr election mismatch"
+    assert result is None, assertmsg
+
+def test_pimv6_bsr_cand_rp(request):
+    "Test PIMv6 BSR candidate RP"
+    tgen = get_topogen()
+    tc_name = request.node.name
+    write_test_header(tc_name)
+
+    if tgen.routers_have_failure():
+        pytest.skip("skipped because of router(s) failure")
+
+    r3 = tgen.gears["r3"]
+
+    # r3 is a candidate rp
+    expected = {
+        "address":"fd00:0:0:3::3",
+        "priority":10
+    }
+    test_func = partial(
+        topotest.router_json_cmp, r3, "show ipv6 pim bsr candidate-rp json", expected
+    )
+    _, result = topotest.run_and_expect(test_func, None, count=60, wait=1)
+
+    assertmsg = "r3: bsr candidate rp mismatch"
+    assert result is None, assertmsg
+
+
+def test_pimv6_bsr_rp_info(request):
+    "Test IPv6 RP info state"
+    tgen = get_topogen()
+    tc_name = request.node.name
+    write_test_header(tc_name)
+
+    if tgen.routers_have_failure():
+        pytest.skip("skipped because of router(s) failure")
+
+    # At this point, all nodes, including r5 should have synced the RP state
+    step("Verify rp-info on r5 from BSR")
+    result = verify_pim_rp_info(tgen, None, "r5", "ffbb::0/64", None, "fd00:0:0:3::3",
+                                "BSR", False, "ipv6", True, retry_timeout = 90)
+    assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
+
+    result = verify_pim_rp_info(tgen, None, "r5", "ffbb::0/124", None, "fd00:0:0:3::4",
+                                "BSR", False, "ipv6", True,  retry_timeout = 30)
+    assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
+
+    result = verify_pim_rp_info(tgen, None, "r5", "ffbb::0/108", None, "fd00:0:0:3::4",
+                                "BSR", False, "ipv6", True,  retry_timeout = 30)
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
 
 
