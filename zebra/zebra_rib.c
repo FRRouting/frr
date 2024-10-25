@@ -1269,8 +1269,13 @@ static void rib_process(struct route_node *rn)
 	struct zebra_vrf *zvrf = NULL;
 	struct vrf *vrf;
 	struct route_entry *proto_re_changed = NULL;
-
+	struct rib_table_info *info;
 	vrf_id_t vrf_id = VRF_UNKNOWN;
+
+	if (IS_ZEBRA_DEBUG_RIB || IS_ZEBRA_DEBUG_RIB_DETAILED) {
+		info = srcdest_rnode_table_info(rn);
+		assert(info);
+	}
 
 	assert(rn);
 
@@ -1296,8 +1301,8 @@ static void rib_process(struct route_node *rn)
 	if (IS_ZEBRA_DEBUG_RIB_DETAILED) {
 		struct route_entry *re = re_list_first(&dest->routes);
 
-		zlog_debug("%s(%u:%u):%pRN: Processing rn %p",
-			   VRF_LOGNAME(vrf), vrf_id, re->table, rn,
+		zlog_debug("%s(%u:%u:%u):%pRN: Processing rn %p",
+			   VRF_LOGNAME(vrf), vrf_id, re->table, info->safi, rn,
 			   rn);
 	}
 
@@ -1309,8 +1314,8 @@ static void rib_process(struct route_node *rn)
 			char status_buf[128];
 
 			zlog_debug(
-				"%s(%u:%u):%pRN: Examine re %p (%s) status: %sflags: %sdist %d metric %d",
-				VRF_LOGNAME(vrf), vrf_id, re->table, rn, re,
+				"%s(%u:%u:%u):%pRN: Examine re %p (%s) status: %sflags: %sdist %d metric %d",
+				VRF_LOGNAME(vrf), vrf_id, re->table, info->safi, rn, re,
 				zebra_route_string(re->type),
 				_dump_re_status(re, status_buf,
 						sizeof(status_buf)),
@@ -1441,8 +1446,8 @@ static void rib_process(struct route_node *rn)
 						    : new_fib ? new_fib : NULL;
 
 		zlog_debug(
-			"%s(%u:%u):%pRN: After processing: old_selected %p new_selected %p old_fib %p new_fib %p",
-			VRF_LOGNAME(vrf), vrf_id, entry ? entry->table : 0, rn,
+			"%s(%u:%u:%u):%pRN: After processing: old_selected %p new_selected %p old_fib %p new_fib %p",
+			VRF_LOGNAME(vrf), vrf_id, entry ? entry->table : 0, info->safi, rn,
 			(void *)old_selected, (void *)new_selected,
 			(void *)old_fib, (void *)new_fib);
 	}
