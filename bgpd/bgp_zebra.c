@@ -406,6 +406,7 @@ static int bgp_interface_address_delete(ZAPI_CALLBACK_ARGS)
 	struct in6_addr *v6_local = NULL;
 	afi_t afi;
 	safi_t safi;
+	bool found;
 
 	bgp = bgp_lookup_by_vrf_id(vrf_id);
 
@@ -464,8 +465,12 @@ static int bgp_interface_address_delete(ZAPI_CALLBACK_ARGS)
 	/* When the last IPv4 address was deleted, Linux removes all routes
 	 * using the interface so that bgpd needs to re-send them.
 	 */
-	if (bgp_default && afi == AFI_IP) {
+	if (!if_connected_first(ifc->ifp->connected) && bgp_default && afi == AFI_IP) {
 		for (ALL_LIST_ELEMENTS_RO(bm->bgp, next, from_bgp)) {
+			if (from_bgp->inst_type != BGP_INSTANCE_TYPE_VRF)
+				continue;
+
+			found = false;
 			table = from_bgp->rib[afi][safi];
 			if (!table)
 				continue;
@@ -480,18 +485,17 @@ static int bgp_interface_address_delete(ZAPI_CALLBACK_ARGS)
 						    ifc->ifp->ifindex) {
 						SET_FLAG(pi->attr->nh_flags,
 							 BGP_ATTR_NH_REFRESH);
+						found = true;
 					}
 				}
 			}
 
-			if (from_bgp->inst_type != BGP_INSTANCE_TYPE_VRF)
-				continue;
-
-			vpn_leak_postchange(BGP_VPN_POLICY_DIR_TOVPN, afi,
-					    bgp_default, from_bgp);
-
-			vpn_leak_postchange(BGP_VPN_POLICY_DIR_FROMVPN, afi,
-					    bgp_default, from_bgp);
+			if (found) {
+				vpn_leak_postchange(BGP_VPN_POLICY_DIR_TOVPN,
+						    afi, bgp_default, from_bgp);
+				vpn_leak_postchange(BGP_VPN_POLICY_DIR_FROMVPN,
+						    afi, bgp_default, from_bgp);
+			}
 		}
 	}
 
