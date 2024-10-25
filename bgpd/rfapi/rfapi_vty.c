@@ -1257,6 +1257,8 @@ static int rfapiShowRemoteRegistrationsIt(struct bgp *bgp, void *stream,
 					const char *agetype = "";
 					char *s;
 					const char *type = "";
+
+					(void)type; /* clang-SA */
 					if (show_imported) {
 						type = "Imported";
 					} else {
