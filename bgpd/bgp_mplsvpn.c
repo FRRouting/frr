@@ -1584,8 +1584,8 @@ void vpn_leak_from_vrf_update(struct bgp *to_bgp,	     /* to */
 	struct attr static_attr = {0};
 	struct attr *new_attr = NULL;
 	safi_t safi = SAFI_MPLS_VPN;
-	mpls_label_t label_val;
-	mpls_label_t label;
+	mpls_label_t label_val = { 0 };
+	mpls_label_t label = { 0 };
 	struct bgp_dest *bn;
 	const char *debugmsg;
 	int nexthop_self_flag = 0;
