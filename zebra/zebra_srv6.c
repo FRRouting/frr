@@ -2251,6 +2251,8 @@ static int srv6_manager_get_sid_internal(struct zebra_srv6_sid **sid,
 	struct zserv *c;
 	char buf[256];
 
+	assert(*sid);
+
 	if (IS_ZEBRA_DEBUG_PACKET)
 		zlog_debug("%s: getting SRv6 SID for ctx %s, sid_value=%pI6, locator_name=%s",
 			   __func__, srv6_sid_ctx2str(buf, sizeof(buf), ctx),
