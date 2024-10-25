@@ -2630,14 +2630,19 @@ int isis_instance_segment_routing_algorithm_prefix_sid_create(
 	struct isis_area *area;
 	struct prefix prefix;
 	struct sr_prefix_cfg *pcfg;
-	uint32_t algorithm;
+	uint8_t algorithm;
 
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
 	area = nb_running_get_entry(args->dnode, NULL, true);
+<<<<<<< HEAD
 	yang_dnode_get_prefix(&prefix, args->dnode, "./prefix");
 	algorithm = yang_dnode_get_uint32(args->dnode, "./algo");
+=======
+	yang_dnode_get_prefix(&prefix, args->dnode, "prefix");
+	algorithm = yang_dnode_get_uint8(args->dnode, "algo");
+>>>>>>> 8e861a75e8 (isisd: fix change flex-algorithm number from uint32 to uint8)
 
 	pcfg = isis_sr_cfg_prefix_add(area, &prefix, algorithm);
 	pcfg->algorithm = algorithm;
