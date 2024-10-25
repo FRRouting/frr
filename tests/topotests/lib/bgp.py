@@ -5638,3 +5638,22 @@ def configure_bgp_soft_configuration(tgen, dut, neighbor_dict, direction):
             )
         )
         return True
+
+
+def bgp_configure_prefixes(router, asn, safi, prefixes, vrf=None, update=True):
+    """
+    Configure the bgp prefixes.
+    """
+    withdraw = "no " if not update else ""
+    vrf = " vrf {}".format(vrf) if vrf else ""
+    for p in prefixes:
+        ip = ipaddress.ip_network(p)
+        cmd = [
+            "conf t\n",
+            f"router bgp {asn}{vrf}\n"
+            f"address-family ipv{ip.version} {safi}\n"
+            f"{withdraw}network {ip}\n".format(withdraw, ip),
+            "exit-address-family\n",
+        ]
+        logger.debug(f"setting prefix: ipv{ip.version} {safi} {ip}")
+        router.vtysh_cmd("".join(cmd))
