@@ -647,6 +647,11 @@ void rib_install_kernel(struct route_node *rn, struct route_entry *re,
 	if (info->safi != SAFI_UNICAST) {
 		for (ALL_NEXTHOPS(re->nhe->nhg, nexthop))
 			SET_FLAG(nexthop->flags, NEXTHOP_FLAG_FIB);
+
+		if (old && old != re)
+			UNSET_FLAG(old->status, ROUTE_ENTRY_INSTALLED);
+		SET_FLAG(re->status, ROUTE_ENTRY_INSTALLED);
+
 		return;
 	}
 
