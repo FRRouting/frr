@@ -207,63 +207,131 @@ static struct ospf6_lsa *ospf6_lsdesc_lsa(struct ospf6_lsdesc *lsdesc,
 	return lsa;
 }
 
+
+struct backlink_cb_data {
+	struct ospf6_lsa *lsa;
+	struct ospf6_lsdesc **found;
+	struct ospf6_lsdesc *lsdesc;
+	struct ospf6_vertex *v;
+};
+
+static int backlink_network_check(struct ospf6_lsdesc *candidate, struct backlink_cb_data *cbd)
+{
+	struct ospf6_vertex *v = cbd->v;
+
+	if (candidate->n.router_id == v->lsa->header->adv_router)
+		*(cbd->found) = candidate;
+
+	if (ROUTER_LSDESC_IS_TYPE(TRANSIT_NETWORK, candidate->r) &&
+	    candidate->r.neighbor_router_id == v->lsa->header->adv_router &&
+	    candidate->r.neighbor_interface_id == v->lsa->header->id)
+		*(cbd->found) = candidate;
+
+	return 0;
+}
+
+static int backlink_network(void *desc, void *cb_data)
+{
+	struct backlink_cb_data *cbd = (struct backlink_cb_data *)cb_data;
+	struct ospf6_lsdesc *candidate = (struct ospf6_lsdesc *)desc;
+
+	return backlink_network_check(candidate, cbd);
+}
+
+static int backlink_e_network(void *desc, void *cb_data)
+{
+	struct backlink_cb_data *cbd = (struct backlink_cb_data *)cb_data;
+	struct tlv_attached_routers *tlv_ar = (struct tlv_attached_routers *)desc;
+	struct ospf6_lsdesc *candidate = (struct ospf6_lsdesc *)&tlv_ar->router_id;
+
+	while (((char *)candidate + sizeof(in_addr_t)) <= (char *)TLV_HDR_NEXT(&tlv_ar->header)) {
+		backlink_network_check(candidate, cbd);
+		candidate = (struct ospf6_lsdesc *)((char *)candidate + sizeof(in_addr_t));
+	}
+	return 0;
+}
+
+static int backlink_router_check(struct ospf6_lsdesc *candidate, struct backlink_cb_data *cbd)
+{
+	struct ospf6_lsdesc *lsdesc = cbd->lsdesc;
+	struct ospf6_vertex *v = cbd->v;
+	struct ospf6_lsa *lsa = cbd->lsa;
+
+	if (VERTEX_IS_TYPE(NETWORK, v)) {
+		if (ROUTER_LSDESC_IS_TYPE(TRANSIT_NETWORK, candidate->r) &&
+		    candidate->r.neighbor_router_id == v->lsa->header->adv_router &&
+		    candidate->r.neighbor_interface_id == v->lsa->header->id)
+			*(cbd->found) = candidate;
+	} else {
+		assert((OSPF6_LSA_IS_TYPE(ROUTER, lsa) || OSPF6_LSA_IS_TYPE(E_ROUTER, lsa)) &&
+		       VERTEX_IS_TYPE(ROUTER, v));
+
+		if (!ROUTER_LSDESC_IS_TYPE(POINTTOPOINT, candidate->r) ||
+		    !ROUTER_LSDESC_IS_TYPE(POINTTOPOINT, lsdesc->r))
+			return 0;
+		if (candidate->r.neighbor_interface_id != lsdesc->r.interface_id ||
+		    lsdesc->r.neighbor_interface_id != candidate->r.interface_id)
+			return 0;
+		if (candidate->r.neighbor_router_id != v->lsa->header->adv_router ||
+		    lsdesc->r.neighbor_router_id != lsa->header->adv_router)
+			return 0;
+		*(cbd->found) = candidate;
+	}
+	return 0;
+}
+
+static int backlink_router(void *desc, void *cb_data)
+{
+	struct backlink_cb_data *cbd = (struct backlink_cb_data *)cb_data;
+	struct ospf6_lsdesc *candidate = (struct ospf6_lsdesc *)desc;
+
+	return backlink_router_check(candidate, cbd);
+}
+
+static int backlink_e_router(void *desc, void *cb_data)
+{
+	struct backlink_cb_data *cbd = (struct backlink_cb_data *)cb_data;
+	struct tlv_router_link *tlv_rl = (struct tlv_router_link *)desc;
+	struct ospf6_lsdesc *candidate = (struct ospf6_lsdesc *)&tlv_rl->type;
+
+	return backlink_router_check(candidate, cbd);
+}
+
+/*
+ * 
+ */
 static struct ospf6_lsdesc *ospf6_lsdesc_backlink(struct ospf6_lsa *lsa,
 						  struct ospf6_lsdesc *lsdesc,
 						  struct ospf6_vertex *v)
 {
-	caddr_t backlink;
-	struct ospf6_lsdesc *candidate, *found = NULL;
-	int size;
+	struct ospf6_lsdesc *found = NULL;
+	struct backlink_cb_data cbd = { .lsa = lsa, .found = &found, .lsdesc = lsdesc, .v = v };
 
-	size = ((OSPF6_LSA_IS_TYPE(ROUTER, lsa) ||
-		 (OSPF6_LSA_IS_TYPE(E_ROUTER, lsa)))
-			? sizeof(struct ospf6_router_lsdesc)
-			: sizeof(struct ospf6_network_lsdesc));
-	for (backlink = lsdesc_start(lsa->header);
-	     backlink + size <= ospf6_lsa_end(lsa->header); backlink += size) {
-		assert(!(OSPF6_LSA_IS_TYPE(NETWORK, lsa) &&
-			 VERTEX_IS_TYPE(NETWORK, v)));
+	static const struct tlv_handler e_lsa_handlers[] = {
+		{ OSPF6_TLV_ROUTER_LINK, backlink_e_router },
+		{ OSPF6_TLV_ATTACHED_ROUTERS, backlink_e_network },
+		{ 0 }
+	};
+	static const struct tlv_handler network_lsa_handlers[] = {
+		{ .callback = backlink_network },
+		{ 0 }
+	};
+	static const struct tlv_handler router_lsa_handlers[] = {
+		{ .callback = backlink_router },
+		{ 0 }
+	};
 
-		candidate = (struct ospf6_lsdesc *)backlink;
-
-		if (OSPF6_LSA_IS_TYPE(NETWORK, lsa) ||
-		    OSPF6_LSA_IS_TYPE(E_NETWORK, lsa)) {
-			if (candidate->n.router_id == v->lsa->header->adv_router)
-				found = candidate;
-		} else if (VERTEX_IS_TYPE(NETWORK, v)) {
-			if (ROUTER_LSDESC_IS_TYPE(TRANSIT_NETWORK,
-						  candidate->r) &&
-			    candidate->r.neighbor_router_id ==
-				    v->lsa->header->adv_router &&
-			    candidate->r.neighbor_interface_id ==
-				    v->lsa->header->id)
-				found = candidate;
-		} else {
-			assert((OSPF6_LSA_IS_TYPE(ROUTER, lsa) ||
-				OSPF6_LSA_IS_TYPE(E_ROUTER, lsa)) &&
-			       VERTEX_IS_TYPE(ROUTER, v));
-
-			/* need to get the right offset if its a tlv */
-			if (OSPF6_LSA_IS_TYPE(E_ROUTER, lsa))
-				candidate = (struct ospf6_lsdesc *)TLV_BODY(
-					backlink);
-
-			if (!ROUTER_LSDESC_IS_TYPE(POINTTOPOINT, candidate->r) ||
-			    !ROUTER_LSDESC_IS_TYPE(POINTTOPOINT, lsdesc->r))
-				continue;
-
-			if (candidate->r.neighbor_interface_id !=
-				    lsdesc->r.interface_id ||
-			    lsdesc->r.neighbor_interface_id !=
-				    candidate->r.interface_id)
-				continue;
-			if (candidate->r.neighbor_router_id !=
-				    v->lsa->header->adv_router ||
-			    lsdesc->r.neighbor_router_id !=
-				    lsa->header->adv_router)
-				continue;
-			found = candidate;
-		}
+	switch (ntohs(lsa->header->type)) {
+	case OSPF6_LSTYPE_E_NETWORK:
+	case OSPF6_LSTYPE_E_ROUTER:
+		foreach_lsdesc(lsa->header, e_lsa_handlers, &cbd);
+		break;
+	case OSPF6_LSTYPE_ROUTER:
+		foreach_lsdesc(lsa->header, router_lsa_handlers, &cbd);
+		break;
+	case OSPF6_LSTYPE_NETWORK:
+		foreach_lsdesc(lsa->header, network_lsa_handlers, &cbd);
+		break;
 	}
 
 	if (IS_OSPF6_DEBUG_SPF(PROCESS))
