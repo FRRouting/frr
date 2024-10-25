@@ -1867,7 +1867,12 @@ int routing_control_plane_protocols_control_plane_protocol_pim_address_family_mc
 		old_mode = pim->rpf_mode;
 		pim->rpf_mode = yang_dnode_get_enum(args->dnode, NULL);
 
-		/* TODO: Signal to redo lookups? */
+		if (pim->rpf_mode != old_mode &&
+		    /* MCAST_MIX_MRIB_FIRST is the default if not configured */
+		    (old_mode != MCAST_NO_CONFIG && pim->rpf_mode != MCAST_MIX_MRIB_FIRST)) {
+			pim_nht_mode_changed(pim);
+		}
+
 		break;
 	}
 
