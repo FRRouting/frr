@@ -122,42 +122,38 @@ static void bgp_packet_add(struct peer_connection *connection,
 			peer->last_sendq_ok = monotime(NULL);
 
 		stream_fifo_push(connection->obuf, s);
+	}
 
-		delta = monotime(NULL) - peer->last_sendq_ok;
+	delta = monotime(NULL) - peer->last_sendq_ok;
 
-		if (CHECK_FLAG(peer->flags, PEER_FLAG_TIMER))
-			holdtime = atomic_load_explicit(&peer->holdtime,
-							memory_order_relaxed);
-		else
-			holdtime = peer->bgp->default_holdtime;
+	if (CHECK_FLAG(peer->flags, PEER_FLAG_TIMER))
+		holdtime = atomic_load_explicit(&peer->holdtime, memory_order_relaxed);
+	else
+		holdtime = peer->bgp->default_holdtime;
 
-		sendholdtime = holdtime * 2;
+	sendholdtime = holdtime * 2;
 
-		/* Note that when we're here, we're adding some packet to the
-		 * OutQ.  That includes keepalives when there is nothing to
-		 * do, so there's a guarantee we pass by here once in a while.
-		 *
-		 * That implies there is no need to go set up another separate
-		 * timer that ticks down SendHoldTime, as we'll be here sooner
-		 * or later anyway and will see the checks below failing.
-		 */
-		if (!holdtime) {
-			/* no holdtime, do nothing. */
-		} else if (delta > sendholdtime) {
-			flog_err(
-				EC_BGP_SENDQ_STUCK_PROPER,
-				"%pBP has not made any SendQ progress for 2 holdtimes (%jds), terminating session",
-				peer, sendholdtime);
-			bgp_stop_with_notify(connection,
-					     BGP_NOTIFY_SEND_HOLD_ERR, 0);
-		} else if (delta > (intmax_t)holdtime &&
-			   monotime(NULL) - peer->last_sendq_warn > 5) {
-			flog_warn(
-				EC_BGP_SENDQ_STUCK_WARN,
-				"%pBP has not made any SendQ progress for 1 holdtime (%us), peer overloaded?",
-				peer, holdtime);
-			peer->last_sendq_warn = monotime(NULL);
-		}
+	/* Note that when we're here, we're adding some packet to the
+	 * OutQ.  That includes keepalives when there is nothing to
+	 * do, so there's a guarantee we pass by here once in a while.
+	 *
+	 * That implies there is no need to go set up another separate
+	 * timer that ticks down SendHoldTime, as we'll be here sooner
+	 * or later anyway and will see the checks below failing.
+	 */
+	if (!holdtime) {
+		/* no holdtime, do nothing. */
+	} else if (delta > sendholdtime) {
+		flog_err(EC_BGP_SENDQ_STUCK_PROPER,
+			 "%pBP has not made any SendQ progress for 2 holdtimes (%jds), terminating session",
+			 peer, sendholdtime);
+		event_add_event(bm->master, bgp_event_stop_with_notify, connection, 0,
+				&connection->t_stop_with_notify);
+	} else if (delta > (intmax_t)holdtime && monotime(NULL) - peer->last_sendq_warn > 5) {
+		flog_warn(EC_BGP_SENDQ_STUCK_WARN,
+			  "%pBP has not made any SendQ progress for 1 holdtime (%us), peer overloaded?",
+			  peer, holdtime);
+		peer->last_sendq_warn = monotime(NULL);
 	}
 }
 

@@ -59,6 +59,7 @@ struct aspath {
 	   and AS path regular expression match.  */
 	char *str;
 	unsigned short str_len;
+	uint32_t count;
 
 	/* AS notation used by string expression of AS path */
 	enum asnotation_mode asnotation;
