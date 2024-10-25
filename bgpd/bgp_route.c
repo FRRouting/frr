@@ -1133,9 +1133,9 @@ int bgp_path_info_cmp(struct bgp *bgp, struct bgp_path_info *new,
 	/* 4. AS path length check. */
 	if (!CHECK_FLAG(bgp->flags, BGP_FLAG_ASPATH_IGNORE)) {
 		int exist_hops = aspath_count_hops(existattr->aspath);
-		int exist_confeds = aspath_count_confeds(existattr->aspath);
 
 		if (CHECK_FLAG(bgp->flags, BGP_FLAG_ASPATH_CONFED)) {
+			int exist_confeds = aspath_count_confeds(existattr->aspath);
 			int aspath_hops;
 
 			aspath_hops = aspath_count_hops(newattr->aspath);
@@ -4676,10 +4676,12 @@ void bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 		 * will not be interned. In which case, it is ok to update the
 		 * attr->evpn_overlay, so that, this can be stored in adj_in.
 		 */
-		if ((afi == AFI_L2VPN) && evpn)
-			bgp_attr_set_evpn_overlay(attr, evpn);
-		else
-			evpn_overlay_free(evpn);
+		if (evpn) {
+			if (afi == AFI_L2VPN)
+				bgp_attr_set_evpn_overlay(attr, evpn);
+			else
+				evpn_overlay_free(evpn);
+		}
 		bgp_adj_in_set(dest, peer, attr, addpath_id, &bgp_labels);
 	}
 
@@ -4855,10 +4857,12 @@ void bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 	 * attr->evpn_overlay with evpn directly. Instead memcpy
 	 * evpn to new_atr.evpn_overlay before it is interned.
 	 */
-	if (soft_reconfig && (afi == AFI_L2VPN) && evpn)
-		bgp_attr_set_evpn_overlay(&new_attr, evpn);
-	else
-		evpn_overlay_free(evpn);
+	if (soft_reconfig && evpn) {
+		if (afi == AFI_L2VPN)
+			bgp_attr_set_evpn_overlay(&new_attr, evpn);
+		else
+			evpn_overlay_free(evpn);
+	}
 
 	/* Apply incoming route-map.
 	 * NB: new_attr may now contain newly allocated values from route-map

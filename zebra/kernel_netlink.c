@@ -932,7 +932,7 @@ static int netlink_recv_msg(struct nlsock *nl, struct msghdr *msg)
 	} while (status == -1 && errno == EINTR);
 
 	if (status == -1) {
-		if (errno == EWOULDBLOCK || errno == EAGAIN)
+		if (errno == EWOULDBLOCK || errno == EAGAIN || errno == EMSGSIZE)
 			return 0;
 		flog_err(EC_ZEBRA_RECVMSG_OVERRUN, "%s recvmsg overrun: %s",
 			 nl->name, safe_strerror(errno));
