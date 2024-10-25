@@ -1908,14 +1908,23 @@ void cli_show_isis_prefix_sid_algorithm(struct vty *vty,
 	const char *sid_value_type;
 	const char *sid_value;
 	bool n_flag_clear;
-	uint32_t algorithm;
+	uint8_t algorithm;
 
+<<<<<<< HEAD
 	prefix = yang_dnode_get_string(dnode, "./prefix");
 	sid_value_type = yang_dnode_get_string(dnode, "./sid-value-type");
 	sid_value = yang_dnode_get_string(dnode, "./sid-value");
 	algorithm = yang_dnode_get_uint32(dnode, "./algo");
 	lh_behavior = yang_dnode_get_string(dnode, "./last-hop-behavior");
 	n_flag_clear = yang_dnode_get_bool(dnode, "./n-flag-clear");
+=======
+	prefix = yang_dnode_get_string(dnode, "prefix");
+	sid_value_type = yang_dnode_get_string(dnode, "sid-value-type");
+	sid_value = yang_dnode_get_string(dnode, "sid-value");
+	algorithm = yang_dnode_get_uint8(dnode, "algo");
+	lh_behavior = yang_dnode_get_string(dnode, "last-hop-behavior");
+	n_flag_clear = yang_dnode_get_bool(dnode, "n-flag-clear");
+>>>>>>> 8e861a75e8 (isisd: fix change flex-algorithm number from uint32 to uint8)
 
 	vty_out(vty, " segment-routing prefix %s", prefix);
 	vty_out(vty, " algorithm %u", algorithm);
