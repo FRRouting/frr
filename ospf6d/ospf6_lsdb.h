@@ -84,8 +84,8 @@ extern void ospf6_lsdb_show(struct vty *vty, enum ospf_lsdb_show_level level,
 			    struct ospf6_lsdb *lsdb, json_object *json,
 			    bool use_json);
 
-extern uint32_t ospf6_new_ls_id(uint16_t type, uint32_t adv_router,
-				struct ospf6_lsdb *lsdb);
+extern uint32_t ospf6_new_ls_id_inter_prefix(uint32_t adv_router,
+					     struct ospf6_lsdb *lsdb);
 extern uint32_t ospf6_new_ls_seqnum(uint16_t type, uint32_t id,
 				    uint32_t adv_router,
 				    struct ospf6_lsdb *lsdb);

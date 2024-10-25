@@ -406,28 +406,44 @@ int ospf6_lsdb_maxage_remover(struct ospf6_lsdb *lsdb)
 	return (reschedule);
 }
 
-uint32_t ospf6_new_ls_id(uint16_t type, uint32_t adv_router,
-			 struct ospf6_lsdb *lsdb)
+/* Examine the LSDB IAP and EIAP for a free lsid */
+static uint32_t ospf6_test_inter_prefix_ls_id_candidate(uint32_t adv_router,
+							struct ospf6_lsdb *lsdb,
+							uint32_t candidate)
 {
+	bool value_in_use = false;
+	uint16_t type = htons(OSPF6_LSTYPE_INTER_PREFIX);
 	struct ospf6_lsa *lsa;
-	uint32_t id = 1, tmp_id;
+	uint32_t tmp_id;
 
-	/* This routine is curently invoked only for Inter-Prefix LSAs for
-	 * non-summarized routes (no area/range).
-	 */
 	for (ALL_LSDB_TYPED_ADVRTR(lsdb, type, adv_router, lsa)) {
 		tmp_id = ntohl(lsa->header->id);
-		if (tmp_id < id)
-			continue;
-
-		if (tmp_id > id) {
-			ospf6_lsdb_lsa_unlock(lsa);
+		if (tmp_id == candidate) {
+			value_in_use = true;
 			break;
 		}
-		id++;
+	}
+	type = htons(OSPF6_LSTYPE_E_INTER_PREFIX);
+	for (ALL_LSDB_TYPED_ADVRTR(lsdb, type, adv_router, lsa)) {
+		tmp_id = ntohl(lsa->header->id);
+		if (tmp_id == candidate) {
+			value_in_use = true;
+			break;
+		}
 	}
 
-	return ((uint32_t)htonl(id));
+	if (value_in_use)
+		candidate = ospf6_test_inter_prefix_ls_id_candidate(adv_router, lsdb, ++candidate);
+	return candidate;
+}
+
+uint32_t ospf6_new_ls_id_inter_prefix(uint32_t adv_router,
+				      struct ospf6_lsdb *lsdb)
+{
+	uint32_t candidate = 1;
+
+	candidate = ospf6_test_inter_prefix_ls_id_candidate(adv_router, lsdb, candidate);
+	return ((uint32_t)htonl(candidate));
 }
 
 /* Decide new LS sequence number to originate.

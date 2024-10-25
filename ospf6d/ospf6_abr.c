@@ -628,6 +628,7 @@ int ospf6_abr_originate_summary_to_area(struct ospf6_route *route,
 		} else {
 			struct ospf6_lsa *old;
 
+			/* fixme this may be incorrect for EINP prefix's */
 			summary->path.origin.type =
 				htons(OSPF6_LSTYPE_INTER_PREFIX);
 
@@ -637,10 +638,11 @@ int ospf6_abr_originate_summary_to_area(struct ospf6_route *route,
 			if (old)
 				summary->path.origin.id = old->header->id;
 			else
-				summary->path.origin.id = ospf6_new_ls_id(
-					summary->path.origin.type,
+			{
+				summary->path.origin.id = ospf6_new_ls_id_inter_prefix(
 					summary->path.origin.adv_router,
 					area->lsdb);
+			}
 		}
 		summary = ospf6_route_add(summary, summary_table);
 	} else {
