@@ -101,6 +101,45 @@ def test_bgp_aigp_rr():
         expected = {"paths": [{"aigpMetric": aigp, "valid": True}]}
         return topotest.json_cmp(output, expected)
 
+    def _bgp_check_aigp_bestpath():
+        output = json.loads(r1.vtysh_cmd("show bgp ipv4 unicast 10.0.1.2/32 json"))
+        expected = {
+            "prefix": "10.0.1.2/32",
+            "paths": [
+                {
+                    "aigpMetric": 50,
+                    "valid": True,
+                    "sourced": True,
+                    "local": True,
+                    "bestpath": {"overall": True, "selectionReason": "Local Route"},
+                    "nexthops": [
+                        {
+                            "ip": "0.0.0.0",
+                            "hostname": "r1",
+                            "afi": "ipv4",
+                            "metric": 0,
+                            "accessible": True,
+                            "used": True,
+                        }
+                    ],
+                },
+                {
+                    "aigpMetric": 10,
+                    "valid": True,
+                    "nexthops": [
+                        {
+                            "ip": "10.0.0.2",
+                            "hostname": "r2",
+                            "afi": "ipv4",
+                            "metric": 10,
+                            "accessible": True,
+                            "used": True,
+                        }
+                    ],
+                },
+            ],
+        }
+        return topotest.json_cmp(output, expected)
 
     # r2, 10.0.2.2/32 with aigp-metric 2
     test_func = functools.partial(_bgp_check_aigp_metric, r2, "10.0.2.2/32", 2)
@@ -121,6 +160,11 @@ def test_bgp_aigp_rr():
     test_func = functools.partial(_bgp_check_aigp_metric, r4, "10.0.2.2/32", 12)
     _, result = topotest.run_and_expect(test_func, None, count=60, wait=1)
     assert result is None, "aigp-metric for 10.0.2.2/32 is not 12"
+
+    # r1, check if the local route is favored over AIGP comparison
+    test_func = functools.partial(_bgp_check_aigp_bestpath)
+    _, result = topotest.run_and_expect(test_func, None, count=60, wait=1)
+    assert result is None, "Local route is not favored over AIGP in best-path selection"
 
 
 if __name__ == "__main__":
