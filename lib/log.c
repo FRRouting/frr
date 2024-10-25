@@ -306,7 +306,7 @@ void memory_oom(size_t size, const char *name)
 	     "out of memory: failed to allocate %zu bytes for %s object",
 	     size, name);
 	zlog_backtrace(LOG_CRIT);
-	log_memstats(stderr, "log");
+	log_memstats(zlog_progname, true);
 	abort();
 }
 
