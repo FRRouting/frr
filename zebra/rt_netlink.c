@@ -3178,6 +3178,9 @@ netlink_put_route_update_msg(struct nl_batch *bth, struct zebra_dplane_ctx *ctx)
 	} else
 		return FRR_NETLINK_ERROR;
 
+	if (dplane_ctx_get_safi(ctx) == SAFI_MULTICAST)
+		return FRR_NETLINK_SUCCESS;
+
 	if (RSYSTEM_ROUTE(dplane_ctx_get_type(ctx)))
 		return FRR_NETLINK_SUCCESS;
 
