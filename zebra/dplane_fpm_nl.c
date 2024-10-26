@@ -1712,6 +1712,16 @@ static int fpm_nl_process(struct zebra_dplane_provider *prov)
 		 * anyway.
 		 */
 		if (fnc->socket != -1 && fnc->connecting == false) {
+			enum dplane_op_e op = dplane_ctx_get_op(ctx);
+
+			/*
+			 * Just skip multicast routes and let them flow through
+			 */
+			if ((op == DPLANE_OP_ROUTE_DELETE || op == DPLANE_OP_ROUTE_INSTALL ||
+			     op == DPLANE_OP_ROUTE_UPDATE) &&
+			    dplane_ctx_get_safi(ctx) == SAFI_MULTICAST)
+				goto skip;
+
 			frr_with_mutex (&fnc->ctxqueue_mutex) {
 				dplane_ctx_enqueue_tail(&fnc->ctxqueue, ctx);
 				cur_queue =
@@ -1722,7 +1732,7 @@ static int fpm_nl_process(struct zebra_dplane_provider *prov)
 				peak_queue = cur_queue;
 			continue;
 		}
-
+skip:
 		dplane_ctx_set_status(ctx, ZEBRA_DPLANE_REQUEST_SUCCESS);
 		dplane_provider_enqueue_out_ctx(prov, ctx);
 	}
