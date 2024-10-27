@@ -34,6 +34,9 @@ extern void bgp_zebra_route_install(struct bgp_dest *dest,
 				    bool is_sync);
 extern void bgp_zebra_announce_table(struct bgp *bgp, afi_t afi, safi_t safi);
 
+extern void bgp_zebra_label_set_to_imp_null(struct bgp *bgp, afi_t afi);
+extern void bgp_zebra_label_set_to_exp_null(struct bgp *bgp, afi_t afi);
+
 /* Announce routes of any bgp subtype of a table to zebra */
 extern void bgp_zebra_announce_table_all_subtypes(struct bgp *bgp, afi_t afi,
 						  safi_t safi);

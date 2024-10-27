@@ -3529,10 +3529,11 @@ need_null_label:
 	if (label == NULL)
 		return true;
 	/* Disable PHP : explicit-null */
-	if (!!CHECK_FLAG(bgp->flags, BGP_FLAG_LU_IPV4_EXPLICIT_NULL) &&
+
+	if (!!CHECK_FLAG(bgp->af_flags[afi][SAFI_LABELED_UNICAST], BGP_LU_EXPLICIT_NULL) &&
 	    afi == AFI_IP)
 		*label = MPLS_LABEL_IPV4_EXPLICIT_NULL;
-	else if (!!CHECK_FLAG(bgp->flags, BGP_FLAG_LU_IPV6_EXPLICIT_NULL) &&
+	else if (!!CHECK_FLAG(bgp->af_flags[afi][SAFI_LABELED_UNICAST], BGP_LU_EXPLICIT_NULL) &&
 		 afi == AFI_IP6)
 		*label = MPLS_LABEL_IPV6_EXPLICIT_NULL;
 	else
