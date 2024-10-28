@@ -85,7 +85,6 @@ struct event_loop {
 	int io_pipe[2];
 	int fd_limit;
 	struct fd_handler handler;
-	unsigned long alloc;
 	long selectpoll_timeout;
 	bool spin;
 	bool handle_signals;
@@ -227,7 +226,6 @@ static inline unsigned long timeval_elapsed(struct timeval a, struct timeval b)
 extern struct event_loop *event_master_create(const char *name);
 void event_master_set_name(struct event_loop *master, const char *name);
 extern void event_master_free(struct event_loop *m);
-extern void event_master_free_unused(struct event_loop *m);
 
 extern void _event_add_read_write(const struct xref_eventsched *xref,
 				  struct event_loop *master,
