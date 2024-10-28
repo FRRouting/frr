@@ -4014,6 +4014,7 @@ static void rib_link(struct route_node *rn, struct route_entry *re, int process)
 {
 	rib_dest_t *dest;
 	afi_t afi;
+	safi_t safi;
 	const char *rmap_name;
 
 	assert(re && rn);
@@ -4031,11 +4032,13 @@ static void rib_link(struct route_node *rn, struct route_entry *re, int process)
 	afi = (rn->p.family == AF_INET)
 		      ? AFI_IP
 		      : (rn->p.family == AF_INET6) ? AFI_IP6 : AFI_MAX;
-	if (is_zebra_import_table_enabled(afi, re->vrf_id, re->table)) {
-		struct zebra_vrf *zvrf = zebra_vrf_lookup_by_id(re->vrf_id);
+	for (safi = SAFI_UNICAST; safi < SAFI_MAX; safi++) {
+		if (is_zebra_import_table_enabled(afi, safi, re->vrf_id, re->table)) {
+			struct zebra_vrf *zvrf = zebra_vrf_lookup_by_id(re->vrf_id);
 
-		rmap_name = zebra_get_import_table_route_map(afi, re->table);
-		zebra_add_import_table_entry(zvrf, rn, re, rmap_name);
+			rmap_name = zebra_get_import_table_route_map(afi, safi, re->table);
+			zebra_add_import_table_entry(zvrf, safi, rn, re, rmap_name);
+		}
 	}
 
 	if (process)
@@ -4093,6 +4096,7 @@ void rib_unlink(struct route_node *rn, struct route_entry *re)
 void rib_delnode(struct route_node *rn, struct route_entry *re)
 {
 	afi_t afi;
+	safi_t safi;
 
 	if (IS_ZEBRA_DEBUG_RIB)
 		rnode_debug(rn, re->vrf_id, "rn %p, re %p, removing",
@@ -4106,15 +4110,17 @@ void rib_delnode(struct route_node *rn, struct route_entry *re)
 	afi = (rn->p.family == AF_INET)
 		      ? AFI_IP
 		      : (rn->p.family == AF_INET6) ? AFI_IP6 : AFI_MAX;
-	if (is_zebra_import_table_enabled(afi, re->vrf_id, re->table)) {
-		struct zebra_vrf *zvrf = zebra_vrf_lookup_by_id(re->vrf_id);
+	for (safi = SAFI_UNICAST; safi < SAFI_MAX; safi++) {
+		if (is_zebra_import_table_enabled(afi, safi, re->vrf_id, re->table)) {
+			struct zebra_vrf *zvrf = zebra_vrf_lookup_by_id(re->vrf_id);
 
-		zebra_del_import_table_entry(zvrf, rn, re);
-		/* Just clean up if non main table */
-		if (IS_ZEBRA_DEBUG_RIB)
-			zlog_debug("%s(%u):%pRN: Freeing route rn %p, re %p (%s)",
-				   vrf_id_to_name(re->vrf_id), re->vrf_id, rn,
-				   rn, re, zebra_route_string(re->type));
+			zebra_del_import_table_entry(zvrf, safi, rn, re);
+			/* Just clean up if non main table */
+			if (IS_ZEBRA_DEBUG_RIB)
+				zlog_debug("%s %s(%u):%pRN: Freeing route rn %p, re %p (%s)",
+					   safi2str(safi), vrf_id_to_name(re->vrf_id), re->vrf_id,
+					   rn, rn, re, zebra_route_string(re->type));
+		}
 	}
 
 	rib_queue_add(rn);
