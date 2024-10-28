@@ -940,6 +940,38 @@ struct nexthop *nexthop_dup(const struct nexthop *nexthop,
 	return new;
 }
 
+void nexthop_copy_no_context(struct nexthop *copy, const struct nexthop *nexthop,
+			     struct nexthop *rparent)
+{
+	copy->vrf_id = nexthop->vrf_id;
+	copy->ifindex = nexthop->ifindex;
+	copy->type = nexthop->type;
+	copy->flags = nexthop->flags;
+	copy->weight = nexthop->weight;
+
+	assert(nexthop->backup_num < NEXTHOP_MAX_BACKUPS);
+	copy->backup_num = nexthop->backup_num;
+	if (copy->backup_num > 0)
+		memcpy(copy->backup_idx, nexthop->backup_idx, copy->backup_num);
+
+	copy->srte_color = nexthop->srte_color;
+	memcpy(&copy->gate, &nexthop->gate, sizeof(nexthop->gate));
+	memcpy(&copy->src, &nexthop->src, sizeof(nexthop->src));
+	memcpy(&copy->rmap_src, &nexthop->rmap_src, sizeof(nexthop->rmap_src));
+	copy->rparent = rparent;
+
+	if (CHECK_FLAG(copy->flags, NEXTHOP_FLAG_RECURSIVE))
+		copy_nexthops_nocontext(&copy->resolved, nexthop->resolved, copy);
+}
+
+struct nexthop *nexthop_dup_no_context(const struct nexthop *nexthop, struct nexthop *rparent)
+{
+	struct nexthop *new = nexthop_new();
+
+	nexthop_copy_no_context(new, nexthop, rparent);
+	return new;
+}
+
 /*
  * Parse one or more backup index values, as comma-separated numbers,
  * into caller's array of uint8_ts. The array must be NEXTHOP_MAX_BACKUPS

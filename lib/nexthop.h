@@ -237,6 +237,10 @@ extern void nexthop_copy(struct nexthop *copy, const struct nexthop *nexthop,
 extern void nexthop_copy_no_recurse(struct nexthop *copy,
 				    const struct nexthop *nexthop,
 				    struct nexthop *rparent);
+
+extern struct nexthop *nexthop_dup_no_context(const struct nexthop *nexthop,
+					      struct nexthop *rparent);
+
 /* Duplicates a nexthop and returns the newly allocated nexthop */
 extern struct nexthop *nexthop_dup(const struct nexthop *nexthop,
 				   struct nexthop *rparent);
@@ -255,6 +259,8 @@ extern bool nexthop_is_blackhole(const struct nexthop *nh);
  */
 int nexthop_str2backups(const char *str, int *num_backups,
 			uint8_t *backups);
+extern void nexthop_copy_no_context(struct nexthop *copy, const struct nexthop *nexthop,
+				    struct nexthop *rparent);
 
 void nexthop_json_helper(json_object *json_nexthop,
 			 const struct nexthop *nexthop, bool display_vrfid,

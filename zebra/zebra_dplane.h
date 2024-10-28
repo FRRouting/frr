@@ -125,6 +125,11 @@ enum dplane_op_e {
 	DPLANE_OP_NH_UPDATE,
 	DPLANE_OP_NH_DELETE,
 
+	/* Pic Context update*/
+	DPLANE_OP_PIC_CONTEXT_INSTALL,
+	DPLANE_OP_PIC_CONTEXT_UPDATE,
+	DPLANE_OP_PIC_CONTEXT_DELETE,
+
 	/* LSP update */
 	DPLANE_OP_LSP_INSTALL,
 	DPLANE_OP_LSP_UPDATE,
@@ -601,6 +606,7 @@ dplane_ctx_get_old_backup_ng(const struct zebra_dplane_ctx *ctx);
 
 /* Accessors for nexthop information */
 uint32_t dplane_ctx_get_nhe_id(const struct zebra_dplane_ctx *ctx);
+uint32_t dplane_ctx_get_pic_nhe_id(const struct zebra_dplane_ctx *ctx);
 uint32_t dplane_ctx_get_old_nhe_id(const struct zebra_dplane_ctx *ctx);
 afi_t dplane_ctx_get_nhe_afi(const struct zebra_dplane_ctx *ctx);
 vrf_id_t dplane_ctx_get_nhe_vrf_id(const struct zebra_dplane_ctx *ctx);
@@ -870,6 +876,8 @@ struct nhg_hash_entry;
 /*
  * Enqueue a nexthop change operation for the dataplane.
  */
+enum zebra_dplane_result dplane_pic_context_add(struct nhg_hash_entry *nhe);
+enum zebra_dplane_result dplane_pic_context_delete(struct nhg_hash_entry *nhe);
 enum zebra_dplane_result dplane_nexthop_add(struct nhg_hash_entry *nhe);
 enum zebra_dplane_result dplane_nexthop_update(struct nhg_hash_entry *nhe);
 enum zebra_dplane_result dplane_nexthop_delete(struct nhg_hash_entry *nhe);
