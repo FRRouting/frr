@@ -1290,6 +1290,13 @@ IPv6 Support
    address family is enabled by default for all new neighbors.
 
 
+.. clicmd:: bgp ipv6-auto-ra
+
+   By default, bgpd can ask Zebra to enable sending IPv6 router advertisement
+   messages on interfaces. For example, this happens for unnumbered peers
+   support or when extended-nexthop capability is used. The ``no`` form of this
+   command disables such behaviour.
+
 .. _bgp-route-aggregation:
 
 Route Aggregation

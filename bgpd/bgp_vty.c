@@ -5034,6 +5034,27 @@ DEFUN(no_bgp_fast_convergence, no_bgp_fast_convergence_cmd,
 	return CMD_SUCCESS;
 }
 
+DEFPY (bgp_ipv6_auto_ra,
+       bgp_ipv6_auto_ra_cmd,
+       "[no] bgp ipv6-auto-ra",
+       NO_STR
+       BGP_STR
+       "Allow enabling IPv6 ND RA sending\n")
+{
+	if (vty->node == CONFIG_NODE) {
+		struct listnode *node, *nnode;
+		struct bgp *bgp;
+
+		COND_FLAG(bm->flags, BM_FLAG_IPV6_NO_AUTO_RA, no);
+		for (ALL_LIST_ELEMENTS(bm->bgp, node, nnode, bgp))
+			COND_FLAG(bgp->flags, BGP_FLAG_IPV6_NO_AUTO_RA, no);
+	} else {
+		VTY_DECLVAR_CONTEXT(bgp, bgp);
+		COND_FLAG(bgp->flags, BGP_FLAG_IPV6_NO_AUTO_RA, no);
+	}
+	return CMD_SUCCESS;
+}
+
 static int peer_conf_interface_get(struct vty *vty, const char *conf_if,
 				   int v6only,
 				   const char *peer_group_name,
@@ -19418,6 +19439,9 @@ int bgp_config_write(struct vty *vty)
 	if (CHECK_FLAG(bm->flags, BM_FLAG_SEND_EXTRA_DATA_TO_ZEBRA))
 		vty_out(vty, "bgp send-extra-data zebra\n");
 
+	if (CHECK_FLAG(bm->flags, BM_FLAG_IPV6_NO_AUTO_RA))
+		vty_out(vty, "no bgp ipv6-auto-ra\n");
+
 	/* DSCP value for outgoing packets in BGP connections */
 	if (bm->ip_tos != IPTOS_PREC_INTERNETCONTROL)
 		vty_out(vty, "bgp session-dscp %u\n", bm->ip_tos >> 2);
@@ -19838,6 +19862,11 @@ int bgp_config_write(struct vty *vty)
 		/* BGP instance administrative shutdown */
 		if (CHECK_FLAG(bgp->flags, BGP_FLAG_SHUTDOWN))
 			vty_out(vty, " bgp shutdown\n");
+
+		/* Automatic RA enabling by BGP */
+		if (!CHECK_FLAG(bm->flags, BM_FLAG_IPV6_NO_AUTO_RA))
+			if (CHECK_FLAG(bgp->flags, BGP_FLAG_IPV6_NO_AUTO_RA))
+				vty_out(vty, " no bgp ipv6-auto-ra\n");
 
 		if (bgp->allow_martian)
 			vty_out(vty, " bgp allow-martian-nexthop\n");
@@ -20378,6 +20407,12 @@ void bgp_vty_init(void)
 	/* bgp fast-convergence command */
 	install_element(BGP_NODE, &bgp_fast_convergence_cmd);
 	install_element(BGP_NODE, &no_bgp_fast_convergence_cmd);
+
+	/* global bgp ipv6-auto-ra command */
+	install_element(CONFIG_NODE, &bgp_ipv6_auto_ra_cmd);
+
+	/* bgp ipv6-auto-ra command */
+	install_element(BGP_NODE, &bgp_ipv6_auto_ra_cmd);
 
 	/* global bgp update-delay command */
 	install_element(CONFIG_NODE, &bgp_global_update_delay_cmd);

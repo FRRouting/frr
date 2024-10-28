@@ -1412,6 +1412,8 @@ int bgp_global_gr_init(struct bgp *bgp)
 		bgp->rib_stale_time = bm->rib_stale_time;
 	if (CHECK_FLAG(bm->flags, BM_FLAG_GR_PRESERVE_FWD))
 		SET_FLAG(bgp->flags, BGP_FLAG_GR_PRESERVE_FWD);
+	if (CHECK_FLAG(bm->flags, BM_FLAG_IPV6_NO_AUTO_RA))
+		SET_FLAG(bgp->flags, BGP_FLAG_IPV6_NO_AUTO_RA);
 
 	bgp->present_zebra_gr_state = ZEBRA_GR_DISABLE;
 
