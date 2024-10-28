@@ -1650,8 +1650,18 @@ static void pim_cand_bsr_pending_expire(struct event *t)
 	struct bsm_scope *scope = EVENT_ARG(t);
 
 	assertf(scope->state == BSR_PENDING, "state=%d", scope->state);
-	assertf(pim_addr_is_any(scope->current_bsr), "current_bsr=%pPA",
-		&scope->current_bsr);
+
+	if (!pim_addr_is_any(scope->current_bsr)) {
+		assertf(scope->cand_bsr_prio >= scope->current_bsr_prio,
+			"cand_bsr %pPA prio %u is less than current_bsr %pPA prio %u",
+			&scope->bsr_addrsel.run_addr, scope->current_bsr_prio, &scope->current_bsr,
+			scope->cand_bsr_prio);
+
+		if (scope->cand_bsr_prio == scope->current_bsr_prio)
+			assertf(pim_addr_cmp(scope->bsr_addrsel.run_addr, scope->current_bsr) > 0,
+				"cand_bsr %pPA  < current_bsr %pPA", &scope->bsr_addrsel.run_addr,
+				&scope->current_bsr);
+	}
 
 	if (PIM_DEBUG_BSM)
 		zlog_debug("Elected BSR, wait expired without preferable BSMs");
