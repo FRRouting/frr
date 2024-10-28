@@ -153,9 +153,9 @@ static void ospf6_vertex_delete(struct ospf6_vertex *v)
 	XFREE(MTYPE_OSPF6_VERTEX, v);
 }
 
-static struct ospf6_lsa *ospf6_lsdesc_lsa(struct ospf6_lsdesc *lsdesc,
-					  struct ospf6_vertex *v,
-					  uint8_t elsa_support)
+/* given an lsdesc and vertex, lookup or create the lsa for a candidate vertex */
+static struct ospf6_lsa *get_candidate_lsa(struct ospf6_lsdesc *lsdesc, struct ospf6_vertex *v,
+					   uint8_t elsa_support)
 {
 	struct ospf6_lsa *lsa;
 	uint16_t lstype;
@@ -185,8 +185,8 @@ static struct ospf6_lsa *ospf6_lsdesc_lsa(struct ospf6_lsdesc *lsdesc,
 		adv_router = 0;
 	}
 
-	if (lstype == htons(OSPF6_LSTYPE_E_NETWORK) ||
-	    lstype == htons(OSPF6_LSTYPE_NETWORK))
+	/* lookup or create LSA */
+	if (lstype == htons(OSPF6_LSTYPE_E_NETWORK) || lstype == htons(OSPF6_LSTYPE_NETWORK))
 		lsa = ospf6_lsdb_lookup(lstype, id, adv_router, v->area->lsdb);
 	else
 		lsa = ospf6_create_single_router_lsa(v->area, v->area->lsdb,
@@ -341,55 +341,126 @@ static struct ospf6_lsdesc *ospf6_lsdesc_backlink(struct ospf6_lsa *lsa,
 	return found;
 }
 
-static void ospf6_nexthop_calc(struct ospf6_vertex *w, struct ospf6_vertex *v,
-			       struct ospf6_lsdesc *lsdesc, struct ospf6 *ospf6)
+static void add_lladdr_nexthop(struct ospf6_lsa *lsa, struct list *nh_list, ifindex_t ifindex)
 {
-	int i;
-	ifindex_t ifindex;
-	struct ospf6_interface *oi;
-	uint16_t type;
-	uint32_t adv_router;
-	struct ospf6_lsa *lsa;
 	struct ospf6_link_lsa *link_lsa;
-	char buf[64];
+	struct ospf6_e_link_lsa *elink_lsa;
+	struct tlv_header *tlv;
+	struct tlv_ipv6_link_local_address *tlv_ll6addr;
+	struct tlv_ipv4_link_local_address *tlv_ll4addr;
+	struct in6_addr ll6_addr;
+	struct in_addr ll4_addr;
+	char buf[64] = { 0 };
+
+	if (OSPF6_LSA_IS_TYPE(LINK, lsa)) {
+		link_lsa = lsa_after_header(lsa->header);
+		ll6_addr = link_lsa->linklocal_addr;
+		inet_ntop(AF_INET6, &ll6_addr, buf, sizeof(buf));
+		ospf6_add_nexthop(nh_list, ifindex, &ll6_addr);
+
+		if (IS_OSPF6_DEBUG_SPF(PROCESS))
+			zlog_debug("  nexthop %s from %s", buf, lsa->name);
+	} else if (OSPF6_LSA_IS_TYPE(E_LINK, lsa)) {
+		elink_lsa = lsa_after_header(lsa->header);
+		tlv = (struct tlv_header *)(elink_lsa + 1);
+
+		if (ntohs(tlv->type) == OSPF6_TLV_IPV6_LL_ADDR) {
+			tlv_ll6addr = (struct tlv_ipv6_link_local_address *)tlv;
+			ll6_addr = tlv_ll6addr->addr;
+			inet_ntop(AF_INET6, &ll6_addr, buf, sizeof(buf));
+			ospf6_add_nexthop(nh_list, ifindex, &ll6_addr);
+
+			if (IS_OSPF6_DEBUG_SPF(PROCESS))
+				zlog_debug("  nexthop %s from %s", buf, lsa->name);
+		} else if (ntohs(tlv->type) == OSPF6_TLV_IPV4_LL_ADDR) {
+			tlv_ll4addr = (struct tlv_ipv4_link_local_address *)tlv;
+			ll4_addr = tlv_ll4addr->addr;
+			inet_ntop(AF_INET, &ll4_addr, buf, sizeof(buf));
+			zlog_warn("%s: FIXME: link local IPv4 next hop not supported yet.",
+				  __func__);
+		} else if (IS_OSPF6_DEBUG_SPF(PROCESS)) {
+			{
+				zlog_warn("%s: Unhandled TLV type 0x%0x", __func__,
+					  ntohs(tlv->type));
+			}
+		} else if (IS_OSPF6_DEBUG_SPF(PROCESS))
+			zlog_debug("%s: unexpected LSA type: 0x%x", __func__,
+				   ntohs(lsa->header->type));
+	}
+}
+
+/*
+ * Find and install the neighbor link-local address as nexthop.
+ * Return number of nexthops added.
+ */
+static int install_nexthops(struct ospf6_lsdb *lsdb, uint16_t type,
+			    uint32_t adv_router, ifindex_t ifindex,
+			    uint32_t neighbor_iface_id, struct list *nh_list)
+{
+	struct ospf6_lsa *lsa;
+	int i = 0;
+
+	for (ALL_LSDB_TYPED_ADVRTR(lsdb, type, adv_router, lsa)) {
+		/* from a Router Vertex, check if it's the neighbor */
+		if (neighbor_iface_id && neighbor_iface_id != lsa->header->id)
+			continue;
+		/* else either vertex type is network, or they match */
+
+		/* link the neighbor's link-local address with V's ifindex */
+		add_lladdr_nexthop(lsa, nh_list, ifindex);
+		i++;
+	}
+
+	return i;
+}
+
+static void nexthop_calc(struct ospf6_vertex *w, struct ospf6_vertex *v,
+			 ifindex_t ifindex, in_addr_t adv_router, uint32_t neighbor_iface_id)
+{
+	struct ospf6_interface *oi;
+	int nh_count = 0;
+	uint16_t lstype;
 
 	assert(VERTEX_IS_TYPE(ROUTER, w));
-	ifindex = (VERTEX_IS_TYPE(NETWORK, v) ? ospf6_spf_get_ifindex_from_nh(v)
-					      : ntohl(lsdesc->r.interface_id));
-	if (ifindex == 0) {
+
+	/*
+	 * Is zero a valid ifindex?
+	 * RFC 5340 (OSPFv3) doesn't specify constraints on ifindex values. It MAY use ifIndex from RFC 2863
+	 * RFC 2328 (OSPFv2) says it will be an IP address or ifIndex from RFC 2863.
+	 * RFC 2863 (SNMP MIB) constrains ifindex to be greater than zero.
+	 * ospf6_spf_get_ifindex_from_nh() says no.
+	 */
+	if (!ifindex) {
 		flog_err(EC_LIB_DEVELOPMENT, "No nexthop ifindex at vertex %s", v->name);
 		return;
 	}
 
-	oi = ospf6_interface_lookup_by_ifindex(ifindex, ospf6->vrf_id);
-	if (oi == NULL) {
+	oi = ospf6_interface_lookup_by_ifindex(ifindex, w->area->ospf6->vrf_id);
+	if (!oi) {
 		zlog_warn("Can't find interface in SPF: ifindex %d", ifindex);
 		return;
 	}
 
-	type = htons(OSPF6_LSTYPE_LINK);
-	adv_router = (VERTEX_IS_TYPE(NETWORK, v) ? lsdesc->n.router_id
-						 : lsdesc->r.neighbor_router_id);
-
-	i = 0;
-	for (ALL_LSDB_TYPED_ADVRTR(oi->lsdb, type, adv_router, lsa)) {
-		if (VERTEX_IS_TYPE(ROUTER, v) &&
-		    (lsdesc->r.neighbor_interface_id != lsa->header->id))
-			continue;
-
-		link_lsa = lsa_after_header(lsa->header);
-		if (IS_OSPF6_DEBUG_SPF(PROCESS)) {
-			inet_ntop(AF_INET6, &link_lsa->linklocal_addr, buf,
-				  sizeof(buf));
-			zlog_debug("  nexthop %s from %s", buf, lsa->name);
-		}
-
-		ospf6_add_nexthop(w->nh_list, ifindex,
-				  &link_lsa->linklocal_addr);
-		i++;
+	switch (oi->area->ospf6->extended_lsa_support) {
+	case OSPF6_E_LSA_SUP_ELSA:
+		lstype = htons(OSPF6_LSTYPE_E_LINK);
+		nh_count = install_nexthops(oi->lsdb, lstype, adv_router,
+					    ifindex, neighbor_iface_id, w->nh_list);
+		break;
+	case OSPF6_E_LSA_SUP_BOTH:
+		lstype = htons(OSPF6_LSTYPE_E_LINK);
+		nh_count = install_nexthops(oi->lsdb, lstype, adv_router,
+					    ifindex, neighbor_iface_id, w->nh_list);
+		fallthrough;
+	case OSPF6_E_LSA_SUP_LEGACY:
+		fallthrough;
+	default:
+		lstype = htons(OSPF6_LSTYPE_LINK);
+		nh_count += install_nexthops(oi->lsdb, lstype, adv_router,
+					     ifindex, neighbor_iface_id, w->nh_list);
 	}
 
-	if (i == 0 && IS_OSPF6_DEBUG_SPF(PROCESS))
+	if (nh_count == 0 && IS_OSPF6_DEBUG_SPF(PROCESS))
 		zlog_debug("No nexthop for %s found", w->name);
 }
 
@@ -404,6 +475,7 @@ static int ospf6_spf_install(struct ospf6_vertex *v,
 			   v->hops, v->cost);
 
 	route = ospf6_route_lookup(&v->vertex_id, result_table);
+
 	if (route && route->path.cost < v->cost) {
 		if (IS_OSPF6_DEBUG_SPF(PROCESS))
 			zlog_debug("  already installed with lower cost (%d), ignore",
@@ -533,82 +605,137 @@ void ospf6_spf_reason_string(uint32_t reason, char *buf, int size)
 	}
 	for (bit = 0; bit < array_size(ospf6_spf_reason_str); bit++) {
 		if ((reason & (1 << bit)) && (len < size)) {
-			len += snprintf((buf + len), (size - len), "%s%s",
-					(len > 0) ? ", " : "",
+			len += snprintf((buf + len), (size - len), "%s%s", (len > 0) ? ", " : "",
 					ospf6_spf_reason_str[bit]);
 		}
 	}
 }
-
-struct cbd_spf_calc {
-	struct ospf6_vertex *v;
-	struct ospf6_area *oa;
-	struct vertex_pqueue_head *candidate_list_ptr;
-};
 
 
 /*
  * Given an lsdesc and a vertex V's LSA,
  * calculate next hop candidates and add to candidate_list.
  */
-static int calc_nexthop_candidates(struct ospf6_lsdesc *lsdesc,
-				   struct cbd_spf_calc *cbd)
+static void calc_nexthop_candidates(struct ospf6_lsdesc *lsdesc, struct ospf6_vertex *v,
+				   struct ospf6_area *oa, struct vertex_pqueue_head *candidate_list)
 {
 	struct ospf6_vertex *w;
 	struct ospf6_lsa *candidate_lsa;
-	uint8_t elsa_support = cbd->oa->ospf6->extended_lsa_support;
+	uint8_t elsa_support = oa->ospf6->extended_lsa_support;
+	ifindex_t ifindex;
+	in_addr_t adv_router;
+	uint32_t neighbor_iface_id;
 
-	candidate_lsa = ospf6_lsdesc_lsa(lsdesc, cbd->v, elsa_support);
+	assert(!OSPF6_LSA_IS_TYPE(E_NETWORK, v->lsa));
 
-	if (!candidate_lsa && (elsa_support == OSPF6_E_LSA_SUP_BOTH ||
-			       elsa_support == OSPF6_E_LSA_SUP_ELSA))
-		candidate_lsa = ospf6_lsdesc_lsa(lsdesc, cbd->v,
-						 OSPF6_E_LSA_SUP_LEGACY);
+	candidate_lsa = get_candidate_lsa(lsdesc, v, elsa_support);
 
-	if (candidate_lsa == NULL)
-		return 0;
+	if (!candidate_lsa &&
+	    (elsa_support == OSPF6_E_LSA_SUP_BOTH || elsa_support == OSPF6_E_LSA_SUP_ELSA))
+		candidate_lsa = get_candidate_lsa(lsdesc, v, OSPF6_E_LSA_SUP_LEGACY);
+
+	if (!candidate_lsa)
+		return;
 
 	if (OSPF6_LSA_IS_MAXAGE(candidate_lsa))
-		return 0;
+		return;
 
-	if (!ospf6_lsdesc_backlink(candidate_lsa, lsdesc, cbd->v))
-		return 0;
+	if (!ospf6_lsdesc_backlink(candidate_lsa, lsdesc, v))
+		return;
 
 	w = ospf6_vertex_create(candidate_lsa);
-	w->area = cbd->oa;
-	w->parent = cbd->v;
-	if (VERTEX_IS_TYPE(ROUTER, cbd->v)) {
-		w->cost = cbd->v->cost + ntohs(lsdesc->r.metric);
-		w->hops = cbd->v->hops + (VERTEX_IS_TYPE(NETWORK, w) ? 0 : 1);
+	w->area = oa;
+	w->parent = v;
+	if (VERTEX_IS_TYPE(ROUTER, v)) {
+		w->cost = v->cost + ntohs(lsdesc->r.metric);
+		w->hops = v->hops + (VERTEX_IS_TYPE(NETWORK, w) ? 0 : 1);
 	} else {
 		/* NETWORK */
-		w->cost = cbd->v->cost;
-		w->hops = cbd->v->hops + 1;
+		w->cost = v->cost;
+		w->hops = v->hops + 1;
 	}
 
 	/* nexthop calculation */
 	if (w->hops == 0)
 		ospf6_add_nexthop(w->nh_list, ntohl(lsdesc->r.interface_id), NULL);
-	else if (w->hops == 1 && cbd->v->hops == 0)
-		ospf6_nexthop_calc(w, cbd->v, lsdesc, cbd->oa->ospf6);
-	else
-		ospf6_copy_nexthops(w->nh_list, cbd->v->nh_list);
+	else if (w->hops == 1 && v->hops == 0) {
+		if (VERTEX_IS_TYPE(NETWORK, v)) {
+			ifindex = ospf6_spf_get_ifindex_from_nh(v);
+			adv_router = lsdesc->n.router_id;
+			neighbor_iface_id = 0;
+		} else {
+			ifindex = ntohl(lsdesc->r.interface_id);
+			adv_router = lsdesc->r.neighbor_router_id;
+			neighbor_iface_id = lsdesc->r.neighbor_interface_id;
+		}
+		nexthop_calc(w, v, ifindex, adv_router, neighbor_iface_id);
+	} else
+		ospf6_copy_nexthops(w->nh_list, v->nh_list);
 
 	/* add new candidate to the candidate_list */
 	if (IS_OSPF6_DEBUG_SPF(PROCESS))
-		zlog_debug("  New candidate: %s hops %d cost %d", w->name,
-			   w->hops, w->cost);
-	vertex_pqueue_add(cbd->candidate_list_ptr, w);
-
-	return 0;
+		zlog_debug("  New candidate: %s hops %d cost %d", w->name, w->hops, w->cost);
+	vertex_pqueue_add(candidate_list, w);
 }
 
-static int cb_spf_calc(void *desc, void *cb_data)
+/*
+ * Create a candidate Router vertex from the Router LSA;
+ * Calculate or copy next hops for new vertex;
+ * Add newly created vertex to list of candidate vertices.
+ */
+static void add_candidate_router_vertex(struct ospf6_area *area, struct ospf6_vertex *vertex,
+					struct vertex_pqueue_head *candidate_list,
+					struct ospf6_lsa *candidate_lsa, in_addr_t adv_router)
+{
+	struct ospf6_vertex *w;
+	ifindex_t ifindex;
+
+	assert(OSPF6_LSA_IS_TYPE(E_ROUTER, candidate_lsa));
+
+	if (OSPF6_LSA_IS_MAXAGE(candidate_lsa)) {
+		zlog_debug("%s: max age", __func__);
+		return;
+	}
+
+	w = ospf6_vertex_create(candidate_lsa);
+	w->area = area;
+	w->parent = vertex;
+	w->cost = vertex->cost;
+	w->hops = vertex->hops + 1;
+
+	/* nexthop calculation */
+	if (w->hops == 1 && vertex->hops == 0) {
+		ifindex = ospf6_spf_get_ifindex_from_nh(vertex);
+		nexthop_calc(w, vertex, ifindex, adv_router, 0);
+	} else {
+		ospf6_copy_nexthops(w->nh_list, vertex->nh_list);
+	}
+
+	/* add new candidate to the candidate_list */
+	if (IS_OSPF6_DEBUG_SPF(PROCESS))
+		zlog_debug("  New candidate: %s hops %d cost %d", w->name, w->hops, w->cost);
+	vertex_pqueue_add(candidate_list, w);
+}
+
+struct cbd_spf_calc {
+	struct ospf6_vertex *v;
+	struct ospf6_area *oa;
+	struct vertex_pqueue_head *candidate_list;
+};
+
+static int cb_spf_calc_lsdesc(void *desc, void *cb_data)
 {
 	struct ospf6_lsdesc *lsdesc = desc;
 	struct cbd_spf_calc *cbd = cb_data;
 
-	return calc_nexthop_candidates(lsdesc, cbd);
+	/*
+	 * cbd->v vertex type is Router or Network and
+	 * LSA is type Router or Network,
+	 * LSA is not E-Router or E-Network.
+	 */
+
+	calc_nexthop_candidates(lsdesc, cbd->v, cbd->oa, cbd->candidate_list);
+	return 0;
 }
 
 static int cb_spf_calc_tlv_router_link(void *desc, void *cb_data)
@@ -618,24 +745,73 @@ static int cb_spf_calc_tlv_router_link(void *desc, void *cb_data)
 
 	struct ospf6_lsdesc *lsdesc = (struct ospf6_lsdesc *)&tlv->type;
 
-	return calc_nexthop_candidates(lsdesc, cbd);
+	assert(VERTEX_IS_TYPE(ROUTER, cbd->v));
+	assert(OSPF6_LSA_IS_TYPE(E_ROUTER, cbd->v->lsa));
+
+	calc_nexthop_candidates(lsdesc, cbd->v, cbd->oa, cbd->candidate_list);
+	return 0;
+}
+
+/*
+ * Attached Routers TLV defines all routers attached to a multi-access network.
+ * Only applicable to the E-Network LSA. Fields correspond to Network LSA.
+ * E-Network LSA contains One TLV, which contains all adjacent neighbors.
+ * Since the number of adjacent neighbors is variable, the TLV can never have
+ * any sub-TLVs.
+ */
+static int cb_spf_calc_tlv_attached_routers(void *desc, void *cb_data)
+{
+	struct tlv_attached_routers *tlv = desc;
+	struct cbd_spf_calc *cbd = cb_data;
+	struct ospf6_lsa *candidate_lsa;
+	struct ospf6_vertex *vertex = cbd->v;
+	struct ospf6_area *area = vertex->area;
+	struct ospf6_lsdb *lsdb = area->lsdb;
+	in_addr_t *ar = tlv->router_id;
+	char *lsa_end = ospf6_lsa_end(vertex->lsa->header);
+
+	assert(VERTEX_IS_TYPE(NETWORK, cbd->v));
+	assert(OSPF6_LSA_IS_TYPE(E_NETWORK, cbd->v->lsa));
+
+	/* Find the Router LSA for each Neighbor and add it as a candidate vertex. */
+	while ((char *)(ar + 1) <= lsa_end) {
+		candidate_lsa = ospf6_lsdb_lookup(htons(OSPF6_LSTYPE_E_ROUTER), 0, *ar, lsdb);
+		if (candidate_lsa)
+			add_candidate_router_vertex(area, vertex, cbd->candidate_list,
+						    candidate_lsa, *ar);
+
+		if (IS_OSPF6_DEBUG_SPF(PROCESS)) {
+			if (candidate_lsa) {
+				zlog_debug("  Link to: %s len %u, V %s", candidate_lsa->name,
+					   ospf6_lsa_size(candidate_lsa->header), vertex->name);
+			} else {
+				char abuf[16];
+				inet_ntop(AF_INET, ar, abuf, sizeof(abuf));
+				zlog_debug("  Link to: [%s Id:0 Adv:%s] No LSA , V %s", "E-Network",
+					   abuf, vertex->name);
+			}
+		}
+
+		ar++;
+	}
+
+	return 0; /* SUCCESS */
 }
 
 /* RFC2328 16.1.  Calculating the shortest-path tree for an area */
 /* RFC2740 3.8.1.  Calculating the shortest path tree for an area */
-void ospf6_spf_calculation(uint32_t router_id,
-			   struct ospf6_route_table *result_table,
+void ospf6_spf_calculation(uint32_t router_id, struct ospf6_route_table *result_table,
 			   struct ospf6_area *oa)
 {
 	struct vertex_pqueue_head candidate_list;
 	struct ospf6_vertex *root, *v;
 	struct ospf6_lsa *lsa;
 	struct in6_addr address;
-	struct cbd_spf_calc cbd = { .oa = oa,
-				    .candidate_list_ptr = &candidate_list };
+	struct cbd_spf_calc cbd = { .oa = oa, .candidate_list = &candidate_list };
 	static const struct tlv_handler handlers[] = {
-		{ OSPF6_TLV_RESERVED, cb_spf_calc, 0 },
+		{ OSPF6_TLV_RESERVED, cb_spf_calc_lsdesc, 0 },
 		{ OSPF6_TLV_ROUTER_LINK, cb_spf_calc_tlv_router_link, 0 },
+		{ OSPF6_TLV_ATTACHED_ROUTERS, cb_spf_calc_tlv_attached_routers, 0 },
 		{ 0 }
 	};
 
@@ -669,8 +845,7 @@ void ospf6_spf_calculation(uint32_t router_id,
 			continue;
 
 		/* Skip overloaded routers */
-		if ((OSPF6_LSA_IS_TYPE(ROUTER, v->lsa) &&
-		     ospf6_router_is_stub_router(v->lsa)))
+		if ((OSPF6_LSA_IS_TYPE(ROUTER, v->lsa) && ospf6_router_is_stub_router(v->lsa)))
 			continue;
 
 		/*
