@@ -72,6 +72,12 @@ class PathAttribute:
         if path_attr_cls == cls.UNKNOWN_ATTR:
             return data[offset + attr_len :], None
 
+        # RFC1771, 4.3 UPDATE Message Format
+        # The path segment length is a 1-octet long field containing
+        # the number of ASs in the path segment value field.
+        if type_code == PATH_ATTR_TYPE_AS_PATH and attr_len == 0:
+            return data[offset:], path_attr_cls.dissect(data[offset : offset + 2])
+
         return data[offset + attr_len :], path_attr_cls.dissect(
             data[offset : offset + attr_len]
         )
