@@ -11789,7 +11789,7 @@ void route_vty_out_detail_header(struct vty *vty, struct bgp *bgp,
 
 	mpls_lse_decode(dest->local_label, &label, &ttl, &exp, &bos);
 
-	has_valid_label = bgp_is_valid_label(&label);
+	has_valid_label = bgp_is_valid_label(&dest->local_label);
 
 	if (safi == SAFI_EVPN) {
 		if (!json) {
