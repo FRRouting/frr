@@ -3051,10 +3051,13 @@ static int bmp_route_update(struct bgp *bgp, afi_t afi, safi_t safi,
 		return 0;
 	}
 
-	struct bmp_bgp *bmpbgp = bmp_bgp_get(bgp);
+	struct bmp_bgp *bmpbgp = bmp_bgp_find(bgp);
 	struct peer *peer = updated_route->peer;
 	struct bmp_targets *bt;
 	struct bmp *bmp;
+
+	if (!bmpbgp)
+		return 0;
 
 	frr_each (bmp_targets, &bmpbgp->targets, bt) {
 		if (CHECK_FLAG(bt->afimon[afi][safi], BMP_MON_LOC_RIB)) {
