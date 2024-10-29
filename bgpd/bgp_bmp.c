@@ -2009,7 +2009,8 @@ static void bmp_bgp_peer_vrf(struct bmp_bgp_peer *bbpeer, struct bgp *bgp)
 	memcpy(bbpeer->open_rx, s->data, open_len);
 
 	bbpeer->open_tx_len = open_len;
-	bbpeer->open_tx = bbpeer->open_rx;
+	bbpeer->open_tx = XMALLOC(MTYPE_BMP_OPEN, open_len);
+	memcpy(bbpeer->open_tx, s->data, open_len);
 
 	stream_free(s);
 }
