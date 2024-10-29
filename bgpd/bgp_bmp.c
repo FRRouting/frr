@@ -2988,8 +2988,7 @@ static int bmp_config_write(struct bgp *bgp, struct vty *vty)
 					afi2str_lower(afi), safi2str(safi));
 		}
 		frr_each (bmp_listeners, &bt->listeners, bl)
-			vty_out(vty, " \n  bmp listener %pSU port %d\n",
-				&bl->addr, bl->port);
+			vty_out(vty, "   bmp listener %pSU port %d\n", &bl->addr, bl->port);
 
 		frr_each (bmp_actives, &bt->actives, ba) {
 			vty_out(vty, "  bmp connect %s port %u min-retry %u max-retry %u",
