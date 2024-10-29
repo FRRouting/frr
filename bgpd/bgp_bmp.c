@@ -1755,6 +1755,17 @@ static void bmp_stats(struct event *thread)
 	}
 }
 
+static void bmp_mirror_limit_set_default(struct bgp *bgp)
+{
+	struct bmp_bgp *bmpbgp = bmp_bgp_find(bgp);
+
+	if (bmpbgp == NULL)
+		return;
+	if (bmpbgp->mirror_qsizelimit == ~0UL)
+		return;
+	bmpbgp->mirror_qsizelimit = ~0UL;
+}
+
 /* read from the BMP socket to detect session termination */
 static void bmp_read(struct event *t)
 {
@@ -2763,9 +2774,15 @@ DEFPY(bmp_mirror_limit_cfg,
       "Limit in bytes\n")
 {
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
-	struct bmp_bgp *bmpbgp;
+	struct bmp_bgp *bmpbgp = bmp_bgp_find(bgp);
 
-	bmpbgp = bmp_bgp_get(bgp);
+	if (buffer_limit == 0 && bmpbgp == NULL)
+		return CMD_SUCCESS;
+	if (bmpbgp && bmpbgp->mirror_qsizelimit == (size_t)buffer_limit)
+		return CMD_SUCCESS;
+	if (bmpbgp == NULL)
+		bmpbgp = bmp_bgp_get(bgp);
+
 	bmpbgp->mirror_qsizelimit = buffer_limit;
 
 	return CMD_SUCCESS;
@@ -2781,11 +2798,8 @@ DEFPY(no_bmp_mirror_limit_cfg,
       "Limit in bytes\n")
 {
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
-	struct bmp_bgp *bmpbgp;
 
-	bmpbgp = bmp_bgp_get(bgp);
-	bmpbgp->mirror_qsizelimit = ~0UL;
-
+	bmp_mirror_limit_set_default(bgp);
 	return CMD_SUCCESS;
 }
 
