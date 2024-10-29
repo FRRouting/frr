@@ -1421,6 +1421,7 @@ void evaluate_paths(struct bgp_nexthop_cache *bnc)
 					vpn_leak_from_vrf_withdraw(
 						bgp_get_default(), bgp_path,
 						path);
+				bgp_process_hook(bgp_path, path->peer, dest, afi, safi);
 			} else {
 				/* Path becomes valid, set flag; also for EVPN
 				 * routes, import from VRFs if needed.
@@ -1439,6 +1440,8 @@ void evaluate_paths(struct bgp_nexthop_cache *bnc)
 					vpn_leak_from_vrf_update(
 						bgp_get_default(), bgp_path,
 						path);
+
+				bgp_process_hook(bgp_path, path->peer, dest, afi, safi);
 			}
 		}
 

@@ -4182,6 +4182,12 @@ static void bgp_process_internal(struct bgp *bgp, struct bgp_dest *dest,
 	return;
 }
 
+void bgp_process_hook(struct bgp *bgp, struct peer *peer, struct bgp_dest *dest, afi_t afi,
+		      safi_t safi)
+{
+	hook_call(bgp_process, bgp, afi, safi, dest, peer, true);
+}
+
 void bgp_process(struct bgp *bgp, struct bgp_dest *dest,
 		 struct bgp_path_info *pi, afi_t afi, safi_t safi)
 {
@@ -4384,7 +4390,7 @@ void bgp_rib_remove(struct bgp_dest *dest, struct bgp_path_info *pi,
 		}
 	}
 
-	hook_call(bgp_process, peer->bgp, afi, safi, dest, peer, true);
+	bgp_process_hook(bgp, peer, dest, afi, safi);
 	bgp_process(peer->bgp, dest, pi, afi, safi);
 }
 
