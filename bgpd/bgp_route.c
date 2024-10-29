@@ -3198,15 +3198,23 @@ void bgp_best_selection(struct bgp *bgp, struct bgp_dest *dest,
 			struct bgp_path_info *end =
 				bgp_dest_get_bgp_path_info(dest);
 
-			for (; end && end->next != NULL; end = end->next)
-				;
+			if (end && any_comparisons) {
+				for (; end && end->next != NULL; end = end->next)
+					;
 
-			if (end)
-				end->next = first;
-			else
+				if (end)
+					end->next = first;
+				else
+					bgp_dest_set_bgp_path_info(dest, first);
+				first->prev = end;
+				first->next = NULL;
+			} else {
 				bgp_dest_set_bgp_path_info(dest, first);
-			first->prev = end;
-			first->next = NULL;
+				if (end)
+					end->prev = first;
+				first->next = end;
+				first->prev = NULL;
+			}
 
 			dest->reason = first->reason;
 		} else {
