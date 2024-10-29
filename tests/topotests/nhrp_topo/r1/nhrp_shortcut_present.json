@@ -1,0 +1,14 @@
+{
+  "attr":{
+    "entriesCount":1
+  },
+  "table":[
+    {
+      "type":"dynamic",
+      "prefix":"192.168.4.0\/24",
+      "via":"10.255.255.4",
+      "identity":""
+    }
+  ]
+}
+
