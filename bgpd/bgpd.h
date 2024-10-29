@@ -155,6 +155,7 @@ struct bgp_master {
 	uint32_t flags;
 #define BM_FLAG_GRACEFUL_SHUTDOWN        (1 << 0)
 #define BM_FLAG_SEND_EXTRA_DATA_TO_ZEBRA (1 << 1)
+#define BM_FLAG_IPV6_NO_AUTO_RA		 (1 << 8)
 
 	bool terminating;	/* global flag that sigint terminate seen */
 
@@ -514,6 +515,8 @@ struct bgp {
 /* For BGP-LU, force IPv6 local prefixes to use ipv6-explicit-null label */
 #define BGP_FLAG_LU_IPV6_EXPLICIT_NULL (1ULL << 34)
 #define BGP_FLAG_SOFT_VERSION_CAPABILITY (1ULL << 35)
+/* Prohibit BGP from enabling IPv6 RA on interfaces */
+#define BGP_FLAG_IPV6_NO_AUTO_RA (1ULL << 40)
 
 	/* BGP default address-families.
 	 * New peers inherit enabled afi/safis from bgp instance.
