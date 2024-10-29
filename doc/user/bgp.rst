@@ -148,15 +148,15 @@ bottom until one of the factors can be used.
 
    Prefer higher local preference routes to lower.
 
+3. **Local route check**
+
+   Prefer local routes (statics, aggregates, redistributed) to received routes.
+
    If ``bgp bestpath aigp`` is enabled, and both paths that are compared have
    AIGP attribute, BGP uses AIGP tie-breaking unless both of the paths have the
    AIGP metric attribute. This means that the AIGP attribute is not evaluated
    during the best path selection process between two paths when one path does
    not have the AIGP attribute.
-
-3. **Local route check**
-
-   Prefer local routes (statics, aggregates, redistributed) to received routes.
 
 4. **AS path length check**
 
