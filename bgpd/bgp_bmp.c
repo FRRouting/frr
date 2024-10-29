@@ -28,6 +28,7 @@
 #include "bgpd/bgp_table.h"
 #include "bgpd/bgpd.h"
 #include "bgpd/bgp_route.h"
+#include "bgpd/bgp_nht.h"
 #include "bgpd/bgp_attr.h"
 #include "bgpd/bgp_dump.h"
 #include "bgpd/bgp_errors.h"
@@ -1679,6 +1680,26 @@ static int bmp_process(struct bgp *bgp, afi_t afi, safi_t safi,
 	return 0;
 }
 
+static int bmp_nht_path_valid(struct bgp *bgp, struct bgp_path_info *path, bool valid)
+{
+	struct bgp_dest *dest = path->net;
+	struct bgp_table *table;
+
+	if (frrtrace_enabled(frr_bgp, bmp_nht_path_valid)) {
+		char pfxprint[PREFIX2STR_BUFFER];
+
+		prefix2str(&dest->rn->p, pfxprint, sizeof(pfxprint));
+		frrtrace(4, frr_bgp, bmp_nht_path_valid, bgp, pfxprint, path, valid);
+	}
+	if (bgp->peer_self == path->peer)
+		/* self declared networks or redistributed networks are not relevant for bmp */
+		return 0;
+
+	table = bgp_dest_table(dest);
+
+	return bmp_process(bgp, table->afi, table->safi, dest, path->peer, !valid);
+}
+
 static void bmp_stat_put_u32(struct stream *s, size_t *cnt, uint16_t type,
 		uint32_t value)
 {
@@ -3156,6 +3177,7 @@ static int bgp_bmp_module_init(void)
 	hook_register(peer_status_changed, bmp_peer_status_changed);
 	hook_register(peer_backward_transition, bmp_peer_backward);
 	hook_register(bgp_process, bmp_process);
+	hook_register(bgp_nht_path_update, bmp_nht_path_valid);
 	hook_register(bgp_inst_config_write, bmp_config_write);
 	hook_register(bgp_inst_delete, bmp_bgp_del);
 	hook_register(frr_late_init, bgp_bmp_init);
