@@ -1,0 +1,27 @@
+{
+    "routes": {
+        "2111::1111/128": [
+            {
+                "bestpath": true,
+                "pathFrom": "external",
+                "path": "65502",
+                "origin": "IGP",
+                "nexthops": [
+                    {
+                        "ip": "192:168::2",
+                        "hostname": "r2",
+                        "afi": "ipv6",
+                        "scope": "global"
+                    },
+                    {
+                        "hostname": "r2",
+                        "afi": "ipv6",
+                        "scope": "link-local",
+                        "used": true
+                    }
+                ]
+            }
+        ]
+    }
+}
+

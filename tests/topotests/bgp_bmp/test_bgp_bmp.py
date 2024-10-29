@@ -50,6 +50,9 @@ PRE_POLICY = "pre-policy"
 POST_POLICY = "post-policy"
 LOC_RIB = "loc-rib"
 
+UPDATE_EXPECTED_JSON = False
+DEBUG_PCAP = False
+
 
 def build_topo(tgen):
     tgen.add_router("r1")
@@ -66,6 +69,12 @@ def build_topo(tgen):
 def setup_module(mod):
     tgen = Topogen(build_topo, mod.__name__)
     tgen.start_topology()
+
+    if DEBUG_PCAP:
+        tgen.gears["r1"].run("rm /tmp/bmp.pcap")
+        tgen.gears["r1"].run(
+            "tcpdump -nni r1-eth0 -s 0 -w /tmp/bmp.pcap &", stdout=None
+        )
 
     for rname, router in tgen.routers().items():
         router.load_config(
@@ -122,42 +131,181 @@ def get_bmp_messages():
     return messages
 
 
-def check_for_prefixes(expected_prefixes, bmp_log_type, policy, labels=None):
+def update_seq():
+    global SEQ
+
+    messages = get_bmp_messages()
+
+    if len(messages):
+        SEQ = messages[-1]["seq"]
+
+
+def update_expected_files(bmp_actual, expected_prefixes, bmp_log_type, policy, step):
+    tgen = get_topogen()
+
+    with open(f"/tmp/bmp-{bmp_log_type}-{policy}-step{step}.json", "w") as json_file:
+        json.dump(bmp_actual, json_file, indent=4)
+
+    if step == 2:  # vpn
+        rd = "444:2"
+        out = tgen.gears["r1"].vtysh_cmd("show bgp ipv4 vpn json", isjson=True)
+        filtered_out = {
+            "routes": {
+                "routeDistinguishers": {
+                    rd: {
+                        prefix: route_info
+                        for prefix, route_info in out["routes"]
+                        .get("routeDistinguishers", {})
+                        .get(rd, {})
+                        .items()
+                        if prefix in expected_prefixes
+                    }
+                }
+            }
+        }
+        if bmp_log_type == "withdraw":
+            for pfx in expected_prefixes:
+                if "::" in pfx:
+                    continue
+                filtered_out["routes"]["routeDistinguishers"][rd][pfx] = None
+
+        # ls /tmp/show*json | while read file; do egrep -v 'prefix|network|metric|ocPrf|version|weight|peerId|vrf|Version|valid|Reason|fe80' $file >$(basename $file); echo >> $(basename $file); done
+        with open(
+            f"/tmp/show-bgp-ipv4-{bmp_log_type}-step{step}.json", "w"
+        ) as json_file:
+            json.dump(filtered_out, json_file, indent=4)
+
+        rd = "555:2"
+        out = tgen.gears["r1"].vtysh_cmd("show bgp ipv6 vpn json", isjson=True)
+        filtered_out = {
+            "routes": {
+                "routeDistinguishers": {
+                    rd: {
+                        prefix: route_info
+                        for prefix, route_info in out["routes"]
+                        .get("routeDistinguishers", {})
+                        .get(rd, {})
+                        .items()
+                        if prefix in expected_prefixes
+                    }
+                }
+            }
+        }
+        if bmp_log_type == "withdraw":
+            for pfx in expected_prefixes:
+                if "::" not in pfx:
+                    continue
+                filtered_out["routes"]["routeDistinguishers"][rd][pfx] = None
+        with open(
+            f"/tmp/show-bgp-ipv6-{bmp_log_type}-step{step}.json", "w"
+        ) as json_file:
+            json.dump(filtered_out, json_file, indent=4)
+
+        return
+
+    out = tgen.gears["r1"].vtysh_cmd("show bgp ipv4 json", isjson=True)
+    filtered_out = {
+        "routes": {
+            prefix: route_info
+            for prefix, route_info in out["routes"].items()
+            if prefix in expected_prefixes
+        }
+    }
+    if bmp_log_type == "withdraw":
+        for pfx in expected_prefixes:
+            if "::" in pfx:
+                continue
+            filtered_out["routes"][pfx] = None
+
+    # ls /tmp/show*json | while read file; do egrep -v 'prefix|network|metric|ocPrf|version|weight|peerId|vrf|Version|valid|Reason|fe80' $file >$(basename $file); echo >> $(basename $file); done
+    with open(f"/tmp/show-bgp-ipv4-{bmp_log_type}-step{step}.json", "w") as json_file:
+        json.dump(filtered_out, json_file, indent=4)
+
+    out = tgen.gears["r1"].vtysh_cmd("show bgp ipv6 json", isjson=True)
+    filtered_out = {
+        "routes": {
+            prefix: route_info
+            for prefix, route_info in out["routes"].items()
+            if prefix in expected_prefixes
+        }
+    }
+    if bmp_log_type == "withdraw":
+        for pfx in expected_prefixes:
+            if "::" not in pfx:
+                continue
+            filtered_out["routes"][pfx] = None
+    with open(f"/tmp/show-bgp-ipv6-{bmp_log_type}-step{step}.json", "w") as json_file:
+        json.dump(filtered_out, json_file, indent=4)
+
+
+def check_for_prefixes(expected_prefixes, bmp_log_type, policy, step):
     """
     Check for the presence of the given prefixes in the BMP server logs with
     the given message type and the set policy.
+
     """
     global SEQ
+
     # we care only about the new messages
     messages = [
         m for m in sorted(get_bmp_messages(), key=lambda d: d["seq"]) if m["seq"] > SEQ
     ]
 
-    # get the list of pairs (prefix, policy, seq) for the given message type
-    prefixes = [
-        m["ip_prefix"]
-        for m in messages
-        if "ip_prefix" in m.keys()
-        and "bmp_log_type" in m.keys()
-        and m["bmp_log_type"] == bmp_log_type
-        and m["policy"] == policy
-        and (
-            labels is None
-            or (
-                m["ip_prefix"] in labels.keys() and m["label"] == labels[m["ip_prefix"]]
-            )
-        )
-    ]
+    # create empty initial files
+    # for step in $(seq 2); do
+    #     for i in "update" "withdraw"; do
+    #         for j in "pre-policy" "post-policy" "loc-rib"; do
+    #             echo '{"null": {}}'> bmp-$i-$j-step$step.json
+    #         done
+    #     done
+    # done
 
-    # check for prefixes
-    for ep in expected_prefixes:
-        if ep not in prefixes:
-            msg = "The prefix {} is not present in the {} log messages."
-            logger.debug(msg.format(ep, bmp_log_type))
-            return False
+    ref_file = f"{CWD}/bmp1/bmp-{bmp_log_type}-{policy}-step{step}.json"
+    expected = json.loads(open(ref_file).read())
 
-    SEQ = messages[-1]["seq"]
-    return True
+    # Build actual json from logs
+    actual = {}
+    for m in messages:
+        if (
+            "bmp_log_type" in m.keys()
+            and "ip_prefix" in m.keys()
+            and m["ip_prefix"] in expected_prefixes
+            and m["bmp_log_type"] == bmp_log_type
+            and m["policy"] == policy
+        ):
+            policy_dict = actual.setdefault(m["policy"], {})
+            bmp_log_type_dict = policy_dict.setdefault(m["bmp_log_type"], {})
+
+            # Add or update the ip_prefix dictionary with filtered key-value pairs
+            bmp_log_type_dict[m["ip_prefix"]] = {
+                k: v
+                for k, v in sorted(m.items())
+                # filter out variable keys
+                if k not in ["timestamp", "seq", "nxhp_link-local"]
+                and (
+                    # When policy is loc-rib, the peer-distinguisher is 0:0
+                    # for the default VRF or the RD if any or the 0:<vrf_id>.
+                    # 0:<vrf_id> is used to distinguished. RFC7854 says: "If the
+                    # peer is a "Local Instance Peer", it is set to a unique,
+                    # locally defined value." The value is not tested because it
+                    # is variable.
+                    k != "peer_distinguisher"
+                    or policy != LOC_RIB
+                    or v == "0:0"
+                    or not v.startswith("0:")
+                )
+            }
+
+    # build expected JSON files
+    if (
+        UPDATE_EXPECTED_JSON
+        and actual
+        and set(actual.get(policy, {}).get(bmp_log_type, {}).keys())
+        == set(expected_prefixes)
+    ):
+        update_expected_files(actual, expected_prefixes, bmp_log_type, policy, step)
+
+    return topotest.json_cmp(actual, expected, exact=True)
 
 
 def check_for_peer_message(expected_peers, bmp_log_type):
@@ -188,22 +336,6 @@ def check_for_peer_message(expected_peers, bmp_log_type):
     return True
 
 
-def set_bmp_policy(tgen, node, asn, target, safi, policy, vrf=None):
-    """
-    Configure the bmp policy.
-    """
-    vrf = " vrf {}" if vrf else ""
-    cmd = [
-        "con t\n",
-        "router bgp {}{}\n".format(asn, vrf),
-        "bmp targets {}\n".format(target),
-        "bmp monitor ipv4 {} {}\n".format(safi, policy),
-        "bmp monitor ipv6 {} {}\n".format(safi, policy),
-        "end\n",
-    ]
-    tgen.gears[node].vtysh_cmd("".join(cmd))
-
-
 def configure_prefixes(tgen, node, asn, safi, prefixes, vrf=None, update=True):
     """
     Configure the bgp prefixes.
@@ -223,67 +355,49 @@ def configure_prefixes(tgen, node, asn, safi, prefixes, vrf=None, update=True):
         tgen.gears[node].vtysh_cmd("".join(cmd))
 
 
-def unicast_prefixes(policy):
+def _test_prefixes(policy, vrf=None, step=0):
     """
     Setup the BMP  monitor policy, Add and withdraw ipv4/v6 prefixes.
     Check if the previous actions are logged in the BMP server with the right
     message type and the right policy.
     """
     tgen = get_topogen()
-    set_bmp_policy(tgen, "r1", 65501, "bmp1", "unicast", policy)
 
-    prefixes = ["172.31.0.15/32", "2111::1111/128"]
-    # add prefixes
-    configure_prefixes(tgen, "r2", 65502, "unicast", prefixes)
+    safi = "vpn" if vrf else "unicast"
 
-    logger.info("checking for updated prefixes")
-    # check
-    test_func = partial(check_for_prefixes, prefixes, "update", policy)
-    success, _ = topotest.run_and_expect(test_func, True, wait=0.5)
-    assert success, "Checking the updated prefixes has been failed !."
+    prefixes = ["172.31.0.15/32", "2001::1111/128"]
 
-    # withdraw prefixes
-    configure_prefixes(tgen, "r2", 65502, "unicast", prefixes, update=False)
-    logger.info("checking for withdrawed prefxies")
-    # check
-    test_func = partial(check_for_prefixes, prefixes, "withdraw", policy)
-    success, _ = topotest.run_and_expect(test_func, True, wait=0.5)
-    assert success, "Checking the withdrawed prefixes has been failed !."
+    for type in ("update", "withdraw"):
+        update_seq()
 
+        configure_prefixes(
+            tgen, "r2", 65502, "unicast", prefixes, vrf=vrf, update=(type == "update")
+        )
 
-def vpn_prefixes(policy):
-    """
-    Setup the BMP  monitor policy, Add and withdraw ipv4/v6 prefixes.
-    Check if the previous actions are logged in the BMP server with the right
-    message type and the right policy.
-    """
-    tgen = get_topogen()
-    set_bmp_policy(tgen, "r1", 65501, "bmp1", "vpn", policy)
+        logger.info(f"checking for prefixes {type}")
 
-    prefixes = ["172.31.10.1/32", "2001::2222/128"]
+        for ipver in [4, 6]:
+            if UPDATE_EXPECTED_JSON:
+                continue
+            ref_file = "{}/r1/show-bgp-ipv{}-{}-step{}.json".format(
+                CWD, ipver, type, step
+            )
+            expected = json.loads(open(ref_file).read())
 
-    # "label vpn export" value in r2/bgpd.conf
-    labels = {
-        "172.31.10.1/32": 102,
-        "2001::2222/128": 105,
-    }
+            test_func = partial(
+                topotest.router_json_cmp,
+                tgen.gears["r1"],
+                f"show bgp ipv{ipver} {safi} json",
+                expected,
+            )
+            _, res = topotest.run_and_expect(test_func, None, count=30, wait=1)
+            assertmsg = f"r1: BGP IPv{ipver} convergence failed"
+            assert res is None, assertmsg
 
-    # add prefixes
-    configure_prefixes(tgen, "r2", 65502, "unicast", prefixes, vrf="vrf1")
-
-    logger.info("checking for updated prefixes")
-    # check
-    test_func = partial(check_for_prefixes, prefixes, "update", policy, labels=labels)
-    success, _ = topotest.run_and_expect(test_func, True, wait=0.5)
-    assert success, "Checking the updated prefixes has been failed !."
-
-    # withdraw prefixes
-    configure_prefixes(tgen, "r2", 65502, "unicast", prefixes, vrf="vrf1", update=False)
-    logger.info("checking for withdrawed prefixes")
-    # check
-    test_func = partial(check_for_prefixes, prefixes, "withdraw", policy)
-    success, _ = topotest.run_and_expect(test_func, True, wait=0.5)
-    assert success, "Checking the withdrawed prefixes has been failed !."
+        # check
+        test_func = partial(check_for_prefixes, prefixes, type, policy, step)
+        success, res = topotest.run_and_expect(test_func, None, count=30, wait=1)
+        assert success, "Checking the updated prefixes has failed ! %s" % res
 
 
 def test_bmp_server_logging():
@@ -300,7 +414,7 @@ def test_bmp_server_logging():
             return False
         return True
 
-    success, _ = topotest.run_and_expect(check_for_log_file, True, wait=0.5)
+    success, _ = topotest.run_and_expect(check_for_log_file, True, count=30, wait=1)
     assert success, "The BMP server is not logging"
 
 
@@ -314,7 +428,7 @@ def test_peer_up():
     logger.info("checking for BMP peers up messages")
 
     test_func = partial(check_for_peer_message, peers, "peer up")
-    success, _ = topotest.run_and_expect(test_func, True, wait=0.5)
+    success, _ = topotest.run_and_expect(test_func, True, count=30, wait=1)
     assert success, "Checking the updated prefixes has been failed !."
 
 
@@ -323,21 +437,21 @@ def test_bmp_bgp_unicast():
     Add/withdraw bgp unicast prefixes and check the bmp logs.
     """
     logger.info("*** Unicast prefixes pre-policy logging ***")
-    unicast_prefixes(PRE_POLICY)
+    _test_prefixes(PRE_POLICY, step=1)
     logger.info("*** Unicast prefixes post-policy logging ***")
-    unicast_prefixes(POST_POLICY)
+    _test_prefixes(POST_POLICY, step=1)
     logger.info("*** Unicast prefixes loc-rib logging ***")
-    unicast_prefixes(LOC_RIB)
+    _test_prefixes(LOC_RIB, step=1)
 
 
 def test_bmp_bgp_vpn():
     # check for the prefixes in the BMP server logging file
     logger.info("***** VPN prefixes pre-policy logging *****")
-    vpn_prefixes(PRE_POLICY)
+    _test_prefixes(PRE_POLICY, vrf="vrf1", step=2)
     logger.info("***** VPN prefixes post-policy logging *****")
-    vpn_prefixes(POST_POLICY)
+    _test_prefixes(POST_POLICY, vrf="vrf1", step=2)
     logger.info("***** VPN prefixes loc-rib logging *****")
-    vpn_prefixes(LOC_RIB)
+    _test_prefixes(LOC_RIB, vrf="vrf1", step=2)
 
 
 def test_peer_down():
@@ -353,7 +467,7 @@ def test_peer_down():
     logger.info("checking for BMP peers down messages")
 
     test_func = partial(check_for_peer_message, peers, "peer down")
-    success, _ = topotest.run_and_expect(test_func, True, wait=0.5)
+    success, _ = topotest.run_and_expect(test_func, True, count=30, wait=1)
     assert success, "Checking the updated prefixes has been failed !."
 
 
