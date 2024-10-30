@@ -49,6 +49,7 @@ static struct bmp_bgp_peer *bmp_bgp_peer_find(uint64_t peerid);
 static struct bmp_bgp_peer *bmp_bgp_peer_get(struct peer *peer);
 static void bmp_active_disconnected(struct bmp_active *ba);
 static void bmp_active_put(struct bmp_active *ba);
+static void bmp_bgp_put(struct bmp_bgp *bmpbgp);
 
 DEFINE_MGROUP(BMP, "BMP (BGP Monitoring Protocol)");
 
@@ -1764,6 +1765,7 @@ static void bmp_mirror_limit_set_default(struct bgp *bgp)
 	if (bmpbgp->mirror_qsizelimit == ~0UL)
 		return;
 	bmpbgp->mirror_qsizelimit = ~0UL;
+	bmp_bgp_put(bmpbgp);
 }
 
 /* read from the BMP socket to detect session termination */
@@ -1927,10 +1929,13 @@ static struct bmp_bgp *bmp_bgp_get(struct bgp *bgp)
 	struct bmp_bgp *bmpbgp;
 
 	bmpbgp = bmp_bgp_find(bgp);
-	if (bmpbgp)
+	if (bmpbgp) {
+		bmpbgp->refcount++;
 		return bmpbgp;
+	}
 
 	bmpbgp = XCALLOC(MTYPE_BMP, sizeof(*bmpbgp));
+	bmpbgp->refcount++;
 	bmpbgp->bgp = bgp;
 	bmpbgp->vrf_state = vrf_state_unknown;
 	bmpbgp->mirror_qsizelimit = ~0UL;
@@ -1942,10 +1947,29 @@ static struct bmp_bgp *bmp_bgp_get(struct bgp *bgp)
 
 static void bmp_bgp_put(struct bmp_bgp *bmpbgp)
 {
+	if (--bmpbgp->refcount)
+		return;
+
+	bmp_mirrorq_fini(&bmpbgp->mirrorq);
+
+	bmp_bgph_del(&bmp_bgph, bmpbgp);
+
+	XFREE(MTYPE_BMP, bmpbgp);
+}
+/* free the bgpbmp structure after dereferencing
+ * each usage: mirror_limit, bmp_targets
+ */
+static int bmp_bgp_del(struct bgp *bgp)
+{
+	struct bmp_bgp *bmpbgp;
 	struct bmp_targets *bt;
 	struct bmp_listener *bl;
 
-	bmp_bgph_del(&bmp_bgph, bmpbgp);
+	bmp_mirror_limit_set_default(bgp);
+
+	bmpbgp = bmp_bgp_find(bgp);
+	if (!bmpbgp)
+		return 0;
 
 	frr_each_safe (bmp_targets, &bmpbgp->targets, bt) {
 		frr_each_safe (bmp_listeners, &bt->listeners, bl)
@@ -1954,16 +1978,9 @@ static void bmp_bgp_put(struct bmp_bgp *bmpbgp)
 		bmp_targets_put(bt);
 	}
 
-	bmp_mirrorq_fini(&bmpbgp->mirrorq);
-	XFREE(MTYPE_BMP, bmpbgp);
-}
+	/* free the bgpbmp structure */
+	bmp_bgp_put(bmpbgp);
 
-static int bmp_bgp_del(struct bgp *bgp)
-{
-	struct bmp_bgp *bmpbgp = bmp_bgp_find(bgp);
-
-	if (bmpbgp)
-		bmp_bgp_put(bmpbgp);
 	return 0;
 }
 
@@ -2130,6 +2147,8 @@ static void bmp_targets_put(struct bmp_targets *bt)
 	bmp_session_fini(&bt->sessions);
 
 	XFREE(MTYPE_BMP_TARGETSNAME, bt->name);
+	bmp_bgp_put(bt->bmpbgp);
+	bt->bmpbgp = NULL;
 	XFREE(MTYPE_BMP_TARGETS, bt);
 }
 

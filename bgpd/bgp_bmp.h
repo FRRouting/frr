@@ -287,6 +287,8 @@ struct bmp_bgp {
 	size_t mirror_qsize, mirror_qsizemax;
 
 	size_t mirror_qsizelimit;
+
+	uint8_t refcount;
 };
 
 extern bool bmp_bgp_update_vrf_status(struct bmp_bgp *bmpbgp, enum bmp_vrf_state force);
