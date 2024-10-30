@@ -588,23 +588,6 @@ static void __attribute__((unused)) sockunion_print(const union sockunion *su)
 	}
 }
 
-int in6addr_cmp(const struct in6_addr *addr1, const struct in6_addr *addr2)
-{
-	unsigned int i;
-	const uint8_t *p1, *p2;
-
-	p1 = (const uint8_t *)addr1;
-	p2 = (const uint8_t *)addr2;
-
-	for (i = 0; i < sizeof(struct in6_addr); i++) {
-		if (p1[i] > p2[i])
-			return 1;
-		else if (p1[i] < p2[i])
-			return -1;
-	}
-	return 0;
-}
-
 int sockunion_cmp(const union sockunion *su1, const union sockunion *su2)
 {
 	if (su1->sa.sa_family > su2->sa.sa_family)
