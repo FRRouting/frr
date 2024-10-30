@@ -82,7 +82,7 @@ DEFPY(watch_redistribute, watch_redistribute_cmd,
 }
 
 DEFPY(watch_nexthop_v6, watch_nexthop_v6_cmd,
-      "sharp watch [vrf NAME$vrf_name] <nexthop$n X:X::X:X$nhop|import$import X:X::X:X/M$inhop>  [connected$connected]",
+      "sharp watch [vrf NAME$vrf_name] <nexthop$n X:X::X:X$nhop|import$import X:X::X:X/M$inhop>  [connected$connected] [mrib$mrib]",
       "Sharp routing Protocol\n"
       "Watch for changes\n"
       "The vrf we would like to watch if non-default\n"
@@ -91,7 +91,8 @@ DEFPY(watch_nexthop_v6, watch_nexthop_v6_cmd,
       "The v6 nexthop to signal for watching\n"
       "Watch for import check changes\n"
       "The v6 prefix to signal for watching\n"
-      "Should the route be connected\n")
+      "Should the route be connected\n"
+      "In the Multicast rib\n")
 {
 	struct vrf *vrf;
 	struct prefix p;
@@ -119,14 +120,13 @@ DEFPY(watch_nexthop_v6, watch_nexthop_v6_cmd,
 	}
 
 	sharp_nh_tracker_get(&p);
-	sharp_zebra_nexthop_watch(&p, vrf->vrf_id, type_import,
-				  true, !!connected);
+	sharp_zebra_nexthop_watch(&p, vrf->vrf_id, type_import, true, !!connected, !!mrib);
 
 	return CMD_SUCCESS;
 }
 
 DEFPY(watch_nexthop_v4, watch_nexthop_v4_cmd,
-      "sharp watch [vrf NAME$vrf_name] <nexthop$n A.B.C.D$nhop|import$import A.B.C.D/M$inhop> [connected$connected]",
+      "sharp watch [vrf NAME$vrf_name] <nexthop$n A.B.C.D$nhop|import$import A.B.C.D/M$inhop> [connected$connected] [mrib$mrib]",
       "Sharp routing Protocol\n"
       "Watch for changes\n"
       "The vrf we would like to watch if non-default\n"
@@ -135,7 +135,8 @@ DEFPY(watch_nexthop_v4, watch_nexthop_v4_cmd,
       "The v4 address to signal for watching\n"
       "Watch for import check changes\n"
       "The v4 prefix for import check to watch\n"
-      "Should the route be connected\n")
+      "Should the route be connected\n"
+      "In the Multicast rib\n")
 {
 	struct vrf *vrf;
 	struct prefix p;
@@ -164,8 +165,7 @@ DEFPY(watch_nexthop_v4, watch_nexthop_v4_cmd,
 	}
 
 	sharp_nh_tracker_get(&p);
-	sharp_zebra_nexthop_watch(&p, vrf->vrf_id, type_import,
-				  true, !!connected);
+	sharp_zebra_nexthop_watch(&p, vrf->vrf_id, type_import, true, !!connected, !!mrib);
 
 	return CMD_SUCCESS;
 }

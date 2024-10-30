@@ -637,7 +637,6 @@ int zebra_rib_labeled_unicast(struct route_entry *re)
 void rib_install_kernel(struct route_node *rn, struct route_entry *re,
 			struct route_entry *old)
 {
-	struct nexthop *nexthop;
 	struct rib_table_info *info = srcdest_rnode_table_info(rn);
 	struct zebra_vrf *zvrf = zebra_vrf_lookup_by_id(re->vrf_id);
 	const struct prefix *p, *src_p;
@@ -646,13 +645,6 @@ void rib_install_kernel(struct route_node *rn, struct route_entry *re,
 	rib_dest_t *dest = rib_dest_from_rnode(rn);
 
 	srcdest_rnode_prefixes(rn, &p, &src_p);
-
-	if (info->safi != SAFI_UNICAST) {
-		for (ALL_NEXTHOPS(re->nhe->nhg, nexthop))
-			SET_FLAG(nexthop->flags, NEXTHOP_FLAG_FIB);
-		return;
-	}
-
 
 	/*
 	 * Install the resolved nexthop object first.
@@ -720,16 +712,7 @@ void rib_install_kernel(struct route_node *rn, struct route_entry *re,
 /* Uninstall the route from kernel. */
 void rib_uninstall_kernel(struct route_node *rn, struct route_entry *re)
 {
-	struct nexthop *nexthop;
-	struct rib_table_info *info = srcdest_rnode_table_info(rn);
 	struct zebra_vrf *zvrf = zebra_vrf_lookup_by_id(re->vrf_id);
-
-	if (info->safi != SAFI_UNICAST) {
-		UNSET_FLAG(re->status, ROUTE_ENTRY_INSTALLED);
-		for (ALL_NEXTHOPS(re->nhe->nhg, nexthop))
-			UNSET_FLAG(nexthop->flags, NEXTHOP_FLAG_FIB);
-		return;
-	}
 
 	/*
 	 * Make sure we update the FPM any time we send new information to
@@ -1204,8 +1187,15 @@ static void rib_process(struct route_node *rn)
 	struct zebra_vrf *zvrf = NULL;
 	struct vrf *vrf;
 	struct route_entry *proto_re_changed = NULL;
-
 	vrf_id_t vrf_id = VRF_UNKNOWN;
+	safi_t safi = SAFI_UNICAST;
+
+	if (IS_ZEBRA_DEBUG_RIB || IS_ZEBRA_DEBUG_RIB_DETAILED) {
+		struct rib_table_info *info = srcdest_rnode_table_info(rn);
+
+		assert(info);
+		safi = info->safi;
+	}
 
 	assert(rn);
 
@@ -1231,9 +1221,8 @@ static void rib_process(struct route_node *rn)
 	if (IS_ZEBRA_DEBUG_RIB_DETAILED) {
 		struct route_entry *re = re_list_first(&dest->routes);
 
-		zlog_debug("%s(%u:%u):%pRN: Processing rn %p",
-			   VRF_LOGNAME(vrf), vrf_id, re->table, rn,
-			   rn);
+		zlog_debug("%s(%u:%u:%u):%pRN: Processing rn %p", VRF_LOGNAME(vrf), vrf_id,
+			   re->table, safi, rn, rn);
 	}
 
 	old_fib = dest->selected_fib;
@@ -1243,15 +1232,12 @@ static void rib_process(struct route_node *rn)
 			char flags_buf[128];
 			char status_buf[128];
 
-			zlog_debug(
-				"%s(%u:%u):%pRN: Examine re %p (%s) status: %sflags: %sdist %d metric %d",
-				VRF_LOGNAME(vrf), vrf_id, re->table, rn, re,
-				zebra_route_string(re->type),
-				_dump_re_status(re, status_buf,
-						sizeof(status_buf)),
-				zclient_dump_route_flags(re->flags, flags_buf,
-							 sizeof(flags_buf)),
-				re->distance, re->metric);
+			zlog_debug("%s(%u:%u:%u):%pRN: Examine re %p (%s) status: %sflags: %sdist %d metric %d",
+				   VRF_LOGNAME(vrf), vrf_id, re->table, safi, rn, re,
+				   zebra_route_string(re->type),
+				   _dump_re_status(re, status_buf, sizeof(status_buf)),
+				   zclient_dump_route_flags(re->flags, flags_buf, sizeof(flags_buf)),
+				   re->distance, re->metric);
 		}
 
 		/* Currently selected re. */
@@ -1377,11 +1363,10 @@ static void rib_process(struct route_node *rn)
 					  : old_fib ? old_fib
 						    : new_fib ? new_fib : NULL;
 
-		zlog_debug(
-			"%s(%u:%u):%pRN: After processing: old_selected %p new_selected %p old_fib %p new_fib %p",
-			VRF_LOGNAME(vrf), vrf_id, entry ? entry->table : 0, rn,
-			(void *)old_selected, (void *)new_selected,
-			(void *)old_fib, (void *)new_fib);
+		zlog_debug("%s(%u:%u:%u):%pRN: After processing: old_selected %p new_selected %p old_fib %p new_fib %p",
+			   VRF_LOGNAME(vrf), vrf_id, entry ? entry->table : 0, safi, rn,
+			   (void *)old_selected, (void *)new_selected, (void *)old_fib,
+			   (void *)new_fib);
 	}
 
 	/* Buffer ROUTE_ENTRY_CHANGED here, because it will get cleared if
