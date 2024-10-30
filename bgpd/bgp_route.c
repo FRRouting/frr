@@ -4630,7 +4630,6 @@ void bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 		struct bgp_route_evpn *evpn)
 {
 	int ret;
-	int aspath_loop_count = 0;
 	struct bgp_dest *dest;
 	struct bgp *bgp;
 	struct attr new_attr = {};
@@ -4644,7 +4643,6 @@ void bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 	afi_t nh_afi;
 	bool force_evpn_import = false;
 	safi_t orig_safi = safi;
-	int allowas_in = 0;
 	struct bgp_labels bgp_labels = {};
 	uint8_t i;
 
@@ -4695,10 +4693,6 @@ void bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 		bgp_adj_in_set(dest, peer, attr, addpath_id, &bgp_labels);
 	}
 
-	/* Update permitted loop count */
-	if (CHECK_FLAG(peer->af_flags[afi][safi], PEER_FLAG_ALLOWAS_IN))
-		allowas_in = peer->allowas_in[afi][safi];
-
 	/* Check previously received route. */
 	for (pi = bgp_dest_get_bgp_path_info(dest); pi; pi = pi->next)
 		if (pi->peer == peer && pi->type == type
@@ -4708,8 +4702,11 @@ void bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 
 	/* AS path local-as loop check. */
 	if (peer->change_local_as) {
-		if (allowas_in)
-			aspath_loop_count = allowas_in;
+		int32_t aspath_loop_count = 0;
+
+		/* Update permitted loop count */
+		if (CHECK_FLAG(peer->af_flags[afi][safi], PEER_FLAG_ALLOWAS_IN))
+			aspath_loop_count = peer->allowas_in[afi][safi];
 		else if (!CHECK_FLAG(peer->flags,
 				     PEER_FLAG_LOCAL_AS_NO_PREPEND))
 			aspath_loop_count = 1;
