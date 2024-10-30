@@ -4623,6 +4623,60 @@ static bool bgp_accept_own(struct peer *peer, afi_t afi, safi_t safi,
 	return false;
 }
 
+static inline void
+bgp_update_nexthop_reachability_check(struct bgp *bgp, struct peer *peer, struct bgp_dest *dest,
+				      const struct prefix *p, afi_t afi, safi_t safi,
+				      struct bgp_path_info *pi, struct attr *attr_new,
+				      const struct prefix *bgp_nht_param_prefix, bool accept_own)
+{
+	bool connected;
+	afi_t nh_afi;
+
+	if (((afi == AFI_IP || afi == AFI_IP6) &&
+	     (safi == SAFI_UNICAST || safi == SAFI_LABELED_UNICAST ||
+	      (safi == SAFI_MPLS_VPN && pi->sub_type != BGP_ROUTE_IMPORTED))) ||
+	    (safi == SAFI_EVPN && bgp_evpn_is_prefix_nht_supported(p))) {
+		if (safi != SAFI_EVPN && peer->sort == BGP_PEER_EBGP &&
+		    peer->ttl == BGP_DEFAULT_TTL &&
+		    !CHECK_FLAG(peer->flags, PEER_FLAG_DISABLE_CONNECTED_CHECK) &&
+		    !CHECK_FLAG(bgp->flags, BGP_FLAG_DISABLE_NH_CONNECTED_CHK))
+			connected = true;
+		else
+			connected = false;
+
+		struct bgp *bgp_nexthop = bgp;
+
+		if (pi->extra && pi->extra->vrfleak && pi->extra->vrfleak->bgp_orig)
+			bgp_nexthop = pi->extra->vrfleak->bgp_orig;
+
+		nh_afi = BGP_ATTR_NH_AFI(afi, pi->attr);
+
+		if (bgp_find_or_add_nexthop(bgp, bgp_nexthop, nh_afi, safi, pi, NULL, connected,
+					    bgp_nht_param_prefix) ||
+		    CHECK_FLAG(peer->flags, PEER_FLAG_IS_RFAPI_HD)) {
+			if (accept_own)
+				bgp_path_info_set_flag(dest, pi, BGP_PATH_ACCEPT_OWN);
+
+			bgp_path_info_set_flag(dest, pi, BGP_PATH_VALID);
+		} else {
+			if (BGP_DEBUG(nht, NHT)) {
+				zlog_debug("%s(%pI4): NH unresolved for existing %pFX pi %p flags 0x%x",
+					   __func__, (in_addr_t *)&attr_new->nexthop, p, pi,
+					   pi->flags);
+			}
+			bgp_path_info_unset_flag(dest, pi, BGP_PATH_VALID);
+		}
+	} else {
+		/* case mpls-vpn routes with accept-own community
+		 * (which have the BGP_ROUTE_IMPORTED subtype)
+		 * case other afi/safi not supporting nexthop tracking
+		 */
+		if (accept_own)
+			bgp_path_info_set_flag(dest, pi, BGP_PATH_ACCEPT_OWN);
+		bgp_path_info_set_flag(dest, pi, BGP_PATH_VALID);
+	}
+}
+
 void bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 		struct attr *attr, afi_t afi, safi_t safi, int type,
 		int sub_type, struct prefix_rd *prd, mpls_label_t *label,
@@ -4638,8 +4692,6 @@ void bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 	struct bgp_path_info *new = NULL;
 	const char *reason;
 	char pfx_buf[BGP_PRD_PATH_STRLEN];
-	int connected = 0;
-	afi_t nh_afi;
 	bool force_evpn_import = false;
 	safi_t orig_safi = safi;
 	struct bgp_labels bgp_labels = {};
@@ -5204,62 +5256,11 @@ void bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 			}
 		}
 
+		bgp_update_nexthop_reachability_check(bgp, peer, dest, p, afi, safi, pi, attr_new,
+						      bgp_nht_param_prefix, accept_own);
 		/* Nexthop reachability check - for unicast and
 		 * labeled-unicast.. */
-		if (((afi == AFI_IP || afi == AFI_IP6) &&
-		     (safi == SAFI_UNICAST || safi == SAFI_LABELED_UNICAST ||
-		      (safi == SAFI_MPLS_VPN &&
-		       pi->sub_type != BGP_ROUTE_IMPORTED))) ||
-		    (safi == SAFI_EVPN &&
-		     bgp_evpn_is_prefix_nht_supported(p))) {
-			if (safi != SAFI_EVPN && peer->sort == BGP_PEER_EBGP
-			    && peer->ttl == BGP_DEFAULT_TTL
-			    && !CHECK_FLAG(peer->flags,
-					   PEER_FLAG_DISABLE_CONNECTED_CHECK)
-			    && !CHECK_FLAG(bgp->flags,
-					   BGP_FLAG_DISABLE_NH_CONNECTED_CHK))
-				connected = 1;
-			else
-				connected = 0;
 
-			struct bgp *bgp_nexthop = bgp;
-
-			if (pi->extra && pi->extra->vrfleak &&
-			    pi->extra->vrfleak->bgp_orig)
-				bgp_nexthop = pi->extra->vrfleak->bgp_orig;
-
-			nh_afi = BGP_ATTR_NH_AFI(afi, pi->attr);
-
-			if (bgp_find_or_add_nexthop(bgp, bgp_nexthop, nh_afi,
-						    safi, pi, NULL, connected,
-						    bgp_nht_param_prefix) ||
-			    CHECK_FLAG(peer->flags, PEER_FLAG_IS_RFAPI_HD)) {
-				if (accept_own)
-					bgp_path_info_set_flag(
-						dest, pi, BGP_PATH_ACCEPT_OWN);
-
-				bgp_path_info_set_flag(dest, pi,
-						       BGP_PATH_VALID);
-			} else {
-				if (BGP_DEBUG(nht, NHT)) {
-					zlog_debug("%s(%pI4): NH unresolved for existing %pFX pi %p flags 0x%x",
-						   __func__,
-						   (in_addr_t *)&attr_new->nexthop,
-						   p, pi, pi->flags);
-				}
-				bgp_path_info_unset_flag(dest, pi,
-							 BGP_PATH_VALID);
-			}
-		} else {
-			/* case mpls-vpn routes with accept-own community
-			 * (which have the BGP_ROUTE_IMPORTED subtype)
-			 * case other afi/safi not supporting nexthop tracking
-			 */
-			if (accept_own)
-				bgp_path_info_set_flag(dest, pi,
-						       BGP_PATH_ACCEPT_OWN);
-			bgp_path_info_set_flag(dest, pi, BGP_PATH_VALID);
-		}
 
 #ifdef ENABLE_BGP_VNC
 		if (safi == SAFI_MPLS_VPN) {
@@ -5361,48 +5362,8 @@ void bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 	bgp_path_info_extra_get(new);
 	new->extra->labels = bgp_labels_intern(&bgp_labels);
 
-	/* Nexthop reachability check. */
-	if (((afi == AFI_IP || afi == AFI_IP6) &&
-	     (safi == SAFI_UNICAST || safi == SAFI_LABELED_UNICAST ||
-	      (safi == SAFI_MPLS_VPN &&
-	       new->sub_type != BGP_ROUTE_IMPORTED))) ||
-	    (safi == SAFI_EVPN && bgp_evpn_is_prefix_nht_supported(p))) {
-		if (safi != SAFI_EVPN && peer->sort == BGP_PEER_EBGP
-		    && peer->ttl == BGP_DEFAULT_TTL
-		    && !CHECK_FLAG(peer->flags,
-				   PEER_FLAG_DISABLE_CONNECTED_CHECK)
-		    && !CHECK_FLAG(bgp->flags,
-				   BGP_FLAG_DISABLE_NH_CONNECTED_CHK))
-			connected = 1;
-		else
-			connected = 0;
-
-		nh_afi = BGP_ATTR_NH_AFI(afi, new->attr);
-
-		if (bgp_find_or_add_nexthop(bgp, bgp, nh_afi, safi, new, NULL,
-					    connected, bgp_nht_param_prefix) ||
-		    CHECK_FLAG(peer->flags, PEER_FLAG_IS_RFAPI_HD)) {
-			if (accept_own)
-				bgp_path_info_set_flag(dest, new,
-						       BGP_PATH_ACCEPT_OWN);
-
-			bgp_path_info_set_flag(dest, new, BGP_PATH_VALID);
-		} else {
-			if (BGP_DEBUG(nht, NHT))
-				zlog_debug("%s(%pI4): NH unresolved", __func__,
-					   &attr_new->nexthop);
-			bgp_path_info_unset_flag(dest, new, BGP_PATH_VALID);
-		}
-	} else {
-		/* case mpls-vpn routes with accept-own community
-		 * (which have the BGP_ROUTE_IMPORTED subtype)
-		 * case other afi/safi not supporting nexthop tracking
-		 */
-		if (accept_own)
-			bgp_path_info_set_flag(dest, new, BGP_PATH_ACCEPT_OWN);
-		bgp_path_info_set_flag(dest, new, BGP_PATH_VALID);
-	}
-
+	bgp_update_nexthop_reachability_check(bgp, peer, dest, p, afi, safi, new, attr_new,
+					      bgp_nht_param_prefix, accept_own);
 	/* If maximum prefix count is configured and current prefix
 	 * count exeed it.
 	 */
