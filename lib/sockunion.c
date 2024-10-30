@@ -621,7 +621,8 @@ int sockunion_cmp(const union sockunion *su1, const union sockunion *su2)
 			return -1;
 	}
 	if (su1->sa.sa_family == AF_INET6)
-		return in6addr_cmp(&su1->sin6.sin6_addr, &su2->sin6.sin6_addr);
+		return IN6_ADDR_CMP(&su1->sin6.sin6_addr, &su2->sin6.sin6_addr);
+
 	return 0;
 }
 
