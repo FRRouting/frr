@@ -164,18 +164,6 @@ def bmp_check_for_prefixes(
                 for k, v in sorted(m.items())
                 # filter out variable keys
                 if k not in ["timestamp", "seq", "nxhp_link-local"]
-                and (
-                    # When policy is loc-rib, the peer-distinguisher is 0:0
-                    # for the default VRF or the RD if any or the 0:<vrf_id>.
-                    # 0:<vrf_id> is used to distinguished. RFC7854 says: "If the
-                    # peer is a "Local Instance Peer", it is set to a unique,
-                    # locally defined value." The value is not tested because it
-                    # is variable.
-                    k != "peer_distinguisher"
-                    or policy != loc_rib
-                    or v == "0:0"
-                    or not v.startswith("0:")
-                )
             }
 
     # build expected JSON files

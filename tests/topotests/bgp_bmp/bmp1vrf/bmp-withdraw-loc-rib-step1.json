@@ -7,6 +7,7 @@
                 "is_filtered": false,
                 "peer_asn": 65501,
                 "peer_bgp_id": "192.168.0.1",
+                "peer_distinguisher": "444:1",
                 "peer_type": "loc-rib instance",
                 "policy": "loc-rib"
             },
@@ -17,6 +18,7 @@
                 "is_filtered": false,
                 "peer_asn": 65501,
                 "peer_bgp_id": "192.168.0.1",
+                "peer_distinguisher": "555:1",
                 "peer_type": "loc-rib instance",
                 "policy": "loc-rib",
                 "safi": 1
