@@ -16,6 +16,15 @@
 #include "pim_rp.h"
 #include "pim_rpf.h"
 
+PREDECL_SORTLIST_NONUNIQ(pim_lookup_mode);
+
+struct pim_lookup_mode {
+	char *grp_plist;
+	char *src_plist;
+	enum pim_rpf_lookup_mode mode;
+	struct pim_lookup_mode_item list;
+};
+
 /* PIM nexthop cache value structure. */
 struct pim_nexthop_cache_rib {
 	/* IGP route's metric. */
@@ -54,6 +63,13 @@ struct pnc_hash_walk_data {
 	struct interface *ifp;
 };
 
+/* Find the right lookup mode for the given group and/or source
+ * either may be ANY (although source should realistically always be provided)
+ * Find the lookup mode that has matching group and/or source prefix lists, or the global mode.
+ */
+enum pim_rpf_lookup_mode pim_get_lookup_mode(struct pim_instance *pim, pim_addr group,
+					     pim_addr source);
+
 /* Change the RPF lookup config, may trigger updates to RP's and Upstreams registered for matching cache entries */
 void pim_nht_change_rpf_mode(struct pim_instance *pim, const char *group_plist,
 			     const char *source_plist, enum pim_rpf_lookup_mode mode);
@@ -62,7 +78,7 @@ void pim_nht_change_rpf_mode(struct pim_instance *pim, const char *group_plist,
 int pim_lookup_mode_write(struct pim_instance *pim, struct vty *vty);
 
 /* Verify that we have nexthop information in the cache entry */
-bool pim_nht_pnc_is_valid(struct pim_instance *pim, struct pim_nexthop_cache *pnc);
+bool pim_nht_pnc_is_valid(struct pim_instance *pim, struct pim_nexthop_cache *pnc, pim_addr group);
 
 /* Get (or add) the NH cache entry for the given address */
 struct pim_nexthop_cache *pim_nht_get(struct pim_instance *pim, pim_addr addr);
@@ -116,16 +132,13 @@ bool pim_nht_lookup_ecmp(struct pim_instance *pim, struct pim_nexthop *nexthop, 
  * a synchronous lookup. No ECMP decision is made.
  */
 bool pim_nht_lookup(struct pim_instance *pim, struct pim_nexthop *nexthop, pim_addr addr,
-		    int neighbor_needed);
+		    pim_addr group, bool neighbor_needed);
 
 /* Performs a pim_nht_lookup_ecmp and returns the mroute VIF index of the nexthop interface */
 int pim_nht_lookup_ecmp_if_vif_index(struct pim_instance *pim, pim_addr src, struct prefix *grp);
 
 /* Tracked nexthop update from zebra */
 void pim_nexthop_update(struct vrf *vrf, struct prefix *match, struct zapi_route *nhr);
-
-/* RPF lookup mode changed via configuration */
-void pim_nht_mode_changed(struct pim_instance *pim);
 
 /* NHT init and finish funcitons */
 void pim_nht_init(struct pim_instance *pim);

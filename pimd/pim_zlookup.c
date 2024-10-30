@@ -375,12 +375,16 @@ static int zclient_rib_lookup(struct pim_instance *pim, struct pim_zlookup_nexth
 
 static int zclient_lookup_nexthop_once(struct pim_instance *pim,
 				       struct pim_zlookup_nexthop nexthop_tab[], const int tab_size,
-				       pim_addr addr)
+				       pim_addr addr, pim_addr group)
 {
-	if (pim->rpf_mode == MCAST_MRIB_ONLY)
+	enum pim_rpf_lookup_mode mode;
+
+	mode = pim_get_lookup_mode(pim, group, addr);
+
+	if (mode == MCAST_MRIB_ONLY)
 		return zclient_rib_lookup(pim, nexthop_tab, tab_size, addr, SAFI_MULTICAST);
 
-	if (pim->rpf_mode == MCAST_URIB_ONLY)
+	if (mode == MCAST_URIB_ONLY)
 		return zclient_rib_lookup(pim, nexthop_tab, tab_size, addr, SAFI_UNICAST);
 
 	/* All other modes require looking up both tables and making a choice */
@@ -420,15 +424,14 @@ static int zclient_lookup_nexthop_once(struct pim_instance *pim,
 	/* Both tables have results, so compare them. Distance and prefix length are the same for all
 	 * nexthops, so only compare the first in the list
 	 */
-	if (pim->rpf_mode == MCAST_MIX_DISTANCE &&
+	if (mode == MCAST_MIX_DISTANCE &&
 	    mrib_tab[0].protocol_distance > urib_tab[0].protocol_distance) {
 		if (PIM_DEBUG_PIM_NHT_DETAIL)
 			zlog_debug("%s: addr=%pPAs(%s), URIB has shortest distance", __func__,
 				   &addr, pim->vrf->name);
 		memcpy(nexthop_tab, urib_tab, sizeof(struct pim_zlookup_nexthop) * tab_size);
 		return urib_num;
-	} else if (pim->rpf_mode == MCAST_MIX_PFXLEN &&
-		   mrib_tab[0].prefix_len < urib_tab[0].prefix_len) {
+	} else if (mode == MCAST_MIX_PFXLEN && mrib_tab[0].prefix_len < urib_tab[0].prefix_len) {
 		if (PIM_DEBUG_PIM_NHT_DETAIL)
 			zlog_debug("%s: addr=%pPAs(%s), URIB has lengthest prefix length", __func__,
 				   &addr, pim->vrf->name);
@@ -459,15 +462,13 @@ void zclient_lookup_read_pipe(struct event *thread)
 		return;
 	}
 
-	zclient_lookup_nexthop_once(pim, nexthop_tab, 10, l);
+	zclient_lookup_nexthop_once(pim, nexthop_tab, 10, l, PIMADDR_ANY);
 	event_add_timer(router->master, zclient_lookup_read_pipe, zlookup, 60,
 			&zlookup_read);
 }
 
-int zclient_lookup_nexthop(struct pim_instance *pim,
-			   struct pim_zlookup_nexthop nexthop_tab[],
-			   const int tab_size, pim_addr addr,
-			   int max_lookup)
+int zclient_lookup_nexthop(struct pim_instance *pim, struct pim_zlookup_nexthop nexthop_tab[],
+			   const int tab_size, pim_addr addr, pim_addr group, int max_lookup)
 {
 	int lookup;
 	uint32_t route_metric = 0xFFFFFFFF;
@@ -480,8 +481,7 @@ int zclient_lookup_nexthop(struct pim_instance *pim,
 		int first_ifindex;
 		pim_addr nexthop_addr;
 
-		num_ifindex = zclient_lookup_nexthop_once(pim, nexthop_tab,
-							  tab_size, addr);
+		num_ifindex = zclient_lookup_nexthop_once(pim, nexthop_tab, tab_size, addr, group);
 		if (num_ifindex < 1) {
 			if (PIM_DEBUG_PIM_NHT_DETAIL)
 				zlog_debug(

@@ -27,10 +27,8 @@ struct pim_zlookup_nexthop {
 void zclient_lookup_new(void);
 void zclient_lookup_free(void);
 
-int zclient_lookup_nexthop(struct pim_instance *pim,
-			   struct pim_zlookup_nexthop nexthop_tab[],
-			   const int tab_size, pim_addr addr,
-			   int max_lookup);
+int zclient_lookup_nexthop(struct pim_instance *pim, struct pim_zlookup_nexthop nexthop_tab[],
+			   const int tab_size, pim_addr addr, pim_addr group, int max_lookup);
 
 void pim_zlookup_show_ip_multicast(struct vty *vty);
 

@@ -567,7 +567,8 @@ int pim_mroute_msg_wrvifwhole(int fd, struct interface *ifp, const char *buf,
 			 * setting the SPTBIT to true
 			 */
 			if (!(pim_addr_is_any(up->upstream_register)) &&
-			    pim_nht_lookup(pim_ifp->pim, &source, up->upstream_register, 0)) {
+			    pim_nht_lookup(pim_ifp->pim, &source, up->upstream_register, up->sg.grp,
+					   false)) {
 				pim_register_stop_send(source.interface, &sg,
 						       pim_ifp->primary_address,
 						       up->upstream_register);
@@ -580,7 +581,8 @@ int pim_mroute_msg_wrvifwhole(int fd, struct interface *ifp, const char *buf,
 							__func__);
 		} else {
 			if (I_am_RP(pim_ifp->pim, up->sg.grp)) {
-				if (pim_nht_lookup(pim_ifp->pim, &source, up->upstream_register, 0))
+				if (pim_nht_lookup(pim_ifp->pim, &source, up->upstream_register,
+						   up->sg.grp, false))
 					pim_register_stop_send(
 						source.interface, &sg,
 						pim_ifp->primary_address,

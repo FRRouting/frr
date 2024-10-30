@@ -59,7 +59,8 @@ static bool mtrace_fwd_info_weak(struct pim_instance *pim,
 
 	memset(&nexthop, 0, sizeof(nexthop));
 
-	if (!pim_nht_lookup(pim, &nexthop, mtracep->src_addr, 1)) {
+	/* TODO Is there any valid group address to use for lookup? */
+	if (!pim_nht_lookup(pim, &nexthop, mtracep->src_addr, PIMADDR_ANY, true)) {
 		if (PIM_DEBUG_MTRACE)
 			zlog_debug("mtrace not found neighbor");
 		return false;
@@ -354,7 +355,8 @@ static int mtrace_un_forward_packet(struct pim_instance *pim, struct ip *ip_hdr,
 
 	if (interface == NULL) {
 		memset(&nexthop, 0, sizeof(nexthop));
-		if (!pim_nht_lookup(pim, &nexthop, ip_hdr->ip_dst, 0)) {
+		/* TODO Is there any valid group address to use for lookup? */
+		if (!pim_nht_lookup(pim, &nexthop, ip_hdr->ip_dst, PIMADDR_ANY, false)) {
 			if (PIM_DEBUG_MTRACE)
 				zlog_debug(
 					"Dropping mtrace packet, no route to destination");
@@ -535,8 +537,11 @@ static int mtrace_send_response(struct pim_instance *pim,
 			zlog_debug("mtrace response to RP");
 	} else {
 		memset(&nexthop, 0, sizeof(nexthop));
-		/* TODO: should use unicast rib lookup */
-		if (!pim_nht_lookup(pim, &nexthop, mtracep->rsp_addr, 1)) {
+		/* TODO: should use unicast rib lookup
+		 *		NEB 10/30/24 - Not sure why this needs the unicast rib...right now it will look up per the rpf mode
+		 * Are any of the igmp_mtrace addresses a valid group address to use for lookups??
+		 */
+		if (!pim_nht_lookup(pim, &nexthop, mtracep->rsp_addr, PIMADDR_ANY, true)) {
 			if (PIM_DEBUG_MTRACE)
 				zlog_debug(
 					"Dropped response qid=%ud, no route to response address",

@@ -417,7 +417,7 @@ void pim_crp_nht_update(struct pim_instance *pim, struct pim_nexthop_cache *pnc)
 	rp = bsr_crp_rps_find(scope->ebsr_rps, &ref);
 	assertf(rp, "addr=%pPA", &ref.addr);
 
-	ok = pim_nht_pnc_is_valid(pim, pnc);
+	ok = pim_nht_pnc_is_valid(pim, pnc, PIMADDR_ANY);
 	if (ok == rp->nht_ok)
 		return;
 

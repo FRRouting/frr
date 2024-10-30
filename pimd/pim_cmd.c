@@ -3296,7 +3296,7 @@ DEFUN (show_ip_rib,
 		return CMD_WARNING;
 	}
 
-	if (!pim_nht_lookup(vrf->info, &nexthop, addr, 0)) {
+	if (!pim_nht_lookup(vrf->info, &nexthop, addr, PIMADDR_ANY, false)) {
 		vty_out(vty,
 			"Failure querying RIB nexthop for unicast address %s\n",
 			addr_str);

@@ -18,6 +18,7 @@
 #include "pim_upstream.h"
 #include "pim_mroute.h"
 #include "pim_autorp.h"
+#include "pim_nht.h"
 
 enum pim_spt_switchover {
 	PIM_SPT_IMMEDIATE,
@@ -116,7 +117,7 @@ struct pim_instance {
 	char *register_plist;
 
 	struct hash *nht_hash;
-	enum pim_rpf_lookup_mode rpf_mode;
+	struct pim_lookup_mode_head rpf_mode;
 
 	void *ssm_info; /* per-vrf SSM configuration */
 
