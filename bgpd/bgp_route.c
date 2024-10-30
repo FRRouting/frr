@@ -4639,7 +4639,6 @@ void bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 	const char *reason;
 	char pfx_buf[BGP_PRD_PATH_STRLEN];
 	int connected = 0;
-	int do_loop_check = 1;
 	afi_t nh_afi;
 	bool force_evpn_import = false;
 	safi_t orig_safi = safi;
@@ -4720,14 +4719,6 @@ void bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 		}
 	}
 
-	/* If the peer is configured for "allowas-in origin" and the last ASN in
-	 * the
-	 * as-path is our ASN then we do not need to call aspath_loop_check
-	 */
-	if (CHECK_FLAG(peer->af_flags[afi][safi], PEER_FLAG_ALLOWAS_IN_ORIGIN))
-		if (aspath_get_last_as(attr->aspath) == bgp->as)
-			do_loop_check = 0;
-
 	/* When using bgp ipv4 labeled session, the local prefix is
 	 * received by a peer, and finds out that the proposed prefix
 	 * and its next-hop are the same. To avoid a route loop locally,
@@ -4748,24 +4739,30 @@ void bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 	else
 		bgp_nht_param_prefix = p;
 
-	/* AS path loop check. */
-	if (do_loop_check) {
+	/*
+	 * If the peer is configured for "allowas-in origin" and the last ASN in
+	 * the as-path is our ASN then we do not need to call aspath_loop_check
+	 */
+	if (!CHECK_FLAG(peer->af_flags[afi][safi], PEER_FLAG_ALLOWAS_IN_ORIGIN) ||
+	    (aspath_get_last_as(attr->aspath) != bgp->as)) {
+		/* AS path loop check. */
 		if (aspath_loop_check(attr->aspath, bgp->as) >
 		    peer->allowas_in[afi][safi]) {
 			peer->stat_pfx_aspath_loop++;
 			reason = "as-path contains our own AS;";
 			goto filtered;
 		}
-	}
 
-	/* If we're a CONFED we need to loop check the CONFED ID too */
-	if (CHECK_FLAG(bgp->config, BGP_CONFIG_CONFEDERATION) && do_loop_check)
-		if (aspath_loop_check_confed(attr->aspath, bgp->confed_id) >
-		    peer->allowas_in[afi][safi]) {
-			peer->stat_pfx_aspath_loop++;
-			reason = "as-path contains our own confed AS;";
-			goto filtered;
+		/* If we're a CONFED we need to loop check the CONFED ID too */
+		if (CHECK_FLAG(bgp->config, BGP_CONFIG_CONFEDERATION)) {
+			if (aspath_loop_check_confed(attr->aspath, bgp->confed_id) >
+			    peer->allowas_in[afi][safi]) {
+				peer->stat_pfx_aspath_loop++;
+				reason = "as-path contains our own confed AS;";
+				goto filtered;
+			}
 		}
+	}
 
 	/* Route reflector originator ID check. If ACCEPT_OWN mechanism is
 	 * enabled, then take care of that too.
