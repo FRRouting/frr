@@ -481,6 +481,9 @@ static struct stream *bmp_peerstate(struct peer *peer, bool down)
 		/* TODO: remove this when other RD and local instances supported */
 		peer_type = BMP_PEER_TYPE_GLOBAL_INSTANCE;
 
+	if (is_locrib == false)
+		peer_type = BMP_PEER_TYPE_GLOBAL_INSTANCE;
+
 #define BGP_BMP_MAX_PACKET_SIZE	1024
 #define BMP_PEERUP_INFO_TYPE_STRING 0
 	s = stream_new(BGP_MAX_PACKET_SIZE);
@@ -552,9 +555,7 @@ static struct stream *bmp_peerstate(struct peer *peer, bool down)
 
 		bmp_common_hdr(s, BMP_VERSION_3,
 				BMP_TYPE_PEER_DOWN_NOTIFICATION);
-		bmp_per_peer_hdr(s, peer->bgp, peer, 0,
-				 BMP_PEER_TYPE_GLOBAL_INSTANCE, 0,
-				 &uptime_real);
+		bmp_per_peer_hdr(s, peer->bgp, peer, 0, peer_type, 0, &uptime_real);
 
 		type_pos = stream_get_endp(s);
 		stream_putc(s, 0);	/* placeholder for down reason */
