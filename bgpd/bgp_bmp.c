@@ -279,6 +279,8 @@ static inline int bmp_get_peer_distinguisher(struct bmp *bmp, afi_t afi,
 					     uint8_t peer_type,
 					     uint64_t *result_ref)
 {
+	/* use RD if set in VRF config */
+	struct prefix_rd *prd;
 
 	/* remove this check when the other peer types get correct peer dist.
 	 *(RFC7854) impl.
@@ -294,11 +296,16 @@ static inline int bmp_get_peer_distinguisher(struct bmp *bmp, afi_t afi,
 	if (bgp->inst_type == VRF_DEFAULT)
 		return (*result_ref = 0);
 
-	/* use RD if set in VRF config for this AFI */
-	struct prefix_rd *prd = &bgp->vpn_policy[afi].tovpn_rd;
+	prd = &bgp->vpn_policy[AFI_IP].tovpn_rd;
+	if ((afi == AFI_IP || afi == AFI_UNSPEC) &&
+	    CHECK_FLAG(bgp->vpn_policy[AFI_IP].flags, BGP_VPN_POLICY_TOVPN_RD_SET)) {
+		memcpy(result_ref, prd->val, sizeof(prd->val));
+		return 0;
+	}
 
-	if (CHECK_FLAG(bgp->vpn_policy[afi].flags,
-		       BGP_VPN_POLICY_TOVPN_RD_SET)) {
+	prd = &bgp->vpn_policy[AFI_IP6].tovpn_rd;
+	if ((afi == AFI_IP6 || afi == AFI_UNSPEC) &&
+	    CHECK_FLAG(bgp->vpn_policy[AFI_IP6].flags, BGP_VPN_POLICY_TOVPN_RD_SET)) {
 		memcpy(result_ref, prd->val, sizeof(prd->val));
 		return 0;
 	}
