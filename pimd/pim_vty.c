@@ -29,6 +29,7 @@
 #include "pim_bfd.h"
 #include "pim_bsm.h"
 #include "pim_vxlan.h"
+#include "pim_nht.h"
 #include "pim6_mld.h"
 
 int pim_debug_config_write(struct vty *vty)
@@ -275,15 +276,7 @@ int pim_global_config_write_worker(struct pim_instance *pim, struct vty *vty)
 		}
 	}
 
-	if (pim->rpf_mode != MCAST_NO_CONFIG) {
-		++writes;
-		vty_out(vty, " rpf-lookup-mode %s\n",
-			pim->rpf_mode == MCAST_URIB_ONLY	? "urib-only"
-			: pim->rpf_mode == MCAST_MRIB_ONLY	? "mrib-only"
-			: pim->rpf_mode == MCAST_MIX_MRIB_FIRST ? "mrib-then-urib"
-			: pim->rpf_mode == MCAST_MIX_DISTANCE	? "lower-distance"
-								: "longer-prefix");
-	}
+	writes += pim_lookup_mode_write(pim, vty);
 
 	return writes;
 }

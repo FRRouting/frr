@@ -54,6 +54,13 @@ struct pnc_hash_walk_data {
 	struct interface *ifp;
 };
 
+/* Change the RPF lookup config, may trigger updates to RP's and Upstreams registered for matching cache entries */
+void pim_nht_change_rpf_mode(struct pim_instance *pim, const char *group_plist,
+			     const char *source_plist, enum pim_rpf_lookup_mode mode);
+
+/* Write the rpf lookup mode configuration */
+int pim_lookup_mode_write(struct pim_instance *pim, struct vty *vty);
+
 /* Verify that we have nexthop information in the cache entry */
 bool pim_nht_pnc_is_valid(struct pim_instance *pim, struct pim_nexthop_cache *pnc);
 

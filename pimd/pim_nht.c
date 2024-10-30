@@ -161,6 +161,20 @@ static struct pim_nexthop_cache_rib *pim_pnc_get_rib(struct pim_instance *pim,
 	return pnc_rib;
 }
 
+
+void pim_nht_change_rpf_mode(struct pim_instance *pim, const char *group_plist,
+			     const char *source_plist, enum pim_rpf_lookup_mode mode)
+{
+	/* TODO */
+}
+
+
+int pim_lookup_mode_write(struct pim_instance *pim, struct vty *vty)
+{
+	/* TODO */
+	return 0;
+}
+
 bool pim_nht_pnc_is_valid(struct pim_instance *pim, struct pim_nexthop_cache *pnc)
 {
 	switch (pim->rpf_mode) {
