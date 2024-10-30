@@ -907,6 +907,7 @@ DECLARE_HOOK(bgp_config_end, (struct bgp *bgp), (bgp));
 DECLARE_HOOK(bgp_hook_vrf_update, (struct vrf *vrf, bool enabled),
 	     (vrf, enabled));
 DECLARE_HOOK(bgp_instance_state, (struct bgp *bgp), (bgp));
+DECLARE_HOOK(bgp_routerid_update, (struct bgp *bgp, bool withdraw), (bgp, withdraw));
 
 /* Thread callback information */
 struct afi_safi_info {

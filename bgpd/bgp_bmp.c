@@ -3179,6 +3179,28 @@ static int bgp_bmp_early_fini(void)
 	return 0;
 }
 
+/* called when the routerid of an instance changes */
+static int bmp_routerid_update(struct bgp *bgp, bool withdraw)
+{
+	struct bmp_bgp *bmpbgp = bmp_bgp_find(bgp);
+
+	if (!bmpbgp)
+		return 0;
+
+	bmp_bgp_update_vrf_status(bmpbgp, vrf_state_unknown);
+
+	if (bmpbgp->vrf_state == vrf_state_down)
+		/* do not send peer events, router id will not be enough to set state to up
+		 */
+		return 0;
+
+	/* vrf_state is up: trigger a peer event
+	 */
+	bmp_send_all_safe(bmpbgp, bmp_peerstate(bgp->peer_self, withdraw));
+	return 1;
+}
+
+
 /* called when a bgp instance goes up/down, implying that the underlying VRF
  * has been created or deleted in zebra
  */
@@ -3232,6 +3254,7 @@ static int bgp_bmp_module_init(void)
 	hook_register(frr_early_fini, bgp_bmp_early_fini);
 	hook_register(bgp_instance_state, bmp_vrf_state_changed);
 	hook_register(bgp_vrf_status_changed, bmp_vrf_itf_state_changed);
+	hook_register(bgp_routerid_update, bmp_routerid_update);
 	return 0;
 }
 
