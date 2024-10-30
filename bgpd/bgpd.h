@@ -864,6 +864,10 @@ struct bgp {
 	/* BGP route flap dampening configuration */
 	struct bgp_damp_config damp[AFI_MAX][SAFI_MAX];
 
+	uint64_t bestpath_runs;
+	uint64_t node_already_on_queue;
+	uint64_t node_deferred_on_queue;
+
 	QOBJ_FIELDS;
 };
 DECLARE_QOBJ_TYPE(bgp);

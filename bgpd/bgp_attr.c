@@ -697,14 +697,9 @@ static uint32_t srv6_l3vpn_hash_key_make(const void *p)
 	uint32_t key = 0;
 
 	key = jhash(&l3vpn->sid, 16, key);
-	key = jhash_1word(l3vpn->sid_flags, key);
-	key = jhash_1word(l3vpn->endpoint_behavior, key);
-	key = jhash_1word(l3vpn->loc_block_len, key);
-	key = jhash_1word(l3vpn->loc_node_len, key);
-	key = jhash_1word(l3vpn->func_len, key);
-	key = jhash_1word(l3vpn->arg_len, key);
-	key = jhash_1word(l3vpn->transposition_len, key);
-	key = jhash_1word(l3vpn->transposition_offset, key);
+	key = jhash_3words(l3vpn->sid_flags, l3vpn->endpoint_behavior, l3vpn->loc_block_len, key);
+	key = jhash_3words(l3vpn->loc_node_len, l3vpn->func_len, l3vpn->arg_len, key);
+	key = jhash_2words(l3vpn->transposition_len, l3vpn->transposition_offset, key);
 	return key;
 }
 
@@ -863,15 +858,11 @@ unsigned int attrhash_key_make(const void *p)
 	if (vnc_subtlvs)
 		MIX(encap_hash_key_make(vnc_subtlvs));
 #endif
-	MIX(attr->mp_nexthop_len);
+	MIX3(attr->mp_nexthop_len, attr->rmap_table_id, attr->nh_type);
 	key = jhash(attr->mp_nexthop_global.s6_addr, IPV6_MAX_BYTELEN, key);
 	key = jhash(attr->mp_nexthop_local.s6_addr, IPV6_MAX_BYTELEN, key);
 	MIX3(attr->nh_ifindex, attr->nh_lla_ifindex, attr->distance);
-	MIX(attr->rmap_table_id);
-	MIX(attr->nh_type);
-	MIX(attr->bh_type);
-	MIX(attr->otc);
-	MIX(bgp_attr_get_aigp_metric(attr));
+	MIX3(attr->bh_type, attr->otc, bgp_attr_get_aigp_metric(attr));
 
 	return key;
 }
@@ -976,8 +967,11 @@ static void attr_show_all_iterator(struct hash_bucket *bucket, struct vty *vty)
 		"\n",
 		attr->flag, attr->distance, attr->med, attr->local_pref,
 		attr->origin, attr->weight, attr->label, sid, attr->aigp_metric);
-	vty_out(vty, "\taspath: %s Community: %s Large Community: %s\n",
-		aspath_print(attr->aspath),
+	vty_out(vty,
+		"\tnh_ifindex: %u nh_flags: %u distance: %u nexthop_global: %pI6 nexthop_local: %pI6 nexthop_local_ifindex: %u\n",
+		attr->nh_ifindex, attr->nh_flags, attr->distance, &attr->mp_nexthop_global,
+		&attr->mp_nexthop_local, attr->nh_lla_ifindex);
+	vty_out(vty, "\taspath: %s Community: %s Large Community: %s\n", aspath_print(attr->aspath),
 		community_str(attr->community, false, false),
 		lcommunity_str(attr->lcommunity, false, false));
 	vty_out(vty, "\tExtended Community: %s Extended IPv6 Community: %s\n",
