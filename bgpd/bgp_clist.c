@@ -182,7 +182,7 @@ community_list_insert(struct community_list_handler *ch, const char *name,
 	}
 
 	/* In case of name is all digit character */
-	if (i == strlen(name)) {
+	if (i == strlen(name) && number <= COMMUNITY_LIST_NUMBER_MAX) {
 		new->sort = COMMUNITY_LIST_NUMBER;
 
 		/* Set access_list to number list. */
