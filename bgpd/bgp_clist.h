@@ -20,6 +20,10 @@
 /* Number and string based community-list name.  */
 #define COMMUNITY_LIST_STRING          0
 #define COMMUNITY_LIST_NUMBER          1
+/* The numbered community-list (including large/ext communities)
+ * have a range between 1-500.
+ */
+#define COMMUNITY_LIST_NUMBER_MAX 500
 
 #define COMMUNITY_SEQ_NUMBER_AUTO     -1
 
