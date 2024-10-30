@@ -4667,11 +4667,12 @@ void bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 	bgp = peer->bgp;
 	dest = bgp_afi_node_get(bgp->rib[afi][safi], afi, safi, p, prd);
 
-	if ((afi == AFI_L2VPN && safi == SAFI_EVPN) ||
-	    bgp_is_valid_label(&label[0]))
+	if (num_labels &&
+	    ((afi == AFI_L2VPN && safi == SAFI_EVPN) || bgp_is_valid_label(&label[0]))) {
 		bgp_labels.num_labels = num_labels;
-	for (i = 0; i < bgp_labels.num_labels; i++)
-		bgp_labels.label[i] = label[i];
+		for (i = 0; i < bgp_labels.num_labels; i++)
+			bgp_labels.label[i] = label[i];
+	}
 
 	/* When peer's soft reconfiguration enabled.  Record input packet in
 	   Adj-RIBs-In.  */
