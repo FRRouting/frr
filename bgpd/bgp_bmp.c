@@ -472,9 +472,6 @@ static struct stream *bmp_peerstate(struct peer *peer, bool down)
 	uint8_t peer_type = bmp_get_peer_type(peer);
 	bool is_locrib = peer_type == BMP_PEER_TYPE_LOC_RIB_INSTANCE;
 
-	if (is_locrib == false)
-		peer_type = BMP_PEER_TYPE_GLOBAL_INSTANCE;
-
 	if (bmp_get_peer_distinguisher(peer->bgp, AFI_UNSPEC, peer_type, &peer_distinguisher)) {
 		zlog_warn("skipping bmp message for peer %s: can't get peer distinguisher",
 			  peer->host);

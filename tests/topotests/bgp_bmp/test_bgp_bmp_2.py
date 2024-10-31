@@ -210,6 +210,7 @@ def test_peer_up():
         "peer up",
         tgen.gears["bmp1vrf"],
         os.path.join(tgen.logdir, "bmp1vrf", "bmp.log"),
+        is_rd_instance=True,
     )
     success, _ = topotest.run_and_expect(test_func, True, count=30, wait=1)
     assert success, "Checking the updated prefixes has been failed !."
@@ -245,6 +246,7 @@ def test_peer_down():
         "peer down",
         tgen.gears["bmp1vrf"],
         os.path.join(tgen.logdir, "bmp1vrf", "bmp.log"),
+        is_rd_instance=True,
     )
     success, _ = topotest.run_and_expect(test_func, True, count=30, wait=1)
     assert success, "Checking the updated prefixes has been failed !."
