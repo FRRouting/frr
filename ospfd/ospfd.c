@@ -147,15 +147,10 @@ void ospf_process_refresh_data(struct ospf *ospf, bool reset)
 
 	/* Select the router ID based on these priorities:
 	     1. Statically assigned router ID is always the first choice.
-	     2. If there is no statically assigned router ID, then try to stick
-		with the most recent value, since changing router ID's is very
-		disruptive.
-	     3. Last choice: just go with whatever the zebra daemon recommends.
+	     2. Just go with whatever the zebra daemon recommends.
 	*/
 	if (ospf->router_id_static.s_addr != INADDR_ANY)
 		router_id = ospf->router_id_static;
-	else if (ospf->router_id.s_addr != INADDR_ANY)
-		router_id = ospf->router_id;
 	else
 		router_id = ospf->router_id_zebra;
 
