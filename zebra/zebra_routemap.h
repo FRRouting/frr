@@ -14,10 +14,10 @@ extern "C" {
 #endif
 
 extern void zebra_route_map_init(void);
-extern char *zebra_get_import_table_route_map(afi_t afi, uint32_t table);
-extern void zebra_add_import_table_route_map(afi_t afi, const char *rmap_name,
+extern char *zebra_get_import_table_route_map(afi_t afi, safi_t safi, uint32_t table);
+extern void zebra_add_import_table_route_map(afi_t afi, safi_t safi, const char *rmap_name,
 					     uint32_t table);
-extern void zebra_del_import_table_route_map(afi_t afi, uint32_t table);
+extern void zebra_del_import_table_route_map(afi_t afi, safi_t safi, uint32_t table);
 
 extern route_map_result_t zebra_import_table_route_map_check(
 	int family, struct route_entry *re, const struct prefix *p,

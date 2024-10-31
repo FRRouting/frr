@@ -1287,6 +1287,25 @@ IPv6 example for OSPFv3.
    Set the delay before any route-maps are processed in zebra.  The
    default time for this is 5 seconds.
 
+
+.. _zebra-table-import:
+
+zebra Table Import
+==================
+
+Zebra supports importing an alternate routing table into the main unicast RIB (URIB).
+An imported table will continously sync all changes to the main URIB as routes are
+added or deleted from the alternate table.
+Zebra also supports importing into the main multicast RIB (MRIB) which can be used
+to affect how multicast RPF lookups are performed as described in :ref: `_pim-multicast-rib`.
+
+.. clicmd:: ip import-table (1-252) [mrib] [distance (1-255)] [route-map RMAP_NAME]
+
+   Import table, by given table id, into the main URIB (or MRIB). Optional distance can override
+   the default distance when importing routes from the alternate table. An optional route map
+   can be provided to filter routes that are imported into the main table.
+
+
 .. _zebra-fib-push-interface:
 
 zebra FIB push interface

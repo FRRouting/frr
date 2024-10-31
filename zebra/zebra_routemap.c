@@ -29,7 +29,7 @@
 
 static uint32_t zebra_rmap_update_timer = ZEBRA_RMAP_DEFAULT_UPDATE_TIMER;
 static struct event *zebra_t_rmap_update = NULL;
-char *zebra_import_table_routemap[AFI_MAX][ZEBRA_KERNEL_TABLE_MAX];
+char *zebra_import_table_routemap[AFI_MAX][SAFI_MAX][ZEBRA_KERNEL_TABLE_MAX];
 
 struct zebra_rmap_obj {
 	struct nexthop *nexthop;
@@ -1235,21 +1235,19 @@ route_map_result_t zebra_route_map_check(afi_t family, struct route_entry *re,
 	return (ret);
 }
 
-char *zebra_get_import_table_route_map(afi_t afi, uint32_t table)
+char *zebra_get_import_table_route_map(afi_t afi, safi_t safi, uint32_t table)
 {
-	return zebra_import_table_routemap[afi][table];
+	return zebra_import_table_routemap[afi][safi][table];
 }
 
-void zebra_add_import_table_route_map(afi_t afi, const char *rmap_name,
-				      uint32_t table)
+void zebra_add_import_table_route_map(afi_t afi, safi_t safi, const char *rmap_name, uint32_t table)
 {
-	zebra_import_table_routemap[afi][table] =
-		XSTRDUP(MTYPE_ROUTE_MAP_NAME, rmap_name);
+	zebra_import_table_routemap[afi][safi][table] = XSTRDUP(MTYPE_ROUTE_MAP_NAME, rmap_name);
 }
 
-void zebra_del_import_table_route_map(afi_t afi, uint32_t table)
+void zebra_del_import_table_route_map(afi_t afi, safi_t safi, uint32_t table)
 {
-	XFREE(MTYPE_ROUTE_MAP_NAME, zebra_import_table_routemap[afi][table]);
+	XFREE(MTYPE_ROUTE_MAP_NAME, zebra_import_table_routemap[afi][safi][table]);
 }
 
 route_map_result_t zebra_import_table_route_map_check(int family,
