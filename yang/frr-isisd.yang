@@ -1922,7 +1922,7 @@ module frr-isisd {
                if set to disable, ISISEXPLICITNULLFlag
                will override the value of ISISPHPFlag";
             leaf algo {
-              type uint32 {
+              type uint8 {
                 range "128..255";
               }
               description
