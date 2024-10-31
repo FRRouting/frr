@@ -403,8 +403,7 @@ int sockunion_same(const union sockunion *su1, const union sockunion *su2)
 			     sizeof(struct in_addr));
 		break;
 	case AF_INET6:
-		ret = memcmp(&su1->sin6.sin6_addr, &su2->sin6.sin6_addr,
-			     sizeof(struct in6_addr));
+		ret = IPV6_ADDR_CMP(&su1->sin6.sin6_addr, &su2->sin6.sin6_addr);
 		if ((ret == 0) && IN6_IS_ADDR_LINKLOCAL(&su1->sin6.sin6_addr)) {
 			/* compare interface indices */
 			if (su1->sin6.sin6_scope_id && su2->sin6.sin6_scope_id)
@@ -604,7 +603,7 @@ int sockunion_cmp(const union sockunion *su1, const union sockunion *su2)
 			return -1;
 	}
 	if (su1->sa.sa_family == AF_INET6)
-		return IN6_ADDR_CMP(&su1->sin6.sin6_addr, &su2->sin6.sin6_addr);
+		return IPV6_ADDR_CMP(&su1->sin6.sin6_addr, &su2->sin6.sin6_addr);
 
 	return 0;
 }
@@ -711,8 +710,7 @@ int sockunion_is_null(const union sockunion *su)
 	case AF_INET:
 		return (su->sin.sin_addr.s_addr == 0);
 	case AF_INET6:
-		return !memcmp(su->sin6.sin6_addr.s6_addr, null_s6_addr,
-			       sizeof(null_s6_addr));
+		return !IPV6_ADDR_CMP(su->sin6.sin6_addr.s6_addr, null_s6_addr);
 	default:
 		return 0;
 	}
