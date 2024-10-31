@@ -833,6 +833,8 @@ class TopoRouter(TopoGear):
         Loads the unified configuration file source
         Start the daemons in the list
         If daemons is None, try to infer daemons from the config file
+        `daemons` is a tuple (daemon, param) of daemons to start, e.g.:
+        (TopoRouter.RD_ZEBRA, "-s 90000000").
         """
         source_path = self.load_config(self.RD_FRR, source)
         if not daemons:
@@ -849,8 +851,9 @@ class TopoRouter(TopoGear):
                 if result:
                     self.load_config(daemon, "")
         else:
-            for daemon in daemons:
-                self.load_config(daemon, "")
+            for item in daemons:
+                daemon, param = item
+                self.load_config(daemon, "", param)
 
     def load_config(self, daemon, source=None, param=None):
         """Loads daemon configuration from the specified source
