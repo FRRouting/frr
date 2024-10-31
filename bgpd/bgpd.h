@@ -1769,8 +1769,15 @@ struct peer {
 	/* Text description of last attribute rcvd */
 	char rcvd_attr_str[BUFSIZ];
 
-	/* Track if we printed the attribute in debugs */
-	int rcvd_attr_printed;
+	/*
+	 * Track if we printed the attribute in debugs
+	 *
+	 * These two rcvd_attr_str and rcvd_attr_printed are going to
+	 * be fun in the long term when we want to break up parsing
+	 * of data from the nlri in multiple pthreads or really
+	 * if we ever change order of things this will just break
+	 */
+	bool rcvd_attr_printed;
 
 	/* Accepted prefix count */
 	uint32_t pcount[AFI_MAX][SAFI_MAX];

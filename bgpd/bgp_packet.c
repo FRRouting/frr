@@ -2314,7 +2314,7 @@ static int bgp_update_receive(struct peer_connection *connection,
 	attr.label = MPLS_INVALID_LABEL;
 	memset(&nlris, 0, sizeof(nlris));
 	memset(peer->rcvd_attr_str, 0, BUFSIZ);
-	peer->rcvd_attr_printed = 0;
+	peer->rcvd_attr_printed = false;
 
 	s = peer->curr;
 	end = stream_pnt(s) + size;
@@ -2422,7 +2422,7 @@ static int bgp_update_receive(struct peer_connection *connection,
 		    BGP_DEBUG(update, UPDATE_DETAIL)) {
 			zlog_debug("%pBP rcvd UPDATE w/ attr: %s", peer,
 				   peer->rcvd_attr_str);
-			peer->rcvd_attr_printed = 1;
+			peer->rcvd_attr_printed = true;
 		}
 	}
 
