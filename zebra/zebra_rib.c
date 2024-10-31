@@ -4427,6 +4427,46 @@ static const char *rib_update_event2str(enum rib_update_event event)
 	return ret;
 }
 
+<<<<<<< HEAD
+=======
+/*
+ * We now keep kernel routes, but we don't have any
+ * trigger events for them when they are implicitly
+ * deleted.  Since we are already walking the
+ * entire table on a down event let's look at
+ * the few kernel routes we may have
+ */
+static void
+rib_update_handle_kernel_route_down_possibility(struct route_node *rn,
+						struct route_entry *re)
+{
+	struct nexthop *nexthop = NULL;
+	bool alive = false;
+
+	for (ALL_NEXTHOPS(re->nhe->nhg, nexthop)) {
+		struct interface *ifp = if_lookup_by_index(nexthop->ifindex,
+							   nexthop->vrf_id);
+
+		if ((ifp && if_is_up(ifp)) || nexthop->type == NEXTHOP_TYPE_BLACKHOLE) {
+			alive = true;
+			break;
+		}
+	}
+
+	if (!alive) {
+		struct rib_table_info *rib_table = srcdest_rnode_table_info(rn);
+		const struct prefix *p;
+		const struct prefix_ipv6 *src_p;
+
+		srcdest_rnode_prefixes(rn, &p, (const struct prefix **)&src_p);
+
+		rib_delete(rib_table->afi, rib_table->safi, re->vrf_id,
+			   re->type, re->instance, re->flags, p, src_p, NULL, 0,
+			   re->table, re->metric, re->distance, true);
+	}
+}
+
+>>>>>>> 44a82da405 (zebra: fix missing kernel routes)
 
 /* Schedule route nodes to be processed if they match the type */
 static void rib_update_route_node(struct route_node *rn, int type)
