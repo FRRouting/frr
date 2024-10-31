@@ -187,7 +187,7 @@ def bmp_check_for_prefixes(
 
 
 def bmp_check_for_peer_message(
-    expected_peers, bmp_log_type, bmp_collector, bmp_log_file
+    expected_peers, bmp_log_type, bmp_collector, bmp_log_file, is_rd_instance=False
 ):
     """
     Check for the presence of a peer up message for the peer
@@ -211,6 +211,8 @@ def bmp_check_for_peer_message(
             and m["peer_ip"] != "0.0.0.0"
             and m["bmp_log_type"] == bmp_log_type
         ):
+            if is_rd_instance and m["peer_type"] != "route distinguisher instance":
+                continue
             peers.append(m["peer_ip"])
         elif m["policy"] == "loc-rib" and m["bmp_log_type"] == bmp_log_type:
             peers.append("0.0.0.0")
