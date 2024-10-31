@@ -3594,36 +3594,17 @@ static int zebra_ip_config(struct vty *vty)
 	return write;
 }
 
-DEFUN (ip_zebra_import_table_distance,
-       ip_zebra_import_table_distance_cmd,
-       "ip import-table (1-252) [distance (1-255)] [route-map RMAP_NAME]",
-       IP_STR
-       "import routes from non-main kernel table\n"
-       "kernel routing table id\n"
-       "Distance for imported routes\n"
-       "Default distance value\n"
-       "route-map for filtering\n"
-       "route-map name\n")
+static int import_table_set(struct vty *vty, int afi, uint32_t table_id,
+			    const char *distance_str, const char *route_map)
 {
-	uint32_t table_id = 0;
-
-	table_id = strtoul(argv[2]->arg, NULL, 10);
 	int distance = ZEBRA_TABLE_DISTANCE_DEFAULT;
-	char *rmap =
-		strmatch(argv[argc - 2]->text, "route-map")
-			? XSTRDUP(MTYPE_ROUTE_MAP_NAME, argv[argc - 1]->arg)
-			: NULL;
-	int ret;
-
-	if (argc == 7 || (argc == 5 && !rmap))
-		distance = strtoul(argv[4]->arg, NULL, 10);
+	if (distance_str)
+		distance = strtoul(distance_str, NULL, 10);
 
 	if (!is_zebra_valid_kernel_table(table_id)) {
 		vty_out(vty,
 			"Invalid routing table ID, %d. Must be in range 1-252\n",
 			table_id);
-		if (rmap)
-			XFREE(MTYPE_ROUTE_MAP_NAME, rmap);
 		return CMD_WARNING;
 	}
 
@@ -3631,17 +3612,39 @@ DEFUN (ip_zebra_import_table_distance,
 		vty_out(vty,
 			"Invalid routing table ID, %d. Must be non-default table\n",
 			table_id);
-		if (rmap)
-			XFREE(MTYPE_ROUTE_MAP_NAME, rmap);
 		return CMD_WARNING;
 	}
 
-	ret = zebra_import_table(AFI_IP, VRF_DEFAULT, table_id,
-				 distance, rmap, 1);
-	if (rmap)
-		XFREE(MTYPE_ROUTE_MAP_NAME, rmap);
+	return zebra_import_table(afi, VRF_DEFAULT, table_id, distance,
+				  route_map, 1);
+}
 
-	return ret;
+DEFPY(ip_zebra_import_table_distance, ip_zebra_import_table_distance_cmd,
+      "ip import-table (1-252)$table "
+      "[distance (1-255)$distance] [route-map RMAP_NAME$rmap]",
+      IP_STR
+      "import routes from non-main kernel table\n"
+      "kernel routing table id\n"
+      "Distance for imported routes\n"
+      "Default distance value\n"
+      "route-map for filtering\n"
+      "route-map name\n")
+{
+	return import_table_set(vty, AFI_IP, table, distance_str, rmap);
+}
+
+DEFPY(ipv6_zebra_import_table_distance, ipv6_zebra_import_table_distance_cmd,
+      "ipv6 import-table (1-252)$table "
+      "[distance (1-255)$distance] [route-map RMAP_NAME$rmap]",
+      IPV6_STR
+      "import routes from non-main kernel table\n"
+      "kernel routing table id\n"
+      "Distance for imported routes\n"
+      "Default distance value\n"
+      "route-map for filtering\n"
+      "route-map name\n")
+{
+	return import_table_set(vty, AFI_IP6, table, distance_str, rmap);
 }
 
 DEFUN_HIDDEN (zebra_packet_process,
@@ -3700,20 +3703,9 @@ DEFUN_HIDDEN (no_zebra_workqueue_timer,
 	return CMD_SUCCESS;
 }
 
-DEFUN (no_ip_zebra_import_table,
-       no_ip_zebra_import_table_cmd,
-       "no ip import-table (1-252) [distance (1-255)] [route-map NAME]",
-       NO_STR
-       IP_STR
-       "import routes from non-main kernel table\n"
-       "kernel routing table id\n"
-       "Distance for imported routes\n"
-       "Default distance value\n"
-       "route-map for filtering\n"
-       "route-map name\n")
+static int import_table_unset(struct vty *vty, int afi, const char *table_str)
 {
-	uint32_t table_id = 0;
-	table_id = strtoul(argv[3]->arg, NULL, 10);
+	uint32_t table_id = strtoul(table_str, NULL, 10);
 
 	if (!is_zebra_valid_kernel_table(table_id)) {
 		vty_out(vty,
@@ -3728,10 +3720,36 @@ DEFUN (no_ip_zebra_import_table,
 		return CMD_WARNING;
 	}
 
-	if (!is_zebra_import_table_enabled(AFI_IP, VRF_DEFAULT, table_id))
+	if (!is_zebra_import_table_enabled(afi, VRF_DEFAULT, table_id))
 		return CMD_SUCCESS;
 
-	return (zebra_import_table(AFI_IP, VRF_DEFAULT, table_id, 0, NULL, 0));
+	return (zebra_import_table(afi, VRF_DEFAULT, table_id, 0, NULL, 0));
+}
+
+DEFUN(no_ip_zebra_import_table, no_ip_zebra_import_table_cmd,
+      "no ip import-table (1-252) [distance (1-255)] [route-map NAME]",
+      NO_STR IP_STR
+      "import routes from non-main kernel table\n"
+      "kernel routing table id\n"
+      "Distance for imported routes\n"
+      "Default distance value\n"
+      "route-map for filtering\n"
+      "route-map name\n")
+{
+	return import_table_unset(vty, AFI_IP, argv[3]->arg);
+}
+
+DEFUN(no_ipv6_zebra_import_table, no_ipv6_zebra_import_table_cmd,
+      "no ipv6 import-table (1-252) [distance (1-255)] [route-map NAME]",
+      NO_STR IPV6_STR
+      "import routes from non-main kernel table\n"
+      "kernel routing table id\n"
+      "Distance for imported routes\n"
+      "Default distance value\n"
+      "route-map for filtering\n"
+      "route-map name\n")
+{
+	return import_table_unset(vty, AFI_IP6, argv[3]->arg);
 }
 
 DEFPY (zebra_nexthop_group_keep,
@@ -4371,6 +4389,8 @@ void zebra_vty_init(void)
 	install_element(CONFIG_NODE, &zebra_nexthop_group_keep_cmd);
 	install_element(CONFIG_NODE, &ip_zebra_import_table_distance_cmd);
 	install_element(CONFIG_NODE, &no_ip_zebra_import_table_cmd);
+	install_element(CONFIG_NODE, &ipv6_zebra_import_table_distance_cmd);
+	install_element(CONFIG_NODE, &no_ipv6_zebra_import_table_cmd);
 	install_element(CONFIG_NODE, &zebra_workqueue_timer_cmd);
 	install_element(CONFIG_NODE, &no_zebra_workqueue_timer_cmd);
 	install_element(CONFIG_NODE, &zebra_packet_process_cmd);
