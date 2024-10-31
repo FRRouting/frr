@@ -4490,7 +4490,7 @@ rib_update_handle_kernel_route_down_possibility(struct route_node *rn,
 		struct interface *ifp = if_lookup_by_index(nexthop->ifindex,
 							   nexthop->vrf_id);
 
-		if (ifp && if_is_up(ifp)) {
+		if ((ifp && if_is_up(ifp)) || nexthop->type == NEXTHOP_TYPE_BLACKHOLE) {
 			alive = true;
 			break;
 		}
