@@ -285,13 +285,6 @@ static inline int bmp_get_peer_distinguisher(struct bgp *bgp, afi_t afi, uint8_t
 	if (peer_type == BMP_PEER_TYPE_LOCAL_INSTANCE || bgp->vrf_id == VRF_UNKNOWN)
 		return 1;
 
-	/* remove this check when the other peer types get correct peer dist.
-	 *(RFC7854) impl.
-	 * for now, always return no error and 0 peer distinguisher as before
-	 */
-	if (peer_type != BMP_PEER_TYPE_LOC_RIB_INSTANCE)
-		return (*result_ref = 0);
-
 	/* vrf default => ok, distinguisher 0 */
 	if (bgp->inst_type == VRF_DEFAULT)
 		return (*result_ref = 0);
@@ -795,16 +788,23 @@ static void bmp_wrmirror_lost(struct bmp *bmp, struct pullwr *pullwr)
 	struct stream *s;
 	struct timeval tv;
 	uint8_t peer_type_flag;
+	uint64_t peer_distinguisher = 0;
 
 	gettimeofday(&tv, NULL);
 
 	peer_type_flag = bmp_get_peer_type_vrf(bmp->targets->bgp->vrf_id);
 
+	if (bmp_get_peer_distinguisher(bmp->targets->bgp, AFI_UNSPEC, peer_type_flag,
+				       &peer_distinguisher)) {
+		zlog_warn("skipping bmp message for reason: can't get peer distinguisher");
+		return;
+	}
+
 	s = stream_new(BGP_MAX_PACKET_SIZE);
 
 	bmp_common_hdr(s, BMP_VERSION_3, BMP_TYPE_ROUTE_MIRRORING);
-	bmp_per_peer_hdr(s, bmp->targets->bgp, bmp->targets->bgp->peer_self, 0, peer_type_flag, 0,
-			 &tv);
+	bmp_per_peer_hdr(s, bmp->targets->bgp, bmp->targets->bgp->peer_self, 0, peer_type_flag,
+			 peer_distinguisher, &tv);
 
 	stream_putw(s, BMP_MIRROR_TLV_TYPE_INFO);
 	stream_putw(s, 2);
@@ -822,6 +822,7 @@ static bool bmp_wrmirror(struct bmp *bmp, struct pullwr *pullwr)
 	struct peer *peer;
 	bool written = false;
 	uint8_t peer_type_flag;
+	uint64_t peer_distinguisher = 0;
 
 	if (bmp->mirror_lost) {
 		bmp_wrmirror_lost(bmp, pullwr);
@@ -841,11 +842,18 @@ static bool bmp_wrmirror(struct bmp *bmp, struct pullwr *pullwr)
 
 	peer_type_flag = bmp_get_peer_type_vrf(bmp->targets->bgp->vrf_id);
 
+	if (bmp_get_peer_distinguisher(peer->bgp, AFI_UNSPEC, peer_type_flag, &peer_distinguisher)) {
+		zlog_warn("skipping bmp message for peer %s: can't get peer distinguisher",
+			  peer->host);
+		goto out;
+	}
+
 	struct stream *s;
 	s = stream_new(BGP_MAX_PACKET_SIZE);
 
 	bmp_common_hdr(s, BMP_VERSION_3, BMP_TYPE_ROUTE_MIRRORING);
-	bmp_per_peer_hdr(s, bmp->targets->bgp, peer, 0, peer_type_flag, 0, &bmq->tv);
+	bmp_per_peer_hdr(s, bmp->targets->bgp, peer, 0, peer_type_flag, peer_distinguisher,
+			 &bmq->tv);
 
 	/* BMP Mirror TLV. */
 	stream_putw(s, BMP_MIRROR_TLV_TYPE_BGP_MESSAGE);
