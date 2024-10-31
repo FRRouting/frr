@@ -320,7 +320,7 @@ int main(int argc, char **argv)
 		    "  -r, --retain              When program terminates, retain added route by zebra.\n"
 		    "  -K, --graceful_restart    Graceful restart at the kernel level, timer in seconds for expiration\n"
 		    "  -A, --asic-offload        FRR is interacting with an asic underneath the linux kernel\n"
-		    "      --v6-with-v4-nexthops Underlying dataplane supports v6 routes with v4 nexthops"
+		    "      --v6-with-v4-nexthops Underlying dataplane supports v6 routes with v4 nexthops\n"
 #ifdef HAVE_NETLINK
 		    "  -s, --nl-bufsize          Set netlink receive buffer size\n"
 		    "  -n, --vrfwnetns           Use NetNS as VRF backend\n"
