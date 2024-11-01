@@ -2822,65 +2822,49 @@ DEFPY (show_ip_pim_rp_vrf_all,
 
 DEFPY (show_ip_pim_autorp,
        show_ip_pim_autorp_cmd,
-       "show ip pim [vrf NAME] autorp [json$json]",
+       "show ip pim [vrf <NAME|all>] autorp [discovery|candidate|mapping-agent]$component [json$json]",
        SHOW_STR
        IP_STR
        PIM_STR
        VRF_CMD_HELP_STR
+       "All VRF's\n"
        "PIM AutoRP information\n"
+       "RP Discovery details\n"
+       "Candidate RP details\n"
+       "Mapping Agent details\n"
        JSON_STR)
 {
+	json_object *json_parent = NULL;
 	struct vrf *v;
-	json_object *json_parent = NULL;
-
-	v = vrf_lookup_by_name(vrf ? vrf : VRF_DEFAULT_NAME);
-	if (!v || !v->info) {
-		if (!json)
-			vty_out(vty, "%% Unable to find pim instance\n");
-		return CMD_WARNING;
-	}
 
 	if (json)
 		json_parent = json_object_new_object();
 
-	pim_autorp_show_autorp(vty, v->info, json_parent);
+	if (vrf && strmatch(vrf, "all")) {
+		json_object *json_vrf = NULL;
 
-	if (json)
-		vty_json(vty, json_parent);
-
-	return CMD_SUCCESS;
-}
-
-DEFPY (show_ip_pim_autorp_vrf_all,
-       show_ip_pim_autorp_vrf_all_cmd,
-       "show ip pim vrf all autorp [json$json]",
-       SHOW_STR
-       IP_STR
-       PIM_STR
-       VRF_CMD_HELP_STR
-       "PIM AutoRP information\n"
-       JSON_STR)
-{
-	struct vrf *vrf;
-	json_object *json_parent = NULL;
-	json_object *json_vrf = NULL;
-
-	if (json)
-		json_parent = json_object_new_object();
-
-	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
-		if (vrf->info) {
-			if (!json)
-				vty_out(vty, "VRF: %s\n", vrf->name);
-			else
-				json_vrf = json_object_new_object();
-
-			pim_autorp_show_autorp(vty, vrf->info, json_vrf);
+		RB_FOREACH (v, vrf_name_head, &vrfs_by_name) {
+			if (!v || !v->info)
+				continue;
 
 			if (json)
-				json_object_object_add(json_parent, vrf->name,
-						       json_vrf);
+				json_vrf = json_object_new_object();
+			else
+				vty_out(vty, "VRF: %s\n", v->name);
+
+			pim_autorp_show_autorp(vty, v->info, component, json_vrf);
+
+			if (json)
+				json_object_object_add(json_parent, v->name, json_vrf);
 		}
+	} else {
+		v = vrf_lookup_by_name(vrf ? vrf : VRF_DEFAULT_NAME);
+		if (!v || !v->info) {
+			if (!json)
+				vty_out(vty, "%% Unable to find pim instance\n");
+			return CMD_WARNING;
+		}
+		pim_autorp_show_autorp(vty, v->info, component, json_parent);
 	}
 
 	if (json)
@@ -4609,13 +4593,17 @@ DEFPY (pim_autorp_announce_rp,
        "Prefix list\n"
        "List name\n")
 {
-	return pim_process_autorp_candidate_rp_cmd(vty, no, rpaddr_str, (grp_str ? grp : NULL),
-						   plist);
+	if (grp_str && (!pim_addr_is_multicast(grp->prefix) || grp->prefixlen < 4)) {
+		vty_out(vty, "%% group prefix %pFX is not a valid multicast range\n", grp);
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	return pim_process_autorp_candidate_rp_cmd(vty, no, rpaddr_str, grp_str, plist);
 }
 
 DEFPY (pim_autorp_announce_scope_int,
        pim_autorp_announce_scope_int_cmd,
-       "[no] autorp announce ![{scope (1-255) | interval (1-65535) | holdtime (0-65535)}]",
+       "[no] autorp announce {scope (1-255) | interval (1-65535) | holdtime (0-65535)}",
        NO_STR
        "AutoRP\n"
        "AutoRP Candidate RP announcement\n"
@@ -4626,9 +4614,42 @@ DEFPY (pim_autorp_announce_scope_int,
        "Announcement holdtime\n"
        "Time in seconds\n")
 {
-	return pim_process_autorp_announce_scope_int_cmd(vty, no, scope_str,
-							 interval_str,
+	return pim_process_autorp_announce_scope_int_cmd(vty, no, scope_str, interval_str,
 							 holdtime_str);
+}
+
+DEFPY (pim_autorp_send_rp_discovery,
+       pim_autorp_send_rp_discovery_cmd,
+       "[no] autorp send-rp-discovery [source <address A.B.C.D | interface IFNAME | loopback$loopback | any$any>]",
+       NO_STR
+       "AutoRP\n"
+       "Enable AutoRP mapping agent\n"
+       "Specify AutoRP discovery source\n"
+       "Local address\n"
+       IP_ADDR_STR
+       "Local Interface (uses highest address)\n"
+       IFNAME_STR
+       "Highest loopback address (default)\n"
+       "Highest address of any interface\n")
+{
+	return pim_process_autorp_send_rp_discovery_cmd(vty, no, any, loopback, ifname, address_str);
+}
+
+DEFPY (pim_autorp_send_rp_discovery_scope_int,
+       pim_autorp_send_rp_discovery_scope_int_cmd,
+       "[no] autorp send-rp-discovery {scope (0-255) | interval (1-65535) | holdtime (0-65535)}",
+       NO_STR
+       "AutoRP\n"
+       "Enable AutoRP mapping agent\n"
+       "Packet scope (TTL)\n"
+       "TTL value\n"
+       "Discovery TX interval\n"
+       "Time in seconds\n"
+       "Announcement holdtime\n"
+       "Time in seconds\n")
+{
+	return pim_process_autorp_send_rp_discovery_scope_int_cmd(vty, no, scope_str, interval_str,
+								  holdtime_str);
 }
 
 DEFPY (pim_bsr_candidate_bsr,
@@ -8855,6 +8876,8 @@ void pim_cmd_init(void)
 	install_element(PIM_NODE, &pim_autorp_discovery_cmd);
 	install_element(PIM_NODE, &pim_autorp_announce_rp_cmd);
 	install_element(PIM_NODE, &pim_autorp_announce_scope_int_cmd);
+	install_element(PIM_NODE, &pim_autorp_send_rp_discovery_cmd);
+	install_element(PIM_NODE, &pim_autorp_send_rp_discovery_scope_int_cmd);
 	install_element(PIM_NODE, &no_pim_ssm_prefix_list_cmd);
 	install_element(PIM_NODE, &no_pim_ssm_prefix_list_name_cmd);
 	install_element(PIM_NODE, &pim_ssm_prefix_list_cmd);
@@ -9010,7 +9033,6 @@ void pim_cmd_init(void)
 	install_element(VIEW_NODE, &show_ip_pim_rp_cmd);
 	install_element(VIEW_NODE, &show_ip_pim_rp_vrf_all_cmd);
 	install_element(VIEW_NODE, &show_ip_pim_autorp_cmd);
-	install_element(VIEW_NODE, &show_ip_pim_autorp_vrf_all_cmd);
 	install_element(VIEW_NODE, &show_ip_pim_bsr_cmd);
 	install_element(VIEW_NODE, &show_ip_multicast_cmd);
 	install_element(VIEW_NODE, &show_ip_multicast_vrf_all_cmd);

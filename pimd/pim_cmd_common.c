@@ -630,139 +630,88 @@ int pim_process_no_autorp_cmd(struct vty *vty)
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-int pim_process_autorp_candidate_rp_cmd(struct vty *vty, bool no,
-					const char *rpaddr_str,
-					const struct prefix_ipv4 *grp,
-					const char *plist)
+int pim_process_autorp_candidate_rp_cmd(struct vty *vty, bool no, const char *rpaddr_str,
+					const char *grp, const char *plist)
 {
-	char xpath[XPATH_MAXLEN];
-	char grpstr[64];
-
 	if (no) {
-		if ((grp && !is_default_prefix((const struct prefix *)grp)) || plist) {
+		if (grp || plist) {
 			/* If any single values are set, only destroy those */
-			if (grp && !is_default_prefix((const struct prefix *)grp)) {
-				snprintfrr(xpath, sizeof(xpath),
-					   "%s/candidate-rp-list[rp-address='%s']/group",
-					   FRR_PIM_AUTORP_XPATH, rpaddr_str);
-				nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY,
-						      NULL);
-			}
-			if (plist) {
-				snprintfrr(xpath, sizeof(xpath),
-					   "%s/candidate-rp-list[rp-address='%s']/prefix-list",
-					   FRR_PIM_AUTORP_XPATH, rpaddr_str);
-				nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY,
-						      NULL);
-			}
-		} else {
+			if (grp)
+				nb_cli_enqueue_change(vty, "./group", NB_OP_DESTROY, NULL);
+			if (plist)
+				nb_cli_enqueue_change(vty, "./prefix-list", NB_OP_DESTROY, NULL);
+		} else
 			/* No values set, remove the entire RP */
-			snprintfrr(xpath, sizeof(xpath),
-				   "%s/candidate-rp-list[rp-address='%s']",
-				   FRR_PIM_AUTORP_XPATH, rpaddr_str);
-			nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
-		}
+			nb_cli_enqueue_change(vty, ".", NB_OP_DESTROY, NULL);
 	} else {
-		if ((grp && !is_default_prefix((const struct prefix *)grp)) || plist) {
-			snprintfrr(xpath, sizeof(xpath),
-				   "%s/candidate-rp-list[rp-address='%s']",
-				   FRR_PIM_AUTORP_XPATH, rpaddr_str);
-			nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
-			if (grp && !is_default_prefix((const struct prefix *)grp)) {
-				snprintfrr(xpath, sizeof(xpath),
-					   "%s/candidate-rp-list[rp-address='%s']/group",
-					   FRR_PIM_AUTORP_XPATH, rpaddr_str);
-				nb_cli_enqueue_change(vty, xpath, NB_OP_MODIFY,
-						      prefix2str(grp, grpstr,
-								 sizeof(grpstr)));
-			}
-			if (plist) {
-				snprintfrr(xpath, sizeof(xpath),
-					   "%s/candidate-rp-list[rp-address='%s']/prefix-list",
-					   FRR_PIM_AUTORP_XPATH, rpaddr_str);
-				nb_cli_enqueue_change(vty, xpath, NB_OP_MODIFY,
-						      plist);
-			}
-		} else {
-			return CMD_WARNING_CONFIG_FAILED;
-		}
+		nb_cli_enqueue_change(vty, ".", NB_OP_CREATE, NULL);
+		if (grp)
+			nb_cli_enqueue_change(vty, "./group", NB_OP_MODIFY, grp);
+		if (plist)
+			nb_cli_enqueue_change(vty, "./prefix-list", NB_OP_MODIFY, plist);
 	}
 
-	return nb_cli_apply_changes(vty, NULL);
+	return nb_cli_apply_changes(vty, "%s/candidate-rp-list[rp-address='%s']",
+				    FRR_PIM_AUTORP_XPATH, rpaddr_str);
 }
 
-int pim_process_autorp_announce_scope_int_cmd(struct vty *vty, bool no,
-					      const char *scope,
-					      const char *interval,
-					      const char *holdtime)
+int pim_process_autorp_announce_scope_int_cmd(struct vty *vty, bool no, const char *scope,
+					      const char *interval, const char *holdtime)
 {
-	char xpath[XPATH_MAXLEN];
+	/* At least one value is required, so set/delete anything defined */
+	enum nb_operation op = (no ? NB_OP_DESTROY : NB_OP_MODIFY);
 
+	if (scope)
+		nb_cli_enqueue_change(vty, "./announce-scope", op, scope);
+	if (interval)
+		nb_cli_enqueue_change(vty, "./announce-interval", op, interval);
+	if (holdtime)
+		nb_cli_enqueue_change(vty, "./announce-holdtime", op, holdtime);
+
+	return nb_cli_apply_changes(vty, "%s", FRR_PIM_AUTORP_XPATH);
+}
+
+int pim_process_autorp_send_rp_discovery_cmd(struct vty *vty, bool no, bool any, bool loopback,
+					     const char *ifname, const char *addr)
+{
+	/* Just take any "no" version of this command as disable the mapping agent */
+	nb_cli_enqueue_change(vty, "./send-rp-discovery", NB_OP_MODIFY, (no ? "false" : "true"));
 	if (no) {
-		if (scope || interval || holdtime) {
-			/* If any single values are set, only destroy those */
-			if (scope) {
-				snprintfrr(xpath, sizeof(xpath), "%s/%s",
-					   FRR_PIM_AUTORP_XPATH,
-					   "announce-scope");
-				nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY,
-						      NULL);
-			}
-			if (interval) {
-				snprintfrr(xpath, sizeof(xpath), "%s/%s",
-					   FRR_PIM_AUTORP_XPATH,
-					   "announce-interval");
-				nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY,
-						      NULL);
-			}
-			if (holdtime) {
-				snprintfrr(xpath, sizeof(xpath), "%s/%s",
-					   FRR_PIM_AUTORP_XPATH,
-					   "announce-holdtime");
-				nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY,
-						      NULL);
-			}
-		} else {
-			/* No values set, remove all */
-			snprintfrr(xpath, sizeof(xpath), "%s/%s",
-				   FRR_PIM_AUTORP_XPATH, "announce-scope");
-			nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
-			snprintfrr(xpath, sizeof(xpath), "%s/%s",
-				   FRR_PIM_AUTORP_XPATH, "announce-interval");
-			nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
-			snprintfrr(xpath, sizeof(xpath), "%s/%s",
-				   FRR_PIM_AUTORP_XPATH, "announce-holdtime");
-			nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
-		}
+		nb_cli_enqueue_change(vty, "./if-any", NB_OP_DESTROY, NULL);
+		nb_cli_enqueue_change(vty, "./interface", NB_OP_DESTROY, NULL);
+		nb_cli_enqueue_change(vty, "./address", NB_OP_DESTROY, NULL);
+		nb_cli_enqueue_change(vty, "./if-loopback", NB_OP_DESTROY, NULL);
 	} else {
-		if (scope || interval || holdtime) {
-			if (scope) {
-				snprintfrr(xpath, sizeof(xpath), "%s/%s",
-					   FRR_PIM_AUTORP_XPATH,
-					   "announce-scope");
-				nb_cli_enqueue_change(vty, xpath, NB_OP_MODIFY,
-						      scope);
-			}
-			if (interval) {
-				snprintfrr(xpath, sizeof(xpath), "%s/%s",
-					   FRR_PIM_AUTORP_XPATH,
-					   "announce-interval");
-				nb_cli_enqueue_change(vty, xpath, NB_OP_MODIFY,
-						      interval);
-			}
-			if (holdtime) {
-				snprintfrr(xpath, sizeof(xpath), "%s/%s",
-					   FRR_PIM_AUTORP_XPATH,
-					   "announce-holdtime");
-				nb_cli_enqueue_change(vty, xpath, NB_OP_MODIFY,
-						      holdtime);
-			}
-		} else {
-			return CMD_WARNING_CONFIG_FAILED;
-		}
+		/* Enabling mapping agent. Loopback is default, so any non-no for of the command will
+		 * enable the mapping agent.
+		 */
+		if (any)
+			nb_cli_enqueue_change(vty, "./if-any", NB_OP_CREATE, NULL);
+		else if (ifname)
+			nb_cli_enqueue_change(vty, "./interface", NB_OP_MODIFY, ifname);
+		else if (addr)
+			nb_cli_enqueue_change(vty, "./address", NB_OP_MODIFY, addr);
+		else
+			nb_cli_enqueue_change(vty, "./if-loopback", NB_OP_CREATE, NULL);
 	}
 
-	return nb_cli_apply_changes(vty, NULL);
+	return nb_cli_apply_changes(vty, "%s/%s", FRR_PIM_AUTORP_XPATH, "mapping-agent");
+}
+
+int pim_process_autorp_send_rp_discovery_scope_int_cmd(struct vty *vty, bool no, const char *scope,
+						       const char *interval, const char *holdtime)
+{
+	/* At least one value is required, so only set/delete the values specified */
+	enum nb_operation op = (no ? NB_OP_DESTROY : NB_OP_MODIFY);
+
+	if (scope)
+		nb_cli_enqueue_change(vty, "./discovery-scope", op, scope);
+	if (interval)
+		nb_cli_enqueue_change(vty, "./discovery-interval", op, interval);
+	if (holdtime)
+		nb_cli_enqueue_change(vty, "./discovery-holdtime", op, holdtime);
+
+	return nb_cli_apply_changes(vty, "%s/%s", FRR_PIM_AUTORP_XPATH, "mapping-agent");
 }
 
 bool pim_sgaddr_match(pim_sgaddr item, pim_sgaddr match)
