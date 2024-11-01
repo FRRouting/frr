@@ -4223,8 +4223,6 @@ int bgp_delete(struct bgp *bgp)
 	if (bgp->process_queue)
 		work_queue_free_and_null(&bgp->process_queue);
 
-	event_master_free_unused(bm->master);
-
 	if (!IS_BGP_INSTANCE_HIDDEN(bgp))
 		bgp_unlock(bgp); /* initial reference */
 	else {

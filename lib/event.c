@@ -669,24 +669,6 @@ static void thread_array_free(struct event_loop *m, struct event **thread_array)
 	XFREE(MTYPE_EVENT_POLL, thread_array);
 }
 
-/*
- * event_master_free_unused
- *
- * As threads are finished with they are put on the
- * unuse list for later reuse.
- * If we are shutting down, Free up unused threads
- * So we can see if we forget to shut anything off
- */
-void event_master_free_unused(struct event_loop *m)
-{
-	frr_with_mutex (&m->mtx) {
-		struct event *t;
-
-		while ((t = event_list_pop(&m->unuse)))
-			thread_free(m, t);
-	}
-}
-
 /* Stop thread scheduler. */
 void event_master_free(struct event_loop *m)
 {
@@ -793,7 +775,6 @@ static struct event *thread_get(struct event_loop *m, uint8_t type,
 		thread = XCALLOC(MTYPE_THREAD, sizeof(struct event));
 		/* mutex only needs to be initialized at struct creation. */
 		pthread_mutex_init(&thread->mtx, NULL);
-		m->alloc++;
 	}
 
 	thread->type = type;
@@ -832,10 +813,6 @@ static struct event *thread_get(struct event_loop *m, uint8_t type,
 
 static void thread_free(struct event_loop *master, struct event *thread)
 {
-	/* Update statistics. */
-	assert(master->alloc > 0);
-	master->alloc--;
-
 	/* Free allocated resources. */
 	pthread_mutex_destroy(&thread->mtx);
 	XFREE(MTYPE_THREAD, thread);
