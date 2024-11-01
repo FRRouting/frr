@@ -2266,6 +2266,7 @@ static int srv6_manager_get_sid_internal(struct zebra_srv6_sid **sid,
 		zsend_srv6_sid_notify(client, ctx, sid_value, 0, 0, NULL,
 				      ZAPI_SRV6_SID_FAIL_ALLOC);
 	} else if (ret == 0) {
+		assert(*sid);
 		if (IS_ZEBRA_DEBUG_SRV6)
 			zlog_debug("%s: got existing SRv6 SID for ctx %s: sid_value=%pI6 (func=%u) (proto=%u, instance=%u, sessionId=%u), notify client",
 				   __func__,
