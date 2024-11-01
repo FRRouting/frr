@@ -1903,7 +1903,7 @@ class Router(Node):
         tail_log_files = []
         check_daemon_files = []
 
-        def start_daemon(daemon, extra_opts=None):
+        def start_daemon(daemon):
             daemon_opts = self.daemons_options.get(daemon, "")
 
             # get pid and vty filenames and remove the files
@@ -1997,9 +1997,6 @@ class Router(Node):
                         tail_log_files.append(
                             "{}/{}/{}.log".format(self.logdir, self.name, daemon)
                         )
-
-            if extra_opts:
-                cmdopt += " " + extra_opts
 
             if do_gdb_or_rr(True) and do_gdb_or_rr(False):
                 logger.warning("cant' use gdb and rr at same time")
@@ -2237,7 +2234,7 @@ class Router(Node):
 
         # Start Zebra after mgmtd
         if "zebra" in daemons_list:
-            start_daemon("zebra", "-s 90000000")
+            start_daemon("zebra")
             while "zebra" in daemons_list:
                 daemons_list.remove("zebra")
 
