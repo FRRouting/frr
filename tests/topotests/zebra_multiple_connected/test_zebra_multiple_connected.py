@@ -161,6 +161,70 @@ def test_zebra_noprefix_connected():
     assert result, "Connected Route should not have been added"
 
 
+<<<<<<< HEAD
+=======
+def test_zebra_noprefix_connected_add():
+    "Test that a noprefixroute created with a manual route works as expected, this is for NetworkManager"
+
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    router = tgen.gears["r1"]
+    router.run("ip route add 192.168.44.0/24 dev r1-eth1")
+
+    connected = "{}/{}/ip_route_connected.json".format(CWD, router.name)
+    expected = json.loads(open(connected).read())
+
+    test_func = partial(
+        topotest.router_json_cmp, router, "show ip route 192.168.44.0/24 json", expected
+    )
+    result, _ = topotest.run_and_expect(test_func, None, count=20, wait=1)
+    assert result, "Connected Route should have been added\n{}".format(_)
+
+
+def test_zebra_kernel_route_add():
+    "Test that a random kernel route is properly handled as expected"
+
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    router = tgen.gears["r1"]
+    router.run("ip route add 4.5.6.7/32 dev r1-eth1")
+
+    kernel = "{}/{}/ip_route_kernel.json".format(CWD, router.name)
+    expected = json.loads(open(kernel).read())
+
+    test_func = partial(
+        topotest.router_json_cmp, router, "show ip route 4.5.6.7/32 json", expected
+    )
+    result, _ = topotest.run_and_expect(test_func, None, count=20, wait=1)
+    assert result, "Connected Route should have been added\n{}".format(_)
+
+
+def test_zebra_kernel_route_blackhole_add():
+    "Test that a blackhole route is not affected by interface's link change"
+
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    router = tgen.gears["r1"]
+    router.run("ip route add blackhole default")
+    router.run("ip link set dev r1-eth1 down")
+
+    kernel = "{}/{}/ip_route_kernel_blackhole.json".format(CWD, router.name)
+    expected = json.loads(open(kernel).read())
+
+    test_func = partial(
+        topotest.router_json_cmp, router, "show ip route 0.0.0.0/0 json", expected
+    )
+    result, _ = topotest.run_and_expect(test_func, None, count=20, wait=1)
+    assert result, "Blackhole Route should have not been removed\n{}".format(_)
+
+
+>>>>>>> 0073a870d1 (test: add test case for kernel blackhole routes)
 if __name__ == "__main__":
     args = ["-s"] + sys.argv[1:]
     sys.exit(pytest.main(args))
