@@ -850,12 +850,23 @@ class TopoRouter(TopoGear):
                 result = self.run(grep_cmd, warn=False).strip()
                 if result:
                     self.load_config(daemon, "")
+                    if daemonstr == "ospf":
+                        grep_cmd = "grep -E 'router ospf ([0-9]+*)' {} | grep -o -E '([0-9]*)'".format(
+                            source_path
+                        )
+                        result = self.run(grep_cmd, warn=False)
+                        if result:  # instances
+                            instances = result.split("\n")
+                            for inst in instances:
+                                if inst != "":
+                                    self.load_config(daemon, "", None, inst)
+
         else:
             for item in daemons:
                 daemon, param = item
                 self.load_config(daemon, "", param)
 
-    def load_config(self, daemon, source=None, param=None):
+    def load_config(self, daemon, source=None, param=None, instance=None):
         """Loads daemon configuration from the specified source
         Possible daemon values are: TopoRouter.RD_ZEBRA, TopoRouter.RD_RIP,
         TopoRouter.RD_RIPNG, TopoRouter.RD_OSPF, TopoRouter.RD_OSPF6,
@@ -873,7 +884,7 @@ class TopoRouter(TopoGear):
         """
         daemonstr = self.RD.get(daemon)
         self.logger.debug('loading "{}" configuration: {}'.format(daemonstr, source))
-        return self.net.loadConf(daemonstr, source, param)
+        return self.net.loadConf(daemonstr, source, param, instance)
 
     def check_router_running(self):
         """

@@ -1463,6 +1463,7 @@ class Router(Node):
             "snmptrapd": 0,
             "fpm_listener": 0,
         }
+        self.daemon_instances = {"ospfd": []}
         self.daemons_options = {"zebra": ""}
         self.reportCores = True
         self.version = None
@@ -1632,7 +1633,7 @@ class Router(Node):
                 return False
         return True
 
-    def loadConf(self, daemon, source=None, param=None):
+    def loadConf(self, daemon, source=None, param=None, instance=None):
         """Enabled and set config for a daemon.
 
         Arranges for loading of daemon configuration from the specified source. Possible
@@ -1666,6 +1667,8 @@ class Router(Node):
                 self.daemons[daemon] = 1
             if param is not None:
                 self.daemons_options[daemon] = param
+            if instance is not None:
+                self.daemon_instances[daemon].append(instance)
             conf_file = "/etc/{}/{}.conf".format(self.routertype, daemon)
             if source and not os.path.exists(source):
                 logger.warning(
@@ -1903,16 +1906,21 @@ class Router(Node):
         tail_log_files = []
         check_daemon_files = []
 
-        def start_daemon(daemon):
+        def start_daemon(daemon, instance=None):
             daemon_opts = self.daemons_options.get(daemon, "")
 
             # get pid and vty filenames and remove the files
             m = re.match(r"(.* |^)-n (\d+)( ?.*|$)", daemon_opts)
             dfname = daemon if not m else "{}-{}".format(daemon, m.group(2))
+            if instance != None:
+                inst = "-" + instance
+                dfname = daemon + inst
+            else:
+                inst = ""
             runbase = "/var/run/{}/{}".format(self.routertype, dfname)
             # If this is a new system bring-up remove the pid/vty files, otherwise
             # do not since apparently presence of the pidfile impacts BGP GR
-            self.cmd_status("rm -f {0}.pid {0}.vty".format(runbase))
+            self.cmd_status("rm -f {0}{1}.pid {0}{1}.vty".format(runbase, inst))
 
             def do_gdb_or_rr(gdb):
                 routers = gdb_routers if gdb else rr_routers
@@ -1923,7 +1931,7 @@ class Router(Node):
                     and (not daemons or daemon in daemons or "all" in daemons)
                 )
 
-            rediropt = " > {0}.out 2> {0}.err".format(daemon)
+            rediropt = " > {0}.out 2> {0}.err".format(dfname)
             if daemon == "fpm_listener":
                 binary = "/usr/lib/frr/fpm_listener"
                 cmdenv = ""
@@ -1952,7 +1960,7 @@ class Router(Node):
                 if asan_abort:
                     cmdenv += "abort_on_error=1:"
                 cmdenv += "log_path={0}/{1}.asan.{2} ".format(
-                    self.logdir, self.name, daemon
+                    self.logdir, self.name, dfname
                 )
 
                 if cov_option:
@@ -1967,7 +1975,7 @@ class Router(Node):
                         os.path.join(this_dir, "../../../tools/valgrind.supp")
                     )
 
-                    valgrind_logbase = f"{self.logdir}/{self.name}.valgrind.{daemon}"
+                    valgrind_logbase = f"{self.logdir}/{self.name}.valgrind.{dfname}"
                     if do_gdb_or_rr(True):
                         cmdenv += " exec"
                     cmdenv += (
@@ -1989,13 +1997,15 @@ class Router(Node):
                     )
 
                 cmdopt = "{} --command-log-always ".format(daemon_opts)
-                cmdopt += "--log file:{}.log --log-level debug".format(daemon)
+                if instance != None:
+                    cmdopt += " --instance " + instance
+                cmdopt += "--log file:{}.log --log-level debug".format(dfname)
 
                 if daemon in logd_options:
                     logdopt = logd_options[daemon]
                     if "all" in logdopt or self.name in logdopt:
                         tail_log_files.append(
-                            "{}/{}/{}.log".format(self.logdir, self.name, daemon)
+                            "{}/{}/{}.log".format(self.logdir, self.name, dfname)
                         )
 
             if do_gdb_or_rr(True) and do_gdb_or_rr(False):
@@ -2034,7 +2044,7 @@ class Router(Node):
                 else:
                     cmd = " ".join([cmdenv, binary, cmdopt])
                     p = self.popen(cmd)
-                    self.valgrind_gdb_daemons[daemon] = p
+                    self.valgrind_gdb_daemons[dfname] = p
                     if p.poll() and p.returncode:
                         self.logger.error(
                             '%s: Failed to launch "%s" (%s) with perf using: %s',
@@ -2158,7 +2168,7 @@ class Router(Node):
                     ["perf record {} --".format(perf_options), binary, cmdopt]
                 )
                 p = self.popen(cmd)
-                self.perf_daemons[daemon] = p
+                self.perf_daemons[dfname] = p
                 if p.poll() and p.returncode:
                     self.logger.error(
                         '%s: Failed to launch "%s" (%s) with perf using: %s',
@@ -2181,7 +2191,7 @@ class Router(Node):
                     ]
                 )
                 p = self.popen(cmd)
-                self.rr_daemons[daemon] = p
+                self.rr_daemons[dfname] = p
                 if p.poll() and p.returncode:
                     self.logger.error(
                         '%s: Failed to launch "%s" (%s) with rr using: %s',
@@ -2202,7 +2212,9 @@ class Router(Node):
                 ):
                     cmdopt += " -d "
                 cmdopt += rediropt
-
+                self.logger.info('cmdenv "{}"'.format(cmdenv))
+                self.logger.info('binary "{}"'.format(binary))
+                self.logger.info('cmdopt "{}"'.format(cmdopt))
                 try:
                     self.cmd_raises(" ".join([cmdenv, binary, cmdopt]), warn=False)
                 except subprocess.CalledProcessError as error:
@@ -2262,7 +2274,14 @@ class Router(Node):
         for daemon in daemons_list:
             if self.daemons[daemon] == 0:
                 continue
-            start_daemon(daemon)
+            if (
+                daemon in self.daemon_instances.keys()
+                and len(self.daemon_instances[daemon]) > 0
+            ):
+                for inst in self.daemon_instances[daemon]:
+                    start_daemon(daemon, inst)
+            else:
+                start_daemon(daemon)
 
         # Check if daemons are running.
         wait_time = 30 if (gdb_routers or gdb_daemons) else 10
@@ -2378,6 +2397,54 @@ class Router(Node):
 
         return errors
 
+    def check_daemon(self, daemon, reportLeaks=True, traces="", instance=None):
+        reportMade = False
+        if instance == None:
+            dname = daemon
+        else:
+            dname = daemon + "-" + instance
+        # Look for core file
+        corefiles = glob.glob(
+            "{}/{}/{}_core*.dmp".format(self.logdir, self.name, daemon)
+        )
+        if len(corefiles) > 0:
+            backtrace = gdb_core(self, daemon, corefiles)
+            traces = (
+                traces
+                + f"\nCORE FOUND: {self.name}: {daemon} crashed. Backtrace follows:\n{backtrace}"
+            )
+            reportMade = True
+        elif reportLeaks:
+            log = self.getStdErr(dname)
+            if "memstats" in log:
+                sys.stderr.write("%s: %s has memory leaks:\n" % (self.name, dname))
+                traces = traces + "\n%s: %s has memory leaks:\n" % (
+                    self.name,
+                    dname,
+                )
+                log = re.sub("core_handler: ", "", log)
+                log = re.sub(
+                    r"(showing active allocations in memory group [a-zA-Z0-9]+)",
+                    r"\n  ## \1",
+                    log,
+                )
+                log = re.sub("memstats:  ", "    ", log)
+                sys.stderr.write(log)
+                reportMade = True
+        # Look for AddressSanitizer Errors and append to /tmp/AddressSanitzer.txt if found
+        if checkAddressSanitizerError(
+            self.getStdErr(dname), self.name, dname, self.logdir
+        ):
+            sys.stderr.write(
+                "%s: Daemon %s killed by AddressSanitizer" % (self.name, dname)
+            )
+            traces = traces + "\n%s: Daemon %s killed by AddressSanitizer" % (
+                self.name,
+                dname,
+            )
+            reportMade = True
+        return reportMade
+
     def checkRouterCores(self, reportLeaks=True, reportOnce=False):
         if reportOnce and not self.reportCores:
             return
@@ -2385,48 +2452,15 @@ class Router(Node):
         traces = ""
         for daemon in self.daemons:
             if self.daemons[daemon] == 1:
-                # Look for core file
-                corefiles = glob.glob(
-                    "{}/{}/{}_core*.dmp".format(self.logdir, self.name, daemon)
-                )
-                if len(corefiles) > 0:
-                    backtrace = gdb_core(self, daemon, corefiles)
-                    traces = (
-                        traces
-                        + f"\nCORE FOUND: {self.name}: {daemon} crashed. Backtrace follows:\n{backtrace}"
-                    )
-                    reportMade = True
-                elif reportLeaks:
-                    log = self.getStdErr(daemon)
-                    if "memstats" in log:
-                        sys.stderr.write(
-                            "%s: %s has memory leaks:\n" % (self.name, daemon)
-                        )
-                        traces = traces + "\n%s: %s has memory leaks:\n" % (
-                            self.name,
-                            daemon,
-                        )
-                        log = re.sub("core_handler: ", "", log)
-                        log = re.sub(
-                            r"(showing active allocations in memory group [a-zA-Z0-9]+)",
-                            r"\n  ## \1",
-                            log,
-                        )
-                        log = re.sub("memstats:  ", "    ", log)
-                        sys.stderr.write(log)
-                        reportMade = True
-                # Look for AddressSanitizer Errors and append to /tmp/AddressSanitzer.txt if found
-                if checkAddressSanitizerError(
-                    self.getStdErr(daemon), self.name, daemon, self.logdir
+                if (
+                    daemon in self.daemon_instances.keys()
+                    and len(self.daemon_instances[daemon]) > 0
                 ):
-                    sys.stderr.write(
-                        "%s: Daemon %s killed by AddressSanitizer" % (self.name, daemon)
-                    )
-                    traces = traces + "\n%s: Daemon %s killed by AddressSanitizer" % (
-                        self.name,
-                        daemon,
-                    )
-                    reportMade = True
+                    for inst in self.daemon_instances[daemon]:
+                        self.check_daemon(daemon, reportLeaks, traces, inst)
+                else:
+                    self.check_daemon(daemon, reportLeaks, traces)
+
         if reportMade:
             self.reportCores = False
         return traces

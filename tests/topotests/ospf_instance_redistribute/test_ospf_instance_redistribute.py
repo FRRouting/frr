@@ -63,9 +63,7 @@ def setup_module(module):
 
     # This is a sample of configuration loading.
     r1 = tgen.gears["r1"]
-    r1.load_config(TopoRouter.RD_ZEBRA, os.path.join(CWD, "r1/zebra.conf"))
-    r1.load_config(TopoRouter.RD_OSPF, os.path.join(CWD, "r1/ospfd-3.conf"), "-n 3")
-    r1.load_config(TopoRouter.RD_SHARP, os.path.join(CWD, "r1/sharpd.conf"))
+    r1.load_frr_config(os.path.join(CWD, "r1/frr.conf"))
 
     tgen.start_router()
 
