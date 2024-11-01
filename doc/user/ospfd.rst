@@ -200,6 +200,44 @@ To start OSPF process you have to specify the OSPF router.
    This command supersedes the *timers spf* command in previous FRR
    releases.
 
+.. clicmd:: timers throttle lsa all (0-5000)
+
+   This command sets the minumum interval between originations of the
+   same LSA or the `minimum LSA refresh interval`. The time is specified
+   in milliseconds and the default is 5 seconds (5000 milliseconds) consistent
+   with the architectual constant MinLSInterval specified in Appendix D of
+   RFC 2328. When a self-originated LSA needs to be reoriginated, it may be
+   delayed for up to this interval.
+
+   .. code-block:: frr
+
+      router ospf
+       timers throttle lsa all 1000
+
+
+   In this example, the `mininum LSA refresh interval` is set to 1000ms. This
+   command reduces the delay between successive originations of a self-originated
+   LSA from 5000 milliseconds to 1000 milliseconds.
+
+.. clicmd:: timers lsa min-arrival (0-5000)
+
+   This command sets the minumum interval between receptions of instances of
+   the same LSA or the `minimum LSA arrival interval`. The time is specified in
+   milliseconds and the default is 1 second (1000 milliseconds) consistent with
+   the architectual constant MinLSArrival specified in Appendix D of RFC 2328. If a
+   newer instance of the same LSA is received in less than this interval, it is
+   ignored.
+
+   .. code-block:: frr
+
+      router ospf
+       timers lsa min-arrival 50
+
+
+   In this example, the `minimum LSA arrival interval` is set to 50ms. This
+   command reduces the minimum interval required between instances of the same
+   LSA from 1000 milliseconds to 50 milliseconds.
+
 .. clicmd:: max-metric router-lsa [on-startup (5-86400)|on-shutdown (5-100)]
 
 .. clicmd:: max-metric router-lsa administrative
