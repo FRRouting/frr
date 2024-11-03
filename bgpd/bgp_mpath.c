@@ -425,7 +425,8 @@ void bgp_mpath_diff_insert(struct bgp_mpath_diff_head *diff, struct bgp_path_inf
 	item->update = update;
 
 	bgp_path_info_lock(bpi);
-	bgp_dest_lock_node(bpi->net);
+	if (bpi->net)
+		bgp_dest_lock_node(bpi->net);
 	bgp_mpath_diff_add_tail(diff, item);
 }
 
