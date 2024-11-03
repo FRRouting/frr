@@ -1305,7 +1305,7 @@ static bool alloc_srv6_sid_func_explicit(struct zebra_srv6_sid_block *block,
 		block->u.uncompressed.num_func_allocated++;
 	}
 
-	if (ZEBRA_DEBUG_SRV6)
+	if (IS_ZEBRA_DEBUG_SRV6)
 		zlog_debug("%s: allocated explicit SID function %u from block %pFX",
 			   __func__, sid_func, &block->prefix);
 
