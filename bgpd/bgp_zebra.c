@@ -3729,7 +3729,7 @@ static int bgp_zebra_process_srv6_locator_delete(ZAPI_CALLBACK_ARGS)
 		tovpn_sid = bgp_vrf->vpn_policy[AFI_IP6].tovpn_sid;
 		if (tovpn_sid) {
 			tmp_prefi.family = AF_INET6;
-			tmp_prefi.prefixlen = 128;
+			tmp_prefi.prefixlen = IPV6_MAX_BITLEN;
 			tmp_prefi.prefix = *tovpn_sid;
 			if (prefix_match((struct prefix *)&loc.prefix,
 					 (struct prefix *)&tmp_prefi))
