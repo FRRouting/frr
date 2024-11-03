@@ -1794,7 +1794,7 @@ static bool release_srv6_sid_func_explicit(struct zebra_srv6_sid_block *block,
 
 	format = block->sid_format;
 
-	if (ZEBRA_DEBUG_SRV6)
+	if (IS_ZEBRA_DEBUG_SRV6)
 		zlog_debug("%s: trying to release explicit SRv6 SID function %u from block %pFX",
 			   __func__, sid_func, &block->prefix);
 
