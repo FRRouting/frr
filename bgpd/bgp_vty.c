@@ -141,6 +141,8 @@ DEFINE_HOOK(bgp_inst_config_write,
 DEFINE_HOOK(bgp_snmp_update_last_changed, (struct bgp *bgp), (bgp));
 DEFINE_HOOK(bgp_snmp_init_stats, (struct bgp *bgp), (bgp));
 DEFINE_HOOK(bgp_snmp_traps_config_write, (struct vty * vty), (vty));
+DEFINE_HOOK(bgp_route_distinguisher_update, (struct bgp *bgp, afi_t afi, bool preconfig),
+	    (bgp, afi, preconfig));
 
 static struct peer_group *listen_range_exists(struct bgp *bgp,
 					      struct prefix *range, int exact);
@@ -9805,6 +9807,14 @@ DEFPY (af_rd_vpn_export,
 	vpn_leak_prechange(BGP_VPN_POLICY_DIR_TOVPN, afi,
 			   bgp_get_default(), bgp);
 
+	if (!bgp->vpn_policy[afi].tovpn_rd_pretty && !rd_str)
+		return CMD_SUCCESS;
+
+	if (yes && bgp->vpn_policy[afi].tovpn_rd_pretty && rd_str &&
+	    strmatch(rd_str, bgp->vpn_policy[afi].tovpn_rd_pretty))
+		return CMD_SUCCESS;
+
+	hook_call(bgp_route_distinguisher_update, bgp, afi, true);
 	if (yes) {
 		if (bgp->vpn_policy[afi].tovpn_rd_pretty)
 			XFREE(MTYPE_BGP_NAME, bgp->vpn_policy[afi].tovpn_rd_pretty);
@@ -9815,9 +9825,11 @@ DEFPY (af_rd_vpn_export,
 			 BGP_VPN_POLICY_TOVPN_RD_SET);
 	} else {
 		XFREE(MTYPE_BGP_NAME, bgp->vpn_policy[afi].tovpn_rd_pretty);
+		bgp->vpn_policy[afi].tovpn_rd_pretty = NULL;
 		UNSET_FLAG(bgp->vpn_policy[afi].flags,
 			   BGP_VPN_POLICY_TOVPN_RD_SET);
 	}
+	hook_call(bgp_route_distinguisher_update, bgp, afi, false);
 
 	/* post-change: re-export vpn routes */
 	vpn_leak_postchange(BGP_VPN_POLICY_DIR_TOVPN, afi,
