@@ -1099,7 +1099,7 @@ and this section also helps that case.
 ::
 
    router# configure terminal
-   router(config)# segment-routinig
+   router(config)# segment-routing
    router(config-sr)# srv6
    router(config-srv6)# formats
    router(config-srv6-formats)# format usid-f3216
