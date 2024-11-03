@@ -1331,7 +1331,7 @@ static bool alloc_srv6_sid_func_dynamic(struct zebra_srv6_sid_block *block,
 
 	format = block->sid_format;
 
-	if (ZEBRA_DEBUG_SRV6)
+	if (IS_ZEBRA_DEBUG_SRV6)
 		zlog_debug("%s: trying to allocate dynamic SID function from block %pFX",
 			   __func__, &block->prefix);
 
