@@ -3180,7 +3180,7 @@ static int bgp_bmp_early_fini(void)
 }
 
 /* called when the routerid of an instance changes */
-static int bmp_routerid_update(struct bgp *bgp, bool withdraw)
+static int bmp_bgp_attribute_updated(struct bgp *bgp, bool withdraw)
 {
 	struct bmp_bgp *bmpbgp = bmp_bgp_find(bgp);
 
@@ -3200,6 +3200,15 @@ static int bmp_routerid_update(struct bgp *bgp, bool withdraw)
 	return 1;
 }
 
+static int bmp_routerid_update(struct bgp *bgp, bool withdraw)
+{
+	return bmp_bgp_attribute_updated(bgp, withdraw);
+}
+
+static int bmp_route_distinguisher_update(struct bgp *bgp, afi_t afi, bool preconfig)
+{
+	return bmp_bgp_attribute_updated(bgp, preconfig);
+}
 
 /* called when a bgp instance goes up/down, implying that the underlying VRF
  * has been created or deleted in zebra
@@ -3255,6 +3264,7 @@ static int bgp_bmp_module_init(void)
 	hook_register(bgp_instance_state, bmp_vrf_state_changed);
 	hook_register(bgp_vrf_status_changed, bmp_vrf_itf_state_changed);
 	hook_register(bgp_routerid_update, bmp_routerid_update);
+	hook_register(bgp_route_distinguisher_update, bmp_route_distinguisher_update);
 	return 0;
 }
 
