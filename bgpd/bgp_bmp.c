@@ -849,8 +849,10 @@ static int bmp_send_peerup_vrf(struct bmp *bmp)
 
 	s = bmp_peerstate(bmpbgp->bgp->peer_self, bmpbgp->vrf_state == vrf_state_down);
 
-	pullwr_write_stream(bmp->pullwr, s);
-	stream_free(s);
+	if (s) {
+		pullwr_write_stream(bmp->pullwr, s);
+		stream_free(s);
+	}
 
 	return 0;
 }
@@ -4093,7 +4095,7 @@ static int bmp_vrf_itf_state_changed(struct bgp *bgp, struct interface *itf)
 	bmpbgp = bmp_bgp_find(bgp);
 	new_state = if_is_up(itf) ? vrf_state_up : vrf_state_down;
 	if (bmp_bgp_update_vrf_status(bmpbgp, new_state))
-		bmp_send_all(bmpbgp, bmp_peerstate(bgp->peer_self, new_state == vrf_state_down));
+		bmp_send_all_safe(bmpbgp, bmp_peerstate(bgp->peer_self, new_state == vrf_state_down));
 
 	return 0;
 }
