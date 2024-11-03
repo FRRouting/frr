@@ -485,16 +485,12 @@ static inline int bmp_get_peer_distinguisher(struct bgp *bgp, afi_t afi, uint64_
 
 	/* afi not known, use any afi configured in this vrf */
 	if (afi == AFI_UNSPEC) {
-		{ /* scope lock iter variables */
-			afi_t afi_rd_lookup;
-
-			for (afi_rd_lookup = AFI_IP; afi_rd_lookup < AFI_MAX; afi_rd_lookup++) {
-				if (CHECK_FLAG(bgp->vpn_policy[afi_rd_lookup].flags,
-					       BGP_VPN_POLICY_TOVPN_RD_SET)) {
-					afi = afi_rd_lookup;
-					/* we found an AFI with a RD set */
-					break;
-				}
+		for (afi_t afi_rd_lookup = AFI_IP; afi_rd_lookup < AFI_MAX; afi_rd_lookup++) {
+			if (CHECK_FLAG(bgp->vpn_policy[afi_rd_lookup].flags,
+				       BGP_VPN_POLICY_TOVPN_RD_SET)) {
+				afi = afi_rd_lookup;
+				/* we found an AFI with a RD set */
+				break;
 			}
 		}
 
