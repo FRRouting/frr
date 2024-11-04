@@ -1500,6 +1500,14 @@ void ospf6_abr_examin_brouter(uint32_t router_id, struct ospf6_route *route,
 	type = htons(OSPF6_LSTYPE_INTER_PREFIX);
 	for (ALL_LSDB_TYPED_ADVRTR(oa->lsdb, type, router_id, lsa))
 		ospf6_abr_examin_summary(lsa, oa);
+
+	type = htons(OSPF6_LSTYPE_E_INTER_ROUTER);
+	for (ALL_LSDB_TYPED_ADVRTR(oa->lsdb, type, router_id, lsa))
+		ospf6_abr_examin_summary(lsa, oa);
+
+	type = htons(OSPF6_LSTYPE_E_INTER_PREFIX);
+	for (ALL_LSDB_TYPED_ADVRTR(oa->lsdb, type, router_id, lsa))
+		ospf6_abr_examin_summary(lsa, oa);
 }
 
 void ospf6_abr_prefix_resummarize(struct ospf6 *o)
