@@ -18563,7 +18563,7 @@ static void bgp_config_write_peer_global(struct vty *vty, struct bgp *bgp,
 	}
 
 	/* TCP max segment size */
-	if (CHECK_FLAG(peer->flags, PEER_FLAG_TCP_MSS))
+	if (peergroup_flag_check(peer, PEER_FLAG_TCP_MSS))
 		vty_out(vty, " neighbor %s tcp-mss %d\n", addr, peer->tcp_mss);
 
 	/* passive */
