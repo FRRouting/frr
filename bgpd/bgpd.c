@@ -2972,6 +2972,9 @@ static void peer_group2peer_config_copy(struct peer_group *group,
 		bgp_peer_configure_bfd(peer, false);
 		bgp_peer_config_apply(peer, group);
 	}
+	/* peer tcp-mss */
+	if (!CHECK_FLAG(peer->flags_override, PEER_FLAG_TCP_MSS))
+		PEER_ATTR_INHERIT(peer, group, tcp_mss);
 }
 
 /* Peer group's remote AS configuration.  */
@@ -4597,6 +4600,13 @@ static const struct peer_flag_action peer_flag_action_list[] = {
 	{PEER_FLAG_GRACEFUL_SHUTDOWN, 0, peer_change_none},
 	{PEER_FLAG_CAPABILITY_SOFT_VERSION, 0, peer_change_none},
 	{PEER_FLAG_CAPABILITY_FQDN, 0, peer_change_none},
+<<<<<<< HEAD
+=======
+	{PEER_FLAG_AS_LOOP_DETECTION, 0, peer_change_none},
+	{PEER_FLAG_EXTENDED_LINK_BANDWIDTH, 0, peer_change_none},
+	{PEER_FLAG_LONESOUL, 0, peer_change_reset_out},
+	{PEER_FLAG_TCP_MSS, 0, peer_change_none},
+>>>>>>> 9fa56a03c7 (bgpd:support tcp-mss for neighbor group)
 	{0, 0, 0}};
 
 static const struct peer_flag_action peer_af_flag_action_list[] = {
@@ -5887,9 +5897,27 @@ void peer_port_unset(struct peer *peer)
  */
 void peer_tcp_mss_set(struct peer *peer, uint32_t tcp_mss)
 {
+	struct peer *member;
+	struct listnode *node, *nnode;
+
+	peer_flag_set(peer, PEER_FLAG_TCP_MSS);
 	peer->tcp_mss = tcp_mss;
-	SET_FLAG(peer->flags, PEER_FLAG_TCP_MSS);
-	bgp_tcp_mss_set(peer);
+
+	if (!CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP)) {
+		bgp_tcp_mss_set(peer);
+		return;
+	}
+
+	for (ALL_LIST_ELEMENTS(peer->group->peer, node, nnode, member)) {
+		/* Skip peers with overridden configuration. */
+		if (CHECK_FLAG(member->flags_override, PEER_FLAG_TCP_MSS))
+			continue;
+
+		/* Set flag and configuration on peer-group member. */
+		SET_FLAG(member->flags, PEER_FLAG_TCP_MSS);
+		PEER_ATTR_INHERIT(member, peer->group, tcp_mss);
+		bgp_tcp_mss_set(member);
+	}
 }
 
 /* Reset the TCP-MSS value in the peer structure,
@@ -5898,9 +5926,39 @@ void peer_tcp_mss_set(struct peer *peer, uint32_t tcp_mss)
  */
 void peer_tcp_mss_unset(struct peer *peer)
 {
-	UNSET_FLAG(peer->flags, PEER_FLAG_TCP_MSS);
-	peer->tcp_mss = 0;
-	bgp_tcp_mss_set(peer);
+	struct peer *member;
+	struct listnode *node, *nnode;
+
+	/* Inherit configuration from peer-group if peer is member. */
+	if (peer_group_active(peer)) {
+		peer_flag_inherit(peer, PEER_FLAG_TCP_MSS);
+		PEER_ATTR_INHERIT(peer, peer->group, tcp_mss);
+	} else {
+		/* Otherwise remove flag and configuration from peer. */
+		peer_flag_unset(peer, PEER_FLAG_TCP_MSS);
+		peer->tcp_mss = 0;
+	}
+
+	/* Skip peer-group mechanics for regular peers. */
+	if (!CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP)) {
+		bgp_tcp_mss_set(peer);
+		return;
+	}
+
+	/*
+	 * Remove flag and configuration from all peer-group members, unless
+	 * they are explicitely overriding peer-group configuration.
+	 */
+	for (ALL_LIST_ELEMENTS(peer->group->peer, node, nnode, member)) {
+		/* Skip peers with overridden configuration. */
+		if (CHECK_FLAG(member->flags_override, PEER_FLAG_TCP_MSS))
+			continue;
+
+		/* Remove flag and configuration on peer-group member. */
+		UNSET_FLAG(member->flags, PEER_FLAG_TCP_MSS);
+		member->tcp_mss = 0;
+		bgp_tcp_mss_set(member);
+	}
 }
 
 /*
