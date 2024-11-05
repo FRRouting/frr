@@ -1903,8 +1903,7 @@ static bool bmp_wrqueue_locrib(struct bmp *bmp, struct pullwr *pullwr)
 
 	/* retrieve info about the selected path
 	 */
-	bool is_vpn = (afi == AFI_L2VPN && safi == SAFI_EVPN) ||
-		      (safi == SAFI_MPLS_VPN);
+	bool is_vpn = (afi == AFI_L2VPN && safi == SAFI_EVPN) || (safi == SAFI_MPLS_VPN);
 
 	struct prefix_rd *prd = is_vpn ? &bqe->rd : NULL;
 
@@ -1933,7 +1932,6 @@ static bool bmp_wrqueue_locrib(struct bmp *bmp, struct pullwr *pullwr)
 		/* loc-rib configured and path is selected */
 		if (CHECK_FLAG(flags, BMP_MON_LOC_RIB) &&
 		    CHECK_FLAG(bpi->flags, BGP_PATH_SELECTED | BGP_PATH_MULTIPATH)) {
-
 			bmp_monitor(bmp, peer, 0, BMP_PEER_TYPE_LOC_RIB_INSTANCE, &bqe->p, prd,
 				    bpi->attr, afi, safi, addpath_rx_id,
 				    bpi->extra ? bpi->extra->bgp_rib_uptime : (time_t)(-1L),
@@ -4094,7 +4092,8 @@ static int bmp_vrf_itf_state_changed(struct bgp *bgp, struct interface *itf)
 	bmpbgp = bmp_bgp_find(bgp);
 	new_state = if_is_up(itf) ? vrf_state_up : vrf_state_down;
 	if (bmp_bgp_update_vrf_status(bmpbgp, new_state))
-		bmp_send_all_safe(bmpbgp, bmp_peerstate(bgp->peer_self, new_state == vrf_state_down));
+		bmp_send_all_safe(bmpbgp,
+				  bmp_peerstate(bgp->peer_self, new_state == vrf_state_down));
 
 	return 0;
 }

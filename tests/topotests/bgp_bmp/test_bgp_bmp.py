@@ -189,7 +189,7 @@ def update_expected_files(bmp_actual, expected_prefixes, bmp_log_type, policy, s
 
         # ls /tmp/show*json | while read file; do egrep -v 'prefix|network|metric|ocPrf|version|weight|peerId|vrf|Version|valid|Reason|fe80' $file >$(basename $file); echo >> $(basename $file); done
         with open(
-                f"/tmp/show-bgp-ipv4-{bmp_log_type}-step{step}.json", "w"
+            f"/tmp/show-bgp-ipv4-{bmp_log_type}-step{step}.json", "w"
         ) as json_file:
             json.dump(filtered_out, json_file, indent=4)
 
@@ -215,7 +215,7 @@ def update_expected_files(bmp_actual, expected_prefixes, bmp_log_type, policy, s
                     continue
                 filtered_out["routes"]["routeDistinguishers"][rd][pfx] = None
         with open(
-                f"/tmp/show-bgp-ipv6-{bmp_log_type}-step{step}.json", "w"
+            f"/tmp/show-bgp-ipv6-{bmp_log_type}-step{step}.json", "w"
         ) as json_file:
             json.dump(filtered_out, json_file, indent=4)
 
@@ -285,11 +285,11 @@ def check_for_prefixes(expected_prefixes, bmp_log_type, policy, step):
     actual = {}
     for m in messages:
         if (
-                "bmp_log_type" in m.keys()
-                and "ip_prefix" in m.keys()
-                and m["ip_prefix"] in expected_prefixes
-                and m["bmp_log_type"] == bmp_log_type
-                and m["policy"] == policy
+            "bmp_log_type" in m.keys()
+            and "ip_prefix" in m.keys()
+            and m["ip_prefix"] in expected_prefixes
+            and m["bmp_log_type"] == bmp_log_type
+            and m["policy"] == policy
         ):
             policy_dict = actual.setdefault(m["policy"], {})
             bmp_log_type_dict = policy_dict.setdefault(m["bmp_log_type"], {})
@@ -300,18 +300,18 @@ def check_for_prefixes(expected_prefixes, bmp_log_type, policy, step):
                 for k, v in sorted(m.items())
                 # filter out variable keys
                 if k not in ["timestamp", "seq", "nxhp_link-local"]
-                   and (
-                       # When policy is loc-rib, the peer-distinguisher is 0:0
-                       # for the default VRF or the RD if any or the 0:<vrf_id>.
-                       # 0:<vrf_id> is used to distinguished. RFC7854 says: "If the
-                       # peer is a "Local Instance Peer", it is set to a unique,
-                       # locally defined value." The value is not tested because it
-                       # is variable.
-                           k != "peer_distinguisher"
-                           or policy != LOC_RIB
-                           or v == "0:0"
-                           or not v.startswith("0:")
-                   )
+                and (
+                    # When policy is loc-rib, the peer-distinguisher is 0:0
+                    # for the default VRF or the RD if any or the 0:<vrf_id>.
+                    # 0:<vrf_id> is used to distinguished. RFC7854 says: "If the
+                    # peer is a "Local Instance Peer", it is set to a unique,
+                    # locally defined value." The value is not tested because it
+                    # is variable.
+                    k != "peer_distinguisher"
+                    or policy != LOC_RIB
+                    or v == "0:0"
+                    or not v.startswith("0:")
+                )
             }
 
     logger.debug(f"messages = {messages}")
@@ -319,10 +319,10 @@ def check_for_prefixes(expected_prefixes, bmp_log_type, policy, step):
 
     # build expected JSON files
     if (
-            UPDATE_EXPECTED_JSON
-            and actual
-            and set(actual.get(policy, {}).get(bmp_log_type, {}).keys())
-            == set(expected_prefixes)
+        UPDATE_EXPECTED_JSON
+        and actual
+        and set(actual.get(policy, {}).get(bmp_log_type, {}).keys())
+        == set(expected_prefixes)
     ):
         update_expected_files(actual, expected_prefixes, bmp_log_type, policy, step)
 
@@ -373,7 +373,9 @@ def configure_prefixes(tgen, node, asn, safi, prefixes, vrf=None, update=True):
             "{}network {}\n".format(withdraw, ip),
             "exit-address-family\n",
         ]
-        logger.debug("[{}] setting prefix: ipv{} {} {}".format(node, ip.version, safi, ip))
+        logger.debug(
+            "[{}] setting prefix: ipv{} {} {}".format(node, ip.version, safi, ip)
+        )
         tgen.gears[node].vtysh_cmd("".join(cmd))
 
 
@@ -484,7 +486,6 @@ def test_bmp_bgp_vpn():
     _test_prefixes(ADJ_IN_POST_POLICY, vrf="vrf1", step=2)
     logger.info("***** VPN prefixes loc-rib logging *****")
     _test_prefixes(LOC_RIB, vrf="vrf1", step=2)
-
 
 
 def multipath_unicast_prefixes(policy, step, vrf=None):
