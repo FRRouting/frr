@@ -73,6 +73,7 @@
 
 /* NHRP Authentication extension types (ala Cisco) */
 #define NHRP_AUTHENTICATION_PLAINTEXT		0x00000001
+#define NHRP_CISCO_PASS_LEN			8
 
 /* NHRP Packet Structures */
 struct nhrp_packet_header {
