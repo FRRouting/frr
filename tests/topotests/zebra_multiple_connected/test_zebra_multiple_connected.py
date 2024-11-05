@@ -202,6 +202,27 @@ def test_zebra_kernel_route_add():
     assert result, "Connected Route should have been added\n{}".format(_)
 
 
+def test_zebra_kernel_route_blackhole_add():
+    "Test that a blackhole route is not affected by interface's link change"
+
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    router = tgen.gears["r1"]
+    router.run("ip route add blackhole default")
+    router.run("ip link set dev r1-eth1 down")
+
+    kernel = "{}/{}/ip_route_kernel_blackhole.json".format(CWD, router.name)
+    expected = json.loads(open(kernel).read())
+
+    test_func = partial(
+        topotest.router_json_cmp, router, "show ip route 0.0.0.0/0 json", expected
+    )
+    result, _ = topotest.run_and_expect(test_func, None, count=20, wait=1)
+    assert result, "Blackhole Route should have not been removed\n{}".format(_)
+
+
 if __name__ == "__main__":
     args = ["-s"] + sys.argv[1:]
     sys.exit(pytest.main(args))
