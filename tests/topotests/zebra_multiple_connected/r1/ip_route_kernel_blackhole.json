@@ -1,0 +1,24 @@
+{
+  "0.0.0.0/0":[
+    {
+      "prefix":"0.0.0.0/0",
+      "prefixLen":0,
+      "protocol":"kernel",
+      "vrfName":"default",
+      "selected":true,
+      "destSelected":true,
+      "distance":0,
+      "metric":0,
+      "installed":true,
+      "table":254,
+      "nexthops":[
+        {
+          "fib":true,
+          "unreachable":true,
+          "blackhole":true,
+          "active":true
+        }
+      ]
+    }
+  ]
+}
