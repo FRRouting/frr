@@ -1,0 +1,11 @@
+{
+  "locators":[
+    {
+      "name":"loc1",
+      "prefix":"fc00:0:0:6::/64",
+      "statusUp":true,
+      "chunks":[
+      ]
+    }
+  ]
+}
