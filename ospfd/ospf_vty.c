@@ -339,6 +339,12 @@ DEFPY (no_ospf_router_id,
 	return CMD_SUCCESS;
 }
 
+ALIAS_HIDDEN (no_ospf_router_id,
+              no_router_id_cmd,
+              "no router-id [A.B.C.D]",
+              NO_STR
+              "router-id for the OSPF process\n"
+              "OSPF router-id in IP address format\n")
 
 static void ospf_passive_interface_default_update(struct ospf *ospf,
 						  uint8_t newval)
@@ -13678,6 +13684,7 @@ void ospf_vty_init(void)
 	install_element(OSPF_NODE, &ospf_router_id_cmd);
 	install_element(OSPF_NODE, &ospf_router_id_old_cmd);
 	install_element(OSPF_NODE, &no_ospf_router_id_cmd);
+	install_element(OSPF_NODE, &no_router_id_cmd);
 
 	/* "passive-interface" commands. */
 	install_element(OSPF_NODE, &ospf_passive_interface_default_cmd);
