@@ -858,6 +858,27 @@ static void vty_show_ip_route_detail_json(struct vty *vty,
 	vty_json(vty, json);
 }
 
+static void zebra_vty_display_vrf_header(struct vty *vty, struct zebra_vrf *zvrf, uint32_t tableid)
+{
+	if (!tableid)
+		vty_out(vty, "VRF %s:\n", zvrf_name(zvrf));
+	else {
+		if (vrf_is_backend_netns())
+			vty_out(vty, "VRF %s table %u:\n", zvrf_name(zvrf), tableid);
+		else {
+			vrf_id_t vrf = zebra_vrf_lookup_by_table(tableid, zvrf->zns->ns_id);
+
+			if (vrf == VRF_DEFAULT && tableid != RT_TABLE_ID_MAIN)
+				vty_out(vty, "table %u:\n", tableid);
+			else {
+				struct zebra_vrf *zvrf2 = zebra_vrf_lookup_by_id(vrf);
+
+				vty_out(vty, "VRF %s table %u:\n", zvrf_name(zvrf2), tableid);
+			}
+		}
+	}
+}
+
 static void do_show_route_helper(struct vty *vty, struct zebra_vrf *zvrf,
 				 struct route_table *table, afi_t afi,
 				 bool use_fib, route_tag_t tag,
@@ -937,17 +958,9 @@ static void do_show_route_helper(struct vty *vty, struct zebra_vrf *zvrf,
 				}
 				if (ctx->multi && ctx->header_done)
 					vty_out(vty, "\n");
-				if (ctx->multi || zvrf_id(zvrf) != VRF_DEFAULT
-				    || tableid) {
-					if (!tableid)
-						vty_out(vty, "VRF %s:\n",
-							zvrf_name(zvrf));
-					else
-						vty_out(vty,
-							"VRF %s table %u:\n",
-							zvrf_name(zvrf),
-							tableid);
-				}
+				if (ctx->multi || zvrf_id(zvrf) != VRF_DEFAULT || tableid)
+					zebra_vty_display_vrf_header(vty, zvrf, tableid);
+
 				ctx->header_done = true;
 				first = 0;
 			}

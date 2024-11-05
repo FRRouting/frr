@@ -24,6 +24,7 @@ extern "C" {
 #if !defined(GNU_LINUX)
 /* BSD systems
  */
+#define RT_TABLE_ID_MAIN 0
 #else
 /* Linux Systems
  */
