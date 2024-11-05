@@ -1410,6 +1410,7 @@ static int bmp_monitor_rib_out_pre_updgrp_walkcb(struct update_group *updgrp, vo
 	struct peer_af *paf;
 	uint32_t addpath_tx_id;
 	struct bgp_path_info *bpi = ctx->bpi;
+	uint8_t bpi_num_labels = BGP_PATH_INFO_NUM_LABELS(bpi);
 
 	UPDGRP_FOREACH_SUBGRP (updgrp, subgrp) {
 		struct attr dummy_attr = { 0 };
@@ -1429,8 +1430,8 @@ static int bmp_monitor_rib_out_pre_updgrp_walkcb(struct update_group *updgrp, vo
 				    bmp_get_peer_type(PAF_PEER(paf)),
 				    bgp_dest_get_prefix(ctx->dest), ctx->prd, ctx->attr,
 				    SUBGRP_AFI(subgrp), SUBGRP_SAFI(subgrp), addpath_tx_id,
-				    (time_t)(-1L), bpi && bpi->extra ? bpi->extra->labels->label : NULL,
-				    bpi && bpi->extra ? bpi->extra->labels->num_labels : 0);
+				    (time_t)(-1L), bpi_num_labels ? bpi->extra->labels->label : NULL,
+				    bpi_num_labels);
 
 			*ctx->written_ref = true;
 		}
@@ -1482,6 +1483,7 @@ static int bmp_monitor_rib_out_post_updgrp_walkcb(struct update_group *updgrp, v
 	struct attr *advertised_attr;
 	uint32_t addpath_tx_id;
 	struct bgp_path_info *bpi = ctx->bpi;
+	uint8_t bpi_num_labels = BGP_PATH_INFO_NUM_LABELS(bpi);
 
 	UPDGRP_FOREACH_SUBGRP (updgrp, subgrp) {
 		addpath_tx_id =
@@ -1503,8 +1505,8 @@ static int bmp_monitor_rib_out_post_updgrp_walkcb(struct update_group *updgrp, v
 				    bmp_get_peer_type(PAF_PEER(paf)), ctx->pfx, ctx->prd,
 				    advertised_attr, SUBGRP_AFI(subgrp), SUBGRP_SAFI(subgrp),
 				    addpath_tx_id, (time_t)(-1L),
-				    bpi && bpi->extra ? bpi->extra->labels->label : NULL,
-				    bpi && bpi->extra ? bpi->extra->labels->num_labels : 0);
+				    bpi_num_labels ? bpi->extra->labels->label : NULL,
+				    bpi_num_labels);
 
 			*ctx->written_ref = true;
 		}
@@ -1901,8 +1903,8 @@ static bool bmp_wrqueue_locrib(struct bmp *bmp, struct pullwr *pullwr)
 
 	/* retrieve info about the selected path
 	 */
-	bool is_vpn = (bqe->afi == AFI_L2VPN && bqe->safi == SAFI_EVPN) ||
-		      (bqe->safi == SAFI_MPLS_VPN);
+	bool is_vpn = (afi == AFI_L2VPN && safi == SAFI_EVPN) ||
+		      (safi == SAFI_MPLS_VPN);
 
 	struct prefix_rd *prd = is_vpn ? &bqe->rd : NULL;
 
@@ -1915,13 +1917,15 @@ static bool bmp_wrqueue_locrib(struct bmp *bmp, struct pullwr *pullwr)
 		if (bpi->peer != peer || bpi->addpath_rx_id != addpath_rx_id)
 			continue;
 
+		uint8_t bpi_num_labels = BGP_PATH_INFO_NUM_LABELS(bpi);
+
 		/* rib-in post-policy configured and path is valid */
 		if (CHECK_FLAG(flags, BMP_MON_IN_POSTPOLICY) &&
 		    CHECK_FLAG(bpi->flags, BGP_PATH_VALID)) {
 			bmp_monitor(bmp, peer, BMP_PEER_FLAG_L, bmp_get_peer_type(peer), &bqe->p,
 				    prd, bpi->attr, afi, safi, addpath_rx_id, bpi->uptime,
-				    bpi && bpi->extra ? bpi->extra->labels->label : NULL,
-				    bpi && bpi->extra ? bpi->extra->labels->num_labels : 0);
+				    bpi_num_labels ? bpi->extra->labels->label : NULL,
+				    bpi_num_labels);
 			ribin = bpi;
 			written = true;
 		}
@@ -1929,7 +1933,6 @@ static bool bmp_wrqueue_locrib(struct bmp *bmp, struct pullwr *pullwr)
 		/* loc-rib configured and path is selected */
 		if (CHECK_FLAG(flags, BMP_MON_LOC_RIB) &&
 		    CHECK_FLAG(bpi->flags, BGP_PATH_SELECTED | BGP_PATH_MULTIPATH)) {
-			uint8_t bpi_num_labels = BGP_PATH_INFO_NUM_LABELS(bpi);
 
 			bmp_monitor(bmp, peer, 0, BMP_PEER_TYPE_LOC_RIB_INSTANCE, &bqe->p, prd,
 				    bpi->attr, afi, safi, addpath_rx_id,
