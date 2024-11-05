@@ -3076,11 +3076,10 @@ int peer_group_remote_as(struct bgp *bgp, const char *group_name, as_t *as,
 	return 0;
 }
 
-void peer_notify_unconfig(struct peer *peer)
+void peer_notify_unconfig(struct peer_connection *connection)
 {
-	if (BGP_IS_VALID_STATE_FOR_NOTIF(peer->connection->status))
-		bgp_notify_send(peer->connection, BGP_NOTIFY_CEASE,
-				BGP_NOTIFY_CEASE_PEER_UNCONFIG);
+	if (BGP_IS_VALID_STATE_FOR_NOTIF(connection->status))
+		bgp_notify_send(connection, BGP_NOTIFY_CEASE, BGP_NOTIFY_CEASE_PEER_UNCONFIG);
 }
 
 static void peer_notify_shutdown(struct peer *peer)
@@ -3107,9 +3106,9 @@ void peer_group_notify_unconfig(struct peer_group *group)
 		other = peer->doppelganger;
 		if (other && other->connection->status != Deleted) {
 			other->group = NULL;
-			peer_notify_unconfig(other);
+			peer_notify_unconfig(other->connection);
 		} else
-			peer_notify_unconfig(peer);
+			peer_notify_unconfig(peer->connection);
 	}
 }
 
@@ -8841,11 +8840,7 @@ void bgp_terminate(void)
 						peer);
 				continue;
 			}
-			if (BGP_IS_VALID_STATE_FOR_NOTIF(
-				    peer->connection->status))
-				bgp_notify_send(peer->connection,
-						BGP_NOTIFY_CEASE,
-						BGP_NOTIFY_CEASE_PEER_UNCONFIG);
+			peer_notify_unconfig(peer->connection);
 		}
 	}
 

@@ -5264,7 +5264,7 @@ DEFUN (no_neighbor,
 			 * interface. */
 			if (peer->ifp)
 				bgp_zebra_terminate_radv(peer->bgp, peer);
-			peer_notify_unconfig(peer);
+			peer_notify_unconfig(peer->connection);
 			peer_delete(peer);
 			return CMD_SUCCESS;
 		}
@@ -5300,10 +5300,10 @@ DEFUN (no_neighbor,
 			if (CHECK_FLAG(peer->flags, PEER_FLAG_CAPABILITY_ENHE))
 				bgp_zebra_terminate_radv(peer->bgp, peer);
 
-			peer_notify_unconfig(peer);
+			peer_notify_unconfig(peer->connection);
 			peer_delete(peer);
 			if (other && other->connection->status != Deleted) {
-				peer_notify_unconfig(other);
+				peer_notify_unconfig(other->connection);
 				peer_delete(other);
 			}
 		}
@@ -5338,7 +5338,7 @@ DEFUN (no_neighbor_interface_config,
 		/* Request zebra to terminate IPv6 RAs on this interface. */
 		if (peer->ifp)
 			bgp_zebra_terminate_radv(peer->bgp, peer);
-		peer_notify_unconfig(peer);
+		peer_notify_unconfig(peer->connection);
 		peer_delete(peer);
 	} else {
 		vty_out(vty, "%% Create the bgp interface first\n");
@@ -5746,7 +5746,7 @@ DEFUN (no_neighbor_set_peer_group,
 	if (CHECK_FLAG(peer->flags, PEER_FLAG_CAPABILITY_ENHE))
 		bgp_zebra_terminate_radv(peer->bgp, peer);
 
-	peer_notify_unconfig(peer);
+	peer_notify_unconfig(peer->connection);
 	ret = peer_delete(peer);
 
 	return bgp_vty_return(vty, ret);
