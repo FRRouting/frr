@@ -106,7 +106,7 @@ int tv2msec(struct timeval tv)
 	int msecs;
 
 	msecs = tv.tv_sec * 1000;
-	msecs += tv.tv_usec / 1000;
+	msecs += (tv.tv_usec + 1000) / 1000;
 
 	return msecs;
 }
@@ -126,7 +126,12 @@ int ospf_lsa_refresh_delay(struct ospf *ospf, struct ospf_lsa *lsa)
 			zlog_debug("LSA[Type%d:%pI4]: Refresh timer delay %d milliseconds",
 				   lsa->data->type, &lsa->data->id, delay);
 
-		assert(delay > 0);
+		if (delay <= 0) {
+			zlog_warn("LSA[Type%d:%pI4]: Invalid refresh timer delay %d milliseconds Seq: 0x%x Age:%u",
+				  lsa->data->type, &lsa->data->id, delay,
+				  ntohl(lsa->data->ls_seqnum), ntohs(lsa->data->ls_age));
+			delay = 0;
+		}
 	}
 
 	return delay;
