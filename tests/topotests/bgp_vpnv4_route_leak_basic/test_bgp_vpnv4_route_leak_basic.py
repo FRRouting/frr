@@ -13,6 +13,7 @@
 Test basic VPNv4 route leaking
 """
 
+import json
 import os
 import sys
 from functools import partial
@@ -58,6 +59,22 @@ def teardown_module(mod):
 
     # This function tears down the whole topology.
     tgen.stop_topology()
+
+
+def test_bgp_convergence():
+    tgen = get_topogen()
+    # Don't run this test if we have any failure.
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    r1 = tgen.gears["r1"]
+
+    json_file = "{}/{}/show_bgp_ipv4_vpn_init.json".format(CWD, r1.name)
+    expect = json.loads(open(json_file).read())
+
+    test_func = partial(topotest.router_json_cmp, r1, "show bgp ipv4 vpn json", expect)
+    result, diff = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
+    assert result, "BGP IPv4 VPN table check failed:\n{}".format(diff)
 
 
 def test_vrf_route_leak_donna():
@@ -297,6 +314,14 @@ interface EVA
     result, diff = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
     assert result, "BGP VRF DONNA check failed:\n{}".format(diff)
 
+    # check BGP IPv4 VPN table
+    json_file = "{}/{}/show_bgp_ipv4_vpn_eva_down.json".format(CWD, r1.name)
+    expect = json.loads(open(json_file).read())
+
+    test_func = partial(topotest.router_json_cmp, r1, "show bgp ipv4 vpn json", expect)
+    result, diff = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
+    assert result, "BGP IPv4 VPN table check failed:\n{}".format(diff)
+
 
 def test_vrf_route_leak_donna_after_eva_up():
     logger.info("Ensure that route states change after EVA interface goes up")
@@ -352,6 +377,14 @@ interface EVA
     result, diff = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
     assert result, "BGP VRF DONNA check failed:\n{}".format(diff)
 
+    # check BGP IPv4 VPN table
+    json_file = "{}/{}/show_bgp_ipv4_vpn_init.json".format(CWD, r1.name)
+    expect = json.loads(open(json_file).read())
+
+    test_func = partial(topotest.router_json_cmp, r1, "show bgp ipv4 vpn json", expect)
+    result, diff = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
+    assert result, "BGP IPv4 VPN table check failed:\n{}".format(diff)
+
 
 def test_vrf_route_leak_donna_add_vrf_zita():
     logger.info("Add VRF ZITA and ensure that the route from VRF ZITA is updated")
@@ -373,6 +406,14 @@ def test_vrf_route_leak_donna_add_vrf_zita():
     )
     result, diff = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
     assert result, "BGP VRF DONNA check failed:\n{}".format(diff)
+
+    # check BGP IPv4 VPN table
+    json_file = "{}/{}/show_bgp_ipv4_vpn_add_zita.json".format(CWD, r1.name)
+    expect = json.loads(open(json_file).read())
+
+    test_func = partial(topotest.router_json_cmp, r1, "show bgp ipv4 vpn json", expect)
+    result, diff = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
+    assert result, "BGP IPv4 VPN table check failed:\n{}".format(diff)
 
 
 def test_vrf_route_leak_donna_set_zita_up():
@@ -415,6 +456,14 @@ interface ZITA
     result, diff = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
     assert result, "BGP VRF DONNA check failed:\n{}".format(diff)
 
+    # check BGP IPv4 VPN table
+    json_file = "{}/{}/show_bgp_ipv4_vpn_zita_up.json".format(CWD, r1.name)
+    expect = json.loads(open(json_file).read())
+
+    test_func = partial(topotest.router_json_cmp, r1, "show bgp ipv4 vpn json", expect)
+    result, diff = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
+    assert result, "BGP IPv4 VPN table check failed:\n{}".format(diff)
+
 
 def test_vrf_route_leak_donna_delete_vrf_zita():
     logger.info("Delete VRF ZITA and ensure that the route from VRF ZITA is deleted")
@@ -436,6 +485,14 @@ def test_vrf_route_leak_donna_delete_vrf_zita():
     )
     result, diff = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
     assert result, "BGP VRF DONNA check failed:\n{}".format(diff)
+
+    # check BGP IPv4 VPN table
+    json_file = "{}/{}/show_bgp_ipv4_vpn_init.json".format(CWD, r1.name)
+    expect = json.loads(open(json_file).read())
+
+    test_func = partial(topotest.router_json_cmp, r1, "show bgp ipv4 vpn json", expect)
+    result, diff = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
+    assert result, "BGP IPv4 VPN table check failed:\n{}".format(diff)
 
 
 def test_memory_leak():
