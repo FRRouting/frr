@@ -1,0 +1,102 @@
+{
+  "routerId": "10.0.4.1",
+  "localAS": 99,
+  "routes": {
+    "routeDistinguishers": {
+      "10.0.4.1:1": {
+        "10.0.0.0/24": [
+          {
+            "valid": true,
+            "pathFrom": "external",
+            "path": "",
+            "origin": "incomplete",
+            "announceNexthopSelf": true,
+            "nhVrfName": "DONNA",
+            "nexthops": [
+              {
+                "ip": "0.0.0.0",
+                "hostname": "r1",
+                "afi": "ipv4",
+                "used": true
+              }
+            ]
+          }
+        ],
+        "10.0.1.0/24": [
+          {
+            "valid": null,
+            "pathFrom": "external",
+            "path": "",
+            "origin": "incomplete",
+            "announceNexthopSelf": true,
+            "nhVrfName": "EVA",
+            "nexthops": [
+              {
+                "ip": "0.0.0.0",
+                "hostname": "r1",
+                "afi": "ipv4",
+                "used": true
+              }
+            ]
+          }
+        ],
+        "10.0.2.0/24": [
+          {
+            "valid": true,
+            "pathFrom": "external",
+            "path": "",
+            "origin": "incomplete",
+            "announceNexthopSelf": true,
+            "nhVrfName": "DONNA",
+            "nexthops": [
+              {
+                "ip": "0.0.0.0",
+                "hostname": "r1",
+                "afi": "ipv4",
+                "used": true
+              }
+            ]
+          }
+        ],
+        "10.0.3.0/24": [
+          {
+            "valid": null,
+            "pathFrom": "external",
+            "path": "",
+            "origin": "incomplete",
+            "announceNexthopSelf": true,
+            "nhVrfName": "EVA",
+            "nexthops": [
+              {
+                "ip": "0.0.0.0",
+                "hostname": "r1",
+                "afi": "ipv4",
+                "used": true
+              }
+            ]
+          }
+        ],
+        "10.0.4.0/24": [
+          {
+            "valid": true,
+            "pathFrom": "external",
+            "path": "",
+            "origin": "incomplete",
+            "announceNexthopSelf": true,
+            "nhVrfName": "default",
+            "nexthops": [
+              {
+                "ip": "0.0.0.0",
+                "hostname": "r1",
+                "afi": "ipv4",
+                "used": true
+              }
+            ]
+          }
+        ],
+        "172.16.101.0/24": null
+      }
+    }
+  }
+}
+
