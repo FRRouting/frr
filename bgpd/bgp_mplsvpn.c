@@ -1052,6 +1052,7 @@ static bool leak_update_nexthop_valid(struct bgp *to_bgp, struct bgp_dest *bn,
 	struct bgp_path_info *bpi_ultimate;
 	struct bgp *bgp_nexthop;
 	struct bgp_table *table;
+	struct interface *ifp;
 	bool nh_valid;
 
 	bpi_ultimate = bgp_get_imported_bpi_ultimate(source_bpi);
@@ -1061,6 +1062,15 @@ static bool leak_update_nexthop_valid(struct bgp *to_bgp, struct bgp_dest *bn,
 		bgp_nexthop = bpi->extra->vrfleak->bgp_orig;
 	else
 		bgp_nexthop = bgp_orig;
+
+	/* The nexthop is invalid if its VRF does not exist */
+	if (bgp_nexthop->vrf_id == VRF_UNKNOWN)
+		return false;
+
+	/* The nexthop is invalid if its VRF interface is down*/
+	ifp = if_get_vrf_loopback(bgp_nexthop->vrf_id);
+	if (ifp && !if_is_up(ifp))
+		return false;
 
 	/*
 	 * No nexthop tracking for redistributed routes, for
