@@ -2746,8 +2746,7 @@ static void bgp_gr_update_mode_of_all_peers(struct bgp *bgp,
 			peer->last_reset = PEER_DOWN_CAPABILITY_CHANGE;
 
 			if (BGP_IS_VALID_STATE_FOR_NOTIF(peer->connection->status))
-				bgp_notify_send(peer->connection, BGP_NOTIFY_CEASE,
-						BGP_NOTIFY_CEASE_CONFIG_CHANGE);
+				peer_notify_config_change(peer->connection);
 			else
 				bgp_session_reset_safe(peer, &nnode);
 		} else {
@@ -2769,8 +2768,7 @@ static void bgp_gr_update_mode_of_all_peers(struct bgp *bgp,
 				member->last_reset = PEER_DOWN_CAPABILITY_CHANGE;
 
 				if (BGP_IS_VALID_STATE_FOR_NOTIF(member->connection->status))
-					bgp_notify_send(member->connection, BGP_NOTIFY_CEASE,
-							BGP_NOTIFY_CEASE_CONFIG_CHANGE);
+					peer_notify_config_change(member->connection);
 				else
 					bgp_session_reset(member);
 			}
@@ -2974,8 +2972,7 @@ unsigned int bgp_peer_gr_action(struct peer *peer, enum peer_mode old_state,
 			peer->last_reset = PEER_DOWN_CAPABILITY_CHANGE;
 
 			if (BGP_IS_VALID_STATE_FOR_NOTIF(peer->connection->status))
-				bgp_notify_send(peer->connection, BGP_NOTIFY_CEASE,
-						BGP_NOTIFY_CEASE_CONFIG_CHANGE);
+				peer_notify_config_change(peer->connection);
 			else
 				bgp_session_reset(peer);
 		} else {
@@ -2985,8 +2982,7 @@ unsigned int bgp_peer_gr_action(struct peer *peer, enum peer_mode old_state,
 				bgp_peer_move_to_gr_mode(member, new_state);
 
 				if (BGP_IS_VALID_STATE_FOR_NOTIF(member->connection->status))
-					bgp_notify_send(member->connection, BGP_NOTIFY_CEASE,
-							BGP_NOTIFY_CEASE_CONFIG_CHANGE);
+					peer_notify_config_change(member->connection);
 				else
 					bgp_session_reset(member);
 			}
