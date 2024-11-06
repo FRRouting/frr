@@ -265,7 +265,7 @@ static struct peer *peer_xfer_conn(struct peer *from_peer)
 			from_peer->addpath_paths_limit[afi][safi];
 	}
 
-	if (bgp_getsockname(peer) < 0) {
+	if (bgp_getsockname(keeper) < 0) {
 		flog_err(EC_LIB_SOCKET,
 			 "%%bgp_getsockname() failed for %s peer %s fd %d (from_peer fd %d)",
 			 (CHECK_FLAG(peer->sflags, PEER_STATUS_ACCEPT_PEER)
@@ -277,7 +277,7 @@ static struct peer *peer_xfer_conn(struct peer *from_peer)
 		return NULL;
 	}
 	if (going_away->status > Active) {
-		if (bgp_getsockname(from_peer) < 0) {
+		if (bgp_getsockname(going_away) < 0) {
 			flog_err(EC_LIB_SOCKET,
 				 "%%bgp_getsockname() failed for %s from_peer %s fd %d (peer fd %d)",
 
@@ -1694,11 +1694,11 @@ bgp_connect_success(struct peer_connection *connection)
 		return bgp_stop(connection);
 	}
 
-	if (bgp_getsockname(peer) < 0) {
+	if (bgp_getsockname(connection) < 0) {
 		flog_err_sys(EC_LIB_SOCKET,
 			     "%s: bgp_getsockname(): failed for peer %s, fd %d",
 			     __func__, peer->host, connection->fd);
-		bgp_notify_send(peer->connection, BGP_NOTIFY_FSM_ERR,
+		bgp_notify_send(connection, BGP_NOTIFY_FSM_ERR,
 				bgp_fsm_error_subcode(connection->status));
 		bgp_writes_on(connection);
 		return BGP_FSM_FAILURE;
@@ -1740,11 +1740,11 @@ bgp_connect_success_w_delayopen(struct peer_connection *connection)
 		return bgp_stop(connection);
 	}
 
-	if (bgp_getsockname(peer) < 0) {
+	if (bgp_getsockname(connection) < 0) {
 		flog_err_sys(EC_LIB_SOCKET,
 			     "%s: bgp_getsockname(): failed for peer %s, fd %d",
 			     __func__, peer->host, connection->fd);
-		bgp_notify_send(peer->connection, BGP_NOTIFY_FSM_ERR,
+		bgp_notify_send(connection, BGP_NOTIFY_FSM_ERR,
 				bgp_fsm_error_subcode(connection->status));
 		bgp_writes_on(connection);
 		return BGP_FSM_FAILURE;

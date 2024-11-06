@@ -878,8 +878,10 @@ void bgp_updatesockname(struct peer *peer, struct peer_connection *connection)
 }
 
 /* After TCP connection is established.  Get local address and port. */
-int bgp_getsockname(struct peer *peer)
+int bgp_getsockname(struct peer_connection *connection)
 {
+	struct peer *peer = connection->peer;
+
 	bgp_updatesockname(peer, peer->connection);
 
 	if (!bgp_zebra_nexthop_set(peer->su_local, peer->su_remote,
