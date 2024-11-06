@@ -578,7 +578,7 @@ static char *ospf6_link_lsa_get_prefix_str(struct ospf6_lsa *lsa, char *buf,
 	struct ospf6_prefix *prefix = nth_prefix(lsa->header, pos);
 	struct in6_addr in6 = { 0 };
 
-	if (!lsa || !prefix || !buf || buflen < (1 + INET6_ADDRSTRLEN))
+	if (!prefix || !buf || buflen < (1 + INET6_ADDRSTRLEN))
 		return NULL;
 
 	/* position zero is used for the lladdr in the body of the LSA */
