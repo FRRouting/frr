@@ -1986,7 +1986,7 @@ struct peer *peer_create(union sockunion *su, const char *conf_if,
 		bgp->coalesce_time = MIN(BGP_MAX_SUBGROUP_COALESCE_TIME, ct);
 	}
 
-	active = peer_active(peer);
+	active = peer_active(peer->connection);
 	if (!active) {
 		if (peer->connection->su.sa.sa_family == AF_UNSPEC)
 			peer->last_reset = PEER_DOWN_NBR_ADDR;
@@ -2019,7 +2019,7 @@ struct peer *peer_create(union sockunion *su, const char *conf_if,
 	if (bgp->autoshutdown)
 		peer_flag_set(peer, PEER_FLAG_SHUTDOWN);
 	/* Set up peer's events and timers. */
-	else if (!active && peer_active(peer))
+	else if (!active && peer_active(peer->connection))
 		bgp_timer_set(peer->connection);
 
 	bgp_peer_gr_flags_update(peer);
@@ -2412,13 +2412,13 @@ static int peer_activate_af(struct peer *peer, afi_t afi, safi_t safi)
 	if (peer_af_create(peer, afi, safi) == NULL)
 		return 1;
 
-	active = peer_active(peer);
+	active = peer_active(peer->connection);
 	peer->afc[afi][safi] = 1;
 
 	if (peer->group)
 		peer_group2peer_config_copy_af(peer->group, peer, afi, safi);
 
-	if (!active && peer_active(peer)) {
+	if (!active && peer_active(peer->connection)) {
 		bgp_timer_set(peer->connection);
 	} else {
 		peer->last_reset = PEER_DOWN_AF_ACTIVATE;
@@ -3358,7 +3358,7 @@ int peer_group_bind(struct bgp *bgp, union sockunion *su, struct peer *peer,
 		}
 
 		/* Set up peer's events and timers. */
-		if (peer_active(peer))
+		if (peer_active(peer->connection))
 			bgp_timer_set(peer->connection);
 	}
 
@@ -4599,9 +4599,11 @@ bool bgp_path_attribute_treat_as_withdraw(struct peer *peer, char *buf,
 }
 
 /* If peer is configured at least one address family return 1. */
-bool peer_active(struct peer *peer)
+bool peer_active(struct peer_connection *connection)
 {
-	if (BGP_CONNECTION_SU_UNSPEC(peer->connection))
+	struct peer *peer = connection->peer;
+
+	if (BGP_CONNECTION_SU_UNSPEC(connection))
 		return false;
 
 	if (peer->bfd_config) {
@@ -6296,7 +6298,7 @@ int peer_timers_connect_set(struct peer *peer, uint32_t connect)
 	/* Skip peer-group mechanics for regular peers. */
 	if (!CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP)) {
 		if (!peer_established(peer->connection)) {
-			if (peer_active(peer))
+			if (peer_active(peer->connection))
 				BGP_EVENT_ADD(peer->connection, BGP_Stop);
 			BGP_EVENT_ADD(peer->connection, BGP_Start);
 		}
@@ -6317,7 +6319,7 @@ int peer_timers_connect_set(struct peer *peer, uint32_t connect)
 		member->v_connect = connect;
 
 		if (!peer_established(member->connection)) {
-			if (peer_active(member))
+			if (peer_active(member->connection))
 				BGP_EVENT_ADD(member->connection, BGP_Stop);
 			BGP_EVENT_ADD(member->connection, BGP_Start);
 		}
@@ -6350,7 +6352,7 @@ int peer_timers_connect_unset(struct peer *peer)
 	/* Skip peer-group mechanics for regular peers. */
 	if (!CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP)) {
 		if (!peer_established(peer->connection)) {
-			if (peer_active(peer))
+			if (peer_active(peer->connection))
 				BGP_EVENT_ADD(peer->connection, BGP_Stop);
 			BGP_EVENT_ADD(peer->connection, BGP_Start);
 		}
@@ -6371,7 +6373,7 @@ int peer_timers_connect_unset(struct peer *peer)
 		member->v_connect = peer->bgp->default_connect_retry;
 
 		if (!peer_established(member->connection)) {
-			if (peer_active(member))
+			if (peer_active(member->connection))
 				BGP_EVENT_ADD(member->connection, BGP_Stop);
 			BGP_EVENT_ADD(member->connection, BGP_Start);
 		}
@@ -8646,8 +8648,7 @@ static int peer_unshut_after_cfg(struct bgp *bgp)
 				   peer->host);
 
 		peer->shut_during_cfg = false;
-		if (peer_active(peer) &&
-		    peer->connection->status != Established) {
+		if (peer_active(peer->connection) && peer->connection->status != Established) {
 			if (peer->connection->status != Idle)
 				BGP_EVENT_ADD(peer->connection, BGP_Stop);
 			BGP_EVENT_ADD(peer->connection, BGP_Start);

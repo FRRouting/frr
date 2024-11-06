@@ -504,7 +504,7 @@ static void bgp_accept(struct event *thread)
 			bgp_fsm_change_status(connection1, Active);
 			EVENT_OFF(connection1->t_start);
 
-			if (peer_active(peer1)) {
+			if (peer_active(peer1->connection)) {
 				if (CHECK_FLAG(peer1->flags,
 					       PEER_FLAG_TIMER_DELAYOPEN))
 					BGP_EVENT_ADD(connection1,
@@ -557,7 +557,7 @@ static void bgp_accept(struct event *thread)
 	}
 
 	/* Check that at least one AF is activated for the peer. */
-	if (!peer_active(peer1)) {
+	if (!peer_active(connection1)) {
 		if (bgp_debug_neighbor_events(peer1))
 			zlog_debug(
 				"%s - incoming conn rejected - no AF activated for peer",
@@ -658,7 +658,7 @@ static void bgp_accept(struct event *thread)
 		bgp_event_update(connection1, TCP_connection_closed);
 	}
 
-	if (peer_active(peer)) {
+	if (peer_active(peer->connection)) {
 		if (CHECK_FLAG(peer->flags, PEER_FLAG_TIMER_DELAYOPEN))
 			BGP_EVENT_ADD(connection, TCP_connection_open_w_delay);
 		else
