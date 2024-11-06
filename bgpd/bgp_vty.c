@@ -5096,9 +5096,7 @@ static int peer_conf_interface_get(struct vty *vty, const char *conf_if,
 		peer->last_reset = PEER_DOWN_V6ONLY_CHANGE;
 
 		/* v6only flag changed. Reset bgp seesion */
-		if (BGP_IS_VALID_STATE_FOR_NOTIF(peer->connection->status))
-			peer_notify_config_change(peer->connection);
-		else
+		if (!peer_notify_config_change(peer->connection))
 			bgp_session_reset(peer);
 	}
 
