@@ -4388,12 +4388,9 @@ void bgp_rib_remove(struct bgp_dest *dest, struct bgp_path_info *pi,
 	bgp_process(peer->bgp, dest, pi, afi, safi);
 }
 
-static void bgp_rib_withdraw(struct bgp_dest *dest, struct bgp_path_info *pi,
-			     struct peer *peer, afi_t afi, safi_t safi,
-			     struct prefix_rd *prd)
+static void bgp_rib_withdraw(const struct prefix *p, struct bgp_dest *dest, struct bgp_path_info *pi,
+			     struct peer *peer, afi_t afi, safi_t safi, struct prefix_rd *prd)
 {
-	const struct prefix *p = bgp_dest_get_prefix(dest);
-
 	/* apply dampening, if result is suppressed, we'll be retaining
 	 * the bgp_path_info in the RIB for historical reference.
 	 */
@@ -5568,7 +5565,7 @@ void bgp_withdraw(struct peer *peer, const struct prefix *p,
 
 	/* Withdraw specified route from routing table. */
 	if (pi && !CHECK_FLAG(pi->flags, BGP_PATH_HISTORY)) {
-		bgp_rib_withdraw(dest, pi, peer, afi, safi, prd);
+		bgp_rib_withdraw(p, dest, pi, peer, afi, safi, prd);
 		if (SAFI_UNICAST == safi
 		    && (bgp->inst_type == BGP_INSTANCE_TYPE_VRF
 			|| bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT)) {
