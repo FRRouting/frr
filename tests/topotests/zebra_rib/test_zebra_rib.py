@@ -246,6 +246,7 @@ def test_route_map_usage():
 
     def check_static_map_correct_runs():
         actual = r1.vtysh_cmd("show route-map static")
+        actual = re.sub(r"\([0-9].* milli", "(X milli", actual)
         actual = ("\n".join(actual.splitlines()) + "\n").rstrip()
         return topotest.get_textdiff(
             actual,
@@ -266,6 +267,7 @@ def test_route_map_usage():
 
     def check_sharp_map_correct_runs():
         actual = r1.vtysh_cmd("show route-map sharp")
+        actual = re.sub(r"\([0-9].* milli", "(X milli", actual)
         actual = ("\n".join(actual.splitlines()) + "\n").rstrip()
         return topotest.get_textdiff(
             actual,

@@ -37,6 +37,7 @@ from lib.topogen import Topogen, get_topogen
 from lib.common_config import (
     required_linux_kernel_version,
 )
+from lib.topolog import logger
 
 import json
 import functools
@@ -1422,6 +1423,7 @@ def test_route_map():
                 .cmd('vtysh -c "show route-map" 2> /dev/null')
                 .rstrip()
             )
+            actual = re.sub(r"\([0-9].* milli", "(X milli", actual)
             actual = ("\n".join(actual.splitlines()) + "\n").splitlines(1)
 
             diff = topotest.get_textdiff(
