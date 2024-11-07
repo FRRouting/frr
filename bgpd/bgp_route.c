@@ -5856,7 +5856,6 @@ void bgp_clear_stale_route(struct peer *peer, afi_t afi, safi_t safi)
 						vpn_leak_to_vrf_withdraw(pi);
 
 					bgp_rib_remove(rm, pi, peer, afi, safi);
-					break;
 				}
 		}
 	} else {
@@ -5885,7 +5884,6 @@ void bgp_clear_stale_route(struct peer *peer, afi_t afi, safi_t safi)
 						pi);
 
 				bgp_rib_remove(dest, pi, peer, afi, safi);
-				break;
 			}
 	}
 }
