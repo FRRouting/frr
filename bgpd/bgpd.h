@@ -1328,6 +1328,12 @@ struct peer_connection {
 	struct event *t_routeadv;
 	struct event *t_process_packet;
 
+	/* Linkage for list connections with errors, from IO pthread */
+	struct bgp_peer_conn_errlist_item conn_err_link;
+
+	/* Connection error code */
+	uint16_t connection_errcode;
+
 	union sockunion su;
 #define BGP_CONNECTION_SU_UNSPEC(connection)                                   \
 	(connection->su.sa.sa_family == AF_UNSPEC)
@@ -2024,12 +2030,6 @@ struct peer {
 	/* Add-Path Best selected paths number to advertise */
 	uint8_t addpath_best_selected[AFI_MAX][SAFI_MAX];
 
-	/* Linkage for list of peers with connection errors from IO pthread */
-	struct bgp_peer_conn_errlist_item conn_err_link;
-
-	/* Connection error code */
-	uint16_t connection_errcode;
-
 	/* Linkage for hash of clearing peers being cleared in a batch */
 	struct bgp_clearing_hash_item clear_hash_link;
 
@@ -2724,8 +2724,9 @@ int bgp_global_gr_init(struct bgp *bgp);
 int bgp_peer_gr_init(struct peer *peer);
 
 /* APIs for the per-bgp peer connection error list */
-int bgp_enqueue_conn_err_peer(struct bgp *bgp, struct peer *peer, int errcode);
-struct peer *bgp_dequeue_conn_err_peer(struct bgp *bgp, bool *more_p);
+int bgp_enqueue_conn_err(struct bgp *bgp, struct peer_connection *connection,
+			 int errcode);
+struct peer_connection *bgp_dequeue_conn_err(struct bgp *bgp, bool *more_p);
 void bgp_conn_err_reschedule(struct bgp *bgp);
 
 #define BGP_GR_ROUTER_DETECT_AND_SEND_CAPABILITY_TO_ZEBRA(_bgp, _peer_list)    \

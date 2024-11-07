@@ -6864,7 +6864,7 @@ static void clear_batch_table_helper(struct bgp_clearing_info *cinfo,
 			ain_next = ain->next;
 
 			if (bgp_clearing_batch_check_peer(cinfo, ain->peer))
-				bgp_adj_in_remove(&dest, ain);
+				bgp_adj_in_remove(&dest, table->afi, table->safi, ain);
 
 			ain = ain_next;
 
