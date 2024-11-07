@@ -2921,6 +2921,23 @@ BGP Extended Communities in Route Map
 
    This command sets colors values.
 
+:rfc:`9256`.
+
+``CO:COLOR``
+   This is a format to define colors value. ``CO`` part is always 00 (default),
+   it can be used to support the requirements of Color-Only steering when using 
+   a Null Endpoint in the SR-TE Policy as specified in Section 8.8 of [RFC9256].
+   The below shows in detail what the different combinations of ``CO`` bits can
+   match on to for the purpose of determining what type of SR-TE Policy Tunnel
+   a BGP route can resolve over, and it also shows the order for resolving the
+   BGP route if there are different tunnels.
+   - ``00`` Can match on a specific endpoint only which should be the nexthop
+     of the route(Default Setting).
+   - ``01`` Can match on a specific endpoint or a null endpoint.
+   - ``10`` Can match on a specific endpoint, null endpoint or any endpoint.
+   - ``11`` Reserved for future use and shuould not be used.
+
+
 .. clicmd:: set extcommunity bandwidth <(1-25600) | cumulative | num-multipaths> [non-transitive]
 
    This command sets the BGP link-bandwidth extended community for the prefix
