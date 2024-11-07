@@ -89,7 +89,7 @@ DEFINE_HOOK(bgp_instance_state, (struct bgp *bgp), (bgp));
 DEFINE_HOOK(bgp_routerid_update, (struct bgp *bgp, bool withdraw), (bgp, withdraw));
 
 /* Peers with connection error/failure, per bgp instance */
-DECLARE_DLIST(bgp_peer_conn_errlist, struct peer, conn_err_link);
+DECLARE_DLIST(bgp_peer_conn_errlist, struct peer_connection, conn_err_link);
 
 /* List of info about peers that are being cleared from BGP RIBs in a batch */
 DECLARE_DLIST(bgp_clearing_info, struct bgp_clearing_info, link);
@@ -2733,9 +2733,9 @@ int peer_delete(struct peer *peer)
 
 	/* Ensure the peer is removed from the connection error list */
 	frr_with_mutex (&bgp->peer_errs_mtx) {
-		if (bgp_peer_conn_errlist_anywhere(peer))
+		if (bgp_peer_conn_errlist_anywhere(peer->connection))
 			bgp_peer_conn_errlist_del(&bgp->peer_conn_errlist,
-						  peer);
+						  peer->connection);
 	}
 
 	if (CHECK_FLAG(peer->sflags, PEER_STATUS_NSF_WAIT))
@@ -4052,6 +4052,7 @@ int bgp_delete(struct bgp *bgp)
 	struct bgp *bgp_to_proc_next = NULL;
 	struct bgp *bgp_default = bgp_get_default();
 	struct bgp_clearing_info *cinfo;
+	struct peer_connection *connection;
 
 	assert(bgp);
 
@@ -4237,9 +4238,9 @@ int bgp_delete(struct bgp *bgp)
 	 */
 	frr_with_mutex (&bgp->peer_errs_mtx) {
 		do {
-			peer = bgp_peer_conn_errlist_pop(
+			connection = bgp_peer_conn_errlist_pop(
 				&bgp->peer_conn_errlist);
-		} while (peer != NULL);
+		} while (connection != NULL);
 	}
 
 	/* Free peers and peer-groups. */
@@ -9284,7 +9285,7 @@ static void bgp_process_conn_error(struct event *event)
 	bgp = EVENT_ARG(event);
 
 	frr_with_mutex (&bgp->peer_errs_mtx) {
-		peer = bgp_peer_conn_errlist_pop(&bgp->peer_conn_errlist);
+		connection = bgp_peer_conn_errlist_pop(&bgp->peer_conn_errlist);
 
 		list_count =
 			bgp_peer_conn_errlist_count(&bgp->peer_conn_errlist);
@@ -9297,12 +9298,12 @@ static void bgp_process_conn_error(struct event *event)
 		bgp_clearing_batch_begin(bgp);
 
 	/* Dequeue peers from the error list */
-	while (peer != NULL) {
-		connection = peer->connection;
+	while (connection != NULL) {
+		peer = connection->peer;
 
 		if (bgp_debug_neighbor_events(peer))
 			zlog_debug("%s [Event] BGP error %d on fd %d",
-				   peer->host, peer->connection_errcode,
+				   peer->host, connection->connection_errcode,
 				   connection->fd);
 
 		/* Closed connection or error on the socket */
@@ -9321,13 +9322,13 @@ static void bgp_process_conn_error(struct event *event)
 		bgp_keepalives_off(peer->connection);
 
 		/* Drive into state-machine changes */
-		bgp_event_update(connection, peer->connection_errcode);
+		bgp_event_update(connection, connection->connection_errcode);
 
 		counter++;
 		if (counter >= BGP_CONN_ERROR_DEQUEUE_MAX)
 			break;
 
-		peer = bgp_dequeue_conn_err_peer(bgp, &more_p);
+		connection = bgp_dequeue_conn_err(bgp, &more_p);
 	}
 
 	/* Reschedule event if necessary */
@@ -9344,18 +9345,19 @@ static void bgp_process_conn_error(struct event *event)
 }
 
 /*
- * Enqueue a peer with a connection error to be handled in the main pthread;
+ * Enqueue a connection with an error to be handled in the main pthread;
  * this is called from the io pthread.
  */
-int bgp_enqueue_conn_err_peer(struct bgp *bgp, struct peer *peer, int errcode)
+int bgp_enqueue_conn_err(struct bgp *bgp, struct peer_connection *connection,
+			 int errcode)
 {
 	frr_with_mutex (&bgp->peer_errs_mtx) {
-		peer->connection_errcode = errcode;
+		connection->connection_errcode = errcode;
 
 		/* Careful not to double-enqueue */
-		if (!bgp_peer_conn_errlist_anywhere(peer)) {
+		if (!bgp_peer_conn_errlist_anywhere(connection)) {
 			bgp_peer_conn_errlist_add_tail(&bgp->peer_conn_errlist,
-						       peer);
+						       connection);
 		}
 	}
 	/* Ensure an event is scheduled */
@@ -9365,16 +9367,16 @@ int bgp_enqueue_conn_err_peer(struct bgp *bgp, struct peer *peer, int errcode)
 }
 
 /*
- * Dequeue a peer that encountered a connection error; signal whether there
+ * Dequeue a connection that encountered a connection error; signal whether there
  * are more queued peers.
  */
-struct peer *bgp_dequeue_conn_err_peer(struct bgp *bgp, bool *more_p)
+struct peer_connection *bgp_dequeue_conn_err(struct bgp *bgp, bool *more_p)
 {
-	struct peer *peer = NULL;
+	struct peer_connection *connection = NULL;
 	bool more = false;
 
 	frr_with_mutex (&bgp->peer_errs_mtx) {
-		peer = bgp_peer_conn_errlist_pop(&bgp->peer_conn_errlist);
+		connection = bgp_peer_conn_errlist_pop(&bgp->peer_conn_errlist);
 
 		if (bgp_peer_conn_errlist_const_first(
 			    &bgp->peer_conn_errlist) != NULL)
@@ -9384,7 +9386,7 @@ struct peer *bgp_dequeue_conn_err_peer(struct bgp *bgp, bool *more_p)
 	if (more_p)
 		*more_p = more;
 
-	return peer;
+	return connection;
 }
 
 /*
