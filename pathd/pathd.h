@@ -167,6 +167,9 @@ struct srte_segment_entry {
 	/* Label Value. */
 	mpls_label_t sid_value;
 
+	/* SRv6 SID. */
+	struct in6_addr srv6_sid_value;
+
 	/* NAI Type */
 	enum srte_segment_nai_type nai_type;
 	/* NAI local address when nai type is not NONE */
