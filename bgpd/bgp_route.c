@@ -5570,12 +5570,8 @@ void bgp_withdraw(struct peer *peer, const struct prefix *p,
 		    && (bgp->inst_type == BGP_INSTANCE_TYPE_VRF
 			|| bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT)) {
 			vpn_leak_from_vrf_withdraw(bgp_get_default(), bgp, pi);
-		}
-		if ((SAFI_MPLS_VPN == safi)
-		    && (bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT)) {
-
+		} else if ((SAFI_MPLS_VPN == safi) && (bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT))
 			vpn_leak_to_vrf_withdraw(pi);
-		}
 	} else if (bgp_debug_update(peer, p, NULL, 1)) {
 		bgp_debug_rdpfxpath2str(afi, safi, prd, p, label, num_labels,
 					addpath_id ? 1 : 0, addpath_id, NULL,
