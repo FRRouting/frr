@@ -658,7 +658,7 @@ static int bmp_send_peerup_vrf(struct bmp *bmp)
 	/* send unconditionally because state may has been set before the
 	 * session was up. and in this case the peer up has not been sent.
 	 */
-	bmp_bgp_update_vrf_status(bmpbgp, vrf_state_unknown);
+	bmp_bgp_update_vrf_status(&bmpbgp->vrf_state, bmpbgp->bgp, vrf_state_unknown);
 
 	s = bmp_peerstate(bmpbgp->bgp->peer_self, bmpbgp->vrf_state == vrf_state_down);
 	if (s) {
@@ -2115,30 +2115,29 @@ static void bmp_bgp_peer_vrf(struct bmp_bgp_peer *bbpeer, struct bgp *bgp)
  *
  * returns true if state has changed
  */
-bool bmp_bgp_update_vrf_status(struct bmp_bgp *bmpbgp, enum bmp_vrf_state force)
+bool bmp_bgp_update_vrf_status(enum bmp_vrf_state *vrf_state, struct bgp *bgp,
+			       enum bmp_vrf_state force)
 {
 	enum bmp_vrf_state old_state;
 	struct bmp_bgp_peer *bbpeer;
 	struct peer *peer;
 	struct vrf *vrf;
-	struct bgp *bgp;
 	bool changed;
 
-	if (!bmpbgp || !bmpbgp->bgp)
+	if (!vrf_state || !bgp)
 		return false;
 
-	bgp = bmpbgp->bgp;
-	old_state = bmpbgp->vrf_state;
+	old_state = *vrf_state;
 
 	vrf = bgp_vrf_lookup_by_instance_type(bgp);
-	bmpbgp->vrf_state = force != vrf_state_unknown ? force
-			    : vrf_is_enabled(vrf)      ? vrf_state_up
-						       : vrf_state_down;
+	*vrf_state = force != vrf_state_unknown ? force
+		     : vrf_is_enabled(vrf)	? vrf_state_up
+						: vrf_state_down;
 
-	changed = old_state != bmpbgp->vrf_state;
+	changed = old_state != *vrf_state;
 	if (changed) {
-		peer = bmpbgp->bgp->peer_self;
-		if (bmpbgp->vrf_state == vrf_state_up) {
+		peer = bgp->peer_self;
+		if (*vrf_state == vrf_state_up) {
 			bbpeer = bmp_bgp_peer_get(peer);
 			bmp_bgp_peer_vrf(bbpeer, bgp);
 		} else {
@@ -3383,7 +3382,7 @@ static int bmp_bgp_attribute_updated(struct bgp *bgp, bool withdraw)
 	if (!bmpbgp)
 		return 0;
 
-	bmp_bgp_update_vrf_status(bmpbgp, vrf_state_unknown);
+	bmp_bgp_update_vrf_status(&bmpbgp->vrf_state, bgp, vrf_state_unknown);
 
 	if (bmpbgp->vrf_state == vrf_state_down)
 		/* do not send peer events, router id will not be enough to set state to up
@@ -3413,7 +3412,10 @@ static int bmp_vrf_state_changed(struct bgp *bgp)
 {
 	struct bmp_bgp *bmpbgp = bmp_bgp_find(bgp);
 
-	if (!bmp_bgp_update_vrf_status(bmpbgp, vrf_state_unknown))
+	if (!bmpbgp)
+		return 0;
+
+	if (!bmp_bgp_update_vrf_status(&bmpbgp->vrf_state, bgp, vrf_state_unknown))
 		return 1;
 
 	bmp_send_all_safe(bmpbgp,
@@ -3438,7 +3440,7 @@ static int bmp_vrf_itf_state_changed(struct bgp *bgp, struct interface *itf)
 
 	bmpbgp = bmp_bgp_find(bgp);
 	new_state = if_is_up(itf) ? vrf_state_up : vrf_state_down;
-	if (bmp_bgp_update_vrf_status(bmpbgp, new_state))
+	if (bmpbgp && bmp_bgp_update_vrf_status(&bmpbgp->vrf_state, bgp, new_state))
 		bmp_send_all(bmpbgp, bmp_peerstate(bgp->peer_self, new_state == vrf_state_down));
 
 	return 0;
