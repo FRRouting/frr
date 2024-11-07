@@ -5555,7 +5555,7 @@ void bgp_withdraw(struct peer *peer, const struct prefix *p,
 			break;
 
 	/* Logging. */
-	if (bgp_debug_update(peer, p, NULL, 1)) {
+	if (unlikely(bgp_debug_update(peer, p, NULL, 1))) {
 		bgp_debug_rdpfxpath2str(afi, safi, prd, p, label, num_labels,
 					addpath_id ? 1 : 0, addpath_id, NULL,
 					pfx_buf, sizeof(pfx_buf));
@@ -5572,7 +5572,7 @@ void bgp_withdraw(struct peer *peer, const struct prefix *p,
 			vpn_leak_from_vrf_withdraw(bgp_get_default(), bgp, pi);
 		} else if ((SAFI_MPLS_VPN == safi) && (bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT))
 			vpn_leak_to_vrf_withdraw(pi);
-	} else if (bgp_debug_update(peer, p, NULL, 1)) {
+	} else if (unlikely(bgp_debug_update(peer, p, NULL, 1))) {
 		bgp_debug_rdpfxpath2str(afi, safi, prd, p, label, num_labels,
 					addpath_id ? 1 : 0, addpath_id, NULL,
 					pfx_buf, sizeof(pfx_buf));
