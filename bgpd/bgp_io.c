@@ -251,7 +251,7 @@ static void bgp_process_reads(struct event *thread)
 		/* Handle the error in the main pthread, include the
 		 * specific state change from 'bgp_read'.
 		 */
-		bgp_enqueue_conn_err_peer(peer->bgp, connection->peer, code);
+		bgp_enqueue_conn_err(peer->bgp, connection, code);
 		goto done;
 	}
 
