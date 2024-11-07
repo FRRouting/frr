@@ -53,6 +53,7 @@ static void bmp_active_put(struct bmp_active *ba);
 static int bmp_route_update_bgpbmp(struct bmp_targets *bt, afi_t afi, safi_t safi,
 				   struct bgp_dest *bn, struct bgp_path_info *old_route,
 				   struct bgp_path_info *new_route);
+static void bmp_send_all_bgp(struct peer *peer, bool down);
 
 DEFINE_MGROUP(BMP, "BMP (BGP Monitoring Protocol)");
 
@@ -652,19 +653,26 @@ static int bmp_send_peerup_vrf(struct bmp *bmp)
 	return 0;
 }
 
+static void bmp_send_bt(struct bmp_targets *bt, struct stream *s)
+{
+	struct bmp *bmp;
+
+	frr_each (bmp_session, &bt->sessions, bmp)
+		pullwr_write_stream(bmp->pullwr, s);
+}
+
 /* send a stream to all bmp sessions configured in a bgp instance */
 /* XXX: kludge - filling the pullwr's buffer */
 static void bmp_send_all(struct bmp_bgp *bmpbgp, struct stream *s)
 {
 	struct bmp_targets *bt;
-	struct bmp *bmp;
 
 	if (!s)
 		return;
 
 	frr_each(bmp_targets, &bmpbgp->targets, bt)
-		frr_each(bmp_session, &bt->sessions, bmp)
-			pullwr_write_stream(bmp->pullwr, s);
+		bmp_send_bt(bt, s);
+
 	stream_free(s);
 }
 
@@ -904,13 +912,9 @@ static int bmp_outgoing_packet(struct peer *peer, uint8_t type, bgp_size_t size,
 
 static int bmp_peer_status_changed(struct peer *peer)
 {
-	struct bmp_bgp *bmpbgp = bmp_bgp_find(peer->bgp);
 	struct bmp_bgp_peer *bbpeer, *bbdopp;
 
 	frrtrace(1, frr_bgp, bmp_peer_status_changed, peer);
-
-	if (!bmpbgp)
-		return 0;
 
 	if (peer->connection->status == Deleted) {
 		bbpeer = bmp_bgp_peer_find(peer->qobj_node.nid);
@@ -946,19 +950,15 @@ static int bmp_peer_status_changed(struct peer *peer)
 		}
 	}
 
-	bmp_send_all_safe(bmpbgp, bmp_peerstate(peer, false));
+	bmp_send_all_bgp(peer, false);
 	return 0;
 }
 
 static int bmp_peer_backward(struct peer *peer)
 {
-	struct bmp_bgp *bmpbgp = bmp_bgp_find(peer->bgp);
 	struct bmp_bgp_peer *bbpeer;
 
 	frrtrace(1, frr_bgp, bmp_peer_backward_transition, peer);
-
-	if (!bmpbgp)
-		return 0;
 
 	bbpeer = bmp_bgp_peer_find(peer->qobj_node.nid);
 	if (bbpeer) {
@@ -968,7 +968,7 @@ static int bmp_peer_backward(struct peer *peer)
 		bbpeer->open_rx_len = 0;
 	}
 
-	bmp_send_all_safe(bmpbgp, bmp_peerstate(peer, true));
+	bmp_send_all_bgp(peer, true);
 	return 0;
 }
 
@@ -2247,6 +2247,35 @@ static struct bmp_imported_bgp *bmp_imported_bgp_find(struct bmp_targets *bt, ch
 
 	dummy.name = name;
 	return bmp_imported_bgps_find(&bt->imported_bgps, &dummy);
+}
+
+static void bmp_send_all_bgp(struct peer *peer, bool down)
+{
+	struct bmp_bgp *bmpbgp = bmp_bgp_find(peer->bgp);
+	struct bgp *bgp_vrf;
+	struct listnode *node;
+	struct stream *s = NULL;
+	struct bmp_targets *bt;
+
+	s = bmp_peerstate(peer, down);
+	if (!s)
+		return;
+
+	if (bmpbgp) {
+		frr_each (bmp_targets, &bmpbgp->targets, bt)
+			bmp_send_bt(bt, s);
+	}
+	for (ALL_LIST_ELEMENTS_RO(bm->bgp, node, bgp_vrf)) {
+		bmpbgp = bmp_bgp_find(bgp_vrf);
+		if (!bmpbgp)
+			continue;
+		frr_each (bmp_targets, &bmpbgp->targets, bt) {
+			if (bgp_vrf != peer->bgp && !bmp_imported_bgp_find(bt, peer->bgp->name))
+				continue;
+			bmp_send_bt(bt, s);
+		}
+	}
+	stream_free(s);
 }
 
 static void bmp_imported_bgp_put(struct bmp_targets *bt, struct bmp_imported_bgp *bib)
