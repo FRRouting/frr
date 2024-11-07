@@ -685,6 +685,11 @@ static void bgp_set_llgr_stale(struct peer *peer, afi_t afi, safi_t safi)
 						    COMMUNITY_NO_LLGR))
 						continue;
 
+					if (bgp_attr_get_community(pi->attr) &&
+					    community_include(bgp_attr_get_community(pi->attr),
+							      COMMUNITY_LLGR_STALE))
+						continue;
+
 					if (bgp_debug_neighbor_events(peer))
 						zlog_debug(
 							"%pBP Long-lived set stale community (LLGR_STALE) for: %pFX",
@@ -695,8 +700,6 @@ static void bgp_set_llgr_stale(struct peer *peer, afi_t afi, safi_t safi)
 					pi->attr = bgp_attr_intern(&attr);
 					bgp_recalculate_afi_safi_bestpaths(
 						peer->bgp, afi, safi);
-
-					break;
 				}
 		}
 	} else {
@@ -713,6 +716,11 @@ static void bgp_set_llgr_stale(struct peer *peer, afi_t afi, safi_t safi)
 					    COMMUNITY_NO_LLGR))
 					continue;
 
+				if (bgp_attr_get_community(pi->attr) &&
+				    community_include(bgp_attr_get_community(pi->attr),
+						      COMMUNITY_LLGR_STALE))
+					continue;
+
 				if (bgp_debug_neighbor_events(peer))
 					zlog_debug(
 						"%pBP Long-lived set stale community (LLGR_STALE) for: %pFX",
@@ -723,8 +731,6 @@ static void bgp_set_llgr_stale(struct peer *peer, afi_t afi, safi_t safi)
 				pi->attr = bgp_attr_intern(&attr);
 				bgp_recalculate_afi_safi_bestpaths(peer->bgp,
 								   afi, safi);
-
-				break;
 			}
 	}
 }
