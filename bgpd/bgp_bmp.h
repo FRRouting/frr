@@ -300,7 +300,8 @@ struct bmp_bgp {
 	size_t mirror_qsizelimit;
 };
 
-extern bool bmp_bgp_update_vrf_status(struct bmp_bgp *bmpbgp, enum bmp_vrf_state force);
+extern bool bmp_bgp_update_vrf_status(enum bmp_vrf_state *vrf_state, struct bgp *bgp,
+				      enum bmp_vrf_state force);
 
 enum {
 	/* RFC7854 - 10.8 */
