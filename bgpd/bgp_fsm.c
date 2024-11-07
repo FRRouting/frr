@@ -687,6 +687,11 @@ static void bgp_set_llgr_stale(struct peer *peer, afi_t afi, safi_t safi)
 						    COMMUNITY_NO_LLGR))
 						continue;
 
+					if (bgp_attr_get_community(pi->attr) &&
+					    community_include(bgp_attr_get_community(pi->attr),
+							      COMMUNITY_LLGR_STALE))
+						continue;
+
 					if (bgp_debug_neighbor_events(peer))
 						zlog_debug(
 							"%pBP Long-lived set stale community (LLGR_STALE) for: %pFX",
@@ -695,10 +700,15 @@ static void bgp_set_llgr_stale(struct peer *peer, afi_t afi, safi_t safi)
 					attr = *pi->attr;
 					bgp_attr_add_llgr_community(&attr);
 					pi->attr = bgp_attr_intern(&attr);
+<<<<<<< HEAD
 					bgp_recalculate_afi_safi_bestpaths(
 						peer->bgp, afi, safi);
 
 					break;
+=======
+					bgp_process(peer->bgp, rm, pi, afi,
+						    safi);
+>>>>>>> 895d586a5f (bgpd: Set LLGR stale routes for all the paths including addpath)
 				}
 		}
 	} else {
@@ -715,6 +725,11 @@ static void bgp_set_llgr_stale(struct peer *peer, afi_t afi, safi_t safi)
 					    COMMUNITY_NO_LLGR))
 					continue;
 
+				if (bgp_attr_get_community(pi->attr) &&
+				    community_include(bgp_attr_get_community(pi->attr),
+						      COMMUNITY_LLGR_STALE))
+					continue;
+
 				if (bgp_debug_neighbor_events(peer))
 					zlog_debug(
 						"%pBP Long-lived set stale community (LLGR_STALE) for: %pFX",
@@ -723,10 +738,14 @@ static void bgp_set_llgr_stale(struct peer *peer, afi_t afi, safi_t safi)
 				attr = *pi->attr;
 				bgp_attr_add_llgr_community(&attr);
 				pi->attr = bgp_attr_intern(&attr);
+<<<<<<< HEAD
 				bgp_recalculate_afi_safi_bestpaths(peer->bgp,
 								   afi, safi);
 
 				break;
+=======
+				bgp_process(peer->bgp, dest, pi, afi, safi);
+>>>>>>> 895d586a5f (bgpd: Set LLGR stale routes for all the paths including addpath)
 			}
 	}
 }
