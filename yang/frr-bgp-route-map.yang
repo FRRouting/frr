@@ -532,7 +532,7 @@ identity set-extcommunity-color {
 
   typedef color-list {
     type string {
-      pattern '((429496729[0-5]|42949672[0-8][0-9]|'
+      pattern '((00|01|10|11):(429496729[0-5]|42949672[0-8][0-9]|'
       +	    '4294967[0-1][0-9]{2}|429496[0-6][0-9]{3}|'
       +	    '42949[0-5][0-9]{4}|4294[0-8][0-9]{5}|'
       +	    '429[0-3][0-9]{6}|42[0-8][0-9]{7}|'
@@ -540,10 +540,11 @@ identity set-extcommunity-color {
       +	    '[1-9][0-9]{0,8})(\s*))+';
     }
     description
-      "The color-list type represent a set of colors of value (1..4294967295)
+      "The color-list type represent a set of colors of value (examples 00:200 01:200 10:200)
        values are separated by white spaces";
     reference
-      "RFC 9012 - The BGP Tunnel Encapsulation Attribute";
+      "RFC 9012 - The BGP Tunnel Encapsulation Attribute.
+       RFC 9256 - Segment Routing Policy Architecture.";
   }
 
   augment "/frr-route-map:lib/frr-route-map:route-map/frr-route-map:entry/frr-route-map:match-condition/frr-route-map:rmap-match-condition/frr-route-map:match-condition" {
