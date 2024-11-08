@@ -4388,12 +4388,9 @@ void bgp_rib_remove(struct bgp_dest *dest, struct bgp_path_info *pi,
 	bgp_process(peer->bgp, dest, pi, afi, safi);
 }
 
-static void bgp_rib_withdraw(struct bgp_dest *dest, struct bgp_path_info *pi,
-			     struct peer *peer, afi_t afi, safi_t safi,
-			     struct prefix_rd *prd)
+static void bgp_rib_withdraw(const struct prefix *p, struct bgp_dest *dest, struct bgp_path_info *pi,
+			     struct peer *peer, afi_t afi, safi_t safi, struct prefix_rd *prd)
 {
-	const struct prefix *p = bgp_dest_get_prefix(dest);
-
 	/* apply dampening, if result is suppressed, we'll be retaining
 	 * the bgp_path_info in the RIB for historical reference.
 	 */
@@ -5038,7 +5035,7 @@ void bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 			if (get_active_bdc_from_pi(pi, afi, safi) &&
 			    peer->sort == BGP_PEER_EBGP &&
 			    CHECK_FLAG(pi->flags, BGP_PATH_HISTORY)) {
-				if (bgp_debug_update(peer, p, NULL, 1)) {
+				if (unlikely(bgp_debug_update(peer, p, NULL, 1))) {
 					bgp_debug_rdpfxpath2str(
 						afi, safi, prd, p, label,
 						num_labels, addpath_id ? 1 : 0,
@@ -5056,7 +5053,7 @@ void bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 				}
 			} else /* Duplicate - odd */
 			{
-				if (bgp_debug_update(peer, p, NULL, 1)) {
+				if (unlikely(bgp_debug_update(peer, p, NULL, 1))) {
 					if (!peer->rcvd_attr_printed) {
 						zlog_debug(
 							"%pBP rcvd UPDATE w/ attr: %s",
@@ -5092,7 +5089,7 @@ void bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 
 		/* Withdraw/Announce before we fully processed the withdraw */
 		if (CHECK_FLAG(pi->flags, BGP_PATH_REMOVED)) {
-			if (bgp_debug_update(peer, p, NULL, 1)) {
+			if (unlikely(bgp_debug_update(peer, p, NULL, 1))) {
 				bgp_debug_rdpfxpath2str(
 					afi, safi, prd, p, label, num_labels,
 					addpath_id ? 1 : 0, addpath_id, evpn,
@@ -5120,7 +5117,7 @@ void bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 		}
 
 		/* Received Logging. */
-		if (bgp_debug_update(peer, p, NULL, 1)) {
+		if (unlikely(bgp_debug_update(peer, p, NULL, 1))) {
 			bgp_debug_rdpfxpath2str(afi, safi, prd, p, label,
 						num_labels, addpath_id ? 1 : 0,
 						addpath_id, evpn, pfx_buf,
@@ -5191,7 +5188,7 @@ void bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 					bgp_attr_get_ecommunity(pi->attr),
 					bgp_attr_get_ecommunity(attr_new));
 				if (!cmp) {
-					if (bgp_debug_update(peer, p, NULL, 1))
+					if (unlikely(bgp_debug_update(peer, p, NULL, 1)))
 						zlog_debug(
 							"Change in EXT-COMM, existing %s new %s",
 							ecommunity_str(
@@ -5301,7 +5298,7 @@ void bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 			 * EVPN nexthop is decremented appropriately.
 			 */
 			else if (!CHECK_FLAG(pi->flags, BGP_PATH_VALID)) {
-				if (BGP_DEBUG(nht, NHT))
+				if (unlikely(BGP_DEBUG(nht, NHT)))
 					zlog_debug("%s unimport EVPN %pFX as pi %p is not VALID",
 						   __func__, p, pi);
 				bgp_evpn_unimport_route(bgp, afi, safi, p, pi);
@@ -5341,7 +5338,7 @@ void bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 	} // End of implicit withdraw
 
 	/* Received Logging. */
-	if (bgp_debug_update(peer, p, NULL, 1)) {
+	if (unlikely(bgp_debug_update(peer, p, NULL, 1))) {
 		if (!peer->rcvd_attr_printed) {
 			zlog_debug("%pBP rcvd UPDATE w/ attr: %s", peer,
 				   peer->rcvd_attr_str);
@@ -5558,7 +5555,7 @@ void bgp_withdraw(struct peer *peer, const struct prefix *p,
 			break;
 
 	/* Logging. */
-	if (bgp_debug_update(peer, p, NULL, 1)) {
+	if (unlikely(bgp_debug_update(peer, p, NULL, 1))) {
 		bgp_debug_rdpfxpath2str(afi, safi, prd, p, label, num_labels,
 					addpath_id ? 1 : 0, addpath_id, NULL,
 					pfx_buf, sizeof(pfx_buf));
@@ -5568,18 +5565,14 @@ void bgp_withdraw(struct peer *peer, const struct prefix *p,
 
 	/* Withdraw specified route from routing table. */
 	if (pi && !CHECK_FLAG(pi->flags, BGP_PATH_HISTORY)) {
-		bgp_rib_withdraw(dest, pi, peer, afi, safi, prd);
+		bgp_rib_withdraw(p, dest, pi, peer, afi, safi, prd);
 		if (SAFI_UNICAST == safi
 		    && (bgp->inst_type == BGP_INSTANCE_TYPE_VRF
 			|| bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT)) {
 			vpn_leak_from_vrf_withdraw(bgp_get_default(), bgp, pi);
-		}
-		if ((SAFI_MPLS_VPN == safi)
-		    && (bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT)) {
-
+		} else if ((SAFI_MPLS_VPN == safi) && (bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT))
 			vpn_leak_to_vrf_withdraw(pi);
-		}
-	} else if (bgp_debug_update(peer, p, NULL, 1)) {
+	} else if (unlikely(bgp_debug_update(peer, p, NULL, 1))) {
 		bgp_debug_rdpfxpath2str(afi, safi, prd, p, label, num_labels,
 					addpath_id ? 1 : 0, addpath_id, NULL,
 					pfx_buf, sizeof(pfx_buf));
