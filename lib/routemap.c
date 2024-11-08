@@ -2753,6 +2753,7 @@ route_map_apply_end:
 	}
 
 	if (map) {
+		GETRUSAGE(&mbefore);
 		GETRUSAGE(&mafter);
 		event_consumed_time(&mafter, &mbefore, &cputime);
 		map->cputime += cputime;
