@@ -189,6 +189,7 @@ BuildRequires:  ncurses-devel
 BuildRequires:  readline-devel
 BuildRequires:  texinfo
 BuildRequires:  libyang-devel >= 2.1.128
+BuildRequires:  pcre2-devel
 %if 0%{?rhel} && 0%{?rhel} < 7
 #python27-devel is available from ius community repo for RedHat/CentOS 6
 BuildRequires:  python27-devel
@@ -448,7 +449,8 @@ Adds GRPC support to the individual FRR daemons.
 %else
     --disable-grpc \
 %endif
-    --enable-snmp
+    --enable-snmp \
+    --enable-pcre2posix \
     # end
 
 make %{?_smp_mflags} MAKEINFO="makeinfo --no-split"
