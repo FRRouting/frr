@@ -246,6 +246,7 @@ static struct bmp *bmp_new(struct bmp_targets *bt, int bmp_sock)
 	new->targets = bt;
 	new->socket = bmp_sock;
 	new->syncafi = AFI_MAX;
+	new->sync_bgp = NULL;
 
 	FOREACH_AFI_SAFI (afi, safi) {
 		new->afistate[afi][safi] = bt->afimon[afi][safi]
@@ -1240,17 +1241,91 @@ static void bmp_monitor(struct bmp *bmp, struct peer *peer, uint8_t flags,
 	stream_free(msg);
 }
 
+static struct bgp *bmp_get_next_bgp(struct bmp_targets *bt, struct bgp *bgp, afi_t afi, safi_t safi)
+{
+	struct bmp_imported_bgp *bib;
+	struct bgp *bgp_inst;
+	bool get_first = false;
+
+	if (bgp == NULL && bt->bgp_request_sync[afi][safi])
+		return bt->bgp;
+	if (bgp == NULL)
+		get_first = true;
+	frr_each (bmp_imported_bgps, &bt->imported_bgps, bib) {
+		bgp_inst = bgp_lookup_by_name(bib->name);
+		if (get_first && bgp_inst && bib->bgp_request_sync[afi][safi])
+			return bgp_inst;
+		if (bgp_inst == bgp)
+			get_first = true;
+	}
+	return NULL;
+}
+
+static void bmp_update_syncro(struct bmp *bmp, afi_t afi, safi_t safi, struct bgp *bgp)
+{
+	struct bmp_imported_bgp *bib;
+
+	if (bmp->syncafi == afi && bmp->syncsafi == safi) {
+		bmp->syncafi = AFI_MAX;
+		bmp->syncsafi = SAFI_MAX;
+		bmp->sync_bgp = NULL;
+	}
+
+	if (!bmp->targets->afimon[afi][safi]) {
+		bmp->afistate[afi][safi] = BMP_AFI_INACTIVE;
+		return;
+	}
+
+	bmp->afistate[afi][safi] = BMP_AFI_NEEDSYNC;
+
+	if (bgp == NULL || bmp->targets->bgp == bgp)
+		bmp->targets->bgp_request_sync[afi][safi] = true;
+
+	frr_each (bmp_imported_bgps, &bmp->targets->imported_bgps, bib) {
+		if (bgp != NULL && bgp_lookup_by_name(bib->name) != bgp)
+			continue;
+		bib->bgp_request_sync[afi][safi] = true;
+	}
+}
+
+static void bmp_update_syncro_set(struct bmp *bmp, afi_t afi, safi_t safi, struct bgp *bgp,
+				  enum bmp_afi_state state)
+{
+	struct bmp_imported_bgp *bib;
+
+	bmp->afistate[afi][safi] = state;
+	bmp->syncafi = AFI_MAX;
+	bmp->syncsafi = SAFI_MAX;
+	if (bgp == NULL || bmp->targets->bgp == bmp->sync_bgp)
+		bmp->targets->bgp_request_sync[afi][safi] = false;
+
+	frr_each (bmp_imported_bgps, &bmp->targets->imported_bgps, bib) {
+		if (bgp == NULL || bgp_lookup_by_name(bib->name) != bmp->sync_bgp)
+			continue;
+		bib->bgp_request_sync[afi][safi] = false;
+	}
+}
+
 static void bmp_eor_afi_safi(struct bmp *bmp, afi_t afi, safi_t safi, uint8_t peer_type_flag)
 {
-	zlog_info("bmp[%s] %s %s table completed (EoR)", bmp->remote, afi2str(afi), safi2str(safi));
+	struct bgp *sync_bgp;
+
+	zlog_info("bmp[%s] %s %s table completed (EoR) (BGP %s)", bmp->remote, afi2str(afi),
+		  safi2str(safi), bmp->sync_bgp->name_pretty);
 
 	bmp_eor(bmp, afi, safi, BMP_PEER_FLAG_L, peer_type_flag);
 	bmp_eor(bmp, afi, safi, 0, peer_type_flag);
 	bmp_eor(bmp, afi, safi, 0, BMP_PEER_TYPE_LOC_RIB_INSTANCE);
 
-	bmp->afistate[afi][safi] = BMP_AFI_LIVE;
-	bmp->syncafi = AFI_MAX;
-	bmp->syncsafi = SAFI_MAX;
+	sync_bgp = bmp_get_next_bgp(bmp->targets, bmp->sync_bgp, afi, safi);
+	if (sync_bgp) {
+		memset(&bmp->syncpos, 0, sizeof(bmp->syncpos));
+		bmp->syncpos.family = afi2family(afi);
+		bmp->syncrdpos = NULL;
+		bmp->syncpeerid = 0;
+	} else
+		bmp_update_syncro_set(bmp, afi, safi, bmp->sync_bgp, BMP_AFI_LIVE);
+	bmp->sync_bgp = sync_bgp;
 }
 
 static bool bmp_wrsync(struct bmp *bmp, struct pullwr *pullwr)
@@ -1273,10 +1348,13 @@ static bool bmp_wrsync(struct bmp *bmp, struct pullwr *pullwr)
 			memset(&bmp->syncpos, 0, sizeof(bmp->syncpos));
 			bmp->syncpos.family = afi2family(afi);
 			bmp->syncrdpos = NULL;
-			zlog_info("bmp[%s] %s %s sending table",
-					bmp->remote,
-					afi2str(bmp->syncafi),
-					safi2str(bmp->syncsafi));
+			bmp->sync_bgp = bmp_get_next_bgp(bmp->targets, NULL, afi, safi);
+			if (bmp->sync_bgp == NULL)
+				/* all BGP instances already synced*/
+				return true;
+			zlog_info("bmp[%s] %s %s sending table (BGP %s)", bmp->remote,
+				  afi2str(bmp->syncafi), safi2str(bmp->syncsafi),
+				  bmp->sync_bgp->name_pretty);
 			/* break does not work here, 2 loops... */
 			goto afibreak;
 		}
@@ -1290,18 +1368,22 @@ afibreak:
 
 	if (!bmp->targets->afimon[afi][safi]) {
 		/* shouldn't happen */
-		bmp->afistate[afi][safi] = BMP_AFI_INACTIVE;
-		bmp->syncafi = AFI_MAX;
-		bmp->syncsafi = SAFI_MAX;
+		bmp_update_syncro_set(bmp, afi, safi, bmp->sync_bgp, BMP_AFI_INACTIVE);
+		bmp->sync_bgp = NULL;
 		return true;
 	}
+	if (bmp->sync_bgp == NULL) {
+		bmp->sync_bgp = bmp_get_next_bgp(bmp->targets, NULL, afi, safi);
+		if (bmp->sync_bgp == NULL)
+			return true;
+	}
 
-	struct bgp_table *table = bmp->targets->bgp->rib[afi][safi];
+	struct bgp_table *table = bmp->sync_bgp->rib[afi][safi];
 	struct bgp_dest *bn = NULL;
 	struct bgp_path_info *bpi = NULL, *bpiter;
 	struct bgp_adj_in *adjin = NULL, *adjiter;
 
-	peer_type_flag = bmp_get_peer_type_vrf(bmp->targets->bgp->vrf_id);
+	peer_type_flag = bmp_get_peer_type_vrf(bmp->sync_bgp->vrf_id);
 
 	if ((afi == AFI_L2VPN && safi == SAFI_EVPN) ||
 	    (safi == SAFI_MPLS_VPN)) {
@@ -1671,11 +1753,16 @@ out:
 
 static void bmp_wrfill(struct bmp *bmp, struct pullwr *pullwr)
 {
+	afi_t afi;
+	safi_t safi;
+
 	switch(bmp->state) {
 	case BMP_PeerUp:
 		bmp_send_peerup_vrf(bmp);
 		bmp_send_peerup(bmp);
 		bmp->state = BMP_Run;
+		FOREACH_AFI_SAFI (afi, safi)
+			bmp_update_syncro(bmp, afi, safi, NULL);
 		break;
 
 	case BMP_Run:
@@ -2234,6 +2321,8 @@ static struct bmp_targets *bmp_targets_find1(struct bgp *bgp, const char *name)
 static struct bmp_targets *bmp_targets_get(struct bgp *bgp, const char *name)
 {
 	struct bmp_targets *bt;
+	afi_t afi;
+	safi_t safi;
 
 	bt = bmp_targets_find1(bgp, name);
 	if (bt)
@@ -2244,6 +2333,8 @@ static struct bmp_targets *bmp_targets_get(struct bgp *bgp, const char *name)
 	bt->bgp = bgp;
 	bt->bmpbgp = bmp_bgp_get(bgp);
 	bt->stats_send_experimental = true;
+	FOREACH_AFI_SAFI (afi, safi)
+		bt->bgp_request_sync[afi][safi] = false;
 	bmp_session_init(&bt->sessions);
 	bmp_qhash_init(&bt->updhash);
 	bmp_qlist_init(&bt->updlist);
@@ -2378,6 +2469,8 @@ static void bmp_imported_bgp_put(struct bmp_targets *bt, struct bmp_imported_bgp
 static struct bmp_imported_bgp *bmp_imported_bgp_get(struct bmp_targets *bt, char *name)
 {
 	struct bmp_imported_bgp *bib = bmp_imported_bgp_find(bt, name);
+	afi_t afi;
+	safi_t safi;
 
 	if (bib)
 		return bib;
@@ -2386,6 +2479,9 @@ static struct bmp_imported_bgp *bmp_imported_bgp_get(struct bmp_targets *bt, cha
 	if (name)
 		bib->name = XSTRDUP(MTYPE_BMP_IMPORTED_BGP, name);
 	bib->vrf_state = vrf_state_unknown;
+	FOREACH_AFI_SAFI (afi, safi)
+		bib->bgp_request_sync[afi][safi] = false;
+
 	bib->targets = bt;
 	bmp_imported_bgps_add(&bt->imported_bgps, bib);
 
@@ -2764,6 +2860,8 @@ DEFPY(bmp_import_vrf,
 	struct bmp_imported_bgp *bib;
 	struct bgp *bgp;
 	struct bmp *bmp;
+	afi_t afi;
+	safi_t safi;
 
 	if (!bt->bgp) {
 		vty_out(vty, "%% BMP target, BGP instance not found\n");
@@ -2795,13 +2893,14 @@ DEFPY(bmp_import_vrf,
 	bgp = bgp_lookup_by_name(bib->name);
 	if (!bgp)
 		return CMD_SUCCESS;
-	/* TODO: Start the syncronisation
-	 */
+
 	frr_each (bmp_session, &bt->sessions, bmp) {
 		if (bmp->state != BMP_PeerUp && bmp->state != BMP_Run)
 			continue;
 		bmp_send_peerup_per_instance(bmp, bgp);
 		bmp_send_peerup_vrf_per_instance(bmp, &bib->vrf_state, bgp);
+		FOREACH_AFI_SAFI (afi, safi)
+			bmp_update_syncro(bmp, afi, safi, bgp);
 	}
 	return CMD_SUCCESS;
 }
@@ -3008,19 +3107,8 @@ DEFPY(bmp_monitor_cfg, bmp_monitor_cmd,
 	if (prev == bt->afimon[afi][safi])
 		return CMD_SUCCESS;
 
-	frr_each (bmp_session, &bt->sessions, bmp) {
-		if (bmp->syncafi == afi && bmp->syncsafi == safi) {
-			bmp->syncafi = AFI_MAX;
-			bmp->syncsafi = SAFI_MAX;
-		}
-
-		if (!bt->afimon[afi][safi]) {
-			bmp->afistate[afi][safi] = BMP_AFI_INACTIVE;
-			continue;
-		}
-
-		bmp->afistate[afi][safi] = BMP_AFI_NEEDSYNC;
-	}
+	frr_each (bmp_session, &bt->sessions, bmp)
+		bmp_update_syncro(bmp, afi, safi, NULL);
 
 	return CMD_SUCCESS;
 }
@@ -3448,6 +3536,8 @@ static int bmp_bgp_attribute_updated(struct bgp *bgp, bool withdraw)
 	int ret = 0;
 	struct stream *s = bmp_peerstate(bgp->peer_self, withdraw);
 	struct bmp *bmp;
+	afi_t afi;
+	safi_t safi;
 
 	if (!s)
 		return 0;
@@ -3458,8 +3548,11 @@ static int bmp_bgp_attribute_updated(struct bgp *bgp, bool withdraw)
 								 withdraw, s);
 			if (withdraw)
 				continue;
-			frr_each (bmp_session, &bt->sessions, bmp)
+			frr_each (bmp_session, &bt->sessions, bmp) {
 				bmp_send_peerup_per_instance(bmp, bgp);
+				FOREACH_AFI_SAFI (afi, safi)
+					bmp_update_syncro(bmp, afi, safi, bgp);
+			}
 		}
 	}
 
@@ -3477,8 +3570,12 @@ static int bmp_bgp_attribute_updated(struct bgp *bgp, bool withdraw)
 									  withdraw, s);
 				if (withdraw)
 					continue;
-				frr_each (bmp_session, &bt->sessions, bmp)
+				frr_each (bmp_session, &bt->sessions, bmp) {
 					bmp_send_peerup_per_instance(bmp, bgp);
+					FOREACH_AFI_SAFI (afi, safi) {
+						bmp_update_syncro(bmp, afi, safi, bgp);
+					}
+				}
 			}
 		}
 	}
@@ -3504,14 +3601,19 @@ static void _bmp_vrf_state_changed_internal(struct bgp *bgp, enum bmp_vrf_state 
 	struct listnode *node;
 	struct bmp_imported_bgp *bib;
 	struct bmp *bmp;
+	afi_t afi;
+	safi_t safi;
 
 	if (bmpbgp && bmp_bgp_update_vrf_status(&bmpbgp->vrf_state, bgp, vrf_state)) {
 		bmp_send_all_safe(bmpbgp, bmp_peerstate(bgp->peer_self,
 							bmpbgp->vrf_state == vrf_state_down));
 		if (vrf_state == vrf_state_up && bmpbgp->vrf_state == vrf_state_up) {
 			frr_each (bmp_targets, &bmpbgp->targets, bt) {
-				frr_each (bmp_session, &bt->sessions, bmp)
+				frr_each (bmp_session, &bt->sessions, bmp) {
 					bmp_send_peerup_per_instance(bmp, bgp);
+					FOREACH_AFI_SAFI (afi, safi)
+						bmp_update_syncro(bmp, afi, safi, bgp);
+				}
 			}
 		}
 	}
@@ -3532,8 +3634,12 @@ static void _bmp_vrf_state_changed_internal(struct bgp *bgp, enum bmp_vrf_state 
 										   vrf_state_down));
 					if (vrf_state == vrf_state_up &&
 					    bib->vrf_state == vrf_state_up) {
-						frr_each (bmp_session, &bt->sessions, bmp)
+						frr_each (bmp_session, &bt->sessions, bmp) {
 							bmp_send_peerup_per_instance(bmp, bgp);
+							FOREACH_AFI_SAFI (afi, safi)
+								bmp_update_syncro(bmp, afi, safi,
+										  bgp);
+						}
 					}
 					break;
 				}
