@@ -45,7 +45,7 @@
 %define     frr_tools   %{zeb_src}/tools
 
 %if 0%{!?_runstatedir:1}
-%define _runstatedir %{_localstatedir}/run
+%define _runstatedir /run
 %endif
 
 ############################################################################
