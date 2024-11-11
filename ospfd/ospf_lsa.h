@@ -224,7 +224,6 @@ enum lsid_status { LSID_AVAILABLE = 0, LSID_CHANGE, LSID_NOT_AVAILABLE };
 
 /* Prototypes. */
 /* XXX: Eek, time functions, similar are in lib/thread.c */
-extern struct timeval int2tv(int);
 
 extern struct timeval msec2tv(int a);
 extern int tv2msec(struct timeval tv);

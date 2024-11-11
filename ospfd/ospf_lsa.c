@@ -87,16 +87,6 @@ bool ospf_check_dna_lsa(const struct ospf_lsa *lsa)
 			: false);
 }
 
-struct timeval int2tv(int a)
-{
-	struct timeval ret;
-
-	ret.tv_sec = a;
-	ret.tv_usec = 0;
-
-	return ret;
-}
-
 struct timeval msec2tv(int a)
 {
 	struct timeval ret;
