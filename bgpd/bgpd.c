@@ -5394,7 +5394,7 @@ int peer_ebgp_multihop_set(struct peer *peer, int ttl)
 {
 	struct peer_group *group;
 	struct listnode *node, *nnode;
-	struct peer *peer1;
+	struct peer *member;
 
 	if (peer->sort == BGP_PEER_IBGP || peer->conf_if)
 		return 0;
@@ -5410,12 +5410,11 @@ int peer_ebgp_multihop_set(struct peer *peer, int ttl)
 			if (group->conf->gtsm_hops != BGP_GTSM_HOPS_DISABLED)
 				return BGP_ERR_NO_EBGP_MULTIHOP_WITH_TTLHACK;
 
-			for (ALL_LIST_ELEMENTS(group->peer, node, nnode,
-					       peer1)) {
-				if (peer1->sort == BGP_PEER_IBGP)
+			for (ALL_LIST_ELEMENTS(group->peer, node, nnode, member)) {
+				if (member->sort == BGP_PEER_IBGP)
 					continue;
 
-				if (peer1->gtsm_hops != BGP_GTSM_HOPS_DISABLED)
+				if (member->gtsm_hops != BGP_GTSM_HOPS_DISABLED)
 					return BGP_ERR_NO_EBGP_MULTIHOP_WITH_TTLHACK;
 			}
 		} else {
@@ -5442,23 +5441,21 @@ int peer_ebgp_multihop_set(struct peer *peer, int ttl)
 		}
 	} else {
 		group = peer->group;
-		for (ALL_LIST_ELEMENTS(group->peer, node, nnode, peer)) {
-			if (peer->sort == BGP_PEER_IBGP)
+		for (ALL_LIST_ELEMENTS(group->peer, node, nnode, member)) {
+			if (member->sort == BGP_PEER_IBGP)
 				continue;
 
-			peer->ttl = group->conf->ttl;
+			member->ttl = group->conf->ttl;
 
-			if (BGP_IS_VALID_STATE_FOR_NOTIF(
-				    peer->connection->status))
-				bgp_notify_send(peer->connection,
-						BGP_NOTIFY_CEASE,
+			if (BGP_IS_VALID_STATE_FOR_NOTIF(member->connection->status))
+				bgp_notify_send(member->connection, BGP_NOTIFY_CEASE,
 						BGP_NOTIFY_CEASE_CONFIG_CHANGE);
 			else
-				bgp_session_reset(peer);
+				bgp_session_reset(member);
 
 			/* Reconfigure BFD peer with new TTL. */
-			if (peer->bfd_config)
-				bgp_peer_bfd_update_source(peer);
+			if (member->bfd_config)
+				bgp_peer_bfd_update_source(member);
 		}
 	}
 	return 0;
@@ -5466,6 +5463,7 @@ int peer_ebgp_multihop_set(struct peer *peer, int ttl)
 
 int peer_ebgp_multihop_unset(struct peer *peer)
 {
+	struct peer *member;
 	struct peer_group *group;
 	struct listnode *node, *nnode;
 	int ttl;
@@ -5498,25 +5496,23 @@ int peer_ebgp_multihop_unset(struct peer *peer)
 			bgp_peer_bfd_update_source(peer);
 	} else {
 		group = peer->group;
-		for (ALL_LIST_ELEMENTS(group->peer, node, nnode, peer)) {
-			if (peer->sort == BGP_PEER_IBGP)
+		for (ALL_LIST_ELEMENTS(group->peer, node, nnode, member)) {
+			if (member->sort == BGP_PEER_IBGP)
 				continue;
 
-			peer->ttl = BGP_DEFAULT_TTL;
+			member->ttl = BGP_DEFAULT_TTL;
 
-			if (peer->connection->fd >= 0) {
-				if (BGP_IS_VALID_STATE_FOR_NOTIF(
-					    peer->connection->status))
-					bgp_notify_send(peer->connection,
-							BGP_NOTIFY_CEASE,
+			if (member->connection->fd >= 0) {
+				if (BGP_IS_VALID_STATE_FOR_NOTIF(member->connection->status))
+					bgp_notify_send(member->connection, BGP_NOTIFY_CEASE,
 							BGP_NOTIFY_CEASE_CONFIG_CHANGE);
 				else
-					bgp_session_reset(peer);
+					bgp_session_reset(member);
 			}
 
 			/* Reconfigure BFD peer with new TTL. */
-			if (peer->bfd_config)
-				bgp_peer_bfd_update_source(peer);
+			if (member->bfd_config)
+				bgp_peer_bfd_update_source(member);
 		}
 	}
 	return 0;
