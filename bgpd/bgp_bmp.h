@@ -92,7 +92,7 @@ struct bmp_mirrorq {
 	uint8_t data[0];
 };
 
-enum {
+enum bmp_afi_state {
 	BMP_AFI_INACTIVE = 0,
 	BMP_AFI_NEEDSYNC,
 	BMP_AFI_SYNC,
@@ -148,6 +148,7 @@ struct bmp {
 	uint64_t syncpeerid;
 	afi_t syncafi;
 	safi_t syncsafi;
+	struct bgp *sync_bgp;
 };
 
 /* config & state for an active outbound connection.  When the connection
@@ -209,6 +210,7 @@ struct bmp_targets {
 
 	struct bmp_bgp *bmpbgp;
 	struct bgp *bgp;
+	bool bgp_request_sync[AFI_MAX][SAFI_MAX];
 	char *name;
 
 	struct bmp_listeners_head listeners;
@@ -284,6 +286,7 @@ struct bmp_imported_bgp {
 	struct bmp_targets *targets;
 	char *name;
 	enum bmp_vrf_state vrf_state;
+	bool bgp_request_sync[AFI_MAX][SAFI_MAX];
 };
 
 struct bmp_bgp {
