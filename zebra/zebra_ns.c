@@ -28,8 +28,184 @@
 extern struct zebra_privs_t zserv_privs;
 
 DEFINE_MTYPE_STATIC(ZEBRA, ZEBRA_NS, "Zebra Name Space");
+DEFINE_MTYPE_STATIC(ZEBRA, ZNS_IFP, "Zebra NS Ifp");
+
+static int ifp_tree_cmp(const struct ifp_tree_link *a, const struct ifp_tree_link *b);
+
+DECLARE_RBTREE_UNIQ(ifp_tree, struct ifp_tree_link, link, ifp_tree_cmp);
 
 static struct zebra_ns *dzns;
+
+static int ifp_tree_cmp(const struct ifp_tree_link *a, const struct ifp_tree_link *b)
+{
+	return (a->ifindex - b->ifindex);
+}
+
+/*
+ * Link an ifp into its parent NS
+ */
+void zebra_ns_link_ifp(struct zebra_ns *zns, struct interface *ifp)
+{
+	struct zebra_if *zif;
+	struct ifp_tree_link *link, tlink = {};
+
+	zif = ifp->info;
+	assert(zif != NULL);
+
+	if (zif->ns_tree_link) {
+		assert(zif->ns_tree_link->zns == zns);
+		assert(zif->ns_tree_link->ifp == ifp);
+		return;
+	}
+
+	/* Lookup first - already linked? */
+	tlink.ifindex = ifp->ifindex;
+	link = ifp_tree_find(&zns->ifp_tree, &tlink);
+	if (link) {
+		assert(link->ifp == ifp);
+		return;
+	}
+
+	/* Allocate new linkage struct and add */
+	link = XCALLOC(MTYPE_ZNS_IFP, sizeof(struct ifp_tree_link));
+	link->ifp = ifp;
+	link->ifindex = ifp->ifindex;
+	link->zns = zns;
+
+	ifp_tree_add(&zns->ifp_tree, link);
+
+	zif->ns_tree_link = link;
+}
+
+/*
+ * Unlink an ifp from its parent NS (probably because the ifp is being deleted)
+ */
+void zebra_ns_unlink_ifp(struct interface *ifp)
+{
+	struct zebra_if *zif;
+	struct ifp_tree_link *link;
+	struct zebra_ns *zns;
+
+	zif = ifp->info;
+	if (zif && zif->ns_tree_link) {
+		link = zif->ns_tree_link;
+		zns = link->zns;
+
+		ifp_tree_del(&zns->ifp_tree, link);
+
+		zif->ns_tree_link = NULL;
+
+		XFREE(MTYPE_ZNS_IFP, link);
+	}
+}
+
+/*
+ * ifp lookup apis
+ */
+struct interface *zebra_ns_lookup_ifp(struct zebra_ns *zns, uint32_t ifindex)
+{
+	struct interface *ifp = NULL;
+	struct ifp_tree_link *link, tlink = {};
+
+	/* Init temp struct for lookup */
+	tlink.ifindex = ifindex;
+
+	link = ifp_tree_find(&zns->ifp_tree, &tlink);
+	if (link)
+		ifp = link->ifp;
+
+	return ifp;
+}
+
+static int lookup_ifp_name_cb(struct interface *ifp, void *arg);
+
+struct ifp_name_ctx {
+	const char *ifname;
+	struct interface *ifp;
+};
+
+struct interface *zebra_ns_lookup_ifp_name(struct zebra_ns *zns, const char *ifname)
+{
+	struct ifp_name_ctx ctx = {};
+
+	/* Hand context struct into walker function for use in its callback */
+	ctx.ifname = ifname;
+	zebra_ns_ifp_walk(zns, lookup_ifp_name_cb, &ctx);
+
+	return ctx.ifp;
+}
+
+static int lookup_ifp_name_cb(struct interface *ifp, void *arg)
+{
+	struct ifp_name_ctx *pctx = arg;
+
+	if (strcmp(ifp->name, pctx->ifname) == 0) {
+		pctx->ifp = ifp;
+		return NS_WALK_STOP;
+	}
+
+	return NS_WALK_CONTINUE;
+}
+
+/* Iterate collection of ifps, calling application's callback. Callback uses
+ * return semantics from lib/ns.h: return NS_WALK_STOP to stop the iteration.
+ * Caller's 'arg' is included in each callback.
+ */
+int zebra_ns_ifp_walk(struct zebra_ns *zns,
+		      int (*func)(struct interface *ifp, void *arg), void *arg)
+{
+	struct ifp_tree_link *link;
+	int ret = NS_WALK_CONTINUE;
+
+	frr_each (ifp_tree, &zns->ifp_tree, link) {
+		ret = (func)(link->ifp, arg);
+		if (ret == NS_WALK_STOP)
+			break;
+	}
+
+	if (ret == NS_WALK_STOP)
+		return NS_WALK_STOP;
+	else
+		return NS_WALK_CONTINUE;
+}
+
+/*
+ * Walk all NSes, and all ifps for each NS.
+ */
+struct ns_ifp_walk_ctx {
+	int (*func)(struct interface *ifp, void *arg);
+	void *arg;
+	int ret;
+};
+
+static int ns_ifp_walker(struct ns *ns, void *in_param, void **unused);
+
+void zebra_ns_ifp_walk_all(int (*func)(struct interface *ifp, void *arg), void *arg)
+{
+	struct ns_ifp_walk_ctx ctx = {};
+
+	ctx.func = func;
+	ctx.arg = arg;
+
+	ns_walk_func(ns_ifp_walker, &ctx, NULL);
+}
+
+static int ns_ifp_walker(struct ns *ns, void *in_param, void **unused)
+{
+	struct zebra_ns *zns;
+	struct ns_ifp_walk_ctx *ctx = in_param;
+	int ret = NS_WALK_CONTINUE;
+
+	zns = ns->info;
+	if (zns == NULL)
+		goto done;
+
+	ret = zebra_ns_ifp_walk(zns, ctx->func, ctx->arg);
+
+done:
+
+	return ret;
+}
 
 static int zebra_ns_disable_internal(struct zebra_ns *zns, bool complete);
 
@@ -58,7 +234,7 @@ static int zebra_ns_new(struct ns *ns)
 	zns->ns_id = ns->ns_id;
 
 	/* Do any needed per-NS data structure allocation. */
-	zns->if_table = route_table_init();
+	ifp_tree_init(&zns->ifp_tree);
 
 	return 0;
 }
@@ -66,11 +242,22 @@ static int zebra_ns_new(struct ns *ns)
 static int zebra_ns_delete(struct ns *ns)
 {
 	struct zebra_ns *zns = (struct zebra_ns *)ns->info;
+	struct zebra_if *zif;
+	struct ifp_tree_link *link;
 
 	if (IS_ZEBRA_DEBUG_EVENT)
 		zlog_info("ZNS %s with id %u (deleted)", ns->name, ns->ns_id);
 	if (!zns)
 		return 0;
+
+	/* Clean up ifp tree */
+	while ((link = ifp_tree_pop(&zns->ifp_tree)) != NULL) {
+		zif = link->ifp->info;
+
+		zif->ns_tree_link = NULL;
+		XFREE(MTYPE_ZNS_IFP, link);
+	}
+
 	XFREE(MTYPE_ZEBRA_NS, ns->info);
 	return 0;
 }
@@ -157,10 +344,6 @@ int zebra_ns_enable(ns_id_t ns_id, void **info)
  */
 static int zebra_ns_disable_internal(struct zebra_ns *zns, bool complete)
 {
-	if (zns->if_table)
-		route_table_finish(zns->if_table);
-	zns->if_table = NULL;
-
 	zebra_dplane_ns_enable(zns, false /*Disable*/);
 
 	kernel_terminate(zns, complete);

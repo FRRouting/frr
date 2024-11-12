@@ -43,7 +43,7 @@ DEFINE_MTYPE_STATIC(ZEBRA, ZINFO, "Zebra Interface Information");
 DEFINE_HOOK(zebra_if_extra_info, (struct vty * vty, struct interface *ifp),
 	    (vty, ifp));
 
-DEFINE_MTYPE(ZEBRA, ZIF_DESC, "Intf desc");
+DEFINE_MTYPE_STATIC(ZEBRA, ZIF_DESC, "Intf desc");
 
 static void if_down_del_nbr_connected(struct interface *ifp);
 
@@ -215,6 +215,8 @@ static int if_zebra_delete_hook(struct interface *ifp)
 		if_nhg_dependents_release(ifp);
 		nhg_connected_tree_free(&zebra_if->nhg_dependents);
 
+		zebra_ns_unlink_ifp(ifp);
+
 		XFREE(MTYPE_ZIF_DESC, zebra_if->desc);
 
 		EVENT_OFF(zebra_if->speed_update);
@@ -225,62 +227,14 @@ static int if_zebra_delete_hook(struct interface *ifp)
 	return 0;
 }
 
-/* Build the table key */
-static void if_build_key(uint32_t ifindex, struct prefix *p)
-{
-	p->family = AF_INET;
-	p->prefixlen = IPV4_MAX_BITLEN;
-	p->u.prefix4.s_addr = ifindex;
-}
-
-/* Link an interface in a per NS interface tree */
-struct interface *if_link_per_ns(struct zebra_ns *ns, struct interface *ifp)
-{
-	struct prefix p;
-	struct route_node *rn;
-
-	if (ifp->ifindex == IFINDEX_INTERNAL)
-		return NULL;
-
-	if_build_key(ifp->ifindex, &p);
-	rn = route_node_get(ns->if_table, &p);
-	if (rn->info) {
-		ifp = (struct interface *)rn->info;
-		route_unlock_node(rn); /* get */
-		return ifp;
-	}
-
-	rn->info = ifp;
-	ifp->node = rn;
-
-	return ifp;
-}
-
-/* Delete a VRF. This is called in vrf_terminate(). */
-void if_unlink_per_ns(struct interface *ifp)
-{
-	if (!ifp->node)
-		return;
-
-	ifp->node->info = NULL;
-	route_unlock_node(ifp->node);
-	ifp->node = NULL;
-}
-
 /* Look up an interface by identifier within a NS */
 struct interface *if_lookup_by_index_per_ns(struct zebra_ns *ns,
 					    uint32_t ifindex)
 {
-	struct prefix p;
-	struct route_node *rn;
 	struct interface *ifp = NULL;
 
-	if_build_key(ifindex, &p);
-	rn = route_node_lookup(ns->if_table, &p);
-	if (rn) {
-		ifp = (struct interface *)rn->info;
-		route_unlock_node(rn); /* lookup */
-	}
+	ifp = zebra_ns_lookup_ifp(ns, ifindex);
+
 	return ifp;
 }
 
@@ -288,18 +242,11 @@ struct interface *if_lookup_by_index_per_ns(struct zebra_ns *ns,
 struct interface *if_lookup_by_name_per_ns(struct zebra_ns *ns,
 					   const char *ifname)
 {
-	struct route_node *rn;
 	struct interface *ifp;
 
-	for (rn = route_top(ns->if_table); rn; rn = route_next(rn)) {
-		ifp = (struct interface *)rn->info;
-		if (ifp && strcmp(ifp->name, ifname) == 0) {
-			route_unlock_node(rn);
-			return (ifp);
-		}
-	}
+	ifp = zebra_ns_lookup_ifp_name(ns, ifname);
 
-	return NULL;
+	return ifp;
 }
 
 struct interface *if_lookup_by_index_per_nsid(ns_id_t ns_id, uint32_t ifindex)
@@ -571,7 +518,8 @@ void if_add_update(struct interface *ifp)
 		zns = zvrf->zns;
 	else
 		zns = zebra_ns_lookup(NS_DEFAULT);
-	if_link_per_ns(zns, ifp);
+
+	zebra_ns_link_ifp(zns, ifp);
 	if_data = ifp->info;
 	assert(if_data);
 
@@ -776,7 +724,7 @@ void if_delete_update(struct interface **pifp)
 	/* Send out notification on interface delete. */
 	zebra_interface_delete_update(ifp);
 
-	if_unlink_per_ns(ifp);
+	zebra_ns_unlink_ifp(ifp);
 
 	/* Update ifindex after distributing the delete message.  This is in
 	   case any client needs to have the old value of ifindex available
@@ -784,7 +732,6 @@ void if_delete_update(struct interface **pifp)
 	   for setting ifindex to IFINDEX_INTERNAL after processing the
 	   interface deletion message. */
 	if_set_index(ifp, IFINDEX_INTERNAL);
-	ifp->node = NULL;
 
 	UNSET_FLAG(ifp->status, ZEBRA_INTERFACE_VRF_LOOPBACK);
 
@@ -1082,50 +1029,52 @@ void zebra_if_update_link(struct interface *ifp, ifindex_t link_ifindex,
 }
 
 /*
+ * Callback for per-ns link fixup iteration
+ */
+static int zif_link_fixup_cb(struct interface *ifp, void *arg)
+{
+	struct zebra_if *zif;
+
+	zif = ifp->info;
+	/* update bond-member to bond linkages */
+	if ((IS_ZEBRA_IF_BOND_SLAVE(ifp)) &&
+	    (zif->bondslave_info.bond_ifindex != IFINDEX_INTERNAL) &&
+	    !zif->bondslave_info.bond_if) {
+		if (IS_ZEBRA_DEBUG_EVPN_MH_ES || IS_ZEBRA_DEBUG_KERNEL)
+			zlog_debug("bond mbr %s map to bond %d", zif->ifp->name,
+				   zif->bondslave_info.bond_ifindex);
+		zebra_l2_map_slave_to_bond(zif, ifp->vrf->vrf_id);
+	}
+
+	/* update SVI linkages */
+	if ((zif->link_ifindex != IFINDEX_INTERNAL) && !zif->link) {
+		zif->link = if_lookup_by_index_per_nsid(zif->link_nsid,
+							zif->link_ifindex);
+		if (IS_ZEBRA_DEBUG_KERNEL)
+			zlog_debug("interface %s/%d's lower fixup to %s/%d",
+				   ifp->name, ifp->ifindex,
+				   zif->link ? zif->link->name : "unk",
+				   zif->link_ifindex);
+	}
+
+	/* Update VLAN<=>SVI map */
+	if (IS_ZEBRA_IF_VLAN(ifp))
+		zebra_evpn_acc_bd_svi_set(zif, NULL,
+					  !!if_is_operative(ifp));
+
+	return NS_WALK_CONTINUE;
+}
+
+/*
  * during initial link dump kernel does not order lower devices before
  * upper devices so we need to fixup link dependencies at the end of dump
  */
 void zebra_if_update_all_links(struct zebra_ns *zns)
 {
-	struct route_node *rn;
-	struct interface *ifp;
-	struct zebra_if *zif;
-
 	if (IS_ZEBRA_DEBUG_KERNEL)
-		zlog_info("fixup link dependencies");
+		zlog_debug("fixup link dependencies");
 
-	for (rn = route_top(zns->if_table); rn; rn = route_next(rn)) {
-		ifp = (struct interface *)rn->info;
-		if (!ifp)
-			continue;
-		zif = ifp->info;
-		/* update bond-member to bond linkages */
-		if ((IS_ZEBRA_IF_BOND_SLAVE(ifp))
-		    && (zif->bondslave_info.bond_ifindex != IFINDEX_INTERNAL)
-		    && !zif->bondslave_info.bond_if) {
-			if (IS_ZEBRA_DEBUG_EVPN_MH_ES || IS_ZEBRA_DEBUG_KERNEL)
-				zlog_debug("bond mbr %s map to bond %d",
-					   zif->ifp->name,
-					   zif->bondslave_info.bond_ifindex);
-			zebra_l2_map_slave_to_bond(zif, ifp->vrf->vrf_id);
-		}
-
-		/* update SVI linkages */
-		if ((zif->link_ifindex != IFINDEX_INTERNAL) && !zif->link) {
-			zif->link = if_lookup_by_index_per_nsid(
-				zif->link_nsid, zif->link_ifindex);
-			if (IS_ZEBRA_DEBUG_KERNEL)
-				zlog_debug("interface %s/%d's lower fixup to %s/%d",
-						ifp->name, ifp->ifindex,
-						zif->link?zif->link->name:"unk",
-						zif->link_ifindex);
-		}
-
-		/* Update VLAN<=>SVI map */
-		if (IS_ZEBRA_IF_VLAN(ifp))
-			zebra_evpn_acc_bd_svi_set(zif, NULL,
-						  !!if_is_operative(ifp));
-	}
+	zebra_ns_ifp_walk(zns, zif_link_fixup_cb, NULL);
 }
 
 static bool if_ignore_set_protodown(const struct interface *ifp, bool new_down,

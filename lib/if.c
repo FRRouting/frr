@@ -1002,12 +1002,6 @@ void if_terminate(struct vrf *vrf)
 
 	while (!RB_EMPTY(if_name_head, &vrf->ifaces_by_name)) {
 		ifp = RB_ROOT(if_name_head, &vrf->ifaces_by_name);
-
-		if (ifp->node) {
-			ifp->node->info = NULL;
-			route_unlock_node(ifp->node);
-			ifp->node = NULL;
-		}
 		if_delete(&ifp);
 	}
 }

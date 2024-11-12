@@ -295,8 +295,6 @@ struct interface {
 	struct if_data stats;
 #endif /* HAVE_NET_RT_IFLIST */
 
-	struct route_node *node;
-
 	struct vrf *vrf;
 
 	/*
