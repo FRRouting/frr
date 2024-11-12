@@ -26,6 +26,7 @@
 #include "bgpd/bgp_debug.h"
 #include "bgpd/bgp_vty.h"
 #include "bgpd/bgp_packet.h"
+#include "bgpd/bgp_network.h"
 
 DEFINE_MTYPE_STATIC(BGPD, BFD_CONFIG, "BFD configuration data");
 
@@ -153,6 +154,8 @@ void bgp_peer_bfd_update_source(struct peer *p)
 		struct in_addr v4;
 		struct in6_addr v6;
 	} src, dst;
+	struct interface *ifp;
+	union sockunion addr;
 
 	if (!p->bfd_config)
 		return;
@@ -163,10 +166,25 @@ void bgp_peer_bfd_update_source(struct peer *p)
 		return;
 
 	/* Figure out the correct source to use. */
-	if (CHECK_FLAG(p->flags, PEER_FLAG_UPDATE_SOURCE) && p->update_source)
-		source = p->update_source;
-	else
+	if (CHECK_FLAG(p->flags, PEER_FLAG_UPDATE_SOURCE)) {
+		if (p->update_source) {
+			source = p->update_source;
+		} else if (p->update_if) {
+			ifp = if_lookup_by_name(p->update_if, p->bgp->vrf_id);
+			if (ifp) {
+				sockunion_init(&addr);
+				if (bgp_update_address(ifp, &p->connection->su, &addr)) {
+					if (BGP_DEBUG(bfd, BFD_LIB))
+						zlog_debug("%s: can't find the source address for interface %s",
+							   __func__, p->update_if);
+				}
+
+				source = &addr;
+			}
+		}
+	} else {
 		source = p->su_local;
+	}
 
 	/* Update peer's source/destination addresses. */
 	bfd_sess_addresses(session, &family, &src.v6, &dst.v6);
