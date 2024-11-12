@@ -1344,11 +1344,6 @@ enum bgp_fsm_state_progress bgp_stop(struct peer_connection *connection)
 
 	peer->nsf_af_count = 0;
 
-	/* deregister peer */
-	if (peer->bfd_config
-	    && peer->last_reset == PEER_DOWN_UPDATE_SOURCE_CHANGE)
-		bfd_sess_uninstall(peer->bfd_config->session);
-
 	if (peer_dynamic_neighbor_no_nsf(peer) &&
 	    !(CHECK_FLAG(peer->flags, PEER_FLAG_DELETE))) {
 		if (bgp_debug_neighbor_events(peer))
@@ -1367,6 +1362,10 @@ enum bgp_fsm_state_progress bgp_stop(struct peer_connection *connection)
 	/* Increment Dropped count. */
 	if (peer_established(connection)) {
 		peer->dropped++;
+
+		if (peer->bfd_config && (peer->last_reset == PEER_DOWN_UPDATE_SOURCE_CHANGE ||
+					 peer->last_reset == PEER_DOWN_MULTIHOP_CHANGE))
+			bfd_sess_uninstall(peer->bfd_config->session);
 
 		/* Notify BGP conditional advertisement process */
 		peer->advmap_table_change = true;
