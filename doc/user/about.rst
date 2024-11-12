@@ -343,6 +343,8 @@ BGP
   :t:`Making Route Flap Damping Usable. C. Pelsser, R. Bush, K. Patel, P. Mohapatra, O. Maennel. May 2014.`
 - :rfc:`7300`
   :t:`Reservation of Last Autonomous System (AS) Numbers. J. Haas, J. Mitchell. July 2014.`
+- :rfc:`7311`
+  :t:`The Accumulated IGP Metric Attribute for BGP. P. Mohapatra, R. Fernando, E. Rosen, J. Uttaro. August 2014.`
 - :rfc:`7313`
   :t:`Enhanced Route Refresh Capability for BGP-4. K. Patel, E. Chen, B. Venkatachalapathy. July 2014.`
 - :rfc:`7606`
@@ -389,6 +391,8 @@ BGP
   :t:`A BGP Cease NOTIFICATION Subcode for Bidirectional Forwarding Detection (BFD). J. Haas. March 2023.`
 - :rfc:`9494`
   :t:`Long-Lived Graceful Restart for BGP. J. Uttaro, E. Chen, B. Decraene, J. Scudder. November 2023.`
+- :rfc:`9687`
+  :t:`Border Gateway Protocol 4 (BGP-4) Send Hold Timer. J. Snijders, B. Cartwright-Cox, Y. Qu. November 2024.`
 
 OSPF
 ----
