@@ -124,6 +124,32 @@ def test_bgp_convergence():
     assert result is True, "BGP is not converging"
 
 
+def _test_prefixes_syncro(policy, vrf=None, step=1):
+    """
+    Check that the given policy has syncronised the previously received BGP
+    updates.
+    """
+    tgen = get_topogen()
+
+    prefixes = ["172.31.0.77/32", "2001::1125/128"]
+    # check
+    test_func = partial(
+        bmp_check_for_prefixes,
+        prefixes,
+        "update",
+        policy,
+        step,
+        tgen.gears["bmp1import"],
+        os.path.join(tgen.logdir, "bmp1import"),
+        tgen.gears["r1import"],
+        f"{CWD}/bmp1import",
+        UPDATE_EXPECTED_JSON,
+        LOC_RIB,
+    )
+    success, res = topotest.run_and_expect(test_func, None, count=30, wait=1)
+    assert success, "Checking the updated prefixes has failed ! %s" % res
+
+
 def _test_prefixes(policy, vrf=None, step=0):
     """
     Setup the BMP  monitor policy, Add and withdraw ipv4/v6 prefixes.
@@ -188,7 +214,7 @@ def _test_prefixes(policy, vrf=None, step=0):
         assert success, "Checking the updated prefixes has failed ! %s" % res
 
 
-def _test_peer_up(check_locrib=True):
+def _test_peer_up(check_locrib=True, update_seq=True):
     """
     Checking for BMP peers up messages
     """
@@ -208,6 +234,7 @@ def _test_peer_up(check_locrib=True):
         tgen.gears["bmp1import"],
         os.path.join(tgen.logdir, "bmp1import", "bmp.log"),
         is_rd_instance=True,
+        update_seq=update_seq,
     )
     success, _ = topotest.run_and_expect(test_func, True, count=30, wait=1)
     assert success, "Checking the updated prefixes has been failed !."
@@ -268,6 +295,89 @@ def test_peer_down():
     )
     success, _ = topotest.run_and_expect(test_func, True, count=30, wait=1)
     assert success, "Checking the updated prefixes has been failed !."
+
+
+def test_reconfigure_prefixes():
+    """
+    Reconfigured BGP networks from R3. Check for BGP VRF update messages
+    """
+
+    tgen = get_topogen()
+
+    prefixes = ["172.31.0.77/32", "2001::1125/128"]
+    bgp_configure_prefixes(
+        tgen.gears["r3"],
+        65501,
+        "unicast",
+        prefixes,
+        vrf=None,
+        update=True,
+    )
+
+    for ipver in [4, 6]:
+        ref_file = "{}/r1import/show-bgp-{}-ipv{}-{}-step{}.json".format(
+            CWD, "vrf1", ipver, "update", 1
+        )
+        expected = json.loads(open(ref_file).read())
+
+        test_func = partial(
+            topotest.router_json_cmp,
+            tgen.gears["r1import"],
+            f"show bgp vrf vrf1 ipv{ipver} json",
+            expected,
+        )
+        _, res = topotest.run_and_expect(test_func, None, count=30, wait=1)
+        assertmsg = f"r1: BGP IPv{ipver} convergence failed"
+        assert res is None, assertmsg
+
+
+def test_monitor_syncro():
+    """
+    Checking for BMP peers down messages
+    """
+    tgen = get_topogen()
+
+    tgen.gears["r1import"].vtysh_cmd(
+        """
+        configure terminal
+        router bgp 65501
+        bmp targets bmp1
+        bmp import-vrf-view vrf1
+        """
+    )
+
+    logger.info("*** Unicast prefixes pre-policy logging ***")
+    _test_prefixes_syncro(PRE_POLICY, vrf="vrf1")
+    logger.info("*** Unicast prefixes post-policy logging ***")
+    _test_prefixes_syncro(POST_POLICY, vrf="vrf1")
+    logger.info("*** Unicast prefixes loc-rib logging ***")
+    _test_prefixes_syncro(LOC_RIB, vrf="vrf1")
+
+
+def test_reconfigure_route_distinguisher_vrf1():
+    """
+    Checking for BMP peers down messages
+    """
+    tgen = get_topogen()
+
+    bmp_update_seq(
+        tgen.gears["bmp1import"], os.path.join(tgen.logdir, "bmp1import", "bmp.log")
+    )
+    tgen.gears["r1import"].vtysh_cmd(
+        """
+        configure terminal
+        router bgp 65501 vrf vrf1
+        address-family ipv4 unicast
+        rd vpn export 666:22
+        """
+    )
+    _test_peer_up(check_locrib=True, update_seq=False)
+    logger.info("*** Unicast prefixes pre-policy logging ***")
+    _test_prefixes_syncro(PRE_POLICY, vrf="vrf1", step=2)
+    logger.info("*** Unicast prefixes post-policy logging ***")
+    _test_prefixes_syncro(POST_POLICY, vrf="vrf1", step=2)
+    logger.info("*** Unicast prefixes loc-rib logging ***")
+    _test_prefixes_syncro(LOC_RIB, vrf="vrf1", step=2)
 
 
 def test_bgp_routerid_changed():

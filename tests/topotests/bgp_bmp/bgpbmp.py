@@ -193,6 +193,7 @@ def bmp_check_for_peer_message(
     bmp_log_file,
     is_rd_instance=False,
     peer_bgp_id=None,
+    update_seq=True,
 ):
     """
     Check for the presence of a peer up message for the peer
@@ -233,5 +234,6 @@ def bmp_check_for_peer_message(
             logger.debug(msg.format(ep, bmp_log_type))
             return False
 
-    SEQ = messages[-1]["seq"]
+    if update_seq:
+        SEQ = messages[-1]["seq"]
     return True
