@@ -705,6 +705,17 @@ static void bmp_send_bt_safe(struct bmp_targets *bt, struct stream *s)
 	stream_free(s);
 }
 
+static void bmp_send_peerdown_vrf_per_instance(struct bmp_targets *bt, struct bgp *bgp)
+{
+	struct stream *s;
+
+	s = bmp_peerstate(bgp->peer_self, true);
+	if (!s)
+		return;
+	bmp_send_bt(bt, s);
+	stream_free(s);
+}
+
 /* send a stream to all bmp sessions configured in a bgp instance */
 /* XXX: kludge - filling the pullwr's buffer */
 static void bmp_send_all(struct bmp_bgp *bmpbgp, struct stream *s)
@@ -2765,7 +2776,10 @@ DEFPY(bmp_import_vrf,
 			vty_out(vty, "%% BMP imported BGP instance not found\n");
 			return CMD_WARNING;
 		}
-		/* TODO: handle loc-rib peer down change */
+		bgp = bgp_lookup_by_name(bib->name);
+		if (!bgp)
+			return CMD_WARNING;
+		bmp_send_peerdown_vrf_per_instance(bt, bgp);
 		bmp_imported_bgp_put(bt, bib);
 		return CMD_SUCCESS;
 	}
