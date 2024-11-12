@@ -2386,7 +2386,6 @@ static int zebra_vxlan_handle_vni_transition(struct zebra_vrf *zvrf, vni_t vni,
 			return -1;
 		}
 	} else {
-		struct zebra_ns *zns;
 		struct route_node *rn;
 		struct interface *ifp;
 		struct zebra_if *zif;
@@ -2400,8 +2399,8 @@ static int zebra_vxlan_handle_vni_transition(struct zebra_vrf *zvrf, vni_t vni,
 				   vni);
 
 		/* Find VxLAN interface for this VNI. */
-		zns = zebra_ns_lookup(NS_DEFAULT);
-		for (rn = route_top(zns->if_table); rn; rn = route_next(rn)) {
+		for (rn = route_top(zvrf->zns->if_table); rn;
+		     rn = route_next(rn)) {
 			ifp = (struct interface *)rn->info;
 			if (!ifp)
 				continue;
@@ -4894,8 +4893,7 @@ int zebra_vxlan_add_del_gw_macip(struct interface *ifp, const struct prefix *p,
 		/*
 		 * for a MACVLAN interface the link represents the svi_if
 		 */
-		svi_if = if_lookup_by_index_per_ns(zebra_ns_lookup(NS_DEFAULT),
-						   ifp_zif->link_ifindex);
+		svi_if = ifp_zif->link;
 		if (!svi_if) {
 			zlog_debug("MACVLAN %s(%u) without link information",
 				   ifp->name, ifp->ifindex);
@@ -4911,9 +4909,7 @@ int zebra_vxlan_add_del_gw_macip(struct interface *ifp, const struct prefix *p,
 
 			svi_if_zif = svi_if->info;
 			if (svi_if_zif) {
-				svi_if_link = if_lookup_by_index_per_ns(
-					zebra_ns_lookup(NS_DEFAULT),
-					svi_if_zif->link_ifindex);
+				svi_if_link = svi_if_zif->link;
 				zevpn = zebra_evpn_from_svi(svi_if,
 							    svi_if_link);
 			}
@@ -4932,9 +4928,7 @@ int zebra_vxlan_add_del_gw_macip(struct interface *ifp, const struct prefix *p,
 
 		svi_if_zif = ifp->info;
 		if (svi_if_zif) {
-			svi_if_link = if_lookup_by_index_per_ns(
-				zebra_ns_lookup(NS_DEFAULT),
-				svi_if_zif->link_ifindex);
+			svi_if_link = svi_if_zif->link;
 			if (svi_if_link)
 				zevpn = zebra_evpn_from_svi(ifp, svi_if_link);
 		}
@@ -5133,8 +5127,7 @@ void zebra_vxlan_macvlan_down(struct interface *ifp)
 	link_zif = link_ifp->info;
 	assert(link_zif);
 
-	link_if = if_lookup_by_index_per_ns(zebra_ns_lookup(NS_DEFAULT),
-					    link_zif->link_ifindex);
+	link_if = link_zif->link;
 
 	zl3vni = zl3vni_from_svi(link_ifp, link_if);
 	if (zl3vni) {
@@ -5177,8 +5170,7 @@ void zebra_vxlan_macvlan_up(struct interface *ifp)
 	link_zif = link_ifp->info;
 	assert(link_zif);
 
-	link_if = if_lookup_by_index_per_ns(zebra_ns_lookup(NS_DEFAULT),
-					    link_zif->link_ifindex);
+	link_if = link_zif->link;
 	zl3vni = zl3vni_from_svi(link_ifp, link_if);
 	if (zl3vni) {
 		/* associate with macvlan (VRR) interface */
