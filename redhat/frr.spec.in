@@ -834,7 +834,33 @@ sed -i 's/ -M rpki//' %{_sysconfdir}/frr/daemons
 
 %changelog
 
-* Mon Mar 25 2024 Jafar Al-Gharaibeh <jafar@atcorp.com> - %{version}
+* Tue Nov 12 2024 Jafar Al-Gharaibeh <jafar@atcorp.com> - %{version}
+
+* Tue Nov 12 2024 Jafar Al-Gharaibeh <jafar@atcorp.com> - 10.2
+-   PIM candidate BSR/RP [#16438]
+-   Static IGMP join without an IGMP report [1#6450]
+-   PIM AutoRP discovery/announcements [#16634]
+-   IGMP proxy [#16861]
+-   SRv6 SID Manager [#15604]
+-   Add `bgp ipv6-auto-ra` command [#16354]
+-   Implement `neighbor x remote-as auto` for BGP [#16345]
+-   Implement `bgp dual-as` for BGP [#16816]
+-   Implement BGP-wide configuration for graceful restart [#16099]
+-   Handle kernel routes appropriately (should fix recent NOPREFIXROUTE issue) [#16300]
+-   Add `cisco-authentication` password support for NHRP [#16172]
+
+* Fri Jul 26 2024 Jafar Al-Gharaibeh <jafar@atcorp.com> - 10.1
+- Breaking changes
+-   Enable BGP dynamic capability by default for datacenter profile
+-   Split BGP `rpki cache` command into separate per SSH/TCP
+-   Add deprecation cycle for OSPF `router-info X [A.B.C.D]` command
+- Major highlights:
+-   BGP dampening per-neighbor support
+-   BMP send-experimental stats
+-   Implement extended link-bandwidth for BGP
+-   Paths Limit for Multiple Paths in BGP
+-   New command for OSPFv2 `ip ospf neighbor-filter NAME [A.B.C.D]`
+-   Implement non-broadcast support for point-to-multipoint networks
 
 * Mon Mar 25 2024 Jafar Al-Gharaibeh <jafar@atcorp.com> - 10.0
 - Major highlights:
