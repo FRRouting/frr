@@ -188,6 +188,30 @@ def _test_prefixes(policy, vrf=None, step=0):
         assert success, "Checking the updated prefixes has failed ! %s" % res
 
 
+def _test_peer_up(check_locrib=True):
+    """
+    Checking for BMP peers up messages
+    """
+
+    tgen = get_topogen()
+    if check_locrib:
+        peers = ["0.0.0.0", "192.168.1.3", "192:167::3"]
+    else:
+        peers = ["192.168.1.3", "192:167::3"]
+
+    logger.info("checking for BMP peers up messages")
+
+    test_func = partial(
+        bmp_check_for_peer_message,
+        peers,
+        "peer up",
+        tgen.gears["bmp1import"],
+        os.path.join(tgen.logdir, "bmp1import", "bmp.log"),
+    )
+    success, _ = topotest.run_and_expect(test_func, True, count=30, wait=1)
+    assert success, "Checking the updated prefixes has been failed !."
+
+
 def test_bmp_server_logging():
     """
     Assert the logging of the bmp server.
@@ -206,25 +230,8 @@ def test_bmp_server_logging():
     assert success, "The BMP server is not logging"
 
 
-def test_peer_up():
-    """
-    Checking for BMP peers up messages
-    """
-
-    tgen = get_topogen()
-    peers = ["0.0.0.0", "192.168.1.3", "192:167::3"]
-
-    logger.info("checking for BMP peers up messages")
-
-    test_func = partial(
-        bmp_check_for_peer_message,
-        peers,
-        "peer up",
-        tgen.gears["bmp1import"],
-        os.path.join(tgen.logdir, "bmp1import", "bmp.log"),
-    )
-    success, _ = topotest.run_and_expect(test_func, True, count=30, wait=1)
-    assert success, "Checking the updated prefixes has been failed !."
+def test_bmp_peer_up_start():
+    _test_peer_up()
 
 
 def test_bmp_bgp_unicast():
@@ -248,6 +255,43 @@ def test_peer_down():
     tgen.gears["r3"].vtysh_cmd("clear bgp *")
 
     peers = ["192.168.1.3", "192:167::3"]
+
+    logger.info("checking for BMP peers down messages")
+
+    test_func = partial(
+        bmp_check_for_peer_message,
+        peers,
+        "peer down",
+        tgen.gears["bmp1import"],
+        os.path.join(tgen.logdir, "bmp1import", "bmp.log"),
+    )
+    success, _ = topotest.run_and_expect(test_func, True, count=30, wait=1)
+    assert success, "Checking the updated prefixes has been failed !."
+
+
+def test_peer_up_after_flush():
+    """
+    Checking for BMP peers down messages
+    """
+    _test_peer_up(check_locrib=False)
+
+
+def test_peer_down_locrib():
+    """
+    Checking for BMP peers down loc-rib messages
+    """
+    tgen = get_topogen()
+
+    tgen.gears["r1import"].vtysh_cmd(
+        """
+        configure terminal
+        router bgp 65501
+        bmp targets bmp1
+        no bmp import-vrf-view vrf1
+        """
+    )
+
+    peers = ["0.0.0.0"]
 
     logger.info("checking for BMP peers down messages")
 
