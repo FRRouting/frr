@@ -368,17 +368,17 @@ def test_protocols_convergence():
 
     # check that r2 peerings are ok
     logger.info("Checking BGP ipv4 vpn summary for r2")
-    router = tgen.gears["r2"]
-    json_file = "{}/{}/ipv4_vpn_summary.json".format(CWD, router.name)
+    r2 = tgen.gears["r2"]
+    json_file = "{}/{}/ipv4_vpn_summary.json".format(CWD, r2.name)
     expected = json.loads(open(json_file).read())
     test_func = partial(
         topotest.router_json_cmp,
-        router,
+        r2,
         "show bgp ipv4 vpn summary json",
         expected,
     )
     _, result = topotest.run_and_expect(test_func, None, count=20, wait=0.5)
-    assertmsg = '"{}" JSON output mismatches'.format(router.name)
+    assertmsg = '"{}" JSON output mismatches'.format(r2.name)
     assert result is None, assertmsg
 
 
@@ -400,11 +400,11 @@ def test_mpls_setup_ok():
     tgen = get_topogen()
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
-    router = tgen.gears["r2"]
+    r2 = tgen.gears["r2"]
 
     # diagnostic
     logger.info("Dumping mplsvpn nexthop table")
-    router.vtysh_cmd("show bgp mplsvpn-nh-label-bind detail", isjson=False)
+    r2.vtysh_cmd("show bgp mplsvpn-nh-label-bind detail")
 
     vpnv4_checks = {
         "172.31.1.0/24": "r1",
@@ -414,10 +414,10 @@ def test_mpls_setup_ok():
     }
     logger.info(
         "{}, check that 'show bgp ipv4 vpn' and 'show mpls table' are set accordingly on all devices".format(
-            router.name
+            r2.name
         )
     )
-    check_show_bgp_vpn_ok(router, vpnv4_checks)
+    check_show_bgp_vpn_ok(r2, vpnv4_checks)
 
     logger.info("h1, check that ping from h1 to (h2,h3) is ok")
     check_ping("h1", "172.31.1.10", True, 20, 0.5)
@@ -436,71 +436,85 @@ def test_r3_prefixes_removed():
     tgen = get_topogen()
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
-    router = tgen.gears["r3"]
-    logger.info("{}, keeping only 172.31.3.0/24 network".format(router.name))
-    router.vtysh_cmd("configure terminal\ninterface r3-eth1 vrf vrf1\nshutdown\n")
-    router.vtysh_cmd("configure terminal\ninterface r3-eth2 vrf vrf1\nshutdown\n")
+    r3 = tgen.gears["r3"]
+    logger.info("{}, keeping only 172.31.3.0/24 network".format(r3.name))
+    r3.vtysh_cmd(
+        """
+configure terminal
+interface r3-eth1 vrf vrf1
+ shutdown
+!
+interface r3-eth2 vrf vrf1
+ shutdown\n
+"""
+    )
 
-    router = tgen.gears["r2"]
+    r2 = tgen.gears["r2"]
     logger.info(
         "{}, check that 'show bgp ipv4 vpn' has only 172.31.3.0/24 network from r3".format(
-            router.name
+            r2.name
         )
     )
 
     for prefix in ("172.31.1.0/24", "172.31.2.0/24"):
         test_func = functools.partial(
             check_show_bgp_vpn_prefix_not_found,
-            router,
+            r2,
             "ipv4",
             prefix,
             "444:3",
         )
         success, _ = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
-        assert success, "{}, vpnv4 update {} still present".format(router.name, prefix)
+        assert success, "{}, vpnv4 update {} still present".format(r2.name, prefix)
 
     # diagnostic
     logger.info("Dumping mplsvpn nexthop table")
-    router.vtysh_cmd("show bgp mplsvpn-nh-label-bind detail", isjson=False)
+    r2.vtysh_cmd("show bgp mplsvpn-nh-label-bind detail")
 
     prefix = "172.31.3.0/24"
     logger.info(
         "{}, check that 'show bgp ipv4 vpn' and 'show mpls table' are set accordingly on r2 and on r1".format(
-            router.name
+            r2.name
         )
     )
     vpnv4_checks = {
         prefix: "r1",
     }
-    label_ip_entries = check_show_bgp_vpn_ok(router, vpnv4_checks)
+    label_ip_entries = check_show_bgp_vpn_ok(r2, vpnv4_checks)
 
-    router = tgen.gears["r3"]
-    logger.info("{}, removing {} network".format(router.name, prefix))
-    router.vtysh_cmd("configure terminal\ninterface r3-eth3 vrf vrf1\nshutdown\n")
+    r3 = tgen.gears["r3"]
+    logger.info("{}, removing {} network".format(r3.name, prefix))
+    r3.vtysh_cmd(
+        """
+configure terminal
+interface r3-eth3 vrf vrf1
+ shutdown\n
+"""
+    )
 
-    router = tgen.gears["r2"]
+    r2 = tgen.gears["r2"]
     logger.info(
         "{}, check that 'show bgp ipv4 vpn' has not {} network from r3".format(
-            router.name, prefix
+            r2.name, prefix
         )
     )
     test_func = functools.partial(
         check_show_bgp_vpn_prefix_not_found,
-        router,
+        r2,
         "ipv4",
         prefix,
         "444:3",
     )
     success, _ = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
-    assert success, "{}, vpnv4 update {} still present".format(router.name, prefix)
+    assert success, "{}, vpnv4 update {} still present".format(r2.name, prefix)
 
     logger.info(
         "{}, check that 'show mpls table {}' is not present".format(
-            router.name, label_ip_entries[prefix]
+            r2.name, label_ip_entries[prefix]
         )
     )
     test_func = functools.partial(
-        check_show_mpls_table_entry_label_not_found, router, label_ip_entries[prefix]
+        check_show_mpls_table_entry_label_not_found, r2, label_ip_entries[prefix]
     )
     success, _ = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
     assert success, "r1, mpls entry with in_label {} still present".format(
@@ -517,59 +531,74 @@ def test_r3_prefixes_added_back():
     tgen = get_topogen()
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
-    router = tgen.gears["r3"]
+    r3 = tgen.gears["r3"]
     prefix = "172.31.3.0/24"
-    logger.info("{}, restoring the {} network from r3".format(router.name, prefix))
-    router.vtysh_cmd("configure terminal\ninterface r3-eth3 vrf vrf1\nno shutdown\n")
+    logger.info("{}, restoring the {} network from r3".format(r3.name, prefix))
+    r3.vtysh_cmd(
+        """
+configure terminal
+ interface r3-eth3 vrf vrf1
+  no shutdown
+"""
+    )
 
-    router = tgen.gears["r2"]
+    r2 = tgen.gears["r2"]
     logger.info(
         "{}, check that 'show bgp ipv4 vpn' has {} network from r3".format(
-            router.name, prefix
+            r2.name, prefix
         )
     )
 
     test_func = functools.partial(
         check_show_bgp_vpn_prefix_found,
-        router,
+        r2,
         "ipv4",
         prefix,
         "444:3",
     )
     success, _ = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
-    assert success, "{}, vpnv4 update {} not present".format(router.name, prefix)
+    assert success, "{}, vpnv4 update {} not present".format(r2.name, prefix)
 
     logger.info(
         "{}, check that 'show bgp ipv4 vpn' and 'show mpls table' are set accordingly on r2 and on r1".format(
-            router.name
+            r2.name
         )
     )
     vpnv4_checks = {
         prefix: "r1",
     }
-    check_show_bgp_vpn_ok(router, vpnv4_checks)
+    check_show_bgp_vpn_ok(r2, vpnv4_checks)
 
-    router = tgen.gears["r3"]
+    r3 = tgen.gears["r3"]
     logger.info(
-        "{}, restoring the redistribute connected prefixes from r3".format(router.name)
+        "{}, restoring the redistribute connected prefixes from r3".format(r3.name)
     )
-    router.vtysh_cmd("configure terminal\ninterface r3-eth1 vrf vrf1\nno shutdown\n")
-    router.vtysh_cmd("configure terminal\ninterface r3-eth2 vrf vrf1\nno shutdown\n")
-    router = tgen.gears["r2"]
+    r3.vtysh_cmd(
+        """
+configure terminal
+interface r3-eth1 vrf vrf1
+ no shutdown
+!
+interface r3-eth2 vrf vrf1
+ no shutdown
+"""
+    )
+
+    r2 = tgen.gears["r2"]
     for prefix in ("172.31.1.0/24", "172.31.2.0/24"):
         test_func = functools.partial(
             check_show_bgp_vpn_prefix_found,
-            router,
+            r2,
             "ipv4",
             prefix,
             "444:3",
         )
         success, _ = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
-        assert success, "{}, vpnv4 update {} not present".format(router.name, prefix)
+        assert success, "{}, vpnv4 update {} not present".format(r2.name, prefix)
 
     # diagnostic
     logger.info("Dumping mplsvpn nexthop table")
-    tgen.gears["r2"].vtysh_cmd("show bgp mplsvpn-nh-label-bind detail", isjson=False)
+    r2.vtysh_cmd("show bgp mplsvpn-nh-label-bind detail")
 
 
 def test_unconfigure_nexthop_change_nexthop_self():
@@ -583,44 +612,47 @@ def test_unconfigure_nexthop_change_nexthop_self():
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
-    router = tgen.gears["r2"]
+    r2 = tgen.gears["r2"]
     vpnv4_checks = {
         "172.31.1.0/24": "r1",
         "172.31.2.0/24": "r1",
         "172.31.3.0/24": "r1",
     }
     logger.info(
-        "{}, Get the list of labels allocated for prefixes from r3".format(router.name)
+        "{}, Get the list of labels allocated for prefixes from r3".format(r2.name)
     )
-    label_ip_entries = check_show_bgp_vpn_ok(router, vpnv4_checks)
+    label_ip_entries = check_show_bgp_vpn_ok(r2, vpnv4_checks)
 
-    logger.info(
-        "{}, disable next-hop-self for 192.0.2.100 neighbor".format(router.name)
-    )
-    router = tgen.gears["r2"]
-    router.vtysh_cmd(
-        "configure terminal\nrouter bgp 65500\naddress-family ipv4 vpn\nno neighbor 192.0.2.100 next-hop-self\n"
+    logger.info("{}, disable next-hop-self for 192.0.2.100 neighbor".format(r2.name))
+
+    r2.vtysh_cmd(
+        """
+configure terminal
+router bgp 65500
+ address-family ipv4 vpn
+  no neighbor 192.0.2.100 next-hop-self
+"""
     )
 
     for prefix, label in label_ip_entries.items():
         logger.info(
             "{}, check mpls entry for {} with in_label {} is not present'".format(
-                router.name, prefix, label
+                r2.name, prefix, label
             )
         )
         test_func = functools.partial(
-            check_show_mpls_table_entry_label_not_found, router, label
+            check_show_mpls_table_entry_label_not_found, r2, label
         )
         success, _ = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
         assert success, "r1, mpls entry for {} with in_label {} still present".format(
             prefix, label
         )
 
-    router = tgen.gears["r1"]
+    r1 = tgen.gears["r1"]
     for prefix, label in label_ip_entries.items():
         test_func = functools.partial(
             check_show_bgp_vpn_prefix_not_found,
-            router,
+            r1,
             "ipv4",
             prefix,
             "444:3",
@@ -628,12 +660,12 @@ def test_unconfigure_nexthop_change_nexthop_self():
         )
         success, _ = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
         assert success, "{}, mpls vpn update {} label {} is present".format(
-            router.name, prefix, label
+            r1.name, prefix, label
         )
     for prefix, label in label_ip_entries.items():
         test_func = functools.partial(
             check_show_bgp_vpn_prefix_found,
-            router,
+            r1,
             "ipv4",
             prefix,
             "444:3",
@@ -641,12 +673,12 @@ def test_unconfigure_nexthop_change_nexthop_self():
         )
         success, _ = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
         assert success, "{}, mpls vpn update {} label {} is present".format(
-            router.name, prefix, label
+            r1.name, prefix, label
         )
 
     # diagnostic
     logger.info("Dumping mplsvpn nexthop table")
-    tgen.gears["r2"].vtysh_cmd("show bgp mplsvpn-nh-label-bind detail", isjson=False)
+    tgen.gears["r2"].vtysh_cmd("show bgp mplsvpn-nh-label-bind detail")
 
 
 def test_reconfigure_nexthop_change_nexthop_self():
@@ -660,10 +692,15 @@ def test_reconfigure_nexthop_change_nexthop_self():
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
-    router = tgen.gears["r2"]
-    logger.info("{}, enable next-hop-self for 192.0.2.100 neighbor".format(router.name))
-    router.vtysh_cmd(
-        "configure terminal\nrouter bgp 65500\naddress-family ipv4 vpn\nneighbor 192.0.2.100 next-hop-self\n"
+    r2 = tgen.gears["r2"]
+    logger.info("{}, enable next-hop-self for 192.0.2.100 neighbor".format(r2.name))
+    r2.vtysh_cmd(
+        """
+configure terminal
+router bgp 65500
+ address-family ipv4 vpn
+  neighbor 192.0.2.100 next-hop-self
+"""
     )
     vpnv4_checks = {
         "172.31.1.0/24": "r1",
@@ -672,17 +709,17 @@ def test_reconfigure_nexthop_change_nexthop_self():
     }
     logger.info(
         "{}, check that 'show bgp ipv4 vpn' and 'show mpls table' are set accordingly on r2 and on r1".format(
-            router.name
+            r2.name
         )
     )
-    check_show_bgp_vpn_ok(router, vpnv4_checks)
+    check_show_bgp_vpn_ok(r2, vpnv4_checks)
 
     logger.info("h1, check that ping from h1 to (h2,h3) is ok")
     check_ping("h1", "172.31.1.10", True, 20, 0.5)
     check_ping("h1", "172.31.2.10", True, 20, 0.5)
     # diagnostic
     logger.info("Dumping mplsvpn nexthop table")
-    router.vtysh_cmd("show bgp mplsvpn-nh-label-bind detail", isjson=False)
+    r2.vtysh_cmd("show bgp mplsvpn-nh-label-bind detail")
 
 
 def test_declare_vpn_network_with_different_label():
@@ -696,20 +733,21 @@ def test_declare_vpn_network_with_different_label():
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
-    router = tgen.gears["r3"]
+    r3 = tgen.gears["r3"]
     logger.info(
-        "{}, declare static 33.33.33.33/32 network rd 33:33 label 33".format(
-            router.name
-        )
+        "{}, declare static 33.33.33.33/32 network rd 33:33 label 33".format(r3.name)
     )
-    router.vtysh_cmd(
-        "configure terminal\nrouter bgp 65501\nno bgp network import-check\n"
-    )
-    router.vtysh_cmd(
-        "configure terminal\nrouter bgp 65501\naddress-family ipv4 vpn\nnetwork 33.33.33.33/32 rd 444:3 label 33\n"
+    r3.vtysh_cmd(
+        """
+configure terminal
+router bgp 65501
+ no bgp network import-check\n"
+ address-family ipv4 vpn
+  network 33.33.33.33/32 rd 444:3 label 33
+"""
     )
 
-    router = tgen.gears["r2"]
+    r2 = tgen.gears["r2"]
     vpnv4_entries = {
         "172.31.1.0/24": None,
         "172.31.2.0/24": None,
@@ -720,7 +758,7 @@ def test_declare_vpn_network_with_different_label():
     for prefix, label in vpnv4_entries.items():
         test_func = functools.partial(
             check_show_bgp_vpn_prefix_found,
-            router,
+            r2,
             "ipv4",
             prefix,
             "444:3",
@@ -729,7 +767,7 @@ def test_declare_vpn_network_with_different_label():
         )
         success, _ = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
         assert success, "{}, vpnv4 update {}, label {} not present".format(
-            router.name, prefix, label
+            r2.name, prefix, label
         )
 
     vpnv4_checks = {
@@ -740,10 +778,10 @@ def test_declare_vpn_network_with_different_label():
     }
     logger.info(
         "{}, check that 'show bgp ipv4 vpn' and 'show mpls table' are set accordingly on r2 and on r1".format(
-            router.name
+            r2.name
         )
     )
-    check_show_bgp_vpn_ok(router, vpnv4_checks)
+    check_show_bgp_vpn_ok(r2, vpnv4_checks)
 
 
 def test_filter_vpn_network_from_r1():
@@ -757,52 +795,51 @@ def test_filter_vpn_network_from_r1():
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
-    router = tgen.gears["r2"]
+    r2 = tgen.gears["r2"]
 
     vpnv4_checks = {
         "172.31.0.0/24": "r3",
     }
     logger.info(
         "{}, check that 'show bgp ipv4 vpn' and 'show mpls table' are set accordingly on r2 and on r3".format(
-            router.name
+            r2.name
         )
     )
-    label_ip_entries = check_show_bgp_vpn_ok(router, vpnv4_checks)
+    label_ip_entries = check_show_bgp_vpn_ok(r2, vpnv4_checks)
 
     for prefix, label in label_ip_entries.items():
-        logger.info("{}, filter prefix {} from r1".format(router.name, prefix))
-        router.vtysh_cmd(
-            "configure terminal\nroute-map rmap deny 1\nmatch ip next-hop address 192.0.2.1\n"
+        logger.info("{}, filter prefix {} from r1".format(r2.name, prefix))
+        r2.vtysh_cmd(
+            """
+configure terminal
+route-map rmap deny 1
+ match ip next-hop address 192.0.2.1
+!
+router bgp 65500
+ address-family ipv4 vpn
+  neighbor 192.0.2.100 route-map rmap in
+"""
         )
-        router.vtysh_cmd(
-            "configure terminal\nrouter bgp 65500\naddress-family ipv4 vpn\nneighbor 192.0.2.100 route-map rmap in\n"
-        )
-        logger.info(
-            "{}, check that prefix {} is not present".format(router.name, prefix)
-        )
+        logger.info("{}, check that prefix {} is not present".format(r2.name, prefix))
         test_func = functools.partial(
             check_show_bgp_vpn_prefix_not_found,
-            router,
+            r2,
             "ipv4",
             "172.31.0.0/24",
             "444:1",
         )
         success, _ = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
-        assert success, "{}, vpnv4 update {}, is still present".format(
-            router.name, prefix
-        )
+        assert success, "{}, vpnv4 update {}, is still present".format(r2.name, prefix)
 
         # diagnostic
         logger.info("Dumping mplsvpn nexthop table")
-        router.vtysh_cmd("show bgp mplsvpn-nh-label-bind detail", isjson=False)
+        r2.vtysh_cmd("show bgp mplsvpn-nh-label-bind detail")
 
         logger.info(
-            "{}, check that show mpls table {} is not present".format(
-                router.name, label
-            )
+            "{}, check that show mpls table {} is not present".format(r2.name, label)
         )
         test_func = functools.partial(
-            check_show_mpls_table_entry_label_not_found, router, int(label)
+            check_show_mpls_table_entry_label_not_found, r2, int(label)
         )
         success, _ = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
         assert success, "r1, mpls entry for {} with in_label {} still present".format(
@@ -821,34 +858,34 @@ def test_unfilter_vpn_network_from_r1():
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
-    router = tgen.gears["r2"]
+    r2 = tgen.gears["r2"]
     prefix = "172.31.0.0/24"
 
-    logger.info("{}, filter prefix {} from r1".format(router.name, prefix))
-    router.vtysh_cmd(
+    logger.info("{}, filter prefix {} from r1".format(r2.name, prefix))
+    r2.vtysh_cmd(
         "configure terminal\nrouter bgp 65500\naddress-family ipv4 vpn\nno neighbor 192.0.2.100 route-map rmap in\n"
     )
 
-    logger.info("{}, check that prefix {} is present".format(router.name, prefix))
+    logger.info("{}, check that prefix {} is present".format(r2.name, prefix))
     test_func = functools.partial(
-        check_show_bgp_vpn_prefix_found, router, "ipv4", prefix, "444:1"
+        check_show_bgp_vpn_prefix_found, r2, "ipv4", prefix, "444:1"
     )
     success, _ = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
-    assert success, "{}, vpnv4 update {}, is not present".format(router.name, prefix)
+    assert success, "{}, vpnv4 update {}, is not present".format(r2.name, prefix)
 
     vpnv4_checks = {
         "172.31.0.0/24": "r3",
     }
     logger.info(
         "{}, check that 'show bgp ipv4 vpn' and 'show mpls table' are set accordingly on all devices".format(
-            router.name
+            r2.name
         )
     )
-    check_show_bgp_vpn_ok(router, vpnv4_checks)
+    check_show_bgp_vpn_ok(r2, vpnv4_checks)
 
     # diagnostic
     logger.info("Dumping mplsvpn nexthop table")
-    router.vtysh_cmd("show bgp mplsvpn-nh-label-bind detail", isjson=False)
+    r2.vtysh_cmd("show bgp mplsvpn-nh-label-bind detail")
 
 
 def test_memory_leak():
