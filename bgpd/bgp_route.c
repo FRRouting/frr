@@ -14675,6 +14675,8 @@ show_adj_route(struct vty *vty, struct peer *peer, struct bgp_table *table,
 	}
 
 	for (dest = bgp_table_top(table); dest; dest = bgp_route_next(dest)) {
+		struct bgp_path_info *bpi = NULL;
+
 		if (type == bgp_show_adj_route_received
 		    || type == bgp_show_adj_route_filtered) {
 			for (ain = dest->adj_in; ain; ain = ain->next) {
@@ -14816,16 +14818,27 @@ show_adj_route(struct vty *vty, struct peer *peer, struct bgp_table *table,
 									json_net,
 									"%pFX",
 									rn_p);
-						} else
-							route_vty_out_tmp(vty,
-									  bgp,
-									  dest,
-									  rn_p,
-									  &attr,
-									  safi,
-									  use_json,
-									  json_ar,
-									  wide);
+						} else {
+							/* For JSON output use route_vty_out_tmp() instead
+							 * of route_vty_out().
+							 * route_vty_out() is path-aware, while
+							 * route_vty_out_tmp() prints only the best path.
+							 * This is for backward compatibility.
+							 */
+							if (use_json) {
+								route_vty_out_tmp(vty, bgp, dest,
+										  rn_p, &attr, safi,
+										  use_json, json_ar,
+										  wide);
+							} else {
+								for (bpi = bgp_dest_get_bgp_path_info(
+									     dest);
+								     bpi; bpi = bpi->next)
+									route_vty_out(vty, rn_p,
+										      bpi, 0, safi,
+										      NULL, wide);
+							}
+						}
 						(*output_count)++;
 					} else {
 						(*filtered_count)++;
