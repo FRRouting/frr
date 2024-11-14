@@ -76,6 +76,13 @@ def setup_module(mod):
             "tcpdump -nni r1-eth0 -s 0 -w /tmp/bmp.pcap &", stdout=None
         )
 
+    tgen.net["r2"].cmd(
+        """
+ip link add vrf1 type vrf table 10
+ip link set vrf1 up
+"""
+    )
+
     for rname, router in tgen.routers().items():
         router.load_config(
             TopoRouter.RD_ZEBRA, os.path.join(CWD, "{}/zebra.conf".format(rname))
