@@ -748,7 +748,8 @@ struct zebra_evpn *zebra_evpn_from_svi(struct interface *ifp,
 
 	/* Make sure the linked interface is a bridge. */
 	if (!IS_ZEBRA_IF_BRIDGE(br_if)) {
-		zlog_debug("%s: br_if NOT a bridge", __func__);
+		if (IS_ZEBRA_DEBUG_VXLAN)
+			zlog_debug("%s: br_if NOT a bridge", __func__);
 		return NULL;
 	}
 
