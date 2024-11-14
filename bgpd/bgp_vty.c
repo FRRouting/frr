@@ -1472,6 +1472,9 @@ DEFUN_HIDDEN (no_bgp_local_mac,
 	return CMD_SUCCESS;
 }
 
+#if CONFDATE > 20250514
+CPP_NOTICE("Remove no_synchronization_cmd, no_auto_summary_cmd commands")
+#endif
 DEFUN (no_synchronization,
        no_synchronization_cmd,
        "no synchronization",
@@ -20442,6 +20445,9 @@ void bgp_vty_init(void)
 	install_element(CONFIG_NODE,
 			&no_bgp_graceful_restart_rib_stale_time_cmd);
 
+#if CONFDATE > 20250514
+	CPP_NOTICE("Remove no_synchronization_cmd, no_auto_summary_cmd commands")
+#endif
 	/* Dummy commands (Currently not supported) */
 	install_element(BGP_NODE, &no_synchronization_cmd);
 	install_element(BGP_NODE, &no_auto_summary_cmd);
