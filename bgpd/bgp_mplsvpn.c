@@ -1126,7 +1126,6 @@ leak_update(struct bgp *to_bgp, struct bgp_dest *bn,
 	struct bgp_path_info *bpi;
 	struct bgp_path_info *new;
 	struct bgp_path_info_extra *extra;
-	struct bgp_path_info *parent = source_bpi;
 	struct bgp_labels bgp_labels = {};
 	bool labelssame;
 	uint8_t i;
@@ -1159,8 +1158,7 @@ leak_update(struct bgp *to_bgp, struct bgp_dest *bn,
 	 * match parent
 	 */
 	for (bpi = bgp_dest_get_bgp_path_info(bn); bpi; bpi = bpi->next) {
-		if (bpi->extra && bpi->extra->vrfleak &&
-		    bpi->extra->vrfleak->parent == parent)
+		if (bpi->extra && bpi->extra->vrfleak && bpi->extra->vrfleak->parent == source_bpi)
 			break;
 	}
 
@@ -1297,9 +1295,8 @@ leak_update(struct bgp *to_bgp, struct bgp_dest *bn,
 	if (bgp_labels.num_labels)
 		new->extra->labels = bgp_labels_intern(&bgp_labels);
 
-	new->extra->vrfleak->parent = bgp_path_info_lock(parent);
-	bgp_dest_lock_node(
-		(struct bgp_dest *)parent->net);
+	new->extra->vrfleak->parent = bgp_path_info_lock(source_bpi);
+	bgp_dest_lock_node((struct bgp_dest *)source_bpi->net);
 
 	new->extra->vrfleak->bgp_orig = bgp_lock(bgp_orig);
 
