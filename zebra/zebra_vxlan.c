@@ -172,8 +172,7 @@ static int host_rb_entry_compare(const struct host_rb_entry *hle1,
 
 		return 0;
 	} else {
-		zlog_debug("%s: Unexpected family type: %d", __func__,
-			   hle1->p.family);
+		assert(!"Received unexpected family type, dev escape");
 		return 0;
 	}
 }
