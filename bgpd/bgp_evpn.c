@@ -5112,6 +5112,33 @@ static void evpn_mpattr_encode_type5(struct stream *s, const struct prefix *p,
 }
 
 /*
+ * In cases such as 'no advertise-all-vni' and L2 VNI DELETE, we need to
+ * pop all the VPN routes present in the bgp_zebra_announce FIFO yet to
+ * be processed regardless of VNI is configured or not.
+ *
+ * NOTE: NO need to pop the VPN routes in two cases
+ *  1) In free_vni_entry
+ *     - Called by bgp_free()->bgp_evpn_cleanup().
+ *     - Since bgp_delete is called before bgp_free and we pop all the dest
+ *       pertaining to bgp under delete.
+ *  2) evpn_delete_vni() when user configures "no vni" since the withdraw
+ *     of all routes happen in normal cycle.
+ */
+void bgp_zebra_evpn_pop_items_from_announce_fifo(struct bgpevpn *vpn)
+{
+	struct bgp_dest *dest = NULL;
+	struct bgp_dest *dest_next = NULL;
+
+	for (dest = zebra_announce_first(&bm->zebra_announce_head); dest; dest = dest_next) {
+		dest_next = zebra_announce_next(&bm->zebra_announce_head, dest);
+		if (dest->za_vpn == vpn) {
+			zebra_announce_del(&bm->zebra_announce_head, dest);
+			bgp_path_info_unlock(dest->za_bgp_pi);
+			bgp_dest_unlock_node(dest);
+		}
+	}
+}
+/*
  * Cleanup specific VNI upon EVPN (advertise-all-vni) being disabled.
  */
 static void cleanup_vni_on_disable(struct hash_bucket *bucket, struct bgp *bgp)
@@ -5123,6 +5150,8 @@ static void cleanup_vni_on_disable(struct hash_bucket *bucket, struct bgp *bgp)
 
 	/* Clear "live" flag and see if hash needs to be freed. */
 	UNSET_FLAG(vpn->flags, VNI_FLAG_LIVE);
+	/* Pop items from bgp_zebra_announce FIFO for any VPN routes pending*/
+	bgp_zebra_evpn_pop_items_from_announce_fifo(vpn);
 	if (!is_vni_configured(vpn))
 		bgp_evpn_free(bgp, vpn);
 }
@@ -6353,19 +6382,6 @@ struct bgpevpn *bgp_evpn_new(struct bgp *bgp, vni_t vni,
  */
 void bgp_evpn_free(struct bgp *bgp, struct bgpevpn *vpn)
 {
-	struct bgp_dest *dest = NULL;
-	struct bgp_dest *dest_next = NULL;
-
-	for (dest = zebra_announce_first(&bm->zebra_announce_head); dest;
-	     dest = dest_next) {
-		dest_next = zebra_announce_next(&bm->zebra_announce_head, dest);
-		if (dest->za_vpn == vpn) {
-			zebra_announce_del(&bm->zebra_announce_head, dest);
-			bgp_path_info_unlock(dest->za_bgp_pi);
-			bgp_dest_unlock_node(dest);
-		}
-	}
-
 	bgp_evpn_remote_ip_hash_destroy(vpn);
 	bgp_evpn_vni_es_cleanup(vpn);
 	bgpevpn_unlink_from_l3vni(vpn);
@@ -7046,6 +7062,8 @@ int bgp_evpn_local_vni_del(struct bgp *bgp, vni_t vni)
 
 	/* Clear "live" flag and see if hash needs to be freed. */
 	UNSET_FLAG(vpn->flags, VNI_FLAG_LIVE);
+	/* Pop items from bgp_zebra_announce FIFO for any VPN routes pending*/
+	bgp_zebra_evpn_pop_items_from_announce_fifo(vpn);
 	if (!is_vni_configured(vpn))
 		bgp_evpn_free(bgp, vpn);
 
