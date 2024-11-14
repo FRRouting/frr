@@ -6,9 +6,9 @@ PIM
 
 PIM -- Protocol Independent Multicast
 
-*pimd* supports pim-sm as well as igmp v2 and v3. pim is
-vrf aware and can work within the context of vrf's in order to
-do S,G mrouting.  Additionally PIM can be used in the EVPN underlay
+*pimd* supports PIM-SM as well as IGMP v2 and v3. PIM is
+VRF aware and can work within the context of VRFs in order to
+do S,G mrouting. Additionally, PIM can be used in the EVPN underlay
 network for optimizing forwarding of overlay BUM traffic.
 
 .. note::
@@ -348,9 +348,45 @@ is in a vrf, enter the interface command with the vrf keyword at the end.
 
 .. clicmd:: ip multicast boundary oil WORD
 
-   Set a pim multicast boundary, based upon the WORD prefix-list. If a pim join
-   or IGMP report is received on this interface and the Group is denied by the
+   Set a PIM multicast boundary, based upon the WORD prefix-list. If a PIM join
+   or IGMP report is received on this interface and the group is denied by the
    prefix-list, PIM will ignore the join or report.
+
+   .. code-block:: frr
+
+      prefix-list multicast-acl seq 5 permit 232.1.1.1/32
+      prefix-list multicast-acl seq 10 deny 232.1.1.0/24
+      prefix-list multicast-acl seq 15 permit any
+      !
+      interface r1-eth0
+       ip pim
+       ip igmp
+       ip multicast boundary oil multicast-acl
+      exit
+
+.. clicmd:: ip multicast boundary ACCESS-LIST
+
+   Set a PIM multicast boundary, based upon the ACCESS-LIST. If a PIM join
+   or IGMP report is received on this interface and the (S,G) tuple is denied by the
+   access-list, PIM will ignore the join or report.
+
+   To filter on both source and group, the extended access-list syntax must be used.
+
+   If both a prefix-list and access-list are configured for multicast boundaries,
+   the prefix-list will be evaluated first (and must have a terminating "permit any"
+   in order to also evaluate against the access-list).
+
+   .. code-block:: frr
+
+      access-list multicast-acl seq 5 permit ip host 10.0.20.2 host 232.1.1.1
+      access-list multicast-acl seq 10 deny ip 10.0.20.0 0.0.0.255 232.1.1.0 0.0.0.255
+      access-list multicast-acl seq 15 permit ip any any
+      !
+      interface r1-eth0
+       ip pim
+       ip igmp
+       ip multicast boundary pim-acl
+      exit
 
 .. clicmd:: ip igmp last-member-query-count (1-255)
 
