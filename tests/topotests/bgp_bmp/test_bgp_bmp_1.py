@@ -78,6 +78,13 @@ def setup_module(mod):
             "tcpdump -nni r1-eth0 -s 0 -w {} &".format(pcap_file), stdout=None
         )
 
+    tgen.net["r2"].cmd(
+        """
+ip link add vrf1 type vrf table 10
+ip link set vrf1 up
+"""
+    )
+
     for _, (rname, router) in enumerate(tgen.routers().items(), 1):
         logger.info("Loading router %s" % rname)
         router.load_frr_config(
