@@ -3683,6 +3683,13 @@ netlink_vxlan_flood_update_ctx(const struct zebra_dplane_ctx *ctx, int cmd,
 	if (dplane_ctx_get_type(ctx) != 0)
 		proto = zebra2proto(dplane_ctx_get_type(ctx));
 
+	if (IS_ZEBRA_DEBUG_KERNEL)
+		zlog_debug("Tx %s family %s IF %s(%u) VNI %u MAC %pEA VTEP %pIA vid %u",
+			   nl_msg_type_to_str(cmd), nl_family_to_str(PF_BRIDGE),
+			   dplane_ctx_get_ifname(ctx), dplane_ctx_get_ifindex(ctx),
+			   dplane_ctx_neigh_get_vni(ctx), &dst_mac,
+			   dplane_ctx_neigh_get_ipaddr(ctx), dplane_ctx_mac_get_vlan(ctx));
+
 	return netlink_neigh_update_msg_encode(
 		ctx, cmd, (const void *)&dst_mac, ETH_ALEN,
 		dplane_ctx_neigh_get_ipaddr(ctx), false, PF_BRIDGE, 0, NTF_SELF,
