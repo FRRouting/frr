@@ -1014,9 +1014,9 @@ static int zevpn_build_vni_hash_table(struct zebra_if *zif,
 		} else {
 			zevpn = zebra_evpn_add(vni);
 			if (!zevpn) {
-				zlog_debug(
-					"Failed to add EVPN hash, IF %s(%u) L2-VNI %u",
-					ifp->name, ifp->ifindex, vni);
+				if (IS_ZEBRA_DEBUG_VXLAN)
+					zlog_debug("Failed to add EVPN hash, IF %s(%u) L2-VNI %u",
+						   ifp->name, ifp->ifindex, vni);
 				return 0;
 			}
 
@@ -1353,9 +1353,9 @@ static int zl3vni_remote_rmac_add(struct zebra_l3vni *zl3vni,
 		 /* Create the RMAC entry, or update its vtep, if necessary. */
 		zrmac = zl3vni_rmac_add(zl3vni, rmac);
 		if (!zrmac) {
-			zlog_debug(
-				"Failed to add RMAC %pEA L3VNI %u Remote VTEP %pIA",
-				rmac, zl3vni->vni, vtep_ip);
+			if (IS_ZEBRA_DEBUG_VXLAN)
+				zlog_debug("Failed to add RMAC %pEA L3VNI %u Remote VTEP %pIA",
+					   rmac, zl3vni->vni, vtep_ip);
 			return -1;
 		}
 		memset(&zrmac->fwd_info, 0, sizeof(zrmac->fwd_info));
@@ -1677,9 +1677,9 @@ static int zl3vni_remote_nh_add(struct zebra_l3vni *zl3vni,
 	if (!nh) {
 		nh = zl3vni_nh_add(zl3vni, vtep_ip, rmac);
 		if (!nh) {
-			zlog_debug(
-				"Failed to add NH %pIA as Neigh (RMAC %pEA L3-VNI %u prefix %pFX)",
-				vtep_ip, rmac, zl3vni->vni, host_prefix);
+			if (IS_ZEBRA_DEBUG_VXLAN)
+				zlog_debug("Failed to add NH %pIA as Neigh (RMAC %pEA L3-VNI %u prefix %pFX)",
+					   vtep_ip, rmac, zl3vni->vni, host_prefix);
 			return -1;
 		}
 
@@ -1735,9 +1735,9 @@ static int svd_remote_nh_add(struct zebra_l3vni *zl3vni,
 	if (!nh) {
 		nh = svd_nh_add(vtep_ip, rmac);
 		if (!nh) {
-			zlog_debug(
-				"Failed to add NH %pIA as SVD Neigh (RMAC %pEA prefix %pFX)",
-				vtep_ip, rmac, host_prefix);
+			if (IS_ZEBRA_DEBUG_VXLAN)
+				zlog_debug("Failed to add NH %pIA as SVD Neigh (RMAC %pEA prefix %pFX)",
+					   vtep_ip, rmac, host_prefix);
 			return -1;
 		}
 
@@ -1783,7 +1783,8 @@ static int svd_remote_nh_del(struct zebra_l3vni *zl3vni,
 
 	nh = svd_nh_lookup(vtep_ip);
 	if (!nh) {
-		zlog_debug("Failed to del NH %pIA as SVD Neigh", vtep_ip);
+		if (IS_ZEBRA_DEBUG_VXLAN)
+			zlog_debug("Failed to del NH %pIA as SVD Neigh", vtep_ip);
 
 		return -1;
 	}
@@ -4081,9 +4082,9 @@ int zebra_vxlan_handle_kernel_neigh_del(struct interface *ifp,
 	}
 
 	if (!zevpn->vxlan_if) {
-		zlog_debug(
-			"VNI %u hash %p doesn't have intf upon local neighbor DEL",
-			zevpn->vni, zevpn);
+		if (IS_ZEBRA_DEBUG_VXLAN)
+			zlog_debug("VNI %u hash %p doesn't have intf upon local neighbor DEL",
+				   zevpn->vni, zevpn);
 		return -1;
 	}
 
@@ -4257,7 +4258,8 @@ void zebra_vxlan_remote_macip_add(ZAPI_HANDLER_ARGS)
 	char esi_buf[ESI_STR_LEN];
 
 	if (!EVPN_ENABLED(zvrf)) {
-		zlog_debug("EVPN not enabled, ignoring remote MACIP ADD");
+		if (IS_ZEBRA_DEBUG_VXLAN)
+			zlog_debug("EVPN not enabled, ignoring remote MACIP ADD");
 		return;
 	}
 
@@ -4529,9 +4531,9 @@ int zebra_vxlan_local_mac_del(struct interface *ifp, struct interface *br_if,
 	if (!zevpn)
 		return 0;
 	if (!zevpn->vxlan_if) {
-		zlog_debug(
-			"VNI %u hash %p doesn't have intf upon local MAC DEL",
-			zevpn->vni, zevpn);
+		if (IS_ZEBRA_DEBUG_VXLAN)
+			zlog_debug("VNI %u hash %p doesn't have intf upon local MAC DEL",
+				   zevpn->vni, zevpn);
 		return -1;
 	}
 
@@ -4599,15 +4601,15 @@ void zebra_vxlan_remote_vtep_del_zapi(ZAPI_HANDLER_ARGS)
 	struct in_addr vtep_ip;
 
 	if (!is_evpn_enabled()) {
-		zlog_debug(
-			"%s: EVPN is not enabled yet we have received a VTEP DEL msg",
-			__func__);
+		if (IS_ZEBRA_DEBUG_VXLAN)
+			zlog_debug("%s: EVPN is not enabled yet we have received a VTEP DEL msg",
+				   __func__);
 		return;
 	}
 
 	if (!EVPN_ENABLED(zvrf)) {
-		zlog_debug("Recv VTEP DEL zapi for non-EVPN VRF %u",
-			   zvrf_id(zvrf));
+		if (IS_ZEBRA_DEBUG_VXLAN)
+			zlog_debug("Recv VTEP DEL zapi for non-EVPN VRF %u", zvrf_id(zvrf));
 		return;
 	}
 
@@ -4652,8 +4654,8 @@ void zebra_vxlan_remote_vtep_del(vrf_id_t vrf_id, vni_t vni,
 	struct zebra_vrf *zvrf;
 
 	if (!is_evpn_enabled()) {
-		zlog_debug("%s: Can't process vtep del: EVPN is not enabled",
-			   __func__);
+		if (IS_ZEBRA_DEBUG_VXLAN)
+			zlog_debug("%s: Can't process vtep del: EVPN is not enabled", __func__);
 		return;
 	}
 
@@ -4662,8 +4664,8 @@ void zebra_vxlan_remote_vtep_del(vrf_id_t vrf_id, vni_t vni,
 		return;
 
 	if (!EVPN_ENABLED(zvrf)) {
-		zlog_debug("Can't process VTEP DEL for non-EVPN VRF %u",
-			   zvrf_id(zvrf));
+		if (IS_ZEBRA_DEBUG_VXLAN)
+			zlog_debug("Can't process VTEP DEL for non-EVPN VRF %u", zvrf_id(zvrf));
 		return;
 	}
 
@@ -4679,9 +4681,9 @@ void zebra_vxlan_remote_vtep_del(vrf_id_t vrf_id, vni_t vni,
 
 	ifp = zevpn->vxlan_if;
 	if (!ifp) {
-		zlog_debug(
-			"VNI %u hash %p doesn't have intf upon remote VTEP DEL",
-			zevpn->vni, zevpn);
+		if (IS_ZEBRA_DEBUG_VXLAN)
+			zlog_debug("VNI %u hash %p doesn't have intf upon remote VTEP DEL",
+				   zevpn->vni, zevpn);
 		return;
 	}
 	zif = ifp->info;
@@ -4716,8 +4718,8 @@ void zebra_vxlan_remote_vtep_add(vrf_id_t vrf_id, vni_t vni,
 	struct zebra_vrf *zvrf;
 
 	if (!is_evpn_enabled()) {
-		zlog_debug("%s: EVPN not enabled: can't process a VTEP ADD",
-			   __func__);
+		if (IS_ZEBRA_DEBUG_VXLAN)
+			zlog_debug("%s: EVPN not enabled: can't process a VTEP ADD", __func__);
 		return;
 	}
 
@@ -4726,8 +4728,8 @@ void zebra_vxlan_remote_vtep_add(vrf_id_t vrf_id, vni_t vni,
 		return;
 
 	if (!EVPN_ENABLED(zvrf)) {
-		zlog_debug("Can't process VTEP ADD for non-EVPN VRF %u",
-			   zvrf_id(zvrf));
+		if (IS_ZEBRA_DEBUG_VXLAN)
+			zlog_debug("Can't process VTEP ADD for non-EVPN VRF %u", zvrf_id(zvrf));
 		return;
 	}
 
@@ -4794,15 +4796,15 @@ void zebra_vxlan_remote_vtep_add_zapi(ZAPI_HANDLER_ARGS)
 	int flood_control;
 
 	if (!is_evpn_enabled()) {
-		zlog_debug(
-			"%s: EVPN not enabled yet we received a VTEP ADD zapi msg",
-			__func__);
+		if (IS_ZEBRA_DEBUG_VXLAN)
+			zlog_debug("%s: EVPN not enabled yet we received a VTEP ADD zapi msg",
+				   __func__);
 		return;
 	}
 
 	if (!EVPN_ENABLED(zvrf)) {
-		zlog_debug("Recv VTEP ADD zapi for non-EVPN VRF %u",
-			   zvrf_id(zvrf));
+		if (IS_ZEBRA_DEBUG_VXLAN)
+			zlog_debug("Recv VTEP ADD zapi for non-EVPN VRF %u", zvrf_id(zvrf));
 		return;
 	}
 
@@ -4870,8 +4872,9 @@ int zebra_vxlan_add_del_gw_macip(struct interface *ifp, const struct prefix *p,
 		svi_if = if_lookup_by_index_per_ns(zebra_ns_lookup(NS_DEFAULT),
 						   ifp_zif->link_ifindex);
 		if (!svi_if) {
-			zlog_debug("MACVLAN %s(%u) without link information",
-				   ifp->name, ifp->ifindex);
+			if (IS_ZEBRA_DEBUG_VXLAN)
+				zlog_debug("MACVLAN %s(%u) without link information", ifp->name,
+					   ifp->ifindex);
 			return -1;
 		}
 
@@ -4919,8 +4922,9 @@ int zebra_vxlan_add_del_gw_macip(struct interface *ifp, const struct prefix *p,
 		return 0;
 
 	if (!zevpn->vxlan_if) {
-		zlog_debug("VNI %u hash %p doesn't have intf upon MACVLAN up",
-			   zevpn->vni, zevpn);
+		if (IS_ZEBRA_DEBUG_VXLAN)
+			zlog_debug("VNI %u hash %p doesn't have intf upon MACVLAN up", zevpn->vni,
+				   zevpn);
 		return -1;
 	}
 
@@ -5037,9 +5041,9 @@ int zebra_vxlan_svi_up(struct interface *ifp, struct interface *link_if)
 			return 0;
 
 		if (!zevpn->vxlan_if) {
-			zlog_debug(
-				"VNI %u hash %p doesn't have intf upon SVI up",
-				zevpn->vni, zevpn);
+			if (IS_ZEBRA_DEBUG_VXLAN)
+				zlog_debug("VNI %u hash %p doesn't have intf upon SVI up",
+					   zevpn->vni, zevpn);
 			return -1;
 		}
 
@@ -5349,8 +5353,8 @@ void zebra_vxlan_advertise_svi_macip(ZAPI_HANDLER_ARGS)
 	struct interface *ifp = NULL;
 
 	if (!EVPN_ENABLED(zvrf)) {
-		zlog_debug("EVPN SVI-MACIP Adv for non-EVPN VRF %u",
-			  zvrf_id(zvrf));
+		if (IS_ZEBRA_DEBUG_VXLAN)
+			zlog_debug("EVPN SVI-MACIP Adv for non-EVPN VRF %u", zvrf_id(zvrf));
 		return;
 	}
 
@@ -5457,8 +5461,8 @@ void zebra_vxlan_advertise_subnet(ZAPI_HANDLER_ARGS)
 	struct zebra_vxlan_vni *zl2_info_vni = NULL;
 
 	if (!EVPN_ENABLED(zvrf)) {
-		zlog_debug("EVPN GW-MACIP Adv for non-EVPN VRF %u",
-			  zvrf_id(zvrf));
+		if (IS_ZEBRA_DEBUG_VXLAN)
+			zlog_debug("EVPN GW-MACIP Adv for non-EVPN VRF %u", zvrf_id(zvrf));
 		return;
 	}
 
@@ -5522,8 +5526,8 @@ void zebra_vxlan_advertise_gw_macip(ZAPI_HANDLER_ARGS)
 	struct interface *ifp = NULL;
 
 	if (!EVPN_ENABLED(zvrf)) {
-		zlog_debug("EVPN GW-MACIP Adv for non-EVPN VRF %u",
-			   zvrf_id(zvrf));
+		if (IS_ZEBRA_DEBUG_VXLAN)
+			zlog_debug("EVPN GW-MACIP Adv for non-EVPN VRF %u", zvrf_id(zvrf));
 		return;
 	}
 
@@ -6295,8 +6299,8 @@ void zebra_vlan_dplane_result(struct zebra_dplane_ctx *ctx)
 
 	ifp = if_lookup_by_index_per_ns(zebra_ns_lookup(ns_id), ifindex);
 	if (!ifp) {
-		zlog_debug("Cannot find bridge-vlan IF (%u) for vlan update",
-			   ifindex);
+		if (IS_ZEBRA_DEBUG_VXLAN)
+			zlog_debug("Cannot find bridge-vlan IF (%u) for vlan update", ifindex);
 		return;
 	}
 
