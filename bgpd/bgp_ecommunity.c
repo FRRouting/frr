@@ -766,6 +766,8 @@ static const char *ecommunity_gettoken(const char *str, void *eval_ptr,
 				if (*endptr != '\0' || tmp_as > BGP_AS4_MAX ||
 				    errno)
 					goto error;
+				if (*token == ecommunity_token_color && tmp_as > 3)
+					goto error;
 				as = (as_t)tmp_as;
 			}
 		} else if (*p == '.') {
