@@ -4030,7 +4030,7 @@ bool bgp_update_martian_nexthop(struct bgp *bgp, afi_t afi, safi_t safi,
 				uint8_t type, uint8_t stype, struct attr *attr,
 				struct bgp_dest *dest)
 {
-	bool ret = false;
+	bool nh_invalid = false;
 	bool is_bgp_static_route =
 		(type == ZEBRA_ROUTE_BGP && stype == BGP_ROUTE_STATIC) ? true
 								       : false;
@@ -4052,6 +4052,7 @@ bool bgp_update_martian_nexthop(struct bgp *bgp, afi_t afi, safi_t safi,
 	    (safi != SAFI_UNICAST && safi != SAFI_MULTICAST && safi != SAFI_EVPN))
 		return false;
 
+<<<<<<< HEAD
 	/* If NEXT_HOP is present, validate it. */
 	if (attr->flag & ATTR_FLAG_BIT(BGP_ATTR_NEXT_HOP)) {
 		if (attr->nexthop.s_addr == INADDR_ANY ||
@@ -4059,6 +4060,17 @@ bool bgp_update_martian_nexthop(struct bgp *bgp, afi_t afi, safi_t safi,
 		    bgp_nexthop_self(bgp, afi, type, stype, attr, dest))
 			return true;
 	}
+=======
+	/* If NEXT_HOP is present, validate it:
+	 * The route can have both nexthop + mp_nexthop encoded as multiple NLRIs,
+	 * and we MUST check if at least one of them is valid.
+	 * E.g.: IPv6 prefix can be with nexthop: 0.0.0.0, and mp_nexthop: fc00::1.
+	 */
+	if (CHECK_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_NEXT_HOP)))
+		nh_invalid = (attr->nexthop.s_addr == INADDR_ANY ||
+			      !ipv4_unicast_valid(&attr->nexthop) ||
+			      bgp_nexthop_self(bgp, afi, type, stype, attr, dest));
+>>>>>>> a0d2734e87 (bgpd: Validate both nexthop information (NEXTHOP and NLRI))
 
 	/* If MP_NEXTHOP is present, validate it. */
 	/* Note: For IPv6 nexthops, we only validate the global (1st) nexthop;
@@ -4073,39 +4085,31 @@ bool bgp_update_martian_nexthop(struct bgp *bgp, afi_t afi, safi_t safi,
 		switch (attr->mp_nexthop_len) {
 		case BGP_ATTR_NHLEN_IPV4:
 		case BGP_ATTR_NHLEN_VPNV4:
-			ret = (attr->mp_nexthop_global_in.s_addr ==
-				       INADDR_ANY ||
-			       !ipv4_unicast_valid(
-				       &attr->mp_nexthop_global_in) ||
-			       bgp_nexthop_self(bgp, afi, type, stype, attr,
-						dest));
+			nh_invalid = (attr->mp_nexthop_global_in.s_addr == INADDR_ANY ||
+				      !ipv4_unicast_valid(&attr->mp_nexthop_global_in) ||
+				      bgp_nexthop_self(bgp, afi, type, stype, attr, dest));
 			break;
 
 		case BGP_ATTR_NHLEN_IPV6_GLOBAL:
 		case BGP_ATTR_NHLEN_VPNV6_GLOBAL:
-			ret = (IN6_IS_ADDR_UNSPECIFIED(
-					&attr->mp_nexthop_global)
-			       || IN6_IS_ADDR_LOOPBACK(&attr->mp_nexthop_global)
-			       || IN6_IS_ADDR_MULTICAST(
-				       &attr->mp_nexthop_global)
-			       || bgp_nexthop_self(bgp, afi, type, stype, attr,
-						   dest));
+			nh_invalid = (IN6_IS_ADDR_UNSPECIFIED(&attr->mp_nexthop_global) ||
+				      IN6_IS_ADDR_LOOPBACK(&attr->mp_nexthop_global) ||
+				      IN6_IS_ADDR_MULTICAST(&attr->mp_nexthop_global) ||
+				      bgp_nexthop_self(bgp, afi, type, stype, attr, dest));
 			break;
 		case BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL:
-			ret = (IN6_IS_ADDR_LOOPBACK(&attr->mp_nexthop_global)
-			       || IN6_IS_ADDR_MULTICAST(
-				       &attr->mp_nexthop_global)
-			       || bgp_nexthop_self(bgp, afi, type, stype, attr,
-						   dest));
+			nh_invalid = (IN6_IS_ADDR_LOOPBACK(&attr->mp_nexthop_global) ||
+				      IN6_IS_ADDR_MULTICAST(&attr->mp_nexthop_global) ||
+				      bgp_nexthop_self(bgp, afi, type, stype, attr, dest));
 			break;
 
 		default:
-			ret = true;
+			nh_invalid = true;
 			break;
 		}
 	}
 
-	return ret;
+	return nh_invalid;
 }
 
 static void bgp_attr_add_no_export_community(struct attr *attr)
