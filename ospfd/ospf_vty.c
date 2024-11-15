@@ -7347,6 +7347,9 @@ DEFPY (show_ip_ospf_database,
 	struct in_addr *adv_router_p = NULL;
 	json_object *json = NULL;
 
+	if (instance_id != ospf_instance)
+		return CMD_NOT_MY_INSTANCE;
+
 	if (uj)
 		json = json_object_new_object();
 	if (lsid_str)
