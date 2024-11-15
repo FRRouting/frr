@@ -2367,15 +2367,10 @@ struct ospf_lsa *ospf_nssa_lsa_refresh(struct ospf_area *area,
 static struct external_info *ospf_default_external_info(struct ospf *ospf)
 {
 	int type;
-	struct prefix_ipv4 p;
 	struct external_info *default_ei;
 	int ret = 0;
 
-	p.family = AF_INET;
-	p.prefix.s_addr = 0;
-	p.prefixlen = 0;
-
-	default_ei = ospf_external_info_lookup(ospf, DEFAULT_ROUTE, 0, &p);
+	default_ei = ospf_external_info_default_lookup(ospf);
 	if (!default_ei)
 		return NULL;
 
