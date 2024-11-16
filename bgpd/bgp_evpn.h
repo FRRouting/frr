@@ -199,4 +199,5 @@ bool bgp_evpn_skip_vrf_import_of_local_es(struct bgp *bgp_vrf, const struct pref
 					  struct bgp_path_info *pi, int install);
 int uninstall_evpn_route_entry_in_vrf(struct bgp *bgp_vrf, const struct prefix_evpn *evp,
 				      struct bgp_path_info *parent_pi);
+extern void bgp_zebra_evpn_pop_items_from_announce_fifo(struct bgpevpn *vpn);
 #endif /* _QUAGGA_BGP_EVPN_H */
