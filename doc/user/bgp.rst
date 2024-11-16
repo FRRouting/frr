@@ -4349,6 +4349,10 @@ displays IPv6 routing table.
    If ``detail`` option is specified after ``json``, more verbose JSON output
    will be displayed.
 
+.. clicmd:: show bgp router [json]
+
+   This command displays information related BGP router and Graceful Restart.
+
 Some other commands provide additional options for filtering the output.
 
 .. clicmd:: show [ip] bgp regexp LINE
