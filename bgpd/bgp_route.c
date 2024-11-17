@@ -2594,8 +2594,8 @@ bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
 			if (monotime_since(&bgp->ebgprequirespolicywarning,
 					   NULL) > FIFTEENMINUTE2USEC ||
 			    bgp->ebgprequirespolicywarning.tv_sec == 0) {
-				zlog_warn(
-					"EBGP inbound/outbound policy not properly setup, please configure in order for your peering to work correctly");
+				zlog_warn("%pBP [Update:SEND] %pFX EBGP outbound policy not properly setup, please configure in order for your peering to work correctly",
+					  peer, p);
 				monotime(&bgp->ebgprequirespolicywarning);
 			}
 			return false;
@@ -4845,8 +4845,8 @@ void bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 			if (monotime_since(&bgp->ebgprequirespolicywarning, NULL) >
 				    FIFTEENMINUTE2USEC ||
 			    bgp->ebgprequirespolicywarning.tv_sec == 0) {
-				zlog_warn(
-					"EBGP inbound/outbound policy not properly setup, please configure in order for your peering to work correctly");
+				zlog_warn("%pBP rcvd UPDATE EBGP inbound policy not properly setup, please configure in order for your peering to work correctly",
+					  peer);
 				monotime(&bgp->ebgprequirespolicywarning);
 			}
 			goto filtered;
