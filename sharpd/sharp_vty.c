@@ -213,7 +213,7 @@ DEFPY (install_routes,
        "The vrf we would like to install into if non-default\n"
        "The NAME of the vrf\n"
        "v4 Address to start /32 generation at\n"
-       "v6 Address to start /32 generation at\n"
+       "v6 Address to start /128 generation at\n"
        "Nexthop to use(Can be an IPv4 or IPv6 address)\n"
        "V4 Nexthop address to use\n"
        "V6 Nexthop address to use\n"
