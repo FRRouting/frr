@@ -191,6 +191,24 @@ struct pim_instance {
 	int64_t last_route_change_time;
 
 	uint64_t gm_rx_drop_sys;
+
+	bool stopping;
+
+#if PIM_IPV == 6
+	struct {
+		/** Embedded RP enable state. */
+		bool enable;
+		/** Embedded RP group prefix list. */
+		char *group_list;
+		/** Maximum allowed number of embedded RPs at a time. */
+		uint32_t maximum_rps;
+
+		/** Embedded RP routing table */
+		struct route_table *table;
+		/** Embedded RPs count */
+		size_t rp_count;
+	} embedded_rp;
+#endif /* PIM_IPV == 6 */
 };
 
 void pim_vrf_init(void);

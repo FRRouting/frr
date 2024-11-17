@@ -1217,6 +1217,52 @@ DEFPY_ATTR(no_ipv6_pim_rp_prefix_list,
 	return ret;
 }
 
+DEFPY_YANG(pim6_embedded_rp,
+           pim6_embedded_rp_cmd,
+           "[no] embedded-rp",
+           NO_STR
+           PIM_EMBEDDED_RP)
+{
+	char xpath[XPATH_MAXLEN];
+
+	snprintf(xpath, sizeof(xpath), FRR_PIM_EMBEDDED_RP_XPATH);
+	nb_cli_enqueue_change(vty, xpath, no ? NB_OP_DESTROY : NB_OP_MODIFY, "true");
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFPY_YANG(pim6_embedded_rp_group_list,
+           pim6_embedded_rp_group_list_cmd,
+           "[no] embedded-rp group-list ![WORD$prefix_list]",
+           NO_STR
+           PIM_EMBEDDED_RP
+           "Configure embedded RP permitted groups\n"
+           "Embedded RP permitted groups\n")
+{
+	char xpath[XPATH_MAXLEN];
+
+	snprintf(xpath, sizeof(xpath), FRR_PIM_EMBEDDED_RP_GROUP_LIST_XPATH);
+	nb_cli_enqueue_change(vty, xpath, no ? NB_OP_DESTROY : NB_OP_MODIFY, prefix_list);
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFPY_YANG(pim6_embedded_rp_limit,
+           pim6_embedded_rp_limit_cmd,
+           "[no] embedded-rp limit ![(1-4294967295)$limit]",
+           NO_STR
+           PIM_EMBEDDED_RP
+           "Limit the amount of embedded RPs to learn\n"
+           "Maximum amount of embedded RPs to learn\n")
+{
+	char xpath[XPATH_MAXLEN];
+
+	snprintf(xpath, sizeof(xpath), FRR_PIM_EMBEDDED_RP_MAXIMUM_RPS_XPATH);
+	nb_cli_enqueue_change(vty, xpath, no ? NB_OP_DESTROY : NB_OP_MODIFY, limit_str);
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
 DEFPY (ipv6_pim_bsm,
        ipv6_pim_bsm_cmd,
        "ipv6 pim bsm",
@@ -2788,6 +2834,11 @@ void pim_cmd_init(void)
 	install_element(PIM6_NODE, &no_pim6_rp_cmd);
 	install_element(PIM6_NODE, &pim6_rp_prefix_list_cmd);
 	install_element(PIM6_NODE, &no_pim6_rp_prefix_list_cmd);
+
+	install_element(PIM6_NODE, &pim6_embedded_rp_cmd);
+	install_element(PIM6_NODE, &pim6_embedded_rp_group_list_cmd);
+	install_element(PIM6_NODE, &pim6_embedded_rp_limit_cmd);
+
 	install_element(PIM6_NODE, &pim6_ssmpingd_cmd);
 	install_element(PIM6_NODE, &no_pim6_ssmpingd_cmd);
 	install_element(PIM6_NODE, &pim6_bsr_candidate_rp_cmd);

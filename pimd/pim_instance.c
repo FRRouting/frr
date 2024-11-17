@@ -26,6 +26,8 @@
 
 static void pim_instance_terminate(struct pim_instance *pim)
 {
+	pim->stopping = true;
+
 	pim_vxlan_exit(pim);
 
 	if (pim->ssm_info) {

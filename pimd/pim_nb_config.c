@@ -17,6 +17,7 @@
 #include "pim_mlag.h"
 #include "pim_bfd.h"
 #include "pim_msdp_socket.h"
+#include "pimd/pim_rp.h"
 #include "pim_static.h"
 #include "pim_ssm.h"
 #include "pim_ssmpingd.h"
@@ -2682,6 +2683,115 @@ int routing_control_plane_protocols_control_plane_protocol_pim_address_family_rp
 	}
 
 	return NB_OK;
+}
+
+/*
+ * XPath: /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-pim:pim/address-family/frr-pim-rp:rp/embedded-rp/enable
+ */
+int pim_embedded_rp_enable_modify(struct nb_cb_modify_args *args)
+{
+#if PIM_IPV == 6
+	struct vrf *vrf;
+#endif /* PIM_IPV == 6 */
+
+	switch (args->event) {
+	case NB_EV_APPLY:
+#if PIM_IPV == 6
+		vrf = nb_running_get_entry(args->dnode, NULL, true);
+		pim_embedded_rp_enable(vrf->info, yang_dnode_get_bool(args->dnode, NULL));
+		return NB_OK;
+#else
+		snprintf(args->errmsg, args->errmsg_len, "embedded RP is IPv6 only");
+		return NB_ERR;
+#endif /* PIM_IPV == 6 */
+
+	case NB_EV_ABORT:
+	case NB_EV_PREPARE:
+	case NB_EV_VALIDATE:
+	default:
+		return NB_OK;
+	}
+}
+
+/*
+ * XPath: /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-pim:pim/address-family/frr-pim-rp:rp/embedded-rp/group-list
+ */
+int pim_embedded_rp_group_list_modify(struct nb_cb_modify_args *args)
+{
+#if PIM_IPV == 6
+	struct vrf *vrf;
+#endif /* PIM_IPV == 6 */
+
+	switch (args->event) {
+	case NB_EV_APPLY:
+#if PIM_IPV == 6
+		vrf = nb_running_get_entry(args->dnode, NULL, true);
+		pim_embedded_rp_set_group_list(vrf->info, yang_dnode_get_string(args->dnode, NULL));
+		return NB_OK;
+#else
+		snprintf(args->errmsg, args->errmsg_len, "embedded RP is IPv6 only");
+		return NB_ERR;
+#endif /* PIM_IPV == 6 */
+
+	case NB_EV_ABORT:
+	case NB_EV_PREPARE:
+	case NB_EV_VALIDATE:
+	default:
+		return NB_OK;
+	}
+}
+
+int pim_embedded_rp_group_list_destroy(struct nb_cb_destroy_args *args)
+{
+#if PIM_IPV == 6
+	struct vrf *vrf;
+#endif /* PIM_IPV == 6 */
+
+	switch (args->event) {
+	case NB_EV_APPLY:
+#if PIM_IPV == 6
+		vrf = nb_running_get_entry(args->dnode, NULL, true);
+		pim_embedded_rp_set_group_list(vrf->info, NULL);
+		return NB_OK;
+#else
+		snprintf(args->errmsg, args->errmsg_len, "embedded RP is IPv6 only");
+		return NB_ERR;
+#endif /* PIM_IPV == 6 */
+
+	case NB_EV_ABORT:
+	case NB_EV_PREPARE:
+	case NB_EV_VALIDATE:
+	default:
+		return NB_OK;
+	}
+}
+
+/*
+ * XPath: /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-pim:pim/address-family/frr-pim-rp:rp/embedded-rp/maximum-rps
+ */
+int pim_embedded_rp_maximum_rps_modify(struct nb_cb_modify_args *args)
+{
+#if PIM_IPV == 6
+	struct vrf *vrf;
+#endif /* PIM_IPV == 6 */
+
+	switch (args->event) {
+	case NB_EV_APPLY:
+#if PIM_IPV == 6
+		vrf = nb_running_get_entry(args->dnode, NULL, true);
+		pim_embedded_rp_set_maximum_rps(vrf->info, yang_dnode_get_uint32(args->dnode, NULL));
+		return NB_OK;
+#else
+		snprintf(args->errmsg, args->errmsg_len, "embedded RP is IPv6 only");
+		return NB_ERR;
+#endif /* PIM_IPV == 6 */
+
+	case NB_EV_ABORT:
+	case NB_EV_PREPARE:
+	case NB_EV_VALIDATE:
+	default:
+		return NB_OK;
+	}
 }
 
 /*

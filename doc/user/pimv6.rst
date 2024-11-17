@@ -103,6 +103,39 @@ PIMv6 Router
    interface will be selected.By default, the highest loopback address is
    selected, which can also be configured via ``loopback``.
 
+.. clicmd:: embedded-rp
+
+   Learn the RP via embedded RP address in multicast group.
+
+   .. note::
+
+      The embedded RP address range is: FF70::/12 (with exception of FFF0::/12).
+
+      Example: FF75:0130:2001:DB8:FFFF::100
+
+      - First byte is always 0xFF
+      - Second byte high nibble is always 7 (signifies RPT bits set)
+      - Second byte low nibble is address scope
+      - Third byte high nibble is zero (reserved)
+      - Third byte low nibble is the RP interface ID (RIID)
+      - Fourth byte is the RP prefix length (must be between 1 and 64)
+      - Fifth byte + RP prefix length is the RP address prefix
+      - Last four bytes are the group ID.
+
+      The RP in the above multicast address sample is:
+      2001:DB8:FFFF::1
+
+.. clicmd:: embedded-rp group-list PREFIX_LIST_NAME
+
+   Restrict the embedded RP prefix range using only the permitted groups
+   provided by the prefix-list.
+
+   This is useful to restrict what RP addresses can be used.
+
+.. clicmd:: embedded-rp limit (1-4294967295)
+
+   Restrict the maximum amount of embedded RPs to learn at same time.
+
 .. clicmd:: spt-switchover infinity-and-beyond [prefix-list PLIST]
 
    On the last hop router if it is desired to not switch over to the SPT tree
