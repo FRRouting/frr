@@ -372,7 +372,7 @@ DEFPY (install_seg6_routes,
        "The vrf we would like to install into if non-default\n"
        "The NAME of the vrf\n"
        "v4 Address to start /32 generation at\n"
-       "v6 Address to start /32 generation at\n"
+       "v6 Address to start /128 generation at\n"
        "Nexthop-seg6 to use\n"
        "V6 Nexthop address to use\n"
        "Encap mode\n"
