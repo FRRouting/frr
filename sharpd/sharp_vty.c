@@ -503,7 +503,7 @@ DEFPY (install_seg6local_routes,
 	sg.r.opaque[0] = '\0';
 	sg.r.inst = 0;
 	sg.r.orig_prefix.family = AF_INET6;
-	sg.r.orig_prefix.prefixlen = 128;
+	sg.r.orig_prefix.prefixlen = IPV6_MAX_BITLEN;
 	sg.r.orig_prefix.u.prefix6 = start6;
 
 	if (!vrf_name)
@@ -945,7 +945,7 @@ DEFPY (neigh_discover,
 		prefix.u.prefix4 = dst4;
 	} else {
 		prefix.family = AF_INET6;
-		prefix.prefixlen = 128;
+		prefix.prefixlen = IPV6_MAX_BITLEN;
 		prefix.u.prefix6 = dst6;
 	}
 
