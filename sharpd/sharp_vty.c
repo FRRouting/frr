@@ -458,7 +458,7 @@ DEFPY (install_seg6local_routes,
        "Routes to install\n"
        "The vrf we would like to install into if non-default\n"
        "The NAME of the vrf\n"
-       "v6 Address to start /32 generation at\n"
+       "v6 Address to start /128 generation at\n"
        "Nexthop-seg6local to use\n"
        "Output device to use\n"
        "SRv6 End function to use\n"
