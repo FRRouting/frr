@@ -945,7 +945,7 @@ DEFPY (neigh_discover,
 		prefix.u.prefix4 = dst4;
 	} else {
 		prefix.family = AF_INET6;
-		prefix.prefixlen = 128;
+		prefix.prefixlen = IPV6_MAX_BITLEN;
 		prefix.u.prefix6 = dst6;
 	}
 
