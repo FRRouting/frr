@@ -91,13 +91,10 @@ ip link set r1vrf-eth1 master vrf1
         )
 
     for rname, router in tgen.routers().items():
-        router.load_config(
-            TopoRouter.RD_ZEBRA, os.path.join(CWD, "{}/zebra.conf".format(rname))
-        )
-        router.load_config(
-            TopoRouter.RD_BGP,
-            os.path.join(CWD, "{}/bgpd.conf".format(rname)),
-            "-M bmp",
+        logger.info("Loading router %s" % rname)
+        router.load_frr_config(
+            os.path.join(CWD, "{}/frr.conf".format(rname)),
+            [(TopoRouter.RD_ZEBRA, None), (TopoRouter.RD_BGP, "-M bmp")],
         )
 
     tgen.start_router()
