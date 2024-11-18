@@ -1797,7 +1797,7 @@ int rfapiRibFTDFilterRecentPrefix(
 	 * check this NVE's timestamp for this prefix
 	 */
 	trn = agg_node_get(rfd->rsp_times[afi], p); /* locks trn */
-	prefix_time = (time_t)trn->info;
+	prefix_time = *(time_t *)trn->info;
 	if (agg_node_get_lock_count(trn) > 1)
 		agg_unlock_node(trn);
 
