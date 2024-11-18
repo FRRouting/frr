@@ -1541,8 +1541,12 @@ void pim_embedded_rp_new(struct pim_instance *pim, const pim_addr *group, const 
 			   &rp_info->rp.rpf_addr, &rp_info->group);
 
 	pim_find_or_track_nexthop(pim, rp_info->rp.rpf_addr, NULL, rp_info, NULL);
-	pim_ecmp_nexthop_lookup(pim, &rp_info->rp.source_nexthop, rp_info->rp.rpf_addr,
-				&rp_info->group, 1);
+	if (!pim_ecmp_nexthop_lookup(pim, &rp_info->rp.source_nexthop, rp_info->rp.rpf_addr,
+				     &rp_info->group, 1)) {
+		if (PIM_DEBUG_PIM_NHT_RP)
+			zlog_debug("%s: Embedded RP %pPA learned but no next hop", __func__,
+				   &rp_info->rp.rpf_addr);
+	}
 }
 
 void pim_embedded_rp_delete(struct pim_instance *pim, const pim_addr *group)
