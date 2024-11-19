@@ -534,20 +534,29 @@ static bool community_regexp_match(struct community *com, regex_t *reg)
 	const char *str;
 	char *regstr;
 	int rv;
+	bool translate_alias = !!bgp_ca_alias_hash->count;
 
 	/* When there is no communities attribute it is treated as empty
 	   string.  */
 	if (com == NULL || com->size == 0)
-		str = "";
-	else
-		str = community_str(com, false, true);
+		return false;
 
-	regstr = bgp_alias2community_str(str);
+	str = community_str(com, false, translate_alias);
+
+	/* If at least one community alias is configured, then let's
+	 * do the work, otherwise we don't need to spend time on splitting
+	 * stuff and creating a new string.
+	 */
+	regstr = translate_alias ? bgp_alias2community_str(str) : (char *)str;
 
 	/* Regular expression match.  */
 	rv = regexec(reg, regstr, 0, NULL, 0);
 
-	XFREE(MTYPE_TMP, regstr);
+	/* This is allocated by frrstr_join(), and needs to be freed
+	 * only if it was created.
+	 */
+	if (translate_alias)
+		XFREE(MTYPE_TMP, regstr);
 
 	return rv == 0;
 }
@@ -608,20 +617,29 @@ static bool lcommunity_regexp_match(struct lcommunity *com, regex_t *reg)
 	const char *str;
 	char *regstr;
 	int rv;
+	bool translate_alias = !!bgp_ca_alias_hash->count;
 
 	/* When there is no communities attribute it is treated as empty
 	   string.  */
 	if (com == NULL || com->size == 0)
-		str = "";
-	else
-		str = lcommunity_str(com, false, true);
+		return false;
 
-	regstr = bgp_alias2community_str(str);
+	str = lcommunity_str(com, false, translate_alias);
+
+	/* If at least one community alias is configured, then let's
+	 * do the work, otherwise we don't need to spend time on splitting
+	 * stuff and creating a new string.
+	 */
+	regstr = translate_alias ? bgp_alias2community_str(str) : (char *)str;
 
 	/* Regular expression match.  */
 	rv = regexec(reg, regstr, 0, NULL, 0);
 
-	XFREE(MTYPE_TMP, regstr);
+	/* This is allocated by frrstr_join(), and needs to be freed
+	 * only if it was created.
+	 */
+	if (translate_alias)
+		XFREE(MTYPE_TMP, regstr);
 
 	return rv == 0;
 }
