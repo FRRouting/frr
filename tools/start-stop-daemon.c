@@ -66,6 +66,12 @@
 #include <linux/sched.h>
 #endif
 
+/* this is in zebra.h, but including that here isn't a good fit... */
+#ifndef HAVE_STRLCPY
+size_t strlcpy(char *__restrict dest,
+	       const char *__restrict src, size_t destsize);
+#endif
+
 static int testmode = 0;
 static int quietmode = 0;
 static int exitnodo = 1;
@@ -749,8 +755,7 @@ static void do_stop(int signal_nr, int quietmode, int *n_killed,
 
 static void set_what_stop(const char *str)
 {
-	strncpy(what_stop, str, sizeof(what_stop));
-	what_stop[sizeof(what_stop) - 1] = '\0';
+	strlcpy(what_stop, str, sizeof(what_stop));
 }
 
 static int run_stop_schedule(void)
