@@ -457,8 +457,7 @@ route_match_script(void *rule, const struct prefix *prefix, void *object)
 		return RMAP_NOMATCH;
 	}
 
-	long long *action = frrscript_get_result(fs, routematch_function,
-						 "action", lua_tointegerp);
+	int *action = frrscript_get_result(fs, routematch_function, "action", lua_tointegerp);
 
 	int status = RMAP_NOMATCH;
 
