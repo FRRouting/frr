@@ -79,6 +79,28 @@ def parse_event(event, field_parsers):
         else:
             field_info[field] = event.get(field)
     print(event.name, field_info)
+
+
+def print_family_str(field_val):
+    """
+    pretty print kernel family to string
+    """
+    if field_val == socket.AF_INET:
+        cmd_str = "ipv4"
+    elif field_val == socket.AF_INET6:
+        cmd_str = "ipv6"
+    elif field_val == socket.AF_BRIDGE:
+        cmd_str = "bridge"
+    elif field_val == 128:  # RTNL_FAMILY_IPMR:
+        cmd_str = "ipv4MR"
+    elif field_val == 129:  # RTNL_FAMILY_IP6MR:
+        cmd_str = "ipv6MR"
+    else:
+        cmd_str = "Invalid family"
+
+    return cmd_str
+
+
 ############################ common parsers - end #############################
 
 ############################ evpn parsers - start #############################
