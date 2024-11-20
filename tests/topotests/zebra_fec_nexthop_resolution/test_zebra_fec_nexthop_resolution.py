@@ -156,15 +156,16 @@ def test_zebra_fec_nexthop_resolution_bgp():
     def _check_bgp_session():
         r1 = tgen.gears["r1"]
 
-        tgen.gears["r3"].vtysh_cmd("config \n no mpls fec nexthop-resolution \n end")
-        tgen.gears["r3"].vtysh_cmd("config \n mpls fec nexthop-resolution \n end")
-        tgen.gears["r5"].vtysh_cmd("config \n no mpls fec nexthop-resolution \n end")
-        tgen.gears["r5"].vtysh_cmd("config \n mpls fec nexthop-resolution \n end")
         output = json.loads(r1.vtysh_cmd("show bgp summary json"))
 
         if output["ipv4Unicast"]["peers"]["192.0.2.7"]["state"] == "Established":
             return None
         return False
+
+    tgen.gears["r3"].vtysh_cmd("config \n no mpls fec nexthop-resolution \n end")
+    tgen.gears["r3"].vtysh_cmd("config \n mpls fec nexthop-resolution \n end")
+    tgen.gears["r5"].vtysh_cmd("config \n no mpls fec nexthop-resolution \n end")
+    tgen.gears["r5"].vtysh_cmd("config \n mpls fec nexthop-resolution \n end")
 
     test_func1 = functools.partial(_check_bgp_session)
     _, result1 = topotest.run_and_expect(test_func1, None, count=60, wait=0.5)
