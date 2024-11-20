@@ -1826,7 +1826,7 @@ static void bgp_connect_in_progress_update_connection(struct peer *peer)
 static enum bgp_fsm_state_progress bgp_start(struct peer_connection *connection)
 {
 	struct peer *peer = connection->peer;
-	int status;
+	enum connect_result status;
 
 	bgp_peer_conf_if_to_su_update(connection);
 
