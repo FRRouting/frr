@@ -947,10 +947,19 @@ void path_zebra_process_srv6_bsid(bool allocate)
 		sid_ctx.color = policy->color;
 		if (allocate &&
 		    !CHECK_FLAG(policy->flags, F_POLICY_BSID_ALLOCATED) &&
-		    srv6_use_sid_manager)
+		    srv6_use_sid_manager) {
+			if (CHECK_FLAG(policy->flags,
+				       F_POLICY_BSID_IPV6_INSTALLED)) {
+				(void)path_zebra_send_bsid(
+					&policy->srv6_binding_sid, 0,
+					ZEBRA_SEG6_LOCAL_ACTION_END_B6_ENCAP,
+					NULL, 0);
+				UNSET_FLAG(policy->flags,
+					   F_POLICY_BSID_IPV6_INSTALLED);
+			}
 			path_zebra_srv6_manager_get_sid(&sid_ctx,
 							&policy->srv6_binding_sid);
-		else if (!allocate &&
+		} else if (!allocate &&
 			 CHECK_FLAG(policy->flags, F_POLICY_BSID_ALLOCATED) &&
 			 !srv6_use_sid_manager) {
 			path_zebra_srv6_manager_release_sid(&sid_ctx);
@@ -1095,6 +1104,15 @@ static int path_zebra_srv6_sid_notify(ZAPI_CALLBACK_ARGS)
 							  &ctx));
 
 			/* Error will be logged by zebra module */
+			if (CHECK_FLAG(policy->flags,
+				       F_POLICY_BSID_IPV6_INSTALLED)) {
+				(void)path_zebra_send_bsid(
+					&policy->srv6_binding_sid, 0,
+					ZEBRA_SEG6_LOCAL_ACTION_END_B6_ENCAP,
+					NULL, 0);
+				UNSET_FLAG(policy->flags,
+					   F_POLICY_BSID_IPV6_INSTALLED);
+			}
 			break;
 		case ZAPI_SRV6_SID_FAIL_RELEASE:
 			zlog_warn("%s: SRv6 SID %pI6 %s failure to release",
