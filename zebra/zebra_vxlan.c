@@ -4755,8 +4755,14 @@ void zebra_vxlan_remote_vtep_add(vrf_id_t vrf_id, vni_t vni,
 	zif = ifp->info;
 
 	/* If down or not mapped to a bridge, we're done. */
-	if (!if_is_operative(ifp) || !zif->brslave_info.br_if)
+	if (!if_is_operative(ifp) || !zif->brslave_info.br_if) {
+		if (IS_ZEBRA_DEBUG_KERNEL)
+			zlog_debug(
+				"%s VNI %u VTEP %pI4 ifp %s oper %u br_if %u skipping update",
+				__func__, zevpn->vni, &vtep_ip, ifp->name,
+				if_is_operative(ifp), !zif->brslave_info.br_if);
 		return;
+	}
 
 	zvtep = zebra_evpn_vtep_find(zevpn, &vtep_ip);
 	if (zvtep) {
