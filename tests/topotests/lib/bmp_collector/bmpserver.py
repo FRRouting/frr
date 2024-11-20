@@ -80,9 +80,7 @@ def main():
                     while len(data) > BMPMsg.MIN_LEN:
                         data = BMPMsg.dissect(data, log_file=LOG_FILE)
 
-                    timestamp_print(
-                        f"Finished dissecting data from {client_address}"
-                    )
+                    timestamp_print(f"Finished dissecting data from {client_address}")
 
             except Exception as e:
                 timestamp_print(f"{e}")
