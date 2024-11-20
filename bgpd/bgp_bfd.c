@@ -145,8 +145,8 @@ void bgp_peer_config_apply(struct peer *p, struct peer_group *pg)
 
 void bgp_peer_bfd_update_source(struct peer *p)
 {
-	struct bfd_session_params *session = p->bfd_config->session;
-	const union sockunion *source;
+	struct bfd_session_params *session;
+	const union sockunion *source = NULL;
 	bool changed = false;
 	int family;
 	union {
@@ -154,6 +154,10 @@ void bgp_peer_bfd_update_source(struct peer *p)
 		struct in6_addr v6;
 	} src, dst;
 
+	if (!p->bfd_config)
+		return;
+
+	session = p->bfd_config->session;
 	/* Nothing to do for groups. */
 	if (CHECK_FLAG(p->sflags, PEER_STATUS_GROUP))
 		return;
