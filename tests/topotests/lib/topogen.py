@@ -1296,7 +1296,7 @@ class TopoBMPCollector(TopoHost):
 
         with open(log_err, "w") as err:
             self.run(
-                "{}/bmp_collector/bmpserver -a {} -p {} {}&".format(
+                "{}/bmp_collector/bmpserver.py -a {} -p {} {}&".format(
                     CWD, self.ip, self.port, log_arg
                 ),
                 stdout=None,
@@ -1304,7 +1304,7 @@ class TopoBMPCollector(TopoHost):
             )
 
     def stop(self):
-        self.run("pkill -f bmpserver")
+        self.run("pkill -f bmpserver.py")
         return ""
 
 
