@@ -162,6 +162,45 @@ static int zebra_vrf_enable(struct vrf *vrf)
 	return 0;
 }
 
+/* update the VRF ID of a routing table and their routing entries */
+static void zebra_vrf_disable_update_vrfid(struct zebra_vrf *zvrf, afi_t afi, safi_t safi)
+{
+	struct rib_table_info *info;
+	struct route_entry *re;
+	struct route_node *rn;
+	bool empty_table = true;
+
+	/* Assign the table to the default VRF.
+	 * Although the table is not technically owned by the default VRF,
+	 * the code assumes that unassigned routing tables are
+	 * associated with the default VRF.
+	 */
+	info = route_table_get_info(zvrf->table[afi][safi]);
+	info->zvrf = vrf_info_lookup(VRF_DEFAULT);
+
+	rn = route_top(zvrf->table[afi][safi]);
+	if (rn)
+		empty_table = false;
+	while (rn) {
+		if (!rn->info) {
+			rn = route_next(rn);
+			continue;
+		}
+
+		/* Assign the route entries to the default VRF,
+		 * even though they are not actually owned by it.
+		 */
+		RNODE_FOREACH_RE (rn, re)
+			nexthop_vrf_update(rn, re, VRF_DEFAULT);
+
+		rn = route_next(rn);
+	}
+
+	if (empty_table)
+		zebra_router_release_table(zvrf, zvrf->table_id, afi, safi);
+	zvrf->table[afi][safi] = NULL;
+}
+
 /* Callback upon disabling a VRF. */
 static int zebra_vrf_disable(struct vrf *vrf)
 {
@@ -224,9 +263,13 @@ static int zebra_vrf_disable(struct vrf *vrf)
 		 * we no-longer need this pointer.
 		 */
 		for (safi = SAFI_UNICAST; safi <= SAFI_MULTICAST; safi++) {
-			zebra_router_release_table(zvrf, zvrf->table_id, afi,
-						   safi);
-			zvrf->table[afi][safi] = NULL;
+			if (!zvrf->table[afi][safi] || vrf->vrf_id == VRF_DEFAULT) {
+				zebra_router_release_table(zvrf, zvrf->table_id, afi, safi);
+				zvrf->table[afi][safi] = NULL;
+				continue;
+			}
+
+			zebra_vrf_disable_update_vrfid(zvrf, afi, safi);
 		}
 	}
 
@@ -357,13 +400,41 @@ static void zebra_rnhtable_node_cleanup(struct route_table *table,
 static void zebra_vrf_table_create(struct zebra_vrf *zvrf, afi_t afi,
 				   safi_t safi)
 {
+	vrf_id_t vrf_id = zvrf->vrf->vrf_id;
+	struct rib_table_info *info;
+	struct route_entry *re;
 	struct route_node *rn;
 	struct prefix p;
 
 	assert(!zvrf->table[afi][safi]);
 
+	/* Attempt to retrieve the Linux routing table using zvrf->table_id.
+	 * If the table was created before the VRF, it will already exist.
+	 * Otherwise, create a new table.
+	 */
 	zvrf->table[afi][safi] =
 		zebra_router_get_table(zvrf, zvrf->table_id, afi, safi);
+
+	/* If the table existed before the VRF was created, info->zvrf was
+	 * referring to the default VRF.
+	 * Assign the table to the new VRF.
+	 * Note: FRR does not allow multiple VRF interfaces to be created with the
+	 * same table ID.
+	 */
+	info = route_table_get_info(zvrf->table[afi][safi]);
+	info->zvrf = zvrf;
+
+	/* If the table existed before the VRF was created, their routing entries
+	 * was owned by the default VRF.
+	 * Re-assign all the routing entries to the new VRF.
+	 */
+	for (rn = route_top(zvrf->table[afi][safi]); rn; rn = route_next(rn)) {
+		if (!rn->info)
+			continue;
+
+		RNODE_FOREACH_RE (rn, re)
+			nexthop_vrf_update(rn, re, vrf_id);
+	}
 
 	memset(&p, 0, sizeof(p));
 	p.family = afi2family(afi);

@@ -2930,6 +2930,68 @@ static uint32_t proto_nhg_nexthop_active_update(struct nexthop_group *nhg)
 	return curr_active;
 }
 
+void nexthop_vrf_update(struct route_node *rn, struct route_entry *re, vrf_id_t vrf_id)
+{
+	struct nhg_hash_entry *curr_nhe, *new_nhe;
+	afi_t rt_afi = family2afi(rn->p.family);
+	struct nexthop *nexthop;
+
+	re->vrf_id = vrf_id;
+
+	/* Make a local copy of the existing nhe, so we don't work on/modify
+	 * the shared nhe.
+	 */
+	curr_nhe = zebra_nhe_copy(re->nhe, re->nhe->id);
+
+	if (IS_ZEBRA_DEBUG_NHG_DETAIL)
+		zlog_debug("%s: re %p nhe %p (%pNG), curr_nhe %p", __func__, re, re->nhe, re->nhe,
+			   curr_nhe);
+
+	/* Clear the existing id, if any: this will avoid any confusion
+	 * if the id exists, and will also force the creation
+	 * of a new nhe reflecting the changes we may make in this local copy.
+	 */
+	curr_nhe->id = 0;
+
+	curr_nhe->vrf_id = vrf_id;
+	for (ALL_NEXTHOPS(curr_nhe->nhg, nexthop)) {
+		if (!nexthop->ifindex)
+			/* change VRF ID of nexthop without interfaces
+			 * (eg. blackhole)
+			 */
+			nexthop->vrf_id = vrf_id;
+	}
+
+	if (zebra_nhg_get_backup_nhg(curr_nhe)) {
+		for (ALL_NEXTHOPS(curr_nhe->backup_info->nhe->nhg, nexthop)) {
+			if (!nexthop->ifindex)
+				/* change VRF ID of nexthop without interfaces
+				 * (eg. blackhole)
+				 */
+				nexthop->vrf_id = vrf_id;
+		}
+	}
+
+	/*
+	 * Ref or create an nhe that matches the current state of the
+	 * nexthop(s).
+	 */
+	new_nhe = zebra_nhg_rib_find_nhe(curr_nhe, rt_afi);
+
+	if (IS_ZEBRA_DEBUG_NHG_DETAIL)
+		zlog_debug("%s: re %p CHANGED: nhe %p (%pNG) => new_nhe %p (%pNG)", __func__, re,
+			   re->nhe, re->nhe, new_nhe, new_nhe);
+
+	route_entry_update_nhe(re, new_nhe);
+
+	/*
+	 * Do not need the old / copied nhe anymore since it
+	 * was either copied over into a new nhe or not
+	 * used at all.
+	 */
+	zebra_nhg_free(curr_nhe);
+}
+
 /*
  * This function takes the start of two comparable nexthops from two different
  * nexthop groups and walks them to see if they can be considered the same
