@@ -417,6 +417,25 @@ vrf_id_t zebra_vrf_lookup_by_table(uint32_t table_id, ns_id_t ns_id)
 	return VRF_DEFAULT;
 }
 
+/*
+ * Lookup tableid by vrfid; handle vrf-lite and vrf-netns cases
+ */
+int zebra_vrf_lookup_tableid(vrf_id_t vrf_id, ns_id_t ns_id)
+{
+	struct zebra_vrf *zvrf;
+
+	/* Handle vrf-lite and vrf-netns */
+	if (vrf_is_backend_netns())
+		zvrf = vrf_info_lookup(ns_id);
+	else
+		zvrf = vrf_info_lookup(vrf_id);
+
+	if (zvrf)
+		return zvrf->table_id;
+	else
+		return ZEBRA_ROUTE_TABLE_UNKNOWN;
+}
+
 /* Lookup VRF by identifier.  */
 struct zebra_vrf *zebra_vrf_lookup_by_id(vrf_id_t vrf_id)
 {

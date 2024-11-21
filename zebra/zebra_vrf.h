@@ -24,6 +24,8 @@ FRR_CFG_DEFAULT_BOOL(ZEBRA_IP_NHT_RESOLVE_VIA_DEFAULT,
 	{ .val_bool = false },
 );
 
+#define ZEBRA_ROUTE_TABLE_UNKNOWN 0
+
 /* MPLS (Segment Routing) global block */
 struct mpls_srgb {
 	uint32_t start_label;
@@ -247,6 +249,7 @@ extern struct zebra_vrf *zebra_vrf_lookup_by_name(const char *);
 extern vrf_id_t zebra_vrf_lookup_by_table(uint32_t table_id, ns_id_t ns_id);
 extern struct zebra_vrf *zebra_vrf_alloc(struct vrf *vrf);
 extern struct route_table *zebra_vrf_table(afi_t, safi_t, vrf_id_t);
+int zebra_vrf_lookup_tableid(vrf_id_t vrf_id, ns_id_t ns_id);
 
 /*
  * API to associate a VRF with a NETNS.
