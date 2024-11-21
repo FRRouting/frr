@@ -22,26 +22,83 @@
 #include "hook.h"
 #include "libfrr.h"
 #include "xref.h"
+#include "ringbuf.h"	 /* for ringbuf_remain, ringbuf_peek, ringbuf_..*/
+#include "frr_pthread.h" /* for struct frr_pthread */
 
 XREF_SETUP();
 
 DEFINE_HOOK(agentx_enabled, (), ());
+DEFINE_HOOK(bgp_snmp_traps_config_write, (struct vty * vty), (vty));
 
 static bool agentx_enabled = false;
-static int agentx_send_without_read = 0;
+static uint64_t agentx_send_without_read = 0;
 
+/* the thread master of the agentx's pthread */
 static struct event_loop *agentx_tm;
+/* the thread master of the agentx's pthread */
+static struct event_loop *main_pthread_tm;
 static struct event *timeout_thr = NULL;
 static struct list *events = NULL;
+static int smux_trap_thd_flag;
 
-static void agentx_events_update(void);
+struct frr_pthread *agentx_pth;
+
+/* buffer dedicated to "master -> agentx" threads */
+static struct ringbuf *ibuf_ax;
+#define RINGBUF_NB_TRAP		200
+#define AGENTX_NB_TRAP_WAITING	50
+#define AGENTX_NB_TRAP_SENT_MAX 20
+
+/* mutex dedicated to send/read exclusion */
+static pthread_mutex_t ax_io_mtx;
+/* mutex dedicated to trap transfert between threads */
+static pthread_mutex_t ax_mtx;
+
+static void agentx_events_update(struct event *t);
+static void agentx_send_ringbuf(void);
+static int agentx_stop(struct frr_pthread *fpt, void **result);
+static void smux_trap_multi_index_thd(struct event *thread);
+
+static void agentx_pthreads_init(void)
+{
+	assert(!agentx_pth);
+
+	struct frr_pthread_attr ax = {
+		.start = frr_pthread_attr_default.start,
+		.stop = frr_pthread_attr_default.stop,
+	};
+
+	agentx_pth = frr_pthread_new(&ax, "Agentx thread", "agentx_pth");
+}
+
+static void agentx_pthreads_run(void)
+{
+	frr_pthread_run(agentx_pth, NULL);
+
+	/* Wait until threads are ready. */
+	frr_pthread_wait_running(agentx_pth);
+}
+
 
 static void agentx_timeout(struct event *t)
 {
-	snmp_timeout();
-	run_alarms();
+	timeout_thr = NULL;
+	/*
+	 * in case of lock nothing is done and
+	 * agentx_timeout will be called later.
+	 */
+	if (pthread_mutex_trylock(&ax_io_mtx) == 0) {
+		snmp_timeout();
+		run_alarms();
+	} else {
+		event_add_event(main_pthread_tm, agentx_events_update, NULL, 0, NULL);
+		return;
+	}
+	pthread_mutex_unlock(&ax_io_mtx);
 	netsnmp_check_outstanding_agent_requests();
-	agentx_events_update();
+	/* continue in main thread */
+	event_add_event(main_pthread_tm, agentx_events_update, NULL, 0, NULL);
+	return;
 }
 
 static int agentx_read_now(int fd)
@@ -68,10 +125,23 @@ static int agentx_read_now(int fd)
 		flog_err(EC_LIB_SYSTEM_CALL, "Failed to set snmp fd non blocking: %s(%d)",
 			 strerror(errno), errno);
 
-	netsnmp_large_fd_set_init(&lfds, FD_SETSIZE);
-	netsnmp_large_fd_setfd(fd, &lfds);
-	if (netsnmp_large_fd_set_select(fd+1, &lfds, NULL, NULL, &timeout))
-		snmp_read2(&lfds);
+	/*
+	 * mutex to avoid sending/reading concurrently
+	 * in case of lock nothing is done and agentx_read will
+	 * be called later.
+	 * snmp_read2 function provides snmpget/walk functions
+	 * call to *table functions are made from that point
+	 * we are in main protocol thread
+	 */
+	if (pthread_mutex_trylock(&ax_io_mtx) == 0) {
+		netsnmp_large_fd_set_init(&lfds, FD_SETSIZE);
+		netsnmp_large_fd_setfd(fd, &lfds);
+		if (netsnmp_large_fd_set_select(fd + 1, &lfds, NULL, NULL, &timeout))
+			snmp_read2(&lfds);
+	} else {
+		return -2;
+	}
+	pthread_mutex_unlock(&ax_io_mtx);
 
 	/* Reset the flag */
 	if (!nonblock) {
@@ -86,44 +156,50 @@ static int agentx_read_now(int fd)
 
 	netsnmp_check_outstanding_agent_requests();
 	netsnmp_large_fd_set_cleanup(&lfds);
-
 	return 0;
 }
 
 static void agentx_read(struct event *t)
 {
 	struct listnode *ln = EVENT_ARG(t);
+	list_delete_node(events, ln);
 	int res = 0;
 	struct event **thr = listgetdata(ln);
 
 	XFREE(MTYPE_TMP, thr);
-	list_delete_node(events, ln);
 
 	res = agentx_read_now(EVENT_FD(t));
-	if (res)
-		return;
+	if (!res) {
+		agentx_send_without_read = 0;
+		agentx_events_update(NULL);
+	}
 
-	agentx_send_without_read = 0;
-	agentx_events_update();
+	return;
 }
 
-static void agentx_events_update(void)
+static void agentx_events_update(struct event *t)
 {
 	int maxfd = 0;
 	int block = 1;
+	int canceled = 0;
 	struct timeval timeout = {.tv_sec = 0, .tv_usec = 0};
 	netsnmp_large_fd_set lfds;
 	struct listnode *ln;
 	struct event **thr;
 	struct listnode *newln;
 	int fd, thr_fd;
+	int add_event_flag = 0;
 
-	event_cancel(&timeout_thr);
-
+	if (pthread_mutex_trylock(&ax_io_mtx) == 0) {
+		event_cancel_async(agentx_tm, &timeout_thr, NULL);
+		pthread_mutex_unlock(&ax_io_mtx);
+		canceled = 1;
+	}
 	netsnmp_large_fd_set_init(&lfds, FD_SETSIZE);
 	snmp_select_info2(&maxfd, &lfds, &timeout, &block);
 
-	if (!block) {
+	if (!block && canceled) {
+		timeout_thr = NULL;
 		event_add_timer_tv(agentx_tm, agentx_timeout, NULL, &timeout,
 				   &timeout_thr);
 	}
@@ -143,25 +219,23 @@ static void agentx_events_update(void)
 				event_cancel(thr);
 				XFREE(MTYPE_TMP, thr);
 				list_delete_node(events, ln);
+			} else if (agentx_send_without_read >= AGENTX_NB_TRAP_WAITING) {
+				zlog_info("%s call read_now: %llu", __func__,
+					  agentx_send_without_read);
+				if (!agentx_read_now(thr_fd))
+					agentx_send_without_read = 0;
 			}
-			else
-				if (agentx_send_without_read > 100) {
-					agentx_read_now(thr_fd);
-				}
 			ln = nextln;
 			thr = ln ? listgetdata(ln) : NULL;
 			thr_fd = thr ? EVENT_FD(*thr) : -1;
 		}
 		/* need listener, but haven't hit one where it would be */
 		else if (netsnmp_large_fd_is_set(fd, &lfds)) {
-
 			thr = XCALLOC(MTYPE_TMP, sizeof(struct event *));
 			newln = listnode_add_before(events, ln, thr);
-			event_add_read(agentx_tm, agentx_read, newln, fd, thr);
+			event_add_read(main_pthread_tm, agentx_read, newln, fd, thr);
 		}
 	}
-	if (agentx_send_without_read>100)
-		agentx_send_without_read = 0;
 
 	/* leftover event listeners at this point have fd > maxfd, delete them
 	 */
@@ -174,6 +248,15 @@ static void agentx_events_update(void)
 		ln = nextln;
 	}
 	netsnmp_large_fd_set_cleanup(&lfds);
+
+	/* try to sent some traps remaining in ring buffer */
+	frr_with_mutex (&ax_mtx) {
+		add_event_flag = ringbuf_remain(ibuf_ax);
+	}
+
+	if (add_event_flag)
+		event_add_event(agentx_tm, smux_trap_multi_index_thd, NULL, 0, NULL);
+	return;
 }
 
 /* AgentX node. */
@@ -226,8 +309,11 @@ static int agentx_log_callback(int major, int minor, void *serverarg,
 
 static int config_write_agentx(struct vty *vty)
 {
-	if (agentx_enabled)
+	if (agentx_enabled) {
 		vty_out(vty, "agentx\n");
+		/* SNMP traps configuration */
+		hook_call(bgp_snmp_traps_config_write, vty);
+	}
 	return 1;
 }
 
@@ -237,9 +323,12 @@ DEFUN (agentx_enable,
        "SNMP AgentX protocol settings\n")
 {
 	if (!agentx_enabled) {
+		agentx_pthreads_run();
+		agentx_tm = agentx_pth->master;
 		init_snmp(FRR_SMUX_NAME);
 		events = list_new();
-		agentx_events_update();
+		ibuf_ax = ringbuf_new(RINGBUF_NB_TRAP * sizeof(void *));
+		agentx_events_update(NULL);
 		agentx_enabled = true;
 		hook_call(agentx_enabled);
 	}
@@ -262,7 +351,7 @@ DEFUN (no_agentx,
 static int smux_disable(void)
 {
 	agentx_enabled = false;
-
+	agentx_stop(agentx_pth, NULL);
 	return 0;
 }
 
@@ -273,7 +362,12 @@ bool smux_enabled(void)
 
 void smux_init(struct event_loop *tm)
 {
-	agentx_tm = tm;
+	main_pthread_tm = tm;
+	agentx_pthreads_init();
+
+	pthread_mutex_init(&ax_io_mtx, NULL);
+	pthread_mutex_init(&ax_mtx, NULL);
+
 
 	netsnmp_enable_subagent();
 	snmp_disable_log();
@@ -292,9 +386,12 @@ void smux_init(struct event_loop *tm)
 void smux_agentx_enable(void)
 {
 	if (!agentx_enabled) {
+		agentx_pthreads_run();
+		agentx_tm = agentx_pth->master;
 		init_snmp(FRR_SMUX_NAME);
 		events = list_new();
-		agentx_events_update();
+		ibuf_ax = ringbuf_new(RINGBUF_NB_TRAP * sizeof(void *));
+		agentx_events_update(NULL);
 		agentx_enabled = true;
 	}
 }
@@ -322,21 +419,17 @@ void smux_trap(struct variable *vp, size_t vp_len, const oid *ename,
 			      trapobjlen, sptrap);
 }
 
-int smux_trap_multi_index(struct variable *vp, size_t vp_len, const oid *ename,
-			  size_t enamelen, const oid *name, size_t namelen,
-			  struct index_oid *iname, size_t index_len,
-			  const struct trap_object *trapobj, size_t trapobjlen,
-			  uint8_t sptrap)
+static netsnmp_variable_list *
+create_notification_var(struct variable *vp, size_t vp_len, const oid *ename, size_t enamelen,
+			const oid *name, size_t namelen, struct index_oid *iname, size_t index_len,
+			const struct trap_object *trapobj, size_t trapobjlen, uint8_t sptrap)
 {
 	oid objid_snmptrap[] = {1, 3, 6, 1, 6, 3, 1, 1, 4, 1, 0};
 	size_t objid_snmptrap_len = sizeof(objid_snmptrap) / sizeof(oid);
 	oid notification_oid[MAX_OID_LEN];
 	size_t notification_oid_len;
 	unsigned int i;
-
 	netsnmp_variable_list *notification_vars = NULL;
-	if (!agentx_enabled)
-		return 0;
 
 	/* snmpTrapOID */
 	oid_copy(notification_oid, ename, enamelen);
@@ -411,18 +504,121 @@ int smux_trap_multi_index(struct variable *vp, size_t vp_len, const oid *ename,
 			break;
 		}
 	}
+	return notification_vars;
+}
+
+static void agentx_send_ringbuf(void)
+{
+	uint32_t nb_elem_ringbuf, nb_trap_sent = 0;
+	static netsnmp_variable_list **notification_vars_old = NULL;
+
+	frr_with_mutex (&ax_mtx) {
+		nb_elem_ringbuf = ringbuf_remain(ibuf_ax);
+	}
+
+	while (nb_elem_ringbuf && nb_trap_sent < AGENTX_NB_TRAP_SENT_MAX) {
+		/* dont try to send if risk of blocking */
+		frr_with_mutex (&ax_mtx) {
+			if (agentx_send_without_read > AGENTX_NB_TRAP_WAITING) {
+				break;
+			}
+			if (!notification_vars_old) {
+				ringbuf_get(ibuf_ax, &notification_vars_old,
+					    sizeof(notification_vars_old));
+			}
+		}
+
+		if (pthread_mutex_trylock(&ax_io_mtx) == 0) {
+			send_v2trap(*notification_vars_old);
+		} else {
+			break;
+		}
+		pthread_mutex_unlock(&ax_io_mtx);
+
+		snmp_free_varbind(*notification_vars_old);
+		notification_vars_old = NULL;
+		frr_with_mutex (&ax_mtx) {
+			ringbuf_get(ibuf_ax, &notification_vars_old, sizeof(notification_vars_old));
+			agentx_send_without_read++;
+		}
+		nb_elem_ringbuf -= sizeof(notification_vars_old);
+		nb_trap_sent++;
+	}
+}
+
+/*
+ * function called in the agentx thread
+ * get data to send and from transfert structures
+ * performs oid and data sending via send_v2trap
+ */
+static void smux_trap_multi_index_thd(struct event *thread)
+{
+	agentx_send_ringbuf();
+	event_add_event(main_pthread_tm, agentx_events_update, NULL, 0, NULL);
+	/* now we can call smux_trap_multi_index_thd via thread_add_event */
+	frr_with_mutex (&ax_mtx) {
+		smux_trap_thd_flag = 0;
+	}
+	return;
+}
+
+int smux_trap_multi_index(struct variable *vp, size_t vp_len, const oid *ename, size_t enamelen,
+			  const oid *name, size_t namelen, struct index_oid *iname, size_t index_len,
+			  const struct trap_object *trapobj, size_t trapobjlen, uint8_t sptrap)
+{
+	netsnmp_variable_list *notification_vars = NULL;
+	netsnmp_variable_list **notification_vars_old = NULL;
+	int add_event_flag = 0;
+
+	if (!agentx_enabled)
+		return 0;
+
+	notification_vars = create_notification_var(vp, vp_len, ename, enamelen, name, namelen,
+						    iname, index_len, trapobj, trapobjlen, sptrap);
 
 
-	send_v2trap(notification_vars);
-	snmp_free_varbind(notification_vars);
-	agentx_send_without_read++;
-	agentx_events_update();
+	frr_with_mutex (&ax_mtx) {
+		if (ringbuf_space(ibuf_ax) < sizeof(notification_vars)) {
+			/* not enought place, drop oldest trap */
+			zlog_err("%s no space in ring buffer: %lu free : %lu", __func__,
+				 sizeof(notification_vars), ringbuf_space(ibuf_ax));
+
+			/* keep earliest traps in ring buffer*/
+			ringbuf_get(ibuf_ax, &notification_vars_old, sizeof(notification_vars_old));
+			ringbuf_put(ibuf_ax, &notification_vars, sizeof(netsnmp_variable_list **));
+			snmp_free_varbind(*notification_vars_old);
+		} else {
+			/* add trap in ring buffer */
+			ringbuf_put(ibuf_ax, &notification_vars, sizeof(netsnmp_variable_list **));
+			agentx_send_without_read++;
+		}
+		if (!smux_trap_thd_flag) {
+			smux_trap_thd_flag = 1;
+			add_event_flag = 1;
+		}
+	}
+
+	/* try to send traps but limiting call to smux_trap_multi_index_thd */
+	if (add_event_flag)
+		event_add_event(agentx_tm, smux_trap_multi_index_thd, NULL, 0, NULL);
 	return 1;
+}
+
+static int agentx_stop(struct frr_pthread *fpt, void **result)
+{
+	assert(fpt->running);
+
+	ringbuf_del(ibuf_ax);
+	pthread_mutex_unlock(&ax_io_mtx);
+	pthread_mutex_destroy(&ax_io_mtx);
+	pthread_mutex_unlock(&ax_mtx);
+	pthread_mutex_destroy(&ax_mtx);
+	return 0;
 }
 
 void smux_events_update(void)
 {
-	agentx_events_update();
+	agentx_events_update(NULL);
 }
 
 #endif /* SNMP_AGENTX */
