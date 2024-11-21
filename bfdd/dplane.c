@@ -948,6 +948,9 @@ static void bfd_dplane_client_connect(struct event *t)
 		_bfd_dplane_client_bootstrap(bdc);
 	}
 
+	/* Continue with the connection */
+	return;
+
 reschedule_connect:
 	EVENT_OFF(bdc->inbufev);
 	EVENT_OFF(bdc->outbufev);
