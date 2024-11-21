@@ -5,6 +5,8 @@
 # Authored by Farid Mihoub <farid.mihoub@6wind.com>
 #
 import argparse
+import errno
+import logging
 
 # XXX: something more reliable should be used "Twisted" a great choice.
 import os

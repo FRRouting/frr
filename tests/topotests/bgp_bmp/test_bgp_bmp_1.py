@@ -73,9 +73,9 @@ def setup_module(mod):
     tgen.start_topology()
 
     if DEBUG_PCAP:
-        tgen.gears["r1"].run("rm /tmp/bmp.pcap")
+        pcap_file = os.path.join(tgen.logdir, "r1/bmp.pcap")
         tgen.gears["r1"].run(
-            "tcpdump -nni r1-eth0 -s 0 -w /tmp/bmp.pcap &", stdout=None
+            "tcpdump -nni r1-eth0 -s 0 -w {} &".format(pcap_file), stdout=None
         )
 
     for rname, router in tgen.routers().items():
