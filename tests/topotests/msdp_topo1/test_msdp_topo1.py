@@ -17,6 +17,7 @@ import os
 import sys
 import json
 from functools import partial
+import re
 import pytest
 
 # Save the Current Working Directory to find configuration files.
@@ -508,6 +509,25 @@ def test_msdp_sa_filter():
     logger.info("Waiting for r1 MDSP SA data")
     _, val = topotest.run_and_expect(test_func, None, count=30, wait=1)
     assert val is None, "multicast route convergence failure"
+
+
+def test_msdp_log_events():
+    "Test that the enabled logs are working as expected."
+
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    r1_log = tgen.gears["r1"].net.getLog("log", "pimd")
+
+    # Look up for informational messages that should have been enabled.
+    match = re.search(
+        "MSDP peer 192.168.1.2 state changed to established", r1_log)
+    assert match is not None
+
+    match = re.search(
+        r"MSDP SA \(192.168.10.100\,229.1.2.3\) created", r1_log)
+    assert match is not None
 
 
 def test_memory_leak():
