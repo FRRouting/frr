@@ -54,6 +54,20 @@ static pthread_mutex_t ax_io_mtx;
 /* mutex dedicated to trap transfert between threads */
 static pthread_mutex_t ax_mtx;
 
+struct agentx_internal_stat {
+	uint64_t trap_received;
+	uint64_t trap_dropped;
+	uint64_t nb_elem_ringbuf;
+	uint64_t ringbuf_not_read;
+	uint64_t nb_locktry_read_fail;
+	uint64_t nb_locktry_timeout_fail;
+	uint64_t nb_locktry_trap1_fail;
+	uint64_t nb_locktry_trap2_fail;
+};
+
+static struct agentx_internal_stat internal_stat;
+
+
 static void agentx_events_update(struct event *t);
 static void agentx_send_ringbuf(void);
 static int agentx_stop(struct frr_pthread *fpt, void **result);
@@ -91,6 +105,10 @@ static void agentx_timeout(struct event *t)
 		snmp_timeout();
 		run_alarms();
 	} else {
+		if (internal_stat.nb_locktry_timeout_fail % 100 == 0)
+			zlog_err("%s mutex already locked %llu times", __func__,
+				 internal_stat.nb_locktry_timeout_fail);
+		internal_stat.nb_locktry_timeout_fail++;
 		event_add_event(main_pthread_tm, agentx_events_update, NULL, 0, NULL);
 		return;
 	}
@@ -139,6 +157,10 @@ static int agentx_read_now(int fd)
 		if (netsnmp_large_fd_set_select(fd + 1, &lfds, NULL, NULL, &timeout))
 			snmp_read2(&lfds);
 	} else {
+		if (internal_stat.nb_locktry_read_fail % 100 == 0)
+			zlog_info("%s mutex already locked %llu times",
+				  __func__, internal_stat.nb_locktry_read_fail);
+		internal_stat.nb_locktry_read_fail++;
 		return -2;
 	}
 	pthread_mutex_unlock(&ax_io_mtx);
@@ -348,6 +370,29 @@ DEFUN (no_agentx,
 	return CMD_WARNING_CONFIG_FAILED;
 }
 
+DEFUN_NOSH(show_agentx, show_agentx_cmd, "show agentx",
+	   SHOW_STR "show SNMP Agentx internal stats\n")
+{
+
+	vty_out(vty, " Number of Trap:\n");
+	vty_out(vty, "                 received: %llu\n",
+		internal_stat.trap_received);
+	vty_out(vty, "                 dropped: %llu\n",
+		internal_stat.trap_dropped);
+	vty_out(vty, " ring buffer:\n");
+	vty_out(vty, "                 number in use: %llu\n",
+		internal_stat.nb_elem_ringbuf);
+	vty_out(vty, "                 read error: %llu\n",
+		internal_stat.ringbuf_not_read);
+	vty_out(vty, " Number of Lock:\n");
+	vty_out(vty, "                 read failed: %llu\n",
+		internal_stat.nb_locktry_read_fail);
+	vty_out(vty, "                 timeout failed: %llu\n",
+		internal_stat.nb_locktry_timeout_fail);
+
+	return CMD_SUCCESS;
+}
+
 static int smux_disable(void)
 {
 	agentx_enabled = false;
@@ -379,6 +424,7 @@ void smux_init(struct event_loop *tm)
 	install_node(&agentx_node);
 	install_element(CONFIG_NODE, &agentx_enable_cmd);
 	install_element(CONFIG_NODE, &no_agentx_cmd);
+	install_element(VIEW_NODE, &show_agentx_cmd);
 
 	hook_register(frr_early_fini, smux_disable);
 }
@@ -525,12 +571,17 @@ static void agentx_send_ringbuf(void)
 			if (!notification_vars_old) {
 				ringbuf_get(ibuf_ax, &notification_vars_old,
 					    sizeof(notification_vars_old));
+				internal_stat.nb_elem_ringbuf--;
 			}
 		}
 
 		if (pthread_mutex_trylock(&ax_io_mtx) == 0) {
 			send_v2trap(*notification_vars_old);
 		} else {
+			internal_stat.nb_locktry_trap1_fail++;
+			zlog_info("%s 1  mutex already locked: %llu times",
+				  __func__,
+				  internal_stat.nb_locktry_trap1_fail);
 			break;
 		}
 		pthread_mutex_unlock(&ax_io_mtx);
@@ -540,6 +591,7 @@ static void agentx_send_ringbuf(void)
 		frr_with_mutex (&ax_mtx) {
 			ringbuf_get(ibuf_ax, &notification_vars_old, sizeof(notification_vars_old));
 			agentx_send_without_read++;
+			internal_stat.nb_elem_ringbuf--;
 		}
 		nb_elem_ringbuf -= sizeof(notification_vars_old);
 		nb_trap_sent++;
@@ -576,12 +628,15 @@ int smux_trap_multi_index(struct variable *vp, size_t vp_len, const oid *ename, 
 	notification_vars = create_notification_var(vp, vp_len, ename, enamelen, name, namelen,
 						    iname, index_len, trapobj, trapobjlen, sptrap);
 
+	internal_stat.trap_received++;
 
 	frr_with_mutex (&ax_mtx) {
 		if (ringbuf_space(ibuf_ax) < sizeof(notification_vars)) {
 			/* not enought place, drop oldest trap */
 			zlog_err("%s no space in ring buffer: %lu free : %lu", __func__,
 				 sizeof(notification_vars), ringbuf_space(ibuf_ax));
+
+			internal_stat.trap_dropped++;
 
 			/* keep earliest traps in ring buffer*/
 			ringbuf_get(ibuf_ax, &notification_vars_old, sizeof(notification_vars_old));
@@ -591,6 +646,7 @@ int smux_trap_multi_index(struct variable *vp, size_t vp_len, const oid *ename, 
 			/* add trap in ring buffer */
 			ringbuf_put(ibuf_ax, &notification_vars, sizeof(netsnmp_variable_list **));
 			agentx_send_without_read++;
+			internal_stat.nb_elem_ringbuf++;
 		}
 		if (!smux_trap_thd_flag) {
 			smux_trap_thd_flag = 1;

@@ -3084,6 +3084,13 @@ static int show_one_daemon(struct vty *vty, struct cmd_token **argv, int argc,
 #if CONFDATE > 20240707
 	CPP_NOTICE("Remove `show thread ...` commands")
 #endif
+
+DEFUN(vtysh_show_agentx, vtysh_show_agentx_cmd, "show agentx",
+      SHOW_STR "agentx statistics\n")
+{
+       return show_per_daemon(vty, argv, argc, "Agentx statistics for %s:\n");
+}
+	
 DEFUN (vtysh_show_event_timer,
        vtysh_show_event_timer_cmd,
        "show event timers",
@@ -5410,6 +5417,7 @@ void vtysh_init_vty(void)
 	install_element(VIEW_NODE, &vtysh_show_history_cmd);
 	install_element(VIEW_NODE, &vtysh_show_memory_cmd);
 	install_element(VIEW_NODE, &vtysh_show_modules_cmd);
+	install_element(VIEW_NODE, &vtysh_show_agentx_cmd);
 	install_element(VIEW_NODE, &vtysh_show_work_queues_cmd);
 	install_element(VIEW_NODE, &vtysh_show_work_queues_daemon_cmd);
 	install_element(VIEW_NODE, &vtysh_show_event_cpu_cmd);
