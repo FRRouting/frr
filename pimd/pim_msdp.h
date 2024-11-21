@@ -114,9 +114,6 @@ struct pim_msdp_peer {
 	enum pim_msdp_peer_state state;
 	enum pim_msdp_peer_flags flags;
 
-	/* TCP socket info */
-	union sockunion su_local;
-	union sockunion su_peer;
 	int fd;
 
 /* protocol timers */
@@ -238,8 +235,7 @@ void pim_msdp_init(struct pim_instance *pim, struct event_loop *master);
 void pim_msdp_exit(struct pim_instance *pim);
 char *pim_msdp_state_dump(enum pim_msdp_peer_state state, char *buf,
 			  int buf_size);
-struct pim_msdp_peer *pim_msdp_peer_find(struct pim_instance *pim,
-					 struct in_addr peer_addr);
+struct pim_msdp_peer *pim_msdp_peer_find(const struct pim_instance *pim, struct in_addr peer_addr);
 void pim_msdp_peer_established(struct pim_msdp_peer *mp);
 void pim_msdp_peer_pkt_rxed(struct pim_msdp_peer *mp);
 void pim_msdp_peer_stop_tcp_conn(struct pim_msdp_peer *mp, bool chg_state);
