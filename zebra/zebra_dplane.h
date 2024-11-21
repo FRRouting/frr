@@ -1272,16 +1272,6 @@ void zebra_dplane_shutdown(void);
 void zebra_dplane_startup_stage(struct zebra_ns *zns,
 				enum zebra_dplane_startup_notifications spot);
 
-/*
- * decision point for sending a routing update through the old
- * straight to zebra master pthread or through the dplane to
- * the master pthread for handling
- */
-void dplane_rib_add_multipath(afi_t afi, safi_t safi, struct prefix *p,
-			      struct prefix_ipv6 *src_p, struct route_entry *re,
-			      struct nexthop_group *ng, int startup,
-			      struct zebra_dplane_ctx *ctx);
-
 enum zebra_dplane_startup_notifications
 dplane_ctx_get_startup_spot(struct zebra_dplane_ctx *ctx);
 
