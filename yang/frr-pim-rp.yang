@@ -21,6 +21,10 @@ module frr-pim-rp {
     prefix frr-route-types;
   }
 
+  import frr-interface {
+    prefix "frr-interface";
+  }
+
   organization
     "FRRouting";
 
@@ -178,7 +182,7 @@ module frr-pim-rp {
       leaf announce-interval {
         type uint16;
         description
-          "The time between sending C-RP announcement packets.";
+          "The time between sending C-RP announcement packets (seconds).";
       }
 
       leaf announce-holdtime {
@@ -216,6 +220,57 @@ module frr-pim-rp {
           }
         }
       } // candidate-rp-list
+
+      container mapping-agent {
+        leaf send-rp-discovery {
+          type boolean;
+          default false;
+          description
+            "Make this router an AutoRP mapping agent";
+        }
+
+        leaf discovery-scope {
+          type uint8;
+          default 31;
+          description
+            "The TTL of the discovery packet";
+        }
+
+        leaf discovery-interval {
+          type uint16 {
+            range "1 .. 65535";
+          }
+          default 60;
+          description
+            "The time between sending discovery advertisements (seconds)";
+        }
+
+        leaf discovery-holdtime {
+          type uint16 {
+            range "0 .. 65535";
+          }
+          default 180;
+          description
+            "The hold time in seconds advertised in the discovery packet.";
+        }
+
+        choice source-address-or-interface {
+          description "Source address to use for mapping agent operation";
+          default if-loopback;
+          leaf address {
+            type inet:ip-address;
+          }
+          leaf interface {
+            type frr-interface:interface-ref;
+          }
+          leaf if-loopback {
+            type empty;
+          }
+          leaf if-any {
+            type empty;
+          }
+        }
+      } // mapping-agent
     } // auto-rp
   } // auto-rp-container
 
