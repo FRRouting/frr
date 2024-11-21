@@ -85,9 +85,9 @@ ip link set r1vrf-eth1 master vrf1
     )
     bmp_reset_seq()
     if DEBUG_PCAP:
-        tgen.gears["r1vrf"].run("rm /tmp/bmp_vrf.pcap")
+        pcap_file = os.path.join(tgen.logdir, "r1vrf/bmp.pcap")
         tgen.gears["r1vrf"].run(
-            "tcpdump -nni r1vrf-eth0 -s 0 -w /tmp/bmp_vrf.pcap &", stdout=None
+            "tcpdump -nni r1vrf-eth0 -s 0 -w {} &".format(pcap_file), stdout=None
         )
 
     for rname, router in tgen.routers().items():
