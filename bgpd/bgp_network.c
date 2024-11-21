@@ -762,7 +762,7 @@ static int bgp_update_source(struct peer_connection *connection)
 }
 
 /* BGP try to connect to the peer.  */
-int bgp_connect(struct peer_connection *connection)
+enum connect_result bgp_connect(struct peer_connection *connection)
 {
 	struct peer *peer = connection->peer;
 
@@ -773,7 +773,7 @@ int bgp_connect(struct peer_connection *connection)
 	if (peer->conf_if && BGP_CONNECTION_SU_UNSPEC(connection)) {
 		if (bgp_debug_neighbor_events(peer))
 			zlog_debug("Peer address not learnt: Returning from connect");
-		return 0;
+		return connect_error;
 	}
 	frr_with_privs(&bgpd_privs) {
 		/* Make socket for the peer. */
@@ -787,7 +787,7 @@ int bgp_connect(struct peer_connection *connection)
 			zlog_debug("%s: Failure to create socket for connection to %s, error received: %s(%d)",
 				   __func__, peer->host, safe_strerror(errno),
 				   errno);
-		return -1;
+		return connect_error;
 	}
 
 	set_nonblocking(connection->fd);
@@ -808,7 +808,7 @@ int bgp_connect(struct peer_connection *connection)
 				   __func__, peer->host, safe_strerror(errno),
 				   errno);
 
-		return -1;
+		return connect_error;
 	}
 
 	sockopt_reuseaddr(connection->fd);
@@ -844,7 +844,7 @@ int bgp_connect(struct peer_connection *connection)
 	/* If the peer is passive mode, force to move to Active mode. */
 	if (CHECK_FLAG(peer->flags, PEER_FLAG_PASSIVE)) {
 		BGP_EVENT_ADD(connection, TCP_connection_open_failed);
-		return BGP_FSM_SUCCESS;
+		return connect_error;
 	}
 
 	if (peer->conf_if || peer->ifname)

@@ -21,7 +21,7 @@ extern int bgp_socket(struct bgp *bgp, unsigned short port,
 		      const char *address);
 extern void bgp_close_vrf_socket(struct bgp *bgp);
 extern void bgp_close(void);
-extern int bgp_connect(struct peer_connection *connection);
+extern enum connect_result bgp_connect(struct peer_connection *connection);
 extern int bgp_getsockname(struct peer *peer);
 extern void bgp_updatesockname(struct peer *peer);
 
