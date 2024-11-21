@@ -487,9 +487,8 @@ static void pim_msdp_pkt_sa_gen(struct pim_instance *pim,
 		}
 
 		if (msdp_peer_sa_filter(mp, sa)) {
-			if (PIM_DEBUG_MSDP_EVENTS)
-				zlog_debug("MSDP peer %pI4 filter SA out %s",
-					   &mp->peer, sa->sg_str);
+			if (pim_msdp_log_sa_events(pim))
+				zlog_info("MSDP peer %pI4 filter SA out %s", &mp->peer, sa->sg_str);
 
 			continue;
 		}
@@ -551,9 +550,9 @@ void pim_msdp_pkt_sa_tx_one(struct pim_msdp_sa *sa)
 	pim_msdp_pkt_sa_fill_one(sa);
 	for (ALL_LIST_ELEMENTS_RO(sa->pim->msdp.peer_list, node, mp)) {
 		if (msdp_peer_sa_filter(mp, sa)) {
-			if (PIM_DEBUG_MSDP_EVENTS)
-				zlog_debug("MSDP peer %pI4 filter SA out %s",
-					   &mp->peer, sa->sg_str);
+			if (pim_msdp_log_sa_events(sa->pim))
+				zlog_info("MSDP peer %pI4 filter SA out %s", &mp->peer, sa->sg_str);
+
 			continue;
 		}
 
@@ -583,9 +582,10 @@ void pim_msdp_pkt_sa_tx_one_to_one_peer(struct pim_msdp_peer *mp,
 
 	/* Don't push it if filtered. */
 	if (msdp_peer_sa_filter(mp, &sa)) {
-		if (PIM_DEBUG_MSDP_EVENTS)
-			zlog_debug("MSDP peer %pI4 filter SA out (%pI4, %pI4)",
-				   &mp->peer, &sa.sg.src, &sa.sg.grp);
+		if (pim_msdp_log_sa_events(mp->pim))
+			zlog_info("MSDP peer %pI4 filter SA out (%pI4, %pI4)", &mp->peer,
+				  &sa.sg.src, &sa.sg.grp);
+
 		return;
 	}
 
@@ -641,11 +641,10 @@ static void pim_msdp_pkt_sa_rx_one(struct pim_msdp_peer *mp, struct in_addr rp)
 	/* Filter incoming SA with configured access list. */
 	if (mp->acl_in) {
 		acl = access_list_lookup(AFI_IP, mp->acl_in);
-		if (msdp_access_list_apply(acl, &sg.src, &sg.grp) ==
-		    FILTER_DENY) {
-			if (PIM_DEBUG_MSDP_EVENTS)
-				zlog_debug("MSDP peer %pI4 filter SA in (%pI4, %pI4)",
-					   &mp->peer, &sg.src, &sg.grp);
+		if (msdp_access_list_apply(acl, &sg.src, &sg.grp) == FILTER_DENY) {
+			if (pim_msdp_log_sa_events(mp->pim))
+				zlog_info("MSDP peer %pI4 filter SA in (%pI4, %pI4)", &mp->peer,
+					  &sg.src, &sg.grp);
 			return;
 		}
 	}
