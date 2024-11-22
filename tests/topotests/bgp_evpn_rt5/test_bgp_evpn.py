@@ -347,6 +347,40 @@ def test_evpn_ping():
     _test_evpn_ping_router(tgen.gears["r1"])
 
 
+def test_evpn_disable_routemap():
+    """
+    Check the removal of a route-map on R2. More EVPN Prefixes are expected
+    """
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    tgen.gears["r2"].vtysh_cmd(
+        """
+        configure terminal\n
+        router bgp 65000 vrf r2-vrf-101\n
+        address-family l2vpn evpn\n
+        advertise ipv4 unicast\n
+        advertise ipv6 unicast\n
+        """
+    )
+    router = tgen.gears["r1"]
+    json_file = "{}/{}/bgp_l2vpn_evpn_routes_all.json".format(CWD, router.name)
+    if not os.path.isfile(json_file):
+        assert 0, "bgp_l2vpn_evpn_routes.json file not found"
+
+    expected = json.loads(open(json_file).read())
+    test_func = partial(
+        topotest.router_json_cmp,
+        router,
+        "show bgp l2vpn evpn json",
+        expected,
+    )
+    _, result = topotest.run_and_expect(test_func, None, count=20, wait=1)
+    assertmsg = '"{}" JSON output mismatches'.format(router.name)
+    assert result is None, assertmsg
+
+
 def test_evpn_remove_ip():
     """
     Check the removal of an EVPN route is correctly handled
@@ -360,6 +394,7 @@ def test_evpn_remove_ip():
             "raw_config": [
                 "router bgp 65000 vrf r2-vrf-101",
                 "address-family ipv6 unicast",
+                "no network fd00::3/128",
                 "no network fd00::2/128",
             ]
         }
