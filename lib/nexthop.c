@@ -581,6 +581,32 @@ void nexthop_del_labels(struct nexthop *nexthop)
 	nexthop->nh_label_type = ZEBRA_LSP_NONE;
 }
 
+void nexthop_change_labels(struct nexthop *nexthop, struct mpls_label_stack *new_stack)
+{
+	struct mpls_label_stack *nh_label_tmp;
+	uint32_t i;
+
+	/* Enforce limit on label stack size */
+	if (new_stack->num_labels > MPLS_MAX_LABELS)
+		new_stack->num_labels = MPLS_MAX_LABELS;
+
+	/* Resize the array to accommodate the new label stack */
+	if (new_stack->num_labels > nexthop->nh_label->num_labels) {
+		nh_label_tmp = XREALLOC(MTYPE_NH_LABEL, nexthop->nh_label,
+					sizeof(struct mpls_label_stack) +
+						new_stack->num_labels * sizeof(mpls_label_t));
+		if (nh_label_tmp) {
+			nexthop->nh_label = nh_label_tmp;
+			nexthop->nh_label->num_labels = new_stack->num_labels;
+		} else
+			new_stack->num_labels = nexthop->nh_label->num_labels;
+	}
+
+	/* Copy the label stack into the array */
+	for (i = 0; i < new_stack->num_labels; i++)
+		nexthop->nh_label->label[i] = new_stack->label[i];
+}
+
 void nexthop_add_srv6_seg6local(struct nexthop *nexthop, uint32_t action,
 				const struct seg6local_context *ctx)
 {
