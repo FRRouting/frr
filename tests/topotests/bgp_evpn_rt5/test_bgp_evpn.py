@@ -13,6 +13,8 @@
  with route advertisements on a separate netns.
 """
 
+import json
+from functools import partial
 import os
 import sys
 import pytest
@@ -160,6 +162,36 @@ def teardown_module(_mod):
     tgen.stop_topology()
 
 
+def _test_evpn_ping_router(pingrouter, ipv4_only=False):
+    """
+    internal function to check ping between r1 and r2
+    """
+    # Check IPv4 and IPv6 connectivity between r1 and r2 ( routing vxlan evpn)
+    logger.info(
+        "Check Ping IPv4 from  R1(r1-vrf-101) to R2(r2-vrf-101 = 192.168.101.41)"
+    )
+    output = pingrouter.run("ip netns exec r1-vrf-101 ping 192.168.101.41 -f -c 1000")
+    logger.info(output)
+    if "1000 packets transmitted, 1000 received" not in output:
+        assertmsg = (
+            "expected ping IPv4 from R1(r1-vrf-101) to R2(192.168.101.41) should be ok"
+        )
+        assert 0, assertmsg
+    else:
+        logger.info("Check Ping IPv4 from R1(r1-vrf-101) to R2(192.168.101.41) OK")
+
+    if ipv4_only:
+        return
+
+    logger.info("Check Ping IPv6 from  R1(r1-vrf-101) to R2(r2-vrf-101 = fd00::2)")
+    output = pingrouter.run("ip netns exec r1-vrf-101 ping fd00::2 -f -c 1000")
+    logger.info(output)
+    if "1000 packets transmitted, 1000 received" not in output:
+        assert 0, "expected ping IPv6 from R1(r1-vrf-101) to R2(fd00::2) should be ok"
+    else:
+        logger.info("Check Ping IPv6 from R1(r1-vrf-101) to R2(fd00::2) OK")
+
+
 def test_protocols_convergence():
     """
     Assert that all protocols have converged
@@ -168,7 +200,34 @@ def test_protocols_convergence():
     tgen = get_topogen()
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
-    topotest.sleep(4, "waiting 4 seconds for bgp convergence")
+    # Check BGP IPv4 routing tables on r1
+    logger.info("Checking BGP L2VPN EVPN routes for convergence on r1")
+
+    for rname in ("r1", "r2"):
+        router = tgen.gears[rname]
+        json_file = "{}/{}/bgp_l2vpn_evpn_routes.json".format(CWD, router.name)
+        if not os.path.isfile(json_file):
+            assert 0, "bgp_l2vpn_evpn_routes.json file not found"
+
+        expected = json.loads(open(json_file).read())
+        test_func = partial(
+            topotest.router_json_cmp,
+            router,
+            "show bgp l2vpn evpn json",
+            expected,
+        )
+        _, result = topotest.run_and_expect(test_func, None, count=20, wait=1)
+        assertmsg = '"{}" JSON output mismatches'.format(router.name)
+        assert result is None, assertmsg
+
+
+def test_protocols_dump_info():
+    """
+    Dump EVPN information
+    """
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
     # Check IPv4/IPv6 routing tables.
     output = tgen.gears["r1"].vtysh_cmd("show bgp l2vpn evpn", isjson=False)
     logger.info("==== result from show bgp l2vpn evpn")
@@ -203,6 +262,15 @@ def test_protocols_convergence():
     logger.info("==== result from show evpn rmac vni all")
     logger.info(output)
 
+
+def test_router_check_ip():
+    """
+    Check routes are correctly installed
+    """
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
     expected = {
         "fd00::2/128": [
             {
@@ -221,50 +289,71 @@ def test_protocols_convergence():
     )
     assert result is None, "ipv6 route check failed"
 
-    expected = {
-        "101": {
-            "numNextHops": 2,
-            "192.168.100.41": {
-                "nexthopIp": "192.168.100.41",
-            },
-            "::ffff:192.168.100.41": {
-                "nexthopIp": "::ffff:192.168.100.41",
-            },
+
+def _test_router_check_evpn_contexts(router, ipv4_only=False):
+    """
+    Check EVPN nexthops and RMAC number  are correctly configured
+    """
+    if ipv4_only:
+        expected = {
+            "101": {
+                "numNextHops": 1,
+                "192.168.100.41": {
+                    "nexthopIp": "192.168.100.41",
+                },
+            }
         }
-    }
+    else:
+        expected = {
+            "101": {
+                "numNextHops": 2,
+                "192.168.100.41": {
+                    "nexthopIp": "192.168.100.41",
+                },
+                "::ffff:192.168.100.41": {
+                    "nexthopIp": "::ffff:192.168.100.41",
+                },
+            }
+        }
     result = topotest.router_json_cmp(
-        tgen.gears["r1"], "show evpn next-hops vni all json", expected
+        router, "show evpn next-hops vni all json", expected
     )
     assert result is None, "evpn next-hops check failed"
 
     expected = {"101": {"numRmacs": 1}}
-    result = topotest.router_json_cmp(
-        tgen.gears["r1"], "show evpn rmac vni all json", expected
-    )
+    result = topotest.router_json_cmp(router, "show evpn rmac vni all json", expected)
     assert result is None, "evpn rmac number check failed"
 
-    # Check IPv4 and IPv6 connectivity between r1 and r2 ( routing vxlan evpn)
-    pingrouter = tgen.gears["r1"]
-    logger.info(
-        "Check Ping IPv4 from  R1(r1-vrf-101) to R2(r2-vrf-101 = 192.168.101.41)"
-    )
-    output = pingrouter.run("ip netns exec r1-vrf-101 ping 192.168.101.41 -f -c 1000")
-    logger.info(output)
-    if "1000 packets transmitted, 1000 received" not in output:
-        assertmsg = (
-            "expected ping IPv4 from R1(r1-vrf-101) to R2(192.168.101.41) should be ok"
-        )
-        assert 0, assertmsg
-    else:
-        logger.info("Check Ping IPv4 from R1(r1-vrf-101) to R2(192.168.101.41) OK")
 
-    logger.info("Check Ping IPv6 from  R1(r1-vrf-101) to R2(r2-vrf-101 = fd00::2)")
-    output = pingrouter.run("ip netns exec r1-vrf-101 ping fd00::2 -f -c 1000")
-    logger.info(output)
-    if "1000 packets transmitted, 1000 received" not in output:
-        assert 0, "expected ping IPv6 from R1(r1-vrf-101) to R2(fd00::2) should be ok"
-    else:
-        logger.info("Check Ping IPv6 from R1(r1-vrf-101) to R2(fd00::2) OK")
+def test_router_check_evpn_contexts():
+    """
+    Check EVPN nexthops and RMAC number  are correctly configured
+    """
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    _test_router_check_evpn_contexts(tgen.gears["r1"])
+
+
+def test_evpn_ping():
+    """
+    Check ping between R1 and R2 is ok
+    """
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    _test_evpn_ping_router(tgen.gears["r1"])
+
+
+def test_evpn_remove_ip():
+    """
+    Check the removal of an EVPN route is correctly handled
+    """
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
 
     config_no_ipv6 = {
         "r2": {
@@ -293,6 +382,7 @@ def test_protocols_convergence():
     }
     result = verify_bgp_rib(tgen, "ipv6", "r1", ipv6_routes, expected=False)
     assert result is not True, "expect IPv6 route fd00::2/128 withdrawn"
+
     output = tgen.gears["r1"].vtysh_cmd("show evpn next-hops vni all", isjson=False)
     logger.info("==== result from show evpn next-hops vni all")
     logger.info(output)
@@ -300,37 +390,27 @@ def test_protocols_convergence():
     logger.info("==== result from show evpn next-hops vni all")
     logger.info(output)
 
-    expected = {
-        "101": {
-            "numNextHops": 1,
-            "192.168.100.41": {
-                "nexthopIp": "192.168.100.41",
-            },
-        }
-    }
-    result = topotest.router_json_cmp(
-        tgen.gears["r1"], "show evpn next-hops vni all json", expected
-    )
-    assert result is None, "evpn next-hops check failed"
 
-    expected = {"101": {"numRmacs": 1}}
-    result = topotest.router_json_cmp(
-        tgen.gears["r1"], "show evpn rmac vni all json", expected
-    )
-    assert result is None, "evpn rmac number check failed"
+def test_router_check_evpn_contexts_again():
+    """
+    Check EVPN nexthops and RMAC number  are correctly configured
+    """
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
 
-    logger.info(
-        "Check Ping IPv4 from  R1(r1-vrf-101) to R2(r2-vrf-101 = 192.168.101.41)"
-    )
-    output = pingrouter.run("ip netns exec r1-vrf-101 ping 192.168.101.41 -f -c 1000")
-    logger.info(output)
-    if "1000 packets transmitted, 1000 received" not in output:
-        assertmsg = (
-            "expected ping IPv4 from R1(r1-vrf-101) to R2(192.168.101.41) should be ok"
-        )
-        assert 0, assertmsg
-    else:
-        logger.info("Check Ping IPv4 from R1(r1-vrf-101) to R2(192.168.101.41) OK")
+    _test_router_check_evpn_contexts(tgen.gears["r1"], ipv4_only=True)
+
+
+def test_evpn_ping_again():
+    """
+    Check ping between R1 and R2 is ok
+    """
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    _test_evpn_ping_router(tgen.gears["r1"], ipv4_only=True)
 
 
 def test_memory_leak():
