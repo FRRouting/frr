@@ -462,6 +462,10 @@ void bgp_suppress_fib_pending_set(struct bgp *bgp, bool set)
 	if (bgp->inst_type == BGP_INSTANCE_TYPE_VIEW)
 		return;
 
+	/* Do nothing if already in a desired state */
+	if (set == !!CHECK_FLAG(bgp->flags, BGP_FLAG_SUPPRESS_FIB_PENDING))
+		return;
+
 	if (set) {
 		SET_FLAG(bgp->flags, BGP_FLAG_SUPPRESS_FIB_PENDING);
 		/* Send msg to zebra for the first instance of bgp enabled
