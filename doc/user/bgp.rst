@@ -1803,7 +1803,7 @@ Configuring Peers
    Send the extended RPKI communities to the peer. RPKI extended community
    can be send only to iBGP and eBGP-OAD peers.
 
-   Default: enabled.
+   Default: disabled.
 
 .. clicmd:: neighbor PEER weight WEIGHT
 

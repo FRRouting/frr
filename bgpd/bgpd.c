@@ -1569,19 +1569,13 @@ struct peer *peer_new(struct bgp *bgp)
 	/* Set default flags. */
 	FOREACH_AFI_SAFI (afi, safi) {
 		SET_FLAG(peer->af_flags[afi][safi], PEER_FLAG_SEND_COMMUNITY);
-		SET_FLAG(peer->af_flags[afi][safi],
-			 PEER_FLAG_SEND_EXT_COMMUNITY);
-		SET_FLAG(peer->af_flags[afi][safi],
-			 PEER_FLAG_SEND_EXT_COMMUNITY_RPKI);
+		SET_FLAG(peer->af_flags[afi][safi], PEER_FLAG_SEND_EXT_COMMUNITY);
 		SET_FLAG(peer->af_flags[afi][safi],
 			 PEER_FLAG_SEND_LARGE_COMMUNITY);
 
 		SET_FLAG(peer->af_flags_invert[afi][safi],
 			 PEER_FLAG_SEND_COMMUNITY);
-		SET_FLAG(peer->af_flags_invert[afi][safi],
-			 PEER_FLAG_SEND_EXT_COMMUNITY);
-		SET_FLAG(peer->af_flags_invert[afi][safi],
-			 PEER_FLAG_SEND_EXT_COMMUNITY_RPKI);
+		SET_FLAG(peer->af_flags_invert[afi][safi], PEER_FLAG_SEND_EXT_COMMUNITY);
 		SET_FLAG(peer->af_flags_invert[afi][safi],
 			 PEER_FLAG_SEND_LARGE_COMMUNITY);
 		peer->addpath_type[afi][safi] = BGP_ADDPATH_NONE;

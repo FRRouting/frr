@@ -19132,9 +19132,7 @@ static void bgp_config_write_peer_af(struct vty *vty, struct bgp *bgp,
 
 		if (peergroup_af_flag_check(peer, afi, safi,
 					    PEER_FLAG_SEND_EXT_COMMUNITY_RPKI))
-			vty_out(vty,
-				"  no neighbor %s send-community extended rpki\n",
-				addr);
+			vty_out(vty, "  neighbor %s send-community extended rpki\n", addr);
 	}
 
 	/* Default information */
