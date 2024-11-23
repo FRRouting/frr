@@ -255,7 +255,11 @@ ctx_keywords = {
     },
     "router rip": {},
     "router ripng": {},
-    "router isis ": {},
+    "router isis ": {
+        "segment-routing srv6": {
+            "node-msd": {},
+        },
+    },
     "router openfabric ": {},
     "router ospf": {},
     "router ospf6": {},
