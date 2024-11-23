@@ -1334,6 +1334,12 @@ static void update_out_nhlfe(struct hash_bucket *bucket, void *args)
 			continue;
 
 		for (ALL_LIST_ELEMENTS_RO(srp->route->paths, pnode, path)) {
+			/* Compute NHFLE if path has not been initialized */
+			if (!path->srni.nexthop) {
+				compute_prefix_nhlfe(srp);
+				continue;
+			}
+
 			/* Skip path that has not next SR-Node as nexthop */
 			if (path->srni.nexthop != srnext)
 				continue;
