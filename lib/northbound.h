@@ -21,6 +21,7 @@ extern "C" {
 /* Forward declaration(s). */
 struct vty;
 struct debug;
+struct nb_node;
 
 struct nb_yang_xpath_tag {
 	uint32_t ns;
@@ -100,6 +101,20 @@ enum nb_cb_operation {
 	NB_CB_LOOKUP_ENTRY,
 	NB_CB_RPC,
 	NB_CB_NOTIFY,
+};
+
+/* Northbound error codes. */
+enum nb_error {
+	NB_OK = 0,
+	NB_ERR,
+	NB_ERR_NO_CHANGES,
+	NB_ERR_NOT_FOUND,
+	NB_ERR_EXISTS,
+	NB_ERR_LOCKED,
+	NB_ERR_VALIDATION,
+	NB_ERR_RESOURCE,
+	NB_ERR_INCONSISTENCY,
+	NB_YIELD,
 };
 
 union nb_resource {
@@ -426,6 +441,25 @@ struct nb_callbacks {
 	void (*apply_finish)(struct nb_cb_apply_finish_args *args);
 
 	/*
+	 * Operational data callback (new direct tree add method).
+	 *
+	 * The callback function should create a new lyd_node (leaf) or
+	 * lyd_node's (leaf list) for the value and attach to parent.
+	 *
+	 * nb_node
+	 *    The node representing the leaf or leaf list
+	 * list_entry
+	 *    List entry from get_next (or NULL).
+	 * parent
+	 *    The parent lyd_node to attach the leaf data to.
+	 *
+	 * Returns:
+	 *    Returns an nb_error if the data could not be added to the tree.
+	 */
+	enum nb_error (*get)(const struct nb_node *nb_node, const void *list_entry,
+			     struct lyd_node *parent);
+
+	/*
 	 * Operational data callback.
 	 *
 	 * The callback function should return the value of a specific leaf,
@@ -672,20 +706,6 @@ struct frr_yang_module_info {
 #endif
 };
 
-/* Northbound error codes. */
-enum nb_error {
-	NB_OK = 0,
-	NB_ERR,
-	NB_ERR_NO_CHANGES,
-	NB_ERR_NOT_FOUND,
-	NB_ERR_EXISTS,
-	NB_ERR_LOCKED,
-	NB_ERR_VALIDATION,
-	NB_ERR_RESOURCE,
-	NB_ERR_INCONSISTENCY,
-	NB_YIELD,
-};
-
 /* Default priority. */
 #define NB_DFLT_PRIORITY (UINT32_MAX / 2)
 
@@ -814,8 +834,9 @@ extern struct debug nb_dbg_libyang;
 extern struct nb_config *running_config;
 
 /* Wrappers for the northbound callbacks. */
-extern struct yang_data *nb_callback_get_elem(const struct nb_node *nb_node,
-					      const char *xpath,
+extern struct yang_data *nb_callback_has_new_get_elem(const struct nb_node *nb_node);
+
+extern struct yang_data *nb_callback_get_elem(const struct nb_node *nb_node, const char *xpath,
 					      const void *list_entry);
 extern const void *nb_callback_get_next(const struct nb_node *nb_node,
 					const void *parent_list_entry,

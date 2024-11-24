@@ -584,6 +584,10 @@ static enum nb_error nb_op_iter_leaf(struct nb_op_yield_state *ys,
 	if (lysc_is_key(snode))
 		return NB_OK;
 
+	/* Check for new simple get */
+	if (nb_node->cbs.get)
+		return nb_node->cbs.get(nb_node, ni->list_entry, ni->inner);
+
 	data = nb_callback_get_elem(nb_node, xpath, ni->list_entry);
 	if (data == NULL)
 		return NB_OK;
@@ -616,6 +620,10 @@ static enum nb_error nb_op_iter_leaflist(struct nb_op_yield_state *ys,
 
 	if (CHECK_FLAG(snode->flags, LYS_CONFIG_W))
 		return NB_OK;
+
+	/* Check for new simple get */
+	if (nb_node->cbs.get)
+		return nb_node->cbs.get(nb_node, ni->list_entry, ni->inner);
 
 	do {
 		struct yang_data *data;

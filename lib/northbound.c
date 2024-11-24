@@ -273,9 +273,11 @@ static unsigned int nb_node_validate_cbs(const struct nb_node *nb_node)
 	error += nb_node_validate_cb(nb_node, NB_CB_APPLY_FINISH,
 				     !!nb_node->cbs.apply_finish, true);
 	error += nb_node_validate_cb(nb_node, NB_CB_GET_ELEM,
-				     !!nb_node->cbs.get_elem, false);
+				     (nb_node->cbs.get_elem || nb_node->cbs.get), false);
 	error += nb_node_validate_cb(nb_node, NB_CB_GET_NEXT,
-				     !!nb_node->cbs.get_next, false);
+				     (nb_node->cbs.get_next ||
+				      (nb_node->snode->nodetype == LYS_LEAFLIST && nb_node->cbs.get)),
+				     false);
 	error += nb_node_validate_cb(nb_node, NB_CB_GET_KEYS,
 				     !!nb_node->cbs.get_keys, false);
 	error += nb_node_validate_cb(nb_node, NB_CB_LOOKUP_ENTRY,
