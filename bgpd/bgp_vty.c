@@ -3519,11 +3519,6 @@ DEFUN (bgp_neighbor_graceful_restart_set,
 	peer = peer_and_group_lookup_vty(vty, argv[idx_peer]->arg);
 	if (!peer)
 		return CMD_WARNING_CONFIG_FAILED;
-	if (CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP)) {
-		vty_out(vty,
-			"Per peer-group graceful-restart configuration is not yet supported\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
 
 	result = bgp_neighbor_graceful_restart(peer, PEER_GR_CMD);
 	if (result == BGP_GR_SUCCESS) {
@@ -3554,11 +3549,6 @@ DEFUN (no_bgp_neighbor_graceful_restart,
 	peer = peer_and_group_lookup_vty(vty, argv[idx_peer]->arg);
 	if (!peer)
 		return CMD_WARNING_CONFIG_FAILED;
-	if (CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP)) {
-		vty_out(vty,
-			"Per peer-group graceful-restart configuration is not yet supported\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
 
 	result = bgp_neighbor_graceful_restart(peer, NO_PEER_GR_CMD);
 	if (ret == BGP_GR_SUCCESS) {
@@ -3588,11 +3578,6 @@ DEFUN (bgp_neighbor_graceful_restart_helper_set,
 	peer = peer_and_group_lookup_vty(vty, argv[idx_peer]->arg);
 	if (!peer)
 		return CMD_WARNING_CONFIG_FAILED;
-	if (CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP)) {
-		vty_out(vty,
-			"Per peer-group graceful-restart configuration is not yet supported\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
 
 	ret = bgp_neighbor_graceful_restart(peer, PEER_HELPER_CMD);
 	if (ret == BGP_GR_SUCCESS) {
@@ -3623,11 +3608,6 @@ DEFUN (no_bgp_neighbor_graceful_restart_helper,
 	peer = peer_and_group_lookup_vty(vty, argv[idx_peer]->arg);
 	if (!peer)
 		return CMD_WARNING_CONFIG_FAILED;
-	if (CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP)) {
-		vty_out(vty,
-			"Per peer-group graceful-restart configuration is not yet supported\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
 
 	ret = bgp_neighbor_graceful_restart(peer, NO_PEER_HELPER_CMD);
 	if (ret == BGP_GR_SUCCESS) {
@@ -3657,11 +3637,6 @@ DEFUN (bgp_neighbor_graceful_restart_disable_set,
 	peer = peer_and_group_lookup_vty(vty, argv[idx_peer]->arg);
 	if (!peer)
 		return CMD_WARNING_CONFIG_FAILED;
-	if (CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP)) {
-		vty_out(vty,
-			"Per peer-group graceful-restart configuration is not yet supported\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
 
 	ret = bgp_neighbor_graceful_restart(peer, PEER_DISABLE_CMD);
 	if (ret == BGP_GR_SUCCESS) {
@@ -3693,11 +3668,6 @@ DEFUN (no_bgp_neighbor_graceful_restart_disable,
 	peer = peer_and_group_lookup_vty(vty, argv[idx_peer]->arg);
 	if (!peer)
 		return CMD_WARNING_CONFIG_FAILED;
-	if (CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP)) {
-		vty_out(vty,
-			"Per peer-group graceful-restart configuration is not yet supported\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
 
 	ret = bgp_neighbor_graceful_restart(peer, NO_PEER_DISABLE_CMD);
 	if (ret == BGP_GR_SUCCESS) {
