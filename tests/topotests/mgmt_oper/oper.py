@@ -127,7 +127,8 @@ def do_oper_test(tgen, query_results):
         step(f"Perform query '{qr[0]}'", reset=reset)
         if reset:
             reset = False
-        _do_oper_test(tgen, qr)
+        ret = _do_oper_test(tgen, qr)
+        assert ret is None, "Unexpected diff: " + str(ret)
 
 
 def get_ip_networks(super_prefix, count):
