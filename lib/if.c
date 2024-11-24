@@ -1649,90 +1649,90 @@ static int lib_interface_description_destroy(struct nb_cb_destroy_args *args)
 	return NB_OK;
 }
 
+static enum nb_error __return_ok(const struct nb_node *nb_node, const void *list_entry,
+				 struct lyd_node *parent)
+{
+	return NB_OK;
+}
+
 /*
  * XPath: /frr-interface:lib/interface/vrf
  */
-static struct yang_data *
-lib_interface_vrf_get_elem(struct nb_cb_get_elem_args *args)
+static enum nb_error lib_interface_vrf_get(const struct nb_node *nb_node, const void *list_entry,
+					   struct lyd_node *parent)
 {
-	const struct interface *ifp = args->list_entry;
+	const struct lysc_node *snode = nb_node->snode;
+	const struct interface *ifp = list_entry;
 
-	return yang_data_new_string(args->xpath, ifp->vrf->name);
+	if (lyd_new_term(parent, snode->module, snode->name, ifp->vrf->name, LYD_NEW_PATH_UPDATE,
+			 NULL))
+		return NB_ERR_RESOURCE;
+	return NB_OK;
 }
 
 /*
  * XPath: /frr-interface:lib/interface/state/if-index
  */
-static struct yang_data *
-lib_interface_state_if_index_get_elem(struct nb_cb_get_elem_args *args)
+static enum nb_error lib_interface_state_if_index_get(const struct nb_node *nb_node,
+						      const void *list_entry,
+						      struct lyd_node *parent)
 {
-	const struct interface *ifp = args->list_entry;
+	const struct lysc_node *snode = nb_node->snode;
+	const struct interface *ifp = list_entry;
+	int32_t value = ifp->ifindex;
 
-	return yang_data_new_int32(args->xpath, ifp->ifindex);
+	if (lyd_new_term_bin(parent, snode->module, snode->name, &value, sizeof(value),
+			     LYD_NEW_PATH_UPDATE, NULL))
+		return NB_ERR_RESOURCE;
+	return NB_OK;
 }
 
 /*
- * XPath: /frr-interface:lib/interface/state/mtu
+ * XPath: /frr-interface:lib/interface/state/mtu[6]
  */
-static struct yang_data *
-lib_interface_state_mtu_get_elem(struct nb_cb_get_elem_args *args)
+static enum nb_error lib_interface_state_mtu_get(const struct nb_node *nb_node,
+						 const void *list_entry, struct lyd_node *parent)
 {
-	const struct interface *ifp = args->list_entry;
+	const struct lysc_node *snode = nb_node->snode;
+	const struct interface *ifp = list_entry;
+	uint32_t value = ifp->mtu;
 
-	return yang_data_new_uint32(args->xpath, ifp->mtu);
-}
-
-/*
- * XPath: /frr-interface:lib/interface/state/mtu6
- */
-static struct yang_data *
-lib_interface_state_mtu6_get_elem(struct nb_cb_get_elem_args *args)
-{
-	const struct interface *ifp = args->list_entry;
-
-	return yang_data_new_uint32(args->xpath, ifp->mtu6);
+	if (lyd_new_term_bin(parent, snode->module, snode->name, &value, sizeof(value),
+			     LYD_NEW_PATH_UPDATE, NULL))
+		return NB_ERR_RESOURCE;
+	return NB_OK;
 }
 
 /*
  * XPath: /frr-interface:lib/interface/state/speed
  */
-static struct yang_data *
-lib_interface_state_speed_get_elem(struct nb_cb_get_elem_args *args)
+static enum nb_error lib_interface_state_speed_get(const struct nb_node *nb_node,
+						   const void *list_entry, struct lyd_node *parent)
 {
-	const struct interface *ifp = args->list_entry;
+	const struct lysc_node *snode = nb_node->snode;
+	const struct interface *ifp = list_entry;
+	uint32_t value = ifp->speed;
 
-	return yang_data_new_uint32(args->xpath, ifp->speed);
+	if (lyd_new_term_bin(parent, snode->module, snode->name, &value, sizeof(value),
+			     LYD_NEW_PATH_UPDATE, NULL))
+		return NB_ERR_RESOURCE;
+	return NB_OK;
 }
 
 /*
  * XPath: /frr-interface:lib/interface/state/metric
  */
-static struct yang_data *
-lib_interface_state_metric_get_elem(struct nb_cb_get_elem_args *args)
+static enum nb_error lib_interface_state_metric_get(const struct nb_node *nb_node,
+						    const void *list_entry, struct lyd_node *parent)
 {
-	const struct interface *ifp = args->list_entry;
+	const struct lysc_node *snode = nb_node->snode;
+	const struct interface *ifp = list_entry;
+	uint32_t value = ifp->metric;
 
-	return yang_data_new_uint32(args->xpath, ifp->metric);
-}
-
-/*
- * XPath: /frr-interface:lib/interface/state/flags
- */
-static struct yang_data *
-lib_interface_state_flags_get_elem(struct nb_cb_get_elem_args *args)
-{
-	/* TODO: implement me. */
-	return NULL;
-}
-
-/*
- * XPath: /frr-interface:lib/interface/state/type
- */
-static struct yang_data *
-lib_interface_state_type_get_elem(struct nb_cb_get_elem_args *args)
-{
-	/* TODO: implement me. */
-	return NULL;
+	if (lyd_new_term_bin(parent, snode->module, snode->name, &value, sizeof(value),
+			     LYD_NEW_PATH_UPDATE, NULL))
+		return NB_ERR_RESOURCE;
+	return NB_OK;
 }
 
 /*
@@ -1779,49 +1779,49 @@ const struct frr_yang_module_info frr_interface_info = {
 		{
 			.xpath = "/frr-interface:lib/interface/vrf",
 			.cbs = {
-				.get_elem = lib_interface_vrf_get_elem,
+				.get = lib_interface_vrf_get,
 			}
 		},
 		{
 			.xpath = "/frr-interface:lib/interface/state/if-index",
 			.cbs = {
-				.get_elem = lib_interface_state_if_index_get_elem,
+				.get = lib_interface_state_if_index_get,
 			}
 		},
 		{
 			.xpath = "/frr-interface:lib/interface/state/mtu",
 			.cbs = {
-				.get_elem = lib_interface_state_mtu_get_elem,
+				.get = lib_interface_state_mtu_get,
 			}
 		},
 		{
 			.xpath = "/frr-interface:lib/interface/state/mtu6",
 			.cbs = {
-				.get_elem = lib_interface_state_mtu6_get_elem,
+				.get = lib_interface_state_mtu_get,
 			}
 		},
 		{
 			.xpath = "/frr-interface:lib/interface/state/speed",
 			.cbs = {
-				.get_elem = lib_interface_state_speed_get_elem,
+				.get = lib_interface_state_speed_get,
 			}
 		},
 		{
 			.xpath = "/frr-interface:lib/interface/state/metric",
 			.cbs = {
-				.get_elem = lib_interface_state_metric_get_elem,
+				.get = lib_interface_state_metric_get,
 			}
 		},
 		{
 			.xpath = "/frr-interface:lib/interface/state/flags",
 			.cbs = {
-				.get_elem = lib_interface_state_flags_get_elem,
+				.get = __return_ok,
 			}
 		},
 		{
 			.xpath = "/frr-interface:lib/interface/state/type",
 			.cbs = {
-				.get_elem = lib_interface_state_type_get_elem,
+				.get = __return_ok,
 			}
 		},
 		{
