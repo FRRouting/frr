@@ -62,7 +62,7 @@ def disable_debug(router):
     router.vtysh_cmd("no debug northbound callbacks configuration")
 
 
-@retry(retry_timeout=30, initial_wait=1)
+@retry(retry_timeout=30, initial_wait=0.1)
 def _do_oper_test(tgen, qr, seconds_left=None):
     r1 = tgen.gears["r1"].net
 
@@ -113,6 +113,7 @@ def _do_oper_test(tgen, qr, seconds_left=None):
                 "-------DIFF---------\n%s\n---------DIFF----------",
                 pprint.pformat(cmpout),
             )
+            cmpout = str(cmpout)
     else:
         cmpout = tt_json_cmp(ojson, ejson, exact=True)
         if cmpout and ejson_alt is not None:
@@ -183,6 +184,20 @@ def addrgen(a, count, step=1):
     for _ in range(0, count, step):
         yield a
         a += step
+
+
+@retry(retry_timeout=30, initial_wait=0.1)
+def check_kernel_net(r1, net, vrf):
+    addr = ipaddress.ip_network(net)
+    vrfstr = f" vrf {vrf}" if vrf else ""
+    if addr.version == 6:
+        kernel = r1.cmd_raises(f"ip -6 route show{vrfstr}")
+    else:
+        kernel = r1.cmd_raises(f"ip -4 route show{vrfstr}")
+
+    nentries = len(re.findall("\n", kernel))
+    logging.info("checking kernel routing table%s: (%s entries)", vrfstr, nentries)
+    assert str(net) in kernel, f"Failed to find '{net}' in {nentries} entries"
 
 
 @retry(retry_timeout=30, initial_wait=0.1)
