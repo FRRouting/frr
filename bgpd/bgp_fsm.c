@@ -2724,33 +2724,55 @@ static void bgp_gr_update_mode_of_all_peers(struct bgp *bgp,
 	struct listnode *node = {0};
 	struct listnode *nnode = {0};
 	enum peer_mode peer_old_state = PEER_INVALID;
-
-	/* TODO: Need to handle peer-groups. */
+	struct peer_group *group;
+	struct peer *member;
 
 	for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer)) {
-		peer_old_state = bgp_peer_gr_mode_get(peer);
-		if (peer_old_state != PEER_GLOBAL_INHERIT)
-			continue;
+		if (!CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP)) {
+			peer_old_state = bgp_peer_gr_mode_get(peer);
+			if (peer_old_state != PEER_GLOBAL_INHERIT)
+				continue;
 
-		bgp_peer_inherit_global_gr_mode(peer, global_new_state);
-		bgp_peer_gr_flags_update(peer);
+			bgp_peer_inherit_global_gr_mode(peer, global_new_state);
+			bgp_peer_gr_flags_update(peer);
 
-		if (BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
-			zlog_debug("%pBP: Inherited Global GR mode, GR flags 0x%x peer flags 0x%" PRIx64
-				   "...resetting session",
-				   peer, peer->peer_gr_new_status_flag,
-				   peer->flags);
+			if (BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
+				zlog_debug("%pBP: Inherited Global GR mode, GR flags 0x%x peer flags 0x%" PRIx64
+					   "...resetting session",
+					   peer, peer->peer_gr_new_status_flag, peer->flags);
 
-		peer->last_reset = PEER_DOWN_CAPABILITY_CHANGE;
+			peer->last_reset = PEER_DOWN_CAPABILITY_CHANGE;
 
-		/* Reset session to match with behavior for other peer
-		 * configs that require the session to be re-setup.
-		 */
-		if (BGP_IS_VALID_STATE_FOR_NOTIF(peer->connection->status))
-			bgp_notify_send(peer->connection, BGP_NOTIFY_CEASE,
-					BGP_NOTIFY_CEASE_CONFIG_CHANGE);
-		else
-			bgp_session_reset_safe(peer, &nnode);
+			if (BGP_IS_VALID_STATE_FOR_NOTIF(peer->connection->status))
+				bgp_notify_send(peer->connection, BGP_NOTIFY_CEASE,
+						BGP_NOTIFY_CEASE_CONFIG_CHANGE);
+			else
+				bgp_session_reset_safe(peer, &nnode);
+		} else {
+			group = peer->group;
+			for (ALL_LIST_ELEMENTS(group->peer, node, nnode, member)) {
+				peer_old_state = bgp_peer_gr_mode_get(member);
+				if (peer_old_state != PEER_GLOBAL_INHERIT)
+					continue;
+
+				bgp_peer_inherit_global_gr_mode(member, global_new_state);
+				bgp_peer_gr_flags_update(member);
+
+				if (BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
+					zlog_debug("%pBP: Inherited Global GR mode, GR flags 0x%x peer flags 0x%" PRIx64
+						   "...resetting session",
+						   member, member->peer_gr_new_status_flag,
+						   member->flags);
+
+				member->last_reset = PEER_DOWN_CAPABILITY_CHANGE;
+
+				if (BGP_IS_VALID_STATE_FOR_NOTIF(member->connection->status))
+					bgp_notify_send(member->connection, BGP_NOTIFY_CEASE,
+							BGP_NOTIFY_CEASE_CONFIG_CHANGE);
+				else
+					bgp_session_reset(member);
+			}
+		}
 	}
 }
 
@@ -2936,6 +2958,9 @@ unsigned int bgp_peer_gr_action(struct peer *peer, enum peer_mode old_state,
 {
 	enum global_mode global_gr_mode;
 	bool session_reset = true;
+	struct peer_group *group;
+	struct peer *member;
+	struct listnode *node, *nnode;
 
 	if (old_state == new_state)
 		return BGP_GR_NO_OPERATION;
@@ -2970,16 +2995,27 @@ unsigned int bgp_peer_gr_action(struct peer *peer, enum peer_mode old_state,
 	bgp_peer_move_to_gr_mode(peer, new_state);
 
 	if (session_reset) {
-		peer->last_reset = PEER_DOWN_CAPABILITY_CHANGE;
+		if (!CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP)) {
+			peer->last_reset = PEER_DOWN_CAPABILITY_CHANGE;
 
-		/* Reset session to match with behavior for other peer
-		 * configs that require the session to be re-setup.
-		 */
-		if (BGP_IS_VALID_STATE_FOR_NOTIF(peer->connection->status))
-			bgp_notify_send(peer->connection, BGP_NOTIFY_CEASE,
-					BGP_NOTIFY_CEASE_CONFIG_CHANGE);
-		else
-			bgp_session_reset(peer);
+			if (BGP_IS_VALID_STATE_FOR_NOTIF(peer->connection->status))
+				bgp_notify_send(peer->connection, BGP_NOTIFY_CEASE,
+						BGP_NOTIFY_CEASE_CONFIG_CHANGE);
+			else
+				bgp_session_reset(peer);
+		} else {
+			group = peer->group;
+			for (ALL_LIST_ELEMENTS(group->peer, node, nnode, member)) {
+				member->last_reset = PEER_DOWN_CAPABILITY_CHANGE;
+				bgp_peer_move_to_gr_mode(member, new_state);
+
+				if (BGP_IS_VALID_STATE_FOR_NOTIF(member->connection->status))
+					bgp_notify_send(member->connection, BGP_NOTIFY_CEASE,
+							BGP_NOTIFY_CEASE_CONFIG_CHANGE);
+				else
+					bgp_session_reset(member);
+			}
+		}
 	}
 
 	return BGP_GR_SUCCESS;

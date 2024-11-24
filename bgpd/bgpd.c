@@ -3027,6 +3027,7 @@ static void peer_group2peer_config_copy(struct peer_group *group,
 	PEER_ATTR_INHERIT(peer, group, local_role);
 
 	/* Update GR flags for the peer. */
+	PEER_ATTR_INHERIT(peer, group, peer_gr_new_status_flag);
 	bgp_peer_gr_flags_update(peer);
 
 	/* Apply BFD settings from group to peer if it exists. */
