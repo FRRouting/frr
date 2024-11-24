@@ -77,7 +77,13 @@ def _do_oper_test(tgen, qr, seconds_left=None):
     # Don't use this for now.
     dd_json_cmp = None
 
-    expected = open(qr[1], encoding="ascii").read()
+    if isinstance(qr[1], str):
+        expected = open(qr[1], encoding="ascii").read()
+        expected_alt = None
+    else:
+        expected = open(qr[1][0], encoding="ascii").read()
+        expected_alt = open(qr[1][1], encoding="ascii").read()
+
     output = r1.cmd_nostatus(qcmd.format(qr[0], qr[2] if len(qr) > 2 else ""))
 
     diag = logging.debug if seconds_left else logging.warning
@@ -90,6 +96,7 @@ def _do_oper_test(tgen, qr, seconds_left=None):
 
     try:
         ejson = json.loads(expected)
+        ejson_alt = json.loads(expected_alt) if expected_alt is not None else None
     except json.decoder.JSONDecodeError as error:
         logging.error(
             "Error decoding json exp result: %s\noutput:\n%s", error, expected
@@ -99,6 +106,8 @@ def _do_oper_test(tgen, qr, seconds_left=None):
 
     if dd_json_cmp:
         cmpout = json_cmp(ojson, ejson, exact_match=True)
+        if cmpout and ejson_alt is not None:
+            cmpout = json_cmp(ojson, ejson_alt, exact_match=True)
         if cmpout:
             diag(
                 "-------DIFF---------\n%s\n---------DIFF----------",
@@ -106,6 +115,8 @@ def _do_oper_test(tgen, qr, seconds_left=None):
             )
     else:
         cmpout = tt_json_cmp(ojson, ejson, exact=True)
+        if cmpout and ejson_alt is not None:
+            cmpout = tt_json_cmp(ojson, ejson_alt, exact=True)
         if cmpout:
             diag(
                 "-------EXPECT--------\n%s\n------END-EXPECT------",
@@ -118,6 +129,7 @@ def _do_oper_test(tgen, qr, seconds_left=None):
             diag("----diff---\n{}".format(cmpout))
             diag("Command: {}".format(qcmd.format(qr[0], qr[2] if len(qr) > 2 else "")))
             diag("File: {}".format(qr[1]))
+            cmpout = str(cmpout)
     return cmpout
 
 
@@ -127,7 +139,8 @@ def do_oper_test(tgen, query_results):
         step(f"Perform query '{qr[0]}'", reset=reset)
         if reset:
             reset = False
-        _do_oper_test(tgen, qr)
+        ret = _do_oper_test(tgen, qr)
+        assert ret is None, "Unexpected diff: " + str(ret)
 
 
 def get_ip_networks(super_prefix, count):
