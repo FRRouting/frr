@@ -12315,8 +12315,7 @@ void route_vty_out_detail_header(struct vty *vty, struct bgp *bgp,
 		} else {
 			if (incremental_print) {
 				vty_out(vty, "\"prefix\": \"%pFX\",\n", p);
-				vty_out(vty, "\"version\": \"%" PRIu64 "\",",
-					dest->version);
+				vty_out(vty, "\"version\": %" PRIu64 ",", dest->version);
 			} else {
 				json_object_string_addf(json, "prefix", "%pFX",
 							p);
