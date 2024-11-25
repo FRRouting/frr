@@ -11966,8 +11966,12 @@ void route_vty_out_detail_header(struct vty *vty, struct bgp *bgp,
 		} else {
 			if (incremental_print) {
 				vty_out(vty, "\"prefix\": \"%pFX\",\n", p);
+<<<<<<< HEAD
 				vty_out(vty, "\"version\": \"%" PRIu64 "\",\n",
 					dest->version);
+=======
+				vty_out(vty, "\"version\": %" PRIu64 ",", dest->version);
+>>>>>>> c5d7815ccc (bgpd: fix version attribute is an int, not a string)
 			} else {
 				json_object_string_addf(json, "prefix", "%pFX",
 							p);
