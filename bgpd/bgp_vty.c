@@ -14905,22 +14905,31 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, bool use_json,
 			if (CHECK_FLAG(p->cap, PEER_CAP_RESTART_RCV) ||
 			    CHECK_FLAG(p->cap, PEER_CAP_RESTART_ADV)) {
 				if (CHECK_FLAG(p->cap, PEER_CAP_RESTART_ADV) &&
-				    CHECK_FLAG(p->cap, PEER_CAP_RESTART_RCV))
+				    CHECK_FLAG(p->cap, PEER_CAP_RESTART_RCV)) {
 					json_object_string_add(
 						json_cap, "gracefulRestart",
 						"advertisedAndReceived");
-				else if (CHECK_FLAG(p->cap,
-						    PEER_CAP_RESTART_ADV))
+				} else if (CHECK_FLAG(p->cap, PEER_CAP_RESTART_ADV)) {
+					json_object_string_add(json_cap, "gracefulRestart",
+							       "advertised");
+#if CONFDATE > 20250525
+CPP_NOTICE("Remove `gracefulRestartCapability` JSON field")
+#endif
 					json_object_string_add(
 						json_cap,
 						"gracefulRestartCapability",
 						"advertised");
-				else if (CHECK_FLAG(p->cap,
-						    PEER_CAP_RESTART_RCV))
+				} else if (CHECK_FLAG(p->cap, PEER_CAP_RESTART_RCV)) {
+					json_object_string_add(json_cap, "gracefulRestart",
+							       "received");
+#if CONFDATE > 20250525
+CPP_NOTICE("Remove `gracefulRestartCapability` JSON field")
+#endif
 					json_object_string_add(
 						json_cap,
 						"gracefulRestartCapability",
 						"received");
+				}
 
 				if (CHECK_FLAG(p->cap, PEER_CAP_RESTART_RCV)) {
 					int restart_af_count = 0;
