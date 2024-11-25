@@ -235,6 +235,12 @@ enum bfd_session_flags {
 	BFD_SESS_FLAG_MAC_SET = 1 << 11, /* MAC of peer known */
 };
 
+enum bfd_mode_type {
+	BFD_MODE_TYPE_BFD = 0,
+	BFD_MODE_TYPE_SBFD_ECHO = 1,
+	BFD_MODE_TYPE_SBFD_INIT = 2,
+};
+
 /*
  * BFD session hash key.
  *
