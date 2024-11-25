@@ -126,6 +126,47 @@ int pim_is_group_224_4(struct in_addr group_addr)
 	return prefix_match(&group_all, &group);
 }
 
+static bool pim_cisco_match(const struct filter *filter, const struct in_addr *source,
+			    const struct in_addr *group)
+{
+	const struct filter_cisco *cfilter = &filter->u.cfilter;
+	uint32_t source_addr;
+	uint32_t group_addr;
+
+	group_addr = group->s_addr & ~cfilter->mask_mask.s_addr;
+
+	if (cfilter->extended) {
+		source_addr = source->s_addr & ~cfilter->addr_mask.s_addr;
+		if (group_addr == cfilter->mask.s_addr && source_addr == cfilter->addr.s_addr)
+			return true;
+	} else if (group_addr == cfilter->addr.s_addr)
+		return true;
+
+	return false;
+}
+
+enum filter_type pim_access_list_apply(struct access_list *access, const struct in_addr *source,
+				       const struct in_addr *group)
+{
+	struct filter *filter;
+	struct prefix group_prefix = {};
+
+	if (access == NULL)
+		return FILTER_DENY;
+
+	for (filter = access->head; filter; filter = filter->next) {
+		if (filter->cisco) {
+			if (pim_cisco_match(filter, source, group))
+				return filter->type;
+		}
+	}
+
+	group_prefix.family = AF_INET;
+	group_prefix.prefixlen = IPV4_MAX_BITLEN;
+	group_prefix.u.prefix4.s_addr = group->s_addr;
+	return access_list_apply(access, &group_prefix);
+}
+
 bool pim_is_group_filtered(struct pim_interface *pim_ifp, pim_addr *grp)
 {
 	struct prefix grp_pfx;
