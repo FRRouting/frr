@@ -478,6 +478,10 @@ Commands available for MSDP
 
       To apply it immediately call `clear ip msdp peer A.B.C.D`.
 
+.. clicmd:: msdp shutdown
+
+   Shutdown the MSDP sessions in this PIM instance.
+
 
 .. _show-pim-information:
 
