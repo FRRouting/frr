@@ -10,6 +10,8 @@
 #include "prefix.h"
 #include "plist.h"
 
+#include "pimd.h"
+#include "pim_instance.h"
 #include "pim_util.h"
 
 /*
@@ -167,20 +169,47 @@ enum filter_type pim_access_list_apply(struct access_list *access, const struct 
 	return access_list_apply(access, &group_prefix);
 }
 
-bool pim_is_group_filtered(struct pim_interface *pim_ifp, pim_addr *grp)
+bool pim_is_group_filtered(struct pim_interface *pim_ifp, pim_addr *grp, pim_addr *src)
 {
-	struct prefix grp_pfx;
-	struct prefix_list *pl;
+	bool is_filtered = false;
+#if PIM_IPV == 4
+	struct prefix grp_pfx = {};
+	struct prefix_list *pl = NULL;
+	pim_addr any_src = PIMADDR_ANY;
 
-	if (!pim_ifp->boundary_oil_plist)
+	if (!pim_ifp->boundary_oil_plist && !pim_ifp->boundary_acl)
 		return false;
 
 	pim_addr_to_prefix(&grp_pfx, *grp);
 
 	pl = prefix_list_lookup(PIM_AFI, pim_ifp->boundary_oil_plist);
-	return pl ? prefix_list_apply_ext(pl, NULL, &grp_pfx, true) ==
-			       PREFIX_DENY
-		  : false;
+
+	/* Filter if either group or (S,G) are denied */
+	if (pl) {
+		is_filtered = prefix_list_apply_ext(pl, NULL, &grp_pfx, true) == PREFIX_DENY;
+		if (is_filtered && PIM_DEBUG_EVENTS) {
+			zlog_debug("Filtering group %pI4 per prefix-list %s", grp,
+				   pim_ifp->boundary_oil_plist);
+		}
+	}
+	if (!is_filtered && pim_ifp->boundary_acl) {
+		/* If src not provided, set to "any" (*)? */
+		if (!src)
+			src = &any_src;
+		/* S,G filtering using extended access-list syntax */
+		is_filtered = pim_access_list_apply(pim_ifp->boundary_acl, src, grp) == FILTER_DENY;
+		if (is_filtered && PIM_DEBUG_EVENTS) {
+			if (pim_addr_is_any(*src)) {
+				zlog_debug("Filtering (S,G)=(*, %pI4) per access-list %s", grp,
+					   pim_ifp->boundary_acl->name);
+			} else {
+				zlog_debug("Filtering (S,G)=(%pI4, %pI4) per access-list %s", src,
+					   grp, pim_ifp->boundary_acl->name);
+			}
+		}
+	}
+#endif
+	return is_filtered;
 }
 
 
