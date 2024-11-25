@@ -68,6 +68,8 @@
 
 static const char *prov_name = "dplane_fpm_nl";
 
+static atomic_bool fpm_cleaning_up;
+
 struct fpm_nl_ctx {
 	/* data plane connection. */
 	int socket;
@@ -524,6 +526,16 @@ static void fpm_connect(struct event *t);
 
 static void fpm_reconnect(struct fpm_nl_ctx *fnc)
 {
+	bool cleaning_p = false;
+
+	/* This is being called in the FPM pthread: ensure we don't deadlock
+	 * with similar code that may be run in the main pthread.
+	 */
+	if (!atomic_compare_exchange_strong_explicit(
+		    &fpm_cleaning_up, &cleaning_p, true, memory_order_seq_cst,
+		    memory_order_seq_cst))
+		return;
+
 	/* Cancel all zebra threads first. */
 	event_cancel_async(zrouter.master, &fnc->t_lspreset, NULL);
 	event_cancel_async(zrouter.master, &fnc->t_lspwalk, NULL);
@@ -550,6 +562,12 @@ static void fpm_reconnect(struct fpm_nl_ctx *fnc)
 	stream_reset(fnc->obuf);
 	EVENT_OFF(fnc->t_read);
 	EVENT_OFF(fnc->t_write);
+
+	/* Reset the barrier value */
+	cleaning_p = true;
+	atomic_compare_exchange_strong_explicit(
+		&fpm_cleaning_up, &cleaning_p, false, memory_order_seq_cst,
+		memory_order_seq_cst);
 
 	/* FPM is disabled, don't attempt to connect. */
 	if (fnc->disabled)
@@ -1624,6 +1642,16 @@ static int fpm_nl_start(struct zebra_dplane_provider *prov)
 
 static int fpm_nl_finish_early(struct fpm_nl_ctx *fnc)
 {
+	bool cleaning_p = false;
+
+	/* This is being called in the main pthread: ensure we don't deadlock
+	 * with similar code that may be run in the FPM pthread.
+	 */
+	if (!atomic_compare_exchange_strong_explicit(
+		    &fpm_cleaning_up, &cleaning_p, true, memory_order_seq_cst,
+		    memory_order_seq_cst))
+		return 0;
+
 	/* Disable all events and close socket. */
 	EVENT_OFF(fnc->t_lspreset);
 	EVENT_OFF(fnc->t_lspwalk);
@@ -1643,6 +1671,12 @@ static int fpm_nl_finish_early(struct fpm_nl_ctx *fnc)
 		close(fnc->socket);
 		fnc->socket = -1;
 	}
+
+	/* Reset the barrier value */
+	cleaning_p = true;
+	atomic_compare_exchange_strong_explicit(
+		&fpm_cleaning_up, &cleaning_p, false, memory_order_seq_cst,
+		memory_order_seq_cst);
 
 	return 0;
 }
