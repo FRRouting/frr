@@ -1,60 +1,98 @@
-FROM ubuntu:18.04
+FROM ubuntu:22.04
 
-RUN export DEBIAN_FRONTEND=noninteractive \
-    && apt-get update \
-    && apt-get install -y \
-        autoconf \
-        binutils \
-        bison \
-        ca-certificates \
-        flex \
-        gdb \
-        git \
-        gpg \
-        install-info \
-        iputils-ping \
-        iproute2 \
-        less \
-        libtool \
-        libjson-c-dev \
-        libpcre3-dev \
-        libpython-dev \
-        libpython3-dev \
-        libreadline-dev \
-        libc-ares-dev \
-        libcap-dev \
-        libelf-dev \
-        man \
-        mininet \
-        pkg-config \
-        python-pip \
-        python3 \
-        python3-dev \
-        python3-sphinx \
-        python3-pytest \
+ARG DEBIAN_FRONTEND=noninteractive
+ENV APT_KEY_DONT_WARN_ON_DANGEROUS_USAGE=DontWarn
+
+RUN apt update -y && apt upgrade -y && \
+    # Basic build requirements from documentation
+    apt-get install -y \
+            autoconf \
+            automake \
+            bison \
+            build-essential \
+            flex \
+            git \
+            install-info \
+            libc-ares-dev \
+            libcap-dev \
+            libelf-dev \
+            libjson-c-dev \
+            libpam0g-dev \
+            libreadline-dev \
+            libsnmp-dev \
+            libsqlite3-dev \
+            lsb-release \
+            libtool \
+            lcov \
+            make \
+            perl \
+            pkg-config \
+            python3-dev \
+            python3-sphinx \
+            screen \
+            texinfo \
+            tmux \
+    && \
+    # Protobuf build requirements
+    apt-get install -y \
+        libprotobuf-c-dev \
+        protobuf-c-compiler \
+    && \
+    # Libyang2 extra build requirements
+    apt-get install -y \
+        cmake \
+        libpcre2-dev \
+    && \
+    # GRPC extra build requirements
+    apt-get install -y \
+        libgrpc-dev \
+        libgrpc++-dev \
+        protobuf-compiler-grpc \
+    && \
+    # Runtime/triage/testing requirements
+    apt-get install -y \
         rsync \
+        curl \
+        gdb \
+        kmod \
+        iproute2 \
+        iputils-ping \
+        liblua5.3-dev \
+        libssl-dev \
+        lua5.3 \
+        net-tools \
+        python3 \
+        python3-pip \
+        snmp \
+        snmp-mibs-downloader \
+        snmpd \
+        sudo \
+        time \
+        tshark \
+        valgrind \
+        yodl \
         strace \
         tcpdump \
-        texinfo \
-        tmux \
-        valgrind \
-        vim \
-        wget \
-        x11-xserver-utils \
-        xterm \
-    && pip install \
-        exabgp==3.4.17 \
-        "scapy>=2.4.2" \
-        ipaddr \
-        pytest \
-    && rm -rf /var/lib/apt/lists/*
+      && \
+    download-mibs && \
+    wget https://raw.githubusercontent.com/FRRouting/frr-mibs/main/iana/IANA-IPPM-METRICS-REGISTRY-MIB -O /usr/share/snmp/mibs/iana/IANA-IPPM-METRICS-REGISTRY-MIB && \
+    wget https://raw.githubusercontent.com/FRRouting/frr-mibs/main/ietf/SNMPv2-PDU -O /usr/share/snmp/mibs/ietf/SNMPv2-PDU && \
+    wget https://raw.githubusercontent.com/FRRouting/frr-mibs/main/ietf/IPATM-IPMC-MIB -O /usr/share/snmp/mibs/ietf/IPATM-IPMC-MIB && \
+    python3 -m pip install wheel && \
+    python3 -m pip install 'protobuf<4' grpcio grpcio-tools && \
+    python3 -m pip install 'pytest>=6.2.4' 'pytest-xdist>=2.3.0' && \
+    python3 -m pip install 'scapy>=2.4.5' && \
+    python3 -m pip install xmltodict && \
+    python3 -m pip install git+https://github.com/Exa-Networks/exabgp@0659057837cd6c6351579e9f0fa47e9fb7de7311
 
-RUN export DEBIAN_FRONTEND=noninteractive \
-    && wget -qO- https://deb.frrouting.org/frr/keys.asc | apt-key add - \
-    && echo "deb https://deb.frrouting.org/frr bionic frr-stable" > /etc/apt/sources.list.d/frr.list \
-    && apt-get update \
-    && apt-get install -y libyang-dev \
-    && rm -rf /var/lib/apt/lists/*
+# Install FRR built packages
+RUN mkdir -p /etc/apt/keyrings && \
+    curl -s -o /etc/apt/keyrings/frrouting.gpg https://deb.frrouting.org/frr/keys.gpg && \
+    echo deb '[signed-by=/etc/apt/keyrings/frrouting.gpg]' https://deb.frrouting.org/frr \
+        $(lsb_release -s -c) "frr-stable" > /etc/apt/sources.list.d/frr.list && \
+    apt-get update && apt-get install -y librtr-dev libyang2-dev libyang2-tools
+
+RUN apt install -y openvswitch-switch
 
 RUN groupadd -r -g 92 frr \
     && groupadd -r -g 85 frrvty \
