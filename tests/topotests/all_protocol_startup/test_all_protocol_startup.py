@@ -20,6 +20,7 @@ import sys
 import pytest
 import glob
 from time import sleep
+from lib.topolog import logger
 
 pytestmark = [
     pytest.mark.babeld,
@@ -1713,6 +1714,77 @@ def test_resilient_nexthop_group():
 
     # Remove NHG
     net["r1"].cmd('vtysh -c "conf" -c "no nexthop-group resilience"')
+
+
+def test_interface_stuff():
+    global fatal_error
+    net = get_topogen().net
+
+    # Skip if previous fatal error condition is raised
+    if fatal_error != "":
+        pytest.skip(fatal_error)
+
+    print("\n\n** Verifying some interface code")
+    print("************************************\n")
+
+    net["r1"].cmd('vtysh -c "conf" -c "interface r1-eth0" -c "multicast enable"')
+
+    def _test_interface_multicast_on():
+        output = json.loads(net["r1"].cmd('vtysh -c "show int r1-eth0 json"'))
+        expected = {
+            "r1-eth0": {
+                "flags": "<UP,LOWER_UP,BROADCAST,RUNNING,MULTICAST>",
+                "multicastConfig": "Enabled by CLI",
+            }
+        }
+        return topotest.json_cmp(output, expected)
+
+    test_func = functools.partial(_test_interface_multicast_on)
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
+    assert result is None, "Multicast bit was not set on r1-eth0"
+
+    net["r1"].cmd('vtysh -c "conf" -c "interface r1-eth0" -c "multicast disable"')
+
+    def _test_interface_multicast_off():
+        output = json.loads(
+            net["r1"].cmd('vtysh -c "show int r1-eth0 vrf default json"')
+        )
+        expected = {
+            "r1-eth0": {
+                "flags": "<UP,LOWER_UP,BROADCAST,RUNNING>",
+                "multicastConfig": "Disabled by CLI",
+            }
+        }
+        return topotest.json_cmp(output, expected)
+
+    test_func = functools.partial(_test_interface_multicast_off)
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
+    assert result is None, "Multicast bit was not turned off on r1-eth0"
+
+    net["r1"].cmd('vtysh -c "conf" -c "interface r1-eth0" -c "no multicast disable"')
+
+    def _test_interface_multicast_disable():
+        output = json.loads(net["r1"].cmd('vtysh -c "show int r1-eth0 json"'))
+        expected = {
+            "r1-eth0": {
+                "flags": "<UP,LOWER_UP,BROADCAST,RUNNING>",
+                "multicastConfig": "Not specified by CLI",
+            }
+        }
+        return topotest.json_cmp(output, expected)
+
+    test_func = functools.partial(_test_interface_multicast_disable)
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
+    assert result is None, "Multicast bit was set on r1-eth0"
+
+    logger.info("Ensure that these commands are still nominally working")
+    rc, o, e = net["r1"].cmd_status('vtysh -c "show interface description vrf all"')
+    logger.info(o)
+    assert rc == 0
+
+    rc, o, e = net["r1"].cmd_status('vtysh -c "show interface description vrf default"')
+    logger.info(o)
+    assert rc == 0
 
 
 def test_shutdown_check_stderr():
