@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # SPDX-License-Identifier: MIT
 #
 # Copyright 2018 Network Device Education Foundation, Inc. ("NetDEF")
@@ -113,10 +113,12 @@ if [ -z "$TOPOTEST_FRR" ]; then
 	git -C "$TOPOTEST_FRR" ls-files -z > "${TOPOTEST_LOGS}/git-ls-files"
 fi
 
+cmd="$(command -v docker || command -v podman)"
+
 if [ -z "$TOPOTEST_BUILDCACHE" ]; then
 	TOPOTEST_BUILDCACHE=topotest-buildcache
-	docker volume inspect "${TOPOTEST_BUILDCACHE}" &> /dev/null \
-		|| docker volume create "${TOPOTEST_BUILDCACHE}"
+	"${cmd}" volume inspect "${TOPOTEST_BUILDCACHE}" &> /dev/null \
+		|| "${cmd}" volume create "${TOPOTEST_BUILDCACHE}"
 fi
 
 if [[ -n "$TMUX" ]]; then
@@ -145,4 +147,4 @@ if [ -t 0 ]; then
 	set -- -t "$@"
 fi
 
-exec docker run "$@"
+exec "${cmd}" run "$@"
