@@ -881,7 +881,7 @@ commands:
 .. code:: console
 
    make topotests-build
-   TOPOTEST_PULL=0 make topotests
+   make topotests
 
 
 .. _topotests-guidelines:

@@ -68,5 +68,5 @@ without pulling from the registry using the following commands:
 
 ```console
 make topotests-build
-TOPOTEST_PULL=0 make topotests
+make topotests
 ```
