@@ -9,6 +9,7 @@
 #include "log.h"
 #include "prefix.h"
 #include "plist.h"
+#include "plist_int.h"
 
 #include "pimd.h"
 #include "pim_instance.h"
@@ -174,7 +175,6 @@ bool pim_is_group_filtered(struct pim_interface *pim_ifp, pim_addr *grp, pim_add
 	bool is_filtered = false;
 #if PIM_IPV == 4
 	struct prefix grp_pfx = {};
-	struct prefix_list *pl = NULL;
 	pim_addr any_src = PIMADDR_ANY;
 
 	if (!pim_ifp->boundary_oil_plist && !pim_ifp->boundary_acl)
@@ -182,14 +182,13 @@ bool pim_is_group_filtered(struct pim_interface *pim_ifp, pim_addr *grp, pim_add
 
 	pim_addr_to_prefix(&grp_pfx, *grp);
 
-	pl = prefix_list_lookup(PIM_AFI, pim_ifp->boundary_oil_plist);
-
 	/* Filter if either group or (S,G) are denied */
-	if (pl) {
-		is_filtered = prefix_list_apply_ext(pl, NULL, &grp_pfx, true) == PREFIX_DENY;
+	if (pim_ifp->boundary_oil_plist) {
+		is_filtered = prefix_list_apply_ext(pim_ifp->boundary_oil_plist, NULL, &grp_pfx,
+						    true) == PREFIX_DENY;
 		if (is_filtered && PIM_DEBUG_EVENTS) {
 			zlog_debug("Filtering group %pI4 per prefix-list %s", grp,
-				   pim_ifp->boundary_oil_plist);
+				   pim_ifp->boundary_oil_plist->name);
 		}
 	}
 	if (!is_filtered && pim_ifp->boundary_acl) {

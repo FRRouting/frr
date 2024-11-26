@@ -12,6 +12,7 @@
 #include "vty.h"
 #include "vrf.h"
 #include "plist.h"
+#include "plist_int.h"
 #include "filter.h"
 
 #include "pimd.h"
@@ -493,7 +494,7 @@ int pim_config_write(struct vty *vty, int writes, struct interface *ifp,
 	/* boundary */
 	if (pim_ifp->boundary_oil_plist) {
 		vty_out(vty, " " PIM_AF_NAME " multicast boundary oil %s\n",
-			pim_ifp->boundary_oil_plist);
+			pim_ifp->boundary_oil_plist->name);
 		++writes;
 	}
 
