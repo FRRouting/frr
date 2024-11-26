@@ -441,7 +441,7 @@ int bgp_show_table_flowspec(struct vty *vty, struct bgp *bgp, afi_t afi,
 	}
 	if (total_count && !use_json)
 		vty_out(vty,
-			"\nDisplayed  %ld flowspec entries\n",
+			"\nDisplayed %ld flowspec entries\n",
 			total_count);
 	return CMD_SUCCESS;
 }
