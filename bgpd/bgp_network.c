@@ -504,7 +504,7 @@ static void bgp_accept(struct event *thread)
 			bgp_fsm_change_status(connection1, Active);
 			EVENT_OFF(connection1->t_start);
 
-			if (peer_active(peer1)) {
+			if (peer_active(peer1->connection)) {
 				if (CHECK_FLAG(peer1->flags,
 					       PEER_FLAG_TIMER_DELAYOPEN))
 					BGP_EVENT_ADD(connection1,
@@ -557,7 +557,7 @@ static void bgp_accept(struct event *thread)
 	}
 
 	/* Check that at least one AF is activated for the peer. */
-	if (!peer_active(peer1)) {
+	if (!peer_active(connection1)) {
 		if (bgp_debug_neighbor_events(peer1))
 			zlog_debug(
 				"%s - incoming conn rejected - no AF activated for peer",
@@ -658,7 +658,7 @@ static void bgp_accept(struct event *thread)
 		bgp_event_update(connection1, TCP_connection_closed);
 	}
 
-	if (peer_active(peer)) {
+	if (peer_active(peer->connection)) {
 		if (CHECK_FLAG(peer->flags, PEER_FLAG_TIMER_DELAYOPEN))
 			BGP_EVENT_ADD(connection, TCP_connection_open_w_delay);
 		else
@@ -861,7 +861,7 @@ enum connect_result bgp_connect(struct peer_connection *connection)
 				 htons(peer->port), ifindex);
 }
 
-void bgp_updatesockname(struct peer *peer)
+void bgp_updatesockname(struct peer *peer, struct peer_connection *connection)
 {
 	if (peer->su_local) {
 		sockunion_free(peer->su_local);
@@ -873,14 +873,16 @@ void bgp_updatesockname(struct peer *peer)
 		peer->su_remote = NULL;
 	}
 
-	peer->su_local = sockunion_getsockname(peer->connection->fd);
-	peer->su_remote = sockunion_getpeername(peer->connection->fd);
+	peer->su_local = sockunion_getsockname(connection->fd);
+	peer->su_remote = sockunion_getpeername(connection->fd);
 }
 
 /* After TCP connection is established.  Get local address and port. */
-int bgp_getsockname(struct peer *peer)
+int bgp_getsockname(struct peer_connection *connection)
 {
-	bgp_updatesockname(peer);
+	struct peer *peer = connection->peer;
+
+	bgp_updatesockname(peer, peer->connection);
 
 	if (!bgp_zebra_nexthop_set(peer->su_local, peer->su_remote,
 				   &peer->nexthop, peer)) {

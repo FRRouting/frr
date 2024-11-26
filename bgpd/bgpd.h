@@ -2295,7 +2295,7 @@ extern struct peer *peer_unlock_with_caller(const char *, struct peer *);
 extern enum bgp_peer_sort peer_sort(struct peer *peer);
 extern enum bgp_peer_sort peer_sort_lookup(struct peer *peer);
 
-extern bool peer_active(struct peer *);
+extern bool peer_active(struct peer_connection *connection);
 extern bool peer_active_nego(struct peer *);
 extern bool peer_afc_received(struct peer *peer);
 extern bool peer_afc_advertised(struct peer *peer);
@@ -2385,7 +2385,8 @@ extern int peer_remote_as(struct bgp *bgp, union sockunion *su,
 extern int peer_group_remote_as(struct bgp *bgp, const char *peer_str, as_t *as,
 				enum peer_asn_type as_type, const char *as_str);
 extern int peer_delete(struct peer *peer);
-extern void peer_notify_unconfig(struct peer *peer);
+extern void peer_notify_unconfig(struct peer_connection *connection);
+extern bool peer_notify_config_change(struct peer_connection *connection);
 extern int peer_group_delete(struct peer_group *);
 extern int peer_group_remote_as_delete(struct peer_group *);
 extern int peer_group_listen_range_add(struct peer_group *, struct prefix *);
