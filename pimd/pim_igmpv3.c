@@ -9,6 +9,8 @@
 #include "memory.h"
 #include "if.h"
 #include "lib_errors.h"
+#include "plist.h"
+#include "plist_int.h"
 
 #include "pimd.h"
 #include "pim_instance.h"
@@ -1815,9 +1817,10 @@ static bool igmp_pkt_grp_addr_ok(struct interface *ifp, const char *from_str,
 		if (PIM_DEBUG_GM_PACKETS) {
 			zlog_debug("Filtering IGMPv3 group record %pI4 from %s on %s per prefix-list %s or access-list %s",
 				   &grp.s_addr, from_str, ifp->name,
-				   (pim_ifp->boundary_oil_plist ? pim_ifp->boundary_oil_plist
+				   (pim_ifp->boundary_oil_plist ? pim_ifp->boundary_oil_plist->name
 								: "(not found)"),
-				   (pim_ifp->boundary_acl ? pim_ifp->boundary_acl->name : "(not found)"));
+				   (pim_ifp->boundary_acl ? pim_ifp->boundary_acl->name
+							  : "(not found)"));
 		}
 		return false;
 	}

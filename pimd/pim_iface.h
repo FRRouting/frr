@@ -134,7 +134,7 @@ struct pim_interface {
 	int pim_dr_num_nondrpri_neighbors; /* neighbors without dr_pri */
 
 	/* boundary prefix-list (group) */
-	char *boundary_oil_plist;
+	struct prefix_list *boundary_oil_plist;
 	/* boundary access-list (source and group) */
 	struct access_list *boundary_acl;
 
