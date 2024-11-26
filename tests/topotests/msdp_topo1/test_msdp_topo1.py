@@ -511,6 +511,42 @@ def test_msdp_sa_filter():
     assert val is None, "multicast route convergence failure"
 
 
+def test_msdp_sa_limit():
+    "Test MSDP SA limiting."
+
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    tgen.gears["r4"].vtysh_cmd(
+        """
+    configure terminal
+    router pim
+     msdp log sa-events
+     msdp peer 192.168.2.1 sa-limit 4
+     msdp peer 192.168.3.1 sa-limit 4
+    """
+    )
+
+    # Flow from r1 -> r4
+    for multicast_address in [
+        "229.1.2.10",
+        "229.1.2.11",
+        "229.1.2.12",
+        "229.1.2.13",
+        "229.1.2.14",
+    ]:
+        app_helper.run("h1", [multicast_address, "h1-eth0"])
+        app_helper.run("h2", ["--send=0.7", multicast_address, "h2-eth0"])
+
+    def test_sa_limit_log():
+        r4_log = tgen.gears["r4"].net.getLog("log", "pimd")
+        return re.search(r"MSDP peer .+ reject SA (.+, .+): SA limit \d+ of 4", r4_log)
+
+    _, val = topotest.run_and_expect(test_sa_limit_log, None, count=30, wait=1)
+    assert val is None, "SA limit check failed"
+
+
 def test_msdp_log_events():
     "Test that the enabled logs are working as expected."
 
