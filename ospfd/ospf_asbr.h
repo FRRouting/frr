@@ -109,6 +109,10 @@ ospf_external_info_add(struct ospf *, uint8_t, unsigned short,
 		       route_tag_t, uint32_t metric);
 extern void ospf_external_info_delete(struct ospf *, uint8_t, unsigned short,
 				      struct prefix_ipv4);
+extern void ospf_external_info_delete_multi_instance(struct ospf *ospf, uint8_t type,
+						     struct prefix_ipv4 p,
+						     unsigned long preserve_instance);
+#define OSPF_DELETE_ANY_INSTANCE 0xffffffff
 extern struct external_info *ospf_external_info_lookup(struct ospf *, uint8_t,
 						       unsigned short,
 						       struct prefix_ipv4 *);
