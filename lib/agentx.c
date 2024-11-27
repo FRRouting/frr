@@ -396,7 +396,8 @@ DEFUN_NOSH(show_agentx, show_agentx_cmd, "show agentx",
 static int smux_disable(void)
 {
 	agentx_enabled = false;
-	agentx_stop(agentx_pth, NULL);
+	if (agentx_pth->running)
+		agentx_stop(agentx_pth, NULL);
 	return 0;
 }
 
