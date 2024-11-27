@@ -2938,6 +2938,7 @@ BGP Extended Communities in Route Map
    match on to for the purpose of determining what type of SR-TE Policy Tunnel
    a BGP route can resolve over, and it also shows the order for resolving the
    BGP route if there are different tunnels.
+
    - ``00`` Can match on a specific endpoint only which should be the nexthop
      of the route(Default Setting).
    - ``01`` Can match on a specific endpoint or a null endpoint.
