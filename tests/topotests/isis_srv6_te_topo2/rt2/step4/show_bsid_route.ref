@@ -1,0 +1,23 @@
+{
+  "fc00:0:2::128/128":[
+    {
+      "prefix":"fc00:0:2::128/128",
+      "prefixLen":128,
+      "installed":true,
+      "nexthops":[
+        {
+          "fib":true,
+          "directlyConnected":true,
+          "active":true,
+          "seg6local":{
+            "action":"End.B6.Encap"
+          },
+          "seg6":[
+            "fc00:0:4::",
+            "fc00:0:5::"
+          ]
+        }
+      ]
+    }
+  ]
+}
