@@ -5703,7 +5703,7 @@ void peer_update_source_addr_set(struct peer *peer, const union sockunion *su)
 		member->last_reset = PEER_DOWN_UPDATE_SOURCE_CHANGE;
 
 		/* Send notification or reset peer depending on state. */
-		if (!peer_notify_config_change(peer->connection))
+		if (!peer_notify_config_change(member->connection))
 			bgp_session_reset(member);
 
 		/* Apply new source configuration to BFD session. */
