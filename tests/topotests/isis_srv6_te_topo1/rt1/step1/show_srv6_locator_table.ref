@@ -10,8 +10,7 @@
       "statusUp":true,
       "chunks":[
         {
-          "prefix":"fc00:0:1::/48",
-          "proto":"isis"
+          "prefix":"fc00:0:1::/48"
         }
       ]
     }
