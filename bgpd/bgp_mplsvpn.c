@@ -487,6 +487,7 @@ void vpn_leak_zebra_vrf_sid_withdraw_per_af(struct bgp *bgp, afi_t afi)
 {
 	int debug = BGP_DEBUG(vpn, VPN_LEAK_LABEL);
 	struct seg6local_context seg6localctx = {};
+	struct srv6_sid_ctx ctx = {};
 
 	if (bgp->vrf_id == VRF_UNKNOWN) {
 		if (debug)
@@ -512,6 +513,11 @@ void vpn_leak_zebra_vrf_sid_withdraw_per_af(struct bgp *bgp, afi_t afi)
 	XFREE(MTYPE_BGP_SRV6_SID,
 	      bgp->vpn_policy[afi].tovpn_zebra_vrf_sid_last_sent);
 	bgp->vpn_policy[afi].tovpn_zebra_vrf_sid_last_sent = NULL;
+
+	ctx.vrf_id = bgp->vrf_id;
+	ctx.behavior = afi == AFI_IP ? ZEBRA_SEG6_LOCAL_ACTION_END_DT4
+				     : ZEBRA_SEG6_LOCAL_ACTION_END_DT6;
+	bgp_zebra_release_srv6_sid(&ctx);
 }
 
 /*
@@ -522,6 +528,7 @@ void vpn_leak_zebra_vrf_sid_withdraw_per_vrf(struct bgp *bgp)
 {
 	int debug = BGP_DEBUG(vpn, VPN_LEAK_LABEL);
 	struct seg6local_context seg6localctx = {};
+	struct srv6_sid_ctx ctx = {};
 
 	if (bgp->vrf_id == VRF_UNKNOWN) {
 		if (debug)
@@ -545,6 +552,10 @@ void vpn_leak_zebra_vrf_sid_withdraw_per_vrf(struct bgp *bgp)
 			      ZEBRA_SEG6_LOCAL_ACTION_UNSPEC, &seg6localctx);
 	XFREE(MTYPE_BGP_SRV6_SID, bgp->tovpn_zebra_vrf_sid_last_sent);
 	bgp->tovpn_zebra_vrf_sid_last_sent = NULL;
+
+	ctx.vrf_id = bgp->vrf_id;
+	ctx.behavior = ZEBRA_SEG6_LOCAL_ACTION_END_DT46;
+	bgp_zebra_release_srv6_sid(&ctx);
 }
 
 /*
@@ -906,6 +917,7 @@ void delete_vrf_tovpn_sid_per_af(struct bgp *bgp_vpn, struct bgp *bgp_vrf,
 	int debug = BGP_DEBUG(vpn, VPN_LEAK_FROM_VRF);
 	uint32_t tovpn_sid_index = 0;
 	bool tovpn_sid_auto = false;
+	struct srv6_sid_ctx ctx = {};
 
 	if (debug)
 		zlog_debug("%s: try to remove SID for vrf %s: afi %s", __func__,
@@ -919,10 +931,22 @@ void delete_vrf_tovpn_sid_per_af(struct bgp *bgp_vpn, struct bgp *bgp_vrf,
 	if (tovpn_sid_index != 0 || tovpn_sid_auto)
 		return;
 
+	if (bgp_vrf->vrf_id == VRF_UNKNOWN) {
+		if (debug)
+			zlog_debug("%s: vrf %s: vrf_id not set, can't set zebra vrf label",
+				   __func__, bgp_vrf->name_pretty);
+		return;
+	}
+
 	srv6_locator_free(bgp_vrf->vpn_policy[afi].tovpn_sid_locator);
 	bgp_vrf->vpn_policy[afi].tovpn_sid_locator = NULL;
 
 	if (bgp_vrf->vpn_policy[afi].tovpn_sid) {
+		ctx.vrf_id = bgp_vrf->vrf_id;
+		ctx.behavior = afi == AFI_IP ? ZEBRA_SEG6_LOCAL_ACTION_END_DT4
+					     : ZEBRA_SEG6_LOCAL_ACTION_END_DT6;
+		bgp_zebra_release_srv6_sid(&ctx);
+
 		sid_unregister(bgp_vpn, bgp_vrf->vpn_policy[afi].tovpn_sid);
 		XFREE(MTYPE_BGP_SRV6_SID, bgp_vrf->vpn_policy[afi].tovpn_sid);
 	}
@@ -934,6 +958,7 @@ void delete_vrf_tovpn_sid_per_vrf(struct bgp *bgp_vpn, struct bgp *bgp_vrf)
 	int debug = BGP_DEBUG(vpn, VPN_LEAK_FROM_VRF);
 	uint32_t tovpn_sid_index = 0;
 	bool tovpn_sid_auto = false;
+	struct srv6_sid_ctx ctx = {};
 
 	if (debug)
 		zlog_debug("%s: try to remove SID for vrf %s", __func__,
@@ -947,10 +972,21 @@ void delete_vrf_tovpn_sid_per_vrf(struct bgp *bgp_vpn, struct bgp *bgp_vrf)
 	if (tovpn_sid_index != 0 || tovpn_sid_auto)
 		return;
 
+	if (bgp_vrf->vrf_id == VRF_UNKNOWN) {
+		if (debug)
+			zlog_debug("%s: vrf %s: vrf_id not set, can't set zebra vrf label",
+				   __func__, bgp_vrf->name_pretty);
+		return;
+	}
+
 	srv6_locator_free(bgp_vrf->tovpn_sid_locator);
 	bgp_vrf->tovpn_sid_locator = NULL;
 
 	if (bgp_vrf->tovpn_sid) {
+		ctx.vrf_id = bgp_vrf->vrf_id;
+		ctx.behavior = ZEBRA_SEG6_LOCAL_ACTION_END_DT46;
+		bgp_zebra_release_srv6_sid(&ctx);
+
 		sid_unregister(bgp_vpn, bgp_vrf->tovpn_sid);
 		XFREE(MTYPE_BGP_SRV6_SID, bgp_vrf->tovpn_sid);
 	}
