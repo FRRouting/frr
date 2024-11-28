@@ -84,10 +84,11 @@ RUN apt update && apt upgrade -y && \
     python3 -m pip install xmltodict && \
     python3 -m pip install git+https://github.com/Exa-Networks/exabgp@0659057837cd6c6351579e9f0fa47e9fb7de7311
 
+ARG UID=1000
 RUN groupadd -r -g 92 frr && \
       groupadd -r -g 85 frrvty && \
       adduser --system --ingroup frr --home /home/frr \
-              --gecos "FRR suite" --shell /bin/bash frr && \
+              --gecos "FRR suite" -u $UID --shell /bin/bash frr && \
       usermod -a -G frrvty frr && \
       useradd -d /var/run/exabgp/ -s /bin/false exabgp && \
       echo 'frr ALL = NOPASSWD: ALL' | tee /etc/sudoers.d/frr && \
