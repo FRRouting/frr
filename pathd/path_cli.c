@@ -17,6 +17,7 @@
 #include "termtable.h"
 
 #include "pathd/pathd.h"
+#include "pathd/path_zebra.h"
 #include "pathd/path_nb.h"
 #include "pathd/path_cli_clippy.c"
 #include "pathd/path_ted.h"
@@ -674,6 +675,27 @@ void cli_show_srte_segment_list_segment(struct vty *vty,
 	vty_out(vty, "\n");
 }
 
+/*
+ * XPath: /frr-pathd:pathd/srte/srv6-use-sid-manager
+ */
+DEFPY(
+	srte_use_srv6_sid_manager,
+	srte_use_srv6_sid_manager_cmd,
+	"[no] use-srv6-sid-manager",
+	NO_STR
+	"Use segment routing ipv6 sid manager\n")
+{
+	char xpath[XPATH_MAXLEN];
+
+	if (!no == srv6_use_sid_manager)
+		return CMD_SUCCESS;
+
+	snprintf(xpath, sizeof(xpath),
+		 "/frr-pathd:pathd/srte/use-srv6-sid-manager");
+
+	nb_cli_enqueue_change(vty, xpath, NB_OP_MODIFY, no ? "false" : "true");
+	return nb_cli_apply_changes(vty, NULL);
+}
 /*
  * XPath: /frr-pathd:pathd/policy
  */
@@ -1431,6 +1453,9 @@ int config_write_segment_routing(struct vty *vty)
 
 	path_ted_config_write(vty);
 
+	if (srv6_use_sid_manager)
+		vty_out(vty, "  use-srv6-sid-manager\n");
+
 	yang_dnode_iterate(config_write_dnode, vty, running_config->dnode,
 			   "/frr-pathd:pathd/srte/frr-pathd-triggered-srte:policy-label-blocks");
 	yang_dnode_iterate(config_write_dnode, vty, running_config->dnode,
@@ -1488,6 +1513,7 @@ void path_cli_init(void)
 	install_default(SR_SEGMENT_LIST_NODE);
 	install_default(SR_POLICY_NODE);
 	install_default(SR_CANDIDATE_DYN_NODE);
+	install_element(SR_TRAFFIC_ENG_NODE, &srte_use_srv6_sid_manager_cmd);
 
 	install_element(ENABLE_NODE, &show_debugging_pathd_cmd);
 	install_element(ENABLE_NODE, &show_srte_policy_cmd);
