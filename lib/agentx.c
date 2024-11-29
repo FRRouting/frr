@@ -551,13 +551,14 @@ create_notification_var(struct variable *vp, size_t vp_len, const oid *ename, si
 			break;
 		}
 	}
+
 	return notification_vars;
 }
 
 static void agentx_send_ringbuf(void)
 {
 	uint32_t nb_elem_ringbuf, nb_trap_sent = 0;
-	static netsnmp_variable_list **notification_vars_old = NULL;
+	static netsnmp_variable_list *notif_vars_old;
 
 	frr_with_mutex (&ax_mtx) {
 		nb_elem_ringbuf = ringbuf_remain(ibuf_ax);
@@ -569,15 +570,14 @@ static void agentx_send_ringbuf(void)
 			if (agentx_send_without_read > AGENTX_NB_TRAP_WAITING) {
 				break;
 			}
-			if (!notification_vars_old) {
-				ringbuf_get(ibuf_ax, &notification_vars_old,
-					    sizeof(notification_vars_old));
+			if (!notif_vars_old) {
+				ringbuf_get(ibuf_ax, &notif_vars_old,
+					    sizeof(notif_vars_old));
 				internal_stat.nb_elem_ringbuf--;
 			}
 		}
-
 		if (pthread_mutex_trylock(&ax_io_mtx) == 0) {
-			send_v2trap(*notification_vars_old);
+			send_v2trap(notif_vars_old);
 		} else {
 			internal_stat.nb_locktry_trap1_fail++;
 			zlog_info("%s 1  mutex already locked: %llu times",
@@ -585,16 +585,10 @@ static void agentx_send_ringbuf(void)
 				  internal_stat.nb_locktry_trap1_fail);
 			break;
 		}
+		/* snmp_free_varbind(*notif_vars_old); */
+		notif_vars_old = NULL;
 		pthread_mutex_unlock(&ax_io_mtx);
-
-		snmp_free_varbind(*notification_vars_old);
-		notification_vars_old = NULL;
-		frr_with_mutex (&ax_mtx) {
-			ringbuf_get(ibuf_ax, &notification_vars_old, sizeof(notification_vars_old));
-			agentx_send_without_read++;
-			internal_stat.nb_elem_ringbuf--;
-		}
-		nb_elem_ringbuf -= sizeof(notification_vars_old);
+		nb_elem_ringbuf -= sizeof(notif_vars_old);
 		nb_trap_sent++;
 	}
 }
@@ -620,7 +614,7 @@ int smux_trap_multi_index(struct variable *vp, size_t vp_len, const oid *ename, 
 			  const struct trap_object *trapobj, size_t trapobjlen, uint8_t sptrap)
 {
 	netsnmp_variable_list *notification_vars = NULL;
-	netsnmp_variable_list **notification_vars_old = NULL;
+	netsnmp_variable_list *notification_vars_old = NULL;
 	int add_event_flag = 0;
 
 	if (!agentx_enabled)
@@ -640,12 +634,15 @@ int smux_trap_multi_index(struct variable *vp, size_t vp_len, const oid *ename, 
 			internal_stat.trap_dropped++;
 
 			/* keep earliest traps in ring buffer*/
-			ringbuf_get(ibuf_ax, &notification_vars_old, sizeof(notification_vars_old));
-			ringbuf_put(ibuf_ax, &notification_vars, sizeof(netsnmp_variable_list **));
-			snmp_free_varbind(*notification_vars_old);
+			ringbuf_get(ibuf_ax, &notification_vars_old,
+				    sizeof(notification_vars_old));
+			ringbuf_put(ibuf_ax, &notification_vars,
+				    sizeof(netsnmp_variable_list **));
+			snmp_free_varbind(notification_vars_old);
 		} else {
 			/* add trap in ring buffer */
-			ringbuf_put(ibuf_ax, &notification_vars, sizeof(netsnmp_variable_list **));
+			ringbuf_put(ibuf_ax, &notification_vars,
+				    sizeof(netsnmp_variable_list *));
 			agentx_send_without_read++;
 			internal_stat.nb_elem_ringbuf++;
 		}
