@@ -9,15 +9,22 @@
 test_bgp_bmp.py: Test BGP BMP functionalities
 
     +------+            +------+               +------+
-    |      |            |      |               |      |
-    | BMP1 |------------|  R1  |---------------|  R2  |
-    |      |            |      |               |      |
-    +------+            +------+               +------+
+    |      |            |      | eth1     eth0 |      |
+    | BMP1 |------------|  R1  |-------+-------|  R2  |
+    |      |            |      |       |       |      |
+    +------+            +------+       |       +------+
+                                       |
+                                       |        +------+
+                                       |  eth0  |      |
+                                       +--------|  R3  |
+                                                |      |
+                                                +------+
 
-Setup two routers R1 and R2 with one link configured with IPv4 and
+Setup three routers R1 and R3 with one link configured with IPv4 and
 IPv6 addresses.
-Configure BGP in R1 and R2 to exchange prefixes from
-the latter to the first router.
+Configure BGP to exchange prefixes from R2 and R3 to R1.
+R3 is only used in the multi-path test.
+It announces the same as R2 to R1 to have the R2 prefixes be ECMP paths in R1.
 Setup a link between R1 and the BMP server, activate the BMP feature in R1
 and ensure the monitored BGP sessions logs are well present on the BMP server.
 """
@@ -46,9 +53,16 @@ pytestmark = [pytest.mark.bgpd]
 # remember the last sequence number of the logging messages
 SEQ = 0
 
-PRE_POLICY = "pre-policy"
-POST_POLICY = "post-policy"
+ADJ_IN_PRE_POLICY = "rib-in-pre-policy"
+ADJ_IN_POST_POLICY = "rib-in-post-policy"
+ADJ_OUT_PRE_POLICY = "rib-out-pre-policy"
+ADJ_OUT_POST_POLICY = "rib-out-post-policy"
 LOC_RIB = "loc-rib"
+
+BMP_UPDATE = "update"
+BMP_WITHDRAW = "withdraw"
+
+TEST_PREFIXES = ["172.31.0.15/32", "2001::1111/128"]
 
 UPDATE_EXPECTED_JSON = False
 DEBUG_PCAP = False
@@ -57,13 +71,17 @@ DEBUG_PCAP = False
 def build_topo(tgen):
     tgen.add_router("r1")
     tgen.add_router("r2")
+    tgen.add_router("r3")
     tgen.add_bmp_server("bmp1", ip="192.0.2.10", defaultRoute="via 192.0.2.1")
 
     switch = tgen.add_switch("s1")
     switch.add_link(tgen.gears["r1"])
     switch.add_link(tgen.gears["bmp1"])
 
-    tgen.add_link(tgen.gears["r1"], tgen.gears["r2"], "r1-eth1", "r2-eth0")
+    switch = tgen.add_switch("s2")
+    switch.add_link(tgen.gears["r1"], nodeif="r1-eth1")
+    switch.add_link(tgen.gears["r2"], nodeif="r2-eth0")
+    switch.add_link(tgen.gears["r3"], nodeif="r3-eth0")
 
 
 def setup_module(mod):
@@ -163,7 +181,7 @@ def update_expected_files(bmp_actual, expected_prefixes, bmp_log_type, policy, s
                 }
             }
         }
-        if bmp_log_type == "withdraw":
+        if bmp_log_type == BMP_WITHDRAW:
             for pfx in expected_prefixes:
                 if "::" in pfx:
                     continue
@@ -191,7 +209,7 @@ def update_expected_files(bmp_actual, expected_prefixes, bmp_log_type, policy, s
                 }
             }
         }
-        if bmp_log_type == "withdraw":
+        if bmp_log_type == BMP_WITHDRAW:
             for pfx in expected_prefixes:
                 if "::" not in pfx:
                     continue
@@ -211,7 +229,7 @@ def update_expected_files(bmp_actual, expected_prefixes, bmp_log_type, policy, s
             if prefix in expected_prefixes
         }
     }
-    if bmp_log_type == "withdraw":
+    if bmp_log_type == BMP_WITHDRAW:
         for pfx in expected_prefixes:
             if "::" in pfx:
                 continue
@@ -229,7 +247,7 @@ def update_expected_files(bmp_actual, expected_prefixes, bmp_log_type, policy, s
             if prefix in expected_prefixes
         }
     }
-    if bmp_log_type == "withdraw":
+    if bmp_log_type == BMP_WITHDRAW:
         for pfx in expected_prefixes:
             if "::" not in pfx:
                 continue
@@ -296,6 +314,9 @@ def check_for_prefixes(expected_prefixes, bmp_log_type, policy, step):
                 )
             }
 
+    logger.debug(f"messages = {messages}")
+    logger.debug(f"actual = {actual}")
+
     # build expected JSON files
     if (
         UPDATE_EXPECTED_JSON
@@ -305,7 +326,8 @@ def check_for_prefixes(expected_prefixes, bmp_log_type, policy, step):
     ):
         update_expected_files(actual, expected_prefixes, bmp_log_type, policy, step)
 
-    return topotest.json_cmp(actual, expected, exact=True)
+    should_be_exact = policy not in [ADJ_OUT_PRE_POLICY, ADJ_OUT_POST_POLICY]
+    return topotest.json_cmp(actual, expected, should_be_exact)
 
 
 def check_for_peer_message(expected_peers, bmp_log_type):
@@ -351,11 +373,13 @@ def configure_prefixes(tgen, node, asn, safi, prefixes, vrf=None, update=True):
             "{}network {}\n".format(withdraw, ip),
             "exit-address-family\n",
         ]
-        logger.debug("setting prefix: ipv{} {} {}".format(ip.version, safi, ip))
+        logger.debug(
+            "[{}] setting prefix: ipv{} {} {}".format(node, ip.version, safi, ip)
+        )
         tgen.gears[node].vtysh_cmd("".join(cmd))
 
 
-def _test_prefixes(policy, vrf=None, step=0):
+def _test_prefixes(policy, vrf=None, step=0, prefixes=TEST_PREFIXES):
     """
     Setup the BMP  monitor policy, Add and withdraw ipv4/v6 prefixes.
     Check if the previous actions are logged in the BMP server with the right
@@ -365,13 +389,17 @@ def _test_prefixes(policy, vrf=None, step=0):
 
     safi = "vpn" if vrf else "unicast"
 
-    prefixes = ["172.31.0.15/32", "2001::1111/128"]
-
-    for type in ("update", "withdraw"):
+    for type in (BMP_UPDATE, BMP_WITHDRAW):
         update_seq()
 
         configure_prefixes(
-            tgen, "r2", 65502, "unicast", prefixes, vrf=vrf, update=(type == "update")
+            tgen,
+            "r2",
+            65502,
+            "unicast",
+            prefixes,
+            vrf=vrf,
+            update=(type == BMP_UPDATE),
         )
 
         logger.info(f"checking for prefixes {type}")
@@ -383,6 +411,8 @@ def _test_prefixes(policy, vrf=None, step=0):
                 CWD, ipver, type, step
             )
             expected = json.loads(open(ref_file).read())
+
+            logger.debug(f"checking ipv{ipver} {policy} {type}s for step={step}")
 
             test_func = partial(
                 topotest.router_json_cmp,
@@ -436,22 +466,59 @@ def test_bmp_bgp_unicast():
     """
     Add/withdraw bgp unicast prefixes and check the bmp logs.
     """
-    logger.info("*** Unicast prefixes pre-policy logging ***")
-    _test_prefixes(PRE_POLICY, step=1)
-    logger.info("*** Unicast prefixes post-policy logging ***")
-    _test_prefixes(POST_POLICY, step=1)
+    logger.info("*** Unicast prefixes adj-rib-in pre-policy logging ***")
+    _test_prefixes(ADJ_IN_PRE_POLICY, step=1)
+    logger.info("*** Unicast prefixes adj-rib-in post-policy logging ***")
+    _test_prefixes(ADJ_IN_POST_POLICY, step=1)
     logger.info("*** Unicast prefixes loc-rib logging ***")
     _test_prefixes(LOC_RIB, step=1)
+    logger.info("*** Unicast prefixes adj-rib-out pre-policy logging ***")
+    _test_prefixes(ADJ_OUT_PRE_POLICY, step=1)
+    logger.info("*** Unicast prefixes adj-rib-out post-policy logging ***")
+    _test_prefixes(ADJ_OUT_POST_POLICY, step=1)
 
 
 def test_bmp_bgp_vpn():
     # check for the prefixes in the BMP server logging file
-    logger.info("***** VPN prefixes pre-policy logging *****")
-    _test_prefixes(PRE_POLICY, vrf="vrf1", step=2)
-    logger.info("***** VPN prefixes post-policy logging *****")
-    _test_prefixes(POST_POLICY, vrf="vrf1", step=2)
+    logger.info("***** VPN prefixes rib-in-pre-policy logging *****")
+    _test_prefixes(ADJ_IN_PRE_POLICY, vrf="vrf1", step=2)
+    logger.info("***** VPN prefixes rib-in-post-policy logging *****")
+    _test_prefixes(ADJ_IN_POST_POLICY, vrf="vrf1", step=2)
     logger.info("***** VPN prefixes loc-rib logging *****")
     _test_prefixes(LOC_RIB, vrf="vrf1", step=2)
+
+
+def multipath_unicast_prefixes(policy, step, vrf=None):
+    """
+    Setup the BMP  monitor policy, Add and withdraw ipv4/v6 prefixes.
+    Check if the previous actions are logged in the BMP server with the right
+    message type and the right policy.
+
+    Make R3 announce the prefixes, then R2 so its paths are ECMP
+    Finally, withdraw on R3 to clean up
+    """
+    tgen = get_topogen()
+
+    MULTIPATH_TEST_PREFIXES = ["1.1.1.0/31", "3.3.3.0/31"]
+
+    configure_prefixes(
+        tgen, "r3", 65502, "unicast", MULTIPATH_TEST_PREFIXES, vrf=vrf, update=True
+    )
+
+    _test_prefixes(policy, step=step, prefixes=MULTIPATH_TEST_PREFIXES)
+
+    configure_prefixes(
+        tgen, "r3", 65502, "unicast", MULTIPATH_TEST_PREFIXES, vrf=vrf, update=False
+    )
+
+
+def test_bmp_bgp_multipath():
+    """
+    Test the ECMP feature of BMP i.e. when the loc-rib installs multiple paths
+    """
+
+    logger.info("*** Multipath unicast prefixes loc-rib logging ***")
+    multipath_unicast_prefixes(LOC_RIB, step=3)
 
 
 def test_peer_down():
