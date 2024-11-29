@@ -781,10 +781,16 @@ static void rpki_update_cb_sync_rtr(struct pfx_table *p __attribute__((unused)),
 		goto err;
 	}
 
-	if (is_stopping(rpki_vrf) ||
-	    atomic_load_explicit(&rpki_vrf->rtr_update_overflow,
-				 memory_order_seq_cst))
+	if (is_stopping(rpki_vrf) || !is_synchronized(rpki_vrf) ||
+	    atomic_load_explicit(&rpki_vrf->rtr_update_overflow, memory_order_seq_cst)) {
+		RPKI_DEBUG("rtr_mgr is stopping or not synchronized, ignore validating prefixes");
 		return;
+	}
+
+	if (rtr->state == RTR_SYNC) {
+		RPKI_DEBUG("rtr_mgr socket is in sync, ignore validating prefixes");
+		return;
+	}
 
 	int retval = write(rpki_vrf->rpki_sync_socket_rtr, &rec,
 			   sizeof(struct pfx_record));
@@ -953,10 +959,9 @@ static int start(struct rpki_vrf *rpki_vrf)
 	struct rtr_mgr_group *groups = get_groups(rpki_vrf->cache_list);
 
 	RPKI_DEBUG("Polling period: %d", rpki_vrf->polling_period);
-	ret = rtr_mgr_init(&rpki_vrf->rtr_config, groups, groups_len,
-			   rpki_vrf->polling_period, rpki_vrf->expire_interval,
-			   rpki_vrf->retry_interval, rpki_update_cb_sync_rtr,
-			   NULL, NULL, NULL);
+	ret = rtr_mgr_init(&rpki_vrf->rtr_config, groups, groups_len, rpki_vrf->polling_period,
+			   rpki_vrf->expire_interval, rpki_vrf->retry_interval,
+			   rpki_update_cb_sync_rtr, NULL, NULL, NULL);
 	if (ret == RTR_ERROR) {
 		RPKI_DEBUG("Init rtr_mgr failed (%s).", vrf->name);
 		return ERROR;
