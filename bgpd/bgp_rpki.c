@@ -932,7 +932,6 @@ static int start(struct rpki_vrf *rpki_vrf)
 	rpki_vrf->rtr_is_synced = false;
 	rpki_vrf->rtr_update_overflow = 0;
 	cache_list = rpki_vrf->cache_list;
-	rpki_vrf->rtr_update_overflow = 0;
 
 	if (!cache_list || list_isempty(cache_list)) {
 		RPKI_DEBUG(
