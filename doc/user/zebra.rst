@@ -526,16 +526,6 @@ commands in relationship to VRF. Here is an extract of some of those commands:
    The network administrator can however decide to provision this command in
    configuration file to provide more clarity about the intended configuration.
 
-.. clicmd:: netns NAMESPACE
-
-   This command is based on VRF configuration mode. This command is available
-   when *Zebra* is run in :option:`-n` mode. This command reflects which *Linux
-   network namespace* is to be mapped with *Zebra* VRF. It is to be noted that
-   *Zebra* creates and detects added/suppressed VRFs from the Linux environment
-   (in fact, those managed with iproute2). The network administrator can however
-   decide to provision this command in configuration file to provide more clarity
-   about the intended configuration.
-
 .. clicmd:: show ip route vrf VRF
 
    The show command permits dumping the routing table associated to the VRF. If
