@@ -972,6 +972,8 @@ void if_up(struct interface *ifp, bool install_connected)
 	event_ignore_late_timer(zif->speed_update);
 
 	if_addr_wakeup(ifp);
+
+	rib_update_handle_vrf_all(RIB_UPDATE_KERNEL, ZEBRA_ROUTE_KERNEL);
 }
 
 /* Interface goes down.  We have to manage different behavior of based
