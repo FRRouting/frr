@@ -30,7 +30,7 @@ pytestmark = [pytest.mark.bgpd]
 
 
 def build_topo(tgen):
-    for routern in range(1, 4):
+    for routern in range(1, 5):
         tgen.add_router("r{}".format(routern))
 
     switch = tgen.add_switch("s1")
@@ -41,6 +41,10 @@ def build_topo(tgen):
     switch = tgen.add_switch("s2")
     switch.add_link(tgen.gears["r1"])
     switch.add_link(tgen.gears["r2"])
+
+    switch = tgen.add_switch("s3")
+    switch.add_link(tgen.gears["r1"])
+    switch.add_link(tgen.gears["r4"])
 
 
 def setup_module(mod):
@@ -84,6 +88,11 @@ def test_bgp_peer_group():
                 "bgpState": "Established",
                 "neighborCapabilities": {"gracefulRestart": "received"},
             },
+            "192.168.252.2": {
+                "peerGroup": "PG2",
+                "bgpState": "Established",
+                "neighborCapabilities": {"gracefulRestart": "advertisedAndReceived"},
+            },
         }
         return topotest.json_cmp(output, expected)
 
@@ -108,6 +117,24 @@ def test_bgp_peer_group():
     test_func = functools.partial(_bgp_peer_group_check_advertised_routes)
     _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
     assert result is None, "Failed checking advertised routes from r3"
+
+
+def test_show_running_remote_as_peer_group():
+    tgen = get_topogen()
+
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    output = (
+        tgen.gears["r1"]
+        .cmd(
+            'vtysh -c "show running bgpd" | grep "^ neighbor 192.168.252.2 remote-as 65004"'
+        )
+        .rstrip()
+    )
+    assert (
+        output == " neighbor 192.168.252.2 remote-as 65004"
+    ), "192.168.252.2 remote-as is flushed"
 
 
 def test_bgp_peer_group_remote_as_del_readd():
