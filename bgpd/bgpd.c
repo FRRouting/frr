@@ -2859,6 +2859,7 @@ struct peer_group *peer_group_get(struct bgp *bgp, const char *name)
 	group->conf->host = XSTRDUP(MTYPE_BGP_PEER_HOST, name);
 	group->conf->group = group;
 	group->conf->as = 0;
+	group->conf->as_type = AS_UNSPECIFIED;
 	group->conf->ttl = BGP_DEFAULT_TTL;
 	group->conf->gtsm_hops = BGP_GTSM_HOPS_DISABLED;
 	group->conf->v_routeadv = BGP_DEFAULT_EBGP_ROUTEADV;
