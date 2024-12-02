@@ -49,11 +49,19 @@ def bmp_update_seq(bmp_collector, bmp_log_file):
 
 
 def bmp_update_expected_files(
-    bmp_actual, expected_prefixes, bmp_log_type, policy, step, bmp_client
+    bmp_actual,
+    expected_prefixes,
+    bmp_log_type,
+    policy,
+    step,
+    bmp_client,
+    bmp_log_folder,
 ):
     tgen = get_topogen()
 
-    with open(f"/tmp/bmp-{bmp_log_type}-{policy}-step{step}.json", "w") as json_file:
+    with open(
+        f"{bmp_log_folder}/tmp/bmp-{bmp_log_type}-{policy}-step{step}.json", "w"
+    ) as json_file:
         json.dump(bmp_actual, json_file, indent=4)
 
     out = bmp_client.vtysh_cmd("show bgp vrf vrf1 ipv4 json", isjson=True)
@@ -70,8 +78,10 @@ def bmp_update_expected_files(
                 continue
             filtered_out["routes"][pfx] = None
 
-    # ls /tmp/show*json | while read file; do egrep -v 'prefix|network|metric|ocPrf|version|weight|peerId|vrf|Version|valid|Reason|fe80' $file >$(basename $file); echo >> $(basename $file); done
-    with open(f"/tmp/show-bgp-ipv4-{bmp_log_type}-step{step}.json", "w") as json_file:
+    # ls {bmp_log_folder}/tmp/show*json | while read file; do egrep -v 'prefix|network|metric|ocPrf|version|weight|peerId|vrf|Version|valid|Reason|fe80' $file >$(basename $file); echo >> $(basename $file); done
+    with open(
+        f"{bmp_log_folder}/tmp/show-bgp-ipv4-{bmp_log_type}-step{step}.json", "w"
+    ) as json_file:
         json.dump(filtered_out, json_file, indent=4)
 
     out = tgen.gears["r1"].vtysh_cmd("show bgp vrf vrf1 ipv6 json", isjson=True)
@@ -88,7 +98,9 @@ def bmp_update_expected_files(
                 continue
             filtered_out["routes"][pfx] = None
 
-    with open(f"/tmp/show-bgp-ipv6-{bmp_log_type}-step{step}.json", "w") as json_file:
+    with open(
+        f"{bmp_log_folder}/tmp/show-bgp-ipv6-{bmp_log_type}-step{step}.json", "w"
+    ) as json_file:
         json.dump(filtered_out, json_file, indent=4)
 
 
@@ -98,7 +110,7 @@ def bmp_check_for_prefixes(
     policy,
     step,
     bmp_collector,
-    bmp_log_file,
+    bmp_log_folder,
     bmp_client,
     expected_json_path,
     update_expected_json,
@@ -111,6 +123,7 @@ def bmp_check_for_prefixes(
     """
     global SEQ
 
+    bmp_log_file = f"{bmp_log_folder}/bmp.log"
     # we care only about the new messages
     messages = [
         m
@@ -173,7 +186,13 @@ def bmp_check_for_prefixes(
         == set(expected_prefixes)
     ):
         bmp_update_expected_files(
-            actual, expected_prefixes, bmp_log_type, policy, step, bmp_client
+            actual,
+            expected_prefixes,
+            bmp_log_type,
+            policy,
+            step,
+            bmp_client,
+            bmp_log_folder,
         )
 
     return topotest.json_cmp(actual, expected, exact=True)

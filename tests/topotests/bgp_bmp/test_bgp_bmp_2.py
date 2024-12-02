@@ -166,7 +166,7 @@ def _test_prefixes(policy, step=1):
             policy,
             step,
             tgen.gears["bmp1vrf"],
-            os.path.join(tgen.logdir, "bmp1vrf", "bmp.log"),
+            os.path.join(tgen.logdir, "bmp1vrf"),
             tgen.gears["r1vrf"],
             f"{CWD}/bmp1vrf",
             UPDATE_EXPECTED_JSON,
