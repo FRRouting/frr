@@ -270,6 +270,81 @@ def test_peer_down():
     assert success, "Checking the updated prefixes has been failed !."
 
 
+def test_reconfigure_route_distinguisher_vrf1():
+    """
+    Checking for BMP peers down messages
+    """
+    tgen = get_topogen()
+
+    bmp_update_seq(
+        tgen.gears["bmp1import"], os.path.join(tgen.logdir, "bmp1import", "bmp.log")
+    )
+    peers = ["0.0.0.0"]
+
+    tgen.gears["r1import"].vtysh_cmd(
+        """
+        configure terminal
+        router bgp 65501 vrf vrf1
+        address-family ipv4 unicast
+        rd vpn export 666:22
+        exit-address-family
+        address-family ipv6 unicast
+        rd vpn export 666:22
+        """
+    )
+    logger.info(
+        "checking for BMP peer down LOC-RIB message with route-distinguisher set to 444:1"
+    )
+    test_func = partial(
+        bmp_check_for_peer_message,
+        peers,
+        "peer down",
+        tgen.gears["bmp1import"],
+        os.path.join(tgen.logdir, "bmp1import", "bmp.log"),
+        is_rd_instance=True,
+        peer_distinguisher="444:1",
+    )
+    success, _ = topotest.run_and_expect(test_func, True, count=30, wait=1)
+    assert (
+        success
+    ), "Checking the BMP peer down LOC-RIB message with route-distinguisher set to 444:1 failed !."
+
+    logger.info(
+        "checking for BMP peer up LOC-RIB messages with route-distinguisher set to 666:22"
+    )
+    test_func = partial(
+        bmp_check_for_peer_message,
+        peers,
+        "peer up",
+        tgen.gears["bmp1import"],
+        os.path.join(tgen.logdir, "bmp1import", "bmp.log"),
+        is_rd_instance=True,
+        peer_distinguisher="666:22",
+    )
+    success, _ = topotest.run_and_expect(test_func, True, count=30, wait=1)
+    assert (
+        success
+    ), "Checking the BMP peer up LOC-RIB message with route-distinguisher set to 666:22 failed !."
+
+    logger.info(
+        "checking for BMP peer up messages with route-distinguisher set to 666:22"
+    )
+    peers = ["192.168.1.3", "192:167::3"]
+    test_func = partial(
+        bmp_check_for_peer_message,
+        peers,
+        "peer up",
+        tgen.gears["bmp1import"],
+        os.path.join(tgen.logdir, "bmp1import", "bmp.log"),
+        is_rd_instance=True,
+        peer_distinguisher="666:22",
+    )
+    success, _ = topotest.run_and_expect(test_func, True, count=30, wait=1)
+    assert (
+        success
+    ), "Checking the BMP peer up messages with route-distinguisher set to 666:22 failed !."
+
+
 def test_bgp_routerid_changed():
     """
     Checking for BGP loc-rib up messages with new router-id

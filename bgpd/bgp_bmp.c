@@ -3443,6 +3443,7 @@ static int bmp_bgp_attribute_updated(struct bgp *bgp, bool withdraw)
 	struct bmp_imported_bgp *bib;
 	int ret = 0;
 	struct stream *s = bmp_peerstate(bgp->peer_self, withdraw);
+	struct bmp *bmp;
 
 	if (!s)
 		return 0;
@@ -3451,6 +3452,10 @@ static int bmp_bgp_attribute_updated(struct bgp *bgp, bool withdraw)
 		frr_each (bmp_targets, &bmpbgp->targets, bt) {
 			ret = bmp_bgp_attribute_updated_instance(bt, &bmpbgp->vrf_state, bgp,
 								 withdraw, s);
+			if (withdraw)
+				continue;
+			frr_each (bmp_session, &bt->sessions, bmp)
+				bmp_send_peerup_per_instance(bmp, bgp);
 		}
 	}
 
@@ -3466,6 +3471,10 @@ static int bmp_bgp_attribute_updated(struct bgp *bgp, bool withdraw)
 					continue;
 				ret += bmp_bgp_attribute_updated_instance(bt, &bib->vrf_state, bgp,
 									  withdraw, s);
+				if (withdraw)
+					continue;
+				frr_each (bmp_session, &bt->sessions, bmp)
+					bmp_send_peerup_per_instance(bmp, bgp);
 			}
 		}
 	}
@@ -3490,10 +3499,18 @@ static void _bmp_vrf_state_changed_internal(struct bgp *bgp, enum bmp_vrf_state 
 	struct bmp_targets *bt;
 	struct listnode *node;
 	struct bmp_imported_bgp *bib;
+	struct bmp *bmp;
 
-	if (bmpbgp && bmp_bgp_update_vrf_status(&bmpbgp->vrf_state, bgp, vrf_state))
+	if (bmpbgp && bmp_bgp_update_vrf_status(&bmpbgp->vrf_state, bgp, vrf_state)) {
 		bmp_send_all_safe(bmpbgp, bmp_peerstate(bgp->peer_self,
 							bmpbgp->vrf_state == vrf_state_down));
+		if (vrf_state == vrf_state_up && bmpbgp->vrf_state == vrf_state_up) {
+			frr_each (bmp_targets, &bmpbgp->targets, bt) {
+				frr_each (bmp_session, &bt->sessions, bmp)
+					bmp_send_peerup_per_instance(bmp, bgp);
+			}
+		}
+	}
 
 	for (ALL_LIST_ELEMENTS_RO(bm->bgp, node, bgp_vrf)) {
 		bmpbgp = bmp_bgp_find(bgp_vrf);
@@ -3509,6 +3526,11 @@ static void _bmp_vrf_state_changed_internal(struct bgp *bgp, enum bmp_vrf_state 
 					bmp_send_bt_safe(bt, bmp_peerstate(bgp->peer_self,
 									   bib->vrf_state ==
 										   vrf_state_down));
+					if (vrf_state == vrf_state_up &&
+					    bib->vrf_state == vrf_state_up) {
+						frr_each (bmp_session, &bt->sessions, bmp)
+							bmp_send_peerup_per_instance(bmp, bgp);
+					}
 					break;
 				}
 			}
