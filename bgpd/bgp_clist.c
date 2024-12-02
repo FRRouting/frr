@@ -11,7 +11,6 @@
 #include "queue.h"
 #include "filter.h"
 #include "stream.h"
-#include "jhash.h"
 #include "frrstr.h"
 
 #include "bgpd/bgpd.h"
