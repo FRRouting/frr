@@ -467,13 +467,19 @@ static struct stream *bmp_peerstate(struct peer *peer, bool down)
 	struct stream *s;
 	size_t len;
 	struct timeval uptime, uptime_real;
+	uint8_t peer_type;
+	bool is_locrib = false;
 
 	uptime.tv_sec = peer->uptime;
 	uptime.tv_usec = 0;
 	monotime_to_realtime(&uptime, &uptime_real);
 
-	uint8_t peer_type = bmp_get_peer_type(peer);
-	bool is_locrib = peer_type == BMP_PEER_TYPE_LOC_RIB_INSTANCE;
+	peer_type = bmp_get_peer_type(peer);
+	if (peer_type == BMP_PEER_TYPE_LOC_RIB_INSTANCE)
+		is_locrib = true;
+	else
+		/* TODO: remove this when other RD and local instances supported */
+		peer_type = BMP_PEER_TYPE_GLOBAL_INSTANCE;
 
 #define BGP_BMP_MAX_PACKET_SIZE	1024
 #define BMP_PEERUP_INFO_TYPE_STRING 0
@@ -484,9 +490,7 @@ static struct stream *bmp_peerstate(struct peer *peer, bool down)
 
 		bmp_common_hdr(s, BMP_VERSION_3,
 				BMP_TYPE_PEER_UP_NOTIFICATION);
-		bmp_per_peer_hdr(s, peer->bgp, peer, 0,
-				 BMP_PEER_TYPE_GLOBAL_INSTANCE, 0,
-				 &uptime_real);
+		bmp_per_peer_hdr(s, peer->bgp, peer, 0, peer_type, 0, &uptime_real);
 
 		/* Local Address (16 bytes) */
 		if (is_locrib)
