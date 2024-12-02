@@ -81,7 +81,7 @@ static void if_zebra_speed_update(struct event *thread)
 	if (new_speed != ifp->speed) {
 		zlog_info("%s: %s old speed: %u new speed: %u", __func__,
 			  ifp->name, ifp->speed, new_speed);
-		ifp->speed = new_speed;
+		if_update_state_speed(ifp, new_speed);
 		if_add_update(ifp);
 		changed = true;
 	}
@@ -1563,17 +1563,20 @@ static inline void zebra_if_set_ziftype(struct interface *ifp,
 static void interface_update_hw_addr(struct zebra_dplane_ctx *ctx,
 				     struct interface *ifp)
 {
-	int i;
+	uint8_t hw_addr[INTERFACE_HWADDR_MAX];
+	uint i, hw_addr_len;
 
-	ifp->hw_addr_len = dplane_ctx_get_ifp_hw_addr_len(ctx);
-	memcpy(ifp->hw_addr, dplane_ctx_get_ifp_hw_addr(ctx), ifp->hw_addr_len);
+	hw_addr_len = dplane_ctx_get_ifp_hw_addr_len(ctx);
+	memcpy(hw_addr, dplane_ctx_get_ifp_hw_addr(ctx), hw_addr_len);
 
-	for (i = 0; i < ifp->hw_addr_len; i++)
-		if (ifp->hw_addr[i] != 0)
+	for (i = 0; i < hw_addr_len; i++)
+		if (hw_addr[i] != 0)
 			break;
 
-	if (i == ifp->hw_addr_len)
-		ifp->hw_addr_len = 0;
+	if (i == hw_addr_len)
+		hw_addr_len = 0;
+
+	if_update_state_hw_addr(ifp, hw_addr, hw_addr_len);
 }
 
 static void interface_update_l2info(struct zebra_dplane_ctx *ctx,
@@ -1984,9 +1987,10 @@ static void zebra_if_dplane_ifp_handling(struct zebra_dplane_ctx *ctx)
 			/* Update interface information. */
 			set_ifindex(ifp, ifindex, zns);
 			ifp->flags = flags;
-			ifp->mtu6 = ifp->mtu = mtu;
-			ifp->metric = 0;
-			ifp->speed = kernel_get_speed(ifp, NULL);
+			if_update_state_mtu(ifp, mtu);
+			if_update_state_mtu6(ifp, mtu);
+			if_update_state_metric(ifp, 0);
+			if_update_state_speed(ifp, kernel_get_speed(ifp, NULL));
 			ifp->ptm_status = ZEBRA_PTM_STATUS_UNKNOWN;
 			ifp->txqlen = dplane_ctx_get_intf_txqlen(ctx);
 
@@ -2036,6 +2040,7 @@ static void zebra_if_dplane_ifp_handling(struct zebra_dplane_ctx *ctx)
 						IS_ZEBRA_IF_BRIDGE_VLAN_AWARE(
 							zif));
 			}
+			// if_update_state(ifp);
 		} else if (ifp->vrf->vrf_id != vrf_id) {
 			/* VRF change for an interface. */
 			if (IS_ZEBRA_DEBUG_KERNEL)
@@ -2058,8 +2063,9 @@ static void zebra_if_dplane_ifp_handling(struct zebra_dplane_ctx *ctx)
 					   (unsigned long long)flags);
 
 			set_ifindex(ifp, ifindex, zns);
-			ifp->mtu6 = ifp->mtu = mtu;
-			ifp->metric = 0;
+			if_update_state_mtu(ifp, mtu);
+			if_update_state_mtu6(ifp, mtu);
+			if_update_state_metric(ifp, 0);
 			ifp->txqlen = dplane_ctx_get_intf_txqlen(ctx);
 
 			/*

@@ -29,6 +29,10 @@
 #include "admin_group.h"
 #include "lib/if_clippy.c"
 
+
+/* Set by the owner (zebra). */
+bool if_notify_oper_changes;
+
 DEFINE_MTYPE_STATIC(LIB, IF, "Interface");
 DEFINE_MTYPE_STATIC(LIB, IFDESC, "Intf Desc");
 DEFINE_MTYPE_STATIC(LIB, CONNECTED, "Connected");
@@ -208,6 +212,104 @@ void if_down_via_zapi(struct interface *ifp)
 	hook_call(if_down, ifp);
 }
 
+void if_update_state_metric(struct interface *ifp, uint32_t metric)
+{
+	if (ifp->metric == metric)
+		return;
+	ifp->metric = metric;
+	if (ifp->state && if_notify_oper_changes)
+		nb_op_updatef(ifp->state, "metric", "%u", ifp->metric);
+}
+
+void if_update_state_mtu(struct interface *ifp, uint mtu)
+{
+	if (ifp->mtu == mtu)
+		return;
+	ifp->mtu = mtu;
+	if (ifp->state && if_notify_oper_changes)
+		nb_op_updatef(ifp->state, "mtu", "%u", ifp->mtu);
+}
+
+void if_update_state_mtu6(struct interface *ifp, uint mtu)
+{
+	if (ifp->mtu6 == mtu)
+		return;
+	ifp->mtu6 = mtu;
+	if (ifp->state && if_notify_oper_changes)
+		nb_op_updatef(ifp->state, "mtu6", "%u", ifp->mtu);
+}
+
+void if_update_state_hw_addr(struct interface *ifp, const uint8_t *hw_addr, uint len)
+{
+	if (len == (uint)ifp->hw_addr_len && (len == 0 || !memcmp(hw_addr, ifp->hw_addr, len)))
+		return;
+	memcpy(ifp->hw_addr, hw_addr, len);
+	ifp->hw_addr_len = len;
+	if (ifp->state && if_notify_oper_changes)
+		nb_op_updatef(ifp->state, "phy-address", "%pEA", (struct ethaddr *)ifp->hw_addr);
+}
+
+void if_update_state_speed(struct interface *ifp, uint32_t speed)
+{
+	if (ifp->speed == speed)
+		return;
+	ifp->speed = speed;
+	if (ifp->state && if_notify_oper_changes)
+		nb_op_updatef(ifp->state, "speed", "%u", ifp->speed);
+}
+
+void if_update_state(struct interface *ifp)
+{
+	struct lyd_node *state = ifp->state;
+
+	if (!state || !if_notify_oper_changes)
+		return;
+
+	/*
+	 * Remove top level container update when we have patch support, for now
+	 * this keeps us from generating 6 separate REPLACE messages though.
+	 */
+	// nb_op_update(state, ".", NULL);
+	nb_op_updatef(state, "if-index", "%d", ifp->ifindex);
+	nb_op_updatef(state, "mtu", "%u", ifp->mtu);
+	nb_op_updatef(state, "mtu6", "%u", ifp->mtu);
+	nb_op_updatef(state, "speed", "%u", ifp->speed);
+	nb_op_updatef(state, "metric", "%u", ifp->metric);
+	nb_op_updatef(state, "phy-address", "%pEA", (struct ethaddr *)ifp->hw_addr);
+}
+
+static void if_update_state_remove(struct interface *ifp)
+{
+	if (!if_notify_oper_changes || ifp->name[0] == 0)
+		return;
+
+	if (vrf_is_backend_netns())
+		nb_op_update_delete_pathf(NULL, "/frr-interface:lib/interface[name=\"%s:%s\"]/state",
+					  ifp->vrf->name, ifp->name);
+	else
+		nb_op_update_delete_pathf(NULL, "/frr-interface:lib/interface[name=\"%s\"]/state",
+					  ifp->name);
+	if (ifp->state) {
+		lyd_free_all(ifp->state);
+		ifp->state = NULL;
+	}
+}
+
+static void if_update_state_add(struct interface *ifp)
+{
+	if (!if_notify_oper_changes || ifp->name[0] == 0)
+		return;
+
+	if (vrf_is_backend_netns())
+		ifp->state = nb_op_update_pathf(NULL,
+						"/frr-interface:lib/interface[name=\"%s:%s\"]/state",
+						NULL, ifp->vrf->name, ifp->name);
+	else
+		ifp->state = nb_op_update_pathf(NULL,
+						"/frr-interface:lib/interface[name=\"%s\"]/state",
+						NULL, ifp->name);
+}
+
 static struct interface *if_create_name(const char *name, struct vrf *vrf)
 {
 	struct interface *ifp;
@@ -216,7 +318,11 @@ static struct interface *if_create_name(const char *name, struct vrf *vrf)
 
 	if_set_name(ifp, name);
 
+	if (if_notify_oper_changes && ifp->state)
+		if_update_state(ifp);
+
 	hook_call(if_add, ifp);
+
 	return ifp;
 }
 
@@ -228,8 +334,10 @@ void if_update_to_new_vrf(struct interface *ifp, vrf_id_t vrf_id)
 	/* remove interface from old master vrf list */
 	old_vrf = ifp->vrf;
 
-	if (ifp->name[0] != '\0')
+	if (ifp->name[0] != '\0') {
 		IFNAME_RB_REMOVE(old_vrf, ifp);
+		if_update_state_remove(ifp);
+	}
 
 	if (ifp->ifindex != IFINDEX_INTERNAL)
 		IFINDEX_RB_REMOVE(old_vrf, ifp);
@@ -237,8 +345,11 @@ void if_update_to_new_vrf(struct interface *ifp, vrf_id_t vrf_id)
 	vrf = vrf_get(vrf_id, NULL);
 	ifp->vrf = vrf;
 
-	if (ifp->name[0] != '\0')
+	if (ifp->name[0] != '\0') {
 		IFNAME_RB_INSERT(vrf, ifp);
+		if_update_state_add(ifp);
+		if_update_state(ifp);
+	}
 
 	if (ifp->ifindex != IFINDEX_INTERNAL)
 		IFINDEX_RB_INSERT(vrf, ifp);
@@ -279,6 +390,8 @@ void if_delete(struct interface **ifp)
 	if_link_params_free(ptr);
 
 	XFREE(MTYPE_IFDESC, ptr->desc);
+
+	if_update_state_remove(ptr);
 
 	XFREE(MTYPE_IF, ptr);
 	*ifp = NULL;
@@ -630,6 +743,9 @@ int if_set_index(struct interface *ifp, ifindex_t ifindex)
 
 	ifp->ifindex = ifindex;
 
+	if (if_notify_oper_changes)
+		nb_op_updatef(ifp->state, "if-index", "%d", ifp->ifindex);
+
 	if (ifp->ifindex != IFINDEX_INTERNAL) {
 		/*
 		 * This should never happen, since we checked if there was
@@ -648,13 +764,17 @@ static void if_set_name(struct interface *ifp, const char *name)
 	if (if_cmp_name_func(ifp->name, name) == 0)
 		return;
 
-	if (ifp->name[0] != '\0')
+	if (ifp->name[0] != '\0') {
 		IFNAME_RB_REMOVE(ifp->vrf, ifp);
+		if_update_state_remove(ifp);
+	}
 
 	strlcpy(ifp->name, name, sizeof(ifp->name));
 
-	if (ifp->name[0] != '\0')
+	if (ifp->name[0] != '\0') {
 		IFNAME_RB_INSERT(ifp->vrf, ifp);
+		if_update_state_add(ifp);
+	}
 }
 
 /* Does interface up ? */
