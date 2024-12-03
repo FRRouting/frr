@@ -4,6 +4,7 @@
 # Authored by Farid Mihoub <farid.mihoub@6wind.com>
 #
 import ipaddress
+import socket
 import struct
 
 
@@ -45,9 +46,11 @@ class RouteDistinguisher:
             self.repr_str = f"{self.as_number}:{self.assigned_sp}"
 
         elif rd_type == 1:
-            (self.admin_ipv4, self.assigned_sp) = struct.unpack_from("!IH", self.rd[2:])
-            ipv4 = str(ipaddress.IPv4Address(self.admin_ipv4))
-            self.repr_str = f"{self.as_number}:{self.assigned_sp}"
+            (self.admin_ipv4, self.assigned_sp) = struct.unpack_from(
+                "!4sH", self.rd[2:]
+            )
+            ipv4_str = socket.inet_ntoa(self.admin_ipv4)
+            self.repr_str = f"{ipv4_str}:{self.assigned_sp}"
 
         elif rd_type == 2:
             (self.four_bytes_as, self.assigned_sp) = struct.unpack_from(
