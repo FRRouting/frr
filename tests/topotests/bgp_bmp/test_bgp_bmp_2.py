@@ -200,7 +200,7 @@ def test_peer_up():
     """
 
     tgen = get_topogen()
-    peers = ["192.168.0.2", "192:168::2"]
+    peers = ["192.168.0.2", "192:168::2", "0.0.0.0"]
 
     logger.info("checking for BMP peers up messages")
 
