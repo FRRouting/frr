@@ -180,7 +180,6 @@ def test_bgp_route_server_client_step1():
         else:
             cmd = "show bgp ipv6 unicast json"
 
-        # router.cmd("vtysh -c 'sh bgp ipv6 json' >/tmp/show_bgp_ipv6_%s.json" % router.name)
         ref_file = "{}/{}/show_bgp_ipv6_step1.json".format(CWD, router.name)
         expected = json.loads(open(ref_file).read())
         replace_link_local(expected, link_local_cache)
@@ -230,7 +229,6 @@ router bgp 65000 view RS
         else:
             cmd = "show bgp ipv6 unicast json"
 
-        # router.cmd("vtysh -c 'sh bgp ipv6 json' >/tmp/show_bgp_ipv6_%s.json" % router.name)
         ref_file = "{}/{}/show_bgp_ipv6_step2.json".format(CWD, router.name)
         expected = json.loads(open(ref_file).read())
         replace_link_local(expected, link_local_cache)
@@ -286,7 +284,6 @@ router bgp 65000 view RS
         else:
             cmd = "show bgp ipv6 unicast json"
 
-        # router.cmd("vtysh -c 'sh bgp ipv6 json' >/tmp/show_bgp_ipv6_%s.json" % router.name)
         ref_file = "{}/{}/show_bgp_ipv6_step1.json".format(CWD, router.name)
         expected = json.loads(open(ref_file).read())
         replace_link_local(expected, link_local_cache)
