@@ -1042,8 +1042,8 @@ static int bmp_peer_backward(struct peer *peer)
 	return 0;
 }
 
-static void bmp_eor(struct bmp *bmp, afi_t afi, safi_t safi, uint8_t flags,
-		    uint8_t peer_type_flag)
+static void bmp_eor(struct bmp *bmp, afi_t afi, safi_t safi, uint8_t flags, uint8_t peer_type_flag,
+		    struct bgp *bgp)
 {
 	struct peer *peer;
 	struct listnode *node;
@@ -1051,7 +1051,7 @@ static void bmp_eor(struct bmp *bmp, afi_t afi, safi_t safi, uint8_t flags,
 	iana_afi_t pkt_afi = IANA_AFI_IPV4;
 	iana_safi_t pkt_safi = IANA_SAFI_UNICAST;
 
-	frrtrace(4, frr_bgp, bmp_eor, afi, safi, flags, peer_type_flag);
+	frrtrace(5, frr_bgp, bmp_eor, afi, safi, flags, peer_type_flag, bgp);
 
 	s = stream_new(BGP_MAX_PACKET_SIZE);
 
@@ -1079,7 +1079,7 @@ static void bmp_eor(struct bmp *bmp, afi_t afi, safi_t safi, uint8_t flags,
 
 	bgp_packet_set_size(s);
 
-	for (ALL_LIST_ELEMENTS_RO(bmp->targets->bgp->peer, node, peer)) {
+	for (ALL_LIST_ELEMENTS_RO(bgp->peer, node, peer)) {
 		if (!peer->afc_nego[afi][safi])
 			continue;
 
@@ -1096,8 +1096,7 @@ static void bmp_eor(struct bmp *bmp, afi_t afi, safi_t safi, uint8_t flags,
 		bmp_common_hdr(s2, BMP_VERSION_3,
 				BMP_TYPE_ROUTE_MONITORING);
 
-		bmp_per_peer_hdr(s2, bmp->targets->bgp, peer, flags,
-				 peer_type_flag, peer_distinguisher, NULL);
+		bmp_per_peer_hdr(s2, bgp, peer, flags, peer_type_flag, peer_distinguisher, NULL);
 
 		stream_putl_at(s2, BMP_LENGTH_POS,
 				stream_get_endp(s) + stream_get_endp(s2));
@@ -1313,9 +1312,9 @@ static void bmp_eor_afi_safi(struct bmp *bmp, afi_t afi, safi_t safi, uint8_t pe
 	zlog_info("bmp[%s] %s %s table completed (EoR) (BGP %s)", bmp->remote, afi2str(afi),
 		  safi2str(safi), bmp->sync_bgp->name_pretty);
 
-	bmp_eor(bmp, afi, safi, BMP_PEER_FLAG_L, peer_type_flag);
-	bmp_eor(bmp, afi, safi, 0, peer_type_flag);
-	bmp_eor(bmp, afi, safi, 0, BMP_PEER_TYPE_LOC_RIB_INSTANCE);
+	bmp_eor(bmp, afi, safi, BMP_PEER_FLAG_L, peer_type_flag, bmp->sync_bgp);
+	bmp_eor(bmp, afi, safi, 0, peer_type_flag, bmp->sync_bgp);
+	bmp_eor(bmp, afi, safi, 0, BMP_PEER_TYPE_LOC_RIB_INSTANCE, bmp->sync_bgp);
 
 	sync_bgp = bmp_get_next_bgp(bmp->targets, bmp->sync_bgp, afi, safi);
 	if (sync_bgp) {
