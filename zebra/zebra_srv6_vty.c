@@ -365,9 +365,12 @@ static void do_show_srv6_sid_line(struct ttable *tt, struct zebra_srv6_sid *sid)
 		snprintf(ctx, sizeof(ctx), "VRF '%s'",
 			 vrf ? vrf->name : "<unknown>");
 		break;
+	case ZEBRA_SEG6_LOCAL_ACTION_END_B6_ENCAP:
+		snprintfrr(ctx, sizeof(ctx), "nh6 '%pI6' color '%u'",
+			 &sid->ctx->ctx.nh6, sid->ctx->ctx.color);
+		break;
 	case ZEBRA_SEG6_LOCAL_ACTION_END_DX2:
 	case ZEBRA_SEG6_LOCAL_ACTION_END_B6:
-	case ZEBRA_SEG6_LOCAL_ACTION_END_B6_ENCAP:
 	case ZEBRA_SEG6_LOCAL_ACTION_END_BM:
 	case ZEBRA_SEG6_LOCAL_ACTION_END_S:
 	case ZEBRA_SEG6_LOCAL_ACTION_END_AS:

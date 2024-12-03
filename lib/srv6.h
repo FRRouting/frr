@@ -362,8 +362,8 @@ static inline const char *srv6_sid_ctx2str(char *str, size_t size,
 		break;
 
 	case ZEBRA_SEG6_LOCAL_ACTION_END_B6_ENCAP:
-		len += snprintf(str + len, size - len, " nh6 %pI6 color %u",
-				&ctx->nh6, ctx->color);
+		len += snprintfrr(str + len, size - len, " nh6 %pI6 color %u",
+			          &ctx->nh6, ctx->color);
 		break;
 
 	case ZEBRA_SEG6_LOCAL_ACTION_END_DX2:
