@@ -326,9 +326,12 @@ static const char *show_srv6_sid_seg6_context(char *str, size_t size, const stru
 		vrf = vrf_lookup_by_id(ctx->vrf_id);
 		snprintf(str, size, "VRF '%s'", vrf ? vrf->name : "<unknown>");
 		break;
+	case ZEBRA_SEG6_LOCAL_ACTION_END_B6_ENCAP:
+		snprintfrr(str, size, "nh6 '%pI6' color '%u'",
+			   &ctx->nh6, ctx->color);
+		break;
 	case ZEBRA_SEG6_LOCAL_ACTION_END_DX2:
 	case ZEBRA_SEG6_LOCAL_ACTION_END_B6:
-	case ZEBRA_SEG6_LOCAL_ACTION_END_B6_ENCAP:
 	case ZEBRA_SEG6_LOCAL_ACTION_END_BM:
 	case ZEBRA_SEG6_LOCAL_ACTION_END_S:
 	case ZEBRA_SEG6_LOCAL_ACTION_END_AS:
