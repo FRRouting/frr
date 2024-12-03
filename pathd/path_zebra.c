@@ -537,6 +537,52 @@ void path_zebra_send_bsid(const struct in6_addr *bsid, ifindex_t oif,
 	zclient_route_send(ZEBRA_ROUTE_ADD, zclient, &api);
 }
 
+static struct zapi_nexthop *path_zebra_fill_zapi_sr_policy(
+	struct srte_policy *policy, struct srte_segment_list *segment_list,
+	struct path_nht_data *nhtd, struct zapi_sr_policy *zp)
+{
+	struct srte_segment_entry *segment = NULL;
+	struct zapi_nexthop *znh = NULL;
+	struct nexthop *nexthop;
+	int num = 0;
+
+	zp->color = policy->color;
+	zp->endpoint = policy->endpoint;
+	strlcpy(zp->name, policy->name, sizeof(zp->name));
+
+	if (!path_zebra_segment_list_srv6(segment_list)) {
+		zp->segment_list.type = ZEBRA_SR_LSP_SRTE;
+		zp->segment_list.local_label = policy->binding_sid;
+		zp->segment_list.label_num = 0;
+		zp->segment_list.ifindex = segment_list->ifindex;
+		RB_FOREACH (segment, srte_segment_entry_head,
+			    &segment_list->segments)
+			zp->segment_list.labels[zp->segment_list.label_num++] =
+				segment->sid_value;
+		return NULL;
+	} else {
+		zp->segment_list.type = ZEBRA_SR_SRV6_SRTE;
+		zp->segment_list.local_label = MPLS_LABEL_NONE;
+		zp->segment_list.srv6_segs.num_segs = 0;
+		RB_FOREACH (segment, srte_segment_entry_head,
+			    &segment_list->segments)
+			IPV6_ADDR_COPY(&zp->segment_list.srv6_segs
+						.segs[zp->segment_list.srv6_segs
+							      .num_segs++],
+				       &segment->srv6_sid_value);
+	}
+	if (nhtd && nhtd->nexthop) {
+		for (ALL_NEXTHOPS_PTR(nhtd, nexthop)) {
+			znh = &zp->segment_list.nexthop_resolved[num++];
+			zapi_nexthop_from_nexthop(znh, nexthop);
+		}
+		zp->segment_list.distance = nhtd->distance;
+		zp->segment_list.metric = nhtd->metric;
+		zp->segment_list.nexthop_resolved_num = nhtd->nh_num;
+	}
+	return znh;
+}
+
 /**
  * Adds a segment routing policy to Zebra.
  *
@@ -549,46 +595,12 @@ path_zebra_add_sr_policy_internal(struct srte_policy *policy,
 				  struct path_nht_data *nhtd)
 {
 	struct zapi_sr_policy zp = {};
-	struct srte_segment_entry *segment = NULL;
-	struct zapi_nexthop *znh = NULL;
-	struct nexthop *nexthop;
-	int num = 0;
+	struct zapi_nexthop *znh;
 
-	zp.color = policy->color;
-	zp.endpoint = policy->endpoint;
-	strlcpy(zp.name, policy->name, sizeof(zp.name));
+	znh = path_zebra_fill_zapi_sr_policy(policy, segment_list, nhtd, &zp);
 
-	if (!path_zebra_segment_list_srv6(segment_list)) {
-		zp.segment_list.type = ZEBRA_SR_LSP_SRTE;
-		zp.segment_list.local_label = policy->binding_sid;
-		zp.segment_list.label_num = 0;
-		zp.segment_list.ifindex = segment_list->ifindex;
-		RB_FOREACH (segment, srte_segment_entry_head,
-			    &segment_list->segments)
-			zp.segment_list.labels[zp.segment_list.label_num++] =
-				segment->sid_value;
-	} else {
-		zp.segment_list.type = ZEBRA_SR_SRV6_SRTE;
-		zp.segment_list.local_label = MPLS_LABEL_NONE;
-		zp.segment_list.srv6_segs.num_segs = 0;
-		RB_FOREACH (segment, srte_segment_entry_head,
-			    &segment_list->segments)
-			IPV6_ADDR_COPY(&zp.segment_list.srv6_segs
-						.segs[zp.segment_list.srv6_segs
-							      .num_segs++],
-				       &segment->srv6_sid_value);
-	}
 	policy->status = SRTE_POLICY_STATUS_GOING_UP;
 
-	if (nhtd && nhtd->nexthop) {
-		zp.segment_list.distance = nhtd->distance;
-		zp.segment_list.metric = nhtd->metric;
-		for (ALL_NEXTHOPS_PTR(nhtd, nexthop)) {
-			znh = &zp.segment_list.nexthop_resolved[num++];
-			zapi_nexthop_from_nexthop(znh, nexthop);
-		}
-		zp.segment_list.nexthop_resolved_num = nhtd->nh_num;
-	}
 	if (znh && !sid_zero_ipv6(&policy->srv6_binding_sid) && segment_list &&
 	    (CHECK_FLAG(policy->flags, F_POLICY_BSID_ALLOCATED) ||
 	     !srv6_use_sid_manager) &&
@@ -936,6 +948,11 @@ void path_zebra_process_srv6_bsid(bool allocate)
 {
 	struct srte_policy *policy;
 	struct srv6_sid_ctx sid_ctx = {};
+	struct path_nht_data *nhtd, lookup;
+	struct srte_candidate *candidate;
+	struct srte_segment_list *segment_list;
+	struct zapi_nexthop *znh;
+	struct zapi_sr_policy zp;
 
 	RB_FOREACH (policy, srte_policy_head, &srte_policies) {
 		if (IPV6_ADDR_SAME(&policy->srv6_binding_sid, &in6addr_any))
@@ -959,11 +976,46 @@ void path_zebra_process_srv6_bsid(bool allocate)
 			}
 			path_zebra_srv6_manager_get_sid(&sid_ctx,
 							&policy->srv6_binding_sid);
-		} else if (!allocate &&
-			 CHECK_FLAG(policy->flags, F_POLICY_BSID_ALLOCATED) &&
-			 !srv6_use_sid_manager) {
-			path_zebra_srv6_manager_release_sid(&sid_ctx);
-			UNSET_FLAG(policy->flags, F_POLICY_BSID_ALLOCATED);
+			return;
+		}
+		if (!allocate && !srv6_use_sid_manager) {
+			if (CHECK_FLAG(policy->flags, F_POLICY_BSID_ALLOCATED)) {
+				path_zebra_srv6_manager_release_sid(&sid_ctx);
+				UNSET_FLAG(policy->flags,
+					   F_POLICY_BSID_ALLOCATED);
+			}
+			candidate = policy->best_candidate;
+			if (!candidate || !candidate->lsp)
+				return;
+			segment_list = candidate->lsp->segment_list;
+			if (!segment_list ||
+			    !path_zebra_segment_list_srv6(segment_list))
+				return;
+
+			if (!path_zebra_nht_get_srv6_prefix(segment_list,
+							    &lookup.nh))
+				return;
+
+			if (!CHECK_FLAG(segment_list->flags,
+					F_SEGMENT_LIST_NHT_REGISTERED))
+				return;
+
+			lookup.nh_vrf_id = VRF_DEFAULT;
+			nhtd = path_nht_hash_find(path_nht_hash, &lookup);
+
+			znh = path_zebra_fill_zapi_sr_policy(policy,
+							     segment_list, nhtd,
+							     &zp);
+
+			if (znh && zp.segment_list.nexthop_resolved_num) {
+				(void)path_zebra_send_bsid(
+					&policy->srv6_binding_sid, znh->ifindex,
+					ZEBRA_SEG6_LOCAL_ACTION_END_B6_ENCAP,
+					&zp.segment_list.srv6_segs.segs[0],
+					zp.segment_list.srv6_segs.num_segs);
+				SET_FLAG(policy->flags,
+					 F_POLICY_BSID_IPV6_INSTALLED);
+			}
 		}
 	}
 }
