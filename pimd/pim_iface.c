@@ -1464,8 +1464,7 @@ static void pim_if_gm_join_del_all(struct interface *ifp)
 		return;
 
 	for (ALL_LIST_ELEMENTS(pim_ifp->gm_join_list, node, nextnode, ij))
-		pim_if_gm_join_del(ifp, ij->group_addr, ij->source_addr,
-				   GM_JOIN_STATIC);
+		pim_if_gm_join_del(ifp, ij->group_addr, ij->source_addr, ij->join_type);
 }
 
 ferr_r pim_if_static_group_add(struct interface *ifp, pim_addr group_addr,
