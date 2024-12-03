@@ -1293,18 +1293,19 @@ class TopoBMPCollector(TopoHost):
         log_err = os.path.join(log_dir, "bmpserver.log")
 
         log_arg = "-l {}".format(log_file) if log_file else ""
+        self.pid_file = os.path.join(log_dir, "bmpserver.pid")
 
         with open(log_err, "w") as err:
             self.run(
-                "{}/bmp_collector/bmpserver -a {} -p {} {}&".format(
-                    CWD, self.ip, self.port, log_arg
+                "{}/bmp_collector/bmpserver.py -a {} -p {} -r {} {}&".format(
+                    CWD, self.ip, self.port, self.pid_file, log_arg
                 ),
                 stdout=None,
                 stderr=err,
             )
 
     def stop(self):
-        self.run("pkill -f bmpserver")
+        self.run(f"kill $(cat {self.pid_file}")
         return ""
 
 
