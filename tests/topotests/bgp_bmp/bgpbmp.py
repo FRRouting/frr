@@ -216,11 +216,16 @@ def bmp_check_for_peer_message(
     ]
 
     # get the list of pairs (prefix, policy, seq) for the given message type
-    peers = [
-        m["peer_ip"]
-        for m in messages
-        if "peer_ip" in m.keys() and m["bmp_log_type"] == bmp_log_type
-    ]
+    peers = []
+    for m in messages:
+        if (
+            "peer_ip" in m.keys()
+            and m["peer_ip"] != "0.0.0.0"
+            and m["bmp_log_type"] == bmp_log_type
+        ):
+            peers.append(m["peer_ip"])
+        elif m["policy"] == "loc-rib" and m["bmp_log_type"] == bmp_log_type:
+            peers.append("0.0.0.0")
 
     # check for prefixes
     for ep in expected_peers:
