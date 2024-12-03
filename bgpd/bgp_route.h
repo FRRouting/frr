@@ -589,6 +589,42 @@ enum bgp_path_type {
 	BGP_PATH_SHOW_MULTIPATH
 };
 
+/* meta-queue structure:
+ * sub-queue 0: soo routes
+ * sub-queue 1: other routes
+ */
+#define MQ_SIZE 3
+
+/* For checking that an object has already queued in some sub-queue */
+#define MQ_BIT_MASK ((1 << MQ_SIZE) - 1)
+
+struct meta_queue {
+	STAILQ_HEAD(bgp_dest_queue, bgp_dest) * subq[MQ_SIZE];
+	uint32_t size; /* sum of lengths of all subqueues */
+};
+
+/*
+ * When the update-delay expires, BGP inserts an EOIU (End-Of-Initial-Update) marker
+ * into the BGP_PROCESS_QUEUE_EOIU_MARKER meta queue. This meta queue holds only
+ * bgp_dest structures. To process the EOIU marker, we need to call bgp_process_main_one()
+ * on the corresponding BGP instance. Since the marker itself isn't a real route
+ * (a dummy dest is created for this) and doesn't inherently carry the BGP instance pointer,
+ * we store the struct bgp pointer in the dest->info field. This ensures that, when processing
+ * the EOIU marker, we have the necessary context (the relevant BGP instance) available.
+ */
+struct bgp_eoiu_info {
+	struct bgp *bgp;
+};
+
+/*
+ * Meta Q's specific names
+ */
+enum meta_queue_indexes {
+	META_QUEUE_EARLY_ROUTE,
+	META_QUEUE_OTHER_ROUTE,
+	META_QUEUE_EOIU_MARKER,
+};
+
 static inline void bgp_bump_version(struct bgp_dest *dest)
 {
 	dest->version = bgp_table_next_version(bgp_dest_table(dest));
@@ -973,4 +1009,8 @@ extern int bgp_path_info_cmp(struct bgp *bgp, struct bgp_path_info *new,
 #define bgp_path_info_add(A, B)                                                \
 	bgp_path_info_add_with_caller(__func__, (A), (B))
 #define bgp_path_info_free(B) bgp_path_info_free_with_caller(__func__, (B))
+extern void bgp_meta_queue_free(struct meta_queue *mq);
+extern int early_route_process(struct bgp *bgp, struct bgp_dest *dest);
+extern int other_route_process(struct bgp *bgp, struct bgp_dest *dest);
+extern int eoiu_marker_process(struct bgp *bgp, struct bgp_dest *dest);
 #endif /* _QUAGGA_BGP_ROUTE_H */

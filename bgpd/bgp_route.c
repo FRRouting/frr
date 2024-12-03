@@ -78,6 +78,9 @@
 
 #include "bgpd/bgp_route_clippy.c"
 
+DEFINE_MTYPE_STATIC(BGPD, BGP_EOIU_MARKER_INFO, "BGP EOIU Marker info");
+DEFINE_MTYPE_STATIC(BGPD, BGP_METAQ, "BGP MetaQ");
+
 DEFINE_HOOK(bgp_snmp_update_stats,
 	    (struct bgp_dest *rn, struct bgp_path_info *pi, bool added),
 	    (rn, pi, added));
@@ -3488,14 +3491,6 @@ bool bgp_zebra_has_route_changed(struct bgp_path_info *selected)
 	return false;
 }
 
-struct bgp_process_queue {
-	struct bgp *bgp;
-	STAILQ_HEAD(, bgp_dest) pqueue;
-#define BGP_PROCESS_QUEUE_EOIU_MARKER		(1 << 0)
-	unsigned int flags;
-	unsigned int queued;
-};
-
 static void bgp_process_evpn_route_injection(struct bgp *bgp, afi_t afi,
 					     safi_t safi, struct bgp_dest *dest,
 					     struct bgp_path_info *new_select,
@@ -4043,43 +4038,286 @@ void bgp_best_path_select_defer(struct bgp *bgp, afi_t afi, safi_t safi)
 			&bgp->gr_info[afi][safi].t_route_select);
 }
 
-static wq_item_status bgp_process_wq(struct work_queue *wq, void *data)
+static const char *subqueue2str(enum meta_queue_indexes index)
 {
-	struct bgp_process_queue *pqnode = data;
-	struct bgp *bgp = pqnode->bgp;
-	struct bgp_table *table;
-	struct bgp_dest *dest;
-
-	/* eoiu marker */
-	if (CHECK_FLAG(pqnode->flags, BGP_PROCESS_QUEUE_EOIU_MARKER)) {
-		bgp_process_main_one(bgp, NULL, 0, 0);
-		/* should always have dedicated wq call */
-		assert(STAILQ_FIRST(&pqnode->pqueue) == NULL);
-		return WQ_SUCCESS;
+	switch (index) {
+	case META_QUEUE_EARLY_ROUTE:
+		return "Early Route";
+	case META_QUEUE_OTHER_ROUTE:
+		return "Other Route";
+	case META_QUEUE_EOIU_MARKER:
+		return "EOIU Marker";
 	}
 
-	while (!STAILQ_EMPTY(&pqnode->pqueue)) {
-		dest = STAILQ_FIRST(&pqnode->pqueue);
-		STAILQ_REMOVE_HEAD(&pqnode->pqueue, pq);
-		STAILQ_NEXT(dest, pq) = NULL; /* complete unlink */
-		table = bgp_dest_table(dest);
-		/* note, new DESTs may be added as part of processing */
-		bgp_process_main_one(bgp, dest, table->afi, table->safi);
-
-		bgp_dest_unlock_node(dest);
-		bgp_table_unlock(table);
-	}
-
-	return WQ_SUCCESS;
+	return "Unknown";
 }
 
-static void bgp_processq_del(struct work_queue *wq, void *data)
+/*
+ * Process a node from the Early route subqueue.
+ */
+static void process_subq_early_route(struct bgp_dest *dest)
 {
-	struct bgp_process_queue *pqnode = data;
+	struct bgp_table *table = bgp_dest_table(dest);
 
-	bgp_unlock(pqnode->bgp);
+	if (bgp_debug_bestpath(dest))
+		zlog_debug("%s dequeued from sub-queue %s", bgp_dest_get_prefix_str(dest),
+			   subqueue2str(META_QUEUE_EARLY_ROUTE));
 
-	XFREE(MTYPE_BGP_PROCESS_QUEUE, pqnode);
+	/* note, new DESTs may be added as part of processing */
+	bgp_process_main_one(table->bgp, dest, table->afi, table->safi);
+	bgp_dest_unlock_node(dest);
+	bgp_table_unlock(table);
+}
+
+/*
+ * Process a node from the other subqueue.
+ */
+static void process_subq_other_route(struct bgp_dest *dest)
+{
+	struct bgp_table *table = bgp_dest_table(dest);
+
+	if (bgp_debug_bestpath(dest))
+		zlog_debug("%s dequeued from sub-queue %s", bgp_dest_get_prefix_str(dest),
+			   subqueue2str(META_QUEUE_OTHER_ROUTE));
+
+	/* note, new DESTs may be added as part of processing */
+	bgp_process_main_one(table->bgp, dest, table->afi, table->safi);
+	bgp_dest_unlock_node(dest);
+	bgp_table_unlock(table);
+}
+
+/*
+ * Process a node from the eoiu marker subqueue.
+ */
+static void process_eoiu_marker(struct bgp_dest *dest)
+{
+	struct bgp_eoiu_info *info = bgp_dest_get_bgp_eoiu_info(dest);
+
+	if (!info || !info->bgp) {
+		zlog_err("Unable to retrieve BGP instance, can't process EOIU marker");
+		return;
+	}
+
+	if (BGP_DEBUG(update, UPDATE_IN))
+		zlog_debug("EOIU Marker dequeued from sub-queue %s",
+			   subqueue2str(META_QUEUE_EOIU_MARKER));
+
+	bgp_process_main_one(info->bgp, NULL, 0, 0);
+}
+
+/*
+ * Examine the specified subqueue; process one entry and return 1 if
+ * there is a node, return 0 otherwise.
+ */
+static unsigned int process_subq(struct bgp_dest_queue *subq, enum meta_queue_indexes qindex)
+{
+	struct bgp_dest *dest = STAILQ_FIRST(subq);
+
+	if (!dest)
+		return 0;
+
+	STAILQ_REMOVE_HEAD(subq, pq);
+	STAILQ_NEXT(dest, pq) = NULL; /* complete unlink */
+
+	switch (qindex) {
+	case META_QUEUE_EARLY_ROUTE:
+		process_subq_early_route(dest);
+		break;
+	case META_QUEUE_OTHER_ROUTE:
+		process_subq_other_route(dest);
+		break;
+	case META_QUEUE_EOIU_MARKER:
+		process_eoiu_marker(dest);
+	}
+
+	return 1;
+}
+
+/* Dispatch the meta queue by picking and processing the next node from
+ * a non-empty sub-queue with lowest priority. wq is equal to bgp->process_queue and
+ * data is pointed to the meta queue structure.
+ */
+static wq_item_status meta_queue_process(struct work_queue *dummy, void *data)
+{
+	struct meta_queue *mq = data;
+	uint32_t i;
+
+	for (i = 0; i < MQ_SIZE; i++)
+		if (process_subq(mq->subq[i], i)) {
+			mq->size--;
+			break;
+		}
+	return mq->size ? WQ_REQUEUE : WQ_SUCCESS;
+}
+
+static int early_route_meta_queue_add(struct meta_queue *mq, void *data)
+{
+	uint8_t qindex = META_QUEUE_EARLY_ROUTE;
+	struct bgp_dest *dest = data;
+
+	if (bgp_debug_bestpath(dest))
+		zlog_debug("%s queued into sub-queue %s", bgp_dest_get_prefix_str(dest),
+			   subqueue2str(qindex));
+
+	assert(STAILQ_NEXT(dest, pq) == NULL);
+	STAILQ_INSERT_TAIL(mq->subq[qindex], dest, pq);
+	mq->size++;
+	return 0;
+}
+
+static int other_route_meta_queue_add(struct meta_queue *mq, void *data)
+{
+	uint8_t qindex = META_QUEUE_OTHER_ROUTE;
+	struct bgp_dest *dest = data;
+
+	if (bgp_debug_bestpath(dest))
+		zlog_debug("%s queued into sub-queue %s", bgp_dest_get_prefix_str(dest),
+			   subqueue2str(qindex));
+
+	assert(STAILQ_NEXT(dest, pq) == NULL);
+	STAILQ_INSERT_TAIL(mq->subq[qindex], dest, pq);
+	mq->size++;
+	return 0;
+}
+
+static int eoiu_marker_meta_queue_add(struct meta_queue *mq, void *data)
+{
+	uint8_t qindex = META_QUEUE_EOIU_MARKER;
+	struct bgp_dest *dest = data;
+
+	if (BGP_DEBUG(update, UPDATE_IN))
+		zlog_debug("EOIU Marker queued into sub-queue %s", subqueue2str(qindex));
+
+	assert(STAILQ_NEXT(dest, pq) == NULL);
+	STAILQ_INSERT_TAIL(mq->subq[qindex], dest, pq);
+	mq->size++;
+	return 0;
+}
+
+static int mq_add_handler(struct bgp *bgp, void *data,
+			  int (*mq_add_func)(struct meta_queue *mq, void *data))
+{
+	if (bgp->process_queue == NULL) {
+		zlog_err("%s: work_queue does not exist!", __func__);
+		return -1;
+	}
+
+	if (work_queue_empty(bgp->process_queue))
+		work_queue_add(bgp->process_queue, bgp->mq);
+
+	return mq_add_func(bgp->mq, data);
+}
+
+int early_route_process(struct bgp *bgp, struct bgp_dest *dest)
+{
+	if (!dest) {
+		zlog_err("%s: early route dest is NULL!", __func__);
+		return -1;
+	}
+
+	return mq_add_handler(bgp, dest, early_route_meta_queue_add);
+}
+
+int other_route_process(struct bgp *bgp, struct bgp_dest *dest)
+{
+	if (!dest) {
+		zlog_err("%s: other route dest is NULL!", __func__);
+		return -1;
+	}
+
+	return mq_add_handler(bgp, dest, other_route_meta_queue_add);
+}
+
+int eoiu_marker_process(struct bgp *bgp, struct bgp_dest *dest)
+{
+	if (!dest) {
+		zlog_err("%s: eoiu marker dest is NULL!", __func__);
+		return -1;
+	}
+
+	return mq_add_handler(bgp, dest, eoiu_marker_meta_queue_add);
+}
+
+/* Create new meta queue.
+   A destructor function doesn't seem to be necessary here.
+ */
+static struct meta_queue *meta_queue_new(void)
+{
+	struct meta_queue *new;
+	uint32_t i;
+
+	new = XCALLOC(MTYPE_BGP_METAQ, sizeof(struct meta_queue));
+
+	for (i = 0; i < MQ_SIZE; i++) {
+		new->subq[i] = XCALLOC(MTYPE_BGP_METAQ, sizeof(*(new->subq[i])));
+		assert(new->subq[i]);
+		STAILQ_INIT(new->subq[i]);
+	}
+
+	return new;
+}
+
+/* Clean up the early meta-queue list */
+static void early_meta_queue_free(struct meta_queue *mq, struct bgp_dest_queue *l)
+{
+	struct bgp_dest *dest;
+
+	while (!STAILQ_EMPTY(l)) {
+		dest = STAILQ_FIRST(l);
+		STAILQ_REMOVE_HEAD(l, pq);
+		STAILQ_NEXT(dest, pq) = NULL; /* complete unlink */
+		mq->size--;
+	}
+}
+
+/* Clean up the other meta-queue list */
+static void other_meta_queue_free(struct meta_queue *mq, struct bgp_dest_queue *l)
+{
+	struct bgp_dest *dest;
+
+	while (!STAILQ_EMPTY(l)) {
+		dest = STAILQ_FIRST(l);
+		STAILQ_REMOVE_HEAD(l, pq);
+		STAILQ_NEXT(dest, pq) = NULL; /* complete unlink */
+		mq->size--;
+	}
+}
+
+/* Clean up the eoiu marker meta-queue list */
+static void eoiu_marker_queue_free(struct meta_queue *mq, struct bgp_dest_queue *l)
+{
+	struct bgp_dest *dest;
+
+	while (!STAILQ_EMPTY(l)) {
+		dest = STAILQ_FIRST(l);
+		XFREE(MTYPE_BGP_EOIU_MARKER_INFO, dest->info);
+		STAILQ_REMOVE_HEAD(l, pq);
+		STAILQ_NEXT(dest, pq) = NULL; /* complete unlink */
+		mq->size--;
+	}
+}
+
+void bgp_meta_queue_free(struct meta_queue *mq)
+{
+	enum meta_queue_indexes i;
+
+	for (i = 0; i < MQ_SIZE; i++) {
+		switch (i) {
+		case META_QUEUE_EARLY_ROUTE:
+			early_meta_queue_free(mq, mq->subq[i]);
+			break;
+		case META_QUEUE_OTHER_ROUTE:
+			other_meta_queue_free(mq, mq->subq[i]);
+			break;
+		case META_QUEUE_EOIU_MARKER:
+			eoiu_marker_queue_free(mq, mq->subq[i]);
+			break;
+		}
+
+		XFREE(MTYPE_BGP_METAQ, mq->subq[i]);
+	}
+
+	XFREE(MTYPE_BGP_METAQ, mq);
 }
 
 void bgp_process_queue_init(struct bgp *bgp)
@@ -4091,37 +4329,19 @@ void bgp_process_queue_init(struct bgp *bgp)
 		bgp->process_queue = work_queue_new(bm->master, name);
 	}
 
-	bgp->process_queue->spec.workfunc = &bgp_process_wq;
-	bgp->process_queue->spec.del_item_data = &bgp_processq_del;
+	bgp->process_queue->spec.workfunc = &meta_queue_process;
 	bgp->process_queue->spec.max_retries = 0;
 	bgp->process_queue->spec.hold = 50;
 	/* Use a higher yield value of 50ms for main queue processing */
 	bgp->process_queue->spec.yield = 50 * 1000L;
-}
 
-static struct bgp_process_queue *bgp_processq_alloc(struct bgp *bgp)
-{
-	struct bgp_process_queue *pqnode;
-
-	pqnode = XCALLOC(MTYPE_BGP_PROCESS_QUEUE,
-			 sizeof(struct bgp_process_queue));
-
-	/* unlocked in bgp_processq_del */
-	pqnode->bgp = bgp_lock(bgp);
-	STAILQ_INIT(&pqnode->pqueue);
-
-	return pqnode;
+	bgp->mq = meta_queue_new();
 }
 
 static void bgp_process_internal(struct bgp *bgp, struct bgp_dest *dest,
 				 struct bgp_path_info *pi, afi_t afi,
 				 safi_t safi, bool early_process)
 {
-#define ARBITRARY_PROCESS_QLEN		10000
-	struct work_queue *wq = bgp->process_queue;
-	struct bgp_process_queue *pqnode;
-	int pqnode_reuse = 0;
-
 	/*
 	 * Indicate that *this* pi is in an unsorted
 	 * situation, even if the node is already
@@ -4171,39 +4391,16 @@ static void bgp_process_internal(struct bgp *bgp, struct bgp_dest *dest,
 		return;
 	}
 
-	if (wq == NULL)
-		return;
-
-	/* Add route nodes to an existing work queue item until reaching the
-	   limit only if is from the same BGP view and it's not an EOIU marker
-	 */
-	if (work_queue_item_count(wq)) {
-		struct work_queue_item *item = work_queue_last_item(wq);
-		pqnode = item->data;
-
-		if (CHECK_FLAG(pqnode->flags, BGP_PROCESS_QUEUE_EOIU_MARKER) ||
-		    (pqnode->queued >= ARBITRARY_PROCESS_QLEN && !early_process))
-			pqnode = bgp_processq_alloc(bgp);
-		else
-			pqnode_reuse = 1;
-	} else
-		pqnode = bgp_processq_alloc(bgp);
-	/* all unlocked in bgp_process_wq */
+	/* all unlocked in process_subq_xxx functions */
 	bgp_table_lock(bgp_dest_table(dest));
 
 	SET_FLAG(dest->flags, BGP_NODE_PROCESS_SCHEDULED);
 	bgp_dest_lock_node(dest);
 
-	/* can't be enqueued twice */
-	assert(STAILQ_NEXT(dest, pq) == NULL);
 	if (early_process)
-		STAILQ_INSERT_HEAD(&pqnode->pqueue, dest, pq);
+		early_route_process(bgp, dest);
 	else
-		STAILQ_INSERT_TAIL(&pqnode->pqueue, dest, pq);
-	pqnode->queued++;
-
-	if (!pqnode_reuse)
-		work_queue_add(wq, pqnode);
+		other_route_process(bgp, dest);
 
 	return;
 }
@@ -4222,15 +4419,18 @@ void bgp_process_early(struct bgp *bgp, struct bgp_dest *dest,
 
 void bgp_add_eoiu_mark(struct bgp *bgp)
 {
-	struct bgp_process_queue *pqnode;
+	/*
+	 * Create a dummy dest as the meta queue expects all its elements to be
+	 * dest's
+	 */
+	struct bgp_dest *dummy_dest = XCALLOC(MTYPE_BGP_NODE, sizeof(struct bgp_dest));
 
-	if (bgp->process_queue == NULL)
-		return;
+	struct bgp_eoiu_info *eoiu_info = XCALLOC(MTYPE_BGP_EOIU_MARKER_INFO,
+						  sizeof(struct bgp_eoiu_info));
+	eoiu_info->bgp = bgp;
 
-	pqnode = bgp_processq_alloc(bgp);
-
-	SET_FLAG(pqnode->flags, BGP_PROCESS_QUEUE_EOIU_MARKER);
-	work_queue_add(bgp->process_queue, pqnode);
+	bgp_dest_set_bgp_eoiu_info(dummy_dest, eoiu_info);
+	eoiu_marker_process(bgp, dummy_dest);
 }
 
 static void bgp_maximum_prefix_restart_timer(struct event *thread)
