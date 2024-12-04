@@ -29,6 +29,17 @@ extern uint32_t rmap_debug;
 /* Route map's type. */
 enum route_map_type { RMAP_PERMIT, RMAP_DENY, RMAP_ANY };
 
+/* Route-map's action reason */
+enum route_map_action_reason {
+	route_map_action_none,
+	route_map_action_map_null,
+	route_map_action_no_index,
+	route_map_action_next_deny,
+	route_map_action_exit,
+	route_map_action_goto_null,
+	route_map_action_index_deny,
+};
+
 typedef enum {
 	RMAP_DENYMATCH,
 	RMAP_PERMITMATCH
