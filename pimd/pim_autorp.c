@@ -1508,12 +1508,14 @@ void pim_autorp_init(struct pim_instance *pim)
 	autorp->discovery_holdtime = DEFAULT_AUTORP_DISCOVERY_HOLDTIME;
 	cand_addrsel_clear(&(autorp->mapping_agent_addrsel));
 
+	pim->autorp = autorp;
+
 	if (!pim_autorp_socket_enable(autorp)) {
-		zlog_warn("%s: AutoRP failed to initialize", __func__);
+		zlog_warn("%s: AutoRP failed to initialize, feature will not work correctly",
+			  __func__);
 		return;
 	}
 
-	pim->autorp = autorp;
 	if (PIM_DEBUG_AUTORP)
 		zlog_debug("%s: AutoRP Initialized", __func__);
 
