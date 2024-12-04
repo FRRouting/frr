@@ -1675,7 +1675,7 @@ DEFPY(show_nexthop_group,
 			vty_json_no_pretty(vty, json);
 		else
 			vty_json(vty, json);
-        }
+	}
 
 	return CMD_SUCCESS;
 }
