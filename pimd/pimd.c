@@ -30,6 +30,7 @@
 #include "vrf.h"
 #include "lib_errors.h"
 #include "bfd.h"
+#include "filter.h"
 
 #include "pimd.h"
 #if PIM_IPV == 4
@@ -156,6 +157,7 @@ void pim_terminate(void)
 	prefix_list_add_hook(NULL);
 	prefix_list_delete_hook(NULL);
 	prefix_list_reset();
+	access_list_reset();
 
 	pim_vxlan_terminate();
 	pim_vrf_terminate();
