@@ -2587,12 +2587,11 @@ bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
 
 		if (ret == RMAP_DENYMATCH) {
 			if (bgp_debug_update(NULL, p, subgrp->update_group, 0))
-				zlog_debug(
-					"%pBP [Update:SEND] %pFX is filtered by route-map '%s'",
-					peer, p,
-					bgp_path_suppressed(pi)
-						? UNSUPPRESS_MAP_NAME(filter)
-						: ROUTE_MAP_OUT_NAME(filter));
+				zlog_debug("%pBP [Update:SEND] %pFX is filtered by route-map (%s) '%s'",
+					   peer, p,
+					   bgp_path_suppressed(pi) ? "unsuppress-map" : "out",
+					   bgp_path_suppressed(pi) ? UNSUPPRESS_MAP_NAME(filter)
+								   : ROUTE_MAP_OUT_NAME(filter));
 			bgp_attr_flush(rmap_path.attr);
 			return false;
 		}
