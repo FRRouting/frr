@@ -4033,10 +4033,10 @@ static void rib_link(struct route_node *rn, struct route_entry *re, int process)
 
 	dest = rib_dest_from_rnode(rn);
 	if (!dest) {
+		dest = zebra_rib_create_dest(rn);
+
 		if (IS_ZEBRA_DEBUG_RIB_DETAILED)
 			rnode_debug(rn, re->vrf_id, "rn %p adding dest", rn);
-
-		dest = zebra_rib_create_dest(rn);
 	}
 
 	re_list_add_head(&dest->routes, re);
