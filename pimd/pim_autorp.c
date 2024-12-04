@@ -1014,12 +1014,18 @@ void pim_autorp_init(struct pim_instance *pim)
 	autorp->announce_interval = DEFAULT_ANNOUNCE_INTERVAL;
 	autorp->announce_holdtime = DEFAULT_ANNOUNCE_HOLDTIME;
 
+	pim->autorp = autorp;
+
 	if (!pim_autorp_socket_enable(autorp)) {
+<<<<<<< HEAD
 		zlog_err("%s: AutoRP failed to initialize", __func__);
+=======
+		zlog_warn("%s: AutoRP failed to initialize, feature will not work correctly",
+			  __func__);
+>>>>>>> 37b88191fb (pimd: Prevent crash of pim when auto-rp's socket is not initialized)
 		return;
 	}
 
-	pim->autorp = autorp;
 	if (PIM_DEBUG_AUTORP)
 		zlog_debug("%s: AutoRP Initialized", __func__);
 
