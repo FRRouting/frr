@@ -150,6 +150,34 @@ static inline time_t time_to_epoch(time_t ts)
 	return (time(NULL) - (monotime(NULL) - ts));
 }
 
+/*
+ * time_to_date_string - Calculate the time and convert it
+ *                       into a dd:hh:mm:ss display format.
+ */
+static inline const char *time_to_date_string(time_t last_update, char *buf, size_t len)
+{
+	time_t curr;
+	time_t diff;
+	struct tm tm;
+	struct timeval tv;
+
+	/* If no status update has ever been received, print `never'. */
+	if (last_update == 0) {
+		snprintf(buf, len, "never");
+		return buf;
+	}
+
+	/* Get current time. */
+	monotime(&tv);
+	curr = tv.tv_sec;
+	diff = curr - last_update;
+	gmtime_r(&diff, &tm);
+
+	snprintf(buf, len, "%d:%02d:%02d:%02d", tm.tm_yday, tm.tm_hour, tm.tm_min, tm.tm_sec);
+
+	return buf;
+}
+
 /* Convert interval to human-friendly string, used in cli output e.g. */
 static inline const char *frrtime_to_interval(time_t t, char *buf,
 					      size_t buflen)

@@ -12129,6 +12129,7 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct bgp_dest *bn,
 		CHECK_FLAG(path->flags, BGP_PATH_ANNC_NH_SELF) ? true : false;
 	int i;
 	char *nexthop_hostname = bgp_nexthop_hostname(path->peer, path->nexthop);
+	char time_buf[64];
 	struct bgp_path_info *bpi_ultimate =
 		bgp_get_imported_bpi_ultimate(path);
 	struct bgp_route_evpn *bre = bgp_attr_get_evpn_overlay(attr);
@@ -13124,6 +13125,9 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct bgp_dest *bn,
 
 	/* Line 9 display Uptime */
 	tbuf = time(NULL) - (monotime(NULL) - path->uptime);
+	/* Calculate uptime and convert it into dd:hh:mm:ss display format */
+	time_to_date_string(path->uptime, time_buf, sizeof(time_buf));
+
 	if (json_paths) {
 		json_last_update = json_object_new_object();
 		json_object_int_add(json_last_update, "epoch", tbuf);
@@ -13131,6 +13135,8 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct bgp_dest *bn,
 				       time_to_string_json(path->uptime, timebuf));
 		json_object_object_add(json_path, "lastUpdate",
 				       json_last_update);
+		json_object_string_add(json_path, "lastUpdateTimerMsecs", time_buf);
+
 	} else
 		vty_out(vty, "      Last update: %s", time_to_string(path->uptime, timebuf));
 

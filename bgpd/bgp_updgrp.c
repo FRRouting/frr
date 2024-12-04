@@ -739,6 +739,7 @@ static int update_group_show_walkcb(struct update_group *updgrp, void *arg)
 	json_object *json_pkt_info = NULL;
 	time_t epoch_tbuf, tbuf;
 	char timebuf[32];
+	char time_buf[64];
 
 	if (!ctx)
 		return CMD_SUCCESS;
@@ -781,6 +782,10 @@ static int update_group_show_walkcb(struct update_group *updgrp, void *arg)
 				       afi2str(updgrp->afi));
 		json_object_string_add(json_updgrp, "safi",
 				       safi2str(updgrp->safi));
+		/* Calculate createtime and convert it into dd:hh:mm:ss display
+		 * format */
+		time_to_date_string(updgrp->uptime, time_buf, sizeof(time_buf));
+		json_object_string_add(json_updgrp, "grpCreateTimerMsecs", time_buf);
 	} else {
 		vty_out(vty, "Update-group %" PRIu64 ":\n", updgrp->id);
 		vty_out(vty, "  Created: %s", time_to_string(updgrp->uptime, timebuf));
@@ -854,6 +859,10 @@ static int update_group_show_walkcb(struct update_group *updgrp, void *arg)
 					       time_to_string_json(subgrp->uptime, timebuf));
 			json_object_object_add(json_subgrp, "groupCreateTime",
 					       json_subgrp_time);
+			/* Calculate subgrp createtime and convert it into
+			 * dd:hh:mm:ss display format */
+			time_to_date_string(subgrp->uptime, time_buf, sizeof(time_buf));
+			json_object_string_add(json_subgrp, "subGrpCreateTimerMsecs", time_buf);
 		} else {
 			vty_out(vty, "\n");
 			vty_out(vty, "  Update-subgroup %" PRIu64 ":\n",
