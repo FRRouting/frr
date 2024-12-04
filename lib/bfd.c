@@ -32,6 +32,8 @@ enum bfd_session_event {
 	BSE_UNINSTALL,
 	/** Install the BFD session configuration. */
 	BSE_INSTALL,
+	/** We should install but it couldn't because of a error talking to zebra */
+	BSE_VALID_FOR_INSTALL,
 };
 
 /**
@@ -527,6 +529,10 @@ static void _bfd_sess_send(struct event *t)
 			vrf_id_to_name(bsp->args.vrf_id), bsp->args.vrf_id,
 			bsp->lastev == BSE_INSTALL ? "installed"
 						   : "uninstalled");
+
+		bsp->installed = false;
+		if (bsp->lastev == BSE_INSTALL)
+			bsp->lastev = BSE_VALID_FOR_INSTALL;
 	}
 }
 
@@ -883,7 +889,7 @@ int zclient_bfd_session_replay(ZAPI_CALLBACK_ARGS)
 	/* Replay all activated peers. */
 	TAILQ_FOREACH (bsp, &bsglobal.bsplist, entry) {
 		/* Skip not installed sessions. */
-		if (!bsp->installed)
+		if (!bsp->installed && bsp->lastev != BSE_VALID_FOR_INSTALL)
 			continue;
 
 		/* We are reconnecting, so we must send installation. */
