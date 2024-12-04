@@ -342,6 +342,9 @@ static int gm_config_write(struct vty *vty, int writes,
 		struct listnode *node;
 		struct gm_join *ij;
 		for (ALL_LIST_ELEMENTS_RO(pim_ifp->gm_join_list, node, ij)) {
+			if (ij->join_type == GM_JOIN_PROXY)
+				continue;
+
 			if (pim_addr_is_any(ij->source_addr))
 				vty_out(vty, " ip igmp join-group %pPAs\n",
 					&ij->group_addr);
@@ -412,6 +415,9 @@ static int gm_config_write(struct vty *vty, int writes,
 		struct gm_join *ij;
 
 		for (ALL_LIST_ELEMENTS_RO(pim_ifp->gm_join_list, node, ij)) {
+			if (ij->join_type == GM_JOIN_PROXY)
+				continue;
+
 			if (pim_addr_is_any(ij->source_addr))
 				vty_out(vty, " ipv6 mld join-group %pPAs\n",
 					&ij->group_addr);
