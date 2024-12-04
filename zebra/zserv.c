@@ -57,6 +57,7 @@ extern struct zebra_privs_t zserv_privs;
 
 /* The listener socket for clients connecting to us */
 static int zsock;
+static bool started_p;
 
 /* The lock that protects access to zapi client objects */
 static pthread_mutex_t client_mutex;
@@ -925,9 +926,16 @@ void zserv_close(void)
 
 	/* Free client list's mutex */
 	pthread_mutex_destroy(&client_mutex);
+
+	started_p = false;
 }
 
-void zserv_start(char *path)
+
+/*
+ * Open zebra's ZAPI listener socket. This is done early during startup,
+ * before zebra is ready to listen and accept client connections.
+ */
+void zserv_open(const char *path)
 {
 	int ret;
 	mode_t old_mask;
@@ -969,6 +977,26 @@ void zserv_start(char *path)
 			     path, safe_strerror(errno));
 		close(zsock);
 		zsock = -1;
+	}
+
+	umask(old_mask);
+}
+
+/*
+ * Start listening for ZAPI client connections.
+ */
+void zserv_start(const char *path)
+{
+	int ret;
+
+	/* This may be called more than once during startup - potentially once
+	 * per netns - but only do this work once.
+	 */
+	if (started_p)
+		return;
+
+	if (zsock <= 0) {
+		flog_err_sys(EC_LIB_SOCKET, "Zserv socket open failed");
 		return;
 	}
 
@@ -982,7 +1010,7 @@ void zserv_start(char *path)
 		return;
 	}
 
-	umask(old_mask);
+	started_p = true;
 
 	zserv_event(NULL, ZSERV_ACCEPT);
 }
