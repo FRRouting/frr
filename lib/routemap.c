@@ -875,6 +875,28 @@ void route_map_walk_update_list(void (*route_map_update_fn)(char *name))
 	}
 }
 
+static const char *route_map_action_reason2str(enum route_map_action_reason reason)
+{
+	switch (reason) {
+	case route_map_action_none:
+		return "none";
+	case route_map_action_map_null:
+		return "route-map is null";
+	case route_map_action_no_index:
+		return "no index";
+	case route_map_action_next_deny:
+		return "next statement is deny";
+	case route_map_action_exit:
+		return "exit policy";
+	case route_map_action_goto_null:
+		return "goto index is null";
+	case route_map_action_index_deny:
+		return "deny index";
+	}
+
+	return "Invalid reason";
+}
+
 /* Return route map's type string. */
 static const char *route_map_type_str(enum route_map_type type)
 {
@@ -2554,6 +2576,7 @@ route_map_result_t route_map_apply_ext(struct route_map *map,
 	RUSAGE_T mbefore, mafter;
 	RUSAGE_T ibefore, iafter;
 	unsigned long cputime;
+	enum route_map_action_reason reason = route_map_action_none;
 
 	if (recursion > RMAP_RECURSION_LIMIT) {
 		if (map)
@@ -2571,6 +2594,7 @@ route_map_result_t route_map_apply_ext(struct route_map *map,
 		if (map)
 			map->applied++;
 		ret = RMAP_DENYMATCH;
+		reason = route_map_action_map_null;
 		goto route_map_apply_end;
 	}
 
@@ -2614,6 +2638,7 @@ route_map_result_t route_map_apply_ext(struct route_map *map,
 			ret = RMAP_PERMITMATCH;
 		else
 			ret = RMAP_DENYMATCH;
+		reason = route_map_action_no_index;
 		goto route_map_apply_end;
 	}
 
@@ -2701,12 +2726,15 @@ route_map_result_t route_map_apply_ext(struct route_map *map,
 					}
 
 					/* If nextrm returned 'deny', finish. */
-					if (ret == RMAP_DENYMATCH)
+					if (ret == RMAP_DENYMATCH) {
+						reason = route_map_action_next_deny;
 						goto route_map_apply_end;
+					}
 				}
 
 				switch (index->exitpolicy) {
 				case RMAP_EXIT:
+					reason = route_map_action_exit;
 					goto route_map_apply_end;
 				case RMAP_NEXT:
 					continue;
@@ -2722,6 +2750,7 @@ route_map_result_t route_map_apply_ext(struct route_map *map,
 					}
 					if (next == NULL) {
 						/* No clauses match! */
+						reason = route_map_action_goto_null;
 						goto route_map_apply_end;
 					}
 				}
@@ -2730,6 +2759,7 @@ route_map_result_t route_map_apply_ext(struct route_map *map,
 			/* 'deny' */
 			{
 				ret = RMAP_DENYMATCH;
+				reason = route_map_action_index_deny;
 				goto route_map_apply_end;
 			}
 		}
@@ -2741,9 +2771,9 @@ route_map_result_t route_map_apply_ext(struct route_map *map,
 
 route_map_apply_end:
 	if (unlikely(CHECK_FLAG(rmap_debug, DEBUG_ROUTEMAP)))
-		zlog_debug("Route-map: %s, prefix: %pFX, result: %s",
-			   (map ? map->name : "null"), prefix,
-			   route_map_result_str(ret));
+		zlog_debug("Route-map: %s, prefix: %pFX, result: %s, reason: %s",
+			   (map ? map->name : "null"), prefix, route_map_result_str(ret),
+			   route_map_action_reason2str(reason));
 
 	if (pref) {
 		if (index != NULL && ret == RMAP_PERMITMATCH)
