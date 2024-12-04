@@ -418,6 +418,9 @@ int main(int argc, char **argv)
 	zebra_if_init();
 	zebra_debug_init();
 
+	/* Open Zebra API server socket */
+	zserv_open(zserv_path);
+
 	/*
 	 * Initialize NS( and implicitly the VRF module), and make kernel
 	 * routing socket. */
