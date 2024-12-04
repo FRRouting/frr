@@ -1248,8 +1248,6 @@ static void peer_free(struct peer *peer)
 	bgp_reads_off(peer->connection);
 	bgp_writes_off(peer->connection);
 	event_cancel_event_ready(bm->master, peer->connection);
-	FOREACH_AFI_SAFI (afi, safi)
-		EVENT_OFF(peer->t_revalidate_all[afi][safi]);
 	assert(!peer->connection->t_write);
 	assert(!peer->connection->t_read);
 	event_cancel_event_ready(bm->master, peer->connection);
@@ -2640,8 +2638,6 @@ int peer_delete(struct peer *peer)
 	bgp_reads_off(peer->connection);
 	bgp_writes_off(peer->connection);
 	event_cancel_event_ready(bm->master, peer->connection);
-	FOREACH_AFI_SAFI (afi, safi)
-		EVENT_OFF(peer->t_revalidate_all[afi][safi]);
 	assert(!CHECK_FLAG(peer->connection->thread_flags,
 			   PEER_THREAD_WRITES_ON));
 	assert(!CHECK_FLAG(peer->connection->thread_flags,
