@@ -28,7 +28,9 @@
 #include "static_nb.h"
 #include "static_pm.h"
 
+#ifdef HAVE_STATICD_MGMTD
 #include "mgmt_be_client.h"
+#endif /* HAVE_STATICD_MGMTD */
 
 char backup_config_file[256];
 
@@ -54,7 +56,9 @@ struct option longopts[] = { { 0 } };
 /* Master of threads. */
 struct event_loop *master;
 
+#ifdef HAVE_STATICD_MGMTD
 static struct mgmt_be_client *mgmt_be_client;
+#endif /* HAVE_STATICD_MGMTD */
 
 static struct frr_daemon_info staticd_di;
 
@@ -72,7 +76,9 @@ static void sigint(void)
 	/* Disable BFD events to avoid wasting processing. */
 	bfd_protocol_integration_set_shutdown(true);
 
+#ifdef HAVE_STATICD_MGMTD
 	mgmt_be_client_destroy(mgmt_be_client);
+#endif /* HAVE_STATICD_MGMTD */
 
 	static_vrf_terminate();
 
@@ -131,7 +137,9 @@ FRR_DAEMON_INFO(staticd, STATIC,
 	.yang_modules = staticd_yang_modules,
 	.n_yang_modules = array_size(staticd_yang_modules),
 
+#ifdef HAVE_STATICD_MGMTD
 	.flags = FRR_NO_SPLIT_CONFIG,
+#endif /* HAVE_STATICD_MGMTD */
 );
 /* clang-format on */
 
@@ -166,8 +174,10 @@ int main(int argc, char **argv, char **envp)
 	static_pm_init();
 	static_vty_init();
 
+#ifdef HAVE_STATICD_MGMTD
 	/* Initialize MGMT backend functionalities */
 	mgmt_be_client = mgmt_be_client_create("staticd", NULL, 0, master);
+#endif /* HAVE_STATICD_MGMTD */
 
 	hook_register(routing_conf_event,
 		      routing_control_plane_protocols_name_validate);
@@ -176,12 +186,17 @@ int main(int argc, char **argv, char **envp)
 	hook_register(routing_destroy,
 		      routing_control_plane_protocols_staticd_destroy);
 
+#ifdef HAVE_STATICD_MGMTD
 	/*
 	 * We set FRR_NO_SPLIT_CONFIG flag to avoid reading our config, but we
 	 * still need to write one if vtysh tells us to. Setting the host
 	 * config filename does this.
 	 */
 	host_config_set(config_default);
+#else  /* HAVE_STATICD_MGMTD */
+	snprintf(backup_config_file, sizeof(backup_config_file), "%s/zebra.conf", frr_sysconfdir);
+	staticd_di.backup_config_file = backup_config_file;
+#endif /* !HAVE_STATICD_MGMTD */
 
 	/* set this to true for handling MPLS configs loaded at startup */
 	mpls_enabled = true;

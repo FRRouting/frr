@@ -43,9 +43,9 @@ const char *mgmt_be_client_names[MGMTD_BE_CLIENT_ID_MAX + 1] = {
 #ifdef HAVE_RIPNGD
 	[MGMTD_BE_CLIENT_ID_RIPNGD] = "ripngd",
 #endif
-#ifdef HAVE_STATICD
+#if defined(HAVE_STATICD) && defined(HAVE_STATICD_MGMTD)
 	[MGMTD_BE_CLIENT_ID_STATICD] = "staticd",
-#endif
+#endif /* defined(HAVE_STATICD) && defined(HAVE_STATICD_MGMTD) */
 	[MGMTD_BE_CLIENT_ID_MAX] = "Unknown/Invalid",
 };
 
@@ -113,14 +113,14 @@ static const char *const ripngd_oper_xpaths[] = {
 };
 #endif
 
-#if HAVE_STATICD
+#if defined(HAVE_STATICD) && defined(HAVE_STATICD_MGMTD)
 static const char *const staticd_config_xpaths[] = {
 	"/frr-vrf:lib",
 	"/frr-interface:lib",
 	"/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-staticd:staticd",
 	NULL,
 };
-#endif
+#endif /* defined(HAVE_STATICD) && defined(HAVE_STATICD_MGMTD) */
 
 static const char *const *be_client_config_xpaths[MGMTD_BE_CLIENT_ID_MAX] = {
 	[MGMTD_BE_CLIENT_ID_ZEBRA] = zebra_config_xpaths,
@@ -130,9 +130,9 @@ static const char *const *be_client_config_xpaths[MGMTD_BE_CLIENT_ID_MAX] = {
 #ifdef HAVE_RIPNGD
 	[MGMTD_BE_CLIENT_ID_RIPNGD] = ripngd_config_xpaths,
 #endif
-#ifdef HAVE_STATICD
+#if defined(HAVE_STATICD) && defined(HAVE_STATICD_MGMTD)
 	[MGMTD_BE_CLIENT_ID_STATICD] = staticd_config_xpaths,
-#endif
+#endif /* defined(HAVE_STATICD) && defined(HAVE_STATICD_MGMTD) */
 };
 
 static const char *const *be_client_oper_xpaths[MGMTD_BE_CLIENT_ID_MAX] = {

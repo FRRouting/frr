@@ -97,11 +97,13 @@ mgmtd_libmgmt_be_nb_la_SOURCES += \
 endif
 
 if STATICD
+if STATICD_MGMTD
 nodist_mgmtd_mgmtd_SOURCES += \
 	yang/frr-staticd.yang.c \
 	# end
 nodist_mgmtd_libmgmt_be_nb_la_SOURCES += \
 	staticd/static_vty.c \
 	# end
+endif
 endif
 

@@ -139,9 +139,9 @@ static struct frr_signal_t mgmt_signals[] = {
 	},
 };
 
-#ifdef HAVE_STATICD
+#if defined(HAVE_STATICD) && defined(HAVE_STATICD_MGMTD)
 extern const struct frr_yang_module_info frr_staticd_cli_info;
-#endif
+#endif /* defined(HAVE_STATICD) && defined(HAVE_STATICD_MGMTD) */
 
 /*
  * These are modules that are only needed by mgmtd and hence not included into
@@ -192,9 +192,9 @@ static const struct frr_yang_module_info *const mgmt_yang_modules[] = {
 #ifdef HAVE_RIPNGD
 	&frr_ripngd_cli_info,
 #endif
-#ifdef HAVE_STATICD
+#if defined(HAVE_STATICD) && defined(HAVE_STATICD_MGMTD)
 	&frr_staticd_cli_info,
-#endif
+#endif /* defined(HAVE_STATICD) && defined(HAVE_STATICD_MGMTD) */
 };
 
 /* clang-format off */

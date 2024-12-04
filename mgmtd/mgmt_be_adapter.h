@@ -35,9 +35,9 @@ enum mgmt_be_client_id {
 #ifdef HAVE_RIPNGD
 	MGMTD_BE_CLIENT_ID_RIPNGD,
 #endif
-#ifdef HAVE_STATICD
+#if defined(HAVE_STATICD) && defined(HAVE_STATICD_MGMTD)
 	MGMTD_BE_CLIENT_ID_STATICD,
-#endif
+#endif /* defined(HAVE_STATICD) && defined(HAVE_STATICD_MGMTD) */
 	MGMTD_BE_CLIENT_ID_MAX
 };
 #define MGMTD_BE_CLIENT_ID_MIN	0

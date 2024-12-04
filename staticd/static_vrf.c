@@ -161,12 +161,32 @@ struct route_table *static_vrf_static_table(afi_t afi, safi_t safi,
 	return svrf->stable[afi][safi];
 }
 
+#ifndef HAVE_STATICD_MGMTD
+static int static_vrf_config_write(struct vty *vty)
+{
+	struct lyd_node *dnode;
+	int written = 0;
+
+	dnode = yang_dnode_get(running_config->dnode, "/frr-routing:routing");
+	if (dnode) {
+		nb_cli_show_dnode_cmds(vty, dnode, false);
+		written = 1;
+	}
+
+	return written;
+}
+#endif /*!HAVE_STATICD_MGMTD */
+
 void static_vrf_init(void)
 {
 	vrf_init(static_vrf_new, static_vrf_enable, static_vrf_disable,
 		 static_vrf_delete);
 
+#ifdef HAVE_STATICD_MGMTD
 	vrf_cmd_init(NULL);
+#else  /*HAVE_STATICD_MGMTD */
+	vrf_cmd_init(static_vrf_config_write);
+#endif /*!HAVE_STATICD_MGMTD */
 }
 
 void static_vrf_terminate(void)

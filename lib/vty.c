@@ -133,9 +133,9 @@ char const *const mgmt_daemons[] = {
 #ifdef HAVE_RIPNGD
 	"ripngd",
 #endif
-#ifdef HAVE_STATICD
+#if defined(HAVE_STATICD) && defined(HAVE_STATICD_MGMTD)
 	"staticd",
-#endif
+#endif /* defined(HAVE_STATICD) && defined(HAVE_STATICD_MGMTD) */
 };
 uint mgmt_daemons_count = array_size(mgmt_daemons);
 

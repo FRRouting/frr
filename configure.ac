@@ -749,6 +749,8 @@ AC_ARG_ENABLE([sharpd],
   AS_HELP_STRING([--enable-sharpd], [build sharpd]))
 AC_ARG_ENABLE([staticd],
   AS_HELP_STRING([--disable-staticd], [do not build staticd]))
+AC_ARG_ENABLE([staticd-mgmtd],
+  AS_HELP_STRING([--disable-staticd-mgmtd], [do not build staticd with mgmtd]))
 AC_ARG_ENABLE([fabricd],
   AS_HELP_STRING([--disable-fabricd], [do not build fabricd]))
 AC_ARG_ENABLE([vrrpd],
@@ -1914,6 +1916,10 @@ AS_IF([test "$enable_staticd" != "no"], [
   AC_DEFINE([HAVE_STATICD], [1], [staticd])
 ])
 
+AS_IF([test "$enable_staticd_mgmtd" != "no"], [
+  AC_DEFINE([HAVE_STATICD_MGMTD], [1], [staticd mgmtd dependency])
+])
+
 AS_IF([test "$enable_fabricd" != "no"], [
   AC_DEFINE([HAVE_FABRICD], [1], [fabricd])
 ])
@@ -2842,6 +2848,7 @@ AM_CONDITIONAL([PIM6D], [test "$enable_pim6d" != "no"])
 AM_CONDITIONAL([PBRD], [test "$enable_pbrd" != "no"])
 AM_CONDITIONAL([SHARPD], [test "$enable_sharpd" = "yes"])
 AM_CONDITIONAL([STATICD], [test "$enable_staticd" != "no"])
+AM_CONDITIONAL([STATICD_MGMTD], [test "$enable_staticd_mgmtd" != "no"])
 AM_CONDITIONAL([FABRICD], [test "$enable_fabricd" != "no"])
 AM_CONDITIONAL([VRRPD], [test "$enable_vrrpd" != "no"])
 AM_CONDITIONAL([PATHD], [test "$enable_pathd" != "no"])

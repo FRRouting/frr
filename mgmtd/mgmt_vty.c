@@ -25,7 +25,10 @@
 #include "mgmtd/mgmt_vty_clippy.c"
 #include "ripd/rip_nb.h"
 #include "ripngd/ripng_nb.h"
+#ifdef HAVE_STATICD_MGMTD
 #include "staticd/static_vty.h"
+#endif /* HAVE_STATICD_MGMTD */
+
 #include "zebra/zebra_cli.h"
 
 extern struct frr_daemon_info *mgmt_daemon_info;
@@ -614,9 +617,9 @@ void mgmt_vty_init(void)
 #ifdef HAVE_RIPNGD
 	ripng_cli_init();
 #endif
-#ifdef HAVE_STATICD
+#if defined(HAVE_STATICD) && defined(HAVE_STATICD_MGMTD)
 	static_vty_init();
-#endif
+#endif /* defined(HAVE_STATICD) && defined(HAVE_STATICD_MGMTD) */
 
 	event_add_event(mm->master, mgmt_config_read_in, NULL, 0,
 			&mgmt_daemon_info->read_in);
