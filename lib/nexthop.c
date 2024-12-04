@@ -1223,7 +1223,7 @@ void nexthop_json_helper(json_object *json_nexthop,
 	if (!brief) {
 		json_object_int_add(json_nexthop, "flags", nexthop->flags);
 
-	        if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_DUPLICATE))
+		if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_DUPLICATE))
 			json_object_boolean_true_add(json_nexthop, "duplicate");
 
 		if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_FIB))
@@ -1295,7 +1295,7 @@ void nexthop_json_helper(json_object *json_nexthop,
 	if (display_vrfid)
 		json_object_string_add(json_nexthop, "vrf",
 				       vrf_id_to_name(nexthop->vrf_id));
-        if (brief)
+	if (brief)
 		return;
 
 	/* This nexthop is a resolver for the parent nexthop.

@@ -55,8 +55,7 @@
 #include "zebra/zebra_evpn_vxlan.h"
 #include "zebra/zebra_router.h"
 
-static void zebra_l2_brvlan_print_mac_hash(struct hash_bucket *bucket,
-                                          void *ctxt)
+static void zebra_l2_brvlan_print_mac_hash(struct hash_bucket *bucket, void *ctxt)
 {
 	struct zebra_l2_brvlan_mac_ctx *ctx;
 	struct vty *vty;
@@ -94,8 +93,7 @@ static unsigned int zebra_l2_bridge_vlan_hash_keymake(const void *p)
 	return jhash(&bvlan->vid, sizeof(bvlan->vid), 0);
 }
 
-void zebra_l2_brvlan_print_macs(struct vty *vty, struct interface *br_if,
-                               vlanid_t vid, bool uj)
+void zebra_l2_brvlan_print_macs(struct vty *vty, struct interface *br_if, vlanid_t vid, bool uj)
 {
 	struct zebra_if *zif;
 	struct zebra_l2_bridge_if *br;
@@ -104,10 +102,11 @@ void zebra_l2_brvlan_print_macs(struct vty *vty, struct interface *br_if,
 
 	zif = (struct zebra_if *)br_if->info;
 	br = BRIDGE_FROM_ZEBRA_IF(zif);
-	if (!br) {
-			return;
-	}
+	if (!br)
+		return;
+
 	json_object *json_obj = NULL, *json_mac_obj = NULL;
+
 	if (uj) { /* json format */
 		json_obj = json_object_new_object();
 		json_mac_obj = json_object_new_object();

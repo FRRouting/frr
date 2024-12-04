@@ -1675,7 +1675,7 @@ DEFPY(show_nexthop_group,
 			vty_json_no_pretty(vty, json);
 		else
 			vty_json(vty, json);
-        }
+	}
 
 	return CMD_SUCCESS;
 }
@@ -3527,9 +3527,8 @@ DEFPY(show_evpn_local_mac, show_evpn_local_mac_cmd,
 	bool found = false;
 	bool uj = use_json(argc, argv);
 
-	if (!if_name || !vid) {
+	if (!if_name || !vid)
 		return CMD_WARNING;
-	}
 
 	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
 		ifp = if_lookup_by_name(if_name, vrf->vrf_id);
