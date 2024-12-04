@@ -5139,7 +5139,7 @@ DEFUN (neighbor_peer_group,
 
 DEFUN (no_neighbor,
        no_neighbor_cmd,
-       "no neighbor <WORD|<A.B.C.D|X:X::X:X> [remote-as <(1-4294967295)|internal|external>]>",
+       "no neighbor <WORD|<A.B.C.D|X:X::X:X> [remote-as <ASNUM|internal|external>]>",
        NO_STR
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
@@ -5217,7 +5217,7 @@ DEFUN (no_neighbor,
 
 DEFUN (no_neighbor_interface_config,
        no_neighbor_interface_config_cmd,
-       "no neighbor WORD interface [v6only] [peer-group PGNAME] [remote-as <(1-4294967295)|internal|external>]",
+       "no neighbor WORD interface [v6only] [peer-group PGNAME] [remote-as <ASNUM|internal|external>]",
        NO_STR
        NEIGHBOR_STR
        "Interface name\n"
