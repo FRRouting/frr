@@ -155,7 +155,6 @@ static enum route_map_cmd_result_t route_match(void *rule,
 					       void *object);
 static void *route_match_compile(const char *arg);
 static void revalidate_bgp_node(struct bgp_dest *dest, afi_t afi, safi_t safi);
-static void revalidate_all_routes(struct rpki_vrf *rpki_vrf);
 
 static bool rpki_debug_conf, rpki_debug_term;
 
@@ -586,48 +585,10 @@ static void rpki_revalidate_prefix(struct event *thread)
 	XFREE(MTYPE_BGP_RPKI_REVALIDATE, rrp);
 }
 
-static void bgpd_sync_callback(struct event *thread)
+static void revalidate_single_prefix(struct vrf *vrf, struct prefix prefix, afi_t afi)
 {
 	struct bgp *bgp;
 	struct listnode *node;
-	struct prefix prefix;
-	struct pfx_record rec;
-	struct rpki_vrf *rpki_vrf = EVENT_ARG(thread);
-	struct vrf *vrf = NULL;
-
-	event_add_read(bm->master, bgpd_sync_callback, rpki_vrf,
-		       rpki_vrf->rpki_sync_socket_bgpd, NULL);
-
-	if (atomic_load_explicit(&rpki_vrf->rtr_update_overflow,
-				 memory_order_seq_cst)) {
-		while (read(rpki_vrf->rpki_sync_socket_bgpd, &rec,
-			    sizeof(struct pfx_record)) != -1)
-			;
-
-		atomic_store_explicit(&rpki_vrf->rtr_update_overflow, 0,
-				      memory_order_seq_cst);
-		revalidate_all_routes(rpki_vrf);
-		return;
-	}
-
-	int retval = read(rpki_vrf->rpki_sync_socket_bgpd, &rec,
-			  sizeof(struct pfx_record));
-	if (retval != sizeof(struct pfx_record)) {
-		RPKI_DEBUG("Could not read from rpki_sync_socket_bgpd");
-		return;
-	}
-	pfx_record_to_prefix(&rec, &prefix);
-
-	afi_t afi = (rec.prefix.ver == LRTR_IPV4) ? AFI_IP : AFI_IP6;
-
-	if (rpki_vrf->vrfname) {
-		vrf = vrf_lookup_by_name(rpki_vrf->vrfname);
-		if (!vrf) {
-			zlog_err("%s(): vrf for rpki %s not found", __func__,
-				 rpki_vrf->vrfname);
-			return;
-		}
-	}
 
 	for (ALL_LIST_ELEMENTS_RO(bm->bgp, node, bgp)) {
 		safi_t safi;
@@ -655,101 +616,76 @@ static void bgpd_sync_callback(struct event *thread)
 	}
 }
 
-static void revalidate_bgp_node(struct bgp_dest *bgp_dest, afi_t afi,
-				safi_t safi)
+static void bgpd_sync_callback(struct event *thread)
+{
+	struct prefix prefix;
+	struct pfx_record rec;
+	struct rpki_vrf *rpki_vrf = EVENT_ARG(thread);
+	struct vrf *vrf = NULL;
+	afi_t afi;
+	int retval;
+
+	event_add_read(bm->master, bgpd_sync_callback, rpki_vrf, rpki_vrf->rpki_sync_socket_bgpd,
+		       NULL);
+
+	if (rpki_vrf->vrfname) {
+		vrf = vrf_lookup_by_name(rpki_vrf->vrfname);
+		if (!vrf) {
+			zlog_err("%s(): vrf for rpki %s not found", __func__, rpki_vrf->vrfname);
+			return;
+		}
+	}
+
+	if (atomic_load_explicit(&rpki_vrf->rtr_update_overflow, memory_order_seq_cst)) {
+		ssize_t size = 0;
+
+		retval = read(rpki_vrf->rpki_sync_socket_bgpd, &rec, sizeof(struct pfx_record));
+		while (retval != -1) {
+			if (retval != sizeof(struct pfx_record))
+				break;
+
+			size += retval;
+			pfx_record_to_prefix(&rec, &prefix);
+			afi = (rec.prefix.ver == LRTR_IPV4) ? AFI_IP : AFI_IP6;
+			revalidate_single_prefix(vrf, prefix, afi);
+
+			retval = read(rpki_vrf->rpki_sync_socket_bgpd, &rec,
+				      sizeof(struct pfx_record));
+		}
+
+		RPKI_DEBUG("Socket overflow detected (%zu), revalidating affected prefixes", size);
+
+		atomic_store_explicit(&rpki_vrf->rtr_update_overflow, 0, memory_order_seq_cst);
+		return;
+	}
+
+	retval = read(rpki_vrf->rpki_sync_socket_bgpd, &rec, sizeof(struct pfx_record));
+	if (retval != sizeof(struct pfx_record)) {
+		RPKI_DEBUG("Could not read from rpki_sync_socket_bgpd");
+		return;
+	}
+	pfx_record_to_prefix(&rec, &prefix);
+
+	afi = (rec.prefix.ver == LRTR_IPV4) ? AFI_IP : AFI_IP6;
+
+	revalidate_single_prefix(vrf, prefix, afi);
+}
+
+static void revalidate_bgp_node(struct bgp_dest *bgp_dest, afi_t afi, safi_t safi)
 {
 	struct bgp_adj_in *ain;
 	mpls_label_t *label;
 	uint8_t num_labels;
 
 	for (ain = bgp_dest->adj_in; ain; ain = ain->next) {
-		struct bgp_path_info *path =
-			bgp_dest_get_bgp_path_info(bgp_dest);
+		struct bgp_path_info *path = bgp_dest_get_bgp_path_info(bgp_dest);
 
 		num_labels = BGP_PATH_INFO_NUM_LABELS(path);
 		label = num_labels ? path->extra->labels->label : NULL;
 
-		(void)bgp_update(ain->peer, bgp_dest_get_prefix(bgp_dest),
-				 ain->addpath_rx_id, ain->attr, afi, safi,
-				 ZEBRA_ROUTE_BGP, BGP_ROUTE_NORMAL, NULL, label,
-				 num_labels, 1, NULL);
-	}
-}
-
-/*
- * The act of a soft reconfig in revalidation is really expensive
- * coupled with the fact that the download of a full rpki state
- * from a rpki server can be expensive, let's break up the revalidation
- * to a point in time in the future to allow other bgp events
- * to take place too.
- */
-struct rpki_revalidate_peer {
-	afi_t afi;
-	safi_t safi;
-	struct peer *peer;
-};
-
-static void bgp_rpki_revalidate_peer(struct event *thread)
-{
-	struct rpki_revalidate_peer *rvp = EVENT_ARG(thread);
-
-	/*
-	 * Here's the expensive bit of gnomish deviousness
-	 */
-	bgp_soft_reconfig_in(rvp->peer, rvp->afi, rvp->safi);
-
-	XFREE(MTYPE_BGP_RPKI_REVALIDATE, rvp);
-}
-
-static void revalidate_all_routes(struct rpki_vrf *rpki_vrf)
-{
-	struct bgp *bgp;
-	struct listnode *node;
-	struct vrf *vrf = NULL;
-
-	if (rpki_vrf->vrfname) {
-		vrf = vrf_lookup_by_name(rpki_vrf->vrfname);
-		if (!vrf) {
-			zlog_err("%s(): vrf for rpki %s not found", __func__,
-				 rpki_vrf->vrfname);
-			return;
-		}
-	}
-
-	for (ALL_LIST_ELEMENTS_RO(bm->bgp, node, bgp)) {
-		struct peer *peer;
-		struct listnode *peer_listnode;
-
-		if (!vrf && bgp->vrf_id != VRF_DEFAULT)
-			continue;
-		if (vrf && bgp->vrf_id != vrf->vrf_id)
-			continue;
-
-		for (ALL_LIST_ELEMENTS_RO(bgp->peer, peer_listnode, peer)) {
-			afi_t afi;
-			safi_t safi;
-
-			FOREACH_AFI_SAFI (afi, safi) {
-				struct rpki_revalidate_peer *rvp;
-
-				if (!bgp->rib[afi][safi])
-					continue;
-
-				if (!peer_established(peer->connection))
-					continue;
-
-				rvp = XCALLOC(MTYPE_BGP_RPKI_REVALIDATE,
-					      sizeof(*rvp));
-				rvp->peer = peer;
-				rvp->afi = afi;
-				rvp->safi = safi;
-
-				event_add_event(
-					bm->master, bgp_rpki_revalidate_peer,
-					rvp, 0,
-					&peer->t_revalidate_all[afi][safi]);
-			}
-		}
+		(void)bgp_update(ain->peer, bgp_dest_get_prefix(bgp_dest), ain->addpath_rx_id,
+				 ain->attr, afi, safi, ZEBRA_ROUTE_BGP, BGP_ROUTE_NORMAL, NULL,
+				 label, num_labels, 1, NULL);
 	}
 }
 
