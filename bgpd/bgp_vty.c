@@ -95,15 +95,15 @@ FRR_CFG_DEFAULT_BOOL(BGP_DETERMINISTIC_MED,
 );
 FRR_CFG_DEFAULT_ULONG(BGP_CONNECT_RETRY,
 	{ .val_ulong = 10, .match_profile = "datacenter", },
-	{ .val_ulong = 120 },
+	{ .val_ulong = BGP_DEFAULT_CONNECT_RETRY },
 );
 FRR_CFG_DEFAULT_ULONG(BGP_HOLDTIME,
 	{ .val_ulong = 9, .match_profile = "datacenter", },
-	{ .val_ulong = 180 },
+	{ .val_ulong = BGP_DEFAULT_KEEPALIVE },
 );
 FRR_CFG_DEFAULT_ULONG(BGP_KEEPALIVE,
 	{ .val_ulong = 3, .match_profile = "datacenter", },
-	{ .val_ulong = 60 },
+	{ .val_ulong = BGP_DEFAULT_KEEPALIVE },
 );
 FRR_CFG_DEFAULT_BOOL(BGP_EBGP_REQUIRES_POLICY,
 	{ .val_bool = false, .match_profile = "datacenter", },
