@@ -491,11 +491,14 @@ static void bgp_connect_timer(struct event *thread)
 	assert(!connection->t_read);
 
 	if (bgp_debug_neighbor_events(peer))
-		zlog_debug("%s [FSM] Timer (connect timer expire)", peer->host);
+		zlog_debug("%s [FSM] Timer (connect timer (%us) expire)", peer->host,
+			   peer->v_connect);
 
 	if (CHECK_FLAG(peer->sflags, PEER_STATUS_ACCEPT_PEER))
 		bgp_stop(connection);
 	else {
+		if (!peer->connect)
+			peer->v_connect = MIN(BGP_MAX_CONNECT_RETRY, peer->v_connect * 2);
 		EVENT_VAL(thread) = ConnectRetry_timer_expired;
 		bgp_event(thread); /* bgp_event unlocks peer */
 	}
@@ -1224,9 +1227,14 @@ void bgp_fsm_change_status(struct peer_connection *connection,
 
 	peer_count = bgp->established_peers;
 
-	if (status == Established)
+	if (status == Established) {
 		bgp->established_peers++;
-	else if ((peer_established(connection)) && (status != Established))
+		/* Reset the retry timer if we already established */
+		if (peer->connect)
+			peer->v_connect = peer->connect;
+		else
+			peer->v_connect = peer->bgp->default_connect_retry;
+	} else if ((peer_established(connection)) && (status != Established))
 		bgp->established_peers--;
 
 	if (bgp_debug_neighbor_events(peer)) {
