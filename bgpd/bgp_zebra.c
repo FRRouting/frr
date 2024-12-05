@@ -838,9 +838,9 @@ bool bgp_zebra_nexthop_set(union sockunion *local, union sockunion *remote,
 		if (!v6_ll_avail && !peer->conf_if)
 			v6_ll_avail = true;
 		if (if_lookup_by_ipv4(&remote->sin.sin_addr, peer->bgp->vrf_id))
-			peer->shared_network = 1;
+			peer->shared_network = true;
 		else
-			peer->shared_network = 0;
+			peer->shared_network = false;
 	}
 
 	/* IPv6 connection, fetch and store IPv4 local address if any. */
@@ -903,9 +903,9 @@ bool bgp_zebra_nexthop_set(union sockunion *local, union sockunion *remote,
 		    || if_lookup_by_ipv6(&remote->sin6.sin6_addr,
 					 remote->sin6.sin6_scope_id,
 					 peer->bgp->vrf_id))
-			peer->shared_network = 1;
+			peer->shared_network = true;
 		else
-			peer->shared_network = 0;
+			peer->shared_network = false;
 	}
 
 /* KAME stack specific treatment.  */
