@@ -4693,6 +4693,9 @@ void zclient_redistribute_default(int command, struct zclient *zclient,
 		zebra_redistribute_default_send(command, zclient, afi, vrf_id);
 }
 
+#define ZCLIENT_QUICK_RECONNECT 1
+#define ZCLIENT_SLOW_RECONNECT	5
+#define ZCLIENT_SWITCH_TO_SLOW	30
 static void zclient_event(enum zclient_event event, struct zclient *zclient)
 {
 	switch (event) {
@@ -4702,11 +4705,13 @@ static void zclient_event(enum zclient_event event, struct zclient *zclient)
 		break;
 	case ZCLIENT_CONNECT:
 		if (zclient_debug)
-			zlog_debug(
-				"zclient connect failures: %d schedule interval is now %d",
-				zclient->fail, zclient->fail < 3 ? 10 : 60);
+			zlog_debug("zclient connect failures: %d schedule interval is now %d",
+				   zclient->fail,
+				   zclient->fail < ZCLIENT_SWITCH_TO_SLOW ? ZCLIENT_QUICK_RECONNECT
+									  : ZCLIENT_SLOW_RECONNECT);
 		event_add_timer(zclient->master, zclient_connect, zclient,
-				zclient->fail < 3 ? 10 : 60,
+				zclient->fail < ZCLIENT_SWITCH_TO_SLOW ? ZCLIENT_QUICK_RECONNECT
+								       : ZCLIENT_SLOW_RECONNECT,
 				&zclient->t_connect);
 		break;
 	case ZCLIENT_READ:
