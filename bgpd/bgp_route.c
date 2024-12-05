@@ -2837,10 +2837,19 @@ void bgp_best_selection(struct bgp *bgp, struct bgp_dest *dest,
 
 	/* Check old selected route and new selected route. */
 	old_select = NULL;
+<<<<<<< HEAD
 	new_select = NULL;
 	for (pi = bgp_dest_get_bgp_path_info(dest);
 	     (pi != NULL) && (nextpi = pi->next, 1); pi = nextpi) {
 		enum bgp_path_selection_reason reason;
+=======
+	pi = bgp_dest_get_bgp_path_info(dest);
+	while (pi && (CHECK_FLAG(pi->flags, BGP_PATH_UNSORTED) ||
+		      (pi->peer != bgp->peer_self &&
+		       !CHECK_FLAG(pi->peer->sflags, PEER_STATUS_NSF_WAIT) &&
+		       !peer_established(pi->peer->connection)))) {
+		struct bgp_path_info *next = pi->next;
+>>>>>>> 9f88cb56d (bgpd: Fix evpn bestpath calculation when path is not established)
 
 		if (CHECK_FLAG(pi->flags, BGP_PATH_SELECTED))
 			old_select = pi;
@@ -2864,9 +2873,55 @@ void bgp_best_selection(struct bgp *bgp, struct bgp_dest *dest,
 			continue;
 		}
 
+<<<<<<< HEAD
 		if (pi->peer && pi->peer != bgp->peer_self
 		    && !CHECK_FLAG(pi->peer->sflags, PEER_STATUS_NSF_WAIT))
 			if (!peer_established(pi->peer->connection)) {
+=======
+		if (first->peer && first->peer != bgp->peer_self &&
+		    !CHECK_FLAG(first->peer->sflags, PEER_STATUS_NSF_WAIT) &&
+		    !peer_established(first->peer->connection)) {
+			if (debug)
+				zlog_debug("%s: %pBD(%s) pi %p from %s is not in established state",
+					   __func__, dest, bgp->name_pretty, first,
+					   first->peer->host);
+
+			/*
+			 * Peer is not in established state we cannot sort this
+			 * item yet.  Let's wait, so hold this one to the side
+			 */
+			if (unsorted_holddown) {
+				first->next = unsorted_holddown;
+				unsorted_holddown->prev = first;
+				unsorted_holddown = first;
+			} else
+				unsorted_holddown = first;
+
+			UNSET_FLAG(first->flags, BGP_PATH_UNSORTED);
+
+			continue;
+		}
+
+		bgp_path_info_unset_flag(dest, first, BGP_PATH_DMED_CHECK);
+
+		worse = NULL;
+
+		struct bgp_path_info *look_thru_next;
+
+		for (look_thru = bgp_dest_get_bgp_path_info(dest); look_thru;
+		     look_thru = look_thru_next) {
+			/* look thru can be reaped save the next pointer */
+			look_thru_next = look_thru->next;
+
+			/*
+			 * Now we have the first unsorted and the best selected
+			 * Let's do best path comparison
+			 */
+			if (BGP_PATH_HOLDDOWN(look_thru)) {
+				/* reap REMOVED routes, if needs be
+				 * selected route must stay for a while longer though
+				 */
+>>>>>>> 9f88cb56d (bgpd: Fix evpn bestpath calculation when path is not established)
 				if (debug)
 					zlog_debug(
 						"%s: %pBD(%s) non self peer %s not estab state",
