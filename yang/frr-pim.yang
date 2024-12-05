@@ -264,6 +264,13 @@ module frr-pim {
         description
           "Log all MSDP SA related events.";
       }
+
+      leaf shutdown {
+        type boolean;
+        default false;
+        description
+          "Shutdown MSDP functionality.";
+      }
     }
 
     list msdp-mesh-groups {

@@ -216,6 +216,9 @@ struct pim_msdp {
 	uint32_t keep_alive;
 	/** MSDP global connection retry period. */
 	uint32_t connection_retry;
+
+	/** MSDP operation state. */
+	bool shutdown;
 };
 
 #define PIM_MSDP_PEER_READ_ON(mp)                                              \
@@ -327,6 +330,14 @@ void pim_msdp_peer_change_source(struct pim_msdp_peer *mp,
  */
 void pim_msdp_peer_restart(struct pim_msdp_peer *mp);
 
+/**
+ * Toggle MSDP functionality administrative state.
+ *
+ * \param pim PIM instance we want to shutdown.
+ * \param state shutdown state.
+ */
+void pim_msdp_shutdown(struct pim_instance *pim, bool state);
+
 #else /* PIM_IPV == 6 */
 static inline void pim_msdp_init(struct pim_instance *pim,
 				 struct event_loop *master)
@@ -369,6 +380,10 @@ static inline bool pim_msdp_peer_config_write(struct vty *vty,
 					      struct pim_instance *pim)
 {
 	return false;
+}
+
+static inline void pim_msdp_shutdown(struct pim_instance *pim, bool state)
+{
 }
 #endif /* PIM_IPV == 6 */
 
