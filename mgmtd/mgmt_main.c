@@ -266,7 +266,7 @@ int main(int argc, char **argv)
 	mgmt_master_init(frr_init(), buffer_size);
 
 	/* VRF commands initialization. */
-	vrf_cmd_init(NULL);
+	vrf_cmd_init(NULL, true);
 
 	/* Interface commands initialization. */
 	if_cmd_init(NULL);

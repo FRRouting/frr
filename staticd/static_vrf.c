@@ -183,9 +183,9 @@ void static_vrf_init(void)
 		 static_vrf_delete);
 
 #ifdef HAVE_STATICD_MGMTD
-	vrf_cmd_init(NULL);
+	vrf_cmd_init(NULL, true);
 #else  /*HAVE_STATICD_MGMTD */
-	vrf_cmd_init(static_vrf_config_write);
+	vrf_cmd_init(static_vrf_config_write, false);
 #endif /*!HAVE_STATICD_MGMTD */
 }
 

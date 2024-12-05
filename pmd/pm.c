@@ -1034,7 +1034,7 @@ void pm_vrf_init(void)
 	vrf_init(pm_vrf_new, pm_vrf_enable, pm_vrf_disable,
 		 pm_vrf_delete);
 	vrf_init(NULL, NULL, NULL, NULL);
-	vrf_cmd_init(NULL);
+	vrf_cmd_init(NULL, true);
 }
 
 void pm_vrf_terminate(void)

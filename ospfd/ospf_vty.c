@@ -13782,7 +13782,7 @@ void ospf_vty_init(void)
 	install_element(OSPF_NODE, &ospf_max_multipath_cmd);
 	install_element(OSPF_NODE, &no_ospf_max_multipath_cmd);
 
-	vrf_cmd_init(NULL);
+	vrf_cmd_init(NULL, true);
 
 	install_element(OSPF_NODE, &ospf_lsa_refresh_timer_cmd);
 	install_element(OSPF_NODE, &ospf_maxage_delay_timer_cmd);

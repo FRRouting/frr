@@ -372,7 +372,7 @@ static int bgp_vrf_config_write(struct vty *vty)
 static void bgp_vrf_init(void)
 {
 	vrf_init(bgp_vrf_new, bgp_vrf_enable, bgp_vrf_disable, bgp_vrf_delete);
-	vrf_cmd_init(bgp_vrf_config_write);
+	vrf_cmd_init(bgp_vrf_config_write, true);
 }
 
 static void bgp_vrf_terminate(void)

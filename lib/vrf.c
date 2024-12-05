@@ -678,6 +678,30 @@ DEFUN_YANG_NOSH (vrf,
 	return ret;
 }
 
+DEFUN_NOSH (vrf_no_yang,
+       vrf_cmd_no_yang,
+       "vrf NAME",
+       "Select a VRF to configure\n"
+       "VRF's name\n")
+{
+	int idx_name = 1;
+	const char *vrfname = argv[idx_name]->arg;
+	struct vrf *vrf;
+
+	if (strlen(vrfname) > VRF_NAMSIZ) {
+		vty_out(vty, "%% VRF name %s invalid: length exceeds %d bytes\n", vrfname,
+			VRF_NAMSIZ);
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	/* get the current vrf struct or create a new one */
+	vrf = vrf_get(VRF_UNKNOWN, vrfname);
+
+	VTY_PUSH_CONTEXT(VRF_NODE, vrf);
+
+	return CMD_SUCCESS;
+}
+
 DEFUN_YANG (no_vrf,
        no_vrf_cmd,
        "no vrf NAME",
@@ -763,9 +787,12 @@ void vrf_install_commands(void)
 	install_element(ENABLE_NODE, &no_vrf_debug_cmd);
 }
 
-void vrf_cmd_init(int (*writefunc)(struct vty *vty))
+void vrf_cmd_init(int (*writefunc)(struct vty *vty), bool yang)
 {
-	install_element(CONFIG_NODE, &vrf_cmd);
+	if (yang)
+		install_element(CONFIG_NODE, &vrf_cmd);
+	else
+		install_element(CONFIG_NODE, &vrf_cmd_no_yang);
 	install_element(CONFIG_NODE, &no_vrf_cmd);
 	vrf_node.config_write = writefunc;
 	install_node(&vrf_node);

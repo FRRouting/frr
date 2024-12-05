@@ -761,7 +761,7 @@ void isis_vrf_init(void)
 	vrf_init(isis_vrf_new, isis_vrf_enable, isis_vrf_disable,
 		 isis_vrf_delete);
 
-	vrf_cmd_init(NULL);
+	vrf_cmd_init(NULL, true);
 }
 
 void isis_terminate(void)
