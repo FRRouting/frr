@@ -1330,7 +1330,7 @@ struct peer {
 
 	union sockunion *su_local;  /* Sockunion of local address.  */
 	union sockunion *su_remote; /* Sockunion of remote address.  */
-	int shared_network;	 /* Is this peer shared same network. */
+	bool shared_network;	    /* Is this peer shared same network. */
 	struct bgp_nexthop nexthop; /* Nexthop */
 
 	/* Roles in bgp session */
