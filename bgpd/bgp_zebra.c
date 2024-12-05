@@ -744,6 +744,7 @@ bool bgp_zebra_nexthop_set(union sockunion *local, union sockunion *remote,
 	int ret = 0;
 	struct interface *ifp = NULL;
 	bool v6_ll_avail = true;
+	bool shared_network_original = peer->shared_network;
 
 	memset(nexthop, 0, sizeof(struct bgp_nexthop));
 
@@ -907,6 +908,9 @@ bool bgp_zebra_nexthop_set(union sockunion *local, union sockunion *remote,
 		else
 			peer->shared_network = 0;
 	}
+
+	if (shared_network_original != peer->shared_network)
+		bgp_peer_bfd_update_source(peer);
 
 /* KAME stack specific treatment.  */
 #ifdef KAME
