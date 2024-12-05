@@ -6329,7 +6329,7 @@ int peer_timers_connect_set(struct peer *peer, uint32_t connect)
 	return 0;
 }
 
-int peer_timers_connect_unset(struct peer *peer)
+int peer_timers_connect_unset(struct peer *peer, bool reset)
 {
 	struct peer *member;
 	struct listnode *node, *nnode;
@@ -6352,7 +6352,7 @@ int peer_timers_connect_unset(struct peer *peer)
 
 	/* Skip peer-group mechanics for regular peers. */
 	if (!CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP)) {
-		if (!peer_established(peer->connection)) {
+		if (!peer_established(peer->connection) && reset) {
 			if (peer_active(peer->connection))
 				BGP_EVENT_ADD(peer->connection, BGP_Stop);
 			BGP_EVENT_ADD(peer->connection, BGP_Start);
@@ -6373,7 +6373,7 @@ int peer_timers_connect_unset(struct peer *peer)
 		member->connect = 0;
 		member->v_connect = peer->bgp->default_connect_retry;
 
-		if (!peer_established(member->connection)) {
+		if (!peer_established(member->connection) && reset) {
 			if (peer_active(member->connection))
 				BGP_EVENT_ADD(member->connection, BGP_Stop);
 			BGP_EVENT_ADD(member->connection, BGP_Start);

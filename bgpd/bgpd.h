@@ -2106,6 +2106,7 @@ struct bgp_nlri {
 #define BGP_DEFAULT_HOLDTIME                   180
 #define BGP_DEFAULT_KEEPALIVE                   60
 #define BGP_DEFAULT_CONNECT_RETRY               15
+#define BGP_MAX_CONNECT_RETRY                  120
 
 #define BGP_DEFAULT_EBGP_ROUTEADV                0
 #define BGP_DEFAULT_IBGP_ROUTEADV                0
@@ -2447,7 +2448,7 @@ extern int peer_timers_set(struct peer *, uint32_t keepalive,
 extern int peer_timers_unset(struct peer *);
 
 extern int peer_timers_connect_set(struct peer *, uint32_t);
-extern int peer_timers_connect_unset(struct peer *);
+extern int peer_timers_connect_unset(struct peer *peer, bool reset);
 
 extern int peer_advertise_interval_set(struct peer *, uint32_t);
 extern int peer_advertise_interval_unset(struct peer *);

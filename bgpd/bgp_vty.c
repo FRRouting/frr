@@ -7846,7 +7846,7 @@ static int peer_timers_connect_unset_vty(struct vty *vty, const char *ip_str)
 	if (!peer)
 		return CMD_WARNING_CONFIG_FAILED;
 
-	ret = peer_timers_connect_unset(peer);
+	ret = peer_timers_connect_unset(peer, true);
 
 	return bgp_vty_return(vty, ret);
 }
