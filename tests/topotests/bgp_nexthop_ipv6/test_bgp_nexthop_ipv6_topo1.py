@@ -36,7 +36,7 @@ pytestmark = [pytest.mark.bgpd]
 
 
 def build_topo(tgen):
-    """
+    r"""
     All peers are FRR BGP peers except r3 that is a exabgp peer.
     rr is a route-reflector for AS 65000 iBGP peers.
     Exabgp does not send any IPv6 Link-Local nexthop
