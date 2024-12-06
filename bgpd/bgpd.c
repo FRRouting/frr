@@ -2195,8 +2195,7 @@ int peer_remote_as(struct bgp *bgp, union sockunion *su, const char *conf_if,
 		/* When this peer is a member of peer-group.  */
 		if (peer->group) {
 			/* peer-group already has AS number/internal/external */
-			if (peer->group->conf->as
-			    || peer->group->conf->as_type) {
+			if (peer->group->conf->as || peer->group->conf->as_type != AS_UNSPECIFIED) {
 				/* Return peer group's AS number.  */
 				*as = peer->group->conf->as;
 				return BGP_ERR_PEER_GROUP_MEMBER;
