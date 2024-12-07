@@ -4,6 +4,7 @@
  */
 
 #include <zebra.h>
+#include <lib_errors.h>
 
 #include "log.h"
 #include "prefix.h"
@@ -147,6 +148,68 @@ const void *pathd_srte_policy_candidate_path_lookup_entry(
 	preference = yang_str2uint32(args->keys->key[0]);
 
 	return srte_candidate_find(policy, preference);
+}
+
+int pathd_srte_segment_list_segment_check_validate(struct nb_cb_create_args *args)
+{
+	struct srte_segment_list *segment_list;
+
+	segment_list = nb_running_get_entry(args->dnode, NULL, false);
+	if (segment_list == NULL)
+		return NB_OK;
+
+	if (yang_dnode_exists(args->dnode, "sid-value") || yang_dnode_exists(args->dnode, "nai")) {
+		if (segment_list->type == SRTE_SEGMENT_LIST_TYPE_SRV6) {
+			snprintf(args->errmsg, args->errmsg_len,
+				"The Segment List(%s) Type must be SRv6!", segment_list->name);
+			flog_warn(EC_LIB_NB_CB_CONFIG_VALIDATE,
+				"The Segment List(%s) Type must be SRv6!", segment_list->name);
+			return NB_ERR_VALIDATION;
+		} else
+			return NB_OK;
+	}
+
+	if (yang_dnode_exists(args->dnode, "srv6-sid-value")) {
+		if (segment_list->type == SRTE_SEGMENT_LIST_TYPE_MPLS) {
+			snprintf(args->errmsg, args->errmsg_len,
+				"The Segment List(%s) Type must be MPLS!", segment_list->name);
+			flog_warn(EC_LIB_NB_CB_CONFIG_VALIDATE,
+				"The Segment List(%s) Type must be MPLS!",  segment_list->name);
+			return NB_ERR_VALIDATION;
+		} else
+			return NB_OK;
+	}
+	return NB_OK;
+}
+
+int pathd_srte_policy_candidate_path_check_validate(
+	struct nb_cb_create_args *args)
+{
+	struct srte_policy *policy;
+	const char *segment_list_name;
+	struct srte_segment_list *segment_list;
+
+	policy = nb_running_get_entry(args->dnode, NULL, false);
+	segment_list_name = yang_dnode_get_string(args->dnode, "segment-list-name");
+	segment_list = srte_segment_list_find(segment_list_name);
+
+	if (segment_list == NULL)
+		return NB_OK;
+
+	if ((segment_list->type == SRTE_SEGMENT_LIST_TYPE_SRV6
+		&& policy->type == SRTE_POLICY_TYPE_MPLS)
+		|| (segment_list->type == SRTE_SEGMENT_LIST_TYPE_MPLS
+		&& policy->type == SRTE_POLICY_TYPE_SRV6)) {
+		snprintf(args->errmsg, args->errmsg_len,
+			"The Segment List type(%d) and Policy type(%d) must match!",
+			segment_list->type, policy->type);
+		flog_warn(EC_LIB_NB_CB_CONFIG_VALIDATE,
+			"The Segment List type(%d) and Policy type(%d) must match!",
+			segment_list->type, policy->type);
+		return NB_ERR_VALIDATION;
+	}
+
+	return NB_OK;
 }
 
 /*
