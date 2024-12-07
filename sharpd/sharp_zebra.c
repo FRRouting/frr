@@ -623,13 +623,17 @@ void sharp_zebra_nexthop_watch(struct prefix *p, vrf_id_t vrf_id, bool import, b
 {
 	int command = ZEBRA_NEXTHOP_REGISTER;
 	safi_t safi = mrib ? SAFI_MULTICAST : SAFI_UNICAST;
+	uint8_t flags = 0;
 
 	command = ZEBRA_NEXTHOP_REGISTER;
 
 	if (!watch)
 		command = ZEBRA_NEXTHOP_UNREGISTER;
 
-	if (zclient_send_rnh(zclient, command, p, safi, connected, false, vrf_id) ==
+	if (connected)
+		SET_FLAG(flags, NEXTHOP_REGISTER_FLAG_CONNECTED);
+
+	if (zclient_send_rnh(zclient, command, p, safi, flags, vrf_id, 0) ==
 	    ZCLIENT_SEND_FAILURE)
 		zlog_warn("%s: Failure to send nexthop to zebra", __func__);
 }
