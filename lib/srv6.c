@@ -71,6 +71,21 @@ int snprintf_seg6_segs(char *str,
 	return strlen(str);
 }
 
+int snprintf_seg6_seg_stack(char *str,
+		size_t size, const struct seg6_seg_stack *segs)
+{
+	str[0] = '\0';
+	for (size_t i = 0; i < segs->num_segs; i++) {
+		char addr[INET6_ADDRSTRLEN];
+		bool not_last = (i + 1) < segs->num_segs;
+
+		inet_ntop(AF_INET6, &segs->seg[i], addr, sizeof(addr));
+		strlcat(str, addr, size);
+		strlcat(str, not_last ? "," : "", size);
+	}
+	return strlen(str);
+}
+
 void seg6local_context2json(const struct seg6local_context *ctx,
 			    uint32_t action, json_object *json)
 {

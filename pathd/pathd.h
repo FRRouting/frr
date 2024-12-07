@@ -153,6 +153,17 @@ enum affinity_filter_type {
 };
 #define MAX_AFFINITY_FILTER_TYPE 3
 
+enum srte_segment_list_type {
+	SRTE_SEGMENT_LIST_TYPE_UNDEFINED = 0,
+	SRTE_SEGMENT_LIST_TYPE_MPLS = 1,
+	SRTE_SEGMENT_LIST_TYPE_SRV6 = 2,
+};
+
+enum srte_policy_type {
+	SRTE_POLICY_TYPE_UNDEFINED = 0,
+	SRTE_POLICY_TYPE_MPLS = 1,
+	SRTE_POLICY_TYPE_SRV6 = 2,
+};
 struct srte_segment_list;
 
 struct srte_segment_entry {
@@ -166,6 +177,9 @@ struct srte_segment_entry {
 
 	/* Label Value. */
 	mpls_label_t sid_value;
+
+	/*Srv6 Sid*/
+	struct ipaddr srv6_sid_value;
 
 	/* NAI Type */
 	enum srte_segment_nai_type nai_type;
@@ -200,6 +214,8 @@ struct srte_segment_list {
 
 	/* Nexthops. */
 	struct srte_segment_entry_head segments;
+
+	enum srte_segment_list_type type;
 
 	/* Status flags. */
 	uint16_t flags;
@@ -340,6 +356,9 @@ struct srte_policy {
 
 	/* Operational Status of the policy */
 	enum srte_policy_status status;
+
+	/* The Type (mpls or srv6) */
+	enum srte_policy_type type;
 
 	/* Best candidate path. */
 	struct srte_candidate *best_candidate;
