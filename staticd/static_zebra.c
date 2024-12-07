@@ -308,6 +308,7 @@ void static_zebra_nht_register(struct static_nexthop *nh, bool reg)
 	struct static_route_info *si = static_route_info_from_rnode(rn);
 	struct static_nht_data *nhtd, lookup = {};
 	uint32_t cmd;
+	uint32_t flags = 0;
 
 	if (!static_zebra_nht_get_prefix(nh, &lookup.nh))
 		return;
@@ -373,8 +374,8 @@ void static_zebra_nht_register(struct static_nexthop *nh, bool reg)
 		       "Unregistering nexthop(%pFX) for %pRN", &lookup.nh, rn);
 	}
 
-	if (zclient_send_rnh(zclient, cmd, &lookup.nh, si->safi, false, false,
-			     nh->nh_vrf_id) == ZCLIENT_SEND_FAILURE)
+	if (zclient_send_rnh(zclient, cmd, &lookup.nh, si->safi, flags,
+			     nh->nh_vrf_id, 0) == ZCLIENT_SEND_FAILURE)
 		zlog_warn("%s: Failure to send nexthop %pFX for %pRN to zebra",
 			  __func__, &lookup.nh, rn);
 	else if (reg)
