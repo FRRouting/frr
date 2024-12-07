@@ -1245,12 +1245,14 @@ static void zread_rnh_register(ZAPI_HANDLER_ARGS)
 	struct stream *s;
 	struct prefix p;
 	unsigned short l = 0;
-	uint8_t connected = 0;
-	uint8_t resolve_via_default;
+	bool connected = false;
+	bool resolve_via_default = false;
 	bool exist;
 	bool flag_changed = false;
 	uint8_t orig_flags;
 	safi_t safi;
+	uint8_t flags = 0;
+	uint32_t srte_color = 0;
 
 	if (IS_ZEBRA_DEBUG_NHT)
 		zlog_debug(
@@ -1264,12 +1266,13 @@ static void zread_rnh_register(ZAPI_HANDLER_ARGS)
 		client->nh_reg_time = monotime(NULL);
 
 	while (l < hdr->length) {
-		STREAM_GETC(s, connected);
-		STREAM_GETC(s, resolve_via_default);
+		srte_color = 0;
+
+		STREAM_GETL(s, flags);
 		STREAM_GETW(s, safi);
 		STREAM_GETW(s, p.family);
 		STREAM_GETC(s, p.prefixlen);
-		l += 7;
+		l += 9;
 		if (p.family == AF_INET) {
 			client->v4_nh_watch_add_cnt++;
 			if (p.prefixlen > IPV4_MAX_BITLEN) {
@@ -1297,9 +1300,23 @@ static void zread_rnh_register(ZAPI_HANDLER_ARGS)
 				p.family);
 			return;
 		}
+		if (CHECK_FLAG(flags, NEXTHOP_REGISTER_FLAG_COLOR)) {
+			STREAM_GETL(s, srte_color);
+			l += 4;
+		}
 		rnh = zebra_add_rnh(&p, zvrf_id(zvrf), safi, &exist);
 		if (!rnh)
 			return;
+
+		if (CHECK_FLAG(flags, NEXTHOP_REGISTER_FLAG_CONNECTED))
+			connected = true;
+		else
+			connected = false;
+
+		if (CHECK_FLAG(flags, NEXTHOP_REGISTER_FLAG_RESOLVE_VIA_DEFAULT))
+			resolve_via_default = true;
+		else
+			resolve_via_default = false;
 
 		orig_flags = rnh->flags;
 		if (connected && !CHECK_FLAG(rnh->flags, ZEBRA_NHT_CONNECTED))
@@ -1334,6 +1351,8 @@ static void zread_rnh_unregister(ZAPI_HANDLER_ARGS)
 	struct prefix p;
 	unsigned short l = 0;
 	safi_t safi;
+	uint32_t srte_color = 0;
+	uint8_t flags = 0;
 
 	if (IS_ZEBRA_DEBUG_NHT)
 		zlog_debug(
@@ -1344,19 +1363,17 @@ static void zread_rnh_unregister(ZAPI_HANDLER_ARGS)
 	s = msg;
 
 	while (l < hdr->length) {
-		uint8_t ignore;
+		srte_color = 0;
 
-		STREAM_GETC(s, ignore);
-		if (ignore != 0)
-			goto stream_failure;
-		STREAM_GETC(s, ignore);
-		if (ignore != 0)
+		STREAM_GETL(s, flags);
+		if (CHECK_FLAG(flags, NEXTHOP_REGISTER_FLAG_CONNECTED)
+			|| CHECK_FLAG(flags, NEXTHOP_REGISTER_FLAG_RESOLVE_VIA_DEFAULT))
 			goto stream_failure;
 
 		STREAM_GETW(s, safi);
 		STREAM_GETW(s, p.family);
 		STREAM_GETC(s, p.prefixlen);
-		l += 7;
+		l += 9;
 		if (p.family == AF_INET) {
 			client->v4_nh_watch_rem_cnt++;
 			if (p.prefixlen > IPV4_MAX_BITLEN) {
@@ -1384,6 +1401,11 @@ static void zread_rnh_unregister(ZAPI_HANDLER_ARGS)
 				p.family);
 			return;
 		}
+		if (CHECK_FLAG(flags, NEXTHOP_REGISTER_FLAG_COLOR)) {
+			STREAM_GETL(s, srte_color);
+			l += 4;
+		}
+
 		rnh = zebra_lookup_rnh(&p, zvrf_id(zvrf), safi);
 		if (rnh) {
 			client->nh_dereg_time = monotime(NULL);

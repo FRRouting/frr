@@ -1133,9 +1133,8 @@ static int make_prefix(int afi, struct bgp_path_info *pi, struct prefix *p)
  */
 static void sendmsg_zebra_rnh(struct bgp_nexthop_cache *bnc, int command)
 {
-	bool exact_match = false;
-	bool resolve_via_default = false;
 	int ret;
+	uint8_t flags = 0;
 
 	if (!zclient)
 		return;
@@ -1157,9 +1156,9 @@ static void sendmsg_zebra_rnh(struct bgp_nexthop_cache *bnc, int command)
 	}
 	if (command == ZEBRA_NEXTHOP_REGISTER) {
 		if (CHECK_FLAG(bnc->flags, BGP_NEXTHOP_CONNECTED))
-			exact_match = true;
+			SET_FLAG(flags, NEXTHOP_REGISTER_FLAG_CONNECTED);
 		if (CHECK_FLAG(bnc->flags, BGP_STATIC_ROUTE_EXACT_MATCH))
-			resolve_via_default = true;
+			SET_FLAG(flags, NEXTHOP_REGISTER_FLAG_RESOLVE_VIA_DEFAULT);
 	}
 
 	if (BGP_DEBUG(zebra, ZEBRA))
@@ -1168,8 +1167,7 @@ static void sendmsg_zebra_rnh(struct bgp_nexthop_cache *bnc, int command)
 			   bnc->bgp->name_pretty);
 
 	ret = zclient_send_rnh(zclient, command, &bnc->prefix, SAFI_UNICAST,
-			       exact_match, resolve_via_default,
-			       bnc->bgp->vrf_id);
+			       flags, bnc->bgp->vrf_id, bnc->srte_color);
 	if (ret == ZCLIENT_SEND_FAILURE) {
 		flog_warn(EC_BGP_ZEBRA_SEND,
 			  "sendmsg_nexthop: zclient_send_message() failed");
