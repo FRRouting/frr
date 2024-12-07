@@ -2379,7 +2379,7 @@ static bool zapi_nexthop_update_decode(struct stream *s, struct prefix *match,
 	STREAM_GETW(s, nhr->nexthop_num);
 
 	for (i = 0; i < nhr->nexthop_num; i++) {
-		if (zapi_nexthop_decode(s, &(nhr->nexthops[i]), 0, 0) != 0)
+		if (zapi_nexthop_decode(s, &(nhr->nexthops[i]), 0, nhr->message) != 0)
 			return false;
 	}
 
@@ -3849,13 +3849,10 @@ int tm_release_table_chunk(struct zclient *zclient, uint32_t start,
 enum zclient_send_status zebra_send_sr_policy(struct zclient *zclient, int cmd,
 					      struct zapi_sr_policy *zp)
 {
-	if (cmd == ZEBRA_SR_POLICY_SET || cmd == ZEBRA_SR_POLICY_DELETE)
-	{
+	if (cmd == ZEBRA_SR_POLICY_SET || cmd == ZEBRA_SR_POLICY_DELETE) {
 		if (zapi_sr_policy_encode(zclient->obuf, cmd, zp) < 0)
 			return ZCLIENT_SEND_FAILURE;
-	}
-	else if (cmd == ZEBRA_SRV6_POLICY_SET || cmd == ZEBRA_SRV6_POLICY_DELETE)
-	{
+	} else if (cmd == ZEBRA_SRV6_POLICY_SET || cmd == ZEBRA_SRV6_POLICY_DELETE) {
 		if (zapi_srv6_policy_encode(zclient->obuf, cmd, zp) < 0)
 			return ZCLIENT_SEND_FAILURE;
 	}

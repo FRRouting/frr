@@ -352,15 +352,15 @@ struct srte_policy *srte_policy_add(uint32_t color, struct ipaddr *endpoint,
 void srte_policy_del(struct srte_policy *policy)
 {
 	struct srte_candidate *candidate;
+
 	if (policy->type == SRTE_POLICY_TYPE_MPLS) {
 		path_zebra_delete_sr_policy(policy);
 
 		path_zebra_release_label(policy->binding_sid);
 	}
 
-	if (policy->type == SRTE_POLICY_TYPE_SRV6) {
+	if (policy->type == SRTE_POLICY_TYPE_SRV6)
 		path_zebra_delete_srv6_policy(policy);
-	}
 
 	while (!RB_EMPTY(srte_candidate_head, &policy->candidate_paths)) {
 		candidate =

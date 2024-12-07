@@ -8,6 +8,7 @@
 #include "lib/zclient.h"
 #include "lib/lib_errors.h"
 
+#include "zebra/debug.h"
 #include "zebra/zebra_srte.h"
 #include "zebra/zebra_mpls.h"
 #include "zebra/zebra_rnh.h"
@@ -91,6 +92,7 @@ static int zebra_sr_policy_notify_update_client(struct zebra_sr_policy *policy,
 	uint8_t num;
 	struct zapi_nexthop znh;
 	int ret;
+	struct nexthop nh = {0};
 
 	/* Get output stream. */
 	s = stream_new(ZEBRA_MAX_PACKET_SIZ);
@@ -133,28 +135,79 @@ static int zebra_sr_policy_notify_update_client(struct zebra_sr_policy *policy,
 	}
 	stream_putl(s, policy->color);
 
+	if (IS_ZEBRA_DEBUG_SRV6) {
+		char endpoint[IPADDR_STRING_SIZE];
+
+		ipaddr2str(&policy->endpoint, endpoint, sizeof(endpoint));
+		zlog_debug("%s: endpoint %s color %u status %u type %d",
+			__func__, endpoint, policy->color, policy->status,
+			policy->type);
+	}
+
 	num = 0;
-	frr_each (nhlfe_list_const, &policy->lsp->nhlfe_list, nhlfe) {
-		if (!CHECK_FLAG(nhlfe->flags, NHLFE_FLAG_SELECTED)
-		    || CHECK_FLAG(nhlfe->flags, NHLFE_FLAG_DELETED))
-			continue;
+	if (policy->type == ZEBRA_SR_POLICY_TYPE_MPLS) {
+		frr_each (nhlfe_list_const, &policy->lsp->nhlfe_list, nhlfe) {
+			if (!CHECK_FLAG(nhlfe->flags, NHLFE_FLAG_SELECTED)
+				|| CHECK_FLAG(nhlfe->flags, NHLFE_FLAG_DELETED))
+				continue;
 
-		if (num == 0) {
-			stream_putc(s, re_type_from_lsp_type(nhlfe->type));
-			stream_putw(s, 0); /* instance - not available */
-			stream_putc(s, nhlfe->distance);
-			stream_putl(s, 0); /* metric - not available */
-			nump = stream_get_endp(s);
-			stream_putw(s, 0);
+			if (num == 0) {
+				stream_putc(s, re_type_from_lsp_type(nhlfe->type));
+				stream_putw(s, 0); /* instance - not available */
+				stream_putc(s, nhlfe->distance);
+				stream_putl(s, 0); /* metric - not available */
+				nump = stream_get_endp(s);
+				stream_putw(s, 0);
+			}
+
+			zapi_nexthop_from_nexthop(&znh, nhlfe->nexthop);
+			znh.srte_color = policy->color;
+			ret = zapi_nexthop_encode(s, &znh, 0, message);
+			if (ret < 0)
+				goto failure;
+
+			num++;
 		}
+	} else if (policy->type == ZEBRA_SR_POLICY_TYPE_SRV6) {
+		stream_putc(s, ZEBRA_ROUTE_SRTE);
+		stream_putw(s, 0); /* instance - not available */
+		stream_putc(s, 0);
+		stream_putl(s, 0); /* metric - not available */
+		nump = stream_get_endp(s);
+		stream_putw(s, 0);
 
-		zapi_nexthop_from_nexthop(&znh, nhlfe->nexthop);
+		memset(&nh, 0, sizeof(struct nexthop));
+		nh.vrf_id = policy->zvrf->vrf->vrf_id;
+
+		switch (policy->endpoint.ipa_type) {
+		case IPADDR_V4:
+			memcpy(&nh.gate.ipv4, &policy->endpoint.ipaddr_v4, sizeof(struct in_addr));
+			nh.type = NEXTHOP_TYPE_IPV4;
+			break;
+		case IPADDR_V6:
+			memcpy(&nh.gate.ipv6, &policy->endpoint.ipaddr_v6, sizeof(struct in6_addr));
+			nh.type = NEXTHOP_TYPE_IPV6;
+			break;
+		case IPADDR_NONE:
+			flog_warn(EC_LIB_DEVELOPMENT,
+				"%s: unknown policy endpoint address family: %u",
+				__func__, policy->endpoint.ipa_type);
+			exit(1);
+		}
+		nexthop_add_srv6_seg6_ipaddr(&nh,
+			&policy->segment_list_v6.segs[0],
+			policy->segment_list_v6.seg_num);
+
+		nh.srte_color = policy->color;
+		zapi_nexthop_from_nexthop(&znh, &nh);
+		nexthop_del_srv6_seg6(&nh);
 		ret = zapi_nexthop_encode(s, &znh, 0, message);
 		if (ret < 0)
 			goto failure;
 
 		num++;
 	}
+
 	stream_putw_at(s, nump, num);
 	stream_putw_at(s, 0, stream_get_endp(s));
 
@@ -167,9 +220,9 @@ failure:
 	return -1;
 }
 
-static void zebra_sr_policy_notify_update(struct zebra_sr_policy *policy)
+void zebra_sr_policy_notify_update(struct zebra_sr_policy *policy)
 {
-	struct rnh *rnh;
+	struct rnh *rnh = NULL;
 	struct prefix p = {};
 	struct zebra_vrf *zvrf;
 	struct listnode *node;
@@ -195,17 +248,98 @@ static void zebra_sr_policy_notify_update(struct zebra_sr_policy *policy)
 	}
 
 	rnh = zebra_lookup_rnh(&p, zvrf_id(zvrf), SAFI_UNICAST);
-	if (!rnh)
+	if (rnh == NULL)
 		return;
+
+	if (policy->type == ZEBRA_SR_POLICY_TYPE_SRV6) {
+		/* check color */
+		for (; rnh; rnh = rnh->next)
+			if (rnh->srte_color == policy->color)
+				break;
+		if (rnh == NULL)
+			return;
+		rnh->srp_status = policy->status;
+	}
+
+	if (IS_ZEBRA_DEBUG_SRV6) {
+		char endpoint[IPADDR_STRING_SIZE];
+
+		ipaddr2str(&policy->endpoint, endpoint, sizeof(endpoint));
+		zlog_debug("%s: endpoint %s color %u status %u",
+			__func__, endpoint, policy->color, policy->status);
+	}
 
 	for (ALL_LIST_ELEMENTS_RO(rnh->client_list, node, client)) {
 		if (policy->status == ZEBRA_SR_POLICY_UP)
 			zebra_sr_policy_notify_update_client(policy, client);
-		else
-			/* Fallback to the IGP shortest path. */
-			zebra_send_rnh_update(rnh, client, zvrf_id(zvrf),
-					      policy->color);
+		else {
+			if (policy->type == ZEBRA_SR_POLICY_TYPE_SRV6)
+				zebra_sr_policy_notify_unknown(rnh, client);
+			else
+				/* Fallback to the IGP shortest path. */
+				zebra_send_rnh_update(rnh, client, zvrf_id(zvrf),
+								policy->color);
+		}
 	}
+}
+
+int zebra_sr_policy_notify_unknown(struct rnh *rnh,
+						struct zserv *client)
+{
+	struct stream *s;
+	uint32_t message = 0;
+	struct route_node *rn;
+
+	rn = rnh->node;
+
+	/* Get output stream. */
+	s = stream_new(ZEBRA_MAX_PACKET_SIZ);
+
+	zclient_create_header(s, ZEBRA_NEXTHOP_UPDATE, rnh->vrf_id);
+
+	/* Message flags. */
+	SET_FLAG(message, ZAPI_MESSAGE_SRTE);
+	stream_putl(s, message);
+	stream_putw(s, rnh->safi);
+
+	switch (rn->p.family) {
+	case AF_INET:
+		stream_putw(s, AF_INET);
+		stream_putc(s, IPV4_MAX_BITLEN);
+		stream_put_in_addr(s, &rn->p.u.prefix4);
+		stream_putw(s, AF_INET);
+		stream_putc(s, IPV4_MAX_BITLEN);
+		stream_put_in_addr(s, &rn->p.u.prefix4);
+		break;
+	case AF_INET6:
+		stream_putw(s, AF_INET6);
+		stream_putc(s, IPV6_MAX_BITLEN);
+		stream_put(s, &rn->p.u.prefix6, IPV6_MAX_BYTELEN);
+		stream_putw(s, AF_INET6);
+		stream_putc(s, IPV6_MAX_BITLEN);
+		stream_put(s, &rn->p.u.prefix6, IPV6_MAX_BYTELEN);
+		break;
+	default:
+		flog_warn(EC_LIB_DEVELOPMENT,
+			  "%s: unknown policy endpoint address family: %u",
+			  __func__, rn->p.family);
+		exit(1);
+	}
+
+	stream_putl(s, rnh->srte_color);
+
+	stream_putc(s, ZEBRA_ROUTE_SRTE);
+	stream_putw(s, 0); /* instance - not available */
+	stream_putc(s, 0);/* distance - not available */
+	stream_putl(s, 0); /* metric - not available */
+	/*set nexthop num to 0 */
+	stream_putw(s, 0);
+
+	stream_putw_at(s, 0, stream_get_endp(s));
+	client->nh_last_upd_time = monotime(NULL);
+	client->last_write_cmd = ZEBRA_NEXTHOP_UPDATE;
+	return zserv_send_message(client, s);
+
 }
 
 static void zebra_sr_policy_activate(struct zebra_sr_policy *policy,
@@ -254,10 +388,14 @@ static void zebra_sr_policy_deactivate(struct zebra_sr_policy *policy)
 {
 	policy->status = ZEBRA_SR_POLICY_DOWN;
 	policy->lsp = NULL;
-	zebra_sr_policy_bsid_uninstall(policy,
-				       policy->segment_list.local_label);
-	zsend_sr_policy_notify_status(policy->color, &policy->endpoint,
-				      policy->name, ZEBRA_SR_POLICY_DOWN);
+
+	if (policy->type == ZEBRA_SR_POLICY_TYPE_MPLS) {
+		zebra_sr_policy_bsid_uninstall(policy,
+						policy->segment_list.local_label);
+		zsend_sr_policy_notify_status(policy->color, &policy->endpoint,
+						policy->name, ZEBRA_SR_POLICY_DOWN);
+	}
+
 	zebra_sr_policy_notify_update(policy);
 }
 
@@ -288,6 +426,31 @@ int zebra_sr_policy_validate(struct zebra_sr_policy *policy,
 	return 0;
 }
 
+int zebra_srv6_policy_validate(struct zebra_sr_policy *policy,
+			     struct zapi_srv6te_tunnel *new_tunnel)
+{
+	bool segment_list_changed = false;
+	struct zapi_srv6te_tunnel old_tunnel = policy->segment_list_v6;
+
+	if (new_tunnel)
+		policy->segment_list_v6 = *new_tunnel;
+
+	/* First label was resolved successfully. */
+	if (policy->status == ZEBRA_SR_POLICY_DOWN) {
+		policy->status = ZEBRA_SR_POLICY_UP;
+		segment_list_changed = true;
+	} else {
+		segment_list_changed =
+			policy->segment_list_v6.seg_num != old_tunnel.seg_num
+			|| memcmp(&policy->segment_list_v6.segs[0], &old_tunnel.segs[0],
+				sizeof(struct ipaddr) * policy->segment_list_v6.seg_num);
+	}
+
+	if (segment_list_changed)
+		zebra_sr_policy_notify_update(policy);
+
+	return 0;
+}
 int zebra_sr_policy_bsid_install(struct zebra_sr_policy *policy)
 {
 	struct zapi_srte_tunnel *zt = &policy->segment_list;
