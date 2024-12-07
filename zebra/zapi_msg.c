@@ -1292,7 +1292,8 @@ static void zread_rnh_register(ZAPI_HANDLER_ARGS)
 			STREAM_GETL(s, srte_color);
 			l += 4;
 		}
-		rnh = zebra_add_rnh(&p, zvrf_id(zvrf), safi, &exist);
+
+		rnh = zebra_add_rnh(&p, zvrf_id(zvrf), safi, &exist, srte_color);
 		if (!rnh)
 			return;
 
@@ -1395,9 +1396,14 @@ static void zread_rnh_unregister(ZAPI_HANDLER_ARGS)
 		}
 
 		rnh = zebra_lookup_rnh(&p, zvrf_id(zvrf), safi);
+		/* check color */
+		for (; rnh; rnh = rnh->next)
+			if (rnh->srte_color == srte_color)
+				break;
+
 		if (rnh) {
 			client->nh_dereg_time = monotime(NULL);
-			zebra_remove_rnh_client(rnh, client);
+			zebra_remove_rnh_client(rnh, client, false);
 		}
 	}
 stream_failure:
@@ -1842,6 +1848,8 @@ static bool zapi_read_nexthops(struct zserv *client, struct prefix *p,
 		enum lsp_types_t label_type;
 		char nhbuf[NEXTHOP_STRLEN];
 		char labelbuf[MPLS_LABEL_STRLEN];
+		char seg_buf[SRV6_SEG_STRLEN];
+		struct seg6_segs segs;
 		struct zapi_nexthop *api_nh = &nhops[i];
 
 		/* Convert zapi nexthop */
@@ -1871,6 +1879,7 @@ static bool zapi_read_nexthops(struct zserv *client, struct prefix *p,
 
 		if (CHECK_FLAG(message, ZAPI_MESSAGE_SRTE)) {
 			SET_FLAG(nexthop->flags, NEXTHOP_FLAG_SRTE);
+			SET_FLAG(nexthop->flags, NEXTHOP_FLAG_SRV6TE);
 			nexthop->srte_color = api_nh->srte_color;
 		}
 
@@ -1907,9 +1916,6 @@ static bool zapi_read_nexthops(struct zserv *client, struct prefix *p,
 
 		if (CHECK_FLAG(api_nh->flags, ZAPI_NEXTHOP_FLAG_SEG6)
 		    && api_nh->type != NEXTHOP_TYPE_BLACKHOLE) {
-			if (IS_ZEBRA_DEBUG_RECV)
-				zlog_debug("%s: adding seg6", __func__);
-
 			nexthop_add_srv6_seg6(nexthop, &api_nh->seg6_segs[0],
 					      api_nh->seg_num);
 		}
@@ -1917,6 +1923,7 @@ static bool zapi_read_nexthops(struct zserv *client, struct prefix *p,
 		if (IS_ZEBRA_DEBUG_RECV) {
 			labelbuf[0] = '\0';
 			nhbuf[0] = '\0';
+			seg_buf[0] = '\0';
 
 			nexthop2str(nexthop, nhbuf, sizeof(nhbuf));
 
@@ -1928,8 +1935,20 @@ static bool zapi_read_nexthops(struct zserv *client, struct prefix *p,
 					       nexthop->nh_label_type, false);
 			}
 
-			zlog_debug("%s: nh=%s, vrf_id=%d %s",
-				   __func__, nhbuf, api_nh->vrf_id, labelbuf);
+			if (nexthop->nh_srv6 && nexthop->nh_srv6->seg6_segs) {
+				segs.num_segs = nexthop->nh_srv6->seg6_segs->num_segs;
+				size_t num = 0;
+
+				for (num = 0; num < segs.num_segs; num++)
+					memcpy(&segs.segs[num],
+							&nexthop->nh_srv6->seg6_segs->seg[num],
+							sizeof(struct in6_addr));
+
+				snprintf_seg6_segs(seg_buf, SRV6_SEG_STRLEN, &segs);
+			}
+
+			zlog_debug("%s: nh=%s, vrf_id=%d label=%s seg6=%s color=%u",
+					__func__, nhbuf, api_nh->vrf_id, labelbuf, seg_buf, nexthop->srte_color);
 		}
 
 		if (ng) {
@@ -2160,9 +2179,9 @@ static void zread_route_add(ZAPI_HANDLER_ARGS)
 	vrf_id = zvrf_id(zvrf);
 
 	if (IS_ZEBRA_DEBUG_RECV)
-		zlog_debug("%s: p=(%s:%u)%pFX, msg flags=0x%x, flags=0x%x",
+		zlog_debug("%s: p=(%s:%u)%pFX, msg flags=0x%x, flags=0x%x, color=%u",
 			   __func__, zvrf_name(zvrf), api.tableid, &api.prefix,
-			   (int)api.message, api.flags);
+			   (int)api.message, api.flags, api.srte_color);
 
 	/* Allocate new route. */
 	re = zebra_rib_route_entry_new(
@@ -2706,6 +2725,7 @@ static void zread_sr_policy_set(ZAPI_HANDLER_ARGS)
 	if (!policy) {
 		policy = zebra_sr_policy_add(zp.color, &zp.endpoint, zp.name);
 		policy->sock = client->sock;
+		policy->type = ZEBRA_SR_POLICY_TYPE_MPLS;
 	}
 	/* TODO: per-VRF list of SR-TE policies. */
 	policy->zvrf = zvrf;
@@ -2743,12 +2763,63 @@ static void zread_sr_policy_delete(ZAPI_HANDLER_ARGS)
 
 static void zread_srv6_policy_set(ZAPI_HANDLER_ARGS)
 {
+	struct stream *s;
+	struct zapi_sr_policy zp;
+	struct zapi_srv6te_tunnel *zt;
+	struct zebra_sr_policy *policy;
 
+	/* Get input stream.  */
+	s = msg;
+	if (zapi_srv6_policy_decode(s, &zp) < 0) {
+		if (IS_ZEBRA_DEBUG_RECV)
+			zlog_debug("%s: Unable to decode zapi_sr_policy sent",
+				   __func__);
+		return;
+	}
+	zt = &zp.segment_list_v6;
+	if (zt->seg_num < 1) {
+		if (IS_ZEBRA_DEBUG_RECV)
+			zlog_debug(
+				"%s: SRV6-TE tunnel must contain at least one sid",
+				__func__);
+		return;
+	}
+
+	policy = zebra_sr_policy_find(zp.color, &zp.endpoint);
+	if (!policy) {
+		policy = zebra_sr_policy_add(zp.color, &zp.endpoint, zp.name);
+		policy->sock = client->sock;
+		policy->type = ZEBRA_SR_POLICY_TYPE_SRV6;
+	}
+	/* TODO: per-VRF list of SR-TE policies. */
+	policy->zvrf = zvrf;
+
+	zebra_srv6_policy_validate(policy, &zp.segment_list_v6);
 }
 
 static void zread_srv6_policy_delete(ZAPI_HANDLER_ARGS)
 {
+	struct stream *s;
+	struct zapi_sr_policy zp;
+	struct zebra_sr_policy *policy;
 
+	/* Get input stream.  */
+	s = msg;
+	if (zapi_srv6_policy_decode(s, &zp) < 0) {
+		if (IS_ZEBRA_DEBUG_RECV)
+			zlog_debug("%s: Unable to decode zapi_sr_policy sent",
+				   __func__);
+		return;
+	}
+
+	policy = zebra_sr_policy_find(zp.color, &zp.endpoint);
+	if (!policy) {
+		if (IS_ZEBRA_DEBUG_RECV)
+			zlog_debug("%s: Unable to find SRV6-TE policy", __func__);
+		return;
+	}
+
+	zebra_sr_policy_del(policy);
 }
 
 int zsend_sr_policy_notify_status(uint32_t color, struct ipaddr *endpoint,

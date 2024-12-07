@@ -101,12 +101,19 @@ static void path_zebra_connected(struct zclient *zclient)
 		candidate = policy->best_candidate;
 		if (!candidate)
 			continue;
+		if (policy->type == SRTE_POLICY_TYPE_MPLS) {
+			segment_list = candidate->lsp->segment_list;
+			if (!segment_list)
+				continue;
 
-		segment_list = candidate->lsp->segment_list;
-		if (!segment_list)
-			continue;
+			path_zebra_add_sr_policy(policy, segment_list);
+		} else if (policy->type == SRTE_POLICY_TYPE_SRV6) {
+			segment_list = candidate->segment_list;
+			if (!segment_list)
+				continue;
 
-		path_zebra_add_sr_policy(policy, segment_list);
+			path_zebra_add_srv6_policy(policy, segment_list);
+		}
 	}
 }
 
