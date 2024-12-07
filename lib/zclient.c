@@ -880,17 +880,15 @@ static void zclient_connect(struct event *t)
 }
 
 enum zclient_send_status zclient_send_rnh(struct zclient *zclient, int command,
-					  const struct prefix *p, safi_t safi,
-					  bool connected, bool resolve_via_def,
-					  vrf_id_t vrf_id)
+					  const struct prefix *p, safi_t safi, uint8_t flags,
+					  vrf_id_t vrf_id, uint32_t srte_color)
 {
 	struct stream *s;
 
 	s = zclient->obuf;
 	stream_reset(s);
 	zclient_create_header(s, command, vrf_id);
-	stream_putc(s, (connected) ? 1 : 0);
-	stream_putc(s, (resolve_via_def) ? 1 : 0);
+	stream_putl(s, flags);
 	stream_putw(s, safi);
 	stream_putw(s, PREFIX_FAMILY(p));
 	stream_putc(s, p->prefixlen);
@@ -904,6 +902,10 @@ enum zclient_send_status zclient_send_rnh(struct zclient *zclient, int command,
 	default:
 		break;
 	}
+
+	if (CHECK_FLAG(flags, NEXTHOP_REGISTER_FLAG_COLOR))
+		stream_putl(s, srte_color);
+
 	stream_putw_at(s, 0, stream_get_endp(s));
 
 	return zclient_send_message(zclient);

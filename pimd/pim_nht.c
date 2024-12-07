@@ -213,11 +213,13 @@ static void pim_sendmsg_zebra_rnh(struct pim_instance *pim, struct zclient *zcli
 {
 	struct prefix p;
 	int ret;
+	uint8_t flags = 0;
 
 	pim_addr_to_prefix(&p, addr);
 
 	/* Register to track nexthops from the MRIB */
-	ret = zclient_send_rnh(zclient, command, &p, SAFI_MULTICAST, false, false, pim->vrf->vrf_id);
+	ret = zclient_send_rnh(zclient, command, &p, SAFI_MULTICAST, flags,
+			       pim->vrf->vrf_id, 0);
 	if (ret == ZCLIENT_SEND_FAILURE)
 		zlog_warn(
 			"sendmsg_nexthop: zclient_send_message() failed registering MRIB tracking");
@@ -228,7 +230,8 @@ static void pim_sendmsg_zebra_rnh(struct pim_instance *pim, struct zclient *zcli
 			   ret);
 
 	/* Also register to track nexthops from the URIB */
-	ret = zclient_send_rnh(zclient, command, &p, SAFI_UNICAST, false, false, pim->vrf->vrf_id);
+	ret = zclient_send_rnh(zclient, command, &p, SAFI_UNICAST, flags,
+				pim->vrf->vrf_id, 0);
 	if (ret == ZCLIENT_SEND_FAILURE)
 		zlog_warn(
 			"sendmsg_nexthop: zclient_send_message() failed registering URIB tracking");

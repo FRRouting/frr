@@ -70,6 +70,10 @@ typedef uint16_t zebra_size_t;
 #define ZEBRA_FEC_REGISTER_LABEL          0x1
 #define ZEBRA_FEC_REGISTER_LABEL_INDEX    0x2
 
+#define NEXTHOP_REGISTER_FLAG_CONNECTED           (1 << 0)
+#define NEXTHOP_REGISTER_FLAG_RESOLVE_VIA_DEFAULT (1 << 1)
+#define NEXTHOP_REGISTER_FLAG_COLOR               (1 << 2)
+
 /* Client capabilities */
 enum zserv_client_capabilities {
 	ZEBRA_CLIENT_GR_CAPABILITIES = 1,
@@ -1154,8 +1158,7 @@ extern enum zclient_send_status zclient_route_send(uint8_t, struct zclient *,
 						   struct zapi_route *);
 extern enum zclient_send_status
 zclient_send_rnh(struct zclient *zclient, int command, const struct prefix *p,
-		 safi_t safi, bool connected, bool resolve_via_default,
-		 vrf_id_t vrf_id);
+		 safi_t safi, uint8_t flags, vrf_id_t vrf_id, uint32_t srte_color);
 int zapi_nexthop_encode(struct stream *s, const struct zapi_nexthop *api_nh,
 			uint32_t api_flags, uint32_t api_message);
 extern int zapi_route_encode(uint8_t, struct stream *, struct zapi_route *);

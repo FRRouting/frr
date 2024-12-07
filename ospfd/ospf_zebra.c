@@ -1494,6 +1494,7 @@ void ospf_zebra_import_default_route(struct ospf *ospf, bool unreg)
 {
 	struct prefix prefix = {};
 	int command;
+	uint8_t flags = 0;
 
 	if (zclient->sock < 0) {
 		if (IS_DEBUG_OSPF(zebra, ZEBRA))
@@ -1515,8 +1516,9 @@ void ospf_zebra_import_default_route(struct ospf *ospf, bool unreg)
 			   zserv_command_string(command), &prefix,
 			   ospf_vrf_id_to_name(ospf->vrf_id));
 
-	if (zclient_send_rnh(zclient, command, &prefix, SAFI_UNICAST, false,
-			     true, ospf->vrf_id) == ZCLIENT_SEND_FAILURE)
+	SET_FLAG(flags, NEXTHOP_REGISTER_FLAG_RESOLVE_VIA_DEFAULT);
+	if (zclient_send_rnh(zclient, command, &prefix, SAFI_UNICAST, flags,
+			    ospf->vrf_id, 0) == ZCLIENT_SEND_FAILURE)
 		flog_err(EC_LIB_ZAPI_SOCKET, "%s(%s): zclient_send_rnh() failed",
 			 __func__, ospf_vrf_id_to_name(ospf->vrf_id));
 }
