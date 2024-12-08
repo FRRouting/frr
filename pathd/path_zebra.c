@@ -24,7 +24,7 @@
 #include "lib/command.h"
 #include "lib/link_state.h"
 
-static int path_zebra_opaque_msg_handler(ZAPI_CALLBACK_ARGS);
+static void path_zebra_opaque_msg_handler(ZAPI_CALLBACK_ARGS);
 
 struct zclient *zclient;
 static struct zclient *zclient_sync;
@@ -110,32 +110,29 @@ static void path_zebra_connected(struct zclient *zclient)
 	}
 }
 
-static int path_zebra_sr_policy_notify_status(ZAPI_CALLBACK_ARGS)
+static void path_zebra_sr_policy_notify_status(ZAPI_CALLBACK_ARGS)
 {
 	struct zapi_sr_policy zapi_sr_policy;
 	struct srte_policy *policy;
 	struct srte_candidate *best_candidate_path;
 
 	if (zapi_sr_policy_notify_status_decode(zclient->ibuf, &zapi_sr_policy))
-		return -1;
+		return;
 
 	policy = srte_policy_find(zapi_sr_policy.color,
 				  &zapi_sr_policy.endpoint);
 	if (!policy)
-		return -1;
+		return;
 
 	best_candidate_path = policy->best_candidate;
 	if (!best_candidate_path)
-		return -1;
+		return;
 
-	srte_candidate_status_update(best_candidate_path,
-				     zapi_sr_policy.status);
-
-	return 0;
+	srte_candidate_status_update(best_candidate_path, zapi_sr_policy.status);
 }
 
 /* Router-id update message from zebra. */
-static int path_zebra_router_id_update(ZAPI_CALLBACK_ARGS)
+static void path_zebra_router_id_update(ZAPI_CALLBACK_ARGS)
 {
 	struct prefix pref;
 	const char *family;
@@ -160,10 +157,9 @@ static int path_zebra_router_id_update(ZAPI_CALLBACK_ARGS)
 	} else {
 		zlog_warn("Unexpected router ID address family for vrf %u: %u",
 			  vrf_id, pref.family);
-		return 0;
+		return;
 	}
 	zlog_info("%s Router Id updated for VRF %u: %s", family, vrf_id, buf);
-	return 0;
 }
 
 /**
@@ -292,16 +288,15 @@ static void path_zebra_label_manager_connect(struct event *event)
 	}
 }
 
-static int path_zebra_opaque_msg_handler(ZAPI_CALLBACK_ARGS)
+static void path_zebra_opaque_msg_handler(ZAPI_CALLBACK_ARGS)
 {
-	int ret = 0;
 	struct stream *s;
 	struct zapi_opaque_msg info;
 
 	s = zclient->ibuf;
 
 	if (zclient_opaque_decode(s, &info) != 0)
-		return -1;
+		return;
 
 	switch (info.type) {
 	case LINK_STATE_UPDATE:
@@ -323,10 +318,10 @@ static int path_zebra_opaque_msg_handler(ZAPI_CALLBACK_ARGS)
 			zlog_err(
 				"%s: [rcv ted] Could not parse LinkState stream message.",
 				__func__);
-			return -1;
+			return;
 		}
 
-		ret = path_ted_rcvd_message(msg);
+		path_ted_rcvd_message(msg);
 		ls_delete_msg(msg);
 		/* Update local configuration after process update. */
 		path_ted_segment_list_refresh();
@@ -336,8 +331,6 @@ static int path_zebra_opaque_msg_handler(ZAPI_CALLBACK_ARGS)
 			   __func__, info.type);
 		break;
 	}
-
-	return ret;
 }
 
 static zclient_handler *const path_handlers[] = {
