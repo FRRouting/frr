@@ -3842,8 +3842,9 @@ vrf_id_t get_first_vrf_for_redirect_with_rt(struct ecommunity *eckey)
  *     router bgp NNN
  *       ...
  *
- * This function gets called when the default instance ("router bgp NNN")
- * is created.
+ * This function gets called :
+ * - when the default instance ("router bgp NNN")
+ * - when an SRv6 locator is updated.
  */
 void vpn_leak_postchange_all(void)
 {
@@ -3855,8 +3856,8 @@ void vpn_leak_postchange_all(void)
 
 	/* First, do any exporting from VRFs to the single VPN RIB */
 	for (ALL_LIST_ELEMENTS_RO(bm->bgp, next, bgp)) {
-
-		if (bgp->inst_type != BGP_INSTANCE_TYPE_VRF)
+		if (bgp->inst_type != BGP_INSTANCE_TYPE_VRF &&
+		    bgp->inst_type != BGP_INSTANCE_TYPE_DEFAULT)
 			continue;
 
 		if (CHECK_FLAG(bgp->vrf_flags, BGP_VRF_AUTO))
@@ -3877,8 +3878,8 @@ void vpn_leak_postchange_all(void)
 
 	/* Now, do any importing to VRFs from the single VPN RIB */
 	for (ALL_LIST_ELEMENTS_RO(bm->bgp, next, bgp)) {
-
-		if (bgp->inst_type != BGP_INSTANCE_TYPE_VRF)
+		if (bgp->inst_type != BGP_INSTANCE_TYPE_VRF &&
+		    bgp->inst_type != BGP_INSTANCE_TYPE_DEFAULT)
 			continue;
 
 		if (CHECK_FLAG(bgp->vrf_flags, BGP_VRF_AUTO))
