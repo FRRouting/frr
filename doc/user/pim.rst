@@ -478,6 +478,13 @@ Commands available for MSDP
 
       To apply it immediately call `clear ip msdp peer A.B.C.D`.
 
+<<<<<<< HEAD
+=======
+.. clicmd:: msdp shutdown
+
+   Shutdown the MSDP sessions in this PIM instance.
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 .. _show-pim-information:
 

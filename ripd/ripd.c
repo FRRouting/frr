@@ -1263,9 +1263,19 @@ static void rip_response_process(struct rip_packet *packet, int size,
 					       rip->vrf->vrf_id)) {
 				struct route_node *rn;
 				struct rip_info *rinfo;
+<<<<<<< HEAD
 
 				rn = route_node_match_ipv4(rip->table,
 							   &rte->nexthop);
+=======
+				struct prefix p = { 0 };
+
+				p.family = AF_INET;
+				p.prefixlen = IPV4_MAX_BITLEN;
+				p.u.prefix4 = rte->nexthop;
+
+				rn = route_node_match(rip->table, &p);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 				if (rn) {
 					rinfo = rn->info;

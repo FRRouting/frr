@@ -256,15 +256,35 @@ extern void zserv_init(void);
 extern void zserv_close(void);
 
 /*
+<<<<<<< HEAD
  * Start Zebra API server.
  *
  * Allocates resources, creates the server socket and begins listening on the
  * socket.
+=======
+ * Open Zebra API server socket.
+ *
+ * Create and open the server socket.
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
  *
  * path
  *    where to place the Unix domain socket
  */
+<<<<<<< HEAD
 extern void zserv_start(char *path);
+=======
+extern void zserv_open(const char *path);
+
+/*
+ * Start Zebra API server.
+ *
+ * Allocates resources and begins listening on the server socket.
+ *
+ * path
+ *    where to place the Unix domain socket
+ */
+extern void zserv_start(const char *path);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 /*
  * Send a message to a connected Zebra API client.

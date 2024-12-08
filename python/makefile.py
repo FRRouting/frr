@@ -52,7 +52,11 @@ if args.dev_build:
                 "grep",
                 "-l",
                 "-P",
+<<<<<<< HEAD
                 "^#\s*include.*_clippy.c",
+=======
+                r"^#\s*include.*_clippy.c",
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
                 "--",
                 "**.c",
             ]

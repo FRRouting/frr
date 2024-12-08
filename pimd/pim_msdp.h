@@ -114,9 +114,12 @@ struct pim_msdp_peer {
 	enum pim_msdp_peer_state state;
 	enum pim_msdp_peer_flags flags;
 
+<<<<<<< HEAD
 	/* TCP socket info */
 	union sockunion su_local;
 	union sockunion su_peer;
+=======
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	int fd;
 
 /* protocol timers */
@@ -168,6 +171,10 @@ struct pim_msdp_mg {
 	struct in_addr src_ip;
 	uint32_t mbr_cnt;
 	struct list *mbr_list;
+<<<<<<< HEAD
+=======
+	struct pim_instance *pim;
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 	/** Belongs to PIM instance list. */
 	SLIST_ENTRY(pim_msdp_mg) mg_entry;
@@ -218,6 +225,12 @@ struct pim_msdp {
 	uint32_t keep_alive;
 	/** MSDP global connection retry period. */
 	uint32_t connection_retry;
+<<<<<<< HEAD
+=======
+
+	/** MSDP operation state. */
+	bool shutdown;
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 };
 
 #define PIM_MSDP_PEER_READ_ON(mp)                                              \
@@ -238,8 +251,12 @@ void pim_msdp_init(struct pim_instance *pim, struct event_loop *master);
 void pim_msdp_exit(struct pim_instance *pim);
 char *pim_msdp_state_dump(enum pim_msdp_peer_state state, char *buf,
 			  int buf_size);
+<<<<<<< HEAD
 struct pim_msdp_peer *pim_msdp_peer_find(struct pim_instance *pim,
 					 struct in_addr peer_addr);
+=======
+struct pim_msdp_peer *pim_msdp_peer_find(const struct pim_instance *pim, struct in_addr peer_addr);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 void pim_msdp_peer_established(struct pim_msdp_peer *mp);
 void pim_msdp_peer_pkt_rxed(struct pim_msdp_peer *mp);
 void pim_msdp_peer_stop_tcp_conn(struct pim_msdp_peer *mp, bool chg_state);
@@ -330,6 +347,17 @@ void pim_msdp_peer_change_source(struct pim_msdp_peer *mp,
  */
 void pim_msdp_peer_restart(struct pim_msdp_peer *mp);
 
+<<<<<<< HEAD
+=======
+/**
+ * Toggle MSDP functionality administrative state.
+ *
+ * \param pim PIM instance we want to shutdown.
+ * \param state shutdown state.
+ */
+void pim_msdp_shutdown(struct pim_instance *pim, bool state);
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 #else /* PIM_IPV == 6 */
 static inline void pim_msdp_init(struct pim_instance *pim,
 				 struct event_loop *master)
@@ -373,6 +401,13 @@ static inline bool pim_msdp_peer_config_write(struct vty *vty,
 {
 	return false;
 }
+<<<<<<< HEAD
+=======
+
+static inline void pim_msdp_shutdown(struct pim_instance *pim, bool state)
+{
+}
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 #endif /* PIM_IPV == 6 */
 
 #endif

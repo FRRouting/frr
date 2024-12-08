@@ -43,7 +43,11 @@ struct static_nht_data {
 	vrf_id_t nh_vrf_id;
 
 	uint32_t refcount;
+<<<<<<< HEAD
 	uint8_t nh_num;
+=======
+	uint16_t nh_num;
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	bool registered;
 };
 

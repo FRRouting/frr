@@ -1257,6 +1257,11 @@ static int rfapiShowRemoteRegistrationsIt(struct bgp *bgp, void *stream,
 					const char *agetype = "";
 					char *s;
 					const char *type = "";
+<<<<<<< HEAD
+=======
+
+					(void)type; /* clang-SA */
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 					if (show_imported) {
 						type = "Imported";
 					} else {

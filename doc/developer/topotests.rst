@@ -881,7 +881,11 @@ commands:
 .. code:: console
 
    make topotests-build
+<<<<<<< HEAD
    TOPOTEST_PULL=0 make topotests
+=======
+   make topotests
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 
 .. _topotests-guidelines:
@@ -1323,6 +1327,11 @@ You can run scripts inside the node, or use vtysh's <tab> or <?> feature.
   loc1                       1 2001:db8:1:1::/64        Up
   loc2                       2 2001:db8:2:2::/64        Up
 
+<<<<<<< HEAD
+=======
+.. _writing-tests:
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 Writing Tests
 """""""""""""
 
@@ -1393,6 +1402,7 @@ or using unified config (specifying which daemons to run is optional):
 Requirements:
 
 - Directory name for a new topotest must not contain hyphen (``-``) characters.
+<<<<<<< HEAD
   To separate words, use underscores (``_``). For example, ``tests/topotests/bgp_new_example``.
 - Test code should always be declared inside functions that begin with the
   ``test_`` prefix. Functions beginning with different prefixes will not be run
@@ -1408,6 +1418,24 @@ Requirements:
 - Always use IPv4 :rfc:`5737` (``192.0.2.0/24``, ``198.51.100.0/24``,
   ``203.0.113.0/24``) and IPv6 :rfc:`3849` (``2001:db8::/32``) ranges reserved
   for documentation.
+=======
+  To separate words, use underscores (``_``). For example, ``tests/topotests/bgp_new_example``;
+- Test code should always be declared inside functions that begin with the
+  ``test_`` prefix. Functions beginning with different prefixes will not be run
+  by pytest;
+- Configuration files and long output commands should go into separated files
+  inside folders named after the equipment;
+- Tests must be able to run without any interaction. To make sure your test
+  conforms with this, run it without the :option:`-s` parameter;
+- Use `black <https://github.com/psf/black>`_ code formatter before creating
+  a pull request. This ensures we have a unified code style;
+- Mark test modules with pytest markers depending on the daemons used during the
+  tests (see :ref:`topotests-markers`);
+- Always use IPv4 :rfc:`5737` (``192.0.2.0/24``, ``198.51.100.0/24``,
+  ``203.0.113.0/24``) and IPv6 :rfc:`3849` (``2001:db8::/32``) ranges reserved
+  for documentation;
+- Use unified config (``frr.conf``) for all new tests. See :ref:`writing-tests`.
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 Tips:
 

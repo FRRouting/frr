@@ -116,7 +116,22 @@ inet4:
 			best = i - curlen;
 			bestlen = curlen;
 		}
+<<<<<<< HEAD
 		/* do we want ::ffff:A.B.C.D? */
+=======
+		if (best == 0 && bestlen == 5 && b[10] == 0xff && b[11] == 0xff) {
+			/* ::ffff:A.B.C.D */
+			*o++ = ':';
+			*o++ = ':';
+			*o++ = 'f';
+			*o++ = 'f';
+			*o++ = 'f';
+			*o++ = 'f';
+			*o++ = ':';
+			b += 12;
+			goto inet4;
+		}
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		if (best == 0 && bestlen == 6) {
 			*o++ = ':';
 			*o++ = ':';

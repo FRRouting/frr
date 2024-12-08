@@ -2252,6 +2252,12 @@ static void lib_vrf_mpls_fec_nexthop_resolution_cli_write(
 	}
 }
 
+<<<<<<< HEAD
+=======
+#if CONFDATE > 20251207
+CPP_NOTICE("Remove no-op netns command")
+#endif
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 DEFPY_YANG (vrf_netns,
        vrf_netns_cmd,
        "[no] netns ![NAME$netns_name]",

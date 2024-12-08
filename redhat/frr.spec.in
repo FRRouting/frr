@@ -189,6 +189,10 @@ BuildRequires:  ncurses-devel
 BuildRequires:  readline-devel
 BuildRequires:  texinfo
 BuildRequires:  libyang-devel >= 2.1.128
+<<<<<<< HEAD
+=======
+BuildRequires:  pcre2-devel
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 %if 0%{?rhel} && 0%{?rhel} < 7
 #python27-devel is available from ius community repo for RedHat/CentOS 6
 BuildRequires:  python27-devel
@@ -448,7 +452,12 @@ Adds GRPC support to the individual FRR daemons.
 %else
     --disable-grpc \
 %endif
+<<<<<<< HEAD
     --enable-snmp
+=======
+    --enable-snmp \
+    --enable-pcre2posix \
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
     # end
 
 make %{?_smp_mflags} MAKEINFO="makeinfo --no-split"
@@ -834,6 +843,7 @@ sed -i 's/ -M rpki//' %{_sysconfdir}/frr/daemons
 
 %changelog
 
+<<<<<<< HEAD
 * Tue Nov 12 2024 Jafar Al-Gharaibeh <jafar@atcorp.com> - %{version}
 
 * Tue Nov 12 2024 Jafar Al-Gharaibeh <jafar@atcorp.com> - 10.2
@@ -848,6 +858,12 @@ sed -i 's/ -M rpki//' %{_sysconfdir}/frr/daemons
 -   Implement BGP-wide configuration for graceful restart [#16099]
 -   Handle kernel routes appropriately (should fix recent NOPREFIXROUTE issue) [#16300]
 -   Add `cisco-authentication` password support for NHRP [#16172]
+=======
+* Thu Oct 10  2024 Jafar Al-Gharaibeh <jafar@atcorp.com> - %{version}
+
+* Thu Oct 10 2024 Jafar Al-Gharaibeh <jafar@atcorp.com> - 10.3-dev
+- FRR 10.3 Development
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 * Fri Jul 26 2024 Jafar Al-Gharaibeh <jafar@atcorp.com> - 10.1
 - Breaking changes

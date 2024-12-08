@@ -1032,7 +1032,17 @@ int zebra_vxlan_if_vni_up(struct interface *ifp, struct zebra_vxlan_vni *vnip)
 		/* If part of a bridge, inform BGP about this VNI. */
 		/* Also, read and populate local MACs and neighbors. */
 		if (zif->brslave_info.br_if) {
+<<<<<<< HEAD
 			zebra_evpn_send_add_to_client(zevpn);
+=======
+			if (if_is_operative(zevpn->vxlan_if)) {
+				zebra_evpn_send_add_to_client(zevpn);
+			} else {
+				if (IS_ZEBRA_DEBUG_KERNEL || IS_ZEBRA_DEBUG_VXLAN)
+					zlog_debug("%s VNI %u vxlan_if %s oper down skipping vni up to client",
+						   __func__, zevpn->vni, zevpn->vxlan_if->name);
+			}
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 			zebra_evpn_read_mac_neigh(zevpn, ifp);
 		}
 	}

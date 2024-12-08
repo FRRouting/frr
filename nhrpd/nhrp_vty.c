@@ -933,6 +933,13 @@ static void show_ip_opennhrp_cache(struct nhrp_cache *c, void *pctx)
 	if (ctx->afi != family2afi(sockunion_family(&c->remote_addr)))
 		return;
 
+<<<<<<< HEAD
+=======
+	if (ctx->count && !ctx->json)
+		vty_out(ctx->vty, "\n");
+	ctx->count++;
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	sockunion2str(&c->remote_addr, buf[0], sizeof(buf[0]));
 	if (c->cur.peer)
 		sockunion2str(&c->cur.peer->vc->remote.nbma, buf[1],
@@ -985,8 +992,11 @@ static void show_ip_opennhrp_cache(struct nhrp_cache *c, void *pctx)
 
 	if (sockunion_family(&c->cur.remote_nbma_natoa) != AF_UNSPEC)
 		vty_out(ctx->vty, "NBMA-NAT-OA-Address: %s\n", buf[2]);
+<<<<<<< HEAD
 
 	vty_out(ctx->vty, "\n\n");
+=======
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 }
 
 DEFUN(show_ip_nhrp, show_ip_nhrp_cmd,
@@ -1030,7 +1040,10 @@ DEFUN(show_ip_nhrp, show_ip_nhrp_cmd,
 		else
 			json_object_string_add(json_vrf, "status", "ok");
 
+<<<<<<< HEAD
 		ctx.count++;
+=======
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		FOR_ALL_INTERFACES (vrf, ifp)
 			nhrp_cache_foreach(ifp, show_ip_opennhrp_cache, &ctx);
 	}

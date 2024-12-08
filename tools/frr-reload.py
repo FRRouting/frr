@@ -255,7 +255,15 @@ ctx_keywords = {
     },
     "router rip": {},
     "router ripng": {},
+<<<<<<< HEAD
     "router isis ": {},
+=======
+    "router isis ": {
+        "segment-routing srv6": {
+            "node-msd": {},
+        },
+    },
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
     "router openfabric ": {},
     "router ospf": {},
     "router ospf6": {},
@@ -275,7 +283,11 @@ ctx_keywords = {
             "policy ": {"candidate-path ": {}},
             "pcep": {"pcc": {}, "pce ": {}, "pce-config ": {}},
         },
+<<<<<<< HEAD
         "srv6": {"locators": {"locator ": {}}},
+=======
+        "srv6": {"locators": {"locator ": {}}, "encapsulation": {}},
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
     },
     "nexthop-group ": {},
     "route-map ": {},

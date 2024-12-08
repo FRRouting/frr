@@ -522,9 +522,20 @@ def pytest_configure(config):
         is_xdist = True
         is_worker = True
 
+<<<<<<< HEAD
     resource.setrlimit(
         resource.RLIMIT_CORE, (resource.RLIM_INFINITY, resource.RLIM_INFINITY)
     )
+=======
+    try:
+        resource.setrlimit(
+            resource.RLIMIT_CORE, (resource.RLIM_INFINITY, resource.RLIM_INFINITY)
+        )
+    except ValueError:
+        # The hard limit cannot be raised. Raise the soft limit to previous hard limit
+        core_rlimits = resource.getrlimit(resource.RLIMIT_CORE)
+        resource.setrlimit(resource.RLIMIT_CORE, (core_rlimits[1], core_rlimits[1]))
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
     # -----------------------------------------------------
     # Set some defaults for the pytest.ini [pytest] section
     # ---------------------------------------------------

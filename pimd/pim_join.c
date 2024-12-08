@@ -42,6 +42,12 @@ static void recv_join(struct interface *ifp, struct pim_neighbor *neigh,
 		      uint8_t source_flags)
 {
 	struct pim_interface *pim_ifp = NULL;
+<<<<<<< HEAD
+=======
+#if PIM_IPV == 6
+	pim_addr embedded_rp;
+#endif /* PIM_IPV == 6 */
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 	if (PIM_DEBUG_PIM_J_P)
 		zlog_debug(
@@ -53,6 +59,15 @@ static void recv_join(struct interface *ifp, struct pim_neighbor *neigh,
 	pim_ifp = ifp->info;
 	assert(pim_ifp);
 
+<<<<<<< HEAD
+=======
+#if PIM_IPV == 6
+	if (pim_ifp->pim->embedded_rp.enable && pim_embedded_rp_extract(&sg->grp, &embedded_rp) &&
+	    !pim_embedded_rp_filter_match(pim_ifp->pim, &sg->grp))
+		pim_embedded_rp_new(pim_ifp->pim, &sg->grp, &embedded_rp);
+#endif /* PIM_IPV == 6 */
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	++pim_ifp->pim_ifstat_join_recv;
 
 	/*

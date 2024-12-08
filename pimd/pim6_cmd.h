@@ -46,6 +46,10 @@
 #define DEBUG_PIMV6_ZEBRA_STR "ZEBRA protocol activity\n"
 #define DEBUG_MROUTE6_STR "PIMv6 interaction with kernel MFC cache\n"
 #define DEBUG_PIMV6_BSM_STR "BSR message processing activity\n"
+<<<<<<< HEAD
+=======
+#define PIM_EMBEDDED_RP			"Embedded Rendezvous Point\n"
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 void pim_cmd_init(void);
 

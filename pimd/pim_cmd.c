@@ -2822,11 +2822,16 @@ DEFPY (show_ip_pim_rp_vrf_all,
 
 DEFPY (show_ip_pim_autorp,
        show_ip_pim_autorp_cmd,
+<<<<<<< HEAD
        "show ip pim [vrf NAME] autorp [json$json]",
+=======
+       "show ip pim [vrf <NAME|all>] autorp [discovery|candidate|mapping-agent]$component [json$json]",
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
        SHOW_STR
        IP_STR
        PIM_STR
        VRF_CMD_HELP_STR
+<<<<<<< HEAD
        "PIM AutoRP information\n"
        JSON_STR)
 {
@@ -2839,10 +2844,22 @@ DEFPY (show_ip_pim_autorp,
 			vty_out(vty, "%% Unable to find pim instance\n");
 		return CMD_WARNING;
 	}
+=======
+       "All VRF's\n"
+       "PIM AutoRP information\n"
+       "RP Discovery details\n"
+       "Candidate RP details\n"
+       "Mapping Agent details\n"
+       JSON_STR)
+{
+	json_object *json_parent = NULL;
+	struct vrf *v;
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 	if (json)
 		json_parent = json_object_new_object();
 
+<<<<<<< HEAD
 	pim_autorp_show_autorp(vty, v->info, json_parent);
 
 	if (json)
@@ -2881,6 +2898,33 @@ DEFPY (show_ip_pim_autorp_vrf_all,
 				json_object_object_add(json_parent, vrf->name,
 						       json_vrf);
 		}
+=======
+	if (vrf && strmatch(vrf, "all")) {
+		json_object *json_vrf = NULL;
+
+		RB_FOREACH (v, vrf_name_head, &vrfs_by_name) {
+			if (!v || !v->info)
+				continue;
+
+			if (json)
+				json_vrf = json_object_new_object();
+			else
+				vty_out(vty, "VRF: %s\n", v->name);
+
+			pim_autorp_show_autorp(vty, v->info, component, json_vrf);
+
+			if (json)
+				json_object_object_add(json_parent, v->name, json_vrf);
+		}
+	} else {
+		v = vrf_lookup_by_name(vrf ? vrf : VRF_DEFAULT_NAME);
+		if (!v || !v->info) {
+			if (!json)
+				vty_out(vty, "%% Unable to find pim instance\n");
+			return CMD_WARNING;
+		}
+		pim_autorp_show_autorp(vty, v->info, component, json_parent);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	}
 
 	if (json)
@@ -4609,13 +4653,26 @@ DEFPY (pim_autorp_announce_rp,
        "Prefix list\n"
        "List name\n")
 {
+<<<<<<< HEAD
 	return pim_process_autorp_candidate_rp_cmd(vty, no, rpaddr_str, (grp_str ? grp : NULL),
 						   plist);
+=======
+	if (grp_str && (!pim_addr_is_multicast(grp->prefix) || grp->prefixlen < 4)) {
+		vty_out(vty, "%% group prefix %pFX is not a valid multicast range\n", grp);
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	return pim_process_autorp_candidate_rp_cmd(vty, no, rpaddr_str, grp_str, plist);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 }
 
 DEFPY (pim_autorp_announce_scope_int,
        pim_autorp_announce_scope_int_cmd,
+<<<<<<< HEAD
        "[no] autorp announce ![{scope (1-255) | interval (1-65535) | holdtime (0-65535)}]",
+=======
+       "[no] autorp announce {scope (1-255) | interval (1-65535) | holdtime (0-65535)}",
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
        NO_STR
        "AutoRP\n"
        "AutoRP Candidate RP announcement\n"
@@ -4626,11 +4683,52 @@ DEFPY (pim_autorp_announce_scope_int,
        "Announcement holdtime\n"
        "Time in seconds\n")
 {
+<<<<<<< HEAD
 	return pim_process_autorp_announce_scope_int_cmd(vty, no, scope_str,
 							 interval_str,
 							 holdtime_str);
 }
 
+=======
+	return pim_process_autorp_announce_scope_int_cmd(vty, no, scope_str, interval_str,
+							 holdtime_str);
+}
+
+DEFPY (pim_autorp_send_rp_discovery,
+       pim_autorp_send_rp_discovery_cmd,
+       "[no] autorp send-rp-discovery [source <address A.B.C.D | interface IFNAME | loopback$loopback | any$any>]",
+       NO_STR
+       "AutoRP\n"
+       "Enable AutoRP mapping agent\n"
+       "Specify AutoRP discovery source\n"
+       "Local address\n"
+       IP_ADDR_STR
+       "Local Interface (uses highest address)\n"
+       IFNAME_STR
+       "Highest loopback address (default)\n"
+       "Highest address of any interface\n")
+{
+	return pim_process_autorp_send_rp_discovery_cmd(vty, no, any, loopback, ifname, address_str);
+}
+
+DEFPY (pim_autorp_send_rp_discovery_scope_int,
+       pim_autorp_send_rp_discovery_scope_int_cmd,
+       "[no] autorp send-rp-discovery {scope (0-255) | interval (1-65535) | holdtime (0-65535)}",
+       NO_STR
+       "AutoRP\n"
+       "Enable AutoRP mapping agent\n"
+       "Packet scope (TTL)\n"
+       "TTL value\n"
+       "Discovery TX interval\n"
+       "Time in seconds\n"
+       "Announcement holdtime\n"
+       "Time in seconds\n")
+{
+	return pim_process_autorp_send_rp_discovery_scope_int_cmd(vty, no, scope_str, interval_str,
+								  holdtime_str);
+}
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 DEFPY (pim_bsr_candidate_bsr,
        pim_bsr_candidate_bsr_cmd,
        "[no] bsr candidate-bsr [{priority (0-255)|source <address A.B.C.D|interface IFNAME|loopback$loopback|any$any>}]",
@@ -7539,6 +7637,27 @@ DEFPY_ATTR(no_ip_pim_msdp_mesh_group,
 	return ret;
 }
 
+<<<<<<< HEAD
+=======
+DEFPY(msdp_shutdown,
+      msdp_shutdown_cmd,
+      "[no] msdp shutdown",
+      NO_STR
+      CFG_MSDP_STR
+      "Shutdown MSDP operation\n")
+{
+	char xpath_value[XPATH_MAXLEN];
+
+	snprintf(xpath_value, sizeof(xpath_value), "./msdp/shutdown");
+	if (no)
+		nb_cli_enqueue_change(vty, xpath_value, NB_OP_DESTROY, NULL);
+	else
+		nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY, "true");
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 static void ip_msdp_show_mesh_group(struct vty *vty, struct pim_msdp_mg *mg,
 				    struct json_object *json)
 {
@@ -8267,6 +8386,40 @@ DEFUN (show_ip_msdp_sa_sg_vrf_all,
 	return CMD_SUCCESS;
 }
 
+<<<<<<< HEAD
+=======
+DEFPY(msdp_log_neighbor_changes, msdp_log_neighbor_changes_cmd,
+      "[no] msdp log neighbor-events",
+      NO_STR
+      MSDP_STR
+      "MSDP log messages\n"
+      "MSDP log neighbor event messages\n")
+{
+	char xpath_value[XPATH_MAXLEN + 32];
+
+	snprintf(xpath_value, sizeof(xpath_value), "%s/msdp/log-neighbor-events", VTY_CURR_XPATH);
+	nb_cli_enqueue_change(vty, xpath_value, no ? NB_OP_DESTROY : NB_OP_MODIFY, "true");
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFPY(msdp_log_sa_changes, msdp_log_sa_changes_cmd,
+      "[no] msdp log sa-events",
+      NO_STR
+      MSDP_STR
+      "MSDP log messages\n"
+      "MSDP log SA event messages\n")
+{
+	char xpath_value[XPATH_MAXLEN + 32];
+
+	snprintf(xpath_value, sizeof(xpath_value), "%s/msdp/log-sa-events", VTY_CURR_XPATH);
+	nb_cli_enqueue_change(vty, xpath_value, no ? NB_OP_DESTROY : NB_OP_MODIFY, "true");
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 struct pim_sg_cache_walk_data {
 	struct vty *vty;
 	json_object *json;
@@ -8855,6 +9008,11 @@ void pim_cmd_init(void)
 	install_element(PIM_NODE, &pim_autorp_discovery_cmd);
 	install_element(PIM_NODE, &pim_autorp_announce_rp_cmd);
 	install_element(PIM_NODE, &pim_autorp_announce_scope_int_cmd);
+<<<<<<< HEAD
+=======
+	install_element(PIM_NODE, &pim_autorp_send_rp_discovery_cmd);
+	install_element(PIM_NODE, &pim_autorp_send_rp_discovery_scope_int_cmd);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	install_element(PIM_NODE, &no_pim_ssm_prefix_list_cmd);
 	install_element(PIM_NODE, &no_pim_ssm_prefix_list_name_cmd);
 	install_element(PIM_NODE, &pim_ssm_prefix_list_cmd);
@@ -8898,6 +9056,12 @@ void pim_cmd_init(void)
 	install_element(PIM_NODE, &pim_msdp_mesh_group_source_cmd);
 	install_element(PIM_NODE, &no_pim_msdp_mesh_group_source_cmd);
 	install_element(PIM_NODE, &no_pim_msdp_mesh_group_cmd);
+<<<<<<< HEAD
+=======
+	install_element(PIM_NODE, &msdp_log_neighbor_changes_cmd);
+	install_element(PIM_NODE, &msdp_log_sa_changes_cmd);
+	install_element(PIM_NODE, &msdp_shutdown_cmd);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 	install_element(PIM_NODE, &pim_bsr_candidate_rp_cmd);
 	install_element(PIM_NODE, &pim_bsr_candidate_rp_group_cmd);
@@ -9010,7 +9174,10 @@ void pim_cmd_init(void)
 	install_element(VIEW_NODE, &show_ip_pim_rp_cmd);
 	install_element(VIEW_NODE, &show_ip_pim_rp_vrf_all_cmd);
 	install_element(VIEW_NODE, &show_ip_pim_autorp_cmd);
+<<<<<<< HEAD
 	install_element(VIEW_NODE, &show_ip_pim_autorp_vrf_all_cmd);
+=======
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	install_element(VIEW_NODE, &show_ip_pim_bsr_cmd);
 	install_element(VIEW_NODE, &show_ip_multicast_cmd);
 	install_element(VIEW_NODE, &show_ip_multicast_vrf_all_cmd);

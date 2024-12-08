@@ -502,6 +502,12 @@ int pim_crp_process(struct interface *ifp, pim_sgaddr *src_dst, uint8_t *buf,
 	buf += sizeof(*crp_hdr);
 	remain -= sizeof(*crp_hdr);
 
+<<<<<<< HEAD
+=======
+	/* ignore trailing data */
+	(void)buf;
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	size_t ngroups = crp_hdr->prefix_cnt;
 
 	if (remain < ngroups * sizeof(struct pim_encoded_group_ipv4)) {

@@ -610,6 +610,11 @@ void bfd_sessions_remove_manual(void);
 void bfd_profiles_remove(void);
 void bfd_rtt_init(struct bfd_session *bfd);
 
+<<<<<<< HEAD
+=======
+extern void bfd_vrf_toggle_echo(struct bfd_vrf_global *bfd_vrf);
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 /**
  * Set the BFD session echo state.
  *

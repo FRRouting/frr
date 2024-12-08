@@ -82,6 +82,32 @@ def test_bgp_match_peer():
     _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
     assert result is None, "Can't converge"
 
+<<<<<<< HEAD
+=======
+    def _bgp_show_advertised_routes():
+        output = json.loads(
+            r1.vtysh_cmd("show bgp ipv4 unicast neighbors r4 advertised-routes json")
+        )
+        expected = {
+            "advertisedRoutes": {
+                "10.0.0.3/32": {
+                    "network": "10.0.0.3/32",
+                    "nextHop": "192.168.1.3",
+                    "path": "65003",
+                }
+            },
+            "totalPrefixCounter": 1,
+        }
+
+        return topotest.json_cmp(output, expected)
+
+    test_func = functools.partial(
+        _bgp_show_advertised_routes,
+    )
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
+    assert result is None, "Can't filter by source peer"
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 if __name__ == "__main__":
     args = ["-s"] + sys.argv[1:]

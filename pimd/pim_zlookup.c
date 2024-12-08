@@ -193,7 +193,11 @@ static int zclient_read_nexthop(struct pim_instance *pim,
 
 	distance = stream_getc(s);
 	metric = stream_getl(s);
+<<<<<<< HEAD
 	nexthop_num = stream_getc(s);
+=======
+	nexthop_num = stream_getw(s);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 	if (nexthop_num < 1 || nexthop_num > router->multipath) {
 		if (PIM_DEBUG_PIM_NHT_DETAIL)

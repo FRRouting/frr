@@ -65,7 +65,11 @@
 /*
  * Largest message that can be sent to or received from the FPM.
  */
+<<<<<<< HEAD
 #define FPM_MAX_MSG_LEN 4096
+=======
+#define FPM_MAX_MSG_LEN MAX(MULTIPATH_NUM * 32, 4096)
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 #ifdef __SUNPRO_C
 #pragma pack(1)

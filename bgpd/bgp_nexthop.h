@@ -45,11 +45,18 @@ struct bgp_nexthop_cache {
 	 */
 	bool is_evpn_gwip_nexthop;
 
+<<<<<<< HEAD
 	uint16_t change_flags;
 #define BGP_NEXTHOP_CHANGED	      (1 << 0)
 #define BGP_NEXTHOP_METRIC_CHANGED    (1 << 1)
 #define BGP_NEXTHOP_CONNECTED_CHANGED (1 << 2)
 #define BGP_NEXTHOP_MACIP_CHANGED     (1 << 3)
+=======
+	uint8_t change_flags;
+#define BGP_NEXTHOP_CHANGED	      (1 << 0)
+#define BGP_NEXTHOP_METRIC_CHANGED    (1 << 1)
+#define BGP_NEXTHOP_MACIP_CHANGED     (1 << 2)
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 	struct nexthop *nexthop;
 	time_t last_update;

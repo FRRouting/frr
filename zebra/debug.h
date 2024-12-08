@@ -62,6 +62,11 @@ extern "C" {
 
 #define ZEBRA_DEBUG_TC 0x01
 
+<<<<<<< HEAD
+=======
+#define ZEBRA_DEBUG_SRV6 0x01
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 /* Debug related macro. */
 #define IS_ZEBRA_DEBUG_EVENT  (zebra_debug_event & ZEBRA_DEBUG_EVENT)
 
@@ -122,6 +127,11 @@ extern "C" {
 
 #define IS_ZEBRA_DEBUG_TC (zebra_debug_tc & ZEBRA_DEBUG_TC)
 
+<<<<<<< HEAD
+=======
+#define IS_ZEBRA_DEBUG_SRV6 (zebra_debug_srv6 & ZEBRA_DEBUG_SRV6)
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 extern unsigned long zebra_debug_event;
 extern unsigned long zebra_debug_packet;
 extern unsigned long zebra_debug_kernel;
@@ -139,6 +149,10 @@ extern unsigned long zebra_debug_evpn_mh;
 extern unsigned long zebra_debug_pbr;
 extern unsigned long zebra_debug_neigh;
 extern unsigned long zebra_debug_tc;
+<<<<<<< HEAD
+=======
+extern unsigned long zebra_debug_srv6;
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 extern void zebra_debug_init(void);
 

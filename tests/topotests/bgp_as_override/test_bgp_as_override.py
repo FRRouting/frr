@@ -27,7 +27,11 @@ pytestmark = [pytest.mark.bgpd]
 
 
 def build_topo(tgen):
+<<<<<<< HEAD
     for routern in range(1, 7):
+=======
+    for routern in range(1, 5):
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
         tgen.add_router("r{}".format(routern))
 
     switch = tgen.add_switch("s1")

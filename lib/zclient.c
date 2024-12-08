@@ -2374,7 +2374,11 @@ static bool zapi_nexthop_update_decode(struct stream *s, struct prefix *match,
 	STREAM_GETW(s, nhr->instance);
 	STREAM_GETC(s, nhr->distance);
 	STREAM_GETL(s, nhr->metric);
+<<<<<<< HEAD
 	STREAM_GETC(s, nhr->nexthop_num);
+=======
+	STREAM_GETW(s, nhr->nexthop_num);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 	for (i = 0; i < nhr->nexthop_num; i++) {
 		if (zapi_nexthop_decode(s, &(nhr->nexthops[i]), 0, 0) != 0)
@@ -4693,6 +4697,12 @@ void zclient_redistribute_default(int command, struct zclient *zclient,
 		zebra_redistribute_default_send(command, zclient, afi, vrf_id);
 }
 
+<<<<<<< HEAD
+=======
+#define ZCLIENT_QUICK_RECONNECT 1
+#define ZCLIENT_SLOW_RECONNECT	5
+#define ZCLIENT_SWITCH_TO_SLOW	30
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 static void zclient_event(enum zclient_event event, struct zclient *zclient)
 {
 	switch (event) {
@@ -4702,11 +4712,21 @@ static void zclient_event(enum zclient_event event, struct zclient *zclient)
 		break;
 	case ZCLIENT_CONNECT:
 		if (zclient_debug)
+<<<<<<< HEAD
 			zlog_debug(
 				"zclient connect failures: %d schedule interval is now %d",
 				zclient->fail, zclient->fail < 3 ? 10 : 60);
 		event_add_timer(zclient->master, zclient_connect, zclient,
 				zclient->fail < 3 ? 10 : 60,
+=======
+			zlog_debug("zclient connect failures: %d schedule interval is now %d",
+				   zclient->fail,
+				   zclient->fail < ZCLIENT_SWITCH_TO_SLOW ? ZCLIENT_QUICK_RECONNECT
+									  : ZCLIENT_SLOW_RECONNECT);
+		event_add_timer(zclient->master, zclient_connect, zclient,
+				zclient->fail < ZCLIENT_SWITCH_TO_SLOW ? ZCLIENT_QUICK_RECONNECT
+								       : ZCLIENT_SLOW_RECONNECT,
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 				&zclient->t_connect);
 		break;
 	case ZCLIENT_READ:

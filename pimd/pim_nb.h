@@ -54,6 +54,12 @@ int routing_control_plane_protocols_control_plane_protocol_pim_address_family_ss
 int pim_msdp_hold_time_modify(struct nb_cb_modify_args *args);
 int pim_msdp_keep_alive_modify(struct nb_cb_modify_args *args);
 int pim_msdp_connection_retry_modify(struct nb_cb_modify_args *args);
+<<<<<<< HEAD
+=======
+int pim_msdp_log_neighbor_events_modify(struct nb_cb_modify_args *args);
+int pim_msdp_log_sa_events_modify(struct nb_cb_modify_args *args);
+int pim_msdp_shutdown_modify(struct nb_cb_modify_args *args);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 int pim_msdp_mesh_group_create(struct nb_cb_create_args *args);
 int pim_msdp_mesh_group_destroy(struct nb_cb_destroy_args *args);
 int pim_msdp_mesh_group_members_create(struct nb_cb_create_args *args);
@@ -159,6 +165,13 @@ int routing_control_plane_protocols_control_plane_protocol_pim_address_family_rp
 	struct nb_cb_modify_args *args);
 int routing_control_plane_protocols_control_plane_protocol_pim_address_family_rp_static_rp_rp_list_prefix_list_destroy(
 	struct nb_cb_destroy_args *args);
+<<<<<<< HEAD
+=======
+int pim_embedded_rp_enable_modify(struct nb_cb_modify_args *args);
+int pim_embedded_rp_group_list_modify(struct nb_cb_modify_args *args);
+int pim_embedded_rp_group_list_destroy(struct nb_cb_destroy_args *args);
+int pim_embedded_rp_maximum_rps_modify(struct nb_cb_modify_args *args);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 int routing_control_plane_protocols_control_plane_protocol_pim_address_family_rp_auto_rp_discovery_enabled_modify(
 	struct nb_cb_modify_args *args);
 int routing_control_plane_protocols_control_plane_protocol_pim_address_family_rp_auto_rp_discovery_enabled_destroy(
@@ -187,6 +200,23 @@ int routing_control_plane_protocols_control_plane_protocol_pim_address_family_rp
 	struct nb_cb_modify_args *args);
 int routing_control_plane_protocols_control_plane_protocol_pim_address_family_rp_auto_rp_candidate_rp_list_prefix_list_destroy(
 	struct nb_cb_destroy_args *args);
+<<<<<<< HEAD
+=======
+int routing_control_plane_protocols_control_plane_protocol_pim_address_family_rp_auto_rp_mapping_agent_send_rp_discovery_modify(
+	struct nb_cb_modify_args *args);
+int routing_control_plane_protocols_control_plane_protocol_pim_address_family_rp_auto_rp_mapping_agent_discovery_scope_modify(
+	struct nb_cb_modify_args *args);
+int routing_control_plane_protocols_control_plane_protocol_pim_address_family_rp_auto_rp_mapping_agent_discovery_interval_modify(
+	struct nb_cb_modify_args *args);
+int routing_control_plane_protocols_control_plane_protocol_pim_address_family_rp_auto_rp_mapping_agent_discovery_holdtime_modify(
+	struct nb_cb_modify_args *args);
+int routing_control_plane_protocols_control_plane_protocol_pim_address_family_rp_auto_rp_mapping_agent_addrsel_create(
+	struct nb_cb_create_args *args);
+int routing_control_plane_protocols_control_plane_protocol_pim_address_family_rp_auto_rp_mapping_agent_addrsel_modify(
+	struct nb_cb_modify_args *args);
+int routing_control_plane_protocols_control_plane_protocol_pim_address_family_rp_auto_rp_mapping_agent_addrsel_destroy(
+	struct nb_cb_destroy_args *args);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 /* frr-cand-bsr */
 int routing_control_plane_protocols_control_plane_protocol_pim_address_family_candidate_bsr_create(
@@ -286,6 +316,12 @@ int routing_control_plane_protocols_name_validate(
 	"mroute[source-addr='%s'][group-addr='%s']"
 #define FRR_PIM_STATIC_RP_XPATH                                         \
 	"frr-pim-rp:rp/static-rp/rp-list[rp-address='%s']"
+<<<<<<< HEAD
+=======
+#define FRR_PIM_EMBEDDED_RP_XPATH	      "./frr-pim-rp:rp/embedded-rp/enable"
+#define FRR_PIM_EMBEDDED_RP_GROUP_LIST_XPATH  "./frr-pim-rp:rp/embedded-rp/group-list"
+#define FRR_PIM_EMBEDDED_RP_MAXIMUM_RPS_XPATH "./frr-pim-rp:rp/embedded-rp/maximum-rps"
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 #define FRR_PIM_AUTORP_XPATH "./frr-pim-rp:rp/auto-rp"
 #define FRR_GMP_INTERFACE_XPATH                                         \
 	"./frr-gmp:gmp/address-family[address-family='%s']"

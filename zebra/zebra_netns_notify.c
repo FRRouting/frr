@@ -378,19 +378,38 @@ void zebra_ns_notify_parse(void)
 {
 	struct dirent *dent;
 	DIR *srcdir = opendir(NS_RUN_DIR);
+<<<<<<< HEAD
+=======
+	int srcdirfd;
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 	if (srcdir == NULL) {
 		flog_err_sys(EC_LIB_SYSTEM_CALL,
 			     "NS parsing init: failed to parse %s", NS_RUN_DIR);
 		return;
 	}
+<<<<<<< HEAD
+=======
+
+	srcdirfd = dirfd(srcdir);
+	if (srcdirfd < 0) {
+		closedir(srcdir);
+		flog_err_sys(EC_LIB_SYSTEM_CALL, "NS parsing init: failed to parse %s", NS_RUN_DIR);
+		return;
+	}
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	while ((dent = readdir(srcdir)) != NULL) {
 		struct stat st;
 
 		if (strcmp(dent->d_name, ".") == 0
 		    || strcmp(dent->d_name, "..") == 0)
 			continue;
+<<<<<<< HEAD
 		if (fstatat(dirfd(srcdir), dent->d_name, &st, 0) < 0) {
+=======
+		if (fstatat(srcdirfd, dent->d_name, &st, 0) < 0) {
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 			flog_err_sys(
 				EC_LIB_SYSTEM_CALL,
 				"NS parsing init: failed to parse entry %s",

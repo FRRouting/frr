@@ -65,7 +65,11 @@ module frr-bfdd {
   typedef multiplier {
     description "Detection multiplier";
     type uint8 {
+<<<<<<< HEAD
       range "2..255";
+=======
+      range "1..255";
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
     }
   }
 
@@ -169,7 +173,11 @@ module frr-bfdd {
 
     leaf desired-transmission-interval {
       type uint32 {
+<<<<<<< HEAD
           range "10000..60000000";
+=======
+          range "10000..max";
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
       }
       units microseconds;
       default 300000;
@@ -178,7 +186,11 @@ module frr-bfdd {
 
     leaf required-receive-interval {
       type uint32 {
+<<<<<<< HEAD
           range "10000..60000000";
+=======
+          range "10000..max";
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
       }
       units microseconds;
       default 300000;
@@ -210,7 +222,11 @@ module frr-bfdd {
 
     leaf desired-echo-transmission-interval {
       type uint32 {
+<<<<<<< HEAD
           range "10000..60000000";
+=======
+          range "10000..max";
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
       }
       units microseconds;
       default 50000;
@@ -219,7 +235,11 @@ module frr-bfdd {
 
     leaf required-echo-receive-interval {
       type uint32 {
+<<<<<<< HEAD
           range "0 | 10000..60000000";
+=======
+          range "0 | 10000..max";
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
       }
       units microseconds;
       default 50000;

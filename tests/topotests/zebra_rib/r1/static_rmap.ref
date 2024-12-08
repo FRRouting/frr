@@ -1,6 +1,11 @@
 ZEBRA:
+<<<<<<< HEAD
 route-map: static Invoked: 2 Optimization: enabled Processed Change: false
  permit, sequence 10 Invoked 2
+=======
+route-map: static Invoked: 2 (X milliseconds total) Optimization: enabled Processed Change: false
+ permit, sequence 10 Invoked 2 (X milliseconds total)
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
   Match clauses:
   Set clauses:
     src 192.168.215.1

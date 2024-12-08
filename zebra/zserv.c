@@ -57,6 +57,10 @@ extern struct zebra_privs_t zserv_privs;
 
 /* The listener socket for clients connecting to us */
 static int zsock;
+<<<<<<< HEAD
+=======
+static bool started_p;
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 /* The lock that protects access to zapi client objects */
 static pthread_mutex_t client_mutex;
@@ -929,9 +933,22 @@ void zserv_close(void)
 
 	/* Free client list's mutex */
 	pthread_mutex_destroy(&client_mutex);
+<<<<<<< HEAD
 }
 
 void zserv_start(char *path)
+=======
+
+	started_p = false;
+}
+
+
+/*
+ * Open zebra's ZAPI listener socket. This is done early during startup,
+ * before zebra is ready to listen and accept client connections.
+ */
+void zserv_open(const char *path)
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 {
 	int ret;
 	mode_t old_mask;
@@ -973,6 +990,29 @@ void zserv_start(char *path)
 			     path, safe_strerror(errno));
 		close(zsock);
 		zsock = -1;
+<<<<<<< HEAD
+=======
+	}
+
+	umask(old_mask);
+}
+
+/*
+ * Start listening for ZAPI client connections.
+ */
+void zserv_start(const char *path)
+{
+	int ret;
+
+	/* This may be called more than once during startup - potentially once
+	 * per netns - but only do this work once.
+	 */
+	if (started_p)
+		return;
+
+	if (zsock <= 0) {
+		flog_err_sys(EC_LIB_SOCKET, "Zserv socket open failed");
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		return;
 	}
 
@@ -986,7 +1026,11 @@ void zserv_start(char *path)
 		return;
 	}
 
+<<<<<<< HEAD
 	umask(old_mask);
+=======
+	started_p = true;
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 	zserv_event(NULL, ZSERV_ACCEPT);
 }

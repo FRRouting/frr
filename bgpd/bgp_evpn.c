@@ -5421,9 +5421,14 @@ void bgp_evpn_advertise_type5_routes(struct bgp *bgp_vrf, afi_t afi,
 					tmp_attr = *pi->attr;
 
 					/* Fill temp path_info */
+<<<<<<< HEAD
 					prep_for_rmap_apply(&tmp_pi, &tmp_pie,
 							    dest, pi, pi->peer,
 							    &tmp_attr);
+=======
+					prep_for_rmap_apply(&tmp_pi, &tmp_pie, dest, pi, pi->peer,
+							    NULL, &tmp_attr);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 					RESET_FLAG(tmp_attr.rmap_change_flags);
 

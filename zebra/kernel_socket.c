@@ -1627,6 +1627,10 @@ void kernel_update_multi(struct dplane_ctx_list_head *ctx_list)
 		case DPLANE_OP_INTF_ADDR_DEL:
 		case DPLANE_OP_STARTUP_STAGE:
 		case DPLANE_OP_SRV6_ENCAP_SRCADDR_SET:
+<<<<<<< HEAD
+=======
+		case DPLANE_OP_VLAN_INSTALL:
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 			zlog_err("Unhandled dplane data for %s",
 				 dplane_op2str(dplane_ctx_get_op(ctx)));
 			res = ZEBRA_DPLANE_REQUEST_FAILURE;

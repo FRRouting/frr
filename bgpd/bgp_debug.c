@@ -449,6 +449,13 @@ bool bgp_dump_attr(struct attr *attr, char *buf, size_t size)
 			 ", extcommunity %s",
 			 ecommunity_str(bgp_attr_get_ecommunity(attr)));
 
+<<<<<<< HEAD
+=======
+	if (CHECK_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_IPV6_EXT_COMMUNITIES)))
+		snprintf(buf + strlen(buf), size - strlen(buf), ", ipv6-extcommunity %s",
+			 ecommunity_str(bgp_attr_get_ipv6_ecommunity(attr)));
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	if (CHECK_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_ATOMIC_AGGREGATE)))
 		snprintf(buf + strlen(buf), size - strlen(buf),
 			 ", atomic-aggregate");

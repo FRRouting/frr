@@ -7993,7 +7993,11 @@ struct isis_router_cap *isis_tlvs_init_router_capability(struct isis_tlvs *tlvs)
 	tlvs->router_cap = XCALLOC(MTYPE_ISIS_TLV, sizeof(*tlvs->router_cap));
 
 	/* init SR algo list content to the default value */
+<<<<<<< HEAD
 	for (int i = 0; i < SR_ALGORITHM_COUNT; i++)
+=======
+	for (int i = 1; i < SR_ALGORITHM_COUNT; i++)
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		tlvs->router_cap->algo[i] = SR_ALGORITHM_UNSET;
 
 	return tlvs->router_cap;

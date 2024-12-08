@@ -39,7 +39,11 @@ tools_gen_northbound_callbacks_LDADD = lib/libfrr.la $(LIBYANG_LIBS)
 tools_gen_yang_deviations_SOURCES = tools/gen_yang_deviations.c
 tools_gen_yang_deviations_LDADD = lib/libfrr.la $(LIBYANG_LIBS)
 
+<<<<<<< HEAD
 tools_ssd_SOURCES = tools/start-stop-daemon.c
+=======
+tools_ssd_SOURCES = tools/start-stop-daemon.c lib/strlcpy.c
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 tools_ssd_CPPFLAGS =
 
 # don't bother autoconf'ing these for a simple optional tool

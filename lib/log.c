@@ -306,7 +306,11 @@ void memory_oom(size_t size, const char *name)
 	     "out of memory: failed to allocate %zu bytes for %s object",
 	     size, name);
 	zlog_backtrace(LOG_CRIT);
+<<<<<<< HEAD
 	log_memstats(stderr, "log");
+=======
+	log_memstats(zlog_progname, true);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	abort();
 }
 

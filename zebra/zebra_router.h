@@ -329,6 +329,11 @@ static inline uint8_t if_netlink_get_frr_protodown_r_bit(void)
 	return zrouter.protodown_r_bit;
 }
 
+<<<<<<< HEAD
+=======
+extern void zebra_main_router_started(void);
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 /* zebra_northbound.c */
 extern const struct frr_yang_module_info frr_zebra_info;
 

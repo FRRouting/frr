@@ -37,7 +37,10 @@
 DEFINE_MTYPE_STATIC(ZEBRA, LSP, "MPLS LSP object");
 DEFINE_MTYPE_STATIC(ZEBRA, FEC, "MPLS FEC object");
 DEFINE_MTYPE_STATIC(ZEBRA, NHLFE, "MPLS nexthop object");
+<<<<<<< HEAD
 DEFINE_MTYPE_STATIC(ZEBRA, NH_LABEL, "Nexthop label");
+=======
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 bool mpls_enabled;
 bool mpls_pw_reach_strict; /* Strict reachability checking */
@@ -1453,6 +1456,7 @@ static int nhlfe_del(struct zebra_nhlfe *nhlfe)
 static void nhlfe_out_label_update(struct zebra_nhlfe *nhlfe,
 				   struct mpls_label_stack *nh_label)
 {
+<<<<<<< HEAD
 	struct mpls_label_stack *nh_label_tmp;
 	int i;
 
@@ -1478,6 +1482,9 @@ static void nhlfe_out_label_update(struct zebra_nhlfe *nhlfe,
 	/* Copy the label stack into the array */
 	for (i = 0; i < nh_label->num_labels; i++)
 		nhlfe->nexthop->nh_label->label[i] = nh_label->label[i];
+=======
+	nexthop_change_labels(nhlfe->nexthop, nh_label);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 }
 
 static int mpls_lsp_uninstall_all(struct hash *lsp_table, struct zebra_lsp *lsp,

@@ -1720,6 +1720,7 @@ def verify_pim_rp_info(
                         )
                         return errormsg
 
+<<<<<<< HEAD
             if not iamRP:
                 if rp_json["iAmRP"] == False:
                     logger.info(
@@ -1740,6 +1741,28 @@ def verify_pim_rp_info(
                         % (dut, grp_addr, "false", rp_json["iAmRP"])
                     )
                     return errormsg
+=======
+                if not iamRP:
+                    if rp_json["iAmRP"] == False:
+                        logger.info(
+                            "[DUT %s]: Verifying group "
+                            "and iAmNotRP [PASSED]!!"
+                            " Found Expected: (%s, %s:%s)",
+                            dut,
+                            grp_addr,
+                            "iAmRP",
+                            rp_json["iAmRP"],
+                        )
+                    else:
+                        errormsg = (
+                            "[DUT %s]: Verifying group"
+                            "%s and iAmRP [FAILED]!! "
+                            "Expected: (iAmRP: %s),"
+                            " Found: (iAmRP: %s)"
+                            % (dut, grp_addr, "false", rp_json["iAmRP"])
+                        )
+                        return errormsg
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
     logger.debug("Exiting lib API: {}".format(sys._getframe().f_code.co_name))
     return True

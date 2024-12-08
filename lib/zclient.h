@@ -251,6 +251,7 @@ enum zebra_error_types {
 
 static inline const char *zebra_error_type2str(enum zebra_error_types type)
 {
+<<<<<<< HEAD
 	const char *ret = "UNKNOWN";
 
 	switch (type) {
@@ -266,6 +267,18 @@ static inline const char *zebra_error_type2str(enum zebra_error_types type)
 	}
 
 	return ret;
+=======
+	switch (type) {
+	case ZEBRA_UNKNOWN_ERROR:
+		return "ZEBRA_UNKNOWN_ERROR";
+	case ZEBRA_NO_VRF:
+		return "ZEBRA_NO_VRF";
+	case ZEBRA_INVALID_MSG_TYPE:
+		return "ZEBRA_INVALID_MSG_TYPE";
+	}
+
+	return "UNKNOWN";
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 }
 
 struct redist_proto {
@@ -780,6 +793,7 @@ enum zclient_send_status {
 static inline const char *
 zapi_nhg_notify_owner2str(enum zapi_nhg_notify_owner note)
 {
+<<<<<<< HEAD
 	const char *ret = "UNKNOWN";
 
 	switch (note) {
@@ -798,11 +812,26 @@ zapi_nhg_notify_owner2str(enum zapi_nhg_notify_owner note)
 	}
 
 	return ret;
+=======
+	switch (note) {
+	case ZAPI_NHG_FAIL_INSTALL:
+		return "ZAPI_NHG_FAIL_INSTALL";
+	case ZAPI_NHG_INSTALLED:
+		return "ZAPI_NHG_INSTALLED";
+	case ZAPI_NHG_REMOVE_FAIL:
+		return "ZAPI_NHG_REMOVE_FAIL";
+	case ZAPI_NHG_REMOVED:
+		return "ZAPI_NHG_REMOVED";
+	}
+
+	return "UNKNOWN";
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 }
 
 static inline const char *
 zapi_rule_notify_owner2str(enum zapi_rule_notify_owner note)
 {
+<<<<<<< HEAD
 	const char *ret = "UNKNOWN";
 
 	switch (note) {
@@ -821,10 +850,25 @@ zapi_rule_notify_owner2str(enum zapi_rule_notify_owner note)
 	}
 
 	return ret;
+=======
+	switch (note) {
+	case ZAPI_RULE_FAIL_INSTALL:
+		return "ZAPI_RULE_FAIL_INSTALL";
+	case ZAPI_RULE_INSTALLED:
+		return "ZAPI_RULE_INSTALLED";
+	case ZAPI_RULE_FAIL_REMOVE:
+		return "ZAPI_RULE_FAIL_REMOVE";
+	case ZAPI_RULE_REMOVED:
+		return "ZAPI_RULE_REMOVED";
+	}
+
+	return "UNKNOWN";
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 }
 
 static inline const char *zapi_srv6_sid_notify2str(enum zapi_srv6_sid_notify note)
 {
+<<<<<<< HEAD
 	const char *ret = "UNKNOWN";
 
 	switch (note) {
@@ -843,6 +887,20 @@ static inline const char *zapi_srv6_sid_notify2str(enum zapi_srv6_sid_notify not
 	}
 
 	return ret;
+=======
+	switch (note) {
+	case ZAPI_SRV6_SID_FAIL_ALLOC:
+		return "ZAPI_SRV6_SID_FAIL_ALLOC";
+	case ZAPI_SRV6_SID_ALLOCATED:
+		return "ZAPI_SRV6_SID_ALLOCATED";
+	case ZAPI_SRV6_SID_FAIL_RELEASE:
+		return "ZAPI_SRV6_SID_FAIL_RELEASE";
+	case ZAPI_SRV6_SID_RELEASED:
+		return "ZAPI_SRV6_SID_RELEASED";
+	}
+
+	return "UNKNOWN";
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 }
 
 /* Zebra MAC types */

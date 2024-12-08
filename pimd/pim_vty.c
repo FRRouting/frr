@@ -186,6 +186,26 @@ int pim_global_config_write_worker(struct pim_instance *pim, struct vty *vty)
 		++writes;
 	}
 
+<<<<<<< HEAD
+=======
+#if PIM_IPV == 6
+	if (pim->embedded_rp.enable) {
+		vty_out(vty, " embedded-rp\n");
+		writes++;
+	}
+
+	if (pim->embedded_rp.maximum_rps != PIM_EMBEDDED_RP_MAXIMUM) {
+		vty_out(vty, " embedded-rp limit %u\n", pim->embedded_rp.maximum_rps);
+		writes++;
+	}
+
+	if (pim->embedded_rp.group_list) {
+		vty_out(vty, " embedded-rp group-list %s\n", pim->embedded_rp.group_list);
+		writes++;
+	}
+#endif /* PIM_IPV == 6 */
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	writes += pim_rp_config_write(pim, vty);
 #if PIM_IPV == 4
 	writes += pim_autorp_config_write(pim, vty);

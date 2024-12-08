@@ -1769,14 +1769,22 @@ static inline pim_addr if_highest_addr(pim_addr cur, struct interface *ifp)
 	return cur;
 }
 
+<<<<<<< HEAD
 static void cand_addrsel_clear(struct cand_addrsel *asel)
+=======
+void cand_addrsel_clear(struct cand_addrsel *asel)
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 {
 	asel->run = false;
 	asel->run_addr = PIMADDR_ANY;
 }
 
 /* returns whether address or active changed */
+<<<<<<< HEAD
 static bool cand_addrsel_update(struct cand_addrsel *asel, struct vrf *vrf)
+=======
+bool cand_addrsel_update(struct cand_addrsel *asel, struct vrf *vrf)
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 {
 	bool is_any = false, prev_run = asel->run;
 	struct interface *ifp = NULL;

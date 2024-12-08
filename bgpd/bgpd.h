@@ -864,6 +864,13 @@ struct bgp {
 	/* BGP route flap dampening configuration */
 	struct bgp_damp_config damp[AFI_MAX][SAFI_MAX];
 
+<<<<<<< HEAD
+=======
+	uint64_t bestpath_runs;
+	uint64_t node_already_on_queue;
+	uint64_t node_deferred_on_queue;
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	QOBJ_FIELDS;
 };
 DECLARE_QOBJ_TYPE(bgp);
@@ -883,6 +890,10 @@ DECLARE_HOOK(bgp_snmp_traps_config_write, (struct vty *vty), (vty));
 DECLARE_HOOK(bgp_config_end, (struct bgp *bgp), (bgp));
 DECLARE_HOOK(bgp_hook_vrf_update, (struct vrf *vrf, bool enabled),
 	     (vrf, enabled));
+<<<<<<< HEAD
+=======
+DECLARE_HOOK(bgp_instance_state, (struct bgp *bgp), (bgp));
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 /* Thread callback information */
 struct afi_safi_info {
@@ -1130,7 +1141,12 @@ enum bgp_fsm_rfc_codes {
 	BGP_FSM_NotifMsg = 25,
 	BGP_FSM_KeepAliveMsg = 26,
 	BGP_FSM_UpdateMsg = 27,
+<<<<<<< HEAD
 	BGP_FSM_UpdateMsgErr = 28
+=======
+	BGP_FSM_UpdateMsgErr = 28,
+	BGP_FSM_SendHoldTimer_Expires = 29,
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 };
 
 /*
@@ -1225,6 +1241,11 @@ struct peer_connection {
 	struct event *t_process_packet;
 	struct event *t_process_packet_error;
 
+<<<<<<< HEAD
+=======
+	struct event *t_stop_with_notify;
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	union sockunion su;
 #define BGP_CONNECTION_SU_UNSPEC(connection)                                   \
 	(connection->su.sa.sa_family == AF_UNSPEC)
@@ -1322,7 +1343,11 @@ struct peer {
 
 	union sockunion *su_local;  /* Sockunion of local address.  */
 	union sockunion *su_remote; /* Sockunion of remote address.  */
+<<<<<<< HEAD
 	int shared_network;	 /* Is this peer shared same network. */
+=======
+	bool shared_network;	    /* Is this peer shared same network. */
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	struct bgp_nexthop nexthop; /* Nexthop */
 
 	/* Roles in bgp session */
@@ -1762,8 +1787,20 @@ struct peer {
 	/* Text description of last attribute rcvd */
 	char rcvd_attr_str[BUFSIZ];
 
+<<<<<<< HEAD
 	/* Track if we printed the attribute in debugs */
 	int rcvd_attr_printed;
+=======
+	/*
+	 * Track if we printed the attribute in debugs
+	 *
+	 * These two rcvd_attr_str and rcvd_attr_printed are going to
+	 * be fun in the long term when we want to break up parsing
+	 * of data from the nlri in multiple pthreads or really
+	 * if we ever change order of things this will just break
+	 */
+	bool rcvd_attr_printed;
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 	/* Accepted prefix count */
 	uint32_t pcount[AFI_MAX][SAFI_MAX];
@@ -2280,7 +2317,11 @@ extern struct peer *peer_unlock_with_caller(const char *, struct peer *);
 extern enum bgp_peer_sort peer_sort(struct peer *peer);
 extern enum bgp_peer_sort peer_sort_lookup(struct peer *peer);
 
+<<<<<<< HEAD
 extern bool peer_active(struct peer *);
+=======
+extern bool peer_active(struct peer_connection *connection);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 extern bool peer_active_nego(struct peer *);
 extern bool peer_afc_received(struct peer *peer);
 extern bool peer_afc_advertised(struct peer *peer);
@@ -2370,7 +2411,12 @@ extern int peer_remote_as(struct bgp *bgp, union sockunion *su,
 extern int peer_group_remote_as(struct bgp *bgp, const char *peer_str, as_t *as,
 				enum peer_asn_type as_type, const char *as_str);
 extern int peer_delete(struct peer *peer);
+<<<<<<< HEAD
 extern void peer_notify_unconfig(struct peer *peer);
+=======
+extern void peer_notify_unconfig(struct peer_connection *connection);
+extern bool peer_notify_config_change(struct peer_connection *connection);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 extern int peer_group_delete(struct peer_group *);
 extern int peer_group_remote_as_delete(struct peer_group *);
 extern int peer_group_listen_range_add(struct peer_group *, struct prefix *);

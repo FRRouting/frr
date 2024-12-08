@@ -667,10 +667,15 @@ void add_vnc_route(struct rfapi_descriptor *rfd, /* cookie, VPN UN addr, peer */
 		attr.flag |= ATTR_FLAG_BIT(BGP_ATTR_LOCAL_PREF);
 	}
 
+<<<<<<< HEAD
 	if (med) {
 		attr.med = *med;
 		attr.flag |= ATTR_FLAG_BIT(BGP_ATTR_MULTI_EXIT_DISC);
 	}
+=======
+	if (med)
+		bgp_attr_set_med(&attr, *med);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 	/* override default weight assigned by bgp_attr_default_set() */
 	attr.weight = rfd->peer ? rfd->peer->weight[afi][safi] : 0;
@@ -863,10 +868,15 @@ void add_vnc_route(struct rfapi_descriptor *rfd, /* cookie, VPN UN addr, peer */
 
 	red = bgp_redist_lookup(bgp, afi, type, 0);
 
+<<<<<<< HEAD
 	if (red && red->redist_metric_flag) {
 		attr.med = red->redist_metric;
 		attr.flag |= ATTR_FLAG_BIT(BGP_ATTR_MULTI_EXIT_DISC);
 	}
+=======
+	if (red && red->redist_metric_flag)
+		bgp_attr_set_med(&attr, red->redist_metric);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 	bn = bgp_afi_node_get(bgp->rib[afi][safi], afi, safi, p, prd);
 

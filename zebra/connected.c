@@ -191,6 +191,12 @@ static void connected_remove_kernel_for_connected(afi_t afi, safi_t safi, struct
 	rib_dest_t *dest;
 	struct route_table *table = zebra_vrf_table(afi, SAFI_UNICAST, zvrf->vrf->vrf_id);
 
+<<<<<<< HEAD
+=======
+	if (!table)
+		return;
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	rn = route_node_match(table, p);
 	if (!rn)
 		return;

@@ -90,7 +90,11 @@ static void test_encode_decode(void)
 
 	lua_pushin6addr(L, &in6addr_a);
 	lua_decode_in6addr(L, -1, &in6addr_a);
+<<<<<<< HEAD
 	assert(in6addr_cmp(&in6addr_a, &in6addr_b) == 0);
+=======
+	assert(memcmp(&in6addr_a, &in6addr_b, sizeof(struct in6_addr)) == 0);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	assert(lua_gettop(L) == 0);
 
 	union sockunion su_a, su_b;

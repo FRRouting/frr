@@ -68,5 +68,9 @@ without pulling from the registry using the following commands:
 
 ```console
 make topotests-build
+<<<<<<< HEAD
 TOPOTEST_PULL=0 make topotests
+=======
+make topotests
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 ```

@@ -2685,7 +2685,12 @@ tree type_normalize (tree type, tree *cousin, tree target = NULL)
 {
   while (1)
     {
+<<<<<<< HEAD
       if (TREE_CODE (type) == FUNCTION_TYPE || TREE_CODE (type) == POINTER_TYPE)
+=======
+      if (TREE_CODE (type) == FUNCTION_TYPE || TREE_CODE (type) == POINTER_TYPE
+	  || TREE_CODE (type) == ARRAY_TYPE)
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	return type;
       if (target)
 	/* Strip off any "const" etc.  */

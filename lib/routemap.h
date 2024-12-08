@@ -29,6 +29,20 @@ extern uint32_t rmap_debug;
 /* Route map's type. */
 enum route_map_type { RMAP_PERMIT, RMAP_DENY, RMAP_ANY };
 
+<<<<<<< HEAD
+=======
+/* Route-map's action reason */
+enum route_map_action_reason {
+	route_map_action_none,
+	route_map_action_map_null,
+	route_map_action_no_index,
+	route_map_action_next_deny,
+	route_map_action_exit,
+	route_map_action_goto_null,
+	route_map_action_index_deny,
+};
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 typedef enum {
 	RMAP_DENYMATCH,
 	RMAP_PERMITMATCH
@@ -176,6 +190,10 @@ struct route_map_index {
 	/* Keep track how many times we've try to apply */
 	uint64_t applied;
 	uint64_t applied_clear;
+<<<<<<< HEAD
+=======
+	size_t cputime;
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 	/* List of match/sets contexts. */
 	TAILQ_HEAD(, routemap_hook_context) rhclist;
@@ -210,6 +228,10 @@ struct route_map {
 	/* How many times have we applied this route-map */
 	uint64_t applied;
 	uint64_t applied_clear;
+<<<<<<< HEAD
+=======
+	size_t cputime;
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 	/* Counter to track active usage of this route-map */
 	uint16_t use_count;
@@ -278,6 +300,10 @@ DECLARE_QOBJ_TYPE(route_map);
 #define IS_MATCH_SRC_VRF(C)                                                    \
 	(strmatch(C, "frr-bgp-route-map:source-vrf"))
 #define IS_MATCH_PEER(C) (strmatch(C, "frr-bgp-route-map:peer"))
+<<<<<<< HEAD
+=======
+#define IS_MATCH_SRC_PEER(C) (strmatch(C, "frr-bgp-route-map:src-peer"))
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 #define IS_MATCH_AS_LIST(C)                                                    \
 	(strmatch(C, "frr-bgp-route-map:as-path-list"))
 #define IS_MATCH_MAC_LIST(C)                                                   \

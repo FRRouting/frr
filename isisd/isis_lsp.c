@@ -119,6 +119,13 @@ static void lsp_destroy(struct isis_lsp *lsp)
 	lsp_clear_data(lsp);
 
 	if (!LSP_FRAGMENT(lsp->hdr.lsp_id)) {
+<<<<<<< HEAD
+=======
+		/* Only non-pseudo nodes and non-fragment LSPs can delete nodes. */
+		if (!LSP_PSEUDO_ID(lsp->hdr.lsp_id))
+			isis_dynhn_remove(lsp->area->isis, lsp->hdr.lsp_id);
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		if (lsp->lspu.frags) {
 			lsp_remove_frags(&lsp->area->lspdb[lsp->level - 1],
 					lsp->lspu.frags);
@@ -2209,10 +2216,13 @@ void lsp_tick(struct event *thread)
 							&area->lspdb[level],
 							next);
 
+<<<<<<< HEAD
 				if (!LSP_PSEUDO_ID(lsp->hdr.lsp_id))
 					isis_dynhn_remove(area->isis,
 							  lsp->hdr.lsp_id);
 
+=======
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 				lspdb_del(&area->lspdb[level], lsp);
 				lsp_destroy(lsp);
 				lsp = NULL;

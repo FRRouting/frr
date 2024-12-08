@@ -68,6 +68,10 @@ override_dh_auto_configure:
 		--enable-ospfapi \
 		--enable-bgp-vnc \
 		--enable-multipath=256 \
+<<<<<<< HEAD
+=======
+		--enable-pcre2posix \
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		\
 		--enable-user=frr \
 		--enable-group=frr \

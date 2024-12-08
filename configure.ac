@@ -7,7 +7,11 @@
 ##
 AC_PREREQ([2.69])
 
+<<<<<<< HEAD
 AC_INIT([frr], [10.2], [https://github.com/frrouting/frr/issues])
+=======
+AC_INIT([frr], [10.3-dev], [https://github.com/frrouting/frr/issues])
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 PACKAGE_URL="https://frrouting.org/"
 AC_SUBST([PACKAGE_URL])
 PACKAGE_FULLNAME="FRRouting"

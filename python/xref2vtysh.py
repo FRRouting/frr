@@ -450,9 +450,17 @@ class CommandEntry:
 	graph_delete_node(node->cmdgraph, vector_slot(node->cmdgraph->nodes, 0));
 	vector_free(node->cmdgraph->nodes);
 	node->cmdgraph->nodes = &gvec_{node};
+<<<<<<< HEAD
 {'}'}
 """
         )
+=======
+"""
+        )
+        for cmdel in sorted(cmdels):
+            ofd.write(f"\tvector_set(node->cmd_vector, &{cmdel}_vtysh);\n")
+        ofd.write("}\n")
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
         return [node]
 

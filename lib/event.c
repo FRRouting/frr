@@ -669,6 +669,7 @@ static void thread_array_free(struct event_loop *m, struct event **thread_array)
 	XFREE(MTYPE_EVENT_POLL, thread_array);
 }
 
+<<<<<<< HEAD
 /*
  * event_master_free_unused
  *
@@ -687,6 +688,8 @@ void event_master_free_unused(struct event_loop *m)
 	}
 }
 
+=======
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 /* Stop thread scheduler. */
 void event_master_free(struct event_loop *m)
 {
@@ -793,7 +796,10 @@ static struct event *thread_get(struct event_loop *m, uint8_t type,
 		thread = XCALLOC(MTYPE_THREAD, sizeof(struct event));
 		/* mutex only needs to be initialized at struct creation. */
 		pthread_mutex_init(&thread->mtx, NULL);
+<<<<<<< HEAD
 		m->alloc++;
+=======
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	}
 
 	thread->type = type;
@@ -832,10 +838,13 @@ static struct event *thread_get(struct event_loop *m, uint8_t type,
 
 static void thread_free(struct event_loop *master, struct event *thread)
 {
+<<<<<<< HEAD
 	/* Update statistics. */
 	assert(master->alloc > 0);
 	master->alloc--;
 
+=======
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	/* Free allocated resources. */
 	pthread_mutex_destroy(&thread->mtx);
 	XFREE(MTYPE_THREAD, thread);
@@ -979,7 +988,11 @@ void _event_add_read_write(const struct xref_eventsched *xref,
 		 * if we already have a pollfd for our file descriptor, find and
 		 * use it
 		 */
+<<<<<<< HEAD
 		for (nfds_t i = 0; i < m->handler.pfdcount; i++)
+=======
+		for (nfds_t i = 0; i < m->handler.pfdcount; i++) {
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 			if (m->handler.pfds[i].fd == fd) {
 				queuepos = i;
 
@@ -993,6 +1006,18 @@ void _event_add_read_write(const struct xref_eventsched *xref,
 #endif
 				break;
 			}
+<<<<<<< HEAD
+=======
+			/*
+			 * We are setting the fd = -1 for the
+			 * case when a read/write event is going
+			 * away.  if we find a -1 we can stuff it
+			 * into that spot, so note it
+			 */
+			if (m->handler.pfds[i].fd == -1 && queuepos == m->handler.pfdcount)
+				queuepos = i;
+		}
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 		/* make sure we have room for this fd + pipe poker fd */
 		assert(queuepos + 1 < m->handler.pfdsize);
@@ -1269,6 +1294,17 @@ static void cancel_arg_helper(struct event_loop *master,
 	for (i = 0; i < master->handler.pfdcount;) {
 		pfd = master->handler.pfds + i;
 
+<<<<<<< HEAD
+=======
+		/*
+		 * Skip this spot, nothing here to see
+		 */
+		if (pfd->fd == -1) {
+			i++;
+			continue;
+		}
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		if (pfd->events & POLLIN)
 			t = master->read[pfd->fd];
 		else
@@ -1590,6 +1626,15 @@ static int thread_process_io_helper(struct event_loop *m, struct event *thread,
 	 * we should.
 	 */
 	m->handler.pfds[pos].events &= ~(state);
+<<<<<<< HEAD
+=======
+	/*
+	 * ppoll man page says that a fd of -1 causes the particular
+	 * array item to be skipped.  So let's skip it
+	 */
+	if (m->handler.pfds[pos].events == 0)
+		m->handler.pfds[pos].fd = -1;
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 	if (!thread) {
 		if ((actual_state & (POLLHUP|POLLIN)) != POLLHUP)

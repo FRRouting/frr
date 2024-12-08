@@ -161,9 +161,14 @@ static struct peer_group *listen_range_exists(struct bgp *bgp,
 static void bgp_show_global_graceful_restart_mode_vty(struct vty *vty,
 						      struct bgp *bgp);
 
+<<<<<<< HEAD
 static int bgp_show_neighbor_graceful_restart_afi_all(struct vty *vty,
 						      enum show_type type,
 						      const char *ip_str,
+=======
+static int bgp_show_neighbor_graceful_restart_afi_all(struct vty *vty, struct bgp *bgp,
+						      enum show_type type, const char *ip_str,
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 						      afi_t afi, bool use_json);
 
 static enum node_type bgp_node_type(afi_t afi, safi_t safi)
@@ -1473,6 +1478,12 @@ DEFUN_HIDDEN (no_bgp_local_mac,
 	return CMD_SUCCESS;
 }
 
+<<<<<<< HEAD
+=======
+#if CONFDATE > 20250514
+CPP_NOTICE("Remove no_synchronization_cmd, no_auto_summary_cmd commands")
+#endif
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 DEFUN (no_synchronization,
        no_synchronization_cmd,
        "no synchronization",
@@ -2938,9 +2949,13 @@ DEFUN(bgp_reject_as_sets, bgp_reject_as_sets_cmd,
 	 */
 	for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer)) {
 		peer->last_reset = PEER_DOWN_AS_SETS_REJECT;
+<<<<<<< HEAD
 		if (BGP_IS_VALID_STATE_FOR_NOTIF(peer->connection->status))
 			bgp_notify_send(peer->connection, BGP_NOTIFY_CEASE,
 					BGP_NOTIFY_CEASE_CONFIG_CHANGE);
+=======
+		peer_notify_config_change(peer->connection);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	}
 
 	return CMD_SUCCESS;
@@ -2963,9 +2978,13 @@ DEFUN(no_bgp_reject_as_sets, no_bgp_reject_as_sets_cmd,
 	 */
 	for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer)) {
 		peer->last_reset = PEER_DOWN_AS_SETS_REJECT;
+<<<<<<< HEAD
 		if (BGP_IS_VALID_STATE_FOR_NOTIF(peer->connection->status))
 			bgp_notify_send(peer->connection, BGP_NOTIFY_CEASE,
 					BGP_NOTIFY_CEASE_CONFIG_CHANGE);
+=======
+		peer_notify_config_change(peer->connection);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	}
 
 	return CMD_SUCCESS;
@@ -4464,6 +4483,7 @@ DEFUN (bgp_network_import_check,
 	return CMD_SUCCESS;
 }
 
+<<<<<<< HEAD
 #if CONFDATE > 20241013
 CPP_NOTICE("Drop `bgp network import-check exact` command")
 #endif
@@ -4474,6 +4494,8 @@ ALIAS_HIDDEN(bgp_network_import_check, bgp_network_import_check_exact_cmd,
 	     "Check BGP network route exists in IGP\n"
 	     "Match route precisely\n")
 
+=======
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 DEFUN (no_bgp_network_import_check,
        no_bgp_network_import_check_cmd,
        "no bgp network import-check",
@@ -5108,10 +5130,14 @@ static int peer_conf_interface_get(struct vty *vty, const char *conf_if,
 		peer->last_reset = PEER_DOWN_V6ONLY_CHANGE;
 
 		/* v6only flag changed. Reset bgp seesion */
+<<<<<<< HEAD
 		if (BGP_IS_VALID_STATE_FOR_NOTIF(peer->connection->status))
 			bgp_notify_send(peer->connection, BGP_NOTIFY_CEASE,
 					BGP_NOTIFY_CEASE_CONFIG_CHANGE);
 		else
+=======
+		if (!peer_notify_config_change(peer->connection))
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 			bgp_session_reset(peer);
 	}
 
@@ -5272,7 +5298,11 @@ DEFUN (no_neighbor,
 			 * interface. */
 			if (peer->ifp)
 				bgp_zebra_terminate_radv(peer->bgp, peer);
+<<<<<<< HEAD
 			peer_notify_unconfig(peer);
+=======
+			peer_notify_unconfig(peer->connection);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 			peer_delete(peer);
 			return CMD_SUCCESS;
 		}
@@ -5308,10 +5338,17 @@ DEFUN (no_neighbor,
 			if (CHECK_FLAG(peer->flags, PEER_FLAG_CAPABILITY_ENHE))
 				bgp_zebra_terminate_radv(peer->bgp, peer);
 
+<<<<<<< HEAD
 			peer_notify_unconfig(peer);
 			peer_delete(peer);
 			if (other && other->connection->status != Deleted) {
 				peer_notify_unconfig(other);
+=======
+			peer_notify_unconfig(peer->connection);
+			peer_delete(peer);
+			if (other && other->connection->status != Deleted) {
+				peer_notify_unconfig(other->connection);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 				peer_delete(other);
 			}
 		}
@@ -5346,7 +5383,11 @@ DEFUN (no_neighbor_interface_config,
 		/* Request zebra to terminate IPv6 RAs on this interface. */
 		if (peer->ifp)
 			bgp_zebra_terminate_radv(peer->bgp, peer);
+<<<<<<< HEAD
 		peer_notify_unconfig(peer);
+=======
+		peer_notify_unconfig(peer->connection);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		peer_delete(peer);
 	} else {
 		vty_out(vty, "%% Create the bgp interface first\n");
@@ -5754,7 +5795,11 @@ DEFUN (no_neighbor_set_peer_group,
 	if (CHECK_FLAG(peer->flags, PEER_FLAG_CAPABILITY_ENHE))
 		bgp_zebra_terminate_radv(peer->bgp, peer);
 
+<<<<<<< HEAD
 	peer_notify_unconfig(peer);
+=======
+	peer_notify_unconfig(peer->connection);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	ret = peer_delete(peer);
 
 	return bgp_vty_return(vty, ret);
@@ -16144,6 +16189,7 @@ static int bgp_show_neighbor(struct vty *vty, struct bgp *bgp,
 	return CMD_SUCCESS;
 }
 
+<<<<<<< HEAD
 static void bgp_show_neighbor_graceful_restart_vty(struct vty *vty,
 						   enum show_type type,
 						   const char *ip_str,
@@ -16159,6 +16205,15 @@ static void bgp_show_neighbor_graceful_restart_vty(struct vty *vty,
 	if (!bgp)
 		return;
 
+=======
+static void bgp_show_neighbor_graceful_restart_vty(struct vty *vty, struct bgp *bgp,
+						   enum show_type type, const char *ip_str,
+						   afi_t afi, json_object *json)
+{
+	int ret;
+	union sockunion su;
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	if (!json)
 		bgp_show_global_graceful_restart_mode_vty(vty, bgp);
 
@@ -16313,6 +16368,7 @@ static int bgp_show_neighbor_vty(struct vty *vty, const char *name,
 	return CMD_SUCCESS;
 }
 
+<<<<<<< HEAD
 
 
 /* "show [ip] bgp neighbors graceful-restart" commands.  */
@@ -16355,6 +16411,43 @@ DEFUN (show_ip_bgp_neighbors_graceful_restart,
 
 	return bgp_show_neighbor_graceful_restart_afi_all(vty, sh_type, sh_arg,
 							  afi, uj);
+=======
+/* "show [ip] bgp neighbors graceful-restart" commands.  */
+DEFPY (show_ip_bgp_neighbors_graceful_restart,
+       show_ip_bgp_neighbors_graceful_restart_cmd,
+       "show bgp [<ipv4|ipv6>]$afi [<view|vrf> VIEWVRFNAME$vrf] neighbors [<A.B.C.D|X:X::X:X|WORD>$neigh] graceful-restart [json]$json",
+       SHOW_STR
+       BGP_STR
+       IP_STR
+       IPV6_STR
+       BGP_INSTANCE_HELP_STR
+       NEIGHBOR_STR
+       "Neighbor to display information about\n"
+       "Neighbor to display information about\n"
+       "Neighbor on BGP configured interface\n"
+       GR_SHOW
+       JSON_STR)
+{
+	enum show_type sh_type = show_all;
+	afi_t afiz = AFI_IP;
+	bool uj = !!json;
+	struct bgp *bgp;
+
+	if (afi)
+		afiz = bgp_vty_afi_from_str(afi);
+
+	if (neigh)
+		sh_type = show_peer;
+
+	bgp = vrf ? bgp_lookup_by_name(vrf) : bgp_get_default();
+
+	if (!bgp) {
+		vty_out(vty, "No such bgp instance %s", vrf ? vrf : "");
+		return CMD_WARNING;
+	}
+
+	return bgp_show_neighbor_graceful_restart_afi_all(vty, bgp, sh_type, neigh, afiz, uj);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 }
 
 /* "show [ip] bgp neighbors" commands.  */
@@ -16528,9 +16621,14 @@ static void bgp_show_global_graceful_restart_mode_vty(struct vty *vty,
 	vty_out(vty, "\n");
 }
 
+<<<<<<< HEAD
 static int bgp_show_neighbor_graceful_restart_afi_all(struct vty *vty,
 						      enum show_type type,
 						      const char *ip_str,
+=======
+static int bgp_show_neighbor_graceful_restart_afi_all(struct vty *vty, struct bgp *bgp,
+						      enum show_type type, const char *ip_str,
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 						      afi_t afi, bool use_json)
 {
 	json_object *json = NULL;
@@ -16542,6 +16640,7 @@ static int bgp_show_neighbor_graceful_restart_afi_all(struct vty *vty,
 		afi = AFI_IP;
 
 		while ((afi != AFI_L2VPN) && (afi < AFI_MAX)) {
+<<<<<<< HEAD
 
 			bgp_show_neighbor_graceful_restart_vty(
 				vty, type, ip_str, afi, json);
@@ -16550,6 +16649,13 @@ static int bgp_show_neighbor_graceful_restart_afi_all(struct vty *vty,
 	} else if (afi != AFI_MAX) {
 		bgp_show_neighbor_graceful_restart_vty(vty, type, ip_str, afi,
 						       json);
+=======
+			bgp_show_neighbor_graceful_restart_vty(vty, bgp, type, ip_str, afi, json);
+			afi++;
+		}
+	} else if (afi != AFI_MAX) {
+		bgp_show_neighbor_graceful_restart_vty(vty, bgp, type, ip_str, afi, json);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	} else {
 		if (json)
 			json_object_free(json);
@@ -19138,9 +19244,13 @@ static void bgp_config_write_peer_af(struct vty *vty, struct bgp *bgp,
 
 		if (peergroup_af_flag_check(peer, afi, safi,
 					    PEER_FLAG_SEND_EXT_COMMUNITY_RPKI))
+<<<<<<< HEAD
 			vty_out(vty,
 				"  no neighbor %s send-community extended rpki\n",
 				addr);
+=======
+			vty_out(vty, "  neighbor %s send-community extended rpki\n", addr);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	}
 
 	/* Default information */
@@ -20451,6 +20561,12 @@ void bgp_vty_init(void)
 	install_element(CONFIG_NODE,
 			&no_bgp_graceful_restart_rib_stale_time_cmd);
 
+<<<<<<< HEAD
+=======
+#if CONFDATE > 20250514
+	CPP_NOTICE("Remove no_synchronization_cmd, no_auto_summary_cmd commands")
+#endif
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	/* Dummy commands (Currently not supported) */
 	install_element(BGP_NODE, &no_synchronization_cmd);
 	install_element(BGP_NODE, &no_auto_summary_cmd);
@@ -20692,7 +20808,10 @@ void bgp_vty_init(void)
 
 	/* "bgp network import-check" commands. */
 	install_element(BGP_NODE, &bgp_network_import_check_cmd);
+<<<<<<< HEAD
 	install_element(BGP_NODE, &bgp_network_import_check_exact_cmd);
+=======
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	install_element(BGP_NODE, &no_bgp_network_import_check_cmd);
 
 	/* "bgp default local-preference" commands. */
