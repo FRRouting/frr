@@ -21,18 +21,6 @@
     {
       "nexthops": [
         {
-          "afi": "ipv4", 
-          "interfaceName": "r4-eth1", 
-          "ip": "10.0.11.1" 
-        }
-      ], 
-      "prefix": "10.0.11.0/24", 
-      "protocol": "isis", 
-      "vrfName": "r4-cust1"
-    }, 
-    {
-      "nexthops": [
-        {
           "active": true, 
           "directlyConnected": true, 
           "fib": true, 
