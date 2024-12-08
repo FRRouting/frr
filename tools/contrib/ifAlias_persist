@@ -1,0 +1,49 @@
+#!/usr/bin/perl -w  
+# SPDX-License-Identifier: GPL-2.0-or-later
+
+# SNMP::Extension::PassPersist is required.
+# https://metacpan.org/dist/SNMP-Extension-PassPersist
+# This is in the package libsnmp-extension-passpersist-perl on Debian and Ubuntu
+# Usage : Copy the script to /usr/local/bin/ifAlias_persist and add to /etc/snmp/snmpd.conf 
+# pass_persist .1.3.6.1.2.1.31.1.1.1.18 /usr/local/bin/ifAlias_persist
+
+use strict;
+use SNMP::Extension::PassPersist;
+
+# create the object
+my $extsnmp = SNMP::Extension::PassPersist->new(
+    backend_collect => \&update_tree,
+    idle_count      => 10,      # no more than 10 idle cycles
+    refresh         => 60,      # refresh every 60 sec
+);
+
+# run the program
+$extsnmp->run;
+
+sub update_tree {
+    my ($self) = @_;
+
+	my $Base = ".1.3.6.1.2.1.31.1.1.1.18";
+	my @iface_list = `/sbin/ip l | /bin/grep mtu`;
+	my @desc_list = `/bin/vtysh -c "show interface description"`;
+	my $type = "string";
+	my $description = "";
+
+	foreach my $row (@iface_list){
+		my @split = split(": ", $row);
+		my @int = split("@", $split[1]);
+		my @desc = grep { /^$int[0]\ / } @desc_list;
+		my @onlydesc = split(' ', $desc[0], 4);
+		chomp($onlydesc[3]);
+		if ( $onlydesc[3] ne "" ) {
+			$description = $onlydesc[3];
+		} else {
+			$description = $split[1];
+		}
+		chomp($description);
+		my ($key, $value) = ("$Base.$split[0]",$description);
+		$self->add_oid_entry($key,$type,$value);
+	}
+	# $extsnmp->dump_oid_tree();
+	
+}
