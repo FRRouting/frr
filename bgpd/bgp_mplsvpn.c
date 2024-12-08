@@ -2517,11 +2517,12 @@ void vpn_leak_to_vrf_update(struct bgp *from_bgp,
 {
 	struct listnode *mnode, *mnnode;
 	struct bgp *bgp;
+	const struct prefix *p = bgp_dest_get_prefix(path_vpn->net);
 
 	int debug = BGP_DEBUG(vpn, VPN_LEAK_TO_VRF);
 
 	if (debug)
-		zlog_debug("%s: start (path_vpn=%p)", __func__, path_vpn);
+		zlog_debug("%s: start (path_vpn=%p, prefix=%pFX)", __func__, path_vpn, p);
 
 	/* Loop over VRFs */
 	for (ALL_LIST_ELEMENTS(bm->bgp, mnode, mnnode, bgp)) {
