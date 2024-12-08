@@ -1043,20 +1043,14 @@ int show_isis_interface_common_json(struct json_object *json,
 				for (ALL_LIST_ELEMENTS_RO(area->circuit_list,
 							  cnode, circuit)) {
 					circuit_json = json_object_new_object();
-					json_object_int_add(
-						circuit_json, "circuit",
-						circuit->circuit_id);
-					if (!ifname)
+					if (!ifname || strmatch(circuit->interface->name, ifname)) {
 						isis_circuit_print_json(circuit,
 									circuit_json,
 									detail);
-					else if (strcmp(circuit->interface->name,
-							ifname) == 0)
-						isis_circuit_print_json(circuit,
-									circuit_json,
-									detail);
-					json_object_array_add(circuits_json,
-							      circuit_json);
+						json_object_array_add(circuits_json, circuit_json);
+						if (ifname)
+							break;
+					}
 				}
 				json_object_array_add(areas_json, area_json);
 			}
@@ -1076,22 +1070,16 @@ int show_isis_interface_common_json(struct json_object *json,
 			circuits_json = json_object_new_array();
 			json_object_object_add(area_json, "circuits",
 					       circuits_json);
-			for (ALL_LIST_ELEMENTS_RO(area->circuit_list, cnode,
-						  circuit)) {
+			for (ALL_LIST_ELEMENTS_RO(area->circuit_list, cnode, circuit)) {
 				circuit_json = json_object_new_object();
-				json_object_int_add(circuit_json, "circuit",
-						    circuit->circuit_id);
-				if (!ifname)
+				if (!ifname || strmatch(circuit->interface->name, ifname)) {
 					isis_circuit_print_json(circuit,
 								circuit_json,
 								detail);
-				else if (strcmp(circuit->interface->name,
-						ifname) == 0)
-					isis_circuit_print_json(circuit,
-								circuit_json,
-								detail);
-				json_object_array_add(circuits_json,
-						      circuit_json);
+					json_object_array_add(circuits_json, circuit_json);
+					if (ifname)
+						break;
+				}
 			}
 			json_object_array_add(areas_json, area_json);
 		}
@@ -1297,8 +1285,7 @@ static void isis_neighbor_common_json(struct json_object *json, const char *id,
 				for (i = 0; i < 2; i++) {
 					adjdb = circuit->u.bc.adjdb[i];
 					if (adjdb && adjdb->count) {
-						for (ALL_LIST_ELEMENTS_RO(
-							     adjdb, node, adj))
+						for (ALL_LIST_ELEMENTS_RO(adjdb, node, adj))
 							if (!id ||
 							    !memcmp(adj->sysid,
 								    sysid,
