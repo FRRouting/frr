@@ -304,12 +304,10 @@ am__v_LLVM_LD_ = $(am__v_LLVM_LD_$(AM_DEFAULT_VERBOSITY))
 am__v_LLVM_LD_0 = @echo "  LLVM.LD " $@;
 am__v_LLVM_LD_1 = 
 
-SUFFIXES += .lo.bc .o.bc
-
-.o.o.bc:
-	$(AM_V_LLVM_BC)$(COMPILE) -emit-llvm -c -o $@ $(patsubst %.o,%.c,$<)
-.lo.lo.bc:
-	$(AM_V_LLVM_BC)$(COMPILE) -emit-llvm -c -o $@ $(patsubst %.lo,%.c,$<)
+%.o.bc: %.o
+	$(AM_V_LLVM_BC)$(COMPILE) -emit-llvm -c -o $@ $*.c
+%.lo.bc: %.lo
+	$(AM_V_LLVM_BC)$(COMPILE) -emit-llvm -c -o $@ $*.c
 
 %.cg.json: %.bc tools/frr-llvm-cg
 	tools/frr-llvm-cg -o $@ $<
