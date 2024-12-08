@@ -467,6 +467,10 @@ Commands available for MSDP
       The filtering will only take effect starting from the command
       application.
 
+.. clicmd:: msdp peer A.B.C.D sa-limit <AMOUNT>
+
+   Configure the maximum number of SAs to learn from peer.
+
 .. clicmd:: msdp peer A.B.C.D password WORD
 
    Use MD5 authentication to connect with the remote peer.
