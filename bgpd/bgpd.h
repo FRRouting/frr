@@ -375,6 +375,55 @@ struct as_confed {
 struct bgp_mplsvpn_nh_label_bind_cache;
 PREDECL_RBTREE_UNIQ(bgp_mplsvpn_nh_label_bind_cache);
 
+/* List of peers that have connection errors in the io pthread */
+PREDECL_DLIST(bgp_peer_conn_errlist);
+
+/* List of info about peers that are being cleared from BGP RIBs in a batch */
+PREDECL_DLIST(bgp_clearing_info);
+
+/* Hash of peers in clearing info object */
+PREDECL_HASH(bgp_clearing_hash);
+
+/* List of dests that need to be processed in a clearing batch */
+PREDECL_LIST(bgp_clearing_destlist);
+
+struct bgp_clearing_dest {
+	struct bgp_dest *dest;
+	struct bgp_clearing_destlist_item link;
+};
+
+/* Info about a batch of peers that need to be cleared from the RIB.
+ * If many peers need to be cleared, we process them in batches, taking
+ * one walk through the RIB for each batch. This is only used for "all"
+ * afi/safis, typically when processing peer connection errors.
+ */
+struct bgp_clearing_info {
+	/* Owning bgp instance */
+	struct bgp *bgp;
+
+	/* Hash of peers */
+	struct bgp_clearing_hash_head peers;
+
+	/* Flags */
+	uint32_t flags;
+
+	/* List of dests - wrapped by a small wrapper struct */
+	struct bgp_clearing_destlist_head destlist;
+
+	/* Event to schedule/reschedule processing */
+	struct event *t_sched;
+
+	/* TODO -- id, serial number, for debugging/logging? */
+
+	/* TODO -- info for rescheduling the RIB walk? future? */
+
+	/* Linkage for list of batches per bgp */
+	struct bgp_clearing_info_item link;
+};
+
+/* Batch is open, new peers can be added */
+#define BGP_CLEARING_INFO_FLAG_OPEN  (1 << 0)
+
 /* BGP instance structure.  */
 struct bgp {
 	/* AS number of this BGP instance.  */
@@ -854,6 +903,21 @@ struct bgp {
 	uint16_t tcp_keepalive_intvl;
 	uint16_t tcp_keepalive_probes;
 
+	/* List of peers that have connection errors in the IO pthread */
+	struct bgp_peer_conn_errlist_head peer_conn_errlist;
+
+	/* Mutex that guards the connection-errors list */
+	pthread_mutex_t peer_errs_mtx;
+
+	/* Event indicating that there have been connection errors; this
+	 * is typically signalled in the IO pthread; it's handled in the
+	 * main pthread.
+	 */
+	struct event *t_conn_errors;
+
+	/* List of batches of peers being cleared from BGP RIBs */
+	struct bgp_clearing_info_head clearing_list;
+
 	struct timeval ebgprequirespolicywarning;
 #define FIFTEENMINUTE2USEC (int64_t)15 * 60 * 1000000
 
@@ -1229,9 +1293,14 @@ struct peer_connection {
 
 	struct event *t_routeadv;
 	struct event *t_process_packet;
-	struct event *t_process_packet_error;
 
 	struct event *t_stop_with_notify;
+
+	/* Linkage for list connections with errors, from IO pthread */
+	struct bgp_peer_conn_errlist_item conn_err_link;
+
+	/* Connection error code */
+	uint16_t connection_errcode;
 
 	union sockunion su;
 #define BGP_CONNECTION_SU_UNSPEC(connection)                                   \
@@ -1520,6 +1589,8 @@ struct peer {
 #define PEER_FLAG_AS_LOOP_DETECTION (1ULL << 38) /* as path loop detection */
 #define PEER_FLAG_EXTENDED_LINK_BANDWIDTH (1ULL << 39)
 #define PEER_FLAG_DUAL_AS		  (1ULL << 40)
+/* Peer is part of a batch clearing its routes */
+#define PEER_FLAG_CLEARING_BATCH (1ULL << 41)
 
 	/*
 	 *GR-Disabled mode means unset PEER_FLAG_GRACEFUL_RESTART
@@ -1915,6 +1986,9 @@ struct peer {
 
 	/* Add-Path Paths-Limit */
 	struct addpath_paths_limit addpath_paths_limit[AFI_MAX][SAFI_MAX];
+
+	/* Linkage for hash of clearing peers being cleared in a batch */
+	struct bgp_clearing_hash_item clear_hash_link;
 
 	QOBJ_FIELDS;
 };
@@ -2553,6 +2627,11 @@ void bgp_gr_apply_running_config(void);
 int bgp_global_gr_init(struct bgp *bgp);
 int bgp_peer_gr_init(struct peer *peer);
 
+/* APIs for the per-bgp peer connection error list */
+int bgp_enqueue_conn_err(struct bgp *bgp, struct peer_connection *connection,
+			 int errcode);
+struct peer_connection *bgp_dequeue_conn_err(struct bgp *bgp, bool *more_p);
+void bgp_conn_err_reschedule(struct bgp *bgp);
 
 #define BGP_GR_ROUTER_DETECT_AND_SEND_CAPABILITY_TO_ZEBRA(_bgp, _peer_list)    \
 	do {                                                                   \
@@ -2880,6 +2959,23 @@ extern bool bgp_path_attribute_treat_as_withdraw(struct peer *peer, char *buf,
 extern void srv6_function_free(struct bgp_srv6_function *func);
 
 extern void bgp_session_reset_safe(struct peer *peer, struct listnode **nnode);
+
+/* If a clearing batch is available for 'peer', add it and return 'true',
+ * else return 'false'.
+ */
+bool bgp_clearing_batch_add_peer(struct bgp *bgp, struct peer *peer);
+/* Add a prefix/dest to a clearing batch */
+void bgp_clearing_batch_add_dest(struct bgp_clearing_info *cinfo,
+				 struct bgp_dest *dest);
+/* Check whether a dest's peer is relevant to a clearing batch */
+bool bgp_clearing_batch_check_peer(struct bgp_clearing_info *cinfo,
+				   const struct peer *peer);
+/* Check whether a clearing batch has any dests to process */
+bool bgp_clearing_batch_dests_present(struct bgp_clearing_info *cinfo);
+/* Returns the next dest for batch clear processing */
+struct bgp_dest *bgp_clearing_batch_next_dest(struct bgp_clearing_info *cinfo);
+/* Done with a peer clearing batch; deal with refcounts, free memory */
+void bgp_clearing_batch_completed(struct bgp_clearing_info *cinfo);
 
 #ifdef _FRR_ATTRIBUTE_PRINTFRR
 /* clang-format off */
