@@ -199,7 +199,7 @@ static int read_ibuf_work(struct peer_connection *connection)
 	assert(ringbuf_get(ibw, pkt->data, pktsize) == pktsize);
 	stream_set_endp(pkt, pktsize);
 
-	frrtrace(2, frr_bgp, packet_read, connection->peer, pkt);
+	frrtrace(2, frr_bgp, packet_read, connection, pkt);
 	frr_with_mutex (&connection->io_mtx) {
 		stream_fifo_push(connection->ibuf, pkt);
 	}
