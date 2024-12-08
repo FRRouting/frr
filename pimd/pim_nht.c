@@ -161,10 +161,24 @@ void pim_nht_bsr_add(struct pim_instance *pim, pim_addr addr)
 	pnc->bsr_count++;
 }
 
+<<<<<<< HEAD
+=======
+bool pim_nht_candrp_add(struct pim_instance *pim, pim_addr addr)
+{
+	struct pim_nexthop_cache *pnc;
+
+	pnc = pim_nht_get(pim, addr);
+
+	pnc->candrp_count++;
+	return CHECK_FLAG(pnc->flags, PIM_NEXTHOP_VALID);
+}
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 static void pim_nht_drop_maybe(struct pim_instance *pim,
 			       struct pim_nexthop_cache *pnc)
 {
 	if (PIM_DEBUG_PIM_NHT)
+<<<<<<< HEAD
 		zlog_debug(
 			"%s: NHT %pPA(%s) rp_list count:%d upstream count:%ld BSR count:%u",
 			__func__, &pnc->rpf.rpf_addr, pim->vrf->name,
@@ -173,6 +187,15 @@ static void pim_nht_drop_maybe(struct pim_instance *pim,
 
 	if (pnc->rp_list->count == 0 && pnc->upstream_hash->count == 0
 	    && pnc->bsr_count == 0) {
+=======
+		zlog_debug("%s: NHT %pPA(%s) rp_list count:%d upstream count:%ld BSR count:%u Cand-RP count:%u",
+			   __func__, &pnc->rpf.rpf_addr, pim->vrf->name,
+			   pnc->rp_list->count, pnc->upstream_hash->count,
+			   pnc->bsr_count, pnc->candrp_count);
+
+	if (pnc->rp_list->count == 0 && pnc->upstream_hash->count == 0 &&
+	    pnc->bsr_count == 0 && pnc->candrp_count == 0) {
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		struct zclient *zclient = pim_zebra_zclient_get();
 
 		pim_sendmsg_zebra_rnh(pim, zclient, pnc,
@@ -258,6 +281,30 @@ void pim_nht_bsr_del(struct pim_instance *pim, pim_addr addr)
 	pim_nht_drop_maybe(pim, pnc);
 }
 
+<<<<<<< HEAD
+=======
+void pim_nht_candrp_del(struct pim_instance *pim, pim_addr addr)
+{
+	struct pim_nexthop_cache *pnc = NULL;
+	struct pim_nexthop_cache lookup;
+
+	lookup.rpf.rpf_addr = addr;
+
+	pnc = hash_lookup(pim->rpf_hash, &lookup);
+
+	if (!pnc) {
+		zlog_warn("attempting to delete nonexistent NHT C-RP entry %pPA",
+			  &addr);
+		return;
+	}
+
+	assertf(pnc->candrp_count > 0, "addr=%pPA", &addr);
+	pnc->candrp_count--;
+
+	pim_nht_drop_maybe(pim, pnc);
+}
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 bool pim_nht_bsr_rpf_check(struct pim_instance *pim, pim_addr bsr_addr,
 			   struct interface *src_ifp, pim_addr src_ip)
 {
@@ -312,7 +359,10 @@ bool pim_nht_bsr_rpf_check(struct pim_instance *pim, pim_addr bsr_addr,
 			nbr = pim_neighbor_find(ifp, znh->nexthop_addr, true);
 			if (!nbr)
 				continue;
+<<<<<<< HEAD
 
+=======
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 			/* Are we on the correct interface? */
 			if (znh->ifindex == src_ifp->ifindex) {
 				/* Do we have the correct NH ? */
@@ -386,9 +436,13 @@ bool pim_nht_bsr_rpf_check(struct pim_instance *pim, pim_addr bsr_addr,
 			return true;
 
 		/* MRIB (IGP) may be pointing at a router where PIM is down */
+<<<<<<< HEAD
 
 		nbr = pim_neighbor_find(ifp, nhaddr, true);
 
+=======
+		nbr = pim_neighbor_find(ifp, nhaddr, true);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		if (!nbr)
 			continue;
 
@@ -567,7 +621,11 @@ static int pim_ecmp_nexthop_search(struct pim_instance *pim,
 	ifindex_t first_ifindex;
 	struct interface *ifp = NULL;
 	uint32_t hash_val = 0, mod_val = 0;
+<<<<<<< HEAD
 	uint8_t nh_iter = 0, found = 0;
+=======
+	uint16_t nh_iter = 0, found = 0;
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	uint32_t i, num_nbrs = 0;
 	struct pim_interface *pim_ifp;
 
@@ -924,6 +982,12 @@ void pim_nexthop_update(struct vrf *vrf, struct prefix *match,
 		pim_update_rp_nh(pim, pnc);
 	if (pnc->upstream_hash->count)
 		pim_update_upstream_nh(pim, pnc);
+<<<<<<< HEAD
+=======
+
+	if (pnc->candrp_count)
+		pim_crp_nht_update(pim, pnc);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 }
 
 int pim_ecmp_nexthop_lookup(struct pim_instance *pim,
@@ -938,7 +1002,11 @@ int pim_ecmp_nexthop_lookup(struct pim_instance *pim,
 	struct interface *ifps[router->multipath], *ifp;
 	int first_ifindex;
 	int found = 0;
+<<<<<<< HEAD
 	uint8_t i = 0;
+=======
+	uint16_t i = 0;
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	uint32_t hash_val = 0, mod_val = 0;
 	uint32_t num_nbrs = 0;
 	struct pim_interface *pim_ifp;

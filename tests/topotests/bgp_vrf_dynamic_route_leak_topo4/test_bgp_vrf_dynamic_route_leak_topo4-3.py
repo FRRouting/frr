@@ -24,7 +24,10 @@ import sys
 import time
 import pytest
 import platform
+<<<<<<< HEAD
 from time import sleep
+=======
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 # Save the Current Working Directory to find configuration files.
 CWD = os.path.dirname(os.path.realpath(__file__))
@@ -46,18 +49,25 @@ from lib.common_config import (
     reset_config_on_routers,
     verify_rib,
     step,
+<<<<<<< HEAD
     create_route_maps,
     create_static_routes,
     create_prefix_lists,
     create_bgp_community_lists,
     get_frr_ipv6_linklocal,
+=======
+    create_static_routes,
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 )
 
 from lib.topolog import logger
 from lib.bgp import (
     verify_bgp_convergence,
     create_router_bgp,
+<<<<<<< HEAD
     verify_bgp_community,
+=======
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
     verify_bgp_rib,
 )
 from lib.topojson import build_config_from_json

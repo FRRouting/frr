@@ -15,7 +15,11 @@ argp.add_argument("--autofix", action="store_const", const=True)
 argp.add_argument("--warn-empty", action="store_const", const=True)
 argp.add_argument("--pipe", action="store_const", const=True)
 
+<<<<<<< HEAD
 include_re = re.compile('^#\s*include\s+["<]([^ ">]+)[">]', re.M)
+=======
+include_re = re.compile(r'^#\s*include\s+["<]([^ ">]+)[">]', re.M)
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 ignore = [
     lambda fn: fn.startswith("tools/"),

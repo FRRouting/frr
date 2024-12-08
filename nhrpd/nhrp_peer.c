@@ -609,7 +609,11 @@ static void nhrp_handle_resolution_req(struct nhrp_packet_parser *pp)
 			break;
 		}
 	}
+<<<<<<< HEAD
 	nhrp_packet_complete(zb, hdr);
+=======
+	nhrp_packet_complete(zb, hdr, ifp);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	nhrp_peer_send(peer, zb);
 err:
 	nhrp_peer_unref(peer);
@@ -736,7 +740,12 @@ static void nhrp_handle_registration_request(struct nhrp_packet_parser *p)
 		}
 	}
 
+<<<<<<< HEAD
 	nhrp_packet_complete(zb, hdr);
+=======
+	/* auth ext was validated and copied from the request */
+	nhrp_packet_complete_auth(zb, hdr, ifp, false);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	nhrp_peer_send(p->peer, zb);
 err:
 	zbuf_free(zb);
@@ -818,7 +827,11 @@ void nhrp_peer_send_indication(struct interface *ifp, uint16_t protocol_type,
 
 	/* Payload is the packet causing indication */
 	zbuf_copy(zb, pkt, zbuf_used(pkt));
+<<<<<<< HEAD
 	nhrp_packet_complete(zb, hdr);
+=======
+	nhrp_packet_complete(zb, hdr, ifp);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	nhrp_peer_send(p, zb);
 	nhrp_peer_unref(p);
 	zbuf_free(zb);
@@ -964,9 +977,18 @@ static void nhrp_peer_forward(struct nhrp_peer *p,
 		if (type == NHRP_EXTENSION_END)
 			break;
 
+<<<<<<< HEAD
 		dst = nhrp_ext_push(zb, hdr, htons(ext->type));
 		if (!dst)
 			goto err;
+=======
+		dst = NULL;
+		if (type != NHRP_EXTENSION_AUTHENTICATION) {
+			dst = nhrp_ext_push(zb, hdr, htons(ext->type));
+			if (!dst)
+				goto err;
+		}
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 		switch (type) {
 		case NHRP_EXTENSION_FORWARD_TRANSIT_NHS:
@@ -1051,6 +1073,15 @@ static void nhrp_peer_forward(struct nhrp_peer *p,
 				zbuf_put(zb, extpl.head, len);
 			}
 			break;
+<<<<<<< HEAD
+=======
+		case NHRP_EXTENSION_AUTHENTICATION:
+			/* Extensions can be copied from original packet except
+			 * authentication extension which must be regenerated
+			 * hop by hop.
+			 */
+			break;
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		default:
 			if (htons(ext->type) & NHRP_EXTENSION_FLAG_COMPULSORY)
 				/* FIXME: RFC says to just copy, but not
@@ -1066,10 +1097,18 @@ static void nhrp_peer_forward(struct nhrp_peer *p,
 			zbuf_copy(zb, &extpl, len);
 			break;
 		}
+<<<<<<< HEAD
 		nhrp_ext_complete(zb, dst);
 	}
 
 	nhrp_packet_complete(zb, hdr);
+=======
+		if (dst)
+			nhrp_ext_complete(zb, dst);
+	}
+
+	nhrp_packet_complete_auth(zb, hdr, pp->ifp, true);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	nhrp_peer_send(p, zb);
 	zbuf_free(zb);
 	zbuf_free(zb_copy);
@@ -1095,8 +1134,12 @@ static void nhrp_packet_debug(struct zbuf *zb, const char *dir)
 
 	reply = packet_types[hdr->type].type == PACKET_REPLY;
 	debugf(NHRP_DEBUG_COMMON, "%s %s(%d) %pSU -> %pSU", dir,
+<<<<<<< HEAD
 	       (packet_types[hdr->type].name ? packet_types[hdr->type].name
 					     : "Unknown"),
+=======
+	       (packet_types[hdr->type].name ? : "Unknown"),
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	       hdr->type, reply ? &dst_proto : &src_proto,
 	       reply ? &src_proto : &dst_proto);
 }
@@ -1112,11 +1155,119 @@ static int proto2afi(uint16_t proto)
 	return AF_UNSPEC;
 }
 
+<<<<<<< HEAD
 struct nhrp_route_info {
 	int local;
 	struct interface *ifp;
 	struct nhrp_vc *vc;
 };
+=======
+static int nhrp_packet_send_error(struct nhrp_packet_parser *pp,
+				  uint16_t indication_code, uint16_t offset)
+{
+	union sockunion src_proto, dst_proto;
+	struct nhrp_packet_header *hdr;
+	struct zbuf *zb;
+
+	src_proto = pp->src_proto;
+	dst_proto = pp->dst_proto;
+	if (packet_types[pp->hdr->type].type != PACKET_REPLY) {
+		src_proto = pp->dst_proto;
+		dst_proto = pp->src_proto;
+	}
+	/* Create reply */
+	zb = zbuf_alloc(1500);
+	hdr = nhrp_packet_push(zb, NHRP_PACKET_ERROR_INDICATION, &pp->src_nbma,
+			       &src_proto, &dst_proto);
+
+	hdr->u.error.code = htons(indication_code);
+	hdr->u.error.offset = htons(offset);
+	hdr->flags = pp->hdr->flags;
+	hdr->hop_count = 0; /* XXX: cisco returns 255 */
+
+	/* Payload is the packet causing error */
+	/* Don`t add extension according to RFC */
+	zbuf_put(zb, pp->hdr, sizeof(*pp->hdr));
+	zbuf_put(zb, sockunion_get_addr(&pp->src_nbma),
+		 hdr->src_nbma_address_len);
+	zbuf_put(zb, sockunion_get_addr(&pp->src_proto),
+		 hdr->src_protocol_address_len);
+	zbuf_put(zb, sockunion_get_addr(&pp->dst_proto),
+		 hdr->dst_protocol_address_len);
+	nhrp_packet_complete_auth(zb, hdr, pp->ifp, false);
+
+	nhrp_peer_send(pp->peer, zb);
+	zbuf_free(zb);
+	return 0;
+}
+
+static bool nhrp_connection_authorized(struct nhrp_packet_parser *pp)
+{
+	struct nhrp_cisco_authentication_extension *auth_ext;
+	struct nhrp_interface *nifp = pp->ifp->info;
+	struct zbuf *auth = nifp->auth_token;
+	struct nhrp_extension_header *ext;
+	struct zbuf *extensions, pl;
+	int cmp = 1;
+	int pl_pass_length, auth_pass_length;
+	size_t auth_size, pl_size;
+
+	extensions = zbuf_alloc(zbuf_used(&pp->extensions));
+	zbuf_copy_peek(extensions, &pp->extensions, zbuf_used(&pp->extensions));
+	while ((ext = nhrp_ext_pull(extensions, &pl)) != NULL) {
+		switch (htons(ext->type) & ~NHRP_EXTENSION_FLAG_COMPULSORY) {
+		case NHRP_EXTENSION_AUTHENTICATION:
+			/* Size of authentication extensions
+			 * (varies based on password length)
+			 */
+			auth_size = zbuf_size(auth);
+			pl_size = zbuf_size(&pl);
+			auth_ext = (struct nhrp_cisco_authentication_extension *)
+					   auth->buf;
+
+			if (auth_size == pl_size)
+				cmp = memcmp(auth_ext, pl.buf, auth_size);
+			else
+				cmp = 1;
+
+			if (unlikely(debug_flags & NHRP_DEBUG_COMMON)) {
+				/* 4 bytes in nhrp_cisco_authentication_extension are allocated
+				 * toward the authentication type. The remaining bytes are used for the
+				 * password - so the password length is just the length of the extension - 4
+				 */
+				auth_pass_length = (auth_size - 4);
+				pl_pass_length = (pl_size - 4);
+				/* Because characters are to be printed in HEX, (2* the max pass length) + 1
+				 * is needed for the string representation
+				 */
+				char auth_pass[(2 * NHRP_CISCO_PASS_LEN) + 1] = { 0 },
+					       pl_pass[(2 * NHRP_CISCO_PASS_LEN) + 1] = { 0 };
+				/* Converting bytes in buffer to HEX and saving output as a string -
+				 * Passphrase is converted to HEX in order to avoid printing
+				 * non ACII-compliant characters
+				 */
+				for (int i = 0; i < (auth_pass_length); i++)
+					snprintf(auth_pass + (i * 2), 3, "%02X",
+						 auth_ext->secret[i]);
+				for (int i = 0; i < (pl_pass_length); i++)
+					snprintf(pl_pass + (i * 2), 3, "%02X",
+						 ((struct nhrp_cisco_authentication_extension *)pl.buf)
+							 ->secret[i]);
+
+				debugf(NHRP_DEBUG_COMMON,
+				       "Processing Authentication Extension for (%s:%s|%d)",
+				       auth_pass, pl_pass, cmp);
+			}
+			break;
+		default:
+			/* Ignoring all received extensions except Authentication*/
+			break;
+		}
+	}
+	zbuf_free(extensions);
+	return cmp == 0;
+}
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 void nhrp_peer_recv(struct nhrp_peer *p, struct zbuf *zb)
 {
@@ -1197,10 +1348,27 @@ void nhrp_peer_recv(struct nhrp_peer *p, struct zbuf *zb)
 		goto drop;
 	}
 
+<<<<<<< HEAD
 	nhrp_packet_debug(zb, "Recv");
 
 	/* FIXME: Check authentication here. This extension needs to be
 	 * pre-handled. */
+=======
+	/* RFC2332 5.3.4 - Authentication is always done pairwise on an NHRP
+	 * hop-by-hop basis; i.e. regenerated at each hop. */
+	nhrp_packet_debug(zb, "Recv");
+	if (nifp->auth_token &&
+	    (hdr->type != NHRP_PACKET_ERROR_INDICATION ||
+	     hdr->u.error.code != NHRP_ERROR_AUTHENTICATION_FAILURE)) {
+		if (!nhrp_connection_authorized(&pp)) {
+			nhrp_packet_send_error(&pp,
+					       NHRP_ERROR_AUTHENTICATION_FAILURE,
+					       0);
+			info = "authentication failure";
+			goto drop;
+		}
+	}
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 	/* Figure out if this is local */
 	target_addr = (packet_types[hdr->type].type == PACKET_REPLY)

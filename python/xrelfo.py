@@ -447,7 +447,13 @@ def main():
     argp = argparse.ArgumentParser(description="FRR xref ELF extractor")
     argp.add_argument("-o", dest="output", type=str, help="write JSON output")
     argp.add_argument("--out-by-file", type=str, help="write by-file JSON output")
+<<<<<<< HEAD
     argp.add_argument("-c", dest="vtysh_cmds", type=str, help="write vtysh_cmd.c")
+=======
+    argp.add_argument(
+        "-c", dest="vtysh_cmds", type=str, help="write vtysh_cmd.c", nargs="*"
+    )
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
     argp.add_argument("-Wlog-format", action="store_const", const=True)
     argp.add_argument("-Wlog-args", action="store_const", const=True)
     argp.add_argument("-Werror", action="store_const", const=True)
@@ -528,9 +534,23 @@ def _main(args):
         os.rename(args.out_by_file + ".tmp", args.out_by_file)
 
     if args.vtysh_cmds:
+<<<<<<< HEAD
         with open(args.vtysh_cmds + ".tmp", "w") as fd:
             CommandEntry.run(out, fd)
         os.rename(args.vtysh_cmds + ".tmp", args.vtysh_cmds)
+=======
+        fds = []
+        for filename in args.vtysh_cmds:
+            fds.append(open(filename + ".tmp", "w"))
+
+        CommandEntry.run(out, fds)
+
+        while fds:
+            fds.pop(0).close()
+        for filename in args.vtysh_cmds:
+            os.rename(filename + ".tmp", filename)
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
         if args.Werror and CommandEntry.warn_counter:
             sys.exit(1)
 

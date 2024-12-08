@@ -12,7 +12,35 @@
       "installed":true,
       "internalNextHopNum":1,
       "internalNextHopActiveNum":1,
+<<<<<<< HEAD
       "nexthops":[
+=======
+      "nexthops": [
+        {
+          "fib":true,
+          "directlyConnected":true,
+          "interfaceName":"r2-gre0",
+          "active":true
+        }
+      ]
+    }
+  ],
+  "10.255.255.4\/32": [
+    {
+      "prefix":"10.255.255.4\/32",
+      "prefixLen":32,
+      "protocol":"nhrp",
+      "vrfId":0,
+      "vrfName":"default",
+      "selected":true,
+      "destSelected":true,
+      "distance":10,
+      "metric":0,
+      "installed":true,
+      "internalNextHopNum":1,
+      "internalNextHopActiveNum":1,
+      "nexthops": [
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
         {
           "fib":true,
           "directlyConnected":true,

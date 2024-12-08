@@ -738,9 +738,15 @@ struct bpacket *subgroup_update_packet(struct update_subgroup *subgrp)
 
 			/* 5: Encode all the attributes, except MP_REACH_NLRI
 			 * attr. */
+<<<<<<< HEAD
 			total_attr_len = bgp_packet_attribute(
 				NULL, peer, s, adv->baa->attr, &vecarr, NULL,
 				afi, safi, from, NULL, NULL, 0, 0, 0, path);
+=======
+			total_attr_len = bgp_packet_attribute(NULL, peer, s, adv->baa->attr,
+							      &vecarr, NULL, afi, safi, from, NULL,
+							      NULL, 0, 0, 0);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 			space_remaining =
 				STREAM_CONCAT_REMAIN(s, snlri, STREAM_SIZE(s))
@@ -861,7 +867,12 @@ struct bpacket *subgroup_update_packet(struct update_subgroup *subgrp)
 			bgp_debug_rdpfxpath2str(afi, safi, prd, dest_p,
 						label_pnt, num_labels,
 						addpath_capable, addpath_tx_id,
+<<<<<<< HEAD
 						&adv->baa->attr->evpn_overlay,
+=======
+						bgp_attr_get_evpn_overlay(
+							adv->baa->attr),
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 						pfx_buf, sizeof(pfx_buf));
 			zlog_debug("u%" PRIu64 ":s%" PRIu64 " send UPDATE %s",
 				   subgrp->update_group->id, subgrp->id,
@@ -1148,12 +1159,18 @@ void subgroup_default_update_packet(struct update_subgroup *subgrp,
 	/* Make place for total attribute length.  */
 	pos = stream_get_endp(s);
 	stream_putw(s, 0);
+<<<<<<< HEAD
 	total_attr_len =
 		bgp_packet_attribute(NULL, peer, s, attr, &vecarr, &p, afi,
 				     safi, from, NULL, &label, num_labels,
 				     addpath_capable,
 				     BGP_ADDPATH_TX_ID_FOR_DEFAULT_ORIGINATE,
 				     NULL);
+=======
+	total_attr_len = bgp_packet_attribute(NULL, peer, s, attr, &vecarr, &p, afi, safi, from,
+					      NULL, &label, num_labels, addpath_capable,
+					      BGP_ADDPATH_TX_ID_FOR_DEFAULT_ORIGINATE);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 	/* Set Total Path Attribute Length. */
 	stream_putw_at(s, pos, total_attr_len);

@@ -36,6 +36,10 @@
 #include "pim_zlookup.h"
 #include "pim_zebra.h"
 #include "pim_mlag.h"
+<<<<<<< HEAD
+=======
+#include "pim_autorp.h"
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 #if MAXVIFS > 256
 CPP_NOTICE("Work needs to be done to make this work properly via the pim mroute socket\n");
@@ -71,6 +75,12 @@ void pim_prefix_list_update(struct prefix_list *plist)
 		pim_rp_prefix_list_update(pim, plist);
 		pim_ssm_prefix_list_update(pim, plist);
 		pim_upstream_spt_prefix_list_update(pim, plist);
+<<<<<<< HEAD
+=======
+#if PIM_IPV == 4
+		pim_autorp_prefix_list_update(pim, plist);
+#endif
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	}
 }
 

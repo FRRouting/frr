@@ -198,6 +198,10 @@ static struct hash *vnc_hash = NULL;
 #endif
 static struct hash *srv6_l3vpn_hash;
 static struct hash *srv6_vpn_hash;
+<<<<<<< HEAD
+=======
+static struct hash *evpn_overlay_hash;
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 struct bgp_attr_encap_subtlv *encap_tlv_dup(struct bgp_attr_encap_subtlv *orig)
 {
@@ -479,12 +483,20 @@ static bool bgp_attr_aigp_get_tlv_metric(uint8_t *pnt, int length,
 	return false;
 }
 
+<<<<<<< HEAD
 static void stream_put_bgp_aigp_tlv_metric(struct stream *s,
 					   struct bgp_path_info *bpi)
 {
 	stream_putc(s, BGP_AIGP_TLV_METRIC);
 	stream_putw(s, BGP_AIGP_TLV_METRIC_LEN);
 	stream_putq(s, bgp_aigp_metric_total(bpi));
+=======
+static void stream_put_bgp_aigp_tlv_metric(struct stream *s, uint64_t aigp)
+{
+	stream_putc(s, BGP_AIGP_TLV_METRIC);
+	stream_putw(s, BGP_AIGP_TLV_METRIC_LEN);
+	stream_putq(s, aigp);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 }
 
 static bool bgp_attr_aigp_valid(uint8_t *pnt, int length)
@@ -539,6 +551,84 @@ static bool bgp_attr_aigp_valid(uint8_t *pnt, int length)
 	return true;
 }
 
+<<<<<<< HEAD
+=======
+static void *evpn_overlay_hash_alloc(void *p)
+{
+	return p;
+}
+
+void evpn_overlay_free(struct bgp_route_evpn *bre)
+{
+	XFREE(MTYPE_BGP_EVPN_OVERLAY, bre);
+}
+
+static struct bgp_route_evpn *evpn_overlay_intern(struct bgp_route_evpn *bre)
+{
+	struct bgp_route_evpn *find;
+
+	find = hash_get(evpn_overlay_hash, bre, evpn_overlay_hash_alloc);
+	if (find != bre)
+		evpn_overlay_free(bre);
+	find->refcnt++;
+	return find;
+}
+
+static void evpn_overlay_unintern(struct bgp_route_evpn **brep)
+{
+	struct bgp_route_evpn *bre = *brep;
+
+	if (!*brep)
+		return;
+
+	if (bre->refcnt)
+		bre->refcnt--;
+
+	if (bre->refcnt == 0) {
+		hash_release(evpn_overlay_hash, bre);
+		evpn_overlay_free(bre);
+		*brep = NULL;
+	}
+}
+
+static uint32_t evpn_overlay_hash_key_make(const void *p)
+{
+	const struct bgp_route_evpn *bre = p;
+	uint32_t key = 0;
+
+	if (IS_IPADDR_V4(&bre->gw_ip))
+		key = jhash_1word(bre->gw_ip.ipaddr_v4.s_addr, 0);
+	else
+		key = jhash2(bre->gw_ip.ipaddr_v6.s6_addr32,
+			     array_size(bre->gw_ip.ipaddr_v6.s6_addr32), 0);
+
+	key = jhash_1word(bre->type, key);
+	key = jhash(bre->eth_s_id.val, sizeof(bre->eth_s_id.val), key);
+	return key;
+}
+
+static bool evpn_overlay_hash_cmp(const void *p1, const void *p2)
+{
+	const struct bgp_route_evpn *bre1 = p1;
+	const struct bgp_route_evpn *bre2 = p2;
+
+	return bgp_route_evpn_same(bre1, bre2);
+}
+
+static void evpn_overlay_init(void)
+{
+	evpn_overlay_hash = hash_create(evpn_overlay_hash_key_make,
+					evpn_overlay_hash_cmp,
+					"BGP EVPN Overlay");
+}
+
+static void evpn_overlay_finish(void)
+{
+	hash_clean_and_free(&evpn_overlay_hash,
+			    (void (*)(void *))evpn_overlay_free);
+}
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 static void *srv6_l3vpn_hash_alloc(void *p)
 {
 	return p;
@@ -622,6 +712,7 @@ static uint32_t srv6_l3vpn_hash_key_make(const void *p)
 	uint32_t key = 0;
 
 	key = jhash(&l3vpn->sid, 16, key);
+<<<<<<< HEAD
 	key = jhash_1word(l3vpn->sid_flags, key);
 	key = jhash_1word(l3vpn->endpoint_behavior, key);
 	key = jhash_1word(l3vpn->loc_block_len, key);
@@ -630,6 +721,11 @@ static uint32_t srv6_l3vpn_hash_key_make(const void *p)
 	key = jhash_1word(l3vpn->arg_len, key);
 	key = jhash_1word(l3vpn->transposition_len, key);
 	key = jhash_1word(l3vpn->transposition_offset, key);
+=======
+	key = jhash_3words(l3vpn->sid_flags, l3vpn->endpoint_behavior, l3vpn->loc_block_len, key);
+	key = jhash_3words(l3vpn->loc_node_len, l3vpn->func_len, l3vpn->arg_len, key);
+	key = jhash_2words(l3vpn->transposition_len, l3vpn->transposition_offset, key);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	return key;
 }
 
@@ -778,6 +874,11 @@ unsigned int attrhash_key_make(const void *p)
 		MIX(encap_hash_key_make(attr->encap_subtlvs));
 	if (attr->srv6_l3vpn)
 		MIX(srv6_l3vpn_hash_key_make(attr->srv6_l3vpn));
+<<<<<<< HEAD
+=======
+	if (bgp_attr_get_evpn_overlay(attr))
+		MIX(evpn_overlay_hash_key_make(bgp_attr_get_evpn_overlay(attr)));
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	if (attr->srv6_vpn)
 		MIX(srv6_vpn_hash_key_make(attr->srv6_vpn));
 #ifdef ENABLE_BGP_VNC
@@ -786,6 +887,7 @@ unsigned int attrhash_key_make(const void *p)
 	if (vnc_subtlvs)
 		MIX(encap_hash_key_make(vnc_subtlvs));
 #endif
+<<<<<<< HEAD
 	MIX(attr->mp_nexthop_len);
 	key = jhash(attr->mp_nexthop_global.s6_addr, IPV6_MAX_BYTELEN, key);
 	key = jhash(attr->mp_nexthop_local.s6_addr, IPV6_MAX_BYTELEN, key);
@@ -795,6 +897,13 @@ unsigned int attrhash_key_make(const void *p)
 	MIX(attr->bh_type);
 	MIX(attr->otc);
 	MIX(bgp_attr_get_aigp_metric(attr));
+=======
+	MIX3(attr->mp_nexthop_len, attr->rmap_table_id, attr->nh_type);
+	key = jhash(attr->mp_nexthop_global.s6_addr, IPV6_MAX_BYTELEN, key);
+	key = jhash(attr->mp_nexthop_local.s6_addr, IPV6_MAX_BYTELEN, key);
+	MIX3(attr->nh_ifindex, attr->nh_lla_ifindex, attr->distance);
+	MIX3(attr->bh_type, attr->otc, bgp_attr_get_aigp_metric(attr));
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 	return key;
 }
@@ -804,6 +913,7 @@ bool attrhash_cmp(const void *p1, const void *p2)
 	const struct attr *attr1 = p1;
 	const struct attr *attr2 = p2;
 
+<<<<<<< HEAD
 	if (attr1->flag == attr2->flag && attr1->origin == attr2->origin
 	    && attr1->nexthop.s_addr == attr2->nexthop.s_addr
 	    && attr1->aspath == attr2->aspath
@@ -817,6 +927,18 @@ bool attrhash_cmp(const void *p1, const void *p2)
 			    attr2->aggregator_addr.s_addr &&
 		    attr1->weight == attr2->weight &&
 		    attr1->tag == attr2->tag &&
+=======
+	if (attr1->flag == attr2->flag && attr1->origin == attr2->origin &&
+	    attr1->nexthop.s_addr == attr2->nexthop.s_addr &&
+	    attr1->aspath == attr2->aspath &&
+	    bgp_attr_get_community(attr1) == bgp_attr_get_community(attr2) &&
+	    attr1->med == attr2->med && attr1->local_pref == attr2->local_pref &&
+	    attr1->rmap_change_flags == attr2->rmap_change_flags) {
+		if (attr1->aggregator_as == attr2->aggregator_as &&
+		    attr1->aggregator_addr.s_addr ==
+			    attr2->aggregator_addr.s_addr &&
+		    attr1->weight == attr2->weight && attr1->tag == attr2->tag &&
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		    attr1->label_index == attr2->label_index &&
 		    attr1->mp_nexthop_len == attr2->mp_nexthop_len &&
 		    bgp_attr_get_ecommunity(attr1) ==
@@ -825,10 +947,15 @@ bool attrhash_cmp(const void *p1, const void *p2)
 			    bgp_attr_get_ipv6_ecommunity(attr2) &&
 		    bgp_attr_get_lcommunity(attr1) ==
 			    bgp_attr_get_lcommunity(attr2) &&
+<<<<<<< HEAD
 		    bgp_attr_get_cluster(attr1) ==
 			    bgp_attr_get_cluster(attr2) &&
 		    bgp_attr_get_transit(attr1) ==
 			    bgp_attr_get_transit(attr2) &&
+=======
+		    bgp_attr_get_cluster(attr1) == bgp_attr_get_cluster(attr2) &&
+		    bgp_attr_get_transit(attr1) == bgp_attr_get_transit(attr2) &&
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		    bgp_attr_get_aigp_metric(attr1) ==
 			    bgp_attr_get_aigp_metric(attr2) &&
 		    attr1->rmap_table_id == attr2->rmap_table_id &&
@@ -860,8 +987,12 @@ bool attrhash_cmp(const void *p1, const void *p2)
 		    srv6_vpn_same(attr1->srv6_vpn, attr2->srv6_vpn) &&
 		    attr1->srte_color == attr2->srte_color &&
 		    attr1->nh_type == attr2->nh_type &&
+<<<<<<< HEAD
 		    attr1->bh_type == attr2->bh_type &&
 		    attr1->otc == attr2->otc)
+=======
+		    attr1->bh_type == attr2->bh_type && attr1->otc == attr2->otc)
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 			return true;
 	}
 
@@ -905,8 +1036,16 @@ static void attr_show_all_iterator(struct hash_bucket *bucket, struct vty *vty)
 		"\n",
 		attr->flag, attr->distance, attr->med, attr->local_pref,
 		attr->origin, attr->weight, attr->label, sid, attr->aigp_metric);
+<<<<<<< HEAD
 	vty_out(vty, "\taspath: %s Community: %s Large Community: %s\n",
 		aspath_print(attr->aspath),
+=======
+	vty_out(vty,
+		"\tnh_ifindex: %u nh_flags: %u distance: %u nexthop_global: %pI6 nexthop_local: %pI6 nexthop_local_ifindex: %u\n",
+		attr->nh_ifindex, attr->nh_flags, attr->distance, &attr->mp_nexthop_global,
+		&attr->mp_nexthop_local, attr->nh_lla_ifindex);
+	vty_out(vty, "\taspath: %s Community: %s Large Community: %s\n", aspath_print(attr->aspath),
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		community_str(attr->community, false, false),
 		lcommunity_str(attr->lcommunity, false, false));
 	vty_out(vty, "\tExtended Community: %s Extended IPv6 Community: %s\n",
@@ -951,6 +1090,10 @@ struct attr *bgp_attr_intern(struct attr *attr)
 	struct ecommunity *ipv6_ecomm = NULL;
 	struct lcommunity *lcomm = NULL;
 	struct community *comm = NULL;
+<<<<<<< HEAD
+=======
+	struct bgp_route_evpn *bre = NULL;
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 	/* Intern referenced structure. */
 	if (attr->aspath) {
@@ -1017,6 +1160,19 @@ struct attr *bgp_attr_intern(struct attr *attr)
 		else
 			attr->encap_subtlvs->refcnt++;
 	}
+<<<<<<< HEAD
+=======
+
+	bre = bgp_attr_get_evpn_overlay(attr);
+	if (bre) {
+		if (!bre->refcnt)
+			bgp_attr_set_evpn_overlay(attr,
+						  evpn_overlay_intern(bre));
+		else
+			bre->refcnt++;
+	}
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	if (attr->srv6_l3vpn) {
 		if (!attr->srv6_l3vpn->refcnt)
 			attr->srv6_l3vpn = srv6_l3vpn_intern(attr->srv6_l3vpn);
@@ -1062,14 +1218,24 @@ struct attr *bgp_attr_default_set(struct attr *attr, struct bgp *bgp,
 	memset(attr, 0, sizeof(struct attr));
 
 	attr->origin = origin;
+<<<<<<< HEAD
 	attr->flag |= ATTR_FLAG_BIT(BGP_ATTR_ORIGIN);
 	attr->aspath = aspath_empty(bgp->asnotation);
 	attr->flag |= ATTR_FLAG_BIT(BGP_ATTR_AS_PATH);
+=======
+	SET_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_ORIGIN));
+	attr->aspath = aspath_empty(bgp->asnotation);
+	SET_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_AS_PATH));
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	attr->weight = BGP_ATTR_DEFAULT_WEIGHT;
 	attr->tag = 0;
 	attr->label_index = BGP_INVALID_LABEL_INDEX;
 	attr->label = MPLS_INVALID_LABEL;
+<<<<<<< HEAD
 	attr->flag |= ATTR_FLAG_BIT(BGP_ATTR_NEXT_HOP);
+=======
+	SET_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_NEXT_HOP));
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	attr->mp_nexthop_len = IPV6_MAX_BYTELEN;
 	attr->local_pref = bgp->default_local_pref;
 
@@ -1091,18 +1257,29 @@ struct attr *bgp_attr_aggregate_intern(
 
 	/* Origin attribute. */
 	attr.origin = origin;
+<<<<<<< HEAD
 	attr.flag |= ATTR_FLAG_BIT(BGP_ATTR_ORIGIN);
 
 	/* MED */
 	attr.med = 0;
 	attr.flag |= ATTR_FLAG_BIT(BGP_ATTR_MULTI_EXIT_DISC);
+=======
+	SET_FLAG(attr.flag, ATTR_FLAG_BIT(BGP_ATTR_ORIGIN));
+
+	/* MED */
+	bgp_attr_set_med(&attr, 0);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 	/* AS path attribute. */
 	if (aspath)
 		attr.aspath = aspath_intern(aspath);
 	else
 		attr.aspath = aspath_empty(bgp->asnotation);
+<<<<<<< HEAD
 	attr.flag |= ATTR_FLAG_BIT(BGP_ATTR_AS_PATH);
+=======
+	SET_FLAG(attr.flag, ATTR_FLAG_BIT(BGP_ATTR_AS_PATH));
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 	if (community) {
 		uint32_t gshut = COMMUNITY_GSHUT;
@@ -1132,8 +1309,13 @@ struct attr *bgp_attr_aggregate_intern(
 	attr.weight = BGP_ATTR_DEFAULT_WEIGHT;
 	attr.mp_nexthop_len = IPV6_MAX_BYTELEN;
 	if (!aggregate->as_set || atomic_aggregate)
+<<<<<<< HEAD
 		attr.flag |= ATTR_FLAG_BIT(BGP_ATTR_ATOMIC_AGGREGATE);
 	attr.flag |= ATTR_FLAG_BIT(BGP_ATTR_AGGREGATOR);
+=======
+		SET_FLAG(attr.flag, ATTR_FLAG_BIT(BGP_ATTR_ATOMIC_AGGREGATE));
+	SET_FLAG(attr.flag, ATTR_FLAG_BIT(BGP_ATTR_AGGREGATOR));
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	if (CHECK_FLAG(bgp->config, BGP_CONFIG_CONFEDERATION))
 		attr.aggregator_as = bgp->confed_id;
 	else
@@ -1151,7 +1333,11 @@ struct attr *bgp_attr_aggregate_intern(
 	 */
 	if (p->family == AF_INET) {
 		/* Next hop attribute.  */
+<<<<<<< HEAD
 		attr.flag |= ATTR_FLAG_BIT(BGP_ATTR_NEXT_HOP);
+=======
+		SET_FLAG(attr.flag, ATTR_FLAG_BIT(BGP_ATTR_NEXT_HOP));
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		attr.mp_nexthop_len = IPV4_MAX_BYTELEN;
 	}
 
@@ -1206,6 +1392,10 @@ void bgp_attr_unintern_sub(struct attr *attr)
 	struct lcommunity *lcomm = NULL;
 	struct community *comm = NULL;
 	struct transit *transit;
+<<<<<<< HEAD
+=======
+	struct bgp_route_evpn *bre;
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 	/* aspath refcount shoud be decrement. */
 	aspath_unintern(&attr->aspath);
@@ -1247,6 +1437,13 @@ void bgp_attr_unintern_sub(struct attr *attr)
 
 	srv6_l3vpn_unintern(&attr->srv6_l3vpn);
 	srv6_vpn_unintern(&attr->srv6_vpn);
+<<<<<<< HEAD
+=======
+
+	bre = bgp_attr_get_evpn_overlay(attr);
+	evpn_overlay_unintern(&bre);
+	bgp_attr_set_evpn_overlay(attr, NULL);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 }
 
 /* Free bgp attribute and aspath. */
@@ -1279,6 +1476,10 @@ void bgp_attr_flush(struct attr *attr)
 	struct cluster_list *cluster;
 	struct lcommunity *lcomm;
 	struct community *comm;
+<<<<<<< HEAD
+=======
+	struct bgp_route_evpn *bre;
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 	if (attr->aspath && !attr->aspath->refcnt) {
 		aspath_free(attr->aspath);
@@ -1337,6 +1538,14 @@ void bgp_attr_flush(struct attr *attr)
 		bgp_attr_set_vnc_subtlvs(attr, NULL);
 	}
 #endif
+<<<<<<< HEAD
+=======
+	bre = bgp_attr_get_evpn_overlay(attr);
+	if (bre && !bre->refcnt) {
+		evpn_overlay_free(bre);
+		bgp_attr_set_evpn_overlay(attr, NULL);
+	}
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 }
 
 /* Implement draft-scudder-idr-optional-transitive behaviour and
@@ -1457,8 +1666,13 @@ bgp_attr_flags_diagnose(struct bgp_attr_parser_args *args,
 	uint8_t real_flags = args->flags;
 	const uint8_t attr_code = args->type;
 
+<<<<<<< HEAD
 	desired_flags &= ~BGP_ATTR_FLAG_EXTLEN;
 	real_flags &= ~BGP_ATTR_FLAG_EXTLEN;
+=======
+	UNSET_FLAG(desired_flags, BGP_ATTR_FLAG_EXTLEN);
+	UNSET_FLAG(real_flags, BGP_ATTR_FLAG_EXTLEN);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	for (i = 0; i <= 2; i++) /* O,T,P, but not E */
 		if (CHECK_FLAG(desired_flags, attr_flag_str[i].key)
 		    != CHECK_FLAG(real_flags, attr_flag_str[i].key)) {
@@ -1572,7 +1786,11 @@ static bool bgp_attr_flag_invalid(struct bgp_attr_parser_args *args)
 	    && CHECK_FLAG(flags, BGP_ATTR_FLAG_TRANS))
 		SET_FLAG(mask, BGP_ATTR_FLAG_PARTIAL);
 
+<<<<<<< HEAD
 	if ((flags & ~mask) == attr_flags_values[attr_code])
+=======
+	if (CHECK_FLAG(flags, ~mask) == attr_flags_values[attr_code])
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		return false;
 
 	bgp_attr_flags_diagnose(args, attr_flags_values[attr_code]);
@@ -1614,7 +1832,11 @@ bgp_attr_origin(struct bgp_attr_parser_args *args)
 	}
 
 	/* Set oring attribute flag. */
+<<<<<<< HEAD
 	attr->flag |= ATTR_FLAG_BIT(BGP_ATTR_ORIGIN);
+=======
+	SET_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_ORIGIN));
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 	return 0;
 }
@@ -1664,7 +1886,11 @@ static int bgp_attr_aspath(struct bgp_attr_parser_args *args)
 	}
 
 	/* Set aspath attribute flag. */
+<<<<<<< HEAD
 	attr->flag |= ATTR_FLAG_BIT(BGP_ATTR_AS_PATH);
+=======
+	SET_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_AS_PATH));
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 	return BGP_ATTR_PARSE_PROCEED;
 }
@@ -1768,7 +1994,11 @@ static int bgp_attr_as4_path(struct bgp_attr_parser_args *args,
 	}
 
 	/* Set aspath attribute flag. */
+<<<<<<< HEAD
 	attr->flag |= ATTR_FLAG_BIT(BGP_ATTR_AS4_PATH);
+=======
+	SET_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_AS4_PATH));
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 	return BGP_ATTR_PARSE_PROCEED;
 }
@@ -1818,7 +2048,11 @@ bgp_attr_nexthop(struct bgp_attr_parser_args *args)
 	}
 
 	attr->nexthop.s_addr = stream_get_ipv4(peer->curr);
+<<<<<<< HEAD
 	attr->flag |= ATTR_FLAG_BIT(BGP_ATTR_NEXT_HOP);
+=======
+	SET_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_NEXT_HOP));
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 	return BGP_ATTR_PARSE_PROCEED;
 }
@@ -1839,9 +2073,13 @@ static enum bgp_attr_parse_ret bgp_attr_med(struct bgp_attr_parser_args *args)
 					  args->total);
 	}
 
+<<<<<<< HEAD
 	attr->med = stream_getl(peer->curr);
 
 	attr->flag |= ATTR_FLAG_BIT(BGP_ATTR_MULTI_EXIT_DISC);
+=======
+	bgp_attr_set_med(attr, stream_getl(peer->curr));
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 	return BGP_ATTR_PARSE_PROCEED;
 }
@@ -1879,7 +2117,11 @@ bgp_attr_local_pref(struct bgp_attr_parser_args *args)
 	STREAM_GETL(peer->curr, attr->local_pref);
 
 	/* Set the local-pref flag. */
+<<<<<<< HEAD
 	attr->flag |= ATTR_FLAG_BIT(BGP_ATTR_LOCAL_PREF);
+=======
+	SET_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_LOCAL_PREF));
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 	return BGP_ATTR_PARSE_PROCEED;
 
@@ -1908,7 +2150,11 @@ static int bgp_attr_atomic(struct bgp_attr_parser_args *args)
 		goto atomic_ignore;
 
 	/* Set atomic aggregate flag. */
+<<<<<<< HEAD
 	attr->flag |= ATTR_FLAG_BIT(BGP_ATTR_ATOMIC_AGGREGATE);
+=======
+	SET_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_ATOMIC_AGGREGATE));
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 	return BGP_ATTR_PARSE_PROCEED;
 
@@ -1966,7 +2212,11 @@ static int bgp_attr_aggregator(struct bgp_attr_parser_args *args)
 			zlog_debug("%s: attributes: %s", __func__, attr_str);
 		}
 	} else {
+<<<<<<< HEAD
 		attr->flag |= ATTR_FLAG_BIT(BGP_ATTR_AGGREGATOR);
+=======
+		SET_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_AGGREGATOR));
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	}
 
 	return BGP_ATTR_PARSE_PROCEED;
@@ -2017,7 +2267,11 @@ bgp_attr_as4_aggregator(struct bgp_attr_parser_args *args,
 			zlog_debug("%s: attributes: %s", __func__, attr_str);
 		}
 	} else {
+<<<<<<< HEAD
 		attr->flag |= ATTR_FLAG_BIT(BGP_ATTR_AS4_AGGREGATOR);
+=======
+		SET_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_AS4_AGGREGATOR));
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	}
 
 	return BGP_ATTR_PARSE_PROCEED;
@@ -2056,12 +2310,22 @@ bgp_attr_munge_as4_attrs(struct peer *const peer, struct attr *const attr,
 		 * should not send them
 		 */
 		if (BGP_DEBUG(as4, AS4)) {
+<<<<<<< HEAD
 			if (attr->flag & (ATTR_FLAG_BIT(BGP_ATTR_AS4_PATH)))
 				zlog_debug("[AS4] %s %s AS4_PATH", peer->host,
 					   "AS4 capable peer, yet it sent");
 
 			if (attr->flag
 			    & (ATTR_FLAG_BIT(BGP_ATTR_AS4_AGGREGATOR)))
+=======
+			if (CHECK_FLAG(attr->flag,
+				       (ATTR_FLAG_BIT(BGP_ATTR_AS4_PATH))))
+				zlog_debug("[AS4] %s %s AS4_PATH", peer->host,
+					   "AS4 capable peer, yet it sent");
+
+			if (CHECK_FLAG(attr->flag,
+				       (ATTR_FLAG_BIT(BGP_ATTR_AS4_AGGREGATOR))))
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 				zlog_debug("[AS4] %s %s AS4_AGGREGATOR",
 					   peer->host,
 					   "AS4 capable peer, yet it sent");
@@ -2073,8 +2337,14 @@ bgp_attr_munge_as4_attrs(struct peer *const peer, struct attr *const attr,
 	/* We have a asn16 peer.  First, look for AS4_AGGREGATOR
 	 * because that may override AS4_PATH
 	 */
+<<<<<<< HEAD
 	if (attr->flag & (ATTR_FLAG_BIT(BGP_ATTR_AS4_AGGREGATOR))) {
 		if (attr->flag & (ATTR_FLAG_BIT(BGP_ATTR_AGGREGATOR))) {
+=======
+	if (CHECK_FLAG(attr->flag, (ATTR_FLAG_BIT(BGP_ATTR_AS4_AGGREGATOR)))) {
+		if (CHECK_FLAG(attr->flag,
+			       (ATTR_FLAG_BIT(BGP_ATTR_AGGREGATOR)))) {
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 			/* received both.
 			 * if the as_number in aggregator is not AS_TRANS,
 			 *  then AS4_AGGREGATOR and AS4_PATH shall be ignored
@@ -2114,13 +2384,23 @@ bgp_attr_munge_as4_attrs(struct peer *const peer, struct attr *const attr,
 			attr->aggregator_as = as4_aggregator;
 			/* sweep it under the carpet and simulate a "good"
 			 * AGGREGATOR */
+<<<<<<< HEAD
 			attr->flag |= (ATTR_FLAG_BIT(BGP_ATTR_AGGREGATOR));
+=======
+			SET_FLAG(attr->flag,
+				 (ATTR_FLAG_BIT(BGP_ATTR_AGGREGATOR)));
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		}
 	}
 
 	/* need to reconcile NEW_AS_PATH and AS_PATH */
+<<<<<<< HEAD
 	if (!ignore_as4_path
 	    && (attr->flag & (ATTR_FLAG_BIT(BGP_ATTR_AS4_PATH)))) {
+=======
+	if (!ignore_as4_path &&
+	    (CHECK_FLAG(attr->flag, (ATTR_FLAG_BIT(BGP_ATTR_AS4_PATH))))) {
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		newpath = aspath_reconcile_as4(attr->aspath, as4_path);
 		if (!newpath)
 			return BGP_ATTR_PARSE_ERROR;
@@ -2205,7 +2485,11 @@ bgp_attr_originator_id(struct bgp_attr_parser_args *args)
 
 	attr->originator_id.s_addr = stream_get_ipv4(peer->curr);
 
+<<<<<<< HEAD
 	attr->flag |= ATTR_FLAG_BIT(BGP_ATTR_ORIGINATOR_ID);
+=======
+	SET_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_ORIGINATOR_ID));
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 	return BGP_ATTR_PARSE_PROCEED;
 
@@ -2463,7 +2747,11 @@ int bgp_mp_reach_parse(struct bgp_attr_parser_args *args,
 
 	stream_forward_getp(s, nlri_len);
 
+<<<<<<< HEAD
 	attr->flag |= ATTR_FLAG_BIT(BGP_ATTR_MP_REACH_NLRI);
+=======
+	SET_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_MP_REACH_NLRI));
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 	return BGP_ATTR_PARSE_PROCEED;
 #undef LEN_LEFT
@@ -2515,7 +2803,11 @@ int bgp_mp_unreach_parse(struct bgp_attr_parser_args *args,
 
 	stream_forward_getp(s, withdraw_len);
 
+<<<<<<< HEAD
 	attr->flag |= ATTR_FLAG_BIT(BGP_ATTR_MP_UNREACH_NLRI);
+=======
+	SET_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_MP_UNREACH_NLRI));
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 	return BGP_ATTR_PARSE_PROCEED;
 }
@@ -2565,7 +2857,10 @@ bgp_attr_ext_communities(struct bgp_attr_parser_args *args)
 	struct peer *const peer = args->peer;
 	struct attr *const attr = args->attr;
 	const bgp_size_t length = args->length;
+<<<<<<< HEAD
 	uint8_t sticky = 0;
+=======
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	bool proxy = false;
 	struct ecommunity *ecomm;
 
@@ -2576,10 +2871,16 @@ bgp_attr_ext_communities(struct bgp_attr_parser_args *args)
 					  args->total);
 	}
 
+<<<<<<< HEAD
 	ecomm = ecommunity_parse(
 		stream_pnt(peer->curr), length,
 		CHECK_FLAG(peer->flags,
 			   PEER_FLAG_DISABLE_LINK_BW_ENCODING_IEEE));
+=======
+	ecomm = ecommunity_parse(stream_pnt(peer->curr), length,
+				 CHECK_FLAG(peer->flags,
+					    PEER_FLAG_DISABLE_LINK_BW_ENCODING_IEEE));
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	bgp_attr_set_ecommunity(attr, ecomm);
 	/* XXX: fix ecommunity_parse to use stream API */
 	stream_forward_getp(peer->curr, length);
@@ -2595,16 +2896,24 @@ bgp_attr_ext_communities(struct bgp_attr_parser_args *args)
 	attr->df_pref = bgp_attr_df_pref_from_ec(attr, &attr->df_alg);
 
 	/* Extract MAC mobility sequence number, if any. */
+<<<<<<< HEAD
 	attr->mm_seqnum = bgp_attr_mac_mobility_seqnum(attr, &sticky);
 	attr->sticky = sticky;
 
 	/* Check if this is a Gateway MAC-IP advertisement */
 	attr->default_gw = bgp_attr_default_gw(attr);
+=======
+	attr->mm_seqnum = bgp_attr_mac_mobility_seqnum(attr);
+
+	/* Check if this is a Gateway MAC-IP advertisement */
+	bgp_attr_default_gw(attr);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 	/* Handle scenario where router flag ecommunity is not
 	 * set but default gw ext community is present.
 	 * Use default gateway, set and propogate R-bit.
 	 */
+<<<<<<< HEAD
 	if (attr->default_gw)
 		attr->router_flag = 1;
 
@@ -2612,6 +2921,15 @@ bgp_attr_ext_communities(struct bgp_attr_parser_args *args)
 	bgp_attr_evpn_na_flag(attr, &attr->router_flag, &proxy);
 	if (proxy)
 		attr->es_flags |= ATTR_ES_PROXY_ADVERT;
+=======
+	if (CHECK_FLAG(attr->evpn_flags, ATTR_EVPN_FLAG_DEFAULT_GW))
+		SET_FLAG(attr->evpn_flags, ATTR_EVPN_FLAG_ROUTER);
+
+	/* Check EVPN Neighbor advertisement flags, R-bit */
+	bgp_attr_evpn_na_flag(attr, &proxy);
+	if (proxy)
+		SET_FLAG(attr->es_flags, ATTR_ES_PROXY_ADVERT);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 	/* Extract the Rmac, if any */
 	if (bgp_attr_rmac(attr, &attr->rmac)) {
@@ -2682,6 +3000,12 @@ static int bgp_attr_encap(struct bgp_attr_parser_args *args)
 	uint8_t type = args->type;
 	uint8_t flag = args->flags;
 
+<<<<<<< HEAD
+=======
+	if (peer->discard_attrs[args->type] || peer->withdraw_attrs[args->type])
+		goto encap_ignore;
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	if (!CHECK_FLAG(flag, BGP_ATTR_FLAG_TRANS)
 	    || !CHECK_FLAG(flag, BGP_ATTR_FLAG_OPTIONAL)) {
 		zlog_err("Tunnel Encap attribute flag isn't optional and transitive %d",
@@ -2800,7 +3124,18 @@ static int bgp_attr_encap(struct bgp_attr_parser_args *args)
 					  args->total);
 	}
 
+<<<<<<< HEAD
 	return 0;
+=======
+	SET_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_ENCAP));
+
+	return BGP_ATTR_PARSE_PROCEED;
+
+encap_ignore:
+	stream_forward_getp(peer->curr, length);
+
+	return bgp_attr_ignore(peer, type);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 }
 
 
@@ -3192,6 +3527,12 @@ enum bgp_attr_parse_ret bgp_attr_prefix_sid(struct bgp_attr_parser_args *args)
 	size_t headersz = sizeof(type) + sizeof(length);
 	size_t psid_parsed_length = 0;
 
+<<<<<<< HEAD
+=======
+	if (peer->discard_attrs[args->type] || peer->withdraw_attrs[args->type])
+		goto prefix_sid_ignore;
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	while (STREAM_READABLE(peer->curr) > 0
 	       && psid_parsed_length < args->length) {
 
@@ -3239,6 +3580,14 @@ enum bgp_attr_parse_ret bgp_attr_prefix_sid(struct bgp_attr_parser_args *args)
 	SET_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_PREFIX_SID));
 
 	return BGP_ATTR_PARSE_PROCEED;
+<<<<<<< HEAD
+=======
+
+prefix_sid_ignore:
+	stream_forward_getp(peer->curr, args->length);
+
+	return bgp_attr_ignore(peer, args->type);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 }
 
 /* PMSI tunnel attribute (RFC 6514)
@@ -3253,6 +3602,12 @@ bgp_attr_pmsi_tunnel(struct bgp_attr_parser_args *args)
 	uint8_t tnl_type;
 	int attr_parse_len = 2 + BGP_LABEL_BYTES;
 
+<<<<<<< HEAD
+=======
+	if (peer->discard_attrs[args->type] || peer->withdraw_attrs[args->type])
+		goto pmsi_tunnel_ignore;
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	/* Verify that the receiver is expecting "ingress replication" as we
 	 * can only support that.
 	 */
@@ -3281,7 +3636,11 @@ bgp_attr_pmsi_tunnel(struct bgp_attr_parser_args *args)
 		}
 	}
 
+<<<<<<< HEAD
 	attr->flag |= ATTR_FLAG_BIT(BGP_ATTR_PMSI_TUNNEL);
+=======
+	SET_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_PMSI_TUNNEL));
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	bgp_attr_set_pmsi_tnl_type(attr, tnl_type);
 	stream_get(&attr->label, peer->curr, BGP_LABEL_BYTES);
 
@@ -3289,6 +3648,14 @@ bgp_attr_pmsi_tunnel(struct bgp_attr_parser_args *args)
 	stream_forward_getp(peer->curr, length - attr_parse_len);
 
 	return BGP_ATTR_PARSE_PROCEED;
+<<<<<<< HEAD
+=======
+
+pmsi_tunnel_ignore:
+	stream_forward_getp(peer->curr, length);
+
+	return bgp_attr_ignore(peer, args->type);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 }
 
 /* AIGP attribute (rfc7311) */
@@ -3359,7 +3726,11 @@ static enum bgp_attr_parse_ret bgp_attr_otc(struct bgp_attr_parser_args *args)
 					  args->total);
 	}
 
+<<<<<<< HEAD
 	attr->flag |= ATTR_FLAG_BIT(BGP_ATTR_OTC);
+=======
+	SET_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_OTC));
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 	return BGP_ATTR_PARSE_PROCEED;
 
@@ -3556,18 +3927,30 @@ enum bgp_attr_parse_ret bgp_attr_parse(struct peer *peer, struct attr *attr,
 		 * unused. They MUST be zero when sent and MUST be ignored when
 		 * received.
 		 */
+<<<<<<< HEAD
 		flag = 0xF0 & stream_getc(BGP_INPUT(peer));
+=======
+		flag = CHECK_FLAG(0xF0, stream_getc(BGP_INPUT(peer)));
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		type = stream_getc(BGP_INPUT(peer));
 
 		/* Check whether Extended-Length applies and is in bounds */
 		if (CHECK_FLAG(flag, BGP_ATTR_FLAG_EXTLEN)
 		    && ((endp - startp) < (BGP_ATTR_MIN_LEN + 1))) {
+<<<<<<< HEAD
 			flog_warn(
 				EC_BGP_EXT_ATTRIBUTE_TOO_SMALL,
 				"%s: Extended length set, but just %lu bytes of attr header",
 				peer->host,
 				(unsigned long)(endp
 						- stream_pnt(BGP_INPUT(peer))));
+=======
+			flog_warn(EC_BGP_EXT_ATTRIBUTE_TOO_SMALL,
+				  "%s: Extended length set, but just %lu bytes of attr header",
+				  peer->host,
+				  (unsigned long)(endp -
+						  stream_pnt(BGP_INPUT(peer))));
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 			if (peer->sort != BGP_PEER_EBGP) {
 				bgp_notify_send(peer->connection,
@@ -3914,7 +4297,11 @@ enum bgp_attr_parse_ret bgp_attr_parse(struct peer *peer, struct attr *attr,
 	 * Finally do the checks on the aspath we did not do yet
 	 * because we waited for a potentially synthesized aspath.
 	 */
+<<<<<<< HEAD
 	if (attr->flag & (ATTR_FLAG_BIT(BGP_ATTR_AS_PATH))) {
+=======
+	if (CHECK_FLAG(attr->flag, (ATTR_FLAG_BIT(BGP_ATTR_AS_PATH)))) {
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		ret = bgp_attr_aspath_check(peer, attr);
 		if (ret != BGP_ATTR_PARSE_PROCEED)
 			goto done;
@@ -4092,8 +4479,13 @@ size_t bgp_packet_mpattr_start(struct stream *s, struct peer *peer, afi_t afi,
 		case SAFI_MULTICAST:
 		case SAFI_LABELED_UNICAST:
 		case SAFI_EVPN: {
+<<<<<<< HEAD
 			if (attr->mp_nexthop_len
 			    == BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL) {
+=======
+			if (attr->mp_nexthop_len ==
+			    BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL) {
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 				stream_putc(s,
 					    BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL);
 				stream_put(s, &attr->mp_nexthop_global,
@@ -4314,12 +4706,20 @@ static void bgp_packet_mpattr_tea(struct bgp *bgp, struct peer *peer,
 			    BGP_ATTR_FLAG_TRANS | BGP_ATTR_FLAG_OPTIONAL
 				    | BGP_ATTR_FLAG_EXTLEN);
 		stream_putc(s, attrtype);
+<<<<<<< HEAD
 		stream_putw(s, attrlenfield & 0xffff);
+=======
+		stream_putw(s, CHECK_FLAG(attrlenfield, 0xffff));
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	} else {
 		/* 1-octet length field */
 		stream_putc(s, BGP_ATTR_FLAG_TRANS | BGP_ATTR_FLAG_OPTIONAL);
 		stream_putc(s, attrtype);
+<<<<<<< HEAD
 		stream_putc(s, attrlenfield & 0xff);
+=======
+		stream_putc(s, CHECK_FLAG(attrlenfield, 0xff));
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	}
 
 	if (attrtype == BGP_ATTR_ENCAP) {
@@ -4367,6 +4767,7 @@ static bool bgp_append_local_as(struct peer *peer, afi_t afi, safi_t safi)
 }
 
 static void bgp_packet_ecommunity_attribute(struct stream *s, struct peer *peer,
+<<<<<<< HEAD
 					    struct ecommunity *ecomm,
 					    bool transparent, int attribute)
 {
@@ -4438,6 +4839,32 @@ bgp_size_t bgp_packet_attribute(struct bgp *bgp, struct peer *peer,
 				mpls_label_t *label, uint8_t num_labels,
 				bool addpath_capable, uint32_t addpath_tx_id,
 				struct bgp_path_info *bpi)
+=======
+					    struct ecommunity *ecomm, int attribute)
+{
+	if (!ecomm || !ecomm->size)
+		return;
+
+	if (ecomm->size * ecomm->unit_size > 255) {
+		stream_putc(s, BGP_ATTR_FLAG_OPTIONAL | BGP_ATTR_FLAG_TRANS | BGP_ATTR_FLAG_EXTLEN);
+		stream_putc(s, attribute);
+		stream_putw(s, ecomm->size * ecomm->unit_size);
+	} else {
+		stream_putc(s, BGP_ATTR_FLAG_OPTIONAL | BGP_ATTR_FLAG_TRANS);
+		stream_putc(s, attribute);
+		stream_putc(s, ecomm->size * ecomm->unit_size);
+	}
+
+	stream_put(s, ecomm->val, ecomm->size * ecomm->unit_size);
+}
+
+/* Make attribute packet. */
+bgp_size_t bgp_packet_attribute(struct bgp *bgp, struct peer *peer, struct stream *s,
+				struct attr *attr, struct bpacket_attr_vec_arr *vecarr,
+				struct prefix *p, afi_t afi, safi_t safi, struct peer *from,
+				struct prefix_rd *prd, mpls_label_t *label, uint8_t num_labels,
+				bool addpath_capable, uint32_t addpath_tx_id)
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 {
 	size_t cp;
 	size_t aspath_sizep;
@@ -4466,6 +4893,11 @@ bgp_size_t bgp_packet_attribute(struct bgp *bgp, struct peer *peer,
 		bgp_packet_mpattr_end(s, mpattrlen_pos);
 	}
 
+<<<<<<< HEAD
+=======
+	(void)peer_sort(peer);
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	/* Origin attribute. */
 	stream_putc(s, BGP_ATTR_FLAG_TRANS);
 	stream_putc(s, BGP_ATTR_ORIGIN);
@@ -4559,15 +4991,24 @@ bgp_size_t bgp_packet_attribute(struct bgp *bgp, struct peer *peer,
 	    && !peer_cap_enhe(peer, afi, safi)) {
 		afi_t nh_afi = BGP_NEXTHOP_AFI_FROM_NHLEN(attr->mp_nexthop_len);
 
+<<<<<<< HEAD
 		if (attr->flag & ATTR_FLAG_BIT(BGP_ATTR_NEXT_HOP)) {
+=======
+		if (CHECK_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_NEXT_HOP))) {
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 			stream_putc(s, BGP_ATTR_FLAG_TRANS);
 			stream_putc(s, BGP_ATTR_NEXT_HOP);
 			bpacket_attr_vec_arr_set_vec(vecarr, BGP_ATTR_VEC_NH, s,
 						     attr);
 			stream_putc(s, 4);
 			stream_put_ipv4(s, attr->nexthop.s_addr);
+<<<<<<< HEAD
 		} else if (peer_cap_enhe(from, afi, safi)
 			   || (nh_afi == AFI_IP6)) {
+=======
+		} else if (peer_cap_enhe(from, afi, safi) ||
+			   (nh_afi == AFI_IP6)) {
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 			/*
 			 * Likely this is the case when an IPv4 prefix was
 			 * received with Extended Next-hop capability in this
@@ -4589,8 +5030,13 @@ bgp_size_t bgp_packet_attribute(struct bgp *bgp, struct peer *peer,
 	}
 
 	/* MED attribute. */
+<<<<<<< HEAD
 	if (attr->flag & ATTR_FLAG_BIT(BGP_ATTR_MULTI_EXIT_DISC)
 	    || bgp->maxmed_active) {
+=======
+	if (CHECK_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_MULTI_EXIT_DISC)) ||
+	    bgp->maxmed_active) {
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		stream_putc(s, BGP_ATTR_FLAG_OPTIONAL);
 		stream_putc(s, BGP_ATTR_MULTI_EXIT_DISC);
 		stream_putc(s, 4);
@@ -4608,14 +5054,22 @@ bgp_size_t bgp_packet_attribute(struct bgp *bgp, struct peer *peer,
 	}
 
 	/* Atomic aggregate. */
+<<<<<<< HEAD
 	if (attr->flag & ATTR_FLAG_BIT(BGP_ATTR_ATOMIC_AGGREGATE)) {
+=======
+	if (CHECK_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_ATOMIC_AGGREGATE))) {
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		stream_putc(s, BGP_ATTR_FLAG_TRANS);
 		stream_putc(s, BGP_ATTR_ATOMIC_AGGREGATE);
 		stream_putc(s, 0);
 	}
 
 	/* Aggregator. */
+<<<<<<< HEAD
 	if (attr->flag & ATTR_FLAG_BIT(BGP_ATTR_AGGREGATOR)) {
+=======
+	if (CHECK_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_AGGREGATOR))) {
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		/* Common to BGP_ATTR_AGGREGATOR, regardless of ASN size */
 		stream_putc(s, BGP_ATTR_FLAG_OPTIONAL | BGP_ATTR_FLAG_TRANS);
 		stream_putc(s, BGP_ATTR_AGGREGATOR);
@@ -4646,8 +5100,13 @@ bgp_size_t bgp_packet_attribute(struct bgp *bgp, struct peer *peer,
 	}
 
 	/* Community attribute. */
+<<<<<<< HEAD
 	if (CHECK_FLAG(peer->af_flags[afi][safi], PEER_FLAG_SEND_COMMUNITY)
 	    && (attr->flag & ATTR_FLAG_BIT(BGP_ATTR_COMMUNITIES))) {
+=======
+	if (CHECK_FLAG(peer->af_flags[afi][safi], PEER_FLAG_SEND_COMMUNITY) &&
+	    CHECK_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_COMMUNITIES))) {
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		struct community *comm = NULL;
 
 		comm = bgp_attr_get_community(attr);
@@ -4671,8 +5130,13 @@ bgp_size_t bgp_packet_attribute(struct bgp *bgp, struct peer *peer,
 	 * Large Community attribute.
 	 */
 	if (CHECK_FLAG(peer->af_flags[afi][safi],
+<<<<<<< HEAD
 		       PEER_FLAG_SEND_LARGE_COMMUNITY)
 	    && (attr->flag & ATTR_FLAG_BIT(BGP_ATTR_LARGE_COMMUNITIES))) {
+=======
+		       PEER_FLAG_SEND_LARGE_COMMUNITY) &&
+	    CHECK_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_LARGE_COMMUNITIES))) {
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		if (lcom_length(bgp_attr_get_lcommunity(attr)) > 255) {
 			stream_putc(s,
 				    BGP_ATTR_FLAG_OPTIONAL | BGP_ATTR_FLAG_TRANS
@@ -4702,7 +5166,12 @@ bgp_size_t bgp_packet_attribute(struct bgp *bgp, struct peer *peer,
 		stream_putc(s, BGP_ATTR_ORIGINATOR_ID);
 		stream_putc(s, 4);
 
+<<<<<<< HEAD
 		if (attr->flag & ATTR_FLAG_BIT(BGP_ATTR_ORIGINATOR_ID))
+=======
+		if (CHECK_FLAG(attr->flag,
+			       ATTR_FLAG_BIT(BGP_ATTR_ORIGINATOR_ID)))
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 			stream_put_in_addr(s, &attr->originator_id);
 		else
 			stream_put_in_addr(s, &from->remote_id);
@@ -4715,7 +5184,11 @@ bgp_size_t bgp_packet_attribute(struct bgp *bgp, struct peer *peer,
 			stream_putc(s, cluster->length + 4);
 			/* If this peer configuration's parent BGP has
 			 * cluster_id. */
+<<<<<<< HEAD
 			if (bgp->config & BGP_CONFIG_CLUSTER_ID)
+=======
+			if (CHECK_FLAG(bgp->config, BGP_CONFIG_CLUSTER_ID))
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 				stream_put_in_addr(s, &bgp->cluster_id);
 			else
 				stream_put_in_addr(s, &bgp->router_id);
@@ -4724,7 +5197,11 @@ bgp_size_t bgp_packet_attribute(struct bgp *bgp, struct peer *peer,
 			stream_putc(s, 4);
 			/* If this peer configuration's parent BGP has
 			 * cluster_id. */
+<<<<<<< HEAD
 			if (bgp->config & BGP_CONFIG_CLUSTER_ID)
+=======
+			if (CHECK_FLAG(bgp->config, BGP_CONFIG_CLUSTER_ID))
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 				stream_put_in_addr(s, &bgp->cluster_id);
 			else
 				stream_put_in_addr(s, &bgp->router_id);
@@ -4733,19 +5210,26 @@ bgp_size_t bgp_packet_attribute(struct bgp *bgp, struct peer *peer,
 
 	/* Extended IPv6/Communities attributes. */
 	if (CHECK_FLAG(peer->af_flags[afi][safi], PEER_FLAG_SEND_EXT_COMMUNITY)) {
+<<<<<<< HEAD
 		bool transparent = CHECK_FLAG(peer->af_flags[afi][safi],
 					      PEER_FLAG_RSERVER_CLIENT) &&
 				   from &&
 				   CHECK_FLAG(from->af_flags[afi][safi],
 					      PEER_FLAG_RSERVER_CLIENT);
 
+=======
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		if (CHECK_FLAG(attr->flag,
 			       ATTR_FLAG_BIT(BGP_ATTR_EXT_COMMUNITIES))) {
 			struct ecommunity *ecomm = bgp_attr_get_ecommunity(attr);
 
+<<<<<<< HEAD
 			bgp_packet_ecommunity_attribute(s, peer, ecomm,
 							transparent,
 							BGP_ATTR_EXT_COMMUNITIES);
+=======
+			bgp_packet_ecommunity_attribute(s, peer, ecomm, BGP_ATTR_EXT_COMMUNITIES);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		}
 
 		if (CHECK_FLAG(attr->flag,
@@ -4754,7 +5238,10 @@ bgp_size_t bgp_packet_attribute(struct bgp *bgp, struct peer *peer,
 				bgp_attr_get_ipv6_ecommunity(attr);
 
 			bgp_packet_ecommunity_attribute(s, peer, ecomm,
+<<<<<<< HEAD
 							transparent,
+=======
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 							BGP_ATTR_IPV6_EXT_COMMUNITIES);
 		}
 	}
@@ -4892,7 +5379,11 @@ bgp_size_t bgp_packet_attribute(struct bgp *bgp, struct peer *peer,
 	}
 
 	/* PMSI Tunnel */
+<<<<<<< HEAD
 	if (attr->flag & ATTR_FLAG_BIT(BGP_ATTR_PMSI_TUNNEL)) {
+=======
+	if (CHECK_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_PMSI_TUNNEL))) {
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		stream_putc(s, BGP_ATTR_FLAG_OPTIONAL | BGP_ATTR_FLAG_TRANS);
 		stream_putc(s, BGP_ATTR_PMSI_TUNNEL);
 		stream_putc(s, 9); // Length
@@ -4905,7 +5396,11 @@ bgp_size_t bgp_packet_attribute(struct bgp *bgp, struct peer *peer,
 	}
 
 	/* OTC */
+<<<<<<< HEAD
 	if (attr->flag & ATTR_FLAG_BIT(BGP_ATTR_OTC)) {
+=======
+	if (CHECK_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_OTC))) {
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		stream_putc(s, BGP_ATTR_FLAG_OPTIONAL | BGP_ATTR_FLAG_TRANS);
 		stream_putc(s, BGP_ATTR_OTC);
 		stream_putc(s, 4);
@@ -4913,10 +5408,14 @@ bgp_size_t bgp_packet_attribute(struct bgp *bgp, struct peer *peer,
 	}
 
 	/* AIGP */
+<<<<<<< HEAD
 	if (bpi && attr->flag & ATTR_FLAG_BIT(BGP_ATTR_AIGP) &&
 	    (CHECK_FLAG(peer->flags, PEER_FLAG_AIGP) ||
 	     peer->sub_sort == BGP_PEER_EBGP_OAD ||
 	     peer->sort != BGP_PEER_EBGP)) {
+=======
+	if (CHECK_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_AIGP)) && AIGP_TRANSMIT_ALLOWED(peer)) {
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		/* At the moment only AIGP Metric TLV exists for AIGP
 		 * attribute. If more comes in, do not forget to update
 		 * attr_len variable to include new ones.
@@ -4926,7 +5425,11 @@ bgp_size_t bgp_packet_attribute(struct bgp *bgp, struct peer *peer,
 		stream_putc(s, BGP_ATTR_FLAG_OPTIONAL);
 		stream_putc(s, BGP_ATTR_AIGP);
 		stream_putc(s, attr_len);
+<<<<<<< HEAD
 		stream_put_bgp_aigp_tlv_metric(s, bpi);
+=======
+		stream_put_bgp_aigp_tlv_metric(s, attr->aigp_metric);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	}
 
 	/* Unknown transit attribute. */
@@ -4996,6 +5499,10 @@ void bgp_attr_init(void)
 	transit_init();
 	encap_init();
 	srv6_init();
+<<<<<<< HEAD
+=======
+	evpn_overlay_init();
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 }
 
 void bgp_attr_finish(void)
@@ -5009,6 +5516,10 @@ void bgp_attr_finish(void)
 	transit_finish();
 	encap_finish();
 	srv6_finish();
+<<<<<<< HEAD
+=======
+	evpn_overlay_finish();
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 }
 
 /* Make attribute packet. */
@@ -5054,7 +5565,11 @@ void bgp_dump_routes_attr(struct stream *s, struct bgp_path_info *bpi,
 	}
 
 	/* MED attribute. */
+<<<<<<< HEAD
 	if (attr->flag & ATTR_FLAG_BIT(BGP_ATTR_MULTI_EXIT_DISC)) {
+=======
+	if (CHECK_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_MULTI_EXIT_DISC))) {
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		stream_putc(s, BGP_ATTR_FLAG_OPTIONAL);
 		stream_putc(s, BGP_ATTR_MULTI_EXIT_DISC);
 		stream_putc(s, 4);
@@ -5062,7 +5577,11 @@ void bgp_dump_routes_attr(struct stream *s, struct bgp_path_info *bpi,
 	}
 
 	/* Local preference. */
+<<<<<<< HEAD
 	if (attr->flag & ATTR_FLAG_BIT(BGP_ATTR_LOCAL_PREF)) {
+=======
+	if (CHECK_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_LOCAL_PREF))) {
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		stream_putc(s, BGP_ATTR_FLAG_TRANS);
 		stream_putc(s, BGP_ATTR_LOCAL_PREF);
 		stream_putc(s, 4);
@@ -5070,14 +5589,22 @@ void bgp_dump_routes_attr(struct stream *s, struct bgp_path_info *bpi,
 	}
 
 	/* Atomic aggregate. */
+<<<<<<< HEAD
 	if (attr->flag & ATTR_FLAG_BIT(BGP_ATTR_ATOMIC_AGGREGATE)) {
+=======
+	if (CHECK_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_ATOMIC_AGGREGATE))) {
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		stream_putc(s, BGP_ATTR_FLAG_TRANS);
 		stream_putc(s, BGP_ATTR_ATOMIC_AGGREGATE);
 		stream_putc(s, 0);
 	}
 
 	/* Aggregator. */
+<<<<<<< HEAD
 	if (attr->flag & ATTR_FLAG_BIT(BGP_ATTR_AGGREGATOR)) {
+=======
+	if (CHECK_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_AGGREGATOR))) {
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		stream_putc(s, BGP_ATTR_FLAG_OPTIONAL | BGP_ATTR_FLAG_TRANS);
 		stream_putc(s, BGP_ATTR_AGGREGATOR);
 		stream_putc(s, 8);
@@ -5086,7 +5613,11 @@ void bgp_dump_routes_attr(struct stream *s, struct bgp_path_info *bpi,
 	}
 
 	/* Community attribute. */
+<<<<<<< HEAD
 	if (attr->flag & ATTR_FLAG_BIT(BGP_ATTR_COMMUNITIES)) {
+=======
+	if (CHECK_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_COMMUNITIES))) {
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		struct community *comm = NULL;
 
 		comm = bgp_attr_get_community(attr);
@@ -5097,9 +5628,14 @@ void bgp_dump_routes_attr(struct stream *s, struct bgp_path_info *bpi,
 			stream_putc(s, BGP_ATTR_COMMUNITIES);
 			stream_putw(s, comm->size * 4);
 		} else {
+<<<<<<< HEAD
 			stream_putc(s,
 				    BGP_ATTR_FLAG_OPTIONAL
 					    | BGP_ATTR_FLAG_TRANS);
+=======
+			stream_putc(s, BGP_ATTR_FLAG_OPTIONAL |
+					       BGP_ATTR_FLAG_TRANS);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 			stream_putc(s, BGP_ATTR_COMMUNITIES);
 			stream_putc(s, comm->size * 4);
 		}
@@ -5107,7 +5643,11 @@ void bgp_dump_routes_attr(struct stream *s, struct bgp_path_info *bpi,
 	}
 
 	/* Large Community attribute. */
+<<<<<<< HEAD
 	if (attr->flag & ATTR_FLAG_BIT(BGP_ATTR_LARGE_COMMUNITIES)) {
+=======
+	if (CHECK_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_LARGE_COMMUNITIES))) {
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		if (lcom_length(bgp_attr_get_lcommunity(attr)) > 255) {
 			stream_putc(s,
 				    BGP_ATTR_FLAG_OPTIONAL | BGP_ATTR_FLAG_TRANS
@@ -5116,9 +5656,14 @@ void bgp_dump_routes_attr(struct stream *s, struct bgp_path_info *bpi,
 			stream_putw(s,
 				    lcom_length(bgp_attr_get_lcommunity(attr)));
 		} else {
+<<<<<<< HEAD
 			stream_putc(s,
 				    BGP_ATTR_FLAG_OPTIONAL
 					    | BGP_ATTR_FLAG_TRANS);
+=======
+			stream_putc(s, BGP_ATTR_FLAG_OPTIONAL |
+					       BGP_ATTR_FLAG_TRANS);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 			stream_putc(s, BGP_ATTR_LARGE_COMMUNITIES);
 			stream_putc(s,
 				    lcom_length(bgp_attr_get_lcommunity(attr)));
@@ -5162,11 +5707,18 @@ void bgp_dump_routes_attr(struct stream *s, struct bgp_path_info *bpi,
 	}
 
 	/* Prefix SID */
+<<<<<<< HEAD
 	if (attr->flag & ATTR_FLAG_BIT(BGP_ATTR_PREFIX_SID)) {
 		if (attr->label_index != BGP_INVALID_LABEL_INDEX) {
 			stream_putc(s,
 				    BGP_ATTR_FLAG_OPTIONAL
 					    | BGP_ATTR_FLAG_TRANS);
+=======
+	if (CHECK_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_PREFIX_SID))) {
+		if (attr->label_index != BGP_INVALID_LABEL_INDEX) {
+			stream_putc(s, BGP_ATTR_FLAG_OPTIONAL |
+					       BGP_ATTR_FLAG_TRANS);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 			stream_putc(s, BGP_ATTR_PREFIX_SID);
 			stream_putc(s, 10);
 			stream_putc(s, BGP_PREFIX_SID_LABEL_INDEX);
@@ -5178,7 +5730,11 @@ void bgp_dump_routes_attr(struct stream *s, struct bgp_path_info *bpi,
 	}
 
 	/* OTC */
+<<<<<<< HEAD
 	if (attr->flag & ATTR_FLAG_BIT(BGP_ATTR_OTC)) {
+=======
+	if (CHECK_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_OTC))) {
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		stream_putc(s, BGP_ATTR_FLAG_OPTIONAL | BGP_ATTR_FLAG_TRANS);
 		stream_putc(s, BGP_ATTR_OTC);
 		stream_putc(s, 4);
@@ -5186,7 +5742,11 @@ void bgp_dump_routes_attr(struct stream *s, struct bgp_path_info *bpi,
 	}
 
 	/* AIGP */
+<<<<<<< HEAD
 	if (attr->flag & ATTR_FLAG_BIT(BGP_ATTR_AIGP)) {
+=======
+	if (CHECK_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_AIGP))) {
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		/* At the moment only AIGP Metric TLV exists for AIGP
 		 * attribute. If more comes in, do not forget to update
 		 * attr_len variable to include new ones.
@@ -5196,7 +5756,11 @@ void bgp_dump_routes_attr(struct stream *s, struct bgp_path_info *bpi,
 		stream_putc(s, BGP_ATTR_FLAG_OPTIONAL | BGP_ATTR_FLAG_TRANS);
 		stream_putc(s, BGP_ATTR_AIGP);
 		stream_putc(s, attr_len);
+<<<<<<< HEAD
 		stream_put_bgp_aigp_tlv_metric(s, bpi);
+=======
+		stream_put_bgp_aigp_tlv_metric(s, attr->aigp_metric);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	}
 
 	/* Return total size of attribute. */

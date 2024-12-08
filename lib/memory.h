@@ -67,6 +67,11 @@ struct memgroup {
  *         but MGROUP_* aren't.
  */
 
+<<<<<<< HEAD
+=======
+/* clang-format off */
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 #define DECLARE_MGROUP(name) extern struct memgroup _mg_##name
 #define _DEFINE_MGROUP(mname, desc, ...)                                       \
 	struct memgroup _mg_##mname _DATA_SECTION("mgroups") = {               \
@@ -75,6 +80,10 @@ struct memgroup {
 		.next = NULL,                                                  \
 		.insert = NULL,                                                \
 		.ref = NULL,                                                   \
+<<<<<<< HEAD
+=======
+		__VA_ARGS__                                                    \
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	};                                                                     \
 	static void _mginit_##mname(void) __attribute__((_CONSTRUCTOR(1000))); \
 	static void _mginit_##mname(void)                                      \
@@ -136,8 +145,16 @@ struct memgroup {
 	DEFINE_MTYPE_ATTR(group, name, static, desc)                           \
 	/* end */
 
+<<<<<<< HEAD
 DECLARE_MGROUP(LIB);
 DECLARE_MTYPE(TMP);
+=======
+/* clang-format on */
+
+DECLARE_MGROUP(LIB);
+DECLARE_MTYPE(TMP);
+DECLARE_MTYPE(TMP_TTABLE);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 
 extern void *qmalloc(struct memtype *mt, size_t size)
@@ -175,8 +192,12 @@ static inline size_t mtype_stats_alloc(struct memtype *mt)
  * last value from qmem_walk_fn. */
 typedef int qmem_walk_fn(void *arg, struct memgroup *mg, struct memtype *mt);
 extern int qmem_walk(qmem_walk_fn *func, void *arg);
+<<<<<<< HEAD
 extern int log_memstats(FILE *fp, const char *);
 #define log_memstats_stderr(prefix) log_memstats(stderr, prefix)
+=======
+extern int log_memstats(const char *daemon_name, bool enabled);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 extern __attribute__((__noreturn__)) void memory_oom(size_t size,
 						     const char *name);

@@ -565,10 +565,13 @@ static void format_item_asla_subtlvs(struct isis_asla_subtlvs *asla,
 			  asla->use_bw);
 }
 
+<<<<<<< HEAD
 #if CONFDATE > 20240916
 CPP_NOTICE("Remove JSON in '-' format")
 #endif
 
+=======
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 /* mtid parameter is used to manage multi-topology i.e. IPv4 / IPv6 */
 static void format_item_ext_subtlvs(struct isis_ext_subtlvs *exts,
 				    struct sbuf *buf, struct json_object *json,
@@ -585,10 +588,13 @@ static void format_item_ext_subtlvs(struct isis_ext_subtlvs *exts,
 		if (json) {
 			snprintfrr(aux_buf, sizeof(aux_buf), "0x%x",
 				   exts->adm_group);
+<<<<<<< HEAD
 #if CONFDATE > 20240916
 			CPP_NOTICE("remove deprecated key format with -")
 #endif
 			json_object_string_add(json, "adm-group", aux_buf);
+=======
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 			json_object_string_add(json, "admGroup", aux_buf);
 		} else {
 			sbuf_push(buf, indent, "Admin Group: 0x%08x\n",
@@ -639,6 +645,7 @@ static void format_item_ext_subtlvs(struct isis_ext_subtlvs *exts,
 	}
 	if (IS_SUBTLV(exts, EXT_LLRI)) {
 		if (json) {
+<<<<<<< HEAD
 #if CONFDATE > 20240916
 			CPP_NOTICE("remove deprecated key format with -")
 #endif
@@ -646,6 +653,8 @@ static void format_item_ext_subtlvs(struct isis_ext_subtlvs *exts,
 					    exts->local_llri);
 			json_object_int_add(json, "link-remote-id",
 					    exts->remote_llri);
+=======
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 			json_object_int_add(json, "linkLocalId",
 					    exts->local_llri);
 			json_object_int_add(json, "linkRemoteId",
@@ -661,10 +670,13 @@ static void format_item_ext_subtlvs(struct isis_ext_subtlvs *exts,
 		if (json) {
 			inet_ntop(AF_INET, &exts->local_addr, aux_buf,
 				  sizeof(aux_buf));
+<<<<<<< HEAD
 #if CONFDATE > 20240916
 			CPP_NOTICE("remove deprecated key format with -")
 #endif
 			json_object_string_add(json, "local-iface-ip", aux_buf);
+=======
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 			json_object_string_add(json, "localIfaceIp", aux_buf);
 		} else
 			sbuf_push(buf, indent,
@@ -675,11 +687,14 @@ static void format_item_ext_subtlvs(struct isis_ext_subtlvs *exts,
 		if (json) {
 			inet_ntop(AF_INET, &exts->neigh_addr, aux_buf,
 				  sizeof(aux_buf));
+<<<<<<< HEAD
 #if CONFDATE > 20240916
 			CPP_NOTICE("remove deprecated key format with -")
 #endif
 			json_object_string_add(json, "remote-iface-ip",
 					       aux_buf);
+=======
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 			json_object_string_add(json, "remoteIfaceIp", aux_buf);
 		} else
 			sbuf_push(buf, indent,
@@ -690,11 +705,14 @@ static void format_item_ext_subtlvs(struct isis_ext_subtlvs *exts,
 		if (json) {
 			inet_ntop(AF_INET6, &exts->local_addr6, aux_buf,
 				  sizeof(aux_buf));
+<<<<<<< HEAD
 #if CONFDATE > 20240916
 			CPP_NOTICE("remove deprecated key format with -")
 #endif
 			json_object_string_add(json, "local-iface-ipv6",
 					       aux_buf);
+=======
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 			json_object_string_add(json, "localIfaceIpv6", aux_buf);
 		} else
 			sbuf_push(buf, indent,
@@ -705,11 +723,14 @@ static void format_item_ext_subtlvs(struct isis_ext_subtlvs *exts,
 		if (json) {
 			inet_ntop(AF_INET6, &exts->neigh_addr6, aux_buf,
 				  sizeof(aux_buf));
+<<<<<<< HEAD
 #if CONFDATE > 20240916
 			CPP_NOTICE("remove deprecated key format with -")
 #endif
 			json_object_string_add(json, "remote-iface-ipv6",
 					       aux_buf);
+=======
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 			json_object_string_add(json, "remoteIfaceIpv6", aux_buf);
 		} else
 			sbuf_push(buf, indent,
@@ -720,11 +741,14 @@ static void format_item_ext_subtlvs(struct isis_ext_subtlvs *exts,
 		if (json) {
 			snprintfrr(aux_buf, sizeof(aux_buf), "%g",
 				   exts->max_bw);
+<<<<<<< HEAD
 #if CONFDATE > 20240916
 			CPP_NOTICE("remove deprecated key format with -")
 #endif
 			json_object_string_add(json, "max-bandwith-bytes-sec",
 					       aux_buf);
+=======
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 			json_object_string_add(json, "maxBandwithBytesSec",
 					       aux_buf);
 		} else
@@ -736,11 +760,14 @@ static void format_item_ext_subtlvs(struct isis_ext_subtlvs *exts,
 		if (json) {
 			snprintfrr(aux_buf, sizeof(aux_buf), "%g",
 				   exts->max_rsv_bw);
+<<<<<<< HEAD
 #if CONFDATE > 20240916
 			CPP_NOTICE("remove deprecated key format with -")
 #endif
 			json_object_string_add(
 				json, "max-res-bandwith-bytes-sec", aux_buf);
+=======
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 			json_object_string_add(json, "maxResBandwithBytesSec",
 					       aux_buf);
 		} else
@@ -763,6 +790,7 @@ static void format_item_ext_subtlvs(struct isis_ext_subtlvs *exts,
 				json_object_string_add(unrsv_json, cnt_buf,
 						       aux_buf);
 			}
+<<<<<<< HEAD
 
 #if CONFDATE > 20240916
 			CPP_NOTICE("remove deprecated key format with -")
@@ -779,6 +807,8 @@ static void format_item_ext_subtlvs(struct isis_ext_subtlvs *exts,
 						       aux_buf);
 			}
 			/* end old deprecated key format */
+=======
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		} else {
 			sbuf_push(buf, indent, "Unreserved Bandwidth:\n");
 			for (int j = 0; j < MAX_CLASS_TYPE; j += 2) {
@@ -791,6 +821,7 @@ static void format_item_ext_subtlvs(struct isis_ext_subtlvs *exts,
 		}
 	}
 	if (IS_SUBTLV(exts, EXT_TE_METRIC)) {
+<<<<<<< HEAD
 		if (json) {
 #if CONFDATE > 20240916
 			CPP_NOTICE("remove deprecated key format with -")
@@ -798,11 +829,17 @@ static void format_item_ext_subtlvs(struct isis_ext_subtlvs *exts,
 			json_object_int_add(json, "te-metric", exts->te_metric);
 			json_object_int_add(json, "teMetric", exts->te_metric);
 		} else
+=======
+		if (json)
+			json_object_int_add(json, "teMetric", exts->te_metric);
+		else
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 			sbuf_push(buf, indent,
 				  "Traffic Engineering Metric: %u\n",
 				  exts->te_metric);
 	}
 	if (IS_SUBTLV(exts, EXT_RMT_AS)) {
+<<<<<<< HEAD
 		if (json) {
 #if CONFDATE > 20240916
 			CPP_NOTICE("remove deprecated key format with -")
@@ -812,6 +849,12 @@ static void format_item_ext_subtlvs(struct isis_ext_subtlvs *exts,
 			json_object_int_add(json, "interAsTeRemoteAs",
 					    exts->remote_as);
 		} else
+=======
+		if (json)
+			json_object_int_add(json, "interAsTeRemoteAs",
+					    exts->remote_as);
+		else
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 			sbuf_push(buf, indent,
 				  "Inter-AS TE Remote AS number: %u\n",
 				  exts->remote_as);
@@ -820,11 +863,14 @@ static void format_item_ext_subtlvs(struct isis_ext_subtlvs *exts,
 		if (json) {
 			inet_ntop(AF_INET6, &exts->remote_ip, aux_buf,
 				  sizeof(aux_buf));
+<<<<<<< HEAD
 #if CONFDATE > 20240916
 			CPP_NOTICE("remove deprecated key format with -")
 #endif
 			json_object_string_add(
 				json, "inter-as-te-remote-asbr-ip", aux_buf);
+=======
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 			json_object_string_add(json, "interAsTeRemoteAsbrIp",
 					       aux_buf);
 		} else
@@ -836,6 +882,7 @@ static void format_item_ext_subtlvs(struct isis_ext_subtlvs *exts,
 	if (IS_SUBTLV(exts, EXT_DELAY)) {
 		if (json) {
 			struct json_object *avg_json;
+<<<<<<< HEAD
 			avg_json = json_object_new_object();
 #if CONFDATE > 20240916
 			CPP_NOTICE("remove deprecated key format with -")
@@ -846,6 +893,8 @@ static void format_item_ext_subtlvs(struct isis_ext_subtlvs *exts,
 						       ? "Anomalous"
 						       : "Normal");
 			json_object_int_add(avg_json, "micro-sec", exts->delay);
+=======
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 			avg_json = json_object_new_object();
 			json_object_object_add(json, "avgDelay", avg_json);
@@ -864,6 +913,7 @@ static void format_item_ext_subtlvs(struct isis_ext_subtlvs *exts,
 	if (IS_SUBTLV(exts, EXT_MM_DELAY)) {
 		if (json) {
 			struct json_object *avg_json;
+<<<<<<< HEAD
 			avg_json = json_object_new_object();
 #if CONFDATE > 20240916
 			CPP_NOTICE("remove deprecated key format with -")
@@ -877,6 +927,8 @@ static void format_item_ext_subtlvs(struct isis_ext_subtlvs *exts,
 				   exts->min_delay & TE_EXT_MASK,
 				   exts->max_delay & TE_EXT_MASK);
 			json_object_string_add(avg_json, "micro-sec", aux_buf);
+=======
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 			avg_json = json_object_new_object();
 			json_object_object_add(json, "maxMinDelay", avg_json);
@@ -899,6 +951,7 @@ static void format_item_ext_subtlvs(struct isis_ext_subtlvs *exts,
 				exts->max_delay & TE_EXT_MASK);
 	}
 	if (IS_SUBTLV(exts, EXT_DELAY_VAR)) {
+<<<<<<< HEAD
 		if (json) {
 #if CONFDATE > 20240916
 			CPP_NOTICE("remove deprecated key format with -")
@@ -908,6 +961,12 @@ static void format_item_ext_subtlvs(struct isis_ext_subtlvs *exts,
 			json_object_int_add(json, "delayVariationMicroSec",
 					    exts->delay_var & TE_EXT_MASK);
 		} else
+=======
+		if (json)
+			json_object_int_add(json, "delayVariationMicroSec",
+					    exts->delay_var & TE_EXT_MASK);
+		else
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 			sbuf_push(buf, indent,
 				  "Delay Variation: %u (micro-sec)\n",
 				  exts->delay_var & TE_EXT_MASK);
@@ -919,6 +978,7 @@ static void format_item_ext_subtlvs(struct isis_ext_subtlvs *exts,
 					   LOSS_PRECISION));
 			struct json_object *link_json;
 
+<<<<<<< HEAD
 #if CONFDATE > 20240916
 			CPP_NOTICE("remove deprecated key format with -")
 #endif
@@ -933,6 +993,8 @@ static void format_item_ext_subtlvs(struct isis_ext_subtlvs *exts,
 			json_object_string_add(link_json, "percentaje",
 					       aux_buf);
 
+=======
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 			link_json = json_object_new_object();
 			json_object_object_add(json, "linkPacketLoss",
 					       link_json);
@@ -952,12 +1014,15 @@ static void format_item_ext_subtlvs(struct isis_ext_subtlvs *exts,
 		if (json) {
 			snprintfrr(aux_buf, sizeof(aux_buf), "%g",
 				   (exts->res_bw));
+<<<<<<< HEAD
 #if CONFDATE > 20240916
 			CPP_NOTICE("remove deprecated key format with -")
 #endif
 			json_object_string_add(json,
 					       "unidir-residual-band-bytes-sec",
 					       aux_buf);
+=======
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 			json_object_string_add(json,
 					       "unidirResidualBandBytesSec",
 					       aux_buf);
@@ -971,12 +1036,15 @@ static void format_item_ext_subtlvs(struct isis_ext_subtlvs *exts,
 		if (json) {
 			snprintfrr(aux_buf, sizeof(aux_buf), "%g",
 				   (exts->ava_bw));
+<<<<<<< HEAD
 #if CONFDATE > 20240916
 			CPP_NOTICE("remove deprecated key format with -")
 #endif
 			json_object_string_add(
 				json, "unidir-available-band-bytes-sec",
 				aux_buf);
+=======
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 			json_object_string_add(json,
 					       "unidirAvailableBandBytesSec",
 					       aux_buf);
@@ -991,12 +1059,15 @@ static void format_item_ext_subtlvs(struct isis_ext_subtlvs *exts,
 			snprintfrr(aux_buf, sizeof(aux_buf), "%g",
 				   (exts->use_bw));
 			json_object_string_add(json,
+<<<<<<< HEAD
 					       "unidir-utilized-band-bytes-sec",
 					       aux_buf);
 #if CONFDATE > 20240916
 			CPP_NOTICE("remove deprecated key format with -")
 #endif
 			json_object_string_add(json,
+=======
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 					       "unidirUtilizedBandBytesSec",
 					       aux_buf);
 		} else
@@ -1010,6 +1081,7 @@ static void format_item_ext_subtlvs(struct isis_ext_subtlvs *exts,
 		struct isis_adj_sid *adj;
 
 		if (json) {
+<<<<<<< HEAD
 			struct json_object *arr_adj_json, *flags_json;
 
 #if CONFDATE > 20240916
@@ -1060,6 +1132,9 @@ static void format_item_ext_subtlvs(struct isis_ext_subtlvs *exts,
 				json_object_array_add(arr_adj_json, flags_json);
 			}
 			/* end old deprecated key format */
+=======
+			struct json_object *arr_adj_json, *adj_sid_json;
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 			arr_adj_json = json_object_new_array();
 			json_object_object_add(json, "adjSid", arr_adj_json);
@@ -1067,6 +1142,7 @@ static void format_item_ext_subtlvs(struct isis_ext_subtlvs *exts,
 			     adj; adj = adj->next) {
 				snprintfrr(cnt_buf, sizeof(cnt_buf), "%d",
 					   adj->sid);
+<<<<<<< HEAD
 				flags_json = json_object_new_object();
 				json_object_int_add(flags_json, "sid", adj->sid);
 				json_object_int_add(flags_json, "weight",
@@ -1096,6 +1172,39 @@ static void format_item_ext_subtlvs(struct isis_ext_subtlvs *exts,
 								? true
 								: false);
 				json_object_array_add(arr_adj_json, flags_json);
+=======
+				adj_sid_json = json_object_new_object();
+				json_object_int_add(adj_sid_json, "sid",
+						    adj->sid);
+				json_object_int_add(adj_sid_json, "weight",
+						    adj->weight);
+				json_object_boolean_add(adj_sid_json, "flagF",
+							adj->flags & EXT_SUBTLV_LINK_ADJ_SID_FFLG
+								? true
+								: false);
+				json_object_boolean_add(adj_sid_json, "flagB",
+							adj->flags & EXT_SUBTLV_LINK_ADJ_SID_BFLG
+								? true
+								: false);
+				json_object_boolean_add(adj_sid_json, "flagV",
+							adj->flags & EXT_SUBTLV_LINK_ADJ_SID_VFLG
+								? true
+								: false);
+				json_object_boolean_add(adj_sid_json, "flagL",
+							adj->flags & EXT_SUBTLV_LINK_ADJ_SID_LFLG
+								? true
+								: false);
+				json_object_boolean_add(adj_sid_json, "flagS",
+							adj->flags & EXT_SUBTLV_LINK_ADJ_SID_SFLG
+								? true
+								: false);
+				json_object_boolean_add(adj_sid_json, "flagP",
+							adj->flags & EXT_SUBTLV_LINK_ADJ_SID_PFLG
+								? true
+								: false);
+				json_object_array_add(arr_adj_json,
+						      adj_sid_json);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 			}
 		} else
 			for (adj = (struct isis_adj_sid *)exts->adj_sid.head;
@@ -1128,6 +1237,7 @@ static void format_item_ext_subtlvs(struct isis_ext_subtlvs *exts,
 	if (IS_SUBTLV(exts, EXT_LAN_ADJ_SID)) {
 		struct isis_lan_adj_sid *lan;
 		if (json) {
+<<<<<<< HEAD
 			struct json_object *arr_adj_json, *flags_json;
 
 #if CONFDATE > 20240916
@@ -1185,6 +1295,9 @@ static void format_item_ext_subtlvs(struct isis_ext_subtlvs *exts,
 				json_object_array_add(arr_adj_json, flags_json);
 			}
 			/* end old deprecated key format */
+=======
+			struct json_object *arr_adj_json, *lan_adj_json;
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 			arr_adj_json = json_object_new_array();
 			json_object_object_add(json, "lanAdjSid", arr_adj_json);
@@ -1197,6 +1310,7 @@ static void format_item_ext_subtlvs(struct isis_ext_subtlvs *exts,
 					continue;
 				snprintfrr(cnt_buf, sizeof(cnt_buf), "%d",
 					   lan->sid);
+<<<<<<< HEAD
 				flags_json = json_object_new_object();
 				json_object_int_add(flags_json, "sid", lan->sid);
 				json_object_int_add(flags_json, "weight",
@@ -1226,6 +1340,39 @@ static void format_item_ext_subtlvs(struct isis_ext_subtlvs *exts,
 								? true
 								: false);
 				json_object_array_add(arr_adj_json, flags_json);
+=======
+				lan_adj_json = json_object_new_object();
+				json_object_int_add(lan_adj_json, "sid",
+						    lan->sid);
+				json_object_int_add(lan_adj_json, "weight",
+						    lan->weight);
+				json_object_boolean_add(lan_adj_json, "flagF",
+							lan->flags & EXT_SUBTLV_LINK_ADJ_SID_FFLG
+								? true
+								: false);
+				json_object_boolean_add(lan_adj_json, "flagB",
+							lan->flags & EXT_SUBTLV_LINK_ADJ_SID_BFLG
+								? true
+								: false);
+				json_object_boolean_add(lan_adj_json, "flagV",
+							lan->flags & EXT_SUBTLV_LINK_ADJ_SID_VFLG
+								? true
+								: false);
+				json_object_boolean_add(lan_adj_json, "flagL",
+							lan->flags & EXT_SUBTLV_LINK_ADJ_SID_LFLG
+								? true
+								: false);
+				json_object_boolean_add(lan_adj_json, "flagS",
+							lan->flags & EXT_SUBTLV_LINK_ADJ_SID_SFLG
+								? true
+								: false);
+				json_object_boolean_add(lan_adj_json, "flagP",
+							lan->flags & EXT_SUBTLV_LINK_ADJ_SID_PFLG
+								? true
+								: false);
+				json_object_array_add(arr_adj_json,
+						      lan_adj_json);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 			}
 		} else
 
@@ -1268,6 +1415,7 @@ static void format_item_ext_subtlvs(struct isis_ext_subtlvs *exts,
 		struct isis_srv6_endx_sid_subtlv *adj;
 
 		if (json) {
+<<<<<<< HEAD
 			struct json_object *arr_adj_json, *flags_json;
 
 #if CONFDATE > 20240916
@@ -1276,12 +1424,19 @@ static void format_item_ext_subtlvs(struct isis_ext_subtlvs *exts,
 			/* old deprecated key format */
 			arr_adj_json = json_object_new_array();
 			json_object_object_add(json, "srv6-endx-sid",
+=======
+			struct json_object *arr_adj_json, *srv6_endx_sid_json;
+
+			arr_adj_json = json_object_new_array();
+			json_object_object_add(json, "srv6EndXSID",
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 					       arr_adj_json);
 			for (adj = (struct isis_srv6_endx_sid_subtlv *)
 					   exts->srv6_endx_sid.head;
 			     adj; adj = adj->next) {
 				snprintfrr(cnt_buf, sizeof(cnt_buf), "%pI6",
 					   &adj->sid);
+<<<<<<< HEAD
 				flags_json = json_object_new_object();
 				json_object_string_addf(flags_json, "sid",
 							"%pI6", &adj->sid);
@@ -1352,6 +1507,40 @@ static void format_item_ext_subtlvs(struct isis_ext_subtlvs *exts,
 					isis_format_subsubtlvs(adj->subsubtlvs,
 							       NULL,
 							       arr_adj_json,
+=======
+				srv6_endx_sid_json = json_object_new_object();
+				json_object_string_addf(srv6_endx_sid_json,
+							"sid", "%pI6",
+							&adj->sid);
+				json_object_string_add(srv6_endx_sid_json,
+						       "algorithm",
+						       sr_algorithm_string(
+							       adj->algorithm));
+				json_object_int_add(srv6_endx_sid_json,
+						    "weight", adj->weight);
+				json_object_string_add(srv6_endx_sid_json,
+						       "behavior",
+						       seg6local_action2str(
+							       adj->behavior));
+				json_object_boolean_add(
+					srv6_endx_sid_json, "flagB",
+					!!(adj->flags &
+					   EXT_SUBTLV_LINK_SRV6_ENDX_SID_BFLG));
+				json_object_boolean_add(
+					srv6_endx_sid_json, "flagS",
+					!!(adj->flags &
+					   EXT_SUBTLV_LINK_SRV6_ENDX_SID_SFLG));
+				json_object_boolean_add(
+					srv6_endx_sid_json, "flagP",
+					!!(adj->flags &
+					   EXT_SUBTLV_LINK_SRV6_ENDX_SID_PFLG));
+				json_object_array_add(arr_adj_json,
+						      srv6_endx_sid_json);
+				if (adj->subsubtlvs)
+					isis_format_subsubtlvs(adj->subsubtlvs,
+							       NULL,
+							       srv6_endx_sid_json,
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 							       indent + 4);
 			}
 		} else
@@ -1384,6 +1573,7 @@ static void format_item_ext_subtlvs(struct isis_ext_subtlvs *exts,
 	if (IS_SUBTLV(exts, EXT_SRV6_LAN_ENDX_SID)) {
 		struct isis_srv6_lan_endx_sid_subtlv *lan;
 		if (json) {
+<<<<<<< HEAD
 			struct json_object *arr_adj_json, *flags_json;
 
 #if CONFDATE > 20240916
@@ -1437,6 +1627,10 @@ static void format_item_ext_subtlvs(struct isis_ext_subtlvs *exts,
 							       indent + 4);
 			}
 			/* end old deprecated key format */
+=======
+			struct json_object *arr_adj_json,
+				*srv6_lan_endx_sid_json;
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 			arr_adj_json = json_object_new_array();
 			json_object_object_add(json, "srv6LanEndxSID",
@@ -1446,6 +1640,7 @@ static void format_item_ext_subtlvs(struct isis_ext_subtlvs *exts,
 			     lan; lan = lan->next) {
 				snprintfrr(cnt_buf, sizeof(cnt_buf), "%pI6",
 					   &lan->sid);
+<<<<<<< HEAD
 				flags_json = json_object_new_object();
 				json_object_string_addf(flags_json, "sid",
 							"%pI6", &lan->sid);
@@ -1479,6 +1674,46 @@ static void format_item_ext_subtlvs(struct isis_ext_subtlvs *exts,
 					isis_format_subsubtlvs(lan->subsubtlvs,
 							       NULL,
 							       arr_adj_json,
+=======
+				srv6_lan_endx_sid_json =
+					json_object_new_object();
+				json_object_string_addf(srv6_lan_endx_sid_json,
+							"sid", "%pI6",
+							&lan->sid);
+				json_object_int_add(srv6_lan_endx_sid_json,
+						    "weight", lan->weight);
+				json_object_string_add(srv6_lan_endx_sid_json,
+						       "algorithm",
+						       sr_algorithm_string(
+							       lan->algorithm));
+				json_object_int_add(srv6_lan_endx_sid_json,
+						    "weight", lan->weight);
+				json_object_string_add(srv6_lan_endx_sid_json,
+						       "behavior",
+						       seg6local_action2str(
+							       lan->behavior));
+				json_object_boolean_add(
+					srv6_lan_endx_sid_json, "flagB",
+					!!(lan->flags &
+					   EXT_SUBTLV_LINK_SRV6_ENDX_SID_BFLG));
+				json_object_boolean_add(
+					srv6_lan_endx_sid_json, "flagS",
+					!!(lan->flags &
+					   EXT_SUBTLV_LINK_SRV6_ENDX_SID_SFLG));
+				json_object_boolean_add(
+					srv6_lan_endx_sid_json, "flagP",
+					!!(lan->flags &
+					   EXT_SUBTLV_LINK_SRV6_ENDX_SID_PFLG));
+				json_object_string_addf(srv6_lan_endx_sid_json,
+							"neighborID", "%pSY",
+							lan->neighbor_id);
+				json_object_array_add(arr_adj_json,
+						      srv6_lan_endx_sid_json);
+				if (lan->subsubtlvs)
+					isis_format_subsubtlvs(lan->subsubtlvs,
+							       NULL,
+							       srv6_lan_endx_sid_json,
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 							       indent + 4);
 			}
 		} else
@@ -2599,6 +2834,7 @@ static void format_item_prefix_sid(uint16_t mtid, struct isis_item *i,
 		}
 		json_object_int_add(sr_json, "alg", sid->algorithm);
 
+<<<<<<< HEAD
 #if CONFDATE > 20240916
 		CPP_NOTICE("remove deprecated non boolean json")
 #endif
@@ -2626,6 +2862,8 @@ static void format_item_prefix_sid(uint16_t mtid, struct isis_item *i,
 			((sid->flags & ISIS_PREFIX_SID_LOCAL) ? "yes" : ""));
 		/* end deprecated keys (no booleans) */
 
+=======
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		struct json_object *flags_json;
 
 		flags_json = json_object_new_object();
@@ -2774,10 +3012,13 @@ static void format_subtlv_ipv6_source_prefix(struct prefix_ipv6 *p,
 	char prefixbuf[PREFIX2STR_BUFFER];
 	if (json) {
 		prefix2str(p, prefixbuf, sizeof(prefixbuf));
+<<<<<<< HEAD
 #if CONFDATE > 20240916
 		CPP_NOTICE("remove deprecated key format with -")
 #endif
 		json_object_string_add(json, "ipv6-src-prefix", prefixbuf);
+=======
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		json_object_string_add(json, "ipv6SrcPrefix", prefixbuf);
 	} else {
 		sbuf_push(buf, indent, "IPv6 Source Prefix: %s\n",
@@ -2881,6 +3122,7 @@ static void format_subsubtlv_srv6_sid_structure(
 	if (json) {
 		struct json_object *sid_struct_json;
 
+<<<<<<< HEAD
 #if CONFDATE > 20240916
 		CPP_NOTICE("remove deprecated key format with -")
 #endif
@@ -2898,6 +3140,8 @@ static void format_subsubtlv_srv6_sid_structure(
 				    sid_struct->arg_len);
 		/* end old deprecated key format */
 
+=======
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		sid_struct_json = json_object_new_object();
 		json_object_object_add(json, "srv6SidStructure",
 				       sid_struct_json);
@@ -3191,6 +3435,7 @@ static void format_item_srv6_end_sid(uint16_t mtid, struct isis_item *i,
 	if (json) {
 		struct json_object *sid_json;
 
+<<<<<<< HEAD
 #if CONFDATE > 20240916
 		CPP_NOTICE("remove deprecated key format with -")
 #endif
@@ -3211,6 +3456,8 @@ static void format_item_srv6_end_sid(uint16_t mtid, struct isis_item *i,
 		}
 		/* end old deprecated key format */
 
+=======
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		sid_json = json_object_new_object();
 		json_object_object_add(json, "srv6EndSid", sid_json);
 		json_object_string_add(sid_json, "endpointBehavior",
@@ -3371,6 +3618,7 @@ static void format_item_area_address(uint16_t mtid, struct isis_item *i,
 
 	memcpy(iso_addr.area_addr, addr->addr, ISO_ADDR_SIZE);
 	iso_addr.addr_len = addr->len;
+<<<<<<< HEAD
 	if (json) {
 #if CONFDATE > 20240916
 		CPP_NOTICE("remove deprecated key format with -")
@@ -3378,6 +3626,11 @@ static void format_item_area_address(uint16_t mtid, struct isis_item *i,
 		json_object_string_addf(json, "area-addr", "%pIS", &iso_addr);
 		json_object_string_addf(json, "areaAddr", "%pIS", &iso_addr);
 	} else
+=======
+	if (json)
+		json_object_string_addf(json, "areaAddr", "%pIS", &iso_addr);
+	else
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		sbuf_push(buf, indent, "Area Address: %pIS\n", &iso_addr);
 }
 
@@ -3465,6 +3718,7 @@ static void format_item_oldstyle_reach(uint16_t mtid, struct isis_item *i,
 	if (json) {
 		struct json_object *old_json, *array_json;
 
+<<<<<<< HEAD
 #if CONFDATE > 20240916
 		CPP_NOTICE("remove deprecated key format with -")
 #endif
@@ -3481,6 +3735,8 @@ static void format_item_oldstyle_reach(uint16_t mtid, struct isis_item *i,
 		json_object_int_add(old_json, "metric", r->metric);
 		/* end old deprecated key format */
 
+=======
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		old_json = json_object_new_object();
 		json_object_object_get_ex(json, "oldReachStyle", &array_json);
 		if (!array_json) {
@@ -3568,6 +3824,7 @@ static void format_item_lan_neighbor(uint16_t mtid, struct isis_item *i,
 	char sys_id[ISO_SYSID_STRLEN];
 
 	snprintfrr(sys_id, ISO_SYSID_STRLEN, "%pSY", n->mac);
+<<<<<<< HEAD
 	if (json) {
 #if CONFDATE > 20240916
 		CPP_NOTICE("remove deprecated key format with -")
@@ -3575,6 +3832,11 @@ static void format_item_lan_neighbor(uint16_t mtid, struct isis_item *i,
 		json_object_string_add(json, "lan-neighbor", sys_id);
 		json_object_string_add(json, "lanNeighbor", sys_id);
 	} else
+=======
+	if (json)
+		json_object_string_add(json, "lanNeighbor", sys_id);
+	else
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		sbuf_push(buf, indent, "LAN Neighbor: %s\n", sys_id);
 }
 
@@ -3646,6 +3908,7 @@ static void format_item_lsp_entry(uint16_t mtid, struct isis_item *i,
 	if (json) {
 		char buf[255];
 		struct json_object *lsp_json;
+<<<<<<< HEAD
 		lsp_json = json_object_new_object();
 #if CONFDATE > 20240916
 		CPP_NOTICE("remove deprecated key format with -")
@@ -3657,6 +3920,8 @@ static void format_item_lsp_entry(uint16_t mtid, struct isis_item *i,
 		snprintfrr(buf,sizeof(buf),"0x%04hx",e->checksum);
 		json_object_string_add(lsp_json, "chksum", buf);
 		json_object_int_add(lsp_json, "lifetime", e->checksum);
+=======
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 		lsp_json = json_object_new_object();
 		json_object_object_add(json, "lspEntry", lsp_json);
@@ -3748,6 +4013,7 @@ static void format_item_extended_reach(uint16_t mtid, struct isis_item *i,
 	if (json) {
 		struct json_object *reach_json, *array_json;
 
+<<<<<<< HEAD
 #if CONFDATE > 20240916
 		CPP_NOTICE("remove deprecated key format with -")
 #endif
@@ -3773,6 +4039,8 @@ static void format_item_extended_reach(uint16_t mtid, struct isis_item *i,
 						indent + 2, mtid);
 		/* end old deprecated key format */
 
+=======
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		reach_json = json_object_new_object();
 		json_object_object_get_ex(json, "extReach", &array_json);
 		if (!array_json) {
@@ -3921,6 +4189,7 @@ static void format_item_oldstyle_ip_reach(uint16_t mtid, struct isis_item *i,
 	if (json) {
 		struct json_object *old_json, *array_json;
 
+<<<<<<< HEAD
 #if CONFDATE > 20240916
 		CPP_NOTICE("remove deprecated key format with -")
 #endif
@@ -3939,6 +4208,8 @@ static void format_item_oldstyle_ip_reach(uint16_t mtid, struct isis_item *i,
 		json_object_int_add(old_json, "metric", r->metric);
 		/* end old deprecated key format */
 
+=======
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		old_json = json_object_new_object();
 		json_object_object_get_ex(json, "oldIpReachStyle", &array_json);
 		if (!array_json) {
@@ -4044,6 +4315,7 @@ static void format_tlv_protocols_supported(struct isis_protocols_supported *p,
 		struct json_object *protocol_json;
 		char buf[255];
 
+<<<<<<< HEAD
 #if CONFDATE > 20240916
 		CPP_NOTICE("remove deprecated key format with -")
 #endif
@@ -4057,6 +4329,8 @@ static void format_tlv_protocols_supported(struct isis_protocols_supported *p,
 					       nlpid2str(p->protocols[i]));
 		}
 
+=======
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		protocol_json = json_object_new_object();
 		json_object_object_add(json, "supportedProtocols",
 				       protocol_json);
@@ -4065,7 +4339,10 @@ static void format_tlv_protocols_supported(struct isis_protocols_supported *p,
 			json_object_string_add(protocol_json, buf,
 					       nlpid2str(p->protocols[i]));
 		}
+<<<<<<< HEAD
 		/* end old deprecated key format */
+=======
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	} else {
 		sbuf_push(buf, indent, "Protocols Supported: ");
 		for (uint8_t i = 0; i < p->count; i++) {
@@ -4281,6 +4558,7 @@ static void format_item_global_ipv6_address(uint16_t mtid, struct isis_item *i,
 	char addrbuf[INET6_ADDRSTRLEN];
 
 	inet_ntop(AF_INET6, &a->addr, addrbuf, sizeof(addrbuf));
+<<<<<<< HEAD
 	if (json) {
 #if CONFDATE > 20240916
 		CPP_NOTICE("remove deprecated key format with -")
@@ -4288,6 +4566,11 @@ static void format_item_global_ipv6_address(uint16_t mtid, struct isis_item *i,
 		json_object_string_add(json, "global-ipv6", addrbuf);
 		json_object_string_add(json, "globalIpv6", addrbuf);
 	} else
+=======
+	if (json)
+		json_object_string_add(json, "globalIpv6", addrbuf);
+	else
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		sbuf_push(buf, indent, "Global IPv6 Interface Address: %s\n",
 			  addrbuf);
 }
@@ -4369,12 +4652,15 @@ static void format_item_mt_router_info(uint16_t mtid, struct isis_item *i,
 		json_object_string_add(mt_json, "mtDescription",
 				       isis_mtid2str(mtid));
 
+<<<<<<< HEAD
 #if CONFDATE > 20240916
 		CPP_NOTICE("remove deprecated non boolean format")
 #endif
 		json_object_string_add(mt_json, "overload", info->overload?"true":"false");
 		json_object_string_add(mt_json, "attached", info->attached?"true":"false");
 
+=======
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		json_object_boolean_add(mt_json, "overloadBit",
 					!!info->overload);
 		json_object_boolean_add(mt_json, "attachedbit",
@@ -4461,6 +4747,7 @@ static void format_tlv_te_router_id(const struct in_addr *id, struct sbuf *buf,
 
 	char addrbuf[INET_ADDRSTRLEN];
 	inet_ntop(AF_INET, id, addrbuf, sizeof(addrbuf));
+<<<<<<< HEAD
 	if (json) {
 #if CONFDATE > 20240916
 		CPP_NOTICE("remove deprecated key format with -")
@@ -4468,6 +4755,11 @@ static void format_tlv_te_router_id(const struct in_addr *id, struct sbuf *buf,
 		json_object_string_add(json, "te-router-id", addrbuf);
 		json_object_string_add(json, "teRouterId", addrbuf);
 	} else
+=======
+	if (json)
+		json_object_string_add(json, "teRouterId", addrbuf);
+	else
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		sbuf_push(buf, indent, "TE Router ID: %s\n", addrbuf);
 }
 
@@ -4542,6 +4834,7 @@ static void format_item_extended_ip_reach(uint16_t mtid, struct isis_item *i,
 	char prefixbuf[PREFIX2STR_BUFFER];
 
 	if (json) {
+<<<<<<< HEAD
 #if CONFDATE > 20240916
 		CPP_NOTICE("remove deprecated key format with -")
 #endif
@@ -4573,6 +4866,8 @@ static void format_item_extended_ip_reach(uint16_t mtid, struct isis_item *i,
 		}
 		/* end old deprecated key format */
 
+=======
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		ext_json = json_object_new_object();
 		json_object_object_get_ex(json, "extIpReach", &array_json);
 		if (!array_json) {
@@ -4855,6 +5150,7 @@ static void format_tlv_te_router_id_ipv6(const struct in6_addr *id,
 
 	char addrbuf[INET6_ADDRSTRLEN];
 	inet_ntop(AF_INET6, id, addrbuf, sizeof(addrbuf));
+<<<<<<< HEAD
 	if (json) {
 #if CONFDATE > 20240916
 		CPP_NOTICE("remove deprecated key format with -")
@@ -4862,6 +5158,11 @@ static void format_tlv_te_router_id_ipv6(const struct in6_addr *id,
 		json_object_string_add(json, "ipv6-te-router-id", addrbuf);
 		json_object_string_add(json, "ipv6TeRouterId", addrbuf);
 	} else
+=======
+	if (json)
+		json_object_string_add(json, "ipv6TeRouterId", addrbuf);
+	else
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		sbuf_push(buf, indent, "IPv6 TE Router ID: %s\n", addrbuf);
 }
 
@@ -4939,6 +5240,7 @@ static void format_tlv_spine_leaf(const struct isis_spine_leaf *spine_leaf,
 	if (json) {
 		struct json_object *spine_json;
 
+<<<<<<< HEAD
 #if CONFDATE > 20240916
 		CPP_NOTICE("remove deprecated key format with -")
 #endif
@@ -4963,6 +5265,8 @@ static void format_tlv_spine_leaf(const struct isis_spine_leaf *spine_leaf,
 				       spine_leaf->is_backup ? "yes" : "");
 		/* end old deprecated format */
 
+=======
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		spine_json = json_object_new_object();
 		json_object_object_add(json, "spineLeafExtension", spine_json);
 		if (spine_leaf->has_tier) {
@@ -5122,6 +5426,7 @@ format_tlv_threeway_adj(const struct isis_threeway_adj *threeway_adj,
 	if (json) {
 		struct json_object *three_json;
 
+<<<<<<< HEAD
 #if CONFDATE > 20240916
 		CPP_NOTICE("remove deprecated key format with -")
 #endif
@@ -5142,6 +5447,8 @@ format_tlv_threeway_adj(const struct isis_threeway_adj *threeway_adj,
 		}
 		/* end old deprecated key format */
 
+=======
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		three_json = json_object_new_object();
 		json_object_object_add(json, "p2pThreeWayAdj", three_json);
 		json_object_string_add(three_json, "stateName",
@@ -5292,6 +5599,7 @@ static void format_item_ipv6_reach(uint16_t mtid, struct isis_item *i,
 					       subtlvs_json);
 			format_subtlvs(r->subtlvs, NULL, subtlvs_json, 0);
 		}
+<<<<<<< HEAD
 
 #if CONFDATE > 20240916
 		CPP_NOTICE("remove deprecated key format with -")
@@ -5326,6 +5634,8 @@ static void format_item_ipv6_reach(uint16_t mtid, struct isis_item *i,
 			format_subtlvs(r->subtlvs, NULL, subtlvs_json, 0);
 		}
 		/* end deprecated key format */
+=======
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	} else {
 		sbuf_push(buf, indent,
 			  "%sIPv6 Reachability: %s (Metric: %u)%s%s",
@@ -5538,6 +5848,7 @@ static void format_tlv_router_cap_json(const struct isis_router_cap *router_cap,
 	/* Router ID and Flags */
 	struct json_object *cap_json;
 
+<<<<<<< HEAD
 #if CONFDATE > 20240916
 	CPP_NOTICE("remove deprecated key format with -")
 #endif
@@ -5554,6 +5865,8 @@ static void format_tlv_router_cap_json(const struct isis_router_cap *router_cap,
 		router_cap->flags & ISIS_ROUTER_CAP_FLAG_S ? "1" : "0");
 	/* end deprecated JSON key format */
 
+=======
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	cap_json = json_object_new_object();
 	json_object_object_add(json, "routerCapability", cap_json);
 	inet_ntop(AF_INET, &router_cap->router_id, addrbuf, sizeof(addrbuf));
@@ -5568,6 +5881,7 @@ static void format_tlv_router_cap_json(const struct isis_router_cap *router_cap,
 	if (router_cap->srgb.range_size != 0) {
 		struct json_object *gb_json;
 
+<<<<<<< HEAD
 #if CONFDATE > 20240916
 		CPP_NOTICE("remove deprecated key format with -")
 #endif
@@ -5585,6 +5899,8 @@ static void format_tlv_router_cap_json(const struct isis_router_cap *router_cap,
 		json_object_int_add(gb_json, "global-block-range",
 				    router_cap->srgb.range_size);
 
+=======
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		gb_json = json_object_new_object();
 		json_object_object_add(json, "segmentRoutingGb", gb_json);
 		json_object_boolean_add(gb_json, "ipv4",
@@ -5601,6 +5917,7 @@ static void format_tlv_router_cap_json(const struct isis_router_cap *router_cap,
 	if (router_cap->srlb.range_size != 0) {
 		struct json_object *lb_json;
 
+<<<<<<< HEAD
 #if CONFDATE > 20240916
 		CPP_NOTICE("remove deprecated key format with -")
 #endif
@@ -5613,6 +5930,8 @@ static void format_tlv_router_cap_json(const struct isis_router_cap *router_cap,
 				    router_cap->srlb.range_size);
 		/* end old deprecated key format */
 
+=======
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		lb_json = json_object_new_object();
 		json_object_object_add(json, "segmentRoutingLb", lb_json);
 		json_object_int_add(lb_json, "globalBlockBase",
@@ -5626,6 +5945,7 @@ static void format_tlv_router_cap_json(const struct isis_router_cap *router_cap,
 		char buf[255];
 		struct json_object *alg_json;
 
+<<<<<<< HEAD
 #if CONFDATE > 20240916
 		CPP_NOTICE("remove deprecated key format with -")
 #endif
@@ -5643,6 +5963,8 @@ static void format_tlv_router_cap_json(const struct isis_router_cap *router_cap,
 			}
 		/* end old deprecated key format */
 
+=======
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		alg_json = json_object_new_object();
 		json_object_object_add(json, "segmentRoutingAlgorithm",
 				       alg_json);
@@ -6497,6 +6819,7 @@ static void format_item_auth(uint16_t mtid, struct isis_item *i,
 	struct isis_auth *auth = (struct isis_auth *)i;
 	char obuf[768];
 
+<<<<<<< HEAD
 	if (json) {
 #if CONFDATE > 20240916
 		CPP_NOTICE("remove deprecated key format with -")
@@ -6504,10 +6827,16 @@ static void format_item_auth(uint16_t mtid, struct isis_item *i,
 		json_object_string_add(json, "test-auth", "ok");
 		json_object_string_add(json, "testAuth", "ok");
 	} else
+=======
+	if (json)
+		json_object_string_add(json, "testAuth", "ok");
+	else
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		sbuf_push(buf, indent, "Authentication:\n");
 	switch (auth->type) {
 	case ISIS_PASSWD_TYPE_CLEARTXT:
 		zlog_sanitize(obuf, sizeof(obuf), auth->value, auth->length);
+<<<<<<< HEAD
 		if (json) {
 #if CONFDATE > 20240916
 			CPP_NOTICE("remove deprecated key format with -")
@@ -6515,6 +6844,11 @@ static void format_item_auth(uint16_t mtid, struct isis_item *i,
 			json_object_string_add(json, "auth-pass", obuf);
 			json_object_string_add(json, "authPass", obuf);
 		} else
+=======
+		if (json)
+			json_object_string_add(json, "authPass", obuf);
+		else
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 			sbuf_push(buf, indent, "  Password: %s\n", obuf);
 		break;
 	case ISIS_PASSWD_TYPE_HMAC_MD5:
@@ -6522,6 +6856,7 @@ static void format_item_auth(uint16_t mtid, struct isis_item *i,
 			snprintf(obuf + 2 * j, sizeof(obuf) - 2 * j, "%02hhx",
 				 auth->value[j]);
 		}
+<<<<<<< HEAD
 		if (json) {
 #if CONFDATE > 20240916
 			CPP_NOTICE("remove deprecated key format with -")
@@ -6539,6 +6874,17 @@ static void format_item_auth(uint16_t mtid, struct isis_item *i,
 			json_object_int_add(json, "auth-unknown", auth->type);
 			json_object_int_add(json, "authUnknown", auth->type);
 		} else
+=======
+		if (json)
+			json_object_string_add(json, "authHmacMd5", obuf);
+		else
+			sbuf_push(buf, indent, "  HMAC-MD5: %s\n", obuf);
+		break;
+	default:
+		if (json)
+			json_object_int_add(json, "authUnknown", auth->type);
+		else
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 			sbuf_push(buf, indent, "  Unknown (%hhu)\n",
 				  auth->type);
 		break;
@@ -6654,6 +7000,7 @@ static void format_tlv_purge_originator(struct isis_purge_originator *poi,
 	if (json) {
 		struct json_object *purge_json;
 
+<<<<<<< HEAD
 #if CONFDATE > 20240916
 		CPP_NOTICE("remove deprecated key format with -")
 #endif
@@ -6666,6 +7013,8 @@ static void format_tlv_purge_originator(struct isis_purge_originator *poi,
 			json_object_string_add(purge_json, "rec-from", sen_id);
 		/* end old deprecated key format */
 
+=======
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		purge_json = json_object_new_object();
 		json_object_object_add(json, "purgeOriginator", purge_json);
 
@@ -7215,6 +7564,7 @@ static void format_item_srv6_locator(uint16_t mtid, struct isis_item *i,
 	if (json) {
 		struct json_object *loc_json;
 
+<<<<<<< HEAD
 #if CONFDATE > 20240916
 		CPP_NOTICE("remove deprecated key format with -")
 #endif
@@ -7242,6 +7592,8 @@ static void format_item_srv6_locator(uint16_t mtid, struct isis_item *i,
 		}
 		/* old deprecated key format */
 
+=======
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		loc_json = json_object_new_object();
 		json_object_object_add(json, "srv6Locator", loc_json);
 		json_object_int_add(loc_json, "mtId", mtid);
@@ -7543,6 +7895,7 @@ static void format_tlvs(struct isis_tlvs *tlvs, struct sbuf *buf, struct json_ob
 		     &tlvs->area_addresses, buf, json, indent);
 
 	if (tlvs->mt_router_info_empty) {
+<<<<<<< HEAD
 		if (json) {
 #if CONFDATE > 20240916
 			CPP_NOTICE("remove deprecated key format with -")
@@ -7550,6 +7903,11 @@ static void format_tlvs(struct isis_tlvs *tlvs, struct sbuf *buf, struct json_ob
 			json_object_string_add(json, "mt-router-info", "none");
 			json_object_object_add(json, "mtRouterInfo", NULL);
 		} else
+=======
+		if (json)
+			json_object_object_add(json, "mtRouterInfo", NULL);
+		else
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 			sbuf_push(buf, indent, "MT Router Info: None\n");
 	} else {
 		format_items(ISIS_CONTEXT_LSP, ISIS_TLV_MT_ROUTER_INFO,
@@ -8724,7 +9082,11 @@ struct isis_router_cap *isis_tlvs_init_router_capability(struct isis_tlvs *tlvs)
 	tlvs->router_cap = XCALLOC(MTYPE_ISIS_TLV, sizeof(*tlvs->router_cap));
 
 	/* init SR algo list content to the default value */
+<<<<<<< HEAD
 	for (int i = 0; i < SR_ALGORITHM_COUNT; i++)
+=======
+	for (int i = 1; i < SR_ALGORITHM_COUNT; i++)
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		tlvs->router_cap->algo[i] = SR_ALGORITHM_UNSET;
 
 	return tlvs->router_cap;

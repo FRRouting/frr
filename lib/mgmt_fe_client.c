@@ -49,6 +49,10 @@ struct mgmt_fe_client {
 	frr_each_safe (mgmt_sessions, &(client)->sessions, (session))
 
 struct debug mgmt_dbg_fe_client = {
+<<<<<<< HEAD
+=======
+	.conf = "debug mgmt client frontend",
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	.desc = "Management frontend client operations"
 };
 
@@ -805,6 +809,7 @@ DEFPY(debug_mgmt_client_fe, debug_mgmt_client_fe_cmd,
 	return CMD_SUCCESS;
 }
 
+<<<<<<< HEAD
 static int mgmt_debug_fe_client_config_write(struct vty *vty)
 {
 	if (DEBUG_MODE_CHECK(&mgmt_dbg_fe_client, DEBUG_MODE_CONF))
@@ -830,6 +835,8 @@ static struct cmd_node mgmt_dbg_node = {
 	.config_write = mgmt_debug_fe_client_config_write,
 };
 
+=======
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 /*
  * Initialize library and try connecting with MGMTD.
  */
@@ -870,8 +877,13 @@ struct mgmt_fe_client *mgmt_fe_client_create(const char *client_name,
 
 void mgmt_fe_client_lib_vty_init(void)
 {
+<<<<<<< HEAD
 	debug_init(&mgmt_dbg_fe_client_cbs);
 	install_node(&mgmt_dbg_node);
+=======
+	debug_install(&mgmt_dbg_fe_client);
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	install_element(ENABLE_NODE, &debug_mgmt_client_fe_cmd);
 	install_element(CONFIG_NODE, &debug_mgmt_client_fe_cmd);
 }

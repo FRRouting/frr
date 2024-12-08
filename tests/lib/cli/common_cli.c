@@ -9,6 +9,10 @@
 #include <zebra.h>
 #include <sys/stat.h>
 
+<<<<<<< HEAD
+=======
+#include "debug.h"
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 #include "frrevent.h"
 #include "vty.h"
 #include "command.h"
@@ -42,7 +46,11 @@ static void vty_do_exit(int isexit)
 	yang_terminate();
 	event_master_free(master);
 
+<<<<<<< HEAD
 	log_memstats(stderr, "testcli");
+=======
+	log_memstats(NULL, true);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	if (!isexit)
 		exit(0);
 }
@@ -71,11 +79,19 @@ int main(int argc, char **argv)
 
 	vty_init(master, false);
 	lib_cmd_init();
+<<<<<<< HEAD
+=======
+	debug_init();
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 	for (yangcount = 0; test_yang_modules && test_yang_modules[yangcount];
 	     yangcount++)
 		;
+<<<<<<< HEAD
 	nb_init(master, test_yang_modules, yangcount, false);
+=======
+	nb_init(master, test_yang_modules, yangcount, false, false);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 	test_init(argc, argv);
 

@@ -398,6 +398,10 @@ vrf_id_t zebra_vrf_lookup_by_table(uint32_t table_id, ns_id_t ns_id)
 
 	RB_FOREACH (vrf, vrf_id_head, &vrfs_by_id) {
 		zvrf = vrf->info;
+<<<<<<< HEAD
+=======
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		if (zvrf == NULL)
 			continue;
 		/* case vrf with netns : match the netnsid */
@@ -408,6 +412,10 @@ vrf_id_t zebra_vrf_lookup_by_table(uint32_t table_id, ns_id_t ns_id)
 			/* VRF is VRF_BACKEND_VRF_LITE */
 			if (zvrf->table_id != table_id)
 				continue;
+<<<<<<< HEAD
+=======
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 			return zvrf_id(zvrf);
 		}
 	}

@@ -56,10 +56,19 @@ struct bgp_pbr_config;
  * behavior
  * in the system.
  */
+<<<<<<< HEAD
 enum { AS_UNSPECIFIED = 0,
        AS_SPECIFIED,
        AS_INTERNAL,
        AS_EXTERNAL,
+=======
+enum peer_asn_type {
+	AS_UNSPECIFIED = 1,
+	AS_SPECIFIED = 2,
+	AS_INTERNAL = 4,
+	AS_EXTERNAL = 8,
+	AS_AUTO = 16,
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 };
 
 /* Zebra Gracaful Restart states */
@@ -129,6 +138,10 @@ struct bgp_master {
 #define BGP_OPT_NO_ZEBRA                 (1 << 2)
 #define BGP_OPT_TRAPS_RFC4273            (1 << 3)
 #define BGP_OPT_TRAPS_BGP4MIBV2          (1 << 4)
+<<<<<<< HEAD
+=======
+#define BGP_OPT_TRAPS_RFC4382		 (1 << 5)
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 	uint64_t updgrp_idspace;
 	uint64_t subgrp_idspace;
@@ -163,8 +176,30 @@ struct bgp_master {
 	uint32_t flags;
 #define BM_FLAG_GRACEFUL_SHUTDOWN        (1 << 0)
 #define BM_FLAG_SEND_EXTRA_DATA_TO_ZEBRA (1 << 1)
+<<<<<<< HEAD
 #define BM_FLAG_IPV6_NO_AUTO_RA		 (1 << 8)
 
+=======
+#define BM_FLAG_MAINTENANCE_MODE	 (1 << 2)
+#define BM_FLAG_GR_RESTARTER		 (1 << 3)
+#define BM_FLAG_GR_DISABLED		 (1 << 4)
+#define BM_FLAG_GR_PRESERVE_FWD		 (1 << 5)
+#define BM_FLAG_GRACEFUL_RESTART	 (1 << 6)
+#define BM_FLAG_GR_COMPLETE		 (1 << 7)
+#define BM_FLAG_IPV6_NO_AUTO_RA		 (1 << 8)
+
+#define BM_FLAG_GR_CONFIGURED (BM_FLAG_GR_RESTARTER | BM_FLAG_GR_DISABLED)
+
+	/* BGP-wide graceful restart config params */
+	uint32_t restart_time;
+	uint32_t stalepath_time;
+	uint32_t select_defer_time;
+	uint32_t rib_stale_time;
+
+	time_t startup_time;
+	time_t gr_completion_time;
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	bool terminating;	/* global flag that sigint terminate seen */
 
 	/* TOS value for outgoing packets in BGP connections */
@@ -251,7 +286,11 @@ struct vpn_policy {
 	 */
 	uint32_t tovpn_sid_index; /* unset => set to 0 */
 	struct in6_addr *tovpn_sid;
+<<<<<<< HEAD
 	struct srv6_locator_chunk *tovpn_sid_locator;
+=======
+	struct srv6_locator *tovpn_sid_locator;
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	uint32_t tovpn_sid_transpose_label;
 	struct in6_addr *tovpn_zebra_vrf_sid_last_sent;
 };
@@ -294,9 +333,15 @@ struct graceful_restart_info {
 	/* Best route select */
 	struct event *t_route_select;
 	/* AFI, SAFI enabled */
+<<<<<<< HEAD
 	bool af_enabled[AFI_MAX][SAFI_MAX];
 	/* Route update completed */
 	bool route_sync[AFI_MAX][SAFI_MAX];
+=======
+	bool af_enabled;
+	/* Route update completed */
+	bool route_sync;
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 };
 
 enum global_mode {
@@ -471,9 +516,13 @@ struct bgp {
 	uint32_t restarted_peers;
 	uint32_t implicit_eors;
 	uint32_t explicit_eors;
+<<<<<<< HEAD
 #define BGP_UPDATE_DELAY_DEF              0
 #define BGP_UPDATE_DELAY_MIN              0
 #define BGP_UPDATE_DELAY_MAX              3600
+=======
+#define BGP_UPDATE_DELAY_DEFAULT 0
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 	/* Reference bandwidth for BGP link-bandwidth. Used when
 	 * the LB value has to be computed based on some other
@@ -533,6 +582,10 @@ struct bgp {
 #define BGP_FLAG_ENFORCE_FIRST_AS (1ULL << 36)
 #define BGP_FLAG_DYNAMIC_CAPABILITY (1ULL << 37)
 #define BGP_FLAG_VNI_DOWN		 (1ULL << 38)
+<<<<<<< HEAD
+=======
+#define BGP_FLAG_INSTANCE_HIDDEN	 (1ULL << 39)
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 /* Prohibit BGP from enabling IPv6 RA on interfaces */
 #define BGP_FLAG_IPV6_NO_AUTO_RA (1ULL << 40)
 
@@ -550,6 +603,12 @@ struct bgp {
 	 */
 	enum zebra_gr_mode present_zebra_gr_state;
 
+<<<<<<< HEAD
+=======
+	/* Is deferred path selection still not complete? */
+	bool gr_route_sync_pending;
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	/* BGP Per AF flags */
 	uint16_t af_flags[AFI_MAX][SAFI_MAX];
 #define BGP_CONFIG_DAMPENING				(1 << 0)
@@ -818,11 +877,19 @@ struct bgp {
 	/* BGP VPN SRv6 backend */
 	bool srv6_enabled;
 	char srv6_locator_name[SRV6_LOCNAME_SIZE];
+<<<<<<< HEAD
+=======
+	struct srv6_locator *srv6_locator;
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	struct list *srv6_locator_chunks;
 	struct list *srv6_functions;
 	uint32_t tovpn_sid_index; /* unset => set to 0 */
 	struct in6_addr *tovpn_sid;
+<<<<<<< HEAD
 	struct srv6_locator_chunk *tovpn_sid_locator;
+=======
+	struct srv6_locator *tovpn_sid_locator;
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	uint32_t tovpn_sid_transpose_label;
 	struct in6_addr *tovpn_zebra_vrf_sid_last_sent;
 
@@ -841,6 +908,13 @@ struct bgp {
 	/* BGP route flap dampening configuration */
 	struct bgp_damp_config damp[AFI_MAX][SAFI_MAX];
 
+<<<<<<< HEAD
+=======
+	uint64_t bestpath_runs;
+	uint64_t node_already_on_queue;
+	uint64_t node_deferred_on_queue;
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	QOBJ_FIELDS;
 };
 DECLARE_QOBJ_TYPE(bgp);
@@ -860,6 +934,10 @@ DECLARE_HOOK(bgp_snmp_traps_config_write, (struct vty *vty), (vty));
 DECLARE_HOOK(bgp_config_end, (struct bgp *bgp), (bgp));
 DECLARE_HOOK(bgp_hook_vrf_update, (struct vrf *vrf, bool enabled),
 	     (vrf, enabled));
+<<<<<<< HEAD
+=======
+DECLARE_HOOK(bgp_instance_state, (struct bgp *bgp), (bgp));
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 /* Thread callback information */
 struct afi_safi_info {
@@ -1107,7 +1185,12 @@ enum bgp_fsm_rfc_codes {
 	BGP_FSM_NotifMsg = 25,
 	BGP_FSM_KeepAliveMsg = 26,
 	BGP_FSM_UpdateMsg = 27,
+<<<<<<< HEAD
 	BGP_FSM_UpdateMsgErr = 28
+=======
+	BGP_FSM_UpdateMsgErr = 28,
+	BGP_FSM_SendHoldTimer_Expires = 29,
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 };
 
 /*
@@ -1202,6 +1285,11 @@ struct peer_connection {
 	struct event *t_process_packet;
 	struct event *t_process_packet_error;
 
+<<<<<<< HEAD
+=======
+	struct event *t_stop_with_notify;
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	union sockunion su;
 #define BGP_CONNECTION_SU_UNSPEC(connection)                                   \
 	(connection->su.sa.sa_family == AF_UNSPEC)
@@ -1229,7 +1317,11 @@ struct peer {
 	struct peer_af *peer_af_array[BGP_AF_MAX];
 
 	/* Peer's remote AS number. */
+<<<<<<< HEAD
 	int as_type;
+=======
+	enum peer_asn_type as_type;
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	as_t as;
 	/* for vty as format */
 	char *as_pretty;
@@ -1299,7 +1391,11 @@ struct peer {
 
 	union sockunion *su_local;  /* Sockunion of local address.  */
 	union sockunion *su_remote; /* Sockunion of remote address.  */
+<<<<<<< HEAD
 	int shared_network;	 /* Is this peer shared same network. */
+=======
+	bool shared_network;	    /* Is this peer shared same network. */
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	struct bgp_nexthop nexthop; /* Nexthop */
 
 	/* Roles in bgp session */
@@ -1488,6 +1584,10 @@ struct peer {
 #define PEER_FLAG_CAPABILITY_FQDN (1ULL << 37)  /* fqdn capability */
 #define PEER_FLAG_AS_LOOP_DETECTION (1ULL << 38) /* as path loop detection */
 #define PEER_FLAG_EXTENDED_LINK_BANDWIDTH (1ULL << 39)
+<<<<<<< HEAD
+=======
+#define PEER_FLAG_DUAL_AS		  (1ULL << 40)
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 	/*
 	 *GR-Disabled mode means unset PEER_FLAG_GRACEFUL_RESTART
@@ -1738,8 +1838,20 @@ struct peer {
 	/* Text description of last attribute rcvd */
 	char rcvd_attr_str[BUFSIZ];
 
+<<<<<<< HEAD
 	/* Track if we printed the attribute in debugs */
 	int rcvd_attr_printed;
+=======
+	/*
+	 * Track if we printed the attribute in debugs
+	 *
+	 * These two rcvd_attr_str and rcvd_attr_printed are going to
+	 * be fun in the long term when we want to break up parsing
+	 * of data from the nlri in multiple pthreads or really
+	 * if we ever change order of things this will just break
+	 */
+	bool rcvd_attr_printed;
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 	/* Accepted prefix count */
 	uint32_t pcount[AFI_MAX][SAFI_MAX];
@@ -1800,6 +1912,10 @@ struct peer {
 #define PEER_DOWN_SOCKET_ERROR          34U /* Some socket error happened */
 #define PEER_DOWN_RTT_SHUTDOWN          35U /* Automatically shutdown due to RTT */
 #define PEER_DOWN_SUPPRESS_FIB_PENDING	 36U /* Suppress fib pending changed */
+<<<<<<< HEAD
+=======
+#define PEER_DOWN_PASSWORD_CHANGE	 37U /* neighbor password command */
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	/*
 	 * Remember to update peer_down_str in bgp_fsm.c when you add
 	 * a new value to the last_reset reason
@@ -1808,16 +1924,24 @@ struct peer {
 	struct stream *last_reset_cause;
 
 	/* The kind of route-map Flags.*/
+<<<<<<< HEAD
 	uint16_t rmap_type;
+=======
+	uint8_t rmap_type;
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 #define PEER_RMAP_TYPE_IN             (1U << 0) /* neighbor route-map in */
 #define PEER_RMAP_TYPE_OUT            (1U << 1) /* neighbor route-map out */
 #define PEER_RMAP_TYPE_NETWORK        (1U << 2) /* network route-map */
 #define PEER_RMAP_TYPE_REDISTRIBUTE   (1U << 3) /* redistribute route-map */
 #define PEER_RMAP_TYPE_DEFAULT        (1U << 4) /* default-originate route-map */
+<<<<<<< HEAD
 #define PEER_RMAP_TYPE_NOSET          (1U << 5) /* not allow to set commands */
 #define PEER_RMAP_TYPE_IMPORT         (1U << 6) /* neighbor route-map import */
 #define PEER_RMAP_TYPE_EXPORT         (1U << 7) /* neighbor route-map export */
 #define PEER_RMAP_TYPE_AGGREGATE      (1U << 8) /* aggregate-address route-map */
+=======
+#define PEER_RMAP_TYPE_AGGREGATE      (1U << 5) /* aggregate-address route-map */
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 	/** Peer overwrite configuration. */
 	struct bfd_session_config {
@@ -2135,6 +2259,10 @@ enum bgp_clear_type {
 enum bgp_create_error_code {
 	BGP_SUCCESS = 0,
 	BGP_CREATED = 1,
+<<<<<<< HEAD
+=======
+	BGP_INSTANCE_EXISTS = 2,
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	BGP_ERR_INVALID_VALUE = -1,
 	BGP_ERR_INVALID_FLAG = -2,
 	BGP_ERR_INVALID_AS = -3,
@@ -2257,15 +2385,25 @@ extern struct peer *peer_unlock_with_caller(const char *, struct peer *);
 extern enum bgp_peer_sort peer_sort(struct peer *peer);
 extern enum bgp_peer_sort peer_sort_lookup(struct peer *peer);
 
+<<<<<<< HEAD
 extern bool peer_active(struct peer *);
+=======
+extern bool peer_active(struct peer_connection *connection);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 extern bool peer_active_nego(struct peer *);
 extern bool peer_afc_received(struct peer *peer);
 extern bool peer_afc_advertised(struct peer *peer);
 extern void bgp_recalculate_all_bestpaths(struct bgp *bgp);
 extern struct peer *peer_create(union sockunion *su, const char *conf_if,
 				struct bgp *bgp, as_t local_as, as_t remote_as,
+<<<<<<< HEAD
 				int as_type, struct peer_group *group,
 				bool config_node, const char *as_str);
+=======
+				enum peer_asn_type as_type,
+				struct peer_group *group, bool config_node,
+				const char *as_str);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 extern struct peer *peer_create_accept(struct bgp *);
 extern void peer_xfer_config(struct peer *dst, struct peer *src);
 extern char *peer_uptime(time_t uptime2, char *buf, size_t len, bool use_json,
@@ -2338,6 +2476,7 @@ extern void bgp_listen_limit_unset(struct bgp *bgp);
 extern bool bgp_update_delay_active(struct bgp *);
 extern bool bgp_update_delay_configured(struct bgp *);
 extern bool bgp_afi_safi_peer_exists(struct bgp *bgp, afi_t afi, safi_t safi);
+<<<<<<< HEAD
 extern void peer_as_change(struct peer *peer, as_t as, int as_type,
 			   const char *as_str);
 extern int peer_remote_as(struct bgp *bgp, union sockunion *su,
@@ -2347,6 +2486,18 @@ extern int peer_group_remote_as(struct bgp *bgp, const char *peer_str, as_t *as,
 				int as_type, const char *as_str);
 extern int peer_delete(struct peer *peer);
 extern void peer_notify_unconfig(struct peer *peer);
+=======
+extern void peer_as_change(struct peer *peer, as_t as,
+			   enum peer_asn_type as_type, const char *as_str);
+extern int peer_remote_as(struct bgp *bgp, union sockunion *su,
+			  const char *conf_if, as_t *as,
+			  enum peer_asn_type as_type, const char *as_str);
+extern int peer_group_remote_as(struct bgp *bgp, const char *peer_str, as_t *as,
+				enum peer_asn_type as_type, const char *as_str);
+extern int peer_delete(struct peer *peer);
+extern void peer_notify_unconfig(struct peer_connection *connection);
+extern bool peer_notify_config_change(struct peer_connection *connection);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 extern int peer_group_delete(struct peer_group *);
 extern int peer_group_remote_as_delete(struct peer_group *);
 extern int peer_group_listen_range_add(struct peer_group *, struct prefix *);
@@ -2425,7 +2576,11 @@ extern int peer_allowas_in_set(struct peer *, afi_t, safi_t, int, int);
 extern int peer_allowas_in_unset(struct peer *, afi_t, safi_t);
 
 extern int peer_local_as_set(struct peer *peer, as_t as, bool no_prepend,
+<<<<<<< HEAD
 			     bool replace_as, const char *as_str);
+=======
+			     bool replace_as, bool dual_as, const char *as_str);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 extern int peer_local_as_unset(struct peer *);
 
 extern int peer_prefix_list_set(struct peer *, afi_t, safi_t, int,
@@ -2745,12 +2900,73 @@ static inline bool bgp_in_graceful_shutdown(struct bgp *bgp)
 	        !!CHECK_FLAG(bm->flags, BM_FLAG_GRACEFUL_SHUTDOWN));
 }
 
+<<<<<<< HEAD
+=======
+static inline bool bgp_in_graceful_restart(void)
+{
+	/* True if BGP has (re)started gracefully (based on flags
+	 * noted at startup) and GR is not complete.
+	 */
+	return (CHECK_FLAG(bm->flags, BM_FLAG_GRACEFUL_RESTART) &&
+		!CHECK_FLAG(bm->flags, BM_FLAG_GR_COMPLETE));
+}
+
+static inline bool bgp_is_graceful_restart_complete(void)
+{
+	/* True if BGP has (re)started gracefully (based on flags
+	 * noted at startup) and GR is marked as complete.
+	 */
+	return (CHECK_FLAG(bm->flags, BM_FLAG_GRACEFUL_RESTART) &&
+		CHECK_FLAG(bm->flags, BM_FLAG_GR_COMPLETE));
+}
+
+static inline void bgp_update_gr_completion(void)
+{
+	struct listnode *node, *nnode;
+	struct bgp *bgp;
+
+	/*
+	 * Check and mark GR complete. This is done when deferred
+	 * path selection has been completed for all instances and
+	 * route-advertisement/EOR and route-sync with zebra has
+	 * been invoked.
+	 */
+	if (!CHECK_FLAG(bm->flags, BM_FLAG_GRACEFUL_RESTART) ||
+	    CHECK_FLAG(bm->flags, BM_FLAG_GR_COMPLETE))
+		return;
+
+	for (ALL_LIST_ELEMENTS(bm->bgp, node, nnode, bgp)) {
+		if (bgp->gr_route_sync_pending)
+			return;
+	}
+
+	SET_FLAG(bm->flags, BM_FLAG_GR_COMPLETE);
+	bm->gr_completion_time = monotime(NULL);
+}
+
+static inline bool bgp_gr_is_forwarding_preserved(struct bgp *bgp)
+{
+	/*
+	 * Is forwarding state preserved? Based either on config
+	 * or if BGP restarted gracefully.
+	 * TBD: Additional AFI/SAFI based checks etc.
+	 */
+	return (CHECK_FLAG(bm->flags, BM_FLAG_GRACEFUL_RESTART) ||
+		CHECK_FLAG(bgp->flags, BGP_FLAG_GR_PRESERVE_FWD));
+}
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 /* For benefit of rfapi */
 extern struct peer *peer_new(struct bgp *bgp);
 
 extern struct peer *peer_lookup_in_view(struct vty *vty, struct bgp *bgp,
 					const char *ip_str, bool use_json);
 extern int bgp_lookup_by_as_name_type(struct bgp **bgp_val, as_t *as,
+<<<<<<< HEAD
+=======
+				      const char *as_pretty,
+				      enum asnotation_mode asnotation,
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 				      const char *name,
 				      enum bgp_instance_type inst_type);
 
@@ -2784,10 +3000,31 @@ extern bool bgp_path_attribute_treat_as_withdraw(struct peer *peer, char *buf,
 
 extern void srv6_function_free(struct bgp_srv6_function *func);
 
+<<<<<<< HEAD
+=======
+extern void bgp_session_reset_safe(struct peer *peer, struct listnode **nnode);
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 #ifdef _FRR_ATTRIBUTE_PRINTFRR
 /* clang-format off */
 #pragma FRR printfrr_ext "%pBP" (struct peer *)
 /* clang-format on */
 #endif
 
+<<<<<<< HEAD
+=======
+/* Macro to check if default bgp instance is hidden */
+#define IS_BGP_INSTANCE_HIDDEN(_bgp)                                           \
+	(CHECK_FLAG(_bgp->flags, BGP_FLAG_INSTANCE_HIDDEN) &&                  \
+	 (_bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT ||                      \
+	  _bgp->inst_type == BGP_INSTANCE_TYPE_VRF))
+
+/* Macro to check if bgp instance delete in-progress and !hidden */
+#define BGP_INSTANCE_HIDDEN_DELETE_IN_PROGRESS(_bgp, _afi, _safi)              \
+	(CHECK_FLAG(_bgp->flags, BGP_FLAG_DELETE_IN_PROGRESS) &&               \
+	 !IS_BGP_INSTANCE_HIDDEN(_bgp) &&                                      \
+	 !(_afi == AFI_IP && _safi == SAFI_MPLS_VPN) &&                        \
+	 !(_afi == AFI_IP6 && _safi == SAFI_MPLS_VPN))
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 #endif /* _QUAGGA_BGPD_H */

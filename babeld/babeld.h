@@ -98,5 +98,9 @@ extern int redistribute_filter(const unsigned char *prefix, unsigned short plen,
 extern int resize_receive_buffer(int size);
 extern void schedule_neighbours_check(int msecs, int override);
 extern struct babel *babel_lookup(void);
+<<<<<<< HEAD
+=======
+extern void babel_clean_routing_process(void);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 #endif /* BABEL_BABELD_H */

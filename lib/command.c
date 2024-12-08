@@ -17,6 +17,10 @@
 #include <lib/version.h>
 
 #include "command.h"
+<<<<<<< HEAD
+=======
+#include "debug.h"
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 #include "frrstr.h"
 #include "memory.h"
 #include "log.h"
@@ -1453,7 +1457,11 @@ DEFUN (config_help,
        "Description of the interactive help system\n")
 {
 	vty_out(vty,
+<<<<<<< HEAD
 		"Quagga VTY provides advanced help feature.  When you need help,\n\
+=======
+		"FRR VTY provides advanced help feature.  When you need help,\n\
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 anytime at the command line please press '?'.\n\
 \n\
 If nothing matches, the help list will be empty and you must backup\n\
@@ -2463,8 +2471,12 @@ const char *host_config_get(void)
 void cmd_show_lib_debugs(struct vty *vty)
 {
 	route_map_show_debug(vty);
+<<<<<<< HEAD
 	mgmt_debug_be_client_show_debug(vty);
 	mgmt_debug_fe_client_show_debug(vty);
+=======
+	debug_status_write(vty);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 }
 
 void install_default(enum node_type node)

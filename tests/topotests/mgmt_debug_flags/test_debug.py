@@ -27,7 +27,11 @@ def tgen(request):
     tgen = Topogen(topodef, request.module.__name__)
     tgen.start_topology()
 
+<<<<<<< HEAD
     for rname, router in tgen.routers().items():
+=======
+    for _, router in tgen.routers().items():
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
         router.load_frr_config("frr.conf")
 
     tgen.start_router()

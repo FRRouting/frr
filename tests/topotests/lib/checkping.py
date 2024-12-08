@@ -33,5 +33,9 @@ def check_ping(name, dest_addr, expect_connected, count, wait, source_addr=None)
     logger.info("[+] check {} {} {}".format(name, dest_addr, match))
     tgen = get_topogen()
     func = functools.partial(_check, name, dest_addr, source_addr, match)
+<<<<<<< HEAD
     success, result = topotest.run_and_expect(func, None, count=count, wait=wait)
+=======
+    _, result = topotest.run_and_expect(func, None, count=count, wait=wait)
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
     assert result is None, "Failed"

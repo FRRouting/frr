@@ -60,7 +60,10 @@ test_isis_srv6_topo1.py:
 """
 
 import os
+<<<<<<< HEAD
 import re
+=======
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 import sys
 import json
 import functools
@@ -212,7 +215,11 @@ def setup_module(mod):
     tgen.start_router()
 
 
+<<<<<<< HEAD
 def teardown_module(mod):
+=======
+def teardown_module():
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
     "Teardown the pytest environment"
 
     # Teardown the topology
@@ -250,7 +257,11 @@ def check_ping6(name, dest_addr, expect_connected):
     logger.info("[+] check {} {} {}".format(name, dest_addr, match))
     tgen = get_topogen()
     func = functools.partial(_check, name, dest_addr, match)
+<<<<<<< HEAD
     success, result = topotest.run_and_expect(func, None, count=10, wait=1)
+=======
+    _, result = topotest.run_and_expect(func, None, count=10, wait=1)
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
     assert result is None, "Failed"
 
 

@@ -67,6 +67,7 @@ Tested on CentOS 6, CentOS 7, CentOS 8 and Fedora 24.
 
       ############### FRRouting (FRR) configure options #################
       # with-feature options
+<<<<<<< HEAD
       %{!?with_pam:           %global  with_pam           0 }
       %{!?with_ospfclient:    %global  with_ospfclient    1 }
       %{!?with_ospfapi:       %global  with_ospfapi       1 }
@@ -85,6 +86,29 @@ Tested on CentOS 6, CentOS 7, CentOS 8 and Fedora 24.
       %{!?with_pimd:          %global  with_pimd          1 }
       %{!?with_pim6d:         %global  with_pim6d         1 }
       %{!?with_rpki:          %global  with_rpki          0 }
+=======
+      %{!?with_babeld:        %global  with_babeld        1 }
+      %{!?with_bfdd:          %global  with_bfdd          1 }
+      %{!?with_bgp_vnc:       %global  with_bgp_vnc       0 }
+      %{!?with_cumulus:       %global  with_cumulus       0 }
+      %{!?with_eigrpd:        %global  with_eigrpd        1 }
+      %{!?with_fpm:           %global  with_fpm           1 }
+      %{!?with_mgmtd_test_be_client: %global with_mgmtd_test_be_client 0 }
+      %{!?with_ldpd:          %global  with_ldpd          1 }
+      %{!?with_multipath:     %global  with_multipath     256 }
+      %{!?with_nhrpd:         %global  with_nhrpd         1 }
+      %{!?with_ospfapi:       %global  with_ospfapi       1 }
+      %{!?with_ospfclient:    %global  with_ospfclient    1 }
+      %{!?with_pam:           %global  with_pam           0 }
+      %{!?with_pbrd:          %global  with_pbrd          1 }
+      %{!?with_pimd:          %global  with_pimd          1 }
+      %{!?with_pim6d:         %global  with_pim6d         1 }
+      %{!?with_vrrpd:         %global  with_vrrpd         1 }
+      %{!?with_rtadv:         %global  with_rtadv         1 }
+      %{!?with_watchfrr:      %global  with_watchfrr      1 }
+      %{!?with_pathd:         %global  with_pathd         1 }
+      %{!?with_grpc:          %global  with_grpc          0 }
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 8. Build the RPM::
 

@@ -116,7 +116,14 @@ struct zebra_evpn {
 struct zebra_from_svi_param {
 	struct interface *br_if;
 	struct interface *svi_if;
+<<<<<<< HEAD
 	struct zebra_if *zif;
+=======
+	struct interface *ret_ifp;
+	struct zebra_if *zif;
+	struct zebra_evpn *zevpn;
+	struct zebra_l3vni *zl3vni;
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	uint8_t bridge_vlan_aware;
 	vlanid_t vid;
 };

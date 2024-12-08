@@ -84,6 +84,15 @@ Configuring NHRP
    registration requests are sent. By default registrations are sent every one
    third of the holdtime.
 
+<<<<<<< HEAD
+=======
+.. clicmd:: ip nhrp authentication PASSWORD
+
+   Enables Cisco style authentication on NHRP packets. This embeds the
+   plaintext password to the outgoing NHRP packets.
+   Maximum length of the password is 8 characters.
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 .. clicmd:: ip nhrp map A.B.C.D|X:X::X:X A.B.C.D|local
 
    Map an IP address of a station to the station's NBMA address.

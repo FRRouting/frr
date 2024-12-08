@@ -16,11 +16,20 @@
 #define ALLSPFROUTERS6 "ff02::5"
 #define ALLDROUTERS6   "ff02::6"
 
+<<<<<<< HEAD
 #define OSPF6_ROUTER_BIT_W     (1 << 3)
 #define OSPF6_ROUTER_BIT_V     (1 << 2)
 #define OSPF6_ROUTER_BIT_E     (1 << 1)
 #define OSPF6_ROUTER_BIT_B     (1 << 0)
 #define OSPF6_ROUTER_BIT_NT    (1 << 4)
+=======
+/* RFC 5340 A.4.3 Router-LSAs Options field */
+#define OSPF6_ROUTER_BIT_NT    (1 << 4)
+#define OSPF6_ROUTER_BIT_W     (1 << 3) /* DEPRECATED */
+#define OSPF6_ROUTER_BIT_V     (1 << 2)
+#define OSPF6_ROUTER_BIT_E     (1 << 1)
+#define OSPF6_ROUTER_BIT_B     (1 << 0)
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 
 /* OSPF options */

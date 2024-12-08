@@ -65,9 +65,24 @@ static void sharp_global_init(void)
 	sg.srv6_locators = list_new();
 }
 
+<<<<<<< HEAD
 static void sharp_global_destroy(void)
 {
 	list_delete(&sg.nhs);
+=======
+static void sharp_srv6_locators_list_delete(void *item)
+{
+	struct sharp_srv6_locator *loc = item;
+
+	list_delete(&loc->chunks);
+}
+
+static void sharp_global_destroy(void)
+{
+	list_delete(&sg.nhs);
+
+	sg.srv6_locators->del = sharp_srv6_locators_list_delete;
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	list_delete(&sg.srv6_locators);
 }
 

@@ -16,7 +16,10 @@ import sys
 import pytest
 
 from lib.common_config import (
+<<<<<<< HEAD
     start_topology,
+=======
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
     verify_rib,
     verify_ip_nht,
     step,
@@ -24,7 +27,10 @@ from lib.common_config import (
 )
 
 # pylint: disable=C0413
+<<<<<<< HEAD
 from lib import topotest
+=======
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
 

@@ -24,6 +24,10 @@ extern "C" {
 #if !defined(GNU_LINUX)
 /* BSD systems
  */
+<<<<<<< HEAD
+=======
+#define RT_TABLE_ID_MAIN 0
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 #else
 /* Linux Systems
  */

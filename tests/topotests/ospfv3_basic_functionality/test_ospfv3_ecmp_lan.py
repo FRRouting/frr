@@ -13,11 +13,14 @@ import os
 import sys
 import time
 import pytest
+<<<<<<< HEAD
 import json
 from copy import deepcopy
 from ipaddress import IPv4Address
 from lib.topotest import frr_unicode
 import ipaddress
+=======
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 # Save the Current Working Directory to find configuration files.
 CWD = os.path.dirname(os.path.realpath(__file__))
@@ -37,9 +40,12 @@ from lib.common_config import (
     verify_rib,
     create_static_routes,
     step,
+<<<<<<< HEAD
     create_route_maps,
     shutdown_bringup_interface,
     create_interfaces_cfg,
+=======
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
     get_frr_ipv6_linklocal,
 )
 from lib.topolog import logger
@@ -47,6 +53,7 @@ from lib.topojson import build_config_from_json
 
 from lib.ospf import (
     verify_ospf6_neighbor,
+<<<<<<< HEAD
     config_ospf_interface,
     clear_ospf,
     verify_ospf6_rib,
@@ -57,6 +64,13 @@ from lib.ospf import (
 )
 
 from ipaddress import IPv6Address
+=======
+    clear_ospf,
+    verify_ospf6_rib,
+    create_router_ospf,
+)
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 pytestmark = [pytest.mark.ospfd, pytest.mark.staticd]
 
@@ -137,7 +151,11 @@ def setup_module(mod):
     logger.info("Running setup_module() done")
 
 
+<<<<<<< HEAD
 def teardown_module(mod):
+=======
+def teardown_module():
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
     """
     Teardown the pytest environment.
 

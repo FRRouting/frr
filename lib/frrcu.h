@@ -156,7 +156,11 @@ extern void rcu_enqueue(struct rcu_head *head, const struct rcu_action *action);
 #define rcu_call(func, ptr, field)                                             \
 	do {                                                                   \
 		typeof(ptr) _ptr = (ptr);                                      \
+<<<<<<< HEAD
 		void (*fptype)(typeof(ptr));                                   \
+=======
+		void (*_fptype)(typeof(ptr));                                  \
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		struct rcu_head *_rcu_head = &_ptr->field;                     \
 		static const struct rcu_action _rcu_action = {                 \
 			.type = RCUA_CALL,                                     \

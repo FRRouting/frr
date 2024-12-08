@@ -216,7 +216,11 @@ static void nhrp_reg_send_req(struct event *t)
 	cie->holding_time = htons(if_ad->holdtime);
 	cie->mtu = htons(if_ad->mtu);
 
+<<<<<<< HEAD
 	nhrp_ext_request(zb, hdr, ifp);
+=======
+	nhrp_ext_request(zb, hdr);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 	/* Cisco NAT detection extension */
 	if (sockunion_family(&r->proto_addr) != AF_UNSPEC) {
@@ -240,7 +244,11 @@ static void nhrp_reg_send_req(struct event *t)
 	cie->mtu = htons(if_ad->mtu);
 	nhrp_ext_complete(zb, ext);
 
+<<<<<<< HEAD
 	nhrp_packet_complete(zb, hdr);
+=======
+	nhrp_packet_complete(zb, hdr, ifp);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	nhrp_peer_send(r->peer, zb);
 	zbuf_free(zb);
 }

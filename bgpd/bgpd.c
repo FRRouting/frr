@@ -85,6 +85,10 @@ DEFINE_QOBJ_TYPE(bgp_master);
 DEFINE_QOBJ_TYPE(bgp);
 DEFINE_QOBJ_TYPE(peer);
 DEFINE_HOOK(bgp_inst_delete, (struct bgp *bgp), (bgp));
+<<<<<<< HEAD
+=======
+DEFINE_HOOK(bgp_instance_state, (struct bgp *bgp), (bgp));
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 /* BGP process wide configuration.  */
 static struct bgp_master bgp_master;
@@ -149,7 +153,11 @@ void bgp_session_reset(struct peer *peer)
  * during walk of peer list, we would end up accessing the freed next
  * node. This function moves the next node along.
  */
+<<<<<<< HEAD
 static void bgp_session_reset_safe(struct peer *peer, struct listnode **nnode)
+=======
+void bgp_session_reset_safe(struct peer *peer, struct listnode **nnode)
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 {
 	struct listnode *n;
 	struct peer *npeer;
@@ -306,11 +314,17 @@ static int bgp_router_id_set(struct bgp *bgp, const struct in_addr *id,
 	for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer)) {
 		IPV4_ADDR_COPY(&peer->local_id, id);
 
+<<<<<<< HEAD
 		if (BGP_IS_VALID_STATE_FOR_NOTIF(peer->connection->status)) {
 			peer->last_reset = PEER_DOWN_RID_CHANGE;
 			bgp_notify_send(peer->connection, BGP_NOTIFY_CEASE,
 					BGP_NOTIFY_CEASE_CONFIG_CHANGE);
 		}
+=======
+		peer->last_reset = PEER_DOWN_RID_CHANGE;
+
+		peer_notify_config_change(peer->connection);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	}
 
 	/* EVPN uses router id in RD, update them */
@@ -440,13 +454,22 @@ void bm_wait_for_fib_set(bool set)
 	 */
 	for (ALL_LIST_ELEMENTS_RO(bm->bgp, next, bgp)) {
 		for (ALL_LIST_ELEMENTS_RO(bgp->peer, node, peer)) {
+<<<<<<< HEAD
+=======
+			peer->last_reset = PEER_DOWN_SUPPRESS_FIB_PENDING;
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 			if (!BGP_IS_VALID_STATE_FOR_NOTIF(
 				    peer->connection->status))
 				continue;
 
+<<<<<<< HEAD
 			peer->last_reset = PEER_DOWN_SUPPRESS_FIB_PENDING;
 			bgp_notify_send(peer->connection, BGP_NOTIFY_CEASE,
 					BGP_NOTIFY_CEASE_CONFIG_CHANGE);
+=======
+			peer_notify_config_change(peer->connection);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		}
 	}
 }
@@ -500,12 +523,21 @@ void bgp_suppress_fib_pending_set(struct bgp *bgp, bool set)
 	 * let's just start over
 	 */
 	for (ALL_LIST_ELEMENTS_RO(bgp->peer, node, peer)) {
+<<<<<<< HEAD
 		if (!BGP_IS_VALID_STATE_FOR_NOTIF(peer->connection->status))
 			continue;
 
 		peer->last_reset = PEER_DOWN_SUPPRESS_FIB_PENDING;
 		bgp_notify_send(peer->connection, BGP_NOTIFY_CEASE,
 				BGP_NOTIFY_CEASE_CONFIG_CHANGE);
+=======
+		peer->last_reset = PEER_DOWN_SUPPRESS_FIB_PENDING;
+
+		if (!BGP_IS_VALID_STATE_FOR_NOTIF(peer->connection->status))
+			continue;
+
+		peer_notify_config_change(peer->connection);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	}
 }
 
@@ -527,11 +559,17 @@ void bgp_cluster_id_set(struct bgp *bgp, struct in_addr *cluster_id)
 		if (peer->sort != BGP_PEER_IBGP)
 			continue;
 
+<<<<<<< HEAD
 		if (BGP_IS_VALID_STATE_FOR_NOTIF(peer->connection->status)) {
 			peer->last_reset = PEER_DOWN_CLID_CHANGE;
 			bgp_notify_send(peer->connection, BGP_NOTIFY_CEASE,
 					BGP_NOTIFY_CEASE_CONFIG_CHANGE);
 		}
+=======
+		peer->last_reset = PEER_DOWN_CLID_CHANGE;
+
+		peer_notify_config_change(peer->connection);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	}
 }
 
@@ -551,11 +589,17 @@ void bgp_cluster_id_unset(struct bgp *bgp)
 		if (peer->sort != BGP_PEER_IBGP)
 			continue;
 
+<<<<<<< HEAD
 		if (BGP_IS_VALID_STATE_FOR_NOTIF(peer->connection->status)) {
 			peer->last_reset = PEER_DOWN_CLID_CHANGE;
 			bgp_notify_send(peer->connection, BGP_NOTIFY_CEASE,
 					BGP_NOTIFY_CEASE_CONFIG_CHANGE);
 		}
+=======
+		peer->last_reset = PEER_DOWN_CLID_CHANGE;
+
+		peer_notify_config_change(peer->connection);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	}
 }
 
@@ -634,6 +678,7 @@ void bgp_confederation_id_set(struct bgp *bgp, as_t as, const char *as_str)
 		if (already_confed) {
 			if (ptype == BGP_PEER_EBGP) {
 				peer->local_as = as;
+<<<<<<< HEAD
 				if (BGP_IS_VALID_STATE_FOR_NOTIF(
 					    peer->connection->status)) {
 					peer->last_reset =
@@ -642,6 +687,12 @@ void bgp_confederation_id_set(struct bgp *bgp, as_t as, const char *as_str)
 							BGP_NOTIFY_CEASE,
 							BGP_NOTIFY_CEASE_CONFIG_CHANGE);
 				} else
+=======
+				if (peer_notify_config_change(peer->connection))
+					peer->last_reset =
+						PEER_DOWN_CONFED_ID_CHANGE;
+				else
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 					bgp_session_reset_safe(peer, &nnode);
 			}
 		} else {
@@ -652,6 +703,7 @@ void bgp_confederation_id_set(struct bgp *bgp, as_t as, const char *as_str)
 				/* Reset the local_as to be our EBGP one */
 				if (ptype == BGP_PEER_EBGP)
 					peer->local_as = as;
+<<<<<<< HEAD
 				if (BGP_IS_VALID_STATE_FOR_NOTIF(
 					    peer->connection->status)) {
 					peer->last_reset =
@@ -660,6 +712,12 @@ void bgp_confederation_id_set(struct bgp *bgp, as_t as, const char *as_str)
 							BGP_NOTIFY_CEASE,
 							BGP_NOTIFY_CEASE_CONFIG_CHANGE);
 				} else
+=======
+				if (peer_notify_config_change(peer->connection))
+					peer->last_reset =
+						PEER_DOWN_CONFED_ID_CHANGE;
+				else
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 					bgp_session_reset_safe(peer, &nnode);
 			}
 		}
@@ -680,6 +738,7 @@ void bgp_confederation_id_unset(struct bgp *bgp)
 		/* We're looking for peers who's AS is not local */
 		if (peer_sort(peer) != BGP_PEER_IBGP) {
 			peer->local_as = bgp->as;
+<<<<<<< HEAD
 			if (BGP_IS_VALID_STATE_FOR_NOTIF(
 				    peer->connection->status)) {
 				peer->last_reset = PEER_DOWN_CONFED_ID_CHANGE;
@@ -689,6 +748,10 @@ void bgp_confederation_id_unset(struct bgp *bgp)
 			}
 
 			else
+=======
+			peer->last_reset = PEER_DOWN_CONFED_ID_CHANGE;
+			if (!peer_notify_config_change(peer->connection))
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 				bgp_session_reset_safe(peer, &nnode);
 		}
 	}
@@ -735,6 +798,7 @@ void bgp_confederation_peers_add(struct bgp *bgp, as_t as, const char *as_str)
 			if (peer->as == as) {
 				peer->local_as = bgp->as;
 				(void)peer_sort(peer);
+<<<<<<< HEAD
 				if (BGP_IS_VALID_STATE_FOR_NOTIF(
 					    peer->connection->status)) {
 					peer->last_reset =
@@ -743,6 +807,12 @@ void bgp_confederation_peers_add(struct bgp *bgp, as_t as, const char *as_str)
 							BGP_NOTIFY_CEASE,
 							BGP_NOTIFY_CEASE_CONFIG_CHANGE);
 				} else
+=======
+				if (peer_notify_config_change(peer->connection))
+					peer->last_reset =
+						PEER_DOWN_CONFED_PEER_CHANGE;
+				else
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 					bgp_session_reset_safe(peer, &nnode);
 			}
 		}
@@ -792,6 +862,7 @@ void bgp_confederation_peers_remove(struct bgp *bgp, as_t as)
 			if (peer->as == as) {
 				peer->local_as = bgp->confed_id;
 				(void)peer_sort(peer);
+<<<<<<< HEAD
 				if (BGP_IS_VALID_STATE_FOR_NOTIF(
 					    peer->connection->status)) {
 					peer->last_reset =
@@ -800,6 +871,12 @@ void bgp_confederation_peers_remove(struct bgp *bgp, as_t as)
 							BGP_NOTIFY_CEASE,
 							BGP_NOTIFY_CEASE_CONFIG_CHANGE);
 				} else
+=======
+				if (peer_notify_config_change(peer->connection))
+					peer->last_reset =
+						PEER_DOWN_CONFED_PEER_CHANGE;
+				else
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 					bgp_session_reset_safe(peer, &nnode);
 			}
 		}
@@ -1078,10 +1155,17 @@ static inline enum bgp_peer_sort peer_calc_sort(struct peer *peer)
 
 	/* Peer-group */
 	if (CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP)) {
+<<<<<<< HEAD
 		if (peer->as_type == AS_INTERNAL)
 			return BGP_PEER_IBGP;
 
 		else if (peer->as_type == AS_EXTERNAL)
+=======
+		if (CHECK_FLAG(peer->as_type, AS_INTERNAL))
+			return BGP_PEER_IBGP;
+
+		if (CHECK_FLAG(peer->as_type, AS_EXTERNAL))
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 			return BGP_PEER_EBGP;
 
 		else if (peer->as_type == AS_SPECIFIED && peer->as) {
@@ -1136,17 +1220,31 @@ static inline enum bgp_peer_sort peer_calc_sort(struct peer *peer)
 						return BGP_PEER_IBGP;
 					else
 						return BGP_PEER_EBGP;
+<<<<<<< HEAD
 				} else if (peer->group->conf->as_type
 					   == AS_INTERNAL)
+=======
+				} else if (CHECK_FLAG(peer->group->conf->as_type,
+						      AS_INTERNAL))
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 					return BGP_PEER_IBGP;
 				else
 					return BGP_PEER_EBGP;
 			}
 			/* no AS information anywhere, let caller know */
 			return BGP_PEER_UNSPECIFIED;
+<<<<<<< HEAD
 		} else if (peer->as_type != AS_SPECIFIED)
 			return (peer->as_type == AS_INTERNAL ? BGP_PEER_IBGP
 							     : BGP_PEER_EBGP);
+=======
+		} else if (peer->as_type != AS_SPECIFIED) {
+			if (CHECK_FLAG(peer->as_type, AS_INTERNAL))
+				return BGP_PEER_IBGP;
+			else if (CHECK_FLAG(peer->as_type, AS_EXTERNAL))
+				return BGP_PEER_EBGP;
+		}
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 		return (local_as == 0 ? BGP_PEER_INTERNAL
 				      : local_as == peer->as ? BGP_PEER_IBGP
@@ -1256,7 +1354,10 @@ static void peer_free(struct peer *peer)
 		EVENT_OFF(peer->t_revalidate_all[afi][safi]);
 	assert(!peer->connection->t_write);
 	assert(!peer->connection->t_read);
+<<<<<<< HEAD
 	event_cancel_event_ready(bm->master, peer->connection);
+=======
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 	/* Free connected nexthop, if present */
 	if (CHECK_FLAG(peer->flags, PEER_FLAG_CONFIG_NODE)
@@ -1395,12 +1496,42 @@ int bgp_global_gr_init(struct bgp *bgp)
 	memcpy(bgp->GLOBAL_GR_FSM, local_GLOBAL_GR_FSM,
 					sizeof(local_GLOBAL_GR_FSM));
 
+<<<<<<< HEAD
 	bgp->global_gr_present_state = GLOBAL_HELPER;
 	bgp->present_zebra_gr_state = ZEBRA_GR_DISABLE;
 
 	if (CHECK_FLAG(bm->flags, BM_FLAG_IPV6_NO_AUTO_RA))
 		SET_FLAG(bgp->flags, BGP_FLAG_IPV6_NO_AUTO_RA);
 
+=======
+	/* Inherit any BGP-wide configuration. */
+	if (CHECK_FLAG(bm->flags, BM_FLAG_GR_RESTARTER))
+		bgp->global_gr_present_state = GLOBAL_GR;
+	else if (CHECK_FLAG(bm->flags, BM_FLAG_GR_DISABLED))
+		bgp->global_gr_present_state = GLOBAL_DISABLE;
+	else
+		bgp->global_gr_present_state = GLOBAL_HELPER;
+
+	if (bm->restart_time != BGP_DEFAULT_RESTART_TIME)
+		bgp->restart_time = bm->restart_time;
+	if (bm->stalepath_time != BGP_DEFAULT_STALEPATH_TIME)
+		bgp->stalepath_time = bm->stalepath_time;
+	if (bm->select_defer_time != BGP_DEFAULT_SELECT_DEFERRAL_TIME)
+		bgp->select_defer_time = bm->select_defer_time;
+	if (bm->rib_stale_time != BGP_DEFAULT_RIB_STALE_TIME)
+		bgp->rib_stale_time = bm->rib_stale_time;
+	if (CHECK_FLAG(bm->flags, BM_FLAG_GR_PRESERVE_FWD))
+		SET_FLAG(bgp->flags, BGP_FLAG_GR_PRESERVE_FWD);
+	if (CHECK_FLAG(bm->flags, BM_FLAG_IPV6_NO_AUTO_RA))
+		SET_FLAG(bgp->flags, BGP_FLAG_IPV6_NO_AUTO_RA);
+
+	bgp->present_zebra_gr_state = ZEBRA_GR_DISABLE;
+
+	if (BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
+		zlog_debug("%s: Global GR state is %s", bgp->name_pretty,
+			   print_global_gr_mode(bgp->global_gr_present_state));
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	return BGP_GR_SUCCESS;
 }
 
@@ -1460,9 +1591,13 @@ int bgp_peer_gr_init(struct peer *peer)
 		{ PEER_HELPER, bgp_peer_gr_action }, { PEER_GLOBAL_INHERIT, NULL }
 	}
 	};
+<<<<<<< HEAD
 	memcpy(&peer->PEER_GR_FSM, local_Peer_GR_FSM,
 					sizeof(local_Peer_GR_FSM));
 	peer->peer_gr_present_state = PEER_GLOBAL_INHERIT;
+=======
+	memcpy(&peer->PEER_GR_FSM, local_Peer_GR_FSM, sizeof(local_Peer_GR_FSM));
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	bgp_peer_move_to_gr_mode(peer, PEER_GLOBAL_INHERIT);
 
 	return BGP_GR_SUCCESS;
@@ -1481,9 +1616,17 @@ static void bgp_srv6_init(struct bgp *bgp)
 static void bgp_srv6_cleanup(struct bgp *bgp)
 {
 	for (afi_t afi = AFI_IP; afi < AFI_MAX; afi++) {
+<<<<<<< HEAD
 		if (bgp->vpn_policy[afi].tovpn_sid_locator != NULL)
 			srv6_locator_chunk_free(
 				&bgp->vpn_policy[afi].tovpn_sid_locator);
+=======
+		if (bgp->vpn_policy[afi].tovpn_sid_locator != NULL) {
+			srv6_locator_free(
+				bgp->vpn_policy[afi].tovpn_sid_locator);
+			bgp->vpn_policy[afi].tovpn_sid_locator = NULL;
+		}
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		if (bgp->vpn_policy[afi].tovpn_zebra_vrf_sid_last_sent != NULL)
 			XFREE(MTYPE_BGP_SRV6_SID,
 			      bgp->vpn_policy[afi].tovpn_zebra_vrf_sid_last_sent);
@@ -1494,8 +1637,15 @@ static void bgp_srv6_cleanup(struct bgp *bgp)
 		}
 	}
 
+<<<<<<< HEAD
 	if (bgp->tovpn_sid_locator != NULL)
 		srv6_locator_chunk_free(&bgp->tovpn_sid_locator);
+=======
+	if (bgp->tovpn_sid_locator != NULL) {
+		srv6_locator_free(bgp->tovpn_sid_locator);
+		bgp->tovpn_sid_locator = NULL;
+	}
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	if (bgp->tovpn_zebra_vrf_sid_last_sent != NULL)
 		XFREE(MTYPE_BGP_SRV6_SID, bgp->tovpn_zebra_vrf_sid_last_sent);
 	if (bgp->tovpn_sid != NULL) {
@@ -1507,6 +1657,12 @@ static void bgp_srv6_cleanup(struct bgp *bgp)
 		list_delete(&bgp->srv6_locator_chunks);
 	if (bgp->srv6_functions)
 		list_delete(&bgp->srv6_functions);
+<<<<<<< HEAD
+=======
+
+	srv6_locator_free(bgp->srv6_locator);
+	bgp->srv6_locator = NULL;
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 }
 
 /* Allocate new peer object, implicitely locked.  */
@@ -1540,19 +1696,27 @@ struct peer *peer_new(struct bgp *bgp)
 	/* Set default flags. */
 	FOREACH_AFI_SAFI (afi, safi) {
 		SET_FLAG(peer->af_flags[afi][safi], PEER_FLAG_SEND_COMMUNITY);
+<<<<<<< HEAD
 		SET_FLAG(peer->af_flags[afi][safi],
 			 PEER_FLAG_SEND_EXT_COMMUNITY);
 		SET_FLAG(peer->af_flags[afi][safi],
 			 PEER_FLAG_SEND_EXT_COMMUNITY_RPKI);
+=======
+		SET_FLAG(peer->af_flags[afi][safi], PEER_FLAG_SEND_EXT_COMMUNITY);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		SET_FLAG(peer->af_flags[afi][safi],
 			 PEER_FLAG_SEND_LARGE_COMMUNITY);
 
 		SET_FLAG(peer->af_flags_invert[afi][safi],
 			 PEER_FLAG_SEND_COMMUNITY);
+<<<<<<< HEAD
 		SET_FLAG(peer->af_flags_invert[afi][safi],
 			 PEER_FLAG_SEND_EXT_COMMUNITY);
 		SET_FLAG(peer->af_flags_invert[afi][safi],
 			 PEER_FLAG_SEND_EXT_COMMUNITY_RPKI);
+=======
+		SET_FLAG(peer->af_flags_invert[afi][safi], PEER_FLAG_SEND_EXT_COMMUNITY);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		SET_FLAG(peer->af_flags_invert[afi][safi],
 			 PEER_FLAG_SEND_LARGE_COMMUNITY);
 		peer->addpath_type[afi][safi] = BGP_ADDPATH_NONE;
@@ -1936,7 +2100,11 @@ void bgp_recalculate_all_bestpaths(struct bgp *bgp)
  */
 struct peer *peer_create(union sockunion *su, const char *conf_if,
 			 struct bgp *bgp, as_t local_as, as_t remote_as,
+<<<<<<< HEAD
 			 int as_type, struct peer_group *group,
+=======
+			 enum peer_asn_type as_type, struct peer_group *group,
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 			 bool config_node, const char *as_str)
 {
 	int active;
@@ -1992,7 +2160,11 @@ struct peer *peer_create(union sockunion *su, const char *conf_if,
 		bgp->coalesce_time = MIN(BGP_MAX_SUBGROUP_COALESCE_TIME, ct);
 	}
 
+<<<<<<< HEAD
 	active = peer_active(peer);
+=======
+	active = peer_active(peer->connection);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	if (!active) {
 		if (peer->connection->su.sa.sa_family == AF_UNSPEC)
 			peer->last_reset = PEER_DOWN_NBR_ADDR;
@@ -2025,7 +2197,11 @@ struct peer *peer_create(union sockunion *su, const char *conf_if,
 	if (bgp->autoshutdown)
 		peer_flag_set(peer, PEER_FLAG_SHUTDOWN);
 	/* Set up peer's events and timers. */
+<<<<<<< HEAD
 	else if (!active && peer_active(peer))
+=======
+	else if (!active && peer_active(peer->connection))
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		bgp_timer_set(peer->connection);
 
 	bgp_peer_gr_flags_update(peer);
@@ -2068,29 +2244,46 @@ bool bgp_afi_safi_peer_exists(struct bgp *bgp, afi_t afi, safi_t safi)
 }
 
 /* Change peer's AS number.  */
+<<<<<<< HEAD
 void peer_as_change(struct peer *peer, as_t as, int as_specified,
+=======
+void peer_as_change(struct peer *peer, as_t as, enum peer_asn_type as_type,
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		    const char *as_str)
 {
 	enum bgp_peer_sort origtype, newtype;
 
 	/* Stop peer. */
 	if (!CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP)) {
+<<<<<<< HEAD
 		if (BGP_IS_VALID_STATE_FOR_NOTIF(peer->connection->status)) {
 			peer->last_reset = PEER_DOWN_REMOTE_AS_CHANGE;
 			bgp_notify_send(peer->connection, BGP_NOTIFY_CEASE,
 					BGP_NOTIFY_CEASE_CONFIG_CHANGE);
 		} else
+=======
+		peer->last_reset = PEER_DOWN_REMOTE_AS_CHANGE;
+		if (!peer_notify_config_change(peer->connection))
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 			bgp_session_reset(peer);
 	}
 	origtype = peer_sort_lookup(peer);
 	peer->as = as;
+<<<<<<< HEAD
 	if (as_specified == AS_SPECIFIED && as_str) {
+=======
+	if (as_type == AS_SPECIFIED && as_str) {
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		if (peer->as_pretty)
 			XFREE(MTYPE_BGP_NAME, peer->as_pretty);
 		peer->as_pretty = XSTRDUP(MTYPE_BGP_NAME, as_str);
 	} else if (peer->as_type == AS_UNSPECIFIED && peer->as_pretty)
 		XFREE(MTYPE_BGP_NAME, peer->as_pretty);
+<<<<<<< HEAD
 	peer->as_type = as_specified;
+=======
+	peer->as_type = as_type;
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 	if (bgp_config_check(peer->bgp, BGP_CONFIG_CONFEDERATION)
 	    && !bgp_confederation_peers_check(peer->bgp, as)
@@ -2147,7 +2340,11 @@ void peer_as_change(struct peer *peer, as_t as, int as_specified,
 /* If peer does not exist, create new one.  If peer already exists,
    set AS number to the peer.  */
 int peer_remote_as(struct bgp *bgp, union sockunion *su, const char *conf_if,
+<<<<<<< HEAD
 		   as_t *as, int as_type, const char *as_str)
+=======
+		   as_t *as, enum peer_asn_type as_type, const char *as_str)
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 {
 	struct peer *peer;
 	as_t local_as;
@@ -2167,8 +2364,12 @@ int peer_remote_as(struct bgp *bgp, union sockunion *su, const char *conf_if,
 		/* When this peer is a member of peer-group.  */
 		if (peer->group) {
 			/* peer-group already has AS number/internal/external */
+<<<<<<< HEAD
 			if (peer->group->conf->as
 			    || peer->group->conf->as_type) {
+=======
+			if (peer->group->conf->as || peer->group->conf->as_type != AS_UNSPECIFIED) {
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 				/* Return peer group's AS number.  */
 				*as = peer->group->conf->as;
 				return BGP_ERR_PEER_GROUP_MEMBER;
@@ -2188,10 +2389,17 @@ int peer_remote_as(struct bgp *bgp, union sockunion *su, const char *conf_if,
 				}
 			} else {
 				/* internal/external used, compare as-types */
+<<<<<<< HEAD
 				if (((peer_sort_type == BGP_PEER_IBGP)
 				    && (as_type != AS_INTERNAL))
 				    || ((peer_sort_type == BGP_PEER_EBGP)
 				    && (as_type != AS_EXTERNAL)))  {
+=======
+				if (((peer_sort_type == BGP_PEER_IBGP) &&
+				     !CHECK_FLAG(as_type, AS_INTERNAL)) ||
+				    ((peer_sort_type == BGP_PEER_EBGP) &&
+				     !CHECK_FLAG(as_type, AS_EXTERNAL))) {
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 					*as = peer->as;
 					return BGP_ERR_PEER_GROUP_PEER_TYPE_DIFFERENT;
 				}
@@ -2267,7 +2475,11 @@ static void peer_group2peer_config_copy_af(struct peer_group *group,
 	flags_tmp = conf->af_flags[afi][safi] & ~pflags_ovrd;
 	flags_tmp ^= conf->af_flags_invert[afi][safi]
 		     ^ peer->af_flags_invert[afi][safi];
+<<<<<<< HEAD
 	flags_tmp &= ~pflags_ovrd;
+=======
+	UNSET_FLAG(flags_tmp, pflags_ovrd);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 	UNSET_FLAG(peer->af_flags[afi][safi], ~pflags_ovrd);
 	SET_FLAG(peer->af_flags[afi][safi], flags_tmp);
@@ -2421,15 +2633,27 @@ static int peer_activate_af(struct peer *peer, afi_t afi, safi_t safi)
 	if (peer_af_create(peer, afi, safi) == NULL)
 		return 1;
 
+<<<<<<< HEAD
 	active = peer_active(peer);
+=======
+	active = peer_active(peer->connection);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	peer->afc[afi][safi] = 1;
 
 	if (peer->group)
 		peer_group2peer_config_copy_af(peer->group, peer, afi, safi);
 
+<<<<<<< HEAD
 	if (!active && peer_active(peer)) {
 		bgp_timer_set(peer->connection);
 	} else {
+=======
+	if (!active && peer_active(peer->connection)) {
+		bgp_timer_set(peer->connection);
+	} else {
+		peer->last_reset = PEER_DOWN_AF_ACTIVATE;
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		if (peer_established(peer->connection)) {
 			if (CHECK_FLAG(peer->cap, PEER_CAP_DYNAMIC_RCV)) {
 				peer->afc_adv[afi][safi] = 1;
@@ -2442,6 +2666,7 @@ static int peer_activate_af(struct peer *peer, afi_t afi, safi_t safi)
 							   false);
 				}
 			} else {
+<<<<<<< HEAD
 				peer->last_reset = PEER_DOWN_AF_ACTIVATE;
 				bgp_notify_send(peer->connection,
 						BGP_NOTIFY_CEASE,
@@ -2454,6 +2679,13 @@ static int peer_activate_af(struct peer *peer, afi_t afi, safi_t safi)
 			bgp_notify_send(peer->connection, BGP_NOTIFY_CEASE,
 					BGP_NOTIFY_CEASE_CONFIG_CHANGE);
 		}
+=======
+				peer_notify_config_change(peer->connection);
+			}
+		}
+		peer_notify_config_change(peer->connection);
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		/*
 		 * If we are turning on a AFI/SAFI locally and we've
 		 * started bringing a peer up, we need to tell
@@ -2464,12 +2696,17 @@ static int peer_activate_af(struct peer *peer, afi_t afi, safi_t safi)
 		 * activation.
 		 */
 		other = peer->doppelganger;
+<<<<<<< HEAD
 		if (other && (other->connection->status == OpenSent ||
 			      other->connection->status == OpenConfirm)) {
 			other->last_reset = PEER_DOWN_AF_ACTIVATE;
 			bgp_notify_send(other->connection, BGP_NOTIFY_CEASE,
 					BGP_NOTIFY_CEASE_CONFIG_CHANGE);
 		}
+=======
+		if (other)
+			peer_notify_config_change(other->connection);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	}
 
 	return 0;
@@ -2507,10 +2744,17 @@ int peer_activate(struct peer *peer, afi_t afi, safi_t safi)
 		group = peer->group;
 
 		for (ALL_LIST_ELEMENTS(group->peer, node, nnode, tmp_peer)) {
+<<<<<<< HEAD
 			ret |= peer_activate_af(tmp_peer, afi, safi);
 		}
 	} else {
 		ret |= peer_activate_af(peer, afi, safi);
+=======
+			SET_FLAG(ret, peer_activate_af(tmp_peer, afi, safi));
+		}
+	} else {
+		SET_FLAG(ret, peer_activate_af(peer, afi, safi));
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	}
 
 	/* If this is the first peer to be activated for this
@@ -2563,6 +2807,11 @@ static bool non_peergroup_deactivate_af(struct peer *peer, afi_t afi,
 	}
 
 	if (peer_established(peer->connection)) {
+<<<<<<< HEAD
+=======
+		peer->last_reset = PEER_DOWN_NEIGHBOR_DELETE;
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		if (CHECK_FLAG(peer->cap, PEER_CAP_DYNAMIC_RCV)) {
 			peer->afc_adv[afi][safi] = 0;
 			peer->afc_nego[afi][safi] = 0;
@@ -2574,6 +2823,7 @@ static bool non_peergroup_deactivate_af(struct peer *peer, afi_t afi,
 				bgp_clear_route(peer, afi, safi);
 				peer->pcount[afi][safi] = 0;
 			} else {
+<<<<<<< HEAD
 				peer->last_reset = PEER_DOWN_NEIGHBOR_DELETE;
 				bgp_notify_send(peer->connection,
 						BGP_NOTIFY_CEASE,
@@ -2584,6 +2834,12 @@ static bool non_peergroup_deactivate_af(struct peer *peer, afi_t afi,
 			bgp_notify_send(peer->connection, BGP_NOTIFY_CEASE,
 					BGP_NOTIFY_CEASE_CONFIG_CHANGE);
 		}
+=======
+				peer_notify_config_change(peer->connection);
+			}
+		} else
+			peer_notify_config_change(peer->connection);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	}
 
 	return false;
@@ -2609,10 +2865,18 @@ int peer_deactivate(struct peer *peer, afi_t afi, safi_t safi)
 		group = peer->group;
 
 		for (ALL_LIST_ELEMENTS(group->peer, node, nnode, tmp_peer)) {
+<<<<<<< HEAD
 			ret |= non_peergroup_deactivate_af(tmp_peer, afi, safi);
 		}
 	} else {
 		ret |= non_peergroup_deactivate_af(peer, afi, safi);
+=======
+			SET_FLAG(ret, non_peergroup_deactivate_af(tmp_peer, afi,
+								  safi));
+		}
+	} else {
+		SET_FLAG(ret, non_peergroup_deactivate_af(peer, afi, safi));
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	}
 
 	bgp = peer->bgp;
@@ -2880,6 +3144,10 @@ struct peer_group *peer_group_get(struct bgp *bgp, const char *name)
 	group->conf->host = XSTRDUP(MTYPE_BGP_PEER_HOST, name);
 	group->conf->group = group;
 	group->conf->as = 0;
+<<<<<<< HEAD
+=======
+	group->conf->as_type = AS_UNSPECIFIED;
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	group->conf->ttl = BGP_DEFAULT_TTL;
 	group->conf->gtsm_hops = BGP_GTSM_HOPS_DISABLED;
 	group->conf->v_routeadv = BGP_DEFAULT_EBGP_ROUTEADV;
@@ -2914,9 +3182,15 @@ static void peer_group2peer_config_copy(struct peer_group *group,
 	peer->gtsm_hops = conf->gtsm_hops;
 
 	/* peer flags apply */
+<<<<<<< HEAD
 	flags_tmp = conf->flags & ~peer->flags_override;
 	flags_tmp ^= conf->flags_invert ^ peer->flags_invert;
 	flags_tmp &= ~peer->flags_override;
+=======
+	flags_tmp = CHECK_FLAG(conf->flags, ~peer->flags_override);
+	flags_tmp ^= conf->flags_invert ^ peer->flags_invert;
+	UNSET_FLAG(flags_tmp, peer->flags_override);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 	UNSET_FLAG(peer->flags, ~peer->flags_override);
 	SET_FLAG(peer->flags, flags_tmp);
@@ -3001,6 +3275,10 @@ static void peer_group2peer_config_copy(struct peer_group *group,
 	PEER_ATTR_INHERIT(peer, group, local_role);
 
 	/* Update GR flags for the peer. */
+<<<<<<< HEAD
+=======
+	PEER_ATTR_INHERIT(peer, group, peer_gr_new_status_flag);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	bgp_peer_gr_flags_update(peer);
 
 	/* Apply BFD settings from group to peer if it exists. */
@@ -3008,11 +3286,21 @@ static void peer_group2peer_config_copy(struct peer_group *group,
 		bgp_peer_configure_bfd(peer, false);
 		bgp_peer_config_apply(peer, group);
 	}
+<<<<<<< HEAD
+=======
+	/* peer tcp-mss */
+	if (!CHECK_FLAG(peer->flags_override, PEER_FLAG_TCP_MSS))
+		PEER_ATTR_INHERIT(peer, group, tcp_mss);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 }
 
 /* Peer group's remote AS configuration.  */
 int peer_group_remote_as(struct bgp *bgp, const char *group_name, as_t *as,
+<<<<<<< HEAD
 			 int as_type, const char *as_str)
+=======
+			 enum peer_asn_type as_type, const char *as_str)
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 {
 	struct peer_group *group;
 	struct peer *peer;
@@ -3051,11 +3339,28 @@ int peer_group_remote_as(struct bgp *bgp, const char *group_name, as_t *as,
 	return 0;
 }
 
+<<<<<<< HEAD
 void peer_notify_unconfig(struct peer *peer)
 {
 	if (BGP_IS_VALID_STATE_FOR_NOTIF(peer->connection->status))
 		bgp_notify_send(peer->connection, BGP_NOTIFY_CEASE,
 				BGP_NOTIFY_CEASE_PEER_UNCONFIG);
+=======
+bool peer_notify_config_change(struct peer_connection *connection)
+{
+	if (BGP_IS_VALID_STATE_FOR_NOTIF(connection->status)) {
+		bgp_notify_send(connection, BGP_NOTIFY_CEASE, BGP_NOTIFY_CEASE_CONFIG_CHANGE);
+		return true;
+	}
+
+	return false;
+}
+
+void peer_notify_unconfig(struct peer_connection *connection)
+{
+	if (BGP_IS_VALID_STATE_FOR_NOTIF(connection->status))
+		bgp_notify_send(connection, BGP_NOTIFY_CEASE, BGP_NOTIFY_CEASE_PEER_UNCONFIG);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 }
 
 static void peer_notify_shutdown(struct peer *peer)
@@ -3082,9 +3387,15 @@ void peer_group_notify_unconfig(struct peer_group *group)
 		other = peer->doppelganger;
 		if (other && other->connection->status != Deleted) {
 			other->group = NULL;
+<<<<<<< HEAD
 			peer_notify_unconfig(other);
 		} else
 			peer_notify_unconfig(peer);
+=======
+			peer_notify_unconfig(other->connection);
+		} else
+			peer_notify_unconfig(peer->connection);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	}
 }
 
@@ -3329,6 +3640,7 @@ int peer_group_bind(struct bgp *bgp, union sockunion *su, struct peer *peer,
 
 		SET_FLAG(peer->flags, PEER_FLAG_CONFIG_NODE);
 
+<<<<<<< HEAD
 		if (BGP_IS_VALID_STATE_FOR_NOTIF(peer->connection->status)) {
 			peer->last_reset = PEER_DOWN_RMAP_BIND;
 			bgp_notify_send(peer->connection, BGP_NOTIFY_CEASE,
@@ -3336,6 +3648,12 @@ int peer_group_bind(struct bgp *bgp, union sockunion *su, struct peer *peer,
 		} else {
 			bgp_session_reset(peer);
 		}
+=======
+		peer->last_reset = PEER_DOWN_RMAP_BIND;
+
+		if (!peer_notify_config_change(peer->connection))
+			bgp_session_reset(peer);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	}
 
 	/* Create a new peer. */
@@ -3369,7 +3687,11 @@ int peer_group_bind(struct bgp *bgp, union sockunion *su, struct peer *peer,
 		}
 
 		/* Set up peer's events and timers. */
+<<<<<<< HEAD
 		if (peer_active(peer))
+=======
+		if (peer_active(peer->connection))
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 			bgp_timer_set(peer->connection);
 	}
 
@@ -3400,12 +3722,25 @@ static void bgp_vrf_string_name_delete(void *data)
 static struct bgp *bgp_create(as_t *as, const char *name,
 			      enum bgp_instance_type inst_type,
 			      const char *as_pretty,
+<<<<<<< HEAD
 			      enum asnotation_mode asnotation)
+=======
+			      enum asnotation_mode asnotation,
+			      struct bgp *bgp_old, bool hidden)
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 {
 	struct bgp *bgp;
 	afi_t afi;
 	safi_t safi;
 
+<<<<<<< HEAD
+=======
+	if (hidden) {
+		bgp = bgp_old;
+		goto peer_init;
+	}
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	bgp = XCALLOC(MTYPE_BGP, sizeof(struct bgp));
 	bgp->as = *as;
 	if (as_pretty)
@@ -3459,11 +3794,17 @@ static struct bgp *bgp_create(as_t *as, const char *name,
 		bgp->peer_self->domainname =
 			XSTRDUP(MTYPE_BGP_PEER_HOST, cmd_domainname_get());
 	bgp->peer = list_new();
+<<<<<<< HEAD
+=======
+
+peer_init:
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	bgp->peer->cmp = (int (*)(void *, void *))peer_cmp;
 	bgp->peerhash = hash_create(peer_hash_key_make, peer_hash_same,
 				    "BGP Peer Hash");
 	bgp->peerhash->max_size = BGP_PEER_MAX_HASH_SIZE;
 
+<<<<<<< HEAD
 	bgp->group = list_new();
 	bgp->group->cmp = (int (*)(void *, void *))peer_group_cmp;
 
@@ -3471,6 +3812,19 @@ static struct bgp *bgp_create(as_t *as, const char *name,
 		bgp->route[afi][safi] = bgp_table_init(bgp, afi, safi);
 		bgp->aggregate[afi][safi] = bgp_table_init(bgp, afi, safi);
 		bgp->rib[afi][safi] = bgp_table_init(bgp, afi, safi);
+=======
+	if (!hidden)
+		bgp->group = list_new();
+	bgp->group->cmp = (int (*)(void *, void *))peer_group_cmp;
+
+	FOREACH_AFI_SAFI (afi, safi) {
+		if (!hidden) {
+			bgp->route[afi][safi] = bgp_table_init(bgp, afi, safi);
+			bgp->aggregate[afi][safi] = bgp_table_init(bgp, afi,
+								   safi);
+			bgp->rib[afi][safi] = bgp_table_init(bgp, afi, safi);
+		}
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 		/* Enable maximum-paths */
 		bgp_maximum_paths_set(bgp, afi, safi, BGP_PEER_EBGP,
@@ -3491,7 +3845,12 @@ static struct bgp *bgp_create(as_t *as, const char *name,
 	bgp->default_subgroup_pkt_queue_max =
 		BGP_DEFAULT_SUBGROUP_PKT_QUEUE_MAX;
 	bgp_tcp_keepalive_unset(bgp);
+<<<<<<< HEAD
 	bgp_timers_unset(bgp);
+=======
+	if (!hidden)
+		bgp_timers_unset(bgp);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	bgp->default_min_holdtime = 0;
 	bgp->restart_time = BGP_DEFAULT_RESTART_TIME;
 	bgp->stalepath_time = BGP_DEFAULT_STALEPATH_TIME;
@@ -3506,10 +3865,17 @@ static struct bgp *bgp_create(as_t *as, const char *name,
 	bgp_addpath_init_bgp_data(&bgp->tx_addpath);
 	bgp->fast_convergence = false;
 	bgp->llgr_stale_time = BGP_DEFAULT_LLGR_STALE_TIME;
+<<<<<<< HEAD
 	bgp->rmap_def_originate_eval_timer = RMAP_DEFAULT_ORIGINATE_EVAL_TIMER;
 
 #ifdef ENABLE_BGP_VNC
 	if (inst_type != BGP_INSTANCE_TYPE_VRF) {
+=======
+	bgp->rmap_def_originate_eval_timer = 0;
+
+#ifdef ENABLE_BGP_VNC
+	if (inst_type != BGP_INSTANCE_TYPE_VRF && !hidden) {
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		bgp->rfapi = bgp_rfapi_new(bgp);
 		assert(bgp->rfapi);
 		assert(bgp->rfapi_cfg);
@@ -3526,9 +3892,17 @@ static struct bgp *bgp_create(as_t *as, const char *name,
 		bgp->vpn_policy[afi].import_vrf = list_new();
 		bgp->vpn_policy[afi].import_vrf->del =
 			bgp_vrf_string_name_delete;
+<<<<<<< HEAD
 		bgp->vpn_policy[afi].export_vrf = list_new();
 		bgp->vpn_policy[afi].export_vrf->del =
 			bgp_vrf_string_name_delete;
+=======
+		if (!hidden) {
+			bgp->vpn_policy[afi].export_vrf = list_new();
+			bgp->vpn_policy[afi].export_vrf->del =
+				bgp_vrf_string_name_delete;
+		}
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		SET_FLAG(bgp->af_flags[afi][SAFI_MPLS_VPN],
 			 BGP_VPNVX_RETAIN_ROUTE_TARGET_ALL);
 	}
@@ -3546,7 +3920,11 @@ static struct bgp *bgp_create(as_t *as, const char *name,
 			bgp->restart_time, &bgp->t_startup);
 
 	/* printable name we can use in debug messages */
+<<<<<<< HEAD
 	if (inst_type == BGP_INSTANCE_TYPE_DEFAULT) {
+=======
+	if (inst_type == BGP_INSTANCE_TYPE_DEFAULT && !hidden) {
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		bgp->name_pretty = XSTRDUP(MTYPE_BGP_NAME, "VRF default");
 	} else {
 		const char *n;
@@ -3574,6 +3952,7 @@ static struct bgp *bgp_create(as_t *as, const char *name,
 	bgp->coalesce_time = BGP_DEFAULT_SUBGROUP_COALESCE_TIME;
 	bgp->default_af[AFI_IP][SAFI_UNICAST] = true;
 
+<<<<<<< HEAD
 	QOBJ_REG(bgp, bgp);
 
 	update_bgp_group_init(bgp);
@@ -3585,6 +3964,22 @@ static struct bgp *bgp_create(as_t *as, const char *name,
 	bgp_evpn_vrf_es_init(bgp);
 	bgp_pbr_init(bgp);
 	bgp_srv6_init(bgp);
+=======
+	if (!hidden)
+		QOBJ_REG(bgp, bgp);
+
+	update_bgp_group_init(bgp);
+
+	if (!hidden) {
+		/* assign a unique rd id for auto derivation of vrf's RD */
+		bf_assign_index(bm->rd_idspace, bgp->vrf_rd_id);
+
+		bgp_evpn_init(bgp);
+		bgp_evpn_vrf_es_init(bgp);
+		bgp_pbr_init(bgp);
+		bgp_srv6_init(bgp);
+	}
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 	/*initilize global GR FSM */
 	bgp_global_gr_init(bgp);
@@ -3722,10 +4117,22 @@ int bgp_handle_socket(struct bgp *bgp, struct vrf *vrf, vrf_id_t old_vrf_id,
 		return bgp_check_main_socket(create, bgp);
 }
 
+<<<<<<< HEAD
 int bgp_lookup_by_as_name_type(struct bgp **bgp_val, as_t *as, const char *name,
 			       enum bgp_instance_type inst_type)
 {
 	struct bgp *bgp;
+=======
+int bgp_lookup_by_as_name_type(struct bgp **bgp_val, as_t *as,
+			       const char *as_pretty,
+			       enum asnotation_mode asnotation, const char *name,
+			       enum bgp_instance_type inst_type)
+{
+	struct bgp *bgp;
+	struct peer *peer = NULL;
+	struct listnode *node, *nnode;
+	bool hidden = false;
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 	/* Multiple instance check. */
 	if (name)
@@ -3734,6 +4141,7 @@ int bgp_lookup_by_as_name_type(struct bgp **bgp_val, as_t *as, const char *name,
 		bgp = bgp_get_default();
 
 	if (bgp) {
+<<<<<<< HEAD
 		*bgp_val = bgp;
 		if (bgp->as != *as) {
 			*as = bgp->as;
@@ -3742,6 +4150,43 @@ int bgp_lookup_by_as_name_type(struct bgp **bgp_val, as_t *as, const char *name,
 		if (bgp->inst_type != inst_type)
 			return BGP_ERR_INSTANCE_MISMATCH;
 		return BGP_SUCCESS;
+=======
+		if (IS_BGP_INSTANCE_HIDDEN(bgp) && *as != AS_UNSPECIFIED)
+			hidden = true;
+		/* Handle AS number change */
+		if (bgp->as != *as) {
+			if (hidden || CHECK_FLAG(bgp->vrf_flags, BGP_VRF_AUTO)) {
+				if (hidden) {
+					bgp_create(as, name, inst_type,
+						   as_pretty, asnotation, bgp,
+						   hidden);
+					UNSET_FLAG(bgp->flags,
+						   BGP_FLAG_INSTANCE_HIDDEN);
+				} else {
+					bgp->as = *as;
+					UNSET_FLAG(bgp->vrf_flags, BGP_VRF_AUTO);
+				}
+
+				/* Set all peer's local AS with this ASN */
+				for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode,
+						       peer))
+					peer->local_as = *as;
+				*bgp_val = bgp;
+				return BGP_INSTANCE_EXISTS;
+			}
+
+			*as = bgp->as;
+			*bgp_val = bgp;
+			return BGP_ERR_INSTANCE_MISMATCH;
+		}
+		if (bgp->inst_type != inst_type)
+			return BGP_ERR_INSTANCE_MISMATCH;
+		if (hidden)
+			bgp_create(as, name, inst_type, as_pretty, asnotation,
+				   bgp, hidden);
+		*bgp_val = bgp;
+		return BGP_INSTANCE_EXISTS;
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	}
 	*bgp_val = NULL;
 
@@ -3757,11 +4202,21 @@ int bgp_get(struct bgp **bgp_val, as_t *as, const char *name,
 	struct vrf *vrf = NULL;
 	int ret = 0;
 
+<<<<<<< HEAD
 	ret = bgp_lookup_by_as_name_type(bgp_val, as, name, inst_type);
 	if (ret || *bgp_val)
 		return ret;
 
 	bgp = bgp_create(as, name, inst_type, as_pretty, asnotation);
+=======
+	ret = bgp_lookup_by_as_name_type(bgp_val, as, as_pretty, asnotation,
+					 name, inst_type);
+	if (ret || *bgp_val)
+		return ret;
+
+	bgp = bgp_create(as, name, inst_type, as_pretty, asnotation, NULL,
+			 false);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 	/*
 	 * view instances will never work inside of a vrf
@@ -3857,6 +4312,12 @@ void bgp_instance_up(struct bgp *bgp)
 	struct peer *peer;
 	struct listnode *node, *next;
 
+<<<<<<< HEAD
+=======
+	/* notify BMP of instance state changed */
+	hook_call(bgp_instance_state, bgp);
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	bgp_set_redist_vrf_bitmaps(bgp, true);
 
 	/* Register with zebra. */
@@ -3885,6 +4346,12 @@ void bgp_instance_down(struct bgp *bgp)
 	/* Cleanup evpn instance state */
 	bgp_evpn_instance_down(bgp);
 
+<<<<<<< HEAD
+=======
+	/* notify BMP of instance state changed */
+	hook_call(bgp_instance_state, bgp);
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	/* Stop timers. */
 	if (bgp->t_rmap_def_originate_eval)
 		EVENT_OFF(bgp->t_rmap_def_originate_eval);
@@ -4001,6 +4468,18 @@ int bgp_delete(struct bgp *bgp)
 		bgp_damp_disable(bgp, afi, safi);
 	}
 
+<<<<<<< HEAD
+=======
+	if (bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT &&
+	    (bgp_table_top(bgp->rib[AFI_IP][SAFI_MPLS_VPN]) ||
+	     bgp_table_top(bgp->rib[AFI_IP6][SAFI_MPLS_VPN]))) {
+		if (BGP_DEBUG(zebra, ZEBRA))
+			zlog_debug(
+				"Marking the deleting default bgp instance as hidden");
+		SET_FLAG(bgp->flags, BGP_FLAG_INSTANCE_HIDDEN);
+	}
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	if (BGP_DEBUG(zebra, ZEBRA)) {
 		if (bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT)
 			zlog_debug("Deleting Default VRF");
@@ -4013,7 +4492,12 @@ int bgp_delete(struct bgp *bgp)
 	}
 
 	/* unmap from RT list */
+<<<<<<< HEAD
 	bgp_evpn_vrf_delete(bgp);
+=======
+	if (!IS_BGP_INSTANCE_HIDDEN(bgp))
+		bgp_evpn_vrf_delete(bgp);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 	/* unmap bgp vrf label */
 	vpn_leak_zebra_vrf_label_withdraw(bgp, AFI_IP);
@@ -4045,7 +4529,11 @@ int bgp_delete(struct bgp *bgp)
 		peer_delete(peer);
 	}
 
+<<<<<<< HEAD
 	if (bgp->peer_self) {
+=======
+	if (bgp->peer_self && !IS_BGP_INSTANCE_HIDDEN(bgp)) {
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		peer_delete(bgp->peer_self);
 		bgp->peer_self = NULL;
 	}
@@ -4055,7 +4543,12 @@ int bgp_delete(struct bgp *bgp)
 /* TODO - Other memory may need to be freed - e.g., NHT */
 
 #ifdef ENABLE_BGP_VNC
+<<<<<<< HEAD
 	rfapi_delete(bgp);
+=======
+	if (!IS_BGP_INSTANCE_HIDDEN(bgp))
+		rfapi_delete(bgp);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 #endif
 
 	/* Free memory allocated with aggregate address configuration. */
@@ -4097,7 +4590,11 @@ int bgp_delete(struct bgp *bgp)
 	}
 
 	/* Deregister from Zebra, if needed */
+<<<<<<< HEAD
 	if (IS_BGP_INST_KNOWN_TO_ZEBRA(bgp)) {
+=======
+	if (IS_BGP_INST_KNOWN_TO_ZEBRA(bgp) && !IS_BGP_INSTANCE_HIDDEN(bgp)) {
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		if (BGP_DEBUG(zebra, ZEBRA))
 			zlog_debug(
 				"%s: deregistering this bgp %s instance from zebra",
@@ -4105,6 +4602,7 @@ int bgp_delete(struct bgp *bgp)
 		bgp_zebra_instance_deregister(bgp);
 	}
 
+<<<<<<< HEAD
 	/* Remove visibility via the master list - there may however still be
 	 * routes to be processed still referencing the struct bgp.
 	 */
@@ -4116,6 +4614,21 @@ int bgp_delete(struct bgp *bgp)
 	vrf = bgp_vrf_lookup_by_instance_type(bgp);
 	bgp_handle_socket(bgp, vrf, VRF_UNKNOWN, false);
 	if (vrf)
+=======
+	if (!IS_BGP_INSTANCE_HIDDEN(bgp)) {
+		/* Remove visibility via the master list -
+		 * there may however still be routes to be processed
+		 * still referencing the struct bgp.
+		 */
+		listnode_delete(bm->bgp, bgp);
+		/* Free interfaces in this instance. */
+		bgp_if_finish(bgp);
+	}
+
+	vrf = bgp_vrf_lookup_by_instance_type(bgp);
+	bgp_handle_socket(bgp, vrf, VRF_UNKNOWN, false);
+	if (vrf && !IS_BGP_INSTANCE_HIDDEN(bgp))
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		bgp_vrf_unlink(bgp, vrf);
 
 	/* Update EVPN VRF pointer */
@@ -4129,8 +4642,26 @@ int bgp_delete(struct bgp *bgp)
 	if (bgp->process_queue)
 		work_queue_free_and_null(&bgp->process_queue);
 
+<<<<<<< HEAD
 	event_master_free_unused(bm->master);
 	bgp_unlock(bgp); /* initial reference */
+=======
+	if (!IS_BGP_INSTANCE_HIDDEN(bgp))
+		bgp_unlock(bgp); /* initial reference */
+	else {
+		for (afi = AFI_IP; afi < AFI_MAX; afi++) {
+			enum vpn_policy_direction dir;
+
+			if (bgp->vpn_policy[afi].import_vrf)
+				list_delete(&bgp->vpn_policy[afi].import_vrf);
+
+			dir = BGP_VPN_POLICY_DIR_FROMVPN;
+			if (bgp->vpn_policy[afi].rtlist[dir])
+				ecommunity_free(
+					&bgp->vpn_policy[afi].rtlist[dir]);
+		}
+	}
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 	return 0;
 }
@@ -4526,10 +5057,25 @@ bool bgp_path_attribute_treat_as_withdraw(struct peer *peer, char *buf,
 }
 
 /* If peer is configured at least one address family return 1. */
+<<<<<<< HEAD
 bool peer_active(struct peer *peer)
 {
 	if (BGP_CONNECTION_SU_UNSPEC(peer->connection))
 		return false;
+=======
+bool peer_active(struct peer_connection *connection)
+{
+	struct peer *peer = connection->peer;
+
+	if (BGP_CONNECTION_SU_UNSPEC(connection))
+		return false;
+
+	if (peer->bfd_config) {
+		if (bfd_session_is_down(peer->bfd_config->session))
+			return false;
+	}
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	if (peer->afc[AFI_IP][SAFI_UNICAST] || peer->afc[AFI_IP][SAFI_MULTICAST]
 	    || peer->afc[AFI_IP][SAFI_LABELED_UNICAST]
 	    || peer->afc[AFI_IP][SAFI_MPLS_VPN] || peer->afc[AFI_IP][SAFI_ENCAP]
@@ -4611,8 +5157,12 @@ void peer_change_action(struct peer *peer, afi_t afi, safi_t safi,
 				 PEER_FLAG_CONFIG_NODE)))
 			peer_delete(peer->doppelganger);
 
+<<<<<<< HEAD
 		bgp_notify_send(peer->connection, BGP_NOTIFY_CEASE,
 				BGP_NOTIFY_CEASE_CONFIG_CHANGE);
+=======
+		peer_notify_config_change(peer->connection);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	} else if (type == peer_change_reset_in) {
 		if (CHECK_FLAG(peer->cap, PEER_CAP_REFRESH_RCV))
 			bgp_route_refresh_send(peer, afi, safi, 0, 0, 0,
@@ -4624,8 +5174,12 @@ void peer_change_action(struct peer *peer, afi_t afi, safi_t safi,
 					 PEER_FLAG_CONFIG_NODE)))
 				peer_delete(peer->doppelganger);
 
+<<<<<<< HEAD
 			bgp_notify_send(peer->connection, BGP_NOTIFY_CEASE,
 					BGP_NOTIFY_CEASE_CONFIG_CHANGE);
+=======
+			peer_notify_config_change(peer->connection);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		}
 	} else if (type == peer_change_reset_out) {
 		paf = peer_af_find(peer, afi, safi);
@@ -4669,6 +5223,10 @@ static const struct peer_flag_action peer_flag_action_list[] = {
 	{PEER_FLAG_LOCAL_AS, 0, peer_change_reset},
 	{PEER_FLAG_LOCAL_AS_NO_PREPEND, 0, peer_change_reset},
 	{PEER_FLAG_LOCAL_AS_REPLACE_AS, 0, peer_change_reset},
+<<<<<<< HEAD
+=======
+	{PEER_FLAG_DUAL_AS, 0, peer_change_reset},
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	{PEER_FLAG_UPDATE_SOURCE, 0, peer_change_none},
 	{PEER_FLAG_DISABLE_LINK_BW_ENCODING_IEEE, 0, peer_change_none},
 	{PEER_FLAG_EXTENDED_OPT_PARAMS, 0, peer_change_reset},
@@ -4681,6 +5239,11 @@ static const struct peer_flag_action peer_flag_action_list[] = {
 	{PEER_FLAG_CAPABILITY_FQDN, 0, peer_change_none},
 	{PEER_FLAG_AS_LOOP_DETECTION, 0, peer_change_none},
 	{PEER_FLAG_EXTENDED_LINK_BANDWIDTH, 0, peer_change_none},
+<<<<<<< HEAD
+=======
+	{PEER_FLAG_LONESOUL, 0, peer_change_reset_out},
+	{PEER_FLAG_TCP_MSS, 0, peer_change_none},
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	{0, 0, 0}};
 
 static const struct peer_flag_action peer_af_flag_action_list[] = {
@@ -4736,7 +5299,11 @@ static int peer_flag_action_set(const struct peer_flag_action *action_list,
 		if (match->flag == 0)
 			break;
 
+<<<<<<< HEAD
 		if (match->flag & flag) {
+=======
+		if (CHECK_FLAG(match->flag, flag)) {
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 			found = 1;
 
 			if (match->type == peer_change_reset_in)
@@ -4767,6 +5334,16 @@ static int peer_flag_action_set(const struct peer_flag_action *action_list,
 
 static void peer_flag_modify_action(struct peer *peer, uint64_t flag)
 {
+<<<<<<< HEAD
+=======
+	if (flag == PEER_FLAG_DYNAMIC_CAPABILITY)
+		peer->last_reset = PEER_DOWN_CAPABILITY_CHANGE;
+	else if (flag == PEER_FLAG_PASSIVE)
+		peer->last_reset = PEER_DOWN_PASSIVE_CHANGE;
+	else if (flag == PEER_FLAG_DISABLE_CONNECTED_CHECK)
+		peer->last_reset = PEER_DOWN_MULTIHOP_CHANGE;
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	if (flag == PEER_FLAG_SHUTDOWN) {
 		if (CHECK_FLAG(peer->flags, flag)) {
 			if (CHECK_FLAG(peer->sflags, PEER_STATUS_NSF_WAIT))
@@ -4814,6 +5391,7 @@ static void peer_flag_modify_action(struct peer *peer, uint64_t flag)
 			peer->v_start = BGP_INIT_START_TIMER;
 			BGP_EVENT_ADD(peer->connection, BGP_Stop);
 		}
+<<<<<<< HEAD
 	} else if (BGP_IS_VALID_STATE_FOR_NOTIF(peer->connection->status)) {
 		if (flag == PEER_FLAG_DYNAMIC_CAPABILITY)
 			peer->last_reset = PEER_DOWN_CAPABILITY_CHANGE;
@@ -4825,6 +5403,9 @@ static void peer_flag_modify_action(struct peer *peer, uint64_t flag)
 		bgp_notify_send(peer->connection, BGP_NOTIFY_CEASE,
 				BGP_NOTIFY_CEASE_CONFIG_CHANGE);
 	} else
+=======
+	} else if (!peer_notify_config_change(peer->connection))
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		bgp_session_reset(peer);
 }
 
@@ -5063,6 +5644,7 @@ static int peer_af_flag_modify(struct peer *peer, afi_t afi, safi_t safi,
 
 	ptype = peer_sort(peer);
 	/* Special check for reflector client.  */
+<<<<<<< HEAD
 	if (flag & PEER_FLAG_REFLECTOR_CLIENT && ptype != BGP_PEER_IBGP)
 		return BGP_ERR_NOT_INTERNAL_PEER;
 
@@ -5072,6 +5654,19 @@ static int peer_af_flag_modify(struct peer *peer, afi_t afi, safi_t safi,
 
 	/* as-override is not allowed for IBGP peers */
 	if (flag & PEER_FLAG_AS_OVERRIDE && ptype == BGP_PEER_IBGP)
+=======
+	if (CHECK_FLAG(flag, PEER_FLAG_REFLECTOR_CLIENT) &&
+	    ptype != BGP_PEER_IBGP)
+		return BGP_ERR_NOT_INTERNAL_PEER;
+
+	/* Special check for remove-private-AS.  */
+	if (CHECK_FLAG(flag, PEER_FLAG_REMOVE_PRIVATE_AS) &&
+	    ptype == BGP_PEER_IBGP)
+		return BGP_ERR_REMOVE_PRIVATE_AS;
+
+	/* as-override is not allowed for IBGP peers */
+	if (CHECK_FLAG(flag, PEER_FLAG_AS_OVERRIDE) && ptype == BGP_PEER_IBGP)
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		return BGP_ERR_AS_OVERRIDE;
 
 	/* Handle flag updates where desired state matches current state. */
@@ -5122,7 +5717,11 @@ static int peer_af_flag_modify(struct peer *peer, afi_t afi, safi_t safi,
 	 * If the peer is a route server client let's not
 	 * muck with the nexthop on the way out the door
 	 */
+<<<<<<< HEAD
 	if (flag & PEER_FLAG_RSERVER_CLIENT) {
+=======
+	if (CHECK_FLAG(flag, PEER_FLAG_RSERVER_CLIENT)) {
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		if (set)
 			SET_FLAG(peer->af_flags[afi][safi],
 				 PEER_FLAG_NEXTHOP_UNCHANGED);
@@ -5273,7 +5872,11 @@ int peer_ebgp_multihop_set(struct peer *peer, int ttl)
 {
 	struct peer_group *group;
 	struct listnode *node, *nnode;
+<<<<<<< HEAD
 	struct peer *peer1;
+=======
+	struct peer *member;
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 	if (peer->sort == BGP_PEER_IBGP || peer->conf_if)
 		return 0;
@@ -5289,12 +5892,20 @@ int peer_ebgp_multihop_set(struct peer *peer, int ttl)
 			if (group->conf->gtsm_hops != BGP_GTSM_HOPS_DISABLED)
 				return BGP_ERR_NO_EBGP_MULTIHOP_WITH_TTLHACK;
 
+<<<<<<< HEAD
 			for (ALL_LIST_ELEMENTS(group->peer, node, nnode,
 					       peer1)) {
 				if (peer1->sort == BGP_PEER_IBGP)
 					continue;
 
 				if (peer1->gtsm_hops != BGP_GTSM_HOPS_DISABLED)
+=======
+			for (ALL_LIST_ELEMENTS(group->peer, node, nnode, member)) {
+				if (member->sort == BGP_PEER_IBGP)
+					continue;
+
+				if (member->gtsm_hops != BGP_GTSM_HOPS_DISABLED)
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 					return BGP_ERR_NO_EBGP_MULTIHOP_WITH_TTLHACK;
 			}
 		} else {
@@ -5307,12 +5918,16 @@ int peer_ebgp_multihop_set(struct peer *peer, int ttl)
 
 	if (!CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP)) {
 		if (peer->sort != BGP_PEER_IBGP) {
+<<<<<<< HEAD
 			if (BGP_IS_VALID_STATE_FOR_NOTIF(
 				    peer->connection->status))
 				bgp_notify_send(peer->connection,
 						BGP_NOTIFY_CEASE,
 						BGP_NOTIFY_CEASE_CONFIG_CHANGE);
 			else
+=======
+			if (!peer_notify_config_change(peer->connection))
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 				bgp_session_reset(peer);
 
 			/* Reconfigure BFD peer with new TTL. */
@@ -5321,6 +5936,7 @@ int peer_ebgp_multihop_set(struct peer *peer, int ttl)
 		}
 	} else {
 		group = peer->group;
+<<<<<<< HEAD
 		for (ALL_LIST_ELEMENTS(group->peer, node, nnode, peer)) {
 			if (peer->sort == BGP_PEER_IBGP)
 				continue;
@@ -5338,6 +5954,20 @@ int peer_ebgp_multihop_set(struct peer *peer, int ttl)
 			/* Reconfigure BFD peer with new TTL. */
 			if (peer->bfd_config)
 				bgp_peer_bfd_update_source(peer);
+=======
+		for (ALL_LIST_ELEMENTS(group->peer, node, nnode, member)) {
+			if (member->sort == BGP_PEER_IBGP)
+				continue;
+
+			member->ttl = group->conf->ttl;
+
+			if (!peer_notify_config_change(member->connection))
+				bgp_session_reset(member);
+
+			/* Reconfigure BFD peer with new TTL. */
+			if (member->bfd_config)
+				bgp_peer_bfd_update_source(member);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		}
 	}
 	return 0;
@@ -5345,6 +5975,10 @@ int peer_ebgp_multihop_set(struct peer *peer, int ttl)
 
 int peer_ebgp_multihop_unset(struct peer *peer)
 {
+<<<<<<< HEAD
+=======
+	struct peer *member;
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	struct peer_group *group;
 	struct listnode *node, *nnode;
 	int ttl;
@@ -5366,10 +6000,14 @@ int peer_ebgp_multihop_unset(struct peer *peer)
 	peer->ttl = ttl;
 
 	if (!CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP)) {
+<<<<<<< HEAD
 		if (BGP_IS_VALID_STATE_FOR_NOTIF(peer->connection->status))
 			bgp_notify_send(peer->connection, BGP_NOTIFY_CEASE,
 					BGP_NOTIFY_CEASE_CONFIG_CHANGE);
 		else
+=======
+		if (!peer_notify_config_change(peer->connection))
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 			bgp_session_reset(peer);
 
 		/* Reconfigure BFD peer with new TTL. */
@@ -5377,6 +6015,7 @@ int peer_ebgp_multihop_unset(struct peer *peer)
 			bgp_peer_bfd_update_source(peer);
 	} else {
 		group = peer->group;
+<<<<<<< HEAD
 		for (ALL_LIST_ELEMENTS(group->peer, node, nnode, peer)) {
 			if (peer->sort == BGP_PEER_IBGP)
 				continue;
@@ -5396,6 +6035,22 @@ int peer_ebgp_multihop_unset(struct peer *peer)
 			/* Reconfigure BFD peer with new TTL. */
 			if (peer->bfd_config)
 				bgp_peer_bfd_update_source(peer);
+=======
+		for (ALL_LIST_ELEMENTS(group->peer, node, nnode, member)) {
+			if (member->sort == BGP_PEER_IBGP)
+				continue;
+
+			member->ttl = BGP_DEFAULT_TTL;
+
+			if (member->connection->fd >= 0) {
+				if (!peer_notify_config_change(member->connection))
+					bgp_session_reset(member);
+			}
+
+			/* Reconfigure BFD peer with new TTL. */
+			if (member->bfd_config)
+				bgp_peer_bfd_update_source(member);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		}
 	}
 	return 0;
@@ -5539,12 +6194,18 @@ int peer_update_source_if_set(struct peer *peer, const char *ifname)
 
 	/* Check if handling a regular peer. */
 	if (!CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP)) {
+<<<<<<< HEAD
 		/* Send notification or reset peer depending on state. */
 		if (BGP_IS_VALID_STATE_FOR_NOTIF(peer->connection->status)) {
 			peer->last_reset = PEER_DOWN_UPDATE_SOURCE_CHANGE;
 			bgp_notify_send(peer->connection, BGP_NOTIFY_CEASE,
 					BGP_NOTIFY_CEASE_CONFIG_CHANGE);
 		} else
+=======
+		peer->last_reset = PEER_DOWN_UPDATE_SOURCE_CHANGE;
+		/* Send notification or reset peer depending on state. */
+		if (!peer_notify_config_change(peer->connection))
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 			bgp_session_reset(peer);
 
 		/* Apply new source configuration to BFD session. */
@@ -5576,6 +6237,7 @@ int peer_update_source_if_set(struct peer *peer, const char *ifname)
 		member->update_if = XSTRDUP(MTYPE_PEER_UPDATE_SOURCE, ifname);
 		sockunion_free(member->update_source);
 		member->update_source = NULL;
+<<<<<<< HEAD
 
 		/* Send notification or reset peer depending on state. */
 		if (BGP_IS_VALID_STATE_FOR_NOTIF(member->connection->status)) {
@@ -5583,6 +6245,12 @@ int peer_update_source_if_set(struct peer *peer, const char *ifname)
 			bgp_notify_send(member->connection, BGP_NOTIFY_CEASE,
 					BGP_NOTIFY_CEASE_CONFIG_CHANGE);
 		} else
+=======
+		member->last_reset = PEER_DOWN_UPDATE_SOURCE_CHANGE;
+
+		/* Send notification or reset peer depending on state. */
+		if (!peer_notify_config_change(member->connection))
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 			bgp_session_reset(member);
 
 		/* Apply new source configuration to BFD session. */
@@ -5610,12 +6278,18 @@ void peer_update_source_addr_set(struct peer *peer, const union sockunion *su)
 
 	/* Check if handling a regular peer. */
 	if (!CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP)) {
+<<<<<<< HEAD
 		/* Send notification or reset peer depending on state. */
 		if (BGP_IS_VALID_STATE_FOR_NOTIF(peer->connection->status)) {
 			peer->last_reset = PEER_DOWN_UPDATE_SOURCE_CHANGE;
 			bgp_notify_send(peer->connection, BGP_NOTIFY_CEASE,
 					BGP_NOTIFY_CEASE_CONFIG_CHANGE);
 		} else
+=======
+		peer->last_reset = PEER_DOWN_UPDATE_SOURCE_CHANGE;
+		/* Send notification or reset peer depending on state. */
+		if (!peer_notify_config_change(peer->connection))
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 			bgp_session_reset(peer);
 
 		/* Apply new source configuration to BFD session. */
@@ -5646,6 +6320,7 @@ void peer_update_source_addr_set(struct peer *peer, const union sockunion *su)
 		SET_FLAG(member->flags, PEER_FLAG_UPDATE_SOURCE);
 		member->update_source = sockunion_dup(su);
 		XFREE(MTYPE_PEER_UPDATE_SOURCE, member->update_if);
+<<<<<<< HEAD
 
 		/* Send notification or reset peer depending on state. */
 		if (BGP_IS_VALID_STATE_FOR_NOTIF(member->connection->status)) {
@@ -5653,6 +6328,12 @@ void peer_update_source_addr_set(struct peer *peer, const union sockunion *su)
 			bgp_notify_send(member->connection, BGP_NOTIFY_CEASE,
 					BGP_NOTIFY_CEASE_CONFIG_CHANGE);
 		} else
+=======
+		member->last_reset = PEER_DOWN_UPDATE_SOURCE_CHANGE;
+
+		/* Send notification or reset peer depending on state. */
+		if (!peer_notify_config_change(member->connection))
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 			bgp_session_reset(member);
 
 		/* Apply new source configuration to BFD session. */
@@ -5698,12 +6379,18 @@ void peer_update_source_unset(struct peer *peer)
 
 	/* Check if handling a regular peer. */
 	if (!CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP)) {
+<<<<<<< HEAD
 		/* Send notification or reset peer depending on state. */
 		if (BGP_IS_VALID_STATE_FOR_NOTIF(peer->connection->status)) {
 			peer->last_reset = PEER_DOWN_UPDATE_SOURCE_CHANGE;
 			bgp_notify_send(peer->connection, BGP_NOTIFY_CEASE,
 					BGP_NOTIFY_CEASE_CONFIG_CHANGE);
 		} else
+=======
+		peer->last_reset = PEER_DOWN_UPDATE_SOURCE_CHANGE;
+		/* Send notification or reset peer depending on state. */
+		if (!peer_notify_config_change(peer->connection))
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 			bgp_session_reset(peer);
 
 		/* Apply new source configuration to BFD session. */
@@ -5733,6 +6420,7 @@ void peer_update_source_unset(struct peer *peer)
 		sockunion_free(member->update_source);
 		member->update_source = NULL;
 		XFREE(MTYPE_PEER_UPDATE_SOURCE, member->update_if);
+<<<<<<< HEAD
 
 		/* Send notification or reset peer depending on state. */
 		if (BGP_IS_VALID_STATE_FOR_NOTIF(member->connection->status)) {
@@ -5740,6 +6428,12 @@ void peer_update_source_unset(struct peer *peer)
 			bgp_notify_send(member->connection, BGP_NOTIFY_CEASE,
 					BGP_NOTIFY_CEASE_CONFIG_CHANGE);
 		} else
+=======
+		member->last_reset = PEER_DOWN_UPDATE_SOURCE_CHANGE;
+
+		/* Send notification or reset peer depending on state. */
+		if (!peer_notify_config_change(member->connection))
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 			bgp_session_reset(member);
 
 		/* Apply new source configuration to BFD session. */
@@ -5761,6 +6455,13 @@ int peer_default_originate_set(struct peer *peer, afi_t afi, safi_t safi,
 	subgrp = peer_subgroup(peer, afi, safi);
 
 	if (rmap) {
+<<<<<<< HEAD
+=======
+		if (!peer->bgp->rmap_def_originate_eval_timer)
+			peer->bgp->rmap_def_originate_eval_timer =
+				RMAP_DEFAULT_ORIGINATE_EVAL_TIMER;
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		if (!peer->default_rmap[afi][safi].name
 		    || strcmp(rmap, peer->default_rmap[afi][safi].name) != 0) {
 			struct route_map *map = NULL;
@@ -5843,6 +6544,13 @@ int peer_default_originate_set(struct peer *peer, afi_t afi, safi_t safi,
 		if (rmap) {
 			struct route_map *map = NULL;
 
+<<<<<<< HEAD
+=======
+			if (!member->bgp->rmap_def_originate_eval_timer)
+				member->bgp->rmap_def_originate_eval_timer =
+					RMAP_DEFAULT_ORIGINATE_EVAL_TIMER;
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 			if (member->default_rmap[afi][safi].name) {
 				map = route_map_lookup_by_name(
 					member->default_rmap[afi][safi].name);
@@ -5972,9 +6680,33 @@ void peer_port_unset(struct peer *peer)
  */
 void peer_tcp_mss_set(struct peer *peer, uint32_t tcp_mss)
 {
+<<<<<<< HEAD
 	peer->tcp_mss = tcp_mss;
 	SET_FLAG(peer->flags, PEER_FLAG_TCP_MSS);
 	bgp_tcp_mss_set(peer);
+=======
+	struct peer *member;
+	struct listnode *node, *nnode;
+
+	peer_flag_set(peer, PEER_FLAG_TCP_MSS);
+	peer->tcp_mss = tcp_mss;
+
+	if (!CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP)) {
+		bgp_tcp_mss_set(peer);
+		return;
+	}
+
+	for (ALL_LIST_ELEMENTS(peer->group->peer, node, nnode, member)) {
+		/* Skip peers with overridden configuration. */
+		if (CHECK_FLAG(member->flags_override, PEER_FLAG_TCP_MSS))
+			continue;
+
+		/* Set flag and configuration on peer-group member. */
+		SET_FLAG(member->flags, PEER_FLAG_TCP_MSS);
+		PEER_ATTR_INHERIT(member, peer->group, tcp_mss);
+		bgp_tcp_mss_set(member);
+	}
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 }
 
 /* Reset the TCP-MSS value in the peer structure,
@@ -5983,9 +6715,45 @@ void peer_tcp_mss_set(struct peer *peer, uint32_t tcp_mss)
  */
 void peer_tcp_mss_unset(struct peer *peer)
 {
+<<<<<<< HEAD
 	UNSET_FLAG(peer->flags, PEER_FLAG_TCP_MSS);
 	peer->tcp_mss = 0;
 	bgp_tcp_mss_set(peer);
+=======
+	struct peer *member;
+	struct listnode *node, *nnode;
+
+	/* Inherit configuration from peer-group if peer is member. */
+	if (peer_group_active(peer)) {
+		peer_flag_inherit(peer, PEER_FLAG_TCP_MSS);
+		PEER_ATTR_INHERIT(peer, peer->group, tcp_mss);
+	} else {
+		/* Otherwise remove flag and configuration from peer. */
+		peer_flag_unset(peer, PEER_FLAG_TCP_MSS);
+		peer->tcp_mss = 0;
+	}
+
+	/* Skip peer-group mechanics for regular peers. */
+	if (!CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP)) {
+		bgp_tcp_mss_set(peer);
+		return;
+	}
+
+	/*
+	 * Remove flag and configuration from all peer-group members, unless
+	 * they are explicitely overriding peer-group configuration.
+	 */
+	for (ALL_LIST_ELEMENTS(peer->group->peer, node, nnode, member)) {
+		/* Skip peers with overridden configuration. */
+		if (CHECK_FLAG(member->flags_override, PEER_FLAG_TCP_MSS))
+			continue;
+
+		/* Remove flag and configuration on peer-group member. */
+		UNSET_FLAG(member->flags, PEER_FLAG_TCP_MSS);
+		member->tcp_mss = 0;
+		bgp_tcp_mss_set(member);
+	}
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 }
 
 /*
@@ -6197,7 +6965,11 @@ int peer_timers_connect_set(struct peer *peer, uint32_t connect)
 	/* Skip peer-group mechanics for regular peers. */
 	if (!CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP)) {
 		if (!peer_established(peer->connection)) {
+<<<<<<< HEAD
 			if (peer_active(peer))
+=======
+			if (peer_active(peer->connection))
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 				BGP_EVENT_ADD(peer->connection, BGP_Stop);
 			BGP_EVENT_ADD(peer->connection, BGP_Start);
 		}
@@ -6218,7 +6990,11 @@ int peer_timers_connect_set(struct peer *peer, uint32_t connect)
 		member->v_connect = connect;
 
 		if (!peer_established(member->connection)) {
+<<<<<<< HEAD
 			if (peer_active(member))
+=======
+			if (peer_active(member->connection))
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 				BGP_EVENT_ADD(member->connection, BGP_Stop);
 			BGP_EVENT_ADD(member->connection, BGP_Start);
 		}
@@ -6251,7 +7027,11 @@ int peer_timers_connect_unset(struct peer *peer)
 	/* Skip peer-group mechanics for regular peers. */
 	if (!CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP)) {
 		if (!peer_established(peer->connection)) {
+<<<<<<< HEAD
 			if (peer_active(peer))
+=======
+			if (peer_active(peer->connection))
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 				BGP_EVENT_ADD(peer->connection, BGP_Stop);
 			BGP_EVENT_ADD(peer->connection, BGP_Start);
 		}
@@ -6272,7 +7052,11 @@ int peer_timers_connect_unset(struct peer *peer)
 		member->v_connect = peer->bgp->default_connect_retry;
 
 		if (!peer_established(member->connection)) {
+<<<<<<< HEAD
 			if (peer_active(member))
+=======
+			if (peer_active(member->connection))
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 				BGP_EVENT_ADD(member->connection, BGP_Stop);
 			BGP_EVENT_ADD(member->connection, BGP_Start);
 		}
@@ -6608,9 +7392,15 @@ int peer_allowas_in_unset(struct peer *peer, afi_t afi, safi_t safi)
 }
 
 int peer_local_as_set(struct peer *peer, as_t as, bool no_prepend,
+<<<<<<< HEAD
 		      bool replace_as, const char *as_str)
 {
 	bool old_no_prepend, old_replace_as;
+=======
+		      bool replace_as, bool dual_as, const char *as_str)
+{
+	bool old_no_prepend, old_replace_as, old_dual_as;
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	struct bgp *bgp = peer->bgp;
 	struct peer *member;
 	struct listnode *node, *nnode;
@@ -6623,14 +7413,25 @@ int peer_local_as_set(struct peer *peer, as_t as, bool no_prepend,
 		!!CHECK_FLAG(peer->flags, PEER_FLAG_LOCAL_AS_NO_PREPEND);
 	old_replace_as =
 		!!CHECK_FLAG(peer->flags, PEER_FLAG_LOCAL_AS_REPLACE_AS);
+<<<<<<< HEAD
+=======
+	old_dual_as = !!CHECK_FLAG(peer->flags, PEER_FLAG_DUAL_AS);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 	/* Set flag and configuration on peer. */
 	peer_flag_set(peer, PEER_FLAG_LOCAL_AS);
 	peer_flag_modify(peer, PEER_FLAG_LOCAL_AS_NO_PREPEND, no_prepend);
 	peer_flag_modify(peer, PEER_FLAG_LOCAL_AS_REPLACE_AS, replace_as);
+<<<<<<< HEAD
 
 	if (peer->change_local_as == as && old_no_prepend == no_prepend
 	    && old_replace_as == replace_as)
+=======
+	peer_flag_modify(peer, PEER_FLAG_DUAL_AS, dual_as);
+
+	if (peer->change_local_as == as && old_no_prepend == no_prepend &&
+	    old_replace_as == replace_as && old_dual_as == dual_as)
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		return 0;
 	peer->change_local_as = as;
 	if (as_str) {
@@ -6659,10 +7460,18 @@ int peer_local_as_set(struct peer *peer, as_t as, bool no_prepend,
 					    PEER_FLAG_LOCAL_AS_NO_PREPEND);
 		old_replace_as = CHECK_FLAG(member->flags,
 					    PEER_FLAG_LOCAL_AS_REPLACE_AS);
+<<<<<<< HEAD
 		if (member->change_local_as == as
 		    && CHECK_FLAG(member->flags, PEER_FLAG_LOCAL_AS)
 		    && old_no_prepend == no_prepend
 		    && old_replace_as == replace_as)
+=======
+		old_dual_as = !!CHECK_FLAG(member->flags, PEER_FLAG_DUAL_AS);
+		if (member->change_local_as == as &&
+		    CHECK_FLAG(member->flags, PEER_FLAG_LOCAL_AS) &&
+		    old_no_prepend == no_prepend &&
+		    old_replace_as == replace_as && old_dual_as == dual_as)
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 			continue;
 
 		/* Set flag and configuration on peer-group member. */
@@ -6671,6 +7480,10 @@ int peer_local_as_set(struct peer *peer, as_t as, bool no_prepend,
 			  no_prepend);
 		COND_FLAG(member->flags, PEER_FLAG_LOCAL_AS_REPLACE_AS,
 			  replace_as);
+<<<<<<< HEAD
+=======
+		COND_FLAG(member->flags, PEER_FLAG_DUAL_AS, dual_as);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		member->change_local_as = as;
 		if (as_str)
 			member->change_local_as_pretty = XSTRDUP(MTYPE_BGP_NAME,
@@ -6693,24 +7506,38 @@ int peer_local_as_unset(struct peer *peer)
 		peer_flag_inherit(peer, PEER_FLAG_LOCAL_AS);
 		peer_flag_inherit(peer, PEER_FLAG_LOCAL_AS_NO_PREPEND);
 		peer_flag_inherit(peer, PEER_FLAG_LOCAL_AS_REPLACE_AS);
+<<<<<<< HEAD
+=======
+		peer_flag_inherit(peer, PEER_FLAG_DUAL_AS);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		PEER_ATTR_INHERIT(peer, peer->group, change_local_as);
 	} else {
 		/* Otherwise remove flag and configuration from peer. */
 		peer_flag_unset(peer, PEER_FLAG_LOCAL_AS);
 		peer_flag_unset(peer, PEER_FLAG_LOCAL_AS_NO_PREPEND);
 		peer_flag_unset(peer, PEER_FLAG_LOCAL_AS_REPLACE_AS);
+<<<<<<< HEAD
+=======
+		peer_flag_unset(peer, PEER_FLAG_DUAL_AS);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		peer->change_local_as = 0;
 		XFREE(MTYPE_BGP_NAME, peer->change_local_as_pretty);
 	}
 
 	/* Check if handling a regular peer. */
 	if (!CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP)) {
+<<<<<<< HEAD
 		/* Send notification or stop peer depending on state. */
 		if (BGP_IS_VALID_STATE_FOR_NOTIF(peer->connection->status)) {
 			peer->last_reset = PEER_DOWN_LOCAL_AS_CHANGE;
 			bgp_notify_send(peer->connection, BGP_NOTIFY_CEASE,
 					BGP_NOTIFY_CEASE_CONFIG_CHANGE);
 		} else
+=======
+		peer->last_reset = PEER_DOWN_LOCAL_AS_CHANGE;
+		/* Send notification or stop peer depending on state. */
+		if (!peer_notify_config_change(peer->connection))
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 			BGP_EVENT_ADD(peer->connection, BGP_Stop);
 
 		/* Skip peer-group mechanics for regular peers. */
@@ -6730,6 +7557,7 @@ int peer_local_as_unset(struct peer *peer)
 		UNSET_FLAG(member->flags, PEER_FLAG_LOCAL_AS);
 		UNSET_FLAG(member->flags, PEER_FLAG_LOCAL_AS_NO_PREPEND);
 		UNSET_FLAG(member->flags, PEER_FLAG_LOCAL_AS_REPLACE_AS);
+<<<<<<< HEAD
 		member->change_local_as = 0;
 		XFREE(MTYPE_BGP_NAME, member->change_local_as_pretty);
 
@@ -6739,6 +7567,15 @@ int peer_local_as_unset(struct peer *peer)
 			bgp_notify_send(member->connection, BGP_NOTIFY_CEASE,
 					BGP_NOTIFY_CEASE_CONFIG_CHANGE);
 		} else
+=======
+		UNSET_FLAG(member->flags, PEER_FLAG_DUAL_AS);
+		member->change_local_as = 0;
+		XFREE(MTYPE_BGP_NAME, member->change_local_as_pretty);
+		member->last_reset = PEER_DOWN_LOCAL_AS_CHANGE;
+
+		/* Send notification or stop peer depending on state. */
+		if (!peer_notify_config_change(member->connection))
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 			bgp_session_reset(member);
 	}
 
@@ -6765,11 +7602,17 @@ int peer_password_set(struct peer *peer, const char *password)
 
 	/* Check if handling a regular peer. */
 	if (!CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP)) {
+<<<<<<< HEAD
 		/* Send notification or reset peer depending on state. */
 		if (BGP_IS_VALID_STATE_FOR_NOTIF(peer->connection->status))
 			bgp_notify_send(peer->connection, BGP_NOTIFY_CEASE,
 					BGP_NOTIFY_CEASE_CONFIG_CHANGE);
 		else
+=======
+		peer->last_reset = PEER_DOWN_PASSWORD_CHANGE;
+		/* Send notification or reset peer depending on state. */
+		if (!peer_notify_config_change(peer->connection))
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 			bgp_session_reset(peer);
 
 		/*
@@ -6802,11 +7645,17 @@ int peer_password_set(struct peer *peer, const char *password)
 			XFREE(MTYPE_PEER_PASSWORD, member->password);
 		member->password = XSTRDUP(MTYPE_PEER_PASSWORD, password);
 
+<<<<<<< HEAD
 		/* Send notification or reset peer depending on state. */
 		if (BGP_IS_VALID_STATE_FOR_NOTIF(member->connection->status))
 			bgp_notify_send(member->connection, BGP_NOTIFY_CEASE,
 					BGP_NOTIFY_CEASE_CONFIG_CHANGE);
 		else
+=======
+		member->last_reset = PEER_DOWN_PASSWORD_CHANGE;
+		/* Send notification or reset peer depending on state. */
+		if (!peer_notify_config_change(member->connection))
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 			bgp_session_reset(member);
 
 		/* Attempt to install password on socket. */
@@ -6849,10 +7698,14 @@ int peer_password_unset(struct peer *peer)
 	/* Check if handling a regular peer. */
 	if (!CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP)) {
 		/* Send notification or reset peer depending on state. */
+<<<<<<< HEAD
 		if (BGP_IS_VALID_STATE_FOR_NOTIF(peer->connection->status))
 			bgp_notify_send(peer->connection, BGP_NOTIFY_CEASE,
 					BGP_NOTIFY_CEASE_CONFIG_CHANGE);
 		else
+=======
+		if (!peer_notify_config_change(peer->connection))
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 			bgp_session_reset(peer);
 
 		/* Attempt to uninstall password on socket. */
@@ -6876,10 +7729,14 @@ int peer_password_unset(struct peer *peer)
 		XFREE(MTYPE_PEER_PASSWORD, member->password);
 
 		/* Send notification or reset peer depending on state. */
+<<<<<<< HEAD
 		if (BGP_IS_VALID_STATE_FOR_NOTIF(member->connection->status))
 			bgp_notify_send(member->connection, BGP_NOTIFY_CEASE,
 					BGP_NOTIFY_CEASE_CONFIG_CHANGE);
 		else
+=======
+		if (!peer_notify_config_change(member->connection))
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 			bgp_session_reset(member);
 
 		/* Attempt to uninstall password on socket. */
@@ -8408,8 +9265,13 @@ void bgp_master_init(struct event_loop *master, const int buffer_size,
 	bm->start_time = monotime(NULL);
 	bm->t_rmap_update = NULL;
 	bm->rmap_update_timer = RMAP_DEFAULT_UPDATE_TIMER;
+<<<<<<< HEAD
 	bm->v_update_delay = BGP_UPDATE_DELAY_DEF;
 	bm->v_establish_wait = BGP_UPDATE_DELAY_DEF;
+=======
+	bm->v_update_delay = BGP_UPDATE_DELAY_DEFAULT;
+	bm->v_establish_wait = BGP_UPDATE_DELAY_DEFAULT;
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	bm->terminating = false;
 	bm->socket_buffer = buffer_size;
 	bm->wait_for_fib = false;
@@ -8419,6 +9281,13 @@ void bgp_master_init(struct event_loop *master, const int buffer_size,
 	bm->t_bgp_sync_label_manager = NULL;
 	bm->t_bgp_start_label_manager = NULL;
 	bm->t_bgp_zebra_route = NULL;
+<<<<<<< HEAD
+=======
+	bm->restart_time = BGP_DEFAULT_RESTART_TIME;
+	bm->stalepath_time = BGP_DEFAULT_STALEPATH_TIME;
+	bm->select_defer_time = BGP_DEFAULT_SELECT_DEFERRAL_TIME;
+	bm->rib_stale_time = BGP_DEFAULT_RIB_STALE_TIME;
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 	bgp_mac_init();
 	/* init the rd id space.
@@ -8552,8 +9421,12 @@ static int peer_unshut_after_cfg(struct bgp *bgp)
 				   peer->host);
 
 		peer->shut_during_cfg = false;
+<<<<<<< HEAD
 		if (peer_active(peer) &&
 		    peer->connection->status != Established) {
+=======
+		if (peer_active(peer->connection) && peer->connection->status != Established) {
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 			if (peer->connection->status != Idle)
 				BGP_EVENT_ADD(peer->connection, BGP_Stop);
 			BGP_EVENT_ADD(peer->connection, BGP_Start);
@@ -8656,11 +9529,15 @@ void bgp_terminate(void)
 						peer);
 				continue;
 			}
+<<<<<<< HEAD
 			if (BGP_IS_VALID_STATE_FOR_NOTIF(
 				    peer->connection->status))
 				bgp_notify_send(peer->connection,
 						BGP_NOTIFY_CEASE,
 						BGP_NOTIFY_CEASE_PEER_UNCONFIG);
+=======
+			peer_notify_unconfig(peer->connection);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		}
 	}
 

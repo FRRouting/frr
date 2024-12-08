@@ -2826,6 +2826,16 @@ static int isis_snmp_init(struct event_loop *tm)
 	return 0;
 }
 
+<<<<<<< HEAD
+=======
+static int isis_snmp_terminate(void)
+{
+	smux_terminate();
+
+	return 0;
+}
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 /*
  * ISIS notification functions: we have one function per notification
  */
@@ -3448,6 +3458,10 @@ static int isis_snmp_module_init(void)
 	hook_register(isis_circuit_del_hook, isis_circuit_snmp_id_free);
 
 	hook_register(frr_late_init, isis_snmp_init);
+<<<<<<< HEAD
+=======
+	hook_register(frr_fini, isis_snmp_terminate);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	return 0;
 }
 

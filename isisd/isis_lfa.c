@@ -238,10 +238,17 @@ void isis_lfa_excluded_ifaces_init(struct isis_circuit *circuit, int level)
  *
  * @param nodes		List of SPF nodes
  */
+<<<<<<< HEAD
 void isis_lfa_excluded_ifaces_clear(struct isis_circuit *circuit, int level)
 {
 	hash_clean(circuit->lfa_excluded_ifaces[level - 1],
 		   lfa_excl_interface_hash_free);
+=======
+void isis_lfa_excluded_ifaces_delete(struct isis_circuit *circuit, int level)
+{
+	hash_clean_and_free(&circuit->lfa_excluded_ifaces[level - 1],
+			    lfa_excl_interface_hash_free);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 }
 
 /**
@@ -1064,7 +1071,11 @@ static void lfa_calc_reach_nodes(struct isis_spftree *spftree,
 	for (ALL_QUEUE_ELEMENTS_RO(&spftree->paths, node, vertex)) {
 		char buf[VID2STR_BUFFER];
 
+<<<<<<< HEAD
 		if (!VTYPE_IS(vertex->type))
+=======
+		if (vertex->type != VTYPE_NONPSEUDO_IS && vertex->type != VTYPE_NONPSEUDO_TE_IS)
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 			continue;
 
 		/* Skip root node. */

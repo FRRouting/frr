@@ -221,7 +221,11 @@ extern int zebra_vxlan_dp_network_mac_del(struct interface *ifp,
 
 extern void zebra_vxlan_set_accept_bgp_seq(bool set);
 extern bool zebra_vxlan_get_accept_bgp_seq(void);
+<<<<<<< HEAD
 
+=======
+extern void zebra_vlan_dplane_result(struct zebra_dplane_ctx *ctx);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 #ifdef __cplusplus
 }
 #endif

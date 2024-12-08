@@ -63,6 +63,10 @@ struct pim_interface {
 	bool pim_passive_enable : 1;
 
 	bool gm_enable : 1;
+<<<<<<< HEAD
+=======
+	bool gm_proxy : 1; /* proxy IGMP joins/prunes */
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 	ifindex_t mroute_vif_index;
 	struct pim_instance *pim;
@@ -98,6 +102,10 @@ struct pim_interface {
 						       */
 	struct list *gm_socket_list; /* list of struct IGMP or MLD sock */
 	struct list *gm_join_list;   /* list of struct IGMP or MLD join */
+<<<<<<< HEAD
+=======
+	struct list *static_group_list; /* list of struct static group */
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	struct list *gm_group_list;  /* list of struct IGMP or MLD group */
 	struct hash *gm_group_hash;
 
@@ -218,9 +226,22 @@ int pim_if_t_override_msec(struct interface *ifp);
 pim_addr pim_find_primary_addr(struct interface *ifp);
 
 ferr_r pim_if_gm_join_add(struct interface *ifp, pim_addr group_addr,
+<<<<<<< HEAD
 			  pim_addr source_addr);
 int pim_if_gm_join_del(struct interface *ifp, pim_addr group_addr,
 		       pim_addr source_addr);
+=======
+			  pim_addr source_addr, enum gm_join_type join_type);
+int pim_if_gm_join_del(struct interface *ifp, pim_addr group_addr,
+		       pim_addr source_addr, enum gm_join_type join_type);
+void pim_if_gm_proxy_init(struct pim_instance *pim, struct interface *oif);
+void pim_if_gm_proxy_finis(struct pim_instance *pim, struct interface *ifp);
+
+ferr_r pim_if_static_group_add(struct interface *ifp, pim_addr group_addr,
+			       pim_addr source_addr);
+int pim_if_static_group_del(struct interface *ifp, pim_addr group_addr,
+			    pim_addr source_addr);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 void pim_if_update_could_assert(struct interface *ifp);
 

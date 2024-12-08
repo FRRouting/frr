@@ -146,6 +146,20 @@ union zebra_l2if_info {
 	struct zebra_l2info_gre gre;
 };
 
+<<<<<<< HEAD
+=======
+struct zebra_vxlan_vlan {
+	uint8_t state;
+	uint32_t vrange;
+	vlanid_t vid;
+};
+
+struct zebra_vxlan_vlan_array {
+	uint16_t count;
+	struct zebra_vxlan_vlan vlans[0];
+};
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 /* NOTE: These macros are to be invoked only in the "correct" context.
  * IOW, the macro VNI_FROM_ZEBRA_IF() will assume the interface is
  * of type ZEBRA_IF_VXLAN.

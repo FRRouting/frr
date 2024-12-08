@@ -1750,11 +1750,18 @@ static void ospf_abr_announce_non_dna_routers(struct event *thread)
 		OSPF_LOG_DEBUG(IS_DEBUG_OSPF_EVENT,
 			       "%s: Area %pI4 FR enabled: %d", __func__,
 			       &area->area_id, area->fr_info.enabled);
+<<<<<<< HEAD
 		OSPF_LOG_DEBUG(
 			IS_DEBUG_OSPF_EVENT,
 			"LSA with DC bit clear: %d Recived indication LSA: %d",
 			area->fr_info.area_dc_clear,
 			area->fr_info.area_ind_lsa_recvd);
+=======
+		OSPF_LOG_DEBUG(IS_DEBUG_OSPF_EVENT,
+			       "LSA with DC bit clear: %d Received indication LSA: %d",
+			       area->fr_info.area_dc_clear,
+			       area->fr_info.area_ind_lsa_recvd);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		OSPF_LOG_DEBUG(IS_DEBUG_OSPF_EVENT, "FR state change: %d",
 			       area->fr_info.state_changed);
 		if (!OSPF_IS_AREA_BACKBONE(area) &&

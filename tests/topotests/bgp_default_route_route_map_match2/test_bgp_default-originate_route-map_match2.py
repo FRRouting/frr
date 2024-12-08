@@ -43,7 +43,11 @@ def setup_module(mod):
 
     router_list = tgen.routers()
 
+<<<<<<< HEAD
     for i, (rname, router) in enumerate(router_list.items(), 1):
+=======
+    for _, (rname, router) in enumerate(router_list.items(), 1):
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
         router.load_config(
             TopoRouter.RD_ZEBRA, os.path.join(CWD, "{}/zebra.conf".format(rname))
         )
@@ -84,7 +88,11 @@ def test_bgp_default_originate_route_map():
 
     step("Converge network")
     test_func = functools.partial(_bgp_converge, router)
+<<<<<<< HEAD
     success, result = topotest.run_and_expect(test_func, None, count=30, wait=0.5)
+=======
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=0.5)
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
     assert result is None, "Failed to see bgp convergence at r2"
 
     step("Withdraw 10.0.0.0/22 from R2")
@@ -94,7 +102,11 @@ def test_bgp_default_originate_route_map():
 
     step("Check if we don't have 0.0.0.0/0 at R2")
     test_func = functools.partial(_bgp_default_route_is_valid, router)
+<<<<<<< HEAD
     success, result = topotest.run_and_expect(test_func, not None, count=30, wait=0.5)
+=======
+    _, result = topotest.run_and_expect(test_func, not None, count=30, wait=0.5)
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
     assert result is not None, "0.0.0.0/0 exists at r2"
 
     step("Announce 10.0.0.0/22 from R2")
@@ -102,7 +114,11 @@ def test_bgp_default_originate_route_map():
 
     step("Check if we have 0.0.0.0/0 at R2")
     test_func = functools.partial(_bgp_default_route_is_valid, router)
+<<<<<<< HEAD
     success, result = topotest.run_and_expect(test_func, None, count=30, wait=0.5)
+=======
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=0.5)
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
     assert result is None, "0.0.0.0/0 does not exist at r2"
 
     step("Withdraw 10.0.0.0/22 from R2 again")
@@ -112,7 +128,11 @@ def test_bgp_default_originate_route_map():
 
     step("Check if we don't have 0.0.0.0/0 at R2 again")
     test_func = functools.partial(_bgp_default_route_is_valid, router)
+<<<<<<< HEAD
     success, result = topotest.run_and_expect(test_func, not None, count=30, wait=0.5)
+=======
+    _, result = topotest.run_and_expect(test_func, not None, count=30, wait=0.5)
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
     assert result is not None, "0.0.0.0/0 exists at r2"
 
 

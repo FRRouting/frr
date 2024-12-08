@@ -103,6 +103,15 @@ static __attribute__((__noreturn__)) void terminate(int i)
 	isis_sr_term();
 	isis_srv6_term();
 	isis_zebra_stop();
+<<<<<<< HEAD
+=======
+
+	isis_master_terminate();
+	route_map_finish();
+	vrf_terminate();
+
+	frr_fini();
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	exit(i);
 }
 

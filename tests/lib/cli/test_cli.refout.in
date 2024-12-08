@@ -409,7 +409,10 @@ domainname test.domain
 !
 !
 !
+<<<<<<< HEAD
 !
+=======
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 end
 test# conf t
 test(config)# hostname foohost
@@ -425,7 +428,10 @@ domainname test.domain
 !
 !
 !
+<<<<<<< HEAD
 !
+=======
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 end
 foohost(config)# 
 end.

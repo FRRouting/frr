@@ -64,6 +64,10 @@ void zebra_pw_init_vrf(struct zebra_vrf *);
 void zebra_pw_exit_vrf(struct zebra_vrf *);
 void zebra_pw_terminate(void);
 void zebra_pw_vty_init(void);
+<<<<<<< HEAD
+=======
+void zebra_pw_handle_dplane_results(struct zebra_dplane_ctx *ctx);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 #ifdef __cplusplus
 }

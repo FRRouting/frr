@@ -390,6 +390,10 @@ int if_unset_prefix_ctx(const struct zebra_dplane_ctx *ctx)
 #endif /* HAVE_STRUCT_IFALIASREQ */
 #endif /* HAVE_NETLINK */
 
+<<<<<<< HEAD
+=======
+#ifndef HAVE_NETLINK
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 /* get interface flags */
 void if_get_flags(struct interface *ifp)
 {
@@ -485,6 +489,10 @@ void if_get_flags(struct interface *ifp)
 out:
 	if_flags_update(ifp, (ifreqflags.ifr_flags & 0x0000ffff));
 }
+<<<<<<< HEAD
+=======
+#endif
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 /* Set interface flags */
 int if_set_flags(struct interface *ifp, uint64_t flags)

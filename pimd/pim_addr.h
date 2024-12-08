@@ -14,16 +14,28 @@
 
 #if PIM_IPV == 4
 typedef struct in_addr pim_addr;
+<<<<<<< HEAD
+=======
+typedef struct prefix_ipv4 prefix_pim;
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 #define PIM_ADDRSTRLEN	INET_ADDRSTRLEN
 #define PIM_AF		AF_INET
 #define PIM_AFI		AFI_IP
 #define PIM_PROTO_REG   IPPROTO_RAW
+<<<<<<< HEAD
+=======
+#define PIM_IANA_AFI	IANA_AFI_IPV4
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 #define PIM_IPADDR	IPADDR_V4
 #define ipaddr_pim	ipaddr_v4
 #define PIM_MAX_BITLEN	IPV4_MAX_BITLEN
 #define PIM_AF_NAME     "ip"
 #define PIM_AF_DBG	"pim"
+<<<<<<< HEAD
+=======
+#define PIM_AF_ROUTER	"pim"
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 #define GM_AF_DBG	"igmp"
 #define PIM_MROUTE_DBG  "mroute"
 #define PIMREG          "pimreg"
@@ -44,16 +56,28 @@ union pimprefixconstptr {
 
 #else
 typedef struct in6_addr pim_addr;
+<<<<<<< HEAD
+=======
+typedef struct prefix_ipv6 prefix_pim;
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 #define PIM_ADDRSTRLEN	INET6_ADDRSTRLEN
 #define PIM_AF		AF_INET6
 #define PIM_AFI		AFI_IP6
 #define PIM_PROTO_REG   IPPROTO_PIM
+<<<<<<< HEAD
+=======
+#define PIM_IANA_AFI	IANA_AFI_IPV6
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 #define PIM_IPADDR	IPADDR_V6
 #define ipaddr_pim	ipaddr_v6
 #define PIM_MAX_BITLEN	IPV6_MAX_BITLEN
 #define PIM_AF_NAME     "ipv6"
 #define PIM_AF_DBG	"pimv6"
+<<<<<<< HEAD
+=======
+#define PIM_AF_ROUTER	"pim6"
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 #define GM_AF_DBG	"mld"
 #define PIM_MROUTE_DBG  "mroute6"
 #define PIMREG          "pim6reg"

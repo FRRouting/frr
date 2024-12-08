@@ -27,7 +27,10 @@ pytestmark = [pytest.mark.bgpd]
 
 
 def build_topo(tgen):
+<<<<<<< HEAD
 
+=======
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
     tgen.add_router("r1")
     tgen.add_router("r2")
 
@@ -42,7 +45,11 @@ def setup_module(mod):
 
     router_list = tgen.routers()
 
+<<<<<<< HEAD
     for i, (rname, router) in enumerate(router_list.items(), 1):
+=======
+    for _, (rname, router) in enumerate(router_list.items(), 1):
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
         router.load_config(
             TopoRouter.RD_ZEBRA, os.path.join(CWD, "{}/zebra.conf".format(rname))
         )
@@ -84,7 +91,11 @@ def test_bgp_unnumbered_removal():
 
     step("Ensure Convergence of BGP")
     test_func = functools.partial(_bgp_converge)
+<<<<<<< HEAD
     success, result = topotest.run_and_expect(test_func, None, count=60, wait=1)
+=======
+    _, result = topotest.run_and_expect(test_func, None, count=60, wait=1)
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
     assert result is None, 'Failed bgp convergence in "{}"'.format(tgen.gears["r2"])
 
@@ -109,7 +120,11 @@ def test_bgp_unnumbered_removal():
 
     step("Ensure that BGP does not crash")
     test_func = functools.partial(_bgp_nexthop_cache)
+<<<<<<< HEAD
     success, result = topotest.run_and_expect(test_func, True, count=10, wait=1)
+=======
+    _, result = topotest.run_and_expect(test_func, True, count=10, wait=1)
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
     assert result is True, "BGP did not crash on r1"
 

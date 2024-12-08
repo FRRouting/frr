@@ -626,6 +626,10 @@ module frr-zebra {
 
         leaf table-id {
           type uint32;
+<<<<<<< HEAD
+=======
+	  default "254";
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
           description
             "Routing Table id (default id - 254).";
         }
@@ -2855,6 +2859,19 @@ module frr-zebra {
         }
       }
 
+<<<<<<< HEAD
+=======
+      container mpls {
+        description
+          "MPLS Configuration.";
+          leaf fec-nexthop-resolution {
+            type boolean;
+            description
+              "Authorise nexthop resolution over all labeled routes.";
+          }
+      }
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
       uses ribs;
 
       uses vrf-vni-mapping;

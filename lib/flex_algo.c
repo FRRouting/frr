@@ -20,9 +20,12 @@
 DEFINE_MTYPE_STATIC(LIB, FLEX_ALGO_DATABASE, "Flex-Algo database");
 DEFINE_MTYPE_STATIC(LIB, FLEX_ALGO, "Flex-Algo algorithm information");
 
+<<<<<<< HEAD
 static void _flex_algo_delete(struct flex_algos *flex_algos,
 			      struct flex_algo *fa);
 
+=======
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 struct flex_algos *flex_algos_alloc(flex_algo_allocator_t allocator,
 				    flex_algo_releaser_t releaser)
 {
@@ -42,7 +45,11 @@ void flex_algos_free(struct flex_algos *flex_algos)
 	struct flex_algo *fa;
 
 	for (ALL_LIST_ELEMENTS(flex_algos->flex_algos, node, nnode, fa))
+<<<<<<< HEAD
 		_flex_algo_delete(flex_algos, fa);
+=======
+		flex_algo_free(flex_algos, fa);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	list_delete(&flex_algos->flex_algos);
 	XFREE(MTYPE_FLEX_ALGO_DATABASE, flex_algos);
 }
@@ -63,8 +70,12 @@ struct flex_algo *flex_algo_alloc(struct flex_algos *flex_algos,
 	return fa;
 }
 
+<<<<<<< HEAD
 static void _flex_algo_delete(struct flex_algos *flex_algos,
 			      struct flex_algo *fa)
+=======
+void flex_algo_free(struct flex_algos *flex_algos, struct flex_algo *fa)
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 {
 	if (flex_algos->releaser)
 		flex_algos->releaser(fa->data);
@@ -75,6 +86,7 @@ static void _flex_algo_delete(struct flex_algos *flex_algos,
 	XFREE(MTYPE_FLEX_ALGO, fa);
 }
 
+<<<<<<< HEAD
 
 void flex_algo_delete(struct flex_algos *flex_algos, uint8_t algorithm)
 {
@@ -88,6 +100,8 @@ void flex_algo_delete(struct flex_algos *flex_algos, uint8_t algorithm)
 	}
 }
 
+=======
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 /**
  * @brief Look up the local flex-algo object by its algorithm number.
  * @param algorithm flex-algo algorithm number

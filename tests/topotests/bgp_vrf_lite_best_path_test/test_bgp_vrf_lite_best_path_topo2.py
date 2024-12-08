@@ -19,7 +19,10 @@ import sys
 import time
 import pytest
 import platform
+<<<<<<< HEAD
 from time import sleep
+=======
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 # Save the Current Working Directory to find configuration files.
 CWD = os.path.dirname(os.path.realpath(__file__))

@@ -16,6 +16,7 @@ extern "C" {
 #endif
 
 #define BFD_DEF_MIN_RX 300
+<<<<<<< HEAD
 #define BFD_MIN_MIN_RX 50
 #define BFD_MAX_MIN_RX 60000
 #define BFD_DEF_MIN_TX 300
@@ -24,6 +25,10 @@ extern "C" {
 #define BFD_DEF_DETECT_MULT 3
 #define BFD_MIN_DETECT_MULT 2
 #define BFD_MAX_DETECT_MULT 255
+=======
+#define BFD_DEF_MIN_TX 300
+#define BFD_DEF_DETECT_MULT 3
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 #define BFD_STATUS_UNKNOWN    (1 << 0) /* BFD session status never received */
 #define BFD_STATUS_DOWN       (1 << 1) /* BFD session status is down */
@@ -464,6 +469,11 @@ extern bool bfd_protocol_integration_shutting_down(void);
 extern int bfd_nht_update(const struct prefix *match,
 			  const struct zapi_route *route);
 
+<<<<<<< HEAD
+=======
+extern bool bfd_session_is_down(const struct bfd_session_params *session);
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 #ifdef __cplusplus
 }
 #endif

@@ -323,7 +323,11 @@ void lua_pushnexthop_group(lua_State *L, const struct nexthop_group *ng)
 {
 	lua_newtable(L);
 	struct nexthop *nexthop;
+<<<<<<< HEAD
 	int i = 0;
+=======
+	int i = 1;
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 	for (ALL_NEXTHOPS_PTR(ng, nexthop)) {
 		lua_pushnexthop(L, nexthop);
@@ -382,6 +386,15 @@ static const char *frrlua_log_thunk(lua_State *L)
 	return lua_tostring(L, 1);
 }
 
+<<<<<<< HEAD
+=======
+static int frrlua_log_trace(lua_State *L)
+{
+	zlog_debug("%s", frrlua_stackdump(L));
+	return 0;
+}
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 static int frrlua_log_debug(lua_State *L)
 {
 	zlog_debug("%s", frrlua_log_thunk(L));
@@ -413,11 +426,20 @@ static int frrlua_log_error(lua_State *L)
 }
 
 static const luaL_Reg log_funcs[] = {
+<<<<<<< HEAD
 	{"debug", frrlua_log_debug},
 	{"info", frrlua_log_info},
 	{"notice", frrlua_log_notice},
 	{"warn", frrlua_log_warn},
 	{"error", frrlua_log_error},
+=======
+	{ "trace", frrlua_log_trace },
+	{ "debug", frrlua_log_debug },
+	{ "info", frrlua_log_info },
+	{ "notice", frrlua_log_notice },
+	{ "warn", frrlua_log_warn },
+	{ "error", frrlua_log_error },
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	{},
 };
 
@@ -432,6 +454,70 @@ void frrlua_export_logging(lua_State *L)
  * Debugging.
  */
 
+<<<<<<< HEAD
+=======
+void lua_table_dump(lua_State *L, int index, struct buffer *buf, int level)
+{
+	char tmpbuf[64] = {};
+
+	lua_pushnil(L);
+
+	while (lua_next(L, index) != 0) {
+		int key_type;
+		int value_type;
+
+		for (int i = 0; i < level; i++)
+			buffer_putstr(buf, "  ");
+
+		key_type = lua_type(L, -2);
+		if (key_type == LUA_TSTRING) {
+			const char *key = lua_tostring(L, -2);
+
+			buffer_putstr(buf, key);
+			buffer_putstr(buf, ": ");
+		} else if (key_type == LUA_TNUMBER) {
+			snprintf(tmpbuf, sizeof(tmpbuf), "%g",
+				 lua_tonumber(L, -2));
+			buffer_putstr(buf, tmpbuf);
+			buffer_putstr(buf, ": ");
+		}
+
+		value_type = lua_type(L, -1);
+		switch (value_type) {
+		case LUA_TSTRING:
+			snprintf(tmpbuf, sizeof(tmpbuf), "\"%s\"\n",
+				 lua_tostring(L, -1));
+			buffer_putstr(buf, tmpbuf);
+			break;
+		case LUA_TBOOLEAN:
+			snprintf(tmpbuf, sizeof(tmpbuf), "%s\n",
+				 lua_toboolean(L, -1) ? "true" : "false");
+			buffer_putstr(buf, tmpbuf);
+			break;
+		case LUA_TNUMBER:
+			snprintf(tmpbuf, sizeof(tmpbuf), "%g\n",
+				 lua_tonumber(L, -1));
+			buffer_putstr(buf, tmpbuf);
+			break;
+		case LUA_TTABLE:
+			buffer_putstr(buf, "{\n");
+			lua_table_dump(L, lua_gettop(L), buf, level + 1);
+			for (int i = 0; i < level; i++)
+				buffer_putstr(buf, "  ");
+			buffer_putstr(buf, "}\n");
+			break;
+		default:
+			snprintf(tmpbuf, sizeof(tmpbuf), "%s\n",
+				 lua_typename(L, value_type));
+			buffer_putstr(buf, tmpbuf);
+			break;
+		}
+
+		lua_pop(L, 1);
+	}
+}
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 char *frrlua_stackdump(lua_State *L)
 {
 	int top = lua_gettop(L);
@@ -458,6 +544,14 @@ char *frrlua_stackdump(lua_State *L)
 				 lua_tonumber(L, i));
 			buffer_putstr(buf, tmpbuf);
 			break;
+<<<<<<< HEAD
+=======
+		case LUA_TTABLE: /* tables */
+			buffer_putstr(buf, "{\n");
+			lua_table_dump(L, i, buf, 1);
+			buffer_putstr(buf, "}\n");
+			break;
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		default: /* other values */
 			snprintf(tmpbuf, sizeof(tmpbuf), "%s\n",
 				 lua_typename(L, t));

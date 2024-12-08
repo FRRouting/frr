@@ -64,6 +64,11 @@ struct client_gr_info {
 	/* Book keeping */
 	void *stale_client_ptr;
 	struct event *t_stale_removal;
+<<<<<<< HEAD
+=======
+	void *client_ptr;
+	time_t route_sync_done_time;
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 	TAILQ_ENTRY(client_gr_info) gr_info;
 };

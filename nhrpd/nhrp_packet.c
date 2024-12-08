@@ -115,6 +115,7 @@ uint16_t nhrp_packet_calculate_checksum(const uint8_t *pdu, uint16_t len)
 	return (~csum) & 0xffff;
 }
 
+<<<<<<< HEAD
 void nhrp_packet_complete(struct zbuf *zb, struct nhrp_packet_header *hdr)
 {
 	unsigned short size;
@@ -123,6 +124,34 @@ void nhrp_packet_complete(struct zbuf *zb, struct nhrp_packet_header *hdr)
 		nhrp_ext_push(zb, hdr,
 			      NHRP_EXTENSION_END
 				      | NHRP_EXTENSION_FLAG_COMPULSORY);
+=======
+void nhrp_packet_complete(struct zbuf *zb, struct nhrp_packet_header *hdr,
+			  struct interface *ifp)
+{
+	nhrp_packet_complete_auth(zb, hdr, ifp, true);
+}
+
+void nhrp_packet_complete_auth(struct zbuf *zb, struct nhrp_packet_header *hdr,
+			       struct interface *ifp, bool auth)
+{
+	struct nhrp_interface *nifp = ifp->info;
+	struct zbuf *auth_token = nifp->auth_token;
+	struct nhrp_extension_header *dst;
+	unsigned short size;
+
+	if (auth && auth_token) {
+		dst = nhrp_ext_push(zb, hdr,
+				    NHRP_EXTENSION_AUTHENTICATION |
+					    NHRP_EXTENSION_FLAG_COMPULSORY);
+		zbuf_copy_peek(zb, auth_token, zbuf_size(auth_token));
+		nhrp_ext_complete(zb, dst);
+	}
+
+	if (hdr->extension_offset)
+		nhrp_ext_push(zb, hdr,
+			      NHRP_EXTENSION_END |
+				      NHRP_EXTENSION_FLAG_COMPULSORY);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 	size = zb->tail - (uint8_t *)hdr;
 	hdr->packet_size = htons(size);
@@ -225,8 +254,12 @@ struct nhrp_extension_header *nhrp_ext_pull(struct zbuf *zb,
 	return ext;
 }
 
+<<<<<<< HEAD
 void nhrp_ext_request(struct zbuf *zb, struct nhrp_packet_header *hdr,
 		      struct interface *ifp)
+=======
+void nhrp_ext_request(struct zbuf *zb, struct nhrp_packet_header *hdr)
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 {
 	/* Place holders for standard extensions */
 	nhrp_ext_push(zb, hdr,

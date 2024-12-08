@@ -1263,9 +1263,19 @@ static void rip_response_process(struct rip_packet *packet, int size,
 					       rip->vrf->vrf_id)) {
 				struct route_node *rn;
 				struct rip_info *rinfo;
+<<<<<<< HEAD
 
 				rn = route_node_match_ipv4(rip->table,
 							   &rte->nexthop);
+=======
+				struct prefix p = { 0 };
+
+				p.family = AF_INET;
+				p.prefixlen = IPV4_MAX_BITLEN;
+				p.u.prefix4 = rte->nexthop;
+
+				rn = route_node_match(rip->table, &p);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 				if (rn) {
 					rinfo = rn->info;
@@ -3054,7 +3064,14 @@ DEFUN (show_ip_rip,
 	}
 
 	vty_out(vty,
+<<<<<<< HEAD
 		"Codes: R - RIP, C - connected, S - Static, O - OSPF, B - BGP\n"
+=======
+		"Codes: K - kernel route, C - connected, L - local, S - static,\n"
+		"       R - RIP, O - OSPF, I - IS-IS, B - BGP, E - EIGRP, N - NHRP,\n"
+		"       T - Table, v - VNC, V - VNC-Direct, A - Babel, F - PBR,\n"
+		"       f - OpenFabric, t - Table-Direct\n"
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		"Sub-codes:\n"
 		"      (n) - normal, (s) - static, (d) - default, (r) - redistribute,\n"
 		"      (i) - interface\n\n"

@@ -98,6 +98,11 @@ const void *lib_interface_state_isis_adjacencies_adjacency_get_next(
 			 * adjacencies list.
 			 */
 			list = circuit->u.bc.adjdb[ISIS_LEVEL2 - 1];
+<<<<<<< HEAD
+=======
+			if (!list)
+				break;
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 			adj_next = listnode_head(list);
 		}
 		break;

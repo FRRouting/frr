@@ -50,6 +50,24 @@ DEFPY(bgp_snmp_traps_rfc4273, bgp_snmp_traps_rfc4273_cmd,
 	return CMD_SUCCESS;
 }
 
+<<<<<<< HEAD
+=======
+DEFPY(bgp_snmp_traps_rfc4382, bgp_snmp_traps_rfc4382_cmd,
+      "[no$no] bgp snmp traps rfc4382",
+      NO_STR BGP_STR
+      "Configure BGP SNMP\n"
+      "Configure SNMP traps for BGP\n"
+      "Configure use of rfc4382 SNMP traps for BGP\n")
+{
+	if (no) {
+		UNSET_FLAG(bm->options, BGP_OPT_TRAPS_RFC4382);
+		return CMD_SUCCESS;
+	}
+	SET_FLAG(bm->options, BGP_OPT_TRAPS_RFC4382);
+	return CMD_SUCCESS;
+}
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 DEFPY(bgp_snmp_traps_bgp4_mibv2, bgp_snmp_traps_bgp4_mibv2_cmd,
       "[no$no] bgp snmp traps bgp4-mibv2",
       NO_STR BGP_STR
@@ -69,9 +87,18 @@ static void bgp_snmp_traps_init(void)
 {
 	install_element(CONFIG_NODE, &bgp_snmp_traps_rfc4273_cmd);
 	install_element(CONFIG_NODE, &bgp_snmp_traps_bgp4_mibv2_cmd);
+<<<<<<< HEAD
 
 	SET_FLAG(bm->options, BGP_OPT_TRAPS_RFC4273);
 	/* BGP4MIBv2 traps are disabled by default */
+=======
+	install_element(CONFIG_NODE, &bgp_snmp_traps_rfc4382_cmd);
+
+	SET_FLAG(bm->options, BGP_OPT_TRAPS_RFC4273);
+	/* BGP4MIBv2 traps are disabled by default */
+
+	SET_FLAG(bm->options, BGP_OPT_TRAPS_RFC4382);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 }
 
 int bgp_cli_snmp_traps_config_write(struct vty *vty)
@@ -86,6 +113,13 @@ int bgp_cli_snmp_traps_config_write(struct vty *vty)
 		vty_out(vty, "bgp snmp traps bgp4-mibv2\n");
 		write++;
 	}
+<<<<<<< HEAD
+=======
+	if (!CHECK_FLAG(bm->options, BGP_OPT_TRAPS_RFC4382)) {
+		vty_out(vty, "no bgp snmp traps rfc4382\n");
+		write++;
+	}
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 	return write;
 }

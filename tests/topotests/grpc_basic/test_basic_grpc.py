@@ -19,7 +19,10 @@ import pytest
 from lib.common_config import step
 from lib.micronet import commander
 from lib.topogen import Topogen, TopoRouter
+<<<<<<< HEAD
 from lib.topolog import logger
+=======
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 from lib.topotest import json_cmp
 
 CWD = os.path.dirname(os.path.realpath(__file__))
@@ -60,7 +63,11 @@ def tgen(request):
     tgen.start_topology()
     router_list = tgen.routers()
 
+<<<<<<< HEAD
     for rname, router in router_list.items():
+=======
+    for _, router in router_list.items():
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
         router.load_config(TopoRouter.RD_ZEBRA, "zebra.conf", f"-M grpc:{GRPCP_ZEBRA}")
         router.load_config(TopoRouter.RD_STATIC, "", f"-M grpc:{GRPCP_STATICD}")
         # router.load_config(TopoRouter.RD_BFDD, "", f"-M grpc:{GRPCP_BFDD}")

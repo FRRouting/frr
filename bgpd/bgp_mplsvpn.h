@@ -419,6 +419,11 @@ struct bgp_mplsvpn_nh_label_bind_cache *bgp_mplsvpn_nh_label_bind_find(
 	struct bgp_mplsvpn_nh_label_bind_cache_head *tree, struct prefix *p,
 	mpls_label_t orig_label);
 void bgp_mplsvpn_nexthop_init(void);
+<<<<<<< HEAD
+=======
+extern void sid_register(struct bgp *bgp, const struct in6_addr *sid,
+			 const char *locator_name);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 extern void sid_unregister(struct bgp *bgp, const struct in6_addr *sid);
 
 #endif /* _QUAGGA_BGP_MPLSVPN_H */

@@ -7,10 +7,19 @@ lib_LTLIBRARIES += ospfclient/libfrrospfapiclient.la
 noinst_PROGRAMS += ospfclient/ospfclient
 #man8 += $(MANBUILD)/frr-ospfclient.8
 
+<<<<<<< HEAD
+=======
+if PYTHON_RUNTIME_DEPENDENCY
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 sbin_SCRIPTS += \
 	ospfclient/ospfclient.py \
 	# end
 endif
+<<<<<<< HEAD
+=======
+endif
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 ospfclient_libfrrospfapiclient_la_LDFLAGS = $(LIB_LDFLAGS) -version-info 0:0:0
 ospfclient_libfrrospfapiclient_la_LIBADD = lib/libfrr.la

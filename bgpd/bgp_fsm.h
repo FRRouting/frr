@@ -109,6 +109,10 @@ enum bgp_fsm_state_progress {
 extern void bgp_fsm_nht_update(struct peer_connection *connection,
 			       struct peer *peer, bool has_valid_nexthops);
 extern void bgp_event(struct event *event);
+<<<<<<< HEAD
+=======
+extern void bgp_event_stop_with_notify(struct event *event);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 extern int bgp_event_update(struct peer_connection *connection,
 			    enum bgp_fsm_events event);
 extern enum bgp_fsm_state_progress bgp_stop(struct peer_connection *connection);
@@ -151,7 +155,11 @@ int bgp_neighbor_graceful_restart(struct peer *peer,
 				  enum peer_gr_command peer_gr_cmd);
 unsigned int bgp_peer_gr_action(struct peer *peer, enum peer_mode old_peer_state,
 				enum peer_mode new_peer_state);
+<<<<<<< HEAD
 void bgp_peer_move_to_gr_mode(struct peer *peer, int new_state);
+=======
+void bgp_peer_move_to_gr_mode(struct peer *peer, enum peer_mode new_state);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 unsigned int bgp_peer_gr_helper_enable(struct peer *peer);
 unsigned int bgp_peer_gr_enable(struct peer *peer);
 unsigned int bgp_peer_gr_global_inherit(struct peer *peer);
@@ -160,9 +168,12 @@ enum peer_mode bgp_peer_gr_mode_get(struct peer *peer);
 enum global_mode bgp_global_gr_mode_get(struct bgp *bgp);
 enum peer_mode bgp_get_peer_gr_mode_from_flags(struct peer *peer);
 unsigned int bgp_peer_gr_global_inherit_unset(struct peer *peer);
+<<<<<<< HEAD
 int bgp_gr_lookup_n_update_all_peer(struct bgp *bgp,
 		enum global_mode global_new_state,
 		enum global_mode global_old_state);
+=======
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 void bgp_peer_gr_flags_update(struct peer *peer);
 const char *print_peer_gr_mode(enum peer_mode pr_mode);
 const char *print_peer_gr_cmd(enum peer_gr_command pr_gr_cmd);

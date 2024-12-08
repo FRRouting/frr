@@ -607,9 +607,17 @@ extern struct yang_data *yang_data_list_find(const struct list *list,
  * explicit_compile
  *    True if the caller will later call ly_ctx_compile to compile all loaded
  *    modules at once.
+<<<<<<< HEAD
  */
 extern struct ly_ctx *yang_ctx_new_setup(bool embedded_modules,
 					 bool explicit_compile);
+=======
+ * load_library
+ *    Set this to have libyang to load/implement the ietf-yang-library.
+ */
+extern struct ly_ctx *yang_ctx_new_setup(bool embedded_modules, bool explicit_compile,
+					 bool load_library);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 /*
  * Enable or disable libyang verbose debugging.
@@ -727,8 +735,15 @@ extern const char *yang_print_errors(struct ly_ctx *ly_ctx, char *buf,
  *    Specify whether libyang should attempt to look for embedded YANG modules.
  * defer_compile
  *    Hold off on compiling modules until yang_init_loading_complete is called.
+<<<<<<< HEAD
  */
 extern void yang_init(bool embedded_modules, bool defer_compile);
+=======
+ * load_library
+ *    Set this to have libyang to load/implement the ietf-yang-library.
+ */
+extern void yang_init(bool embedded_modules, bool defer_compile, bool load_library);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 /*
  * Should be called after yang_init and all yang_module_load()s have been done,
@@ -827,7 +842,12 @@ extern int yang_xpath_pop_node(char *xpath);
  * Return: a libyang error or LY_SUCCESS.
  */
 extern LY_ERR yang_resolve_snode_xpath(struct ly_ctx *ly_ctx, const char *xpath,
+<<<<<<< HEAD
 				       struct lysc_node ***snodes, bool *simple);
+=======
+				       const struct lysc_node ***snodes,
+				       bool *simple);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 /*
  * Libyang future functions

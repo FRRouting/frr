@@ -6,10 +6,15 @@
 #
 
 import os
+<<<<<<< HEAD
 import re
 import sys
 import json
 import functools
+=======
+import sys
+import json
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 import pytest
 
 CWD = os.path.dirname(os.path.realpath(__file__))
@@ -20,7 +25,10 @@ sys.path.append(os.path.join(CWD, "../"))
 from lib import topotest
 from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
+<<<<<<< HEAD
 from lib.common_config import required_linux_kernel_version
+=======
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 pytestmark = [pytest.mark.bgpd]
 

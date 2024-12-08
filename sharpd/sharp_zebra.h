@@ -18,8 +18,13 @@ extern void vrf_label_add(vrf_id_t vrf_id, afi_t afi, mpls_label_t label);
 extern void nhg_add(uint32_t id, const struct nexthop_group *nhg,
 		    const struct nexthop_group *backup_nhg);
 extern void nhg_del(uint32_t id);
+<<<<<<< HEAD
 extern void sharp_zebra_nexthop_watch(struct prefix *p, vrf_id_t vrf_id,
 				      bool import, bool watch, bool connected);
+=======
+extern void sharp_zebra_nexthop_watch(struct prefix *p, vrf_id_t vrf_id, bool import, bool watch,
+				      bool connected, bool mrib);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 extern void sharp_install_routes_helper(struct prefix *p, vrf_id_t vrf_id,
 					uint8_t instance, uint32_t nhgid,

@@ -43,7 +43,11 @@ def setup_module(mod):
 
     router_list = tgen.routers()
 
+<<<<<<< HEAD
     for i, (rname, router) in enumerate(router_list.items(), 1):
+=======
+    for _, (rname, router) in enumerate(router_list.items(), 1):
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
         router.load_config(
             TopoRouter.RD_ZEBRA, os.path.join(CWD, "{}/zebra.conf".format(rname))
         )
@@ -82,17 +86,29 @@ def test_bgp_max_med_on_startup():
 
     # Check session is established
     test_func = functools.partial(_bgp_converge, router2)
+<<<<<<< HEAD
     success, result = topotest.run_and_expect(test_func, None, count=30, wait=0.5)
+=======
+    _, result = topotest.run_and_expect(test_func, None, count=60, wait=1.0)
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
     assert result is None, "Failed bgp convergence on r2"
 
     # Check metric has value of max-med
     test_func = functools.partial(_bgp_has_routes, router2, 777)
+<<<<<<< HEAD
     success, result = topotest.run_and_expect(test_func, None, count=30, wait=0.5)
+=======
+    _, result = topotest.run_and_expect(test_func, None, count=60, wait=1.0)
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
     assert result is None, "r2 does not receive routes with metric 777"
 
     # Check that when the max-med timer expires, metric is updated
     test_func = functools.partial(_bgp_has_routes, router2, 0)
+<<<<<<< HEAD
     success, result = topotest.run_and_expect(test_func, None, count=16, wait=0.5)
+=======
+    _, result = topotest.run_and_expect(test_func, None, count=16, wait=0.5)
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
     assert result is None, "r2 does not receive routes with metric 0"
 
 

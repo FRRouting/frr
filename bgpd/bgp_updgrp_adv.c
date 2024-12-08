@@ -906,8 +906,13 @@ void subgroup_default_originate(struct update_subgroup *subgrp, bool withdraw)
 	assert(attr.aspath);
 
 	aspath = attr.aspath;
+<<<<<<< HEAD
 	attr.med = 0;
 	attr.flag |= ATTR_FLAG_BIT(BGP_ATTR_MULTI_EXIT_DISC);
+=======
+
+	bgp_attr_set_med(&attr, 0);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 	if ((afi == AFI_IP6) || peer_cap_enhe(peer, afi, safi)) {
 		/* IPv6 global nexthop must be included. */

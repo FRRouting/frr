@@ -32,6 +32,10 @@
 #include "ospf6_neighbor.h"
 #include "ospf6_intra.h"
 #include "ospf6d.h"
+<<<<<<< HEAD
+=======
+#include "ospf6_tlv.h"
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 #include "ospf6_gr.h"
 #include "lib/json.h"
 #include "ospf6d/ospf6_gr_helper_clippy.c"
@@ -129,8 +133,13 @@ static int ospf6_extract_grace_lsa_fields(struct ospf6_lsa *lsa,
 {
 	struct ospf6_lsa_header *lsah = NULL;
 	struct tlv_header *tlvh = NULL;
+<<<<<<< HEAD
 	struct grace_tlv_graceperiod *gracePeriod;
 	struct grace_tlv_restart_reason *grReason;
+=======
+	struct tlv_grace_period *gracePeriod;
+	struct tlv_grace_restart_reason *grReason;
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	uint16_t length = 0;
 	int sum = 0;
 
@@ -144,9 +153,14 @@ static int ospf6_extract_grace_lsa_fields(struct ospf6_lsa *lsa,
 
 	length = ntohs(lsah->length) - OSPF6_LSA_HEADER_SIZE;
 
+<<<<<<< HEAD
 	for (tlvh = TLV_HDR_TOP(lsah); sum < length && tlvh;
 	     tlvh = TLV_HDR_NEXT(tlvh)) {
 
+=======
+	for (tlvh = lsdesc_start(lsah); sum < length && tlvh;
+	     tlvh = TLV_HDR_NEXT(tlvh)) {
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		/* Check TLV len against overall LSA */
 		if (sum + TLV_SIZE(tlvh) > length) {
 			if (IS_DEBUG_OSPF6_GR)
@@ -157,8 +171,13 @@ static int ospf6_extract_grace_lsa_fields(struct ospf6_lsa *lsa,
 		}
 
 		switch (ntohs(tlvh->type)) {
+<<<<<<< HEAD
 		case GRACE_PERIOD_TYPE:
 			gracePeriod = (struct grace_tlv_graceperiod *)tlvh;
+=======
+		case TLV_GRACE_PERIOD_TYPE:
+			gracePeriod = (struct tlv_grace_period *)tlvh;
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 			*interval = ntohl(gracePeriod->interval);
 			sum += TLV_SIZE(tlvh);
 
@@ -167,8 +186,13 @@ static int ospf6_extract_grace_lsa_fields(struct ospf6_lsa *lsa,
 			    || *interval < OSPF6_MIN_GRACE_INTERVAL)
 				return OSPF6_FAILURE;
 			break;
+<<<<<<< HEAD
 		case RESTART_REASON_TYPE:
 			grReason = (struct grace_tlv_restart_reason *)tlvh;
+=======
+		case TLV_GRACE_RESTART_REASON_TYPE:
+			grReason = (struct tlv_grace_restart_reason *)tlvh;
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 			*reason = grReason->reason;
 			sum += TLV_SIZE(tlvh);
 
@@ -1218,8 +1242,13 @@ static int ospf6_grace_lsa_show_info(struct vty *vty, struct ospf6_lsa *lsa,
 {
 	struct ospf6_lsa_header *lsah = NULL;
 	struct tlv_header *tlvh = NULL;
+<<<<<<< HEAD
 	struct grace_tlv_graceperiod *gracePeriod;
 	struct grace_tlv_restart_reason *grReason;
+=======
+	struct tlv_grace_period *gracePeriod;
+	struct tlv_grace_restart_reason *grReason;
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	uint16_t length = 0;
 	int sum = 0;
 
@@ -1240,9 +1269,14 @@ static int ospf6_grace_lsa_show_info(struct vty *vty, struct ospf6_lsa *lsa,
 		zlog_debug("  TLV info:");
 	}
 
+<<<<<<< HEAD
 	for (tlvh = TLV_HDR_TOP(lsah); sum < length && tlvh;
 	     tlvh = TLV_HDR_NEXT(tlvh)) {
 
+=======
+	for (tlvh = lsdesc_start(lsah); sum < length && tlvh;
+	     tlvh = TLV_HDR_NEXT(tlvh)) {
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		/* Check TLV len */
 		if (sum + TLV_SIZE(tlvh) > length) {
 			if (vty)
@@ -1255,8 +1289,13 @@ static int ospf6_grace_lsa_show_info(struct vty *vty, struct ospf6_lsa *lsa,
 		}
 
 		switch (ntohs(tlvh->type)) {
+<<<<<<< HEAD
 		case GRACE_PERIOD_TYPE:
 			gracePeriod = (struct grace_tlv_graceperiod *)tlvh;
+=======
+		case TLV_GRACE_PERIOD_TYPE:
+			gracePeriod = (struct tlv_grace_period *)tlvh;
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 			sum += TLV_SIZE(tlvh);
 
 			if (vty) {
@@ -1272,8 +1311,13 @@ static int ospf6_grace_lsa_show_info(struct vty *vty, struct ospf6_lsa *lsa,
 					   ntohl(gracePeriod->interval));
 			}
 			break;
+<<<<<<< HEAD
 		case RESTART_REASON_TYPE:
 			grReason = (struct grace_tlv_restart_reason *)tlvh;
+=======
+		case TLV_GRACE_RESTART_REASON_TYPE:
+			grReason = (struct tlv_grace_restart_reason *)tlvh;
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 			sum += TLV_SIZE(tlvh);
 			if (vty) {
 				if (use_json)

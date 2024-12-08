@@ -33,6 +33,10 @@
 
 #include "ospf6_flood.h"
 #include "ospf6d.h"
+<<<<<<< HEAD
+=======
+#include "ospf6_tlv.h"
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 #include "ospf6_gr.h"
 #include <netinet/ip6.h>
 #include "lib/libospf.h"
@@ -1303,9 +1307,13 @@ static unsigned ospf6_lsa_examin(struct ospf6_lsa_header *lsah,
 		   4 bytes of referenced link state ID. */
 		if (headeronly)
 			break;
+<<<<<<< HEAD
 		as_external_lsa =
 			(struct ospf6_as_external_lsa
 				 *)((caddr_t)lsah + OSPF6_LSA_HEADER_SIZE);
+=======
+		as_external_lsa = lsa_after_header(lsah);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		exp_length =
 			OSPF6_LSA_HEADER_SIZE + OSPF6_AS_EXTERNAL_LSA_MIN_SIZE;
 		/* To find out if the last optional field (Referenced Link State
@@ -1350,8 +1358,12 @@ static unsigned ospf6_lsa_examin(struct ospf6_lsa_header *lsah,
 		   by N>=0 IPv6 prefix blocks (with N declared beforehand). */
 		if (headeronly)
 			break;
+<<<<<<< HEAD
 		link_lsa = (struct ospf6_link_lsa *)((caddr_t)lsah
 						     + OSPF6_LSA_HEADER_SIZE);
+=======
+		link_lsa = lsa_after_header(lsah);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		return ospf6_prefixes_examin(
 			(struct ospf6_prefix *)((caddr_t)link_lsa
 						+ OSPF6_LINK_LSA_MIN_SIZE),
@@ -1366,9 +1378,13 @@ static unsigned ospf6_lsa_examin(struct ospf6_lsa_header *lsah,
 		   */
 		if (headeronly)
 			break;
+<<<<<<< HEAD
 		intra_prefix_lsa =
 			(struct ospf6_intra_prefix_lsa
 				 *)((caddr_t)lsah + OSPF6_LSA_HEADER_SIZE);
+=======
+		intra_prefix_lsa = lsa_after_header(lsah);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		return ospf6_prefixes_examin(
 			(struct ospf6_prefix
 				 *)((caddr_t)intra_prefix_lsa

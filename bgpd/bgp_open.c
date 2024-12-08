@@ -519,6 +519,7 @@ static int bgp_capability_restart(struct peer *peer,
 	UNSET_FLAG(restart_flag_time, 0xF000);
 	peer->v_gr_restart = restart_flag_time;
 
+<<<<<<< HEAD
 	if (bgp_debug_neighbor_events(peer)) {
 		zlog_debug(
 			"%s Peer has%srestarted. Restart Time: %d, N-bit set: %s",
@@ -533,6 +534,19 @@ static int bgp_capability_restart(struct peer *peer,
 				? "yes"
 				: "no");
 	}
+=======
+	if (bgp_debug_neighbor_events(peer))
+		zlog_debug("%pBP OPEN has GR capability, Restart time %d R-bit %s N-bit %s",
+			   peer, peer->v_gr_restart,
+			   CHECK_FLAG(peer->cap,
+				      PEER_CAP_GRACEFUL_RESTART_R_BIT_RCV)
+				   ? "SET"
+				   : "NOT-SET",
+			   CHECK_FLAG(peer->cap,
+				      PEER_CAP_GRACEFUL_RESTART_N_BIT_RCV)
+				   ? "SET"
+				   : "NOT-SET");
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 	while (stream_get_getp(s) + 4 <= end) {
 		afi_t afi;
@@ -556,6 +570,7 @@ static int bgp_capability_restart(struct peer *peer,
 					iana_safi2str(pkt_safi));
 		} else {
 			if (bgp_debug_neighbor_events(peer))
+<<<<<<< HEAD
 				zlog_debug(
 					"%s Address family %s is%spreserved",
 					peer->host, get_afi_safi_str(afi, safi, false),
@@ -564,6 +579,14 @@ static int bgp_capability_restart(struct peer *peer,
 						PEER_CAP_RESTART_AF_PRESERVE_RCV)
 						? " "
 						: " not ");
+=======
+				zlog_debug("%pBP F-bit %s for %s", peer,
+					   CHECK_FLAG(peer->af_cap[afi][safi],
+						      PEER_CAP_RESTART_AF_PRESERVE_RCV)
+						   ? "SET"
+						   : "NOT-SET",
+					   get_afi_safi_str(afi, safi, false));
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 			SET_FLAG(peer->af_cap[afi][safi],
 				 PEER_CAP_RESTART_AF_RCV);
@@ -1379,7 +1402,11 @@ int bgp_open_option_parse(struct peer *peer, uint16_t length,
 		 * Check that we can read the opt_type and fetch it
 		 */
 		if (STREAM_READABLE(s) < 1) {
+<<<<<<< HEAD
 			zlog_info("%s Option length error", peer->host);
+=======
+			zlog_err("%s Option length error", peer->host);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 			bgp_notify_send(peer->connection, BGP_NOTIFY_OPEN_ERR,
 					BGP_NOTIFY_OPEN_MALFORMED_ATTR);
 			return -1;
@@ -1392,7 +1419,11 @@ int bgp_open_option_parse(struct peer *peer, uint16_t length,
 		 */
 		if (BGP_OPEN_EXT_OPT_PARAMS_CAPABLE(peer)) {
 			if (STREAM_READABLE(s) < 2) {
+<<<<<<< HEAD
 				zlog_info("%s Option length error", peer->host);
+=======
+				zlog_err("%s Option length error", peer->host);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 				bgp_notify_send(peer->connection,
 						BGP_NOTIFY_OPEN_ERR,
 						BGP_NOTIFY_OPEN_MALFORMED_ATTR);
@@ -1402,7 +1433,11 @@ int bgp_open_option_parse(struct peer *peer, uint16_t length,
 			opt_length = stream_getw(s);
 		} else {
 			if (STREAM_READABLE(s) < 1) {
+<<<<<<< HEAD
 				zlog_info("%s Option length error", peer->host);
+=======
+				zlog_err("%s Option length error", peer->host);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 				bgp_notify_send(peer->connection,
 						BGP_NOTIFY_OPEN_ERR,
 						BGP_NOTIFY_OPEN_MALFORMED_ATTR);
@@ -1414,8 +1449,13 @@ int bgp_open_option_parse(struct peer *peer, uint16_t length,
 
 		/* Option length check. */
 		if (STREAM_READABLE(s) < opt_length) {
+<<<<<<< HEAD
 			zlog_info("%s Option length error (%d)", peer->host,
 				  opt_length);
+=======
+			zlog_err("%s Option length error (%d)", peer->host,
+				 opt_length);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 			bgp_notify_send(peer->connection, BGP_NOTIFY_OPEN_ERR,
 					BGP_NOTIFY_OPEN_MALFORMED_ATTR);
 			return -1;
@@ -1587,15 +1627,22 @@ static void bgp_peer_send_gr_capability(struct stream *s, struct peer *peer,
 	uint32_t restart_time;
 	unsigned long capp = 0;
 	unsigned long rcapp = 0;
+<<<<<<< HEAD
+=======
+	struct bgp *bgp = peer->bgp;
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 	if (!CHECK_FLAG(peer->flags, PEER_FLAG_GRACEFUL_RESTART)
 	    && !CHECK_FLAG(peer->flags, PEER_FLAG_GRACEFUL_RESTART_HELPER))
 		return;
 
+<<<<<<< HEAD
 	if (BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
 		zlog_debug("[BGP_GR] Sending helper Capability for Peer :%s :",
 			   peer->host);
 
+=======
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	SET_FLAG(peer->cap, PEER_CAP_RESTART_ADV);
 	stream_putc(s, BGP_OPEN_OPT_CAP);
 	capp = stream_get_endp(s); /* Set Capability Len Pointer */
@@ -1605,6 +1652,7 @@ static void bgp_peer_send_gr_capability(struct stream *s, struct peer *peer,
 	/* Set Restart Capability Len Pointer */
 	rcapp = stream_get_endp(s);
 	stream_putc(s, 0);
+<<<<<<< HEAD
 	restart_time = peer->bgp->restart_time;
 	if (peer->bgp->t_startup) {
 		SET_FLAG(restart_time, GRACEFUL_RESTART_R_BIT);
@@ -1620,14 +1668,41 @@ static void bgp_peer_send_gr_capability(struct stream *s, struct peer *peer,
 		if (BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
 			zlog_debug("[BGP_GR] Sending N-Bit for peer: %s",
 				   peer->host);
+=======
+	restart_time = bgp->restart_time;
+	if (peer->bgp->t_startup || bgp_in_graceful_restart()) {
+		SET_FLAG(restart_time, GRACEFUL_RESTART_R_BIT);
+		SET_FLAG(peer->cap, PEER_CAP_GRACEFUL_RESTART_R_BIT_ADV);
+	}
+
+	if (CHECK_FLAG(bgp->flags, BGP_FLAG_GRACEFUL_NOTIFICATION)) {
+		SET_FLAG(restart_time, GRACEFUL_RESTART_N_BIT);
+		SET_FLAG(peer->cap, PEER_CAP_GRACEFUL_RESTART_N_BIT_ADV);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	}
 
 	stream_putw(s, restart_time);
 
+<<<<<<< HEAD
+=======
+	if (BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
+		zlog_debug("%s: Sending GR Capability, Restart time %d R-bit %s, N-bit %s",
+			   peer->host, bgp->restart_time,
+			   CHECK_FLAG(peer->cap,
+				      PEER_CAP_GRACEFUL_RESTART_R_BIT_ADV)
+				   ? "SET"
+				   : "NOT-SET",
+			   CHECK_FLAG(peer->cap,
+				      PEER_CAP_GRACEFUL_RESTART_N_BIT_ADV)
+				   ? "SET"
+				   : "NOT-SET");
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	/* Send address-family specific graceful-restart capability
 	 * only when GR config is present
 	 */
 	if (CHECK_FLAG(peer->flags, PEER_FLAG_GRACEFUL_RESTART)) {
+<<<<<<< HEAD
 		if (CHECK_FLAG(peer->bgp->flags, BGP_FLAG_GR_PRESERVE_FWD)
 		    && BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
 			zlog_debug("[BGP_GR] F bit Set");
@@ -1641,6 +1716,14 @@ static void bgp_peer_send_gr_capability(struct stream *s, struct peer *peer,
 					"[BGP_GR] Sending GR Capability for AFI :%d :, SAFI :%d:",
 					afi, safi);
 
+=======
+		FOREACH_AFI_SAFI (afi, safi) {
+			bool f_bit = false;
+
+			if (!peer->afc[afi][safi])
+				continue;
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 			/* Convert AFI, SAFI to values for
 			 * packet.
 			 */
@@ -1648,11 +1731,23 @@ static void bgp_peer_send_gr_capability(struct stream *s, struct peer *peer,
 						  &pkt_safi);
 			stream_putw(s, pkt_afi);
 			stream_putc(s, pkt_safi);
+<<<<<<< HEAD
 			if (CHECK_FLAG(peer->bgp->flags,
 				       BGP_FLAG_GR_PRESERVE_FWD))
 				stream_putc(s, GRACEFUL_RESTART_F_BIT);
 			else
 				stream_putc(s, 0);
+=======
+
+			f_bit = bgp_gr_is_forwarding_preserved(bgp);
+
+			if (BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
+				zlog_debug("... F-bit %s for %s",
+					   f_bit ? "SET" : "NOT-SET",
+					   get_afi_safi_str(afi, safi, false));
+
+			stream_putc(s, f_bit ? GRACEFUL_RESTART_F_BIT : 0);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		}
 	}
 

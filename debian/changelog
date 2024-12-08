@@ -1,8 +1,16 @@
+<<<<<<< HEAD
 frr (10.1.1-0) unstable; urgency=medium
 
   * New upstream release FRR 10.1.1
 
  -- Donatas Abraitis <donatas@opensourcerouting.org>  Wed, 11 Sep 2024 10:40:00 +0300
+=======
+frr (10.3~dev-1) UNRELEASED; urgency=medium
+
+  * FRR 10.3 Development
+
+ -- Jafar Al-Gharaibeh <jafar@atcorp.com>  Thu, 10 Oct 2024 02:00:00 -0600
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 frr (10.1-0) unstable; urgency=medium
 

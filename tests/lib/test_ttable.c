@@ -20,7 +20,11 @@ int main(int argc, char **argv)
 	assert(tt->nrows == 1);
 	table = ttable_dump(tt, "\n");
 	fprintf(stdout, "%s\n", table);
+<<<<<<< HEAD
 	XFREE(MTYPE_TMP, table);
+=======
+	XFREE(MTYPE_TMP_TTABLE, table);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 	/* add new row with 1 column, assert that it is not added */
 	assert(ttable_add_row(tt, "%s", "Garbage") == NULL);
@@ -28,7 +32,11 @@ int main(int argc, char **argv)
 	assert(tt->nrows == 1);
 	table = ttable_dump(tt, "\n");
 	fprintf(stdout, "%s\n", table);
+<<<<<<< HEAD
 	XFREE(MTYPE_TMP, table);
+=======
+	XFREE(MTYPE_TMP_TTABLE, table);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 	/* add new row, assert that it is added */
 	assert(ttable_add_row(tt, "%s|%s|%s", "a", "b", "c"));
@@ -36,7 +44,11 @@ int main(int argc, char **argv)
 	assert(tt->nrows == 2);
 	table = ttable_dump(tt, "\n");
 	fprintf(stdout, "%s\n", table);
+<<<<<<< HEAD
 	XFREE(MTYPE_TMP, table);
+=======
+	XFREE(MTYPE_TMP_TTABLE, table);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 	/* add empty row, assert that it is added */
 	assert(ttable_add_row(tt, "||"));
@@ -44,7 +56,11 @@ int main(int argc, char **argv)
 	assert(tt->nrows == 3);
 	table = ttable_dump(tt, "\n");
 	fprintf(stdout, "%s\n", table);
+<<<<<<< HEAD
 	XFREE(MTYPE_TMP, table);
+=======
+	XFREE(MTYPE_TMP_TTABLE, table);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 	/* delete 1st row, assert that it is removed */
 	ttable_del_row(tt, 0);
@@ -52,7 +68,11 @@ int main(int argc, char **argv)
 	assert(tt->nrows == 2);
 	table = ttable_dump(tt, "\n");
 	fprintf(stdout, "%s\n", table);
+<<<<<<< HEAD
 	XFREE(MTYPE_TMP, table);
+=======
+	XFREE(MTYPE_TMP_TTABLE, table);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 	/* delete last row, assert that it is removed */
 	ttable_del_row(tt, 0);
@@ -60,7 +80,11 @@ int main(int argc, char **argv)
 	assert(tt->nrows == 1);
 	table = ttable_dump(tt, "\n");
 	fprintf(stdout, "%s\n", table);
+<<<<<<< HEAD
 	XFREE(MTYPE_TMP, table);
+=======
+	XFREE(MTYPE_TMP_TTABLE, table);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 	/* delete the remaining row, check dumping an empty table */
 	ttable_del_row(tt, 0);
@@ -68,7 +92,11 @@ int main(int argc, char **argv)
 	assert(tt->nrows == 0);
 	table = ttable_dump(tt, "\n");
 	fprintf(stdout, "%s\n", table);
+<<<<<<< HEAD
 	XFREE(MTYPE_TMP, table);
+=======
+	XFREE(MTYPE_TMP_TTABLE, table);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 	/* add new row */
 	ttable_add_row(tt, "%s|%s||%s|%9d", "slick", "black", "triple", 1337);
@@ -76,7 +104,11 @@ int main(int argc, char **argv)
 	assert(tt->nrows == 1);
 	table = ttable_dump(tt, "\n");
 	fprintf(stdout, "%s\n", table);
+<<<<<<< HEAD
 	XFREE(MTYPE_TMP, table);
+=======
+	XFREE(MTYPE_TMP_TTABLE, table);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 	/* add bigger row */
 	ttable_add_row(tt, "%s|%s||%s|%s",
@@ -86,7 +118,11 @@ int main(int argc, char **argv)
 	assert(tt->nrows == 2);
 	table = ttable_dump(tt, "\n");
 	fprintf(stdout, "%s\n", table);
+<<<<<<< HEAD
 	XFREE(MTYPE_TMP, table);
+=======
+	XFREE(MTYPE_TMP_TTABLE, table);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 	/* insert new row at beginning */
 	ttable_insert_row(tt, 0, "%s|%s||%d|%lf", "converting", "vegetarians",
@@ -95,7 +131,11 @@ int main(int argc, char **argv)
 	assert(tt->nrows == 3);
 	table = ttable_dump(tt, "\n");
 	fprintf(stdout, "%s\n", table);
+<<<<<<< HEAD
 	XFREE(MTYPE_TMP, table);
+=======
+	XFREE(MTYPE_TMP_TTABLE, table);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 	/* insert new row at end */
 	ttable_insert_row(tt, tt->nrows - 1, "%s|%s||%d|%ld", "converting",
@@ -104,7 +144,11 @@ int main(int argc, char **argv)
 	assert(tt->nrows == 4);
 	table = ttable_dump(tt, "\n");
 	fprintf(stdout, "%s\n", table);
+<<<<<<< HEAD
 	XFREE(MTYPE_TMP, table);
+=======
+	XFREE(MTYPE_TMP_TTABLE, table);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 	/* insert new row at middle */
 	ttable_insert_row(tt, 1, "%s|%s||%s|%ld", "she", "pioneer", "aki", 1l);
@@ -112,7 +156,11 @@ int main(int argc, char **argv)
 	assert(tt->nrows == 5);
 	table = ttable_dump(tt, "\n");
 	fprintf(stdout, "%s\n", table);
+<<<<<<< HEAD
 	XFREE(MTYPE_TMP, table);
+=======
+	XFREE(MTYPE_TMP_TTABLE, table);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 	/* set alignment */
 	ttable_align(tt, 0, 1, 2, 2, LEFT);
@@ -120,14 +168,22 @@ int main(int argc, char **argv)
 	assert(tt->nrows == 5);
 	table = ttable_dump(tt, "\n");
 	fprintf(stdout, "%s\n", table);
+<<<<<<< HEAD
 	XFREE(MTYPE_TMP, table);
+=======
+	XFREE(MTYPE_TMP_TTABLE, table);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 	ttable_align(tt, 0, 1, 5, 1, RIGHT);
 	assert(tt->ncols == 5);
 	assert(tt->nrows == 5);
 	table = ttable_dump(tt, "\n");
 	fprintf(stdout, "%s\n", table);
+<<<<<<< HEAD
 	XFREE(MTYPE_TMP, table);
+=======
+	XFREE(MTYPE_TMP_TTABLE, table);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 	/* set padding */
 	ttable_pad(tt, 0, 1, 1, 1, RIGHT, 2);
@@ -135,14 +191,22 @@ int main(int argc, char **argv)
 	assert(tt->nrows == 5);
 	table = ttable_dump(tt, "\n");
 	fprintf(stdout, "%s\n", table);
+<<<<<<< HEAD
 	XFREE(MTYPE_TMP, table);
+=======
+	XFREE(MTYPE_TMP_TTABLE, table);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 	ttable_pad(tt, 0, 0, 5, 4, LEFT, 2);
 	assert(tt->ncols == 5);
 	assert(tt->nrows == 5);
 	table = ttable_dump(tt, "\n");
 	fprintf(stdout, "%s\n", table);
+<<<<<<< HEAD
 	XFREE(MTYPE_TMP, table);
+=======
+	XFREE(MTYPE_TMP_TTABLE, table);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 	/* restyle */
 	tt->style.cell.border.bottom_on = false;
@@ -156,13 +220,21 @@ int main(int argc, char **argv)
 	ttable_rowseps(tt, 1, TOP, true, '-');
 	table = ttable_dump(tt, "\n");
 	fprintf(stdout, "%s\n", table);
+<<<<<<< HEAD
 	XFREE(MTYPE_TMP, table);
+=======
+	XFREE(MTYPE_TMP_TTABLE, table);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 	/* column separators for leftmost column */
 	ttable_colseps(tt, 0, RIGHT, true, '|');
 	table = ttable_dump(tt, "\n");
 	fprintf(stdout, "%s\n", table);
+<<<<<<< HEAD
 	XFREE(MTYPE_TMP, table);
+=======
+	XFREE(MTYPE_TMP_TTABLE, table);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 	/* delete table */
 	ttable_del(tt);

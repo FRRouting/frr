@@ -61,7 +61,12 @@ struct isis_lsp *isis_root_system_lsp(struct lspdb_head *lspdb,
 			   __FILE__, __LINE__)
 int _isis_spf_schedule(struct isis_area *area, int level,
 		       const char *func, const char *file, int line);
+<<<<<<< HEAD
 void isis_print_spftree(struct vty *vty, struct isis_spftree *spftree);
+=======
+void isis_print_spftree(struct vty *vty, struct isis_spftree *spftree,
+			struct json_object **json);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 void isis_print_routes(struct vty *vty, struct isis_spftree *spftree,
 		       json_object **json, bool prefix_sid, bool backup);
 void isis_spf_init(void);

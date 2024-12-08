@@ -148,7 +148,11 @@ LDP Configuration
    configured password. PASSWORD is a clear text password wit its digest sent
    through the network.
 
+<<<<<<< HEAD
 .. clicmd:: neighbor A.B.C.D holdtime HOLDTIME
+=======
+.. clicmd:: neighbor A.B.C.D session holdtime HOLDTIME
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
    The following command located under MPLS router node configures the holdtime
    value in seconds of the LDP neighbor ID. Configuring it triggers a keepalive

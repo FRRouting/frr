@@ -661,6 +661,7 @@ netlink_put_tc_filter_update_msg(struct nl_batch *bth,
 }
 
 /*
+<<<<<<< HEAD
  * Request filters from the kernel
  */
 static int netlink_request_filters(struct zebra_ns *zns, int family, int type,
@@ -682,6 +683,8 @@ static int netlink_request_filters(struct zebra_ns *zns, int family, int type,
 }
 
 /*
+=======
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
  * Request queue discipline from the kernel
  */
 static int netlink_request_qdiscs(struct zebra_ns *zns, int family, int type)
@@ -852,6 +855,7 @@ int netlink_qdisc_read(struct zebra_ns *zns)
 	return 0;
 }
 
+<<<<<<< HEAD
 int netlink_tfilter_read_for_interface(struct zebra_ns *zns, ifindex_t ifindex)
 {
 	int ret;
@@ -871,4 +875,6 @@ int netlink_tfilter_read_for_interface(struct zebra_ns *zns, ifindex_t ifindex)
 	return 0;
 }
 
+=======
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 #endif /* HAVE_NETLINK */

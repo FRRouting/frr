@@ -84,6 +84,12 @@ def test_check_scale_up():
     CliOnFail = None
     # For debugging, uncomment the next line
     # CliOnFail = 'tgen.mininet_cli'
+<<<<<<< HEAD
+=======
+    # Skip test on 32bit platforms (limited memory)
+    if sys.maxsize <= 2**32:
+        pytest.skip("skipped because of limited memory on 32bit platforms")
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
     CheckFunc = "ltemplateVersionCheck('4.1', iproute2='4.9')"
     # uncomment next line to start cli *before* script is run
     # CheckFunc = 'ltemplateVersionCheck(\'4.1\', cli=True, iproute2=\'4.9\')'
@@ -94,6 +100,12 @@ def test_check_scale_down():
     CliOnFail = None
     # For debugging, uncomment the next line
     # CliOnFail = 'tgen.mininet_cli'
+<<<<<<< HEAD
+=======
+    # Skip test on 32bit platforms (limited memory)
+    if sys.maxsize <= 2**32:
+        pytest.skip("skipped because of limited memory on 32bit platforms")
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
     CheckFunc = "ltemplateVersionCheck('4.1', iproute2='4.9')"
     # uncomment next line to start cli *before* script is run
     # CheckFunc = 'ltemplateVersionCheck(\'4.1\', cli=True, iproute2=\'4.9\')'

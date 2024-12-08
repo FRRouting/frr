@@ -19,7 +19,10 @@ import os
 import sys
 import time
 import pytest
+<<<<<<< HEAD
 from copy import deepcopy
+=======
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 from lib.topolog import logger
 
 # pylint: disable=C0413

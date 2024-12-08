@@ -396,6 +396,12 @@ def run_and_expect(func, what, count=20, wait=3):
     waiting `wait` seconds between tries. By default it tries 20 times with
     3 seconds delay between tries.
 
+<<<<<<< HEAD
+=======
+    Changing default count/wait values, please change them below also for
+    `minimum_wait`, and `minimum_count`.
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
     Returns (True, func-return) on success or
     (False, func-return) on failure.
 
@@ -414,6 +420,7 @@ def run_and_expect(func, what, count=20, wait=3):
 
     # Just a safety-check to avoid running topotests with very
     # small wait/count arguments.
+<<<<<<< HEAD
     wait_time = wait * count
     if wait_time < 5:
         assert (
@@ -421,6 +428,20 @@ def run_and_expect(func, what, count=20, wait=3):
         ), "Waiting time is too small (count={}, wait={}), adjust timer values".format(
             count, wait
         )
+=======
+    # If too low count/wait values are defined, override them
+    # with the minimum values.
+    minimum_count = 20
+    minimum_wait = 3
+    minimum_wait_time = 15  # The overall minimum seconds for the test to wait
+    wait_time = wait * count
+    if wait_time < minimum_wait_time:
+        logger.warning(
+            f"Waiting time is too small (count={count}, wait={wait}), using default values (count={minimum_count}, wait={minimum_wait})"
+        )
+        count = minimum_count
+        wait = minimum_wait
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
     logger.debug(
         "'{}' polling started (interval {} secs, maximum {} tries)".format(
@@ -602,6 +623,33 @@ def is_linux():
     return False
 
 
+<<<<<<< HEAD
+=======
+def iproute2_is_json_capable():
+    """
+    Checks if the iproute2 version installed on the system is capable of
+    handling JSON outputss
+
+    Returns True if capability can be detected, returns False otherwise.
+    """
+    if is_linux():
+        try:
+            subp = subprocess.Popen(
+                ["ip", "-json", "route", "show"],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                stdin=subprocess.PIPE,
+            )
+            iproute2_err = subp.communicate()[1].splitlines()[0].split()[0]
+
+            if iproute2_err != "Error:":
+                return True
+        except Exception:
+            pass
+    return False
+
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 def iproute2_is_vrf_capable():
     """
     Checks if the iproute2 version installed on the system is capable of
@@ -1212,8 +1260,13 @@ def _sysctl_assure(commander, variable, value):
 def sysctl_atleast(commander, variable, min_value, raises=False):
     try:
         if commander is None:
+<<<<<<< HEAD
             logger = logging.getLogger("topotest")
             commander = micronet.Commander("sysctl", logger=logger)
+=======
+            topotest_logger = logging.getLogger("topotest")
+            commander = micronet.Commander("sysctl", logger=topotest_logger)
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
         return _sysctl_atleast(commander, variable, min_value)
     except subprocess.CalledProcessError as error:
@@ -1230,8 +1283,13 @@ def sysctl_atleast(commander, variable, min_value, raises=False):
 def sysctl_assure(commander, variable, value, raises=False):
     try:
         if commander is None:
+<<<<<<< HEAD
             logger = logging.getLogger("topotest")
             commander = micronet.Commander("sysctl", logger=logger)
+=======
+            topotest_logger = logging.getLogger("topotest")
+            commander = micronet.Commander("sysctl", logger=topotest_logger)
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
         return _sysctl_assure(commander, variable, value)
     except subprocess.CalledProcessError as error:
         logger.warning(
@@ -1406,7 +1464,11 @@ class Router(Node):
         self.daemondir = None
         self.hasmpls = False
         self.routertype = "frr"
+<<<<<<< HEAD
         self.unified_config = None
+=======
+        self.unified_config = False
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
         self.daemons = {
             "zebra": 0,
             "ripd": 0,
@@ -1431,6 +1493,10 @@ class Router(Node):
             "snmptrapd": 0,
             "fpm_listener": 0,
         }
+<<<<<<< HEAD
+=======
+        self.daemon_instances = {"ospfd": []}
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
         self.daemons_options = {"zebra": ""}
         self.reportCores = True
         self.version = None
@@ -1600,7 +1666,11 @@ class Router(Node):
                 return False
         return True
 
+<<<<<<< HEAD
     def loadConf(self, daemon, source=None, param=None):
+=======
+    def loadConf(self, daemon, source=None, param=None, instance=None):
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
         """Enabled and set config for a daemon.
 
         Arranges for loading of daemon configuration from the specified source. Possible
@@ -1629,11 +1699,20 @@ class Router(Node):
         # print "Daemons before:", self.daemons
         if daemon in self.daemons.keys() or daemon == "frr":
             if daemon == "frr":
+<<<<<<< HEAD
                 self.unified_config = 1
+=======
+                self.unified_config = True
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
             else:
                 self.daemons[daemon] = 1
             if param is not None:
                 self.daemons_options[daemon] = param
+<<<<<<< HEAD
+=======
+            if instance is not None:
+                self.daemon_instances[daemon].append(instance)
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
             conf_file = "/etc/{}/{}.conf".format(self.routertype, daemon)
             if source and not os.path.exists(source):
                 logger.warning(
@@ -1871,16 +1950,32 @@ class Router(Node):
         tail_log_files = []
         check_daemon_files = []
 
+<<<<<<< HEAD
         def start_daemon(daemon, extra_opts=None):
+=======
+        def start_daemon(daemon, instance=None):
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
             daemon_opts = self.daemons_options.get(daemon, "")
 
             # get pid and vty filenames and remove the files
             m = re.match(r"(.* |^)-n (\d+)( ?.*|$)", daemon_opts)
             dfname = daemon if not m else "{}-{}".format(daemon, m.group(2))
+<<<<<<< HEAD
             runbase = "/var/run/{}/{}".format(self.routertype, dfname)
             # If this is a new system bring-up remove the pid/vty files, otherwise
             # do not since apparently presence of the pidfile impacts BGP GR
             self.cmd_status("rm -f {0}.pid {0}.vty".format(runbase))
+=======
+            if instance != None:
+                inst = "-" + instance
+                dfname = daemon + inst
+            else:
+                inst = ""
+            runbase = "/var/run/{}/{}".format(self.routertype, dfname)
+            # If this is a new system bring-up remove the pid/vty files, otherwise
+            # do not since apparently presence of the pidfile impacts BGP GR
+            self.cmd_status("rm -f {0}{1}.pid {0}{1}.vty".format(runbase, inst))
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
             def do_gdb_or_rr(gdb):
                 routers = gdb_routers if gdb else rr_routers
@@ -1891,7 +1986,11 @@ class Router(Node):
                     and (not daemons or daemon in daemons or "all" in daemons)
                 )
 
+<<<<<<< HEAD
             rediropt = " > {0}.out 2> {0}.err".format(daemon)
+=======
+            rediropt = " > {0}.out 2> {0}.err".format(dfname)
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
             if daemon == "fpm_listener":
                 binary = "/usr/lib/frr/fpm_listener"
                 cmdenv = ""
@@ -1920,7 +2019,11 @@ class Router(Node):
                 if asan_abort:
                     cmdenv += "abort_on_error=1:"
                 cmdenv += "log_path={0}/{1}.asan.{2} ".format(
+<<<<<<< HEAD
                     self.logdir, self.name, daemon
+=======
+                    self.logdir, self.name, dfname
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
                 )
 
                 if cov_option:
@@ -1935,7 +2038,11 @@ class Router(Node):
                         os.path.join(this_dir, "../../../tools/valgrind.supp")
                     )
 
+<<<<<<< HEAD
                     valgrind_logbase = f"{self.logdir}/{self.name}.valgrind.{daemon}"
+=======
+                    valgrind_logbase = f"{self.logdir}/{self.name}.valgrind.{dfname}"
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
                     if do_gdb_or_rr(True):
                         cmdenv += " exec"
                     cmdenv += (
@@ -1957,18 +2064,30 @@ class Router(Node):
                     )
 
                 cmdopt = "{} --command-log-always ".format(daemon_opts)
+<<<<<<< HEAD
                 cmdopt += "--log file:{}.log --log-level debug".format(daemon)
+=======
+                if instance != None:
+                    cmdopt += " --instance " + instance
+                cmdopt += "--log file:{}.log --log-level debug".format(dfname)
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
                 if daemon in logd_options:
                     logdopt = logd_options[daemon]
                     if "all" in logdopt or self.name in logdopt:
                         tail_log_files.append(
+<<<<<<< HEAD
                             "{}/{}/{}.log".format(self.logdir, self.name, daemon)
                         )
 
             if extra_opts:
                 cmdopt += " " + extra_opts
 
+=======
+                            "{}/{}/{}.log".format(self.logdir, self.name, dfname)
+                        )
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
             if do_gdb_or_rr(True) and do_gdb_or_rr(False):
                 logger.warning("cant' use gdb and rr at same time")
 
@@ -2005,7 +2124,11 @@ class Router(Node):
                 else:
                     cmd = " ".join([cmdenv, binary, cmdopt])
                     p = self.popen(cmd)
+<<<<<<< HEAD
                     self.valgrind_gdb_daemons[daemon] = p
+=======
+                    self.valgrind_gdb_daemons[dfname] = p
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
                     if p.poll() and p.returncode:
                         self.logger.error(
                             '%s: Failed to launch "%s" (%s) with perf using: %s',
@@ -2129,7 +2252,11 @@ class Router(Node):
                     ["perf record {} --".format(perf_options), binary, cmdopt]
                 )
                 p = self.popen(cmd)
+<<<<<<< HEAD
                 self.perf_daemons[daemon] = p
+=======
+                self.perf_daemons[dfname] = p
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
                 if p.poll() and p.returncode:
                     self.logger.error(
                         '%s: Failed to launch "%s" (%s) with perf using: %s',
@@ -2152,7 +2279,11 @@ class Router(Node):
                     ]
                 )
                 p = self.popen(cmd)
+<<<<<<< HEAD
                 self.rr_daemons[daemon] = p
+=======
+                self.rr_daemons[dfname] = p
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
                 if p.poll() and p.returncode:
                     self.logger.error(
                         '%s: Failed to launch "%s" (%s) with rr using: %s',
@@ -2173,7 +2304,13 @@ class Router(Node):
                 ):
                     cmdopt += " -d "
                 cmdopt += rediropt
+<<<<<<< HEAD
 
+=======
+                self.logger.info('cmdenv "{}"'.format(cmdenv))
+                self.logger.info('binary "{}"'.format(binary))
+                self.logger.info('cmdopt "{}"'.format(cmdopt))
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
                 try:
                     self.cmd_raises(" ".join([cmdenv, binary, cmdopt]), warn=False)
                 except subprocess.CalledProcessError as error:
@@ -2205,7 +2342,11 @@ class Router(Node):
 
         # Start Zebra after mgmtd
         if "zebra" in daemons_list:
+<<<<<<< HEAD
             start_daemon("zebra", "-s 90000000")
+=======
+            start_daemon("zebra")
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
             while "zebra" in daemons_list:
                 daemons_list.remove("zebra")
 
@@ -2233,7 +2374,18 @@ class Router(Node):
         for daemon in daemons_list:
             if self.daemons[daemon] == 0:
                 continue
+<<<<<<< HEAD
             start_daemon(daemon)
+=======
+            if (
+                daemon in self.daemon_instances.keys()
+                and len(self.daemon_instances[daemon]) > 0
+            ):
+                for inst in self.daemon_instances[daemon]:
+                    start_daemon(daemon, inst)
+            else:
+                start_daemon(daemon)
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
         # Check if daemons are running.
         wait_time = 30 if (gdb_routers or gdb_daemons) else 10
@@ -2349,6 +2501,57 @@ class Router(Node):
 
         return errors
 
+<<<<<<< HEAD
+=======
+    def check_daemon(self, daemon, reportLeaks=True, traces="", instance=None):
+        reportMade = False
+        if instance == None:
+            dname = daemon
+        else:
+            dname = daemon + "-" + instance
+        # Look for core file
+        corefiles = glob.glob(
+            "{}/{}/{}_core*.dmp".format(self.logdir, self.name, daemon)
+        )
+        if len(corefiles) > 0:
+            backtrace = gdb_core(self, daemon, corefiles)
+            traces = (
+                traces
+                + f"\nCORE FOUND: {self.name}: {daemon} crashed. Backtrace follows:\n{backtrace}"
+            )
+            reportMade = True
+        elif reportLeaks:
+            log = self.getStdErr(dname)
+            if "memstats" in log:
+                sys.stderr.write("%s: %s has memory leaks:\n" % (self.name, dname))
+                traces = traces + "\n%s: %s has memory leaks:\n" % (
+                    self.name,
+                    dname,
+                )
+                log = re.sub("core_handler: ", "", log)
+                log = re.sub(
+                    r"(showing active allocations in memory group [a-zA-Z0-9]+)",
+                    r"\n  ## \1",
+                    log,
+                )
+                log = re.sub("memstats:  ", "    ", log)
+                sys.stderr.write(log)
+                reportMade = True
+        # Look for AddressSanitizer Errors and append to /tmp/AddressSanitzer.txt if found
+        if checkAddressSanitizerError(
+            self.getStdErr(dname), self.name, dname, self.logdir
+        ):
+            sys.stderr.write(
+                "%s: Daemon %s killed by AddressSanitizer" % (self.name, dname)
+            )
+            traces = traces + "\n%s: Daemon %s killed by AddressSanitizer" % (
+                self.name,
+                dname,
+            )
+            reportMade = True
+        return reportMade
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
     def checkRouterCores(self, reportLeaks=True, reportOnce=False):
         if reportOnce and not self.reportCores:
             return
@@ -2356,6 +2559,7 @@ class Router(Node):
         traces = ""
         for daemon in self.daemons:
             if self.daemons[daemon] == 1:
+<<<<<<< HEAD
                 # Look for core file
                 corefiles = glob.glob(
                     "{}/{}/{}_core*.dmp".format(self.logdir, self.name, daemon)
@@ -2398,6 +2602,17 @@ class Router(Node):
                         daemon,
                     )
                     reportMade = True
+=======
+                if (
+                    daemon in self.daemon_instances.keys()
+                    and len(self.daemon_instances[daemon]) > 0
+                ):
+                    for inst in self.daemon_instances[daemon]:
+                        self.check_daemon(daemon, reportLeaks, traces, inst)
+                else:
+                    self.check_daemon(daemon, reportLeaks, traces)
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
         if reportMade:
             self.reportCores = False
         return traces

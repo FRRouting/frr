@@ -459,6 +459,11 @@ static void ldpe_dispatch_main(struct event *thread)
 			tnbr_update_all(AF_UNSPEC);
 			break;
 		case IMSG_RECONF_CONF:
+<<<<<<< HEAD
+=======
+			if (nconf)
+				ldp_clear_config(nconf);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 			if ((nconf = malloc(sizeof(struct ldpd_conf))) == NULL)
 				fatal(NULL);
 			memcpy(nconf, imsg.data, sizeof(struct ldpd_conf));

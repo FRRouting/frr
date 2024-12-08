@@ -10,7 +10,10 @@
 Test YANG Notifications
 """
 import json
+<<<<<<< HEAD
 import logging
+=======
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 import os
 
 import pytest
@@ -35,7 +38,11 @@ def tgen(request):
     tgen.start_topology()
 
     router_list = tgen.routers()
+<<<<<<< HEAD
     for rname, router in router_list.items():
+=======
+    for _, router in router_list.items():
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
         router.load_frr_config("frr.conf")
 
     tgen.start_router()
@@ -51,7 +58,11 @@ def test_frontend_notification(tgen):
 
     check_kernel_32(r1, "11.11.11.11", 1, "")
 
+<<<<<<< HEAD
     fe_client_path = CWD + "/../lib/fe_client.py"
+=======
+    fe_client_path = CWD + "/../lib/fe_client.py --verbose"
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
     rc, _, _ = r1.cmd_status(fe_client_path + " --help")
 
     if rc:
@@ -61,7 +72,11 @@ def test_frontend_notification(tgen):
     # So we filter to avoid that, all the rest are frr-ripd:authentication-failure
     # making our test deterministic
     output = r1.cmd_raises(
+<<<<<<< HEAD
         fe_client_path + " --listen  frr-ripd:authentication-failure"
+=======
+        fe_client_path + " --listen /frr-ripd:authentication-failure"
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
     )
     jsout = json.loads(output)
 
@@ -69,7 +84,11 @@ def test_frontend_notification(tgen):
     result = json_cmp(jsout, expected)
     assert result is None
 
+<<<<<<< HEAD
     output = r1.cmd_raises(fe_client_path + " --listen")
+=======
+    output = r1.cmd_raises(fe_client_path + " --use-protobuf --listen")
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
     jsout = json.loads(output)
 
     expected = {"frr-ripd:authentication-failure": {"interface-name": "r1-eth0"}}

@@ -117,7 +117,11 @@ int vni_list_cmp(void *p1, void *p2)
 static unsigned int vrf_import_rt_hash_key_make(const void *p)
 {
 	const struct vrf_irt_node *irt = p;
+<<<<<<< HEAD
 	const char *pnt = irt->rt.val;
+=======
+	const uint8_t *pnt = irt->rt.val;
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 	return jhash(pnt, 8, 0x5abc1234);
 }
@@ -229,7 +233,11 @@ static int is_vrf_present_in_irt_vrfs(struct list *vrfs, struct bgp *bgp_vrf)
 static unsigned int import_rt_hash_key_make(const void *p)
 {
 	const struct irt_node *irt = p;
+<<<<<<< HEAD
 	const char *pnt = irt->rt.val;
+=======
+	const uint8_t *pnt = irt->rt.val;
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 	return jhash(pnt, 8, 0xdeadbeef);
 }
@@ -621,7 +629,11 @@ static void form_auto_rt(struct bgp *bgp, vni_t vni, struct list *rtl,
 	struct listnode *node;
 
 	if (bgp->advertise_autort_rfc8365)
+<<<<<<< HEAD
 		vni |= EVPN_AUTORT_VXLAN;
+=======
+		SET_FLAG(vni, EVPN_AUTORT_VXLAN);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	encode_route_target_as((bgp->as & 0xFFFF), vni, &eval, true);
 
 	ecomadd = ecommunity_new();
@@ -1159,9 +1171,14 @@ static void build_evpn_route_extcomm(struct bgpevpn *vpn, struct attr *attr,
 	}
 
 	/* Add MAC mobility (sticky) if needed. */
+<<<<<<< HEAD
 	if (attr->sticky) {
 		seqnum = 0;
 		memset(&ecom_sticky, 0, sizeof(ecom_sticky));
+=======
+	if (CHECK_FLAG(attr->evpn_flags, ATTR_EVPN_FLAG_STICKY)) {
+		seqnum = 0;
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		encode_mac_mobility_extcomm(1, seqnum, &eval_sticky);
 		ecom_sticky.size = 1;
 		ecom_sticky.unit_size = ECOMMUNITY_SIZE;
@@ -1179,8 +1196,12 @@ static void build_evpn_route_extcomm(struct bgpevpn *vpn, struct attr *attr,
 	}
 
 	/* Add default gateway, if needed. */
+<<<<<<< HEAD
 	if (attr->default_gw) {
 		memset(&ecom_default_gw, 0, sizeof(ecom_default_gw));
+=======
+	if (CHECK_FLAG(attr->evpn_flags, ATTR_EVPN_FLAG_DEFAULT_GW)) {
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		encode_default_gw_extcomm(&eval_default_gw);
 		ecom_default_gw.size = 1;
 		ecom_default_gw.unit_size = ECOMMUNITY_SIZE;
@@ -1191,9 +1212,17 @@ static void build_evpn_route_extcomm(struct bgpevpn *vpn, struct attr *attr,
 	}
 
 	proxy = !!(attr->es_flags & ATTR_ES_PROXY_ADVERT);
+<<<<<<< HEAD
 	if (attr->router_flag || proxy) {
 		memset(&ecom_na, 0, sizeof(ecom_na));
 		encode_na_flag_extcomm(&eval_na, attr->router_flag, proxy);
+=======
+	if (CHECK_FLAG(attr->evpn_flags, ATTR_EVPN_FLAG_ROUTER) || proxy) {
+		encode_na_flag_extcomm(&eval_na,
+				       CHECK_FLAG(attr->evpn_flags,
+						  ATTR_EVPN_FLAG_ROUTER),
+				       proxy);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		ecom_na.size = 1;
 		ecom_na.unit_size = ECOMMUNITY_SIZE;
 		ecom_na.val = (uint8_t *)eval_na.val;
@@ -1278,12 +1307,24 @@ enum zclient_send_status evpn_zebra_install(struct bgp *bgp, struct bgpevpn *vpn
 		flags = 0;
 
 		if (pi->sub_type == BGP_ROUTE_IMPORTED) {
+<<<<<<< HEAD
 			if (pi->attr->sticky)
 				SET_FLAG(flags, ZEBRA_MACIP_TYPE_STICKY);
 			if (pi->attr->default_gw)
 				SET_FLAG(flags, ZEBRA_MACIP_TYPE_GW);
 			if (is_evpn_prefix_ipaddr_v6(p) &&
 					pi->attr->router_flag)
+=======
+			if (CHECK_FLAG(pi->attr->evpn_flags,
+				       ATTR_EVPN_FLAG_STICKY))
+				SET_FLAG(flags, ZEBRA_MACIP_TYPE_STICKY);
+			if (CHECK_FLAG(pi->attr->evpn_flags,
+				       ATTR_EVPN_FLAG_DEFAULT_GW))
+				SET_FLAG(flags, ZEBRA_MACIP_TYPE_GW);
+			if (is_evpn_prefix_ipaddr_v6(p) &&
+			    CHECK_FLAG(pi->attr->evpn_flags,
+				       ATTR_EVPN_FLAG_ROUTER))
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 				SET_FLAG(flags, ZEBRA_MACIP_TYPE_ROUTER_FLAG);
 
 			seq = mac_mobility_seqnum(pi->attr);
@@ -1311,12 +1352,20 @@ enum zclient_send_status evpn_zebra_install(struct bgp *bgp, struct bgpevpn *vpn
 			 * flag set install the local entry as a router entry
 			 */
 			if (is_evpn_prefix_ipaddr_v6(p) &&
+<<<<<<< HEAD
 					(pi->attr->es_flags &
 					 ATTR_ES_PEER_ROUTER))
 				SET_FLAG(flags,
 						ZEBRA_MACIP_TYPE_ROUTER_FLAG);
 
 			if (!(pi->attr->es_flags & ATTR_ES_PEER_ACTIVE))
+=======
+			    CHECK_FLAG(pi->attr->es_flags, ATTR_ES_PEER_ROUTER))
+				SET_FLAG(flags,
+						ZEBRA_MACIP_TYPE_ROUTER_FLAG);
+
+			if (!CHECK_FLAG(pi->attr->es_flags, ATTR_ES_PEER_ACTIVE))
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 				SET_FLAG(flags,
 						ZEBRA_MACIP_TYPE_PROXY_ADVERT);
 		}
@@ -1608,12 +1657,22 @@ static int update_evpn_type5_route_entry(struct bgp *bgp_evpn,
 	struct bgp_labels bgp_labels = {};
 	struct bgp_path_info *local_pi = NULL;
 	struct bgp_path_info *tmp_pi = NULL;
+<<<<<<< HEAD
+=======
+	struct aspath *new_aspath;
+	struct attr static_attr = { 0 };
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 	*route_changed = 0;
 
 	/* See if this is an update of an existing route, or a new add. */
 	local_pi = bgp_evpn_route_get_local_path(bgp_evpn, dest);
 
+<<<<<<< HEAD
+=======
+	static_attr = *attr;
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	/*
 	 * create a new route entry if one doesn't exist.
 	 * Otherwise see if route attr has changed
@@ -1623,8 +1682,24 @@ static int update_evpn_type5_route_entry(struct bgp *bgp_evpn,
 		/* route has changed as this is the first entry */
 		*route_changed = 1;
 
+<<<<<<< HEAD
 		/* Add (or update) attribute to hash. */
 		attr_new = bgp_attr_intern(attr);
+=======
+		/*
+		 * if the asn values are different, copy the as of
+		 * source vrf to the target entry
+		 */
+		if (bgp_vrf->as != bgp_evpn->as) {
+			new_aspath = aspath_dup(static_attr.aspath);
+			new_aspath = aspath_add_seq(new_aspath, bgp_vrf->as);
+			static_attr.aspath = new_aspath;
+		}
+
+		/* Add (or update) attribute to hash. */
+		attr_new = bgp_attr_intern(&static_attr);
+		bgp_attr_flush(&static_attr);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 		/* create the route info from attribute */
 		pi = info_make(ZEBRA_ROUTE_BGP, BGP_ROUTE_STATIC, 0,
@@ -1738,20 +1813,45 @@ static int update_evpn_type5_route(struct bgp *bgp_vrf, struct prefix_evpn *evp,
 		       BGP_L2VPN_EVPN_ADV_IPV6_UNICAST_GW_IP)) {
 		if (src_attr &&
 		    !IN6_IS_ADDR_UNSPECIFIED(&src_attr->mp_nexthop_global)) {
+<<<<<<< HEAD
 			attr.evpn_overlay.type = OVERLAY_INDEX_GATEWAY_IP;
 			SET_IPADDR_V6(&attr.evpn_overlay.gw_ip);
 			memcpy(&attr.evpn_overlay.gw_ip.ipaddr_v6,
 			       &src_attr->mp_nexthop_global,
 			       sizeof(struct in6_addr));
+=======
+			struct bgp_route_evpn *bre =
+				XCALLOC(MTYPE_BGP_EVPN_OVERLAY,
+					sizeof(struct bgp_route_evpn));
+
+			bre->type = OVERLAY_INDEX_GATEWAY_IP;
+			SET_IPADDR_V6(&bre->gw_ip);
+			memcpy(&bre->gw_ip.ipaddr_v6,
+			       &src_attr->mp_nexthop_global,
+			       sizeof(struct in6_addr));
+			bgp_attr_set_evpn_overlay(&attr, bre);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		}
 	} else if (src_afi == AFI_IP &&
 		   CHECK_FLAG(bgp_vrf->af_flags[AFI_L2VPN][SAFI_EVPN],
 			      BGP_L2VPN_EVPN_ADV_IPV4_UNICAST_GW_IP)) {
 		if (src_attr && src_attr->nexthop.s_addr != 0) {
+<<<<<<< HEAD
 			attr.evpn_overlay.type = OVERLAY_INDEX_GATEWAY_IP;
 			SET_IPADDR_V4(&attr.evpn_overlay.gw_ip);
 			memcpy(&attr.evpn_overlay.gw_ip.ipaddr_v4,
 			       &src_attr->nexthop, sizeof(struct in_addr));
+=======
+			struct bgp_route_evpn *bre =
+				XCALLOC(MTYPE_BGP_EVPN_OVERLAY,
+					sizeof(struct bgp_route_evpn));
+
+			bre->type = OVERLAY_INDEX_GATEWAY_IP;
+			SET_IPADDR_V4(&bre->gw_ip);
+			memcpy(&bre->gw_ip.ipaddr_v4, &src_attr->nexthop,
+			       sizeof(struct in_addr));
+			bgp_attr_set_evpn_overlay(&attr, bre);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		}
 	}
 
@@ -1840,7 +1940,12 @@ static void bgp_evpn_get_sync_info(struct bgp *bgp, esi_t *esi,
 			*active_on_peer = true;
 		}
 
+<<<<<<< HEAD
 		if (second_best_path->attr->router_flag)
+=======
+		if (CHECK_FLAG(second_best_path->attr->evpn_flags,
+			       ATTR_EVPN_FLAG_ROUTER))
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 			*peer_router = true;
 
 		/* we use both proxy and non-proxy imports to
@@ -1883,6 +1988,7 @@ static void update_evpn_route_entry_sync_info(struct bgp *bgp,
 					       mac);
 			attr->mm_sync_seqnum = max_sync_seq;
 			if (active_on_peer)
+<<<<<<< HEAD
 				attr->es_flags |= ATTR_ES_PEER_ACTIVE;
 			else
 				attr->es_flags &= ~ATTR_ES_PEER_ACTIVE;
@@ -1894,10 +2000,24 @@ static void update_evpn_route_entry_sync_info(struct bgp *bgp,
 				attr->es_flags |= ATTR_ES_PEER_ROUTER;
 			else
 				attr->es_flags &= ~ATTR_ES_PEER_ROUTER;
+=======
+				SET_FLAG(attr->es_flags, ATTR_ES_PEER_ACTIVE);
+			else
+				UNSET_FLAG(attr->es_flags, ATTR_ES_PEER_ACTIVE);
+			if (proxy_from_peer)
+				SET_FLAG(attr->es_flags, ATTR_ES_PEER_PROXY);
+			else
+				UNSET_FLAG(attr->es_flags, ATTR_ES_PEER_PROXY);
+			if (peer_router)
+				SET_FLAG(attr->es_flags, ATTR_ES_PEER_ROUTER);
+			else
+				UNSET_FLAG(attr->es_flags, ATTR_ES_PEER_ROUTER);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 			if (BGP_DEBUG(evpn_mh, EVPN_MH_RT)) {
 				char esi_buf[ESI_STR_LEN];
 
+<<<<<<< HEAD
 				zlog_debug(
 					"setup sync info for %pFX es %s max_seq %d %s%s%s",
 					evp,
@@ -1913,12 +2033,36 @@ static void update_evpn_route_entry_sync_info(struct bgp *bgp,
 					(attr->es_flags & ATTR_ES_PEER_ROUTER)
 						? "peer-router "
 						: "");
+=======
+				zlog_debug("setup sync info for %pFX es %s max_seq %d %s%s%s",
+					   evp,
+					   esi_to_str(esi, esi_buf,
+						      sizeof(esi_buf)),
+					   max_sync_seq,
+					   CHECK_FLAG(attr->es_flags,
+						      ATTR_ES_PEER_ACTIVE)
+						   ? "peer-active "
+						   : "",
+					   CHECK_FLAG(attr->es_flags,
+						      ATTR_ES_PEER_PROXY)
+						   ? "peer-proxy "
+						   : "",
+					   CHECK_FLAG(attr->es_flags,
+						      ATTR_ES_PEER_ROUTER)
+						   ? "peer-router "
+						   : "");
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 			}
 		}
 	} else {
 		attr->mm_sync_seqnum = 0;
+<<<<<<< HEAD
 		attr->es_flags &= ~ATTR_ES_PEER_ACTIVE;
 		attr->es_flags &= ~ATTR_ES_PEER_PROXY;
+=======
+		UNSET_FLAG(attr->es_flags, ATTR_ES_PEER_ACTIVE);
+		UNSET_FLAG(attr->es_flags, ATTR_ES_PEER_PROXY);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	}
 }
 
@@ -1940,7 +2084,10 @@ static int update_evpn_route_entry(struct bgp *bgp, struct bgpevpn *vpn,
 	struct attr local_attr;
 	struct bgp_labels bgp_labels = {};
 	int route_change = 1;
+<<<<<<< HEAD
 	uint8_t sticky = 0;
+=======
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	const struct prefix_evpn *evp;
 
 	*pi = NULL;
@@ -1972,9 +2119,13 @@ static int update_evpn_route_entry(struct bgp *bgp, struct bgpevpn *vpn,
 		local_attr = *attr;
 
 		/* Extract MAC mobility sequence number, if any. */
+<<<<<<< HEAD
 		local_attr.mm_seqnum =
 			bgp_attr_mac_mobility_seqnum(&local_attr, &sticky);
 		local_attr.sticky = sticky;
+=======
+		local_attr.mm_seqnum = bgp_attr_mac_mobility_seqnum(&local_attr);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 		/* Add (or update) attribute to hash. */
 		attr_new = bgp_attr_intern(&local_attr);
@@ -2069,9 +2220,14 @@ static int update_evpn_route_entry(struct bgp *bgp, struct bgpevpn *vpn,
 					       BGP_PATH_ATTR_CHANGED);
 
 			/* Extract MAC mobility sequence number, if any. */
+<<<<<<< HEAD
 			local_attr.mm_seqnum = bgp_attr_mac_mobility_seqnum(
 				&local_attr, &sticky);
 			local_attr.sticky = sticky;
+=======
+			local_attr.mm_seqnum =
+				bgp_attr_mac_mobility_seqnum(&local_attr);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 			attr_new = bgp_attr_intern(&local_attr);
 
@@ -2114,6 +2270,7 @@ static void evpn_zebra_reinstall_best_route(struct bgp *bgp,
 		}
 	}
 
+<<<<<<< HEAD
 	if (curr_select && curr_select->type == ZEBRA_ROUTE_BGP
 			&& (curr_select->sub_type == BGP_ROUTE_IMPORTED ||
 				bgp_evpn_attr_is_sync(curr_select->attr)))
@@ -2130,6 +2287,20 @@ static void evpn_zebra_reinstall_best_route(struct bgp *bgp,
 				bgp_zebra_route_install(dest, curr_select, bgp,
 							true, vpn, false);
 		}
+=======
+	if (curr_select && curr_select->type == ZEBRA_ROUTE_BGP &&
+	    (curr_select->sub_type == BGP_ROUTE_IMPORTED ||
+	     bgp_evpn_attr_is_sync(curr_select->attr))) {
+		if (CHECK_FLAG(bgp->flags, BGP_FLAG_DELETE_IN_PROGRESS))
+			evpn_zebra_install(bgp, vpn,
+					   (const struct prefix_evpn *)
+						   bgp_dest_get_prefix(dest),
+					   curr_select);
+		else
+			bgp_zebra_route_install(dest, curr_select, bgp, true,
+						vpn, false);
+	}
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 }
 
 /*
@@ -2204,6 +2375,7 @@ static int update_evpn_route(struct bgp *bgp, struct bgpevpn *vpn,
 	attr.nexthop = vpn->originator_ip;
 	attr.mp_nexthop_global_in = vpn->originator_ip;
 	attr.mp_nexthop_len = BGP_ATTR_NHLEN_IPV4;
+<<<<<<< HEAD
 	attr.sticky = CHECK_FLAG(flags, ZEBRA_MACIP_TYPE_STICKY) ? 1 : 0;
 	attr.default_gw = CHECK_FLAG(flags, ZEBRA_MACIP_TYPE_GW) ? 1 : 0;
 	attr.router_flag = CHECK_FLAG(flags,
@@ -2214,11 +2386,29 @@ static int update_evpn_route(struct bgp *bgp, struct bgpevpn *vpn,
 	if (esi && bgp_evpn_is_esi_valid(esi)) {
 		memcpy(&attr.esi, esi, sizeof(esi_t));
 		attr.es_flags |= ATTR_ES_IS_LOCAL;
+=======
+	if (CHECK_FLAG(flags, ZEBRA_MACIP_TYPE_STICKY))
+		SET_FLAG(attr.evpn_flags, ATTR_EVPN_FLAG_STICKY);
+	if (CHECK_FLAG(flags, ZEBRA_MACIP_TYPE_GW))
+		SET_FLAG(attr.evpn_flags, ATTR_EVPN_FLAG_DEFAULT_GW);
+	if (CHECK_FLAG(flags, ZEBRA_MACIP_TYPE_ROUTER_FLAG))
+		SET_FLAG(attr.evpn_flags, ATTR_EVPN_FLAG_ROUTER);
+	if (CHECK_FLAG(flags, ZEBRA_MACIP_TYPE_PROXY_ADVERT))
+		SET_FLAG(attr.es_flags, ATTR_ES_PROXY_ADVERT);
+
+	if (esi && bgp_evpn_is_esi_valid(esi)) {
+		memcpy(&attr.esi, esi, sizeof(esi_t));
+		SET_FLAG(attr.es_flags, ATTR_ES_IS_LOCAL);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	}
 
 	/* PMSI is only needed for type-3 routes */
 	if (p->prefix.route_type == BGP_EVPN_IMET_ROUTE) {
+<<<<<<< HEAD
 		attr.flag |= ATTR_FLAG_BIT(BGP_ATTR_PMSI_TUNNEL);
+=======
+		SET_FLAG(attr.flag, ATTR_FLAG_BIT(BGP_ATTR_PMSI_TUNNEL));
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		bgp_attr_set_pmsi_tnl_type(&attr, PMSI_TNLTYPE_INGR_REPL);
 	}
 
@@ -2250,8 +2440,17 @@ static int update_evpn_route(struct bgp *bgp, struct bgpevpn *vpn,
 	 * IPv4 or IPv6 global addresses and we're advertising L3VNI with
 	 * these routes.
 	 */
+<<<<<<< HEAD
 	add_l3_ecomm = bgp_evpn_route_add_l3_ecomm_ok(
 		vpn, p, (attr.es_flags & ATTR_ES_IS_LOCAL) ? &attr.esi : NULL);
+=======
+	add_l3_ecomm =
+		bgp_evpn_route_add_l3_ecomm_ok(vpn, p,
+					       CHECK_FLAG(attr.es_flags,
+							  ATTR_ES_IS_LOCAL)
+						       ? &attr.esi
+						       : NULL);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 	if (bgp->evpn_info)
 		macvrf_soo = bgp->evpn_info->soo;
@@ -2509,6 +2708,7 @@ void bgp_evpn_update_type2_route_entry(struct bgp *bgp, struct bgpevpn *vpn,
 	attr.nexthop = vpn->originator_ip;
 	attr.mp_nexthop_global_in = vpn->originator_ip;
 	attr.mp_nexthop_len = BGP_ATTR_NHLEN_IPV4;
+<<<<<<< HEAD
 	attr.sticky = (local_pi->attr->sticky) ? 1 : 0;
 	attr.router_flag = (local_pi->attr->router_flag) ? 1 : 0;
 	attr.es_flags = local_pi->attr->es_flags;
@@ -2516,6 +2716,14 @@ void bgp_evpn_update_type2_route_entry(struct bgp *bgp, struct bgpevpn *vpn,
 		attr.default_gw = 1;
 		if (is_evpn_prefix_ipaddr_v6(&evp))
 			attr.router_flag = 1;
+=======
+	attr.evpn_flags = local_pi->attr->evpn_flags;
+	attr.es_flags = local_pi->attr->es_flags;
+	if (CHECK_FLAG(local_pi->attr->evpn_flags, ATTR_EVPN_FLAG_DEFAULT_GW)) {
+		SET_FLAG(attr.evpn_flags, ATTR_EVPN_FLAG_DEFAULT_GW);
+		if (is_evpn_prefix_ipaddr_v6(&evp))
+			SET_FLAG(attr.evpn_flags, ATTR_EVPN_FLAG_ROUTER);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	}
 	memcpy(&attr.esi, &local_pi->attr->esi, sizeof(esi_t));
 	bgp_evpn_get_rmac_nexthop(vpn, &evp, &attr,
@@ -2524,9 +2732,18 @@ void bgp_evpn_update_type2_route_entry(struct bgp *bgp, struct bgpevpn *vpn,
 	/* Add L3 VNI RTs and RMAC for non IPv6 link-local if
 	 * using L3 VNI for type-2 routes also.
 	 */
+<<<<<<< HEAD
 	add_l3_ecomm = bgp_evpn_route_add_l3_ecomm_ok(
 		vpn, &evp,
 		(attr.es_flags & ATTR_ES_IS_LOCAL) ? &attr.esi : NULL);
+=======
+	add_l3_ecomm =
+		bgp_evpn_route_add_l3_ecomm_ok(vpn, &evp,
+					       CHECK_FLAG(attr.es_flags,
+							  ATTR_ES_IS_LOCAL)
+						       ? &attr.esi
+						       : NULL);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 	if (bgp->evpn_info)
 		macvrf_soo = bgp->evpn_info->soo;
@@ -3030,6 +3247,10 @@ static int install_evpn_route_entry_in_vrf(struct bgp *bgp_vrf,
 	bool use_l3nhg = false;
 	bool is_l3nhg_active = false;
 	char buf1[INET6_ADDRSTRLEN];
+<<<<<<< HEAD
+=======
+	struct bgp_route_evpn *bre;
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 	memset(pp, 0, sizeof(struct prefix));
 	ip_prefix_from_evpn_prefix(evp, pp);
@@ -3063,6 +3284,7 @@ static int install_evpn_route_entry_in_vrf(struct bgp *bgp_vrf,
 	 * make sure to set the flag for next hop attribute.
 	 */
 	attr = *parent_pi->attr;
+<<<<<<< HEAD
 	if (attr.evpn_overlay.type != OVERLAY_INDEX_GATEWAY_IP) {
 		if (afi == AFI_IP6)
 			evpn_convert_nexthop_to_ipv6(&attr);
@@ -3072,12 +3294,17 @@ static int install_evpn_route_entry_in_vrf(struct bgp *bgp_vrf,
 		}
 	} else {
 
+=======
+	bre = bgp_attr_get_evpn_overlay(&attr);
+	if (bre && bre->type == OVERLAY_INDEX_GATEWAY_IP) {
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		/*
 		 * If gateway IP overlay index is specified in the NLRI of
 		 * EVPN RT-5, this gateway IP should be used as the nexthop
 		 * for the prefix in the VRF
 		 */
 		if (bgp_debug_zebra(NULL)) {
+<<<<<<< HEAD
 			zlog_debug(
 				"Install gateway IP %s as nexthop for prefix %pFX in vrf %s",
 				inet_ntop(pp->family, &attr.evpn_overlay.gw_ip,
@@ -3093,15 +3320,43 @@ static int install_evpn_route_entry_in_vrf(struct bgp *bgp_vrf,
 		} else {
 			attr.nexthop = attr.evpn_overlay.gw_ip.ipaddr_v4;
 			attr.flag |= ATTR_FLAG_BIT(BGP_ATTR_NEXT_HOP);
+=======
+			zlog_debug("Install gateway IP %s as nexthop for prefix %pFX in vrf %s",
+				   inet_ntop(pp->family, &bre->gw_ip, buf1,
+					     sizeof(buf1)),
+				   pp, vrf_id_to_name(bgp_vrf->vrf_id));
+		}
+
+		if (afi == AFI_IP6) {
+			memcpy(&attr.mp_nexthop_global, &bre->gw_ip.ipaddr_v6,
+			       sizeof(struct in6_addr));
+			attr.mp_nexthop_len = IPV6_MAX_BYTELEN;
+		} else {
+			attr.nexthop = bre->gw_ip.ipaddr_v4;
+			SET_FLAG(attr.flag, ATTR_FLAG_BIT(BGP_ATTR_NEXT_HOP));
+		}
+	} else {
+		if (afi == AFI_IP6)
+			evpn_convert_nexthop_to_ipv6(&attr);
+		else {
+			attr.nexthop = attr.mp_nexthop_global_in;
+			SET_FLAG(attr.flag, ATTR_FLAG_BIT(BGP_ATTR_NEXT_HOP));
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		}
 	}
 
 	bgp_evpn_es_vrf_use_nhg(bgp_vrf, &parent_pi->attr->esi, &use_l3nhg,
 				&is_l3nhg_active, NULL);
 	if (use_l3nhg)
+<<<<<<< HEAD
 		attr.es_flags |= ATTR_ES_L3_NHG_USE;
 	if (is_l3nhg_active)
 		attr.es_flags |= ATTR_ES_L3_NHG_ACTIVE;
+=======
+		SET_FLAG(attr.es_flags, ATTR_ES_L3_NHG_USE);
+	if (is_l3nhg_active)
+		SET_FLAG(attr.es_flags, ATTR_ES_L3_NHG_ACTIVE);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 	/* Check if route entry is already present. */
 	for (pi = bgp_dest_get_bgp_path_info(dest); pi; pi = pi->next)
@@ -3143,22 +3398,34 @@ static int install_evpn_route_entry_in_vrf(struct bgp *bgp_vrf,
 	}
 
 	/* Gateway IP nexthop should be resolved */
+<<<<<<< HEAD
 	if (attr.evpn_overlay.type == OVERLAY_INDEX_GATEWAY_IP) {
+=======
+	if (bre && bre->type == OVERLAY_INDEX_GATEWAY_IP) {
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		if (bgp_find_or_add_nexthop(bgp_vrf, bgp_vrf, afi, safi, pi,
 					    NULL, 0, NULL))
 			bgp_path_info_set_flag(dest, pi, BGP_PATH_VALID);
 		else {
 			if (BGP_DEBUG(nht, NHT)) {
+<<<<<<< HEAD
 				inet_ntop(pp->family,
 					  &attr.evpn_overlay.gw_ip,
 					  buf1, sizeof(buf1));
+=======
+				inet_ntop(pp->family, &bre->gw_ip, buf1,
+					  sizeof(buf1));
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 				zlog_debug("%s: gateway IP NH unresolved",
 					   buf1);
 			}
 			bgp_path_info_unset_flag(dest, pi, BGP_PATH_VALID);
 		}
 	} else {
+<<<<<<< HEAD
 
+=======
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		/* as it is an importation, change nexthop */
 		bgp_path_info_set_flag(dest, pi, BGP_PATH_ANNC_NH_SELF);
 	}
@@ -3267,8 +3534,12 @@ static int install_evpn_route_entry_in_vni_common(
 			if (BGP_DEBUG(evpn_mh, EVPN_MH_RT))
 				zlog_debug("VNI %d path %pFX chg to %s es",
 					   vpn->vni, &pi->net->rn->p,
+<<<<<<< HEAD
 					   new_local_es ? "local"
 							: "non-local");
+=======
+					   new_local_es ? "local" : "non-local");
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 			bgp_path_info_set_flag(dest, pi, BGP_PATH_ATTR_CHANGED);
 		}
 
@@ -3630,7 +3901,11 @@ static int is_route_matching_for_vrf(struct bgp *bgp_vrf,
 
 	assert(attr);
 	/* Route should have valid RT to be even considered. */
+<<<<<<< HEAD
 	if (!(attr->flag & ATTR_FLAG_BIT(BGP_ATTR_EXT_COMMUNITIES)))
+=======
+	if (!CHECK_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_EXT_COMMUNITIES)))
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		return 0;
 
 	ecom = bgp_attr_get_ecommunity(attr);
@@ -3697,7 +3972,11 @@ static int is_route_matching_for_vni(struct bgp *bgp, struct bgpevpn *vpn,
 
 	assert(attr);
 	/* Route should have valid RT to be even considered. */
+<<<<<<< HEAD
 	if (!(attr->flag & ATTR_FLAG_BIT(BGP_ATTR_EXT_COMMUNITIES)))
+=======
+	if (!CHECK_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_EXT_COMMUNITIES)))
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		return 0;
 
 	ecom = bgp_attr_get_ecommunity(attr);
@@ -4197,7 +4476,11 @@ static int bgp_evpn_install_uninstall_table(struct bgp *bgp, afi_t afi,
 		return 0;
 
 	/* If we don't have Route Target, nothing much to do. */
+<<<<<<< HEAD
 	if (!(attr->flag & ATTR_FLAG_BIT(BGP_ATTR_EXT_COMMUNITIES)))
+=======
+	if (!CHECK_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_EXT_COMMUNITIES)))
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		return 0;
 
 	/* EAD prefix in the global table doesn't include the VTEP-IP so
@@ -4686,7 +4969,10 @@ static int process_type2_route(struct peer *peer, afi_t afi, safi_t safi,
 {
 	struct prefix_rd prd;
 	struct prefix_evpn p = {};
+<<<<<<< HEAD
 	struct bgp_route_evpn evpn = {};
+=======
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	uint8_t ipaddr_len;
 	uint8_t macaddr_len;
 	/* holds the VNI(s) as in packet */
@@ -4728,9 +5014,15 @@ static int process_type2_route(struct peer *peer, afi_t afi, safi_t safi,
 		STREAM_GET(&attr->esi, pkt, sizeof(esi_t));
 
 		if (bgp_evpn_is_esi_local_and_non_bypass(&attr->esi))
+<<<<<<< HEAD
 			attr->es_flags |= ATTR_ES_IS_LOCAL;
 		else
 			attr->es_flags &= ~ATTR_ES_IS_LOCAL;
+=======
+			SET_FLAG(attr->es_flags, ATTR_ES_IS_LOCAL);
+		else
+			UNSET_FLAG(attr->es_flags, ATTR_ES_IS_LOCAL);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	} else {
 		STREAM_FORWARD_GETP(pkt, sizeof(esi_t));
 	}
@@ -4788,11 +5080,19 @@ static int process_type2_route(struct peer *peer, afi_t afi, safi_t safi,
 	if (attr)
 		bgp_update(peer, (struct prefix *)&p, addpath_id, attr, afi,
 			   safi, ZEBRA_ROUTE_BGP, BGP_ROUTE_NORMAL, &prd,
+<<<<<<< HEAD
 			   &label[0], num_labels, 0, &evpn);
 	else
 		bgp_withdraw(peer, (struct prefix *)&p, addpath_id, afi, safi,
 			     ZEBRA_ROUTE_BGP, BGP_ROUTE_NORMAL, &prd, &label[0],
 			     num_labels, &evpn);
+=======
+			   &label[0], num_labels, 0, NULL);
+	else
+		bgp_withdraw(peer, (struct prefix *)&p, addpath_id, afi, safi,
+			     ZEBRA_ROUTE_BGP, BGP_ROUTE_NORMAL, &prd, &label[0],
+			     num_labels);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	goto done;
 
 fail:
@@ -4832,8 +5132,12 @@ static int process_type3_route(struct peer *peer, afi_t afi, safi_t safi,
 	 * Note: We just simply ignore the values as it is not clear if
 	 * doing anything else is better.
 	 */
+<<<<<<< HEAD
 	if (attr &&
 	    (attr->flag & ATTR_FLAG_BIT(BGP_ATTR_PMSI_TUNNEL))) {
+=======
+	if (attr && CHECK_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_PMSI_TUNNEL))) {
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		enum pta_type pmsi_tnl_type = bgp_attr_get_pmsi_tnl_type(attr);
 
 		if (pmsi_tnl_type != PMSI_TNLTYPE_INGR_REPL
@@ -4882,8 +5186,12 @@ static int process_type3_route(struct peer *peer, afi_t afi, safi_t safi,
 			   0, 0, NULL);
 	else
 		bgp_withdraw(peer, (struct prefix *)&p, addpath_id, afi, safi,
+<<<<<<< HEAD
 			     ZEBRA_ROUTE_BGP, BGP_ROUTE_NORMAL, &prd, NULL, 0,
 			     NULL);
+=======
+			     ZEBRA_ROUTE_BGP, BGP_ROUTE_NORMAL, &prd, NULL, 0);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	return 0;
 }
 
@@ -4896,7 +5204,12 @@ static int process_type5_route(struct peer *peer, afi_t afi, safi_t safi,
 {
 	struct prefix_rd prd;
 	struct prefix_evpn p;
+<<<<<<< HEAD
 	struct bgp_route_evpn evpn;
+=======
+	struct bgp_route_evpn *evpn = XCALLOC(MTYPE_BGP_EVPN_OVERLAY,
+					      sizeof(struct bgp_route_evpn));
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	uint8_t ippfx_len;
 	uint32_t eth_tag;
 	mpls_label_t label; /* holds the VNI as in the packet */
@@ -4911,6 +5224,10 @@ static int process_type5_route(struct peer *peer, afi_t afi, safi_t safi,
 		flog_err(EC_BGP_EVPN_ROUTE_INVALID,
 			 "%u:%s - Rx EVPN Type-5 NLRI with invalid length %d",
 			 peer->bgp->vrf_id, peer->host, psize);
+<<<<<<< HEAD
+=======
+		evpn_overlay_free(evpn);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		return -1;
 	}
 
@@ -4926,12 +5243,18 @@ static int process_type5_route(struct peer *peer, afi_t afi, safi_t safi,
 	p.prefixlen = EVPN_ROUTE_PREFIXLEN;
 	p.prefix.route_type = BGP_EVPN_IP_PREFIX_ROUTE;
 
+<<<<<<< HEAD
 	/* Additional information outside of prefix - ESI and GW IP */
 	memset(&evpn, 0, sizeof(evpn));
 
 	/* Fetch ESI overlay index */
 	if (attr)
 		memcpy(&evpn.eth_s_id, pfx, sizeof(esi_t));
+=======
+	/* Fetch ESI overlay index */
+	if (attr)
+		memcpy(&evpn->eth_s_id, pfx, sizeof(esi_t));
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	pfx += ESI_BYTES;
 
 	/* Fetch Ethernet Tag. */
@@ -4946,6 +5269,10 @@ static int process_type5_route(struct peer *peer, afi_t afi, safi_t safi,
 			EC_BGP_EVPN_ROUTE_INVALID,
 			"%u:%s - Rx EVPN Type-5 NLRI with invalid IP Prefix length %d",
 			peer->bgp->vrf_id, peer->host, ippfx_len);
+<<<<<<< HEAD
+=======
+		evpn_overlay_free(evpn);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		return -1;
 	}
 	p.prefix.prefix_addr.ip_prefix_length = ippfx_len;
@@ -4958,16 +5285,26 @@ static int process_type5_route(struct peer *peer, afi_t afi, safi_t safi,
 		SET_IPADDR_V4(&p.prefix.prefix_addr.ip);
 		memcpy(&p.prefix.prefix_addr.ip.ipaddr_v4, pfx, 4);
 		pfx += 4;
+<<<<<<< HEAD
 		SET_IPADDR_V4(&evpn.gw_ip);
 		memcpy(&evpn.gw_ip.ipaddr_v4, pfx, 4);
+=======
+		SET_IPADDR_V4(&evpn->gw_ip);
+		memcpy(&evpn->gw_ip.ipaddr_v4, pfx, 4);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		pfx += 4;
 	} else {
 		SET_IPADDR_V6(&p.prefix.prefix_addr.ip);
 		memcpy(&p.prefix.prefix_addr.ip.ipaddr_v6, pfx,
 		       IPV6_MAX_BYTELEN);
 		pfx += IPV6_MAX_BYTELEN;
+<<<<<<< HEAD
 		SET_IPADDR_V6(&evpn.gw_ip);
 		memcpy(&evpn.gw_ip.ipaddr_v6, pfx, IPV6_MAX_BYTELEN);
+=======
+		SET_IPADDR_V6(&evpn->gw_ip);
+		memcpy(&evpn->gw_ip.ipaddr_v6, pfx, IPV6_MAX_BYTELEN);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		pfx += IPV6_MAX_BYTELEN;
 	}
 
@@ -4985,12 +5322,18 @@ static int process_type5_route(struct peer *peer, afi_t afi, safi_t safi,
 	 * An update containing a non-zero gateway IP and a non-zero ESI
 	 * at the same time is should be treated as withdraw
 	 */
+<<<<<<< HEAD
 	if (bgp_evpn_is_esi_valid(&evpn.eth_s_id) &&
 	    !ipaddr_is_zero(&evpn.gw_ip)) {
+=======
+	if (bgp_evpn_is_esi_valid(&evpn->eth_s_id) &&
+	    !ipaddr_is_zero(&evpn->gw_ip)) {
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		flog_err(EC_BGP_EVPN_ROUTE_INVALID,
 			 "%s - Rx EVPN Type-5 ESI and gateway-IP both non-zero.",
 			 peer->host);
 		is_valid_update = false;
+<<<<<<< HEAD
 	} else if (bgp_evpn_is_esi_valid(&evpn.eth_s_id))
 		evpn.type = OVERLAY_INDEX_ESI;
 	else if (!ipaddr_is_zero(&evpn.gw_ip))
@@ -4999,6 +5342,16 @@ static int process_type5_route(struct peer *peer, afi_t afi, safi_t safi,
 		if (is_zero_mac(&attr->rmac) &&
 		    !bgp_evpn_is_esi_valid(&evpn.eth_s_id) &&
 		    ipaddr_is_zero(&evpn.gw_ip) && label == 0) {
+=======
+	} else if (bgp_evpn_is_esi_valid(&evpn->eth_s_id))
+		evpn->type = OVERLAY_INDEX_ESI;
+	else if (!ipaddr_is_zero(&evpn->gw_ip))
+		evpn->type = OVERLAY_INDEX_GATEWAY_IP;
+	if (attr) {
+		if (is_zero_mac(&attr->rmac) &&
+		    !bgp_evpn_is_esi_valid(&evpn->eth_s_id) &&
+		    ipaddr_is_zero(&evpn->gw_ip) && label == 0) {
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 			flog_err(EC_BGP_EVPN_ROUTE_INVALID,
 				 "%s - Rx EVPN Type-5 ESI, gateway-IP, RMAC and label all zero",
 				 peer->host);
@@ -5013,7 +5366,11 @@ static int process_type5_route(struct peer *peer, afi_t afi, safi_t safi,
 	if (attr && is_valid_update)
 		bgp_update(peer, (struct prefix *)&p, addpath_id, attr, afi,
 			   safi, ZEBRA_ROUTE_BGP, BGP_ROUTE_NORMAL, &prd,
+<<<<<<< HEAD
 			   &label, 1, 0, &evpn);
+=======
+			   &label, 1, 0, evpn);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	else {
 		if (!is_valid_update) {
 			char attr_str[BUFSIZ] = {0};
@@ -5025,8 +5382,13 @@ static int process_type5_route(struct peer *peer, afi_t afi, safi_t safi,
 				attr_str);
 		}
 		bgp_withdraw(peer, (struct prefix *)&p, addpath_id, afi, safi,
+<<<<<<< HEAD
 			     ZEBRA_ROUTE_BGP, BGP_ROUTE_NORMAL, &prd, &label, 1,
 			     &evpn);
+=======
+			     ZEBRA_ROUTE_BGP, BGP_ROUTE_NORMAL, &prd, &label, 1);
+		evpn_overlay_free(evpn);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	}
 
 	return 0;
@@ -5040,12 +5402,22 @@ static void evpn_mpattr_encode_type5(struct stream *s, const struct prefix *p,
 	int len;
 	char temp[16];
 	const struct evpn_addr *p_evpn_p;
+<<<<<<< HEAD
+=======
+	struct bgp_route_evpn *bre = NULL;
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 	memset(&temp, 0, sizeof(temp));
 	if (p->family != AF_EVPN)
 		return;
 	p_evpn_p = &(p->u.prefix_evpn);
 
+<<<<<<< HEAD
+=======
+	if (attr)
+		bre = bgp_attr_get_evpn_overlay(attr);
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	/* len denites the total len of IP and GW-IP in the route
 	   IP and GW-IP have to be both ipv4 or ipv6
 	 */
@@ -5056,7 +5428,11 @@ static void evpn_mpattr_encode_type5(struct stream *s, const struct prefix *p,
 	/* Prefix contains RD, ESI, EthTag, IP length, IP, GWIP and VNI */
 	stream_putc(s, 8 + 10 + 4 + 1 + len + 3);
 	stream_put(s, prd->val, 8);
+<<<<<<< HEAD
 	if (attr && attr->evpn_overlay.type == OVERLAY_INDEX_ESI)
+=======
+	if (attr && bre && bre->type == OVERLAY_INDEX_ESI)
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		stream_put(s, &attr->esi, sizeof(esi_t));
 	else
 		stream_put(s, 0, sizeof(esi_t));
@@ -5066,6 +5442,7 @@ static void evpn_mpattr_encode_type5(struct stream *s, const struct prefix *p,
 		stream_put_ipv4(s, p_evpn_p->prefix_addr.ip.ipaddr_v4.s_addr);
 	else
 		stream_put(s, &p_evpn_p->prefix_addr.ip.ipaddr_v6, 16);
+<<<<<<< HEAD
 	if (attr && attr->evpn_overlay.type == OVERLAY_INDEX_GATEWAY_IP) {
 		const struct bgp_route_evpn *evpn_overlay =
 			bgp_attr_get_evpn_overlay(attr);
@@ -5075,6 +5452,13 @@ static void evpn_mpattr_encode_type5(struct stream *s, const struct prefix *p,
 					evpn_overlay->gw_ip.ipaddr_v4.s_addr);
 		else
 			stream_put(s, &(evpn_overlay->gw_ip.ipaddr_v6), 16);
+=======
+	if (attr && bre && bre->type == OVERLAY_INDEX_GATEWAY_IP) {
+		if (IS_IPADDR_V4(&p_evpn_p->prefix_addr.ip))
+			stream_put_ipv4(s, bre->gw_ip.ipaddr_v4.s_addr);
+		else
+			stream_put(s, &(bre->gw_ip.ipaddr_v6), 16);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	} else {
 		if (IS_IPADDR_V4(&p_evpn_p->prefix_addr.ip))
 			stream_put_ipv4(s, 0);
@@ -5398,9 +5782,14 @@ void bgp_evpn_advertise_type5_routes(struct bgp *bgp_vrf, afi_t afi,
 					tmp_attr = *pi->attr;
 
 					/* Fill temp path_info */
+<<<<<<< HEAD
 					prep_for_rmap_apply(&tmp_pi, &tmp_pie,
 							    dest, pi, pi->peer,
 							    &tmp_attr);
+=======
+					prep_for_rmap_apply(&tmp_pi, &tmp_pie, dest, pi, pi->peer,
+							    NULL, &tmp_attr);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 					RESET_FLAG(tmp_attr.rmap_change_flags);
 
@@ -5465,7 +5854,11 @@ void evpn_rt_delete_auto(struct bgp *bgp, vni_t vni, struct list *rtl,
 	struct ecommunity_val eval;
 
 	if (bgp->advertise_autort_rfc8365)
+<<<<<<< HEAD
 		vni |= EVPN_AUTORT_VXLAN;
+=======
+		SET_FLAG(vni, EVPN_AUTORT_VXLAN);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 	encode_route_target_as((bgp->as & 0xFFFF), vni, &eval, true);
 
@@ -7732,18 +8125,32 @@ static void bgp_evpn_remote_ip_process_nexthops(struct bgpevpn *vpn,
 	 * MAC/IP route or SVI or tenant vrf being added to EVI.
 	 * Set nexthop as valid only if it is already L3 reachable
 	 */
+<<<<<<< HEAD
 	if (resolve && bnc->flags & BGP_NEXTHOP_EVPN_INCOMPLETE) {
 		bnc->flags &= ~BGP_NEXTHOP_EVPN_INCOMPLETE;
 		bnc->flags |= BGP_NEXTHOP_VALID;
 		bnc->change_flags |= BGP_NEXTHOP_MACIP_CHANGED;
+=======
+	if (resolve && CHECK_FLAG(bnc->flags, BGP_NEXTHOP_EVPN_INCOMPLETE)) {
+		UNSET_FLAG(bnc->flags, BGP_NEXTHOP_EVPN_INCOMPLETE);
+		SET_FLAG(bnc->flags, BGP_NEXTHOP_VALID);
+		SET_FLAG(bnc->change_flags, BGP_NEXTHOP_MACIP_CHANGED);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		evaluate_paths(bnc);
 	}
 
 	 /* MAC/IP route or SVI or tenant vrf being deleted from EVI */
+<<<<<<< HEAD
 	if (!resolve &&  bnc->flags & BGP_NEXTHOP_VALID) {
 		bnc->flags &= ~BGP_NEXTHOP_VALID;
 		bnc->flags |= BGP_NEXTHOP_EVPN_INCOMPLETE;
 		bnc->change_flags |= BGP_NEXTHOP_MACIP_CHANGED;
+=======
+	if (!resolve && CHECK_FLAG(bnc->flags, BGP_NEXTHOP_VALID)) {
+		UNSET_FLAG(bnc->flags, BGP_NEXTHOP_VALID);
+		SET_FLAG(bnc->flags, BGP_NEXTHOP_EVPN_INCOMPLETE);
+		SET_FLAG(bnc->change_flags, BGP_NEXTHOP_MACIP_CHANGED);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		evaluate_paths(bnc);
 	}
 }

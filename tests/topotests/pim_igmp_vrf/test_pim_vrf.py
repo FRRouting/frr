@@ -92,7 +92,11 @@ from lib import topotest
 from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
 from lib.topotest import iproute2_is_vrf_capable
+<<<<<<< HEAD
 from lib.common_config import required_linux_kernel_version, retry
+=======
+from lib.common_config import required_linux_kernel_version
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 from lib.pim import McastTesterHelper
 
 
@@ -205,7 +209,11 @@ def setup_module(module):
         )
 
 
+<<<<<<< HEAD
 def teardown_module(module):
+=======
+def teardown_module():
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
     tgen = get_topogen()
     tgen.stop_topology()
 

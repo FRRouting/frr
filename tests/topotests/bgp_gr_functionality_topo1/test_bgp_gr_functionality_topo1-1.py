@@ -102,7 +102,10 @@ from lib.bgp import (
     verify_graceful_restart,
     create_router_bgp,
     verify_r_bit,
+<<<<<<< HEAD
     verify_f_bit,
+=======
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
     verify_bgp_convergence,
     verify_bgp_convergence_from_running_config,
 )

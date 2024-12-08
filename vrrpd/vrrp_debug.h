@@ -28,6 +28,7 @@ extern struct debug vrrp_dbg_zebra;
 void vrrp_debug_init(void);
 
 /*
+<<<<<<< HEAD
  * Print VRRP debugging configuration.
  *
  * vty
@@ -36,6 +37,8 @@ void vrrp_debug_init(void);
 int vrrp_config_write_debug(struct vty *vty);
 
 /*
+=======
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
  * Print VRRP debugging configuration, human readable form.
  *
  * vty

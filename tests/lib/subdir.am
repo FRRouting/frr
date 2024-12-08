@@ -100,7 +100,11 @@ check_PROGRAMS += tests/lib/cli/test_commands
 tests_lib_cli_test_commands_CFLAGS = $(TESTS_CFLAGS)
 tests_lib_cli_test_commands_CPPFLAGS = $(TESTS_CPPFLAGS)
 tests_lib_cli_test_commands_LDADD = $(ALL_TESTS_LDADD)
+<<<<<<< HEAD
 nodist_tests_lib_cli_test_commands_SOURCES = tests/lib/cli/test_commands_defun.c
+=======
+nodist_tests_lib_cli_test_commands_SOURCES = tests/lib/cli/test_commands_defun.c $(vtysh_cmd_split)
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 tests_lib_cli_test_commands_SOURCES = tests/lib/cli/test_commands.c tests/helpers/c/prng.c
 tests/lib/cli/test_commands_defun.c: vtysh/vtysh_cmd.c
 	@$(MKDIR_P) tests/lib/cli

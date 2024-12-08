@@ -12,7 +12,10 @@ import time
 import pytest
 from time import sleep
 
+<<<<<<< HEAD
 import traceback
+=======
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 import ipaddress
 
 # Save the Current Working Directory to find configuration files.
@@ -34,6 +37,7 @@ from lib.bgp import (
     verify_bgp_rib,
     verify_graceful_restart,
     create_router_bgp,
+<<<<<<< HEAD
     verify_r_bit,
     verify_eor,
     verify_f_bit,
@@ -41,11 +45,15 @@ from lib.bgp import (
     verify_gr_address_family,
     modify_bgp_config_when_bgpd_down,
     verify_graceful_restart_timers,
+=======
+    verify_bgp_convergence,
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
     verify_bgp_convergence_from_running_config,
 )
 
 # Import common_config to use commomnly used APIs
 from lib.common_config import (
+<<<<<<< HEAD
     create_common_configuration,
     InvalidCLIError,
     retry,
@@ -56,15 +64,25 @@ from lib.common_config import (
     validate_ip_address,
     run_frr_cmd,
     get_frr_ipv6_linklocal,
+=======
+    generate_ips,
+    check_address_types,
+    validate_ip_address,
+    run_frr_cmd,
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 )
 
 from lib.common_config import (
     write_test_header,
+<<<<<<< HEAD
     reset_config_on_routers,
     start_topology,
     kill_router_daemons,
     start_router_daemons,
     verify_rib,
+=======
+    start_topology,
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
     check_address_types,
     write_test_footer,
     check_router_status,
@@ -154,9 +172,12 @@ def verify_stale_routes_list(tgen, addr_type, dut, input_dict):
     """
     logger.debug("Entering lib API: verify_stale_routes_list()")
     router_list = tgen.routers()
+<<<<<<< HEAD
     additional_nexthops_in_required_nhs = []
     list1 = []
     list2 = []
+=======
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
     found_hops = []
     for routerInput in input_dict.keys():
         for router, rnode in router_list.items():
@@ -266,7 +287,11 @@ def setup_module(mod):
     # Api call verify whether BGP is converged
     ADDR_TYPES = check_address_types()
 
+<<<<<<< HEAD
     for addr_type in ADDR_TYPES:
+=======
+    for _ in ADDR_TYPES:
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
         BGP_CONVERGENCE = verify_bgp_convergence(tgen, topo)
         assert BGP_CONVERGENCE is True, "setup_module : Failed \n Error:" " {}".format(
             BGP_CONVERGENCE
@@ -442,7 +467,11 @@ def test_bgp_gr_stale_routes(request):
         )
         assert result is True, "Testcase {} :Failed \n Error {}".format(tc_name, result)
 
+<<<<<<< HEAD
     for iteration in range(5):
+=======
+    for _ in range(5):
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
         step("graceful-restart-disable:True  at R3")
         input_dict = {
             "r3": {

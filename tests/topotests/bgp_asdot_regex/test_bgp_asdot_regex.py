@@ -60,7 +60,11 @@ def setup_module(mod):
 
     router_list = tgen.routers()
 
+<<<<<<< HEAD
     for i, (rname, router) in enumerate(router_list.items(), 1):
+=======
+    for _, (rname, router) in enumerate(router_list.items(), 1):
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
         router.load_config(
             TopoRouter.RD_ZEBRA, os.path.join(CWD, "{}/zebra.conf".format(rname))
         )
@@ -97,7 +101,11 @@ def test_bgp_asdot_regex():
 
     logger.info("Check if neighbor sessions are up in {}".format(router1.name))
     test_func = partial(_bgp_converge, router1)
+<<<<<<< HEAD
     success, result = topotest.run_and_expect(test_func, None, count=15, wait=0.5)
+=======
+    _, result = topotest.run_and_expect(test_func, None, count=15, wait=0.5)
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
     assert result is None, 'Failed to see BGP convergence in "{}"'.format(router1.name)
 
     logger.info("BGP neighbor session is up in {}".format(router1.name))

@@ -14,6 +14,10 @@ import os
 import threading
 
 import pytest
+<<<<<<< HEAD
+=======
+from lib.common_config import retry
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 from lib.topogen import Topogen
 from lib.topotest import json_cmp
 
@@ -32,7 +36,11 @@ def tgen(request):
     tgen.start_topology()
 
     router_list = tgen.routers()
+<<<<<<< HEAD
     for rname, router in router_list.items():
+=======
+    for _, router in router_list.items():
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
         router.load_frr_config("frr.conf")
 
     tgen.start_router()
@@ -40,12 +48,26 @@ def tgen(request):
     tgen.stop_topology()
 
 
+<<<<<<< HEAD
+=======
+# Verify the backend test client has connected
+@retry(retry_timeout=10)
+def check_client_connect(r1):
+    out = r1.vtysh_cmd("show mgmt backend-adapter all")
+    assert "mgmtd-testc" in out
+
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 def test_backend_rpc(tgen):
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
     r1 = tgen.gears["r1"]
 
+<<<<<<< HEAD
+=======
+    # Run the backend test client which registers to handle the `clear ip rip` command.
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
     be_client_path = "/usr/lib/frr/mgmtd_testc"
     rc, _, _ = r1.net.cmd_status(be_client_path + " --help")
 
@@ -63,6 +85,13 @@ def test_backend_rpc(tgen):
     t = threading.Thread(target=run_testc)
     t.start()
 
+<<<<<<< HEAD
+=======
+    # We need to wait for mgmtd_testc to connect before issuing the command.
+    res = check_client_connect(r1)
+    assert res is None
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
     r1.vtysh_cmd("clear ip rip vrf testname")
 
     t.join()

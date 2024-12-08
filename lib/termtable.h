@@ -270,7 +270,11 @@ void ttable_rowseps(struct ttable *tt, unsigned int row,
  *
  * Caller must free this string after use with
  *
+<<<<<<< HEAD
  *   XFREE (MTYPE_TMP, str);
+=======
+ *   XFREE (MTYPE_TMP_TTABLE, str);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
  *
  * @param tt the table to dump
  * @param newline the desired newline sequence to use, null terminated.
@@ -289,6 +293,24 @@ char *ttable_dump(struct ttable *tt, const char *newline);
  */
 json_object *ttable_json(struct ttable *tt, const char *const formats);
 
+<<<<<<< HEAD
+=======
+/**
+ * Convert a table to a JSON array of objects.
+ *
+ * Caller must free the returned json_object structure.
+ *
+ * @param tt the table to convert
+ * @param formats an array of characters indicating what JSON type should be
+ * used.
+ * @param formats an optinal string of row headers that overrids the first row of the table.
+ * This is useful to get naming convention that align with caml Format.
+ */
+json_object *ttable_json_with_json_text(struct ttable *tt,
+					const char *const formats,
+					const char *json_override_text);
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 #ifdef __cplusplus
 }
 #endif

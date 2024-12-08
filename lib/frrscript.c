@@ -358,6 +358,12 @@ int frrscript_load(struct frrscript *fs, const char *function_name,
 	/* Set up the Lua script */
 	lua_State *L = luaL_newstate();
 
+<<<<<<< HEAD
+=======
+	/* Load basic built-in Lua functions, e.g. ipairs, string, etc. */
+	luaL_openlibs(L);
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	frrlua_export_logging(L);
 
 	char script_name[MAXPATHLEN];

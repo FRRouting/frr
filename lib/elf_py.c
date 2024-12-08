@@ -1307,7 +1307,11 @@ static PyObject *elffile_load(PyTypeObject *type, PyObject *args,
 	}
 #endif
 
+<<<<<<< HEAD
 	w->sects = calloc(sizeof(PyObject *), w->ehdr->e_shnum);
+=======
+	w->sects = calloc(w->ehdr->e_shnum, sizeof(PyObject *));
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	w->n_sect = w->ehdr->e_shnum;
 
 	return (PyObject *)w;

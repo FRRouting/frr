@@ -293,7 +293,11 @@ const char *isis_adj_name(const struct isis_adjacency *adj)
 	struct isis_dynhn *dyn;
 
 	dyn = dynhn_find_by_id(adj->circuit->isis, adj->sysid);
+<<<<<<< HEAD
 	if (dyn)
+=======
+	if (adj->circuit->area->dynhostname && dyn)
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		return dyn->hostname;
 
 	snprintfrr(buf, sizeof(buf), "%pSY", adj->sysid);

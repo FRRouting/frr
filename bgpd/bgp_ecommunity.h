@@ -32,9 +32,13 @@
 #define ECOMMUNITY_EXTENDED_COMMUNITY_PART_3 0x82
 
 /* Non-transitive extended community types. */
+<<<<<<< HEAD
 #define ECOMMUNITY_ENCODE_AS_NON_TRANS      0x40
 #define ECOMMUNITY_ENCODE_IP_NON_TRANS      0x41
 #define ECOMMUNITY_ENCODE_AS4_NON_TRANS     0x42
+=======
+#define ECOMMUNITY_ENCODE_IP_NON_TRANS      0x41
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 #define ECOMMUNITY_ENCODE_OPAQUE_NON_TRANS  0x43
 
 /* Low-order octet of the Extended Communities type field.  */
@@ -87,6 +91,10 @@
 
 /* Low-order octet of the Extended Communities type field for OPAQUE types */
 #define ECOMMUNITY_OPAQUE_SUBTYPE_ENCAP     0x0c
+<<<<<<< HEAD
+=======
+#define ECOMMUNITY_OPAQUE_SUBTYPE_COLOR	    0x0b
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 /* Extended communities attribute string format.  */
 #define ECOMMUNITY_FORMAT_ROUTE_MAP            0
@@ -155,12 +163,20 @@ struct ecommunity_ip6 {
 
 /* Extended community value is eight octet.  */
 struct ecommunity_val {
+<<<<<<< HEAD
 	char val[ECOMMUNITY_SIZE];
+=======
+	uint8_t val[ECOMMUNITY_SIZE];
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 };
 
 /* IPv6 Extended community value is eight octet.  */
 struct ecommunity_val_ipv6 {
+<<<<<<< HEAD
 	char val[IPV6_ECOMMUNITY_SIZE];
+=======
+	uint8_t val[IPV6_ECOMMUNITY_SIZE];
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 };
 
 #define ecom_length_size(X, Y)    ((X)->size * (Y))
@@ -330,6 +346,7 @@ static inline void encode_node_target(struct in_addr *node_id,
 
 /*
  * Encode BGP Color extended community
+<<<<<<< HEAD
  * is's a transitive opaque Extended community (RFC 9012 4.3)
  * flag is set to 0
  * RFC 9012 14.10: No values have currently been registered.
@@ -345,11 +362,31 @@ static inline void encode_color(uint32_t color_id, struct ecommunity_val *eval)
 	 *  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 	 *  |                          Color Value                          |
 	 *  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+=======
+ * is's a transitive opaque Extended community (RFC 9256  8.8.1)
+ * flag is set to 0
+ *
+ */
+static inline void encode_color(uint32_t color_id, uint32_t flags, struct ecommunity_val *eval)
+{
+	/*
+	 *  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+	 *  | 0x03         | Sub-Type(0x0b) |CO |         Flags             |
+	 *  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+	 *  |                          Color Value                          |
+	 *  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+	 *  https://datatracker.ietf.org/doc/rfc9256/, Section 8.8.1
+	 *  The CO bits can have 4 different values: 00 01 10 11
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	 */
 	memset(eval, 0, sizeof(*eval));
 	eval->val[0] = ECOMMUNITY_ENCODE_OPAQUE;
 	eval->val[1] = ECOMMUNITY_COLOR;
+<<<<<<< HEAD
 	eval->val[2] = 0x00;
+=======
+	eval->val[2] = (flags << 6) & 0xff;
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	eval->val[3] = 0x00;
 	eval->val[4] = (color_id >> 24) & 0xff;
 	eval->val[5] = (color_id >> 16) & 0xff;
@@ -398,6 +435,10 @@ extern struct ecommunity *ecommunity_new(void);
 extern bool ecommunity_strip(struct ecommunity *ecom, uint8_t type,
 			     uint8_t subtype);
 extern struct ecommunity *ecommunity_new(void);
+<<<<<<< HEAD
+=======
+extern bool ecommunity_strip_non_transitive(struct ecommunity *ecom);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 extern bool ecommunity_del_val(struct ecommunity *ecom,
 			       struct ecommunity_val *eval);
 struct bgp_pbr_entry_action;

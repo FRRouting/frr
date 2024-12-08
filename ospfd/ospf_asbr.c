@@ -168,6 +168,41 @@ void ospf_external_info_delete(struct ospf *ospf, uint8_t type,
 	}
 }
 
+<<<<<<< HEAD
+=======
+/*
+ * ospf_external_info_delete_multi_instance
+ *
+ * Delete instances of the external route information for a given route type.
+ * The preserve_instance parameter may be used to prevent the current instance
+ * from being deleted.
+ */
+void ospf_external_info_delete_multi_instance(struct ospf *ospf, uint8_t type, struct prefix_ipv4 p,
+					      unsigned long preserve_instance)
+{
+	struct route_node *rn;
+	struct ospf_external *ext;
+	struct list *ext_list;
+	struct listnode *node;
+
+	ext_list = ospf->external[type];
+	if (!ext_list)
+		return;
+
+	for (ALL_LIST_ELEMENTS_RO(ext_list, node, ext)) {
+		if (ext->instance != preserve_instance) {
+			rn = route_node_lookup(EXTERNAL_INFO(ext), (struct prefix *)&p);
+			if (rn) {
+				ospf_external_info_free(rn->info);
+				rn->info = NULL;
+				route_unlock_node(rn);
+				route_unlock_node(rn);
+			}
+		}
+	}
+}
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 struct external_info *ospf_external_info_lookup(struct ospf *ospf, uint8_t type,
 						unsigned short instance,
 						struct prefix_ipv4 *p)
@@ -189,6 +224,47 @@ struct external_info *ospf_external_info_lookup(struct ospf *ospf, uint8_t type,
 	return NULL;
 }
 
+<<<<<<< HEAD
+=======
+/*
+ * ospf_external_info_default_lookup
+ *
+ * For default information criteria, we really don't care about the
+ * source of the route and there only should be one.
+ */
+struct external_info *ospf_external_info_default_lookup(struct ospf *ospf)
+{
+	struct ospf_external *ext;
+	struct external_info *ei;
+	struct list *ext_list;
+	struct listnode *node;
+	struct route_node *rn;
+	struct prefix_ipv4 p = {
+		.family = AF_INET,
+		.prefixlen = 0,
+		.prefix.s_addr = INADDR_ANY,
+	};
+
+	ext_list = ospf->external[DEFAULT_ROUTE];
+	if (!ext_list)
+		return (NULL);
+
+	for (ALL_LIST_ELEMENTS_RO(ext_list, node, ext)) {
+		rn = route_node_lookup(EXTERNAL_INFO(ext), (struct prefix *)&p);
+		if (rn) {
+			route_unlock_node(rn);
+			if (rn->info) {
+				ei = rn->info;
+				if (ei->type != ZEBRA_ROUTE_OSPF || ei->instance != ospf->instance)
+					return ei;
+			}
+		}
+	}
+
+	return NULL;
+}
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 struct ospf_lsa *ospf_external_info_find_lsa(struct ospf *ospf,
 					     struct prefix_ipv4 *p)
 {
@@ -1078,9 +1154,14 @@ static void ospf_external_aggr_timer(struct ospf *ospf,
 		if (ospf->aggr_action == OSPF_ROUTE_AGGR_ADD) {
 
 			if (IS_DEBUG_OSPF(lsa, EXTNL_LSA_AGGR))
+<<<<<<< HEAD
 				zlog_debug(
 					"%s: Not required to retsart timer,set is already added.",
 					__func__);
+=======
+				zlog_debug("%s: Not required to restart timer,set is already added.",
+					   __func__);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 			return;
 		}
 

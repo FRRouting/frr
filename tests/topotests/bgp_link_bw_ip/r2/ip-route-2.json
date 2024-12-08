@@ -12,7 +12,11 @@
         {
           "fib":true,
           "ip":"11.1.2.2",
+<<<<<<< HEAD
           "weight":255
+=======
+          "weight":254
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
         }
       ]
     }

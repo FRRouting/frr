@@ -7,7 +7,11 @@
 ##
 AC_PREREQ([2.69])
 
+<<<<<<< HEAD
 AC_INIT([frr], [10.1.1], [https://github.com/frrouting/frr/issues])
+=======
+AC_INIT([frr], [10.3-dev], [https://github.com/frrouting/frr/issues])
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 PACKAGE_URL="https://frrouting.org/"
 AC_SUBST([PACKAGE_URL])
 PACKAGE_FULLNAME="FRRouting"
@@ -847,9 +851,18 @@ AC_ARG_WITH([crypto],
 AC_ARG_WITH([frr-format],
   AS_HELP_STRING([--with-frr-format[=<.../frr-format.so>]], [use frr-format GCC plugin]))
 
+<<<<<<< HEAD
 AC_ARG_ENABLE([version-build-config],
   AS_HELP_STRING([--disable-version-build-config], [do not include build configs in show version command]))
 
+=======
+AC_ARG_ENABLE([version_build_config],
+  AS_HELP_STRING([--disable-version-build-config], [do not include build configs in show version command]))
+
+AC_ARG_ENABLE([python_runtime],
+  AS_HELP_STRING([--disable-python-runtime], [do not install python scripts or have python runtime dependency]))
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 #if openssl, else use the internal
 AS_IF([test "$with_crypto" = "openssl"], [
 AC_CHECK_LIB([crypto], [EVP_DigestInit], [LIBS="$LIBS -lcrypto"], [], [])
@@ -2811,6 +2824,12 @@ AM_CONDITIONAL([PATHD], [test "$enable_pathd" != "no"])
 AM_CONDITIONAL([PATHD_PCEP], [test "$enable_pathd" != "no"])
 AM_CONDITIONAL([DP_DPDK], [test "$enable_dp_dpdk" = "yes"])
 
+<<<<<<< HEAD
+=======
+
+AM_CONDITIONAL([PYTHON_RUNTIME_DEPENDENCY], [test "$enable_python_runtime" != "no"])
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 AC_CONFIG_FILES([Makefile],[
 	test "$enable_dev_build" = "yes" && makefile_devbuild="--dev-build"
 	${PYTHON} "${ac_abs_top_srcdir}/python/makefile.py" ${makefile_devbuild} || exit 1
@@ -2913,7 +2932,12 @@ compiler                : ${CC}
 compiler flags          : ${CFLAGS} ${WERROR} ${AC_CFLAGS} ${SAN_FLAGS}
 make                    : ${MAKE-make}
 linker flags            : ${LDFLAGS} ${SAN_FLAGS} ${LIBS} ${LIBCAP} ${LIBREADLINE} ${LIBM}
+<<<<<<< HEAD
 state file directory    : ${e_frr_runstatedir}
+=======
+local state file dir    : ${e_frr_libstatedir}
+run state file dir      : ${e_frr_runstatedir}
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 config file directory   : ${e_frr_sysconfdir}
 module directory        : ${e_moduledir}
 script directory        : ${e_scriptdir}

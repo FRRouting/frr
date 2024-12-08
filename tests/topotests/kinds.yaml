@@ -10,9 +10,16 @@ kinds:
       /usr/lib/frr/frrinit.sh stop
     volumes:
       - "./%NAME%:/etc/frr"
+<<<<<<< HEAD
       - "%RUNDIR%/var.log.frr:/var/log/frr"
       - "%RUNDIR%/var.run.frr:/var/run/frr"
       - "%RUNDIR%/var.lib.frr:/var/lib/frr"
+=======
+      - "%RUNDIR%/var.lib.frr:/var/lib/frr"
+      - "%RUNDIR%/var.log.frr:/var/log/frr"
+      - "%RUNDIR%/var.run.frr:/var/run/frr"
+      - "%RUNDIR%/var.tmp.frr:/var/tmp/frr"
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
     cap-add:
       - SYS_ADMIN
       - AUDIT_WRITE

@@ -117,8 +117,11 @@ from lib.common_config import (
     check_address_types,
     write_test_footer,
     check_router_status,
+<<<<<<< HEAD
     shutdown_bringup_interface,
     step,
+=======
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
     get_frr_ipv6_linklocal,
     required_linux_kernel_version,
 )

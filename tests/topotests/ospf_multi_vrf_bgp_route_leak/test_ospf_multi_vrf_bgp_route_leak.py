@@ -16,7 +16,11 @@ import pytest
 # pylint: disable=C0413
 # Import topogen and topotest helpers
 from lib import topotest
+<<<<<<< HEAD
 from lib.topogen import Topogen, TopoRouter, get_topogen
+=======
+from lib.topogen import Topogen, get_topogen
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 from lib.topolog import logger
 
 
@@ -139,7 +143,11 @@ def setup_module(mod):
             tgen.set_error("unsupported version")
 
 
+<<<<<<< HEAD
 def teardown_module(mod):
+=======
+def teardown_module():
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
     "Teardown the pytest environment"
     tgen = get_topogen()
     tgen.stop_topology()

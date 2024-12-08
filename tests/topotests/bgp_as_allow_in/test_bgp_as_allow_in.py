@@ -28,7 +28,10 @@ Following tests are covered to test bgp allowas-in functionality:
 import os
 import sys
 import time
+<<<<<<< HEAD
 import json
+=======
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 import pytest
 
 # Save the Current Working Directory to find configuration files.
@@ -59,7 +62,11 @@ from lib.bgp import (
     create_router_bgp,
     verify_bgp_rib,
 )
+<<<<<<< HEAD
 from lib.topojson import build_topo_from_json, build_config_from_json
+=======
+from lib.topojson import build_config_from_json
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 pytestmark = [pytest.mark.bgpd, pytest.mark.staticd]
 

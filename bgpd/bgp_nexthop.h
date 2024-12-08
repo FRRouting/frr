@@ -38,18 +38,29 @@ struct bgp_nexthop_cache {
 	uint32_t metric;
 
 	/* Nexthop number and nexthop linked list.*/
+<<<<<<< HEAD
 	uint8_t nexthop_num;
+=======
+	uint16_t nexthop_num;
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 	/* This flag is set to TRUE for a bnc that is gateway IP overlay index
 	 * nexthop.
 	 */
 	bool is_evpn_gwip_nexthop;
 
+<<<<<<< HEAD
 	uint16_t change_flags;
 #define BGP_NEXTHOP_CHANGED	      (1 << 0)
 #define BGP_NEXTHOP_METRIC_CHANGED    (1 << 1)
 #define BGP_NEXTHOP_CONNECTED_CHANGED (1 << 2)
 #define BGP_NEXTHOP_MACIP_CHANGED     (1 << 3)
+=======
+	uint8_t change_flags;
+#define BGP_NEXTHOP_CHANGED	      (1 << 0)
+#define BGP_NEXTHOP_METRIC_CHANGED    (1 << 1)
+#define BGP_NEXTHOP_MACIP_CHANGED     (1 << 2)
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 	struct nexthop *nexthop;
 	time_t last_update;
@@ -66,6 +77,10 @@ struct bgp_nexthop_cache {
 #define BGP_STATIC_ROUTE              (1 << 4)
 #define BGP_STATIC_ROUTE_EXACT_MATCH  (1 << 5)
 #define BGP_NEXTHOP_LABELED_VALID     (1 << 6)
+<<<<<<< HEAD
+=======
+#define BGP_NEXTHOP_ULTIMATE	      (1 << 7)
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 /*
  * This flag is added for EVPN gateway IP nexthops.

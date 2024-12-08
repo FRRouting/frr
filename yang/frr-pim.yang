@@ -5,6 +5,13 @@ module frr-pim {
 
   prefix frr-pim;
 
+<<<<<<< HEAD
+=======
+  import frr-filter {
+    prefix frr-filter;
+  }
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
   import frr-interface {
     prefix frr-interface;
   }
@@ -118,6 +125,40 @@ module frr-pim {
     }
   }
 
+<<<<<<< HEAD
+=======
+  grouping msdp-authentication {
+    description
+      "MSDP authentication options.";
+
+    leaf authentication-type {
+      type enumeration {
+        enum None {
+          value 0;
+          description
+            "No authentication.";
+        }
+        enum MD5 {
+          value 1;
+          description
+            "Use MD5 digest.";
+        }
+      }
+      default None;
+      description
+        "Authentication method.";
+    }
+
+    leaf authentication-key {
+      when "../authentication-type = 'MD5'";
+      mandatory true;
+      type string;
+      description
+        "Authentication key.";
+    }
+  }
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
   grouping global-pim-config-attributes {
     description
       "A grouping defining per address family pim global attributes";
@@ -215,6 +256,30 @@ module frr-pim {
     container msdp {
       description "Global MSDP configuration.";
       uses msdp-timers;
+<<<<<<< HEAD
+=======
+
+      leaf log-neighbor-events {
+        type boolean;
+        default false;
+        description
+          "Log all MSDP neighbor related events.";
+      }
+
+      leaf log-sa-events {
+        type boolean;
+        default false;
+        description
+          "Log all MSDP SA related events.";
+      }
+
+      leaf shutdown {
+        type boolean;
+        default false;
+        description
+          "Shutdown MSDP functionality.";
+      }
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
     }
 
     list msdp-mesh-groups {
@@ -267,6 +332,23 @@ module frr-pim {
         description
           "MSDP source IP address.";
       }
+<<<<<<< HEAD
+=======
+
+      leaf sa-filter-in {
+        type frr-filter:access-list-name;
+        description
+          "Access list name used to filter the incoming SAs exchanged.";
+      }
+
+      leaf sa-filter-out {
+        type frr-filter:access-list-name;
+        description
+          "Access list name used to filter the outgoing SAs exchanged.";
+      }
+
+      uses msdp-authentication;
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
     }
 
     container mlag {

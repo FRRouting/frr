@@ -50,7 +50,11 @@ static int lsp_install(struct zebra_vrf *zvrf, mpls_label_t label,
 		       struct route_node *rn, struct route_entry *re);
 static int lsp_uninstall(struct zebra_vrf *zvrf, mpls_label_t label);
 static int fec_change_update_lsp(struct zebra_vrf *zvrf, struct zebra_fec *fec,
+<<<<<<< HEAD
 				 mpls_label_t old_label);
+=======
+				 mpls_label_t old_label, bool uninstall);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 static int fec_send(struct zebra_fec *fec, struct zserv *client);
 static void fec_update_clients(struct zebra_fec *fec);
 static void fec_print(struct zebra_fec *fec, struct vty *vty);
@@ -161,12 +165,20 @@ static int lsp_install(struct zebra_vrf *zvrf, mpls_label_t label,
 	enum lsp_types_t lsp_type;
 	char buf[BUFSIZ];
 	int added, changed;
+<<<<<<< HEAD
+=======
+	bool zvrf_nexthop_resolution;
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 	/* Lookup table. */
 	lsp_table = zvrf->lsp_table;
 	if (!lsp_table)
 		return -1;
 
+<<<<<<< HEAD
+=======
+	zvrf_nexthop_resolution = zvrf->zebra_mpls_fec_nexthop_resolution;
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	lsp_type = lsp_type_from_re_type(re->type);
 	added = changed = 0;
 
@@ -180,6 +192,7 @@ static int lsp_install(struct zebra_vrf *zvrf, mpls_label_t label,
 	 * the label advertised by the recursive nexthop (plus we don't have the
 	 * logic yet to push multiple labels).
 	 */
+<<<<<<< HEAD
 	for (nexthop = re->nhe->nhg.nexthop;
 	     nexthop; nexthop = nexthop->next) {
 		/* Skip inactive and recursive entries. */
@@ -187,6 +200,22 @@ static int lsp_install(struct zebra_vrf *zvrf, mpls_label_t label,
 			continue;
 		if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_RECURSIVE))
 			continue;
+=======
+	nexthop = re->nhe->nhg.nexthop;
+	while (nexthop) {
+		if (!CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE)) {
+			nexthop =
+				nexthop_next_resolution(nexthop,
+							zvrf_nexthop_resolution);
+			continue;
+		}
+		if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_RECURSIVE)) {
+			nexthop =
+				nexthop_next_resolution(nexthop,
+							zvrf_nexthop_resolution);
+			continue;
+		}
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 		nhlfe = nhlfe_find(&lsp->nhlfe_list, lsp_type,
 				   nexthop->type, &nexthop->gate,
@@ -194,9 +223,19 @@ static int lsp_install(struct zebra_vrf *zvrf, mpls_label_t label,
 		if (nhlfe) {
 			/* Clear deleted flag (in case it was set) */
 			UNSET_FLAG(nhlfe->flags, NHLFE_FLAG_DELETED);
+<<<<<<< HEAD
 			if (nexthop_labels_match(nhlfe->nexthop, nexthop))
 				/* No change */
 				continue;
+=======
+			if (nexthop_labels_match(nhlfe->nexthop, nexthop)) {
+				/* No change */
+				nexthop =
+					nexthop_next_resolution(nexthop,
+								zvrf_nexthop_resolution);
+				continue;
+			}
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 
 			if (IS_ZEBRA_DEBUG_MPLS) {
@@ -221,11 +260,26 @@ static int lsp_install(struct zebra_vrf *zvrf, mpls_label_t label,
 				return -1;
 
 			if (IS_ZEBRA_DEBUG_MPLS) {
+<<<<<<< HEAD
 				nhlfe2str(nhlfe, buf, BUFSIZ);
 				zlog_debug(
 					"Add LSP in-label %u type %d nexthop %s out-label %u",
 					lsp->ile.in_label, lsp_type, buf,
 					nexthop->nh_label->label[0]);
+=======
+				char label_str[MPLS_LABEL_STRLEN];
+
+				nhlfe2str(nhlfe, buf, BUFSIZ);
+				zlog_debug("Add LSP in-label %u type %d nexthop %s out-label %s",
+					   lsp->ile.in_label, lsp_type, buf,
+					   mpls_label2str(nexthop->nh_label
+								  ->num_labels,
+							  nexthop->nh_label->label,
+							  label_str,
+							  sizeof(label_str),
+							  nexthop->nh_label_type,
+							  0));
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 			}
 
 			lsp->addr_family = NHLFE_FAMILY(nhlfe);
@@ -234,6 +288,11 @@ static int lsp_install(struct zebra_vrf *zvrf, mpls_label_t label,
 			SET_FLAG(nhlfe->flags, NHLFE_FLAG_CHANGED);
 			added++;
 		}
+<<<<<<< HEAD
+=======
+		nexthop = nexthop_next_resolution(nexthop,
+						  zvrf_nexthop_resolution);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	}
 
 	/* Queue LSP for processing if necessary. If no NHLFE got added (special
@@ -245,6 +304,11 @@ static int lsp_install(struct zebra_vrf *zvrf, mpls_label_t label,
 			return -1;
 	} else {
 		lsp_check_free(lsp_table, &lsp);
+<<<<<<< HEAD
+=======
+		/* failed to install a new LSP */
+		return -1;
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	}
 
 	return 0;
@@ -353,7 +417,11 @@ static void fec_evaluate(struct zebra_vrf *zvrf)
 			fec_update_clients(fec);
 
 			/* Update label forwarding entries appropriately */
+<<<<<<< HEAD
 			fec_change_update_lsp(zvrf, fec, old_label);
+=======
+			fec_change_update_lsp(zvrf, fec, old_label, false);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		}
 	}
 }
@@ -384,7 +452,11 @@ static uint32_t fec_derive_label_from_index(struct zebra_vrf *zvrf,
  * entries, as appropriate.
  */
 static int fec_change_update_lsp(struct zebra_vrf *zvrf, struct zebra_fec *fec,
+<<<<<<< HEAD
 				 mpls_label_t old_label)
+=======
+				 mpls_label_t old_label, bool uninstall)
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 {
 	struct route_table *table;
 	struct route_node *rn;
@@ -416,11 +488,25 @@ static int fec_change_update_lsp(struct zebra_vrf *zvrf, struct zebra_fec *fec,
 			break;
 	}
 
+<<<<<<< HEAD
 	if (!re || !zebra_rib_labeled_unicast(re))
 		return 0;
 
 	if (lsp_install(zvrf, fec->label, rn, re))
 		return -1;
+=======
+	if (!re || !zebra_rib_labeled_unicast(re)) {
+		if (uninstall)
+			lsp_uninstall(zvrf, fec->label);
+		return 0;
+	}
+
+	if (lsp_install(zvrf, fec->label, rn, re)) {
+		if (uninstall)
+			lsp_uninstall(zvrf, fec->label);
+		return -1;
+	}
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 	return 0;
 }
@@ -448,6 +534,33 @@ static int fec_send(struct zebra_fec *fec, struct zserv *client)
 }
 
 /*
+<<<<<<< HEAD
+=======
+ * Upon reconfiguring nexthop-resolution updates, update the
+ * lsp entries accordingly.
+ */
+void zebra_mpls_fec_nexthop_resolution_update(struct zebra_vrf *zvrf)
+{
+	int af;
+	struct route_node *rn;
+	struct zebra_fec *fec;
+
+	for (af = AFI_IP; af < AFI_MAX; af++) {
+		if (zvrf->fec_table[af] == NULL)
+			continue;
+		for (rn = route_top(zvrf->fec_table[af]); rn;
+		     rn = route_next(rn)) {
+			if (!rn->info)
+				continue;
+			fec = rn->info;
+			fec_change_update_lsp(zvrf, fec, MPLS_INVALID_LABEL,
+					      true);
+		}
+	}
+}
+
+/*
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
  * Update all registered clients about this FEC. Caller should've updated
  * FEC and ensure no duplicate updates.
  */
@@ -1398,7 +1511,11 @@ static int nhlfe_del(struct zebra_nhlfe *nhlfe)
 static void nhlfe_out_label_update(struct zebra_nhlfe *nhlfe,
 				   struct mpls_label_stack *nh_label)
 {
+<<<<<<< HEAD
 	nhlfe->nexthop->nh_label->label[0] = nh_label->label[0];
+=======
+	nexthop_change_labels(nhlfe->nexthop, nh_label);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 }
 
 static int mpls_lsp_uninstall_all(struct hash *lsp_table, struct zebra_lsp *lsp,
@@ -2117,7 +2234,11 @@ void zebra_mpls_process_dplane_notify(struct zebra_dplane_ctx *ctx)
 /*
  * Install dynamic LSP entry.
  */
+<<<<<<< HEAD
 int zebra_mpls_lsp_install(struct zebra_vrf *zvrf, struct route_node *rn,
+=======
+void zebra_mpls_lsp_install(struct zebra_vrf *zvrf, struct route_node *rn,
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 			   struct route_entry *re)
 {
 	struct route_table *table;
@@ -2125,23 +2246,37 @@ int zebra_mpls_lsp_install(struct zebra_vrf *zvrf, struct route_node *rn,
 
 	table = zvrf->fec_table[family2afi(PREFIX_FAMILY(&rn->p))];
 	if (!table)
+<<<<<<< HEAD
 		return -1;
+=======
+		return;
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 	/* See if there is a configured label binding for this FEC. */
 	fec = fec_find(table, &rn->p);
 	if (!fec || fec->label == MPLS_INVALID_LABEL)
+<<<<<<< HEAD
 		return 0;
+=======
+		return;
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 	/* We cannot install a label forwarding entry if local label is the
 	 * implicit-null label.
 	 */
 	if (fec->label == MPLS_LABEL_IMPLICIT_NULL)
+<<<<<<< HEAD
 		return 0;
 
 	if (lsp_install(zvrf, fec->label, rn, re))
 		return -1;
 
 	return 0;
+=======
+		return;
+
+	lsp_install(zvrf, fec->label, rn, re);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 }
 
 /*
@@ -2345,7 +2480,11 @@ int zebra_mpls_fec_register(struct zebra_vrf *zvrf, struct prefix *p,
 	}
 
 	if (new_client || label_change)
+<<<<<<< HEAD
 		return fec_change_update_lsp(zvrf, fec, old_label);
+=======
+		return fec_change_update_lsp(zvrf, fec, old_label, false);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 	return 0;
 }
@@ -2386,7 +2525,11 @@ int zebra_mpls_fec_unregister(struct zebra_vrf *zvrf, struct prefix *p,
 	    list_isempty(fec->client_list)) {
 		mpls_label_t old_label = fec->label;
 		fec->label = MPLS_INVALID_LABEL; /* reset */
+<<<<<<< HEAD
 		fec_change_update_lsp(zvrf, fec, old_label);
+=======
+		fec_change_update_lsp(zvrf, fec, old_label, false);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		fec_del(fec);
 	}
 
@@ -2556,7 +2699,11 @@ int zebra_mpls_static_fec_add(struct zebra_vrf *zvrf, struct prefix *p,
 		fec_update_clients(fec);
 
 		/* Update label forwarding entries appropriately */
+<<<<<<< HEAD
 		ret = fec_change_update_lsp(zvrf, fec, old_label);
+=======
+		ret = fec_change_update_lsp(zvrf, fec, old_label, false);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	}
 
 	return ret;
@@ -2609,7 +2756,11 @@ int zebra_mpls_static_fec_del(struct zebra_vrf *zvrf, struct prefix *p)
 	fec_update_clients(fec);
 
 	/* Update label forwarding entries appropriately */
+<<<<<<< HEAD
 	return fec_change_update_lsp(zvrf, fec, old_label);
+=======
+	return fec_change_update_lsp(zvrf, fec, old_label, false);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 }
 
 /*
@@ -3794,7 +3945,11 @@ void zebra_mpls_print_lsp_table(struct vty *vty, struct zebra_vrf *zvrf,
 		if (tt->nrows > 1) {
 			char *table = ttable_dump(tt, "\n");
 			vty_out(vty, "%s\n", table);
+<<<<<<< HEAD
 			XFREE(MTYPE_TMP, table);
+=======
+			XFREE(MTYPE_TMP_TTABLE, table);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		}
 		ttable_del(tt);
 	}

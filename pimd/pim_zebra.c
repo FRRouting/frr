@@ -157,6 +157,11 @@ static int pim_zebra_if_address_add(ZAPI_CALLBACK_ARGS)
 				pim_if_addr_add_all(ifp);
 		}
 	}
+<<<<<<< HEAD
+=======
+
+	pim_cand_addrs_changed();
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	return 0;
 }
 
@@ -205,6 +210,11 @@ static int pim_zebra_if_address_del(ZAPI_CALLBACK_ARGS)
 	}
 
 	connected_free(&c);
+<<<<<<< HEAD
+=======
+
+	pim_cand_addrs_changed();
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	return 0;
 }
 

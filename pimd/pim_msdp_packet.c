@@ -6,7 +6,13 @@
 #include <zebra.h>
 
 #include <lib/log.h>
+<<<<<<< HEAD
 #include <lib/network.h>
+=======
+#include <lib/filter.h>
+#include <lib/network.h>
+#include <lib/prefix.h>
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 #include <lib/stream.h>
 #include "frrevent.h"
 #include <lib/vty.h>
@@ -322,8 +328,13 @@ void pim_msdp_pkt_ka_tx(struct pim_msdp_peer *mp)
 	pim_msdp_pkt_send(mp, s);
 }
 
+<<<<<<< HEAD
 static void pim_msdp_pkt_sa_push_to_one_peer(struct pim_instance *pim,
 					     struct pim_msdp_peer *mp)
+=======
+static void pim_msdp_pkt_sa_push(struct pim_instance *pim,
+				 struct pim_msdp_peer *mp)
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 {
 	struct stream *s;
 
@@ -338,6 +349,7 @@ static void pim_msdp_pkt_sa_push_to_one_peer(struct pim_instance *pim,
 	}
 }
 
+<<<<<<< HEAD
 /* push the stream into the obuf fifo of all the peers */
 static void pim_msdp_pkt_sa_push(struct pim_instance *pim,
 				 struct pim_msdp_peer *mp)
@@ -357,6 +369,8 @@ static void pim_msdp_pkt_sa_push(struct pim_instance *pim,
 	}
 }
 
+=======
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 static int pim_msdp_pkt_sa_fill_hdr(struct pim_instance *pim, int local_cnt,
 				    struct in_addr rp)
 {
@@ -384,6 +398,93 @@ static void pim_msdp_pkt_sa_fill_one(struct pim_msdp_sa *sa)
 	stream_put_ipv4(sa->pim->msdp.work_obuf, sa->sg.src.s_addr);
 }
 
+<<<<<<< HEAD
+=======
+static bool msdp_cisco_match(const struct filter *filter,
+			     const struct in_addr *source,
+			     const struct in_addr *group)
+{
+	const struct filter_cisco *cfilter = &filter->u.cfilter;
+	uint32_t source_addr;
+	uint32_t group_addr;
+
+	group_addr = group->s_addr & ~cfilter->mask_mask.s_addr;
+
+	if (cfilter->extended) {
+		source_addr = source->s_addr & ~cfilter->addr_mask.s_addr;
+		if (group_addr == cfilter->mask.s_addr &&
+		    source_addr == cfilter->addr.s_addr)
+			return true;
+	} else if (group_addr == cfilter->addr.s_addr)
+		return true;
+
+	return false;
+}
+
+static enum filter_type msdp_access_list_apply(struct access_list *access,
+					       const struct in_addr *source,
+					       const struct in_addr *group)
+{
+	struct filter *filter;
+	struct prefix group_prefix;
+
+	if (access == NULL)
+		return FILTER_DENY;
+
+	for (filter = access->head; filter; filter = filter->next) {
+		if (filter->cisco) {
+			if (msdp_cisco_match(filter, source, group))
+				return filter->type;
+		} else {
+			group_prefix.family = AF_INET;
+			group_prefix.prefixlen = IPV4_MAX_BITLEN;
+			group_prefix.u.prefix4.s_addr = group->s_addr;
+			if (access_list_apply(access, &group_prefix))
+				return filter->type;
+		}
+	}
+
+	return FILTER_DENY;
+}
+
+bool msdp_peer_sa_filter(const struct pim_msdp_peer *mp,
+			 const struct pim_msdp_sa *sa)
+{
+	struct access_list *acl;
+
+	/* No output filter configured, just quit. */
+	if (mp->acl_out == NULL)
+		return false;
+
+	/* Find access list and test it. */
+	acl = access_list_lookup(AFI_IP, mp->acl_out);
+	if (msdp_access_list_apply(acl, &sa->sg.src, &sa->sg.grp) == FILTER_DENY)
+		return true;
+
+	return false;
+}
+
+/** Count the number of SAs to be sent for a specific peer. */
+static size_t pim_msdp_peer_sa_count(const struct pim_instance *pim,
+				     const struct pim_msdp_peer *peer)
+{
+	const struct pim_msdp_sa *sa;
+	const struct listnode *node;
+	size_t sa_count = 0;
+
+	for (ALL_LIST_ELEMENTS_RO(pim->msdp.sa_list, node, sa)) {
+		if (!CHECK_FLAG(sa->flags, PIM_MSDP_SAF_LOCAL))
+			continue;
+		if (msdp_peer_sa_filter(peer, sa))
+			continue;
+
+		sa_count++;
+	}
+
+	return sa_count;
+}
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 static void pim_msdp_pkt_sa_gen(struct pim_instance *pim,
 				struct pim_msdp_peer *mp)
 {
@@ -393,7 +494,11 @@ static void pim_msdp_pkt_sa_gen(struct pim_instance *pim,
 	struct prefix group_all;
 	struct in_addr rp;
 	int sa_count;
+<<<<<<< HEAD
 	int local_cnt = pim->msdp.local_cnt;
+=======
+	int local_cnt = pim_msdp_peer_sa_count(pim, mp);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 	sa_count = 0;
 	if (PIM_DEBUG_MSDP_INTERNAL) {
@@ -418,6 +523,17 @@ static void pim_msdp_pkt_sa_gen(struct pim_instance *pim,
 			 * peers */
 			continue;
 		}
+<<<<<<< HEAD
+=======
+
+		if (msdp_peer_sa_filter(mp, sa)) {
+			if (pim_msdp_log_sa_events(pim))
+				zlog_info("MSDP peer %pI4 filter SA out %s", &mp->peer, sa->sg_str);
+
+			continue;
+		}
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		/* add sa into scratch pad */
 		pim_msdp_pkt_sa_fill_one(sa);
 		++sa_count;
@@ -457,15 +573,42 @@ static void pim_msdp_pkt_sa_tx_done(struct pim_instance *pim)
 
 void pim_msdp_pkt_sa_tx(struct pim_instance *pim)
 {
+<<<<<<< HEAD
 	pim_msdp_pkt_sa_gen(pim, NULL /* mp */);
+=======
+	struct pim_msdp_peer *mp;
+	struct listnode *node;
+
+	for (ALL_LIST_ELEMENTS_RO(pim->msdp.peer_list, node, mp))
+		pim_msdp_pkt_sa_gen(pim, mp);
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	pim_msdp_pkt_sa_tx_done(pim);
 }
 
 void pim_msdp_pkt_sa_tx_one(struct pim_msdp_sa *sa)
 {
+<<<<<<< HEAD
 	pim_msdp_pkt_sa_fill_hdr(sa->pim, 1 /* cnt */, sa->rp);
 	pim_msdp_pkt_sa_fill_one(sa);
 	pim_msdp_pkt_sa_push(sa->pim, NULL);
+=======
+	struct pim_msdp_peer *mp;
+	struct listnode *node;
+
+	pim_msdp_pkt_sa_fill_hdr(sa->pim, 1 /* cnt */, sa->rp);
+	pim_msdp_pkt_sa_fill_one(sa);
+	for (ALL_LIST_ELEMENTS_RO(sa->pim->msdp.peer_list, node, mp)) {
+		if (msdp_peer_sa_filter(mp, sa)) {
+			if (pim_msdp_log_sa_events(sa->pim))
+				zlog_info("MSDP peer %pI4 filter SA out %s", &mp->peer, sa->sg_str);
+
+			continue;
+		}
+
+		pim_msdp_pkt_sa_push(sa->pim, mp);
+	}
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	pim_msdp_pkt_sa_tx_done(sa->pim);
 }
 
@@ -487,6 +630,19 @@ void pim_msdp_pkt_sa_tx_one_to_one_peer(struct pim_msdp_peer *mp,
 	/* Fills the message contents. */
 	sa.pim = mp->pim;
 	sa.sg = sg;
+<<<<<<< HEAD
+=======
+
+	/* Don't push it if filtered. */
+	if (msdp_peer_sa_filter(mp, &sa)) {
+		if (pim_msdp_log_sa_events(mp->pim))
+			zlog_info("MSDP peer %pI4 filter SA out (%pI4, %pI4)", &mp->peer,
+				  &sa.sg.src, &sa.sg.grp);
+
+		return;
+	}
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	pim_msdp_pkt_sa_fill_one(&sa);
 
 	/* Pushes the message. */
@@ -511,6 +667,10 @@ static void pim_msdp_pkt_ka_rx(struct pim_msdp_peer *mp, int len)
 
 static void pim_msdp_pkt_sa_rx_one(struct pim_msdp_peer *mp, struct in_addr rp)
 {
+<<<<<<< HEAD
+=======
+	struct access_list *acl;
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	int prefix_len;
 	pim_sgaddr sg;
 	struct listnode *peer_node;
@@ -534,6 +694,21 @@ static void pim_msdp_pkt_sa_rx_one(struct pim_msdp_peer *mp, struct in_addr rp)
 	if (PIM_DEBUG_MSDP_PACKETS) {
 		zlog_debug("  sg %pSG", &sg);
 	}
+<<<<<<< HEAD
+=======
+
+	/* Filter incoming SA with configured access list. */
+	if (mp->acl_in) {
+		acl = access_list_lookup(AFI_IP, mp->acl_in);
+		if (msdp_access_list_apply(acl, &sg.src, &sg.grp) == FILTER_DENY) {
+			if (pim_msdp_log_sa_events(mp->pim))
+				zlog_info("MSDP peer %pI4 filter SA in (%pI4, %pI4)", &mp->peer,
+					  &sg.src, &sg.grp);
+			return;
+		}
+	}
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	pim_msdp_sa_ref(mp->pim, mp, &sg, rp);
 
 	/* Forwards the SA to the peers that are not in the RPF to the RP nor in

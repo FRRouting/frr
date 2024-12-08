@@ -40,7 +40,10 @@ try:
 
     try:
         sys.path[0:0] = [tmpdir]
+<<<<<<< HEAD
         print(sys.path)
+=======
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
         import frr_northbound_pb2
         import frr_northbound_pb2_grpc
 

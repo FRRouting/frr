@@ -135,3 +135,8 @@ DEFINE_MTYPE(BGPD, EVPN_REMOTE_IP, "BGP EVPN Remote IP hash entry");
 DEFINE_MTYPE(BGPD, BGP_NOTIFICATION, "BGP Notification Message");
 
 DEFINE_MTYPE(BGPD, BGP_SOFT_VERSION, "Software Version");
+<<<<<<< HEAD
+=======
+
+DEFINE_MTYPE(BGPD, BGP_EVPN_OVERLAY, "BGP EVPN Overlay");
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)

@@ -14,7 +14,10 @@ T4: Disable Addpath capability and check if it's exchanged dynamically
 """
 
 import os
+<<<<<<< HEAD
 import re
+=======
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 import sys
 import json
 import pytest
@@ -27,7 +30,11 @@ sys.path.append(os.path.join(CWD, "../"))
 
 # pylint: disable=C0413
 from lib import topotest
+<<<<<<< HEAD
 from lib.topogen import Topogen, TopoRouter, get_topogen
+=======
+from lib.topogen import Topogen, get_topogen
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 
 def setup_module(mod):

@@ -17,12 +17,16 @@ Need to verify if the tcp-mss value is reflected in the TCP session and in VRF.
 
 import os
 import sys
+<<<<<<< HEAD
 import json
 import pytest
 import functools
 import platform
 import socket
 import subprocess
+=======
+import pytest
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 # add after imports, before defining classes or functions:
 pytestmark = [pytest.mark.bgpd]
@@ -31,6 +35,7 @@ CWD = os.path.dirname(os.path.realpath(__file__))
 sys.path.append(os.path.join(CWD, "../"))
 
 # pylint: disable=C0413
+<<<<<<< HEAD
 from lib import topotest
 from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topojson import build_config_from_json
@@ -46,11 +51,22 @@ from lib.bgp import (
     verify_bgp_rib,
     verify_bgp_timers_and_functionality,
     verify_router_id,
+=======
+from lib.topogen import Topogen, get_topogen
+from lib.topojson import build_config_from_json
+import time
+from lib.bgp import (
+    clear_bgp,
+    create_router_bgp,
+    verify_bgp_convergence,
+    verify_bgp_rib,
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
     verify_tcp_mss,
 )
 from lib.common_config import (
     kill_router_daemons,
     start_router_daemons,
+<<<<<<< HEAD
     addKernelRoute,
     apply_raw_config,
     check_address_types,
@@ -68,6 +84,16 @@ from lib.common_config import (
     verify_rib,
     write_test_footer,
     write_test_header,
+=======
+    apply_raw_config,
+    check_address_types,
+    check_router_status,
+    create_static_routes,
+    required_linux_kernel_version,
+    start_topology,
+    step,
+    write_test_footer,
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 )
 
 # Global variables

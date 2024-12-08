@@ -20,6 +20,11 @@
  * [x] - darr_foreach_i
  * [x] - darr_foreach_p
  * [x] - darr_free
+<<<<<<< HEAD
+=======
+ * [x] - darr_free_free
+ * [x] - darr_free_func
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
  * [x] - darr_insert
  * [ ] - darr_insertz
  * [x] - darr_insert_n
@@ -318,6 +323,11 @@ static void test_string(void)
 	uint addlen = strlen(add);
 	char *da1 = NULL;
 	char *da2 = NULL;
+<<<<<<< HEAD
+=======
+	const char **strings = NULL;
+	uint sum = 0;
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 	assert(darr_strlen(da1) == 0);
 
@@ -412,6 +422,32 @@ static void test_string(void)
 	da1 = darr_in_strcatf(da1, "0123456789: %08x", 0xDEADBEEF);
 	assert(!strcmp("0123456789: deadbeef", da1));
 	darr_free(da1);
+<<<<<<< HEAD
+=======
+
+	sum = 0;
+	*darr_append(strings) = "1";
+	*darr_append(strings) = "2";
+	*darr_append(strings) = "3";
+#define adder(x) (sum += atoi(x))
+	darr_free_func(strings, adder);
+	assert(sum == 6);
+	assert(strings == NULL);
+
+	sum = 0;
+	darr_free_func(strings, adder);
+	assert(sum == 0);
+	assert(strings == NULL);
+
+	*darr_append(strings) = NULL;
+	*darr_append(strings) = darr_strdup("2");
+	*darr_append(strings) = darr_strdup("3");
+	darr_free_free(strings);
+	assert(strings == NULL);
+
+	darr_free_free(strings);
+	assert(strings == NULL);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 }
 
 int main(int argc, char **argv)

@@ -347,12 +347,20 @@ int bgp_find_or_add_nexthop(struct bgp *bgp_route, struct bgp *bgp_nexthop,
 				   &p.u.prefix6))
 			ifindex = pi->peer->connection->su.sin6.sin6_scope_id;
 
+<<<<<<< HEAD
 		if (!is_bgp_static_route && orig_prefix
 		    && prefix_same(&p, orig_prefix)) {
 			if (BGP_DEBUG(nht, NHT)) {
 				zlog_debug(
 					"%s(%pFX): prefix loops through itself",
 					__func__, &p);
+=======
+		if (!is_bgp_static_route && orig_prefix && prefix_same(&p, orig_prefix) &&
+		    CHECK_FLAG(bgp_route->flags, BGP_FLAG_IMPORT_CHECK)) {
+			if (BGP_DEBUG(nht, NHT)) {
+				zlog_debug("%s(%pFX): prefix loops through itself (import-check enabled)",
+					   __func__, &p);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 			}
 			return 0;
 		}
@@ -405,12 +413,20 @@ int bgp_find_or_add_nexthop(struct bgp *bgp_route, struct bgp *bgp_nexthop,
 				   peer);
 	} else {
 		if (BGP_DEBUG(nht, NHT))
+<<<<<<< HEAD
 			zlog_debug(
 				"Found existing bnc %pFX(%d)(%s) flags 0x%x ifindex %d #paths %d peer %p",
 				&bnc->prefix, bnc->ifindex_ipv6_ll,
 				bnc->bgp->name_pretty, bnc->flags,
 				bnc->ifindex_ipv6_ll, bnc->path_count,
 				bnc->nht_info);
+=======
+			zlog_debug("Found existing bnc %pFX(%d)(%s) flags 0x%x ifindex %d #paths %d peer %p, resolved prefix %pFX",
+				   &bnc->prefix, bnc->ifindex_ipv6_ll,
+				   bnc->bgp->name_pretty, bnc->flags,
+				   bnc->ifindex_ipv6_ll, bnc->path_count,
+				   bnc->nht_info, &bnc->resolved_prefix);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	}
 
 	if (pi && is_route_parent_evpn(pi))
@@ -485,6 +501,11 @@ int bgp_find_or_add_nexthop(struct bgp *bgp_route, struct bgp *bgp_nexthop,
 				bnc->metric;
 		else if (bpi_ultimate->extra)
 			bpi_ultimate->extra->igpmetric = 0;
+<<<<<<< HEAD
+=======
+
+		SET_FLAG(bnc->flags, BGP_NEXTHOP_ULTIMATE);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	} else if (peer) {
 		/*
 		 * Let's not accidentally save the peer data for a peer
@@ -505,6 +526,13 @@ int bgp_find_or_add_nexthop(struct bgp *bgp_route, struct bgp *bgp_nexthop,
 		return 1;
 	else if (safi == SAFI_UNICAST && pi &&
 		 pi->sub_type == BGP_ROUTE_IMPORTED &&
+<<<<<<< HEAD
+=======
+		 CHECK_FLAG(bnc->flags, BGP_NEXTHOP_ULTIMATE))
+		return bgp_isvalid_nexthop(bnc);
+	else if (safi == SAFI_UNICAST && pi &&
+		 pi->sub_type == BGP_ROUTE_IMPORTED &&
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		 BGP_PATH_INFO_NUM_LABELS(pi) && !bnc->is_evpn_gwip_nexthop)
 		return bgp_isvalid_nexthop_for_l3vpn(bnc, pi);
 	else if (safi == SAFI_MPLS_VPN && pi &&
@@ -602,10 +630,17 @@ static void bgp_process_nexthop_update(struct bgp_nexthop_cache *bnc,
 	}
 
 	if (nhr->metric != bnc->metric)
+<<<<<<< HEAD
 		bnc->change_flags |= BGP_NEXTHOP_METRIC_CHANGED;
 
 	if (nhr->nexthop_num != bnc->nexthop_num)
 		bnc->change_flags |= BGP_NEXTHOP_CHANGED;
+=======
+		SET_FLAG(bnc->change_flags, BGP_NEXTHOP_METRIC_CHANGED);
+
+	if (nhr->nexthop_num != bnc->nexthop_num)
+		SET_FLAG(bnc->change_flags, BGP_NEXTHOP_CHANGED);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 	if (import_check && (nhr->type == ZEBRA_ROUTE_BGP ||
 			     !prefix_same(&bnc->prefix, &nhr->prefix))) {
@@ -631,11 +666,20 @@ static void bgp_process_nexthop_update(struct bgp_nexthop_cache *bnc,
 			UNSET_FLAG(bnc->flags, BGP_NEXTHOP_PEER_NOTIFIED);
 
 		if (!bnc->is_evpn_gwip_nexthop)
+<<<<<<< HEAD
 			bnc->flags |= BGP_NEXTHOP_VALID;
 		bnc->metric = nhr->metric;
 		bnc->nexthop_num = nhr->nexthop_num;
 
 		bnc->flags &= ~BGP_NEXTHOP_LABELED_VALID; /* check below */
+=======
+			SET_FLAG(bnc->flags, BGP_NEXTHOP_VALID);
+		bnc->metric = nhr->metric;
+		bnc->nexthop_num = nhr->nexthop_num;
+
+		UNSET_FLAG(bnc->flags,
+			   BGP_NEXTHOP_LABELED_VALID); /* check below */
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 		for (i = 0; i < nhr->nexthop_num; i++) {
 			int num_labels = 0;
@@ -666,8 +710,12 @@ static void bgp_process_nexthop_update(struct bgp_nexthop_cache *bnc,
 			/* There is at least one label-switched path */
 			if (nexthop->nh_label &&
 				nexthop->nh_label->num_labels) {
+<<<<<<< HEAD
 
 				bnc->flags |= BGP_NEXTHOP_LABELED_VALID;
+=======
+				SET_FLAG(bnc->flags, BGP_NEXTHOP_LABELED_VALID);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 				num_labels = nexthop->nh_label->num_labels;
 			}
 
@@ -691,7 +739,11 @@ static void bgp_process_nexthop_update(struct bgp_nexthop_cache *bnc,
 			 * determined
 			 * that there has been a change.
 			 */
+<<<<<<< HEAD
 			if (bnc->change_flags & BGP_NEXTHOP_CHANGED)
+=======
+			if (CHECK_FLAG(bnc->change_flags, BGP_NEXTHOP_CHANGED))
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 				continue;
 
 			for (oldnh = bnc->nexthop; oldnh; oldnh = oldnh->next)
@@ -699,7 +751,11 @@ static void bgp_process_nexthop_update(struct bgp_nexthop_cache *bnc,
 					break;
 
 			if (!oldnh)
+<<<<<<< HEAD
 				bnc->change_flags |= BGP_NEXTHOP_CHANGED;
+=======
+				SET_FLAG(bnc->change_flags, BGP_NEXTHOP_CHANGED);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		}
 		bnc_nexthop_free(bnc);
 		bnc->nexthop = nhlist_head;
@@ -723,19 +779,37 @@ static void bgp_process_nexthop_update(struct bgp_nexthop_cache *bnc,
 						       : "failed"));
 
 			if (evpn_resolved) {
+<<<<<<< HEAD
 				bnc->flags |= BGP_NEXTHOP_VALID;
 				bnc->flags &= ~BGP_NEXTHOP_EVPN_INCOMPLETE;
 				bnc->change_flags |= BGP_NEXTHOP_MACIP_CHANGED;
 			} else {
 				bnc->flags |= BGP_NEXTHOP_EVPN_INCOMPLETE;
 				bnc->flags &= ~BGP_NEXTHOP_VALID;
+=======
+				SET_FLAG(bnc->flags, BGP_NEXTHOP_VALID);
+				UNSET_FLAG(bnc->flags,
+					   BGP_NEXTHOP_EVPN_INCOMPLETE);
+				SET_FLAG(bnc->change_flags,
+					 BGP_NEXTHOP_MACIP_CHANGED);
+			} else {
+				SET_FLAG(bnc->flags,
+					 BGP_NEXTHOP_EVPN_INCOMPLETE);
+				UNSET_FLAG(bnc->flags, BGP_NEXTHOP_VALID);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 			}
 		}
 	} else {
 		memset(&bnc->resolved_prefix, 0, sizeof(bnc->resolved_prefix));
+<<<<<<< HEAD
 		bnc->flags &= ~BGP_NEXTHOP_EVPN_INCOMPLETE;
 		bnc->flags &= ~BGP_NEXTHOP_VALID;
 		bnc->flags &= ~BGP_NEXTHOP_LABELED_VALID;
+=======
+		UNSET_FLAG(bnc->flags, BGP_NEXTHOP_EVPN_INCOMPLETE);
+		UNSET_FLAG(bnc->flags, BGP_NEXTHOP_VALID);
+		UNSET_FLAG(bnc->flags, BGP_NEXTHOP_LABELED_VALID);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		bnc->nexthop_num = nhr->nexthop_num;
 
 		/* notify bgp fsm if nbr ip goes from valid->invalid */
@@ -754,7 +828,11 @@ static void bgp_nht_ifp_table_handle(struct bgp *bgp,
 {
 	struct bgp_nexthop_cache *bnc;
 	struct nexthop *nhop;
+<<<<<<< HEAD
 	uint8_t other_nh_count;
+=======
+	uint16_t other_nh_count;
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	bool nhop_ll_found = false;
 	bool nhop_found = false;
 
@@ -1059,9 +1137,22 @@ static int make_prefix(int afi, struct bgp_path_info *pi, struct prefix *p)
 	case AFI_IP6:
 		p->family = AF_INET6;
 		if (pi->attr->srv6_l3vpn) {
+<<<<<<< HEAD
 			IPV6_ADDR_COPY(&(p->u.prefix6),
 				       &(pi->attr->srv6_l3vpn->sid));
 			p->prefixlen = IPV6_MAX_BITLEN;
+=======
+			p->prefixlen = IPV6_MAX_BITLEN;
+			if (pi->attr->srv6_l3vpn->transposition_len != 0 &&
+			    BGP_PATH_INFO_NUM_LABELS(pi)) {
+				IPV6_ADDR_COPY(&p->u.prefix6, &pi->attr->srv6_l3vpn->sid);
+				transpose_sid(&p->u.prefix6,
+					      decode_label(&pi->extra->labels->label[0]),
+					      pi->attr->srv6_l3vpn->transposition_offset,
+					      pi->attr->srv6_l3vpn->transposition_len);
+			} else
+				IPV6_ADDR_COPY(&(p->u.prefix6), &(pi->attr->srv6_l3vpn->sid));
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		} else if (is_bgp_static) {
 			p->u.prefix6 = p_orig->u.prefix6;
 			p->prefixlen = p_orig->prefixlen;
@@ -1177,7 +1268,11 @@ static void sendmsg_zebra_rnh(struct bgp_nexthop_cache *bnc, int command)
 static void register_zebra_rnh(struct bgp_nexthop_cache *bnc)
 {
 	/* Check if we have already registered */
+<<<<<<< HEAD
 	if (bnc->flags & BGP_NEXTHOP_REGISTERED)
+=======
+	if (CHECK_FLAG(bnc->flags, BGP_NEXTHOP_REGISTERED))
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		return;
 
 	if (bnc->ifindex_ipv6_ll) {
@@ -1306,11 +1401,20 @@ void evaluate_paths(struct bgp_nexthop_cache *bnc)
 
 		bool bnc_is_valid_nexthop = false;
 		bool path_valid = false;
+<<<<<<< HEAD
+=======
+		struct bgp_route_evpn *bre =
+			bgp_attr_get_evpn_overlay(path->attr);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 		if (safi == SAFI_UNICAST &&
 		    path->sub_type == BGP_ROUTE_IMPORTED &&
 		    BGP_PATH_INFO_NUM_LABELS(path) &&
+<<<<<<< HEAD
 		    (path->attr->evpn_overlay.type != OVERLAY_INDEX_GATEWAY_IP)) {
+=======
+		    !(bre && bre->type == OVERLAY_INDEX_GATEWAY_IP)) {
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 			bnc_is_valid_nexthop =
 				bgp_isvalid_nexthop_for_l3vpn(bnc, path)
 					? true

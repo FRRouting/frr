@@ -52,7 +52,11 @@ int main(int argc, char *argv[])
 	if (argc != 1)
 		usage(EXIT_FAILURE);
 
+<<<<<<< HEAD
 	yang_init(false, false);
+=======
+	yang_init(false, false, false);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 	/* Load YANG module. */
 	module = yang_module_load(argv[0], NULL);

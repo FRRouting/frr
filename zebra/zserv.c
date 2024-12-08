@@ -162,9 +162,17 @@ void zserv_log_message(const char *errmsg, struct stream *msg,
 	if (errmsg)
 		zlog_debug("%s", errmsg);
 	if (hdr) {
+<<<<<<< HEAD
 		zlog_debug(" Length: %d", hdr->length);
 		zlog_debug("Command: %s", zserv_command_string(hdr->command));
 		zlog_debug("    VRF: %u", hdr->vrf_id);
+=======
+		struct vrf *vrf = vrf_lookup_by_id(hdr->vrf_id);
+
+		zlog_debug(" Length: %d", hdr->length);
+		zlog_debug("Command: %s", zserv_command_string(hdr->command));
+		zlog_debug("    VRF: %s(%u)", VRF_LOGNAME(vrf), hdr->vrf_id);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	}
 	stream_hexdump(msg);
 }
@@ -426,11 +434,21 @@ static void zserv_read(struct event *thread)
 		}
 
 		/* Debug packet information. */
+<<<<<<< HEAD
 		if (IS_ZEBRA_DEBUG_PACKET)
 			zlog_debug("zebra message[%s:%u:%u] comes from socket [%d]",
 				   zserv_command_string(hdr.command),
 				   hdr.vrf_id, hdr.length,
 				   sock);
+=======
+		if (IS_ZEBRA_DEBUG_PACKET) {
+			struct vrf *vrf = vrf_lookup_by_id(hdr.vrf_id);
+
+			zlog_debug("zebra message[%s:%s:%u] comes from socket [%d]",
+				   zserv_command_string(hdr.command),
+				   VRF_LOGNAME(vrf), hdr.length, sock);
+		}
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 		stream_set_getp(client->ibuf_work, 0);
 		struct stream *msg = stream_dup(client->ibuf_work);
@@ -1059,6 +1077,10 @@ static char *zserv_time_buf(time_t *time1, char *buf, int buflen)
 /* Display client info details */
 static void zebra_show_client_detail(struct vty *vty, struct zserv *client)
 {
+<<<<<<< HEAD
+=======
+	struct client_gr_info *info;
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	char cbuf[ZEBRA_TIME_BUF], rbuf[ZEBRA_TIME_BUF];
 	char wbuf[ZEBRA_TIME_BUF], nhbuf[ZEBRA_TIME_BUF], mbuf[ZEBRA_TIME_BUF];
 	time_t connect_time, last_read_time, last_write_time;
@@ -1153,6 +1175,48 @@ static void zebra_show_client_detail(struct vty *vty, struct zserv *client)
 	vty_out(vty, "ES-EVI      %-12u%-12u%-12u\n",
 		client->local_es_evi_add_cnt, 0, client->local_es_evi_del_cnt);
 	vty_out(vty, "Errors: %u\n", client->error_cnt);
+<<<<<<< HEAD
+=======
+
+	TAILQ_FOREACH (info, &client->gr_info_queue, gr_info) {
+		afi_t afi;
+		bool route_sync_done = true;
+		char timebuf[MONOTIME_STRLEN];
+
+		vty_out(vty, "VRF : %s\n", vrf_id_to_name(info->vrf_id));
+		vty_out(vty, "Capabilities : ");
+		switch (info->capabilities) {
+		case ZEBRA_CLIENT_GR_CAPABILITIES:
+			vty_out(vty, "Graceful Restart\n");
+			break;
+		case ZEBRA_CLIENT_ROUTE_UPDATE_COMPLETE:
+		case ZEBRA_CLIENT_ROUTE_UPDATE_PENDING:
+		case ZEBRA_CLIENT_GR_DISABLE:
+		case ZEBRA_CLIENT_RIB_STALE_TIME:
+			vty_out(vty, "None\n");
+			break;
+		}
+		for (afi = AFI_IP; afi < AFI_MAX; afi++) {
+			if (info->af_enabled[afi]) {
+				if (info->route_sync[afi])
+					vty_out(vty,
+						"AFI %d enabled, route sync DONE\n",
+						afi);
+				else {
+					vty_out(vty,
+						"AFI %d enabled, route sync NOT DONE\n",
+						afi);
+					route_sync_done = false;
+				}
+			}
+		}
+		if (route_sync_done) {
+			time_to_string(info->route_sync_done_time, timebuf);
+			vty_out(vty, "Route sync finished at %s", timebuf);
+		}
+	}
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	vty_out(vty, "Input Fifo: %zu:%zu Output Fifo: %zu:%zu\n",
 		client->ibuf_fifo->count, client->ibuf_fifo->max_count,
 		client->obuf_fifo->count, client->obuf_fifo->max_count);

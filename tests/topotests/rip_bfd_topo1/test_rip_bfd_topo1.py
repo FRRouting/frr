@@ -20,7 +20,10 @@ import pytest
 from functools import partial
 from lib import topotest
 from lib.topogen import Topogen, TopoRouter
+<<<<<<< HEAD
 from lib.topolog import logger
+=======
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 pytestmark = [
     pytest.mark.bfdd,

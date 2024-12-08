@@ -382,7 +382,11 @@ static inline void encode_mac_mobility_extcomm(int static_mac, uint32_t seq,
 }
 
 static inline void encode_na_flag_extcomm(struct ecommunity_val *eval,
+<<<<<<< HEAD
 					  uint8_t na_flag, bool proxy)
+=======
+					  bool na_flag, bool proxy)
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 {
 	memset(eval, 0, sizeof(*eval));
 	eval->val[0] = ECOMMUNITY_ENCODE_EVPN;

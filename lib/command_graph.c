@@ -267,6 +267,12 @@ static bool cmd_nodes_equal(struct graph_node *ga, struct graph_node *gb)
 	case NEG_ONLY_TKN:
 	case WORD_TKN:
 	case ASNUM_TKN:
+<<<<<<< HEAD
+=======
+#ifdef BUILDING_CLIPPY
+	case CMD_ELEMENT_TKN:
+#endif
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		return true;
 	}
 

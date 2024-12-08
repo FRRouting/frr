@@ -22,7 +22,11 @@ static bool atexit_registered;
 
 static void show_meminfo_at_exit(void)
 {
+<<<<<<< HEAD
 	log_memstats(stderr, "isis fuzztest");
+=======
+	log_memstats(NULL, true);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 }
 
 static int comp_line(const void *p1, const void *p2)
@@ -43,7 +47,11 @@ static char *sortlines(char *in)
 	}
 
 	if (line_count == 1) {
+<<<<<<< HEAD
 		strncpy(rv, in, rv_len);
+=======
+		memcpy(rv, in, rv_len);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		return rv;
 	}
 

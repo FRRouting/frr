@@ -23,7 +23,11 @@ struct pim_nexthop_cache {
 	uint32_t metric;
 	uint32_t distance;
 	/* Nexthop number and nexthop linked list. */
+<<<<<<< HEAD
 	uint8_t nexthop_num;
+=======
+	uint16_t nexthop_num;
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	struct nexthop *nexthop;
 	int64_t last_update;
 	uint16_t flags;
@@ -38,6 +42,10 @@ struct pim_nexthop_cache {
 	 * same BSR
 	 */
 	uint32_t bsr_count;
+<<<<<<< HEAD
+=======
+	uint32_t candrp_count;
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 };
 
 struct pnc_hash_walk_data {
@@ -71,4 +79,13 @@ void pim_nht_bsr_del(struct pim_instance *pim, pim_addr bsr_addr);
 bool pim_nht_bsr_rpf_check(struct pim_instance *pim, pim_addr bsr_addr,
 			   struct interface *src_ifp, pim_addr src_ip);
 void pim_upstream_nh_if_update(struct pim_instance *pim, struct interface *ifp);
+<<<<<<< HEAD
+=======
+
+/* wrappers for usage with Candidate RPs in BSMs */
+bool pim_nht_candrp_add(struct pim_instance *pim, pim_addr addr);
+void pim_nht_candrp_del(struct pim_instance *pim, pim_addr addr);
+void pim_crp_nht_update(struct pim_instance *pim, struct pim_nexthop_cache *pnc);
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 #endif

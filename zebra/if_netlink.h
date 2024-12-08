@@ -12,9 +12,12 @@
 extern "C" {
 #endif
 
+<<<<<<< HEAD
 extern int netlink_interface_addr(struct nlmsghdr *h, ns_id_t ns_id,
 				  int startup);
 
+=======
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 /*
  * Parse an incoming interface address change message, generate a dplane
  * context object for processing.

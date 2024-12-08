@@ -33,10 +33,18 @@ Installing Topotest Requirements
        net-tools \
        python3-pip \
        iputils-ping \
+<<<<<<< HEAD
        tshark \
        valgrind
    python3 -m pip install wheel
    python3 -m pip install 'pytest>=6.2.4' 'pytest-xdist>=2.3.0'
+=======
+       iptables \
+       tshark \
+       valgrind
+   python3 -m pip install wheel
+   python3 -m pip install 'pytest>=8.3.2' 'pytest-asyncio>=0.24.0' 'pytest-xdist>=3.6.1'
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
    python3 -m pip install 'scapy>=2.4.5'
    python3 -m pip install xmltodict
    python3 -m pip install git+https://github.com/Exa-Networks/exabgp@0659057837cd6c6351579e9f0fa47e9fb7de7311
@@ -411,6 +419,17 @@ for ``master`` branch:
 
 and create ``frr`` user and ``frrvty`` group as shown above.
 
+<<<<<<< HEAD
+=======
+Newer versions of Address Sanitizers require a sysctl to be changed
+to allow for the tests to be successfully run.  This is also true
+for Undefined behavior Sanitizers as well as Memory Sanitizer.
+
+.. code:: shell
+
+   sysctl vm.mmap_rnd_bits=28
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 Debugging Topotest Failures
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -722,8 +741,13 @@ packages.
 
 Code coverage can automatically be gathered for any topotest run. To support
 this FRR must first be compiled with the ``--enable-gcov`` configure option.
+<<<<<<< HEAD
 This will cause *.gnco files to be created during the build. When topotests are
 run the statistics are generated and stored in *.gcda files. Topotest
+=======
+This will cause \*.gnco files to be created during the build. When topotests are
+run the statistics are generated and stored in \*.gcda files. Topotest
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 infrastructure will gather these files, capture the information into a
 ``coverage.info`` ``lcov`` file and also report the coverage summary.
 
@@ -732,7 +756,11 @@ If you build your FRR in a directory outside of the FRR source directory you
 will also need to pass the ``--cov-frr-build-dir`` argument specifying the build
 directory location.
 
+<<<<<<< HEAD
 During the topotest run the *.gcda files are generated into a ``gcda``
+=======
+During the topotest run the \*.gcda files are generated into a ``gcda``
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 sub-directory of the top-level run directory (i.e., normally
 ``/tmp/topotests/gcda``). These files will then be copied at the end of the
 topotest run into the FRR build directory where the ``gcov`` and ``lcov``
@@ -747,9 +775,55 @@ The ``coverage.info`` file can then be used to generate coverage reports or file
 markup (e.g., using the ``genhtml`` utility) or enable markup within your
 IDE/editor if supported (e.g., the emacs ``cov-mode`` package)
 
+<<<<<<< HEAD
 NOTE: the *.gcda files in ``/tmp/topotests/gcda`` are cumulative so if you do
 not remove them they will aggregate data across multiple topotest runs.
 
+=======
+NOTE: the \*.gcda files in ``/tmp/topotests/gcda`` are cumulative so if you do
+not remove them they will aggregate data across multiple topotest runs.
+
+How to reproduce failed Tests
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Generally tests fail but recreating the test failure reliably is not necessarily
+easy, or it happens once every 10 runs locally.  Here are some generic strategies
+that are employed to allow for the test to be reproduced reliably
+
+.. code:: console
+
+   cd <test directory>
+   ln -s test_the_test_name.py test_a.py
+   ln -s test_the_test_name.py test_b.py
+
+This allows you to run multiple copies of the same test with one full test run.
+Additionally if you need to modify the test you don't need to recopy everything
+to make it work.  By adding multiple copies of the same occassionally failing test
+you raise the odds of it failing again.  Additionally you have easily accessible
+good and bad runs to compare.
+
+.. code:: console
+
+   sudo -E python3 -m pytest -n <some value> --dist=loadfile
+
+Choose a n value that is greater than the number of cpu's avalaible on the system.
+This changes the timing and may or may not make it more likely that the test fails.
+Be aware, though, that this changes memory requirements as well as may make other
+tests fail more often as well.  You should choose values that do not cause the system
+to go into swap usage.
+
+.. code:: console
+
+   stress -n <number of cpu's to put at 100%>
+
+By filling up cpu's with programs that do nothing you also change the timing again and
+may cause the problem to happen more often.
+
+There is no magic bullet here.  You as a developer might have to experiment with different
+values and different combinations of the above to cause the problem to happen more often.
+These are just the tools that we know of at this point in time.
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 .. _topotests_docker:
 
@@ -832,7 +906,11 @@ commands:
 .. code:: console
 
    make topotests-build
+<<<<<<< HEAD
    TOPOTEST_PULL=0 make topotests
+=======
+   make topotests
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 
 .. _topotests-guidelines:
@@ -1274,6 +1352,11 @@ You can run scripts inside the node, or use vtysh's <tab> or <?> feature.
   loc1                       1 2001:db8:1:1::/64        Up
   loc2                       2 2001:db8:2:2::/64        Up
 
+<<<<<<< HEAD
+=======
+.. _writing-tests:
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 Writing Tests
 """""""""""""
 
@@ -1292,6 +1375,18 @@ Example:
            router.load_config(TopoRouter.RD_ZEBRA, "zebra.conf")
            router.load_config(TopoRouter.RD_OSPF)
 
+<<<<<<< HEAD
+=======
+or using unified config (specifying which daemons to run is optional):
+
+.. code:: py
+
+      for _, (rname, router) in enumerate(router_list.items(), 1):
+         router.load_frr_config(os.path.join(CWD, "{}/frr.conf".format(rname)), [
+            (TopoRouter.RD_ZEBRA, "-s 90000000"),
+            (TopoRouter.RD_MGMTD, None),
+            (TopoRouter.RD_BGP, None)]
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 - The topology definition or build function
 
@@ -1335,6 +1430,7 @@ Example:
 Requirements:
 
 - Directory name for a new topotest must not contain hyphen (``-``) characters.
+<<<<<<< HEAD
   To separate words, use underscores (``_``). For example, ``tests/topotests/bgp_new_example``.
 - Test code should always be declared inside functions that begin with the
   ``test_`` prefix. Functions beginning with different prefixes will not be run
@@ -1350,6 +1446,24 @@ Requirements:
 - Always use IPv4 :rfc:`5737` (``192.0.2.0/24``, ``198.51.100.0/24``,
   ``203.0.113.0/24``) and IPv6 :rfc:`3849` (``2001:db8::/32``) ranges reserved
   for documentation.
+=======
+  To separate words, use underscores (``_``). For example, ``tests/topotests/bgp_new_example``;
+- Test code should always be declared inside functions that begin with the
+  ``test_`` prefix. Functions beginning with different prefixes will not be run
+  by pytest;
+- Configuration files and long output commands should go into separated files
+  inside folders named after the equipment;
+- Tests must be able to run without any interaction. To make sure your test
+  conforms with this, run it without the :option:`-s` parameter;
+- Use `black <https://github.com/psf/black>`_ code formatter before creating
+  a pull request. This ensures we have a unified code style;
+- Mark test modules with pytest markers depending on the daemons used during the
+  tests (see :ref:`topotests-markers`);
+- Always use IPv4 :rfc:`5737` (``192.0.2.0/24``, ``198.51.100.0/24``,
+  ``203.0.113.0/24``) and IPv6 :rfc:`3849` (``2001:db8::/32``) ranges reserved
+  for documentation;
+- Use unified config (``frr.conf``) for all new tests. See :ref:`writing-tests`.
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 Tips:
 

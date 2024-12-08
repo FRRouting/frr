@@ -377,4 +377,19 @@ void smux_events_update(void)
 	agentx_events_update();
 }
 
+<<<<<<< HEAD
+=======
+static void smux_events_delete_thread(void *arg)
+{
+	XFREE(MTYPE_TMP, arg);
+}
+
+void smux_terminate(void)
+{
+	if (events) {
+		events->del = smux_events_delete_thread;
+		list_delete(&events);
+	}
+}
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 #endif /* SNMP_AGENTX */

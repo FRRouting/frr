@@ -4403,6 +4403,10 @@ int bgp_rfapi_cfg_write(struct vty *vty, struct bgp *bgp)
 	{
 		const char *s = "";
 
+<<<<<<< HEAD
+=======
+		(void)s; /* clang-SA */
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		switch (hc->redist_mode) {
 		case VNC_REDIST_MODE_PLAIN:
 			s = "plain";

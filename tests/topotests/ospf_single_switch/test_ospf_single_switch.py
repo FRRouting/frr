@@ -14,12 +14,19 @@ from functools import partial
 import pytest
 
 from lib import topotest
+<<<<<<< HEAD
 from lib.topogen import Topogen, TopoRouter, get_topogen
+=======
+from lib.topogen import Topogen, get_topogen
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 from lib.topolog import logger
 
 from lib.common_config import verify_rib
 from lib.ospf import verify_ospf_rib
+<<<<<<< HEAD
 from _ast import Try
+=======
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 pytestmark = pytest.mark.ospfd
 
@@ -86,7 +93,11 @@ def setup_module(mod):
     tgen.start_router()
 
 
+<<<<<<< HEAD
 def teardown_module(mod):
+=======
+def teardown_module():
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
     "Tear-down the test environment"
     tgen = get_topogen()
     tgen.stop_topology()

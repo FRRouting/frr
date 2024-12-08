@@ -7,6 +7,10 @@
 #include <zebra.h>
 #include <sys/stat.h>
 
+<<<<<<< HEAD
+=======
+#include "debug.h"
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 #include "frrevent.h"
 #include "vty.h"
 #include "command.h"
@@ -426,7 +430,11 @@ static void vty_do_exit(int isexit)
 	yang_terminate();
 	event_master_free(master);
 
+<<<<<<< HEAD
 	log_memstats(stderr, "test-nb-oper-data");
+=======
+	log_memstats(NULL, true);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	if (!isexit)
 		exit(0);
 }
@@ -459,7 +467,12 @@ int main(int argc, char **argv)
 	cmd_hostname_set("test");
 	vty_init(master, false);
 	lib_cmd_init();
+<<<<<<< HEAD
 	nb_init(master, modules, array_size(modules), false);
+=======
+	debug_init();
+	nb_init(master, modules, array_size(modules), false, false);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 	install_element(ENABLE_NODE, &test_rpc_cmd);
 

@@ -134,4 +134,9 @@ DECLARE_MTYPE(BGP_NOTIFICATION);
 
 DECLARE_MTYPE(BGP_SOFT_VERSION);
 
+<<<<<<< HEAD
+=======
+DECLARE_MTYPE(BGP_EVPN_OVERLAY);
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 #endif /* _QUAGGA_BGP_MEMORY_H */

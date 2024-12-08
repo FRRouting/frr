@@ -30,8 +30,11 @@ import re
 import sys
 import pytest
 import json
+<<<<<<< HEAD
 from time import sleep
 from functools import partial
+=======
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 # Save the Current Working Directory to find configuration files.
 CWD = os.path.dirname(os.path.realpath(__file__))
@@ -39,7 +42,10 @@ sys.path.append(os.path.join(CWD, "../"))
 
 # pylint: disable=C0413
 # Import topogen and topotest helpers
+<<<<<<< HEAD
 from lib import topotest
+=======
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 from lib.common_config import (
     retry,
     stop_router,

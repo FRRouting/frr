@@ -80,6 +80,10 @@ if PIMD
 dist_yangmodels_DATA += yang/frr-gmp.yang
 dist_yangmodels_DATA += yang/frr-pim.yang
 dist_yangmodels_DATA += yang/frr-pim-rp.yang
+<<<<<<< HEAD
+=======
+dist_yangmodels_DATA += yang/frr-pim-candidate.yang
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 endif
 
 if BGPD

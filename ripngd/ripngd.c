@@ -2070,7 +2070,14 @@ DEFUN (show_ipv6_ripng,
 
 	/* Header of display. */
 	vty_out(vty,
+<<<<<<< HEAD
 		"Codes: R - RIPng, C - connected, S - Static, O - OSPF, B - BGP\n"
+=======
+		"Codes: K - kernel route, C - connected, L - local, S - static,\n"
+		"       R - RIPng, O - OSPF, I - IS-IS, B - BGP, E - EIGRP, N - NHRP,\n"
+		"       T - Table, v - VNC, V - VNC-Direct, A - Babel, F - PBR,\n"
+		"       f - OpenFabric, t - Table-Direct\n"
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		"Sub-codes:\n"
 		"      (n) - normal, (s) - static, (d) - default, (r) - redistribute,\n"
 		"      (i) - interface, (a/S) - aggregated/Suppressed\n\n"

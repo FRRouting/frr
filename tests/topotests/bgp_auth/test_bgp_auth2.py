@@ -32,6 +32,7 @@ for bgp instances
 """
 # pylint: disable=C0413
 
+<<<<<<< HEAD
 import json
 import os
 import platform
@@ -40,6 +41,14 @@ from time import sleep
 
 import pytest
 from lib import common_config, topotest
+=======
+import os
+import platform
+import sys
+
+import pytest
+from lib import topotest
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 from lib.common_config import (
     save_initial_config_on_routers,
     reset_with_new_configs,
@@ -156,7 +165,11 @@ def setup_module(mod):
     router_list = tgen.routers()
 
     # For all registered routers, load the zebra configuration file
+<<<<<<< HEAD
     for rname, router in router_list.items():
+=======
+    for _, router in router_list.items():
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
         router.load_config(TopoRouter.RD_ZEBRA, "zebra.conf")
         router.load_config(TopoRouter.RD_OSPF, "")
         router.load_config(TopoRouter.RD_BGP, "")

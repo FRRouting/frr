@@ -57,5 +57,10 @@ void pim_msdp_pkt_sa_tx_one(struct pim_msdp_sa *sa);
 void pim_msdp_pkt_sa_tx_to_one_peer(struct pim_msdp_peer *mp);
 void pim_msdp_pkt_sa_tx_one_to_one_peer(struct pim_msdp_peer *mp,
 					struct in_addr rp, pim_sgaddr sg);
+<<<<<<< HEAD
+=======
+bool msdp_peer_sa_filter(const struct pim_msdp_peer *mp,
+			 const struct pim_msdp_sa *sa);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 #endif

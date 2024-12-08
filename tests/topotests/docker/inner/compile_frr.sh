@@ -58,9 +58,12 @@ if [ ! -e Makefile ]; then
 	fi
 
 	bash configure >&3 \
+<<<<<<< HEAD
 		--enable-static-bin \
 		--enable-static \
 		--enable-shared \
+=======
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		--enable-dev-build \
 		--with-moduledir=/usr/lib/frr/modules \
 		--prefix=/usr \
@@ -69,6 +72,11 @@ if [ ! -e Makefile ]; then
 		--sbindir=/usr/lib/frr \
 		--enable-multipath=0 \
 		--enable-fpm \
+<<<<<<< HEAD
+=======
+		--enable-grpc \
+		--enable-scripting \
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		--enable-sharpd \
 		$EXTRA_CONFIGURE \
 		--with-pkg-extra-version=-topotests \

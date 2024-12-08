@@ -20,6 +20,14 @@ cd "${FRR_BUILD_DIR}/tests/topotests"
 log_info "Setting permissions on /tmp so we can generate logs"
 chmod 1777 /tmp
 
+<<<<<<< HEAD
+=======
+# This is a MUST, otherwise we have:
+# AddressSanitizer:DEADLYSIGNAL
+# Segmentation fault
+sysctl -w vm.mmap_rnd_bits=28
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 if [ $# -eq 0 ] || ([[ "$1" != /* ]] && [[ "$1" != ./* ]]); then
 	export TOPOTESTS_CHECK_MEMLEAK=/tmp/memleak_
 	export TOPOTESTS_CHECK_STDERR=Yes

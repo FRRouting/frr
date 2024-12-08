@@ -13,9 +13,13 @@ test_zebra_netlink.py: Test some basic interactions with kernel using Netlink
 """
 # pylint: disable=C0413
 import ipaddress
+<<<<<<< HEAD
 import json
 import sys
 from functools import partial
+=======
+import sys
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 import pytest
 from lib import topotest
@@ -42,7 +46,11 @@ def tgen(request):
 
     # Initialize all routers.
     router_list = tgen.routers()
+<<<<<<< HEAD
     for rname, router in router_list.items():
+=======
+    for _, router in router_list.items():
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
         router.load_config(TopoRouter.RD_ZEBRA, "zebra.conf")
         router.load_config(TopoRouter.RD_SHARP)
 

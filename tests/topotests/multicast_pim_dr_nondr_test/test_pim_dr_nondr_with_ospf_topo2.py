@@ -20,10 +20,14 @@ Following tests are covered:
 
 import os
 import sys
+<<<<<<< HEAD
 import json
 import time
 import datetime
 from time import sleep
+=======
+import time
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 import pytest
 
 # Save the Current Working Directory to find configuration files.
@@ -43,6 +47,7 @@ from lib.common_config import (
     write_test_footer,
     step,
     reset_config_on_routers,
+<<<<<<< HEAD
     shutdown_bringup_interface,
     apply_raw_config,
     add_interfaces_to_vlan,
@@ -51,6 +56,11 @@ from lib.common_config import (
     create_static_routes,
     check_router_status,
     topo_daemons,
+=======
+    apply_raw_config,
+    add_interfaces_to_vlan,
+    check_router_status,
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
     required_linux_kernel_version,
 )
 from lib.pim import (
@@ -59,9 +69,12 @@ from lib.pim import (
     verify_mroutes,
     clear_mroute,
     clear_pim_interface_traffic,
+<<<<<<< HEAD
     verify_pim_config,
     verify_upstream_iif,
     verify_multicast_traffic,
+=======
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
     verify_multicast_flag_state,
     verify_igmp_groups,
     McastTesterHelper,

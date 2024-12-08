@@ -30,6 +30,10 @@
 #include "ospf6_lsa.h"
 #include "ospf6_spf.h"
 #include "ospf6_zebra.h"
+<<<<<<< HEAD
+=======
+#include "ospf6_tlv.h"
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 #include "ospf6_gr.h"
 #include "lib/json.h"
 

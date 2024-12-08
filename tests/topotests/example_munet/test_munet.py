@@ -5,6 +5,28 @@
 #
 # Copyright (c) 2023, LabN Consulting, L.L.C.
 #
+<<<<<<< HEAD
 async def test_native_test(unet):
     o = unet.hosts["r1"].cmd_nostatus("ip addr")
     print(o)
+=======
+from munet.testing.util import retry
+
+
+@retry(retry_timeout=10)
+def wait_for_route(r, p):
+    o = r.cmd_raises(f"ip route show {p}")
+    assert p in o
+
+
+async def test_native_test(unet):
+    r1 = unet.hosts["r1"]
+    o = r1.cmd_nostatus("ip addr")
+    print(o)
+
+    wait_for_route(r1, "10.0.2.0/24")
+
+    r1.cmd_raises("ping -c1 10.0.1.2")
+    r1.cmd_raises("ping -c1 10.0.2.2")
+    r1.cmd_raises("ping -c1 10.0.2.3")
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)

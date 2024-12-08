@@ -1,7 +1,11 @@
 # syntax=docker/dockerfile:1
 
 # Create a basic stage set up to build APKs
+<<<<<<< HEAD
 FROM alpine:3.19 as alpine-builder
+=======
+FROM alpine:3.20 as alpine-builder
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 RUN apk add \
 		--update-cache \
 		abuild \
@@ -24,7 +28,11 @@ RUN cd /src/libyang \
 	&& abuild -r -P /pkgs/apk
 
 # This stage builds a dist tarball from the source
+<<<<<<< HEAD
 FROM alpine:3.19 as source-builder
+=======
+FROM alpine:3.20 as source-builder
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 RUN mkdir -p /src/alpine /pkgs/apk
 COPY alpine/APKBUILD.in /src/alpine
 COPY --from=alpine-apk-builder-libyang /pkgs/apk/src /pkgs/apk
@@ -57,7 +65,11 @@ RUN cd /dist \
 	&& abuild -r -P /pkgs/apk
 
 # This stage installs frr from the apk
+<<<<<<< HEAD
 FROM alpine:3.19
+=======
+FROM alpine:3.20
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 RUN mkdir -p /pkgs/apk
 COPY --from=alpine-apk-builder /pkgs/apk/ /pkgs/apk/
 RUN apk add \

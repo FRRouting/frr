@@ -33,6 +33,15 @@ else
   CONF_PIM6=--disable-pim6d
 endif
 
+<<<<<<< HEAD
+=======
+ifeq ($(filter pkg.frr.grpc,$(DEB_BUILD_PROFILES)),)
+  CONF_GRPC=--disable-grpc
+else
+  CONF_GRPC=--enable-grpc
+endif
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 export PYTHON=python3
 
 %:
@@ -51,6 +60,10 @@ override_dh_auto_configure:
 		$(CONF_RPKI) \
 		$(CONF_LUA) \
 		$(CONF_PIM6) \
+<<<<<<< HEAD
+=======
+		$(CONF_GRPC) \
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		--with-libpam \
 		--enable-doc \
 		--enable-doc-html \
@@ -61,6 +74,10 @@ override_dh_auto_configure:
 		--enable-ospfapi \
 		--enable-bgp-vnc \
 		--enable-multipath=256 \
+<<<<<<< HEAD
+=======
+		--enable-pcre2posix \
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		\
 		--enable-user=frr \
 		--enable-group=frr \

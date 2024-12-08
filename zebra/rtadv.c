@@ -1960,7 +1960,11 @@ uint32_t rtadv_get_interfaces_configured_from_bgp(void)
 void rtadv_init(void)
 {
 	if (CMSG_SPACE(sizeof(struct in6_pktinfo)) > RTADV_ADATA_SIZE) {
+<<<<<<< HEAD
 		zlog_debug("%s: RTADV_ADATA_SIZE choosen will not work on this platform, please use a larger size",
+=======
+		zlog_debug("%s: RTADV_ADATA_SIZE chosen will not work on this platform, please use a larger size",
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 			   __func__);
 
 		exit(-1);

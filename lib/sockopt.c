@@ -19,7 +19,11 @@
 #define HAVE_BSD_STRUCT_IP_MREQ_HACK
 #endif
 
+<<<<<<< HEAD
 void setsockopt_so_recvbuf(int sock, int size)
+=======
+int setsockopt_so_recvbuf(int sock, int size)
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 {
 	int orig_req = size;
 
@@ -34,9 +38,17 @@ void setsockopt_so_recvbuf(int sock, int size)
 		flog_err(EC_LIB_SOCKET,
 			 "%s: fd %d: SO_RCVBUF set to %d (requested %d)",
 			 __func__, sock, size, orig_req);
+<<<<<<< HEAD
 }
 
 void setsockopt_so_sendbuf(const int sock, int size)
+=======
+
+	return size;
+}
+
+int setsockopt_so_sendbuf(const int sock, int size)
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 {
 	int orig_req = size;
 
@@ -51,6 +63,11 @@ void setsockopt_so_sendbuf(const int sock, int size)
 		flog_err(EC_LIB_SOCKET,
 			 "%s: fd %d: SO_SNDBUF set to %d (requested %d)",
 			 __func__, sock, size, orig_req);
+<<<<<<< HEAD
+=======
+
+	return size;
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 }
 
 int getsockopt_so_sendbuf(const int sock)

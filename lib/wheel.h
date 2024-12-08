@@ -12,7 +12,10 @@ extern "C" {
 #endif
 
 struct timer_wheel {
+<<<<<<< HEAD
 	char *name;
+=======
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	struct event_loop *master;
 	int slots;
 	long long curr_slot;

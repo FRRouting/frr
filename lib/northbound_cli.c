@@ -22,6 +22,7 @@
 #include "northbound_db.h"
 #include "lib/northbound_cli_clippy.c"
 
+<<<<<<< HEAD
 struct debug nb_dbg_cbs_config = {0, "Northbound callbacks: configuration"};
 struct debug nb_dbg_cbs_state = {0, "Northbound callbacks: state"};
 struct debug nb_dbg_cbs_rpc = {0, "Northbound callbacks: RPCs"};
@@ -29,6 +30,21 @@ struct debug nb_dbg_cbs_notify = {0, "Northbound callbacks: notifications"};
 struct debug nb_dbg_notif = {0, "Northbound notifications"};
 struct debug nb_dbg_events = {0, "Northbound events"};
 struct debug nb_dbg_libyang = {0, "libyang debugging"};
+=======
+struct debug nb_dbg_cbs_config = { 0, "debug northbound callbacks configuration",
+				   "Northbound callbacks: configuration" };
+struct debug nb_dbg_cbs_state = { 0, "debug northbound callbacks state",
+				  "Northbound callbacks: state" };
+struct debug nb_dbg_cbs_rpc = { 0, "debug northbound callbacks rpc",
+				"Northbound callbacks: RPCs" };
+struct debug nb_dbg_cbs_notify = { 0, "debug northbound callbacks notify",
+				   "Northbound callbacks: notifications" };
+struct debug nb_dbg_notif = { 0, "debug northbound notifications",
+			      "Northbound notifications" };
+struct debug nb_dbg_events = { 0, "debug northbound events",
+			       "Northbound events" };
+struct debug nb_dbg_libyang = { 0, "debug northbound libyang", "libyang" };
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 struct nb_config *vty_shared_candidate_config;
 static struct event_loop *master;
@@ -1380,7 +1396,11 @@ static int nb_cli_show_transactions(struct vty *vty)
 
 		table = ttable_dump(tt, "\n");
 		vty_out(vty, "%s\n", table);
+<<<<<<< HEAD
 		XFREE(MTYPE_TMP, table);
+=======
+		XFREE(MTYPE_TMP_TTABLE, table);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	} else
 		vty_out(vty, "No configuration transactions to display.\n\n");
 
@@ -1661,7 +1681,11 @@ DEFPY (show_yang_module,
 
 		table = ttable_dump(tt, "\n");
 		vty_out(vty, "%s\n", table);
+<<<<<<< HEAD
 		XFREE(MTYPE_TMP, table);
+=======
+		XFREE(MTYPE_TMP_TTABLE, table);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	} else
 		vty_out(vty, "No YANG modules to display.\n\n");
 
@@ -1771,7 +1795,11 @@ DEFPY (show_yang_module_translator,
 
 		table = ttable_dump(tt, "\n");
 		vty_out(vty, "%s\n", table);
+<<<<<<< HEAD
 		XFREE(MTYPE_TMP, table);
+=======
+		XFREE(MTYPE_TMP_TTABLE, table);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	} else
 		vty_out(vty, "No YANG module translators to display.\n\n");
 
@@ -1842,6 +1870,7 @@ DEFPY (rollback_config,
 }
 
 /* Debug CLI commands. */
+<<<<<<< HEAD
 static struct debug *nb_debugs[] = {
 	&nb_dbg_cbs_config, &nb_dbg_cbs_state, &nb_dbg_cbs_rpc,
 	&nb_dbg_cbs_notify, &nb_dbg_notif,     &nb_dbg_events,
@@ -1873,6 +1902,8 @@ static void nb_debug_set_all(uint32_t flags, bool set)
 	hook_call(nb_client_debug_set_all, flags, set);
 }
 
+=======
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 DEFPY (debug_nb,
        debug_nb_cmd,
        "[no] debug northbound\
@@ -1895,8 +1926,18 @@ DEFPY (debug_nb,
        "libyang debugging\n")
 {
 	uint32_t mode = DEBUG_NODE2MODE(vty->node);
+<<<<<<< HEAD
 
 	if (cbs) {
+=======
+	bool all = false;
+
+	/* no specific debug --> act on all of them */
+	if (strmatch(argv[argc - 1]->text, "northbound"))
+		all = true;
+
+	if (cbs || all) {
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		bool none = (!cbs_cfg && !cbs_state && !cbs_rpc && !cbs_notify);
 
 		if (none || cbs_cfg)
@@ -1908,15 +1949,24 @@ DEFPY (debug_nb,
 		if (none || cbs_notify)
 			DEBUG_MODE_SET(&nb_dbg_cbs_notify, mode, !no);
 	}
+<<<<<<< HEAD
 	if (notifications)
 		DEBUG_MODE_SET(&nb_dbg_notif, mode, !no);
 	if (events)
 		DEBUG_MODE_SET(&nb_dbg_events, mode, !no);
 	if (libyang) {
+=======
+	if (notifications || all)
+		DEBUG_MODE_SET(&nb_dbg_notif, mode, !no);
+	if (events || all)
+		DEBUG_MODE_SET(&nb_dbg_events, mode, !no);
+	if (libyang || all) {
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		DEBUG_MODE_SET(&nb_dbg_libyang, mode, !no);
 		yang_debugging_set(!no);
 	}
 
+<<<<<<< HEAD
 	/* no specific debug --> act on all of them */
 	if (strmatch(argv[argc - 1]->text, "northbound")) {
 		nb_debug_set_all(mode, !no);
@@ -1947,6 +1997,11 @@ static struct cmd_node nb_debug_node = {
 	.config_write = nb_debug_config_write,
 };
 
+=======
+	return CMD_SUCCESS;
+}
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 void nb_cli_install_default(int node)
 {
 	_install_element(node, &show_config_candidate_section_cmd);
@@ -2007,9 +2062,20 @@ void nb_cli_init(struct event_loop *tm)
 	/* Initialize the shared candidate configuration. */
 	vty_shared_candidate_config = nb_config_new(NULL);
 
+<<<<<<< HEAD
 	debug_init(&nb_dbg_cbs);
 
 	install_node(&nb_debug_node);
+=======
+	debug_install(&nb_dbg_cbs_config);
+	debug_install(&nb_dbg_cbs_state);
+	debug_install(&nb_dbg_cbs_rpc);
+	debug_install(&nb_dbg_cbs_notify);
+	debug_install(&nb_dbg_notif);
+	debug_install(&nb_dbg_events);
+	debug_install(&nb_dbg_libyang);
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	install_element(ENABLE_NODE, &debug_nb_cmd);
 	install_element(CONFIG_NODE, &debug_nb_cmd);
 

@@ -176,6 +176,46 @@ static void connected_update(struct interface *ifp, struct connected *ifc)
 		connected_announce(ifp, ifc);
 }
 
+<<<<<<< HEAD
+=======
+/*
+ * This function goes through and handles the deletion of a kernel route that happened
+ * to be the exact same as the connected route, so that the connected route wins.
+ * This can happen during processing if we happen to receive events in a slightly
+ * unexpected order.  This is similiar to code in the other direction where if we
+ * have a kernel route don't install it if it perfectly matches a connected route.
+ */
+static void connected_remove_kernel_for_connected(afi_t afi, safi_t safi, struct zebra_vrf *zvrf,
+						  struct prefix *p, struct nexthop *nh)
+{
+	struct route_node *rn;
+	struct route_entry *re;
+	rib_dest_t *dest;
+	struct route_table *table = zebra_vrf_table(afi, SAFI_UNICAST, zvrf->vrf->vrf_id);
+
+	if (!table)
+		return;
+
+	rn = route_node_match(table, p);
+	if (!rn)
+		return;
+
+	if (!prefix_same(&rn->p, p))
+		return;
+
+	dest = rib_dest_from_rnode(rn);
+	if (!dest || !dest->selected_fib)
+		return;
+
+	re = dest->selected_fib;
+	if (re->type != ZEBRA_ROUTE_KERNEL)
+		return;
+
+	rib_delete(afi, SAFI_UNICAST, zvrf->vrf->vrf_id, ZEBRA_ROUTE_KERNEL, 0, 0, p, NULL, nh, 0,
+		   zvrf->table_id, 0, 0, false);
+}
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 /* Called from if_up(). */
 void connected_up(struct interface *ifp, struct connected *ifc)
 {
@@ -185,6 +225,10 @@ void connected_up(struct interface *ifp, struct connected *ifc)
 		.type = NEXTHOP_TYPE_IFINDEX,
 		.ifindex = ifp->ifindex,
 		.vrf_id = ifp->vrf->vrf_id,
+<<<<<<< HEAD
+=======
+		.weight = 1,
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	};
 	struct zebra_vrf *zvrf;
 	uint32_t metric;
@@ -283,10 +327,19 @@ void connected_up(struct interface *ifp, struct connected *ifc)
 	}
 
 	if (!CHECK_FLAG(ifc->flags, ZEBRA_IFA_NOPREFIXROUTE)) {
+<<<<<<< HEAD
+=======
+		connected_remove_kernel_for_connected(afi, SAFI_UNICAST, zvrf, &p, &nh);
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		rib_add(afi, SAFI_UNICAST, zvrf->vrf->vrf_id,
 			ZEBRA_ROUTE_CONNECT, 0, flags, &p, NULL, &nh, 0,
 			zvrf->table_id, metric, 0, 0, 0, false);
 
+<<<<<<< HEAD
+=======
+		connected_remove_kernel_for_connected(afi, SAFI_MULTICAST, zvrf, &p, &nh);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		rib_add(afi, SAFI_MULTICAST, zvrf->vrf->vrf_id,
 			ZEBRA_ROUTE_CONNECT, 0, flags, &p, NULL, &nh, 0,
 			zvrf->table_id, metric, 0, 0, 0, false);

@@ -55,7 +55,10 @@ from lib.common_config import (
     apply_raw_config,
     create_static_routes,
     required_linux_kernel_version,
+<<<<<<< HEAD
     topo_daemons,
+=======
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 )
 from lib.pim import (
     create_pim_config,
@@ -191,7 +194,11 @@ def reset_stats(stats):
     """
 
     for router, state_data in stats.items():
+<<<<<<< HEAD
         for state, value in state_data.items():
+=======
+        for state, _ in state_data.items():
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
             stats[router][state] = 0
             logger.info(
                 "[DUT: %s]: stats %s value has reset" " reset, Current value: %s",
@@ -214,7 +221,11 @@ def verify_state_incremented(state_before, state_after):
     """
 
     for router, state_data in state_before.items():
+<<<<<<< HEAD
         for state, value in state_data.items():
+=======
+        for state, _ in state_data.items():
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
             if state_before[router][state] >= state_after[router][state]:
                 errormsg = (
                     "[DUT: %s]: state %s value has not"

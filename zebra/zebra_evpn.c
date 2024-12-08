@@ -610,6 +610,7 @@ void zebra_evpn_svi_macip_del_for_evpn_hash(struct hash_bucket *bucket,
 	return;
 }
 
+<<<<<<< HEAD
 static int zebra_evpn_map_vlan_ns(struct ns *ns,
 				  void *_in_param,
 				  void **_p_zevpn)
@@ -629,11 +630,25 @@ static int zebra_evpn_map_vlan_ns(struct ns *ns,
 	uint8_t bridge_vlan_aware;
 
 	assert(p_zevpn && in_param);
+=======
+/* Callback for per-NS ifp walk */
+static int zebra_evpn_map_vlan_ns(struct interface *tmp_if, void *_in_param)
+{
+	bool found = false;
+	struct interface *br_if;
+	struct zebra_evpn *zevpn;
+	struct zebra_if *zif;
+	struct zebra_from_svi_param *in_param = _in_param;
+	vni_t vni_id = 0;
+
+	assert(in_param);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 	br_if = in_param->br_if;
 	assert(br_if);
 	zif = in_param->zif;
 	assert(zif);
+<<<<<<< HEAD
 	vid = in_param->vid;
 	bridge_vlan_aware = in_param->bridge_vlan_aware;
 
@@ -668,11 +683,37 @@ static int zebra_evpn_map_vlan_ns(struct ns *ns,
 		}
 	}
 
+=======
+
+	/*
+	 * See if this interface (or interface plus VLAN Id) maps to a
+	 * VxLAN
+	 */
+	/* TODO: Optimize with a hash. */
+	zif = tmp_if->info;
+	if (!zif || zif->zif_type != ZEBRA_IF_VXLAN)
+		goto done;
+	if (!if_is_operative(tmp_if))
+		goto done;
+
+	if (zif->brslave_info.br_if != br_if)
+		goto done;
+
+	vni_id = zebra_vxlan_if_access_vlan_vni_find(zif, br_if);
+	if (vni_id)
+		found = true;
+
+done:
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	if (!found)
 		return NS_WALK_CONTINUE;
 
 	zevpn = zebra_evpn_lookup(vni_id);
+<<<<<<< HEAD
 	*p_zevpn = zevpn;
+=======
+	in_param->zevpn = zevpn;
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	return NS_WALK_STOP;
 }
 
@@ -684,13 +725,19 @@ struct zebra_evpn *zebra_evpn_map_vlan(struct interface *ifp,
 				       struct interface *br_if, vlanid_t vid)
 {
 	struct zebra_if *zif;
+<<<<<<< HEAD
 	struct zebra_evpn **p_zevpn;
 	struct zebra_evpn *zevpn = NULL;
 	struct zebra_from_svi_param in_param;
+=======
+	struct zebra_from_svi_param in_param = {};
+	vni_t vni_id = 0;
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 	/* Determine if bridge is VLAN-aware or not */
 	zif = br_if->info;
 	assert(zif);
+<<<<<<< HEAD
 	in_param.bridge_vlan_aware = IS_ZEBRA_IF_BRIDGE_VLAN_AWARE(zif);
 	in_param.vid = vid;
 	in_param.br_if = br_if;
@@ -720,6 +767,35 @@ static int zebra_evpn_from_svi_ns(struct ns *ns,
 	vni_t vni_id = 0;
 	vlanid_t vid = 0;
 	uint8_t bridge_vlan_aware;
+=======
+
+	/* Special case for vlan */
+	if (IS_ZEBRA_IF_BRIDGE_VLAN_AWARE(zif)) {
+		vni_id = zebra_l2_bridge_if_vni_find(zif, vid);
+		if (vni_id)
+			return zebra_evpn_lookup(vni_id);
+	}
+
+	in_param.vid = vid;
+	in_param.br_if = br_if;
+	in_param.zif = zif;
+
+	zebra_ns_ifp_walk_all(zebra_evpn_map_vlan_ns, &in_param);
+
+	return in_param.zevpn;
+}
+
+/* Callback for from_svi ifp walker */
+static int zebra_evpn_from_svi_ns(struct interface *tmp_if, void *_in_param)
+{
+	struct interface *br_if;
+	struct zebra_evpn *zevpn;
+	struct zebra_if *zif;
+	struct zebra_if *br_zif;
+	struct zebra_from_svi_param *in_param = _in_param;
+	bool found = false;
+	vni_t vni_id = 0;
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 	if (!in_param)
 		return NS_WALK_STOP;
@@ -727,6 +803,7 @@ static int zebra_evpn_from_svi_ns(struct ns *ns,
 	br_if = in_param->br_if;
 	zif = in_param->zif;
 	assert(zif);
+<<<<<<< HEAD
 	bridge_vlan_aware = in_param->bridge_vlan_aware;
 	vid = in_param->vid;
 	br_zif = br_if->info;
@@ -762,12 +839,37 @@ static int zebra_evpn_from_svi_ns(struct ns *ns,
 		}
 	}
 
+=======
+	br_zif = br_if->info;
+	assert(br_zif);
+
+	if (!tmp_if)
+		goto done;
+	zif = tmp_if->info;
+	if (!zif || zif->zif_type != ZEBRA_IF_VXLAN)
+		goto done;
+	if (!if_is_operative(tmp_if))
+		goto done;
+
+	if (zif->brslave_info.br_if != br_if)
+		goto done;
+
+	vni_id = zebra_vxlan_if_access_vlan_vni_find(zif, br_if);
+	if (vni_id)
+		found = true;
+
+done:
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	if (!found)
 		return NS_WALK_CONTINUE;
 
 	zevpn = zebra_evpn_lookup(vni_id);
+<<<<<<< HEAD
 	if (p_zevpn)
 		*p_zevpn = zevpn;
+=======
+	in_param->zevpn = zevpn;
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	return NS_WALK_STOP;
 }
 
@@ -778,17 +880,34 @@ static int zebra_evpn_from_svi_ns(struct ns *ns,
 struct zebra_evpn *zebra_evpn_from_svi(struct interface *ifp,
 				       struct interface *br_if)
 {
+<<<<<<< HEAD
 	struct zebra_evpn *zevpn = NULL;
 	struct zebra_evpn **p_zevpn;
 	struct zebra_if *zif;
 	struct zebra_from_svi_param in_param;
+=======
+	struct zebra_if *zif;
+	struct zebra_l2_bridge_vlan *bvlan;
+	struct zebra_from_svi_param in_param = {};
+	vni_t vni_id = 0;
+	struct zebra_evpn *zevpn;
+	struct zebra_l2info_vlan *vl;
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 	if (!br_if)
 		return NULL;
 
 	/* Make sure the linked interface is a bridge. */
+<<<<<<< HEAD
 	if (!IS_ZEBRA_IF_BRIDGE(br_if))
 		return NULL;
+=======
+	if (!IS_ZEBRA_IF_BRIDGE(br_if)) {
+		if (IS_ZEBRA_DEBUG_VXLAN)
+			zlog_debug("%s: br_if NOT a bridge", __func__);
+		return NULL;
+	}
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 	/* Determine if bridge is VLAN-aware or not */
 	zif = br_if->info;
@@ -796,16 +915,27 @@ struct zebra_evpn *zebra_evpn_from_svi(struct interface *ifp,
 	in_param.bridge_vlan_aware = IS_ZEBRA_IF_BRIDGE_VLAN_AWARE(zif);
 	in_param.vid = 0;
 
+<<<<<<< HEAD
 	if (in_param.bridge_vlan_aware) {
 		struct zebra_l2info_vlan *vl;
 
 		if (!IS_ZEBRA_IF_VLAN(ifp))
 			return NULL;
 
+=======
+	/* Don't need to search in this case */
+	if (in_param.bridge_vlan_aware) {
+		if (!IS_ZEBRA_IF_VLAN(ifp))
+			return NULL;
+
+		zevpn = NULL;
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		zif = ifp->info;
 		assert(zif);
 		vl = &zif->l2info.vl;
 		in_param.vid = vl->vid;
+<<<<<<< HEAD
 	}
 
 	in_param.br_if = br_if;
@@ -846,6 +976,51 @@ static int zvni_map_to_macvlan_ns(struct ns *ns, void *_in_param, void **_p_ifp)
 		}
 	}
 
+=======
+
+		bvlan = zebra_l2_bridge_if_vlan_find(br_if->info, vl->vid);
+		if (bvlan && bvlan->access_bd && bvlan->access_bd->vni) {
+			vni_id = bvlan->access_bd->vni;
+			zevpn = zebra_evpn_lookup(vni_id);
+		}
+
+		return zevpn;
+	}
+
+	/* See if this interface (or interface plus VLAN Id) maps to a VxLAN:
+	 * search all NSes
+	 */
+	in_param.br_if = br_if;
+	in_param.zif = zif;
+	zebra_ns_ifp_walk_all(zebra_evpn_from_svi_ns, &in_param);
+
+	return in_param.zevpn;
+}
+
+static int zvni_map_to_macvlan_ns(struct interface *tmp_if, void *_in_param)
+{
+	struct zebra_from_svi_param *in_param = _in_param;
+	struct zebra_if *zif;
+
+	assert(in_param);
+
+	/* Identify corresponding VLAN interface. */
+
+	/* Check oper status of the SVI. */
+	if (!tmp_if || !if_is_operative(tmp_if))
+		goto done;
+
+	zif = tmp_if->info;
+	if (!zif || zif->zif_type != ZEBRA_IF_MACVLAN)
+		goto done;
+
+	if (zif->link == in_param->svi_if) {
+		in_param->ret_ifp = tmp_if;
+		return NS_WALK_STOP;
+	}
+
+done:
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	return NS_WALK_CONTINUE;
 }
 
@@ -854,17 +1029,27 @@ static int zvni_map_to_macvlan_ns(struct ns *ns, void *_in_param, void **_p_ifp)
 struct interface *zebra_evpn_map_to_macvlan(struct interface *br_if,
 					    struct interface *svi_if)
 {
+<<<<<<< HEAD
 	struct interface *tmp_if = NULL;
 	struct zebra_if *zif;
 	struct interface **p_ifp;
 	struct zebra_from_svi_param in_param;
+=======
+	struct zebra_if *zif;
+	struct zebra_from_svi_param in_param = {};
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 	/* Defensive check, caller expected to invoke only with valid bridge. */
 	if (!br_if)
 		return NULL;
 
 	if (!svi_if) {
+<<<<<<< HEAD
 		zlog_debug("svi_if is not passed.");
+=======
+		if (IS_ZEBRA_DEBUG_VXLAN)
+			zlog_debug("%s: svi_if is not passed.", __func__);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		return NULL;
 	}
 
@@ -876,11 +1061,18 @@ struct interface *zebra_evpn_map_to_macvlan(struct interface *br_if,
 	in_param.br_if = br_if;
 	in_param.zif = NULL;
 	in_param.svi_if = svi_if;
+<<<<<<< HEAD
 	p_ifp = &tmp_if;
 
 	/* Identify corresponding VLAN interface. */
 	ns_walk_func(zvni_map_to_macvlan_ns, (void *)&in_param, (void **)p_ifp);
 	return tmp_if;
+=======
+
+	/* Identify corresponding VLAN interface. */
+	zebra_ns_ifp_walk_all(zvni_map_to_macvlan_ns, &in_param);
+	return in_param.ret_ifp;
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 }
 
 /*
@@ -1321,8 +1513,14 @@ int zebra_evpn_vtep_install(struct zebra_evpn *zevpn, struct zebra_vtep *zvtep)
 int zebra_evpn_vtep_uninstall(struct zebra_evpn *zevpn, struct in_addr *vtep_ip)
 {
 	if (!zevpn->vxlan_if) {
+<<<<<<< HEAD
 		zlog_debug("VNI %u hash %p couldn't be uninstalled - no intf",
 			   zevpn->vni, zevpn);
+=======
+		if (IS_ZEBRA_DEBUG_VXLAN)
+			zlog_debug("VNI %u hash %p couldn't be uninstalled - no intf",
+				   zevpn->vni, zevpn);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		return -1;
 	}
 

@@ -12,6 +12,10 @@
 #include "vector.h"
 #include "vty.h"
 
+<<<<<<< HEAD
+=======
+#include "ospf6d/ospf6_proto.h" /* for struct ospf6_prefix */
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 #include "ospf6d/ospf6_lsa.h"
 #include "ospf6d/ospf6_lsdb.h"
 

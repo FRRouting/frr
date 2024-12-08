@@ -119,7 +119,11 @@ def setup_module(mod):
     # Api call verify whether BGP is converged
     ADDR_TYPES = check_address_types()
 
+<<<<<<< HEAD
     for addr_type in ADDR_TYPES:
+=======
+    for _ in ADDR_TYPES:
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
         BGP_CONVERGENCE = verify_bgp_convergence(tgen, topo)
         assert BGP_CONVERGENCE is True, "setup_module :Failed \n Error:" " {}".format(
             BGP_CONVERGENCE

@@ -10,14 +10,18 @@
 
 import os
 import sys
+<<<<<<< HEAD
 import json
 from time import sleep
+=======
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 from functools import partial
 import pytest
 
 # pylint: disable=C0413
 # Import topogen and topotest helpers
 from lib import topotest
+<<<<<<< HEAD
 from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
 
@@ -25,6 +29,12 @@ from lib.common_config import (
     run_frr_cmd,
     shutdown_bringup_interface,
     start_router_daemons,
+=======
+from lib.topogen import Topogen, get_topogen
+from lib.topolog import logger
+
+from lib.common_config import (
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
     step,
 )
 
@@ -125,7 +135,11 @@ def setup_module(mod):
     tgen.start_router()
 
 
+<<<<<<< HEAD
 def teardown_module(mod):
+=======
+def teardown_module():
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
     "Teardown the pytest environment"
     tgen = get_topogen()
     tgen.stop_topology()

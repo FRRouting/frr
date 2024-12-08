@@ -1920,6 +1920,7 @@ DEFUN (no_rpki_retry_interval,
 	return CMD_SUCCESS;
 }
 
+<<<<<<< HEAD
 #if CONFDATE > 20240916
 CPP_NOTICE("Remove rpki_cache_cmd")
 #endif
@@ -1995,6 +1996,8 @@ DEFPY(rpki_cache, rpki_cache_cmd,
 	return CMD_SUCCESS;
 }
 
+=======
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 DEFPY(rpki_cache_tcp, rpki_cache_tcp_cmd,
       "rpki cache tcp <A.B.C.D|WORD>$cache TCPPORT [source <A.B.C.D>$bindaddr] preference (1-255)",
       RPKI_OUTPUT_STRING
@@ -2820,7 +2823,10 @@ static void install_cli_commands(void)
 	/* Install rpki cache commands */
 	install_element(RPKI_NODE, &rpki_cache_tcp_cmd);
 	install_element(RPKI_NODE, &rpki_cache_ssh_cmd);
+<<<<<<< HEAD
 	install_element(RPKI_NODE, &rpki_cache_cmd);
+=======
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	install_element(RPKI_NODE, &no_rpki_cache_cmd);
 
 	/* RPKI_VRF_NODE commands */
@@ -2844,7 +2850,10 @@ static void install_cli_commands(void)
 	/* Install rpki cache commands */
 	install_element(RPKI_VRF_NODE, &rpki_cache_tcp_cmd);
 	install_element(RPKI_VRF_NODE, &rpki_cache_ssh_cmd);
+<<<<<<< HEAD
 	install_element(RPKI_VRF_NODE, &rpki_cache_cmd);
+=======
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	install_element(RPKI_VRF_NODE, &no_rpki_cache_cmd);
 
 	/* Install show commands */

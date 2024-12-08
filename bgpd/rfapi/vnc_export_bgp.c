@@ -96,6 +96,7 @@ static void encap_attr_export_ce(struct attr *new, struct attr *orig,
 	 *          neighbor NEIGHBOR attribute-unchanged med
 	 */
 	if (!CHECK_FLAG(new->flag, BGP_ATTR_MULTI_EXIT_DISC)) {
+<<<<<<< HEAD
 		if (CHECK_FLAG(new->flag, BGP_ATTR_LOCAL_PREF)) {
 			if (new->local_pref > 255)
 				new->med = 0;
@@ -105,6 +106,18 @@ static void encap_attr_export_ce(struct attr *new, struct attr *orig,
 			new->med = 255; /* shouldn't happen */
 		}
 		new->flag |= ATTR_FLAG_BIT(BGP_ATTR_MULTI_EXIT_DISC);
+=======
+		uint32_t med = 255;
+
+		if (CHECK_FLAG(new->flag, BGP_ATTR_LOCAL_PREF)) {
+			if (new->local_pref > 255)
+				med = 0;
+			else
+				med = 255 - new->local_pref;
+		}
+
+		bgp_attr_set_med(new, med);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	}
 
 	/*
@@ -388,7 +401,11 @@ void vnc_direct_bgp_del_route_ce(struct bgp *bgp, struct agg_node *rn,
 	bgp_withdraw(bpi->peer, p, 0, /* addpath_id */
 		     afi, SAFI_UNICAST, ZEBRA_ROUTE_VNC_DIRECT,
 		     BGP_ROUTE_REDISTRIBUTE, NULL, /* RD not used for unicast */
+<<<<<<< HEAD
 		     NULL, 0, NULL); /* tag not used for unicast */
+=======
+		     NULL, 0); /* tag not used for unicast */
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 }
 
 static void vnc_direct_bgp_vpn_enable_ce(struct bgp *bgp, afi_t afi)
@@ -473,6 +490,7 @@ static void vnc_direct_bgp_vpn_disable_ce(struct bgp *bgp, afi_t afi)
 
 			if (ri->type == ZEBRA_ROUTE_VNC_DIRECT
 			    && ri->sub_type == BGP_ROUTE_REDISTRIBUTE) {
+<<<<<<< HEAD
 
 				bgp_withdraw(
 					ri->peer, bgp_dest_get_prefix(dest),
@@ -483,6 +501,16 @@ static void vnc_direct_bgp_vpn_disable_ce(struct bgp *bgp, afi_t afi)
 					NULL, /* RD not used for unicast */
 					NULL, 0,
 					NULL); /* tag not used for unicast */
+=======
+				bgp_withdraw(ri->peer, bgp_dest_get_prefix(dest),
+					     0, /* addpath_id */
+					     AFI_IP, SAFI_UNICAST,
+					     ZEBRA_ROUTE_VNC_DIRECT,
+					     BGP_ROUTE_REDISTRIBUTE,
+					     NULL, /* RD not used for unicast */
+					     NULL,
+					     0); /* tag not used for unicast */
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 			}
 		}
 	}
@@ -644,6 +672,7 @@ encap_attr_export(struct attr *new, struct attr *orig,
 	 *          neighbor NEIGHBOR attribute-unchanged med
 	 */
 	if (!CHECK_FLAG(new->flag, BGP_ATTR_MULTI_EXIT_DISC)) {
+<<<<<<< HEAD
 		if (CHECK_FLAG(new->flag, BGP_ATTR_LOCAL_PREF)) {
 			if (new->local_pref > 255)
 				new->med = 0;
@@ -653,6 +682,18 @@ encap_attr_export(struct attr *new, struct attr *orig,
 			new->med = 255; /* shouldn't happen */
 		}
 		new->flag |= ATTR_FLAG_BIT(BGP_ATTR_MULTI_EXIT_DISC);
+=======
+		uint32_t med = 255;
+
+		if (CHECK_FLAG(new->flag, BGP_ATTR_LOCAL_PREF)) {
+			if (new->local_pref > 255)
+				med = 0;
+			else
+				med = 255 - new->local_pref;
+		}
+
+		bgp_attr_set_med(new, med);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	}
 
 	/*
@@ -863,9 +904,14 @@ void vnc_direct_bgp_del_prefix(struct bgp *bgp,
 				     0,		    /* addpath_id */
 				     afi, SAFI_UNICAST, ZEBRA_ROUTE_VNC_DIRECT,
 				     BGP_ROUTE_REDISTRIBUTE,
+<<<<<<< HEAD
 				     NULL, /* RD not used for unicast */
 				     NULL, 0,
 				     NULL); /* tag not used for unicast */
+=======
+				     NULL,     /* RD not used for unicast */
+				     NULL, 0); /* tag not used for unicast */
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 			/*
 			 * yuck!
 			 *  - but consistent with rest of function
@@ -892,9 +938,14 @@ void vnc_direct_bgp_del_prefix(struct bgp *bgp,
 				     0,		    /* addpath_id */
 				     afi, SAFI_UNICAST, ZEBRA_ROUTE_VNC_DIRECT,
 				     BGP_ROUTE_REDISTRIBUTE,
+<<<<<<< HEAD
 				     NULL, /* RD not used for unicast */
 				     NULL, 0,
 				     NULL); /* tag not used for unicast */
+=======
+				     NULL,     /* RD not used for unicast */
+				     NULL, 0); /* tag not used for unicast */
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		}
 	}
 }
@@ -1125,13 +1176,21 @@ void vnc_direct_bgp_del_nve(struct bgp *bgp, struct rfapi_descriptor *rfd)
 						continue;
 
 					bgp_withdraw(irfd->peer, p, /* prefix */
+<<<<<<< HEAD
 						     0,	   /* addpath_id */
+=======
+						     0, /* addpath_id */
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 						     afi, SAFI_UNICAST,
 						     ZEBRA_ROUTE_VNC_DIRECT,
 						     BGP_ROUTE_REDISTRIBUTE,
 						     NULL, /* RD not used for
 							      unicast */
+<<<<<<< HEAD
 						     NULL, 0, NULL); /* tag not
+=======
+						     NULL, 0); /* tag not
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 								     used for
 								     unicast */
 				}
@@ -1359,7 +1418,11 @@ static void vnc_direct_del_rn_group_rd(struct bgp *bgp,
 		     0,					  /* addpath_id */
 		     afi, SAFI_UNICAST, ZEBRA_ROUTE_VNC_DIRECT,
 		     BGP_ROUTE_REDISTRIBUTE, NULL, /* RD not used for unicast */
+<<<<<<< HEAD
 		     NULL, 0, NULL); /* tag not used for unicast */
+=======
+		     NULL, 0); /* tag not used for unicast */
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	return;
 }
 
@@ -1471,16 +1534,26 @@ static void vnc_direct_bgp_unexport_table(afi_t afi, struct agg_table *rt,
 
 				for (ALL_LIST_ELEMENTS_RO(nve_list, hln,
 							  irfd)) {
+<<<<<<< HEAD
 
 					bgp_withdraw(irfd->peer,
 						     agg_node_get_prefix(rn),
 						     0,	   /* addpath_id */
+=======
+					bgp_withdraw(irfd->peer,
+						     agg_node_get_prefix(rn),
+						     0, /* addpath_id */
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 						     afi, SAFI_UNICAST,
 						     ZEBRA_ROUTE_VNC_DIRECT,
 						     BGP_ROUTE_REDISTRIBUTE,
 						     NULL, /* RD not used for
 							      unicast */
+<<<<<<< HEAD
 						     NULL, 0, NULL); /* tag not
+=======
+						     NULL, 0); /* tag not
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 								     used for
 								     unicast,
 								     EVPN
@@ -1715,8 +1788,12 @@ static void vncExportWithdrawTimer(struct event *t)
 	bgp_withdraw(eti->peer, p, 0, /* addpath_id */
 		     family2afi(p->family), SAFI_UNICAST, eti->type,
 		     eti->subtype, NULL, /* RD not used for unicast */
+<<<<<<< HEAD
 		     NULL, 0,
 		     NULL); /* tag not used for unicast, EVPN neither */
+=======
+		     NULL, 0); /* tag not used for unicast, EVPN neither */
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 	/*
 	 * Free the eti
@@ -2001,7 +2078,11 @@ void vnc_direct_bgp_rh_vpn_disable(struct bgp *bgp, afi_t afi)
 					     ZEBRA_ROUTE_VNC_DIRECT_RH,
 					     BGP_ROUTE_REDISTRIBUTE,
 					     NULL, /* RD not used for unicast */
+<<<<<<< HEAD
 					     NULL, 0, NULL); /* tag not used for
+=======
+					     NULL, 0); /* tag not used for
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 							     unicast, EVPN
 							     neither */
 			}

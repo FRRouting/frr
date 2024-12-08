@@ -214,7 +214,11 @@ FRR_DAEMON_INFO(mgmtd, MGMTD,
 		.n_yang_modules = array_size(mgmt_yang_modules),
 
 		/* avoid libfrr trying to read our config file for us */
+<<<<<<< HEAD
 		.flags = FRR_MANUAL_VTY_START | FRR_NO_SPLIT_CONFIG,
+=======
+		.flags = FRR_MANUAL_VTY_START | FRR_NO_SPLIT_CONFIG | FRR_LOAD_YANG_LIBRARY,
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	);
 /* clang-format on */
 

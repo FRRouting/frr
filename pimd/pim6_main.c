@@ -94,6 +94,10 @@ struct frr_signal_t pim6d_signals[] = {
 	},
 };
 
+<<<<<<< HEAD
+=======
+/* clang-format off */
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 static const struct frr_yang_module_info *const pim6d_yang_modules[] = {
 	&frr_filter_info,
 	&frr_interface_info,
@@ -102,10 +106,17 @@ static const struct frr_yang_module_info *const pim6d_yang_modules[] = {
 	&frr_routing_info,
 	&frr_pim_info,
 	&frr_pim_rp_info,
+<<<<<<< HEAD
 	&frr_gmp_info,
 };
 
 /* clang-format off */
+=======
+	&frr_pim_candidate_info,
+	&frr_gmp_info,
+};
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 FRR_DAEMON_INFO(pim6d, PIM6,
 	.vty_port = PIM6D_VTY_PORT,
 	.proghelp = "Protocol Independent Multicast (RFC7761) for IPv6",

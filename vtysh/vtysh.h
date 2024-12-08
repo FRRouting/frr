@@ -36,6 +36,11 @@ extern struct event_loop *master;
 #define VTYSH_PIM6D     0x100000
 #define VTYSH_MGMTD 0x200000
 
+<<<<<<< HEAD
+=======
+#define VTYSH_RCV_BUF_MAX 16777216
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 #define VTYSH_WAS_ACTIVE (-2)
 
 /* commands in REALLYALL are crucial to correct vtysh operation */

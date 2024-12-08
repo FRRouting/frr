@@ -21,7 +21,11 @@ from lib import topotest
 from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
 from lib.common_config import required_linux_kernel_version
+<<<<<<< HEAD
 from lib.checkping import check_ping, check_ping
+=======
+from lib.checkping import check_ping
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 pytestmark = [pytest.mark.bgpd]
 
@@ -53,7 +57,12 @@ def setup_module(mod):
     tgen = Topogen(build_topo, mod.__name__)
     tgen.start_topology()
     for rname, router in tgen.routers().items():
+<<<<<<< HEAD
         router.run("/bin/bash {}/{}/setup.sh".format(CWD, rname))
+=======
+        if os.path.exists("{}/{}/setup.sh".format(CWD, rname)):
+            router.run("/bin/bash {}/{}/setup.sh".format(CWD, rname))
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
         router.load_config(
             TopoRouter.RD_ZEBRA, os.path.join(CWD, "{}/zebra.conf".format(rname))
         )
@@ -106,7 +115,11 @@ def check_rib(name, cmd, expected_file):
     logger.info('[+] check {} "{}" {}'.format(name, cmd, expected_file))
     tgen = get_topogen()
     func = functools.partial(_check, name, cmd, expected_file)
+<<<<<<< HEAD
     success, result = topotest.run_and_expect(func, None, count=10, wait=0.5)
+=======
+    _, result = topotest.run_and_expect(func, None, count=10, wait=0.5)
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
     assert result is None, "Failed"
 
 

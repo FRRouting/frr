@@ -11,7 +11,10 @@
 
 import os
 import sys
+<<<<<<< HEAD
 import json
+=======
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 import pytest
 import functools
 

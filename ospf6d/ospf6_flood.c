@@ -26,6 +26,10 @@
 
 #include "ospf6_flood.h"
 #include "ospf6_nssa.h"
+<<<<<<< HEAD
+=======
+#include "ospf6_tlv.h"
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 #include "ospf6_gr.h"
 
 unsigned char conf_debug_ospf6_flooding;

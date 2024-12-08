@@ -224,4 +224,11 @@ WhitespaceSensitiveMacros:
   - "DEFUN_YANG_NOSH"
   - "DEFUNSH"
   - "DEFUNSH_HIDDEN"
+<<<<<<< HEAD
+=======
+  - "ALIAS"
+  - "ALIAS_HIDDEN"
+  - "ALIAS_YANG"
+  - "ALIAS_DEPRECATED"
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 ...

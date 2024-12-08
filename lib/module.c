@@ -202,3 +202,18 @@ void frrmod_unload(struct frrmod_runtime *module)
 {
 }
 #endif
+<<<<<<< HEAD
+=======
+
+void frrmod_terminate(void)
+{
+	struct frrmod_runtime *rtinfo = frrmod_list;
+
+	while (rtinfo) {
+		XFREE(MTYPE_MODULE_LOADNAME, rtinfo->load_name);
+		XFREE(MTYPE_MODULE_LOADARGS, rtinfo->load_args);
+
+		rtinfo = rtinfo->next;
+	}
+}
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)

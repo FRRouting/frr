@@ -674,6 +674,10 @@ static int log_5424_config_write(struct vty *vty)
 
 		vty_out(vty, "log extended %s\n", cfg->name);
 
+<<<<<<< HEAD
+=======
+		(void)fmt_str; /* clang-SA */
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		switch (cfg->cfg.fmt) {
 		case ZLOG_FMT_5424:
 			fmt_str = " format rfc5424";

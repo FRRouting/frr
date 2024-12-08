@@ -455,7 +455,11 @@ def check_remote_es(esi, vtep_ips, dut_name, down_vteps):
     else:
         tor_ips_rack = tor_ips_rack_1
 
+<<<<<<< HEAD
     for tor_name, tor_ip in tor_ips_rack.items():
+=======
+    for _, tor_ip in tor_ips_rack.items():
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
         remote_ips.append(tor_ip)
 
     # remove down VTEPs from the remote check list

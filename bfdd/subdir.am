@@ -17,8 +17,11 @@ bfdd_libbfd_a_SOURCES = \
 	bfdd/bfdd_vty.c \
 	bfdd/bfdd_cli.c \
 	bfdd/bfd_packet.c \
+<<<<<<< HEAD
 	bfdd/config.c \
 	bfdd/control.c \
+=======
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	bfdd/dplane.c \
 	bfdd/event.c \
 	bfdd/ptm_adapter.c \
@@ -37,7 +40,10 @@ clippy_scan += \
 	# end
 
 noinst_HEADERS += \
+<<<<<<< HEAD
 	bfdd/bfdctl.h \
+=======
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	bfdd/bfdd_nb.h \
 	bfdd/bfd.h \
 	# end

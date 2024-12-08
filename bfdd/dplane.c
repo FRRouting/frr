@@ -354,7 +354,11 @@ bfd_dplane_session_state_change(struct bfd_dplane_ctx *bdc,
 	bs->remote_timers.required_min_echo = ntohl(state->required_echo_rx);
 
 	/* Notify and update counters. */
+<<<<<<< HEAD
 	control_notify(bs, bs->ses_state);
+=======
+	ptm_bfd_notify(bs, bs->ses_state);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 	/* No state change. */
 	if (old_state == bs->ses_state)

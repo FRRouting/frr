@@ -418,6 +418,10 @@ void lua_pushzebra_dplane_ctx(lua_State *L, const struct zebra_dplane_ctx *ctx)
 	case DPLANE_OP_SRV6_ENCAP_SRCADDR_SET:
 	case DPLANE_OP_NONE:
 	case DPLANE_OP_STARTUP_STAGE:
+<<<<<<< HEAD
+=======
+	case DPLANE_OP_VLAN_INSTALL:
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		break;
 	} /* Dispatch by op code */
 }

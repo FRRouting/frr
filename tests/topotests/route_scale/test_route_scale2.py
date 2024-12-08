@@ -14,11 +14,16 @@ test_route_scale2.py: Testing route scale
 
 """
 import os
+<<<<<<< HEAD
 import re
 import sys
 import pytest
 import json
 from functools import partial
+=======
+import sys
+import pytest
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 # Save the Current Working Directory to find configuration files.
 CWD = os.path.dirname(os.path.realpath(__file__))
@@ -26,9 +31,12 @@ sys.path.append(os.path.join(CWD, "../"))
 
 # pylint: disable=C0413
 # Import topogen and topotest helpers
+<<<<<<< HEAD
 from lib import topotest
 from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
+=======
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 from scale_test_common import (
     scale_build_common,

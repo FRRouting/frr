@@ -17,6 +17,7 @@ extern unsigned char conf_debug_ospf6_abr;
 #define OSPF6_DEBUG_ABR_OFF() (conf_debug_ospf6_abr = 0)
 #define IS_OSPF6_DEBUG_ABR (conf_debug_ospf6_abr)
 
+<<<<<<< HEAD
 /* Inter-Area-Prefix-LSA */
 #define OSPF6_INTER_PREFIX_LSA_MIN_SIZE        4U /* w/o IPv6 prefix */
 struct ospf6_inter_prefix_lsa {
@@ -33,6 +34,8 @@ struct ospf6_inter_router_lsa {
 	uint32_t router_id;
 };
 
+=======
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 #define OSPF6_ABR_SUMMARY_METRIC(E)                                            \
 	(ntohl((E)->metric & htonl(OSPF6_EXT_PATH_METRIC_MAX)))
 #define OSPF6_ABR_SUMMARY_METRIC_SET(E, C)                                     \

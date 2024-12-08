@@ -9,10 +9,13 @@
       "argumentBitsLength":0,
       "statusUp":true,
       "chunks":[
+<<<<<<< HEAD
         {
           "prefix":"fc00:0:2::/48",
           "proto":"isis"
         }
+=======
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
       ]
     }
   ]

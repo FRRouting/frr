@@ -825,7 +825,11 @@ static void free_state(vrf_id_t vrf_id, struct route_entry *re,
 
 	/* free RE and nexthops */
 	zebra_nhg_free(re->nhe);
+<<<<<<< HEAD
 	XFREE(MTYPE_RE, re);
+=======
+	zebra_rib_route_entry_free(re);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 }
 
 static void copy_state(struct rnh *rnh, const struct route_entry *re,
@@ -1140,7 +1144,11 @@ int zebra_send_rnh_update(struct rnh *rnh, struct zserv *client,
 	struct stream *s = NULL;
 	struct route_entry *re;
 	unsigned long nump;
+<<<<<<< HEAD
 	uint8_t num;
+=======
+	uint16_t num;
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	struct nexthop *nh;
 	struct route_node *rn;
 	int ret;
@@ -1211,7 +1219,11 @@ int zebra_send_rnh_update(struct rnh *rnh, struct zserv *client,
 		stream_putl(s, re->metric);
 		num = 0;
 		nump = stream_get_endp(s);
+<<<<<<< HEAD
 		stream_putc(s, 0);
+=======
+		stream_putw(s, 0);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 		nhg = rib_get_fib_nhg(re);
 		for (ALL_NEXTHOPS_PTR(nhg, nh))
@@ -1239,13 +1251,21 @@ int zebra_send_rnh_update(struct rnh *rnh, struct zserv *client,
 				}
 		}
 
+<<<<<<< HEAD
 		stream_putc_at(s, nump, num);
+=======
+		stream_putw_at(s, nump, num);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	} else {
 		stream_putc(s, 0); // type
 		stream_putw(s, 0); // instance
 		stream_putc(s, 0); // distance
 		stream_putl(s, 0); // metric
+<<<<<<< HEAD
 		stream_putc(s, 0); // nexthops
+=======
+		stream_putw(s, 0); // nexthops
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	}
 	stream_putw_at(s, 0, stream_get_endp(s));
 
@@ -1271,7 +1291,11 @@ void show_nexthop_json_helper(json_object *json_nexthop,
 	bool display_vrfid = false;
 	uint8_t rn_family;
 
+<<<<<<< HEAD
 	if (re == NULL || nexthop->vrf_id != re->vrf_id)
+=======
+	if ((re == NULL || nexthop->vrf_id != re->vrf_id) && nexthop->type != NEXTHOP_TYPE_BLACKHOLE)
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		display_vrfid = true;
 
 	if (rn)
@@ -1292,7 +1316,11 @@ void show_route_nexthop_helper(struct vty *vty, const struct route_node *rn,
 	bool display_vrfid = false;
 	uint8_t rn_family;
 
+<<<<<<< HEAD
 	if (re == NULL || nexthop->vrf_id != re->vrf_id)
+=======
+	if ((re == NULL || nexthop->vrf_id != re->vrf_id) && nexthop->type != NEXTHOP_TYPE_BLACKHOLE)
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		display_vrfid = true;
 
 	if (rn)
@@ -1343,6 +1371,7 @@ static void print_rnh(struct route_node *rn, struct vty *vty, json_object *json)
 	}
 
 	if (rnh->state) {
+<<<<<<< HEAD
 		if (json)
 			json_object_string_add(
 				json_nht, "resolvedProtocol",
@@ -1350,6 +1379,19 @@ static void print_rnh(struct route_node *rn, struct vty *vty, json_object *json)
 		else
 			vty_out(vty, " resolved via %s\n",
 				zebra_route_string(rnh->state->type));
+=======
+		if (json) {
+			json_object_string_add(
+				json_nht, "resolvedProtocol",
+				zebra_route_string(rnh->state->type));
+			json_object_string_addf(json_nht, "prefix", "%pFX",
+						&rnh->resolved_route);
+		} else {
+			vty_out(vty, " resolved via %s, prefix %pFX\n",
+				zebra_route_string(rnh->state->type),
+				&rnh->resolved_route);
+		}
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 		for (nexthop = rnh->state->nhe->nhg.nexthop; nexthop;
 		     nexthop = nexthop->next) {

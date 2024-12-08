@@ -361,6 +361,7 @@ static void ecommunity_color_str(char *buf, size_t bufsz, uint8_t *ptr)
 {
 	/*
 	 *  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+<<<<<<< HEAD
 	 *  | 0x03         | Sub-Type(0x0b) |    Flags                      |
 	 *  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 	 *  |                          Color Value                          |
@@ -371,6 +372,24 @@ static void ecommunity_color_str(char *buf, size_t bufsz, uint8_t *ptr)
 	memcpy(&colorid, ptr + 3, 4);
 	colorid = ntohl(colorid);
 	snprintf(buf, bufsz, "Color:%d", colorid);
+=======
+	 *  | 0x03         | Sub-Type(0x0b) | CO|    Flags                  |
+	 *  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+	 *  |                          Color Value                          |
+	 *  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+	 *  https://datatracker.ietf.org/doc/rfc9256/, Section 8.8.1
+	 *  The CO bits can have 4 different values: 00 01 10 11
+	 */
+	uint32_t colorid;
+	uint8_t color_type;
+	/* get the color type */
+	ptr++;
+	color_type = (*ptr) >> 6;
+
+	memcpy(&colorid, ptr + 2, 4);
+	colorid = ntohl(colorid);
+	snprintf(buf, bufsz, "Color:%d%d:%d", (color_type & 0x2) >> 1, color_type & 0x1, colorid);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 }
 
 /* Initialize Extended Comminities related hash. */
@@ -515,7 +534,11 @@ static int ecommunity_encode_internal(uint8_t type, uint8_t sub_type,
 	/* Fill in the values. */
 	eval->val[0] = type;
 	if (!trans)
+<<<<<<< HEAD
 		eval->val[0] |= ECOMMUNITY_FLAG_NON_TRANSITIVE;
+=======
+		SET_FLAG(eval->val[0], ECOMMUNITY_FLAG_NON_TRANSITIVE);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	eval->val[1] = sub_type;
 	if (type == ECOMMUNITY_ENCODE_AS) {
 		encode_route_target_as(as, val, eval, trans);
@@ -531,7 +554,11 @@ static int ecommunity_encode_internal(uint8_t type, uint8_t sub_type,
 		eval6->val[19] = val & 0xff;
 	} else if (type == ECOMMUNITY_ENCODE_OPAQUE &&
 		   sub_type == ECOMMUNITY_COLOR) {
+<<<<<<< HEAD
 		encode_color(val, eval);
+=======
+		encode_color(val, as, eval);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	} else {
 		encode_route_target_as4(as, val, eval, trans);
 	}
@@ -739,6 +766,16 @@ static const char *ecommunity_gettoken(const char *str, void *eval_ptr,
 				 */
 				if (!asn_str2asn(buf, &as))
 					goto error;
+<<<<<<< HEAD
+=======
+			} else if (type == ECOMMUNITY_COLOR) {
+				/* If extcommunity is color, only support 00/01/10/11, max value is 3 */
+				/* color value */
+				as = strtoul(buf, &endptr, 2);
+				if (*endptr != '\0' || as > 3)
+					goto error;
+				val_color = 0;
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 			} else {
 				/* Parsing A AS number in A:MN */
 				errno = 0;
@@ -753,6 +790,11 @@ static const char *ecommunity_gettoken(const char *str, void *eval_ptr,
 				if (*endptr != '\0' || tmp_as > BGP_AS4_MAX ||
 				    errno)
 					goto error;
+<<<<<<< HEAD
+=======
+				if (*token == ecommunity_token_color && tmp_as > 3)
+					goto error;
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 				as = (as_t)tmp_as;
 			}
 		} else if (*p == '.') {
@@ -791,6 +833,7 @@ static const char *ecommunity_gettoken(const char *str, void *eval_ptr,
 		/* Encode result into extended community for AS format or color.  */
 		if (as > BGP_AS_MAX)
 			ecomm_type = ECOMMUNITY_ENCODE_AS4;
+<<<<<<< HEAD
 		else if (as > 0)
 			ecomm_type = ECOMMUNITY_ENCODE_AS;
 		else if (val_color) {
@@ -798,6 +841,17 @@ static const char *ecommunity_gettoken(const char *str, void *eval_ptr,
 			sub_type = ECOMMUNITY_COLOR;
 			val = val_color;
 		}
+=======
+		else if (type == ECOMMUNITY_COLOR) {
+			ecomm_type = ECOMMUNITY_ENCODE_OPAQUE;
+			sub_type = ECOMMUNITY_COLOR;
+			if (val_color) {
+				val = val_color;
+				as = 1;
+			}
+		} else if (as > 0)
+			ecomm_type = ECOMMUNITY_ENCODE_AS;
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	}
 	if (ecommunity_encode(ecomm_type, sub_type, 1, as, ip, val, eval))
 		goto error;
@@ -1293,11 +1347,20 @@ char *ecommunity_ecom2str(struct ecommunity *ecom, int format, int filter)
 				   == ECOMMUNITY_EVPN_SUBTYPE_ESI_LABEL) {
 				uint8_t flags = *++pnt;
 
+<<<<<<< HEAD
 				snprintf(encbuf,
 					sizeof(encbuf), "ESI-label-Rt:%s",
 					(flags &
 					 ECOMMUNITY_EVPN_SUBTYPE_ESI_SA_FLAG) ?
 					"SA":"AA");
+=======
+				snprintf(encbuf, sizeof(encbuf),
+					 "ESI-label-Rt:%s",
+					 CHECK_FLAG(flags,
+						    ECOMMUNITY_EVPN_SUBTYPE_ESI_SA_FLAG)
+						 ? "SA"
+						 : "AA");
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 			} else if (*pnt
 				   == ECOMMUNITY_EVPN_SUBTYPE_DF_ELECTION) {
 				uint8_t alg;
@@ -1337,6 +1400,7 @@ char *ecommunity_ecom2str(struct ecommunity *ecom, int format, int filter)
 				char buf[ECOMMUNITY_STRLEN];
 
 				memset(buf, 0, sizeof(buf));
+<<<<<<< HEAD
 				ecommunity_rt_soo_str_internal(buf, sizeof(buf),
 						(const uint8_t *)pnt,
 						type &
@@ -1344,12 +1408,21 @@ char *ecommunity_ecom2str(struct ecommunity *ecom, int format, int filter)
 						ECOMMUNITY_ROUTE_TARGET,
 						format,
 						ecom->unit_size);
+=======
+				ecommunity_rt_soo_str_internal(
+					buf, sizeof(buf), (const uint8_t *)pnt,
+					CHECK_FLAG(type,
+						   ~ECOMMUNITY_ENCODE_TRANS_EXP),
+					ECOMMUNITY_ROUTE_TARGET, format,
+					ecom->unit_size);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 				snprintf(encbuf, sizeof(encbuf), "%s", buf);
 			} else if (sub_type ==
 				   ECOMMUNITY_FLOWSPEC_REDIRECT_IPV6) {
 				char buf[64];
 
 				memset(buf, 0, sizeof(buf));
+<<<<<<< HEAD
 				ecommunity_rt_soo_str_internal(buf, sizeof(buf),
 						(const uint8_t *)pnt,
 						type &
@@ -1357,18 +1430,36 @@ char *ecommunity_ecom2str(struct ecommunity *ecom, int format, int filter)
 						ECOMMUNITY_ROUTE_TARGET,
 						ECOMMUNITY_FORMAT_DISPLAY,
 						ecom->unit_size);
+=======
+				ecommunity_rt_soo_str_internal(
+					buf, sizeof(buf), (const uint8_t *)pnt,
+					CHECK_FLAG(type,
+						   ~ECOMMUNITY_ENCODE_TRANS_EXP),
+					ECOMMUNITY_ROUTE_TARGET,
+					ECOMMUNITY_FORMAT_DISPLAY,
+					ecom->unit_size);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 				snprintf(encbuf, sizeof(encbuf),
 					 "FS:redirect VRF %s", buf);
 			} else if (sub_type == ECOMMUNITY_REDIRECT_VRF) {
 				char buf[16];
 
 				memset(buf, 0, sizeof(buf));
+<<<<<<< HEAD
 				ecommunity_rt_soo_str(buf, sizeof(buf),
 						(const uint8_t *)pnt,
 						type &
 						~ECOMMUNITY_ENCODE_TRANS_EXP,
 						ECOMMUNITY_ROUTE_TARGET,
 						ECOMMUNITY_FORMAT_DISPLAY);
+=======
+				ecommunity_rt_soo_str(
+					buf, sizeof(buf), (const uint8_t *)pnt,
+					CHECK_FLAG(type,
+						   ~ECOMMUNITY_ENCODE_TRANS_EXP),
+					ECOMMUNITY_ROUTE_TARGET,
+					ECOMMUNITY_FORMAT_DISPLAY);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 				snprintf(encbuf, sizeof(encbuf),
 					 "FS:redirect VRF %s", buf);
 				snprintf(encbuf, sizeof(encbuf),
@@ -1408,23 +1499,47 @@ char *ecommunity_ecom2str(struct ecommunity *ecom, int format, int filter)
 					 "FS:marking %u", *(pnt + 5));
 			} else
 				unk_ecom = true;
+<<<<<<< HEAD
 		} else if (type == ECOMMUNITY_ENCODE_AS_NON_TRANS) {
 			sub_type = *pnt++;
 			if (sub_type == ECOMMUNITY_LINK_BANDWIDTH)
+=======
+		} else if (CHECK_FLAG(type, ECOMMUNITY_FLAG_NON_TRANSITIVE) ||
+			   type == ECOMMUNITY_ENCODE_OPAQUE_NON_TRANS) {
+			sub_type = *pnt++;
+			if (sub_type == ECOMMUNITY_ORIGIN_VALIDATION_STATE)
+				ecommunity_origin_validation_state_str(encbuf, sizeof(encbuf), pnt);
+			else if (sub_type == ECOMMUNITY_LINK_BANDWIDTH)
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 				ecommunity_lb_str(encbuf, sizeof(encbuf), pnt,
 						  ecom->disable_ieee_floating);
 			else if (sub_type == ECOMMUNITY_EXTENDED_LINK_BANDWIDTH)
 				ipv6_ecommunity_lb_str(encbuf, sizeof(encbuf),
 						       pnt, len);
+<<<<<<< HEAD
 			else
 				unk_ecom = true;
 		} else if (type == ECOMMUNITY_ENCODE_IP_NON_TRANS) {
+=======
+			else if (sub_type == ECOMMUNITY_OPAQUE_SUBTYPE_COLOR) {
+				uint32_t color;
+				/* get the color type */
+				uint8_t color_type = (*pnt) >> 6;
+				memcpy(&color, pnt + 2, 4);
+				color = ntohl(color);
+				snprintf(encbuf, sizeof(encbuf), "Color:%d%d:%u",
+					 (color_type & 0x2) >> 1, color_type & 0x1, color);
+			} else
+				unk_ecom = true;
+		} else if (CHECK_FLAG(type, ECOMMUNITY_ENCODE_IP_NON_TRANS)) {
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 			sub_type = *pnt++;
 			if (sub_type == ECOMMUNITY_NODE_TARGET)
 				ecommunity_node_target_str(
 					encbuf, sizeof(encbuf), pnt, format);
 			else
 				unk_ecom = true;
+<<<<<<< HEAD
 		} else if (type == ECOMMUNITY_ENCODE_OPAQUE_NON_TRANS) {
 			sub_type = *pnt++;
 			if (sub_type == ECOMMUNITY_ORIGIN_VALIDATION_STATE)
@@ -1432,6 +1547,8 @@ char *ecommunity_ecom2str(struct ecommunity *ecom, int format, int filter)
 					encbuf, sizeof(encbuf), pnt);
 			else
 				unk_ecom = true;
+=======
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		} else {
 			sub_type = *pnt++;
 			unk_ecom = true;
@@ -1443,6 +1560,10 @@ unknown:
 				 sub_type);
 
 		int r = strlcat(str_buf, encbuf, str_size);
+<<<<<<< HEAD
+=======
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		assert(r < str_size);
 	}
 
@@ -1587,6 +1708,60 @@ bool ecommunity_strip(struct ecommunity *ecom, uint8_t type,
 	return true;
 }
 
+<<<<<<< HEAD
+=======
+static bool ecommunity_non_transitive(uint8_t type)
+{
+	return (CHECK_FLAG(type, ECOMMUNITY_FLAG_NON_TRANSITIVE) ||
+		CHECK_FLAG(type, ECOMMUNITY_ENCODE_IP_NON_TRANS) ||
+		type == ECOMMUNITY_ENCODE_OPAQUE_NON_TRANS);
+}
+
+/* Delete all non-transitive extended communities */
+bool ecommunity_strip_non_transitive(struct ecommunity *ecom)
+{
+	uint8_t *p, *q, *new;
+	uint32_t c, found = 0;
+
+	if (!ecom || !ecom->val)
+		return false;
+
+	/* Certain extended communities like the Route Target can be present
+	 * multiple times, handle that.
+	 */
+	c = 0;
+	for (p = ecom->val; c < ecom->size; p += ecom->unit_size, c++)
+		if (ecommunity_non_transitive(*p))
+			found++;
+
+	if (!found)
+		return false;
+
+	/* Handle the case where everything needs to be stripped. */
+	if (found == ecom->size) {
+		XFREE(MTYPE_ECOMMUNITY_VAL, ecom->val);
+		ecom->size = 0;
+		return true;
+	}
+
+	/* Strip extended communities with non-transitive flag set */
+	new = XMALLOC(MTYPE_ECOMMUNITY_VAL, (ecom->size - found) * ecom->unit_size);
+	q = new;
+	for (c = 0, p = ecom->val; c < ecom->size; c++, p += ecom->unit_size) {
+		if (!ecommunity_non_transitive(*p)) {
+			memcpy(q, p, ecom->unit_size);
+			q += ecom->unit_size;
+		}
+	}
+
+	XFREE(MTYPE_ECOMMUNITY_VAL, ecom->val);
+	ecom->val = new;
+	ecom->size -= found;
+
+	return true;
+}
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 /*
  * Remove specified extended community value from extended community.
  * Returns 1 if value was present (and hence, removed), 0 otherwise.
@@ -1640,12 +1815,22 @@ int ecommunity_fill_pbr_action(struct ecommunity_val *ecom_eval,
 	} else if (ecom_eval->val[1] == ECOMMUNITY_TRAFFIC_ACTION) {
 		api->action = ACTION_TRAFFIC_ACTION;
 		/* else distribute code is set by default */
+<<<<<<< HEAD
 		if (ecom_eval->val[5] & (1 << FLOWSPEC_TRAFFIC_ACTION_TERMINAL))
 			api->u.za.filter |= TRAFFIC_ACTION_TERMINATE;
 		else
 			api->u.za.filter |= TRAFFIC_ACTION_DISTRIBUTE;
 		if (ecom_eval->val[5] == 1 << FLOWSPEC_TRAFFIC_ACTION_SAMPLE)
 			api->u.za.filter |= TRAFFIC_ACTION_SAMPLE;
+=======
+		if (CHECK_FLAG(ecom_eval->val[5],
+			       (1 << FLOWSPEC_TRAFFIC_ACTION_TERMINAL)))
+			SET_FLAG(api->u.za.filter, TRAFFIC_ACTION_TERMINATE);
+		else
+			SET_FLAG(api->u.za.filter, TRAFFIC_ACTION_DISTRIBUTE);
+		if (ecom_eval->val[5] == 1 << FLOWSPEC_TRAFFIC_ACTION_SAMPLE)
+			SET_FLAG(api->u.za.filter, TRAFFIC_ACTION_SAMPLE);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 	} else if (ecom_eval->val[1] == ECOMMUNITY_TRAFFIC_MARKING) {
 		api->action = ACTION_MARKING;
@@ -1882,9 +2067,13 @@ const uint8_t *ecommunity_linkbw_present(struct ecommunity *ecom, uint64_t *bw)
 		if (len < ecom->unit_size)
 			return NULL;
 
+<<<<<<< HEAD
 		if ((type == ECOMMUNITY_ENCODE_AS ||
 		     type == ECOMMUNITY_ENCODE_AS_NON_TRANS) &&
 		    sub_type == ECOMMUNITY_LINK_BANDWIDTH) {
+=======
+		if ((type == ECOMMUNITY_ENCODE_AS) && sub_type == ECOMMUNITY_LINK_BANDWIDTH) {
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 			uint32_t bwval;
 
 			pnt += 2; /* bandwidth is encoded as AS:val */
@@ -1940,7 +2129,11 @@ struct ecommunity *ecommunity_replace_linkbw(as_t as, struct ecommunity *ecom,
 		return new;
 
 	type = *eval;
+<<<<<<< HEAD
 	if (type & ECOMMUNITY_FLAG_NON_TRANSITIVE)
+=======
+	if (CHECK_FLAG(type, ECOMMUNITY_FLAG_NON_TRANSITIVE))
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		return new;
 
 	/* Transitive link-bandwidth exists, replace with the passed

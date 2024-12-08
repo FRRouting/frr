@@ -10,7 +10,10 @@
 
 import os
 import sys
+<<<<<<< HEAD
 import json
+=======
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 from time import sleep
 from functools import partial
 import pytest
@@ -18,6 +21,7 @@ import pytest
 # pylint: disable=C0413
 # Import topogen and topotest helpers
 from lib import topotest
+<<<<<<< HEAD
 from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
 
@@ -25,6 +29,12 @@ from lib.common_config import (
     run_frr_cmd,
     shutdown_bringup_interface,
     start_router_daemons,
+=======
+from lib.topogen import Topogen, get_topogen
+from lib.topolog import logger
+
+from lib.common_config import (
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
     step,
 )
 
@@ -116,7 +126,11 @@ def setup_module(mod):
     tgen.start_router()
 
 
+<<<<<<< HEAD
 def teardown_module(mod):
+=======
+def teardown_module():
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
     "Teardown the pytest environment"
     tgen = get_topogen()
     tgen.stop_topology()
@@ -144,6 +158,7 @@ def verify_p2mp_interface(tgen, router, nbr_cnt, nbr_adj_cnt, non_broadcast):
         "interfaces": {
             "r1-eth0": {
                 "ospfEnabled": True,
+<<<<<<< HEAD
                 "interfaceIp": {
                     "10.1.0.1": {
                         "ipAddress": "10.1.0.1",
@@ -160,6 +175,8 @@ def verify_p2mp_interface(tgen, router, nbr_cnt, nbr_adj_cnt, non_broadcast):
                         "p2mpNonBroadcast": non_broadcast,
                     }
                 },
+=======
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
                 "ipAddress": "10.1.0.1",
                 "ipAddressPrefixlen": 24,
                 "ospfIfType": "Broadcast",

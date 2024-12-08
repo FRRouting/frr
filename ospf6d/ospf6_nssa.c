@@ -52,8 +52,12 @@ static int ospf6_abr_nssa_am_elected(struct ospf6_area *oa)
 
 	/* Verify all the router LSA to compare the router ID */
 	for (ALL_LSDB_TYPED(oa->lsdb, type, lsa)) {
+<<<<<<< HEAD
 		router_lsa = (struct ospf6_router_lsa *)ospf6_lsa_header_end(
 			lsa->header);
+=======
+		router_lsa = lsa_after_header(lsa->header);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 		/* ignore non-ABR routers */
 		if (!CHECK_FLAG(router_lsa->bits, OSPF6_ROUTER_BIT_B))
@@ -414,8 +418,12 @@ static struct ospf6_lsa *ospf6_lsa_translated_nssa_new(struct ospf6_area *area,
 	}
 
 	/* find the translated Type-5 for this Type-7 */
+<<<<<<< HEAD
 	nssa = (struct ospf6_as_external_lsa *)ospf6_lsa_header_end(
 		type7->header);
+=======
+	nssa = lsa_after_header(type7->header);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	prefix.family = AF_INET6;
 	prefix.prefixlen = nssa->prefix.prefix_length;
 	ospf6_prefix_in6_addr(&prefix.u.prefix6, nssa, &nssa->prefix);
@@ -435,10 +443,15 @@ static struct ospf6_lsa *ospf6_lsa_translated_nssa_new(struct ospf6_area *area,
 	/* prepare buffer */
 	memset(buffer, 0, sizeof(buffer));
 	lsa_header = (struct ospf6_lsa_header *)buffer;
+<<<<<<< HEAD
 	extnew = (struct ospf6_as_external_lsa *)ospf6_lsa_header_end(
 		lsa_header);
 	ext = (struct ospf6_as_external_lsa *)ospf6_lsa_header_end(
 		type7->header);
+=======
+	extnew = lsa_after_header(lsa_header);
+	ext = lsa_after_header(type7->header);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	old_ptr =
 		(caddr_t)((caddr_t)ext + sizeof(struct ospf6_as_external_lsa));
 	new_ptr = (caddr_t)((caddr_t)extnew
@@ -546,8 +559,12 @@ struct ospf6_lsa *ospf6_translated_nssa_refresh(struct ospf6_area *area,
 				"%s: try to find translated Type-5 LSA for %s",
 				__func__, type7->name);
 
+<<<<<<< HEAD
 		ext_lsa = (struct ospf6_as_external_lsa *)ospf6_lsa_header_end(
 			type7->header);
+=======
+		ext_lsa = lsa_after_header(type7->header);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		prefix.family = AF_INET6;
 		prefix.prefixlen = ext_lsa->prefix.prefix_length;
 		ospf6_prefix_in6_addr(&prefix.u.prefix6, ext_lsa,
@@ -614,8 +631,12 @@ static void ospf6_abr_translate_nssa(struct ospf6_area *area,
 	struct ospf6 *ospf6;
 
 	ospf6 = area->ospf6;
+<<<<<<< HEAD
 	nssa_lsa = (struct ospf6_as_external_lsa *)ospf6_lsa_header_end(
 		lsa->header);
+=======
+	nssa_lsa = lsa_after_header(lsa->header);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 	if (!CHECK_FLAG(nssa_lsa->prefix.prefix_options,
 			OSPF6_PREFIX_OPTION_P)) {
@@ -1240,8 +1261,12 @@ void ospf6_nssa_lsa_originate(struct ospf6_route *route,
 	/* prepare buffer */
 	memset(buffer, 0, sizeof(buffer));
 	lsa_header = (struct ospf6_lsa_header *)buffer;
+<<<<<<< HEAD
 	as_external_lsa = (struct ospf6_as_external_lsa *)ospf6_lsa_header_end(
 		lsa_header);
+=======
+	as_external_lsa = lsa_after_header(lsa_header);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	p = (caddr_t)((caddr_t)as_external_lsa
 		      + sizeof(struct ospf6_as_external_lsa));
 

@@ -171,7 +171,10 @@ def test_bgp_no_export_local_as_communities_p0(request):
         )
 
     for comm_type in ["no-export", "local-AS"]:
+<<<<<<< HEAD
 
+=======
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
         step("Create a route-map on R1 to set community as {}".format(comm_type))
 
         seq_id = 10

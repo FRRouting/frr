@@ -49,9 +49,13 @@ from lib.topolog import logger
 from lib.bgp import (
     verify_bgp_convergence,
     create_router_bgp,
+<<<<<<< HEAD
     verify_bgp_community,
     verify_bgp_rib,
     clear_bgp,
+=======
+    verify_bgp_rib,
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
     verify_best_path_as_per_bgp_attribute,
 )
 from lib.topojson import build_config_from_json

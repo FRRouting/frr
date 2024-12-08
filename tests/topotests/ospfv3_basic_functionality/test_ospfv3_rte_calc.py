@@ -45,7 +45,10 @@ from lib.ospf import (
     verify_ospf6_neighbor,
     clear_ospf,
     verify_ospf6_rib,
+<<<<<<< HEAD
     verify_ospf_database,
+=======
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
     create_router_ospf,
     config_ospf6_interface,
     verify_ospf6_interface,
@@ -127,7 +130,11 @@ def setup_module(mod):
     logger.info("Running setup_module() done")
 
 
+<<<<<<< HEAD
 def teardown_module(mod):
+=======
+def teardown_module():
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
     """
     Teardown the pytest environment.
 

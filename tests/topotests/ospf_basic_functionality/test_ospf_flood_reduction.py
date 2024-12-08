@@ -51,7 +51,10 @@ from lib.common_config import (
     create_static_routes,
     step,
     topo_daemons,
+<<<<<<< HEAD
     shutdown_bringup_interface,
+=======
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
     check_router_status,
     start_topology,
     write_test_header,
@@ -65,8 +68,11 @@ from lib.common_config import (
     write_test_header,
     write_test_footer,
     reset_config_on_routers,
+<<<<<<< HEAD
     stop_router,
     start_router,
+=======
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
     step,
     create_static_routes,
     kill_router_daemons,
@@ -163,7 +169,11 @@ def setup_module(mod):
     logger.info("Running setup_module() done")
 
 
+<<<<<<< HEAD
 def teardown_module(mod):
+=======
+def teardown_module():
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
     """
     Teardown the pytest environment.
 

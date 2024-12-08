@@ -350,6 +350,10 @@ int main(int argc, char **argv, char **env)
 	char pathspace[MAXPATHLEN] = "";
 	const char *histfile = NULL;
 	const char *histfile_env = getenv("VTYSH_HISTFILE");
+<<<<<<< HEAD
+=======
+	const char *logpath = getenv("VTYSH_LOG");
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 	/* SUID: drop down to calling user & go back up when needed */
 	elevuid = geteuid();
@@ -489,7 +493,10 @@ int main(int argc, char **argv, char **env)
 
 	/* Make vty structure and register commands. */
 	vtysh_init_vty();
+<<<<<<< HEAD
 	vtysh_init_cmd();
+=======
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	vtysh_user_init();
 	vtysh_config_init();
 
@@ -644,9 +651,13 @@ int main(int argc, char **argv, char **env)
 		}
 	}
 
+<<<<<<< HEAD
 	if (getenv("VTYSH_LOG")) {
 		const char *logpath = getenv("VTYSH_LOG");
 
+=======
+	if (logpath != NULL) {
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		logfile = fopen(logpath, "a");
 		if (!logfile) {
 			fprintf(stderr, "Failed to open logfile (%s): %s\n",

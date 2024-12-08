@@ -116,6 +116,10 @@ struct mgmt_be_client {
 	frr_each_safe (mgmt_be_txns, &(client_ctx)->txn_head, (txn))
 
 struct debug mgmt_dbg_be_client = {
+<<<<<<< HEAD
+=======
+	.conf = "debug mgmt client backend",
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	.desc = "Management backend client operations"
 };
 
@@ -1061,7 +1065,11 @@ static void be_client_handle_notify(struct mgmt_be_client *client, void *msgbuf,
 	struct mgmt_msg_notify_data *notif_msg = msgbuf;
 	struct nb_node *nb_node;
 	struct lyd_node *dnode;
+<<<<<<< HEAD
 	const char *data;
+=======
+	const char *data = NULL;
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	const char *notif;
 	LY_ERR err;
 
@@ -1258,6 +1266,7 @@ DEFPY(debug_mgmt_client_be, debug_mgmt_client_be_cmd,
 	return CMD_SUCCESS;
 }
 
+<<<<<<< HEAD
 static int mgmt_debug_be_client_config_write(struct vty *vty)
 {
 	if (DEBUG_MODE_CHECK(&mgmt_dbg_be_client, DEBUG_MODE_CONF))
@@ -1283,6 +1292,8 @@ static struct cmd_node mgmt_dbg_node = {
 	.config_write = mgmt_debug_be_client_config_write,
 };
 
+=======
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 struct mgmt_be_client *mgmt_be_client_create(const char *client_name,
 					     struct mgmt_be_client_cbs *cbs,
 					     uintptr_t user_data,
@@ -1328,8 +1339,13 @@ struct mgmt_be_client *mgmt_be_client_create(const char *client_name,
 
 void mgmt_be_client_lib_vty_init(void)
 {
+<<<<<<< HEAD
 	debug_init(&mgmt_dbg_be_client_cbs);
 	install_node(&mgmt_dbg_node);
+=======
+	debug_install(&mgmt_dbg_be_client);
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	install_element(ENABLE_NODE, &debug_mgmt_client_be_cmd);
 	install_element(CONFIG_NODE, &debug_mgmt_client_be_cmd);
 }

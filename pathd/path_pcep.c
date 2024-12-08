@@ -31,7 +31,16 @@ DEFINE_MTYPE(PATHD, PCEP, "PCEP module");
 /*
  * Globals.
  */
+<<<<<<< HEAD
 static struct pcep_glob pcep_glob_space = {.dbg = {0, "pathd module: pcep"}};
+=======
+static struct pcep_glob pcep_glob_space = {
+	.dbg_basic = { 0, "debug pathd pcep basic", "PCEP basic" },
+	.dbg_path = { 0, "debug pathd pcep path", "PCEP path" },
+	.dbg_msg = { 0, "debug pathd pcep message", "PCEP message" },
+	.dbg_lib = { 0, "debug pathd pcep pceplib", "PCEP lib" },
+};
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 struct pcep_glob *pcep_g = &pcep_glob_space;
 
 /* Main Thread Even Handler */

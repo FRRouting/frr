@@ -553,8 +553,12 @@ int ospf6_abr_originate_summary_to_area(struct ospf6_route *route,
 	lsa_header = (struct ospf6_lsa_header *)buffer;
 
 	if (route->type == OSPF6_DEST_TYPE_ROUTER) {
+<<<<<<< HEAD
 		router_lsa = (struct ospf6_inter_router_lsa *)
 			ospf6_lsa_header_end(lsa_header);
+=======
+		router_lsa = lsa_after_header(lsa_header);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		p = (caddr_t)router_lsa + sizeof(struct ospf6_inter_router_lsa);
 
 		/* Fill Inter-Area-Router-LSA */
@@ -565,8 +569,12 @@ int ospf6_abr_originate_summary_to_area(struct ospf6_route *route,
 		router_lsa->router_id = ADV_ROUTER_IN_PREFIX(&route->prefix);
 		type = htons(OSPF6_LSTYPE_INTER_ROUTER);
 	} else {
+<<<<<<< HEAD
 		prefix_lsa = (struct ospf6_inter_prefix_lsa *)
 			ospf6_lsa_header_end(lsa_header);
+=======
+		prefix_lsa = lsa_after_header(lsa_header);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		p = (caddr_t)prefix_lsa + sizeof(struct ospf6_inter_prefix_lsa);
 
 		/* Fill Inter-Area-Prefix-LSA */
@@ -1016,8 +1024,12 @@ void ospf6_abr_examin_summary(struct ospf6_lsa *lsa, struct ospf6_area *oa)
 				   oa->name);
 		}
 
+<<<<<<< HEAD
 		prefix_lsa = (struct ospf6_inter_prefix_lsa *)
 			ospf6_lsa_header_end(lsa->header);
+=======
+		prefix_lsa = lsa_after_header(lsa->header);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		prefix.family = AF_INET6;
 		prefix.prefixlen = prefix_lsa->prefix.prefix_length;
 		ospf6_prefix_in6_addr(&prefix.u.prefix6, prefix_lsa,
@@ -1036,8 +1048,12 @@ void ospf6_abr_examin_summary(struct ospf6_lsa *lsa, struct ospf6_area *oa)
 				   oa->name);
 		}
 
+<<<<<<< HEAD
 		router_lsa = (struct ospf6_inter_router_lsa *)
 			ospf6_lsa_header_end(lsa->header);
+=======
+		router_lsa = lsa_after_header(lsa->header);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		ospf6_linkstate_prefix(router_lsa->router_id, htonl(0), &prefix);
 		if (is_debug)
 			inet_ntop(AF_INET, &router_lsa->router_id, buf,
@@ -1429,8 +1445,12 @@ static char *ospf6_inter_area_prefix_lsa_get_prefix_str(struct ospf6_lsa *lsa,
 	char tbuf[16];
 
 	if (lsa != NULL) {
+<<<<<<< HEAD
 		prefix_lsa = (struct ospf6_inter_prefix_lsa *)
 			ospf6_lsa_header_end(lsa->header);
+=======
+		prefix_lsa = lsa_after_header(lsa->header);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 		ospf6_prefix_in6_addr(&in6, prefix_lsa, &prefix_lsa->prefix);
 		if (buf) {
@@ -1452,8 +1472,12 @@ static int ospf6_inter_area_prefix_lsa_show(struct vty *vty,
 	struct ospf6_inter_prefix_lsa *prefix_lsa;
 	char buf[INET6_ADDRSTRLEN];
 
+<<<<<<< HEAD
 	prefix_lsa = (struct ospf6_inter_prefix_lsa *)ospf6_lsa_header_end(
 		lsa->header);
+=======
+	prefix_lsa = lsa_after_header(lsa->header);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 	if (use_json) {
 		json_object_int_add(
@@ -1489,9 +1513,13 @@ static char *ospf6_inter_area_router_lsa_get_prefix_str(struct ospf6_lsa *lsa,
 	struct ospf6_inter_router_lsa *router_lsa;
 
 	if (lsa != NULL) {
+<<<<<<< HEAD
 		router_lsa = (struct ospf6_inter_router_lsa *)
 			ospf6_lsa_header_end(lsa->header);
 
+=======
+		router_lsa = lsa_after_header(lsa->header);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 		if (buf)
 			inet_ntop(AF_INET, &router_lsa->router_id, buf, buflen);
@@ -1508,8 +1536,12 @@ static int ospf6_inter_area_router_lsa_show(struct vty *vty,
 	struct ospf6_inter_router_lsa *router_lsa;
 	char buf[64];
 
+<<<<<<< HEAD
 	router_lsa = (struct ospf6_inter_router_lsa *)ospf6_lsa_header_end(
 		lsa->header);
+=======
+	router_lsa = lsa_after_header(lsa->header);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 	ospf6_options_printbuf(router_lsa->options, buf, sizeof(buf));
 	if (use_json) {

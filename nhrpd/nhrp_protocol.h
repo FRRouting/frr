@@ -73,6 +73,10 @@
 
 /* NHRP Authentication extension types (ala Cisco) */
 #define NHRP_AUTHENTICATION_PLAINTEXT		0x00000001
+<<<<<<< HEAD
+=======
+#define NHRP_CISCO_PASS_LEN			8
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 /* NHRP Packet Structures */
 struct nhrp_packet_header {

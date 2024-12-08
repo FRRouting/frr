@@ -18,7 +18,10 @@ import functools
 import os
 import sys
 import pytest
+<<<<<<< HEAD
 import re
+=======
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 import time
 
 # Save the Current Working Directory to find configuration files.

@@ -258,7 +258,11 @@ static void ns_disable_internal(struct ns *ns)
 		if (ns_master.ns_disable_hook)
 			(*ns_master.ns_disable_hook)(ns);
 
+<<<<<<< HEAD
 		if (have_netns())
+=======
+		if (have_netns() && ns->fd >= 0)
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 			close(ns->fd);
 
 		ns->fd = -1;

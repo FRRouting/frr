@@ -218,6 +218,7 @@ DEFUN (ip_router_isis,
 	if (!area)
 		isis_area_create(area_tag, VRF_DEFAULT_NAME);
 
+<<<<<<< HEAD
 	if (!circuit) {
 		circuit = isis_circuit_new(ifp, area_tag);
 
@@ -229,6 +230,11 @@ DEFUN (ip_router_isis,
 		}
 	}
 
+=======
+	if (!circuit)
+		circuit = isis_circuit_new(ifp, area_tag);
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	bool ip = circuit->ip_router, ipv6 = circuit->ipv6_router;
 	if (af[2] != '\0')
 		ipv6 = true;

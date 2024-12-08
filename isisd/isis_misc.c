@@ -370,11 +370,16 @@ const char *print_sys_hostname(const uint8_t *sysid)
 	struct isis_dynhn *dyn;
 	struct isis *isis = NULL;
 	struct listnode *node;
+<<<<<<< HEAD
+=======
+	struct isis_area *area = NULL;
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 	if (!sysid)
 		return "nullsysid";
 
 	/* For our system ID return our host name */
+<<<<<<< HEAD
 	isis = isis_lookup_by_sysid(sysid);
 	if (isis && !CHECK_FLAG(im->options, F_ISIS_UNIT_TEST))
 		return cmd_hostname_get();
@@ -382,6 +387,16 @@ const char *print_sys_hostname(const uint8_t *sysid)
 	for (ALL_LIST_ELEMENTS_RO(im->isis, node, isis)) {
 		dyn = dynhn_find_by_id(isis, sysid);
 		if (dyn)
+=======
+	area = isis_area_lookup_by_sysid(sysid);
+	if (area && area->dynhostname && !CHECK_FLAG(im->options, F_ISIS_UNIT_TEST))
+		return cmd_hostname_get();
+
+	for (ALL_LIST_ELEMENTS_RO(im->isis, node, isis)) {
+		area = isis_area_lookup_by_sysid(isis->sysid);
+		dyn = dynhn_find_by_id(isis, sysid);
+		if (area && area->dynhostname && dyn)
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 			return dyn->hostname;
 	}
 

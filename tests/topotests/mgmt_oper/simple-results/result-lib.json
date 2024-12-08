@@ -38,7 +38,12 @@
                               "gateway": "",
                               "interface": "r1-eth0",
                               "active": [null],
+<<<<<<< HEAD
                               "fib": [null]
+=======
+                              "fib": [null],
+                              "weight": 1
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
                             }
                           ]
                         }
@@ -66,7 +71,12 @@
                               "gateway": "",
                               "interface": "r1-eth0",
                               "active": [null],
+<<<<<<< HEAD
                               "fib": [null]
+=======
+                              "fib": [null],
+                              "weight": 1
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
                             }
                           ]
                         }
@@ -130,7 +140,12 @@
                               "gateway": "",
                               "interface": "r1-eth0",
                               "active": [null],
+<<<<<<< HEAD
                               "fib": [null]
+=======
+                              "fib": [null],
+                              "weight": 1
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
                             }
                           ]
                         }
@@ -156,7 +171,12 @@
                               "gateway": "",
                               "interface": "r1-eth0",
                               "active": [null],
+<<<<<<< HEAD
                               "fib": [null]
+=======
+                              "fib": [null],
+                              "weight": 1
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
                             }
                           ]
                         }
@@ -224,7 +244,12 @@
                               "gateway": "",
                               "interface": "r1-eth1",
                               "active": [null],
+<<<<<<< HEAD
                               "fib": [null]
+=======
+                              "fib": [null],
+                              "weight": 1
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
                             }
                           ]
                         }
@@ -252,7 +277,12 @@
                               "gateway": "",
                               "interface": "r1-eth1",
                               "active": [null],
+<<<<<<< HEAD
                               "fib": [null]
+=======
+                              "fib": [null],
+                              "weight": 1
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
                             }
                           ]
                         }
@@ -287,7 +317,12 @@
                               "gateway": "",
                               "interface": "r1-eth1",
                               "active": [null],
+<<<<<<< HEAD
                               "fib": [null]
+=======
+                              "fib": [null],
+                              "weight": 1
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
                             }
                           ]
                         }
@@ -313,7 +348,12 @@
                               "gateway": "",
                               "interface": "r1-eth1",
                               "active": [null],
+<<<<<<< HEAD
                               "fib": [null]
+=======
+                              "fib": [null],
+                              "weight": 1
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
                             }
                           ]
                         }
