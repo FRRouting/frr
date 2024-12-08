@@ -2105,6 +2105,12 @@ static void vpn_leak_to_vrf_update_onevrf(struct bgp *to_bgp,   /* to */
 	struct bgp *src_vrf;
 	struct interface *ifp = NULL;
 	char rd_buf[RD_ADDRSTRLEN];
+<<<<<<< HEAD
+=======
+	struct aspath *new_aspath;
+	int32_t aspath_loop_count = 0;
+	struct peer *peer = path_vpn->peer;
+>>>>>>> 222ba5f390 (bgpd: Import allowed routes with self AS if desired)
 
 	int debug = BGP_DEBUG(vpn, VPN_LEAK_TO_VRF);
 
@@ -2162,6 +2168,37 @@ static void vpn_leak_to_vrf_update_onevrf(struct bgp *to_bgp,   /* to */
 		return;
 	}
 
+<<<<<<< HEAD
+=======
+	bn = bgp_afi_node_get(to_bgp->rib[afi][safi], afi, safi, p, NULL);
+
+	/* Check if leaked route has our asn. If so, don't import it. */
+	if (CHECK_FLAG(peer->af_flags[afi][SAFI_MPLS_VPN], PEER_FLAG_ALLOWAS_IN))
+		aspath_loop_count = peer->allowas_in[afi][SAFI_MPLS_VPN];
+	if (aspath_loop_check(path_vpn->attr->aspath, to_bgp->as) > aspath_loop_count) {
+		for (bpi = bgp_dest_get_bgp_path_info(bn); bpi;
+		     bpi = bpi->next) {
+			if (bpi->extra && bpi->extra->vrfleak &&
+			    (struct bgp_path_info *)bpi->extra->vrfleak->parent ==
+				    path_vpn) {
+				break;
+			}
+		}
+
+		if (bpi) {
+			if (debug)
+				zlog_debug("%s: blocking import of %p, as-path match",
+					   __func__, bpi);
+			bgp_aggregate_decrement(to_bgp, p, bpi, afi, safi);
+			bgp_path_info_delete(bn, bpi);
+			bgp_process(to_bgp, bn, bpi, afi, safi);
+		}
+		bgp_dest_unlock_node(bn);
+
+		return;
+	}
+
+>>>>>>> 222ba5f390 (bgpd: Import allowed routes with self AS if desired)
 	if (debug)
 		zlog_debug("%s: updating RD %s, %pFX to %s", __func__, rd_buf,
 			   p, to_bgp->name_pretty);
