@@ -353,6 +353,13 @@ const struct frr_yang_module_info frr_pim_info = {
 			}
 		},
 		{
+			.xpath = "/frr-interface:lib/interface/frr-pim:pim/address-family/multicast-boundary-acl",
+			.cbs = {
+				.modify = lib_interface_pim_address_family_multicast_boundary_acl_modify,
+				.destroy = lib_interface_pim_address_family_multicast_boundary_acl_destroy,
+			}
+		},
+		{
 			.xpath = "/frr-interface:lib/interface/frr-pim:pim/address-family/mroute",
 			.cbs = {
 				.create = lib_interface_pim_address_family_mroute_create,

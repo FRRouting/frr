@@ -38,6 +38,7 @@
 #include "pim_igmp_join.h"
 #include "pim_vxlan.h"
 #include "pim_tib.h"
+#include "pim_util.h"
 
 #include "pim6_mld.h"
 
@@ -215,7 +216,6 @@ void pim_if_delete(struct interface *ifp)
 	if (pim_ifp->bfd_config.profile)
 		XFREE(MTYPE_TMP, pim_ifp->bfd_config.profile);
 
-	XFREE(MTYPE_PIM_INTERFACE, pim_ifp->boundary_oil_plist);
 	XFREE(MTYPE_PIM_INTERFACE, pim_ifp);
 
 	ifp->info = NULL;
@@ -1257,6 +1257,14 @@ static int gm_join_sock(const char *ifname, ifindex_t ifindex,
 			struct pim_interface *pim_ifp)
 {
 	int join_fd;
+
+	if (pim_is_group_filtered(pim_ifp, &group_addr, &source_addr)) {
+		if (PIM_DEBUG_GM_EVENTS) {
+			zlog_debug("%s: join failed for (S,G)=(%pPAs,%pPAs) due to multicast boundary filtering",
+				   __func__, &source_addr, &group_addr);
+		}
+		return -1;
+	}
 
 	pim_ifp->igmp_ifstat_joins_sent++;
 

@@ -5871,6 +5871,21 @@ DEFUN(interface_no_ip_pim_boundary_oil,
 	return pim_process_no_ip_pim_boundary_oil_cmd(vty);
 }
 
+DEFPY_YANG(interface_ip_pim_boundary_acl,
+           interface_ip_pim_boundary_acl_cmd,
+           "[no] ip multicast boundary ACCESSLIST4_NAME$name",
+           NO_STR
+           IP_STR
+           "Generic multicast configuration options\n"
+           "Define multicast boundary\n"
+           "Access-list to filter OIL with by source and group\n")
+{
+	nb_cli_enqueue_change(vty, "./multicast-boundary-acl",
+			      (!!no ? NB_OP_DESTROY : NB_OP_MODIFY), name);
+
+	return nb_cli_apply_changes(vty, FRR_PIM_INTERFACE_XPATH, FRR_PIM_AF_XPATH_VAL);
+}
+
 DEFUN (interface_ip_mroute,
        interface_ip_mroute_cmd,
        "ip mroute INTERFACE A.B.C.D [A.B.C.D]",
@@ -9018,6 +9033,7 @@ void pim_cmd_init(void)
 	install_element(INTERFACE_NODE, &interface_no_ip_pim_hello_cmd);
 	install_element(INTERFACE_NODE, &interface_ip_pim_boundary_oil_cmd);
 	install_element(INTERFACE_NODE, &interface_no_ip_pim_boundary_oil_cmd);
+	install_element(INTERFACE_NODE, &interface_ip_pim_boundary_acl_cmd);
 	install_element(INTERFACE_NODE, &interface_ip_igmp_query_generate_cmd);
 
 	// Static mroutes NEB

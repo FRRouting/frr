@@ -367,53 +367,6 @@ static void pim_msdp_pkt_sa_fill_one(struct pim_msdp_sa *sa)
 	stream_put_ipv4(sa->pim->msdp.work_obuf, sa->sg.src.s_addr);
 }
 
-static bool msdp_cisco_match(const struct filter *filter,
-			     const struct in_addr *source,
-			     const struct in_addr *group)
-{
-	const struct filter_cisco *cfilter = &filter->u.cfilter;
-	uint32_t source_addr;
-	uint32_t group_addr;
-
-	group_addr = group->s_addr & ~cfilter->mask_mask.s_addr;
-
-	if (cfilter->extended) {
-		source_addr = source->s_addr & ~cfilter->addr_mask.s_addr;
-		if (group_addr == cfilter->mask.s_addr &&
-		    source_addr == cfilter->addr.s_addr)
-			return true;
-	} else if (group_addr == cfilter->addr.s_addr)
-		return true;
-
-	return false;
-}
-
-static enum filter_type msdp_access_list_apply(struct access_list *access,
-					       const struct in_addr *source,
-					       const struct in_addr *group)
-{
-	struct filter *filter;
-	struct prefix group_prefix;
-
-	if (access == NULL)
-		return FILTER_DENY;
-
-	for (filter = access->head; filter; filter = filter->next) {
-		if (filter->cisco) {
-			if (msdp_cisco_match(filter, source, group))
-				return filter->type;
-		} else {
-			group_prefix.family = AF_INET;
-			group_prefix.prefixlen = IPV4_MAX_BITLEN;
-			group_prefix.u.prefix4.s_addr = group->s_addr;
-			if (access_list_apply(access, &group_prefix))
-				return filter->type;
-		}
-	}
-
-	return FILTER_DENY;
-}
-
 bool msdp_peer_sa_filter(const struct pim_msdp_peer *mp,
 			 const struct pim_msdp_sa *sa)
 {
@@ -425,7 +378,7 @@ bool msdp_peer_sa_filter(const struct pim_msdp_peer *mp,
 
 	/* Find access list and test it. */
 	acl = access_list_lookup(AFI_IP, mp->acl_out);
-	if (msdp_access_list_apply(acl, &sa->sg.src, &sa->sg.grp) == FILTER_DENY)
+	if (pim_access_list_apply(acl, &sa->sg.src, &sa->sg.grp) == FILTER_DENY)
 		return true;
 
 	return false;
@@ -641,7 +594,7 @@ static void pim_msdp_pkt_sa_rx_one(struct pim_msdp_peer *mp, struct in_addr rp)
 	/* Filter incoming SA with configured access list. */
 	if (mp->acl_in) {
 		acl = access_list_lookup(AFI_IP, mp->acl_in);
-		if (msdp_access_list_apply(acl, &sg.src, &sg.grp) == FILTER_DENY) {
+		if (pim_access_list_apply(acl, &sg.src, &sg.grp) == FILTER_DENY) {
 			if (pim_msdp_log_sa_events(mp->pim))
 				zlog_info("MSDP peer %pI4 filter SA in (%pI4, %pI4)", &mp->peer,
 					  &sg.src, &sg.grp);

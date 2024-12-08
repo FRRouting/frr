@@ -35,6 +35,7 @@
 #include "pim_sock.h"
 #include "pim_vxlan.h"
 #include "pim_msg.h"
+#include "pim_util.h"
 
 static void mroute_read_on(struct pim_instance *pim);
 static int pim_upstream_mroute_update(struct channel_oil *c_oil,
@@ -271,7 +272,9 @@ int pim_mroute_msg_nocache(int fd, struct interface *ifp, const kernmsg *msg)
 	    *oil_incoming_vif(up->channel_oil) >= MAXVIFS) {
 		pim_upstream_mroute_iif_update(up->channel_oil, __func__);
 	}
-	pim_register_join(up);
+
+	if (!pim_is_group_filtered(pim_ifp, &sg.grp, &sg.src))
+		pim_register_join(up);
 	/* if we have receiver, inherit from parent */
 	pim_upstream_inherited_olist_decide(pim_ifp->pim, up);
 
@@ -632,7 +635,8 @@ int pim_mroute_msg_wrvifwhole(int fd, struct interface *ifp, const char *buf,
 		pim_upstream_keep_alive_timer_start(
 			up, pim_ifp->pim->keep_alive_time);
 		up->channel_oil->cc.pktcnt++;
-		pim_register_join(up);
+		if (!pim_is_group_filtered(pim_ifp, &sg.grp, &sg.src))
+			pim_register_join(up);
 		pim_upstream_inherited_olist(pim_ifp->pim, up);
 		if (!up->channel_oil->installed)
 			pim_upstream_mroute_add(up->channel_oil, __func__);

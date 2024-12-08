@@ -78,6 +78,10 @@ module frr-pim {
     type string;
   }
 
+  typedef access-list-ref {
+    type string;
+  }
+
   /*
    * Groupings
    */
@@ -507,7 +511,13 @@ module frr-pim {
     leaf multicast-boundary-oil {
       type plist-ref;
       description
-        "Prefix-List to define multicast boundary";
+        "Prefix-List to define multicast boundary by group";
+    }
+
+    leaf multicast-boundary-acl {
+      type access-list-ref;
+      description
+        "Access-list to define multicast boundary by source and group";
     }
 
     list mroute {
