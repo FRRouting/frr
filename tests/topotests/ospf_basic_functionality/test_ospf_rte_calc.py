@@ -49,7 +49,11 @@ from lib.ospf import (
     verify_ospf_interface,
 )
 
+<<<<<<< HEAD
 pytestmark = [pytest.mark.ospfd, pytest.mark.staticd]
+=======
+pytestmark = [pytest.mark.bgpd, pytest.mark.ospfd, pytest.mark.staticd]
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 
 # Global variables
@@ -130,7 +134,11 @@ def setup_module(mod):
     logger.info("Running setup_module() done")
 
 
+<<<<<<< HEAD
 def teardown_module(mod):
+=======
+def teardown_module():
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
     """
     Teardown the pytest environment.
 
@@ -177,7 +185,11 @@ def test_ospf_redistribution_tc5_p0(request):
 
     step("verify intra area route is calculated for r0-r3 interface ip in R1")
     ip = topo["routers"]["r0"]["links"]["r3"]["ipv4"]
+<<<<<<< HEAD
     ip_net = str(ipaddress.ip_interface(u"{}".format(ip)).network)
+=======
+    ip_net = str(ipaddress.ip_interface("{}".format(ip)).network)
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
     nh = topo["routers"]["r0"]["links"]["r1"]["ipv4"].split("/")[0]
     input_dict = {
         "r1": {"static_routes": [{"network": ip_net, "no_of_ip": 1, "routeType": "N"}]}
@@ -208,7 +220,11 @@ def test_ospf_redistribution_tc5_p0(request):
     assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     dut = "r1"
+<<<<<<< HEAD
     for num in range(0, nretry):
+=======
+    for _ in range(0, nretry):
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
         result = verify_ospf_rib(tgen, dut, input_dict, next_hop=nh, expected=False)
         if result is not True:
             break
@@ -301,7 +317,11 @@ def test_ospf_redistribution_tc6_p0(request):
 
     step("verify intra area route is calculated for r0-r3 interface ip in R1")
     ip = topo["routers"]["r0"]["links"]["r3"]["ipv4"]
+<<<<<<< HEAD
     ip_net = str(ipaddress.ip_interface(u"{}".format(ip)).network)
+=======
+    ip_net = str(ipaddress.ip_interface("{}".format(ip)).network)
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
     nh = topo["routers"]["r0"]["links"]["r1"]["ipv4"].split("/")[0]
     input_dict = {
         "r1": {"static_routes": [{"network": ip_net, "no_of_ip": 1, "routeType": "N"}]}
@@ -332,7 +352,11 @@ def test_ospf_redistribution_tc6_p0(request):
     assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     dut = "r1"
+<<<<<<< HEAD
     for num in range(0, nretry):
+=======
+    for _ in range(0, nretry):
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
         result = verify_ospf_rib(tgen, dut, input_dict, next_hop=nh, expected=False)
         if result is not True:
             break

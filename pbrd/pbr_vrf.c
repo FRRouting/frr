@@ -123,4 +123,9 @@ void pbr_vrf_terminate(void)
 		FOR_ALL_INTERFACES (vrf, ifp)
 			pbr_if_del(ifp);
 	}
+<<<<<<< HEAD
+=======
+
+	vrf_terminate();
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 }

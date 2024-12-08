@@ -30,6 +30,10 @@
 %{!?with_rtadv:         %global  with_rtadv         1 }
 %{!?with_watchfrr:      %global  with_watchfrr      1 }
 %{!?with_pathd:         %global  with_pathd         1 }
+<<<<<<< HEAD
+=======
+%{!?with_grpc:          %global  with_grpc          0 }
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 # user and group
 %{!?frr_user:           %global  frr_user           frr }
@@ -188,6 +192,10 @@ BuildRequires:  ncurses-devel
 BuildRequires:  readline-devel
 BuildRequires:  texinfo
 BuildRequires:  libyang-devel >= 2.1.128
+<<<<<<< HEAD
+=======
+BuildRequires:  pcre2-devel
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 %if 0%{?rhel} && 0%{?rhel} < 7
 #python27-devel is available from ius community repo for RedHat/CentOS 6
 BuildRequires:  python27-devel
@@ -201,6 +209,15 @@ BuildRequires:  python3-devel
 BuildRequires:  python3-sphinx
 %endif
 %endif
+<<<<<<< HEAD
+=======
+%if %{with_grpc}
+BuildRequires:  grpc-devel >= 1.16.1
+BuildRequires:  protobuf-devel >= 3.6.1
+BuildRequires:  protobuf-compiler >= 3.6.1
+BuildRequires:  protobuf-c-devel
+%endif
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 %if 0%{?rhel} > 7
 #platform-python-devel is needed for /usr/bin/pathfix.py
 BuildRequires:  platform-python-devel
@@ -301,6 +318,20 @@ through the AgentX protocol.  Provides read-only access to current
 routing state through standard SNMP MIBs.
 
 
+<<<<<<< HEAD
+=======
+%if %{with_grpc}
+%package grpc
+Summary: GRPC support for FRR daemons
+Group: System Environment/Daemons
+License: GPLv3+
+Requires: %{name} = %{version}-%{release}
+
+%description grpc
+Adds GRPC support to the individual FRR daemons.
+%endif
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 %prep
 %setup -q -n frr-%{frrversion}
 
@@ -425,7 +456,17 @@ routing state through standard SNMP MIBs.
 %else
     --disable-pathd \
 %endif
+<<<<<<< HEAD
     --enable-snmp
+=======
+%if %{with_grpc}
+    --enable-grpc \
+%else
+    --disable-grpc \
+%endif
+    --enable-snmp \
+    --enable-pcre2posix \
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
     # end
 
 make %{?_smp_mflags} MAKEINFO="makeinfo --no-split"
@@ -677,6 +718,10 @@ fi
     %{_sbindir}/mgmtd_testc
 %endif
 %exclude %{_sbindir}/ssd
+<<<<<<< HEAD
+=======
+%exclude %{_sbindir}/fpm_listener
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 %if %{with_watchfrr}
     %{_sbindir}/watchfrr
 %endif
@@ -782,6 +827,15 @@ sed -i 's/ -M rpki//' %{_sysconfdir}/frr/daemons
 %{_libdir}/frr/modules/*snmp.so
 
 
+<<<<<<< HEAD
+=======
+%if %{with_grpc}
+%files grpc
+%{_libdir}/libfrrgrpc_pb.*
+%{_libdir}/frr/modules/grpc.so
+%endif
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 %files devel
 %{_libdir}/lib*.so
 %dir %{_includedir}/%{name}
@@ -804,6 +858,7 @@ sed -i 's/ -M rpki//' %{_sysconfdir}/frr/daemons
 
 %changelog
 
+<<<<<<< HEAD
 * Wed Sep 11 2024 Martin Winter <mwinter@opensourcerouting.org> - %{version}
 
 * Wed Sep 11 2024 Donatas Abraitis <donatas@opensourcerouting.org> - 10.0.2
@@ -931,6 +986,27 @@ sed -i 's/ -M rpki//' %{_sysconfdir}/frr/daemons
 -    Fix mpls command
 
 * Mon Apr 08 2024 Jafar Al-Gharaibeh <jafar@atcorp.com> - 10.0
+=======
+* Thu Oct 10  2024 Jafar Al-Gharaibeh <jafar@atcorp.com> - %{version}
+
+* Thu Oct 10 2024 Jafar Al-Gharaibeh <jafar@atcorp.com> - 10.3-dev
+- FRR 10.3 Development
+
+* Fri Jul 26 2024 Jafar Al-Gharaibeh <jafar@atcorp.com> - 10.1
+- Breaking changes
+-   Enable BGP dynamic capability by default for datacenter profile
+-   Split BGP `rpki cache` command into separate per SSH/TCP
+-   Add deprecation cycle for OSPF `router-info X [A.B.C.D]` command
+- Major highlights:
+-   BGP dampening per-neighbor support
+-   BMP send-experimental stats
+-   Implement extended link-bandwidth for BGP
+-   Paths Limit for Multiple Paths in BGP
+-   New command for OSPFv2 `ip ospf neighbor-filter NAME [A.B.C.D]`
+-   Implement non-broadcast support for point-to-multipoint networks
+
+* Mon Mar 25 2024 Jafar Al-Gharaibeh <jafar@atcorp.com> - 10.0
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 - Major highlights:
 -   Introduce local host routes
 -   Require libyang 2.1.128

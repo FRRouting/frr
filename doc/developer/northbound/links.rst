@@ -195,6 +195,7 @@ pyangbind
 -  GitHub page: https://github.com/robshakir/pyangbind
 -  Documentation: http://pynms.io/pyangbind/
 
+<<<<<<< HEAD
 ConfD
 ^^^^^
 
@@ -203,6 +204,8 @@ ConfD
 -  Training Videos: http://www.tail-f.com/confd-training-videos/
 -  Forum: http://discuss.tail-f.com/
 
+=======
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 Sysrepo
 ^^^^^^^
 

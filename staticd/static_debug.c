@@ -19,6 +19,7 @@
  */
 
 /* clang-format off */
+<<<<<<< HEAD
 struct debug static_dbg_events = {0, "Staticd events"};
 struct debug static_dbg_route = {0, "Staticd route"};
 struct debug static_dbg_bfd = {0, "Staticd bfd"};
@@ -81,6 +82,13 @@ int static_debug_status_write(struct vty *vty)
 	return static_debug_config_write_helper(vty, false);
 }
 
+=======
+struct debug static_dbg_events = {0, "debug static events", "Staticd events"};
+struct debug static_dbg_route = {0, "debug static route", "Staticd route"};
+struct debug static_dbg_bfd = {0, "debug static bfd", "Staticd bfd"};
+/* clang-format on */
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 /*
  * Set debugging status.
  *
@@ -113,6 +121,7 @@ void static_debug_set(int vtynode, bool onoff, bool events, bool route,
  * Debug lib initialization
  */
 
+<<<<<<< HEAD
 struct debug_callbacks static_dbg_cbs = {
 	.debug_set_all = static_debug_set_all
 };
@@ -120,4 +129,11 @@ struct debug_callbacks static_dbg_cbs = {
 void static_debug_init(void)
 {
 	debug_init(&static_dbg_cbs);
+=======
+void static_debug_init(void)
+{
+	debug_install(&static_dbg_events);
+	debug_install(&static_dbg_route);
+	debug_install(&static_dbg_bfd);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 }

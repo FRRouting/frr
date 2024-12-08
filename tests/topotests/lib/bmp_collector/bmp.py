@@ -10,11 +10,20 @@ BMP main module:
     - XXX: more bmp messages types to dissect
     - XXX: complete bgp message dissection
 """
+<<<<<<< HEAD
 import datetime
+=======
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 import ipaddress
 import json
 import os
 import struct
+<<<<<<< HEAD
+=======
+import sys
+
+from datetime import datetime
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 from bgp.update import BGPUpdate
 from bgp.update.rd import RouteDistinguisher
@@ -33,11 +42,16 @@ IS_FILTERED = 1 << 7
 if not os.path.exists(LOG_DIR):
     os.makedirs(LOG_DIR)
 
+<<<<<<< HEAD
+=======
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 def bin2str_ipaddress(ip_bytes, is_ipv6=False):
     if is_ipv6:
         return str(ipaddress.IPv6Address(ip_bytes))
     return str(ipaddress.IPv4Address(ip_bytes[-4:]))
 
+<<<<<<< HEAD
 def log2file(logs):
     """
     XXX: extract the useful information and save it in a flat dictionnary
@@ -47,16 +61,44 @@ def log2file(logs):
 
 
 #------------------------------------------------------------------------------
+=======
+
+def log2file(logs, log_file):
+    """
+    XXX: extract the useful information and save it in a flat dictionnary
+    """
+    with open(log_file, "a") as f:
+        f.write(json.dumps(logs) + "\n")
+
+
+def timestamp_print(message, file=sys.stderr):
+    """Helper function to timestamp_print messages with timestamps."""
+
+    current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    print(f"[{current_time}] {message}", file=file)
+
+
+# ------------------------------------------------------------------------------
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 class BMPCodes:
     """
     XXX: complete the list, provide RFCs.
     """
+<<<<<<< HEAD
+=======
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
     VERSION = 0x3
 
     BMP_MSG_TYPE_ROUTE_MONITORING = 0x00
     BMP_MSG_TYPE_STATISTICS_REPORT = 0x01
+<<<<<<< HEAD
     BMP_MSG_TYPE_PEER_DOWN_NOTIFICATION =  0x02
     BMP_MSG_TYPE_PEER_UP_NOTIFICATION =  0x03
+=======
+    BMP_MSG_TYPE_PEER_DOWN_NOTIFICATION = 0x02
+    BMP_MSG_TYPE_PEER_UP_NOTIFICATION = 0x03
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
     BMP_MSG_TYPE_INITIATION = 0x04
     BMP_MSG_TYPE_TERMINATION = 0x05
     BMP_MSG_TYPE_ROUTE_MIRRORING = 0x06
@@ -107,6 +149,7 @@ class BMPCodes:
 
     # peer down reason code
     BMP_PEER_DOWN_LOCAL_NOTIFY = 0x01
+<<<<<<< HEAD
     BMP_PEER_DOWN_LOCAL_NO_NOTIFY = 0X02
     BMP_PEER_DOWN_REMOTE_NOTIFY = 0X03
     BMP_PEER_DOWN_REMOTE_NO_NOTIFY = 0X04
@@ -116,6 +159,17 @@ class BMPCodes:
     # termincation message types
     BMP_TERM_TYPE_STRING = 0x00
     BMP_TERM_TYPE_REASON = 0X01
+=======
+    BMP_PEER_DOWN_LOCAL_NO_NOTIFY = 0x02
+    BMP_PEER_DOWN_REMOTE_NOTIFY = 0x03
+    BMP_PEER_DOWN_REMOTE_NO_NOTIFY = 0x04
+    BMP_PEER_DOWN_INFO_NO_LONGER = 0x05
+    BMP_PEER_DOWN_SYSTEM_CLOSED = 0x06
+
+    # termincation message types
+    BMP_TERM_TYPE_STRING = 0x00
+    BMP_TERM_TYPE_REASON = 0x01
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
     # termination reason code
     BMP_TERM_REASON_ADMIN_CLOSE = 0x00
@@ -126,18 +180,27 @@ class BMPCodes:
 
     # policy route tlv
     BMP_ROUTE_POLICY_TLV_VRF = 0x00
+<<<<<<< HEAD
     BMP_ROUTE_POLICY_TLV_POLICY= 0x01
+=======
+    BMP_ROUTE_POLICY_TLV_POLICY = 0x01
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
     BMP_ROUTE_POLICY_TLV_PRE_POLICY = 0x02
     BMP_ROUTE_POLICY_TLV_POST_POLICY = 0x03
     BMP_ROUTE_POLICY_TLV_STRING = 0x04
 
 
+<<<<<<< HEAD
 #------------------------------------------------------------------------------
+=======
+# ------------------------------------------------------------------------------
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 class BMPMsg:
     """
     XXX: should we move register_msg_type and look_msg_type
     to generic Type class.
     """
+<<<<<<< HEAD
     TYPES = {}
     UNKNOWN_TYPE = None
     HDR_STR = '!BIB'
@@ -151,6 +214,22 @@ class BMPMsg:
         BMPCodes.BMP_MSG_TYPE_TERMINATION: 'termination',
         BMPCodes.BMP_MSG_TYPE_ROUTE_MIRRORING: 'route mirroring',
         BMPCodes.BMP_MSG_TYPE_ROUTE_POLICY: 'route policy',
+=======
+
+    TYPES = {}
+    UNKNOWN_TYPE = None
+    HDR_STR = "!BIB"
+    MIN_LEN = struct.calcsize(HDR_STR)
+    TYPES_STR = {
+        BMPCodes.BMP_MSG_TYPE_INITIATION: "initiation",
+        BMPCodes.BMP_MSG_TYPE_PEER_DOWN_NOTIFICATION: "peer down notification",
+        BMPCodes.BMP_MSG_TYPE_PEER_UP_NOTIFICATION: "peer up notification",
+        BMPCodes.BMP_MSG_TYPE_ROUTE_MONITORING: "route monitoring",
+        BMPCodes.BMP_MSG_TYPE_STATISTICS_REPORT: "statistics report",
+        BMPCodes.BMP_MSG_TYPE_TERMINATION: "termination",
+        BMPCodes.BMP_MSG_TYPE_ROUTE_MIRRORING: "route mirroring",
+        BMPCodes.BMP_MSG_TYPE_ROUTE_POLICY: "route policy",
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
     }
 
     @classmethod
@@ -158,6 +237,10 @@ class BMPMsg:
         def _register_type(subcls):
             cls.TYPES[msgtype] = subcls
             return subcls
+<<<<<<< HEAD
+=======
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
         return _register_type
 
     @classmethod
@@ -179,6 +262,7 @@ class BMPMsg:
         if len(data) < cls.MIN_LEN:
             pass
         else:
+<<<<<<< HEAD
             _version, _len, _type = struct.unpack(cls.HDR_STR, data[0:cls.MIN_LEN])
             return _version, _len, _type
 
@@ -192,10 +276,28 @@ class BMPMsg:
 
         if version != BMPCodes.VERSION:
             # XXX: log something
+=======
+            _version, _len, _type = struct.unpack(cls.HDR_STR, data[0 : cls.MIN_LEN])
+            return _version, _len, _type
+
+    @classmethod
+    def dissect(cls, data, log_file=None):
+        global SEQ
+        version, msglen, msgtype = cls.dissect_header(data)
+
+        msg_data = data[cls.MIN_LEN : msglen]
+        data = data[msglen:]
+
+        if version != BMPCodes.VERSION:
+            timestamp_print(
+                f"Expected BMP version {BMPCodes.VERSION} but got version {version}."
+            )
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
             return data
 
         msg_cls = cls.lookup_msg_type(msgtype)
         if msg_cls == cls.UNKNOWN_TYPE:
+<<<<<<< HEAD
             # XXX: log something
             return data
 
@@ -203,12 +305,27 @@ class BMPMsg:
         logs = msg_cls.dissect(msg_data)
         logs["seq"] = SEQ
         log2file(logs)
+=======
+            timestamp_print(f"Got unknown message type ")
+            return data
+
+        timestamp_print(f"Got message type: {msg_cls}")
+
+        msg_cls.MSG_LEN = msglen - cls.MIN_LEN
+        logs = msg_cls.dissect(msg_data)
+        logs["seq"] = SEQ
+        log2file(logs, log_file if log_file else LOG_FILE)
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
         SEQ += 1
 
         return data
 
 
+<<<<<<< HEAD
 #------------------------------------------------------------------------------
+=======
+# ------------------------------------------------------------------------------
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 class BMPPerPeerMessage:
     """
     0 1 2 3 4 5 6 7 8 1 2 3 4 5 6 7 8 1 2 3 4 5 6 7 8 1 2 3 4 5 6 7 8
@@ -229,16 +346,27 @@ class BMPPerPeerMessage:
     |                    Timestamp (microseconds)                   |
     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
     """
+<<<<<<< HEAD
     PEER_UNPACK_STR = '!BB8s16sI4sII'
     PEER_TYPE_STR = {
         BMPCodes.BMP_PEER_GLOBAL_INSTANCE: 'global instance',
         BMPCodes.BMP_PEER_RD_INSTANCE: 'route distinguisher instance',
         BMPCodes.BMP_PEER_LOCAL_INSTANCE: 'local instance',
         BMPCodes.BMP_PEER_LOC_RIB_INSTANCE: 'loc-rib instance',
+=======
+
+    PEER_UNPACK_STR = "!BB8s16sI4sII"
+    PEER_TYPE_STR = {
+        BMPCodes.BMP_PEER_GLOBAL_INSTANCE: "global instance",
+        BMPCodes.BMP_PEER_RD_INSTANCE: "route distinguisher instance",
+        BMPCodes.BMP_PEER_LOCAL_INSTANCE: "local instance",
+        BMPCodes.BMP_PEER_LOC_RIB_INSTANCE: "loc-rib instance",
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
     }
 
     @classmethod
     def dissect(cls, data):
+<<<<<<< HEAD
         (peer_type,
          peer_flags,
          peer_distinguisher,
@@ -253,6 +381,24 @@ class BMPPerPeerMessage:
         if peer_type == 0x03:
             msg['is_filtered'] = bool(peer_flags & IS_FILTERED)
             msg['policy'] = 'loc-rib'
+=======
+        (
+            peer_type,
+            peer_flags,
+            peer_distinguisher,
+            peer_address,
+            peer_asn,
+            peer_bgp_id,
+            timestamp_secs,
+            timestamp_microsecs,
+        ) = struct.unpack_from(cls.PEER_UNPACK_STR, data)
+
+        msg = {"peer_type": cls.PEER_TYPE_STR[peer_type]}
+
+        if peer_type == 0x03:
+            msg["is_filtered"] = bool(peer_flags & IS_FILTERED)
+            msg["policy"] = "loc-rib"
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
         else:
             # peer_flags = 0x0000 0000
             # ipv6, post-policy, as-path, adj-rib-out, reserverdx4
@@ -260,6 +406,7 @@ class BMPPerPeerMessage:
             is_as_path = bool(peer_flags & IS_AS_PATH)
             is_post_policy = bool(peer_flags & IS_POST_POLICY)
             is_ipv6 = bool(peer_flags & IS_IPV6)
+<<<<<<< HEAD
             msg['policy'] = 'post-policy' if is_post_policy else 'pre-policy'
             msg['ipv6'] = is_ipv6
             msg['peer_ip'] = bin2str_ipaddress(peer_address, is_ipv6)
@@ -275,14 +422,38 @@ class BMPPerPeerMessage:
             'peer_bgp_id': peer_bgp_id,
             'timestamp': str(datetime.datetime.fromtimestamp(timestamp)),
         })
+=======
+            msg["policy"] = "post-policy" if is_post_policy else "pre-policy"
+            msg["ipv6"] = is_ipv6
+            msg["peer_ip"] = bin2str_ipaddress(peer_address, is_ipv6)
+
+        peer_bgp_id = bin2str_ipaddress(peer_bgp_id)
+        timestamp = float(timestamp_secs) + timestamp_microsecs * (10**-6)
+
+        data = data[struct.calcsize(cls.PEER_UNPACK_STR) :]
+        msg.update(
+            {
+                "peer_distinguisher": str(RouteDistinguisher(peer_distinguisher)),
+                "peer_asn": peer_asn,
+                "peer_bgp_id": peer_bgp_id,
+                "timestamp": str(datetime.fromtimestamp(timestamp)),
+            }
+        )
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
         return data, msg
 
 
+<<<<<<< HEAD
 #------------------------------------------------------------------------------
 @BMPMsg.register_msg_type(BMPCodes.BMP_MSG_TYPE_ROUTE_MONITORING)
 class BMPRouteMonitoring(BMPPerPeerMessage):
 
+=======
+# ------------------------------------------------------------------------------
+@BMPMsg.register_msg_type(BMPCodes.BMP_MSG_TYPE_ROUTE_MONITORING)
+class BMPRouteMonitoring(BMPPerPeerMessage):
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
     @classmethod
     def dissect(cls, data):
         data, peer_msg = super().dissect(data)
@@ -290,7 +461,11 @@ class BMPRouteMonitoring(BMPPerPeerMessage):
         return {**peer_msg, **update_msg}
 
 
+<<<<<<< HEAD
 #------------------------------------------------------------------------------
+=======
+# ------------------------------------------------------------------------------
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 class BMPStatisticsReport:
     """
     0 1 2 3 4 5 6 7 8 1 2 3 4 5 6 7 8 1 2 3 4 5 6 7 8 1 2 3 4 5 6 7 8
@@ -303,11 +478,21 @@ class BMPStatisticsReport:
     ~                                                               ~
     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
     """
+<<<<<<< HEAD
     pass
 
 
 #------------------------------------------------------------------------------
 class BMPPeerDownNotification:
+=======
+
+    pass
+
+
+# ------------------------------------------------------------------------------
+@BMPMsg.register_msg_type(BMPCodes.BMP_MSG_TYPE_PEER_DOWN_NOTIFICATION)
+class BMPPeerDownNotification(BMPPerPeerMessage):
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
     """
     0 1 2 3 4 5 6 7 8 1 2 3 4 5 6 7 8 1 2 3 4 5 6 7 8 1 2 3 4 5 6 7 8
     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
@@ -316,10 +501,31 @@ class BMPPeerDownNotification:
     |            Data (present if Reason = 1, 2 or 3)               |
     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
     """
+<<<<<<< HEAD
     pass
 
 
 #------------------------------------------------------------------------------
+=======
+
+    @classmethod
+    def dissect(cls, data):
+        data, peer_msg = super().dissect(data)
+
+        msg = {
+            **peer_msg,
+            **{
+                "bmp_log_type": "peer down",
+            },
+        }
+
+        # XXX: dissect the bgp open message
+
+        return msg
+
+
+# ------------------------------------------------------------------------------
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 @BMPMsg.register_msg_type(BMPCodes.BMP_MSG_TYPE_PEER_UP_NOTIFICATION)
 class BMPPeerUpNotification(BMPPerPeerMessage):
     """
@@ -336,7 +542,12 @@ class BMPPeerUpNotification(BMPPerPeerMessage):
     ~                                                               ~
     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
     """
+<<<<<<< HEAD
     UNPACK_STR = '!16sHH'
+=======
+
+    UNPACK_STR = "!16sHH"
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
     MIN_LEN = struct.calcsize(UNPACK_STR)
     MSG_LEN = None
 
@@ -344,16 +555,27 @@ class BMPPeerUpNotification(BMPPerPeerMessage):
     def dissect(cls, data):
         data, peer_msg = super().dissect(data)
 
+<<<<<<< HEAD
         (local_addr,
          local_port,
          remote_port) = struct.unpack_from(cls.UNPACK_STR, data)
+=======
+        (local_addr, local_port, remote_port) = struct.unpack_from(cls.UNPACK_STR, data)
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
         msg = {
             **peer_msg,
             **{
+<<<<<<< HEAD
                 'local_ip': bin2str_ipaddress(local_addr, peer_msg.get('ipv6')),
                 'local_port': int(local_port),
                 'remote_port': int(remote_port),
+=======
+                "bmp_log_type": "peer up",
+                "local_ip": bin2str_ipaddress(local_addr, peer_msg.get("ipv6")),
+                "local_port": int(local_port),
+                "remote_port": int(remote_port),
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
             },
         }
 
@@ -362,7 +584,11 @@ class BMPPeerUpNotification(BMPPerPeerMessage):
         return msg
 
 
+<<<<<<< HEAD
 #------------------------------------------------------------------------------
+=======
+# ------------------------------------------------------------------------------
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 @BMPMsg.register_msg_type(BMPCodes.BMP_MSG_TYPE_INITIATION)
 class BMPInitiation:
     """
@@ -374,6 +600,7 @@ class BMPInitiation:
     ~                                                               ~
     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
     """
+<<<<<<< HEAD
     TLV_STR = '!HH'
     MIN_LEN = struct.calcsize(TLV_STR)
     FIELD_TO_STR = {
@@ -382,22 +609,45 @@ class BMPInitiation:
         BMPCodes.BMP_INIT_SYSTEM_DESCRIPTION: 'system_description',
         BMPCodes.BMP_INIT_SYSTEM_NAME: 'system_name',
         BMPCodes.BMP_INIT_VRF_TABLE_NAME: 'vrf_table_name',
+=======
+
+    TLV_STR = "!HH"
+    MIN_LEN = struct.calcsize(TLV_STR)
+    FIELD_TO_STR = {
+        BMPCodes.BMP_INIT_INFO_STRING: "information",
+        BMPCodes.BMP_INIT_ADMIN_LABEL: "admin_label",
+        BMPCodes.BMP_INIT_SYSTEM_DESCRIPTION: "system_description",
+        BMPCodes.BMP_INIT_SYSTEM_NAME: "system_name",
+        BMPCodes.BMP_INIT_VRF_TABLE_NAME: "vrf_table_name",
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
     }
 
     @classmethod
     def dissect(cls, data):
         msg = {}
         while len(data) > cls.MIN_LEN:
+<<<<<<< HEAD
             _type, _len = struct.unpack_from(cls.TLV_STR, data[0:cls.MIN_LEN])
             _value = data[cls.MIN_LEN: cls.MIN_LEN + _len].decode()
 
             msg[cls.FIELD_TO_STR[_type]] = _value
             data = data[cls.MIN_LEN + _len:]
+=======
+            _type, _len = struct.unpack_from(cls.TLV_STR, data[0 : cls.MIN_LEN])
+            _value = data[cls.MIN_LEN : cls.MIN_LEN + _len].decode()
+
+            msg[cls.FIELD_TO_STR[_type]] = _value
+            data = data[cls.MIN_LEN + _len :]
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
         return msg
 
 
+<<<<<<< HEAD
 #------------------------------------------------------------------------------
+=======
+# ------------------------------------------------------------------------------
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 class BMPTermination:
     """
     0 1 2 3 4 5 6 7 8 1 2 3 4 5 6 7 8 1 2 3 4 5 6 7 8 1 2 3 4 5 6 7 8
@@ -408,14 +658,26 @@ class BMPTermination:
     ~                                                               ~
     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
     """
+<<<<<<< HEAD
     pass
 
 
 #------------------------------------------------------------------------------
+=======
+
+    pass
+
+
+# ------------------------------------------------------------------------------
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 class BMPRouteMirroring:
     pass
 
 
+<<<<<<< HEAD
 #------------------------------------------------------------------------------
+=======
+# ------------------------------------------------------------------------------
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 class BMPRoutePolicy:
     pass

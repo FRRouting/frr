@@ -44,5 +44,10 @@ DECLARE_MTYPE(OSPF_GR_HELPER);
 DECLARE_MTYPE(OSPF_EXTERNAL_RT_AGGR);
 DECLARE_MTYPE(OSPF_P_SPACE);
 DECLARE_MTYPE(OSPF_Q_SPACE);
+<<<<<<< HEAD
+=======
+DECLARE_MTYPE(OSPF_LSA_LIST);
+DECLARE_MTYPE(OSPF_LSDB_NODE);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 #endif /* _QUAGGA_OSPF_MEMORY_H */

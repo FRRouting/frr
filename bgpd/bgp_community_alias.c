@@ -13,7 +13,11 @@
 #include "bgpd/bgpd.h"
 #include "bgpd/bgp_community_alias.h"
 
+<<<<<<< HEAD
 static struct hash *bgp_ca_alias_hash;
+=======
+struct hash *bgp_ca_alias_hash;
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 static struct hash *bgp_ca_community_hash;
 
 static unsigned int bgp_ca_community_hash_key(const void *p)

@@ -62,7 +62,11 @@ static struct asort_head shead;
 static struct testthread {
 	pthread_t pt;
 	struct seqlock sqlo;
+<<<<<<< HEAD
 	size_t counter, nullops;
+=======
+	_Atomic size_t counter, nullops;
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 } thr[NTHREADS];
 
 struct testrun {
@@ -97,10 +101,17 @@ static void trfunc_##name(unsigned int offset) \
 { \
 	size_t i = 0, n = 0;
 
+<<<<<<< HEAD
 #define endtestrun \
 	thr[offset].counter = i; \
 	thr[offset].nullops = n; \
 }
+=======
+#define endtestrun                                                             \
+	atomic_store_explicit(&thr[offset].counter, i, memory_order_seq_cst);  \
+	atomic_store_explicit(&thr[offset].nullops, n, memory_order_seq_cst);  \
+	}
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 deftestrun(add, "add vs. add", 0, false)
 	for (; i < NITEM / NTHREADS; i++)
@@ -288,10 +299,17 @@ static void run_tr(struct testrun *tr)
 	sv = seqlock_bump(&sqlo) - SEQLOCK_INCR;
 	for (size_t i = 0; i < NTHREADS; i++) {
 		seqlock_wait(&thr[i].sqlo, seqlock_cur(&sqlo));
+<<<<<<< HEAD
 		s += thr[i].counter;
 		n += thr[i].nullops;
 		thr[i].counter = 0;
 		thr[i].nullops = 0;
+=======
+		s += atomic_load_explicit(&thr[i].counter, memory_order_seq_cst);
+		n += atomic_load_explicit(&thr[i].nullops, memory_order_seq_cst);
+		atomic_store_explicit(&thr[i].counter, 0, memory_order_seq_cst);
+		atomic_store_explicit(&thr[i].nullops, 0, memory_order_seq_cst);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	}
 
 	delta = monotime_since(&tv, NULL);

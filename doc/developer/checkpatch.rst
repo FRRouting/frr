@@ -761,6 +761,7 @@ Indentation and Line Breaks
 Macros, Attributes and Symbols
 ------------------------------
 
+<<<<<<< HEAD
   **ARRAY_SIZE**
     The ARRAY_SIZE(foo) macro should be preferred over
     sizeof(foo)/sizeof(foo[0]) for finding number of elements in an
@@ -770,6 +771,8 @@ Macros, Attributes and Symbols
 
       #define ARRAY_SIZE(x) (sizeof(x) / sizeof((x)[0]))
 
+=======
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
   **AVOID_EXTERNS**
     Function prototypes don't need to be declared extern in .h
     files.  It's assumed by the compiler and is unnecessary.

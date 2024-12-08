@@ -18,7 +18,10 @@ Following tests are covered to test BGP Multi-VRF Dynamic Route Leaking:
 
 import os
 import sys
+<<<<<<< HEAD
 import json
+=======
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 import time
 import pytest
 import platform
@@ -58,7 +61,11 @@ from lib.bgp import (
     verify_best_path_as_per_bgp_attribute,
     verify_bgp_rib,
 )
+<<<<<<< HEAD
 from lib.topojson import build_topo_from_json, build_config_from_json
+=======
+from lib.topojson import build_config_from_json
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 pytestmark = [pytest.mark.bgpd, pytest.mark.staticd]
 

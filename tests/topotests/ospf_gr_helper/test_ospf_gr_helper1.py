@@ -29,7 +29,10 @@ from lib.common_config import (
     write_test_footer,
     reset_config_on_routers,
     step,
+<<<<<<< HEAD
     create_interfaces_cfg,
+=======
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
     scapy_send_raw_packet,
 )
 
@@ -38,7 +41,10 @@ from lib.topojson import build_config_from_json
 
 from lib.ospf import (
     verify_ospf_neighbor,
+<<<<<<< HEAD
     clear_ospf,
+=======
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
     verify_ospf_gr_helper,
     create_router_ospf,
 )

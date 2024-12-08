@@ -517,6 +517,18 @@ int ospf6_auth_check_digest(struct ospf6_header *oh, struct ospf6_interface *oi,
 		}
 	} else if (CHECK_FLAG(oi->at_data.flags,
 			      OSPF6_AUTH_TRAILER_MANUAL_KEY)) {
+<<<<<<< HEAD
+=======
+		if (oi->at_data.key_id != ntohs(ospf6_auth->id)) {
+			if (IS_OSPF6_DEBUG_AUTH_RX)
+				zlog_err("RECV[%s]: Auth SA ID mismatch for %s, received %u vs configured %u",
+					 oi->interface->name,
+					 ospf6_message_type(oh->type),
+					 ntohs(ospf6_auth->id),
+					 oi->at_data.key_id);
+			return OSPF6_AUTH_VALIDATE_FAILURE;
+		}
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		auth_str = oi->at_data.auth_key;
 		hash_algo = oi->at_data.hash_algo;
 	}

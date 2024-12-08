@@ -75,6 +75,12 @@ struct bgp_adj_out {
 	/* Advertised attribute.  */
 	struct attr *attr;
 
+<<<<<<< HEAD
+=======
+	/* VPN label information */
+	struct bgp_labels *labels;
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	/* Advertisement information.  */
 	struct bgp_advertise *adv;
 };
@@ -95,6 +101,12 @@ struct bgp_adj_in {
 	/* Received attribute.  */
 	struct attr *attr;
 
+<<<<<<< HEAD
+=======
+	/* VPN label information */
+	struct bgp_labels *labels;
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	/* timestamp (monotime) */
 	time_t uptime;
 
@@ -135,7 +147,12 @@ struct bgp_synchronize {
 extern bool bgp_adj_out_lookup(struct peer *peer, struct bgp_dest *dest,
 			       uint32_t addpath_tx_id);
 extern void bgp_adj_in_set(struct bgp_dest *dest, struct peer *peer,
+<<<<<<< HEAD
 			   struct attr *attr, uint32_t addpath_id);
+=======
+			   struct attr *attr, uint32_t addpath_id,
+			   struct bgp_labels *labels);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 extern bool bgp_adj_in_unset(struct bgp_dest **dest, struct peer *peer,
 			     uint32_t addpath_id);
 extern void bgp_adj_in_remove(struct bgp_dest **dest, struct bgp_adj_in *bai);

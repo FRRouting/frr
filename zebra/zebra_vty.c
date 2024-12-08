@@ -60,14 +60,20 @@ struct route_show_ctx {
 };
 
 static int do_show_ip_route(struct vty *vty, const char *vrf_name, afi_t afi,
+<<<<<<< HEAD
 			    safi_t safi, bool use_fib, json_object *vrf_json,
 			    bool use_json, route_tag_t tag,
+=======
+			    safi_t safi, bool use_fib, bool use_json,
+			    route_tag_t tag,
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 			    const struct prefix *longer_prefix_p,
 			    bool supernets_only, int type,
 			    unsigned short ospf_instance_id, uint32_t tableid,
 			    bool show_ng, struct route_show_ctx *ctx);
 static void vty_show_ip_route_detail(struct vty *vty, struct route_node *rn,
 				     int mcast, bool use_fib, bool show_ng);
+<<<<<<< HEAD
 static void vty_show_ip_route_summary(struct vty *vty,
 				      struct route_table *table, bool use_json);
 static void vty_show_ip_route_summary_prefix(struct vty *vty,
@@ -75,13 +81,32 @@ static void vty_show_ip_route_summary_prefix(struct vty *vty,
 					     bool use_json);
 /* Helper api to format a nexthop in the 'detailed' output path. */
 static void show_nexthop_detail_helper(struct vty *vty,
+=======
+static void vty_show_ip_route_summary(struct vty *vty, struct route_table *table,
+				      json_object *vrf_json, bool use_json);
+static void vty_show_ip_route_summary_prefix(struct vty *vty,
+					     struct route_table *table,
+					     json_object *vrf_json,
+					     bool use_json);
+/* Helper api to format a nexthop in the 'detailed' output path. */
+static void show_nexthop_detail_helper(struct vty *vty,
+				       const struct route_node *rn,
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 				       const struct route_entry *re,
 				       const struct nexthop *nexthop,
 				       bool is_backup);
 
 static void show_ip_route_dump_vty(struct vty *vty, struct route_table *table);
+<<<<<<< HEAD
 static void show_ip_route_nht_dump(struct vty *vty, struct nexthop *nexthop,
 				   struct route_entry *re, unsigned int num);
+=======
+static void show_ip_route_nht_dump(struct vty *vty,
+				   const struct nexthop *nexthop,
+				   const struct route_node *rn,
+				   const struct route_entry *re,
+				   unsigned int num);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 DEFUN (ip_multicast_mode,
        ip_multicast_mode_cmd,
@@ -148,8 +173,13 @@ DEFPY (show_ip_rpf,
 	};
 
 	return do_show_ip_route(vty, VRF_DEFAULT_NAME, ip ? AFI_IP : AFI_IP6,
+<<<<<<< HEAD
 				SAFI_MULTICAST, false, NULL, uj, 0, NULL, false,
 				0, 0, 0, false, &ctx);
+=======
+				SAFI_MULTICAST, false, uj, 0, NULL, false, 0, 0,
+				0, false, &ctx);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 }
 
 DEFPY (show_ip_rpf_addr,
@@ -210,7 +240,11 @@ static char re_status_output_char(const struct route_entry *re,
 			if (is_fib) {
 				star_p = !!CHECK_FLAG(nhop->flags,
 						      NEXTHOP_FLAG_FIB);
+<<<<<<< HEAD
 			} else
+=======
+			} else if (CHECK_FLAG(nhop->flags, NEXTHOP_FLAG_ACTIVE))
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 				star_p = true;
 		}
 
@@ -251,7 +285,11 @@ static char re_status_output_char(const struct route_entry *re,
 /*
  * Show backup nexthop info, in the 'detailed' output path
  */
+<<<<<<< HEAD
 static void show_nh_backup_helper(struct vty *vty,
+=======
+static void show_nh_backup_helper(struct vty *vty, const struct route_node *rn,
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 				  const struct route_entry *re,
 				  const struct nexthop *nexthop)
 {
@@ -281,7 +319,11 @@ static void show_nh_backup_helper(struct vty *vty,
 		temp = backup;
 		while (backup) {
 			vty_out(vty, "  ");
+<<<<<<< HEAD
 			show_nexthop_detail_helper(vty, re, backup,
+=======
+			show_nexthop_detail_helper(vty, rn, re, backup,
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 						   true /*backup*/);
 			vty_out(vty, "\n");
 
@@ -302,11 +344,18 @@ static void show_nh_backup_helper(struct vty *vty,
  * output path.
  */
 static void show_nexthop_detail_helper(struct vty *vty,
+<<<<<<< HEAD
+=======
+				       const struct route_node *rn,
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 				       const struct route_entry *re,
 				       const struct nexthop *nexthop,
 				       bool is_backup)
 {
+<<<<<<< HEAD
 	char addrstr[32];
+=======
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	char buf[MPLS_LABEL_STRLEN];
 	int i;
 
@@ -365,7 +414,11 @@ static void show_nexthop_detail_helper(struct vty *vty,
 		break;
 	}
 
+<<<<<<< HEAD
 	if (re->vrf_id != nexthop->vrf_id) {
+=======
+	if (re->vrf_id != nexthop->vrf_id && nexthop->type != NEXTHOP_TYPE_BLACKHOLE) {
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		struct vrf *vrf = vrf_lookup_by_id(nexthop->vrf_id);
 
 		vty_out(vty, "(vrf %s)", VRF_LOGNAME(vrf));
@@ -390,16 +443,24 @@ static void show_nexthop_detail_helper(struct vty *vty,
 	switch (nexthop->type) {
 	case NEXTHOP_TYPE_IPV4:
 	case NEXTHOP_TYPE_IPV4_IFINDEX:
+<<<<<<< HEAD
 		if (nexthop->src.ipv4.s_addr) {
 			if (inet_ntop(AF_INET, &nexthop->src.ipv4,
 				      addrstr, sizeof(addrstr)))
 				vty_out(vty, ", src %s",
 					addrstr);
 		}
+=======
+		if (nexthop->rmap_src.ipv4.s_addr)
+			vty_out(vty, ", rmapsrc %pI4", &nexthop->rmap_src.ipv4);
+		else if (nexthop->src.ipv4.s_addr)
+			vty_out(vty, ", src %pI4", &nexthop->src.ipv4);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		break;
 
 	case NEXTHOP_TYPE_IPV6:
 	case NEXTHOP_TYPE_IPV6_IFINDEX:
+<<<<<<< HEAD
 		if (!IPV6_ADDR_SAME(&nexthop->src.ipv6,
 				    &in6addr_any)) {
 			if (inet_ntop(AF_INET6, &nexthop->src.ipv6,
@@ -407,6 +468,15 @@ static void show_nexthop_detail_helper(struct vty *vty,
 				vty_out(vty, ", src %s",
 					addrstr);
 		}
+=======
+		/* Allow for 5549 ipv4 prefix with ipv6 nexthop */
+		if (rn->p.family == AF_INET && nexthop->rmap_src.ipv4.s_addr)
+			vty_out(vty, ", rmapsrc %pI4", &nexthop->rmap_src.ipv4);
+		else if (!IPV6_ADDR_SAME(&nexthop->rmap_src.ipv6, &in6addr_any))
+			vty_out(vty, ", rmapsrc %pI6", &nexthop->rmap_src.ipv6);
+		else if (!IPV6_ADDR_SAME(&nexthop->src.ipv6, &in6addr_any))
+			vty_out(vty, ", src %pI6", &nexthop->src.ipv6);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		break;
 
 	case NEXTHOP_TYPE_IFINDEX:
@@ -590,13 +660,21 @@ static void vty_show_ip_route_detail(struct vty *vty, struct route_node *rn,
 
 		for (ALL_NEXTHOPS(re->nhe->nhg, nexthop)) {
 			/* Use helper to format each nexthop */
+<<<<<<< HEAD
 			show_nexthop_detail_helper(vty, re, nexthop,
+=======
+			show_nexthop_detail_helper(vty, rn, re, nexthop,
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 						   false /*not backup*/);
 			vty_out(vty, "\n");
 
 			/* Include backup(s), if present */
 			if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_HAS_BACKUP))
+<<<<<<< HEAD
 				show_nh_backup_helper(vty, re, nexthop);
+=======
+				show_nh_backup_helper(vty, rn, re, nexthop);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		}
 		zebra_show_ip_route_opaque(vty, re, NULL);
 
@@ -703,8 +781,12 @@ static void vty_show_ip_route(struct vty *vty, struct route_node *rn,
 
 		for (ALL_NEXTHOPS_PTR(nhg, nexthop)) {
 			json_nexthop = json_object_new_object();
+<<<<<<< HEAD
 			show_nexthop_json_helper(json_nexthop,
 						 nexthop, re);
+=======
+			show_nexthop_json_helper(json_nexthop, nexthop, rn, re);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 			json_object_array_add(json_nexthops,
 					      json_nexthop);
@@ -724,8 +806,13 @@ static void vty_show_ip_route(struct vty *vty, struct route_node *rn,
 			for (ALL_NEXTHOPS_PTR(nhg, nexthop)) {
 				json_nexthop = json_object_new_object();
 
+<<<<<<< HEAD
 				show_nexthop_json_helper(json_nexthop,
 							 nexthop, re);
+=======
+				show_nexthop_json_helper(json_nexthop, nexthop,
+							 rn, re);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 				json_object_array_add(json_nexthops,
 						      json_nexthop);
 			}
@@ -790,7 +877,11 @@ static void vty_show_ip_route(struct vty *vty, struct route_node *rn,
 				len - 3 + (2 * nexthop_level(nexthop)), ' ');
 		}
 
+<<<<<<< HEAD
 		show_route_nexthop_helper(vty, re, nexthop);
+=======
+		show_route_nexthop_helper(vty, rn, re, nexthop);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		vty_out(vty, ", %s\n", up_str);
 	}
 
@@ -821,7 +912,11 @@ static void vty_show_ip_route(struct vty *vty, struct route_node *rn,
 		vty_out(vty, "  b%c %*c",
 			(star_p ? '*' : ' '),
 			len - 3 + (2 * nexthop_level(nexthop)),	' ');
+<<<<<<< HEAD
 		show_route_nexthop_helper(vty, re, nexthop);
+=======
+		show_route_nexthop_helper(vty, rn, re, nexthop);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		vty_out(vty, "\n");
 	}
 
@@ -856,6 +951,7 @@ static void vty_show_ip_route_detail_json(struct vty *vty,
 	vty_json(vty, json);
 }
 
+<<<<<<< HEAD
 static void
 do_show_route_helper(struct vty *vty, struct zebra_vrf *zvrf,
 		     struct route_table *table, afi_t afi, bool use_fib,
@@ -869,6 +965,43 @@ do_show_route_helper(struct vty *vty, struct zebra_vrf *zvrf,
 	int first = 1;
 	rib_dest_t *dest;
 	json_object *json = NULL;
+=======
+static void zebra_vty_display_vrf_header(struct vty *vty, struct zebra_vrf *zvrf, uint32_t tableid)
+{
+	if (!tableid)
+		vty_out(vty, "VRF %s:\n", zvrf_name(zvrf));
+	else {
+		if (vrf_is_backend_netns())
+			vty_out(vty, "VRF %s table %u:\n", zvrf_name(zvrf), tableid);
+		else {
+			vrf_id_t vrf = zebra_vrf_lookup_by_table(tableid, zvrf->zns->ns_id);
+
+			if (vrf == VRF_DEFAULT && tableid != RT_TABLE_ID_MAIN)
+				vty_out(vty, "table %u:\n", tableid);
+			else {
+				struct zebra_vrf *zvrf2 = zebra_vrf_lookup_by_id(vrf);
+
+				vty_out(vty, "VRF %s table %u:\n", zvrf_name(zvrf2), tableid);
+			}
+		}
+	}
+}
+
+static void do_show_route_helper(struct vty *vty, struct zebra_vrf *zvrf,
+				 struct route_table *table, afi_t afi,
+				 bool use_fib, route_tag_t tag,
+				 const struct prefix *longer_prefix_p,
+				 bool supernets_only, int type,
+				 unsigned short ospf_instance_id, bool use_json,
+				 uint32_t tableid, bool show_ng,
+				 struct route_show_ctx *ctx)
+{
+	struct route_node *rn;
+	struct route_entry *re;
+	bool first_json = true;
+	int first = 1;
+	rib_dest_t *dest;
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	json_object *json_prefix = NULL;
 	uint32_t addr;
 	char buf[BUFSIZ];
@@ -884,13 +1017,22 @@ do_show_route_helper(struct vty *vty, struct zebra_vrf *zvrf,
 	 *   => display the VRF and table if specific
 	 */
 
+<<<<<<< HEAD
 	if (use_json && !vrf_json)
 		json = json_object_new_object();
 
+=======
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	/* Show all routes. */
 	for (rn = route_top(table); rn; rn = srcdest_route_next(rn)) {
 		dest = rib_dest_from_rnode(rn);
 
+<<<<<<< HEAD
+=======
+		if (longer_prefix_p && !prefix_match(longer_prefix_p, &rn->p))
+			continue;
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		RNODE_FOREACH_RE (rn, re) {
 			if (use_fib && re != dest->selected_fib)
 				continue;
@@ -898,10 +1040,13 @@ do_show_route_helper(struct vty *vty, struct zebra_vrf *zvrf,
 			if (tag && re->tag != tag)
 				continue;
 
+<<<<<<< HEAD
 			if (longer_prefix_p
 			    && !prefix_match(longer_prefix_p, &rn->p))
 				continue;
 
+=======
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 			/* This can only be true when the afi is IPv4 */
 			if (supernets_only) {
 				addr = ntohl(rn->p.u.prefix4.s_addr);
@@ -938,6 +1083,7 @@ do_show_route_helper(struct vty *vty, struct zebra_vrf *zvrf,
 				}
 				if (ctx->multi && ctx->header_done)
 					vty_out(vty, "\n");
+<<<<<<< HEAD
 				if (ctx->multi || zvrf_id(zvrf) != VRF_DEFAULT
 				    || tableid) {
 					if (!tableid)
@@ -949,6 +1095,11 @@ do_show_route_helper(struct vty *vty, struct zebra_vrf *zvrf,
 							zvrf_name(zvrf),
 							tableid);
 				}
+=======
+				if (ctx->multi || zvrf_id(zvrf) != VRF_DEFAULT || tableid)
+					zebra_vty_display_vrf_header(vty, zvrf, tableid);
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 				ctx->header_done = true;
 				first = 0;
 			}
@@ -959,15 +1110,22 @@ do_show_route_helper(struct vty *vty, struct zebra_vrf *zvrf,
 
 		if (json_prefix) {
 			prefix2str(&rn->p, buf, sizeof(buf));
+<<<<<<< HEAD
 			if (!vrf_json)
 				json_object_object_add(json, buf, json_prefix);
 			else
 				json_object_object_add(vrf_json, buf,
 						       json_prefix);
+=======
+			vty_json_key(vty, buf, &first_json);
+			vty_json_no_pretty(vty, json_prefix);
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 			json_prefix = NULL;
 		}
 	}
 
+<<<<<<< HEAD
 	/*
 	 * This is an extremely expensive operation at scale
 	 * and non-pretty reduces memory footprint significantly.
@@ -981,6 +1139,15 @@ do_show_route_helper(struct vty *vty, struct zebra_vrf *zvrf,
 static void do_show_ip_route_all(struct vty *vty, struct zebra_vrf *zvrf,
 				 afi_t afi, bool use_fib, json_object *vrf_json,
 				 bool use_json, route_tag_t tag,
+=======
+	if (use_json)
+		vty_json_close(vty, first_json);
+}
+
+static void do_show_ip_route_all(struct vty *vty, struct zebra_vrf *zvrf,
+				 afi_t afi, bool use_fib, bool use_json,
+				 route_tag_t tag,
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 				 const struct prefix *longer_prefix_p,
 				 bool supernets_only, int type,
 				 unsigned short ospf_instance_id, bool show_ng,
@@ -1000,15 +1167,26 @@ static void do_show_ip_route_all(struct vty *vty, struct zebra_vrf *zvrf,
 			continue;
 
 		do_show_ip_route(vty, zvrf_name(zvrf), afi, SAFI_UNICAST,
+<<<<<<< HEAD
 				 use_fib, vrf_json, use_json, tag,
 				 longer_prefix_p, supernets_only, type,
 				 ospf_instance_id, zrt->tableid, show_ng, ctx);
+=======
+				 use_fib, use_json, tag, longer_prefix_p,
+				 supernets_only, type, ospf_instance_id,
+				 zrt->tableid, show_ng, ctx);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	}
 }
 
 static int do_show_ip_route(struct vty *vty, const char *vrf_name, afi_t afi,
+<<<<<<< HEAD
 			    safi_t safi, bool use_fib, json_object *vrf_json,
 			    bool use_json, route_tag_t tag,
+=======
+			    safi_t safi, bool use_fib, bool use_json,
+			    route_tag_t tag,
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 			    const struct prefix *longer_prefix_p,
 			    bool supernets_only, int type,
 			    unsigned short ospf_instance_id, uint32_t tableid,
@@ -1043,7 +1221,11 @@ static int do_show_ip_route(struct vty *vty, const char *vrf_name, afi_t afi,
 		return CMD_SUCCESS;
 	}
 
+<<<<<<< HEAD
 	do_show_route_helper(vty, zvrf, table, afi, use_fib, vrf_json, tag,
+=======
+	do_show_route_helper(vty, zvrf, table, afi, use_fib, tag,
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 			     longer_prefix_p, supernets_only, type,
 			     ospf_instance_id, use_json, tableid, show_ng, ctx);
 
@@ -1204,6 +1386,10 @@ static void show_nexthop_group_out(struct vty *vty, struct nhg_hash_entry *nhe,
 		json_object_string_add(json, "uptime", up_str);
 		json_object_string_add(json, "vrf",
 				       vrf_id_to_name(nhe->vrf_id));
+<<<<<<< HEAD
+=======
+		json_object_string_add(json, "afi", afi2str(nhe->afi));
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 	} else {
 		vty_out(vty, "ID: %u (%s)\n", nhe->id,
@@ -1217,7 +1403,12 @@ static void show_nexthop_group_out(struct vty *vty, struct nhg_hash_entry *nhe,
 		vty_out(vty, "\n");
 
 		vty_out(vty, "     Uptime: %s\n", up_str);
+<<<<<<< HEAD
 		vty_out(vty, "     VRF: %s\n", vrf_id_to_name(nhe->vrf_id));
+=======
+		vty_out(vty, "     VRF: %s(%s)\n", vrf_id_to_name(nhe->vrf_id),
+			afi2str(nhe->afi));
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	}
 
 	if (CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_VALID)) {
@@ -1225,13 +1416,32 @@ static void show_nexthop_group_out(struct vty *vty, struct nhg_hash_entry *nhe,
 			json_object_boolean_true_add(json, "valid");
 		else
 			vty_out(vty, "     Valid");
+<<<<<<< HEAD
 
+=======
+		if (CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_REINSTALL)) {
+			if (json)
+				json_object_boolean_true_add(json, "reInstall");
+			else
+				vty_out(vty, ", Reinstall");
+		}
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		if (CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_INSTALLED)) {
 			if (json)
 				json_object_boolean_true_add(json, "installed");
 			else
 				vty_out(vty, ", Installed");
 		}
+<<<<<<< HEAD
+=======
+		if (CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_INITIAL_DELAY_INSTALL)) {
+			if (json)
+				json_object_boolean_true_add(json,
+							     "initialDelay");
+			else
+				vty_out(vty, ", Initial Delay");
+		}
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		if (!json)
 			vty_out(vty, "\n");
 	}
@@ -1272,14 +1482,23 @@ static void show_nexthop_group_out(struct vty *vty, struct nhg_hash_entry *nhe,
 	for (ALL_NEXTHOPS(nhe->nhg, nexthop)) {
 		if (json_nexthop_array) {
 			json_nexthops = json_object_new_object();
+<<<<<<< HEAD
 			show_nexthop_json_helper(json_nexthops, nexthop, NULL);
+=======
+			show_nexthop_json_helper(json_nexthops, nexthop, NULL,
+						 NULL);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		} else {
 			if (!CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_RECURSIVE))
 				vty_out(vty, "          ");
 			else
 				/* Make recursive nexthops a bit more clear */
 				vty_out(vty, "       ");
+<<<<<<< HEAD
 			show_route_nexthop_helper(vty, NULL, nexthop);
+=======
+			show_route_nexthop_helper(vty, NULL, NULL, nexthop);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		}
 
 		if (nhe->backup_info == NULL || nhe->backup_info->nhe == NULL) {
@@ -1337,7 +1556,11 @@ static void show_nexthop_group_out(struct vty *vty, struct nhg_hash_entry *nhe,
 			if (json_backup_nexthop_array) {
 				json_backup_nexthops = json_object_new_object();
 				show_nexthop_json_helper(json_backup_nexthops,
+<<<<<<< HEAD
 							 nexthop, NULL);
+=======
+							 nexthop, NULL, NULL);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 				json_object_array_add(json_backup_nexthop_array,
 						      json_backup_nexthops);
 			} else {
@@ -1350,7 +1573,12 @@ static void show_nexthop_group_out(struct vty *vty, struct nhg_hash_entry *nhe,
 					 * clear
 					 */
 					vty_out(vty, "       ");
+<<<<<<< HEAD
 				show_route_nexthop_helper(vty, NULL, nexthop);
+=======
+				show_route_nexthop_helper(vty, NULL, NULL,
+							  nexthop);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 				vty_out(vty, "\n");
 			}
 		}
@@ -1481,6 +1709,7 @@ static void if_nexthop_group_dump_vty(struct vty *vty, struct interface *ifp)
 {
 	struct zebra_if *zebra_if = NULL;
 	struct nhg_connected *rb_node_dep = NULL;
+<<<<<<< HEAD
 
 	zebra_if = ifp->info;
 
@@ -1492,6 +1721,20 @@ static void if_nexthop_group_dump_vty(struct vty *vty, struct interface *ifp)
 			vty_out(vty, "   ");
 			show_nexthop_group_out(vty, rb_node_dep->nhe, NULL);
 		}
+=======
+	bool first = true;
+
+	zebra_if = ifp->info;
+
+	frr_each (nhg_connected_tree, &zebra_if->nhg_dependents, rb_node_dep) {
+		if (first) {
+			vty_out(vty, "Interface %s:\n", ifp->name);
+			first = false;
+		}
+
+		vty_out(vty, "   ");
+		show_nexthop_group_out(vty, rb_node_dep->nhe, NULL);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	}
 }
 
@@ -1734,13 +1977,20 @@ DEFPY (show_route,
        "Nexthop Group Information\n")
 {
 	afi_t afi = ipv4 ? AFI_IP : AFI_IP6;
+<<<<<<< HEAD
+=======
+	bool first_vrf_json = true;
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	struct vrf *vrf;
 	int type = 0;
 	struct zebra_vrf *zvrf;
 	struct route_show_ctx ctx = {
 		.multi = vrf_all || table_all,
 	};
+<<<<<<< HEAD
 	json_object *root_json = NULL;
+=======
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 	if (!vrf_is_backend_netns()) {
 		if ((vrf_all || vrf_name) && (table || table_all)) {
@@ -1762,6 +2012,7 @@ DEFPY (show_route,
 	}
 
 	if (vrf_all) {
+<<<<<<< HEAD
 		if (!!json)
 			root_json = json_object_new_object();
 		RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
@@ -1777,12 +2028,25 @@ DEFPY (show_route,
 			if (table_all)
 				do_show_ip_route_all(vty, zvrf, afi, !!fib,
 						     vrf_json, !!json, tag,
+=======
+		RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
+			if ((zvrf = vrf->info) == NULL
+			    || (zvrf->table[afi][SAFI_UNICAST] == NULL))
+				continue;
+			if (json)
+				vty_json_key(vty, zvrf_name(zvrf),
+					     &first_vrf_json);
+			if (table_all)
+				do_show_ip_route_all(vty, zvrf, afi, !!fib,
+						     !!json, tag,
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 						     prefix_str ? prefix : NULL,
 						     !!supernets_only, type,
 						     ospf_instance_id, !!ng,
 						     &ctx);
 			else
 				do_show_ip_route(vty, zvrf_name(zvrf), afi,
+<<<<<<< HEAD
 						 SAFI_UNICAST, !!fib, vrf_json,
 						 !!json, tag,
 						 prefix_str ? prefix : NULL,
@@ -1799,6 +2063,16 @@ DEFPY (show_route,
 			vty_json_no_pretty(vty, root_json);
 			root_json = NULL;
 		}
+=======
+						 SAFI_UNICAST, !!fib, !!json,
+						 tag, prefix_str ? prefix : NULL,
+						 !!supernets_only, type,
+						 ospf_instance_id, table, !!ng,
+						 &ctx);
+		}
+		if (json)
+			vty_json_close(vty, first_vrf_json);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	} else {
 		vrf_id_t vrf_id = VRF_DEFAULT;
 
@@ -1813,13 +2087,22 @@ DEFPY (show_route,
 			return CMD_SUCCESS;
 
 		if (table_all)
+<<<<<<< HEAD
 			do_show_ip_route_all(vty, zvrf, afi, !!fib, NULL, !!json,
 					     tag, prefix_str ? prefix : NULL,
+=======
+			do_show_ip_route_all(vty, zvrf, afi, !!fib, !!json, tag,
+					     prefix_str ? prefix : NULL,
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 					     !!supernets_only, type,
 					     ospf_instance_id, !!ng, &ctx);
 		else
 			do_show_ip_route(vty, vrf->name, afi, SAFI_UNICAST,
+<<<<<<< HEAD
 					 !!fib, NULL, !!json, tag,
+=======
+					 !!fib, !!json, tag,
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 					 prefix_str ? prefix : NULL,
 					 !!supernets_only, type,
 					 ospf_instance_id, table, !!ng, &ctx);
@@ -1991,11 +2274,21 @@ DEFPY (show_route_summary,
 	afi_t afi = ipv4 ? AFI_IP : AFI_IP6;
 	struct route_table *table;
 	bool uj = use_json(argc, argv);
+<<<<<<< HEAD
+=======
+	json_object *vrf_json = NULL;
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 	if (vrf_all) {
 		struct vrf *vrf;
 		struct zebra_vrf *zvrf;
 
+<<<<<<< HEAD
+=======
+		if (uj && !vrf_json)
+			vrf_json = json_object_new_object();
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
 			if ((zvrf = vrf->info) == NULL)
 				continue;
@@ -2013,10 +2306,21 @@ DEFPY (show_route_summary,
 
 			if (prefix)
 				vty_show_ip_route_summary_prefix(vty, table,
+<<<<<<< HEAD
 								 uj);
 			else
 				vty_show_ip_route_summary(vty, table, uj);
 		}
+=======
+								 vrf_json, uj);
+			else
+				vty_show_ip_route_summary(vty, table, vrf_json,
+							  uj);
+		}
+
+		if (uj)
+			vty_json(vty, vrf_json);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	} else {
 		vrf_id_t vrf_id = VRF_DEFAULT;
 
@@ -2032,9 +2336,15 @@ DEFPY (show_route_summary,
 			return CMD_SUCCESS;
 
 		if (prefix)
+<<<<<<< HEAD
 			vty_show_ip_route_summary_prefix(vty, table, uj);
 		else
 			vty_show_ip_route_summary(vty, table, uj);
+=======
+			vty_show_ip_route_summary_prefix(vty, table, NULL, uj);
+		else
+			vty_show_ip_route_summary(vty, table, NULL, uj);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	}
 
 	return CMD_SUCCESS;
@@ -2089,8 +2399,16 @@ DEFUN_HIDDEN (show_route_zebra_dump,
 	return CMD_SUCCESS;
 }
 
+<<<<<<< HEAD
 static void show_ip_route_nht_dump(struct vty *vty, struct nexthop *nexthop,
 				   struct route_entry *re, unsigned int num)
+=======
+static void show_ip_route_nht_dump(struct vty *vty,
+				   const struct nexthop *nexthop,
+				   const struct route_node *rn,
+				   const struct route_entry *re,
+				   unsigned int num)
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 {
 
 	char buf[SRCDEST2STR_BUFFER];
@@ -2114,10 +2432,19 @@ static void show_ip_route_nht_dump(struct vty *vty, struct nexthop *nexthop,
 					       nexthop->vrf_id));
 		}
 
+<<<<<<< HEAD
 		if (nexthop->src.ipv4.s_addr
 		    && (inet_ntop(AF_INET, &nexthop->src.ipv4, buf,
 				  sizeof(buf))))
 			vty_out(vty, "      source: %s\n", buf);
+=======
+		if (nexthop->rmap_src.ipv4.s_addr)
+			vty_out(vty, "      rmapsrc: %pI4\n",
+				&nexthop->rmap_src.ipv4);
+		else if (nexthop->src.ipv4.s_addr)
+			vty_out(vty, "      source: %pI4\n",
+				&nexthop->src.ipv4.s_addr);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		break;
 	case NEXTHOP_TYPE_IPV6:
 	case NEXTHOP_TYPE_IPV6_IFINDEX:
@@ -2134,11 +2461,23 @@ static void show_ip_route_nht_dump(struct vty *vty, struct nexthop *nexthop,
 					       nexthop->vrf_id));
 		}
 
+<<<<<<< HEAD
 		if (!IPV6_ADDR_SAME(&nexthop->src.ipv6, &in6addr_any)) {
 			if (inet_ntop(AF_INET6, &nexthop->src.ipv6, buf,
 				      sizeof(buf)))
 				vty_out(vty, "      source: %s\n", buf);
 		}
+=======
+		/* Allow for 5549 ipv4 prefix with ipv6 nexthop */
+		if (rn->p.family == AF_INET && nexthop->rmap_src.ipv4.s_addr)
+			vty_out(vty, "      rmapsrc: %pI4\n",
+				&nexthop->rmap_src.ipv4);
+		else if (!IPV6_ADDR_SAME(&nexthop->rmap_src.ipv6, &in6addr_any))
+			vty_out(vty, "      rmapsrc: %pI6\n",
+				&nexthop->rmap_src.ipv6);
+		else if (!IPV6_ADDR_SAME(&nexthop->src.ipv6, &in6addr_any))
+			vty_out(vty, "      source: %pI6\n", &nexthop->src.ipv6);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		break;
 	case NEXTHOP_TYPE_IFINDEX:
 		vty_out(vty,
@@ -2230,7 +2569,11 @@ static void show_ip_route_dump_vty(struct vty *vty, struct route_table *table)
 
 			for (ALL_NEXTHOPS_PTR(&(re->nhe->nhg), nexthop)) {
 				nexthop_num++;
+<<<<<<< HEAD
 				show_ip_route_nht_dump(vty, nexthop, re,
+=======
+				show_ip_route_nht_dump(vty, nexthop, rn, re,
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 						       nexthop_num);
 			}
 
@@ -2240,8 +2583,13 @@ static void show_ip_route_dump_vty(struct vty *vty, struct route_table *table)
 	}
 }
 
+<<<<<<< HEAD
 static void vty_show_ip_route_summary(struct vty *vty,
 				      struct route_table *table, bool use_json)
+=======
+static void vty_show_ip_route_summary(struct vty *vty, struct route_table *table,
+				      json_object *vrf_json, bool use_json)
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 {
 	struct route_node *rn;
 	struct route_entry *re;
@@ -2255,6 +2603,11 @@ static void vty_show_ip_route_summary(struct vty *vty,
 	uint32_t is_ibgp;
 	json_object *json_route_summary = NULL;
 	json_object *json_route_routes = NULL;
+<<<<<<< HEAD
+=======
+	const char *vrf_name = zvrf_name(
+		((struct rib_table_info *)route_table_get_info(table))->zvrf);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 	memset(&rib_cnt, 0, sizeof(rib_cnt));
 	memset(&fib_cnt, 0, sizeof(fib_cnt));
@@ -2305,10 +2658,14 @@ static void vty_show_ip_route_summary(struct vty *vty,
 
 	if (!use_json)
 		vty_out(vty, "%-20s %-20s %s  (vrf %s)\n", "Route Source",
+<<<<<<< HEAD
 			"Routes", "FIB",
 			zvrf_name(((struct rib_table_info *)
 					   route_table_get_info(table))
 					  ->zvrf));
+=======
+			"Routes", "FIB", vrf_name);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 	for (i = 0; i < ZEBRA_ROUTE_MAX; i++) {
 		if ((rib_cnt[i] > 0) || (i == ZEBRA_ROUTE_BGP
@@ -2400,7 +2757,15 @@ static void vty_show_ip_route_summary(struct vty *vty,
 		json_object_int_add(json_route_summary, "routesTotalFib",
 				    fib_cnt[ZEBRA_ROUTE_TOTAL]);
 
+<<<<<<< HEAD
 		vty_json(vty, json_route_summary);
+=======
+		if (!vrf_json)
+			vty_json(vty, json_route_summary);
+		else
+			json_object_object_add(vrf_json, vrf_name,
+					       json_route_summary);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	} else {
 		vty_out(vty, "------\n");
 		vty_out(vty, "%-20s %-20d %-20d \n", "Totals",
@@ -2418,6 +2783,10 @@ static void vty_show_ip_route_summary(struct vty *vty,
  */
 static void vty_show_ip_route_summary_prefix(struct vty *vty,
 					     struct route_table *table,
+<<<<<<< HEAD
+=======
+					     json_object *vrf_json,
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 					     bool use_json)
 {
 	struct route_node *rn;
@@ -2431,6 +2800,11 @@ static void vty_show_ip_route_summary_prefix(struct vty *vty,
 	int cnt;
 	json_object *json_route_summary = NULL;
 	json_object *json_route_routes = NULL;
+<<<<<<< HEAD
+=======
+	const char *vrf_name = zvrf_name(
+		((struct rib_table_info *)route_table_get_info(table))->zvrf);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 	memset(&rib_cnt, 0, sizeof(rib_cnt));
 	memset(&fib_cnt, 0, sizeof(fib_cnt));
@@ -2470,10 +2844,14 @@ static void vty_show_ip_route_summary_prefix(struct vty *vty,
 
 	if (!use_json)
 		vty_out(vty, "%-20s %-20s %s  (vrf %s)\n", "Route Source",
+<<<<<<< HEAD
 			"Prefix Routes", "FIB",
 			zvrf_name(((struct rib_table_info *)
 					   route_table_get_info(table))
 					  ->zvrf));
+=======
+			"Prefix Routes", "FIB", vrf_name);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 	for (i = 0; i < ZEBRA_ROUTE_MAX; i++) {
 		if (rib_cnt[i] > 0) {
@@ -2548,7 +2926,15 @@ static void vty_show_ip_route_summary_prefix(struct vty *vty,
 		json_object_int_add(json_route_summary, "prefixRoutesTotalFib",
 				    fib_cnt[ZEBRA_ROUTE_TOTAL]);
 
+<<<<<<< HEAD
 		vty_json(vty, json_route_summary);
+=======
+		if (!vrf_json)
+			vty_json(vty, json_route_summary);
+		else
+			json_object_object_add(vrf_json, vrf_name,
+					       json_route_summary);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	} else {
 		vty_out(vty, "------\n");
 		vty_out(vty, "%-20s %-20d %-20d \n", "Totals",
@@ -3531,6 +3917,7 @@ DEFPY (clear_evpn_dup_addr,
        "IPv4 address\n"
        "IPv6 address\n")
 {
+<<<<<<< HEAD
 	struct ipaddr host_ip = {.ipa_type = IPADDR_NONE };
 	int ret = CMD_SUCCESS;
 	struct list *input;
@@ -3581,6 +3968,19 @@ DEFPY (clear_evpn_dup_addr,
 	list_delete(&input);
 
 	return ret;
+=======
+	if (!vni_str) {
+		nb_cli_rpc_enqueue(vty, "all-vnis", NULL);
+	} else {
+		nb_cli_rpc_enqueue(vty, "vni-id", vni_str);
+		if (mac_str)
+			nb_cli_rpc_enqueue(vty, "mac-addr", mac_str);
+		else if (ip_str)
+			nb_cli_rpc_enqueue(vty, "vni-ipaddr", ip_str);
+	}
+
+	return nb_cli_rpc(vty, "/frr-zebra:clear-evpn-dup-addr", NULL);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 }
 
 DEFPY_HIDDEN (evpn_accept_bgp_seq,
@@ -3614,17 +4014,28 @@ static int zebra_ip_config(struct vty *vty)
 	return write;
 }
 
+<<<<<<< HEAD
 DEFUN (ip_zebra_import_table_distance,
        ip_zebra_import_table_distance_cmd,
        "ip import-table (1-252) [distance (1-255)] [route-map RMAP_NAME]",
        IP_STR
        "import routes from non-main kernel table\n"
        "kernel routing table id\n"
+=======
+DEFPY (ip_zebra_import_table_distance,
+       ip_zebra_import_table_distance_cmd,
+       "ip import-table (1-252)$table_id [mrib]$mrib [distance (1-255)$distance] [route-map RMAP_NAME$rmap]",
+       IP_STR
+       "import routes from non-main kernel table\n"
+       "kernel routing table id\n"
+	   "Import into the MRIB instead of the URIB\n"
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
        "Distance for imported routes\n"
        "Default distance value\n"
        "route-map for filtering\n"
        "route-map name\n")
 {
+<<<<<<< HEAD
 	uint32_t table_id = 0;
 
 	table_id = strtoul(argv[2]->arg, NULL, 10);
@@ -3644,10 +4055,20 @@ DEFUN (ip_zebra_import_table_distance,
 			table_id);
 		if (rmap)
 			XFREE(MTYPE_ROUTE_MAP_NAME, rmap);
+=======
+	safi_t safi = mrib ? SAFI_MULTICAST : SAFI_UNICAST;
+
+	if (distance_str == NULL)
+		distance = ZEBRA_TABLE_DISTANCE_DEFAULT;
+
+	if (!is_zebra_valid_kernel_table(table_id)) {
+		vty_out(vty, "Invalid routing table ID, %ld. Must be in range 1-252\n", table_id);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		return CMD_WARNING;
 	}
 
 	if (is_zebra_main_routing_table(table_id)) {
+<<<<<<< HEAD
 		vty_out(vty,
 			"Invalid routing table ID, %d. Must be non-default table\n",
 			table_id);
@@ -3662,6 +4083,13 @@ DEFUN (ip_zebra_import_table_distance,
 		XFREE(MTYPE_ROUTE_MAP_NAME, rmap);
 
 	return ret;
+=======
+		vty_out(vty, "Invalid routing table ID, %ld. Must be non-default table\n", table_id);
+		return CMD_WARNING;
+	}
+
+	return zebra_import_table(AFI_IP, safi, VRF_DEFAULT, table_id, distance, rmap, true);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 }
 
 DEFUN_HIDDEN (zebra_packet_process,
@@ -3720,20 +4148,34 @@ DEFUN_HIDDEN (no_zebra_workqueue_timer,
 	return CMD_SUCCESS;
 }
 
+<<<<<<< HEAD
 DEFUN (no_ip_zebra_import_table,
        no_ip_zebra_import_table_cmd,
        "no ip import-table (1-252) [distance (1-255)] [route-map NAME]",
+=======
+DEFPY (no_ip_zebra_import_table,
+       no_ip_zebra_import_table_cmd,
+       "no ip import-table (1-252)$table_id [mrib]$mrib [distance (1-255)] [route-map NAME]",
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
        NO_STR
        IP_STR
        "import routes from non-main kernel table\n"
        "kernel routing table id\n"
+<<<<<<< HEAD
+=======
+	   "Import into the MRIB instead of the URIB\n"
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
        "Distance for imported routes\n"
        "Default distance value\n"
        "route-map for filtering\n"
        "route-map name\n")
 {
+<<<<<<< HEAD
 	uint32_t table_id = 0;
 	table_id = strtoul(argv[3]->arg, NULL, 10);
+=======
+	safi_t safi = mrib ? SAFI_MULTICAST : SAFI_UNICAST;
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 	if (!is_zebra_valid_kernel_table(table_id)) {
 		vty_out(vty,
@@ -3742,6 +4184,7 @@ DEFUN (no_ip_zebra_import_table,
 	}
 
 	if (is_zebra_main_routing_table(table_id)) {
+<<<<<<< HEAD
 		vty_out(vty,
 			"Invalid routing table ID, %d. Must be non-default table\n",
 			table_id);
@@ -3752,6 +4195,16 @@ DEFUN (no_ip_zebra_import_table,
 		return CMD_SUCCESS;
 
 	return (zebra_import_table(AFI_IP, VRF_DEFAULT, table_id, 0, NULL, 0));
+=======
+		vty_out(vty, "Invalid routing table ID, %ld. Must be non-default table\n", table_id);
+		return CMD_WARNING;
+	}
+
+	if (!is_zebra_import_table_enabled(AFI_IP, safi, VRF_DEFAULT, table_id))
+		return CMD_SUCCESS;
+
+	return (zebra_import_table(AFI_IP, safi, VRF_DEFAULT, table_id, 0, NULL, false));
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 }
 
 DEFPY (zebra_nexthop_group_keep,
@@ -3857,6 +4310,23 @@ DEFUN (show_zebra,
 	struct vrf *vrf;
 	struct ttable *table = ttable_new(&ttable_styles[TTSTYLE_BLANK]);
 	char *out;
+<<<<<<< HEAD
+=======
+	char timebuf[MONOTIME_STRLEN];
+
+	time_to_string(zrouter.startup_time, timebuf);
+	vty_out(vty, "Zebra started%s at time %s",
+		zrouter.graceful_restart ? " gracefully" : "", timebuf);
+
+	if (zrouter.t_rib_sweep)
+		vty_out(vty,
+			"Zebra RIB sweep timer running, remaining time %lds\n",
+			event_timer_remain_second(zrouter.t_rib_sweep));
+	else {
+		time_to_string(zrouter.rib_sweep_time, timebuf);
+		vty_out(vty, "Zebra RIB sweep happened at %s", timebuf);
+	}
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 	ttable_rowseps(table, 0, BOTTOM, true, '-');
 	ttable_add_row(table, "OS|%s(%s)", cmd_system_get(), cmd_release_get());
@@ -3927,7 +4397,11 @@ DEFUN (show_zebra,
 
 	out = ttable_dump(table, "\n");
 	vty_out(vty, "%s\n", out);
+<<<<<<< HEAD
 	XFREE(MTYPE_TMP, out);
+=======
+	XFREE(MTYPE_TMP_TTABLE, out);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 	ttable_del(table);
 	vty_out(vty,
@@ -4161,12 +4635,15 @@ DEFUN (zebra_show_routing_tables_summary,
 	return CMD_SUCCESS;
 }
 
+<<<<<<< HEAD
 /* Table configuration write function. */
 static int config_write_table(struct vty *vty)
 {
 	return 0;
 }
 
+=======
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 /* IPForwarding configuration write function. */
 static int config_write_forwarding(struct vty *vty)
 {
@@ -4343,6 +4820,7 @@ static struct cmd_node protocol_node = {
 	.prompt = "",
 	.config_write = config_write_protocol,
 };
+<<<<<<< HEAD
 /* table node for routing tables. */
 static int config_write_table(struct vty *vty);
 static struct cmd_node table_node = {
@@ -4351,6 +4829,8 @@ static struct cmd_node table_node = {
 	.prompt = "",
 	.config_write = config_write_table,
 };
+=======
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 static int config_write_forwarding(struct vty *vty);
 static struct cmd_node forwarding_node = {
 	.name = "forwarding",
@@ -4363,7 +4843,10 @@ static struct cmd_node forwarding_node = {
 void zebra_vty_init(void)
 {
 	/* Install configuration write function. */
+<<<<<<< HEAD
 	install_node(&table_node);
+=======
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	install_node(&forwarding_node);
 
 	install_element(VIEW_NODE, &show_ip_forwarding_cmd);

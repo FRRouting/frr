@@ -13,7 +13,12 @@ from .rd import RouteDistinguisher
 def decode_label(label):
     # from frr
     # frr encode just one label
+<<<<<<< HEAD
     return (label[0] << 12) | (label[1] << 4) | (label[2] & 0xf0) >> 4
+=======
+    return (label[0] << 12) | (label[1] << 4) | (label[2] & 0xF0) >> 4
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 def padding(databin, len_):
     """
@@ -23,7 +28,12 @@ def padding(databin, len_):
     """
     if len(databin) >= len_:
         return databin
+<<<<<<< HEAD
     return databin + b'\0' * (len_ - len(databin))
+=======
+    return databin + b"\0" * (len_ - len(databin))
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 def dissect_nlri(nlri_data, afi, safi):
     """
@@ -37,6 +47,7 @@ def dissect_nlri(nlri_data, afi, safi):
     elif addr_family == AF.IPv6_UNICAST:
         return NlriIPv6Unicast.parse(nlri_data)
 
+<<<<<<< HEAD
     return {'ip_prefix': 'Unknown'}
 
 
@@ -53,10 +64,28 @@ class NlriIPv4Unicast:
 
 
 #------------------------------------------------------------------------------
+=======
+    return {"ip_prefix": "Unknown"}
+
+
+# ------------------------------------------------------------------------------
+class NlriIPv4Unicast:
+    @staticmethod
+    def parse(data):
+        """parses prefixes from withdrawn_routes or nrli data"""
+        (prefix_len,) = struct.unpack_from("!B", data)
+        prefix = padding(data[1:], 4)
+
+        return {"ip_prefix": f"{ipaddress.IPv4Address(prefix)}/{prefix_len}"}
+
+
+# ------------------------------------------------------------------------------
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 class NlriIPv6Unicast:
     @staticmethod
     def parse(data):
         """parses prefixes from withdrawn_routes or nrli data"""
+<<<<<<< HEAD
         (prefix_len,) = struct.unpack_from('!B', data)
         prefix = padding(data[1:], 16)
 
@@ -66,6 +95,17 @@ class NlriIPv6Unicast:
 #------------------------------------------------------------------------------
 class NlriIPv4Vpn:
     UNPACK_STR = '!B3s8s'
+=======
+        (prefix_len,) = struct.unpack_from("!B", data)
+        prefix = padding(data[1:], 16)
+
+        return {"ip_prefix": f"{ipaddress.IPv6Address(prefix)}/{prefix_len}"}
+
+
+# ------------------------------------------------------------------------------
+class NlriIPv4Vpn:
+    UNPACK_STR = "!B3s8s"
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
     @classmethod
     def parse(cls, data):
@@ -74,6 +114,7 @@ class NlriIPv4Vpn:
 
         ipv4 = padding(data[offset:], 4)
         # prefix_len = total_bits_len - label_bits_len - rd_bits_len
+<<<<<<< HEAD
         prefix_len = bit_len - 3*8 - 8*8
         return {
             'label': decode_label(label),
@@ -85,6 +126,19 @@ class NlriIPv4Vpn:
 #------------------------------------------------------------------------------
 class NlriIPv6Vpn:
     UNPACK_STR = '!B3s8s'
+=======
+        prefix_len = bit_len - 3 * 8 - 8 * 8
+        return {
+            "label": decode_label(label),
+            "rd": str(RouteDistinguisher(rd)),
+            "ip_prefix": f"{ipaddress.IPv4Address(ipv4)}/{prefix_len}",
+        }
+
+
+# ------------------------------------------------------------------------------
+class NlriIPv6Vpn:
+    UNPACK_STR = "!B3s8s"
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
     @classmethod
     def parse(cls, data):
@@ -93,6 +147,7 @@ class NlriIPv6Vpn:
         offset = struct.calcsize(cls.UNPACK_STR)
 
         ipv6 = padding(data[offset:], 16)
+<<<<<<< HEAD
         prefix_len = bit_len - 3*8 - 8*8
         return {
             'label': decode_label(label),
@@ -102,39 +157,79 @@ class NlriIPv6Vpn:
 
 
 #------------------------------------------------------------------------------
+=======
+        prefix_len = bit_len - 3 * 8 - 8 * 8
+        return {
+            "label": decode_label(label),
+            "rd": str(RouteDistinguisher(rd)),
+            "ip_prefix": f"{ipaddress.IPv6Address(ipv6)}/{prefix_len}",
+        }
+
+
+# ------------------------------------------------------------------------------
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 class NlriIPv4Mpls:
     pass
 
 
+<<<<<<< HEAD
 #------------------------------------------------------------------------------
+=======
+# ------------------------------------------------------------------------------
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 class NlriIPv6Mpls:
     pass
 
 
+<<<<<<< HEAD
 #------------------------------------------------------------------------------
+=======
+# ------------------------------------------------------------------------------
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 class NlriIPv4FlowSpec:
     pass
 
 
+<<<<<<< HEAD
 #------------------------------------------------------------------------------
+=======
+# ------------------------------------------------------------------------------
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 class NlriIPv6FlowSpec:
     pass
 
 
+<<<<<<< HEAD
 #------------------------------------------------------------------------------
+=======
+# ------------------------------------------------------------------------------
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 class NlriVpn4FlowSpec:
     pass
 
 
+<<<<<<< HEAD
 #------------------------------------------------------------------------------
+=======
+# ------------------------------------------------------------------------------
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 class NlriVpn6FlowSpec:
     pass
 
 
+<<<<<<< HEAD
 #------------------------------------------------------------------------------
 class NlriL2EVPN:
     pass
 
 #------------------------------------------------------------------------------
+=======
+# ------------------------------------------------------------------------------
+class NlriL2EVPN:
+    pass
+
+
+# ------------------------------------------------------------------------------
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 class NlriL2VPNFlowSpec:
     pass

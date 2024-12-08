@@ -7,12 +7,20 @@
         {
           "fib":true,
           "ip":"11.1.1.6",
+<<<<<<< HEAD
           "weight":85
+=======
+          "weight":84
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
         },
         {
           "fib":true,
           "ip":"11.1.1.2",
+<<<<<<< HEAD
           "weight":255
+=======
+          "weight":254
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
         }
       ]
     }

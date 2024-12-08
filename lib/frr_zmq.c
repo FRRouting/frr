@@ -21,6 +21,11 @@
 #include "log.h"
 #include "lib_errors.h"
 
+<<<<<<< HEAD
+=======
+XREF_SETUP();
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 DEFINE_MTYPE_STATIC(LIB, ZEROMQ_CB, "ZeroMQ callback");
 
 /* libzmq's context */

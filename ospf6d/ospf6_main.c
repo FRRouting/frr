@@ -24,6 +24,10 @@
 #include "vrf.h"
 #include "bfd.h"
 #include "libfrr.h"
+<<<<<<< HEAD
+=======
+#include "libagentx.h"
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 #include "ospf6d.h"
 #include "ospf6_top.h"
@@ -110,9 +114,16 @@ static void __attribute__((noreturn)) ospf6_exit(int status)
 
 	ospf6_master_delete();
 
+<<<<<<< HEAD
 	frr_fini();
 
 	keychain_terminate();
+=======
+	keychain_terminate();
+
+	frr_fini();
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	exit(status);
 }
 
@@ -169,6 +180,11 @@ static const struct frr_yang_module_info *const ospf6d_yang_modules[] = {
 	&frr_vrf_info,
 	&frr_ospf_route_map_info,
 	&frr_ospf6_route_map_info,
+<<<<<<< HEAD
+=======
+	&ietf_key_chain_info,
+	&ietf_key_chain_deviation_info,
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 };
 
 /* actual paths filled in main() */
@@ -182,6 +198,7 @@ static char *state_paths[] = {
 
 /* clang-format off */
 FRR_DAEMON_INFO(ospf6d, OSPF6,
+<<<<<<< HEAD
 	.vty_port = OSPF6_VTY_PORT,
 	.proghelp = "Implementation of the OSPFv3 routing protocol.",
 
@@ -195,6 +212,21 @@ FRR_DAEMON_INFO(ospf6d, OSPF6,
 
 	.state_paths = state_paths,
 );
+=======
+		.vty_port = OSPF6_VTY_PORT,
+		.proghelp = "Implementation of the OSPFv3 routing protocol.",
+
+		.signals = ospf6_signals,
+		.n_signals = array_size(ospf6_signals),
+
+		.privs = &ospf6d_privs,
+
+		.yang_modules = ospf6d_yang_modules,
+		.n_yang_modules = array_size(ospf6d_yang_modules),
+
+		.state_paths = state_paths,
+	);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 /* clang-format on */
 
 /* Max wait time for config to load before accepting hellos */
@@ -263,6 +295,10 @@ int main(int argc, char *argv[], char *envp[])
 	/* thread master */
 	master = om6->master;
 
+<<<<<<< HEAD
+=======
+	libagentx_init();
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	keychain_init();
 	ospf6_vrf_init();
 	access_list_init();

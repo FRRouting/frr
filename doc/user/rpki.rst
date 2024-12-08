@@ -131,6 +131,7 @@ The following commands are available for independent of a specific cache server.
 
    The default value is 600 seconds.
 
+<<<<<<< HEAD
 .. clicmd:: rpki cache (A.B.C.D|WORD) PORT [SSH_USERNAME] [SSH_PRIVKEY_PATH] [KNOWN_HOSTS_PATH] [source A.B.C.D] preference (1-255)
 
 
@@ -144,6 +145,15 @@ The following commands are available for independent of a specific cache server.
 
    PORT
       Port number to connect to the cache server
+=======
+.. clicmd:: rpki cache tcp HOST PORT [source A.B.C.D] preference (1-255)
+
+   Add a TCP cache server to the socket.
+
+.. clicmd:: rpki cache ssh HOST PORT SSH_USERNAME SSH_PRIVKEY_PATH [KNOWN_HOSTS_PATH] [source A.B.C.D] preference (1-255)
+
+   Add a SSH cache server to the socket.
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
    SSH_USERNAME
       SSH username to establish an SSH connection to the cache server.
@@ -159,7 +169,10 @@ The following commands are available for independent of a specific cache server.
    source A.B.C.D
       Source address of the RPKI connection to access cache server.
 
+<<<<<<< HEAD
 
+=======
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 .. _validating-bgp-updates:
 
 Validating BGP Updates
@@ -215,15 +228,29 @@ Displaying RPKI
 
    Display RPKI configuration state including timers values.
 
+<<<<<<< HEAD
 .. clicmd:: show rpki prefix <A.B.C.D/M|X:X::X:X/M> [(1-4294967295)] [vrf NAME] [json]
 
    Display validated prefixes received from the cache servers filtered
    by the specified prefix.
+=======
+.. clicmd:: show rpki prefix <A.B.C.D/M|X:X::X:X/M> [ASN] [vrf NAME] [json]
+
+   Display validated prefixes received from the cache servers filtered
+   by the specified prefix.  The AS number space has been increased
+   to allow the choice of using AS 0 because RFC-7607 specifically
+   calls out the usage of 0 in a special case.
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 .. clicmd:: show rpki as-number ASN [vrf NAME] [json]
 
    Display validated prefixes received from the cache servers filtered
+<<<<<<< HEAD
    by ASN.
+=======
+   by ASN.  The usage of AS 0 is allowed because RFC-76067 specifically
+   calls out the usage of 0 in a special case.
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 .. clicmd:: show rpki prefix-table [vrf NAME] [json]
 
@@ -264,9 +291,15 @@ RPKI Configuration Example
      rpki polling_period 1000
      rpki timeout 10
       ! SSH Example:
+<<<<<<< HEAD
       rpki cache example.com 22 rtr-ssh ./ssh_key/id_rsa preference 1
       ! TCP Example:
       rpki cache rpki-validator.realmv6.org 8282 preference 2
+=======
+      rpki cache ssh example.com 22 rtr-ssh ./ssh_key/id_rsa preference 1
+      ! TCP Example:
+      rpki cache tcp rpki-validator.realmv6.org 8282 preference 2
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
       exit
     !
     exit-vrf
@@ -275,9 +308,15 @@ RPKI Configuration Example
     rpki polling_period 1000
     rpki timeout 10
      ! SSH Example:
+<<<<<<< HEAD
      rpki cache example.com source 198.51.100.223 22 rtr-ssh ./ssh_key/id_rsa preference 1
      ! TCP Example:
      rpki cache rpki-validator.realmv6.org 8282 preference 2
+=======
+     rpki cache ssh example.com source 198.51.100.223 22 rtr-ssh ./ssh_key/id_rsa preference 1
+     ! TCP Example:
+     rpki cache tcp rpki-validator.realmv6.org 8282 preference 2
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
      exit
    !
    router bgp 65001

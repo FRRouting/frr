@@ -65,8 +65,11 @@ ADDR_TYPES = check_address_types()
 NETWORK = {"ipv4": "2.2.2.2/32", "ipv6": "22:22::2/128"}
 NEXT_HOP_IP = {}
 
+<<<<<<< HEAD
 pytestmark = [pytest.mark.bgpd, pytest.mark.staticd]
 
+=======
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 def setup_module(mod):
     """
@@ -115,7 +118,11 @@ def setup_module(mod):
     logger.info("Running setup_module() done")
 
 
+<<<<<<< HEAD
 def teardown_module(mod):
+=======
+def teardown_module():
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
     """
     Teardown the pytest environment.
 
@@ -551,7 +558,11 @@ def test_static_routes_rmap_pfxlist_p0_tc7_ebgp(request):
         protocol = "bgp"
         ntwk_r2_vm1 = str(
             ipaddress.ip_interface(
+<<<<<<< HEAD
                 u"{}".format(topo["routers"]["r2"]["links"]["vm1"][addr_type])
+=======
+                "{}".format(topo["routers"]["r2"]["links"]["vm1"][addr_type])
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
             ).network
         )
         input_dict = {"r1": {"static_routes": [{"network": ntwk_r2_vm1}]}}
@@ -571,7 +582,11 @@ def test_static_routes_rmap_pfxlist_p0_tc7_ebgp(request):
         dut = "r2"
         ntwk_r2_vm6 = str(
             ipaddress.ip_interface(
+<<<<<<< HEAD
                 u"{}".format(topo["routers"]["r2"]["links"]["vm6"][addr_type])
+=======
+                "{}".format(topo["routers"]["r2"]["links"]["vm6"][addr_type])
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
             ).network
         )
         input_dict = {"r3": {"static_routes": [{"network": ntwk_r2_vm6}]}}
@@ -914,7 +929,11 @@ def test_static_routes_rmap_pfxlist_p0_tc7_ebgp(request):
         protocol = "bgp"
         ntwk_r2_vm1 = str(
             ipaddress.ip_interface(
+<<<<<<< HEAD
                 u"{}".format(topo["routers"]["r2"]["links"]["vm1"][addr_type])
+=======
+                "{}".format(topo["routers"]["r2"]["links"]["vm1"][addr_type])
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
             ).network
         )
         input_dict = {"r1": {"static_routes": [{"network": ntwk_r2_vm1}]}}
@@ -931,7 +950,11 @@ def test_static_routes_rmap_pfxlist_p0_tc7_ebgp(request):
         dut = "r1"
         ntwk_r2_vm1 = str(
             ipaddress.ip_interface(
+<<<<<<< HEAD
                 u"{}".format(topo["routers"]["r1"]["links"]["vm4"][addr_type])
+=======
+                "{}".format(topo["routers"]["r1"]["links"]["vm4"][addr_type])
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
             ).network
         )
         input_dict = {"r1": {"static_routes": [{"network": ntwk_r2_vm1}]}}
@@ -945,7 +968,11 @@ def test_static_routes_rmap_pfxlist_p0_tc7_ebgp(request):
         dut = "r2"
         ntwk_r2_vm1 = str(
             ipaddress.ip_interface(
+<<<<<<< HEAD
                 u"{}".format(topo["routers"]["r1"]["links"]["vm4"][addr_type])
+=======
+                "{}".format(topo["routers"]["r1"]["links"]["vm4"][addr_type])
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
             ).network
         )
         input_dict = {"r1": {"static_routes": [{"network": ntwk_r2_vm1}]}}
@@ -959,7 +986,11 @@ def test_static_routes_rmap_pfxlist_p0_tc7_ebgp(request):
         protocol = "bgp"
         ntwk_r2_vm6 = str(
             ipaddress.ip_interface(
+<<<<<<< HEAD
                 u"{}".format(topo["routers"]["r2"]["links"]["vm6"][addr_type])
+=======
+                "{}".format(topo["routers"]["r2"]["links"]["vm6"][addr_type])
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
             ).network
         )
         input_dict = {"r3": {"static_routes": [{"network": ntwk_r2_vm6}]}}

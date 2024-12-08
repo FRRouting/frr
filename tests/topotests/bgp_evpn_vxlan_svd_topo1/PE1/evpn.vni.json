@@ -1,7 +1,11 @@
 {
   "vni":101,
   "type":"L2",
+<<<<<<< HEAD
   "vrf":"default",
+=======
+  "tenantVrf":"default",
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
   "vxlanInterface":"vxlan0",
   "vtepIp":"10.10.10.10",
   "mcastGroup":"0.0.0.0",

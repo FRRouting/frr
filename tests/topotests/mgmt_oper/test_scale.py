@@ -52,7 +52,10 @@ def test_oper_simple(tgen):
 
     r1 = tgen.gears["r1"].net
 
+<<<<<<< HEAD
     time.sleep(2)
+=======
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
     count = 20 * 1000
 
     vrf = None  # "red"

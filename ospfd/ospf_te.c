@@ -4016,7 +4016,10 @@ static void ospf_mpls_te_show_info(struct vty *vty, struct json_object *json,
 	json_object *jobj = NULL;
 
 	sum = 0;
+<<<<<<< HEAD
 	sub = 0;
+=======
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	total = lsa->size - OSPF_LSA_HEADER_SIZE;
 
 	for (tlvh = TLV_HDR_TOP(lsah); sum < total && tlvh;

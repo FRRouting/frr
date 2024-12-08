@@ -573,7 +573,11 @@ void csv_decode(csv_t *csv, char *inbuf)
 				log_error("field str malloc failed\n");
 				return;
 			}
+<<<<<<< HEAD
 			strncpy(rec->record, buf, pos - buf + 1);
+=======
+			memcpy(rec->record, buf, MIN(pos - buf + 1, csv->buflen - 1));
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		}
 		rec->rec_len = pos - buf + 1;
 		/* decode record into fields */

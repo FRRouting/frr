@@ -325,7 +325,10 @@ def router_interface_get_ifindex(router, interface):
 
 
 def generate_vrf_ifindex_oid(vrf, ifindex):
+<<<<<<< HEAD
 
+=======
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
     intoid = snmp_uint32_to_oid(int(ifindex))
     vrfoid = snmp_str_to_oid(vrf)
     oid = "{}.{}".format(vrfoid, intoid)

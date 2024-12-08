@@ -1,5 +1,9 @@
 vtysh
 vtysh_cmd.c
+<<<<<<< HEAD
+=======
+vtysh_cmd.*.c
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 # does not exist anymore - remove 2023-10-04 or so
 extract.pl

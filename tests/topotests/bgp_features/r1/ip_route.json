@@ -29,7 +29,11 @@
       "metric":0,
       "nexthops":[
         {
+<<<<<<< HEAD
           "flags":1,
+=======
+          "flags":3,
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
           "directlyConnected":true,
           "interfaceName":"lo",
           "active":true,
@@ -109,7 +113,11 @@
       "table":254,
       "nexthops":[
         {
+<<<<<<< HEAD
           "flags":1,
+=======
+          "flags":3,
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
           "directlyConnected":true,
           "interfaceName":"r1-eth1",
           "active":true,
@@ -175,7 +183,11 @@
       "metric":10,
       "nexthops":[
         {
+<<<<<<< HEAD
           "flags":1,
+=======
+          "flags":3,
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
           "directlyConnected":true,
           "interfaceName":"r1-eth2",
           "active":true,
@@ -210,7 +222,11 @@
       "metric":10,
       "nexthops":[
         {
+<<<<<<< HEAD
           "flags":1,
+=======
+          "flags":3,
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
           "directlyConnected":true,
           "interfaceName":"r1-eth0",
           "active":true,

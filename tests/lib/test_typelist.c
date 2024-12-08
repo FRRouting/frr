@@ -156,6 +156,10 @@ int main(int argc, char **argv)
 	test_ATOMSORT_UNIQ();
 	test_ATOMSORT_NONUNIQ();
 
+<<<<<<< HEAD
 	log_memstats_stderr("test: ");
+=======
+	log_memstats(NULL, true);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	return 0;
 }

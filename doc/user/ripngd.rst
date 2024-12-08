@@ -136,7 +136,11 @@ functionality.
    range is very large for compatibility with other protocols. For RIPng, valid
    metric values are from 1 to 16.
 
+<<<<<<< HEAD
 .. clicmd:: set tag (1-4294967295)
+=======
+.. clicmd:: set tag <untagged|(1-4294967295)>
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
    Set a tag on the matched route.
 

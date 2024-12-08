@@ -35,10 +35,17 @@
 
 /* array holding redistribute info about table redistribution */
 /* bit AFI is set if that AFI is redistributing routes from this table */
+<<<<<<< HEAD
 static int zebra_import_table_used[AFI_MAX][ZEBRA_KERNEL_TABLE_MAX];
 static uint32_t zebra_import_table_distance[AFI_MAX][ZEBRA_KERNEL_TABLE_MAX];
 
 int is_zebra_import_table_enabled(afi_t afi, vrf_id_t vrf_id, uint32_t table_id)
+=======
+static int zebra_import_table_used[AFI_MAX][SAFI_MAX][ZEBRA_KERNEL_TABLE_MAX];
+static uint32_t zebra_import_table_distance[AFI_MAX][SAFI_MAX][ZEBRA_KERNEL_TABLE_MAX];
+
+int is_zebra_import_table_enabled(afi_t afi, safi_t safi, vrf_id_t vrf_id, uint32_t table_id)
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 {
 	/*
 	 * Make sure that what we are called with actualy makes sense
@@ -46,9 +53,18 @@ int is_zebra_import_table_enabled(afi_t afi, vrf_id_t vrf_id, uint32_t table_id)
 	if (afi == AFI_MAX)
 		return 0;
 
+<<<<<<< HEAD
 	if (is_zebra_valid_kernel_table(table_id) &&
 	    table_id < ZEBRA_KERNEL_TABLE_MAX)
 		return zebra_import_table_used[afi][table_id];
+=======
+	if (safi == SAFI_MAX)
+		return 0;
+
+	if (is_zebra_valid_kernel_table(table_id) &&
+	    table_id < ZEBRA_KERNEL_TABLE_MAX)
+		return zebra_import_table_used[afi][safi][table_id];
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	return 0;
 }
 
@@ -290,6 +306,10 @@ void redistribute_delete(const struct route_node *rn,
 	if (IS_ZEBRA_DEBUG_RIB) {
 		uint8_t old_inst, new_inst;
 		uint32_t table = 0;
+<<<<<<< HEAD
+=======
+		struct vrf *vrf = vrf_lookup_by_id(vrfid);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 		old_inst = new_inst = 0;
 
@@ -302,8 +322,13 @@ void redistribute_delete(const struct route_node *rn,
 			table = new_re->table;
 		}
 
+<<<<<<< HEAD
 		zlog_debug("(%u:%u):%pRN: Redist del: re %p (%u:%s), new re %p (%u:%s)",
 			   vrfid, table, rn, old_re, old_inst,
+=======
+		zlog_debug("(%s:%u):%pRN: Redist del: re %p (%u:%s), new re %p (%u:%s)",
+			   VRF_LOGNAME(vrf), table, rn, old_re, old_inst,
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 			   old_re ? zebra_route_string(old_re->type) : "None",
 			   new_re, new_inst,
 			   new_re ? zebra_route_string(new_re->type) : "None");
@@ -605,10 +630,13 @@ void zebra_interface_address_add_update(struct interface *ifp,
 						client, ifp, ifc);
 		}
 	}
+<<<<<<< HEAD
 	/* interface associated NHGs may have been deleted,
 	 * re-sync zebra -> dplane NHGs
 	 */
 	zebra_interface_nhg_reinstall(ifp);
+=======
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 }
 
 /* Interface address deletion. */
@@ -690,7 +718,11 @@ void zebra_interface_vrf_update_add(struct interface *ifp, vrf_id_t old_vrf_id)
 	}
 }
 
+<<<<<<< HEAD
 int zebra_add_import_table_entry(struct zebra_vrf *zvrf, struct route_node *rn,
+=======
+int zebra_add_import_table_entry(struct zebra_vrf *zvrf, safi_t safi, struct route_node *rn,
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 				 struct route_entry *re, const char *rmap_name)
 {
 	struct route_entry *newre;
@@ -708,7 +740,11 @@ int zebra_add_import_table_entry(struct zebra_vrf *zvrf, struct route_node *rn,
 
 	if (ret != RMAP_PERMITMATCH) {
 		UNSET_FLAG(re->flags, ZEBRA_FLAG_SELECTED);
+<<<<<<< HEAD
 		zebra_del_import_table_entry(zvrf, rn, re);
+=======
+		zebra_del_import_table_entry(zvrf, safi, rn, re);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		return 0;
 	}
 
@@ -727,26 +763,45 @@ int zebra_add_import_table_entry(struct zebra_vrf *zvrf, struct route_node *rn,
 
 	if (same) {
 		UNSET_FLAG(same->flags, ZEBRA_FLAG_SELECTED);
+<<<<<<< HEAD
 		zebra_del_import_table_entry(zvrf, rn, same);
+=======
+		zebra_del_import_table_entry(zvrf, safi, rn, same);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	}
 
 	UNSET_FLAG(re->flags, ZEBRA_FLAG_RR_USE_DISTANCE);
 
+<<<<<<< HEAD
 	newre = zebra_rib_route_entry_new(
 		0, ZEBRA_ROUTE_TABLE, re->table, re->flags, re->nhe_id,
 		zvrf->table_id, re->metric, re->mtu,
 		zebra_import_table_distance[afi][re->table], re->tag);
+=======
+	newre = zebra_rib_route_entry_new(0, ZEBRA_ROUTE_TABLE, re->table, re->flags, re->nhe_id,
+					  zvrf->table_id, re->metric, re->mtu,
+					  zebra_import_table_distance[afi][safi][re->table],
+					  re->tag);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 	ng = nexthop_group_new();
 	copy_nexthops(&ng->nexthop, re->nhe->nhg.nexthop, NULL);
 
+<<<<<<< HEAD
 	rib_add_multipath(afi, SAFI_UNICAST, &p, NULL, newre, ng, false);
+=======
+	rib_add_multipath(afi, safi, &p, NULL, newre, ng, false);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	nexthop_group_delete(&ng);
 
 	return 0;
 }
 
+<<<<<<< HEAD
 int zebra_del_import_table_entry(struct zebra_vrf *zvrf, struct route_node *rn,
+=======
+int zebra_del_import_table_entry(struct zebra_vrf *zvrf, safi_t safi, struct route_node *rn,
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 				 struct route_entry *re)
 {
 	struct prefix p;
@@ -755,17 +810,27 @@ int zebra_del_import_table_entry(struct zebra_vrf *zvrf, struct route_node *rn,
 	afi = family2afi(rn->p.family);
 	prefix_copy(&p, &rn->p);
 
+<<<<<<< HEAD
 	rib_delete(afi, SAFI_UNICAST, zvrf->vrf->vrf_id, ZEBRA_ROUTE_TABLE,
 		   re->table, re->flags, &p, NULL, re->nhe->nhg.nexthop,
 		   re->nhe_id, zvrf->table_id, re->metric, re->distance,
+=======
+	rib_delete(afi, safi, zvrf->vrf->vrf_id, ZEBRA_ROUTE_TABLE, re->table, re->flags, &p, NULL,
+		   re->nhe->nhg.nexthop, re->nhe_id, zvrf->table_id, re->metric, re->distance,
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		   false);
 
 	return 0;
 }
 
 /* Assuming no one calls this with the main routing table */
+<<<<<<< HEAD
 int zebra_import_table(afi_t afi, vrf_id_t vrf_id, uint32_t table_id,
 		       uint32_t distance, const char *rmap_name, int add)
+=======
+int zebra_import_table(afi_t afi, safi_t safi, vrf_id_t vrf_id, uint32_t table_id,
+		       uint32_t distance, const char *rmap_name, bool add)
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 {
 	struct route_table *table;
 	struct route_entry *re;
@@ -779,17 +844,30 @@ int zebra_import_table(afi_t afi, vrf_id_t vrf_id, uint32_t table_id,
 	if (afi >= AFI_MAX)
 		return -1;
 
+<<<<<<< HEAD
+=======
+	if (safi >= SAFI_MAX)
+		return -1;
+
+	/* Always import from the URIB sub-table */
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	table = zebra_vrf_get_table_with_table_id(afi, SAFI_UNICAST, vrf_id,
 						  table_id);
 	if (table == NULL) {
 		return 0;
 	} else if (IS_ZEBRA_DEBUG_RIB) {
+<<<<<<< HEAD
 		zlog_debug("%s routes from table %d",
 			   add ? "Importing" : "Unimporting", table_id);
+=======
+		zlog_debug("%s routes from table %d into %s", add ? "Importing" : "Unimporting",
+			   table_id, safi2str(safi));
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	}
 
 	if (add) {
 		if (rmap_name)
+<<<<<<< HEAD
 			zebra_add_import_table_route_map(afi, rmap_name,
 							 table_id);
 		else {
@@ -797,10 +875,18 @@ int zebra_import_table(afi_t afi, vrf_id_t vrf_id, uint32_t table_id,
 				zebra_get_import_table_route_map(afi, table_id);
 			if (rmap_name) {
 				zebra_del_import_table_route_map(afi, table_id);
+=======
+			zebra_add_import_table_route_map(afi, safi, rmap_name, table_id);
+		else {
+			rmap_name = zebra_get_import_table_route_map(afi, safi, table_id);
+			if (rmap_name) {
+				zebra_del_import_table_route_map(afi, safi, table_id);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 				rmap_name = NULL;
 			}
 		}
 
+<<<<<<< HEAD
 		zebra_import_table_used[afi][table_id] = 1;
 		zebra_import_table_distance[afi][table_id] = distance;
 	} else {
@@ -811,6 +897,17 @@ int zebra_import_table(afi_t afi, vrf_id_t vrf_id, uint32_t table_id,
 		rmap_name = zebra_get_import_table_route_map(afi, table_id);
 		if (rmap_name) {
 			zebra_del_import_table_route_map(afi, table_id);
+=======
+		zebra_import_table_used[afi][safi][table_id] = 1;
+		zebra_import_table_distance[afi][safi][table_id] = distance;
+	} else {
+		zebra_import_table_used[afi][safi][table_id] = 0;
+		zebra_import_table_distance[afi][safi][table_id] = ZEBRA_TABLE_DISTANCE_DEFAULT;
+
+		rmap_name = zebra_get_import_table_route_map(afi, safi, table_id);
+		if (rmap_name) {
+			zebra_del_import_table_route_map(afi, safi, table_id);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 			rmap_name = NULL;
 		}
 	}
@@ -834,10 +931,16 @@ int zebra_import_table(afi_t afi, vrf_id_t vrf_id, uint32_t table_id,
 		if (((afi == AFI_IP) && (rn->p.family == AF_INET))
 		    || ((afi == AFI_IP6) && (rn->p.family == AF_INET6))) {
 			if (add)
+<<<<<<< HEAD
 				zebra_add_import_table_entry(zvrf, rn, re,
 							     rmap_name);
 			else
 				zebra_del_import_table_entry(zvrf, rn, re);
+=======
+				zebra_add_import_table_entry(zvrf, safi, rn, re, rmap_name);
+			else
+				zebra_del_import_table_entry(zvrf, safi, rn, re);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		}
 	}
 	return 0;
@@ -847,10 +950,15 @@ int zebra_import_table_config(struct vty *vty, vrf_id_t vrf_id)
 {
 	int i;
 	afi_t afi;
+<<<<<<< HEAD
+=======
+	safi_t safi;
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	int write = 0;
 	char afi_str[AFI_MAX][10] = {"", "ip", "ipv6", "ethernet"};
 	const char *rmap_name;
 
+<<<<<<< HEAD
 	for (afi = AFI_IP; afi < AFI_MAX; afi++) {
 		for (i = 1; i < ZEBRA_KERNEL_TABLE_MAX; i++) {
 			if (!is_zebra_import_table_enabled(afi, vrf_id, i))
@@ -867,6 +975,24 @@ int zebra_import_table_config(struct vty *vty, vrf_id_t vrf_id)
 			}
 
 			rmap_name = zebra_get_import_table_route_map(afi, i);
+=======
+	FOREACH_AFI_SAFI (afi, safi) {
+		for (i = 1; i < ZEBRA_KERNEL_TABLE_MAX; i++) {
+			if (!is_zebra_import_table_enabled(afi, safi, vrf_id, i))
+				continue;
+
+			if (zebra_import_table_distance[afi][safi][i] !=
+			    ZEBRA_TABLE_DISTANCE_DEFAULT) {
+				vty_out(vty, "%s import-table %d %sdistance %d", afi_str[afi], i,
+					(safi == SAFI_MULTICAST ? "mrib " : ""),
+					zebra_import_table_distance[afi][safi][i]);
+			} else {
+				vty_out(vty, "%s import-table %d%s", afi_str[afi], i,
+					(safi == SAFI_MULTICAST ? " mrib" : ""));
+			}
+
+			rmap_name = zebra_get_import_table_route_map(afi, safi, i);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 			if (rmap_name)
 				vty_out(vty, " route-map %s", rmap_name);
 
@@ -878,21 +1004,34 @@ int zebra_import_table_config(struct vty *vty, vrf_id_t vrf_id)
 	return write;
 }
 
+<<<<<<< HEAD
 static void zebra_import_table_rm_update_vrf_afi(struct zebra_vrf *zvrf,
 						 afi_t afi, int table_id,
 						 const char *rmap)
+=======
+static void zebra_import_table_rm_update_vrf_afi(struct zebra_vrf *zvrf, afi_t afi, safi_t safi,
+						 int table_id, const char *rmap)
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 {
 	struct route_table *table;
 	struct route_entry *re;
 	struct route_node *rn;
 	const char *rmap_name;
 
+<<<<<<< HEAD
 	rmap_name = zebra_get_import_table_route_map(afi, table_id);
 	if ((!rmap_name) || (strcmp(rmap_name, rmap) != 0))
 		return;
 
 	table = zebra_vrf_get_table_with_table_id(afi, SAFI_UNICAST,
 						  zvrf->vrf->vrf_id, table_id);
+=======
+	rmap_name = zebra_get_import_table_route_map(afi, safi, table_id);
+	if ((!rmap_name) || (strcmp(rmap_name, rmap) != 0))
+		return;
+
+	table = zebra_vrf_get_table_with_table_id(afi, safi, zvrf->vrf->vrf_id, table_id);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	if (!table) {
 		if (IS_ZEBRA_DEBUG_RIB_DETAILED)
 			zlog_debug("%s: Table id=%d not found", __func__,
@@ -919,7 +1058,11 @@ static void zebra_import_table_rm_update_vrf_afi(struct zebra_vrf *zvrf,
 
 		if (((afi == AFI_IP) && (rn->p.family == AF_INET))
 		    || ((afi == AFI_IP6) && (rn->p.family == AF_INET6)))
+<<<<<<< HEAD
 			zebra_add_import_table_entry(zvrf, rn, re, rmap_name);
+=======
+			zebra_add_import_table_entry(zvrf, safi, rn, re, rmap_name);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	}
 
 	return;
@@ -929,6 +1072,7 @@ static void zebra_import_table_rm_update_vrf(struct zebra_vrf *zvrf,
 					     const char *rmap)
 {
 	afi_t afi;
+<<<<<<< HEAD
 	int i;
 
 	for (afi = AFI_IP; afi < AFI_MAX; afi++) {
@@ -939,6 +1083,17 @@ static void zebra_import_table_rm_update_vrf(struct zebra_vrf *zvrf,
 
 			zebra_import_table_rm_update_vrf_afi(zvrf, afi, i,
 							     rmap);
+=======
+	safi_t safi;
+	int i;
+
+	FOREACH_AFI_SAFI (afi, safi) {
+		for (i = 1; i < ZEBRA_KERNEL_TABLE_MAX; i++) {
+			if (!is_zebra_import_table_enabled(afi, safi, zvrf->vrf->vrf_id, i))
+				continue;
+
+			zebra_import_table_rm_update_vrf_afi(zvrf, afi, safi, i, rmap);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		}
 	}
 }

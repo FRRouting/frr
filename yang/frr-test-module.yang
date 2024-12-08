@@ -80,6 +80,26 @@ module frr-test-module {
             }
           }
         }
+<<<<<<< HEAD
+=======
+        action ping {
+          input {
+            leaf data {
+              type string;
+            }
+          }
+          output {
+            leaf vrf {
+              type string;
+            }
+            // can't use the same name in input and output
+            // because of a bug in libyang < 2.1.148
+            leaf data-out {
+              type string;
+            }
+          }
+        }
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
       }
     }
     choice achoice {

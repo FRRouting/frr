@@ -418,10 +418,19 @@ extern int bgp_evpn_local_es_add(struct bgp *bgp, esi_t *esi,
 extern int bgp_evpn_local_es_del(struct bgp *bgp, esi_t *esi);
 extern int bgp_evpn_local_es_evi_add(struct bgp *bgp, esi_t *esi, vni_t vni);
 extern int bgp_evpn_local_es_evi_del(struct bgp *bgp, esi_t *esi, vni_t vni);
+<<<<<<< HEAD
 extern int bgp_evpn_remote_es_evi_add(struct bgp *bgp, struct bgpevpn *vpn,
 		const struct prefix_evpn *p);
 extern int bgp_evpn_remote_es_evi_del(struct bgp *bgp, struct bgpevpn *vpn,
 		const struct prefix_evpn *p);
+=======
+extern enum zclient_send_status
+bgp_evpn_remote_es_evi_add(struct bgp *bgp, struct bgpevpn *vpn,
+			   const struct prefix_evpn *p);
+extern enum zclient_send_status
+bgp_evpn_remote_es_evi_del(struct bgp *bgp, struct bgpevpn *vpn,
+			   const struct prefix_evpn *p);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 extern void bgp_evpn_mh_init(void);
 extern void bgp_evpn_mh_finish(void);
 void bgp_evpn_vni_es_init(struct bgpevpn *vpn);
@@ -457,5 +466,10 @@ extern void bgp_evpn_path_nh_add(struct bgp *bgp_vrf, struct bgp_path_info *pi);
 extern void bgp_evpn_path_nh_del(struct bgp *bgp_vrf, struct bgp_path_info *pi);
 extern void bgp_evpn_mh_config_ead_export_rt(struct bgp *bgp,
 					     struct ecommunity *ecom, bool del);
+<<<<<<< HEAD
+=======
+extern void bgp_evpn_local_es_evi_unistall_local_routes_in_vrfs(struct bgp_evpn_es *es,
+								struct bgp_evpn_es_evi *es_evi);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 #endif /* _FRR_BGP_EVPN_MH_H */

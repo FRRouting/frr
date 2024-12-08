@@ -139,7 +139,11 @@ static bool parse_update_subtlv(const unsigned char *a, int alen,
 	    return false;
 	}
 
+<<<<<<< HEAD
 	if (type & SUBTLV_MANDATORY) {
+=======
+	if (CHECK_FLAG(type, SUBTLV_MANDATORY)) {
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		/*
 		 * RFC 8966 - 4.4
 		 * If the mandatory bit is set, then the whole enclosing
@@ -162,8 +166,12 @@ static bool parse_update_subtlv(const unsigned char *a, int alen,
 		}
 		if (memchr(a + i + 2, 0, len) != NULL) {
 			/* 0 is reserved. */
+<<<<<<< HEAD
 			flog_err(EC_BABEL_PACKET,
 				 "Channel information contains 0!");
+=======
+			flog_err(EC_BABEL_PACKET, "Channel information contains 0!");
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 			return false;
 		}
 		memset(channels, 0, DIVERSITY_HOPS);
@@ -203,7 +211,11 @@ parse_hello_subtlv(const unsigned char *a, int alen,
             return -1;
         }
 
+<<<<<<< HEAD
 	if (type & SUBTLV_MANDATORY) {
+=======
+	if (CHECK_FLAG(type, SUBTLV_MANDATORY)) {
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		/*
 		 * RFC 8966 4.4
 		 * If the mandatory bit is set, then the whole enclosing
@@ -325,8 +337,13 @@ parse_request_subtlv(int ae, const unsigned char *a, int alen,
             have_src_prefix = 1;
         } else {
             debugf(BABEL_DEBUG_COMMON,"Received unknown%s Route Request sub-TLV %d.",
+<<<<<<< HEAD
                    ((type & 0x80) != 0) ? " mandatory" : "", type);
             if((type & 0x80) != 0)
+=======
+                   (CHECK_FLAG(type, 0x80) != 0) ? " mandatory" : "", type);
+            if(CHECK_FLAG(type, 0x80) != 0)
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
                 return -1;
         }
 
@@ -417,7 +434,11 @@ parse_packet(const unsigned char *from, struct interface *ifp,
     unsigned int hello_send_us = 0, hello_rtt_receive_time = 0;
     babel_interface_nfo *babel_ifp = babel_get_if_nfo(ifp);
 
+<<<<<<< HEAD
     if(babel_ifp->flags & BABEL_IF_TIMESTAMPS) {
+=======
+    if (CHECK_FLAG(babel_ifp->flags, BABEL_IF_TIMESTAMPS)) {
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
         /* We want to track exactly when we received this packet. */
         gettime(&babel_now);
     }
@@ -513,8 +534,12 @@ parse_packet(const unsigned char *from, struct interface *ifp,
 			schedule_neighbours_check(interval * 15, 0);
 		/* Sub-TLV handling. */
 		if (len > 8) {
+<<<<<<< HEAD
 			if (parse_hello_subtlv(message + 8, len - 6,
 					       &timestamp) > 0) {
+=======
+			if (parse_hello_subtlv(message + 8, len - 6, &timestamp) > 0) {
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 				neigh->hello_send_us = timestamp;
 				neigh->hello_rtt_receive_time = babel_now;
 				have_hello_rtt = 1;
@@ -554,8 +579,12 @@ parse_packet(const unsigned char *from, struct interface *ifp,
         } else if(type == MESSAGE_NH) {
             unsigned char nh[16];
             int rc;
+<<<<<<< HEAD
             rc = network_address(message[2], message + 4, len - 2,
                                  nh);
+=======
+            rc = network_address(message[2], message + 4, len - 2, nh);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
             if(rc <= 0) {
                 have_v4_nh = 0;
                 have_v6_nh = 0;
@@ -577,9 +606,15 @@ parse_packet(const unsigned char *from, struct interface *ifp,
             unsigned char channels[DIVERSITY_HOPS];
             unsigned short interval, seqno, metric;
             int rc, parsed_len;
+<<<<<<< HEAD
 	    bool ignore_update = false;
 
 	    DO_NTOHS(interval, message + 6);
+=======
+            bool ignore_update = false;
+
+            DO_NTOHS(interval, message + 6);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
             DO_NTOHS(seqno, message + 8);
             DO_NTOHS(metric, message + 10);
             if(message[5] == 0 ||
@@ -591,7 +626,11 @@ parse_packet(const unsigned char *from, struct interface *ifp,
             else
                 rc = -1;
             if(rc < 0) {
+<<<<<<< HEAD
                 if(message[3] & 0x80)
+=======
+                if(CHECK_FLAG(message[3], 0x80))
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
                     have_v4_prefix = have_v6_prefix = 0;
                 goto fail;
             }
@@ -599,7 +638,11 @@ parse_packet(const unsigned char *from, struct interface *ifp,
 
             plen = message[4] + (message[2] == 1 ? 96 : 0);
 
+<<<<<<< HEAD
             if(message[3] & 0x80) {
+=======
+            if(CHECK_FLAG(message[3], 0x80)) {
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
                 if(message[2] == 1) {
                     memcpy(v4_prefix, prefix, 16);
                     have_v4_prefix = 1;
@@ -608,7 +651,11 @@ parse_packet(const unsigned char *from, struct interface *ifp,
                     have_v6_prefix = 1;
                 }
             }
+<<<<<<< HEAD
             if(message[3] & 0x40) {
+=======
+            if(CHECK_FLAG(message[3], 0x40)) {
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
                 if(message[2] == 1) {
                     memset(router_id, 0, 4);
                     memcpy(router_id + 4, prefix + 12, 4);
@@ -623,8 +670,13 @@ parse_packet(const unsigned char *from, struct interface *ifp,
                 goto fail;
             }
             debugf(BABEL_DEBUG_COMMON,"Received update%s%s for %s from %s on %s.",
+<<<<<<< HEAD
                    (message[3] & 0x80) ? "/prefix" : "",
                    (message[3] & 0x40) ? "/id" : "",
+=======
+                   ((CHECK_FLAG(message[3], 0x80)) ? "/prefix" : ""),
+                   ((CHECK_FLAG(message[3], 0x40)) ? "/id" : ""),
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
                    format_prefix(prefix, plen),
                    format_address(from), ifp->name);
 
@@ -651,7 +703,11 @@ parse_packet(const unsigned char *from, struct interface *ifp,
                     goto done;
             }
 
+<<<<<<< HEAD
             if((babel_get_if_nfo(ifp)->flags & BABEL_IF_FARAWAY)) {
+=======
+            if(CHECK_FLAG(babel_get_if_nfo(ifp)->flags, BABEL_IF_FARAWAY)) {
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
                 channels[0] = 0;
             } else {
                 /* This will be overwritten by parse_update_subtlv below. */
@@ -665,15 +721,25 @@ parse_packet(const unsigned char *from, struct interface *ifp,
                 }
 
                 if(parsed_len < len)
+<<<<<<< HEAD
 			ignore_update =
 				parse_update_subtlv(message + 2 + parsed_len,
 						    len - parsed_len, channels);
+=======
+					ignore_update =
+						parse_update_subtlv(message + 2 + parsed_len,
+						len - parsed_len, channels);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	    }
 
 	    if (!ignore_update)
 		    update_route(router_id, prefix, plen, seqno, metric,
+<<<<<<< HEAD
 				 interval, neigh, nh, channels,
 				 channels_len(channels));
+=======
+				 interval, neigh, nh, channels, channels_len(channels));
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	} else if(type == MESSAGE_REQUEST) {
             unsigned char prefix[16], src_prefix[16], plen, src_plen;
             int rc, is_ss;
@@ -738,8 +804,12 @@ parse_packet(const unsigned char *from, struct interface *ifp,
                    format_prefix(prefix, plen),
                    format_address(from), ifp->name,
                    format_eui64(message + 8), seqno);
+<<<<<<< HEAD
             handle_request(neigh, prefix, plen, message[6],
                            seqno, message + 8);
+=======
+            handle_request(neigh, prefix, plen, message[6], seqno, message + 8);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
         } else {
             debugf(BABEL_DEBUG_COMMON,"Received unknown packet type %d from %s on %s.",
                    type, format_address(from), ifp->name);
@@ -821,11 +891,18 @@ check_bucket(struct interface *ifp)
     }
 }
 
+<<<<<<< HEAD
 static int
 fill_rtt_message(struct interface *ifp)
 {
     babel_interface_nfo *babel_ifp = babel_get_if_nfo(ifp);
     if((babel_ifp->flags & BABEL_IF_TIMESTAMPS) &&
+=======
+static int fill_rtt_message(struct interface *ifp)
+{
+    babel_interface_nfo *babel_ifp = babel_get_if_nfo(ifp);
+    if(CHECK_FLAG(babel_ifp->flags, BABEL_IF_TIMESTAMPS) &&
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
        (babel_ifp->buffered_hello >= 0)) {
         if(babel_ifp->sendbuf[babel_ifp->buffered_hello + 8] == SUBTLV_PADN &&
            babel_ifp->sendbuf[babel_ifp->buffered_hello + 9] == 4) {
@@ -845,8 +922,12 @@ fill_rtt_message(struct interface *ifp)
     return 0;
 }
 
+<<<<<<< HEAD
 void
 flushbuf(struct interface *ifp)
+=======
+void flushbuf(struct interface *ifp)
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 {
     int rc;
     struct sockaddr_in6 sin6;
@@ -888,8 +969,12 @@ flushbuf(struct interface *ifp)
     babel_ifp->flush_timeout.tv_usec = 0;
 }
 
+<<<<<<< HEAD
 static void
 schedule_flush(struct interface *ifp)
+=======
+static void schedule_flush(struct interface *ifp)
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 {
     babel_interface_nfo *babel_ifp = babel_get_if_nfo(ifp);
     unsigned msecs = jitter(babel_ifp, 0);
@@ -899,8 +984,12 @@ schedule_flush(struct interface *ifp)
     set_timeout(&babel_ifp->flush_timeout, msecs);
 }
 
+<<<<<<< HEAD
 static void
 schedule_flush_now(struct interface *ifp)
+=======
+static void schedule_flush_now(struct interface *ifp)
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 {
     babel_interface_nfo *babel_ifp = babel_get_if_nfo(ifp);
     /* Almost now */
@@ -911,8 +1000,12 @@ schedule_flush_now(struct interface *ifp)
     set_timeout(&babel_ifp->flush_timeout, msecs);
 }
 
+<<<<<<< HEAD
 static void
 schedule_unicast_flush(unsigned msecs)
+=======
+static void schedule_unicast_flush(unsigned msecs)
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 {
     if(!unicast_neighbour)
         return;
@@ -924,16 +1017,24 @@ schedule_unicast_flush(unsigned msecs)
         babel_now.tv_sec + (babel_now.tv_usec / 1000 + msecs) / 1000;
 }
 
+<<<<<<< HEAD
 static void
 ensure_space(struct interface *ifp, int space)
+=======
+static void ensure_space(struct interface *ifp, int space)
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 {
     babel_interface_nfo *babel_ifp = babel_get_if_nfo(ifp);
     if(babel_ifp->bufsize - babel_ifp->buffered < space)
         flushbuf(ifp);
 }
 
+<<<<<<< HEAD
 static void
 start_message(struct interface *ifp, int type, int len)
+=======
+static void start_message(struct interface *ifp, int type, int len)
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 {
   babel_interface_nfo *babel_ifp = babel_get_if_nfo(ifp);
     if(babel_ifp->bufsize - babel_ifp->buffered < len + 2)
@@ -942,8 +1043,12 @@ start_message(struct interface *ifp, int type, int len)
     babel_ifp->sendbuf[babel_ifp->buffered++] = len;
 }
 
+<<<<<<< HEAD
 static void
 end_message(struct interface *ifp, int type, int bytes)
+=======
+static void end_message(struct interface *ifp, int type, int bytes)
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 {
     babel_interface_nfo *babel_ifp = babel_get_if_nfo(ifp);
     assert(babel_ifp->buffered >= bytes + 2 &&
@@ -952,23 +1057,35 @@ end_message(struct interface *ifp, int type, int bytes)
     schedule_flush(ifp);
 }
 
+<<<<<<< HEAD
 static void
 accumulate_byte(struct interface *ifp, unsigned char value)
+=======
+static void accumulate_byte(struct interface *ifp, unsigned char value)
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 {
     babel_interface_nfo *babel_ifp = babel_get_if_nfo(ifp);
     babel_ifp->sendbuf[babel_ifp->buffered++] = value;
 }
 
+<<<<<<< HEAD
 static void
 accumulate_short(struct interface *ifp, unsigned short value)
+=======
+static void accumulate_short(struct interface *ifp, unsigned short value)
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 {
     babel_interface_nfo *babel_ifp = babel_get_if_nfo(ifp);
     DO_HTONS(babel_ifp->sendbuf + babel_ifp->buffered, value);
     babel_ifp->buffered += 2;
 }
 
+<<<<<<< HEAD
 static void
 accumulate_int(struct interface *ifp, unsigned int value)
+=======
+static void accumulate_int(struct interface *ifp, unsigned int value)
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 {
     babel_interface_nfo *babel_ifp = babel_get_if_nfo(ifp);
     DO_HTONL(babel_ifp->sendbuf + babel_ifp->buffered, value);
@@ -984,8 +1101,12 @@ accumulate_bytes(struct interface *ifp,
     babel_ifp->buffered += len;
 }
 
+<<<<<<< HEAD
 static int
 start_unicast_message(struct neighbour *neigh, int type, int len)
+=======
+static int start_unicast_message(struct neighbour *neigh, int type, int len)
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 {
     if(unicast_neighbour) {
         if(neigh != unicast_neighbour ||
@@ -1008,8 +1129,12 @@ start_unicast_message(struct neighbour *neigh, int type, int len)
     return 1;
 }
 
+<<<<<<< HEAD
 static void
 end_unicast_message(struct neighbour *neigh, int type, int bytes)
+=======
+static void end_unicast_message(struct neighbour *neigh, int type, int bytes)
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 {
     assert(unicast_neighbour == neigh && unicast_buffered >= bytes + 2 &&
            unicast_buffer[unicast_buffered - bytes - 2] == type &&
@@ -1030,8 +1155,12 @@ accumulate_unicast_short(struct neighbour *neigh, unsigned short value)
     unicast_buffered += 2;
 }
 
+<<<<<<< HEAD
 static void
 accumulate_unicast_int(struct neighbour *neigh, unsigned int value)
+=======
+static void accumulate_unicast_int(struct neighbour *neigh, unsigned int value)
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 {
     DO_HTONL(unicast_buffer + unicast_buffered, value);
     unicast_buffered += 4;
@@ -1051,15 +1180,25 @@ send_ack(struct neighbour *neigh, unsigned short nonce, unsigned short interval)
     int rc;
     debugf(BABEL_DEBUG_COMMON,"Sending ack (%04x) to %s on %s.",
            nonce, format_address(neigh->address), neigh->ifp->name);
+<<<<<<< HEAD
     rc = start_unicast_message(neigh, MESSAGE_ACK, 2); if(rc < 0) return;
+=======
+    rc = start_unicast_message(neigh, MESSAGE_ACK, 2);
+    if(rc < 0)
+        return;
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
     accumulate_unicast_short(neigh, nonce);
     end_unicast_message(neigh, MESSAGE_ACK, 2);
     /* Roughly yields a value no larger than 3/2, so this meets the deadline */
     schedule_unicast_flush(roughly(interval * 6));
 }
 
+<<<<<<< HEAD
 void
 send_hello_noupdate(struct interface *ifp, unsigned interval)
+=======
+void send_hello_noupdate(struct interface *ifp, unsigned interval)
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 {
     babel_interface_nfo *babel_ifp = babel_get_if_nfo(ifp);
     /* This avoids sending multiple hellos in a single packet, which breaks
@@ -1077,12 +1216,20 @@ send_hello_noupdate(struct interface *ifp, unsigned interval)
            babel_ifp->hello_seqno, interval, ifp->name);
 
     start_message(ifp, MESSAGE_HELLO,
+<<<<<<< HEAD
                   (babel_ifp->flags & BABEL_IF_TIMESTAMPS) ? 12 : 6);
+=======
+                  (CHECK_FLAG(babel_ifp->flags, BABEL_IF_TIMESTAMPS) ? 12 : 6));
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
     babel_ifp->buffered_hello = babel_ifp->buffered - 2;
     accumulate_short(ifp, 0);
     accumulate_short(ifp, babel_ifp->hello_seqno);
     accumulate_short(ifp, interval > 0xFFFF ? 0xFFFF : interval);
+<<<<<<< HEAD
     if(babel_ifp->flags & BABEL_IF_TIMESTAMPS) {
+=======
+    if (CHECK_FLAG(babel_ifp->flags, BABEL_IF_TIMESTAMPS)) {
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
         /* Sub-TLV containing the local time of emission. We use a
            Pad4 sub-TLV, which we'll fill just before sending. */
         accumulate_byte(ifp, SUBTLV_PADN);
@@ -1090,11 +1237,18 @@ send_hello_noupdate(struct interface *ifp, unsigned interval)
         accumulate_int(ifp, 0);
     }
     end_message(ifp, MESSAGE_HELLO,
+<<<<<<< HEAD
                 (babel_ifp->flags & BABEL_IF_TIMESTAMPS) ? 12 : 6);
 }
 
 void
 send_hello(struct interface *ifp)
+=======
+                CHECK_FLAG(babel_ifp->flags, BABEL_IF_TIMESTAMPS) ? 12 : 6);
+}
+
+void send_hello(struct interface *ifp)
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 {
     babel_interface_nfo *babel_ifp = babel_get_if_nfo(ifp);
     send_hello_noupdate(ifp, (babel_ifp->hello_interval + 9) / 10);
@@ -1105,8 +1259,12 @@ send_hello(struct interface *ifp)
         send_marginal_ihu(ifp);
 }
 
+<<<<<<< HEAD
 void
 flush_unicast(int dofree)
+=======
+void flush_unicast(int dofree)
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 {
     struct sockaddr_in6 sin6;
     int rc;
@@ -1183,7 +1341,11 @@ really_send_update(struct interface *ifp,
     /* Worst case */
     ensure_space(ifp, 20 + 12 + 28);
 
+<<<<<<< HEAD
     v4 = plen >= 96 && v4mapped(prefix);
+=======
+    v4 = (plen >= 96) && v4mapped(prefix);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
     if(v4) {
         if(!babel_ifp->ipv4)
@@ -1208,7 +1370,11 @@ really_send_update(struct interface *ifp,
                 omit++;
         }
         if(!babel_ifp->have_buffered_prefix || plen >= 48)
+<<<<<<< HEAD
             flags |= 0x80;
+=======
+            SET_FLAG(flags, 0x80);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
         real_prefix = prefix;
         real_plen = plen;
     }
@@ -1216,7 +1382,11 @@ really_send_update(struct interface *ifp,
     if(!babel_ifp->have_buffered_id
        || memcmp(id, babel_ifp->buffered_id, 8) != 0) {
         if(real_plen == 128 && memcmp(real_prefix + 8, id, 8) == 0) {
+<<<<<<< HEAD
             flags |= 0x40;
+=======
+            SET_FLAG(flags, 0x40);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
         } else {
             start_message(ifp, MESSAGE_ROUTER_ID, 10);
             accumulate_short(ifp, 0);
@@ -1248,14 +1418,22 @@ really_send_update(struct interface *ifp,
     end_message(ifp, MESSAGE_UPDATE, 10 + (real_plen + 7) / 8 - omit +
                 channels_size);
 
+<<<<<<< HEAD
     if(flags & 0x80) {
+=======
+    if (CHECK_FLAG(flags, 0x80)) {
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
         memcpy(babel_ifp->buffered_prefix, prefix, 16);
         babel_ifp->have_buffered_prefix = 1;
     }
 }
 
+<<<<<<< HEAD
 static int
 compare_buffered_updates(const void *av, const void *bv)
+=======
+static int compare_buffered_updates(const void *av, const void *bv)
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 {
     const struct buffered_update *a = av, *b = bv;
     int rc, v4a, v4b, ma, mb;
@@ -1288,8 +1466,12 @@ compare_buffered_updates(const void *av, const void *bv)
     return memcmp(a->prefix, b->prefix, 16);
 }
 
+<<<<<<< HEAD
 void
 flushupdates(struct interface *ifp)
+=======
+void flushupdates(struct interface *ifp)
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 {
     babel_interface_nfo *babel_ifp = NULL;
     struct xroute *xroute;
@@ -1299,7 +1481,11 @@ flushupdates(struct interface *ifp)
     int i;
 
     if(ifp == NULL) {
+<<<<<<< HEAD
 	struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
+=======
+		struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
         struct interface *ifp_aux;
         FOR_ALL_INTERFACES(vrf, ifp_aux)
             flushupdates(ifp_aux);
@@ -1372,7 +1558,11 @@ flushupdates(struct interface *ifp)
                 if(metric < INFINITY)
                     satisfy_request(route->src->prefix, route->src->plen,
                                     seqno, route->src->id, ifp);
+<<<<<<< HEAD
                 if((babel_ifp->flags & BABEL_IF_SPLIT_HORIZON) &&
+=======
+                if(CHECK_FLAG(babel_ifp->flags, BABEL_IF_SPLIT_HORIZON) &&
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
                    route->neigh->ifp == ifp)
                     continue;
 
@@ -1414,11 +1604,19 @@ flushupdates(struct interface *ifp)
     babel_ifp->update_flush_timeout.tv_usec = 0;
 }
 
+<<<<<<< HEAD
 static void
 schedule_update_flush(struct interface *ifp, int urgent)
 {
     babel_interface_nfo *babel_ifp = babel_get_if_nfo(ifp);
     unsigned msecs;
+=======
+static void schedule_update_flush(struct interface *ifp, int urgent)
+{
+    babel_interface_nfo *babel_ifp = babel_get_if_nfo(ifp);
+    unsigned msecs;
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
     msecs = update_jitter(babel_ifp, urgent);
     if(babel_ifp->update_flush_timeout.tv_sec != 0 &&
        timeval_minus_msec(&babel_ifp->update_flush_timeout, &babel_now) < msecs)
@@ -1528,10 +1726,17 @@ send_update_resend(struct interface *ifp,
     record_resend(RESEND_UPDATE, prefix, plen, 0, NULL, NULL, resend_delay);
 }
 
+<<<<<<< HEAD
 void
 send_wildcard_retraction(struct interface *ifp)
 {
     babel_interface_nfo *babel_ifp = NULL;
+=======
+void send_wildcard_retraction(struct interface *ifp)
+{
+    babel_interface_nfo *babel_ifp = NULL;
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
     if(ifp == NULL) {
 	struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
         struct interface *ifp_aux;
@@ -1557,14 +1762,22 @@ send_wildcard_retraction(struct interface *ifp)
     babel_ifp->have_buffered_id = 0;
 }
 
+<<<<<<< HEAD
 void
 update_myseqno(void)
+=======
+void update_myseqno(void)
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 {
     myseqno = seqno_plus(myseqno, 1);
 }
 
+<<<<<<< HEAD
 void
 send_self_update(struct interface *ifp)
+=======
+void send_self_update(struct interface *ifp)
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 {
     struct xroute_stream *xroutes;
     if(ifp == NULL) {
@@ -1592,8 +1805,12 @@ send_self_update(struct interface *ifp)
     }
 }
 
+<<<<<<< HEAD
 void
 send_ihu(struct neighbour *neigh, struct interface *ifp)
+=======
+void send_ihu(struct neighbour *neigh, struct interface *ifp)
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 {
     babel_interface_nfo *babel_ifp = NULL;
     int rxcost, interval;
@@ -1645,7 +1862,11 @@ send_ihu(struct neighbour *neigh, struct interface *ifp)
 
     ll = linklocal(neigh->address);
 
+<<<<<<< HEAD
     if((babel_ifp->flags & BABEL_IF_TIMESTAMPS) && neigh->hello_send_us
+=======
+    if(CHECK_FLAG(babel_ifp->flags, BABEL_IF_TIMESTAMPS) && neigh->hello_send_us
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
        /* Checks whether the RTT data is not too old to be sent. */
        && timeval_minus_msec(&babel_now,
                              &neigh->hello_rtt_receive_time) < 1000000) {
@@ -1700,14 +1921,22 @@ send_ihu(struct neighbour *neigh, struct interface *ifp)
 }
 
 /* Send IHUs to all marginal neighbours */
+<<<<<<< HEAD
 void
 send_marginal_ihu(struct interface *ifp)
+=======
+void send_marginal_ihu(struct interface *ifp)
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 {
     struct neighbour *neigh;
     FOR_ALL_NEIGHBOURS(neigh) {
         if(ifp && neigh->ifp != ifp)
             continue;
+<<<<<<< HEAD
         if(neigh->txcost >= 384 || (neigh->reach & 0xF000) != 0xF000)
+=======
+        if(neigh->txcost >= 384 || CHECK_FLAG(neigh->reach, 0xF000) != 0xF000)
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
             send_ihu(neigh, ifp);
     }
 }

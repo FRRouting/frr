@@ -67,6 +67,17 @@ enum ospf_apiserver_event {
 };
 
 /* -----------------------------------------------------------
+<<<<<<< HEAD
+=======
+ * External definitions for OSPF API ospfd parameters.
+ * -----------------------------------------------------------
+ */
+
+extern int ospf_apiserver_enable;
+extern struct in_addr ospf_apiserver_addr;
+
+/* -----------------------------------------------------------
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
  * Following are functions to manage client connections.
  * -----------------------------------------------------------
  */

@@ -27,7 +27,10 @@ ripngd_ripngd_SOURCES = \
 
 clippy_scan += \
 	ripngd/ripng_cli.c \
+<<<<<<< HEAD
 	ripngd/ripngd.c \
+=======
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	# end
 
 noinst_HEADERS += \

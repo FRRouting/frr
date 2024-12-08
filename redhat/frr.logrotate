@@ -78,6 +78,17 @@
     endscript
 }
 
+<<<<<<< HEAD
+=======
+/var/log/frr/mgmtd.log {
+    notifempty
+    missingok
+    postrotate
+        /bin/kill -USR1 `cat /var/run/frr/mgmtd.pid 2> /dev/null` 2> /dev/null || true
+    endscript
+}
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 /var/log/frr/nhrpd.log {
     notifempty
     missingok

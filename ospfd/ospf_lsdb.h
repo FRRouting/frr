@@ -7,6 +7,12 @@
 #ifndef _ZEBRA_OSPF_LSDB_H
 #define _ZEBRA_OSPF_LSDB_H
 
+<<<<<<< HEAD
+=======
+#include "prefix.h"
+#include "table.h"
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 /* OSPF LSDB structure. */
 struct ospf_lsdb {
 	struct {
@@ -43,9 +49,35 @@ struct ospf_lsdb {
 #define AREA_LSDB(A,T)       ((A)->lsdb->type[(T)].db)
 #define AS_LSDB(O,T)         ((O)->lsdb->type[(T)].db)
 
+<<<<<<< HEAD
 /* OSPF LSDB related functions. */
 extern struct ospf_lsdb *ospf_lsdb_new(void);
 extern void ospf_lsdb_init(struct ospf_lsdb *);
+=======
+/*
+ * Alternate route node structure for LSDB nodes linked to
+ * list elements.
+ */
+struct ospf_lsdb_linked_node {
+	/*
+	 * Caution these must be the very first fields
+	 */
+	ROUTE_NODE_FIELDS
+
+	/*
+	 * List entry on an LSA list, e.g., a neighbor
+	 * retransmission list.
+	 */
+	struct ospf_lsa_list_entry *lsa_list_entry;
+};
+
+/* OSPF LSDB related functions. */
+extern struct ospf_lsdb *ospf_lsdb_new(void);
+extern void ospf_lsdb_init(struct ospf_lsdb *);
+extern void ospf_lsdb_linked_init(struct ospf_lsdb *lsdb);
+extern struct ospf_lsdb_linked_node *
+ospf_lsdb_linked_lookup(struct ospf_lsdb *lsdb, struct ospf_lsa *lsa);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 extern void ospf_lsdb_free(struct ospf_lsdb *);
 extern void ospf_lsdb_cleanup(struct ospf_lsdb *);
 extern void ls_prefix_set(struct prefix_ls *lp, struct ospf_lsa *lsa);

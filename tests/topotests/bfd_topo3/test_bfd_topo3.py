@@ -95,7 +95,11 @@ def expect_route_missing(router, iptype, route):
         "show {} route json".format(iptype),
         {route: None},
     )
+<<<<<<< HEAD
     rv, result = topotest.run_and_expect(test_func, None, count=20, wait=1)
+=======
+    _, result = topotest.run_and_expect(test_func, None, count=20, wait=1)
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
     assertmsg = '"{}" convergence failure'.format(router)
     assert result is None, assertmsg
 
@@ -189,7 +193,11 @@ def test_wait_bfd_convergence():
             "show bfd peers json",
             bfd_config,
         )
+<<<<<<< HEAD
         _, result = topotest.run_and_expect(test_func, None, count=130, wait=1)
+=======
+        _, result = topotest.run_and_expect(test_func, None, count=200, wait=1)
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
         assertmsg = '"{}" BFD configuration failure'.format(router)
         assert result is None, assertmsg
 

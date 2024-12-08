@@ -9,8 +9,15 @@
 #ifndef _FRR_TYPERB_H
 #define _FRR_TYPERB_H
 
+<<<<<<< HEAD
 #include <string.h>
 #include "typesafe.h"
+=======
+#ifndef _TYPESAFE_EXPAND_MACROS
+#include <string.h>
+#include "typesafe.h"
+#endif /* _TYPESAFE_EXPAND_MACROS */
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 #ifdef __cplusplus
 extern "C" {

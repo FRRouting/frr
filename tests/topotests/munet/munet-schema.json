@@ -93,12 +93,30 @@
           "image": {
             "type": "string"
           },
+<<<<<<< HEAD
+=======
+          "hostnet": {
+            "type": "boolean"
+          },
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
           "server": {
             "type": "string"
           },
           "server-port": {
             "type": "number"
           },
+<<<<<<< HEAD
+=======
+          "ssh-identity-file": {
+            "type": "string"
+          },
+          "ssh-user": {
+            "type": "string"
+          },
+          "ssh-password": {
+            "type": "string"
+          },
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
           "qemu": {
             "type": "object",
             "properties": {
@@ -108,6 +126,18 @@
               "disk": {
                 "type": "string"
               },
+<<<<<<< HEAD
+=======
+              "disk-driver": {
+                "type": "string"
+              },
+              "disk-template": {
+                "type": "string"
+              },
+              "initial-cmd": {
+                "type": "string"
+              },
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
               "kerenel": {
                 "type": "string"
               },
@@ -141,6 +171,12 @@
                   "password": {
                     "type": "string"
                   },
+<<<<<<< HEAD
+=======
+                  "initial-password": {
+                    "type": "string"
+                  },
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
                   "expects": {
                     "type": "array",
                     "items": {
@@ -362,6 +398,12 @@
               },
               "ipv6": {
                 "type": "string"
+<<<<<<< HEAD
+=======
+              },
+              "external": {
+                "type": "boolean"
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
               }
             }
           }
@@ -401,12 +443,30 @@
               "image": {
                 "type": "string"
               },
+<<<<<<< HEAD
+=======
+              "hostnet": {
+                "type": "boolean"
+              },
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
               "server": {
                 "type": "string"
               },
               "server-port": {
                 "type": "number"
               },
+<<<<<<< HEAD
+=======
+              "ssh-identity-file": {
+                "type": "string"
+              },
+              "ssh-user": {
+                "type": "string"
+              },
+              "ssh-password": {
+                "type": "string"
+              },
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
               "qemu": {
                 "type": "object",
                 "properties": {
@@ -416,6 +476,18 @@
                   "disk": {
                     "type": "string"
                   },
+<<<<<<< HEAD
+=======
+                  "disk-driver": {
+                    "type": "string"
+                  },
+                  "disk-template": {
+                    "type": "string"
+                  },
+                  "initial-cmd": {
+                    "type": "string"
+                  },
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
                   "kerenel": {
                     "type": "string"
                   },
@@ -449,6 +521,12 @@
                       "password": {
                         "type": "string"
                       },
+<<<<<<< HEAD
+=======
+                      "initial-password": {
+                        "type": "string"
+                      },
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
                       "expects": {
                         "type": "array",
                         "items": {

@@ -148,7 +148,11 @@ be built and installed generally like:
    CC=${HOST_ARCH}-gcc \
    CXX=${HOST_ARCH}-g++ \
    cmake \
+<<<<<<< HEAD
        -DCMAKE_INSTALL_PREFIX=/usr/${HOST_ARCH} \
+=======
+       --install-prefix /usr/${HOST_ARCH} \
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
        ..
    make
    make install

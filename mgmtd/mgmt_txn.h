@@ -21,6 +21,10 @@
 
 #define MGMTD_TXN_CFG_COMMIT_MAX_DELAY_SEC 600
 #define MGMTD_TXN_GET_TREE_MAX_DELAY_SEC   600
+<<<<<<< HEAD
+=======
+#define MGMTD_TXN_RPC_MAX_DELAY_SEC	   60
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 #define MGMTD_TXN_CLEANUP_DELAY_USEC 10
 
@@ -43,11 +47,20 @@
 PREDECL_LIST(mgmt_txns);
 
 struct mgmt_master;
+<<<<<<< HEAD
+=======
+struct mgmt_edit_req;
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 enum mgmt_txn_type {
 	MGMTD_TXN_TYPE_NONE = 0,
 	MGMTD_TXN_TYPE_CONFIG,
+<<<<<<< HEAD
 	MGMTD_TXN_TYPE_SHOW
+=======
+	MGMTD_TXN_TYPE_SHOW,
+	MGMTD_TXN_TYPE_RPC,
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 };
 
 static inline const char *mgmt_txn_type2str(enum mgmt_txn_type type)
@@ -59,11 +72,47 @@ static inline const char *mgmt_txn_type2str(enum mgmt_txn_type type)
 		return "CONFIG";
 	case MGMTD_TXN_TYPE_SHOW:
 		return "SHOW";
+<<<<<<< HEAD
+=======
+	case MGMTD_TXN_TYPE_RPC:
+		return "RPC";
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	}
 
 	return "Unknown";
 }
 
+<<<<<<< HEAD
+=======
+
+static inline int16_t errno_from_nb_error(enum nb_error ret)
+{
+	switch (ret) {
+	case NB_OK:
+		return 0;
+	case NB_ERR_NO_CHANGES:
+		return -EALREADY;
+	case NB_ERR_NOT_FOUND:
+		return -ENOENT;
+	case NB_ERR_EXISTS:
+		return -EEXIST;
+	case NB_ERR_LOCKED:
+		return -EWOULDBLOCK;
+	case NB_ERR_VALIDATION:
+		return -EINVAL;
+	case NB_ERR_RESOURCE:
+		return -ENOMEM;
+	case NB_ERR:
+	case NB_ERR_INCONSISTENCY:
+		return -EINVAL;
+	case NB_YIELD:
+	default:
+		return -EINVAL;
+	}
+}
+
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 /* Initialise transaction module. */
 extern int mgmt_txn_init(struct mgmt_master *cm, struct event_loop *tm);
 
@@ -171,6 +220,7 @@ extern int mgmt_txn_send_set_config_req(uint64_t txn_id, uint64_t req_id,
  * implicit
  *    TRUE if the commit is implicit, FALSE otherwise.
  *
+<<<<<<< HEAD
  * Returns:
  *    0 on success, -1 on failures.
  */
@@ -181,6 +231,19 @@ extern int mgmt_txn_send_commit_config_req(uint64_t txn_id, uint64_t req_id,
 					   struct mgmt_ds_ctx *src_ds_ctx,
 					   bool validate_only, bool abort,
 					   bool implicit);
+=======
+ * edit
+ *    Additional info when triggered from native edit request.
+ *
+ * Returns:
+ *    0 on success, -1 on failures.
+ */
+extern int mgmt_txn_send_commit_config_req(
+	uint64_t txn_id, uint64_t req_id, Mgmtd__DatastoreId src_ds_id,
+	struct mgmt_ds_ctx *dst_ds_ctx, Mgmtd__DatastoreId dst_ds_id,
+	struct mgmt_ds_ctx *src_ds_ctx, bool validate_only, bool abort,
+	bool implicit, struct mgmt_edit_req *edit);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 /*
  * Send get-{cfg,data} request to be processed later in transaction.
@@ -219,6 +282,53 @@ extern int mgmt_txn_send_get_tree_oper(uint64_t txn_id, uint64_t req_id,
 				       uint32_t wd_options, bool simple_xpath,
 				       const char *xpath);
 
+<<<<<<< HEAD
+=======
+/**
+ * Send edit request.
+ *
+ * Args:
+ *	txn_id: Transaction identifier.
+ *	req_id: FE client request identifier.
+ *	ds_id: Datastore ID.
+ *	ds_ctx: Datastore context.
+ *	commit_ds_id: Commit datastore ID.
+ *	commit_ds_ctx: Commit datastore context.
+ *	unlock: Unlock datastores after the edit.
+ *	commit: Commit the candidate datastore after the edit.
+ *	request_type: LYD_FORMAT request type.
+ *	flags: option flags for the request.
+ *	operation: The operation to perform.
+ *	xpath: The xpath of data node to edit.
+ *	data: The data tree.
+ */
+extern int
+mgmt_txn_send_edit(uint64_t txn_id, uint64_t req_id, Mgmtd__DatastoreId ds_id,
+		   struct mgmt_ds_ctx *ds_ctx, Mgmtd__DatastoreId commit_ds_id,
+		   struct mgmt_ds_ctx *commit_ds_ctx, bool unlock, bool commit,
+		   LYD_FORMAT request_type, uint8_t flags, uint8_t operation,
+		   const char *xpath, const char *data);
+
+/**
+ * Send RPC request.
+ *
+ * Args:
+ *	txn_id: Transaction identifier.
+ *	req_id: FE client request identifier.
+ *	clients: Bitmask of clients to send RPC to.
+ *	result_type: LYD_FORMAT result format.
+ *	xpath: The xpath of the RPC.
+ *	data: The input parameters data tree.
+ *	data_len: The length of the input parameters data.
+ *
+ * Return:
+ *	0 on success.
+ */
+extern int mgmt_txn_send_rpc(uint64_t txn_id, uint64_t req_id, uint64_t clients,
+			     LYD_FORMAT result_type, const char *xpath,
+			     const char *data, size_t data_len);
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 /*
  * Notifiy backend adapter on connection.
  */
@@ -285,6 +395,21 @@ extern int mgmt_txn_notify_tree_data_reply(struct mgmt_be_client_adapter *adapte
 					   struct mgmt_msg_tree_data *data_msg,
 					   size_t msg_len);
 
+<<<<<<< HEAD
+=======
+/**
+ * Process a reply from a backend client to our RPC request
+ *
+ * Args:
+ *	adapter: The adapter that received the result.
+ *	reply_msg: The message from the backend.
+ *	msg_len: Total length of the message.
+ */
+extern int mgmt_txn_notify_rpc_reply(struct mgmt_be_client_adapter *adapter,
+				     struct mgmt_msg_rpc_reply *reply_msg,
+				     size_t msg_len);
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 /*
  * Dump transaction status to vty.
  */

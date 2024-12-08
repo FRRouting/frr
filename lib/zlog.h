@@ -125,6 +125,12 @@ static inline void zlog_ref(const struct xref_logmsg *xref,
 
 extern void zlog_sigsafe(const char *text, size_t len);
 
+<<<<<<< HEAD
+=======
+/* recirculate a log message from zlog_live */
+extern void zlog_recirculate_live_msg(uint8_t *data, size_t len);
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 /* extra priority value to disable a target without deleting it */
 #define ZLOG_DISABLED	(LOG_EMERG-1)
 

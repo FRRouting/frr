@@ -29,7 +29,11 @@ user_RSTFILES = \
 	doc/user/ospf6d.rst \
 	doc/user/ospfd.rst \
 	doc/user/ospf_fundamentals.rst \
+<<<<<<< HEAD
 	doc/user/overview.rst \
+=======
+	doc/user/about.rst \
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	doc/user/packet-dumps.rst \
 	doc/user/pathd.rst \
 	doc/user/pim.rst \

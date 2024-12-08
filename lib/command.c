@@ -17,6 +17,10 @@
 #include <lib/version.h>
 
 #include "command.h"
+<<<<<<< HEAD
+=======
+#include "debug.h"
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 #include "frrstr.h"
 #include "memory.h"
 #include "log.h"
@@ -678,6 +682,24 @@ vector cmd_describe_command(vector vline, struct vty *vty, int *status)
 
 static struct list *varhandlers = NULL;
 
+<<<<<<< HEAD
+=======
+static int __add_key_comp(const struct lyd_node *dnode, void *arg)
+{
+	const char *key_value = yang_dnode_get_string(dnode, NULL);
+
+	vector_set((vector)arg, XSTRDUP(MTYPE_COMPLETION, key_value));
+
+	return YANG_ITER_CONTINUE;
+}
+
+static void __get_list_keys(vector comps, const char *xpath)
+{
+	yang_dnode_iterate(__add_key_comp, comps,
+			   vty_shared_candidate_config->dnode, "%s", xpath);
+}
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 void cmd_variable_complete(struct cmd_token *token, const char *arg,
 			   vector comps)
 {
@@ -694,7 +716,14 @@ void cmd_variable_complete(struct cmd_token *token, const char *arg,
 		if (cvh->varname && (!token->varname
 				     || strcmp(cvh->varname, token->varname)))
 			continue;
+<<<<<<< HEAD
 		cvh->completions(tmpcomps, token);
+=======
+		if (cvh->xpath)
+			__get_list_keys(tmpcomps, cvh->xpath);
+		if (cvh->completions)
+			cvh->completions(tmpcomps, token);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		break;
 	}
 
@@ -753,7 +782,11 @@ void cmd_variable_handler_register(const struct cmd_variable_handler *cvh)
 	if (!varhandlers)
 		return;
 
+<<<<<<< HEAD
 	for (; cvh->completions; cvh++)
+=======
+	for (; cvh->completions || cvh->xpath; cvh++)
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		listnode_add(varhandlers, (void *)cvh);
 }
 
@@ -1435,7 +1468,11 @@ DEFUN (config_help,
        "Description of the interactive help system\n")
 {
 	vty_out(vty,
+<<<<<<< HEAD
 		"Quagga VTY provides advanced help feature.  When you need help,\n\
+=======
+		"FRR VTY provides advanced help feature.  When you need help,\n\
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 anytime at the command line please press '?'.\n\
 \n\
 If nothing matches, the help list will be empty and you must backup\n\
@@ -2445,8 +2482,12 @@ const char *host_config_get(void)
 void cmd_show_lib_debugs(struct vty *vty)
 {
 	route_map_show_debug(vty);
+<<<<<<< HEAD
 	mgmt_debug_be_client_show_debug(vty);
 	mgmt_debug_fe_client_show_debug(vty);
+=======
+	debug_status_write(vty);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 }
 
 void install_default(enum node_type node)

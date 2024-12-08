@@ -25,6 +25,13 @@ import time
 import datetime
 from time import sleep
 import pytest
+<<<<<<< HEAD
+=======
+from functools import partial
+
+from lib import topotest
+from lib.topogen import Topogen, TopoRouter, get_topogen
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 # Save the Current Working Directory to find configuration files.
 CWD = os.path.dirname(os.path.realpath(__file__))
@@ -594,6 +601,69 @@ def pre_config_for_source_dr_tests(
     result = create_pim_config(tgen, topo, input_dict)
     assert result is True, "Testcase {} : Failed Error: {}".format(tc_name, result)
 
+<<<<<<< HEAD
+=======
+    expected = {
+        "r2-s1-eth1.2501": {
+            "state": "up",
+            "address": "10.1.1.1",
+            "neighbors": {
+                "10.1.1.2": {
+                    "address": "10.1.1.2",
+                }
+            },
+            "drAddress": "10.1.1.2",
+        }
+    }
+
+    step("Ensure that neighbors have come up on the vlan")
+    r2 = tgen.gears["r2"]
+    test_func = partial(
+        topotest.router_json_cmp,
+        r2,
+        "show ip pim interface r2-s1-eth1.2501 json",
+        expected,
+    )
+    result, _ = topotest.run_and_expect(test_func, None, count=30, wait=1)
+    assert result, "Neighbors did not come up: {}".format(result)
+
+    expected = {
+        "10.1.1.0/24": [
+            {
+                "prefix": "10.1.1.0/24",
+                "prefixLen": 24,
+                "protocol": "ospf",
+                "vrfName": "default",
+                "distance": 110,
+                "metric": 20,
+                "nexthops": [
+                    {
+                        "ip": "10.0.3.1",
+                        "afi": "ipv4",
+                        "interfaceName": "r5-r4-eth1",
+                        "weight": 1,
+                    },
+                    {
+                        "ip": "10.0.3.1",
+                        "afi": "ipv4",
+                        "interfaceName": "r5-r4-eth1",
+                        "weight": 1,
+                    },
+                ],
+            }
+        ]
+    }
+
+    step("Ensure that the vlan route is available where it is needed")
+    r5 = tgen.gears["r5"]
+    test_func = partial(
+        topotest.router_json_cmp, r5, "show ip route 10.1.1.0/24 json", expected
+    )
+
+    result, _ = topotest.run_and_expect(test_func, None, count=30, wait=1)
+    assert result, "vlan routes are not available on r5\n{}".format(result)
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
     step("Configure IGMP on R5 port and send IGMP join for groups " "(226.1.1.1-5)")
 
     intf_r5_i2 = topo["routers"]["r5"]["links"]["i2"]["interface"]

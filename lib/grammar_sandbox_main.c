@@ -40,7 +40,11 @@ int main(int argc, char **argv)
 
 	vty_init(master, true);
 	lib_cmd_init();
+<<<<<<< HEAD
 	nb_init(master, NULL, 0, false);
+=======
+	nb_init(master, NULL, 0, false, false);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 	vty_stdio(vty_do_exit);
 

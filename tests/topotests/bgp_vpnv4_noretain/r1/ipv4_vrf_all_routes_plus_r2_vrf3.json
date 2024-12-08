@@ -7,6 +7,12 @@
     "routes": {
       "10.204.0.0/24": [
         {
+<<<<<<< HEAD
+=======
+          "valid": true,
+          "bestpath": true,
+          "selectionReason": "First path received",
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
           "pathFrom": "external",
           "prefix": "10.204.0.0",
           "prefixLen": 24,
@@ -63,6 +69,12 @@
       ],
       "10.201.0.0/24": [
         {
+<<<<<<< HEAD
+=======
+          "valid": true,
+          "bestpath": true,
+          "selectionReason": "First path received",
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
           "pathFrom": "external",
           "prefix": "10.201.0.0",
           "prefixLen": 24,
@@ -161,6 +173,12 @@
     "routes": {
       "10.203.0.0/24": [
         {
+<<<<<<< HEAD
+=======
+          "valid": true,
+          "bestpath": true,
+          "selectionReason": "First path received",
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
           "pathFrom": "external",
           "prefix": "10.203.0.0",
           "prefixLen": 24,

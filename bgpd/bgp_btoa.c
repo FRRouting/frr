@@ -69,7 +69,11 @@ static void attr_parse(struct stream *s, uint16_t len)
 		flag = stream_getc(s);
 		type = stream_getc(s);
 
+<<<<<<< HEAD
 		if (flag & BGP_ATTR_FLAG_EXTLEN)
+=======
+		if (CHECK_FLAG(flag, BGP_ATTR_FLAG_EXTLEN))
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 			length = stream_getw(s);
 		else
 			length = stream_getc(s);

@@ -774,7 +774,11 @@ DEFPY (no_ospf_mpls_ldp_sync,
        "Disable MPLS LDP-IGP Sync\n")
 {
 	VTY_DECLVAR_INSTANCE_CONTEXT(ospf, ospf);
+<<<<<<< HEAD
 	ospf_ldp_sync_gbl_exit(ospf, false);
+=======
+	ospf_ldp_sync_gbl_exit(ospf, true);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	return CMD_SUCCESS;
 }
 

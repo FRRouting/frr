@@ -13,10 +13,13 @@
 #include "log.h"
 #include "memory.h"
 
+<<<<<<< HEAD
 DEFINE_MTYPE_STATIC(LIB, NS, "NetNS Context");
 DEFINE_MTYPE_STATIC(LIB, NS_NAME, "NetNS Name");
 
 
+=======
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 static inline int ns_compare(const struct ns *ns, const struct ns *ns2);
 
 RB_GENERATE(ns_head, ns, entry, ns_compare)
@@ -39,7 +42,10 @@ void ns_init_management(ns_id_t ns_id)
 {
 }
 
+<<<<<<< HEAD
 
+=======
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 /*
  * NS utilities
  */

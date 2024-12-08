@@ -56,6 +56,10 @@
 #define DEBUG_MSDP_PACKETS_STR                      "MSDP protocol packets\n"
 #define DEBUG_MTRACE_STR                            "Mtrace protocol activity\n"
 #define DEBUG_PIM_BSM_STR                           "BSR message processing activity\n"
+<<<<<<< HEAD
+=======
+#define DEBUG_PIM_AUTORP_STR			    "AutoRP message processing activity\n"
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 
 void pim_cmd_init(void);

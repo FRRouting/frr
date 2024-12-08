@@ -170,6 +170,7 @@ static inline int vpn_leak_to_vpn_active(struct bgp *bgp_vrf, afi_t afi,
 		return 0;
 	}
 
+<<<<<<< HEAD
 	/* Is there an "auto" export label that isn't allocated yet? */
 	if (CHECK_FLAG(bgp_vrf->vpn_policy[afi].flags,
 		BGP_VPN_POLICY_TOVPN_LABEL_AUTO) &&
@@ -180,6 +181,8 @@ static inline int vpn_leak_to_vpn_active(struct bgp *bgp_vrf, afi_t afi,
 		return 0;
 	}
 
+=======
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	/* Is there a "manual" export label that isn't allocated yet? */
 	if (!CHECK_FLAG(bgp_vrf->vpn_policy[afi].flags,
 			BGP_VPN_POLICY_TOVPN_LABEL_AUTO) &&
@@ -429,6 +432,11 @@ struct bgp_mplsvpn_nh_label_bind_cache *bgp_mplsvpn_nh_label_bind_find(
 	struct bgp_mplsvpn_nh_label_bind_cache_head *tree, struct prefix *p,
 	mpls_label_t orig_label);
 void bgp_mplsvpn_nexthop_init(void);
+<<<<<<< HEAD
+=======
+extern void sid_register(struct bgp *bgp, const struct in6_addr *sid,
+			 const char *locator_name);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 extern void sid_unregister(struct bgp *bgp, const struct in6_addr *sid);
 
 #endif /* _QUAGGA_BGP_MPLSVPN_H */

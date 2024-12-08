@@ -26,6 +26,10 @@
 
 #include "ospf6_flood.h"
 #include "ospf6_nssa.h"
+<<<<<<< HEAD
+=======
+#include "ospf6_tlv.h"
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 #include "ospf6_gr.h"
 
 unsigned char conf_debug_ospf6_flooding;
@@ -295,9 +299,13 @@ void ospf6_install_lsa(struct ospf6_lsa *lsa)
 	lsa->installed = now;
 
 	/* Topo change handling */
+<<<<<<< HEAD
 	if (CHECK_LSA_TOPO_CHG_ELIGIBLE(ntohs(lsa->header->type))
 	    && !CHECK_FLAG(lsa->flag, OSPF6_LSA_DUPLICATE)) {
 
+=======
+	if (CHECK_LSA_TOPO_CHG_ELIGIBLE(ntohs(lsa->header->type))) {
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		/* check if it is new lsa ? or existing lsa got modified ?*/
 		if (!old || OSPF6_LSA_IS_CHANGED(old, lsa))
 			ospf6_helper_handle_topo_chg(ospf6, lsa);

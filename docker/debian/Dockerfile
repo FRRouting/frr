@@ -24,5 +24,9 @@ RUN chown -R frr:frr /etc/frr /var/run/frr
 ENTRYPOINT ["/usr/bin/tini", "--"]
 
 # Default CMD starts watchfrr
+<<<<<<< HEAD
 COPY docker-start /usr/lib/frr/docker-start
+=======
+COPY --chmod=0755 docker-start /usr/lib/frr/docker-start
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 CMD ["/usr/lib/frr/docker-start"]

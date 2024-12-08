@@ -523,6 +523,10 @@ object which contains methods corresponding to each of the ``zlog`` levels:
    log.error("error")
    log.notice("notice")
    log.debug("debug")
+<<<<<<< HEAD
+=======
+   log.trace("trace")
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 The log messages will show up in the daemon's log output.
 
@@ -579,14 +583,22 @@ accomplished with scripting.
            RM_FAILURE, RM_NOMATCH, RM_MATCH, RM_MATCH_AND_CHANGE)
 
            log.info("Evaluating route " .. prefix.network .. " from peer " .. peer.remote_id.string)
+<<<<<<< HEAD
    
+=======
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
            function on_match (prefix, attributes)
                    log.info("Match")
                    return {
                            attributes = RM_MATCH
                    }
            end
+<<<<<<< HEAD
    
+=======
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
            function on_nomatch (prefix, attributes)
                    log.info("No match")
                    return {

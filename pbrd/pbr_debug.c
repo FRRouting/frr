@@ -13,6 +13,7 @@
 #include "pbrd/pbr_debug_clippy.c"
 #include "pbrd/pbr_debug.h"
 
+<<<<<<< HEAD
 struct debug pbr_dbg_map = {0, "PBR map"};
 struct debug pbr_dbg_zebra = {0, "PBR Zebra communications"};
 struct debug pbr_dbg_nht = {0, "PBR nexthop tracking"};
@@ -62,4 +63,18 @@ struct debug_callbacks pbr_dbg_cbs = {.debug_set_all = pbr_debug_set_all};
 void pbr_debug_init(void)
 {
 	debug_init(&pbr_dbg_cbs);
+=======
+struct debug pbr_dbg_map = { 0, "debug pbr map", "PBR map" };
+struct debug pbr_dbg_zebra = { 0, "debug pbr zebra",
+			       "PBR Zebra communications" };
+struct debug pbr_dbg_nht = { 0, "debug pbr nht", "PBR nexthop tracking" };
+struct debug pbr_dbg_event = { 0, "debug pbr events", "PBR events" };
+
+void pbr_debug_init(void)
+{
+	debug_install(&pbr_dbg_map);
+	debug_install(&pbr_dbg_zebra);
+	debug_install(&pbr_dbg_nht);
+	debug_install(&pbr_dbg_event);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 }

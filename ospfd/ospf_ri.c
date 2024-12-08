@@ -1784,11 +1784,18 @@ static void ospf_router_info_schedule(enum lsa_opcode opcode)
 
 DEFUN (router_info,
        router_info_area_cmd,
+<<<<<<< HEAD
        "router-info <as|area [A.B.C.D]>",
        OSPF_RI_STR
        "Enable the Router Information functionality with AS flooding scope\n"
        "Enable the Router Information functionality with Area flooding scope\n"
        "OSPF area ID in IP format (deprecated)\n")
+=======
+       "router-info <as|area>",
+       OSPF_RI_STR
+       "Enable the Router Information functionality with AS flooding scope\n"
+       "Enable the Router Information functionality with Area flooding scope\n")
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 {
 	int idx_mode = 1;
 	uint8_t scope;
@@ -1844,7 +1851,10 @@ DEFUN (router_info,
 	return CMD_SUCCESS;
 }
 
+<<<<<<< HEAD
 
+=======
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 DEFUN (no_router_info,
        no_router_info_cmd,
        "no router-info [<area|as>]",

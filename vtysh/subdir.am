@@ -17,9 +17,12 @@ vtysh_vtysh_SOURCES = \
 	vtysh/vtysh_user.c \
 	vtysh/vtysh_config.c \
 	# end
+<<<<<<< HEAD
 nodist_vtysh_vtysh_SOURCES = \
 	vtysh/vtysh_cmd.c \
 	# end
+=======
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 noinst_HEADERS += \
 	vtysh/vtysh.h \

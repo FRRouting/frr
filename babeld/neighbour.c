@@ -34,15 +34,23 @@ find_neighbour_nocreate(const unsigned char *address, struct interface *ifp)
 {
     struct neighbour *neigh;
     FOR_ALL_NEIGHBOURS(neigh) {
+<<<<<<< HEAD
         if(memcmp(address, neigh->address, 16) == 0 &&
            neigh->ifp == ifp)
+=======
+        if(memcmp(address, neigh->address, 16) == 0 && neigh->ifp == ifp)
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
             return neigh;
     }
     return NULL;
 }
 
+<<<<<<< HEAD
 void
 flush_neighbour(struct neighbour *neigh)
+=======
+void flush_neighbour(struct neighbour *neigh)
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 {
     debugf(BABEL_DEBUG_COMMON,"Flushing neighbour %s (reach 0x%04x)",
            format_address(neigh->address), neigh->reach);
@@ -102,8 +110,12 @@ find_neighbour(const unsigned char *address, struct interface *ifp)
 }
 
 /* Recompute a neighbour's rxcost.  Return true if anything changed. */
+<<<<<<< HEAD
 int
 update_neighbour(struct neighbour *neigh, int hello, int hello_interval)
+=======
+int update_neighbour(struct neighbour *neigh, int hello, int hello_interval)
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 {
     int missed_hellos;
     int rc = 0;
@@ -160,26 +172,44 @@ update_neighbour(struct neighbour *neigh, int hello, int hello_interval)
     if(hello >= 0) {
         neigh->hello_seqno = hello;
         neigh->reach >>= 1;
+<<<<<<< HEAD
         neigh->reach |= 0x8000;
         if((neigh->reach & 0xFC00) != 0xFC00)
+=======
+        SET_FLAG(neigh->reach, 0x8000);
+        if(CHECK_FLAG(neigh->reach, 0xFC00) != 0xFC00)
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
             rc = 1;
     }
 
     /* Make sure to give neighbours some feedback early after association */
+<<<<<<< HEAD
     if((neigh->reach & 0xBF00) == 0x8000) {
+=======
+    if(CHECK_FLAG(neigh->reach, 0xBF00) == 0x8000) {
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
         /* A new neighbour */
         send_hello(neigh->ifp);
     } else {
         /* Don't send hellos, in order to avoid a positive feedback loop. */
+<<<<<<< HEAD
         int a = (neigh->reach & 0xC000);
         int b = (neigh->reach & 0x3000);
+=======
+        int a = CHECK_FLAG(neigh->reach, 0xC000);
+        int b = CHECK_FLAG(neigh->reach, 0x3000);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
         if((a == 0xC000 && b == 0) || (a == 0 && b == 0x3000)) {
             /* Reachability is either 1100 or 0011 */
             send_self_update(neigh->ifp);
         }
     }
 
+<<<<<<< HEAD
     if((neigh->reach & 0xFC00) == 0xC000) {
+=======
+    if(CHECK_FLAG(neigh->reach, 0xFC00) == 0xC000) {
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
         /* This is a newish neighbour, let's request a full route dump.
            We ought to avoid this when the network is dense */
         send_unicast_request(neigh, NULL, 0);
@@ -188,8 +218,12 @@ update_neighbour(struct neighbour *neigh, int hello, int hello_interval)
     return rc;
 }
 
+<<<<<<< HEAD
 static int
 reset_txcost(struct neighbour *neigh)
+=======
+static int reset_txcost(struct neighbour *neigh)
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 {
     unsigned delay;
 
@@ -199,9 +233,14 @@ reset_txcost(struct neighbour *neigh)
         return 0;
 
     /* If we're losing a lot of packets, we probably lost an IHU too */
+<<<<<<< HEAD
     if(delay >= 180000 || (neigh->reach & 0xFFF0) == 0 ||
        (neigh->ihu_interval > 0 &&
         delay >= neigh->ihu_interval * 10U * 10U)) {
+=======
+    if (delay >= 180000 || CHECK_FLAG(neigh->reach, 0xFFF0) == 0 ||
+       (neigh->ihu_interval > 0 && delay >= neigh->ihu_interval * 10U * 10U)) {
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
         neigh->txcost = INFINITY;
         neigh->ihu_time = babel_now;
         return 1;
@@ -210,14 +249,22 @@ reset_txcost(struct neighbour *neigh)
     return 0;
 }
 
+<<<<<<< HEAD
 unsigned
 neighbour_txcost(struct neighbour *neigh)
+=======
+unsigned neighbour_txcost(struct neighbour *neigh)
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 {
     return neigh->txcost;
 }
 
+<<<<<<< HEAD
 unsigned
 check_neighbours(void)
+=======
+unsigned check_neighbours(void)
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 {
     struct neighbour *neigh;
     int changed, rc;
@@ -253,14 +300,19 @@ check_neighbours(void)
     return msecs;
 }
 
+<<<<<<< HEAD
 unsigned
 neighbour_rxcost(struct neighbour *neigh)
+=======
+unsigned neighbour_rxcost(struct neighbour *neigh)
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 {
     unsigned delay;
     unsigned short reach = neigh->reach;
 
     delay = timeval_minus_msec(&babel_now, &neigh->hello_time);
 
+<<<<<<< HEAD
     if((reach & 0xFFF0) == 0 || delay >= 180000) {
         return INFINITY;
     } else if(babel_get_if_nfo(neigh->ifp)->flags & BABEL_IF_LQ) {
@@ -268,6 +320,15 @@ neighbour_rxcost(struct neighbour *neigh)
             ((reach & 0x8000) >> 2) +
             ((reach & 0x4000) >> 1) +
             (reach & 0x3FFF);
+=======
+    if(CHECK_FLAG(reach, 0xFFF0) == 0 || delay >= 180000) {
+        return INFINITY;
+    } else if (CHECK_FLAG(babel_get_if_nfo(neigh->ifp)->flags, BABEL_IF_LQ)) {
+        int sreach =
+            (CHECK_FLAG(reach, 0x8000) >> 2) +
+            (CHECK_FLAG(reach, 0x4000) >> 1) +
+            CHECK_FLAG(reach, 0x3FFF);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
         /* 0 <= sreach <= 0x7FFF */
         int cost = (0x8000 * babel_get_if_nfo(neigh->ifp)->cost) / (sreach + 1);
         /* cost >= interface->cost */
@@ -276,19 +337,31 @@ neighbour_rxcost(struct neighbour *neigh)
         return MIN(cost, INFINITY);
     } else {
         /* To lose one hello is a misfortune, to lose two is carelessness. */
+<<<<<<< HEAD
         if((reach & 0xC000) == 0xC000)
             return babel_get_if_nfo(neigh->ifp)->cost;
         else if((reach & 0xC000) == 0)
             return INFINITY;
         else if((reach & 0x2000))
+=======
+        if (CHECK_FLAG(reach, 0xC000) == 0xC000)
+            return babel_get_if_nfo(neigh->ifp)->cost;
+        else if (CHECK_FLAG(reach, 0xC000) == 0)
+            return INFINITY;
+        else if (CHECK_FLAG(reach, 0x2000))
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
             return babel_get_if_nfo(neigh->ifp)->cost;
         else
             return INFINITY;
     }
 }
 
+<<<<<<< HEAD
 unsigned
 neighbour_rttcost(struct neighbour *neigh)
+=======
+unsigned neighbour_rttcost(struct neighbour *neigh)
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 {
     struct interface *ifp = neigh->ifp;
     babel_interface_nfo *babel_ifp = babel_get_if_nfo(ifp);
@@ -304,15 +377,23 @@ neighbour_rttcost(struct neighbour *neigh)
             (unsigned long long)babel_ifp->max_rtt_penalty *
             (neigh->rtt - babel_ifp->rtt_min) /
             (babel_ifp->rtt_max - babel_ifp->rtt_min);
+<<<<<<< HEAD
         assert((tmp & 0x7FFFFFFF) == tmp);
+=======
+        assert(CHECK_FLAG(tmp, 0x7FFFFFFF) == tmp);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
         return tmp;
     } else {
         return babel_ifp->max_rtt_penalty;
     }
 }
 
+<<<<<<< HEAD
 unsigned
 neighbour_cost(struct neighbour *neigh)
+=======
+unsigned neighbour_cost(struct neighbour *neigh)
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 {
     unsigned a, b, cost;
 
@@ -328,7 +409,11 @@ neighbour_cost(struct neighbour *neigh)
     if(b >= INFINITY)
         return INFINITY;
 
+<<<<<<< HEAD
     if(!(babel_get_if_nfo(neigh->ifp)->flags & BABEL_IF_LQ)
+=======
+    if (!CHECK_FLAG(babel_get_if_nfo(neigh->ifp)->flags, BABEL_IF_LQ)
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
        || (a < 256 && b < 256)) {
         cost = a;
     } else {
@@ -347,8 +432,12 @@ neighbour_cost(struct neighbour *neigh)
     return MIN(cost, INFINITY);
 }
 
+<<<<<<< HEAD
 int
 valid_rtt(struct neighbour *neigh)
+=======
+int valid_rtt(struct neighbour *neigh)
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 {
     return (timeval_minus_msec(&babel_now, &neigh->rtt_time) < 180000) ? 1 : 0;
 }

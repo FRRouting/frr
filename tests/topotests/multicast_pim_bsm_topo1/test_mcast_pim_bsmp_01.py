@@ -202,7 +202,10 @@ def teardown_module():
 
 
 def clear_bsrp_data(tgen, topo):
+<<<<<<< HEAD
 
+=======
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
     """
     clear bsm databas after test"
     Parameters
@@ -218,7 +221,10 @@ def clear_bsrp_data(tgen, topo):
     """
 
     for dut in tgen.routers():
+<<<<<<< HEAD
 
+=======
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
         rnode = tgen.routers()[dut]
 
         logger.info("[DUT: %s]: clear_bsrp_data")

@@ -70,6 +70,7 @@ TRACEPOINT_EVENT(
 
 TRACEPOINT_EVENT(
 	frr_zebra,
+<<<<<<< HEAD
 	netlink_interface_addr,
 	TP_ARGS(
 		struct nlmsghdr *, header,
@@ -84,6 +85,8 @@ TRACEPOINT_EVENT(
 
 TRACEPOINT_EVENT(
 	frr_zebra,
+=======
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	netlink_route_change_read_unicast,
 	TP_ARGS(
 		struct nlmsghdr *, header,

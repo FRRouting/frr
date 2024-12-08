@@ -115,6 +115,10 @@ struct ospf6_path {
 	/* Cost */
 	uint8_t metric_type;
 	uint32_t cost;
+<<<<<<< HEAD
+=======
+	uint32_t redistribute_cost;
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 	struct prefix ls_prefix;
 
@@ -139,6 +143,11 @@ struct ospf6_path {
 
 #define OSPF6_PATH_COST_IS_CONFIGURED(path) (path.u.cost_config != OSPF_AREA_RANGE_COST_UNSPEC)
 
+<<<<<<< HEAD
+=======
+#define OSPF6_EXT_PATH_METRIC_MAX 0x00ffffff
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 #include "prefix.h"
 #include "table.h"
 #include "bitfield.h"

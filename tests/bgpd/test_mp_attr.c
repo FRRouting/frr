@@ -23,6 +23,10 @@
 #include "bgpd/bgp_nexthop.h"
 #include "bgpd/bgp_vty.h"
 #include "bgpd/bgp_network.h"
+<<<<<<< HEAD
+=======
+#include "bgpd/bgp_label.h"
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 #define VT100_RESET "\x1b[0m"
 #define VT100_RED "\x1b[31m"
@@ -1075,6 +1079,10 @@ int main(void)
 	vrf_init(NULL, NULL, NULL, NULL);
 	bgp_option_set(BGP_OPT_NO_LISTEN);
 	bgp_attr_init();
+<<<<<<< HEAD
+=======
+	bgp_labels_init();
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 	if (fileno(stdout) >= 0)
 		tty = isatty(fileno(stdout));

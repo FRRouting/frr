@@ -4656,6 +4656,7 @@ sub process {
 				$herecurr);
 		}
 
+<<<<<<< HEAD
 # check for sizeof(foo)/sizeof(foo[0]) that could be ARRAY_SIZE(foo)
 		if ($line =~ m@\bsizeof\s*\(\s*($Lval)\s*\)@) {
 			my $array = $1;
@@ -4669,6 +4670,8 @@ sub process {
 			}
 		}
 
+=======
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 # check for function declarations without arguments like "int foo()"
 		if ($line =~ /(\b$Type\s*$Ident)\s*\(\s*\)/) {
 			if (ERROR("FUNCTION_WITHOUT_ARGS",
@@ -4681,6 +4684,10 @@ sub process {
 # check for new typedefs, only function parameters and sparse annotations
 # make sense.
 		if ($line =~ /\btypedef\s/ &&
+<<<<<<< HEAD
+=======
+		    $line !~ /\btypedef.*\s(pim_[^\s]+|[^\s]+_pim)\s*;/ &&
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		    $line !~ /\btypedef\s+$Type\s*\(\s*\*?$Ident\s*\)\s*\(/ &&
 		    $line !~ /\btypedef\s+$Type\s+$Ident\s*\(/ &&
 		    $line !~ /\b$typeTypedefs\b/ &&
@@ -5162,7 +5169,11 @@ sub process {
 				# none after.  May be left adjacent to another
 				# unary operator, or a cast
 				} elsif ($op eq '!' || $op eq '~' ||
+<<<<<<< HEAD
 					 $opv eq '*U' || $opv eq '-U' ||
+=======
+					 $opv eq '*U' || $opv eq '-U' || $opv eq '+U' ||
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 					 $opv eq '&U' || $opv eq '&&U') {
 					if ($ctx !~ /[WEBC]x./ && $ca !~ /(?:\)|!|~|\*|-|\&|\||\+\+|\-\-|\{)$/) {
 						if (ERROR("SPACING",

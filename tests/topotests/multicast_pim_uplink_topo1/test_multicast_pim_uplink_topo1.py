@@ -25,7 +25,10 @@ Following tests are covered to test multicast pim uplink:
 
 import os
 import sys
+<<<<<<< HEAD
 import json
+=======
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 import time
 import pytest
 
@@ -356,7 +359,11 @@ def verify_state_incremented(state_before, state_after):
     """
 
     for router, state_data in state_before.items():
+<<<<<<< HEAD
         for state, value in state_data.items():
+=======
+        for state, _ in state_data.items():
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
             if state_before[router][state] > state_after[router][state]:
                 errormsg = (
                     "[DUT: %s]: state %s value has not"
@@ -1682,7 +1689,11 @@ def test_mroutes_updated_correctly_after_source_interface_shut_noshut_p1(request
 
     step("Shut and No shut source interface multiple time")
 
+<<<<<<< HEAD
     for i in range(0, 2):
+=======
+    for _ in range(0, 2):
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
         step("Shut and no shut the source interface from DUT")
         intf_r1_i2 = topo["routers"]["r1"]["links"]["i2"]["interface"]
         shutdown_bringup_interface(tgen, "r1", intf_r1_i2, False)

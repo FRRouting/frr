@@ -12,17 +12,23 @@ Test static route functionality
 
 import ipaddress
 import math
+<<<<<<< HEAD
 import time
+=======
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 import pytest
 from lib.topogen import Topogen
 from oper import check_kernel_32, do_oper_test
 
+<<<<<<< HEAD
 try:
     from deepdiff import DeepDiff as dd_json_cmp
 except ImportError:
     dd_json_cmp = None
 
+=======
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 pytestmark = [pytest.mark.staticd, pytest.mark.mgmtd]
 
 
@@ -95,7 +101,10 @@ def test_oper(tgen):
     check_kernel_32(r1, "12.12.12.12", 1, "")
     check_kernel_32(r1, "13.13.13.13", 1, "red")
     check_kernel_32(r1, "14.14.14.14", 1, "red")
+<<<<<<< HEAD
     time.sleep(2)
+=======
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
     do_oper_test(tgen, query_results)
 
 

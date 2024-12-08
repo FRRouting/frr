@@ -54,6 +54,12 @@ enum cmd_token_type {
 	END_TKN,   // last token in line
 	NEG_ONLY_TKN,    // filter token, match if "no ..." command
 
+<<<<<<< HEAD
+=======
+#ifdef BUILDING_CLIPPY
+	CMD_ELEMENT_TKN, // python bindings only
+#endif
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	SPECIAL_TKN = FORK_TKN,
 };
 /* clang-format on */

@@ -118,7 +118,11 @@ def setup_module(mod):
     tgen.start_router()
 
 
+<<<<<<< HEAD
 def teardown_module(mod):
+=======
+def teardown_module():
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
     "Teardown the pytest environment"
     tgen = get_topogen()
     # move back rx-eth0 to default VRF
@@ -141,8 +145,14 @@ def test_isis_convergence():
 
         def compare_isis_topology(router, expected):
             "Helper function to test ISIS vrf topology convergence."
+<<<<<<< HEAD
             actual = show_isis_topology(router)
 
+=======
+            actual = json.loads(
+                router.vtysh_cmd(f"show isis vrf {router.name}-cust1 topology json")
+            )
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
             return topotest.json_cmp(actual, expected)
 
         test_func = functools.partial(compare_isis_topology, router, expected)
@@ -287,7 +297,11 @@ def dict_merge(dct, merge_dct):
     Source:
     https://gist.github.com/angstwad/bf22d1822c38a92ec0a9
     """
+<<<<<<< HEAD
     for k, v in merge_dct.items():
+=======
+    for k, _ in merge_dct.items():
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
         if k in dct and isinstance(dct[k], dict) and topotest.is_mapping(merge_dct[k]):
             dict_merge(dct[k], merge_dct[k])
         else:
@@ -377,6 +391,7 @@ def parse_topology(lines, level):
             continue
 
     return areas
+<<<<<<< HEAD
 
 
 def show_isis_topology(router):
@@ -426,3 +441,5 @@ def show_isis_topology(router):
 
     dict_merge(l1, l2)
     return l1
+=======
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)

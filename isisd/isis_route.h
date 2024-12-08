@@ -12,6 +12,10 @@
 #ifndef _ZEBRA_ISIS_ROUTE_H
 #define _ZEBRA_ISIS_ROUTE_H
 
+<<<<<<< HEAD
+=======
+#include "lib/table.h"
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 #include "lib/nexthop.h"
 
 struct isis_nexthop {

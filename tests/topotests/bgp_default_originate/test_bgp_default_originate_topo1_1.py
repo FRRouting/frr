@@ -18,8 +18,11 @@ import os
 import sys
 import time
 import pytest
+<<<<<<< HEAD
 from time import sleep
 from copy import deepcopy
+=======
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 from lib.topolog import logger
 
 # pylint: disable=C0413
@@ -30,6 +33,7 @@ from lib.topolog import logger
 
 from lib.bgp import (
     verify_bgp_convergence,
+<<<<<<< HEAD
     verify_graceful_restart,
     create_router_bgp,
     verify_router_id,
@@ -37,10 +41,15 @@ from lib.bgp import (
     verify_as_numbers,
     clear_bgp_and_verify,
     clear_bgp,
+=======
+    create_router_bgp,
+    modify_as_number,
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
     verify_bgp_rib,
     get_prefix_count_route,
     get_dut_as_number,
     verify_rib_default_route,
+<<<<<<< HEAD
     verify_fib_default_route,
     verify_bgp_advertised_routes_from_neighbor,
     verify_bgp_received_routes_from_neighbor,
@@ -56,6 +65,14 @@ from lib.common_config import (
     required_linux_kernel_version,
     stop_router,
     start_router,
+=======
+)
+from lib.common_config import (
+    verify_prefix_lists,
+    verify_fib_routes,
+    step,
+    required_linux_kernel_version,
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
     create_route_maps,
     create_prefix_lists,
     get_frr_ipv6_linklocal,
@@ -325,12 +342,20 @@ def teardown_module():
     )
     logger.info("=" * 40)
 
+<<<<<<< HEAD
+=======
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 #####################################################
 #
 #                      Testcases
 #
 #####################################################
 
+<<<<<<< HEAD
+=======
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 def test_verify_bgp_default_originate_in_IBGP_p0(request):
     """
     Verify BGP default-originate route with IBGP peer
@@ -396,7 +421,13 @@ def test_verify_bgp_default_originate_in_IBGP_p0(request):
 
     step("After changing the BGP AS Path Verify the BGP Convergence")
     BGP_CONVERGENCE = verify_bgp_convergence(tgen, topo)
+<<<<<<< HEAD
     assert BGP_CONVERGENCE is True, " Complete Convergence is expected after changing the ASN but failed to converge --> :Failed \n Error: {}".format(
+=======
+    assert (
+        BGP_CONVERGENCE is True
+    ), " Complete Convergence is expected after changing the ASN but failed to converge --> :Failed \n Error: {}".format(
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
         BGP_CONVERGENCE
     )
 
@@ -413,8 +444,15 @@ def test_verify_bgp_default_originate_in_IBGP_p0(request):
             }
         }
         result = create_static_routes(tgen, static_routes_input)
+<<<<<<< HEAD
         assert result is True, "Testcase {} : Failed to configure the static routes {} on router R1 \n Error: {}".format(
             tc_name,static_routes_input, result
+=======
+        assert (
+            result is True
+        ), "Testcase {} : Failed to configure the static routes {} on router R1 \n Error: {}".format(
+            tc_name, static_routes_input, result
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
         )
     step("verify IPv4 and IPv6 static route are configured and up on R1")
     for addr_type in ADDR_TYPES:
@@ -429,8 +467,15 @@ def test_verify_bgp_default_originate_in_IBGP_p0(request):
             }
         }
         result = verify_fib_routes(tgen, addr_type, "r1", static_routes_input)
+<<<<<<< HEAD
         assert result is True, "Testcase {} : Failed \n After configuring the static routes {} , the routes are not found in FIB   \n Error: {}".format(
             tc_name,static_routes_input, result
+=======
+        assert (
+            result is True
+        ), "Testcase {} : Failed \n After configuring the static routes {} , the routes are not found in FIB   \n Error: {}".format(
+            tc_name, static_routes_input, result
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
         )
 
     step(
@@ -483,7 +528,15 @@ def test_verify_bgp_default_originate_in_IBGP_p0(request):
         },
     }
     result = create_router_bgp(tgen, topo, redistribute_static)
+<<<<<<< HEAD
     assert result is True, "Testcase {} : Failed to configure the redistribute static configuration \n Error: {}".format(tc_name, result)
+=======
+    assert (
+        result is True
+    ), "Testcase {} : Failed to configure the redistribute static configuration \n Error: {}".format(
+        tc_name, result
+    )
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
     step(
         "After configuring redistribute command , verify static and connected routes ( loopback connected routes)  are advertised on R2"
@@ -517,6 +570,7 @@ def test_verify_bgp_default_originate_in_IBGP_p0(request):
             }
         }
         result = verify_fib_routes(tgen, addr_type, "r2", static_routes_input)
+<<<<<<< HEAD
         assert result is True, "Testcase {} : After redistributing static routes the routes {} expected in FIB but NOT FOUND ......! \n Error: {}".format(
             tc_name, static_routes_input,result
         )
@@ -524,6 +578,19 @@ def test_verify_bgp_default_originate_in_IBGP_p0(request):
         result = verify_bgp_rib(tgen, addr_type, "r2", static_routes_input)
         assert result is True, "Testcase {} : After redistributing static routes the routes {} expected in RIB but NOT FOUND ......!   \n Error: {}".format(
             tc_name, static_routes_input , result
+=======
+        assert (
+            result is True
+        ), "Testcase {} : After redistributing static routes the routes {} expected in FIB but NOT FOUND ......! \n Error: {}".format(
+            tc_name, static_routes_input, result
+        )
+
+        result = verify_bgp_rib(tgen, addr_type, "r2", static_routes_input)
+        assert (
+            result is True
+        ), "Testcase {} : After redistributing static routes the routes {} expected in RIB but NOT FOUND ......!   \n Error: {}".format(
+            tc_name, static_routes_input, result
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
         )
 
     step(
@@ -547,7 +614,15 @@ def test_verify_bgp_default_originate_in_IBGP_p0(request):
         }
     }
     result = create_router_bgp(tgen, topo, default_originate_config)
+<<<<<<< HEAD
     assert result is True, "Testcase {} : Failed Configuring default originate configuration. \n Error: {}".format(tc_name, result)
+=======
+    assert (
+        result is True
+    ), "Testcase {} : Failed Configuring default originate configuration. \n Error: {}".format(
+        tc_name, result
+    )
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
     step(
         "After configuring default-originate command , verify default  routes are advertised on R2 "
@@ -574,12 +649,24 @@ def test_verify_bgp_default_originate_in_IBGP_p0(request):
         }
 
         result = verify_fib_routes(tgen, addr_type, "r2", static_routes_input)
+<<<<<<< HEAD
         assert result is True, "Testcase {} : post configuring the BGP Default originate configuration static and connected routes should not be effected but impacted on FIB .......! FAILED \n Error: {}".format(
+=======
+        assert (
+            result is True
+        ), "Testcase {} : post configuring the BGP Default originate configuration static and connected routes should not be effected but impacted on FIB .......! FAILED \n Error: {}".format(
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
             tc_name, result
         )
 
         result = verify_bgp_rib(tgen, addr_type, "r2", static_routes_input)
+<<<<<<< HEAD
         assert result is True, "Testcase {} : Failedpost configuring the BGP Default originate configuration static and connected routes should not be effected but impacted on RIB......! FAILED \n Error: {}".format(
+=======
+        assert (
+            result is True
+        ), "Testcase {} : Failedpost configuring the BGP Default originate configuration static and connected routes should not be effected but impacted on RIB......! FAILED \n Error: {}".format(
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
             tc_name, result
         )
     step(
@@ -686,7 +773,13 @@ def test_verify_bgp_default_originate_in_EBGP_p0(request):
     step("After changing the BGP AS Path Verify the BGP Convergence")
 
     BGP_CONVERGENCE = verify_bgp_convergence(tgen, topo)
+<<<<<<< HEAD
     assert BGP_CONVERGENCE is True, "Complete convergence is expeceted after changing the ASN os the routes ..!  :Failed \n Error: {}".format(
+=======
+    assert (
+        BGP_CONVERGENCE is True
+    ), "Complete convergence is expeceted after changing the ASN os the routes ..!  :Failed \n Error: {}".format(
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
         BGP_CONVERGENCE
     )
 
@@ -703,7 +796,13 @@ def test_verify_bgp_default_originate_in_EBGP_p0(request):
             }
         }
         result = create_static_routes(tgen, static_routes_input)
+<<<<<<< HEAD
         assert result is True, "Testcase {} : Failed to configure the static routes ....! Failed \n Error: {}".format(
+=======
+        assert (
+            result is True
+        ), "Testcase {} : Failed to configure the static routes ....! Failed \n Error: {}".format(
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
             tc_name, result
         )
     step("verify IPv4 and IPv6 static route are configured and up on R1")
@@ -719,8 +818,15 @@ def test_verify_bgp_default_originate_in_EBGP_p0(request):
             }
         }
         result = verify_fib_routes(tgen, addr_type, "r3", static_routes_input)
+<<<<<<< HEAD
         assert result is True, "Testcase {} : Route is not found in {} in FIB ......! Failed \n Error: {}".format(
             tc_name, static_routes_input,result
+=======
+        assert (
+            result is True
+        ), "Testcase {} : Route is not found in {} in FIB ......! Failed \n Error: {}".format(
+            tc_name, static_routes_input, result
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
         )
 
     step(
@@ -773,7 +879,15 @@ def test_verify_bgp_default_originate_in_EBGP_p0(request):
         },
     }
     result = create_router_bgp(tgen, topo, redistribute_static)
+<<<<<<< HEAD
     assert result is True, "Testcase {} : Failed to configure redistribute configuratin \n Error: {}".format(tc_name, result)
+=======
+    assert (
+        result is True
+    ), "Testcase {} : Failed to configure redistribute configuratin \n Error: {}".format(
+        tc_name, result
+    )
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
     step(
         "After configuring redistribute command , verify static and connected routes ( loopback connected routes)  are advertised on R2"
@@ -806,11 +920,23 @@ def test_verify_bgp_default_originate_in_EBGP_p0(request):
             }
         }
         result = verify_fib_routes(tgen, addr_type, "r2", static_routes_input)
+<<<<<<< HEAD
         assert result is True, "Testcase {} :  static & and connected routes are expected but not found in FIB .... ! \n Error: {}".format(
             tc_name, result
         )
         result = verify_bgp_rib(tgen, addr_type, "r2", static_routes_input)
         assert result is True, "Testcase {} : static & and connected routes are expected but not found in RIB .... ! \n Error: {}".format(
+=======
+        assert (
+            result is True
+        ), "Testcase {} :  static & and connected routes are expected but not found in FIB .... ! \n Error: {}".format(
+            tc_name, result
+        )
+        result = verify_bgp_rib(tgen, addr_type, "r2", static_routes_input)
+        assert (
+            result is True
+        ), "Testcase {} : static & and connected routes are expected but not found in RIB .... ! \n Error: {}".format(
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
             tc_name, result
         )
     snapshot1 = get_prefix_count_route(tgen, topo, dut="r2", peer="r3")
@@ -830,7 +956,15 @@ def test_verify_bgp_default_originate_in_EBGP_p0(request):
         }
     }
     result = create_router_bgp(tgen, topo, default_originate_config)
+<<<<<<< HEAD
     assert result is True, "Testcase {} : Failed to configure the default originate configuration \n Error: {}".format(tc_name, result)
+=======
+    assert (
+        result is True
+    ), "Testcase {} : Failed to configure the default originate configuration \n Error: {}".format(
+        tc_name, result
+    )
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
     step(
         "After configuring default-originate command , verify default  routes are advertised on R2 on both BGP RIB and FIB"
@@ -853,6 +987,7 @@ def test_verify_bgp_default_originate_in_EBGP_p0(request):
         }
 
         result = verify_fib_routes(tgen, addr_type, "r2", static_routes_input)
+<<<<<<< HEAD
         assert result is True, "Testcase {} : static route from R1 {} and default  route from R3 is expected in R2 FIB .....! NOT FOUND  \n Error: {}".format(
             tc_name, NETWORK1_1,result
         )
@@ -860,6 +995,19 @@ def test_verify_bgp_default_originate_in_EBGP_p0(request):
         result = verify_bgp_rib(tgen, addr_type, "r2", static_routes_input)
         assert result is True, "Testcase {} : static route from R1 {} and default  route from R3 is expected in R2 RIB .....! NOT FOUND \n Error: {}".format(
             tc_name,NETWORK1_1, result
+=======
+        assert (
+            result is True
+        ), "Testcase {} : static route from R1 {} and default  route from R3 is expected in R2 FIB .....! NOT FOUND  \n Error: {}".format(
+            tc_name, NETWORK1_1, result
+        )
+
+        result = verify_bgp_rib(tgen, addr_type, "r2", static_routes_input)
+        assert (
+            result is True
+        ), "Testcase {} : static route from R1 {} and default  route from R3 is expected in R2 RIB .....! NOT FOUND \n Error: {}".format(
+            tc_name, NETWORK1_1, result
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
         )
 
     step(
@@ -875,7 +1023,15 @@ def test_verify_bgp_default_originate_in_EBGP_p0(request):
         metric=0,
         expected_aspath="4000",
     )
+<<<<<<< HEAD
     assert result is True, "Testcase {} : Default route from R3 is expected with attributes in R2 RIB .....! NOT FOUND  Error: {}".format(tc_name, result)
+=======
+    assert (
+        result is True
+    ), "Testcase {} : Default route from R3 is expected with attributes in R2 RIB .....! NOT FOUND  Error: {}".format(
+        tc_name, result
+    )
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
     step(
         "Taking the snapshot2 of the prefix count after configuring the default originate"
@@ -968,7 +1124,13 @@ def test_verify_bgp_default_originate_in_IBGP_with_route_map_p0(request):
 
     step("After changing the BGP AS Path Verify the BGP Convergence")
     BGP_CONVERGENCE = verify_bgp_convergence(tgen, topo)
+<<<<<<< HEAD
     assert BGP_CONVERGENCE is True, "Complete convergence is expected after changing ASN ....! ERROR :Failed \n Error: {}".format(
+=======
+    assert (
+        BGP_CONVERGENCE is True
+    ), "Complete convergence is expected after changing ASN ....! ERROR :Failed \n Error: {}".format(
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
         BGP_CONVERGENCE
     )
 
@@ -989,7 +1151,13 @@ def test_verify_bgp_default_originate_in_IBGP_with_route_map_p0(request):
             }
         }
         result = create_static_routes(tgen, static_routes_input)
+<<<<<<< HEAD
         assert result is True, "Testcase {} : Static Configuration is Failed  \n Error: {}".format(
+=======
+        assert (
+            result is True
+        ), "Testcase {} : Static Configuration is Failed  \n Error: {}".format(
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
             tc_name, result
         )
 
@@ -1010,8 +1178,15 @@ def test_verify_bgp_default_originate_in_IBGP_with_route_map_p0(request):
             }
         }
         result = verify_fib_routes(tgen, addr_type, "r0", static_routes_input)
+<<<<<<< HEAD
         assert result is True, "Testcase {} : routes {} unable is not found in R0 FIB  \n Error: {}".format(
             tc_name, static_routes_input,result
+=======
+        assert (
+            result is True
+        ), "Testcase {} : routes {} unable is not found in R0 FIB  \n Error: {}".format(
+            tc_name, static_routes_input, result
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
         )
 
     step(
@@ -1028,7 +1203,15 @@ def test_verify_bgp_default_originate_in_IBGP_with_route_map_p0(request):
         }
     }
     result = create_router_bgp(tgen, topo, redistribute_static)
+<<<<<<< HEAD
     assert result is True, "Testcase {} : Failed to configure redistribute static configuration....! \n Error: {}".format(tc_name, result)
+=======
+    assert (
+        result is True
+    ), "Testcase {} : Failed to configure redistribute static configuration....! \n Error: {}".format(
+        tc_name, result
+    )
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
     step("verify IPv4 and IPv6 static route are configured and up on R1")
     for addr_type in ADDR_TYPES:
@@ -1047,6 +1230,7 @@ def test_verify_bgp_default_originate_in_IBGP_with_route_map_p0(request):
             }
         }
         result = verify_fib_routes(tgen, addr_type, "r1", static_routes_input)
+<<<<<<< HEAD
         assert result is True, "Testcase {} : Failed... Routes {}  expected in r0 FIB after configuring the redistribute config \n Error: {}".format(
             tc_name,static_routes_input, result
         )
@@ -1054,6 +1238,19 @@ def test_verify_bgp_default_originate_in_IBGP_with_route_map_p0(request):
         result = verify_bgp_rib(tgen, addr_type, "r1", static_routes_input)
         assert result is True, "Testcase {} : Failed... Routes {}  expected in r0 RIB after configuring the redistribute config \n Error: {}".format(
             tc_name, static_routes_input,result
+=======
+        assert (
+            result is True
+        ), "Testcase {} : Failed... Routes {}  expected in r0 FIB after configuring the redistribute config \n Error: {}".format(
+            tc_name, static_routes_input, result
+        )
+
+        result = verify_bgp_rib(tgen, addr_type, "r1", static_routes_input)
+        assert (
+            result is True
+        ), "Testcase {} : Failed... Routes {}  expected in r0 RIB after configuring the redistribute config \n Error: {}".format(
+            tc_name, static_routes_input, result
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
         )
 
     step(
@@ -1094,7 +1291,15 @@ def test_verify_bgp_default_originate_in_IBGP_with_route_map_p0(request):
         }
     }
     result = create_prefix_lists(tgen, input_dict_3)
+<<<<<<< HEAD
     assert result is True, "Testcase {} : Failed  to configure the prefix list \n Error: {}".format(tc_name, result)
+=======
+    assert (
+        result is True
+    ), "Testcase {} : Failed  to configure the prefix list \n Error: {}".format(
+        tc_name, result
+    )
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
     step(
         "Configure IPV4 and IPv6 route-map (RMv4 and RMv6 ) matching prefix-list (Pv4 and Pv6) respectively on R1"
@@ -1120,7 +1325,15 @@ def test_verify_bgp_default_originate_in_IBGP_with_route_map_p0(request):
         }
     }
     result = create_route_maps(tgen, input_dict_3)
+<<<<<<< HEAD
     assert result is True, "Testcase {} : Failed to configure the route map  \n Error: {}".format(tc_name, result)
+=======
+    assert (
+        result is True
+    ), "Testcase {} : Failed to configure the route map  \n Error: {}".format(
+        tc_name, result
+    )
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
     step(
         "Configure default-originate with route-map (RMv4 and RMv6) on R1, on BGP IPv4 and IPv6 address family "
@@ -1142,7 +1355,15 @@ def test_verify_bgp_default_originate_in_IBGP_with_route_map_p0(request):
         }
     }
     result = create_router_bgp(tgen, topo, default_originate_config)
+<<<<<<< HEAD
     assert result is True, "Testcase {} : Failed to configure the default originate \n Error: {}".format(tc_name, result)
+=======
+    assert (
+        result is True
+    ), "Testcase {} : Failed to configure the default originate \n Error: {}".format(
+        tc_name, result
+    )
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
     step("Verify the default route is received in BGP RIB and FIB")
     step(
@@ -1167,7 +1388,13 @@ def test_verify_bgp_default_originate_in_IBGP_with_route_map_p0(request):
             static_routes_input,
             next_hop=DEFAULT_ROUTE_NXT_HOP_R1[addr_type],
         )
+<<<<<<< HEAD
         assert result is True, "Testcase {} : Failed...! Expected default route from R1 not found in FIB  \n Error: {}".format(
+=======
+        assert (
+            result is True
+        ), "Testcase {} : Failed...! Expected default route from R1 not found in FIB  \n Error: {}".format(
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
             tc_name, result
         )
 
@@ -1178,7 +1405,13 @@ def test_verify_bgp_default_originate_in_IBGP_with_route_map_p0(request):
             static_routes_input,
             next_hop=DEFAULT_ROUTE_NXT_HOP_R1[addr_type],
         )
+<<<<<<< HEAD
         assert result is True, "Testcase {} : Failed...!   Expected default route from R1 not found in RIB  \n Error: {}".format(
+=======
+        assert (
+            result is True
+        ), "Testcase {} : Failed...!   Expected default route from R1 not found in RIB  \n Error: {}".format(
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
             tc_name, result
         )
     step("Remove route-map RMv4 and RMv6 from default-originate command in R1")
@@ -1196,7 +1429,15 @@ def test_verify_bgp_default_originate_in_IBGP_with_route_map_p0(request):
         }
     }
     result = create_router_bgp(tgen, topo, default_originate_config)
+<<<<<<< HEAD
     assert result is True, "Testcase {} : Failed  to remove the  default originate conditional route-map \n Error: {}".format(tc_name, result)
+=======
+    assert (
+        result is True
+    ), "Testcase {} : Failed  to remove the  default originate conditional route-map \n Error: {}".format(
+        tc_name, result
+    )
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
     step(
         "Verify BGP RIB and FIB After removing route-map , default route still present on R2"
@@ -1221,7 +1462,13 @@ def test_verify_bgp_default_originate_in_IBGP_with_route_map_p0(request):
             static_routes_input,
             next_hop=DEFAULT_ROUTE_NXT_HOP_R1[addr_type],
         )
+<<<<<<< HEAD
         assert result is True, "Testcase {} : Failed Default route from R1 is not found in FIB \n Error: {}".format(
+=======
+        assert (
+            result is True
+        ), "Testcase {} : Failed Default route from R1 is not found in FIB \n Error: {}".format(
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
             tc_name, result
         )
 
@@ -1232,7 +1479,13 @@ def test_verify_bgp_default_originate_in_IBGP_with_route_map_p0(request):
             static_routes_input,
             next_hop=DEFAULT_ROUTE_NXT_HOP_R1[addr_type],
         )
+<<<<<<< HEAD
         assert result is True, "Testcase {} :  Failed Default route from R1 is not found in RIB  \n Error: {}".format(
+=======
+        assert (
+            result is True
+        ), "Testcase {} :  Failed Default route from R1 is not found in RIB  \n Error: {}".format(
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
             tc_name, result
         )
 
@@ -1266,7 +1519,15 @@ def test_verify_bgp_default_originate_in_IBGP_with_route_map_p0(request):
         }
     }
     result = create_router_bgp(tgen, topo, default_originate_config)
+<<<<<<< HEAD
     assert result is True, "Testcase {} : Failed to configure the Default originate route-map \n Error: {}".format(tc_name, result)
+=======
+    assert (
+        result is True
+    ), "Testcase {} : Failed to configure the Default originate route-map \n Error: {}".format(
+        tc_name, result
+    )
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
     step(
         "After configuring default-originate command , verify default  routes are advertised on R2 "
@@ -1290,7 +1551,13 @@ def test_verify_bgp_default_originate_in_IBGP_with_route_map_p0(request):
             static_routes_input,
             next_hop=DEFAULT_ROUTE_NXT_HOP_R1[addr_type],
         )
+<<<<<<< HEAD
         assert result is True, "Testcase {} : Failed  Default Route from R1 is not found in FIB  \n Error: {}".format(
+=======
+        assert (
+            result is True
+        ), "Testcase {} : Failed  Default Route from R1 is not found in FIB  \n Error: {}".format(
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
             tc_name, result
         )
 
@@ -1301,7 +1568,13 @@ def test_verify_bgp_default_originate_in_IBGP_with_route_map_p0(request):
             static_routes_input,
             next_hop=DEFAULT_ROUTE_NXT_HOP_R1[addr_type],
         )
+<<<<<<< HEAD
         assert result is True, "Testcase {} : Failed  Default Route from R1 is not found in RIB  \n Error: {}".format(
+=======
+        assert (
+            result is True
+        ), "Testcase {} : Failed  Default Route from R1 is not found in RIB  \n Error: {}".format(
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
             tc_name, result
         )
 
@@ -1345,7 +1618,15 @@ def test_verify_bgp_default_originate_in_IBGP_with_route_map_p0(request):
         }
     }
     result = create_prefix_lists(tgen, input_dict_3)
+<<<<<<< HEAD
     assert result is True, "Testcase {} : Failed to delete the prefix list  Error: {}".format(tc_name, result)
+=======
+    assert (
+        result is True
+    ), "Testcase {} : Failed to delete the prefix list  Error: {}".format(
+        tc_name, result
+    )
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
     step(
         "Verify BGP RIB and FIB After deleting prefix-list , verify IPv4 and IPv6 default route got removed from DUT "
@@ -1426,7 +1707,15 @@ def test_verify_bgp_default_originate_in_IBGP_with_route_map_p0(request):
         }
     }
     result = create_prefix_lists(tgen, input_dict_3)
+<<<<<<< HEAD
     assert result is True, "Testcase {} : Failed to configure the prefix lists Error: {}".format(tc_name, result)
+=======
+    assert (
+        result is True
+    ), "Testcase {} : Failed to configure the prefix lists Error: {}".format(
+        tc_name, result
+    )
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
     step(
         "After configuring the Prefixlist cross checking the BGP Default route is configured again , before deleting the route map"
@@ -1452,7 +1741,13 @@ def test_verify_bgp_default_originate_in_IBGP_with_route_map_p0(request):
             next_hop=DEFAULT_ROUTE_NXT_HOP_R1[addr_type],
             expected=True,
         )
+<<<<<<< HEAD
         assert result is True, "Testcase {} : Failed Default route from R1 is expected in FIB but not found \n Error: {}".format(
+=======
+        assert (
+            result is True
+        ), "Testcase {} : Failed Default route from R1 is expected in FIB but not found \n Error: {}".format(
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
             tc_name, result
         )
 
@@ -1464,14 +1759,28 @@ def test_verify_bgp_default_originate_in_IBGP_with_route_map_p0(request):
             next_hop=DEFAULT_ROUTE_NXT_HOP_R1[addr_type],
             expected=True,
         )
+<<<<<<< HEAD
         assert result is True, "Testcase {} :  Failed Default route from R1 is expected in RIB but not found \n Error: {}".format(
+=======
+        assert (
+            result is True
+        ), "Testcase {} :  Failed Default route from R1 is expected in RIB but not found \n Error: {}".format(
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
             tc_name, result
         )
 
     step("Deleting the routemap")
     input_dict = {"r1": {"route_maps": ["RMv4", "RMv6"]}}
     result = delete_route_maps(tgen, input_dict)
+<<<<<<< HEAD
     assert result is True, "Testcase {} : Failed to delete the Route-map \n Error: {}".format(tc_name, result)
+=======
+    assert (
+        result is True
+    ), "Testcase {} : Failed to delete the Route-map \n Error: {}".format(
+        tc_name, result
+    )
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
     step(
         "Verify BGP RIB and FIB ,After deleting route-map , verify IPv4 and IPv6 default route got removed from DUT"
@@ -1605,7 +1914,13 @@ def test_verify_bgp_default_originate_in_EBGP_with_route_map_p0(request):
             }
         }
         result = create_static_routes(tgen, static_routes_input)
+<<<<<<< HEAD
         assert result is True, "Testcase {} : Failed  to configure the static routes \n Error: {}".format(
+=======
+        assert (
+            result is True
+        ), "Testcase {} : Failed  to configure the static routes \n Error: {}".format(
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
             tc_name, result
         )
     step("verify IPv4 and IPv6 static route are configured and up on R4")
@@ -1625,8 +1940,15 @@ def test_verify_bgp_default_originate_in_EBGP_with_route_map_p0(request):
             }
         }
         result = verify_fib_routes(tgen, addr_type, "r4", static_routes_input)
+<<<<<<< HEAD
         assert result is True, "Testcase {} : Failed Static route {}  is not found in R4 FIB  \n Error: {}".format(
             tc_name, static_routes_input,result
+=======
+        assert (
+            result is True
+        ), "Testcase {} : Failed Static route {}  is not found in R4 FIB  \n Error: {}".format(
+            tc_name, static_routes_input, result
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
         )
 
     step(
@@ -1643,7 +1965,15 @@ def test_verify_bgp_default_originate_in_EBGP_with_route_map_p0(request):
         }
     }
     result = create_router_bgp(tgen, topo, redistribute_static)
+<<<<<<< HEAD
     assert result is True, "Testcase {} : Failed to configure the redistribute  static \n Error: {}".format(tc_name, result)
+=======
+    assert (
+        result is True
+    ), "Testcase {} : Failed to configure the redistribute  static \n Error: {}".format(
+        tc_name, result
+    )
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
     step("verify IPv4 and IPv6 static route are configured and up on R3")
     for addr_type in ADDR_TYPES:
@@ -1662,11 +1992,23 @@ def test_verify_bgp_default_originate_in_EBGP_with_route_map_p0(request):
             }
         }
         result = verify_fib_routes(tgen, addr_type, "r3", static_routes_input)
+<<<<<<< HEAD
         assert result is True, "Testcase {} : Failed static routes from R1 and R3 is not found in FIB  \n Error: {}".format(
             tc_name, result
         )
         result = verify_bgp_rib(tgen, addr_type, "r3", static_routes_input)
         assert result is True, "Testcase {} : Failed static routes from R1 and R3 is not found in RIB  \n Error: {}".format(
+=======
+        assert (
+            result is True
+        ), "Testcase {} : Failed static routes from R1 and R3 is not found in FIB  \n Error: {}".format(
+            tc_name, result
+        )
+        result = verify_bgp_rib(tgen, addr_type, "r3", static_routes_input)
+        assert (
+            result is True
+        ), "Testcase {} : Failed static routes from R1 and R3 is not found in RIB  \n Error: {}".format(
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
             tc_name, result
         )
 
@@ -1698,12 +2040,28 @@ def test_verify_bgp_default_originate_in_EBGP_with_route_map_p0(request):
         }
     }
     result = create_prefix_lists(tgen, input_dict_3)
+<<<<<<< HEAD
     assert result is True, "Testcase {} : Failed to configure the prefix lists \n Error: {}".format(tc_name, result)
+=======
+    assert (
+        result is True
+    ), "Testcase {} : Failed to configure the prefix lists \n Error: {}".format(
+        tc_name, result
+    )
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
     step("verify IPv4 and IPv6 Prefix list got configured on R3")
     input_dict = {"r3": {"prefix_lists": ["Pv4", "Pv6"]}}
     result = verify_prefix_lists(tgen, input_dict)
+<<<<<<< HEAD
     assert result is True, "Testcase {} : Failed ..! configured  prefix lists {}  are not found  \n Error: {}".format(tc_name,input_dict, result)
+=======
+    assert (
+        result is True
+    ), "Testcase {} : Failed ..! configured  prefix lists {}  are not found  \n Error: {}".format(
+        tc_name, input_dict, result
+    )
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
     step(
         "Configure IPv4 and IPv6 route-map ( RMv4 and RMv6 ) matching prefix-list (Pv4 and Pv6 ) respectively on R3"
@@ -1729,7 +2087,15 @@ def test_verify_bgp_default_originate_in_EBGP_with_route_map_p0(request):
         }
     }
     result = create_route_maps(tgen, input_dict_3)
+<<<<<<< HEAD
     assert result is True, "Testcase {} : Failed to configure the route-map \n Error: {}".format(tc_name, result)
+=======
+    assert (
+        result is True
+    ), "Testcase {} : Failed to configure the route-map \n Error: {}".format(
+        tc_name, result
+    )
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
     step(
         "Taking the snapshot of the prefix count before configuring the default originate"
     )
@@ -1754,7 +2120,15 @@ def test_verify_bgp_default_originate_in_EBGP_with_route_map_p0(request):
         }
     }
     result = create_router_bgp(tgen, topo, default_originate_config)
+<<<<<<< HEAD
     assert result is True, "Testcase {} : Failed to configure default-originate \n Error: {}".format(tc_name, result)
+=======
+    assert (
+        result is True
+    ), "Testcase {} : Failed to configure default-originate \n Error: {}".format(
+        tc_name, result
+    )
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
     step("Verify the default route is NOT received in BGP RIB and FIB on R2 ")
     step(
@@ -1836,7 +2210,15 @@ def test_verify_bgp_default_originate_in_EBGP_with_route_map_p0(request):
         }
     }
     result = create_prefix_lists(tgen, input_dict_3)
+<<<<<<< HEAD
     assert result is True, "Testcase {} : Failed  to configure the prefix lists Error: {}".format(tc_name, result)
+=======
+    assert (
+        result is True
+    ), "Testcase {} : Failed  to configure the prefix lists Error: {}".format(
+        tc_name, result
+    )
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
     step("Verify BGP default route for IPv4 and IPv6 is received on R2")
 
@@ -1859,7 +2241,13 @@ def test_verify_bgp_default_originate_in_EBGP_with_route_map_p0(request):
             static_routes_input,
             next_hop=DEFAULT_ROUTE_NXT_HOP_R3[addr_type],
         )
+<<<<<<< HEAD
         assert result is True, "Testcase {} : Failed Default routes are expected in R2 FIB  from R3 but not found ....!  \n Error: {}".format(
+=======
+        assert (
+            result is True
+        ), "Testcase {} : Failed Default routes are expected in R2 FIB  from R3 but not found ....!  \n Error: {}".format(
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
             tc_name, result
         )
 
@@ -1870,7 +2258,13 @@ def test_verify_bgp_default_originate_in_EBGP_with_route_map_p0(request):
             static_routes_input,
             next_hop=DEFAULT_ROUTE_NXT_HOP_R3[addr_type],
         )
+<<<<<<< HEAD
         assert result is True, "Testcase {} : Failed Default routes are expected in R2 RIB  from R3 but not found ....! \n Error: {}".format(
+=======
+        assert (
+            result is True
+        ), "Testcase {} : Failed Default routes are expected in R2 RIB  from R3 but not found ....! \n Error: {}".format(
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
             tc_name, result
         )
 
@@ -1914,7 +2308,15 @@ def test_verify_bgp_default_originate_in_EBGP_with_route_map_p0(request):
         }
     }
     result = create_prefix_lists(tgen, input_dict_3)
+<<<<<<< HEAD
     assert result is True, "Testcase {} : Failed to remove prefix-lists from R3 Error: {}".format(tc_name, result)
+=======
+    assert (
+        result is True
+    ), "Testcase {} : Failed to remove prefix-lists from R3 Error: {}".format(
+        tc_name, result
+    )
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
     step(
         "After Removing route  BGP default route for IPv4 and IPv6 is NOT received on R2"

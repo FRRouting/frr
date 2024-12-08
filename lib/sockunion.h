@@ -93,7 +93,10 @@ enum connect_result { connect_error, connect_success, connect_in_progress };
 /* Prototypes. */
 extern int str2sockunion(const char *, union sockunion *);
 extern const char *sockunion2str(const union sockunion *, char *, size_t);
+<<<<<<< HEAD
 int in6addr_cmp(const struct in6_addr *addr1, const struct in6_addr *addr2);
+=======
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 extern int sockunion_cmp(const union sockunion *, const union sockunion *);
 extern int sockunion_same(const union sockunion *, const union sockunion *);
 extern unsigned int sockunion_hash(const union sockunion *);

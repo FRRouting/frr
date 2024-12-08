@@ -103,7 +103,10 @@ def setup_module(mod):
 
     # For all registered routers, load the zebra configuration file
     for rname, router in tgen.routers().items():
+<<<<<<< HEAD
         router.run("/bin/bash {}/setup_vrfs".format(CWD))
+=======
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
         router.load_config(
             TopoRouter.RD_ZEBRA, os.path.join(CWD, "{}/zebra.conf".format(rname))
         )

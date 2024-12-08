@@ -32,12 +32,18 @@ from lib.topogen import Topogen, TopoRouter, get_topogen
 
 from lib.common_config import (
     kill_router_daemons,
+<<<<<<< HEAD
     start_router_daemons,
     step,
 )
 
 pytestmark = [pytest.mark.bgpd]
 
+=======
+    step,
+)
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 def build_topo(tgen):
     for routern in range(0, 6):
@@ -67,7 +73,11 @@ def setup_module(mod):
 
     router_list = tgen.routers()
 
+<<<<<<< HEAD
     for i, (rname, router) in enumerate(router_list.items(), 1):
+=======
+    for _, (rname, router) in enumerate(router_list.items(), 1):
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
         router.load_config(
             TopoRouter.RD_ZEBRA, os.path.join(CWD, "{}/zebra.conf".format(rname))
         )

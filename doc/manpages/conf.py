@@ -91,7 +91,11 @@ replace_vars = {
 
 # extract version information, installation location, other stuff we need to
 # use when building final documents
+<<<<<<< HEAD
 val = re.compile('^S\["([^"]+)"\]="(.*)"$')
+=======
+val = re.compile(r'^S\["([^"]+)"\]="(.*)"$')
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 try:
     with open("../../config.status", "r") as cfgstatus:
         for ln in cfgstatus.readlines():

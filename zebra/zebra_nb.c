@@ -803,6 +803,15 @@ const struct frr_yang_module_info frr_zebra_info = {
 			}
 		},
 		{
+<<<<<<< HEAD
+=======
+			.xpath = "/frr-interface:lib/interface/frr-zebra:zebra/state/bond",
+			.cbs = {
+				.get_elem = lib_interface_zebra_state_bond_get_elem,
+			}
+		},
+		{
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 			.xpath = "/frr-vrf:lib/vrf/frr-zebra:zebra/router-id",
 			.cbs = {
 				.modify = lib_vrf_zebra_router_id_modify,
@@ -878,6 +887,16 @@ const struct frr_yang_module_info frr_zebra_info = {
 			}
 		},
 		{
+<<<<<<< HEAD
+=======
+			.xpath = "/frr-vrf:lib/vrf/frr-zebra:zebra/mpls/fec-nexthop-resolution",
+			.cbs = {
+				.modify = lib_vrf_zebra_mpls_fec_nexthop_resolution_modify,
+				.destroy = lib_vrf_zebra_mpls_fec_nexthop_resolution_destroy,
+			}
+		},
+		{
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 			.xpath = "/frr-vrf:lib/vrf/frr-zebra:zebra/ribs/rib",
 			.cbs = {
 				.get_next = lib_vrf_zebra_ribs_rib_get_next,

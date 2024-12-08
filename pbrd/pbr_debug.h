@@ -35,6 +35,7 @@ void pbr_debug_init(void);
  */
 void pbr_debug_set_all(uint32_t flags, bool set);
 
+<<<<<<< HEAD
 /*
  * Config write helper.
  *
@@ -57,4 +58,6 @@ int pbr_debug_config_write_helper(struct vty *vty, bool config);
  */
 int pbr_debug_config_write(struct vty *vty);
 
+=======
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 #endif /* __PBR_DEBUG_H__ */

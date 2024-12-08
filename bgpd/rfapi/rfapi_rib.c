@@ -691,7 +691,14 @@ static void rfapiRibBi2Ri(struct bgp_path_info *bpi, struct rfapi_info *ri,
 			bpi->extra->vnc->vnc.import.rd.val[1];
 
 		/* label comes from MP_REACH_NLRI label */
+<<<<<<< HEAD
 		vo->v.l2addr.label = decode_label(&bpi->extra->label[0]);
+=======
+		vo->v.l2addr.label =
+			BGP_PATH_INFO_NUM_LABELS(bpi)
+				? decode_label(&bpi->extra->labels->label[0])
+				: MPLS_INVALID_LABEL;
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 		rfapi_vn_options_free(
 			ri->vn_options); /* maybe free old version */

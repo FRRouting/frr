@@ -5,6 +5,10 @@ endif
 mlag_libmlag_pb_la_LDFLAGS = $(LIB_LDFLAGS) -version-info 0:0:0
 mlag_libmlag_pb_la_CPPFLAGS = $(AM_CPPFLAGS) $(PROTOBUF_C_CFLAGS)
 mlag_libmlag_pb_la_SOURCES = \
+<<<<<<< HEAD
+=======
+	mlag/mlag_pb.c \
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	# end
 
 nodist_mlag_libmlag_pb_la_SOURCES = \

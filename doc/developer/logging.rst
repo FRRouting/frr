@@ -77,7 +77,18 @@ are available:
 
 .. note::
 
+<<<<<<< HEAD
    ``printfrr()`` does not support the ``%n`` format.
+=======
+   ``printfrr()`` does not support the ``%n`` format.  It does support ISO C23
+   ``%b``, ``%w99d`` and ``%wf99d`` additions, but the latter two are not
+   supported by the ``frr-format`` plugin yet, and all 3 aren't supported by
+   the older compilers still in use on some supported platforms.
+
+   ``%b`` can be used with ``FMT_NSTD``, but ``%w99d`` and ``%wf99d`` require
+   work in the ``frr-format`` plugin before they are really usable.
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 AS-Safety
 ^^^^^^^^^
@@ -376,7 +387,12 @@ bgpd
 
 .. frrfmt:: %pBD (struct bgp_dest *)
 
+<<<<<<< HEAD
    Print prefix for a BGP destination.
+=======
+   Print prefix for a BGP destination.  When using ``--enable-dev-build`` include
+   the pointer value for the bgp_dest.
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
    :frrfmtout:`fe80::1234/64`
 
@@ -557,8 +573,14 @@ Integer formats
    cause compiler warnings when used without the plugin.  Use with
    :c:macro:`FMT_NSTD` if necessary.
 
+<<<<<<< HEAD
    It is possible ISO C23 may introduce another format for these, possibly
    ``%w64d`` discussed in `JTC 1/SC 22/WG 14/N2680 <http://www.open-std.org/jtc1/sc22/wg14/www/docs/n2680.pdf>`_.
+=======
+   As anticipated, ISO C23 has introduced new modifiers for this, specifically
+   ``%w64d`` (= ``%Ld``) and ``%w64u`` (= ``%Lu``).  Unfortunately, these new
+   modifiers are not supported by ``frr-format`` yet.
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 .. frrfmt:: %Lu (uint64_t)
 

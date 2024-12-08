@@ -87,6 +87,10 @@ DECLARE_MTYPE(PEER_UPDATE_SOURCE);
 DECLARE_MTYPE(PEER_CONF_IF);
 DECLARE_MTYPE(BGP_DAMP_INFO);
 DECLARE_MTYPE(BGP_DAMP_ARRAY);
+<<<<<<< HEAD
+=======
+DECLARE_MTYPE(BGP_DAMP_REUSELIST);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 DECLARE_MTYPE(BGP_REGEXP);
 DECLARE_MTYPE(BGP_AGGREGATE);
 DECLARE_MTYPE(BGP_ADDR);
@@ -97,6 +101,11 @@ DECLARE_MTYPE(BGP_FILTER_NAME);
 DECLARE_MTYPE(BGP_DUMP_STR);
 DECLARE_MTYPE(ENCAP_TLV);
 
+<<<<<<< HEAD
+=======
+DECLARE_MTYPE(BGP_LABELS);
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 DECLARE_MTYPE(BGP_TEA_OPTIONS);
 DECLARE_MTYPE(BGP_TEA_OPTIONS_VALUE);
 
@@ -131,4 +140,9 @@ DECLARE_MTYPE(BGP_NOTIFICATION);
 
 DECLARE_MTYPE(BGP_SOFT_VERSION);
 
+<<<<<<< HEAD
+=======
+DECLARE_MTYPE(BGP_EVPN_OVERLAY);
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 #endif /* _QUAGGA_BGP_MEMORY_H */

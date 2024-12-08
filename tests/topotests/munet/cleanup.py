@@ -59,17 +59,33 @@ def _get_our_pids():
     return {}
 
 
+<<<<<<< HEAD
 def _get_other_pids():
     piddict = get_pids_with_env("MUNET_PID")
     unet_pids = {d["MUNET_PID"] for d in piddict.values()}
     pids_by_upid = {p: set() for p in unet_pids}
     for pid, envdict in piddict.items():
+=======
+def _get_other_pids(rundir):
+    if rundir:
+        # get only munet pids using the given rundir
+        piddict = get_pids_with_env("MUNET_RUNDIR", str(rundir))
+    else:
+        # Get all munet pids
+        piddict = get_pids_with_env("MUNET_PID")
+    unet_pids = {d["MUNET_PID"] for d in piddict.values() if "MUNET_PID" in d}
+    pids_by_upid = {p: set() for p in unet_pids}
+    for pid, envdict in piddict.items():
+        if "MUNET_PID" not in envdict:
+            continue
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
         unet_pid = envdict["MUNET_PID"]
         pids_by_upid[unet_pid].add(pid)
     # Filter out any child pid sets whos munet pid is still running
     return {x: y for x, y in pids_by_upid.items() if x not in y}
 
 
+<<<<<<< HEAD
 def _get_pids_by_upid(ours):
     if ours:
         return _get_our_pids()
@@ -78,6 +94,17 @@ def _get_pids_by_upid(ours):
 
 def _cleanup_pids(ours):
     pids_by_upid = _get_pids_by_upid(ours).items()
+=======
+def _get_pids_by_upid(ours, rundir):
+    if ours:
+        assert rundir is None
+        return _get_our_pids()
+    return _get_other_pids(rundir)
+
+
+def _cleanup_pids(ours, rundir):
+    pids_by_upid = _get_pids_by_upid(ours, rundir).items()
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
     if not pids_by_upid:
         return
 
@@ -94,7 +121,11 @@ def _cleanup_pids(ours):
     #         return
     #     time.sleep(1)
 
+<<<<<<< HEAD
     pids_by_upid = _get_pids_by_upid(ours).items()
+=======
+    pids_by_upid = _get_pids_by_upid(ours, rundir).items()
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
     _kill_piddict(pids_by_upid, signal.SIGKILL)
 
 
@@ -103,12 +134,27 @@ def cleanup_current():
 
     Currently this only scans for old processes.
     """
+<<<<<<< HEAD
     _cleanup_pids(True)
 
 
 def cleanup_previous():
+=======
+    _cleanup_pids(True, None)
+
+
+def cleanup_previous(rundir=None):
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
     """Attempt to cleanup preview runs.
 
     Currently this only scans for old processes.
     """
+<<<<<<< HEAD
     _cleanup_pids(False)
+=======
+    _cleanup_pids(False, rundir)
+
+
+def is_running_in_rundir(rundir):
+    return bool(get_pids_with_env("MUNET_RUNDIR", str(rundir)))
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)

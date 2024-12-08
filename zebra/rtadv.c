@@ -184,6 +184,7 @@ static int rtadv_recv_packet(struct zebra_vrf *zvrf, int sock, uint8_t *buf,
 static void rtadv_send_packet(int sock, struct interface *ifp,
 			      enum ipv6_nd_suppress_ra_status stop)
 {
+<<<<<<< HEAD
 	struct msghdr msg;
 	struct iovec iov;
 	struct cmsghdr *cmsgptr;
@@ -191,6 +192,15 @@ static void rtadv_send_packet(int sock, struct interface *ifp,
 	struct sockaddr_in6 addr;
 	unsigned char buf[RTADV_MSG_SIZE];
 	char adata[RTADV_ADATA_SIZE];
+=======
+	struct msghdr msg = { 0 };
+	struct iovec iov = { 0 };
+	struct cmsghdr *cmsgptr;
+	struct in6_pktinfo *pkt;
+	struct sockaddr_in6 addr = { 0 };
+	unsigned char buf[RTADV_MSG_SIZE] = { 0 };
+	char adata[RTADV_ADATA_SIZE] = { 0 };
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 	struct nd_router_advert *rtadv;
 	int ret;
@@ -1960,7 +1970,11 @@ uint32_t rtadv_get_interfaces_configured_from_bgp(void)
 void rtadv_init(void)
 {
 	if (CMSG_SPACE(sizeof(struct in6_pktinfo)) > RTADV_ADATA_SIZE) {
+<<<<<<< HEAD
 		zlog_debug("%s: RTADV_ADATA_SIZE choosen will not work on this platform, please use a larger size",
+=======
+		zlog_debug("%s: RTADV_ADATA_SIZE chosen will not work on this platform, please use a larger size",
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 			   __func__);
 
 		exit(-1);

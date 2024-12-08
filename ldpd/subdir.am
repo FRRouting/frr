@@ -28,7 +28,10 @@ ldpd_libldp_a_SOURCES = \
 	ldpd/ldp_vty_exec.c \
 	ldpd/ldp_zebra.c \
 	ldpd/ldpe.c \
+<<<<<<< HEAD
 	ldpd/log.c \
+=======
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	ldpd/logmsg.c \
 	ldpd/neighbor.c \
 	ldpd/notification.c \

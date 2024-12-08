@@ -141,7 +141,11 @@ def router_json_cmp_exact_filter(router, cmd, expected):
     # filter out tableVersion, version and nhVrfID
     json_output.pop("tableVersion")
     for rd, data in json_output["routes"]["routeDistinguishers"].items():
+<<<<<<< HEAD
         for prefix, attrs in data.items():
+=======
+        for _, attrs in data.items():
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
             for attr in attrs:
                 if "nhVrfId" in attr:
                     attr.pop("nhVrfId")
@@ -171,7 +175,11 @@ def router_vrf_json_cmp_exact_filter(router, cmd, expected):
             data.pop("tableVersion")
         if "routes" not in data:
             continue
+<<<<<<< HEAD
         for route, attrs in data["routes"].items():
+=======
+        for _, attrs in data["routes"].items():
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
             for attr in attrs:
                 if "nhVrfId" in attr:
                     attr.pop("nhVrfId")

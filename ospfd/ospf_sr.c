@@ -1334,6 +1334,15 @@ static void update_out_nhlfe(struct hash_bucket *bucket, void *args)
 			continue;
 
 		for (ALL_LIST_ELEMENTS_RO(srp->route->paths, pnode, path)) {
+<<<<<<< HEAD
+=======
+			/* Compute NHFLE if path has not been initialized */
+			if (!path->srni.nexthop) {
+				compute_prefix_nhlfe(srp);
+				continue;
+			}
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 			/* Skip path that has not next SR-Node as nexthop */
 			if (path->srni.nexthop != srnext)
 				continue;
@@ -2741,9 +2750,15 @@ static void show_sr_node(struct vty *vty, struct json_object *json,
 			if (srn->algo[i] == SR_ALGORITHM_UNSET)
 				continue;
 			json_obj = json_object_new_object();
+<<<<<<< HEAD
 			char tmp[2];
 
 			snprintf(tmp, sizeof(tmp), "%u", i);
+=======
+			char tmp[12];
+
+			snprintf(tmp, sizeof(tmp), "%d", i);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 			json_object_string_add(json_obj, tmp,
 					       srn->algo[i] == SR_ALGORITHM_SPF
 						       ? "SPF"

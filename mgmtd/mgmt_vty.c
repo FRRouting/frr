@@ -12,6 +12,10 @@
 #include "command.h"
 #include "filter.h"
 #include "json.h"
+<<<<<<< HEAD
+=======
+#include "keychain.h"
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 #include "network.h"
 #include "northbound_cli.h"
 #include "routemap.h"
@@ -237,6 +241,82 @@ DEFPY(mgmt_replace_config_data, mgmt_replace_config_data_cmd,
 	return CMD_SUCCESS;
 }
 
+<<<<<<< HEAD
+=======
+DEFPY(mgmt_edit, mgmt_edit_cmd,
+      "mgmt edit {create|delete|merge|replace|remove}$op XPATH [json|xml]$fmt [lock$lock] [commit$commit] [DATA]",
+      MGMTD_STR
+      "Edit configuration data\n"
+      "Create data\n"
+      "Delete data\n"
+      "Merge data\n"
+      "Replace data\n"
+      "Remove data\n"
+      "XPath expression specifying the YANG data path\n"
+      "JSON input format (default)\n"
+      "XML input format\n"
+      "Lock the datastores automatically\n"
+      "Commit the changes automatically\n"
+      "Data tree\n")
+{
+	LYD_FORMAT format = (fmt && fmt[0] == 'x') ? LYD_XML : LYD_JSON;
+	uint8_t operation;
+	uint8_t flags = 0;
+
+	switch (op[2]) {
+	case 'e':
+		operation = NB_OP_CREATE_EXCL;
+		break;
+	case 'l':
+		operation = NB_OP_DELETE;
+		break;
+	case 'r':
+		operation = NB_OP_MODIFY;
+		break;
+	case 'p':
+		operation = NB_OP_REPLACE;
+		break;
+	case 'm':
+		operation = NB_OP_DESTROY;
+		break;
+	default:
+		vty_out(vty, "Invalid operation!\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	if (!data && (operation == NB_OP_CREATE_EXCL ||
+		      operation == NB_OP_MODIFY || operation == NB_OP_REPLACE)) {
+		vty_out(vty, "Data tree is missing!\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	if (lock)
+		flags |= EDIT_FLAG_IMPLICIT_LOCK;
+
+	if (commit)
+		flags |= EDIT_FLAG_IMPLICIT_COMMIT;
+
+	vty_mgmt_send_edit_req(vty, MGMT_MSG_DATASTORE_CANDIDATE, format, flags,
+			       operation, xpath, data);
+	return CMD_SUCCESS;
+}
+
+DEFPY(mgmt_rpc, mgmt_rpc_cmd,
+      "mgmt rpc XPATH [json|xml]$fmt [DATA]",
+      MGMTD_STR
+      "Invoke RPC\n"
+      "XPath expression specifying the YANG data path\n"
+      "JSON input format (default)\n"
+      "XML input format\n"
+      "Input data tree\n")
+{
+	LYD_FORMAT format = (fmt && fmt[0] == 'x') ? LYD_XML : LYD_JSON;
+
+	vty_mgmt_send_rpc_req(vty, format, xpath, data);
+	return CMD_SUCCESS;
+}
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 DEFPY(show_mgmt_get_config, show_mgmt_get_config_cmd,
       "show mgmt get-config [candidate|operational|running]$dsname WORD$path",
       SHOW_STR MGMTD_STR
@@ -483,6 +563,7 @@ DEFPY(mgmt_rollback,
 	return CMD_SUCCESS;
 }
 
+<<<<<<< HEAD
 int config_write_mgmt_debug(struct vty *vty);
 static struct cmd_node debug_node = {
 	.name = "mgmt debug",
@@ -522,13 +603,18 @@ int config_write_mgmt_debug(struct vty *vty)
 	return write_mgmt_debug_helper(vty, true);
 }
 
+=======
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 DEFPY_NOSH(show_debugging_mgmt, show_debugging_mgmt_cmd,
 	   "show debugging [mgmt]", SHOW_STR DEBUG_STR "MGMT Information\n")
 {
 	vty_out(vty, "MGMT debugging status:\n");
 
+<<<<<<< HEAD
 	write_mgmt_debug_helper(vty, false);
 
+=======
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	cmd_show_lib_debugs(vty);
 
 	return CMD_SUCCESS;
@@ -600,6 +686,10 @@ void mgmt_vty_init(void)
 	filter_cli_init();
 	route_map_cli_init();
 	affinity_map_init();
+<<<<<<< HEAD
+=======
+	keychain_cli_init();
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 	/*
 	 * Initialize command handling from VTYSH connection.
@@ -621,7 +711,10 @@ void mgmt_vty_init(void)
 	event_add_event(mm->master, mgmt_config_read_in, NULL, 0,
 			&mgmt_daemon_info->read_in);
 
+<<<<<<< HEAD
 	install_node(&debug_node);
+=======
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	install_node(&mgmtd_node);
 
 	install_element(VIEW_NODE, &show_mgmt_be_adapter_cmd);
@@ -641,6 +734,11 @@ void mgmt_vty_init(void)
 	install_element(CONFIG_NODE, &mgmt_delete_config_data_cmd);
 	install_element(CONFIG_NODE, &mgmt_remove_config_data_cmd);
 	install_element(CONFIG_NODE, &mgmt_replace_config_data_cmd);
+<<<<<<< HEAD
+=======
+	install_element(CONFIG_NODE, &mgmt_edit_cmd);
+	install_element(CONFIG_NODE, &mgmt_rpc_cmd);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	install_element(CONFIG_NODE, &mgmt_load_config_cmd);
 	install_element(CONFIG_NODE, &mgmt_save_config_cmd);
 	install_element(CONFIG_NODE, &mgmt_rollback_cmd);

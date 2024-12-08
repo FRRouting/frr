@@ -173,6 +173,10 @@ struct zebra_vrf {
 
 	bool zebra_rnh_ip_default_route;
 	bool zebra_rnh_ipv6_default_route;
+<<<<<<< HEAD
+=======
+	bool zebra_mpls_fec_nexthop_resolution;
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 };
 #define PROTO_RM_NAME(zvrf, afi, rtype) zvrf->proto_rm[afi][rtype].name
 #define NHT_RM_NAME(zvrf, afi, rtype) zvrf->nht_rm[afi][rtype].name

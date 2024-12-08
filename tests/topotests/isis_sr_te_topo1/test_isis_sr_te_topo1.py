@@ -164,7 +164,11 @@ def setup_module(mod):
     tgen.start_router()
 
 
+<<<<<<< HEAD
 def teardown_module(mod):
+=======
+def teardown_module():
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
     "Teardown the pytest environment"
     tgen = get_topogen()
 
@@ -641,7 +645,11 @@ def test_srte_route_map_with_sr_policy_check_nextop_step5():
     )
 
     # (re-)build the SR Policy two times to ensure that reinstalling still works
+<<<<<<< HEAD
     for i in [1, 2]:
+=======
+    for _ in [1, 2]:
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
         cmp_json_output(
             "rt1", "show ip route bgp json", "step5/show_ip_route_bgp_inactive_srte.ref"
         )

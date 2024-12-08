@@ -14,6 +14,10 @@
 #include "plist.h"
 #include "zclient.h"
 
+<<<<<<< HEAD
+=======
+#include "ospf6_proto.h"
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 #include "ospf6_lsa.h"
 #include "ospf6_lsdb.h"
 #include "ospf6_top.h"
@@ -30,9 +34,15 @@
 #include "ospf6d.h"
 #include "ospf6_bfd.h"
 #include "ospf6_zebra.h"
+<<<<<<< HEAD
 #include "ospf6_gr.h"
 #include "lib/json.h"
 #include "ospf6_proto.h"
+=======
+#include "ospf6_tlv.h"
+#include "ospf6_gr.h"
+#include "lib/json.h"
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 #include "lib/keychain.h"
 #include "ospf6_auth_trailer.h"
 #include "ospf6d/ospf6_interface_clippy.c"

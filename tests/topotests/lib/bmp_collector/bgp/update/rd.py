@@ -7,7 +7,11 @@ import ipaddress
 import struct
 
 
+<<<<<<< HEAD
 #------------------------------------------------------------------------------
+=======
+# ------------------------------------------------------------------------------
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 class RouteDistinguisher:
     """
     type 0:
@@ -28,12 +32,17 @@ class RouteDistinguisher:
     +                 | 4-bytes AS number (4 bytes)| Service Provider 2 bytes)|
     +-------------------------------------------------------------------------+
     """
+<<<<<<< HEAD
+=======
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
     def __init__(self, rd):
         self.rd = rd
         self.as_number = None
         self.admin_ipv4 = None
         self.four_bytes_as = None
         self.assigned_sp = None
+<<<<<<< HEAD
         self.repr_str = ''
         self.dissect()
 
@@ -54,6 +63,27 @@ class RouteDistinguisher:
             (self.four_bytes_as,
              self.assigned_sp) = struct.unpack_from('!IH', self.rd[2:])
             self.repr_str = f'{self.four_bytes_as}:{self.assigned_sp}'
+=======
+        self.repr_str = ""
+        self.dissect()
+
+    def dissect(self):
+        (rd_type,) = struct.unpack_from("!H", self.rd)
+        if rd_type == 0:
+            (self.as_number, self.assigned_sp) = struct.unpack_from("!HI", self.rd[2:])
+            self.repr_str = f"{self.as_number}:{self.assigned_sp}"
+
+        elif rd_type == 1:
+            (self.admin_ipv4, self.assigned_sp) = struct.unpack_from("!IH", self.rd[2:])
+            ipv4 = str(ipaddress.IPv4Address(self.admin_ipv4))
+            self.repr_str = f"{self.as_number}:{self.assigned_sp}"
+
+        elif rd_type == 2:
+            (self.four_bytes_as, self.assigned_sp) = struct.unpack_from(
+                "!IH", self.rd[2:]
+            )
+            self.repr_str = f"{self.four_bytes_as}:{self.assigned_sp}"
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
     def __str__(self):
         return self.repr_str

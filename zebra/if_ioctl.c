@@ -296,6 +296,11 @@ void interface_list(struct zebra_ns *zns)
 	   /proc/net/if_inet6. */
 	ifaddr_proc_ipv6();
 #endif /* HAVE_PROC_NET_IF_INET6 */
+<<<<<<< HEAD
+=======
+
+	zebra_dplane_startup_stage(zns, ZEBRA_DPLANE_INTERFACES_READ);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 }
 
 #endif /* OPEN_BSD */

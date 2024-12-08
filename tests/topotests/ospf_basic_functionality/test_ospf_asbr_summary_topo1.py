@@ -147,7 +147,11 @@ def setup_module(mod):
     logger.info("Running setup_module() done")
 
 
+<<<<<<< HEAD
 def teardown_module(mod):
+=======
+def teardown_module():
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
     """
     Teardown the pytest environment.
 
@@ -2893,7 +2897,11 @@ def test_ospf_type5_summary_tc51_p2(request):
 
     step("Configure and re configure all the commands 10 times in a loop.")
 
+<<<<<<< HEAD
     for itrate in range(0, 10):
+=======
+    for _ in range(0, 10):
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
         ospf_summ_r1 = {
             "r0": {
                 "ospf": {

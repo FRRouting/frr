@@ -308,6 +308,7 @@ static struct log_ref ferr_lib_err[] = {
 		.suggestion = "Check if the FRR libyang plugins were installed correctly in the system",
 	},
 	{
+<<<<<<< HEAD
 		.code = EC_LIB_CONFD_INIT,
 		.title = "ConfD initialization error",
 		.description = "Upon startup FRR failed to properly initialize and startup the ConfD northbound plugin",
@@ -326,6 +327,8 @@ static struct log_ref ferr_lib_err[] = {
 		.suggestion = "Open an Issue with all relevant log files and restart FRR"
 	},
 	{
+=======
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		.code = EC_LIB_SYSREPO_INIT,
 		.title = "Sysrepo initialization error",
 		.description = "Upon startup FRR failed to properly initialize and startup the Sysrepo northbound plugin",

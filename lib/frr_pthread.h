@@ -47,6 +47,20 @@ struct frr_pthread {
 	struct frr_pthread_attr attr;
 
 	/*
+<<<<<<< HEAD
+=======
+	 * Startup serialization: newly-started pthreads wait at a point
+	 * very early in life so that there isn't a race with the
+	 * starting pthread. The OS 'start' apis don't make any guarantees
+	 * about which pthread runs first - the existing pthread that has
+	 * called the 'start' api, or the new pthread that is just starting.
+	 */
+	pthread_cond_t startup_cond;
+	pthread_mutex_t startup_cond_mtx;
+	atomic_bool started;
+
+	/*
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	 * Notification mechanism for allowing pthreads to notify their parents
 	 * when they are ready to do work. This mechanism has two associated
 	 * functions:

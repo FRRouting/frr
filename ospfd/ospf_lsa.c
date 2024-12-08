@@ -101,11 +101,26 @@ struct timeval msec2tv(int a)
 	return ret;
 }
 
+<<<<<<< HEAD
 int ospf_lsa_refresh_delay(struct ospf_lsa *lsa)
+=======
+int tv2msec(struct timeval tv)
+{
+	int msecs;
+
+	msecs = tv.tv_sec * 1000;
+	msecs += (tv.tv_usec + 1000) / 1000;
+
+	return msecs;
+}
+
+int ospf_lsa_refresh_delay(struct ospf *ospf, struct ospf_lsa *lsa)
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 {
 	struct timeval delta;
 	int delay = 0;
 
+<<<<<<< HEAD
 	if (monotime_since(&lsa->tv_orig, &delta)
 	    < OSPF_MIN_LS_INTERVAL * 1000LL) {
 		struct timeval minv = msec2tv(OSPF_MIN_LS_INTERVAL);
@@ -121,6 +136,24 @@ int ospf_lsa_refresh_delay(struct ospf_lsa *lsa)
 				delay);
 
 		assert(delay > 0);
+=======
+	if (monotime_since(&lsa->tv_orig, &delta) < ospf->min_ls_interval * 1000LL) {
+		struct timeval minv = msec2tv(ospf->min_ls_interval);
+
+		timersub(&minv, &delta, &minv);
+		delay = tv2msec(minv);
+
+		if (IS_DEBUG_OSPF(lsa, LSA_GENERATE))
+			zlog_debug("LSA[Type%d:%pI4]: Refresh timer delay %d milliseconds",
+				   lsa->data->type, &lsa->data->id, delay);
+
+		if (delay <= 0) {
+			zlog_warn("LSA[Type%d:%pI4]: Invalid refresh timer delay %d milliseconds Seq: 0x%x Age:%u",
+				  lsa->data->type, &lsa->data->id, delay,
+				  ntohl(lsa->data->ls_seqnum), ntohs(lsa->data->ls_age));
+			delay = 0;
+		}
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	}
 
 	return delay;
@@ -2396,6 +2429,7 @@ struct ospf_lsa *ospf_nssa_lsa_refresh(struct ospf_area *area,
 static struct external_info *ospf_default_external_info(struct ospf *ospf)
 {
 	int type;
+<<<<<<< HEAD
 	struct prefix_ipv4 p;
 	struct external_info *default_ei;
 	int ret = 0;
@@ -2405,6 +2439,12 @@ static struct external_info *ospf_default_external_info(struct ospf *ospf)
 	p.prefixlen = 0;
 
 	default_ei = ospf_external_info_lookup(ospf, DEFAULT_ROUTE, 0, &p);
+=======
+	struct external_info *default_ei;
+	int ret = 0;
+
+	default_ei = ospf_external_info_default_lookup(ospf);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	if (!default_ei)
 		return NULL;
 
@@ -2613,8 +2653,12 @@ void ospf_external_lsa_refresh_default(struct ospf *ospf)
 	}
 }
 
+<<<<<<< HEAD
 void ospf_external_lsa_refresh_type(struct ospf *ospf, uint8_t type,
 				    unsigned short instance, int force)
+=======
+void ospf_external_lsa_refresh_type(struct ospf *ospf, uint8_t type, uint8_t instance, int force)
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 {
 	struct route_node *rn;
 	struct external_info *ei;
@@ -3170,9 +3214,15 @@ int ospf_check_nbr_status(struct ospf *ospf)
 }
 
 
+<<<<<<< HEAD
 void ospf_maxage_lsa_remover(struct event *thread)
 {
 	struct ospf *ospf = EVENT_ARG(thread);
+=======
+void ospf_maxage_lsa_remover(struct event *event)
+{
+	struct ospf *ospf = EVENT_ARG(event);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	struct ospf_lsa *lsa, *old;
 	struct route_node *rn;
 	int reschedule = 0;
@@ -3202,7 +3252,11 @@ void ospf_maxage_lsa_remover(struct event *thread)
 			}
 
 			/* TODO: maybe convert this function to a work-queue */
+<<<<<<< HEAD
 			if (event_should_yield(thread)) {
+=======
+			if (event_should_yield(event)) {
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 				OSPF_TIMER_ON(ospf->t_maxage,
 					      ospf_maxage_lsa_remover, 0);
 				route_unlock_node(
@@ -3418,9 +3472,15 @@ static int ospf_lsa_maxage_walker_remover(struct ospf *ospf,
 }
 
 /* Periodical check of MaxAge LSA. */
+<<<<<<< HEAD
 void ospf_lsa_maxage_walker(struct event *thread)
 {
 	struct ospf *ospf = EVENT_ARG(thread);
+=======
+void ospf_lsa_maxage_walker(struct event *event)
+{
+	struct ospf *ospf = EVENT_ARG(event);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	struct route_node *rn;
 	struct ospf_lsa *lsa;
 	struct ospf_area *area;
@@ -4157,11 +4217,19 @@ void ospf_refresher_unregister_lsa(struct ospf *ospf, struct ospf_lsa *lsa)
 	}
 }
 
+<<<<<<< HEAD
 void ospf_lsa_refresh_walker(struct event *t)
 {
 	struct list *refresh_list;
 	struct listnode *node, *nnode;
 	struct ospf *ospf = EVENT_ARG(t);
+=======
+void ospf_lsa_refresh_walker(struct event *e)
+{
+	struct list *refresh_list;
+	struct listnode *node, *nnode;
+	struct ospf *ospf = EVENT_ARG(e);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	struct ospf_lsa *lsa;
 	int i;
 	struct list *lsa_to_refresh = list_new();

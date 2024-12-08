@@ -208,6 +208,7 @@ struct route_node *route_node_match(struct route_table *table,
 	return NULL;
 }
 
+<<<<<<< HEAD
 struct route_node *route_node_match_ipv4(struct route_table *table,
 					 const struct in_addr *addr)
 {
@@ -234,6 +235,8 @@ struct route_node *route_node_match_ipv6(struct route_table *table,
 	return route_node_match(table, &p);
 }
 
+=======
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 /* Lookup same prefix node.  Return NULL when we can't find route. */
 struct route_node *route_node_lookup(struct route_table *table,
 				     union prefixconstptr pu)

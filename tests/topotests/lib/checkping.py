@@ -8,7 +8,11 @@ from lib.topolog import logger
 from lib import topotest
 
 
+<<<<<<< HEAD
 def check_ping(name, dest_addr, expect_connected, count, wait):
+=======
+def check_ping(name, dest_addr, expect_connected, count, wait, source_addr=None):
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
     """
     Assert that ping to dest_addr is expected
     * 'name': the router to set the ping from
@@ -18,9 +22,19 @@ def check_ping(name, dest_addr, expect_connected, count, wait):
     * 'wait': how long ping should wait to receive all replies
     """
 
+<<<<<<< HEAD
     def _check(name, dest_addr, match):
         tgen = get_topogen()
         output = tgen.gears[name].run("ping {} -c 1 -w 1".format(dest_addr))
+=======
+    def _check(name, dest_addr, source_addr, match):
+        tgen = get_topogen()
+        cmd = "ping {}".format(dest_addr)
+        if source_addr:
+            cmd += " -I {}".format(source_addr)
+        cmd += " -c 1 -w 1"
+        output = tgen.gears[name].run(cmd)
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
         logger.info(output)
         if match not in output:
             return "ping fail"
@@ -28,6 +42,11 @@ def check_ping(name, dest_addr, expect_connected, count, wait):
     match = ", {} packet loss".format("0%" if expect_connected else "100%")
     logger.info("[+] check {} {} {}".format(name, dest_addr, match))
     tgen = get_topogen()
+<<<<<<< HEAD
     func = functools.partial(_check, name, dest_addr, match)
     success, result = topotest.run_and_expect(func, None, count=count, wait=wait)
+=======
+    func = functools.partial(_check, name, dest_addr, source_addr, match)
+    _, result = topotest.run_and_expect(func, None, count=count, wait=wait)
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
     assert result is None, "Failed"

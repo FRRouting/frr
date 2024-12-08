@@ -38,17 +38,29 @@ ORIGIN_EGP = 0x01
 ORIGIN_INCOMPLETE = 0x02
 
 
+<<<<<<< HEAD
 #------------------------------------------------------------------------------
 class PathAttribute:
     PATH_ATTRS = {}
     UNKNOWN_ATTR = None
     UNPACK_STR = '!BB'
+=======
+# ------------------------------------------------------------------------------
+class PathAttribute:
+    PATH_ATTRS = {}
+    UNKNOWN_ATTR = None
+    UNPACK_STR = "!BB"
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
     @classmethod
     def register_path_attr(cls, path_attr):
         def _register_path_attr(subcls):
             cls.PATH_ATTRS[path_attr] = subcls
             return subcls
+<<<<<<< HEAD
+=======
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
         return _register_path_attr
 
     @classmethod
@@ -61,7 +73,11 @@ class PathAttribute:
         offset = struct.calcsize(cls.UNPACK_STR)
 
         # get attribute length
+<<<<<<< HEAD
         attr_len_str = '!H' if (flags & PATH_ATTR_FLAG_EXTENDED_LENGTH) else '!B'
+=======
+        attr_len_str = "!H" if (flags & PATH_ATTR_FLAG_EXTENDED_LENGTH) else "!B"
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
         (attr_len,) = struct.unpack_from(attr_len_str, data[offset:])
 
@@ -69,6 +85,7 @@ class PathAttribute:
 
         path_attr_cls = cls.lookup_path_attr(type_code)
         if path_attr_cls == cls.UNKNOWN_ATTR:
+<<<<<<< HEAD
             return data[offset + attr_len:], None
 
         return data[offset+attr_len:], path_attr_cls.dissect(data[offset:offset+attr_len])
@@ -81,10 +98,33 @@ class PathAttrOrigin:
         ORIGIN_IGP: 'IGP',
         ORIGIN_EGP: 'EGP',
         ORIGIN_INCOMPLETE: 'INCOMPLETE',
+=======
+            return data[offset + attr_len :], None
+
+        # RFC1771, 4.3 UPDATE Message Format
+        # The path segment length is a 1-octet long field containing
+        # the number of ASs in the path segment value field.
+        if type_code == PATH_ATTR_TYPE_AS_PATH and attr_len == 0:
+            return data[offset:], path_attr_cls.dissect(data[offset : offset + 2])
+
+        return data[offset + attr_len :], path_attr_cls.dissect(
+            data[offset : offset + attr_len]
+        )
+
+
+# ------------------------------------------------------------------------------
+@PathAttribute.register_path_attr(PATH_ATTR_TYPE_ORIGIN)
+class PathAttrOrigin:
+    ORIGIN_STR = {
+        ORIGIN_IGP: "IGP",
+        ORIGIN_EGP: "EGP",
+        ORIGIN_INCOMPLETE: "INCOMPLETE",
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
     }
 
     @classmethod
     def dissect(cls, data):
+<<<<<<< HEAD
         (origin,) = struct.unpack_from('!B', data)
 
         return {'origin': cls.ORIGIN_STR.get(origin, 'UNKNOWN')}
@@ -95,6 +135,18 @@ class PathAttrOrigin:
 class PathAttrAsPath:
     AS_PATH_TYPE_SET = 0x01
     AS_PATH_TYPE_SEQUENCE= 0x02
+=======
+        (origin,) = struct.unpack_from("!B", data)
+
+        return {"origin": cls.ORIGIN_STR.get(origin, "UNKNOWN")}
+
+
+# ------------------------------------------------------------------------------
+@PathAttribute.register_path_attr(PATH_ATTR_TYPE_AS_PATH)
+class PathAttrAsPath:
+    AS_PATH_TYPE_SET = 0x01
+    AS_PATH_TYPE_SEQUENCE = 0x02
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
     @staticmethod
     def get_asn_len(asns):
@@ -103,6 +155,7 @@ class PathAttrAsPath:
 
     @classmethod
     def dissect(cls, data):
+<<<<<<< HEAD
         (_type, _len) = struct.unpack_from('!BB', data)
         data = data[2:]
 
@@ -117,20 +170,48 @@ class PathAttrAsPath:
 
 
 #------------------------------------------------------------------------------
+=======
+        (_type, _len) = struct.unpack_from("!BB", data)
+        data = data[2:]
+
+        _type_str = "Ordred" if _type == cls.AS_PATH_TYPE_SEQUENCE else "Raw"
+        segment = []
+        while data:
+            (asn,) = struct.unpack_from("!I", data)
+            segment.append(asn)
+            data = data[4:]
+
+        return {"as_path": " ".join(str(a) for a in segment)}
+
+
+# ------------------------------------------------------------------------------
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 @PathAttribute.register_path_attr(PATH_ATTR_TYPE_NEXT_HOP)
 class PathAttrNextHop:
     @classmethod
     def dissect(cls, data):
+<<<<<<< HEAD
         (nexthop,) = struct.unpack_from('!4s', data)
         return {'bgp_nexthop': str(ipaddress.IPv4Address(nexthop))}
 
 
 #------------------------------------------------------------------------------
+=======
+        (nexthop,) = struct.unpack_from("!4s", data)
+        return {"bgp_nexthop": str(ipaddress.IPv4Address(nexthop))}
+
+
+# ------------------------------------------------------------------------------
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 class PathAttrMultiExitDisc:
     pass
 
 
+<<<<<<< HEAD
 #------------------------------------------------------------------------------
+=======
+# ------------------------------------------------------------------------------
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 @PathAttribute.register_path_attr(PATH_ATTR_TYPE_MP_REACH_NLRI)
 class PathAttrMpReachNLRI:
     """
@@ -162,7 +243,12 @@ class PathAttrMpReachNLRI:
     | Network Layer Reachability Information (variable)       |
     +---------------------------------------------------------+
     """
+<<<<<<< HEAD
     UNPACK_STR = '!HBB'
+=======
+
+    UNPACK_STR = "!HBB"
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
     NLRI_RESERVED_LEN = 1
 
     @staticmethod
@@ -170,6 +256,7 @@ class PathAttrMpReachNLRI:
         msg = {}
         if nexthop_len == 4:
             # IPv4
+<<<<<<< HEAD
             (ipv4,) = struct.unpack_from('!4s', nexthop_data)
             msg['nxhp_ip'] = str(ipaddress.IPv4Address(ipv4))
         elif nexthop_len == 12:
@@ -199,6 +286,37 @@ class PathAttrMpReachNLRI:
             msg['nxhp_ip'] = str(ipaddress.IPv6Address(ipv6))
             msg['nxhp_rd2'] = str(RouteDistinguisher(rd2))
             msg['nxhp_link-local'] = str(ipaddress.IPv6Address(link_local))
+=======
+            (ipv4,) = struct.unpack_from("!4s", nexthop_data)
+            msg["nxhp_ip"] = str(ipaddress.IPv4Address(ipv4))
+        elif nexthop_len == 12:
+            # RD + IPv4
+            (rd, ipv4) = struct.unpack_from("!8s4s", nexthop_data)
+            msg["nxhp_ip"] = str(ipaddress.IPv4Address(ipv4))
+            msg["nxhp_rd"] = str(RouteDistinguisher(rd))
+        elif nexthop_len == 16:
+            # IPv6
+            (ipv6,) = struct.unpack_from("!16s", nexthop_data)
+            msg["nxhp_ip"] = str(ipaddress.IPv6Address(ipv6))
+        elif nexthop_len == 24:
+            # RD + IPv6
+            (rd, ipv6) = struct.unpack_from("!8s16s", nexthop_data)
+            msg["nxhp_ip"] = str(ipaddress.IPv6Address(ipv6))
+            msg["nxhp_rd"] = str(RouteDistinguisher(rd))
+        elif nexthop_len == 32:
+            # IPv6 + IPv6 link-local
+            (ipv6, link_local) = struct.unpack_from("!16s16s", nexthop_data)
+            msg["nxhp_ip"] = str(ipaddress.IPv6Address(ipv6))
+            msg["nxhp_link-local"] = str(ipaddress.IPv6Address(link_local))
+        elif nexthop_len == 48:
+            # RD + IPv6 +  RD + IPv6 link-local
+            u_str = "!8s16s8s16s"
+            (rd1, ipv6, rd2, link_local) = struct.unpack_from(u_str, nexthop_data)
+            msg["nxhp_rd1"] = str(RouteDistinguisher(rd1))
+            msg["nxhp_ip"] = str(ipaddress.IPv6Address(ipv6))
+            msg["nxhp_rd2"] = str(RouteDistinguisher(rd2))
+            msg["nxhp_link-local"] = str(ipaddress.IPv6Address(link_local))
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
         return msg
 
@@ -210,10 +328,17 @@ class PathAttrMpReachNLRI:
     def dissect(cls, data):
         (afi, safi, nexthop_len) = struct.unpack_from(cls.UNPACK_STR, data)
         offset = struct.calcsize(cls.UNPACK_STR)
+<<<<<<< HEAD
         msg = {'afi': afi, 'safi': safi}
 
         # dissect nexthop
         nexthop_data = data[offset: offset + nexthop_len]
+=======
+        msg = {"afi": afi, "safi": safi}
+
+        # dissect nexthop
+        nexthop_data = data[offset : offset + nexthop_len]
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
         nexthop = cls.dissect_nexthop(nexthop_data, nexthop_len)
         msg.update(nexthop)
 
@@ -227,7 +352,11 @@ class PathAttrMpReachNLRI:
         return msg
 
 
+<<<<<<< HEAD
 #------------------------------------------------------------------------------
+=======
+# ------------------------------------------------------------------------------
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 @PathAttribute.register_path_attr(PATH_ATTR_TYPE_MP_UNREACH_NLRI)
 class PathAttrMpUnReachNLRI:
     """
@@ -239,13 +368,22 @@ class PathAttrMpUnReachNLRI:
     | Withdrawn Routes (variable)                             |
     +---------------------------------------------------------+
     """
+<<<<<<< HEAD
     UNPACK_STR = '!HB'
+=======
+
+    UNPACK_STR = "!HB"
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
     @classmethod
     def dissect(cls, data):
         (afi, safi) = struct.unpack_from(cls.UNPACK_STR, data)
         offset = struct.calcsize(cls.UNPACK_STR)
+<<<<<<< HEAD
         msg = {'bmp_log_type': 'withdraw','afi': afi, 'safi': safi}
+=======
+        msg = {"bmp_log_type": "withdraw", "afi": afi, "safi": safi}
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
         if data[offset:]:
             # dissect withdrawn_routes
@@ -254,51 +392,91 @@ class PathAttrMpUnReachNLRI:
         return msg
 
 
+<<<<<<< HEAD
 #------------------------------------------------------------------------------
+=======
+# ------------------------------------------------------------------------------
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 class PathAttrLocalPref:
     pass
 
 
+<<<<<<< HEAD
 #------------------------------------------------------------------------------
+=======
+# ------------------------------------------------------------------------------
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 class PathAttrAtomicAgregate:
     pass
 
 
+<<<<<<< HEAD
 #------------------------------------------------------------------------------
+=======
+# ------------------------------------------------------------------------------
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 class PathAttrAggregator:
     pass
 
 
+<<<<<<< HEAD
 #------------------------------------------------------------------------------
+=======
+# ------------------------------------------------------------------------------
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 class PathAttrCommunities:
     pass
 
 
+<<<<<<< HEAD
 #------------------------------------------------------------------------------
+=======
+# ------------------------------------------------------------------------------
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 class PathAttrOriginatorID:
     pass
 
 
+<<<<<<< HEAD
 #------------------------------------------------------------------------------
+=======
+# ------------------------------------------------------------------------------
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 class PathAttrClusterList:
     pass
 
 
+<<<<<<< HEAD
 #------------------------------------------------------------------------------
+=======
+# ------------------------------------------------------------------------------
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 class PathAttrExtendedCommunities:
     pass
 
 
+<<<<<<< HEAD
 #------------------------------------------------------------------------------
+=======
+# ------------------------------------------------------------------------------
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 class PathAttrPMSITunnel:
     pass
 
 
+<<<<<<< HEAD
 #------------------------------------------------------------------------------
+=======
+# ------------------------------------------------------------------------------
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 class PathAttrLinkState:
     pass
 
 
+<<<<<<< HEAD
 #------------------------------------------------------------------------------
+=======
+# ------------------------------------------------------------------------------
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 class PathAttrLargeCommunities:
     pass

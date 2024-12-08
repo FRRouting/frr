@@ -13,6 +13,10 @@
 #include "keychain.h"
 #include "ospfd/ospf_packet.h"
 #include "ospfd/ospf_spf.h"
+<<<<<<< HEAD
+=======
+#include <ospfd/ospf_flood.h>
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 #define IF_OSPF_IF_INFO(I) ((struct ospf_if_info *)((I)->info))
 #define IF_DEF_PARAMS(I) (IF_OSPF_IF_INFO (I)->def_params)
@@ -47,6 +51,11 @@ struct ospf_if_params {
 			 output_cost_cmd); /* Command Interface Output Cost */
 	DECLARE_IF_PARAM(uint32_t,
 			 retransmit_interval); /* Retransmission Interval */
+<<<<<<< HEAD
+=======
+	DECLARE_IF_PARAM(uint32_t,
+			 retransmit_window); /* Retransmission Window */
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	DECLARE_IF_PARAM(uint8_t, passive_interface); /* OSPF Interface is
 							passive: no sending or
 							receiving (no need to
@@ -120,8 +129,19 @@ struct ospf_if_params {
 	/* point-to-multipoint delayed reflooding configuration */
 	bool p2mp_delay_reflood;
 
+<<<<<<< HEAD
 	/* Opaque LSA capability at interface level (see RFC5250) */
 	DECLARE_IF_PARAM(bool, opaque_capable);
+=======
+	/* point-to-multipoint doesn't support broadcast */
+	bool p2mp_non_broadcast;
+
+	/* Opaque LSA capability at interface level (see RFC5250) */
+	DECLARE_IF_PARAM(bool, opaque_capable);
+
+	/* Name of prefix-list name for packet source address filtering. */
+	DECLARE_IF_PARAM(char *, nbr_filter_name);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 };
 
 enum { MEMBER_ALLROUTERS = 0,
@@ -186,6 +206,13 @@ struct ospf_interface {
 
 	/* OSPF Network Type. */
 	uint8_t type;
+<<<<<<< HEAD
+=======
+#define OSPF_IF_NON_BROADCAST(O)                                               \
+	(((O)->type == OSPF_IFTYPE_NBMA) ||                                    \
+	 ((((O)->type == OSPF_IFTYPE_POINTOMULTIPOINT) &&                      \
+	   (O)->p2mp_non_broadcast)))
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 	/* point-to-point DMVPN configuration */
 	uint8_t ptp_dmvpn;
@@ -193,6 +220,12 @@ struct ospf_interface {
 	/* point-to-multipoint delayed reflooding */
 	bool p2mp_delay_reflood;
 
+<<<<<<< HEAD
+=======
+	/* point-to-multipoint doesn't support broadcast */
+	bool p2mp_non_broadcast;
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	/* State of Interface State Machine. */
 	uint8_t state;
 
@@ -233,6 +266,12 @@ struct ospf_interface {
 	/* List of configured NBMA neighbor. */
 	struct list *nbr_nbma;
 
+<<<<<<< HEAD
+=======
+	/* Configured prefix-list for filtering neighbors. */
+	struct prefix_list *nbr_filter;
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	/* Graceful-Restart data. */
 	struct {
 		struct {
@@ -247,6 +286,7 @@ struct ospf_interface {
 
 	struct route_table *ls_upd_queue;
 
+<<<<<<< HEAD
 	struct list *ls_ack; /* Link State Acknowledgment list. */
 
 	struct {
@@ -256,11 +296,26 @@ struct ospf_interface {
 
 	/* Timer values. */
 	uint32_t v_ls_ack; /* Delayed Link State Acknowledgment */
+=======
+	/*
+	 * List of LSAs for delayed and direct link
+	 * state acknowledgment transmission.
+	 */
+	struct ospf_lsa_list_head ls_ack_delayed;
+	struct ospf_lsa_list_head ls_ack_direct;
+
+	/* Timer values. */
+	uint32_t v_ls_ack_delayed; /* Delayed Link State Acknowledgment */
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 	/* Threads. */
 	struct event *t_hello;		 /* timer */
 	struct event *t_wait;		 /* timer */
+<<<<<<< HEAD
 	struct event *t_ls_ack;		 /* timer */
+=======
+	struct event *t_ls_ack_delayed;	 /* timer */
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	struct event *t_ls_ack_direct;	 /* event */
 	struct event *t_ls_upd_event;	 /* event */
 	struct event *t_opaque_lsa_self; /* Type-9 Opaque-LSAs */
@@ -280,6 +335,10 @@ struct ospf_interface {
 	uint32_t ls_ack_out;   /* LS Ack message output count. */
 	uint32_t discarded;    /* discarded input count by error. */
 	uint32_t state_change; /* Number of status change. */
+<<<<<<< HEAD
+=======
+	uint32_t ls_rxmt_lsa;  /* Number of LSAs retransmitted. */
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 	uint32_t full_nbrs;
 
@@ -327,7 +386,10 @@ extern void ospf_if_update_params(struct interface *ifp, struct in_addr addr);
 extern int ospf_if_new_hook(struct interface *ifp);
 extern void ospf_if_init(void);
 extern void ospf_if_stream_unset(struct ospf_interface *oi);
+<<<<<<< HEAD
 extern void ospf_if_reset_variables(struct ospf_interface *oi);
+=======
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 extern int ospf_if_is_enable(struct ospf_interface *oi);
 extern int ospf_if_get_output_cost(struct ospf_interface *oi);
 extern void ospf_if_recalculate_output_cost(struct interface *ifp);
@@ -359,6 +421,10 @@ extern void ospf_crypt_key_add(struct list *list, struct crypt_key *key);
 extern int ospf_crypt_key_delete(struct list *list, uint8_t key_id);
 extern uint8_t ospf_default_iftype(struct interface *ifp);
 extern int ospf_interface_neighbor_count(struct ospf_interface *oi);
+<<<<<<< HEAD
+=======
+extern void ospf_intf_neighbor_filter_apply(struct ospf_interface *oi);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 /* Set all multicast memberships appropriately based on the type and
    state of the interface. */

@@ -7,7 +7,10 @@
 #define __BGP_SCRIPT__
 
 #include <zebra.h>
+<<<<<<< HEAD
 #include "bgpd.h"
+=======
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 #ifdef HAVE_SCRIPTING
 
@@ -18,6 +21,13 @@
  */
 void bgp_script_init(void);
 
+<<<<<<< HEAD
+=======
+/* Forward references */
+struct peer;
+struct attr;
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 void lua_pushpeer(lua_State *L, const struct peer *peer);
 
 void lua_pushattr(lua_State *L, const struct attr *attr);

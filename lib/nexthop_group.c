@@ -70,10 +70,17 @@ static struct nexthop *nexthop_group_tail(const struct nexthop_group *nhg)
 	return nexthop;
 }
 
+<<<<<<< HEAD
 uint8_t nexthop_group_nexthop_num(const struct nexthop_group *nhg)
 {
 	struct nexthop *nhop;
 	uint8_t num = 0;
+=======
+uint16_t nexthop_group_nexthop_num(const struct nexthop_group *nhg)
+{
+	struct nexthop *nhop;
+	uint16_t num = 0;
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 	for (ALL_NEXTHOPS_PTR(nhg, nhop))
 		num++;
@@ -81,11 +88,18 @@ uint8_t nexthop_group_nexthop_num(const struct nexthop_group *nhg)
 	return num;
 }
 
+<<<<<<< HEAD
 static uint8_t
 nexthop_group_nexthop_num_no_recurse(const struct nexthop_group *nhg)
 {
 	struct nexthop *nhop;
 	uint8_t num = 0;
+=======
+static uint16_t nexthop_group_nexthop_num_no_recurse(const struct nexthop_group *nhg)
+{
+	struct nexthop *nhop;
+	uint16_t num = 0;
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 	for (nhop = nhg->nexthop; nhop; nhop = nhop->next)
 		num++;
@@ -93,10 +107,17 @@ nexthop_group_nexthop_num_no_recurse(const struct nexthop_group *nhg)
 	return num;
 }
 
+<<<<<<< HEAD
 uint8_t nexthop_group_active_nexthop_num(const struct nexthop_group *nhg)
 {
 	struct nexthop *nhop;
 	uint8_t num = 0;
+=======
+uint16_t nexthop_group_active_nexthop_num(const struct nexthop_group *nhg)
+{
+	struct nexthop *nhop;
+	uint16_t num = 0;
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 	for (ALL_NEXTHOPS_PTR(nhg, nhop)) {
 		if (CHECK_FLAG(nhop->flags, NEXTHOP_FLAG_ACTIVE))
@@ -184,11 +205,17 @@ static struct nexthop *nhg_nh_find(const struct nexthop_group *nhg,
 	return NULL;
 }
 
+<<<<<<< HEAD
 static bool
 nexthop_group_equal_common(const struct nexthop_group *nhg1,
 			   const struct nexthop_group *nhg2,
 			   uint8_t (*nexthop_group_nexthop_num_func)(
 				   const struct nexthop_group *nhg))
+=======
+static bool nexthop_group_equal_common(
+	const struct nexthop_group *nhg1, const struct nexthop_group *nhg2,
+	uint16_t (*nexthop_group_nexthop_num_func)(const struct nexthop_group *nhg))
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 {
 	if (nhg1 && !nhg2)
 		return false;

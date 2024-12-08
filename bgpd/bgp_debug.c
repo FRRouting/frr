@@ -50,7 +50,10 @@ unsigned long conf_bgp_debug_keepalive;
 unsigned long conf_bgp_debug_update;
 unsigned long conf_bgp_debug_bestpath;
 unsigned long conf_bgp_debug_zebra;
+<<<<<<< HEAD
 unsigned long conf_bgp_debug_allow_martians;
+=======
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 unsigned long conf_bgp_debug_nht;
 unsigned long conf_bgp_debug_update_groups;
 unsigned long conf_bgp_debug_vpn;
@@ -71,7 +74,10 @@ unsigned long term_bgp_debug_keepalive;
 unsigned long term_bgp_debug_update;
 unsigned long term_bgp_debug_bestpath;
 unsigned long term_bgp_debug_zebra;
+<<<<<<< HEAD
 unsigned long term_bgp_debug_allow_martians;
+=======
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 unsigned long term_bgp_debug_nht;
 unsigned long term_bgp_debug_update_groups;
 unsigned long term_bgp_debug_vpn;
@@ -116,6 +122,10 @@ static const struct message bgp_notify_msg[] = {
 	{BGP_NOTIFY_FSM_ERR, "Neighbor Events Error"},
 	{BGP_NOTIFY_CEASE, "Cease"},
 	{BGP_NOTIFY_ROUTE_REFRESH_ERR, "ROUTE-REFRESH Message Error"},
+<<<<<<< HEAD
+=======
+	{BGP_NOTIFY_SEND_HOLD_ERR, "Send Hold Timer Expired"},
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	{0}};
 
 static const struct message bgp_notify_head_msg[] = {
@@ -450,6 +460,13 @@ bool bgp_dump_attr(struct attr *attr, char *buf, size_t size)
 			 ", extcommunity %s",
 			 ecommunity_str(bgp_attr_get_ecommunity(attr)));
 
+<<<<<<< HEAD
+=======
+	if (CHECK_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_IPV6_EXT_COMMUNITIES)))
+		snprintf(buf + strlen(buf), size - strlen(buf), ", ipv6-extcommunity %s",
+			 ecommunity_str(bgp_attr_get_ipv6_ecommunity(attr)));
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	if (CHECK_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_ATOMIC_AGGREGATE)))
 		snprintf(buf + strlen(buf), size - strlen(buf),
 			 ", atomic-aggregate");
@@ -515,6 +532,10 @@ const char *bgp_notify_subcode_str(char code, char subcode)
 		return lookup_msg(bgp_notify_update_msg, subcode,
 				  "Unrecognized Error Subcode");
 	case BGP_NOTIFY_HOLD_ERR:
+<<<<<<< HEAD
+=======
+	case BGP_NOTIFY_SEND_HOLD_ERR:
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		break;
 	case BGP_NOTIFY_FSM_ERR:
 		return lookup_msg(bgp_notify_fsm_msg, subcode,
@@ -2163,7 +2184,10 @@ DEFUN (no_debug_bgp,
 	TERM_DEBUG_OFF(as4, AS4_SEGMENT);
 	TERM_DEBUG_OFF(neighbor_events, NEIGHBOR_EVENTS);
 	TERM_DEBUG_OFF(zebra, ZEBRA);
+<<<<<<< HEAD
 	TERM_DEBUG_OFF(allow_martians, ALLOW_MARTIANS);
+=======
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	TERM_DEBUG_OFF(nht, NHT);
 	TERM_DEBUG_OFF(vpn, VPN_LEAK_FROM_VRF);
 	TERM_DEBUG_OFF(vpn, VPN_LEAK_TO_VRF);
@@ -2239,9 +2263,12 @@ DEFUN_NOSH (show_debugging_bgp,
 	if (BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
 		vty_out(vty, "  BGP graceful-restart debugging is on\n");
 
+<<<<<<< HEAD
 	if (BGP_DEBUG(allow_martians, ALLOW_MARTIANS))
 		vty_out(vty, "  BGP allow martian next hop debugging is on\n");
 
+=======
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	if (BGP_DEBUG(vpn, VPN_LEAK_FROM_VRF))
 		vty_out(vty,
 			"  BGP route leak from vrf to vpn debugging is on\n");
@@ -2354,11 +2381,14 @@ static int bgp_config_write_debug(struct vty *vty)
 		}
 	}
 
+<<<<<<< HEAD
 	if (CONF_BGP_DEBUG(allow_martians, ALLOW_MARTIANS)) {
 		vty_out(vty, "debug bgp allow-martians\n");
 		write++;
 	}
 
+=======
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	if (CONF_BGP_DEBUG(vpn, VPN_LEAK_FROM_VRF)) {
 		vty_out(vty, "debug bgp vpn leak-from-vrf\n");
 		write++;
@@ -2567,7 +2597,11 @@ static int bgp_debug_per_prefix(const struct prefix *p,
 	struct bgp_debug_filter *filter;
 	struct listnode *node, *nnode;
 
+<<<<<<< HEAD
 	if (term_bgp_debug_type & BGP_DEBUG_TYPE) {
+=======
+	if (CHECK_FLAG(term_bgp_debug_type, BGP_DEBUG_TYPE)) {
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		/* We are debugging all prefixes so return true */
 		if (!per_prefix_list || list_isempty(per_prefix_list))
 			return 1;
@@ -2600,7 +2634,11 @@ static bool bgp_debug_per_peer(char *host, const struct prefix *p,
 	struct bgp_debug_filter *filter;
 	struct listnode *node, *nnode;
 
+<<<<<<< HEAD
 	if (term_bgp_debug_type & BGP_DEBUG_TYPE) {
+=======
+	if (CHECK_FLAG(term_bgp_debug_type, BGP_DEBUG_TYPE)) {
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		/* We are debugging all peers so return true */
 		if (!per_peer_list || list_isempty(per_peer_list))
 			return true;
@@ -2722,7 +2760,11 @@ bool bgp_debug_zebra(const struct prefix *p)
 const char *bgp_debug_rdpfxpath2str(afi_t afi, safi_t safi,
 				    const struct prefix_rd *prd,
 				    union prefixconstptr pu,
+<<<<<<< HEAD
 				    mpls_label_t *label, uint32_t num_labels,
+=======
+				    mpls_label_t *label, uint8_t num_labels,
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 				    int addpath_valid, uint32_t addpath_id,
 				    struct bgp_route_evpn *overlay_index,
 				    char *str, int size)

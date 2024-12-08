@@ -113,11 +113,17 @@ struct community_list_handler {
 };
 
 /* Error code of community-list.  */
+<<<<<<< HEAD
 #define COMMUNITY_LIST_ERR_CANT_FIND_LIST        -1
 #define COMMUNITY_LIST_ERR_MALFORMED_VAL         -2
 #define COMMUNITY_LIST_ERR_STANDARD_CONFLICT     -3
 #define COMMUNITY_LIST_ERR_EXPANDED_CONFLICT     -4
 
+=======
+#define COMMUNITY_LIST_ERR_MALFORMED_VAL     -1
+#define COMMUNITY_LIST_ERR_STANDARD_CONFLICT -2
+#define COMMUNITY_LIST_ERR_EXPANDED_CONFLICT -3
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 /* Handler.  */
 extern struct community_list_handler *bgp_clist;
 
@@ -128,6 +134,7 @@ extern void community_list_terminate(struct community_list_handler *ch);
 extern int community_list_set(struct community_list_handler *ch,
 			      const char *name, const char *str,
 			      const char *seq, int direct, int style);
+<<<<<<< HEAD
 extern int community_list_unset(struct community_list_handler *ch,
 				const char *name, const char *str,
 				const char *seq, int direct, int style);
@@ -137,13 +144,30 @@ extern int extcommunity_list_set(struct community_list_handler *ch,
 extern int extcommunity_list_unset(struct community_list_handler *ch,
 				   const char *name, const char *str,
 				   const char *seq, int direct, int style);
+=======
+extern void community_list_unset(struct community_list_handler *ch,
+				 const char *name, const char *str,
+				 const char *seq, int direct, int style);
+extern int extcommunity_list_set(struct community_list_handler *ch,
+				 const char *name, const char *str,
+				 const char *seq, int direct, int style);
+extern void extcommunity_list_unset(struct community_list_handler *ch,
+				    const char *name, const char *str,
+				    const char *seq, int direct, int style);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 extern int lcommunity_list_set(struct community_list_handler *ch,
 			       const char *name, const char *str,
 			       const char *seq, int direct, int style);
 extern bool lcommunity_list_valid(const char *community, int style);
+<<<<<<< HEAD
 extern int lcommunity_list_unset(struct community_list_handler *ch,
 				 const char *name, const char *str,
 				 const char *seq, int direct, int style);
+=======
+extern void lcommunity_list_unset(struct community_list_handler *ch,
+				  const char *name, const char *str,
+				  const char *seq, int direct, int style);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 extern struct community_list_master *
 community_list_master_lookup(struct community_list_handler *ch, int master);

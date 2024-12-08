@@ -18,7 +18,11 @@ import pytest
 import json
 from functools import partial
 
+<<<<<<< HEAD
 pytestmark = pytest.mark.pimd
+=======
+pytestmark = [pytest.mark.pimd]
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 CWD = os.path.dirname(os.path.realpath(__file__))
 sys.path.append(os.path.join(CWD, "../"))
@@ -29,9 +33,12 @@ from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
 
 
+<<<<<<< HEAD
 pytestmark = [pytest.mark.pimd]
 
 
+=======
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 def build_topo(tgen):
     "Build function"
 
@@ -91,7 +98,11 @@ def setup_module(mod):
     # tgen.mininet_cli()
 
 
+<<<<<<< HEAD
 def teardown_module(mod):
+=======
+def teardown_module():
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
     "Teardown the pytest environment"
     tgen = get_topogen()
 
@@ -135,14 +146,24 @@ def test_pim_send_mcast_stream():
     # Let's establish a S,G stream from r2 -> r1
     CWD = os.path.dirname(os.path.realpath(__file__))
     r2.run(
+<<<<<<< HEAD
         "{}/mcast-tx.py --ttl 5 --count 40 --interval 2 229.1.1.1 r2-eth0 > /tmp/bar".format(
             CWD
+=======
+        "{}/mcast-tx.py --ttl 5 --count 40 --interval 2 229.1.1.1 r2-eth0 > {}/r2/mcast_tx_output".format(
+            CWD, tgen.logdir
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
         )
     )
     # And from r3 -> r1
     r3.run(
+<<<<<<< HEAD
         "{}/mcast-tx.py --ttl 5 --count 40 --interval 2 229.1.1.1 r3-eth0 > /tmp/bar".format(
             CWD
+=======
+        "{}/mcast-tx.py --ttl 5 --count 40 --interval 2 229.1.1.1 r3-eth0 > {}/r3/mcast_tx_output".format(
+            CWD, tgen.logdir
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
         )
     )
 

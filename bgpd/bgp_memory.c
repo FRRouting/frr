@@ -91,6 +91,10 @@ DEFINE_MTYPE(BGPD, PEER_UPDATE_SOURCE, "BGP peer update interface");
 DEFINE_MTYPE(BGPD, PEER_CONF_IF, "BGP peer config interface");
 DEFINE_MTYPE(BGPD, BGP_DAMP_INFO, "Dampening info");
 DEFINE_MTYPE(BGPD, BGP_DAMP_ARRAY, "BGP Dampening array");
+<<<<<<< HEAD
+=======
+DEFINE_MTYPE(BGPD, BGP_DAMP_REUSELIST, "BGP Dampening reuse list");
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 DEFINE_MTYPE(BGPD, BGP_REGEXP, "BGP regexp");
 DEFINE_MTYPE(BGPD, BGP_AGGREGATE, "BGP aggregate");
 DEFINE_MTYPE(BGPD, BGP_ADDR, "BGP own address");
@@ -101,6 +105,11 @@ DEFINE_MTYPE(BGPD, BGP_FILTER_NAME, "BGP Filter Information");
 DEFINE_MTYPE(BGPD, BGP_DUMP_STR, "BGP Dump String Information");
 DEFINE_MTYPE(BGPD, ENCAP_TLV, "ENCAP TLV");
 
+<<<<<<< HEAD
+=======
+DEFINE_MTYPE(BGPD, BGP_LABELS, "BGP LABELS");
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 DEFINE_MTYPE(BGPD, BGP_TEA_OPTIONS, "BGP TEA Options");
 DEFINE_MTYPE(BGPD, BGP_TEA_OPTIONS_VALUE, "BGP TEA Options Value");
 
@@ -132,3 +141,8 @@ DEFINE_MTYPE(BGPD, EVPN_REMOTE_IP, "BGP EVPN Remote IP hash entry");
 DEFINE_MTYPE(BGPD, BGP_NOTIFICATION, "BGP Notification Message");
 
 DEFINE_MTYPE(BGPD, BGP_SOFT_VERSION, "Software Version");
+<<<<<<< HEAD
+=======
+
+DEFINE_MTYPE(BGPD, BGP_EVPN_OVERLAY, "BGP EVPN Overlay");
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)

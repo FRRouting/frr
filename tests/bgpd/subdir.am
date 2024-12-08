@@ -52,6 +52,7 @@ tests_bgpd_test_mp_attr_LDADD = $(BGP_TEST_LDADD)
 tests_bgpd_test_mp_attr_SOURCES = tests/bgpd/test_mp_attr.c
 EXTRA_DIST += tests/bgpd/test_mp_attr.py
 
+<<<<<<< HEAD
 
 if BGPD
 check_PROGRAMS += tests/bgpd/test_mpath
@@ -63,6 +64,8 @@ tests_bgpd_test_mpath_SOURCES = tests/bgpd/test_mpath.c
 EXTRA_DIST += tests/bgpd/test_mpath.py
 
 
+=======
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 if BGPD
 check_PROGRAMS += tests/bgpd/test_packet
 endif

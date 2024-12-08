@@ -26,6 +26,10 @@
 #include "routemap.h"
 #include "routing_nb.h"
 #include "mgmt_be_client.h"
+<<<<<<< HEAD
+=======
+#include "libagentx.h"
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 #include "zebra/zebra_router.h"
 #include "zebra/zebra_errors.h"
@@ -53,6 +57,11 @@
 
 #define ZEBRA_PTM_SUPPORT
 
+<<<<<<< HEAD
+=======
+char *zserv_path;
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 /* process id. */
 pid_t pid;
 
@@ -64,8 +73,11 @@ struct mgmt_be_client *mgmt_be_client;
 /* Route retain mode flag. */
 int retain_mode = 0;
 
+<<<<<<< HEAD
 int graceful_restart;
 
+=======
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 /* Receive buffer size for kernel control sockets */
 #define RCVBUFSIZE_MIN 4194304
 #ifdef HAVE_NETLINK
@@ -87,7 +99,10 @@ const struct option longopts[] = {
 	{ "socket", required_argument, NULL, 'z' },
 	{ "ecmp", required_argument, NULL, 'e' },
 	{ "retain", no_argument, NULL, 'r' },
+<<<<<<< HEAD
 	{ "graceful_restart", required_argument, NULL, 'K' },
+=======
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	{ "asic-offload", optional_argument, NULL, OPTION_ASIC_OFFLOAD },
 	{ "v6-with-v4-nexthops", no_argument, NULL, OPTION_V6_WITH_V4_NEXTHOP },
 #ifdef HAVE_NETLINK
@@ -95,7 +110,11 @@ const struct option longopts[] = {
 	{ "nl-bufsize", required_argument, NULL, 's' },
 	{ "v6-rr-semantics", no_argument, NULL, OPTION_V6_RR_SEMANTICS },
 #endif /* HAVE_NETLINK */
+<<<<<<< HEAD
 	{"routing-table", optional_argument, NULL, 'R'},
+=======
+	{ "routing-table", optional_argument, NULL, 'R' },
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	{ 0 }
 };
 
@@ -203,6 +222,10 @@ static void sigint(void)
 	rib_update_finish();
 
 	list_delete(&zrouter.client_list);
+<<<<<<< HEAD
+=======
+	list_delete(&zrouter.stale_client_list);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 	/*
 	 * Besides other clean-ups zebra's vrf_disable() also enqueues installed
@@ -315,18 +338,57 @@ FRR_DAEMON_INFO(zebra, ZEBRA,
 );
 /* clang-format on */
 
+<<<<<<< HEAD
+=======
+void zebra_main_router_started(void)
+{
+	/*
+	 * Clean up zebra-originated routes. The requests will be sent to OS
+	 * immediately, so originating PID in notifications from kernel
+	 * will be equal to the current getpid(). To know about such routes,
+	 * we have to have route_read() called before.
+	 * If FRR is gracefully restarting, we either wait for clients
+	 * (e.g., BGP) to signal GR is complete else we wait for specified
+	 * duration.
+	 */
+	zrouter.startup_time = monotime(NULL);
+	zrouter.rib_sweep_time = 0;
+	zrouter.graceful_restart = zebra_di.graceful_restart;
+	if (!zrouter.graceful_restart)
+		event_add_timer(zrouter.master, rib_sweep_route, NULL, 0, NULL);
+	else {
+		int gr_cleanup_time;
+
+		gr_cleanup_time = zebra_di.gr_cleanup_time ? zebra_di.gr_cleanup_time
+							   : ZEBRA_GR_DEFAULT_RIB_SWEEP_TIME;
+		event_add_timer(zrouter.master, rib_sweep_route, NULL, gr_cleanup_time,
+				&zrouter.t_rib_sweep);
+	}
+
+	zserv_start(zserv_path);
+}
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 /* Main startup routine. */
 int main(int argc, char **argv)
 {
 	// int batch_mode = 0;
+<<<<<<< HEAD
 	char *zserv_path = NULL;
+=======
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	struct sockaddr_storage dummy;
 	socklen_t dummylen;
 	bool asic_offload = false;
 	bool v6_with_v4_nexthop = false;
 	bool notify_on_ack = true;
 
+<<<<<<< HEAD
 	graceful_restart = 0;
+=======
+	zserv_path = NULL;
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	vrf_configure_backend(VRF_BACKEND_VRF_LITE);
 
 	frr_preinit(&zebra_di, argc, argv);
@@ -342,7 +404,10 @@ int main(int argc, char **argv)
 		    "  -z, --socket              Set path of zebra socket\n"
 		    "  -e, --ecmp                Specify ECMP to use.\n"
 		    "  -r, --retain              When program terminates, retain added route by zebra.\n"
+<<<<<<< HEAD
 		    "  -K, --graceful_restart    Graceful restart at the kernel level, timer in seconds for expiration\n"
+=======
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		    "  -A, --asic-offload        FRR is interacting with an asic underneath the linux kernel\n"
 		    "      --v6-with-v4-nexthops Underlying dataplane supports v6 routes with v4 nexthops\n"
 #ifdef HAVE_NETLINK
@@ -352,8 +417,12 @@ int main(int argc, char **argv)
 #else
 		    "  -s,                       Set kernel socket receive buffer size\n"
 #endif /* HAVE_NETLINK */
+<<<<<<< HEAD
 		    "  -R, --routing-table       Set kernel routing table\n"
 	);
+=======
+		    "  -R, --routing-table       Set kernel routing table\n");
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 	while (1) {
 		int opt = frr_getopt(argc, argv, NULL);
@@ -397,9 +466,12 @@ int main(int argc, char **argv)
 		case 'r':
 			retain_mode = 1;
 			break;
+<<<<<<< HEAD
 		case 'K':
 			graceful_restart = atoi(optarg);
 			break;
+=======
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		case 's':
 			rcvbufsize = atoi(optarg);
 			if (rcvbufsize < RCVBUFSIZE_MIN)
@@ -436,6 +508,10 @@ int main(int argc, char **argv)
 	zrouter.master = frr_init();
 
 	/* Zebra related initialize. */
+<<<<<<< HEAD
+=======
+	libagentx_init();
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	zebra_router_init(asic_offload, notify_on_ack, v6_with_v4_nexthop);
 	zserv_init();
 	zebra_rib_init();
@@ -484,6 +560,7 @@ int main(int argc, char **argv)
 	*/
 	frr_config_fork();
 
+<<<<<<< HEAD
 	/* After we have successfully acquired the pidfile, we can be sure
 	*  about being the only copy of zebra process, which is submitting
 	*  changes to the FIB.
@@ -495,6 +572,13 @@ int main(int argc, char **argv)
 	zrouter.startup_time = monotime(NULL);
 	event_add_timer(zrouter.master, rib_sweep_route, NULL, graceful_restart,
 			&zrouter.sweeper);
+=======
+	/*
+	 * After we have successfully acquired the pidfile, we can be sure
+	 * about being the only copy of zebra process, which is submitting
+	 * changes to the FIB.
+	 */
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 	/* Needed for BSD routing socket. */
 	pid = getpid();
@@ -505,9 +589,12 @@ int main(int argc, char **argv)
 	/* Start the ted module, before zserv */
 	zebra_opaque_start();
 
+<<<<<<< HEAD
 	/* Start Zebra API server */
 	zserv_start(zserv_path);
 
+=======
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	/* Init label manager */
 	label_manager_init();
 

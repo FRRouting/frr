@@ -504,7 +504,11 @@ static void bgp_accept(struct event *thread)
 			bgp_fsm_change_status(connection1, Active);
 			EVENT_OFF(connection1->t_start);
 
+<<<<<<< HEAD
 			if (peer_active(peer1)) {
+=======
+			if (peer_active(peer1->connection)) {
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 				if (CHECK_FLAG(peer1->flags,
 					       PEER_FLAG_TIMER_DELAYOPEN))
 					BGP_EVENT_ADD(connection1,
@@ -557,7 +561,11 @@ static void bgp_accept(struct event *thread)
 	}
 
 	/* Check that at least one AF is activated for the peer. */
+<<<<<<< HEAD
 	if (!peer_active(peer1)) {
+=======
+	if (!peer_active(connection1)) {
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		if (bgp_debug_neighbor_events(peer1))
 			zlog_debug(
 				"%s - incoming conn rejected - no AF activated for peer",
@@ -658,7 +666,11 @@ static void bgp_accept(struct event *thread)
 		bgp_event_update(connection1, TCP_connection_closed);
 	}
 
+<<<<<<< HEAD
 	if (peer_active(peer)) {
+=======
+	if (peer_active(peer->connection)) {
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		if (CHECK_FLAG(peer->flags, PEER_FLAG_TIMER_DELAYOPEN))
 			BGP_EVENT_ADD(connection, TCP_connection_open_w_delay);
 		else
@@ -762,7 +774,11 @@ static int bgp_update_source(struct peer_connection *connection)
 }
 
 /* BGP try to connect to the peer.  */
+<<<<<<< HEAD
 int bgp_connect(struct peer_connection *connection)
+=======
+enum connect_result bgp_connect(struct peer_connection *connection)
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 {
 	struct peer *peer = connection->peer;
 
@@ -773,7 +789,11 @@ int bgp_connect(struct peer_connection *connection)
 	if (peer->conf_if && BGP_CONNECTION_SU_UNSPEC(connection)) {
 		if (bgp_debug_neighbor_events(peer))
 			zlog_debug("Peer address not learnt: Returning from connect");
+<<<<<<< HEAD
 		return 0;
+=======
+		return connect_error;
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	}
 	frr_with_privs(&bgpd_privs) {
 		/* Make socket for the peer. */
@@ -787,7 +807,11 @@ int bgp_connect(struct peer_connection *connection)
 			zlog_debug("%s: Failure to create socket for connection to %s, error received: %s(%d)",
 				   __func__, peer->host, safe_strerror(errno),
 				   errno);
+<<<<<<< HEAD
 		return -1;
+=======
+		return connect_error;
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	}
 
 	set_nonblocking(connection->fd);
@@ -808,7 +832,11 @@ int bgp_connect(struct peer_connection *connection)
 				   __func__, peer->host, safe_strerror(errno),
 				   errno);
 
+<<<<<<< HEAD
 		return -1;
+=======
+		return connect_error;
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	}
 
 	sockopt_reuseaddr(connection->fd);
@@ -817,9 +845,15 @@ int bgp_connect(struct peer_connection *connection)
 #ifdef IPTOS_PREC_INTERNETCONTROL
 	frr_with_privs(&bgpd_privs) {
 		if (sockunion_family(&connection->su) == AF_INET)
+<<<<<<< HEAD
 			setsockopt_ipv4_tos(connection->fd, bm->tcp_dscp);
 		else if (sockunion_family(&connection->su) == AF_INET6)
 			setsockopt_ipv6_tclass(connection->fd, bm->tcp_dscp);
+=======
+			setsockopt_ipv4_tos(connection->fd, bm->ip_tos);
+		else if (sockunion_family(&connection->su) == AF_INET6)
+			setsockopt_ipv6_tclass(connection->fd, bm->ip_tos);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	}
 #endif
 
@@ -844,7 +878,11 @@ int bgp_connect(struct peer_connection *connection)
 	/* If the peer is passive mode, force to move to Active mode. */
 	if (CHECK_FLAG(peer->flags, PEER_FLAG_PASSIVE)) {
 		BGP_EVENT_ADD(connection, TCP_connection_open_failed);
+<<<<<<< HEAD
 		return BGP_FSM_SUCCESS;
+=======
+		return connect_error;
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	}
 
 	if (peer->conf_if || peer->ifname)
@@ -861,8 +899,12 @@ int bgp_connect(struct peer_connection *connection)
 				 htons(peer->port), ifindex);
 }
 
+<<<<<<< HEAD
 /* After TCP connection is established.  Get local address and port. */
 int bgp_getsockname(struct peer *peer)
+=======
+void bgp_updatesockname(struct peer *peer, struct peer_connection *connection)
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 {
 	if (peer->su_local) {
 		sockunion_free(peer->su_local);
@@ -874,8 +916,21 @@ int bgp_getsockname(struct peer *peer)
 		peer->su_remote = NULL;
 	}
 
+<<<<<<< HEAD
 	peer->su_local = sockunion_getsockname(peer->connection->fd);
 	peer->su_remote = sockunion_getpeername(peer->connection->fd);
+=======
+	peer->su_local = sockunion_getsockname(connection->fd);
+	peer->su_remote = sockunion_getpeername(connection->fd);
+}
+
+/* After TCP connection is established.  Get local address and port. */
+int bgp_getsockname(struct peer_connection *connection)
+{
+	struct peer *peer = connection->peer;
+
+	bgp_updatesockname(peer, peer->connection);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 	if (!bgp_zebra_nexthop_set(peer->su_local, peer->su_remote,
 				   &peer->nexthop, peer)) {
@@ -905,9 +960,15 @@ static int bgp_listener(int sock, struct sockaddr *sa, socklen_t salen,
 
 #ifdef IPTOS_PREC_INTERNETCONTROL
 		if (sa->sa_family == AF_INET)
+<<<<<<< HEAD
 			setsockopt_ipv4_tos(sock, bm->tcp_dscp);
 		else if (sa->sa_family == AF_INET6)
 			setsockopt_ipv6_tclass(sock, bm->tcp_dscp);
+=======
+			setsockopt_ipv4_tos(sock, bm->ip_tos);
+		else if (sa->sa_family == AF_INET6)
+			setsockopt_ipv6_tclass(sock, bm->ip_tos);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 #endif
 
 		sockopt_v6only(sa->sa_family, sock);

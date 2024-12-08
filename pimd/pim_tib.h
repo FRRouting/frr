@@ -16,5 +16,11 @@ extern bool tib_sg_gm_join(struct pim_instance *pim, pim_sgaddr sg,
 			   struct interface *oif, struct channel_oil **oilp);
 extern void tib_sg_gm_prune(struct pim_instance *pim, pim_sgaddr sg,
 			    struct interface *oif, struct channel_oil **oilp);
+<<<<<<< HEAD
+=======
+extern void tib_sg_proxy_join_prune_check(struct pim_instance *pim,
+					  pim_sgaddr sg, struct interface *oif,
+					  bool join);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 #endif /* _FRR_PIM_GLUE_H */

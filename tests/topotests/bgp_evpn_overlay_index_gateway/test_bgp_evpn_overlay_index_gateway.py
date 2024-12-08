@@ -179,7 +179,11 @@ def setup_module(mod):
         pe.cmd_raises("sysctl -w net.ipv4.tcp_l3mdev_accept={}".format(l3mdev_accept))
 
     # For all registered routers, load the zebra configuration file
+<<<<<<< HEAD
     for (name, router) in tgen.routers().items():
+=======
+    for name, router in tgen.routers().items():
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
         router.load_config(
             TopoRouter.RD_ZEBRA, os.path.join(CWD, "{}/zebra.conf".format(name))
         )
@@ -230,18 +234,30 @@ def evpn_gateway_ip_show_op_check(trigger=" "):
         "zebra_vrf_ipv6": "show ipv6 route vrf vrf-blue json",
     }
 
+<<<<<<< HEAD
     for (name, pe) in tgen.gears.items():
         if name not in PES:
             continue
 
         for (cmd_key, command) in show_commands.items():
+=======
+    for name, pe in tgen.gears.items():
+        if name not in PES:
+            continue
+
+        for cmd_key, command in show_commands.items():
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
             expected_op_file = "{0}/{1}/{2}_{3}.json".format(
                 CWD, name, cmd_key, trigger
             )
             expected_op = json.loads(open(expected_op_file).read())
 
             test_func = partial(topotest.router_json_cmp, pe, command, expected_op)
+<<<<<<< HEAD
             ret, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
+=======
+            _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
             assertmsg = '"{0}" JSON output mismatch for {1}'.format(name, command)
             if result is not None:
                 return result, assertmsg

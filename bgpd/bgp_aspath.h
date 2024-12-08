@@ -59,6 +59,10 @@ struct aspath {
 	   and AS path regular expression match.  */
 	char *str;
 	unsigned short str_len;
+<<<<<<< HEAD
+=======
+	uint32_t count;
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 	/* AS notation used by string expression of AS path */
 	enum asnotation_mode asnotation;

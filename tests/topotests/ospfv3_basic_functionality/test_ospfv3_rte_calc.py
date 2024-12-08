@@ -45,7 +45,10 @@ from lib.ospf import (
     verify_ospf6_neighbor,
     clear_ospf,
     verify_ospf6_rib,
+<<<<<<< HEAD
     verify_ospf_database,
+=======
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
     create_router_ospf,
     config_ospf6_interface,
     verify_ospf6_interface,
@@ -127,7 +130,11 @@ def setup_module(mod):
     logger.info("Running setup_module() done")
 
 
+<<<<<<< HEAD
 def teardown_module(mod):
+=======
+def teardown_module():
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
     """
     Teardown the pytest environment.
 
@@ -262,7 +269,11 @@ def test_ospfv3_redistribution_tc5_p0(request):
 
     step("verify intra area route is calculated for r0-r3 interface ip in R1")
     ip = topo["routers"]["r0"]["links"]["r3"]["ipv6"]
+<<<<<<< HEAD
     ip_net = str(ipaddress.ip_interface(u"{}".format(ip)).network)
+=======
+    ip_net = str(ipaddress.ip_interface("{}".format(ip)).network)
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
     llip = get_llip("r0", "r1")
     assert llip is not None, "Testcase {} : Failed \n Error: {}".format(tc_name, llip)
@@ -379,7 +390,11 @@ def test_ospfv3_redistribution_tc6_p0(request):
 
     step("verify intra area route is calculated for r0-r3 interface ip in R1")
     ip = topo["routers"]["r0"]["links"]["r3"]["ipv6"]
+<<<<<<< HEAD
     ip_net = str(ipaddress.ip_interface(u"{}".format(ip)).network)
+=======
+    ip_net = str(ipaddress.ip_interface("{}".format(ip)).network)
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
     llip = get_llip("r0", "r1")
     assert llip is not None, "Testcase {} : Failed \n Error: {}".format(tc_name, llip)
     nh = llip

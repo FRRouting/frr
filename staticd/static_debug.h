@@ -29,6 +29,7 @@ extern struct debug static_dbg_bfd;
 void static_debug_init(void);
 
 /*
+<<<<<<< HEAD
  * Print staticd debugging configuration.
  *
  * vty
@@ -45,6 +46,8 @@ int static_config_write_debug(struct vty *vty);
 int static_debug_status_write(struct vty *vty);
 
 /*
+=======
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
  * Set debugging status.
  *
  * vtynode

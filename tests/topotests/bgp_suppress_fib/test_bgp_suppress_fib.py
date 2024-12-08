@@ -15,7 +15,10 @@ import sys
 import json
 import pytest
 from functools import partial
+<<<<<<< HEAD
 from time import sleep
+=======
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 from lib.topolog import logger
 
 CWD = os.path.dirname(os.path.realpath(__file__))
@@ -47,7 +50,11 @@ def setup_module(mod):
 
     router_list = tgen.routers()
 
+<<<<<<< HEAD
     for i, (rname, router) in enumerate(router_list.items(), 1):
+=======
+    for _, (rname, router) in enumerate(router_list.items(), 1):
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
         router.load_config(
             TopoRouter.RD_ZEBRA, os.path.join(CWD, "{}/zebra.conf".format(rname))
         )
@@ -217,6 +224,10 @@ def test_bgp_allow_as_in():
     assertmsg = '"r2" 192.168.1.1/32 route should be gone'
     assert result is None, assertmsg
 
+<<<<<<< HEAD
+=======
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 def test_local_vs_non_local():
     tgen = get_topogen()
 
@@ -229,7 +240,11 @@ def test_local_vs_non_local():
     paths = output["paths"]
     for i in range(len(paths)):
         if "fibPending" in paths[i]:
+<<<<<<< HEAD
             assert(False),  "Route 60.0.0.0/24 should not have fibPending"
+=======
+            assert False, "Route 60.0.0.0/24 should not have fibPending"
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 
 if __name__ == "__main__":

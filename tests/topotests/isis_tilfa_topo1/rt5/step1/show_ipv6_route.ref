@@ -12,7 +12,11 @@
         {
           "fib":true,
           "afi":"ipv6",
+<<<<<<< HEAD
           "interfaceName":"eth-rt3-2",
+=======
+          "interfaceName":"eth-rt3-1",
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
           "active":true,
           "backupIndex":[
             0
@@ -24,7 +28,11 @@
         {
           "fib":true,
           "afi":"ipv6",
+<<<<<<< HEAD
           "interfaceName":"eth-rt3-1",
+=======
+          "interfaceName":"eth-rt3-2",
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
           "active":true,
           "backupIndex":[
             0
@@ -59,7 +67,11 @@
         {
           "fib":true,
           "afi":"ipv6",
+<<<<<<< HEAD
           "interfaceName":"eth-rt4",
+=======
+          "interfaceName":"eth-rt3-1",
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
           "active":true,
           "labels":[
             16021
@@ -77,7 +89,11 @@
         {
           "fib":true,
           "afi":"ipv6",
+<<<<<<< HEAD
           "interfaceName":"eth-rt3-1",
+=======
+          "interfaceName":"eth-rt4",
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
           "active":true,
           "labels":[
             16021
@@ -99,7 +115,11 @@
         {
           "fib":true,
           "afi":"ipv6",
+<<<<<<< HEAD
           "interfaceName":"eth-rt3-2",
+=======
+          "interfaceName":"eth-rt3-1",
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
           "active":true,
           "backupIndex":[
             0
@@ -111,7 +131,11 @@
         {
           "fib":true,
           "afi":"ipv6",
+<<<<<<< HEAD
           "interfaceName":"eth-rt3-1",
+=======
+          "interfaceName":"eth-rt3-2",
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
           "active":true,
           "backupIndex":[
             0

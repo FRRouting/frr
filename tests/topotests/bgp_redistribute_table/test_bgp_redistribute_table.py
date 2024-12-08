@@ -86,7 +86,11 @@ def _router_json_cmp_exact_filter(router, cmd, expected):
     json_output = json.loads(output)
 
     # filter out tableVersion, version, nhVrfId and vrfId
+<<<<<<< HEAD
     for route, attrs in json_output.items():
+=======
+    for _, attrs in json_output.items():
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
         for attr in attrs:
             if "table" in attr:
                 attr.pop("table")

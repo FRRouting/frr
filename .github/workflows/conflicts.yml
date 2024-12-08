@@ -1,9 +1,14 @@
 name: Add a conflict label if PR needs to rebase
 
 on:
+<<<<<<< HEAD
   push:
   pull_request_target:
     types: [synchronize]
+=======
+  pull_request_target:
+    types: [opened, reopened, synchronize]
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 jobs:
   conflicts:

@@ -59,7 +59,11 @@ char config_default[512];
 char frr_zclientpath[512];
 static char pidfile_default[1024];
 #ifdef HAVE_SQLITE3
+<<<<<<< HEAD
 static char dbfile_default[512];
+=======
+static char dbfile_default[1024];
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 #endif
 static char vtypath_default[512];
 
@@ -102,6 +106,7 @@ static void opt_extend(const struct optspec *os)
 #define OPTION_SCRIPTDIR 1009
 
 static const struct option lo_always[] = {
+<<<<<<< HEAD
 	{"help", no_argument, NULL, 'h'},
 	{"version", no_argument, NULL, 'v'},
 	{"daemon", no_argument, NULL, 'd'},
@@ -119,6 +124,27 @@ static const struct option lo_always[] = {
 	{NULL}};
 static const struct optspec os_always = {
 	"hvdM:F:N:o:",
+=======
+	{ "help", no_argument, NULL, 'h' },
+	{ "version", no_argument, NULL, 'v' },
+	{ "daemon", no_argument, NULL, 'd' },
+	{ "module", no_argument, NULL, 'M' },
+	{ "profile", required_argument, NULL, 'F' },
+	{ "pathspace", required_argument, NULL, 'N' },
+	{ "vrfdefaultname", required_argument, NULL, 'o' },
+	{ "graceful_restart", optional_argument, NULL, 'K' },
+	{ "vty_socket", required_argument, NULL, OPTION_VTYSOCK },
+	{ "moduledir", required_argument, NULL, OPTION_MODULEDIR },
+	{ "scriptdir", required_argument, NULL, OPTION_SCRIPTDIR },
+	{ "log", required_argument, NULL, OPTION_LOG },
+	{ "log-level", required_argument, NULL, OPTION_LOGLEVEL },
+	{ "command-log-always", no_argument, NULL, OPTION_LOGGING },
+	{ "limit-fds", required_argument, NULL, OPTION_LIMIT_FDS },
+	{ NULL }
+};
+static const struct optspec os_always = {
+	"hvdM:F:N:o:K::",
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	"  -h, --help         Display this help and exit\n"
 	"  -v, --version      Print program version\n"
 	"  -d, --daemon       Runs in daemon mode\n"
@@ -126,13 +152,22 @@ static const struct optspec os_always = {
 	"  -F, --profile      Use specified configuration profile\n"
 	"  -N, --pathspace    Insert prefix into config & socket paths\n"
 	"  -o, --vrfdefaultname     Set default VRF name.\n"
+<<<<<<< HEAD
+=======
+	"  -K, --graceful_restart   FRR starting in Graceful Restart mode, with optional route-cleanup timer\n"
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	"      --vty_socket   Override vty socket path\n"
 	"      --moduledir    Override modules directory\n"
 	"      --scriptdir    Override scripts directory\n"
 	"      --log          Set Logging to stdout, syslog, or file:<name>\n"
 	"      --log-level    Set Logging Level to use, debug, info, warn, etc\n"
 	"      --limit-fds    Limit number of fds supported\n",
+<<<<<<< HEAD
 	lo_always};
+=======
+	lo_always
+};
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 static bool logging_to_stdout = false; /* set when --log stdout specified */
 
@@ -319,7 +354,16 @@ void frr_preinit(struct frr_daemon_info *daemon, int argc, char **argv)
 	char *p = strrchr(argv[0], '/');
 	di->progname = p ? p + 1 : argv[0];
 
+<<<<<<< HEAD
 	umask(0027);
+=======
+	if (!getenv("GCOV_PREFIX"))
+		umask(0027);
+	else {
+		/* If we are profiling use a more generous umask */
+		umask(0002);
+	}
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 	log_args_init(daemon->early_logging);
 
@@ -353,6 +397,11 @@ void frr_preinit(struct frr_daemon_info *daemon, int argc, char **argv)
 	strlcpy(frr_protonameinst, di->logname, sizeof(frr_protonameinst));
 
 	di->cli_mode = FRR_CLI_CLASSIC;
+<<<<<<< HEAD
+=======
+	di->graceful_restart = false;
+	di->gr_cleanup_time = 0;
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 	/* we may be starting with extra FDs open for whatever purpose,
 	 * e.g. logging, some module, etc.  Recording them here allows later
@@ -515,6 +564,14 @@ static int frr_opt(int opt)
 		di->db_file = optarg;
 		break;
 #endif
+<<<<<<< HEAD
+=======
+	case 'K':
+		di->graceful_restart = true;
+		if (optarg)
+			di->gr_cleanup_time = atoi(optarg);
+		break;
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	case 'C':
 		if (di->flags & FRR_NO_SPLIT_CONFIG)
 			return 1;
@@ -793,6 +850,10 @@ struct event_loop *frr_init(void)
 
 	vty_init(master, di->log_always);
 	lib_cmd_init();
+<<<<<<< HEAD
+=======
+	debug_init();
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 	frr_pthread_init();
 #ifdef HAVE_SCRIPTING
@@ -803,14 +864,22 @@ struct event_loop *frr_init(void)
 	log_ref_vty_init();
 	lib_error_init();
 
+<<<<<<< HEAD
 	nb_init(master, di->yang_modules, di->n_yang_modules, true);
+=======
+	nb_init(master, di->yang_modules, di->n_yang_modules, true,
+		(di->flags & FRR_LOAD_YANG_LIBRARY) != 0);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	if (nb_db_init() != NB_OK)
 		flog_warn(EC_LIB_NB_DATABASE,
 			  "%s: failed to initialize northbound database",
 			  __func__);
 
+<<<<<<< HEAD
 	debug_init_cli();
 
+=======
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	return master;
 }
 
@@ -1223,10 +1292,13 @@ void frr_early_fini(void)
 
 void frr_fini(void)
 {
+<<<<<<< HEAD
 	FILE *fp;
 	char filename[128];
 	int have_leftovers = 0;
 
+=======
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	hook_call(frr_fini);
 
 	vty_terminate();
@@ -1247,6 +1319,7 @@ void frr_fini(void)
 	event_master_free(master);
 	master = NULL;
 	zlog_tls_buffer_fini();
+<<<<<<< HEAD
 	zlog_fini();
 	/* frrmod_init -> nothing needed / hooks */
 	rcu_shutdown();
@@ -1271,6 +1344,29 @@ void frr_fini(void)
 		log_memstats(fp, di->name);
 		fclose(fp);
 	}
+=======
+
+	if (0) {
+		/* this is intentionally disabled.  zlog remains running until
+		 * exit(), so even the very last item done during shutdown can
+		 * have its zlog() messages written out.
+		 *
+		 * Yes this causes memory leaks.  They are explicitly marked
+		 * with DEFINE_MGROUP_ACTIVEATEXIT, which is only used for
+		 * log target memory allocations, and excluded from leak
+		 * reporting at shutdown.  This is strongly preferable over
+		 * just discarding error messages at shutdown.
+		 */
+		zlog_fini();
+	}
+
+	/* frrmod_init -> nothing needed / hooks */
+	rcu_shutdown();
+
+	frrmod_terminate();
+
+	log_memstats(di->name, debug_memstats_at_exit);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 }
 
 struct json_object *frr_daemon_state_load(void)
@@ -1445,7 +1541,34 @@ void _libfrr_version(void)
 	const char banner[] =
 		FRR_FULL_NAME " " FRR_VERSION ".\n"
 		FRR_COPYRIGHT GIT_INFO "\n"
+<<<<<<< HEAD
 		"configured with:\n    " FRR_CONFIG_ARGS "\n";
 	write(1, banner, sizeof(banner) - 1);
 	_exit(0);
 }
+=======
+#ifdef ENABLE_VERSION_BUILD_CONFIG
+		"configured with:\n    " FRR_CONFIG_ARGS "\n"
+#endif
+	;
+	write(1, banner, sizeof(banner) - 1);
+	_exit(0);
+}
+
+/* Render simple version tuple to string */
+const char *frr_vers2str(uint32_t version, char *buf, int buflen)
+{
+	snprintf(buf, buflen, "%d.%d.%d", MAJOR_FRRVERSION(version),
+		 MINOR_FRRVERSION(version), SUB_FRRVERSION(version));
+
+	return buf;
+}
+
+bool frr_is_daemon(void)
+{
+	if (di)
+		return true;
+
+	return false;
+}
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)

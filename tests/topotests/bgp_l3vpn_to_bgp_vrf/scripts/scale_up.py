@@ -70,7 +70,11 @@ else:
         "See all sharp routes in rib on ce1",
         wait,
         wait_time=10,
+<<<<<<< HEAD
         )
+=======
+    )
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
     luCommand(
         "ce2",
         'vtysh -c "show ip route summ" | grep "sharp" | cut -d " " -f 33',
@@ -79,7 +83,11 @@ else:
         "See all sharp routes in rib on ce2",
         wait,
         wait_time=10,
+<<<<<<< HEAD
         )
+=======
+    )
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
     rtrs = ["ce1", "ce2", "ce3"]
     for rtr in rtrs:

@@ -176,6 +176,14 @@ void isis_master_init(struct event_loop *master)
 	im->master = master;
 }
 
+<<<<<<< HEAD
+=======
+void isis_master_terminate(void)
+{
+	list_delete(&im->isis);
+}
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 struct isis *isis_new(const char *vrf_name)
 {
 	struct vrf *vrf;
@@ -272,7 +280,11 @@ void isis_area_del_circuit(struct isis_area *area, struct isis_circuit *circuit)
 	isis_csm_state_change(ISIS_DISABLE, circuit, area);
 }
 
+<<<<<<< HEAD
 static void delete_area_addr(void *arg)
+=======
+void isis_area_address_delete(void *arg)
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 {
 	struct iso_address *addr = (struct iso_address *)arg;
 
@@ -330,7 +342,11 @@ struct isis_area *isis_area_create(const char *area_tag, const char *vrf_name)
 	area->circuit_list = list_new();
 	area->adjacency_list = list_new();
 	area->area_addrs = list_new();
+<<<<<<< HEAD
 	area->area_addrs->del = delete_area_addr;
+=======
+	area->area_addrs->del = isis_area_address_delete;
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 	if (!CHECK_FLAG(im->options, F_ISIS_UNIT_TEST))
 		event_add_timer(master, lsp_tick, area, 1, &area->t_tick);
@@ -471,6 +487,32 @@ struct isis_area *isis_area_lookup(const char *area_tag, vrf_id_t vrf_id)
 	return NULL;
 }
 
+<<<<<<< HEAD
+=======
+struct isis_area *isis_area_lookup_by_sysid(const uint8_t *sysid)
+{
+	struct isis_area *area;
+	struct listnode *node;
+	struct isis *isis;
+	struct iso_address *addr = NULL;
+
+	isis = isis_lookup_by_sysid(sysid);
+	if (isis == NULL)
+		return NULL;
+
+	for (ALL_LIST_ELEMENTS_RO(isis->area_list, node, area)) {
+		if (listcount(area->area_addrs) > 0) {
+			addr = listgetdata(listhead(area->area_addrs));
+			if (!memcmp(addr->area_addr + addr->addr_len, sysid,
+				    ISIS_SYS_ID_LEN))
+				return area;
+			}
+		}
+
+	return NULL;
+}
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 int isis_area_get(struct vty *vty, const char *area_tag)
 {
 	struct isis_area *area;
@@ -496,6 +538,10 @@ void isis_area_destroy(struct isis_area *area)
 {
 	struct listnode *node, *nnode;
 	struct isis_circuit *circuit;
+<<<<<<< HEAD
+=======
+	struct iso_address *addr;
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 	QOBJ_UNREG(area);
 
@@ -545,6 +591,18 @@ void isis_area_destroy(struct isis_area *area)
 	if (!CHECK_FLAG(im->options, F_ISIS_UNIT_TEST))
 		isis_redist_area_finish(area);
 
+<<<<<<< HEAD
+=======
+	if (listcount(area->area_addrs) > 0) {
+		addr = listgetdata(listhead(area->area_addrs));
+		if (!memcmp(addr->area_addr + addr->addr_len, area->isis->sysid,
+			    ISIS_SYS_ID_LEN)) {
+			memset(area->isis->sysid, 0, ISIS_SYS_ID_LEN);
+			area->isis->sysid_set = 0;
+		}
+	}
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	list_delete(&area->area_addrs);
 
 	for (int i = SPF_PREFIX_PRIO_CRITICAL; i <= SPF_PREFIX_PRIO_MEDIUM;
@@ -988,6 +1046,7 @@ int show_isis_interface_common_json(struct json_object *json,
 				       "no");
 		return CMD_SUCCESS;
 	}
+<<<<<<< HEAD
 	if (vrf_name) {
 		if (all_vrf) {
 			for (ALL_LIST_ELEMENTS_RO(im->isis, inode, isis)) {
@@ -1039,12 +1098,23 @@ int show_isis_interface_common_json(struct json_object *json,
 			json_object_object_add(json, "areas", areas_json);
 			for (ALL_LIST_ELEMENTS_RO(isis->area_list, anode,
 						  area)) {
+=======
+
+	if (all_vrf) {
+		for (ALL_LIST_ELEMENTS_RO(im->isis, inode, isis)) {
+			areas_json = json_object_new_array();
+			json_object_object_add(json, "areas", areas_json);
+			for (ALL_LIST_ELEMENTS_RO(isis->area_list, anode, area)) {
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 				area_json = json_object_new_object();
 				json_object_string_add(area_json, "area",
 						       area->area_tag
 							       ? area->area_tag
 							       : "null");
+<<<<<<< HEAD
 
+=======
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 				circuits_json = json_object_new_array();
 				json_object_object_add(area_json, "circuits",
 						       circuits_json);
@@ -1055,6 +1125,7 @@ int show_isis_interface_common_json(struct json_object *json,
 						circuit_json, "circuit",
 						circuit->circuit_id);
 					if (!ifname)
+<<<<<<< HEAD
 						isis_circuit_print_json(
 							circuit, circuit_json,
 							detail);
@@ -1064,13 +1135,62 @@ int show_isis_interface_common_json(struct json_object *json,
 						isis_circuit_print_json(
 							circuit, circuit_json,
 							detail);
+=======
+						isis_circuit_print_json(circuit,
+									circuit_json,
+									detail);
+					else if (strcmp(circuit->interface->name,
+							ifname) == 0)
+						isis_circuit_print_json(circuit,
+									circuit_json,
+									detail);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 					json_object_array_add(circuits_json,
 							      circuit_json);
 				}
 				json_object_array_add(areas_json, area_json);
 			}
 		}
+<<<<<<< HEAD
 	}
+=======
+		return CMD_SUCCESS;
+	}
+	isis = isis_lookup_by_vrfname(vrf_name);
+	if (isis != NULL) {
+		areas_json = json_object_new_array();
+		json_object_object_add(json, "areas", areas_json);
+		for (ALL_LIST_ELEMENTS_RO(isis->area_list, anode, area)) {
+			area_json = json_object_new_object();
+			json_object_string_add(area_json, "area",
+					       area->area_tag ? area->area_tag
+							      : "null");
+
+			circuits_json = json_object_new_array();
+			json_object_object_add(area_json, "circuits",
+					       circuits_json);
+			for (ALL_LIST_ELEMENTS_RO(area->circuit_list, cnode,
+						  circuit)) {
+				circuit_json = json_object_new_object();
+				json_object_int_add(circuit_json, "circuit",
+						    circuit->circuit_id);
+				if (!ifname)
+					isis_circuit_print_json(circuit,
+								circuit_json,
+								detail);
+				else if (strcmp(circuit->interface->name,
+						ifname) == 0)
+					isis_circuit_print_json(circuit,
+								circuit_json,
+								detail);
+				json_object_array_add(circuits_json,
+						      circuit_json);
+			}
+			json_object_array_add(areas_json, area_json);
+		}
+	}
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	return CMD_SUCCESS;
 }
 
@@ -1087,6 +1207,7 @@ int show_isis_interface_common_vty(struct vty *vty, const char *ifname,
 		vty_out(vty, "IS-IS Routing Process not enabled\n");
 		return CMD_SUCCESS;
 	}
+<<<<<<< HEAD
 	if (vrf_name) {
 		if (all_vrf) {
 			for (ALL_LIST_ELEMENTS_RO(im->isis, inode, isis)) {
@@ -1118,6 +1239,12 @@ int show_isis_interface_common_vty(struct vty *vty, const char *ifname,
 		if (isis != NULL) {
 			for (ALL_LIST_ELEMENTS_RO(isis->area_list, anode,
 						  area)) {
+=======
+
+	if (all_vrf) {
+		for (ALL_LIST_ELEMENTS_RO(im->isis, inode, isis)) {
+			for (ALL_LIST_ELEMENTS_RO(isis->area_list, anode, area)) {
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 				vty_out(vty, "Area %s:\n", area->area_tag);
 
 				if (detail == ISIS_UI_LEVEL_BRIEF)
@@ -1127,6 +1254,7 @@ int show_isis_interface_common_vty(struct vty *vty, const char *ifname,
 				for (ALL_LIST_ELEMENTS_RO(area->circuit_list,
 							  cnode, circuit))
 					if (!ifname)
+<<<<<<< HEAD
 						isis_circuit_print_vty(
 							circuit, vty, detail);
 					else if (
@@ -1136,6 +1264,39 @@ int show_isis_interface_common_vty(struct vty *vty, const char *ifname,
 							circuit, vty, detail);
 			}
 		}
+=======
+						isis_circuit_print_vty(circuit,
+								       vty,
+								       detail);
+					else if (strcmp(circuit->interface->name,
+							ifname) == 0)
+						isis_circuit_print_vty(circuit,
+								       vty,
+								       detail);
+			}
+		}
+		return CMD_SUCCESS;
+	}
+	isis = isis_lookup_by_vrfname(vrf_name);
+	if (isis != NULL) {
+		for (ALL_LIST_ELEMENTS_RO(isis->area_list, anode, area)) {
+			vty_out(vty, "Area %s:\n", area->area_tag);
+
+			if (detail == ISIS_UI_LEVEL_BRIEF)
+				vty_out(vty,
+					"  Interface   CircId   State    Type     Level\n");
+
+			for (ALL_LIST_ELEMENTS_RO(area->circuit_list, cnode,
+						  circuit))
+				if (!ifname)
+					isis_circuit_print_vty(circuit, vty,
+							       detail);
+				else if (strcmp(circuit->interface->name,
+						ifname) == 0)
+					isis_circuit_print_vty(circuit, vty,
+							       detail);
+		}
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	}
 
 	return CMD_SUCCESS;
@@ -1318,7 +1479,11 @@ static void isis_neighbor_common_vty(struct vty *vty, const char *id,
 
 		if (detail == ISIS_UI_LEVEL_BRIEF)
 			vty_out(vty,
+<<<<<<< HEAD
 				"  System Id           Interface   L  State        Holdtime SNPA\n");
+=======
+				" System Id           Interface   L  State         Holdtime SNPA\n");
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 		for (ALL_LIST_ELEMENTS_RO(area->circuit_list, cnode, circuit)) {
 			if (circuit->circ_type == CIRCUIT_T_BROADCAST) {
@@ -1376,6 +1541,7 @@ int show_isis_neighbor_common(struct vty *vty, struct json_object *json,
 		return CMD_SUCCESS;
 	}
 
+<<<<<<< HEAD
 	if (vrf_name) {
 		if (all_vrf) {
 			for (ALL_LIST_ELEMENTS_RO(im->isis, node, isis)) {
@@ -1391,13 +1557,31 @@ int show_isis_neighbor_common(struct vty *vty, struct json_object *json,
 		}
 		isis = isis_lookup_by_vrfname(vrf_name);
 		if (isis != NULL) {
+=======
+	if (all_vrf) {
+		for (ALL_LIST_ELEMENTS_RO(im->isis, node, isis)) {
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 			if (id_to_sysid(isis, id, sysid)) {
 				vty_out(vty, "Invalid system id %s\n", id);
 				return CMD_SUCCESS;
 			}
+<<<<<<< HEAD
 			isis_neighbor_common(vty, json, id, detail, isis,
 					     sysid);
 		}
+=======
+			isis_neighbor_common(vty, json, id, detail, isis, sysid);
+		}
+		return CMD_SUCCESS;
+	}
+	isis = isis_lookup_by_vrfname(vrf_name);
+	if (isis != NULL) {
+		if (id_to_sysid(isis, id, sysid)) {
+			vty_out(vty, "Invalid system id %s\n", id);
+			return CMD_SUCCESS;
+		}
+		isis_neighbor_common(vty, json, id, detail, isis, sysid);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	}
 
 	return CMD_SUCCESS;
@@ -1461,6 +1645,7 @@ int clear_isis_neighbor_common(struct vty *vty, const char *id, const char *vrf_
 		return CMD_SUCCESS;
 	}
 
+<<<<<<< HEAD
 	if (vrf_name) {
 		if (all_vrf) {
 			for (ALL_LIST_ELEMENTS_RO(im->isis, node, isis)) {
@@ -1476,12 +1661,28 @@ int clear_isis_neighbor_common(struct vty *vty, const char *id, const char *vrf_
 		}
 		isis = isis_lookup_by_vrfname(vrf_name);
 		if (isis != NULL) {
+=======
+	if (all_vrf) {
+		for (ALL_LIST_ELEMENTS_RO(im->isis, node, isis)) {
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 			if (id_to_sysid(isis, id, sysid)) {
 				vty_out(vty, "Invalid system id %s\n", id);
 				return CMD_SUCCESS;
 			}
 			isis_neighbor_common_clear(vty, id, sysid, isis);
 		}
+<<<<<<< HEAD
+=======
+		return CMD_SUCCESS;
+	}
+	isis = isis_lookup_by_vrfname(vrf_name);
+	if (isis != NULL) {
+		if (id_to_sysid(isis, id, sysid)) {
+			vty_out(vty, "Invalid system id %s\n", id);
+			return CMD_SUCCESS;
+		}
+		isis_neighbor_common_clear(vty, id, sysid, isis);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	}
 
 	return CMD_SUCCESS;
@@ -2234,6 +2435,7 @@ DEFUN (show_hostname,
 	struct isis *isis;
 
 	ISIS_FIND_VRF_ARGS(argv, argc, idx_vrf, vrf_name, all_vrf);
+<<<<<<< HEAD
 	if (vrf_name) {
 		if (all_vrf) {
 			for (ALL_LIST_ELEMENTS_RO(im->isis, node, isis))
@@ -2245,6 +2447,18 @@ DEFUN (show_hostname,
 		if (isis != NULL)
 			dynhn_print_all(vty, isis);
 	}
+=======
+
+	if (all_vrf) {
+		for (ALL_LIST_ELEMENTS_RO(im->isis, node, isis))
+			dynhn_print_all(vty, isis);
+
+		return CMD_SUCCESS;
+	}
+	isis = isis_lookup_by_vrfname(vrf_name);
+	if (isis != NULL)
+		dynhn_print_all(vty, isis);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 	return CMD_SUCCESS;
 }
@@ -2307,6 +2521,7 @@ DEFUN(show_isis_spf_ietf, show_isis_spf_ietf_cmd,
 		return CMD_SUCCESS;
 	}
 
+<<<<<<< HEAD
 	if (vrf_name) {
 		if (all_vrf) {
 			for (ALL_LIST_ELEMENTS_RO(im->isis, node, isis))
@@ -2318,6 +2533,17 @@ DEFUN(show_isis_spf_ietf, show_isis_spf_ietf_cmd,
 		if (isis != NULL)
 			isis_spf_ietf_common(vty, isis);
 	}
+=======
+	if (all_vrf) {
+		for (ALL_LIST_ELEMENTS_RO(im->isis, node, isis))
+			isis_spf_ietf_common(vty, isis);
+
+		return CMD_SUCCESS;
+	}
+	isis = isis_lookup_by_vrfname(vrf_name);
+	if (isis != NULL)
+		isis_spf_ietf_common(vty, isis);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 	return CMD_SUCCESS;
 }
@@ -2357,35 +2583,59 @@ static void common_isis_summary_json(struct json_object *json,
 				     struct isis *isis)
 {
 	int level;
+<<<<<<< HEAD
 	json_object *areas_json, *area_json, *tx_pdu_json, *rx_pdu_json,
 		*levels_json, *level_json;
+=======
+	json_object *vrf_json, *areas_json, *area_json, *tx_pdu_json, *rx_pdu_json, *levels_json,
+		*level_json;
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	struct listnode *node, *node2;
 	struct isis_area *area;
 	time_t cur;
 	char uptime[MONOTIME_STRLEN];
 	char stier[5];
 
+<<<<<<< HEAD
 	json_object_string_add(json, "vrf", isis->name);
 	json_object_int_add(json, "process-id", isis->process_id);
 	if (isis->sysid_set)
 		json_object_string_addf(json, "system-id", "%pSY", isis->sysid);
+=======
+	vrf_json = json_object_new_object();
+	json_object_string_add(vrf_json, "vrf", isis->name);
+	json_object_int_add(vrf_json, "process-id", isis->process_id);
+	if (isis->sysid_set)
+		json_object_string_addf(vrf_json, "system-id", "%pSY", isis->sysid);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 	cur = time(NULL);
 	cur -= isis->uptime;
 	frrtime_to_interval(cur, uptime, sizeof(uptime));
+<<<<<<< HEAD
 	json_object_string_add(json, "up-time", uptime);
 	if (isis->area_list)
 		json_object_int_add(json, "number-areas",
 				    isis->area_list->count);
 	areas_json = json_object_new_array();
 	json_object_object_add(json, "areas", areas_json);
+=======
+	json_object_string_add(vrf_json, "up-time", uptime);
+	if (isis->area_list)
+		json_object_int_add(vrf_json, "number-areas", isis->area_list->count);
+	areas_json = json_object_new_array();
+	json_object_object_add(vrf_json, "areas", areas_json);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	for (ALL_LIST_ELEMENTS_RO(isis->area_list, node, area)) {
 		area_json = json_object_new_object();
 		json_object_string_add(area_json, "area",
 				       area->area_tag ? area->area_tag
 						      : "null");
 
+<<<<<<< HEAD
 
+=======
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		if (fabricd) {
 			uint8_t tier = fabricd_tier(area);
 			snprintfrr(stier, sizeof(stier), "%s", &tier);
@@ -2462,6 +2712,10 @@ static void common_isis_summary_json(struct json_object *json,
 		}
 		json_object_array_add(areas_json, area_json);
 	}
+<<<<<<< HEAD
+=======
+	json_object_array_add(json, vrf_json);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 }
 
 static void common_isis_summary_vty(struct vty *vty, struct isis *isis)
@@ -2564,6 +2818,7 @@ static void common_isis_summary_vty(struct vty *vty, struct isis *isis)
 	}
 }
 
+<<<<<<< HEAD
 static void common_isis_summary(struct vty *vty, struct json_object *json,
 				struct isis *isis)
 {
@@ -2571,6 +2826,29 @@ static void common_isis_summary(struct vty *vty, struct json_object *json,
 		common_isis_summary_json(json, isis);
 	} else {
 		common_isis_summary_vty(vty, isis);
+=======
+static void common_isis_summary(struct vty *vty, struct json_object *json, const char *vrf_name,
+				bool all_vrf)
+{
+	struct listnode *node;
+	struct isis *isis;
+
+	if (all_vrf) {
+		for (ALL_LIST_ELEMENTS_RO(im->isis, node, isis)) {
+			if (json)
+				common_isis_summary_json(json, isis);
+			else
+				common_isis_summary_vty(vty, isis);
+		}
+	} else {
+		isis = isis_lookup_by_vrfname(vrf_name);
+		if (isis != NULL) {
+			if (json)
+				common_isis_summary_json(json, isis);
+			else
+				common_isis_summary_vty(vty, isis);
+		}
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	}
 }
 
@@ -2581,6 +2859,7 @@ DEFUN(show_isis_summary, show_isis_summary_cmd,
        "json output\n"
       "summary\n")
 {
+<<<<<<< HEAD
 	struct listnode *node;
 	int idx_vrf = 0;
 	struct isis *isis;
@@ -2588,12 +2867,20 @@ DEFUN(show_isis_summary, show_isis_summary_cmd,
 	bool all_vrf = false;
 	bool uj = use_json(argc, argv);
 	json_object *json = NULL;
+=======
+	int idx_vrf = 0;
+	const char *vrf_name = VRF_DEFAULT_NAME;
+	bool all_vrf = false;
+	bool uj = use_json(argc, argv);
+	json_object *json = NULL, *vrfs_json = NULL;
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 	ISIS_FIND_VRF_ARGS(argv, argc, idx_vrf, vrf_name, all_vrf)
 	if (!im) {
 		vty_out(vty, PROTO_NAME " is not running\n");
 		return CMD_SUCCESS;
 	}
+<<<<<<< HEAD
 	if (uj)
 		json = json_object_new_object();
 	if (vrf_name) {
@@ -2608,6 +2895,16 @@ DEFUN(show_isis_summary, show_isis_summary_cmd,
 			common_isis_summary(vty, json, isis);
 	}
 
+=======
+	if (uj) {
+		json = json_object_new_object();
+		vrfs_json = json_object_new_array();
+		json_object_object_add(json, "vrfs", vrfs_json);
+	}
+
+	common_isis_summary(vty, vrfs_json, vrf_name, all_vrf);
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	if (uj)
 		vty_json(vty, json);
 
@@ -2679,8 +2976,15 @@ void show_isis_database_lspdb_json(struct json_object *json,
 				   struct lspdb_head *lspdb,
 				   const char *sysid_str, int ui_level)
 {
+<<<<<<< HEAD
 	struct isis_lsp *lsp;
 	int lsp_count;
+=======
+	struct json_object *array_json, *lsp_json;
+	struct isis_lsp *lsp;
+	int lsp_count;
+	struct json_object *lsp_arr_json;
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 	if (lspdb_count(lspdb) > 0) {
 		lsp = lsp_for_sysid(lspdb, sysid_str, area->isis);
@@ -2690,6 +2994,7 @@ void show_isis_database_lspdb_json(struct json_object *json,
 		}
 
 		if (lsp) {
+<<<<<<< HEAD
 			if (ui_level == ISIS_UI_LEVEL_DETAIL)
 				lsp_print_detail(lsp, NULL, json,
 						 area->dynhostname, area->isis);
@@ -2700,6 +3005,29 @@ void show_isis_database_lspdb_json(struct json_object *json,
 			lsp_count =
 				lsp_print_all(NULL, json, lspdb, ui_level,
 					      area->dynhostname, area->isis);
+=======
+			json_object_object_get_ex(json, "lsps", &array_json);
+			if (!array_json) {
+				array_json = json_object_new_array();
+				json_object_object_add(json, "lsps", array_json);
+			}
+			lsp_json = json_object_new_object();
+			json_object_array_add(array_json, lsp_json);
+
+			if (ui_level == ISIS_UI_LEVEL_DETAIL)
+				lsp_print_detail(lsp, NULL, lsp_json,
+						 area->dynhostname, area->isis);
+			else
+				lsp_print_json(lsp, lsp_json, area->dynhostname,
+					       area->isis);
+		} else if (sysid_str == NULL) {
+			lsp_arr_json = json_object_new_array();
+			json_object_object_add(json, "lsps", lsp_arr_json);
+
+			lsp_count = lsp_print_all(NULL, lsp_arr_json, lspdb,
+						  ui_level, area->dynhostname,
+						  area->isis);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 			json_object_int_add(json, "count", lsp_count);
 		}
@@ -2765,6 +3093,11 @@ static void show_isis_database_json(struct json_object *json, const char *sysid_
 		json_object_object_add(area_json,"area",tag_area_json);
 		json_object_object_add(area_json,"levels",arr_json);
 		for (level = 0; level < ISIS_LEVELS; level++) {
+<<<<<<< HEAD
+=======
+			if (lspdb_count(&area->lspdb[level]) == 0)
+				continue;
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 			lsp_json = json_object_new_object();
 			show_isis_database_lspdb_json(lsp_json, area, level,
 						      &area->lspdb[level],
@@ -2828,6 +3161,7 @@ static int show_isis_database(struct vty *vty, struct json_object *json, const c
 	struct listnode *node;
 	struct isis *isis;
 
+<<<<<<< HEAD
 	if (vrf_name) {
 		if (all_vrf) {
 			for (ALL_LIST_ELEMENTS_RO(im->isis, node, isis))
@@ -2841,6 +3175,18 @@ static int show_isis_database(struct vty *vty, struct json_object *json, const c
 			show_isis_database_common(vty, json, sysid_str,
 						  ui_level, isis);
 	}
+=======
+	if (all_vrf) {
+		for (ALL_LIST_ELEMENTS_RO(im->isis, node, isis))
+			show_isis_database_common(vty, json, sysid_str,
+						  ui_level, isis);
+
+		return CMD_SUCCESS;
+	}
+	isis = isis_lookup_by_vrfname(vrf_name);
+	if (isis)
+		show_isis_database_common(vty, json, sysid_str, ui_level, isis);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 	return CMD_SUCCESS;
 }

@@ -159,7 +159,11 @@ def setup_module(mod):
 
     router_list = tgen.routers()
 
+<<<<<<< HEAD
     for i, (rname, router) in enumerate(router_list.items(), 1):
+=======
+    for _, (rname, router) in enumerate(router_list.items(), 1):
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
         router.load_config(
             TopoRouter.RD_ZEBRA, os.path.join(CWD, "{}/zebra.conf".format(rname))
         )
@@ -426,7 +430,11 @@ def test_bgp_conditional_advertisement_tc_2_1():
     )
 
     test_func = functools.partial(exist_map_routes_present, router3)
+<<<<<<< HEAD
     success, result = topotest.run_and_expect(test_func, None, count=90, wait=1)
+=======
+    _, result = topotest.run_and_expect(test_func, None, count=90, wait=1)
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
     msg = 'TC21: exist-map routes present in "router2" BGP table - '
     assert result is None, msg + failed
@@ -455,7 +463,11 @@ def test_bgp_conditional_advertisement_tc_2_2():
     )
 
     test_func = functools.partial(exist_map_routes_not_present, router3)
+<<<<<<< HEAD
     success, result = topotest.run_and_expect(test_func, None, count=90, wait=1)
+=======
+    _, result = topotest.run_and_expect(test_func, None, count=90, wait=1)
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
     msg = 'TC22: exist-map routes not present in "router2" BGP table - '
     assert result is None, msg + failed
@@ -484,7 +496,11 @@ def test_bgp_conditional_advertisement_tc_2_3():
     )
 
     test_func = functools.partial(default_route_withdrawn, router3)
+<<<<<<< HEAD
     success, result = topotest.run_and_expect(test_func, None, count=90, wait=1)
+=======
+    _, result = topotest.run_and_expect(test_func, None, count=90, wait=1)
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
     msg = "TC23: advertise-map with exist-map configuration is removed from peer - "
     assert result is None, msg + failed
@@ -513,7 +529,11 @@ def test_bgp_conditional_advertisement_tc_3_1():
     )
 
     test_func = functools.partial(non_exist_map_routes_not_present, router3)
+<<<<<<< HEAD
     success, result = topotest.run_and_expect(test_func, None, count=90, wait=1)
+=======
+    _, result = topotest.run_and_expect(test_func, None, count=90, wait=1)
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
     msg = 'TC31: non-exist-map routes not present in "router2" BGP table - '
     assert result is None, msg + failed
@@ -542,7 +562,11 @@ def test_bgp_conditional_advertisement_tc_3_2():
     )
 
     test_func = functools.partial(non_exist_map_routes_present, router3)
+<<<<<<< HEAD
     success, result = topotest.run_and_expect(test_func, None, count=90, wait=1)
+=======
+    _, result = topotest.run_and_expect(test_func, None, count=90, wait=1)
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
     msg = 'TC32: non-exist-map routes present in "router2" BGP table - '
     assert result is None, msg + failed
@@ -571,7 +595,11 @@ def test_bgp_conditional_advertisement_tc_3_3():
     )
 
     test_func = functools.partial(all_routes_advertised, router3)
+<<<<<<< HEAD
     success, result = topotest.run_and_expect(test_func, None, count=90, wait=1)
+=======
+    _, result = topotest.run_and_expect(test_func, None, count=90, wait=1)
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
     msg = (
         "TC33: advertise-map with non-exist-map configuration is removed from a peer - "
@@ -603,7 +631,11 @@ def test_bgp_conditional_advertisement_tc_4_1():
     )
 
     test_func = functools.partial(non_exist_map_no_condition_route_map, router3)
+<<<<<<< HEAD
     success, result = topotest.run_and_expect(test_func, None, count=90, wait=1)
+=======
+    _, result = topotest.run_and_expect(test_func, None, count=90, wait=1)
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
     msg = 'TC41: non-exist-map route-map removed in "router2" - '
     assert result is None, msg + failed
@@ -632,7 +664,11 @@ def test_bgp_conditional_advertisement_tc_4_2():
     )
 
     test_func = functools.partial(exist_map_no_condition_route_map, router3)
+<<<<<<< HEAD
     success, result = topotest.run_and_expect(test_func, None, count=90, wait=1)
+=======
+    _, result = topotest.run_and_expect(test_func, None, count=90, wait=1)
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
     msg = 'TC42: exist-map route-map removed in "router2" - '
     assert result is None, msg + failed
@@ -665,7 +701,11 @@ def test_bgp_conditional_advertisement_tc_5_1():
     )
 
     test_func = functools.partial(exist_map_routes_present_rmap_filter, router3)
+<<<<<<< HEAD
     success, result = topotest.run_and_expect(test_func, None, count=90, wait=1)
+=======
+    _, result = topotest.run_and_expect(test_func, None, count=90, wait=1)
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
     msg = "TC51: exist-map routes present with route-map filter - "
     assert result is None, msg + failed
@@ -694,7 +734,11 @@ def test_bgp_conditional_advertisement_tc_5_2():
     )
 
     test_func = functools.partial(exist_map_routes_present_no_rmap_filter, router3)
+<<<<<<< HEAD
     success, result = topotest.run_and_expect(test_func, None, count=90, wait=1)
+=======
+    _, result = topotest.run_and_expect(test_func, None, count=90, wait=1)
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
     msg = "TC52: exist-map routes present, no route-map filter - "
     assert result is None, msg + failed
@@ -724,7 +768,11 @@ def test_bgp_conditional_advertisement_tc_5_3():
     )
 
     test_func = functools.partial(non_exist_map_routes_present_rmap_filter, router3)
+<<<<<<< HEAD
     success, result = topotest.run_and_expect(test_func, None, count=90, wait=1)
+=======
+    _, result = topotest.run_and_expect(test_func, None, count=90, wait=1)
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
     msg = "TC53: non-exist-map routes present, with route-map filter - "
     assert result is None, msg + failed
@@ -753,7 +801,11 @@ def test_bgp_conditional_advertisement_tc_5_4():
     )
 
     test_func = functools.partial(non_exist_map_routes_present_no_rmap_filter, router3)
+<<<<<<< HEAD
     success, result = topotest.run_and_expect(test_func, None, count=90, wait=1)
+=======
+    _, result = topotest.run_and_expect(test_func, None, count=90, wait=1)
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
     msg = "TC54: non-exist-map routes present, no route-map filter - "
     assert result is None, msg + failed
@@ -791,7 +843,11 @@ def test_bgp_conditional_advertisement_tc_6_1():
     )
 
     test_func = functools.partial(exist_map_routes_not_present_rmap_filter, router3)
+<<<<<<< HEAD
     success, result = topotest.run_and_expect(test_func, None, count=90, wait=1)
+=======
+    _, result = topotest.run_and_expect(test_func, None, count=90, wait=1)
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
     msg = "TC61: exist-map routes not present, route-map filter - "
     assert result is None, msg + failed
@@ -820,7 +876,11 @@ def test_bgp_conditional_advertisement_tc_6_2():
     )
 
     test_func = functools.partial(exist_map_routes_not_present_no_rmap_filter, router3)
+<<<<<<< HEAD
     success, result = topotest.run_and_expect(test_func, None, count=90, wait=1)
+=======
+    _, result = topotest.run_and_expect(test_func, None, count=90, wait=1)
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
     msg = "TC62: exist-map routes not present, no route-map filter - "
     assert result is None, msg + failed
@@ -850,7 +910,11 @@ def test_bgp_conditional_advertisement_tc_6_3():
     )
 
     test_func = functools.partial(non_exist_map_routes_not_present_rmap_filter, router3)
+<<<<<<< HEAD
     success, result = topotest.run_and_expect(test_func, None, count=90, wait=1)
+=======
+    _, result = topotest.run_and_expect(test_func, None, count=90, wait=1)
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
     msg = "TC63: non-exist-map routes not present, route-map filter - "
     assert result is None, msg + failed
@@ -881,7 +945,11 @@ def test_bgp_conditional_advertisement_tc_6_4():
     test_func = functools.partial(
         non_exist_map_routes_not_present_no_rmap_filter, router3
     )
+<<<<<<< HEAD
     success, result = topotest.run_and_expect(test_func, None, count=90, wait=1)
+=======
+    _, result = topotest.run_and_expect(test_func, None, count=90, wait=1)
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
     msg = "TC64: non-exist-map routes not present, no route-map filter - "
     assert result is None, msg + failed
@@ -919,7 +987,11 @@ def test_bgp_conditional_advertisement_tc_7_1():
     )
 
     test_func = functools.partial(exist_map_routes_present_rmap2_filter, router3)
+<<<<<<< HEAD
     success, result = topotest.run_and_expect(test_func, None, count=90, wait=1)
+=======
+    _, result = topotest.run_and_expect(test_func, None, count=90, wait=1)
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
     msg = "TC71: exist-map routes present, route-map filter - "
     assert result is None, msg + failed
@@ -948,7 +1020,11 @@ def test_bgp_conditional_advertisement_tc_7_2():
     )
 
     test_func = functools.partial(exist_map_routes_present_no_rmap2_filter, router3)
+<<<<<<< HEAD
     success, result = topotest.run_and_expect(test_func, None, count=90, wait=1)
+=======
+    _, result = topotest.run_and_expect(test_func, None, count=90, wait=1)
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
     msg = "TC72: exist-map routes present, no route-map filter - "
     assert result is None, msg + failed
@@ -978,7 +1054,11 @@ def test_bgp_conditional_advertisement_tc_7_3():
     )
 
     test_func = functools.partial(non_exist_map_routes_present_rmap2_filter, router3)
+<<<<<<< HEAD
     success, result = topotest.run_and_expect(test_func, None, count=90, wait=1)
+=======
+    _, result = topotest.run_and_expect(test_func, None, count=90, wait=1)
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
     msg = "TC73: non-exist-map routes present, route-map filter - "
     assert result is None, msg + failed
@@ -1007,7 +1087,11 @@ def test_bgp_conditional_advertisement_tc_7_4():
     )
 
     test_func = functools.partial(non_exist_map_routes_present_no_rmap2_filter, router3)
+<<<<<<< HEAD
     success, result = topotest.run_and_expect(test_func, None, count=90, wait=1)
+=======
+    _, result = topotest.run_and_expect(test_func, None, count=90, wait=1)
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
     msg = "TC74: non-exist-map routes present, no route-map filter - "
     assert result is None, msg + failed
@@ -1045,7 +1129,11 @@ def test_bgp_conditional_advertisement_tc_8_1():
     )
 
     test_func = functools.partial(exist_map_routes_not_present_rmap2_filter, router3)
+<<<<<<< HEAD
     success, result = topotest.run_and_expect(test_func, None, count=90, wait=1)
+=======
+    _, result = topotest.run_and_expect(test_func, None, count=90, wait=1)
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
     msg = "TC81: exist-map routes not present, route-map filter - "
     assert result is None, msg + failed
@@ -1074,7 +1162,11 @@ def test_bgp_conditional_advertisement_tc_8_2():
     )
 
     test_func = functools.partial(exist_map_routes_not_present_no_rmap2_filter, router3)
+<<<<<<< HEAD
     success, result = topotest.run_and_expect(test_func, None, count=90, wait=1)
+=======
+    _, result = topotest.run_and_expect(test_func, None, count=90, wait=1)
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
     msg = "TC82: exist-map routes not present, no route-map filter - "
     assert result is None, msg + failed
@@ -1106,7 +1198,11 @@ def test_bgp_conditional_advertisement_tc_8_3():
     test_func = functools.partial(
         non_exist_map_routes_not_present_rmap2_filter, router3
     )
+<<<<<<< HEAD
     success, result = topotest.run_and_expect(test_func, None, count=90, wait=1)
+=======
+    _, result = topotest.run_and_expect(test_func, None, count=90, wait=1)
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
     msg = "TC83: non-exist-map routes not present, route-map filter - "
     assert result is None, msg + failed
@@ -1137,7 +1233,11 @@ def test_bgp_conditional_advertisement_tc_8_4():
     test_func = functools.partial(
         non_exist_map_routes_not_present_no_rmap2_filter, router3
     )
+<<<<<<< HEAD
     success, result = topotest.run_and_expect(test_func, None, count=90, wait=1)
+=======
+    _, result = topotest.run_and_expect(test_func, None, count=90, wait=1)
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
     msg = "TC84: non-exist-map routes not present, no route-map filter - "
     assert result is None, msg + failed
@@ -1175,7 +1275,11 @@ def test_bgp_conditional_advertisement_tc_9_1():
     )
 
     test_func = functools.partial(exist_map_routes_present_rmap2_network, router3)
+<<<<<<< HEAD
     success, result = topotest.run_and_expect(test_func, None, count=90, wait=1)
+=======
+    _, result = topotest.run_and_expect(test_func, None, count=90, wait=1)
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
     msg = "TC91: exist-map routes present, route-map filter and network - "
     assert result is None, msg + failed
@@ -1204,7 +1308,11 @@ def test_bgp_conditional_advertisement_tc_9_2():
     )
 
     test_func = functools.partial(exist_map_routes_present_rmap2_no_network, router3)
+<<<<<<< HEAD
     success, result = topotest.run_and_expect(test_func, None, count=90, wait=1)
+=======
+    _, result = topotest.run_and_expect(test_func, None, count=90, wait=1)
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
     msg = "TC92: exist-map routes present, route-map filter and no network - "
     assert result is None, msg + failed
@@ -1244,7 +1352,11 @@ def test_bgp_conditional_advertisement_tc_9_3():
     test_func = functools.partial(
         non_exist_map_routes_not_present_rmap2_network, router3
     )
+<<<<<<< HEAD
     success, result = topotest.run_and_expect(test_func, None, count=90, wait=1)
+=======
+    _, result = topotest.run_and_expect(test_func, None, count=90, wait=1)
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
     msg = "TC93: non-exist-map routes not present, route-map filter and network - "
     assert result is None, msg + failed
@@ -1275,7 +1387,11 @@ def test_bgp_conditional_advertisement_tc_9_4():
     test_func = functools.partial(
         non_exist_map_routes_not_present_rmap2_no_network, router3
     )
+<<<<<<< HEAD
     success, result = topotest.run_and_expect(test_func, None, count=90, wait=1)
+=======
+    _, result = topotest.run_and_expect(test_func, None, count=90, wait=1)
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
     msg = "TC94: non-exist-map routes not present, route-map filter and no network - "
     assert result is None, msg + failed

@@ -30,6 +30,10 @@
 
 #define LDPD_FD_ASYNC		3
 #define LDPD_FD_SYNC		4
+<<<<<<< HEAD
+=======
+#define LDPD_FD_LOG		5
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 #define LDPD_OPT_VERBOSE	0x00000001
 #define LDPD_OPT_VERBOSE2	0x00000002
@@ -139,7 +143,10 @@ enum imsg_type {
 	IMSG_RECONF_L2VPN_IPW,
 	IMSG_RECONF_END,
 	IMSG_DEBUG_UPDATE,
+<<<<<<< HEAD
 	IMSG_LOG,
+=======
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	IMSG_ACL_CHECK,
 	IMSG_INIT,
 	IMSG_PW_UPDATE,

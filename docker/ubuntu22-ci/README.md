@@ -8,10 +8,25 @@ This builds an ubuntu 22.04 container for dev / test
 docker build -t frr-ubuntu22:latest -f docker/ubuntu-ci/Dockerfile .
 ```
 
+<<<<<<< HEAD
 # Running Full Topotest
 
 ```
 docker run --init -it --privileged --name frr-ubuntu22 -v /lib/modules:/lib/modules frr-ubuntu22:latest bash -c 'cd ~/frr/tests/topotests ; sudo pytest -nauto --dist=loadfile'
+=======
+# Run
+
+```
+docker run -d --init --privileged --name frr-ubuntu22 --mount type=bind,source=/lib/modules,target=/lib/modules frr-ubuntu22:latest
+```
+
+# Running full topotest (container stops at end)
+
+```
+docker run --init -it --privileged --name frr-ubuntu22 \
+    -v /lib/modules:/lib/modules frr-ubuntu22:latest \
+    bash -c 'cd /home/frr/frr/tests/topotests; sudo pytest -nauto --dist=loadfile'
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 ```
 
 # Extract results from the above run into `run-results` dir and analyze
@@ -20,10 +35,18 @@ docker run --init -it --privileged --name frr-ubuntu22 -v /lib/modules:/lib/modu
 tests/topotests/analyze.py -C frr-ubuntu22 -Ar run-results
 ```
 
+<<<<<<< HEAD
 # Running
 
 ```
 docker run -d --init --privileged --name frr-ubuntu22 --mount type=bind,source=/lib/modules,target=/lib/modules frr-ubuntu22:latest
+=======
+# Extract coverage from a stopped container into host FRR source tree
+
+```
+docker export frr-ubuntu22 | tar --strip=3 --wildcards -vx '*.gc??'
+lcov -b $(pwd) --capture --directory . --output-file=coverage.info
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 ```
 
 # make check
@@ -38,10 +61,17 @@ docker exec frr-ubuntu22 bash -c 'cd ~/frr ; make check'
 docker exec -it frr-ubuntu22 bash
 ```
 
+<<<<<<< HEAD
 # topotest -- when Host O/S is Ubuntu only
 
 ```
 docker exec frr-ubuntu22 bash -c 'cd ~/frr/tests/topotests/ospf_topo1 ; sudo pytest test_ospf_topo1.py'
+=======
+# Run a specific topotest
+
+```
+docker exec frr-ubuntu22 bash -c 'cd ~/frr/tests/topotests ; sudo pytest ospf_topo1/test_ospf_topo1.py'
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 ```
 
 # stop & remove container

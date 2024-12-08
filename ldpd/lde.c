@@ -28,6 +28,10 @@
 #include "stream.h"
 #include "network.h"
 #include "libfrr.h"
+<<<<<<< HEAD
+=======
+#include "zlog_live.h"
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 static void		 lde_shutdown(void);
 static void lde_dispatch_imsg(struct event *thread);
@@ -116,6 +120,11 @@ static struct frr_signal_t lde_signals[] =
 void
 lde(void)
 {
+<<<<<<< HEAD
+=======
+	static struct zlog_live_cfg child_log;
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 #ifdef HAVE_SETPROCTITLE
 	setproctitle("label decision engine");
 #endif
@@ -123,6 +132,11 @@ lde(void)
 	log_procname = log_procnames[PROC_LDE_ENGINE];
 
 	master = frr_init();
+<<<<<<< HEAD
+=======
+	zlog_live_open_fd(&child_log, LOG_DEBUG, LDPD_FD_LOG);
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	/* no frr_config_fork() here, allow frr_pthread to create threads */
 	frr_is_after_fork = true;
 

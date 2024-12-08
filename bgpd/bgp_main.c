@@ -26,6 +26,10 @@
 #include "bfd.h"
 #include "libfrr.h"
 #include "ns.h"
+<<<<<<< HEAD
+=======
+#include "libagentx.h"
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 #include "bgpd/bgpd.h"
 #include "bgpd/bgp_attr.h"
@@ -205,6 +209,11 @@ static __attribute__((__noreturn__)) void bgp_exit(int status)
 	bgp_evpn_mh_finish();
 	bgp_nhg_finish();
 
+<<<<<<< HEAD
+=======
+	zebra_announce_fini(&bm->zebra_announce_head);
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	/* reverse bgp_dump_init */
 	bgp_dump_finish();
 
@@ -220,6 +229,12 @@ static __attribute__((__noreturn__)) void bgp_exit(int status)
 	/* reverse bgp_attr_init */
 	bgp_attr_finish();
 
+<<<<<<< HEAD
+=======
+	/* reverse bgp_labels_init */
+	bgp_labels_finish();
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	/* stop pthreads */
 	bgp_pthreads_finish();
 
@@ -504,6 +519,10 @@ int main(int argc, char **argv)
 
 	/* BGP master init. */
 	bgp_master_init(frr_init(), buffer_size, addresses);
+<<<<<<< HEAD
+=======
+	bm->startup_time = monotime(NULL);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	bm->port = bgp_port;
 	bm->v6_with_v4_nexthops = v6_with_v4_nexthops;
 	if (bgp_port == 0)
@@ -512,10 +531,22 @@ int main(int argc, char **argv)
 		bgp_option_set(BGP_OPT_NO_FIB);
 	if (no_zebra_flag)
 		bgp_option_set(BGP_OPT_NO_ZEBRA);
+<<<<<<< HEAD
 	bgp_error_init();
 	/* Initializations. */
 	bgp_vrf_init();
 
+=======
+	if (bgpd_di.graceful_restart)
+		SET_FLAG(bm->flags, BM_FLAG_GRACEFUL_RESTART);
+
+	bgp_error_init();
+	/* Initializations. */
+	libagentx_init();
+	bgp_vrf_init();
+
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 #ifdef HAVE_SCRIPTING
 	bgp_script_init();
 #endif

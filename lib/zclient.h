@@ -124,7 +124,10 @@ typedef enum {
 	ZEBRA_BFD_DEST_REPLAY,
 	ZEBRA_REDISTRIBUTE_ROUTE_ADD,
 	ZEBRA_REDISTRIBUTE_ROUTE_DEL,
+<<<<<<< HEAD
 	ZEBRA_VRF_UNREGISTER,
+=======
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	ZEBRA_VRF_ADD,
 	ZEBRA_VRF_DELETE,
 	ZEBRA_VRF_LABEL,
@@ -209,6 +212,12 @@ typedef enum {
 	ZEBRA_SRV6_LOCATOR_DELETE,
 	ZEBRA_SRV6_MANAGER_GET_LOCATOR_CHUNK,
 	ZEBRA_SRV6_MANAGER_RELEASE_LOCATOR_CHUNK,
+<<<<<<< HEAD
+=======
+	ZEBRA_SRV6_MANAGER_GET_LOCATOR,
+	ZEBRA_SRV6_MANAGER_GET_SRV6_SID,
+	ZEBRA_SRV6_MANAGER_RELEASE_SRV6_SID,
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	ZEBRA_ERROR,
 	ZEBRA_CLIENT_CAPABILITIES,
 	ZEBRA_OPAQUE_MESSAGE,
@@ -235,6 +244,10 @@ typedef enum {
 	ZEBRA_TC_FILTER_ADD,
 	ZEBRA_TC_FILTER_DELETE,
 	ZEBRA_OPAQUE_NOTIFY,
+<<<<<<< HEAD
+=======
+	ZEBRA_SRV6_SID_NOTIFY,
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 } zebra_message_types_t;
 /* Zebra message types. Please update the corresponding
  * command_types array with any changes!
@@ -248,6 +261,7 @@ enum zebra_error_types {
 
 static inline const char *zebra_error_type2str(enum zebra_error_types type)
 {
+<<<<<<< HEAD
 	const char *ret = "UNKNOWN";
 
 	switch (type) {
@@ -263,6 +277,18 @@ static inline const char *zebra_error_type2str(enum zebra_error_types type)
 	}
 
 	return ret;
+=======
+	switch (type) {
+	case ZEBRA_UNKNOWN_ERROR:
+		return "ZEBRA_UNKNOWN_ERROR";
+	case ZEBRA_NO_VRF:
+		return "ZEBRA_NO_VRF";
+	case ZEBRA_INVALID_MSG_TYPE:
+		return "ZEBRA_INVALID_MSG_TYPE";
+	}
+
+	return "UNKNOWN";
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 }
 
 struct redist_proto {
@@ -441,7 +467,11 @@ struct zapi_nexthop {
 
 	struct ethaddr rmac;
 
+<<<<<<< HEAD
 	uint32_t weight;
+=======
+	uint64_t weight;
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 	/* Backup nexthops, for IP-FRR, TI-LFA, etc */
 	uint8_t backup_num;
@@ -761,6 +791,16 @@ enum zapi_iptable_notify_owner {
 	ZAPI_IPTABLE_FAIL_REMOVE,
 };
 
+<<<<<<< HEAD
+=======
+enum zapi_srv6_sid_notify {
+	ZAPI_SRV6_SID_FAIL_ALLOC = 0,
+	ZAPI_SRV6_SID_ALLOCATED,
+	ZAPI_SRV6_SID_RELEASED,
+	ZAPI_SRV6_SID_FAIL_RELEASE,
+};
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 enum zclient_send_status {
 	ZCLIENT_SEND_FAILURE = -1,
 	ZCLIENT_SEND_SUCCESS = 0,
@@ -770,6 +810,7 @@ enum zclient_send_status {
 static inline const char *
 zapi_nhg_notify_owner2str(enum zapi_nhg_notify_owner note)
 {
+<<<<<<< HEAD
 	const char *ret = "UNKNOWN";
 
 	switch (note) {
@@ -788,11 +829,26 @@ zapi_nhg_notify_owner2str(enum zapi_nhg_notify_owner note)
 	}
 
 	return ret;
+=======
+	switch (note) {
+	case ZAPI_NHG_FAIL_INSTALL:
+		return "ZAPI_NHG_FAIL_INSTALL";
+	case ZAPI_NHG_INSTALLED:
+		return "ZAPI_NHG_INSTALLED";
+	case ZAPI_NHG_REMOVE_FAIL:
+		return "ZAPI_NHG_REMOVE_FAIL";
+	case ZAPI_NHG_REMOVED:
+		return "ZAPI_NHG_REMOVED";
+	}
+
+	return "UNKNOWN";
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 }
 
 static inline const char *
 zapi_rule_notify_owner2str(enum zapi_rule_notify_owner note)
 {
+<<<<<<< HEAD
 	const char *ret = "UNKNOWN";
 
 	switch (note) {
@@ -811,6 +867,36 @@ zapi_rule_notify_owner2str(enum zapi_rule_notify_owner note)
 	}
 
 	return ret;
+=======
+	switch (note) {
+	case ZAPI_RULE_FAIL_INSTALL:
+		return "ZAPI_RULE_FAIL_INSTALL";
+	case ZAPI_RULE_INSTALLED:
+		return "ZAPI_RULE_INSTALLED";
+	case ZAPI_RULE_FAIL_REMOVE:
+		return "ZAPI_RULE_FAIL_REMOVE";
+	case ZAPI_RULE_REMOVED:
+		return "ZAPI_RULE_REMOVED";
+	}
+
+	return "UNKNOWN";
+}
+
+static inline const char *zapi_srv6_sid_notify2str(enum zapi_srv6_sid_notify note)
+{
+	switch (note) {
+	case ZAPI_SRV6_SID_FAIL_ALLOC:
+		return "ZAPI_SRV6_SID_FAIL_ALLOC";
+	case ZAPI_SRV6_SID_ALLOCATED:
+		return "ZAPI_SRV6_SID_ALLOCATED";
+	case ZAPI_SRV6_SID_FAIL_RELEASE:
+		return "ZAPI_SRV6_SID_FAIL_RELEASE";
+	case ZAPI_SRV6_SID_RELEASED:
+		return "ZAPI_SRV6_SID_RELEASED";
+	}
+
+	return "UNKNOWN";
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 }
 
 /* Zebra MAC types */
@@ -1070,10 +1156,29 @@ extern int tm_get_table_chunk(struct zclient *zclient, uint32_t chunk_size,
 			      uint32_t *start, uint32_t *end);
 extern int tm_release_table_chunk(struct zclient *zclient, uint32_t start,
 				  uint32_t end);
+<<<<<<< HEAD
+=======
+
+/* Zebra SRv6 Manager flags */
+#define ZAPI_SRV6_MANAGER_SID_FLAG_HAS_SID_VALUE 0x01
+#define ZAPI_SRV6_MANAGER_SID_FLAG_HAS_LOCATOR	 0x02
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 extern int srv6_manager_get_locator_chunk(struct zclient *zclient,
 					  const char *locator_name);
 extern int srv6_manager_release_locator_chunk(struct zclient *zclient,
 					      const char *locator_name);
+<<<<<<< HEAD
+=======
+extern int srv6_manager_get_locator(struct zclient *zclient,
+				    const char *locator_name);
+extern int srv6_manager_get_sid(struct zclient *zclient,
+				const struct srv6_sid_ctx *ctx,
+				struct in6_addr *sid_value,
+				const char *locator_name, uint32_t *sid_func);
+extern int srv6_manager_release_sid(struct zclient *zclient,
+				    const struct srv6_sid_ctx *ctx);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 extern enum zclient_send_status zebra_send_sr_policy(struct zclient *zclient,
 						     int cmd,
@@ -1128,6 +1233,14 @@ bool zapi_rule_notify_decode(struct stream *s, uint32_t *seqno,
 bool zapi_ipset_notify_decode(struct stream *s,
 			      uint32_t *unique,
 			     enum zapi_ipset_notify_owner *note);
+<<<<<<< HEAD
+=======
+bool zapi_srv6_sid_notify_decode(struct stream *s, struct srv6_sid_ctx *ctx,
+				 struct in6_addr *sid_value, uint32_t *func,
+				 uint32_t *wide_func,
+				 enum zapi_srv6_sid_notify *note,
+				 char **locator_name);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 /* Nexthop-group message apis */
 extern enum zclient_send_status

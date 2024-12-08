@@ -6,10 +6,18 @@
 #ifndef _FRR_TYPESAFE_H
 #define _FRR_TYPESAFE_H
 
+<<<<<<< HEAD
+=======
+#ifndef _TYPESAFE_EXPAND_MACROS
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 #include <stddef.h>
 #include <stdint.h>
 #include <stdbool.h>
 #include "compiler.h"
+<<<<<<< HEAD
+=======
+#endif /* _TYPESAFE_EXPAND_MACROS */
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 #ifdef __cplusplus
 extern "C" {

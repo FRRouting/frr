@@ -49,6 +49,206 @@ static void pim_msdp_update_sock_send_buffer_size(int fd)
 	}
 }
 
+<<<<<<< HEAD
+=======
+static void pim_msdp_addr2su(union sockunion *su, struct in_addr addr)
+{
+	sockunion_init(su);
+	su->sin.sin_addr = addr;
+	su->sin.sin_family = AF_INET;
+#ifdef HAVE_STRUCT_SOCKADDR_IN_SIN_LEN
+	su->sin.sin_len = sizeof(struct sockaddr_in);
+#endif /* HAVE_STRUCT_SOCKADDR_IN_SIN_LEN */
+}
+
+/**
+ * Helper function to reduce code duplication.
+ *
+ * \param vrf VRF pointer (`NULL` means default VRF)
+ * \param mp the MSDP session pointer.
+ * \returns valid file descriptor otherwise `-1`.
+ */
+static int _pim_msdp_sock_listen(const struct vrf *vrf,
+				 const struct pim_msdp_peer *mp)
+{
+	const struct interface *ifp;
+	int sock;
+	int rv;
+	socklen_t socklen;
+	struct sockaddr_in sin = {};
+
+	sock = socket(AF_INET, SOCK_STREAM, 0);
+	if (sock == -1) {
+		zlog_warn("%s: socket: %s", __func__, strerror(errno));
+		return -1;
+	}
+
+	socklen = sizeof(sin);
+	sin.sin_family = AF_INET;
+	sin.sin_port = htons(PIM_MSDP_TCP_PORT);
+#ifdef HAVE_STRUCT_SOCKADDR_IN_SIN_LEN
+	sin.sin_len = socklen;
+#endif /* HAVE_STRUCT_SOCKADDR_IN_SIN_LEN */
+	if (mp)
+		sin.sin_addr = mp->local;
+
+	sockopt_reuseaddr(sock);
+	sockopt_reuseport(sock);
+
+	/* Bind socket to VRF/address. */
+	if (vrf && vrf->vrf_id != VRF_DEFAULT) {
+		ifp = if_lookup_by_name(vrf->name, vrf->vrf_id);
+		if (ifp == NULL) {
+			flog_err(EC_LIB_INTERFACE,
+				 "%s: Unable to lookup vrf interface: %s",
+				 __func__, vrf->name);
+			close(sock);
+			return -1;
+		}
+
+		if (vrf_bind(vrf->vrf_id, sock, ifp->name) == -1) {
+			flog_err_sys(EC_LIB_SOCKET,
+				     "%s: Unable to bind to socket: %s",
+				     __func__, safe_strerror(errno));
+			close(sock);
+			return -1;
+		}
+	}
+
+	frr_with_privs (&pimd_privs) {
+		rv = bind(sock, (struct sockaddr *)&sin, socklen);
+	}
+	if (rv == -1) {
+		flog_err_sys(EC_LIB_SOCKET,
+			     "pim_msdp_socket bind to port %d: %s",
+			     ntohs(sin.sin_port), safe_strerror(errno));
+		close(sock);
+		return -1;
+	}
+
+	/* Set MD5 authentication. */
+	if (mp && mp->auth_key) {
+		union sockunion su_peer = {};
+
+		pim_msdp_addr2su(&su_peer, mp->peer);
+		frr_with_privs (&pimd_privs) {
+			sockopt_tcp_signature(sock, &su_peer, mp->auth_key);
+		}
+	}
+
+
+	/* Start listening. */
+	rv = listen(sock, SOMAXCONN);
+	if (rv == -1) {
+		flog_err_sys(EC_LIB_SOCKET, "pim_msdp_socket listen: %s",
+			     safe_strerror(errno));
+		close(sock);
+		return -1;
+	}
+
+	/* Set socket DSCP byte */
+	if (setsockopt_ipv4_tos(sock, IPTOS_PREC_INTERNETCONTROL)) {
+		zlog_warn("can't set sockopt IP_TOS to MSDP socket %d: %s",
+			  sock, safe_strerror(errno));
+	}
+
+	return sock;
+}
+
+static void pim_msdp_sock_auth_accept(struct event *t)
+{
+	struct pim_msdp_peer *mp = EVENT_ARG(t);
+	int sock;
+	socklen_t sinlen;
+	struct sockaddr_in sin = {};
+
+	/* accept client connection. */
+	sinlen = sizeof(sin);
+	sock = accept(mp->auth_listen_sock, (struct sockaddr *)&sin, &sinlen);
+	if (sock == -1) {
+		flog_err_sys(EC_LIB_SOCKET, "pim_msdp_sock_accept failed (%s)",
+			     safe_strerror(errno));
+
+		/* Accept failed, schedule listen again. */
+		event_add_read(router->master, pim_msdp_sock_auth_accept, mp,
+			       mp->auth_listen_sock, &mp->auth_listen_ev);
+		return;
+	}
+
+	/*
+	 * Previous connection still going.
+	 *
+	 * We must wait for the user to close the previous connection in order
+	 * to establish the new one. User can manually force that by calling
+	 * `clear ip msdp peer A.B.C.D`.
+	 */
+	if (mp->fd != -1) {
+		++mp->pim->msdp.rejected_accepts;
+		if (PIM_DEBUG_MSDP_EVENTS) {
+			flog_err(EC_PIM_MSDP_PACKET,
+				 "msdp peer connection refused from %pI4: old connection still running",
+				 &sin.sin_addr);
+		}
+		close(sock);
+
+		/* Unexpected connection, schedule listen again. */
+		event_add_read(router->master, pim_msdp_sock_auth_accept, mp,
+			       mp->auth_listen_sock, &mp->auth_listen_ev);
+		return;
+	}
+
+	/* Unexpected client connected. */
+	if (mp->peer.s_addr != sin.sin_addr.s_addr) {
+		++mp->pim->msdp.rejected_accepts;
+		if (PIM_DEBUG_MSDP_EVENTS) {
+			flog_err(EC_PIM_MSDP_PACKET,
+				 "msdp peer connection refused from %pI4",
+				 &sin.sin_addr);
+		}
+		close(sock);
+
+		/* Unexpected peer, schedule listen again. */
+		event_add_read(router->master, pim_msdp_sock_auth_accept, mp,
+			       mp->auth_listen_sock, &mp->auth_listen_ev);
+		return;
+	}
+
+	if (PIM_DEBUG_MSDP_INTERNAL)
+		zlog_debug("MSDP peer %s accept success", mp->key_str);
+
+	/* Configure socket. */
+	mp->fd = sock;
+	set_nonblocking(mp->fd);
+	pim_msdp_update_sock_send_buffer_size(mp->fd);
+	pim_msdp_peer_established(mp);
+
+	/* Stop listening. */
+	close(mp->auth_listen_sock);
+	mp->auth_listen_sock = -1;
+}
+
+int pim_msdp_sock_auth_listen(struct pim_msdp_peer *mp)
+{
+	/* Clear any listening connection if it exists. */
+	event_cancel(&mp->auth_listen_ev);
+	if (mp->auth_listen_sock != -1) {
+		close(mp->auth_listen_sock);
+		mp->auth_listen_sock = -1;
+	}
+
+	/* Start new listening socket. */
+	mp->auth_listen_sock = _pim_msdp_sock_listen(mp->pim->vrf, mp);
+	if (mp->auth_listen_sock == -1)
+		return -1;
+
+	/* Listen for connections and connected only with the expected end. */
+	event_add_read(router->master, pim_msdp_sock_auth_accept, mp,
+		       mp->auth_listen_sock, &mp->auth_listen_ev);
+
+	return 0;
+}
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 /* passive peer socket accept */
 static void pim_msdp_sock_accept(struct event *thread)
 {
@@ -91,6 +291,24 @@ static void pim_msdp_sock_accept(struct event *thread)
 		return;
 	}
 
+<<<<<<< HEAD
+=======
+	/*
+	 * If authentication is configured then we can not accept
+	 * unauthenticated connections.
+	 */
+	if (mp->auth_type != MSDP_AUTH_NONE) {
+		++pim->msdp.rejected_accepts;
+		if (PIM_DEBUG_MSDP_EVENTS) {
+			flog_err(EC_PIM_MSDP_PACKET,
+				 "msdp peer unauthenticated connection refused from %pSU",
+				 &su);
+		}
+		close(msdp_sock);
+		return;
+	}
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	if (PIM_DEBUG_MSDP_INTERNAL) {
 		zlog_debug("MSDP peer %s accept success%s", mp->key_str,
 			   mp->fd >= 0 ? "(dup)" : "");
@@ -116,9 +334,12 @@ static void pim_msdp_sock_accept(struct event *thread)
 int pim_msdp_sock_listen(struct pim_instance *pim)
 {
 	int sock;
+<<<<<<< HEAD
 	int socklen;
 	struct sockaddr_in sin;
 	int rc;
+=======
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	struct pim_msdp_listener *listener = &pim->msdp.listener;
 
 	if (pim->msdp.flags & PIM_MSDPF_LISTENER) {
@@ -126,6 +347,7 @@ int pim_msdp_sock_listen(struct pim_instance *pim)
 		return 0;
 	}
 
+<<<<<<< HEAD
 	sock = socket(AF_INET, SOCK_STREAM, 0);
 	if (sock < 0) {
 		flog_err_sys(EC_LIB_SOCKET, "socket: %s", safe_strerror(errno));
@@ -192,6 +414,22 @@ int pim_msdp_sock_listen(struct pim_instance *pim)
 	/* add accept thread */
 	listener->fd = sock;
 	memcpy(&listener->su, &sin, socklen);
+=======
+	sock = _pim_msdp_sock_listen(pim->vrf, NULL);
+	if (sock == -1)
+		return -1;
+
+
+	memset(&listener->su.sin, 0, sizeof(listener->su.sin));
+	listener->su.sin.sin_family = AF_INET;
+	listener->su.sin.sin_port = htons(PIM_MSDP_TCP_PORT);
+#ifdef HAVE_STRUCT_SOCKADDR_IN_SIN_LEN
+	listener->su.sin.sin_len = sizeof(listener->su.sin);
+#endif /* HAVE_STRUCT_SOCKADDR_IN_SIN_LEN */
+
+	/* add accept thread */
+	listener->fd = sock;
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	event_add_read(pim->msdp.master, pim_msdp_sock_accept, pim, sock,
 		       &listener->thread);
 
@@ -203,6 +441,10 @@ int pim_msdp_sock_listen(struct pim_instance *pim)
 int pim_msdp_sock_connect(struct pim_msdp_peer *mp)
 {
 	int rc;
+<<<<<<< HEAD
+=======
+	union sockunion su_peer = {}, su_local = {};
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 	if (PIM_DEBUG_MSDP_INTERNAL) {
 		zlog_debug("MSDP peer %s attempt connect%s", mp->key_str,
@@ -220,8 +462,16 @@ int pim_msdp_sock_connect(struct pim_msdp_peer *mp)
 		pim_msdp_peer_stop_tcp_conn(mp, false /* chg_state */);
 	}
 
+<<<<<<< HEAD
 	/* Make socket for the peer. */
 	mp->fd = sockunion_socket(&mp->su_peer);
+=======
+	pim_msdp_addr2su(&su_peer, mp->peer);
+	pim_msdp_addr2su(&su_local, mp->local);
+
+	/* Make socket for the peer. */
+	mp->fd = sockunion_socket(&su_peer);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	if (mp->fd < 0) {
 		flog_err_sys(EC_LIB_SOCKET,
 			     "pim_msdp_socket socket failure: %s",
@@ -256,7 +506,11 @@ int pim_msdp_sock_connect(struct pim_msdp_peer *mp)
 	sockopt_reuseport(mp->fd);
 
 	/* source bind */
+<<<<<<< HEAD
 	rc = sockunion_bind(mp->fd, &mp->su_local, 0, &mp->su_local);
+=======
+	rc = sockunion_bind(mp->fd, &su_local, 0, &su_local);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	if (rc < 0) {
 		flog_err_sys(EC_LIB_SOCKET,
 			     "pim_msdp_socket connect bind failure: %s",
@@ -272,7 +526,19 @@ int pim_msdp_sock_connect(struct pim_msdp_peer *mp)
 				mp->fd, safe_strerror(errno));
 	}
 
+<<<<<<< HEAD
 	/* Connect to the remote mp. */
 	return (sockunion_connect(mp->fd, &mp->su_peer,
 				  htons(PIM_MSDP_TCP_PORT), 0));
+=======
+	/* Set authentication (if configured). */
+	if (mp->auth_key) {
+		frr_with_privs (&pimd_privs) {
+			sockopt_tcp_signature(mp->fd, &su_peer, mp->auth_key);
+		}
+	}
+
+	/* Connect to the remote mp. */
+	return (sockunion_connect(mp->fd, &su_peer, htons(PIM_MSDP_TCP_PORT), 0));
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 }

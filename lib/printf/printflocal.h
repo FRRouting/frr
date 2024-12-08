@@ -52,6 +52,10 @@
 #define	PTRDIFFT	0x800		/* ptrdiff_t */
 #define	INTMAXT		0x1000		/* intmax_t */
 #define	CHARINT		0x2000		/* print char using int format */
+<<<<<<< HEAD
+=======
+#define	FASTINT		0x4000		/* int_fastN_t */
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 /*
  * Macros for converting digits to letters and vice versa

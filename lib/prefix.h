@@ -52,10 +52,17 @@ typedef enum {
 /* Maximum number of VTEPs per-ES -
  * XXX - temporary limit for allocating strings etc.
  */
+<<<<<<< HEAD
 #define ES_VTEP_MAX_CNT 10
 #define ES_VTEP_LIST_STR_SZ (ES_VTEP_MAX_CNT * 16)
 
 #define ETHER_ADDR_STRLEN (3*ETH_ALEN)
+=======
+#define ES_VTEP_MAX_CNT	    10
+#define ES_VTEP_LIST_STR_SZ (ES_VTEP_MAX_CNT * IPADDR_STRING_SIZE)
+
+#define ETHER_ADDR_STRLEN (3 * ETH_ALEN)
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 /*
  * there isn't a portable ethernet address type. We define our
  * own to simplify internal handling
@@ -282,7 +289,11 @@ struct prefix_fs {
 struct prefix_sg {
 	uint8_t family;
 	uint16_t prefixlen;
+<<<<<<< HEAD
 	struct in_addr src __attribute__((aligned(8)));
+=======
+	struct ipaddr src __attribute__((aligned(8)));
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	struct in_addr grp;
 };
 
@@ -415,6 +426,11 @@ extern int str2prefix(const char *string, struct prefix *prefix);
 
 #define PREFIX2STR_BUFFER  PREFIX_STRLEN
 
+<<<<<<< HEAD
+=======
+extern void prefix_mcast_ip_dump(const char *onfail, const struct ipaddr *addr,
+				 char *buf, int buf_size);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 extern void prefix_mcast_inet4_dump(const char *onfail, struct in_addr addr,
 				char *buf, int buf_size);
 extern const char *prefix_sg2str(const struct prefix_sg *sg, char *str);

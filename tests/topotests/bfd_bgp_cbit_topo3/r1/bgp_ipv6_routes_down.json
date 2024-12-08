@@ -4,6 +4,7 @@
     "localAS": 101,
     "routes":
     {
+<<<<<<< HEAD
         "2001:db8:6::/64": [
             {
                 "stale": true,
@@ -49,6 +50,8 @@
                 ]
             }
         ],
+=======
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
         "2001:db8:8::/64": [
             {
                 "valid": true,

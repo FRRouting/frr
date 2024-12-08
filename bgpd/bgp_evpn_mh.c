@@ -45,6 +45,7 @@ static void bgp_evpn_local_es_down(struct bgp *bgp,
 		struct bgp_evpn_es *es);
 static void bgp_evpn_local_type1_evi_route_del(struct bgp *bgp,
 		struct bgp_evpn_es *es);
+<<<<<<< HEAD
 static struct bgp_evpn_es_vtep *bgp_evpn_es_vtep_add(struct bgp *bgp,
 						     struct bgp_evpn_es *es,
 						     struct in_addr vtep_ip,
@@ -52,6 +53,16 @@ static struct bgp_evpn_es_vtep *bgp_evpn_es_vtep_add(struct bgp *bgp,
 						     uint16_t df_pref);
 static void bgp_evpn_es_vtep_del(struct bgp *bgp,
 		struct bgp_evpn_es *es, struct in_addr vtep_ip, bool esr);
+=======
+static struct bgp_evpn_es_vtep *
+bgp_evpn_es_vtep_add(struct bgp *bgp, struct bgp_evpn_es *es,
+		     struct in_addr vtep_ip, bool esr, uint8_t df_alg,
+		     uint16_t df_pref, int *zret);
+static enum zclient_send_status bgp_evpn_es_vtep_del(struct bgp *bgp,
+						     struct bgp_evpn_es *es,
+						     struct in_addr vtep_ip,
+						     bool esr);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 static void bgp_evpn_es_cons_checks_pend_add(struct bgp_evpn_es *es);
 static void bgp_evpn_es_cons_checks_pend_del(struct bgp_evpn_es *es);
 static struct bgp_evpn_es_evi *
@@ -91,15 +102,28 @@ static void bgp_evpn_path_nh_unlink(struct bgp_path_evpn_nh_info *nh_info);
  */
 static int bgp_evpn_es_route_select_install(struct bgp *bgp,
 					    struct bgp_evpn_es *es,
+<<<<<<< HEAD
 					    struct bgp_dest *dest)
 {
 	int ret = 0;
+=======
+					    struct bgp_dest *dest,
+					    struct bgp_path_info *pi)
+{
+	int ret = 0;
+	int zret = 0;
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	afi_t afi = AFI_L2VPN;
 	safi_t safi = SAFI_EVPN;
 	struct bgp_path_info *old_select; /* old best */
 	struct bgp_path_info *new_select; /* new best */
 	struct bgp_path_info_pair old_and_new;
 
+<<<<<<< HEAD
+=======
+	SET_FLAG(pi->flags, BGP_PATH_UNSORTED);
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	/* Compute the best path. */
 	bgp_best_selection(bgp, dest, &bgp->maxpaths[afi][safi], &old_and_new,
 			   afi, safi);
@@ -120,7 +144,11 @@ static int bgp_evpn_es_route_select_install(struct bgp *bgp,
 			bgp_evpn_es_vtep_add(bgp, es, old_select->attr->nexthop,
 					     true /*esr*/,
 					     old_select->attr->df_alg,
+<<<<<<< HEAD
 					     old_select->attr->df_pref);
+=======
+					     old_select->attr->df_pref, &zret);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		}
 		UNSET_FLAG(old_select->flags, BGP_PATH_MULTIPATH_CHG);
 		bgp_zebra_clear_route_change_flags(dest);
@@ -149,7 +177,11 @@ static int bgp_evpn_es_route_select_install(struct bgp *bgp,
 			&& new_select->sub_type == BGP_ROUTE_IMPORTED) {
 		bgp_evpn_es_vtep_add(bgp, es, new_select->attr->nexthop,
 				     true /*esr */, new_select->attr->df_alg,
+<<<<<<< HEAD
 				     new_select->attr->df_pref);
+=======
+				     new_select->attr->df_pref, &zret);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	} else {
 		if (old_select && old_select->type == ZEBRA_ROUTE_BGP
 				&& old_select->sub_type == BGP_ROUTE_IMPORTED)
@@ -231,7 +263,11 @@ static int bgp_evpn_es_route_install(struct bgp *bgp,
 	}
 
 	/* Perform route selection and update zebra, if required. */
+<<<<<<< HEAD
 	ret = bgp_evpn_es_route_select_install(bgp, es, dest);
+=======
+	ret = bgp_evpn_es_route_select_install(bgp, es, dest, pi);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 	bgp_dest_unlock_node(dest);
 
@@ -272,7 +308,11 @@ static int bgp_evpn_es_route_uninstall(struct bgp *bgp, struct bgp_evpn_es *es,
 	bgp_path_info_delete(dest, pi);
 
 	/* Perform route selection and update zebra, if required. */
+<<<<<<< HEAD
 	ret = bgp_evpn_es_route_select_install(bgp, es, dest);
+=======
+	ret = bgp_evpn_es_route_select_install(bgp, es, dest, pi);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 	/* Unlock route node. */
 	bgp_dest_unlock_node(dest);
@@ -353,6 +393,10 @@ int bgp_evpn_mh_route_update(struct bgp *bgp, struct bgp_evpn_es *es,
 	struct bgp_path_info *tmp_pi = NULL;
 	struct bgp_path_info *local_pi = NULL;  /* local route entry if any */
 	struct bgp_path_info *remote_pi = NULL; /* remote route entry if any */
+<<<<<<< HEAD
+=======
+	struct bgp_labels bgp_labels = {};
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	struct attr *attr_new = NULL;
 	struct prefix_evpn *evp;
 
@@ -399,11 +443,24 @@ int bgp_evpn_mh_route_update(struct bgp *bgp, struct bgp_evpn_es *es,
 
 		if (evp->prefix.route_type == BGP_EVPN_AD_ROUTE) {
 			bgp_path_info_extra_get(tmp_pi);
+<<<<<<< HEAD
 			tmp_pi->extra->num_labels = 1;
 			if (vpn)
 				vni2label(vpn->vni, &tmp_pi->extra->label[0]);
 			else
 				tmp_pi->extra->label[0] = 0;
+=======
+			bgp_labels.num_labels = 1;
+			if (vpn)
+				vni2label(vpn->vni, &bgp_labels.label[0]);
+			if (!bgp_path_info_labels_same(tmp_pi,
+						       &bgp_labels.label[0],
+						       bgp_labels.num_labels)) {
+				bgp_labels_unintern(&tmp_pi->extra->labels);
+				tmp_pi->extra->labels =
+					bgp_labels_intern(&bgp_labels);
+			}
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		}
 
 		/* add the newly created path to the route-node */
@@ -447,7 +504,11 @@ int bgp_evpn_mh_route_update(struct bgp *bgp, struct bgp_evpn_es *es,
 			 attr->mp_nexthop_global_in);
 	}
 
+<<<<<<< HEAD
 	/* Return back the route entry. */
+=======
+	/* Return back th*e route entry. */
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	*ri = tmp_pi;
 	return 0;
 }
@@ -511,7 +572,11 @@ static int bgp_evpn_mh_route_delete(struct bgp *bgp, struct bgp_evpn_es *es,
 		 * this table.
 		 */
 		if (pi)
+<<<<<<< HEAD
 			bgp_process(bgp, global_dest, afi, safi);
+=======
+			bgp_process(bgp, global_dest, pi, afi, safi);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		bgp_dest_unlock_node(global_dest);
 	}
 
@@ -562,7 +627,11 @@ int delete_global_ead_evi_routes(struct bgp *bgp, struct bgpevpn *vpn)
 
 			delete_evpn_route_entry(bgp, afi, safi, bd, &pi);
 			if (pi)
+<<<<<<< HEAD
 				bgp_process(bgp, bd, afi, safi);
+=======
+				bgp_process(bgp, bd, pi, afi, safi);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		}
 	}
 
@@ -668,7 +737,11 @@ static int bgp_evpn_type4_route_update(struct bgp *bgp,
 	 * this is just to set the flags correctly
 	 * as local route in the ES always wins.
 	 */
+<<<<<<< HEAD
 	bgp_evpn_es_route_select_install(bgp, es, dest);
+=======
+	bgp_evpn_es_route_select_install(bgp, es, dest, pi);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	bgp_dest_unlock_node(dest);
 
 	/* If this is a new route or some attribute has changed, export the
@@ -686,7 +759,11 @@ static int bgp_evpn_type4_route_update(struct bgp *bgp,
 					 attr_new, &global_pi, &route_changed);
 
 		/* Schedule for processing and unlock node. */
+<<<<<<< HEAD
 		bgp_process(bgp, dest, afi, safi);
+=======
+		bgp_process(bgp, dest, global_pi, afi, safi);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		bgp_dest_unlock_node(dest);
 	}
 
@@ -759,8 +836,12 @@ int bgp_evpn_type4_route_process(struct peer *peer, afi_t afi, safi_t safi,
 			   0, 0, NULL);
 	} else {
 		bgp_withdraw(peer, (struct prefix *)&p, addpath_id, afi, safi,
+<<<<<<< HEAD
 			     ZEBRA_ROUTE_BGP, BGP_ROUTE_NORMAL, &prd, NULL, 0,
 			     NULL);
+=======
+			     ZEBRA_ROUTE_BGP, BGP_ROUTE_NORMAL, &prd, NULL, 0);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	}
 	return 0;
 }
@@ -1008,7 +1089,11 @@ static int bgp_evpn_type1_route_update(struct bgp *bgp, struct bgp_evpn_es *es,
 	 * this is just to set the flags correctly as local route in
 	 * the ES always wins.
 	 */
+<<<<<<< HEAD
 	evpn_route_select_install(bgp, vpn, dest);
+=======
+	evpn_route_select_install(bgp, vpn, dest, pi);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	bgp_dest_unlock_node(dest);
 
 	/* If this is a new route or some attribute has changed, export the
@@ -1025,7 +1110,11 @@ static int bgp_evpn_type1_route_update(struct bgp *bgp, struct bgp_evpn_es *es,
 					 attr_new, &global_pi, &route_changed);
 
 		/* Schedule for processing and unlock node. */
+<<<<<<< HEAD
 		bgp_process(bgp, dest, afi, safi);
+=======
+		bgp_process(bgp, dest, global_pi, afi, safi);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		bgp_dest_unlock_node(dest);
 	}
 
@@ -1228,8 +1317,12 @@ int bgp_evpn_type1_route_process(struct peer *peer, afi_t afi, safi_t safi,
 			   0, 0, NULL);
 	} else {
 		bgp_withdraw(peer, (struct prefix *)&p, addpath_id, afi, safi,
+<<<<<<< HEAD
 			     ZEBRA_ROUTE_BGP, BGP_ROUTE_NORMAL, &prd, NULL, 0,
 			     NULL);
+=======
+			     ZEBRA_ROUTE_BGP, BGP_ROUTE_NORMAL, &prd, NULL, 0);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	}
 	return 0;
 }
@@ -1371,27 +1464,50 @@ static struct bgp_evpn_es_vtep *bgp_evpn_es_vtep_find(struct bgp_evpn_es *es,
 }
 
 /* Send the remote ES to zebra for NHG programming */
+<<<<<<< HEAD
 static int bgp_zebra_send_remote_es_vtep(struct bgp *bgp,
 		struct bgp_evpn_es_vtep *es_vtep, bool add)
+=======
+static enum zclient_send_status
+bgp_zebra_send_remote_es_vtep(struct bgp *bgp, struct bgp_evpn_es_vtep *es_vtep,
+			      bool add)
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 {
 	struct bgp_evpn_es *es = es_vtep->es;
 	struct stream *s;
 	uint32_t flags = 0;
 
 	/* Check socket. */
+<<<<<<< HEAD
 	if (!zclient || zclient->sock < 0)
 		return 0;
+=======
+	if (!zclient || zclient->sock < 0) {
+		if (BGP_DEBUG(zebra, ZEBRA))
+			zlog_debug("%s: No zclient or zclient->sock exists",
+				   __func__);
+		return ZCLIENT_SEND_SUCCESS;
+	}
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 	/* Don't try to register if Zebra doesn't know of this instance. */
 	if (!IS_BGP_INST_KNOWN_TO_ZEBRA(bgp)) {
 		if (BGP_DEBUG(zebra, ZEBRA))
 			zlog_debug("No zebra instance, not installing remote es %s",
 					es->esi_str);
+<<<<<<< HEAD
 		return 0;
 	}
 
 	if (es_vtep->flags & BGP_EVPNES_VTEP_ESR)
 		flags |= ZAPI_ES_VTEP_FLAG_ESR_RXED;
+=======
+		return ZCLIENT_SEND_SUCCESS;
+	}
+
+	if (CHECK_FLAG(es_vtep->flags, BGP_EVPNES_VTEP_ESR))
+		SET_FLAG(flags, ZAPI_ES_VTEP_FLAG_ESR_RXED);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 	s = zclient->obuf;
 	stream_reset(s);
@@ -1418,12 +1534,21 @@ static int bgp_zebra_send_remote_es_vtep(struct bgp *bgp,
 	return zclient_send_message(zclient);
 }
 
+<<<<<<< HEAD
 static void bgp_evpn_es_vtep_re_eval_active(struct bgp *bgp,
 					    struct bgp_evpn_es_vtep *es_vtep,
 					    bool param_change)
 {
 	bool old_active;
 	bool new_active;
+=======
+static enum zclient_send_status bgp_evpn_es_vtep_re_eval_active(
+	struct bgp *bgp, struct bgp_evpn_es_vtep *es_vtep, bool param_change)
+{
+	bool old_active;
+	bool new_active;
+	enum zclient_send_status ret = ZCLIENT_SEND_SUCCESS;
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 	old_active = CHECK_FLAG(es_vtep->flags, BGP_EVPNES_VTEP_ACTIVE);
 	/* currently we need an active EVI reference to use the VTEP as
@@ -1445,7 +1570,11 @@ static void bgp_evpn_es_vtep_re_eval_active(struct bgp *bgp,
 				   es_vtep->df_alg, es_vtep->df_pref);
 
 		/* send remote ES to zebra */
+<<<<<<< HEAD
 		bgp_zebra_send_remote_es_vtep(bgp, es_vtep, new_active);
+=======
+		ret = bgp_zebra_send_remote_es_vtep(bgp, es_vtep, new_active);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 		/* The NHG is updated first for efficient failover handling.
 		 * Note the NHG can be de-activated while there are bgp
@@ -1457,6 +1586,7 @@ static void bgp_evpn_es_vtep_re_eval_active(struct bgp *bgp,
 		/* queue up the es for background consistency checks */
 		bgp_evpn_es_cons_checks_pend_add(es_vtep->es);
 	}
+<<<<<<< HEAD
 }
 
 static struct bgp_evpn_es_vtep *bgp_evpn_es_vtep_add(struct bgp *bgp,
@@ -1464,6 +1594,16 @@ static struct bgp_evpn_es_vtep *bgp_evpn_es_vtep_add(struct bgp *bgp,
 						     struct in_addr vtep_ip,
 						     bool esr, uint8_t df_alg,
 						     uint16_t df_pref)
+=======
+
+	return ret;
+}
+
+static struct bgp_evpn_es_vtep *
+bgp_evpn_es_vtep_add(struct bgp *bgp, struct bgp_evpn_es *es,
+		     struct in_addr vtep_ip, bool esr, uint8_t df_alg,
+		     uint16_t df_pref, int *zret)
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 {
 	struct bgp_evpn_es_vtep *es_vtep;
 	bool param_change = false;
@@ -1490,15 +1630,28 @@ static struct bgp_evpn_es_vtep *bgp_evpn_es_vtep_add(struct bgp *bgp,
 		++es_vtep->evi_cnt;
 	}
 
+<<<<<<< HEAD
 	bgp_evpn_es_vtep_re_eval_active(bgp, es_vtep, param_change);
+=======
+	*zret = bgp_evpn_es_vtep_re_eval_active(bgp, es_vtep, param_change);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 	return es_vtep;
 }
 
+<<<<<<< HEAD
 static void bgp_evpn_es_vtep_do_del(struct bgp *bgp,
 		struct bgp_evpn_es_vtep *es_vtep, bool esr)
 {
 	bool param_change = false;
+=======
+static enum zclient_send_status
+bgp_evpn_es_vtep_do_del(struct bgp *bgp, struct bgp_evpn_es_vtep *es_vtep,
+			bool esr)
+{
+	bool param_change = false;
+	enum zclient_send_status ret = ZCLIENT_SEND_SUCCESS;
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 	if (BGP_DEBUG(evpn_mh, EVPN_MH_ES))
 		zlog_debug("es %s vtep %pI4 del %s", es_vtep->es->esi_str,
@@ -1515,6 +1668,7 @@ static void bgp_evpn_es_vtep_do_del(struct bgp *bgp,
 			--es_vtep->evi_cnt;
 	}
 
+<<<<<<< HEAD
 	bgp_evpn_es_vtep_re_eval_active(bgp, es_vtep, param_change);
 	bgp_evpn_es_vtep_free(es_vtep);
 }
@@ -1527,6 +1681,27 @@ static void bgp_evpn_es_vtep_del(struct bgp *bgp,
 	es_vtep = bgp_evpn_es_vtep_find(es, vtep_ip);
 	if (es_vtep)
 		bgp_evpn_es_vtep_do_del(bgp, es_vtep, esr);
+=======
+	ret = bgp_evpn_es_vtep_re_eval_active(bgp, es_vtep, param_change);
+	bgp_evpn_es_vtep_free(es_vtep);
+
+	return ret;
+}
+
+static enum zclient_send_status bgp_evpn_es_vtep_del(struct bgp *bgp,
+						     struct bgp_evpn_es *es,
+						     struct in_addr vtep_ip,
+						     bool esr)
+{
+	struct bgp_evpn_es_vtep *es_vtep;
+	enum zclient_send_status ret = ZCLIENT_SEND_SUCCESS;
+
+	es_vtep = bgp_evpn_es_vtep_find(es, vtep_ip);
+	if (es_vtep)
+		ret = bgp_evpn_es_vtep_do_del(bgp, es_vtep, esr);
+
+	return ret;
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 }
 
 /********************** ES MAC-IP paths *************************************
@@ -1940,9 +2115,15 @@ static struct bgp_evpn_es *bgp_evpn_es_new(struct bgp *bgp, const esi_t *esi)
  */
 static void bgp_evpn_es_free(struct bgp_evpn_es *es, const char *caller)
 {
+<<<<<<< HEAD
 	if ((es->flags & (BGP_EVPNES_LOCAL | BGP_EVPNES_REMOTE))
 	    || listcount(es->macip_evi_path_list)
 	    || listcount(es->macip_global_path_list))
+=======
+	if (CHECK_FLAG(es->flags, (BGP_EVPNES_LOCAL | BGP_EVPNES_REMOTE)) ||
+	    listcount(es->macip_evi_path_list) ||
+	    listcount(es->macip_global_path_list))
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		return;
 
 	if (BGP_DEBUG(evpn_mh, EVPN_MH_ES))
@@ -1967,8 +2148,13 @@ static void bgp_evpn_es_free(struct bgp_evpn_es *es, const char *caller)
 
 static inline bool bgp_evpn_is_es_local_and_non_bypass(struct bgp_evpn_es *es)
 {
+<<<<<<< HEAD
 	return (es->flags & BGP_EVPNES_LOCAL)
 	       && !(es->flags & BGP_EVPNES_BYPASS);
+=======
+	return CHECK_FLAG(es->flags, BGP_EVPNES_LOCAL) &&
+	       !CHECK_FLAG(es->flags, BGP_EVPNES_BYPASS);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 }
 
 /* init local info associated with the ES */
@@ -2050,8 +2236,13 @@ bool bgp_evpn_es_add_l3_ecomm_ok(esi_t *esi)
 
 	es = bgp_evpn_es_find(esi);
 
+<<<<<<< HEAD
 	return (!es || !(es->flags & BGP_EVPNES_LOCAL)
 		|| bgp_evpn_local_es_is_active(es));
+=======
+	return (!es || !CHECK_FLAG(es->flags, BGP_EVPNES_LOCAL) ||
+		bgp_evpn_local_es_is_active(es));
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 }
 
 static bool bgp_evpn_is_valid_local_path(struct bgp_path_info *pi)
@@ -2151,9 +2342,15 @@ static void bgp_evpn_mac_update_on_es_local_chg(struct bgp_evpn_es *es,
 
 		attr_tmp = *pi->attr;
 		if (is_local)
+<<<<<<< HEAD
 			attr_tmp.es_flags |= ATTR_ES_IS_LOCAL;
 		else
 			attr_tmp.es_flags &= ~ATTR_ES_IS_LOCAL;
+=======
+			SET_FLAG(attr_tmp.es_flags, ATTR_ES_IS_LOCAL);
+		else
+			UNSET_FLAG(attr_tmp.es_flags, ATTR_ES_IS_LOCAL);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		attr_new = bgp_attr_intern(&attr_tmp);
 		bgp_attr_unintern(&pi->attr);
 		pi->attr = attr_new;
@@ -2435,7 +2632,11 @@ static void bgp_evpn_es_frag_show_detail(struct vty *vty,
 }
 
 static char *bgp_evpn_es_vteps_str(char *vtep_str, struct bgp_evpn_es *es,
+<<<<<<< HEAD
 				   uint8_t vtep_str_size)
+=======
+				   size_t vtep_str_size)
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 {
 	char vtep_flag_str[BGP_EVPN_FLAG_STR_SZ];
 	struct listnode *node;
@@ -2447,9 +2648,15 @@ static char *bgp_evpn_es_vteps_str(char *vtep_str, struct bgp_evpn_es *es,
 	for (ALL_LIST_ELEMENTS_RO(es->es_vtep_list, node, es_vtep)) {
 		vtep_flag_str[0] = '\0';
 
+<<<<<<< HEAD
 		if (es_vtep->flags & BGP_EVPNES_VTEP_ESR)
 			strlcat(vtep_flag_str, "E", sizeof(vtep_flag_str));
 		if (es_vtep->flags & BGP_EVPNES_VTEP_ACTIVE)
+=======
+		if (CHECK_FLAG(es_vtep->flags, BGP_EVPNES_VTEP_ESR))
+			strlcat(vtep_flag_str, "E", sizeof(vtep_flag_str));
+		if (CHECK_FLAG(es_vtep->flags, BGP_EVPNES_VTEP_ACTIVE))
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 			strlcat(vtep_flag_str, "A", sizeof(vtep_flag_str));
 
 		if (!strlen(vtep_flag_str))
@@ -2481,6 +2688,7 @@ static void bgp_evpn_es_json_vtep_fill(json_object *json_vteps,
 
 	json_object_string_addf(json_vtep_entry, "vtep_ip", "%pI4",
 				&es_vtep->vtep_ip);
+<<<<<<< HEAD
 	if (es_vtep->flags & (BGP_EVPNES_VTEP_ESR |
 			 BGP_EVPNES_VTEP_ACTIVE)) {
 		json_flags = json_object_new_array();
@@ -2490,6 +2698,17 @@ static void bgp_evpn_es_json_vtep_fill(json_object *json_vteps,
 			json_array_string_add(json_flags, "active");
 		json_object_object_add(json_vtep_entry, "flags", json_flags);
 		if (es_vtep->flags & BGP_EVPNES_VTEP_ESR) {
+=======
+	if (CHECK_FLAG(es_vtep->flags,
+		       (BGP_EVPNES_VTEP_ESR | BGP_EVPNES_VTEP_ACTIVE))) {
+		json_flags = json_object_new_array();
+		if (CHECK_FLAG(es_vtep->flags, BGP_EVPNES_VTEP_ESR))
+			json_array_string_add(json_flags, "esr");
+		if (CHECK_FLAG(es_vtep->flags, BGP_EVPNES_VTEP_ACTIVE))
+			json_array_string_add(json_flags, "active");
+		json_object_object_add(json_vtep_entry, "flags", json_flags);
+		if (CHECK_FLAG(es_vtep->flags, BGP_EVPNES_VTEP_ESR)) {
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 			json_object_int_add(json_vtep_entry, "dfPreference",
 					    es_vtep->df_pref);
 			json_object_string_add(
@@ -2513,9 +2732,15 @@ static void bgp_evpn_es_vteps_show_detail(struct vty *vty,
 
 	for (ALL_LIST_ELEMENTS_RO(es->es_vtep_list, node, es_vtep)) {
 		vtep_flag_str[0] = '\0';
+<<<<<<< HEAD
 		if (es_vtep->flags & BGP_EVPNES_VTEP_ESR)
 			strlcat(vtep_flag_str, "E", sizeof(vtep_flag_str));
 		if (es_vtep->flags & BGP_EVPNES_VTEP_ACTIVE)
+=======
+		if (CHECK_FLAG(es_vtep->flags, BGP_EVPNES_VTEP_ESR))
+			strlcat(vtep_flag_str, "E", sizeof(vtep_flag_str));
+		if (CHECK_FLAG(es_vtep->flags, BGP_EVPNES_VTEP_ACTIVE))
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 			strlcat(vtep_flag_str, "A", sizeof(vtep_flag_str));
 
 		if (!strlen(vtep_flag_str))
@@ -2524,7 +2749,11 @@ static void bgp_evpn_es_vteps_show_detail(struct vty *vty,
 		vty_out(vty, "  %pI4 flags: %s", &es_vtep->vtep_ip,
 			vtep_flag_str);
 
+<<<<<<< HEAD
 		if (es_vtep->flags & BGP_EVPNES_VTEP_ESR)
+=======
+		if (CHECK_FLAG(es_vtep->flags, BGP_EVPNES_VTEP_ESR))
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 			vty_out(vty, " df_alg: %s df_pref: %u\n",
 				evpn_es_df_alg2str(es_vtep->df_alg, alg_buf,
 						   sizeof(alg_buf)),
@@ -2549,11 +2778,20 @@ static void bgp_evpn_es_show_entry(struct vty *vty,
 			json_object_string_addf(json, "rd", "%pRDP",
 						&es->es_base_frag->prd);
 
+<<<<<<< HEAD
 		if (es->flags & (BGP_EVPNES_LOCAL | BGP_EVPNES_REMOTE)) {
 			json_types = json_object_new_array();
 			if (es->flags & BGP_EVPNES_LOCAL)
 				json_array_string_add(json_types, "local");
 			if (es->flags & BGP_EVPNES_REMOTE)
+=======
+		if (CHECK_FLAG(es->flags,
+			       (BGP_EVPNES_LOCAL | BGP_EVPNES_REMOTE))) {
+			json_types = json_object_new_array();
+			if (CHECK_FLAG(es->flags, BGP_EVPNES_LOCAL))
+				json_array_string_add(json_types, "local");
+			if (CHECK_FLAG(es->flags, BGP_EVPNES_REMOTE))
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 				json_array_string_add(json_types, "remote");
 			json_object_object_add(json, "type", json_types);
 		}
@@ -2573,11 +2811,19 @@ static void bgp_evpn_es_show_entry(struct vty *vty,
 		char vtep_str[ES_VTEP_LIST_STR_SZ + BGP_EVPN_VTEPS_FLAG_STR_SZ];
 
 		type_str[0] = '\0';
+<<<<<<< HEAD
 		if (es->flags & BGP_EVPNES_BYPASS)
 			strlcat(type_str, "B", sizeof(type_str));
 		if (es->flags & BGP_EVPNES_LOCAL)
 			strlcat(type_str, "L", sizeof(type_str));
 		if (es->flags & BGP_EVPNES_REMOTE)
+=======
+		if (CHECK_FLAG(es->flags, BGP_EVPNES_BYPASS))
+			strlcat(type_str, "B", sizeof(type_str));
+		if (CHECK_FLAG(es->flags, BGP_EVPNES_LOCAL))
+			strlcat(type_str, "L", sizeof(type_str));
+		if (CHECK_FLAG(es->flags, BGP_EVPNES_REMOTE))
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 			strlcat(type_str, "R", sizeof(type_str));
 		if (es->inconsistencies)
 			strlcat(type_str, "I", sizeof(type_str));
@@ -2604,6 +2850,7 @@ static void bgp_evpn_es_show_entry_detail(struct vty *vty,
 
 		/* Add the "brief" info first */
 		bgp_evpn_es_show_entry(vty, es, json);
+<<<<<<< HEAD
 		if (es->flags
 		    & (BGP_EVPNES_OPER_UP | BGP_EVPNES_ADV_EVI
 		       | BGP_EVPNES_BYPASS)) {
@@ -2614,6 +2861,18 @@ static void bgp_evpn_es_show_entry_detail(struct vty *vty,
 				json_array_string_add(json_flags,
 						"advertiseEVI");
 			if (es->flags & BGP_EVPNES_BYPASS)
+=======
+		if (CHECK_FLAG(es->flags,
+			       (BGP_EVPNES_OPER_UP | BGP_EVPNES_ADV_EVI |
+				BGP_EVPNES_BYPASS))) {
+			json_flags = json_object_new_array();
+			if (CHECK_FLAG(es->flags, BGP_EVPNES_OPER_UP))
+				json_array_string_add(json_flags, "up");
+			if (CHECK_FLAG(es->flags, BGP_EVPNES_ADV_EVI))
+				json_array_string_add(json_flags,
+						"advertiseEVI");
+			if (CHECK_FLAG(es->flags, BGP_EVPNES_BYPASS))
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 				json_array_string_add(json_flags, "bypass");
 			json_object_object_add(json, "flags", json_flags);
 		}
@@ -2629,7 +2888,11 @@ static void bgp_evpn_es_show_entry_detail(struct vty *vty,
 				    listcount(es->macip_global_path_list));
 		json_object_int_add(json, "inconsistentVniVtepCount",
 				es->incons_evi_vtep_cnt);
+<<<<<<< HEAD
 		if (es->flags & BGP_EVPNES_LOCAL)
+=======
+		if (CHECK_FLAG(es->flags, BGP_EVPNES_LOCAL))
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 			json_object_int_add(json, "localEsDfPreference",
 					    es->df_pref);
 		if (listcount(es->es_vtep_list)) {
@@ -2647,7 +2910,12 @@ static void bgp_evpn_es_show_entry_detail(struct vty *vty,
 		}
 		if (es->inconsistencies) {
 			json_incons = json_object_new_array();
+<<<<<<< HEAD
 			if (es->inconsistencies & BGP_EVPNES_INCONS_VTEP_LIST)
+=======
+			if (CHECK_FLAG(es->inconsistencies,
+				       BGP_EVPNES_INCONS_VTEP_LIST))
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 				json_array_string_add(json_incons,
 						"vni-vtep-mismatch");
 			json_object_object_add(json, "inconsistencies",
@@ -2658,9 +2926,15 @@ static void bgp_evpn_es_show_entry_detail(struct vty *vty,
 		char type_str[4];
 
 		type_str[0] = '\0';
+<<<<<<< HEAD
 		if (es->flags & BGP_EVPNES_LOCAL)
 			strlcat(type_str, "L", sizeof(type_str));
 		if (es->flags & BGP_EVPNES_REMOTE)
+=======
+		if (CHECK_FLAG(es->flags, BGP_EVPNES_LOCAL))
+			strlcat(type_str, "L", sizeof(type_str));
+		if (CHECK_FLAG(es->flags, BGP_EVPNES_REMOTE))
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 			strlcat(type_str, "R", sizeof(type_str));
 
 		vty_out(vty, "ESI: %s\n", es->esi_str);
@@ -2668,10 +2942,17 @@ static void bgp_evpn_es_show_entry_detail(struct vty *vty,
 		vty_out(vty, " RD: %pRDP\n",
 			es->es_base_frag ? &es->es_base_frag->prd : NULL);
 		vty_out(vty, " Originator-IP: %pI4\n", &es->originator_ip);
+<<<<<<< HEAD
 		if (es->flags & BGP_EVPNES_LOCAL)
 			vty_out(vty, " Local ES DF preference: %u\n",
 				es->df_pref);
 		if (es->flags & BGP_EVPNES_BYPASS)
+=======
+		if (CHECK_FLAG(es->flags, BGP_EVPNES_LOCAL))
+			vty_out(vty, " Local ES DF preference: %u\n",
+				es->df_pref);
+		if (CHECK_FLAG(es->flags, BGP_EVPNES_BYPASS))
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 			vty_out(vty, " LACP bypass: on\n");
 		vty_out(vty, " VNI Count: %d\n", listcount(es->es_evi_list));
 		vty_out(vty, " Remote VNI Count: %d\n",
@@ -2685,7 +2966,12 @@ static void bgp_evpn_es_show_entry_detail(struct vty *vty,
 				es->incons_evi_vtep_cnt);
 		if (es->inconsistencies) {
 			incons_str[0] = '\0';
+<<<<<<< HEAD
 			if (es->inconsistencies & BGP_EVPNES_INCONS_VTEP_LIST)
+=======
+			if (CHECK_FLAG(es->inconsistencies,
+				       BGP_EVPNES_INCONS_VTEP_LIST))
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 				strlcat(incons_str, "vni-vtep-mismatch",
 					sizeof(incons_str));
 		} else {
@@ -2909,7 +3195,11 @@ static void bgp_evpn_l3nhg_zebra_del(struct bgp_evpn_es_vrf *es_vrf)
 
 static void bgp_evpn_l3nhg_deactivate(struct bgp_evpn_es_vrf *es_vrf)
 {
+<<<<<<< HEAD
 	if (!(es_vrf->flags & BGP_EVPNES_VRF_NHG_ACTIVE))
+=======
+	if (!CHECK_FLAG(es_vrf->flags, BGP_EVPNES_VRF_NHG_ACTIVE))
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		return;
 
 	if (BGP_DEBUG(evpn_mh, EVPN_MH_ES))
@@ -2917,7 +3207,11 @@ static void bgp_evpn_l3nhg_deactivate(struct bgp_evpn_es_vrf *es_vrf)
 			   es_vrf->es->esi_str, es_vrf->bgp_vrf->vrf_id,
 			   es_vrf->nhg_id);
 	bgp_evpn_l3nhg_zebra_del(es_vrf);
+<<<<<<< HEAD
 	es_vrf->flags &= ~BGP_EVPNES_VRF_NHG_ACTIVE;
+=======
+	UNSET_FLAG(es_vrf->flags, BGP_EVPNES_VRF_NHG_ACTIVE);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	/* MAC-IPs can now be installed via the L3NHG */
 	bgp_evpn_es_path_update_on_es_vrf_chg(es_vrf, "l3nhg-deactivate");
 }
@@ -2929,7 +3223,11 @@ static void bgp_evpn_l3nhg_activate(struct bgp_evpn_es_vrf *es_vrf, bool update)
 		return;
 	}
 
+<<<<<<< HEAD
 	if (es_vrf->flags & BGP_EVPNES_VRF_NHG_ACTIVE) {
+=======
+	if (CHECK_FLAG(es_vrf->flags, BGP_EVPNES_VRF_NHG_ACTIVE)) {
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		if (!update)
 			return;
 	} else {
@@ -2937,7 +3235,11 @@ static void bgp_evpn_l3nhg_activate(struct bgp_evpn_es_vrf *es_vrf, bool update)
 			zlog_debug("es %s vrf %u nhg %u activate",
 				   es_vrf->es->esi_str, es_vrf->bgp_vrf->vrf_id,
 				   es_vrf->nhg_id);
+<<<<<<< HEAD
 		es_vrf->flags |= BGP_EVPNES_VRF_NHG_ACTIVE;
+=======
+		SET_FLAG(es_vrf->flags, BGP_EVPNES_VRF_NHG_ACTIVE);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		/* MAC-IPs can now be installed via the L3NHG */
 		bgp_evpn_es_path_update_on_es_vrf_chg(es_vrf, "l3nhg_activate");
 	}
@@ -3158,7 +3460,11 @@ void bgp_evpn_es_vrf_use_nhg(struct bgp *bgp_vrf, esi_t *esi, bool *use_l3nhg,
 		return;
 
 	*use_l3nhg = true;
+<<<<<<< HEAD
 	if (es_vrf->flags & BGP_EVPNES_VRF_NHG_ACTIVE)
+=======
+	if (CHECK_FLAG(es_vrf->flags, BGP_EVPNES_VRF_NHG_ACTIVE))
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		*is_l3nhg_active = true;
 	if (es_vrf_p)
 		*es_vrf_p = es_vrf;
@@ -3250,9 +3556,15 @@ static void bgp_evpn_es_vrf_show_entry(struct vty *vty,
 		json_object_string_add(json, "esi", es->esi_str);
 		json_object_string_add(json, "vrf", bgp_vrf->name_pretty);
 
+<<<<<<< HEAD
 		if (es_vrf->flags & (BGP_EVPNES_VRF_NHG_ACTIVE)) {
 			json_types = json_object_new_array();
 			if (es_vrf->flags & BGP_EVPNES_VRF_NHG_ACTIVE)
+=======
+		if (CHECK_FLAG(es_vrf->flags, (BGP_EVPNES_VRF_NHG_ACTIVE))) {
+			json_types = json_object_new_array();
+			if (CHECK_FLAG(es_vrf->flags, BGP_EVPNES_VRF_NHG_ACTIVE))
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 				json_array_string_add(json_types, "active");
 			json_object_object_add(json, "flags", json_types);
 		}
@@ -3264,7 +3576,11 @@ static void bgp_evpn_es_vrf_show_entry(struct vty *vty,
 		char flags_str[4];
 
 		flags_str[0] = '\0';
+<<<<<<< HEAD
 		if (es_vrf->flags & BGP_EVPNES_VRF_NHG_ACTIVE)
+=======
+		if (CHECK_FLAG(es_vrf->flags, BGP_EVPNES_VRF_NHG_ACTIVE))
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 			strlcat(flags_str, "A", sizeof(flags_str));
 
 		vty_out(vty, "%-30s %-15s %-5s %-8u %-8u %u\n", es->esi_str,
@@ -3374,7 +3690,11 @@ static void bgp_evpn_es_evi_vtep_free(struct bgp_evpn_es_evi_vtep *evi_vtep)
 {
 	struct bgp_evpn_es_evi *es_evi = evi_vtep->es_evi;
 
+<<<<<<< HEAD
 	if (evi_vtep->flags & (BGP_EVPN_EVI_VTEP_EAD))
+=======
+	if (CHECK_FLAG(evi_vtep->flags, (BGP_EVPN_EVI_VTEP_EAD)))
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		/* as long as there is some reference we can't free it */
 		return;
 
@@ -3399,12 +3719,22 @@ static struct bgp_evpn_es_evi_vtep *bgp_evpn_es_evi_vtep_find(
 /* A VTEP can be added as "active" attach to an ES if EAD-per-ES and
  * EAD-per-EVI routes are rxed from it.
  */
+<<<<<<< HEAD
 static void bgp_evpn_es_evi_vtep_re_eval_active(struct bgp *bgp,
 		struct bgp_evpn_es_evi_vtep *evi_vtep)
+=======
+static enum zclient_send_status
+bgp_evpn_es_evi_vtep_re_eval_active(struct bgp *bgp,
+				    struct bgp_evpn_es_evi_vtep *evi_vtep)
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 {
 	bool old_active;
 	bool new_active;
 	uint32_t ead_activity_flags;
+<<<<<<< HEAD
+=======
+	enum zclient_send_status ret = ZCLIENT_SEND_SUCCESS;
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 	old_active = CHECK_FLAG(evi_vtep->flags, BGP_EVPN_EVI_VTEP_ACTIVE);
 
@@ -3417,7 +3747,12 @@ static void bgp_evpn_es_evi_vtep_re_eval_active(struct bgp *bgp,
 		/* EAD-per-ES is sufficent to activate the PE */
 		ead_activity_flags = BGP_EVPN_EVI_VTEP_EAD_PER_ES;
 
+<<<<<<< HEAD
 	if ((evi_vtep->flags & ead_activity_flags) == ead_activity_flags)
+=======
+	if (CHECK_FLAG(evi_vtep->flags, ead_activity_flags) ==
+	    ead_activity_flags)
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		SET_FLAG(evi_vtep->flags, BGP_EVPN_EVI_VTEP_ACTIVE);
 	else
 		UNSET_FLAG(evi_vtep->flags, BGP_EVPN_EVI_VTEP_ACTIVE);
@@ -3425,7 +3760,11 @@ static void bgp_evpn_es_evi_vtep_re_eval_active(struct bgp *bgp,
 	new_active = CHECK_FLAG(evi_vtep->flags, BGP_EVPN_EVI_VTEP_ACTIVE);
 
 	if (old_active == new_active)
+<<<<<<< HEAD
 		return;
+=======
+		return ret;
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 	if (BGP_DEBUG(evpn_mh, EVPN_MH_ES))
 		zlog_debug("es %s evi %u vtep %pI4 %s",
@@ -3434,6 +3773,7 @@ static void bgp_evpn_es_evi_vtep_re_eval_active(struct bgp *bgp,
 			   new_active ? "active" : "inactive");
 
 	/* add VTEP to parent es */
+<<<<<<< HEAD
 	if (new_active)
 		evi_vtep->es_vtep = bgp_evpn_es_vtep_add(
 			bgp, evi_vtep->es_evi->es, evi_vtep->vtep_ip,
@@ -3442,16 +3782,37 @@ static void bgp_evpn_es_evi_vtep_re_eval_active(struct bgp *bgp,
 		if (evi_vtep->es_vtep) {
 			bgp_evpn_es_vtep_do_del(bgp, evi_vtep->es_vtep,
 					false /*esr*/);
+=======
+	if (new_active) {
+		evi_vtep->es_vtep =
+			bgp_evpn_es_vtep_add(bgp, evi_vtep->es_evi->es,
+					     evi_vtep->vtep_ip, false /*esr*/,
+					     0, 0, &ret);
+	} else {
+		if (evi_vtep->es_vtep) {
+			ret = bgp_evpn_es_vtep_do_del(bgp, evi_vtep->es_vtep,
+						      false /*esr*/);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 			evi_vtep->es_vtep = NULL;
 		}
 	}
 	/* queue up the parent es for background consistency checks */
 	bgp_evpn_es_cons_checks_pend_add(evi_vtep->es_evi->es);
+<<<<<<< HEAD
 }
 
 static void bgp_evpn_es_evi_vtep_add(struct bgp *bgp,
 		struct bgp_evpn_es_evi *es_evi, struct in_addr vtep_ip,
 		bool ead_es)
+=======
+
+	return ret;
+}
+
+static enum zclient_send_status
+bgp_evpn_es_evi_vtep_add(struct bgp *bgp, struct bgp_evpn_es_evi *es_evi,
+			 struct in_addr vtep_ip, bool ead_es)
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 {
 	struct bgp_evpn_es_evi_vtep *evi_vtep;
 
@@ -3475,6 +3836,7 @@ static void bgp_evpn_es_evi_vtep_add(struct bgp *bgp,
 	else
 		SET_FLAG(evi_vtep->flags, BGP_EVPN_EVI_VTEP_EAD_PER_EVI);
 
+<<<<<<< HEAD
 	bgp_evpn_es_evi_vtep_re_eval_active(bgp, evi_vtep);
 }
 
@@ -3487,6 +3849,21 @@ static void bgp_evpn_es_evi_vtep_del(struct bgp *bgp,
 	evi_vtep = bgp_evpn_es_evi_vtep_find(es_evi, vtep_ip);
 	if (!evi_vtep)
 		return;
+=======
+	return bgp_evpn_es_evi_vtep_re_eval_active(bgp, evi_vtep);
+}
+
+static enum zclient_send_status
+bgp_evpn_es_evi_vtep_del(struct bgp *bgp, struct bgp_evpn_es_evi *es_evi,
+			 struct in_addr vtep_ip, bool ead_es)
+{
+	struct bgp_evpn_es_evi_vtep *evi_vtep;
+	enum zclient_send_status ret = ZCLIENT_SEND_SUCCESS;
+
+	evi_vtep = bgp_evpn_es_evi_vtep_find(es_evi, vtep_ip);
+	if (!evi_vtep)
+		return ret;
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 	if (BGP_DEBUG(evpn_mh, EVPN_MH_ES))
 		zlog_debug("del es %s evi %u vtep %pI4 %s",
@@ -3503,8 +3880,15 @@ static void bgp_evpn_es_evi_vtep_del(struct bgp *bgp,
 	else
 		UNSET_FLAG(evi_vtep->flags, BGP_EVPN_EVI_VTEP_EAD_PER_EVI);
 
+<<<<<<< HEAD
 	bgp_evpn_es_evi_vtep_re_eval_active(bgp, evi_vtep);
 	bgp_evpn_es_evi_vtep_free(evi_vtep);
+=======
+	ret = bgp_evpn_es_evi_vtep_re_eval_active(bgp, evi_vtep);
+	bgp_evpn_es_evi_vtep_free(evi_vtep);
+
+	return ret;
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 }
 
 /* compare ES-IDs for the ES-EVI RB tree maintained per-VNI */
@@ -3568,7 +3952,12 @@ bgp_evpn_es_evi_free(struct bgp_evpn_es_evi *es_evi)
 	/* cannot free the element as long as there is a local or remote
 	 * reference
 	 */
+<<<<<<< HEAD
 	if (es_evi->flags & (BGP_EVPNES_EVI_LOCAL | BGP_EVPNES_EVI_REMOTE))
+=======
+	if (CHECK_FLAG(es_evi->flags,
+		       (BGP_EVPNES_EVI_LOCAL | BGP_EVPNES_EVI_REMOTE)))
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		return es_evi;
 	bgp_evpn_es_frag_evi_del(es_evi, false);
 	bgp_evpn_es_vrf_deref(es_evi);
@@ -3770,6 +4159,10 @@ int bgp_evpn_local_es_evi_add(struct bgp *bgp, esi_t *esi, vni_t vni)
 		bgp_evpn_ead_evi_route_update(bgp, es, vpn, &p);
 	}
 
+<<<<<<< HEAD
+=======
+	bgp_evpn_local_es_evi_unistall_local_routes_in_vrfs(es, es_evi);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	/* update EAD-ES */
 	if (bgp_evpn_local_es_is_active(es))
 		bgp_evpn_ead_es_route_update(bgp, es);
@@ -3780,18 +4173,32 @@ int bgp_evpn_local_es_evi_add(struct bgp *bgp, esi_t *esi, vni_t vni)
 /* Add remote ES-EVI entry. This is actually the remote VTEP add and the
  * ES-EVI is implicity created on first VTEP's reference.
  */
+<<<<<<< HEAD
 int bgp_evpn_remote_es_evi_add(struct bgp *bgp, struct bgpevpn *vpn,
 		const struct prefix_evpn *p)
+=======
+enum zclient_send_status bgp_evpn_remote_es_evi_add(struct bgp *bgp,
+						    struct bgpevpn *vpn,
+						    const struct prefix_evpn *p)
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 {
 	char buf[ESI_STR_LEN];
 	struct bgp_evpn_es *es;
 	struct bgp_evpn_es_evi *es_evi;
 	bool ead_es;
 	const esi_t *esi = &p->prefix.ead_addr.esi;
+<<<<<<< HEAD
 
 	if (!vpn)
 		/* local EAD-ES need not be sent back to zebra */
 		return 0;
+=======
+	enum zclient_send_status ret = ZCLIENT_SEND_SUCCESS;
+
+	if (!vpn)
+		/* local EAD-ES need not be sent back to zebra */
+		return ret;
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 	if (BGP_DEBUG(evpn_mh, EVPN_MH_ES))
 		zlog_debug("add remote %s es %s evi %u vtep %pI4",
@@ -3808,27 +4215,49 @@ int bgp_evpn_remote_es_evi_add(struct bgp *bgp, struct bgpevpn *vpn,
 		es_evi = bgp_evpn_es_evi_new(es, vpn);
 
 	ead_es = !!p->prefix.ead_addr.eth_tag;
+<<<<<<< HEAD
 	bgp_evpn_es_evi_vtep_add(bgp, es_evi, p->prefix.ead_addr.ip.ipaddr_v4,
 			ead_es);
 
 	bgp_evpn_es_evi_remote_info_re_eval(es_evi);
 	return 0;
+=======
+	ret = bgp_evpn_es_evi_vtep_add(bgp, es_evi,
+				       p->prefix.ead_addr.ip.ipaddr_v4, ead_es);
+
+	bgp_evpn_es_evi_remote_info_re_eval(es_evi);
+	return ret;
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 }
 
 /* A remote VTEP has withdrawn. The es-evi-vtep will be deleted and the
  * parent es-evi freed up implicitly in last VTEP's deref.
  */
+<<<<<<< HEAD
 int bgp_evpn_remote_es_evi_del(struct bgp *bgp, struct bgpevpn *vpn,
 		const struct prefix_evpn *p)
+=======
+enum zclient_send_status bgp_evpn_remote_es_evi_del(struct bgp *bgp,
+						    struct bgpevpn *vpn,
+						    const struct prefix_evpn *p)
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 {
 	char buf[ESI_STR_LEN];
 	struct bgp_evpn_es *es;
 	struct bgp_evpn_es_evi *es_evi;
 	bool ead_es;
+<<<<<<< HEAD
 
 	if (!vpn)
 		/* local EAD-ES need not be sent back to zebra */
 		return 0;
+=======
+	enum zclient_send_status ret = ZCLIENT_SEND_SUCCESS;
+
+	if (!vpn)
+		/* local EAD-ES need not be sent back to zebra */
+		return ret;
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 	if (BGP_DEBUG(evpn_mh, EVPN_MH_ES))
 		zlog_debug(
@@ -3847,7 +4276,11 @@ int bgp_evpn_remote_es_evi_del(struct bgp *bgp, struct bgpevpn *vpn,
 				esi_to_str(&p->prefix.ead_addr.esi, buf,
 					   sizeof(buf)),
 				vpn->vni, &p->prefix.ead_addr.ip.ipaddr_v4);
+<<<<<<< HEAD
 		return 0;
+=======
+		return ret;
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	}
 	es_evi = bgp_evpn_es_evi_find(es, vpn);
 	if (!es_evi) {
@@ -3860,6 +4293,7 @@ int bgp_evpn_remote_es_evi_del(struct bgp *bgp, struct bgpevpn *vpn,
 					   sizeof(buf)),
 				vpn->vni,
 				&p->prefix.ead_addr.ip.ipaddr_v4);
+<<<<<<< HEAD
 		return 0;
 	}
 
@@ -3868,6 +4302,17 @@ int bgp_evpn_remote_es_evi_del(struct bgp *bgp, struct bgpevpn *vpn,
 			ead_es);
 	bgp_evpn_es_evi_remote_info_re_eval(es_evi);
 	return 0;
+=======
+		return ret;
+	}
+
+	ead_es = !!p->prefix.ead_addr.eth_tag;
+	ret = bgp_evpn_es_evi_vtep_del(bgp, es_evi,
+				       p->prefix.ead_addr.ip.ipaddr_v4, ead_es);
+	bgp_evpn_es_evi_remote_info_re_eval(es_evi);
+
+	return ret;
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 }
 
 /* If a VNI is being deleted we need to force del all remote VTEPs */
@@ -3885,8 +4330,13 @@ static void bgp_evpn_remote_es_evi_flush(struct bgp_evpn_es_evi *es_evi)
 	/* delete all VTEPs */
 	for (ALL_LIST_ELEMENTS(es_evi->es_evi_vtep_list, node, nnode,
 			       evi_vtep)) {
+<<<<<<< HEAD
 		evi_vtep->flags &= ~(BGP_EVPN_EVI_VTEP_EAD_PER_ES
 				     | BGP_EVPN_EVI_VTEP_EAD_PER_EVI);
+=======
+		UNSET_FLAG(evi_vtep->flags, (BGP_EVPN_EVI_VTEP_EAD_PER_ES |
+					     BGP_EVPN_EVI_VTEP_EAD_PER_EVI));
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		bgp_evpn_es_evi_vtep_re_eval_active(bgp, evi_vtep);
 		bgp_evpn_es_evi_vtep_free(evi_vtep);
 	}
@@ -3923,7 +4373,11 @@ void bgp_evpn_vni_es_cleanup(struct bgpevpn *vpn)
 
 static char *bgp_evpn_es_evi_vteps_str(char *vtep_str,
 				       struct bgp_evpn_es_evi *es_evi,
+<<<<<<< HEAD
 				       uint8_t vtep_str_size)
+=======
+				       size_t vtep_str_size)
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 {
 	char vtep_flag_str[BGP_EVPN_FLAG_STR_SZ];
 	struct listnode *node;
@@ -3934,9 +4388,15 @@ static char *bgp_evpn_es_evi_vteps_str(char *vtep_str,
 	vtep_str[0] = '\0';
 	for (ALL_LIST_ELEMENTS_RO(es_evi->es_evi_vtep_list, node, evi_vtep)) {
 		vtep_flag_str[0] = '\0';
+<<<<<<< HEAD
 		if (evi_vtep->flags & BGP_EVPN_EVI_VTEP_EAD_PER_ES)
 			strlcat(vtep_flag_str, "E", sizeof(vtep_flag_str));
 		if (evi_vtep->flags & BGP_EVPN_EVI_VTEP_EAD_PER_EVI)
+=======
+		if (CHECK_FLAG(evi_vtep->flags, BGP_EVPN_EVI_VTEP_EAD_PER_ES))
+			strlcat(vtep_flag_str, "E", sizeof(vtep_flag_str));
+		if (CHECK_FLAG(evi_vtep->flags, BGP_EVPN_EVI_VTEP_EAD_PER_EVI))
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 			strlcat(vtep_flag_str, "V", sizeof(vtep_flag_str));
 
 		if (!strnlen(vtep_flag_str, sizeof(vtep_flag_str)))
@@ -3967,12 +4427,21 @@ static void bgp_evpn_es_evi_json_vtep_fill(json_object *json_vteps,
 
 	json_object_string_addf(json_vtep_entry, "vtep_ip", "%pI4",
 				&evi_vtep->vtep_ip);
+<<<<<<< HEAD
 	if (evi_vtep->flags & (BGP_EVPN_EVI_VTEP_EAD_PER_ES |
 			 BGP_EVPN_EVI_VTEP_EAD_PER_EVI)) {
 		json_flags = json_object_new_array();
 		if (evi_vtep->flags & BGP_EVPN_EVI_VTEP_EAD_PER_ES)
 			json_array_string_add(json_flags, "ead-per-es");
 		if (evi_vtep->flags & BGP_EVPN_EVI_VTEP_EAD_PER_EVI)
+=======
+	if (CHECK_FLAG(evi_vtep->flags, (BGP_EVPN_EVI_VTEP_EAD_PER_ES |
+					 BGP_EVPN_EVI_VTEP_EAD_PER_EVI))) {
+		json_flags = json_object_new_array();
+		if (CHECK_FLAG(evi_vtep->flags, BGP_EVPN_EVI_VTEP_EAD_PER_ES))
+			json_array_string_add(json_flags, "ead-per-es");
+		if (CHECK_FLAG(evi_vtep->flags, BGP_EVPN_EVI_VTEP_EAD_PER_EVI))
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 			json_array_string_add(json_flags, "ead-per-evi");
 		json_object_object_add(json_vtep_entry,
 				"flags", json_flags);
@@ -3996,12 +4465,21 @@ static void bgp_evpn_es_evi_show_entry(struct vty *vty,
 		if (es_evi->vpn)
 			json_object_int_add(json, "vni", es_evi->vpn->vni);
 
+<<<<<<< HEAD
 		if (es_evi->flags & (BGP_EVPNES_EVI_LOCAL |
 					BGP_EVPNES_EVI_REMOTE)) {
 			json_types = json_object_new_array();
 			if (es_evi->flags & BGP_EVPNES_EVI_LOCAL)
 				json_array_string_add(json_types, "local");
 			if (es_evi->flags & BGP_EVPNES_EVI_REMOTE)
+=======
+		if (CHECK_FLAG(es_evi->flags, (BGP_EVPNES_EVI_LOCAL |
+					       BGP_EVPNES_EVI_REMOTE))) {
+			json_types = json_object_new_array();
+			if (CHECK_FLAG(es_evi->flags, BGP_EVPNES_EVI_LOCAL))
+				json_array_string_add(json_types, "local");
+			if (CHECK_FLAG(es_evi->flags, BGP_EVPNES_EVI_REMOTE))
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 				json_array_string_add(json_types, "remote");
 			json_object_object_add(json, "type", json_types);
 		}
@@ -4020,11 +4498,19 @@ static void bgp_evpn_es_evi_show_entry(struct vty *vty,
 		char vtep_str[ES_VTEP_LIST_STR_SZ + BGP_EVPN_VTEPS_FLAG_STR_SZ];
 
 		type_str[0] = '\0';
+<<<<<<< HEAD
 		if (es_evi->flags & BGP_EVPNES_EVI_LOCAL)
 			strlcat(type_str, "L", sizeof(type_str));
 		if (es_evi->flags & BGP_EVPNES_EVI_REMOTE)
 			strlcat(type_str, "R", sizeof(type_str));
 		if (es_evi->flags & BGP_EVPNES_EVI_INCONS_VTEP_LIST)
+=======
+		if (CHECK_FLAG(es_evi->flags, BGP_EVPNES_EVI_LOCAL))
+			strlcat(type_str, "L", sizeof(type_str));
+		if (CHECK_FLAG(es_evi->flags, BGP_EVPNES_EVI_REMOTE))
+			strlcat(type_str, "R", sizeof(type_str));
+		if (CHECK_FLAG(es_evi->flags, BGP_EVPNES_EVI_INCONS_VTEP_LIST))
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 			strlcat(type_str, "I", sizeof(type_str));
 
 		bgp_evpn_es_evi_vteps_str(vtep_str, es_evi, sizeof(vtep_str));
@@ -4051,7 +4537,11 @@ static void bgp_evpn_es_evi_show_entry_detail(struct vty *vty,
 			json_object_string_addf(json, "esFragmentRd",
 						BGP_RD_AS_FORMAT(mode),
 						&es_evi->es_frag->prd);
+<<<<<<< HEAD
 		if (es_evi->flags & BGP_EVPNES_EVI_INCONS_VTEP_LIST) {
+=======
+		if (CHECK_FLAG(es_evi->flags, BGP_EVPNES_EVI_INCONS_VTEP_LIST)) {
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 			json_flags = json_object_new_array();
 			json_array_string_add(json_flags, "es-vtep-mismatch");
 			json_object_object_add(json, "flags", json_flags);
@@ -4061,9 +4551,15 @@ static void bgp_evpn_es_evi_show_entry_detail(struct vty *vty,
 		char type_str[4];
 
 		type_str[0] = '\0';
+<<<<<<< HEAD
 		if (es_evi->flags & BGP_EVPNES_EVI_LOCAL)
 			strlcat(type_str, "L", sizeof(type_str));
 		if (es_evi->flags & BGP_EVPNES_EVI_REMOTE)
+=======
+		if (CHECK_FLAG(es_evi->flags, BGP_EVPNES_EVI_LOCAL))
+			strlcat(type_str, "L", sizeof(type_str));
+		if (CHECK_FLAG(es_evi->flags, BGP_EVPNES_EVI_REMOTE))
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 			strlcat(type_str, "R", sizeof(type_str));
 
 		bgp_evpn_es_evi_vteps_str(vtep_str, es_evi, sizeof(vtep_str));
@@ -4080,8 +4576,15 @@ static void bgp_evpn_es_evi_show_entry_detail(struct vty *vty,
 			vty_out(vty, "\n");
 		}
 		vty_out(vty, " Inconsistencies: %s\n",
+<<<<<<< HEAD
 			(es_evi->flags & BGP_EVPNES_EVI_INCONS_VTEP_LIST) ?
 			"es-vtep-mismatch":"-");
+=======
+			CHECK_FLAG(es_evi->flags,
+				   BGP_EVPNES_EVI_INCONS_VTEP_LIST)
+				? "es-vtep-mismatch"
+				: "-");
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		vty_out(vty, " VTEPs: %s\n", vtep_str);
 		vty_out(vty, "\n");
 	}
@@ -4475,12 +4978,21 @@ static void bgp_evpn_nh_zebra_update_send(struct bgp_evpn_nh *nh, bool add)
 static void bgp_evpn_nh_zebra_update(struct bgp_evpn_nh *nh, bool add)
 {
 	if (add && !is_zero_mac(&nh->rmac)) {
+<<<<<<< HEAD
 		nh->flags |= BGP_EVPN_NH_READY_FOR_ZEBRA;
 		bgp_evpn_nh_zebra_update_send(nh, true);
 	} else {
 		if (!(nh->flags & BGP_EVPN_NH_READY_FOR_ZEBRA))
 			return;
 		nh->flags &= ~BGP_EVPN_NH_READY_FOR_ZEBRA;
+=======
+		SET_FLAG(nh->flags, BGP_EVPN_NH_READY_FOR_ZEBRA);
+		bgp_evpn_nh_zebra_update_send(nh, true);
+	} else {
+		if (!CHECK_FLAG(nh->flags, BGP_EVPN_NH_READY_FOR_ZEBRA))
+			return;
+		UNSET_FLAG(nh->flags, BGP_EVPN_NH_READY_FOR_ZEBRA);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		bgp_evpn_nh_zebra_update_send(nh, false);
 	}
 }
@@ -4772,7 +5284,11 @@ static void bgp_evpn_path_nh_link(struct bgp *bgp_vrf, struct bgp_path_info *pi)
 	/* if NHG is not being used for this path we don't need to manage the
 	 * nexthops in bgp (they are managed by zebra instead)
 	 */
+<<<<<<< HEAD
 	if (!(pi->attr->es_flags & ATTR_ES_L3_NHG_USE)) {
+=======
+	if (!CHECK_FLAG(pi->attr->es_flags, ATTR_ES_L3_NHG_USE)) {
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		if (nh_info)
 			bgp_evpn_path_nh_unlink(nh_info);
 		return;
@@ -5014,3 +5530,41 @@ void bgp_evpn_switch_ead_evi_rx(void)
 		}
 	}
 }
+<<<<<<< HEAD
+=======
+
+void bgp_evpn_local_es_evi_unistall_local_routes_in_vrfs(struct bgp_evpn_es *es,
+							 struct bgp_evpn_es_evi *es_evi)
+{
+	struct listnode *node;
+	struct bgp_path_es_info *es_info;
+	struct bgp_path_info *pi;
+	const struct prefix_evpn *evp;
+	struct bgp_evpn_es_vrf *es_vrf = es_evi->es_vrf;
+
+	if (!es_vrf)
+		return;
+
+	for (ALL_LIST_ELEMENTS_RO(es->macip_global_path_list, node, es_info)) {
+		pi = es_info->pi;
+
+		if (!bgp_evpn_is_macip_path(pi))
+			continue;
+
+		evp = (const struct prefix_evpn *)bgp_dest_get_prefix(pi->net);
+
+		if (!(CHECK_FLAG(pi->flags, BGP_PATH_VALID) && pi->type == ZEBRA_ROUTE_BGP &&
+		      pi->sub_type == BGP_ROUTE_NORMAL))
+			continue;
+
+		if (BGP_DEBUG(evpn_mh, EVPN_MH_RT))
+			zlog_debug("route %pFX is matched on local esi %s, uninstall from %s route table",
+				   evp, es->esi_str, es_vrf->bgp_vrf->name_pretty);
+
+		if (!bgp_evpn_skip_vrf_import_of_local_es(es_vrf->bgp_vrf, evp, pi, 0))
+			continue;
+
+		uninstall_evpn_route_entry_in_vrf(es_vrf->bgp_vrf, evp, pi);
+	}
+}
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)

@@ -20,7 +20,10 @@ import pytest
 from functools import partial
 from lib import topotest
 from lib.topogen import Topogen, TopoRouter
+<<<<<<< HEAD
 from lib.topolog import logger
+=======
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 pytestmark = [
     pytest.mark.bfdd,
@@ -32,10 +35,14 @@ pytestmark = [
 def tgen(request):
     "Setup/Teardown the environment and provide tgen argument to tests"
 
+<<<<<<< HEAD
     topodef = {
         "s1": ("r1", "r2"),
         "s2": ("r1", "r3")
     }
+=======
+    topodef = {"s1": ("r1", "r2"), "s2": ("r1", "r3")}
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
     tgen = Topogen(topodef, request.module.__name__)
     tgen.start_topology()
 
@@ -68,16 +75,29 @@ def show_rip_json(router):
 
     for route in routes:
         match = re.match(
+<<<<<<< HEAD
             r"(.)\((.)\)\s+([^\s]+)\s+([^\s]+)\s+([^\s]+)\s+([^\s]+)", route)
+=======
+            r"(.)\((.)\)\s+([^\s]+)\s+([^\s]+)\s+([^\s]+)\s+([^\s]+)", route
+        )
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
         if match is None:
             continue
 
         route_entry = {
+<<<<<<< HEAD
                 "code": match[1],
                 "subCode": match[2],
                 "nextHop": match[4],
                 "metric": int(match[5]),
                 "from": match[6],
+=======
+            "code": match[1],
+            "subCode": match[2],
+            "nextHop": match[4],
+            "metric": int(match[5]),
+            "from": match[6],
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
         }
 
         if json.get(match[3]) is None:
@@ -95,12 +115,17 @@ def expect_routes(router, routes, time_amount):
         "Internal test function."
         return topotest.json_cmp(show_rip_json(router), routes)
 
+<<<<<<< HEAD
     _, result = topotest.run_and_expect(test_function,
                                         None,
                                         count=time_amount,
                                         wait=1)
     assert result is None, "Unexpected routing table in {}".format(
         router.name)
+=======
+    _, result = topotest.run_and_expect(test_function, None, count=time_amount, wait=1)
+    assert result is None, "Unexpected routing table in {}".format(router.name)
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 
 def expect_bfd_peers(router, peers):
@@ -119,6 +144,7 @@ def test_rip_convergence(tgen):
     "Test that RIP learns the neighbor routes."
 
     expect_routes(
+<<<<<<< HEAD
         tgen.gears["r1"], {
             "10.254.254.2/32": [{
                 "code": "R",
@@ -204,6 +230,89 @@ def test_rip_convergence(tgen):
         "receive-interval": 1000,
         "transmit-interval": 1000,
     }])
+=======
+        tgen.gears["r1"],
+        {
+            "10.254.254.2/32": [{"code": "R", "subCode": "n", "from": "192.168.0.2"}],
+            "10.254.254.3/32": [{"code": "R", "subCode": "n", "from": "192.168.1.2"}],
+            "10.254.254.100/32": [
+                {
+                    "code": "R",
+                    "subCode": "n",
+                    "from": "192.168.0.2",
+                },
+                {
+                    "code": "R",
+                    "subCode": "n",
+                    "from": "192.168.1.2",
+                },
+            ],
+        },
+        40,
+    )
+
+    expect_bfd_peers(
+        tgen.gears["r1"],
+        [
+            {
+                "peer": "192.168.0.2",
+                "status": "up",
+                "receive-interval": 1000,
+                "transmit-interval": 1000,
+            },
+            {
+                "peer": "192.168.1.2",
+                "status": "up",
+                "receive-interval": 1000,
+                "transmit-interval": 1000,
+            },
+        ],
+    )
+
+    expect_routes(
+        tgen.gears["r2"],
+        {
+            "10.254.254.1/32": [{"code": "R", "subCode": "n", "from": "192.168.0.1"}],
+            "10.254.254.3/32": [{"code": "R", "subCode": "n", "from": "192.168.0.1"}],
+            "10.254.254.100/32": [{"code": "S", "subCode": "r", "from": "self"}],
+        },
+        40,
+    )
+
+    expect_bfd_peers(
+        tgen.gears["r2"],
+        [
+            {
+                "peer": "192.168.0.1",
+                "status": "up",
+                "receive-interval": 1000,
+                "transmit-interval": 1000,
+            }
+        ],
+    )
+
+    expect_routes(
+        tgen.gears["r3"],
+        {
+            "10.254.254.1/32": [{"code": "R", "subCode": "n", "from": "192.168.1.1"}],
+            "10.254.254.2/32": [{"code": "R", "subCode": "n", "from": "192.168.1.1"}],
+            "10.254.254.100/32": [{"code": "S", "subCode": "r", "from": "self"}],
+        },
+        40,
+    )
+
+    expect_bfd_peers(
+        tgen.gears["r3"],
+        [
+            {
+                "peer": "192.168.1.1",
+                "status": "up",
+                "receive-interval": 1000,
+                "transmit-interval": 1000,
+            }
+        ],
+    )
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 
 def test_rip_bfd_convergence(tgen):
@@ -212,6 +321,7 @@ def test_rip_bfd_convergence(tgen):
     tgen.gears["r3"].link_enable("r3-eth0", False)
 
     expect_routes(
+<<<<<<< HEAD
         tgen.gears["r1"], {
             "10.254.254.2/32": [{
                 "code": "R",
@@ -236,6 +346,32 @@ def test_rip_bfd_convergence(tgen):
                 "from": "self"
             }]
         }, 6)
+=======
+        tgen.gears["r1"],
+        {
+            "10.254.254.2/32": [{"code": "R", "subCode": "n", "from": "192.168.0.2"}],
+            "10.254.254.3/32": None,
+            "10.254.254.100/32": [
+                {
+                    "code": "R",
+                    "subCode": "n",
+                    "from": "192.168.0.2",
+                }
+            ],
+        },
+        6,
+    )
+
+    expect_routes(
+        tgen.gears["r3"],
+        {
+            "10.254.254.1/32": None,
+            "10.254.254.2/32": None,
+            "10.254.254.100/32": [{"code": "S", "subCode": "r", "from": "self"}],
+        },
+        6,
+    )
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 
 def test_memory_leak(tgen):

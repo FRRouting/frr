@@ -1,6 +1,11 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 /*
+<<<<<<< HEAD
  * OSPF6 Graceful Retsart helper functions.
+=======
+ * OSPF6 Graceful Restart helper functions.
+ * Ref RFC 5187
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
  *
  * Copyright (C) 2021-22 Vmware, Inc.
  * Rajesh Kumar Girada
@@ -60,6 +65,7 @@ enum ospf6_gr_helper_rejected_reason {
 	OSPF6_HELPER_RESTARTING,
 };
 
+<<<<<<< HEAD
 #ifdef roundup
 #define ROUNDUP(val, gran) roundup(val, gran)
 #else /* roundup */
@@ -105,13 +111,23 @@ struct grace_tlv_restart_reason {
 	uint8_t reserved[3];
 };
 #define GRACE_RESTART_REASON_TLV_SIZE sizeof(struct grace_tlv_restart_reason)
+=======
+
+#define GRACE_PERIOD_TLV_SIZE	      sizeof(struct tlv_grace_period)
+#define GRACE_RESTART_REASON_TLV_SIZE sizeof(struct tlv_grace_restart_reason)
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 #define OSPF6_GRACE_LSA_MIN_SIZE                                               \
 	GRACE_PERIOD_TLV_SIZE + GRACE_RESTART_REASON_TLV_SIZE
 
 struct ospf6_grace_lsa {
+<<<<<<< HEAD
 	struct grace_tlv_graceperiod tlv_period;
 	struct grace_tlv_restart_reason tlv_reason;
+=======
+	struct tlv_grace_period tlv_period;
+	struct tlv_grace_restart_reason tlv_reason;
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 };
 
 struct advRtr {

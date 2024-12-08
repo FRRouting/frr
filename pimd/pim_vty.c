@@ -165,6 +165,14 @@ int pim_debug_config_write(struct vty *vty)
 		++writes;
 	}
 
+<<<<<<< HEAD
+=======
+	if (PIM_DEBUG_AUTORP) {
+		vty_out(vty, "debug pim autorp\n");
+		++writes;
+	}
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	return writes;
 }
 
@@ -172,6 +180,7 @@ int pim_global_config_write_worker(struct pim_instance *pim, struct vty *vty)
 {
 	int writes = 0;
 	struct pim_ssm *ssm = pim->ssm_info;
+<<<<<<< HEAD
 	char spaces[10];
 
 	if (pim->vrf->vrf_id == VRF_DEFAULT)
@@ -188,10 +197,44 @@ int pim_global_config_write_worker(struct pim_instance *pim, struct vty *vty)
 	}
 
 	writes += pim_rp_config_write(pim, vty, spaces);
+=======
+
+	writes += pim_msdp_peer_config_write(vty, pim);
+	writes += pim_msdp_config_write(pim, vty);
+
+	if (!pim->send_v6_secondary) {
+		vty_out(vty, " no send-v6-secondary\n");
+		++writes;
+	}
+
+#if PIM_IPV == 6
+	if (pim->embedded_rp.enable) {
+		vty_out(vty, " embedded-rp\n");
+		writes++;
+	}
+
+	if (pim->embedded_rp.maximum_rps != PIM_EMBEDDED_RP_MAXIMUM) {
+		vty_out(vty, " embedded-rp limit %u\n", pim->embedded_rp.maximum_rps);
+		writes++;
+	}
+
+	if (pim->embedded_rp.group_list) {
+		vty_out(vty, " embedded-rp group-list %s\n", pim->embedded_rp.group_list);
+		writes++;
+	}
+#endif /* PIM_IPV == 6 */
+
+	writes += pim_rp_config_write(pim, vty);
+#if PIM_IPV == 4
+	writes += pim_autorp_config_write(pim, vty);
+#endif
+	writes += pim_cand_config_write(pim, vty);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 	if (pim->vrf->vrf_id == VRF_DEFAULT) {
 		if (router->register_suppress_time
 		    != PIM_REGISTER_SUPPRESSION_TIME_DEFAULT) {
+<<<<<<< HEAD
 			vty_out(vty, "%s" PIM_AF_NAME " pim register-suppress-time %d\n",
 				spaces, router->register_suppress_time);
 			++writes;
@@ -199,16 +242,30 @@ int pim_global_config_write_worker(struct pim_instance *pim, struct vty *vty)
 		if (router->t_periodic != PIM_DEFAULT_T_PERIODIC) {
 			vty_out(vty, "%s" PIM_AF_NAME " pim join-prune-interval %d\n",
 				spaces, router->t_periodic);
+=======
+			vty_out(vty, " register-suppress-time %d\n",
+				router->register_suppress_time);
+			++writes;
+		}
+		if (router->t_periodic != PIM_DEFAULT_T_PERIODIC) {
+			vty_out(vty, " join-prune-interval %d\n",
+				router->t_periodic);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 			++writes;
 		}
 
 		if (router->packet_process != PIM_DEFAULT_PACKET_PROCESS) {
+<<<<<<< HEAD
 			vty_out(vty, "%s" PIM_AF_NAME " pim packets %d\n", spaces,
 				router->packet_process);
+=======
+			vty_out(vty, " packets %d\n", router->packet_process);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 			++writes;
 		}
 	}
 	if (pim->keep_alive_time != PIM_KEEPALIVE_PERIOD) {
+<<<<<<< HEAD
 		vty_out(vty, "%s" PIM_AF_NAME " pim keep-alive-timer %d\n",
 			spaces, pim->keep_alive_time);
 		++writes;
@@ -226,11 +283,28 @@ int pim_global_config_write_worker(struct pim_instance *pim, struct vty *vty)
 	if (pim->register_plist) {
 		vty_out(vty, "%sip pim register-accept-list %s\n", spaces,
 			pim->register_plist);
+=======
+		vty_out(vty, " keep-alive-timer %d\n", pim->keep_alive_time);
+		++writes;
+	}
+	if (pim->rp_keep_alive_time != (unsigned int)PIM_RP_KEEPALIVE_PERIOD) {
+		vty_out(vty, " rp keep-alive-timer %d\n",
+			pim->rp_keep_alive_time);
+		++writes;
+	}
+	if (ssm->plist_name) {
+		vty_out(vty, " ssm prefix-list %s\n", ssm->plist_name);
+		++writes;
+	}
+	if (pim->register_plist) {
+		vty_out(vty, " register-accept-list %s\n", pim->register_plist);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		++writes;
 	}
 	if (pim->spt.switchover == PIM_SPT_INFINITY) {
 		if (pim->spt.plist)
 			vty_out(vty,
+<<<<<<< HEAD
 				"%s" PIM_AF_NAME " pim spt-switchover infinity-and-beyond prefix-list %s\n",
 				spaces, pim->spt.plist);
 		else
@@ -255,6 +329,19 @@ int pim_global_config_write_worker(struct pim_instance *pim, struct vty *vty)
 		vty_out(vty, "%s" PIM_AF_NAME " mld watermark-warn %u\n",
 			spaces, pim->gm_watermark_limit);
 #endif
+=======
+				" spt-switchover infinity-and-beyond prefix-list %s\n",
+				pim->spt.plist);
+		else
+			vty_out(vty, " spt-switchover infinity-and-beyond\n");
+		++writes;
+	}
+	if (pim->ecmp_rebalance_enable) {
+		vty_out(vty, " ecmp rebalance\n");
+		++writes;
+	} else if (pim->ecmp_enable) {
+		vty_out(vty, " ecmp\n");
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		++writes;
 	}
 
@@ -263,8 +350,12 @@ int pim_global_config_write_worker(struct pim_instance *pim, struct vty *vty)
 		struct ssmpingd_sock *ss;
 		++writes;
 		for (ALL_LIST_ELEMENTS_RO(pim->ssmpingd_list, node, ss)) {
+<<<<<<< HEAD
 			vty_out(vty, "%s" PIM_AF_NAME " ssmpingd %pPA\n",
 				spaces, &ss->source_addr);
+=======
+			vty_out(vty, " ssmpingd %pPA\n", &ss->source_addr);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 			++writes;
 		}
 	}
@@ -272,8 +363,13 @@ int pim_global_config_write_worker(struct pim_instance *pim, struct vty *vty)
 	if (pim->msdp.hold_time != PIM_MSDP_PEER_HOLD_TIME
 	    || pim->msdp.keep_alive != PIM_MSDP_PEER_KA_TIME
 	    || pim->msdp.connection_retry != PIM_MSDP_PEER_CONNECT_RETRY_TIME) {
+<<<<<<< HEAD
 		vty_out(vty, "%sip msdp timers %u %u", spaces,
 			pim->msdp.hold_time, pim->msdp.keep_alive);
+=======
+		vty_out(vty, " msdp timers %u %u", pim->msdp.hold_time,
+			pim->msdp.keep_alive);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		if (pim->msdp.connection_retry
 		    != PIM_MSDP_PEER_CONNECT_RETRY_TIME)
 			vty_out(vty, " %u", pim->msdp.connection_retry);
@@ -293,6 +389,14 @@ static int gm_config_write(struct vty *vty, int writes,
 		++writes;
 	}
 
+<<<<<<< HEAD
+=======
+	if (pim_ifp->gm_proxy) {
+		vty_out(vty, " ip igmp proxy\n");
+		++writes;
+	}
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	/* ip igmp version */
 	if (pim_ifp->igmp_version != IGMP_DEFAULT_VERSION) {
 		vty_out(vty, " ip igmp version %d\n", pim_ifp->igmp_version);
@@ -330,21 +434,56 @@ static int gm_config_write(struct vty *vty, int writes,
 		++writes;
 	}
 
+<<<<<<< HEAD
 	/* IF ip igmp join */
+=======
+	/* IF ip igmp join-group */
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	if (pim_ifp->gm_join_list) {
 		struct listnode *node;
 		struct gm_join *ij;
 		for (ALL_LIST_ELEMENTS_RO(pim_ifp->gm_join_list, node, ij)) {
+<<<<<<< HEAD
 			if (pim_addr_is_any(ij->source_addr))
 				vty_out(vty, " ip igmp join %pPAs\n",
 					&ij->group_addr);
 			else
 				vty_out(vty, " ip igmp join %pPAs %pPAs\n",
+=======
+			if (ij->join_type == GM_JOIN_PROXY)
+				continue;
+
+			if (pim_addr_is_any(ij->source_addr))
+				vty_out(vty, " ip igmp join-group %pPAs\n",
+					&ij->group_addr);
+			else
+				vty_out(vty, " ip igmp join-group %pPAs %pPAs\n",
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 					&ij->group_addr, &ij->source_addr);
 			++writes;
 		}
 	}
 
+<<<<<<< HEAD
+=======
+	/* IF ip igmp static-group */
+	if (pim_ifp->static_group_list) {
+		struct listnode *node;
+		struct static_group *stgrp;
+		for (ALL_LIST_ELEMENTS_RO(pim_ifp->static_group_list, node,
+					  stgrp)) {
+			if (pim_addr_is_any(stgrp->source_addr))
+				vty_out(vty, " ip igmp static-group %pPAs\n",
+					&stgrp->group_addr);
+			else
+				vty_out(vty,
+					" ip igmp static-group %pPAs %pPAs\n",
+					&stgrp->group_addr, &stgrp->source_addr);
+			++writes;
+		}
+	}
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	return writes;
 }
 #else
@@ -382,6 +521,7 @@ static int gm_config_write(struct vty *vty, int writes,
 		vty_out(vty, " ipv6 mld last-member-query-interval %d\n",
 			pim_ifp->gm_specific_query_max_response_time_dsec);
 
+<<<<<<< HEAD
 	/* IF ipv6 mld join */
 	if (pim_ifp->gm_join_list) {
 		struct listnode *node;
@@ -392,11 +532,49 @@ static int gm_config_write(struct vty *vty, int writes,
 					&ij->group_addr);
 			else
 				vty_out(vty, " ipv6 mld join %pPAs %pPAs\n",
+=======
+	/* IF ipv6 mld join-group */
+	if (pim_ifp->gm_join_list) {
+		struct listnode *node;
+		struct gm_join *ij;
+
+		for (ALL_LIST_ELEMENTS_RO(pim_ifp->gm_join_list, node, ij)) {
+			if (ij->join_type == GM_JOIN_PROXY)
+				continue;
+
+			if (pim_addr_is_any(ij->source_addr))
+				vty_out(vty, " ipv6 mld join-group %pPAs\n",
+					&ij->group_addr);
+			else
+				vty_out(vty,
+					" ipv6 mld join-group %pPAs %pPAs\n",
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 					&ij->group_addr, &ij->source_addr);
 			++writes;
 		}
 	}
 
+<<<<<<< HEAD
+=======
+	/* IF ipv6 mld static-group */
+	if (pim_ifp->static_group_list) {
+		struct listnode *node;
+		struct static_group *stgrp;
+
+		for (ALL_LIST_ELEMENTS_RO(pim_ifp->static_group_list, node,
+					  stgrp)) {
+			if (pim_addr_is_any(stgrp->source_addr))
+				vty_out(vty, " ipv6 mld static-group %pPAs\n",
+					&stgrp->group_addr);
+			else
+				vty_out(vty,
+					" ipv6 mld static-group %pPAs %pPAs\n",
+					&stgrp->group_addr, &stgrp->source_addr);
+			++writes;
+		}
+	}
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	return writes;
 }
 #endif

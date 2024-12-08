@@ -227,13 +227,25 @@ def build_topo_from_json(tgen, topo=None):
                     topo["routers"][destRouter]["links"][curSwitch][
                         "interface"
                     ] = "{}-{}-eth{}".format(
+<<<<<<< HEAD
                         destRouter, curSwitch, topo["routers"][destRouter]["nextIfname"]
+=======
+                        destRouter,
+                        curSwitch,
+                        topo["routers"][destRouter]["nextIfname"],
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
                     )
 
                     topo["switches"][curSwitch]["links"][destRouter][
                         "interface"
                     ] = "{}-{}-eth{}".format(
+<<<<<<< HEAD
                         curSwitch, destRouter, topo["routers"][destRouter]["nextIfname"]
+=======
+                        curSwitch,
+                        destRouter,
+                        topo["routers"][destRouter]["nextIfname"],
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
                     )
 
                     topo["routers"][destRouter]["nextIfname"] += 1

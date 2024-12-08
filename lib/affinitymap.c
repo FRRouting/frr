@@ -41,8 +41,11 @@
 #include "jhash.h"
 
 DEFINE_MTYPE_STATIC(LIB, AFFINITY_MAP, "Affinity map");
+<<<<<<< HEAD
 DEFINE_MTYPE(LIB, AFFINITY_MAP_NAME, "Affinity map name");
 DEFINE_MTYPE_STATIC(LIB, AFFINITY_MAP_INDEX, "Affinity map index");
+=======
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 DEFINE_QOBJ_TYPE(affinity_maps);
 DEFINE_QOBJ_TYPE(affinity_map);

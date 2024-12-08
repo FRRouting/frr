@@ -12,6 +12,11 @@
 #include "zebra/zebra_router.h"
 #include "zebra/zebra_vrf.h"
 #include "zebra/zebra_vxlan.h"
+<<<<<<< HEAD
+=======
+#include "zebra/zebra_vxlan_if.h"
+#include "zebra/zebra_evpn.h"
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 /*
  * XPath: /frr-zebra:clear-evpn-dup-addr
@@ -20,6 +25,7 @@ int clear_evpn_dup_addr_rpc(struct nb_cb_rpc_args *args)
 {
 	struct zebra_vrf *zvrf;
 	int ret = NB_OK;
+<<<<<<< HEAD
 	struct yang_data *yang_dup_choice = NULL, *yang_dup_vni = NULL,
 			 *yang_dup_ip = NULL, *yang_dup_mac = NULL;
 
@@ -62,6 +68,43 @@ int clear_evpn_dup_addr_rpc(struct nb_cb_rpc_args *args)
 			} else
 				ret = zebra_vxlan_clear_dup_detect_vni(zvrf,
 								       vni);
+=======
+
+	if (!is_evpn_enabled()) {
+		snprintf(args->errmsg, args->errmsg_len,
+			 "%% EVPN not enabled\n");
+		return NB_ERR_VALIDATION;
+	}
+	zvrf = zebra_vrf_get_evpn();
+
+	if (yang_dnode_exists(args->input, "all-vnis")) {
+		zebra_vxlan_clear_dup_detect_vni_all(zvrf);
+	} else {
+		vni_t vni = yang_dnode_get_uint32(args->input, "vni-id");
+		struct ipaddr host_ip = {.ipa_type = IPADDR_NONE};
+		struct ethaddr mac;
+
+		if (!zebra_evpn_lookup(vni)) {
+			snprintf(args->errmsg, args->errmsg_len,
+				 "%% VNI %u does not exist\n", vni);
+			return NB_ERR_VALIDATION;
+		}
+
+		if (yang_dnode_exists(args->input, "mac-addr")) {
+			yang_dnode_get_mac(&mac, args->input, "mac-addr");
+			ret = zebra_vxlan_clear_dup_detect_vni_mac(zvrf, vni,
+								   &mac,
+								   args->errmsg,
+								   args->errmsg_len);
+		} else if (yang_dnode_exists(args->input, "vni-ipaddr")) {
+			yang_dnode_get_ip(&host_ip, args->input, "vni-ipaddr");
+			ret = zebra_vxlan_clear_dup_detect_vni_ip(zvrf, vni,
+								  &host_ip,
+								  args->errmsg,
+								  args->errmsg_len);
+		} else {
+			ret = zebra_vxlan_clear_dup_detect_vni(zvrf, vni);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		}
 	}
 	if (ret < 0)

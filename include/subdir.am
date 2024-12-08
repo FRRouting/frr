@@ -1,4 +1,10 @@
 noinst_HEADERS += \
+<<<<<<< HEAD
+=======
+	include/linux/compiler_types.h \
+	include/linux/libc-compat.h \
+	include/linux/if.h \
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	include/linux/if_addr.h \
 	include/linux/if_bridge.h \
 	include/linux/if_link.h \

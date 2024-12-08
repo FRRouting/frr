@@ -34,6 +34,13 @@ tests_lib_test_grpc_CXXFLAGS = $(WERROR) $(TESTS_CXXFLAGS)
 tests_lib_test_grpc_CPPFLAGS = $(TESTS_CPPFLAGS)
 tests_lib_test_grpc_LDADD = $(GRPC_TESTS_LDADD)
 tests_lib_test_grpc_SOURCES = tests/lib/test_grpc.cpp
+<<<<<<< HEAD
+=======
+nodist_tests_lib_test_grpc_SOURCES = \
+	yang/frr-bfdd.yang.c \
+	yang/frr-staticd.yang.c \
+	# end
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 
 ##############################################################################
@@ -96,7 +103,11 @@ check_PROGRAMS += tests/lib/cli/test_commands
 tests_lib_cli_test_commands_CFLAGS = $(TESTS_CFLAGS)
 tests_lib_cli_test_commands_CPPFLAGS = $(TESTS_CPPFLAGS)
 tests_lib_cli_test_commands_LDADD = $(ALL_TESTS_LDADD)
+<<<<<<< HEAD
 nodist_tests_lib_cli_test_commands_SOURCES = tests/lib/cli/test_commands_defun.c
+=======
+nodist_tests_lib_cli_test_commands_SOURCES = tests/lib/cli/test_commands_defun.c $(vtysh_cmd_split)
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 tests_lib_cli_test_commands_SOURCES = tests/lib/cli/test_commands.c tests/helpers/c/prng.c
 tests/lib/cli/test_commands_defun.c: vtysh/vtysh_cmd.c
 	@$(MKDIR_P) tests/lib/cli

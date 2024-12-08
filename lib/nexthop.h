@@ -154,6 +154,11 @@ void nexthops_free(struct nexthop *nexthop);
 void nexthop_add_labels(struct nexthop *nexthop, enum lsp_types_t ltype,
 			uint8_t num_labels, const mpls_label_t *labels);
 void nexthop_del_labels(struct nexthop *);
+<<<<<<< HEAD
+=======
+void nexthop_change_labels(struct nexthop *nexthop, struct mpls_label_stack *new_stack);
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 void nexthop_add_srv6_seg6local(struct nexthop *nexthop, uint32_t action,
 				const struct seg6local_context *ctx);
 void nexthop_del_srv6_seg6local(struct nexthop *nexthop);
@@ -207,6 +212,11 @@ extern bool nexthop_same(const struct nexthop *nh1, const struct nexthop *nh2);
 extern bool nexthop_same_no_labels(const struct nexthop *nh1,
 				   const struct nexthop *nh2);
 extern int nexthop_cmp(const struct nexthop *nh1, const struct nexthop *nh2);
+<<<<<<< HEAD
+=======
+extern int nexthop_cmp_no_weight(const struct nexthop *nh1,
+				 const struct nexthop *nh2);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 extern int nexthop_g_addr_cmp(enum nexthop_types_t type,
 			      const union g_addr *addr1,
 			      const union g_addr *addr2);
@@ -223,6 +233,11 @@ extern bool nexthop_labels_match(const struct nexthop *nh1,
 extern const char *nexthop2str(const struct nexthop *nexthop,
 			       char *str, int size);
 extern struct nexthop *nexthop_next(const struct nexthop *nexthop);
+<<<<<<< HEAD
+=======
+extern struct nexthop *nexthop_next_resolution(const struct nexthop *nexthop,
+					       bool nexthop_resolution);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 extern struct nexthop *
 nexthop_next_active_resolved(const struct nexthop *nexthop);
 extern unsigned int nexthop_level(const struct nexthop *nexthop);
@@ -252,6 +267,15 @@ extern bool nexthop_is_blackhole(const struct nexthop *nh);
 int nexthop_str2backups(const char *str, int *num_backups,
 			uint8_t *backups);
 
+<<<<<<< HEAD
+=======
+void nexthop_json_helper(json_object *json_nexthop,
+			 const struct nexthop *nexthop, bool display_vrfid,
+			 uint8_t rn_family);
+void nexthop_vty_helper(struct vty *vty, const struct nexthop *nexthop,
+			bool display_vrfid, uint8_t rn_family);
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 #ifdef _FRR_ATTRIBUTE_PRINTFRR
 #pragma FRR printfrr_ext "%pNH"  (struct nexthop *)
 #endif

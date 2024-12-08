@@ -256,6 +256,7 @@ void gen_bfd_key(struct bfd_key *key, struct sockaddr_any *peer,
 
 struct bfd_session *bs_peer_find(struct bfd_peer_cfg *bpc)
 {
+<<<<<<< HEAD
 	struct bfd_session *bs;
 	struct peer_label *pl;
 	struct bfd_key key;
@@ -269,6 +270,10 @@ struct bfd_session *bs_peer_find(struct bfd_peer_cfg *bpc)
 		}
 	}
 
+=======
+	struct bfd_key key;
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	/* Otherwise fallback to peer/local hash lookup. */
 	gen_bfd_key(&key, &bpc->bpc_peer, &bpc->bpc_local, bpc->bpc_mhop,
 		    bpc->bpc_localif, bpc->bpc_vrfname);
@@ -327,10 +332,15 @@ int bfd_session_enable(struct bfd_session *bs)
 	bs->ifp = ifp;
 
 	/* Attempt to use data plane. */
+<<<<<<< HEAD
 	if (bglobal.bg_use_dplane && bfd_dplane_add_session(bs) == 0) {
 		control_notify_config(BCM_NOTIFY_CONFIG_ADD, bs);
 		return 0;
 	}
+=======
+	if (bglobal.bg_use_dplane && bfd_dplane_add_session(bs) == 0)
+		return 0;
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 	/* Sanity check: don't leak open sockets. */
 	if (bs->sock != -1) {
@@ -410,8 +420,13 @@ static uint32_t ptm_bfd_gen_ID(void)
 	 * random session identification numbers.
 	 */
 	do {
+<<<<<<< HEAD
 		session_id = ((frr_weak_random() << 16) & 0xFFFF0000)
 			     | (frr_weak_random() & 0x0000FFFF);
+=======
+		session_id = CHECK_FLAG((frr_weak_random() << 16), 0xFFFF0000) |
+			     CHECK_FLAG(frr_weak_random(), 0x0000FFFF);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	} while (session_id == 0 || bfd_id_lookup(session_id) != NULL);
 
 	return session_id;
@@ -502,7 +517,11 @@ void ptm_bfd_sess_up(struct bfd_session *bfd)
 	/* Start sending control packets with poll bit immediately. */
 	ptm_bfd_snd(bfd, 0);
 
+<<<<<<< HEAD
 	control_notify(bfd, bfd->ses_state);
+=======
+	ptm_bfd_notify(bfd, bfd->ses_state);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 	if (old_state != bfd->ses_state) {
 		bfd->stats.session_up++;
@@ -538,7 +557,11 @@ void ptm_bfd_sess_dn(struct bfd_session *bfd, uint8_t diag)
 
 	/* only signal clients when going from up->down state */
 	if (old_state == PTM_BFD_UP)
+<<<<<<< HEAD
 		control_notify(bfd, PTM_BFD_DOWN);
+=======
+		ptm_bfd_notify(bfd, PTM_BFD_DOWN);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 	/* Stop echo packet transmission if they are active */
 	if (CHECK_FLAG(bfd->flags, BFD_SESS_FLAG_ECHO_ACTIVE))
@@ -690,6 +713,7 @@ struct bfd_session *bfd_session_new(void)
 	return bs;
 }
 
+<<<<<<< HEAD
 int bfd_session_update_label(struct bfd_session *bs, const char *nlabel)
 {
 	/* New label treatment:
@@ -722,6 +746,8 @@ int bfd_session_update_label(struct bfd_session *bs, const char *nlabel)
 	return 0;
 }
 
+=======
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 static void _bfd_session_update(struct bfd_session *bs,
 				struct bfd_peer_cfg *bpc)
 {
@@ -750,9 +776,12 @@ static void _bfd_session_update(struct bfd_session *bs,
 		bs->peer_profile.min_echo_tx = bs->timers.desired_min_echo_tx;
 	}
 
+<<<<<<< HEAD
 	if (bpc->bpc_has_label)
 		bfd_session_update_label(bs, bpc->bpc_label);
 
+=======
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	if (bpc->bpc_cbit)
 		SET_FLAG(bs->flags, BFD_SESS_FLAG_CBIT);
 	else
@@ -792,8 +821,11 @@ static int bfd_session_update(struct bfd_session *bs, struct bfd_peer_cfg *bpc)
 
 	_bfd_session_update(bs, bpc);
 
+<<<<<<< HEAD
 	control_notify_config(BCM_NOTIFY_CONFIG_UPDATE, bs);
 
+=======
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	return 0;
 }
 
@@ -819,8 +851,11 @@ void bfd_session_free(struct bfd_session *bs)
 	if (bso != NULL)
 		bs_observer_del(bso);
 
+<<<<<<< HEAD
 	pl_free(bs->pl);
 
+=======
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	XFREE(MTYPE_BFDD_PROFILE, bs->profile_name);
 	XFREE(MTYPE_BFDD_CONFIG, bs);
 }
@@ -917,8 +952,11 @@ struct bfd_session *bs_registrate(struct bfd_session *bfd)
 	if (bglobal.debug_peer_event)
 		zlog_debug("session-new: %s", bs_to_string(bfd));
 
+<<<<<<< HEAD
 	control_notify_config(BCM_NOTIFY_CONFIG_ADD, bfd);
 
+=======
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	return bfd;
 }
 
@@ -941,8 +979,11 @@ int ptm_bfd_sess_del(struct bfd_peer_cfg *bpc)
 	if (bglobal.debug_peer_event)
 		zlog_debug("%s: %s", __func__, bs_to_string(bs));
 
+<<<<<<< HEAD
 	control_notify_config(BCM_NOTIFY_CONFIG_DELETE, bs);
 
+=======
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	bfd_session_free(bs);
 
 	return 0;
@@ -1166,11 +1207,16 @@ void bs_final_handler(struct bfd_session *bs)
 	 * When using demand mode we must disable the detection timer
 	 * for lost control packets.
 	 */
+<<<<<<< HEAD
 	if (bs->demand_mode) {
 		/* Notify watchers about changed timers. */
 		control_notify_config(BCM_NOTIFY_CONFIG_UPDATE, bs);
 		return;
 	}
+=======
+	if (bs->demand_mode)
+		return;
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 	/*
 	 * Calculate transmission time based on new timers.
@@ -1189,9 +1235,12 @@ void bs_final_handler(struct bfd_session *bs)
 
 	/* Apply new transmission timer immediately. */
 	ptm_bfd_start_xmt_timer(bs, false);
+<<<<<<< HEAD
 
 	/* Notify watchers about changed timers. */
 	control_notify_config(BCM_NOTIFY_CONFIG_UPDATE, bs);
+=======
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 }
 
 void bs_set_slow_timers(struct bfd_session *bs)
@@ -1234,6 +1283,12 @@ void bfd_set_echo(struct bfd_session *bs, bool echo)
 		if (bs->bdc == NULL)
 			ptm_bfd_echo_stop(bs);
 	}
+<<<<<<< HEAD
+=======
+
+	if (bs->vrf && bs->vrf->info)
+		bfd_vrf_toggle_echo(bs->vrf->info);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 }
 
 void bfd_set_shutdown(struct bfd_session *bs, bool shutdown)
@@ -1261,7 +1316,11 @@ void bfd_set_shutdown(struct bfd_session *bs, bool shutdown)
 		if (bs->bdc) {
 			bs->ses_state = PTM_BFD_ADM_DOWN;
 			bfd_dplane_update_session(bs);
+<<<<<<< HEAD
 			control_notify(bs, bs->ses_state);
+=======
+			ptm_bfd_notify(bs, bs->ses_state);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 			return;
 		}
 
@@ -1273,7 +1332,11 @@ void bfd_set_shutdown(struct bfd_session *bs, bool shutdown)
 
 		/* Change and notify state change. */
 		bs->ses_state = PTM_BFD_ADM_DOWN;
+<<<<<<< HEAD
 		control_notify(bs, bs->ses_state);
+=======
+		ptm_bfd_notify(bs, bs->ses_state);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 		/* Don't try to send packets with a disabled session. */
 		if (bs->sock != -1)
@@ -1289,13 +1352,21 @@ void bfd_set_shutdown(struct bfd_session *bs, bool shutdown)
 		if (bs->bdc) {
 			bs->ses_state = PTM_BFD_DOWN;
 			bfd_dplane_update_session(bs);
+<<<<<<< HEAD
 			control_notify(bs, bs->ses_state);
+=======
+			ptm_bfd_notify(bs, bs->ses_state);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 			return;
 		}
 
 		/* Change and notify state change. */
 		bs->ses_state = PTM_BFD_DOWN;
+<<<<<<< HEAD
 		control_notify(bs, bs->ses_state);
+=======
+		ptm_bfd_notify(bs, bs->ses_state);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 		/* Enable timers if non passive, otherwise stop them. */
 		if (CHECK_FLAG(bs->flags, BFD_SESS_FLAG_PASSIVE)) {
@@ -1862,6 +1933,72 @@ void bfd_profiles_remove(void)
 		bfd_profile_free(bp);
 }
 
+<<<<<<< HEAD
+=======
+struct __bfd_session_echo {
+	/* VRF peers must match */
+	struct vrf *vrf;
+	/* Echo enabled or not */
+	bool enabled;
+};
+
+static int __bfd_session_has_echo(struct hash_bucket *hb, void *arg)
+{
+	const struct bfd_session *session = hb->data;
+	struct __bfd_session_echo *has_echo = arg;
+
+	if (session->vrf != has_echo->vrf)
+		return HASHWALK_CONTINUE;
+	if (!CHECK_FLAG(session->flags, BFD_SESS_FLAG_ECHO))
+		return HASHWALK_CONTINUE;
+
+	has_echo->enabled = true;
+	return HASHWALK_ABORT;
+}
+
+void bfd_vrf_toggle_echo(struct bfd_vrf_global *bfd_vrf)
+{
+	struct __bfd_session_echo has_echo = {
+		.enabled = false,
+		.vrf = bfd_vrf->vrf,
+	};
+
+	/* Check for peers using echo */
+	hash_walk(bfd_id_hash, __bfd_session_has_echo, &has_echo);
+
+	/*
+	 * No peers using echo, close all echo sockets.
+	 */
+	if (!has_echo.enabled) {
+		if (bfd_vrf->bg_echo != -1) {
+			event_cancel(&bfd_vrf->bg_ev[4]);
+			close(bfd_vrf->bg_echo);
+			bfd_vrf->bg_echo = -1;
+		}
+
+		if (bfd_vrf->bg_echov6 != -1) {
+			event_cancel(&bfd_vrf->bg_ev[5]);
+			close(bfd_vrf->bg_echov6);
+			bfd_vrf->bg_echov6 = -1;
+		}
+		return;
+	}
+
+	/*
+	 * At least one peer using echo, open echo sockets.
+	 */
+	if (bfd_vrf->bg_echo == -1)
+		bfd_vrf->bg_echo = bp_echo_socket(bfd_vrf->vrf);
+	if (bfd_vrf->bg_echov6 == -1)
+		bfd_vrf->bg_echov6 = bp_echov6_socket(bfd_vrf->vrf);
+
+	if (bfd_vrf->bg_ev[4] == NULL && bfd_vrf->bg_echo != -1)
+		event_add_read(master, bfd_recv_cb, bfd_vrf, bfd_vrf->bg_echo, &bfd_vrf->bg_ev[4]);
+	if (bfd_vrf->bg_ev[5] == NULL && bfd_vrf->bg_echov6 != -1)
+		event_add_read(master, bfd_recv_cb, bfd_vrf, bfd_vrf->bg_echov6, &bfd_vrf->bg_ev[5]);
+}
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 /*
  * Profile related hash functions.
  */
@@ -1904,9 +2041,29 @@ static void bfd_profile_detach(struct bfd_profile *bp)
  */
 static int bfd_vrf_new(struct vrf *vrf)
 {
+<<<<<<< HEAD
 	if (bglobal.debug_zebra)
 		zlog_debug("VRF Created: %s(%u)", vrf->name, vrf->vrf_id);
 
+=======
+	struct bfd_vrf_global *bvrf;
+
+	if (bglobal.debug_zebra)
+		zlog_debug("VRF Created: %s(%u)", vrf->name, vrf->vrf_id);
+
+	bvrf = XCALLOC(MTYPE_BFDD_VRF, sizeof(struct bfd_vrf_global));
+	bvrf->vrf = vrf;
+	vrf->info = bvrf;
+
+	/* Invalidate all sockets */
+	bvrf->bg_shop = -1;
+	bvrf->bg_mhop = -1;
+	bvrf->bg_shop6 = -1;
+	bvrf->bg_mhop6 = -1;
+	bvrf->bg_echo = -1;
+	bvrf->bg_echov6 = -1;
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	return 0;
 }
 
@@ -1915,11 +2072,17 @@ static int bfd_vrf_delete(struct vrf *vrf)
 	if (bglobal.debug_zebra)
 		zlog_debug("VRF Deletion: %s(%u)", vrf->name, vrf->vrf_id);
 
+<<<<<<< HEAD
+=======
+	XFREE(MTYPE_BFDD_VRF, vrf->info);
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	return 0;
 }
 
 static int bfd_vrf_enable(struct vrf *vrf)
 {
+<<<<<<< HEAD
 	struct bfd_vrf_global *bvrf;
 
 	/* a different name */
@@ -1939,10 +2102,14 @@ static int bfd_vrf_enable(struct vrf *vrf)
 		}
 	} else
 		bvrf = vrf->info;
+=======
+	struct bfd_vrf_global *bvrf = vrf->info;
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 	if (bglobal.debug_zebra)
 		zlog_debug("VRF enable add %s id %u", vrf->name, vrf->vrf_id);
 
+<<<<<<< HEAD
 	if (!bvrf->bg_shop)
 		bvrf->bg_shop = bp_udp_shop(vrf);
 	if (!bvrf->bg_mhop)
@@ -1975,10 +2142,46 @@ static int bfd_vrf_enable(struct vrf *vrf)
 		event_add_read(master, bfd_recv_cb, bvrf, bvrf->bg_echov6,
 			       &bvrf->bg_ev[5]);
 
+=======
+	/* Don't open sockets when using data plane */
+	if (bglobal.bg_use_dplane)
+		goto skip_sockets;
+
+	if (bvrf->bg_shop == -1)
+		bvrf->bg_shop = bp_udp_shop(vrf);
+	if (bvrf->bg_mhop == -1)
+		bvrf->bg_mhop = bp_udp_mhop(vrf);
+	if (bvrf->bg_shop6 == -1)
+		bvrf->bg_shop6 = bp_udp6_shop(vrf);
+	if (bvrf->bg_mhop6 == -1)
+		bvrf->bg_mhop6 = bp_udp6_mhop(vrf);
+
+	if (bvrf->bg_ev[0] == NULL && bvrf->bg_shop != -1)
+		event_add_read(master, bfd_recv_cb, bvrf, bvrf->bg_shop,
+			       &bvrf->bg_ev[0]);
+	if (bvrf->bg_ev[1] == NULL && bvrf->bg_mhop != -1)
+		event_add_read(master, bfd_recv_cb, bvrf, bvrf->bg_mhop,
+			       &bvrf->bg_ev[1]);
+	if (bvrf->bg_ev[2] == NULL && bvrf->bg_shop6 != -1)
+		event_add_read(master, bfd_recv_cb, bvrf, bvrf->bg_shop6,
+			       &bvrf->bg_ev[2]);
+	if (bvrf->bg_ev[3] == NULL && bvrf->bg_mhop6 != -1)
+		event_add_read(master, bfd_recv_cb, bvrf, bvrf->bg_mhop6,
+			       &bvrf->bg_ev[3]);
+
+	/* Toggle echo if VRF was disabled. */
+	bfd_vrf_toggle_echo(bvrf);
+
+skip_sockets:
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	if (vrf->vrf_id != VRF_DEFAULT) {
 		bfdd_zclient_register(vrf->vrf_id);
 		bfdd_sessions_enable_vrf(vrf);
 	}
+<<<<<<< HEAD
+=======
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	return 0;
 }
 
@@ -2010,6 +2213,7 @@ static int bfd_vrf_disable(struct vrf *vrf)
 	socket_close(&bvrf->bg_echo);
 	socket_close(&bvrf->bg_shop);
 	socket_close(&bvrf->bg_mhop);
+<<<<<<< HEAD
 	if (bvrf->bg_shop6 != -1)
 		socket_close(&bvrf->bg_shop6);
 	if (bvrf->bg_mhop6 != -1)
@@ -2021,6 +2225,11 @@ static int bfd_vrf_disable(struct vrf *vrf)
 	/* free context */
 	XFREE(MTYPE_BFDD_VRF, bvrf);
 	vrf->info = NULL;
+=======
+	socket_close(&bvrf->bg_shop6);
+	socket_close(&bvrf->bg_mhop6);
+	socket_close(&bvrf->bg_echov6);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 	return 0;
 }

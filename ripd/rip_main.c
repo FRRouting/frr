@@ -23,6 +23,10 @@
 #include "routemap.h"
 #include "bfd.h"
 #include "mgmt_be_client.h"
+<<<<<<< HEAD
+=======
+#include "libagentx.h"
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 #include "ripd/ripd.h"
 #include "ripd/rip_bfd.h"
@@ -131,6 +135,11 @@ static const struct frr_yang_module_info *const ripd_yang_modules[] = {
 	&frr_ripd_info,
 	&frr_route_map_info,
 	&frr_vrf_info,
+<<<<<<< HEAD
+=======
+	&ietf_key_chain_info,
+	&ietf_key_chain_deviation_info,
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 };
 
 /* clang-format off */
@@ -188,8 +197,14 @@ int main(int argc, char **argv)
 	master = frr_init();
 
 	/* Library initialization. */
+<<<<<<< HEAD
 	rip_error_init();
 	keychain_init();
+=======
+	libagentx_init();
+	rip_error_init();
+	keychain_init_new(true);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	rip_vrf_init();
 
 	/* RIP related initialization. */

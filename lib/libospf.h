@@ -27,8 +27,14 @@ extern "C" {
 #else
 #define OSPF_LS_REFRESH_TIME                  1800
 #endif
+<<<<<<< HEAD
 #define OSPF_MIN_LS_INTERVAL                  5000     /* msec */
 #define OSPF_MIN_LS_ARRIVAL                   1000     /* in milliseconds */
+=======
+#define OSPF_MIN_LS_INTERVAL			 5000	/* milliseconds */
+#define OSPF_MIN_LS_ARRIVAL			 1000	/* milliseconds */
+#define OSPF_MIN_LS_ARRIVAL_MAX			 5000	/* milliseconds */
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 #define OSPF_LSA_INITIAL_AGE                     0	/* useful for debug */
 #define OSPF_LSA_MAXAGE                       3600
 #define OSPF_CHECK_AGE                         300
@@ -58,8 +64,15 @@ extern "C" {
 #define OSPF_HELLO_DELAY_DEFAULT           10
 #define OSPF_ROUTER_PRIORITY_DEFAULT        1
 #define OSPF_RETRANSMIT_INTERVAL_DEFAULT    5
+<<<<<<< HEAD
 #define OSPF_TRANSMIT_DELAY_DEFAULT         1
 #define OSPF_DEFAULT_BANDWIDTH		 10000	/* Mbps */
+=======
+#define OSPF_RETRANSMIT_WINDOW_DEFAULT	    50 /* milliseconds */
+#define OSPF_TRANSMIT_DELAY_DEFAULT         1
+#define OSPF_DEFAULT_BANDWIDTH		 10000	/* Mbps */
+#define OSPF_ACK_DELAY_DEFAULT		    1
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 #define OSPF_DEFAULT_REF_BANDWIDTH	100000  /* Kbps */
 
@@ -69,6 +82,10 @@ extern "C" {
 #define OSPF_MTU_IGNORE_DEFAULT             0
 #define OSPF_FAST_HELLO_DEFAULT             0
 #define OSPF_P2MP_DELAY_REFLOOD_DEFAULT	    false
+<<<<<<< HEAD
+=======
+#define OSPF_P2MP_NON_BROADCAST_DEFAULT	    false
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 #define OSPF_OPAQUE_CAPABLE_DEFAULT true
 #define OSPF_PREFIX_SUPPRESSION_DEFAULT	    false
 #define OSPF_AREA_BACKBONE              0x00000000      /* 0.0.0.0 */

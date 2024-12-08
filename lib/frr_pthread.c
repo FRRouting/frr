@@ -92,9 +92,20 @@ struct frr_pthread *frr_pthread_new(const struct frr_pthread_attr *attr,
 		MTYPE_PTHREAD_PRIM, sizeof(pthread_mutex_t));
 	fpt->running_cond = XCALLOC(MTYPE_PTHREAD_PRIM,
 				    sizeof(pthread_cond_t));
+<<<<<<< HEAD
 	pthread_mutex_init(fpt->running_cond_mtx, NULL);
 	pthread_cond_init(fpt->running_cond, NULL);
 
+=======
+
+	pthread_mutex_init(fpt->running_cond_mtx, NULL);
+	pthread_cond_init(fpt->running_cond, NULL);
+
+	pthread_mutex_init(&fpt->startup_cond_mtx, NULL);
+	pthread_cond_init(&fpt->startup_cond, NULL);
+	fpt->started = false;
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	frr_with_mutex (&frr_pthread_list_mtx) {
 		listnode_add(frr_pthread_list, fpt);
 	}
@@ -108,6 +119,11 @@ static void frr_pthread_destroy_nolock(struct frr_pthread *fpt)
 	pthread_mutex_destroy(&fpt->mtx);
 	pthread_mutex_destroy(fpt->running_cond_mtx);
 	pthread_cond_destroy(fpt->running_cond);
+<<<<<<< HEAD
+=======
+	pthread_mutex_destroy(&fpt->startup_cond_mtx);
+	pthread_cond_destroy(&fpt->startup_cond);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	XFREE(MTYPE_FRR_PTHREAD, fpt->name);
 	XFREE(MTYPE_PTHREAD_PRIM, fpt->running_cond_mtx);
 	XFREE(MTYPE_PTHREAD_PRIM, fpt->running_cond);
@@ -140,11 +156,41 @@ int frr_pthread_set_name(struct frr_pthread *fpt)
 	return ret;
 }
 
+<<<<<<< HEAD
+=======
+/* New pthread waits before running */
+static void frr_pthread_wait_startup(struct frr_pthread *fpt)
+{
+	frr_with_mutex (&fpt->startup_cond_mtx) {
+		while (!fpt->started)
+			pthread_cond_wait(&fpt->startup_cond,
+					  &fpt->startup_cond_mtx);
+	}
+}
+
+/* Parent pthread allows new pthread to start running */
+static void frr_pthread_notify_startup(struct frr_pthread *fpt)
+{
+	frr_with_mutex (&fpt->startup_cond_mtx) {
+		fpt->started = true;
+		pthread_cond_signal(&fpt->startup_cond);
+	}
+}
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 static void *frr_pthread_inner(void *arg)
 {
 	struct frr_pthread *fpt = arg;
 
+<<<<<<< HEAD
 	rcu_thread_start(fpt->rcu_thread);
+=======
+	/* The new pthead waits until the parent allows it to continue. */
+	frr_pthread_wait_startup(fpt);
+
+	rcu_thread_start(fpt->rcu_thread);
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	return fpt->attr.start(fpt);
 }
 
@@ -169,6 +215,12 @@ int frr_pthread_run(struct frr_pthread *fpt, const pthread_attr_t *attr)
 	/* Restore caller's signals */
 	pthread_sigmask(SIG_SETMASK, &oldsigs, NULL);
 
+<<<<<<< HEAD
+=======
+	/* Allow new child pthread to start */
+	frr_pthread_notify_startup(fpt);
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	/*
 	 * Per pthread_create(3), the contents of fpt->thread are undefined if
 	 * pthread_create() did not succeed. Reset this value to zero.
@@ -250,6 +302,11 @@ int frr_pthread_non_controlled_startup(pthread_t thread, const char *name,
 
 	fpt->thread = thread;
 	fpt->rcu_thread = rcu_thread;
+<<<<<<< HEAD
+=======
+	fpt->started = true;
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	frr_pthread_inner(fpt);
 
 	return 0;

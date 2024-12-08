@@ -34,13 +34,21 @@ def wrap_file(fn):
         ci = subprocess.Popen(
             ["clang-format"], stdin=subprocess.PIPE, stdout=subprocess.PIPE
         )
+<<<<<<< HEAD
         stdout, ign = ci.communicate(text)
+=======
+        stdout, ign = ci.communicate(text.encode("utf-8"))
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
         ci.wait()
         if ci.returncode != 0:
             raise IOError("clang-format returned %d" % (ci.returncode))
 
         # remove the bits we inserted above
+<<<<<<< HEAD
         final = clean_re.sub("", stdout)
+=======
+        final = clean_re.sub("", stdout.decode("utf-8"))
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
         tmpname = fn + ".indent"
         with open(tmpname, "w") as ofd:

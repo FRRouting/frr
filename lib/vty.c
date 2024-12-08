@@ -39,9 +39,17 @@
 #include "libfrr.h"
 #include "frrstr.h"
 #include "lib_errors.h"
+<<<<<<< HEAD
 #include "northbound_cli.h"
 #include "printfrr.h"
 #include "json.h"
+=======
+#include <libyang/version.h>
+#include "northbound_cli.h"
+#include "printfrr.h"
+#include "json.h"
+#include "sockopt.h"
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 #include <arpa/telnet.h>
 #include <termios.h>
@@ -344,8 +352,22 @@ int vty_out(struct vty *vty, const char *format, ...)
 	case VTY_SHELL_SERV:
 	case VTY_FILE:
 	default:
+<<<<<<< HEAD
 		/* print without crlf replacement */
 		buffer_put(vty->obuf, (uint8_t *)filtered, strlen(filtered));
+=======
+		vty->vty_buf_size_accumulated += strlen(filtered);
+		/* print without crlf replacement */
+		buffer_put(vty->obuf, (uint8_t *)filtered, strlen(filtered));
+		/* For every chunk of memory, we invoke vtysh_flush where we
+		 * put the data of collective vty->obuf Linked List items on the
+		 * socket and free the vty->obuf data.
+		 */
+		if (vty->vty_buf_size_accumulated >= vty->buf_size_intermediate) {
+			vty->vty_buf_size_accumulated = 0;
+			vtysh_flush(vty);
+		}
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		break;
 	}
 
@@ -389,6 +411,24 @@ int vty_json_no_pretty(struct vty *vty, struct json_object *json)
 	return vty_json_helper(vty, json, JSON_C_TO_STRING_NOSLASHESCAPE);
 }
 
+<<<<<<< HEAD
+=======
+
+void vty_json_key(struct vty *vty, const char *key, bool *first_key)
+{
+	vty_out(vty, "%s\"%s\":", *first_key ? "{" : ",", key);
+	*first_key = false;
+}
+
+void vty_json_close(struct vty *vty, bool first_key)
+{
+	if (first_key)
+		/* JSON was not opened */
+		vty_out(vty, "{");
+	vty_out(vty, "}\n");
+}
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 void vty_json_empty(struct vty *vty, struct json_object *json)
 {
 	json_object *jsonobj = json;
@@ -2102,6 +2142,11 @@ static void vtysh_accept(struct event *thread)
 	int client_len;
 	struct sockaddr_un client;
 	struct vty *vty;
+<<<<<<< HEAD
+=======
+	int ret = 0;
+	uint32_t sndbufsize = VTY_SEND_BUF_MAX;
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 	vty_event_serv(VTYSH_SERV, vtyserv);
 
@@ -2125,6 +2170,23 @@ static void vtysh_accept(struct event *thread)
 		close(sock);
 		return;
 	}
+<<<<<<< HEAD
+=======
+
+	/*
+	 * Increasing the SEND socket buffer size so that the socket can hold
+	 * before sending it to VTY shell.
+	 */
+	ret = setsockopt_so_sendbuf(sock, sndbufsize);
+	if (ret <= 0) {
+		flog_err(EC_LIB_SOCKET,
+			 "Cannot set socket %d send buffer size, %s", sock,
+			 safe_strerror(errno));
+		close(sock);
+		return;
+	}
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	set_cloexec(sock);
 
 #ifdef VTYSH_DEBUG
@@ -2132,6 +2194,16 @@ static void vtysh_accept(struct event *thread)
 #endif /* VTYSH_DEBUG */
 
 	vty = vty_new();
+<<<<<<< HEAD
+=======
+
+	vty->buf_size_set = ret;
+	if (vty->buf_size_set < VTY_MAX_INTERMEDIATE_FLUSH)
+		vty->buf_size_intermediate = vty->buf_size_set / 2;
+	else
+		vty->buf_size_intermediate = VTY_MAX_INTERMEDIATE_FLUSH;
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	vty->fd = sock;
 	vty->wfd = sock;
 	vty->type = VTY_SHELL_SERV;
@@ -2211,6 +2283,10 @@ static int vtysh_flush(struct vty *vty)
 		vty_close(vty);
 		return -1;
 	case BUFFER_EMPTY:
+<<<<<<< HEAD
+=======
+		vty->vty_buf_size_accumulated = 0;
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		break;
 	}
 	return 0;
@@ -3570,8 +3646,14 @@ static void vty_mgmt_set_config_result_notified(
 		zlog_err("SET_CONFIG request for client 0x%" PRIx64
 			 " failed, Error: '%s'",
 			 client_id, errmsg_if_any ? errmsg_if_any : "Unknown");
+<<<<<<< HEAD
 		vty_out(vty, "ERROR: SET_CONFIG request failed, Error: %s\n",
 			errmsg_if_any ? errmsg_if_any : "Unknown");
+=======
+		vty_out(vty, "%% Configuration failed.\n\n");
+		if (errmsg_if_any)
+			vty_out(vty, "%s\n", errmsg_if_any);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	} else {
 		debug_fe_client("SET_CONFIG request for client 0x%" PRIx64
 				" req-id %" PRIu64 " was successfull%s%s",
@@ -3603,8 +3685,14 @@ static void vty_mgmt_commit_config_result_notified(
 		zlog_err("COMMIT_CONFIG request for client 0x%" PRIx64
 			 " failed, Error: '%s'",
 			 client_id, errmsg_if_any ? errmsg_if_any : "Unknown");
+<<<<<<< HEAD
 		vty_out(vty, "ERROR: COMMIT_CONFIG request failed, Error: %s\n",
 			errmsg_if_any ? errmsg_if_any : "Unknown");
+=======
+		vty_out(vty, "%% Configuration failed.\n\n");
+		if (errmsg_if_any)
+			vty_out(vty, "%s\n", errmsg_if_any);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	} else {
 		debug_fe_client("COMMIT_CONFIG request for client 0x%" PRIx64
 				" req-id %" PRIu64 " was successfull%s%s",
@@ -3671,15 +3759,35 @@ static ssize_t vty_mgmt_libyang_print(void *user_data, const void *buf,
 }
 
 static void vty_out_yang_error(struct vty *vty, LYD_FORMAT format,
+<<<<<<< HEAD
 			       struct ly_err_item *ei)
 {
 	bool have_apptag = ei->apptag && ei->apptag[0] != 0;
 	bool have_path = ei->path && ei->path[0] != 0;
+=======
+			       const struct ly_err_item *ei)
+{
+#if (LY_VERSION_MAJOR < 3)
+#define data_path path
+#else
+#define data_path data_path
+#endif
+	bool have_apptag = ei->apptag && ei->apptag[0] != 0;
+	bool have_path = ei->data_path && ei->data_path[0] != 0;
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	bool have_msg = ei->msg && ei->msg[0] != 0;
 	const char *severity = NULL;
 	const char *evalid = NULL;
 	const char *ecode = NULL;
+<<<<<<< HEAD
 	LY_ERR err = ei->no;
+=======
+#if (LY_VERSION_MAJOR < 3)
+	LY_ERR err = ei->no;
+#else
+	LY_ERR err = ei->err;
+#endif
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 	if (ei->level == LY_LLERR)
 		severity = "error";
@@ -3704,7 +3812,12 @@ static void vty_out_yang_error(struct vty *vty, LYD_FORMAT format,
 			vty_out(vty, "<error-validation>%s</error-validation>\n",
 				evalid);
 		if (have_path)
+<<<<<<< HEAD
 			vty_out(vty, "<error-path>%s</error-path>\n", ei->path);
+=======
+			vty_out(vty, "<error-path>%s</error-path>\n",
+				ei->data_path);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		if (have_apptag)
 			vty_out(vty, "<error-app-tag>%s</error-app-tag>\n",
 				ei->apptag);
@@ -3723,7 +3836,11 @@ static void vty_out_yang_error(struct vty *vty, LYD_FORMAT format,
 		if (evalid)
 			vty_out(vty, ", \"error-validation\": \"%s\"", evalid);
 		if (have_path)
+<<<<<<< HEAD
 			vty_out(vty, ", \"error-path\": \"%s\"", ei->path);
+=======
+			vty_out(vty, ", \"error-path\": \"%s\"", ei->data_path);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		if (have_apptag)
 			vty_out(vty, ", \"error-app-tag\": \"%s\"", ei->apptag);
 		if (have_msg)
@@ -3740,18 +3857,30 @@ static void vty_out_yang_error(struct vty *vty, LYD_FORMAT format,
 		if (evalid)
 			vty_out(vty, " invalid: %s", evalid);
 		if (have_path)
+<<<<<<< HEAD
 			vty_out(vty, " path: %s", ei->path);
+=======
+			vty_out(vty, " path: %s", ei->data_path);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		if (have_apptag)
 			vty_out(vty, " app-tag: %s", ei->apptag);
 		if (have_msg)
 			vty_out(vty, " msg: %s", ei->msg);
 		break;
 	}
+<<<<<<< HEAD
+=======
+#undef data_path
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 }
 
 static uint vty_out_yang_errors(struct vty *vty, LYD_FORMAT format)
 {
+<<<<<<< HEAD
 	struct ly_err_item *ei = ly_err_first(ly_native_ctx);
+=======
+	const struct ly_err_item *ei = ly_err_first(ly_native_ctx);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	uint count;
 
 	if (!ei)
@@ -3827,6 +3956,46 @@ static int vty_mgmt_get_tree_result_notified(
 	return 0;
 }
 
+<<<<<<< HEAD
+=======
+static int vty_mgmt_edit_result_notified(struct mgmt_fe_client *client,
+					 uintptr_t user_data,
+					 uint64_t client_id, uint64_t session_id,
+					 uintptr_t session_ctx, uint64_t req_id,
+					 const char *xpath)
+{
+	struct vty *vty = (struct vty *)session_ctx;
+
+	debug_fe_client("EDIT request for client 0x%" PRIx64 " req-id %" PRIu64
+			" was successful, xpath: %s",
+			client_id, req_id, xpath);
+
+	vty_mgmt_resume_response(vty, CMD_SUCCESS);
+
+	return 0;
+}
+
+static int vty_mgmt_rpc_result_notified(struct mgmt_fe_client *client,
+					uintptr_t user_data, uint64_t client_id,
+					uint64_t session_id,
+					uintptr_t session_ctx, uint64_t req_id,
+					const char *result)
+{
+	struct vty *vty = (struct vty *)session_ctx;
+
+	debug_fe_client("RPC request for client 0x%" PRIx64 " req-id %" PRIu64
+			" was successful",
+			client_id, req_id);
+
+	if (result)
+		vty_out(vty, "%s\n", result);
+
+	vty_mgmt_resume_response(vty, CMD_SUCCESS);
+
+	return 0;
+}
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 static int vty_mgmt_error_notified(struct mgmt_fe_client *client,
 				   uintptr_t user_data, uint64_t client_id,
 				   uint64_t session_id, uintptr_t session_ctx,
@@ -3837,7 +4006,11 @@ static int vty_mgmt_error_notified(struct mgmt_fe_client *client,
 	const char *cname = mgmt_fe_client_name(client);
 
 	if (!vty->mgmt_req_pending_cmd) {
+<<<<<<< HEAD
 		debug_fe_client("Erorr with no pending command: %d returned for client %s 0x%" PRIx64
+=======
+		debug_fe_client("Error with no pending command: %d returned for client %s 0x%" PRIx64
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 				" session-id %" PRIu64 " req-id %" PRIu64
 				"error-str %s",
 				error, cname, client_id, session_id, req_id,
@@ -3848,7 +4021,11 @@ static int vty_mgmt_error_notified(struct mgmt_fe_client *client,
 		return CMD_WARNING;
 	}
 
+<<<<<<< HEAD
 	debug_fe_client("Erorr %d returned for client %s 0x%" PRIx64
+=======
+	debug_fe_client("Error %d returned for client %s 0x%" PRIx64
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 			" session-id %" PRIu64 " req-id %" PRIu64 "error-str %s",
 			error, cname, client_id, session_id, req_id, errstr);
 
@@ -3868,6 +4045,11 @@ static struct mgmt_fe_client_cbs mgmt_cbs = {
 	.commit_config_notify = vty_mgmt_commit_config_result_notified,
 	.get_data_notify = vty_mgmt_get_data_result_notified,
 	.get_tree_notify = vty_mgmt_get_tree_result_notified,
+<<<<<<< HEAD
+=======
+	.edit_notify = vty_mgmt_edit_result_notified,
+	.rpc_notify = vty_mgmt_rpc_result_notified,
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	.error_notify = vty_mgmt_error_notified,
 
 };
@@ -4123,6 +4305,50 @@ int vty_mgmt_send_get_data_req(struct vty *vty, uint8_t datastore,
 	return 0;
 }
 
+<<<<<<< HEAD
+=======
+int vty_mgmt_send_edit_req(struct vty *vty, uint8_t datastore,
+			   LYD_FORMAT request_type, uint8_t flags,
+			   uint8_t operation, const char *xpath,
+			   const char *data)
+{
+	vty->mgmt_req_id++;
+
+	if (mgmt_fe_send_edit_req(mgmt_fe_client, vty->mgmt_session_id,
+				  vty->mgmt_req_id, datastore, request_type,
+				  flags, operation, xpath, data)) {
+		zlog_err("Failed to send EDIT to MGMTD session-id: %" PRIu64
+			 " req-id %" PRIu64 ".",
+			 vty->mgmt_session_id, vty->mgmt_req_id);
+		vty_out(vty, "Failed to send EDIT to MGMTD!\n");
+		return -1;
+	}
+
+	vty->mgmt_req_pending_cmd = "MESSAGE_EDIT_REQ";
+
+	return 0;
+}
+
+int vty_mgmt_send_rpc_req(struct vty *vty, LYD_FORMAT request_type,
+			  const char *xpath, const char *data)
+{
+	vty->mgmt_req_id++;
+
+	if (mgmt_fe_send_rpc_req(mgmt_fe_client, vty->mgmt_session_id,
+				 vty->mgmt_req_id, request_type, xpath, data)) {
+		zlog_err("Failed to send RPC to MGMTD session-id: %" PRIu64
+			 " req-id %" PRIu64 ".",
+			 vty->mgmt_session_id, vty->mgmt_req_id);
+		vty_out(vty, "Failed to send RPC to MGMTD!\n");
+		return -1;
+	}
+
+	vty->mgmt_req_pending_cmd = "MESSAGE_RPC_REQ";
+
+	return 0;
+}
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 /* Install vty's own commands like `who' command. */
 void vty_init(struct event_loop *master_thread, bool do_command_logging)
 {

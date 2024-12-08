@@ -7,7 +7,13 @@
 #define _FRR_ATOMLIST_H
 
 #include "typesafe.h"
+<<<<<<< HEAD
 #include "frratomic.h"
+=======
+#ifndef _TYPESAFE_EXPAND_MACROS
+#include "frratomic.h"
+#endif /* _TYPESAFE_EXPAND_MACROS */
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 #ifdef __cplusplus
 extern "C" {

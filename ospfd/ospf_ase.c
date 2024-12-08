@@ -480,7 +480,11 @@ static int ospf_ase_route_match_same(struct route_table *rt,
 
 	assert(or);
 
+<<<<<<< HEAD
 	if (or->path_type != newor->path_type)
+=======
+	if (or->changed || (or->path_type != newor->path_type))
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		return 0;
 
 	switch (or->path_type) {

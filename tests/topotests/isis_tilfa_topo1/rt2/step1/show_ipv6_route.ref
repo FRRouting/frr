@@ -152,7 +152,11 @@
         {
           "fib":true,
           "afi":"ipv6",
+<<<<<<< HEAD
           "interfaceName":"eth-rt4-1",
+=======
+          "interfaceName":"eth-sw1",
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
           "active":true,
           "labels":[
             16051
@@ -161,7 +165,11 @@
         {
           "fib":true,
           "afi":"ipv6",
+<<<<<<< HEAD
           "interfaceName":"eth-sw1",
+=======
+          "interfaceName":"eth-rt4-1",
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
           "active":true,
           "labels":[
             16051

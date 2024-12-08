@@ -47,9 +47,15 @@ uint32_t num_valid_macs(struct zebra_evpn *zevpn)
 	for (i = 0; i < hash->size; i++) {
 		for (hb = hash->index[i]; hb; hb = hb->next) {
 			mac = (struct zebra_mac *)hb->data;
+<<<<<<< HEAD
 			if (CHECK_FLAG(mac->flags, ZEBRA_MAC_REMOTE)
 			    || CHECK_FLAG(mac->flags, ZEBRA_MAC_LOCAL)
 			    || !CHECK_FLAG(mac->flags, ZEBRA_MAC_AUTO))
+=======
+			if (CHECK_FLAG(mac->flags, ZEBRA_MAC_REMOTE) ||
+			    CHECK_FLAG(mac->flags, ZEBRA_MAC_LOCAL) ||
+			    !CHECK_FLAG(mac->flags, ZEBRA_MAC_AUTO))
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 				num_macs++;
 		}
 	}
@@ -103,9 +109,14 @@ static void zebra_evpn_mac_ifp_unlink(struct zebra_mac *zmac)
 
 	if (IS_ZEBRA_DEBUG_EVPN_MH_MAC)
 		zlog_debug("VNI %d MAC %pEA unlinked from ifp %s (%u)",
+<<<<<<< HEAD
 			   zmac->zevpn->vni,
 			   &zmac->macaddr,
 			   ifp->name, ifp->ifindex);
+=======
+			   zmac->zevpn->vni, &zmac->macaddr, ifp->name,
+			   ifp->ifindex);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 	zif = ifp->info;
 	list_delete_node(zif->mac_list, &zmac->ifp_listnode);
@@ -119,6 +130,7 @@ void zebra_evpn_mac_ifp_del(struct interface *ifp)
 	struct listnode *node;
 	struct zebra_mac *zmac;
 
+<<<<<<< HEAD
 	if (zif->mac_list) {
 		if (IS_ZEBRA_DEBUG_EVPN_MH_MAC)
 			zlog_debug("MAC list deleted for ifp %s (%u)",
@@ -129,6 +141,19 @@ void zebra_evpn_mac_ifp_del(struct interface *ifp)
 		}
 		list_delete(&zif->mac_list);
 	}
+=======
+	if (!zif->mac_list)
+		return;
+
+	if (IS_ZEBRA_DEBUG_EVPN_MH_MAC)
+		zlog_debug("MAC list deleted for ifp %s (%u)", zif->ifp->name,
+			   zif->ifp->ifindex);
+
+	for (ALL_LIST_ELEMENTS_RO(zif->mac_list, node, zmac))
+		zebra_evpn_mac_ifp_unlink(zmac);
+
+	list_delete(&zif->mac_list);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 }
 
 /* Link local mac to destination access port. This is done only if the
@@ -161,9 +186,14 @@ static void zebra_evpn_mac_ifp_link(struct zebra_mac *zmac,
 
 	if (IS_ZEBRA_DEBUG_EVPN_MH_MAC)
 		zlog_debug("VNI %d MAC %pEA linked to ifp %s (%u)",
+<<<<<<< HEAD
 			   zmac->zevpn->vni,
 			   &zmac->macaddr,
 			   ifp->name, ifp->ifindex);
+=======
+			   zmac->zevpn->vni, &zmac->macaddr, ifp->name,
+			   ifp->ifindex);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 	zmac->ifp = ifp;
 	listnode_init(&zmac->ifp_listnode, zmac);
@@ -249,14 +279,24 @@ int zebra_evpn_rem_mac_uninstall(struct zebra_evpn *zevpn,
 	enum zebra_dplane_result res;
 
 	/* If the MAC was not installed there is no need to uninstall it */
+<<<<<<< HEAD
 	if (!force && mac->es && !(mac->es->flags & ZEBRA_EVPNES_NHG_ACTIVE))
+=======
+	if (!force && mac->es &&
+	    !CHECK_FLAG(mac->es->flags, ZEBRA_EVPNES_NHG_ACTIVE))
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		return -1;
 
 	if (!zevpn->vxlan_if) {
 		if (IS_ZEBRA_DEBUG_VXLAN)
+<<<<<<< HEAD
 			zlog_debug(
 				"VNI %u hash %p couldn't be uninstalled - no intf",
 				zevpn->vni, zevpn);
+=======
+			zlog_debug("VNI %u hash %p couldn't be uninstalled - no intf",
+				   zevpn->vni, zevpn);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		return -1;
 	}
 
@@ -302,9 +342,15 @@ void zebra_evpn_deref_ip2mac(struct zebra_evpn *zevpn, struct zebra_mac *mac)
 	/* If all remote neighbors referencing a remote MAC go away,
 	 * we need to uninstall the MAC.
 	 */
+<<<<<<< HEAD
 	if (CHECK_FLAG(mac->flags, ZEBRA_MAC_REMOTE)
 	    && remote_neigh_count(mac) == 0) {
 		zebra_evpn_rem_mac_uninstall(zevpn, mac, false /*force*/);
+=======
+	if (CHECK_FLAG(mac->flags, ZEBRA_MAC_REMOTE) &&
+	    remote_neigh_count(mac) == 0) {
+		zebra_evpn_rem_mac_uninstall(zevpn, mac, false);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		zebra_evpn_es_mac_deref_entry(mac);
 		UNSET_FLAG(mac->flags, ZEBRA_MAC_REMOTE);
 	}
@@ -355,6 +401,7 @@ static char *zebra_evpn_zebra_mac_flag_dump(struct zebra_mac *mac, char *buf,
 		return buf;
 	}
 
+<<<<<<< HEAD
 	snprintfrr(
 		buf, len, "%s%s%s%s%s%s%s%s%s%s%s%s",
 		CHECK_FLAG(mac->flags, ZEBRA_MAC_LOCAL) ? "LOC " : "",
@@ -375,6 +422,29 @@ static char *zebra_evpn_zebra_mac_flag_dump(struct zebra_mac *mac, char *buf,
 		CHECK_FLAG(mac->flags, ZEBRA_MAC_LOCAL_INACTIVE)
 			? "LOC Inactive "
 			: "");
+=======
+	snprintfrr(buf, len, "%s%s%s%s%s%s%s%s%s%s%s%s",
+		   CHECK_FLAG(mac->flags, ZEBRA_MAC_LOCAL) ? "LOC " : "",
+		   CHECK_FLAG(mac->flags, ZEBRA_MAC_REMOTE) ? "REM " : "",
+		   CHECK_FLAG(mac->flags, ZEBRA_MAC_AUTO) ? "AUTO " : "",
+		   CHECK_FLAG(mac->flags, ZEBRA_MAC_STICKY) ? "STICKY " : "",
+		   CHECK_FLAG(mac->flags, ZEBRA_MAC_REMOTE_RMAC) ? "REM Router "
+								 : "",
+		   CHECK_FLAG(mac->flags, ZEBRA_MAC_DEF_GW) ? "Default GW " : "",
+		   CHECK_FLAG(mac->flags, ZEBRA_MAC_REMOTE_DEF_GW)
+			   ? "REM DEF GW "
+			   : "",
+		   CHECK_FLAG(mac->flags, ZEBRA_MAC_DUPLICATE) ? "DUP " : "",
+		   CHECK_FLAG(mac->flags, ZEBRA_MAC_FPM_SENT) ? "FPM " : "",
+		   CHECK_FLAG(mac->flags, ZEBRA_MAC_ES_PEER_ACTIVE)
+			   ? "PEER Active "
+			   : "",
+		   CHECK_FLAG(mac->flags, ZEBRA_MAC_ES_PEER_PROXY) ? "PROXY "
+								   : "",
+		   CHECK_FLAG(mac->flags, ZEBRA_MAC_LOCAL_INACTIVE)
+			   ? "LOC Inactive "
+			   : "");
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	return buf;
 }
 
@@ -404,12 +474,20 @@ static void zebra_evpn_dad_mac_auto_recovery_exp(struct event *t)
 	if (IS_ZEBRA_DEBUG_VXLAN) {
 		char mac_buf[MAC_BUF_SIZE];
 
+<<<<<<< HEAD
 		zlog_debug(
 			"%s: duplicate addr mac %pEA flags %slearn count %u host count %u auto recovery expired",
 			__func__, &mac->macaddr,
 			zebra_evpn_zebra_mac_flag_dump(mac, mac_buf,
 						       sizeof(mac_buf)),
 			mac->dad_count, listcount(mac->neigh_list));
+=======
+		zlog_debug("%s: duplicate addr mac %pEA flags %slearn count %u host count %u auto recovery expired",
+			   __func__, &mac->macaddr,
+			   zebra_evpn_zebra_mac_flag_dump(mac, mac_buf,
+							  sizeof(mac_buf)),
+			   mac->dad_count, listcount(mac->neigh_list));
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	}
 
 	/* Remove all IPs as duplicate associcated with this MAC */
@@ -418,8 +496,12 @@ static void zebra_evpn_dad_mac_auto_recovery_exp(struct event *t)
 			if (CHECK_FLAG(nbr->flags, ZEBRA_NEIGH_LOCAL))
 				ZEBRA_NEIGH_SET_INACTIVE(nbr);
 			else if (CHECK_FLAG(nbr->flags, ZEBRA_NEIGH_REMOTE))
+<<<<<<< HEAD
 				zebra_evpn_rem_neigh_install(
 					zevpn, nbr, false /*was_static*/);
+=======
+				zebra_evpn_rem_neigh_install(zevpn, nbr, false);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		}
 
 		UNSET_FLAG(nbr->flags, ZEBRA_NEIGH_DUPLICATE);
@@ -443,8 +525,12 @@ static void zebra_evpn_dad_mac_auto_recovery_exp(struct event *t)
 			return;
 
 		/* Process all neighbors associated with this MAC. */
+<<<<<<< HEAD
 		zebra_evpn_process_neigh_on_local_mac_change(zevpn, mac, 0,
 							     0 /*es_change*/);
+=======
+		zebra_evpn_process_neigh_on_local_mac_change(zevpn, mac, 0, 0);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 	} else if (CHECK_FLAG(mac->flags, ZEBRA_MAC_REMOTE)) {
 		zebra_evpn_process_neigh_on_remote_mac_add(zevpn, mac);
@@ -462,7 +548,11 @@ static void zebra_evpn_dup_addr_detect_for_mac(struct zebra_vrf *zvrf,
 {
 	struct zebra_neigh *nbr;
 	struct listnode *node = NULL;
+<<<<<<< HEAD
 	struct timeval elapsed = {0, 0};
+=======
+	struct timeval elapsed = { 0, 0 };
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	bool reset_params = false;
 
 	if (!(zebra_evpn_do_dup_addr_detect(zvrf) && do_dad))
@@ -476,12 +566,20 @@ static void zebra_evpn_dup_addr_detect_for_mac(struct zebra_vrf *zvrf,
 		if (IS_ZEBRA_DEBUG_VXLAN) {
 			char mac_buf[MAC_BUF_SIZE];
 
+<<<<<<< HEAD
 			zlog_debug(
 				"%s: duplicate addr MAC %pEA flags %sskip update to client, learn count %u recover time %u",
 				__func__, &mac->macaddr,
 				zebra_evpn_zebra_mac_flag_dump(mac, mac_buf,
 							       sizeof(mac_buf)),
 				mac->dad_count, zvrf->dad_freeze_time);
+=======
+			zlog_debug("%s: duplicate addr MAC %pEA flags %sskip update to client, learn count %u recover time %u",
+				   __func__, &mac->macaddr,
+				   zebra_evpn_zebra_mac_flag_dump(mac, mac_buf,
+								  sizeof(mac_buf)),
+				   mac->dad_count, zvrf->dad_freeze_time);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		}
 		/* For duplicate MAC do not update
 		 * client but update neigh due to
@@ -513,12 +611,20 @@ static void zebra_evpn_dup_addr_detect_for_mac(struct zebra_vrf *zvrf,
 		if (IS_ZEBRA_DEBUG_VXLAN) {
 			char mac_buf[MAC_BUF_SIZE];
 
+<<<<<<< HEAD
 			zlog_debug(
 				"%s: duplicate addr MAC %pEA flags %sdetection time passed, reset learn count %u",
 				__func__, &mac->macaddr,
 				zebra_evpn_zebra_mac_flag_dump(mac, mac_buf,
 							       sizeof(mac_buf)),
 				mac->dad_count);
+=======
+			zlog_debug("%s: duplicate addr MAC %pEA flags %sdetection time passed, reset learn count %u",
+				   __func__, &mac->macaddr,
+				   zebra_evpn_zebra_mac_flag_dump(mac, mac_buf,
+								  sizeof(mac_buf)),
+				   mac->dad_count);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		}
 
 		mac->dad_count = 0;
@@ -547,8 +653,14 @@ static void zebra_evpn_dup_addr_detect_for_mac(struct zebra_vrf *zvrf,
 		flog_warn(EC_ZEBRA_DUP_MAC_DETECTED,
 			  "VNI %u: MAC %pEA detected as duplicate during %s VTEP %pI4",
 			  mac->zevpn->vni, &mac->macaddr,
+<<<<<<< HEAD
 			  is_local ? "local update, last" :
 			  "remote update, from", &vtep_ip);
+=======
+			  is_local ? "local update, last"
+				   : "remote update, from",
+			  &vtep_ip);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 		SET_FLAG(mac->flags, ZEBRA_MAC_DUPLICATE);
 
@@ -559,7 +671,10 @@ static void zebra_evpn_dup_addr_detect_for_mac(struct zebra_vrf *zvrf,
 		 * associcated with this MAC
 		 */
 		for (ALL_LIST_ELEMENTS_RO(mac->neigh_list, node, nbr)) {
+<<<<<<< HEAD
 
+=======
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 			/* Ony Mark IPs which are Local */
 			if (!CHECK_FLAG(nbr->flags, ZEBRA_NEIGH_LOCAL))
 				continue;
@@ -580,12 +695,21 @@ static void zebra_evpn_dup_addr_detect_for_mac(struct zebra_vrf *zvrf,
 			if (IS_ZEBRA_DEBUG_VXLAN) {
 				char mac_buf[MAC_BUF_SIZE];
 
+<<<<<<< HEAD
 				zlog_debug(
 					"%s: duplicate addr MAC %pEA flags %sauto recovery time %u start",
 					__func__, &mac->macaddr,
 					zebra_evpn_zebra_mac_flag_dump(
 						mac, mac_buf, sizeof(mac_buf)),
 					zvrf->dad_freeze_time);
+=======
+				zlog_debug("%s: duplicate addr MAC %pEA flags %sauto recovery time %u start",
+					   __func__, &mac->macaddr,
+					   zebra_evpn_zebra_mac_flag_dump(
+						   mac, mac_buf,
+						   sizeof(mac_buf)),
+					   zvrf->dad_freeze_time);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 			}
 
 			event_add_timer(zrouter.master,
@@ -613,7 +737,11 @@ void zebra_evpn_print_mac(struct zebra_mac *mac, void *ctxt, json_object *json)
 	char buf1[ETHER_ADDR_STRLEN];
 	char buf2[INET6_ADDRSTRLEN];
 	struct zebra_vrf *zvrf;
+<<<<<<< HEAD
 	struct timeval detect_start_time = {0, 0};
+=======
+	struct timeval detect_start_time = { 0, 0 };
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	char timebuf[MONOTIME_STRLEN];
 	char thread_buf[EVENT_TIMER_STRLEN];
 	time_t uptime;
@@ -651,9 +779,15 @@ void zebra_evpn_print_mac(struct zebra_mac *mac, void *ctxt, json_object *json)
 				json_object_string_add(json_mac, "remoteEs",
 						       mac->es->esi_str);
 			else
+<<<<<<< HEAD
 				json_object_string_addf(
 					json_mac, "remoteVtep", "%pI4",
 					&mac->fwd_info.r_vtep_ip);
+=======
+				json_object_string_addf(json_mac, "remoteVtep",
+							"%pI4",
+							&mac->fwd_info.r_vtep_ip);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		} else if (CHECK_FLAG(mac->flags, ZEBRA_MAC_AUTO))
 			json_object_string_add(json_mac, "type", "auto");
 
@@ -664,8 +798,12 @@ void zebra_evpn_print_mac(struct zebra_mac *mac, void *ctxt, json_object *json)
 			json_object_boolean_true_add(json_mac, "sviMac");
 
 		if (CHECK_FLAG(mac->flags, ZEBRA_MAC_DEF_GW))
+<<<<<<< HEAD
 			json_object_boolean_true_add(json_mac,
 						     "defaultGateway");
+=======
+			json_object_boolean_true_add(json_mac, "defaultGateway");
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 		if (CHECK_FLAG(mac->flags, ZEBRA_MAC_REMOTE_DEF_GW))
 			json_object_boolean_true_add(json_mac,
@@ -697,7 +835,11 @@ void zebra_evpn_print_mac(struct zebra_mac *mac, void *ctxt, json_object *json)
 						      mac->hold_timer));
 		if (mac->es)
 			json_object_string_add(json_mac, "esi",
+<<<<<<< HEAD
 					mac->es->esi_str);
+=======
+					       mac->es->esi_str);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		/* print all the associated neigh */
 		if (!listcount(mac->neigh_list))
 			json_object_string_add(json_mac, "neighbors", "none");
@@ -712,24 +854,38 @@ void zebra_evpn_print_mac(struct zebra_mac *mac, void *ctxt, json_object *json)
 					json_object_array_add(
 						json_active_nbrs,
 						json_object_new_string(
+<<<<<<< HEAD
 							ipaddr2str(
 								&n->ip, buf2,
 								sizeof(buf2))));
+=======
+							ipaddr2str(&n->ip, buf2,
+								   sizeof(buf2))));
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 				else
 					json_object_array_add(
 						json_inactive_nbrs,
 						json_object_new_string(
+<<<<<<< HEAD
 							ipaddr2str(
 								&n->ip, buf2,
 								sizeof(buf2))));
+=======
+							ipaddr2str(&n->ip, buf2,
+								   sizeof(buf2))));
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 			}
 
 			json_object_object_add(json_nbrs, "active",
 					       json_active_nbrs);
 			json_object_object_add(json_nbrs, "inactive",
 					       json_inactive_nbrs);
+<<<<<<< HEAD
 			json_object_object_add(json_mac, "neighbors",
 					       json_nbrs);
+=======
+			json_object_object_add(json_mac, "neighbors", json_nbrs);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		}
 
 		json_object_object_add(json, buf1, json_mac);
@@ -753,8 +909,12 @@ void zebra_evpn_print_mac(struct zebra_mac *mac, void *ctxt, json_object *json)
 			vty_out(vty, " VLAN: %u", vid);
 		} else if (CHECK_FLAG(mac->flags, ZEBRA_MAC_REMOTE)) {
 			if (mac->es)
+<<<<<<< HEAD
 				vty_out(vty, " Remote ES: %s",
 					mac->es->esi_str);
+=======
+				vty_out(vty, " Remote ES: %s", mac->es->esi_str);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 			else
 				vty_out(vty, " Remote VTEP: %pI4",
 					&mac->fwd_info.r_vtep_ip);
@@ -816,9 +976,14 @@ void zebra_evpn_print_mac(struct zebra_mac *mac, void *ctxt, json_object *json)
 			for (ALL_LIST_ELEMENTS_RO(mac->neigh_list, node, n)) {
 				vty_out(vty, "    %s %s\n",
 					ipaddr2str(&n->ip, buf2, sizeof(buf2)),
+<<<<<<< HEAD
 					(IS_ZEBRA_NEIGH_ACTIVE(n)
 						 ? "Active"
 						 : "Inactive"));
+=======
+					(IS_ZEBRA_NEIGH_ACTIVE(n) ? "Active"
+								  : "Inactive"));
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 			}
 		}
 
@@ -831,9 +996,15 @@ static char *zebra_evpn_print_mac_flags(struct zebra_mac *mac, char *flags_buf,
 {
 	snprintf(flags_buf, flags_buf_sz, "%s%s%s%s",
 		 mac->sync_neigh_cnt ? "N" : "",
+<<<<<<< HEAD
 		 (mac->flags & ZEBRA_MAC_ES_PEER_ACTIVE) ? "P" : "",
 		 (mac->flags & ZEBRA_MAC_ES_PEER_PROXY) ? "X" : "",
 		 (mac->flags & ZEBRA_MAC_LOCAL_INACTIVE) ? "I" : "");
+=======
+		 CHECK_FLAG(mac->flags, ZEBRA_MAC_ES_PEER_ACTIVE) ? "P" : "",
+		 CHECK_FLAG(mac->flags, ZEBRA_MAC_ES_PEER_PROXY) ? "X" : "",
+		 CHECK_FLAG(mac->flags, ZEBRA_MAC_LOCAL_INACTIVE) ? "I" : "");
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 	return flags_buf;
 }
@@ -871,7 +1042,11 @@ void zebra_evpn_print_mac_hash(struct hash_bucket *bucket, void *ctxt)
 		if (json_mac_hdr == NULL) {
 			vty_out(vty, "%-17s %-6s %-5s %-30s", buf1, "local",
 				zebra_evpn_print_mac_flags(mac, flags_buf,
+<<<<<<< HEAD
                 sizeof(flags_buf)),
+=======
+							   sizeof(flags_buf)),
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 				ifp ? ifp->name : "-");
 		} else {
 			json_object_string_add(json_mac, "type", "local");
@@ -886,7 +1061,11 @@ void zebra_evpn_print_mac_hash(struct hash_bucket *bucket, void *ctxt)
 				json_object_int_add(json_mac, "vlan", vid);
 		} else /* No vid? fill out the space */
 			if (json_mac_hdr == NULL)
+<<<<<<< HEAD
 			vty_out(vty, " %-5s", "");
+=======
+				vty_out(vty, " %-5s", "");
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		if (json_mac_hdr == NULL) {
 			vty_out(vty, " %u/%u", mac->loc_seq, mac->rem_seq);
 			vty_out(vty, "\n");
@@ -909,6 +1088,7 @@ void zebra_evpn_print_mac_hash(struct hash_bucket *bucket, void *ctxt)
 		wctx->count++;
 
 	} else if (CHECK_FLAG(mac->flags, ZEBRA_MAC_REMOTE)) {
+<<<<<<< HEAD
 
 		if ((wctx->flags & SHOW_REMOTE_MAC_FROM_VTEP)
 		    && !IPV4_ADDR_SAME(&mac->fwd_info.r_vtep_ip,
@@ -918,6 +1098,15 @@ void zebra_evpn_print_mac_hash(struct hash_bucket *bucket, void *ctxt)
 		if (json_mac_hdr == NULL) {
 			if ((wctx->flags & SHOW_REMOTE_MAC_FROM_VTEP)
 			    && (wctx->count == 0)) {
+=======
+		if (CHECK_FLAG(wctx->flags, SHOW_REMOTE_MAC_FROM_VTEP) &&
+		    !IPV4_ADDR_SAME(&mac->fwd_info.r_vtep_ip, &wctx->r_vtep_ip))
+			return;
+
+		if (json_mac_hdr == NULL) {
+			if (CHECK_FLAG(wctx->flags, SHOW_REMOTE_MAC_FROM_VTEP) &&
+			    (wctx->count == 0)) {
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 				vty_out(vty, "\nVNI %u\n\n", wctx->zevpn->vni);
 				vty_out(vty, "%-17s %-6s %-5s%-30s %-5s %s\n",
 					"MAC", "Type", "Flags",
@@ -932,17 +1121,28 @@ void zebra_evpn_print_mac_hash(struct hash_bucket *bucket, void *ctxt)
 				"remote",
 				zebra_evpn_print_mac_flags(mac, flags_buf,
 							   sizeof(flags_buf)),
+<<<<<<< HEAD
 				mac->es ? mac->es->esi_str : addr_buf,
 				"", mac->loc_seq, mac->rem_seq);
+=======
+				mac->es ? mac->es->esi_str : addr_buf, "",
+				mac->loc_seq, mac->rem_seq);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		} else {
 			json_object_string_add(json_mac, "type", "remote");
 			if (mac->es)
 				json_object_string_add(json_mac, "remoteEs",
 						       mac->es->esi_str);
 			else
+<<<<<<< HEAD
 				json_object_string_addf(
 					json_mac, "remoteVtep", "%pI4",
 					&mac->fwd_info.r_vtep_ip);
+=======
+				json_object_string_addf(json_mac, "remoteVtep",
+							"%pI4",
+							&mac->fwd_info.r_vtep_ip);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 			json_object_object_add(json_mac_hdr, buf1, json_mac);
 			json_object_int_add(json_mac, "localSequence",
 					    mac->loc_seq);
@@ -988,8 +1188,12 @@ void zebra_evpn_print_mac_hash_detail(struct hash_bucket *bucket, void *ctxt)
 /*
  * Inform BGP about local MACIP.
  */
+<<<<<<< HEAD
 int zebra_evpn_macip_send_msg_to_client(vni_t vni,
 					const struct ethaddr *macaddr,
+=======
+int zebra_evpn_macip_send_msg_to_client(vni_t vni, const struct ethaddr *macaddr,
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 					const struct ipaddr *ip, uint8_t flags,
 					uint32_t seq, int state,
 					struct zebra_evpn_es *es, uint16_t cmd)
@@ -1004,7 +1208,11 @@ int zebra_evpn_macip_send_msg_to_client(vni_t vni,
 	if (!client)
 		return 0;
 
+<<<<<<< HEAD
 	s = stream_new(ZEBRA_MAX_PACKET_SIZ);
+=======
+	s = stream_new(ZEBRA_SMALL_PACKET_SIZE);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 	zclient_create_header(s, cmd, zebra_vrf_get_evpn_id());
 	stream_putl(s, vni);
@@ -1037,6 +1245,7 @@ int zebra_evpn_macip_send_msg_to_client(vni_t vni,
 	if (IS_ZEBRA_DEBUG_VXLAN) {
 		char flag_buf[MACIP_BUF_SIZE];
 
+<<<<<<< HEAD
 		zlog_debug(
 			"Send MACIP %s f %s state %u MAC %pEA IP %pIA seq %u L2-VNI %u ESI %s to %s",
 			(cmd == ZEBRA_MACIP_ADD) ? "Add" : "Del",
@@ -1044,6 +1253,14 @@ int zebra_evpn_macip_send_msg_to_client(vni_t vni,
 						      sizeof(flag_buf)),
 			state, macaddr, ip, seq, vni, es ? es->esi_str : "-",
 			zebra_route_string(client->proto));
+=======
+		zlog_debug("Send MACIP %s f %s state %u MAC %pEA IP %pIA seq %u L2-VNI %u ESI %s to %s",
+			   (cmd == ZEBRA_MACIP_ADD) ? "Add" : "Del",
+			   zclient_evpn_dump_macip_flags(flags, flag_buf,
+							 sizeof(flag_buf)),
+			   state, macaddr, ip, seq, vni, es ? es->esi_str : "-",
+			   zebra_route_string(client->proto));
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	}
 
 	if (cmd == ZEBRA_MACIP_ADD)
@@ -1076,8 +1293,13 @@ static bool mac_cmp(const void *p1, const void *p2)
 	if (pmac1 == NULL || pmac2 == NULL)
 		return false;
 
+<<<<<<< HEAD
 	return (memcmp(pmac1->macaddr.octet, pmac2->macaddr.octet, ETH_ALEN)
 		== 0);
+=======
+	return (memcmp(pmac1->macaddr.octet, pmac2->macaddr.octet, ETH_ALEN) ==
+		0);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 }
 
 /*
@@ -1117,8 +1339,12 @@ struct zebra_mac *zebra_evpn_mac_add(struct zebra_evpn *zevpn,
 	if (IS_ZEBRA_DEBUG_VXLAN || IS_ZEBRA_DEBUG_EVPN_MH_MAC) {
 		char mac_buf[MAC_BUF_SIZE];
 
+<<<<<<< HEAD
 		zlog_debug("%s: MAC %pEA flags %s", __func__,
 			   &mac->macaddr,
+=======
+		zlog_debug("%s: MAC %pEA flags %s", __func__, &mac->macaddr,
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 			   zebra_evpn_zebra_mac_flag_dump(mac, mac_buf,
 							  sizeof(mac_buf)));
 	}
@@ -1135,8 +1361,12 @@ int zebra_evpn_mac_del(struct zebra_evpn *zevpn, struct zebra_mac *mac)
 	if (IS_ZEBRA_DEBUG_VXLAN || IS_ZEBRA_DEBUG_EVPN_MH_MAC) {
 		char mac_buf[MAC_BUF_SIZE];
 
+<<<<<<< HEAD
 		zlog_debug("%s: MAC %pEA flags %s", __func__,
 			   &mac->macaddr,
+=======
+		zlog_debug("%s: MAC %pEA flags %s", __func__, &mac->macaddr,
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 			   zebra_evpn_zebra_mac_flag_dump(mac, mac_buf,
 							  sizeof(mac_buf)));
 	}
@@ -1163,11 +1393,18 @@ int zebra_evpn_mac_del(struct zebra_evpn *zevpn, struct zebra_mac *mac)
 	 */
 	if (!list_isempty(mac->neigh_list)) {
 		if (IS_ZEBRA_DEBUG_VXLAN)
+<<<<<<< HEAD
 			zlog_debug(
 				"MAC %pEA (flags 0x%x vni %u) has non-empty neigh list "
 				"count %u, mark MAC as AUTO",
 				&mac->macaddr, mac->flags, zevpn->vni,
 				listcount(mac->neigh_list));
+=======
+			zlog_debug("MAC %pEA (flags 0x%x vni %u) has non-empty neigh list "
+				   "count %u, mark MAC as AUTO",
+				   &mac->macaddr, mac->flags, zevpn->vni,
+				   listcount(mac->neigh_list));
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 		SET_FLAG(mac->flags, ZEBRA_MAC_AUTO);
 		return 0;
@@ -1204,6 +1441,7 @@ struct zebra_mac *zebra_evpn_mac_add_auto(struct zebra_evpn *zevpn,
 static bool zebra_evpn_check_mac_del_from_db(struct mac_walk_ctx *wctx,
 					     struct zebra_mac *mac)
 {
+<<<<<<< HEAD
 	if ((wctx->flags & DEL_LOCAL_MAC) && (mac->flags & ZEBRA_MAC_LOCAL))
 		return true;
 	else if ((wctx->flags & DEL_REMOTE_MAC)
@@ -1223,6 +1461,28 @@ static bool zebra_evpn_check_mac_del_from_db(struct mac_walk_ctx *wctx,
 				&mac->macaddr,
 				zebra_evpn_zebra_mac_flag_dump(
 					mac, mac_buf, sizeof(mac_buf)));
+=======
+	if (CHECK_FLAG(wctx->flags, DEL_LOCAL_MAC) &&
+	    CHECK_FLAG(mac->flags, ZEBRA_MAC_LOCAL))
+		return true;
+	else if (CHECK_FLAG(wctx->flags, DEL_REMOTE_MAC) &&
+		 CHECK_FLAG(mac->flags, ZEBRA_MAC_REMOTE))
+		return true;
+	else if (CHECK_FLAG(wctx->flags, DEL_REMOTE_MAC_FROM_VTEP) &&
+		 CHECK_FLAG(mac->flags, ZEBRA_MAC_REMOTE) &&
+		 IPV4_ADDR_SAME(&mac->fwd_info.r_vtep_ip, &wctx->r_vtep_ip))
+		return true;
+	else if (CHECK_FLAG(wctx->flags, DEL_LOCAL_MAC) &&
+		 CHECK_FLAG(mac->flags, ZEBRA_MAC_AUTO) &&
+		 !listcount(mac->neigh_list)) {
+		if (IS_ZEBRA_DEBUG_VXLAN) {
+			char mac_buf[MAC_BUF_SIZE];
+
+			zlog_debug("%s: Del MAC %pEA flags %s", __func__,
+				   &mac->macaddr,
+				   zebra_evpn_zebra_mac_flag_dump(mac, mac_buf,
+								  sizeof(mac_buf)));
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		}
 		wctx->uninstall = 0;
 
@@ -1240,6 +1500,7 @@ static void zebra_evpn_mac_del_hash_entry(struct hash_bucket *bucket, void *arg)
 	struct mac_walk_ctx *wctx = arg;
 	struct zebra_mac *mac = bucket->data;
 
+<<<<<<< HEAD
 	if (zebra_evpn_check_mac_del_from_db(wctx, mac)) {
 		if (wctx->upd_client && (mac->flags & ZEBRA_MAC_LOCAL)) {
 			zebra_evpn_mac_send_del_to_client(wctx->zevpn->vni,
@@ -1260,6 +1521,26 @@ static void zebra_evpn_mac_del_hash_entry(struct hash_bucket *bucket, void *arg)
 
 		zebra_evpn_mac_del(wctx->zevpn, mac);
 	}
+=======
+	if (!zebra_evpn_check_mac_del_from_db(wctx, mac))
+		return;
+
+	if (wctx->upd_client && CHECK_FLAG(mac->flags, ZEBRA_MAC_LOCAL)) {
+		zebra_evpn_mac_send_del_to_client(wctx->zevpn->vni,
+						  &mac->macaddr, mac->flags,
+						  false);
+	}
+	if (wctx->uninstall) {
+		if (zebra_evpn_mac_is_static(mac))
+			zebra_evpn_sync_mac_dp_install(mac, false, true,
+						       __func__);
+
+		if (mac->flags & ZEBRA_MAC_REMOTE)
+			zebra_evpn_rem_mac_uninstall(wctx->zevpn, mac, false);
+	}
+
+	zebra_evpn_mac_del(wctx->zevpn, mac);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 	return;
 }
@@ -1343,8 +1624,13 @@ int zebra_evpn_mac_send_del_to_client(vni_t vni, const struct ethaddr *macaddr,
 	int state = ZEBRA_NEIGH_ACTIVE;
 
 	if (!force) {
+<<<<<<< HEAD
 		if (CHECK_FLAG(flags, ZEBRA_MAC_LOCAL_INACTIVE)
 		    && !CHECK_FLAG(flags, ZEBRA_MAC_ES_PEER_ACTIVE))
+=======
+		if (CHECK_FLAG(flags, ZEBRA_MAC_LOCAL_INACTIVE) &&
+		    !CHECK_FLAG(flags, ZEBRA_MAC_ES_PEER_ACTIVE))
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 			/* the host was not advertised - nothing  to delete */
 			return 0;
 
@@ -1357,9 +1643,14 @@ int zebra_evpn_mac_send_del_to_client(vni_t vni, const struct ethaddr *macaddr,
 			state = ZEBRA_NEIGH_INACTIVE;
 	}
 
+<<<<<<< HEAD
 	return zebra_evpn_macip_send_msg_to_client(
 		vni, macaddr, NULL, 0 /* flags */, 0 /* seq */, state, NULL,
 		ZEBRA_MACIP_DEL);
+=======
+	return zebra_evpn_macip_send_msg_to_client(vni, macaddr, NULL, 0, 0,
+						   state, NULL, ZEBRA_MACIP_DEL);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 }
 
 /*
@@ -1391,12 +1682,20 @@ int zebra_evpn_sync_mac_dp_install(struct zebra_mac *mac, bool set_inactive,
 		es_evi = zebra_evpn_es_evi_find(mac->es, mac->zevpn);
 		if (!es_evi) {
 			if (IS_ZEBRA_DEBUG_EVPN_MH_MAC)
+<<<<<<< HEAD
 				zlog_debug(
 					"%s: dp-install sync-mac vni %u mac %pEA es %s 0x%x %sskipped, no es-evi",
 					caller, zevpn->vni, &mac->macaddr,
 					mac->es ? mac->es->esi_str : "-",
 					mac->flags,
 					set_inactive ? "inactive " : "");
+=======
+				zlog_debug("%s: dp-install sync-mac vni %u mac %pEA es %s 0x%x %sskipped, no es-evi",
+					   caller, zevpn->vni, &mac->macaddr,
+					   mac->es ? mac->es->esi_str : "-",
+					   mac->flags,
+					   set_inactive ? "inactive " : "");
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 			return -1;
 		}
 	}
@@ -1408,6 +1707,7 @@ int zebra_evpn_sync_mac_dp_install(struct zebra_mac *mac, bool set_inactive,
 		if (IS_ZEBRA_DEBUG_EVPN_MH_MAC) {
 			char mac_buf[MAC_BUF_SIZE];
 
+<<<<<<< HEAD
 			zlog_debug(
 				"%s: dp-install sync-mac vni %u mac %pEA es %s %s%sskipped, no access-port",
 				caller, zevpn->vni, &mac->macaddr,
@@ -1415,6 +1715,14 @@ int zebra_evpn_sync_mac_dp_install(struct zebra_mac *mac, bool set_inactive,
 				zebra_evpn_zebra_mac_flag_dump(mac, mac_buf,
 							       sizeof(mac_buf)),
 				set_inactive ? "inactive " : "");
+=======
+			zlog_debug("%s: dp-install sync-mac vni %u mac %pEA es %s %s%sskipped, no access-port",
+				   caller, zevpn->vni, &mac->macaddr,
+				   mac->es ? mac->es->esi_str : "-",
+				   zebra_evpn_zebra_mac_flag_dump(mac, mac_buf,
+								  sizeof(mac_buf)),
+				   set_inactive ? "inactive " : "");
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		}
 		return -1;
 	}
@@ -1425,6 +1733,7 @@ int zebra_evpn_sync_mac_dp_install(struct zebra_mac *mac, bool set_inactive,
 		if (IS_ZEBRA_DEBUG_EVPN_MH_MAC) {
 			char mac_buf[MAC_BUF_SIZE];
 
+<<<<<<< HEAD
 			zlog_debug(
 				"%s: dp-install sync-mac vni %u mac %pEA es %s %s%sskipped, no br",
 				caller, zevpn->vni, &mac->macaddr,
@@ -1432,6 +1741,14 @@ int zebra_evpn_sync_mac_dp_install(struct zebra_mac *mac, bool set_inactive,
 				zebra_evpn_zebra_mac_flag_dump(mac, mac_buf,
 							       sizeof(mac_buf)),
 				set_inactive ? "inactive " : "");
+=======
+			zlog_debug("%s: dp-install sync-mac vni %u mac %pEA es %s %s%sskipped, no br",
+				   caller, zevpn->vni, &mac->macaddr,
+				   mac->es ? mac->es->esi_str : "-",
+				   zebra_evpn_zebra_mac_flag_dump(mac, mac_buf,
+								  sizeof(mac_buf)),
+				   set_inactive ? "inactive " : "");
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		}
 		return -1;
 	}
@@ -1450,6 +1767,7 @@ int zebra_evpn_sync_mac_dp_install(struct zebra_mac *mac, bool set_inactive,
 		if (IS_ZEBRA_DEBUG_EVPN_MH_MAC) {
 			char mac_buf[MAC_BUF_SIZE];
 
+<<<<<<< HEAD
 			zlog_debug(
 				"dp-%s sync-nw-mac vni %u mac %pEA es %s %s%s",
 				set_static ? "install" : "uninstall",
@@ -1458,16 +1776,31 @@ int zebra_evpn_sync_mac_dp_install(struct zebra_mac *mac, bool set_inactive,
 				zebra_evpn_zebra_mac_flag_dump(mac, mac_buf,
 							       sizeof(mac_buf)),
 				set_inactive ? "inactive " : "");
+=======
+			zlog_debug("dp-%s sync-nw-mac vni %u mac %pEA es %s %s%s",
+				   set_static ? "install" : "uninstall",
+				   zevpn->vni, &mac->macaddr,
+				   mac->es ? mac->es->esi_str : "-",
+				   zebra_evpn_zebra_mac_flag_dump(mac, mac_buf,
+								  sizeof(mac_buf)),
+				   set_inactive ? "inactive " : "");
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		}
 		if (set_static)
 			/* XXX - old_static needs to be computed more
 			 * accurately
 			 */
+<<<<<<< HEAD
 			zebra_evpn_rem_mac_install(zevpn, mac,
 						   true /* old_static */);
 		else
 			zebra_evpn_rem_mac_uninstall(zevpn, mac,
 						     false /* force */);
+=======
+			zebra_evpn_rem_mac_install(zevpn, mac, true);
+		else
+			zebra_evpn_rem_mac_uninstall(zevpn, mac, false);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 		return 0;
 	}
@@ -1498,9 +1831,14 @@ void zebra_evpn_mac_send_add_del_to_client(struct zebra_mac *mac,
 						  &mac->macaddr, mac->flags,
 						  mac->loc_seq, mac->es);
 	else if (old_bgp_ready)
+<<<<<<< HEAD
 		zebra_evpn_mac_send_del_to_client(mac->zevpn->vni,
 						  &mac->macaddr, mac->flags,
 						  true /* force */);
+=======
+		zebra_evpn_mac_send_del_to_client(mac->zevpn->vni, &mac->macaddr,
+						  mac->flags, true);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 }
 
 /* MAC hold timer is used to age out peer-active flag.
@@ -1533,21 +1871,33 @@ static void zebra_evpn_mac_hold_exp_cb(struct event *t)
 	if (IS_ZEBRA_DEBUG_EVPN_MH_MAC) {
 		char mac_buf[MAC_BUF_SIZE];
 
+<<<<<<< HEAD
 		zlog_debug(
 			"sync-mac vni %u mac %pEA es %s %shold expired",
 			mac->zevpn->vni, &mac->macaddr,
 			mac->es ? mac->es->esi_str : "-",
 			zebra_evpn_zebra_mac_flag_dump(mac, mac_buf,
 						       sizeof(mac_buf)));
+=======
+		zlog_debug("sync-mac vni %u mac %pEA es %s %shold expired",
+			   mac->zevpn->vni, &mac->macaddr,
+			   mac->es ? mac->es->esi_str : "-",
+			   zebra_evpn_zebra_mac_flag_dump(mac, mac_buf,
+							  sizeof(mac_buf)));
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	}
 
 	/* re-program the local mac in the dataplane if the mac is no
 	 * longer static
 	 */
 	if (old_static != new_static)
+<<<<<<< HEAD
 		zebra_evpn_sync_mac_dp_install(mac, false /* set_inactive */,
 					       false /* force_clear_static */,
 					       __func__);
+=======
+		zebra_evpn_sync_mac_dp_install(mac, false, false, __func__);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 	/* inform bgp if needed */
 	if (old_bgp_ready != new_bgp_ready)
@@ -1563,12 +1913,20 @@ static inline void zebra_evpn_mac_start_hold_timer(struct zebra_mac *mac)
 	if (IS_ZEBRA_DEBUG_EVPN_MH_MAC) {
 		char mac_buf[MAC_BUF_SIZE];
 
+<<<<<<< HEAD
 		zlog_debug(
 			"sync-mac vni %u mac %pEA es %s %shold started",
 			mac->zevpn->vni, &mac->macaddr,
 			mac->es ? mac->es->esi_str : "-",
 			zebra_evpn_zebra_mac_flag_dump(mac, mac_buf,
 						       sizeof(mac_buf)));
+=======
+		zlog_debug("sync-mac vni %u mac %pEA es %s %shold started",
+			   mac->zevpn->vni, &mac->macaddr,
+			   mac->es ? mac->es->esi_str : "-",
+			   zebra_evpn_zebra_mac_flag_dump(mac, mac_buf,
+							  sizeof(mac_buf)));
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	}
 	event_add_timer(zrouter.master, zebra_evpn_mac_hold_exp_cb, mac,
 			zmh_info->mac_hold_time, &mac->hold_timer);
@@ -1582,12 +1940,20 @@ void zebra_evpn_mac_stop_hold_timer(struct zebra_mac *mac)
 	if (IS_ZEBRA_DEBUG_EVPN_MH_MAC) {
 		char mac_buf[MAC_BUF_SIZE];
 
+<<<<<<< HEAD
 		zlog_debug(
 			"sync-mac vni %u mac %pEA es %s %shold stopped",
 			mac->zevpn->vni, &mac->macaddr,
 			mac->es ? mac->es->esi_str : "-",
 			zebra_evpn_zebra_mac_flag_dump(mac, mac_buf,
 						       sizeof(mac_buf)));
+=======
+		zlog_debug("sync-mac vni %u mac %pEA es %s %shold stopped",
+			   mac->zevpn->vni, &mac->macaddr,
+			   mac->es ? mac->es->esi_str : "-",
+			   zebra_evpn_zebra_mac_flag_dump(mac, mac_buf,
+							  sizeof(mac_buf)));
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	}
 
 	EVENT_OFF(mac->hold_timer);
@@ -1601,12 +1967,20 @@ void zebra_evpn_sync_mac_del(struct zebra_mac *mac)
 	if (IS_ZEBRA_DEBUG_EVPN_MH_MAC) {
 		char mac_buf[MAC_BUF_SIZE];
 
+<<<<<<< HEAD
 		zlog_debug(
 			"sync-mac del vni %u mac %pEA es %s seq %d f %s",
 			mac->zevpn->vni, &mac->macaddr,
 			mac->es ? mac->es->esi_str : "-", mac->loc_seq,
 			zebra_evpn_zebra_mac_flag_dump(mac, mac_buf,
 						       sizeof(mac_buf)));
+=======
+		zlog_debug("sync-mac del vni %u mac %pEA es %s seq %d f %s",
+			   mac->zevpn->vni, &mac->macaddr,
+			   mac->es ? mac->es->esi_str : "-", mac->loc_seq,
+			   zebra_evpn_zebra_mac_flag_dump(mac, mac_buf,
+							  sizeof(mac_buf)));
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	}
 
 	old_static = zebra_evpn_mac_is_static(mac);
@@ -1617,9 +1991,13 @@ void zebra_evpn_sync_mac_del(struct zebra_mac *mac)
 
 	if (old_static != new_static)
 		/* program the local mac in the kernel */
+<<<<<<< HEAD
 		zebra_evpn_sync_mac_dp_install(mac, false /* set_inactive */,
 					       false /* force_clear_static */,
 					       __func__);
+=======
+		zebra_evpn_sync_mac_dp_install(mac, false, false, __func__);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 }
 
 static inline bool zebra_evpn_mac_is_bgp_seq_ok(struct zebra_evpn *zevpn,
@@ -1640,6 +2018,7 @@ static inline bool zebra_evpn_mac_is_bgp_seq_ok(struct zebra_evpn *zevpn,
 		n_type = "remote";
 	}
 
+<<<<<<< HEAD
 	if (seq < tmp_seq) {
 
 		if (is_local && !zebra_evpn_mac_is_ready_for_bgp(mac->flags)) {
@@ -1682,6 +2061,43 @@ static inline bool zebra_evpn_mac_is_bgp_seq_ok(struct zebra_evpn *zevpn,
 	}
 
 	return true;
+=======
+	if (seq >= tmp_seq)
+		return true;
+
+	if (is_local && !zebra_evpn_mac_is_ready_for_bgp(mac->flags)) {
+		if (IS_ZEBRA_DEBUG_EVPN_MH_MAC || IS_ZEBRA_DEBUG_VXLAN)
+			zlog_debug("%s-macip not ready vni %u %s-mac %pEA lower seq %u f 0x%x",
+				   sync ? "sync" : "rem", zevpn->vni, n_type,
+				   &mac->macaddr, tmp_seq, mac->flags);
+		return true;
+	}
+
+	/* if the mac was never advertised to bgp we must accept
+	 * whatever sequence number bgp sends
+	 */
+	if (!is_local && zebra_vxlan_get_accept_bgp_seq()) {
+		if (IS_ZEBRA_DEBUG_EVPN_MH_MAC || IS_ZEBRA_DEBUG_VXLAN) {
+			zlog_debug("%s-macip accept vni %u %s-mac %pEA lower seq %u f %s",
+				   (sync ? "sync" : "rem"), zevpn->vni, n_type,
+				   &mac->macaddr, tmp_seq,
+				   zebra_evpn_zebra_mac_flag_dump(mac, mac_buf,
+								  sizeof(mac_buf)));
+		}
+
+		return true;
+	}
+
+	if (IS_ZEBRA_DEBUG_EVPN_MH_MAC || IS_ZEBRA_DEBUG_VXLAN) {
+		zlog_debug("%s-macip ignore vni %u %s-mac %pEA as existing has higher seq %u f %s",
+			   (sync ? "sync" : "rem"), zevpn->vni, n_type,
+			   &mac->macaddr, tmp_seq,
+			   zebra_evpn_zebra_mac_flag_dump(mac, mac_buf,
+							  sizeof(mac_buf)));
+	}
+
+	return false;
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 }
 
 struct zebra_mac *zebra_evpn_proc_sync_mac_update(struct zebra_evpn *zevpn,
@@ -1745,6 +2161,7 @@ struct zebra_mac *zebra_evpn_proc_sync_mac_update(struct zebra_evpn *zevpn,
 		remote_gw = !!CHECK_FLAG(old_flags, ZEBRA_MAC_REMOTE_DEF_GW);
 		if (sticky || remote_gw) {
 			if (IS_ZEBRA_DEBUG_EVPN_MH_NEIGH)
+<<<<<<< HEAD
 				zlog_debug(
 					"Ignore sync-macip vni %u mac %pEA%s%s%s%s",
 					zevpn->vni, macaddr,
@@ -1754,6 +2171,16 @@ struct zebra_mac *zebra_evpn_proc_sync_mac_update(struct zebra_evpn *zevpn,
 						: "",
 					sticky ? " sticky" : "",
 					remote_gw ? " remote_gw" : "");
+=======
+				zlog_debug("Ignore sync-macip vni %u mac %pEA%s%s%s%s",
+					   zevpn->vni, macaddr,
+					   ipa_len ? " IP " : "",
+					   ipa_len ? ipaddr2str(ipaddr, ipbuf,
+								sizeof(ipbuf))
+						   : "",
+					   sticky ? " sticky" : "",
+					   remote_gw ? " remote_gw" : "");
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 			return NULL;
 		}
 		if (!zebra_evpn_mac_is_bgp_seq_ok(zevpn, mac, seq, true))
@@ -1766,16 +2193,31 @@ struct zebra_mac *zebra_evpn_proc_sync_mac_update(struct zebra_evpn *zevpn,
 		new_flags = 0;
 		SET_FLAG(new_flags, ZEBRA_MAC_LOCAL);
 		/* retain old local activity flag */
+<<<<<<< HEAD
 		if (old_flags & ZEBRA_MAC_LOCAL)
 			new_flags |= (old_flags & ZEBRA_MAC_LOCAL_INACTIVE);
 		else
 			new_flags |= ZEBRA_MAC_LOCAL_INACTIVE;
+=======
+		if (CHECK_FLAG(old_flags, ZEBRA_MAC_LOCAL))
+			SET_FLAG(new_flags,
+				 CHECK_FLAG(old_flags,
+					    ZEBRA_MAC_LOCAL_INACTIVE));
+		else
+			SET_FLAG(new_flags, ZEBRA_MAC_LOCAL_INACTIVE);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 		if (ipa_len) {
 			/* if mac-ip route do NOT update the peer flags
 			 * i.e. retain only flags as is
 			 */
+<<<<<<< HEAD
 			new_flags |= (old_flags & ZEBRA_MAC_ALL_PEER_FLAGS);
+=======
+			SET_FLAG(new_flags,
+				 CHECK_FLAG(old_flags,
+					    ZEBRA_MAC_ALL_PEER_FLAGS));
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		} else {
 			/* if mac-only route update peer flags */
 			if (CHECK_FLAG(flags, ZEBRA_MACIP_TYPE_PROXY_ADVERT)) {
@@ -1808,6 +2250,7 @@ struct zebra_mac *zebra_evpn_proc_sync_mac_update(struct zebra_evpn *zevpn,
 			struct zebra_mac omac;
 
 			omac.flags = old_flags;
+<<<<<<< HEAD
 			zlog_debug(
 				"sync-mac vni %u mac %pEA old_f %snew_f %s",
 				zevpn->vni, macaddr,
@@ -1815,6 +2258,15 @@ struct zebra_mac *zebra_evpn_proc_sync_mac_update(struct zebra_evpn *zevpn,
 					&omac, omac_buf, sizeof(omac_buf)),
 				zebra_evpn_zebra_mac_flag_dump(
 					mac, mac_buf, sizeof(mac_buf)));
+=======
+			zlog_debug("sync-mac vni %u mac %pEA old_f %snew_f %s",
+				   zevpn->vni, macaddr,
+				   zebra_evpn_zebra_mac_flag_dump(&omac,
+								  omac_buf,
+								  sizeof(omac_buf)),
+				   zebra_evpn_zebra_mac_flag_dump(mac, mac_buf,
+								  sizeof(mac_buf)));
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		}
 
 		/* update es */
@@ -1870,8 +2322,14 @@ struct zebra_mac *zebra_evpn_proc_sync_mac_update(struct zebra_evpn *zevpn,
 	 * bgp with updated info
 	 */
 	if (seq_change || es_change || !old_local)
+<<<<<<< HEAD
 		zebra_evpn_process_neigh_on_local_mac_change(
 			zevpn, mac, seq_change, es_change);
+=======
+		zebra_evpn_process_neigh_on_local_mac_change(zevpn, mac,
+							     seq_change,
+							     es_change);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 	if (inform_dataplane && !ipa_len) {
 		/* program the local mac in the kernel. when the ES
@@ -1879,9 +2337,14 @@ struct zebra_mac *zebra_evpn_proc_sync_mac_update(struct zebra_evpn *zevpn,
 		 * the activity as we are yet to establish activity
 		 * locally
 		 */
+<<<<<<< HEAD
 		zebra_evpn_sync_mac_dp_install(
 			mac, mac_inactive /* set_inactive */,
 			false /* force_clear_static */, __func__);
+=======
+		zebra_evpn_sync_mac_dp_install(mac, mac_inactive, false,
+					       __func__);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	}
 
 	return mac;
@@ -1967,7 +2430,11 @@ void zebra_evpn_rem_mac_del(struct zebra_evpn *zevpn, struct zebra_mac *mac)
 	 * go away, we need to uninstall the MAC.
 	 */
 	if (remote_neigh_count(mac) == 0) {
+<<<<<<< HEAD
 		zebra_evpn_rem_mac_uninstall(zevpn, mac, false /*force*/);
+=======
+		zebra_evpn_rem_mac_uninstall(zevpn, mac, false);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		zebra_evpn_es_mac_deref_entry(mac);
 		UNSET_FLAG(mac->flags, ZEBRA_MAC_REMOTE);
 	}
@@ -1992,8 +2459,12 @@ void zebra_evpn_print_dad_mac_hash(struct hash_bucket *bucket, void *ctxt)
 }
 
 /* Print Duplicate MAC in detail */
+<<<<<<< HEAD
 void zebra_evpn_print_dad_mac_hash_detail(struct hash_bucket *bucket,
 					  void *ctxt)
+=======
+void zebra_evpn_print_dad_mac_hash_detail(struct hash_bucket *bucket, void *ctxt)
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 {
 	struct zebra_mac *mac;
 
@@ -2028,12 +2499,20 @@ int zebra_evpn_mac_remote_macip_add(struct zebra_evpn *zevpn,
 	mac = zebra_evpn_mac_lookup(zevpn, macaddr);
 
 	/* Ignore if the mac is already present as a gateway mac */
+<<<<<<< HEAD
 	if (mac && CHECK_FLAG(mac->flags, ZEBRA_MAC_DEF_GW)
 	    && CHECK_FLAG(flags, ZEBRA_MACIP_TYPE_GW)) {
 		if (IS_ZEBRA_DEBUG_VXLAN)
 			zlog_debug(
 				"Ignore remote MACIP ADD VNI %u MAC %pEA as MAC is already configured as gateway MAC",
 				zevpn->vni, macaddr);
+=======
+	if (mac && CHECK_FLAG(mac->flags, ZEBRA_MAC_DEF_GW) &&
+	    CHECK_FLAG(flags, ZEBRA_MACIP_TYPE_GW)) {
+		if (IS_ZEBRA_DEBUG_VXLAN)
+			zlog_debug("Ignore remote MACIP ADD VNI %u MAC %pEA as MAC is already configured as gateway MAC",
+				   zevpn->vni, macaddr);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		return -1;
 	}
 
@@ -2043,11 +2522,19 @@ int zebra_evpn_mac_remote_macip_add(struct zebra_evpn *zevpn,
 	 * If so, that needs to be updated first. Note that client could
 	 * install MAC and MACIP separately or just install the latter.
 	 */
+<<<<<<< HEAD
 	if (!mac || !CHECK_FLAG(mac->flags, ZEBRA_MAC_REMOTE)
 	    || sticky != !!CHECK_FLAG(mac->flags, ZEBRA_MAC_STICKY)
 	    || remote_gw != !!CHECK_FLAG(mac->flags, ZEBRA_MAC_REMOTE_DEF_GW)
 	    || !IPV4_ADDR_SAME(&mac->fwd_info.r_vtep_ip, &vtep_ip)
 	    || memcmp(old_esi, esi, sizeof(esi_t)) || seq != mac->rem_seq)
+=======
+	if (!mac || !CHECK_FLAG(mac->flags, ZEBRA_MAC_REMOTE) ||
+	    sticky != !!CHECK_FLAG(mac->flags, ZEBRA_MAC_STICKY) ||
+	    remote_gw != !!CHECK_FLAG(mac->flags, ZEBRA_MAC_REMOTE_DEF_GW) ||
+	    !IPV4_ADDR_SAME(&mac->fwd_info.r_vtep_ip, &vtep_ip) ||
+	    memcmp(old_esi, esi, sizeof(esi_t)) || seq != mac->rem_seq)
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		update_mac = 1;
 
 	if (update_mac) {
@@ -2091,9 +2578,15 @@ int zebra_evpn_mac_remote_macip_add(struct zebra_evpn *zevpn,
 		 * MAC is already marked duplicate set dad, then
 		 * is_dup_detect will be set to not install the entry.
 		 */
+<<<<<<< HEAD
 		if ((!CHECK_FLAG(mac->flags, ZEBRA_MAC_REMOTE)
 		     && mac->dad_count)
 		    || CHECK_FLAG(mac->flags, ZEBRA_MAC_DUPLICATE))
+=======
+		if ((!CHECK_FLAG(mac->flags, ZEBRA_MAC_REMOTE) &&
+		     mac->dad_count) ||
+		    CHECK_FLAG(mac->flags, ZEBRA_MAC_DUPLICATE))
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 			do_dad = true;
 
 		/* Remove local MAC from BGP. */
@@ -2103,6 +2596,7 @@ int zebra_evpn_mac_remote_macip_add(struct zebra_evpn *zevpn,
 			if (IS_ZEBRA_DEBUG_EVPN_MH_MAC) {
 				char mac_buf[MAC_BUF_SIZE];
 
+<<<<<<< HEAD
 				zlog_debug(
 					"sync-mac->remote vni %u mac %pEA es %s seq %d f %s",
 					zevpn->vni, macaddr,
@@ -2110,12 +2604,25 @@ int zebra_evpn_mac_remote_macip_add(struct zebra_evpn *zevpn,
 					mac->loc_seq,
 					zebra_evpn_zebra_mac_flag_dump(
 						mac, mac_buf, sizeof(mac_buf)));
+=======
+				zlog_debug("sync-mac->remote vni %u mac %pEA es %s seq %d f %s",
+					   zevpn->vni, macaddr,
+					   mac->es ? mac->es->esi_str : "-",
+					   mac->loc_seq,
+					   zebra_evpn_zebra_mac_flag_dump(
+						   mac, mac_buf,
+						   sizeof(mac_buf)));
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 			}
 
 			zebra_evpn_mac_clear_sync_info(mac);
 			zebra_evpn_mac_send_del_to_client(zevpn->vni, macaddr,
+<<<<<<< HEAD
 							  mac->flags,
 							  false /* force */);
+=======
+							  mac->flags, false);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		}
 
 		/* Set "auto" and "remote" forwarding info. */
@@ -2134,9 +2641,16 @@ int zebra_evpn_mac_remote_macip_add(struct zebra_evpn *zevpn,
 		else
 			UNSET_FLAG(mac->flags, ZEBRA_MAC_REMOTE_DEF_GW);
 
+<<<<<<< HEAD
 		zebra_evpn_dup_addr_detect_for_mac(
 			zvrf, mac, mac->fwd_info.r_vtep_ip, do_dad,
 			&is_dup_detect, false);
+=======
+		zebra_evpn_dup_addr_detect_for_mac(zvrf, mac,
+						   mac->fwd_info.r_vtep_ip,
+						   do_dad, &is_dup_detect,
+						   false);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 		if (!is_dup_detect) {
 			zebra_evpn_process_neigh_on_remote_mac_add(zevpn, mac);
@@ -2163,7 +2677,11 @@ int zebra_evpn_add_update_local_mac(struct zebra_vrf *zvrf,
 	bool inform_client = false;
 	bool upd_neigh = false;
 	bool is_dup_detect = false;
+<<<<<<< HEAD
 	struct in_addr vtep_ip = {.s_addr = 0};
+=======
+	struct in_addr vtep_ip = { .s_addr = 0 };
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	bool es_change = false;
 	bool new_bgp_ready;
 	/* assume inactive if not present or if not local */
@@ -2178,11 +2696,18 @@ int zebra_evpn_add_update_local_mac(struct zebra_vrf *zvrf,
 		mac = zebra_evpn_mac_lookup(zevpn, macaddr);
 	if (!mac) {
 		if (IS_ZEBRA_DEBUG_VXLAN || IS_ZEBRA_DEBUG_EVPN_MH_MAC)
+<<<<<<< HEAD
 			zlog_debug(
 				"ADD %sMAC %pEA intf %s(%u) VID %u -> VNI %u%s",
 				sticky ? "sticky " : "", macaddr,
 				ifp->name, ifp->ifindex, vid, zevpn->vni,
 				local_inactive ? " local-inactive" : "");
+=======
+			zlog_debug("ADD %sMAC %pEA intf %s(%u) VID %u -> VNI %u%s",
+				   sticky ? "sticky " : "", macaddr, ifp->name,
+				   ifp->ifindex, vid, zevpn->vni,
+				   local_inactive ? " local-inactive" : "");
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 		mac = zebra_evpn_mac_add(zevpn, macaddr);
 		SET_FLAG(mac->flags, ZEBRA_MAC_LOCAL);
@@ -2194,6 +2719,7 @@ int zebra_evpn_add_update_local_mac(struct zebra_vrf *zvrf,
 		if (IS_ZEBRA_DEBUG_VXLAN || IS_ZEBRA_DEBUG_EVPN_MH_MAC) {
 			char mac_buf[MAC_BUF_SIZE];
 
+<<<<<<< HEAD
 			zlog_debug(
 				"UPD %sMAC %pEA intf %s(%u) VID %u -> VNI %u %scurFlags %s",
 				sticky ? "sticky " : "", macaddr,
@@ -2201,6 +2727,14 @@ int zebra_evpn_add_update_local_mac(struct zebra_vrf *zvrf,
 				local_inactive ? "local-inactive " : "",
 				zebra_evpn_zebra_mac_flag_dump(
 					mac, mac_buf, sizeof(mac_buf)));
+=======
+			zlog_debug("UPD %sMAC %pEA intf %s(%u) VID %u -> VNI %u %scurFlags %s",
+				   sticky ? "sticky " : "", macaddr, ifp->name,
+				   ifp->ifindex, vid, zevpn->vni,
+				   local_inactive ? "local-inactive " : "",
+				   zebra_evpn_zebra_mac_flag_dump(mac, mac_buf,
+								  sizeof(mac_buf)));
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		}
 
 		if (CHECK_FLAG(mac->flags, ZEBRA_MAC_LOCAL)) {
@@ -2211,6 +2745,7 @@ int zebra_evpn_add_update_local_mac(struct zebra_vrf *zvrf,
 			zebra_evpn_mac_get_access_info(mac, &old_ifp, &old_vid);
 			old_bgp_ready =
 				zebra_evpn_mac_is_ready_for_bgp(mac->flags);
+<<<<<<< HEAD
 			old_local_inactive =
 				!!(mac->flags & ZEBRA_MAC_LOCAL_INACTIVE);
 			old_static = zebra_evpn_mac_is_static(mac);
@@ -2218,11 +2753,22 @@ int zebra_evpn_add_update_local_mac(struct zebra_vrf *zvrf,
 				mac_sticky = true;
 			es_change = zebra_evpn_local_mac_update_fwd_info(
 				mac, ifp, vid);
+=======
+			old_local_inactive = !!(mac->flags &
+						ZEBRA_MAC_LOCAL_INACTIVE);
+			old_static = zebra_evpn_mac_is_static(mac);
+			if (CHECK_FLAG(mac->flags, ZEBRA_MAC_STICKY))
+				mac_sticky = true;
+			es_change = zebra_evpn_local_mac_update_fwd_info(mac,
+									 ifp,
+									 vid);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 			/*
 			 * Update any changes and if changes are relevant to
 			 * BGP, note it.
 			 */
+<<<<<<< HEAD
 			if (mac_sticky == sticky && old_ifp == ifp
 			    && old_vid == vid
 			    && old_local_inactive == local_inactive
@@ -2237,14 +2783,33 @@ int zebra_evpn_add_update_local_mac(struct zebra_vrf *zvrf,
 						local_inactive
 							? " local_inactive"
 							: "");
+=======
+			if (mac_sticky == sticky && old_ifp == ifp &&
+			    old_vid == vid &&
+			    old_local_inactive == local_inactive &&
+			    dp_static == old_static && !es_change) {
+				if (IS_ZEBRA_DEBUG_VXLAN)
+					zlog_debug("        Add/Update %sMAC %pEA intf %s(%u) VID %u -> VNI %u%s, "
+						   "entry exists and has not changed ",
+						   sticky ? "sticky " : "",
+						   macaddr, ifp->name,
+						   ifp->ifindex, vid, zevpn->vni,
+						   local_inactive
+							   ? " local_inactive"
+							   : "");
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 				return 0;
 			}
 			if (mac_sticky != sticky) {
 				if (sticky)
 					SET_FLAG(mac->flags, ZEBRA_MAC_STICKY);
 				else
+<<<<<<< HEAD
 					UNSET_FLAG(mac->flags,
 						   ZEBRA_MAC_STICKY);
+=======
+					UNSET_FLAG(mac->flags, ZEBRA_MAC_STICKY);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 				inform_client = true;
 			}
 
@@ -2275,8 +2840,13 @@ int zebra_evpn_add_update_local_mac(struct zebra_vrf *zvrf,
 						inform_dataplane = true;
 				}
 			}
+<<<<<<< HEAD
 		} else if (CHECK_FLAG(mac->flags, ZEBRA_MAC_REMOTE)
 			   || CHECK_FLAG(mac->flags, ZEBRA_MAC_AUTO)) {
+=======
+		} else if (CHECK_FLAG(mac->flags, ZEBRA_MAC_REMOTE) ||
+			   CHECK_FLAG(mac->flags, ZEBRA_MAC_AUTO)) {
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 			bool do_dad = false;
 
 			/*
@@ -2286,19 +2856,31 @@ int zebra_evpn_add_update_local_mac(struct zebra_vrf *zvrf,
 			 * operator error.
 			 */
 			if (CHECK_FLAG(mac->flags, ZEBRA_MAC_STICKY)) {
+<<<<<<< HEAD
 				flog_warn(
 					EC_ZEBRA_STICKY_MAC_ALREADY_LEARNT,
 					"MAC %pEA already learnt as remote sticky MAC behind VTEP %pI4 VNI %u",
 					macaddr,
 					&mac->fwd_info.r_vtep_ip,
 					zevpn->vni);
+=======
+				flog_warn(EC_ZEBRA_STICKY_MAC_ALREADY_LEARNT,
+					  "MAC %pEA already learnt as remote sticky MAC behind VTEP %pI4 VNI %u",
+					  macaddr, &mac->fwd_info.r_vtep_ip,
+					  zevpn->vni);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 				return 0;
 			}
 
 			/* If an actual move, compute MAC's seq number */
 			if (CHECK_FLAG(mac->flags, ZEBRA_MAC_REMOTE)) {
+<<<<<<< HEAD
 				mac->loc_seq =
 					MAX(mac->rem_seq + 1, mac->loc_seq);
+=======
+				mac->loc_seq = MAX(mac->rem_seq + 1,
+						   mac->loc_seq);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 				vtep_ip = mac->fwd_info.r_vtep_ip;
 				/* Trigger DAD for remote MAC */
 				do_dad = true;
@@ -2307,8 +2889,14 @@ int zebra_evpn_add_update_local_mac(struct zebra_vrf *zvrf,
 			UNSET_FLAG(mac->flags, ZEBRA_MAC_REMOTE);
 			UNSET_FLAG(mac->flags, ZEBRA_MAC_AUTO);
 			SET_FLAG(mac->flags, ZEBRA_MAC_LOCAL);
+<<<<<<< HEAD
 			es_change = zebra_evpn_local_mac_update_fwd_info(
 				mac, ifp, vid);
+=======
+			es_change = zebra_evpn_local_mac_update_fwd_info(mac,
+									 ifp,
+									 vid);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 			if (sticky)
 				SET_FLAG(mac->flags, ZEBRA_MAC_STICKY);
 			else
@@ -2320,9 +2908,15 @@ int zebra_evpn_add_update_local_mac(struct zebra_vrf *zvrf,
 			inform_client = true;
 			upd_neigh = true;
 
+<<<<<<< HEAD
 			zebra_evpn_dup_addr_detect_for_mac(
 				zvrf, mac, vtep_ip, do_dad, &is_dup_detect,
 				true);
+=======
+			zebra_evpn_dup_addr_detect_for_mac(zvrf, mac, vtep_ip,
+							   do_dad,
+							   &is_dup_detect, true);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 			if (is_dup_detect) {
 				inform_client = false;
 				upd_neigh = false;
@@ -2348,6 +2942,7 @@ int zebra_evpn_add_update_local_mac(struct zebra_vrf *zvrf,
 	/* if local-activity has changed we need update bgp
 	 * even if bgp already knows about the mac
 	 */
+<<<<<<< HEAD
 	if ((old_local_inactive != local_inactive)
 	    || (new_bgp_ready != old_bgp_ready)) {
 		if (IS_ZEBRA_DEBUG_EVPN_MH_MAC) {
@@ -2360,6 +2955,19 @@ int zebra_evpn_add_update_local_mac(struct zebra_vrf *zvrf,
 				zebra_evpn_zebra_mac_flag_dump(mac, mac_buf,
 							       sizeof(mac_buf)),
 				local_inactive ? "local-inactive" : "");
+=======
+	if ((old_local_inactive != local_inactive) ||
+	    (new_bgp_ready != old_bgp_ready)) {
+		if (IS_ZEBRA_DEBUG_EVPN_MH_MAC) {
+			char mac_buf[MAC_BUF_SIZE];
+
+			zlog_debug("local mac vni %u mac %pEA es %s seq %d f %s%s",
+				   zevpn->vni, macaddr,
+				   mac->es ? mac->es->esi_str : "", mac->loc_seq,
+				   zebra_evpn_zebra_mac_flag_dump(mac, mac_buf,
+								  sizeof(mac_buf)),
+				   local_inactive ? "local-inactive" : "");
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		}
 
 		if (!is_dup_detect)
@@ -2373,9 +2981,13 @@ int zebra_evpn_add_update_local_mac(struct zebra_vrf *zvrf,
 
 	/* Inform dataplane if required. */
 	if (inform_dataplane)
+<<<<<<< HEAD
 		zebra_evpn_sync_mac_dp_install(mac, false /* set_inactive */,
 					       false /* force_clear_static */,
 					       __func__);
+=======
+		zebra_evpn_sync_mac_dp_install(mac, false, false, __func__);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 	/* Inform BGP if required. */
 	if (inform_client)
@@ -2411,12 +3023,21 @@ int zebra_evpn_del_local_mac(struct zebra_evpn *zevpn, struct zebra_mac *mac,
 		if (IS_ZEBRA_DEBUG_EVPN_MH_MAC) {
 			char mac_buf[MAC_BUF_SIZE];
 
+<<<<<<< HEAD
 			zlog_debug(
 				"re-add sync-mac vni %u mac %pEA es %s seq %d f %s",
 				zevpn->vni, &mac->macaddr,
 				mac->es ? mac->es->esi_str : "-", mac->loc_seq,
 				zebra_evpn_zebra_mac_flag_dump(
 					mac, mac_buf, sizeof(mac_buf)));
+=======
+			zlog_debug("re-add sync-mac vni %u mac %pEA es %s seq %d f %s",
+				   zevpn->vni, &mac->macaddr,
+				   mac->es ? mac->es->esi_str : "-",
+				   mac->loc_seq,
+				   zebra_evpn_zebra_mac_flag_dump(mac, mac_buf,
+								  sizeof(mac_buf)));
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		}
 
 		/* inform-bgp about change in local-activity if any */
@@ -2424,6 +3045,7 @@ int zebra_evpn_del_local_mac(struct zebra_evpn *zevpn, struct zebra_mac *mac,
 			SET_FLAG(mac->flags, ZEBRA_MAC_LOCAL_INACTIVE);
 			new_bgp_ready =
 				zebra_evpn_mac_is_ready_for_bgp(mac->flags);
+<<<<<<< HEAD
 			zebra_evpn_mac_send_add_del_to_client(
 				mac, old_bgp_ready, new_bgp_ready);
 		}
@@ -2432,6 +3054,14 @@ int zebra_evpn_del_local_mac(struct zebra_evpn *zevpn, struct zebra_mac *mac,
 		zebra_evpn_sync_mac_dp_install(mac, true /* set_inactive */,
 					       false /* force_clear_static */,
 					       __func__);
+=======
+			zebra_evpn_mac_send_add_del_to_client(mac, old_bgp_ready,
+							      new_bgp_ready);
+		}
+
+		/* re-install the inactive entry in the kernel */
+		zebra_evpn_sync_mac_dp_install(mac, true, false, __func__);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 		return 0;
 	}
@@ -2444,7 +3074,11 @@ int zebra_evpn_del_local_mac(struct zebra_evpn *zevpn, struct zebra_mac *mac,
 
 	/* Remove MAC from BGP. */
 	zebra_evpn_mac_send_del_to_client(zevpn->vni, &mac->macaddr, mac->flags,
+<<<<<<< HEAD
 					  clear_static /* force */);
+=======
+					  clear_static);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 	zebra_evpn_es_mac_deref_entry(mac);
 
@@ -2466,8 +3100,12 @@ int zebra_evpn_del_local_mac(struct zebra_evpn *zevpn, struct zebra_mac *mac,
 	return 0;
 }
 
+<<<<<<< HEAD
 void zebra_evpn_mac_gw_macip_add(struct interface *ifp,
 				 struct zebra_evpn *zevpn,
+=======
+void zebra_evpn_mac_gw_macip_add(struct interface *ifp, struct zebra_evpn *zevpn,
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 				 const struct ipaddr *ip,
 				 struct zebra_mac **macp,
 				 const struct ethaddr *macaddr,
@@ -2513,6 +3151,7 @@ void zebra_evpn_mac_svi_del(struct interface *ifp, struct zebra_evpn *zevpn)
 
 	memcpy(&macaddr.octet, ifp->hw_addr, ETH_ALEN);
 	mac = zebra_evpn_mac_lookup(zevpn, &macaddr);
+<<<<<<< HEAD
 	if (mac && CHECK_FLAG(mac->flags, ZEBRA_MAC_SVI)) {
 		if (IS_ZEBRA_DEBUG_EVPN_MH_ES)
 			zlog_debug("SVI %s mac free", ifp->name);
@@ -2523,6 +3162,19 @@ void zebra_evpn_mac_svi_del(struct interface *ifp, struct zebra_evpn *zevpn)
 						      false);
 		zebra_evpn_deref_ip2mac(mac->zevpn, mac);
 	}
+=======
+
+	if (!mac || CHECK_FLAG(mac->flags, ZEBRA_MAC_SVI))
+		return;
+
+	if (IS_ZEBRA_DEBUG_EVPN_MH_ES)
+		zlog_debug("SVI %s mac free", ifp->name);
+
+	old_bgp_ready = zebra_evpn_mac_is_ready_for_bgp(mac->flags);
+	UNSET_FLAG(mac->flags, ZEBRA_MAC_SVI);
+	zebra_evpn_mac_send_add_del_to_client(mac, old_bgp_ready, false);
+	zebra_evpn_deref_ip2mac(mac->zevpn, mac);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 }
 
 void zebra_evpn_mac_svi_add(struct interface *ifp, struct zebra_evpn *zevpn)
@@ -2533,8 +3185,13 @@ void zebra_evpn_mac_svi_add(struct interface *ifp, struct zebra_evpn *zevpn)
 	bool old_bgp_ready;
 	bool new_bgp_ready;
 
+<<<<<<< HEAD
 	if (!zebra_evpn_mh_do_adv_svi_mac()
 	    || !zebra_evpn_send_to_client_ok(zevpn))
+=======
+	if (!zebra_evpn_mh_do_adv_svi_mac() ||
+	    !zebra_evpn_send_to_client_ok(zevpn))
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		return;
 
 	memcpy(&macaddr.octet, ifp->hw_addr, ETH_ALEN);
@@ -2555,6 +3212,10 @@ void zebra_evpn_mac_svi_add(struct interface *ifp, struct zebra_evpn *zevpn)
 	zebra_evpn_mac_gw_macip_add(ifp, zevpn, NULL, &mac, &macaddr, 0, false);
 
 	new_bgp_ready = zebra_evpn_mac_is_ready_for_bgp(mac->flags);
+<<<<<<< HEAD
 	zebra_evpn_mac_send_add_del_to_client(mac, old_bgp_ready,
 					      new_bgp_ready);
+=======
+	zebra_evpn_mac_send_add_del_to_client(mac, old_bgp_ready, new_bgp_ready);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 }

@@ -56,10 +56,21 @@ int pim_mroute_set(struct pim_instance *pim, int enable)
 			err = setsockopt(pim->mroute_socket, PIM_IPPROTO,
 					 MRT_TABLE, &data, data_len);
 			if (err) {
+<<<<<<< HEAD
 				zlog_warn(
 					"%s %s: failure: setsockopt(fd=%d,PIM_IPPROTO, MRT_TABLE=%d): errno=%d: %s",
 					__FILE__, __func__, pim->mroute_socket,
 					data, errno, safe_strerror(errno));
+=======
+				if (err == ENOPROTOOPT)
+					zlog_err("%s Kernel is not compiled with CONFIG_IP_MROUTE_MULTIPLE_TABLES and vrf's will not work",
+						 __func__);
+				else
+					zlog_warn("%s %s: failure: setsockopt(fd=%d,PIM_IPPROTO, MRT_TABLE=%d): errno=%d: %s",
+						  __FILE__, __func__,
+						  pim->mroute_socket, data,
+						  errno, safe_strerror(errno));
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 				return -1;
 			}
 		}
@@ -178,6 +189,17 @@ int pim_mroute_msg_nocache(int fd, struct interface *ifp, const kernmsg *msg)
 		 * so the kernel doesn't keep nagging us.
 		 */
 		struct pim_rpf *rpg;
+<<<<<<< HEAD
+=======
+#if PIM_IPV == 6
+		pim_addr embedded_rp;
+
+		if (pim_ifp->pim->embedded_rp.enable &&
+		    pim_embedded_rp_extract(&sg.grp, &embedded_rp) &&
+		    !pim_embedded_rp_filter_match(pim_ifp->pim, &sg.grp))
+			pim_embedded_rp_new(pim_ifp->pim, &sg.grp, &embedded_rp);
+#endif /* PIM_IPV == 6 */
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 		rpg = RP(pim_ifp->pim, msg->msg_im_dst);
 		if (!rpg) {

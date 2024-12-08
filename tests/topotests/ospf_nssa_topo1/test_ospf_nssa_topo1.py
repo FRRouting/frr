@@ -106,7 +106,11 @@ def setup_module(mod):
     tgen.start_router()
 
 
+<<<<<<< HEAD
 def teardown_module(mod):
+=======
+def teardown_module():
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
     "Teardown the pytest environment"
     tgen = get_topogen()
 
@@ -199,9 +203,13 @@ def test_rib_step3():
         pytest.skip(tgen.errors)
 
     logger.info("Removing NSSA default on rt4")
+<<<<<<< HEAD
     tgen.net["rt3"].cmd(
         'vtysh -c "conf t" -c "router ospf" -c "area 1 nssa"'
     )
+=======
+    tgen.net["rt3"].cmd('vtysh -c "conf t" -c "router ospf" -c "area 1 nssa"')
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
     for rname in ["rt1", "rt2", "rt3", "rt4"]:
         router_compare_json_output(

@@ -7,7 +7,11 @@
 ##
 AC_PREREQ([2.69])
 
+<<<<<<< HEAD
 AC_INIT([frr], [10.0.2], [https://github.com/frrouting/frr/issues])
+=======
+AC_INIT([frr], [10.3-dev], [https://github.com/frrouting/frr/issues])
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 PACKAGE_URL="https://frrouting.org/"
 AC_SUBST([PACKAGE_URL])
 PACKAGE_FULLNAME="FRRouting"
@@ -275,7 +279,20 @@ AC_DEFUN([AC_C_FLAG], [{
     AC_CACHE_CHECK([[whether $CC supports $1]], cachename, [
 	AC_LANG_PUSH([C])
 	ac_c_flag_save="$CFLAGS"
+<<<<<<< HEAD
 	CFLAGS="$CFLAGS $1"
+=======
+	dnl GCC ignores unknown -Wno-whatever flags, but errors on -Wwhatever
+	dnl except when it ignores them it prints:
+	dnl   cc1: note: unrecognized command-line option ‘-Wno-whatever’ may have been intended to silence earlier diagnostics
+	dnl which is annoying as hell.  So check for the positive flag instead.
+	flag_add="$1"
+	if test "$flag_add" != "${flag_add#-Wno-}"; then
+	    CFLAGS="$CFLAGS -W${flag_add#-Wno-}"
+	else
+	    CFLAGS="$CFLAGS $flag_add"
+	fi
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	AC_COMPILE_IFELSE(
 		[AC_LANG_PROGRAM([[$4]])],
 		[
@@ -453,6 +470,10 @@ fi
 AC_C_FLAG([-Wno-unused-parameter])
 AC_C_FLAG([-Wno-missing-field-initializers])
 AC_C_FLAG([-Wno-microsoft-anon-tag])
+<<<<<<< HEAD
+=======
+AC_C_FLAG([-Wno-error=deprecated-declarations])
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 AC_C_FLAG([-Wc++-compat], [], [CXX_COMPAT_CFLAGS="-Wc++-compat"])
 AC_SUBST([CXX_COMPAT_CFLAGS])
@@ -703,6 +724,11 @@ AC_ARG_ENABLE([mgmtd_local_validations],
   AS_HELP_STRING([--enable-mgmtd-local-validations], [dev: unimplemented local validation]))
 AC_ARG_ENABLE([mgmtd_test_be_client],
   AS_HELP_STRING([--enable-mgmtd-test-be-client], [build test backend client]))
+<<<<<<< HEAD
+=======
+AC_ARG_ENABLE([fpm_listener],
+  AS_HELP_STRING([--enable-fpm-listener], [build fpm listener test program]))
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 AC_ARG_ENABLE([ripd],
   AS_HELP_STRING([--disable-ripd], [do not build ripd]))
 AC_ARG_ENABLE([ripngd],
@@ -749,8 +775,11 @@ AC_ARG_ENABLE([snmp],
   AS_HELP_STRING([--enable-snmp], [enable SNMP support for agentx]))
 AC_ARG_ENABLE([config_rollbacks],
   AS_HELP_STRING([--enable-config-rollbacks], [enable configuration rollbacks (requires sqlite3)]))
+<<<<<<< HEAD
 AC_ARG_ENABLE([confd],
   AS_HELP_STRING([--enable-confd=ARG], [enable confd integration]))
+=======
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 AC_ARG_ENABLE([sysrepo],
   AS_HELP_STRING([--enable-sysrepo], [enable sysrepo integration]))
 AC_ARG_ENABLE([grpc],
@@ -784,8 +813,11 @@ AC_ARG_ENABLE([configfile_mask],
   AS_HELP_STRING([--enable-configfile-mask=ARG], [set mask for config files]))
 AC_ARG_ENABLE([logfile_mask],
   AS_HELP_STRING([--enable-logfile-mask=ARG], [set mask for log files]))
+<<<<<<< HEAD
 AC_ARG_ENABLE([shell_access],
   AS_HELP_STRING([--enable-shell-access], [Allow users to access shell/telnet/ssh]))
+=======
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 AC_ARG_ENABLE([realms],
   AS_HELP_STRING([--enable-realms], [enable REALMS support under Linux]))
 AC_ARG_ENABLE([rtadv],
@@ -839,9 +871,18 @@ AC_ARG_WITH([crypto],
 AC_ARG_WITH([frr-format],
   AS_HELP_STRING([--with-frr-format[=<.../frr-format.so>]], [use frr-format GCC plugin]))
 
+<<<<<<< HEAD
 AC_ARG_ENABLE([version-build-config],
   AS_HELP_STRING([--disable-version-build-config], [do not include build configs in show version command]))
 
+=======
+AC_ARG_ENABLE([version_build_config],
+  AS_HELP_STRING([--disable-version-build-config], [do not include build configs in show version command]))
+
+AC_ARG_ENABLE([python_runtime],
+  AS_HELP_STRING([--disable-python-runtime], [do not install python scripts or have python runtime dependency]))
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 #if openssl, else use the internal
 AS_IF([test "$with_crypto" = "openssl"], [
 AC_CHECK_LIB([crypto], [EVP_DigestInit], [LIBS="$LIBS -lcrypto"], [], [])
@@ -897,10 +938,13 @@ fi
 AC_SUBST([DFLT_NAME])
 AC_DEFINE_UNQUOTED([DFLT_NAME], ["$DFLT_NAME"], [Name of the configuration default set])
 
+<<<<<<< HEAD
 if test "$enable_shell_access" = "yes"; then
    AC_DEFINE([HAVE_SHELL_ACCESS], [1], [Allow user to use ssh/telnet/bash, be aware this is considered insecure])
 fi
 
+=======
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 #
 # Python for clippy
 #
@@ -1101,6 +1145,11 @@ dnl -------------------------
 AC_CHECK_HEADERS([stropts.h sys/ksym.h \
 	linux/version.h asm/types.h endian.h sys/endian.h])
 
+<<<<<<< HEAD
+=======
+AC_CHECK_LIB([atomic], [main], [LIBS="$LIBS -latomic"], [], [])
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 ac_stdatomic_ok=false
 AC_DEFINE([FRR_AUTOCONF_ATOMIC], [1], [did autoconf checks for atomic funcs])
 AC_CHECK_HEADER([stdatomic.h],[
@@ -1832,6 +1881,13 @@ AS_IF([test "$enable_mgmtd_test_be_client" = "yes"], [
   AC_DEFINE([HAVE_MGMTD_TESTC], [1], [mgmtd_testc])
 ])
 
+<<<<<<< HEAD
+=======
+AS_IF([test "$enable_fpm_listener" = "yes"], [
+  AC_DEFINE([HAVE_FPM_LISTENER], [1], [fpm_listener])
+])
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 AS_IF([test "$enable_ripd" != "no"], [
   AC_DEFINE([HAVE_RIPD], [1], [ripd])
 ])
@@ -2049,7 +2105,11 @@ dnl libyang
 dnl ---------------
 PKG_CHECK_MODULES([LIBYANG], [libyang >= 2.1.128], , [
 AC_MSG_ERROR([m4_normalize([libyang >= 2.1.128 is required, and was not found on your system.
+<<<<<<< HEAD
 Pleaes consult doc/developer/building-libyang.rst for instructions on installing or building libyang.])])])
+=======
+Please consult doc/developer/building-libyang.rst for instructions on installing or building libyang.])])])
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 ac_cflags_save="$CFLAGS"
 CFLAGS="$CFLAGS $LIBYANG_CFLAGS"
 AC_CHECK_MEMBER([struct lyd_node.priv], [], [
@@ -2082,6 +2142,7 @@ if test "$enable_config_rollbacks" = "yes"; then
 fi
 
 dnl ---------------
+<<<<<<< HEAD
 dnl confd
 dnl ---------------
 if test "$enable_confd" != "" -a "$enable_confd" != "no"; then
@@ -2098,6 +2159,8 @@ if test "$enable_confd" != "" -a "$enable_confd" != "no"; then
 fi
 
 dnl ---------------
+=======
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 dnl sysrepo
 dnl ---------------
 if test "$enable_sysrepo" = "yes"; then
@@ -2766,7 +2829,10 @@ AM_CONDITIONAL([ENABLE_BGP_VNC], [test "$enable_bgp_vnc" != "no"])
 AM_CONDITIONAL([BGP_BMP], [$bgpd_bmp])
 dnl northbound
 AM_CONDITIONAL([SQLITE3], [$SQLITE3])
+<<<<<<< HEAD
 AM_CONDITIONAL([CONFD], [test "$enable_confd" != ""])
+=======
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 AM_CONDITIONAL([SYSREPO], [test "$enable_sysrepo" = "yes"])
 AM_CONDITIONAL([GRPC], [test "$enable_grpc" = "yes"])
 AM_CONDITIONAL([ZEROMQ], [test "$ZEROMQ" = "true"])
@@ -2794,6 +2860,10 @@ AM_CONDITIONAL([ZEBRA], [test "$enable_zebra" != "no"])
 AM_CONDITIONAL([BGPD], [test "$enable_bgpd" != "no"])
 AM_CONDITIONAL([MGMTD], [test "$enable_mgmtd" != "no"])
 AM_CONDITIONAL([MGMTD_TESTC], [test "$enable_mgmtd_test_be_client" = "yes"])
+<<<<<<< HEAD
+=======
+AM_CONDITIONAL([FPM_LISTENER], [test "enable_fpm_listener" = "yes"])
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 AM_CONDITIONAL([RIPD], [test "$enable_ripd" != "no"])
 AM_CONDITIONAL([OSPFD], [test "$enable_ospfd" != "no"])
 AM_CONDITIONAL([LDPD], [test "$enable_ldpd" != "no"])
@@ -2817,6 +2887,12 @@ AM_CONDITIONAL([PATHD], [test "$enable_pathd" != "no"])
 AM_CONDITIONAL([PATHD_PCEP], [test "$enable_pathd" != "no"])
 AM_CONDITIONAL([DP_DPDK], [test "$enable_dp_dpdk" = "yes"])
 
+<<<<<<< HEAD
+=======
+
+AM_CONDITIONAL([PYTHON_RUNTIME_DEPENDENCY], [test "$enable_python_runtime" != "no"])
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 AC_CONFIG_FILES([Makefile],[
 	test "$enable_dev_build" = "yes" && makefile_devbuild="--dev-build"
 	${PYTHON} "${ac_abs_top_srcdir}/python/makefile.py" ${makefile_devbuild} || exit 1
@@ -2919,7 +2995,12 @@ compiler                : ${CC}
 compiler flags          : ${CFLAGS} ${WERROR} ${AC_CFLAGS} ${SAN_FLAGS}
 make                    : ${MAKE-make}
 linker flags            : ${LDFLAGS} ${SAN_FLAGS} ${LIBS} ${LIBCAP} ${LIBREADLINE} ${LIBM}
+<<<<<<< HEAD
 state file directory    : ${e_frr_runstatedir}
+=======
+local state file dir    : ${e_frr_libstatedir}
+run state file dir      : ${e_frr_runstatedir}
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 config file directory   : ${e_frr_sysconfdir}
 module directory        : ${e_moduledir}
 script directory        : ${e_scriptdir}

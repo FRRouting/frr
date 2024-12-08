@@ -157,6 +157,12 @@ SPECIAL		[(),]
 
 %%
 
+<<<<<<< HEAD
+=======
+#else
+extern int def_yylex(void);
+extern int def_yylex_destroy(void);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 #endif /* __clang_analyzer__ */
 
 static int yylex_clr(char **retbuf)

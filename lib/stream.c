@@ -921,7 +921,11 @@ int stream_put_in_addr(struct stream *s, const struct in_addr *addr)
 	return sizeof(uint32_t);
 }
 
+<<<<<<< HEAD
 bool stream_put_ipaddr(struct stream *s, struct ipaddr *ip)
+=======
+bool stream_put_ipaddr(struct stream *s, const struct ipaddr *ip)
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 {
 	stream_putw(s, ip->ipa_type);
 
@@ -1241,9 +1245,13 @@ void stream_fifo_init(struct stream_fifo *fifo)
 /* Add new stream to fifo. */
 void stream_fifo_push(struct stream_fifo *fifo, struct stream *s)
 {
+<<<<<<< HEAD
 #if defined DEV_BUILD
 	size_t max, curmax;
 #endif
+=======
+	size_t max, curmax;
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 	if (fifo->tail)
 		fifo->tail->next = s;
@@ -1252,15 +1260,21 @@ void stream_fifo_push(struct stream_fifo *fifo, struct stream *s)
 
 	fifo->tail = s;
 	fifo->tail->next = NULL;
+<<<<<<< HEAD
 #if !defined DEV_BUILD
 	atomic_fetch_add_explicit(&fifo->count, 1, memory_order_release);
 #else
+=======
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	max = atomic_fetch_add_explicit(&fifo->count, 1, memory_order_release);
 	curmax = atomic_load_explicit(&fifo->max_count, memory_order_relaxed);
 	if (max > curmax)
 		atomic_store_explicit(&fifo->max_count, max,
 				      memory_order_relaxed);
+<<<<<<< HEAD
 #endif
+=======
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 }
 
 void stream_fifo_push_safe(struct stream_fifo *fifo, struct stream *s)

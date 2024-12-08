@@ -10,6 +10,13 @@ nodist_grpc_libfrrgrpc_pb_la_SOURCES = \
 	grpc/frr-northbound.pb.cc \
 	grpc/frr-northbound.grpc.pb.cc \
 	# end
+<<<<<<< HEAD
+=======
+
+grpc_libfrrgrpc_pb_la_SOURCES = \
+	grpc/frrgrpc_pb.c \
+	# end
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 endif
 
 CLEANFILES += \

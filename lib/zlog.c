@@ -50,6 +50,10 @@
 #include "printfrr.h"
 #include "frrcu.h"
 #include "zlog.h"
+<<<<<<< HEAD
+=======
+#include "zlog_live.h"
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 #include "libfrr_trace.h"
 #include "frrevent.h"
 
@@ -109,6 +113,12 @@ struct zlog_msg {
 	size_t textlen;
 	size_t hdrlen;
 
+<<<<<<< HEAD
+=======
+	/* for relayed log messages ONLY (cf. zlog_recirculate_live_msg) */
+	intmax_t pid, tid;
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	/* This is always ISO8601 with sub-second precision 9 here, it's
 	 * converted for callers as needed.  ts_dot points to the "."
 	 * separating sub-seconds.  ts_zonetail is "Z" or "+00:00" for the
@@ -357,6 +367,19 @@ void zlog_msg_pid(struct zlog_msg *msg, intmax_t *pid, intmax_t *tid)
 {
 #ifndef __OpenBSD__
 	static thread_local intmax_t cached_pid = -1;
+<<<<<<< HEAD
+=======
+#endif
+
+	/* recirculated messages */
+	if (msg->pid) {
+		*pid = msg->pid;
+		*tid = msg->tid;
+		return;
+	}
+
+#ifndef __OpenBSD__
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	if (cached_pid != -1)
 		*pid = cached_pid;
 	else
@@ -507,6 +530,92 @@ static void vzlog_tls(struct zlog_tls *zlog_tls, const struct xref_logmsg *xref,
 		XFREE(MTYPE_LOG_MESSAGE, msg->text);
 }
 
+<<<<<<< HEAD
+=======
+/* reinject log message received by zlog_recirculate_recv().  As of writing,
+ * only used in the ldpd parent process to proxy messages from lde/ldpe
+ * subprocesses.
+ */
+void zlog_recirculate_live_msg(uint8_t *data, size_t len)
+{
+	struct zlog_target *zt;
+	struct zlog_msg stackmsg = {}, *msg = &stackmsg;
+	struct zlog_live_hdr *hdr;
+	struct xrefdata *xrefdata, ref = {};
+
+	if (len < sizeof(*hdr))
+		return;
+
+	hdr = (struct zlog_live_hdr *)data;
+	if (hdr->hdrlen < sizeof(*hdr))
+		return;
+	data += hdr->hdrlen;
+	len -= sizeof(*hdr);
+
+	msg->ts.tv_sec = hdr->ts_sec;
+	msg->ts.tv_nsec = hdr->ts_nsec;
+	msg->pid = hdr->pid;
+	msg->tid = hdr->tid;
+	msg->prio = hdr->prio;
+
+	if (hdr->textlen > len)
+		return;
+	msg->textlen = hdr->textlen;
+	msg->hdrlen = hdr->texthdrlen;
+	msg->text = (char *)data;
+
+	/* caller needs to make sure we have a trailing \n\0, it's not
+	 * transmitted on zlog_live
+	 */
+	if (msg->text[msg->textlen] != '\n' ||
+	    msg->text[msg->textlen + 1] != '\0')
+		return;
+
+	static_assert(sizeof(msg->argpos[0]) == sizeof(hdr->argpos[0]),
+		      "in-memory struct doesn't match on-wire variant");
+	msg->n_argpos = MIN(hdr->n_argpos, array_size(msg->argpos));
+	memcpy(msg->argpos, hdr->argpos, msg->n_argpos * sizeof(msg->argpos[0]));
+
+	/* This will only work if we're in the same daemon: we received a log
+	 * message uid and are now doing a lookup in *our* known uids to find
+	 * it.  This works for ldpd because it's the same binary containing the
+	 * same log messages, and ldpd is the only use case right now.
+	 *
+	 * When the uid is not found, the log message uid is lost but the
+	 * message itself is still processed correctly.  If this is needed,
+	 * this can be made to work in two ways:
+	 * (a) synthesize a temporary xref_logmsg from the received data.
+	 *     This is a bit annoying due to lifetimes with per-thread buffers.
+	 * (b) extract and aggregate all log messages.  This already happens
+	 *     with frr.xref but that would need to be fed back in.
+	 */
+	strlcpy(ref.uid, hdr->uid, sizeof(ref.uid));
+	xrefdata = xrefdata_uid_find(&xrefdata_uid, &ref);
+
+	if (xrefdata && xrefdata->xref->type == XREFT_LOGMSG) {
+		struct xref_logmsg *xref_logmsg;
+
+		xref_logmsg = (struct xref_logmsg *)xrefdata->xref;
+		msg->xref = xref_logmsg;
+		msg->fmt = xref_logmsg->fmtstring;
+	} else {
+		/* fake out format string... */
+		msg->fmt = msg->text + hdr->texthdrlen;
+	}
+
+	rcu_read_lock();
+	frr_each_safe (zlog_targets, &zlog_targets, zt) {
+		if (msg->prio > zt->prio_min)
+			continue;
+		if (!zt->logfn)
+			continue;
+
+		zt->logfn(zt, &msg, 1);
+	}
+	rcu_read_unlock();
+}
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 static void zlog_backtrace_msg(const struct xref_logmsg *xref, int prio)
 {
 	struct event *tc = pthread_getspecific(thread_current);

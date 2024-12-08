@@ -6,6 +6,10 @@
 #include <sys/stat.h>
 
 #include <lib/version.h>
+<<<<<<< HEAD
+=======
+#include "debug.h"
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 #include "getopt.h"
 #include "frrevent.h"
 #include "vty.h"
@@ -141,7 +145,12 @@ int main(int argc, char **argv)
 	cmd_init(1);
 	vty_init(master, false);
 	lib_cmd_init();
+<<<<<<< HEAD
 	nb_init(master, NULL, 0, false);
+=======
+	debug_init();
+	nb_init(master, NULL, 0, false, false);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 	/* OSPF vty inits. */
 	test_vty_init();

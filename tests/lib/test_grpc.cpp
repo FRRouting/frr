@@ -9,6 +9,10 @@
 #include <unistd.h>
 #include <zebra.h>
 
+<<<<<<< HEAD
+=======
+#include "debug.h"
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 #include "filter.h"
 #include "frr_pthread.h"
 #include "libfrr.h"
@@ -79,6 +83,10 @@ static void static_startup(void)
 	// static struct option_chain *oc;
 
 	cmd_init(1);
+<<<<<<< HEAD
+=======
+	debug_init();
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 	zlog_aux_init("NONE: ", LOG_DEBUG);
 	zprivs_preinit(&static_privs);
@@ -109,8 +117,12 @@ static void static_startup(void)
 	static_debug_init();
 
 	master = event_master_create(NULL);
+<<<<<<< HEAD
 	nb_init(master, staticd_yang_modules, array_size(staticd_yang_modules),
 		false);
+=======
+	nb_init(master, staticd_yang_modules, array_size(staticd_yang_modules), false, false);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 	static_zebra_init();
 	vty_init(master, true);

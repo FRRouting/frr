@@ -82,11 +82,19 @@ int main(int argc, char **argv)
 	assert(seqlock_held(&sqlo));
 
 	assert(seqlock_cur(&sqlo) == 1);
+<<<<<<< HEAD
 	assert(seqlock_bump(&sqlo) == 1);
 	assert(seqlock_cur(&sqlo) == 5);
 	assert(seqlock_bump(&sqlo) == 5);
 	assert(seqlock_bump(&sqlo) == 9);
 	assert(seqlock_bump(&sqlo) == 13);
+=======
+	assert(seqlock_bump(&sqlo) == 5);
+	assert(seqlock_cur(&sqlo) == 5);
+	assert(seqlock_bump(&sqlo) == 9);
+	assert(seqlock_bump(&sqlo) == 13);
+	assert(seqlock_bump(&sqlo) == 17);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	assert(seqlock_cur(&sqlo) == 17);
 
 	assert(seqlock_held(&sqlo));
@@ -111,4 +119,8 @@ int main(int argc, char **argv)
 	writestr("main @release\n");
 	seqlock_release(&sqlo);
 	sleep(1);
+<<<<<<< HEAD
+=======
+	pthread_join(thr1, NULL);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 }

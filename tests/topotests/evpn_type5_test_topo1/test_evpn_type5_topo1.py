@@ -22,7 +22,10 @@ Following tests are covered to test EVPN-Type5 functionality:
 
 import os
 import sys
+<<<<<<< HEAD
 import json
+=======
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 import time
 import pytest
 import platform
@@ -69,7 +72,11 @@ from lib.bgp import (
     verify_attributes_for_evpn_routes,
     verify_evpn_routes,
 )
+<<<<<<< HEAD
 from lib.topojson import build_topo_from_json, build_config_from_json
+=======
+from lib.topojson import build_config_from_json
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 pytestmark = [pytest.mark.bgpd, pytest.mark.staticd]
 

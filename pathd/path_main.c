@@ -58,7 +58,11 @@ static void sighup(void)
 static void sigint(void)
 {
 	zlog_notice("Terminating on signal");
+<<<<<<< HEAD
 	zlog_notice("Unregisterfrom opaque,etc ");
+=======
+	zlog_notice("Unregister from opaque,etc ");
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	pathd_shutdown();
 
 	exit(0);

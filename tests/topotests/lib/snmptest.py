@@ -85,15 +85,27 @@ class SnmpTester(object):
         return out_dict, out_list
 
     def get(self, oid):
+<<<<<<< HEAD
         cmd = "snmpget {0} {1}".format(self._snmp_config(), oid)
 
+=======
+        cmd = "snmpget {0} {1} 2>&1 | grep -v SNMPv2-PDU".format(
+            self._snmp_config(), oid
+        )
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
         result = self.router.cmd(cmd)
         if "not found" in result:
             return None
         return self._get_snmp_value(result)
 
     def get_next(self, oid):
+<<<<<<< HEAD
         cmd = "snmpgetnext {0} {1}".format(self._snmp_config(), oid)
+=======
+        cmd = "snmpgetnext {0} {1} 2>&1 | grep -v SNMPv2-PDU".format(
+            self._snmp_config(), oid
+        )
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
         result = self.router.cmd(cmd)
         print("get_next: {}".format(result))
@@ -101,10 +113,23 @@ class SnmpTester(object):
             return None
         return self._get_snmp_value(result)
 
+<<<<<<< HEAD
     def walk(self, oid):
         cmd = "snmpwalk {0} {1}".format(self._snmp_config(), oid)
 
         result = self.router.cmd(cmd)
+=======
+    def walk(self, oid, raw=False):
+        cmd = "snmpwalk {0} {1} 2>&1 | grep -v SNMPv2-PDU".format(
+            self._snmp_config(), oid
+        )
+
+        result = self.router.cmd(cmd)
+
+        if raw:
+            return result
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
         return self._parse_multiline(result)
 
     def parse_notif_ipv4(self, notif):

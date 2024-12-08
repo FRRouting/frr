@@ -128,6 +128,11 @@ void interface_list(struct zebra_ns *zns)
 
 	/* Free sysctl buffer. */
 	XFREE(MTYPE_TMP, ref);
+<<<<<<< HEAD
+=======
+
+	zebra_dplane_startup_stage(zns, ZEBRA_DPLANE_INTERFACES_READ);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 }
 
 #endif /* !defined(GNU_LINUX) && !defined(OPEN_BSD) */

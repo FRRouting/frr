@@ -44,7 +44,11 @@ when building libyang statically.
 The resultant cmake command is::
 
    cmake -DENABLE_STATIC=ON -DENABLE_LYD_PRIV=ON \
+<<<<<<< HEAD
          -DCMAKE_INSTALL_PREFIX:PATH=/usr \
+=======
+         --install-prefix /usr \
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
          -DCMAKE_POSITION_INDEPENDENT_CODE=TRUE \
          -DCMAKE_BUILD_TYPE:String="Release" ..
 

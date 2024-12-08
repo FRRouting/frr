@@ -151,17 +151,39 @@ def teardown_module(_mod):
     tgen.stop_topology()
 
 
+<<<<<<< HEAD
 def check_bgp_vpnv4_prefix_presence(router, prefix):
+=======
+def check_bgp_vpnv4_prefix_presence(router, prefix, table_version):
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
     "Check the presence of a prefix"
     tgen = get_topogen()
 
     dump = router.vtysh_cmd("show bgp ipv4 vpn {} json".format(prefix), isjson=True)
     if not dump:
         return "{}, prefix ipv4 vpn {} is not installed yet".format(router.name, prefix)
+<<<<<<< HEAD
     return None
 
 
 def bgp_vpnv4_table_check(router, group, label_list=None, label_value_expected=None):
+=======
+
+    for _, paths in dump.items():
+        for path in paths["paths"]:
+            new_version = path["version"]
+        if new_version <= table_version:
+            return "{}, prefix ipv4 vpn {} has not been updated yet".format(
+                router.name, prefix
+            )
+
+    return None
+
+
+def bgp_vpnv4_table_check(
+    router, group, label_list=None, label_value_expected=None, table_version=0
+):
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
     """
     Dump and check that vpnv4 entries have the same MPLS label value
     * 'router': the router to check
@@ -173,8 +195,15 @@ def bgp_vpnv4_table_check(router, group, label_list=None, label_value_expected=N
 
     stored_label_inited = False
     for prefix in group:
+<<<<<<< HEAD
         test_func = functools.partial(check_bgp_vpnv4_prefix_presence, router, prefix)
         success, result = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
+=======
+        test_func = functools.partial(
+            check_bgp_vpnv4_prefix_presence, router, prefix, table_version
+        )
+        success, _ = topotest.run_and_expect(test_func, None, count=10, wait=3)
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
         assert success, "{}, prefix ipv4 vpn {} is not installed yet".format(
             router.name, prefix
         )
@@ -183,7 +212,11 @@ def bgp_vpnv4_table_check(router, group, label_list=None, label_value_expected=N
         assert dump, "{0}, {1}, route distinguisher not present".format(
             router.name, prefix
         )
+<<<<<<< HEAD
         for rd, pathes in dump.items():
+=======
+        for _, pathes in dump.items():
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
             for path in pathes["paths"]:
                 assert (
                     "remoteLabel" in path.keys()
@@ -218,7 +251,11 @@ def bgp_vpnv4_table_check(router, group, label_list=None, label_value_expected=N
                     )
 
 
+<<<<<<< HEAD
 def bgp_vpnv4_table_check_all(router, label_list=None, same=False):
+=======
+def bgp_vpnv4_table_check_all(router, label_list=None, same=False, table_version=0):
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
     """
     Dump and check that vpnv4 entries are correctly configured with specific label values
     * 'router': the router to check
@@ -236,6 +273,10 @@ def bgp_vpnv4_table_check_all(router, label_list=None, same=False):
             + PREFIXES_REDIST
             + PREFIXES_CONNECTED,
             label_list=label_list,
+<<<<<<< HEAD
+=======
+            table_version=table_version,
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
         )
     else:
         for group in (
@@ -245,7 +286,13 @@ def bgp_vpnv4_table_check_all(router, label_list=None, same=False):
             PREFIXES_REDIST,
             PREFIXES_CONNECTED,
         ):
+<<<<<<< HEAD
             bgp_vpnv4_table_check(router, group=group, label_list=label_list)
+=======
+            bgp_vpnv4_table_check(
+                router, group=group, label_list=label_list, table_version=table_version
+            )
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 
 def check_show_mpls_table(router, blacklist=None, label_list=None, whitelist=None):
@@ -305,7 +352,11 @@ def mpls_table_check(router, blacklist=None, label_list=None, whitelist=None):
     test_func = functools.partial(
         check_show_mpls_table, router, blacklist, label_list, whitelist
     )
+<<<<<<< HEAD
     success, result = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
+=======
+    success, result = topotest.run_and_expect(test_func, None, count=10, wait=3)
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
     assert success, "{}, MPLS labels check fail: {}".format(router.name, result)
 
 
@@ -331,10 +382,44 @@ def check_show_bgp_vpn_prefix_found(router, ipversion, prefix, rd):
     return topotest.json_cmp(output, expected)
 
 
+<<<<<<< HEAD
 def check_show_mpls_table_entry_label_found(router, inlabel, interface):
     output = json.loads(router.vtysh_cmd("show mpls table {} json".format(inlabel)))
     expected = {
         "inLabel": inlabel,
+=======
+def check_show_mpls_table_entry_label_found_nexthop(
+    expected_router, get_router, network, nexthop
+):
+    label = get_mpls_label(get_router, network)
+    if label < 0:
+        return False
+
+    output = json.loads(
+        expected_router.vtysh_cmd("show mpls table {} json".format(label))
+    )
+    expected = {
+        "inLabel": label,
+        "installed": True,
+        "nexthops": [{"nexthop": nexthop}],
+    }
+    return topotest.json_cmp(output, expected)
+
+
+def check_show_mpls_table_entry_label_found(
+    expected_router, get_router, interface, network=None, label=None
+):
+    if not label:
+        label = get_mpls_label(get_router, network)
+        if label < 0:
+            return False
+
+    output = json.loads(
+        expected_router.vtysh_cmd("show mpls table {} json".format(label))
+    )
+    expected = {
+        "inLabel": label,
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
         "installed": True,
         "nexthops": [{"interface": interface}],
     }
@@ -350,6 +435,14 @@ def check_show_mpls_table_entry_label_not_found(router, inlabel):
     return None
 
 
+<<<<<<< HEAD
+=======
+def get_table_version(router):
+    table = router.vtysh_cmd("show bgp ipv4 vpn json", isjson=True)
+    return table["tableVersion"]
+
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 def mpls_entry_get_interface(router, label):
     """
     Assert that the label is in MPLS table
@@ -374,6 +467,20 @@ def mpls_entry_get_interface(router, label):
     return outgoing_interface
 
 
+<<<<<<< HEAD
+=======
+def get_mpls_label(router, network):
+    label = router.vtysh_cmd(
+        "show ip route vrf vrf1 %s json" % network,
+        isjson=True,
+    )
+    label = label.get(f"{network}", [{}])[0].get("nexthops", [{}])[0]
+    label = int(label.get("labels", [-1])[0])
+
+    return label
+
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 def test_protocols_convergence():
     """
     Assert that all protocols have converged
@@ -394,7 +501,11 @@ def test_protocols_convergence():
         "show bgp vrf vrf1 ipv4 json",
         expected,
     )
+<<<<<<< HEAD
     _, result = topotest.run_and_expect(test_func, None, count=20, wait=0.5)
+=======
+    _, result = topotest.run_and_expect(test_func, None, count=10, wait=3)
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
     assertmsg = '"{}" JSON output mismatches'.format(router.name)
     assert result is None, assertmsg
 
@@ -408,7 +519,11 @@ def test_protocols_convergence():
         "show bgp ipv4 vpn json",
         expected,
     )
+<<<<<<< HEAD
     _, result = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
+=======
+    _, result = topotest.run_and_expect(test_func, None, count=10, wait=3)
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
     assertmsg = '"{}" JSON output mismatches'.format(router.name)
     assert result is None, assertmsg
 
@@ -450,7 +565,11 @@ def test_flapping_bgp_vrf_down():
     test_func = functools.partial(
         _bgp_prefix_not_found, tgen.gears["r1"], "vrf1", "ipv4", "172.31.0.11/32"
     )
+<<<<<<< HEAD
     success, result = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
+=======
+    success, _ = topotest.run_and_expect(test_func, None, count=10, wait=3)
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
     assert (
         success
     ), "r1, prefix 172.31.0.11/32 from r11 did not disappear. r11 still connected to rr ?"
@@ -488,7 +607,11 @@ def test_flapping_bgp_vrf_up():
         "172.31.0.11/32",
         "444:1",
     )
+<<<<<<< HEAD
     success, result = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
+=======
+    success, _ = topotest.run_and_expect(test_func, None, count=10, wait=3)
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
     assert (
         success
     ), "r2, prefix 172.31.0.11/32 from r11 not present. r11 still disconnected from rr ?"
@@ -518,7 +641,11 @@ def test_recursive_route():
         "172.31.0.30/32",
         "444:1",
     )
+<<<<<<< HEAD
     success, result = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
+=======
+    success, _ = topotest.run_and_expect(test_func, None, count=10, wait=3)
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
     assert success, "r2, vpnv4 update 172.31.0.30 not found"
 
     bgp_vpnv4_table_check(tgen.gears["r2"], group=PREFIXES_R11 + ["172.31.0.30/32"])
@@ -544,7 +671,11 @@ def test_recursive_route():
         "172.31.0.30/32",
         "444:1",
     )
+<<<<<<< HEAD
     success, result = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
+=======
+    success, _ = topotest.run_and_expect(test_func, None, count=10, wait=3)
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
     assert success, "r2, vpnv4 update 172.31.0.30 still present"
 
 
@@ -570,7 +701,11 @@ def test_prefix_changes_interface():
         "172.31.0.50/32",
         "444:1",
     )
+<<<<<<< HEAD
     success, result = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
+=======
+    success, _ = topotest.run_and_expect(test_func, None, count=10, wait=3)
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
     assert success, "r2, vpnv4 update 172.31.0.50 not found"
 
     # diagnostic
@@ -616,7 +751,11 @@ def test_prefix_changes_interface():
         "444:1",
         label=oldlabel,
     )
+<<<<<<< HEAD
     success, result = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
+=======
+    success, _ = topotest.run_and_expect(test_func, None, count=10, wait=3)
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
     assert (
         success
     ), "r2, vpnv4 update 172.31.0.50 with old label {0} still present".format(oldlabel)
@@ -633,7 +772,11 @@ def test_prefix_changes_interface():
         "172.31.0.50/32",
         "444:1",
     )
+<<<<<<< HEAD
     success, result = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
+=======
+    success, _ = topotest.run_and_expect(test_func, None, count=10, wait=3)
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
     assert success, "r2, vpnv4 update 172.31.0.50 not found"
 
     label_list = set()
@@ -686,6 +829,10 @@ def test_changing_default_label_value():
         old_len != 1
     ), "r1, number of labels used should be greater than 1, oberved {} ".format(old_len)
 
+<<<<<<< HEAD
+=======
+    table_version = get_table_version(router)
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
     logger.info("r1, vrf1, changing the default MPLS label value to export to 222")
     router.vtysh_cmd(
         "configure terminal\nrouter bgp 65500 vrf vrf1\naddress-family ipv4 unicast\nlabel vpn export 222\n",
@@ -697,15 +844,29 @@ def test_changing_default_label_value():
         "r1, mpls table, check that MPLS entry with inLabel set to 222 has vrf1 interface"
     )
     test_func = functools.partial(
+<<<<<<< HEAD
         check_show_mpls_table_entry_label_found, router, 222, "vrf1"
     )
     success, result = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
+=======
+        check_show_mpls_table_entry_label_found,
+        tgen.gears["r1"],
+        router,
+        "vrf1",
+        label=222,
+    )
+    success, _ = topotest.run_and_expect(test_func, None, count=10, wait=3)
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
     assert success, "r1, mpls entry with label 222 not found"
 
     # check label repartition is ok
     logger.info("r1, vpnv4 table, check the number of labels used after modification")
     label_list = set()
+<<<<<<< HEAD
     bgp_vpnv4_table_check_all(router, label_list)
+=======
+    bgp_vpnv4_table_check_all(router, label_list, table_version=table_version)
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
     new_len = len(label_list)
     assert (
         old_len == new_len
@@ -734,6 +895,10 @@ def test_unconfigure_allocation_mode_nexthop():
 
     logger.info("Unconfiguring allocation mode per nexthop")
     router = tgen.gears["r1"]
+<<<<<<< HEAD
+=======
+    table_version = get_table_version(router)
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
     router.vtysh_cmd(
         "configure terminal\nrouter bgp 65500 vrf vrf1\naddress-family ipv4 unicast\nno label vpn export allocation-mode per-nexthop\n",
         isjson=False,
@@ -746,13 +911,23 @@ def test_unconfigure_allocation_mode_nexthop():
     test_func = functools.partial(
         check_show_mpls_table_entry_label_not_found, router, 17
     )
+<<<<<<< HEAD
     success, result = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
+=======
+    success, _ = topotest.run_and_expect(test_func, None, count=10, wait=3)
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
     assert success, "r1, mpls entry with label 17 still present"
 
     # Check vpnv4 routes from r1
     logger.info("Checking vpnv4 routes on r1")
     label_list = set()
+<<<<<<< HEAD
     bgp_vpnv4_table_check_all(router, label_list=label_list, same=True)
+=======
+    bgp_vpnv4_table_check_all(
+        router, label_list=label_list, same=True, table_version=table_version
+    )
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
     assert len(label_list) == 1, "r1, multiple Label values found for vpnv4 updates"
 
     new_label = label_list.pop()
@@ -782,6 +957,11 @@ def test_reconfigure_allocation_mode_nexthop():
 
     logger.info("Reconfiguring allocation mode per nexthop")
     router = tgen.gears["r1"]
+<<<<<<< HEAD
+=======
+
+    table_version = get_table_version(router)
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
     router.vtysh_cmd(
         "configure terminal\nrouter bgp 65500 vrf vrf1\naddress-family ipv4 unicast\nlabel vpn export allocation-mode per-nexthop\n",
         isjson=False,
@@ -794,13 +974,23 @@ def test_reconfigure_allocation_mode_nexthop():
     test_func = functools.partial(
         check_show_mpls_table_entry_label_not_found, router, 17
     )
+<<<<<<< HEAD
     success, result = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
+=======
+    success, _ = topotest.run_and_expect(test_func, None, count=10, wait=3)
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
     assert success, "r1, mpls entry with label 17 still present"
 
     # Check vpnv4 routes from r1
     logger.info("Checking vpnv4 routes on r1")
     label_list = set()
+<<<<<<< HEAD
     bgp_vpnv4_table_check_all(router, label_list=label_list)
+=======
+    bgp_vpnv4_table_check_all(
+        router, label_list=label_list, table_version=table_version
+    )
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
     assert len(label_list) != 1, "r1, only 1 label values found for vpnv4 updates"
 
     # Check mpls table with all values
@@ -808,6 +998,129 @@ def test_reconfigure_allocation_mode_nexthop():
     mpls_table_check(router, label_list=label_list)
 
 
+<<<<<<< HEAD
+=======
+def test_network_command():
+    """
+    Test with network declaration
+    """
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+    logger.info("Disabling redistribute static")
+    tgen.gears["r1"].vtysh_cmd(
+        "configure terminal\nrouter bgp 65500 vrf vrf1\naddress-family ipv4 unicast\nno redistribute static\n",
+        isjson=False,
+    )
+    logger.info("Checking BGP VPNv4 labels on r2")
+    for p in ["172.31.0.24/32", "172.31.0.15/32"]:
+        test_func = functools.partial(
+            check_show_bgp_vpn_prefix_not_found, tgen.gears["r2"], "ipv4", p, "444:1"
+        )
+        success, _ = topotest.run_and_expect(test_func, None, count=10, wait=3)
+        assert success, "network %s should not present on r2" % p
+
+    logger.info("Use network command for host networks declared in static instead")
+    tgen.gears["r1"].vtysh_cmd(
+        "configure terminal\nrouter bgp 65500 vrf vrf1\naddress-family ipv4 unicast\nnetwork 172.31.0.14/32\n",
+        isjson=False,
+    )
+    tgen.gears["r1"].vtysh_cmd(
+        "configure terminal\nrouter bgp 65500 vrf vrf1\naddress-family ipv4 unicast\nnetwork 172.31.0.15/32\n",
+        isjson=False,
+    )
+    logger.info("Checking BGP VPNv4 labels on r2")
+    bgp_vpnv4_table_check(tgen.gears["r2"], group=["172.31.0.12/32", "172.31.0.15/32"])
+    bgp_vpnv4_table_check(tgen.gears["r2"], group=["172.31.0.14/32"])
+    mpls_table_check(tgen.gears["r1"], whitelist=["192.0.2.14"])
+
+    logger.info(" Remove network to 172.31.0.14/32")
+    tgen.gears["r1"].vtysh_cmd(
+        "configure terminal\nrouter bgp 65500 vrf vrf1\naddress-family ipv4 unicast\nno network 172.31.0.14/32\n",
+        isjson=False,
+    )
+    test_func = functools.partial(
+        check_show_bgp_vpn_prefix_not_found,
+        tgen.gears["r2"],
+        "ipv4",
+        "172.31.0.14/32",
+        "444:1",
+    )
+    success, _ = topotest.run_and_expect(test_func, None, count=10, wait=3)
+    assert success, "network 172.31.0.14/32 should not present on r2"
+    mpls_table_check(tgen.gears["r1"], blacklist=["192.0.2.14"])
+
+    logger.info("Disabling redistribute connected and enabling redistribute static")
+    tgen.gears["r1"].vtysh_cmd(
+        "configure terminal\nrouter bgp 65500 vrf vrf1\naddress-family ipv4 unicast\n"
+        "redistribute static\n no redistribute connected",
+        isjson=False,
+    )
+    logger.info("Use network command for connect network 192.168.255.0/24 in vrf")
+    tgen.gears["r1"].vtysh_cmd(
+        "configure terminal\nrouter bgp 65500 vrf vrf1\naddress-family ipv4 unicast\n"
+        "network 192.168.255.0/24\n",
+        isjson=False,
+    )
+    logger.info("Checking BGP VPNv4 labels on r2")
+    bgp_vpnv4_table_check(tgen.gears["r2"], group=["192.168.255.0/24"])
+    logger.info("Checking no mpls entry associated to 192.168.255.0/24")
+    mpls_table_check(tgen.gears["r1"], blacklist=["192.168.255.0"])
+    logger.info("Checking 192.168.255.0/24 fallback to vrf")
+    test_func = functools.partial(
+        check_show_mpls_table_entry_label_found,
+        tgen.gears["r1"],
+        tgen.gears["r2"],
+        "vrf1",
+        network="192.168.255.0/24",
+    )
+    success, _ = topotest.run_and_expect(test_func, None, count=10, wait=3)
+    assert success, "192.168.255.0/24 does not fallback to vrf"
+
+    logger.info(
+        "Use network command for statically routed network 192.168.3.0/24 in vrf"
+    )
+    tgen.gears["r1"].vtysh_cmd(
+        "configure terminal\nvrf vrf1\n" "ip route 192.168.3.0/24 192.0.2.11\n"
+    )
+    tgen.gears["r1"].vtysh_cmd(
+        "configure terminal\nrouter bgp 65500 vrf vrf1\naddress-family ipv4 unicast\n"
+        "network 192.168.3.0/24\n",
+        isjson=False,
+    )
+    logger.info("Checking 192.168.3.0/24 route on r2")
+    test_func = functools.partial(
+        check_show_mpls_table_entry_label_found_nexthop,
+        tgen.gears["r1"],
+        tgen.gears["r2"],
+        "192.168.3.0/24",
+        "192.0.2.11",
+    )
+    success, _ = topotest.run_and_expect(test_func, None, count=10, wait=3)
+    assert success, "label from r2 is not present on r1 for 192.168.3.0/24"
+
+    # diagnostic
+    logger.info("Dumping label nexthop table")
+    tgen.gears["r1"].vtysh_cmd("show bgp vrf vrf1 label-nexthop detail", isjson=False)
+    logger.info("Dumping bgp network import-check-table")
+    tgen.gears["r1"].vtysh_cmd(
+        "show bgp vrf vrf1 import-check-table detail", isjson=False
+    )
+
+    logger.info("Restoring 172.31.0.14 prefix on r1")
+    tgen.gears["r1"].vtysh_cmd(
+        "configure terminal\nrouter bgp 65500 vrf vrf1\naddress-family ipv4 unicast\nnetwork 172.31.0.14/32\n",
+        isjson=False,
+    )
+    logger.info("Restoring redistribute connected")
+    tgen.gears["r1"].vtysh_cmd(
+        "configure terminal\nrouter bgp 65500 vrf vrf1\naddress-family ipv4 unicast\n"
+        "no redistribute static\n redistribute connected",
+        isjson=False,
+    )
+
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 def test_memory_leak():
     "Run the memory leak test and report results."
     tgen = get_topogen()

@@ -274,11 +274,19 @@ struct nb_cb_rpc_args {
 	/* XPath of the YANG RPC or action. */
 	const char *xpath;
 
+<<<<<<< HEAD
 	/* Read-only list of input parameters. */
 	const struct list *input;
 
 	/* List of output parameters to be populated by the callback. */
 	struct list *output;
+=======
+	/* Read-only "input" tree of the RPC/action. */
+	const struct lyd_node *input;
+
+	/* The "output" tree of the RPC/action to be populated by the callback. */
+	struct lyd_node *output;
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 	/* Buffer to store human-readable error message in case of error. */
 	char *errmsg;
@@ -621,11 +629,14 @@ struct nb_node {
 
 	/* Flags. */
 	uint8_t flags;
+<<<<<<< HEAD
 
 #ifdef HAVE_CONFD
 	/* ConfD hash value corresponding to this YANG path. */
 	int confd_hash;
 #endif
+=======
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 };
 /* The YANG container or list contains only config data. */
 #define F_NB_NODE_CONFIG_ONLY 0x01
@@ -683,6 +694,10 @@ enum nb_error {
 	NB_ERR,
 	NB_ERR_NO_CHANGES,
 	NB_ERR_NOT_FOUND,
+<<<<<<< HEAD
+=======
+	NB_ERR_EXISTS,
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	NB_ERR_LOCKED,
 	NB_ERR_VALIDATION,
 	NB_ERR_RESOURCE,
@@ -700,7 +715,10 @@ enum nb_error {
 enum nb_client {
 	NB_CLIENT_NONE = 0,
 	NB_CLIENT_CLI,
+<<<<<<< HEAD
 	NB_CLIENT_CONFD,
+=======
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	NB_CLIENT_SYSREPO,
 	NB_CLIENT_GRPC,
 	NB_CLIENT_PCEP,
@@ -805,8 +823,11 @@ DECLARE_HOOK(nb_notification_send, (const char *xpath, struct list *arguments),
 	     (xpath, arguments));
 DECLARE_HOOK(nb_notification_tree_send,
 	     (const char *xpath, const struct lyd_node *tree), (xpath, tree));
+<<<<<<< HEAD
 DECLARE_HOOK(nb_client_debug_config_write, (struct vty *vty), (vty));
 DECLARE_HOOK(nb_client_debug_set_all, (uint32_t flags, bool set), (flags, set));
+=======
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 /* Northbound debugging records */
 extern struct debug nb_dbg_cbs_config;
@@ -839,7 +860,11 @@ extern const void *nb_callback_lookup_next(const struct nb_node *nb_node,
 					   const void *parent_list_entry,
 					   const struct yang_list_keys *keys);
 extern int nb_callback_rpc(const struct nb_node *nb_node, const char *xpath,
+<<<<<<< HEAD
 			   const struct list *input, struct list *output,
+=======
+			   const struct lyd_node *input, struct lyd_node *output,
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 			   char *errmsg, size_t errmsg_len);
 extern void nb_callback_notify(const struct nb_node *nb_node, const char *xpath,
 			       struct lyd_node *dnode);
@@ -1005,6 +1030,50 @@ extern int nb_candidate_edit(struct nb_config *candidate,
 			     const struct yang_data *data);
 
 /*
+<<<<<<< HEAD
+=======
+ * Edit a candidate configuration. Value is given as JSON/XML.
+ *
+ * candidate
+ *    Candidate configuration to edit.
+ *
+ * operation
+ *    Operation to apply.
+ *
+ * format
+ *    LYD_FORMAT of the value.
+ *
+ * xpath
+ *    XPath of the configuration node being edited.
+ *    For create, it must be the parent.
+ *
+ * data
+ *    New data tree for the node.
+ *
+ * created
+ *    OUT param set accordingly if a node was created or just updated
+ *
+ * xpath_created
+ *    XPath of the created node if operation is "create".
+ *
+ * errmsg
+ *    Buffer to store human-readable error message in case of error.
+ *
+ * errmsg_len
+ *    Size of errmsg.
+ *
+ * Returns:
+ *    - NB_OK on success.
+ *    - NB_ERR for other errors.
+ */
+extern int nb_candidate_edit_tree(struct nb_config *candidate,
+				  enum nb_operation operation, LYD_FORMAT format,
+				  const char *xpath, const char *data,
+				  bool *created, char *xpath_created,
+				  char *errmsg, size_t errmsg_len);
+
+/*
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
  * Create diff for configuration.
  *
  * dnode
@@ -1669,10 +1738,19 @@ void nb_validate_callbacks(void);
  *
  * db_enabled
  *    Set this to record the transactions in the transaction log.
+<<<<<<< HEAD
  */
 extern void nb_init(struct event_loop *tm,
 		    const struct frr_yang_module_info *const modules[],
 		    size_t nmodules, bool db_enabled);
+=======
+ *
+ * load_library
+ *    Set this to have libyang to load/implement the ietf-yang-library.
+ */
+extern void nb_init(struct event_loop *tm, const struct frr_yang_module_info *const modules[],
+		    size_t nmodules, bool db_enabled, bool load_library);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 /*
  * Finish the northbound layer gracefully. Should be called only when the daemon
@@ -1682,6 +1760,10 @@ extern void nb_terminate(void);
 
 extern void nb_oper_init(struct event_loop *loop);
 extern void nb_oper_terminate(void);
+<<<<<<< HEAD
+=======
+extern bool nb_oper_is_yang_lib_query(const char *xpath);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 #ifdef __cplusplus
 }

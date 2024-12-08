@@ -18,6 +18,10 @@
 /* ---------------- */
 
 static void async_notification(struct nb_cb_notify_args *args);
+<<<<<<< HEAD
+=======
+static int rpc_callback(struct nb_cb_rpc_args *args);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 static void sigusr1(void);
 static void sigint(void);
@@ -87,6 +91,13 @@ static const struct frr_yang_module_info frr_ripd_info = {
 			.cbs.notify = async_notification,
 		},
 		{
+<<<<<<< HEAD
+=======
+			.xpath = "/frr-ripd:clear-rip-route",
+			.cbs.rpc = rpc_callback,
+		},
+		{
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 			.xpath = NULL,
 		}
 	}
@@ -113,6 +124,10 @@ FRR_DAEMON_INFO(mgmtd_testc, MGMTD_TESTC,
 /* clang-format on */
 
 const char **__notif_xpaths;
+<<<<<<< HEAD
+=======
+const char **__rpc_xpaths;
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 struct mgmt_be_client_cbs __client_cbs = {};
 struct event *event_timeout;
@@ -133,8 +148,16 @@ static void sigusr1(void)
 static void quit(int exit_code)
 {
 	EVENT_OFF(event_timeout);
+<<<<<<< HEAD
 	frr_fini();
 	darr_free(__client_cbs.notif_xpaths);
+=======
+	darr_free(__client_cbs.notif_xpaths);
+	darr_free(__client_cbs.rpc_xpaths);
+
+	frr_fini();
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	exit(exit_code);
 }
 
@@ -150,6 +173,15 @@ static void timeout(struct event *event)
 	quit(1);
 }
 
+<<<<<<< HEAD
+=======
+static void success(struct event *event)
+{
+	zlog_notice("Success, exiting");
+	quit(0);
+}
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 static void async_notification(struct nb_cb_notify_args *args)
 {
 	zlog_notice("Received YANG notification");
@@ -161,6 +193,26 @@ static void async_notification(struct nb_cb_notify_args *args)
 		quit(0);
 }
 
+<<<<<<< HEAD
+=======
+static int rpc_callback(struct nb_cb_rpc_args *args)
+{
+	const char *vrf = NULL;
+
+	zlog_notice("Received YANG RPC");
+
+	if (yang_dnode_exists(args->input, "vrf"))
+		vrf = yang_dnode_get_string(args->input, "vrf");
+
+	printf("{\"frr-ripd:clear-rip-route\": {\"vrf\": \"%s\"}}\n", vrf);
+
+	event_cancel(&event_timeout);
+	event_add_timer(master, success, NULL, 1, NULL);
+
+	return 0;
+}
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 int main(int argc, char **argv)
 {
 	int f_listen = 0;
@@ -215,6 +267,13 @@ int main(int argc, char **argv)
 		__client_cbs.nnotif_xpaths = darr_len(__notif_xpaths);
 	}
 
+<<<<<<< HEAD
+=======
+	darr_push(__rpc_xpaths, "/frr-ripd:clear-rip-route");
+	__client_cbs.rpc_xpaths = __rpc_xpaths;
+	__client_cbs.nrpc_xpaths = darr_len(__rpc_xpaths);
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	mgmt_be_client = mgmt_be_client_create("mgmtd-testc", &__client_cbs, 0,
 					       master);
 

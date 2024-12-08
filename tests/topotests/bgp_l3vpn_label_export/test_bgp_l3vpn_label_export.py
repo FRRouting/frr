@@ -56,7 +56,11 @@ def setup_module(mod):
         )
         tgen.gears["r{}".format(rtr)].run("sysctl -w net.mpls.conf.vrf1.input=1")
 
+<<<<<<< HEAD
     for i, (rname, router) in enumerate(router_list.items(), 1):
+=======
+    for _, (rname, router) in enumerate(router_list.items(), 1):
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
         router.load_config(
             TopoRouter.RD_ZEBRA, os.path.join(CWD, "{}/zebra.conf".format(rname))
         )
@@ -146,7 +150,11 @@ def check_mpls_table(label, protocol):
 
     if label == "auto" and protocol:
         output_copy = deepcopy(output)
+<<<<<<< HEAD
         for key, data in output_copy.items():
+=======
+        for _, data in output_copy.items():
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
             for nexthop in data.get("nexthops", []):
                 if nexthop.get("type", None) != protocol:
                     continue

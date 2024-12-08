@@ -6,10 +6,15 @@
 #
 
 import os
+<<<<<<< HEAD
 import re
 import sys
 import json
 import functools
+=======
+import sys
+import json
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 import pytest
 
 CWD = os.path.dirname(os.path.realpath(__file__))
@@ -20,7 +25,10 @@ sys.path.append(os.path.join(CWD, "../"))
 from lib import topotest
 from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
+<<<<<<< HEAD
 from lib.common_config import required_linux_kernel_version
+=======
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 pytestmark = [pytest.mark.bgpd]
 
@@ -37,10 +45,19 @@ def setup_module(mod):
     tgen.start_topology()
 
     for rname, router in tgen.routers().items():
+<<<<<<< HEAD
         router.load_config(TopoRouter.RD_ZEBRA,
                            os.path.join(CWD, '{}/zebra.conf'.format(rname)))
         router.load_config(TopoRouter.RD_BGP,
                            os.path.join(CWD, '{}/bgpd.conf'.format(rname)))
+=======
+        router.load_config(
+            TopoRouter.RD_ZEBRA, os.path.join(CWD, "{}/zebra.conf".format(rname))
+        )
+        router.load_config(
+            TopoRouter.RD_BGP, os.path.join(CWD, "{}/bgpd.conf".format(rname))
+        )
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
     tgen.gears["pe1"].run("ip link add vrf10 type vrf table 10")
     tgen.gears["pe1"].run("ip link set vrf10 up")
@@ -62,7 +79,11 @@ def open_json_file(path):
             return json.load(f)
     except IOError:
         assert False, "Could not read file {}".format(path)
+<<<<<<< HEAD
     
+=======
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 def check(name, command, checker):
     tgen = get_topogen()
@@ -80,25 +101,41 @@ def check(name, command, checker):
 
 
 def check_vrf10_bgp_rib(output):
+<<<<<<< HEAD
     expected = open_json_file("%s/pe1/results/vrf10_ipv4_unicast.json" % CWD) 
+=======
+    expected = open_json_file("%s/pe1/results/vrf10_ipv4_unicast.json" % CWD)
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
     actual = json.loads(output)
     return topotest.json_cmp(actual, expected)
 
 
 def check_default_bgp_vpn_rib(output):
+<<<<<<< HEAD
     expected = open_json_file("%s/pe1/results/default_ipv4_vpn.json" % CWD) 
+=======
+    expected = open_json_file("%s/pe1/results/default_ipv4_vpn.json" % CWD)
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
     actual = json.loads(output)
     return topotest.json_cmp(actual, expected)
 
 
 def check_vrf20_bgp_rib(output):
+<<<<<<< HEAD
     expected = open_json_file("%s/pe1/results/vrf20_ipv4_unicast.json" % CWD) 
+=======
+    expected = open_json_file("%s/pe1/results/vrf20_ipv4_unicast.json" % CWD)
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
     actual = json.loads(output)
     return topotest.json_cmp(actual, expected)
 
 
 def check_vrf20_rib(output):
+<<<<<<< HEAD
     expected = open_json_file("%s/pe1/results/vrf20_ipv4.json" % CWD) 
+=======
+    expected = open_json_file("%s/pe1/results/vrf20_ipv4.json" % CWD)
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
     actual = json.loads(output)
     return topotest.json_cmp(actual, expected)
 

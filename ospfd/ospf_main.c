@@ -28,6 +28,10 @@
 #include "libfrr.h"
 #include "routemap.h"
 #include "keychain.h"
+<<<<<<< HEAD
+=======
+#include "libagentx.h"
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 #include "ospfd/ospfd.h"
 #include "ospfd/ospf_interface.h"
@@ -44,6 +48,7 @@
 #include "ospfd/ospf_errors.h"
 #include "ospfd/ospf_ldp_sync.h"
 #include "ospfd/ospf_routemap_nb.h"
+<<<<<<< HEAD
 
 #define OSPFD_STATE_NAME	 "%s/ospfd.json", frr_libstatedir
 #define OSPFD_INST_STATE_NAME(i) "%s/ospfd-%d.json", frr_runstatedir, i
@@ -54,6 +59,25 @@
 #define OSPFD_COMPAT_STATE_NAME "%s/ospfd-gr.json", frr_libstatedir
 #define OSPFD_COMPAT_INST_STATE_NAME(i)                                        \
 	"%s-%d/ospfd-gr.json", frr_runstatedir, i
+=======
+#include "ospfd/ospf_apiserver.h"
+
+#define OSPFD_STATE_NAME	 "%s/ospfd.json", frr_libstatedir
+#define OSPFD_INST_STATE_NAME(i) "%s/ospfd-%d.json", frr_libstatedir, i
+
+/* this one includes the path... because the instance number was in the path
+ * before :( ... which totally didn't have a mkdir anywhere.
+ *
+ * ... and libstatedir & runstatedir got switched around while changing this;
+ * for non-instance it read the wrong path, for instance it wrote the wrong
+ * path.  (There is no COMPAT2 for non-instance because it was writing to the
+ * right place, i.e. no extra path to check exists from reading a wrong path.)
+ */
+#define OSPFD_COMPAT_STATE_NAME "%s/ospfd-gr.json", frr_runstatedir
+#define OSPFD_COMPAT1_INST_STATE_NAME(i)                                       \
+	"%s-%d/ospfd-gr.json", frr_runstatedir, i
+#define OSPFD_COMPAT2_INST_STATE_NAME(i) "%s/ospfd-%d.json", frr_runstatedir, i
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 /* ospfd privileges */
 zebra_capabilities_t _caps_p[] = {ZCAP_NET_RAW, ZCAP_BIND, ZCAP_NET_ADMIN,
@@ -75,6 +99,10 @@ struct zebra_privs_t ospfd_privs = {
 const struct option longopts[] = {
 	{"instance", required_argument, NULL, 'n'},
 	{"apiserver", no_argument, NULL, 'a'},
+<<<<<<< HEAD
+=======
+	{"apiserver_addr", required_argument, NULL, 'l'},
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	{0}
 };
 
@@ -83,10 +111,13 @@ const struct option longopts[] = {
 /* Master of threads. */
 struct event_loop *master;
 
+<<<<<<< HEAD
 #ifdef SUPPORT_OSPF_API
 extern int ospf_apiserver_enable;
 #endif /* SUPPORT_OSPF_API */
 
+=======
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 /* SIGHUP handler. */
 static void sighup(void)
 {
@@ -134,14 +165,28 @@ static const struct frr_yang_module_info *const ospfd_yang_modules[] = {
 	&frr_route_map_info,
 	&frr_vrf_info,
 	&frr_ospf_route_map_info,
+<<<<<<< HEAD
+=======
+	&ietf_key_chain_info,
+	&ietf_key_chain_deviation_info,
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 };
 
 /* actual paths filled in main() */
 static char state_path[512];
+<<<<<<< HEAD
 static char state_compat_path[512];
 static char *state_paths[] = {
 	state_path,
 	state_compat_path,
+=======
+static char state_compat1_path[512];
+static char state_compat2_path[512];
+static char *state_paths[] = {
+	state_path,
+	state_compat1_path,
+	state_compat2_path, /* NULLed out if not needed */
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	NULL,
 };
 
@@ -191,6 +236,7 @@ static void ospf_config_end(void)
 /* OSPFd main routine. */
 int main(int argc, char **argv)
 {
+<<<<<<< HEAD
 #ifdef SUPPORT_OSPF_API
 	/* OSPF apiserver is disabled by default. */
 	ospf_apiserver_enable = 0;
@@ -200,6 +246,13 @@ int main(int argc, char **argv)
 	frr_opt_add("n:a", longopts,
 		    "  -n, --instance     Set the instance id\n"
 		    "  -a, --apiserver    Enable OSPF apiserver\n");
+=======
+	frr_preinit(&ospfd_di, argc, argv);
+	frr_opt_add("n:al:", longopts,
+		    "  -n, --instance     Set the instance id\n"
+		    "  -a, --apiserver    Enable OSPF apiserver\n"
+		    "  -l, --apiserver_addr     Set OSPF apiserver bind address\n");
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 	while (1) {
 		int opt;
@@ -221,6 +274,17 @@ int main(int argc, char **argv)
 		case 'a':
 			ospf_apiserver_enable = 1;
 			break;
+<<<<<<< HEAD
+=======
+		case 'l':
+			if (inet_pton(AF_INET, optarg, &ospf_apiserver_addr) <=
+			    0) {
+				zlog_err("OSPF: Invalid API Server IPv4 address %s specified",
+					 optarg);
+				exit(0);
+			}
+			break;
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 #endif /* SUPPORT_OSPF_API */
 		default:
 			frr_help_exit(1);
@@ -237,12 +301,27 @@ int main(int argc, char **argv)
 	if (ospf_instance) {
 		snprintf(state_path, sizeof(state_path),
 			 OSPFD_INST_STATE_NAME(ospf_instance));
+<<<<<<< HEAD
 		snprintf(state_compat_path, sizeof(state_compat_path),
 			 OSPFD_COMPAT_INST_STATE_NAME(ospf_instance));
 	} else {
 		snprintf(state_path, sizeof(state_path), OSPFD_STATE_NAME);
 		snprintf(state_compat_path, sizeof(state_compat_path),
 			 OSPFD_COMPAT_STATE_NAME);
+=======
+		snprintf(state_compat1_path, sizeof(state_compat1_path),
+			 OSPFD_COMPAT1_INST_STATE_NAME(ospf_instance));
+		snprintf(state_compat2_path, sizeof(state_compat2_path),
+			 OSPFD_COMPAT2_INST_STATE_NAME(ospf_instance));
+	} else {
+		snprintf(state_path, sizeof(state_path), OSPFD_STATE_NAME);
+		snprintf(state_compat1_path, sizeof(state_compat1_path),
+			 OSPFD_COMPAT_STATE_NAME);
+		/* no COMPAT2 here since it was reading that was broken,
+		 * there is no additional path that would've been written
+		 */
+		state_paths[2] = NULL;
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	}
 
 	/* OSPF master init. */
@@ -252,6 +331,10 @@ int main(int argc, char **argv)
 	master = om->master;
 
 	/* Library inits. */
+<<<<<<< HEAD
+=======
+	libagentx_init();
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	ospf_debug_init();
 	ospf_vrf_init();
 

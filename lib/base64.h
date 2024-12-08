@@ -14,7 +14,10 @@ enum base64_encodestep {
 struct base64_encodestate {
 	enum base64_encodestep step;
 	char result;
+<<<<<<< HEAD
 	int stepcount;
+=======
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 };
 
 void base64_init_encodestate(struct base64_encodestate *state_in);

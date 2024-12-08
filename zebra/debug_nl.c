@@ -534,6 +534,15 @@ const char *rtm_rta2str(int type)
 		return "NH_ID";
 	case RTA_EXPIRES:
 		return "EXPIRES";
+<<<<<<< HEAD
+=======
+	case RTA_VIA:
+		return "VIA";
+	case RTA_ENCAP_TYPE:
+		return "RTA_ENCAP_TYPE";
+	case RTA_ENCAP:
+		return "RTA_ENCAP";
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	default:
 		return "UNKNOWN";
 	}

@@ -5,6 +5,10 @@
  */
 #include <zebra.h>
 
+<<<<<<< HEAD
+=======
+#include "debug.h"
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 #include "memory.h"
 #include "plist.h"
 #include "printfrr.h"
@@ -18,6 +22,10 @@
 #include "bgpd/bgp_vty.h"
 #include "bgpd/bgp_zebra.h"
 #include "bgpd/bgp_network.h"
+<<<<<<< HEAD
+=======
+#include "bgpd/bgp_label.h"
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 #ifdef ENABLE_BGP_VNC
 #include "bgpd/rfapi/rfapi_backend.h"
@@ -1347,12 +1355,20 @@ static void test_peer_attr(struct test *test, struct test_peer_attr *pa)
 static void bgp_startup(void)
 {
 	cmd_init(1);
+<<<<<<< HEAD
+=======
+	debug_init();
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	zlog_aux_init("NONE: ", LOG_DEBUG);
 	zprivs_preinit(&bgpd_privs);
 	zprivs_init(&bgpd_privs);
 
 	master = event_master_create(NULL);
+<<<<<<< HEAD
 	nb_init(master, NULL, 0, false);
+=======
+	nb_init(master, NULL, 0, false, false);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	bgp_master_init(master, BGP_SOCKET_SNDBUF_SIZE, list_new());
 	bgp_option_set(BGP_OPT_NO_LISTEN);
 	vrf_init(NULL, NULL, NULL, NULL);
@@ -1374,6 +1390,10 @@ static void bgp_shutdown(void)
 	bgp_route_finish();
 	bgp_route_map_terminate();
 	bgp_attr_finish();
+<<<<<<< HEAD
+=======
+	bgp_labels_finish();
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	bgp_pthreads_finish();
 	access_list_add_hook(NULL);
 	access_list_delete_hook(NULL);

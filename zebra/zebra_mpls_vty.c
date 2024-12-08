@@ -210,7 +210,11 @@ static int zebra_mpls_bind(struct vty *vty, int add_cmd, const char *prefix,
 				vty_out(vty, "%% Invalid label\n");
 				return CMD_WARNING_CONFIG_FAILED;
 			}
+<<<<<<< HEAD
 			if (zebra_mpls_label_already_bound(zvrf, label)) {
+=======
+			if (zebra_mpls_label_already_bound(zvrf, &p, label)) {
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 				vty_out(vty,
 					"%% Label already bound to a FEC\n");
 				return CMD_WARNING_CONFIG_FAILED;

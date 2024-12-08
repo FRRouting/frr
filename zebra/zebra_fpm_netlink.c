@@ -592,19 +592,32 @@ int zfpm_netlink_encode_mac(struct fpm_mac_info_t *mac, char *in_buf,
 				RTM_DELNEIGH : RTM_NEWNEIGH;
 	req->hdr.nlmsg_flags = NLM_F_REQUEST;
 	if (req->hdr.nlmsg_type == RTM_NEWNEIGH)
+<<<<<<< HEAD
 		req->hdr.nlmsg_flags |= (NLM_F_CREATE | NLM_F_REPLACE);
+=======
+		SET_FLAG(req->hdr.nlmsg_flags, (NLM_F_CREATE | NLM_F_REPLACE));
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 	/* Construct ndmsg */
 	req->ndm.ndm_family = AF_BRIDGE;
 	req->ndm.ndm_ifindex = mac->vxlan_if;
 
 	req->ndm.ndm_state = NUD_REACHABLE;
+<<<<<<< HEAD
 	req->ndm.ndm_flags |= NTF_SELF | NTF_MASTER;
 	if (CHECK_FLAG(mac->zebra_flags,
 		(ZEBRA_MAC_STICKY | ZEBRA_MAC_REMOTE_DEF_GW)))
 		req->ndm.ndm_state |= NUD_NOARP;
 	else
 		req->ndm.ndm_flags |= NTF_EXT_LEARNED;
+=======
+	SET_FLAG(req->ndm.ndm_flags, (NTF_SELF | NTF_MASTER));
+	if (CHECK_FLAG(mac->zebra_flags,
+		(ZEBRA_MAC_STICKY | ZEBRA_MAC_REMOTE_DEF_GW)))
+		SET_FLAG(req->ndm.ndm_state, NUD_NOARP);
+	else
+		SET_FLAG(req->ndm.ndm_flags, NTF_EXT_LEARNED);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 	/* Add attributes */
 	nl_attr_put(&req->hdr, in_buf_len, NDA_LLADDR, &mac->macaddr, 6);

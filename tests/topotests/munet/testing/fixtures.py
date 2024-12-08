@@ -25,7 +25,10 @@ from ..base import BaseMunet
 from ..base import Bridge
 from ..base import get_event_loop
 from ..cleanup import cleanup_current
+<<<<<<< HEAD
 from ..cleanup import cleanup_previous
+=======
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 from ..native import L3NodeMixin
 from ..parser import async_build_topology
 from ..parser import get_config
@@ -130,9 +133,18 @@ def session_autouse():
     else:
         is_worker = True
 
+<<<<<<< HEAD
     if not is_worker:
         # This is unfriendly to multi-instance
         cleanup_previous()
+=======
+    # We dont want to kill all munet and we don't have the rundir here yet
+    # This was more useful back when we used to leave processes around a lot
+    # more.
+    # if not is_worker:
+    #     # This is unfriendly to multi-instance
+    #     cleanup_previous()
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
     # We never pop as we want to keep logging
     _push_log_handler("session", "/tmp/unet-test/pytest-session.log")
@@ -150,8 +162,14 @@ def session_autouse():
 
 @pytest.fixture(autouse=True, scope="module")
 def module_autouse(request):
+<<<<<<< HEAD
     logpath = get_test_logdir(request.node.name, True)
     logpath = os.path.join("/tmp/unet-test", logpath, "pytest-exec.log")
+=======
+    root_path = os.environ.get("MUNET_RUNDIR", "/tmp/unet-test")
+    logpath = get_test_logdir(request.node.nodeid, True)
+    logpath = os.path.join(root_path, logpath, "pytest-exec.log")
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
     with log_handler("module", logpath):
         sdir = os.path.dirname(os.path.realpath(request.fspath))
         with chdir(sdir, "module autouse fixture"):
@@ -161,7 +179,11 @@ def module_autouse(request):
             raise Exception("Base Munet was not cleaned up/deleted")
 
 
+<<<<<<< HEAD
 @pytest.fixture(scope="module")
+=======
+@pytest.fixture(scope="session")
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 def event_loop():
     """Create an instance of the default event loop for the session."""
     loop = get_event_loop()
@@ -174,7 +196,12 @@ def event_loop():
 
 @pytest.fixture(scope="module")
 def rundir_module():
+<<<<<<< HEAD
     d = os.path.join("/tmp/unet-test", get_test_logdir(module=True))
+=======
+    root_path = os.environ.get("MUNET_RUNDIR", "/tmp/unet-test")
+    d = os.path.join(root_path, get_test_logdir(module=True))
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
     logging.debug("conftest: test module rundir %s", d)
     return d
 
@@ -213,18 +240,26 @@ async def _unet_impl(
             param,
             exc_info=True,
         )
+<<<<<<< HEAD
         pytest.skip(
             f"unet fixture: unet build failed: {error}", allow_module_level=True
         )
         raise
+=======
+        pytest.fail(f"unet fixture: unet build failed: {error}")
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
     try:
         tasks = await _unet.run()
     except Exception as error:
         logging.debug("unet fixture: unet run failed: %s", error, exc_info=True)
         await _unet.async_delete()
+<<<<<<< HEAD
         pytest.skip(f"unet fixture: unet run failed: {error}", allow_module_level=True)
         raise
+=======
+        pytest.fail(f"unet fixture: unet run failed: {error}")
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
     logging.debug("unet fixture: containers running")
 
@@ -379,7 +414,12 @@ async def astepf(pytestconfig):
 
 @pytest.fixture(scope="function")
 def rundir():
+<<<<<<< HEAD
     d = os.path.join("/tmp/unet-test", get_test_logdir(module=False))
+=======
+    root_path = os.environ.get("MUNET_RUNDIR", "/tmp/unet-test")
+    d = os.path.join(root_path, get_test_logdir(module=False))
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
     logging.debug("conftest: test function rundir %s", d)
     return d
 
@@ -387,9 +427,14 @@ def rundir():
 # Configure logging
 @pytest.hookimpl(hookwrapper=True, tryfirst=True)
 def pytest_runtest_setup(item):
+<<<<<<< HEAD
     d = os.path.join(
         "/tmp/unet-test", get_test_logdir(nodeid=item.nodeid, module=False)
     )
+=======
+    root_path = os.environ.get("MUNET_RUNDIR", "/tmp/unet-test")
+    d = os.path.join(root_path, get_test_logdir(nodeid=item.nodeid, module=False))
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
     config = item.config
     logging_plugin = config.pluginmanager.get_plugin("logging-plugin")
     filename = Path(d, "pytest-exec.log")

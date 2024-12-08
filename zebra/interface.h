@@ -94,9 +94,12 @@ enum zebra_if_flags {
 #define ZEBRA_IF_IS_PROTODOWN_ONLY_EXTERNAL(zif)                               \
 	((zif)->protodown_rc == ZEBRA_PROTODOWN_EXTERNAL)
 
+<<<<<<< HEAD
 /* Mem type for zif desc */
 DECLARE_MTYPE(ZIF_DESC);
 
+=======
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 /* `zebra' daemon local interface structure. */
 struct zebra_if {
 	/* back pointer to the interface */
@@ -215,6 +218,12 @@ struct zebra_if {
 	char neigh_mac[6];
 	struct in6_addr v6_2_v4_ll_addr6;
 
+<<<<<<< HEAD
+=======
+	/* Linkage for per-vrf/per-NS ifp container */
+	struct ifp_tree_link *ns_tree_link;
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	/* The description of the interface */
 	char *desc;
 };
@@ -262,12 +271,18 @@ extern void zebra_if_init(void);
 extern struct interface *if_lookup_by_index_per_ns(struct zebra_ns *, uint32_t);
 extern struct interface *if_lookup_by_name_per_ns(struct zebra_ns *,
 						  const char *);
+<<<<<<< HEAD
 extern struct interface *if_link_per_ns(struct zebra_ns *, struct interface *);
+=======
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 extern struct interface *if_lookup_by_index_per_nsid(ns_id_t nsid,
 						     uint32_t ifindex);
 extern const char *ifindex2ifname_per_ns(struct zebra_ns *, unsigned int);
 
+<<<<<<< HEAD
 extern void if_unlink_per_ns(struct interface *);
+=======
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 extern void if_nbr_mac_to_ipv4ll_neigh_update(struct interface *fip,
 					      char mac[6],
 					      struct in6_addr *address,
@@ -331,11 +346,14 @@ void link_param_cmd_set_float(struct interface *ifp, float *field,
 void link_param_cmd_unset(struct interface *ifp, uint32_t type);
 
 /* Nexthop group connected functions */
+<<<<<<< HEAD
 extern void if_nhg_dependents_add(struct interface *ifp,
 				  struct nhg_hash_entry *nhe);
 extern void if_nhg_dependents_del(struct interface *ifp,
 				  struct nhg_hash_entry *nhe);
 extern unsigned int if_nhg_dependents_count(const struct interface *ifp);
+=======
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 extern bool if_nhg_dependents_is_empty(const struct interface *ifp);
 
 extern void vrf_add_update(struct vrf *vrfp);

@@ -115,12 +115,20 @@ extern void bgp_evpn_advertise_type5_routes(struct bgp *bgp_vrf, afi_t afi,
 					    safi_t safi);
 extern void bgp_evpn_vrf_delete(struct bgp *bgp_vrf);
 extern void bgp_evpn_handle_router_id_update(struct bgp *bgp, int withdraw);
+<<<<<<< HEAD
 extern char *bgp_evpn_label2str(mpls_label_t *label, uint32_t num_labels,
+=======
+extern char *bgp_evpn_label2str(mpls_label_t *label, uint8_t num_labels,
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 				char *buf, int len);
 extern void bgp_evpn_route2json(const struct prefix_evpn *p, json_object *json);
 extern void bgp_evpn_encode_prefix(struct stream *s, const struct prefix *p,
 				   const struct prefix_rd *prd,
+<<<<<<< HEAD
 				   mpls_label_t *label, uint32_t num_labels,
+=======
+				   mpls_label_t *label, uint8_t num_labels,
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 				   struct attr *attr, bool addpath_capable,
 				   uint32_t addpath_tx_id);
 extern int bgp_nlri_parse_evpn(struct peer *peer, struct attr *attr,
@@ -153,6 +161,10 @@ extern int bgp_evpn_local_l3vni_add(vni_t vni, vrf_id_t vrf_id,
 				    struct in_addr originator_ip, int filter,
 				    ifindex_t svi_ifindex, bool is_anycast_mac);
 extern int bgp_evpn_local_l3vni_del(vni_t vni, vrf_id_t vrf_id);
+<<<<<<< HEAD
+=======
+extern void bgp_evpn_instance_down(struct bgp *bgp);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 extern int bgp_evpn_local_vni_del(struct bgp *bgp, vni_t vni);
 extern int bgp_evpn_local_vni_add(struct bgp *bgp, vni_t vni,
 				  struct in_addr originator_ip,
@@ -177,7 +189,11 @@ extern void
 bgp_evpn_handle_resolve_overlay_index_unset(struct hash_bucket *bucket,
 					    void *arg);
 extern mpls_label_t *bgp_evpn_path_info_labels_get_l3vni(mpls_label_t *labels,
+<<<<<<< HEAD
 							 uint32_t num_labels);
+=======
+							 uint8_t num_labels);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 extern vni_t bgp_evpn_path_info_get_l3vni(const struct bgp_path_info *pi);
 extern bool bgp_evpn_mpath_has_dvni(const struct bgp *bgp_vrf,
 				    struct bgp_path_info *mpinfo);
@@ -186,4 +202,20 @@ extern bool is_route_injectable_into_evpn_non_supp(struct bgp_path_info *pi);
 extern void bgp_aggr_supp_withdraw_from_evpn(struct bgp *bgp, afi_t afi,
 					     safi_t safi);
 
+<<<<<<< HEAD
+=======
+extern enum zclient_send_status evpn_zebra_install(struct bgp *bgp,
+						   struct bgpevpn *vpn,
+						   const struct prefix_evpn *p,
+						   struct bgp_path_info *pi);
+extern enum zclient_send_status
+evpn_zebra_uninstall(struct bgp *bgp, struct bgpevpn *vpn,
+		     const struct prefix_evpn *p, struct bgp_path_info *pi,
+		     bool is_sync);
+bool bgp_evpn_skip_vrf_import_of_local_es(struct bgp *bgp_vrf, const struct prefix_evpn *evp,
+					  struct bgp_path_info *pi, int install);
+int uninstall_evpn_route_entry_in_vrf(struct bgp *bgp_vrf, const struct prefix_evpn *evp,
+				      struct bgp_path_info *parent_pi);
+extern void bgp_zebra_evpn_pop_items_from_announce_fifo(struct bgpevpn *vpn);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 #endif /* _QUAGGA_BGP_EVPN_H */

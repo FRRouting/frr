@@ -145,7 +145,11 @@ static int zebra_sr_policy_notify_update_client(struct zebra_sr_policy *policy,
 			stream_putc(s, nhlfe->distance);
 			stream_putl(s, 0); /* metric - not available */
 			nump = stream_get_endp(s);
+<<<<<<< HEAD
 			stream_putc(s, 0);
+=======
+			stream_putw(s, 0);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		}
 
 		zapi_nexthop_from_nexthop(&znh, nhlfe->nexthop);
@@ -155,7 +159,11 @@ static int zebra_sr_policy_notify_update_client(struct zebra_sr_policy *policy,
 
 		num++;
 	}
+<<<<<<< HEAD
 	stream_putc_at(s, nump, num);
+=======
+	stream_putw_at(s, nump, num);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	stream_putw_at(s, 0, stream_get_endp(s));
 
 	client->nh_last_upd_time = monotime(NULL);

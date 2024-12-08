@@ -94,6 +94,10 @@ struct buffered_update {
 
 /* init function */
 void babel_if_init(void);
+<<<<<<< HEAD
+=======
+void babel_if_terminate(void);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 /* Callback functions for zebra client */
 int babel_interface_up (int, struct zclient *, zebra_size_t, vrf_id_t);

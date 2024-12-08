@@ -16,8 +16,15 @@ import sys
 
 from . import cli
 from . import parser
+<<<<<<< HEAD
 from .base import get_event_loop
 from .cleanup import cleanup_previous
+=======
+from .args import add_launch_args
+from .base import get_event_loop
+from .cleanup import cleanup_previous
+from .cleanup import is_running_in_rundir
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 from .compat import PytestConfig
 
 
@@ -106,13 +113,22 @@ def main(*args):
     cap.add_argument(
         "--project-root", help="directory to stop searching for kinds config at"
     )
+<<<<<<< HEAD
     rap = ap.add_argument_group(title="Runtime", description="runtime related options")
+=======
+
+    rap = ap.add_argument_group(title="Runtime", description="runtime related options")
+    add_launch_args(rap.add_argument)
+
+    # Move to munet.args?
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
     rap.add_argument(
         "-C",
         "--cleanup",
         action="store_true",
         help="Remove the entire rundir (not just node subdirs) prior to running.",
     )
+<<<<<<< HEAD
     rap.add_argument(
         "--gdb", metavar="NODE-LIST", help="comma-sep list of hosts to run gdb on"
     )
@@ -144,21 +160,33 @@ def main(*args):
         metavar="NODE-LIST",
         help="comma-sep list of nodes to open windows viewing stdout",
     )
+=======
+    # Move to munet.args?
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
     rap.add_argument(
         "--topology-only",
         action="store_true",
         help="Do not run any node commands",
     )
+<<<<<<< HEAD
     rap.add_argument("--unshare-inline", action="store_true", help=argparse.SUPPRESS)
+=======
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
     rap.add_argument(
         "--validate-only",
         action="store_true",
         help="Validate the config against the schema definition",
     )
+<<<<<<< HEAD
+=======
+    rap.add_argument("--unshare-inline", action="store_true", help=argparse.SUPPRESS)
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
     rap.add_argument("-v", "--verbose", action="store_true", help="be verbose")
     rap.add_argument(
         "-V", "--version", action="store_true", help="print the verison number and exit"
     )
+<<<<<<< HEAD
     eap = ap.add_argument_group(title="Uncommon", description="uncommonly used options")
     eap.add_argument("--log-config", help="logging config file (yaml, toml, json, ...)")
     eap.add_argument(
@@ -166,6 +194,17 @@ def main(*args):
         action="store_true",
         help="Do not kill previous running processes",
     )
+=======
+
+    eap = ap.add_argument_group(title="Uncommon", description="uncommonly used options")
+    eap.add_argument("--log-config", help="logging config file (yaml, toml, json, ...)")
+    eap.add_argument(
+        "--kill",
+        action="store_true",
+        help="Kill previous running processes using same rundir and exit",
+    )
+    eap.add_argument("--no-kill", action="store_true", help=argparse.SUPPRESS)
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
     eap.add_argument(
         "--no-cli", action="store_true", help="Do not run the interactive CLI"
     )
@@ -180,8 +219,23 @@ def main(*args):
         sys.exit(0)
 
     rundir = args.rundir if args.rundir else "/tmp/munet"
+<<<<<<< HEAD
     args.rundir = rundir
 
+=======
+    rundir = os.path.abspath(rundir)
+    args.rundir = rundir
+
+    if args.kill:
+        logging.info("Killing any previous run using rundir: {rundir}")
+        cleanup_previous(args.rundir)
+    elif is_running_in_rundir(args.rundir):
+        logging.fatal(
+            "Munet processes using rundir: %s, use `--kill` to cleanup first", rundir
+        )
+        return 1
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
     if args.cleanup:
         if os.path.exists(rundir):
             if not os.path.exists(f"{rundir}/config.json"):
@@ -194,6 +248,12 @@ def main(*args):
             else:
                 subprocess.run(["/usr/bin/rm", "-rf", rundir], check=True)
 
+<<<<<<< HEAD
+=======
+    if args.kill:
+        return 0
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
     subprocess.run(f"mkdir -p {rundir} && chmod 755 {rundir}", check=True, shell=True)
     os.environ["MUNET_RUNDIR"] = rundir
 
@@ -208,9 +268,12 @@ def main(*args):
         logger.critical("No nodes defined in config file")
         return 1
 
+<<<<<<< HEAD
     if not args.no_kill:
         cleanup_previous()
 
+=======
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
     loop = None
     status = 4
     try:

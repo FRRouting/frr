@@ -53,9 +53,18 @@ lib_libfrr_la_SOURCES = \
 	lib/jhash.c \
 	lib/json.c \
 	lib/keychain.c \
+<<<<<<< HEAD
 	lib/ldp_sync.c \
 	lib/lib_errors.c \
 	lib/lib_vty.c \
+=======
+	lib/keychain_cli.c \
+	lib/keychain_nb.c \
+	lib/ldp_sync.c \
+	lib/lib_errors.c \
+	lib/lib_vty.c \
+	lib/libagentx.c \
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	lib/libfrr.c \
 	lib/libfrr_trace.c \
 	lib/linklist.c \
@@ -129,6 +138,10 @@ lib_libfrr_la_SOURCES = \
 	lib/zlog_5424.c \
 	lib/zlog_5424_cli.c \
 	lib/zlog_live.c \
+<<<<<<< HEAD
+=======
+	lib/zlog_recirculate.c \
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	lib/zlog_targets.c \
 	lib/printf/printf-pos.c \
 	lib/printf/vfprintf.c \
@@ -148,7 +161,14 @@ nodist_lib_libfrr_la_SOURCES = \
 	yang/frr-vrf.yang.c \
 	yang/frr-routing.yang.c \
 	yang/frr-nexthop.yang.c \
+<<<<<<< HEAD
 	yang/ietf/ietf-routing-types.yang.c \
+=======
+	yang/ietf/frr-deviations-ietf-key-chain.yang.c \
+	yang/ietf/ietf-routing-types.yang.c \
+	yang/ietf/ietf-netconf-acm.yang.c \
+	yang/ietf/ietf-key-chain.yang.c \
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	yang/ietf/ietf-interfaces.yang.c \
 	yang/ietf/ietf-bgp-types.yang.c \
 	yang/frr-module-translator.yang.c \
@@ -181,6 +201,10 @@ clippy_scan += \
 	lib/if.c \
 	lib/filter_cli.c \
 	lib/if_rmap.c \
+<<<<<<< HEAD
+=======
+	lib/keychain_cli.c \
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	lib/log_vty.c \
 	lib/mgmt_be_client.c \
 	lib/mgmt_fe_client.c \
@@ -245,6 +269,10 @@ pkginclude_HEADERS += \
 	lib/ldp_sync.h \
 	lib/lib_errors.h \
 	lib/lib_vty.h \
+<<<<<<< HEAD
+=======
+	lib/libagentx.h \
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	lib/libfrr.h \
 	lib/libfrr_trace.h \
 	lib/libospf.h \
@@ -324,6 +352,10 @@ pkginclude_HEADERS += \
 	lib/zlog.h \
 	lib/zlog_5424.h \
 	lib/zlog_live.h \
+<<<<<<< HEAD
+=======
+	lib/zlog_recirculate.h \
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	lib/zlog_targets.h \
 	lib/pbr.h \
 	lib/tc.h \
@@ -403,6 +435,7 @@ lib_libfrrzmq_la_SOURCES = \
 	#end
 
 #
+<<<<<<< HEAD
 # Tail-f's ConfD support
 #
 if CONFD
@@ -415,6 +448,8 @@ lib_confd_la_LIBADD = lib/libfrr.la $(CONFD_LIBS)
 lib_confd_la_SOURCES = lib/northbound_confd.c
 
 #
+=======
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 # Sysrepo support
 #
 if SYSREPO
@@ -506,20 +541,54 @@ SUFFIXES += .xref
 %.xref: % $(CLIPPY)
 	$(AM_V_XRELFO) $(CLIPPY) $(top_srcdir)/python/xrelfo.py $(WERROR) $(XRELFO_FLAGS) -o $@ $<
 
+<<<<<<< HEAD
 # dependencies added in python/makefile.py
 frr.xref:
 	$(AM_V_XRELFO) $(CLIPPY) $(top_srcdir)/python/xrelfo.py -o $@ -c vtysh/vtysh_cmd.c $^
+=======
+# these run up to a total of 350k lines at the time of writing.  That's a lot
+# for the compiler to chug down - enough to warrant splitting it up so it can
+# benefit from parallel build.
+vtysh_cmd_split = \
+	vtysh/vtysh_cmd.1.c \
+	vtysh/vtysh_cmd.2.c \
+	vtysh/vtysh_cmd.3.c \
+	vtysh/vtysh_cmd.4.c \
+	vtysh/vtysh_cmd.5.c \
+	vtysh/vtysh_cmd.6.c \
+	vtysh/vtysh_cmd.7.c \
+	vtysh/vtysh_cmd.8.c \
+	# end
+
+# dependencies added in python/makefile.py
+frr.xref:
+	$(AM_V_XRELFO) $(CLIPPY) $(top_srcdir)/python/xrelfo.py -o $@ $^ \
+		-c vtysh/vtysh_cmd.c $(vtysh_cmd_split)
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 all-am: frr.xref
 
 clean-xref:
 	-rm -rf $(xrefs) frr.xref
 clean-local: clean-xref
 
+<<<<<<< HEAD
 CLEANFILES += vtysh/vtysh_cmd.c
+=======
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 vtysh/vtysh_cmd.c: frr.xref
 	@test -f $@ || rm -f frr.xref || true
 	@test -f $@ || $(MAKE) $(AM_MAKEFLAGS) frr.xref
 
+<<<<<<< HEAD
+=======
+vtysh/vtysh_cmd.%.c: vtysh/vtysh_cmd.c
+	@test -f $@ || rm -f vtysh/vtysh_cmd.c || true
+	@test -f $@ || $(MAKE) $(AM_MAKEFLAGS) vtysh/vtysh_cmd.c
+
+nodist_vtysh_vtysh_SOURCES = vtysh/vtysh_cmd.c $(vtysh_cmd_split)
+CLEANFILES += vtysh/vtysh_cmd.c $(vtysh_cmd_split)
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 ## automake's "ylwrap" is a great piece of GNU software... not.
 .l.c:
 	$(AM_V_LEX)$(am__skiplex) $(LEXCOMPILE) $<

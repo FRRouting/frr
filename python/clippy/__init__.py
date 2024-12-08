@@ -20,6 +20,10 @@ from _clippy import (
     CMD_ATTR_HIDDEN,
     CMD_ATTR_DEPRECATED,
     CMD_ATTR_NOSH,
+<<<<<<< HEAD
+=======
+    elf_notes,
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 )
 
 

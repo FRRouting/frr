@@ -213,6 +213,7 @@ void igmp_source_forward_stop(struct gm_source *source)
 			   IGMP_SOURCE_TEST_FORWARDING(source->source_flags));
 	}
 
+<<<<<<< HEAD
 	/* Prevent IGMP interface from removing multicast route multiple
 	   times */
 	if (!IGMP_SOURCE_TEST_FORWARDING(source->source_flags)) {
@@ -222,6 +223,19 @@ void igmp_source_forward_stop(struct gm_source *source)
 	group = source->source_group;
 	pim_oif = group->interface->info;
 
+=======
+	group = source->source_group;
+	pim_oif = group->interface->info;
+
+	/* Prevent IGMP interface from removing multicast route multiple
+	   times */
+	if (!IGMP_SOURCE_TEST_FORWARDING(source->source_flags)) {
+		tib_sg_proxy_join_prune_check(pim_oif->pim, sg,
+					      group->interface, false);
+		return;
+	}
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	tib_sg_gm_prune(pim_oif->pim, sg, group->interface,
 			&source->source_channel_oil);
 	IGMP_SOURCE_DONT_FORWARDING(source->source_flags);

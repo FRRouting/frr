@@ -101,9 +101,16 @@ cont
 
 .. clicmd:: clear route-map counter [WORD]
 
+<<<<<<< HEAD
    Clear counters that are being stored about the route-map utilization
    so that subsuquent show commands will indicate since the last clear.
    If WORD is specified clear just that particular route-map's counters.
+=======
+   Clear counters as well as cpu time spent that are being stored about
+   the route-map utilization so that subsequent show commands will indicate
+   since the last clear. If WORD is specified clear just that particular
+   route-map's counters.
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 .. _route-map-command:
 
@@ -176,10 +183,16 @@ Route Map Match Command
 
    Matches the specified `metric`.
 
+<<<<<<< HEAD
 .. clicmd:: match tag TAG
 
    Matches the specified tag value associated with the route. This tag value
    can be in the range of (1-4294967295).
+=======
+.. clicmd:: match tag <untagged|(1-4294967295)>
+
+   Matches the specified tag (or untagged) value associated with the route.
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 .. clicmd:: match local-preference METRIC
 
@@ -191,6 +204,15 @@ Route Map Match Command
    do the exact matching of the communities, while ``any`` - can match any
    community specified in COMMUNITY_LIST.
 
+<<<<<<< HEAD
+=======
+.. clicmd:: match src-peer [IPV4_ADDR|IPV6_ADDR|INTERFACE_NAME|PEER_GROUP_NAME]
+
+   This is a BGP specific match command. Matches the source peer if the neighbor
+   was specified in this manner. Useful to announce the routes that was originated
+   by the source peer.
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 .. clicmd:: match peer IPV4_ADDR
 
    This is a BGP specific match command. Matches the peer ip address
@@ -241,9 +263,16 @@ Route Map Set Command
 
 .. program:: configure
 
+<<<<<<< HEAD
 .. clicmd:: set tag TAG
 
    Set a tag on the matched route. This tag value can be from (1-4294967295).
+=======
+.. clicmd:: set tag <untagged|(1-4294967295)>
+
+   Set a tag on the matched route.
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
    Additionally if you have compiled with the :option:`--enable-realms`
    configure option. Tag values from (1-255) are sent to the Linux kernel as a
    realm value. Then route policy can be applied. See the tc man page.  As
@@ -305,13 +334,18 @@ Route Map Set Command
 
    Set the route's weight.
 
+<<<<<<< HEAD
 .. clicmd:: set metric <[+|-](1-4294967295)|rtt|+rtt|-rtt>
+=======
+.. clicmd:: set metric <[+|-](1-4294967295)|rtt|+rtt|-rtt|igp|aigp>
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
    Set the route metric. When used with BGP, set the BGP attribute MED to a
    specific value. Use `+`/`-` to add or subtract the specified value to/from
    the existing/MED. Use `rtt` to set the MED to the round trip time or
    `+rtt`/`-rtt` to add/subtract the round trip time to/from the MED.
 
+<<<<<<< HEAD
 .. clicmd:: set min-metric <(0-4294967295)>
 
    Set the minimum meric for the route.
@@ -319,6 +353,20 @@ Route Map Set Command
 .. clicmd:: set max-metric <(0-4294967295)>
 
    Set the maximum meric for the route.
+=======
+   If ``igp`` is specified, then the actual value from the IGP protocol is used.
+
+   If ``aigp`` is specified, then the actual value from the AIGP metric is used
+   (encoded as MED instead of AIGP attribute).
+
+.. clicmd:: set min-metric <(0-4294967295)>
+
+   Set the minimum metric for the route.
+
+.. clicmd:: set max-metric <(0-4294967295)>
+
+   Set the maximum metric for the route.
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 .. clicmd:: set aigp-metric <igp-metric|(0-4294967295)>
 

@@ -15,6 +15,10 @@
 #include <sched.h>
 #endif
 #include <dirent.h>
+<<<<<<< HEAD
+=======
+#include <libgen.h>
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 #include <sys/inotify.h>
 #include <sys/stat.h>
 
@@ -41,6 +45,13 @@
 #define ZEBRA_NS_POLLING_INTERVAL_MSEC     1000
 #define ZEBRA_NS_POLLING_MAX_RETRIES  200
 
+<<<<<<< HEAD
+=======
+#if !defined(__GLIBC__)
+#define basename(src) (strrchr(src, '/') ? strrchr(src, '/') + 1 : src)
+#endif
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 DEFINE_MTYPE_STATIC(ZEBRA, NETNS_MISC, "ZebraNetNSInfo");
 static struct event *zebra_netns_notify_current;
 
@@ -234,6 +245,10 @@ static void zebra_ns_ready_read(struct event *t)
 {
 	struct zebra_netns_info *zns_info = EVENT_ARG(t);
 	const char *netnspath;
+<<<<<<< HEAD
+=======
+	const char *netnspath_basename;
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	int err, stop_retry = 0;
 
 	if (!zns_info)
@@ -261,6 +276,7 @@ static void zebra_ns_ready_read(struct event *t)
 		zebra_ns_continue_read(zns_info, stop_retry);
 		return;
 	}
+<<<<<<< HEAD
 
 	/* check default name is not already set */
 	if (strmatch(VRF_DEFAULT_NAME, basename(netnspath))) {
@@ -272,12 +288,30 @@ static void zebra_ns_ready_read(struct event *t)
 		zlog_warn(
 			"NS notify : NS %s is default VRF. Ignore VRF creation",
 			basename(netnspath));
+=======
+	netnspath_basename = basename(strdupa(netnspath));
+
+	/* check default name is not already set */
+	if (strmatch(VRF_DEFAULT_NAME, netnspath_basename)) {
+		zlog_warn("NS notify : NS %s is already default VRF.Cancel VRF Creation", netnspath_basename);
+		zebra_ns_continue_read(zns_info, 1);
+		return;
+	}
+	if (zebra_ns_notify_is_default_netns(netnspath_basename)) {
+		zlog_warn(
+			"NS notify : NS %s is default VRF. Ignore VRF creation",
+			netnspath_basename);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		zebra_ns_continue_read(zns_info, 1);
 		return;
 	}
 
 	/* success : close fd and create zns context */
+<<<<<<< HEAD
 	zebra_ns_notify_create_context_from_entry_name(basename(netnspath));
+=======
+	zebra_ns_notify_create_context_from_entry_name(netnspath_basename);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	zebra_ns_continue_read(zns_info, 1);
 }
 
@@ -304,7 +338,11 @@ static void zebra_ns_notify_read(struct event *t)
 		char *netnspath;
 		struct zebra_netns_info *netnsinfo;
 
+<<<<<<< HEAD
 		if (!(event->mask & (IN_CREATE | IN_DELETE)))
+=======
+		if (!CHECK_FLAG(event->mask, (IN_CREATE | IN_DELETE)))
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 			continue;
 
 		if (offsetof(struct inotify_event, name) + event->len
@@ -350,7 +388,11 @@ static void zebra_ns_notify_read(struct event *t)
 		memcpy(event_name, event->name, event->len);
 		event_name[event->len - 1] = 0;
 
+<<<<<<< HEAD
 		if (event->mask & IN_DELETE) {
+=======
+		if (CHECK_FLAG(event->mask, IN_DELETE)) {
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 			zebra_ns_delete(event_name);
 			continue;
 		}
@@ -371,19 +413,38 @@ void zebra_ns_notify_parse(void)
 {
 	struct dirent *dent;
 	DIR *srcdir = opendir(NS_RUN_DIR);
+<<<<<<< HEAD
+=======
+	int srcdirfd;
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 	if (srcdir == NULL) {
 		flog_err_sys(EC_LIB_SYSTEM_CALL,
 			     "NS parsing init: failed to parse %s", NS_RUN_DIR);
 		return;
 	}
+<<<<<<< HEAD
+=======
+
+	srcdirfd = dirfd(srcdir);
+	if (srcdirfd < 0) {
+		closedir(srcdir);
+		flog_err_sys(EC_LIB_SYSTEM_CALL, "NS parsing init: failed to parse %s", NS_RUN_DIR);
+		return;
+	}
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	while ((dent = readdir(srcdir)) != NULL) {
 		struct stat st;
 
 		if (strcmp(dent->d_name, ".") == 0
 		    || strcmp(dent->d_name, "..") == 0)
 			continue;
+<<<<<<< HEAD
 		if (fstatat(dirfd(srcdir), dent->d_name, &st, 0) < 0) {
+=======
+		if (fstatat(srcdirfd, dent->d_name, &st, 0) < 0) {
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 			flog_err_sys(
 				EC_LIB_SYSTEM_CALL,
 				"NS parsing init: failed to parse entry %s",
@@ -396,7 +457,11 @@ void zebra_ns_notify_parse(void)
 			continue;
 		}
 		/* check default name is not already set */
+<<<<<<< HEAD
 		if (strmatch(VRF_DEFAULT_NAME, basename(dent->d_name))) {
+=======
+		if (strmatch(VRF_DEFAULT_NAME, basename(strdupa(dent->d_name)))) {
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 			zlog_warn("NS notify : NS %s is already default VRF.Cancel VRF Creation", dent->d_name);
 			continue;
 		}

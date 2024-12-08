@@ -12,6 +12,10 @@ systems, all tests must be marked with at least one of the following markers:
 * eigrpd
 * isisd
 * ldpd
+<<<<<<< HEAD
+=======
+* mgmtd
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 * nhrpd
 * ospf6d
 * ospfd
@@ -64,12 +68,21 @@ Adding a single marker:
 
     import pytest
     ...
+<<<<<<< HEAD
     
     # add after imports, before defining classes or functions:
     pytestmark = pytest.mark.bfdd
     
     ...
     
+=======
+
+    # add after imports, before defining classes or functions:
+    pytestmark = pytest.mark.bfdd
+
+    ...
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
     def test_using_bfdd():
 
 
@@ -79,16 +92,26 @@ Adding multiple markers:
 
     import pytest
     ...
+<<<<<<< HEAD
     
+=======
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
     # add after imports, before defining classes or functions:
     pytestmark = [
         pytest.mark.bgpd,
         pytest.mark.ospfd,
         pytest.mark.ospf6d
     ]
+<<<<<<< HEAD
     
     ...
     
+=======
+
+    ...
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
     def test_using_bgpd_ospfd_ospf6d():
 
 

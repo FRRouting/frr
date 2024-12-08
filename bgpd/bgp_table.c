@@ -239,7 +239,17 @@ static ssize_t printfrr_bd(struct fbuf *buf, struct printfrr_eargs *ea,
 	if (!dest)
 		return bputs(buf, "(null)");
 
+<<<<<<< HEAD
 	/* need to get the real length even if buffer too small */
 	prefix2str(p, cbuf, sizeof(cbuf));
 	return bputs(buf, cbuf);
+=======
+#if !defined(DEV_BUILD)
+	/* need to get the real length even if buffer too small */
+	prefix2str(p, cbuf, sizeof(cbuf));
+	return bputs(buf, cbuf);
+#else
+	return bprintfrr(buf, "%s(%p)", prefix2str(p, cbuf, sizeof(cbuf)), dest);
+#endif
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 }

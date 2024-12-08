@@ -82,7 +82,11 @@ struct sr_local_block {
 /* Segment Routing Adjacency-SID type. */
 enum sr_adj_type {
 	ISIS_SR_ADJ_NORMAL = 0,
+<<<<<<< HEAD
 	ISIS_SR_LAN_BACKUP,
+=======
+	ISIS_SR_ADJ_BACKUP,
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 };
 
 /* Segment Routing Adjacency. */

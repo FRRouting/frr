@@ -68,6 +68,11 @@ buster.)
      +----------------+-------------------+-----------------------------------------+
      | pkg.frr.pim6d  | pkg.frr.nopim6d   | builds pim6d (default enabled)          |
      +----------------+-------------------+-----------------------------------------+
+<<<<<<< HEAD
+=======
+     | pkg.frr.grpc   | pkg.frr.nogrpc    | builds with grpc support (default: no)  |
+     +----------------+-------------------+-----------------------------------------+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
    * the ``-uc -us`` options to disable signing the packages with your GPG key
 

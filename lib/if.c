@@ -6,6 +6,15 @@
 
 #include <zebra.h>
 
+<<<<<<< HEAD
+=======
+#include <net/if.h>
+
+#ifdef GNU_LINUX
+#include <linux/if.h>
+#endif /* GNU_LINUX */
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 #include "linklist.h"
 #include "vector.h"
 #include "lib_errors.h"
@@ -668,21 +677,41 @@ int if_is_running(const struct interface *ifp)
    if ptm checking is enabled, then ptm check has passed */
 int if_is_operative(const struct interface *ifp)
 {
+<<<<<<< HEAD
 	return ((ifp->flags & IFF_UP)
 		&& (((ifp->flags & IFF_RUNNING)
 		     && (ifp->ptm_status || !ifp->ptm_enable))
 		    || !CHECK_FLAG(ifp->status,
 				   ZEBRA_INTERFACE_LINKDETECTION)));
+=======
+	return ((ifp->flags & IFF_UP) &&
+		(((ifp->flags & IFF_RUNNING)
+#ifdef IFF_LOWER_UP
+		  && (ifp->flags & IFF_LOWER_UP)
+#endif /* IFF_LOWER_UP */
+		  && (ifp->ptm_status || !ifp->ptm_enable)) ||
+		 !CHECK_FLAG(ifp->status, ZEBRA_INTERFACE_LINKDETECTION)));
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 }
 
 /* Is the interface operative, eg. either UP & RUNNING
    or UP & !ZEBRA_INTERFACE_LINK_DETECTION, without PTM check */
 int if_is_no_ptm_operative(const struct interface *ifp)
 {
+<<<<<<< HEAD
 	return ((ifp->flags & IFF_UP)
 		&& ((ifp->flags & IFF_RUNNING)
 		    || !CHECK_FLAG(ifp->status,
 				   ZEBRA_INTERFACE_LINKDETECTION)));
+=======
+	return ((ifp->flags & IFF_UP) &&
+		(((ifp->flags & IFF_RUNNING)
+#ifdef IFF_LOWER_UP
+		  && (ifp->flags & IFF_LOWER_UP)
+#endif /* IFF_LOWER_UP */
+			  ) ||
+		 !CHECK_FLAG(ifp->status, ZEBRA_INTERFACE_LINKDETECTION)));
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 }
 
 /* Is this loopback interface ? */
@@ -744,6 +773,12 @@ const char *if_flag_dump(unsigned long flag)
 
 	strlcpy(logbuf, "<", BUFSIZ);
 	IFF_OUT_LOG(IFF_UP, "UP");
+<<<<<<< HEAD
+=======
+#ifdef IFF_LOWER_UP
+	IFF_OUT_LOG(IFF_LOWER_UP, "LOWER_UP");
+#endif /* IFF_LOWER_UP */
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	IFF_OUT_LOG(IFF_BROADCAST, "BROADCAST");
 	IFF_OUT_LOG(IFF_DEBUG, "DEBUG");
 	IFF_OUT_LOG(IFF_LOOPBACK, "LOOPBACK");
@@ -885,6 +920,7 @@ nbr_connected_log(struct nbr_connected *connected, char *str)
 	zlog_info("%s", logbuf);
 }
 
+<<<<<<< HEAD
 /* If two connected address has same prefix return 1. */
 static int connected_same_prefix(const struct prefix *p1,
 				 const struct prefix *p2)
@@ -900,6 +936,8 @@ static int connected_same_prefix(const struct prefix *p1,
 	return 0;
 }
 
+=======
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 /* count the number of connected addresses that are in the given family */
 unsigned int connected_count_by_family(struct interface *ifp, int family)
 {
@@ -919,7 +957,11 @@ struct connected *connected_lookup_prefix_exact(struct interface *ifp,
 	struct connected *ifc;
 
 	frr_each (if_connected, ifp->connected, ifc) {
+<<<<<<< HEAD
 		if (connected_same_prefix(ifc->address, p))
+=======
+		if (prefix_same(ifc->address, p))
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 			return ifc;
 	}
 	return NULL;
@@ -932,7 +974,11 @@ struct connected *connected_delete_by_prefix(struct interface *ifp,
 
 	/* In case of same prefix come, replace it with new one. */
 	frr_each_safe (if_connected, ifp->connected, ifc) {
+<<<<<<< HEAD
 		if (connected_same_prefix(ifc->address, p)) {
+=======
+		if (prefix_same(ifc->address, p)) {
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 			if_connected_del(ifp->connected, ifc);
 			return ifc;
 		}
@@ -1003,12 +1049,15 @@ void if_terminate(struct vrf *vrf)
 
 	while (!RB_EMPTY(if_name_head, &vrf->ifaces_by_name)) {
 		ifp = RB_ROOT(if_name_head, &vrf->ifaces_by_name);
+<<<<<<< HEAD
 
 		if (ifp->node) {
 			ifp->node->info = NULL;
 			route_unlock_node(ifp->node);
 			ifp->node = NULL;
 		}
+=======
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		if_delete(&ifp);
 	}
 }

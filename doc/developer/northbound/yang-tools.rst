@@ -87,7 +87,11 @@ Generate skeleton instance data:
 
 * XML:
 
+<<<<<<< HEAD
    .. code:: sh
+=======
+.. code:: sh
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
    $ pyang -p <yang-search-path> \
        -f sample-xml-skeleton --sample-xml-skeleton-defaults \
@@ -95,7 +99,11 @@ Generate skeleton instance data:
 
 *  JSON:
 
+<<<<<<< HEAD
    .. code:: sh
+=======
+.. code:: sh
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
    $ pyang -p <yang-search-path> \
        -f jsonxsl module.yang -o module.xsl

@@ -624,6 +624,26 @@ DEFPY_YANG(no_ripng_ipv6_distribute_list_prefix,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
+<<<<<<< HEAD
+=======
+/*
+ * XPath: /frr-ripngd:clear-ripng-route
+ */
+DEFPY_YANG (clear_ipv6_rip,
+       clear_ipv6_rip_cmd,
+       "clear ipv6 ripng [vrf WORD]",
+       CLEAR_STR
+       IPV6_STR
+       "Clear IPv6 RIP database\n"
+       VRF_CMD_HELP_STR)
+{
+	if (vrf)
+		nb_cli_rpc_enqueue(vty, "vrf", vrf);
+
+	return nb_cli_rpc(vty, "/frr-ripngd:clear-ripng-route", NULL);
+}
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 /* RIPng node structure. */
 static struct cmd_node cmd_ripng_node = {
 	.name = "ripng",
@@ -663,6 +683,11 @@ void ripng_cli_init(void)
 
 	install_element(INTERFACE_NODE, &ipv6_ripng_split_horizon_cmd);
 
+<<<<<<< HEAD
+=======
+	install_element(ENABLE_NODE, &clear_ipv6_rip_cmd);
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	if_rmap_init(RIPNG_NODE);
 }
 

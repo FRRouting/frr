@@ -16,7 +16,10 @@ import signal
 import subprocess
 import sys
 import time
+<<<<<<< HEAD
 from datetime import datetime, timedelta
+=======
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 from functools import partial
 
 import pytest
@@ -35,8 +38,12 @@ from lib.topotest import interface_set_status, json_cmp
 # pylint: disable=C0413
 # Import topogen and topotest helpers
 from lib import topotest
+<<<<<<< HEAD
 from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
+=======
+from lib.topogen import Topogen, TopoRouter
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 pytestmark = [pytest.mark.ospfd]
 
@@ -220,10 +227,18 @@ def _test_router_id(tgen, testbin):
 
         step("router id: check for modified router id")
         r1.vtysh_multicmd("conf t\nrouter ospf\nospf router-id 1.1.1.1")
+<<<<<<< HEAD
+=======
+        r1.vtysh_multicmd("clear ip ospf process")
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
         _wait_output(p, "SUCCESS: {}".format(waitlist[1]))
 
         step("router id: check for restored router id")
         r1.vtysh_multicmd("conf t\nrouter ospf\nospf router-id 1.0.0.0")
+<<<<<<< HEAD
+=======
+        r1.vtysh_multicmd("clear ip ospf process")
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
         _wait_output(p, "SUCCESS: {}".format(waitlist[2]))
     except Exception as error:
         logging.error("ERROR: %s", error)
@@ -277,9 +292,13 @@ def _test_add_data(tgen, apibin):
                             "linkStateId": "230.0.0.2",
                             "advertisingRouter": "1.0.0.0",
                             "lsaSeqNumber": "80000001",
+<<<<<<< HEAD
                             "opaqueValues": {
                               "opaqueData": "00000202"
                             }
+=======
+                            "opaqueValues": {"opaqueData": "00000202"},
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
                         },
                     ],
                 }
@@ -330,8 +349,13 @@ def _test_add_data(tgen, apibin):
                             "advertisingRouter": "1.0.0.0",
                             "lsaSeqNumber": "80000001",
                             "opaqueValues": {
+<<<<<<< HEAD
                               "opaqueData": "00010101",
                             }
+=======
+                                "opaqueData": "00010101",
+                            },
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
                         },
                     ],
                 }
@@ -381,8 +405,13 @@ def _test_add_data(tgen, apibin):
                     "advertisingRouter": "1.0.0.0",
                     "lsaSeqNumber": "80000001",
                     "opaqueValues": {
+<<<<<<< HEAD
                       "opaqueData": "deadbeaf01234567",
                     }
+=======
+                        "opaqueData": "deadbeaf01234567",
+                    },
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
                 },
             ]
         }
@@ -434,8 +463,13 @@ def _test_add_data(tgen, apibin):
                     "advertisingRouter": "1.0.0.0",
                     "lsaSeqNumber": "80000002",
                     "opaqueValues": {
+<<<<<<< HEAD
                       "opaqueData": "ebadf00d",
                     }
+=======
+                        "opaqueData": "ebadf00d",
+                    },
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
                 },
             ]
         }
@@ -1664,8 +1698,13 @@ def _test_opaque_link_local_lsa_crash(tgen, apibin):
                             "advertisingRouter": "1.0.0.0",
                             "lsaSeqNumber": "80000001",
                             "opaqueValues": {
+<<<<<<< HEAD
                               "opaqueData": "feedaceedeadbeef",
                             }
+=======
+                                "opaqueData": "feedaceedeadbeef",
+                            },
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
                         },
                     ],
                 }
@@ -1695,8 +1734,13 @@ def _test_opaque_link_local_lsa_crash(tgen, apibin):
                             "advertisingRouter": "1.0.0.0",
                             "lsaSeqNumber": "80000001",
                             "opaqueValues": {
+<<<<<<< HEAD
                               "opaqueData": "feedaceecafebeef",
                             }
+=======
+                                "opaqueData": "feedaceecafebeef",
+                            },
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
                         },
                     ],
                 }

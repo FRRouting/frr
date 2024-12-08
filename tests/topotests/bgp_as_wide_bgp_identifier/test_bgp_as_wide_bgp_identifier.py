@@ -48,7 +48,11 @@ def setup_module(mod):
 
     router_list = tgen.routers()
 
+<<<<<<< HEAD
     for i, (rname, router) in enumerate(router_list.items(), 1):
+=======
+    for _, (rname, router) in enumerate(router_list.items(), 1):
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
         router.load_config(
             TopoRouter.RD_ZEBRA, os.path.join(CWD, "{}/zebra.conf".format(rname))
         )
@@ -85,12 +89,20 @@ def test_bgp_as_wide_bgp_identifier():
         return topotest.json_cmp(output, expected)
 
     test_func = functools.partial(_bgp_converge, tgen.gears["r1"])
+<<<<<<< HEAD
     success, result = topotest.run_and_expect(test_func, None, count=260, wait=0.5)
+=======
+    _, result = topotest.run_and_expect(test_func, None, count=260, wait=0.5)
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
     assert result is None, 'Failed to converge: "{}"'.format(tgen.gears["r1"])
 
     test_func = functools.partial(_bgp_failed, tgen.gears["r3"])
+<<<<<<< HEAD
     success, result = topotest.run_and_expect(test_func, None, count=260, wait=0.5)
+=======
+    _, result = topotest.run_and_expect(test_func, None, count=260, wait=0.5)
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
     assert result is None, 'Bad BGP Identifier notification not sent: "{}"'.format(
         tgen.gears["r3"]

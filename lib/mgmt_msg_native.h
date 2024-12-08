@@ -4,6 +4,18 @@
  *
  * Copyright (c) 2023, LabN Consulting, L.L.C.
  *
+<<<<<<< HEAD
+=======
+ * Public APIs:
+ *
+ * The message type codes and corresponding message data definitions for
+ * front-end client messages represent a public API, as such any changes should
+ * only be made according to backward compatible principles (basically never,
+ * just use a new message type). Back-end clients being always compiled with FRR
+ * can be updated (although one should take care in modifying BE messages as it
+ * could impact private back-end client implementations which will then need to
+ * be updated by their owners).
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
  */
 
 #ifndef _FRR_MGMT_MSG_NATIVE_H_
@@ -21,6 +33,10 @@ extern "C" {
 #include "memory.h"
 #include "mgmt_msg.h"
 #include "mgmt_defines.h"
+<<<<<<< HEAD
+=======
+#include "northbound.h"
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 #include <stdalign.h>
 
@@ -149,15 +165,39 @@ DECLARE_MTYPE(MSG_NATIVE_GET_TREE);
 DECLARE_MTYPE(MSG_NATIVE_TREE_DATA);
 DECLARE_MTYPE(MSG_NATIVE_GET_DATA);
 DECLARE_MTYPE(MSG_NATIVE_NOTIFY);
+<<<<<<< HEAD
+=======
+DECLARE_MTYPE(MSG_NATIVE_EDIT);
+DECLARE_MTYPE(MSG_NATIVE_EDIT_REPLY);
+DECLARE_MTYPE(MSG_NATIVE_RPC);
+DECLARE_MTYPE(MSG_NATIVE_RPC_REPLY);
+DECLARE_MTYPE(MSG_NATIVE_SESSION_REQ);
+DECLARE_MTYPE(MSG_NATIVE_SESSION_REPLY);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 /*
  * Native message codes
  */
+<<<<<<< HEAD
 #define MGMT_MSG_CODE_ERROR	0
 #define MGMT_MSG_CODE_GET_TREE	1
 #define MGMT_MSG_CODE_TREE_DATA 2
 #define MGMT_MSG_CODE_GET_DATA	3
 #define MGMT_MSG_CODE_NOTIFY	4
+=======
+#define MGMT_MSG_CODE_ERROR	 0 /* Public API */
+#define MGMT_MSG_CODE_GET_TREE	 1 /* BE only, non-public API */
+#define MGMT_MSG_CODE_TREE_DATA	 2 /* Public API */
+#define MGMT_MSG_CODE_GET_DATA	 3 /* Public API */
+#define MGMT_MSG_CODE_NOTIFY	 4 /* Public API */
+#define MGMT_MSG_CODE_EDIT	 5 /* Public API */
+#define MGMT_MSG_CODE_EDIT_REPLY 6 /* Public API */
+#define MGMT_MSG_CODE_RPC	 7 /* Public API */
+#define MGMT_MSG_CODE_RPC_REPLY	 8 /* Public API */
+#define MGMT_MSG_CODE_NOTIFY_SELECT 9 /* Public API */
+#define MGMT_MSG_CODE_SESSION_REQ   10 /* Public API */
+#define MGMT_MSG_CODE_SESSION_REPLY 11 /* Public API */
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 /*
  * Datastores
@@ -318,12 +358,175 @@ _Static_assert(sizeof(struct mgmt_msg_notify_data) ==
 		       offsetof(struct mgmt_msg_notify_data, data),
 	       "Size mismatch");
 
+<<<<<<< HEAD
+=======
+#define EDIT_FLAG_IMPLICIT_LOCK	  0x01
+#define EDIT_FLAG_IMPLICIT_COMMIT 0x02
+
+#define EDIT_OP_CREATE	0
+#define EDIT_OP_DELETE	4
+#define EDIT_OP_MERGE	2
+#define EDIT_OP_REPLACE 5
+#define EDIT_OP_REMOVE	3
+
+_Static_assert(EDIT_OP_CREATE == NB_OP_CREATE_EXCL, "Operation mismatch");
+_Static_assert(EDIT_OP_DELETE == NB_OP_DELETE, "Operation mismatch");
+_Static_assert(EDIT_OP_MERGE == NB_OP_MODIFY, "Operation mismatch");
+_Static_assert(EDIT_OP_REPLACE == NB_OP_REPLACE, "Operation mismatch");
+_Static_assert(EDIT_OP_REMOVE == NB_OP_DESTROY, "Operation mismatch");
+
+/**
+ * struct mgmt_msg_edit - frontend edit request.
+ *
+ * @request_type: ``LYD_FORMAT`` for the @data.
+ * @flags: combination of ``EDIT_FLAG_*`` flags.
+ * @datastore: the datastore to edit.
+ * @operation: one of ``EDIT_OP_*`` operations.
+ * @data: the xpath followed by the tree data for the operation.
+ *        for CREATE, xpath points to the parent node.
+ */
+struct mgmt_msg_edit {
+	struct mgmt_msg_header;
+	uint8_t request_type;
+	uint8_t flags;
+	uint8_t datastore;
+	uint8_t operation;
+	uint8_t resv2[4];
+
+	alignas(8) char data[];
+};
+_Static_assert(sizeof(struct mgmt_msg_edit) ==
+		       offsetof(struct mgmt_msg_edit, data),
+	       "Size mismatch");
+
+/**
+ * struct mgmt_msg_edit_reply - frontend edit reply.
+ *
+ * @changed: If true then changes in datastore resulted.
+ * @created: If true then object was newly created (non-existing before)
+ * @data: @vsplit values, second value may be zero len.
+ * @data: [0] the xpath of the data node that was created.
+ * @data: [1] Possible structured data to pass back to client (e.g., non-"error"
+ *        yang modeled error data).
+ */
+struct mgmt_msg_edit_reply {
+	struct mgmt_msg_header;
+	uint8_t changed;
+	uint8_t created;
+	uint8_t resv2[6];
+
+	alignas(8) char data[];
+};
+_Static_assert(sizeof(struct mgmt_msg_edit_reply) ==
+		       offsetof(struct mgmt_msg_edit_reply, data),
+	       "Size mismatch");
+
+/**
+ * struct mgmt_msg_rpc - RPC/action request.
+ *
+ * @request_type: ``LYD_FORMAT`` for the @data.
+ * @data: the xpath followed by the tree data for the operation.
+ */
+struct mgmt_msg_rpc {
+	struct mgmt_msg_header;
+	uint8_t request_type;
+	uint8_t resv2[7];
+
+	alignas(8) char data[];
+};
+
+_Static_assert(sizeof(struct mgmt_msg_rpc) ==
+		       offsetof(struct mgmt_msg_rpc, data),
+	       "Size mismatch");
+
+/**
+ * struct mgmt_msg_rpc_reply - RPC/action reply.
+ *
+ * @result_type: ``LYD_FORMAT`` for the @data.
+ * @data: the tree data for the reply.
+ */
+struct mgmt_msg_rpc_reply {
+	struct mgmt_msg_header;
+	uint8_t result_type;
+	uint8_t resv2[7];
+
+	alignas(8) char data[];
+};
+
+_Static_assert(sizeof(struct mgmt_msg_rpc_reply) ==
+		       offsetof(struct mgmt_msg_rpc_reply, data),
+	       "Size mismatch");
+
+/**
+ * struct mgmt_msg_notify_select - Add notification selectors for FE client.
+ *
+ * Add xpath prefix notification selectors to limit the notifications sent
+ * to the front-end client.
+ *
+ * @selectors: the xpath prefixes to selectors notifications through.
+ * @replace: if true replace existing selectors with `selectors`.
+ */
+struct mgmt_msg_notify_select {
+	struct mgmt_msg_header;
+	uint8_t replace;
+	uint8_t resv2[7];
+
+	alignas(8) char selectors[];
+};
+
+_Static_assert(sizeof(struct mgmt_msg_notify_select) ==
+		       offsetof(struct mgmt_msg_notify_select, selectors),
+	       "Size mismatch");
+
+/**
+ * struct mgmt_msg_session_req - Create or delete a front-end session.
+ *
+ * @refer_id: Zero for create, otherwise the session-id to delete.
+ * @req_id: For create will use as client-id.
+ * @client_name: For first session request the client name, otherwise empty.
+ */
+struct mgmt_msg_session_req {
+	struct mgmt_msg_header;
+	uint8_t resv2[8]; /* bug in compiler produces error w/o this */
+
+	alignas(8) char client_name[];
+};
+
+_Static_assert(sizeof(struct mgmt_msg_session_req) ==
+		       offsetof(struct mgmt_msg_session_req, client_name),
+	       "Size mismatch");
+
+/**
+ * struct mgmt_msg_session_reply - Reply to session request message.
+ *
+ * @created: true if this is a reply to a create request, otherwise 0.
+ * @refer_id: The session-id for the action (create or delete) just taken.
+ */
+struct mgmt_msg_session_reply {
+	struct mgmt_msg_header;
+	uint8_t created;
+	uint8_t resv2[7];
+};
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 /*
  * Validate that the message ends in a NUL terminating byte
  */
 #define MGMT_MSG_VALIDATE_NUL_TERM(msgp, len)                                  \
 	((len) >= sizeof(*msgp) + 1 && ((char *)msgp)[(len)-1] == 0)
 
+<<<<<<< HEAD
+=======
+/**
+ * mgmt_msg_get_min_size() - Get minimum message size given the type
+ * @code: The type of the message (MGMT_MSG_CODE_*)
+ *
+ * Return:
+ *	The minimum size of a message of the given type or 0 if the message
+ *	code is unknown.
+ */
+size_t mgmt_msg_get_min_size(uint code);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 /**
  * Send a native message error to the other end of the connection.
@@ -417,6 +620,28 @@ extern int vmgmt_msg_native_send_error(struct msg_conn *conn,
 	})
 
 /**
+<<<<<<< HEAD
+=======
+ * mgmt_msg_native_add_str() - Append [another] string to the msg.
+ * @msg: (IN/OUT) Pointer to the native message, variable may be updated.
+ * @s: string to append.
+ *
+ * Append string @s to the native message @msg. @msg is assumed to have a
+ * sequence of NUL-terminated strings at the end of it. This function appends
+ * the string @s and it's NUL terminating octet to the message.
+ *
+ * NOTE: Be aware @msg pointer may change as a result of reallocating the
+ * message to fit the new data. Any other pointers into the old message should
+ * be discarded.
+ */
+#define mgmt_msg_native_add_str(msg, s)                                        \
+	do {                                                                   \
+		int __len = strlen(s) + 1;                                     \
+		mgmt_msg_native_append(msg, s, __len);                         \
+	} while (0)
+
+/**
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
  * mgmt_msg_native_send_msg(msg, short_circuit_ok) - Send a native msg.
  * @conn: the mgmt_msg connection.
  * @msg: the native message.
@@ -504,13 +729,24 @@ extern int vmgmt_msg_native_send_error(struct msg_conn *conn,
  *	The xpath string or NULL if there was an error decoding (i.e., the
  *	message is corrupt).
  */
+<<<<<<< HEAD
 #define mgmt_msg_native_xpath_data_decode(msg, msglen, data)                   \
+=======
+#define mgmt_msg_native_xpath_data_decode(msg, msglen, __data)                 \
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	({                                                                     \
 		size_t __len = (msglen) - sizeof(*msg);                        \
 		const char *__s = NULL;                                        \
 		if (msg->vsplit && msg->vsplit <= __len &&                     \
 		    msg->data[msg->vsplit - 1] == 0) {                         \
+<<<<<<< HEAD
 			(data) = msg->data + msg->vsplit;                      \
+=======
+			if (msg->vsplit < __len)                               \
+				(__data) = msg->data + msg->vsplit;            \
+			else                                                   \
+				(__data) = NULL;                               \
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 			__s = msg->data;                                       \
 		}                                                              \
 		__s;                                                           \
@@ -578,6 +814,30 @@ extern int vmgmt_msg_native_send_error(struct msg_conn *conn,
 #define mgmt_msg_native_data_len_decode(msg, msglen)                           \
 	((msglen) - sizeof(*msg) - msg->vsplit)
 
+<<<<<<< HEAD
+=======
+/**
+ * mgmt_msg_native_strings_decode() - Get dynamic array of str ptrs from the msg.
+ * @msg: Pointer to the native message.
+ * @msglen: Length of the message.
+ * @sdata: pointer to the variable length string data at end of @msg.
+ *
+ * Given a pointer to a sequence of NUL-terminated strings allocate
+ * and return a dynamic array of dynamic array strings. This function
+ * can be used to decode a message that was built using
+ * mgmt_msg_native_add_str().
+ *
+ * Return: a dynamic array (darr) of string pointers, or NULL if the message
+ * is corrupt.
+ */
+#define mgmt_msg_native_strings_decode(msg, msg_len, sdata)                    \
+	_mgmt_msg_native_strings_decode(sdata,                                 \
+					(msg_len) - ((sdata) - (char *)(msg)))
+
+extern const char **_mgmt_msg_native_strings_decode(const void *sdata,
+						    int sdlen);
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 #ifdef __cplusplus
 }
 #endif

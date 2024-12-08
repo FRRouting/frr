@@ -169,9 +169,21 @@ static void nhrp_reg_send_req(struct event *t)
 	struct nhrp_cie_header *cie;
 
 	if (!nhrp_peer_check(r->peer, 2)) {
+<<<<<<< HEAD
 		debugf(NHRP_DEBUG_COMMON, "NHS: Waiting link for %pSU",
 		       &r->peer->vc->remote.nbma);
 		event_add_timer(master, nhrp_reg_send_req, r, 120,
+=======
+		int renewtime = if_ad->holdtime / 4;
+		/* RFC 2332 5.2.0.1 says "a retry is sent after an appropriate
+		 * interval." Using holdtime/4, to be shorter than
+		 * recommended renew time (holdtime/3), see RFC2332 Sec 5.2.3
+		 */
+		debugf(NHRP_DEBUG_COMMON,
+		       "NHS: Waiting link for %pSU, retrying in %d seconds",
+		       &r->peer->vc->remote.nbma, renewtime);
+		event_add_timer(master, nhrp_reg_send_req, r, renewtime,
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 				&r->t_register);
 		return;
 	}
@@ -210,7 +222,11 @@ static void nhrp_reg_send_req(struct event *t)
 	cie->holding_time = htons(if_ad->holdtime);
 	cie->mtu = htons(if_ad->mtu);
 
+<<<<<<< HEAD
 	nhrp_ext_request(zb, hdr, ifp);
+=======
+	nhrp_ext_request(zb, hdr);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 	/* Cisco NAT detection extension */
 	if (sockunion_family(&r->proto_addr) != AF_UNSPEC) {
@@ -234,7 +250,11 @@ static void nhrp_reg_send_req(struct event *t)
 	cie->mtu = htons(if_ad->mtu);
 	nhrp_ext_complete(zb, ext);
 
+<<<<<<< HEAD
 	nhrp_packet_complete(zb, hdr);
+=======
+	nhrp_packet_complete(zb, hdr, ifp);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	nhrp_peer_send(r->peer, zb);
 	zbuf_free(zb);
 }

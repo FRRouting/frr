@@ -8,6 +8,10 @@
         "outLabel":3,
         "installed":true,
         "nexthop":"10.0.1.1",
+<<<<<<< HEAD
+=======
+        "interface":"eth-sw1",
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
         "backupIndex":[
           0,
           1
@@ -18,12 +22,22 @@
       {
         "type":"SR (IS-IS)",
         "outLabel":16050,
+<<<<<<< HEAD
         "nexthop":"10.0.2.4"
+=======
+        "nexthop":"10.0.2.4",
+        "interface":"eth-rt4-1"
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
       },
       {
         "type":"SR (IS-IS)",
         "outLabel":16050,
+<<<<<<< HEAD
         "nexthop":"10.0.3.4"
+=======
+        "nexthop":"10.0.3.4",
+        "interface":"eth-rt4-2"
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
       }
     ]
   },
@@ -64,6 +78,10 @@
         "outLabel":3,
         "installed":true,
         "nexthop":"10.0.1.3",
+<<<<<<< HEAD
+=======
+        "interface":"eth-sw1",
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
         "backupIndex":[
           0,
           1
@@ -74,12 +92,22 @@
       {
         "type":"SR (IS-IS)",
         "outLabel":16050,
+<<<<<<< HEAD
         "nexthop":"10.0.2.4"
+=======
+        "nexthop":"10.0.2.4",
+        "interface":"eth-rt4-1"
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
       },
       {
         "type":"SR (IS-IS)",
         "outLabel":16050,
+<<<<<<< HEAD
         "nexthop":"10.0.3.4"
+=======
+        "nexthop":"10.0.3.4",
+        "interface":"eth-rt4-2"
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
       }
     ]
   },
@@ -120,6 +148,10 @@
         "outLabel":3,
         "installed":true,
         "nexthop":"10.0.3.4",
+<<<<<<< HEAD
+=======
+        "interface":"eth-rt4-2",
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
         "backupIndex":[
           0
         ]
@@ -129,6 +161,10 @@
         "outLabel":3,
         "installed":true,
         "nexthop":"10.0.2.4",
+<<<<<<< HEAD
+=======
+        "interface":"eth-rt4-1",
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
         "backupIndex":[
           0
         ]
@@ -138,7 +174,12 @@
       {
         "type":"SR (IS-IS)",
         "outLabel":16050,
+<<<<<<< HEAD
         "nexthop":"10.0.1.3"
+=======
+        "nexthop":"10.0.1.3",
+        "interface":"eth-sw1"
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
       }
     ]
   },
@@ -181,19 +222,34 @@
         "type":"SR (IS-IS)",
         "outLabel":16050,
         "installed":true,
+<<<<<<< HEAD
         "nexthop":"10.0.3.4"
+=======
+        "nexthop":"10.0.1.3",
+        "interface":"eth-sw1"
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
       },
       {
         "type":"SR (IS-IS)",
         "outLabel":16050,
         "installed":true,
+<<<<<<< HEAD
         "nexthop":"10.0.2.4"
+=======
+        "nexthop":"10.0.3.4",
+        "interface":"eth-rt4-2"
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
       },
       {
         "type":"SR (IS-IS)",
         "outLabel":16050,
         "installed":true,
+<<<<<<< HEAD
         "nexthop":"10.0.1.3"
+=======
+        "nexthop":"10.0.2.4",
+        "interface":"eth-rt4-1"
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
       }
     ]
   },
@@ -205,6 +261,15 @@
         "type":"SR (IS-IS)",
         "outLabel":16051,
         "installed":true,
+<<<<<<< HEAD
+=======
+        "interface":"eth-sw1"
+      },
+      {
+        "type":"SR (IS-IS)",
+        "outLabel":16051,
+        "installed":true,
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
         "interface":"eth-rt4-2"
       },
       {
@@ -212,12 +277,15 @@
         "outLabel":16051,
         "installed":true,
         "interface":"eth-rt4-1"
+<<<<<<< HEAD
       },
       {
         "type":"SR (IS-IS)",
         "outLabel":16051,
         "installed":true,
         "interface":"eth-sw1"
+=======
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
       }
     ]
   },
@@ -230,6 +298,10 @@
         "outLabel":16060,
         "installed":true,
         "nexthop":"10.0.3.4",
+<<<<<<< HEAD
+=======
+        "interface":"eth-rt4-2",
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
         "backupIndex":[
           0
         ]
@@ -239,6 +311,10 @@
         "outLabel":16060,
         "installed":true,
         "nexthop":"10.0.2.4",
+<<<<<<< HEAD
+=======
+        "interface":"eth-rt4-1",
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
         "backupIndex":[
           0
         ]
@@ -248,7 +324,12 @@
       {
         "type":"SR (IS-IS)",
         "outLabel":16060,
+<<<<<<< HEAD
         "nexthop":"10.0.1.3"
+=======
+        "nexthop":"10.0.1.3",
+        "interface":"eth-sw1"
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
       }
     ]
   },

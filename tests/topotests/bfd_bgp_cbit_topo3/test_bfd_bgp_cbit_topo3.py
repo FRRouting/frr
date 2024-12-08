@@ -122,14 +122,20 @@ def test_bfd_connection():
 
 def test_bfd_loss_intermediate():
     """
+<<<<<<< HEAD
     Assert that BFD notices the bfd link down failure.
     but BGP entries should still be present
+=======
+    Assert that BGP notices the BFD link down failure.
+    The BGP entries should be flushed as the C-bit is set in both directions.
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
     """
     tgen = get_topogen()
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
     r1 = tgen.gears["r1"]
+<<<<<<< HEAD
     expected = { "as":101, "peers":{ "2001:db8:4::1": { "state":"Established" } } }
     test_func = partial(topotest.router_json_cmp, r1, "show bgp ipv6 uni summ json", expected)
     _, result = topotest.run_and_expect(test_func, None, count=60, wait=1)
@@ -137,6 +143,17 @@ def test_bfd_loss_intermediate():
     assert result is None, assertmsg
 
     #assert False
+=======
+    expected = {"as": 101, "peers": {"2001:db8:4::1": {"state": "Established"}}}
+    test_func = partial(
+        topotest.router_json_cmp, r1, "show bgp ipv6 uni summ json", expected
+    )
+    _, result = topotest.run_and_expect(test_func, None, count=60, wait=1)
+    assertmsg = '"r1" has not established bgp peering yet'
+    assert result is None, assertmsg
+
+    # assert False
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
     logger.info("removing IPv6 address from r2 to simulate loss of connectivity")
     # Disable r2-eth0 ipv6 address
     cmd = 'vtysh -c "configure terminal" -c "interface r2-eth1" -c "no ipv6 address 2001:db8:4::2/64"'
@@ -160,7 +177,11 @@ def test_bfd_loss_intermediate():
         assertmsg = '"{}" JSON output mismatches'.format(router.name)
         assert result is None, assertmsg
 
+<<<<<<< HEAD
     logger.info("waiting for BGP entries to become stale")
+=======
+    logger.info("waiting for BGP entries to be removed")
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
     for router in tgen.routers().values():
         if router.name == "r2":
             continue

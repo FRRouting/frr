@@ -65,9 +65,12 @@ enum lib_log_refs {
 	EC_LIB_NB_TRANSACTION_RECORD_FAILED,
 	EC_LIB_LIBYANG,
 	EC_LIB_LIBYANG_PLUGIN_LOAD,
+<<<<<<< HEAD
 	EC_LIB_CONFD_INIT,
 	EC_LIB_CONFD_DATA_CONVERT,
 	EC_LIB_LIBCONFD,
+=======
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	EC_LIB_SYSREPO_INIT,
 	EC_LIB_SYSREPO_DATA_CONVERT,
 	EC_LIB_LIBSYSREPO,

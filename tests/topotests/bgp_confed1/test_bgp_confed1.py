@@ -32,7 +32,11 @@ pytestmark = [pytest.mark.bgpd]
 
 
 def build_topo(tgen):
+<<<<<<< HEAD
     for routern in range(1, 5):  
+=======
+    for routern in range(1, 5):
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
         tgen.add_router("r{}".format(routern))
 
     switch = tgen.add_switch("s1")
@@ -47,8 +51,13 @@ def build_topo(tgen):
     switch.add_link(tgen.gears["r2"])
     switch.add_link(tgen.gears["r3"])
 
+<<<<<<< HEAD
 def setup_module(mod):
 
+=======
+
+def setup_module(mod):
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
     tgen = Topogen(build_topo, mod.__name__)
     tgen.start_topology()
 
@@ -67,6 +76,10 @@ def setup_module(mod):
     # Initialize all routers.
     tgen.start_router()
 
+<<<<<<< HEAD
+=======
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 def teardown_module(_mod):
     "Teardown the pytest environment"
     tgen = get_topogen()

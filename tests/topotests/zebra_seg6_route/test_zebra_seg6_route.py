@@ -73,6 +73,19 @@ def test_zebra_seg6_routes():
             return False
         return topotest.json_cmp(output, expected)
 
+<<<<<<< HEAD
+=======
+    def check_connected(router, dest, expected):
+        logger.info("Checking for connected")
+        output = json.loads(router.vtysh_cmd("show ipv6 route {} json".format(dest)))
+        return topotest.json_cmp(output, expected)
+
+    expected = open_json_file(os.path.join(CWD, "{}/routes_setup.json".format("r1")))
+    test_func = partial(check_connected, r1, "2001::/64", expected)
+    _, result = topotest.run_and_expect(test_func, None, count=20, wait=1)
+    assert result is None, "Failed to fully setup connected routes needed"
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
     manifests = open_json_file(os.path.join(CWD, "{}/routes.json".format("r1")))
     for manifest in manifests:
         dest = manifest["in"]["dest"]
@@ -86,7 +99,11 @@ def test_zebra_seg6_routes():
         )
         logger.info("CHECK {} {} {}".format(dest, nh, sid))
         test_func = partial(check, r1, dest, manifest["out"])
+<<<<<<< HEAD
         success, result = topotest.run_and_expect(test_func, None, count=20, wait=1)
+=======
+        _, result = topotest.run_and_expect(test_func, None, count=20, wait=1)
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
         assert result is None, "Failed"
 
 

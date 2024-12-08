@@ -16,18 +16,28 @@ import json
 import pytest
 import functools
 
+<<<<<<< HEAD
 pytestmark = pytest.mark.bgpd
+=======
+pytestmark = [pytest.mark.bgpd]
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 CWD = os.path.dirname(os.path.realpath(__file__))
 sys.path.append(os.path.join(CWD, "../"))
 
 # pylint: disable=C0413
 from lib import topotest
+<<<<<<< HEAD
 from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.common_config import step
 
 pytestmark = [pytest.mark.bgpd]
 
+=======
+from lib.topogen import Topogen, get_topogen
+from lib.common_config import step
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 def setup_module(mod):
     topodef = {"s1": ("r1", "r2")}

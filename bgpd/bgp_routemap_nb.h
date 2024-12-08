@@ -46,6 +46,21 @@ int lib_route_map_entry_match_condition_rmap_match_condition_peer_ipv6_address_m
 int lib_route_map_entry_match_condition_rmap_match_condition_peer_ipv6_address_destroy(struct nb_cb_destroy_args *args);
 int lib_route_map_entry_match_condition_rmap_match_condition_peer_local_modify(struct nb_cb_modify_args *args);
 int lib_route_map_entry_match_condition_rmap_match_condition_peer_local_destroy(struct nb_cb_destroy_args *args);
+<<<<<<< HEAD
+=======
+int lib_route_map_entry_match_condition_rmap_match_condition_src_peer_ipv4_address_modify(
+	struct nb_cb_modify_args *args);
+int lib_route_map_entry_match_condition_rmap_match_condition_src_peer_ipv4_address_destroy(
+	struct nb_cb_destroy_args *args);
+int lib_route_map_entry_match_condition_rmap_match_condition_src_peer_interface_modify(
+	struct nb_cb_modify_args *args);
+int lib_route_map_entry_match_condition_rmap_match_condition_src_peer_interface_destroy(
+	struct nb_cb_destroy_args *args);
+int lib_route_map_entry_match_condition_rmap_match_condition_src_peer_ipv6_address_modify(
+	struct nb_cb_modify_args *args);
+int lib_route_map_entry_match_condition_rmap_match_condition_src_peer_ipv6_address_destroy(
+	struct nb_cb_destroy_args *args);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 int lib_route_map_entry_match_condition_rmap_match_condition_access_list_num_modify(struct nb_cb_modify_args *args);
 int lib_route_map_entry_match_condition_rmap_match_condition_access_list_num_destroy(struct nb_cb_destroy_args *args);
 int lib_route_map_entry_match_condition_rmap_match_condition_access_list_num_extended_modify(struct nb_cb_modify_args *args);

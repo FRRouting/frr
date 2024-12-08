@@ -32,7 +32,11 @@ libyang
    cd libyang
    git checkout v2.1.148
    mkdir build; cd build
+<<<<<<< HEAD
    cmake -DCMAKE_INSTALL_PREFIX:PATH=/usr \
+=======
+   cmake --install-prefix /usr \
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
          -DCMAKE_BUILD_TYPE:String="Release" ..
    make
    sudo make install
@@ -51,7 +55,11 @@ Sysrepo
    cd sysrepo/
    git checkout v2.2.150
    mkdir build; cd build
+<<<<<<< HEAD
    cmake -DCMAKE_INSTALL_PREFIX:PATH=/usr \
+=======
+   cmake --install-prefix /usr \
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
          -DCMAKE_BUILD_TYPE:String="Release" ..
    make
    sudo make install

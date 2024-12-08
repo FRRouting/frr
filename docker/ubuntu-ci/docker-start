@@ -1,8 +1,13 @@
 #!/bin/bash
+<<<<<<< HEAD
 
 if [ $(uname -a | grep -ci Ubuntu) -ge 1 ]; then
     #for topotests under ubuntu host
     sudo modprobe mpls-router mpls-iptunnel
     sudo /etc/init.d/openvswitch-switch start
+=======
+if [ $(uname -a | grep -ci Ubuntu) -ge 1 ]; then
+    sudo modprobe mpls-router mpls-iptunnel vrf
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 fi
 while true ; do sleep 365d ; done

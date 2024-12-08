@@ -1,6 +1,7 @@
 from lib.lutil import luCommand
 
 luCommand(
+<<<<<<< HEAD
     "r1", 'vtysh -c "show bgp next"', "99.0.0.. valid", "wait", "See CE static NH"
 )
 luCommand(
@@ -12,6 +13,19 @@ luCommand(
 luCommand("r1", 'vtysh -c "show bgp ipv4 uni"', "i5.*i5", "wait", "See CE routes")
 luCommand("r3", 'vtysh -c "show bgp ipv4 uni"', "i5.*i5", "wait", "See CE routes")
 luCommand("r4", 'vtysh -c "show bgp ipv4 uni"', "i5.*i5", "wait", "See CE routes")
+=======
+    "r1", 'vtysh -c "show bgp nexthop"', "99.0.0.. valid", "wait", "See CE static NH"
+)
+luCommand(
+    "r3", 'vtysh -c "show bgp nexthop"', "99.0.0.. valid", "wait", "See CE static NH"
+)
+luCommand(
+    "r4", 'vtysh -c "show bgp nexthop"', "99.0.0.. valid", "wait", "See CE static NH"
+)
+luCommand("r1", 'vtysh -c "show bgp ipv4 uni"', "i 5.*i 5", "wait", "See CE routes")
+luCommand("r3", 'vtysh -c "show bgp ipv4 uni"', "i 5.*i 5", "wait", "See CE routes")
+luCommand("r4", 'vtysh -c "show bgp ipv4 uni"', "i 5.*i 5", "wait", "See CE routes")
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 luCommand("ce1", 'vtysh -c "show bgp ipv4 uni 5.1.0.0/24"', "", "none", "See CE routes")
 luCommand("r1", 'vtysh -c "show bgp ipv4 uni 5.1.0.0/24"', "", "none", "See CE routes")
 luCommand("ce2", 'vtysh -c "show bgp ipv4 uni 5.1.0.0/24"', "", "none", "See CE routes")
@@ -39,22 +53,37 @@ luCommand(
 luCommand(
     "r3",
     'vtysh -c "show bgp ipv4 vpn"',
+<<<<<<< HEAD
     "i99.0.0.1/32",
+=======
+    "i 99.0.0.1/32",
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
     "wait",
     "See R1s static address",
 )
 luCommand(
     "r4",
     'vtysh -c "show bgp ipv4 vpn"',
+<<<<<<< HEAD
     "i99.0.0.1/32",
+=======
+    "i 99.0.0.1/32",
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
     "wait",
     "See R1s static address",
 )
 luCommand(
+<<<<<<< HEAD
     "r3", 'vtysh -c "show bgp ipv4 vpn rd 10:1"', "i5.*i5", "wait", "See R1s imports"
 )
 luCommand(
     "r4", 'vtysh -c "show bgp ipv4 vpn rd 10:1"', "i5.*i5", "wait", "See R1s imports"
+=======
+    "r3", 'vtysh -c "show bgp ipv4 vpn rd 10:1"', "i 5.*i 5", "wait", "See R1s imports"
+)
+luCommand(
+    "r4", 'vtysh -c "show bgp ipv4 vpn rd 10:1"', "i 5.*i 5", "wait", "See R1s imports"
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 )
 
 luCommand(
@@ -86,14 +115,22 @@ if have2ndImports:
 luCommand(
     "r1",
     'vtysh -c "show bgp ipv4 vpn"',
+<<<<<<< HEAD
     "i99.0.0.2/32",
+=======
+    "i 99.0.0.2/32",
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
     "wait",
     "See R3s static address",
 )
 luCommand(
     "r4",
     'vtysh -c "show bgp ipv4 vpn"',
+<<<<<<< HEAD
     "i99.0.0.2/32",
+=======
+    "i 99.0.0.2/32",
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
     "wait",
     "See R3s static address",
 )
@@ -101,14 +138,22 @@ if have2ndImports:
     luCommand(
         "r1",
         'vtysh -c "show bgp ipv4 vpn rd 10:3"',
+<<<<<<< HEAD
         "i5.*i5",
+=======
+        "i 5.*i 5",
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
         "none",
         "See R3s imports",
     )
     luCommand(
         "r4",
         'vtysh -c "show bgp ipv4 vpn rd 10:3"',
+<<<<<<< HEAD
         "i5.*i5",
+=======
+        "i 5.*i 5",
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
         "none",
         "See R3s imports",
     )
@@ -133,22 +178,37 @@ luCommand(
 luCommand(
     "r1",
     'vtysh -c "show bgp ipv4 vpn"',
+<<<<<<< HEAD
     "i99.0.0.3/32",
+=======
+    "i 99.0.0.3/32",
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
     "wait",
     "See R4s static address",
 )
 luCommand(
     "r3",
     'vtysh -c "show bgp ipv4 vpn"',
+<<<<<<< HEAD
     "i99.0.0.3/32",
+=======
+    "i 99.0.0.3/32",
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
     "wait",
     "See R4s static address",
 )
 luCommand(
+<<<<<<< HEAD
     "r1", 'vtysh -c "show bgp ipv4 vpn rd 10:4"', "i5.*i5", "wait", "See R4s imports"
 )
 luCommand(
     "r3", 'vtysh -c "show bgp ipv4 vpn rd 10:4"', "i5.*i5", "wait", "See R4s imports"
+=======
+    "r1", 'vtysh -c "show bgp ipv4 vpn rd 10:4"', "i 5.*i 5", "wait", "See R4s imports"
+)
+luCommand(
+    "r3", 'vtysh -c "show bgp ipv4 vpn rd 10:4"', "i 5.*i 5", "wait", "See R4s imports"
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 )
 
 

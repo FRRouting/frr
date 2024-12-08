@@ -145,18 +145,30 @@ module frr-zebra {
       "Zebra interface type bond.";
   }
 
+<<<<<<< HEAD
   identity zif-bond-slave {
     base zebra-interface-type;
     description
       "Zebra interface type bond slave.";
   }
 
+=======
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
   identity zif-macvlan {
     base zebra-interface-type;
     description
       "Zebra interface type macvlan.";
   }
 
+<<<<<<< HEAD
+=======
+  identity zif-gre {
+    base zebra-interface-type;
+    description
+      "Zebra interface type gre.";
+  }
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
   /*
    * Multicast RPF mode configurable type
    */
@@ -626,6 +638,10 @@ module frr-zebra {
 
         leaf table-id {
           type uint32;
+<<<<<<< HEAD
+=======
+	  default "254";
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
           description
             "Routing Table id (default id - 254).";
         }
@@ -2733,6 +2749,15 @@ module frr-zebra {
           description
             "The VNI multicast group for BUM traffic.";
         }
+<<<<<<< HEAD
+=======
+
+        leaf bond {
+          type frr-interface:interface-ref;
+          description
+            "The bond interface this interface belongs to.";
+        }
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
       }
     }
   }
@@ -2849,6 +2874,19 @@ module frr-zebra {
         }
       }
 
+<<<<<<< HEAD
+=======
+      container mpls {
+        description
+          "MPLS Configuration.";
+          leaf fec-nexthop-resolution {
+            type boolean;
+            description
+              "Authorise nexthop resolution over all labeled routes.";
+          }
+      }
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
       uses ribs;
 
       uses vrf-vni-mapping;

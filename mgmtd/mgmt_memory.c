@@ -20,6 +20,10 @@
 DEFINE_MGROUP(MGMTD, "mgmt");
 DEFINE_MTYPE(MGMTD, MGMTD, "instance");
 DEFINE_MTYPE(MGMTD, MGMTD_XPATH, "xpath regex");
+<<<<<<< HEAD
+=======
+DEFINE_MTYPE(MGMTD, MGMTD_ERR, "error");
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 DEFINE_MTYPE(MGMTD, MGMTD_BE_ADPATER, "backend adapter");
 DEFINE_MTYPE(MGMTD, MGMTD_FE_ADPATER, "frontend adapter");
 DEFINE_MTYPE(MGMTD, MGMTD_FE_SESSION, "frontend session");
@@ -30,5 +34,9 @@ DEFINE_MTYPE(MGMTD, MGMTD_TXN_COMMCFG_REQ, "txn commit-config requests");
 DEFINE_MTYPE(MGMTD, MGMTD_TXN_GETDATA_REQ, "txn get-data requests");
 DEFINE_MTYPE(MGMTD, MGMTD_TXN_GETDATA_REPLY, "txn get-data replies");
 DEFINE_MTYPE(MGMTD, MGMTD_TXN_GETTREE_REQ, "txn get-tree requests");
+<<<<<<< HEAD
+=======
+DEFINE_MTYPE(MGMTD, MGMTD_TXN_RPC_REQ, "txn rpc requests");
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 DEFINE_MTYPE(MGMTD, MGMTD_TXN_CFG_BATCH, "txn config batches");
 DEFINE_MTYPE(MGMTD, MGMTD_CMT_INFO, "commit info");

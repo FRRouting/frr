@@ -1124,6 +1124,18 @@ const char *prefix2str(union prefixconstptr pu, char *str, int size)
 	return str;
 }
 
+<<<<<<< HEAD
+=======
+void prefix_mcast_ip_dump(const char *onfail, const struct ipaddr *addr,
+			  char *buf, int buf_size)
+{
+	if (ipaddr_is_zero(addr))
+		strlcpy(buf, "*", buf_size);
+	else
+		(void)snprintfrr(buf, buf_size, "%pIA", addr);
+}
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 static ssize_t prefixhost2str(struct fbuf *fbuf, union prefixconstptr pu)
 {
 	const struct prefix *p = pu.p;
@@ -1166,7 +1178,11 @@ const char *prefix_sg2str(const struct prefix_sg *sg, char *sg_str)
 	char src_str[INET_ADDRSTRLEN];
 	char grp_str[INET_ADDRSTRLEN];
 
+<<<<<<< HEAD
 	prefix_mcast_inet4_dump("<src?>", sg->src, src_str, sizeof(src_str));
+=======
+	prefix_mcast_ip_dump("<src?>", &sg->src, src_str, sizeof(src_str));
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	prefix_mcast_inet4_dump("<grp?>", sg->grp, grp_str, sizeof(grp_str));
 	snprintf(sg_str, PREFIX_SG_STR_LEN, "(%s,%s)", src_str, grp_str);
 
@@ -1637,10 +1653,17 @@ static ssize_t printfrr_psg(struct fbuf *buf, struct printfrr_eargs *ea,
 	if (!sg)
 		return bputs(buf, "(null)");
 
+<<<<<<< HEAD
 	if (sg->src.s_addr == INADDR_ANY)
 		ret += bputs(buf, "(*,");
 	else
 		ret += bprintfrr(buf, "(%pI4,", &sg->src);
+=======
+	if (ipaddr_is_zero(&sg->src))
+		ret += bputs(buf, "(*,");
+	else
+		ret += bprintfrr(buf, "(%pIA,", &sg->src);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 	if (sg->grp.s_addr == INADDR_ANY)
 		ret += bputs(buf, "*)");

@@ -44,7 +44,11 @@ def setup_module(mod):
 
     router_list = tgen.routers()
 
+<<<<<<< HEAD
     for i, (rname, router) in enumerate(router_list.items(), 1):
+=======
+    for _, (rname, router) in enumerate(router_list.items(), 1):
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
         router.load_config(
             TopoRouter.RD_ZEBRA, os.path.join(CWD, "{}/zebra.conf".format(rname))
         )
@@ -189,7 +193,11 @@ def test_show_bgp_rpki_prefixes_no_rpki_cache():
         """
 configure
 rpki
+<<<<<<< HEAD
  no rpki cache 192.0.2.1 15432 preference 1
+=======
+ no rpki cache tcp 192.0.2.1 15432 preference 1
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 exit
 """
     )
@@ -219,7 +227,11 @@ def test_show_bgp_rpki_prefixes_reconnect():
         """
 configure
 rpki
+<<<<<<< HEAD
  rpki cache 192.0.2.1 15432 preference 1
+=======
+ rpki cache tcp 192.0.2.1 15432 preference 1
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 exit
 """
     )
@@ -319,7 +331,11 @@ def test_show_bgp_rpki_prefixes_vrf():
 configure
 vrf vrf10
  rpki
+<<<<<<< HEAD
   rpki cache 192.0.2.3 15432 preference 1
+=======
+  rpki cache tcp 192.0.2.3 15432 preference 1
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
  exit
 exit
 """

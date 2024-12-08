@@ -1214,6 +1214,37 @@ static int lib_route_map_entry_set_action_use_round_trip_time_destroy(
 }
 
 /*
+<<<<<<< HEAD
+=======
+ * XPath: /frr-route-map:lib/route-map/entry/set-action/use-igp
+ */
+static int lib_route_map_entry_set_action_use_igp_modify(struct nb_cb_modify_args *args)
+{
+	return set_action_modify(args->event, args->dnode, args->resource, "igp", args->errmsg,
+				 args->errmsg_len);
+}
+
+static int lib_route_map_entry_set_action_use_igp_destroy(struct nb_cb_destroy_args *args)
+{
+	return lib_route_map_entry_set_action_value_destroy(args);
+}
+
+/*
+ * XPath: /frr-route-map:lib/route-map/entry/set-action/use-aigp
+ */
+static int lib_route_map_entry_set_action_use_aigp_modify(struct nb_cb_modify_args *args)
+{
+	return set_action_modify(args->event, args->dnode, args->resource, "aigp", args->errmsg,
+				 args->errmsg_len);
+}
+
+static int lib_route_map_entry_set_action_use_aigp_destroy(struct nb_cb_destroy_args *args)
+{
+	return lib_route_map_entry_set_action_value_destroy(args);
+}
+
+/*
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
  * XPath: /frr-route-map:lib/route-map/entry/set-action/add-round-trip-time
  */
 static int lib_route_map_entry_set_action_add_round_trip_time_modify(
@@ -1517,6 +1548,23 @@ const struct frr_yang_module_info frr_route_map_info = {
 			}
 		},
 		{
+<<<<<<< HEAD
+=======
+			.xpath = "/frr-route-map:lib/route-map/entry/set-action/rmap-set-action/use-igp",
+			.cbs = {
+				.modify = lib_route_map_entry_set_action_use_igp_modify,
+				.destroy = lib_route_map_entry_set_action_use_igp_destroy,
+			}
+		},
+		{
+			.xpath = "/frr-route-map:lib/route-map/entry/set-action/rmap-set-action/use-aigp",
+			.cbs = {
+				.modify = lib_route_map_entry_set_action_use_aigp_modify,
+				.destroy = lib_route_map_entry_set_action_use_aigp_destroy,
+			}
+		},
+		{
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 			.xpath = "/frr-route-map:lib/route-map/entry/set-action/rmap-set-action/add-round-trip-time",
 			.cbs = {
 				.modify = lib_route_map_entry_set_action_add_round_trip_time_modify,

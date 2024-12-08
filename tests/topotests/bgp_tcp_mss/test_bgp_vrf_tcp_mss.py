@@ -17,12 +17,16 @@ Need to verify if the tcp-mss value is reflected in the TCP session and in VRF.
 
 import os
 import sys
+<<<<<<< HEAD
 import json
 import pytest
 import functools
 import platform
 import socket
 import subprocess
+=======
+import pytest
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 # add after imports, before defining classes or functions:
 pytestmark = [pytest.mark.bgpd]
@@ -31,6 +35,7 @@ CWD = os.path.dirname(os.path.realpath(__file__))
 sys.path.append(os.path.join(CWD, "../"))
 
 # pylint: disable=C0413
+<<<<<<< HEAD
 from lib import topotest
 from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topojson import build_config_from_json
@@ -47,10 +52,22 @@ from lib.bgp import (
     verify_bgp_timers_and_functionality,
     verify_router_id,
     verify_tcp_mss
+=======
+from lib.topogen import Topogen, get_topogen
+from lib.topojson import build_config_from_json
+import time
+from lib.bgp import (
+    clear_bgp,
+    create_router_bgp,
+    verify_bgp_convergence,
+    verify_bgp_rib,
+    verify_tcp_mss,
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 )
 from lib.common_config import (
     kill_router_daemons,
     start_router_daemons,
+<<<<<<< HEAD
     addKernelRoute,
     apply_raw_config,
     check_address_types,
@@ -70,6 +87,18 @@ from lib.common_config import (
 )
 
 pytestmark = [pytest.mark.bgpd]
+=======
+    apply_raw_config,
+    check_address_types,
+    check_router_status,
+    create_static_routes,
+    required_linux_kernel_version,
+    start_topology,
+    step,
+    write_test_footer,
+)
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 # Global variables
 NETWORK1_1 = {"ipv4": "1.1.1.1/32", "ipv6": "1::1/128"}
 NETWORK1_2 = {"ipv4": "1.1.1.2/32", "ipv6": "1::2/128"}
@@ -85,7 +114,12 @@ NETWORK5_2 = {"ipv4": "5.1.1.2/32", "ipv6": "5::2/128"}
 NEXT_HOP_IP = {"ipv4": "Null0", "ipv6": "Null0"}
 
 ## File name
+<<<<<<< HEAD
 TCPDUMP_FILE="test_tcp_packet_test.txt"
+=======
+TCPDUMP_FILE = "test_tcp_packet_test.txt"
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 def setup_module(mod):
     """
@@ -93,7 +127,11 @@ def setup_module(mod):
 
     * `mod`: module name
     """
+<<<<<<< HEAD
     global topo,TCPDUMP_FILE
+=======
+    global topo, TCPDUMP_FILE
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
     # Required linux kernel version for this suite to run.
     result = required_linux_kernel_version("4.15")
@@ -128,6 +166,10 @@ def setup_module(mod):
 
     step("Running setup_module() done")
 
+<<<<<<< HEAD
+=======
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 def teardown_module():
     """Teardown the pytest environment"""
 
@@ -138,9 +180,13 @@ def teardown_module():
     # Stop toplogy and Remove tmp files
     tgen.stop_topology()
 
+<<<<<<< HEAD
     step(
         "Testsuite end time: {}".format(time.asctime(time.localtime(time.time())))
     )
+=======
+    step("Testsuite end time: {}".format(time.asctime(time.localtime(time.time()))))
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
     step("=" * 40)
 
 
@@ -150,6 +196,10 @@ def teardown_module():
 #
 #####################################################
 
+<<<<<<< HEAD
+=======
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 def test_bgp_vrf_tcp_mss(request):
     tgen = get_topogen()
     tc_name = request.node.name
@@ -280,6 +330,7 @@ def test_bgp_vrf_tcp_mss(request):
     step("Verify the static Routes in R2 on RED VRF")
     for addr_type in ADDR_TYPES:
         static_routes_input = {
+<<<<<<< HEAD
         "r3": {
             "static_routes": [
                 {
@@ -308,6 +359,36 @@ def test_bgp_vrf_tcp_mss(request):
                     "vrf": "RED",
                 },
             ]
+=======
+            "r3": {
+                "static_routes": [
+                    {
+                        "network": [NETWORK1_1[addr_type]] + [NETWORK1_2[addr_type]],
+                        "next_hop": NEXT_HOP_IP[addr_type],
+                        "vrf": "RED",
+                    },
+                    {
+                        "network": [NETWORK2_1[addr_type]] + [NETWORK2_2[addr_type]],
+                        "next_hop": NEXT_HOP_IP[addr_type],
+                        "vrf": "RED",
+                    },
+                    {
+                        "network": [NETWORK3_1[addr_type]] + [NETWORK3_2[addr_type]],
+                        "next_hop": NEXT_HOP_IP[addr_type],
+                        "vrf": "RED",
+                    },
+                    {
+                        "network": [NETWORK4_1[addr_type]] + [NETWORK4_2[addr_type]],
+                        "next_hop": NEXT_HOP_IP[addr_type],
+                        "vrf": "RED",
+                    },
+                    {
+                        "network": [NETWORK5_1[addr_type]] + [NETWORK5_2[addr_type]],
+                        "next_hop": NEXT_HOP_IP[addr_type],
+                        "vrf": "RED",
+                    },
+                ]
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
             }
         }
         dut = "r2"
@@ -317,6 +398,7 @@ def test_bgp_vrf_tcp_mss(request):
     step("Verify the static Routes in R1 on RED VRF")
     for addr_type in ADDR_TYPES:
         static_routes_input = {
+<<<<<<< HEAD
         "r3": {
             "static_routes": [
                 {
@@ -345,6 +427,36 @@ def test_bgp_vrf_tcp_mss(request):
                     "vrf": "RED",
                 },
             ]
+=======
+            "r3": {
+                "static_routes": [
+                    {
+                        "network": [NETWORK1_1[addr_type]] + [NETWORK1_2[addr_type]],
+                        "next_hop": NEXT_HOP_IP[addr_type],
+                        "vrf": "RED",
+                    },
+                    {
+                        "network": [NETWORK2_1[addr_type]] + [NETWORK2_2[addr_type]],
+                        "next_hop": NEXT_HOP_IP[addr_type],
+                        "vrf": "RED",
+                    },
+                    {
+                        "network": [NETWORK3_1[addr_type]] + [NETWORK3_2[addr_type]],
+                        "next_hop": NEXT_HOP_IP[addr_type],
+                        "vrf": "RED",
+                    },
+                    {
+                        "network": [NETWORK4_1[addr_type]] + [NETWORK4_2[addr_type]],
+                        "next_hop": NEXT_HOP_IP[addr_type],
+                        "vrf": "RED",
+                    },
+                    {
+                        "network": [NETWORK5_1[addr_type]] + [NETWORK5_2[addr_type]],
+                        "next_hop": NEXT_HOP_IP[addr_type],
+                        "vrf": "RED",
+                    },
+                ]
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
             }
         }
         dut = "r1"
@@ -404,9 +516,12 @@ def test_bgp_vrf_tcp_mss(request):
             tcp_mss_result
         )
 
+<<<<<<< HEAD
 
 
 
+=======
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
     step("Enabling tcp-mss 500 between R2 and R3 of VRF Default")
     TCP_MSS = 500
     raw_config = {
@@ -440,8 +555,11 @@ def test_bgp_vrf_tcp_mss(request):
     result = apply_raw_config(tgen, raw_config)
     assert result is True, "Testcase {} : Failed Error: {}".format(tc_name, result)
 
+<<<<<<< HEAD
 
 
+=======
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
     step("Clear BGP at router R2 and R3")
     for addr_type in ADDR_TYPES:
         clear_bgp(tgen, topo, "r2", addr_type)
@@ -550,7 +668,10 @@ def test_bgp_vrf_tcp_mss(request):
             tcp_mss_result is not True
         ), " TCP-MSS mismatch :Failed \n Error: {}".format(tcp_mss_result)
 
+<<<<<<< HEAD
 
+=======
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
     step("Removing tcp-mss 500 between R2 and R3 of VRF Default ")
     TCP_MSS = 500
     raw_config = {

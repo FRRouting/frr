@@ -82,7 +82,11 @@ DEFPY(watch_redistribute, watch_redistribute_cmd,
 }
 
 DEFPY(watch_nexthop_v6, watch_nexthop_v6_cmd,
+<<<<<<< HEAD
       "sharp watch [vrf NAME$vrf_name] <nexthop$n X:X::X:X$nhop|import$import X:X::X:X/M$inhop>  [connected$connected]",
+=======
+      "sharp watch [vrf NAME$vrf_name] <nexthop$n X:X::X:X$nhop|import$import X:X::X:X/M$inhop>  [connected$connected] [mrib$mrib]",
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
       "Sharp routing Protocol\n"
       "Watch for changes\n"
       "The vrf we would like to watch if non-default\n"
@@ -91,7 +95,12 @@ DEFPY(watch_nexthop_v6, watch_nexthop_v6_cmd,
       "The v6 nexthop to signal for watching\n"
       "Watch for import check changes\n"
       "The v6 prefix to signal for watching\n"
+<<<<<<< HEAD
       "Should the route be connected\n")
+=======
+      "Should the route be connected\n"
+      "In the Multicast rib\n")
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 {
 	struct vrf *vrf;
 	struct prefix p;
@@ -119,14 +128,22 @@ DEFPY(watch_nexthop_v6, watch_nexthop_v6_cmd,
 	}
 
 	sharp_nh_tracker_get(&p);
+<<<<<<< HEAD
 	sharp_zebra_nexthop_watch(&p, vrf->vrf_id, type_import,
 				  true, !!connected);
+=======
+	sharp_zebra_nexthop_watch(&p, vrf->vrf_id, type_import, true, !!connected, !!mrib);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 	return CMD_SUCCESS;
 }
 
 DEFPY(watch_nexthop_v4, watch_nexthop_v4_cmd,
+<<<<<<< HEAD
       "sharp watch [vrf NAME$vrf_name] <nexthop$n A.B.C.D$nhop|import$import A.B.C.D/M$inhop> [connected$connected]",
+=======
+      "sharp watch [vrf NAME$vrf_name] <nexthop$n A.B.C.D$nhop|import$import A.B.C.D/M$inhop> [connected$connected] [mrib$mrib]",
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
       "Sharp routing Protocol\n"
       "Watch for changes\n"
       "The vrf we would like to watch if non-default\n"
@@ -135,7 +152,12 @@ DEFPY(watch_nexthop_v4, watch_nexthop_v4_cmd,
       "The v4 address to signal for watching\n"
       "Watch for import check changes\n"
       "The v4 prefix for import check to watch\n"
+<<<<<<< HEAD
       "Should the route be connected\n")
+=======
+      "Should the route be connected\n"
+      "In the Multicast rib\n")
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 {
 	struct vrf *vrf;
 	struct prefix p;
@@ -164,8 +186,12 @@ DEFPY(watch_nexthop_v4, watch_nexthop_v4_cmd,
 	}
 
 	sharp_nh_tracker_get(&p);
+<<<<<<< HEAD
 	sharp_zebra_nexthop_watch(&p, vrf->vrf_id, type_import,
 				  true, !!connected);
+=======
+	sharp_zebra_nexthop_watch(&p, vrf->vrf_id, type_import, true, !!connected, !!mrib);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 	return CMD_SUCCESS;
 }
@@ -213,7 +239,11 @@ DEFPY (install_routes,
        "The vrf we would like to install into if non-default\n"
        "The NAME of the vrf\n"
        "v4 Address to start /32 generation at\n"
+<<<<<<< HEAD
        "v6 Address to start /32 generation at\n"
+=======
+       "v6 Address to start /128 generation at\n"
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
        "Nexthop to use(Can be an IPv4 or IPv6 address)\n"
        "V4 Nexthop address to use\n"
        "V6 Nexthop address to use\n"
@@ -372,7 +402,11 @@ DEFPY (install_seg6_routes,
        "The vrf we would like to install into if non-default\n"
        "The NAME of the vrf\n"
        "v4 Address to start /32 generation at\n"
+<<<<<<< HEAD
        "v6 Address to start /32 generation at\n"
+=======
+       "v6 Address to start /128 generation at\n"
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
        "Nexthop-seg6 to use\n"
        "V6 Nexthop address to use\n"
        "Encap mode\n"
@@ -448,6 +482,10 @@ DEFPY (install_seg6local_routes,
 	      End_X$seg6l_endx X:X::X:X$seg6l_endx_nh6|\
 	      End_T$seg6l_endt (1-4294967295)$seg6l_endt_table|\
 	      End_DX4$seg6l_enddx4 A.B.C.D$seg6l_enddx4_nh4|\
+<<<<<<< HEAD
+=======
+	      End_DX6$seg6l_enddx6 X:X::X:X$seg6l_enddx6_nh6|\
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	      End_DT6$seg6l_enddt6 (1-4294967295)$seg6l_enddt6_table|\
 	      End_DT4$seg6l_enddt4 (1-4294967295)$seg6l_enddt4_table|\
 	      End_DT46$seg6l_enddt46 (1-4294967295)$seg6l_enddt46_table>\
@@ -457,7 +495,11 @@ DEFPY (install_seg6local_routes,
        "Routes to install\n"
        "The vrf we would like to install into if non-default\n"
        "The NAME of the vrf\n"
+<<<<<<< HEAD
        "v6 Address to start /32 generation at\n"
+=======
+       "v6 Address to start /128 generation at\n"
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
        "Nexthop-seg6local to use\n"
        "Output device to use\n"
        "SRv6 End function to use\n"
@@ -467,6 +509,11 @@ DEFPY (install_seg6local_routes,
        "Redirect table id to use\n"
        "SRv6 End.DX4 function to use\n"
        "V4 Nexthop address to use\n"
+<<<<<<< HEAD
+=======
+       "SRv6 End.DX6 function to use\n"
+       "V6 Nexthop address to use\n"
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
        "SRv6 End.DT6 function to use\n"
        "Redirect table id to use\n"
        "SRv6 End.DT4 function to use\n"
@@ -500,7 +547,11 @@ DEFPY (install_seg6local_routes,
 	sg.r.opaque[0] = '\0';
 	sg.r.inst = 0;
 	sg.r.orig_prefix.family = AF_INET6;
+<<<<<<< HEAD
 	sg.r.orig_prefix.prefixlen = 128;
+=======
+	sg.r.orig_prefix.prefixlen = IPV6_MAX_BITLEN;
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	sg.r.orig_prefix.u.prefix6 = start6;
 
 	if (!vrf_name)
@@ -516,6 +567,12 @@ DEFPY (install_seg6local_routes,
 	if (seg6l_enddx4) {
 		action = ZEBRA_SEG6_LOCAL_ACTION_END_DX4;
 		ctx.nh4 = seg6l_enddx4_nh4;
+<<<<<<< HEAD
+=======
+	} else if (seg6l_enddx6) {
+		action = ZEBRA_SEG6_LOCAL_ACTION_END_DX6;
+		ctx.nh6 = seg6l_enddx6_nh6;
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	} else if (seg6l_endx) {
 		action = ZEBRA_SEG6_LOCAL_ACTION_END_X;
 		ctx.nh6 = seg6l_endx_nh6;
@@ -939,7 +996,11 @@ DEFPY (neigh_discover,
 		prefix.u.prefix4 = dst4;
 	} else {
 		prefix.family = AF_INET6;
+<<<<<<< HEAD
 		prefix.prefixlen = 128;
+=======
+		prefix.prefixlen = IPV6_MAX_BITLEN;
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		prefix.u.prefix6 = dst6;
 	}
 

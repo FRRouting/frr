@@ -61,7 +61,11 @@ def setup_module(mod):
     router_list = tgen.routers()
 
     # check for zebra capability
+<<<<<<< HEAD
     for rname, router in router_list.items():
+=======
+    for _, router in router_list.items():
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
         if router.check_capability(TopoRouter.RD_ZEBRA, "--vrfwnetns") == False:
             return pytest.skip(
                 "Skipping BFD Topo1 VRF NETNS feature. VRF NETNS backend not available on FRR"

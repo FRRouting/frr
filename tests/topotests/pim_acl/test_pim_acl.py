@@ -169,7 +169,11 @@ def setup_module(module):
     tgen.start_router()
 
 
+<<<<<<< HEAD
 def teardown_module(module):
+=======
+def teardown_module():
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
     tgen = get_topogen()
     tgen.stop_topology()
 

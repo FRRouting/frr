@@ -122,6 +122,7 @@ static void bgp_packet_add(struct peer_connection *connection,
 			peer->last_sendq_ok = monotime(NULL);
 
 		stream_fifo_push(connection->obuf, s);
+<<<<<<< HEAD
 
 		delta = monotime(NULL) - peer->last_sendq_ok;
 
@@ -157,6 +158,40 @@ static void bgp_packet_add(struct peer_connection *connection,
 				peer, holdtime);
 			peer->last_sendq_warn = monotime(NULL);
 		}
+=======
+	}
+
+	delta = monotime(NULL) - peer->last_sendq_ok;
+
+	if (CHECK_FLAG(peer->flags, PEER_FLAG_TIMER))
+		holdtime = atomic_load_explicit(&peer->holdtime, memory_order_relaxed);
+	else
+		holdtime = peer->bgp->default_holdtime;
+
+	sendholdtime = holdtime * 2;
+
+	/* Note that when we're here, we're adding some packet to the
+	 * OutQ.  That includes keepalives when there is nothing to
+	 * do, so there's a guarantee we pass by here once in a while.
+	 *
+	 * That implies there is no need to go set up another separate
+	 * timer that ticks down SendHoldTime, as we'll be here sooner
+	 * or later anyway and will see the checks below failing.
+	 */
+	if (!holdtime) {
+		/* no holdtime, do nothing. */
+	} else if (delta > sendholdtime) {
+		flog_err(EC_BGP_SENDQ_STUCK_PROPER,
+			 "%pBP has not made any SendQ progress for 2 holdtimes (%jds), terminating session",
+			 peer, sendholdtime);
+		event_add_event(bm->master, bgp_event_stop_with_notify, connection, 0,
+				&connection->t_stop_with_notify);
+	} else if (delta > (intmax_t)holdtime && monotime(NULL) - peer->last_sendq_warn > 5) {
+		flog_warn(EC_BGP_SENDQ_STUCK_WARN,
+			  "%pBP has not made any SendQ progress for 1 holdtime (%us), peer overloaded?",
+			  peer, holdtime);
+		peer->last_sendq_warn = monotime(NULL);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	}
 }
 
@@ -559,6 +594,7 @@ void bgp_generate_updgrp_packets(struct event *thread)
 					}
 				}
 
+<<<<<<< HEAD
 				if (CHECK_FLAG(peer->cap,
 					       PEER_CAP_RESTART_RCV)) {
 					if (!(PAF_SUBGRP(paf))->t_coalesce
@@ -593,6 +629,39 @@ void bgp_generate_updgrp_packets(struct event *thread)
 								safi);
 						}
 					}
+=======
+				/* rfc4724 says:
+				 *   Although the End-of-RIB marker is
+				 *   specified for the purpose of BGP
+				 *   graceful restart, it is noted that
+				 *   the generation of such a marker upon
+				 *   completion of the initial update would
+				 *   be useful for routing convergence in
+				 *   general, and thus the practice is
+				 *   recommended.
+				 */
+				if (!(PAF_SUBGRP(paf))->t_coalesce &&
+				    peer->afc_nego[afi][safi] &&
+				    peer->synctime &&
+				    !CHECK_FLAG(peer->af_sflags[afi][safi],
+						PEER_STATUS_EOR_SEND)) {
+					/* If EOR is disabled, the message is
+					 * not sent.
+					 */
+					if (!BGP_SEND_EOR(peer->bgp, afi, safi))
+						continue;
+
+					SET_FLAG(peer->af_sflags[afi][safi],
+						 PEER_STATUS_EOR_SEND);
+
+					/* Update EOR send time */
+					peer->eor_stime[afi][safi] =
+						monotime(NULL);
+
+					BGP_UPDATE_EOR_PKT(peer, afi, safi, s);
+					bgp_process_pending_refresh(peer, afi,
+								    safi);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 				}
 				continue;
 			}
@@ -643,6 +712,55 @@ void bgp_keepalive_send(struct peer *peer)
 	bgp_writes_on(peer->connection);
 }
 
+<<<<<<< HEAD
+=======
+struct stream *bgp_open_make(struct peer *peer, uint16_t send_holdtime, as_t local_as)
+{
+	struct stream *s = stream_new(BGP_STANDARD_MESSAGE_MAX_PACKET_SIZE);
+	bool ext_opt_params = false;
+
+	/* Make open packet. */
+	bgp_packet_set_marker(s, BGP_MSG_OPEN);
+
+	/* Set open packet values. */
+	stream_putc(s, BGP_VERSION_4); /* BGP version */
+	stream_putw(s, (local_as <= BGP_AS_MAX) ? (uint16_t)local_as
+						: BGP_AS_TRANS);
+	stream_putw(s, send_holdtime);		/* Hold Time */
+	stream_put_in_addr(s, &peer->local_id); /* BGP Identifier */
+
+	/* Set capabilities */
+	if (CHECK_FLAG(peer->flags, PEER_FLAG_EXTENDED_OPT_PARAMS)) {
+		ext_opt_params = true;
+		(void)bgp_open_capability(s, peer, ext_opt_params);
+	} else {
+		struct stream *tmp = stream_new(STREAM_SIZE(s));
+
+		stream_copy(tmp, s);
+		if (bgp_open_capability(tmp, peer, ext_opt_params) >
+		    BGP_OPEN_NON_EXT_OPT_LEN) {
+			stream_free(tmp);
+			ext_opt_params = true;
+			(void)bgp_open_capability(s, peer, ext_opt_params);
+		} else {
+			stream_copy(s, tmp);
+			stream_free(tmp);
+		}
+	}
+
+	/* Set BGP packet length. */
+	bgp_packet_set_size(s);
+
+	if (bgp_debug_neighbor_events(peer))
+		zlog_debug("%pBP fd %d sending OPEN%s, version %d, my as %u, holdtime %d, id %pI4",
+			   peer, peer->connection->fd,
+			   ext_opt_params ? " (Extended)" : "", BGP_VERSION_4,
+			   local_as, send_holdtime, &peer->local_id);
+
+	return s;
+}
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 /*
  * Creates a BGP Open packet and appends it to the peer's output queue.
  * Sets capabilities as necessary.
@@ -665,6 +783,7 @@ void bgp_open_send(struct peer_connection *connection)
 	else
 		local_as = peer->local_as;
 
+<<<<<<< HEAD
 	s = stream_new(BGP_STANDARD_MESSAGE_MAX_PACKET_SIZE);
 
 	/* Make open packet. */
@@ -702,6 +821,9 @@ void bgp_open_send(struct peer_connection *connection)
 			"%s sending OPEN, version %d, my as %u, holdtime %d, id %pI4",
 			peer->host, BGP_VERSION_4, local_as, send_holdtime,
 			&peer->local_id);
+=======
+	s = bgp_open_make(peer, send_holdtime, local_as);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 	/* Dump packet if debug option is set. */
 	/* bgp_packet_dump (s); */
@@ -984,6 +1106,10 @@ static void bgp_notify_send_internal(struct peer_connection *connection,
 		peer->notify.code = bgp_notify.code;
 		peer->notify.subcode = bgp_notify.subcode;
 		peer->notify.length = bgp_notify.length;
+<<<<<<< HEAD
+=======
+		peer->notify.hard_reset = hard_reset;
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 		if (bgp_notify.length && data) {
 			bgp_notify.data = XMALLOC(MTYPE_BGP_NOTIFICATION,
@@ -1114,10 +1240,17 @@ void bgp_route_refresh_send(struct peer *peer, afi_t afi, safi_t safi,
 	s = stream_new(peer->max_packet_size);
 
 	/* Make BGP update packet. */
+<<<<<<< HEAD
 	if (CHECK_FLAG(peer->cap, PEER_CAP_REFRESH_RCV))
 		bgp_packet_set_marker(s, BGP_MSG_ROUTE_REFRESH_NEW);
 	else
 		bgp_packet_set_marker(s, BGP_MSG_ROUTE_REFRESH_OLD);
+=======
+	if (!CHECK_FLAG(peer->cap, PEER_CAP_REFRESH_RCV))
+		return;
+
+	bgp_packet_set_marker(s, BGP_MSG_ROUTE_REFRESH_NEW);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 	/* Encode Route Refresh message. */
 	stream_putw(s, pkt_afi);
@@ -1224,7 +1357,11 @@ void bgp_capability_send(struct peer *peer, afi_t afi, safi_t safi,
 	if (!peer_established(peer->connection))
 		return;
 
+<<<<<<< HEAD
 	if (!CHECK_FLAG(peer->cap, PEER_CAP_DYNAMIC_RCV) &&
+=======
+	if (!CHECK_FLAG(peer->cap, PEER_CAP_DYNAMIC_RCV) ||
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	    !CHECK_FLAG(peer->cap, PEER_CAP_DYNAMIC_ADV))
 		return;
 
@@ -1297,7 +1434,11 @@ void bgp_capability_send(struct peer *peer, afi_t afi, safi_t safi,
 		stream_putc(s, 0);
 		gr_restart_time = peer->bgp->restart_time;
 
+<<<<<<< HEAD
 		if (peer->bgp->t_startup) {
+=======
+		if (peer->bgp->t_startup || bgp_in_graceful_restart()) {
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 			SET_FLAG(gr_restart_time, GRACEFUL_RESTART_R_BIT);
 			SET_FLAG(peer->cap, PEER_CAP_GRACEFUL_RESTART_R_BIT_ADV);
 		}
@@ -1459,6 +1600,52 @@ void bgp_capability_send(struct peer *peer, afi_t afi, safi_t safi,
 		COND_FLAG(peer->cap, PEER_CAP_ADDPATH_ADV,
 			  action == CAPABILITY_ACTION_SET);
 		break;
+<<<<<<< HEAD
+=======
+	case CAPABILITY_CODE_PATHS_LIMIT:
+		FOREACH_AFI_SAFI (afi, safi) {
+			if (!peer->afc[afi][safi])
+				continue;
+
+			addpath_afi_safi_count++;
+		}
+
+		stream_putc(s, action);
+		stream_putc(s, CAPABILITY_CODE_PATHS_LIMIT);
+		stream_putc(s, CAPABILITY_CODE_PATHS_LIMIT_LEN *
+				       addpath_afi_safi_count);
+
+		FOREACH_AFI_SAFI (afi, safi) {
+			if (!peer->afc[afi][safi])
+				continue;
+
+			bgp_map_afi_safi_int2iana(afi, safi, &pkt_afi,
+						  &pkt_safi);
+
+			stream_putw(s, pkt_afi);
+			stream_putc(s, pkt_safi);
+			stream_putw(s,
+				    peer->addpath_paths_limit[afi][safi].send);
+
+			SET_FLAG(peer->af_cap[afi][safi],
+				 PEER_CAP_PATHS_LIMIT_AF_ADV);
+
+			if (bgp_debug_neighbor_events(peer))
+				zlog_debug("%pBP sending CAPABILITY has %s %s for afi/safi: %s/%s, limit: %u",
+					   peer,
+					   action == CAPABILITY_ACTION_SET
+						   ? "Advertising"
+						   : "Removing",
+					   capability, iana_afi2str(pkt_afi),
+					   iana_safi2str(pkt_safi),
+					   peer->addpath_paths_limit[afi][safi]
+						   .send);
+		}
+
+		COND_FLAG(peer->cap, PEER_CAP_PATHS_LIMIT_ADV,
+			  action == CAPABILITY_ACTION_SET);
+		break;
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	case CAPABILITY_CODE_ORF:
 		/* Convert AFI, SAFI to values for packet. */
 		bgp_map_afi_safi_int2iana(afi, safi, &pkt_afi, &pkt_safi);
@@ -1759,6 +1946,26 @@ static int bgp_open_receive(struct peer_connection *connection,
 	mp_capability = 0;
 	optlen = stream_getc(peer->curr);
 
+<<<<<<< HEAD
+=======
+	/* If we previously had some more capabilities e.g.:
+	 *   FQDN, SOFT_VERSION, we MUST clear the values we used
+	 *   before, to avoid using stale data.
+	 * Checking peer->cap is enough before checking for the real
+	 * data, but we don't have this check everywhere in the code,
+	 * thus let's clear the data here too before parsing the
+	 * capabilities.
+	 */
+	if (peer->hostname)
+		XFREE(MTYPE_BGP_PEER_HOST, peer->hostname);
+
+	if (peer->domainname)
+		XFREE(MTYPE_BGP_PEER_HOST, peer->domainname);
+
+	if (peer->soft_version)
+		XFREE(MTYPE_BGP_SOFT_VERSION, peer->soft_version);
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	/* Extended Optional Parameters Length for BGP OPEN Message */
 	if (optlen == BGP_OPEN_NON_EXT_OPT_LEN
 	    || CHECK_FLAG(peer->flags, PEER_FLAG_EXTENDED_OPT_PARAMS)) {
@@ -1936,6 +2143,17 @@ static int bgp_open_receive(struct peer_connection *connection,
 					  BGP_NOTIFY_OPEN_BAD_PEER_AS,
 					  notify_data_remote_as, 2);
 		return BGP_Stop;
+<<<<<<< HEAD
+=======
+	} else if (peer->as_type == AS_AUTO) {
+		if (remote_as == peer->bgp->as) {
+			peer->as = peer->local_as;
+			SET_FLAG(peer->as_type, AS_INTERNAL);
+		} else {
+			peer->as = remote_as;
+			SET_FLAG(peer->as_type, AS_EXTERNAL);
+		}
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	} else if (peer->as_type == AS_INTERNAL) {
 		if (remote_as != peer->bgp->as) {
 			if (bgp_debug_neighbor_events(peer))
@@ -1981,7 +2199,11 @@ static int bgp_open_receive(struct peer_connection *connection,
 		return BGP_Stop;
 
 	/* Get sockname. */
+<<<<<<< HEAD
 	if (bgp_getsockname(peer) < 0) {
+=======
+	if (bgp_getsockname(connection) < 0) {
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		flog_err_sys(EC_LIB_SOCKET,
 			     "%s: bgp_getsockname() failed for peer: %s",
 			     __func__, peer->host);
@@ -2241,7 +2463,11 @@ static int bgp_update_receive(struct peer_connection *connection,
 	attr.label = MPLS_INVALID_LABEL;
 	memset(&nlris, 0, sizeof(nlris));
 	memset(peer->rcvd_attr_str, 0, BUFSIZ);
+<<<<<<< HEAD
 	peer->rcvd_attr_printed = 0;
+=======
+	peer->rcvd_attr_printed = false;
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 	s = peer->curr;
 	end = stream_pnt(s) + size;
@@ -2337,19 +2563,32 @@ static int bgp_update_receive(struct peer_connection *connection,
 		ret = bgp_dump_attr(&attr, peer->rcvd_attr_str,
 				    sizeof(peer->rcvd_attr_str));
 
+<<<<<<< HEAD
 		peer->stat_upd_7606++;
 
 		if (attr_parse_ret == BGP_ATTR_PARSE_WITHDRAW)
+=======
+		if (attr_parse_ret == BGP_ATTR_PARSE_WITHDRAW) {
+			peer->stat_upd_7606++;
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 			flog_err(
 				EC_BGP_UPDATE_RCV,
 				"%pBP rcvd UPDATE with errors in attr(s)!! Withdrawing route.",
 				peer);
+<<<<<<< HEAD
+=======
+		}
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 		if (ret && bgp_debug_update(peer, NULL, NULL, 1) &&
 		    BGP_DEBUG(update, UPDATE_DETAIL)) {
 			zlog_debug("%pBP rcvd UPDATE w/ attr: %s", peer,
 				   peer->rcvd_attr_str);
+<<<<<<< HEAD
 			peer->rcvd_attr_printed = 1;
+=======
+			peer->rcvd_attr_printed = true;
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		}
 	}
 
@@ -2632,6 +2871,22 @@ static int bgp_notify_receive(struct peer_connection *connection,
 	    inner.subcode == BGP_NOTIFY_OPEN_UNSUP_PARAM)
 		UNSET_FLAG(peer->sflags, PEER_STATUS_CAPABILITY_OPEN);
 
+<<<<<<< HEAD
+=======
+	/* Resend the next OPEN message with a global AS number if we received
+	 * a `Bad Peer AS` notification. This is only valid if `dual-as` is
+	 * configured.
+	 */
+	if (inner.code == BGP_NOTIFY_OPEN_ERR &&
+	    inner.subcode == BGP_NOTIFY_OPEN_BAD_PEER_AS &&
+	    CHECK_FLAG(peer->flags, PEER_FLAG_DUAL_AS)) {
+		if (peer->change_local_as != peer->bgp->as)
+			peer->change_local_as = peer->bgp->as;
+		else
+			peer->change_local_as = peer->local_as;
+	}
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	/* If Graceful-Restart N-bit (Notification) is exchanged,
 	 * and it's not a Hard Reset, let's retain the routes.
 	 */
@@ -2852,6 +3107,7 @@ static int bgp_route_refresh_receive(struct peer_connection *connection,
 					if (bgp_debug_neighbor_events(peer)) {
 						char buf[INET6_BUFSIZ];
 
+<<<<<<< HEAD
 						zlog_debug(
 							"%pBP rcvd %s %s seq %u %s/%d ge %d le %d%s",
 							peer,
@@ -2881,6 +3137,33 @@ static int bgp_route_refresh_receive(struct peer_connection *connection,
 							(common & ORF_COMMON_PART_REMOVE
 								 ? 0
 								 : 1));
+=======
+						zlog_debug("%pBP rcvd %s %s seq %u %s/%d ge %d le %d%s",
+							   peer,
+							   (CHECK_FLAG(common, ORF_COMMON_PART_REMOVE)
+								    ? "Remove"
+								    : "Add"),
+							   (CHECK_FLAG(common, ORF_COMMON_PART_DENY)
+								    ? "deny"
+								    : "permit"),
+							   orfp.seq,
+							   inet_ntop(orfp.p.family, &orfp.p.u.prefix,
+								     buf, INET6_BUFSIZ),
+							   orfp.p.prefixlen, orfp.ge, orfp.le,
+							   ok ? "" : " MALFORMED");
+					}
+
+					if (ok)
+						ret = prefix_bgp_orf_set(name, afi, &orfp,
+									 (CHECK_FLAG(common,
+										     ORF_COMMON_PART_DENY)
+										  ? 0
+										  : 1),
+									 (CHECK_FLAG(common,
+										     ORF_COMMON_PART_REMOVE)
+										  ? 0
+										  : 1));
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 					if (!ok || (ok && ret != CMD_SUCCESS)) {
 						zlog_info(
@@ -3107,6 +3390,7 @@ static void bgp_dynamic_capability_addpath(uint8_t *pnt, int action,
 
 			if (bgp_debug_neighbor_events(peer))
 				zlog_debug("%s OPEN has %s capability for afi/safi: %s/%s%s%s",
+<<<<<<< HEAD
 					   peer->host,
 					   lookup_msg(capcode_str, hdr->code,
 						      NULL),
@@ -3118,6 +3402,13 @@ static void bgp_dynamic_capability_addpath(uint8_t *pnt, int action,
 					   (bac.flags & BGP_ADDPATH_TX)
 						   ? ", transmit"
 						   : "");
+=======
+					   peer->host, lookup_msg(capcode_str, hdr->code, NULL),
+					   iana_afi2str(pkt_afi), iana_safi2str(pkt_safi),
+					   CHECK_FLAG(bac.flags, BGP_ADDPATH_RX) ? ", receive" : "",
+					   CHECK_FLAG(bac.flags, BGP_ADDPATH_TX) ? ", transmit"
+										 : "");
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 			if (bgp_map_afi_safi_iana2int(pkt_afi, pkt_safi, &afi,
 						      &safi)) {
@@ -3165,6 +3456,89 @@ ignore:
 	}
 }
 
+<<<<<<< HEAD
+=======
+static void bgp_dynamic_capability_paths_limit(uint8_t *pnt, int action,
+					       struct capability_header *hdr,
+					       struct peer *peer)
+{
+	uint8_t *data = pnt + 3;
+	uint8_t *end = data + hdr->length;
+	size_t len = end - data;
+	afi_t afi;
+	safi_t safi;
+
+	if (action == CAPABILITY_ACTION_SET) {
+		if (len % CAPABILITY_CODE_PATHS_LIMIT_LEN) {
+			flog_warn(EC_BGP_CAPABILITY_INVALID_LENGTH,
+				  "Paths-Limit: Received invalid length %zu, non-multiple of %d",
+				  len, CAPABILITY_CODE_PATHS_LIMIT_LEN);
+			return;
+		}
+
+		if (!CHECK_FLAG(peer->cap, PEER_CAP_ADDPATH_RCV)) {
+			flog_warn(EC_BGP_CAPABILITY_INVALID_DATA,
+				  "Paths-Limit: Received Paths-Limit capability without Add-Path capability");
+			goto ignore;
+		}
+
+		SET_FLAG(peer->cap, PEER_CAP_PATHS_LIMIT_RCV);
+
+		while (data + CAPABILITY_CODE_PATHS_LIMIT_LEN <= end) {
+			afi_t afi;
+			safi_t safi;
+			iana_afi_t pkt_afi;
+			iana_safi_t pkt_safi;
+			uint16_t paths_limit = 0;
+			struct bgp_paths_limit_capability bpl = {};
+
+			memcpy(&bpl, data, sizeof(bpl));
+			pkt_afi = ntohs(bpl.afi);
+			pkt_safi = safi_int2iana(bpl.safi);
+			paths_limit = ntohs(bpl.paths_limit);
+
+			if (bgp_debug_neighbor_events(peer))
+				zlog_debug("%s OPEN has %s capability for afi/safi: %s/%s limit: %u",
+					   peer->host,
+					   lookup_msg(capcode_str, hdr->code,
+						      NULL),
+					   iana_afi2str(pkt_afi),
+					   iana_safi2str(pkt_safi), paths_limit);
+
+			if (bgp_map_afi_safi_iana2int(pkt_afi, pkt_safi, &afi,
+						      &safi)) {
+				if (bgp_debug_neighbor_events(peer))
+					zlog_debug("%s Addr-family %s/%s(afi/safi) not supported. Ignore the Paths-Limit capability for this AFI/SAFI",
+						   peer->host,
+						   iana_afi2str(pkt_afi),
+						   iana_safi2str(pkt_safi));
+				goto ignore;
+			} else if (!peer->afc[afi][safi]) {
+				if (bgp_debug_neighbor_events(peer))
+					zlog_debug("%s Addr-family %s/%s(afi/safi) not enabled. Ignore the Paths-Limit capability for this AFI/SAFI",
+						   peer->host,
+						   iana_afi2str(pkt_afi),
+						   iana_safi2str(pkt_safi));
+				goto ignore;
+			}
+
+			SET_FLAG(peer->af_cap[afi][safi],
+				 PEER_CAP_PATHS_LIMIT_AF_RCV);
+			peer->addpath_paths_limit[afi][safi].receive =
+				paths_limit;
+ignore:
+			data += CAPABILITY_CODE_PATHS_LIMIT_LEN;
+		}
+	} else {
+		FOREACH_AFI_SAFI (afi, safi)
+			UNSET_FLAG(peer->af_cap[afi][safi],
+				   PEER_CAP_PATHS_LIMIT_AF_RCV);
+
+		UNSET_FLAG(peer->cap, PEER_CAP_PATHS_LIMIT_RCV);
+	}
+}
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 static void bgp_dynamic_capability_orf(uint8_t *pnt, int action,
 				       struct capability_header *hdr,
 				       struct peer *peer)
@@ -3282,6 +3656,25 @@ static void bgp_dynamic_capability_orf(uint8_t *pnt, int action,
 	}
 }
 
+<<<<<<< HEAD
+=======
+static void bgp_dynamic_capability_role(uint8_t *pnt, int action,
+					struct peer *peer)
+{
+	uint8_t role;
+
+	if (action == CAPABILITY_ACTION_SET) {
+		SET_FLAG(peer->cap, PEER_CAP_ROLE_RCV);
+		memcpy(&role, pnt + 3, sizeof(role));
+
+		peer->remote_role = role;
+	} else {
+		UNSET_FLAG(peer->cap, PEER_CAP_ROLE_RCV);
+		peer->remote_role = ROLE_UNDEFINED;
+	}
+}
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 static void bgp_dynamic_capability_fqdn(uint8_t *pnt, int action,
 					struct capability_header *hdr,
 					struct peer *peer)
@@ -3293,7 +3686,11 @@ static void bgp_dynamic_capability_fqdn(uint8_t *pnt, int action,
 
 	if (action == CAPABILITY_ACTION_SET) {
 		/* hostname */
+<<<<<<< HEAD
 		if (data + 1 > end) {
+=======
+		if (data + 1 >= end) {
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 			zlog_err("%pBP: Received invalid FQDN capability (host name length)",
 				 peer);
 			return;
@@ -3323,7 +3720,11 @@ static void bgp_dynamic_capability_fqdn(uint8_t *pnt, int action,
 			peer->hostname = XSTRDUP(MTYPE_BGP_PEER_HOST, str);
 		}
 
+<<<<<<< HEAD
 		if (data + 1 > end) {
+=======
+		if (data + 1 >= end) {
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 			zlog_err("%pBP: Received invalid FQDN capability (domain name length)",
 				 peer);
 			return;
@@ -3610,7 +4011,14 @@ static int bgp_capability_msg_parse(struct peer *peer, uint8_t *pnt,
 			zlog_err("%pBP: Capability length error", peer);
 			bgp_notify_send(peer->connection, BGP_NOTIFY_CEASE,
 					BGP_NOTIFY_SUBCODE_UNSPECIFIC);
+<<<<<<< HEAD
 			pnt += length;
+=======
+			/*
+			 * If we did not return then
+			 * pnt += length;
+			 */
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 			return BGP_Stop;
 		}
 		action = *pnt;
@@ -3635,7 +4043,14 @@ static int bgp_capability_msg_parse(struct peer *peer, uint8_t *pnt,
 			zlog_err("%pBP: Capability length error", peer);
 			bgp_notify_send(peer->connection, BGP_NOTIFY_CEASE,
 					BGP_NOTIFY_SUBCODE_UNSPECIFIC);
+<<<<<<< HEAD
 			pnt += length;
+=======
+			/*
+			 * If we did not return then
+			 * pnt += length;
+			 */
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 			return BGP_Stop;
 		}
 
@@ -3645,6 +4060,49 @@ static int bgp_capability_msg_parse(struct peer *peer, uint8_t *pnt,
 
 		capability = lookup_msg(capcode_str, hdr->code, "Unknown");
 
+<<<<<<< HEAD
+=======
+		/* Length sanity check, type-specific, for known capabilities */
+		switch (hdr->code) {
+		case CAPABILITY_CODE_MP:
+		case CAPABILITY_CODE_REFRESH:
+		case CAPABILITY_CODE_ORF:
+		case CAPABILITY_CODE_RESTART:
+		case CAPABILITY_CODE_AS4:
+		case CAPABILITY_CODE_ADDPATH:
+		case CAPABILITY_CODE_DYNAMIC:
+		case CAPABILITY_CODE_ENHE:
+		case CAPABILITY_CODE_FQDN:
+		case CAPABILITY_CODE_ENHANCED_RR:
+		case CAPABILITY_CODE_EXT_MESSAGE:
+		case CAPABILITY_CODE_ROLE:
+		case CAPABILITY_CODE_SOFT_VERSION:
+		case CAPABILITY_CODE_PATHS_LIMIT:
+			if (hdr->length < cap_minsizes[hdr->code]) {
+				zlog_info("%pBP: %s Capability length error: got %u, expected at least %u",
+					  peer, capability, hdr->length,
+					  (unsigned int)cap_minsizes[hdr->code]);
+				bgp_notify_send(peer->connection,
+						BGP_NOTIFY_OPEN_ERR,
+						BGP_NOTIFY_OPEN_MALFORMED_ATTR);
+				goto done;
+			}
+			if (hdr->length &&
+			    hdr->length % cap_modsizes[hdr->code] != 0) {
+				zlog_info("%pBP %s Capability length error: got %u, expected a multiple of %u",
+					  peer, capability, hdr->length,
+					  (unsigned int)cap_modsizes[hdr->code]);
+				bgp_notify_send(peer->connection,
+						BGP_NOTIFY_OPEN_ERR,
+						BGP_NOTIFY_OPEN_MALFORMED_ATTR);
+				goto done;
+			}
+			break;
+		default:
+			break;
+		}
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		switch (hdr->code) {
 		case CAPABILITY_CODE_SOFT_VERSION:
 			bgp_dynamic_capability_software_version(pnt, action,
@@ -3702,6 +4160,7 @@ static int bgp_capability_msg_parse(struct peer *peer, uint8_t *pnt,
 			}
 			break;
 		case CAPABILITY_CODE_RESTART:
+<<<<<<< HEAD
 			if ((hdr->length - 2) % 4) {
 				zlog_err("%pBP: Received invalid Graceful-Restart capability length %d",
 					 peer, hdr->length);
@@ -3711,6 +4170,8 @@ static int bgp_capability_msg_parse(struct peer *peer, uint8_t *pnt,
 				goto done;
 			}
 
+=======
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 			bgp_dynamic_capability_graceful_restart(pnt, action,
 								hdr, peer);
 			break;
@@ -3720,6 +4181,13 @@ static int bgp_capability_msg_parse(struct peer *peer, uint8_t *pnt,
 		case CAPABILITY_CODE_ADDPATH:
 			bgp_dynamic_capability_addpath(pnt, action, hdr, peer);
 			break;
+<<<<<<< HEAD
+=======
+		case CAPABILITY_CODE_PATHS_LIMIT:
+			bgp_dynamic_capability_paths_limit(pnt, action, hdr,
+							   peer);
+			break;
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		case CAPABILITY_CODE_ORF:
 			bgp_dynamic_capability_orf(pnt, action, hdr, peer);
 			break;
@@ -3734,6 +4202,7 @@ static int bgp_capability_msg_parse(struct peer *peer, uint8_t *pnt,
 		case CAPABILITY_CODE_EXT_MESSAGE:
 			break;
 		case CAPABILITY_CODE_ROLE:
+<<<<<<< HEAD
 			if (hdr->length != CAPABILITY_CODE_ROLE_LEN) {
 				zlog_err("%pBP: Capability (%s) length error",
 					 peer, capability);
@@ -3754,6 +4223,9 @@ static int bgp_capability_msg_parse(struct peer *peer, uint8_t *pnt,
 				UNSET_FLAG(peer->cap, PEER_CAP_ROLE_RCV);
 				peer->remote_role = ROLE_UNDEFINED;
 			}
+=======
+			bgp_dynamic_capability_role(pnt, action, peer);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 			break;
 		default:
 			flog_warn(EC_BGP_UNRECOGNIZED_CAPABILITY,
@@ -3790,8 +4262,13 @@ int bgp_capability_receive(struct peer_connection *connection,
 	if (bgp_debug_neighbor_events(peer))
 		zlog_debug("%s rcv CAPABILITY", peer->host);
 
+<<<<<<< HEAD
 	/* If peer does not have the capability, send notification. */
 	if (!CHECK_FLAG(peer->cap, PEER_CAP_DYNAMIC_ADV)) {
+=======
+	if (!CHECK_FLAG(peer->cap, PEER_CAP_DYNAMIC_ADV) ||
+	    !CHECK_FLAG(peer->cap, PEER_CAP_DYNAMIC_RCV)) {
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 		flog_err(EC_BGP_NO_CAP,
 			 "%s [Error] BGP dynamic capability is not enabled",
 			 peer->host);

@@ -19,7 +19,11 @@ SAFI_IP_FLOWSPEC = 133
 SAFI_VPN_FLOWSPEC = 134
 
 
+<<<<<<< HEAD
 #------------------------------------------------------------------------------
+=======
+# ------------------------------------------------------------------------------
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 class AddressFamily:
     def __init__(self, afi, safi):
         self.afi = afi
@@ -31,13 +35,21 @@ class AddressFamily:
         return (self.afi, self.safi) == (other.afi, other.safi)
 
     def __str__(self):
+<<<<<<< HEAD
         return f'afi: {self.afi}, safi: {self.safi}'
+=======
+        return f"afi: {self.afi}, safi: {self.safi}"
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
     def __hash__(self):
         return hash((self.afi, self.safi))
 
 
+<<<<<<< HEAD
 #------------------------------------------------------------------------------
+=======
+# ------------------------------------------------------------------------------
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 class AF:
     IPv4_UNICAST = AddressFamily(AFI_IP, SAFI_UNICAST)
     IPv6_UNICAST = AddressFamily(AFI_IP6, SAFI_UNICAST)

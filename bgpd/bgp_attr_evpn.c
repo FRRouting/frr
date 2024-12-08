@@ -24,6 +24,16 @@
 bool bgp_route_evpn_same(const struct bgp_route_evpn *e1,
 			 const struct bgp_route_evpn *e2)
 {
+<<<<<<< HEAD
+=======
+	if (!e1 && e2)
+		return false;
+	if (!e2 && e1)
+		return false;
+	if (!e1 && !e2)
+		return true;
+
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	return (e1->type == e2->type &&
 		!memcmp(&(e1->eth_s_id), &(e2->eth_s_id), sizeof(esi_t)) &&
 		!ipaddr_cmp(&(e1->gw_ip), &(e2->gw_ip)));
@@ -115,14 +125,22 @@ bool bgp_attr_rmac(struct attr *attr, struct ethaddr *rmac)
 /*
  * return true if attr contains default gw extended community
  */
+<<<<<<< HEAD
 uint8_t bgp_attr_default_gw(struct attr *attr)
+=======
+void bgp_attr_default_gw(struct attr *attr)
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 {
 	struct ecommunity *ecom;
 	uint32_t i;
 
 	ecom = bgp_attr_get_ecommunity(attr);
 	if (!ecom || !ecom->size)
+<<<<<<< HEAD
 		return 0;
+=======
+		return;
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 	/* If there is a default gw extendd community return true otherwise
 	 * return 0 */
@@ -136,10 +154,16 @@ uint8_t bgp_attr_default_gw(struct attr *attr)
 
 		if ((type == ECOMMUNITY_ENCODE_OPAQUE
 		     && sub_type == ECOMMUNITY_EVPN_SUBTYPE_DEF_GW))
+<<<<<<< HEAD
 			return 1;
 	}
 
 	return 0;
+=======
+			SET_FLAG(attr->evpn_flags, ATTR_EVPN_FLAG_DEFAULT_GW);
+	}
+	UNSET_FLAG(attr->evpn_flags, ATTR_EVPN_FLAG_DEFAULT_GW);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 }
 
 /*
@@ -183,7 +207,11 @@ uint16_t bgp_attr_df_pref_from_ec(struct attr *attr, uint8_t *alg)
  * Fetch and return the sequence number from MAC Mobility extended
  * community, if present, else 0.
  */
+<<<<<<< HEAD
 uint32_t bgp_attr_mac_mobility_seqnum(struct attr *attr, uint8_t *sticky)
+=======
+uint32_t bgp_attr_mac_mobility_seqnum(struct attr *attr)
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 {
 	struct ecommunity *ecom;
 	uint32_t i;
@@ -212,10 +240,18 @@ uint32_t bgp_attr_mac_mobility_seqnum(struct attr *attr, uint8_t *sticky)
 			continue;
 		flags = *pnt++;
 
+<<<<<<< HEAD
 		if (flags & ECOMMUNITY_EVPN_SUBTYPE_MACMOBILITY_FLAG_STICKY)
 			*sticky = 1;
 		else
 			*sticky = 0;
+=======
+		if (CHECK_FLAG(flags,
+			       ECOMMUNITY_EVPN_SUBTYPE_MACMOBILITY_FLAG_STICKY))
+			SET_FLAG(attr->evpn_flags, ATTR_EVPN_FLAG_STICKY);
+		else
+			UNSET_FLAG(attr->evpn_flags, ATTR_EVPN_FLAG_STICKY);
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 		pnt++;
 		pnt = ptr_get_be32(pnt, &seq_num);
@@ -229,8 +265,12 @@ uint32_t bgp_attr_mac_mobility_seqnum(struct attr *attr, uint8_t *sticky)
 /*
  * return true if attr contains router flag extended community
  */
+<<<<<<< HEAD
 void bgp_attr_evpn_na_flag(struct attr *attr,
 		uint8_t *router_flag, bool *proxy)
+=======
+void bgp_attr_evpn_na_flag(struct attr *attr, bool *proxy)
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 {
 	struct ecommunity *ecom;
 	uint32_t i;
@@ -253,10 +293,19 @@ void bgp_attr_evpn_na_flag(struct attr *attr,
 		    sub_type == ECOMMUNITY_EVPN_SUBTYPE_ND) {
 			val = *pnt++;
 
+<<<<<<< HEAD
 			if (val & ECOMMUNITY_EVPN_SUBTYPE_ND_ROUTER_FLAG)
 				*router_flag = 1;
 
 			if (val & ECOMMUNITY_EVPN_SUBTYPE_PROXY_FLAG)
+=======
+			if (CHECK_FLAG(val,
+				       ECOMMUNITY_EVPN_SUBTYPE_ND_ROUTER_FLAG))
+				SET_FLAG(attr->evpn_flags,
+					 ATTR_EVPN_FLAG_ROUTER);
+
+			if (CHECK_FLAG(val, ECOMMUNITY_EVPN_SUBTYPE_PROXY_FLAG))
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 				*proxy = true;
 
 			break;

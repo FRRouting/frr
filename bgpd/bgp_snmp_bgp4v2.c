@@ -854,7 +854,12 @@ static uint8_t *bgp4v2PathAttrTable(struct variable *v, oid name[],
 		case BGP_ATTR_NHLEN_IPV6_GLOBAL:
 			return SNMP_INTEGER(2);
 		case BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL:
+<<<<<<< HEAD
 			if (path->attr->mp_nexthop_prefer_global)
+=======
+			if (CHECK_FLAG(path->attr->nh_flags,
+				       BGP_ATTR_NH_MP_PREFER_GLOBAL))
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 				return SNMP_INTEGER(2);
 			else
 				return SNMP_INTEGER(4);
@@ -868,7 +873,12 @@ static uint8_t *bgp4v2PathAttrTable(struct variable *v, oid name[],
 		case BGP_ATTR_NHLEN_IPV6_GLOBAL:
 			return SNMP_IP6ADDRESS(path->attr->mp_nexthop_global);
 		case BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL:
+<<<<<<< HEAD
 			if (path->attr->mp_nexthop_prefer_global)
+=======
+			if (CHECK_FLAG(path->attr->nh_flags,
+				       BGP_ATTR_NH_MP_PREFER_GLOBAL))
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 				return SNMP_IP6ADDRESS(
 					path->attr->mp_nexthop_global);
 			else

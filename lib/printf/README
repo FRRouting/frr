@@ -1,6 +1,10 @@
 This is the printf implementation from FreeBSD.  The history of this code is:
 - imported on 2019-05-12, from SVN revision 347514
 - resynced on 2023-09-03, to pick up `%b` implementation
+<<<<<<< HEAD
+=======
+- resynced on 2024-03-10, to pick up `%w[f](8|16|32|64)d` implementation
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 Please don't reindent or otherwise mangle the files to make importing fixes
 easy (not that there are significant changes likely to happen...)

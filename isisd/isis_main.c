@@ -28,6 +28,10 @@
 #include "libfrr.h"
 #include "routemap.h"
 #include "affinitymap.h"
+<<<<<<< HEAD
+=======
+#include "libagentx.h"
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 
 #include "isisd/isis_affinitymap.h"
 #include "isisd/isis_constants.h"
@@ -102,6 +106,15 @@ static __attribute__((__noreturn__)) void terminate(int i)
 	isis_sr_term();
 	isis_srv6_term();
 	isis_zebra_stop();
+<<<<<<< HEAD
+=======
+
+	isis_master_terminate();
+	route_map_finish();
+	vrf_terminate();
+
+	frr_fini();
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	exit(i);
 }
 
@@ -307,6 +320,10 @@ int main(int argc, char **argv, char **envp)
 	/*
 	 *  initializations
 	 */
+<<<<<<< HEAD
+=======
+	libagentx_init();
+>>>>>>> 3d89c67889 (bgpd: Print the actual prefix when we try to import in vpn_leak_to_vrf_update)
 	cmd_init_config_callbacks(isis_config_start, isis_config_end);
 	isis_error_init();
 	access_list_init();
