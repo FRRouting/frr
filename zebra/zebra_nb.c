@@ -26,12 +26,6 @@ const struct frr_yang_module_info frr_zebra_info = {
 	.features = features,
 	.nodes = {
 		{
-			.xpath = "/frr-zebra:zebra/mcast-rpf-lookup",
-			.cbs = {
-				.modify = zebra_mcast_rpf_lookup_modify,
-			}
-		},
-		{
 			.xpath = "/frr-zebra:zebra/ip-forwarding",
 			.cbs = {
 				.modify = zebra_ip_forwarding_modify,

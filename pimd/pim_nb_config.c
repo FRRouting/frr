@@ -157,7 +157,7 @@ static int pim_cmd_interface_add(struct interface *ifp)
 		pim_ifp->pim_enable = true;
 
 	pim_if_addr_add_all(ifp);
-	pim_upstream_nh_if_update(pim_ifp->pim, ifp);
+	pim_nht_upstream_if_update(pim_ifp->pim, ifp);
 	pim_if_membership_refresh(ifp);
 
 	pim_if_create_pimreg(pim_ifp->pim);
@@ -1793,6 +1793,56 @@ int routing_control_plane_protocols_control_plane_protocol_pim_address_family_re
 }
 
 /*
+ * XPath: /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-pim:pim/address-family/mcast-rpf-lookup
+ */
+int routing_control_plane_protocols_control_plane_protocol_pim_address_family_mcast_rpf_lookup_modify(
+	struct nb_cb_modify_args *args)
+{
+	struct vrf *vrf;
+	struct pim_instance *pim;
+	const char *mode;
+	enum pim_rpf_lookup_mode old_mode;
+
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		break;
+	case NB_EV_APPLY:
+		vrf = nb_running_get_entry(args->dnode, NULL, true);
+		pim = vrf->info;
+		mode = yang_dnode_get_string(args->dnode, NULL);
+
+		old_mode = pim->rpf_mode;
+		if (strmatch(mode, "urib-only"))
+			pim->rpf_mode = MCAST_URIB_ONLY;
+		else if (strmatch(mode, "mrib-only"))
+			pim->rpf_mode = MCAST_MRIB_ONLY;
+		else if (strmatch(mode, "mrib-then-urib"))
+			pim->rpf_mode = MCAST_MIX_MRIB_FIRST;
+		else if (strmatch(mode, "lower-distance"))
+			pim->rpf_mode = MCAST_MIX_DISTANCE;
+		else if (strmatch(mode, "longer-prefix"))
+			pim->rpf_mode = MCAST_MIX_PFXLEN;
+		else {
+			snprintfrr(args->errmsg, args->errmsg_len,
+				   "Invalid RPF lookup mode specified: %s", mode);
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+
+		if (pim->rpf_mode != old_mode &&
+		    /* MCAST_MIX_MRIB_FIRST is the default if not configured */
+		    (old_mode != MCAST_NO_CONFIG && pim->rpf_mode != MCAST_MIX_MRIB_FIRST)) {
+			pim_nht_mode_changed(pim);
+		}
+
+		break;
+	}
+
+	return NB_OK;
+}
+
+/*
  * XPath: /frr-interface:lib/interface/frr-pim:pim/address-family
  */
 int lib_interface_pim_address_family_create(struct nb_cb_create_args *args)
@@ -2549,9 +2599,8 @@ int lib_interface_pim_address_family_mroute_oif_modify(
 
 #ifdef PIM_ENFORCE_LOOPFREE_MFC
 		iif = nb_running_get_entry(args->dnode, NULL, false);
-		if (!iif) {
+		if (!iif)
 			return NB_OK;
-		}
 
 		pim_iifp = iif->info;
 		pim = pim_iifp->pim;

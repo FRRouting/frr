@@ -11,6 +11,7 @@
 #include "pim_str.h"
 
 struct pim_instance;
+struct pim_upstream;
 
 /*
   RFC 4601:
@@ -41,13 +42,17 @@ struct pim_rpf {
 
 enum pim_rpf_result { PIM_RPF_OK = 0, PIM_RPF_CHANGED, PIM_RPF_FAILURE };
 
-struct pim_upstream;
+/* RPF lookup behaviour */
+enum pim_rpf_lookup_mode {
+	MCAST_MRIB_ONLY = 0,  /* MRIB only */
+	MCAST_URIB_ONLY,      /* URIB only */
+	MCAST_MIX_MRIB_FIRST, /* MRIB, if nothing at all then URIB */
+	MCAST_MIX_DISTANCE,   /* MRIB & URIB, lower distance wins */
+	MCAST_MIX_PFXLEN,     /* MRIB & URIB, longer prefix wins */
+	/* on equal value, MRIB wins for last 2 */
+	MCAST_NO_CONFIG, /* MIX_MRIB_FIRST, but no show in config write */
+};
 
-unsigned int pim_rpf_hash_key(const void *arg);
-bool pim_rpf_equal(const void *arg1, const void *arg2);
-
-bool pim_nexthop_lookup(struct pim_instance *pim, struct pim_nexthop *nexthop,
-			pim_addr addr, int neighbor_needed);
 enum pim_rpf_result pim_rpf_update(struct pim_instance *pim,
 				   struct pim_upstream *up,
 				   struct pim_rpf *old, const char *caller);

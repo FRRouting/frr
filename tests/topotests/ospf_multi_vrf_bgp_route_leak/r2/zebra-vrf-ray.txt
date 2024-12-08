@@ -1,4 +1,4 @@
-VRF ray:
+IPv4 unicast VRF ray:
 B   10.0.1.0/24 [110/20] via 10.0.20.1, r2-eth1 (vrf default) inactive, weight 1, XX:XX:XX
 B   10.0.2.0/24 [20/0] is directly connected, r2-eth0 (vrf default) inactive, weight 1, XX:XX:XX
 B>* 10.0.3.0/24 [110/20] via 10.0.20.1, r2-eth1 (vrf default), weight 1, XX:XX:XX
