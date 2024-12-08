@@ -2167,6 +2167,8 @@ static void vpn_leak_to_vrf_update_onevrf(struct bgp *to_bgp,   /* to */
 	struct interface *ifp = NULL;
 	char rd_buf[RD_ADDRSTRLEN];
 	struct aspath *new_aspath;
+	int32_t aspath_loop_count = 0;
+	struct peer *peer = path_vpn->peer;
 
 	int debug = BGP_DEBUG(vpn, VPN_LEAK_TO_VRF);
 
@@ -2227,7 +2229,9 @@ static void vpn_leak_to_vrf_update_onevrf(struct bgp *to_bgp,   /* to */
 	bn = bgp_afi_node_get(to_bgp->rib[afi][safi], afi, safi, p, NULL);
 
 	/* Check if leaked route has our asn. If so, don't import it. */
-	if (aspath_loop_check(path_vpn->attr->aspath, to_bgp->as)) {
+	if (CHECK_FLAG(peer->af_flags[afi][SAFI_MPLS_VPN], PEER_FLAG_ALLOWAS_IN))
+		aspath_loop_count = peer->allowas_in[afi][SAFI_MPLS_VPN];
+	if (aspath_loop_check(path_vpn->attr->aspath, to_bgp->as) > aspath_loop_count) {
 		for (bpi = bgp_dest_get_bgp_path_info(bn); bpi;
 		     bpi = bpi->next) {
 			if (bpi->extra && bpi->extra->vrfleak &&
@@ -2513,11 +2517,12 @@ void vpn_leak_to_vrf_update(struct bgp *from_bgp,
 {
 	struct listnode *mnode, *mnnode;
 	struct bgp *bgp;
+	const struct prefix *p = bgp_dest_get_prefix(path_vpn->net);
 
 	int debug = BGP_DEBUG(vpn, VPN_LEAK_TO_VRF);
 
 	if (debug)
-		zlog_debug("%s: start (path_vpn=%p)", __func__, path_vpn);
+		zlog_debug("%s: start (path_vpn=%p, prefix=%pFX)", __func__, path_vpn, p);
 
 	/* Loop over VRFs */
 	for (ALL_LIST_ELEMENTS(bm->bgp, mnode, mnnode, bgp)) {
