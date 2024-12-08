@@ -2203,7 +2203,7 @@ static int zl3vni_send_add_to_client(struct zebra_l3vni *zl3vni)
 		is_anycast_mac = false;
 	}
 
-	s = stream_new(ZEBRA_MAX_PACKET_SIZ);
+	s = stream_new(ZEBRA_SMALL_PACKET_SIZE);
 
 	/* The message is used for both vni add and/or update like
 	 * vrr mac is added for l3vni SVI.
@@ -2246,7 +2246,7 @@ static int zl3vni_send_del_to_client(struct zebra_l3vni *zl3vni)
 	if (!client)
 		return 0;
 
-	s = stream_new(ZEBRA_MAX_PACKET_SIZ);
+	s = stream_new(ZEBRA_SMALL_PACKET_SIZE);
 
 	zclient_create_header(s, ZEBRA_L3VNI_DEL, zl3vni_vrf_id(zl3vni));
 	stream_putl(s, zl3vni->vni);
@@ -4403,6 +4403,7 @@ static int zebra_vxlan_check_del_local_mac(struct interface *ifp,
 		UNSET_FLAG(mac->flags, ZEBRA_MAC_ALL_LOCAL_FLAGS);
 		UNSET_FLAG(mac->flags, ZEBRA_MAC_STICKY);
 		SET_FLAG(mac->flags, ZEBRA_MAC_AUTO);
+		mac->rem_seq = 0;
 	}
 
 	return 0;
@@ -5860,7 +5861,7 @@ static int zebra_vxlan_sg_send(struct zebra_vrf *zvrf,
 	if (!CHECK_FLAG(zvrf->flags, ZEBRA_PIM_SEND_VXLAN_SG))
 		return 0;
 
-	s = stream_new(ZEBRA_MAX_PACKET_SIZ);
+	s = stream_new(ZEBRA_SMALL_PACKET_SIZE);
 
 	zclient_create_header(s, cmd, VRF_DEFAULT);
 	stream_putl(s, IPV4_MAX_BYTELEN);

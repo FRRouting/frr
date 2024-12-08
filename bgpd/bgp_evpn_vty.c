@@ -3469,7 +3469,9 @@ static void evpn_process_default_originate_cmd(struct bgp *bgp_vrf,
 				   BGP_L2VPN_EVPN_DEFAULT_ORIGINATE_IPV6);
 	}
 
-	bgp_evpn_install_uninstall_default_route(bgp_vrf, afi, safi, add);
+	if (is_l3vni_live(bgp_vrf))
+		bgp_evpn_install_uninstall_default_route(bgp_vrf,
+							 afi, safi, add);
 }
 
 /*
