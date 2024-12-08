@@ -306,6 +306,7 @@ int bgp_find_or_add_nexthop(struct bgp *bgp_route, struct bgp *bgp_nexthop,
 	uint32_t srte_color = 0;
 	int is_bgp_static_route = 0;
 	ifindex_t ifindex = 0;
+	bool invalid_resolution = false;
 
 	if (pi) {
 		is_bgp_static_route = ((pi->type == ZEBRA_ROUTE_BGP)
@@ -353,7 +354,7 @@ int bgp_find_or_add_nexthop(struct bgp *bgp_route, struct bgp *bgp_nexthop,
 				zlog_debug("%s(%pFX): prefix loops through itself (import-check enabled)",
 					   __func__, &p);
 			}
-			return 0;
+			invalid_resolution = true;
 		}
 
 		srte_color = bgp_attr_get_color(pi->attr);
@@ -394,6 +395,8 @@ int bgp_find_or_add_nexthop(struct bgp *bgp_route, struct bgp *bgp_nexthop,
 
 	bnc = bnc_find(tree, &p, srte_color, ifindex);
 	if (!bnc) {
+		if (invalid_resolution)
+			return 0;
 		bnc = bnc_new(tree, &p, srte_color, ifindex);
 		bnc->afi = afi;
 		bnc->bgp = bgp_nexthop;
@@ -409,6 +412,8 @@ int bgp_find_or_add_nexthop(struct bgp *bgp_route, struct bgp *bgp_nexthop,
 				   bnc->bgp->name_pretty, bnc->flags,
 				   bnc->ifindex_ipv6_ll, bnc->path_count,
 				   bnc->nht_info, &bnc->resolved_prefix);
+		if (invalid_resolution)
+			return 1;
 	}
 
 	if (pi && is_route_parent_evpn(pi))
