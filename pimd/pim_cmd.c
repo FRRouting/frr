@@ -7593,6 +7593,29 @@ DEFPY(msdp_shutdown,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
+DEFPY(msdp_peer_sa_limit, msdp_peer_sa_limit_cmd,
+      "[no] msdp peer A.B.C.D$peer sa-limit ![(1-4294967294)$sa_limit]",
+      NO_STR
+      CFG_MSDP_STR
+      "Configure MSDP peer\n"
+      "MSDP peer address\n"
+      "Limit amount of SA\n"
+      "Maximum number of SA\n")
+{
+	const struct lyd_node *peer_node;
+	char xpath[XPATH_MAXLEN + 24];
+
+	snprintf(xpath, sizeof(xpath), "%s/msdp-peer[peer-ip='%s']", VTY_CURR_XPATH, peer_str);
+	peer_node = yang_dnode_get(vty->candidate_config->dnode, xpath);
+	if (peer_node == NULL) {
+		vty_out(vty, "%% MSDP peer %s not yet configured\n", peer_str);
+		return CMD_SUCCESS;
+	}
+
+	nb_cli_enqueue_change(vty, "./sa-limit", NB_OP_MODIFY, sa_limit_str);
+	return nb_cli_apply_changes(vty, "%s", xpath);
+}
+
 static void ip_msdp_show_mesh_group(struct vty *vty, struct pim_msdp_mg *mg,
 				    struct json_object *json)
 {
@@ -8988,6 +9011,7 @@ void pim_cmd_init(void)
 	install_element(PIM_NODE, &msdp_log_neighbor_changes_cmd);
 	install_element(PIM_NODE, &msdp_log_sa_changes_cmd);
 	install_element(PIM_NODE, &msdp_shutdown_cmd);
+	install_element(PIM_NODE, &msdp_peer_sa_limit_cmd);
 
 	install_element(PIM_NODE, &pim_bsr_candidate_rp_cmd);
 	install_element(PIM_NODE, &pim_bsr_candidate_rp_group_cmd);

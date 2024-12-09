@@ -341,6 +341,12 @@ module frr-pim {
       }
 
       uses msdp-authentication;
+
+      leaf sa-limit {
+        type uint32;
+        description
+          "Peer SA maximum limit.";
+      }
     }
 
     container mlag {
