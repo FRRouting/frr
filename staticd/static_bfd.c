@@ -130,21 +130,28 @@ static int static_bfd_build_prefix_from_sn(struct static_nexthop *sn, struct pre
 }
 
 void static_next_hop_bfd_monitor_enable(struct static_nexthop *sn,
+#ifdef HAVE_STATICD_NB
 					const struct lyd_node *dnode)
+#else
+					struct ipaddr *src_addr, const char *profile, bool onlink,
+					bool mhop, bool autohop, struct vrf *vrf)
+#endif
 {
 	struct prefix src_p = {};
-	bool use_interface;
-	bool use_profile;
+	bool use_interface = false;
+	bool connected;
 	bool use_source;
+	struct ipaddr source;
+#ifdef HAVE_STATICD_NB
+	bool use_profile;
 	bool onlink;
 	bool mhop;
-	bool connected;
 	bool autohop;
-	int family;
-	struct ipaddr source;
 	struct vrf *vrf = NULL;
+#endif /* HAVE_STATICD_NB */
+	int family;
 
-	use_interface = false;
+#ifdef HAVE_STATICD_NB
 	use_source = yang_dnode_exists(dnode, "source");
 	use_profile = yang_dnode_exists(dnode, "profile");
 	onlink = yang_dnode_exists(dnode, "../onlink") &&
@@ -154,6 +161,7 @@ void static_next_hop_bfd_monitor_enable(struct static_nexthop *sn,
 	vrf = vrf_lookup_by_name(yang_dnode_get_string(dnode, "../vrf"));
 	autohop = yang_dnode_exists(dnode, "auto-hop") &&
 		  yang_dnode_get_bool(dnode, "auto-hop");
+#endif /* HAVE_STATICD_NB */
 
 	family = static_next_hop_type_to_family(sn);
 	if (family == AF_UNSPEC)
@@ -167,9 +175,17 @@ void static_next_hop_bfd_monitor_enable(struct static_nexthop *sn,
 	if (sn->bsp == NULL)
 		sn->bsp = bfd_sess_new(static_next_hop_bfd_updatecb, sn);
 
+#ifdef HAVE_STATICD_NB
 	/* Configure the session. */
 	if (use_source)
 		yang_dnode_get_ip(&source, dnode, "source");
+#else  /* HAVE_STATICD_NB */
+	if (src_addr) {
+		use_source = true;
+		source = *src_addr;
+	} else
+		use_source = false;
+#endif /* !HAVE_STATICD_NB */
 
 	/* Configure the session.*/
 	if (family == AF_INET)
@@ -183,9 +199,14 @@ void static_next_hop_bfd_monitor_enable(struct static_nexthop *sn,
 
 	bfd_sess_set_interface(sn->bsp, use_interface ? sn->ifname : NULL);
 
+#ifdef HAVE_STATICD_NB
 	bfd_sess_set_profile(sn->bsp, use_profile ? yang_dnode_get_string(
 							    dnode, "./profile")
 						  : NULL);
+#else  /* HAVE_STATICD_NB */
+	bfd_sess_set_profile(sn->bsp, profile);
+#endif /* !HAVE_STATICD_NB */
+
 	if (vrf && vrf->vrf_id != VRF_UNKNOWN)
 		bfd_sess_set_vrf(sn->bsp, vrf->vrf_id);
 

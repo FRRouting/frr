@@ -30,6 +30,7 @@
 #include "static_routes.h"
 #include "static_debug.h"
 #include "static_pm.h"
+#include "static_zebra.h"
 #include "staticd/static_vty_clippy.c"
 #ifdef HAVE_STATICD_NB
 #include "static_nb.h"
@@ -769,6 +770,8 @@ static void static_route_args_install(struct static_route_args *args, struct sta
 	char *ostr, *nump;
 	struct static_path *pn;
 	struct route_node *rn;
+	struct ipaddr bfd_src_addr = {};
+	bool bfd = false;
 
 	if (args->source)
 		str2prefix_ipv6(args->source, &src);
@@ -845,6 +848,11 @@ static void static_route_args_install(struct static_route_args *args, struct sta
 			snh_label.num_labels = label_stack_id;
 			XFREE(MTYPE_TMP, ostr);
 		}
+		if (args->bfd) {
+			bfd = true;
+			if (args->bfd_source)
+				str2ipaddr(args->bfd_source, &bfd_src_addr);
+		}
 		break;
 	case STATIC_BLACKHOLE:
 		break;
@@ -906,6 +914,44 @@ static void static_route_args_install(struct static_route_args *args, struct sta
 			run_args->nh->state = STATIC_START;
 			update_nexthop = true;
 		}
+		/* bfd update */
+		if (run_args->nh->bsp) {
+			if (bfd) {
+				if ((!!run_args->bfd_source != !!args->bfd_source) ||
+				    ((run_args->bfd_source && args->bfd_source &&
+				      strcmp(run_args->bfd_source, args->bfd_source)))) {
+					if (args->bfd_source)
+						static_next_hop_bfd_source(run_args->nh,
+									   &bfd_src_addr);
+					else {
+						static_next_hop_bfd_auto_source(run_args->nh);
+						static_zebra_nht_register(run_args->nh, false);
+					}
+				}
+				if (run_args->bfd_multi_hop != args->bfd_multi_hop)
+					static_next_hop_bfd_multi_hop(run_args->nh,
+								      args->bfd_multi_hop);
+				if (run_args->bfd_auto_hop != args->bfd_auto_hop)
+					static_next_hop_bfd_auto_hop(run_args->nh,
+								     args->bfd_auto_hop, onlink,
+								     args->bfd_multi_hop);
+				if ((!!run_args->bfd_profile != !!args->bfd_profile) ||
+				    ((run_args->bfd_profile && args->bfd_profile &&
+				      strcmp(run_args->bfd_profile, args->bfd_profile))))
+					static_next_hop_bfd_profile(run_args->nh, args->bfd_profile);
+				update_nexthop = true;
+			} else {
+				static_next_hop_bfd_monitor_disable(run_args->nh);
+				update_nexthop = true;
+			}
+		} else if (bfd) {
+			static_next_hop_bfd_monitor_enable(run_args->nh,
+							   args->bfd_source ? &bfd_src_addr : NULL,
+							   args->bfd_profile, onlink,
+							   args->bfd_multi_hop, args->bfd_auto_hop,
+							   svrf->vrf);
+			update_nexthop = true;
+		}
 
 		if (update_path)
 			static_install_path(run_args->nh->pn);
@@ -925,12 +971,17 @@ static void static_route_args_install(struct static_route_args *args, struct sta
 	args->nh->onlink = onlink;
 	memcpy(&args->nh->snh_label, &snh_label, sizeof(struct static_nh_label));
 	memcpy(&args->nh->snh_seg, &snh_seg, sizeof(struct static_nh_seg));
-
+	if (bfd)
+		static_next_hop_bfd_monitor_enable(args->nh, args->bfd_source ? &bfd_src_addr : NULL,
+						   args->bfd_profile, onlink, args->bfd_multi_hop,
+						   args->bfd_auto_hop, svrf->vrf);
 	static_install_nexthop(args->nh);
 }
 
 static void static_route_args_uninstall(struct static_route_args *args)
 {
+	if (args->bfd)
+		static_next_hop_bfd_monitor_disable(args->nh);
 	if (args->nh) {
 		static_delete_nexthop(args->nh);
 		args->nh = NULL;
