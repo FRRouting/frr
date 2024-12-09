@@ -167,8 +167,18 @@ struct srv6_locator *srv6_locator_alloc(const char *name)
 	locator->chunks = list_new();
 	locator->chunks->del = srv6_locator_chunk_list_free;
 
+	locator->sids = list_new();
+
 	QOBJ_REG(locator, srv6_locator);
 	return locator;
+}
+void srv6_locator_del(struct srv6_locator *locator)
+{
+	if (locator->chunks)
+		list_delete(&locator->chunks);
+	if (locator->sids)
+		list_delete(&locator->sids);
+	XFREE(MTYPE_SRV6_LOCATOR, locator);
 }
 
 struct srv6_locator_chunk *srv6_locator_chunk_alloc(void)
@@ -202,6 +212,43 @@ void srv6_locator_free(struct srv6_locator *locator)
 		list_delete(&locator->chunks);
 
 		XFREE(MTYPE_SRV6_LOCATOR, locator);
+	}
+}
+
+struct seg6_sid *srv6_locator_sid_alloc(void)
+{
+	struct seg6_sid *sid = NULL;
+
+	sid = XCALLOC(MTYPE_SRV6_LOCATOR_CHUNK, sizeof(struct seg6_sid));
+	strlcpy(sid->vrfName, "Default", sizeof(sid->vrfName));
+	return sid;
+}
+void srv6_locator_sid_free(struct seg6_sid *sid)
+{
+	XFREE(MTYPE_SRV6_LOCATOR_CHUNK, sid);
+}
+
+void combine_sid(struct srv6_locator *locator, struct in6_addr *sid_addr,
+		 struct in6_addr *result_addr)
+{
+	uint8_t idx = 0;
+	uint8_t funcid = 0;
+	uint8_t locatorbit = 0;
+	/* uint8_t sidbit = 0;*/
+	uint8_t totalbit = 0;
+	uint8_t funbit = 0;
+
+	locatorbit = (locator->block_bits_length + locator->node_bits_length) / 8;
+	/* sidbit = 16 - locatorbit; */
+	totalbit = (locator->block_bits_length + locator->node_bits_length +
+		    locator->function_bits_length + locator->argument_bits_length) /
+		   8;
+	funbit = (locator->function_bits_length + locator->argument_bits_length) / 8;
+	for (idx = 0; idx < locatorbit; idx++)
+		result_addr->s6_addr[idx] = locator->prefix.prefix.s6_addr[idx];
+	for (; idx < totalbit; idx++) {
+		result_addr->s6_addr[idx] = sid_addr->s6_addr[16 - funbit + funcid];
+		funcid++;
 	}
 }
 
@@ -316,6 +363,27 @@ srv6_locator_chunk_detailed_json(const struct srv6_locator_chunk *chunk)
 	return jo_root;
 }
 
+json_object *srv6_locator_sid_detailed_json(const struct srv6_locator *locator,
+					    const struct seg6_sid *sid)
+{
+	json_object *jo_root = NULL;
+	char buf[256];
+
+	jo_root = json_object_new_object();
+
+	/* set opcode */
+	prefix2str(&sid->ipv6Addr, buf, sizeof(buf));
+	json_object_string_add(jo_root, "opcode", buf);
+
+	/* set sidaction */
+	json_object_string_add(jo_root, "sidaction", seg6local_action2str(sid->sidaction));
+
+	/* set vrf */
+	json_object_string_add(jo_root, "vrf", sid->vrfName);
+
+	return jo_root;
+}
+
 json_object *srv6_locator_json(const struct srv6_locator *loc)
 {
 	struct listnode *node;
@@ -392,10 +460,14 @@ json_object *srv6_locator_json(const struct srv6_locator *loc)
 json_object *srv6_locator_detailed_json(const struct srv6_locator *loc)
 {
 	struct listnode *node;
+	struct listnode *sidnode;
 	struct srv6_locator_chunk *chunk;
+	struct seg6_sid *sid = NULL;
 	json_object *jo_root = NULL;
 	json_object *jo_chunk = NULL;
 	json_object *jo_chunks = NULL;
+	json_object *jo_sid = NULL;
+	json_object *jo_sids = NULL;
 
 	jo_root = json_object_new_object();
 
@@ -459,6 +531,13 @@ json_object *srv6_locator_detailed_json(const struct srv6_locator *loc)
 	for (ALL_LIST_ELEMENTS_RO((struct list *)loc->chunks, node, chunk)) {
 		jo_chunk = srv6_locator_chunk_detailed_json(chunk);
 		json_object_array_add(jo_chunks, jo_chunk);
+	}
+	/* set sids */
+	jo_sids = json_object_new_array();
+	json_object_object_add(jo_root, "sids", jo_sids);
+	for (ALL_LIST_ELEMENTS_RO(loc->sids, sidnode, sid)) {
+		jo_sid = srv6_locator_sid_detailed_json(loc, sid);
+		json_object_array_add(jo_sids, jo_sid);
 	}
 
 	return jo_root;

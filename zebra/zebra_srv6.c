@@ -628,10 +628,16 @@ void zebra_srv6_locator_add(struct srv6_locator *locator)
 
 void zebra_srv6_locator_delete(struct srv6_locator *locator)
 {
-	struct listnode *n;
+	struct listnode *n, *nnode;
 	struct zebra_srv6 *srv6 = zebra_srv6_get_default();
+	struct seg6_sid *sid = NULL;
 	struct zserv *client;
+	struct listnode *client_node;
 
+	for (ALL_LIST_ELEMENTS(locator->sids, n, nnode, sid)) {
+		listnode_delete(locator->sids, sid);
+		srv6_locator_sid_free(sid);
+	}
 	/*
 	 * Notify deleted locator info to zclients if needed.
 	 *
@@ -643,7 +649,8 @@ void zebra_srv6_locator_delete(struct srv6_locator *locator)
 	 * by ZEBRA_SRV6_LOCATOR_DELETE, and this notification is sent to the
 	 * owner of each chunk.
 	 */
-	for (ALL_LIST_ELEMENTS_RO(zrouter.client_list, n, client))
+
+	for (ALL_LIST_ELEMENTS_RO(zrouter.client_list, client_node, client))
 		zsend_zebra_srv6_locator_delete(client, locator);
 
 	listnode_delete(srv6->locators, locator);

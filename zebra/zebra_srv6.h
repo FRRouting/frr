@@ -245,6 +245,7 @@ DECLARE_HOOK(srv6_manager_get_locator,
 
 extern void zebra_srv6_locator_add(struct srv6_locator *locator);
 extern void zebra_srv6_locator_delete(struct srv6_locator *locator);
+extern void zebra_srv6_prefix_delete(struct srv6_locator *locator);
 extern struct srv6_locator *zebra_srv6_locator_lookup(const char *name);
 
 void zebra_notify_srv6_locator_add(struct srv6_locator *locator);
