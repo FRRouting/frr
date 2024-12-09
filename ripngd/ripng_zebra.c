@@ -98,7 +98,7 @@ void ripng_zebra_ipv6_delete(struct ripng *ripng, struct agg_node *rp)
 }
 
 /* Zebra route add and delete treatment. */
-static int ripng_zebra_read_route(ZAPI_CALLBACK_ARGS)
+static void ripng_zebra_read_route(ZAPI_CALLBACK_ARGS)
 {
 	struct ripng *ripng;
 	struct zapi_route api;
@@ -107,17 +107,17 @@ static int ripng_zebra_read_route(ZAPI_CALLBACK_ARGS)
 
 	ripng = ripng_lookup_by_vrf_id(vrf_id);
 	if (!ripng)
-		return 0;
+		return;
 
 	if (zapi_route_decode(zclient->ibuf, &api) < 0)
-		return -1;
+		return;
 
 	/* we completely ignore srcdest routes for now. */
 	if (CHECK_FLAG(api.message, ZAPI_MESSAGE_SRCPFX))
-		return 0;
+		return;
 
 	if (IN6_IS_ADDR_LINKLOCAL(&api.prefix.u.prefix6))
-		return 0;
+		return;
 
 	nexthop = api.nexthops[0].gate.ipv6;
 	ifindex = api.nexthops[0].ifindex;
@@ -128,11 +128,8 @@ static int ripng_zebra_read_route(ZAPI_CALLBACK_ARGS)
 				       (struct prefix_ipv6 *)&api.prefix,
 				       ifindex, &nexthop, api.tag);
 	else
-		ripng_redistribute_delete(
-			ripng, api.type, RIPNG_ROUTE_REDISTRIBUTE,
-			(struct prefix_ipv6 *)&api.prefix, ifindex);
-
-	return 0;
+		ripng_redistribute_delete(ripng, api.type, RIPNG_ROUTE_REDISTRIBUTE,
+					  (struct prefix_ipv6 *)&api.prefix, ifindex);
 }
 
 void ripng_redistribute_conf_update(struct ripng *ripng, int type)

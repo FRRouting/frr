@@ -309,7 +309,7 @@ static void ripng_apply_address_add(struct connected *ifc)
 				       ifc->ifp->ifindex, NULL, 0);
 }
 
-int ripng_interface_address_add(ZAPI_CALLBACK_ARGS)
+void ripng_interface_address_add(ZAPI_CALLBACK_ARGS)
 {
 	struct connected *c;
 	struct prefix *p;
@@ -318,7 +318,7 @@ int ripng_interface_address_add(ZAPI_CALLBACK_ARGS)
 					 zclient->ibuf, vrf_id);
 
 	if (c == NULL)
-		return 0;
+		return;
 
 	p = c->address;
 
@@ -344,8 +344,6 @@ int ripng_interface_address_add(ZAPI_CALLBACK_ARGS)
 			ripng_if_rmap_update_interface(c->ifp);
 		}
 	}
-
-	return 0;
 }
 
 static void ripng_apply_address_del(struct connected *ifc)
@@ -374,7 +372,7 @@ static void ripng_apply_address_del(struct connected *ifc)
 				  ifc->ifp->ifindex);
 }
 
-int ripng_interface_address_delete(ZAPI_CALLBACK_ARGS)
+void ripng_interface_address_delete(ZAPI_CALLBACK_ARGS)
 {
 	struct connected *ifc;
 	struct prefix *p;
@@ -396,8 +394,6 @@ int ripng_interface_address_delete(ZAPI_CALLBACK_ARGS)
 		}
 		connected_free(&ifc);
 	}
-
-	return 0;
 }
 
 /* Lookup RIPng enable network. */

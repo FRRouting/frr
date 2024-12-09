@@ -869,16 +869,16 @@ void bfd_sess_show(struct vty *vty, struct json_object *json,
  *
  * Use this as `zclient` `bfd_dest_replay` callback.
  */
-int zclient_bfd_session_replay(ZAPI_CALLBACK_ARGS)
+void zclient_bfd_session_replay(ZAPI_CALLBACK_ARGS)
 {
 	struct bfd_session_params *bsp;
 
 	if (!zclient->bfd_integration)
-		return 0;
+		return;
 
 	/* Do nothing when shutting down. */
 	if (bsglobal.shutting_down)
-		return 0;
+		return;
 
 	if (bsglobal.debugging)
 		zlog_debug("%s: sending all sessions registered", __func__);
@@ -902,11 +902,9 @@ int zclient_bfd_session_replay(ZAPI_CALLBACK_ARGS)
 		bsp->lastev = BSE_INSTALL;
 		event_execute(bsglobal.tm, _bfd_sess_send, bsp, 0, NULL);
 	}
-
-	return 0;
 }
 
-int zclient_bfd_session_update(ZAPI_CALLBACK_ARGS)
+void zclient_bfd_session_update(ZAPI_CALLBACK_ARGS)
 {
 	struct bfd_session_params *bsp, *bspn;
 	size_t sessions_updated = 0;
@@ -920,11 +918,11 @@ int zclient_bfd_session_update(ZAPI_CALLBACK_ARGS)
 	char ifstr[128], cbitstr[32];
 
 	if (!zclient->bfd_integration)
-		return 0;
+		return;
 
 	/* Do nothing when shutting down. */
 	if (bsglobal.shutting_down)
-		return 0;
+		return;
 
 	ifp = bfd_get_peer_info(zclient->ibuf, &dp, &sp, &state, &remote_cbit,
 				vrf_id);
@@ -934,7 +932,7 @@ int zclient_bfd_session_update(ZAPI_CALLBACK_ARGS)
 	 * family type below.
 	 */
 	if (dp.family == 0 || sp.family == 0)
-		return 0;
+		return;
 
 	if (bsglobal.debugging) {
 		ifstr[0] = 0;
@@ -1008,10 +1006,7 @@ int zclient_bfd_session_update(ZAPI_CALLBACK_ARGS)
 	}
 
 	if (bsglobal.debugging)
-		zlog_debug("%s:   sessions updated: %zu", __func__,
-			   sessions_updated);
-
-	return 0;
+		zlog_debug("%s:   sessions updated: %zu", __func__, sessions_updated);
 }
 
 /**
