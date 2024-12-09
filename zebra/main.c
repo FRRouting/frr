@@ -67,6 +67,8 @@ struct mgmt_be_client *mgmt_be_client;
 /* Route retain mode flag. */
 int retain_mode = 0;
 
+bool fpm_pic_nexthop;
+
 /* Receive buffer size for kernel control sockets */
 #define RCVBUFSIZE_MIN 4194304
 #ifdef HAVE_NETLINK
@@ -82,22 +84,22 @@ uint32_t rt_table_main_id = RT_TABLE_MAIN;
 #define OPTION_V6_WITH_V4_NEXTHOP 2002
 
 /* Command line options. */
-const struct option longopts[] = {
-	{ "batch", no_argument, NULL, 'b' },
-	{ "allow_delete", no_argument, NULL, 'a' },
-	{ "socket", required_argument, NULL, 'z' },
-	{ "ecmp", required_argument, NULL, 'e' },
-	{ "retain", no_argument, NULL, 'r' },
-	{ "asic-offload", optional_argument, NULL, OPTION_ASIC_OFFLOAD },
-	{ "v6-with-v4-nexthops", no_argument, NULL, OPTION_V6_WITH_V4_NEXTHOP },
+const struct option longopts[] = { { "pic", no_argument, NULL, 'p' },
+				   { "batch", no_argument, NULL, 'b' },
+				   { "allow_delete", no_argument, NULL, 'a' },
+				   { "socket", required_argument, NULL, 'z' },
+				   { "ecmp", required_argument, NULL, 'e' },
+				   { "retain", no_argument, NULL, 'r' },
+				   { "asic-offload", optional_argument, NULL, OPTION_ASIC_OFFLOAD },
+				   { "v6-with-v4-nexthops", no_argument, NULL,
+				     OPTION_V6_WITH_V4_NEXTHOP },
 #ifdef HAVE_NETLINK
-	{ "vrfwnetns", no_argument, NULL, 'n' },
-	{ "nl-bufsize", required_argument, NULL, 's' },
-	{ "v6-rr-semantics", no_argument, NULL, OPTION_V6_RR_SEMANTICS },
+				   { "vrfwnetns", no_argument, NULL, 'n' },
+				   { "nl-bufsize", required_argument, NULL, 's' },
+				   { "v6-rr-semantics", no_argument, NULL, OPTION_V6_RR_SEMANTICS },
 #endif /* HAVE_NETLINK */
-	{ "routing-table", optional_argument, NULL, 'R' },
-	{ 0 }
-};
+				   { "routing-table", optional_argument, NULL, 'R' },
+				   { 0 } };
 
 zebra_capabilities_t _caps_p[] = {ZCAP_NET_ADMIN, ZCAP_SYS_ADMIN,
 				  ZCAP_NET_RAW,
@@ -356,16 +358,19 @@ int main(int argc, char **argv)
 
 	zserv_path = NULL;
 
+	fpm_pic_nexthop = false;
+
 	vrf_configure_backend(VRF_BACKEND_VRF_LITE);
 
 	frr_preinit(&zebra_di, argc, argv);
 
-	frr_opt_add("baz:e:rK:s:R:"
+	frr_opt_add("pbaz:e:rK:s:R:"
 #ifdef HAVE_NETLINK
 		    "n"
 #endif
 		    ,
 		    longopts,
+		    "  -p, --pic                 Runs in pic mode\n"
 		    "  -b, --batch               Runs in batch mode\n"
 		    "  -a, --allow_delete        Allow other processes to delete zebra routes\n"
 		    "  -z, --socket              Set path of zebra socket\n"
@@ -452,6 +457,10 @@ int main(int argc, char **argv)
 			v6_with_v4_nexthop = true;
 			break;
 #endif /* HAVE_NETLINK */
+		case 'p':
+			fpm_pic_nexthop = true;
+			break;
+
 		default:
 			frr_help_exit(1);
 		}

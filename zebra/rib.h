@@ -91,6 +91,9 @@ struct route_entry {
 	uint32_t nhe_id;
 	uint32_t nhe_installed_id;
 
+	uint32_t pic_nhe_id;
+	uint32_t pic_nhe_installed_id;
+
 	/* Type of this route. */
 	int type;
 
@@ -471,6 +474,7 @@ extern int rib_gc_dest(struct route_node *rn);
 extern struct route_table *rib_tables_iter_next(rib_tables_iter_t *iter);
 
 extern uint8_t route_distance(int type);
+extern bool zebra_update_pic_nhe(struct route_node *rn);
 
 extern void zebra_rib_evaluate_rn_nexthops(struct route_node *rn, uint32_t seq,
 					   bool rt_delete);
@@ -640,6 +644,8 @@ void route_entry_dump_nh(const struct route_entry *re, const char *straddr,
 
 /* Name of hook calls */
 #define ZEBRA_ON_RIB_PROCESS_HOOK_CALL "on_rib_process_dplane_results"
+
+extern bool fpm_pic_nexthop;
 
 #ifdef __cplusplus
 }
