@@ -28,7 +28,6 @@
 XREF_SETUP();
 
 DEFINE_HOOK(agentx_enabled, (), ());
-DEFINE_HOOK(bgp_snmp_traps_config_write, (struct vty * vty), (vty));
 
 static bool agentx_enabled = false;
 static uint64_t agentx_send_without_read = 0;
@@ -331,11 +330,8 @@ static int agentx_log_callback(int major, int minor, void *serverarg,
 
 static int config_write_agentx(struct vty *vty)
 {
-	if (agentx_enabled) {
+	if (agentx_enabled)
 		vty_out(vty, "agentx\n");
-		/* SNMP traps configuration */
-		hook_call(bgp_snmp_traps_config_write, vty);
-	}
 	return 1;
 }
 
