@@ -1266,7 +1266,7 @@ failure:
 void show_nexthop_json_helper(json_object *json_nexthop,
 			      const struct nexthop *nexthop,
 			      const struct route_node *rn,
-			      const struct route_entry *re)
+			      const struct route_entry *re, bool brief)
 {
 	bool display_vrfid = false;
 	uint8_t rn_family;
@@ -1279,7 +1279,7 @@ void show_nexthop_json_helper(json_object *json_nexthop,
 	else
 		rn_family = AF_UNSPEC;
 
-	nexthop_json_helper(json_nexthop, nexthop, display_vrfid, rn_family);
+	nexthop_json_helper(json_nexthop, nexthop, display_vrfid, rn_family, brief);
 }
 
 /*
@@ -1362,7 +1362,7 @@ static void print_rnh(struct route_node *rn, struct vty *vty, json_object *json)
 				json_object_array_add(json_nexthop_array,
 						      json_nexthop);
 				show_nexthop_json_helper(json_nexthop, nexthop,
-							 rn, NULL);
+							 rn, NULL, false);
 			} else {
 				show_route_nexthop_helper(vty, rn, NULL,
 							  nexthop);
