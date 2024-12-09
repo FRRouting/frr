@@ -25,6 +25,8 @@ import sys
 import time
 import pytest
 import platform
+import functools
+from lib import topotest
 from copy import deepcopy
 
 
@@ -1124,7 +1126,6 @@ def test_active_standby_evpn_implementation_p1(request):
     )
 
     for addr_type in ADDR_TYPES:
-
         logger.info("Verifying only ipv4 routes")
         if addr_type != "ipv4":
             continue
@@ -2047,6 +2048,18 @@ def test_bgp_attributes_for_evpn_address_family_p1(request, attribute):
         }
         result = create_vrf_cfg(tgen, topo, input_dict=input_dict_vni)
         assert result is True, "Testcase {} :Failed \n Error: {}".format(
+            tc_name, result
+        )
+
+        expected = {"numL3Vnis": 0}
+        test_func = functools.partial(
+            topotest.router_json_cmp,
+            tgen.gears["d1"],
+            "show bgp l2vpn evpn vni json",
+            expected,
+        )
+        _, result = topotest.run_and_expect(test_func, None, count=5, wait=3)
+        assert result is None, "Testcase {} :Failed \n Error: {}".format(
             tc_name, result
         )
 
