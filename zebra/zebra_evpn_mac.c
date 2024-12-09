@@ -1152,6 +1152,7 @@ int zebra_evpn_mac_del(struct zebra_evpn *zevpn, struct zebra_mac *mac)
 				   listcount(mac->neigh_list));
 
 		SET_FLAG(mac->flags, ZEBRA_MAC_AUTO);
+		mac->rem_seq = 0;
 		return 0;
 	}
 
@@ -2411,6 +2412,7 @@ int zebra_evpn_del_local_mac(struct zebra_evpn *zevpn, struct zebra_mac *mac,
 		UNSET_FLAG(mac->flags, ZEBRA_MAC_ALL_LOCAL_FLAGS);
 		UNSET_FLAG(mac->flags, ZEBRA_MAC_STICKY);
 		SET_FLAG(mac->flags, ZEBRA_MAC_AUTO);
+		mac->rem_seq = 0;
 	}
 
 	return 0;
