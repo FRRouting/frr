@@ -2385,6 +2385,58 @@ DEFUNSH(VTYSH_BFDD, bfd_peer_enter, bfd_peer_enter_cmd,
 	return CMD_SUCCESS;
 }
 
+DEFUNSH(VTYSH_BFDD, sbfd_echo_peer_enter, sbfd_echo_peer_enter_cmd,
+	"peer <A.B.C.D|X:X::X:X> bfd-mode sbfd-echo bfd-name BFDNAME local-address <A.B.C.D|X:X::X:X> <encap-type SRv6 encap-data X:X::X:X> source-ipv6 X:X::X:X [{vrf NAME}]",
+	"Configure peer\n"
+	"IPv4 peer address\n"
+	"IPv6 peer address\n"
+	"Specify bfd session mode\n"
+	"Enable sbfd-echo mode\n"
+	"Specify bfd session name\n"
+	"bfd session name\n"
+	"Configure local\n"
+	"IPv4 local address\n"
+	"IPv6 local address\n"
+	"Configure bfd session encap type\n"
+	"Apply Srv6 as encap type\n"
+	"Configure bfd session encap data\n"
+	"Set bfd session encap data\n"
+	"Configure bfd session source-ipv6 address\n"
+	"Configure source-ipv6 address\n"
+	"Configure VRF\n"
+	"Configure VRF name\n")
+{
+	vty->node = BFD_PEER_NODE;
+	return CMD_SUCCESS;
+}
+
+DEFUNSH(VTYSH_BFDD, sbfd_init_peer_enter, sbfd_init_peer_enter_cmd,
+	"peer  <A.B.C.D|X:X::X:X> bfd-mode sbfd-init bfd-name BFDNAME local-address <A.B.C.D|X:X::X:X> remote-discr (1-4294967295) [{encap-type SRv6 encap-data X:X::X:X source-ipv6 X:X::X:X|vrf NAME}]",
+	"Configure peer\n"
+	"IPv4 peer address\n"
+	"IPv6 peer address\n"
+	"Specify bfd session mode\n"
+	"Enable sbfd-init mode\n"
+	"Specify bfd session name\n"
+	"bfd session name\n"
+	"Configure local\n"
+	"IPv4 local address\n"
+	"IPv6 local address\n"
+	"Configure bfd session remote discriminator\n"
+	"Configure remote discriminator\n"
+	"Configure bfd session encap type\n"
+	"Apply Srv6 as encap type\n"
+	"Configure bfd session encap data\n"
+	"Set bfd session encap data\n"
+	"Configure bfd session source-ipv6 address\n"
+	"Configure source-ipv6 address\n"
+	"Configure VRF\n"
+	"Configure VRF name\n")
+{
+	vty->node = BFD_PEER_NODE;
+	return CMD_SUCCESS;
+}
+
 DEFUNSH(VTYSH_BFDD, bfd_profile_enter, bfd_profile_enter_cmd,
 	"profile BFDPROF",
 	BFD_PROFILE_STR
@@ -5272,6 +5324,8 @@ void vtysh_init_vty(void)
 	install_element(BFD_NODE, &vtysh_end_all_cmd);
 
 	install_element(BFD_NODE, &bfd_peer_enter_cmd);
+	install_element(BFD_NODE, &sbfd_init_peer_enter_cmd);
+	install_element(BFD_NODE, &sbfd_echo_peer_enter_cmd);
 	install_element(BFD_PEER_NODE, &vtysh_exit_bfdd_cmd);
 	install_element(BFD_PEER_NODE, &vtysh_quit_bfdd_cmd);
 	install_element(BFD_PEER_NODE, &vtysh_end_all_cmd);
