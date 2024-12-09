@@ -2390,7 +2390,6 @@ int lib_interface_pim_address_family_multicast_boundary_oil_modify(
 {
 	struct interface *ifp;
 	struct pim_interface *pim_ifp;
-	const char *plist;
 	const struct lyd_node *if_dnode;
 
 	switch (args->event) {
@@ -2398,7 +2397,12 @@ int lib_interface_pim_address_family_multicast_boundary_oil_modify(
 		if_dnode = yang_dnode_get_parent(args->dnode, "interface");
 		if (!is_pim_interface(if_dnode)) {
 			snprintf(args->errmsg, args->errmsg_len,
-					"Pim not enabled on this interface");
+				 "%% Enable PIM and/or IGMP on this interface first");
+			return NB_ERR_VALIDATION;
+		}
+		if (!prefix_list_lookup(AFI_IP, yang_dnode_get_string(args->dnode, NULL))) {
+			snprintf(args->errmsg, args->errmsg_len,
+				 "%% Specified prefix-list not found");
 			return NB_ERR_VALIDATION;
 		}
 		break;
@@ -2408,13 +2412,8 @@ int lib_interface_pim_address_family_multicast_boundary_oil_modify(
 	case NB_EV_APPLY:
 		ifp = nb_running_get_entry(args->dnode, NULL, true);
 		pim_ifp = ifp->info;
-		plist = yang_dnode_get_string(args->dnode, NULL);
-
-		if (pim_ifp->boundary_oil_plist)
-			XFREE(MTYPE_PIM_INTERFACE, pim_ifp->boundary_oil_plist);
-
 		pim_ifp->boundary_oil_plist =
-			XSTRDUP(MTYPE_PIM_INTERFACE, plist);
+			prefix_list_lookup(AFI_IP, yang_dnode_get_string(args->dnode, NULL));
 
 		break;
 	}
@@ -2444,8 +2443,72 @@ int lib_interface_pim_address_family_multicast_boundary_oil_destroy(
 	case NB_EV_APPLY:
 		ifp = nb_running_get_entry(args->dnode, NULL, true);
 		pim_ifp = ifp->info;
-		if (pim_ifp->boundary_oil_plist)
-			XFREE(MTYPE_PIM_INTERFACE, pim_ifp->boundary_oil_plist);
+		pim_ifp->boundary_oil_plist = NULL;
+		break;
+	}
+
+	return NB_OK;
+}
+
+/*
+ * XPath: /frr-interface:lib/interface/frr-pim:pim/address-family/multicast-boundary-acl
+ */
+int lib_interface_pim_address_family_multicast_boundary_acl_modify(struct nb_cb_modify_args *args)
+{
+	struct interface *ifp;
+	struct pim_interface *pim_ifp;
+	const struct lyd_node *if_dnode;
+
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+		if_dnode = yang_dnode_get_parent(args->dnode, "interface");
+		if (!is_pim_interface(if_dnode)) {
+			snprintf(args->errmsg, args->errmsg_len,
+				 "%% Enable PIM and/or IGMP on this interface first");
+			return NB_ERR_VALIDATION;
+		}
+		if (!access_list_lookup(AFI_IP, yang_dnode_get_string(args->dnode, NULL))) {
+			snprintf(args->errmsg, args->errmsg_len,
+				 "%% Specified access-list not found");
+			return NB_ERR_VALIDATION;
+		}
+		break;
+	case NB_EV_ABORT:
+	case NB_EV_PREPARE:
+		break;
+	case NB_EV_APPLY:
+		ifp = nb_running_get_entry(args->dnode, NULL, true);
+		pim_ifp = ifp->info;
+		pim_ifp->boundary_acl =
+			access_list_lookup(AFI_IP, yang_dnode_get_string(args->dnode, NULL));
+		break;
+	}
+
+	return NB_OK;
+}
+
+int lib_interface_pim_address_family_multicast_boundary_acl_destroy(struct nb_cb_destroy_args *args)
+{
+	struct interface *ifp;
+	struct pim_interface *pim_ifp;
+	const struct lyd_node *if_dnode;
+
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+		if_dnode = yang_dnode_get_parent(args->dnode, "interface");
+		if (!is_pim_interface(if_dnode)) {
+			snprintf(args->errmsg, args->errmsg_len,
+				 "%% Enable PIM and/or IGMP on this interface first");
+			return NB_ERR_VALIDATION;
+		}
+		break;
+	case NB_EV_ABORT:
+	case NB_EV_PREPARE:
+		break;
+	case NB_EV_APPLY:
+		ifp = nb_running_get_entry(args->dnode, NULL, true);
+		pim_ifp = ifp->info;
+		pim_ifp->boundary_acl = NULL;
 		break;
 	}
 

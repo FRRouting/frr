@@ -133,8 +133,10 @@ struct pim_interface {
 	uint32_t pim_dr_priority;	  /* config */
 	int pim_dr_num_nondrpri_neighbors; /* neighbors without dr_pri */
 
-	/* boundary prefix-list */
-	char *boundary_oil_plist;
+	/* boundary prefix-list (group) */
+	struct prefix_list *boundary_oil_plist;
+	/* boundary access-list (source and group) */
+	struct access_list *boundary_acl;
 
 	/* Turn on Active-Active for this interface */
 	bool activeactive;

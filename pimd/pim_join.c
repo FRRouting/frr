@@ -245,7 +245,7 @@ int pim_joinprune_recv(struct interface *ifp, struct pim_neighbor *neigh,
 		uint16_t msg_num_pruned_sources;
 		int source;
 		struct pim_ifchannel *starg_ch = NULL, *sg_ch = NULL;
-		bool filtered = false;
+		bool group_filtered = false;
 
 		memset(&sg, 0, sizeof(sg));
 		addr_offset = pim_parse_addr_group(&sg, buf, pastend - buf);
@@ -275,7 +275,7 @@ int pim_joinprune_recv(struct interface *ifp, struct pim_neighbor *neigh,
 				&src_addr, ifp->name);
 
 		/* boundary check */
-		filtered = pim_is_group_filtered(pim_ifp, &sg.grp);
+		group_filtered = pim_is_group_filtered(pim_ifp, &sg.grp, NULL);
 
 		/* Scan joined sources */
 		for (source = 0; source < msg_num_joined_sources; ++source) {
@@ -287,8 +287,8 @@ int pim_joinprune_recv(struct interface *ifp, struct pim_neighbor *neigh,
 
 			buf += addr_offset;
 
-			/* if we are filtering this group, skip the join */
-			if (filtered)
+			/* if we are filtering this group or (S,G), skip the join */
+			if (group_filtered || pim_is_group_filtered(pim_ifp, &sg.grp, &sg.src))
 				continue;
 
 			recv_join(ifp, neigh, msg_holdtime, msg_upstream_addr,
@@ -311,10 +311,6 @@ int pim_joinprune_recv(struct interface *ifp, struct pim_neighbor *neigh,
 			}
 
 			buf += addr_offset;
-
-			/* if we are filtering this group, skip the prune */
-			if (filtered)
-				continue;
 
 			recv_prune(ifp, neigh, msg_holdtime, msg_upstream_addr,
 				   &sg, msg_source_flags);
@@ -361,7 +357,7 @@ int pim_joinprune_recv(struct interface *ifp, struct pim_neighbor *neigh,
 				}
 			}
 		}
-		if (starg_ch && !filtered)
+		if (starg_ch && !group_filtered)
 			pim_ifchannel_set_star_g_join_state(starg_ch, 1, 0);
 		starg_ch = NULL;
 	} /* scan groups */
