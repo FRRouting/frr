@@ -187,6 +187,16 @@ def test_bgp_administrative_reset_gr():
             """
         )
 
+    def _bgp_verify_show_bgp_router_json():
+        output = json.loads(r1.vtysh_cmd("show bgp router json"))
+        expected = {
+            "bgpStartedAt": "*",
+            "bgpStartedGracefully": False,
+            "bgpInMaintenanceMode": False,
+            "bgpInstanceCount": 1,
+        }
+        return topotest.json_cmp(output, expected)
+
     step("Initial BGP converge")
     test_func = functools.partial(_bgp_converge)
     _, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
@@ -204,6 +214,11 @@ def test_bgp_administrative_reset_gr():
     test_func = functools.partial(_bgp_check_hard_reset)
     _, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
     assert result is None, "Failed to send Administrative Reset notification from R2"
+
+    step("Check show bgp router json")
+    test_func = functools.partial(_bgp_verify_show_bgp_router_json)
+    _, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
+    assert result is None, "Invalid BGP router details"
 
 
 if __name__ == "__main__":
