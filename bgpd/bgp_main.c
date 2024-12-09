@@ -192,6 +192,8 @@ static __attribute__((__noreturn__)) void bgp_exit(int status)
 	bgp_default = bgp_get_default();
 	bgp_evpn = bgp_get_evpn();
 
+	bgp_lp_finish();
+
 	/* reverse bgp_master_init */
 	for (ALL_LIST_ELEMENTS(bm->bgp, node, nnode, bgp)) {
 		if (bgp_default == bgp || bgp_evpn == bgp)
@@ -256,8 +258,6 @@ static __attribute__((__noreturn__)) void bgp_exit(int status)
 	bf_free(bm->rd_idspace);
 	list_delete(&bm->bgp);
 	list_delete(&bm->addresses);
-
-	bgp_lp_finish();
 
 	memset(bm, 0, sizeof(*bm));
 
