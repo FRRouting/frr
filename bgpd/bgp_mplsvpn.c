@@ -4074,6 +4074,32 @@ void bgp_vpn_leak_export(struct bgp *from_bgp)
 	}
 }
 
+void bgp_vpn_release_label(struct bgp *bgp, afi_t afi, bool reset)
+{
+	if (!CHECK_FLAG(bgp->vpn_policy[afi].flags, BGP_VPN_POLICY_TOVPN_LABEL_AUTO))
+		return;
+	/*
+	 * label has previously been automatically
+	 * assigned by labelpool: release it
+	 *
+	 * NB if tovpn_label == MPLS_LABEL_NONE it
+	 * means the automatic assignment is in flight
+	 * and therefore the labelpool callback must
+	 * detect that the auto label is not needed.
+	 */
+	if (bgp->vpn_policy[afi].tovpn_label == MPLS_LABEL_NONE)
+		return;
+	if (CHECK_FLAG(bgp->vpn_policy[afi].flags, BGP_VPN_POLICY_TOVPN_LABEL_PER_NEXTHOP))
+		return;
+
+	bgp_lp_release(LP_TYPE_VRF, &bgp->vpn_policy[afi], bgp->vpn_policy[afi].tovpn_label);
+	bgp->vpn_policy[afi].tovpn_label = MPLS_LABEL_NONE;
+
+	if (reset)
+		UNSET_FLAG(bgp->vpn_policy[afi].flags, BGP_VPN_POLICY_TOVPN_LABEL_AUTO);
+
+}
+
 /* The nexthops values are compared to
  * find in the tree the appropriate cache entry
  */

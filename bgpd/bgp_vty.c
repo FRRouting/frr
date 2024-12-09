@@ -9941,26 +9941,9 @@ DEFPY (af_label_vpn_export,
 		UNSET_FLAG(bgp->vpn_policy[afi].flags,
 			   BGP_VPN_POLICY_TOVPN_LABEL_MANUAL_REG);
 
-	} else if (CHECK_FLAG(bgp->vpn_policy[afi].flags,
-			      BGP_VPN_POLICY_TOVPN_LABEL_AUTO)) {
+	} else if (CHECK_FLAG(bgp->vpn_policy[afi].flags, BGP_VPN_POLICY_TOVPN_LABEL_AUTO))
 		/* release any previous auto label */
-		if (bgp->vpn_policy[afi].tovpn_label != MPLS_LABEL_NONE) {
-
-			/*
-			 * label has previously been automatically
-			 * assigned by labelpool: release it
-			 *
-			 * NB if tovpn_label == MPLS_LABEL_NONE it
-			 * means the automatic assignment is in flight
-			 * and therefore the labelpool callback must
-			 * detect that the auto label is not needed.
-			 */
-
-			bgp_lp_release(LP_TYPE_VRF,
-				       &bgp->vpn_policy[afi],
-				       bgp->vpn_policy[afi].tovpn_label);
-		}
-	}
+		bgp_vpn_release_label(bgp, afi, false);
 
 	if (yes) {
 		if (label_auto) {
