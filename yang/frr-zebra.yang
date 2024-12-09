@@ -157,47 +157,6 @@ module frr-zebra {
       "Zebra interface type gre.";
   }
 
-  /*
-   * Multicast RPF mode configurable type
-   */
-
-  typedef mcast-rpf-lookup-mode {
-    type enumeration {
-      enum "none" {
-        value 0;
-        description
-          "No mode set.";
-      }
-      enum "mrib-only" {
-        value 1;
-        description
-          "Lookup in unicast RIB only.";
-      }
-      enum "urib-only" {
-        value 2;
-        description
-          "Lookup in multicast RIB only.";
-      }
-      enum "mrib-then-urib" {
-        value 3;
-        description
-          "Try multicast RIB first, fall back to unicast RIB.";
-      }
-      enum "lower-distance" {
-        value 4;
-        description
-          "Lookup both unicast and mcast, use entry with lower distance.";
-      }
-      enum "longer-prefix" {
-        value 5;
-        description
-          "Lookup both unicast and mcast, use entry with longer prefix.";
-      }
-    }
-    description
-      "Multicast RPF lookup behavior";
-  }
-
   // End of ip6-route
   /*
    * VxLAN Network Identifier type
@@ -2883,12 +2842,6 @@ module frr-zebra {
   container zebra {
     description
       "Data model for the Zebra daemon.";
-    leaf mcast-rpf-lookup {
-      type frr-zebra:mcast-rpf-lookup-mode;
-      default "mrib-then-urib";
-      description
-        "Multicast RPF lookup behavior.";
-    }
     leaf ip-forwarding {
       type boolean;
       description

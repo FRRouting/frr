@@ -153,6 +153,7 @@ static int zclient_read_nexthop(struct pim_instance *pim,
 	struct ipaddr raddr;
 	uint8_t distance;
 	uint32_t metric;
+	uint16_t prefix_len;
 	int nexthop_num;
 	int i, err;
 
@@ -162,7 +163,7 @@ static int zclient_read_nexthop(struct pim_instance *pim,
 
 	s = zlookup->ibuf;
 
-	while (command != ZEBRA_NEXTHOP_LOOKUP_MRIB) {
+	while (command != ZEBRA_NEXTHOP_LOOKUP) {
 		stream_reset(s);
 		err = zclient_read_header(s, zlookup->sock, &length, &marker,
 					  &version, &vrf_id, &command);
@@ -193,7 +194,13 @@ static int zclient_read_nexthop(struct pim_instance *pim,
 
 	distance = stream_getc(s);
 	metric = stream_getl(s);
+	prefix_len = stream_getw(s);
 	nexthop_num = stream_getw(s);
+
+	if (PIM_DEBUG_PIM_NHT_DETAIL)
+		zlog_debug("%s: addr=%pPAs(%s), distance=%d, metric=%d, prefix_len=%d, nexthop_num=%d",
+			   __func__, &addr, pim->vrf->name, distance, metric, prefix_len,
+			   nexthop_num);
 
 	if (nexthop_num < 1 || nexthop_num > router->multipath) {
 		if (PIM_DEBUG_PIM_NHT_DETAIL)
@@ -220,6 +227,7 @@ static int zclient_read_nexthop(struct pim_instance *pim,
 		}
 		nexthop_tab[num_ifindex].protocol_distance = distance;
 		nexthop_tab[num_ifindex].route_metric = metric;
+		nexthop_tab[num_ifindex].prefix_len = prefix_len;
 		nexthop_tab[num_ifindex].vrf_id = nexthop_vrf_id;
 		switch (nexthop_type) {
 		case NEXTHOP_TYPE_IFINDEX:
@@ -301,20 +309,23 @@ static int zclient_read_nexthop(struct pim_instance *pim,
 		}
 	}
 
+	if (PIM_DEBUG_PIM_NHT_DETAIL)
+		zlog_debug("%s: addr=%pPAs(%s), num_ifindex=%d", __func__, &addr, pim->vrf->name,
+			   num_ifindex);
+
 	return num_ifindex;
 }
 
-static int zclient_lookup_nexthop_once(struct pim_instance *pim,
-				       struct pim_zlookup_nexthop nexthop_tab[],
-				       const int tab_size, pim_addr addr)
+static int zclient_rib_lookup(struct pim_instance *pim, struct pim_zlookup_nexthop nexthop_tab[],
+			      const int tab_size, pim_addr addr, safi_t safi)
 {
 	struct stream *s;
 	int ret;
 	struct ipaddr ipaddr;
 
 	if (PIM_DEBUG_PIM_NHT_DETAIL)
-		zlog_debug("%s: addr=%pPAs(%s)", __func__, &addr,
-			   pim->vrf->name);
+		zlog_debug("%s: addr=%pPAs(%s), %sRIB", __func__, &addr, pim->vrf->name,
+			   (safi == SAFI_MULTICAST ? "M" : "U"));
 
 	/* Check socket. */
 	if (zlookup->sock < 0) {
@@ -337,8 +348,9 @@ static int zclient_lookup_nexthop_once(struct pim_instance *pim,
 
 	s = zlookup->obuf;
 	stream_reset(s);
-	zclient_create_header(s, ZEBRA_NEXTHOP_LOOKUP_MRIB, pim->vrf->vrf_id);
+	zclient_create_header(s, ZEBRA_NEXTHOP_LOOKUP, pim->vrf->vrf_id);
 	stream_put_ipaddr(s, &ipaddr);
+	stream_putc(s, safi);
 	stream_putw_at(s, 0, stream_get_endp(s));
 
 	ret = writen(zlookup->sock, s->data, stream_get_endp(s));
@@ -359,6 +371,79 @@ static int zclient_lookup_nexthop_once(struct pim_instance *pim,
 	}
 
 	return zclient_read_nexthop(pim, zlookup, nexthop_tab, tab_size, addr);
+}
+
+static int zclient_lookup_nexthop_once(struct pim_instance *pim,
+				       struct pim_zlookup_nexthop nexthop_tab[], const int tab_size,
+				       pim_addr addr)
+{
+	if (pim->rpf_mode == MCAST_MRIB_ONLY)
+		return zclient_rib_lookup(pim, nexthop_tab, tab_size, addr, SAFI_MULTICAST);
+
+	if (pim->rpf_mode == MCAST_URIB_ONLY)
+		return zclient_rib_lookup(pim, nexthop_tab, tab_size, addr, SAFI_UNICAST);
+
+	/* All other modes require looking up both tables and making a choice */
+	struct pim_zlookup_nexthop mrib_tab[tab_size];
+	struct pim_zlookup_nexthop urib_tab[tab_size];
+	int mrib_num;
+	int urib_num;
+
+	memset(mrib_tab, 0, sizeof(struct pim_zlookup_nexthop) * tab_size);
+	memset(urib_tab, 0, sizeof(struct pim_zlookup_nexthop) * tab_size);
+
+	if (PIM_DEBUG_PIM_NHT_DETAIL)
+		zlog_debug("%s: addr=%pPAs(%s), looking up both MRIB and URIB", __func__, &addr,
+			   pim->vrf->name);
+
+	mrib_num = zclient_rib_lookup(pim, mrib_tab, tab_size, addr, SAFI_MULTICAST);
+	urib_num = zclient_rib_lookup(pim, urib_tab, tab_size, addr, SAFI_UNICAST);
+
+	if (PIM_DEBUG_PIM_NHT_DETAIL)
+		zlog_debug("%s: addr=%pPAs(%s), MRIB nexthops=%d, URIB nexthops=%d", __func__,
+			   &addr, pim->vrf->name, mrib_num, urib_num);
+
+	/* If only one table has results, use that always */
+	if (mrib_num < 1) {
+		if (urib_num > 0)
+			memcpy(nexthop_tab, urib_tab, sizeof(struct pim_zlookup_nexthop) * tab_size);
+		return urib_num;
+	}
+
+	if (urib_num < 1) {
+		if (mrib_num > 0)
+			memcpy(nexthop_tab, mrib_tab, sizeof(struct pim_zlookup_nexthop) * tab_size);
+		return mrib_num;
+	}
+
+	/* See if we should use the URIB based on configured lookup mode */
+	/* Both tables have results, so compare them. Distance and prefix length are the same for all
+	 * nexthops, so only compare the first in the list
+	 */
+	if (pim->rpf_mode == MCAST_MIX_DISTANCE &&
+	    mrib_tab[0].protocol_distance > urib_tab[0].protocol_distance) {
+		if (PIM_DEBUG_PIM_NHT_DETAIL)
+			zlog_debug("%s: addr=%pPAs(%s), URIB has shortest distance", __func__,
+				   &addr, pim->vrf->name);
+		memcpy(nexthop_tab, urib_tab, sizeof(struct pim_zlookup_nexthop) * tab_size);
+		return urib_num;
+	} else if (pim->rpf_mode == MCAST_MIX_PFXLEN &&
+		   mrib_tab[0].prefix_len < urib_tab[0].prefix_len) {
+		if (PIM_DEBUG_PIM_NHT_DETAIL)
+			zlog_debug("%s: addr=%pPAs(%s), URIB has lengthest prefix length", __func__,
+				   &addr, pim->vrf->name);
+		memcpy(nexthop_tab, urib_tab, sizeof(struct pim_zlookup_nexthop) * tab_size);
+		return urib_num;
+	}
+
+	/* All others use the MRIB */
+	/* For MCAST_MIX_MRIB_FIRST (and by extension, MCAST_NO_CONFIG),
+	 * always return mrib if both have results
+	 */
+	if (PIM_DEBUG_PIM_NHT_DETAIL)
+		zlog_debug("%s: addr=%pPAs(%s), MRIB has nexthops", __func__, &addr, pim->vrf->name);
+	memcpy(nexthop_tab, mrib_tab, sizeof(struct pim_zlookup_nexthop) * tab_size);
+	return mrib_num;
 }
 
 void zclient_lookup_read_pipe(struct event *thread)
