@@ -518,6 +518,10 @@ Commands available for MSDP
 
       To apply it immediately call `clear ip msdp peer A.B.C.D`.
 
+.. clicmd:: msdp originator-id A.B.C.D
+
+   Use the specified originator ID instead of the multicast RP group.
+
 .. clicmd:: msdp shutdown
 
    Shutdown the MSDP sessions in this PIM instance.

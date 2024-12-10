@@ -341,6 +341,16 @@ void pim_msdp_peer_restart(struct pim_msdp_peer *mp);
  */
 void pim_msdp_shutdown(struct pim_instance *pim, bool state);
 
+/**
+ * Get the configured originator ID for the SA RP field or the RP for the group.
+ *
+ * \param[in] pim PIM instance that MSDP connection belongs to.
+ * \param[in] group Multicast group.
+ * \param[out] originator_id Originator output value.
+ */
+void pim_msdp_originator_id(struct pim_instance *pim, const struct prefix *group,
+			    struct in_addr *originator_id);
+
 #else /* PIM_IPV == 6 */
 static inline void pim_msdp_init(struct pim_instance *pim,
 				 struct event_loop *master)
@@ -387,6 +397,12 @@ static inline bool pim_msdp_peer_config_write(struct vty *vty,
 
 static inline void pim_msdp_shutdown(struct pim_instance *pim, bool state)
 {
+}
+
+static inline void pim_msdp_originator_id(struct pim_instance *pim, const struct prefix *group,
+					  struct in_addr *originator_id)
+{
+	originator_id->s_addr = INADDR_ANY;
 }
 #endif /* PIM_IPV == 6 */
 
