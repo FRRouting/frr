@@ -143,7 +143,10 @@ def test_zebra_ipv4_routingTable():
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
+<<<<<<< HEAD
     failures = 0
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     router_list = tgen.routers().values()
     for router in router_list:
         output = router.vtysh_cmd("show ip route json", isjson=True)
@@ -193,6 +196,10 @@ if __name__ == "__main__":
     args = ["-s"] + sys.argv[1:]
     sys.exit(pytest.main(args))
 
+<<<<<<< HEAD
+=======
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 #
 # Auxiliary Functions
 #

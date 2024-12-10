@@ -23,6 +23,11 @@ The `BMP` implementation in FRR has the following properties:
   - 3: count of **prefixes** with loop in cluster id
   - 4: count of **prefixes** with loop in AS-path
   - 5: count of **prefixes** with loop in originator
+<<<<<<< HEAD
+=======
+  - 7: count of **routes** in adj-rib-in
+  - 8: count of **routes** in Loc-RIB
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
   - 11: count of updates subjected to :rfc:`7607` "treat as withdrawal"
     handling due to errors
   - 65531: *experimental* count of prefixes rejected due to invalid next-hop
@@ -146,6 +151,14 @@ associated with a particular ``bmp targets``:
    Send BMP Statistics (counter) messages at the specified interval (in
    milliseconds.)
 
+<<<<<<< HEAD
+=======
+.. clicmd:: bmp stats send-experimental
+
+   Send BMP Statistics (counter) messages whose code is defined as
+   experimental (in the [65531-65534] range).
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 .. clicmd:: bmp monitor AFI SAFI <pre-policy|post-policy|loc-rib>
 
    Perform Route Monitoring for the specified AFI and SAFI.  Only IPv4 and

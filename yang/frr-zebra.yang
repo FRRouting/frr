@@ -145,18 +145,30 @@ module frr-zebra {
       "Zebra interface type bond.";
   }
 
+<<<<<<< HEAD
   identity zif-bond-slave {
     base zebra-interface-type;
     description
       "Zebra interface type bond slave.";
   }
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
   identity zif-macvlan {
     base zebra-interface-type;
     description
       "Zebra interface type macvlan.";
   }
 
+<<<<<<< HEAD
+=======
+  identity zif-gre {
+    base zebra-interface-type;
+    description
+      "Zebra interface type gre.";
+  }
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
   /*
    * Multicast RPF mode configurable type
    */
@@ -626,6 +638,10 @@ module frr-zebra {
 
         leaf table-id {
           type uint32;
+<<<<<<< HEAD
+=======
+	  default "254";
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
           description
             "Routing Table id (default id - 254).";
         }
@@ -2733,6 +2749,15 @@ module frr-zebra {
           description
             "The VNI multicast group for BUM traffic.";
         }
+<<<<<<< HEAD
+=======
+
+        leaf bond {
+          type frr-interface:interface-ref;
+          description
+            "The bond interface this interface belongs to.";
+        }
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
       }
     }
   }
@@ -2849,6 +2874,19 @@ module frr-zebra {
         }
       }
 
+<<<<<<< HEAD
+=======
+      container mpls {
+        description
+          "MPLS Configuration.";
+          leaf fec-nexthop-resolution {
+            type boolean;
+            description
+              "Authorise nexthop resolution over all labeled routes.";
+          }
+      }
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
       uses ribs;
 
       uses vrf-vni-mapping;

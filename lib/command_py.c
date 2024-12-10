@@ -29,6 +29,10 @@
 struct wrap_graph;
 static PyObject *graph_to_pyobj(struct wrap_graph *graph,
 				struct graph_node *gn);
+<<<<<<< HEAD
+=======
+static PyObject *graph_to_pyobj_idx(struct wrap_graph *wgraph, size_t i);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 /*
  * nodes are wrapped as follows:
@@ -44,6 +48,7 @@ struct wrap_graph_node {
 		bool allowrepeat;
 	const char *type;
 
+<<<<<<< HEAD
 	bool deprecated;
 	bool hidden;
 	const char *text;
@@ -51,6 +56,8 @@ struct wrap_graph_node {
 	const char *varname;
 	long long min, max;
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	struct graph_node *node;
 	struct wrap_graph *wgraph;
 	size_t idx;
@@ -68,6 +75,10 @@ struct wrap_graph {
 
 		char *definition;
 	struct graph *graph;
+<<<<<<< HEAD
+=======
+	size_t n_nodewrappers;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	struct wrap_graph_node **nodewrappers;
 };
 
@@ -84,11 +95,83 @@ static PyObject *refuse_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
 			READONLY, (char *)#name " (" #type ")"                 \
 	}
 static PyMemberDef members_graph_node[] = {
+<<<<<<< HEAD
 	member(allowrepeat, T_BOOL), member(type, T_STRING),
 	member(deprecated, T_BOOL),  member(hidden, T_BOOL),
 	member(text, T_STRING),      member(desc, T_STRING),
 	member(min, T_LONGLONG),     member(max, T_LONGLONG),
 	member(varname, T_STRING),   {},
+=======
+	/* clang-format off */
+	member(type, T_STRING),
+	member(idx, T_ULONG),
+	{},
+	/* clang-format on */
+};
+#undef member
+
+static PyObject *graph_node_get_str(PyObject *self, void *poffset)
+{
+	struct wrap_graph_node *wrap = (struct wrap_graph_node *)self;
+	void *offset = (char *)wrap->node->data + (ptrdiff_t)poffset;
+	const char *val = *(const char **)offset;
+
+	if (!val)
+		Py_RETURN_NONE;
+	return PyUnicode_FromString(val);
+}
+
+static PyObject *graph_node_get_bool(PyObject *self, void *poffset)
+{
+	struct wrap_graph_node *wrap = (struct wrap_graph_node *)self;
+	void *offset = (char *)wrap->node->data + (ptrdiff_t)poffset;
+	bool val = *(bool *)offset;
+
+	return PyBool_FromLong(val);
+}
+
+static PyObject *graph_node_get_ll(PyObject *self, void *poffset)
+{
+	struct wrap_graph_node *wrap = (struct wrap_graph_node *)self;
+	void *offset = (char *)wrap->node->data + (ptrdiff_t)poffset;
+	long long val = *(long long *)offset;
+
+	return PyLong_FromLongLong(val);
+}
+
+static PyObject *graph_node_get_u8(PyObject *self, void *poffset)
+{
+	struct wrap_graph_node *wrap = (struct wrap_graph_node *)self;
+	void *offset = (char *)wrap->node->data + (ptrdiff_t)poffset;
+	uint8_t val = *(uint8_t *)offset;
+
+	return PyLong_FromUnsignedLong(val);
+}
+
+/* clang-format off */
+#define member(name, variant)                                                  \
+	{                                                                      \
+		(char *)#name,                                                 \
+		graph_node_get_##variant,                                      \
+		NULL,                                                          \
+		(char *)#name " (" #variant ")",                               \
+		(void *)offsetof(struct cmd_token, name),                      \
+	}
+/* clang-format on */
+
+static PyGetSetDef getset_graph_node[] = {
+	/* clang-format off */
+	member(attr, u8),
+	member(allowrepeat, bool),
+	member(varname_src, u8),
+	member(text, str),
+	member(desc, str),
+	member(min, ll),
+	member(max, ll),
+	member(varname, str),
+	{},
+	/* clang-format on */
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 };
 #undef member
 
@@ -101,12 +184,38 @@ static PyObject *graph_node_next(PyObject *self, PyObject *args)
 	struct wrap_graph_node *wrap = (struct wrap_graph_node *)self;
 	PyObject *pylist;
 
+<<<<<<< HEAD
 	if (wrap->node->data
 	    && ((struct cmd_token *)wrap->node->data)->type == END_TKN)
+=======
+	if (wrap->node->data &&
+	    ((struct cmd_token *)wrap->node->data)->type == CMD_ELEMENT_TKN)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		return PyList_New(0);
 	pylist = PyList_New(vector_active(wrap->node->to));
 	for (size_t i = 0; i < vector_active(wrap->node->to); i++) {
 		struct graph_node *gn = vector_slot(wrap->node->to, i);
+<<<<<<< HEAD
+=======
+
+		PyList_SetItem(pylist, i, graph_to_pyobj(wrap->wgraph, gn));
+	}
+	return pylist;
+};
+
+static PyObject *graph_node_prev(PyObject *self, PyObject *args)
+{
+	struct wrap_graph_node *wrap = (struct wrap_graph_node *)self;
+	PyObject *pylist;
+
+	if (wrap->node->data &&
+	    ((struct cmd_token *)wrap->node->data)->type == START_TKN)
+		return PyList_New(0);
+	pylist = PyList_New(vector_active(wrap->node->from));
+	for (size_t i = 0; i < vector_active(wrap->node->from); i++) {
+		struct graph_node *gn = vector_slot(wrap->node->from, i);
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		PyList_SetItem(pylist, i, graph_to_pyobj(wrap->wgraph, gn));
 	}
 	return pylist;
@@ -118,30 +227,80 @@ static PyObject *graph_node_next(PyObject *self, PyObject *args)
 static PyObject *graph_node_join(PyObject *self, PyObject *args)
 {
 	struct wrap_graph_node *wrap = (struct wrap_graph_node *)self;
+<<<<<<< HEAD
+=======
+	struct cmd_token *tok;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	if (!wrap->node->data
 	    || ((struct cmd_token *)wrap->node->data)->type == END_TKN)
 		Py_RETURN_NONE;
 
+<<<<<<< HEAD
 	struct cmd_token *tok = wrap->node->data;
+=======
+	tok = wrap->node->data;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	if (tok->type != FORK_TKN)
 		Py_RETURN_NONE;
 
 	return graph_to_pyobj(wrap->wgraph, tok->forkjoin);
 };
 
+<<<<<<< HEAD
 static PyMethodDef methods_graph_node[] = {
 	{"next", graph_node_next, METH_NOARGS, "outbound graph edge list"},
 	{"join", graph_node_join, METH_NOARGS, "outbound join node"},
 	{}};
+=======
+static PyObject *graph_node_fork(PyObject *self, PyObject *args)
+{
+	struct wrap_graph_node *wrap = (struct wrap_graph_node *)self;
+	struct cmd_token *tok;
+
+	if (!wrap->node->data ||
+	    ((struct cmd_token *)wrap->node->data)->type == END_TKN)
+		Py_RETURN_NONE;
+
+	tok = wrap->node->data;
+	if (tok->type != JOIN_TKN)
+		Py_RETURN_NONE;
+
+	return graph_to_pyobj(wrap->wgraph, tok->forkjoin);
+};
+
+static PyMethodDef methods_graph_node[] = {
+	{ "next", graph_node_next, METH_NOARGS, "outbound graph edge list" },
+	{ "prev", graph_node_prev, METH_NOARGS, "inbound graph edge list" },
+	{ "join", graph_node_join, METH_NOARGS, "outbound join node" },
+	{ "fork", graph_node_fork, METH_NOARGS, "inbound fork node" },
+	{}
+};
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 static void graph_node_wrap_free(void *arg)
 {
 	struct wrap_graph_node *wrap = arg;
+<<<<<<< HEAD
+=======
+
+	assert(wrap->idx < wrap->wgraph->n_nodewrappers);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	wrap->wgraph->nodewrappers[wrap->idx] = NULL;
 	Py_DECREF(wrap->wgraph);
 }
 
+<<<<<<< HEAD
+=======
+static PyObject *repr_graph_node(PyObject *arg)
+{
+	struct wrap_graph_node *wrap = (struct wrap_graph_node *)arg;
+
+	return PyUnicode_FromFormat("<_clippy.GraphNode %p [%zu] %s>",
+				    wrap->node, wrap->idx, wrap->type);
+}
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 static PyTypeObject typeobj_graph_node = {
 	PyVarObject_HEAD_INIT(NULL, 0).tp_name = "_clippy.GraphNode",
 	.tp_basicsize = sizeof(struct wrap_graph_node),
@@ -150,13 +309,22 @@ static PyTypeObject typeobj_graph_node = {
 	.tp_new = refuse_new,
 	.tp_free = graph_node_wrap_free,
 	.tp_members = members_graph_node,
+<<<<<<< HEAD
 	.tp_methods = methods_graph_node,
+=======
+	.tp_getset = getset_graph_node,
+	.tp_methods = methods_graph_node,
+	.tp_repr = repr_graph_node,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 };
 
 static PyObject *graph_to_pyobj(struct wrap_graph *wgraph,
 				struct graph_node *gn)
 {
+<<<<<<< HEAD
 	struct wrap_graph_node *wrap;
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	size_t i;
 
 	for (i = 0; i < vector_active(wgraph->graph->nodes); i++)
@@ -166,6 +334,27 @@ static PyObject *graph_to_pyobj(struct wrap_graph *wgraph,
 		PyErr_SetString(PyExc_ValueError, "cannot find node in graph");
 		return NULL;
 	}
+<<<<<<< HEAD
+=======
+
+	return graph_to_pyobj_idx(wgraph, i);
+}
+
+static PyObject *graph_to_pyobj_idx(struct wrap_graph *wgraph, size_t i)
+{
+	struct wrap_graph_node *wrap;
+	struct graph_node *gn = vector_slot(wgraph->graph->nodes, i);
+
+	if (i >= wgraph->n_nodewrappers) {
+		wgraph->nodewrappers =
+			realloc(wgraph->nodewrappers,
+				(i + 1) * sizeof(wgraph->nodewrappers[0]));
+		memset(wgraph->nodewrappers + wgraph->n_nodewrappers, 0,
+		       sizeof(wgraph->nodewrappers[0]) *
+			       (i + 1 - wgraph->n_nodewrappers));
+		wgraph->n_nodewrappers = i + 1;
+	}
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	if (wgraph->nodewrappers[i]) {
 		PyObject *obj = (PyObject *)wgraph->nodewrappers[i];
 		Py_INCREF(obj);
@@ -209,10 +398,15 @@ static PyObject *graph_to_pyobj(struct wrap_graph *wgraph,
 			item(START_TKN);
 			item(END_TKN);
 			item(NEG_ONLY_TKN);
+<<<<<<< HEAD
+=======
+			item(CMD_ELEMENT_TKN);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 #undef item
 		default:
 			wrap->type = "???";
 		}
+<<<<<<< HEAD
 
 		wrap->deprecated = !!(tok->attr & CMD_ATTR_DEPRECATED);
 		wrap->hidden = !!(tok->attr & CMD_ATTR_HIDDEN);
@@ -222,6 +416,8 @@ static PyObject *graph_to_pyobj(struct wrap_graph *wgraph,
 		wrap->min = tok->min;
 		wrap->max = tok->max;
 		wrap->allowrepeat = tok->allowrepeat;
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	}
 
 	return (PyObject *)wrap;
@@ -246,9 +442,19 @@ static PyObject *graph_first(PyObject *self, PyObject *args)
 	return graph_to_pyobj(gwrap, gn);
 };
 
+<<<<<<< HEAD
 static PyMethodDef methods_graph[] = {
 	{"first", graph_first, METH_NOARGS, "first graph node"},
 	{}};
+=======
+static PyObject *graph_merge(PyObject *self, PyObject *args);
+
+static PyMethodDef methods_graph[] = {
+	{ "first", graph_first, METH_NOARGS, "first graph node" },
+	{ "merge", graph_merge, METH_VARARGS, "merge graphs" },
+	{}
+};
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 static PyObject *graph_parse(PyTypeObject *type, PyObject *args,
 			     PyObject *kwds);
@@ -262,6 +468,33 @@ static void graph_wrap_free(void *arg)
 	free(wgraph->definition);
 }
 
+<<<<<<< HEAD
+=======
+static Py_ssize_t graph_length(PyObject *self)
+{
+	struct wrap_graph *gwrap = (struct wrap_graph *)self;
+
+	return vector_active(gwrap->graph->nodes);
+}
+
+static PyObject *graph_item(PyObject *self, Py_ssize_t idx)
+{
+	struct wrap_graph *gwrap = (struct wrap_graph *)self;
+
+	if (idx >= vector_active(gwrap->graph->nodes))
+		return PyErr_Format(PyExc_IndexError,
+				    "index %zd past graph size %u", idx,
+				    vector_active(gwrap->graph->nodes));
+
+	return graph_to_pyobj_idx(gwrap, idx);
+}
+
+static PySequenceMethods seq_graph = {
+	.sq_length = graph_length,
+	.sq_item = graph_item,
+};
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 static PyTypeObject typeobj_graph = {
 	PyVarObject_HEAD_INIT(NULL, 0).tp_name = "_clippy.Graph",
 	.tp_basicsize = sizeof(struct wrap_graph),
@@ -271,6 +504,7 @@ static PyTypeObject typeobj_graph = {
 	.tp_free = graph_wrap_free,
 	.tp_members = members_graph,
 	.tp_methods = methods_graph,
+<<<<<<< HEAD
 };
 
 /* top call / entrypoint for python code */
@@ -279,19 +513,50 @@ static PyObject *graph_parse(PyTypeObject *type, PyObject *args, PyObject *kwds)
 	const char *def, *doc = NULL;
 	struct wrap_graph *gwrap;
 	static const char *kwnames[] = {"cmddef", "doc", NULL};
+=======
+	.tp_as_sequence = &seq_graph,
+};
+
+static PyObject *graph_merge(PyObject *self, PyObject *args)
+{
+	PyObject *py_other;
+	struct wrap_graph *gwrap = (struct wrap_graph *)self;
+	struct wrap_graph *gother;
+
+	if (!PyArg_ParseTuple(args, "O!", &typeobj_graph, &py_other))
+		return NULL;
+
+	gother = (struct wrap_graph *)py_other;
+	cmd_graph_merge(gwrap->graph, gother->graph, +1);
+	Py_RETURN_NONE;
+}
+
+/* top call / entrypoint for python code */
+static PyObject *graph_parse(PyTypeObject *type, PyObject *args, PyObject *kwds)
+{
+	const char *def, *doc = NULL, *name = NULL;
+	struct wrap_graph *gwrap;
+	static const char *const kwnames[] = { "cmddef", "doc", "name", NULL };
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	gwrap = (struct wrap_graph *)typeobj_graph.tp_alloc(&typeobj_graph, 0);
 	if (!gwrap)
 		return NULL;
 
+<<<<<<< HEAD
 	if (!PyArg_ParseTupleAndKeywords(args, kwds, "s|s", (char **)kwnames,
 					 &def, &doc))
+=======
+	if (!PyArg_ParseTupleAndKeywords(args, kwds, "z|ss", (char **)kwnames,
+					 &def, &doc, &name))
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		return NULL;
 
 	struct graph *graph = graph_new();
 	struct cmd_token *token = cmd_token_new(START_TKN, 0, NULL, NULL);
 	graph_new_node(graph, token, (void (*)(void *)) & cmd_token_del);
 
+<<<<<<< HEAD
 	struct cmd_element cmd = {.string = def, .doc = doc};
 	cmd_graph_parse(graph, &cmd);
 	cmd_graph_names(graph);
@@ -300,6 +565,28 @@ static PyObject *graph_parse(PyTypeObject *type, PyObject *args, PyObject *kwds)
 	gwrap->definition = strdup(def);
 	gwrap->nodewrappers = calloc(vector_active(graph->nodes),
 				     sizeof(gwrap->nodewrappers[0]));
+=======
+	if (def) {
+		struct cmd_element cmd = { .string = def, .doc = doc };
+		struct graph_node *last;
+
+		cmd_graph_parse(graph, &cmd);
+		cmd_graph_names(graph);
+
+		last = vector_slot(graph->nodes,
+				   vector_active(graph->nodes) - 1);
+		assert(last->data == &cmd);
+
+		last->data = cmd_token_new(CMD_ELEMENT_TKN, 0, name, def);
+		last->del = (void (*)(void *))cmd_token_del;
+
+		gwrap->definition = strdup(def);
+	} else {
+		gwrap->definition = strdup("NULL");
+	}
+
+	gwrap->graph = graph;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	return (PyObject *)gwrap;
 }
 

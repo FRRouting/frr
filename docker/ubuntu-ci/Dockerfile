@@ -23,13 +23,25 @@ RUN apt update && apt upgrade -y && \
             libreadline-dev \
             libsnmp-dev \
             libsqlite3-dev \
+<<<<<<< HEAD
             libtool \
+=======
+            lsb-release \
+            libtool \
+            lcov \
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
             make \
             perl \
             pkg-config \
             python3-dev \
             python3-sphinx \
+<<<<<<< HEAD
             texinfo \
+=======
+            screen \
+            texinfo \
+            tmux \
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     && \
     # Protobuf build requirements
     apt-get install -y \
@@ -80,15 +92,24 @@ RUN apt update && apt upgrade -y && \
     python3 -m pip install xmltodict && \
     python3 -m pip install git+https://github.com/Exa-Networks/exabgp@0659057837cd6c6351579e9f0fa47e9fb7de7311
 
+<<<<<<< HEAD
 RUN groupadd -r -g 92 frr && \
       groupadd -r -g 85 frrvty && \
       adduser --system --ingroup frr --home /home/frr \
               --gecos "FRR suite" --shell /bin/bash frr && \
+=======
+ARG UID=1000
+RUN groupadd -r -g 92 frr && \
+      groupadd -r -g 85 frrvty && \
+      adduser --system --ingroup frr --home /home/frr \
+              --gecos "FRR suite" -u $UID --shell /bin/bash frr && \
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
       usermod -a -G frrvty frr && \
       useradd -d /var/run/exabgp/ -s /bin/false exabgp && \
       echo 'frr ALL = NOPASSWD: ALL' | tee /etc/sudoers.d/frr && \
       mkdir -p /home/frr && chown frr.frr /home/frr
 
+<<<<<<< HEAD
 USER frr:frr
 
 # build and install libyang2
@@ -101,6 +122,16 @@ RUN cd && pwd && ls -al && \
           -DCMAKE_BUILD_TYPE:String="Release" .. && \
     make -j $(nproc) && \
     sudo make install
+=======
+# Install FRR built packages
+RUN mkdir -p /etc/apt/keyrings && \
+    curl -s -o /etc/apt/keyrings/frrouting.gpg https://deb.frrouting.org/frr/keys.gpg && \
+    echo deb '[signed-by=/etc/apt/keyrings/frrouting.gpg]' https://deb.frrouting.org/frr \
+        $(lsb_release -s -c) "frr-stable" > /etc/apt/sources.list.d/frr.list && \
+    apt-get update && apt-get install -y librtr-dev libyang2-dev libyang2-tools
+
+USER frr:frr
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 COPY --chown=frr:frr . /home/frr/frr/
 
@@ -111,6 +142,13 @@ RUN cd ~/frr && \
        --sysconfdir=/etc \
        --localstatedir=/var \
        --sbindir=/usr/lib/frr \
+<<<<<<< HEAD
+=======
+       --enable-gcov \
+       --enable-dev-build \
+       --enable-mgmtd-test-be-client \
+       --enable-rpki \
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
        --enable-sharpd \
        --enable-multipath=64 \
        --enable-user=frr \

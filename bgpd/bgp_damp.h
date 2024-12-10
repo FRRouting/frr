@@ -10,11 +10,14 @@
 
 /* Structure maintained on a per-route basis. */
 struct bgp_damp_info {
+<<<<<<< HEAD
 	/* Doubly linked list.  This information must be linked to
 	   reuse_list or no_reuse_list.  */
 	struct bgp_damp_info *next;
 	struct bgp_damp_info *prev;
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	/* Figure-of-merit.  */
 	unsigned int penalty;
 
@@ -30,6 +33,12 @@ struct bgp_damp_info {
 	/* Time of route start to be suppressed.  */
 	time_t suppress_time;
 
+<<<<<<< HEAD
+=======
+	/* Back reference to associated dampening configuration. */
+	struct bgp_damp_config *config;
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	/* Back reference to bgp_path_info. */
 	struct bgp_path_info *path;
 
@@ -38,6 +47,11 @@ struct bgp_damp_info {
 
 	/* Current index in the reuse_list. */
 	int index;
+<<<<<<< HEAD
+=======
+#define BGP_DAMP_NO_REUSE_LIST_INDEX                                           \
+	(-1) /* index for elements on no_reuse_list */
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	/* Last time message type. */
 	uint8_t lastrecord;
@@ -46,8 +60,17 @@ struct bgp_damp_info {
 
 	afi_t afi;
 	safi_t safi;
+<<<<<<< HEAD
 };
 
+=======
+
+	SLIST_ENTRY(bgp_damp_info) entry;
+};
+
+SLIST_HEAD(reuselist, bgp_damp_info);
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 /* Specified parameter set configuration. */
 struct bgp_damp_config {
 	/* Value over which routes suppressed.  */
@@ -84,12 +107,21 @@ struct bgp_damp_config {
 	int *reuse_index;
 
 	/* Reuse list array per-set based. */
+<<<<<<< HEAD
 	struct bgp_damp_info **reuse_list;
 	int reuse_offset;
 	safi_t safi;
 
 	/* All dampening information which is not on reuse list.  */
 	struct bgp_damp_info *no_reuse_list;
+=======
+	struct reuselist *reuse_list;
+	unsigned int reuse_offset;
+	safi_t safi;
+
+	/* All dampening information which is not on reuse list.  */
+	struct reuselist no_reuse_list;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	/* Reuse timer thread per-set base. */
 	struct event *t_reuse;
@@ -116,6 +148,11 @@ struct bgp_damp_config {
 #define REUSE_LIST_SIZE          256
 #define REUSE_ARRAY_SIZE        1024
 
+<<<<<<< HEAD
+=======
+extern struct bgp_damp_config *get_active_bdc_from_pi(struct bgp_path_info *pi,
+						      afi_t afi, safi_t safi);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 extern int bgp_damp_enable(struct bgp *bgp, afi_t afi, safi_t safi, time_t half,
 			   unsigned int reuse, unsigned int suppress,
 			   time_t max);
@@ -124,6 +161,7 @@ extern int bgp_damp_withdraw(struct bgp_path_info *path, struct bgp_dest *dest,
 			     afi_t afi, safi_t safi, int attr_change);
 extern int bgp_damp_update(struct bgp_path_info *path, struct bgp_dest *dest,
 			   afi_t afi, safi_t saff);
+<<<<<<< HEAD
 extern void bgp_damp_info_free(struct bgp_damp_info *path, int withdraw,
 			       afi_t afi, safi_t safi);
 extern void bgp_damp_info_clean(afi_t afi, safi_t safi);
@@ -132,6 +170,20 @@ extern int bgp_damp_decay(time_t tdiff, int penalty,
 extern void bgp_config_write_damp(struct vty *vty, afi_t afi, safi_t safi);
 extern void bgp_damp_info_vty(struct vty *vty, struct bgp_path_info *path,
 			      afi_t afi, safi_t safi, json_object *json_path);
+=======
+extern void bgp_damp_info_free(struct bgp_damp_info *bdi,
+			       struct reuselist *list, int withdraw);
+extern void bgp_damp_info_clean(struct bgp *bgp, struct bgp_damp_config *bdc,
+				afi_t afi, safi_t safi);
+extern void bgp_damp_config_clean(struct bgp_damp_config *bdc);
+extern int bgp_damp_decay(time_t tdiff, int penalty,
+			  struct bgp_damp_config *bdc);
+extern void bgp_config_write_damp(struct vty *vty, struct bgp *bgp, afi_t afi,
+				  safi_t safi);
+extern void bgp_damp_info_vty(struct vty *vty, struct bgp *bgp,
+			      struct bgp_path_info *path, afi_t afi,
+			      safi_t safi, json_object *json_path);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 extern const char *bgp_damp_reuse_time_vty(struct vty *vty,
 					   struct bgp_path_info *path,
 					   char *timebuf, size_t len, afi_t afi,
@@ -139,5 +191,17 @@ extern const char *bgp_damp_reuse_time_vty(struct vty *vty,
 					   json_object *json);
 extern int bgp_show_dampening_parameters(struct vty *vty, afi_t afi,
 					 safi_t safi, uint16_t show_flags);
+<<<<<<< HEAD
+=======
+extern void bgp_peer_damp_enable(struct peer *peer, afi_t afi, safi_t safi,
+				 time_t half, unsigned int reuse,
+				 unsigned int suppress, time_t max);
+extern void bgp_peer_damp_disable(struct peer *peer, afi_t afi, safi_t safi);
+extern void bgp_config_write_peer_damp(struct vty *vty, struct peer *peer,
+				       afi_t afi, safi_t safi);
+extern void bgp_show_peer_dampening_parameters(struct vty *vty,
+					       struct peer *peer, afi_t afi,
+					       safi_t safi, bool use_json);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 #endif /* _QUAGGA_BGP_DAMP_H */

@@ -19,7 +19,11 @@ SAFI_IP_FLOWSPEC = 133
 SAFI_VPN_FLOWSPEC = 134
 
 
+<<<<<<< HEAD
 #------------------------------------------------------------------------------
+=======
+# ------------------------------------------------------------------------------
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 class AddressFamily:
     def __init__(self, afi, safi):
         self.afi = afi
@@ -31,13 +35,21 @@ class AddressFamily:
         return (self.afi, self.safi) == (other.afi, other.safi)
 
     def __str__(self):
+<<<<<<< HEAD
         return f'afi: {self.afi}, safi: {self.safi}'
+=======
+        return f"afi: {self.afi}, safi: {self.safi}"
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
     def __hash__(self):
         return hash((self.afi, self.safi))
 
 
+<<<<<<< HEAD
 #------------------------------------------------------------------------------
+=======
+# ------------------------------------------------------------------------------
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 class AF:
     IPv4_UNICAST = AddressFamily(AFI_IP, SAFI_UNICAST)
     IPv6_UNICAST = AddressFamily(AFI_IP6, SAFI_UNICAST)

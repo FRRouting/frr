@@ -494,11 +494,19 @@ Graceful Restart
 
 
    Configure Graceful Restart (RFC 5187) helper support.
+<<<<<<< HEAD
    By default, helper support is disabled for all neighbours.
    This config enables/disables helper support on this router
    for all neighbours.
    To enable/disable helper support for a specific
    neighbour, the router-id (A.B.C.D) has to be specified.
+=======
+   By default, helper support is disabled for all neighbors.
+   This config enables/disables helper support on this router
+   for all neighbors.
+   To enable/disable helper support for a specific
+   neighbor, the router-id (A.B.C.D) has to be specified.
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 .. clicmd:: graceful-restart helper strict-lsa-checking
 

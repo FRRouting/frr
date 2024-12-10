@@ -46,8 +46,11 @@
 #define BUFFER_PCC_PCE_SIZE 1024
 
 /* CLI Function declarations */
+<<<<<<< HEAD
 static int pcep_cli_debug_config_write(struct vty *vty);
 static int pcep_cli_debug_set_all(uint32_t flags, bool set);
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 static int pcep_cli_pcep_config_write(struct vty *vty);
 static int pcep_cli_pcc_config_write(struct vty *vty);
 static int pcep_cli_pce_config_write(struct vty *vty);
@@ -110,10 +113,13 @@ static const char PCEP_VTYSH_ARG_DELEGATION_TIMEOUT[] = "delegation-timeout";
 static const char PCEP_VTYSH_ARG_SR_DRAFT07[] = "sr-draft07";
 static const char PCEP_VTYSH_ARG_PCE_INIT[] = "pce-initiated";
 static const char PCEP_VTYSH_ARG_TCP_MD5[] = "tcp-md5-auth";
+<<<<<<< HEAD
 static const char PCEP_VTYSH_ARG_BASIC[] = "basic";
 static const char PCEP_VTYSH_ARG_PATH[] = "path";
 static const char PCEP_VTYSH_ARG_MESSAGE[] = "message";
 static const char PCEP_VTYSH_ARG_PCEPLIB[] = "pceplib";
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 static const char PCEP_CLI_CAP_STATEFUL[] = " [Stateful PCE]";
 static const char PCEP_CLI_CAP_INCL_DB_VER[] = " [Include DB version]";
 static const char PCEP_CLI_CAP_LSP_TRIGGERED[] = " [LSP Triggered Resync]";
@@ -463,6 +469,7 @@ static void pcep_cli_remove_pce_connection(struct pce_opts *pce_opts)
  * VTY command implementations
  */
 
+<<<<<<< HEAD
 static int path_pcep_cli_debug(struct vty *vty, const char *debug_type, bool set)
 {
 	uint32_t mode = DEBUG_NODE2MODE(vty->node);
@@ -488,6 +495,21 @@ static int path_pcep_cli_debug(struct vty *vty, const char *debug_type, bool set
 	/* Unset the pcep debug mode if there is no flag at least set*/
 	if (!DEBUG_FLAGS_CHECK(&pcep_g->dbg, PCEP_DEBUG_MODE_ALL))
 		DEBUG_MODE_SET(&pcep_g->dbg, mode, false);
+=======
+static int path_pcep_cli_debug(struct vty *vty, bool onoff, bool basic,
+			       bool path, bool message, bool lib)
+{
+	uint32_t mode = DEBUG_NODE2MODE(vty->node);
+
+	if (basic)
+		DEBUG_MODE_SET(&pcep_g->dbg_basic, mode, onoff);
+	if (path)
+		DEBUG_MODE_SET(&pcep_g->dbg_path, mode, onoff);
+	if (message)
+		DEBUG_MODE_SET(&pcep_g->dbg_msg, mode, onoff);
+	if (lib)
+		DEBUG_MODE_SET(&pcep_g->dbg_lib, mode, onoff);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	return CMD_SUCCESS;
 }
@@ -1712,6 +1734,7 @@ static int path_pcep_cli_clear_srte_pcep_session(struct vty *vty,
  * Config Write functions
  */
 
+<<<<<<< HEAD
 int pcep_cli_debug_config_write(struct vty *vty)
 {
 	char buff[128] = "";
@@ -1748,6 +1771,8 @@ int pcep_cli_debug_set_all(uint32_t flags, bool set)
 	return 0;
 }
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 int pcep_cli_pcep_config_write(struct vty *vty)
 {
 	vty_out(vty, "  pcep\n");
@@ -2006,6 +2031,7 @@ int pcep_cli_pcep_pce_config_write(struct vty *vty)
  * The param names are taken from the path_pcep_cli_clippy.c generated file.
  */
 
+<<<<<<< HEAD
 DEFPY(show_debugging_pathd_pcep,
       show_debugging_pathd_pcep_cmd,
       "show debugging pathd-pcep",
@@ -2036,6 +2062,11 @@ DEFPY(show_debugging_pathd_pcep,
 DEFPY(pcep_cli_debug,
       pcep_cli_debug_cmd,
       "[no] debug pathd pcep [<basic|path|message|pceplib>$debug_type]",
+=======
+DEFPY(pcep_cli_debug,
+      pcep_cli_debug_cmd,
+      "[no] debug pathd pcep [{basic$basic|path$path|message$msg|pceplib$lib}]",
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
       NO_STR DEBUG_STR
       "pathd debugging\n"
       "pcep module debugging\n"
@@ -2044,7 +2075,15 @@ DEFPY(pcep_cli_debug,
       "pcep message debugging\n"
       "pceplib debugging\n")
 {
+<<<<<<< HEAD
 	return path_pcep_cli_debug(vty, debug_type, !no);
+=======
+	if (strmatch(argv[argc - 1]->text, "pcep"))
+		return path_pcep_cli_debug(vty, !no, true, true, true, true);
+	else
+		return path_pcep_cli_debug(vty, !no, !!basic, !!path, !!msg,
+					   !!lib);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 }
 
 DEFPY(pcep_cli_show_srte_pcep_counters,
@@ -2372,9 +2411,17 @@ DEFPY(pcep_cli_clear_srte_pcep_session,
 void pcep_cli_init(void)
 {
 	hook_register(pathd_srte_config_write, pcep_cli_pcep_config_write);
+<<<<<<< HEAD
 	hook_register(nb_client_debug_config_write,
 		      pcep_cli_debug_config_write);
 	hook_register(nb_client_debug_set_all, pcep_cli_debug_set_all);
+=======
+
+	debug_install(&pcep_g->dbg_basic);
+	debug_install(&pcep_g->dbg_path);
+	debug_install(&pcep_g->dbg_msg);
+	debug_install(&pcep_g->dbg_lib);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	memset(&pce_connections_g, 0, sizeof(pce_connections_g));
 
@@ -2423,7 +2470,10 @@ void pcep_cli_init(void)
 	/* Top commands */
 	install_element(CONFIG_NODE, &pcep_cli_debug_cmd);
 	install_element(ENABLE_NODE, &pcep_cli_debug_cmd);
+<<<<<<< HEAD
 	install_element(ENABLE_NODE, &show_debugging_pathd_pcep_cmd);
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	install_element(ENABLE_NODE, &pcep_cli_show_srte_pcep_counters_cmd);
 	install_element(ENABLE_NODE, &pcep_cli_show_srte_pcep_pce_config_cmd);
 	install_element(ENABLE_NODE, &pcep_cli_show_srte_pcep_pce_cmd);

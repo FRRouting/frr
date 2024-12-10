@@ -75,6 +75,11 @@ struct mgmt_be_client_cbs {
 
 	const char **notif_xpaths;
 	uint nnotif_xpaths;
+<<<<<<< HEAD
+=======
+	const char **rpc_xpaths;
+	uint nrpc_xpaths;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 };
 
 /***************************************************************
@@ -120,11 +125,14 @@ mgmt_be_client_create(const char *name, struct mgmt_be_client_cbs *cbs,
 extern void mgmt_be_client_lib_vty_init(void);
 
 /*
+<<<<<<< HEAD
  * Print enabled debugging commands.
  */
 extern void mgmt_debug_be_client_show_debug(struct vty *vty);
 
 /*
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
  * [Un]-subscribe with MGMTD for one or more YANG subtree(s).
  *
  * client

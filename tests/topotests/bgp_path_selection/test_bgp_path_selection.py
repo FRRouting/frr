@@ -49,11 +49,23 @@ def setup_module(mod):
     for routern in range(1, 4):
         tgen.gears["r{}".format(routern)].cmd("ip link add vrf1 type vrf table 10")
         tgen.gears["r{}".format(routern)].cmd("ip link set vrf1 up")
+<<<<<<< HEAD
         tgen.gears["r{}".format(routern)].cmd("ip address add dev vrf1 {}.{}.{}.{}/32".format(routern, routern, routern,routern))
     tgen.gears["r2"].cmd("ip address add dev vrf1 192.0.2.8/32")
     tgen.gears["r3"].cmd("ip address add dev vrf1 192.0.2.8/32")
 
     for i, (rname, router) in enumerate(router_list.items(), 1):
+=======
+        tgen.gears["r{}".format(routern)].cmd(
+            "ip address add dev vrf1 {}.{}.{}.{}/32".format(
+                routern, routern, routern, routern
+            )
+        )
+    tgen.gears["r2"].cmd("ip address add dev vrf1 192.0.2.8/32")
+    tgen.gears["r3"].cmd("ip address add dev vrf1 192.0.2.8/32")
+
+    for _, (rname, router) in enumerate(router_list.items(), 1):
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         router.load_config(
             TopoRouter.RD_ZEBRA, os.path.join(CWD, "{}/zebra.conf".format(rname))
         )
@@ -74,6 +86,10 @@ def teardown_module(mod):
     tgen = get_topogen()
     tgen.stop_topology()
 
+<<<<<<< HEAD
+=======
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 def test_bgp_path_selection_ecmp():
     tgen = get_topogen()
 
@@ -97,7 +113,11 @@ def test_bgp_path_selection_ecmp():
                     "aspath": {"string": "65002"},
                     "multipath": True,
                     "nexthops": [{"ip": "192.0.2.3", "metric": 20}],
+<<<<<<< HEAD
                 }
+=======
+                },
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
             ]
         }
 
@@ -117,7 +137,13 @@ def test_bgp_path_selection_vpn_ecmp():
 
     def _bgp_check_path_selection_vpn_ecmp():
         output = json.loads(
+<<<<<<< HEAD
             tgen.gears["r1"].vtysh_cmd("show bgp vrf vrf1 ipv4 unicast 192.0.2.8/32 json")
+=======
+            tgen.gears["r1"].vtysh_cmd(
+                "show bgp vrf vrf1 ipv4 unicast 192.0.2.8/32 json"
+            )
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         )
         expected = {
             "paths": [
@@ -132,7 +158,11 @@ def test_bgp_path_selection_vpn_ecmp():
                     "aspath": {"string": "65002"},
                     "multipath": True,
                     "nexthops": [{"ip": "192.0.2.3", "metric": 20}],
+<<<<<<< HEAD
                 }
+=======
+                },
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
             ]
         }
 
@@ -160,13 +190,21 @@ def test_bgp_path_selection_metric():
                     "valid": True,
                     "aspath": {"string": "65002"},
                     "nexthops": [{"ip": "192.0.2.2", "metric": 10}],
+<<<<<<< HEAD
                     "bestpath":{ "selectionReason":"IGP Metric"},
+=======
+                    "bestpath": {"selectionReason": "IGP Metric"},
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
                 },
                 {
                     "valid": True,
                     "aspath": {"string": "65002"},
                     "nexthops": [{"ip": "192.0.2.3", "metric": 20}],
+<<<<<<< HEAD
                 }
+=======
+                },
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
             ]
         }
 
@@ -189,7 +227,13 @@ def test_bgp_path_selection_vpn_metric():
 
     def _bgp_check_path_selection_vpn_metric():
         output = json.loads(
+<<<<<<< HEAD
             tgen.gears["r1"].vtysh_cmd("show bgp vrf vrf1 ipv4 unicast 192.0.2.8/32 json")
+=======
+            tgen.gears["r1"].vtysh_cmd(
+                "show bgp vrf vrf1 ipv4 unicast 192.0.2.8/32 json"
+            )
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         )
         expected = {
             "paths": [
@@ -197,13 +241,21 @@ def test_bgp_path_selection_vpn_metric():
                     "valid": True,
                     "aspath": {"string": "65002"},
                     "nexthops": [{"ip": "192.0.2.2", "metric": 10}],
+<<<<<<< HEAD
                     "bestpath":{ "selectionReason":"IGP Metric"},
+=======
+                    "bestpath": {"selectionReason": "IGP Metric"},
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
                 },
                 {
                     "valid": True,
                     "aspath": {"string": "65002"},
                     "nexthops": [{"ip": "192.0.2.3", "metric": 20}],
+<<<<<<< HEAD
                 }
+=======
+                },
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
             ]
         }
 

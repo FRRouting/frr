@@ -9,6 +9,10 @@
 #include <zebra.h>
 #include <sys/stat.h>
 
+<<<<<<< HEAD
+=======
+#include "debug.h"
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 #include "frrevent.h"
 #include "vty.h"
 #include "command.h"
@@ -42,7 +46,11 @@ static void vty_do_exit(int isexit)
 	yang_terminate();
 	event_master_free(master);
 
+<<<<<<< HEAD
 	log_memstats(stderr, "testcli");
+=======
+	log_memstats(NULL, true);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	if (!isexit)
 		exit(0);
 }
@@ -71,11 +79,19 @@ int main(int argc, char **argv)
 
 	vty_init(master, false);
 	lib_cmd_init();
+<<<<<<< HEAD
+=======
+	debug_init();
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	for (yangcount = 0; test_yang_modules && test_yang_modules[yangcount];
 	     yangcount++)
 		;
+<<<<<<< HEAD
 	nb_init(master, test_yang_modules, yangcount, false);
+=======
+	nb_init(master, test_yang_modules, yangcount, false, false);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	test_init(argc, argv);
 

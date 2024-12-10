@@ -9,6 +9,11 @@
 #include "memory.h"
 #include "if.h"
 #include "lib_errors.h"
+<<<<<<< HEAD
+=======
+#include "plist.h"
+#include "plist_int.h"
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 #include "pimd.h"
 #include "pim_instance.h"
@@ -507,6 +512,11 @@ static void allow(struct gm_sock *igmp, struct in_addr from,
 		struct in_addr *src_addr;
 
 		src_addr = sources + i;
+<<<<<<< HEAD
+=======
+		if (pim_is_group_filtered(igmp->interface->info, &group_addr, src_addr))
+			continue;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 		source = igmp_get_source_by_addr(group, *src_addr, NULL);
 		if (!source)
@@ -646,7 +656,11 @@ void igmpv3_report_isex(struct gm_sock *igmp, struct in_addr from,
 
 	on_trace(__func__, ifp, from, group_addr, num_sources, sources);
 
+<<<<<<< HEAD
 	if (pim_is_group_filtered(ifp->info, &group_addr))
+=======
+	if (pim_is_group_filtered(ifp->info, &group_addr, NULL))
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		return;
 
 	/* non-existent group is created as INCLUDE {empty} */
@@ -1809,12 +1823,23 @@ static bool igmp_pkt_grp_addr_ok(struct interface *ifp, const char *from_str,
 	pim_ifp = ifp->info;
 
 	/* determine filtering status for group */
+<<<<<<< HEAD
 	if (pim_is_group_filtered(pim_ifp, &grp)) {
 		if (PIM_DEBUG_GM_PACKETS) {
 			zlog_debug(
 				"Filtering IGMPv3 group record %pI4 from %s on %s per prefix-list %s",
 				&grp.s_addr, from_str, ifp->name,
 				pim_ifp->boundary_oil_plist);
+=======
+	if (pim_is_group_filtered(pim_ifp, &grp, NULL)) {
+		if (PIM_DEBUG_GM_PACKETS) {
+			zlog_debug("Filtering IGMPv3 group record %pI4 from %s on %s per prefix-list %s or access-list %s",
+				   &grp.s_addr, from_str, ifp->name,
+				   (pim_ifp->boundary_oil_plist ? pim_ifp->boundary_oil_plist->name
+								: "(not found)"),
+				   (pim_ifp->boundary_acl ? pim_ifp->boundary_acl->name
+							  : "(not found)"));
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		}
 		return false;
 	}
@@ -1943,11 +1968,17 @@ int igmp_v3_recv_report(struct gm_sock *igmp, struct in_addr from,
 		       sizeof(struct in_addr));
 
 		if (PIM_DEBUG_GM_PACKETS) {
+<<<<<<< HEAD
 			zlog_debug(
 				"    Recv IGMP report v3 from %s on %s: record=%d type=%d auxdatalen=%d sources=%d group=%pI4",
 				from_str, ifp->name, i, rec_type,
 				rec_auxdatalen, rec_num_sources,
 				&rec_group);
+=======
+			zlog_debug("    Recv IGMP report v3 (type %d) from %s on %s: record=%d type=%d auxdatalen=%d sources=%d group=%pI4",
+				   rec_type, from_str, ifp->name, i, rec_type, rec_auxdatalen,
+				   rec_num_sources, &rec_group);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		}
 
 		/* Scan sources */

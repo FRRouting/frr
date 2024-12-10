@@ -210,7 +210,11 @@ static int zebra_mpls_bind(struct vty *vty, int add_cmd, const char *prefix,
 				vty_out(vty, "%% Invalid label\n");
 				return CMD_WARNING_CONFIG_FAILED;
 			}
+<<<<<<< HEAD
 			if (zebra_mpls_label_already_bound(zvrf, label)) {
+=======
+			if (zebra_mpls_label_already_bound(zvrf, &p, label)) {
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 				vty_out(vty,
 					"%% Label already bound to a FEC\n");
 				return CMD_WARNING_CONFIG_FAILED;

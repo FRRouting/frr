@@ -29,7 +29,11 @@ user_RSTFILES = \
 	doc/user/ospf6d.rst \
 	doc/user/ospfd.rst \
 	doc/user/ospf_fundamentals.rst \
+<<<<<<< HEAD
 	doc/user/overview.rst \
+=======
+	doc/user/about.rst \
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	doc/user/packet-dumps.rst \
 	doc/user/pathd.rst \
 	doc/user/pim.rst \

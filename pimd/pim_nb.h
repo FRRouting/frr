@@ -9,6 +9,10 @@
 
 extern const struct frr_yang_module_info frr_pim_info;
 extern const struct frr_yang_module_info frr_pim_rp_info;
+<<<<<<< HEAD
+=======
+extern const struct frr_yang_module_info frr_pim_candidate_info;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 extern const struct frr_yang_module_info frr_gmp_info;
 
 /* frr-pim prototypes*/
@@ -53,6 +57,12 @@ int routing_control_plane_protocols_control_plane_protocol_pim_address_family_ss
 int pim_msdp_hold_time_modify(struct nb_cb_modify_args *args);
 int pim_msdp_keep_alive_modify(struct nb_cb_modify_args *args);
 int pim_msdp_connection_retry_modify(struct nb_cb_modify_args *args);
+<<<<<<< HEAD
+=======
+int pim_msdp_log_neighbor_events_modify(struct nb_cb_modify_args *args);
+int pim_msdp_log_sa_events_modify(struct nb_cb_modify_args *args);
+int pim_msdp_shutdown_modify(struct nb_cb_modify_args *args);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 int pim_msdp_mesh_group_create(struct nb_cb_create_args *args);
 int pim_msdp_mesh_group_destroy(struct nb_cb_destroy_args *args);
 int pim_msdp_mesh_group_members_create(struct nb_cb_create_args *args);
@@ -65,6 +75,16 @@ int routing_control_plane_protocols_control_plane_protocol_pim_address_family_ms
 	struct nb_cb_destroy_args *args);
 int routing_control_plane_protocols_control_plane_protocol_pim_address_family_msdp_peer_source_ip_modify(
 	struct nb_cb_modify_args *args);
+<<<<<<< HEAD
+=======
+int pim_msdp_peer_sa_filter_in_modify(struct nb_cb_modify_args *args);
+int pim_msdp_peer_sa_filter_in_destroy(struct nb_cb_destroy_args *args);
+int pim_msdp_peer_sa_filter_out_modify(struct nb_cb_modify_args *args);
+int pim_msdp_peer_sa_filter_out_destroy(struct nb_cb_destroy_args *args);
+int pim_msdp_peer_authentication_type_modify(struct nb_cb_modify_args *args);
+int pim_msdp_peer_authentication_key_modify(struct nb_cb_modify_args *args);
+int pim_msdp_peer_authentication_key_destroy(struct nb_cb_destroy_args *args);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 int routing_control_plane_protocols_control_plane_protocol_pim_address_family_mlag_create(
 	struct nb_cb_create_args *args);
 int routing_control_plane_protocols_control_plane_protocol_pim_address_family_mlag_destroy(
@@ -129,6 +149,11 @@ int lib_interface_pim_address_family_multicast_boundary_oil_modify(
 	struct nb_cb_modify_args *args);
 int lib_interface_pim_address_family_multicast_boundary_oil_destroy(
 	struct nb_cb_destroy_args *args);
+<<<<<<< HEAD
+=======
+int lib_interface_pim_address_family_multicast_boundary_acl_modify(struct nb_cb_modify_args *args);
+int lib_interface_pim_address_family_multicast_boundary_acl_destroy(struct nb_cb_destroy_args *args);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 int lib_interface_pim_address_family_mroute_create(
 	struct nb_cb_create_args *args);
 int lib_interface_pim_address_family_mroute_destroy(
@@ -151,6 +176,89 @@ int routing_control_plane_protocols_control_plane_protocol_pim_address_family_rp
 	struct nb_cb_modify_args *args);
 int routing_control_plane_protocols_control_plane_protocol_pim_address_family_rp_static_rp_rp_list_prefix_list_destroy(
 	struct nb_cb_destroy_args *args);
+<<<<<<< HEAD
+=======
+int pim_embedded_rp_enable_modify(struct nb_cb_modify_args *args);
+int pim_embedded_rp_group_list_modify(struct nb_cb_modify_args *args);
+int pim_embedded_rp_group_list_destroy(struct nb_cb_destroy_args *args);
+int pim_embedded_rp_maximum_rps_modify(struct nb_cb_modify_args *args);
+int routing_control_plane_protocols_control_plane_protocol_pim_address_family_rp_auto_rp_discovery_enabled_modify(
+	struct nb_cb_modify_args *args);
+int routing_control_plane_protocols_control_plane_protocol_pim_address_family_rp_auto_rp_discovery_enabled_destroy(
+	struct nb_cb_destroy_args *args);
+int routing_control_plane_protocols_control_plane_protocol_pim_address_family_rp_auto_rp_announce_scope_modify(
+	struct nb_cb_modify_args *args);
+int routing_control_plane_protocols_control_plane_protocol_pim_address_family_rp_auto_rp_announce_scope_destroy(
+	struct nb_cb_destroy_args *args);
+int routing_control_plane_protocols_control_plane_protocol_pim_address_family_rp_auto_rp_announce_interval_modify(
+	struct nb_cb_modify_args *args);
+int routing_control_plane_protocols_control_plane_protocol_pim_address_family_rp_auto_rp_announce_interval_destroy(
+	struct nb_cb_destroy_args *args);
+int routing_control_plane_protocols_control_plane_protocol_pim_address_family_rp_auto_rp_announce_holdtime_modify(
+	struct nb_cb_modify_args *args);
+int routing_control_plane_protocols_control_plane_protocol_pim_address_family_rp_auto_rp_announce_holdtime_destroy(
+	struct nb_cb_destroy_args *args);
+int routing_control_plane_protocols_control_plane_protocol_pim_address_family_rp_auto_rp_candidate_rp_list_create(
+	struct nb_cb_create_args *args);
+int routing_control_plane_protocols_control_plane_protocol_pim_address_family_rp_auto_rp_candidate_rp_list_destroy(
+	struct nb_cb_destroy_args *args);
+int routing_control_plane_protocols_control_plane_protocol_pim_address_family_rp_auto_rp_candidate_rp_list_group_modify(
+	struct nb_cb_modify_args *args);
+int routing_control_plane_protocols_control_plane_protocol_pim_address_family_rp_auto_rp_candidate_rp_list_group_destroy(
+	struct nb_cb_destroy_args *args);
+int routing_control_plane_protocols_control_plane_protocol_pim_address_family_rp_auto_rp_candidate_rp_list_prefix_list_modify(
+	struct nb_cb_modify_args *args);
+int routing_control_plane_protocols_control_plane_protocol_pim_address_family_rp_auto_rp_candidate_rp_list_prefix_list_destroy(
+	struct nb_cb_destroy_args *args);
+int routing_control_plane_protocols_control_plane_protocol_pim_address_family_rp_auto_rp_mapping_agent_send_rp_discovery_modify(
+	struct nb_cb_modify_args *args);
+int routing_control_plane_protocols_control_plane_protocol_pim_address_family_rp_auto_rp_mapping_agent_discovery_scope_modify(
+	struct nb_cb_modify_args *args);
+int routing_control_plane_protocols_control_plane_protocol_pim_address_family_rp_auto_rp_mapping_agent_discovery_interval_modify(
+	struct nb_cb_modify_args *args);
+int routing_control_plane_protocols_control_plane_protocol_pim_address_family_rp_auto_rp_mapping_agent_discovery_holdtime_modify(
+	struct nb_cb_modify_args *args);
+int routing_control_plane_protocols_control_plane_protocol_pim_address_family_rp_auto_rp_mapping_agent_addrsel_create(
+	struct nb_cb_create_args *args);
+int routing_control_plane_protocols_control_plane_protocol_pim_address_family_rp_auto_rp_mapping_agent_addrsel_modify(
+	struct nb_cb_modify_args *args);
+int routing_control_plane_protocols_control_plane_protocol_pim_address_family_rp_auto_rp_mapping_agent_addrsel_destroy(
+	struct nb_cb_destroy_args *args);
+
+/* frr-cand-bsr */
+int routing_control_plane_protocols_control_plane_protocol_pim_address_family_candidate_bsr_create(
+	struct nb_cb_create_args *args);
+int routing_control_plane_protocols_control_plane_protocol_pim_address_family_candidate_bsr_destroy(
+	struct nb_cb_destroy_args *args);
+int routing_control_plane_protocols_control_plane_protocol_pim_address_family_candidate_bsr_priority_modify(
+	struct nb_cb_modify_args *args);
+int routing_control_plane_protocols_control_plane_protocol_pim_address_family_candidate_bsr_addrsel_create(
+	struct nb_cb_create_args *args);
+int routing_control_plane_protocols_control_plane_protocol_pim_address_family_candidate_bsr_addrsel_modify(
+	struct nb_cb_modify_args *args);
+int routing_control_plane_protocols_control_plane_protocol_pim_address_family_candidate_bsr_addrsel_destroy(
+	struct nb_cb_destroy_args *args);
+
+/* frr-candidate */
+int routing_control_plane_protocols_control_plane_protocol_pim_address_family_candidate_rp_create(
+	struct nb_cb_create_args *args);
+int routing_control_plane_protocols_control_plane_protocol_pim_address_family_candidate_rp_destroy(
+	struct nb_cb_destroy_args *args);
+int routing_control_plane_protocols_control_plane_protocol_pim_address_family_candidate_rp_priority_modify(
+	struct nb_cb_modify_args *args);
+int routing_control_plane_protocols_control_plane_protocol_pim_address_family_candidate_rp_adv_interval_modify(
+	struct nb_cb_modify_args *args);
+int routing_control_plane_protocols_control_plane_protocol_pim_address_family_candidate_rp_group_list_create(
+	struct nb_cb_create_args *args);
+int routing_control_plane_protocols_control_plane_protocol_pim_address_family_candidate_rp_group_list_destroy(
+	struct nb_cb_destroy_args *args);
+int routing_control_plane_protocols_control_plane_protocol_pim_address_family_candidate_rp_addrsel_create(
+	struct nb_cb_create_args *args);
+int routing_control_plane_protocols_control_plane_protocol_pim_address_family_candidate_rp_addrsel_modify(
+	struct nb_cb_modify_args *args);
+int routing_control_plane_protocols_control_plane_protocol_pim_address_family_candidate_rp_addrsel_destroy(
+	struct nb_cb_destroy_args *args);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 /* frr-gmp prototypes*/
 int lib_interface_gmp_address_family_create(
@@ -175,6 +283,14 @@ int lib_interface_gmp_address_family_last_member_query_interval_modify(
 		struct nb_cb_modify_args *args);
 int lib_interface_gmp_address_family_robustness_variable_modify(
 		struct nb_cb_modify_args *args);
+<<<<<<< HEAD
+=======
+int lib_interface_gmp_address_family_join_group_create(
+	struct nb_cb_create_args *args);
+int lib_interface_gmp_address_family_join_group_destroy(
+	struct nb_cb_destroy_args *args);
+int lib_interface_gmp_address_family_proxy_modify(struct nb_cb_modify_args *args);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 int lib_interface_gmp_address_family_static_group_create(
 		struct nb_cb_create_args *args);
 int lib_interface_gmp_address_family_static_group_destroy(
@@ -193,6 +309,12 @@ int routing_control_plane_protocols_name_validate(
 #define FRR_PIM_AF_XPATH_VAL "frr-routing:ipv6"
 #endif
 
+<<<<<<< HEAD
+=======
+#define FRR_PIM_CAND_RP_XPATH  "./frr-pim-candidate:candidate-rp"
+#define FRR_PIM_CAND_BSR_XPATH "./frr-pim-candidate:candidate-bsr"
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 #define FRR_PIM_VRF_XPATH                                               \
 	"/frr-routing:routing/control-plane-protocols/"                 \
 	"control-plane-protocol[type='%s'][name='%s'][vrf='%s']/"       \
@@ -207,17 +329,34 @@ int routing_control_plane_protocols_name_validate(
 	"./frr-pim:pim/address-family[address-family='%s']/"            \
 	"mroute[source-addr='%s'][group-addr='%s']"
 #define FRR_PIM_STATIC_RP_XPATH                                         \
+<<<<<<< HEAD
 	"/frr-routing:routing/control-plane-protocols/"                 \
 	"control-plane-protocol[type='%s'][name='%s'][vrf='%s']/"       \
 	"frr-pim:pim/address-family[address-family='%s']/"              \
 	"frr-pim-rp:rp/static-rp/rp-list[rp-address='%s']"
+=======
+	"frr-pim-rp:rp/static-rp/rp-list[rp-address='%s']"
+#define FRR_PIM_EMBEDDED_RP_XPATH	      "./frr-pim-rp:rp/embedded-rp/enable"
+#define FRR_PIM_EMBEDDED_RP_GROUP_LIST_XPATH  "./frr-pim-rp:rp/embedded-rp/group-list"
+#define FRR_PIM_EMBEDDED_RP_MAXIMUM_RPS_XPATH "./frr-pim-rp:rp/embedded-rp/maximum-rps"
+#define FRR_PIM_AUTORP_XPATH "./frr-pim-rp:rp/auto-rp"
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 #define FRR_GMP_INTERFACE_XPATH                                         \
 	"./frr-gmp:gmp/address-family[address-family='%s']"
 #define FRR_GMP_ENABLE_XPATH                                            \
 	"%s/frr-gmp:gmp/address-family[address-family='%s']/enable"
+<<<<<<< HEAD
 #define FRR_GMP_JOIN_XPATH                                              \
 	"./frr-gmp:gmp/address-family[address-family='%s']/"            \
 	"static-group[group-addr='%s'][source-addr='%s']"
 #define FRR_PIM_MSDP_XPATH FRR_PIM_VRF_XPATH "/msdp"
+=======
+#define FRR_GMP_JOIN_GROUP_XPATH                                               \
+	"./frr-gmp:gmp/address-family[address-family='%s']/"                   \
+	"join-group[group-addr='%s'][source-addr='%s']"
+#define FRR_GMP_STATIC_GROUP_XPATH                                             \
+	"./frr-gmp:gmp/address-family[address-family='%s']/"                   \
+	"static-group[group-addr='%s'][source-addr='%s']"
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 #endif /* _FRR_PIM_NB_H_ */

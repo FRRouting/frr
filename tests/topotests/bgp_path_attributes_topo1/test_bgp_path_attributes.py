@@ -78,6 +78,10 @@ pytestmark = [pytest.mark.bgpd, pytest.mark.staticd]
 # Address read from env variables
 ADDR_TYPES = check_address_types()
 
+<<<<<<< HEAD
+=======
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 ####
 def setup_module(mod):
     """

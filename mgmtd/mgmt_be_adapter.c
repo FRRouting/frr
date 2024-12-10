@@ -90,10 +90,22 @@ static const char *const ripd_config_xpaths[] = {
 	"/frr-ripd:ripd",
 	"/frr-route-map:lib",
 	"/frr-vrf:lib",
+<<<<<<< HEAD
+=======
+	"/ietf-key-chain:key-chains",
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	NULL,
 };
 static const char *const ripd_oper_xpaths[] = {
 	"/frr-ripd:ripd",
+<<<<<<< HEAD
+=======
+	"/ietf-key-chain:key-chains",
+	NULL,
+};
+static const char *const ripd_rpc_xpaths[] = {
+	"/frr-ripd",
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	NULL,
 };
 #endif
@@ -111,6 +123,13 @@ static const char *const ripngd_oper_xpaths[] = {
 	"/frr-ripngd:ripngd",
 	NULL,
 };
+<<<<<<< HEAD
+=======
+static const char *const ripngd_rpc_xpaths[] = {
+	"/frr-ripngd",
+	NULL,
+};
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 #endif
 
 #if HAVE_STATICD
@@ -145,6 +164,21 @@ static const char *const *be_client_oper_xpaths[MGMTD_BE_CLIENT_ID_MAX] = {
 	[MGMTD_BE_CLIENT_ID_ZEBRA] = zebra_oper_xpaths,
 };
 
+<<<<<<< HEAD
+=======
+static const char *const *be_client_notif_xpaths[MGMTD_BE_CLIENT_ID_MAX] = {
+};
+
+static const char *const *be_client_rpc_xpaths[MGMTD_BE_CLIENT_ID_MAX] = {
+#ifdef HAVE_RIPD
+	[MGMTD_BE_CLIENT_ID_RIPD] = ripd_rpc_xpaths,
+#endif
+#ifdef HAVE_RIPNGD
+	[MGMTD_BE_CLIENT_ID_RIPNGD] = ripngd_rpc_xpaths,
+#endif
+};
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 /*
  * We would like to have a better ADT than one with O(n) comparisons
  *
@@ -157,6 +191,10 @@ static const char *const *be_client_oper_xpaths[MGMTD_BE_CLIENT_ID_MAX] = {
 static struct mgmt_be_xpath_map *be_cfg_xpath_map;
 static struct mgmt_be_xpath_map *be_oper_xpath_map;
 static struct mgmt_be_xpath_map *be_notif_xpath_map;
+<<<<<<< HEAD
+=======
+static struct mgmt_be_xpath_map *be_rpc_xpath_map;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 static struct event_loop *mgmt_loop;
 static struct msg_server mgmt_be_server = {.fd = -1};
@@ -171,8 +209,13 @@ static struct mgmt_be_client_adapter
 static void
 mgmt_be_adapter_sched_init_event(struct mgmt_be_client_adapter *adapter);
 
+<<<<<<< HEAD
 static bool be_is_client_interested(const char *xpath,
 				    enum mgmt_be_client_id id, bool config);
+=======
+static bool be_is_client_interested(const char *xpath, enum mgmt_be_client_id id,
+				    enum mgmt_be_xpath_subscr_type type);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 const char *mgmt_be_client_id2name(enum mgmt_be_client_id id)
 {
@@ -221,6 +264,7 @@ mgmt_be_find_adapter_by_name(const char *name)
 }
 
 static void mgmt_register_client_xpath(enum mgmt_be_client_id id,
+<<<<<<< HEAD
 				       const char *xpath, bool config, bool oper)
 {
 	struct mgmt_be_xpath_map **maps, *map;
@@ -231,6 +275,29 @@ static void mgmt_register_client_xpath(enum mgmt_be_client_id id,
 		maps = &be_oper_xpath_map;
 	else
 		maps = &be_notif_xpath_map;
+=======
+				       const char *xpath,
+				       enum mgmt_be_xpath_subscr_type type)
+{
+	struct mgmt_be_xpath_map **maps, *map;
+
+	maps = NULL;
+
+	switch (type) {
+	case MGMT_BE_XPATH_SUBSCR_TYPE_CFG:
+		maps = &be_cfg_xpath_map;
+		break;
+	case MGMT_BE_XPATH_SUBSCR_TYPE_OPER:
+		maps = &be_oper_xpath_map;
+		break;
+	case MGMT_BE_XPATH_SUBSCR_TYPE_NOTIF:
+		maps = &be_notif_xpath_map;
+		break;
+	case MGMT_BE_XPATH_SUBSCR_TYPE_RPC:
+		maps = &be_rpc_xpath_map;
+		break;
+	}
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	darr_foreach_p (*maps, map) {
 		if (!strcmp(xpath, map->xpath_prefix)) {
@@ -258,18 +325,47 @@ static void mgmt_be_xpath_map_init(void)
 		/* Initialize the common config init map */
 		for (init = be_client_config_xpaths[id]; init && *init; init++) {
 			__dbg(" - CFG XPATH: '%s'", *init);
+<<<<<<< HEAD
 			mgmt_register_client_xpath(id, *init, true, false);
+=======
+			mgmt_register_client_xpath(id, *init,
+						   MGMT_BE_XPATH_SUBSCR_TYPE_CFG);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		}
 
 		/* Initialize the common oper init map */
 		for (init = be_client_oper_xpaths[id]; init && *init; init++) {
 			__dbg(" - OPER XPATH: '%s'", *init);
+<<<<<<< HEAD
 			mgmt_register_client_xpath(id, *init, false, true);
+=======
+			mgmt_register_client_xpath(id, *init,
+						   MGMT_BE_XPATH_SUBSCR_TYPE_OPER);
+		}
+
+		/* Initialize the common NOTIF init map */
+		for (init = be_client_notif_xpaths[id]; init && *init; init++) {
+			__dbg(" - NOTIF XPATH: '%s'", *init);
+			mgmt_register_client_xpath(id, *init,
+						   MGMT_BE_XPATH_SUBSCR_TYPE_NOTIF);
+		}
+
+		/* Initialize the common RPC init map */
+		for (init = be_client_rpc_xpaths[id]; init && *init; init++) {
+			__dbg(" - RPC XPATH: '%s'", *init);
+			mgmt_register_client_xpath(id, *init,
+						   MGMT_BE_XPATH_SUBSCR_TYPE_RPC);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		}
 	}
 
 	__dbg("Total Cfg XPath Maps: %u", darr_len(be_cfg_xpath_map));
 	__dbg("Total Oper XPath Maps: %u", darr_len(be_oper_xpath_map));
+<<<<<<< HEAD
+=======
+	__dbg("Total Noitf XPath Maps: %u", darr_len(be_notif_xpath_map));
+	__dbg("Total RPC XPath Maps: %u", darr_len(be_rpc_xpath_map));
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 }
 
 static void mgmt_be_xpath_map_cleanup(void)
@@ -287,6 +383,13 @@ static void mgmt_be_xpath_map_cleanup(void)
 	darr_foreach_p (be_notif_xpath_map, map)
 		XFREE(MTYPE_MGMTD_XPATH, map->xpath_prefix);
 	darr_free(be_notif_xpath_map);
+<<<<<<< HEAD
+=======
+
+	darr_foreach_p (be_rpc_xpath_map, map)
+		XFREE(MTYPE_MGMTD_XPATH, map->xpath_prefix);
+	darr_free(be_rpc_xpath_map);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 }
 
 
@@ -384,7 +487,11 @@ static int mgmt_be_send_subscr_reply(struct mgmt_be_client_adapter *adapter,
 	be_msg.message_case = MGMTD__BE_MESSAGE__MESSAGE_SUBSCR_REPLY;
 	be_msg.subscr_reply = &reply;
 
+<<<<<<< HEAD
 	__dbg("Sending SUBSCR_REPLY client: %s sucess: %u", adapter->name,
+=======
+	__dbg("Sending SUBSCR_REPLY client: %s success: %u", adapter->name,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	      success);
 
 	return mgmt_be_adapter_send_msg(adapter, &be_msg);
@@ -403,11 +510,20 @@ mgmt_be_adapter_handle_msg(struct mgmt_be_client_adapter *adapter,
 	 */
 	switch ((int)be_msg->message_case) {
 	case MGMTD__BE_MESSAGE__MESSAGE_SUBSCR_REQ:
+<<<<<<< HEAD
 		__dbg("Got SUBSCR_REQ from '%s' to register xpaths config: %zu oper: %zu notif: %zu",
 		      be_msg->subscr_req->client_name,
 		      be_msg->subscr_req->n_config_xpaths,
 		      be_msg->subscr_req->n_oper_xpaths,
 		      be_msg->subscr_req->n_notif_xpaths);
+=======
+		__dbg("Got SUBSCR_REQ from '%s' to register xpaths config: %zu oper: %zu notif: %zu rpc: %zu",
+		      be_msg->subscr_req->client_name,
+		      be_msg->subscr_req->n_config_xpaths,
+		      be_msg->subscr_req->n_oper_xpaths,
+		      be_msg->subscr_req->n_notif_xpaths,
+		      be_msg->subscr_req->n_rpc_xpaths);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 		if (strlen(be_msg->subscr_req->client_name)) {
 			strlcpy(adapter->name, be_msg->subscr_req->client_name,
@@ -430,22 +546,44 @@ mgmt_be_adapter_handle_msg(struct mgmt_be_client_adapter *adapter,
 		num = be_msg->subscr_req->n_config_xpaths;
 		for (i = 0; i < num; i++) {
 			xpath = be_msg->subscr_req->config_xpaths[i];
+<<<<<<< HEAD
 			mgmt_register_client_xpath(adapter->id, xpath, true,
 						   false);
+=======
+			mgmt_register_client_xpath(adapter->id, xpath,
+						   MGMT_BE_XPATH_SUBSCR_TYPE_CFG);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		}
 
 		num = be_msg->subscr_req->n_oper_xpaths;
 		for (i = 0; i < num; i++) {
 			xpath = be_msg->subscr_req->oper_xpaths[i];
+<<<<<<< HEAD
 			mgmt_register_client_xpath(adapter->id, xpath, false,
 						   true);
+=======
+			mgmt_register_client_xpath(adapter->id, xpath,
+						   MGMT_BE_XPATH_SUBSCR_TYPE_OPER);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		}
 
 		num = be_msg->subscr_req->n_notif_xpaths;
 		for (i = 0; i < num; i++) {
 			xpath = be_msg->subscr_req->notif_xpaths[i];
+<<<<<<< HEAD
 			mgmt_register_client_xpath(adapter->id, xpath, false,
 						   false);
+=======
+			mgmt_register_client_xpath(adapter->id, xpath,
+						   MGMT_BE_XPATH_SUBSCR_TYPE_NOTIF);
+		}
+
+		num = be_msg->subscr_req->n_rpc_xpaths;
+		for (i = 0; i < num; i++) {
+			xpath = be_msg->subscr_req->rpc_xpaths[i];
+			mgmt_register_client_xpath(adapter->id, xpath,
+						   MGMT_BE_XPATH_SUBSCR_TYPE_RPC);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		}
 
 		mgmt_be_send_subscr_reply(adapter, true);
@@ -636,6 +774,10 @@ static void be_adapter_handle_native_msg(struct mgmt_be_client_adapter *adapter,
 {
 	struct mgmt_msg_notify_data *notify_msg;
 	struct mgmt_msg_tree_data *tree_msg;
+<<<<<<< HEAD
+=======
+	struct mgmt_msg_rpc_reply *rpc_msg;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	struct mgmt_msg_error *error_msg;
 
 	/* get the transaction */
@@ -660,6 +802,18 @@ static void be_adapter_handle_native_msg(struct mgmt_be_client_adapter *adapter,
 		/* Forward the reply to the txn module */
 		mgmt_txn_notify_tree_data_reply(adapter, tree_msg, msg_len);
 		break;
+<<<<<<< HEAD
+=======
+	case MGMT_MSG_CODE_RPC_REPLY:
+		/* RPC reply from a backend client */
+		rpc_msg = (typeof(rpc_msg))msg;
+		__dbg("Got RPC_REPLY from '%s' txn-id %" PRIx64, adapter->name,
+		      msg->refer_id);
+
+		/* Forward the reply to the txn module */
+		mgmt_txn_notify_rpc_reply(adapter, rpc_msg, msg_len);
+		break;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	case MGMT_MSG_CODE_NOTIFY:
 		notify_msg = (typeof(notify_msg))msg;
 		__dbg("Got NOTIFY from '%s'", adapter->name);
@@ -880,7 +1034,12 @@ void mgmt_be_get_adapter_config(struct mgmt_be_client_adapter *adapter,
 				goto walk_cont;
 
 			xpath = lyd_path(dnode, LYD_PATH_STD, NULL, 0);
+<<<<<<< HEAD
 			if (be_is_client_interested(xpath, adapter->id, true))
+=======
+			if (be_is_client_interested(xpath, adapter->id,
+						    MGMT_BE_XPATH_SUBSCR_TYPE_CFG))
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 				nb_config_diff_add_change(*changes, NB_CB_CREATE, &seq, dnode);
 			else
 				LYD_TREE_DFS_continue = 1; /* skip any subtree */
@@ -891,6 +1050,7 @@ void mgmt_be_get_adapter_config(struct mgmt_be_client_adapter *adapter,
 	}
 }
 
+<<<<<<< HEAD
 uint64_t mgmt_be_interested_clients(const char *xpath, bool config)
 {
 	struct mgmt_be_xpath_map *maps, *map;
@@ -898,6 +1058,29 @@ uint64_t mgmt_be_interested_clients(const char *xpath, bool config)
 	uint64_t clients;
 
 	maps = config ? be_cfg_xpath_map : be_oper_xpath_map;
+=======
+uint64_t mgmt_be_interested_clients(const char *xpath,
+				    enum mgmt_be_xpath_subscr_type type)
+{
+	struct mgmt_be_xpath_map *maps = NULL, *map;
+	enum mgmt_be_client_id id;
+	uint64_t clients;
+
+	switch (type) {
+	case MGMT_BE_XPATH_SUBSCR_TYPE_CFG:
+		maps = be_cfg_xpath_map;
+		break;
+	case MGMT_BE_XPATH_SUBSCR_TYPE_OPER:
+		maps = be_oper_xpath_map;
+		break;
+	case MGMT_BE_XPATH_SUBSCR_TYPE_NOTIF:
+		maps = be_notif_xpath_map;
+		break;
+	case MGMT_BE_XPATH_SUBSCR_TYPE_RPC:
+		maps = be_rpc_xpath_map;
+		break;
+	}
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	clients = 0;
 
@@ -926,8 +1109,13 @@ uint64_t mgmt_be_interested_clients(const char *xpath, bool config)
  * Returns:
  *     Interested or not.
  */
+<<<<<<< HEAD
 static bool be_is_client_interested(const char *xpath,
 				    enum mgmt_be_client_id id, bool config)
+=======
+static bool be_is_client_interested(const char *xpath, enum mgmt_be_client_id id,
+				    enum mgmt_be_xpath_subscr_type type)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 {
 	uint64_t clients;
 
@@ -936,7 +1124,11 @@ static bool be_is_client_interested(const char *xpath,
 	__dbg("Checking client: %s for xpath: '%s'", mgmt_be_client_id2name(id),
 	      xpath);
 
+<<<<<<< HEAD
 	clients = mgmt_be_interested_clients(xpath, config);
+=======
+	clients = mgmt_be_interested_clients(xpath, type);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	if (IS_IDBIT_SET(clients, id)) {
 		__dbg("client: %s: interested", mgmt_be_client_id2name(id));
 		return true;
@@ -996,12 +1188,26 @@ void mgmt_be_xpath_register_write(struct vty *vty)
 		darr_len(be_oper_xpath_map));
 	darr_foreach_p (be_oper_xpath_map, map)
 		be_show_xpath_register(vty, map);
+<<<<<<< HEAD
+=======
+
+	vty_out(vty, "\nMGMTD Backend NOTIFY XPath Registry: Count: %u\n",
+		darr_len(be_notif_xpath_map));
+	darr_foreach_p (be_notif_xpath_map, map)
+		be_show_xpath_register(vty, map);
+
+	vty_out(vty, "\nMGMTD Backend RPC XPath Registry: Count: %u\n",
+		darr_len(be_rpc_xpath_map));
+	darr_foreach_p (be_rpc_xpath_map, map)
+		be_show_xpath_register(vty, map);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 }
 
 void mgmt_be_show_xpath_registries(struct vty *vty, const char *xpath)
 {
 	enum mgmt_be_client_id id;
 	struct mgmt_be_client_adapter *adapter;
+<<<<<<< HEAD
 	uint64_t cclients, oclients, combined;
 
 	cclients = mgmt_be_interested_clients(xpath, true);
@@ -1013,6 +1219,27 @@ void mgmt_be_show_xpath_registries(struct vty *vty, const char *xpath)
 		vty_out(vty, "  -- Client: '%s'\tconfig:%d oper:%d\n",
 			mgmt_be_client_id2name(id), IS_IDBIT_SET(cclients, id),
 			IS_IDBIT_SET(oclients, id));
+=======
+	uint64_t cclients, nclients, oclients, rclients, combined;
+
+	cclients = mgmt_be_interested_clients(xpath,
+					      MGMT_BE_XPATH_SUBSCR_TYPE_CFG);
+	oclients = mgmt_be_interested_clients(xpath,
+					      MGMT_BE_XPATH_SUBSCR_TYPE_OPER);
+	nclients = mgmt_be_interested_clients(xpath,
+					      MGMT_BE_XPATH_SUBSCR_TYPE_NOTIF);
+	rclients = mgmt_be_interested_clients(xpath,
+					      MGMT_BE_XPATH_SUBSCR_TYPE_RPC);
+	combined = cclients | nclients | oclients | rclients;
+
+	vty_out(vty, "XPath: '%s'\n", xpath);
+	FOREACH_BE_CLIENT_BITS (id, combined) {
+		vty_out(vty,
+			"  -- Client: '%s'\tconfig:%d notify:%d oper:%d rpc:%d\n",
+			mgmt_be_client_id2name(id), IS_IDBIT_SET(cclients, id),
+			IS_IDBIT_SET(nclients, id), IS_IDBIT_SET(oclients, id),
+			IS_IDBIT_SET(rclients, id));
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		adapter = mgmt_be_get_adapter_by_id(id);
 		if (adapter)
 			vty_out(vty, "    -- Adapter: %p\n", adapter);

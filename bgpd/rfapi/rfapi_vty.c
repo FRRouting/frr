@@ -413,12 +413,21 @@ void rfapi_vty_out_vncinfo(struct vty *vty, const struct prefix *p,
 		XFREE(MTYPE_ECOMMUNITY_STR, s);
 	}
 
+<<<<<<< HEAD
 	if (bpi->extra != NULL) {
 		if (bpi->extra->label[0] == BGP_PREVENT_VRF_2_VRF_LEAK)
 			vty_out(vty, " label=VRF2VRF");
 		else
 			vty_out(vty, " label=%u",
 				decode_label(&bpi->extra->label[0]));
+=======
+	if (BGP_PATH_INFO_NUM_LABELS(bpi)) {
+		if (bpi->extra->labels->label[0] == BGP_PREVENT_VRF_2_VRF_LEAK)
+			vty_out(vty, " label=VRF2VRF");
+		else
+			vty_out(vty, " label=%u",
+				decode_label(&bpi->extra->labels->label[0]));
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	}
 
 	if (bpi->attr->srv6_l3vpn || bpi->attr->srv6_vpn) {
@@ -1052,8 +1061,13 @@ static int rfapiPrintRemoteRegBi(struct bgp *bgp, void *stream,
 		snprintf(buf_un, sizeof(buf_un), "%s",
 			 inet_ntop(pfx_vn.family, &pfx_vn.u.prefix, buf_ntop,
 				   sizeof(buf_ntop)));
+<<<<<<< HEAD
 		if (bpi->extra) {
 			uint32_t l = decode_label(&bpi->extra->label[0]);
+=======
+		if (BGP_PATH_INFO_NUM_LABELS(bpi)) {
+			uint32_t l = decode_label(&bpi->extra->labels->label[0]);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			snprintf(buf_vn, sizeof(buf_vn), "Label: %d", l);
 		} else /* should never happen */
 		{
@@ -1161,8 +1175,13 @@ static int rfapiPrintRemoteRegBi(struct bgp *bgp, void *stream,
 			}
 		}
 	}
+<<<<<<< HEAD
 	if (tun_type != BGP_ENCAP_TYPE_MPLS && bpi->extra) {
 		uint32_t l = decode_label(&bpi->extra->label[0]);
+=======
+	if (tun_type != BGP_ENCAP_TYPE_MPLS && BGP_PATH_INFO_NUM_LABELS(bpi)) {
+		uint32_t l = decode_label(&bpi->extra->labels->label[0]);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 		if (!MPLS_LABEL_IS_NULL(l)) {
 			fp(out, "  Label: %d", l);
@@ -1257,6 +1276,11 @@ static int rfapiShowRemoteRegistrationsIt(struct bgp *bgp, void *stream,
 					const char *agetype = "";
 					char *s;
 					const char *type = "";
+<<<<<<< HEAD
+=======
+
+					(void)type; /* clang-SA */
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 					if (show_imported) {
 						type = "Imported";
 					} else {

@@ -49,6 +49,10 @@ struct mgmt_fe_client {
 	frr_each_safe (mgmt_sessions, &(client)->sessions, (session))
 
 struct debug mgmt_dbg_fe_client = {
+<<<<<<< HEAD
+=======
+	.conf = "debug mgmt client frontend",
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	.desc = "Management frontend client operations"
 };
 
@@ -329,6 +333,66 @@ int mgmt_fe_send_get_data_req(struct mgmt_fe_client *client,
 	return ret;
 }
 
+<<<<<<< HEAD
+=======
+int mgmt_fe_send_edit_req(struct mgmt_fe_client *client, uint64_t session_id,
+			  uint64_t req_id, uint8_t datastore,
+			  LYD_FORMAT request_type, uint8_t flags,
+			  uint8_t operation, const char *xpath, const char *data)
+{
+	struct mgmt_msg_edit *msg;
+	int ret;
+
+	msg = mgmt_msg_native_alloc_msg(struct mgmt_msg_edit, 0,
+					MTYPE_MSG_NATIVE_EDIT);
+	msg->refer_id = session_id;
+	msg->req_id = req_id;
+	msg->code = MGMT_MSG_CODE_EDIT;
+	msg->request_type = request_type;
+	msg->flags = flags;
+	msg->datastore = datastore;
+	msg->operation = operation;
+
+	mgmt_msg_native_xpath_encode(msg, xpath);
+	if (data)
+		mgmt_msg_native_append(msg, data, strlen(data) + 1);
+
+	debug_fe_client("Sending EDIT_REQ session-id %" PRIu64
+			" req-id %" PRIu64 " xpath: %s",
+			session_id, req_id, xpath);
+
+	ret = mgmt_msg_native_send_msg(&client->client.conn, msg, false);
+	mgmt_msg_native_free_msg(msg);
+	return ret;
+}
+
+int mgmt_fe_send_rpc_req(struct mgmt_fe_client *client, uint64_t session_id,
+			 uint64_t req_id, LYD_FORMAT request_type,
+			 const char *xpath, const char *data)
+{
+	struct mgmt_msg_rpc *msg;
+	int ret;
+
+	msg = mgmt_msg_native_alloc_msg(struct mgmt_msg_rpc, 0,
+					MTYPE_MSG_NATIVE_RPC);
+	msg->refer_id = session_id;
+	msg->req_id = req_id;
+	msg->code = MGMT_MSG_CODE_RPC;
+	msg->request_type = request_type;
+
+	mgmt_msg_native_xpath_encode(msg, xpath);
+	if (data)
+		mgmt_msg_native_append(msg, data, strlen(data) + 1);
+
+	debug_fe_client("Sending RPC_REQ session-id %" PRIu64 " req-id %" PRIu64
+			" xpath: %s",
+			session_id, req_id, xpath);
+
+	ret = mgmt_msg_native_send_msg(&client->client.conn, msg, false);
+	mgmt_msg_native_free_msg(msg);
+	return ret;
+}
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 static int mgmt_fe_client_handle_msg(struct mgmt_fe_client *client,
 				     Mgmtd__FeMessage *fe_msg)
@@ -503,7 +567,14 @@ static void fe_client_handle_native_msg(struct mgmt_fe_client *client,
 	struct mgmt_fe_client_session *session = NULL;
 	struct mgmt_msg_notify_data *notify_msg;
 	struct mgmt_msg_tree_data *tree_msg;
+<<<<<<< HEAD
 	struct mgmt_msg_error *err_msg;
+=======
+	struct mgmt_msg_edit_reply *edit_msg;
+	struct mgmt_msg_rpc_reply *rpc_msg;
+	struct mgmt_msg_error *err_msg;
+	const char *xpath = NULL;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	const char *data = NULL;
 	size_t dlen;
 
@@ -554,6 +625,48 @@ static void fe_client_handle_native_msg(struct mgmt_fe_client *client,
 						     msg_len - sizeof(*tree_msg),
 						     tree_msg->partial_error);
 		break;
+<<<<<<< HEAD
+=======
+	case MGMT_MSG_CODE_EDIT_REPLY:
+		if (!session->client->cbs.edit_notify)
+			return;
+
+		edit_msg = (typeof(edit_msg))msg;
+		if (msg_len < sizeof(*edit_msg)) {
+			log_err_fe_client("Corrupt edit-reply msg recv");
+			return;
+		}
+
+		xpath = mgmt_msg_native_xpath_decode(edit_msg, msg_len);
+		if (!xpath) {
+			log_err_fe_client("Corrupt edit-reply msg recv");
+			return;
+		}
+
+		session->client->cbs.edit_notify(client, client->user_data,
+						 session->client_id,
+						 msg->refer_id,
+						 session->user_ctx, msg->req_id,
+						 xpath);
+		break;
+	case MGMT_MSG_CODE_RPC_REPLY:
+		if (!session->client->cbs.rpc_notify)
+			return;
+
+		rpc_msg = (typeof(rpc_msg))msg;
+		if (msg_len < sizeof(*rpc_msg)) {
+			log_err_fe_client("Corrupt rpc-reply msg recv");
+			return;
+		}
+		dlen = msg_len - sizeof(*rpc_msg);
+
+		session->client->cbs.rpc_notify(client, client->user_data,
+						session->client_id,
+						msg->refer_id,
+						session->user_ctx, msg->req_id,
+						dlen ? rpc_msg->data : NULL);
+		break;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	case MGMT_MSG_CODE_NOTIFY:
 		if (!session->client->cbs.async_notification)
 			return;
@@ -706,6 +819,7 @@ DEFPY(debug_mgmt_client_fe, debug_mgmt_client_fe_cmd,
 	return CMD_SUCCESS;
 }
 
+<<<<<<< HEAD
 static int mgmt_debug_fe_client_config_write(struct vty *vty)
 {
 	if (DEBUG_MODE_CHECK(&mgmt_dbg_fe_client, DEBUG_MODE_CONF))
@@ -731,6 +845,8 @@ static struct cmd_node mgmt_dbg_node = {
 	.config_write = mgmt_debug_fe_client_config_write,
 };
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 /*
  * Initialize library and try connecting with MGMTD.
  */
@@ -771,8 +887,13 @@ struct mgmt_fe_client *mgmt_fe_client_create(const char *client_name,
 
 void mgmt_fe_client_lib_vty_init(void)
 {
+<<<<<<< HEAD
 	debug_init(&mgmt_dbg_fe_client_cbs);
 	install_node(&mgmt_dbg_node);
+=======
+	debug_install(&mgmt_dbg_fe_client);
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	install_element(ENABLE_NODE, &debug_mgmt_client_fe_cmd);
 	install_element(CONFIG_NODE, &debug_mgmt_client_fe_cmd);
 }

@@ -10,14 +10,22 @@
               "adjacency": [
                 {
                   "neighbor-sys-type": "level-1",
+<<<<<<< HEAD
                   "neighbor-sysid": "0000.0000.0003",
+=======
+                  "neighbor-sysid": "0000.0000.0002",
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
                   "hold-timer": 10,
                   "neighbor-priority": 64,
                   "state": "up"
                 },
                 {
                   "neighbor-sys-type": "level-1",
+<<<<<<< HEAD
                   "neighbor-sysid": "0000.0000.0002",
+=======
+                  "neighbor-sysid": "0000.0000.0003",
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
                   "hold-timer": 10,
                   "neighbor-priority": 64,
                   "state": "up"

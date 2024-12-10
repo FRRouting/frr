@@ -305,9 +305,15 @@ babel_exit_properly(void)
 
     /* Uninstall and flush all routes. */
     debugf(BABEL_DEBUG_COMMON, "Uninstall routes.");
+<<<<<<< HEAD
     flush_all_routes();
     babel_interface_close_all();
     babel_zebra_close_connexion();
+=======
+    babel_clean_routing_process();
+    babel_zebra_close_connexion();
+    babel_if_terminate();
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     babel_save_state_file();
     debugf(BABEL_DEBUG_COMMON, "Remove pid file.");
     debugf(BABEL_DEBUG_COMMON, "Done.");

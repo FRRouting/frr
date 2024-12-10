@@ -534,6 +534,15 @@ const char *rtm_rta2str(int type)
 		return "NH_ID";
 	case RTA_EXPIRES:
 		return "EXPIRES";
+<<<<<<< HEAD
+=======
+	case RTA_VIA:
+		return "VIA";
+	case RTA_ENCAP_TYPE:
+		return "RTA_ENCAP_TYPE";
+	case RTA_ENCAP:
+		return "RTA_ENCAP";
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	default:
 		return "UNKNOWN";
 	}

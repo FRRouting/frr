@@ -29,7 +29,10 @@ from time import sleep
 from lib.common_config import (
     start_topology,
     write_test_header,
+<<<<<<< HEAD
     kill_router_daemons,
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     write_test_footer,
     reset_config_on_routers,
     stop_router,
@@ -37,7 +40,10 @@ from lib.common_config import (
     verify_rib,
     create_static_routes,
     step,
+<<<<<<< HEAD
     start_router_daemons,
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     create_route_maps,
     shutdown_bringup_interface,
     create_prefix_lists,
@@ -163,7 +169,11 @@ def setup_module(mod):
     logger.info("Running setup_module() done")
 
 
+<<<<<<< HEAD
 def teardown_module(mod):
+=======
+def teardown_module():
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     """
     Teardown the pytest environment.
 
@@ -2456,7 +2466,11 @@ def test_ospfv3_type5_summary_tc51_p2(request):
 
     step("Configure and re configure all the commands 10 times in a loop.")
 
+<<<<<<< HEAD
     for itrate in range(0, 10):
+=======
+    for _ in range(0, 10):
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         ospf_summ_r1 = {
             "r0": {
                 "ospf6": {

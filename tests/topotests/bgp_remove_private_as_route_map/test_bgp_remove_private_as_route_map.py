@@ -10,22 +10,33 @@ Test if private AS is removed from AS_PATH attribute when route-map is used (pre
 """
 
 import os
+<<<<<<< HEAD
 import re
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 import sys
 import json
 import pytest
 import functools
 
+<<<<<<< HEAD
 pytestmark = pytest.mark.bgpd
+=======
+pytestmark = [pytest.mark.bgpd]
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 CWD = os.path.dirname(os.path.realpath(__file__))
 sys.path.append(os.path.join(CWD, "../"))
 
 # pylint: disable=C0413
 from lib import topotest
+<<<<<<< HEAD
 from lib.topogen import Topogen, TopoRouter, get_topogen
 
 pytestmark = [pytest.mark.bgpd]
+=======
+from lib.topogen import Topogen, get_topogen
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 
 def build_topo(tgen):
@@ -43,7 +54,11 @@ def setup_module(mod):
 
     router_list = tgen.routers()
 
+<<<<<<< HEAD
     for i, (rname, router) in enumerate(router_list.items(), 1):
+=======
+    for _, (rname, router) in enumerate(router_list.items(), 1):
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         router.load_frr_config(os.path.join(CWD, "{}/frr.conf".format(rname)))
 
     tgen.start_router()

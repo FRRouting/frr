@@ -24,7 +24,10 @@ sys.path.append(os.path.join(CWD, "../"))
 # pylint: disable=C0413
 from lib import topotest
 from lib.topogen import Topogen, TopoRouter, get_topogen
+<<<<<<< HEAD
 from lib.common_config import step
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 pytestmark = [pytest.mark.bgpd]
 
@@ -61,7 +64,11 @@ def setup_module(mod):
 
     router_list = tgen.routers()
 
+<<<<<<< HEAD
     for i, (rname, router) in enumerate(router_list.items(), 1):
+=======
+    for _, (rname, router) in enumerate(router_list.items(), 1):
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         router.load_config(
             TopoRouter.RD_ZEBRA, os.path.join(CWD, "{}/zebra.conf".format(rname))
         )

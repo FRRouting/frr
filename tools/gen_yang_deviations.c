@@ -52,7 +52,11 @@ int main(int argc, char *argv[])
 	if (argc != 1)
 		usage(EXIT_FAILURE);
 
+<<<<<<< HEAD
 	yang_init(false, false);
+=======
+	yang_init(false, false, false);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	/* Load YANG module. */
 	module = yang_module_load(argv[0], NULL);

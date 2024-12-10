@@ -369,7 +369,10 @@ extern void update_group_policy_update(struct bgp *bgp,
 extern void update_group_af_walk(struct bgp *bgp, afi_t afi, safi_t safi,
 				 updgrp_walkcb cb, void *ctx);
 extern void update_group_walk(struct bgp *bgp, updgrp_walkcb cb, void *ctx);
+<<<<<<< HEAD
 extern void update_group_periodic_merge(struct bgp *bgp);
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 extern void
 update_group_refresh_default_originate_route_map(struct event *thread);
 extern void update_group_start_advtimer(struct bgp *bgp);

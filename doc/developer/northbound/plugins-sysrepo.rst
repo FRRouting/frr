@@ -32,7 +32,11 @@ libyang
    cd libyang
    git checkout v2.1.148
    mkdir build; cd build
+<<<<<<< HEAD
    cmake -DCMAKE_INSTALL_PREFIX:PATH=/usr \
+=======
+   cmake --install-prefix /usr \
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
          -DCMAKE_BUILD_TYPE:String="Release" ..
    make
    sudo make install
@@ -51,7 +55,11 @@ Sysrepo
    cd sysrepo/
    git checkout v2.2.150
    mkdir build; cd build
+<<<<<<< HEAD
    cmake -DCMAKE_INSTALL_PREFIX:PATH=/usr \
+=======
+   cmake --install-prefix /usr \
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
          -DCMAKE_BUILD_TYPE:String="Release" ..
    make
    sudo make install

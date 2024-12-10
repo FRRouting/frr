@@ -390,6 +390,10 @@ int if_unset_prefix_ctx(const struct zebra_dplane_ctx *ctx)
 #endif /* HAVE_STRUCT_IFALIASREQ */
 #endif /* HAVE_NETLINK */
 
+<<<<<<< HEAD
+=======
+#ifndef HAVE_NETLINK
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 /* get interface flags */
 void if_get_flags(struct interface *ifp)
 {
@@ -485,6 +489,10 @@ void if_get_flags(struct interface *ifp)
 out:
 	if_flags_update(ifp, (ifreqflags.ifr_flags & 0x0000ffff));
 }
+<<<<<<< HEAD
+=======
+#endif
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 /* Set interface flags */
 int if_set_flags(struct interface *ifp, uint64_t flags)

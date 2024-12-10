@@ -1307,7 +1307,11 @@ static PyObject *elffile_load(PyTypeObject *type, PyObject *args,
 	}
 #endif
 
+<<<<<<< HEAD
 	w->sects = calloc(sizeof(PyObject *), w->ehdr->e_shnum);
+=======
+	w->sects = calloc(w->ehdr->e_shnum, sizeof(PyObject *));
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	w->n_sect = w->ehdr->e_shnum;
 
 	return (PyObject *)w;
@@ -1358,6 +1362,18 @@ bool elf_py_init(PyObject *pymod)
 	(void)methods_elfpy;
 #endif
 
+<<<<<<< HEAD
+=======
+#if defined(HAVE_GELF_GETNOTE) && defined(HAVE_ELF_GETDATA_RAWCHUNK)
+	PyObject *elf_notes = Py_True;
+#else
+	PyObject *elf_notes = Py_False;
+#endif
+	Py_INCREF(elf_notes);
+	if (PyModule_AddObject(pymod, "elf_notes", elf_notes))
+		Py_DECREF(elf_notes);
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	ELFFormatError = PyErr_NewException("_clippy.ELFFormatError",
 					    PyExc_ValueError, NULL);
 	PyModule_AddObject(pymod, "ELFFormatError", ELFFormatError);

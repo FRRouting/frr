@@ -10,24 +10,37 @@ Test if ORF capability is adjusted dynamically.
 """
 
 import os
+<<<<<<< HEAD
 import re
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 import sys
 import json
 import pytest
 import functools
 
+<<<<<<< HEAD
 pytestmark = pytest.mark.bgpd
+=======
+pytestmark = [pytest.mark.bgpd]
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 CWD = os.path.dirname(os.path.realpath(__file__))
 sys.path.append(os.path.join(CWD, "../"))
 
 # pylint: disable=C0413
 from lib import topotest
+<<<<<<< HEAD
 from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.common_config import step
 
 pytestmark = [pytest.mark.bgpd]
 
+=======
+from lib.topogen import Topogen, get_topogen
+from lib.common_config import step
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 def setup_module(mod):
     topodef = {"s1": ("r1", "r2")}

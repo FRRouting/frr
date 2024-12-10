@@ -65,7 +65,11 @@
 /*
  * Largest message that can be sent to or received from the FPM.
  */
+<<<<<<< HEAD
 #define FPM_MAX_MSG_LEN 4096
+=======
+#define FPM_MAX_MSG_LEN MAX(MULTIPATH_NUM * 32, 4096)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 #ifdef __SUNPRO_C
 #pragma pack(1)

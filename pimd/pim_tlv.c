@@ -19,12 +19,15 @@
 #include "pim_iface.h"
 #include "pim_addr.h"
 
+<<<<<<< HEAD
 #if PIM_IPV == 4
 #define PIM_MSG_ADDRESS_FAMILY PIM_MSG_ADDRESS_FAMILY_IPV4
 #else
 #define PIM_MSG_ADDRESS_FAMILY PIM_MSG_ADDRESS_FAMILY_IPV6
 #endif
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 uint8_t *pim_tlv_append_uint16(uint8_t *buf, const uint8_t *buf_pastend,
 			       uint16_t option_type, uint16_t option_value)
 {

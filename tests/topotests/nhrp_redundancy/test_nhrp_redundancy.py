@@ -29,6 +29,7 @@ test_nhrp_redundancy.py: Test NHS redundancy for NHRP
 """
 
 TOPOLOGY = """
+<<<<<<< HEAD
 +------------+                  +------------+                   +------------+               
 |            |                  |            |                   |            |               
 |            |                  |            |                   |            |               
@@ -61,6 +62,40 @@ TOPOLOGY = """
 +------------+         |        +------------+                  +------------+     |          
                        |                                                           |          
                   10.4.4.0/24                                                                  
+=======
++------------+                  +------------+                   +------------+
+|            |                  |            |                   |            |
+|            |                  |            |                   |            |
+|   NHS 1    |                  |   NHS 2    |                   |    NHS 3   |
+|            |                  |            |                   |            |
++-----+------+                  +-----+------+                   +-----+------+
+      |.1                             |.2                              |.3
+      |                               |                                |
+      |                               |            192.168.1.0/24      |
+------+-------------------------------+------------------+-------------+------
+                                                         |
+                                                         |.6
+         GRE P2MP between all NHS and NHC          +-----+------+
+               172.16.1.x/32                       |            |
+                                                   |            |
+                                                   |   Router   |
+                                                   |            |
+                                                   +-----+------+
+                                                         |
+                                                         |
+                               ---------+----------------+-------------+------
+                                        |          192.168.2.0/24      |
+                                        |                              |
+                       |                |.4                            |.5
++------------+         |        +-------+----+                  +------+-----+     |
+|            |         |        |            |                  |            |     |
+|            |         +--------+            |                  |            |     |
+|    Host    |.7       |        |    NHC 1   |                  |    NHC 2   +-----+10.5.5.0/24
+|            +---------+        |            |                  |            |     |
++------------+         |        +------------+                  +------------+     |
+                       |                                                           |
+                  10.4.4.0/24
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 """
 
 # Save the Current Working Directory to find configuration files.
@@ -148,8 +183,13 @@ def _populate_iface():
 def _verify_iptables():
     tgen = get_topogen()
     # Verify iptables is installed. Required for shortcuts
+<<<<<<< HEAD
     rc, _, _ = tgen.net["nhs1"].cmd_status("iptables")
     return False if rc == 127 else True
+=======
+    rc, _, _ = tgen.net["nhs1"].cmd_status("iptables -V")
+    return True if rc == 0 else False
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 
 def setup_module(mod):
@@ -167,6 +207,7 @@ def setup_module(mod):
     _populate_iface()
 
     for rname, router in router_list.items():
+<<<<<<< HEAD
         router.load_config(
             TopoRouter.RD_ZEBRA,
             os.path.join(CWD, "{}/zebra.conf".format(rname)),
@@ -175,6 +216,10 @@ def setup_module(mod):
             router.load_config(
                 TopoRouter.RD_NHRP, os.path.join(CWD, "{}/nhrpd.conf".format(rname))
             )
+=======
+        logger.info("Loading router %s" % rname)
+        router.load_frr_config(os.path.join(CWD, "{}/frr.conf".format(rname)))
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
     # Initialize all routers.
     tgen.start_router()

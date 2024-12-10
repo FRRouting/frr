@@ -10,6 +10,10 @@
 #include "lib/version.h"
 #include "routemap.h"
 #include "filter.h"
+<<<<<<< HEAD
+=======
+#include "keychain.h"
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 #include "libfrr.h"
 #include "frr_pthread.h"
 #include "mgmtd/mgmt.h"
@@ -185,6 +189,11 @@ static const struct frr_yang_module_info *const mgmt_yang_modules[] = {
 
 	&frr_zebra_cli_info,
 	&zebra_route_map_info,
+<<<<<<< HEAD
+=======
+	&ietf_key_chain_cli_info,
+	&ietf_key_chain_deviation_info,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 #ifdef HAVE_RIPD
 	&frr_ripd_cli_info,
@@ -199,6 +208,7 @@ static const struct frr_yang_module_info *const mgmt_yang_modules[] = {
 
 /* clang-format off */
 FRR_DAEMON_INFO(mgmtd, MGMTD,
+<<<<<<< HEAD
 	.vty_port = MGMTD_VTY_PORT,
 	.proghelp = "FRR Management Daemon.",
 
@@ -213,6 +223,22 @@ FRR_DAEMON_INFO(mgmtd, MGMTD,
 	/* avoid libfrr trying to read our config file for us */
 	.flags = FRR_MANUAL_VTY_START | FRR_NO_SPLIT_CONFIG,
 );
+=======
+		.vty_port = MGMTD_VTY_PORT,
+		.proghelp = "FRR Management Daemon.",
+
+		.signals = mgmt_signals,
+		.n_signals = array_size(mgmt_signals),
+
+		.privs = &mgmt_privs,
+
+		.yang_modules = mgmt_yang_modules,
+		.n_yang_modules = array_size(mgmt_yang_modules),
+
+		/* avoid libfrr trying to read our config file for us */
+		.flags = FRR_MANUAL_VTY_START | FRR_NO_SPLIT_CONFIG | FRR_LOAD_YANG_LIBRARY,
+	);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 /* clang-format on */
 
 #define DEPRECATED_OPTIONS ""

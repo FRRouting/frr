@@ -17,6 +17,7 @@ extern unsigned char conf_debug_ospf6_abr;
 #define OSPF6_DEBUG_ABR_OFF() (conf_debug_ospf6_abr = 0)
 #define IS_OSPF6_DEBUG_ABR (conf_debug_ospf6_abr)
 
+<<<<<<< HEAD
 /* Inter-Area-Prefix-LSA */
 #define OSPF6_INTER_PREFIX_LSA_MIN_SIZE        4U /* w/o IPv6 prefix */
 struct ospf6_inter_prefix_lsa {
@@ -38,6 +39,14 @@ struct ospf6_inter_router_lsa {
 	{                                                                      \
 		(E)->metric &= htonl(0x00000000);                              \
 		(E)->metric |= htonl(0x00ffffff) & htonl(C);                   \
+=======
+#define OSPF6_ABR_SUMMARY_METRIC(E)                                            \
+	(ntohl((E)->metric & htonl(OSPF6_EXT_PATH_METRIC_MAX)))
+#define OSPF6_ABR_SUMMARY_METRIC_SET(E, C)                                     \
+	{                                                                      \
+		(E)->metric &= htonl(0x00000000);                              \
+		(E)->metric |= htonl(OSPF6_EXT_PATH_METRIC_MAX) & htonl(C);    \
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	}
 
 #define OSPF6_ABR_RANGE_CLEAR_COST(range) (range->path.cost = OSPF_AREA_RANGE_COST_UNSPEC)

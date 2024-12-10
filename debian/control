@@ -23,7 +23,11 @@ Build-Depends: bison,
                librtr-dev (>= 0.8.0~) <!pkg.frr.nortrlib>,
                libsnmp-dev,
                libssh-dev <!pkg.frr.nortrlib>,
+<<<<<<< HEAD
                libyang2-dev (>= 2.1.128),
+=======
+               libyang2-dev (>= 2.1.128) | libyang-dev ( >= 3.0.3),
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
                lsb-base,
                pkg-config,
                protobuf-c-compiler,
@@ -33,7 +37,16 @@ Build-Depends: bison,
                python3-sphinx:native,
                texinfo (>= 4.7),
                lua5.3 <pkg.frr.lua>,
+<<<<<<< HEAD
                liblua5.3-dev <pkg.frr.lua>
+=======
+               liblua5.3-dev <pkg.frr.lua>,
+	       libgrpc-dev (>=1.16.1) <pkg.frr.grpc>,
+	       libgrpc++-dev (>=1.16.1) <pkg.frr.grpc>,
+	       protobuf-compiler (>=3.6.1) <pkg.frr.grpc>,
+	       protobuf-compiler-grpc (>=1.16.1) <pkg.frr.grpc>,
+               libprotobuf-dev (>=3.6.1) <pkg.frr.grpc>
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 Standards-Version: 4.5.0.3
 Homepage: https://www.frrouting.org/
 Vcs-Browser: https://github.com/FRRouting/frr/tree/debian/master
@@ -102,6 +115,17 @@ Description: FRRouting suite - BGP RPKI support (rtrlib)
  number.
 Build-Profiles: <!pkg.frr.nortrlib>
 
+<<<<<<< HEAD
+=======
+Package: frr-test-tools
+Architecture: linux-any
+Depends: frr (= ${binary:Version}),
+	${misc:Depends},
+	${shlibs:Depends}
+Description: FRRouting suite - Testing Tools
+ Adds FRR test tools, used in testing FRR.
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 Package: frr-doc
 Section: doc
 Architecture: all
@@ -128,3 +152,16 @@ Description: FRRouting suite - Python tools
  .
  Without this package installed, "reload" (as a systemd or init script
  invocation) will not work for the FRR daemons.
+<<<<<<< HEAD
+=======
+
+Package: frr-grpc
+Architecture: linux-any
+Depends: frr (= ${binary:Version}),
+         ${misc:Depends},
+	 ${shlibs:Depends}
+Description: FRRouting suite - GRPC interface
+ This provides the GRPC interface to the daemons.
+Build-Profiles: <pkg.frr.grpc>
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)

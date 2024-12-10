@@ -7,6 +7,10 @@
 #include <zebra.h>
 #include <sys/stat.h>
 
+<<<<<<< HEAD
+=======
+#include "debug.h"
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 #include "frrevent.h"
 #include "vty.h"
 #include "command.h"
@@ -14,6 +18,10 @@
 #include "lib_vty.h"
 #include "log.h"
 #include "northbound.h"
+<<<<<<< HEAD
+=======
+#include "northbound_cli.h"
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 static struct event_loop *master;
 
@@ -200,6 +208,22 @@ static struct yang_data *frr_test_module_vrfs_vrf_routes_route_active_get_elem(
 	return NULL;
 }
 
+<<<<<<< HEAD
+=======
+/*
+ * XPath: /frr-test-module:frr-test-module/vrfs/vrf/ping
+ */
+static int frr_test_module_vrfs_vrf_ping(struct nb_cb_rpc_args *args)
+{
+	const char *vrf = yang_dnode_get_string(args->input, "../name");
+	const char *data = yang_dnode_get_string(args->input, "data");
+
+	yang_dnode_rpc_output_add(args->output, "vrf", vrf);
+	yang_dnode_rpc_output_add(args->output, "data-out", data);
+
+	return NB_OK;
+}
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 /*
  * XPath: /frr-test-module:frr-test-module/c1value
@@ -263,6 +287,13 @@ const struct frr_yang_module_info frr_test_module_info = {
 			.cbs.get_elem = frr_test_module_vrfs_vrf_routes_route_active_get_elem,
 		},
 		{
+<<<<<<< HEAD
+=======
+			.xpath = "/frr-test-module:frr-test-module/vrfs/vrf/ping",
+			.cbs.rpc = frr_test_module_vrfs_vrf_ping,
+		},
+		{
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			.xpath = "/frr-test-module:frr-test-module/c1value",
 			.cbs.get_elem = frr_test_module_c1value_get_elem,
 		},
@@ -277,6 +308,36 @@ const struct frr_yang_module_info frr_test_module_info = {
 };
 /* clang-format on */
 
+<<<<<<< HEAD
+=======
+DEFUN(test_rpc, test_rpc_cmd, "test rpc",
+      "Test\n"
+      "RPC\n")
+{
+	struct lyd_node *output = NULL;
+	char xpath[XPATH_MAXLEN];
+	int ret;
+
+	snprintf(xpath, sizeof(xpath),
+		 "/frr-test-module:frr-test-module/vrfs/vrf[name='testname']/ping");
+
+	nb_cli_rpc_enqueue(vty, "data", "testdata");
+
+	ret = nb_cli_rpc(vty, xpath, &output);
+	if (ret != CMD_SUCCESS) {
+		vty_out(vty, "RPC failed\n");
+		return ret;
+	}
+
+	vty_out(vty, "vrf %s data %s\n", yang_dnode_get_string(output, "vrf"),
+		yang_dnode_get_string(output, "data-out"));
+
+	yang_dnode_free(output);
+
+	return CMD_SUCCESS;
+}
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 static const struct frr_yang_module_info *const modules[] = {
 	&frr_test_module_info,
 };
@@ -381,7 +442,11 @@ static void vty_do_exit(int isexit)
 	yang_terminate();
 	event_master_free(master);
 
+<<<<<<< HEAD
 	log_memstats(stderr, "test-nb-oper-data");
+=======
+	log_memstats(NULL, true);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	if (!isexit)
 		exit(0);
 }
@@ -414,7 +479,14 @@ int main(int argc, char **argv)
 	cmd_hostname_set("test");
 	vty_init(master, false);
 	lib_cmd_init();
+<<<<<<< HEAD
 	nb_init(master, modules, array_size(modules), false);
+=======
+	debug_init();
+	nb_init(master, modules, array_size(modules), false, false);
+
+	install_element(ENABLE_NODE, &test_rpc_cmd);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	/* Create artificial data. */
 	create_data(num_vrfs, num_interfaces, num_routes);

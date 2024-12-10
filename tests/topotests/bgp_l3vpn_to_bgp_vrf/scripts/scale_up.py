@@ -70,7 +70,11 @@ else:
         "See all sharp routes in rib on ce1",
         wait,
         wait_time=10,
+<<<<<<< HEAD
         )
+=======
+    )
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     luCommand(
         "ce2",
         'vtysh -c "show ip route summ" | grep "sharp" | cut -d " " -f 33',
@@ -79,7 +83,11 @@ else:
         "See all sharp routes in rib on ce2",
         wait,
         wait_time=10,
+<<<<<<< HEAD
         )
+=======
+    )
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
     rtrs = ["ce1", "ce2", "ce3"]
     for rtr in rtrs:

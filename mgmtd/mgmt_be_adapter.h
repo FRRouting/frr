@@ -235,15 +235,32 @@ extern void mgmt_be_xpath_register_write(struct vty *vty);
  */
 extern int mgmt_be_send_native(enum mgmt_be_client_id id, void *msg);
 
+<<<<<<< HEAD
+=======
+enum mgmt_be_xpath_subscr_type {
+	MGMT_BE_XPATH_SUBSCR_TYPE_CFG,
+	MGMT_BE_XPATH_SUBSCR_TYPE_OPER,
+	MGMT_BE_XPATH_SUBSCR_TYPE_NOTIF,
+	MGMT_BE_XPATH_SUBSCR_TYPE_RPC,
+};
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 /**
  * Lookup the clients which are subscribed to a given `xpath`
  * and the way they are subscribed.
  *
  * Args:
  *     xpath - the xpath to check for subscription information.
+<<<<<<< HEAD
  *     config - true for config interest false for oper interest.
  */
 extern uint64_t mgmt_be_interested_clients(const char *xpath, bool config);
+=======
+ *     type - type of subscription to check for.
+ */
+extern uint64_t mgmt_be_interested_clients(const char *xpath,
+					   enum mgmt_be_xpath_subscr_type type);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 /**
  * mgmt_fe_adapter_send_notify() - notify FE clients of a notification.

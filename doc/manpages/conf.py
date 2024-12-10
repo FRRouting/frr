@@ -91,7 +91,11 @@ replace_vars = {
 
 # extract version information, installation location, other stuff we need to
 # use when building final documents
+<<<<<<< HEAD
 val = re.compile('^S\["([^"]+)"\]="(.*)"$')
+=======
+val = re.compile(r'^S\["([^"]+)"\]="(.*)"$')
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 try:
     with open("../../config.status", "r") as cfgstatus:
         for ln in cfgstatus.readlines():

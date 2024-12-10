@@ -12,6 +12,10 @@
 #include "vector.h"
 #include "vty.h"
 
+<<<<<<< HEAD
+=======
+#include "ospf6d/ospf6_proto.h" /* for struct ospf6_prefix */
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 #include "ospf6d/ospf6_lsa.h"
 #include "ospf6d/ospf6_lsdb.h"
 

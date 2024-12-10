@@ -11,7 +11,10 @@
 
 import os
 import sys
+<<<<<<< HEAD
 import json
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 import pytest
 import functools
 

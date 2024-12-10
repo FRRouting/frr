@@ -249,7 +249,11 @@ apps:
             - network-bind
             - network-control
     bfdd-debug:
+<<<<<<< HEAD
         command: sbin/bfdd -f $SNAP_DATA/bfdd.conf --pid_file $SNAP_DATA/bfdd.pid --socket $SNAP_DATA/zsock --vty_socket $SNAP_DATA --bfdctl $SNAP_DATA/bfdd.sock
+=======
+        command: sbin/bfdd -f $SNAP_DATA/bfdd.conf --pid_file $SNAP_DATA/bfdd.pid --socket $SNAP_DATA/zsock --vty_socket $SNAP_DATA
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         plugs:
             - network
             - network-bind

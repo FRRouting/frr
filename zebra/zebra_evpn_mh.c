@@ -563,8 +563,14 @@ zebra_evpn_acc_vl_new(vlanid_t vid, struct interface *br_if)
 	struct zebra_evpn_access_bd *acc_bd;
 	struct interface *vlan_if;
 
+<<<<<<< HEAD
 	if (IS_ZEBRA_DEBUG_EVPN_MH_ES)
 		zlog_debug("access vlan %d bridge %s add", vid, br_if->name);
+=======
+	if (IS_ZEBRA_DEBUG_EVPN_MH_ES || IS_ZEBRA_DEBUG_KERNEL)
+		zlog_debug("%s access vlan %d bridge %s add", __func__, vid,
+			   br_if->name);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	acc_bd = XCALLOC(MTYPE_ZACC_BD, sizeof(struct zebra_evpn_access_bd));
 
@@ -582,8 +588,13 @@ zebra_evpn_acc_vl_new(vlanid_t vid, struct interface *br_if)
 	vlan_if = zvni_map_to_svi(vid, br_if);
 	if (vlan_if) {
 		if (IS_ZEBRA_DEBUG_EVPN_MH_ES)
+<<<<<<< HEAD
 			zlog_debug("vlan %d bridge %s SVI %s set", vid,
 				   br_if->name, vlan_if->name);
+=======
+			zlog_debug("%s vlan %d bridge %s SVI %s set", __func__,
+				   vid, br_if->name, vlan_if->name);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		acc_bd->vlan_zif = vlan_if->info;
 	}
 	return acc_bd;
@@ -731,6 +742,32 @@ static void zebra_evpn_acc_bd_evpn_set(struct zebra_evpn_access_bd *acc_bd,
 	}
 }
 
+<<<<<<< HEAD
+=======
+/* Lookup API for  VxLAN_IF's Bridge, VLAN in EVPN cache */
+int zebra_evpn_vl_vxl_bridge_lookup(uint16_t vid, struct zebra_if *vxlan_zif)
+{
+	struct interface *br_if;
+	struct zebra_evpn_access_bd *acc_bd;
+
+	if (!vid)
+		return -1;
+
+	br_if = vxlan_zif->brslave_info.br_if;
+
+	if (!br_if)
+		return -1;
+
+	acc_bd = zebra_evpn_acc_vl_find(vid, br_if);
+
+	if (!acc_bd)
+		return 0;
+
+	return 1;
+}
+
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 /* handle VLAN->VxLAN_IF association */
 void zebra_evpn_vl_vxl_ref(uint16_t vid, vni_t vni_id,
 			   struct zebra_if *vxlan_zif)
@@ -768,8 +805,14 @@ void zebra_evpn_vl_vxl_ref(uint16_t vid, vni_t vni_id,
 	if (acc_bd->zevpn == old_zevpn)
 		return;
 
+<<<<<<< HEAD
 	if (IS_ZEBRA_DEBUG_EVPN_MH_ES)
 		zlog_debug("access vlan %d vni %u ref", acc_bd->vid, vni_id);
+=======
+	if (IS_ZEBRA_DEBUG_EVPN_MH_ES || IS_ZEBRA_DEBUG_KERNEL)
+		zlog_debug("%s bridge %s access vlan %d vni %u ref", __func__,
+			   br_if->name, acc_bd->vid, vni_id);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	if (old_zevpn)
 		zebra_evpn_acc_bd_evpn_set(acc_bd, NULL, old_zevpn);
@@ -1935,7 +1978,11 @@ static int zebra_evpn_es_send_add_to_client(struct zebra_evpn_es *es)
 	if (!client)
 		return 0;
 
+<<<<<<< HEAD
 	s = stream_new(ZEBRA_MAX_PACKET_SIZ);
+=======
+	s = stream_new(ZEBRA_SMALL_PACKET_SIZE);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	zclient_create_header(s, ZEBRA_LOCAL_ES_ADD, zebra_vrf_get_evpn_id());
 	stream_put(s, &es->esi, sizeof(esi_t));
@@ -1971,7 +2018,11 @@ static int zebra_evpn_es_send_del_to_client(struct zebra_evpn_es *es)
 	if (!client)
 		return 0;
 
+<<<<<<< HEAD
 	s = stream_new(ZEBRA_MAX_PACKET_SIZ);
+=======
+	s = stream_new(ZEBRA_SMALL_PACKET_SIZE);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	stream_reset(s);
 
 	zclient_create_header(s, ZEBRA_LOCAL_ES_DEL, zebra_vrf_get_evpn_id());
@@ -2639,7 +2690,11 @@ static int zebra_evpn_es_evi_send_to_client(struct zebra_evpn_es *es,
 	if (!client)
 		return 0;
 
+<<<<<<< HEAD
 	s = stream_new(ZEBRA_MAX_PACKET_SIZ);
+=======
+	s = stream_new(ZEBRA_SMALL_PACKET_SIZE);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	zclient_create_header(s,
 			add ? ZEBRA_LOCAL_ES_EVI_ADD : ZEBRA_LOCAL_ES_EVI_DEL,
@@ -3001,7 +3056,11 @@ void zebra_evpn_es_if_oper_state_change(struct zebra_if *zif, bool up)
 }
 
 static char *zebra_evpn_es_vtep_str(char *vtep_str, struct zebra_evpn_es *es,
+<<<<<<< HEAD
 				    uint8_t vtep_str_size)
+=======
+				    size_t vtep_str_size)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 {
 	struct zebra_evpn_es_vtep *zvtep;
 	struct listnode	*node;

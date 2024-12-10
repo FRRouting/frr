@@ -306,7 +306,11 @@ void memory_oom(size_t size, const char *name)
 	     "out of memory: failed to allocate %zu bytes for %s object",
 	     size, name);
 	zlog_backtrace(LOG_CRIT);
+<<<<<<< HEAD
 	log_memstats(stderr, "log");
+=======
+	log_memstats(zlog_progname, true);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	abort();
 }
 
@@ -351,7 +355,10 @@ static const struct zebra_desc_table command_types[] = {
 	DESC_ENTRY(ZEBRA_BFD_DEST_REPLAY),
 	DESC_ENTRY(ZEBRA_REDISTRIBUTE_ROUTE_ADD),
 	DESC_ENTRY(ZEBRA_REDISTRIBUTE_ROUTE_DEL),
+<<<<<<< HEAD
 	DESC_ENTRY(ZEBRA_VRF_UNREGISTER),
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	DESC_ENTRY(ZEBRA_VRF_ADD),
 	DESC_ENTRY(ZEBRA_VRF_DELETE),
 	DESC_ENTRY(ZEBRA_VRF_LABEL),
@@ -436,6 +443,12 @@ static const struct zebra_desc_table command_types[] = {
 	DESC_ENTRY(ZEBRA_SRV6_LOCATOR_DELETE),
 	DESC_ENTRY(ZEBRA_SRV6_MANAGER_GET_LOCATOR_CHUNK),
 	DESC_ENTRY(ZEBRA_SRV6_MANAGER_RELEASE_LOCATOR_CHUNK),
+<<<<<<< HEAD
+=======
+	DESC_ENTRY(ZEBRA_SRV6_MANAGER_GET_LOCATOR),
+	DESC_ENTRY(ZEBRA_SRV6_MANAGER_GET_SRV6_SID),
+	DESC_ENTRY(ZEBRA_SRV6_MANAGER_RELEASE_SRV6_SID),
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	DESC_ENTRY(ZEBRA_ERROR),
 	DESC_ENTRY(ZEBRA_CLIENT_CAPABILITIES),
 	DESC_ENTRY(ZEBRA_OPAQUE_MESSAGE),
@@ -461,7 +474,12 @@ static const struct zebra_desc_table command_types[] = {
 	DESC_ENTRY(ZEBRA_TC_CLASS_DELETE),
 	DESC_ENTRY(ZEBRA_TC_FILTER_ADD),
 	DESC_ENTRY(ZEBRA_TC_FILTER_DELETE),
+<<<<<<< HEAD
 	DESC_ENTRY(ZEBRA_OPAQUE_NOTIFY)
+=======
+	DESC_ENTRY(ZEBRA_OPAQUE_NOTIFY),
+	DESC_ENTRY(ZEBRA_SRV6_SID_NOTIFY)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 };
 #undef DESC_ENTRY
 

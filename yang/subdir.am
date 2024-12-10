@@ -35,9 +35,17 @@ dist_yangmodels_DATA += yang/frr-bgp-route-map.yang
 dist_yangmodels_DATA += yang/frr-vrf.yang
 dist_yangmodels_DATA += yang/frr-route-types.yang
 dist_yangmodels_DATA += yang/frr-routing.yang
+<<<<<<< HEAD
 dist_yangmodels_DATA += yang/ietf/ietf-routing-types.yang
 dist_yangmodels_DATA += yang/ietf/ietf-interfaces.yang
 dist_yangmodels_DATA += yang/ietf/ietf-bgp-types.yang
+=======
+dist_yangmodels_DATA += yang/ietf/frr-deviations-ietf-key-chain.yang
+dist_yangmodels_DATA += yang/ietf/ietf-routing-types.yang
+dist_yangmodels_DATA += yang/ietf/ietf-interfaces.yang
+dist_yangmodels_DATA += yang/ietf/ietf-bgp-types.yang
+dist_yangmodels_DATA += yang/ietf/ietf-key-chain.yang
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 dist_yangmodels_DATA += yang/ietf/ietf-netconf-acm.yang
 dist_yangmodels_DATA += yang/ietf/ietf-netconf.yang
 dist_yangmodels_DATA += yang/ietf/ietf-netconf-with-defaults.yang
@@ -78,6 +86,10 @@ if PIMD
 dist_yangmodels_DATA += yang/frr-gmp.yang
 dist_yangmodels_DATA += yang/frr-pim.yang
 dist_yangmodels_DATA += yang/frr-pim-rp.yang
+<<<<<<< HEAD
+=======
+dist_yangmodels_DATA += yang/frr-pim-candidate.yang
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 endif
 
 if BGPD
@@ -104,6 +116,7 @@ endif
 CLEANFILES += \
 	yang/*.c \
 	yang/ietf/*.c \
+<<<<<<< HEAD
 	yang/confd/*.c \
 	#
 
@@ -132,3 +145,6 @@ yang/%.fxs: yang/%.yang
 	$(AM_V_CONFDC)$(CONFDC) $(CONFDC_FLAGS) -c -o $@ -- $<
 
 endif
+=======
+	#
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)

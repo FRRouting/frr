@@ -252,11 +252,20 @@ int isis_instance_area_address_destroy(struct nb_cb_destroy_args *args)
 		return NB_ERR_INCONSISTENCY;
 
 	listnode_delete(area->area_addrs, addrp);
+<<<<<<< HEAD
 	XFREE(MTYPE_ISIS_AREA_ADDR, addrp);
 	/*
 	 * Last area address - reset the SystemID for this router
 	 */
 	if (listcount(area->area_addrs) == 0) {
+=======
+	/*
+	 * Last area address - reset the SystemID for this router
+	 */
+	if (!memcmp(addrp->area_addr + addrp->addr_len, area->isis->sysid,
+		    ISIS_SYS_ID_LEN) &&
+	    listcount(area->area_addrs) == 0) {
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		for (ALL_LIST_ELEMENTS_RO(area->circuit_list, cnode, circuit))
 			for (lvl = IS_LEVEL_1; lvl <= IS_LEVEL_2; ++lvl) {
 				if (circuit->u.bc.is_dr[lvl - 1])
@@ -268,6 +277,11 @@ int isis_instance_area_address_destroy(struct nb_cb_destroy_args *args)
 			zlog_debug("Router has no SystemID");
 	}
 
+<<<<<<< HEAD
+=======
+	XFREE(MTYPE_ISIS_AREA_ADDR, addrp);
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	return NB_OK;
 }
 
@@ -2835,7 +2849,13 @@ int isis_instance_flex_algo_create(struct nb_cb_create_args *args)
 {
 	struct isis_area *area;
 	struct flex_algo *fa;
+<<<<<<< HEAD
 	bool advertise;
+=======
+	bool advertise, update_te;
+	struct isis_circuit *circuit;
+	struct listnode *node;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	uint32_t algorithm;
 	uint32_t priority = FLEX_ALGO_PRIO_DEFAULT;
 	struct isis_flex_algo_alloc_arg arg;
@@ -2848,6 +2868,10 @@ int isis_instance_flex_algo_create(struct nb_cb_create_args *args)
 		area = nb_running_get_entry(args->dnode, NULL, true);
 		arg.algorithm = algorithm;
 		arg.area = area;
+<<<<<<< HEAD
+=======
+		update_te = list_isempty(area->flex_algos->flex_algos);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		fa = flex_algo_alloc(area->flex_algos, algorithm, &arg);
 		fa->priority = priority;
 		fa->advertise_definition = advertise;
@@ -2859,6 +2883,15 @@ int isis_instance_flex_algo_create(struct nb_cb_create_args *args)
 			admin_group_allow_explicit_zero(
 				&fa->admin_group_include_all);
 		}
+<<<<<<< HEAD
+=======
+		if (update_te) {
+			for (ALL_LIST_ELEMENTS_RO(area->circuit_list, node,
+						  circuit))
+				isis_link_params_update_asla(circuit,
+							     circuit->interface);
+		}
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		lsp_regenerate_schedule(area, area->is_type, 0);
 		break;
 	case NB_EV_VALIDATE:
@@ -2872,6 +2905,7 @@ int isis_instance_flex_algo_create(struct nb_cb_create_args *args)
 
 int isis_instance_flex_algo_destroy(struct nb_cb_destroy_args *args)
 {
+<<<<<<< HEAD
 	struct isis_area *area;
 	uint32_t algorithm;
 
@@ -2888,6 +2922,30 @@ int isis_instance_flex_algo_destroy(struct nb_cb_destroy_args *args)
 	case NB_EV_ABORT:
 		break;
 	}
+=======
+	struct isis_circuit *circuit;
+	struct listnode *node, *nnode;
+	struct flex_algo *fa;
+	struct isis_area *area;
+	uint32_t algorithm;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	algorithm = yang_dnode_get_uint32(args->dnode, "flex-algo");
+	area = nb_running_get_entry(args->dnode, NULL, true);
+
+	for (ALL_LIST_ELEMENTS(area->flex_algos->flex_algos, node, nnode, fa)) {
+		if (fa->algorithm == algorithm)
+			flex_algo_free(area->flex_algos, fa);
+	}
+	if (list_isempty(area->flex_algos->flex_algos)) {
+		for (ALL_LIST_ELEMENTS_RO(area->circuit_list, node, circuit))
+			isis_link_params_update_asla(circuit,
+						     circuit->interface);
+	}
+	lsp_regenerate_schedule(area, area->is_type, 0);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	return NB_OK;
 }
@@ -2935,10 +2993,18 @@ int isis_instance_flex_algo_advertise_definition_destroy(
 	struct flex_algo *fa;
 	uint32_t algorithm;
 
+<<<<<<< HEAD
+=======
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	area = nb_running_get_entry(args->dnode, NULL, true);
 
 	algorithm = yang_dnode_get_uint32(args->dnode, "../flex-algo");
 
+<<<<<<< HEAD
 	switch (args->event) {
 	case NB_EV_APPLY:
 		fa = flex_algo_lookup(area->flex_algos, algorithm);
@@ -2955,6 +3021,16 @@ int isis_instance_flex_algo_advertise_definition_destroy(
 	case NB_EV_ABORT:
 		break;
 	}
+=======
+	fa = flex_algo_lookup(area->flex_algos, algorithm);
+	if (!fa) {
+		snprintf(args->errmsg, args->errmsg_len,
+			 "flex-algo object not found");
+		return NB_ERR_RESOURCE;
+	}
+	fa->advertise_definition = false;
+	lsp_regenerate_schedule(area, area->is_type, 0);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	return NB_OK;
 }
@@ -2962,19 +3038,31 @@ int isis_instance_flex_algo_advertise_definition_destroy(
 static int isis_instance_flex_algo_affinity_set(struct nb_cb_create_args *args,
 						int type)
 {
+<<<<<<< HEAD
 	struct affinity_map *map;
 	struct isis_area *area;
 	struct admin_group *ag;
+=======
+	char xpathr[XPATH_MAXLEN];
+	struct lyd_node *dnode;
+	struct isis_area *area;
+	struct admin_group *ag;
+	uint16_t bit_position;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	struct flex_algo *fa;
 	uint32_t algorithm;
 	const char *val;
 
+<<<<<<< HEAD
 	algorithm = yang_dnode_get_uint32(args->dnode, "../../flex-algo");
 	area = nb_running_get_entry(args->dnode, NULL, true);
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	val = yang_dnode_get_string(args->dnode, ".");
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
+<<<<<<< HEAD
 		fa = flex_algo_lookup(area->flex_algos, algorithm);
 		if (!fa) {
 			snprintf(args->errmsg, args->errmsg_len,
@@ -2983,6 +3071,12 @@ static int isis_instance_flex_algo_affinity_set(struct nb_cb_create_args *args,
 		}
 		map = affinity_map_get(val);
 		if (!map) {
+=======
+		snprintf(xpathr, sizeof(xpathr),
+			 "/frr-affinity-map:lib/affinity-maps/affinity-map[name='%s']/value",
+			 val);
+		if (!yang_dnode_get(args->dnode, xpathr)) {
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			snprintf(args->errmsg, args->errmsg_len,
 				 "affinity map %s isn't found", val);
 			return NB_ERR_VALIDATION;
@@ -2992,14 +3086,28 @@ static int isis_instance_flex_algo_affinity_set(struct nb_cb_create_args *args,
 	case NB_EV_ABORT:
 		break;
 	case NB_EV_APPLY:
+<<<<<<< HEAD
+=======
+		algorithm = yang_dnode_get_uint32(args->dnode,
+						  "../../flex-algo");
+		area = nb_running_get_entry(args->dnode, NULL, true);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		fa = flex_algo_lookup(area->flex_algos, algorithm);
 		if (!fa) {
 			snprintf(args->errmsg, args->errmsg_len,
 				 "flex-algo object not found");
 			return NB_ERR_RESOURCE;
 		}
+<<<<<<< HEAD
 		map = affinity_map_get(val);
 		if (!map) {
+=======
+		snprintf(xpathr, sizeof(xpathr),
+			 "/frr-affinity-map:lib/affinity-maps/affinity-map[name='%s']/value",
+			 val);
+		dnode = yang_dnode_get(args->dnode, xpathr);
+		if (!dnode) {
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			snprintf(args->errmsg, args->errmsg_len,
 				 "affinity map %s isn't found", val);
 			return NB_ERR_RESOURCE;
@@ -3013,7 +3121,12 @@ static int isis_instance_flex_algo_affinity_set(struct nb_cb_create_args *args,
 		else
 			break;
 
+<<<<<<< HEAD
 		admin_group_set(ag, map->bit_position);
+=======
+		bit_position = yang_dnode_get_uint16(dnode, NULL);
+		admin_group_set(ag, bit_position);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		lsp_regenerate_schedule(area, area->is_type, 0);
 		break;
 	}
@@ -3032,18 +3145,24 @@ isis_instance_flex_algo_affinity_unset(struct nb_cb_destroy_args *args,
 	uint32_t algorithm;
 	const char *val;
 
+<<<<<<< HEAD
 	algorithm = yang_dnode_get_uint32(args->dnode, "../../flex-algo");
 	area = nb_running_get_entry(args->dnode, NULL, true);
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	val = yang_dnode_get_string(args->dnode, ".");
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
+<<<<<<< HEAD
 		fa = flex_algo_lookup(area->flex_algos, algorithm);
 		if (!fa) {
 			snprintf(args->errmsg, args->errmsg_len,
 				 "flex-algo object not found");
 			return NB_ERR_RESOURCE;
 		}
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		map = affinity_map_get(val);
 		if (!map) {
 			snprintf(args->errmsg, args->errmsg_len,
@@ -3055,6 +3174,12 @@ isis_instance_flex_algo_affinity_unset(struct nb_cb_destroy_args *args,
 	case NB_EV_ABORT:
 		break;
 	case NB_EV_APPLY:
+<<<<<<< HEAD
+=======
+		algorithm = yang_dnode_get_uint32(args->dnode,
+						  "../../flex-algo");
+		area = nb_running_get_entry(args->dnode, NULL, true);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		fa = flex_algo_lookup(area->flex_algos, algorithm);
 		if (!fa) {
 			snprintf(args->errmsg, args->errmsg_len,
@@ -3144,6 +3269,7 @@ int isis_instance_flex_algo_affinity_exclude_any_destroy(
 int isis_instance_flex_algo_prefix_metric_create(struct nb_cb_create_args *args)
 {
 	struct isis_area *area;
+<<<<<<< HEAD
 	const char *area_tag;
 	struct flex_algo *fa;
 	uint32_t algorithm;
@@ -3153,10 +3279,21 @@ int isis_instance_flex_algo_prefix_metric_create(struct nb_cb_create_args *args)
 	if (!area)
 		return NB_ERR_RESOURCE;
 
+=======
+	struct flex_algo *fa;
+	uint32_t algorithm;
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	algorithm = yang_dnode_get_uint32(args->dnode, "../flex-algo");
 
 	switch (args->event) {
 	case NB_EV_APPLY:
+<<<<<<< HEAD
+=======
+		area = nb_running_get_entry(args->dnode, NULL, true);
+		if (!area)
+			return NB_ERR_RESOURCE;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		fa = flex_algo_lookup(area->flex_algos, algorithm);
 		if (!fa) {
 			snprintf(args->errmsg, args->errmsg_len,
@@ -3179,6 +3316,7 @@ int isis_instance_flex_algo_prefix_metric_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	struct isis_area *area;
+<<<<<<< HEAD
 	const char *area_tag;
 	struct flex_algo *fa;
 	uint32_t algorithm;
@@ -3188,10 +3326,22 @@ int isis_instance_flex_algo_prefix_metric_destroy(
 	if (!area)
 		return NB_ERR_RESOURCE;
 
+=======
+	struct flex_algo *fa;
+	uint32_t algorithm;
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	algorithm = yang_dnode_get_uint32(args->dnode, "../flex-algo");
 
 	switch (args->event) {
 	case NB_EV_APPLY:
+<<<<<<< HEAD
+=======
+		area = nb_running_get_entry(args->dnode, NULL, true);
+		if (!area)
+			return NB_ERR_RESOURCE;
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		fa = flex_algo_lookup(area->flex_algos, algorithm);
 		if (!fa) {
 			snprintf(args->errmsg, args->errmsg_len,
@@ -3214,6 +3364,7 @@ static int isis_instance_flex_algo_dplane_set(struct nb_cb_create_args *args,
 					      int type)
 {
 	struct isis_area *area;
+<<<<<<< HEAD
 	const char *area_tag;
 	struct flex_algo *fa;
 	uint32_t algorithm;
@@ -3223,10 +3374,22 @@ static int isis_instance_flex_algo_dplane_set(struct nb_cb_create_args *args,
 	if (!area)
 		return NB_ERR_RESOURCE;
 
+=======
+	struct flex_algo *fa;
+	uint32_t algorithm;
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	algorithm = yang_dnode_get_uint32(args->dnode, "../flex-algo");
 
 	switch (args->event) {
 	case NB_EV_APPLY:
+<<<<<<< HEAD
+=======
+		area = nb_running_get_entry(args->dnode, NULL, true);
+		if (!area)
+			return NB_ERR_RESOURCE;
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		fa = flex_algo_lookup(area->flex_algos, algorithm);
 		if (!fa) {
 			snprintf(args->errmsg, args->errmsg_len,
@@ -3256,6 +3419,7 @@ static int isis_instance_flex_algo_dplane_unset(struct nb_cb_destroy_args *args,
 						int type)
 {
 	struct isis_area *area;
+<<<<<<< HEAD
 	const char *area_tag;
 	struct flex_algo *fa;
 	uint32_t algorithm;
@@ -3265,10 +3429,22 @@ static int isis_instance_flex_algo_dplane_unset(struct nb_cb_destroy_args *args,
 	if (!area)
 		return NB_ERR_RESOURCE;
 
+=======
+	struct flex_algo *fa;
+	uint32_t algorithm;
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	algorithm = yang_dnode_get_uint32(args->dnode, "../flex-algo");
 
 	switch (args->event) {
 	case NB_EV_APPLY:
+<<<<<<< HEAD
+=======
+		area = nb_running_get_entry(args->dnode, NULL, true);
+		if (!area)
+			return NB_ERR_RESOURCE;
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		fa = flex_algo_lookup(area->flex_algos, algorithm);
 		if (!fa) {
 			snprintf(args->errmsg, args->errmsg_len,
@@ -3338,21 +3514,34 @@ int isis_instance_flex_algo_dplane_ip_destroy(struct nb_cb_destroy_args *args)
 int isis_instance_flex_algo_metric_type_modify(struct nb_cb_modify_args *args)
 {
 	struct isis_area *area;
+<<<<<<< HEAD
 	const char *area_tag;
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	struct flex_algo *fa;
 	uint32_t algorithm;
 	enum flex_algo_metric_type metric_type;
 
+<<<<<<< HEAD
 	area_tag = yang_dnode_get_string(args->dnode, "../../../area-tag");
 	area = isis_area_lookup(area_tag, VRF_DEFAULT);
 	if (!area)
 		return NB_ERR_RESOURCE;
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	algorithm = yang_dnode_get_uint32(args->dnode, "../flex-algo");
 	metric_type = yang_dnode_get_enum(args->dnode, NULL);
 
 	switch (args->event) {
 	case NB_EV_APPLY:
+<<<<<<< HEAD
+=======
+		area = nb_running_get_entry(args->dnode, NULL, true);
+		if (!area)
+			return NB_ERR_RESOURCE;
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		fa = flex_algo_lookup(area->flex_algos, algorithm);
 		if (!fa) {
 			snprintf(args->errmsg, args->errmsg_len,
@@ -3378,21 +3567,34 @@ int isis_instance_flex_algo_metric_type_modify(struct nb_cb_modify_args *args)
 int isis_instance_flex_algo_priority_modify(struct nb_cb_modify_args *args)
 {
 	struct isis_area *area;
+<<<<<<< HEAD
 	const char *area_tag;
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	struct flex_algo *fa;
 	uint32_t algorithm;
 	uint32_t priority;
 
+<<<<<<< HEAD
 	area_tag = yang_dnode_get_string(args->dnode, "../../../area-tag");
 	area = isis_area_lookup(area_tag, VRF_DEFAULT);
 	if (!area)
 		return NB_ERR_RESOURCE;
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	algorithm = yang_dnode_get_uint32(args->dnode, "../flex-algo");
 	priority = yang_dnode_get_uint32(args->dnode, NULL);
 
 	switch (args->event) {
 	case NB_EV_APPLY:
+<<<<<<< HEAD
+=======
+		area = nb_running_get_entry(args->dnode, NULL, true);
+		if (!area)
+			return NB_ERR_RESOURCE;
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		fa = flex_algo_lookup(area->flex_algos, algorithm);
 		if (!fa) {
 			snprintf(args->errmsg, args->errmsg_len,
@@ -3414,21 +3616,34 @@ int isis_instance_flex_algo_priority_modify(struct nb_cb_modify_args *args)
 int isis_instance_flex_algo_priority_destroy(struct nb_cb_destroy_args *args)
 {
 	struct isis_area *area;
+<<<<<<< HEAD
 	const char *area_tag;
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	struct flex_algo *fa;
 	uint32_t algorithm;
 	uint32_t priority = FLEX_ALGO_PRIO_DEFAULT;
 
+<<<<<<< HEAD
 	area_tag = yang_dnode_get_string(args->dnode, "../../../area-tag");
 	area = isis_area_lookup(area_tag, VRF_DEFAULT);
 	if (!area)
 		return NB_ERR_RESOURCE;
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	algorithm = yang_dnode_get_uint32(args->dnode, "../flex-algo");
 	priority = yang_dnode_get_uint32(args->dnode, NULL);
 
 	switch (args->event) {
 	case NB_EV_APPLY:
+<<<<<<< HEAD
+=======
+		area = nb_running_get_entry(args->dnode, NULL, true);
+		if (!area)
+			return NB_ERR_RESOURCE;
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		fa = flex_algo_lookup(area->flex_algos, algorithm);
 		if (!fa) {
 			snprintf(args->errmsg, args->errmsg_len,
@@ -3518,10 +3733,17 @@ int isis_instance_segment_routing_srv6_locator_modify(
 	sr_debug("Configured SRv6 locator %s for IS-IS area %s", loc_name,
 		 area->area_tag);
 
+<<<<<<< HEAD
 	sr_debug("Trying to get a chunk from locator %s for IS-IS area %s",
 		 loc_name, area->area_tag);
 
 	if (isis_zebra_srv6_manager_get_locator_chunk(loc_name) < 0)
+=======
+	sr_debug("Trying to get locator %s for IS-IS area %s", loc_name,
+		 area->area_tag);
+
+	if (isis_zebra_srv6_manager_get_locator(loc_name) < 0)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		return NB_ERR;
 
 	return NB_OK;
@@ -3821,7 +4043,12 @@ int lib_interface_isis_circuit_type_modify(struct nb_cb_modify_args *args)
 	case NB_EV_APPLY:
 		circuit = nb_running_get_entry(args->dnode, NULL, true);
 		circuit->is_type_config = circ_type;
+<<<<<<< HEAD
 		isis_circuit_is_type_set(circuit, circ_type);
+=======
+		if (!circuit->area || circuit->area->is_type == IS_LEVEL_1_AND_2)
+			isis_circuit_is_type_set(circuit, circ_type);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		break;
 	}
 

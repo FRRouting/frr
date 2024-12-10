@@ -41,7 +41,11 @@ DEB packages are available as CI artifacts `here
    cd libyang
    git checkout v2.1.128
    mkdir build; cd build
+<<<<<<< HEAD
    cmake -D CMAKE_INSTALL_PREFIX:PATH=/usr \
+=======
+   cmake --install-prefix /usr \
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
          -D CMAKE_BUILD_TYPE:String="Release" ..
    make
    sudo make install

@@ -10,6 +10,13 @@ nodist_grpc_libfrrgrpc_pb_la_SOURCES = \
 	grpc/frr-northbound.pb.cc \
 	grpc/frr-northbound.grpc.pb.cc \
 	# end
+<<<<<<< HEAD
+=======
+
+grpc_libfrrgrpc_pb_la_SOURCES = \
+	grpc/frrgrpc_pb.c \
+	# end
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 endif
 
 CLEANFILES += \

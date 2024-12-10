@@ -69,7 +69,11 @@ static void attr_parse(struct stream *s, uint16_t len)
 		flag = stream_getc(s);
 		type = stream_getc(s);
 
+<<<<<<< HEAD
 		if (flag & BGP_ATTR_FLAG_EXTLEN)
+=======
+		if (CHECK_FLAG(flag, BGP_ATTR_FLAG_EXTLEN))
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			length = stream_getw(s);
 		else
 			length = stream_getc(s);

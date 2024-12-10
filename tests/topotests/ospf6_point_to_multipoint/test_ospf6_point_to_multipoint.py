@@ -153,7 +153,11 @@ def setup_module(mod):
     # tgen.mininet_cli()
 
 
+<<<<<<< HEAD
 def teardown_module(mod):
+=======
+def teardown_module():
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     "Teardown the pytest environment"
     tgen = get_topogen()
     tgen.stop_topology()
@@ -229,7 +233,11 @@ def test_ospfv3_routingTable():
     # tgen.mininet_cli()
 
     # Verify OSPFv3 Routing Table
+<<<<<<< HEAD
     for router, rnode in tgen.routers().items():
+=======
+    for router, _ in tgen.routers().items():
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         logger.info('Waiting for router "%s" convergence', router)
 
         # Load expected results from the command

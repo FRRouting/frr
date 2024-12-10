@@ -53,6 +53,10 @@ struct graceful_restart_af {
 #define CAPABILITY_CODE_ENHE            5 /* Extended Next Hop Encoding */
 #define CAPABILITY_CODE_EXT_MESSAGE     6 /* Extended Message Support */
 #define CAPABILITY_CODE_ROLE            9 /* Role Capability */
+<<<<<<< HEAD
+=======
+#define CAPABILITY_CODE_PATHS_LIMIT    76 /* Paths Limit Capability */
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 /* Capability Length */
 #define CAPABILITY_CODE_MP_LEN          4
@@ -61,6 +65,10 @@ struct graceful_restart_af {
 #define CAPABILITY_CODE_RESTART_LEN     2 /* Receiving only case */
 #define CAPABILITY_CODE_AS4_LEN         4
 #define CAPABILITY_CODE_ADDPATH_LEN     4
+<<<<<<< HEAD
+=======
+#define CAPABILITY_CODE_PATHS_LIMIT_LEN 5
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 #define CAPABILITY_CODE_ENHE_LEN        6 /* NRLI AFI = 2, SAFI = 2, Nexthop AFI = 2 */
 #define CAPABILITY_CODE_MIN_FQDN_LEN    2
 #define CAPABILITY_CODE_ENHANCED_LEN    0
@@ -110,5 +118,10 @@ extern as_t peek_for_as4_capability(struct peer *peer, uint16_t length);
 extern const struct message capcode_str[];
 extern const struct message orf_type_str[];
 extern const struct message orf_mode_str[];
+<<<<<<< HEAD
+=======
+extern const size_t cap_minsizes[];
+extern const size_t cap_modsizes[];
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 #endif /* _QUAGGA_BGP_OPEN_H */

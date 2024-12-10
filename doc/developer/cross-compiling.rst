@@ -148,7 +148,11 @@ be built and installed generally like:
    CC=${HOST_ARCH}-gcc \
    CXX=${HOST_ARCH}-g++ \
    cmake \
+<<<<<<< HEAD
        -DCMAKE_INSTALL_PREFIX=/usr/${HOST_ARCH} \
+=======
+       --install-prefix /usr/${HOST_ARCH} \
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
        ..
    make
    make install

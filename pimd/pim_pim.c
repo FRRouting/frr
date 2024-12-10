@@ -13,7 +13,10 @@
 #include "network.h"
 
 #include "pimd.h"
+<<<<<<< HEAD
 #include "pim_instance.h"
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 #include "pim_pim.h"
 #include "pim_time.h"
 #include "pim_iface.h"
@@ -139,7 +142,11 @@ static bool pim_pkt_dst_addr_ok(enum pim_msg_type type, pim_addr addr)
 }
 
 int pim_pim_packet(struct interface *ifp, uint8_t *buf, size_t len,
+<<<<<<< HEAD
 		   pim_sgaddr sg)
+=======
+		   pim_sgaddr sg, bool is_mcast)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 {
 	struct iovec iov[2], *iovp = iov;
 #if PIM_IPV == 4
@@ -274,6 +281,25 @@ int pim_pim_packet(struct interface *ifp, uint8_t *buf, size_t len,
 		return -1;
 	}
 
+<<<<<<< HEAD
+=======
+	if (!is_mcast) {
+		if (header->type == PIM_MSG_TYPE_CANDIDATE) {
+			if (PIM_DEBUG_PIM_PACKETS)
+				zlog_debug("%s %s: Candidate RP PIM message from  %pPA on %s",
+					   __FILE__, __func__, &sg.src,
+					   ifp->name);
+
+			return pim_crp_process(ifp, &sg, pim_msg, pim_msg_len);
+		}
+
+		if (PIM_DEBUG_PIM_PACKETS)
+			zlog_debug(
+				"ignoring link traffic on BSR unicast socket");
+		return -1;
+	}
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	switch (header->type) {
 	case PIM_MSG_TYPE_HELLO:
 		return pim_hello_recv(ifp, sg.src, pim_msg + PIM_MSG_HEADER_LEN,
@@ -322,6 +348,16 @@ int pim_pim_packet(struct interface *ifp, uint8_t *buf, size_t len,
 		return pim_bsm_process(ifp, &sg, pim_msg, pim_msg_len, no_fwd);
 		break;
 
+<<<<<<< HEAD
+=======
+	case PIM_MSG_TYPE_CANDIDATE:
+		/* return pim_crp_process(ifp, &sg, pim_msg, pim_msg_len); */
+		if (PIM_DEBUG_PIM_PACKETS)
+			zlog_debug(
+				"ignoring Candidate-RP packet on multicast socket");
+		return 0;
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	default:
 		if (PIM_DEBUG_PIM_PACKETS) {
 			zlog_debug(
@@ -332,6 +368,7 @@ int pim_pim_packet(struct interface *ifp, uint8_t *buf, size_t len,
 	}
 }
 
+<<<<<<< HEAD
 static void pim_sock_read_on(struct interface *ifp);
 
 static void pim_sock_read(struct event *t)
@@ -339,6 +376,11 @@ static void pim_sock_read(struct event *t)
 	struct interface *ifp, *orig_ifp;
 	struct pim_interface *pim_ifp;
 	int fd;
+=======
+int pim_sock_read_helper(int fd, struct pim_instance *pim, bool is_mcast)
+{
+	struct interface *ifp = NULL;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	struct sockaddr_storage from;
 	struct sockaddr_storage to;
 	socklen_t fromlen = sizeof(from);
@@ -346,6 +388,7 @@ static void pim_sock_read(struct event *t)
 	uint8_t buf[PIM_PIM_BUFSIZE_READ];
 	int len;
 	ifindex_t ifindex = -1;
+<<<<<<< HEAD
 	int result = -1; /* defaults to bad */
 	static long long count = 0;
 	int cont = 1;
@@ -356,6 +399,11 @@ static void pim_sock_read(struct event *t)
 	pim_ifp = ifp->info;
 
 	while (cont) {
+=======
+	int i;
+
+	for (i = 0; i < router->packet_process; i++) {
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		pim_sgaddr sg;
 
 		len = pim_socket_recvfromto(fd, buf, sizeof(buf), &from,
@@ -369,7 +417,11 @@ static void pim_sock_read(struct event *t)
 			if (PIM_DEBUG_PIM_PACKETS)
 				zlog_debug("Received errno: %d %s", errno,
 					   safe_strerror(errno));
+<<<<<<< HEAD
 			goto done;
+=======
+			return -1;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		}
 
 		/*
@@ -378,6 +430,7 @@ static void pim_sock_read(struct event *t)
 		 * the right ifindex, so just use it.  We know
 		 * it's the right interface because we bind to it
 		 */
+<<<<<<< HEAD
 		ifp = if_lookup_by_index(ifindex, pim_ifp->pim->vrf->vrf_id);
 		if (!ifp || !ifp->info) {
 			if (PIM_DEBUG_PIM_PACKETS)
@@ -386,6 +439,23 @@ static void pim_sock_read(struct event *t)
 					__func__, ifp ? ifp->name : "Unknown",
 					ifindex);
 			goto done;
+=======
+		if (pim != NULL)
+			ifp = if_lookup_by_index(ifindex, pim->vrf->vrf_id);
+
+		/*
+		 * unicast BSM pkts (C-RP) may arrive on non pim interfaces
+		 * mcast pkts are only expected in pim interfaces
+		 */
+		if (!ifp || (is_mcast && !ifp->info)) {
+			if (PIM_DEBUG_PIM_PACKETS)
+				zlog_debug("%s: Received incoming pim packet on interface(%s:%d)%s",
+					   __func__,
+					   ifp ? ifp->name : "Unknown", ifindex,
+					   is_mcast ? " not yet configured for pim"
+						    : "");
+			return -1;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		}
 #if PIM_IPV == 4
 		sg.src = ((struct sockaddr_in *)&from)->sin_addr;
@@ -395,11 +465,16 @@ static void pim_sock_read(struct event *t)
 		sg.grp = ((struct sockaddr_in6 *)&to)->sin6_addr;
 #endif
 
+<<<<<<< HEAD
 		int fail = pim_pim_packet(ifp, buf, len, sg);
+=======
+		int fail = pim_pim_packet(ifp, buf, len, sg, is_mcast);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		if (fail) {
 			if (PIM_DEBUG_PIM_PACKETS)
 				zlog_debug("%s: pim_pim_packet() return=%d",
 					   __func__, fail);
+<<<<<<< HEAD
 			goto done;
 		}
 
@@ -416,6 +491,31 @@ done:
 	if (result) {
 		++pim_ifp->pim_ifstat_hello_recvfail;
 	}
+=======
+			return -1;
+		}
+	}
+	return 0;
+}
+
+static void pim_sock_read_on(struct interface *ifp);
+
+static void pim_sock_read(struct event *t)
+{
+	struct interface *ifp;
+	struct pim_interface *pim_ifp;
+	int fd;
+
+	ifp = EVENT_ARG(t);
+	fd = EVENT_FD(t);
+
+	pim_ifp = ifp->info;
+
+	if (pim_sock_read_helper(fd, pim_ifp->pim, true) == 0)
+		++pim_ifp->pim_ifstat_hello_recvfail;
+
+	pim_sock_read_on(ifp);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 }
 
 static void pim_sock_read_on(struct interface *ifp)
@@ -636,6 +736,7 @@ static int pim_msg_send_frame(pim_addr src, pim_addr dst, ifindex_t ifindex,
 int pim_msg_send(int fd, pim_addr src, pim_addr dst, uint8_t *pim_msg,
 		 int pim_msg_size, struct interface *ifp)
 {
+<<<<<<< HEAD
 	struct pim_interface *pim_ifp;
 
 
@@ -647,6 +748,17 @@ int pim_msg_send(int fd, pim_addr src, pim_addr dst, uint8_t *pim_msg,
 				"skip sending PIM message on passive interface %s",
 				ifp->name);
 		return 0;
+=======
+	if (ifp) {
+		struct pim_interface *pim_ifp = ifp->info;
+
+		if (pim_ifp->pim_passive_enable) {
+			if (PIM_DEBUG_PIM_PACKETS)
+				zlog_debug("skip sending PIM message on passive interface %s",
+					   ifp->name);
+			return 0;
+		}
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	}
 
 #if PIM_IPV == 4
@@ -710,7 +822,11 @@ int pim_msg_send(int fd, pim_addr src, pim_addr dst, uint8_t *pim_msg,
 
 	if (PIM_DEBUG_PIM_PACKETS)
 		zlog_debug("%s: to %pPA on %s: msg_size=%d checksum=%x",
+<<<<<<< HEAD
 			   __func__, &dst, ifp->name, pim_msg_size,
+=======
+			   __func__, &dst, ifp ? ifp->name : "*", pim_msg_size,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			   header->checksum);
 
 	if (PIM_DEBUG_PIM_PACKETDUMP_SEND) {
@@ -718,7 +834,11 @@ int pim_msg_send(int fd, pim_addr src, pim_addr dst, uint8_t *pim_msg,
 	}
 
 	pim_msg_send_frame(fd, (char *)buffer, sendlen, (struct sockaddr *)&to,
+<<<<<<< HEAD
 			   tolen, ifp->name);
+=======
+			   tolen, ifp ? ifp->name : "*");
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	return 0;
 
 #else
@@ -727,7 +847,11 @@ int pim_msg_send(int fd, pim_addr src, pim_addr dst, uint8_t *pim_msg,
 	iovector[0].iov_base = pim_msg;
 	iovector[0].iov_len = pim_msg_size;
 
+<<<<<<< HEAD
 	pim_msg_send_frame(src, dst, ifp->ifindex, &iovector[0], fd);
+=======
+	pim_msg_send_frame(src, dst, ifp ? ifp->ifindex : 0, &iovector[0], fd);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	return 0;
 #endif

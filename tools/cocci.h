@@ -1,3 +1,8 @@
+<<<<<<< HEAD
+=======
+// SPDX-License-Identifier: GPL-2.0-or-later
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 /* some of this stuff doesn't seem to parse properly in coccinelle
  */
 

@@ -558,29 +558,53 @@ DEFPY_YANG(
 
 DEFPY_YANG(
 	match_tag, match_tag_cmd,
+<<<<<<< HEAD
 	"match tag (1-4294967295)$tag",
 	MATCH_STR
 	"Match tag of route\n"
+=======
+	"match tag <untagged$untagged|(1-4294967295)$tagged>",
+	MATCH_STR
+	"Match tag of route\n"
+	"Untagged route\n"
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	"Tag value\n")
 {
 	const char *xpath =
 		"./match-condition[condition='frr-route-map:match-tag']";
 	char xpath_value[XPATH_MAXLEN];
+<<<<<<< HEAD
+=======
+	char value[64];
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
 	snprintf(xpath_value, sizeof(xpath_value),
 		 "%s/rmap-match-condition/tag", xpath);
+<<<<<<< HEAD
 	nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY, tag_str);
+=======
+	snprintf(value, sizeof(value), "%lu", tagged ? tagged : 0);
+	nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY, value);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFPY_YANG(
 	no_match_tag, no_match_tag_cmd,
+<<<<<<< HEAD
 	"no match tag [(1-4294967295)]",
 	NO_STR
 	MATCH_STR
 	"Match tag of route\n"
+=======
+	"no match tag [<untagged|(1-4294967295)>]",
+	NO_STR
+	MATCH_STR
+	"Match tag of route\n"
+	"Untagged route\n"
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	"Tag value\n")
 {
 	const char *xpath =
@@ -649,9 +673,21 @@ void route_map_condition_show(struct vty *vty, const struct lyd_node *dnode,
 			yang_dnode_get_string(dnode,
 					      "./rmap-match-condition/metric"));
 	} else if (IS_MATCH_TAG(condition)) {
+<<<<<<< HEAD
 		vty_out(vty, " match tag %s\n",
 			yang_dnode_get_string(dnode,
 					      "./rmap-match-condition/tag"));
+=======
+		uint32_t tag =
+			strtoul(yang_dnode_get_string(dnode,
+						      "./rmap-match-condition/tag"),
+				NULL, 10);
+
+		if (!tag)
+			vty_out(vty, " match tag untagged\n");
+		else
+			vty_out(vty, " match tag %u\n", tag);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	} else if (IS_MATCH_IPv4_PREFIX_LEN(condition)) {
 		vty_out(vty, " match ip address prefix-len %s\n",
 			yang_dnode_get_string(
@@ -746,6 +782,21 @@ void route_map_condition_show(struct vty *vty, const struct lyd_node *dnode,
 			acl = "local";
 
 		vty_out(vty, " match peer %s\n", acl);
+<<<<<<< HEAD
+=======
+	} else if (IS_MATCH_SRC_PEER(condition)) {
+		acl = NULL;
+		ln = yang_dnode_get(dnode,
+				    "./rmap-match-condition/frr-bgp-route-map:src-peer-ipv4-address");
+		if (!ln)
+			ln = yang_dnode_get(dnode,
+					    "./rmap-match-condition/frr-bgp-route-map:src-peer-ipv6-address");
+		if (!ln)
+			ln = yang_dnode_get(dnode,
+					    "./rmap-match-condition/frr-bgp-route-map:src-peer-interface");
+		acl = yang_dnode_get_string(ln, NULL);
+		vty_out(vty, " match src-peer %s\n", acl);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	} else if (IS_MATCH_AS_LIST(condition)) {
 		vty_out(vty, " match as-path %s\n",
 			yang_dnode_get_string(
@@ -912,13 +963,23 @@ DEFPY_YANG(
 
 DEFPY_YANG(
 	set_metric, set_metric_cmd,
+<<<<<<< HEAD
 	"set metric <(-4294967295-4294967295)$metric|rtt$rtt|+rtt$artt|-rtt$srtt>",
+=======
+	"set metric <(-4294967295-4294967295)$metric|rtt$rtt|+rtt$artt|-rtt$srtt|igp$igp|aigp$aigp>",
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	SET_STR
 	"Metric value for destination routing protocol\n"
 	"Metric value (use +/- for additions or subtractions)\n"
 	"Assign round trip time\n"
 	"Add round trip time\n"
+<<<<<<< HEAD
 	"Subtract round trip time\n")
+=======
+	"Subtract round trip time\n"
+	"Metric value from IGP protocol\n"
+	"Metric value from AIGP (Accumulated IGP)\n")
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 {
 	const char *xpath = "./set-action[action='frr-route-map:set-metric']";
 	char xpath_value[XPATH_MAXLEN];
@@ -929,6 +990,15 @@ DEFPY_YANG(
 		snprintf(xpath_value, sizeof(xpath_value),
 			 "%s/rmap-set-action/use-round-trip-time", xpath);
 		snprintf(value, sizeof(value), "true");
+<<<<<<< HEAD
+=======
+	} else if (igp) {
+		snprintf(xpath_value, sizeof(xpath_value), "%s/rmap-set-action/use-igp", xpath);
+		snprintf(value, sizeof(value), "true");
+	} else if (aigp) {
+		snprintf(xpath_value, sizeof(xpath_value), "%s/rmap-set-action/use-aigp", xpath);
+		snprintf(value, sizeof(value), "true");
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	} else if (artt) {
 		snprintf(xpath_value, sizeof(xpath_value),
 			 "%s/rmap-set-action/add-round-trip-time", xpath);
@@ -995,7 +1065,11 @@ DEFPY_YANG(no_set_min_metric, no_set_min_metric_cmd,
 	   "no set min-metric [(0-4294967295)]",
 	   NO_STR SET_STR
 	   "Minimum metric value for destination routing protocol\n"
+<<<<<<< HEAD
 	   "Minumum metric value\n")
+=======
+	   "Minimum metric value\n")
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 {
 	const char *xpath =
 		"./set-action[action='frr-route-map:set-min-metric']";
@@ -1041,28 +1115,52 @@ DEFPY_YANG(no_set_max_metric, no_set_max_metric_cmd,
 
 DEFPY_YANG(
 	set_tag, set_tag_cmd,
+<<<<<<< HEAD
 	"set tag (1-4294967295)$tag",
 	SET_STR
 	"Tag value for routing protocol\n"
+=======
+	"set tag <untagged$untagged|(1-4294967295)$tagged>",
+	SET_STR
+	"Tag value for routing protocol\n"
+	"Untagged route\n"
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	"Tag value\n")
 {
 	const char *xpath = "./set-action[action='frr-route-map:set-tag']";
 	char xpath_value[XPATH_MAXLEN];
+<<<<<<< HEAD
+=======
+	char value[64];
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
 	snprintf(xpath_value, sizeof(xpath_value), "%s/rmap-set-action/tag",
 		 xpath);
+<<<<<<< HEAD
 	nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY, tag_str);
+=======
+	snprintf(value, sizeof(value), "%lu", tagged ? tagged : 0);
+	nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY, value);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFPY_YANG(
 	no_set_tag, no_set_tag_cmd,
+<<<<<<< HEAD
 	"no set tag [(1-4294967295)]",
 	NO_STR
 	SET_STR
 	"Tag value for routing protocol\n"
+=======
+	"no set tag [<untagged|(1-4294967295)>]",
+	NO_STR
+	SET_STR
+	"Tag value for routing protocol\n"
+	"Untagged route\n"
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	"Tag value\n")
 {
 	const char *xpath = "./set-action[action='frr-route-map:set-tag']";
@@ -1134,6 +1232,7 @@ void route_map_action_show(struct vty *vty, const struct lyd_node *dnode,
 		if (yang_dnode_get(dnode,
 				   "./rmap-set-action/use-round-trip-time")) {
 			vty_out(vty, " set metric rtt\n");
+<<<<<<< HEAD
 		} else if (yang_dnode_get(
 				   dnode,
 				   "./rmap-set-action/add-round-trip-time")) {
@@ -1151,6 +1250,21 @@ void route_map_action_show(struct vty *vty, const struct lyd_node *dnode,
 		} else if (yang_dnode_get(
 				   dnode,
 				   "./rmap-set-action/subtract-metric")) {
+=======
+		} else if (yang_dnode_get(dnode, "./rmap-set-action/use-igp")) {
+			vty_out(vty, " set metric igp\n");
+		} else if (yang_dnode_get(dnode, "./rmap-set-action/use-aigp")) {
+			vty_out(vty, " set metric aigp\n");
+		} else if (yang_dnode_get(dnode, "./rmap-set-action/add-round-trip-time")) {
+			vty_out(vty, " set metric +rtt\n");
+		} else if (yang_dnode_get(dnode, "./rmap-set-action/subtract-round-trip-time")) {
+			vty_out(vty, " set metric -rtt\n");
+		} else if (yang_dnode_get(dnode, "./rmap-set-action/add-metric")) {
+			vty_out(vty, " set metric +%s\n",
+				yang_dnode_get_string(
+					dnode, "./rmap-set-action/add-metric"));
+		} else if (yang_dnode_get(dnode, "./rmap-set-action/subtract-metric")) {
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			vty_out(vty, " set metric -%s\n",
 				yang_dnode_get_string(
 					dnode,
@@ -1169,8 +1283,20 @@ void route_map_action_show(struct vty *vty, const struct lyd_node *dnode,
 			yang_dnode_get_string(dnode,
 					      "./rmap-set-action/max-metric"));
 	} else if (IS_SET_TAG(action)) {
+<<<<<<< HEAD
 		vty_out(vty, " set tag %s\n",
 			yang_dnode_get_string(dnode, "rmap-set-action/tag"));
+=======
+		uint32_t tag =
+			strtoul(yang_dnode_get_string(dnode,
+						      "rmap-set-action/tag"),
+				NULL, 10);
+
+		if (!tag)
+			vty_out(vty, " set tag untagged\n");
+		else
+			vty_out(vty, " set tag %u\n", tag);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	} else if (IS_SET_SR_TE_COLOR(action)) {
 		vty_out(vty, " set sr-te color %s\n",
 			yang_dnode_get_string(dnode,
@@ -1320,14 +1446,22 @@ void route_map_action_show(struct vty *vty, const struct lyd_node *dnode,
 	} else if (IS_SET_EXTCOMMUNITY_LB(action)) {
 		enum ecommunity_lb_type lb_type;
 		char str[VTY_BUFSIZ];
+<<<<<<< HEAD
 		uint16_t bandwidth;
+=======
+		uint32_t bandwidth;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 		lb_type = yang_dnode_get_enum(
 			dnode,
 			"./rmap-set-action/frr-bgp-route-map:extcommunity-lb/lb-type");
 		switch (lb_type) {
 		case EXPLICIT_BANDWIDTH:
+<<<<<<< HEAD
 			bandwidth = yang_dnode_get_uint16(
+=======
+			bandwidth = yang_dnode_get_uint32(
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 				dnode,
 				"./rmap-set-action/frr-bgp-route-map:extcommunity-lb/bandwidth");
 			snprintf(str, sizeof(str), "%d", bandwidth);

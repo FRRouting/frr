@@ -12,7 +12,11 @@
         {
           "fib":true,
           "afi":"ipv6",
+<<<<<<< HEAD
           "interfaceName":"eth-rt2-2",
+=======
+          "interfaceName":"eth-rt2-1",
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
           "active":true,
           "backupIndex":[
             0
@@ -24,7 +28,11 @@
         {
           "fib":true,
           "afi":"ipv6",
+<<<<<<< HEAD
           "interfaceName":"eth-rt2-1",
+=======
+          "interfaceName":"eth-rt2-2",
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
           "active":true,
           "backupIndex":[
             0
@@ -59,7 +67,11 @@
         {
           "fib":true,
           "afi":"ipv6",
+<<<<<<< HEAD
           "interfaceName":"eth-rt2-2",
+=======
+          "interfaceName":"eth-rt2-1",
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
           "active":true,
           "backupIndex":[
             0
@@ -71,7 +83,11 @@
         {
           "fib":true,
           "afi":"ipv6",
+<<<<<<< HEAD
           "interfaceName":"eth-rt2-1",
+=======
+          "interfaceName":"eth-rt2-2",
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
           "active":true,
           "backupIndex":[
             0
@@ -107,7 +123,11 @@
         {
           "fib":true,
           "afi":"ipv6",
+<<<<<<< HEAD
           "interfaceName":"eth-rt2-2",
+=======
+          "interfaceName":"eth-rt2-1",
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
           "active":true,
           "labels":[
             16031
@@ -116,7 +136,11 @@
         {
           "fib":true,
           "afi":"ipv6",
+<<<<<<< HEAD
           "interfaceName":"eth-rt2-1",
+=======
+          "interfaceName":"eth-rt2-2",
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
           "active":true,
           "labels":[
             16031

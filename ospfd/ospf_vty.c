@@ -724,7 +724,11 @@ DEFUN (ospf_area_range_not_advertise,
 
 DEFUN (no_ospf_area_range,
        no_ospf_area_range_cmd,
+<<<<<<< HEAD
        "no area <A.B.C.D|(0-4294967295)> range A.B.C.D/M [<cost (0-16777215)|advertise [cost (0-16777215)]|not-advertise>]",
+=======
+       "no area <A.B.C.D|(0-4294967295)> range A.B.C.D/M [<cost [(0-16777215)]|advertise [cost [(0-16777215)]]|not-advertise>]",
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
        NO_STR
        "OSPF area parameters\n"
        "OSPF area ID in IP address format\n"
@@ -754,6 +758,11 @@ DEFUN (no_ospf_area_range,
 
 	ospf_area_range_unset(ospf, area, area->ranges, &p);
 
+<<<<<<< HEAD
+=======
+	ospf_area_check_free(ospf, area_id);
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	return CMD_SUCCESS;
 }
 
@@ -787,6 +796,11 @@ DEFUN (no_ospf_area_range_substitute,
 
 	ospf_area_range_substitute_unset(ospf, area, &p);
 
+<<<<<<< HEAD
+=======
+	ospf_area_check_free(ospf, area_id);
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	return CMD_SUCCESS;
 }
 
@@ -821,6 +835,10 @@ struct ospf_vl_config_data {
 	int del_keychain;
 	int hello_interval;     /* Obvious what these are... */
 	int retransmit_interval;
+<<<<<<< HEAD
+=======
+	int retransmit_window;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	int transmit_delay;
 	int dead_interval;
 };
@@ -963,6 +981,15 @@ static int ospf_vl_set_timers(struct ospf_vl_data *vl_data,
 			vl_config->retransmit_interval;
 	}
 
+<<<<<<< HEAD
+=======
+	if (vl_config->retransmit_window) {
+		SET_IF_PARAM(IF_DEF_PARAMS(ifp), retransmit_window);
+		IF_DEF_PARAMS(ifp)->retransmit_window =
+			vl_config->retransmit_window;
+	}
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	if (vl_config->transmit_delay) {
 		SET_IF_PARAM(IF_DEF_PARAMS(ifp), transmit_delay);
 		IF_DEF_PARAMS(ifp)->transmit_delay = vl_config->transmit_delay;
@@ -1018,6 +1045,7 @@ static int ospf_vl_set(struct ospf *ospf, struct ospf_vl_config_data *vl_config)
 	"Use null authentication\n"                                            \
 	"Use message-digest authentication\n"
 
+<<<<<<< HEAD
 #define VLINK_HELPSTR_TIME_PARAM                                               \
 	"Time between HELLO packets\n"                                         \
 	"Seconds\n"                                                            \
@@ -1026,6 +1054,18 @@ static int ospf_vl_set(struct ospf *ospf, struct ospf_vl_config_data *vl_config)
 	"Link state transmit delay\n"                                          \
 	"Seconds\n"                                                            \
 	"Interval time after which a neighbor is declared down\n"              \
+=======
+#define VLINK_HELPSTR_TIME_PARAM                                                \
+	"Time between HELLO packets\n"                                          \
+	"Seconds\n"                                                             \
+	"Time between retransmitting lost link state advertisements\n"          \
+	"Seconds\n"                                                             \
+	"Window for LSA retransmit - Retransmit LSAs expiring in this window\n" \
+	"Milliseconds\n"                                                        \
+	"Link state transmit delay\n"                                           \
+	"Seconds\n"                                                             \
+	"Interval time after which a neighbor is declared down\n"               \
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	"Seconds\n"
 
 #define VLINK_HELPSTR_AUTH_SIMPLE                                              \
@@ -1210,7 +1250,11 @@ DEFUN (no_ospf_area_vlink,
 
 DEFUN (ospf_area_vlink_intervals,
        ospf_area_vlink_intervals_cmd,
+<<<<<<< HEAD
        "area <A.B.C.D|(0-4294967295)> virtual-link A.B.C.D {hello-interval (1-65535)|retransmit-interval (1-65535)|transmit-delay (1-65535)|dead-interval (1-65535)}",
+=======
+       "area <A.B.C.D|(0-4294967295)> virtual-link A.B.C.D {hello-interval (1-65535)|retransmit-interval (1-65535)|retransmit-window (20-10000)|transmit-delay (1-65535)|dead-interval (1-65535)}",
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
        VLINK_HELPSTR_IPADDR
        VLINK_HELPSTR_TIME_PARAM)
 {
@@ -1242,6 +1286,12 @@ DEFUN (ospf_area_vlink_intervals,
 		else if (strmatch(argv[idx]->text, "retransmit-interval"))
 			vl_config.retransmit_interval =
 				strtol(argv[++idx]->arg, NULL, 10);
+<<<<<<< HEAD
+=======
+		else if (strmatch(argv[idx]->text, "retransmit-window"))
+			vl_config.retransmit_window = strtol(argv[++idx]->arg,
+							     NULL, 10);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		else if (strmatch(argv[idx]->text, "transmit-delay"))
 			vl_config.transmit_delay =
 				strtol(argv[++idx]->arg, NULL, 10);
@@ -1256,7 +1306,11 @@ DEFUN (ospf_area_vlink_intervals,
 
 DEFUN (no_ospf_area_vlink_intervals,
        no_ospf_area_vlink_intervals_cmd,
+<<<<<<< HEAD
        "no area <A.B.C.D|(0-4294967295)> virtual-link A.B.C.D {hello-interval (1-65535)|retransmit-interval (1-65535)|transmit-delay (1-65535)|dead-interval (1-65535)}",
+=======
+       "no area <A.B.C.D|(0-4294967295)> virtual-link A.B.C.D {hello-interval [(1-65535)]|retransmit-interval [(1-65535)]|retransmit-window [(20-1000)]|transmit-delay [(1-65535)]|dead-interval [(1-65535)]}",
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
        NO_STR
        VLINK_HELPSTR_IPADDR
        VLINK_HELPSTR_TIME_PARAM)
@@ -1288,6 +1342,12 @@ DEFUN (no_ospf_area_vlink_intervals,
 		else if (strmatch(argv[idx]->text, "retransmit-interval"))
 			vl_config.retransmit_interval =
 				OSPF_RETRANSMIT_INTERVAL_DEFAULT;
+<<<<<<< HEAD
+=======
+		else if (strmatch(argv[idx]->text, "retransmit-window"))
+			vl_config.retransmit_window =
+				OSPF_RETRANSMIT_WINDOW_DEFAULT;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		else if (strmatch(argv[idx]->text, "transmit-delay"))
 			vl_config.transmit_delay = OSPF_TRANSMIT_DELAY_DEFAULT;
 		else if (strmatch(argv[idx]->text, "dead-interval"))
@@ -1344,12 +1404,20 @@ DEFUN (ospf_area_shortcut,
 
 DEFUN (no_ospf_area_shortcut,
        no_ospf_area_shortcut_cmd,
+<<<<<<< HEAD
        "no area <A.B.C.D|(0-4294967295)> shortcut <enable|disable>",
+=======
+       "no area <A.B.C.D|(0-4294967295)> shortcut <default|enable|disable>",
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
        NO_STR
        "OSPF area parameters\n"
        "OSPF area ID in IP address format\n"
        "OSPF area ID as a decimal value\n"
        "Deconfigure the area's shortcutting mode\n"
+<<<<<<< HEAD
+=======
+       "Deconfigure default shortcutting through the area\n"
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
        "Deconfigure enabled shortcutting through the area\n"
        "Deconfigure disabled shortcutting through the area\n")
 {
@@ -1569,7 +1637,11 @@ DEFPY (no_ospf_area_nssa,
        "no area <A.B.C.D|(0-4294967295)>$area_str nssa\
          [{\
 	   <translate-candidate|translate-never|translate-always>\
+<<<<<<< HEAD
 	   |default-information-originate [{metric (0-16777214)|metric-type (1-2)}]\
+=======
+	   |default-information-originate [{metric [(0-16777214)]|metric-type [(1-2)]}]\
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	   |no-summary\
 	   |suppress-fa\
 	 }]",
@@ -1650,7 +1722,11 @@ DEFPY (ospf_area_nssa_range,
 
 DEFPY (no_ospf_area_nssa_range,
        no_ospf_area_nssa_range_cmd,
+<<<<<<< HEAD
        "no area <A.B.C.D|(0-4294967295)>$area_str nssa range A.B.C.D/M$prefix [<not-advertise|cost (0-16777215)>]",
+=======
+       "no area <A.B.C.D|(0-4294967295)>$area_str nssa range A.B.C.D/M$prefix [<not-advertise|cost [(0-16777215)]>]",
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
        NO_STR
        "OSPF area parameters\n"
        "OSPF area ID in IP address format\n"
@@ -1729,7 +1805,11 @@ DEFUN (ospf_area_default_cost,
 
 DEFUN (no_ospf_area_default_cost,
        no_ospf_area_default_cost_cmd,
+<<<<<<< HEAD
        "no area <A.B.C.D|(0-4294967295)> default-cost (0-16777215)",
+=======
+       "no area <A.B.C.D|(0-4294967295)> default-cost [(0-16777215)]",
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
        NO_STR
        "OSPF area parameters\n"
        "OSPF area ID in IP address format\n"
@@ -2102,7 +2182,11 @@ DEFUN (ospf_abr_type,
 
 DEFUN (no_ospf_abr_type,
        no_ospf_abr_type_cmd,
+<<<<<<< HEAD
        "no ospf abr-type <cisco|ibm|shortcut|standard>",
+=======
+       "no ospf abr-type [<cisco|ibm|shortcut|standard>]",
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
        NO_STR
        "OSPF specific commands\n"
        "Set OSPF ABR type\n"
@@ -2282,6 +2366,13 @@ static int ospf_timers_spf_set(struct vty *vty, unsigned int delay,
 {
 	VTY_DECLVAR_INSTANCE_CONTEXT(ospf, ospf);
 
+<<<<<<< HEAD
+=======
+	if (ospf->spf_delay != delay || ospf->spf_holdtime != hold ||
+	    ospf->spf_max_holdtime != max)
+		ospf->spf_hold_multiplier = 1;
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	ospf->spf_delay = delay;
 	ospf->spf_holdtime = hold;
 	ospf->spf_max_holdtime = max;
@@ -2289,6 +2380,7 @@ static int ospf_timers_spf_set(struct vty *vty, unsigned int delay,
 	return CMD_SUCCESS;
 }
 
+<<<<<<< HEAD
 DEFUN (ospf_timers_min_ls_interval,
        ospf_timers_min_ls_interval_cmd,
        "timers throttle lsa all (0-5000)",
@@ -2317,6 +2409,11 @@ DEFUN (ospf_timers_min_ls_interval,
 DEFUN (no_ospf_timers_min_ls_interval,
        no_ospf_timers_min_ls_interval_cmd,
        "no timers throttle lsa all [(0-5000)]",
+=======
+DEFPY (ospf_timers_min_ls_interval,
+       ospf_timers_min_ls_interval_cmd,
+       "[no] timers throttle lsa all ![(0-5000)]$lsa_refresh_interval",
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
        NO_STR
        "Adjust routing timers\n"
        "Throttling adaptive timer\n"
@@ -2325,7 +2422,15 @@ DEFUN (no_ospf_timers_min_ls_interval,
        "Delay (msec) between sending LSAs\n")
 {
 	VTY_DECLVAR_INSTANCE_CONTEXT(ospf, ospf);
+<<<<<<< HEAD
 	ospf->min_ls_interval = OSPF_MIN_LS_INTERVAL;
+=======
+
+	if (no)
+		ospf->min_ls_interval = OSPF_MIN_LS_INTERVAL;
+	else
+		ospf->min_ls_interval = strtoul(lsa_refresh_interval_str, NULL, 10);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	return CMD_SUCCESS;
 }
@@ -2374,6 +2479,7 @@ DEFUN (no_ospf_timers_throttle_spf,
 }
 
 
+<<<<<<< HEAD
 DEFUN (ospf_timers_lsa_min_arrival,
        ospf_timers_lsa_min_arrival_cmd,
        "timers lsa min-arrival (0-600000)",
@@ -2408,10 +2514,42 @@ DEFUN (no_ospf_timers_lsa_min_arrival,
 	}
 
 	ospf->min_ls_arrival = OSPF_MIN_LS_ARRIVAL;
+=======
+DEFPY (ospf_timers_lsa_min_arrival,
+       ospf_timers_lsa_min_arrival_cmd,
+       "[no] timers lsa min-arrival ![(0-5000)]$min_arrival",
+       NO_STR
+       "Adjust routing timers\n"
+       "OSPF LSA timers\n"
+       "Minimum delay in receiving new version of an LSA\n"
+       "Delay in milliseconds\n")
+{
+	VTY_DECLVAR_INSTANCE_CONTEXT(ospf, ospf);
+	if (no)
+		ospf->min_ls_arrival = OSPF_MIN_LS_ARRIVAL;
+	else
+		ospf->min_ls_arrival = strtoul(min_arrival_str, NULL, 10);
+	return CMD_SUCCESS;
+}
+
+DEFPY_HIDDEN (ospf_timers_lsa_min_arrival_deprecated,
+	      ospf_timers_lsa_min_arrival_deprecated_cmd,
+	      "timers lsa min-arrival [(5001-60000)]$min_arrival",
+	      "Adjust routing timers\n"
+	      "OSPF LSA timers\n"
+	      "Minimum delay in receiving new version of an LSA\n"
+	      "Deprecated delay in milliseconds - delays in this range default to 5000 msec\n")
+{
+	VTY_DECLVAR_INSTANCE_CONTEXT(ospf, ospf);
+	vty_out(vty, "%% OSPF `timers lsa min-arrival` set to the maximum of %u milliseconds\n",
+		OSPF_MIN_LS_ARRIVAL_MAX);
+	ospf->min_ls_arrival = OSPF_MIN_LS_ARRIVAL_MAX;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	return CMD_SUCCESS;
 }
 
+<<<<<<< HEAD
 DEFUN (ospf_neighbor,
        ospf_neighbor_cmd,
        "neighbor A.B.C.D [priority (0-255) [poll-interval (1-65535)]]",
@@ -2536,6 +2674,32 @@ DEFUN (no_ospf_neighbor_poll,
 
 	(void)ospf_nbr_nbma_unset(ospf, nbr_addr);
 
+=======
+DEFPY(ospf_neighbor, ospf_neighbor_cmd,
+      "[no] neighbor A.B.C.D$nbr_address [{priority (0-255)$priority | poll-interval (1-65535)$interval}]",
+      NO_STR
+      NEIGHBOR_STR
+      "Neighbor IP address\n"
+      "Neighbor Priority\n"
+      "Priority\n"
+      "Dead Neighbor Polling interval\n"
+      "Seconds\n")
+{
+	VTY_DECLVAR_INSTANCE_CONTEXT(ospf, ospf);
+
+	if (no)
+		ospf_nbr_nbma_unset(ospf, nbr_address);
+	else {
+		ospf_nbr_nbma_set(ospf, nbr_address);
+		if (priority_str)
+			ospf_nbr_nbma_priority_set(ospf, nbr_address, priority);
+
+		if (interval_str)
+			ospf_nbr_nbma_poll_interval_set(ospf, nbr_address,
+							interval);
+	}
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	return CMD_SUCCESS;
 }
 
@@ -2673,7 +2837,11 @@ ALIAS(ospf_write_multiplier, write_multiplier_cmd, "write-multiplier (1-100)",
 
 DEFUN (no_ospf_write_multiplier,
        no_ospf_write_multiplier_cmd,
+<<<<<<< HEAD
        "no ospf write-multiplier (1-100)",
+=======
+       "no ospf write-multiplier [(1-100)]",
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
        NO_STR
        "OSPF specific commands\n"
        "Write multiplier\n"
@@ -2686,7 +2854,11 @@ DEFUN (no_ospf_write_multiplier,
 }
 
 ALIAS(no_ospf_write_multiplier, no_write_multiplier_cmd,
+<<<<<<< HEAD
       "no write-multiplier (1-100)", NO_STR
+=======
+      "no write-multiplier [(1-100)]", NO_STR
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
       "Write multiplier\n"
       "Maximum number of interface serviced per write\n")
 
@@ -2760,9 +2932,16 @@ DEFUN (ospf_max_multipath,
 
 DEFUN (no_ospf_max_multipath,
        no_ospf_max_multipath_cmd,
+<<<<<<< HEAD
        "no maximum-paths",
        NO_STR
        "Max no of multiple paths for ECMP support\n")
+=======
+       "no maximum-paths [" CMD_RANGE_STR(1, MULTIPATH_NUM)"]",
+       NO_STR
+       "Max no of multiple paths for ECMP support\n"
+       "Number of paths\n")
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 {
 	VTY_DECLVAR_INSTANCE_CONTEXT(ospf, ospf);
 	uint16_t maxpaths = MULTIPATH_NUM;
@@ -3681,8 +3860,11 @@ static void show_ip_ospf_interface_sub(struct vty *vty, struct ospf *ospf,
 	struct route_node *rn;
 	uint32_t bandwidth = ifp->bandwidth ? ifp->bandwidth : ifp->speed;
 	struct ospf_if_params *params;
+<<<<<<< HEAD
 	json_object *json_ois = NULL;
 	json_object *json_oi = NULL;
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	/* Is interface up? */
 	if (use_json) {
@@ -3733,18 +3915,22 @@ static void show_ip_ospf_interface_sub(struct vty *vty, struct ospf *ospf,
 		}
 	}
 
+<<<<<<< HEAD
 	if (use_json) {
 		json_ois = json_object_new_object();
 		json_object_object_add(json_interface_sub, "interfaceIp",
 				       json_ois);
 	}
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	for (rn = route_top(IF_OIFS(ifp)); rn; rn = route_next(rn)) {
 		struct ospf_interface *oi = rn->info;
 
 		if (oi == NULL)
 			continue;
 
+<<<<<<< HEAD
 #if CONFDATE > 20240601
 		CPP_NOTICE(
 			"Use all fields following ospfEnabled from interfaceIp hierarchy")
@@ -3760,6 +3946,13 @@ static void show_ip_ospf_interface_sub(struct vty *vty, struct ospf *ospf,
 				json_object_boolean_true_add(json_oi,
 							     "ifUnnumbered");
 			} else
+=======
+		if (CHECK_FLAG(oi->connected->flags, ZEBRA_IFA_UNNUMBERED)) {
+			if (use_json)
+				json_object_boolean_true_add(json_interface_sub,
+							     "ifUnnumbered");
+			else
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 				vty_out(vty, "  This interface is UNNUMBERED,");
 		} else {
 			struct in_addr dest;
@@ -3773,6 +3966,7 @@ static void show_ip_ospf_interface_sub(struct vty *vty, struct ospf *ospf,
 				json_object_int_add(json_interface_sub,
 						    "ipAddressPrefixlen",
 						    oi->address->prefixlen);
+<<<<<<< HEAD
 
 				json_object_string_addf(
 					json_oi, "ipAddress", "%pI4",
@@ -3780,6 +3974,8 @@ static void show_ip_ospf_interface_sub(struct vty *vty, struct ospf *ospf,
 				json_object_int_add(json_oi,
 						    "ipAddressPrefixlen",
 						    oi->address->prefixlen);
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			} else
 				vty_out(vty, "  Internet Address %pFX,",
 					oi->address);
@@ -3805,6 +4001,7 @@ static void show_ip_ospf_interface_sub(struct vty *vty, struct ospf *ospf,
 				json_object_string_add(json_interface_sub,
 						       "ospfIfType", dstr);
 
+<<<<<<< HEAD
 				json_object_string_add(json_oi, "ospfIfType",
 						       dstr);
 
@@ -3825,6 +4022,16 @@ static void show_ip_ospf_interface_sub(struct vty *vty, struct ospf *ospf,
 								"localIfUsed",
 								"%pI4", &dest);
 				}
+=======
+				if (oi->type == OSPF_IFTYPE_VIRTUALLINK)
+					json_object_string_addf(
+						json_interface_sub, "vlinkPeer",
+						"%pI4", &dest);
+				else
+					json_object_string_addf(
+						json_interface_sub,
+						"localIfUsed", "%pI4", &dest);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			} else
 				vty_out(vty, " %s %pI4,", dstr,
 					&dest);
@@ -3833,6 +4040,7 @@ static void show_ip_ospf_interface_sub(struct vty *vty, struct ospf *ospf,
 			json_object_string_add(json_interface_sub, "area",
 					       ospf_area_desc_string(oi->area));
 
+<<<<<<< HEAD
 			json_object_string_add(json_oi, "area",
 					       ospf_area_desc_string(oi->area));
 
@@ -3843,6 +4051,12 @@ static void show_ip_ospf_interface_sub(struct vty *vty, struct ospf *ospf,
 					json_interface_sub,
 					"mtuMismatchDetect");
 			}
+=======
+			if (OSPF_IF_PARAM(oi, mtu_ignore))
+				json_object_boolean_true_add(
+					json_interface_sub,
+					"mtuMismatchDetect");
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 			json_object_string_addf(json_interface_sub, "routerId",
 						"%pI4", &ospf->router_id);
@@ -3859,6 +4073,7 @@ static void show_ip_ospf_interface_sub(struct vty *vty, struct ospf *ospf,
 							  oi->state, NULL));
 			json_object_int_add(json_interface_sub, "priority",
 					    PRIORITY(oi));
+<<<<<<< HEAD
 
 			json_object_string_addf(json_oi, "routerId", "%pI4",
 						&ospf->router_id);
@@ -3871,6 +4086,8 @@ static void show_ip_ospf_interface_sub(struct vty *vty, struct ospf *ospf,
 					       lookup_msg(ospf_ism_state_msg,
 							  oi->state, NULL));
 			json_object_int_add(json_oi, "priority", PRIORITY(oi));
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			json_object_boolean_add(
 				json_interface_sub, "opaqueCapable",
 				OSPF_IF_PARAM(oi, opaque_capable));
@@ -3914,6 +4131,7 @@ static void show_ip_ospf_interface_sub(struct vty *vty, struct ospf *ospf,
 						json_interface_sub, "drAddress",
 						"%pI4",
 						&nbr->address.u.prefix4);
+<<<<<<< HEAD
 
 					json_object_string_addf(
 						json_oi, "drId", "%pI4",
@@ -3921,6 +4139,8 @@ static void show_ip_ospf_interface_sub(struct vty *vty, struct ospf *ospf,
 					json_object_string_addf(
 						json_oi, "drAddress", "%pI4",
 						&nbr->address.u.prefix4);
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 				} else {
 					vty_out(vty,
 						"  Designated Router (ID) %pI4",
@@ -3946,6 +4166,7 @@ static void show_ip_ospf_interface_sub(struct vty *vty, struct ospf *ospf,
 						json_interface_sub,
 						"bdrAddress", "%pI4",
 						&nbr->address.u.prefix4);
+<<<<<<< HEAD
 
 					json_object_string_addf(
 						json_oi, "bdrId", "%pI4",
@@ -3953,6 +4174,8 @@ static void show_ip_ospf_interface_sub(struct vty *vty, struct ospf *ospf,
 					json_object_string_addf(
 						json_oi, "bdrAddress", "%pI4",
 						&nbr->address.u.prefix4);
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 				} else {
 					vty_out(vty,
 						"  Backup Designated Router (ID) %pI4,",
@@ -3968,11 +4191,16 @@ static void show_ip_ospf_interface_sub(struct vty *vty, struct ospf *ospf,
 		if (oi->params
 		    && ntohl(oi->params->network_lsa_seqnum)
 			       != OSPF_INITIAL_SEQUENCE_NUMBER) {
+<<<<<<< HEAD
 			if (use_json) {
+=======
+			if (use_json)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 				json_object_int_add(
 					json_interface_sub,
 					"networkLsaSequence",
 					ntohl(oi->params->network_lsa_seqnum));
+<<<<<<< HEAD
 
 				json_object_int_add(
 					json_oi, "networkLsaSequence",
@@ -3982,11 +4210,18 @@ static void show_ip_ospf_interface_sub(struct vty *vty, struct ospf *ospf,
 					"  Saved Network-LSA sequence number 0x%x\n",
 					ntohl(oi->params->network_lsa_seqnum));
 			}
+=======
+			else
+				vty_out(vty,
+					"  Saved Network-LSA sequence number 0x%x\n",
+					ntohl(oi->params->network_lsa_seqnum));
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		}
 
 		if (use_json) {
 			if (OI_MEMBER_CHECK(oi, MEMBER_ALLROUTERS)
 			    || OI_MEMBER_CHECK(oi, MEMBER_DROUTERS)) {
+<<<<<<< HEAD
 				if (OI_MEMBER_CHECK(oi, MEMBER_ALLROUTERS)) {
 					json_object_boolean_true_add(
 						json_interface_sub,
@@ -4005,6 +4240,16 @@ static void show_ip_ospf_interface_sub(struct vty *vty, struct ospf *ospf,
 						json_oi,
 						"mcastMemberOspfDesignatedRouters");
 				}
+=======
+				if (OI_MEMBER_CHECK(oi, MEMBER_ALLROUTERS))
+					json_object_boolean_true_add(
+						json_interface_sub,
+						"mcastMemberOspfAllRouters");
+				if (OI_MEMBER_CHECK(oi, MEMBER_DROUTERS))
+					json_object_boolean_true_add(
+						json_interface_sub,
+						"mcastMemberOspfDesignatedRouters");
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			}
 		} else {
 			vty_out(vty, "  Multicast group memberships:");
@@ -4020,6 +4265,7 @@ static void show_ip_ospf_interface_sub(struct vty *vty, struct ospf *ospf,
 		}
 
 		if (use_json) {
+<<<<<<< HEAD
 			if (OSPF_IF_PARAM(oi, fast_hello) == 0) {
 				json_object_int_add(
 					json_interface_sub, "timerMsecs",
@@ -4037,6 +4283,16 @@ static void show_ip_ospf_interface_sub(struct vty *vty, struct ospf *ospf,
 					json_oi, "timerMsecs",
 					1000 / OSPF_IF_PARAM(oi, fast_hello));
 			}
+=======
+			if (OSPF_IF_PARAM(oi, fast_hello) == 0)
+				json_object_int_add(
+					json_interface_sub, "timerMsecs",
+					OSPF_IF_PARAM(oi, v_hello) * 1000);
+			else
+				json_object_int_add(
+					json_interface_sub, "timerMsecs",
+					1000 / OSPF_IF_PARAM(oi, fast_hello));
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			json_object_int_add(json_interface_sub, "timerDeadSecs",
 					    OSPF_IF_PARAM(oi, v_wait));
 			json_object_int_add(json_interface_sub, "timerWaitSecs",
@@ -4044,6 +4300,7 @@ static void show_ip_ospf_interface_sub(struct vty *vty, struct ospf *ospf,
 			json_object_int_add(
 				json_interface_sub, "timerRetransmitSecs",
 				OSPF_IF_PARAM(oi, retransmit_interval));
+<<<<<<< HEAD
 
 			json_object_int_add(json_oi, "timerDeadSecs",
 					    OSPF_IF_PARAM(oi, v_wait));
@@ -4052,6 +4309,12 @@ static void show_ip_ospf_interface_sub(struct vty *vty, struct ospf *ospf,
 			json_object_int_add(
 				json_oi, "timerRetransmitSecs",
 				OSPF_IF_PARAM(oi, retransmit_interval));
+=======
+			json_object_int_add(json_interface_sub,
+					    "timerRetransmitWindowMsecs",
+					    OSPF_IF_PARAM(oi,
+							  retransmit_window));
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		} else {
 			vty_out(vty, "  Timer intervals configured,");
 			vty_out(vty, " Hello ");
@@ -4080,15 +4343,19 @@ static void show_ip_ospf_interface_sub(struct vty *vty, struct ospf *ospf,
 				json_object_int_add(json_interface_sub,
 						    "timerHelloInMsecs",
 						    time_store);
+<<<<<<< HEAD
 				json_object_int_add(json_oi,
 						    "timerHelloInMsecs",
 						    time_store);
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			} else
 				vty_out(vty, "    Hello due in %s\n",
 					ospf_timer_dump(oi->t_hello, timebuf,
 							sizeof(timebuf)));
 		} else /* passive-interface is set */
 		{
+<<<<<<< HEAD
 			if (use_json) {
 				json_object_boolean_true_add(
 					json_interface_sub,
@@ -4097,6 +4364,13 @@ static void show_ip_ospf_interface_sub(struct vty *vty, struct ospf *ospf,
 				json_object_boolean_true_add(
 					json_oi, "timerPassiveIface");
 			} else
+=======
+			if (use_json)
+				json_object_boolean_true_add(
+					json_interface_sub,
+					"timerPassiveIface");
+			else
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 				vty_out(vty,
 					"    No Hellos (Passive interface)\n");
 		}
@@ -4107,11 +4381,14 @@ static void show_ip_ospf_interface_sub(struct vty *vty, struct ospf *ospf,
 			json_object_int_add(json_interface_sub,
 					    "nbrAdjacentCount",
 					    ospf_nbr_count(oi, NSM_Full));
+<<<<<<< HEAD
 
 			json_object_int_add(json_oi, "nbrCount",
 					    ospf_nbr_count(oi, 0));
 			json_object_int_add(json_oi, "nbrAdjacentCount",
 					    ospf_nbr_count(oi, NSM_Full));
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		} else
 			vty_out(vty,
 				"  Neighbor Count is %d, Adjacent neighbor count is %d\n",
@@ -4121,6 +4398,7 @@ static void show_ip_ospf_interface_sub(struct vty *vty, struct ospf *ospf,
 		params = IF_DEF_PARAMS(ifp);
 		if (params &&
 		    OSPF_IF_PARAM_CONFIGURED(params, v_gr_hello_delay)) {
+<<<<<<< HEAD
 			if (use_json) {
 				json_object_int_add(json_interface_sub,
 						    "grHelloDelaySecs",
@@ -4129,6 +4407,13 @@ static void show_ip_ospf_interface_sub(struct vty *vty, struct ospf *ospf,
 				json_object_int_add(json_oi, "grHelloDelaySecs",
 						    params->v_gr_hello_delay);
 			} else
+=======
+			if (use_json)
+				json_object_int_add(json_interface_sub,
+						    "grHelloDelaySecs",
+						    params->v_gr_hello_delay);
+			else
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 				vty_out(vty,
 					"  Graceful Restart hello delay: %us\n",
 					params->v_gr_hello_delay);
@@ -4136,11 +4421,16 @@ static void show_ip_ospf_interface_sub(struct vty *vty, struct ospf *ospf,
 
 		ospf_interface_bfd_show(vty, ifp, json_interface_sub);
 
+<<<<<<< HEAD
 		if (use_json) {
+=======
+		if (use_json)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			json_object_boolean_add(json_interface_sub,
 						"prefixSuppression",
 						OSPF_IF_PARAM(oi,
 							      prefix_suppression));
+<<<<<<< HEAD
 			json_object_boolean_add(json_oi, "prefixSuppression",
 						OSPF_IF_PARAM(oi,
 							      prefix_suppression));
@@ -4149,10 +4439,16 @@ static void show_ip_ospf_interface_sub(struct vty *vty, struct ospf *ospf,
 				vty_out(vty,
 					"  Suppress advertisement of interface IP prefix\n");
 		}
+=======
+		else if (OSPF_IF_PARAM(oi, prefix_suppression))
+			vty_out(vty,
+				"  Suppress advertisement of interface IP prefix\n");
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 		/* OSPF Authentication information */
 		ospf_interface_auth_show(vty, oi, json_interface_sub, use_json);
 
+<<<<<<< HEAD
 		ospf_interface_auth_show(vty, oi, json_oi, use_json);
 		if (oi->type == OSPF_IFTYPE_POINTOMULTIPOINT) {
 			if (use_json) {
@@ -4175,6 +4471,54 @@ static void show_ip_ospf_interface_sub(struct vty *vty, struct ospf *ospf,
 		if (use_json)
 			json_object_object_addf(json_ois, json_oi, "%pI4",
 						&oi->address->u.prefix4);
+=======
+		/* Point-to-Multipoint Interface options. */
+		if (oi->type == OSPF_IFTYPE_POINTOMULTIPOINT) {
+			if (use_json)
+				json_object_boolean_add(json_interface_sub,
+							"p2mpDelayReflood",
+							oi->p2mp_delay_reflood);
+			else
+				vty_out(vty,
+					"  %sDelay reflooding LSAs received on P2MP interface\n",
+					oi->p2mp_delay_reflood ? "" : "Don't ");
+			if (use_json)
+				json_object_boolean_add(json_interface_sub,
+							"p2mpNonBroadcast",
+							oi->p2mp_non_broadcast);
+			else
+				vty_out(vty,
+					"  P2MP interface does %ssupport broadcast\n",
+					oi->p2mp_non_broadcast ? "not " : "");
+		}
+
+		if (oi->nbr_filter) {
+			if (use_json)
+				json_object_string_add(json_interface_sub,
+						       "nbrFilterPrefixList",
+						       prefix_list_name(
+							       oi->nbr_filter));
+			else
+				vty_out(vty,
+					"  Neighbor filter prefix-list: %s\n",
+					prefix_list_name(oi->nbr_filter));
+		} else {
+			if (use_json)
+				json_object_string_add(json_interface_sub,
+						       "nbrFilterPrefixList",
+						       "N/A");
+		}
+
+		/* Non-Traffic interface counters
+		 */
+		if (use_json)
+			json_object_int_add(json_interface_sub,
+					    "lsaRetransmissions",
+					    oi->ls_rxmt_lsa);
+		else
+			vty_out(vty, "  LSA retransmissions: %u\n",
+				oi->ls_rxmt_lsa);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	}
 }
 
@@ -5388,12 +5732,27 @@ static void show_ip_ospf_neighbor_detail_sub(struct vty *vty,
 			lookup_msg(ospf_ism_state_msg, ospf_nbr_ism_state(nbr),
 				   NULL));
 	}
+<<<<<<< HEAD
+=======
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	/* Show state changes. */
 	if (use_json)
 		json_object_int_add(json_neigh, "stateChangeCounter",
 				    nbr->state_change);
 	else
+<<<<<<< HEAD
 		vty_out(vty, " %d state changes\n", nbr->state_change);
+=======
+		vty_out(vty, "    %d state changes\n", nbr->state_change);
+
+	/* Show LSA retransmissions. */
+	if (use_json)
+		json_object_int_add(json_neigh, "lsaRetransmissions",
+				    nbr->ls_rxmt_lsa);
+	else
+		vty_out(vty, "    %u LSA retransmissions\n", nbr->ls_rxmt_lsa);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	if (nbr->ts_last_progress.tv_sec || nbr->ts_last_progress.tv_usec) {
 		struct timeval res;
@@ -5442,7 +5801,11 @@ static void show_ip_ospf_neighbor_detail_sub(struct vty *vty,
 	if (DR(oi).s_addr == INADDR_ANY) {
 		if (!use_json)
 			vty_out(vty,
+<<<<<<< HEAD
 				"  No designated router on this network\n");
+=======
+				"    No designated router on this network\n");
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	} else {
 		nbr_dr = ospf_nbr_lookup_by_addr(oi->nbrs, &DR(oi));
 		if (nbr_dr) {
@@ -5461,14 +5824,22 @@ static void show_ip_ospf_neighbor_detail_sub(struct vty *vty,
 	if (nbr_bdr == NULL) {
 		if (!use_json)
 			vty_out(vty,
+<<<<<<< HEAD
 				"  No backup designated router on this network\n");
+=======
+				"    No backup designated router on this network\n");
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	} else {
 		if (use_json)
 			json_object_string_addf(json_neigh,
 						"routerDesignatedBackupId",
 						"%pI4", &nbr_bdr->router_id);
 		else
+<<<<<<< HEAD
 			vty_out(vty, " BDR is %pI4\n", &nbr_bdr->router_id);
+=======
+			vty_out(vty, "     BDR is %pI4\n", &nbr_bdr->router_id);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	}
 
 	/* Show options. */
@@ -5558,7 +5929,11 @@ static void show_ip_ospf_neighbor_detail_sub(struct vty *vty,
 
 	/* Show Link State Update Retransmission thread. */
 	if (use_json) {
+<<<<<<< HEAD
 		if (nbr->t_ls_upd != NULL)
+=======
+		if (nbr->t_ls_rxmt != NULL)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			json_object_string_add(
 				json_neigh,
 				"threadLinkStateUpdateRetransmission",
@@ -5566,7 +5941,11 @@ static void show_ip_ospf_neighbor_detail_sub(struct vty *vty,
 	} else
 		vty_out(vty,
 			"    Thread Link State Update Retransmission %s\n\n",
+<<<<<<< HEAD
 			nbr->t_ls_upd != NULL ? "on" : "off");
+=======
+			nbr->t_ls_rxmt != NULL ? "on" : "off");
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	if (!use_json) {
 		vty_out(vty, "    Graceful restart Helper info:\n");
@@ -5976,7 +6355,11 @@ static int show_ip_ospf_neighbor_detail_all_common(struct vty *vty,
 			prev_nbr = nbr;
 		}
 
+<<<<<<< HEAD
 		if (oi->type != OSPF_IFTYPE_NBMA)
+=======
+		if (!OSPF_IF_NON_BROADCAST(oi))
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			continue;
 
 		struct listnode *nd;
@@ -7532,6 +7915,12 @@ DEFPY (show_ip_ospf_database,
 	struct in_addr *adv_router_p = NULL;
 	json_object *json = NULL;
 
+<<<<<<< HEAD
+=======
+	if (instance_id != ospf_instance)
+		return CMD_NOT_MY_INSTANCE;
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	if (uj)
 		json = json_object_new_object();
 	if (lsid_str)
@@ -8204,7 +8593,11 @@ static void ospf_nbr_timer_update(struct ospf_interface *oi)
 		nbr->v_inactivity = OSPF_IF_PARAM(oi, v_wait);
 		nbr->v_db_desc = OSPF_IF_PARAM(oi, retransmit_interval);
 		nbr->v_ls_req = OSPF_IF_PARAM(oi, retransmit_interval);
+<<<<<<< HEAD
 		nbr->v_ls_upd = OSPF_IF_PARAM(oi, retransmit_interval);
+=======
+		nbr->v_ls_rxmt = OSPF_IF_PARAM(oi, retransmit_interval);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	}
 }
 
@@ -8215,7 +8608,11 @@ static int ospf_vty_dead_interval_set(struct vty *vty, const char *interval_str,
 	VTY_DECLVAR_CONTEXT(interface, ifp);
 	uint32_t seconds;
 	uint8_t hellomult;
+<<<<<<< HEAD
 	struct in_addr addr;
+=======
+	struct in_addr addr = { INADDR_ANY };
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	int ret;
 	struct ospf_if_params *params;
 	struct ospf_interface *oi;
@@ -8331,7 +8728,11 @@ DEFUN (ip_ospf_dead_interval_minimal,
 
 DEFUN (no_ip_ospf_dead_interval,
        no_ip_ospf_dead_interval_cmd,
+<<<<<<< HEAD
        "no ip ospf dead-interval [<(1-65535)|minimal hello-multiplier (2-20)> [A.B.C.D]]",
+=======
+       "no ip ospf dead-interval [<(1-65535)|minimal hello-multiplier [(2-20)]> [A.B.C.D]]",
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
        NO_STR
        "IP Information\n"
        "OSPF interface commands\n"
@@ -8556,7 +8957,11 @@ DEFUN_HIDDEN (no_ospf_hello_interval,
 DEFUN(ip_ospf_network, ip_ospf_network_cmd,
       "ip ospf network <broadcast|"
       "non-broadcast|"
+<<<<<<< HEAD
       "point-to-multipoint [delay-reflood]|"
+=======
+      "point-to-multipoint [delay-reflood|non-broadcast]|"
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
       "point-to-point [dmvpn]>",
       "IP Information\n"
       "OSPF interface commands\n"
@@ -8565,6 +8970,10 @@ DEFUN(ip_ospf_network, ip_ospf_network_cmd,
       "Specify OSPF NBMA network\n"
       "Specify OSPF point-to-multipoint network\n"
       "Specify OSPF delayed reflooding of LSAs received on P2MP interface\n"
+<<<<<<< HEAD
+=======
+      "Specify OSPF point-to-multipoint network doesn't support broadcast\n"
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
       "Specify OSPF point-to-point network\n"
       "Specify OSPF point-to-point DMVPN network\n")
 {
@@ -8573,6 +8982,10 @@ DEFUN(ip_ospf_network, ip_ospf_network_cmd,
 	int old_type = IF_DEF_PARAMS(ifp)->type;
 	uint8_t old_ptp_dmvpn = IF_DEF_PARAMS(ifp)->ptp_dmvpn;
 	uint8_t old_p2mp_delay_reflood = IF_DEF_PARAMS(ifp)->p2mp_delay_reflood;
+<<<<<<< HEAD
+=======
+	uint8_t old_p2mp_non_broadcast = IF_DEF_PARAMS(ifp)->p2mp_non_broadcast;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	struct route_node *rn;
 
 	if (old_type == OSPF_IFTYPE_LOOPBACK) {
@@ -8584,16 +8997,31 @@ DEFUN(ip_ospf_network, ip_ospf_network_cmd,
 	IF_DEF_PARAMS(ifp)->ptp_dmvpn = 0;
 	IF_DEF_PARAMS(ifp)->p2mp_delay_reflood =
 		OSPF_P2MP_DELAY_REFLOOD_DEFAULT;
+<<<<<<< HEAD
 
 	if (argv_find(argv, argc, "broadcast", &idx))
 		IF_DEF_PARAMS(ifp)->type = OSPF_IFTYPE_BROADCAST;
 	else if (argv_find(argv, argc, "non-broadcast", &idx))
 		IF_DEF_PARAMS(ifp)->type = OSPF_IFTYPE_NBMA;
+=======
+	IF_DEF_PARAMS(ifp)->p2mp_non_broadcast = OSPF_P2MP_NON_BROADCAST_DEFAULT;
+
+	if (argv_find(argv, argc, "broadcast", &idx))
+		IF_DEF_PARAMS(ifp)->type = OSPF_IFTYPE_BROADCAST;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	else if (argv_find(argv, argc, "point-to-multipoint", &idx)) {
 		IF_DEF_PARAMS(ifp)->type = OSPF_IFTYPE_POINTOMULTIPOINT;
 		if (argv_find(argv, argc, "delay-reflood", &idx))
 			IF_DEF_PARAMS(ifp)->p2mp_delay_reflood = true;
+<<<<<<< HEAD
 	} else if (argv_find(argv, argc, "point-to-point", &idx)) {
+=======
+		if (argv_find(argv, argc, "non-broadcast", &idx))
+			IF_DEF_PARAMS(ifp)->p2mp_non_broadcast = true;
+	} else if (argv_find(argv, argc, "non-broadcast", &idx))
+		IF_DEF_PARAMS(ifp)->type = OSPF_IFTYPE_NBMA;
+	else if (argv_find(argv, argc, "point-to-point", &idx)) {
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		IF_DEF_PARAMS(ifp)->type = OSPF_IFTYPE_POINTOPOINT;
 		if (argv_find(argv, argc, "dmvpn", &idx))
 			IF_DEF_PARAMS(ifp)->ptp_dmvpn = 1;
@@ -8603,7 +9031,12 @@ DEFUN(ip_ospf_network, ip_ospf_network_cmd,
 
 	if (IF_DEF_PARAMS(ifp)->type == old_type &&
 	    IF_DEF_PARAMS(ifp)->ptp_dmvpn == old_ptp_dmvpn &&
+<<<<<<< HEAD
 	    IF_DEF_PARAMS(ifp)->p2mp_delay_reflood == old_p2mp_delay_reflood)
+=======
+	    IF_DEF_PARAMS(ifp)->p2mp_delay_reflood == old_p2mp_delay_reflood &&
+	    IF_DEF_PARAMS(ifp)->p2mp_non_broadcast == old_p2mp_non_broadcast)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		return CMD_SUCCESS;
 
 	SET_IF_PARAM(IF_DEF_PARAMS(ifp), type);
@@ -8617,13 +9050,23 @@ DEFUN(ip_ospf_network, ip_ospf_network_cmd,
 		oi->type = IF_DEF_PARAMS(ifp)->type;
 		oi->ptp_dmvpn = IF_DEF_PARAMS(ifp)->ptp_dmvpn;
 		oi->p2mp_delay_reflood = IF_DEF_PARAMS(ifp)->p2mp_delay_reflood;
+<<<<<<< HEAD
+=======
+		oi->p2mp_non_broadcast = IF_DEF_PARAMS(ifp)->p2mp_non_broadcast;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 		/*
 		 * The OSPF interface only needs to be flapped if the network
 		 * type or DMVPN parameter changes.
 		 */
 		if (IF_DEF_PARAMS(ifp)->type != old_type ||
+<<<<<<< HEAD
 		    IF_DEF_PARAMS(ifp)->ptp_dmvpn != old_ptp_dmvpn) {
+=======
+		    IF_DEF_PARAMS(ifp)->ptp_dmvpn != old_ptp_dmvpn ||
+		    IF_DEF_PARAMS(ifp)->p2mp_non_broadcast !=
+			    old_p2mp_non_broadcast) {
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			if (oi->state > ISM_Down) {
 				OSPF_ISM_EVENT_EXECUTE(oi, ISM_InterfaceDown);
 				OSPF_ISM_EVENT_EXECUTE(oi, ISM_InterfaceUp);
@@ -8668,6 +9111,10 @@ DEFUN (no_ip_ospf_network,
 	IF_DEF_PARAMS(ifp)->ptp_dmvpn = 0;
 	IF_DEF_PARAMS(ifp)->p2mp_delay_reflood =
 		OSPF_P2MP_DELAY_REFLOOD_DEFAULT;
+<<<<<<< HEAD
+=======
+	IF_DEF_PARAMS(ifp)->p2mp_non_broadcast = OSPF_P2MP_NON_BROADCAST_DEFAULT;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	if (IF_DEF_PARAMS(ifp)->type == old_type)
 		return CMD_SUCCESS;
@@ -8929,6 +9376,43 @@ DEFUN_HIDDEN (no_ospf_retransmit_interval,
 	return no_ip_ospf_retransmit_interval(self, vty, argc, argv);
 }
 
+<<<<<<< HEAD
+=======
+DEFPY(ip_ospf_retransmit_window, ip_ospf_retransmit_window_addr_cmd,
+      "[no] ip ospf retransmit-window ![(20-1000)]$retransmit-window [A.B.C.D]$ip_addr", NO_STR
+      "IP Information\n"
+      "OSPF interface commands\n"
+      "Window for LSA retransmit - Retransmit LSAs expiring in this window\n"
+      "Milliseconds\n"
+      "Address of interface\n")
+{
+	VTY_DECLVAR_CONTEXT(interface, ifp);
+	struct ospf_if_params *params;
+
+	params = IF_DEF_PARAMS(ifp);
+
+	if (ip_addr.s_addr != INADDR_ANY) {
+		params = ospf_get_if_params(ifp, ip_addr);
+		ospf_if_update_params(ifp, ip_addr);
+	}
+
+	if (no) {
+		UNSET_IF_PARAM(params, retransmit_window);
+		params->retransmit_window = OSPF_RETRANSMIT_WINDOW_DEFAULT;
+	} else {
+		SET_IF_PARAM(params, retransmit_window);
+		params->retransmit_window = retransmit_window;
+	}
+
+	/*
+	 * There is nothing to do when the retransmit-window changes, any
+	 * change will take effect the next time the interface LSA retransmision
+	 * timer expires.
+	 */
+	return CMD_SUCCESS;
+}
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 DEFPY (ip_ospf_gr_hdelay,
        ip_ospf_gr_hdelay_cmd,
        "ip ospf graceful-restart hello-delay (1-1800)",
@@ -9681,7 +10165,11 @@ DEFUN (ospf_default_information_originate,
 
 DEFUN (no_ospf_default_information_originate,
        no_ospf_default_information_originate_cmd,
+<<<<<<< HEAD
        "no default-information originate [{always|metric (0-16777214)|metric-type (1-2)|route-map RMAP_NAME}]",
+=======
+       "no default-information originate [{always|metric [(0-16777214)]|metric-type [(1-2)]|route-map [RMAP_NAME]}]",
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
        NO_STR
        "Control distribution of default information\n"
        "Distribute a default route\n"
@@ -9765,7 +10253,11 @@ DEFUN (ospf_distance,
 
 DEFUN (no_ospf_distance,
        no_ospf_distance_cmd,
+<<<<<<< HEAD
        "no distance (1-255)",
+=======
+       "no distance [(1-255)]",
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
        NO_STR
        "Administrative distance\n"
        "OSPF Administrative distance\n")
@@ -9976,7 +10468,11 @@ DEFPY(ip_ospf_prefix_suppression, ip_ospf_prefix_suppression_addr_cmd,
       "[no] ip ospf prefix-suppression [A.B.C.D]$ip_addr", NO_STR
       "IP Information\n"
       "OSPF interface commands\n"
+<<<<<<< HEAD
       "Supress OSPF prefix advertisement on this interface\n"
+=======
+      "Suppress OSPF prefix advertisement on this interface\n"
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
       "Address of interface\n")
 {
 	VTY_DECLVAR_CONTEXT(interface, ifp);
@@ -10022,6 +10518,61 @@ DEFPY(ip_ospf_prefix_suppression, ip_ospf_prefix_suppression_addr_cmd,
 	return CMD_SUCCESS;
 }
 
+<<<<<<< HEAD
+=======
+DEFPY(ip_ospf_neighbor_filter, ip_ospf_neighbor_filter_addr_cmd,
+      "[no] ip ospf neighbor-filter ![PREFIXLIST4_NAME]$prefix_list [A.B.C.D]$ip_addr", NO_STR
+      "IP Information\n"
+      "OSPF interface commands\n"
+      "Filter OSPF neighbor packets\n"
+      "Prefix-List used for filtering\n"
+      "Address of interface\n")
+{
+	VTY_DECLVAR_CONTEXT(interface, ifp);
+	struct ospf_if_params *params;
+	struct prefix_list *nbr_filter = NULL;
+	struct route_node *rn;
+
+	params = IF_DEF_PARAMS(ifp);
+
+	if (ip_addr.s_addr != INADDR_ANY) {
+		params = ospf_get_if_params(ifp, ip_addr);
+		ospf_if_update_params(ifp, ip_addr);
+	}
+
+	if (params->nbr_filter_name)
+		XFREE(MTYPE_OSPF_IF_PARAMS, params->nbr_filter_name);
+
+	if (no) {
+		UNSET_IF_PARAM(params, nbr_filter_name);
+		params->nbr_filter_name = NULL;
+	} else {
+		SET_IF_PARAM(params, nbr_filter_name);
+		params->nbr_filter_name = XSTRDUP(MTYPE_OSPF_IF_PARAMS,
+						  prefix_list);
+		nbr_filter = prefix_list_lookup(AFI_IP, params->nbr_filter_name);
+	}
+
+	/*
+	 * Determine if there is a change in neighbor filter prefix-list for the
+	 * interface.
+	 */
+	for (rn = route_top(IF_OIFS(ifp)); rn; rn = route_next(rn)) {
+		struct ospf_interface *oi = rn->info;
+
+		if (oi &&
+		    (ip_addr.s_addr == INADDR_ANY ||
+		     IPV4_ADDR_SAME(&oi->address->u.prefix4, &ip_addr)) &&
+		    oi->nbr_filter != nbr_filter) {
+			oi->nbr_filter = nbr_filter;
+			if (oi->nbr_filter)
+				ospf_intf_neighbor_filter_apply(oi);
+		}
+	}
+	return CMD_SUCCESS;
+}
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 DEFUN (ospf_max_metric_router_lsa_admin,
        ospf_max_metric_router_lsa_admin_cmd,
        "max-metric router-lsa administrative",
@@ -10532,6 +11083,7 @@ static int ospf_show_gr_helper_details(struct vty *vty, struct ospf *ospf,
 		json_object_string_add(json_vrf, "strictLsaCheck",
 				       (ospf->strict_lsa_check) ? "Enabled"
 								: "Disabled");
+<<<<<<< HEAD
 #if CONFDATE > 20240401
 		CPP_NOTICE("Remove deprecated json key: restartSupoort")
 #endif
@@ -10541,6 +11093,8 @@ static int ospf_show_gr_helper_details(struct vty *vty, struct ospf *ospf,
 				? "Planned Restart only"
 				: "Planned and Unplanned Restarts");
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		json_object_string_add(
 			json_vrf, "restartSupport",
 			(ospf->only_planned_restart)
@@ -10767,10 +11321,18 @@ DEFUN (ospf_route_aggregation_timer,
 
 DEFPY (show_ip_ospf_gr_helper,
        show_ip_ospf_gr_helper_cmd,
+<<<<<<< HEAD
        "show ip ospf [vrf <NAME|all>] graceful-restart helper [detail] [json]",
        SHOW_STR
        IP_STR
        "OSPF information\n"
+=======
+       "show ip ospf [{(1-65535)$instance|vrf <NAME|all>}] graceful-restart helper [detail] [json]",
+       SHOW_STR
+       IP_STR
+       "OSPF information\n"
+       "Instance ID\n"
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
        VRF_CMD_HELP_STR
        "All VRFs\n"
        "OSPF Graceful Restart\n"
@@ -10791,8 +11353,25 @@ DEFPY (show_ip_ospf_gr_helper,
 	int inst = 0;
 	bool detail = false;
 
+<<<<<<< HEAD
 	OSPF_FIND_VRF_ARGS(argv, argc, idx_vrf, vrf_name, all_vrf);
 
+=======
+	if (instance && instance != ospf_instance)
+		return CMD_NOT_MY_INSTANCE;
+
+	ospf = ospf_lookup_instance(instance);
+	if (!ospf || !ospf->oi_running)
+		return CMD_SUCCESS;
+
+	OSPF_FIND_VRF_ARGS(argv, argc, idx_vrf, vrf_name, all_vrf);
+
+	if (instance && vrf_name) {
+		vty_out(vty, "%% VRF is not supported in instance mode\n");
+		return CMD_WARNING;
+	}
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	if (argv_find(argv, argc, "detail", &idx))
 		detail = true;
 
@@ -12234,6 +12813,13 @@ static int config_write_interface_one(struct vty *vty, struct vrf *vrf)
 					    OSPF_IFTYPE_POINTOMULTIPOINT &&
 				    params->p2mp_delay_reflood)
 					vty_out(vty, " delay-reflood");
+<<<<<<< HEAD
+=======
+				if (params->type ==
+					    OSPF_IFTYPE_POINTOMULTIPOINT &&
+				    params->p2mp_non_broadcast)
+					vty_out(vty, " non-broadcast");
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 				if (params != IF_DEF_PARAMS(ifp) && rn)
 					vty_out(vty, " %pI4", &rn->p.u.prefix4);
 				vty_out(vty, "\n");
@@ -12351,6 +12937,20 @@ static int config_write_interface_one(struct vty *vty, struct vrf *vrf)
 				vty_out(vty, "\n");
 			}
 
+<<<<<<< HEAD
+=======
+			/* Retransmit Window print. */
+			if (OSPF_IF_PARAM_CONFIGURED(params, retransmit_window) &&
+			    params->retransmit_window !=
+				    OSPF_RETRANSMIT_WINDOW_DEFAULT) {
+				vty_out(vty, " ip ospf retransmit-window %u",
+					params->retransmit_window);
+				if (params != IF_DEF_PARAMS(ifp) && rn)
+					vty_out(vty, " %pI4", &rn->p.u.prefix4);
+				vty_out(vty, "\n");
+			}
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			/* Transmit Delay print. */
 			if (OSPF_IF_PARAM_CONFIGURED(params, transmit_delay)
 			    && params->transmit_delay
@@ -12446,6 +13046,18 @@ static int config_write_interface_one(struct vty *vty, struct vrf *vrf)
 				vty_out(vty, "\n");
 			}
 
+<<<<<<< HEAD
+=======
+			/* neighbor-filter print. */
+			if (OSPF_IF_PARAM_CONFIGURED(params, nbr_filter_name)) {
+				vty_out(vty, " ip ospf neighbor-filter %s",
+					params->nbr_filter_name);
+				if (params != IF_DEF_PARAMS(ifp) && rn)
+					vty_out(vty, " %pI4", &rn->p.u.prefix4);
+				vty_out(vty, "\n");
+			}
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			while (1) {
 				if (rn == NULL)
 					rn = route_top(IF_OIFS_PARAMS(ifp));
@@ -12699,6 +13311,7 @@ static int config_write_virtual_link(struct vty *vty, struct ospf *ospf)
 			oi = vl_data->vl_oi;
 
 			/* timers */
+<<<<<<< HEAD
 			if (OSPF_IF_PARAM(oi, v_hello)
 				    != OSPF_HELLO_INTERVAL_DEFAULT
 			    || OSPF_IF_PARAM(oi, v_wait)
@@ -12712,6 +13325,24 @@ static int config_write_virtual_link(struct vty *vty, struct ospf *ospf)
 					buf, &vl_data->vl_peer,
 					OSPF_IF_PARAM(oi, v_hello),
 					OSPF_IF_PARAM(oi, retransmit_interval),
+=======
+			if (OSPF_IF_PARAM(oi, v_hello) !=
+				    OSPF_HELLO_INTERVAL_DEFAULT ||
+			    OSPF_IF_PARAM(oi, v_wait) !=
+				    OSPF_ROUTER_DEAD_INTERVAL_DEFAULT ||
+			    OSPF_IF_PARAM(oi, retransmit_interval) !=
+				    OSPF_RETRANSMIT_INTERVAL_DEFAULT ||
+			    OSPF_IF_PARAM(oi, retransmit_window) !=
+				    OSPF_RETRANSMIT_WINDOW_DEFAULT ||
+			    OSPF_IF_PARAM(oi, transmit_delay) !=
+				    OSPF_TRANSMIT_DELAY_DEFAULT)
+				vty_out(vty,
+					" area %s virtual-link %pI4 hello-interval %d retransmit-interval %d retransmit-window %d transmit-delay %d dead-interval %d\n",
+					buf, &vl_data->vl_peer,
+					OSPF_IF_PARAM(oi, v_hello),
+					OSPF_IF_PARAM(oi, retransmit_interval),
+					OSPF_IF_PARAM(oi, retransmit_window),
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 					OSPF_IF_PARAM(oi, transmit_delay),
 					OSPF_IF_PARAM(oi, v_wait));
 			else
@@ -13248,6 +13879,12 @@ static void ospf_vty_if_init(void)
 	install_element(INTERFACE_NODE,
 			&no_ip_ospf_retransmit_interval_addr_cmd);
 
+<<<<<<< HEAD
+=======
+	/* "ip ospf retransmit-window" commands. */
+	install_element(INTERFACE_NODE, &ip_ospf_retransmit_window_addr_cmd);
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	/* "ip ospf transmit-delay" commands. */
 	install_element(INTERFACE_NODE, &ip_ospf_transmit_delay_addr_cmd);
 	install_element(INTERFACE_NODE, &no_ip_ospf_transmit_delay_addr_cmd);
@@ -13266,6 +13903,12 @@ static void ospf_vty_if_init(void)
 	/* "ip ospf prefix-suppression" commands. */
 	install_element(INTERFACE_NODE, &ip_ospf_prefix_suppression_addr_cmd);
 
+<<<<<<< HEAD
+=======
+	/* "ip ospf neighbor-filter" commands. */
+	install_element(INTERFACE_NODE, &ip_ospf_neighbor_filter_addr_cmd);
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	/* These commands are compatibitliy for previous version. */
 	install_element(INTERFACE_NODE, &ospf_authentication_key_cmd);
 	install_element(INTERFACE_NODE, &ospf_message_digest_key_cmd);
@@ -13745,9 +14388,14 @@ void ospf_vty_init(void)
 
 	/* LSA timers commands */
 	install_element(OSPF_NODE, &ospf_timers_min_ls_interval_cmd);
+<<<<<<< HEAD
 	install_element(OSPF_NODE, &no_ospf_timers_min_ls_interval_cmd);
 	install_element(OSPF_NODE, &ospf_timers_lsa_min_arrival_cmd);
 	install_element(OSPF_NODE, &no_ospf_timers_lsa_min_arrival_cmd);
+=======
+	install_element(OSPF_NODE, &ospf_timers_lsa_min_arrival_cmd);
+	install_element(OSPF_NODE, &ospf_timers_lsa_min_arrival_deprecated_cmd);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	/* refresh timer commands */
 	install_element(OSPF_NODE, &ospf_refresh_timer_cmd);
@@ -13765,11 +14413,16 @@ void ospf_vty_init(void)
 	install_element(OSPF_NODE, &ospf_auto_cost_reference_bandwidth_cmd);
 	install_element(OSPF_NODE, &no_ospf_auto_cost_reference_bandwidth_cmd);
 
+<<<<<<< HEAD
 	/* "neighbor" commands. */
 	install_element(OSPF_NODE, &ospf_neighbor_cmd);
 	install_element(OSPF_NODE, &ospf_neighbor_poll_interval_cmd);
 	install_element(OSPF_NODE, &no_ospf_neighbor_cmd);
 	install_element(OSPF_NODE, &no_ospf_neighbor_poll_cmd);
+=======
+	/* "neighbor" command. */
+	install_element(OSPF_NODE, &ospf_neighbor_cmd);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	/* write multiplier commands */
 	install_element(OSPF_NODE, &ospf_write_multiplier_cmd);

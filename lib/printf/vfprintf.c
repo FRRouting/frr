@@ -416,6 +416,52 @@ reswitch:	switch (ch) {
 		case 't':
 			flags |= PTRDIFFT;
 			goto rflag;
+<<<<<<< HEAD
+=======
+		case 'w':
+			/*
+			 * Fixed-width integer types.  On all platforms we
+			 * support, int8_t is equivalent to char, int16_t
+			 * is equivalent to short, int32_t is equivalent
+			 * to int, int64_t is equivalent to long long int.
+			 * Furthermore, int_fast8_t, int_fast16_t and
+			 * int_fast32_t are equivalent to int, and
+			 * int_fast64_t is equivalent to long long int.
+			 */
+			flags &= ~(CHARINT|SHORTINT|LONGINT|LLONGINT|INTMAXT);
+			if (fmt[0] == 'f') {
+				flags |= FASTINT;
+				fmt++;
+			} else {
+				flags &= ~FASTINT;
+			}
+			if (fmt[0] == '8') {
+				if (!(flags & FASTINT))
+					flags |= CHARINT;
+				else
+					(void) 0;	/* no flag set = 32 */
+				fmt += 1;
+			} else if (fmt[0] == '1' && fmt[1] == '6') {
+				if (!(flags & FASTINT))
+					flags |= SHORTINT;
+				else
+					(void) 0;	/* no flag set = 32 */
+				fmt += 2;
+			} else if (fmt[0] == '3' && fmt[1] == '2') {
+				/* no flag set = 32 */
+				fmt += 2;
+			} else if (fmt[0] == '6' && fmt[1] == '4') {
+				flags |= LLONGINT;
+				fmt += 2;
+			} else {
+				if (flags & FASTINT) {
+					flags &= ~FASTINT;
+					fmt--;
+				}
+				goto invalid;
+			}
+			goto rflag;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		case 'z':
 			flags |= SIZET;
 			goto rflag;
@@ -684,6 +730,10 @@ number:			if ((dprec = prec) >= 0)
 		default:	/* "%?" prints ?, unless ? is NUL */
 			if (ch == '\0')
 				goto done;
+<<<<<<< HEAD
+=======
+invalid:
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			/* pretend it was %c with argument ch */
 			buf[0] = ch;
 			cp = buf;

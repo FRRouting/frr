@@ -116,7 +116,11 @@ multitude of different management APIs, all of them connected to the
 northbound layer of the FRR daemons. By default, only the CLI interface
 is compiled built-in in the FRR daemons. The other management interfaces
 are provided as optional plugins and need to be loaded during the daemon
+<<<<<<< HEAD
 initialization (e.g. *zebra -M confd*). This design makes it possible to
+=======
+initialization (e.g. *zebra -M grpc*). This design makes it possible to
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 integrate FRR with different NETCONF solutions without introducing
 vendor lock-in. The [[Plugins - Writing Your Own]] page explains how to
 write custom northbound plugins that can be tailored to all needs

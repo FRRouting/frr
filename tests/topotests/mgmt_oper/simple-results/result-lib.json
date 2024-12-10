@@ -38,7 +38,12 @@
                               "gateway": "",
                               "interface": "r1-eth0",
                               "active": [null],
+<<<<<<< HEAD
                               "fib": [null]
+=======
+                              "fib": [null],
+                              "weight": 1
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
                             }
                           ]
                         }
@@ -66,7 +71,12 @@
                               "gateway": "",
                               "interface": "r1-eth0",
                               "active": [null],
+<<<<<<< HEAD
                               "fib": [null]
+=======
+                              "fib": [null],
+                              "weight": 1
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
                             }
                           ]
                         }
@@ -130,7 +140,12 @@
                               "gateway": "",
                               "interface": "r1-eth0",
                               "active": [null],
+<<<<<<< HEAD
                               "fib": [null]
+=======
+                              "fib": [null],
+                              "weight": 1
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
                             }
                           ]
                         }
@@ -156,7 +171,12 @@
                               "gateway": "",
                               "interface": "r1-eth0",
                               "active": [null],
+<<<<<<< HEAD
                               "fib": [null]
+=======
+                              "fib": [null],
+                              "weight": 1
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
                             }
                           ]
                         }
@@ -224,7 +244,12 @@
                               "gateway": "",
                               "interface": "r1-eth1",
                               "active": [null],
+<<<<<<< HEAD
                               "fib": [null]
+=======
+                              "fib": [null],
+                              "weight": 1
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
                             }
                           ]
                         }
@@ -252,7 +277,12 @@
                               "gateway": "",
                               "interface": "r1-eth1",
                               "active": [null],
+<<<<<<< HEAD
                               "fib": [null]
+=======
+                              "fib": [null],
+                              "weight": 1
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
                             }
                           ]
                         }
@@ -287,7 +317,12 @@
                               "gateway": "",
                               "interface": "r1-eth1",
                               "active": [null],
+<<<<<<< HEAD
                               "fib": [null]
+=======
+                              "fib": [null],
+                              "weight": 1
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
                             }
                           ]
                         }
@@ -313,7 +348,12 @@
                               "gateway": "",
                               "interface": "r1-eth1",
                               "active": [null],
+<<<<<<< HEAD
                               "fib": [null]
+=======
+                              "fib": [null],
+                              "weight": 1
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
                             }
                           ]
                         }

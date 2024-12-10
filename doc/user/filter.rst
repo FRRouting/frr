@@ -9,9 +9,13 @@ defined, it can be applied in any direction.
 IP Access List
 ==============
 
+<<<<<<< HEAD
 .. clicmd:: access-list NAME [seq (1-4294967295)] permit IPV4-NETWORK
 
 .. clicmd:: access-list NAME [seq (1-4294967295)] deny IPV4-NETWORK
+=======
+.. clicmd:: access-list NAME [seq (1-4294967295)] <permit|deny> <A.B.C.D/M [exact-match]|any>
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
    seq
       seq `number` can be set either automatically or manually. In the
@@ -35,6 +39,32 @@ IP Access List
       access-list filter permit 10.0.0.0/8
       access-list filter seq 13 permit 10.0.0.0/7
 
+<<<<<<< HEAD
+=======
+.. clicmd:: access-list NAME [seq (1-4294967295)] <deny|permit> ip <A.B.C.D A.B.C.D|host A.B.C.D|any> <A.B.C.D A.B.C.D|host A.B.C.D|any>
+
+   The extended access-list syntax enables filtering on both source and destination
+   IP addresses (or source and group, if used for multicast boundaries). The
+   source address is first in order in the command.
+
+   If providing a mask, note that the access-lists use wildcard masks (inverse
+   matching logic of subnet masks). If specifying ``host``, only the single address
+   given will be matched.
+
+   A basic example is as follows:
+
+   .. code-block:: frr
+
+      access-list filter seq 5 permit ip host 10.0.20.2 232.1.1.0 0.0.0.128
+      access-list filter seq 10 deny ip 10.0.20.0 0.0.0.255 232.1.1.0 0.0.0.255
+      access-list filter seq 15 permit ip any any
+
+   .. note ::
+
+      If an access-list is specified but no match is found, the default verdict
+      is deny.
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 .. clicmd:: show <ip|ipv6> access-list [json]
 
    Display all IPv4 or IPv6 access lists.

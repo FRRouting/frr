@@ -761,6 +761,7 @@ Indentation and Line Breaks
 Macros, Attributes and Symbols
 ------------------------------
 
+<<<<<<< HEAD
   **ARRAY_SIZE**
     The ARRAY_SIZE(foo) macro should be preferred over
     sizeof(foo)/sizeof(foo[0]) for finding number of elements in an
@@ -770,6 +771,8 @@ Macros, Attributes and Symbols
 
       #define ARRAY_SIZE(x) (sizeof(x) / sizeof((x)[0]))
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
   **AVOID_EXTERNS**
     Function prototypes don't need to be declared extern in .h
     files.  It's assumed by the compiler and is unnecessary.

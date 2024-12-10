@@ -32,6 +32,11 @@ enum bfd_session_event {
 	BSE_UNINSTALL,
 	/** Install the BFD session configuration. */
 	BSE_INSTALL,
+<<<<<<< HEAD
+=======
+	/** We should install but it couldn't because of a error talking to zebra */
+	BSE_VALID_FOR_INSTALL,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 };
 
 /**
@@ -527,6 +532,13 @@ static void _bfd_sess_send(struct event *t)
 			vrf_id_to_name(bsp->args.vrf_id), bsp->args.vrf_id,
 			bsp->lastev == BSE_INSTALL ? "installed"
 						   : "uninstalled");
+<<<<<<< HEAD
+=======
+
+		bsp->installed = false;
+		if (bsp->lastev == BSE_INSTALL)
+			bsp->lastev = BSE_VALID_FOR_INSTALL;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	}
 }
 
@@ -883,7 +895,11 @@ int zclient_bfd_session_replay(ZAPI_CALLBACK_ARGS)
 	/* Replay all activated peers. */
 	TAILQ_FOREACH (bsp, &bsglobal.bsplist, entry) {
 		/* Skip not installed sessions. */
+<<<<<<< HEAD
 		if (!bsp->installed)
+=======
+		if (!bsp->installed && bsp->lastev != BSE_VALID_FOR_INSTALL)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			continue;
 
 		/* We are reconnecting, so we must send installation. */
@@ -1334,3 +1350,12 @@ int bfd_nht_update(const struct prefix *match, const struct zapi_route *route)
 
 	return 0;
 }
+<<<<<<< HEAD
+=======
+
+bool bfd_session_is_down(const struct bfd_session_params *session)
+{
+	return session->bss.state == BSS_DOWN ||
+	       session->bss.state == BSS_ADMIN_DOWN;
+}
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)

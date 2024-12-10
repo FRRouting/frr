@@ -79,6 +79,10 @@ extern union _frrmod_runtime_u _frrmod_this_module;
 extern struct frrmod_runtime *frrmod_list;
 
 extern void frrmod_init(struct frrmod_runtime *modinfo);
+<<<<<<< HEAD
+=======
+extern void frrmod_terminate(void);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 extern struct frrmod_runtime *frrmod_load(const char *spec, const char *dir,
 					  void (*pFerrlog)(const void *,
 							   const char *),

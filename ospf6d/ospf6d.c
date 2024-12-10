@@ -30,6 +30,10 @@
 #include "ospf6_flood.h"
 #include "ospf6d.h"
 #include "ospf6_bfd.h"
+<<<<<<< HEAD
+=======
+#include "ospf6_tlv.h"
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 #include "ospf6_gr.h"
 #include "lib/json.h"
 #include "ospf6_nssa.h"

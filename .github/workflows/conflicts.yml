@@ -1,9 +1,14 @@
 name: Add a conflict label if PR needs to rebase
 
 on:
+<<<<<<< HEAD
   push:
   pull_request_target:
     types: [synchronize]
+=======
+  pull_request_target:
+    types: [opened, reopened, synchronize]
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 jobs:
   conflicts:

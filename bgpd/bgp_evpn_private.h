@@ -382,7 +382,11 @@ static inline void encode_mac_mobility_extcomm(int static_mac, uint32_t seq,
 }
 
 static inline void encode_na_flag_extcomm(struct ecommunity_val *eval,
+<<<<<<< HEAD
 					  uint8_t na_flag, bool proxy)
+=======
+					  bool na_flag, bool proxy)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 {
 	memset(eval, 0, sizeof(*eval));
 	eval->val[0] = ECOMMUNITY_ENCODE_EVPN;
@@ -716,7 +720,12 @@ extern void delete_evpn_route_entry(struct bgp *bgp, afi_t afi, safi_t safi,
 				    struct bgp_path_info **pi);
 int vni_list_cmp(void *p1, void *p2);
 extern int evpn_route_select_install(struct bgp *bgp, struct bgpevpn *vpn,
+<<<<<<< HEAD
 				     struct bgp_dest *dest);
+=======
+				     struct bgp_dest *dest,
+				     struct bgp_path_info *pi);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 extern struct bgp_dest *
 bgp_evpn_global_node_get(struct bgp_table *table, afi_t afi, safi_t safi,
 			 const struct prefix_evpn *evp, struct prefix_rd *prd,

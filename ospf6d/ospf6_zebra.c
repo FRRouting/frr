@@ -27,6 +27,10 @@
 #include "ospf6_zebra.h"
 #include "ospf6d.h"
 #include "ospf6_area.h"
+<<<<<<< HEAD
+=======
+#include "ospf6_tlv.h"
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 #include "ospf6_gr.h"
 #include "lib/json.h"
 
@@ -289,7 +293,11 @@ static int ospf6_zebra_read_route(ZAPI_CALLBACK_ARGS)
 	if (cmd == ZEBRA_REDISTRIBUTE_ROUTE_ADD)
 		ospf6_asbr_redistribute_add(api.type, ifindex, &api.prefix,
 					    api.nexthop_num, nexthop, api.tag,
+<<<<<<< HEAD
 					    ospf6);
+=======
+					    ospf6, api.metric);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	else
 		ospf6_asbr_redistribute_remove(api.type, ifindex, &api.prefix,
 					       ospf6);

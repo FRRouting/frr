@@ -28,6 +28,10 @@
 #include "libfrr.h"
 #include "routemap.h"
 #include "affinitymap.h"
+<<<<<<< HEAD
+=======
+#include "libagentx.h"
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 #include "isisd/isis_affinitymap.h"
 #include "isisd/isis_constants.h"
@@ -102,6 +106,15 @@ static __attribute__((__noreturn__)) void terminate(int i)
 	isis_sr_term();
 	isis_srv6_term();
 	isis_zebra_stop();
+<<<<<<< HEAD
+=======
+
+	isis_master_terminate();
+	route_map_finish();
+	vrf_terminate();
+
+	frr_fini();
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	exit(i);
 }
 
@@ -307,6 +320,10 @@ int main(int argc, char **argv, char **envp)
 	/*
 	 *  initializations
 	 */
+<<<<<<< HEAD
+=======
+	libagentx_init();
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	cmd_init_config_callbacks(isis_config_start, isis_config_end);
 	isis_error_init();
 	access_list_init();

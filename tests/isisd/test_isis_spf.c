@@ -55,7 +55,11 @@ static void test_run_spf(struct vty *vty, const struct isis_topology *topology,
 	isis_run_spf(spftree);
 
 	/* Print the SPT and the corresponding routing table. */
+<<<<<<< HEAD
 	isis_print_spftree(vty, spftree);
+=======
+	isis_print_spftree(vty, spftree, NULL);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	isis_print_routes(vty, spftree, NULL, false, false);
 
 	/* Cleanup SPF tree. */
@@ -85,7 +89,11 @@ static void test_run_lfa(struct vty *vty, const struct isis_topology *topology,
 	isis_lfa_compute(area, NULL, spftree_self, protected_resource);
 
 	/* Print the SPT and the corresponding main/backup routing tables. */
+<<<<<<< HEAD
 	isis_print_spftree(vty, spftree_self);
+=======
+	isis_print_spftree(vty, spftree_self, NULL);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	vty_out(vty, "Main:\n");
 	isis_print_routes(vty, spftree_self, NULL, false, false);
 	vty_out(vty, "Backup:\n");
@@ -148,7 +156,11 @@ static void test_run_rlfa(struct vty *vty, const struct isis_topology *topology,
 	vty_out(vty, "\n");
 
 	/* Print the post-convergence SPT. */
+<<<<<<< HEAD
 	isis_print_spftree(vty, spftree_pc);
+=======
+	isis_print_spftree(vty, spftree_pc, NULL);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	/*
 	 * Activate the computed RLFAs (if any) using artificial LDP labels for
@@ -164,7 +176,11 @@ static void test_run_rlfa(struct vty *vty, const struct isis_topology *topology,
 	}
 
 	/* Print the SPT and the corresponding main/backup routing tables. */
+<<<<<<< HEAD
 	isis_print_spftree(vty, spftree_self);
+=======
+	isis_print_spftree(vty, spftree_self, NULL);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	vty_out(vty, "Main:\n");
 	isis_print_routes(vty, spftree_self, NULL, false, false);
 	vty_out(vty, "Backup:\n");
@@ -228,7 +244,11 @@ static void test_run_ti_lfa(struct vty *vty,
 	/*
 	 * Print the post-convergence SPT and the corresponding routing table.
 	 */
+<<<<<<< HEAD
 	isis_print_spftree(vty, spftree_pc);
+=======
+	isis_print_spftree(vty, spftree_pc, NULL);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	isis_print_routes(vty, spftree_self, NULL, false, true);
 
 	/* Cleanup everything. */
@@ -245,12 +265,31 @@ static int test_run(struct vty *vty, const struct isis_topology *topology,
 	struct isis_area *area;
 	struct lfa_protected_resource protected_resource = {};
 	uint8_t fail_id[ISIS_SYS_ID_LEN] = {};
+<<<<<<< HEAD
+=======
+	static char sysidstr[ISO_SYSID_STRLEN];
+	char net_title[255];
+	uint8_t buff[255];
+	struct iso_address *addr = NULL;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	/* Init topology. */
 	area = isis_area_create("1", NULL);
 	memcpy(area->isis->sysid, root->sysid, sizeof(area->isis->sysid));
 	area->is_type = IS_LEVEL_1_AND_2;
 	area->srdb.enabled = true;
+<<<<<<< HEAD
+=======
+	area->area_addrs = list_new();
+	area->area_addrs->del = isis_area_address_delete;
+	addr = XMALLOC(MTYPE_ISIS_AREA_ADDR, sizeof(struct iso_address));
+	snprintfrr(sysidstr, sizeof(sysidstr), "%pSY", area->isis->sysid);
+	snprintf(net_title, sizeof(net_title), "49.%s.00", sysidstr);
+	addr->addr_len = dotformat2buff(buff, net_title);
+	memcpy(addr->area_addr, buff, addr->addr_len);
+	addr->addr_len -= (ISIS_SYS_ID_LEN + ISIS_NSEL_LEN);
+	listnode_add(area->area_addrs, addr);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	if (test_topology_load(topology, area, area->lspdb) != 0) {
 		vty_out(vty, "%% Failed to load topology\n");
 		return CMD_WARNING;
@@ -462,7 +501,11 @@ static void vty_do_exit(int isexit)
 	yang_terminate();
 	event_master_free(master);
 
+<<<<<<< HEAD
 	log_memstats(stderr, "test-isis-spf");
+=======
+	log_memstats(NULL, true);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	if (!isexit)
 		exit(0);
 }
@@ -533,7 +576,11 @@ int main(int argc, char **argv)
 	cmd_init(1);
 	cmd_hostname_set("test");
 	vty_init(master, false);
+<<<<<<< HEAD
 	yang_init(true, false);
+=======
+	yang_init(true, false, false);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	if (debug)
 		zlog_aux_init("NONE: ", LOG_DEBUG);
 	else

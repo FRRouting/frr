@@ -121,7 +121,11 @@ def setup_module(mod):
     logger.info("Running setup_module() done")
 
 
+<<<<<<< HEAD
 def teardown_module(mod):
+=======
+def teardown_module():
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     """
     Teardown the pytest environment.
 
@@ -193,7 +197,11 @@ def test_ospf_ecmp_tc16_p0(request):
 
     step("Verify that route in R2 in stalled with 8 next hops.")
     nh = []
+<<<<<<< HEAD
     for item in range(1, 7):
+=======
+    for _ in range(1, 7):
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         nh.append(topo["routers"]["r0"]["links"]["r1-link1"]["ipv4"].split("/")[0])
 
     nh2 = topo["routers"]["r0"]["links"]["r1"]["ipv4"].split("/")[0]

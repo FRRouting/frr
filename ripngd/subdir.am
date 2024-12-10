@@ -27,7 +27,10 @@ ripngd_ripngd_SOURCES = \
 
 clippy_scan += \
 	ripngd/ripng_cli.c \
+<<<<<<< HEAD
 	ripngd/ripngd.c \
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	# end
 
 noinst_HEADERS += \

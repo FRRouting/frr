@@ -76,6 +76,14 @@ struct bgp_dest {
 
 	STAILQ_ENTRY(bgp_dest) pq;
 
+<<<<<<< HEAD
+=======
+	struct zebra_announce_item zai;
+	struct bgp_path_info *za_bgp_pi;
+	struct bgpevpn *za_vpn;
+	bool za_is_sync;
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	uint64_t version;
 
 	mpls_label_t local_label;
@@ -91,12 +99,22 @@ struct bgp_dest {
 #define BGP_NODE_LABEL_REQUESTED        (1 << 7)
 #define BGP_NODE_SOFT_RECONFIG (1 << 8)
 #define BGP_NODE_PROCESS_CLEAR (1 << 9)
+<<<<<<< HEAD
+=======
+#define BGP_NODE_SCHEDULE_FOR_INSTALL	(1 << 10)
+#define BGP_NODE_SCHEDULE_FOR_DELETE	(1 << 11)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	struct bgp_addpath_node_data tx_addpath;
 
 	enum bgp_path_selection_reason reason;
 };
 
+<<<<<<< HEAD
+=======
+DECLARE_LIST(zebra_announce, struct bgp_dest, zai);
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 extern void bgp_delete_listnode(struct bgp_dest *dest);
 /*
  * bgp_table_iter_t

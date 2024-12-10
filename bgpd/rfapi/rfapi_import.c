@@ -442,6 +442,10 @@ static struct bgp_path_info *rfapiBgpInfoCreate(struct attr *attr,
 						uint32_t *label)
 {
 	struct bgp_path_info *new;
+<<<<<<< HEAD
+=======
+	struct bgp_labels bgp_labels = {};
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	new = info_make(type, sub_type, 0, peer, attr, NULL);
 
@@ -454,8 +458,16 @@ static struct bgp_path_info *rfapiBgpInfoCreate(struct attr *attr,
 		new->extra->vnc->vnc.import.rd = *prd;
 		new->extra->vnc->vnc.import.create_time = monotime(NULL);
 	}
+<<<<<<< HEAD
 	if (label)
 		encode_label(*label, &new->extra->label[0]);
+=======
+	if (label && *label != MPLS_INVALID_LABEL) {
+		encode_label(*label, &bgp_labels.label[0]);
+		bgp_labels.num_labels = 1;
+		new->extra->labels = bgp_labels_intern(&bgp_labels);
+	}
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	peer_lock(peer);
 
@@ -1267,7 +1279,14 @@ rfapiRouteInfo2NextHopEntry(struct rfapi_ip_prefix *rprefix,
 			bpi->extra->vnc->vnc.import.rd.val[1];
 
 		/* label comes from MP_REACH_NLRI label */
+<<<<<<< HEAD
 		vo->v.l2addr.label = decode_label(&bpi->extra->label[0]);
+=======
+		vo->v.l2addr.label =
+			BGP_PATH_INFO_NUM_LABELS(bpi)
+				? decode_label(&bpi->extra->labels->label[0])
+				: MPLS_INVALID_LABEL;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 		new->vn_options = vo;
 
@@ -4154,15 +4173,26 @@ static void rfapiBgpTableFilteredImport(struct bgp *bgp,
 
 				for (bpi = bgp_dest_get_bgp_path_info(dest2);
 				     bpi; bpi = bpi->next) {
+<<<<<<< HEAD
 					uint32_t label = 0;
+=======
+					uint32_t label = MPLS_INVALID_LABEL;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 					if (CHECK_FLAG(bpi->flags,
 						       BGP_PATH_REMOVED))
 						continue;
 
+<<<<<<< HEAD
 					if (bpi->extra)
 						label = decode_label(
 							&bpi->extra->label[0]);
+=======
+					if (BGP_PATH_INFO_NUM_LABELS(bpi))
+						label = decode_label(
+							&bpi->extra->labels
+								 ->label[0]);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 					(*rfapiBgpInfoFilteredImportFunction(
 						safi))(
 						it, /* which import table */

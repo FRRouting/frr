@@ -1954,6 +1954,7 @@ DEFPY (show_pbr_interface,
 
 /* PBR debugging CLI ------------------------------------------------------- */
 
+<<<<<<< HEAD
 static struct cmd_node debug_node = {
 	.name = "debug",
 	.node = DEBUG_NODE,
@@ -1961,6 +1962,8 @@ static struct cmd_node debug_node = {
 	.config_write = pbr_debug_config_write,
 };
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 DEFPY(debug_pbr,
       debug_pbr_cmd,
       "[no] debug pbr [{map$map|zebra$zebra|nht$nht|events$events}]",
@@ -1973,6 +1976,7 @@ DEFPY(debug_pbr,
       "Events\n")
 {
 	uint32_t mode = DEBUG_NODE2MODE(vty->node);
+<<<<<<< HEAD
 
 	if (map)
 		DEBUG_MODE_SET(&pbr_dbg_map, mode, !no);
@@ -1986,6 +1990,22 @@ DEFPY(debug_pbr,
 	/* no specific debug --> act on all of them */
 	if (strmatch(argv[argc - 1]->text, "pbr"))
 		pbr_debug_set_all(mode, !no);
+=======
+	bool all = false;
+
+	/* no specific debug --> act on all of them */
+	if (strmatch(argv[argc - 1]->text, "pbr"))
+		all = true;
+
+	if (map || all)
+		DEBUG_MODE_SET(&pbr_dbg_map, mode, !no);
+	if (zebra || all)
+		DEBUG_MODE_SET(&pbr_dbg_zebra, mode, !no);
+	if (nht || all)
+		DEBUG_MODE_SET(&pbr_dbg_nht, mode, !no);
+	if (events || all)
+		DEBUG_MODE_SET(&pbr_dbg_event, mode, !no);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	return CMD_SUCCESS;
 }
@@ -1999,8 +2019,11 @@ DEFUN_NOSH(show_debugging_pbr,
 {
 	vty_out(vty, "PBR debugging status:\n");
 
+<<<<<<< HEAD
 	pbr_debug_config_write_helper(vty, false);
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	cmd_show_lib_debugs(vty);
 
 	return CMD_SUCCESS;
@@ -2194,7 +2217,10 @@ void pbr_vty_init(void)
 	install_node(&pbr_map_node);
 
 	/* debug */
+<<<<<<< HEAD
 	install_node(&debug_node);
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	install_element(ENABLE_NODE, &debug_pbr_cmd);
 	install_element(CONFIG_NODE, &debug_pbr_cmd);
 	install_element(ENABLE_NODE, &show_debugging_pbr_cmd);

@@ -103,7 +103,10 @@ def setup_module(mod):
 
     # For all registered routers, load the zebra configuration file
     for rname, router in tgen.routers().items():
+<<<<<<< HEAD
         router.run("/bin/bash {}/setup_vrfs".format(CWD))
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         router.load_config(
             TopoRouter.RD_ZEBRA, os.path.join(CWD, "{}/zebra.conf".format(rname))
         )

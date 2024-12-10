@@ -1,3 +1,8 @@
+<<<<<<< HEAD
+=======
+// SPDX-License-Identifier: GPL-2.0-or-later
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 #ifndef _FRR_ROUTING_NB_H_
 #define _FRR_ROUTING_NB_H_
 

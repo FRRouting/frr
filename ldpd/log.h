@@ -8,6 +8,7 @@
 #ifndef LOG_H
 #define LOG_H
 
+<<<<<<< HEAD
 #include <stdarg.h>
 
 extern const char	*log_procname;
@@ -32,5 +33,32 @@ void	 fatal(const char *)
 void	 fatalx(const char *)
 		__attribute__ ((noreturn))
 		__attribute__((__format__ (printf, 1, 0)));
+=======
+#include "log.h"
+#include "assert.h"
+
+extern const char	*log_procname;
+
+#define log_warnx	zlog_err	/* yes this is poorly named */
+#define log_warn	zlog_warn
+#define log_info	zlog_info
+#define log_notice	zlog_notice	/* not used anywhere */
+#define log_debug	zlog_debug
+
+#define fatal(msg)                                                             \
+	do {                                                                   \
+		assertf(0, "fatal in %s: %pSQq (%m)", log_procname,            \
+			(const char *)msg);                                    \
+		__builtin_unreachable();                                       \
+	} while (0)                                                            \
+	/* end */
+#define fatalx(msg)                                                            \
+	do {                                                                   \
+		assertf(0, "fatal in %s: %pSQq", log_procname,                 \
+			(const char *)msg);                                    \
+		__builtin_unreachable();                                       \
+	} while (0)                                                            \
+	/* end */
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 #endif /* LOG_H */

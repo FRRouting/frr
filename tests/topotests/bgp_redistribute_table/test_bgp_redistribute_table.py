@@ -86,7 +86,11 @@ def _router_json_cmp_exact_filter(router, cmd, expected):
     json_output = json.loads(output)
 
     # filter out tableVersion, version, nhVrfId and vrfId
+<<<<<<< HEAD
     for route, attrs in json_output.items():
+=======
+    for _, attrs in json_output.items():
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         for attr in attrs:
             if "table" in attr:
                 attr.pop("table")

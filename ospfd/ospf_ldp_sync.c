@@ -774,7 +774,11 @@ DEFPY (no_ospf_mpls_ldp_sync,
        "Disable MPLS LDP-IGP Sync\n")
 {
 	VTY_DECLVAR_INSTANCE_CONTEXT(ospf, ospf);
+<<<<<<< HEAD
 	ospf_ldp_sync_gbl_exit(ospf, false);
+=======
+	ospf_ldp_sync_gbl_exit(ospf, true);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	return CMD_SUCCESS;
 }
 

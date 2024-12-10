@@ -455,6 +455,15 @@ _Static_assert(sizeof(_uint64_t) == 8 && sizeof(_int64_t) == 8,
 #define unlikely(_x) !!(_x)
 #endif
 
+<<<<<<< HEAD
+=======
+#ifdef __MACH__
+#define _DATA_SECTION(name) __attribute__((section("__DATA," name)))
+#else
+#define _DATA_SECTION(name) __attribute__((section(".data." name)))
+#endif
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 #ifdef __cplusplus
 }
 #endif

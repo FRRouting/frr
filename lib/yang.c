@@ -11,13 +11,38 @@
 #include "lib_errors.h"
 #include "yang.h"
 #include "yang_translator.h"
+<<<<<<< HEAD
 #include "northbound.h"
+=======
+#include <libyang/version.h>
+#include "northbound.h"
+#include "frrstr.h"
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 #include "lib/config_paths.h"
 
 DEFINE_MTYPE_STATIC(LIB, YANG_MODULE, "YANG module");
 DEFINE_MTYPE_STATIC(LIB, YANG_DATA, "YANG data structure");
 
+<<<<<<< HEAD
+=======
+/* Safe to remove after libyang 2.2.8 */
+#if (LY_VERSION_MAJOR < 3)
+#define yang_lyd_find_xpath3(ctx_node, tree, xpath, format, prefix_data, vars, \
+			     set)                                              \
+	lyd_find_xpath3(ctx_node, tree, xpath, vars, set)
+
+#ifndef LYD_NEW_VAL_OUTPUT
+#define LYD_NEW_VAL_OUTPUT LYD_NEW_PATH_OUTPUT
+#endif
+
+#else
+#define yang_lyd_find_xpath3(ctx_node, tree, xpath, format, prefix_data, vars, \
+			     set)                                              \
+	lyd_find_xpath3(ctx_node, tree, xpath, LY_VALUE_JSON, NULL, vars, set)
+#endif
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 /* libyang container. */
 struct ly_ctx *ly_native_ctx;
 
@@ -199,6 +224,19 @@ next:
 		if (ret == YANG_ITER_STOP)
 			return ret;
 	}
+<<<<<<< HEAD
+=======
+	LY_LIST_FOR ((const struct lysc_node *)lysc_node_notifs(snode), child) {
+		ret = yang_snodes_iterate_subtree(child, module, cb, flags, arg);
+		if (ret == YANG_ITER_STOP)
+			return ret;
+	}
+	LY_LIST_FOR ((const struct lysc_node *)lysc_node_actions(snode), child) {
+		ret = yang_snodes_iterate_subtree(child, module, cb, flags, arg);
+		if (ret == YANG_ITER_STOP)
+			return ret;
+	}
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	return ret;
 }
 
@@ -258,7 +296,11 @@ void yang_snode_get_path(const struct lysc_node *snode,
 }
 
 LY_ERR yang_resolve_snode_xpath(struct ly_ctx *ly_ctx, const char *xpath,
+<<<<<<< HEAD
 				struct lysc_node ***snodes, bool *simple)
+=======
+				const struct lysc_node ***snodes, bool *simple)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 {
 	struct lysc_node *snode;
 	struct ly_set *set;
@@ -642,6 +684,19 @@ void yang_dnode_free(struct lyd_node *dnode)
 	lyd_free_all(dnode);
 }
 
+<<<<<<< HEAD
+=======
+void yang_dnode_rpc_output_add(struct lyd_node *output, const char *xpath,
+			       const char *value)
+{
+	LY_ERR err;
+
+	err = lyd_new_path(output, ly_native_ctx, xpath, value,
+			   LYD_NEW_VAL_OUTPUT | LYD_NEW_PATH_UPDATE, NULL);
+	assert(err == LY_SUCCESS);
+}
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 struct yang_data *yang_data_new(const char *xpath, const char *value)
 {
 	struct yang_data *data;
@@ -691,7 +746,16 @@ struct yang_data *yang_data_list_find(const struct list *list,
 }
 
 /* Make libyang log its errors using FRR logging infrastructure. */
+<<<<<<< HEAD
 static void ly_log_cb(LY_LOG_LEVEL level, const char *msg, const char *path)
+=======
+static void ly_zlog_cb(LY_LOG_LEVEL level, const char *msg, const char *data_path
+#if !(LY_VERSION_MAJOR < 3)
+		       ,
+		       const char *schema_path, uint64_t line
+#endif
+)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 {
 	int priority = LOG_ERR;
 
@@ -708,8 +772,19 @@ static void ly_log_cb(LY_LOG_LEVEL level, const char *msg, const char *path)
 		break;
 	}
 
+<<<<<<< HEAD
 	if (path)
 		zlog(priority, "libyang: %s (%s)", msg, path);
+=======
+	if (data_path)
+		zlog(priority, "libyang: %s (%s)", msg, data_path);
+#if !(LY_VERSION_MAJOR < 3)
+	else if (schema_path)
+		zlog(priority, "libyang %s (%s)\n", msg, schema_path);
+	else if (line)
+		zlog(priority, "libyang %s (line %" PRIu64 ")\n", msg, line);
+#endif
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	else
 		zlog(priority, "libyang: %s", msg);
 }
@@ -736,7 +811,12 @@ LY_ERR yang_parse_notification(const char *xpath, LYD_FORMAT format,
 		return err;
 	}
 
+<<<<<<< HEAD
 	err = lyd_find_xpath3(NULL, tree, xpath, NULL, &set);
+=======
+	err = yang_lyd_find_xpath3(NULL, tree, xpath, LY_VALUE_JSON, NULL, NULL,
+				   &set);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	if (err) {
 		zlog_err("Failed to parse notification: %s", ly_last_errmsg());
 		lyd_free_all(tree);
@@ -753,6 +833,66 @@ LY_ERR yang_parse_notification(const char *xpath, LYD_FORMAT format,
 	return LY_SUCCESS;
 }
 
+<<<<<<< HEAD
+=======
+LY_ERR yang_parse_rpc(const char *xpath, LYD_FORMAT format, const char *data,
+		      bool reply, struct lyd_node **rpc)
+{
+	const struct lysc_node *snode;
+	struct lyd_node *parent = NULL;
+	struct ly_in *in = NULL;
+	LY_ERR err;
+
+	snode = lys_find_path(ly_native_ctx, NULL, xpath, 0);
+	if (!snode) {
+		zlog_err("Failed to find RPC/action schema node: %s", xpath);
+		return LY_ENOTFOUND;
+	}
+
+	/* If it's an action, create its parent */
+	if (snode->nodetype == LYS_ACTION) {
+		char *parent_xpath = XSTRDUP(MTYPE_TMP, xpath);
+
+		if (yang_xpath_pop_node(parent_xpath) != NB_OK) {
+			XFREE(MTYPE_TMP, parent_xpath);
+			zlog_err("Invalid action xpath: %s", xpath);
+			return LY_EINVAL;
+		}
+
+		err = lyd_new_path2(NULL, ly_native_ctx, parent_xpath, NULL, 0,
+				    0, 0, NULL, &parent);
+		XFREE(MTYPE_TMP, parent_xpath);
+		if (err) {
+			zlog_err("Failed to create parent node for action: %s",
+				 ly_last_errmsg());
+			return err;
+		}
+	} else if (snode->nodetype != LYS_RPC) {
+		zlog_err("Schema node is not an RPC/action: %s", xpath);
+		return LY_EINVAL;
+	}
+
+	err = ly_in_new_memory(data, &in);
+	if (err) {
+		lyd_free_all(parent);
+		zlog_err("Failed to initialize ly_in: %s", ly_last_errmsg());
+		return err;
+	}
+
+	err = lyd_parse_op(ly_native_ctx, parent, in, format,
+			   reply ? LYD_TYPE_REPLY_YANG : LYD_TYPE_RPC_YANG,
+			   NULL, rpc);
+	ly_in_free(in, 0);
+	if (err) {
+		lyd_free_all(parent);
+		zlog_err("Failed to parse RPC/action: %s", ly_last_errmsg());
+		return err;
+	}
+
+	return LY_SUCCESS;
+}
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 static ssize_t yang_print_darr(void *arg, const void *buf, size_t count)
 {
 	uint8_t *dst = darr_append_n(*(uint8_t **)arg, count);
@@ -829,23 +969,43 @@ char *yang_convert_lyd_format(const char *data, size_t data_len,
 
 const char *yang_print_errors(struct ly_ctx *ly_ctx, char *buf, size_t buf_len)
 {
+<<<<<<< HEAD
 	struct ly_err_item *ei;
+=======
+	const struct ly_err_item *ei;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	ei = ly_err_first(ly_ctx);
 	if (!ei)
 		return "";
 
 	strlcpy(buf, "YANG error(s):\n", buf_len);
+<<<<<<< HEAD
 	for (; ei; ei = ei->next) {
 		if (ei->path) {
 			strlcat(buf, " Path: ", buf_len);
 			strlcat(buf, ei->path, buf_len);
+=======
+#if (LY_VERSION_MAJOR < 3)
+#define data_path path
+#else
+#define data_path data_path
+#endif
+	for (; ei; ei = ei->next) {
+		if (ei->data_path) {
+			strlcat(buf, " Path: ", buf_len);
+			strlcat(buf, ei->data_path, buf_len);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			strlcat(buf, "\n", buf_len);
 		}
 		strlcat(buf, " Error: ", buf_len);
 		strlcat(buf, ei->msg, buf_len);
 		strlcat(buf, "\n", buf_len);
 	}
+<<<<<<< HEAD
+=======
+#undef data_path
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	ly_err_clean(ly_ctx, NULL);
 
@@ -863,7 +1023,11 @@ void yang_debugging_set(bool enable)
 	}
 }
 
+<<<<<<< HEAD
 struct ly_ctx *yang_ctx_new_setup(bool embedded_modules, bool explicit_compile)
+=======
+struct ly_ctx *yang_ctx_new_setup(bool embedded_modules, bool explicit_compile, bool load_library)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 {
 	struct ly_ctx *ctx = NULL;
 	const char *yang_models_path = YANG_MODELS_PATH;
@@ -881,7 +1045,13 @@ struct ly_ctx *yang_ctx_new_setup(bool embedded_modules, bool explicit_compile)
 				     YANG_MODELS_PATH);
 	}
 
+<<<<<<< HEAD
 	options = LY_CTX_NO_YANGLIBRARY | LY_CTX_DISABLE_SEARCHDIR_CWD;
+=======
+	options = LY_CTX_DISABLE_SEARCHDIR_CWD;
+	if (!load_library)
+		options |= LY_CTX_NO_YANGLIBRARY;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	if (explicit_compile)
 		options |= LY_CTX_EXPLICIT_COMPILE;
 	err = ly_ctx_new(yang_models_path, options, &ctx);
@@ -894,6 +1064,7 @@ struct ly_ctx *yang_ctx_new_setup(bool embedded_modules, bool explicit_compile)
 	return ctx;
 }
 
+<<<<<<< HEAD
 void yang_init(bool embedded_modules, bool defer_compile)
 {
 	/* Initialize libyang global parameters that affect all containers. */
@@ -902,6 +1073,21 @@ void yang_init(bool embedded_modules, bool defer_compile)
 
 	/* Initialize libyang container for native models. */
 	ly_native_ctx = yang_ctx_new_setup(embedded_modules, defer_compile);
+=======
+void yang_init(bool embedded_modules, bool defer_compile, bool load_library)
+{
+	/* Initialize libyang global parameters that affect all containers. */
+	ly_set_log_clb(ly_zlog_cb
+#if (LY_VERSION_MAJOR < 3)
+		       ,
+		       1
+#endif
+	);
+	ly_log_options(LY_LOLOG | LY_LOSTORE);
+
+	/* Initialize libyang container for native models. */
+	ly_native_ctx = yang_ctx_new_setup(embedded_modules, defer_compile, load_library);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	if (!ly_native_ctx) {
 		flog_err(EC_LIB_LIBYANG, "%s: ly_ctx_new() failed", __func__);
 		exit(1);
@@ -1112,6 +1298,35 @@ int yang_get_node_keys(struct lyd_node *node, struct yang_list_keys *keys)
 	return NB_OK;
 }
 
+<<<<<<< HEAD
+=======
+int yang_xpath_pop_node(char *xpath)
+{
+	int len = strlen(xpath);
+	bool abs = xpath[0] == '/';
+	char *slash;
+
+	/* "//" or "/" => NULL */
+	if (abs && (len == 1 || (len == 2 && xpath[1] == '/')))
+		return NB_ERR_NOT_FOUND;
+
+	slash = (char *)frrstr_back_to_char(xpath, '/');
+	/* "/foo/bar/" or "/foo/bar//" => "/foo " */
+	if (slash && slash == &xpath[len - 1]) {
+		xpath[--len] = 0;
+		slash = (char *)frrstr_back_to_char(xpath, '/');
+		if (slash && slash == &xpath[len - 1]) {
+			xpath[--len] = 0;
+			slash = (char *)frrstr_back_to_char(xpath, '/');
+		}
+	}
+	if (!slash)
+		return NB_ERR_NOT_FOUND;
+	*slash = 0;
+	return NB_OK;
+}
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 /*
  * ------------------------
  * Libyang Future Functions
@@ -1209,7 +1424,12 @@ LY_ERR yang_lyd_trim_xpath(struct lyd_node **root, const char *xpath)
 
 	*root = lyd_first_sibling(*root);
 
+<<<<<<< HEAD
 	err = lyd_find_xpath3(NULL, *root, xpath, NULL, &set);
+=======
+	err = yang_lyd_find_xpath3(NULL, *root, xpath, LY_VALUE_JSON, NULL,
+				   NULL, &set);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	if (err) {
 		flog_err_sys(EC_LIB_LIBYANG,
 			     "cannot obtain specific result for xpath \"%s\": %s",
@@ -1253,8 +1473,15 @@ LY_ERR yang_lyd_trim_xpath(struct lyd_node **root, const char *xpath)
 		}
 	}
 	darr_foreach_i (remove, i) {
+<<<<<<< HEAD
 		if (remove[i] == *root)
 			*root = (*root)->next;
+=======
+		if (remove[i] == *root) {
+			assert(*root);
+			*root = (*root)->next;
+		}
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		lyd_free_tree(remove[i]);
 	}
 	darr_free(remove);
@@ -1265,6 +1492,45 @@ LY_ERR yang_lyd_trim_xpath(struct lyd_node **root, const char *xpath)
 #endif
 }
 
+<<<<<<< HEAD
+=======
+/* Can be replaced by `lyd_parse_data` with libyang >= 2.1.156 */
+LY_ERR yang_lyd_parse_data(const struct ly_ctx *ctx, struct lyd_node *parent,
+			   struct ly_in *in, LYD_FORMAT format,
+			   uint32_t parse_options, uint32_t validate_options,
+			   struct lyd_node **tree)
+{
+	struct lyd_node *child;
+	LY_ERR err;
+
+	err = lyd_parse_data(ctx, parent, in, format, parse_options,
+			     validate_options, tree);
+	if (err)
+		return err;
+
+	if (!parent || !(parse_options & LYD_PARSE_ONLY))
+		return LY_SUCCESS;
+
+	/*
+	 * Versions prior to 2.1.156 don't return `tree` if `parent` is not NULL
+	 * and validation is disabled (`LYD_PARSE_ONLY`). To work around this,
+	 * go through the children and find the one with `LYD_NEW` flag set.
+	 */
+	*tree = NULL;
+
+	LY_LIST_FOR (lyd_child_no_keys(parent), child) {
+		if (child->flags & LYD_NEW) {
+			*tree = child;
+			break;
+		}
+	}
+
+	assert(tree);
+
+	return LY_SUCCESS;
+}
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 /*
  * Safe to remove after libyang v2.1.128 is required
  */

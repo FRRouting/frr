@@ -59,13 +59,18 @@ enum bgp_show_adj_route_type {
 
 #define BGP_SHOW_SCODE_HEADER                                                  \
 	"Status codes:  s suppressed, d damped, "                              \
+<<<<<<< HEAD
 	"h history, * valid, > best, = multipath,\n"                           \
+=======
+	"h history, u unsorted, * valid, > best, = multipath,\n"               \
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	"               i internal, r RIB-failure, S Stale, R Removed\n"
 #define BGP_SHOW_OCODE_HEADER                                                  \
 	"Origin codes:  i - IGP, e - EGP, ? - incomplete\n"
 #define BGP_SHOW_NCODE_HEADER "Nexthop codes: @NNN nexthop's vrf id, < announce-nh-self\n"
 #define BGP_SHOW_RPKI_HEADER                                                   \
 	"RPKI validation codes: V valid, I invalid, N Not found\n\n"
+<<<<<<< HEAD
 #define BGP_SHOW_HEADER "    Network          Next Hop            Metric LocPrf Weight Path\n"
 #define BGP_SHOW_HEADER_WIDE "    Network                                      Next Hop                                  Metric LocPrf Weight Path\n"
 
@@ -73,6 +78,10 @@ enum bgp_show_adj_route_type {
  * really do only 1 for MPLS (BGP-LU) but we can do 2 for EVPN-VxLAN.
  */
 #define BGP_MAX_LABELS 2
+=======
+#define BGP_SHOW_HEADER "     Network          Next Hop            Metric LocPrf Weight Path\n"
+#define BGP_SHOW_HEADER_WIDE "     Network                                      Next Hop                                  Metric LocPrf Weight Path\n"
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 /* Maximum number of sids we can process or send with a prefix. */
 #define BGP_MAX_SIDS 6
@@ -237,8 +246,12 @@ struct bgp_path_info_extra {
 	uint32_t igpmetric;
 
 	/* MPLS label(s) - VNI(s) for EVPN-VxLAN  */
+<<<<<<< HEAD
 	mpls_label_t label[BGP_MAX_LABELS];
 	uint32_t num_labels;
+=======
+	struct bgp_labels *labels;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	/* timestamp of the rib installation */
 	time_t bgp_rib_uptime;
@@ -290,6 +303,12 @@ struct bgp_path_info {
 	/* Peer structure.  */
 	struct peer *peer;
 
+<<<<<<< HEAD
+=======
+	/* From peer structure */
+	struct peer *from;
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	/* Attribute structure.  */
 	struct attr *attr;
 
@@ -319,6 +338,14 @@ struct bgp_path_info {
 #define BGP_PATH_STALE (1 << 8)
 #define BGP_PATH_REMOVED (1 << 9)
 #define BGP_PATH_COUNTED (1 << 10)
+<<<<<<< HEAD
+=======
+/*
+ * A BGP_PATH_MULTIPATH flag is not set on the best path
+ * it is set on every other node that is part of ECMP
+ * for that particular dest
+ */
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 #define BGP_PATH_MULTIPATH (1 << 11)
 #define BGP_PATH_MULTIPATH_CHG (1 << 12)
 #define BGP_PATH_RIB_ATTR_CHG (1 << 13)
@@ -327,6 +354,19 @@ struct bgp_path_info {
 #define BGP_PATH_ACCEPT_OWN (1 << 16)
 #define BGP_PATH_MPLSVPN_LABEL_NH (1 << 17)
 #define BGP_PATH_MPLSVPN_NH_LABEL_BIND (1 << 18)
+<<<<<<< HEAD
+=======
+#define BGP_PATH_UNSORTED (1 << 19)
+/*
+ * BGP_PATH_MULTIPATH_NEW is set on those bgp_path_info
+ * nodes that we have decided should possibly be in the
+ * ecmp path for a particular dest.  This flag is
+ * removed when the bgp_path_info's are looked at to
+ * decide on whether or not a bgp_path_info is on
+ * the actual ecmp path.
+ */
+#define BGP_PATH_MULTIPATH_NEW (1 << 20)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	/* BGP route type.  This can be static, RIP, OSPF, BGP etc.  */
 	uint8_t type;
@@ -345,6 +385,11 @@ struct bgp_path_info {
 
 	unsigned short instance;
 
+<<<<<<< HEAD
+=======
+	enum bgp_path_selection_reason reason;
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	/* Addpath identifiers */
 	uint32_t addpath_rx_id;
 	struct bgp_addpath_info_data tx_addpath;
@@ -564,6 +609,14 @@ struct bgp_aggregate {
 /* path PREFIX (addpath rxid NUMBER) */
 #define PATH_ADDPATH_STR_BUFFER PREFIX2STR_BUFFER + 32
 
+<<<<<<< HEAD
+=======
+#define BGP_PATH_INFO_NUM_LABELS(pi)                                           \
+	((pi) && (pi)->extra && (pi)->extra->labels                            \
+		 ? (pi)->extra->labels->num_labels                             \
+		 : 0)
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 enum bgp_path_type {
 	BGP_PATH_SHOW_ALL,
 	BGP_PATH_SHOW_BESTPATH,
@@ -603,6 +656,7 @@ static inline bool is_pi_family_matching(struct bgp_path_info *pi,
 }
 
 static inline void prep_for_rmap_apply(struct bgp_path_info *dst_pi,
+<<<<<<< HEAD
 				       struct bgp_path_info_extra *dst_pie,
 				       struct bgp_dest *dest,
 				       struct bgp_path_info *src_pi,
@@ -610,6 +664,15 @@ static inline void prep_for_rmap_apply(struct bgp_path_info *dst_pi,
 {
 	memset(dst_pi, 0, sizeof(struct bgp_path_info));
 	dst_pi->peer = peer;
+=======
+				       struct bgp_path_info_extra *dst_pie, struct bgp_dest *dest,
+				       struct bgp_path_info *src_pi, struct peer *peer,
+				       struct peer *from, struct attr *attr)
+{
+	memset(dst_pi, 0, sizeof(struct bgp_path_info));
+	dst_pi->peer = peer;
+	dst_pi->from = from;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	dst_pi->attr = attr;
 	dst_pi->net = dest;
 	dst_pi->flags = src_pi->flags;
@@ -750,12 +813,21 @@ extern void bgp_path_info_delete(struct bgp_dest *dest,
 				 struct bgp_path_info *pi);
 extern struct bgp_path_info_extra *
 bgp_path_info_extra_get(struct bgp_path_info *path);
+<<<<<<< HEAD
+=======
+extern bool bgp_path_info_has_valid_label(const struct bgp_path_info *path);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 extern void bgp_path_info_set_flag(struct bgp_dest *dest,
 				   struct bgp_path_info *path, uint32_t flag);
 extern void bgp_path_info_unset_flag(struct bgp_dest *dest,
 				     struct bgp_path_info *path, uint32_t flag);
 extern void bgp_path_info_path_with_addpath_rx_str(struct bgp_path_info *pi,
 						   char *buf, size_t buf_len);
+<<<<<<< HEAD
+=======
+extern bool bgp_path_info_labels_same(const struct bgp_path_info *bpi,
+				      const mpls_label_t *label, uint32_t n);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 extern int bgp_nlri_parse_ip(struct peer *, struct attr *, struct bgp_nlri *);
 
@@ -792,16 +864,38 @@ extern void bgp_update(struct peer *peer, const struct prefix *p,
 		       uint32_t addpath_id, struct attr *attr, afi_t afi,
 		       safi_t safi, int type, int sub_type,
 		       struct prefix_rd *prd, mpls_label_t *label,
+<<<<<<< HEAD
 		       uint32_t num_labels, int soft_reconfig,
+=======
+		       uint8_t num_labels, int soft_reconfig,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		       struct bgp_route_evpn *evpn);
 extern void bgp_withdraw(struct peer *peer, const struct prefix *p,
 			 uint32_t addpath_id, afi_t afi, safi_t safi, int type,
 			 int sub_type, struct prefix_rd *prd,
+<<<<<<< HEAD
 			 mpls_label_t *label, uint32_t num_labels,
 			 struct bgp_route_evpn *evpn);
 
 /* for bgp_nexthop and bgp_damp */
 extern void bgp_process(struct bgp *, struct bgp_dest *, afi_t, safi_t);
+=======
+			 mpls_label_t *label, uint8_t num_labels);
+
+/*
+ * Add a route to be processed for bgp bestpath through the bgp
+ * workqueue.  This route is added to the end of all other routes
+ * queued for processing
+ *
+ * bgp_process_early adds the route for processing at the beginning
+ * of the current queue for processing.
+ */
+extern void bgp_process(struct bgp *bgp, struct bgp_dest *dest,
+			struct bgp_path_info *pi, afi_t afi, safi_t safi);
+
+extern void bgp_process_early(struct bgp *bgp, struct bgp_dest *dest,
+			      struct bgp_path_info *pi, afi_t afi, safi_t safi);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 /*
  * Add an end-of-initial-update marker to the process queue. This is just a
@@ -898,7 +992,12 @@ extern void route_vty_out_detail_header(struct vty *vty, struct bgp *bgp,
 					const struct prefix *p,
 					const struct prefix_rd *prd, afi_t afi,
 					safi_t safi, json_object *json,
+<<<<<<< HEAD
 					bool incremental_print);
+=======
+					bool incremental_print,
+					bool local_table);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 extern void route_vty_out_detail(struct vty *vty, struct bgp *bgp,
 				 struct bgp_dest *bn, const struct prefix *p,
 				 struct bgp_path_info *path, afi_t afi,

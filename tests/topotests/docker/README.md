@@ -68,5 +68,9 @@ without pulling from the registry using the following commands:
 
 ```console
 make topotests-build
+<<<<<<< HEAD
 TOPOTEST_PULL=0 make topotests
+=======
+make topotests
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 ```

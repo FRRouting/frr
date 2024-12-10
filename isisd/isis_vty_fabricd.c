@@ -218,6 +218,7 @@ DEFUN (ip_router_isis,
 	if (!area)
 		isis_area_create(area_tag, VRF_DEFAULT_NAME);
 
+<<<<<<< HEAD
 	if (!circuit) {
 		circuit = isis_circuit_new(ifp, area_tag);
 
@@ -229,6 +230,11 @@ DEFUN (ip_router_isis,
 		}
 	}
 
+=======
+	if (!circuit)
+		circuit = isis_circuit_new(ifp, area_tag);
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	bool ip = circuit->ip_router, ipv6 = circuit->ipv6_router;
 	if (af[2] != '\0')
 		ipv6 = true;

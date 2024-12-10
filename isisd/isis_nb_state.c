@@ -98,6 +98,11 @@ const void *lib_interface_state_isis_adjacencies_adjacency_get_next(
 			 * adjacencies list.
 			 */
 			list = circuit->u.bc.adjdb[ISIS_LEVEL2 - 1];
+<<<<<<< HEAD
+=======
+			if (!list)
+				break;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			adj_next = listnode_head(list);
 		}
 		break;

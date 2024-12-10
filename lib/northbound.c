@@ -178,7 +178,11 @@ struct nb_node *nb_node_find(const char *path)
 
 struct nb_node **nb_nodes_find(const char *xpath)
 {
+<<<<<<< HEAD
 	struct lysc_node **snodes = NULL;
+=======
+	const struct lysc_node **snodes = NULL;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	struct nb_node **nb_nodes = NULL;
 	bool simple;
 	LY_ERR err;
@@ -813,6 +817,246 @@ int nb_candidate_edit(struct nb_config *candidate, const struct nb_node *nb_node
 	return NB_OK;
 }
 
+<<<<<<< HEAD
+=======
+static int nb_candidate_edit_tree_add(struct nb_config *candidate,
+				      enum nb_operation operation,
+				      LYD_FORMAT format, const char *xpath,
+				      const char *data, bool *created,
+				      char *xpath_created, char *errmsg,
+				      size_t errmsg_len)
+{
+	struct lyd_node *tree = NULL;
+	struct lyd_node *parent = NULL;
+	struct lyd_node *dnode = NULL;
+	struct lyd_node *existing = NULL;
+	struct lyd_node *ex_parent = NULL;
+	char *parent_xpath = NULL;
+	struct ly_in *in;
+	LY_ERR err;
+	bool root;
+	int ret;
+
+	ly_in_new_memory(data, &in);
+
+	root = xpath[0] == 0 || (xpath[0] == '/' && xpath[1] == 0);
+
+	/* get parent xpath if xpath is not root */
+	if (!root) {
+		/* NB_OP_CREATE_EXCT already expects parent xpath */
+		parent_xpath = XSTRDUP(MTYPE_TMP, xpath);
+
+		/* for other operations - pop one level */
+		if (operation != NB_OP_CREATE_EXCL) {
+			ret = yang_xpath_pop_node(parent_xpath);
+			if (ret) {
+				snprintf(errmsg, errmsg_len, "Invalid xpath");
+				goto done;
+			}
+
+			/* root is not actually a parent */
+			if (parent_xpath[0] == 0)
+				XFREE(MTYPE_TMP, parent_xpath);
+		}
+	}
+
+	/*
+	 * Create parent if it's not root. We're creating a new tree here to be
+	 * merged later with candidate.
+	 */
+	if (parent_xpath) {
+		err = lyd_new_path2(NULL, ly_native_ctx, parent_xpath, NULL, 0,
+				    0, 0, &tree, &parent);
+		if (err) {
+			yang_print_errors(ly_native_ctx, errmsg, errmsg_len);
+			ret = NB_ERR;
+			goto done;
+		}
+		assert(parent);
+	}
+
+	/* parse data */
+	err = yang_lyd_parse_data(ly_native_ctx, parent, in, format,
+				  LYD_PARSE_ONLY | LYD_PARSE_STRICT |
+					  LYD_PARSE_NO_STATE,
+				  0, &dnode);
+	if (err) {
+		yang_print_errors(ly_native_ctx, errmsg, errmsg_len);
+		ret = NB_ERR;
+		goto done;
+	}
+
+	/* set the tree if we created a top-level node */
+	if (!parent)
+		tree = dnode;
+
+	/* save xpath of the created node */
+	lyd_path(dnode, LYD_PATH_STD, xpath_created, XPATH_MAXLEN);
+
+	/* verify that list keys are the same in the xpath and the data tree */
+	if (!root && (operation == NB_OP_REPLACE || operation == NB_OP_MODIFY)) {
+		if (lyd_find_path(tree, xpath, 0, NULL)) {
+			snprintf(errmsg, errmsg_len,
+				 "List keys in xpath and data tree are different");
+			ret = NB_ERR;
+			goto done;
+		}
+	}
+
+	/* check if the node already exists in candidate */
+	if (operation == NB_OP_CREATE || operation == NB_OP_MODIFY)
+		existing = yang_dnode_get(candidate->dnode, xpath_created);
+	else if (operation == NB_OP_CREATE_EXCL || operation == NB_OP_REPLACE) {
+		existing = yang_dnode_get(candidate->dnode, xpath_created);
+
+		/* if the existing node is implicit default, ignore */
+		/* Q: Is this correct for CREATE_EXCL which is supposed to error
+		 * if the resouurce already exists? This is used by RESTCONF
+		 * when processing the POST command, for example. RFC8040
+		 * doesn't say POST fails if resource exists "unless it was a
+		 * default".
+		 */
+		if (existing && (existing->flags & LYD_DEFAULT))
+			existing = NULL;
+
+		if (existing) {
+			if (operation == NB_OP_CREATE_EXCL) {
+				snprintf(errmsg, errmsg_len,
+					 "Data already exists");
+				ret = NB_ERR_EXISTS;
+				goto done;
+			}
+
+			if (root) {
+				candidate->dnode = NULL;
+			} else {
+				/* if it's the first top-level node, update candidate */
+				if (candidate->dnode == existing)
+					candidate->dnode =
+						candidate->dnode->next;
+
+				ex_parent = lyd_parent(existing);
+				lyd_unlink_tree(existing);
+			}
+		}
+	}
+
+	err = lyd_merge_siblings(&candidate->dnode, tree,
+				 LYD_MERGE_DESTRUCT | LYD_MERGE_WITH_FLAGS);
+	if (err) {
+		/* if replace failed, restore the original node */
+		if (existing && operation == NB_OP_REPLACE) {
+			if (root) {
+				/* Restoring the whole config. */
+				candidate->dnode = existing;
+			} else if (ex_parent) {
+				/*
+				 * Restoring a nested node. Insert it as a
+				 * child.
+				 */
+				lyd_insert_child(ex_parent, existing);
+			} else {
+				/*
+				 * Restoring a top-level node. Insert it as a
+				 * sibling to candidate->dnode to make sure
+				 * the linkage is correct.
+				 */
+				lyd_insert_sibling(candidate->dnode, existing,
+						   &candidate->dnode);
+			}
+		}
+		yang_print_errors(ly_native_ctx, errmsg, errmsg_len);
+		ret = NB_ERR;
+		goto done;
+	} else {
+		if (!existing)
+			*created = true;
+		/*
+		 * Free existing node after replace.
+		 * We're using `lyd_free_siblings` here to free the whole
+		 * tree if we replaced the root node. It won't affect other
+		 * siblings if it wasn't root, because the existing node
+		 * was unlinked from the tree.
+		 */
+		if (existing && operation == NB_OP_REPLACE)
+			lyd_free_siblings(existing);
+
+		tree = NULL; /* LYD_MERGE_DESTRUCT deleted the tree */
+	}
+
+	ret = NB_OK;
+done:
+	if (tree)
+		lyd_free_all(tree);
+	XFREE(MTYPE_TMP, parent_xpath);
+	ly_in_free(in, 0);
+
+	return ret;
+}
+
+static int nb_candidate_edit_tree_del(struct nb_config *candidate,
+				      enum nb_operation operation,
+				      const char *xpath, char *errmsg,
+				      size_t errmsg_len)
+{
+	struct lyd_node *dnode;
+
+	/* deleting root - remove the whole config */
+	if (xpath[0] == 0 || (xpath[0] == '/' && xpath[1] == 0)) {
+		lyd_free_all(candidate->dnode);
+		candidate->dnode = NULL;
+		return NB_OK;
+	}
+
+	dnode = yang_dnode_get(candidate->dnode, xpath);
+	if (!dnode || (dnode->flags & LYD_DEFAULT)) {
+		if (operation == NB_OP_DELETE) {
+			snprintf(errmsg, errmsg_len, "Data missing");
+			return NB_ERR_NOT_FOUND;
+		} else
+			return NB_OK;
+	}
+
+	/* if it's the first top-level node, update candidate */
+	if (candidate->dnode == dnode)
+		candidate->dnode = candidate->dnode->next;
+
+	lyd_free_tree(dnode);
+
+	return NB_OK;
+}
+
+int nb_candidate_edit_tree(struct nb_config *candidate,
+			   enum nb_operation operation, LYD_FORMAT format,
+			   const char *xpath, const char *data, bool *created,
+			   char *xpath_created, char *errmsg, size_t errmsg_len)
+{
+	int ret = NB_ERR;
+
+	switch (operation) {
+	case NB_OP_CREATE_EXCL:
+	case NB_OP_CREATE:
+	case NB_OP_MODIFY:
+	case NB_OP_REPLACE:
+		ret = nb_candidate_edit_tree_add(candidate, operation, format,
+						 xpath, data, created,
+						 xpath_created, errmsg,
+						 errmsg_len);
+		break;
+	case NB_OP_DESTROY:
+	case NB_OP_DELETE:
+		ret = nb_candidate_edit_tree_del(candidate, operation, xpath,
+						 errmsg, errmsg_len);
+		break;
+	case NB_OP_MOVE:
+		/* not supported yet */
+		break;
+	}
+
+	return ret;
+}
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 const char *nb_operation_name(enum nb_operation operation)
 {
 	switch (operation) {
@@ -1603,6 +1847,7 @@ const void *nb_callback_lookup_next(const struct nb_node *nb_node,
 }
 
 int nb_callback_rpc(const struct nb_node *nb_node, const char *xpath,
+<<<<<<< HEAD
 		    const struct list *input, struct list *output, char *errmsg,
 		    size_t errmsg_len)
 {
@@ -1611,6 +1856,13 @@ int nb_callback_rpc(const struct nb_node *nb_node, const char *xpath,
 	if (CHECK_FLAG(nb_node->flags, F_NB_NODE_IGNORE_CFG_CBS))
 		return 0;
 
+=======
+		    const struct lyd_node *input, struct lyd_node *output,
+		    char *errmsg, size_t errmsg_len)
+{
+	struct nb_cb_rpc_args args = {};
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	DEBUGD(&nb_dbg_cbs_rpc, "northbound RPC: %s", xpath);
 
 	args.xpath = xpath;
@@ -2383,6 +2635,11 @@ const char *nb_err_name(enum nb_error error)
 		return "no changes";
 	case NB_ERR_NOT_FOUND:
 		return "element not found";
+<<<<<<< HEAD
+=======
+	case NB_ERR_EXISTS:
+		return "element already exists";
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	case NB_ERR_LOCKED:
 		return "resource is locked";
 	case NB_ERR_VALIDATION:
@@ -2403,8 +2660,11 @@ const char *nb_client_name(enum nb_client client)
 	switch (client) {
 	case NB_CLIENT_CLI:
 		return "CLI";
+<<<<<<< HEAD
 	case NB_CLIENT_CONFD:
 		return "ConfD";
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	case NB_CLIENT_SYSREPO:
 		return "Sysrepo";
 	case NB_CLIENT_GRPC:
@@ -2467,7 +2727,11 @@ void nb_validate_callbacks(void)
 
 void nb_init(struct event_loop *tm,
 	     const struct frr_yang_module_info *const modules[],
+<<<<<<< HEAD
 	     size_t nmodules, bool db_enabled)
+=======
+	     size_t nmodules, bool db_enabled, bool load_library)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 {
 	struct yang_module *loaded[nmodules], **loadedp = loaded;
 
@@ -2483,7 +2747,11 @@ void nb_init(struct event_loop *tm,
 
 	nb_db_enabled = db_enabled;
 
+<<<<<<< HEAD
 	yang_init(true, explicit_compile);
+=======
+	yang_init(true, explicit_compile, load_library);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	/* Load YANG modules and their corresponding northbound callbacks. */
 	for (size_t i = 0; i < nmodules; i++) {

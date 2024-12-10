@@ -26,6 +26,10 @@
 #include "bgpd/bgp_debug.h"
 #include "bgpd/bgp_vty.h"
 #include "bgpd/bgp_packet.h"
+<<<<<<< HEAD
+=======
+#include "bgpd/bgp_network.h"
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 DEFINE_MTYPE_STATIC(BGPD, BFD_CONFIG, "BFD configuration data");
 
@@ -53,6 +57,7 @@ static void bfd_session_status_update(struct bfd_session_params *bsp,
 					peer->host);
 			return;
 		}
+<<<<<<< HEAD
 		peer->last_reset = PEER_DOWN_BFD_DOWN;
 
 		/* rfc9384 */
@@ -61,6 +66,25 @@ static void bfd_session_status_update(struct bfd_session_params *bsp,
 					BGP_NOTIFY_CEASE_BFD_DOWN);
 
 		BGP_EVENT_ADD(peer->connection, BGP_Stop);
+=======
+
+		/* Once the BFD session is UP, and later BGP session is UP,
+		 * BFD notices that peer->su_local changed, and BFD session goes down.
+		 * We should trigger BGP session reset if BFD session is UP
+		 * only when BGP session is UP already.
+		 * Otherwise, we end up resetting BGP session when BFD session is UP,
+		 * when the source address is changed, e.g. 0.0.0.0 -> 10.0.0.1.
+		 */
+		if (bss->last_event > peer->uptime) {
+			peer->last_reset = PEER_DOWN_BFD_DOWN;
+			/* rfc9384 */
+			if (BGP_IS_VALID_STATE_FOR_NOTIF(peer->connection->status))
+				bgp_notify_send(peer->connection, BGP_NOTIFY_CEASE,
+						BGP_NOTIFY_CEASE_BFD_DOWN);
+
+			BGP_EVENT_ADD(peer->connection, BGP_Stop);
+		}
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	}
 
 	if (bss->state == BSS_UP && bss->previous_state != BSS_UP &&
@@ -141,24 +165,61 @@ void bgp_peer_config_apply(struct peer *p, struct peer_group *pg)
 
 void bgp_peer_bfd_update_source(struct peer *p)
 {
+<<<<<<< HEAD
 	struct bfd_session_params *session = p->bfd_config->session;
 	const union sockunion *source;
+=======
+	struct bfd_session_params *session;
+	const union sockunion *source = NULL;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	bool changed = false;
 	int family;
 	union {
 		struct in_addr v4;
 		struct in6_addr v6;
 	} src, dst;
+<<<<<<< HEAD
 
+=======
+	struct interface *ifp;
+	union sockunion addr;
+
+	if (!p->bfd_config)
+		return;
+
+	session = p->bfd_config->session;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	/* Nothing to do for groups. */
 	if (CHECK_FLAG(p->sflags, PEER_STATUS_GROUP))
 		return;
 
 	/* Figure out the correct source to use. */
+<<<<<<< HEAD
 	if (CHECK_FLAG(p->flags, PEER_FLAG_UPDATE_SOURCE) && p->update_source)
 		source = p->update_source;
 	else
 		source = p->su_local;
+=======
+	if (CHECK_FLAG(p->flags, PEER_FLAG_UPDATE_SOURCE)) {
+		if (p->update_source) {
+			source = p->update_source;
+		} else if (p->update_if) {
+			ifp = if_lookup_by_name(p->update_if, p->bgp->vrf_id);
+			if (ifp) {
+				sockunion_init(&addr);
+				if (bgp_update_address(ifp, &p->connection->su, &addr)) {
+					if (BGP_DEBUG(bfd, BFD_LIB))
+						zlog_debug("%s: can't find the source address for interface %s",
+							   __func__, p->update_if);
+				}
+
+				source = &addr;
+			}
+		}
+	} else {
+		source = p->su_local;
+	}
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	/* Update peer's source/destination addresses. */
 	bfd_sess_addresses(session, &family, &src.v6, &dst.v6);
@@ -597,6 +658,12 @@ DEFUN(no_neighbor_bfd_profile, no_neighbor_bfd_profile_cmd,
 	if (!peer)
 		return CMD_WARNING_CONFIG_FAILED;
 
+<<<<<<< HEAD
+=======
+	if (!peer->bfd_config)
+		return CMD_SUCCESS;
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	if (CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP))
 		bgp_group_configure_bfd(peer);
 	else

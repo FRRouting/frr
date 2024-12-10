@@ -19,9 +19,15 @@
 #include <sysrepo/values.h>
 #include <sysrepo/xpath.h>
 
+<<<<<<< HEAD
 DEFINE_MTYPE_STATIC(LIB, SYSREPO, "Sysrepo module");
 
 static struct debug nb_dbg_client_sysrepo = {0, "Northbound client: Sysrepo"};
+=======
+static struct debug nb_dbg_client_sysrepo = { 0,
+					      "debug northbound client sysrepo",
+					      "Northbound client: Sysrepo" };
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 static struct event_loop *master;
 static sr_session_ctx_t *session;
@@ -379,6 +385,7 @@ static int frr_sr_state_cb(sr_session_ctx_t *session, uint32_t sub_id,
 	return SR_ERR_OK;
 }
 static int frr_sr_config_rpc_cb(sr_session_ctx_t *session, uint32_t sub_id,
+<<<<<<< HEAD
 				const char *xpath, const sr_val_t *sr_input,
 				const size_t input_cnt, sr_event_t sr_ev,
 				uint32_t request_id, sr_val_t **sr_output,
@@ -389,6 +396,13 @@ static int frr_sr_config_rpc_cb(sr_session_ctx_t *session, uint32_t sub_id,
 	struct list *output;
 	struct yang_data *data;
 	size_t cb_output_cnt;
+=======
+				const char *xpath, const struct lyd_node *input,
+				sr_event_t sr_ev, uint32_t request_id,
+				struct lyd_node *output, void *private_ctx)
+{
+	struct nb_node *nb_node;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	int ret = SR_ERR_OK;
 	char errmsg[BUFSIZ] = {0};
 
@@ -399,6 +413,7 @@ static int frr_sr_config_rpc_cb(sr_session_ctx_t *session, uint32_t sub_id,
 		return SR_ERR_INTERNAL;
 	}
 
+<<<<<<< HEAD
 	input = yang_data_list_new();
 	output = yang_data_list_new();
 
@@ -412,6 +427,8 @@ static int frr_sr_config_rpc_cb(sr_session_ctx_t *session, uint32_t sub_id,
 		listnode_add(input, data);
 	}
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	/* Execute callback registered for this XPath. */
 	if (nb_callback_rpc(nb_node, xpath, input, output, errmsg,
 			    sizeof(errmsg))
@@ -419,6 +436,7 @@ static int frr_sr_config_rpc_cb(sr_session_ctx_t *session, uint32_t sub_id,
 		flog_warn(EC_LIB_NB_CB_RPC, "%s: rpc callback failed: %s",
 			  __func__, xpath);
 		ret = SR_ERR_OPERATION_FAILED;
+<<<<<<< HEAD
 		goto exit;
 	}
 
@@ -457,6 +475,10 @@ exit:
 	list_delete(&input);
 	list_delete(&output);
 
+=======
+	}
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	return ret;
 }
 
@@ -581,8 +603,14 @@ static int frr_sr_subscribe_rpc(const struct lysc_node *snode, void *arg)
 	DEBUGD(&nb_dbg_client_sysrepo, "sysrepo: providing RPC to '%s'",
 	       nb_node->xpath);
 
+<<<<<<< HEAD
 	ret = sr_rpc_subscribe(session, nb_node->xpath, frr_sr_config_rpc_cb,
 			       NULL, 0, 0, &module->sr_subscription);
+=======
+	ret = sr_rpc_subscribe_tree(session, nb_node->xpath,
+				    frr_sr_config_rpc_cb, NULL, 0, 0,
+				    &module->sr_subscription);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	if (ret != SR_ERR_OK)
 		flog_err(EC_LIB_LIBSYSREPO, "sr_rpc_subscribe(): %s",
 			 sr_strerror(ret));
@@ -608,6 +636,7 @@ DEFUN (debug_nb_sr,
 	return CMD_SUCCESS;
 }
 
+<<<<<<< HEAD
 static int frr_sr_debug_config_write(struct vty *vty)
 {
 	if (DEBUG_MODE_CHECK(&nb_dbg_client_sysrepo, DEBUG_MODE_CONF))
@@ -631,6 +660,11 @@ static void frr_sr_cli_init(void)
 {
 	hook_register(nb_client_debug_config_write, frr_sr_debug_config_write);
 	hook_register(nb_client_debug_set_all, frr_sr_debug_set_all);
+=======
+static void frr_sr_cli_init(void)
+{
+	debug_install(&nb_dbg_client_sysrepo);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	install_element(ENABLE_NODE, &debug_nb_sr_cmd);
 	install_element(CONFIG_NODE, &debug_nb_sr_cmd);

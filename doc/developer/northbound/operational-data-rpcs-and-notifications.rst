@@ -10,10 +10,17 @@ Operational data
 ~~~~~~~~~~~~~~~~
 
 Writing API-agnostic code for YANG-modeled operational data is
+<<<<<<< HEAD
 challenging. ConfD and Sysrepo, for instance, have completely different
 APIs to fetch operational data. So how can we write API-agnostic
 callbacks that can be used by both the ConfD and Sysrepo plugins, and
 any other northbound client that might be written in the future?
+=======
+challenging. Sysrepo, for instance, has completely different API to
+fetch operational data. So how can we write API-agnostic callbacks
+that can be used by both the Sysrepo plugin, and any other northbound
+client that might be written in the future?
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 As an additional requirement, the callbacks must be designed in a way
 that makes in-place XPath filtering possible. As an example, a
@@ -94,6 +101,7 @@ in the northbound architecture:
             */
            void *(*lookup_entry)(struct yang_list_keys *keys);
 
+<<<<<<< HEAD
 These callbacks were designed to provide maximum flexibility, and borrow
 a lot of ideas from the ConfD API. Each callback does one and only one
 task, they are indivisible primitives that can be combined in several
@@ -101,12 +109,21 @@ different ways to iterate over operational data. The extra flexibility
 certainly has a performance cost, but it’s the price to pay if we want
 to expose FRR operational data using several different management
 interfaces (e.g. NETCONF via either ConfD or Sysrepo+Netopeer2). In the
+=======
+These callbacks were designed to provide maximum flexibility. Each
+callback does one and only one task, they are indivisible primitives
+that can be combined in several different ways to iterate over operational
+data. The extra flexibility certainly has a performance cost, but it’s the
+price to pay if we want to expose FRR operational data using several
+different management interfaces (e.g. Sysrepo+Netopeer2). In the
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 future it might be possible to introduce optional callbacks that do
 things like returning multiple objects at once. They would provide
 enhanced performance when iterating over large lists, but their use
 would be limited by the northbound plugins that can be integrated with
 them.
 
+<<<<<<< HEAD
    NOTE: using the northbound callbacks as a base, the ConfD plugin can
    provide up to 100 objects between each round trip between FRR and the
    *confd* daemon. Preliminary tests showed FRR taking ~7 seconds
@@ -115,6 +132,8 @@ them.
    (JSON was used as the encoding format). Work needs to be done to find
    the bottlenecks and optimize this operation.
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 The [[Plugins - Writing Your Own]] page explains how the northbound
 plugins can fetch operational data using the aforementioned northbound
 callbacks, and how in-place XPath filtering can be implemented.
@@ -351,10 +370,17 @@ are being iterated over. If that is not done, the list entry returned by
 this callback can become a dangling pointer when used in another
 callback.
 
+<<<<<<< HEAD
 Currently the ConfD and Sysrepo plugins run only in the main pthread.
 The plan in the short-term is to introduce a separate pthread only for
 handling operational data, and use the main pthread only for handling
 configuration changes, RPCs and notifications.
+=======
+Currently the Sysrepo plugin runs only in the main pthread. The plan in the
+short-term is to introduce a separate pthread only for handling operational
+data, and use the main pthread only for handling configuration changes,
+RPCs and notifications.
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 RPCs and Actions
 ~~~~~~~~~~~~~~~~
@@ -396,8 +422,13 @@ some EXEC-level commands using YANG so that their functionality is
 exposed to other management interfaces other than the CLI. As an
 example, if the ``clear bgp`` command is modeled using a YANG RPC, and a
 corresponding ``rpc`` callback is written, then it should be possible to
+<<<<<<< HEAD
 clear BGP neighbors using NETCONF and RESTCONF with that RPC (the ConfD
 and Sysrepo plugins have full support for YANG RPCs and actions).
+=======
+clear BGP neighbors using NETCONF and RESTCONF with that RPC (the Sysrepo
+plugin has full support for YANG RPCs and actions).
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 Here’s an example of a very simple RPC modeled using YANG:
 
@@ -568,8 +599,15 @@ Now sending the *authentication-failure* YANG notification should be as
 simple as calling the above function and provide the appropriate
 interface name. The notification will be processed by all northbound
 plugins that subscribed a callback to the ``nb_notification_send`` hook.
+<<<<<<< HEAD
 The ConfD and Sysrepo plugins, for instance, use this hook to relay the
 notifications to the *confd*/*sysrepod* daemons, which can generate
 NETCONF notifications to subscribed clients. When no northbound plugin
 is loaded, ``nb_notification_send()`` doesn’t do anything and the
 notifications are ignored.
+=======
+The Sysrepo plugin, for instance, uses this hook to relay the notifications
+to the *sysrepod* daemon, which can generate NETCONF notifications to subscribed
+clients. When no northbound plugin is loaded, ``nb_notification_send()`` doesn’t
+do anything and the notifications are ignored.
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)

@@ -58,9 +58,12 @@ if [ ! -e Makefile ]; then
 	fi
 
 	bash configure >&3 \
+<<<<<<< HEAD
 		--enable-static-bin \
 		--enable-static \
 		--enable-shared \
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		--enable-dev-build \
 		--with-moduledir=/usr/lib/frr/modules \
 		--prefix=/usr \
@@ -69,6 +72,11 @@ if [ ! -e Makefile ]; then
 		--sbindir=/usr/lib/frr \
 		--enable-multipath=0 \
 		--enable-fpm \
+<<<<<<< HEAD
+=======
+		--enable-grpc \
+		--enable-scripting \
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		--enable-sharpd \
 		$EXTRA_CONFIGURE \
 		--with-pkg-extra-version=-topotests \

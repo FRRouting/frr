@@ -164,8 +164,13 @@ void isis_mpls_te_term(struct isis_area *area)
 	XFREE(MTYPE_ISIS_MPLS_TE, area->mta);
 }
 
+<<<<<<< HEAD
 static void isis_link_params_update_asla(struct isis_circuit *circuit,
 					 struct interface *ifp)
+=======
+void isis_link_params_update_asla(struct isis_circuit *circuit,
+				  struct interface *ifp)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 {
 	struct isis_asla_subtlvs *asla;
 	struct listnode *node, *nnode;
@@ -492,6 +497,13 @@ void isis_link_params_update(struct isis_circuit *circuit,
 			ext->status = EXT_ADJ_SID;
 		else if (IS_SUBTLV(ext, EXT_LAN_ADJ_SID))
 			ext->status = EXT_LAN_ADJ_SID;
+<<<<<<< HEAD
+=======
+		else if (IS_SUBTLV(ext, EXT_SRV6_LAN_ENDX_SID))
+			ext->status = EXT_SRV6_LAN_ENDX_SID;
+		else if (IS_SUBTLV(ext, EXT_SRV6_ENDX_SID))
+			ext->status = EXT_SRV6_ENDX_SID;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		else
 			ext->status = 0;
 	}
@@ -797,6 +809,15 @@ static struct ls_vertex *lsp_to_vertex(struct ls_ted *ted, struct isis_lsp *lsp)
 				lnode.msd = cap->msd;
 				SET_FLAG(lnode.flags, LS_NODE_MSD);
 			}
+<<<<<<< HEAD
+=======
+			if (cap->srv6_cap.is_srv6_capable) {
+				SET_FLAG(lnode.flags, LS_NODE_SRV6);
+				lnode.srv6_cap_flags = cap->srv6_cap.flags;
+				memcpy(&lnode.srv6_msd, &cap->srv6_msd,
+				       sizeof(struct isis_srv6_msd));
+			}
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		}
 	}
 
@@ -1052,7 +1073,55 @@ static struct ls_attributes *get_attributes(struct ls_node_id adv,
 			}
 		}
 	}
+<<<<<<< HEAD
 
+=======
+	if (CHECK_FLAG(tlvs->status, EXT_SRV6_ENDX_SID)) {
+		struct isis_srv6_endx_sid_subtlv *endx =
+			(struct isis_srv6_endx_sid_subtlv *)
+				tlvs->srv6_endx_sid.head;
+		int i;
+
+		for (; endx; endx = endx->next) {
+			if (endx->flags & EXT_SUBTLV_LINK_SRV6_ENDX_SID_BFLG) {
+				i = 1;
+				SET_FLAG(attr->flags, LS_ATTR_BCK_ADJ_SRV6SID);
+			} else {
+				i = 0;
+				SET_FLAG(attr->flags, LS_ATTR_ADJ_SRV6SID);
+			}
+			attr->adj_srv6_sid[i].flags = endx->flags;
+			attr->adj_srv6_sid[i].weight = endx->weight;
+			memcpy(&attr->adj_srv6_sid[i].sid, &endx->sid,
+			       sizeof(struct in6_addr));
+			attr->adj_srv6_sid[i].endpoint_behavior = endx->behavior;
+		}
+	}
+	if (CHECK_FLAG(tlvs->status, EXT_SRV6_LAN_ENDX_SID)) {
+		struct isis_srv6_lan_endx_sid_subtlv *lendx =
+			(struct isis_srv6_lan_endx_sid_subtlv *)
+				tlvs->srv6_lan_endx_sid.head;
+		int i;
+
+		for (; lendx; lendx = lendx->next) {
+			if (lendx->flags & EXT_SUBTLV_LINK_SRV6_ENDX_SID_BFLG) {
+				i = 1;
+				SET_FLAG(attr->flags, LS_ATTR_BCK_ADJ_SRV6SID);
+			} else {
+				i = 0;
+				SET_FLAG(attr->flags, LS_ATTR_ADJ_SRV6SID);
+			}
+			memcpy(&attr->adj_srv6_sid[i].neighbor.sysid,
+			       &lendx->neighbor_id, ISIS_SYS_ID_LEN);
+			attr->adj_srv6_sid[i].flags = lendx->flags;
+			attr->adj_srv6_sid[i].weight = lendx->weight;
+			memcpy(&attr->adj_srv6_sid[i].sid, &lendx->sid,
+			       sizeof(struct in6_addr));
+			attr->adj_srv6_sid[i].endpoint_behavior =
+				lendx->behavior;
+		}
+	}
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	return attr;
 }
 
@@ -1208,8 +1277,16 @@ static int lsp_to_subnet_cb(const struct prefix *prefix, uint32_t metric,
 	if (!args || !prefix)
 		return LSP_ITER_CONTINUE;
 
+<<<<<<< HEAD
 	te_debug("  |- Process Extended %s Reachability %pFX",
 		 prefix->family == AF_INET ? "IP" : "IPv6", prefix);
+=======
+	if (args->srv6_locator)
+		te_debug("  |- Process SRv6 Locator %pFX", prefix);
+	else
+		te_debug("  |- Process Extended %s Reachability %pFX",
+			 prefix->family == AF_INET ? "IP" : "IPv6", prefix);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	vertex = args->vertex;
 
@@ -1336,6 +1413,41 @@ static int lsp_to_subnet_cb(const struct prefix *prefix, uint32_t metric,
 		}
 	}
 
+<<<<<<< HEAD
+=======
+	/* Update SRv6 SID and locator if any */
+	if (subtlvs && subtlvs->srv6_end_sids.count != 0) {
+		struct isis_srv6_end_sid_subtlv *psid;
+		struct ls_srv6_sid sr = {};
+
+		psid = (struct isis_srv6_end_sid_subtlv *)
+			       subtlvs->srv6_end_sids.head;
+		sr.behavior = psid->behavior;
+		sr.flags = psid->flags;
+		memcpy(&sr.sid, &psid->sid, sizeof(struct in6_addr));
+
+		if (!CHECK_FLAG(ls_pref->flags, LS_PREF_SRV6) ||
+		    memcmp(&ls_pref->srv6, &sr, sizeof(struct ls_srv6_sid))) {
+			memcpy(&ls_pref->srv6, &sr, sizeof(struct ls_srv6_sid));
+			SET_FLAG(ls_pref->flags, LS_PREF_SRV6);
+			if (subnet->status != NEW)
+				subnet->status = UPDATE;
+		} else {
+			if (subnet->status == ORPHAN)
+				subnet->status = SYNC;
+		}
+	} else {
+		if (CHECK_FLAG(ls_pref->flags, LS_PREF_SRV6)) {
+			UNSET_FLAG(ls_pref->flags, LS_PREF_SRV6);
+			if (subnet->status != NEW)
+				subnet->status = UPDATE;
+		} else {
+			if (subnet->status == ORPHAN)
+				subnet->status = SYNC;
+		}
+	}
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	/* Update status and Export Link State Edge if needed */
 	if (subnet->status != SYNC) {
 		if (args->export)
@@ -1404,12 +1516,24 @@ static void isis_te_parse_lsp(struct mpls_te_area *mta, struct isis_lsp *lsp)
 				  &args);
 
 	/* Process all Extended IP (v4 & v6) in LSP (all fragments) */
+<<<<<<< HEAD
+=======
+	args.srv6_locator = false;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	isis_lsp_iterate_ip_reach(lsp, AF_INET, ISIS_MT_IPV4_UNICAST,
 				  lsp_to_subnet_cb, &args);
 	isis_lsp_iterate_ip_reach(lsp, AF_INET6, ISIS_MT_IPV6_UNICAST,
 				  lsp_to_subnet_cb, &args);
 	isis_lsp_iterate_ip_reach(lsp, AF_INET6, ISIS_MT_IPV4_UNICAST,
 				  lsp_to_subnet_cb, &args);
+<<<<<<< HEAD
+=======
+	args.srv6_locator = true;
+	isis_lsp_iterate_srv6_locator(lsp, ISIS_MT_STANDARD, lsp_to_subnet_cb,
+				      &args);
+	isis_lsp_iterate_srv6_locator(lsp, ISIS_MT_IPV6_UNICAST,
+				      lsp_to_subnet_cb, &args);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	/* Clean remaining Orphan Edges or Subnets */
 	if (IS_EXPORT_TE(mta))
@@ -1640,6 +1764,7 @@ DEFUN(show_isis_mpls_te_router,
 		return CMD_SUCCESS;
 	}
 	ISIS_FIND_VRF_ARGS(argv, argc, idx_vrf, vrf_name, all_vrf);
+<<<<<<< HEAD
 	if (vrf_name) {
 		if (all_vrf) {
 			for (ALL_LIST_ELEMENTS_RO(im->isis, inode, isis)) {
@@ -1658,12 +1783,31 @@ DEFUN(show_isis_mpls_te_router,
 			for (ALL_LIST_ELEMENTS_RO(isis->area_list, anode,
 						  area)) {
 
+=======
+
+	if (all_vrf) {
+		for (ALL_LIST_ELEMENTS_RO(im->isis, inode, isis)) {
+			for (ALL_LIST_ELEMENTS_RO(isis->area_list, anode, area)) {
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 				if (!IS_MPLS_TE(area->mta))
 					continue;
 
 				show_router_id(vty, area);
 			}
 		}
+<<<<<<< HEAD
+=======
+		return 0;
+	}
+	isis = isis_lookup_by_vrfname(vrf_name);
+	if (isis != NULL) {
+		for (ALL_LIST_ELEMENTS_RO(isis->area_list, anode, area)) {
+			if (!IS_MPLS_TE(area->mta))
+				continue;
+
+			show_router_id(vty, area);
+		}
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	}
 
 	return CMD_SUCCESS;
@@ -2112,6 +2256,7 @@ DEFUN(show_isis_mpls_te_db,
 	int rc = CMD_WARNING;
 
 	ISIS_FIND_VRF_ARGS(argv, argc, idx_vrf, vrf_name, all_vrf);
+<<<<<<< HEAD
 	if (vrf_name) {
 		if (all_vrf) {
 			for (ALL_LIST_ELEMENTS_RO(im->isis, node, isis)) {
@@ -2125,6 +2270,20 @@ DEFUN(show_isis_mpls_te_db,
 		if (isis)
 			rc = show_isis_ted(vty, argv, argc, isis);
 	}
+=======
+
+	if (all_vrf) {
+		for (ALL_LIST_ELEMENTS_RO(im->isis, node, isis)) {
+			rc = show_isis_ted(vty, argv, argc, isis);
+			if (rc != CMD_SUCCESS)
+				return rc;
+		}
+		return CMD_SUCCESS;
+	}
+	isis = isis_lookup_by_vrfname(vrf_name);
+	if (isis)
+		rc = show_isis_ted(vty, argv, argc, isis);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	return rc;
 }

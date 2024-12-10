@@ -405,10 +405,13 @@ static int netlink_information_fetch(struct nlmsghdr *h, ns_id_t ns_id,
 		return netlink_route_change(h, ns_id, startup);
 	case RTM_DELROUTE:
 		return netlink_route_change(h, ns_id, startup);
+<<<<<<< HEAD
 	case RTM_NEWLINK:
 		return netlink_link_change(h, ns_id, startup);
 	case RTM_DELLINK:
 		return 0;
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	case RTM_NEWNEIGH:
 	case RTM_DELNEIGH:
 	case RTM_GETNEIGH:
@@ -430,10 +433,13 @@ static int netlink_information_fetch(struct nlmsghdr *h, ns_id_t ns_id,
 	case RTM_NEWTFILTER:
 	case RTM_DELTFILTER:
 		return netlink_tfilter_change(h, ns_id, startup);
+<<<<<<< HEAD
 	case RTM_NEWVLAN:
 		return netlink_vlan_change(h, ns_id, startup);
 	case RTM_DELVLAN:
 		return netlink_vlan_change(h, ns_id, startup);
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	/* Messages we may receive, but ignore */
 	case RTM_NEWCHAIN:
@@ -442,6 +448,11 @@ static int netlink_information_fetch(struct nlmsghdr *h, ns_id_t ns_id,
 		return 0;
 
 	/* Messages handled in the dplane thread */
+<<<<<<< HEAD
+=======
+	case RTM_NEWLINK:
+	case RTM_DELLINK:
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	case RTM_NEWADDR:
 	case RTM_DELADDR:
 	case RTM_NEWNETCONF:
@@ -449,6 +460,11 @@ static int netlink_information_fetch(struct nlmsghdr *h, ns_id_t ns_id,
 	case RTM_NEWTUNNEL:
 	case RTM_DELTUNNEL:
 	case RTM_GETTUNNEL:
+<<<<<<< HEAD
+=======
+	case RTM_NEWVLAN:
+	case RTM_DELVLAN:
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		return 0;
 	default:
 		/*
@@ -492,6 +508,13 @@ static int dplane_netlink_information_fetch(struct nlmsghdr *h, ns_id_t ns_id,
 	case RTM_DELLINK:
 		return netlink_link_change(h, ns_id, startup);
 
+<<<<<<< HEAD
+=======
+	case RTM_NEWVLAN:
+	case RTM_DELVLAN:
+		return netlink_vlan_change(h, ns_id, startup);
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	default:
 		break;
 	}
@@ -619,6 +642,14 @@ static void netlink_install_filter(int sock, uint32_t pid, uint32_t dplane_pid)
 			     safe_strerror(errno));
 }
 
+<<<<<<< HEAD
+=======
+/*
+ * Please note, the assumption with this function is that the
+ * flags passed in that are bit masked with type, we are implicitly
+ * assuming that this is handling the NLA_F_NESTED ilk.
+ */
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 void netlink_parse_rtattr_flags(struct rtattr **tb, int max, struct rtattr *rta,
 				int len, unsigned short flags)
 {
@@ -638,8 +669,24 @@ void netlink_parse_rtattr(struct rtattr **tb, int max, struct rtattr *rta,
 {
 	memset(tb, 0, sizeof(struct rtattr *) * (max + 1));
 	while (RTA_OK(rta, len)) {
+<<<<<<< HEAD
 		if (rta->rta_type <= max)
 			tb[rta->rta_type] = rta;
+=======
+		/*
+		 * The type may be &'ed with NLA_F_NESTED
+		 * which puts data in the upper 8 bits of the
+		 * rta_type.  Mask it off and save the actual
+		 * underlying value to be placed into the array.
+		 * This way we don't accidently crash in the future
+		 * when the kernel sends us new data and we try
+		 * to write well beyond the end of the array.
+		 */
+		uint16_t type = rta->rta_type & NLA_TYPE_MASK;
+
+		if (type <= max)
+			tb[type] = rta;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		rta = RTA_NEXT(rta, len);
 	}
 }
@@ -656,6 +703,7 @@ void netlink_parse_rtattr_nested(struct rtattr **tb, int max,
 	netlink_parse_rtattr(tb, max, RTA_DATA(rta), RTA_PAYLOAD(rta));
 }
 
+<<<<<<< HEAD
 bool nl_addraw_l(struct nlmsghdr *n, unsigned int maxlen, const void *data,
 		 unsigned int len)
 {
@@ -671,6 +719,8 @@ bool nl_addraw_l(struct nlmsghdr *n, unsigned int maxlen, const void *data,
 	return true;
 }
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 bool nl_attr_put(struct nlmsghdr *n, unsigned int maxlen, int type,
 		 const void *data, unsigned int alen)
 {
@@ -931,7 +981,11 @@ static int netlink_recv_msg(struct nlsock *nl, struct msghdr *msg)
 	} while (status == -1 && errno == EINTR);
 
 	if (status == -1) {
+<<<<<<< HEAD
 		if (errno == EWOULDBLOCK || errno == EAGAIN)
+=======
+		if (errno == EWOULDBLOCK || errno == EAGAIN || errno == EMSGSIZE)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			return 0;
 		flog_err(EC_ZEBRA_RECVMSG_OVERRUN, "%s recvmsg overrun: %s",
 			 nl->name, safe_strerror(errno));
@@ -1620,6 +1674,10 @@ static enum netlink_msg_status nl_put_msg(struct nl_batch *bth,
 	case DPLANE_OP_IPSET_ENTRY_ADD:
 	case DPLANE_OP_IPSET_ENTRY_DELETE:
 	case DPLANE_OP_STARTUP_STAGE:
+<<<<<<< HEAD
+=======
+	case DPLANE_OP_VLAN_INSTALL:
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		return FRR_NETLINK_ERROR;
 
 	case DPLANE_OP_GRE_SET:
@@ -1861,8 +1919,13 @@ void kernel_init(struct zebra_ns *zns)
 	 * setsockopt multicast group subscriptions that don't fit in nl_groups
 	 */
 	grp = RTNLGRP_BRVLAN;
+<<<<<<< HEAD
 	ret = setsockopt(zns->netlink.sock, SOL_NETLINK, NETLINK_ADD_MEMBERSHIP,
 			 &grp, sizeof(grp));
+=======
+	ret = setsockopt(zns->netlink_dplane_in.sock, SOL_NETLINK,
+			 NETLINK_ADD_MEMBERSHIP, &grp, sizeof(grp));
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	if (ret < 0)
 		zlog_notice(

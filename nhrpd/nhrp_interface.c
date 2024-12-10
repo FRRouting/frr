@@ -99,6 +99,11 @@ static int nhrp_if_delete_hook(struct interface *ifp)
 		free(nifp->ipsec_fallback_profile);
 	if (nifp->source)
 		free(nifp->source);
+<<<<<<< HEAD
+=======
+	if (nifp->auth_token)
+		zbuf_free(nifp->auth_token);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	XFREE(MTYPE_NHRP_IF, ifp->info);
 	return 0;

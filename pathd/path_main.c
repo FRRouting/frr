@@ -58,7 +58,11 @@ static void sighup(void)
 static void sigint(void)
 {
 	zlog_notice("Terminating on signal");
+<<<<<<< HEAD
 	zlog_notice("Unregisterfrom opaque,etc ");
+=======
+	zlog_notice("Unregister from opaque,etc ");
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	pathd_shutdown();
 
 	exit(0);

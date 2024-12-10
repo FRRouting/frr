@@ -22,12 +22,20 @@
 #include "hook.h"
 #include "libfrr.h"
 #include "xref.h"
+<<<<<<< HEAD
+=======
+#include "lib/libagentx.h"
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 XREF_SETUP();
 
 DEFINE_HOOK(agentx_enabled, (), ());
 
+<<<<<<< HEAD
 static bool agentx_enabled = false;
+=======
+//bool agentx_enabled = false;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 static struct event_loop *agentx_tm;
 static struct event *timeout_thr = NULL;
@@ -153,6 +161,7 @@ static void agentx_events_update(void)
 	netsnmp_large_fd_set_cleanup(&lfds);
 }
 
+<<<<<<< HEAD
 /* AgentX node. */
 static int config_write_agentx(struct vty *vty);
 static struct cmd_node agentx_node = {
@@ -162,6 +171,8 @@ static struct cmd_node agentx_node = {
 	.config_write = config_write_agentx,
 };
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 /* Logging NetSNMP messages */
 static int agentx_log_callback(int major, int minor, void *serverarg,
 			       void *clientarg)
@@ -201,6 +212,7 @@ static int agentx_log_callback(int major, int minor, void *serverarg,
 	return SNMP_ERR_NOERROR;
 }
 
+<<<<<<< HEAD
 static int config_write_agentx(struct vty *vty)
 {
 	if (agentx_enabled)
@@ -212,6 +224,9 @@ DEFUN (agentx_enable,
        agentx_enable_cmd,
        "agentx",
        "SNMP AgentX protocol settings\n")
+=======
+static int agentx_cli_on(void)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 {
 	if (!agentx_enabled) {
 		init_snmp(FRR_SMUX_NAME);
@@ -221,6 +236,7 @@ DEFUN (agentx_enable,
 		hook_call(agentx_enabled);
 	}
 
+<<<<<<< HEAD
 	return CMD_SUCCESS;
 }
 
@@ -234,6 +250,16 @@ DEFUN (no_agentx,
 		return CMD_SUCCESS;
 	vty_out(vty, "SNMP AgentX support cannot be disabled once enabled\n");
 	return CMD_WARNING_CONFIG_FAILED;
+=======
+	return 1;
+}
+
+static int agentx_cli_off(void)
+{
+	if (!agentx_enabled)
+		return 1;
+	return 0;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 }
 
 static int smux_disable(void)
@@ -252,6 +278,12 @@ void smux_init(struct event_loop *tm)
 {
 	agentx_tm = tm;
 
+<<<<<<< HEAD
+=======
+	hook_register(agentx_cli_enabled, agentx_cli_on);
+	hook_register(agentx_cli_disabled, agentx_cli_off);
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	netsnmp_enable_subagent();
 	snmp_disable_log();
 	snmp_enable_calllog();
@@ -259,10 +291,13 @@ void smux_init(struct event_loop *tm)
 			       agentx_log_callback, NULL);
 	init_agent(FRR_SMUX_NAME);
 
+<<<<<<< HEAD
 	install_node(&agentx_node);
 	install_element(CONFIG_NODE, &agentx_enable_cmd);
 	install_element(CONFIG_NODE, &no_agentx_cmd);
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	hook_register(frr_early_fini, smux_disable);
 }
 
@@ -401,4 +436,19 @@ void smux_events_update(void)
 	agentx_events_update();
 }
 
+<<<<<<< HEAD
+=======
+static void smux_events_delete_thread(void *arg)
+{
+	XFREE(MTYPE_TMP, arg);
+}
+
+void smux_terminate(void)
+{
+	if (events) {
+		events->del = smux_events_delete_thread;
+		list_delete(&events);
+	}
+}
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 #endif /* SNMP_AGENTX */

@@ -55,7 +55,11 @@ def setup_module(mod):
     tgen.start_router()
 
 
+<<<<<<< HEAD
 def teardown_module(mod):
+=======
+def teardown_module():
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     tgen = get_topogen()
     tgen.stop_topology()
 
@@ -74,7 +78,11 @@ def test_srv6_static_route():
 
     def check_srv6_static_route(router, expected_file):
         func = functools.partial(_check_srv6_static_route, router, expected_file)
+<<<<<<< HEAD
         success, result = topotest.run_and_expect(func, None, count=15, wait=1)
+=======
+        _, result = topotest.run_and_expect(func, None, count=15, wait=1)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         assert result is None, "Failed"
 
     # FOR DEVELOPER:

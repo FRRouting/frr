@@ -38,6 +38,12 @@
 #include "bgpd/bgp_vty.h"
 #include "bgpd/bgp_trace.h"
 #include "bgpd/bgp_network.h"
+<<<<<<< HEAD
+=======
+#include "bgpd/bgp_label.h"
+#include "bgpd/bgp_open.h"
+#include "bgpd/bgp_aspath.h"
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 static void bmp_close(struct bmp *bmp);
 static struct bmp_bgp *bmp_bgp_find(struct bgp *bgp);
@@ -245,6 +251,36 @@ static void bmp_free(struct bmp *bmp)
 #define BMP_PEER_TYPE_LOCAL_INSTANCE 2
 #define BMP_PEER_TYPE_LOC_RIB_INSTANCE 3
 
+<<<<<<< HEAD
+=======
+/* determine the peer type for per-peer headers from a vrf_id
+ * for non loc-rib peer type only
+ */
+static inline int bmp_get_peer_type_vrf(vrf_id_t vrf_id)
+{
+	switch (vrf_id) {
+	case VRF_DEFAULT:
+		return BMP_PEER_TYPE_GLOBAL_INSTANCE;
+	case VRF_UNKNOWN:
+		/* when the VRF is unknown consider it a local instance */
+		return BMP_PEER_TYPE_LOCAL_INSTANCE;
+	default:
+		return BMP_PEER_TYPE_RD_INSTANCE;
+	}
+}
+
+/* determine the peer type for per-peer headers from a struct peer
+ * provide a bgp->peer_self for loc-rib
+ */
+static inline int bmp_get_peer_type(struct peer *peer)
+{
+	if (peer->bgp->peer_self == peer)
+		return BMP_PEER_TYPE_LOC_RIB_INSTANCE;
+
+	return bmp_get_peer_type_vrf(peer->bgp->vrf_id);
+}
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 static inline int bmp_get_peer_distinguisher(struct bmp *bmp, afi_t afi,
 					     uint8_t peer_type,
 					     uint64_t *result_ref)
@@ -369,6 +405,7 @@ static void bmp_put_info_tlv(struct stream *s, uint16_t type,
 	stream_put(s, string, len);
 }
 
+<<<<<<< HEAD
 static void __attribute__((unused))
 bmp_put_vrftablename_info_tlv(struct stream *s, struct bmp *bmp)
 {
@@ -380,6 +417,20 @@ bmp_put_vrftablename_info_tlv(struct stream *s, struct bmp *bmp)
 
 		vrftablename = vrf ? vrf->name : NULL;
 	}
+=======
+/* put the vrf table name of the bgp instance bmp is bound to in a tlv on the
+ * stream
+ */
+static void bmp_put_vrftablename_info_tlv(struct stream *s, struct bgp *bgp)
+{
+	const char *vrftablename = "global";
+
+#define BMP_INFO_TYPE_VRFTABLENAME 3
+
+	if (bgp->inst_type != BGP_INSTANCE_TYPE_DEFAULT)
+		vrftablename = bgp->name;
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	if (vrftablename != NULL)
 		bmp_put_info_tlv(s, BMP_INFO_TYPE_VRFTABLENAME, vrftablename);
 }
@@ -391,11 +442,19 @@ static int bmp_send_initiation(struct bmp *bmp)
 
 	bmp_common_hdr(s, BMP_VERSION_3, BMP_TYPE_INITIATION);
 
+<<<<<<< HEAD
 #define BMP_INFO_TYPE_SYSDESCR	1
 #define BMP_INFO_TYPE_SYSNAME	2
 	bmp_put_info_tlv(s, BMP_INFO_TYPE_SYSDESCR,
 			FRR_FULL_NAME " " FRR_VER_SHORT);
 	bmp_put_info_tlv(s, BMP_INFO_TYPE_SYSNAME, cmd_hostname_get());
+=======
+#define BMP_INIT_INFO_TYPE_SYSDESCR 1
+#define BMP_INIT_INFO_TYPE_SYSNAME  2
+	bmp_put_info_tlv(s, BMP_INIT_INFO_TYPE_SYSDESCR,
+			 FRR_FULL_NAME " " FRR_VER_SHORT);
+	bmp_put_info_tlv(s, BMP_INIT_INFO_TYPE_SYSNAME, cmd_hostname_get());
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	len = stream_get_endp(s);
 	stream_putl_at(s, BMP_LENGTH_POS, len); /* message length is set. */
@@ -427,30 +486,66 @@ static void bmp_notify_put(struct stream *s, struct bgp_notify *nfy)
 			+ sizeof(marker));
 }
 
+<<<<<<< HEAD
+=======
+/* send peer up/down for peer based on down boolean value
+ * returns the message to send or NULL if the peer_distinguisher is not
+ * available
+ */
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 static struct stream *bmp_peerstate(struct peer *peer, bool down)
 {
 	struct stream *s;
 	size_t len;
 	struct timeval uptime, uptime_real;
+<<<<<<< HEAD
+=======
+	uint8_t peer_type;
+	bool is_locrib = false;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	uptime.tv_sec = peer->uptime;
 	uptime.tv_usec = 0;
 	monotime_to_realtime(&uptime, &uptime_real);
 
+<<<<<<< HEAD
 #define BGP_BMP_MAX_PACKET_SIZE	1024
 	s = stream_new(BGP_MAX_PACKET_SIZE);
 
 	if (peer_established(peer->connection) && !down) {
+=======
+	peer_type = bmp_get_peer_type(peer);
+	if (peer_type == BMP_PEER_TYPE_LOC_RIB_INSTANCE)
+		is_locrib = true;
+	else
+		/* TODO: remove this when other RD and local instances supported */
+		peer_type = BMP_PEER_TYPE_GLOBAL_INSTANCE;
+
+#define BGP_BMP_MAX_PACKET_SIZE	1024
+#define BMP_PEERUP_INFO_TYPE_STRING 0
+	s = stream_new(BGP_MAX_PACKET_SIZE);
+
+	if ((peer_established(peer->connection) || is_locrib) && !down) {
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		struct bmp_bgp_peer *bbpeer;
 
 		bmp_common_hdr(s, BMP_VERSION_3,
 				BMP_TYPE_PEER_UP_NOTIFICATION);
+<<<<<<< HEAD
 		bmp_per_peer_hdr(s, peer->bgp, peer, 0,
 				 BMP_PEER_TYPE_GLOBAL_INSTANCE, 0,
 				 &uptime_real);
 
 		/* Local Address (16 bytes) */
 		if (peer->su_local->sa.sa_family == AF_INET6)
+=======
+		bmp_per_peer_hdr(s, peer->bgp, peer, 0, peer_type, 0, &uptime_real);
+
+		/* Local Address (16 bytes) */
+		if (is_locrib)
+			stream_put(s, 0, 16);
+		else if (peer->su_local->sa.sa_family == AF_INET6)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			stream_put(s, &peer->su_local->sin6.sin6_addr, 16);
 		else if (peer->su_local->sa.sa_family == AF_INET) {
 			stream_putl(s, 0);
@@ -460,15 +555,32 @@ static struct stream *bmp_peerstate(struct peer *peer, bool down)
 		}
 
 		/* Local Port, Remote Port */
+<<<<<<< HEAD
 		if (peer->su_local->sa.sa_family == AF_INET6)
 			stream_putw(s, htons(peer->su_local->sin6.sin6_port));
 		else if (peer->su_local->sa.sa_family == AF_INET)
 			stream_putw(s, htons(peer->su_local->sin.sin_port));
 		if (peer->su_remote->sa.sa_family == AF_INET6)
+=======
+		if (!peer->su_local || is_locrib)
+			stream_putw(s, 0);
+		else if (peer->su_local->sa.sa_family == AF_INET6)
+			stream_putw(s, htons(peer->su_local->sin6.sin6_port));
+		else if (peer->su_local->sa.sa_family == AF_INET)
+			stream_putw(s, htons(peer->su_local->sin.sin_port));
+
+		if (!peer->su_remote || is_locrib)
+			stream_putw(s, 0);
+		else if (peer->su_remote->sa.sa_family == AF_INET6)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			stream_putw(s, htons(peer->su_remote->sin6.sin6_port));
 		else if (peer->su_remote->sa.sa_family == AF_INET)
 			stream_putw(s, htons(peer->su_remote->sin.sin_port));
 
+<<<<<<< HEAD
+=======
+		/* TODO craft message with fields & capabilities for loc-rib */
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		static const uint8_t dummy_open[] = {
 			0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
 			0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
@@ -493,7 +605,12 @@ static struct stream *bmp_peerstate(struct peer *peer, bool down)
 		}
 
 		if (peer->desc)
+<<<<<<< HEAD
 			bmp_put_info_tlv(s, 0, peer->desc);
+=======
+			bmp_put_info_tlv(s, BMP_PEERUP_INFO_TYPE_STRING,
+					 peer->desc);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	} else {
 		uint8_t type;
 		size_t type_pos;
@@ -507,6 +624,7 @@ static struct stream *bmp_peerstate(struct peer *peer, bool down)
 		type_pos = stream_get_endp(s);
 		stream_putc(s, 0);	/* placeholder for down reason */
 
+<<<<<<< HEAD
 		switch (peer->last_reset) {
 		case PEER_DOWN_NOTIFY_RECEIVED:
 			type = BMP_PEERDOWN_REMOTE_NOTIFY;
@@ -529,10 +647,45 @@ static struct stream *bmp_peerstate(struct peer *peer, bool down)
 			type = BMP_PEERDOWN_LOCAL_FSM;
 			stream_putw(s, BMP_PEER_DOWN_NO_RELEVANT_EVENT_CODE);
 			break;
+=======
+		if (is_locrib) {
+			type = BMP_PEERDOWN_LOCAL_TLV;
+		} else {
+			switch (peer->last_reset) {
+			case PEER_DOWN_NOTIFY_RECEIVED:
+				type = BMP_PEERDOWN_REMOTE_NOTIFY;
+				bmp_notify_put(s, &peer->notify);
+				break;
+			case PEER_DOWN_CLOSE_SESSION:
+				type = BMP_PEERDOWN_REMOTE_CLOSE;
+				break;
+			case PEER_DOWN_WAITING_NHT:
+				type = BMP_PEERDOWN_LOCAL_FSM;
+				stream_putw(s, BGP_FSM_TcpConnectionFails);
+				break;
+			/*
+			 * TODO: Map remaining PEER_DOWN_* reasons to RFC event
+			 * codes.
+			 * TODO: Implement BMP_PEERDOWN_LOCAL_NOTIFY.
+			 *
+			 * See RFC7854 ss. 4.9
+			 */
+			default:
+				type = BMP_PEERDOWN_LOCAL_FSM;
+				stream_putw(s, BMP_PEER_DOWN_NO_RELEVANT_EVENT_CODE);
+				break;
+			}
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		}
 		stream_putc_at(s, type_pos, type);
 	}
 
+<<<<<<< HEAD
+=======
+	if (is_locrib)
+		bmp_put_vrftablename_info_tlv(s, peer->bgp);
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	len = stream_get_endp(s);
 	stream_putl_at(s, BMP_LENGTH_POS, len); /* message length is set. */
 	return s;
@@ -555,6 +708,28 @@ static int bmp_send_peerup(struct bmp *bmp)
 	return 0;
 }
 
+<<<<<<< HEAD
+=======
+static int bmp_send_peerup_vrf(struct bmp *bmp)
+{
+	struct bmp_bgp *bmpbgp = bmp->targets->bmpbgp;
+	struct stream *s;
+
+	/* send unconditionally because state may has been set before the
+	 * session was up. and in this case the peer up has not been sent.
+	 */
+	bmp_bgp_update_vrf_status(bmpbgp, vrf_state_unknown);
+
+	s = bmp_peerstate(bmpbgp->bgp->peer_self, bmpbgp->vrf_state == vrf_state_down);
+
+	pullwr_write_stream(bmp->pullwr, s);
+	stream_free(s);
+
+	return 0;
+}
+
+/* send a stream to all bmp sessions configured in a bgp instance */
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 /* XXX: kludge - filling the pullwr's buffer */
 static void bmp_send_all(struct bmp_bgp *bmpbgp, struct stream *s)
 {
@@ -567,6 +742,19 @@ static void bmp_send_all(struct bmp_bgp *bmpbgp, struct stream *s)
 	stream_free(s);
 }
 
+<<<<<<< HEAD
+=======
+static void bmp_send_all_safe(struct bmp_bgp *bmpbgp, struct stream *s)
+{
+	if (!bmpbgp) {
+		stream_free(s);
+		return;
+	}
+
+	bmp_send_all(bmpbgp, s);
+}
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 /*
  * Route Mirroring
  */
@@ -813,7 +1001,11 @@ static int bmp_peer_status_changed(struct peer *peer)
 		}
 	}
 
+<<<<<<< HEAD
 	bmp_send_all(bmpbgp, bmp_peerstate(peer, false));
+=======
+	bmp_send_all_safe(bmpbgp, bmp_peerstate(peer, false));
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	return 0;
 }
 
@@ -835,7 +1027,11 @@ static int bmp_peer_backward(struct peer *peer)
 		bbpeer->open_rx_len = 0;
 	}
 
+<<<<<<< HEAD
 	bmp_send_all(bmpbgp, bmp_peerstate(peer, true));
+=======
+	bmp_send_all_safe(bmpbgp, bmp_peerstate(peer, true));
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	return 0;
 }
 
@@ -910,7 +1106,12 @@ static void bmp_eor(struct bmp *bmp, afi_t afi, safi_t safi, uint8_t flags,
 
 static struct stream *bmp_update(const struct prefix *p, struct prefix_rd *prd,
 				 struct peer *peer, struct attr *attr,
+<<<<<<< HEAD
 				 afi_t afi, safi_t safi)
+=======
+				 afi_t afi, safi_t safi, mpls_label_t *label,
+				 uint32_t num_labels)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 {
 	struct bpacket_attr_vec_arr vecarr;
 	struct stream *s;
@@ -930,9 +1131,14 @@ static struct stream *bmp_update(const struct prefix *p, struct prefix_rd *prd,
 	stream_putw(s, 0);
 
 	/* 5: Encode all the attributes, except MP_REACH_NLRI attr. */
+<<<<<<< HEAD
 	total_attr_len =
 		bgp_packet_attribute(NULL, peer, s, attr, &vecarr, NULL, afi,
 				     safi, peer, NULL, NULL, 0, 0, 0, NULL);
+=======
+	total_attr_len = bgp_packet_attribute(NULL, peer, s, attr, &vecarr, NULL, afi, safi, peer,
+					      NULL, NULL, 0, 0, 0);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	/* space check? */
 
@@ -946,8 +1152,13 @@ static struct stream *bmp_update(const struct prefix *p, struct prefix_rd *prd,
 
 		mpattrlen_pos = bgp_packet_mpattr_start(s, peer, afi, safi,
 				&vecarr, attr);
+<<<<<<< HEAD
 		bgp_packet_mpattr_prefix(s, afi, safi, p, prd, NULL, 0, 0, 0,
 					 attr);
+=======
+		bgp_packet_mpattr_prefix(s, afi, safi, p, prd, label,
+					 num_labels, 0, 0, attr);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		bgp_packet_mpattr_end(s, mpattrlen_pos);
 		total_attr_len += stream_get_endp(s) - p1;
 	}
@@ -1002,7 +1213,12 @@ static struct stream *bmp_withdraw(const struct prefix *p,
 static void bmp_monitor(struct bmp *bmp, struct peer *peer, uint8_t flags,
 			uint8_t peer_type_flag, const struct prefix *p,
 			struct prefix_rd *prd, struct attr *attr, afi_t afi,
+<<<<<<< HEAD
 			safi_t safi, time_t uptime)
+=======
+			safi_t safi, time_t uptime, mpls_label_t *label,
+			uint32_t num_labels)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 {
 	struct stream *hdr, *msg;
 	struct timeval tv = { .tv_sec = uptime, .tv_usec = 0 };
@@ -1019,7 +1235,12 @@ static void bmp_monitor(struct bmp *bmp, struct peer *peer, uint8_t flags,
 
 	monotime_to_realtime(&tv, &uptime_real);
 	if (attr)
+<<<<<<< HEAD
 		msg = bmp_update(p, prd, peer, attr, afi, safi);
+=======
+		msg = bmp_update(p, prd, peer, attr, afi, safi, label,
+				 num_labels);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	else
 		msg = bmp_withdraw(p, prd, afi, safi);
 
@@ -1041,6 +1262,10 @@ static void bmp_monitor(struct bmp *bmp, struct peer *peer, uint8_t flags,
 
 static bool bmp_wrsync(struct bmp *bmp, struct pullwr *pullwr)
 {
+<<<<<<< HEAD
+=======
+	uint8_t bpi_num_labels, adjin_num_labels;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	afi_t afi;
 	safi_t safi;
 
@@ -1214,23 +1439,47 @@ afibreak:
 	    (safi == SAFI_MPLS_VPN))
 		prd = (struct prefix_rd *)bgp_dest_get_prefix(bmp->syncrdpos);
 
+<<<<<<< HEAD
+=======
+	bpi_num_labels = BGP_PATH_INFO_NUM_LABELS(bpi);
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	if (bpi && CHECK_FLAG(bpi->flags, BGP_PATH_SELECTED) &&
 	    CHECK_FLAG(bmp->targets->afimon[afi][safi], BMP_MON_LOC_RIB)) {
 		bmp_monitor(bmp, bpi->peer, 0, BMP_PEER_TYPE_LOC_RIB_INSTANCE,
 			    bn_p, prd, bpi->attr, afi, safi,
 			    bpi && bpi->extra ? bpi->extra->bgp_rib_uptime
+<<<<<<< HEAD
 					      : (time_t)(-1L));
+=======
+					      : (time_t)(-1L),
+			    bpi_num_labels ? bpi->extra->labels->label : NULL,
+			    bpi_num_labels);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	}
 
 	if (bpi && CHECK_FLAG(bpi->flags, BGP_PATH_VALID) &&
 	    CHECK_FLAG(bmp->targets->afimon[afi][safi], BMP_MON_POSTPOLICY))
 		bmp_monitor(bmp, bpi->peer, BMP_PEER_FLAG_L,
 			    BMP_PEER_TYPE_GLOBAL_INSTANCE, bn_p, prd, bpi->attr,
+<<<<<<< HEAD
 			    afi, safi, bpi->uptime);
 
 	if (adjin)
 		bmp_monitor(bmp, adjin->peer, 0, BMP_PEER_TYPE_GLOBAL_INSTANCE,
 			    bn_p, prd, adjin->attr, afi, safi, adjin->uptime);
+=======
+			    afi, safi, bpi->uptime,
+			    bpi_num_labels ? bpi->extra->labels->label : NULL,
+			    bpi_num_labels);
+
+	if (adjin) {
+		adjin_num_labels = adjin->labels ? adjin->labels->num_labels : 0;
+		bmp_monitor(bmp, adjin->peer, 0, BMP_PEER_TYPE_GLOBAL_INSTANCE, bn_p, prd,
+			    adjin->attr, afi, safi, adjin->uptime,
+			    adjin_num_labels ? &adjin->labels->label[0] : NULL, adjin_num_labels);
+	}
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	if (bn)
 		bgp_dest_unlock_node(bn);
@@ -1281,6 +1530,10 @@ static bool bmp_wrqueue_locrib(struct bmp *bmp, struct pullwr *pullwr)
 	struct peer *peer;
 	struct bgp_dest *bn = NULL;
 	bool written = false;
+<<<<<<< HEAD
+=======
+	uint8_t bpi_num_labels;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	bqe = bmp_pull_locrib(bmp);
 	if (!bqe)
@@ -1340,10 +1593,21 @@ static bool bmp_wrqueue_locrib(struct bmp *bmp, struct pullwr *pullwr)
 			break;
 	}
 
+<<<<<<< HEAD
 	bmp_monitor(bmp, peer, 0, BMP_PEER_TYPE_LOC_RIB_INSTANCE, &bqe->p, prd,
 		    bpi ? bpi->attr : NULL, afi, safi,
 		    bpi && bpi->extra ? bpi->extra->bgp_rib_uptime
 				      : (time_t)(-1L));
+=======
+	bpi_num_labels = BGP_PATH_INFO_NUM_LABELS(bpi);
+
+	bmp_monitor(bmp, peer, 0, BMP_PEER_TYPE_LOC_RIB_INSTANCE, &bqe->p, prd,
+		    bpi ? bpi->attr : NULL, afi, safi,
+		    bpi && bpi->extra ? bpi->extra->bgp_rib_uptime
+				      : (time_t)(-1L),
+		    bpi_num_labels ? bpi->extra->labels->label : NULL,
+		    bpi_num_labels);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	written = true;
 
 out:
@@ -1362,6 +1626,10 @@ static bool bmp_wrqueue(struct bmp *bmp, struct pullwr *pullwr)
 	struct peer *peer;
 	struct bgp_dest *bn = NULL;
 	bool written = false;
+<<<<<<< HEAD
+=======
+	uint8_t bpi_num_labels, adjin_num_labels;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	bqe = bmp_pull(bmp);
 	if (!bqe)
@@ -1413,10 +1681,21 @@ static bool bmp_wrqueue(struct bmp *bmp, struct pullwr *pullwr)
 				break;
 		}
 
+<<<<<<< HEAD
 		bmp_monitor(bmp, peer, BMP_PEER_FLAG_L,
 			    BMP_PEER_TYPE_GLOBAL_INSTANCE, &bqe->p, prd,
 			    bpi ? bpi->attr : NULL, afi, safi,
 			    bpi ? bpi->uptime : monotime(NULL));
+=======
+		bpi_num_labels = BGP_PATH_INFO_NUM_LABELS(bpi);
+
+		bmp_monitor(bmp, peer, BMP_PEER_FLAG_L,
+			    BMP_PEER_TYPE_GLOBAL_INSTANCE, &bqe->p, prd,
+			    bpi ? bpi->attr : NULL, afi, safi,
+			    bpi ? bpi->uptime : monotime(NULL),
+			    bpi_num_labels ? bpi->extra->labels->label : NULL,
+			    bpi_num_labels);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		written = true;
 	}
 
@@ -1428,9 +1707,17 @@ static bool bmp_wrqueue(struct bmp *bmp, struct pullwr *pullwr)
 			if (adjin->peer == peer)
 				break;
 		}
+<<<<<<< HEAD
 		bmp_monitor(bmp, peer, 0, BMP_PEER_TYPE_GLOBAL_INSTANCE,
 			    &bqe->p, prd, adjin ? adjin->attr : NULL, afi, safi,
 			    adjin ? adjin->uptime : monotime(NULL));
+=======
+		adjin_num_labels = adjin && adjin->labels ? adjin->labels->num_labels : 0;
+		bmp_monitor(bmp, peer, 0, BMP_PEER_TYPE_GLOBAL_INSTANCE, &bqe->p, prd,
+			    adjin ? adjin->attr : NULL, afi, safi,
+			    adjin ? adjin->uptime : monotime(NULL),
+			    adjin_num_labels ? &adjin->labels->label[0] : NULL, adjin_num_labels);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		written = true;
 	}
 
@@ -1448,6 +1735,10 @@ static void bmp_wrfill(struct bmp *bmp, struct pullwr *pullwr)
 {
 	switch(bmp->state) {
 	case BMP_PeerUp:
+<<<<<<< HEAD
+=======
+		bmp_send_peerup_vrf(bmp);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		bmp_send_peerup(bmp);
 		bmp->state = BMP_Run;
 		break;
@@ -1578,6 +1869,18 @@ static void bmp_stat_put_u32(struct stream *s, size_t *cnt, uint16_t type,
 	(*cnt)++;
 }
 
+<<<<<<< HEAD
+=======
+static void bmp_stat_put_u64(struct stream *s, size_t *cnt, uint16_t type,
+			     uint64_t value)
+{
+	stream_putw(s, type);
+	stream_putw(s, 8);
+	stream_putq(s, value);
+	(*cnt)++;
+}
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 static void bmp_stats(struct event *thread)
 {
 	struct bmp_targets *bt = EVENT_ARG(thread);
@@ -1619,8 +1922,18 @@ static void bmp_stats(struct event *thread)
 				peer->stat_pfx_dup_withdraw);
 		bmp_stat_put_u32(s, &count, BMP_STATS_UPD_7606_WITHDRAW,
 				peer->stat_upd_7606);
+<<<<<<< HEAD
 		bmp_stat_put_u32(s, &count, BMP_STATS_FRR_NH_INVALID,
 				peer->stat_pfx_nh_invalid);
+=======
+		if (bt->stats_send_experimental)
+			bmp_stat_put_u32(s, &count, BMP_STATS_FRR_NH_INVALID,
+					 peer->stat_pfx_nh_invalid);
+		bmp_stat_put_u64(s, &count, BMP_STATS_SIZE_ADJ_RIB_IN,
+				 peer->stat_pfx_adj_rib_in);
+		bmp_stat_put_u64(s, &count, BMP_STATS_SIZE_LOC_RIB,
+				 peer->stat_pfx_loc_rib);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 		stream_putl_at(s, count_pos, count);
 
@@ -1797,6 +2110,10 @@ static struct bmp_bgp *bmp_bgp_get(struct bgp *bgp)
 
 	bmpbgp = XCALLOC(MTYPE_BMP, sizeof(*bmpbgp));
 	bmpbgp->bgp = bgp;
+<<<<<<< HEAD
+=======
+	bmpbgp->vrf_state = vrf_state_unknown;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	bmpbgp->mirror_qsizelimit = ~0UL;
 	bmp_mirrorq_init(&bmpbgp->mirrorq);
 	bmp_bgph_add(&bmp_bgph, bmpbgp);
@@ -1831,6 +2148,84 @@ static int bmp_bgp_del(struct bgp *bgp)
 	return 0;
 }
 
+<<<<<<< HEAD
+=======
+static void bmp_bgp_peer_vrf(struct bmp_bgp_peer *bbpeer, struct bgp *bgp)
+{
+	struct peer *peer = bgp->peer_self;
+	uint16_t send_holdtime;
+	as_t local_as;
+
+	if (CHECK_FLAG(peer->flags, PEER_FLAG_TIMER))
+		send_holdtime = peer->holdtime;
+	else
+		send_holdtime = peer->bgp->default_holdtime;
+
+	/* local-as Change */
+	if (peer->change_local_as)
+		local_as = peer->change_local_as;
+	else
+		local_as = peer->local_as;
+
+	struct stream *s = bgp_open_make(peer, send_holdtime, local_as);
+	size_t open_len = stream_get_endp(s);
+
+	bbpeer->open_rx_len = open_len;
+	bbpeer->open_rx = XMALLOC(MTYPE_BMP_OPEN, open_len);
+	memcpy(bbpeer->open_rx, s->data, open_len);
+
+	bbpeer->open_tx_len = open_len;
+	bbpeer->open_tx = bbpeer->open_rx;
+
+	stream_free(s);
+}
+
+/* update the vrf status of the bmpbgp struct for vrf peer up/down
+ *
+ * if force is unknown, use zebra vrf state
+ *
+ * returns true if state has changed
+ */
+bool bmp_bgp_update_vrf_status(struct bmp_bgp *bmpbgp, enum bmp_vrf_state force)
+{
+	enum bmp_vrf_state old_state;
+	struct bmp_bgp_peer *bbpeer;
+	struct peer *peer;
+	struct vrf *vrf;
+	struct bgp *bgp;
+	bool changed;
+
+	if (!bmpbgp || !bmpbgp->bgp)
+		return false;
+
+	bgp = bmpbgp->bgp;
+	old_state = bmpbgp->vrf_state;
+
+	vrf = bgp_vrf_lookup_by_instance_type(bgp);
+	bmpbgp->vrf_state = force != vrf_state_unknown ? force
+			    : vrf_is_enabled(vrf)      ? vrf_state_up
+						       : vrf_state_down;
+
+	changed = old_state != bmpbgp->vrf_state;
+	if (changed) {
+		peer = bmpbgp->bgp->peer_self;
+		if (bmpbgp->vrf_state == vrf_state_up) {
+			bbpeer = bmp_bgp_peer_get(peer);
+			bmp_bgp_peer_vrf(bbpeer, bgp);
+		} else {
+			bbpeer = bmp_bgp_peer_find(peer->qobj_node.nid);
+			if (bbpeer) {
+				XFREE(MTYPE_BMP_OPEN, bbpeer->open_rx);
+				bmp_peerh_del(&bmp_peerh, bbpeer);
+				XFREE(MTYPE_BMP_PEER, bbpeer);
+			}
+		}
+	}
+
+	return changed;
+}
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 static struct bmp_bgp_peer *bmp_bgp_peer_find(uint64_t peerid)
 {
 	struct bmp_bgp_peer dummy = { .peerid = peerid };
@@ -1875,6 +2270,10 @@ static struct bmp_targets *bmp_targets_get(struct bgp *bgp, const char *name)
 	bt->name = XSTRDUP(MTYPE_BMP_TARGETSNAME, name);
 	bt->bgp = bgp;
 	bt->bmpbgp = bmp_bgp_get(bgp);
+<<<<<<< HEAD
+=======
+	bt->stats_send_experimental = true;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	bmp_session_init(&bt->sessions);
 	bmp_qhash_init(&bt->updhash);
 	bmp_qlist_init(&bt->updlist);
@@ -2455,6 +2854,24 @@ DEFPY(bmp_stats_cfg,
 	return CMD_SUCCESS;
 }
 
+<<<<<<< HEAD
+=======
+DEFPY(bmp_stats_send_experimental,
+      bmp_stats_send_experimental_cmd,
+      "[no] bmp stats send-experimental",
+      NO_STR
+      BMP_STR
+      "Send BMP statistics messages\n"
+      "Send experimental BMP stats [65531-65534]\n")
+{
+	VTY_DECLVAR_CONTEXT_SUB(bmp_targets, bt);
+
+	bt->stats_send_experimental = !no;
+
+	return CMD_SUCCESS;
+}
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 #define BMP_POLICY_IS_LOCRIB(str) ((str)[0] == 'l') /* __l__oc-rib */
 #define BMP_POLICY_IS_PRE(str) ((str)[1] == 'r')    /* p__r__e-policy */
 
@@ -2487,9 +2904,15 @@ DEFPY(bmp_monitor_cfg, bmp_monitor_cmd,
 
 	prev = bt->afimon[afi][safi];
 	if (no)
+<<<<<<< HEAD
 		bt->afimon[afi][safi] &= ~flag;
 	else
 		bt->afimon[afi][safi] |= flag;
+=======
+		UNSET_FLAG(bt->afimon[afi][safi], flag);
+	else
+		SET_FLAG(bt->afimon[afi][safi], flag);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	if (prev == bt->afimon[afi][safi])
 		return CMD_SUCCESS;
@@ -2687,7 +3110,11 @@ DEFPY(show_bmp,
 			}
 			out = ttable_dump(tt, "\n");
 			vty_out(vty, "%s", out);
+<<<<<<< HEAD
 			XFREE(MTYPE_TMP, out);
+=======
+			XFREE(MTYPE_TMP_TTABLE, out);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			ttable_del(tt);
 
 			vty_out(vty, "\n    %zu connected clients:\n",
@@ -2714,7 +3141,11 @@ DEFPY(show_bmp,
 			}
 			out = ttable_dump(tt, "\n");
 			vty_out(vty, "%s", out);
+<<<<<<< HEAD
 			XFREE(MTYPE_TMP, out);
+=======
+			XFREE(MTYPE_TMP_TTABLE, out);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			ttable_del(tt);
 			vty_out(vty, "\n");
 		}
@@ -2747,6 +3178,12 @@ static int bmp_config_write(struct bgp *bgp, struct vty *vty)
 		if (bt->acl_name)
 			vty_out(vty, "  ip access-list %s\n", bt->acl_name);
 
+<<<<<<< HEAD
+=======
+		if (!bt->stats_send_experimental)
+			vty_out(vty, "  no bmp stats send-experimental\n");
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		if (bt->stat_msec)
 			vty_out(vty, "  bmp stats interval %d\n",
 					bt->stat_msec);
@@ -2801,6 +3238,10 @@ static int bgp_bmp_init(struct event_loop *tm)
 	install_element(BMP_NODE, &no_bmp_listener_cmd);
 	install_element(BMP_NODE, &bmp_connect_cmd);
 	install_element(BMP_NODE, &bmp_acl_cmd);
+<<<<<<< HEAD
+=======
+	install_element(BMP_NODE, &bmp_stats_send_experimental_cmd);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	install_element(BMP_NODE, &bmp_stats_cmd);
 	install_element(BMP_NODE, &bmp_monitor_cmd);
 	install_element(BMP_NODE, &bmp_mirror_cmd);
@@ -2890,6 +3331,47 @@ static int bgp_bmp_early_fini(void)
 	return 0;
 }
 
+<<<<<<< HEAD
+=======
+/* called when a bgp instance goes up/down, implying that the underlying VRF
+ * has been created or deleted in zebra
+ */
+static int bmp_vrf_state_changed(struct bgp *bgp)
+{
+	struct bmp_bgp *bmpbgp = bmp_bgp_find(bgp);
+
+	if (!bmp_bgp_update_vrf_status(bmpbgp, vrf_state_unknown))
+		return 1;
+
+	bmp_send_all_safe(bmpbgp,
+			  bmp_peerstate(bgp->peer_self, bmpbgp->vrf_state == vrf_state_down));
+
+	return 0;
+}
+
+/* called when an interface goes up/down in a vrf, this may signal that the
+ * VRF changed state and is how bgp_snmp detects vrf state changes
+ */
+static int bmp_vrf_itf_state_changed(struct bgp *bgp, struct interface *itf)
+{
+	struct bmp_bgp *bmpbgp;
+	enum bmp_vrf_state new_state;
+
+	/* if the update is not about the vrf device double-check
+	 * the zebra status of the vrf
+	 */
+	if (!itf || !if_is_vrf(itf))
+		return bmp_vrf_state_changed(bgp);
+
+	bmpbgp = bmp_bgp_find(bgp);
+	new_state = if_is_up(itf) ? vrf_state_up : vrf_state_down;
+	if (bmp_bgp_update_vrf_status(bmpbgp, new_state))
+		bmp_send_all(bmpbgp, bmp_peerstate(bgp->peer_self, new_state == vrf_state_down));
+
+	return 0;
+}
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 static int bgp_bmp_module_init(void)
 {
 	hook_register(bgp_packet_dump, bmp_mirror_packet);
@@ -2902,6 +3384,11 @@ static int bgp_bmp_module_init(void)
 	hook_register(frr_late_init, bgp_bmp_init);
 	hook_register(bgp_route_update, bmp_route_update);
 	hook_register(frr_early_fini, bgp_bmp_early_fini);
+<<<<<<< HEAD
+=======
+	hook_register(bgp_instance_state, bmp_vrf_state_changed);
+	hook_register(bgp_vrf_status_changed, bmp_vrf_itf_state_changed);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	return 0;
 }
 

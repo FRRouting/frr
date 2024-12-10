@@ -108,6 +108,10 @@ babel_interface_address_add (ZAPI_CALLBACK_ARGS)
     if (prefix->family == AF_INET) {
         flush_interface_routes(ifc->ifp, 0);
         babel_ifp = babel_get_if_nfo(ifc->ifp);
+<<<<<<< HEAD
+=======
+        assert (babel_ifp != NULL);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         if (babel_ifp->ipv4 == NULL) {
             babel_ifp->ipv4 = malloc(4);
             if (babel_ifp->ipv4 == NULL) {
@@ -144,6 +148,10 @@ babel_interface_address_delete (ZAPI_CALLBACK_ARGS)
     if (prefix->family == AF_INET) {
         flush_interface_routes(ifc->ifp, 0);
         babel_ifp = babel_get_if_nfo(ifc->ifp);
+<<<<<<< HEAD
+=======
+	assert (babel_ifp != NULL);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	if (babel_ifp->ipv4 != NULL
 	    && memcmp(babel_ifp->ipv4, &prefix->u.prefix4, IPV4_MAX_BYTELEN)
 		       == 0) {
@@ -542,7 +550,14 @@ DEFPY (babel_set_channel,
 unsigned
 jitter(babel_interface_nfo *babel_ifp, int urgent)
 {
+<<<<<<< HEAD
     unsigned interval = babel_ifp->hello_interval;
+=======
+    unsigned interval;
+
+    assert (babel_ifp != NULL);
+    interval = babel_ifp->hello_interval;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     if(urgent)
         interval = MIN(interval, 100);
     else
@@ -553,7 +568,14 @@ jitter(babel_interface_nfo *babel_ifp, int urgent)
 unsigned
 update_jitter(babel_interface_nfo *babel_ifp, int urgent)
 {
+<<<<<<< HEAD
     unsigned interval = babel_ifp->hello_interval;
+=======
+    unsigned interval;
+
+    assert (babel_ifp != NULL);
+    interval = babel_ifp->hello_interval;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     if(urgent)
         interval = MIN(interval, 100);
     else
@@ -566,10 +588,18 @@ update_jitter(babel_interface_nfo *babel_ifp, int urgent)
 static int
 interface_recalculate(struct interface *ifp)
 {
+<<<<<<< HEAD
     babel_interface_nfo *babel_ifp = babel_get_if_nfo(ifp);
     unsigned char *tmp = NULL;
     int mtu, rc;
     struct ipv6_mreq mreq;
+=======
+    unsigned char *tmp = NULL;
+    int mtu, rc;
+    struct ipv6_mreq mreq;
+    babel_interface_nfo *babel_ifp = babel_get_if_nfo(ifp);
+    assert (babel_ifp != NULL);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
     if (!IS_ENABLE(ifp))
         return -1;
@@ -656,6 +686,10 @@ interface_reset(struct interface *ifp)
     int rc;
     struct ipv6_mreq mreq;
     babel_interface_nfo *babel_ifp = babel_get_if_nfo(ifp);
+<<<<<<< HEAD
+=======
+    assert (babel_ifp != NULL);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
     if (!CHECK_FLAG(babel_ifp->flags, BABEL_IF_IS_UP))
         return 0;
@@ -777,6 +811,10 @@ show_babel_interface_sub (struct vty *vty, struct interface *ifp)
     return;
   }
   babel_ifp = babel_get_if_nfo (ifp);
+<<<<<<< HEAD
+=======
+  assert (babel_ifp != NULL);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
   vty_out (vty, "  Babel protocol is running on this interface\n");
   vty_out (vty, "  Operating mode is \"%s\"\n",
            CHECK_FLAG(babel_ifp->flags, BABEL_IF_WIRED) ? "wired" : "wireless");
@@ -1160,6 +1198,14 @@ DEFUN (show_babel_parameters,
     return CMD_SUCCESS;
 }
 
+<<<<<<< HEAD
+=======
+void babel_if_terminate(void)
+{
+	vector_free(babel_enable_if);
+}
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 void
 babel_if_init(void)
 {
@@ -1228,6 +1274,10 @@ interface_config_write (struct vty *vty)
         if (ifp->desc)
             vty_out (vty, " description %s\n",ifp->desc);
         babel_interface_nfo *babel_ifp = babel_get_if_nfo (ifp);
+<<<<<<< HEAD
+=======
+	assert (babel_ifp != NULL);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         /* wireless is the default*/
         if (CHECK_FLAG (babel_ifp->flags, BABEL_IF_WIRED))
         {
@@ -1330,10 +1380,18 @@ babel_interface_allocate (void)
 {
     babel_interface_nfo *babel_ifp;
     babel_ifp = XCALLOC(MTYPE_BABEL_IF, sizeof(babel_interface_nfo));
+<<<<<<< HEAD
     /* All flags are unset */
     babel_ifp->bucket_time = babel_now.tv_sec;
     babel_ifp->bucket = BUCKET_TOKENS_MAX;
     babel_ifp->hello_seqno = (frr_weak_random() & 0xFFFF);
+=======
+    assert (babel_ifp != NULL);
+    /* All flags are unset */
+    babel_ifp->bucket_time = babel_now.tv_sec;
+    babel_ifp->bucket = BUCKET_TOKENS_MAX;
+    babel_ifp->hello_seqno = CHECK_FLAG(frr_weak_random(), 0xFFFF);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     babel_ifp->rtt_decay = BABEL_DEFAULT_RTT_DECAY;
     babel_ifp->rtt_min = BABEL_DEFAULT_RTT_MIN;
     babel_ifp->rtt_max = BABEL_DEFAULT_RTT_MAX;
@@ -1349,6 +1407,11 @@ babel_interface_allocate (void)
 static void
 babel_interface_free (babel_interface_nfo *babel_ifp)
 {
+<<<<<<< HEAD
+=======
+    assert (babel_ifp != NULL);
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     if (babel_ifp->ipv4){
         free(babel_ifp->ipv4);
         babel_ifp->ipv4 = NULL;

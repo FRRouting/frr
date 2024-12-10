@@ -44,7 +44,11 @@ struct isis_srv6_sid {
 	struct isis_srv6_sid_structure structure;
 
 	/* Parent SRv6 locator */
+<<<<<<< HEAD
 	struct srv6_locator_chunk *locator;
+=======
+	struct srv6_locator *locator;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	/* Backpointer to IS-IS area */
 	struct isis_area *area;
@@ -68,7 +72,11 @@ struct isis_srv6_locator {
 /* SRv6 Adjacency-SID type */
 enum srv6_adj_type {
 	ISIS_SRV6_ADJ_NORMAL = 0,
+<<<<<<< HEAD
 	ISIS_SRV6_LAN_BACKUP,
+=======
+	ISIS_SRV6_ADJ_BACKUP,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 };
 
 /* SRv6 Adjacency. */
@@ -89,7 +97,11 @@ struct srv6_adjacency {
 	struct isis_srv6_sid_structure structure;
 
 	/* Parent SRv6 locator */
+<<<<<<< HEAD
 	struct srv6_locator_chunk *locator;
+=======
+	struct srv6_locator *locator;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	/* Adjacency-SID nexthop information */
 	struct in6_addr nexthop;
@@ -109,6 +121,11 @@ struct srv6_adjacency {
 
 /* Per-area IS-IS SRv6 Data Base (SRv6 DB) */
 struct isis_srv6_db {
+<<<<<<< HEAD
+=======
+	/* List of SRv6 Locator */
+	struct srv6_locator *srv6_locator;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	/* List of SRv6 Locator chunks */
 	struct list *srv6_locator_chunks;
@@ -149,9 +166,15 @@ bool isis_srv6_locator_unset(struct isis_area *area);
 void isis_srv6_interface_set(struct isis_area *area, const char *ifname);
 
 struct isis_srv6_sid *
+<<<<<<< HEAD
 isis_srv6_sid_alloc(struct isis_area *area, struct srv6_locator_chunk *chunk,
 		    enum srv6_endpoint_behavior_codepoint behavior,
 		    int sid_func);
+=======
+isis_srv6_sid_alloc(struct isis_area *area, struct srv6_locator *locator,
+		    enum srv6_endpoint_behavior_codepoint behavior,
+		    struct in6_addr *sid_value);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 extern void isis_srv6_sid_free(struct isis_srv6_sid *sid);
 
 extern void isis_srv6_area_init(struct isis_area *area);
@@ -169,8 +192,13 @@ void isis_srv6_locator2tlv(const struct isis_srv6_locator *loc,
 			   struct isis_srv6_locator_tlv *loc_tlv);
 
 void srv6_endx_sid_add_single(struct isis_adjacency *adj, bool backup,
+<<<<<<< HEAD
 			      struct list *nexthops);
 void srv6_endx_sid_add(struct isis_adjacency *adj);
+=======
+			      struct list *nexthops, struct in6_addr *sid_value);
+void srv6_endx_sid_add(struct isis_adjacency *adj, struct in6_addr *sid_value);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 void srv6_endx_sid_del(struct srv6_adjacency *sra);
 struct srv6_adjacency *isis_srv6_endx_sid_find(struct isis_adjacency *adj,
 					       enum srv6_adj_type type);

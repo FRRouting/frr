@@ -1,4 +1,10 @@
 noinst_HEADERS += \
+<<<<<<< HEAD
+=======
+	include/linux/compiler_types.h \
+	include/linux/libc-compat.h \
+	include/linux/if.h \
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	include/linux/if_addr.h \
 	include/linux/if_bridge.h \
 	include/linux/if_link.h \

@@ -227,13 +227,25 @@ def build_topo_from_json(tgen, topo=None):
                     topo["routers"][destRouter]["links"][curSwitch][
                         "interface"
                     ] = "{}-{}-eth{}".format(
+<<<<<<< HEAD
                         destRouter, curSwitch, topo["routers"][destRouter]["nextIfname"]
+=======
+                        destRouter,
+                        curSwitch,
+                        topo["routers"][destRouter]["nextIfname"],
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
                     )
 
                     topo["switches"][curSwitch]["links"][destRouter][
                         "interface"
                     ] = "{}-{}-eth{}".format(
+<<<<<<< HEAD
                         curSwitch, destRouter, topo["routers"][destRouter]["nextIfname"]
+=======
+                        curSwitch,
+                        destRouter,
+                        topo["routers"][destRouter]["nextIfname"],
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
                     )
 
                     topo["routers"][destRouter]["nextIfname"] += 1

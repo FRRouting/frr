@@ -418,6 +418,10 @@ void lua_pushzebra_dplane_ctx(lua_State *L, const struct zebra_dplane_ctx *ctx)
 	case DPLANE_OP_SRV6_ENCAP_SRCADDR_SET:
 	case DPLANE_OP_NONE:
 	case DPLANE_OP_STARTUP_STAGE:
+<<<<<<< HEAD
+=======
+	case DPLANE_OP_VLAN_INSTALL:
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		break;
 	} /* Dispatch by op code */
 }

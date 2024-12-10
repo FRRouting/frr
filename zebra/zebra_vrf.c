@@ -398,6 +398,10 @@ vrf_id_t zebra_vrf_lookup_by_table(uint32_t table_id, ns_id_t ns_id)
 
 	RB_FOREACH (vrf, vrf_id_head, &vrfs_by_id) {
 		zvrf = vrf->info;
+<<<<<<< HEAD
+=======
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		if (zvrf == NULL)
 			continue;
 		/* case vrf with netns : match the netnsid */
@@ -408,6 +412,10 @@ vrf_id_t zebra_vrf_lookup_by_table(uint32_t table_id, ns_id_t ns_id)
 			/* VRF is VRF_BACKEND_VRF_LITE */
 			if (zvrf->table_id != table_id)
 				continue;
+<<<<<<< HEAD
+=======
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			return zvrf_id(zvrf);
 		}
 	}

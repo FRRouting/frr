@@ -35,6 +35,10 @@
 #include "pim_sock.h"
 #include "pim_vxlan.h"
 #include "pim_msg.h"
+<<<<<<< HEAD
+=======
+#include "pim_util.h"
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 static void mroute_read_on(struct pim_instance *pim);
 static int pim_upstream_mroute_update(struct channel_oil *c_oil,
@@ -56,10 +60,21 @@ int pim_mroute_set(struct pim_instance *pim, int enable)
 			err = setsockopt(pim->mroute_socket, PIM_IPPROTO,
 					 MRT_TABLE, &data, data_len);
 			if (err) {
+<<<<<<< HEAD
 				zlog_warn(
 					"%s %s: failure: setsockopt(fd=%d,PIM_IPPROTO, MRT_TABLE=%d): errno=%d: %s",
 					__FILE__, __func__, pim->mroute_socket,
 					data, errno, safe_strerror(errno));
+=======
+				if (err == ENOPROTOOPT)
+					zlog_err("%s Kernel is not compiled with CONFIG_IP_MROUTE_MULTIPLE_TABLES and vrf's will not work",
+						 __func__);
+				else
+					zlog_warn("%s %s: failure: setsockopt(fd=%d,PIM_IPPROTO, MRT_TABLE=%d): errno=%d: %s",
+						  __FILE__, __func__,
+						  pim->mroute_socket, data,
+						  errno, safe_strerror(errno));
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 				return -1;
 			}
 		}
@@ -178,6 +193,17 @@ int pim_mroute_msg_nocache(int fd, struct interface *ifp, const kernmsg *msg)
 		 * so the kernel doesn't keep nagging us.
 		 */
 		struct pim_rpf *rpg;
+<<<<<<< HEAD
+=======
+#if PIM_IPV == 6
+		pim_addr embedded_rp;
+
+		if (pim_ifp->pim->embedded_rp.enable &&
+		    pim_embedded_rp_extract(&sg.grp, &embedded_rp) &&
+		    !pim_embedded_rp_filter_match(pim_ifp->pim, &sg.grp))
+			pim_embedded_rp_new(pim_ifp->pim, &sg.grp, &embedded_rp);
+#endif /* PIM_IPV == 6 */
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 		rpg = RP(pim_ifp->pim, msg->msg_im_dst);
 		if (!rpg) {
@@ -259,7 +285,13 @@ int pim_mroute_msg_nocache(int fd, struct interface *ifp, const kernmsg *msg)
 	    *oil_incoming_vif(up->channel_oil) >= MAXVIFS) {
 		pim_upstream_mroute_iif_update(up->channel_oil, __func__);
 	}
+<<<<<<< HEAD
 	pim_register_join(up);
+=======
+
+	if (!pim_is_group_filtered(pim_ifp, &sg.grp, &sg.src))
+		pim_register_join(up);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	/* if we have receiver, inherit from parent */
 	pim_upstream_inherited_olist_decide(pim_ifp->pim, up);
 
@@ -620,7 +652,12 @@ int pim_mroute_msg_wrvifwhole(int fd, struct interface *ifp, const char *buf,
 		pim_upstream_keep_alive_timer_start(
 			up, pim_ifp->pim->keep_alive_time);
 		up->channel_oil->cc.pktcnt++;
+<<<<<<< HEAD
 		pim_register_join(up);
+=======
+		if (!pim_is_group_filtered(pim_ifp, &sg.grp, &sg.src))
+			pim_register_join(up);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		pim_upstream_inherited_olist(pim_ifp->pim, up);
 		if (!up->channel_oil->installed)
 			pim_upstream_mroute_add(up->channel_oil, __func__);

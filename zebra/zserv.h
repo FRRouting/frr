@@ -64,6 +64,11 @@ struct client_gr_info {
 	/* Book keeping */
 	void *stale_client_ptr;
 	struct event *t_stale_removal;
+<<<<<<< HEAD
+=======
+	void *client_ptr;
+	time_t route_sync_done_time;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	TAILQ_ENTRY(client_gr_info) gr_info;
 };
@@ -387,6 +392,10 @@ __attribute__((__noreturn__)) void zebra_finalize(struct event *event);
 /*
  * Graceful restart functions.
  */
+<<<<<<< HEAD
+=======
+extern void zebra_gr_client_final_shutdown(struct zserv *client);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 extern int zebra_gr_client_disconnect(struct zserv *client);
 extern void zebra_gr_client_reconnect(struct zserv *client);
 extern void zebra_gr_stale_client_cleanup(struct list *client_list);

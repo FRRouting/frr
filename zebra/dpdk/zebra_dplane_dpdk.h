@@ -20,4 +20,9 @@ extern void zd_dpdk_port_show(struct vty *vty, uint16_t port_id, bool uj,
 extern void zd_dpdk_stat_show(struct vty *vty);
 extern void zd_dpdk_vty_init(void);
 
+<<<<<<< HEAD
+=======
+extern struct zebra_privs_t zserv_privs;
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 #endif

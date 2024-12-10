@@ -1,10 +1,28 @@
 {
   "attr":{
+<<<<<<< HEAD
     "entriesCount":2
+=======
+    "entriesCount":3
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
   },
   "table":[
     {
       "interface":"r2-gre0",
+<<<<<<< HEAD
+=======
+      "type":"dynamic",
+      "protocol":"10.255.255.4",
+      "nbma":"10.1.1.4",
+      "claimed_nbma":"10.1.1.4",
+      "used":false,
+      "timeout":true,
+      "auth":false,
+      "identity":""
+    },
+    {
+      "interface":"r2-gre0",
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
       "type":"local",
       "protocol":"10.255.255.2",
       "nbma":"10.2.1.2",

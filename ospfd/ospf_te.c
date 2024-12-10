@@ -4016,7 +4016,10 @@ static void ospf_mpls_te_show_info(struct vty *vty, struct json_object *json,
 	json_object *jobj = NULL;
 
 	sum = 0;
+<<<<<<< HEAD
 	sub = 0;
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	total = lsa->size - OSPF_LSA_HEADER_SIZE;
 
 	for (tlvh = TLV_HDR_TOP(lsah); sum < total && tlvh;

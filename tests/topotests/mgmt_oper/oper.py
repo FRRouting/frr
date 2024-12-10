@@ -62,7 +62,12 @@ def disable_debug(router):
     router.vtysh_cmd("no debug northbound callbacks configuration")
 
 
+<<<<<<< HEAD
 def do_oper_test(tgen, query_results):
+=======
+@retry(retry_timeout=30, initial_wait=1)
+def _do_oper_test(tgen, qr, seconds_left=None):
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     r1 = tgen.gears["r1"].net
 
     qcmd = (
@@ -73,6 +78,7 @@ def do_oper_test(tgen, query_results):
         r"""| sed -e 's/"if-index": [0-9][0-9]*/"if-index": "rubout"/'"""
         r"""| sed -e 's/"id": [0-9][0-9]*/"id": "rubout"/'"""
     )
+<<<<<<< HEAD
 
     doreset = True
     dd_json_cmp = None
@@ -117,6 +123,62 @@ def do_oper_test(tgen, query_results):
                 )
 
         assert cmpout is None
+=======
+    # Don't use this for now.
+    dd_json_cmp = None
+
+    expected = open(qr[1], encoding="ascii").read()
+    output = r1.cmd_nostatus(qcmd.format(qr[0], qr[2] if len(qr) > 2 else ""))
+
+    diag = logging.debug if seconds_left else logging.warning
+
+    try:
+        ojson = json.loads(output)
+    except json.decoder.JSONDecodeError as error:
+        logging.error("Error decoding json: %s\noutput:\n%s", error, output)
+        raise
+
+    try:
+        ejson = json.loads(expected)
+    except json.decoder.JSONDecodeError as error:
+        logging.error(
+            "Error decoding json exp result: %s\noutput:\n%s", error, expected
+        )
+        diag("FILE: {}".format(qr[1]))
+        raise
+
+    if dd_json_cmp:
+        cmpout = json_cmp(ojson, ejson, exact_match=True)
+        if cmpout:
+            diag(
+                "-------DIFF---------\n%s\n---------DIFF----------",
+                pprint.pformat(cmpout),
+            )
+    else:
+        cmpout = tt_json_cmp(ojson, ejson, exact=True)
+        if cmpout:
+            diag(
+                "-------EXPECT--------\n%s\n------END-EXPECT------",
+                json.dumps(ejson, indent=4),
+            )
+            diag(
+                "--------GOT----------\n%s\n-------END-GOT--------",
+                json.dumps(ojson, indent=4),
+            )
+            diag("----diff---\n{}".format(cmpout))
+            diag("Command: {}".format(qcmd.format(qr[0], qr[2] if len(qr) > 2 else "")))
+            diag("File: {}".format(qr[1]))
+    return cmpout
+
+
+def do_oper_test(tgen, query_results):
+    reset = True
+    for qr in query_results:
+        step(f"Perform query '{qr[0]}'", reset=reset)
+        if reset:
+            reset = False
+        _do_oper_test(tgen, qr)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 
 def get_ip_networks(super_prefix, count):
@@ -140,7 +202,11 @@ def check_kernel(r1, super_prefix, count, add, is_blackhole, vrf, matchvia):
 
     # logger.debug("checking kernel routing table%s:\n%s", vrfstr, kernel)
 
+<<<<<<< HEAD
     for i, net in enumerate(get_ip_networks(super_prefix, count)):
+=======
+    for _, net in enumerate(get_ip_networks(super_prefix, count)):
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         if not add:
             assert str(net) not in kernel
             continue
@@ -227,7 +293,11 @@ def do_config(
         if vrf:
             f.write("vrf {}\n".format(vrf))
 
+<<<<<<< HEAD
         for i, net in enumerate(get_ip_networks(super_prefix, count)):
+=======
+        for _, net in enumerate(get_ip_networks(super_prefix, count)):
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
             if add:
                 f.write("ip route {} {}\n".format(net, via))
             else:

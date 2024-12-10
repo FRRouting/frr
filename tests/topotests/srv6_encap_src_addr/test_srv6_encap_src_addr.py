@@ -18,7 +18,10 @@ import os
 import sys
 import json
 import pytest
+<<<<<<< HEAD
 import functools
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 CWD = os.path.dirname(os.path.realpath(__file__))
 sys.path.append(os.path.join(CWD, "../"))
@@ -56,23 +59,37 @@ def setup_module(mod):
     tgen.start_router()
 
 
+<<<<<<< HEAD
 def teardown_module(mod):
+=======
+def teardown_module():
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     tgen = get_topogen()
     tgen.stop_topology()
 
 
 def test_zebra_srv6_encap_src_addr(tgen):
     "Test SRv6 encapsulation source address."
+<<<<<<< HEAD
     logger.info(
         "Test SRv6 encapsulation source address."
     )
+=======
+    logger.info("Test SRv6 encapsulation source address.")
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     r1 = tgen.gears["r1"]
 
     # Generate expected results
     json_file = "{}/r1/expected_srv6_encap_src_addr.json".format(CWD)
     expected = json.loads(open(json_file).read())
 
+<<<<<<< HEAD
     ok = topotest.router_json_cmp_retry(r1, "show segment-routing srv6 manager json", expected)
+=======
+    ok = topotest.router_json_cmp_retry(
+        r1, "show segment-routing srv6 manager json", expected
+    )
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     assert ok, '"r1" JSON output mismatches'
 
     output = r1.cmd("ip sr tunsrc show")
@@ -81,9 +98,13 @@ def test_zebra_srv6_encap_src_addr(tgen):
 
 def test_zebra_srv6_encap_src_addr_unset(tgen):
     "Test SRv6 encapsulation source address unset."
+<<<<<<< HEAD
     logger.info(
         "Test SRv6 encapsulation source address unset."
     )
+=======
+    logger.info("Test SRv6 encapsulation source address unset.")
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     r1 = tgen.gears["r1"]
 
     # Unset SRv6 encapsulation source address
@@ -101,7 +122,13 @@ def test_zebra_srv6_encap_src_addr_unset(tgen):
     json_file = "{}/r1/expected_srv6_encap_src_addr_unset.json".format(CWD)
     expected = json.loads(open(json_file).read())
 
+<<<<<<< HEAD
     ok = topotest.router_json_cmp_retry(r1, "show segment-routing srv6 manager json", expected)
+=======
+    ok = topotest.router_json_cmp_retry(
+        r1, "show segment-routing srv6 manager json", expected
+    )
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     assert ok, '"r1" JSON output mismatches'
 
     output = r1.cmd("ip sr tunsrc show")
@@ -110,9 +137,13 @@ def test_zebra_srv6_encap_src_addr_unset(tgen):
 
 def test_zebra_srv6_encap_src_addr_set(tgen):
     "Test SRv6 encapsulation source address set."
+<<<<<<< HEAD
     logger.info(
         "Test SRv6 encapsulation source address set."
     )
+=======
+    logger.info("Test SRv6 encapsulation source address set.")
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     r1 = tgen.gears["r1"]
 
     # Set SRv6 encapsulation source address
@@ -130,7 +161,13 @@ def test_zebra_srv6_encap_src_addr_set(tgen):
     json_file = "{}/r1/expected_srv6_encap_src_addr_set.json".format(CWD)
     expected = json.loads(open(json_file).read())
 
+<<<<<<< HEAD
     ok = topotest.router_json_cmp_retry(r1, "show segment-routing srv6 manager json", expected)
+=======
+    ok = topotest.router_json_cmp_retry(
+        r1, "show segment-routing srv6 manager json", expected
+    )
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     assert ok, '"r1" JSON output mismatches'
 
     output = r1.cmd("ip sr tunsrc show")

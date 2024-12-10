@@ -9,6 +9,10 @@
 
 #include <ospfd/ospf_gr.h>
 #include <ospfd/ospf_packet.h>
+<<<<<<< HEAD
+=======
+#include <ospfd/ospf_flood.h>
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 /* Neighbor Data Structure */
 struct ospf_neighbor {
@@ -44,6 +48,10 @@ struct ospf_neighbor {
 
 	/* LSA data. */
 	struct ospf_lsdb ls_rxmt;
+<<<<<<< HEAD
+=======
+	struct ospf_lsa_list_head ls_rxmt_list;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	struct ospf_lsdb db_sum;
 	struct ospf_lsdb ls_req;
 	struct ospf_lsa *ls_req_last;
@@ -54,13 +62,21 @@ struct ospf_neighbor {
 	uint32_t v_inactivity;
 	uint32_t v_db_desc;
 	uint32_t v_ls_req;
+<<<<<<< HEAD
 	uint32_t v_ls_upd;
+=======
+	uint32_t v_ls_rxmt;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	/* Threads. */
 	struct event *t_inactivity;
 	struct event *t_db_desc;
 	struct event *t_ls_req;
+<<<<<<< HEAD
 	struct event *t_ls_upd;
+=======
+	struct event *t_ls_rxmt;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	struct event *t_hello_reply;
 
 	/* NBMA configured neighbour */
@@ -71,6 +87,10 @@ struct ospf_neighbor {
 	struct timeval ts_last_regress;  /* last regressive NSM change     */
 	const char *last_regress_str;    /* Event which last regressed NSM */
 	uint32_t state_change;		 /* NSM state change counter       */
+<<<<<<< HEAD
+=======
+	uint32_t ls_rxmt_lsa;		 /* Number of LSAs retransmited.   */
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	/* BFD information */
 	struct bfd_session_params *bfd_session;

@@ -14,11 +14,16 @@ test_static_routing_mpls.py: Testing MPLS configuration with mpls interface sett
 """
 
 import os
+<<<<<<< HEAD
 import re
 import sys
 import pytest
 import json
 from functools import partial
+=======
+import sys
+import pytest
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 import functools
 
 # Save the Current Working Directory to find configuration files.
@@ -113,7 +118,11 @@ def _check_mpls_state(router, interface, configured=True):
     test_func = functools.partial(
         _check_mpls_state_interface, router, interface, up=configured
     )
+<<<<<<< HEAD
     success, result = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
+=======
+    success, _ = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     return success
 
 

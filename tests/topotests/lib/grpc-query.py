@@ -10,11 +10,16 @@ import argparse
 import logging
 import os
 import sys
+<<<<<<< HEAD
+=======
+import tempfile
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 import pytest
 
 CWD = os.path.dirname(os.path.realpath(__file__))
 
+<<<<<<< HEAD
 # This is painful but works if you have installed grpc and grpc_tools would be *way*
 # better if we actually built and installed these but ... python packaging.
 try:
@@ -39,6 +44,41 @@ try:
 except Exception as error:
     logging.error("can't import proto definition modules %s", error)
     raise
+=======
+try:
+    # Make sure we don't run-into ourselves in parallel operating environment
+    tmpdir = tempfile.mkdtemp(prefix="grpc-client-")
+
+    # This is painful but works if you have installed grpc and grpc_tools would be *way*
+    # better if we actually built and installed these but ... python packaging.
+    try:
+        import grpc_tools
+        from munet.base import commander
+
+        import grpc
+
+        commander.cmd_raises(f"cp {CWD}/../../../grpc/frr-northbound.proto .")
+        commander.cmd_raises(
+            "python3 -m grpc_tools.protoc"
+            f" --python_out={tmpdir} --grpc_python_out={tmpdir}"
+            f" -I {CWD}/../../../grpc frr-northbound.proto"
+        )
+    except Exception as error:
+        logging.error("can't create proto definition modules %s", error)
+        raise
+
+    try:
+        sys.path[0:0] = [tmpdir]
+        import frr_northbound_pb2
+        import frr_northbound_pb2_grpc
+
+        sys.path = sys.path[1:]
+    except Exception as error:
+        logging.error("can't import proto definition modules %s", error)
+        raise
+finally:
+    commander.cmd_nostatus(f"rm -rf {tmpdir}")
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 
 class GRPCClient:
@@ -57,6 +97,7 @@ class GRPCClient:
         logging.debug("GRPC Capabilities: %s", response)
         return response
 
+<<<<<<< HEAD
     def get(self, xpath):
         request = frr_northbound_pb2.GetRequest()
         request.path.append(xpath)
@@ -67,6 +108,18 @@ class GRPCClient:
             logging.info('GRPC Get path: "%s" value: %s', request.path, r)
             xml += str(r.data.data)
         return xml
+=======
+    def get(self, xpath, encoding, gtype):
+        request = frr_northbound_pb2.GetRequest()
+        request.path.append(xpath)
+        request.type = gtype
+        request.encoding = encoding
+        result = ""
+        for r in self.stub.Get(request):
+            logging.debug('GRPC Get path: "%s" value: %s', request.path, r)
+            result += str(r.data.data)
+        return result
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 
 def next_action(action_list=None):
@@ -95,6 +148,10 @@ def main(*args):
     )
     parser.add_argument("-v", "--verbose", action="store_true", help="be verbose")
     parser.add_argument("--check", action="store_true", help="check runable")
+<<<<<<< HEAD
+=======
+    parser.add_argument("--xml", action="store_true", help="encode XML instead of JSON")
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     parser.add_argument("actions", nargs="*", help="GETCAP|GET,xpath")
     args = parser.parse_args(*args)
 
@@ -107,10 +164,16 @@ def main(*args):
     if args.check:
         sys.exit(0)
 
+<<<<<<< HEAD
+=======
+    encoding = frr_northbound_pb2.XML if args.xml else frr_northbound_pb2.JSON
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     c = GRPCClient(args.server, args.port)
 
     for action in next_action(args.actions):
         action = action.casefold()
+<<<<<<< HEAD
         logging.info("GOT ACTION: %s", action)
         if action == "getcap":
             caps = c.get_capabilities()
@@ -121,6 +184,28 @@ def main(*args):
             print("Get XPath: ", xpath)
             xml = c.get(xpath)
             print("{}: {}".format(xpath, xml))
+=======
+        logging.debug("GOT ACTION: %s", action)
+        if action == "getcap":
+            caps = c.get_capabilities()
+            print(caps)
+        elif action.startswith("get,"):
+            # Get and print config and state
+            _, xpath = action.split(",", 1)
+            logging.debug("Get XPath: %s", xpath)
+            print(c.get(xpath, encoding, gtype=frr_northbound_pb2.GetRequest.ALL))
+        elif action.startswith("get-config,"):
+            # Get and print config
+            _, xpath = action.split(",", 1)
+            logging.debug("Get Config XPath: %s", xpath)
+            print(c.get(xpath, encoding, gtype=frr_northbound_pb2.GetRequest.CONFIG))
+            # for _ in range(0, 1):
+        elif action.startswith("get-state,"):
+            # Get and print state
+            _, xpath = action.split(",", 1)
+            logging.debug("Get State XPath: %s", xpath)
+            print(c.get(xpath, encoding, gtype=frr_northbound_pb2.GetRequest.STATE))
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
             # for _ in range(0, 1):
 
 

@@ -41,8 +41,11 @@
 #include "jhash.h"
 
 DEFINE_MTYPE_STATIC(LIB, AFFINITY_MAP, "Affinity map");
+<<<<<<< HEAD
 DEFINE_MTYPE(LIB, AFFINITY_MAP_NAME, "Affinity map name");
 DEFINE_MTYPE_STATIC(LIB, AFFINITY_MAP_INDEX, "Affinity map index");
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 DEFINE_QOBJ_TYPE(affinity_maps);
 DEFINE_QOBJ_TYPE(affinity_map);

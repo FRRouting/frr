@@ -157,6 +157,11 @@ static int pim_zebra_if_address_add(ZAPI_CALLBACK_ARGS)
 				pim_if_addr_add_all(ifp);
 		}
 	}
+<<<<<<< HEAD
+=======
+
+	pim_cand_addrs_changed();
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	return 0;
 }
 
@@ -205,6 +210,11 @@ static int pim_zebra_if_address_del(ZAPI_CALLBACK_ARGS)
 	}
 
 	connected_free(&c);
+<<<<<<< HEAD
+=======
+
+	pim_cand_addrs_changed();
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	return 0;
 }
 

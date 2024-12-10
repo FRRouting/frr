@@ -228,7 +228,16 @@ def test_export_route_target_empty():
     router = tgen.gears["r1"]
     logger.info("r1, Remove 'rt vpn export 52:100' command")
     router.vtysh_cmd(
+<<<<<<< HEAD
         "configure terminal\nrouter bgp 65500 vrf vrf1\naddress-family ipv4 unicast\nno rt vpn export 52:100\n"
+=======
+        """
+configure terminal
+router bgp 65500 vrf vrf1
+ address-family ipv4 unicast
+  no rt vpn export 52:100
+"""
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     )
 
     prefix = "172.31.0.1/32"
@@ -240,7 +249,11 @@ def test_export_route_target_empty():
         prefix,
         "444:1",
     )
+<<<<<<< HEAD
     success, result = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
+=======
+    success, _ = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     assert success, "{}, vpnv4 update {} still present".format(router.name, prefix)
 
 
@@ -254,10 +267,22 @@ def test_export_route_target_with_routemap_with_export_route_target():
     router = tgen.gears["r1"]
     logger.info("r1, configuring route target with route-map with export route target")
     router.vtysh_cmd(
+<<<<<<< HEAD
         "configure terminal\nrouter bgp 65500 vrf vrf1\naddress-family ipv4 unicast\nroute-map vpn export rmap\n"
     )
     router.vtysh_cmd(
         "configure terminal\nroute-map rmap permit 1\nset extcommunity rt 52:100\n"
+=======
+        """
+configure terminal
+router bgp 65500 vrf vrf1
+ address-family ipv4 unicast
+  route-map vpn export RMAP
+!
+route-map RMAP permit 1
+ set extcommunity rt 52:100
+"""
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     )
 
     prefix = "172.31.0.1/32"
@@ -269,7 +294,11 @@ def test_export_route_target_with_routemap_with_export_route_target():
         prefix,
         "444:1",
     )
+<<<<<<< HEAD
     success, result = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
+=======
+    success, _ = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     assert success, "{}, vpnv4 update {} still not present".format(router.name, prefix)
 
 
@@ -283,7 +312,15 @@ def test_export_route_target_with_routemap_without_export_route_target():
     router = tgen.gears["r1"]
     logger.info("r1, removing 'set extcommunity rt 52:100.")
     router.vtysh_cmd(
+<<<<<<< HEAD
         "configure terminal\nroute-map rmap permit 1\nno set extcommunity rt\n"
+=======
+        """
+configure terminal
+route-map RMAP permit 1
+ no set extcommunity rt
+"""
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     )
 
     prefix = "172.31.0.1/32"
@@ -295,7 +332,11 @@ def test_export_route_target_with_routemap_without_export_route_target():
         prefix,
         "444:1",
     )
+<<<<<<< HEAD
     success, result = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
+=======
+    success, _ = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     assert success, "{}, vpnv4 update {} still present".format(router.name, prefix)
 
 
@@ -309,7 +350,16 @@ def test_export_route_target_with_default_command():
     router = tgen.gears["r1"]
     logger.info("r1, detach route-map and re-add route target vpn export")
     router.vtysh_cmd(
+<<<<<<< HEAD
         "configure terminal\nrouter bgp 65500 vrf vrf1\naddress-family ipv4 unicast\nrt vpn export 52:100\n"
+=======
+        """
+configure terminal
+router bgp 65500 vrf vrf1
+ address-family ipv4 unicast
+  rt vpn export 52:100
+"""
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     )
     prefix = "172.31.0.1/32"
     logger.info("r1, check that exported prefix {} is added back".format(prefix))
@@ -320,7 +370,11 @@ def test_export_route_target_with_default_command():
         prefix,
         "444:1",
     )
+<<<<<<< HEAD
     success, result = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
+=======
+    success, _ = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     assert success, "{}, vpnv4 update {} still not present".format(router.name, prefix)
 
 
@@ -334,9 +388,20 @@ def test_export_suppress_route_target_with_route_map_command():
     router = tgen.gears["r1"]
     logger.info("r1, add an extended comm-list to delete 52:100")
 
+<<<<<<< HEAD
     router.vtysh_cmd("configure terminal\nbgp extcommunity-list 1 permit rt 52:100\n")
     router.vtysh_cmd(
         "configure terminal\nroute-map rmap permit 1\nset extended-comm-list 1 delete\n"
+=======
+    router.vtysh_cmd(
+        """
+configure terminal
+bgp extcommunity-list 1 permit rt 52:100
+!
+route-map RMAP permit 1
+ set extended-comm-list 1 delete
+"""
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     )
     prefix = "172.31.0.1/32"
     logger.info("r1, check that exported prefix {} is removed".format(prefix))
@@ -347,7 +412,11 @@ def test_export_suppress_route_target_with_route_map_command():
         prefix,
         "444:1",
     )
+<<<<<<< HEAD
     success, result = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
+=======
+    success, _ = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     assert success, "{}, vpnv4 update {} still present".format(router.name, prefix)
 
 
@@ -361,7 +430,15 @@ def test_export_add_route_target_to_route_map_command():
     router = tgen.gears["r1"]
     logger.info("r1, add an additional set extcommunity 52:101")
     router.vtysh_cmd(
+<<<<<<< HEAD
         "configure terminal\nroute-map rmap permit 1\nset extcommunity rt 52:101\n"
+=======
+        """
+configure terminal
+route-map RMAP permit 1
+ set extcommunity rt 52:101
+"""
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     )
     prefix = "172.31.0.1/32"
     logger.info("r1, check that exported prefix {} is added back".format(prefix))
@@ -372,10 +449,137 @@ def test_export_add_route_target_to_route_map_command():
         prefix,
         "444:1",
     )
+<<<<<<< HEAD
     success, result = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
     assert success, "{}, vpnv4 update {} still not present".format(router.name, prefix)
 
 
+=======
+    success, _ = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
+    assert success, "{}, vpnv4 update {} still not present".format(router.name, prefix)
+
+
+def test_adj_rib_out_label_change():
+    """
+    Check that changing the VPN label on r1
+    is propagated on r2
+    """
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    logger.info("Changing VPN label value to export")
+    dump = tgen.gears["r1"].vtysh_cmd(
+        """
+configure terminal
+ router bgp 65500 vrf vrf1
+  address-family ipv4 unicast
+   label vpn export 102
+"""
+    )
+    # Check BGP IPv4 route entry for 172.31.0.1 on r1
+    logger.info("Checking BGP IPv4 routes for convergence on r1")
+    router = tgen.gears["r2"]
+    json_file = "{}/{}/bgp_ipv4_vpn_route_1723101.json".format(CWD, router.name)
+    expected = json.loads(open(json_file).read())
+    test_func = partial(
+        topotest.router_json_cmp,
+        router,
+        "show bgp ipv4 vpn 172.31.0.1/32 json",
+        expected,
+    )
+    _, result = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
+    assertmsg = '"{}" JSON output mismatches'.format(router.name)
+    assert result is None, assertmsg
+
+
+def test_adj_rib_in_label_change():
+    """
+    Check that syncinig with ADJ-RIB-in on r2
+    permits restoring the initial label value
+    """
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    logger.info("Enable soft-reconfiguration inbound on r2")
+
+    r2 = tgen.gears["r2"]
+    r2.vtysh_cmd(
+        """
+configure terminal
+router bgp 65501
+ address-family ipv4 vpn
+  neighbor 192.168.0.1 soft-reconfiguration inbound
+"""
+    )
+
+    logger.info("Applying a deny-all route-map to input on r2")
+    r2.vtysh_cmd(
+        """
+configure terminal
+route-map DENY-ALL deny 1
+!
+router bgp 65501
+ address-family ipv4 vpn
+  neighbor 192.168.0.1 route-map DENY-ALL in
+"""
+    )
+
+    # check that 172.31.0.1 should not be present
+    logger.info("Check that received update 172.31.0.1 is not present")
+
+    expected = {}
+    test_func = partial(
+        topotest.router_json_cmp,
+        r2,
+        "show bgp ipv4 vpn 172.31.0.1/32 json",
+        expected,
+        exact=True,
+    )
+    success, _ = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
+    assert success, "r2, vpnv4 update 172.31.0.1 still present"
+
+
+def test_adj_rib_in_label_change_remove_rmap():
+    """
+    Check that syncinig with ADJ-RIB-in on r2
+    permits restoring the initial label value
+    """
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    logger.info("Removing the deny-all route-map from input on r2")
+
+    r2 = tgen.gears["r2"]
+    r2.vtysh_cmd(
+        """
+configure terminal
+router bgp 65501
+ address-family ipv4 vpn
+  no neighbor 192.168.0.1 route-map DENY-ALL in
+"""
+    )
+    # Check BGP IPv4 route entry for 172.31.0.1 on r1
+    logger.info(
+        "Checking that 172.31.0.1 BGP update is present and has valid label on r2"
+    )
+    json_file = "{}/{}/bgp_ipv4_vpn_route_1723101.json".format(CWD, r2.name)
+
+    expected = json.loads(open(json_file).read())
+    test_func = partial(
+        topotest.router_json_cmp,
+        r2,
+        "show bgp ipv4 vpn 172.31.0.1/32 json",
+        expected,
+    )
+    _, result = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
+    assertmsg = '"{}" JSON output mismatches'.format(r2.name)
+    assert result is None, assertmsg
+
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 def test_memory_leak():
     "Run the memory leak test and report results."
     tgen = get_topogen()

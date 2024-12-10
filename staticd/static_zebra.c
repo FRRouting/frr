@@ -43,7 +43,11 @@ struct static_nht_data {
 	vrf_id_t nh_vrf_id;
 
 	uint32_t refcount;
+<<<<<<< HEAD
 	uint8_t nh_num;
+=======
+	uint16_t nh_num;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	bool registered;
 };
 

@@ -169,7 +169,11 @@ def setup_module(module):
     tgen.start_router()
 
 
+<<<<<<< HEAD
 def teardown_module(module):
+=======
+def teardown_module():
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     tgen = get_topogen()
     tgen.stop_topology()
 

@@ -523,6 +523,10 @@ object which contains methods corresponding to each of the ``zlog`` levels:
    log.error("error")
    log.notice("notice")
    log.debug("debug")
+<<<<<<< HEAD
+=======
+   log.trace("trace")
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 The log messages will show up in the daemon's log output.
 
@@ -579,14 +583,22 @@ accomplished with scripting.
            RM_FAILURE, RM_NOMATCH, RM_MATCH, RM_MATCH_AND_CHANGE)
 
            log.info("Evaluating route " .. prefix.network .. " from peer " .. peer.remote_id.string)
+<<<<<<< HEAD
    
+=======
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
            function on_match (prefix, attributes)
                    log.info("Match")
                    return {
                            attributes = RM_MATCH
                    }
            end
+<<<<<<< HEAD
    
+=======
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
            function on_nomatch (prefix, attributes)
                    log.info("No match")
                    return {

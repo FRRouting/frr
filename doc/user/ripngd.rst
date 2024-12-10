@@ -136,7 +136,11 @@ functionality.
    range is very large for compatibility with other protocols. For RIPng, valid
    metric values are from 1 to 16.
 
+<<<<<<< HEAD
 .. clicmd:: set tag (1-4294967295)
+=======
+.. clicmd:: set tag <untagged|(1-4294967295)>
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
    Set a tag on the matched route.
 

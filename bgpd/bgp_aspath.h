@@ -59,6 +59,10 @@ struct aspath {
 	   and AS path regular expression match.  */
 	char *str;
 	unsigned short str_len;
+<<<<<<< HEAD
+=======
+	uint32_t count;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	/* AS notation used by string expression of AS path */
 	enum asnotation_mode asnotation;

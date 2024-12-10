@@ -30,6 +30,10 @@
 #include "ospf6_lsa.h"
 #include "ospf6_spf.h"
 #include "ospf6_zebra.h"
+<<<<<<< HEAD
+=======
+#include "ospf6_tlv.h"
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 #include "ospf6_gr.h"
 #include "lib/json.h"
 
@@ -1015,6 +1019,11 @@ static void ospf6_neighbor_show_detail(struct vty *vty,
 				    on->ospf6_if->interface->ifindex);
 		json_object_int_add(json_neighbor, "neighborInterfaceIndex",
 				    on->ifindex);
+<<<<<<< HEAD
+=======
+		json_object_string_addf(json_neighbor, "localLinkLocalAddress",
+				       "%pI6", on->ospf6_if->linklocal_addr);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		json_object_string_add(json_neighbor, "linkLocalAddress",
 				       linklocal_addr);
 		json_object_string_add(json_neighbor, "neighborState",

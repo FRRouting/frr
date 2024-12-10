@@ -11,7 +11,10 @@
 #include "base64.h"
 #include "compiler.h"
 
+<<<<<<< HEAD
 static const int CHARS_PER_LINE = 72;
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 static const char *ENCODING =
 	"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
 
@@ -19,7 +22,10 @@ void base64_init_encodestate(struct base64_encodestate *state_in)
 {
 	state_in->step = step_A;
 	state_in->result = 0;
+<<<<<<< HEAD
 	state_in->stepcount = 0;
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 }
 
 char base64_encode_value(char value_in)
@@ -76,12 +82,15 @@ int base64_encode_block(const char *plaintext_in, int length_in, char *code_out,
 				*codechar++ = base64_encode_value(result);
 				result  = (fragment & 0x03f) >> 0;
 				*codechar++ = base64_encode_value(result);
+<<<<<<< HEAD
 
 				++(state_in->stepcount);
 				if (state_in->stepcount == CHARS_PER_LINE/4) {
 					*codechar++ = '\n';
 					state_in->stepcount = 0;
 				}
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		}
 	}
 	/* control should not reach here */
@@ -105,7 +114,10 @@ int base64_encode_blockend(char *code_out, struct base64_encodestate *state_in)
 	case step_A:
 		break;
 	}
+<<<<<<< HEAD
 	*codechar++ = '\n';
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	return codechar - code_out;
 }

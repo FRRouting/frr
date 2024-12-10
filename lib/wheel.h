@@ -12,7 +12,10 @@ extern "C" {
 #endif
 
 struct timer_wheel {
+<<<<<<< HEAD
 	char *name;
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	struct event_loop *master;
 	int slots;
 	long long curr_slot;

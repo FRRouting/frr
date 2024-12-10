@@ -181,6 +181,12 @@ int frrlua_table_get_integer(lua_State *L, const char *key);
  */
 void frrlua_export_logging(lua_State *L);
 
+<<<<<<< HEAD
+=======
+/* A helper fuction that dumps the Lua stack */
+void lua_table_dump(lua_State *L, int index, struct buffer *buf, int level);
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 /*
  * Dump Lua stack to a string.
  *

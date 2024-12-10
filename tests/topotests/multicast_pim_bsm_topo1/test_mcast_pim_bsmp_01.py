@@ -202,7 +202,10 @@ def teardown_module():
 
 
 def clear_bsrp_data(tgen, topo):
+<<<<<<< HEAD
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     """
     clear bsm databas after test"
     Parameters
@@ -218,7 +221,10 @@ def clear_bsrp_data(tgen, topo):
     """
 
     for dut in tgen.routers():
+<<<<<<< HEAD
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         rnode = tgen.routers()[dut]
 
         logger.info("[DUT: %s]: clear_bsrp_data")

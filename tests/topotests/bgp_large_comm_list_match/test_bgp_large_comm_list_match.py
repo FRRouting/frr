@@ -61,7 +61,11 @@ def setup_module(mod):
 
     router_list = tgen.routers()
 
+<<<<<<< HEAD
     for i, (rname, router) in enumerate(router_list.items(), 1):
+=======
+    for _, (rname, router) in enumerate(router_list.items(), 1):
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         router.load_config(
             TopoRouter.RD_ZEBRA, os.path.join(CWD, "{}/zebra.conf".format(rname))
         )
@@ -137,7 +141,13 @@ def test_bgp_large_comm_list_match_any():
     step("BGP filtering check with large-community-list on R3")
     test_func = functools.partial(_bgp_converge)
     _, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
+<<<<<<< HEAD
     assert result is None, "Failed to filter BGP UPDATES with large-community-list on R3"
+=======
+    assert (
+        result is None
+    ), "Failed to filter BGP UPDATES with large-community-list on R3"
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 
 if __name__ == "__main__":

@@ -9,8 +9,15 @@
 #ifndef _FRR_TYPERB_H
 #define _FRR_TYPERB_H
 
+<<<<<<< HEAD
 #include <string.h>
 #include "typesafe.h"
+=======
+#ifndef _TYPESAFE_EXPAND_MACROS
+#include <string.h>
+#include "typesafe.h"
+#endif /* _TYPESAFE_EXPAND_MACROS */
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 #ifdef __cplusplus
 extern "C" {

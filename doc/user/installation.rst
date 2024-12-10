@@ -3,6 +3,7 @@
    single: Installing FRR
    single: Building FRR
 
+<<<<<<< HEAD
 .. _installation:
 
 Installation
@@ -10,15 +11,35 @@ Installation
 
 This section covers the basics of building, installing and setting up FRR.
 
+=======
+Installation
+============
+
+This section covers the basics of building, installing and setting up
+FRR.
+
+The official FRR website is located at |PACKAGE_URL| and contains further
+information, as well as links to additional resources.
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 From Packages
 -------------
 
+<<<<<<< HEAD
 The project publishes packages for Red Hat, Centos, Debian and Ubuntu on the
 `GitHub releases <https://github.com/FRRouting/frr/releases>`_. page. External
 contributors offer packages for many other platforms including \*BSD, Alpine,
 Gentoo, Docker, and others. There is currently no documentation on how to use
 those but we hope to add it soon.
+=======
+Up-to-date Debian & Redhat packages are available at
+https://deb.frrouting.org/ & https://rpm.frrouting.org/ respectively.
+
+Several distributions also provide packages for FRR. Check your
+distribution's repositories to find out if a suitable version is
+available.
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 From Snapcraft
 --------------
@@ -29,12 +50,21 @@ universal Snap images, available at https://snapcraft.io/frr.
 From Source
 -----------
 
+<<<<<<< HEAD
 Building FRR from source is the best way to ensure you have the latest features
 and bug fixes. Details for each supported platform, including dependency
 package listings, permissions, and other gotchas, are in the `developer's
 documentation
 <http://docs.frrouting.org/projects/dev-guide/en/latest/building.html>`_. This
 section provides a brief overview on the process.
+=======
+Building FRR from source is the best way to ensure you have the latest
+features and bug fixes. Details for each supported platform, including
+dependency package listings, permissions, and other gotchas, are in the
+`developer's documentation
+<http://docs.frrouting.org/projects/dev-guide/en/latest/building.html>`_.
+This section provides a brief overview on the process.
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 
 Getting the Source
@@ -274,6 +304,13 @@ options from the list below.
 
    Build with FPM module support.
 
+<<<<<<< HEAD
+=======
+.. option:: --enable-fpm-listener
+
+   Build a small fpm listener for testing.
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 .. option:: --with-service-timeout=X
 
    Set timeout value for FRR service. The time of restarting or reloading FRR
@@ -309,6 +346,7 @@ options from the list below.
    make these arrays at build time.  Additionally if this parameter is
    not passed in FRR will default to 16 ECMP.
 
+<<<<<<< HEAD
 .. option:: --enable-shell-access
 
    Turn on the ability of FRR to access some shell options( telnet/ssh/bash/etc. )
@@ -316,6 +354,8 @@ options from the list below.
    be considered for usage if you really really know what you are doing.  This
    option is deprecated and will be removed on Feb 1, 2024.
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 .. option:: --enable-gcov
 
    Code coverage reports from gcov require adjustments to the C and LD flags.
@@ -329,11 +369,14 @@ options from the list below.
 
    Build with configuration rollback support. Requires SQLite3.
 
+<<<<<<< HEAD
 .. option:: --enable-confd=<dir>
 
    Build the ConfD northbound plugin. Look for the libconfd libs and headers
    in `dir`.
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 .. option:: --enable-sysrepo
 
    Build the Sysrepo northbound plugin.
@@ -430,7 +473,16 @@ options to the configuration script.
 Python dependency, documentation and tests
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+<<<<<<< HEAD
 FRR's documentation and basic unit tests heavily use code written in Python.
+=======
+FRR uses Python for these components:
+
+* configuration reloading (see :ref:`FRR-RELOAD <frr-reload>` for details),
+* documentation,
+* unit tests.
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 Additionally, FRR ships Python extensions written in C which are used during
 its build process.
 

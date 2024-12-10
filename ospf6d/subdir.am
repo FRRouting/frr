@@ -58,6 +58,10 @@ noinst_HEADERS += \
 	ospf6d/ospf6_route.h \
 	ospf6d/ospf6_routemap_nb.h \
 	ospf6d/ospf6_spf.h \
+<<<<<<< HEAD
+=======
+	ospf6d/ospf6_tlv.h \
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	ospf6d/ospf6_top.h \
 	ospf6d/ospf6_zebra.h \
 	ospf6d/ospf6d.h \

@@ -23,6 +23,10 @@
 #endif
 #include "vrf.h"
 #include "lib_errors.h"
+<<<<<<< HEAD
+=======
+#include "plist.h"
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 #include "ospfd/ospfd.h"
 #include "ospfd/ospf_network.h"
@@ -291,6 +295,7 @@ void ospf_ls_req_event(struct ospf_neighbor *nbr)
 	event_add_event(master, ospf_ls_req_timer, nbr, 0, &nbr->t_ls_req);
 }
 
+<<<<<<< HEAD
 /* Cyclic timer function.  Fist registered in ospf_nbr_new () in
    ospf_neighbor.c  */
 void ospf_ls_upd_timer(struct event *thread)
@@ -339,6 +344,68 @@ void ospf_ls_upd_timer(struct event *thread)
 						listnode_add(update, rn->info);
 				}
 			}
+=======
+/*
+ * OSPF neighbor link state retransmission timer handler. Unicast
+ * unacknowledged LSAs to the neigbhors.
+ */
+void ospf_ls_rxmt_timer(struct event *thread)
+{
+	struct ospf_neighbor *nbr;
+	int retransmit_interval, retransmit_window, rxmt_lsa_count = 0;
+
+	nbr = EVENT_ARG(thread);
+	nbr->t_ls_rxmt = NULL;
+	retransmit_interval = nbr->v_ls_rxmt;
+	retransmit_window = OSPF_IF_PARAM(nbr->oi, retransmit_window);
+
+	/* Send Link State Update. */
+	if (ospf_ls_retransmit_count(nbr) > 0) {
+		struct ospf_lsa_list_entry *ls_rxmt_list_entry;
+		struct timeval current_time, latest_rxmt_time, next_rxmt_time;
+		struct timeval rxmt_interval = { retransmit_interval, 0 };
+		struct timeval rxmt_window;
+		struct list *update;
+
+		/*
+		 * Set the retransmission window based on the configured value
+		 * in milliseconds.
+		 */
+		rxmt_window.tv_sec = retransmit_window / 1000;
+		rxmt_window.tv_usec = (retransmit_window % 1000) * 1000;
+
+		/*
+		 * Calculate the latest retransmit time for LSAs transmited in
+		 * this timer pass by adding the retransmission window to the
+		 * current time. Calculate the next retransmission time by adding
+		 * the retransmit interval to the current time.
+		 */
+		monotime(&current_time);
+		timeradd(&current_time, &rxmt_window, &latest_rxmt_time);
+		timeradd(&current_time, &rxmt_interval, &next_rxmt_time);
+
+		update = list_new();
+		while ((ls_rxmt_list_entry =
+				ospf_lsa_list_first(&nbr->ls_rxmt_list))) {
+			if (timercmp(&ls_rxmt_list_entry->list_entry_time,
+				     &latest_rxmt_time, >))
+				break;
+
+			listnode_add(update, ls_rxmt_list_entry->lsa);
+			rxmt_lsa_count++;
+
+			/*
+			 * Set the next retransmit time for the LSA and move it
+			 * to the end of the neighbor's retransmission list.
+			 */
+			ls_rxmt_list_entry->list_entry_time = next_rxmt_time;
+			ospf_lsa_list_del(&nbr->ls_rxmt_list,
+					  ls_rxmt_list_entry);
+			ospf_lsa_list_add_tail(&nbr->ls_rxmt_list,
+					       ls_rxmt_list_entry);
+			nbr->ls_rxmt_lsa++;
+			nbr->oi->ls_rxmt_lsa++;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		}
 
 		if (listcount(update) > 0)
@@ -347,15 +414,29 @@ void ospf_ls_upd_timer(struct event *thread)
 		list_delete(&update);
 	}
 
+<<<<<<< HEAD
 	/* Set LS Update retransmission timer. */
 	OSPF_NSM_TIMER_ON(nbr->t_ls_upd, ospf_ls_upd_timer, nbr->v_ls_upd);
 }
 
 void ospf_ls_ack_timer(struct event *thread)
+=======
+	if (IS_DEBUG_OSPF_EVENT)
+		zlog_debug("RXmtL(%lu) NBR(%pI4(%s)) timer event - sent %u LSAs",
+			   ospf_ls_retransmit_count(nbr), &nbr->router_id,
+			   ospf_get_name(nbr->oi->ospf), rxmt_lsa_count);
+
+	/* Set LS Update retransmission timer. */
+	ospf_ls_retransmit_set_timer(nbr);
+}
+
+void ospf_ls_ack_delayed_timer(struct event *thread)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 {
 	struct ospf_interface *oi;
 
 	oi = EVENT_ARG(thread);
+<<<<<<< HEAD
 	oi->t_ls_ack = NULL;
 
 	/* Send Link State Acknowledgment. */
@@ -364,6 +445,13 @@ void ospf_ls_ack_timer(struct event *thread)
 
 	/* Set LS Ack timer. */
 	OSPF_ISM_TIMER_ON(oi->t_ls_ack, ospf_ls_ack_timer, oi->v_ls_ack);
+=======
+	oi->t_ls_ack_delayed = NULL;
+
+	/* Send Link State Acknowledgment. */
+	if (ospf_lsa_list_count(&oi->ls_ack_delayed))
+		ospf_ls_ack_send_delayed(oi);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 }
 
 #ifdef WANT_OSPF_WRITE_FRAGMENT
@@ -1486,12 +1574,17 @@ static void ospf_ls_req(struct ip *iph, struct ospf_header *ospfh,
 
 		/* Packet overflows MTU size, send immediately. */
 		if (length + ntohs(find->data->length) > ospf_packet_max(oi)) {
+<<<<<<< HEAD
 			if (oi->type == OSPF_IFTYPE_NBMA)
 				ospf_ls_upd_send(nbr, ls_upd,
 						 OSPF_SEND_PACKET_DIRECT, 0);
 			else
 				ospf_ls_upd_send(nbr, ls_upd,
 						 OSPF_SEND_PACKET_INDIRECT, 0);
+=======
+			ospf_ls_upd_send(nbr, ls_upd,
+					 OSPF_SEND_PACKET_DIRECT, 0);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 			/* Only remove list contents.  Keep ls_upd. */
 			list_delete_all_node(ls_upd);
@@ -1508,12 +1601,16 @@ static void ospf_ls_req(struct ip *iph, struct ospf_header *ospfh,
 
 	/* Send rest of Link State Update. */
 	if (listcount(ls_upd) > 0) {
+<<<<<<< HEAD
 		if (oi->type == OSPF_IFTYPE_NBMA)
 			ospf_ls_upd_send(nbr, ls_upd, OSPF_SEND_PACKET_DIRECT,
 					 0);
 		else
 			ospf_ls_upd_send(nbr, ls_upd, OSPF_SEND_PACKET_INDIRECT,
 					 0);
+=======
+		ospf_ls_upd_send(nbr, ls_upd, OSPF_SEND_PACKET_DIRECT, 0);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 		list_delete(&ls_upd);
 	} else
@@ -1811,7 +1908,11 @@ static void ospf_ls_upd(struct ospf *ospf, struct ip *iph,
 		if (IS_LSA_MAXAGE(lsa) && !current
 		    && ospf_check_nbr_status(oi->ospf)) {
 			/* (4a) Response Link State Acknowledgment. */
+<<<<<<< HEAD
 			ospf_ls_ack_send(nbr, lsa);
+=======
+			ospf_ls_ack_send_direct(nbr, lsa);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 			/* (4b) Discard LSA. */
 			if (IS_DEBUG_OSPF(lsa, LSA)) {
@@ -1836,7 +1937,11 @@ static void ospf_ls_upd(struct ospf *ospf, struct ip *iph,
 			if (IS_LSA_MAXAGE(lsa)) {
 				zlog_info("LSA[%s]: Boomerang effect?",
 					  dump_lsa_key(lsa));
+<<<<<<< HEAD
 				ospf_ls_ack_send(nbr, lsa);
+=======
+				ospf_ls_ack_send_direct(nbr, lsa);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 				ospf_lsa_discard(lsa);
 
 				if (current != NULL && !IS_LSA_MAXAGE(current))
@@ -1870,7 +1975,11 @@ static void ospf_ls_upd(struct ospf *ospf, struct ip *iph,
 
 				SET_FLAG(lsa->flags, OSPF_LSA_SELF);
 
+<<<<<<< HEAD
 				ospf_ls_ack_send(nbr, lsa);
+=======
+				ospf_ls_ack_send_direct(nbr, lsa);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 				if (!ospf->gr_info.restart_in_progress) {
 					ospf_opaque_self_originated_lsa_received(
@@ -2009,9 +2118,14 @@ static void ospf_ls_upd(struct ospf *ospf, struct ip *iph,
 				   */
 				if (oi->state == ISM_Backup)
 					if (NBR_IS_DR(nbr))
+<<<<<<< HEAD
 						listnode_add(
 							oi->ls_ack,
 							ospf_lsa_lock(lsa));
+=======
+						ospf_ls_ack_send_direct(nbr,
+									lsa);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 				DISCARD_LSA(lsa, 6);
 			} else
@@ -2020,7 +2134,11 @@ static void ospf_ls_upd(struct ospf *ospf, struct ip *iph,
 			   receiving
 			   interface. */
 			{
+<<<<<<< HEAD
 				ospf_ls_ack_send(nbr, lsa);
+=======
+				ospf_ls_ack_send_direct(nbr, lsa);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 				DISCARD_LSA(lsa, 7);
 			}
 		}
@@ -2756,6 +2874,23 @@ static enum ospf_read_return_enum ospf_read_helper(struct ospf *ospf)
 	oi = ospf_if_lookup_recv_if(ospf, iph->ip_src, ifp);
 
 	/*
+<<<<<<< HEAD
+=======
+	 * If a neighbor filter prefix-list is configured, apply it to the IP
+	 * source address and ignore the packet if it doesn't match.
+	 */
+	if (oi && oi->nbr_filter) {
+		struct prefix ip_src_prefix = { AF_INET, IPV4_MAX_BITLEN, { 0 } };
+
+		ip_src_prefix.u.prefix4 = iph->ip_src;
+		if (prefix_list_apply(oi->nbr_filter,
+				      (struct prefix *)&(ip_src_prefix)) !=
+		    PREFIX_PERMIT)
+			return OSPF_READ_CONTINUE;
+	}
+
+	/*
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	 * ospf_verify_header() relies on a valid "oi" and thus can be called
 	 * only after the passive/backbone/other checks below are passed.
 	 * These checks in turn access the fields of unverified "ospfh"
@@ -2787,9 +2922,13 @@ static enum ospf_read_return_enum ospf_read_helper(struct ospf *ospf)
 	 * or header area is backbone but ospf_interface is not
 	 * check for VLINK interface
 	 */
+<<<<<<< HEAD
 	if ((oi == NULL)
 	    || (OSPF_IS_AREA_ID_BACKBONE(ospfh->area_id)
 		&& !OSPF_IS_AREA_ID_BACKBONE(oi->area->area_id))) {
+=======
+	if (oi == NULL) {
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		if ((oi = ospf_associate_packet_vl(ospf, ifp, iph, ospfh))
 		    == NULL) {
 			if (!ospf->instance && IS_DEBUG_OSPF_EVENT)
@@ -2798,6 +2937,18 @@ static enum ospf_read_return_enum ospf_read_helper(struct ospf *ospf)
 					&iph->ip_src, ifp->name);
 			return OSPF_READ_CONTINUE;
 		}
+<<<<<<< HEAD
+=======
+	} else if (OSPF_IS_AREA_ID_BACKBONE(ospfh->area_id) &&
+		   !OSPF_IS_AREA_ID_BACKBONE(oi->area->area_id)) {
+		oi = ospf_associate_packet_vl(ospf, ifp, iph, ospfh);
+		if (oi == NULL) {
+			flog_warn(EC_OSPF_PACKET,
+				  "interface %s: ospf_read invalid Area ID %pI4",
+				  ifp->name, &ospfh->area_id);
+			return OSPF_READ_CONTINUE;
+		}
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	}
 
 	/*
@@ -3308,6 +3459,7 @@ static int ospf_make_ls_upd(struct ospf_interface *oi, struct list *update,
 	return length;
 }
 
+<<<<<<< HEAD
 static int ospf_make_ls_ack(struct ospf_interface *oi, struct list *ack,
 			    struct stream *s)
 {
@@ -3319,6 +3471,37 @@ static int ospf_make_ls_ack(struct ospf_interface *oi, struct list *ack,
 	for (ALL_LIST_ELEMENTS(ack, node, nnode, lsa)) {
 		assert(lsa);
 
+=======
+static int ospf_make_ls_ack(struct ospf_interface *oi,
+			    struct ospf_lsa_list_head *ls_ack_list,
+			    bool direct_ack, bool delete_ack, struct stream *s)
+{
+	struct ospf_lsa_list_entry *ls_ack_list_first;
+	struct ospf_lsa_list_entry *ls_ack_list_entry;
+	uint16_t length = OSPF_LS_ACK_MIN_SIZE;
+	struct ospf_lsa *lsa;
+	struct in_addr first_dst_addr = { INADDR_ANY };
+
+	/*
+	 * For direct LS Acks, assure the destination address doesn't
+	 * change between queued acknowledgments.
+	 */
+	if (direct_ack) {
+		ls_ack_list_first = ospf_lsa_list_first(ls_ack_list);
+		if (ls_ack_list_first)
+			first_dst_addr.s_addr =
+				ls_ack_list_first->list_entry_dst.s_addr;
+	}
+
+	frr_each_safe (ospf_lsa_list, ls_ack_list, ls_ack_list_entry) {
+		lsa = ls_ack_list_entry->lsa;
+		assert(lsa);
+
+		if (direct_ack && (ls_ack_list_entry->list_entry_dst.s_addr !=
+				   first_dst_addr.s_addr))
+			break;
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		/* LS Ack packet overflows interface MTU
 		 * delta is just number of bytes required for
 		 * 1 LS Ack(1 LS Hdr) ospf_packet_max will return
@@ -3327,19 +3510,58 @@ static int ospf_make_ls_ack(struct ospf_interface *oi, struct list *ack,
 		 * against ospf_packet_max to check if it can fit
 		 * another ls header in the same packet.
 		 */
+<<<<<<< HEAD
 		if ((length + delta) > ospf_packet_max(oi))
+=======
+		if ((length + OSPF_LSA_HEADER_SIZE) > ospf_packet_max(oi))
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			break;
 
 		stream_put(s, lsa->data, OSPF_LSA_HEADER_SIZE);
 		length += OSPF_LSA_HEADER_SIZE;
 
+<<<<<<< HEAD
 		listnode_delete(ack, lsa);
 		ospf_lsa_unlock(&lsa); /* oi->ls_ack_direct.ls_ack */
+=======
+		if (delete_ack) {
+			ospf_lsa_list_del(ls_ack_list, ls_ack_list_entry);
+			XFREE(MTYPE_OSPF_LSA_LIST, ls_ack_list_entry);
+			ospf_lsa_unlock(&lsa);
+		}
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	}
 
 	return length;
 }
 
+<<<<<<< HEAD
+=======
+/*
+ * On non-braodcast networks, the same LS acks must be sent to multiple
+ * neighbors and deletion must be deferred until after the LS Ack packet
+ * is sent to all neighbors.
+ */
+static void ospf_delete_ls_ack_delayed(struct ospf_interface *oi)
+{
+	struct ospf_lsa_list_entry *ls_ack_list_entry;
+	struct ospf_lsa *lsa;
+	uint16_t length = OSPF_LS_ACK_MIN_SIZE;
+
+	frr_each_safe (ospf_lsa_list, &oi->ls_ack_delayed, ls_ack_list_entry) {
+		lsa = ls_ack_list_entry->lsa;
+		assert(lsa);
+		if ((length + OSPF_LSA_HEADER_SIZE) > ospf_packet_max(oi))
+			break;
+
+		length += OSPF_LSA_HEADER_SIZE;
+		ospf_lsa_list_del(&oi->ls_ack_delayed, ls_ack_list_entry);
+		XFREE(MTYPE_OSPF_LSA_LIST, ls_ack_list_entry);
+		ospf_lsa_unlock(&lsa);
+	}
+}
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 static void ospf_hello_send_sub(struct ospf_interface *oi, in_addr_t addr)
 {
 	struct ospf_packet *op;
@@ -3404,6 +3626,7 @@ static void ospf_poll_send(struct ospf_nbr_nbma *nbr_nbma)
 	if (OSPF_IF_PASSIVE_STATUS(oi) == OSPF_IF_PASSIVE)
 		return;
 
+<<<<<<< HEAD
 	if (oi->type != OSPF_IFTYPE_NBMA)
 		return;
 
@@ -3415,6 +3638,21 @@ static void ospf_poll_send(struct ospf_nbr_nbma *nbr_nbma)
 
 	if (nbr_nbma->priority == 0 && oi->state != ISM_DR
 	    && oi->state != ISM_Backup)
+=======
+	if (nbr_nbma->nbr != NULL && nbr_nbma->nbr->state != NSM_Down)
+		return;
+
+	if (oi->type == OSPF_IFTYPE_NBMA) {
+		if (PRIORITY(oi) == 0)
+			return;
+
+		if (nbr_nbma->priority == 0 && oi->state != ISM_DR &&
+		    oi->state != ISM_Backup)
+			return;
+
+	} else if (oi->type != OSPF_IFTYPE_POINTOMULTIPOINT ||
+		   !oi->p2mp_non_broadcast)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		return;
 
 	ospf_hello_send_sub(oi, nbr_nbma->addr.s_addr);
@@ -3460,7 +3698,11 @@ void ospf_hello_send(struct ospf_interface *oi)
 	if (OSPF_IF_PASSIVE_STATUS(oi) == OSPF_IF_PASSIVE)
 		return;
 
+<<<<<<< HEAD
 	if (oi->type == OSPF_IFTYPE_NBMA) {
+=======
+	if (OSPF_IF_NON_BROADCAST(oi)) {
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		struct ospf_neighbor *nbr;
 		struct route_node *rn;
 
@@ -3476,6 +3718,7 @@ void ospf_hello_send(struct ospf_interface *oi)
 				continue;
 
 			/*
+<<<<<<< HEAD
 			 * RFC 2328  Section 9.5.1
 			 * If the router is not eligible to become Designated
 			 * Router, it must periodically send Hello Packets to
@@ -3501,6 +3744,46 @@ void ospf_hello_send(struct ospf_interface *oi)
 			/* if oi->state == Waiting, send
 			 * hello to all neighbors */
 			ospf_hello_send_sub(oi, nbr->address.u.prefix4.s_addr);
+=======
+			 * Always send to all neighbors on Point-to-Multipoint
+			 * non-braodcast networks.
+			 */
+			if (oi->type == OSPF_IFTYPE_POINTOMULTIPOINT)
+				ospf_hello_send_sub(oi, nbr->address.u.prefix4
+								.s_addr);
+			else {
+				/*
+				 * RFC 2328  Section 9.5.1
+				 * If the router is not eligible to become Designated
+				 * Router, it must periodically send Hello Packets to
+				 * both the Designated Router and the Backup
+				 * Designated Router (if they exist).
+				 */
+				if (PRIORITY(oi) == 0 &&
+				    IPV4_ADDR_CMP(&DR(oi),
+						  &nbr->address.u.prefix4) &&
+				    IPV4_ADDR_CMP(&BDR(oi),
+						  &nbr->address.u.prefix4))
+					continue;
+
+				/*
+				 * If the router is eligible to become Designated
+				 * Router, it must periodically send Hello Packets to
+				 * all neighbors that are also eligible. In addition,
+				 * if the router is itself the Designated Router or
+				 * Backup Designated Router, it must also send periodic
+				 * Hello Packets to all other neighbors.
+				 */
+				if (nbr->priority == 0 &&
+				    oi->state == ISM_DROther)
+					continue;
+
+				/* if oi->state == Waiting, send
+				 * hello to all neighbors */
+				ospf_hello_send_sub(oi, nbr->address.u.prefix4
+								.s_addr);
+			}
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		}
 	} else {
 		/* Decide destination address. */
@@ -3857,11 +4140,18 @@ void ospf_ls_upd_send(struct ospf_neighbor *nbr, struct list *update, int flag,
 	else
 		p.prefix.s_addr = htonl(OSPF_ALLDROUTERS);
 
+<<<<<<< HEAD
 	if (oi->type == OSPF_IFTYPE_NBMA) {
 		if (flag == OSPF_SEND_PACKET_INDIRECT)
 			flog_warn(
 				EC_OSPF_PACKET,
 				"* LS-Update is directly sent on NBMA network.");
+=======
+	if (OSPF_IF_NON_BROADCAST(oi)) {
+		if (flag == OSPF_SEND_PACKET_INDIRECT)
+			flog_warn(EC_OSPF_PACKET,
+				  "* LS-Update is directly sent on non-broadcast network.");
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		if (IPV4_ADDR_SAME(&oi->address->u.prefix4, &p.prefix))
 			flog_warn(EC_OSPF_PACKET,
 				  "* LS-Update is sent to myself.");
@@ -3897,10 +4187,20 @@ void ospf_ls_upd_send(struct ospf_neighbor *nbr, struct list *update, int flag,
 				&oi->t_ls_upd_event);
 }
 
+<<<<<<< HEAD
 static void ospf_ls_ack_send_list(struct ospf_interface *oi, struct list *ack,
 				  struct in_addr dst)
 {
 	struct ospf_packet *op;
+=======
+static void ospf_ls_ack_send_list(struct ospf_interface *oi,
+				  struct ospf_lsa_list_head *ls_ack_list,
+				  bool direct_ack, bool delete_ack,
+				  struct in_addr dst)
+{
+	struct ospf_packet *op;
+	struct ospf_lsa_list_entry *ls_ack_list_first;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	uint16_t length = OSPF_HEADER_SIZE;
 
 	op = ospf_packet_new(oi->ifp->mtu);
@@ -3908,8 +4208,23 @@ static void ospf_ls_ack_send_list(struct ospf_interface *oi, struct list *ack,
 	/* Prepare OSPF common header. */
 	ospf_make_header(OSPF_MSG_LS_ACK, oi, op->s);
 
+<<<<<<< HEAD
 	/* Prepare OSPF Link State Acknowledgment body. */
 	length += ospf_make_ls_ack(oi, ack, op->s);
+=======
+	/* Determine the destination address - for direct acks,
+	 * the list entries always include the distination address.
+	 */
+	if (direct_ack) {
+		ls_ack_list_first = ospf_lsa_list_first(ls_ack_list);
+		op->dst.s_addr = ls_ack_list_first->list_entry_dst.s_addr;
+	} else
+		op->dst.s_addr = dst.s_addr;
+
+	/* Prepare OSPF Link State Acknowledgment body. */
+	length += ospf_make_ls_ack(oi, ls_ack_list, direct_ack, delete_ack,
+				   op->s);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	/* Fill OSPF header. */
 	ospf_fill_header(oi, op->s, length);
@@ -3917,6 +4232,7 @@ static void ospf_ls_ack_send_list(struct ospf_interface *oi, struct list *ack,
 	/* Set packet length. */
 	op->length = length;
 
+<<<<<<< HEAD
 	/* Decide destination address. */
 	if (oi->type == OSPF_IFTYPE_POINTOPOINT ||
 	    oi->type == OSPF_IFTYPE_POINTOMULTIPOINT)
@@ -3924,6 +4240,8 @@ static void ospf_ls_ack_send_list(struct ospf_interface *oi, struct list *ack,
 	else
 		op->dst.s_addr = dst.s_addr;
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	/* Add packet to the interface output queue. */
 	ospf_packet_add(oi, op);
 
@@ -3931,6 +4249,7 @@ static void ospf_ls_ack_send_list(struct ospf_interface *oi, struct list *ack,
 	OSPF_ISM_WRITE_ON(oi->ospf);
 }
 
+<<<<<<< HEAD
 static void ospf_ls_ack_send_event(struct event *thread)
 {
 	struct ospf_interface *oi = EVENT_ARG(thread);
@@ -3946,12 +4265,75 @@ void ospf_ls_ack_send(struct ospf_neighbor *nbr, struct ospf_lsa *lsa)
 {
 	struct ospf_interface *oi = nbr->oi;
 
+=======
+static void ospf_ls_ack_send_direct_event(struct event *thread)
+{
+	struct ospf_interface *oi = EVENT_ARG(thread);
+	struct in_addr dst = { INADDR_ANY };
+
+	oi->t_ls_ack_direct = NULL;
+
+	while (ospf_lsa_list_count(&oi->ls_ack_direct))
+		ospf_ls_ack_send_list(oi, &(oi->ls_ack_direct), true, true, dst);
+}
+
+void ospf_ls_ack_send_direct(struct ospf_neighbor *nbr, struct ospf_lsa *lsa)
+{
+	struct ospf_lsa_list_entry *ls_ack_list_entry;
+	struct ospf_interface *oi = nbr->oi;
+
+	if (IS_DEBUG_OSPF(lsa, LSA_FLOODING))
+		zlog_debug("%s:Add LSA[Type%d:%pI4:%pI4]: seq 0x%x age %u NBR %pI4 (%s) ack queue",
+			   __func__, lsa->data->type, &lsa->data->id,
+			   &lsa->data->adv_router, ntohl(lsa->data->ls_seqnum),
+			   ntohs(lsa->data->ls_age), &nbr->router_id,
+			   IF_NAME(nbr->oi));
+
+	/*
+	 * On Point-to-Multipoint broadcast-capabile interfaces,
+	 * where direct acks from are sent to the ALLSPFRouters
+	 * address and one direct ack send event, may include LSAs
+	 * from multiple neighbors, there is a possibility of the same
+	 * LSA being processed more than once in the same send event.
+	 * In this case, the instances subsequent to the first can be
+	 * ignored.
+	 */
+	if (oi->type == OSPF_IFTYPE_POINTOMULTIPOINT && !oi->p2mp_non_broadcast) {
+		struct ospf_lsa_list_entry *ls_ack_list_entry;
+		struct ospf_lsa *ack_queue_lsa;
+
+		frr_each (ospf_lsa_list, &oi->ls_ack_direct, ls_ack_list_entry) {
+			ack_queue_lsa = ls_ack_list_entry->lsa;
+			if ((lsa == ack_queue_lsa) ||
+			    ((lsa->data->type == ack_queue_lsa->data->type) &&
+			     (lsa->data->id.s_addr ==
+			      ack_queue_lsa->data->id.s_addr) &&
+			     (lsa->data->adv_router.s_addr ==
+			      ack_queue_lsa->data->adv_router.s_addr) &&
+			     (lsa->data->ls_seqnum ==
+			      ack_queue_lsa->data->ls_seqnum))) {
+				if (IS_DEBUG_OSPF(lsa, LSA_FLOODING))
+					zlog_debug("%s:LSA[Type%d:%pI4:%pI4]: seq 0x%x age %u NBR %pI4 (%s) ack queue duplicate",
+						   __func__, lsa->data->type,
+						   &lsa->data->id,
+						   &lsa->data->adv_router,
+						   ntohl(lsa->data->ls_seqnum),
+						   ntohs(lsa->data->ls_age),
+						   &nbr->router_id,
+						   IF_NAME(nbr->oi));
+				return;
+			}
+		}
+	}
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	if (IS_GRACE_LSA(lsa)) {
 		if (IS_DEBUG_OSPF_GR)
 			zlog_debug("%s, Sending GRACE ACK to Restarter.",
 				   __func__);
 	}
 
+<<<<<<< HEAD
 	if (listcount(oi->ls_ack_direct.ls_ack) == 0)
 		oi->ls_ack_direct.dst = nbr->address.u.prefix4;
 
@@ -3959,6 +4341,32 @@ void ospf_ls_ack_send(struct ospf_neighbor *nbr, struct ospf_lsa *lsa)
 
 	event_add_event(master, ospf_ls_ack_send_event, oi, 0,
 			&oi->t_ls_ack_direct);
+=======
+	ls_ack_list_entry = XCALLOC(MTYPE_OSPF_LSA_LIST,
+				    sizeof(struct ospf_lsa_list_entry));
+
+	/*
+	 * Determine the destination address - Direct LS acknowledgments
+	 * are sent the AllSPFRouters multicast address on Point-to-Point
+	 * and Point-to-Multipoint broadcast-capable interfaces. For all other
+	 * interface types, they are unicast directly to the neighbor.
+	 */
+	if (oi->type == OSPF_IFTYPE_POINTOPOINT ||
+	    (oi->type == OSPF_IFTYPE_POINTOMULTIPOINT &&
+	     !oi->p2mp_non_broadcast))
+		ls_ack_list_entry->list_entry_dst.s_addr =
+			htonl(OSPF_ALLSPFROUTERS);
+	else
+		ls_ack_list_entry->list_entry_dst.s_addr =
+			nbr->address.u.prefix4.s_addr;
+
+	ls_ack_list_entry->lsa = ospf_lsa_lock(lsa);
+	ospf_lsa_list_add_tail(&nbr->oi->ls_ack_direct, ls_ack_list_entry);
+
+	if (oi->t_ls_ack_direct == NULL)
+		event_add_event(master, ospf_ls_ack_send_direct_event, oi, 0,
+				&oi->t_ls_ack_direct);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 }
 
 /* Send Link State Acknowledgment delayed. */
@@ -3971,6 +4379,7 @@ void ospf_ls_ack_send_delayed(struct ospf_interface *oi)
 	      networks, delayed Link State Acknowledgment packets must be
 	      unicast	separately over	each adjacency (i.e., neighbor whose
 	      state is >= Exchange).  */
+<<<<<<< HEAD
 	if (oi->type == OSPF_IFTYPE_NBMA) {
 		struct ospf_neighbor *nbr;
 		struct route_node *rn;
@@ -4002,6 +4411,45 @@ void ospf_ls_ack_send_delayed(struct ospf_interface *oi)
 
 	while (listcount(oi->ls_ack))
 		ospf_ls_ack_send_list(oi, oi->ls_ack, dst);
+=======
+	if (OSPF_IF_NON_BROADCAST(oi)) {
+		struct ospf_neighbor *nbr;
+		struct route_node *rn;
+
+		while (ospf_lsa_list_count(&oi->ls_ack_delayed)) {
+			for (rn = route_top(oi->nbrs); rn; rn = route_next(rn)) {
+				nbr = rn->info;
+
+				if (!nbr)
+					continue;
+
+				if (nbr != oi->nbr_self &&
+				    nbr->state >= NSM_Exchange)
+					ospf_ls_ack_send_list(oi,
+							      &oi->ls_ack_delayed,
+							      false, false,
+							      nbr->address.u
+								      .prefix4);
+			}
+			ospf_delete_ls_ack_delayed(oi);
+		}
+	} else {
+		if (oi->type == OSPF_IFTYPE_VIRTUALLINK)
+			dst.s_addr = oi->vl_data->peer_addr.s_addr;
+		else if (oi->state == ISM_DR || oi->state == ISM_Backup)
+			dst.s_addr = htonl(OSPF_ALLSPFROUTERS);
+		else if (oi->type == OSPF_IFTYPE_POINTOPOINT)
+			dst.s_addr = htonl(OSPF_ALLSPFROUTERS);
+		else if (oi->type == OSPF_IFTYPE_POINTOMULTIPOINT)
+			dst.s_addr = htonl(OSPF_ALLSPFROUTERS);
+		else
+			dst.s_addr = htonl(OSPF_ALLDROUTERS);
+
+		while (ospf_lsa_list_count(&oi->ls_ack_delayed))
+			ospf_ls_ack_send_list(oi, &oi->ls_ack_delayed, false,
+					      true, dst);
+	}
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 }
 
 /*

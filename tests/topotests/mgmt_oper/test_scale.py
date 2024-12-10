@@ -52,7 +52,10 @@ def test_oper_simple(tgen):
 
     r1 = tgen.gears["r1"].net
 
+<<<<<<< HEAD
     time.sleep(2)
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     count = 20 * 1000
 
     vrf = None  # "red"

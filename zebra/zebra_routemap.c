@@ -29,7 +29,11 @@
 
 static uint32_t zebra_rmap_update_timer = ZEBRA_RMAP_DEFAULT_UPDATE_TIMER;
 static struct event *zebra_t_rmap_update = NULL;
+<<<<<<< HEAD
 char *zebra_import_table_routemap[AFI_MAX][ZEBRA_KERNEL_TABLE_MAX];
+=======
+char *zebra_import_table_routemap[AFI_MAX][SAFI_MAX][ZEBRA_KERNEL_TABLE_MAX];
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 struct zebra_rmap_obj {
 	struct nexthop *nexthop;
@@ -650,9 +654,14 @@ route_match_address_prefix_list(void *rule, const struct prefix *prefix,
 	plist = prefix_list_lookup(afi, (char *)rule);
 	if (plist == NULL) {
 		if (unlikely(CHECK_FLAG(rmap_debug, DEBUG_ROUTEMAP_DETAIL)))
+<<<<<<< HEAD
 			zlog_debug(
 				"%s: Prefix List %s specified does not exist defaulting to NO_MATCH",
 				__func__, (char *)rule);
+=======
+			zlog_debug("%s: Prefix List %s (%s) specified does not exist defaulting to NO_MATCH",
+				   __func__, (char *)rule, afi2str(afi));
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		return RMAP_NOMATCH;
 	}
 
@@ -1236,6 +1245,7 @@ route_map_result_t zebra_route_map_check(afi_t family, struct route_entry *re,
 	return (ret);
 }
 
+<<<<<<< HEAD
 char *zebra_get_import_table_route_map(afi_t afi, uint32_t table)
 {
 	return zebra_import_table_routemap[afi][table];
@@ -1251,6 +1261,21 @@ void zebra_add_import_table_route_map(afi_t afi, const char *rmap_name,
 void zebra_del_import_table_route_map(afi_t afi, uint32_t table)
 {
 	XFREE(MTYPE_ROUTE_MAP_NAME, zebra_import_table_routemap[afi][table]);
+=======
+char *zebra_get_import_table_route_map(afi_t afi, safi_t safi, uint32_t table)
+{
+	return zebra_import_table_routemap[afi][safi][table];
+}
+
+void zebra_add_import_table_route_map(afi_t afi, safi_t safi, const char *rmap_name, uint32_t table)
+{
+	zebra_import_table_routemap[afi][safi][table] = XSTRDUP(MTYPE_ROUTE_MAP_NAME, rmap_name);
+}
+
+void zebra_del_import_table_route_map(afi_t afi, safi_t safi, uint32_t table)
+{
+	XFREE(MTYPE_ROUTE_MAP_NAME, zebra_import_table_routemap[afi][safi][table]);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 }
 
 route_map_result_t zebra_import_table_route_map_check(int family,

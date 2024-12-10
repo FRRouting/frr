@@ -62,7 +62,10 @@ static void gm_sg_timer_start(struct gm_if *gm_ifp, struct gm_sg *sg,
 		sg->iface->ifp->name, &sg->sgaddr
 
 /* clang-format off */
+<<<<<<< HEAD
 #if PIM_IPV == 6
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 static const pim_addr gm_all_hosts = {
 	.s6_addr = {
 		0xff, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
@@ -84,6 +87,7 @@ static const pim_addr gm_dummy_untracked = {
 		0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
 	},
 };
+<<<<<<< HEAD
 #else
 /* 224.0.0.1 */
 static const pim_addr gm_all_hosts = { .s_addr = htonl(0xe0000001), };
@@ -91,6 +95,8 @@ static const pim_addr gm_all_hosts = { .s_addr = htonl(0xe0000001), };
 static const pim_addr gm_all_routers = { .s_addr = htonl(0xe0000016), };
 static const pim_addr gm_dummy_untracked = { .s_addr = 0xffffffff, };
 #endif
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 /* clang-format on */
 
 #define IPV6_MULTICAST_SCOPE_LINK 2
@@ -327,6 +333,12 @@ static void gm_expiry_calc(struct gm_query_timers *timers)
 
 static void gm_sg_free(struct gm_sg *sg)
 {
+<<<<<<< HEAD
+=======
+	if (pim_embedded_rp_is_embedded(&sg->sgaddr.grp))
+		pim_embedded_rp_delete(sg->iface->pim, &sg->sgaddr.grp);
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	/* t_sg_expiry is handled before this is reached */
 	EVENT_OFF(sg->t_sg_query);
 	gm_packet_sg_subs_fini(sg->subs_negative);
@@ -423,6 +435,16 @@ static void gm_sg_update(struct gm_sg *sg, bool has_expired)
 		new_join = gm_sg_state_want_join(desired);
 
 	if (new_join && !sg->tib_joined) {
+<<<<<<< HEAD
+=======
+		pim_addr embedded_rp;
+
+		if (sg->iface->pim->embedded_rp.enable &&
+		    pim_embedded_rp_extract(&sg->sgaddr.grp, &embedded_rp) &&
+		    !pim_embedded_rp_filter_match(sg->iface->pim, &sg->sgaddr.grp))
+			pim_embedded_rp_new(sg->iface->pim, &sg->sgaddr.grp, &embedded_rp);
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		/* this will retry if join previously failed */
 		sg->tib_joined = tib_sg_gm_join(gm_ifp->pim, sg->sgaddr,
 						gm_ifp->ifp, &sg->oil);
@@ -442,6 +464,16 @@ static void gm_sg_update(struct gm_sg *sg, bool has_expired)
 	}
 
 	if (desired == GM_SG_NOINFO) {
+<<<<<<< HEAD
+=======
+		/*
+		 * If oil is still present then get ride of it or we will leak
+		 * this data structure.
+		 */
+		if (sg->oil)
+			pim_channel_oil_del(sg->oil, __func__);
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		/* multiple paths can lead to the last state going away;
 		 * t_sg_expire can still be running if we're arriving from
 		 * another path.
@@ -476,6 +508,11 @@ static void gm_sg_update(struct gm_sg *sg, bool has_expired)
 
 static void gm_packet_free(struct gm_packet_state *pkt)
 {
+<<<<<<< HEAD
+=======
+	assert(pkt->iface);
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	gm_packet_expires_del(pkt->iface->expires, pkt);
 	gm_packets_del(pkt->subscriber->packets, pkt);
 	gm_subscriber_drop(&pkt->subscriber);
@@ -2537,7 +2574,11 @@ static void gm_show_if_vrf(struct vty *vty, struct vrf *vrf, const char *ifname,
 	if (!js && !detail) {
 		table = ttable_dump(tt, "\n");
 		vty_out(vty, "%s\n", table);
+<<<<<<< HEAD
 		XFREE(MTYPE_TMP, table);
+=======
+		XFREE(MTYPE_TMP_TTABLE, table);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		ttable_del(tt);
 	}
 }
@@ -3021,7 +3062,11 @@ static void gm_show_groups(struct vty *vty, struct vrf *vrf, bool uj)
 		/* Dump the generated table. */
 		table = ttable_dump(tt, "\n");
 		vty_out(vty, "%s\n", table);
+<<<<<<< HEAD
 		XFREE(MTYPE_TMP, table);
+=======
+		XFREE(MTYPE_TMP_TTABLE, table);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		ttable_del(tt);
 	}
 }
