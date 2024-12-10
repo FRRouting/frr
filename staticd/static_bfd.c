@@ -88,6 +88,7 @@ void static_next_hop_bfd_monitor_enable(struct static_nexthop *sn,
 	bool mhop;
 	int family;
 	struct ipaddr source;
+<<<<<<< HEAD
 
 	use_interface = false;
 	use_source = yang_dnode_exists(dnode, "./source");
@@ -96,6 +97,17 @@ void static_next_hop_bfd_monitor_enable(struct static_nexthop *sn,
 		 yang_dnode_get_bool(dnode, "../onlink");
 	mhop = yang_dnode_get_bool(dnode, "./multi-hop");
 
+=======
+	struct vrf *vrf = NULL;
+
+	use_interface = false;
+	use_source = yang_dnode_exists(dnode, "source");
+	use_profile = yang_dnode_exists(dnode, "profile");
+	onlink = yang_dnode_exists(dnode, "../onlink") &&
+		 yang_dnode_get_bool(dnode, "../onlink");
+	mhop = yang_dnode_get_bool(dnode, "multi-hop");
+	vrf = vrf_lookup_by_name(yang_dnode_get_string(dnode, "../vrf"));
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	family = static_next_hop_type_to_family(sn);
 	if (family == AF_UNSPEC)
@@ -111,7 +123,11 @@ void static_next_hop_bfd_monitor_enable(struct static_nexthop *sn,
 
 	/* Configure the session. */
 	if (use_source)
+<<<<<<< HEAD
 		yang_dnode_get_ip(&source, dnode, "./source");
+=======
+		yang_dnode_get_ip(&source, dnode, "source");
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	if (onlink || mhop == false)
 		bfd_sess_set_auto_source(sn->bsp, false);
@@ -133,6 +149,11 @@ void static_next_hop_bfd_monitor_enable(struct static_nexthop *sn,
 	bfd_sess_set_profile(sn->bsp, use_profile ? yang_dnode_get_string(
 							    dnode, "./profile")
 						  : NULL);
+<<<<<<< HEAD
+=======
+	if (vrf && vrf->vrf_id != VRF_UNKNOWN)
+		bfd_sess_set_vrf(sn->bsp, vrf->vrf_id);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	bfd_sess_set_hop_count(sn->bsp, (onlink || mhop == false) ? 1 : 254);
 
@@ -260,14 +281,22 @@ static void static_bfd_show_path_json(struct vty *vty, struct json_object *jo,
 static void static_bfd_show_json(struct vty *vty)
 {
 	struct json_object *jo, *jo_path, *jo_afi_safi;
+<<<<<<< HEAD
 	struct vrf *vrf;
+=======
+	struct static_vrf *svrf;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	jo = json_object_new_object();
 	jo_path = json_object_new_object();
 
 	json_object_object_add(jo, "path-list", jo_path);
+<<<<<<< HEAD
 	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
 		const struct static_vrf *svrf = vrf->info;
+=======
+	RB_FOREACH (svrf, svrf_name_head, &svrfs) {
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		struct route_table *rt;
 
 		jo_afi_safi = json_object_new_array();
@@ -343,7 +372,11 @@ static void static_bfd_show_path(struct vty *vty, struct route_table *rt)
 
 void static_bfd_show(struct vty *vty, bool json)
 {
+<<<<<<< HEAD
 	struct vrf *vrf;
+=======
+	struct static_vrf *svrf;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	if (json) {
 		static_bfd_show_json(vty);
@@ -352,21 +385,36 @@ void static_bfd_show(struct vty *vty, bool json)
 
 	vty_out(vty, "Showing BFD monitored static routes:\n");
 	vty_out(vty, "\n  Next hops:\n");
+<<<<<<< HEAD
 	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
 		const struct static_vrf *svrf = vrf->info;
 		struct route_table *rt;
 
 		vty_out(vty, "    VRF %s IPv4 Unicast:\n", vrf->name);
+=======
+	RB_FOREACH (svrf, svrf_name_head, &svrfs) {
+		struct route_table *rt;
+
+		vty_out(vty, "    VRF %s IPv4 Unicast:\n", svrf->name);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		rt = svrf->stable[AFI_IP][SAFI_UNICAST];
 		if (rt)
 			static_bfd_show_path(vty, rt);
 
+<<<<<<< HEAD
 		vty_out(vty, "\n    VRF %s IPv4 Multicast:\n", vrf->name);
+=======
+		vty_out(vty, "\n    VRF %s IPv4 Multicast:\n", svrf->name);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		rt = svrf->stable[AFI_IP][SAFI_MULTICAST];
 		if (rt)
 			static_bfd_show_path(vty, rt);
 
+<<<<<<< HEAD
 		vty_out(vty, "\n    VRF %s IPv6 Unicast:\n", vrf->name);
+=======
+		vty_out(vty, "\n    VRF %s IPv6 Unicast:\n", svrf->name);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		rt = svrf->stable[AFI_IP6][SAFI_UNICAST];
 		if (rt)
 			static_bfd_show_path(vty, rt);

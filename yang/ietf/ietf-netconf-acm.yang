@@ -1,0 +1,464 @@
+module ietf-netconf-acm {
+
+  namespace "urn:ietf:params:xml:ns:yang:ietf-netconf-acm";
+
+  prefix nacm;
+
+  import ietf-yang-types {
+    prefix yang;
+  }
+
+  organization
+    "IETF NETCONF (Network Configuration) Working Group";
+
+  contact
+    "WG Web:   <https://datatracker.ietf.org/wg/netconf/>
+     WG List:  <mailto:netconf@ietf.org>
+
+     Author:   Andy Bierman
+               <mailto:andy@yumaworks.com>
+
+     Author:   Martin Bjorklund
+               <mailto:mbj@tail-f.com>";
+
+  description
+    "Network Configuration Access Control Model.
+
+     Copyright (c) 2012 - 2018 IETF Trust and the persons
+     identified as authors of the code.  All rights reserved.
+
+     Redistribution and use in source and binary forms, with or
+     without modification, is permitted pursuant to, and subject
+     to the license terms contained in, the Simplified BSD
+     License set forth in Section 4.c of the IETF Trust's
+     Legal Provisions Relating to IETF Documents
+     (https://trustee.ietf.org/license-info).
+
+     This version of this YANG module is part of RFC 8341; see
+     the RFC itself for full legal notices.";
+
+  revision 2018-02-14 {
+    description
+      "Added support for YANG 1.1 actions and notifications tied to
+       data nodes.  Clarified how NACM extensions can be used by
+       other data models.";
+    reference
+      "RFC 8341: Network Configuration Access Control Model";
+  }
+
+  revision 2012-02-22 {
+    description
+      "Initial version.";
+    reference
+      "RFC 6536: Network Configuration Protocol (NETCONF)
+                 Access Control Model";
+  }
+
+  /*
+   * Extension statements
+   */
+
+  extension default-deny-write {
+    description
+      "Used to indicate that the data model node
+       represents a sensitive security system parameter.
+
+       If present, the NETCONF server will only allow the designated
+       'recovery session' to have write access to the node.  An
+       explicit access control rule is required for all other users.
+
+       If the NACM module is used, then it must be enabled (i.e.,
+       /nacm/enable-nacm object equals 'true'), or this extension
+       is ignored.
+
+       The 'default-deny-write' extension MAY appear within a data
+       definition statement.  It is ignored otherwise.";
+  }
+
+  extension default-deny-all {
+    description
+      "Used to indicate that the data model node
+       controls a very sensitive security system parameter.
+
+       If present, the NETCONF server will only allow the designated
+       'recovery session' to have read, write, or execute access to
+       the node.  An explicit access control rule is required for all
+       other users.
+
+       If the NACM module is used, then it must be enabled (i.e.,
+       /nacm/enable-nacm object equals 'true'), or this extension
+       is ignored.
+
+       The 'default-deny-all' extension MAY appear within a data
+       definition statement, 'rpc' statement, or 'notification'
+       statement.  It is ignored otherwise.";
+  }
+
+  /*
+   * Derived types
+   */
+
+  typedef user-name-type {
+    type string {
+      length "1..max";
+    }
+    description
+      "General-purpose username string.";
+  }
+
+  typedef matchall-string-type {
+    type string {
+      pattern '\*';
+    }
+    description
+      "The string containing a single asterisk '*' is used
+       to conceptually represent all possible values
+       for the particular leaf using this data type.";
+  }
+
+  typedef access-operations-type {
+    type bits {
+      bit create {
+        description
+          "Any protocol operation that creates a
+           new data node.";
+      }
+      bit read {
+        description
+          "Any protocol operation or notification that
+           returns the value of a data node.";
+      }
+      bit update {
+        description
+          "Any protocol operation that alters an existing
+           data node.";
+      }
+      bit delete {
+        description
+          "Any protocol operation that removes a data node.";
+      }
+      bit exec {
+        description
+          "Execution access to the specified protocol operation.";
+      }
+    }
+    description
+      "Access operation.";
+  }
+
+  typedef group-name-type {
+    type string {
+      length "1..max";
+      pattern '[^\*].*';
+    }
+    description
+      "Name of administrative group to which
+       users can be assigned.";
+  }
+
+  typedef action-type {
+    type enumeration {
+      enum permit {
+        description
+          "Requested action is permitted.";
+      }
+      enum deny {
+        description
+          "Requested action is denied.";
+      }
+    }
+    description
+      "Action taken by the server when a particular
+       rule matches.";
+  }
+
+  typedef node-instance-identifier {
+    type yang:xpath1.0;
+    description
+      "Path expression used to represent a special
+       data node, action, or notification instance-identifier
+       string.
+
+       A node-instance-identifier value is an
+       unrestricted YANG instance-identifier expression.
+       All the same rules as an instance-identifier apply,
+       except that predicates for keys are optional.  If a key
+       predicate is missing, then the node-instance-identifier
+       represents all possible server instances for that key.
+
+       This XML Path Language (XPath) expression is evaluated in the
+       following context:
+
+          o  The set of namespace declarations are those in scope on
+             the leaf element where this type is used.
+
+          o  The set of variable bindings contains one variable,
+             'USER', which contains the name of the user of the
+             current session.
+
+          o  The function library is the core function library, but
+             note that due to the syntax restrictions of an
+             instance-identifier, no functions are allowed.
+
+          o  The context node is the root node in the data tree.
+
+       The accessible tree includes actions and notifications tied
+       to data nodes.";
+  }
+
+  /*
+   * Data definition statements
+   */
+
+  container nacm {
+    nacm:default-deny-all;
+
+    description
+      "Parameters for NETCONF access control model.";
+
+    leaf enable-nacm {
+      type boolean;
+      default "true";
+      description
+        "Enables or disables all NETCONF access control
+         enforcement.  If 'true', then enforcement
+         is enabled.  If 'false', then enforcement
+         is disabled.";
+    }
+
+    leaf read-default {
+      type action-type;
+      default "permit";
+      description
+        "Controls whether read access is granted if
+         no appropriate rule is found for a
+         particular read request.";
+    }
+
+    leaf write-default {
+      type action-type;
+      default "deny";
+      description
+        "Controls whether create, update, or delete access
+         is granted if no appropriate rule is found for a
+         particular write request.";
+    }
+
+    leaf exec-default {
+      type action-type;
+      default "permit";
+      description
+        "Controls whether exec access is granted if no appropriate
+         rule is found for a particular protocol operation request.";
+    }
+
+    leaf enable-external-groups {
+      type boolean;
+      default "true";
+      description
+        "Controls whether the server uses the groups reported by the
+         NETCONF transport layer when it assigns the user to a set of
+         NACM groups.  If this leaf has the value 'false', any group
+         names reported by the transport layer are ignored by the
+         server.";
+    }
+
+    leaf denied-operations {
+      type yang:zero-based-counter32;
+      config false;
+      mandatory true;
+      description
+        "Number of times since the server last restarted that a
+         protocol operation request was denied.";
+    }
+
+    leaf denied-data-writes {
+      type yang:zero-based-counter32;
+      config false;
+      mandatory true;
+      description
+        "Number of times since the server last restarted that a
+         protocol operation request to alter
+         a configuration datastore was denied.";
+    }
+
+    leaf denied-notifications {
+      type yang:zero-based-counter32;
+      config false;
+      mandatory true;
+      description
+        "Number of times since the server last restarted that
+         a notification was dropped for a subscription because
+         access to the event type was denied.";
+    }
+
+    container groups {
+      description
+        "NETCONF access control groups.";
+
+      list group {
+        key name;
+
+        description
+          "One NACM group entry.  This list will only contain
+           configured entries, not any entries learned from
+           any transport protocols.";
+
+        leaf name {
+          type group-name-type;
+          description
+            "Group name associated with this entry.";
+        }
+
+        leaf-list user-name {
+          type user-name-type;
+          description
+            "Each entry identifies the username of
+             a member of the group associated with
+             this entry.";
+        }
+      }
+    }
+
+    list rule-list {
+      key name;
+      ordered-by user;
+      description
+        "An ordered collection of access control rules.";
+
+      leaf name {
+        type string {
+          length "1..max";
+        }
+        description
+          "Arbitrary name assigned to the rule-list.";
+      }
+      leaf-list group {
+        type union {
+          type matchall-string-type;
+          type group-name-type;
+        }
+        description
+          "List of administrative groups that will be
+           assigned the associated access rights
+           defined by the 'rule' list.
+
+           The string '*' indicates that all groups apply to the
+           entry.";
+      }
+
+      list rule {
+        key name;
+        ordered-by user;
+        description
+          "One access control rule.
+
+           Rules are processed in user-defined order until a match is
+           found.  A rule matches if 'module-name', 'rule-type', and
+           'access-operations' match the request.  If a rule
+           matches, the 'action' leaf determines whether or not
+           access is granted.";
+
+        leaf name {
+          type string {
+            length "1..max";
+          }
+          description
+            "Arbitrary name assigned to the rule.";
+        }
+
+        leaf module-name {
+          type union {
+            type matchall-string-type;
+            type string;
+          }
+          default "*";
+          description
+            "Name of the module associated with this rule.
+
+             This leaf matches if it has the value '*' or if the
+             object being accessed is defined in the module with the
+             specified module name.";
+        }
+        choice rule-type {
+          description
+            "This choice matches if all leafs present in the rule
+             match the request.  If no leafs are present, the
+             choice matches all requests.";
+          case protocol-operation {
+            leaf rpc-name {
+              type union {
+                type matchall-string-type;
+                type string;
+              }
+              description
+                "This leaf matches if it has the value '*' or if
+                 its value equals the requested protocol operation
+                 name.";
+            }
+          }
+          case notification {
+            leaf notification-name {
+              type union {
+                type matchall-string-type;
+                type string;
+              }
+              description
+                "This leaf matches if it has the value '*' or if its
+                 value equals the requested notification name.";
+            }
+          }
+
+          case data-node {
+            leaf path {
+              type node-instance-identifier;
+              mandatory true;
+              description
+                "Data node instance-identifier associated with the
+                 data node, action, or notification controlled by
+                 this rule.
+
+                 Configuration data or state data
+                 instance-identifiers start with a top-level
+                 data node.  A complete instance-identifier is
+                 required for this type of path value.
+
+                 The special value '/' refers to all possible
+                 datastore contents.";
+            }
+          }
+        }
+
+        leaf access-operations {
+          type union {
+            type matchall-string-type;
+            type access-operations-type;
+          }
+          default "*";
+          description
+            "Access operations associated with this rule.
+
+             This leaf matches if it has the value '*' or if the
+             bit corresponding to the requested operation is set.";
+        }
+
+        leaf action {
+          type action-type;
+          mandatory true;
+          description
+            "The access control action associated with the
+             rule.  If a rule has been determined to match a
+             particular request, then this object is used
+             to determine whether to permit or deny the
+             request.";
+        }
+
+        leaf comment {
+          type string;
+          description
+            "A textual description of the access rule.";
+        }
+      }
+    }
+  }
+}

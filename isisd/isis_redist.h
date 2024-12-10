@@ -26,6 +26,18 @@ struct isis_redist {
 	uint32_t metric;
 	char *map_name;
 	struct route_map *map;
+<<<<<<< HEAD
+=======
+	uint16_t table;
+};
+
+struct isis_redist_table_present_args {
+	/* from filter.h, struct acl_dup_args */
+	const char *rtda_ip;
+	const char *rtda_level;
+	const char *rtda_table;
+	bool rtda_found;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 };
 
 struct isis;
@@ -40,17 +52,37 @@ struct route_table *get_ext_reach(struct isis_area *area, int family,
 				  int level);
 void isis_redist_add(struct isis *isis, int type, struct prefix *p,
 		     struct prefix_ipv6 *src_p, uint8_t distance,
+<<<<<<< HEAD
 		     uint32_t metric, route_tag_t tag);
 void isis_redist_delete(struct isis *isis, int type, struct prefix *p,
 			struct prefix_ipv6 *src_p);
+=======
+		     uint32_t metric, route_tag_t tag, uint16_t instance);
+void isis_redist_delete(struct isis *isis, int type, struct prefix *p,
+			struct prefix_ipv6 *src_p, uint16_t tableid);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 int isis_redist_config_write(struct vty *vty, struct isis_area *area,
 			     int family);
 void isis_redist_init(void);
 void isis_redist_area_finish(struct isis_area *area);
 
 void isis_redist_set(struct isis_area *area, int level, int family, int type,
+<<<<<<< HEAD
 		     uint32_t metric, const char *routemap, int originate_type);
 void isis_redist_unset(struct isis_area *area, int level, int family, int type);
 
 void isis_redist_free(struct isis *isis);
+=======
+		     uint32_t metric, const char *routemap, int originate_type,
+		     uint16_t table);
+void isis_redist_unset(struct isis_area *area, int level, int family, int type,
+		       uint16_t table);
+
+void isis_redist_free(struct isis *isis);
+
+bool isis_redist_table_is_present(const struct vty *vty,
+				  struct isis_redist_table_present_args *rtda);
+uint16_t isis_redist_table_get_first(const struct vty *vty,
+				     struct isis_redist_table_present_args *rtda);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 #endif

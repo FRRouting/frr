@@ -185,7 +185,10 @@ static int ssmpingd_socket(pim_addr addr, int port, int mttl)
 	ret = ssmpingd_setsockopt(fd, addr, mttl);
 	if (ret) {
 		zlog_warn("ssmpingd_setsockopt failed");
+<<<<<<< HEAD
 		close(fd);
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		return -1;
 	}
 

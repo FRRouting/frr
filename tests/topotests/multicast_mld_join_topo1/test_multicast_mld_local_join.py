@@ -42,6 +42,13 @@ from lib.pim import (
     verify_pim_rp_info,
     verify_upstream_iif,
 )
+<<<<<<< HEAD
+=======
+from lib.bgp import (
+    verify_bgp_convergence,
+)
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 from lib.topogen import Topogen, get_topogen
 from lib.topojson import build_config_from_json
 from lib.topolog import logger
@@ -126,6 +133,16 @@ def setup_module(mod):
 
     # Creating configuration from JSON
     build_config_from_json(tgen, topo)
+<<<<<<< HEAD
+=======
+
+    # Verify BGP convergence
+    BGP_CONVERGENCE = verify_bgp_convergence(tgen, topo, addr_type="ipv6")
+    assert BGP_CONVERGENCE is True, "setup_module : Failed \n Error:" " {}".format(
+        BGP_CONVERGENCE
+    )
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     # Verify PIM neighbors
     result = verify_pim_neighbors(tgen, topo)
     assert result is True, " Verify PIM neighbor: Failed Error: {}".format(result)
@@ -177,6 +194,13 @@ def test_mld_local_joins_p0(request):
 
     reset_config_on_routers(tgen)
 
+<<<<<<< HEAD
+=======
+    # Verify BGP convergence
+    result = verify_bgp_convergence(tgen, topo, addr_type="ipv6")
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     step("configure BGP on R1, R2, R3, R4 and enable redistribute static/connected")
     step("Enable the MLD on R11 interfac of R1 and configure local mld groups")
     intf_r1_i1 = topo["routers"]["r1"]["links"]["i1"]["interface"]
@@ -249,6 +273,13 @@ def test_mroute_with_mld_local_joins_p0(request):
 
     reset_config_on_routers(tgen)
 
+<<<<<<< HEAD
+=======
+    # Verify BGP convergence
+    result = verify_bgp_convergence(tgen, topo, addr_type="ipv6")
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     app_helper.stop_all_hosts()
 
     step("Enable the PIM on all the interfaces of R1, R2, R3, R4")
@@ -442,6 +473,13 @@ def test_remove_add_mld_local_joins_p1(request):
 
     reset_config_on_routers(tgen)
 
+<<<<<<< HEAD
+=======
+    # Verify BGP convergence
+    result = verify_bgp_convergence(tgen, topo, addr_type="ipv6")
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     app_helper.stop_all_hosts()
 
     step("Enable the PIM on all the interfaces of R1, R2, R3, R4")
@@ -694,6 +732,13 @@ def test_remove_add_mld_config_with_local_joins_p1(request):
 
     reset_config_on_routers(tgen)
 
+<<<<<<< HEAD
+=======
+    # Verify BGP convergence
+    result = verify_bgp_convergence(tgen, topo, addr_type="ipv6")
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     app_helper.stop_all_hosts()
 
     step("Enable the PIM on all the interfaces of R1, R2, R3, R4")

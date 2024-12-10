@@ -83,9 +83,12 @@ static void bgp_connect_timer(struct event *event);
 static void bgp_holdtime_timer(struct event *event);
 static void bgp_delayopen_timer(struct event *event);
 
+<<<<<<< HEAD
 /* BGP FSM functions. */
 static enum bgp_fsm_state_progress bgp_start(struct peer *);
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 /* Register peer with NHT */
 int bgp_peer_reg_with_nht(struct peer *peer)
 {
@@ -96,9 +99,17 @@ int bgp_peer_reg_with_nht(struct peer *peer)
 	    && !CHECK_FLAG(peer->bgp->flags, BGP_FLAG_DISABLE_NH_CONNECTED_CHK))
 		connected = 1;
 
+<<<<<<< HEAD
 	return bgp_find_or_add_nexthop(
 		peer->bgp, peer->bgp, family2afi(peer->su.sa.sa_family),
 		SAFI_UNICAST, NULL, peer, connected, NULL);
+=======
+	return bgp_find_or_add_nexthop(peer->bgp, peer->bgp,
+				       family2afi(
+					       peer->connection->su.sa.sa_family),
+				       SAFI_UNICAST, NULL, peer, connected,
+				       NULL);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 }
 
 static void peer_xfer_stats(struct peer *peer_dst, struct peer *peer_src)
@@ -119,18 +130,42 @@ static struct peer *peer_xfer_conn(struct peer *from_peer)
 	struct peer *peer;
 	afi_t afi;
 	safi_t safi;
+<<<<<<< HEAD
 	int fd;
 	enum bgp_fsm_status status, pstatus;
 	enum bgp_fsm_events last_evt, last_maj_evt;
 
 	assert(from_peer != NULL);
 
+=======
+	enum bgp_fsm_events last_evt, last_maj_evt;
+	struct peer_connection *keeper, *going_away;
+
+	assert(from_peer != NULL);
+
+	/*
+	 * Keeper is the connection that is staying around
+	 */
+	keeper = from_peer->connection;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	peer = from_peer->doppelganger;
 
 	if (!peer || !CHECK_FLAG(peer->flags, PEER_FLAG_CONFIG_NODE))
 		return from_peer;
 
 	/*
+<<<<<<< HEAD
+=======
+	 * from_peer is pointing at the non config node and
+	 * at this point peer is pointing at the CONFIG node
+	 * peer ( non incoming connection ).  The going_away pointer
+	 * is the connection that is being placed on to
+	 * the non Config node for deletion.
+	 */
+	going_away = peer->connection;
+
+	/*
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	 * Let's check that we are not going to loose known configuration
 	 * state based upon doppelganger rules.
 	 */
@@ -146,6 +181,7 @@ static struct peer *peer_xfer_conn(struct peer *from_peer)
 
 	if (bgp_debug_neighbor_events(peer))
 		zlog_debug("%s: peer transfer %p fd %d -> %p fd %d)",
+<<<<<<< HEAD
 			   from_peer->host, from_peer, from_peer->fd, peer,
 			   peer->fd);
 
@@ -153,6 +189,15 @@ static struct peer *peer_xfer_conn(struct peer *from_peer)
 	bgp_reads_off(peer);
 	bgp_writes_off(from_peer);
 	bgp_reads_off(from_peer);
+=======
+			   from_peer->host, from_peer, from_peer->connection->fd,
+			   peer, peer->connection->fd);
+
+	bgp_writes_off(going_away);
+	bgp_reads_off(going_away);
+	bgp_writes_off(keeper);
+	bgp_reads_off(keeper);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	/*
 	 * Before exchanging FD remove doppelganger from
@@ -160,6 +205,7 @@ static struct peer *peer_xfer_conn(struct peer *from_peer)
 	 * fd is set to -1. If blocked on lock then keepalive
 	 * thread can access peer pointer with fd -1.
 	 */
+<<<<<<< HEAD
 	bgp_keepalives_off(from_peer);
 
 	EVENT_OFF(peer->t_routeadv);
@@ -173,12 +219,29 @@ static struct peer *peer_xfer_conn(struct peer *from_peer)
 	EVENT_OFF(from_peer->t_connect_check_r);
 	EVENT_OFF(from_peer->t_connect_check_w);
 	EVENT_OFF(from_peer->t_process_packet);
+=======
+	bgp_keepalives_off(keeper);
+
+	EVENT_OFF(going_away->t_routeadv);
+	EVENT_OFF(going_away->t_connect);
+	EVENT_OFF(going_away->t_delayopen);
+	EVENT_OFF(going_away->t_connect_check_r);
+	EVENT_OFF(going_away->t_connect_check_w);
+	EVENT_OFF(going_away->t_stop_with_notify);
+	EVENT_OFF(keeper->t_routeadv);
+	EVENT_OFF(keeper->t_connect);
+	EVENT_OFF(keeper->t_delayopen);
+	EVENT_OFF(keeper->t_connect_check_r);
+	EVENT_OFF(keeper->t_connect_check_w);
+	EVENT_OFF(keeper->t_process_packet);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	/*
 	 * At this point in time, it is possible that there are packets pending
 	 * on various buffers. Those need to be transferred or dropped,
 	 * otherwise we'll get spurious failures during session establishment.
 	 */
+<<<<<<< HEAD
 	frr_with_mutex (&peer->io_mtx, &from_peer->io_mtx) {
 		fd = peer->fd;
 		peer->fd = from_peer->fd;
@@ -220,6 +283,12 @@ static struct peer *peer_xfer_conn(struct peer *from_peer)
 		ringbuf_copy(peer->ibuf_work, from_peer->ibuf_work,
 			     ringbuf_remain(from_peer->ibuf_work));
 	}
+=======
+	peer->connection = keeper;
+	keeper->peer = peer;
+	from_peer->connection = going_away;
+	going_away->peer = from_peer;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	peer->as = from_peer->as;
 	peer->v_holdtime = from_peer->v_holdtime;
@@ -229,6 +298,7 @@ static struct peer *peer_xfer_conn(struct peer *from_peer)
 	peer->v_gr_restart = from_peer->v_gr_restart;
 	peer->cap = from_peer->cap;
 	peer->remote_role = from_peer->remote_role;
+<<<<<<< HEAD
 	status = peer->status;
 	pstatus = peer->ostatus;
 	last_evt = peer->last_event;
@@ -239,6 +309,12 @@ static struct peer *peer_xfer_conn(struct peer *from_peer)
 	peer->last_major_event = from_peer->last_major_event;
 	from_peer->status = status;
 	from_peer->ostatus = pstatus;
+=======
+	last_evt = peer->last_event;
+	last_maj_evt = peer->last_major_event;
+	peer->last_event = from_peer->last_event;
+	peer->last_major_event = from_peer->last_major_event;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	from_peer->last_event = last_evt;
 	from_peer->last_major_event = last_maj_evt;
 	peer->remote_id = from_peer->remote_id;
@@ -292,6 +368,7 @@ static struct peer *peer_xfer_conn(struct peer *from_peer)
 		peer->afc_recv[afi][safi] = from_peer->afc_recv[afi][safi];
 		peer->orf_plist[afi][safi] = from_peer->orf_plist[afi][safi];
 		peer->llgr[afi][safi] = from_peer->llgr[afi][safi];
+<<<<<<< HEAD
 	}
 
 	if (bgp_getsockname(peer) < 0) {
@@ -318,6 +395,34 @@ static struct peer *peer_xfer_conn(struct peer *from_peer)
 					 : ""),
 				from_peer->host, from_peer->fd, peer->fd);
 			bgp_stop(from_peer);
+=======
+		peer->addpath_paths_limit[afi][safi] =
+			from_peer->addpath_paths_limit[afi][safi];
+	}
+
+	if (bgp_getsockname(keeper) < 0) {
+		flog_err(EC_LIB_SOCKET,
+			 "%%bgp_getsockname() failed for %s peer %s fd %d (from_peer fd %d)",
+			 (CHECK_FLAG(peer->sflags, PEER_STATUS_ACCEPT_PEER)
+				  ? "accept"
+				  : ""),
+			 peer->host, going_away->fd, keeper->fd);
+		BGP_EVENT_ADD(going_away, BGP_Stop);
+		BGP_EVENT_ADD(keeper, BGP_Stop);
+		return NULL;
+	}
+	if (going_away->status > Active) {
+		if (bgp_getsockname(going_away) < 0) {
+			flog_err(EC_LIB_SOCKET,
+				 "%%bgp_getsockname() failed for %s from_peer %s fd %d (peer fd %d)",
+
+				 (CHECK_FLAG(from_peer->sflags,
+					     PEER_STATUS_ACCEPT_PEER)
+					  ? "accept"
+					  : ""),
+				 from_peer->host, going_away->fd, keeper->fd);
+			bgp_stop(going_away);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			from_peer = NULL;
 		}
 	}
@@ -334,10 +439,17 @@ static struct peer *peer_xfer_conn(struct peer *from_peer)
 	if (from_peer)
 		bgp_replace_nexthop_by_peer(from_peer, peer);
 
+<<<<<<< HEAD
 	bgp_reads_on(peer);
 	bgp_writes_on(peer);
 	event_add_event(bm->master, bgp_process_packet, peer, 0,
 			&peer->t_process_packet);
+=======
+	bgp_reads_on(keeper);
+	bgp_writes_on(keeper);
+	event_add_event(bm->master, bgp_process_packet, keeper, 0,
+			&keeper->t_process_packet);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	return (peer);
 }
@@ -345,16 +457,27 @@ static struct peer *peer_xfer_conn(struct peer *from_peer)
 /* Hook function called after bgp event is occered.  And vty's
    neighbor command invoke this function after making neighbor
    structure. */
+<<<<<<< HEAD
 void bgp_timer_set(struct peer *peer)
 {
 	afi_t afi;
 	safi_t safi;
 
 	switch (peer->status) {
+=======
+void bgp_timer_set(struct peer_connection *connection)
+{
+	afi_t afi;
+	safi_t safi;
+	struct peer *peer = connection->peer;
+
+	switch (connection->status) {
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	case Idle:
 		/* First entry point of peer's finite state machine.  In Idle
 		   status start timer is on unless peer is shutdown or peer is
 		   inactive.  All other timer must be turned off */
+<<<<<<< HEAD
 		if (BGP_PEER_START_SUPPRESSED(peer) || !peer_active(peer)
 		    || peer->bgp->vrf_id == VRF_UNKNOWN) {
 			EVENT_OFF(peer->t_start);
@@ -367,12 +490,27 @@ void bgp_timer_set(struct peer *peer)
 		bgp_keepalives_off(peer);
 		EVENT_OFF(peer->t_routeadv);
 		EVENT_OFF(peer->t_delayopen);
+=======
+		if (BGP_PEER_START_SUPPRESSED(peer) || !peer_active(connection) ||
+		    peer->bgp->vrf_id == VRF_UNKNOWN) {
+			EVENT_OFF(connection->t_start);
+		} else {
+			BGP_TIMER_ON(connection->t_start, bgp_start_timer,
+				     peer->v_start);
+		}
+		EVENT_OFF(connection->t_connect);
+		EVENT_OFF(connection->t_holdtime);
+		bgp_keepalives_off(connection);
+		EVENT_OFF(connection->t_routeadv);
+		EVENT_OFF(connection->t_delayopen);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		break;
 
 	case Connect:
 		/* After start timer is expired, the peer moves to Connect
 		   status.  Make sure start timer is off and connect timer is
 		   on. */
+<<<<<<< HEAD
 		EVENT_OFF(peer->t_start);
 		if (CHECK_FLAG(peer->flags, PEER_FLAG_TIMER_DELAYOPEN))
 			BGP_TIMER_ON(peer->t_connect, bgp_connect_timer,
@@ -384,11 +522,25 @@ void bgp_timer_set(struct peer *peer)
 		EVENT_OFF(peer->t_holdtime);
 		bgp_keepalives_off(peer);
 		EVENT_OFF(peer->t_routeadv);
+=======
+		EVENT_OFF(connection->t_start);
+		if (CHECK_FLAG(peer->flags, PEER_FLAG_TIMER_DELAYOPEN))
+			BGP_TIMER_ON(connection->t_connect, bgp_connect_timer,
+				     (peer->v_delayopen + peer->v_connect));
+		else
+			BGP_TIMER_ON(connection->t_connect, bgp_connect_timer,
+				     peer->v_connect);
+
+		EVENT_OFF(connection->t_holdtime);
+		bgp_keepalives_off(connection);
+		EVENT_OFF(connection->t_routeadv);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		break;
 
 	case Active:
 		/* Active is waiting connection from remote peer.  And if
 		   connect timer is expired, change status to Connect. */
+<<<<<<< HEAD
 		EVENT_OFF(peer->t_start);
 		/* If peer is passive mode, do not set connect timer. */
 		if (CHECK_FLAG(peer->flags, PEER_FLAG_PASSIVE)
@@ -406,10 +558,31 @@ void bgp_timer_set(struct peer *peer)
 		EVENT_OFF(peer->t_holdtime);
 		bgp_keepalives_off(peer);
 		EVENT_OFF(peer->t_routeadv);
+=======
+		EVENT_OFF(connection->t_start);
+		/* If peer is passive mode, do not set connect timer. */
+		if (CHECK_FLAG(peer->flags, PEER_FLAG_PASSIVE)
+		    || CHECK_FLAG(peer->sflags, PEER_STATUS_NSF_WAIT)) {
+			EVENT_OFF(connection->t_connect);
+		} else {
+			if (CHECK_FLAG(peer->flags, PEER_FLAG_TIMER_DELAYOPEN))
+				BGP_TIMER_ON(connection->t_connect,
+					     bgp_connect_timer,
+					     (peer->v_delayopen +
+					      peer->v_connect));
+			else
+				BGP_TIMER_ON(connection->t_connect,
+					     bgp_connect_timer, peer->v_connect);
+		}
+		EVENT_OFF(connection->t_holdtime);
+		bgp_keepalives_off(connection);
+		EVENT_OFF(connection->t_routeadv);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		break;
 
 	case OpenSent:
 		/* OpenSent status. */
+<<<<<<< HEAD
 		EVENT_OFF(peer->t_start);
 		EVENT_OFF(peer->t_connect);
 		if (peer->v_holdtime != 0) {
@@ -421,12 +594,30 @@ void bgp_timer_set(struct peer *peer)
 		bgp_keepalives_off(peer);
 		EVENT_OFF(peer->t_routeadv);
 		EVENT_OFF(peer->t_delayopen);
+=======
+		EVENT_OFF(connection->t_start);
+		EVENT_OFF(connection->t_connect);
+		if (peer->v_holdtime != 0) {
+			BGP_TIMER_ON(connection->t_holdtime, bgp_holdtime_timer,
+				     peer->v_holdtime);
+		} else {
+			EVENT_OFF(connection->t_holdtime);
+		}
+		bgp_keepalives_off(connection);
+		EVENT_OFF(connection->t_routeadv);
+		EVENT_OFF(connection->t_delayopen);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		break;
 
 	case OpenConfirm:
 		/* OpenConfirm status. */
+<<<<<<< HEAD
 		EVENT_OFF(peer->t_start);
 		EVENT_OFF(peer->t_connect);
+=======
+		EVENT_OFF(connection->t_start);
+		EVENT_OFF(connection->t_connect);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 		/*
 		 * If the negotiated Hold Time value is zero, then the Hold Time
@@ -434,6 +625,7 @@ void bgp_timer_set(struct peer *peer)
 		 * Additionally if a different hold timer has been negotiated
 		 * than we must stop then start the timer again
 		 */
+<<<<<<< HEAD
 		EVENT_OFF(peer->t_holdtime);
 		if (peer->v_holdtime == 0)
 			bgp_keepalives_off(peer);
@@ -444,14 +636,32 @@ void bgp_timer_set(struct peer *peer)
 		}
 		EVENT_OFF(peer->t_routeadv);
 		EVENT_OFF(peer->t_delayopen);
+=======
+		EVENT_OFF(connection->t_holdtime);
+		if (peer->v_holdtime == 0)
+			bgp_keepalives_off(connection);
+		else {
+			BGP_TIMER_ON(connection->t_holdtime, bgp_holdtime_timer,
+				     peer->v_holdtime);
+			bgp_keepalives_on(connection);
+		}
+		EVENT_OFF(connection->t_routeadv);
+		EVENT_OFF(connection->t_delayopen);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		break;
 
 	case Established:
 		/* In Established status start and connect timer is turned
 		   off. */
+<<<<<<< HEAD
 		EVENT_OFF(peer->t_start);
 		EVENT_OFF(peer->t_connect);
 		EVENT_OFF(peer->t_delayopen);
+=======
+		EVENT_OFF(connection->t_start);
+		EVENT_OFF(connection->t_connect);
+		EVENT_OFF(connection->t_delayopen);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 		/*
 		 * Same as OpenConfirm, if holdtime is zero then both holdtime
@@ -459,6 +669,7 @@ void bgp_timer_set(struct peer *peer)
 		 * Additionally if a different hold timer has been negotiated
 		 * then we must stop then start the timer again
 		 */
+<<<<<<< HEAD
 		EVENT_OFF(peer->t_holdtime);
 		if (peer->v_holdtime == 0)
 			bgp_keepalives_off(peer);
@@ -471,10 +682,25 @@ void bgp_timer_set(struct peer *peer)
 	case Deleted:
 		EVENT_OFF(peer->t_gr_restart);
 		EVENT_OFF(peer->t_gr_stale);
+=======
+		EVENT_OFF(connection->t_holdtime);
+		if (peer->v_holdtime == 0)
+			bgp_keepalives_off(connection);
+		else {
+			BGP_TIMER_ON(connection->t_holdtime, bgp_holdtime_timer,
+				     peer->v_holdtime);
+			bgp_keepalives_on(connection);
+		}
+		break;
+	case Deleted:
+		EVENT_OFF(peer->connection->t_gr_restart);
+		EVENT_OFF(peer->connection->t_gr_stale);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 		FOREACH_AFI_SAFI (afi, safi)
 			EVENT_OFF(peer->t_llgr_stale[afi][safi]);
 
+<<<<<<< HEAD
 		EVENT_OFF(peer->t_pmax_restart);
 		EVENT_OFF(peer->t_refresh_stalepath);
 	/* fallthru */
@@ -485,6 +711,18 @@ void bgp_timer_set(struct peer *peer)
 		bgp_keepalives_off(peer);
 		EVENT_OFF(peer->t_routeadv);
 		EVENT_OFF(peer->t_delayopen);
+=======
+		EVENT_OFF(peer->connection->t_pmax_restart);
+		EVENT_OFF(peer->t_refresh_stalepath);
+		fallthrough;
+	case Clearing:
+		EVENT_OFF(connection->t_start);
+		EVENT_OFF(connection->t_connect);
+		EVENT_OFF(connection->t_holdtime);
+		bgp_keepalives_off(connection);
+		EVENT_OFF(connection->t_routeadv);
+		EVENT_OFF(connection->t_delayopen);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		break;
 	case BGP_STATUS_MAX:
 		flog_err(EC_LIB_DEVELOPMENT,
@@ -497,9 +735,14 @@ void bgp_timer_set(struct peer *peer)
    and process event. */
 static void bgp_start_timer(struct event *thread)
 {
+<<<<<<< HEAD
 	struct peer *peer;
 
 	peer = EVENT_ARG(thread);
+=======
+	struct peer_connection *connection = EVENT_ARG(thread);
+	struct peer *peer = connection->peer;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	if (bgp_debug_neighbor_events(peer))
 		zlog_debug("%s [FSM] Timer (start timer expire).", peer->host);
@@ -511,6 +754,7 @@ static void bgp_start_timer(struct event *thread)
 /* BGP connect retry timer. */
 static void bgp_connect_timer(struct event *thread)
 {
+<<<<<<< HEAD
 	struct peer *peer;
 
 	peer = EVENT_ARG(thread);
@@ -520,12 +764,26 @@ static void bgp_connect_timer(struct event *thread)
 
 	assert(!peer->t_write);
 	assert(!peer->t_read);
+=======
+	struct peer_connection *connection = EVENT_ARG(thread);
+	struct peer *peer = connection->peer;
+
+	/* stop the DelayOpenTimer if it is running */
+	EVENT_OFF(connection->t_delayopen);
+
+	assert(!connection->t_write);
+	assert(!connection->t_read);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	if (bgp_debug_neighbor_events(peer))
 		zlog_debug("%s [FSM] Timer (connect timer expire)", peer->host);
 
 	if (CHECK_FLAG(peer->sflags, PEER_STATUS_ACCEPT_PEER))
+<<<<<<< HEAD
 		bgp_stop(peer);
+=======
+		bgp_stop(connection);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	else {
 		EVENT_VAL(thread) = ConnectRetry_timer_expired;
 		bgp_event(thread); /* bgp_event unlocks peer */
@@ -536,9 +794,14 @@ static void bgp_connect_timer(struct event *thread)
 static void bgp_holdtime_timer(struct event *thread)
 {
 	atomic_size_t inq_count;
+<<<<<<< HEAD
 	struct peer *peer;
 
 	peer = EVENT_ARG(thread);
+=======
+	struct peer_connection *connection = EVENT_ARG(thread);
+	struct peer *peer = connection->peer;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	if (bgp_debug_neighbor_events(peer))
 		zlog_debug("%s [FSM] Timer (holdtime timer expire)",
@@ -554,10 +817,17 @@ static void bgp_holdtime_timer(struct event *thread)
 	 * for systems where we are heavily loaded for one
 	 * reason or another.
 	 */
+<<<<<<< HEAD
 	inq_count = atomic_load_explicit(&peer->ibuf->count,
 					 memory_order_relaxed);
 	if (inq_count)
 		BGP_TIMER_ON(peer->t_holdtime, bgp_holdtime_timer,
+=======
+	inq_count = atomic_load_explicit(&connection->ibuf->count,
+					 memory_order_relaxed);
+	if (inq_count)
+		BGP_TIMER_ON(connection->t_holdtime, bgp_holdtime_timer,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			     peer->v_holdtime);
 
 	EVENT_VAL(thread) = Hold_Timer_expired;
@@ -566,6 +836,7 @@ static void bgp_holdtime_timer(struct event *thread)
 
 void bgp_routeadv_timer(struct event *thread)
 {
+<<<<<<< HEAD
 	struct peer *peer;
 
 	peer = EVENT_ARG(thread);
@@ -578,6 +849,18 @@ void bgp_routeadv_timer(struct event *thread)
 
 	event_add_timer_msec(bm->master, bgp_generate_updgrp_packets, peer, 0,
 			     &peer->t_generate_updgrp_packets);
+=======
+	struct peer_connection *connection = EVENT_ARG(thread);
+	struct peer *peer = connection->peer;
+
+	if (bgp_debug_neighbor_events(peer))
+		zlog_debug("%s [FSM] Timer (routeadv timer expire)", peer->host);
+
+	peer->synctime = monotime(NULL);
+
+	event_add_timer_msec(bm->master, bgp_generate_updgrp_packets, connection,
+			     0, &connection->t_generate_updgrp_packets);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	/* MRAI timer will be started again when FIFO is built, no need to
 	 * do it here.
@@ -587,9 +870,14 @@ void bgp_routeadv_timer(struct event *thread)
 /* RFC 4271 DelayOpenTimer */
 void bgp_delayopen_timer(struct event *thread)
 {
+<<<<<<< HEAD
 	struct peer *peer;
 
 	peer = EVENT_ARG(thread);
+=======
+	struct peer_connection *connection = EVENT_ARG(thread);
+	struct peer *peer = connection->peer;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	if (bgp_debug_neighbor_events(peer))
 		zlog_debug("%s [FSM] Timer (DelayOpentimer expire)",
@@ -638,9 +926,17 @@ const char *const peer_down_str[] = {
 	"Socket Error",
 	"Admin. shutdown (RTT)",
 	"Suppress Fib Turned On or Off",
+<<<<<<< HEAD
 };
 
 static void bgp_graceful_restart_timer_off(struct peer *peer)
+=======
+	"Password config change",
+};
+
+static void bgp_graceful_restart_timer_off(struct peer_connection *connection,
+					   struct peer *peer)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 {
 	afi_t afi;
 	safi_t safi;
@@ -651,7 +947,11 @@ static void bgp_graceful_restart_timer_off(struct peer *peer)
 			return;
 
 	UNSET_FLAG(peer->sflags, PEER_STATUS_NSF_WAIT);
+<<<<<<< HEAD
 	EVENT_OFF(peer->t_gr_stale);
+=======
+	EVENT_OFF(connection->t_gr_stale);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	if (peer_dynamic_neighbor(peer) &&
 	    !(CHECK_FLAG(peer->flags, PEER_FLAG_DELETE))) {
@@ -661,7 +961,11 @@ static void bgp_graceful_restart_timer_off(struct peer *peer)
 		peer_delete(peer);
 	}
 
+<<<<<<< HEAD
 	bgp_timer_set(peer);
+=======
+	bgp_timer_set(connection);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 }
 
 static void bgp_llgr_stale_timer_expire(struct event *thread)
@@ -689,7 +993,11 @@ static void bgp_llgr_stale_timer_expire(struct event *thread)
 
 	bgp_clear_stale_route(peer, afi, safi);
 
+<<<<<<< HEAD
 	bgp_graceful_restart_timer_off(peer);
+=======
+	bgp_graceful_restart_timer_off(peer->connection, peer);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 }
 
 static void bgp_set_llgr_stale(struct peer *peer, afi_t afi, safi_t safi)
@@ -730,13 +1038,22 @@ static void bgp_set_llgr_stale(struct peer *peer, afi_t afi, safi_t safi)
 					if (bgp_debug_neighbor_events(peer))
 						zlog_debug(
 							"%pBP Long-lived set stale community (LLGR_STALE) for: %pFX",
+<<<<<<< HEAD
 							peer, &dest->p);
+=======
+							peer, &dest->rn->p);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 					attr = *pi->attr;
 					bgp_attr_add_llgr_community(&attr);
 					pi->attr = bgp_attr_intern(&attr);
+<<<<<<< HEAD
 					bgp_recalculate_afi_safi_bestpaths(
 						peer->bgp, afi, safi);
+=======
+					bgp_process(peer->bgp, rm, pi, afi,
+						    safi);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 				}
 		}
 	} else {
@@ -761,27 +1078,44 @@ static void bgp_set_llgr_stale(struct peer *peer, afi_t afi, safi_t safi)
 				if (bgp_debug_neighbor_events(peer))
 					zlog_debug(
 						"%pBP Long-lived set stale community (LLGR_STALE) for: %pFX",
+<<<<<<< HEAD
 						peer, &dest->p);
+=======
+						peer, &dest->rn->p);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 				attr = *pi->attr;
 				bgp_attr_add_llgr_community(&attr);
 				pi->attr = bgp_attr_intern(&attr);
+<<<<<<< HEAD
 				bgp_recalculate_afi_safi_bestpaths(peer->bgp,
 								   afi, safi);
+=======
+				bgp_process(peer->bgp, dest, pi, afi, safi);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			}
 	}
 }
 
 static void bgp_graceful_restart_timer_expire(struct event *thread)
 {
+<<<<<<< HEAD
 	struct peer *peer, *tmp_peer;
+=======
+	struct peer_connection *connection = EVENT_ARG(thread);
+	struct peer *peer = connection->peer;
+	struct peer *tmp_peer;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	struct listnode *node, *nnode;
 	struct peer_af *paf;
 	afi_t afi;
 	safi_t safi;
 
+<<<<<<< HEAD
 	peer = EVENT_ARG(thread);
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	if (bgp_debug_neighbor_events(peer)) {
 		zlog_debug("%pBP graceful restart timer expired", peer);
 		zlog_debug("%pBP graceful restart stalepath timer stopped",
@@ -834,17 +1168,29 @@ static void bgp_graceful_restart_timer_expire(struct event *thread)
 		}
 	}
 
+<<<<<<< HEAD
 	bgp_graceful_restart_timer_off(peer);
+=======
+	bgp_graceful_restart_timer_off(connection, peer);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 }
 
 static void bgp_graceful_stale_timer_expire(struct event *thread)
 {
+<<<<<<< HEAD
 	struct peer *peer;
 	afi_t afi;
 	safi_t safi;
 
 	peer = EVENT_ARG(thread);
 
+=======
+	struct peer_connection *connection = EVENT_ARG(thread);
+	struct peer *peer = connection->peer;
+	afi_t afi;
+	safi_t safi;
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	if (bgp_debug_neighbor_events(peer))
 		zlog_debug("%pBP graceful restart stalepath timer expired",
 			   peer);
@@ -972,10 +1318,20 @@ void bgp_start_routeadv(struct bgp *bgp)
 		      sizeof(bgp->update_delay_peers_resume_time));
 
 	for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer)) {
+<<<<<<< HEAD
 		if (!peer_established(peer))
 			continue;
 		EVENT_OFF(peer->t_routeadv);
 		BGP_TIMER_ON(peer->t_routeadv, bgp_routeadv_timer, 0);
+=======
+		struct peer_connection *connection = peer->connection;
+
+		if (!peer_established(connection))
+			continue;
+
+		EVENT_OFF(connection->t_routeadv);
+		BGP_TIMER_ON(connection->t_routeadv, bgp_routeadv_timer, 0);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	}
 }
 
@@ -987,6 +1343,10 @@ void bgp_adjust_routeadv(struct peer *peer)
 	time_t nowtime = monotime(NULL);
 	double diff;
 	unsigned long remain;
+<<<<<<< HEAD
+=======
+	struct peer_connection *connection = peer->connection;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	/* Bypass checks for special case of MRAI being 0 */
 	if (peer->v_routeadv == 0) {
@@ -994,7 +1354,11 @@ void bgp_adjust_routeadv(struct peer *peer)
 		 * different
 		 * duration and schedule write thread immediately.
 		 */
+<<<<<<< HEAD
 		EVENT_OFF(peer->t_routeadv);
+=======
+		EVENT_OFF(connection->t_routeadv);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 		peer->synctime = monotime(NULL);
 		/* If suppress fib pending is enabled, route is advertised to
@@ -1002,7 +1366,11 @@ void bgp_adjust_routeadv(struct peer *peer)
 		 * is added to update group packet generate which will allow
 		 * more routes to be sent in the update message
 		 */
+<<<<<<< HEAD
 		BGP_UPDATE_GROUP_TIMER_ON(&peer->t_generate_updgrp_packets,
+=======
+		BGP_UPDATE_GROUP_TIMER_ON(&connection->t_generate_updgrp_packets,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 					  bgp_generate_updgrp_packets);
 		return;
 	}
@@ -1026,8 +1394,13 @@ void bgp_adjust_routeadv(struct peer *peer)
 	 */
 	diff = difftime(nowtime, peer->last_update);
 	if (diff > (double)peer->v_routeadv) {
+<<<<<<< HEAD
 		EVENT_OFF(peer->t_routeadv);
 		BGP_TIMER_ON(peer->t_routeadv, bgp_routeadv_timer, 0);
+=======
+		EVENT_OFF(connection->t_routeadv);
+		BGP_TIMER_ON(connection->t_routeadv, bgp_routeadv_timer, 0);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		return;
 	}
 
@@ -1047,14 +1420,24 @@ void bgp_adjust_routeadv(struct peer *peer)
 	 *
 	 *                     (MRAI - m) < r
 	 */
+<<<<<<< HEAD
 	if (peer->t_routeadv)
 		remain = event_timer_remain_second(peer->t_routeadv);
+=======
+	if (connection->t_routeadv)
+		remain = event_timer_remain_second(connection->t_routeadv);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	else
 		remain = peer->v_routeadv;
 	diff = peer->v_routeadv - diff;
 	if (diff <= (double)remain) {
+<<<<<<< HEAD
 		EVENT_OFF(peer->t_routeadv);
 		BGP_TIMER_ON(peer->t_routeadv, bgp_routeadv_timer, diff);
+=======
+		EVENT_OFF(connection->t_routeadv);
+		BGP_TIMER_ON(connection->t_routeadv, bgp_routeadv_timer, diff);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	}
 }
 
@@ -1162,7 +1545,11 @@ static void bgp_maxmed_onstartup_begin(struct bgp *bgp)
 
 static void bgp_maxmed_onstartup_process_status_change(struct peer *peer)
 {
+<<<<<<< HEAD
 	if (peer_established(peer) && !peer->bgp->established) {
+=======
+	if (peer_established(peer->connection) && !peer->bgp->established) {
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		bgp_maxmed_onstartup_begin(peer->bgp);
 	}
 }
@@ -1220,7 +1607,11 @@ static void bgp_update_delay_begin(struct bgp *bgp)
 
 static void bgp_update_delay_process_status_change(struct peer *peer)
 {
+<<<<<<< HEAD
 	if (peer_established(peer)) {
+=======
+	if (peer_established(peer->connection)) {
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		if (!peer->bgp->established++) {
 			bgp_update_delay_begin(peer->bgp);
 			zlog_info(
@@ -1230,8 +1621,13 @@ static void bgp_update_delay_process_status_change(struct peer *peer)
 		if (CHECK_FLAG(peer->cap, PEER_CAP_GRACEFUL_RESTART_R_BIT_RCV))
 			bgp_update_restarted_peers(peer);
 	}
+<<<<<<< HEAD
 	if (peer->ostatus == Established
 	    && bgp_update_delay_active(peer->bgp)) {
+=======
+	if (peer->connection->ostatus == Established &&
+	    bgp_update_delay_active(peer->bgp)) {
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		/* Adjust the update-delay state to account for this flap.
 		   NOTE: Intentionally skipping adjusting implicit_eors or
 		   explicit_eors
@@ -1246,17 +1642,31 @@ static void bgp_update_delay_process_status_change(struct peer *peer)
 
 /* Called after event occurred, this function change status and reset
    read/write and timer thread. */
+<<<<<<< HEAD
 void bgp_fsm_change_status(struct peer *peer, enum bgp_fsm_status status)
 {
 	struct bgp *bgp;
 	uint32_t peer_count;
 
 	bgp = peer->bgp;
+=======
+void bgp_fsm_change_status(struct peer_connection *connection,
+			   enum bgp_fsm_status status)
+{
+	struct peer *peer = connection->peer;
+	struct bgp *bgp = peer->bgp;
+	uint32_t peer_count;
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	peer_count = bgp->established_peers;
 
 	if (status == Established)
 		bgp->established_peers++;
+<<<<<<< HEAD
 	else if ((peer_established(peer)) && (status != Established))
+=======
+	else if ((peer_established(connection)) && (status != Established))
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		bgp->established_peers--;
 
 	if (bgp_debug_neighbor_events(peer)) {
@@ -1278,7 +1688,11 @@ void bgp_fsm_change_status(struct peer *peer, enum bgp_fsm_status status)
 	/* Transition into Clearing or Deleted must /always/ clear all routes..
 	 * (and must do so before actually changing into Deleted..
 	 */
+<<<<<<< HEAD
 	if (status >= Clearing) {
+=======
+	if (status >= Clearing && (peer->established || peer == bgp->peer_self)) {
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		bgp_clear_route_all(peer);
 
 		/* If no route was queued for the clear-node processing,
@@ -1303,18 +1717,32 @@ void bgp_fsm_change_status(struct peer *peer, enum bgp_fsm_status status)
 		 */
 		if (!work_queue_is_scheduled(peer->clear_node_queue) &&
 		    status != Deleted)
+<<<<<<< HEAD
 			BGP_EVENT_ADD(peer, Clearing_Completed);
 	}
 
 	/* Preserve old status and change into new status. */
 	peer->ostatus = peer->status;
 	peer->status = status;
+=======
+			BGP_EVENT_ADD(connection, Clearing_Completed);
+	}
+
+	/* Preserve old status and change into new status. */
+	connection->ostatus = connection->status;
+	connection->status = status;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	/* Reset received keepalives counter on every FSM change */
 	peer->rtt_keepalive_rcv = 0;
 
 	/* Fire backward transition hook if that's the case */
+<<<<<<< HEAD
 	if (peer->ostatus == Established && peer->status != Established)
+=======
+	if (connection->ostatus == Established &&
+	    connection->status != Established)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		hook_call(peer_backward_transition, peer);
 
 	/* Save event that caused status change. */
@@ -1341,6 +1769,7 @@ void bgp_fsm_change_status(struct peer *peer, enum bgp_fsm_status status)
 		bgp_update_delay_process_status_change(peer);
 
 	if (bgp_debug_neighbor_events(peer))
+<<<<<<< HEAD
 		zlog_debug("%s fd %d went from %s to %s", peer->host, peer->fd,
 			   lookup_msg(bgp_status_msg, peer->ostatus, NULL),
 			   lookup_msg(bgp_status_msg, peer->status, NULL));
@@ -1353,28 +1782,55 @@ static enum bgp_fsm_state_progress bgp_clearing_completed(struct peer *peer)
 
 	if (rc >= BGP_FSM_SUCCESS)
 		BGP_EVENT_FLUSH(peer);
+=======
+		zlog_debug("%s fd %d went from %s to %s", peer->host,
+			   connection->fd,
+			   lookup_msg(bgp_status_msg, connection->ostatus, NULL),
+			   lookup_msg(bgp_status_msg, connection->status, NULL));
+}
+
+/* Flush the event queue and ensure the peer is shut down */
+static enum bgp_fsm_state_progress
+bgp_clearing_completed(struct peer_connection *connection)
+{
+	enum bgp_fsm_state_progress rc = bgp_stop(connection);
+
+	if (rc >= BGP_FSM_SUCCESS)
+		event_cancel_event_ready(bm->master, connection);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	return rc;
 }
 
 /* Administrative BGP peer stop event. */
 /* May be called multiple times for the same peer */
+<<<<<<< HEAD
 enum bgp_fsm_state_progress bgp_stop(struct peer *peer)
+=======
+enum bgp_fsm_state_progress bgp_stop(struct peer_connection *connection)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 {
 	afi_t afi;
 	safi_t safi;
 	char orf_name[BUFSIZ];
 	enum bgp_fsm_state_progress ret = BGP_FSM_SUCCESS;
+<<<<<<< HEAD
+=======
+	struct peer *peer = connection->peer;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	struct bgp *bgp = peer->bgp;
 	struct graceful_restart_info *gr_info = NULL;
 
 	peer->nsf_af_count = 0;
 
+<<<<<<< HEAD
 	/* deregister peer */
 	if (peer->bfd_config
 	    && peer->last_reset == PEER_DOWN_UPDATE_SOURCE_CHANGE)
 		bfd_sess_uninstall(peer->bfd_config->session);
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	if (peer_dynamic_neighbor_no_nsf(peer) &&
 	    !(CHECK_FLAG(peer->flags, PEER_FLAG_DELETE))) {
 		if (bgp_debug_neighbor_events(peer))
@@ -1385,6 +1841,7 @@ enum bgp_fsm_state_progress bgp_stop(struct peer *peer)
 	}
 
 	/* Can't do this in Clearing; events are used for state transitions */
+<<<<<<< HEAD
 	if (peer->status != Clearing) {
 		/* Delete all existing events of the peer */
 		BGP_EVENT_FLUSH(peer);
@@ -1394,6 +1851,21 @@ enum bgp_fsm_state_progress bgp_stop(struct peer *peer)
 	if (peer_established(peer)) {
 		peer->dropped++;
 
+=======
+	if (connection->status != Clearing) {
+		/* Delete all existing events of the peer */
+		event_cancel_event_ready(bm->master, connection);
+	}
+
+	/* Increment Dropped count. */
+	if (peer_established(connection)) {
+		peer->dropped++;
+
+		if (peer->bfd_config && (peer->last_reset == PEER_DOWN_UPDATE_SOURCE_CHANGE ||
+					 peer->last_reset == PEER_DOWN_MULTIHOP_CHANGE))
+			bfd_sess_uninstall(peer->bfd_config->session);
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		/* Notify BGP conditional advertisement process */
 		peer->advmap_table_change = true;
 
@@ -1413,8 +1885,13 @@ enum bgp_fsm_state_progress bgp_stop(struct peer *peer)
 		}
 
 		/* graceful restart */
+<<<<<<< HEAD
 		if (peer->t_gr_stale) {
 			EVENT_OFF(peer->t_gr_stale);
+=======
+		if (connection->t_gr_stale) {
+			EVENT_OFF(connection->t_gr_stale);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			if (bgp_debug_neighbor_events(peer))
 				zlog_debug(
 					"%pBP graceful restart stalepath timer stopped",
@@ -1429,10 +1906,17 @@ enum bgp_fsm_state_progress bgp_stop(struct peer *peer)
 					"%pBP graceful restart stalepath timer started for %d sec",
 					peer, peer->bgp->stalepath_time);
 			}
+<<<<<<< HEAD
 			BGP_TIMER_ON(peer->t_gr_restart,
 				     bgp_graceful_restart_timer_expire,
 				     peer->v_gr_restart);
 			BGP_TIMER_ON(peer->t_gr_stale,
+=======
+			BGP_TIMER_ON(connection->t_gr_restart,
+				     bgp_graceful_restart_timer_expire,
+				     peer->v_gr_restart);
+			BGP_TIMER_ON(connection->t_gr_stale,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 				     bgp_graceful_stale_timer_expire,
 				     peer->bgp->stalepath_time);
 		} else {
@@ -1501,6 +1985,7 @@ enum bgp_fsm_state_progress bgp_stop(struct peer *peer)
 	}
 
 	/* stop keepalives */
+<<<<<<< HEAD
 	bgp_keepalives_off(peer);
 
 	/* Stop read and write threads. */
@@ -1526,6 +2011,35 @@ enum bgp_fsm_state_progress bgp_stop(struct peer *peer)
 
 		if (peer->ibuf_work)
 			ringbuf_wipe(peer->ibuf_work);
+=======
+	bgp_keepalives_off(connection);
+
+	/* Stop read and write threads. */
+	bgp_writes_off(connection);
+	bgp_reads_off(connection);
+
+	EVENT_OFF(connection->t_connect_check_r);
+	EVENT_OFF(connection->t_connect_check_w);
+
+	EVENT_OFF(connection->t_stop_with_notify);
+
+	/* Stop all timers. */
+	EVENT_OFF(connection->t_start);
+	EVENT_OFF(connection->t_connect);
+	EVENT_OFF(connection->t_holdtime);
+	EVENT_OFF(connection->t_routeadv);
+	EVENT_OFF(connection->t_delayopen);
+
+	/* Clear input and output buffer.  */
+	frr_with_mutex (&connection->io_mtx) {
+		if (connection->ibuf)
+			stream_fifo_clean(connection->ibuf);
+		if (connection->obuf)
+			stream_fifo_clean(connection->obuf);
+
+		if (connection->ibuf_work)
+			ringbuf_wipe(connection->ibuf_work);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 		if (peer->curr) {
 			stream_free(peer->curr);
@@ -1534,9 +2048,15 @@ enum bgp_fsm_state_progress bgp_stop(struct peer *peer)
 	}
 
 	/* Close of file descriptor. */
+<<<<<<< HEAD
 	if (peer->fd >= 0) {
 		close(peer->fd);
 		peer->fd = -1;
+=======
+	if (connection->fd >= 0) {
+		close(connection->fd);
+		connection->fd = -1;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	}
 
 	/* Reset capabilities. */
@@ -1560,7 +2080,12 @@ enum bgp_fsm_state_progress bgp_stop(struct peer *peer)
 		/* Received ORF prefix-filter */
 		peer->orf_plist[afi][safi] = NULL;
 
+<<<<<<< HEAD
 		if ((peer->status == OpenConfirm) || (peer_established(peer))) {
+=======
+		if ((connection->status == OpenConfirm) ||
+		    peer_established(connection)) {
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			/* ORF received prefix-filter pnt */
 			snprintf(orf_name, sizeof(orf_name), "%s.%d.%d",
 				 peer->host, afi, safi);
@@ -1590,14 +2115,26 @@ enum bgp_fsm_state_progress bgp_stop(struct peer *peer)
 		peer_delete(peer);
 		ret = BGP_FSM_FAILURE_AND_DELETE;
 	} else {
+<<<<<<< HEAD
 		bgp_peer_conf_if_to_su_update(peer);
+=======
+		bgp_peer_conf_if_to_su_update(connection);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	}
 	return ret;
 }
 
 /* BGP peer is stoped by the error. */
+<<<<<<< HEAD
 static enum bgp_fsm_state_progress bgp_stop_with_error(struct peer *peer)
 {
+=======
+static enum bgp_fsm_state_progress
+bgp_stop_with_error(struct peer_connection *connection)
+{
+	struct peer *peer = connection->peer;
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	/* Double start timer. */
 	peer->v_start *= 2;
 
@@ -1613,16 +2150,31 @@ static enum bgp_fsm_state_progress bgp_stop_with_error(struct peer *peer)
 		return BGP_FSM_FAILURE;
 	}
 
+<<<<<<< HEAD
 	return bgp_stop(peer);
+=======
+	return bgp_stop(connection);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 }
 
 
 /* something went wrong, send notify and tear down */
+<<<<<<< HEAD
 static enum bgp_fsm_state_progress
 bgp_stop_with_notify(struct peer *peer, uint8_t code, uint8_t sub_code)
 {
 	/* Send notify to remote peer */
 	bgp_notify_send(peer, code, sub_code);
+=======
+enum bgp_fsm_state_progress
+bgp_stop_with_notify(struct peer_connection *connection, uint8_t code,
+		     uint8_t sub_code)
+{
+	struct peer *peer = connection->peer;
+
+	/* Send notify to remote peer */
+	bgp_notify_send(connection, code, sub_code);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	if (peer_dynamic_neighbor_no_nsf(peer)) {
 		if (bgp_debug_neighbor_events(peer))
@@ -1635,7 +2187,11 @@ bgp_stop_with_notify(struct peer *peer, uint8_t code, uint8_t sub_code)
 	/* Clear start timer value to default. */
 	peer->v_start = BGP_INIT_START_TIMER;
 
+<<<<<<< HEAD
 	return bgp_stop(peer);
+=======
+	return bgp_stop(connection);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 }
 
 /**
@@ -1658,6 +2214,7 @@ static void bgp_connect_check(struct event *thread)
 	int status;
 	socklen_t slen;
 	int ret;
+<<<<<<< HEAD
 	struct peer *peer;
 
 	peer = EVENT_ARG(thread);
@@ -1672,34 +2229,66 @@ static void bgp_connect_check(struct event *thread)
 	/* Check file descriptor. */
 	slen = sizeof(status);
 	ret = getsockopt(peer->fd, SOL_SOCKET, SO_ERROR, (void *)&status,
+=======
+	struct peer_connection *connection = EVENT_ARG(thread);
+	struct peer *peer = connection->peer;
+
+	assert(!CHECK_FLAG(connection->thread_flags, PEER_THREAD_READS_ON));
+	assert(!CHECK_FLAG(connection->thread_flags, PEER_THREAD_WRITES_ON));
+	assert(!connection->t_read);
+	assert(!connection->t_write);
+
+	EVENT_OFF(connection->t_connect_check_r);
+	EVENT_OFF(connection->t_connect_check_w);
+
+	/* Check file descriptor. */
+	slen = sizeof(status);
+	ret = getsockopt(connection->fd, SOL_SOCKET, SO_ERROR, (void *)&status,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			 &slen);
 
 	/* If getsockopt is fail, this is fatal error. */
 	if (ret < 0) {
 		zlog_err("can't get sockopt for nonblocking connect: %d(%s)",
 			  errno, safe_strerror(errno));
+<<<<<<< HEAD
 		BGP_EVENT_ADD(peer, TCP_fatal_error);
+=======
+		BGP_EVENT_ADD(connection, TCP_fatal_error);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		return;
 	}
 
 	/* When status is 0 then TCP connection is established. */
 	if (status == 0) {
 		if (CHECK_FLAG(peer->flags, PEER_FLAG_TIMER_DELAYOPEN))
+<<<<<<< HEAD
 			BGP_EVENT_ADD(peer, TCP_connection_open_w_delay);
 		else
 			BGP_EVENT_ADD(peer, TCP_connection_open);
+=======
+			BGP_EVENT_ADD(connection,
+				      TCP_connection_open_w_delay);
+		else
+			BGP_EVENT_ADD(connection, TCP_connection_open);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		return;
 	} else {
 		if (bgp_debug_neighbor_events(peer))
 			zlog_debug("%s [Event] Connect failed %d(%s)",
 				   peer->host, status, safe_strerror(status));
+<<<<<<< HEAD
 		BGP_EVENT_ADD(peer, TCP_connection_open_failed);
+=======
+		BGP_EVENT_ADD(connection, TCP_connection_open_failed);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		return;
 	}
 }
 
 /* TCP connection open.  Next we send open message to remote peer. And
    add read thread for reading open message. */
+<<<<<<< HEAD
 static enum bgp_fsm_state_progress bgp_connect_success(struct peer *peer)
 {
 	if (peer->fd < 0) {
@@ -1715,6 +2304,26 @@ static enum bgp_fsm_state_progress bgp_connect_success(struct peer *peer)
 		bgp_notify_send(peer, BGP_NOTIFY_FSM_ERR,
 				bgp_fsm_error_subcode(peer->status));
 		bgp_writes_on(peer);
+=======
+static enum bgp_fsm_state_progress
+bgp_connect_success(struct peer_connection *connection)
+{
+	struct peer *peer = connection->peer;
+
+	if (connection->fd < 0) {
+		flog_err(EC_BGP_CONNECT, "%s peer's fd is negative value %d",
+			 __func__, connection->fd);
+		return bgp_stop(connection);
+	}
+
+	if (bgp_getsockname(connection) < 0) {
+		flog_err_sys(EC_LIB_SOCKET,
+			     "%s: bgp_getsockname(): failed for peer %s, fd %d",
+			     __func__, peer->host, connection->fd);
+		bgp_notify_send(connection, BGP_NOTIFY_FSM_ERR,
+				bgp_fsm_error_subcode(connection->status));
+		bgp_writes_on(connection);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		return BGP_FSM_FAILURE;
 	}
 
@@ -1724,7 +2333,11 @@ static enum bgp_fsm_state_progress bgp_connect_success(struct peer *peer)
 	 */
 	bgp_nht_interface_events(peer);
 
+<<<<<<< HEAD
 	bgp_reads_on(peer);
+=======
+	bgp_reads_on(connection);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	if (bgp_debug_neighbor_events(peer)) {
 		if (!CHECK_FLAG(peer->sflags, PEER_STATUS_ACCEPT_PEER))
@@ -1735,7 +2348,11 @@ static enum bgp_fsm_state_progress bgp_connect_success(struct peer *peer)
 	}
 
 	/* Send an open message */
+<<<<<<< HEAD
 	bgp_open_send(peer);
+=======
+	bgp_open_send(connection);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	return BGP_FSM_SUCCESS;
 }
@@ -1744,6 +2361,7 @@ static enum bgp_fsm_state_progress bgp_connect_success(struct peer *peer)
  * set.
  */
 static enum bgp_fsm_state_progress
+<<<<<<< HEAD
 bgp_connect_success_w_delayopen(struct peer *peer)
 {
 	if (peer->fd < 0) {
@@ -1759,6 +2377,25 @@ bgp_connect_success_w_delayopen(struct peer *peer)
 		bgp_notify_send(peer, BGP_NOTIFY_FSM_ERR,
 				bgp_fsm_error_subcode(peer->status));
 		bgp_writes_on(peer);
+=======
+bgp_connect_success_w_delayopen(struct peer_connection *connection)
+{
+	struct peer *peer = connection->peer;
+
+	if (connection->fd < 0) {
+		flog_err(EC_BGP_CONNECT, "%s: peer's fd is negative value %d",
+			 __func__, connection->fd);
+		return bgp_stop(connection);
+	}
+
+	if (bgp_getsockname(connection) < 0) {
+		flog_err_sys(EC_LIB_SOCKET,
+			     "%s: bgp_getsockname(): failed for peer %s, fd %d",
+			     __func__, peer->host, connection->fd);
+		bgp_notify_send(connection, BGP_NOTIFY_FSM_ERR,
+				bgp_fsm_error_subcode(connection->status));
+		bgp_writes_on(connection);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		return BGP_FSM_FAILURE;
 	}
 
@@ -1768,7 +2405,11 @@ bgp_connect_success_w_delayopen(struct peer *peer)
 	 */
 	bgp_nht_interface_events(peer);
 
+<<<<<<< HEAD
 	bgp_reads_on(peer);
+=======
+	bgp_reads_on(connection);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	if (bgp_debug_neighbor_events(peer)) {
 		if (!CHECK_FLAG(peer->sflags, PEER_STATUS_ACCEPT_PEER))
@@ -1782,8 +2423,13 @@ bgp_connect_success_w_delayopen(struct peer *peer)
 	peer->v_delayopen = peer->delayopen;
 
 	/* Start the DelayOpenTimer if it is not already running */
+<<<<<<< HEAD
 	if (!peer->t_delayopen)
 		BGP_TIMER_ON(peer->t_delayopen, bgp_delayopen_timer,
+=======
+	if (!peer->connection->t_delayopen)
+		BGP_TIMER_ON(peer->connection->t_delayopen, bgp_delayopen_timer,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			     peer->v_delayopen);
 
 	if (bgp_debug_neighbor_events(peer))
@@ -1794,8 +2440,16 @@ bgp_connect_success_w_delayopen(struct peer *peer)
 }
 
 /* TCP connect fail */
+<<<<<<< HEAD
 static enum bgp_fsm_state_progress bgp_connect_fail(struct peer *peer)
 {
+=======
+static enum bgp_fsm_state_progress
+bgp_connect_fail(struct peer_connection *connection)
+{
+	struct peer *peer = connection->peer;
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	if (peer_dynamic_neighbor_no_nsf(peer)) {
 		if (bgp_debug_neighbor_events(peer))
 			zlog_debug("%s (dynamic neighbor) deleted (%s)",
@@ -1810,12 +2464,35 @@ static enum bgp_fsm_state_progress bgp_connect_fail(struct peer *peer)
 	 */
 	bgp_nht_interface_events(peer);
 
+<<<<<<< HEAD
 	return bgp_stop(peer);
+=======
+	return bgp_stop(connection);
+}
+
+/* after connect is called(), getpeername is able to return
+ * port and address on non established streams
+ */
+static void bgp_connect_in_progress_update_connection(struct peer_connection *connection)
+{
+	struct peer *peer = connection->peer;
+
+	bgp_updatesockname(peer, connection);
+	if (!peer->su_remote && !BGP_CONNECTION_SU_UNSPEC(peer->connection)) {
+		/* if connect initiated, then dest port and dest addresses are well known */
+		peer->su_remote = sockunion_dup(&connection->su);
+		if (sockunion_family(peer->su_remote) == AF_INET)
+			peer->su_remote->sin.sin_port = htons(peer->port);
+		else if (sockunion_family(peer->su_remote) == AF_INET6)
+			peer->su_remote->sin6.sin6_port = htons(peer->port);
+	}
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 }
 
 /* This function is the first starting point of all BGP connection. It
  * try to connect to remote peer with non-blocking IO.
  */
+<<<<<<< HEAD
 enum bgp_fsm_state_progress bgp_start(struct peer *peer)
 {
 	int status;
@@ -1823,6 +2500,16 @@ enum bgp_fsm_state_progress bgp_start(struct peer *peer)
 	bgp_peer_conf_if_to_su_update(peer);
 
 	if (peer->su.sa.sa_family == AF_UNSPEC) {
+=======
+static enum bgp_fsm_state_progress bgp_start(struct peer_connection *connection)
+{
+	struct peer *peer = connection->peer;
+	enum connect_result status;
+
+	bgp_peer_conf_if_to_su_update(connection);
+
+	if (connection->su.sa.sa_family == AF_UNSPEC) {
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		if (bgp_debug_neighbor_events(peer))
 			zlog_debug(
 				"%s [FSM] Unable to get neighbor's IP address, waiting...",
@@ -1847,6 +2534,7 @@ enum bgp_fsm_state_progress bgp_start(struct peer *peer)
 		return BGP_FSM_FAILURE;
 	}
 
+<<<<<<< HEAD
 	/* Scrub some information that might be left over from a previous,
 	 * session
 	 */
@@ -1861,18 +2549,23 @@ enum bgp_fsm_state_progress bgp_start(struct peer *peer)
 		peer->su_remote = NULL;
 	}
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	/* Clear remote router-id. */
 	peer->remote_id.s_addr = INADDR_ANY;
 
 	/* Clear peer capability flag. */
 	peer->cap = 0;
 
+<<<<<<< HEAD
 	/* If the peer is passive mode, force to move to Active mode. */
 	if (CHECK_FLAG(peer->flags, PEER_FLAG_PASSIVE)) {
 		BGP_EVENT_ADD(peer, TCP_connection_open_failed);
 		return BGP_FSM_SUCCESS;
 	}
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	if (peer->bgp->vrf_id == VRF_UNKNOWN) {
 		if (bgp_debug_neighbor_events(peer))
 			flog_err(
@@ -1893,21 +2586,34 @@ enum bgp_fsm_state_progress bgp_start(struct peer *peer)
 					"%s [FSM] Waiting for NHT, no path to neighbor present",
 					peer->host);
 			peer->last_reset = PEER_DOWN_WAITING_NHT;
+<<<<<<< HEAD
 			BGP_EVENT_ADD(peer, TCP_connection_open_failed);
+=======
+			BGP_EVENT_ADD(connection, TCP_connection_open_failed);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			return BGP_FSM_SUCCESS;
 		}
 	}
 
+<<<<<<< HEAD
 	assert(!peer->t_write);
 	assert(!peer->t_read);
 	assert(!CHECK_FLAG(peer->thread_flags, PEER_THREAD_WRITES_ON));
 	assert(!CHECK_FLAG(peer->thread_flags, PEER_THREAD_READS_ON));
 	status = bgp_connect(peer);
+=======
+	assert(!connection->t_write);
+	assert(!connection->t_read);
+	assert(!CHECK_FLAG(connection->thread_flags, PEER_THREAD_WRITES_ON));
+	assert(!CHECK_FLAG(connection->thread_flags, PEER_THREAD_READS_ON));
+	status = bgp_connect(connection);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	switch (status) {
 	case connect_error:
 		if (bgp_debug_neighbor_events(peer))
 			zlog_debug("%s [FSM] Connect error", peer->host);
+<<<<<<< HEAD
 		BGP_EVENT_ADD(peer, TCP_connection_open_failed);
 		break;
 	case connect_success:
@@ -1917,11 +2623,22 @@ enum bgp_fsm_state_progress bgp_start(struct peer *peer)
 				peer->host, peer->fd);
 
 		BGP_EVENT_ADD(peer, TCP_connection_open);
+=======
+		BGP_EVENT_ADD(connection, TCP_connection_open_failed);
+		break;
+	case connect_success:
+		if (bgp_debug_neighbor_events(peer))
+			zlog_debug("%s [FSM] Connect immediately success, fd %d",
+				   peer->host, connection->fd);
+
+		BGP_EVENT_ADD(connection, TCP_connection_open);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		break;
 	case connect_in_progress:
 		/* To check nonblocking connect, we wait until socket is
 		   readable or writable. */
 		if (bgp_debug_neighbor_events(peer))
+<<<<<<< HEAD
 			zlog_debug(
 				"%s [FSM] Non blocking connect waiting result, fd %d",
 				peer->host, peer->fd);
@@ -1931,6 +2648,17 @@ enum bgp_fsm_state_progress bgp_start(struct peer *peer)
 				 peer->fd);
 			return BGP_FSM_FAILURE;
 		}
+=======
+			zlog_debug("%s [FSM] Non blocking connect waiting result, fd %d",
+				   peer->host, connection->fd);
+		if (connection->fd < 0) {
+			flog_err(EC_BGP_FSM, "%s peer's fd is negative value %d",
+				 __func__, peer->connection->fd);
+			return BGP_FSM_FAILURE;
+		}
+		bgp_connect_in_progress_update_connection(connection);
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		/*
 		 * - when the socket becomes ready, poll() will signify POLLOUT
 		 * - if it fails to connect, poll() will signify POLLHUP
@@ -1940,21 +2668,38 @@ enum bgp_fsm_state_progress bgp_start(struct peer *peer)
 		 * bgp_connect_check() as the handler for each and cancel the
 		 * unused event in that function.
 		 */
+<<<<<<< HEAD
 		event_add_read(bm->master, bgp_connect_check, peer, peer->fd,
 			       &peer->t_connect_check_r);
 		event_add_write(bm->master, bgp_connect_check, peer, peer->fd,
 				&peer->t_connect_check_w);
+=======
+		event_add_read(bm->master, bgp_connect_check, connection,
+			       connection->fd, &connection->t_connect_check_r);
+		event_add_write(bm->master, bgp_connect_check, connection,
+				connection->fd, &connection->t_connect_check_w);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		break;
 	}
 	return BGP_FSM_SUCCESS;
 }
 
 /* Connect retry timer is expired when the peer status is Connect. */
+<<<<<<< HEAD
 static enum bgp_fsm_state_progress bgp_reconnect(struct peer *peer)
 {
 	enum bgp_fsm_state_progress ret;
 
 	ret = bgp_stop(peer);
+=======
+static enum bgp_fsm_state_progress
+bgp_reconnect(struct peer_connection *connection)
+{
+	struct peer *peer = connection->peer;
+	enum bgp_fsm_state_progress ret;
+
+	ret = bgp_stop(connection);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	if (ret < BGP_FSM_SUCCESS)
 		return ret;
 
@@ -1962,6 +2707,7 @@ static enum bgp_fsm_state_progress bgp_reconnect(struct peer *peer)
 	BGP_GR_ROUTER_DETECT_AND_SEND_CAPABILITY_TO_ZEBRA(peer->bgp,
 							  peer->bgp->peer);
 
+<<<<<<< HEAD
 	return bgp_start(peer);
 }
 
@@ -1970,6 +2716,19 @@ static enum bgp_fsm_state_progress bgp_fsm_open(struct peer *peer)
 	/* If DelayOpen is active, we may still need to send an open message */
 	if ((peer->status == Connect) || (peer->status == Active))
 		bgp_open_send(peer);
+=======
+	return bgp_start(connection);
+}
+
+static enum bgp_fsm_state_progress
+bgp_fsm_open(struct peer_connection *connection)
+{
+	struct peer *peer = connection->peer;
+
+	/* If DelayOpen is active, we may still need to send an open message */
+	if ((connection->status == Connect) || (connection->status == Active))
+		bgp_open_send(connection);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	/* Send keepalive and make keepalive timer */
 	bgp_keepalive_send(peer);
@@ -1979,6 +2738,7 @@ static enum bgp_fsm_state_progress bgp_fsm_open(struct peer *peer)
 
 /* FSM error, unexpected event.  This is error of BGP connection. So cut the
    peer and change to Idle status. */
+<<<<<<< HEAD
 static enum bgp_fsm_state_progress bgp_fsm_event_error(struct peer *peer)
 {
 	flog_err(EC_BGP_FSM, "%s [FSM] unexpected packet received in state %s",
@@ -1986,12 +2746,33 @@ static enum bgp_fsm_state_progress bgp_fsm_event_error(struct peer *peer)
 
 	return bgp_stop_with_notify(peer, BGP_NOTIFY_FSM_ERR,
 				    bgp_fsm_error_subcode(peer->status));
+=======
+static enum bgp_fsm_state_progress
+bgp_fsm_event_error(struct peer_connection *connection)
+{
+	struct peer *peer = connection->peer;
+
+	flog_err(EC_BGP_FSM, "%s [FSM] unexpected packet received in state %s",
+		 peer->host,
+		 lookup_msg(bgp_status_msg, connection->status, NULL));
+
+	return bgp_stop_with_notify(connection, BGP_NOTIFY_FSM_ERR,
+				    bgp_fsm_error_subcode(connection->status));
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 }
 
 /* Hold timer expire.  This is error of BGP connection. So cut the
    peer and change to Idle status. */
+<<<<<<< HEAD
 static enum bgp_fsm_state_progress bgp_fsm_holdtime_expire(struct peer *peer)
 {
+=======
+static enum bgp_fsm_state_progress
+bgp_fsm_holdtime_expire(struct peer_connection *connection)
+{
+	struct peer *peer = connection->peer;
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	if (bgp_debug_neighbor_events(peer))
 		zlog_debug("%s [FSM] Hold timer expire", peer->host);
 
@@ -1999,16 +2780,25 @@ static enum bgp_fsm_state_progress bgp_fsm_holdtime_expire(struct peer *peer)
 	 * the Graceful Restart procedures to be performed when the BGP
 	 * speaker receives a BGP NOTIFICATION message or the Hold Time expires.
 	 */
+<<<<<<< HEAD
 	if (peer_established(peer) &&
+=======
+	if (peer_established(connection) &&
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	    bgp_has_graceful_restart_notification(peer))
 		if (CHECK_FLAG(peer->sflags, PEER_STATUS_NSF_MODE))
 			SET_FLAG(peer->sflags, PEER_STATUS_NSF_WAIT);
 
+<<<<<<< HEAD
 	return bgp_stop_with_notify(peer, BGP_NOTIFY_HOLD_ERR, 0);
+=======
+	return bgp_stop_with_notify(connection, BGP_NOTIFY_HOLD_ERR, 0);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 }
 
 /* RFC 4271 DelayOpenTimer_Expires event */
 static enum bgp_fsm_state_progress
+<<<<<<< HEAD
 bgp_fsm_delayopen_timer_expire(struct peer *peer)
 {
 	/* Stop the DelayOpenTimer */
@@ -2019,6 +2809,18 @@ bgp_fsm_delayopen_timer_expire(struct peer *peer)
 
 	/* Set the HoldTimer to a large value (4 minutes) */
 	peer->v_holdtime = 245;
+=======
+bgp_fsm_delayopen_timer_expire(struct peer_connection *connection)
+{
+	/* Stop the DelayOpenTimer */
+	EVENT_OFF(connection->t_delayopen);
+
+	/* Send open message to peer */
+	bgp_open_send(connection);
+
+	/* Set the HoldTimer to a large value (4 minutes) */
+	connection->peer->v_holdtime = 245;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	return BGP_FSM_SUCCESS;
 }
@@ -2051,9 +2853,16 @@ static int bgp_start_deferral_timer(struct bgp *bgp, afi_t afi, safi_t safi,
 	}
 	gr_info->eor_required++;
 	/* Send message to RIB indicating route update pending */
+<<<<<<< HEAD
 	if (gr_info->af_enabled[afi][safi] == false) {
 		gr_info->af_enabled[afi][safi] = true;
 		/* Send message to RIB */
+=======
+	if (gr_info->af_enabled == false) {
+		gr_info->af_enabled = true;
+		gr_info->route_sync = false;
+		bgp->gr_route_sync_pending = true;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		bgp_zebra_update(bgp, afi, safi,
 				 ZEBRA_CLIENT_ROUTE_UPDATE_PENDING);
 	}
@@ -2087,7 +2896,11 @@ static int bgp_update_gr_info(struct peer *peer, afi_t afi, safi_t safi)
 	if (BGP_PEER_GRACEFUL_RESTART_CAPABLE(peer)
 	    && BGP_PEER_RESTARTING_MODE(peer)) {
 		/* Check if the forwarding state is preserved */
+<<<<<<< HEAD
 		if (CHECK_FLAG(bgp->flags, BGP_FLAG_GR_PRESERVE_FWD)) {
+=======
+		if (bgp_gr_is_forwarding_preserved(bgp)) {
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			gr_info = &(bgp->gr_info[afi][safi]);
 			ret = bgp_start_deferral_timer(bgp, afi, safi, gr_info);
 		}
@@ -2101,7 +2914,12 @@ static int bgp_update_gr_info(struct peer *peer, afi_t afi, safi_t safi)
  * Convert peer from stub to full fledged peer, set some timers, and generate
  * initial updates.
  */
+<<<<<<< HEAD
 static enum bgp_fsm_state_progress bgp_establish(struct peer *peer)
+=======
+static enum bgp_fsm_state_progress
+bgp_establish(struct peer_connection *connection)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 {
 	afi_t afi;
 	safi_t safi;
@@ -2109,6 +2927,10 @@ static enum bgp_fsm_state_progress bgp_establish(struct peer *peer)
 	enum bgp_fsm_state_progress ret = BGP_FSM_SUCCESS;
 	struct peer *other;
 	int status;
+<<<<<<< HEAD
+=======
+	struct peer *peer = connection->peer;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	struct peer *orig = peer;
 
 	other = peer->doppelganger;
@@ -2132,6 +2954,14 @@ static enum bgp_fsm_state_progress bgp_establish(struct peer *peer)
 				       hash_alloc_intern);
 		return BGP_FSM_FAILURE;
 	}
+<<<<<<< HEAD
+=======
+	/*
+	 * At this point the connections have been possibly swapped
+	 * let's reset it.
+	 */
+	connection = peer->connection;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	if (other == peer)
 		ret = BGP_FSM_SUCCESS_STATE_TRANSFER;
@@ -2145,7 +2975,11 @@ static enum bgp_fsm_state_progress bgp_establish(struct peer *peer)
 
 	/* Increment established count. */
 	peer->established++;
+<<<<<<< HEAD
 	bgp_fsm_change_status(peer, Established);
+=======
+	bgp_fsm_change_status(connection, Established);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	/* bgp log-neighbor-changes of neighbor Up */
 	if (CHECK_FLAG(peer->bgp->flags, BGP_FLAG_LOG_NEIGHBOR_CHANGES)) {
@@ -2197,8 +3031,12 @@ static enum bgp_fsm_state_progress bgp_establish(struct peer *peer)
 			} else {
 				if (BGP_PEER_GRACEFUL_RESTART_CAPABLE(peer) &&
 				    BGP_PEER_RESTARTING_MODE(peer) &&
+<<<<<<< HEAD
 				    CHECK_FLAG(peer->bgp->flags,
 					       BGP_FLAG_GR_PRESERVE_FWD))
+=======
+				    bgp_gr_is_forwarding_preserved(peer->bgp))
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 					peer->bgp->gr_info[afi][safi]
 						.eor_required++;
 			}
@@ -2236,8 +3074,13 @@ static enum bgp_fsm_state_progress bgp_establish(struct peer *peer)
 		SET_FLAG(peer->sflags, PEER_STATUS_NSF_MODE);
 	else {
 		UNSET_FLAG(peer->sflags, PEER_STATUS_NSF_MODE);
+<<<<<<< HEAD
 		if (peer->t_gr_stale) {
 			EVENT_OFF(peer->t_gr_stale);
+=======
+		if (connection->t_gr_stale) {
+			EVENT_OFF(connection->t_gr_stale);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			if (bgp_debug_neighbor_events(peer))
 				zlog_debug(
 					"%pBP graceful restart stalepath timer stopped",
@@ -2245,15 +3088,24 @@ static enum bgp_fsm_state_progress bgp_establish(struct peer *peer)
 		}
 	}
 
+<<<<<<< HEAD
 	if (peer->t_gr_restart) {
 		EVENT_OFF(peer->t_gr_restart);
+=======
+	if (connection->t_gr_restart) {
+		EVENT_OFF(connection->t_gr_restart);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		if (bgp_debug_neighbor_events(peer))
 			zlog_debug("%pBP graceful restart timer stopped", peer);
 	}
 
 	/* Reset uptime, turn on keepalives, send current table. */
 	if (!peer->v_holdtime)
+<<<<<<< HEAD
 		bgp_keepalives_on(peer);
+=======
+		bgp_keepalives_on(connection);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	peer->uptime = monotime(NULL);
 
@@ -2277,12 +3129,15 @@ static enum bgp_fsm_state_progress bgp_establish(struct peer *peer)
 					peer, afi, safi, ORF_TYPE_PREFIX,
 					REFRESH_IMMEDIATE, 0,
 					BGP_ROUTE_REFRESH_NORMAL);
+<<<<<<< HEAD
 			else if (CHECK_FLAG(peer->af_cap[afi][safi],
 					    PEER_CAP_ORF_PREFIX_RM_OLD_RCV))
 				bgp_route_refresh_send(
 					peer, afi, safi, ORF_TYPE_PREFIX_OLD,
 					REFRESH_IMMEDIATE, 0,
 					BGP_ROUTE_REFRESH_NORMAL);
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		}
 	}
 
@@ -2291,9 +3146,13 @@ static enum bgp_fsm_state_progress bgp_establish(struct peer *peer)
 		if (CHECK_FLAG(peer->af_cap[afi][safi],
 			       PEER_CAP_ORF_PREFIX_RM_ADV))
 			if (CHECK_FLAG(peer->af_cap[afi][safi],
+<<<<<<< HEAD
 				       PEER_CAP_ORF_PREFIX_SM_RCV)
 			    || CHECK_FLAG(peer->af_cap[afi][safi],
 					  PEER_CAP_ORF_PREFIX_SM_OLD_RCV))
+=======
+				       PEER_CAP_ORF_PREFIX_SM_RCV))
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 				SET_FLAG(peer->af_sflags[afi][safi],
 					 PEER_STATUS_ORF_WAIT_REFRESH);
 	}
@@ -2307,18 +3166,34 @@ static enum bgp_fsm_state_progress bgp_establish(struct peer *peer)
 	 * of read-only mode.
 	 */
 	if (!bgp_update_delay_active(peer->bgp)) {
+<<<<<<< HEAD
 		EVENT_OFF(peer->t_routeadv);
 		BGP_TIMER_ON(peer->t_routeadv, bgp_routeadv_timer, 0);
 	}
 
 	if (peer->doppelganger && (peer->doppelganger->status != Deleted)) {
+=======
+		EVENT_OFF(peer->connection->t_routeadv);
+		BGP_TIMER_ON(peer->connection->t_routeadv, bgp_routeadv_timer,
+			     0);
+	}
+
+	if (peer->doppelganger &&
+	    (peer->doppelganger->connection->status != Deleted)) {
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		if (bgp_debug_neighbor_events(peer))
 			zlog_debug(
 				"[Event] Deleting stub connection for peer %s",
 				peer->host);
 
+<<<<<<< HEAD
 		if (peer->doppelganger->status > Active)
 			bgp_notify_send(peer->doppelganger, BGP_NOTIFY_CEASE,
+=======
+		if (peer->doppelganger->connection->status > Active)
+			bgp_notify_send(peer->doppelganger->connection,
+					BGP_NOTIFY_CEASE,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 					BGP_NOTIFY_CEASE_COLLISION_RESOLUTION);
 		else
 			peer_delete(peer->doppelganger);
@@ -2340,20 +3215,35 @@ static enum bgp_fsm_state_progress bgp_establish(struct peer *peer)
 }
 
 /* Keepalive packet is received. */
+<<<<<<< HEAD
 static enum bgp_fsm_state_progress bgp_fsm_keepalive(struct peer *peer)
 {
 	EVENT_OFF(peer->t_holdtime);
+=======
+static enum bgp_fsm_state_progress
+bgp_fsm_keepalive(struct peer_connection *connection)
+{
+	EVENT_OFF(connection->t_holdtime);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	return BGP_FSM_SUCCESS;
 }
 
 /* Update packet is received. */
+<<<<<<< HEAD
 static enum bgp_fsm_state_progress bgp_fsm_update(struct peer *peer)
 {
 	EVENT_OFF(peer->t_holdtime);
+=======
+static enum bgp_fsm_state_progress
+bgp_fsm_update(struct peer_connection *connection)
+{
+	EVENT_OFF(connection->t_holdtime);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	return BGP_FSM_SUCCESS;
 }
 
 /* This is empty event. */
+<<<<<<< HEAD
 static enum bgp_fsm_state_progress bgp_ignore(struct peer *peer)
 {
 	flog_err(
@@ -2363,10 +3253,23 @@ static enum bgp_fsm_state_progress bgp_ignore(struct peer *peer)
 		lookup_msg(bgp_status_msg, peer->status, NULL),
 		bgp_event_str[peer->last_event],
 		bgp_event_str[peer->last_major_event], peer->fd);
+=======
+static enum bgp_fsm_state_progress bgp_ignore(struct peer_connection *connection)
+{
+	struct peer *peer = connection->peer;
+
+	flog_err(EC_BGP_FSM,
+		 "%s [FSM] Ignoring event %s in state %s, prior events %s, %s, fd %d",
+		 peer->host, bgp_event_str[peer->cur_event],
+		 lookup_msg(bgp_status_msg, connection->status, NULL),
+		 bgp_event_str[peer->last_event],
+		 bgp_event_str[peer->last_major_event], connection->fd);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	return BGP_FSM_SUCCESS;
 }
 
 /* This is to handle unexpected events.. */
+<<<<<<< HEAD
 static enum bgp_fsm_state_progress bgp_fsm_exception(struct peer *peer)
 {
 	flog_err(
@@ -2380,10 +3283,29 @@ static enum bgp_fsm_state_progress bgp_fsm_exception(struct peer *peer)
 }
 
 void bgp_fsm_nht_update(struct peer *peer, bool has_valid_nexthops)
+=======
+static enum bgp_fsm_state_progress
+bgp_fsm_exception(struct peer_connection *connection)
+{
+	struct peer *peer = connection->peer;
+
+	flog_err(EC_BGP_FSM,
+		 "%s [FSM] Unexpected event %s in state %s, prior events %s, %s, fd %d",
+		 peer->host, bgp_event_str[peer->cur_event],
+		 lookup_msg(bgp_status_msg, connection->status, NULL),
+		 bgp_event_str[peer->last_event],
+		 bgp_event_str[peer->last_major_event], connection->fd);
+	return bgp_stop(connection);
+}
+
+void bgp_fsm_nht_update(struct peer_connection *connection, struct peer *peer,
+			bool has_valid_nexthops)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 {
 	if (!peer)
 		return;
 
+<<<<<<< HEAD
 	switch (peer->status) {
 	case Idle:
 		if (has_valid_nexthops)
@@ -2393,12 +3315,28 @@ void bgp_fsm_nht_update(struct peer *peer, bool has_valid_nexthops)
 		if (!has_valid_nexthops) {
 			EVENT_OFF(peer->t_connect);
 			BGP_EVENT_ADD(peer, TCP_fatal_error);
+=======
+	switch (connection->status) {
+	case Idle:
+		if (has_valid_nexthops)
+			BGP_EVENT_ADD(connection, BGP_Start);
+		break;
+	case Connect:
+		if (!has_valid_nexthops) {
+			EVENT_OFF(connection->t_connect);
+			BGP_EVENT_ADD(connection, TCP_fatal_error);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		}
 		break;
 	case Active:
 		if (has_valid_nexthops) {
+<<<<<<< HEAD
 			EVENT_OFF(peer->t_connect);
 			BGP_EVENT_ADD(peer, ConnectRetry_timer_expired);
+=======
+			EVENT_OFF(connection->t_connect);
+			BGP_EVENT_ADD(connection, ConnectRetry_timer_expired);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		}
 		break;
 	case OpenSent:
@@ -2407,7 +3345,12 @@ void bgp_fsm_nht_update(struct peer *peer, bool has_valid_nexthops)
 		if (!has_valid_nexthops
 		    && (peer->gtsm_hops == BGP_GTSM_HOPS_CONNECTED
 			|| peer->bgp->fast_convergence))
+<<<<<<< HEAD
 			BGP_EVENT_ADD(peer, TCP_fatal_error);
+=======
+			BGP_EVENT_ADD(connection, TCP_fatal_error);
+		break;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	case Clearing:
 	case Deleted:
 	case BGP_STATUS_MAX:
@@ -2417,7 +3360,11 @@ void bgp_fsm_nht_update(struct peer *peer, bool has_valid_nexthops)
 
 /* Finite State Machine structure */
 static const struct {
+<<<<<<< HEAD
 	enum bgp_fsm_state_progress (*func)(struct peer *);
+=======
+	enum bgp_fsm_state_progress (*func)(struct peer_connection *);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	enum bgp_fsm_status next_state;
 } FSM[BGP_STATUS_MAX - 1][BGP_EVENTS_MAX - 1] = {
 	{
@@ -2585,6 +3532,7 @@ static const struct {
 /* Execute event process. */
 void bgp_event(struct event *thread)
 {
+<<<<<<< HEAD
 	enum bgp_fsm_events event;
 	struct peer *peer;
 
@@ -2608,11 +3556,35 @@ int bgp_event_update(struct peer *peer, enum bgp_fsm_events event)
 	ret = FSM_PEER_NOOP;
 
 	other = peer->doppelganger;
+=======
+	struct peer_connection *connection = EVENT_ARG(thread);
+	enum bgp_fsm_events event;
+	struct peer *peer = connection->peer;
+
+	event = EVENT_VAL(thread);
+
+	peer_lock(peer);
+	bgp_event_update(connection, event);
+	peer_unlock(peer);
+}
+
+int bgp_event_update(struct peer_connection *connection,
+		     enum bgp_fsm_events event)
+{
+	enum bgp_fsm_status next;
+	enum bgp_fsm_state_progress ret = 0;
+	int fsm_result = FSM_PEER_NOOP;
+	int passive_conn = 0;
+	int dyn_nbr;
+	struct peer *peer = connection->peer;
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	passive_conn =
 		(CHECK_FLAG(peer->sflags, PEER_STATUS_ACCEPT_PEER)) ? 1 : 0;
 	dyn_nbr = peer_dynamic_neighbor(peer);
 
 	/* Logging this event. */
+<<<<<<< HEAD
 	next = FSM[peer->status - 1][event - 1].next_state;
 
 	if (bgp_debug_neighbor_events(peer) && peer->status != next)
@@ -2620,20 +3592,41 @@ int bgp_event_update(struct peer *peer, enum bgp_fsm_events event)
 			   bgp_event_str[event],
 			   lookup_msg(bgp_status_msg, peer->status, NULL),
 			   lookup_msg(bgp_status_msg, next, NULL), peer->fd);
+=======
+	next = FSM[connection->status - 1][event - 1].next_state;
+
+	if (bgp_debug_neighbor_events(peer) && connection->status != next)
+		zlog_debug("%s [FSM] %s (%s->%s), fd %d", peer->host,
+			   bgp_event_str[event],
+			   lookup_msg(bgp_status_msg, connection->status, NULL),
+			   lookup_msg(bgp_status_msg, next, NULL),
+			   connection->fd);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	peer->last_event = peer->cur_event;
 	peer->cur_event = event;
 
 	/* Call function. */
+<<<<<<< HEAD
 	if (FSM[peer->status - 1][event - 1].func)
 		ret = (*(FSM[peer->status - 1][event - 1].func))(peer);
 
 	if (ret >= BGP_FSM_SUCCESS) {
+=======
+	if (FSM[connection->status - 1][event - 1].func)
+		ret = (*(FSM[connection->status - 1][event - 1].func))(
+			connection);
+
+	switch (ret) {
+	case BGP_FSM_SUCCESS:
+	case BGP_FSM_SUCCESS_STATE_TRANSFER:
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		if (ret == BGP_FSM_SUCCESS_STATE_TRANSFER &&
 		    next == Established) {
 			/* The case when doppelganger swap accurred in
 			   bgp_establish.
 			   Update the peer pointer accordingly */
+<<<<<<< HEAD
 			ret = FSM_PEER_TRANSFERRED;
 			peer = other;
 		}
@@ -2641,6 +3634,14 @@ int bgp_event_update(struct peer *peer, enum bgp_fsm_events event)
 		/* If status is changed. */
 		if (next != peer->status) {
 			bgp_fsm_change_status(peer, next);
+=======
+			fsm_result = FSM_PEER_TRANSFERRED;
+		}
+
+		/* If status is changed. */
+		if (next != connection->status) {
+			bgp_fsm_change_status(connection, next);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 			/*
 			 * If we're going to ESTABLISHED then we executed a
@@ -2649,6 +3650,7 @@ int bgp_event_update(struct peer *peer, enum bgp_fsm_events event)
 			 * Opting for TRANSFERRED since transfer implies
 			 * session establishment.
 			 */
+<<<<<<< HEAD
 			if (ret != FSM_PEER_TRANSFERRED)
 				ret = FSM_PEER_TRANSITIONED;
 		}
@@ -2657,6 +3659,16 @@ int bgp_event_update(struct peer *peer, enum bgp_fsm_events event)
 		bgp_timer_set(peer);
 
 	} else {
+=======
+			if (fsm_result != FSM_PEER_TRANSFERRED)
+				fsm_result = FSM_PEER_TRANSITIONED;
+		}
+
+		/* Make sure timer is set. */
+		bgp_timer_set(connection);
+		break;
+	case BGP_FSM_FAILURE:
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		/*
 		 * If we got a return value of -1, that means there was an
 		 * error, restart the FSM. Since bgp_stop() was called on the
@@ -2666,6 +3678,7 @@ int bgp_event_update(struct peer *peer, enum bgp_fsm_events event)
 		 */
 		if (!dyn_nbr && !passive_conn && peer->bgp &&
 		    ret != BGP_FSM_FAILURE_AND_DELETE) {
+<<<<<<< HEAD
 			flog_err(
 				EC_BGP_FSM,
 				"%s [FSM] Failure handling event %s in state %s, prior events %s, %s, fd %d, last reset: %s",
@@ -2688,11 +3701,60 @@ int bgp_event_update(struct peer *peer, enum bgp_fsm_events event)
 int bgp_gr_lookup_n_update_all_peer(struct bgp *bgp,
 				    enum global_mode global_new_state,
 				    enum global_mode global_old_state)
+=======
+			flog_err(EC_BGP_FSM,
+				 "%s [FSM] Failure handling event %s in state %s, prior events %s, %s, fd %d, last reset: %s",
+				 peer->host, bgp_event_str[peer->cur_event],
+				 lookup_msg(bgp_status_msg, connection->status,
+					    NULL),
+				 bgp_event_str[peer->last_event],
+				 bgp_event_str[peer->last_major_event],
+				 connection->fd,
+				 peer_down_str[peer->last_reset]);
+			bgp_stop(connection);
+			bgp_fsm_change_status(connection, Idle);
+			bgp_timer_set(connection);
+		}
+		fsm_result = FSM_PEER_STOPPED;
+		break;
+	case BGP_FSM_FAILURE_AND_DELETE:
+		fsm_result = FSM_PEER_STOPPED;
+		break;
+	}
+
+	return fsm_result;
+}
+/* BGP GR Code */
+
+static inline void
+bgp_peer_inherit_global_gr_mode(struct peer *peer,
+				enum global_mode global_gr_mode)
+{
+	switch (global_gr_mode) {
+	case GLOBAL_HELPER:
+		BGP_PEER_GR_HELPER_ENABLE(peer);
+		break;
+	case GLOBAL_GR:
+		BGP_PEER_GR_ENABLE(peer);
+		break;
+	case GLOBAL_DISABLE:
+		BGP_PEER_GR_DISABLE(peer);
+		break;
+	case GLOBAL_INVALID:
+	default:
+		zlog_err("Unexpected Global GR mode %d", global_gr_mode);
+	}
+}
+
+static void bgp_gr_update_mode_of_all_peers(struct bgp *bgp,
+					    enum global_mode global_new_state)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 {
 	struct peer *peer = {0};
 	struct listnode *node = {0};
 	struct listnode *nnode = {0};
 	enum peer_mode peer_old_state = PEER_INVALID;
+<<<<<<< HEAD
 
 	for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer)) {
 
@@ -2732,6 +3794,52 @@ int bgp_gr_lookup_n_update_all_peer(struct bgp *bgp,
 	bgp->global_gr_present_state = global_new_state;
 
 	return BGP_GR_SUCCESS;
+=======
+	struct peer_group *group;
+	struct peer *member;
+
+	for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer)) {
+		if (!CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP)) {
+			peer_old_state = bgp_peer_gr_mode_get(peer);
+			if (peer_old_state != PEER_GLOBAL_INHERIT)
+				continue;
+
+			bgp_peer_inherit_global_gr_mode(peer, global_new_state);
+			bgp_peer_gr_flags_update(peer);
+
+			if (BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
+				zlog_debug("%pBP: Inherited Global GR mode, GR flags 0x%x peer flags 0x%" PRIx64
+					   "...resetting session",
+					   peer, peer->peer_gr_new_status_flag, peer->flags);
+
+			peer->last_reset = PEER_DOWN_CAPABILITY_CHANGE;
+
+			if (!peer_notify_config_change(peer->connection))
+				bgp_session_reset_safe(peer, &nnode);
+		} else {
+			group = peer->group;
+			for (ALL_LIST_ELEMENTS(group->peer, node, nnode, member)) {
+				peer_old_state = bgp_peer_gr_mode_get(member);
+				if (peer_old_state != PEER_GLOBAL_INHERIT)
+					continue;
+
+				bgp_peer_inherit_global_gr_mode(member, global_new_state);
+				bgp_peer_gr_flags_update(member);
+
+				if (BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
+					zlog_debug("%pBP: Inherited Global GR mode, GR flags 0x%x peer flags 0x%" PRIx64
+						   "...resetting session",
+						   member, member->peer_gr_new_status_flag,
+						   member->flags);
+
+				member->last_reset = PEER_DOWN_CAPABILITY_CHANGE;
+
+				if (!peer_notify_config_change(member->connection))
+					bgp_session_reset(member);
+			}
+		}
+	}
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 }
 
 int bgp_gr_update_all(struct bgp *bgp, enum global_gr_command global_gr_cmd)
@@ -2739,6 +3847,7 @@ int bgp_gr_update_all(struct bgp *bgp, enum global_gr_command global_gr_cmd)
 	enum global_mode global_new_state = GLOBAL_INVALID;
 	enum global_mode global_old_state = GLOBAL_INVALID;
 
+<<<<<<< HEAD
 	if (BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
 		zlog_debug("%s [BGP_GR]START: global_gr_cmd :%s:", __func__,
 			   print_global_gr_cmd(global_gr_cmd));
@@ -2779,10 +3888,34 @@ int bgp_gr_update_all(struct bgp *bgp, enum global_gr_command global_gr_cmd)
 
 	return bgp_gr_lookup_n_update_all_peer(bgp, global_new_state,
 					       global_old_state);
+=======
+	global_old_state = bgp_global_gr_mode_get(bgp);
+	global_new_state = bgp->GLOBAL_GR_FSM[global_old_state][global_gr_cmd];
+
+	if (BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
+		zlog_debug("%s: Handle GR command %s, current GR state %s, new GR state %s",
+			   bgp->name_pretty, print_global_gr_cmd(global_gr_cmd),
+			   print_global_gr_mode(global_old_state),
+			   print_global_gr_mode(global_new_state));
+
+	if (global_old_state == GLOBAL_INVALID)
+		return BGP_ERR_GR_OPERATION_FAILED;
+	if (global_new_state == GLOBAL_INVALID)
+		return BGP_ERR_GR_INVALID_CMD;
+	if (global_new_state == global_old_state)
+		return BGP_GR_NO_OPERATION;
+
+	/* Update global GR mode and process all peers in instance. */
+	bgp->global_gr_present_state = global_new_state;
+	bgp_gr_update_mode_of_all_peers(bgp, global_new_state);
+
+	return BGP_GR_SUCCESS;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 }
 
 const char *print_peer_gr_mode(enum peer_mode pr_mode)
 {
+<<<<<<< HEAD
 	const char *peer_gr_mode = NULL;
 
 	switch (pr_mode) {
@@ -2804,10 +3937,27 @@ const char *print_peer_gr_mode(enum peer_mode pr_mode)
 	}
 
 	return peer_gr_mode;
+=======
+	switch (pr_mode) {
+	case PEER_HELPER:
+		return "PEER_HELPER";
+	case PEER_GR:
+		return "PEER_GR";
+	case PEER_DISABLE:
+		return "PEER_DISABLE";
+	case PEER_INVALID:
+		return "PEER_INVALID";
+	case PEER_GLOBAL_INHERIT:
+		return "PEER_GLOBAL_INHERIT";
+	}
+
+	return NULL;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 }
 
 const char *print_peer_gr_cmd(enum peer_gr_command pr_gr_cmd)
 {
+<<<<<<< HEAD
 	const char *peer_gr_cmd = NULL;
 
 	switch (pr_gr_cmd) {
@@ -2832,10 +3982,29 @@ const char *print_peer_gr_cmd(enum peer_gr_command pr_gr_cmd)
 	}
 
 	return peer_gr_cmd;
+=======
+	switch (pr_gr_cmd) {
+	case PEER_GR_CMD:
+		return "PEER_GR_CMD";
+	case NO_PEER_GR_CMD:
+		return "NO_PEER_GR_CMD";
+	case PEER_DISABLE_CMD:
+		return "PEER_DISABLE_GR_CMD";
+	case NO_PEER_DISABLE_CMD:
+		return "NO_PEER_DISABLE_GR_CMD";
+	case PEER_HELPER_CMD:
+		return "PEER_HELPER_CMD";
+	case NO_PEER_HELPER_CMD:
+		return "NO_PEER_HELPER_CMD";
+	}
+
+	return NULL;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 }
 
 const char *print_global_gr_mode(enum global_mode gl_mode)
 {
+<<<<<<< HEAD
 	const char *global_gr_mode = "???";
 
 	switch (gl_mode) {
@@ -2854,10 +4023,25 @@ const char *print_global_gr_mode(enum global_mode gl_mode)
 	}
 
 	return global_gr_mode;
+=======
+	switch (gl_mode) {
+	case GLOBAL_HELPER:
+		return "GLOBAL_HELPER";
+	case GLOBAL_GR:
+		return "GLOBAL_GR";
+	case GLOBAL_DISABLE:
+		return "GLOBAL_DISABLE";
+	case GLOBAL_INVALID:
+		return "GLOBAL_INVALID";
+	}
+
+	return "???";
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 }
 
 const char *print_global_gr_cmd(enum global_gr_command gl_gr_cmd)
 {
+<<<<<<< HEAD
 	const char *global_gr_cmd = NULL;
 
 	switch (gl_gr_cmd) {
@@ -2876,6 +4060,20 @@ const char *print_global_gr_cmd(enum global_gr_command gl_gr_cmd)
 	}
 
 	return global_gr_cmd;
+=======
+	switch (gl_gr_cmd) {
+	case GLOBAL_GR_CMD:
+		return "GLOBAL_GR_CMD";
+	case NO_GLOBAL_GR_CMD:
+		return "NO_GLOBAL_GR_CMD";
+	case GLOBAL_DISABLE_CMD:
+		return "GLOBAL_DISABLE_CMD";
+	case NO_GLOBAL_DISABLE_CMD:
+		return "NO_GLOBAL_DISABLE_CMD";
+	}
+
+	return NULL;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 }
 
 enum global_mode bgp_global_gr_mode_get(struct bgp *bgp)
@@ -2893,6 +4091,7 @@ int bgp_neighbor_graceful_restart(struct peer *peer,
 {
 	enum peer_mode peer_new_state = PEER_INVALID;
 	enum peer_mode peer_old_state = PEER_INVALID;
+<<<<<<< HEAD
 	struct bgp_peer_gr peer_state;
 	int result = BGP_GR_FAILURE;
 
@@ -2944,10 +4143,36 @@ int bgp_neighbor_graceful_restart(struct peer *peer,
 
 		return BGP_GR_SUCCESS;
 	}
+=======
+	struct bgp_peer_gr gr_fsm;
+	int result = BGP_GR_FAILURE;
+
+	peer_old_state = bgp_peer_gr_mode_get(peer);
+	gr_fsm = peer->PEER_GR_FSM[peer_old_state][peer_gr_cmd];
+	peer_new_state = gr_fsm.next_state;
+
+	if (BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
+		zlog_debug("%pBP: Handle GR command %s, current GR state %s, new GR state %s",
+			   peer, print_peer_gr_cmd(peer_gr_cmd),
+			   print_peer_gr_mode(peer_old_state),
+			   print_peer_gr_mode(peer_new_state));
+
+	if (peer_old_state == PEER_INVALID)
+		return BGP_ERR_GR_OPERATION_FAILED;
+
+	if (peer_new_state == PEER_INVALID)
+		return BGP_ERR_GR_INVALID_CMD;
+
+	if (peer_new_state == peer_old_state)
+		return BGP_GR_NO_OPERATION;
+
+	result = gr_fsm.action_fun(peer, peer_old_state, peer_new_state);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	return result;
 }
 
+<<<<<<< HEAD
 unsigned int bgp_peer_gr_action(struct peer *peer, enum peer_mode old_peer_state,
 				enum peer_mode new_peer_state)
 {
@@ -3063,6 +4288,85 @@ inline void bgp_peer_move_to_gr_mode(struct peer *peer, int new_state)
 
 {
 	int bgp_global_gr_mode = bgp_global_gr_mode_get(peer->bgp);
+=======
+static inline bool gr_mode_matches(enum peer_mode peer_gr_mode,
+				   enum global_mode global_gr_mode)
+{
+	if ((peer_gr_mode == PEER_HELPER && global_gr_mode == GLOBAL_HELPER) ||
+	    (peer_gr_mode == PEER_GR && global_gr_mode == GLOBAL_GR) ||
+	    (peer_gr_mode == PEER_DISABLE && global_gr_mode == GLOBAL_DISABLE))
+		return true;
+	return false;
+}
+
+unsigned int bgp_peer_gr_action(struct peer *peer, enum peer_mode old_state,
+				enum peer_mode new_state)
+{
+	enum global_mode global_gr_mode;
+	bool session_reset = true;
+	struct peer_group *group;
+	struct peer *member;
+	struct listnode *node, *nnode;
+
+	if (old_state == new_state)
+		return BGP_GR_NO_OPERATION;
+	if ((old_state == PEER_INVALID) || (new_state == PEER_INVALID))
+		return BGP_ERR_GR_INVALID_CMD;
+
+	global_gr_mode = bgp_global_gr_mode_get(peer->bgp);
+
+	if ((old_state == PEER_GLOBAL_INHERIT) &&
+	    (new_state != PEER_GLOBAL_INHERIT)) {
+		BGP_PEER_GR_GLOBAL_INHERIT_UNSET(peer);
+
+		if (gr_mode_matches(new_state, global_gr_mode))
+			/* Peer was inheriting the global state and
+			 * its new state still is the same, so a
+			 * session reset is not needed.
+			 */
+			session_reset = false;
+	} else if ((new_state == PEER_GLOBAL_INHERIT) &&
+		   (old_state != PEER_GLOBAL_INHERIT)) {
+		BGP_PEER_GR_GLOBAL_INHERIT_SET(peer);
+
+		if (gr_mode_matches(old_state, global_gr_mode))
+			/* Peer is inheriting the global state and
+			 * its old state was also the same, so a
+			 * session reset is not needed.
+			 */
+			session_reset = false;
+	}
+
+	/* Ensure we move to the new state and update flags */
+	bgp_peer_move_to_gr_mode(peer, new_state);
+
+	if (session_reset) {
+		if (!CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP)) {
+			peer->last_reset = PEER_DOWN_CAPABILITY_CHANGE;
+
+			if (!peer_notify_config_change(peer->connection))
+				bgp_session_reset(peer);
+		} else {
+			group = peer->group;
+			for (ALL_LIST_ELEMENTS(group->peer, node, nnode, member)) {
+				member->last_reset = PEER_DOWN_CAPABILITY_CHANGE;
+				bgp_peer_move_to_gr_mode(member, new_state);
+
+				if (!peer_notify_config_change(member->connection))
+					bgp_session_reset(member);
+			}
+		}
+	}
+
+	return BGP_GR_SUCCESS;
+}
+
+void bgp_peer_move_to_gr_mode(struct peer *peer, enum peer_mode new_state)
+
+{
+	enum global_mode global_gr_mode = bgp_global_gr_mode_get(peer->bgp);
+	enum peer_mode old_state = bgp_peer_gr_mode_get(peer);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	switch (new_state) {
 	case PEER_HELPER:
@@ -3076,6 +4380,7 @@ inline void bgp_peer_move_to_gr_mode(struct peer *peer, int new_state)
 		break;
 	case PEER_GLOBAL_INHERIT:
 		BGP_PEER_GR_GLOBAL_INHERIT_SET(peer);
+<<<<<<< HEAD
 
 		if (bgp_global_gr_mode == GLOBAL_HELPER) {
 			BGP_PEER_GR_HELPER_ENABLE(peer);
@@ -3088,25 +4393,45 @@ inline void bgp_peer_move_to_gr_mode(struct peer *peer, int new_state)
 				"[BGP_GR] Default switch inherit mode ::: SOMETHING IS WRONG !!!");
 		}
 		break;
+=======
+		bgp_peer_inherit_global_gr_mode(peer, global_gr_mode);
+		break;
+	case PEER_INVALID:
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	default:
 		zlog_err(
 			"[BGP_GR] Default switch mode ::: SOMETHING IS WRONG !!!");
 		break;
 	}
+<<<<<<< HEAD
 	if (BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
 		zlog_debug("[BGP_GR] Peer state changed  --to-->  : %d : !",
 			   new_state);
+=======
+	bgp_peer_gr_flags_update(peer);
+	peer->peer_gr_present_state = new_state;
+
+	if (BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
+		zlog_debug("%pBP: Peer GR mode changed from %s to %s, GR flags 0x%x peer flags 0x%" PRIx64,
+			   peer, print_peer_gr_mode(old_state),
+			   print_peer_gr_mode(new_state),
+			   peer->peer_gr_new_status_flag, peer->flags);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 }
 
 void bgp_peer_gr_flags_update(struct peer *peer)
 {
+<<<<<<< HEAD
 	if (BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
 		zlog_debug("%s [BGP_GR] called !", __func__);
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	if (CHECK_FLAG(peer->peer_gr_new_status_flag,
 		       PEER_GRACEFUL_RESTART_NEW_STATE_HELPER))
 		SET_FLAG(peer->flags, PEER_FLAG_GRACEFUL_RESTART_HELPER);
 	else
 		UNSET_FLAG(peer->flags, PEER_FLAG_GRACEFUL_RESTART_HELPER);
+<<<<<<< HEAD
 	if (BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
 		zlog_debug(
 			"[BGP_GR] Peer %s Flag PEER_FLAG_GRACEFUL_RESTART_HELPER : %s : !",
@@ -3115,11 +4440,15 @@ void bgp_peer_gr_flags_update(struct peer *peer)
 				    PEER_FLAG_GRACEFUL_RESTART_HELPER)
 				 ? "Set"
 				 : "UnSet"));
+=======
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	if (CHECK_FLAG(peer->peer_gr_new_status_flag,
 		       PEER_GRACEFUL_RESTART_NEW_STATE_RESTART))
 		SET_FLAG(peer->flags, PEER_FLAG_GRACEFUL_RESTART);
 	else
 		UNSET_FLAG(peer->flags, PEER_FLAG_GRACEFUL_RESTART);
+<<<<<<< HEAD
 	if (BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
 		zlog_debug(
 			"[BGP_GR] Peer %s Flag PEER_FLAG_GRACEFUL_RESTART : %s : !",
@@ -3127,6 +4456,9 @@ void bgp_peer_gr_flags_update(struct peer *peer)
 			(CHECK_FLAG(peer->flags, PEER_FLAG_GRACEFUL_RESTART)
 				 ? "Set"
 				 : "UnSet"));
+=======
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	if (CHECK_FLAG(peer->peer_gr_new_status_flag,
 		       PEER_GRACEFUL_RESTART_NEW_STATE_INHERIT))
 		SET_FLAG(peer->flags,
@@ -3134,6 +4466,7 @@ void bgp_peer_gr_flags_update(struct peer *peer)
 	else
 		UNSET_FLAG(peer->flags,
 			   PEER_FLAG_GRACEFUL_RESTART_GLOBAL_INHERIT);
+<<<<<<< HEAD
 	if (BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
 		zlog_debug(
 			"[BGP_GR] Peer %s Flag PEER_FLAG_GRACEFUL_RESTART_GLOBAL_INHERIT : %s : !",
@@ -3159,3 +4492,37 @@ void bgp_peer_gr_flags_update(struct peer *peer)
 		}
 	}
 }
+=======
+
+	if (BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
+		zlog_debug("%pBP: Peer flags updated to 0x%" PRIx64
+			   ", GR flags 0x%x, GR mode %s",
+			   peer, peer->flags, peer->peer_gr_new_status_flag,
+			   print_peer_gr_mode(bgp_peer_gr_mode_get(peer)));
+
+	/*
+	 * If GR has been completely disabled for the peer and we were
+	 * acting as the Helper for the peer (i.e., keeping stale routes
+	 * and running the restart timer or stalepath timer), clear those
+	 * states.
+	 */
+	if (!CHECK_FLAG(peer->flags, PEER_FLAG_GRACEFUL_RESTART) &&
+	    !CHECK_FLAG(peer->flags, PEER_FLAG_GRACEFUL_RESTART_HELPER)) {
+		UNSET_FLAG(peer->sflags, PEER_STATUS_NSF_MODE);
+
+		if (CHECK_FLAG(peer->sflags, PEER_STATUS_NSF_WAIT)) {
+			if (bgp_debug_neighbor_events(peer))
+				zlog_debug("%pBP: GR disabled, stopping NSF and clearing stale routes",
+					   peer);
+			peer_nsf_stop(peer);
+		}
+	}
+}
+
+void bgp_event_stop_with_notify(struct event *event)
+{
+	struct peer_connection *connection = EVENT_ARG(event);
+
+	bgp_stop_with_notify(connection, BGP_NOTIFY_SEND_HOLD_ERR, 0);
+}
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)

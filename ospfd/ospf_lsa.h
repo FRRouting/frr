@@ -225,6 +225,7 @@ enum lsid_status { LSID_AVAILABLE = 0, LSID_CHANGE, LSID_NOT_AVAILABLE };
 /* Prototypes. */
 /* XXX: Eek, time functions, similar are in lib/thread.c */
 extern struct timeval int2tv(int);
+<<<<<<< HEAD
 extern struct timeval msec2tv(int);
 
 extern int get_age(struct ospf_lsa *);
@@ -238,10 +239,28 @@ extern void lsa_header_set(struct stream *, uint8_t, uint8_t, struct in_addr,
 			   struct in_addr);
 extern struct ospf_neighbor *ospf_nbr_lookup_ptop(struct ospf_interface *);
 extern int ospf_check_nbr_status(struct ospf *);
+=======
+
+extern struct timeval msec2tv(int a);
+extern int tv2msec(struct timeval tv);
+
+extern int get_age(struct ospf_lsa *lsa);
+extern uint16_t ospf_lsa_checksum(struct lsa_header *lsah);
+extern int ospf_lsa_checksum_valid(struct lsa_header *lsah);
+extern int ospf_lsa_refresh_delay(struct ospf *ospf, struct ospf_lsa *lsa);
+
+extern const char *dump_lsa_key(struct ospf_lsa *lsa);
+extern uint32_t lsa_seqnum_increment(struct ospf_lsa *lsa);
+extern void lsa_header_set(struct stream *s, uint8_t options, uint8_t type, struct in_addr id,
+			   struct in_addr router_id);
+extern struct ospf_neighbor *ospf_nbr_lookup_ptop(struct ospf_interface *oi);
+extern int ospf_check_nbr_status(struct ospf *ospf);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 /* Prototype for LSA primitive. */
 extern struct ospf_lsa *ospf_lsa_new(void);
 extern struct ospf_lsa *ospf_lsa_new_and_data(size_t size);
+<<<<<<< HEAD
 extern struct ospf_lsa *ospf_lsa_dup(struct ospf_lsa *);
 extern void ospf_lsa_free(struct ospf_lsa *);
 extern struct ospf_lsa *ospf_lsa_lock(struct ospf_lsa *);
@@ -251,10 +270,22 @@ extern int ospf_lsa_flush_schedule(struct ospf *, struct ospf_lsa *);
 extern struct lsa_header *ospf_lsa_data_new(size_t);
 extern struct lsa_header *ospf_lsa_data_dup(struct lsa_header *);
 extern void ospf_lsa_data_free(struct lsa_header *);
+=======
+extern struct ospf_lsa *ospf_lsa_dup(struct ospf_lsa *lsa);
+extern void ospf_lsa_free(struct ospf_lsa *lsa);
+extern struct ospf_lsa *ospf_lsa_lock(struct ospf_lsa *lsa);
+extern void ospf_lsa_unlock(struct ospf_lsa **lsa);
+extern void ospf_lsa_discard(struct ospf_lsa *lsa);
+extern int ospf_lsa_flush_schedule(struct ospf *ospf, struct ospf_lsa *lsa);
+extern struct lsa_header *ospf_lsa_data_new(size_t size);
+extern struct lsa_header *ospf_lsa_data_dup(struct lsa_header *lsah);
+extern void ospf_lsa_data_free(struct lsa_header *lsah);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 /* Prototype for various LSAs */
 extern void ospf_router_lsa_body_set(struct stream **s, struct ospf_area *area);
 extern uint8_t router_lsa_flags(struct ospf_area *area);
+<<<<<<< HEAD
 extern int ospf_router_lsa_update(struct ospf *);
 extern int ospf_router_lsa_update_area(struct ospf_area *);
 
@@ -278,12 +309,35 @@ extern struct in_addr ospf_get_ip_from_ifp(struct ospf_interface *);
 
 extern struct ospf_lsa *ospf_external_lsa_originate(struct ospf *,
 						    struct external_info *);
+=======
+extern int ospf_router_lsa_update(struct ospf *ospf);
+extern int ospf_router_lsa_update_area(struct ospf_area *area);
+
+extern void ospf_network_lsa_update(struct ospf_interface *oi);
+
+extern struct ospf_lsa *ospf_summary_lsa_originate(struct prefix_ipv4 *p, uint32_t metric,
+						   struct ospf_area *area);
+extern struct ospf_lsa *ospf_summary_asbr_lsa_originate(struct prefix_ipv4 *p, uint32_t metric,
+							struct ospf_area *area);
+
+extern struct ospf_lsa *ospf_lsa_install(struct ospf *ospf, struct ospf_interface *oi,
+					 struct ospf_lsa *lsa);
+
+extern void ospf_nssa_lsa_flush(struct ospf *ospf, struct prefix_ipv4 *p);
+extern void ospf_external_lsa_flush(struct ospf *ospf, uint8_t type, struct prefix_ipv4 *p,
+				    ifindex_t /* , struct in_addr nexthop */);
+
+extern struct in_addr ospf_get_ip_from_ifp(struct ospf_interface *oi);
+
+extern struct ospf_lsa *ospf_external_lsa_originate(struct ospf *ospf, struct external_info *ei);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 extern struct ospf_lsa *ospf_nssa_lsa_originate(struct ospf_area *area,
 						struct external_info *ei);
 extern struct ospf_lsa *ospf_nssa_lsa_refresh(struct ospf_area *area,
 					      struct ospf_lsa *lsa,
 					      struct external_info *ei);
 extern void ospf_external_lsa_rid_change(struct ospf *ospf);
+<<<<<<< HEAD
 extern struct ospf_lsa *ospf_lsa_lookup(struct ospf *ospf, struct ospf_area *,
 					uint32_t, struct in_addr,
 					struct in_addr);
@@ -316,10 +370,39 @@ extern struct ospf_lsa *ospf_external_lsa_refresh(struct ospf *,
 						  struct ospf_lsa *,
 						  struct external_info *, int,
 						  bool aggr);
+=======
+extern struct ospf_lsa *ospf_lsa_lookup(struct ospf *ospf, struct ospf_area *area, uint32_t type,
+					struct in_addr id, struct in_addr adv_router);
+extern struct ospf_lsa *ospf_lsa_lookup_by_id(struct ospf_area *area, uint32_t type,
+					      struct in_addr id);
+extern struct ospf_lsa *ospf_lsa_lookup_by_header(struct ospf_area *area, struct lsa_header *lsah);
+extern int ospf_lsa_more_recent(struct ospf_lsa *l1, struct ospf_lsa *l2);
+extern int ospf_lsa_different(struct ospf_lsa *l1, struct ospf_lsa *l2, bool ignore_rcvd_flag);
+extern void ospf_flush_self_originated_lsas_now(struct ospf *ospf);
+
+extern int ospf_lsa_is_self_originated(struct ospf *ospf, struct ospf_lsa *lsa);
+
+extern struct ospf_lsa *ospf_lsa_lookup_by_prefix(struct ospf_lsdb *lsdb, uint8_t type,
+						  struct prefix_ipv4 *p, struct in_addr router_id);
+
+extern void ospf_lsa_maxage(struct ospf *ospf, struct ospf_lsa *lsa);
+extern uint32_t get_metric(uint8_t *metric);
+
+extern void ospf_lsa_maxage_walker(struct event *event);
+extern struct ospf_lsa *ospf_lsa_refresh(struct ospf *ospf, struct ospf_lsa *lsa);
+
+extern void ospf_external_lsa_refresh_default(struct ospf *ospf);
+
+extern void ospf_external_lsa_refresh_type(struct ospf *ospf, uint8_t type, uint8_t instance,
+					   int force);
+extern struct ospf_lsa *ospf_external_lsa_refresh(struct ospf *ospf, struct ospf_lsa *lsa,
+						  struct external_info *ei, int force, bool aggr);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 extern enum lsid_status ospf_lsa_unique_id(struct ospf *ospf,
 					   struct ospf_lsdb *lsdb,
 					   uint8_t type, struct prefix_ipv4 *p,
 					   struct in_addr *addr);
+<<<<<<< HEAD
 extern void ospf_schedule_lsa_flood_area(struct ospf_area *, struct ospf_lsa *);
 extern void ospf_schedule_lsa_flush_area(struct ospf_area *, struct ospf_lsa *);
 
@@ -334,13 +417,32 @@ extern void ospf_discard_from_db(struct ospf *, struct ospf_lsdb *,
 
 extern int metric_type(struct ospf *, uint8_t, unsigned short);
 extern int metric_value(struct ospf *, uint8_t, unsigned short);
+=======
+extern void ospf_schedule_lsa_flood_area(struct ospf_area *area, struct ospf_lsa *lsa);
+extern void ospf_schedule_lsa_flush_area(struct ospf_area *area, struct ospf_lsa *lsa);
+
+extern void ospf_refresher_register_lsa(struct ospf *ospf, struct ospf_lsa *lsa);
+extern void ospf_refresher_unregister_lsa(struct ospf *ospf, struct ospf_lsa *lsa);
+extern void ospf_lsa_refresh_walker(struct event *event);
+
+extern void ospf_lsa_maxage_delete(struct ospf *ospf, struct ospf_lsa *lsa);
+
+extern void ospf_discard_from_db(struct ospf *ospf, struct ospf_lsdb *lsdb, struct ospf_lsa *lsa);
+
+extern int metric_type(struct ospf *ospf, uint8_t src, unsigned short instance);
+extern int metric_value(struct ospf *ospf, uint8_t src, unsigned short instance);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 extern char link_info_set(struct stream **s, struct in_addr id,
 			  struct in_addr data, uint8_t type, uint8_t tos,
 			  uint16_t cost);
 
+<<<<<<< HEAD
 extern struct in_addr ospf_get_nssa_ip(struct ospf_area *);
 extern int ospf_translated_nssa_compare(struct ospf_lsa *, struct ospf_lsa *);
+=======
+extern struct in_addr ospf_get_nssa_ip(struct ospf_area *area);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 extern struct ospf_lsa *ospf_translated_nssa_refresh(struct ospf *ospf,
 						     struct ospf_lsa *type7,
 						     struct ospf_lsa *type5);
@@ -351,7 +453,11 @@ extern void ospf_check_and_gen_init_seq_lsa(struct ospf_interface *oi,
 					    struct ospf_lsa *lsa);
 extern void ospf_flush_lsa_from_area(struct ospf *ospf, struct in_addr area_id,
 				     int type);
+<<<<<<< HEAD
 extern void ospf_maxage_lsa_remover(struct event *thread);
+=======
+extern void ospf_maxage_lsa_remover(struct event *event);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 extern bool ospf_check_dna_lsa(const struct ospf_lsa *lsa);
 extern void ospf_refresh_area_self_lsas(struct ospf_area *area);
 

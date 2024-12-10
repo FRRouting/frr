@@ -69,8 +69,13 @@
 #define BGP4PATHATTRBEST 13
 #define BGP4PATHATTRUNKNOWN 14
 
+<<<<<<< HEAD
 extern int bgpTrapEstablished(struct peer *peer);
 extern int bgpTrapBackwardTransition(struct peer *peer);
+=======
+extern int bgp4TrapEstablished(struct peer *peer);
+extern int bgp4TrapBackwardTransition(struct peer *peer);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 extern int bgp_snmp_bgp4_init(struct event_loop *tm);
 
 #endif /* _FRR_BGP_SNMP_BGP4_H_ */

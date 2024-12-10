@@ -30,6 +30,7 @@
 #include "lib/affinitymap.h"
 #include "lib/affinitymap_cli_clippy.c"
 
+<<<<<<< HEAD
 /* Route map node structure. */
 static int affinity_map_config_write(struct vty *vty);
 static struct cmd_node affinitymap_node = {
@@ -39,6 +40,8 @@ static struct cmd_node affinitymap_node = {
 	.config_write = affinity_map_config_write,
 };
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 /* max value is EXT_ADMIN_GROUP_MAX_POSITIONS - 1 */
 DEFPY_YANG_NOSH(affinity_map, affinity_map_cmd,
 		"affinity-map NAME$name bit-position (0-1023)$position",
@@ -75,6 +78,7 @@ DEFPY_YANG_NOSH(no_affinity_map, no_affinity_map_cmd,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
+<<<<<<< HEAD
 static int affinity_map_config_write(struct vty *vty)
 {
 	const struct lyd_node *dnode;
@@ -97,11 +101,38 @@ void cli_show_affinity_map(struct vty *vty, const struct lyd_node *dnode,
 		yang_dnode_get_uint16(dnode, "./value"));
 }
 
+=======
+static void cli_show_affinity_map(struct vty *vty, const struct lyd_node *dnode,
+			   bool show_defaults __attribute__((__unused__)))
+{
+	vty_out(vty, "affinity-map %s bit-position %u\n",
+		yang_dnode_get_string(dnode, "name"),
+		yang_dnode_get_uint16(dnode, "value"));
+}
+
+const struct frr_yang_module_info frr_affinity_map_cli_info = {
+	.name = "frr-affinity-map",
+	.ignore_cfg_cbs = true,
+	.nodes = {
+		{
+			.xpath = "/frr-affinity-map:lib/affinity-maps/affinity-map",
+			.cbs.cli_show = cli_show_affinity_map,
+		},
+		{
+			.xpath = NULL,
+		},
+	}
+};
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 /* Initialization of affinity map vector. */
 void affinity_map_init(void)
 {
 	/* CLI commands. */
+<<<<<<< HEAD
 	install_node(&affinitymap_node);
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	install_element(CONFIG_NODE, &affinity_map_cmd);
 	install_element(CONFIG_NODE, &no_affinity_map_cmd);
 }

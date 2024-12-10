@@ -1,0 +1,49 @@
+{
+     "vrfName": "vrf1",
+     "localAS": 65500,
+     "routes":
+         {
+            "172.31.0.10/32": [
+                {
+                    "prefix": "172.31.0.10",
+                    "prefixLen": 32,
+                    "network": "172.31.0.10\/32",
+                    "nhVrfName": "default",
+                    "nexthops": [
+                        {
+                            "ip": "192.168.0.3",
+                            "afi": "ipv4",
+                            "used": true
+                        }
+                    ]
+                },
+                {
+                    "prefix": "172.31.0.10",
+                    "prefixLen": 32,
+                    "network": "172.31.0.10\/32",
+                    "nhVrfName": "default",
+                    "nexthops": [
+                        {
+                            "ip": "192.168.0.2",
+                            "afi": "ipv4",
+                            "used": true
+                        }
+                    ]
+                }
+            ],
+            "172.31.0.1/32": [
+                {
+                    "prefix": "172.31.0.1",
+                    "prefixLen": 32,
+                    "network": "172.31.0.1\/32",
+                    "nexthops": [
+                        {
+                            "ip": "0.0.0.0",
+                            "afi": "ipv4",
+                            "used": true
+                        }
+                    ]
+                }
+            ]
+         }
+}

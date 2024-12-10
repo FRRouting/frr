@@ -74,12 +74,18 @@ struct isis_adjacency {
 	struct nlpids nlpids; /* protocols spoken ... */
 	struct in_addr *ipv4_addresses;
 	unsigned int ipv4_address_count;
+<<<<<<< HEAD
 	struct in_addr router_address;
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	struct in6_addr *ll_ipv6_addrs; /* Link local IPv6 neighbor address */
 	unsigned int ll_ipv6_count;
 	struct in6_addr *global_ipv6_addrs; /* Global IPv6 neighbor address */
 	unsigned int global_ipv6_count;
+<<<<<<< HEAD
 	struct in6_addr router_address6;
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	uint8_t prio[ISIS_LEVELS];      /* priorityOfNeighbour for DIS */
 	int circuit_t;			/* from hello PDU hdr */
 	int level;			/* level (1 or 2) */
@@ -98,6 +104,11 @@ struct isis_adjacency {
 	struct list *adj_sids; /* Segment Routing Adj-SIDs. */
 	uint32_t snmp_idx;
 	struct listnode *snmp_list_node;
+<<<<<<< HEAD
+=======
+
+	struct list *srv6_endx_sids; /* SRv6 End.X SIDs. */
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 };
 
 struct isis_threeway_adj;
@@ -111,7 +122,11 @@ struct isis_adjacency *isis_adj_find(const struct isis_area *area, int level,
 struct isis_adjacency *isis_new_adj(const uint8_t *id, const uint8_t *snpa,
 				    int level, struct isis_circuit *circuit);
 void isis_delete_adj(void *adj);
+<<<<<<< HEAD
 void isis_adj_process_threeway(struct isis_adjacency *adj,
+=======
+void isis_adj_process_threeway(struct isis_adjacency **padj,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			       struct isis_threeway_adj *tw_adj,
 			       enum isis_adj_usage adj_usage);
 DECLARE_HOOK(isis_adj_state_change_hook, (struct isis_adjacency *adj), (adj));

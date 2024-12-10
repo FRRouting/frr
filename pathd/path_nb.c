@@ -313,8 +313,13 @@ int iter_objfun_cb(const struct lyd_node *dnode, void *arg)
 
 	pref = &of_arg->prefs[of_arg->free_slot++];
 
+<<<<<<< HEAD
 	pref->index = yang_dnode_get_uint32(dnode, "./index");
 	pref->type = yang_dnode_get_enum(dnode, "./type");
+=======
+	pref->index = yang_dnode_get_uint32(dnode, "index");
+	pref->type = yang_dnode_get_enum(dnode, "type");
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	/* Simplistic insertion sort */
 	p = &of_arg->first;

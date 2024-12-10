@@ -32,7 +32,10 @@ All conditions are tested against an eBGP peer in a public ASN.
 import os
 import sys
 import json
+<<<<<<< HEAD
 import time
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 import pytest
 
 CWD = os.path.dirname(os.path.realpath(__file__))
@@ -109,7 +112,11 @@ def setup_module(mod):
 
     router_list = tgen.routers()
 
+<<<<<<< HEAD
     for i, (rname, router) in enumerate(router_list.items(), 1):
+=======
+    for _, (rname, router) in enumerate(router_list.items(), 1):
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         router.load_config(
             TopoRouter.RD_ZEBRA, os.path.join(CWD, f"{rname}/zebra.conf")
         )

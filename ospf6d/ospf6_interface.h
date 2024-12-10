@@ -34,6 +34,28 @@ struct ospf6_auth_data {
 	uint32_t rx_drop; /* Pkt drop due to auth fail while reading */
 };
 
+<<<<<<< HEAD
+=======
+PREDECL_RBTREE_UNIQ(ospf6_if_p2xp_neighcfgs);
+
+struct ospf6_if_p2xp_neighcfg {
+	struct ospf6_if_p2xp_neighcfgs_item item;
+
+	struct ospf6_interface *ospf6_if;
+	struct in6_addr addr;
+
+	bool cfg_cost : 1;
+
+	uint32_t cost;
+	uint16_t poll_interval;
+
+	/* NULL if down */
+	struct ospf6_neighbor *active;
+
+	struct event *t_unicast_hello;
+};
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 /* Interface structure */
 struct ospf6_interface {
 	/* IF info from zebra */
@@ -66,6 +88,23 @@ struct ospf6_interface {
 	uint8_t type;
 	bool type_cfg;
 
+<<<<<<< HEAD
+=======
+	/* P2P/P2MP behavior: */
+
+	/* disable hellos on standard multicast? */
+	bool p2xp_no_multicast_hello;
+	/* only allow explicitly configured neighbors? */
+	bool p2xp_only_cfg_neigh;
+	/* override mode default for advertising connected prefixes.
+	 * both false by default (= do include for PtP, exclude for PtMP)
+	 */
+	bool p2xp_connected_pfx_include;
+	bool p2xp_connected_pfx_exclude;
+
+	struct ospf6_if_p2xp_neighcfgs_head p2xp_neighs;
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	/* Router Priority */
 	uint8_t priority;
 
@@ -171,6 +210,7 @@ struct ospf6_interface {
 DECLARE_QOBJ_TYPE(ospf6_interface);
 
 /* interface state */
+<<<<<<< HEAD
 #define OSPF6_INTERFACE_NONE             0
 #define OSPF6_INTERFACE_DOWN             1
 #define OSPF6_INTERFACE_LOOPBACK         2
@@ -180,6 +220,18 @@ DECLARE_QOBJ_TYPE(ospf6_interface);
 #define OSPF6_INTERFACE_BDR              6
 #define OSPF6_INTERFACE_DR               7
 #define OSPF6_INTERFACE_MAX              8
+=======
+#define OSPF6_INTERFACE_NONE               0
+#define OSPF6_INTERFACE_DOWN               1
+#define OSPF6_INTERFACE_LOOPBACK           2
+#define OSPF6_INTERFACE_WAITING            3
+#define OSPF6_INTERFACE_POINTTOPOINT       4
+#define OSPF6_INTERFACE_POINTTOMULTIPOINT  5
+#define OSPF6_INTERFACE_DROTHER            6
+#define OSPF6_INTERFACE_BDR                7
+#define OSPF6_INTERFACE_DR                 8
+#define OSPF6_INTERFACE_MAX                9
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 extern const char *const ospf6_interface_state_str[];
 
@@ -197,7 +249,11 @@ extern const char *const ospf6_interface_state_str[];
 #define OSPF6_INTERFACE_TRANSDELAY     1
 #define OSPF6_INTERFACE_INSTANCE_ID    0
 #define OSPF6_INTERFACE_BANDWIDTH      10000   /* Mbps */
+<<<<<<< HEAD
 #define OSPF6_REFERENCE_BANDWIDTH      100000  /* Mbps */
+=======
+#define OSPF6_REFERENCE_BANDWIDTH      100000  /* Kbps */
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 #define OSPF6_INTERFACE_SSO_RETRY_INT  1
 #define OSPF6_INTERFACE_SSO_RETRY_MAX  5
 

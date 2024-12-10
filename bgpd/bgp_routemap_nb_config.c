@@ -809,6 +809,165 @@ lib_route_map_entry_match_condition_rmap_match_condition_peer_local_destroy(
 }
 
 /*
+<<<<<<< HEAD
+=======
+ * XPath: /frr-route-map:lib/route-map/entry/match-condition/rmap-match-condition/frr-bgp-route-map:src-peer-ipv4-address
+ */
+int lib_route_map_entry_match_condition_rmap_match_condition_src_peer_ipv4_address_modify(
+	struct nb_cb_modify_args *args)
+{
+	struct routemap_hook_context *rhc;
+	const char *peer;
+	enum rmap_compile_rets ret;
+
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		break;
+	case NB_EV_APPLY:
+		/* Add configuration. */
+		rhc = nb_running_get_entry(args->dnode, NULL, true);
+		peer = yang_dnode_get_string(args->dnode, NULL);
+
+		/* Set destroy information. */
+		rhc->rhc_mhook = bgp_route_match_delete;
+		rhc->rhc_rule = "src-peer";
+		rhc->rhc_event = RMAP_EVENT_MATCH_DELETED;
+
+		ret = bgp_route_match_add(rhc->rhc_rmi, "src-peer", peer, RMAP_EVENT_MATCH_ADDED,
+					  args->errmsg, args->errmsg_len);
+
+		if (ret != RMAP_COMPILE_SUCCESS) {
+			rhc->rhc_mhook = NULL;
+			return NB_ERR_INCONSISTENCY;
+		}
+	}
+
+	return NB_OK;
+}
+
+int lib_route_map_entry_match_condition_rmap_match_condition_src_peer_ipv4_address_destroy(
+	struct nb_cb_destroy_args *args)
+{
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		break;
+	case NB_EV_APPLY:
+		return lib_route_map_entry_match_destroy(args);
+	}
+
+	return NB_OK;
+}
+
+/*
+ * XPath: /frr-route-map:lib/route-map/entry/match-condition/rmap-match-condition/frr-bgp-route-map:src-peer-interface
+ */
+int lib_route_map_entry_match_condition_rmap_match_condition_src_peer_interface_modify(
+	struct nb_cb_modify_args *args)
+{
+	struct routemap_hook_context *rhc;
+	const char *peer;
+	enum rmap_compile_rets ret;
+
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		break;
+	case NB_EV_APPLY:
+		/* Add configuration. */
+		rhc = nb_running_get_entry(args->dnode, NULL, true);
+		peer = yang_dnode_get_string(args->dnode, NULL);
+
+		/* Set destroy information. */
+		rhc->rhc_mhook = bgp_route_match_delete;
+		rhc->rhc_rule = "src-peer";
+		rhc->rhc_event = RMAP_EVENT_MATCH_DELETED;
+
+		ret = bgp_route_match_add(rhc->rhc_rmi, "src-peer", peer, RMAP_EVENT_MATCH_ADDED,
+					  args->errmsg, args->errmsg_len);
+
+		if (ret != RMAP_COMPILE_SUCCESS) {
+			rhc->rhc_mhook = NULL;
+			return NB_ERR_INCONSISTENCY;
+		}
+	}
+
+	return NB_OK;
+}
+
+int lib_route_map_entry_match_condition_rmap_match_condition_src_peer_interface_destroy(
+	struct nb_cb_destroy_args *args)
+{
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		break;
+	case NB_EV_APPLY:
+		return lib_route_map_entry_match_destroy(args);
+	}
+
+	return NB_OK;
+}
+
+/*
+ * XPath: /frr-route-map:lib/route-map/entry/match-condition/rmap-match-condition/frr-bgp-route-map:src-peer-ipv6-address
+ */
+int lib_route_map_entry_match_condition_rmap_match_condition_src_peer_ipv6_address_modify(
+	struct nb_cb_modify_args *args)
+{
+	struct routemap_hook_context *rhc;
+	const char *peer;
+	enum rmap_compile_rets ret;
+
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		break;
+	case NB_EV_APPLY:
+		/* Add configuration. */
+		rhc = nb_running_get_entry(args->dnode, NULL, true);
+		peer = yang_dnode_get_string(args->dnode, NULL);
+
+		/* Set destroy information. */
+		rhc->rhc_mhook = bgp_route_match_delete;
+		rhc->rhc_rule = "src-peer";
+		rhc->rhc_event = RMAP_EVENT_MATCH_DELETED;
+
+		ret = bgp_route_match_add(rhc->rhc_rmi, "src-peer", peer, RMAP_EVENT_MATCH_ADDED,
+					  args->errmsg, args->errmsg_len);
+
+		if (ret != RMAP_COMPILE_SUCCESS) {
+			rhc->rhc_mhook = NULL;
+			return NB_ERR_INCONSISTENCY;
+		}
+	}
+
+	return NB_OK;
+}
+
+int lib_route_map_entry_match_condition_rmap_match_condition_src_peer_ipv6_address_destroy(
+	struct nb_cb_destroy_args *args)
+{
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		break;
+	case NB_EV_APPLY:
+		return lib_route_map_entry_match_destroy(args);
+	}
+
+	return NB_OK;
+}
+
+/*
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
  * XPath: /frr-route-map:lib/route-map/entry/match-condition/rmap-match-condition/frr-bgp-route-map:list-name
  */
 int
@@ -1121,6 +1280,30 @@ lib_route_map_entry_match_condition_rmap_match_condition_route_distinguisher_des
 /*
  * XPath = /frr-route-map:lib/route-map/entry/match-condition/rmap-match-condition/frr-bgp-route-map:comm-list
  */
+<<<<<<< HEAD
+=======
+int lib_route_map_entry_match_condition_rmap_match_condition_comm_list_create(
+	struct nb_cb_create_args *args)
+{
+	return NB_OK;
+}
+
+int lib_route_map_entry_match_condition_rmap_match_condition_comm_list_destroy(
+	struct nb_cb_destroy_args *args)
+{
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		break;
+	case NB_EV_APPLY:
+		return lib_route_map_entry_match_destroy(args);
+	}
+
+	return NB_OK;
+}
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 void
 lib_route_map_entry_match_condition_rmap_match_condition_comm_list_finish(
 	struct nb_cb_apply_finish_args *args)
@@ -1128,6 +1311,10 @@ lib_route_map_entry_match_condition_rmap_match_condition_comm_list_finish(
 	struct routemap_hook_context *rhc;
 	const char *value;
 	bool exact_match = false;
+<<<<<<< HEAD
+=======
+	bool any = false;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	char *argstr;
 	const char *condition;
 	route_map_event_t event;
@@ -1135,18 +1322,39 @@ lib_route_map_entry_match_condition_rmap_match_condition_comm_list_finish(
 
 	/* Add configuration. */
 	rhc = nb_running_get_entry(args->dnode, NULL, true);
+<<<<<<< HEAD
 	value = yang_dnode_get_string(args->dnode, "./comm-list-name");
 
 	if (yang_dnode_exists(args->dnode, "./comm-list-name-exact-match"))
 		exact_match = yang_dnode_get_bool(
 			args->dnode, "./comm-list-name-exact-match");
 
+=======
+	value = yang_dnode_get_string(args->dnode, "comm-list-name");
+
+	if (yang_dnode_exists(args->dnode, "comm-list-name-exact-match"))
+		exact_match = yang_dnode_get_bool(
+			args->dnode, "./comm-list-name-exact-match");
+
+	if (yang_dnode_exists(args->dnode, "comm-list-name-any"))
+		any = yang_dnode_get_bool(args->dnode, "comm-list-name-any");
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	if (exact_match) {
 		argstr = XMALLOC(MTYPE_ROUTE_MAP_COMPILED,
 				 strlen(value) + strlen("exact-match") + 2);
 
 		snprintf(argstr, (strlen(value) + strlen("exact-match") + 2),
 			 "%s exact-match", value);
+<<<<<<< HEAD
+=======
+	} else if (any) {
+		argstr = XMALLOC(MTYPE_ROUTE_MAP_COMPILED,
+				 strlen(value) + strlen("any") + 2);
+
+		snprintf(argstr, (strlen(value) + strlen("any") + 2), "%s any",
+			 value);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	} else
 		argstr = (char *)value;
 
@@ -1201,14 +1409,37 @@ lib_route_map_entry_match_condition_rmap_match_condition_comm_list_comm_list_nam
 	return NB_OK;
 }
 
+<<<<<<< HEAD
 int
 lib_route_map_entry_match_condition_rmap_match_condition_comm_list_comm_list_name_destroy(
+=======
+/*
+ * XPath:
+ * /frr-route-map:lib/route-map/entry/match-condition/rmap-match-condition/frr-bgp-route-map:comm-list/comm-list-name-any
+ */
+int lib_route_map_entry_match_condition_rmap_match_condition_comm_list_comm_list_name_any_modify(
+	struct nb_cb_modify_args *args)
+{
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+	case NB_EV_APPLY:
+		break;
+	}
+
+	return NB_OK;
+}
+
+int lib_route_map_entry_match_condition_rmap_match_condition_comm_list_comm_list_name_any_destroy(
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	struct nb_cb_destroy_args *args)
 {
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+<<<<<<< HEAD
 		break;
 	case NB_EV_APPLY:
 		return lib_route_map_entry_match_destroy(args);
@@ -1216,6 +1447,13 @@ lib_route_map_entry_match_condition_rmap_match_condition_comm_list_comm_list_nam
 
 	return NB_OK;
 
+=======
+	case NB_EV_APPLY:
+		break;
+	}
+
+	return NB_OK;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 }
 
 /*
@@ -1244,9 +1482,14 @@ lib_route_map_entry_match_condition_rmap_match_condition_comm_list_comm_list_nam
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+<<<<<<< HEAD
 		break;
 	case NB_EV_APPLY:
 		return lib_route_map_entry_match_destroy(args);
+=======
+	case NB_EV_APPLY:
+		break;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	}
 
 	return NB_OK;
@@ -1408,7 +1651,11 @@ int lib_route_map_entry_set_action_rmap_set_action_distance_destroy(
 	case NB_EV_ABORT:
 		break;
 	case NB_EV_APPLY:
+<<<<<<< HEAD
 		return lib_route_map_entry_match_destroy(args);
+=======
+		return lib_route_map_entry_set_destroy(args);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	}
 
 	return NB_OK;
@@ -1462,7 +1709,11 @@ lib_route_map_entry_set_action_rmap_set_action_extcommunity_rt_destroy(
 	case NB_EV_ABORT:
 		break;
 	case NB_EV_APPLY:
+<<<<<<< HEAD
 		return lib_route_map_entry_match_destroy(args);
+=======
+		return lib_route_map_entry_set_destroy(args);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	}
 
 	return NB_OK;
@@ -1514,7 +1765,11 @@ int lib_route_map_entry_set_action_rmap_set_action_extcommunity_nt_destroy(
 	case NB_EV_ABORT:
 		break;
 	case NB_EV_APPLY:
+<<<<<<< HEAD
 		return lib_route_map_entry_match_destroy(args);
+=======
+		return lib_route_map_entry_set_destroy(args);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	}
 
 	return NB_OK;
@@ -1569,7 +1824,11 @@ lib_route_map_entry_set_action_rmap_set_action_extcommunity_soo_destroy(
 	case NB_EV_ABORT:
 		break;
 	case NB_EV_APPLY:
+<<<<<<< HEAD
 		return lib_route_map_entry_match_destroy(args);
+=======
+		return lib_route_map_entry_set_destroy(args);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	}
 
 	return NB_OK;
@@ -1705,7 +1964,11 @@ int lib_route_map_entry_set_action_rmap_set_action_ipv6_address_modify(
 			    || IN6_IS_ADDR_LINKLOCAL(&i6a))
 				return NB_ERR_VALIDATION;
 		}
+<<<<<<< HEAD
 	/* FALLTHROUGH */
+=======
+		return NB_OK;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
 		return NB_OK;
@@ -2692,6 +2955,30 @@ lib_route_map_entry_set_action_rmap_set_action_large_community_string_destroy(
  * xpath =
  * /frr-route-map:lib/route-map/entry/set-action/rmap-set-action/frr-bgp-route-map:aggregator
  */
+<<<<<<< HEAD
+=======
+int lib_route_map_entry_set_action_rmap_set_action_aggregator_create(
+	struct nb_cb_create_args *args)
+{
+	return NB_OK;
+}
+
+int lib_route_map_entry_set_action_rmap_set_action_aggregator_destroy(
+	struct nb_cb_destroy_args *args)
+{
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		break;
+	case NB_EV_APPLY:
+		return lib_route_map_entry_set_destroy(args);
+	}
+
+	return NB_OK;
+}
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 void lib_route_map_entry_set_action_rmap_set_action_aggregator_finish(
 	struct nb_cb_apply_finish_args *args)
 {
@@ -2703,8 +2990,13 @@ void lib_route_map_entry_set_action_rmap_set_action_aggregator_finish(
 
 	/* Add configuration. */
 	rhc = nb_running_get_entry(args->dnode, NULL, true);
+<<<<<<< HEAD
 	asn = yang_dnode_get_string(args->dnode, "./aggregator-asn");
 	addr = yang_dnode_get_string(args->dnode, "./aggregator-address");
+=======
+	asn = yang_dnode_get_string(args->dnode, "aggregator-asn");
+	addr = yang_dnode_get_string(args->dnode, "aggregator-address");
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	argstr = XMALLOC(MTYPE_ROUTE_MAP_COMPILED,
 			 strlen(asn) + strlen(addr) + 2);
@@ -2756,6 +3048,7 @@ lib_route_map_entry_set_action_rmap_set_action_aggregator_aggregator_asn_modify(
 	return NB_OK;
 }
 
+<<<<<<< HEAD
 int
 lib_route_map_entry_set_action_rmap_set_action_aggregator_aggregator_asn_destroy(
 	struct nb_cb_destroy_args *args)
@@ -2772,6 +3065,8 @@ lib_route_map_entry_set_action_rmap_set_action_aggregator_aggregator_asn_destroy
 	return NB_OK;
 }
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 /*
  * XPath:
  * /frr-route-map:lib/route-map/entry/set-action/rmap-set-action/frr-bgp-route-map:aggregator/aggregator-address
@@ -2791,6 +3086,7 @@ lib_route_map_entry_set_action_rmap_set_action_aggregator_aggregator_address_mod
 	return NB_OK;
 }
 
+<<<<<<< HEAD
 int
 lib_route_map_entry_set_action_rmap_set_action_aggregator_aggregator_address_destroy(
 	struct nb_cb_destroy_args *args)
@@ -2807,6 +3103,8 @@ lib_route_map_entry_set_action_rmap_set_action_aggregator_aggregator_address_des
 	return NB_OK;
 }
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 /*
  * XPath:
  * /frr-route-map:lib/route-map/entry/set-action/rmap-set-action/frr-bgp-route-map:comm-list-name
@@ -2836,6 +3134,11 @@ int lib_route_map_entry_set_action_rmap_set_action_comm_list_name_modify(
 				"../../frr-route-map:action");
 		if (IS_SET_COMM_LIST_DEL(action))
 			rhc->rhc_rule = "comm-list";
+<<<<<<< HEAD
+=======
+		else if (IS_SET_EXTCOMM_LIST_DEL(action))
+			rhc->rhc_rule = "extended-comm-list";
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		else
 			rhc->rhc_rule = "large-comm-list";
 
@@ -2873,6 +3176,30 @@ lib_route_map_entry_set_action_rmap_set_action_comm_list_name_destroy(
  * XPath:
  * /frr-route-map:lib/route-map/entry/set-action/rmap-set-action/frr-bgp-route-map:extcommunity-lb
  */
+<<<<<<< HEAD
+=======
+int lib_route_map_entry_set_action_rmap_set_action_extcommunity_lb_create(
+	struct nb_cb_create_args *args)
+{
+	return NB_OK;
+}
+
+int lib_route_map_entry_set_action_rmap_set_action_extcommunity_lb_destroy(
+	struct nb_cb_destroy_args *args)
+{
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		break;
+	case NB_EV_APPLY:
+		return lib_route_map_entry_set_destroy(args);
+	}
+
+	return NB_OK;
+}
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 void
 lib_route_map_entry_set_action_rmap_set_action_extcommunity_lb_finish(
 	struct nb_cb_apply_finish_args *args)
@@ -2880,12 +3207,20 @@ lib_route_map_entry_set_action_rmap_set_action_extcommunity_lb_finish(
 	struct routemap_hook_context *rhc;
 	enum ecommunity_lb_type lb_type;
 	char str[VTY_BUFSIZ];
+<<<<<<< HEAD
 	uint16_t bandwidth;
+=======
+	uint32_t bandwidth;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	int ret;
 
 	/* Add configuration. */
 	rhc = nb_running_get_entry(args->dnode, NULL, true);
+<<<<<<< HEAD
 	lb_type = yang_dnode_get_enum(args->dnode, "./lb-type");
+=======
+	lb_type = yang_dnode_get_enum(args->dnode, "lb-type");
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	/* Set destroy information. */
 	rhc->rhc_shook = generic_set_delete;
@@ -2894,8 +3229,13 @@ lib_route_map_entry_set_action_rmap_set_action_extcommunity_lb_finish(
 
 	switch (lb_type) {
 	case EXPLICIT_BANDWIDTH:
+<<<<<<< HEAD
 		bandwidth = yang_dnode_get_uint16(args->dnode, "./bandwidth");
 		snprintf(str, sizeof(str), "%d", bandwidth);
+=======
+		bandwidth = yang_dnode_get_uint32(args->dnode, "bandwidth");
+		snprintf(str, sizeof(str), "%u", bandwidth);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		break;
 	case CUMULATIVE_BANDWIDTH:
 		snprintf(str, sizeof(str), "%s", "cumulative");
@@ -2904,7 +3244,11 @@ lib_route_map_entry_set_action_rmap_set_action_extcommunity_lb_finish(
 		snprintf(str, sizeof(str), "%s", "num-multipaths");
 	}
 
+<<<<<<< HEAD
 	if (yang_dnode_get_bool(args->dnode, "./two-octet-as-specific"))
+=======
+	if (yang_dnode_get_bool(args->dnode, "two-octet-as-specific"))
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		strlcat(str, " non-transitive", sizeof(str));
 
 	ret = generic_set_add(rhc->rhc_rmi, "extcommunity bandwidth", str,
@@ -2928,6 +3272,7 @@ lib_route_map_entry_set_action_rmap_set_action_extcommunity_lb_lb_type_modify(
 	return NB_OK;
 }
 
+<<<<<<< HEAD
 int
 lib_route_map_entry_set_action_rmap_set_action_extcommunity_lb_lb_type_destroy(
 		struct nb_cb_destroy_args *args)
@@ -2935,6 +3280,8 @@ lib_route_map_entry_set_action_rmap_set_action_extcommunity_lb_lb_type_destroy(
 	return lib_route_map_entry_set_destroy(args);
 }
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 /*
  * XPath:
  * /frr-route-map:lib/route-map/entry/set-action/rmap-set-action/frr-bgp-route-map:extcommunity-lb/bandwidth
@@ -2950,7 +3297,63 @@ int
 lib_route_map_entry_set_action_rmap_set_action_extcommunity_lb_bandwidth_destroy(
 		struct nb_cb_destroy_args *args)
 {
+<<<<<<< HEAD
 	return lib_route_map_entry_set_destroy(args);
+=======
+	return NB_OK;
+}
+
+/*
+ * XPath:
+ * /frr-route-map:lib/route-map/entry/set-action/rmap-set-action/frr-bgp-route-map:extcommunity-color
+ */
+int lib_route_map_entry_set_action_rmap_set_action_extcommunity_color_modify(
+	struct nb_cb_modify_args *args)
+{
+	struct routemap_hook_context *rhc;
+	const char *str;
+	int rv;
+
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		break;
+	case NB_EV_APPLY:
+		/* Add configuration. */
+		rhc = nb_running_get_entry(args->dnode, NULL, true);
+		str = yang_dnode_get_string(args->dnode, NULL);
+
+		/* Set destroy information. */
+		rhc->rhc_shook = generic_set_delete;
+		rhc->rhc_rule = "extcommunity color";
+		rhc->rhc_event = RMAP_EVENT_SET_DELETED;
+
+		rv = generic_set_add(rhc->rhc_rmi, "extcommunity color", str,
+				     args->errmsg, args->errmsg_len);
+		if (rv != CMD_SUCCESS) {
+			rhc->rhc_shook = NULL;
+			return NB_ERR_INCONSISTENCY;
+		}
+	}
+
+	return NB_OK;
+}
+
+int lib_route_map_entry_set_action_rmap_set_action_extcommunity_color_destroy(
+	struct nb_cb_destroy_args *args)
+{
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		break;
+	case NB_EV_APPLY:
+		return lib_route_map_entry_set_destroy(args);
+	}
+
+	return NB_OK;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 }
 
 /*
@@ -2964,6 +3367,7 @@ lib_route_map_entry_set_action_rmap_set_action_extcommunity_lb_two_octet_as_spec
 	return NB_OK;
 }
 
+<<<<<<< HEAD
 int
 lib_route_map_entry_set_action_rmap_set_action_extcommunity_lb_two_octet_as_specific_destroy(
 	struct nb_cb_destroy_args *args)
@@ -2971,6 +3375,8 @@ lib_route_map_entry_set_action_rmap_set_action_extcommunity_lb_two_octet_as_spec
 	return lib_route_map_entry_set_destroy(args);
 }
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 /*
  * XPath:
  * /frr-route-map:lib/route-map/entry/set-action/rmap-set-action/frr-bgp-route-map:extcommunity-none

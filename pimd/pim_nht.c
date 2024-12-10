@@ -31,6 +31,11 @@
 #include "pim_zlookup.h"
 #include "pim_rp.h"
 #include "pim_addr.h"
+<<<<<<< HEAD
+=======
+#include "pim_register.h"
+#include "pim_vxlan.h"
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 /**
  * pim_sendmsg_zebra_rnh -- Format and send a nexthop register/Unregister
@@ -159,10 +164,24 @@ void pim_nht_bsr_add(struct pim_instance *pim, pim_addr addr)
 	pnc->bsr_count++;
 }
 
+<<<<<<< HEAD
+=======
+bool pim_nht_candrp_add(struct pim_instance *pim, pim_addr addr)
+{
+	struct pim_nexthop_cache *pnc;
+
+	pnc = pim_nht_get(pim, addr);
+
+	pnc->candrp_count++;
+	return CHECK_FLAG(pnc->flags, PIM_NEXTHOP_VALID);
+}
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 static void pim_nht_drop_maybe(struct pim_instance *pim,
 			       struct pim_nexthop_cache *pnc)
 {
 	if (PIM_DEBUG_PIM_NHT)
+<<<<<<< HEAD
 		zlog_debug(
 			"%s: NHT %pPA(%s) rp_list count:%d upstream count:%ld BSR count:%u",
 			__func__, &pnc->rpf.rpf_addr, pim->vrf->name,
@@ -171,6 +190,15 @@ static void pim_nht_drop_maybe(struct pim_instance *pim,
 
 	if (pnc->rp_list->count == 0 && pnc->upstream_hash->count == 0
 	    && pnc->bsr_count == 0) {
+=======
+		zlog_debug("%s: NHT %pPA(%s) rp_list count:%d upstream count:%ld BSR count:%u Cand-RP count:%u",
+			   __func__, &pnc->rpf.rpf_addr, pim->vrf->name,
+			   pnc->rp_list->count, pnc->upstream_hash->count,
+			   pnc->bsr_count, pnc->candrp_count);
+
+	if (pnc->rp_list->count == 0 && pnc->upstream_hash->count == 0 &&
+	    pnc->bsr_count == 0 && pnc->candrp_count == 0) {
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		struct zclient *zclient = pim_zebra_zclient_get();
 
 		pim_sendmsg_zebra_rnh(pim, zclient, pnc,
@@ -256,6 +284,30 @@ void pim_nht_bsr_del(struct pim_instance *pim, pim_addr addr)
 	pim_nht_drop_maybe(pim, pnc);
 }
 
+<<<<<<< HEAD
+=======
+void pim_nht_candrp_del(struct pim_instance *pim, pim_addr addr)
+{
+	struct pim_nexthop_cache *pnc = NULL;
+	struct pim_nexthop_cache lookup;
+
+	lookup.rpf.rpf_addr = addr;
+
+	pnc = hash_lookup(pim->rpf_hash, &lookup);
+
+	if (!pnc) {
+		zlog_warn("attempting to delete nonexistent NHT C-RP entry %pPA",
+			  &addr);
+		return;
+	}
+
+	assertf(pnc->candrp_count > 0, "addr=%pPA", &addr);
+	pnc->candrp_count--;
+
+	pim_nht_drop_maybe(pim, pnc);
+}
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 bool pim_nht_bsr_rpf_check(struct pim_instance *pim, pim_addr bsr_addr,
 			   struct interface *src_ifp, pim_addr src_ip)
 {
@@ -310,7 +362,10 @@ bool pim_nht_bsr_rpf_check(struct pim_instance *pim, pim_addr bsr_addr,
 			nbr = pim_neighbor_find(ifp, znh->nexthop_addr, true);
 			if (!nbr)
 				continue;
+<<<<<<< HEAD
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			/* Are we on the correct interface? */
 			if (znh->ifindex == src_ifp->ifindex) {
 				/* Do we have the correct NH ? */
@@ -348,7 +403,11 @@ bool pim_nht_bsr_rpf_check(struct pim_instance *pim, pim_addr bsr_addr,
 			if (nh->ifindex == IFINDEX_INTERNAL)
 				continue;
 
+<<<<<<< HEAD
 			/* fallthru */
+=======
+			fallthrough;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		case NEXTHOP_TYPE_IPV4_IFINDEX:
 			nhaddr = nh->gate.ipv4;
 			break;
@@ -360,7 +419,11 @@ bool pim_nht_bsr_rpf_check(struct pim_instance *pim, pim_addr bsr_addr,
 			if (nh->ifindex == IFINDEX_INTERNAL)
 				continue;
 
+<<<<<<< HEAD
 			/* fallthru */
+=======
+			fallthrough;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		case NEXTHOP_TYPE_IPV6_IFINDEX:
 			nhaddr = nh->gate.ipv6;
 			break;
@@ -384,9 +447,13 @@ bool pim_nht_bsr_rpf_check(struct pim_instance *pim, pim_addr bsr_addr,
 			return true;
 
 		/* MRIB (IGP) may be pointing at a router where PIM is down */
+<<<<<<< HEAD
 
 		nbr = pim_neighbor_find(ifp, nhaddr, true);
 
+=======
+		nbr = pim_neighbor_find(ifp, nhaddr, true);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		if (!nbr)
 			continue;
 
@@ -423,17 +490,37 @@ static void pim_update_rp_nh(struct pim_instance *pim,
 {
 	struct listnode *node = NULL;
 	struct rp_info *rp_info = NULL;
+<<<<<<< HEAD
+=======
+	struct interface *ifp;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	/*Traverse RP list and update each RP Nexthop info */
 	for (ALL_LIST_ELEMENTS_RO(pnc->rp_list, node, rp_info)) {
 		if (pim_rpf_addr_is_inaddr_any(&rp_info->rp))
 			continue;
 
+<<<<<<< HEAD
+=======
+		ifp = rp_info->rp.source_nexthop.interface;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		// Compute PIM RPF using cached nexthop
 		if (!pim_ecmp_nexthop_lookup(pim, &rp_info->rp.source_nexthop,
 					     rp_info->rp.rpf_addr,
 					     &rp_info->group, 1))
 			pim_rp_nexthop_del(rp_info);
+<<<<<<< HEAD
+=======
+
+		/*
+		 * If we transition from no path to a path
+		 * we need to search through all the vxlan's
+		 * that use this rp and send NULL registers
+		 * for all the vxlan S,G streams
+		 */
+		if (!ifp && rp_info->rp.source_nexthop.interface)
+			pim_vxlan_rp_info_is_alive(pim, &rp_info->rp);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	}
 }
 
@@ -460,6 +547,7 @@ static int pim_update_upstream_nh_helper(struct hash_bucket *bucket, void *arg)
 		(rpf_result == PIM_RPF_FAILURE && old.source_nexthop.interface))
 		pim_zebra_upstream_rpf_changed(pim, up, &old);
 
+<<<<<<< HEAD
 
 	if (PIM_DEBUG_PIM_NHT) {
 		zlog_debug(
@@ -471,6 +559,29 @@ static int pim_update_upstream_nh_helper(struct hash_bucket *bucket, void *arg)
 			up->rpf.source_nexthop.interface ? up->rpf.source_nexthop
 								   .interface->name
 							 : "Unknown");
+=======
+	/*
+	 * If we are a VXLAN source and we are transitioning from not
+	 * having an outgoing interface to having an outgoing interface
+	 * let's immediately send the null pim register
+	 */
+	if (!old.source_nexthop.interface && up->rpf.source_nexthop.interface &&
+	    PIM_UPSTREAM_FLAG_TEST_SRC_VXLAN_ORIG(up->flags) &&
+	    (up->reg_state == PIM_REG_NOINFO || up->reg_state == PIM_REG_JOIN)) {
+		pim_null_register_send(up);
+	}
+
+	if (PIM_DEBUG_PIM_NHT) {
+		zlog_debug("%s: NHT upstream %s(%s) old ifp %s new ifp %s rpf_result: %d",
+			   __func__, up->sg_str, pim->vrf->name,
+			   old.source_nexthop.interface ? old.source_nexthop
+								  .interface->name
+							: "Unknown",
+			   up->rpf.source_nexthop.interface ? up->rpf.source_nexthop
+								      .interface->name
+							    : "Unknown",
+			   rpf_result);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	}
 
 	return HASHWALK_CONTINUE;
@@ -544,7 +655,11 @@ static int pim_ecmp_nexthop_search(struct pim_instance *pim,
 	ifindex_t first_ifindex;
 	struct interface *ifp = NULL;
 	uint32_t hash_val = 0, mod_val = 0;
+<<<<<<< HEAD
 	uint8_t nh_iter = 0, found = 0;
+=======
+	uint16_t nh_iter = 0, found = 0;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	uint32_t i, num_nbrs = 0;
 	struct pim_interface *pim_ifp;
 
@@ -724,7 +839,12 @@ static int pim_ecmp_nexthop_search(struct pim_instance *pim,
 
 /* This API is used to parse Registered address nexthop update coming from Zebra
  */
+<<<<<<< HEAD
 int pim_parse_nexthop_update(ZAPI_CALLBACK_ARGS)
+=======
+void pim_nexthop_update(struct vrf *vrf, struct prefix *match,
+			struct zapi_route *nhr)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 {
 	struct nexthop *nexthop;
 	struct nexthop *nhlist_head = NULL;
@@ -733,6 +853,7 @@ int pim_parse_nexthop_update(ZAPI_CALLBACK_ARGS)
 	struct pim_rpf rpf;
 	struct pim_nexthop_cache *pnc = NULL;
 	struct interface *ifp = NULL;
+<<<<<<< HEAD
 	struct vrf *vrf = vrf_lookup_by_id(vrf_id);
 	struct pim_instance *pim;
 	struct zapi_route nhr;
@@ -749,22 +870,41 @@ int pim_parse_nexthop_update(ZAPI_CALLBACK_ARGS)
 	}
 
 	rpf.rpf_addr = pim_addr_from_prefix(&match);
+=======
+	struct pim_instance *pim;
+
+	pim = vrf->info;
+
+	rpf.rpf_addr = pim_addr_from_prefix(match);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	pnc = pim_nexthop_cache_find(pim, &rpf);
 	if (!pnc) {
 		if (PIM_DEBUG_PIM_NHT)
 			zlog_debug(
 				"%s: Skipping NHT update, addr %pPA is not in local cached DB.",
 				__func__, &rpf.rpf_addr);
+<<<<<<< HEAD
 		return 0;
+=======
+		return;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	}
 
 	pnc->last_update = pim_time_monotonic_usec();
 
+<<<<<<< HEAD
 	if (nhr.nexthop_num) {
 		pnc->nexthop_num = 0;
 
 		for (i = 0; i < nhr.nexthop_num; i++) {
 			nexthop = nexthop_from_zapi_nexthop(&nhr.nexthops[i]);
+=======
+	if (nhr->nexthop_num) {
+		pnc->nexthop_num = 0;
+
+		for (i = 0; i < nhr->nexthop_num; i++) {
+			nexthop = nexthop_from_zapi_nexthop(&nhr->nexthops[i]);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			switch (nexthop->type) {
 			case NEXTHOP_TYPE_IFINDEX:
 				/*
@@ -843,11 +983,19 @@ int pim_parse_nexthop_update(ZAPI_CALLBACK_ARGS)
 #else
 				pim_addr nhaddr = nexthop->gate.ipv6;
 #endif
+<<<<<<< HEAD
 				zlog_debug(
 					"%s: NHT addr %pFX(%s) %d-nhop via %pPA(%s) type %d distance:%u metric:%u ",
 					__func__, &match, pim->vrf->name, i + 1,
 					&nhaddr, ifp->name, nexthop->type,
 					nhr.distance, nhr.metric);
+=======
+				zlog_debug("%s: NHT addr %pFX(%s) %d-nhop via %pPA(%s) type %d distance:%u metric:%u ",
+					   __func__, match, pim->vrf->name,
+					   i + 1, &nhaddr, ifp->name,
+					   nexthop->type, nhr->distance,
+					   nhr->metric);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			}
 
 			if (!ifp->info) {
@@ -888,23 +1036,39 @@ int pim_parse_nexthop_update(ZAPI_CALLBACK_ARGS)
 		pnc->nexthop = nhlist_head;
 		if (pnc->nexthop_num) {
 			pnc->flags |= PIM_NEXTHOP_VALID;
+<<<<<<< HEAD
 			pnc->distance = nhr.distance;
 			pnc->metric = nhr.metric;
 		}
 	} else {
 		pnc->flags &= ~PIM_NEXTHOP_VALID;
 		pnc->nexthop_num = nhr.nexthop_num;
+=======
+			pnc->distance = nhr->distance;
+			pnc->metric = nhr->metric;
+		}
+	} else {
+		pnc->flags &= ~PIM_NEXTHOP_VALID;
+		pnc->nexthop_num = nhr->nexthop_num;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		nexthops_free(pnc->nexthop);
 		pnc->nexthop = NULL;
 	}
 	SET_FLAG(pnc->flags, PIM_NEXTHOP_ANSWER_RECEIVED);
 
 	if (PIM_DEBUG_PIM_NHT)
+<<<<<<< HEAD
 		zlog_debug(
 			"%s: NHT Update for %pFX(%s) num_nh %d num_pim_nh %d vrf:%u up %ld rp %d",
 			__func__, &match, pim->vrf->name, nhr.nexthop_num,
 			pnc->nexthop_num, vrf_id, pnc->upstream_hash->count,
 			listcount(pnc->rp_list));
+=======
+		zlog_debug("%s: NHT Update for %pFX(%s) num_nh %d num_pim_nh %d vrf:%u up %ld rp %d",
+			   __func__, match, pim->vrf->name, nhr->nexthop_num,
+			   pnc->nexthop_num, vrf->vrf_id,
+			   pnc->upstream_hash->count, listcount(pnc->rp_list));
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	pim_rpf_set_refresh_time(pim);
 
@@ -913,7 +1077,12 @@ int pim_parse_nexthop_update(ZAPI_CALLBACK_ARGS)
 	if (pnc->upstream_hash->count)
 		pim_update_upstream_nh(pim, pnc);
 
+<<<<<<< HEAD
 	return 0;
+=======
+	if (pnc->candrp_count)
+		pim_crp_nht_update(pim, pnc);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 }
 
 int pim_ecmp_nexthop_lookup(struct pim_instance *pim,
@@ -928,7 +1097,11 @@ int pim_ecmp_nexthop_lookup(struct pim_instance *pim,
 	struct interface *ifps[router->multipath], *ifp;
 	int first_ifindex;
 	int found = 0;
+<<<<<<< HEAD
 	uint8_t i = 0;
+=======
+	uint16_t i = 0;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	uint32_t hash_val = 0, mod_val = 0;
 	uint32_t num_nbrs = 0;
 	struct pim_interface *pim_ifp;

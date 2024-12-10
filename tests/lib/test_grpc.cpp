@@ -9,6 +9,10 @@
 #include <unistd.h>
 #include <zebra.h>
 
+<<<<<<< HEAD
+=======
+#include "debug.h"
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 #include "filter.h"
 #include "frr_pthread.h"
 #include "libfrr.h"
@@ -34,8 +38,13 @@
 #include <grpcpp/security/credentials.h>
 #include "grpc/frr-northbound.grpc.pb.h"
 
+<<<<<<< HEAD
 DEFINE_HOOK(frr_late_init, (struct event_loop * tm), (tm));
 DEFINE_KOOH(frr_fini, (), ());
+=======
+DEFINE_HOOK(test_grpc_late_init, (struct event_loop * tm), (tm));
+DEFINE_KOOH(test_grpc_fini, (), ());
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 struct vty *vty;
 
@@ -79,27 +88,53 @@ static void static_startup(void)
 	// static struct option_chain *oc;
 
 	cmd_init(1);
+<<<<<<< HEAD
+=======
+	debug_init();
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	zlog_aux_init("NONE: ", LOG_DEBUG);
 	zprivs_preinit(&static_privs);
 	zprivs_init(&static_privs);
 
 	/* Load the server side module -- check libtool path first */
+<<<<<<< HEAD
 	std::string modpath = std::string(binpath) + std::string("../../../lib/.libs");
+=======
+	std::string modpath = std::string(binpath) + std::string("../../lib/.libs");
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	grpc_module = frrmod_load("grpc:50051", modpath.c_str(), 0, 0);
 	if (!grpc_module) {
 		modpath = std::string(binpath) +  std::string("../../lib");
 		grpc_module = frrmod_load("grpc:50051", modpath.c_str(),
 					  _err_print, 0);
 	}
+<<<<<<< HEAD
+=======
+	if (!grpc_module) {
+		modpath = std::string(binpath) +
+			  std::string("../../../lib/.libs");
+		grpc_module = frrmod_load("grpc:50051", modpath.c_str(),
+					  _err_print, 0);
+	}
+	if (!grpc_module) {
+		modpath = std::string(binpath) + std::string("../../../lib");
+		grpc_module = frrmod_load("grpc:50051", modpath.c_str(),
+					  _err_print, 0);
+	}
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	if (!grpc_module)
 		exit(1);
 
 	static_debug_init();
 
 	master = event_master_create(NULL);
+<<<<<<< HEAD
 	nb_init(master, staticd_yang_modules, array_size(staticd_yang_modules),
 		false);
+=======
+	nb_init(master, staticd_yang_modules, array_size(staticd_yang_modules), false, false);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	static_zebra_init();
 	vty_init(master, true);
@@ -108,8 +143,15 @@ static void static_startup(void)
 
 	hook_register(routing_conf_event,
 		      routing_control_plane_protocols_name_validate);
+<<<<<<< HEAD
 
 	routing_control_plane_protocols_register_vrf_dependency();
+=======
+	hook_register(routing_create,
+		      routing_control_plane_protocols_staticd_create);
+	hook_register(routing_destroy,
+		      routing_control_plane_protocols_staticd_destroy);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	// Add a route
 	vty = vty_new();
@@ -127,12 +169,20 @@ static void static_startup(void)
 	frr_pthread_init();
 
 	// frr_config_fork();
+<<<<<<< HEAD
 	hook_call(frr_late_init, master);
+=======
+	hook_call(test_grpc_late_init, master);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 }
 
 static void static_shutdown(void)
 {
+<<<<<<< HEAD
 	hook_call(frr_fini);
+=======
+	hook_call(test_grpc_fini);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	vty_close(vty);
 	vrf_terminate();
 	vty_terminate();

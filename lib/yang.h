@@ -45,9 +45,12 @@ struct yang_module {
 	RB_ENTRY(yang_module) entry;
 	const char *name;
 	const struct lys_module *info;
+<<<<<<< HEAD
 #ifdef HAVE_CONFD
 	int confd_hash;
 #endif
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 #ifdef HAVE_SYSREPO
 	sr_subscription_ctx_t *sr_subscription;
 	struct event *sr_thread;
@@ -112,10 +115,23 @@ extern struct yang_modules yang_modules;
  * module_name
  *    Name of the YANG module.
  *
+<<<<<<< HEAD
  * Returns:
  *    Pointer to newly created YANG module.
  */
 extern struct yang_module *yang_module_load(const char *module_name);
+=======
+ * features
+ *    NULL-terminated array of feature names to enable.
+ *    If NULL, all features are disabled.
+ *    To enable all features, use ["*", NULL].
+ *
+ * Returns:
+ *    Pointer to newly created YANG module.
+ */
+extern struct yang_module *yang_module_load(const char *module_name,
+					    const char **features);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 /*
  * Load all FRR native YANG models.
@@ -317,6 +333,7 @@ extern unsigned int yang_snode_num_keys(const struct lysc_node *snode);
  *    libyang data node to be processed.
  *
  * xpath
+<<<<<<< HEAD
  *    Pointer to previously allocated buffer.
  *
  * xpath_len
@@ -343,6 +360,20 @@ extern const char *yang_dnode_get_schema_name(const struct lyd_node *dnode,
 	PRINTFRR(2, 3);
 
 /*
+=======
+ *    Pointer to previously allocated buffer or NULL.
+ *
+ * xpath_len
+ *    Size of the xpath buffer if xpath non-NULL.
+ *
+ * If xpath is NULL, the returned string (if non-NULL) needs to be free()d by
+ * the caller.
+ */
+extern char *yang_dnode_get_path(const struct lyd_node *dnode, char *xpath,
+				size_t xpath_len);
+
+/*
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
  * Find a libyang data node by its YANG data path.
  *
  * dnode
@@ -435,6 +466,24 @@ void yang_dnode_iterate(yang_dnode_iter_cb cb, void *arg,
 			...) PRINTFRR(4, 5);
 
 /*
+<<<<<<< HEAD
+=======
+ * Count the number of data nodes that satisfy an XPath query.
+ *
+ * dnode
+ *    Base libyang data node to operate on.
+ *
+ * xpath_fmt
+ *    XPath expression (absolute or relative).
+ *
+ * ...
+ *    any parameters for xpath_fmt.
+ */
+uint32_t yang_dnode_count(const struct lyd_node *dnode, const char *xpath_fmt,
+			  ...) PRINTFRR(2, 3);
+
+/*
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
  * Check if the libyang data node contains a default value. Non-presence
  * containers are assumed to always contain a default value.
  *
@@ -532,6 +581,24 @@ extern struct lyd_node *yang_dnode_dup(const struct lyd_node *dnode);
 extern void yang_dnode_free(struct lyd_node *dnode);
 
 /*
+<<<<<<< HEAD
+=======
+ * Add a libyang data node to an RPC/action output container.
+ *
+ * output
+ *    RPC/action output container.
+ *
+ * xpath
+ *    XPath of the data node to add, relative to the output container.
+ *
+ * value
+ *    String representing the value of the data node.
+ */
+extern void yang_dnode_rpc_output_add(struct lyd_node *output,
+				      const char *xpath, const char *value);
+
+/*
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
  * Create a new yang_data structure.
  *
  * xpath
@@ -588,9 +655,17 @@ extern struct yang_data *yang_data_list_find(const struct list *list,
  * explicit_compile
  *    True if the caller will later call ly_ctx_compile to compile all loaded
  *    modules at once.
+<<<<<<< HEAD
  */
 extern struct ly_ctx *yang_ctx_new_setup(bool embedded_modules,
 					 bool explicit_compile);
+=======
+ * load_library
+ *    Set this to have libyang to load/implement the ietf-yang-library.
+ */
+extern struct ly_ctx *yang_ctx_new_setup(bool embedded_modules, bool explicit_compile,
+					 bool load_library);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 /*
  * Enable or disable libyang verbose debugging.
@@ -601,6 +676,91 @@ extern struct ly_ctx *yang_ctx_new_setup(bool embedded_modules,
 extern void yang_debugging_set(bool enable);
 
 /*
+<<<<<<< HEAD
+=======
+ * Parse a YANG notification.
+ *
+ * Args:
+ *	xpath: xpath of notification.
+ *	format: LYD_FORMAT of input data.
+ *	data: input data.
+ *	notif: pointer to the libyang data tree to store the parsed notification.
+ *	       If the notification is not on the top level of the yang model,
+ *	       the pointer to the notification node is still returned, but it's
+ *	       part of the full data tree with all its parents.
+ */
+extern LY_ERR yang_parse_notification(const char *xpath, LYD_FORMAT format,
+				      const char *data, struct lyd_node **notif);
+
+/*
+ * Parse a YANG RPC.
+ *
+ * Args:
+ *	xpath: xpath of an RPC/action.
+ *	format: LYD_FORMAT of input data.
+ *	data: input data.
+ *	reply: true if the data represents a reply to an RPC/action.
+ *	rpc: pointer to the libyang data tree to store the parsed RPC/action.
+ *	     If data represents an action, the pointer to the action node is
+ *	     still returned, but it's part of the full data tree with all its
+ *	     parents.
+ *
+ * Returns:
+ *	LY_ERR from underlying calls.
+ */
+LY_ERR yang_parse_rpc(const char *xpath, LYD_FORMAT format, const char *data,
+		      bool reply, struct lyd_node **rpc);
+
+/*
+ * "Print" the yang tree in `root` into dynamic sized array.
+ *
+ * Args:
+ *	root: root of the subtree to "print" along with siblings.
+ *	format: LYD_FORMAT of output (see lyd_print_mem)
+ *	options: printing options (see lyd_print_mem)
+ *
+ * Return:
+ *	A darr dynamic array with the "printed" output or NULL on failure.
+ */
+extern uint8_t *yang_print_tree(const struct lyd_node *root, LYD_FORMAT format,
+				uint32_t options);
+
+
+/**
+ * yang_convert_lyd_format() - convert one libyang format to darr string.
+ * @data: data to convert.
+ * @data_len: length of the data.
+ * @in_format: format of the data.
+ * @out_format: format to return.
+ * @shrink: true to avoid pretty printing.
+ *
+ * Return:
+ *	A darr based string or NULL for error.
+ */
+extern char *yang_convert_lyd_format(const char *data, size_t msg_len,
+				     LYD_FORMAT in_format,
+				     LYD_FORMAT out_format, bool shrink);
+
+/*
+ * "Print" the yang tree in `root` into an existing dynamic sized array.
+ *
+ * This function does not initialize or free the dynamic array, the array can
+ * already existing data, the tree will be appended to this data.
+ *
+ * Args:
+ *	darr: existing `uint8_t *`, dynamic array.
+ *	root: root of the subtree to "print" along with siblings.
+ *	format: LYD_FORMAT of output (see lyd_print_mem)
+ *	options: printing options (see lyd_print_mem)
+ *
+ * Return:
+ *	LY_ERR from underlying calls.
+ */
+extern LY_ERR yang_print_tree_append(uint8_t **darr, const struct lyd_node *root,
+				     LYD_FORMAT format, uint32_t options);
+
+/*
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
  * Print libyang error messages into the provided buffer.
  *
  * ly_ctx
@@ -626,8 +786,15 @@ extern const char *yang_print_errors(struct ly_ctx *ly_ctx, char *buf,
  *    Specify whether libyang should attempt to look for embedded YANG modules.
  * defer_compile
  *    Hold off on compiling modules until yang_init_loading_complete is called.
+<<<<<<< HEAD
  */
 extern void yang_init(bool embedded_modules, bool defer_compile);
+=======
+ * load_library
+ *    Set this to have libyang to load/implement the ietf-yang-library.
+ */
+extern void yang_init(bool embedded_modules, bool defer_compile, bool load_library);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 /*
  * Should be called after yang_init and all yang_module_load()s have been done,
@@ -693,6 +860,61 @@ bool yang_is_last_list_dnode(const struct lyd_node *dnode);
 /* API to check if the given node is last node in the data tree level */
 bool yang_is_last_level_dnode(const struct lyd_node *dnode);
 
+<<<<<<< HEAD
+=======
+/* Create a YANG predicate string based on the keys */
+extern int yang_get_key_preds(char *s, const struct lysc_node *snode,
+			      struct yang_list_keys *keys, ssize_t space);
+
+/* Get YANG keys from an existing dnode */
+extern int yang_get_node_keys(struct lyd_node *node, struct yang_list_keys *keys);
+
+/**
+ * yang_xpath_pop_node() - remove the last node from xpath string
+ * @xpath: an xpath string
+ *
+ * Return: NB_OK or NB_ERR_NOT_FOUND if nothing left to pop.
+ */
+extern int yang_xpath_pop_node(char *xpath);
+
+/**
+ * yang_resolve_snodes() - Resolve an XPath to matching schema nodes.
+ * @ly_ctx: libyang context to operate on.
+ * @xpath: the path or XPath to resolve.
+ * @snodes: [OUT] pointer for resulting dynamic array (darr) of schema node
+ *          pointers.
+ * @simple: [OUT] indicates if @xpath was resolvable simply or not. Non-simple
+ *          means that the @xpath is not a simple path and utilizes XPath 1.0
+ *          functionality beyond simple key predicates.
+ *
+ * This function can be used to find the schema node (or nodes) that correspond
+ * to a given @xpath. If the @xpath includes non-key predicates (e.g., using
+ * functions) then @simple will be set to false, and @snodes may contain more
+ * than a single schema node.
+ *
+ * Return: a libyang error or LY_SUCCESS.
+ */
+extern LY_ERR yang_resolve_snode_xpath(struct ly_ctx *ly_ctx, const char *xpath,
+				       const struct lysc_node ***snodes,
+				       bool *simple);
+
+/*
+ * Libyang future functions
+ */
+extern const char *yang_ly_strerrcode(LY_ERR err);
+extern const char *yang_ly_strvecode(LY_VECODE vecode);
+extern LY_ERR yang_lyd_new_list(struct lyd_node_inner *parent,
+				const struct lysc_node *snode,
+				const struct yang_list_keys *keys,
+				struct lyd_node **nodes);
+extern LY_ERR yang_lyd_trim_xpath(struct lyd_node **rootp, const char *xpath);
+extern LY_ERR yang_lyd_parse_data(const struct ly_ctx *ctx,
+				  struct lyd_node *parent, struct ly_in *in,
+				  LYD_FORMAT format, uint32_t parse_options,
+				  uint32_t validate_options,
+				  struct lyd_node **tree);
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 #ifdef __cplusplus
 }
 #endif

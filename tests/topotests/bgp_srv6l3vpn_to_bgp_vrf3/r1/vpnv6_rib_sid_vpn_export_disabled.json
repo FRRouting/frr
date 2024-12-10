@@ -1,7 +1,10 @@
 {
   "vrfId": 0,
   "vrfName": "default",
+<<<<<<< HEAD
   "tableVersion": 4,
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
   "routerId": "1.1.1.1",
   "defaultLocPrf": 100,
   "localAS": 1,

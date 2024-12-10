@@ -92,7 +92,11 @@ stream_failure:
 }
 
 #define MLAG_MROUTE_ADD_LENGTH                                                 \
+<<<<<<< HEAD
 	(VRF_NAMSIZ + INTERFACE_NAMSIZ + 4 + 4 + 4 + 4 + 1 + 1 + 4)
+=======
+	(VRF_NAMSIZ + IFNAMSIZ + 4 + 4 + 4 + 4 + 1 + 1 + 4)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 int mlag_lib_decode_mroute_add(struct stream *s, struct mlag_mroute_add *msg,
 			       size_t *length)
@@ -108,14 +112,22 @@ int mlag_lib_decode_mroute_add(struct stream *s, struct mlag_mroute_add *msg,
 	STREAM_GETC(s, msg->am_i_dr);
 	STREAM_GETC(s, msg->am_i_dual_active);
 	STREAM_GETL(s, msg->vrf_id);
+<<<<<<< HEAD
 	STREAM_GET(msg->intf_name, s, INTERFACE_NAMSIZ);
+=======
+	STREAM_GET(msg->intf_name, s, IFNAMSIZ);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	return 0;
 stream_failure:
 	return -1;
 }
 
+<<<<<<< HEAD
 #define MLAG_MROUTE_DEL_LENGTH (VRF_NAMSIZ + INTERFACE_NAMSIZ + 4 + 4 + 4 + 4)
+=======
+#define MLAG_MROUTE_DEL_LENGTH (VRF_NAMSIZ + IFNAMSIZ + 4 + 4 + 4 + 4)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 int mlag_lib_decode_mroute_del(struct stream *s, struct mlag_mroute_del *msg,
 			       size_t *length)
@@ -128,7 +140,11 @@ int mlag_lib_decode_mroute_del(struct stream *s, struct mlag_mroute_del *msg,
 	STREAM_GETL(s, msg->group_ip);
 	STREAM_GETL(s, msg->owner_id);
 	STREAM_GETL(s, msg->vrf_id);
+<<<<<<< HEAD
 	STREAM_GET(msg->intf_name, s, INTERFACE_NAMSIZ);
+=======
+	STREAM_GET(msg->intf_name, s, IFNAMSIZ);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	return 0;
 stream_failure:
@@ -140,7 +156,11 @@ int mlag_lib_decode_mlag_status(struct stream *s, struct mlag_status *msg)
 	if (s == NULL || msg == NULL)
 		return -1;
 
+<<<<<<< HEAD
 	STREAM_GET(msg->peerlink_rif, s, INTERFACE_NAMSIZ);
+=======
+	STREAM_GET(msg->peerlink_rif, s, IFNAMSIZ);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	STREAM_GETL(s, msg->my_role);
 	STREAM_GETL(s, msg->peer_state);
 	return 0;

@@ -39,7 +39,10 @@ enum zebra_iftype {
 	ZEBRA_IF_MACVLAN,   /* MAC VLAN interface*/
 	ZEBRA_IF_VETH,      /* VETH interface*/
 	ZEBRA_IF_BOND,	    /* Bond */
+<<<<<<< HEAD
 	ZEBRA_IF_BOND_SLAVE,	    /* Bond */
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	ZEBRA_IF_GRE,      /* GRE interface */
 };
 
@@ -95,9 +98,12 @@ enum zebra_if_flags {
 #define ZEBRA_IF_IS_PROTODOWN_ONLY_EXTERNAL(zif)                               \
 	((zif)->protodown_rc == ZEBRA_PROTODOWN_EXTERNAL)
 
+<<<<<<< HEAD
 /* Mem type for zif desc */
 DECLARE_MTYPE(ZIF_DESC);
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 /* `zebra' daemon local interface structure. */
 struct zebra_if {
 	/* back pointer to the interface */
@@ -114,6 +120,12 @@ struct zebra_if {
 	/* MPLS status. */
 	bool mpls;
 
+<<<<<<< HEAD
+=======
+	/* MPLS configuration */
+	uint8_t mpls_config;
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	/* Linkdown status */
 	bool linkdown, linkdownv6;
 
@@ -199,6 +211,12 @@ struct zebra_if {
 	ifindex_t link_ifindex;
 	struct interface *link;
 
+<<<<<<< HEAD
+=======
+#define INTERFACE_SPEED_ERROR_READ    -1
+#define INTERFACE_SPEED_ERROR_UNKNOWN -2
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	uint8_t speed_update_count;
 	struct event *speed_update;
 
@@ -210,14 +228,23 @@ struct zebra_if {
 	char neigh_mac[6];
 	struct in6_addr v6_2_v4_ll_addr6;
 
+<<<<<<< HEAD
+=======
+	/* Linkage for per-vrf/per-NS ifp container */
+	struct ifp_tree_link *ns_tree_link;
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	/* The description of the interface */
 	char *desc;
 };
 
 DECLARE_HOOK(zebra_if_extra_info, (struct vty * vty, struct interface *ifp),
 	     (vty, ifp));
+<<<<<<< HEAD
 DECLARE_HOOK(zebra_if_config_wr, (struct vty * vty, struct interface *ifp),
 	     (vty, ifp));
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 #define IS_ZEBRA_IF_VRF(ifp)                                                   \
 	(((struct zebra_if *)(ifp->info))->zif_type == ZEBRA_IF_VRF)
@@ -259,12 +286,18 @@ extern void zebra_if_init(void);
 extern struct interface *if_lookup_by_index_per_ns(struct zebra_ns *, uint32_t);
 extern struct interface *if_lookup_by_name_per_ns(struct zebra_ns *,
 						  const char *);
+<<<<<<< HEAD
 extern struct interface *if_link_per_ns(struct zebra_ns *, struct interface *);
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 extern struct interface *if_lookup_by_index_per_nsid(ns_id_t nsid,
 						     uint32_t ifindex);
 extern const char *ifindex2ifname_per_ns(struct zebra_ns *, unsigned int);
 
+<<<<<<< HEAD
 extern void if_unlink_per_ns(struct interface *);
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 extern void if_nbr_mac_to_ipv4ll_neigh_update(struct interface *fip,
 					      char mac[6],
 					      struct in6_addr *address,
@@ -281,7 +314,10 @@ extern void if_refresh(struct interface *);
 extern void if_flags_update(struct interface *, uint64_t);
 extern int if_subnet_add(struct interface *, struct connected *);
 extern int if_subnet_delete(struct interface *, struct connected *);
+<<<<<<< HEAD
 extern int ipv6_address_configured(struct interface *ifp);
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 extern void if_handle_vrf_change(struct interface *ifp, vrf_id_t vrf_id);
 extern void zebra_if_update_link(struct interface *ifp, ifindex_t link_ifindex,
 				 ns_id_t ns_id);
@@ -306,6 +342,7 @@ extern void cli_show_affinity(struct vty *vty, const struct lyd_node *dnode,
  */
 extern int zebra_if_set_protodown(struct interface *ifp, bool down,
 				  enum protodown_reasons new_reason);
+<<<<<<< HEAD
 extern int if_ip_address_install(struct interface *ifp, struct prefix *prefix,
 				 const char *label, struct prefix *pp);
 extern int if_ipv6_address_install(struct interface *ifp, struct prefix *prefix,
@@ -313,17 +350,40 @@ extern int if_ipv6_address_install(struct interface *ifp, struct prefix *prefix,
 extern int if_ip_address_uinstall(struct interface *ifp, struct prefix *prefix);
 extern int if_shutdown(struct interface *ifp);
 extern int if_no_shutdown(struct interface *ifp);
+=======
+extern void if_ip_address_install(struct interface *ifp, struct prefix *prefix,
+				  const char *label, struct prefix *pp);
+extern void if_ip_address_uninstall(struct interface *ifp,
+				    struct prefix *prefix, struct prefix *pp);
+extern void if_ipv6_address_install(struct interface *ifp,
+				    struct prefix *prefix);
+extern void if_ipv6_address_uninstall(struct interface *ifp,
+				      struct prefix *prefix);
+extern int if_shutdown(struct interface *ifp);
+extern int if_no_shutdown(struct interface *ifp);
+extern void if_arp(struct interface *ifp, bool enable);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 extern int if_multicast_set(struct interface *ifp);
 extern int if_multicast_unset(struct interface *ifp);
 extern int if_linkdetect(struct interface *ifp, bool detect);
 extern void if_addr_wakeup(struct interface *ifp);
 
+<<<<<<< HEAD
 /* Nexthop group connected functions */
 extern void if_nhg_dependents_add(struct interface *ifp,
 				  struct nhg_hash_entry *nhe);
 extern void if_nhg_dependents_del(struct interface *ifp,
 				  struct nhg_hash_entry *nhe);
 extern unsigned int if_nhg_dependents_count(const struct interface *ifp);
+=======
+void link_param_cmd_set_uint32(struct interface *ifp, uint32_t *field,
+			       uint32_t type, uint32_t value);
+void link_param_cmd_set_float(struct interface *ifp, float *field,
+			      uint32_t type, float value);
+void link_param_cmd_unset(struct interface *ifp, uint32_t type);
+
+/* Nexthop group connected functions */
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 extern bool if_nhg_dependents_is_empty(const struct interface *ifp);
 
 extern void vrf_add_update(struct vrf *vrfp);

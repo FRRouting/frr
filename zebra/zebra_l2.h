@@ -80,6 +80,15 @@ struct zebra_vxlan_vni {
 	vni_t vni;	      /* VNI */
 	vlanid_t access_vlan; /* Access VLAN - for VLAN-aware bridge. */
 	struct in_addr mcast_grp;
+<<<<<<< HEAD
+=======
+	uint16_t flags;
+};
+
+struct zebra_vxlan_vni_array {
+	uint16_t count;
+	struct zebra_vxlan_vni vnis[0];
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 };
 
 enum {
@@ -140,6 +149,20 @@ union zebra_l2if_info {
 	struct zebra_l2info_gre gre;
 };
 
+<<<<<<< HEAD
+=======
+struct zebra_vxlan_vlan {
+	uint8_t state;
+	uint32_t vrange;
+	vlanid_t vid;
+};
+
+struct zebra_vxlan_vlan_array {
+	uint16_t count;
+	struct zebra_vxlan_vlan vlans[0];
+};
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 /* NOTE: These macros are to be invoked only in the "correct" context.
  * IOW, the macro VNI_FROM_ZEBRA_IF() will assume the interface is
  * of type ZEBRA_IF_VXLAN.
@@ -159,6 +182,7 @@ extern void zebra_l2_map_slave_to_bridge(struct zebra_l2info_brslave *br_slave,
 					 struct zebra_ns *zns);
 extern void
 zebra_l2_unmap_slave_from_bridge(struct zebra_l2info_brslave *br_slave);
+<<<<<<< HEAD
 extern void zebra_l2_bridge_add_update(struct interface *ifp,
 				       struct zebra_l2info_bridge *bridge_info,
 				       int add);
@@ -171,6 +195,21 @@ extern void zebra_l2_greif_add_update(struct interface *ifp,
 extern void zebra_l2_vxlanif_add_update(struct interface *ifp,
 					struct zebra_l2info_vxlan *vxlan_info,
 					int add);
+=======
+extern void
+zebra_l2_bridge_add_update(struct interface *ifp,
+			   const struct zebra_l2info_bridge *bridge_info);
+extern void zebra_l2_bridge_del(struct interface *ifp);
+extern void zebra_l2_vlanif_update(struct interface *ifp,
+				   const struct zebra_l2info_vlan *vlan_info);
+extern void zebra_l2_greif_add_update(struct interface *ifp,
+				      const struct zebra_l2info_gre *vxlan_info,
+				      int add);
+extern void
+zebra_l2_vxlanif_add_update(struct interface *ifp,
+			    const struct zebra_l2info_vxlan *vxlan_info,
+			    int add);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 extern void zebra_l2_vxlanif_update_access_vlan(struct interface *ifp,
 						vlanid_t access_vlan);
 extern void zebra_l2_greif_del(struct interface *ifp);

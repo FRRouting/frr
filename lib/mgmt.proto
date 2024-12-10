@@ -55,7 +55,14 @@ message YangData {
 enum CfgDataReqType {
   REQ_TYPE_NONE = 0;
   SET_DATA = 1;
+<<<<<<< HEAD
   DELETE_DATA = 2;
+=======
+  REMOVE_DATA = 2;
+  CREATE_DATA = 3;
+  DELETE_DATA = 4;
+  REPLACE_DATA = 5;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 }
 
 message YangCfgDataReq {
@@ -73,8 +80,15 @@ message YangGetDataReq {
 //
 message BeSubscribeReq {
   required string client_name = 1;
+<<<<<<< HEAD
   required bool subscribe_xpaths = 2;
   repeated string xpath_reg = 3;
+=======
+  repeated string config_xpaths = 2;
+  repeated string oper_xpaths = 3;
+  repeated string notif_xpaths = 4;
+  repeated string rpc_xpaths = 5;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 }
 
 message BeSubscribeReply {
@@ -94,16 +108,26 @@ message BeTxnReply {
 
 message BeCfgDataCreateReq {
   required uint64 txn_id = 1;
+<<<<<<< HEAD
   required uint64 batch_id = 2;
   repeated YangCfgDataReq data_req = 3;
   required bool end_of_data = 4;
+=======
+  repeated YangCfgDataReq data_req = 2;
+  required bool end_of_data = 3;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 }
 
 message BeCfgDataCreateReply {
   required uint64 txn_id = 1;
+<<<<<<< HEAD
   required uint64 batch_id = 2;
   required bool success = 3;
   optional string error_if_any = 4;
+=======
+  required bool success = 2;
+  optional string error_if_any = 3;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 }
 
 message BeCfgDataApplyReq {
@@ -112,6 +136,7 @@ message BeCfgDataApplyReq {
 
 message BeCfgDataApplyReply {
   required uint64 txn_id = 1;
+<<<<<<< HEAD
   repeated uint64 batch_ids = 2;
   required bool success = 3;
   optional string error_if_any = 4;
@@ -121,6 +146,10 @@ message BeOperDataGetReq {
   required uint64 txn_id = 1;
   required uint64 batch_id = 2;
   repeated YangGetDataReq data = 3;
+=======
+  required bool success = 2;
+  optional string error_if_any = 3;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 }
 
 message YangDataReply {
@@ -128,6 +157,7 @@ message YangDataReply {
   required int64 next_indx = 2;
 }
 
+<<<<<<< HEAD
 message BeOperDataGetReply {
   required uint64 txn_id = 1;
   required uint64 batch_id = 2;
@@ -136,6 +166,8 @@ message BeOperDataGetReply {
   optional YangDataReply data = 5;
 }
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 //
 // Any message on the MGMTD Backend Interface.
 //
@@ -149,8 +181,11 @@ message BeMessage {
     BeCfgDataCreateReply cfg_data_reply = 7;
     BeCfgDataApplyReq cfg_apply_req = 8;
     BeCfgDataApplyReply cfg_apply_reply = 9;
+<<<<<<< HEAD
     BeOperDataGetReq get_req = 10;
     BeOperDataGetReply get_reply = 11;
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
   }
 }
 

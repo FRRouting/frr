@@ -15,8 +15,13 @@
 DECLARE_MGROUP(NHRPD);
 
 #define NHRPD_DEFAULT_HOLDTIME	7200
+<<<<<<< HEAD
 
 #define NHRP_VTY_PORT		2610
+=======
+#define NHRPD_DEFAULT_PURGE_TIME 30
+#define NHRPD_PURGE_EXPIRE	 3000
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 #define NHRP_DEFAULT_CONFIG	"nhrpd.conf"
 
 extern struct event_loop *master;
@@ -251,10 +256,19 @@ struct nhrp_shortcut {
 	union sockunion addr;
 
 	struct nhrp_reqid reqid;
+<<<<<<< HEAD
 	struct event *t_timer;
 
 	enum nhrp_cache_type type;
 	unsigned int holding_time;
+=======
+	struct event *t_shortcut_purge;
+	struct event *t_retry_resolution;
+
+	enum nhrp_cache_type type;
+	unsigned int holding_time;
+	unsigned int retry_interval;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	unsigned route_installed : 1;
 	unsigned expiring : 1;
 
@@ -312,6 +326,10 @@ DECLARE_DLIST(nhrp_reglist, struct nhrp_registration, reglist_entry);
 struct nhrp_interface {
 	struct interface *ifp;
 
+<<<<<<< HEAD
+=======
+	struct zbuf *auth_token;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	unsigned enabled : 1;
 
 	char *ipsec_profile, *ipsec_fallback_profile, *source;
@@ -362,6 +380,10 @@ int sock_open_unix(const char *path);
 
 void nhrp_interface_init(void);
 void nhrp_interface_update(struct interface *ifp);
+<<<<<<< HEAD
+=======
+void nhrp_interface_update_arp(struct interface *ifp, bool arp_enable);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 void nhrp_interface_update_mtu(struct interface *ifp, afi_t afi);
 void nhrp_interface_update_nbma(struct interface *ifp,
 				struct nhrp_gre_info *gre_info);
@@ -480,9 +502,19 @@ struct nhrp_packet_header *nhrp_packet_push(struct zbuf *zb, uint8_t type,
 					    const union sockunion *src_nbma,
 					    const union sockunion *src_proto,
 					    const union sockunion *dst_proto);
+<<<<<<< HEAD
 void nhrp_packet_complete(struct zbuf *zb, struct nhrp_packet_header *hdr);
 uint16_t nhrp_packet_calculate_checksum(const uint8_t *pdu, uint16_t len);
 
+=======
+uint16_t nhrp_packet_calculate_checksum(const uint8_t *pdu, uint16_t len);
+
+void nhrp_packet_complete(struct zbuf *zb, struct nhrp_packet_header *hdr,
+			  struct interface *ifp);
+void nhrp_packet_complete_auth(struct zbuf *zb, struct nhrp_packet_header *hdr,
+			       struct interface *ifp, bool auth);
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 struct nhrp_packet_header *nhrp_packet_pull(struct zbuf *zb,
 					    union sockunion *src_nbma,
 					    union sockunion *src_proto,
@@ -501,8 +533,12 @@ nhrp_ext_push(struct zbuf *zb, struct nhrp_packet_header *hdr, uint16_t type);
 void nhrp_ext_complete(struct zbuf *zb, struct nhrp_extension_header *ext);
 struct nhrp_extension_header *nhrp_ext_pull(struct zbuf *zb,
 					    struct zbuf *payload);
+<<<<<<< HEAD
 void nhrp_ext_request(struct zbuf *zb, struct nhrp_packet_header *hdr,
 		      struct interface *);
+=======
+void nhrp_ext_request(struct zbuf *zb, struct nhrp_packet_header *hdr);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 int nhrp_ext_reply(struct zbuf *zb, struct nhrp_packet_header *hdr,
 		   struct interface *ifp, struct nhrp_extension_header *ext,
 		   struct zbuf *extpayload);

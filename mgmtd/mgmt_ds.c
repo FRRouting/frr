@@ -15,10 +15,16 @@
 #include "mgmtd/mgmt_txn.h"
 #include "libyang/libyang.h"
 
+<<<<<<< HEAD
 #define MGMTD_DS_DBG(fmt, ...)                                                 \
 	DEBUGD(&mgmt_debug_ds, "DS: %s: " fmt, __func__, ##__VA_ARGS__)
 #define MGMTD_DS_ERR(fmt, ...)                                                 \
 	zlog_err("%s: ERROR: " fmt, __func__, ##__VA_ARGS__)
+=======
+#define __dbg(fmt, ...)                                                        \
+	DEBUGD(&mgmt_debug_ds, "DS: %s: " fmt, __func__, ##__VA_ARGS__)
+#define __log_err(fmt, ...) zlog_err("%s: ERROR: " fmt, __func__, ##__VA_ARGS__)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 struct mgmt_ds_ctx {
 	Mgmtd__DatastoreId ds_id;
@@ -81,8 +87,13 @@ static int mgmt_ds_replace_dst_with_src_ds(struct mgmt_ds_ctx *src,
 	if (!src || !dst)
 		return -1;
 
+<<<<<<< HEAD
 	MGMTD_DS_DBG("Replacing %s with %s", mgmt_ds_id2name(dst->ds_id),
 		     mgmt_ds_id2name(src->ds_id));
+=======
+	__dbg("Replacing %s with %s", mgmt_ds_id2name(dst->ds_id),
+	      mgmt_ds_id2name(src->ds_id));
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	if (src->config_ds && dst->config_ds)
 		nb_config_replace(dst->root.cfg_root, src->root.cfg_root, true);
@@ -93,6 +104,7 @@ static int mgmt_ds_replace_dst_with_src_ds(struct mgmt_ds_ctx *src,
 		dst->root.dnode_root = yang_dnode_dup(src->root.dnode_root);
 	}
 
+<<<<<<< HEAD
 	if (src->ds_id == MGMTD_DS_CANDIDATE) {
 		/*
 		 * Drop the changes in scratch-buffer.
@@ -101,6 +113,8 @@ static int mgmt_ds_replace_dst_with_src_ds(struct mgmt_ds_ctx *src,
 		nb_config_diff_del_changes(&src->root.cfg_root->cfg_chgs);
 	}
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	return 0;
 }
 
@@ -112,7 +126,11 @@ static int mgmt_ds_merge_src_with_dst_ds(struct mgmt_ds_ctx *src,
 	if (!src || !dst)
 		return -1;
 
+<<<<<<< HEAD
 	MGMTD_DS_DBG("Merging DS %d with %d", dst->ds_id, src->ds_id);
+=======
+	__dbg("Merging DS %d with %d", dst->ds_id, src->ds_id);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	if (src->config_ds && dst->config_ds)
 		ret = nb_config_merge(dst->root.cfg_root, src->root.cfg_root,
 				      true);
@@ -122,6 +140,7 @@ static int mgmt_ds_merge_src_with_dst_ds(struct mgmt_ds_ctx *src,
 					 src->root.dnode_root, 0);
 	}
 	if (ret != 0) {
+<<<<<<< HEAD
 		MGMTD_DS_ERR("merge failed with err: %d", ret);
 		return ret;
 	}
@@ -134,6 +153,12 @@ static int mgmt_ds_merge_src_with_dst_ds(struct mgmt_ds_ctx *src,
 		nb_config_diff_del_changes(&src->root.cfg_root->cfg_chgs);
 	}
 
+=======
+		__log_err("merge failed with err: %d", ret);
+		return ret;
+	}
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	return 0;
 }
 
@@ -144,7 +169,12 @@ static int mgmt_ds_load_cfg_from_file(const char *filepath,
 
 	*dnode = NULL;
 	ret = lyd_parse_data_path(ly_native_ctx, filepath, LYD_JSON,
+<<<<<<< HEAD
 				  LYD_PARSE_STRICT, 0, dnode);
+=======
+				  LYD_PARSE_NO_STATE | LYD_PARSE_STRICT,
+				  LYD_VALIDATE_NO_STATE, dnode);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	if (ret != LY_SUCCESS) {
 		if (*dnode)
@@ -315,7 +345,11 @@ static int mgmt_walk_ds_nodes(
 
 	assert(mgmt_ds_node_iter_fn);
 
+<<<<<<< HEAD
 	MGMTD_DS_DBG(" -- START: base xpath: '%s'", base_xpath);
+=======
+	__dbg(" -- START: base xpath: '%s'", base_xpath);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	if (!base_dnode)
 		/*
@@ -326,9 +360,15 @@ static int mgmt_walk_ds_nodes(
 	if (!base_dnode)
 		return -1;
 
+<<<<<<< HEAD
 	MGMTD_DS_DBG("           search base schema: '%s'",
 		     lysc_path(base_dnode->schema, LYSC_PATH_LOG, xpath,
 			       sizeof(xpath)));
+=======
+	__dbg("           search base schema: '%s'",
+	      lysc_path(base_dnode->schema, LYSC_PATH_LOG, xpath,
+			sizeof(xpath)));
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	nbnode = (struct nb_node *)base_dnode->schema->priv;
 	(*mgmt_ds_node_iter_fn)(base_xpath, base_dnode, nbnode, ctx);
@@ -351,7 +391,11 @@ static int mgmt_walk_ds_nodes(
 
 		(void)lyd_path(dnode, LYD_PATH_STD, xpath, sizeof(xpath));
 
+<<<<<<< HEAD
 		MGMTD_DS_DBG(" -- Child xpath: %s", xpath);
+=======
+		__dbg(" -- Child xpath: %s", xpath);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 		ret = mgmt_walk_ds_nodes(root, xpath, dnode,
 					 mgmt_ds_node_iter_fn, ctx);
@@ -359,7 +403,11 @@ static int mgmt_walk_ds_nodes(
 			break;
 	}
 
+<<<<<<< HEAD
 	MGMTD_DS_DBG(" -- END: base xpath: '%s'", base_xpath);
+=======
+	__dbg(" -- END: base xpath: '%s'", base_xpath);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	return ret;
 }
@@ -423,8 +471,12 @@ int mgmt_ds_load_config_from_file(struct mgmt_ds_ctx *dst,
 		return -1;
 
 	if (mgmt_ds_load_cfg_from_file(file_path, &iter) != 0) {
+<<<<<<< HEAD
 		MGMTD_DS_ERR("Failed to load config from the file %s",
 			     file_path);
+=======
+		__log_err("Failed to load config from the file %s", file_path);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		return -1;
 	}
 
@@ -467,7 +519,11 @@ int mgmt_ds_iter_data(Mgmtd__DatastoreId ds_id, struct nb_config *root,
 	 * Oper-state should be kept in mind though for the prefix walk
 	 */
 
+<<<<<<< HEAD
 	MGMTD_DS_DBG(" -- START DS walk for DSid: %d", ds_id);
+=======
+	__dbg(" -- START DS walk for DSid: %d", ds_id);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	/* If the base_xpath is empty then crawl the sibblings */
 	if (xpath[0] == 0) {

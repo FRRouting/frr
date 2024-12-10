@@ -13,11 +13,20 @@ Installing Dependencies
    zypper in  git autoconf automake libtool make   \
      readline-devel texinfo net-snmp-devel groff pkgconfig libjson-c-devel\
      pam-devel python3-pytest bison flex c-ares-devel python3-devel\
+<<<<<<< HEAD
      python3-Sphinx perl patch libcap-devel libyang-devel \
+=======
+     python3-Sphinx perl patch libcap-devel \
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
      libelf-devel libunwind-devel protobuf-c
 
 .. include:: building-libunwind-note.rst
 
+<<<<<<< HEAD
+=======
+.. include:: building-libyang.rst
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 Building & Installing FRR
 -------------------------
 

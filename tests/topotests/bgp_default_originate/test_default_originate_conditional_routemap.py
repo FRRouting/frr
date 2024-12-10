@@ -19,7 +19,10 @@ import os
 import sys
 import time
 import pytest
+<<<<<<< HEAD
 from copy import deepcopy
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 from lib.topolog import logger
 
 # pylint: disable=C0413
@@ -75,6 +78,10 @@ NETWORK1_1 = {"ipv4": "198.51.1.1/32", "ipv6": "2001:DB8::1:1/128"}
 DEFAULT_ROUTES = {"ipv4": "0.0.0.0/0", "ipv6": "0::0/0"}
 NEXT_HOP_IP = {"ipv4": "Null0", "ipv6": "Null0"}
 
+<<<<<<< HEAD
+=======
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 def setup_module(mod):
     """
     Sets up the pytest environment
@@ -818,11 +825,19 @@ def test_verify_default_originate_after_BGP_attributes_p1(request):
 
     step("Configure IPv4 and IPv6 , EBGP neighbor between R3 and R2")
     step("Configure IPv4 and IPv6 IBGP neighbor between R3 and R4")
+<<<<<<< HEAD
     r0_local_as = topo['routers']['r0']['bgp']['local_as']
     r1_local_as = topo['routers']['r1']['bgp']['local_as']
     r2_local_as = topo['routers']['r2']['bgp']['local_as']
     r3_local_as = topo['routers']['r3']['bgp']['local_as']
     r4_local_as = topo['routers']['r4']['bgp']['local_as']
+=======
+    r0_local_as = topo["routers"]["r0"]["bgp"]["local_as"]
+    r1_local_as = topo["routers"]["r1"]["bgp"]["local_as"]
+    r2_local_as = topo["routers"]["r2"]["bgp"]["local_as"]
+    r3_local_as = topo["routers"]["r3"]["bgp"]["local_as"]
+    r4_local_as = topo["routers"]["r4"]["bgp"]["local_as"]
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     input_dict = {
         "r0": {
             "bgp": {
@@ -1026,22 +1041,38 @@ def test_verify_default_originate_after_BGP_attributes_p1(request):
                         "action": "permit",
                         "seq_id": "1",
                         "set": {
+<<<<<<< HEAD
                                 "path": {
                                     "as_num": "200",
                                     "as_action": "prepend",
                                 }
                             }
 
+=======
+                            "path": {
+                                "as_num": "200",
+                                "as_action": "prepend",
+                            }
+                        },
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
                     },
                     {
                         "action": "permit",
                         "seq_id": "2",
                         "set": {
+<<<<<<< HEAD
                                 "path": {
                                     "as_num": "300",
                                     "as_action": "prepend",
                                 }
                             }
+=======
+                            "path": {
+                                "as_num": "300",
+                                "as_action": "prepend",
+                            }
+                        },
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
                     },
                 ],
                 "RMv6": [
@@ -1049,21 +1080,37 @@ def test_verify_default_originate_after_BGP_attributes_p1(request):
                         "action": "permit",
                         "seq_id": "1",
                         "set": {
+<<<<<<< HEAD
                                 "path": {
                                     "as_num": "200",
                                     "as_action": "prepend",
                                 }
                             }
+=======
+                            "path": {
+                                "as_num": "200",
+                                "as_action": "prepend",
+                            }
+                        },
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
                     },
                     {
                         "action": "permit",
                         "seq_id": "2",
                         "set": {
+<<<<<<< HEAD
                                 "path": {
                                     "as_num": "300",
                                     "as_action": "prepend",
                                 }
                             }
+=======
+                            "path": {
+                                "as_num": "300",
+                                "as_action": "prepend",
+                            }
+                        },
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
                     },
                 ],
             }
@@ -1122,22 +1169,38 @@ def test_verify_default_originate_after_BGP_attributes_p1(request):
                         "action": "permit",
                         "seq_id": "1",
                         "set": {
+<<<<<<< HEAD
                                 "path": {
                                     "as_num": "500",
                                     "as_action": "prepend",
                                 }
                             }
 
+=======
+                            "path": {
+                                "as_num": "500",
+                                "as_action": "prepend",
+                            }
+                        },
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
                     },
                     {
                         "action": "permit",
                         "seq_id": "2",
                         "set": {
+<<<<<<< HEAD
                                 "path": {
                                     "as_num": "600",
                                     "as_action": "prepend",
                                 }
                             }
+=======
+                            "path": {
+                                "as_num": "600",
+                                "as_action": "prepend",
+                            }
+                        },
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
                     },
                 ],
                 "RMv6": [
@@ -1145,21 +1208,37 @@ def test_verify_default_originate_after_BGP_attributes_p1(request):
                         "action": "permit",
                         "seq_id": "1",
                         "set": {
+<<<<<<< HEAD
                                 "path": {
                                     "as_num": "500",
                                     "as_action": "prepend",
                                 }
                             }
+=======
+                            "path": {
+                                "as_num": "500",
+                                "as_action": "prepend",
+                            }
+                        },
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
                     },
                     {
                         "action": "permit",
                         "seq_id": "2",
                         "set": {
+<<<<<<< HEAD
                                 "path": {
                                     "as_num": "600",
                                     "as_action": "prepend",
                                 }
                             }
+=======
+                            "path": {
+                                "as_num": "600",
+                                "as_action": "prepend",
+                            }
+                        },
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
                     },
                 ],
             }
@@ -1170,7 +1249,10 @@ def test_verify_default_originate_after_BGP_attributes_p1(request):
     assert result is True, "Test case {} : Failed \n Error: {}".format(tc_name, result)
     assert result is True, "Testcase {} : Failed Error: {}".format(tc_name, result)
 
+<<<<<<< HEAD
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     step("As path 500 added to IPv4 and IPv6 default -originate route received on R2")
     result = verify_rib_default_route(
         tgen,
@@ -1232,7 +1314,10 @@ def test_verify_default_originate_after_BGP_attributes_p1(request):
         "Verify Configured metric value received on R2 along with as-path for IPv4 and IPv6 default routes "
     )
 
+<<<<<<< HEAD
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     DEFAULT_ROUTES = {"ipv4": "0.0.0.0/0", "ipv6": "::/0"}
     result = verify_rib_default_route(
         tgen,
@@ -1244,7 +1329,10 @@ def test_verify_default_originate_after_BGP_attributes_p1(request):
         expected_aspath="4000 500",
     )
 
+<<<<<<< HEAD
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     step(
         "Modify route-map seq1 configure metric 50 and route-map seq2 configure metric 100 IPv4 and IPv6 route-map "
     )
@@ -1294,7 +1382,10 @@ def test_verify_default_originate_after_BGP_attributes_p1(request):
         "Verify Configured metric value received on R2 along with as-path for IPv4 and IPv6 default routes "
     )
 
+<<<<<<< HEAD
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     result = verify_rib_default_route(
         tgen,
         topo,
@@ -1314,7 +1405,10 @@ def test_verify_default_originate_after_BGP_attributes_p1(request):
                     {
                         "action": "permit",
                         "seq_id": "1",
+<<<<<<< HEAD
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
                         "set": {
                             "path": {
                                 "as_num": "500",
@@ -1374,9 +1468,12 @@ def test_verify_default_originate_after_BGP_attributes_p1(request):
         "Verify AS-prepend is deleted from default originate route and metric value only present on R2 for IPv4 and IPv6 default routes "
     )
 
+<<<<<<< HEAD
 
 
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     result = verify_rib_default_route(
         tgen,
         topo,
@@ -1388,7 +1485,10 @@ def test_verify_default_originate_after_BGP_attributes_p1(request):
     )
     assert result is True, "Testcase {} : Failed Error: {}".format(tc_name, result)
 
+<<<<<<< HEAD
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     step("Delete metric value  from IP4 and IPv6 route-map configured on R3 ")
     route_map = {
         "r3": {
@@ -1428,8 +1528,11 @@ def test_verify_default_originate_after_BGP_attributes_p1(request):
         "Verify Metric value deleted from IPv4 and IPv6 default route on R2 ,verify  default routes "
     )
 
+<<<<<<< HEAD
 
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     result = verify_rib_default_route(
         tgen,
         topo,
@@ -1443,11 +1546,19 @@ def test_verify_default_originate_after_BGP_attributes_p1(request):
     assert result is True, "Testcase {} : Failed Error: {}".format(tc_name, result)
     step("Change  IPv4 and IPv6 , EBGP to IBGP neighbor between R3 and R2")
     step("Change IPv4 and IPv6 IBGP to EBGP neighbor between R3 and R4")
+<<<<<<< HEAD
     r0_local_as = topo['routers']['r0']['bgp']['local_as']
     r1_local_as = topo['routers']['r1']['bgp']['local_as']
     r2_local_as = topo['routers']['r2']['bgp']['local_as']
     r3_local_as = topo['routers']['r3']['bgp']['local_as']
     r4_local_as = topo['routers']['r4']['bgp']['local_as']
+=======
+    r0_local_as = topo["routers"]["r0"]["bgp"]["local_as"]
+    r1_local_as = topo["routers"]["r1"]["bgp"]["local_as"]
+    r2_local_as = topo["routers"]["r2"]["bgp"]["local_as"]
+    r3_local_as = topo["routers"]["r3"]["bgp"]["local_as"]
+    r4_local_as = topo["routers"]["r4"]["bgp"]["local_as"]
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     input_dict = {
         "r0": {
             "bgp": {
@@ -1459,7 +1570,10 @@ def test_verify_default_originate_after_BGP_attributes_p1(request):
                 "local_as": r1_local_as,
             }
         },
+<<<<<<< HEAD
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         "r2": {
             "bgp": {
                 "local_as": 1111,
@@ -1645,8 +1759,11 @@ def test_verify_default_originate_after_BGP_attributes_p1(request):
         "Verify Configured metric value received on R2 along with as-path for IPv4 and IPv6 default routes "
     )
 
+<<<<<<< HEAD
 
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     result = verify_rib_default_route(
         tgen,
         topo,
@@ -1656,7 +1773,10 @@ def test_verify_default_originate_after_BGP_attributes_p1(request):
         locPrf=50,
     )
 
+<<<<<<< HEAD
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     assert result is True, "Testcase {} : Failed Error: {}".format(tc_name, result)
 
     step(
@@ -1708,9 +1828,12 @@ def test_verify_default_originate_after_BGP_attributes_p1(request):
         "Verify Modified local-preference  value received on R2  for IPv4 and IPv6 default routes "
     )
 
+<<<<<<< HEAD
 
 
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     DEFAULT_ROUTES = {"ipv4": "0.0.0.0/0", "ipv6": "::/0"}
     result = verify_rib_default_route(
         tgen,
@@ -1724,6 +1847,7 @@ def test_verify_default_originate_after_BGP_attributes_p1(request):
     assert result is True, "Testcase {} : Failed Error: {}".format(tc_name, result)
     # updating the topology with the updated AS-Number to avoid conflict in con configuring the AS
     updated_topo = topo
+<<<<<<< HEAD
     updated_topo['routers']['r0']['bgp']['local_as']=get_dut_as_number(tgen,"r0")
     updated_topo['routers']['r1']['bgp']['local_as']=get_dut_as_number(tgen,"r1")
     updated_topo['routers']['r2']['bgp']['local_as']=get_dut_as_number(tgen,"r2")
@@ -1731,6 +1855,17 @@ def test_verify_default_originate_after_BGP_attributes_p1(request):
     updated_topo['routers']['r4']['bgp']['local_as']=get_dut_as_number(tgen,"r4")
 
     step("Shut IPv4/IPv6 BGP neighbor from R4 ( R4-R3) using 'neighbor x.x.x.x shut' command ")
+=======
+    updated_topo["routers"]["r0"]["bgp"]["local_as"] = get_dut_as_number(tgen, "r0")
+    updated_topo["routers"]["r1"]["bgp"]["local_as"] = get_dut_as_number(tgen, "r1")
+    updated_topo["routers"]["r2"]["bgp"]["local_as"] = get_dut_as_number(tgen, "r2")
+    updated_topo["routers"]["r3"]["bgp"]["local_as"] = get_dut_as_number(tgen, "r3")
+    updated_topo["routers"]["r4"]["bgp"]["local_as"] = get_dut_as_number(tgen, "r4")
+
+    step(
+        "Shut IPv4/IPv6 BGP neighbor from R4 ( R4-R3) using 'neighbor x.x.x.x shut' command "
+    )
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     local_as = get_dut_as_number(tgen, dut="r4")
     shut_neighbor = {
         "r4": {
@@ -1740,17 +1875,22 @@ def test_verify_default_originate_after_BGP_attributes_p1(request):
                     "ipv4": {
                         "unicast": {
                             "neighbor": {
+<<<<<<< HEAD
                                 "r3": {
                                     "dest_link": {
                                         "r4": {"shutdown":True}
                                     }
                                 }
+=======
+                                "r3": {"dest_link": {"r4": {"shutdown": True}}}
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
                             }
                         }
                     },
                     "ipv6": {
                         "unicast": {
                             "neighbor": {
+<<<<<<< HEAD
                                 "r3": {
                                     "dest_link": {
                                         "r4": {"shutdown":True}
@@ -1760,12 +1900,20 @@ def test_verify_default_originate_after_BGP_attributes_p1(request):
                         }
                     }
                 }
+=======
+                                "r3": {"dest_link": {"r4": {"shutdown": True}}}
+                            }
+                        }
+                    },
+                },
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
             }
         }
     }
     result = create_router_bgp(tgen, updated_topo, shut_neighbor)
     assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
+<<<<<<< HEAD
     interface = topo['routers']['r3']['links']['r4']['interface']
     input_dict = {
             "r1": {
@@ -1780,6 +1928,25 @@ def test_verify_default_originate_after_BGP_attributes_p1(request):
     step("After shutting the interface verify the BGP convergence")
     result = verify_bgp_convergence(tgen,topo,expected=False)
     assert result is not True, "Testcase {} : Failed \n After shutting Down BGP convergence should Fail and return False \n Error: {}".format(tc_name, result)
+=======
+    interface = topo["routers"]["r3"]["links"]["r4"]["interface"]
+    input_dict = {"r1": {"interface_list": [interface], "status": "down"}}
+
+    result = interface_status(tgen, topo, input_dict)
+    assert (
+        result is True
+    ), "Testcase {} : Shut down the interface failed ! \n Error: {}".format(
+        tc_name, result
+    )
+
+    step("After shutting the interface verify the BGP convergence")
+    result = verify_bgp_convergence(tgen, topo, expected=False)
+    assert (
+        result is not True
+    ), "Testcase {} : Failed \n After shutting Down BGP convergence should Fail and return False \n Error: {}".format(
+        tc_name, result
+    )
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
     step("verify default route deleted from R2 ")
     result = verify_rib_default_route(
@@ -1788,8 +1955,18 @@ def test_verify_default_originate_after_BGP_attributes_p1(request):
         dut="r2",
         routes=DEFAULT_ROUTES,
         expected_nexthop=DEFAULT_ROUTE_NXT_HOP_R3,
+<<<<<<< HEAD
         expected=False)
     assert result is not  True, "Testcase {} : Failed \n Error: After Shut down interface the default route is NOT expected but found in RIB -> {}".format( tc_name, result)
+=======
+        expected=False,
+    )
+    assert (
+        result is not True
+    ), "Testcase {} : Failed \n Error: After Shut down interface the default route is NOT expected but found in RIB -> {}".format(
+        tc_name, result
+    )
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
     result = verify_fib_default_route(
         tgen,
@@ -1797,11 +1974,25 @@ def test_verify_default_originate_after_BGP_attributes_p1(request):
         dut="r2",
         routes=DEFAULT_ROUTES,
         expected_nexthop=DEFAULT_ROUTE_NXT_HOP_R3,
+<<<<<<< HEAD
         expected=False)
     assert result is not  True, "Testcase {} : Failed \n Error:  After Shut down interface the default route is NOT expected but found in FIB -> {}".format( tc_name, result)
 
 
     step("no Shut IPv4/IPv6 BGP neighbor from R4 ( R4-R3) using 'neighbor x.x.x.x shut' command ")
+=======
+        expected=False,
+    )
+    assert (
+        result is not True
+    ), "Testcase {} : Failed \n Error:  After Shut down interface the default route is NOT expected but found in FIB -> {}".format(
+        tc_name, result
+    )
+
+    step(
+        "no Shut IPv4/IPv6 BGP neighbor from R4 ( R4-R3) using 'neighbor x.x.x.x shut' command "
+    )
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     local_as = get_dut_as_number(tgen, dut="r4")
     shut_neighbor = {
         "r4": {
@@ -1811,17 +2002,22 @@ def test_verify_default_originate_after_BGP_attributes_p1(request):
                     "ipv4": {
                         "unicast": {
                             "neighbor": {
+<<<<<<< HEAD
                                 "r3": {
                                     "dest_link": {
                                         "r4": {"shutdown":False}
                                     }
                                 }
+=======
+                                "r3": {"dest_link": {"r4": {"shutdown": False}}}
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
                             }
                         }
                     },
                     "ipv6": {
                         "unicast": {
                             "neighbor": {
+<<<<<<< HEAD
                                 "r3": {
                                     "dest_link": {
                                         "r4": {"shutdown":False}
@@ -1831,12 +2027,20 @@ def test_verify_default_originate_after_BGP_attributes_p1(request):
                         }
                     }
                 }
+=======
+                                "r3": {"dest_link": {"r4": {"shutdown": False}}}
+                            }
+                        }
+                    },
+                },
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
             }
         }
     }
     result = create_router_bgp(tgen, updated_topo, shut_neighbor)
     assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
+<<<<<<< HEAD
     interface = topo['routers']['r3']['links']['r4']['interface']
     input_dict = {
             "r1": {
@@ -1851,6 +2055,23 @@ def test_verify_default_originate_after_BGP_attributes_p1(request):
     step("After no shutting the interface verify the BGP convergence")
     result = verify_bgp_convergence(tgen,topo,expected=True)
     assert result is True, "Testcase {} : Failed \n After shutting Down BGP convergence should Fail and return False \n Error: {}".format(tc_name, result)
+=======
+    interface = topo["routers"]["r3"]["links"]["r4"]["interface"]
+    input_dict = {"r1": {"interface_list": [interface], "status": "up"}}
+
+    result = interface_status(tgen, topo, input_dict)
+    assert (
+        result is True
+    ), "Testcase {} : Bring up interface failed ! \n Error: {}".format(tc_name, result)
+
+    step("After no shutting the interface verify the BGP convergence")
+    result = verify_bgp_convergence(tgen, topo, expected=True)
+    assert (
+        result is True
+    ), "Testcase {} : Failed \n After shutting Down BGP convergence should Fail and return False \n Error: {}".format(
+        tc_name, result
+    )
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
     step("After no shut neighbor , verify default route relearn on R2")
     result = verify_rib_default_route(
@@ -1859,8 +2080,18 @@ def test_verify_default_originate_after_BGP_attributes_p1(request):
         dut="r2",
         routes=DEFAULT_ROUTES,
         expected_nexthop=DEFAULT_ROUTE_NXT_HOP_R3,
+<<<<<<< HEAD
         expected=True)
     assert result is   True, "Testcase {} : Failed \n Error: After no Shut down interface the default route is  expected but found in RIB -> {}".format( tc_name, result)
+=======
+        expected=True,
+    )
+    assert (
+        result is True
+    ), "Testcase {} : Failed \n Error: After no Shut down interface the default route is  expected but found in RIB -> {}".format(
+        tc_name, result
+    )
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
     result = verify_fib_default_route(
         tgen,
@@ -1868,10 +2099,20 @@ def test_verify_default_originate_after_BGP_attributes_p1(request):
         dut="r2",
         routes=DEFAULT_ROUTES,
         expected_nexthop=DEFAULT_ROUTE_NXT_HOP_R3,
+<<<<<<< HEAD
         expected=True)
     assert result is True, "Testcase {} : Failed \n Error:  After Shut down interface the default route is  expected but found in FIB -> {}".format( tc_name, result)
 
 
+=======
+        expected=True,
+    )
+    assert (
+        result is True
+    ), "Testcase {} : Failed \n Error:  After Shut down interface the default route is  expected but found in FIB -> {}".format(
+        tc_name, result
+    )
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
     step("Remove IPv4/IPv6 static route configure on R4")
     for addr_type in ADDR_TYPES:
@@ -1881,7 +2122,11 @@ def test_verify_default_originate_after_BGP_attributes_p1(request):
                     {
                         "network": [NETWORK1_1[addr_type]],
                         "next_hop": NEXT_HOP_IP[addr_type],
+<<<<<<< HEAD
                         "delete": True
+=======
+                        "delete": True,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
                     }
                 ]
             }
@@ -1902,12 +2147,25 @@ def test_verify_default_originate_after_BGP_attributes_p1(request):
                 ]
             }
         }
+<<<<<<< HEAD
         result = verify_fib_routes(tgen, addr_type, "r4", static_routes_input, expected=False)
         assert result is not  True, "Testcase {} : Failed \n Error: {}".format(
             tc_name, result
         )
         result = verify_bgp_rib(tgen, addr_type, "r4", static_routes_input, expected=False)
         assert result is not  True, "Testcase {} : Failed \n Error: {}".format(
+=======
+        result = verify_fib_routes(
+            tgen, addr_type, "r4", static_routes_input, expected=False
+        )
+        assert result is not True, "Testcase {} : Failed \n Error: {}".format(
+            tc_name, result
+        )
+        result = verify_bgp_rib(
+            tgen, addr_type, "r4", static_routes_input, expected=False
+        )
+        assert result is not True, "Testcase {} : Failed \n Error: {}".format(
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
             tc_name, result
         )
 
@@ -1918,8 +2176,18 @@ def test_verify_default_originate_after_BGP_attributes_p1(request):
         dut="r2",
         routes=DEFAULT_ROUTES,
         expected_nexthop=DEFAULT_ROUTE_NXT_HOP_R3,
+<<<<<<< HEAD
         expected= False)
     assert result is not  True, "Testcase {} : Failed \n Error: After removing static  the default route is NOT expected but found in RIB -> {}".format( tc_name, result)
+=======
+        expected=False,
+    )
+    assert (
+        result is not True
+    ), "Testcase {} : Failed \n Error: After removing static  the default route is NOT expected but found in RIB -> {}".format(
+        tc_name, result
+    )
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
     result = verify_fib_default_route(
         tgen,
@@ -1927,9 +2195,19 @@ def test_verify_default_originate_after_BGP_attributes_p1(request):
         dut="r2",
         routes=DEFAULT_ROUTES,
         expected_nexthop=DEFAULT_ROUTE_NXT_HOP_R3,
+<<<<<<< HEAD
         expected= False)
     assert result is not True, "Testcase {} : Failed \n Error:  After removing static the default route is NOT expected but found in FIB -> {}".format( tc_name, result)
 
+=======
+        expected=False,
+    )
+    assert (
+        result is not True
+    ), "Testcase {} : Failed \n Error:  After removing static the default route is NOT expected but found in FIB -> {}".format(
+        tc_name, result
+    )
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
     step("Configuring the static route back in r4")
     for addr_type in ADDR_TYPES:
@@ -1959,12 +2237,25 @@ def test_verify_default_originate_after_BGP_attributes_p1(request):
                 ]
             }
         }
+<<<<<<< HEAD
         result = verify_fib_routes(tgen, addr_type, "r4", static_routes_input, expected=True)
         assert result is   True, "Testcase {} : Failed \n Error: {}".format(
             tc_name, result
         )
         result = verify_bgp_rib(tgen, addr_type, "r4", static_routes_input, expected=True)
         assert result is    True, "Testcase {} : Failed \n Error: {}".format(
+=======
+        result = verify_fib_routes(
+            tgen, addr_type, "r4", static_routes_input, expected=True
+        )
+        assert result is True, "Testcase {} : Failed \n Error: {}".format(
+            tc_name, result
+        )
+        result = verify_bgp_rib(
+            tgen, addr_type, "r4", static_routes_input, expected=True
+        )
+        assert result is True, "Testcase {} : Failed \n Error: {}".format(
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
             tc_name, result
         )
 
@@ -1975,8 +2266,18 @@ def test_verify_default_originate_after_BGP_attributes_p1(request):
         dut="r2",
         routes=DEFAULT_ROUTES,
         expected_nexthop=DEFAULT_ROUTE_NXT_HOP_R3,
+<<<<<<< HEAD
         expected= True)
     assert result is   True, "Testcase {} : Failed \n Error: After removing static  the default route is  expected but found in RIB -> {}".format( tc_name, result)
+=======
+        expected=True,
+    )
+    assert (
+        result is True
+    ), "Testcase {} : Failed \n Error: After removing static  the default route is  expected but found in RIB -> {}".format(
+        tc_name, result
+    )
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
     result = verify_fib_default_route(
         tgen,
@@ -1984,8 +2285,18 @@ def test_verify_default_originate_after_BGP_attributes_p1(request):
         dut="r2",
         routes=DEFAULT_ROUTES,
         expected_nexthop=DEFAULT_ROUTE_NXT_HOP_R3,
+<<<<<<< HEAD
         expected= True)
     assert result is  True, "Testcase {} : Failed \n Error:  After removing static  the default route is  expected but found in FIB -> {}".format( tc_name, result)
+=======
+        expected=True,
+    )
+    assert (
+        result is True
+    ), "Testcase {} : Failed \n Error:  After removing static  the default route is  expected but found in FIB -> {}".format(
+        tc_name, result
+    )
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
     step("Deactivate IPv4 and IPv6 neighbor configured from R4 ( R4-R3)")
 
@@ -1999,15 +2310,24 @@ def test_verify_default_originate_after_BGP_attributes_p1(request):
                                 "r3": {"dest_link": {"r4": {"deactivate": "ipv4"}}}
                             }
                         },
+<<<<<<< HEAD
 
                     },"ipv6": {
+=======
+                    },
+                    "ipv6": {
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
                         "unicast": {
                             "neighbor": {
                                 "r3": {"dest_link": {"r4": {"deactivate": "ipv6"}}}
                             }
                         },
+<<<<<<< HEAD
 
                     }
+=======
+                    },
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
                 }
             }
         }
@@ -2022,8 +2342,18 @@ def test_verify_default_originate_after_BGP_attributes_p1(request):
         dut="r2",
         routes=DEFAULT_ROUTES,
         expected_nexthop=DEFAULT_ROUTE_NXT_HOP_R3,
+<<<<<<< HEAD
         expected= False)
     assert result is not  True, "Testcase {} : Failed \n Error: After Deactivating the BGP neighbor the default route is NOT expected but found in RIB -> {}".format( tc_name, result)
+=======
+        expected=False,
+    )
+    assert (
+        result is not True
+    ), "Testcase {} : Failed \n Error: After Deactivating the BGP neighbor the default route is NOT expected but found in RIB -> {}".format(
+        tc_name, result
+    )
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
     result = verify_fib_default_route(
         tgen,
@@ -2031,8 +2361,18 @@ def test_verify_default_originate_after_BGP_attributes_p1(request):
         dut="r2",
         routes=DEFAULT_ROUTES,
         expected_nexthop=DEFAULT_ROUTE_NXT_HOP_R3,
+<<<<<<< HEAD
         expected= False)
     assert result is not  True, "Testcase {} : Failed \n Error: After Deactivating the BGP neighbor  the default route is NOT expected but found in FIB -> {}".format( tc_name, result)
+=======
+        expected=False,
+    )
+    assert (
+        result is not True
+    ), "Testcase {} : Failed \n Error: After Deactivating the BGP neighbor  the default route is NOT expected but found in FIB -> {}".format(
+        tc_name, result
+    )
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
     step("Activate IPv4 and IPv6 neighbor configured from R4 ( R4-R3)")
 
@@ -2046,15 +2386,24 @@ def test_verify_default_originate_after_BGP_attributes_p1(request):
                                 "r3": {"dest_link": {"r4": {"activate": "ipv4"}}}
                             }
                         },
+<<<<<<< HEAD
 
                     },"ipv6": {
+=======
+                    },
+                    "ipv6": {
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
                         "unicast": {
                             "neighbor": {
                                 "r3": {"dest_link": {"r4": {"activate": "ipv6"}}}
                             }
                         },
+<<<<<<< HEAD
 
                     }
+=======
+                    },
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
                 }
             }
         }
@@ -2064,7 +2413,11 @@ def test_verify_default_originate_after_BGP_attributes_p1(request):
 
     step("Verify bgp convergence.")
     bgp_convergence = verify_bgp_convergence(tgen, updated_topo)
+<<<<<<< HEAD
     assert bgp_convergence is  True, "Testcase {} : Failed \n Error: {}".format(
+=======
+    assert bgp_convergence is True, "Testcase {} : Failed \n Error: {}".format(
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         tc_name, bgp_convergence
     )
     step("After Activating the BGP neighbor   , verify default route learned on R2")
@@ -2074,8 +2427,18 @@ def test_verify_default_originate_after_BGP_attributes_p1(request):
         dut="r2",
         routes=DEFAULT_ROUTES,
         expected_nexthop=DEFAULT_ROUTE_NXT_HOP_R3,
+<<<<<<< HEAD
         expected= True)
     assert result is   True, "Testcase {} : Failed \n Error: After Deactivating the BGP neighbor the default route is   expected but found in RIB -> {}".format( tc_name, result)
+=======
+        expected=True,
+    )
+    assert (
+        result is True
+    ), "Testcase {} : Failed \n Error: After Deactivating the BGP neighbor the default route is   expected but found in RIB -> {}".format(
+        tc_name, result
+    )
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
     result = verify_fib_default_route(
         tgen,
@@ -2083,10 +2446,23 @@ def test_verify_default_originate_after_BGP_attributes_p1(request):
         dut="r2",
         routes=DEFAULT_ROUTES,
         expected_nexthop=DEFAULT_ROUTE_NXT_HOP_R3,
+<<<<<<< HEAD
         expected= True)
     assert result is   True, "Testcase {} : Failed \n Error:  After Deactivating the BGP neighbor the default route is   expected but found in FIB -> {}".format( tc_name, result)
     write_test_footer(tc_name)
 
+=======
+        expected=True,
+    )
+    assert (
+        result is True
+    ), "Testcase {} : Failed \n Error:  After Deactivating the BGP neighbor the default route is   expected but found in FIB -> {}".format(
+        tc_name, result
+    )
+    write_test_footer(tc_name)
+
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 if __name__ == "__main__":
     args = ["-s"] + sys.argv[1:]
     sys.exit(pytest.main(args))

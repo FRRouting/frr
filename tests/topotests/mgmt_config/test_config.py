@@ -61,8 +61,12 @@ import pytest
 from lib.common_config import retry, step
 from lib.topogen import Topogen, TopoRouter
 
+<<<<<<< HEAD
 # pytestmark = [pytest.mark.staticd, pytest.mark.mgmtd]
 pytestmark = [pytest.mark.staticd]
+=======
+pytestmark = [pytest.mark.staticd, pytest.mark.mgmtd]
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 
 @retry(retry_timeout=1, initial_wait=0.1)

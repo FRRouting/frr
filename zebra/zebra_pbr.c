@@ -1,6 +1,12 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 /* Zebra Policy Based Routing (PBR) main handling.
  * Copyright (C) 2018  Cumulus Networks, Inc.
+<<<<<<< HEAD
+=======
+ * Portions:
+ *		Copyright (c) 2021 The MITRE Corporation.
+ *		Copyright (c) 2023 LabN Consulting, L.L.C.
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
  */
 
 #include <zebra.h>
@@ -166,10 +172,23 @@ uint32_t zebra_pbr_rules_hash_key(const void *arg)
 
 	key = jhash(rule->ifname, strlen(rule->ifname), key);
 
+<<<<<<< HEAD
 	return jhash_3words(rule->rule.filter.src_port,
 			    rule->rule.filter.dst_port,
 			    prefix_hash_key(&rule->rule.filter.dst_ip),
 			    jhash_1word(rule->rule.unique, key));
+=======
+	key = jhash_3words(rule->rule.filter.pcp, rule->rule.filter.vlan_id,
+			   rule->rule.filter.vlan_flags, key);
+
+	key = jhash_3words(rule->rule.filter.src_port,
+			   rule->rule.filter.dst_port,
+			   prefix_hash_key(&rule->rule.filter.dst_ip), key);
+
+	key = jhash_2words(rule->rule.unique, rule->sock, key);
+
+	return key;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 }
 
 bool zebra_pbr_rules_hash_equal(const void *arg1, const void *arg2)
@@ -185,6 +204,12 @@ bool zebra_pbr_rules_hash_equal(const void *arg1, const void *arg2)
 	if (r1->rule.priority != r2->rule.priority)
 		return false;
 
+<<<<<<< HEAD
+=======
+	if (r1->sock != r2->sock)
+		return false;
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	if (r1->rule.unique != r2->rule.unique)
 		return false;
 
@@ -220,8 +245,14 @@ bool zebra_pbr_rules_hash_equal(const void *arg1, const void *arg2)
 
 struct pbr_rule_unique_lookup {
 	struct zebra_pbr_rule *rule;
+<<<<<<< HEAD
 	uint32_t unique;
 	char ifname[INTERFACE_NAMSIZ + 1];
+=======
+	int sock;
+	uint32_t unique;
+	char ifname[IFNAMSIZ + 1];
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	vrf_id_t vrf_id;
 };
 
@@ -230,9 +261,15 @@ static int pbr_rule_lookup_unique_walker(struct hash_bucket *b, void *data)
 	struct pbr_rule_unique_lookup *pul = data;
 	struct zebra_pbr_rule *rule = b->data;
 
+<<<<<<< HEAD
 	if (pul->unique == rule->rule.unique
 	    && strncmp(pul->ifname, rule->rule.ifname, INTERFACE_NAMSIZ) == 0
 	    && pul->vrf_id == rule->vrf_id) {
+=======
+	if (pul->sock == rule->sock && pul->unique == rule->rule.unique &&
+	    strmatch(pul->ifname, rule->rule.ifname) &&
+	    pul->vrf_id == rule->vrf_id) {
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		pul->rule = rule;
 		return HASHWALK_ABORT;
 	}
@@ -246,9 +283,16 @@ pbr_rule_lookup_unique(struct zebra_pbr_rule *zrule)
 	struct pbr_rule_unique_lookup pul;
 
 	pul.unique = zrule->rule.unique;
+<<<<<<< HEAD
 	strlcpy(pul.ifname, zrule->rule.ifname, INTERFACE_NAMSIZ);
 	pul.rule = NULL;
 	pul.vrf_id = zrule->vrf_id;
+=======
+	strlcpy(pul.ifname, zrule->rule.ifname, IFNAMSIZ);
+	pul.rule = NULL;
+	pul.vrf_id = zrule->vrf_id;
+	pul.sock = zrule->sock;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	hash_walk(zrouter.rules_hash, &pbr_rule_lookup_unique_walker, &pul);
 
 	return pul.rule;
@@ -501,6 +545,10 @@ void zebra_pbr_show_rule_unit(struct zebra_pbr_rule *rule, struct vty *vty)
 {
 	struct pbr_rule *prule = &rule->rule;
 	struct zebra_pbr_action *zaction = &rule->action;
+<<<<<<< HEAD
+=======
+	struct pbr_action *pa = &prule->action;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	vty_out(vty, "Rules if %s\n", rule->ifname);
 	vty_out(vty, "  Seq %u pri %u\n", prule->seq, prule->priority);
@@ -516,6 +564,7 @@ void zebra_pbr_show_rule_unit(struct zebra_pbr_rule *rule, struct vty *vty)
 	if (prule->filter.filter_bm & PBR_FILTER_DST_PORT)
 		vty_out(vty, "  DST Port Match: %u\n", prule->filter.dst_port);
 
+<<<<<<< HEAD
 	if (prule->filter.filter_bm & PBR_FILTER_DSFIELD) {
 		vty_out(vty, "  DSCP Match: %u\n",
 			(prule->filter.dsfield & PBR_DSFIELD_DSCP) >> 2);
@@ -525,6 +574,57 @@ void zebra_pbr_show_rule_unit(struct zebra_pbr_rule *rule, struct vty *vty)
 
 	if (prule->filter.filter_bm & PBR_FILTER_FWMARK)
 		vty_out(vty, "  MARK Match: %u\n", prule->filter.fwmark);
+=======
+	if (prule->filter.filter_bm & PBR_FILTER_DSCP)
+		vty_out(vty, "  DSCP Match: %u\n",
+			(prule->filter.dsfield & PBR_DSFIELD_DSCP) >> 2);
+	if (prule->filter.filter_bm & PBR_FILTER_ECN)
+		vty_out(vty, "  ECN Match: %u\n",
+			prule->filter.dsfield & PBR_DSFIELD_ECN);
+
+	if (prule->filter.filter_bm & PBR_FILTER_FWMARK)
+		vty_out(vty, "  MARK Match: %u\n", prule->filter.fwmark);
+	if (prule->filter.filter_bm & PBR_FILTER_PCP)
+		vty_out(vty, "  PCP Match: %u\n", prule->filter.pcp);
+	if (prule->filter.filter_bm & PBR_FILTER_VLAN_ID)
+		vty_out(vty, "  VLAN ID Match: %u\n", prule->filter.vlan_id);
+	if (prule->filter.filter_bm & PBR_FILTER_VLAN_FLAGS) {
+		vty_out(vty, "  VLAN Flags Match:");
+		if (CHECK_FLAG(prule->filter.vlan_flags, PBR_VLAN_FLAGS_TAGGED))
+			vty_out(vty, " tagged");
+		if (CHECK_FLAG(prule->filter.vlan_flags,
+			       PBR_VLAN_FLAGS_UNTAGGED))
+			vty_out(vty, " untagged");
+		if (CHECK_FLAG(prule->filter.vlan_flags,
+			       PBR_VLAN_FLAGS_UNTAGGED_0))
+			vty_out(vty, " untagged-or-zero");
+		vty_out(vty, "\n");
+	}
+
+	if (CHECK_FLAG(pa->flags, PBR_ACTION_ECN))
+		vty_out(vty, "  Action: Set ECN: %u\n", pa->ecn);
+	if (CHECK_FLAG(pa->flags, PBR_ACTION_DSCP))
+		vty_out(vty, "  Action: Set DSCP: %u\n", pa->dscp >> 2);
+
+	if (CHECK_FLAG(pa->flags, PBR_ACTION_SRC_IP))
+		vty_out(vty, "  Action: Set SRC IP: %pSU\n", &pa->src_ip);
+	if (CHECK_FLAG(pa->flags, PBR_ACTION_DST_IP))
+		vty_out(vty, "  Action: Set DST IP: %pSU\n", &pa->dst_ip);
+	if (CHECK_FLAG(pa->flags, PBR_ACTION_SRC_PORT))
+		vty_out(vty, "  Action: Set SRC PORT: %u\n", pa->src_port);
+	if (CHECK_FLAG(pa->flags, PBR_ACTION_DST_PORT))
+		vty_out(vty, "  Action: Set DST PORT: %u\n", pa->dst_port);
+
+	if (CHECK_FLAG(pa->flags, PBR_ACTION_QUEUE_ID))
+		vty_out(vty, "  Action: Set Queue ID: %u\n", pa->queue_id);
+
+	if (CHECK_FLAG(pa->flags, PBR_ACTION_PCP))
+		vty_out(vty, "  Action: Set PCP: %u\n", pa->pcp);
+	if (CHECK_FLAG(pa->flags, PBR_ACTION_VLAN_ID))
+		vty_out(vty, "  Action: Set VLAN ID: %u\n", pa->vlan_id);
+	if (CHECK_FLAG(pa->flags, PBR_ACTION_VLAN_STRIP_INNER_ANY))
+		vty_out(vty, "  Action: Strip VLAN ID\n");
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	vty_out(vty, "  Tableid: %u\n", prule->action.table);
 	if (zaction->afi == AFI_IP)
@@ -1118,7 +1218,11 @@ static void zebra_pbr_display_port(struct vty *vty, uint32_t filter_bm,
 			    uint16_t port_min, uint16_t port_max,
 			    uint8_t proto)
 {
+<<<<<<< HEAD
 	if (!(filter_bm & PBR_FILTER_PROTO)) {
+=======
+	if (!(filter_bm & PBR_FILTER_IP_PROTOCOL)) {
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		if (port_max)
 			vty_out(vty, ":udp/tcp:%d-%d",
 				port_min, port_max);

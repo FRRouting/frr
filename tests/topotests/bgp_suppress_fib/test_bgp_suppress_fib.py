@@ -15,7 +15,10 @@ import sys
 import json
 import pytest
 from functools import partial
+<<<<<<< HEAD
 from time import sleep
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 from lib.topolog import logger
 
 CWD = os.path.dirname(os.path.realpath(__file__))
@@ -47,7 +50,11 @@ def setup_module(mod):
 
     router_list = tgen.routers()
 
+<<<<<<< HEAD
     for i, (rname, router) in enumerate(router_list.items(), 1):
+=======
+    for _, (rname, router) in enumerate(router_list.items(), 1):
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         router.load_config(
             TopoRouter.RD_ZEBRA, os.path.join(CWD, "{}/zebra.conf".format(rname))
         )
@@ -94,7 +101,10 @@ def test_bgp_route():
         expected,
     )
     _, result = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
+<<<<<<< HEAD
     assertmsg = '"r3" JSON output mismatches'
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     assert result is None, assertmsg
 
     json_file = "{}/r3/v4_route3.json".format(CWD)
@@ -103,10 +113,18 @@ def test_bgp_route():
     test_func = partial(
         topotest.router_json_cmp,
         r3,
+<<<<<<< HEAD
         "show ip route 10.0.0.3 json",
         expected,
     )
     _, result = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
+=======
+        "show ip route 60.0.0.0 json",
+        expected,
+    )
+    _, result = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
+    assert result is None, assertmsg
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 
 def test_bgp_better_admin_won():
@@ -141,7 +159,11 @@ def test_bgp_better_admin_won():
         topotest.router_json_cmp, r3, "show ip route 40.0.0.0 json", expected
     )
 
+<<<<<<< HEAD
     _, result = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
+=======
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     assertmsg = '"r3" route to 40.0.0.0 should have been lost'
     assert result is None, assertmsg
 
@@ -156,7 +178,11 @@ def test_bgp_better_admin_won():
         "show ip route 40.0.0.0 json",
         expected,
     )
+<<<<<<< HEAD
     _, result = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
+=======
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     assertmsg = '"r3" route to 40.0.0.0 did not come back'
     assert result is None, assertmsg
 
@@ -197,7 +223,11 @@ def test_bgp_allow_as_in():
         expected,
     )
 
+<<<<<<< HEAD
     _, result = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
+=======
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     assertmsg = '"r1" 192.168.1.1/32 route should have arrived'
     assert result is None, assertmsg
 
@@ -213,10 +243,18 @@ def test_bgp_allow_as_in():
         expected,
     )
 
+<<<<<<< HEAD
     _, result = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
     assertmsg = '"r2" 192.168.1.1/32 route should be gone'
     assert result is None, assertmsg
 
+=======
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
+    assertmsg = '"r2" 192.168.1.1/32 route should be gone'
+    assert result is None, assertmsg
+
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 def test_local_vs_non_local():
     tgen = get_topogen()
 
@@ -229,7 +267,11 @@ def test_local_vs_non_local():
     paths = output["paths"]
     for i in range(len(paths)):
         if "fibPending" in paths[i]:
+<<<<<<< HEAD
             assert(False),  "Route 60.0.0.0/24 should not have fibPending"
+=======
+            assert False, "Route 60.0.0.0/24 should not have fibPending"
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 
 if __name__ == "__main__":

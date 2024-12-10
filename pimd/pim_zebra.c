@@ -51,6 +51,7 @@ static int pim_router_id_update_zebra(ZAPI_CALLBACK_ARGS)
 	return 0;
 }
 
+<<<<<<< HEAD
 static int pim_zebra_interface_vrf_update(ZAPI_CALLBACK_ARGS)
 {
 	struct interface *ifp;
@@ -84,16 +85,25 @@ static int pim_zebra_interface_vrf_update(ZAPI_CALLBACK_ARGS)
 	return 0;
 }
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 #ifdef PIM_DEBUG_IFADDR_DUMP
 static void dump_if_address(struct interface *ifp)
 {
 	struct connected *ifc;
+<<<<<<< HEAD
 	struct listnode *node;
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	zlog_debug("%s %s: interface %s addresses:", __FILE__, __func__,
 		   ifp->name);
 
+<<<<<<< HEAD
 	for (ALL_LIST_ELEMENTS_RO(ifp->connected, node, ifc)) {
+=======
+	frr_each (if_connected, ifp->connected, ifc) {
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		struct prefix *p = ifc->address;
 
 		if (p->family != AF_INET)
@@ -130,8 +140,16 @@ static int pim_zebra_if_address_add(ZAPI_CALLBACK_ARGS)
 	p = c->address;
 
 	if (PIM_DEBUG_ZEBRA) {
+<<<<<<< HEAD
 		zlog_debug("%s: %s(%u) connected IP address %pFX flags %u %s",
 			   __func__, c->ifp->name, vrf_id, p, c->flags,
+=======
+		zlog_debug("%s: %s(%s) connected IP address %pFX flags %u %s",
+			   __func__, c->ifp->name,
+			   (pim_ifp ? VRF_LOGNAME(pim_ifp->pim->vrf)
+				    : "Unknown"),
+			   p, c->flags,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			   CHECK_FLAG(c->flags, ZEBRA_IFA_SECONDARY)
 				   ? "secondary"
 				   : "primary");
@@ -188,6 +206,11 @@ static int pim_zebra_if_address_add(ZAPI_CALLBACK_ARGS)
 				pim_if_addr_add_all(ifp);
 		}
 	}
+<<<<<<< HEAD
+=======
+
+	pim_cand_addrs_changed();
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	return 0;
 }
 
@@ -216,8 +239,13 @@ static int pim_zebra_if_address_del(ZAPI_CALLBACK_ARGS)
 
 	if (PIM_DEBUG_ZEBRA) {
 		zlog_debug(
+<<<<<<< HEAD
 			"%s: %s(%u) disconnected IP address %pFX flags %u %s",
 			__func__, c->ifp->name, vrf_id, p, c->flags,
+=======
+			"%s: %s(%s) disconnected IP address %pFX flags %u %s",
+			__func__, c->ifp->name, VRF_LOGNAME(vrf), p, c->flags,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			CHECK_FLAG(c->flags, ZEBRA_IFA_SECONDARY)
 				? "secondary"
 				: "primary");
@@ -236,6 +264,11 @@ static int pim_zebra_if_address_del(ZAPI_CALLBACK_ARGS)
 	}
 
 	connected_free(&c);
+<<<<<<< HEAD
+=======
+
+	pim_cand_addrs_changed();
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	return 0;
 }
 
@@ -359,7 +392,11 @@ static int pim_zebra_vxlan_sg_proc(ZAPI_CALLBACK_ARGS)
 	stream_get(&sg.grp, s, prefixlen);
 
 	if (PIM_DEBUG_ZEBRA)
+<<<<<<< HEAD
 		zlog_debug("%u:recv SG %s %pSG", vrf_id,
+=======
+		zlog_debug("%s:recv SG %s %pSG", VRF_LOGNAME(pim->vrf),
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			   (cmd == ZEBRA_VXLAN_SG_ADD) ? "add" : "del", &sg);
 
 	if (cmd == ZEBRA_VXLAN_SG_ADD)
@@ -461,9 +498,13 @@ static zclient_handler *const pim_handlers[] = {
 	[ZEBRA_INTERFACE_ADDRESS_ADD] = pim_zebra_if_address_add,
 	[ZEBRA_INTERFACE_ADDRESS_DELETE] = pim_zebra_if_address_del,
 
+<<<<<<< HEAD
 	[ZEBRA_NEXTHOP_UPDATE] = pim_parse_nexthop_update,
 	[ZEBRA_ROUTER_ID_UPDATE] = pim_router_id_update_zebra,
 	[ZEBRA_INTERFACE_VRF_UPDATE] = pim_zebra_interface_vrf_update,
+=======
+	[ZEBRA_ROUTER_ID_UPDATE] = pim_router_id_update_zebra,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 #if PIM_IPV == 4
 	[ZEBRA_VXLAN_SG_ADD] = pim_zebra_vxlan_sg_proc,
@@ -483,6 +524,10 @@ void pim_zebra_init(void)
 
 	zclient->zebra_capabilities = pim_zebra_capabilities;
 	zclient->zebra_connected = pim_zebra_connected;
+<<<<<<< HEAD
+=======
+	zclient->nexthop_update = pim_nexthop_update;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	zclient_init(zclient, ZEBRA_ROUTE_PIM, 0, &pimd_privs);
 	if (PIM_DEBUG_PIM_TRACE) {

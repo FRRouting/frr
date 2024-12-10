@@ -7,18 +7,48 @@ luCommand("ce1", 'vtysh -c "show bgp summary"', " 00:0", "wait", "Adjacencies up
 luCommand("ce2", 'vtysh -c "show bgp summary"', " 00:0", "wait", "Adjacencies up", 180)
 luCommand("ce3", 'vtysh -c "show bgp summary"', " 00:0", "wait", "Adjacencies up", 180)
 luCommand(
+<<<<<<< HEAD
     "r1", 'vtysh -c "show ip route ospf"', "2.2.2.2", "wait", "OSPF Route has Arrived", 60)
+=======
+    "r1",
+    'vtysh -c "show ip route ospf"',
+    "2.2.2.2",
+    "wait",
+    "OSPF Route has Arrived",
+    60,
+)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 luCommand(
     "r1", "ping 2.2.2.2 -c 1", " 0. packet loss", "wait", "PE->P2 (loopback) ping", 60
 )
 luCommand(
+<<<<<<< HEAD
     "r3", 'vtysh -c "show ip route ospf"', "2.2.2.2", "wait", "OSPF Route has Arrived", 60)
+=======
+    "r3",
+    'vtysh -c "show ip route ospf"',
+    "2.2.2.2",
+    "wait",
+    "OSPF Route has Arrived",
+    60,
+)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 luCommand(
     "r3", "ping 2.2.2.2 -c 1", " 0. packet loss", "wait", "PE->P2 (loopback) ping", 60
 )
 
 luCommand(
+<<<<<<< HEAD
     "r4", 'vtysh -c "show ip route ospf"', "2.2.2.2", "wait", "OSPF Route has Arrived", 60)
+=======
+    "r4",
+    'vtysh -c "show ip route ospf"',
+    "2.2.2.2",
+    "wait",
+    "OSPF Route has Arrived",
+    60,
+)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 luCommand(
     "r4", "ping 2.2.2.2 -c 1", " 0. packet loss", "wait", "PE->P2 (loopback) ping", 60
 )

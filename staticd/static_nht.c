@@ -18,8 +18,12 @@
 #include "static_nht.h"
 
 static void static_nht_update_path(struct static_path *pn, struct prefix *nhp,
+<<<<<<< HEAD
 				   uint32_t nh_num, vrf_id_t nh_vrf_id,
 				   struct vrf *vrf)
+=======
+				   uint32_t nh_num, vrf_id_t nh_vrf_id)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 {
 	struct static_nexthop *nh;
 
@@ -49,18 +53,27 @@ static void static_nht_update_path(struct static_path *pn, struct prefix *nhp,
 
 static void static_nht_update_safi(struct prefix *sp, struct prefix *nhp,
 				   uint32_t nh_num, afi_t afi, safi_t safi,
+<<<<<<< HEAD
 				   struct vrf *vrf, vrf_id_t nh_vrf_id)
 {
 	struct route_table *stable;
 	struct static_vrf *svrf;
+=======
+				   struct static_vrf *svrf, vrf_id_t nh_vrf_id)
+{
+	struct route_table *stable;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	struct route_node *rn;
 	struct static_path *pn;
 	struct static_route_info *si;
 
+<<<<<<< HEAD
 	svrf = vrf->info;
 	if (!svrf)
 		return;
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	stable = static_vrf_static_table(afi, safi, svrf);
 	if (!stable)
 		return;
@@ -71,7 +84,11 @@ static void static_nht_update_safi(struct prefix *sp, struct prefix *nhp,
 			si = static_route_info_from_rnode(rn);
 			frr_each(static_path_list, &si->path_list, pn) {
 				static_nht_update_path(pn, nhp, nh_num,
+<<<<<<< HEAD
 						       nh_vrf_id, vrf);
+=======
+						       nh_vrf_id);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			}
 			route_unlock_node(rn);
 		}
@@ -83,7 +100,11 @@ static void static_nht_update_safi(struct prefix *sp, struct prefix *nhp,
 		if (!si)
 			continue;
 		frr_each(static_path_list, &si->path_list, pn) {
+<<<<<<< HEAD
 			static_nht_update_path(pn, nhp, nh_num, nh_vrf_id, vrf);
+=======
+			static_nht_update_path(pn, nhp, nh_num, nh_vrf_id);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		}
 	}
 }
@@ -91,29 +112,45 @@ static void static_nht_update_safi(struct prefix *sp, struct prefix *nhp,
 void static_nht_update(struct prefix *sp, struct prefix *nhp, uint32_t nh_num,
 		       afi_t afi, safi_t safi, vrf_id_t nh_vrf_id)
 {
+<<<<<<< HEAD
 
 	struct vrf *vrf;
 
 	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name)
 		static_nht_update_safi(sp, nhp, nh_num, afi, safi, vrf,
+=======
+	struct static_vrf *svrf;
+
+	RB_FOREACH (svrf, svrf_name_head, &svrfs)
+		static_nht_update_safi(sp, nhp, nh_num, afi, safi, svrf,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 				       nh_vrf_id);
 }
 
 static void static_nht_reset_start_safi(struct prefix *nhp, afi_t afi,
+<<<<<<< HEAD
 					safi_t safi, struct vrf *vrf,
 					vrf_id_t nh_vrf_id)
 {
 	struct static_vrf *svrf;
+=======
+					safi_t safi, struct static_vrf *svrf,
+					vrf_id_t nh_vrf_id)
+{
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	struct route_table *stable;
 	struct static_nexthop *nh;
 	struct static_path *pn;
 	struct route_node *rn;
 	struct static_route_info *si;
 
+<<<<<<< HEAD
 	svrf = vrf->info;
 	if (!svrf)
 		return;
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	stable = static_vrf_static_table(afi, safi, svrf);
 	if (!stable)
 		return;
@@ -153,10 +190,17 @@ static void static_nht_reset_start_safi(struct prefix *nhp, afi_t afi,
 void static_nht_reset_start(struct prefix *nhp, afi_t afi, safi_t safi,
 			    vrf_id_t nh_vrf_id)
 {
+<<<<<<< HEAD
 	struct vrf *vrf;
 
 	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name)
 		static_nht_reset_start_safi(nhp, afi, safi, vrf, nh_vrf_id);
+=======
+	struct static_vrf *svrf;
+
+	RB_FOREACH (svrf, svrf_name_head, &svrfs)
+		static_nht_reset_start_safi(nhp, afi, safi, svrf, nh_vrf_id);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 }
 
 static void static_nht_mark_state_safi(struct prefix *sp, afi_t afi,

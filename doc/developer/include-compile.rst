@@ -14,8 +14,13 @@ obtained by running ``./configure -h``. The options shown below are examples.
        --sbindir=\${prefix}/lib/frr \
        --libdir=\${prefix}/lib/frr \
        --libexecdir=\${prefix}/lib/frr \
+<<<<<<< HEAD
        --localstatedir=/var/run/frr \
        --sysconfdir=/etc/frr \
+=======
+       --sysconfdir=/etc \
+       --localstatedir=/var \
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
        --with-moduledir=\${prefix}/lib/frr/modules \
        --enable-configfile-mask=0640 \
        --enable-logfile-mask=0640 \

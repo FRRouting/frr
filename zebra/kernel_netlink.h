@@ -77,6 +77,7 @@ extern void netlink_parse_rtattr_flags(struct rtattr **tb, int max,
 				 unsigned short flags);
 extern void netlink_parse_rtattr_nested(struct rtattr **tb, int max,
 					struct rtattr *rta);
+<<<<<<< HEAD
 /*
  * nl_addraw_l copies raw form the netlink message buffer into netlink
  * message header pointer. It ensures the aligned data buffer does not
@@ -114,6 +115,8 @@ extern struct rtattr *nl_rta_nest(struct rtattr *rta, unsigned int maxlen,
  * attributes. Returns a total length of the Netlink message.
  */
 extern int nl_rta_nest_end(struct rtattr *rta, struct rtattr *nest);
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 extern const char *nl_msg_type_to_str(uint16_t msg_type);
 extern const char *nl_rtproto_to_str(uint8_t rtproto);
 extern const char *nl_family_to_str(uint8_t family);
@@ -127,6 +130,12 @@ extern int netlink_talk_filter(struct nlmsghdr *h, ns_id_t ns, int startup);
 extern int netlink_talk(int (*filter)(struct nlmsghdr *, ns_id_t, int startup),
 			struct nlmsghdr *n, struct nlsock *nl,
 			struct zebra_ns *zns, bool startup);
+<<<<<<< HEAD
+=======
+extern int
+ge_netlink_talk(int (*filter)(struct nlmsghdr *, ns_id_t, int startup),
+		struct nlmsghdr *n, struct zebra_ns *zns, bool startup);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 extern int netlink_request(struct nlsock *nl, void *req);
 
 enum netlink_msg_status {

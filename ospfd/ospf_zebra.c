@@ -47,7 +47,11 @@ DEFINE_MTYPE_STATIC(OSPFD, OSPF_REDISTRIBUTE, "OSPF Redistriute");
 /* Zebra structure to hold current status. */
 struct zclient *zclient = NULL;
 /* and for the Synchronous connection to the Label Manager */
+<<<<<<< HEAD
 static struct zclient *zclient_sync;
+=======
+struct zclient *zclient_sync;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 /* For registering threads. */
 extern struct event_loop *master;
@@ -119,8 +123,14 @@ static int ospf_interface_address_delete(ZAPI_CALLBACK_ARGS)
 		return 0;
 
 	if (IS_DEBUG_OSPF(zebra, ZEBRA_INTERFACE))
+<<<<<<< HEAD
 		zlog_debug("Zebra: interface %s address delete %pFX",
 			   c->ifp->name, c->address);
+=======
+		zlog_debug("Zebra: interface %s address delete %pFX vrf %s id %u",
+			   c->ifp->name, c->address,
+			   ospf_vrf_id_to_name(vrf_id), vrf_id);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	ifp = c->ifp;
 	p = *c->address;
@@ -162,6 +172,7 @@ static int ospf_interface_link_params(ZAPI_CALLBACK_ARGS)
 	return 0;
 }
 
+<<<<<<< HEAD
 /* VRF update for an interface. */
 static int ospf_interface_vrf_update(ZAPI_CALLBACK_ARGS)
 {
@@ -185,6 +196,8 @@ static int ospf_interface_vrf_update(ZAPI_CALLBACK_ARGS)
 	return 0;
 }
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 /* Nexthop, ifindex, distance and metric information. */
 static void ospf_zebra_add_nexthop(struct ospf *ospf, struct ospf_path *path,
 				   struct zapi_route *api)
@@ -284,9 +297,14 @@ void ospf_zebra_add(struct ospf *ospf, struct prefix_ipv4 *p,
 
 	if (ospf->gr_info.restart_in_progress) {
 		if (IS_DEBUG_OSPF_GR)
+<<<<<<< HEAD
 			zlog_debug(
 				"Zebra: Graceful Restart in progress -- not installing %pFX",
 				p);
+=======
+			zlog_debug("Zebra: Graceful Restart in progress -- not installing %pFX(%s)",
+				   p, ospf_vrf_id_to_name(ospf->vrf_id));
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		return;
 	}
 
@@ -334,10 +352,17 @@ void ospf_zebra_add(struct ospf *ospf, struct prefix_ipv4 *p,
 
 			ifp = if_lookup_by_index(path->ifindex, ospf->vrf_id);
 
+<<<<<<< HEAD
 			zlog_debug(
 				"Zebra: Route add %pFX nexthop %pI4, ifindex=%d %s",
 				p, &path->nexthop, path->ifindex,
 				ifp ? ifp->name : " ");
+=======
+			zlog_debug("Zebra: Route add %pFX(%s) nexthop %pI4, ifindex=%d %s",
+				   p, ospf_vrf_id_to_name(ospf->vrf_id),
+				   &path->nexthop, path->ifindex,
+				   ifp ? ifp->name : " ");
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		}
 	}
 
@@ -354,9 +379,14 @@ void ospf_zebra_delete(struct ospf *ospf, struct prefix_ipv4 *p,
 
 	if (ospf->gr_info.restart_in_progress) {
 		if (IS_DEBUG_OSPF_GR)
+<<<<<<< HEAD
 			zlog_debug(
 				"Zebra: Graceful Restart in progress -- not uninstalling %pFX",
 				p);
+=======
+			zlog_debug("Zebra: Graceful Restart in progress -- not uninstalling %pFX(%s)",
+				   p, ospf_vrf_id_to_name(ospf->vrf_id));
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		return;
 	}
 
@@ -368,7 +398,12 @@ void ospf_zebra_delete(struct ospf *ospf, struct prefix_ipv4 *p,
 	memcpy(&api.prefix, p, sizeof(*p));
 
 	if (IS_DEBUG_OSPF(zebra, ZEBRA_REDISTRIBUTE))
+<<<<<<< HEAD
 		zlog_debug("Zebra: Route delete %pFX", p);
+=======
+		zlog_debug("Zebra: Route delete %pFX(%s)", p,
+			   ospf_vrf_id_to_name(ospf->vrf_id));
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	zclient_route_send(ZEBRA_ROUTE_DELETE, zclient, &api);
 }
@@ -379,9 +414,14 @@ void ospf_zebra_add_discard(struct ospf *ospf, struct prefix_ipv4 *p)
 
 	if (ospf->gr_info.restart_in_progress) {
 		if (IS_DEBUG_OSPF_GR)
+<<<<<<< HEAD
 			zlog_debug(
 				"Zebra: Graceful Restart in progress -- not installing %pFX",
 				p);
+=======
+			zlog_debug("Zebra: Graceful Restart in progress -- not installing %pFX(%s)",
+				   p, ospf_vrf_id_to_name(ospf->vrf_id));
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		return;
 	}
 
@@ -396,7 +436,12 @@ void ospf_zebra_add_discard(struct ospf *ospf, struct prefix_ipv4 *p)
 	zclient_route_send(ZEBRA_ROUTE_ADD, zclient, &api);
 
 	if (IS_DEBUG_OSPF(zebra, ZEBRA_REDISTRIBUTE))
+<<<<<<< HEAD
 		zlog_debug("Zebra: Route add discard %pFX", p);
+=======
+		zlog_debug("Zebra: Route add discard %pFX(%s)", p,
+			   ospf_vrf_id_to_name(ospf->vrf_id));
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 }
 
 void ospf_zebra_delete_discard(struct ospf *ospf, struct prefix_ipv4 *p)
@@ -405,9 +450,14 @@ void ospf_zebra_delete_discard(struct ospf *ospf, struct prefix_ipv4 *p)
 
 	if (ospf->gr_info.restart_in_progress) {
 		if (IS_DEBUG_OSPF_GR)
+<<<<<<< HEAD
 			zlog_debug(
 				"Zebra: Graceful Restart in progress -- not uninstalling %pFX",
 				p);
+=======
+			zlog_debug("Zebra: Graceful Restart in progress -- not uninstalling %pFX(%s)",
+				   p, ospf_vrf_id_to_name(ospf->vrf_id));
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		return;
 	}
 
@@ -422,7 +472,12 @@ void ospf_zebra_delete_discard(struct ospf *ospf, struct prefix_ipv4 *p)
 	zclient_route_send(ZEBRA_ROUTE_DELETE, zclient, &api);
 
 	if (IS_DEBUG_OSPF(zebra, ZEBRA_REDISTRIBUTE))
+<<<<<<< HEAD
 		zlog_debug("Zebra: Route delete discard %pFX", p);
+=======
+		zlog_debug("Zebra: Route delete discard %pFX(%s)", p,
+			   ospf_vrf_id_to_name(ospf->vrf_id));
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 }
 
 struct ospf_external *ospf_external_lookup(struct ospf *ospf, uint8_t type,
@@ -498,8 +553,14 @@ bool ospf_external_default_routemap_apply_walk(struct ospf *ospf,
 
 	if (ret && ei) {
 		if (IS_DEBUG_OSPF_DEFAULT_INFO)
+<<<<<<< HEAD
 			zlog_debug("Default originate routemap permit ei: %pI4",
 				   &ei->p.prefix);
+=======
+			zlog_debug("Default originate routemap permit ei: %pI4(%s)",
+				   &ei->p.prefix,
+				   ospf_vrf_id_to_name(ospf->vrf_id));
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		return true;
 	}
 
@@ -530,7 +591,12 @@ static void ospf_external_lsa_default_routemap_timer(struct event *thread)
 	if (!default_ei) {
 		/* Nothing to be done here. */
 		if (IS_DEBUG_OSPF_DEFAULT_INFO)
+<<<<<<< HEAD
 			zlog_debug("Default originate info not present");
+=======
+			zlog_debug("Default originate info not present(%s)",
+				   ospf_vrf_id_to_name(ospf->vrf_id));
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		return;
 	}
 
@@ -814,6 +880,7 @@ int ospf_is_type_redistributed(struct ospf *ospf, int type,
 			       unsigned short instance)
 {
 	return (DEFAULT_ROUTE_TYPE(type)
+<<<<<<< HEAD
 			? vrf_bitmap_check(zclient->default_information[AFI_IP],
 					   ospf->vrf_id)
 			: ((instance
@@ -824,6 +891,18 @@ int ospf_is_type_redistributed(struct ospf *ospf, int type,
 			       && vrf_bitmap_check(
 				       zclient->redist[AFI_IP][type],
 				       ospf->vrf_id))));
+=======
+			? vrf_bitmap_check(
+				  &zclient->default_information[AFI_IP],
+				  ospf->vrf_id)
+			: ((instance &&
+			    redist_check_instance(
+				    &zclient->mi_redist[AFI_IP][type],
+				    instance)) ||
+			   (!instance &&
+			    vrf_bitmap_check(&zclient->redist[AFI_IP][type],
+					     ospf->vrf_id))));
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 }
 
 int ospf_redistribute_update(struct ospf *ospf, struct ospf_redist *red,
@@ -844,11 +923,19 @@ int ospf_redistribute_update(struct ospf *ospf, struct ospf_redist *red,
 	ospf_external_lsa_refresh_type(ospf, type, instance, force);
 
 	if (IS_DEBUG_OSPF(zebra, ZEBRA_REDISTRIBUTE))
+<<<<<<< HEAD
 		zlog_debug(
 			"Redistribute[%s][%d]: Refresh  Type[%d], Metric[%d]",
 			ospf_redist_string(type), instance,
 			metric_type(ospf, type, instance),
 			metric_value(ospf, type, instance));
+=======
+		zlog_debug("Redistribute[%s][%d][%s]: Refresh  Type[%d], Metric[%d]",
+			   ospf_redist_string(type), instance,
+			   ospf_vrf_id_to_name(ospf->vrf_id),
+			   metric_type(ospf, type, instance),
+			   metric_value(ospf, type, instance));
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	return CMD_SUCCESS;
 }
@@ -865,11 +952,19 @@ int ospf_redistribute_set(struct ospf *ospf, struct ospf_redist *red, int type,
 			     instance, ospf->vrf_id);
 
 	if (IS_DEBUG_OSPF(zebra, ZEBRA_REDISTRIBUTE))
+<<<<<<< HEAD
 		zlog_debug(
 			"Redistribute[%s][%d] vrf id %u: Start  Type[%d], Metric[%d]",
 			ospf_redist_string(type), instance, ospf->vrf_id,
 			metric_type(ospf, type, instance),
 			metric_value(ospf, type, instance));
+=======
+		zlog_debug("Redistribute[%s][%d][%s]: Start  Type[%d], Metric[%d]",
+			   ospf_redist_string(type), instance,
+			   ospf_vrf_id_to_name(ospf->vrf_id),
+			   metric_type(ospf, type, instance),
+			   metric_value(ospf, type, instance));
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	ospf_asbr_status_update(ospf, ++ospf->redistribute);
 
@@ -886,8 +981,14 @@ int ospf_redistribute_unset(struct ospf *ospf, int type,
 			     instance, ospf->vrf_id);
 
 	if (IS_DEBUG_OSPF(zebra, ZEBRA_REDISTRIBUTE))
+<<<<<<< HEAD
 		zlog_debug("Redistribute[%s][%d] vrf id %u: Stop",
 			   ospf_redist_string(type), instance, ospf->vrf_id);
+=======
+		zlog_debug("Redistribute[%s][%d][%s]: Stop",
+			   ospf_redist_string(type), instance,
+			   ospf_vrf_id_to_name(ospf->vrf_id));
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	/* Remove the routes from OSPF table. */
 	ospf_redistribute_withdraw(ospf, type, instance);
@@ -917,11 +1018,19 @@ int ospf_redistribute_default_set(struct ospf *ospf, int originate, int mtype,
 	if (cur_originate == originate) {
 		/* Refresh the lsa since metric might different */
 		if (IS_DEBUG_OSPF(zebra, ZEBRA_REDISTRIBUTE))
+<<<<<<< HEAD
 			zlog_debug(
 				"Redistribute[%s]: Refresh  Type[%d], Metric[%d]",
 				ospf_redist_string(DEFAULT_ROUTE),
 				metric_type(ospf, DEFAULT_ROUTE, 0),
 				metric_value(ospf, DEFAULT_ROUTE, 0));
+=======
+			zlog_debug("Redistribute[%s][%s]: Refresh  Type[%d], Metric[%d]",
+				   ospf_redist_string(DEFAULT_ROUTE),
+				   ospf_vrf_id_to_name(ospf->vrf_id),
+				   metric_type(ospf, DEFAULT_ROUTE, 0),
+				   metric_value(ospf, DEFAULT_ROUTE, 0));
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 		ospf_external_lsa_refresh_default(ospf);
 		return CMD_SUCCESS;
@@ -962,10 +1071,17 @@ int ospf_redistribute_default_set(struct ospf *ospf, int originate, int mtype,
 	}
 
 	if (IS_DEBUG_OSPF(zebra, ZEBRA_REDISTRIBUTE))
+<<<<<<< HEAD
 		zlog_debug("Redistribute[DEFAULT]: %s Type[%d], Metric[%d]",
 		type_str,
 		metric_type(ospf, DEFAULT_ROUTE, 0),
 		metric_value(ospf, DEFAULT_ROUTE, 0));
+=======
+		zlog_debug("Redistribute[DEFAULT][%s]: %s Type[%d], Metric[%d]",
+			   ospf_vrf_id_to_name(ospf->vrf_id), type_str,
+			   metric_type(ospf, DEFAULT_ROUTE, 0),
+			   metric_value(ospf, DEFAULT_ROUTE, 0));
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	ospf_external_lsa_refresh_default(ospf);
 	ospf_asbr_status_update(ospf, ospf->redistribute);
@@ -1070,16 +1186,28 @@ static bool ospf_external_lsa_default_routemap_apply(struct ospf *ospf,
 	}
 
 	if (IS_DEBUG_OSPF_DEFAULT_INFO)
+<<<<<<< HEAD
 		zlog_debug("Apply default originate routemap on ei: %pI4 cmd: %d",
 			   &ei->p.prefix, cmd);
+=======
+		zlog_debug("Apply default originate routemap on ei: %pI4(%s) cmd: %d",
+			   &ei->p.prefix, ospf_vrf_id_to_name(ospf->vrf_id),
+			   cmd);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	ret = ospf_external_info_apply_default_routemap(ospf, ei, default_ei);
 
 	/* If deny then nothing to be done both in add and del case. */
 	if (!ret) {
 		if (IS_DEBUG_OSPF_DEFAULT_INFO)
+<<<<<<< HEAD
 			zlog_debug("Default originte routemap deny for ei: %pI4",
 				   &ei->p.prefix);
+=======
+			zlog_debug("Default originte routemap deny for ei: %pI4(%s)",
+				   &ei->p.prefix,
+				   ospf_vrf_id_to_name(ospf->vrf_id));
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		return false;
 	}
 
@@ -1091,12 +1219,22 @@ static bool ospf_external_lsa_default_routemap_apply(struct ospf *ospf,
 		/* If permit and default already advertise then return. */
 		if (lsa && !IS_LSA_MAXAGE(lsa)) {
 			if (IS_DEBUG_OSPF_DEFAULT_INFO)
+<<<<<<< HEAD
 				zlog_debug("Default lsa already originated");
+=======
+				zlog_debug("Default lsa already originated(%s)",
+					   ospf_vrf_id_to_name(ospf->vrf_id));
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			return true;
 		}
 
 		if (IS_DEBUG_OSPF_DEFAULT_INFO)
+<<<<<<< HEAD
 			zlog_debug("Originating/Refreshing default lsa");
+=======
+			zlog_debug("Originating/Refreshing default lsa(%s)",
+				   ospf_vrf_id_to_name(ospf->vrf_id));
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 		if (lsa && IS_LSA_MAXAGE(lsa))
 			/* Refresh lsa.*/
@@ -1111,15 +1249,26 @@ static bool ospf_external_lsa_default_routemap_apply(struct ospf *ospf,
 		/* If deny and lsa is not originated then nothing to be done.*/
 		if (!lsa) {
 			if (IS_DEBUG_OSPF_DEFAULT_INFO)
+<<<<<<< HEAD
 				zlog_debug(
 					"Default lsa not originated, not flushing");
+=======
+				zlog_debug("Default lsa not originated, not flushing(%s)",
+					   ospf_vrf_id_to_name(ospf->vrf_id));
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			return true;
 		}
 
 		if (IS_DEBUG_OSPF_DEFAULT_INFO)
+<<<<<<< HEAD
 			zlog_debug(
 				"Running default route-map again as ei: %pI4 deleted",
 				&ei->p.prefix);
+=======
+			zlog_debug("Running default route-map again as ei: %pI4(%s) deleted",
+				   &ei->p.prefix,
+				   ospf_vrf_id_to_name(ospf->vrf_id));
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		/*
 		 * if this route delete was permitted then we need to check
 		 * there are any other external info which can still trigger
@@ -1165,9 +1314,16 @@ int ospf_redistribute_check(struct ospf *ospf, struct external_info *ei,
 			if (access_list_apply(DISTRIBUTE_LIST(ospf, type), p)
 			    == FILTER_DENY) {
 				if (IS_DEBUG_OSPF(zebra, ZEBRA_REDISTRIBUTE))
+<<<<<<< HEAD
 					zlog_debug(
 						"Redistribute[%s]: %pFX filtered by distribute-list.",
 						ospf_redist_string(type), p);
+=======
+					zlog_debug("Redistribute[%s]: %pFX(%s) filtered by distribute-list.",
+						   ospf_redist_string(type), p,
+						   ospf_vrf_id_to_name(
+							   ospf->vrf_id));
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 				return 0;
 			}
 
@@ -1188,9 +1344,15 @@ int ospf_redistribute_check(struct ospf *ospf, struct external_info *ei,
 		if (ret == RMAP_DENYMATCH) {
 			ei->route_map_set = save_values;
 			if (IS_DEBUG_OSPF(zebra, ZEBRA_REDISTRIBUTE))
+<<<<<<< HEAD
 				zlog_debug(
 					"Redistribute[%s]: %pFX filtered by route-map.",
 					ospf_redist_string(type), p);
+=======
+				zlog_debug("Redistribute[%s]: %pFX(%s) filtered by route-map.",
+					   ospf_redist_string(type), p,
+					   ospf_vrf_id_to_name(ospf->vrf_id));
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			return 0;
 		}
 
@@ -1253,7 +1415,12 @@ static int ospf_zebra_gr_update(struct ospf *ospf, int command,
 int ospf_zebra_gr_enable(struct ospf *ospf, uint32_t stale_time)
 {
 	if (IS_DEBUG_OSPF_GR)
+<<<<<<< HEAD
 		zlog_debug("Zebra enable GR [stale time %u]", stale_time);
+=======
+		zlog_debug("Zebra enable GR [stale time %u] vrf %s", stale_time,
+			   ospf_vrf_id_to_name(ospf->vrf_id));
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	return ospf_zebra_gr_update(ospf, ZEBRA_CLIENT_GR_CAPABILITIES,
 				    stale_time);
@@ -1262,7 +1429,12 @@ int ospf_zebra_gr_enable(struct ospf *ospf, uint32_t stale_time)
 int ospf_zebra_gr_disable(struct ospf *ospf)
 {
 	if (IS_DEBUG_OSPF_GR)
+<<<<<<< HEAD
 		zlog_debug("Zebra disable GR");
+=======
+		zlog_debug("Zebra disable GR vrf: %s",
+			   ospf_vrf_id_to_name(ospf->vrf_id));
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	return ospf_zebra_gr_update(ospf, ZEBRA_CLIENT_GR_DISABLE, 0);
 }
@@ -1305,6 +1477,7 @@ static int ospf_zebra_read_route(ZAPI_CALLBACK_ARGS)
 	 * originate)ZEBRA_ROUTE_MAX is used to delete the ex-info.
 	 * Resolved this inconsistency by maintaining same route type.
 	 */
+<<<<<<< HEAD
 	if ((is_default_prefix(&pgen)) && (api.type != ZEBRA_ROUTE_OSPF))
 		rt_type = DEFAULT_ROUTE;
 
@@ -1314,6 +1487,16 @@ static int ospf_zebra_read_route(ZAPI_CALLBACK_ARGS)
 			__func__, zserv_command_string(cmd),
 			zebra_route_string(api.type), vrf_id, &api.prefix,
 			api.metric);
+=======
+	if ((is_default_prefix(&pgen)) &&
+	    ((api.type != ZEBRA_ROUTE_OSPF) || (api.instance != ospf->instance)))
+		rt_type = DEFAULT_ROUTE;
+
+	if (IS_DEBUG_OSPF(zebra, ZEBRA_REDISTRIBUTE))
+		zlog_debug("%s: cmd %s from client %s-%d: vrf %s(%u), p %pFX, metric %d", __func__,
+			   zserv_command_string(cmd), zebra_route_string(api.type), api.instance,
+			   ospf_vrf_id_to_name(vrf_id), vrf_id, &api.prefix, api.metric);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	if (cmd == ZEBRA_REDISTRIBUTE_ROUTE_ADD) {
 		/* XXX|HACK|TODO|FIXME:
@@ -1328,6 +1511,7 @@ static int ospf_zebra_read_route(ZAPI_CALLBACK_ARGS)
 			api.tag = ospf->dtag[rt_type];
 
 		/*
+<<<<<<< HEAD
 		 * Given zebra sends update for a prefix via ADD message, it
 		 * should
 		 * be considered as an implicit DEL for that prefix with other
@@ -1338,6 +1522,19 @@ static int ospf_zebra_read_route(ZAPI_CALLBACK_ARGS)
 			if (i != rt_type)
 				ospf_external_info_delete(ospf, i, api.instance,
 							  p);
+=======
+		 * Given zebra sends an update for a prefix via an ADD message, it
+		 * will be considered as an impilict DELETE for that prefix for other
+		 * types and instances other than the type and instance associated with
+		 * the prefix.
+		 */
+		for (i = 0; i <= ZEBRA_ROUTE_MAX; i++) {
+			unsigned long preserve_instance;
+
+			preserve_instance = (i == rt_type) ? api.instance : OSPF_DELETE_ANY_INSTANCE;
+			ospf_external_info_delete_multi_instance(ospf, i, p, preserve_instance);
+		}
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 		ei = ospf_external_info_add(ospf, rt_type, api.instance, p,
 					    ifindex, nexthop, api.tag,
@@ -1366,11 +1563,20 @@ static int ospf_zebra_read_route(ZAPI_CALLBACK_ARGS)
 						return 0;
 
 					if (IS_DEBUG_OSPF(lsa, EXTNL_LSA_AGGR))
+<<<<<<< HEAD
 						zlog_debug(
 							"%s: Send Aggreate LSA (%pI4/%d)",
 							__func__,
 							&aggr->p.prefix,
 							aggr->p.prefixlen);
+=======
+						zlog_debug("%s: Send Aggreate LSA (%pI4/%d)(%s)",
+							   __func__,
+							   &aggr->p.prefix,
+							   aggr->p.prefixlen,
+							   ospf_vrf_id_to_name(
+								   ospf->vrf_id));
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 					ospf_originate_summary_lsa(ospf, aggr,
 								   ei);
@@ -1425,10 +1631,18 @@ static int ospf_zebra_read_route(ZAPI_CALLBACK_ARGS)
 						if (IS_DEBUG_OSPF(
 							    zebra,
 							    ZEBRA_REDISTRIBUTE))
+<<<<<<< HEAD
 							zlog_debug(
 								"%s: %pI4 refreshing LSA",
 								__func__,
 								&p.prefix);
+=======
+							zlog_debug("%s: %pI4(%s) refreshing LSA",
+								   __func__,
+								   &p.prefix,
+								   ospf_vrf_id_to_name(
+									   ospf->vrf_id));
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 						ospf_external_lsa_refresh(
 							ospf, current, ei,
 							LSA_REFRESH_FORCE,
@@ -1487,7 +1701,12 @@ void ospf_zebra_import_default_route(struct ospf *ospf, bool unreg)
 
 	if (zclient->sock < 0) {
 		if (IS_DEBUG_OSPF(zebra, ZEBRA))
+<<<<<<< HEAD
 			zlog_debug("  Not connected to Zebra");
+=======
+			zlog_debug("  Not connected to Zebra vrf: %s",
+				   ospf_vrf_id_to_name(ospf->vrf_id));
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		return;
 	}
 
@@ -1500,6 +1719,7 @@ void ospf_zebra_import_default_route(struct ospf *ospf, bool unreg)
 		command = ZEBRA_NEXTHOP_REGISTER;
 
 	if (IS_DEBUG_OSPF(zebra, ZEBRA))
+<<<<<<< HEAD
 		zlog_debug("%s: sending cmd %s for %pFX (vrf %u)", __func__,
 			   zserv_command_string(command), &prefix,
 			   ospf->vrf_id);
@@ -1534,6 +1754,32 @@ static int ospf_zebra_import_check_update(ZAPI_CALLBACK_ARGS)
 	ospf_abr_nssa_type7_defaults(ospf);
 
 	return 0;
+=======
+		zlog_debug("%s: sending cmd %s for %pFX(%s)", __func__,
+			   zserv_command_string(command), &prefix,
+			   ospf_vrf_id_to_name(ospf->vrf_id));
+
+	if (zclient_send_rnh(zclient, command, &prefix, SAFI_UNICAST, false,
+			     true, ospf->vrf_id) == ZCLIENT_SEND_FAILURE)
+		flog_err(EC_LIB_ZAPI_SOCKET, "%s(%s): zclient_send_rnh() failed",
+			 __func__, ospf_vrf_id_to_name(ospf->vrf_id));
+}
+
+static void ospf_zebra_import_check_update(struct vrf *vrf, struct prefix *match,
+					   struct zapi_route *nhr)
+{
+	struct ospf *ospf = vrf->info;
+
+	if (ospf == NULL || !IS_OSPF_ASBR(ospf))
+		return;
+
+	if (match->family != AF_INET || match->prefixlen != 0 ||
+	    nhr->type == ZEBRA_ROUTE_OSPF)
+		return;
+
+	ospf->nssa_default_import_check.status = !!nhr->nexthop_num;
+	ospf_abr_nssa_type7_defaults(ospf);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 }
 
 int ospf_distribute_list_out_set(struct ospf *ospf, int type, const char *name)
@@ -1589,7 +1835,12 @@ static void ospf_distribute_list_update_timer(struct event *thread)
 
 	ospf->t_distribute_update = NULL;
 
+<<<<<<< HEAD
 	zlog_info("Zebra[Redistribute]: distribute-list update timer fired!");
+=======
+	zlog_info("Zebra[Redistribute]: vrf: %s distribute-list update timer fired!",
+		  ospf_vrf_id_to_name(ospf->vrf_id));
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	if (IS_DEBUG_OSPF_EVENT) {
 		zlog_debug("%s: ospf distribute-list update vrf %s id %d",
@@ -1640,10 +1891,19 @@ static void ospf_distribute_list_update_timer(struct event *thread)
 							    lsa,
 							    EXTNL_LSA_AGGR))
 							zlog_debug(
+<<<<<<< HEAD
 								"%s: Send Aggregate LSA (%pI4/%d)",
 								__func__,
 								&aggr->p.prefix,
 								aggr->p.prefixlen);
+=======
+								"%s: Send Aggregate LSA (%pI4/%d)(%s)",
+								__func__,
+								&aggr->p.prefix,
+								aggr->p.prefixlen,
+								ospf_vrf_id_to_name(
+									ospf->vrf_id));
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 						/* Originate Aggregate
 						 * LSA
@@ -1802,6 +2062,10 @@ static void ospf_prefix_list_update(struct prefix_list *plist)
 	int type;
 	int abr_inv = 0;
 	struct ospf_area *area;
+<<<<<<< HEAD
+=======
+	struct ospf_interface *oi;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	struct listnode *node, *n1;
 
 	/* If OSPF instatnce does not exist, return right now. */
@@ -1857,6 +2121,22 @@ static void ospf_prefix_list_update(struct prefix_list *plist)
 			}
 		}
 
+<<<<<<< HEAD
+=======
+		/* Update interface neighbor-filter lists. */
+		for (ALL_LIST_ELEMENTS_RO(ospf->oiflist, node, oi)) {
+			if (OSPF_IF_PARAM(oi, nbr_filter_name) &&
+			    strcmp(OSPF_IF_PARAM(oi, nbr_filter_name),
+				   prefix_list_name(plist)) == 0) {
+				oi->nbr_filter = prefix_list_lookup(
+					AFI_IP,
+					OSPF_IF_PARAM(oi, nbr_filter_name));
+				if (oi->nbr_filter)
+					ospf_intf_neighbor_filter_apply(oi);
+			}
+		}
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		/* Schedule ABR task. */
 		if (IS_OSPF_ABR(ospf) && abr_inv)
 			ospf_schedule_abr_task(ospf);
@@ -2161,9 +2441,15 @@ static int ospf_opaque_msg_handler(ZAPI_CALLBACK_ARGS)
 
 	switch (info.type) {
 	case LINK_STATE_SYNC:
+<<<<<<< HEAD
 		STREAM_GETC(s, dst.proto);
 		STREAM_GETW(s, dst.instance);
 		STREAM_GETL(s, dst.session_id);
+=======
+		dst.proto = info.src_proto;
+		dst.instance = info.src_instance;
+		dst.session_id = info.src_session_id;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		dst.type = LINK_STATE_SYNC;
 		ret = ospf_te_sync_ted(dst);
 		break;
@@ -2203,11 +2489,17 @@ static zclient_handler *const ospf_handlers[] = {
 	[ZEBRA_INTERFACE_ADDRESS_ADD] = ospf_interface_address_add,
 	[ZEBRA_INTERFACE_ADDRESS_DELETE] = ospf_interface_address_delete,
 	[ZEBRA_INTERFACE_LINK_PARAMS] = ospf_interface_link_params,
+<<<<<<< HEAD
 	[ZEBRA_INTERFACE_VRF_UPDATE] = ospf_interface_vrf_update,
 
 	[ZEBRA_REDISTRIBUTE_ROUTE_ADD] = ospf_zebra_read_route,
 	[ZEBRA_REDISTRIBUTE_ROUTE_DEL] = ospf_zebra_read_route,
 	[ZEBRA_NEXTHOP_UPDATE] = ospf_zebra_import_check_update,
+=======
+
+	[ZEBRA_REDISTRIBUTE_ROUTE_ADD] = ospf_zebra_read_route,
+	[ZEBRA_REDISTRIBUTE_ROUTE_DEL] = ospf_zebra_read_route,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	[ZEBRA_OPAQUE_MESSAGE] = ospf_opaque_msg_handler,
 
@@ -2221,11 +2513,18 @@ void ospf_zebra_init(struct event_loop *master, unsigned short instance)
 			      array_size(ospf_handlers));
 	zclient_init(zclient, ZEBRA_ROUTE_OSPF, instance, &ospfd_privs);
 	zclient->zebra_connected = ospf_zebra_connected;
+<<<<<<< HEAD
 
 	/* Initialize special zclient for synchronous message exchanges. */
 	struct zclient_options options = zclient_options_default;
 	options.synchronous = true;
 	zclient_sync = zclient_new(master, &options, NULL, 0);
+=======
+	zclient->nexthop_update = ospf_zebra_import_check_update;
+
+	/* Initialize special zclient for synchronous message exchanges. */
+	zclient_sync = zclient_new(master, &zclient_options_sync, NULL, 0);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	zclient_sync->sock = -1;
 	zclient_sync->redist_default = ZEBRA_ROUTE_OSPF;
 	zclient_sync->instance = instance;

@@ -405,10 +405,17 @@ enum matcher_rv command_complete(struct graph *graph, vector vline,
 				listnode_add(next, newstack);
 				break;
 			case partly_match:
+<<<<<<< HEAD
 				trace_matcher("trivial_match\n");
 				if (exact_match_exists && !last_token)
 					break;
 			/* fallthru */
+=======
+				trace_matcher("partly_match\n");
+				if (exact_match_exists && !last_token)
+					break;
+				fallthrough;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			case exact_match:
 				trace_matcher("exact_match\n");
 				if (last_token) {

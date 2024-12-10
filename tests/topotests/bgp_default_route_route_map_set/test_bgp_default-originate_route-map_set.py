@@ -26,12 +26,20 @@ pytestmark = [pytest.mark.bgpd]
 
 
 def build_topo(tgen):
+<<<<<<< HEAD
     for routern in range(1, 3):
+=======
+    for routern in range(1, 4):
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         tgen.add_router("r{}".format(routern))
 
     switch = tgen.add_switch("s1")
     switch.add_link(tgen.gears["r1"])
     switch.add_link(tgen.gears["r2"])
+<<<<<<< HEAD
+=======
+    switch.add_link(tgen.gears["r3"])
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 
 def setup_module(mod):
@@ -40,7 +48,11 @@ def setup_module(mod):
 
     router_list = tgen.routers()
 
+<<<<<<< HEAD
     for i, (rname, router) in enumerate(router_list.items(), 1):
+=======
+    for _, (rname, router) in enumerate(router_list.items(), 1):
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         router.load_config(
             TopoRouter.RD_ZEBRA, os.path.join(CWD, "{}/zebra.conf".format(rname))
         )
@@ -62,14 +74,27 @@ def test_bgp_default_originate_route_map():
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
+<<<<<<< HEAD
     router = tgen.gears["r2"]
 
     def _bgp_converge(router):
+=======
+    r2 = tgen.gears["r2"]
+    r3 = tgen.gears["r3"]
+
+    def _bgp_converge(router, pfxCount):
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         output = json.loads(router.vtysh_cmd("show ip bgp neighbor 192.168.255.1 json"))
         expected = {
             "192.168.255.1": {
                 "bgpState": "Established",
+<<<<<<< HEAD
                 "addressFamilyInfo": {"ipv4Unicast": {"acceptedPrefixCounter": 1}},
+=======
+                "addressFamilyInfo": {
+                    "ipv4Unicast": {"acceptedPrefixCounter": pfxCount}
+                },
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
             }
         }
         return topotest.json_cmp(output, expected)
@@ -77,6 +102,7 @@ def test_bgp_default_originate_route_map():
     def _bgp_default_route_has_metric(router):
         output = json.loads(router.vtysh_cmd("show ip bgp 0.0.0.0/0 json"))
         expected = {
+<<<<<<< HEAD
             "paths": [{"aspath": {"string": "65000 65000 65000 65000"}, "metric": 123}]
         }
         return topotest.json_cmp(output, expected)
@@ -92,6 +118,27 @@ def test_bgp_default_originate_route_map():
     assert (
         result is None
     ), 'Failed to see applied metric for default route in "{}"'.format(router)
+=======
+            "paths": [{"aspath": {"string": "65001 65001 65001 65001"}, "metric": 123}]
+        }
+        return topotest.json_cmp(output, expected)
+
+    test_func = functools.partial(_bgp_converge, r2, 1)
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
+    assert result is None, "Failed to see bgp convergence in r2"
+
+    test_func = functools.partial(_bgp_default_route_has_metric, r2)
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
+    assert result is None, "Failed to see applied metric for default route in r2"
+
+    test_func = functools.partial(_bgp_converge, r3, 2)
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
+    assert result is None, "Failed to see bgp convergence in r3"
+
+    test_func = functools.partial(_bgp_default_route_has_metric, r3)
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
+    assert result is None, "Failed to see applied metric for default route in r3"
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 
 if __name__ == "__main__":

@@ -46,7 +46,12 @@ implemented in FRR. This doc should be expanded and broken off into its own
 section. For now it provides basic information necessary to understand the
 interplay between the event system and kernel threads.
 
+<<<<<<< HEAD
 The core event system is implemented in :file:`lib/thread.[ch]`. The primary
+=======
+The core event system is implemented in :file:`lib/event.c` and
+:file:`lib/frrevent.h`. The primary
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 structure is ``struct event_loop``, hereafter referred to as a
 ``threadmaster``. A ``threadmaster`` is a global state object, or context, that
 holds all the tasks currently pending execution as well as statistics on tasks
@@ -57,6 +62,7 @@ execute. At initialization, a daemon will typically create one
 fetch each task and execute it.
 
 These tasks have various types corresponding to their general action. The types
+<<<<<<< HEAD
 are given by integer macros in :file:`event.h` and are:
 
 ``THREAD_READ``
@@ -72,26 +78,60 @@ are given by integer macros in :file:`event.h` and are:
    scheduled.
 
 ``THREAD_EVENT``
+=======
+are given by integer macros in :file:`frrevent.h` and are:
+
+``EVENT_READ``
+   Task which waits for a file descriptor to become ready for reading and then
+   executes.
+
+``EVENT_WRITE``
+   Task which waits for a file descriptor to become ready for writing and then
+   executes.
+
+``EVENT_TIMER``
+   Task which executes after a certain amount of time has passed since it was
+   scheduled.
+
+``EVENT_EVENT``
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
    Generic task that executes with high priority and carries an arbitrary
    integer indicating the event type to its handler. These are commonly used to
    implement the finite state machines typically found in routing protocols.
 
+<<<<<<< HEAD
 ``THREAD_READY``
    Type used internally for tasks on the ready queue.
 
 ``THREAD_UNUSED``
+=======
+``EVENT_READY``
+   Type used internally for tasks on the ready queue.
+
+``EVENT_UNUSED``
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
    Type used internally for ``struct event`` objects that aren't being used.
    The event system pools ``struct event`` to avoid heap allocations; this is
    the type they have when they're in the pool.
 
+<<<<<<< HEAD
 ``THREAD_EXECUTE``
    Just before a task is run its type is changed to this. This is used to show
    ``X`` as the type in the output of :clicmd:`show thread cpu`.
+=======
+``EVENT_EXECUTE``
+   Just before a task is run its type is changed to this. This is used to show
+   ``X`` as the type in the output of :clicmd:`show event cpu`.
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 The programmer never has to work with these types explicitly. Each type of task
 is created and queued via special-purpose functions (actually macros, but
 irrelevant for the time being) for the specific type. For example, to add a
+<<<<<<< HEAD
 ``THREAD_READ`` task, you would call
+=======
+``EVENT_READ`` task, you would call
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 ::
 
@@ -113,9 +153,15 @@ sockets needed for peerings or IPC.
 
 To retrieve the next task to run the program calls ``event_fetch()``.
 ``event_fetch()`` internally computes which task to execute next based on
+<<<<<<< HEAD
 rudimentary priority logic. Events (type ``THREAD_EVENT``) execute with the
 highest priority, followed by expired timers and finally I/O tasks (type
 ``THREAD_READ`` and ``THREAD_WRITE``). When scheduling a task a function and an
+=======
+rudimentary priority logic. Events (type ``EVENT_EVENT``) execute with the
+highest priority, followed by expired timers and finally I/O tasks (type
+``EVENT_READ`` and ``EVENT_WRITE``). When scheduling a task a function and an
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 arbitrary argument are provided. The task returned from ``event_fetch()`` is
 then executed with ``event_call()``.
 
@@ -135,23 +181,39 @@ Mapping the general names used in the figure to specific FRR functions:
 
 - ``task`` is ``struct event *``
 - ``fetch`` is ``event_fetch()``
+<<<<<<< HEAD
 - ``exec()`` is ``event_call``
+=======
+- ``exec()`` is ``event_call()``
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 - ``cancel()`` is ``event_cancel()``
 - ``schedule()`` is any of the various task-specific ``event_add_*`` functions
 
 Adding tasks is done with various task-specific function-like macros. These
+<<<<<<< HEAD
 macros wrap underlying functions in :file:`thread.c` to provide additional
 information added at compile time, such as the line number the task was
 scheduled from, that can be accessed at runtime for debugging, logging and
 informational purposes. Each task type has its own specific scheduling function
 that follow the naming convention ``event_add_<type>``; see :file:`event.h`
+=======
+macros wrap underlying functions in :file:`event.c` to provide additional
+information added at compile time, such as the line number the task was
+scheduled from, that can be accessed at runtime for debugging, logging and
+informational purposes. Each task type has its own specific scheduling function
+that follow the naming convention ``event_add_<type>``; see :file:`frrevent.h`
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 for details.
 
 There are some gotchas to keep in mind:
 
 - I/O tasks are keyed off the file descriptor associated with the I/O
   operation. This means that for any given file descriptor, only one of each
+<<<<<<< HEAD
   type of I/O task (``THREAD_READ`` and ``THREAD_WRITE``) can be scheduled. For
+=======
+  type of I/O task (``EVENT_READ`` and ``EVENT_WRITE``) can be scheduled. For
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
   example, scheduling two write tasks one after the other will overwrite the
   first task with the second, resulting in total loss of the first task and
   difficult bugs.
@@ -209,7 +271,12 @@ Kernel Thread Wrapper
 The basis for the integration of pthreads and the event system is a lightweight
 wrapper for both systems implemented in :file:`lib/frr_pthread.[ch]`. The
 header provides a core datastructure, ``struct frr_pthread``, that encapsulates
+<<<<<<< HEAD
 structures from both POSIX threads and :file:`thread.[ch]`. In particular, this
+=======
+structures from both POSIX threads and :file:`event.c`, :file:`frrevent.h`.
+In particular, this
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 datastructure has a pointer to a ``threadmaster`` that runs within the pthread.
 It also has fields for a name as well as start and stop functions that have
 signatures similar to the POSIX arguments for ``pthread_create()``.
@@ -217,18 +284,31 @@ signatures similar to the POSIX arguments for ``pthread_create()``.
 Calling ``frr_pthread_new()`` creates and registers a new ``frr_pthread``. The
 returned structure has a pre-initialized ``threadmaster``, and its ``start``
 and ``stop`` functions are initialized to defaults that will run a basic event
+<<<<<<< HEAD
 loop with the given threadmaster. Calling ``frr_pthread_run`` starts the thread
 with the ``start`` function. From there, the model is the same as the regular
 event model. To schedule tasks on a particular pthread, simply use the regular
 :file:`thread.c` functions as usual and provide the ``threadmaster`` pointed to
 from the ``frr_pthread``. As part of implementing the wrapper, the
 :file:`thread.c` functions were made thread-safe. Consequently, it is safe to
+=======
+loop with the given threadmaster. Calling ``frr_pthread_run()`` starts the thread
+with the ``start`` function. From there, the model is the same as the regular
+event model. To schedule tasks on a particular pthread, simply use the regular
+:file:`event.c` functions as usual and provide the ``threadmaster`` pointed to
+from the ``frr_pthread``. As part of implementing the wrapper, the
+:file:`event.c` functions were made thread-safe. Consequently, it is safe to
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 schedule events on a ``threadmaster`` belonging both to the calling thread as
 well as *any other pthread*. This serves as the basis for inter-thread
 communication and boils down to a slightly more complicated method of message
 passing, where the messages are the regular task events as used in the
 event-driven model. The only difference is thread cancellation, which requires
+<<<<<<< HEAD
 calling ``event_cancel_async()`` instead of ``event_cancel`` to cancel a task
+=======
+calling ``event_cancel_async()`` instead of ``event_cancel()`` to cancel a task
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 currently scheduled on a ``threadmaster`` belonging to a different pthread.
 This is necessary to avoid race conditions in the specific case where one
 pthread wants to guarantee that a task on another pthread is cancelled before
@@ -236,6 +316,7 @@ proceeding.
 
 In addition, the existing commands to show statistics and other information for
 tasks within the event driven model have been expanded to handle multiple
+<<<<<<< HEAD
 pthreads; running :clicmd:`show thread cpu` will display the usual event
 breakdown, but it will do so for each pthread running in the program. For
 example, :ref:`bgpd` runs a dedicated I/O pthread and shows the following
@@ -246,6 +327,18 @@ output for :clicmd:`show thread cpu`:
    frr# show thread cpu
 
    Thread statistics for bgpd:
+=======
+pthreads; running :clicmd:`show event cpu` will display the usual event
+breakdown, but it will do so for each pthread running in the program. For
+example, :ref:`bgpd` runs a dedicated I/O pthread and shows the following
+output for :clicmd:`show event cpu`:
+
+::
+
+   frr# show event cpu
+
+   Event statistics for bgpd:
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
    Showing statistics for pthread main
    ------------------------------------

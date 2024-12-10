@@ -81,8 +81,12 @@ def setup_module(mod):
 
     for rname, router in router_list.items():
         router.load_config(
+<<<<<<< HEAD
             TopoRouter.RD_ZEBRA,
             os.path.join(CWD, "{}/zebra.conf".format(rname))
+=======
+            TopoRouter.RD_ZEBRA, os.path.join(CWD, "{}/zebra.conf".format(rname))
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         )
         router.load_config(
             TopoRouter.RD_BFD, os.path.join(CWD, "{}/bfdd.conf".format(rname))
@@ -114,8 +118,13 @@ def test_bfd_connection():
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
     logger.info("waiting for bfd peers to go up")
+<<<<<<< HEAD
     router = tgen.gears['r1']
     json_file = "{}/{}/bfd_peers_status.json".format(CWD, 'r1')
+=======
+    router = tgen.gears["r1"]
+    json_file = "{}/{}/bfd_peers_status.json".format(CWD, "r1")
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     expected = json.loads(open(json_file).read())
 
     test_func = partial(

@@ -22,6 +22,10 @@
 #include "if_rmap.h"
 #include "libfrr.h"
 #include "routemap.h"
+<<<<<<< HEAD
+=======
+#include "mgmt_be_client.h"
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 #include "ripngd/ripngd.h"
 #include "ripngd/ripng_nb.h"
@@ -52,6 +56,11 @@ struct zebra_privs_t ripngd_privs = {
 /* Master of threads. */
 struct event_loop *master;
 
+<<<<<<< HEAD
+=======
+struct mgmt_be_client *mgmt_be_client;
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 static struct frr_daemon_info ripngd_di;
 
 /* SIGHUP handler. */
@@ -66,11 +75,35 @@ static void sighup(void)
 /* SIGINT handler. */
 static void sigint(void)
 {
+<<<<<<< HEAD
 	zlog_notice("Terminating on signal");
 
 	ripng_vrf_terminate();
 	if_rmap_terminate();
 	ripng_zebra_stop();
+=======
+	struct vrf *vrf;
+
+	zlog_notice("Terminating on signal");
+
+	nb_oper_cancel_all_walks();
+	mgmt_be_client_destroy(mgmt_be_client);
+	mgmt_be_client = NULL;
+
+	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
+		if (!vrf->info)
+			continue;
+
+		ripng_clean(vrf->info);
+	}
+
+	ripng_vrf_terminate();
+	if_rmap_terminate();
+	ripng_zebra_stop();
+
+	route_map_finish();
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	frr_fini();
 	exit(0);
 }
@@ -108,6 +141,7 @@ static const struct frr_yang_module_info *const ripngd_yang_modules[] = {
 	&frr_vrf_info,
 };
 
+<<<<<<< HEAD
 FRR_DAEMON_INFO(ripngd, RIPNG, .vty_port = RIPNG_VTY_PORT,
 
 		.proghelp = "Implementation of the RIPng routing protocol.",
@@ -120,6 +154,25 @@ FRR_DAEMON_INFO(ripngd, RIPNG, .vty_port = RIPNG_VTY_PORT,
 		.yang_modules = ripngd_yang_modules,
 		.n_yang_modules = array_size(ripngd_yang_modules),
 );
+=======
+/* clang-format off */
+FRR_DAEMON_INFO(ripngd, RIPNG,
+	.vty_port = RIPNG_VTY_PORT,
+	.proghelp = "Implementation of the RIPng routing protocol.",
+
+	.signals = ripng_signals,
+	.n_signals = array_size(ripng_signals),
+
+	.privs = &ripngd_privs,
+
+	.yang_modules = ripngd_yang_modules,
+	.n_yang_modules = array_size(ripngd_yang_modules),
+
+	/* mgmtd will load the per-daemon config file now */
+	.flags = FRR_NO_SPLIT_CONFIG,
+);
+/* clang-format on */
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 #define DEPRECATED_OPTIONS ""
 
@@ -160,7 +213,13 @@ int main(int argc, char **argv)
 
 	/* RIPngd inits. */
 	ripng_init();
+<<<<<<< HEAD
 	ripng_cli_init();
+=======
+
+	mgmt_be_client = mgmt_be_client_create("ripngd", NULL, 0, master);
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	zebra_init(master);
 
 	frr_config_fork();

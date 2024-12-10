@@ -73,6 +73,10 @@
 
 /* NHRP Authentication extension types (ala Cisco) */
 #define NHRP_AUTHENTICATION_PLAINTEXT		0x00000001
+<<<<<<< HEAD
+=======
+#define NHRP_CISCO_PASS_LEN			8
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 /* NHRP Packet Structures */
 struct nhrp_packet_header {

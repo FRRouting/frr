@@ -15,9 +15,32 @@ extern "C" {
 
 /* struct for vector */
 struct _vector {
+<<<<<<< HEAD
 	unsigned int active;  /* number of active slots */
 	unsigned int alloced; /* number of allocated slot */
 	unsigned int count;
+=======
+	/* active: index of last non-NULL item (+1)
+	 * count:  number of non-NULL items (+1)
+	 *
+	 * the two will be different if a slot is set to NULL (without pulling
+	 * up later items in the array).  Whether this happens depends on
+	 * which vector functions are used.  If no empty slots are used, the
+	 * two fields will be identical.
+	 *
+	 * alloced: size of array pointed to by index.  If this is 0, index
+	 * points at a global variable rather than a malloc'd bit of memory.
+	 * The vector code will convert to malloc'd memory if necessary to
+	 * perform updates.
+	 */
+	unsigned int active;
+	unsigned int alloced;
+	unsigned int count;
+
+	/* whether struct _vector itself is dynamically allocated */
+	bool dynamic;
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	void **index;	 /* index to data */
 };
 typedef struct _vector *vector;
@@ -51,7 +74,10 @@ static inline unsigned int vector_count(vector v)
 }
 
 extern void vector_free(vector v);
+<<<<<<< HEAD
 extern vector vector_copy(vector v);
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 extern void *vector_lookup(vector, unsigned int);
 extern void *vector_lookup_ensure(vector, unsigned int);

@@ -10,9 +10,20 @@
  */
 
 #include <zebra.h>
+<<<<<<< HEAD
 #include <lib/version.h>
 
 #include "command.h"
+=======
+#include <sys/utsname.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+
+#include <lib/version.h>
+
+#include "command.h"
+#include "debug.h"
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 #include "frrstr.h"
 #include "memory.h"
 #include "log.h"
@@ -39,6 +50,11 @@
 
 #include "frrscript.h"
 
+<<<<<<< HEAD
+=======
+#include "lib/config_paths.h"
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 DEFINE_MTYPE_STATIC(LIB, HOST, "Host config");
 DEFINE_MTYPE(LIB, COMPLETION, "Completion item");
 
@@ -477,6 +493,7 @@ static int config_write_host(struct vty *vty)
 		}
 		log_config_write(vty);
 
+<<<<<<< HEAD
 		/* print disable always, but enable only if default is flipped
 		 * => prep for future removal of compile-time knob
 		 */
@@ -494,16 +511,28 @@ static int config_write_host(struct vty *vty)
 #else
 		else if (cputime_threshold != 5000000)
 #endif
+=======
+		if (!cputime_enabled)
+			vty_out(vty, "no service cputime-stats\n");
+
+		if (!cputime_threshold)
+			vty_out(vty, "no service cputime-warning\n");
+		else if (cputime_threshold != CONSUMED_TIME_CHECK)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			vty_out(vty, "service cputime-warning %lu\n",
 				cputime_threshold / 1000);
 
 		if (!walltime_threshold)
 			vty_out(vty, "no service walltime-warning\n");
+<<<<<<< HEAD
 #if defined(CONSUMED_TIME_CHECK) && CONSUMED_TIME_CHECK != 5000000
 		else /* again, always print non-default */
 #else
 		else if (walltime_threshold != 5000000)
 #endif
+=======
+		else if (walltime_threshold != CONSUMED_TIME_CHECK)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			vty_out(vty, "service walltime-warning %lu\n",
 				walltime_threshold / 1000);
 
@@ -687,6 +716,24 @@ vector cmd_describe_command(vector vline, struct vty *vty, int *status)
 
 static struct list *varhandlers = NULL;
 
+<<<<<<< HEAD
+=======
+static int __add_key_comp(const struct lyd_node *dnode, void *arg)
+{
+	const char *key_value = yang_dnode_get_string(dnode, NULL);
+
+	vector_set((vector)arg, XSTRDUP(MTYPE_COMPLETION, key_value));
+
+	return YANG_ITER_CONTINUE;
+}
+
+static void __get_list_keys(vector comps, const char *xpath)
+{
+	yang_dnode_iterate(__add_key_comp, comps,
+			   vty_shared_candidate_config->dnode, "%s", xpath);
+}
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 void cmd_variable_complete(struct cmd_token *token, const char *arg,
 			   vector comps)
 {
@@ -703,7 +750,14 @@ void cmd_variable_complete(struct cmd_token *token, const char *arg,
 		if (cvh->varname && (!token->varname
 				     || strcmp(cvh->varname, token->varname)))
 			continue;
+<<<<<<< HEAD
 		cvh->completions(tmpcomps, token);
+=======
+		if (cvh->xpath)
+			__get_list_keys(tmpcomps, cvh->xpath);
+		if (cvh->completions)
+			cvh->completions(tmpcomps, token);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		break;
 	}
 
@@ -762,7 +816,11 @@ void cmd_variable_handler_register(const struct cmd_variable_handler *cvh)
 	if (!varhandlers)
 		return;
 
+<<<<<<< HEAD
 	for (; cvh->completions; cvh++)
+=======
+	for (; cvh->completions || cvh->xpath; cvh++)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		listnode_add(varhandlers, (void *)cvh);
 }
 
@@ -903,8 +961,12 @@ enum node_type node_parent(enum node_type node)
 }
 
 /* Execute command by argument vline vector. */
+<<<<<<< HEAD
 static int cmd_execute_command_real(vector vline, enum cmd_filter_type filter,
 				    struct vty *vty,
+=======
+static int cmd_execute_command_real(vector vline, struct vty *vty,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 				    const struct cmd_element **cmd,
 				    unsigned int up_level)
 {
@@ -1041,8 +1103,12 @@ int cmd_execute_command(vector vline, struct vty *vty,
 			vector_set_index(shifted_vline, index - 1,
 					 vector_lookup(vline, index));
 
+<<<<<<< HEAD
 		ret = cmd_execute_command_real(shifted_vline, FILTER_RELAXED,
 					       vty, cmd, 0);
+=======
+		ret = cmd_execute_command_real(shifted_vline, vty, cmd, 0);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 		vector_free(shifted_vline);
 		vty->node = onode;
@@ -1051,7 +1117,11 @@ int cmd_execute_command(vector vline, struct vty *vty,
 	}
 
 	saved_ret = ret =
+<<<<<<< HEAD
 		cmd_execute_command_real(vline, FILTER_RELAXED, vty, cmd, 0);
+=======
+		cmd_execute_command_real(vline, vty, cmd, 0);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	if (vtysh)
 		return saved_ret;
@@ -1069,8 +1139,12 @@ int cmd_execute_command(vector vline, struct vty *vty,
 			if (vty->xpath_index > 0 && !cnode->no_xpath)
 				vty->xpath_index--;
 
+<<<<<<< HEAD
 			ret = cmd_execute_command_real(vline, FILTER_RELAXED,
 						       vty, cmd, 0);
+=======
+			ret = cmd_execute_command_real(vline, vty, cmd, 0);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			if (ret == CMD_SUCCESS || ret == CMD_WARNING
 			    || ret == CMD_ERR_AMBIGUOUS || ret == CMD_ERR_INCOMPLETE
 			    || ret == CMD_NOT_MY_INSTANCE
@@ -1102,7 +1176,11 @@ int cmd_execute_command(vector vline, struct vty *vty,
 int cmd_execute_command_strict(vector vline, struct vty *vty,
 			       const struct cmd_element **cmd)
 {
+<<<<<<< HEAD
 	return cmd_execute_command_real(vline, FILTER_STRICT, vty, cmd, 0);
+=======
+	return cmd_execute_command_real(vline, vty, cmd, 0);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 }
 
 /*
@@ -1274,8 +1352,12 @@ int command_config_read_one_line(struct vty *vty,
 	       && ret != CMD_ERR_AMBIGUOUS && ret != CMD_ERR_INCOMPLETE
 	       && ret != CMD_NOT_MY_INSTANCE && ret != CMD_WARNING_CONFIG_FAILED
 	       && ret != CMD_NO_LEVEL_UP)
+<<<<<<< HEAD
 		ret = cmd_execute_command_real(vline, FILTER_STRICT, vty, cmd,
 					       ++up_level);
+=======
+		ret = cmd_execute_command_real(vline, vty, cmd, ++up_level);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	if (ret == CMD_NO_LEVEL_UP)
 		ret = CMD_ERR_NO_MATCH;
@@ -1369,7 +1451,11 @@ DEFUN (disable,
 }
 
 /* Down vty node level. */
+<<<<<<< HEAD
 DEFUN (config_exit,
+=======
+DEFUN_YANG (config_exit,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
        config_exit_cmd,
        "exit",
        "Exit current mode and down to previous mode\n")
@@ -1448,7 +1534,11 @@ DEFUN (config_help,
        "Description of the interactive help system\n")
 {
 	vty_out(vty,
+<<<<<<< HEAD
 		"Quagga VTY provides advanced help feature.  When you need help,\n\
+=======
+		"FRR VTY provides advanced help feature.  When you need help,\n\
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 anytime at the command line please press '?'.\n\
 \n\
 If nothing matches, the help list will be empty and you must backup\n\
@@ -1648,6 +1738,13 @@ static int vty_write_config(struct vty *vty)
 	return CMD_SUCCESS;
 }
 
+<<<<<<< HEAD
+=======
+/* cross-reference frr_daemon_state_save in libfrr.c
+ * the code there is similar but not identical (state files always use the same
+ * name for the new write, and don't keep a backup of previous state.)
+ */
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 static int file_write_config(struct vty *vty)
 {
 	int fd, dirfd;
@@ -2454,8 +2551,12 @@ const char *host_config_get(void)
 void cmd_show_lib_debugs(struct vty *vty)
 {
 	route_map_show_debug(vty);
+<<<<<<< HEAD
 	mgmt_debug_be_client_show_debug(vty);
 	mgmt_debug_fe_client_show_debug(vty);
+=======
+	debug_status_write(vty);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 }
 
 void install_default(enum node_type node)

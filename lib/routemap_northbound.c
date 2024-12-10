@@ -98,7 +98,11 @@ static int lib_route_map_create(struct nb_cb_create_args *args)
 		/* NOTHING */
 		break;
 	case NB_EV_APPLY:
+<<<<<<< HEAD
 		rm_name = yang_dnode_get_string(args->dnode, "./name");
+=======
+		rm_name = yang_dnode_get_string(args->dnode, "name");
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		rm = route_map_get(rm_name);
 		nb_running_set_entry(args->dnode, rm);
 		break;
@@ -167,8 +171,13 @@ static int lib_route_map_entry_create(struct nb_cb_create_args *args)
 		/* NOTHING */
 		break;
 	case NB_EV_APPLY:
+<<<<<<< HEAD
 		sequence = yang_dnode_get_uint16(args->dnode, "./sequence");
 		action = yang_dnode_get_enum(args->dnode, "./action") == 0
+=======
+		sequence = yang_dnode_get_uint16(args->dnode, "sequence");
+		action = yang_dnode_get_enum(args->dnode, "action") == 0
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 				 ? RMAP_PERMIT
 				 : RMAP_DENY;
 		rm = nb_running_get_entry(args->dnode, NULL, true);
@@ -364,7 +373,10 @@ lib_route_map_entry_exit_policy_modify(struct nb_cb_modify_args *args)
 		case 0: /* permit-or-deny */
 			break;
 		case 1: /* next */
+<<<<<<< HEAD
 			/* FALLTHROUGH */
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		case 2: /* goto */
 			rm_action =
 				yang_dnode_get_enum(args->dnode, "../action");
@@ -885,7 +897,11 @@ static int lib_route_map_entry_set_action_ipv4_address_modify(
 		yang_dnode_get_ipv4(&ia, args->dnode, NULL);
 		if (ia.s_addr == INADDR_ANY || !ipv4_unicast_valid(&ia))
 			return NB_ERR_VALIDATION;
+<<<<<<< HEAD
 		/* FALLTHROUGH */
+=======
+		return NB_OK;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
 		return NB_OK;
@@ -944,7 +960,11 @@ static int lib_route_map_entry_set_action_ipv6_address_modify(
 		yang_dnode_get_ipv6(&i6a, args->dnode, NULL);
 		if (!IN6_IS_ADDR_LINKLOCAL(&i6a))
 			return NB_ERR_VALIDATION;
+<<<<<<< HEAD
 		/* FALLTHROUGH */
+=======
+		return NB_OK;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
 		return NB_OK;
@@ -1215,6 +1235,37 @@ static int lib_route_map_entry_set_action_use_round_trip_time_destroy(
 }
 
 /*
+<<<<<<< HEAD
+=======
+ * XPath: /frr-route-map:lib/route-map/entry/set-action/use-igp
+ */
+static int lib_route_map_entry_set_action_use_igp_modify(struct nb_cb_modify_args *args)
+{
+	return set_action_modify(args->event, args->dnode, args->resource, "igp", args->errmsg,
+				 args->errmsg_len);
+}
+
+static int lib_route_map_entry_set_action_use_igp_destroy(struct nb_cb_destroy_args *args)
+{
+	return lib_route_map_entry_set_action_value_destroy(args);
+}
+
+/*
+ * XPath: /frr-route-map:lib/route-map/entry/set-action/use-aigp
+ */
+static int lib_route_map_entry_set_action_use_aigp_modify(struct nb_cb_modify_args *args)
+{
+	return set_action_modify(args->event, args->dnode, args->resource, "aigp", args->errmsg,
+				 args->errmsg_len);
+}
+
+static int lib_route_map_entry_set_action_use_aigp_destroy(struct nb_cb_destroy_args *args)
+{
+	return lib_route_map_entry_set_action_value_destroy(args);
+}
+
+/*
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
  * XPath: /frr-route-map:lib/route-map/entry/set-action/add-round-trip-time
  */
 static int lib_route_map_entry_set_action_add_round_trip_time_modify(
@@ -1518,6 +1569,23 @@ const struct frr_yang_module_info frr_route_map_info = {
 			}
 		},
 		{
+<<<<<<< HEAD
+=======
+			.xpath = "/frr-route-map:lib/route-map/entry/set-action/rmap-set-action/use-igp",
+			.cbs = {
+				.modify = lib_route_map_entry_set_action_use_igp_modify,
+				.destroy = lib_route_map_entry_set_action_use_igp_destroy,
+			}
+		},
+		{
+			.xpath = "/frr-route-map:lib/route-map/entry/set-action/rmap-set-action/use-aigp",
+			.cbs = {
+				.modify = lib_route_map_entry_set_action_use_aigp_modify,
+				.destroy = lib_route_map_entry_set_action_use_aigp_destroy,
+			}
+		},
+		{
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			.xpath = "/frr-route-map:lib/route-map/entry/set-action/rmap-set-action/add-round-trip-time",
 			.cbs = {
 				.modify = lib_route_map_entry_set_action_add_round_trip_time_modify,
@@ -1551,3 +1619,48 @@ const struct frr_yang_module_info frr_route_map_info = {
 		},
 	}
 };
+<<<<<<< HEAD
+=======
+
+const struct frr_yang_module_info frr_route_map_cli_info = {
+	.name = "frr-route-map",
+	.ignore_cfg_cbs = true,
+	.nodes = {
+		{
+			.xpath = "/frr-route-map:lib/route-map/optimization-disabled",
+			.cbs.cli_show = route_map_optimization_disabled_show,
+		},
+		{
+			.xpath = "/frr-route-map:lib/route-map/entry",
+			.cbs = {
+				.cli_cmp = route_map_instance_cmp,
+				.cli_show = route_map_instance_show,
+				.cli_show_end = route_map_instance_show_end,
+			}
+		},
+		{
+			.xpath = "/frr-route-map:lib/route-map/entry/description",
+			.cbs.cli_show = route_map_description_show,
+		},
+		{
+			.xpath = "/frr-route-map:lib/route-map/entry/call",
+			.cbs.cli_show = route_map_call_show,
+		},
+		{
+			.xpath = "/frr-route-map:lib/route-map/entry/exit-policy",
+			.cbs.cli_show = route_map_exit_policy_show,
+		},
+		{
+			.xpath = "/frr-route-map:lib/route-map/entry/match-condition",
+			.cbs.cli_show = route_map_condition_show,
+		},
+		{
+			.xpath = "/frr-route-map:lib/route-map/entry/set-action",
+			.cbs.cli_show = route_map_action_show,
+		},
+		{
+			.xpath = NULL,
+		},
+	}
+};
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)

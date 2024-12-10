@@ -11,6 +11,10 @@ Copyright 2011, 2012 by Matthieu Boutier and Juliusz Chroboczek
 #include <sys/time.h>
 #include <sys/param.h>
 #include <time.h>
+<<<<<<< HEAD
+=======
+#include <fcntl.h>
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 #include "babeld.h"
 
@@ -91,6 +95,7 @@ kernel_route(enum babel_kernel_routes operation, const unsigned char *pref,
         case ROUTE_MODIFY:
             if(newmetric == metric && memcmp(newgate, gate, 16) == 0 &&
                newifindex == ifindex)
+<<<<<<< HEAD
                 return 0;
             debugf(BABEL_DEBUG_ROUTE, "Modify route: delete old; add new.");
             rc = zebra_route(0, family, pref, plen, gate, ifindex, metric);
@@ -98,6 +103,11 @@ kernel_route(enum babel_kernel_routes operation, const unsigned char *pref,
                 return -1;
 
             rc = zebra_route(1, family, pref, plen, newgate, newifindex,
+=======
+		    return 0;
+
+	    rc = zebra_route(1, family, pref, plen, newgate, newifindex,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
                              newmetric);
             return rc;
     }

@@ -67,7 +67,11 @@ static inline bool ospf6_nexthop_is_same(const struct ospf6_nexthop *nha,
 	case NEXTHOP_TYPE_IPV6_IFINDEX:
 		if (nha->ifindex != nhb->ifindex)
 			return false;
+<<<<<<< HEAD
 		/* FALLTHROUGH */
+=======
+		fallthrough;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	case NEXTHOP_TYPE_IPV6:
 		if (!IN6_ARE_ADDR_EQUAL(&nha->address, &nhb->address))
 			return false;
@@ -115,6 +119,10 @@ struct ospf6_path {
 	/* Cost */
 	uint8_t metric_type;
 	uint32_t cost;
+<<<<<<< HEAD
+=======
+	uint32_t redistribute_cost;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	struct prefix ls_prefix;
 
@@ -139,6 +147,11 @@ struct ospf6_path {
 
 #define OSPF6_PATH_COST_IS_CONFIGURED(path) (path.u.cost_config != OSPF_AREA_RANGE_COST_UNSPEC)
 
+<<<<<<< HEAD
+=======
+#define OSPF6_EXT_PATH_METRIC_MAX 0x00ffffff
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 #include "prefix.h"
 #include "table.h"
 #include "bitfield.h"

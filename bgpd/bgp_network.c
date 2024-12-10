@@ -35,7 +35,11 @@
 
 extern struct zebra_privs_t bgpd_privs;
 
+<<<<<<< HEAD
 static char *bgp_get_bound_name(struct peer *peer);
+=======
+static char *bgp_get_bound_name(struct peer_connection *connection);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 void bgp_dump_listener_info(struct vty *vty)
 {
@@ -117,11 +121,20 @@ static int bgp_md5_set_connect(int socket, union sockunion *su,
 	return ret;
 }
 
+<<<<<<< HEAD
 static int bgp_md5_set_password(struct peer *peer, const char *password)
+=======
+static int bgp_md5_set_password(struct peer_connection *connection,
+				const char *password)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 {
 	struct listnode *node;
 	int ret = 0;
 	struct bgp_listener *listener;
+<<<<<<< HEAD
+=======
+	struct peer *peer = connection->peer;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	/*
 	 * Set or unset the password on the listen socket(s). Outbound
@@ -130,9 +143,15 @@ static int bgp_md5_set_password(struct peer *peer, const char *password)
 	frr_with_privs(&bgpd_privs) {
 		for (ALL_LIST_ELEMENTS_RO(bm->listen_sockets, node, listener))
 			if (listener->su.sa.sa_family ==
+<<<<<<< HEAD
 			    peer->su.sa.sa_family) {
 				uint16_t prefixlen =
 					peer->su.sa.sa_family == AF_INET
+=======
+			    connection->su.sa.sa_family) {
+				uint16_t prefixlen =
+					connection->su.sa.sa_family == AF_INET
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 						? IPV4_MAX_BITLEN
 						: IPV6_MAX_BITLEN;
 
@@ -149,8 +168,13 @@ static int bgp_md5_set_password(struct peer *peer, const char *password)
 					continue;
 
 				ret = bgp_md5_set_socket(listener->fd,
+<<<<<<< HEAD
 							 &peer->su, prefixlen,
 							 password);
+=======
+							 &connection->su,
+							 prefixlen, password);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 				break;
 			}
 	}
@@ -186,10 +210,17 @@ int bgp_md5_unset_prefix(struct bgp *bgp, struct prefix *p)
 	return bgp_md5_set_prefix(bgp, p, NULL);
 }
 
+<<<<<<< HEAD
 int bgp_md5_set(struct peer *peer)
 {
 	/* Set the password from listen socket. */
 	return bgp_md5_set_password(peer, peer->password);
+=======
+int bgp_md5_set(struct peer_connection *connection)
+{
+	/* Set the password from listen socket. */
+	return bgp_md5_set_password(connection, connection->peer->password);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 }
 
 static void bgp_update_setsockopt_tcp_keepalive(struct bgp *bgp, int fd)
@@ -211,6 +242,7 @@ static void bgp_update_setsockopt_tcp_keepalive(struct bgp *bgp, int fd)
 	}
 }
 
+<<<<<<< HEAD
 int bgp_md5_unset(struct peer *peer)
 {
 	/* Unset the password from listen socket. */
@@ -223,6 +255,22 @@ int bgp_set_socket_ttl(struct peer *peer, int bgp_sock)
 
 	if (!peer->gtsm_hops) {
 		ret = sockopt_ttl(peer->su.sa.sa_family, bgp_sock, peer->ttl);
+=======
+int bgp_md5_unset(struct peer_connection *connection)
+{
+	/* Unset the password from listen socket. */
+	return bgp_md5_set_password(connection, NULL);
+}
+
+int bgp_set_socket_ttl(struct peer_connection *connection)
+{
+	int ret = 0;
+	struct peer *peer = connection->peer;
+
+	if (!peer->gtsm_hops) {
+		ret = sockopt_ttl(connection->su.sa.sa_family, connection->fd,
+				  peer->ttl);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		if (ret) {
 			flog_err(
 				EC_LIB_SOCKET,
@@ -235,7 +283,12 @@ int bgp_set_socket_ttl(struct peer *peer, int bgp_sock)
 		   with the
 		   outgoing ttl. Therefore setting both.
 		*/
+<<<<<<< HEAD
 		ret = sockopt_ttl(peer->su.sa.sa_family, bgp_sock, MAXTTL);
+=======
+		ret = sockopt_ttl(connection->su.sa.sa_family, connection->fd,
+				  MAXTTL);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		if (ret) {
 			flog_err(
 				EC_LIB_SOCKET,
@@ -243,7 +296,11 @@ int bgp_set_socket_ttl(struct peer *peer, int bgp_sock)
 				__func__, &peer->remote_id, errno);
 			return ret;
 		}
+<<<<<<< HEAD
 		ret = sockopt_minttl(peer->su.sa.sa_family, bgp_sock,
+=======
+		ret = sockopt_minttl(connection->su.sa.sa_family, connection->fd,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 				     MAXTTL + 1 - peer->gtsm_hops);
 		if (ret) {
 			flog_err(
@@ -329,6 +386,56 @@ static int bgp_get_instance_for_inc_conn(int sock, struct bgp **bgp_inst)
 #endif
 }
 
+<<<<<<< HEAD
+=======
+int bgp_tcp_mss_set(struct peer *peer)
+{
+	struct listnode *node;
+	int ret = 0;
+	struct bgp_listener *listener;
+	uint32_t min_mss = 0;
+	struct peer *p;
+
+	for (ALL_LIST_ELEMENTS_RO(peer->bgp->peer, node, p)) {
+		if (!CHECK_FLAG(p->flags, PEER_FLAG_TCP_MSS))
+			continue;
+
+		if (!p->tcp_mss)
+			continue;
+
+		if (!min_mss)
+			min_mss = p->tcp_mss;
+
+		min_mss = MIN(min_mss, p->tcp_mss);
+	}
+
+	frr_with_privs(&bgpd_privs) {
+		for (ALL_LIST_ELEMENTS_RO(bm->listen_sockets, node, listener)) {
+			if (listener->su.sa.sa_family !=
+			    peer->connection->su.sa.sa_family)
+				continue;
+
+			if (!listener->bgp) {
+				if (peer->bgp->vrf_id != VRF_DEFAULT)
+					continue;
+			} else if (listener->bgp != peer->bgp)
+				continue;
+
+			/* Set TCP MSS per listener only if there is at least
+			 * one peer that is in passive mode. Otherwise, TCP MSS
+			 * is set per socket via bgp_connect().
+			 */
+			if (CHECK_FLAG(peer->flags, PEER_FLAG_PASSIVE))
+				sockopt_tcp_mss_set(listener->fd, min_mss);
+
+			break;
+		}
+	}
+
+	return ret;
+}
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 static void bgp_socket_set_buffer_size(const int fd)
 {
 	if (getsockopt_so_sendbuf(fd) < (int)bm->socket_buffer)
@@ -344,8 +451,13 @@ static void bgp_accept(struct event *thread)
 	int accept_sock;
 	union sockunion su;
 	struct bgp_listener *listener = EVENT_ARG(thread);
+<<<<<<< HEAD
 	struct peer *peer;
 	struct peer *peer1;
+=======
+	struct peer *peer, *peer1;
+	struct peer_connection *connection, *connection1;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	char buf[SU_ADDRSTRLEN];
 	struct bgp *bgp = NULL;
 
@@ -428,10 +540,18 @@ static void bgp_accept(struct event *thread)
 	if (!peer1) {
 		peer1 = peer_lookup_dynamic_neighbor(bgp, &su);
 		if (peer1) {
+<<<<<<< HEAD
 			/* Dynamic neighbor has been created, let it proceed */
 			peer1->fd = bgp_sock;
 
 			if (bgp_set_socket_ttl(peer1, bgp_sock) < 0) {
+=======
+			connection1 = peer1->connection;
+			/* Dynamic neighbor has been created, let it proceed */
+			connection1->fd = bgp_sock;
+
+			if (bgp_set_socket_ttl(connection1) < 0) {
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 				peer1->last_reset = PEER_DOWN_SOCKET_ERROR;
 				zlog_err("%s: Unable to set min/max TTL on peer %s (dynamic), error received: %s(%d)",
 					 __func__, peer1->host,
@@ -445,6 +565,7 @@ static void bgp_accept(struct event *thread)
 
 			frr_with_privs (&bgpd_privs) {
 				vrf_bind(peer1->bgp->vrf_id, bgp_sock,
+<<<<<<< HEAD
 					 bgp_get_bound_name(peer1));
 			}
 			bgp_peer_reg_with_nht(peer1);
@@ -459,6 +580,21 @@ static void bgp_accept(struct event *thread)
 						TCP_connection_open_w_delay);
 				else
 					BGP_EVENT_ADD(peer1,
+=======
+					 bgp_get_bound_name(connection1));
+			}
+			bgp_peer_reg_with_nht(peer1);
+			bgp_fsm_change_status(connection1, Active);
+			EVENT_OFF(connection1->t_start);
+
+			if (peer_active(peer1->connection)) {
+				if (CHECK_FLAG(peer1->flags,
+					       PEER_FLAG_TIMER_DELAYOPEN))
+					BGP_EVENT_ADD(connection1,
+						      TCP_connection_open_w_delay);
+				else
+					BGP_EVENT_ADD(connection1,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 						      TCP_connection_open);
 			}
 
@@ -477,6 +613,10 @@ static void bgp_accept(struct event *thread)
 		return;
 	}
 
+<<<<<<< HEAD
+=======
+	connection1 = peer1->connection;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	if (CHECK_FLAG(peer1->flags, PEER_FLAG_SHUTDOWN)
 	    || CHECK_FLAG(peer1->bgp->flags, BGP_FLAG_SHUTDOWN)) {
 		if (bgp_debug_neighbor_events(peer1))
@@ -494,17 +634,29 @@ static void bgp_accept(struct event *thread)
 	 * Established and then the Clearing_Completed event is generated. Also,
 	 * block incoming connection in Deleted state.
 	 */
+<<<<<<< HEAD
 	if (peer1->status == Clearing || peer1->status == Deleted) {
 		if (bgp_debug_neighbor_events(peer1))
 			zlog_debug(
 				"[Event] Closing incoming conn for %s (%p) state %d",
 				peer1->host, peer1, peer1->status);
+=======
+	if (connection1->status == Clearing || connection1->status == Deleted) {
+		if (bgp_debug_neighbor_events(peer1))
+			zlog_debug("[Event] Closing incoming conn for %s (%p) state %d",
+				   peer1->host, peer1,
+				   peer1->connection->status);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		close(bgp_sock);
 		return;
 	}
 
 	/* Check that at least one AF is activated for the peer. */
+<<<<<<< HEAD
 	if (!peer_active(peer1)) {
+=======
+	if (!peer_active(connection1)) {
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		if (bgp_debug_neighbor_events(peer1))
 			zlog_debug(
 				"%s - incoming conn rejected - no AF activated for peer",
@@ -533,10 +685,16 @@ static void bgp_accept(struct event *thread)
 	}
 
 	if (bgp_debug_neighbor_events(peer1))
+<<<<<<< HEAD
 		zlog_debug(
 			"[Event] connection from %s fd %d, active peer status %d fd %d",
 			inet_sutop(&su, buf), bgp_sock, peer1->status,
 			peer1->fd);
+=======
+		zlog_debug("[Event] connection from %s fd %d, active peer status %d fd %d",
+			   inet_sutop(&su, buf), bgp_sock, connection1->status,
+			   connection1->fd);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	if (peer1->doppelganger) {
 		/* We have an existing connection. Kill the existing one and run
@@ -549,6 +707,7 @@ static void bgp_accept(struct event *thread)
 		peer_delete(peer1->doppelganger);
 	}
 
+<<<<<<< HEAD
 	if (bgp_set_socket_ttl(peer1, bgp_sock) < 0)
 		if (bgp_debug_neighbor_events(peer1))
 			zlog_debug(
@@ -558,6 +717,13 @@ static void bgp_accept(struct event *thread)
 	peer = peer_create(&su, peer1->conf_if, peer1->bgp, peer1->local_as,
 			   peer1->as, peer1->as_type, NULL, false, NULL);
 
+=======
+	peer = peer_create(&su, peer1->conf_if, peer1->bgp, peer1->local_as,
+			   peer1->as, peer1->as_type, NULL, false, NULL);
+
+	connection = peer->connection;
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	peer_xfer_config(peer, peer1);
 	bgp_peer_gr_flags_update(peer);
 
@@ -575,6 +741,7 @@ static void bgp_accept(struct event *thread)
 
 	peer->doppelganger = peer1;
 	peer1->doppelganger = peer;
+<<<<<<< HEAD
 	peer->fd = bgp_sock;
 	frr_with_privs(&bgpd_privs) {
 		vrf_bind(peer->bgp->vrf_id, bgp_sock, bgp_get_bound_name(peer));
@@ -587,6 +754,27 @@ static void bgp_accept(struct event *thread)
 	/* Make dummy peer until read Open packet. */
 	if (peer_established(peer1)
 	    && CHECK_FLAG(peer1->sflags, PEER_STATUS_NSF_MODE)) {
+=======
+	connection->fd = bgp_sock;
+
+	if (bgp_set_socket_ttl(connection) < 0)
+		if (bgp_debug_neighbor_events(peer))
+			zlog_debug("[Event] Unable to set min/max TTL on peer %s, Continuing",
+				   peer->host);
+
+	frr_with_privs(&bgpd_privs) {
+		vrf_bind(peer->bgp->vrf_id, bgp_sock,
+			 bgp_get_bound_name(peer->connection));
+	}
+	bgp_peer_reg_with_nht(peer);
+	bgp_fsm_change_status(connection, Active);
+	EVENT_OFF(connection->t_start); /* created in peer_create() */
+
+	SET_FLAG(peer->sflags, PEER_STATUS_ACCEPT_PEER);
+	/* Make dummy peer until read Open packet. */
+	if (peer_established(connection1) &&
+	    CHECK_FLAG(peer1->sflags, PEER_STATUS_NSF_MODE)) {
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		/* If we have an existing established connection with graceful
 		 * restart
 		 * capability announced with one or more address families, then
@@ -600,6 +788,7 @@ static void bgp_accept(struct event *thread)
 				  PEER_FLAG_GRACEFUL_RESTART_HELPER))
 			SET_FLAG(peer1->sflags, PEER_STATUS_NSF_WAIT);
 
+<<<<<<< HEAD
 		bgp_event_update(peer1, TCP_connection_closed);
 	}
 
@@ -608,6 +797,16 @@ static void bgp_accept(struct event *thread)
 			BGP_EVENT_ADD(peer, TCP_connection_open_w_delay);
 		else
 			BGP_EVENT_ADD(peer, TCP_connection_open);
+=======
+		bgp_event_update(connection1, TCP_connection_closed);
+	}
+
+	if (peer_active(peer->connection)) {
+		if (CHECK_FLAG(peer->flags, PEER_FLAG_TIMER_DELAYOPEN))
+			BGP_EVENT_ADD(connection, TCP_connection_open_w_delay);
+		else
+			BGP_EVENT_ADD(connection, TCP_connection_open);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	}
 
 	/*
@@ -618,24 +817,39 @@ static void bgp_accept(struct event *thread)
 }
 
 /* BGP socket bind. */
+<<<<<<< HEAD
 static char *bgp_get_bound_name(struct peer *peer)
 {
 	if (!peer)
 		return NULL;
+=======
+static char *bgp_get_bound_name(struct peer_connection *connection)
+{
+	struct peer *peer = connection->peer;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	if ((peer->bgp->vrf_id == VRF_DEFAULT) && !peer->ifname
 	    && !peer->conf_if)
 		return NULL;
 
+<<<<<<< HEAD
 	if (peer->su.sa.sa_family != AF_INET
 	    && peer->su.sa.sa_family != AF_INET6)
+=======
+	if (connection->su.sa.sa_family != AF_INET &&
+	    connection->su.sa.sa_family != AF_INET6)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		return NULL; // unexpected
 
 	/* For IPv6 peering, interface (unnumbered or link-local with interface)
 	 * takes precedence over VRF. For IPv4 peering, explicit interface or
 	 * VRF are the situations to bind.
 	 */
+<<<<<<< HEAD
 	if (peer->su.sa.sa_family == AF_INET6 && peer->conf_if)
+=======
+	if (connection->su.sa.sa_family == AF_INET6 && peer->conf_if)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		return peer->conf_if;
 
 	if (peer->ifname)
@@ -652,7 +866,10 @@ int bgp_update_address(struct interface *ifp, const union sockunion *dst,
 {
 	struct prefix *p, *sel, d;
 	struct connected *connected;
+<<<<<<< HEAD
 	struct listnode *node;
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	int common;
 
 	if (!sockunion2hostprefix(dst, &d))
@@ -661,7 +878,11 @@ int bgp_update_address(struct interface *ifp, const union sockunion *dst,
 	sel = NULL;
 	common = -1;
 
+<<<<<<< HEAD
 	for (ALL_LIST_ELEMENTS_RO(ifp->connected, node, connected)) {
+=======
+	frr_each (if_connected, ifp->connected, connected) {
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		p = connected->address;
 		if (p->family != d.family)
 			continue;
@@ -679,11 +900,19 @@ int bgp_update_address(struct interface *ifp, const union sockunion *dst,
 }
 
 /* Update source selection.  */
+<<<<<<< HEAD
 static int bgp_update_source(struct peer *peer)
+=======
+static int bgp_update_source(struct peer_connection *connection)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 {
 	struct interface *ifp;
 	union sockunion addr;
 	int ret = 0;
+<<<<<<< HEAD
+=======
+	struct peer *peer = connection->peer;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	sockunion_init(&addr);
 
@@ -693,21 +922,33 @@ static int bgp_update_source(struct peer *peer)
 		if (!ifp)
 			return -1;
 
+<<<<<<< HEAD
 		if (bgp_update_address(ifp, &peer->su, &addr))
 			return -1;
 
 		ret = sockunion_bind(peer->fd, &addr, 0, &addr);
+=======
+		if (bgp_update_address(ifp, &connection->su, &addr))
+			return -1;
+
+		ret = sockunion_bind(connection->fd, &addr, 0, &addr);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	}
 
 	/* Source is specified with IP address.  */
 	if (peer->update_source)
+<<<<<<< HEAD
 		ret = sockunion_bind(peer->fd, peer->update_source, 0,
+=======
+		ret = sockunion_bind(connection->fd, peer->update_source, 0,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 				     peer->update_source);
 
 	return ret;
 }
 
 /* BGP try to connect to the peer.  */
+<<<<<<< HEAD
 int bgp_connect(struct peer *peer)
 {
 	assert(!CHECK_FLAG(peer->thread_flags, PEER_THREAD_WRITES_ON));
@@ -725,11 +966,34 @@ int bgp_connect(struct peer *peer)
 						bgp_get_bound_name(peer));
 	}
 	if (peer->fd < 0) {
+=======
+enum connect_result bgp_connect(struct peer_connection *connection)
+{
+	struct peer *peer = connection->peer;
+
+	assert(!CHECK_FLAG(connection->thread_flags, PEER_THREAD_WRITES_ON));
+	assert(!CHECK_FLAG(connection->thread_flags, PEER_THREAD_READS_ON));
+	ifindex_t ifindex = 0;
+
+	if (peer->conf_if && BGP_CONNECTION_SU_UNSPEC(connection)) {
+		if (bgp_debug_neighbor_events(peer))
+			zlog_debug("Peer address not learnt: Returning from connect");
+		return connect_error;
+	}
+	frr_with_privs(&bgpd_privs) {
+		/* Make socket for the peer. */
+		connection->fd =
+			vrf_sockunion_socket(&connection->su, peer->bgp->vrf_id,
+					     bgp_get_bound_name(connection));
+	}
+	if (connection->fd < 0) {
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		peer->last_reset = PEER_DOWN_SOCKET_ERROR;
 		if (bgp_debug_neighbor_events(peer))
 			zlog_debug("%s: Failure to create socket for connection to %s, error received: %s(%d)",
 				   __func__, peer->host, safe_strerror(errno),
 				   errno);
+<<<<<<< HEAD
 		return -1;
 	}
 
@@ -745,12 +1009,30 @@ int bgp_connect(struct peer *peer)
 	bgp_update_setsockopt_tcp_keepalive(peer->bgp, peer->fd);
 
 	if (bgp_set_socket_ttl(peer, peer->fd) < 0) {
+=======
+		return connect_error;
+	}
+
+	set_nonblocking(connection->fd);
+
+	/* Set the user configured MSS to TCP socket */
+	if (CHECK_FLAG(peer->flags, PEER_FLAG_TCP_MSS))
+		sockopt_tcp_mss_set(connection->fd, peer->tcp_mss);
+
+	bgp_socket_set_buffer_size(connection->fd);
+
+	/* Set TCP keepalive when TCP keepalive is enabled */
+	bgp_update_setsockopt_tcp_keepalive(peer->bgp, connection->fd);
+
+	if (bgp_set_socket_ttl(peer->connection) < 0) {
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		peer->last_reset = PEER_DOWN_SOCKET_ERROR;
 		if (bgp_debug_neighbor_events(peer))
 			zlog_debug("%s: Failure to set socket ttl for connection to %s, error received: %s(%d)",
 				   __func__, peer->host, safe_strerror(errno),
 				   errno);
 
+<<<<<<< HEAD
 		return -1;
 	}
 
@@ -763,10 +1045,25 @@ int bgp_connect(struct peer *peer)
 			setsockopt_ipv4_tos(peer->fd, bm->tcp_dscp);
 		else if (sockunion_family(&peer->su) == AF_INET6)
 			setsockopt_ipv6_tclass(peer->fd, bm->tcp_dscp);
+=======
+		return connect_error;
+	}
+
+	sockopt_reuseaddr(connection->fd);
+	sockopt_reuseport(connection->fd);
+
+#ifdef IPTOS_PREC_INTERNETCONTROL
+	frr_with_privs(&bgpd_privs) {
+		if (sockunion_family(&connection->su) == AF_INET)
+			setsockopt_ipv4_tos(connection->fd, bm->ip_tos);
+		else if (sockunion_family(&connection->su) == AF_INET6)
+			setsockopt_ipv6_tclass(connection->fd, bm->ip_tos);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	}
 #endif
 
 	if (peer->password) {
+<<<<<<< HEAD
 		uint16_t prefixlen = peer->su.sa.sa_family == AF_INET
 					     ? IPV4_MAX_BITLEN
 					     : IPV6_MAX_BITLEN;
@@ -775,15 +1072,38 @@ int bgp_connect(struct peer *peer)
 			bgp_md5_set(peer);
 
 		bgp_md5_set_connect(peer->fd, &peer->su, prefixlen,
+=======
+		uint16_t prefixlen = peer->connection->su.sa.sa_family == AF_INET
+					     ? IPV4_MAX_BITLEN
+					     : IPV6_MAX_BITLEN;
+
+		if (!BGP_CONNECTION_SU_UNSPEC(connection))
+			bgp_md5_set(connection);
+
+		bgp_md5_set_connect(connection->fd, &connection->su, prefixlen,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 				    peer->password);
 	}
 
 	/* Update source bind. */
+<<<<<<< HEAD
 	if (bgp_update_source(peer) < 0) {
+=======
+	if (bgp_update_source(connection) < 0) {
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		peer->last_reset = PEER_DOWN_SOCKET_ERROR;
 		return connect_error;
 	}
 
+<<<<<<< HEAD
+=======
+	/* If the peer is passive mode, force to move to Active mode. */
+	if (CHECK_FLAG(peer->flags, PEER_FLAG_PASSIVE)) {
+		BGP_EVENT_ADD(connection, TCP_connection_open_failed);
+		return connect_error;
+	}
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	if (peer->conf_if || peer->ifname)
 		ifindex = ifname2ifindex(peer->conf_if ? peer->conf_if
 						       : peer->ifname,
@@ -791,6 +1111,7 @@ int bgp_connect(struct peer *peer)
 
 	if (bgp_debug_neighbor_events(peer))
 		zlog_debug("%s [Event] Connect start to %s fd %d", peer->host,
+<<<<<<< HEAD
 			   peer->host, peer->fd);
 
 	/* Connect to the remote peer. */
@@ -800,6 +1121,16 @@ int bgp_connect(struct peer *peer)
 
 /* After TCP connection is established.  Get local address and port. */
 int bgp_getsockname(struct peer *peer)
+=======
+			   peer->host, connection->fd);
+
+	/* Connect to the remote peer. */
+	return sockunion_connect(connection->fd, &connection->su,
+				 htons(peer->port), ifindex);
+}
+
+void bgp_updatesockname(struct peer *peer, struct peer_connection *connection)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 {
 	if (peer->su_local) {
 		sockunion_free(peer->su_local);
@@ -811,19 +1142,38 @@ int bgp_getsockname(struct peer *peer)
 		peer->su_remote = NULL;
 	}
 
+<<<<<<< HEAD
 	peer->su_local = sockunion_getsockname(peer->fd);
 	if (!peer->su_local)
 		return -1;
 	peer->su_remote = sockunion_getpeername(peer->fd);
 	if (!peer->su_remote)
 		return -1;
+=======
+	peer->su_local = sockunion_getsockname(connection->fd);
+	peer->su_remote = sockunion_getpeername(connection->fd);
+}
+
+/* After TCP connection is established.  Get local address and port. */
+int bgp_getsockname(struct peer_connection *connection)
+{
+	struct peer *peer = connection->peer;
+
+	bgp_updatesockname(peer, peer->connection);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	if (!bgp_zebra_nexthop_set(peer->su_local, peer->su_remote,
 				   &peer->nexthop, peer)) {
 		flog_err(
 			EC_BGP_NH_UPD,
+<<<<<<< HEAD
 			"%s: nexthop_set failed, resetting connection - intf %s",
 			peer->host,
+=======
+			"%s: nexthop_set failed, local: %pSUp remote: %pSUp update_if: %s resetting connection - intf %s",
+			peer->host, peer->su_local, peer->su_remote,
+			peer->update_if ? peer->update_if : "(None)",
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			peer->nexthop.ifp ? peer->nexthop.ifp->name
 					  : "(Unknown)");
 		return -1;
@@ -845,9 +1195,15 @@ static int bgp_listener(int sock, struct sockaddr *sa, socklen_t salen,
 
 #ifdef IPTOS_PREC_INTERNETCONTROL
 		if (sa->sa_family == AF_INET)
+<<<<<<< HEAD
 			setsockopt_ipv4_tos(sock, bm->tcp_dscp);
 		else if (sa->sa_family == AF_INET6)
 			setsockopt_ipv6_tclass(sock, bm->tcp_dscp);
+=======
+			setsockopt_ipv4_tos(sock, bm->ip_tos);
+		else if (sa->sa_family == AF_INET6)
+			setsockopt_ipv6_tclass(sock, bm->ip_tos);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 #endif
 
 		sockopt_v6only(sa->sa_family, sock);

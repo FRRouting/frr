@@ -27,3 +27,16 @@ const struct frr_yang_module_info frr_routing_info = {
 		},
 	}
 };
+<<<<<<< HEAD
+=======
+
+const struct frr_yang_module_info frr_routing_cli_info = {
+	.name = "frr-routing",
+	.ignore_cfg_cbs = true,
+	.nodes = {
+		{
+			.xpath = NULL,
+		},
+	}
+};
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)

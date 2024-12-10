@@ -195,7 +195,11 @@ static int rip_snmp_ifaddr_del(struct connected *ifc)
 	if (!rn)
 		return 0;
 	i = rn->info;
+<<<<<<< HEAD
 	if (!strncmp(i->name, ifp->name, INTERFACE_NAMSIZ)) {
+=======
+	if (!strncmp(i->name, ifp->name, IFNAMSIZ)) {
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		rn->info = NULL;
 		route_unlock_node(rn);
 		route_unlock_node(rn);

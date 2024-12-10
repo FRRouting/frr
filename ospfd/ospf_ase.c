@@ -480,7 +480,11 @@ static int ospf_ase_route_match_same(struct route_table *rt,
 
 	assert(or);
 
+<<<<<<< HEAD
 	if (or->path_type != newor->path_type)
+=======
+	if (or->changed || (or->path_type != newor->path_type))
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		return 0;
 
 	switch (or->path_type) {

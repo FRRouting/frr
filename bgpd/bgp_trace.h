@@ -54,9 +54,15 @@ PKT_PROCESS_TRACEPOINT_INSTANCE(refresh_process)
 TRACEPOINT_EVENT(
 	frr_bgp,
 	packet_read,
+<<<<<<< HEAD
 	TP_ARGS(struct peer *, peer, struct stream *, pkt),
 	TP_FIELDS(
 		ctf_string(peer, PEER_HOSTNAME(peer))
+=======
+	TP_ARGS(struct peer_connection *, connection, struct stream *, pkt),
+	TP_FIELDS(
+		ctf_string(peer, PEER_HOSTNAME(connection->peer))
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		ctf_sequence_hex(uint8_t, packet, pkt->data, size_t,
 				 STREAM_READABLE(pkt))
 	)
@@ -135,11 +141,19 @@ TRACEPOINT_LOGLEVEL(frr_bgp, bmp_mirror_packet, TRACE_INFO)
 TRACEPOINT_EVENT(
 	frr_bgp,
 	bmp_eor,
+<<<<<<< HEAD
 	TP_ARGS(afi_t, afi, safi_t, safi, uint8_t, flags),
+=======
+	TP_ARGS(afi_t, afi, safi_t, safi, uint8_t, flags, uint8_t, peer_type_flag),
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	TP_FIELDS(
 		ctf_integer(afi_t, afi, afi)
 		ctf_integer(safi_t, safi, safi)
 		ctf_integer(uint8_t, flags, flags)
+<<<<<<< HEAD
+=======
+		ctf_integer(uint8_t, peer_type_flag, peer_type_flag)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	)
 )
 
@@ -307,7 +321,12 @@ TRACEPOINT_EVENT(
 		struct in_addr, vtep, esi_t *, esi),
 	TP_FIELDS(
 		ctf_string(action, add ? "add" : "del")
+<<<<<<< HEAD
 		ctf_integer(vni_t, vni, vpn->vni)
+=======
+		ctf_integer(vni_t, vni, (vpn ? vpn->vni : 0))
+		ctf_integer(uint32_t, eth_tag, &pfx->prefix.macip_addr.eth_tag)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		ctf_array(unsigned char, mac, &pfx->prefix.macip_addr.mac,
 			sizeof(struct ethaddr))
 		ctf_array(unsigned char, ip, &pfx->prefix.macip_addr.ip,
@@ -325,7 +344,11 @@ TRACEPOINT_EVENT(
 		const struct prefix_evpn *, pfx),
 	TP_FIELDS(
 		ctf_string(action, add ? "add" : "del")
+<<<<<<< HEAD
 		ctf_integer(vni_t, vni, vpn->vni)
+=======
+		ctf_integer(vni_t, vni, (vpn ? vpn->vni : 0))
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		ctf_integer_network_hex(unsigned int, vtep,
 			pfx->prefix.imet_addr.ip.ipaddr_v4.s_addr)
 	)

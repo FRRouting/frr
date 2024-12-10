@@ -59,12 +59,34 @@ want_r1_cust1_routes = [
     {"p": "5.1.1.0/24", "n": "99.0.0.1"},
     {"p": "6.0.1.0/24", "n": "99.0.0.1"},
     {"p": "6.0.2.0/24", "n": "99.0.0.1"},
+<<<<<<< HEAD
+=======
+    {"p": "172.16.0.0/24", "n": "0.0.0.0", "bp": True},
+    {"p": "172.16.1.1/32", "n": "0.0.0.0", "bp": True},
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     {"p": "99.0.0.1/32", "n": "192.168.1.2"},
 ]
 bgpribRequireUnicastRoutes(
     "r1", "ipv4", "r1-cust1", "Customer 1 routes in r1 vrf", want_r1_cust1_routes
 )
 
+<<<<<<< HEAD
+=======
+want_r1_cust4_routes = [
+    {"p": "172.16.0.0/24", "n": "0.0.0.0", "bp": True},
+]
+bgpribRequireUnicastRoutes(
+    "r1", "ipv4", "r1-cust4", "Customer 4 routes in r1 vrf", want_r1_cust4_routes
+)
+
+want_r1_cust5_routes = [
+    {"p": "172.16.1.1/32", "n": "0.0.0.0", "bp": True},
+]
+bgpribRequireUnicastRoutes(
+    "r1", "ipv4", "r1-cust5", "Customer 5 routes in r1 vrf", want_r1_cust5_routes
+)
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 want_r3_cust1_routes = [
     {"p": "5.1.0.0/24", "n": "99.0.0.2"},
     {"p": "5.1.1.0/24", "n": "99.0.0.2"},
@@ -667,7 +689,11 @@ bgpribRequireUnicastRoutes(
 luCommand(
     "ce1",
     'vtysh -c "show bgp ipv4 uni"',
+<<<<<<< HEAD
     "12 routes and 12",
+=======
+    "14 routes and 14",
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     "wait",
     "Local and remote routes",
     10,
@@ -689,7 +715,11 @@ bgpribRequireUnicastRoutes(
 luCommand(
     "ce2",
     'vtysh -c "show bgp ipv4 uni"',
+<<<<<<< HEAD
     "12 routes and 15",
+=======
+    "14 routes and 17",
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     "wait",
     "Local and remote routes",
     10,
@@ -721,7 +751,11 @@ luCommand("r4", 'vtysh -c "show ip route vrf r4-cust2"')
 luCommand(
     "ce3",
     'vtysh -c "show bgp ipv4 uni"',
+<<<<<<< HEAD
     "12 routes and 13",
+=======
+    "14 routes and 15",
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     "wait",
     "Local and remote routes",
     10,
@@ -743,7 +777,11 @@ bgpribRequireUnicastRoutes(
 luCommand(
     "ce4",
     'vtysh -c "show bgp vrf ce4-cust2 ipv4 uni"',
+<<<<<<< HEAD
     "12 routes and 14",
+=======
+    "14 routes and 16",
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     "wait",
     "Local and remote routes",
     10,
@@ -875,4 +913,14 @@ luCommand(
     "pass",
     "Redundant route 2 details",
 )
+<<<<<<< HEAD
+=======
+luCommand(
+    "r1",
+    'vtysh -c "show ip route vrf r1-cust5 5.1.0.0/24"',
+    "Known via .bgp., distance 200, .* vrf r1-cust5, best",
+    "pass",
+    "Recursive route leak details",
+)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 # done

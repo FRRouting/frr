@@ -9,7 +9,10 @@ man8 += $(MANBUILD)/frr-ripngd.8
 endif
 
 ripngd_ripngd_SOURCES = \
+<<<<<<< HEAD
 	ripngd/ripng_cli.c \
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	ripngd/ripng_debug.c \
 	ripngd/ripng_interface.c \
 	ripngd/ripng_nexthop.c \

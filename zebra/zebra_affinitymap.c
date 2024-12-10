@@ -26,6 +26,7 @@
 #include "zebra/redistribute.h"
 #include "zebra/zebra_affinitymap.h"
 
+<<<<<<< HEAD
 static bool zebra_affinity_map_check_use(const char *affmap_name)
 {
 	char xpath[XPATH_MAXLEN];
@@ -87,17 +88,23 @@ static bool zebra_affinity_map_check_update(const char *affmap_name,
 	return true;
 }
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 static void zebra_affinity_map_update(const char *affmap_name, uint16_t old_pos,
 				      uint16_t new_pos)
 {
 	struct if_link_params *iflp;
+<<<<<<< HEAD
 	enum affinity_mode aff_mode;
 	char xpath[XPATH_MAXLEN];
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	struct interface *ifp;
 	struct vrf *vrf;
 
 	RB_FOREACH (vrf, vrf_id_head, &vrfs_by_id) {
 		FOR_ALL_INTERFACES (vrf, ifp) {
+<<<<<<< HEAD
 			snprintf(xpath, sizeof(xpath),
 				 "/frr-interface:lib/interface[name='%s']",
 				 ifp->name);
@@ -116,12 +123,24 @@ static void zebra_affinity_map_update(const char *affmap_name, uint16_t old_pos,
 			iflp = if_link_params_get(ifp);
 			if (aff_mode == AFFINITY_MODE_EXTENDED ||
 			    aff_mode == AFFINITY_MODE_BOTH) {
+=======
+			iflp = if_link_params_get(ifp);
+			if (!iflp)
+				continue;
+			if (IS_PARAM_SET(iflp, LP_EXTEND_ADM_GRP) &&
+			    admin_group_get(&iflp->ext_admin_grp, old_pos)) {
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 				admin_group_unset(&iflp->ext_admin_grp,
 						  old_pos);
 				admin_group_set(&iflp->ext_admin_grp, new_pos);
 			}
+<<<<<<< HEAD
 			if (aff_mode == AFFINITY_MODE_STANDARD ||
 			    aff_mode == AFFINITY_MODE_BOTH) {
+=======
+			if (IS_PARAM_SET(iflp, LP_ADM_GRP) &&
+			    (iflp->admin_grp & (1 << old_pos))) {
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 				iflp->admin_grp &= ~(1 << old_pos);
 				if (new_pos < 32)
 					iflp->admin_grp |= 1 << new_pos;
@@ -138,7 +157,10 @@ void zebra_affinity_map_init(void)
 {
 	affinity_map_init();
 
+<<<<<<< HEAD
 	affinity_map_set_check_use_hook(zebra_affinity_map_check_use);
 	affinity_map_set_check_update_hook(zebra_affinity_map_check_update);
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	affinity_map_set_update_hook(zebra_affinity_map_update);
 }

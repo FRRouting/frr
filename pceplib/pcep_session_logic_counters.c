@@ -36,6 +36,7 @@ void create_session_counters(pcep_session *session)
 	struct counters_subgroup *rx_msg_subgroup = create_counters_subgroup(
 		"RX Message counters", COUNTER_SUBGROUP_ID_RX_MSG,
 		PCEP_TYPE_MAX + 1);
+<<<<<<< HEAD
 	create_subgroup_counter(rx_msg_subgroup, PCEP_TYPE_OPEN,
 				"Message Open");
 	create_subgroup_counter(rx_msg_subgroup, PCEP_TYPE_KEEPALIVE,
@@ -60,6 +61,32 @@ void create_session_counters(pcep_session *session)
 				"Message StartTls");
 	create_subgroup_counter(rx_msg_subgroup, PCEP_TYPE_MAX,
 				"Message Erroneous");
+=======
+	create_subgroup_counter(rx_msg_subgroup, PCEP_TYPE_OPEN, "Message Open",
+				"messageOpen");
+	create_subgroup_counter(rx_msg_subgroup, PCEP_TYPE_KEEPALIVE,
+				"Message KeepAlive", "messageKeepalive");
+	create_subgroup_counter(rx_msg_subgroup, PCEP_TYPE_PCREQ,
+				"Message PcReq", "messagePcReq");
+	create_subgroup_counter(rx_msg_subgroup, PCEP_TYPE_PCREP,
+				"Message PcRep", "messagePcRep");
+	create_subgroup_counter(rx_msg_subgroup, PCEP_TYPE_PCNOTF,
+				"Message Notify", "messageNotify");
+	create_subgroup_counter(rx_msg_subgroup, PCEP_TYPE_ERROR,
+				"Message Error", "messageError");
+	create_subgroup_counter(rx_msg_subgroup, PCEP_TYPE_CLOSE,
+				"Message Close", "messageClose");
+	create_subgroup_counter(rx_msg_subgroup, PCEP_TYPE_REPORT,
+				"Message Report", "messageReport");
+	create_subgroup_counter(rx_msg_subgroup, PCEP_TYPE_UPDATE,
+				"Message Update", "messageUpdate");
+	create_subgroup_counter(rx_msg_subgroup, PCEP_TYPE_INITIATE,
+				"Message Initiate", "messageInitiate");
+	create_subgroup_counter(rx_msg_subgroup, PCEP_TYPE_START_TLS,
+				"Message StartTls", "messageStartTls");
+	create_subgroup_counter(rx_msg_subgroup, PCEP_TYPE_MAX,
+				"Message Erroneous", "messageErroneous");
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	struct counters_subgroup *tx_msg_subgroup =
 		clone_counters_subgroup(rx_msg_subgroup, "TX Message counters",
@@ -74,6 +101,7 @@ void create_session_counters(pcep_session *session)
 	struct counters_subgroup *rx_obj_subgroup = create_counters_subgroup(
 		"RX Object counters", COUNTER_SUBGROUP_ID_RX_OBJ, 100);
 	create_subgroup_counter(rx_obj_subgroup, PCEP_OBJ_CLASS_OPEN,
+<<<<<<< HEAD
 				"Object Open");
 	create_subgroup_counter(rx_obj_subgroup, PCEP_OBJ_CLASS_RP,
 				"Object RP");
@@ -127,6 +155,63 @@ void create_session_counters(pcep_session *session)
 				"Object Unknown");
 	create_subgroup_counter(rx_obj_subgroup, PCEP_OBJ_CLASS_MAX + 1,
 				"Object Erroneous");
+=======
+				"Object Open", "objectOpen");
+	create_subgroup_counter(rx_obj_subgroup, PCEP_OBJ_CLASS_RP, "Object RP",
+				"objectRP");
+	create_subgroup_counter(rx_obj_subgroup, PCEP_OBJ_CLASS_NOPATH,
+				"Object Nopath", "objectNopath");
+	create_subgroup_counter(rx_obj_subgroup,
+				((PCEP_OBJ_CLASS_ENDPOINTS << 4) |
+				 PCEP_OBJ_TYPE_ENDPOINT_IPV4),
+				"Object Endpoint IPv4", "objectEndpointIPv4");
+	create_subgroup_counter(rx_obj_subgroup,
+				((PCEP_OBJ_CLASS_ENDPOINTS << 4) |
+				 PCEP_OBJ_TYPE_ENDPOINT_IPV6),
+				"Object Endpoint IPv6", "objectEndpointIPv6");
+	create_subgroup_counter(rx_obj_subgroup, PCEP_OBJ_CLASS_BANDWIDTH,
+				"Object Bandwidth", "objectBandwidth");
+	create_subgroup_counter(rx_obj_subgroup, PCEP_OBJ_CLASS_METRIC,
+				"Object Metric", "objectMetric");
+	create_subgroup_counter(rx_obj_subgroup, PCEP_OBJ_CLASS_ERO,
+				"Object ERO", "objectERO");
+	create_subgroup_counter(rx_obj_subgroup, PCEP_OBJ_CLASS_RRO,
+				"Object RRO", "objectRRO");
+	create_subgroup_counter(rx_obj_subgroup, PCEP_OBJ_CLASS_LSPA,
+				"Object LSPA", "objectLSPA");
+	create_subgroup_counter(rx_obj_subgroup, PCEP_OBJ_CLASS_IRO,
+				"Object IRO", "objectIRO");
+	create_subgroup_counter(rx_obj_subgroup, PCEP_OBJ_CLASS_SVEC,
+				"Object SVEC", "objectSVEC");
+	create_subgroup_counter(rx_obj_subgroup, PCEP_OBJ_CLASS_NOTF,
+				"Object Notify", "objectNotify");
+	create_subgroup_counter(rx_obj_subgroup, PCEP_OBJ_CLASS_ERROR,
+				"Object Error", "objectError");
+	create_subgroup_counter(rx_obj_subgroup, PCEP_OBJ_CLASS_CLOSE,
+				"Object Close", "objectClose");
+	create_subgroup_counter(rx_obj_subgroup, PCEP_OBJ_CLASS_LSP,
+				"Object LSP", "objectLSP");
+	create_subgroup_counter(rx_obj_subgroup, PCEP_OBJ_CLASS_SRP,
+				"Object SRP", "objectSRP");
+	create_subgroup_counter(rx_obj_subgroup, PCEP_OBJ_CLASS_VENDOR_INFO,
+				"Object Vendor Info", "objectVendorInfo");
+	create_subgroup_counter(rx_obj_subgroup, PCEP_OBJ_CLASS_INTER_LAYER,
+				"Object Inter-Layer", "objectInterLayer");
+	create_subgroup_counter(rx_obj_subgroup, PCEP_OBJ_CLASS_SWITCH_LAYER,
+				"Object Switch-Layer", "objectSwitchLayer");
+	create_subgroup_counter(rx_obj_subgroup, PCEP_OBJ_CLASS_REQ_ADAP_CAP,
+				"Object Requested Adap-Cap",
+				"objectRequestedAdapCap");
+	create_subgroup_counter(rx_obj_subgroup, PCEP_OBJ_CLASS_SERVER_IND,
+				"Object Server-Indication",
+				"objectServerIndication");
+	create_subgroup_counter(rx_obj_subgroup, PCEP_OBJ_CLASS_ASSOCIATION,
+				"Object Association", "objectAssociation");
+	create_subgroup_counter(rx_obj_subgroup, PCEP_OBJ_CLASS_MAX,
+				"Object Unknown", "objectUnknown");
+	create_subgroup_counter(rx_obj_subgroup, PCEP_OBJ_CLASS_MAX + 1,
+				"Object Erroneous", "objectErroneous");
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	struct counters_subgroup *tx_obj_subgroup =
 		clone_counters_subgroup(rx_obj_subgroup, "TX Object counters",
@@ -139,6 +224,7 @@ void create_session_counters(pcep_session *session)
 		"RX RO Sub-Object counters", COUNTER_SUBGROUP_ID_RX_SUBOBJ,
 		RO_SUBOBJ_UNKNOWN + 2);
 	create_subgroup_counter(rx_subobj_subgroup, RO_SUBOBJ_TYPE_IPV4,
+<<<<<<< HEAD
 				"RO Sub-Object IPv4");
 	create_subgroup_counter(rx_subobj_subgroup, RO_SUBOBJ_TYPE_IPV6,
 				"RO Sub-Object IPv6");
@@ -154,6 +240,24 @@ void create_session_counters(pcep_session *session)
 				"RO Sub-Object Unknown");
 	create_subgroup_counter(rx_subobj_subgroup, RO_SUBOBJ_UNKNOWN + 1,
 				"RO Sub-Object Erroneous");
+=======
+				"RO Sub-Object IPv4", "ROSubObjectIPv4");
+	create_subgroup_counter(rx_subobj_subgroup, RO_SUBOBJ_TYPE_IPV6,
+				"RO Sub-Object IPv6", "ROSubObjectIPv6");
+	create_subgroup_counter(rx_subobj_subgroup, RO_SUBOBJ_TYPE_LABEL,
+				"RO Sub-Object Label", "ROSubObjectLabel");
+	create_subgroup_counter(rx_subobj_subgroup, RO_SUBOBJ_TYPE_UNNUM,
+				"RO Sub-Object Unnum", "ROSubObjectUnnum");
+	create_subgroup_counter(rx_subobj_subgroup, RO_SUBOBJ_TYPE_ASN,
+				"RO Sub-Object ASN", "ROSubObjectASN");
+	create_subgroup_counter(rx_subobj_subgroup, RO_SUBOBJ_TYPE_SR,
+				"RO Sub-Object SR", "ROSubObjectSR");
+	create_subgroup_counter(rx_subobj_subgroup, RO_SUBOBJ_UNKNOWN,
+				"RO Sub-Object Unknown", "ROSubObjectUnknown");
+	create_subgroup_counter(rx_subobj_subgroup, RO_SUBOBJ_UNKNOWN + 1,
+				"RO Sub-Object Erroneous",
+				"ROSubObjectErroneous");
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	struct counters_subgroup *tx_subobj_subgroup = clone_counters_subgroup(
 		rx_subobj_subgroup, "TX RO Sub-Object counters",
@@ -168,6 +272,7 @@ void create_session_counters(pcep_session *session)
 					 PCEP_SR_SUBOBJ_NAI_UNKNOWN + 1);
 	create_subgroup_counter(rx_subobj_sr_nai_subgroup,
 				PCEP_SR_SUBOBJ_NAI_ABSENT,
+<<<<<<< HEAD
 				"RO Sub-Object SR NAI absent");
 	create_subgroup_counter(rx_subobj_sr_nai_subgroup,
 				PCEP_SR_SUBOBJ_NAI_IPV4_NODE,
@@ -190,6 +295,38 @@ void create_session_counters(pcep_session *session)
 	create_subgroup_counter(rx_subobj_sr_nai_subgroup,
 				PCEP_SR_SUBOBJ_NAI_UNKNOWN,
 				"RO Sub-Object SR NAI Unknown");
+=======
+				"RO Sub-Object SR NAI absent",
+				"ROSubObjectSRNAIAbsent");
+	create_subgroup_counter(rx_subobj_sr_nai_subgroup,
+				PCEP_SR_SUBOBJ_NAI_IPV4_NODE,
+				"RO Sub-Object SR NAI IPv4 Node",
+				"ROSubObjectSRNAIIPv4Node");
+	create_subgroup_counter(rx_subobj_sr_nai_subgroup,
+				PCEP_SR_SUBOBJ_NAI_IPV6_NODE,
+				"RO Sub-Object SR NAI IPv6 Node",
+				"ROSubObjectSRNAIIPv6Node");
+	create_subgroup_counter(rx_subobj_sr_nai_subgroup,
+				PCEP_SR_SUBOBJ_NAI_IPV4_ADJACENCY,
+				"RO Sub-Object SR NAI IPv4 Adj",
+				"ROSubObjectSRNAIIPv4Adj");
+	create_subgroup_counter(rx_subobj_sr_nai_subgroup,
+				PCEP_SR_SUBOBJ_NAI_IPV6_ADJACENCY,
+				"RO Sub-Object SR NAI IPv6 Adj",
+				"ROSubObjectSRNAIIPv6Adj");
+	create_subgroup_counter(rx_subobj_sr_nai_subgroup,
+				PCEP_SR_SUBOBJ_NAI_UNNUMBERED_IPV4_ADJACENCY,
+				"RO Sub-Object SR NAI Unnumbered IPv4 Adj",
+				"ROSubObjectSRNAIUnnumberedIPv4Adj");
+	create_subgroup_counter(rx_subobj_sr_nai_subgroup,
+				PCEP_SR_SUBOBJ_NAI_LINK_LOCAL_IPV6_ADJACENCY,
+				"RO Sub-Object SR NAI Link Local IPv6 Adj",
+				"ROSubObjectSRNAILinkLocalIPv6Adj");
+	create_subgroup_counter(rx_subobj_sr_nai_subgroup,
+				PCEP_SR_SUBOBJ_NAI_UNKNOWN,
+				"RO Sub-Object SR NAI Unknown",
+				"ROSubObjectSRNAIUnknown");
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	struct counters_subgroup *tx_subobj_sr_nai_subgroup =
 		clone_counters_subgroup(rx_subobj_sr_nai_subgroup,
@@ -204,6 +341,7 @@ void create_session_counters(pcep_session *session)
 		PCEP_OBJ_TLV_TYPE_UNKNOWN + 1);
 	create_subgroup_counter(rx_tlv_subgroup,
 				PCEP_OBJ_TLV_TYPE_NO_PATH_VECTOR,
+<<<<<<< HEAD
 				"TLV No Path Vector");
 	create_subgroup_counter(rx_tlv_subgroup, PCEP_OBJ_TLV_TYPE_VENDOR_INFO,
 				"TLV Vendor Info");
@@ -254,6 +392,62 @@ void create_session_counters(pcep_session *session)
 				"TLV SR Policy CpathRef");
 	create_subgroup_counter(rx_tlv_subgroup, PCEP_OBJ_TLV_TYPE_UNKNOWN,
 				"TLV Unknown");
+=======
+				"TLV No Path Vector", "TLVNoPathVector");
+	create_subgroup_counter(rx_tlv_subgroup, PCEP_OBJ_TLV_TYPE_VENDOR_INFO,
+				"TLV Vendor Info", "TLVVendorInfo");
+	create_subgroup_counter(rx_tlv_subgroup,
+				PCEP_OBJ_TLV_TYPE_STATEFUL_PCE_CAPABILITY,
+				"TLV Stateful PCE Capability",
+				"TLVStatefulPCCapability");
+	create_subgroup_counter(rx_tlv_subgroup,
+				PCEP_OBJ_TLV_TYPE_SYMBOLIC_PATH_NAME,
+				"TLV Symbolic Path Name", "TLVSymbolicPathName");
+	create_subgroup_counter(rx_tlv_subgroup,
+				PCEP_OBJ_TLV_TYPE_IPV4_LSP_IDENTIFIERS,
+				"TLV IPv4 LSP Identifier",
+				"TLVIPv4LSPIdentifier");
+	create_subgroup_counter(rx_tlv_subgroup,
+				PCEP_OBJ_TLV_TYPE_IPV6_LSP_IDENTIFIERS,
+				"TLV IPv6 LSP Identifier",
+				"TLVIPv6LSPIdentifier");
+	create_subgroup_counter(rx_tlv_subgroup,
+				PCEP_OBJ_TLV_TYPE_LSP_ERROR_CODE,
+				"TLV LSP Error Code", "TLVLSPErrorCode");
+	create_subgroup_counter(rx_tlv_subgroup,
+				PCEP_OBJ_TLV_TYPE_RSVP_ERROR_SPEC,
+				"TLV RSVP Error Spec", "TLVRSVPErrorSpec");
+	create_subgroup_counter(rx_tlv_subgroup,
+				PCEP_OBJ_TLV_TYPE_LSP_DB_VERSION,
+				"TLV LSP DB Version", "TLVLSPDBVersion");
+	create_subgroup_counter(rx_tlv_subgroup,
+				PCEP_OBJ_TLV_TYPE_SPEAKER_ENTITY_ID,
+				"TLV Speaker Entity ID", "TLVSpeakerEntityId");
+	create_subgroup_counter(rx_tlv_subgroup,
+				PCEP_OBJ_TLV_TYPE_SR_PCE_CAPABILITY,
+				"TLV SR PCE Capability", "TLVSRPCECapability");
+	create_subgroup_counter(rx_tlv_subgroup,
+				PCEP_OBJ_TLV_TYPE_PATH_SETUP_TYPE,
+				"TLV Path Setup Type", "TLVPathSetupType");
+	create_subgroup_counter(rx_tlv_subgroup,
+				PCEP_OBJ_TLV_TYPE_PATH_SETUP_TYPE_CAPABILITY,
+				"TLV Path Setup Type Capability",
+				"TLVPathSetupTypeCapability");
+	create_subgroup_counter(rx_tlv_subgroup,
+				PCEP_OBJ_TLV_TYPE_SRPOLICY_POL_ID,
+				"TLV SR Policy PolId", "TLVSRPolicyPolId");
+	create_subgroup_counter(rx_tlv_subgroup,
+				PCEP_OBJ_TLV_TYPE_SRPOLICY_POL_NAME,
+				"TLV SR Policy PolName", "TLVSRPolicyPolName");
+	create_subgroup_counter(rx_tlv_subgroup,
+				PCEP_OBJ_TLV_TYPE_SRPOLICY_CPATH_ID,
+				"TLV SR Policy CpathId", "TLVSRPolicyCpathId");
+	create_subgroup_counter(rx_tlv_subgroup,
+				PCEP_OBJ_TLV_TYPE_SRPOLICY_CPATH_PREFERENCE,
+				"TLV SR Policy CpathRef", "TLVSRPolicyCpathRef");
+	create_subgroup_counter(rx_tlv_subgroup, PCEP_OBJ_TLV_TYPE_UNKNOWN,
+				"TLV Unknown", "TLVUnknown");
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	struct counters_subgroup *tx_tlv_subgroup = clone_counters_subgroup(
 		rx_tlv_subgroup, "TX TLV counters", COUNTER_SUBGROUP_ID_TX_TLV);
@@ -265,6 +459,7 @@ void create_session_counters(pcep_session *session)
 		"Events counters", COUNTER_SUBGROUP_ID_EVENT, MAX_COUNTERS);
 	create_subgroup_counter(events_subgroup,
 				PCEP_EVENT_COUNTER_ID_PCC_CONNECT,
+<<<<<<< HEAD
 				"PCC connect");
 	create_subgroup_counter(events_subgroup,
 				PCEP_EVENT_COUNTER_ID_PCE_CONNECT,
@@ -287,6 +482,34 @@ void create_session_counters(pcep_session *session)
 	create_subgroup_counter(events_subgroup,
 				PCEP_EVENT_COUNTER_ID_TIMER_OPENKEEPALIVE,
 				"Timer OpenKeepAlive expired");
+=======
+				"PCC connect", "PCCConnect");
+	create_subgroup_counter(events_subgroup,
+				PCEP_EVENT_COUNTER_ID_PCE_CONNECT,
+				"PCE connect", "PCEConnect");
+	create_subgroup_counter(events_subgroup,
+				PCEP_EVENT_COUNTER_ID_PCC_DISCONNECT,
+				"PCC disconnect", "PCCDisconnect");
+	create_subgroup_counter(events_subgroup,
+				PCEP_EVENT_COUNTER_ID_PCE_DISCONNECT,
+				"PCE disconnect", "PCEDisconnect");
+	create_subgroup_counter(events_subgroup,
+				PCEP_EVENT_COUNTER_ID_TIMER_KEEPALIVE,
+				"Timer KeepAlive expired",
+				"timerKeepAliveExpired");
+	create_subgroup_counter(events_subgroup,
+				PCEP_EVENT_COUNTER_ID_TIMER_DEADTIMER,
+				"Timer DeadTimer expired",
+				"timerDeadTimerExpired");
+	create_subgroup_counter(events_subgroup,
+				PCEP_EVENT_COUNTER_ID_TIMER_OPENKEEPWAIT,
+				"Timer OpenKeepWait expired",
+				"timerOpenKeepWaitExpired");
+	create_subgroup_counter(events_subgroup,
+				PCEP_EVENT_COUNTER_ID_TIMER_OPENKEEPALIVE,
+				"Timer OpenKeepAlive expired",
+				"timerOpenKeepAliveExpired");
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	/*
 	 * Create the parent counters group

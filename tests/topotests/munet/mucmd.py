@@ -9,7 +9,10 @@
 import argparse
 import json
 import os
+<<<<<<< HEAD
 import subprocess
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 import sys
 
 from pathlib import Path
@@ -90,6 +93,7 @@ def main(*args):
     ecmd = "/usr/bin/nsenter"
     eargs = [ecmd]
 
+<<<<<<< HEAD
     output = subprocess.check_output(["/usr/bin/nsenter", "--help"], encoding="utf-8")
     if " -a," in output:
         eargs.append("-a")
@@ -103,6 +107,16 @@ def main(*args):
     eargs.extend(["-t", pid])
     eargs += args.shellcmd
     # print("Using ", eargs)
+=======
+    #start mucmd same way base process is started
+    eargs.append(f"--mount=/proc/{pid}/ns/mnt")
+    eargs.append(f"--net=/proc/{pid}/ns/net")
+    eargs.append(f"--pid=/proc/{pid}/ns/pid_for_children")
+    eargs.append(f"--uts=/proc/{pid}/ns/uts")
+    eargs.append(f"--wd={rundir}")
+    eargs += args.shellcmd
+    #print("Using ", eargs)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     return os.execvpe(ecmd, eargs, {**env, **envcfg})
 
 

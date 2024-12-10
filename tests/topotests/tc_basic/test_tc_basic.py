@@ -22,9 +22,14 @@ sys.path.append(os.path.join(CWD, "../lib/"))
 from lib.topogen import Topogen, TopoRouter
 from lib.topolog import logger
 
+<<<<<<< HEAD
 pytestmark = [
     pytest.mark.sharpd
 ]
+=======
+pytestmark = [pytest.mark.sharpd]
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 def build_topo(tgen):
     "Build function"
@@ -42,6 +47,10 @@ def build_topo(tgen):
     switch = tgen.add_switch("s2")
     switch.add_link(r2)
 
+<<<<<<< HEAD
+=======
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 # New form of setup/teardown using pytest fixture
 @pytest.fixture(scope="module")
 def tgen(request):
@@ -79,22 +88,41 @@ def skip_on_failure(tgen):
     if tgen.routers_have_failure():
         pytest.skip("skipped because of previous test failure")
 
+<<<<<<< HEAD
+=======
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 def fetch_iproute2_tc_info(r, interface):
     qdisc = r.cmd("tc qdisc show dev %s" % interface)
     tclass = r.cmd("tc class show dev %s" % interface)
     tfilter = r.cmd("tc filter show dev %s" % interface)
     return qdisc, tclass, tfilter
 
+<<<<<<< HEAD
+=======
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 # ===================
 # The tests functions
 # ===================
 
+<<<<<<< HEAD
+=======
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 def test_tc_basic(tgen):
     "Test installing one pair of filter & class by sharpd"
 
     r1 = tgen.gears["r1"]
     intf = "r1-eth0"
+<<<<<<< HEAD
     r1.vtysh_cmd("sharp tc dev %s source 192.168.100.0/24 destination 192.168.101.0/24 ip-protocol tcp src-port 8000 dst-port 8001 rate 20mbit" % intf)
+=======
+    r1.vtysh_cmd(
+        "sharp tc dev %s source 192.168.100.0/24 destination 192.168.101.0/24 ip-protocol tcp src-port 8000 dst-port 8001 rate 20mbit"
+        % intf
+    )
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
     time.sleep(3)
 
@@ -115,6 +143,13 @@ def test_tc_basic(tgen):
     assert "dst_port 8001" in tfilter
     assert "src_port 8000" in tfilter
 
+<<<<<<< HEAD
 if __name__ == "__main__":
     args = ["-s"] + sys.argv[1:]
     sys.exit(pytest.main(args))
+=======
+
+if __name__ == "__main__":
+    args = ["-s"] + sys.argv[1:]
+    sys.exit(pytest.main(args))
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)

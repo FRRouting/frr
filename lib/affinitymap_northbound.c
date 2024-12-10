@@ -47,11 +47,14 @@ static int lib_affinity_map_destroy(struct nb_cb_destroy_args *args)
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
+<<<<<<< HEAD
 		if (!affinity_map_check_use_hook(name))
 			break;
 		snprintf(args->errmsg, args->errmsg_len,
 			 "affinity-map %s is used", name);
 		return NB_ERR_VALIDATION;
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
 		break;
@@ -68,7 +71,10 @@ static int lib_affinity_map_destroy(struct nb_cb_destroy_args *args)
 static int lib_affinity_map_value_modify(struct nb_cb_modify_args *args)
 {
 	const char *name;
+<<<<<<< HEAD
 	char *map_name;
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	uint16_t pos;
 
 	name = yang_dnode_get_string(
@@ -79,6 +85,7 @@ static int lib_affinity_map_value_modify(struct nb_cb_modify_args *args)
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
+<<<<<<< HEAD
 		map_name = affinity_map_name_get(pos);
 		if (map_name &&
 		    strncmp(map_name, name, AFFINITY_NAME_SIZE) != 0) {
@@ -93,6 +100,8 @@ static int lib_affinity_map_value_modify(struct nb_cb_modify_args *args)
 			return NB_ERR_VALIDATION;
 		}
 		break;
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
 		break;
@@ -105,11 +114,14 @@ static int lib_affinity_map_value_modify(struct nb_cb_modify_args *args)
 	return NB_OK;
 }
 
+<<<<<<< HEAD
 static int lib_affinity_map_value_destroy(struct nb_cb_destroy_args *args)
 {
 	return NB_OK;
 }
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 /* clang-format off */
 const struct frr_yang_module_info frr_affinity_map_info = {
 	.name = "frr-affinity-map",
@@ -119,14 +131,22 @@ const struct frr_yang_module_info frr_affinity_map_info = {
 			.cbs = {
 				.create = lib_affinity_map_create,
 				.destroy = lib_affinity_map_destroy,
+<<<<<<< HEAD
 				.cli_show = cli_show_affinity_map,
 			}
+=======
+			},
+			.priority = NB_DFLT_PRIORITY - 1,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		},
 		{
 			.xpath = "/frr-affinity-map:lib/affinity-maps/affinity-map/value",
 			.cbs = {
 				.modify = lib_affinity_map_value_modify,
+<<<<<<< HEAD
 				.destroy = lib_affinity_map_value_destroy,
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			}
 		},
 		{

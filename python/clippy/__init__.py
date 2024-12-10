@@ -20,6 +20,10 @@ from _clippy import (
     CMD_ATTR_HIDDEN,
     CMD_ATTR_DEPRECATED,
     CMD_ATTR_NOSH,
+<<<<<<< HEAD
+=======
+    elf_notes,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 )
 
 

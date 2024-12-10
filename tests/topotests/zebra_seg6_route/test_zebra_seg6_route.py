@@ -59,11 +59,19 @@ def teardown_module(_mod):
     tgen.stop_topology()
 
 
+<<<<<<< HEAD
 def test_zebra_seg6local_routes():
     tgen = get_topogen()
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
     logger.info("Test for seg6local route install via ZAPI was start.")
+=======
+def test_zebra_seg6_routes():
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+    logger.info("Test for seg6 route install via ZAPI was start.")
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     r1 = tgen.gears["r1"]
 
     def check(router, dest, expected):
@@ -73,6 +81,19 @@ def test_zebra_seg6local_routes():
             return False
         return topotest.json_cmp(output, expected)
 
+<<<<<<< HEAD
+=======
+    def check_connected(router, dest, expected):
+        logger.info("Checking for connected")
+        output = json.loads(router.vtysh_cmd("show ipv6 route {} json".format(dest)))
+        return topotest.json_cmp(output, expected)
+
+    expected = open_json_file(os.path.join(CWD, "{}/routes_setup.json".format("r1")))
+    test_func = partial(check_connected, r1, "2001::/64", expected)
+    _, result = topotest.run_and_expect(test_func, None, count=20, wait=1)
+    assert result is None, "Failed to fully setup connected routes needed"
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     manifests = open_json_file(os.path.join(CWD, "{}/routes.json".format("r1")))
     for manifest in manifests:
         dest = manifest["in"]["dest"]
@@ -86,7 +107,11 @@ def test_zebra_seg6local_routes():
         )
         logger.info("CHECK {} {} {}".format(dest, nh, sid))
         test_func = partial(check, r1, dest, manifest["out"])
+<<<<<<< HEAD
         success, result = topotest.run_and_expect(test_func, None, count=5, wait=1)
+=======
+        _, result = topotest.run_and_expect(test_func, None, count=20, wait=1)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         assert result is None, "Failed"
 
 

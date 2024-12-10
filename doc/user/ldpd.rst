@@ -32,9 +32,13 @@ options (:ref:`common-invocation-options`).
 
 The *zebra* daemon must be running before *ldpd* is invoked.
 
+<<<<<<< HEAD
 Configuration of *ldpd* is done in its configuration file
 :file:`ldpd.conf`.
 
+=======
+.. include:: config-include.rst
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 .. _understanding-ldp:
 
@@ -150,7 +154,11 @@ LDP Configuration
    configured password. PASSWORD is a clear text password wit its digest sent
    through the network.
 
+<<<<<<< HEAD
 .. clicmd:: neighbor A.B.C.D holdtime HOLDTIME
+=======
+.. clicmd:: neighbor A.B.C.D session holdtime HOLDTIME
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
    The following command located under MPLS router node configures the holdtime
    value in seconds of the LDP neighbor ID. Configuring it triggers a keepalive

@@ -54,6 +54,35 @@ struct zebra_privs_t sharp_privs = {
 
 struct option longopts[] = {{0}};
 
+<<<<<<< HEAD
+=======
+struct sharp_global sg;
+
+static void sharp_global_init(void)
+{
+	memset(&sg, 0, sizeof(sg));
+	sg.nhs = list_new();
+	sg.nhs->del = (void (*)(void *))sharp_nh_tracker_free;
+	sg.ted = NULL;
+	sg.srv6_locators = list_new();
+}
+
+static void sharp_srv6_locators_list_delete(void *item)
+{
+	struct sharp_srv6_locator *loc = item;
+
+	list_delete(&loc->chunks);
+}
+
+static void sharp_global_destroy(void)
+{
+	list_delete(&sg.nhs);
+
+	sg.srv6_locators->del = sharp_srv6_locators_list_delete;
+	list_delete(&sg.srv6_locators);
+}
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 /* Master of threads. */
 struct event_loop *master;
 
@@ -68,6 +97,14 @@ static void sigint(void)
 {
 	zlog_notice("Terminating on signal");
 
+<<<<<<< HEAD
+=======
+	vrf_terminate();
+	sharp_zebra_terminate();
+
+	sharp_global_destroy();
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	frr_fini();
 
 	exit(0);
@@ -98,8 +135,11 @@ struct frr_signal_t sharp_signals[] = {
 	},
 };
 
+<<<<<<< HEAD
 #define SHARP_VTY_PORT 2614
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 static const struct frr_yang_module_info *const sharpd_yang_modules[] = {
 	&frr_filter_info,
 	&frr_interface_info,
@@ -107,6 +147,7 @@ static const struct frr_yang_module_info *const sharpd_yang_modules[] = {
 	&frr_vrf_info,
 };
 
+<<<<<<< HEAD
 FRR_DAEMON_INFO(sharpd, SHARP, .vty_port = SHARP_VTY_PORT,
 
 		.proghelp = "Implementation of a Sharp of routes daemon.",
@@ -127,6 +168,22 @@ static void sharp_global_init(void)
 	sg.ted = NULL;
 	sg.srv6_locators = list_new();
 }
+=======
+/* clang-format off */
+FRR_DAEMON_INFO(sharpd, SHARP,
+	.vty_port = SHARP_VTY_PORT,
+	.proghelp = "Implementation of a Sharp of routes daemon.",
+
+	.signals = sharp_signals,
+	.n_signals = array_size(sharp_signals),
+
+	.privs = &sharp_privs,
+
+	.yang_modules = sharpd_yang_modules,
+	.n_yang_modules = array_size(sharpd_yang_modules),
+);
+/* clang-format on */
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 static void sharp_start_configuration(void)
 {

@@ -17,12 +17,20 @@ from pathlib import Path
 
 import lib.fixtures
 import pytest
+<<<<<<< HEAD
 from lib.micronet_compat import Mininet
+=======
+from lib.common_config import generate_support_bundle
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 from lib.topogen import diagnose_env, get_topogen
 from lib.topolog import get_test_logdir, logger
 from lib.topotest import json_cmp_result
 from munet import cli
+<<<<<<< HEAD
 from munet.base import Commander, proc_error
+=======
+from munet.base import BaseMunet, Commander, proc_error
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 from munet.cleanup import cleanup_current, cleanup_previous
 from munet.config import ConfigOptionsProxy
 from munet.testing.util import pause_test
@@ -31,7 +39,11 @@ from lib import topolog, topotest
 
 try:
     # Used by munet native tests
+<<<<<<< HEAD
     from munet.testing.fixtures import event_loop, unet  # pylint: disable=all # noqa
+=======
+    from munet.testing.fixtures import unet  # pylint: disable=all # noqa
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
     @pytest.fixture(scope="module")
     def rundir_module(pytestconfig):
@@ -67,6 +79,13 @@ def log_handler(basename, logpath):
         topolog.logfinish(basename, logpath)
 
 
+<<<<<<< HEAD
+=======
+def is_main_runner():
+    return "PYTEST_XDIST_WORKER" not in os.environ
+
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 def pytest_addoption(parser):
     """
     Add topology-only option to the topology tester. This option makes pytest
@@ -81,7 +100,22 @@ def pytest_addoption(parser):
     parser.addoption(
         "--cli-on-error",
         action="store_true",
+<<<<<<< HEAD
         help="Mininet cli on test failure",
+=======
+        help="Munet cli on test failure",
+    )
+
+    parser.addoption(
+        "--cov-topotest",
+        action="store_true",
+        help="Enable reporting of coverage",
+    )
+
+    parser.addoption(
+        "--cov-frr-build-dir",
+        help="Dir of coverage-enable build being run, default is the source dir",
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     )
 
     parser.addoption(
@@ -103,6 +137,15 @@ def pytest_addoption(parser):
     )
 
     parser.addoption(
+<<<<<<< HEAD
+=======
+        "--gdb-use-emacs",
+        action="store_true",
+        help="Use emacsclient to run gdb instead of a shell",
+    )
+
+    parser.addoption(
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         "--logd",
         action="append",
         metavar="DAEMON[,ROUTER[,...]",
@@ -167,6 +210,27 @@ def pytest_addoption(parser):
         help="Options to pass to `perf record`.",
     )
 
+<<<<<<< HEAD
+=======
+    parser.addoption(
+        "--rr-daemons",
+        metavar="DAEMON[,DAEMON...]",
+        help="Comma-separated list of daemons to run `rr` on, or 'all'",
+    )
+
+    parser.addoption(
+        "--rr-routers",
+        metavar="ROUTER[,ROUTER...]",
+        help="Comma-separated list of routers to run `rr` on, or 'all'",
+    )
+
+    parser.addoption(
+        "--rr-options",
+        metavar="OPTS",
+        help="Options to pass to `rr record`.",
+    )
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     rundir_help = "directory for running in and log files"
     parser.addini("rundir", rundir_help, default="/tmp/topotests")
     parser.addoption("--rundir", metavar="DIR", help=rundir_help)
@@ -203,6 +267,15 @@ def pytest_addoption(parser):
     )
 
     parser.addoption(
+<<<<<<< HEAD
+=======
+        "--valgrind-leak-kinds",
+        metavar="KIND[,KIND...]",
+        help="Comma-separated list of valgrind leak kinds or 'all'",
+    )
+
+    parser.addoption(
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         "--valgrind-memleaks",
         action="store_true",
         help="Run all daemons under valgrind for memleak detection",
@@ -297,6 +370,59 @@ def check_for_memleaks():
         pytest.fail("memleaks found for daemons: " + " ".join(daemons))
 
 
+<<<<<<< HEAD
+=======
+def check_for_core_dumps():
+    tgen = get_topogen()  # pylint: disable=redefined-outer-name
+    if not tgen:
+        return
+
+    if not hasattr(tgen, "existing_core_files"):
+        tgen.existing_core_files = set()
+    existing = tgen.existing_core_files
+
+    cores = glob.glob(os.path.join(tgen.logdir, "*/*.dmp"))
+    latest = {x for x in cores if x not in existing}
+    if latest:
+        existing |= latest
+        tgen.existing_core_files = existing
+
+        emsg = "New core[s] found: " + ", ".join(latest)
+        logger.error(emsg)
+        pytest.fail(emsg)
+
+
+def check_for_backtraces():
+    tgen = get_topogen()  # pylint: disable=redefined-outer-name
+    if not tgen:
+        return
+
+    if not hasattr(tgen, "existing_backtrace_files"):
+        tgen.existing_backtrace_files = {}
+    existing = tgen.existing_backtrace_files
+
+    latest = glob.glob(os.path.join(tgen.logdir, "*/*.log"))
+    backtraces = []
+    for vfile in latest:
+        with open(vfile, encoding="ascii") as vf:
+            vfcontent = vf.read()
+            btcount = vfcontent.count("Backtrace:")
+        if not btcount:
+            continue
+        if vfile not in existing:
+            existing[vfile] = 0
+        if btcount == existing[vfile]:
+            continue
+        existing[vfile] = btcount
+        backtraces.append(vfile)
+
+    if backtraces:
+        emsg = "New backtraces found in: " + ", ".join(backtraces)
+        logger.error(emsg)
+        pytest.fail(emsg)
+
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 @pytest.fixture(autouse=True, scope="module")
 def module_autouse(request):
     basename = get_test_logdir(request.node.nodeid, True)
@@ -349,9 +475,19 @@ def pytest_runtest_call(item: pytest.Item) -> None:
     # Let the default pytest_runtest_call execute the test function
     yield
 
+<<<<<<< HEAD
     # Check for leaks if requested
     if item.config.option.valgrind_memleaks:
         check_for_valgrind_memleaks()
+=======
+    check_for_backtraces()
+    check_for_core_dumps()
+
+    # Check for leaks if requested
+    if item.config.option.valgrind_memleaks:
+        check_for_valgrind_memleaks()
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     if item.config.option.memleaks:
         check_for_memleaks()
 
@@ -371,6 +507,40 @@ def pytest_assertrepr_compare(op, left, right):
     return json_result.gen_report()
 
 
+<<<<<<< HEAD
+=======
+def setup_coverage(config):
+    commander = Commander("pytest")
+    if config.option.cov_frr_build_dir:
+        bdir = Path(config.option.cov_frr_build_dir).resolve()
+        output = commander.cmd_raises(f"find {bdir} -name zebra_nb.gcno").strip()
+    else:
+        # Support build sub-directory of main source dir
+        bdir = Path(__file__).resolve().parent.parent.parent
+        output = commander.cmd_raises(f"find {bdir} -name zebra_nb.gcno").strip()
+    m = re.match(f"({bdir}.*)/zebra/zebra_nb.gcno", output)
+    if not m:
+        logger.warning(
+            "No coverage data files (*.gcno) found, try specifying --cov-frr-build-dir"
+        )
+        return
+
+    bdir = Path(m.group(1))
+    # Save so we can get later from g_pytest_config
+    rundir = Path(config.option.rundir).resolve()
+    gcdadir = rundir / "gcda"
+    os.environ["FRR_BUILD_DIR"] = str(bdir)
+    os.environ["GCOV_PREFIX_STRIP"] = str(len(bdir.parts) - 1)
+    os.environ["GCOV_PREFIX"] = str(gcdadir)
+
+    if is_main_runner():
+        commander.cmd_raises(f"find {bdir} -name '*.gc??' -exec chmod o+r {{}} +")
+        commander.cmd_raises(f"mkdir -p {gcdadir}")
+        commander.cmd_raises(f"chown -R root:frr {gcdadir}")
+        commander.cmd_raises(f"chmod 2775 {gcdadir}")
+
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 def pytest_configure(config):
     """
     Assert that the environment is correctly configured, and get extra config.
@@ -392,9 +562,20 @@ def pytest_configure(config):
         is_xdist = True
         is_worker = True
 
+<<<<<<< HEAD
     resource.setrlimit(
         resource.RLIMIT_CORE, (resource.RLIM_INFINITY, resource.RLIM_INFINITY)
     )
+=======
+    try:
+        resource.setrlimit(
+            resource.RLIMIT_CORE, (resource.RLIM_INFINITY, resource.RLIM_INFINITY)
+        )
+    except ValueError:
+        # The hard limit cannot be raised. Raise the soft limit to previous hard limit
+        core_rlimits = resource.getrlimit(resource.RLIMIT_CORE)
+        resource.setrlimit(resource.RLIMIT_CORE, (core_rlimits[1], core_rlimits[1]))
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     # -----------------------------------------------------
     # Set some defaults for the pytest.ini [pytest] section
     # ---------------------------------------------------
@@ -471,8 +652,11 @@ def pytest_configure(config):
     if config.option.topology_only and is_xdist:
         pytest.exit("Cannot use --topology-only with distributed test mode")
 
+<<<<<<< HEAD
         pytest.exit("Cannot use --topology-only with distributed test mode")
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     # Check environment now that we have config
     if not diagnose_env(rundir):
         pytest.exit("environment has errors, please read the logs in %s" % rundir)
@@ -487,13 +671,23 @@ def pytest_configure(config):
         if "TOPOTESTS_CHECK_STDERR" in os.environ:
             del os.environ["TOPOTESTS_CHECK_STDERR"]
 
+<<<<<<< HEAD
 
 @pytest.fixture(autouse=True, scope="session")
 def setup_session_auto():
+=======
+    if config.option.cov_topotest:
+        setup_coverage(config)
+
+
+@pytest.fixture(autouse=True, scope="session")
+def session_autouse():
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     # Aligns logs nicely
     logging.addLevelName(logging.WARNING, " WARN")
     logging.addLevelName(logging.INFO, " INFO")
 
+<<<<<<< HEAD
     if "PYTEST_TOPOTEST_WORKER" not in os.environ:
         is_worker = False
     elif not os.environ["PYTEST_TOPOTEST_WORKER"]:
@@ -508,12 +702,31 @@ def setup_session_auto():
     if not is_worker:
         cleanup_current()
     logger.debug("After the run (is_worker: %s)", is_worker)
+=======
+    is_main = is_main_runner()
+
+    logger.debug("Before the run (is_main: %s)", is_main)
+    if is_main:
+        cleanup_previous()
+    yield
+    if is_main:
+        cleanup_current()
+    logger.debug("After the run (is_main: %s)", is_main)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 
 def pytest_runtest_setup(item):
     module = item.parent.module
     script_dir = os.path.abspath(os.path.dirname(module.__file__))
     os.environ["PYTEST_TOPOTEST_SCRIPTDIR"] = script_dir
+<<<<<<< HEAD
+=======
+    os.environ["CONFIGDIR"] = script_dir
+
+
+def pytest_exception_interact(node, call, report):
+    generate_support_bundle()
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 
 def pytest_runtest_makereport(item, call):
@@ -579,7 +792,11 @@ def pytest_runtest_makereport(item, call):
         wait_for_procs = []
         # Really would like something better than using this global here.
         # Not all tests use topogen though so get_topogen() won't work.
+<<<<<<< HEAD
         for node in Mininet.g_mnet_inst.hosts.values():
+=======
+        for node in BaseMunet.g_unet.hosts.values():
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
             pause = True
 
             if is_tmux:
@@ -588,13 +805,24 @@ def pytest_runtest_makereport(item, call):
                     if not isatty
                     else None
                 )
+<<<<<<< HEAD
                 Commander.tmux_wait_gen += 1
                 wait_for_channels.append(channel)
+=======
+                # If we don't have a tty to pause on pause for tmux windows to exit
+                if channel is not None:
+                    Commander.tmux_wait_gen += 1
+                    wait_for_channels.append(channel)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
             pane_info = node.run_in_window(
                 error_cmd,
                 new_window=win_info is None,
+<<<<<<< HEAD
                 background=True,
+=======
+                background=not isatty,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
                 title="{} ({})".format(title, node.name),
                 name=title,
                 tmux_target=win_info,
@@ -605,9 +833,19 @@ def pytest_runtest_makereport(item, call):
                     win_info = pane_info
             elif is_xterm:
                 assert isinstance(pane_info, subprocess.Popen)
+<<<<<<< HEAD
                 wait_for_procs.append(pane_info)
 
         # Now wait on any channels
+=======
+                # If we don't have a tty to pause on pause for xterm procs to exit
+                if not isatty:
+                    wait_for_procs.append(pane_info)
+
+        # Now wait on any channels
+        if wait_for_channels or wait_for_procs:
+            logger.info("Pausing for error command windows to exit")
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         for channel in wait_for_channels:
             logger.debug("Waiting on TMUX channel %s", channel)
             commander.cmd_raises([commander.get_exec_path("tmux"), "wait", channel])
@@ -620,15 +858,79 @@ def pytest_runtest_makereport(item, call):
     if error and item.config.option.cli_on_error:
         # Really would like something better than using this global here.
         # Not all tests use topogen though so get_topogen() won't work.
+<<<<<<< HEAD
         if Mininet.g_mnet_inst:
             cli.cli(Mininet.g_mnet_inst, title=title, background=False)
         else:
             logger.error("Could not launch CLI b/c no mininet exists yet")
+=======
+        if BaseMunet.g_unet:
+            cli.cli(BaseMunet.g_unet, title=title, background=False)
+        else:
+            logger.error("Could not launch CLI b/c no munet exists yet")
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
     if pause and isatty:
         pause_test()
 
 
+<<<<<<< HEAD
+=======
+def coverage_finish(terminalreporter, config):
+    commander = Commander("pytest")
+    rundir = Path(config.option.rundir).resolve()
+    bdir = Path(os.environ["FRR_BUILD_DIR"])
+    gcdadir = Path(os.environ["GCOV_PREFIX"])
+
+    logger.info("Creating .gcno ssymlink from '%s' to '%s'", gcdadir, bdir)
+    commander.cmd_raises(
+        f"cd {gcdadir}; bdir={bdir}"
+        + """
+for f in $(find . -name '*.gcda'); do
+    f=${f#./};
+    f=${f%.gcda}.gcno;
+    ln -fs $bdir/$f $f;
+    touch -h -r $bdir/$f $f;
+    echo $f;
+done"""
+    )
+
+    # Get the results into a summary file
+    data_file = rundir / "coverage.info"
+    logger.info("Gathering coverage data into: %s", data_file)
+    commander.cmd_raises(
+        f"lcov --directory {gcdadir} --capture --output-file {data_file}"
+    )
+
+    # Get coverage info filtered to a specific set of files
+    report_file = rundir / "coverage.info"
+    logger.debug("Generating coverage summary from: %s\n%s", report_file)
+    output = commander.cmd_raises(f"lcov --summary {data_file}")
+    logger.info("\nCOVERAGE-SUMMARY-START\n%s\nCOVERAGE-SUMMARY-END", output)
+    terminalreporter.write(
+        f"\nCOVERAGE-SUMMARY-START\n{output}\nCOVERAGE-SUMMARY-END\n"
+    )
+
+
+def pytest_terminal_summary(terminalreporter, exitstatus, config):
+    # Only run if we are the top level test runner
+    is_xdist_worker = "PYTEST_XDIST_WORKER" in os.environ
+    is_xdist = os.environ["PYTEST_XDIST_MODE"] != "no"
+    if config.option.cov_topotest and not is_xdist_worker:
+        coverage_finish(terminalreporter, config)
+
+    if (
+        is_xdist
+        and not is_xdist_worker
+        and (
+            bool(config.getoption("--pause"))
+            or bool(config.getoption("--pause-at-end"))
+        )
+    ):
+        pause_test("pause-at-end")
+
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 #
 # Add common fixtures available to all tests as parameters
 #

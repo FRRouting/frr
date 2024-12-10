@@ -6,6 +6,13 @@
 
 #include <zebra.h>
 
+<<<<<<< HEAD
+=======
+#ifdef GNU_LINUX
+#include <linux/neighbour.h>
+#endif
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 #include "hash.h"
 #include "interface.h"
 #include "jhash.h"
@@ -1038,11 +1045,18 @@ static inline void zebra_evpn_local_neigh_update_log(
  * from MAC.
  */
 static int zebra_evpn_ip_inherit_dad_from_mac(struct zebra_vrf *zvrf,
+<<<<<<< HEAD
 					      struct zebra_mac *old_zmac,
 					      struct zebra_mac *new_zmac,
 					      struct zebra_neigh *nbr)
 {
 	bool is_old_mac_dup = false;
+=======
+					      bool is_old_mac_dup,
+					      struct zebra_mac *new_zmac,
+					      struct zebra_neigh *nbr)
+{
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	bool is_new_mac_dup = false;
 
 	if (!zebra_evpn_do_dup_addr_detect(zvrf))
@@ -1050,9 +1064,12 @@ static int zebra_evpn_ip_inherit_dad_from_mac(struct zebra_vrf *zvrf,
 	/* Check old or new MAC is detected as duplicate
 	 * mark this neigh as duplicate
 	 */
+<<<<<<< HEAD
 	if (old_zmac)
 		is_old_mac_dup =
 			CHECK_FLAG(old_zmac->flags, ZEBRA_MAC_DUPLICATE);
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	if (new_zmac)
 		is_new_mac_dup =
 			CHECK_FLAG(new_zmac->flags, ZEBRA_MAC_DUPLICATE);
@@ -1262,6 +1279,10 @@ int zebra_evpn_local_neigh_update(struct zebra_evpn *zevpn,
 	bool new_static = false;
 	bool old_bgp_ready = false;
 	bool new_bgp_ready;
+<<<<<<< HEAD
+=======
+	bool is_old_mac_dup = false;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	/* Check if the MAC exists. */
 	zmac = zebra_evpn_mac_lookup(zevpn, macaddr);
@@ -1408,6 +1429,10 @@ int zebra_evpn_local_neigh_update(struct zebra_evpn *zevpn,
 				old_bgp_ready = false;
 			}
 			if (old_zmac) {
+<<<<<<< HEAD
+=======
+				is_old_mac_dup = CHECK_FLAG(old_zmac->flags, ZEBRA_MAC_DUPLICATE);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 				old_mac_seq = CHECK_FLAG(old_zmac->flags,
 							 ZEBRA_MAC_REMOTE)
 						      ? old_zmac->rem_seq
@@ -1437,6 +1462,10 @@ int zebra_evpn_local_neigh_update(struct zebra_evpn *zevpn,
 			    != 0) {
 				old_zmac = n->mac;
 				if (old_zmac) {
+<<<<<<< HEAD
+=======
+					is_old_mac_dup = CHECK_FLAG(old_zmac->flags, ZEBRA_MAC_DUPLICATE);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 					old_mac_seq =
 						CHECK_FLAG(old_zmac->flags,
 							   ZEBRA_MAC_REMOTE)
@@ -1499,7 +1528,11 @@ int zebra_evpn_local_neigh_update(struct zebra_evpn *zevpn,
 	/* Check old and/or new MAC detected as duplicate mark
 	 * the neigh as duplicate
 	 */
+<<<<<<< HEAD
 	if (zebra_evpn_ip_inherit_dad_from_mac(zvrf, old_zmac, zmac, n)) {
+=======
+	if (zebra_evpn_ip_inherit_dad_from_mac(zvrf, is_old_mac_dup, zmac, n)) {
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		flog_warn(
 			EC_ZEBRA_DUP_IP_INHERIT_DETECTED,
 			"VNI %u: MAC %pEA IP %pIA detected as duplicate during local update, inherit duplicate from MAC",
@@ -2034,6 +2067,10 @@ void zebra_evpn_neigh_remote_macip_add(struct zebra_evpn *zevpn,
 	bool do_dad = false;
 	bool is_dup_detect = false;
 	bool is_router;
+<<<<<<< HEAD
+=======
+	bool is_old_mac_dup = false;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	assert(mac);
 	is_router = !!CHECK_FLAG(flags, ZEBRA_MACIP_TYPE_ROUTER_FLAG);
@@ -2086,6 +2123,10 @@ void zebra_evpn_neigh_remote_macip_add(struct zebra_evpn *zevpn,
 				old_mac =
 					zebra_evpn_mac_lookup(zevpn, &n->emac);
 				if (old_mac) {
+<<<<<<< HEAD
+=======
+					is_old_mac_dup = CHECK_FLAG(old_mac->flags, ZEBRA_MAC_DUPLICATE);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 					listnode_delete(old_mac->neigh_list, n);
 					n->mac = NULL;
 					zebra_evpn_deref_ip2mac(zevpn, old_mac);
@@ -2128,7 +2169,11 @@ void zebra_evpn_neigh_remote_macip_add(struct zebra_evpn *zevpn,
 		/* Check old or new MAC detected as duplicate,
 		 * inherit duplicate flag to this neigh.
 		 */
+<<<<<<< HEAD
 		if (zebra_evpn_ip_inherit_dad_from_mac(zvrf, old_mac, mac, n)) {
+=======
+		if (zebra_evpn_ip_inherit_dad_from_mac(zvrf, is_old_mac_dup, mac, n)) {
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			flog_warn(
 				EC_ZEBRA_DUP_IP_INHERIT_DETECTED,
 				"VNI %u: MAC %pEA IP %pIA detected as duplicate during remote update, inherit duplicate from MAC",

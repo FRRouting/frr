@@ -14,7 +14,10 @@
 #include "filter.h"
 #include "plist.h"
 #include "nexthop.h"
+<<<<<<< HEAD
 #include "northbound_cli.h"
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 #include "lib/route_types.h"
 #include "vrf.h"
 #include "frrstr.h"
@@ -24,11 +27,16 @@
 #include "zebra/debug.h"
 #include "zebra/zebra_rnh.h"
 #include "zebra/zebra_routemap.h"
+<<<<<<< HEAD
+=======
+#include "zebra/zebra_vrf.h"
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 #include "zebra/zebra_routemap_clippy.c"
 
 static uint32_t zebra_rmap_update_timer = ZEBRA_RMAP_DEFAULT_UPDATE_TIMER;
 static struct event *zebra_t_rmap_update = NULL;
+<<<<<<< HEAD
 char *zebra_import_table_routemap[AFI_MAX][ZEBRA_KERNEL_TABLE_MAX];
 
 struct nh_rmap_obj {
@@ -42,6 +50,15 @@ struct nh_rmap_obj {
 
 static void zebra_route_map_set_delay_timer(uint32_t value);
 
+=======
+char *zebra_import_table_routemap[AFI_MAX][SAFI_MAX][ZEBRA_KERNEL_TABLE_MAX];
+
+struct zebra_rmap_obj {
+	struct nexthop *nexthop;
+	struct route_entry *re;
+};
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 /* 'match tag TAG'
  * Match function return 1 if match is success else return 0
  */
@@ -49,12 +66,21 @@ static enum route_map_cmd_result_t
 route_match_tag(void *rule, const struct prefix *prefix, void *object)
 {
 	route_tag_t *tag;
+<<<<<<< HEAD
 	struct nh_rmap_obj *nh_data;
 
 	tag = rule;
 	nh_data = object;
 
 	if (nh_data->tag == *tag)
+=======
+	struct zebra_rmap_obj *rm_data;
+
+	tag = rule;
+	rm_data = object;
+
+	if (rm_data->re->tag == *tag)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		return RMAP_MATCH;
 
 	return RMAP_NOMATCH;
@@ -74,12 +100,17 @@ static const struct route_map_rule_cmd route_match_tag_cmd = {
 static enum route_map_cmd_result_t
 route_match_interface(void *rule, const struct prefix *prefix, void *object)
 {
+<<<<<<< HEAD
 	struct nh_rmap_obj *nh_data;
+=======
+	struct zebra_rmap_obj *rm_data;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	char *ifname = rule;
 	ifindex_t ifindex;
 
 	if (strcasecmp(ifname, "any") == 0)
 		return RMAP_MATCH;
+<<<<<<< HEAD
 	nh_data = object;
 	if (!nh_data || !nh_data->nexthop)
 		return RMAP_NOMATCH;
@@ -87,6 +118,15 @@ route_match_interface(void *rule, const struct prefix *prefix, void *object)
 	if (ifindex == 0)
 		return RMAP_NOMATCH;
 	if (nh_data->nexthop->ifindex == ifindex)
+=======
+	rm_data = object;
+	if (!rm_data || !rm_data->nexthop)
+		return RMAP_NOMATCH;
+	ifindex = ifname2ifindex(ifname, rm_data->nexthop->vrf_id);
+	if (ifindex == 0)
+		return RMAP_NOMATCH;
+	if (rm_data->nexthop->ifindex == ifindex)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		return RMAP_MATCH;
 
 	return RMAP_NOMATCH;
@@ -288,8 +328,13 @@ static const struct route_map_rule_cmd route_match_interface_cmd = {
 	route_match_interface_free
 };
 
+<<<<<<< HEAD
 static int ip_protocol_rm_add(struct zebra_vrf *zvrf, const char *rmap,
 			      int rtype, afi_t afi, safi_t safi)
+=======
+int ip_protocol_rm_add(struct zebra_vrf *zvrf, const char *rmap, int rtype,
+		       afi_t afi, safi_t safi)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 {
 	struct route_table *table;
 
@@ -320,8 +365,13 @@ static int ip_protocol_rm_add(struct zebra_vrf *zvrf, const char *rmap,
 	return CMD_SUCCESS;
 }
 
+<<<<<<< HEAD
 static int ip_protocol_rm_del(struct zebra_vrf *zvrf, const char *rmap,
 			      int rtype, afi_t afi, safi_t safi)
+=======
+int ip_protocol_rm_del(struct zebra_vrf *zvrf, const char *rmap, int rtype,
+		       afi_t afi, safi_t safi)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 {
 	struct route_table *table;
 
@@ -349,8 +399,12 @@ static int ip_protocol_rm_del(struct zebra_vrf *zvrf, const char *rmap,
 	return CMD_SUCCESS;
 }
 
+<<<<<<< HEAD
 static int ip_nht_rm_add(struct zebra_vrf *zvrf, const char *rmap, int rtype,
 			 int afi)
+=======
+int ip_nht_rm_add(struct zebra_vrf *zvrf, const char *rmap, int rtype, int afi)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 {
 
 	if (NHT_RM_NAME(zvrf, afi, rtype)) {
@@ -371,8 +425,12 @@ static int ip_nht_rm_add(struct zebra_vrf *zvrf, const char *rmap, int rtype,
 	return CMD_SUCCESS;
 }
 
+<<<<<<< HEAD
 static int ip_nht_rm_del(struct zebra_vrf *zvrf, const char *rmap, int rtype,
 			 int afi)
+=======
+int ip_nht_rm_del(struct zebra_vrf *zvrf, const char *rmap, int rtype, int afi)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 {
 
 	if (!NHT_RM_NAME(zvrf, afi, rtype))
@@ -394,6 +452,7 @@ static int ip_nht_rm_del(struct zebra_vrf *zvrf, const char *rmap, int rtype,
 	return CMD_SUCCESS;
 }
 
+<<<<<<< HEAD
 DEFPY_YANG(
 	match_ip_address_prefix_len, match_ip_address_prefix_len_cmd,
 	"match ip address prefix-len (0-32)$length",
@@ -739,6 +798,9 @@ DEFPY_YANG (no_ip_protocol,
 }
 
 DEFPY_YANG (show_ip_protocol,
+=======
+DEFPY (show_ip_protocol,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
        show_ip_protocol_cmd,
        "show ip protocol [vrf <NAME$vrf_name|all$vrf_all>]",
        SHOW_STR
@@ -751,6 +813,7 @@ DEFPY_YANG (show_ip_protocol,
 	return ret;
 }
 
+<<<<<<< HEAD
 DEFPY_YANG (ipv6_protocol,
        ipv6_protocol_cmd,
        "ipv6 protocol " FRR_IP6_PROTOCOL_MAP_STR_ZEBRA
@@ -820,6 +883,9 @@ DEFPY_YANG (no_ipv6_protocol,
 }
 
 DEFPY_YANG (show_ipv6_protocol,
+=======
+DEFPY (show_ipv6_protocol,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
        show_ipv6_protocol_cmd,
        "show ipv6 protocol [vrf <NAME$vrf_name|all$vrf_all>]",
        SHOW_STR
@@ -832,6 +898,7 @@ DEFPY_YANG (show_ipv6_protocol,
 	return ret;
 }
 
+<<<<<<< HEAD
 DEFPY_YANG (ip_protocol_nht_rmap,
        ip_protocol_nht_rmap_cmd,
        "ip nht " FRR_IP_PROTOCOL_MAP_STR_ZEBRA
@@ -902,6 +969,9 @@ DEFPY_YANG (no_ip_protocol_nht_rmap,
 }
 
 DEFPY_YANG (show_ip_protocol_nht,
+=======
+DEFPY (show_ip_protocol_nht,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
        show_ip_protocol_nht_cmd,
        "show ip nht route-map [vrf <NAME$vrf_name|all$vrf_all>] [json]",
        SHOW_STR
@@ -920,6 +990,7 @@ DEFPY_YANG (show_ip_protocol_nht,
 	return ret;
 }
 
+<<<<<<< HEAD
 DEFPY_YANG (ipv6_protocol_nht_rmap,
        ipv6_protocol_nht_rmap_cmd,
        "ipv6 nht " FRR_IP6_PROTOCOL_MAP_STR_ZEBRA
@@ -989,6 +1060,9 @@ DEFPY_YANG (no_ipv6_protocol_nht_rmap,
 }
 
 DEFPY_YANG (show_ipv6_protocol_nht,
+=======
+DEFPY (show_ipv6_protocol_nht,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
        show_ipv6_protocol_nht_cmd,
        "show ipv6 nht route-map [vrf <NAME$vrf_name|all$vrf_all>] [json]",
        SHOW_STR
@@ -1016,6 +1090,7 @@ static enum route_map_cmd_result_t
 route_match_ip_next_hop(void *rule, const struct prefix *prefix, void *object)
 {
 	struct access_list *alist;
+<<<<<<< HEAD
 	struct nh_rmap_obj *nh_data;
 	struct prefix_ipv4 p;
 
@@ -1024,13 +1099,27 @@ route_match_ip_next_hop(void *rule, const struct prefix *prefix, void *object)
 		return RMAP_NOMATCH;
 
 	switch (nh_data->nexthop->type) {
+=======
+	struct zebra_rmap_obj *rm_data;
+	struct prefix_ipv4 p;
+
+	rm_data = object;
+	if (!rm_data)
+		return RMAP_NOMATCH;
+
+	switch (rm_data->nexthop->type) {
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	case NEXTHOP_TYPE_IFINDEX:
 		/* Interface routes can't match ip next-hop */
 		return RMAP_NOMATCH;
 	case NEXTHOP_TYPE_IPV4_IFINDEX:
 	case NEXTHOP_TYPE_IPV4:
 		p.family = AF_INET;
+<<<<<<< HEAD
 		p.prefix = nh_data->nexthop->gate.ipv4;
+=======
+		p.prefix = rm_data->nexthop->gate.ipv4;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		p.prefixlen = IPV4_MAX_BITLEN;
 		break;
 	case NEXTHOP_TYPE_IPV6:
@@ -1079,6 +1168,7 @@ route_match_ip_next_hop_prefix_list(void *rule, const struct prefix *prefix,
 				    void *object)
 {
 	struct prefix_list *plist;
+<<<<<<< HEAD
 	struct nh_rmap_obj *nh_data;
 	struct prefix_ipv4 p;
 
@@ -1087,13 +1177,27 @@ route_match_ip_next_hop_prefix_list(void *rule, const struct prefix *prefix,
 		return RMAP_NOMATCH;
 
 	switch (nh_data->nexthop->type) {
+=======
+	struct zebra_rmap_obj *rm_data;
+	struct prefix_ipv4 p;
+
+	rm_data = (struct zebra_rmap_obj *)object;
+	if (!rm_data)
+		return RMAP_NOMATCH;
+
+	switch (rm_data->nexthop->type) {
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	case NEXTHOP_TYPE_IFINDEX:
 		/* Interface routes can't match ip next-hop */
 		return RMAP_NOMATCH;
 	case NEXTHOP_TYPE_IPV4_IFINDEX:
 	case NEXTHOP_TYPE_IPV4:
 		p.family = AF_INET;
+<<<<<<< HEAD
 		p.prefix = nh_data->nexthop->gate.ipv4;
+=======
+		p.prefix = rm_data->nexthop->gate.ipv4;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		p.prefixlen = IPV4_MAX_BITLEN;
 		break;
 	case NEXTHOP_TYPE_IPV6:
@@ -1207,9 +1311,14 @@ route_match_address_prefix_list(void *rule, const struct prefix *prefix,
 	plist = prefix_list_lookup(afi, (char *)rule);
 	if (plist == NULL) {
 		if (unlikely(CHECK_FLAG(rmap_debug, DEBUG_ROUTEMAP_DETAIL)))
+<<<<<<< HEAD
 			zlog_debug(
 				"%s: Prefix List %s specified does not exist defaulting to NO_MATCH",
 				__func__, (char *)rule);
+=======
+			zlog_debug("%s: Prefix List %s (%s) specified does not exist defaulting to NO_MATCH",
+				   __func__, (char *)rule, afi2str(afi));
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		return RMAP_NOMATCH;
 	}
 
@@ -1263,6 +1372,7 @@ static enum route_map_cmd_result_t
 route_match_ipv6_next_hop_type(void *rule, const struct prefix *prefix,
 			       void *object)
 {
+<<<<<<< HEAD
 	struct nh_rmap_obj *nh_data;
 
 	if (prefix->family == AF_INET6) {
@@ -1271,6 +1381,16 @@ route_match_ipv6_next_hop_type(void *rule, const struct prefix *prefix,
 			return RMAP_NOMATCH;
 
 		if (nh_data->nexthop->type == NEXTHOP_TYPE_BLACKHOLE)
+=======
+	struct zebra_rmap_obj *rm_data;
+
+	if (prefix->family == AF_INET6) {
+		rm_data = (struct zebra_rmap_obj *)object;
+		if (!rm_data)
+			return RMAP_NOMATCH;
+
+		if (rm_data->nexthop->type == NEXTHOP_TYPE_BLACKHOLE)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			return RMAP_MATCH;
 	}
 
@@ -1355,6 +1475,7 @@ route_match_ip_nexthop_prefix_len(void *rule, const struct prefix *prefix,
 				  void *object)
 {
 	uint32_t *prefixlen = (uint32_t *)rule;
+<<<<<<< HEAD
 	struct nh_rmap_obj *nh_data;
 	struct prefix_ipv4 p;
 
@@ -1363,13 +1484,27 @@ route_match_ip_nexthop_prefix_len(void *rule, const struct prefix *prefix,
 		return RMAP_NOMATCH;
 
 	switch (nh_data->nexthop->type) {
+=======
+	struct zebra_rmap_obj *rm_data;
+	struct prefix_ipv4 p;
+
+	rm_data = (struct zebra_rmap_obj *)object;
+	if (!rm_data || !rm_data->nexthop)
+		return RMAP_NOMATCH;
+
+	switch (rm_data->nexthop->type) {
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	case NEXTHOP_TYPE_IFINDEX:
 		/* Interface routes can't match ip next-hop */
 		return RMAP_NOMATCH;
 	case NEXTHOP_TYPE_IPV4_IFINDEX:
 	case NEXTHOP_TYPE_IPV4:
 		p.family = AF_INET;
+<<<<<<< HEAD
 		p.prefix = nh_data->nexthop->gate.ipv4;
+=======
+		p.prefix = rm_data->nexthop->gate.ipv4;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		p.prefixlen = IPV4_MAX_BITLEN;
 		break;
 	case NEXTHOP_TYPE_IPV6:
@@ -1394,6 +1529,7 @@ static enum route_map_cmd_result_t
 route_match_ip_next_hop_type(void *rule, const struct prefix *prefix,
 			     void *object)
 {
+<<<<<<< HEAD
 	struct nh_rmap_obj *nh_data;
 
 	if (prefix->family == AF_INET) {
@@ -1402,6 +1538,16 @@ route_match_ip_next_hop_type(void *rule, const struct prefix *prefix,
 			return RMAP_NOMATCH;
 
 		if (nh_data->nexthop->type == NEXTHOP_TYPE_BLACKHOLE)
+=======
+	struct zebra_rmap_obj *rm_data;
+
+	if (prefix->family == AF_INET) {
+		rm_data = (struct zebra_rmap_obj *)object;
+		if (!rm_data)
+			return RMAP_NOMATCH;
+
+		if (rm_data->nexthop->type == NEXTHOP_TYPE_BLACKHOLE)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			return RMAP_MATCH;
 	}
 
@@ -1431,6 +1577,7 @@ static const struct route_map_rule_cmd
 static enum route_map_cmd_result_t
 route_match_source_protocol(void *rule, const struct prefix *p, void *object)
 {
+<<<<<<< HEAD
 	uint32_t *rib_type = (uint32_t *)rule;
 	struct nh_rmap_obj *nh_data;
 
@@ -1440,6 +1587,16 @@ route_match_source_protocol(void *rule, const struct prefix *p, void *object)
 
 	return ((nh_data->source_protocol == *rib_type) ? RMAP_MATCH
 							: RMAP_NOMATCH);
+=======
+	int32_t *rib_type = (int32_t *)rule;
+	struct zebra_rmap_obj *rm_data;
+
+	rm_data = (struct zebra_rmap_obj *)object;
+	if (!rm_data)
+		return RMAP_NOMATCH;
+
+	return ((rm_data->re->type == *rib_type) ? RMAP_MATCH : RMAP_NOMATCH);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 }
 
 static void *route_match_source_protocol_compile(const char *arg)
@@ -1472,6 +1629,7 @@ static enum route_map_cmd_result_t
 route_match_source_instance(void *rule, const struct prefix *p, void *object)
 {
 	uint8_t *instance = (uint8_t *)rule;
+<<<<<<< HEAD
 	struct nh_rmap_obj *nh_data;
 
 	nh_data = (struct nh_rmap_obj *)object;
@@ -1479,6 +1637,15 @@ route_match_source_instance(void *rule, const struct prefix *p, void *object)
 		return RMAP_NOMATCH;
 
 	return (nh_data->instance == *instance) ? RMAP_MATCH : RMAP_NOMATCH;
+=======
+	struct zebra_rmap_obj *rm_data;
+
+	rm_data = (struct zebra_rmap_obj *)object;
+	if (!rm_data)
+		return RMAP_NOMATCH;
+
+	return (rm_data->re->instance == *instance) ? RMAP_MATCH : RMAP_NOMATCH;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 }
 
 static void *route_match_source_instance_compile(const char *arg)
@@ -1512,10 +1679,17 @@ static const struct route_map_rule_cmd route_match_source_instance_cmd = {
 static enum route_map_cmd_result_t
 route_set_src(void *rule, const struct prefix *prefix, void *object)
 {
+<<<<<<< HEAD
 	struct nh_rmap_obj *nh_data;
 
 	nh_data = (struct nh_rmap_obj *)object;
 	nh_data->nexthop->rmap_src = *(union g_addr *)rule;
+=======
+	struct zebra_rmap_obj *rm_data;
+
+	rm_data = (struct zebra_rmap_obj *)object;
+	rm_data->nexthop->rmap_src = *(union g_addr *)rule;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	return RMAP_OKAY;
 }
@@ -1740,7 +1914,11 @@ static void zebra_route_map_update_timer(struct event *thread)
 	 */
 }
 
+<<<<<<< HEAD
 static void zebra_route_map_set_delay_timer(uint32_t value)
+=======
+void zebra_route_map_set_delay_timer(uint32_t value)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 {
 	zebra_rmap_update_timer = value;
 	if (!value && zebra_t_rmap_update) {
@@ -1760,14 +1938,22 @@ void zebra_routemap_finish(void)
 	route_map_finish();
 }
 
+<<<<<<< HEAD
 route_map_result_t
 zebra_route_map_check(afi_t family, int rib_type, uint8_t instance,
 		      const struct prefix *p, struct nexthop *nexthop,
 		      struct zebra_vrf *zvrf, route_tag_t tag)
+=======
+route_map_result_t zebra_route_map_check(afi_t family, struct route_entry *re,
+					 const struct prefix *p,
+					 struct nexthop *nexthop,
+					 struct zebra_vrf *zvrf)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 {
 	struct route_map *rmap = NULL;
 	char *rm_name;
 	route_map_result_t ret = RMAP_PERMITMATCH;
+<<<<<<< HEAD
 	struct nh_rmap_obj nh_obj;
 
 	nh_obj.nexthop = nexthop;
@@ -1780,6 +1966,16 @@ zebra_route_map_check(afi_t family, int rib_type, uint8_t instance,
 	if (rib_type >= 0 && rib_type < ZEBRA_ROUTE_MAX) {
 		rm_name = PROTO_RM_NAME(zvrf, family, rib_type);
 		rmap = PROTO_RM_MAP(zvrf, family, rib_type);
+=======
+	struct zebra_rmap_obj rm_obj;
+
+	rm_obj.nexthop = nexthop;
+	rm_obj.re = re;
+
+	if (re->type >= 0 && re->type < ZEBRA_ROUTE_MAX) {
+		rm_name = PROTO_RM_NAME(zvrf, family, re->type);
+		rmap = PROTO_RM_MAP(zvrf, family, re->type);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 		if (rm_name && !rmap)
 			return RMAP_DENYMATCH;
@@ -1792,12 +1988,17 @@ zebra_route_map_check(afi_t family, int rib_type, uint8_t instance,
 			return RMAP_DENYMATCH;
 	}
 	if (rmap) {
+<<<<<<< HEAD
 		ret = route_map_apply(rmap, p, &nh_obj);
+=======
+		ret = route_map_apply(rmap, p, &rm_obj);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	}
 
 	return (ret);
 }
 
+<<<<<<< HEAD
 char *zebra_get_import_table_route_map(afi_t afi, uint32_t table)
 {
 	return zebra_import_table_routemap[afi][table];
@@ -1837,6 +2038,40 @@ zebra_import_table_route_map_check(int family, int re_type, uint8_t instance,
 		rmap = route_map_lookup_by_name(rmap_name);
 	if (rmap) {
 		ret = route_map_apply(rmap, p, &nh_obj);
+=======
+char *zebra_get_import_table_route_map(afi_t afi, safi_t safi, uint32_t table)
+{
+	return zebra_import_table_routemap[afi][safi][table];
+}
+
+void zebra_add_import_table_route_map(afi_t afi, safi_t safi, const char *rmap_name, uint32_t table)
+{
+	zebra_import_table_routemap[afi][safi][table] = XSTRDUP(MTYPE_ROUTE_MAP_NAME, rmap_name);
+}
+
+void zebra_del_import_table_route_map(afi_t afi, safi_t safi, uint32_t table)
+{
+	XFREE(MTYPE_ROUTE_MAP_NAME, zebra_import_table_routemap[afi][safi][table]);
+}
+
+route_map_result_t zebra_import_table_route_map_check(int family,
+						      struct route_entry *re,
+						      const struct prefix *p,
+						      struct nexthop *nexthop,
+						      const char *rmap_name)
+{
+	struct route_map *rmap = NULL;
+	route_map_result_t ret = RMAP_DENYMATCH;
+	struct zebra_rmap_obj rm_obj;
+
+	rm_obj.nexthop = nexthop;
+	rm_obj.re = re;
+
+	if (re->type >= 0 && re->type < ZEBRA_ROUTE_MAX)
+		rmap = route_map_lookup_by_name(rmap_name);
+	if (rmap) {
+		ret = route_map_apply(rmap, p, &rm_obj);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	}
 
 	return (ret);
@@ -1850,6 +2085,7 @@ route_map_result_t zebra_nht_route_map_check(afi_t afi, int client_proto,
 {
 	struct route_map *rmap = NULL;
 	route_map_result_t ret = RMAP_PERMITMATCH;
+<<<<<<< HEAD
 	struct nh_rmap_obj nh_obj;
 
 	nh_obj.nexthop = nexthop;
@@ -1858,13 +2094,23 @@ route_map_result_t zebra_nht_route_map_check(afi_t afi, int client_proto,
 	nh_obj.instance = re->instance;
 	nh_obj.metric = re->metric;
 	nh_obj.tag = re->tag;
+=======
+	struct zebra_rmap_obj rm_obj;
+
+	rm_obj.nexthop = nexthop;
+	rm_obj.re = re;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	if (client_proto >= 0 && client_proto < ZEBRA_ROUTE_MAX)
 		rmap = NHT_RM_MAP(zvrf, afi, client_proto);
 	if (!rmap && NHT_RM_MAP(zvrf, afi, ZEBRA_ROUTE_MAX))
 		rmap = NHT_RM_MAP(zvrf, afi, ZEBRA_ROUTE_MAX);
 	if (rmap)
+<<<<<<< HEAD
 		ret = route_map_apply(rmap, p, &nh_obj);
+=======
+		ret = route_map_apply(rmap, p, &rm_obj);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	return ret;
 }
@@ -1920,6 +2166,7 @@ void zebra_routemap_vrf_delete(struct zebra_vrf *zvrf)
 	}
 }
 
+<<<<<<< HEAD
 /* ip protocol configuration write function */
 void zebra_routemap_config_write_protocol(struct vty *vty,
 					  struct zebra_vrf *zvrf)
@@ -2002,6 +2249,16 @@ void zebra_route_map_init(void)
 	install_element(CONFIG_NODE, &no_zebra_route_map_timer_cmd);
 
 	route_map_init();
+=======
+void zebra_route_map_init(void)
+{
+	install_element(VIEW_NODE, &show_ip_protocol_cmd);
+	install_element(VIEW_NODE, &show_ipv6_protocol_cmd);
+	install_element(VIEW_NODE, &show_ip_protocol_nht_cmd);
+	install_element(VIEW_NODE, &show_ipv6_protocol_nht_cmd);
+
+	route_map_init_new(true);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	route_map_add_hook(zebra_route_map_add);
 	route_map_delete_hook(zebra_route_map_delete);
@@ -2055,6 +2312,7 @@ void zebra_route_map_init(void)
 
 	/* */
 	route_map_install_set(&route_set_src_cmd);
+<<<<<<< HEAD
 	/* */
 	install_element(RMAP_NODE, &match_ip_nexthop_prefix_len_cmd);
 	install_element(RMAP_NODE, &no_match_ip_nexthop_prefix_len_cmd);
@@ -2070,4 +2328,6 @@ void zebra_route_map_init(void)
 	/* */
 	install_element(RMAP_NODE, &set_src_cmd);
 	install_element(RMAP_NODE, &no_set_src_cmd);
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 }

@@ -1,5 +1,6 @@
 .. _bfd:
 
+<<<<<<< HEAD
 **********************************
 Bidirectional Forwarding Detection
 **********************************
@@ -7,6 +8,22 @@ Bidirectional Forwarding Detection
 :abbr:`BFD (Bidirectional Forwarding Detection)` stands for
 Bidirectional Forwarding Detection and it is described and extended by
 the following RFCs:
+=======
+***
+BFD
+***
+
+:abbr:`BFD (Bidirectional Forwarding Detection)` is:
+
+  a protocol intended to detect faults in the bidirectional path between two
+  forwarding engines, including interfaces, data link(s), and to the extent
+  possible the forwarding engines themselves, with potentially very low
+  latency.
+
+  -- :rfc:`5880`
+
+It is described and extended by the following RFCs:
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 * :rfc:`5880`
 * :rfc:`5881`
@@ -27,6 +44,11 @@ This document will focus on the later implementation: *bfdd*.
 Starting BFD
 ============
 
+<<<<<<< HEAD
+=======
+.. include:: config-include.rst
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 *bfdd* default configuration file is :file:`bfdd.conf`. *bfdd* searches
 the current directory first then |INSTALL_PREFIX_ETC|/bfdd.conf. All of
 *bfdd*'s command must be configured in :file:`bfdd.conf`.
@@ -36,6 +58,7 @@ may also be specified (:ref:`common-invocation-options`).
 
 .. program:: bfdd
 
+<<<<<<< HEAD
 .. option:: --bfdctl <unix-socket>
 
    Set the BFD daemon control socket location. If using a non-default
@@ -51,6 +74,8 @@ may also be specified (:ref:`common-invocation-options`).
    This option overrides the location addition that the -N option provides
    to the bfdd.sock
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 .. option:: --dplaneaddr <type>:<address>[<:port>]
 
    Configure the distributed BFD data plane listening socket bind address.
@@ -72,7 +97,11 @@ may also be specified (:ref:`common-invocation-options`).
 
      --dplaneaddr ipv6:[::1]:50701
 
+<<<<<<< HEAD
    (if ommited the default port is ``50700``).
+=======
+   (if omitted the default port is ``50700``).
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
    It is also possible to operate in client mode (instead of listening for
    connections). To connect to a data plane server append the letter 'c' to
@@ -145,7 +174,11 @@ Peer / Profile Configuration
 
 BFD peers and profiles share the same BFD session configuration commands.
 
+<<<<<<< HEAD
 .. clicmd:: detect-multiplier (2-255)
+=======
+.. clicmd:: detect-multiplier (1-255)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
    Configures the detection multiplier to determine packet loss. The
    remote transmission interval will be multiplied by this value to
@@ -157,23 +190,39 @@ BFD peers and profiles share the same BFD session configuration commands.
    detect failures only after 900 milliseconds without receiving
    packets.
 
+<<<<<<< HEAD
 .. clicmd:: receive-interval (10-60000)
+=======
+.. clicmd:: receive-interval (10-4294967)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
    Configures the minimum interval that this system is capable of
    receiving control packets. The default value is 300 milliseconds.
 
+<<<<<<< HEAD
 .. clicmd:: transmit-interval (10-60000)
+=======
+.. clicmd:: transmit-interval (10-4294967)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
    The minimum transmission interval (less jitter) that this system
    wants to use to send BFD control packets. Defaults to 300ms.
 
+<<<<<<< HEAD
 .. clicmd:: echo receive-interval <disabled|(10-60000)>
+=======
+.. clicmd:: echo receive-interval <disabled|(10-4294967)>
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
    Configures the minimum interval that this system is capable of
    receiving echo packets. Disabled means that this system doesn't want
    to receive echo packets. The default value is 50 milliseconds.
 
+<<<<<<< HEAD
 .. clicmd:: echo transmit-interval (10-60000)
+=======
+.. clicmd:: echo transmit-interval (10-4294967)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
    The minimum transmission interval (less jitter) that this system
    wants to use to send BFD echo packets. Defaults to 50ms.
@@ -225,12 +274,15 @@ BFD peers and profiles share the same BFD session configuration commands.
 BFD Peer Specific Commands
 --------------------------
 
+<<<<<<< HEAD
 .. clicmd:: label WORD
 
    Labels a peer with the provided word. This word can be referenced
    later on other daemons to refer to a specific peer.
 
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 .. clicmd:: profile BFDPROF
 
    Configure peer to use the profile configurations.
@@ -443,7 +495,10 @@ Here is an example of BFD configuration:
 
     bfd
      peer 192.168.0.1
+<<<<<<< HEAD
        label home-peer
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
        no shutdown
      !
     !
@@ -457,7 +512,11 @@ Here is an example of BFD configuration:
     !
 
 Peers can be identified by its address (use ``multihop`` when you need
+<<<<<<< HEAD
 to specify a multi hop peer) or can be specified manually by a label.
+=======
+to specify a multi hop peer).
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 Here are the available peer configurations:
 
@@ -500,7 +559,10 @@ Here are the available peer configurations:
 
     ! configure a peer with every option possible
     peer 192.168.0.4
+<<<<<<< HEAD
      label peer-label
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
      detect-multiplier 50
      receive-interval 60000
      transmit-interval 3000
@@ -548,7 +610,10 @@ You can inspect the current BFD peer status with the following commands:
                            Echo receive interval: 50ms
 
            peer 192.168.1.1
+<<<<<<< HEAD
                    label: router3-peer
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
                    ID: 2
                    Remote ID: 2
                    Status: up
@@ -571,7 +636,10 @@ You can inspect the current BFD peer status with the following commands:
    frr# show bfd peer 192.168.1.1
    BFD Peer:
                peer 192.168.1.1
+<<<<<<< HEAD
                    label: router3-peer
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
                    ID: 2
                    Remote ID: 2
                    Status: up

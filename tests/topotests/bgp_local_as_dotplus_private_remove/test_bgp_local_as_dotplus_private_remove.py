@@ -31,13 +31,22 @@ used together with `remove-private-AS`.
 import os
 import sys
 import json
+<<<<<<< HEAD
 import time
 import pytest
+=======
+import pytest
+import functools
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 CWD = os.path.dirname(os.path.realpath(__file__))
 sys.path.append(os.path.join(CWD, "../"))
 
 # pylint: disable=C0413
+<<<<<<< HEAD
+=======
+from lib import topotest
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 from lib.topogen import Topogen, TopoRouter, get_topogen
 
 pytestmark = [pytest.mark.bgpd]
@@ -62,7 +71,11 @@ def setup_module(mod):
 
     router_list = tgen.routers()
 
+<<<<<<< HEAD
     for i, (rname, router) in enumerate(router_list.items(), 1):
+=======
+    for _, (rname, router) in enumerate(router_list.items(), 1):
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         router.load_config(
             TopoRouter.RD_ZEBRA, os.path.join(CWD, "{}/zebra.conf".format(rname))
         )
@@ -84,6 +97,7 @@ def test_bgp_remove_private_as():
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
+<<<<<<< HEAD
     def _bgp_converge(router):
         while True:
             output = json.loads(
@@ -107,6 +121,45 @@ def test_bgp_remove_private_as():
     if _bgp_converge("r4"):
         assert len(_bgp_as_path("r4")) == 2
         assert '0.3000' in _bgp_as_path("r4")
+=======
+    r2 = tgen.gears["r2"]
+    r4 = tgen.gears["r4"]
+
+    def _bgp_converge():
+        output = json.loads(r2.vtysh_cmd("show ip bgp neighbor 192.168.255.1 json"))
+        expected = {
+            "192.168.255.1": {
+                "bgpState": "Established",
+            }
+        }
+        return topotest.json_cmp(output, expected)
+
+    test_func = functools.partial(_bgp_converge)
+    _, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
+    assert result is None, "Can't converge initially"
+
+    def _bgp_as_path(router, asn_path, asn_length):
+        output = json.loads(router.vtysh_cmd("show ip bgp 172.16.255.254/32 json"))
+        expected = {
+            "paths": [
+                {
+                    "aspath": {
+                        "string": asn_path,
+                        "length": asn_length,
+                    }
+                }
+            ]
+        }
+        return topotest.json_cmp(output, expected)
+
+    test_func = functools.partial(_bgp_as_path, r2, "0.500", 1)
+    _, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
+    assert result is None, "Private ASNs not stripped"
+
+    test_func = functools.partial(_bgp_as_path, r4, "0.500 0.3000", 2)
+    _, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
+    assert result is None, "Private ASNs not stripped"
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 
 if __name__ == "__main__":

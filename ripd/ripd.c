@@ -6,6 +6,14 @@
 
 #include <zebra.h>
 
+<<<<<<< HEAD
+=======
+#ifdef CRYPTO_OPENSSL
+#include <openssl/evp.h>
+#include <openssl/hmac.h>
+#endif
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 #include "vrf.h"
 #include "if.h"
 #include "command.h"
@@ -29,8 +37,15 @@
 #include "privs.h"
 #include "lib_errors.h"
 #include "northbound_cli.h"
+<<<<<<< HEAD
 #include "network.h"
 #include "lib/printfrr.h"
+=======
+#include "mgmt_be_client.h"
+#include "network.h"
+#include "lib/printfrr.h"
+#include "frrdistance.h"
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 #include "ripd/ripd.h"
 #include "ripd/rip_nb.h"
@@ -403,7 +418,10 @@ static int rip_filter(int rip_distribute, struct prefix_ipv4 *p,
 static int rip_nexthop_check(struct rip *rip, struct in_addr *addr)
 {
 	struct interface *ifp;
+<<<<<<< HEAD
 	struct listnode *cnode;
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	struct connected *ifc;
 	struct prefix *p;
 
@@ -411,7 +429,11 @@ static int rip_nexthop_check(struct rip *rip, struct in_addr *addr)
 	   invalid nexthop. */
 
 	FOR_ALL_INTERFACES (rip->vrf, ifp) {
+<<<<<<< HEAD
 		for (ALL_LIST_ELEMENTS_RO(ifp->connected, cnode, ifc)) {
+=======
+		frr_each (if_connected, ifp->connected, ifc) {
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			p = ifc->address;
 
 			if (p->family == AF_INET
@@ -1257,9 +1279,19 @@ static void rip_response_process(struct rip_packet *packet, int size,
 					       rip->vrf->vrf_id)) {
 				struct route_node *rn;
 				struct rip_info *rinfo;
+<<<<<<< HEAD
 
 				rn = route_node_match_ipv4(rip->table,
 							   &rte->nexthop);
+=======
+				struct prefix p = { 0 };
+
+				p.family = AF_INET;
+				p.prefixlen = IPV4_MAX_BITLEN;
+				p.u.prefix4 = rte->nexthop;
+
+				rn = route_node_match(rip->table, &p);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 				if (rn) {
 					rinfo = rn->info;
@@ -2212,8 +2244,13 @@ void rip_output_process(struct connected *ifc, struct sockaddr_in *to,
 				}
 
 			if (!suppress && rinfo->type == ZEBRA_ROUTE_CONNECT) {
+<<<<<<< HEAD
 				for (ALL_LIST_ELEMENTS_RO(ifc->ifp->connected,
 							  listnode, tmp_ifc))
+=======
+				frr_each (if_connected, ifc->ifp->connected,
+					  tmp_ifc)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 					if (prefix_match((struct prefix *)p,
 							 tmp_ifc->address)) {
 						suppress = 1;
@@ -2322,8 +2359,13 @@ void rip_output_process(struct connected *ifc, struct sockaddr_in *to,
 
 			if (rinfo->metric_out != RIP_METRIC_INFINITY &&
 			    rinfo->type == ZEBRA_ROUTE_CONNECT) {
+<<<<<<< HEAD
 				for (ALL_LIST_ELEMENTS_RO(ifc->ifp->connected,
 							  listnode, tmp_ifc))
+=======
+				frr_each (if_connected, ifc->ifp->connected,
+					  tmp_ifc)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 					if (prefix_match((struct prefix *)p,
 							 tmp_ifc->address)) {
 						rinfo->metric_out =
@@ -2436,7 +2478,10 @@ static void rip_update_interface(struct connected *ifc, uint8_t version,
 /* Update send to all interface and neighbor. */
 static void rip_update_process(struct rip *rip, int route_type)
 {
+<<<<<<< HEAD
 	struct listnode *ifnode, *ifnnode;
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	struct connected *connected;
 	struct interface *ifp;
 	struct rip_interface *ri;
@@ -2475,8 +2520,12 @@ static void rip_update_process(struct rip *rip, int route_type)
 				   ifp->ifindex);
 
 		/* send update on each connected network */
+<<<<<<< HEAD
 		for (ALL_LIST_ELEMENTS(ifp->connected, ifnode, ifnnode,
 				       connected)) {
+=======
+		frr_each (if_connected, ifp->connected, connected) {
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			if (connected->address->family == AF_INET) {
 				if (vsend & RIPv1)
 					rip_update_interface(connected, RIPv1,
@@ -2767,7 +2816,10 @@ int rip_request_send(struct sockaddr_in *to, struct interface *ifp,
 {
 	struct rte *rte;
 	struct rip_packet rip_packet;
+<<<<<<< HEAD
 	struct listnode *node, *nnode;
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	memset(&rip_packet, 0, sizeof(rip_packet));
 
@@ -2791,7 +2843,11 @@ int rip_request_send(struct sockaddr_in *to, struct interface *ifp,
 	}
 
 	/* send request on each connected network */
+<<<<<<< HEAD
 	for (ALL_LIST_ELEMENTS(ifp->connected, node, nnode, connected)) {
+=======
+	frr_each (if_connected, ifp->connected, connected) {
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		struct prefix_ipv4 *p;
 
 		p = (struct prefix_ipv4 *)connected->address;
@@ -3051,7 +3107,14 @@ DEFUN (show_ip_rip,
 	}
 
 	vty_out(vty,
+<<<<<<< HEAD
 		"Codes: R - RIP, C - connected, S - Static, O - OSPF, B - BGP\n"
+=======
+		"Codes: K - kernel route, C - connected, L - local, S - static,\n"
+		"       R - RIP, O - OSPF, I - IS-IS, B - BGP, E - EIGRP, N - NHRP,\n"
+		"       T - Table, v - VNC, V - VNC-Direct, A - Babel, F - PBR,\n"
+		"       f - OpenFabric, t - Table-Direct\n"
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		"Sub-codes:\n"
 		"      (n) - normal, (s) - static, (d) - default, (r) - redistribute,\n"
 		"      (i) - interface\n\n"
@@ -3251,6 +3314,7 @@ DEFUN (show_ip_rip_status,
 	return CMD_SUCCESS;
 }
 
+<<<<<<< HEAD
 /* RIP configuration write function. */
 static int config_write_rip(struct vty *vty)
 {
@@ -3290,6 +3354,8 @@ static struct cmd_node rip_node = {
 	.config_write = config_write_rip,
 };
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 /* Distribute-list update functions. */
 static void rip_distribute_update(struct distribute_ctx *ctx,
 				  struct distribute *dist)
@@ -3597,18 +3663,24 @@ static int rip_vrf_new(struct vrf *vrf)
 
 static int rip_vrf_delete(struct vrf *vrf)
 {
+<<<<<<< HEAD
 	struct rip *rip;
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	if (IS_RIP_DEBUG_EVENT)
 		zlog_debug("%s: VRF deleted: %s(%u)", __func__, vrf->name,
 			   vrf->vrf_id);
 
+<<<<<<< HEAD
 	rip = rip_lookup_by_vrf_name(vrf->name);
 	if (!rip)
 		return 0;
 
 	rip_clean(rip);
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	return 0;
 }
 
@@ -3659,8 +3731,11 @@ static int rip_vrf_disable(struct vrf *vrf)
 void rip_vrf_init(void)
 {
 	vrf_init(rip_vrf_new, rip_vrf_enable, rip_vrf_disable, rip_vrf_delete);
+<<<<<<< HEAD
 
 	vrf_cmd_init(NULL);
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 }
 
 void rip_vrf_terminate(void)
@@ -3671,13 +3746,17 @@ void rip_vrf_terminate(void)
 /* Allocate new rip structure and set default value. */
 void rip_init(void)
 {
+<<<<<<< HEAD
 	/* Install top nodes. */
 	install_node(&rip_node);
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	/* Install rip commands. */
 	install_element(VIEW_NODE, &show_ip_rip_cmd);
 	install_element(VIEW_NODE, &show_ip_rip_status_cmd);
 
+<<<<<<< HEAD
 	install_default(RIP_NODE);
 
 	/* Debug related init. */
@@ -3685,6 +3764,15 @@ void rip_init(void)
 
 	/* Access list install. */
 	access_list_init();
+=======
+	/* Debug related init. */
+	rip_debug_init();
+	/* Enable mgmt be debug */
+	mgmt_be_client_lib_vty_init();
+
+	/* Access list install. */
+	access_list_init_new(true);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	access_list_add_hook(rip_distribute_update_all_wrapper);
 	access_list_delete_hook(rip_distribute_update_all_wrapper);
 
@@ -3698,6 +3786,9 @@ void rip_init(void)
 
 	route_map_add_hook(rip_routemap_update);
 	route_map_delete_hook(rip_routemap_update);
+<<<<<<< HEAD
 
 	if_rmap_init(RIP_NODE);
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 }

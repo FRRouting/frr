@@ -1,0 +1,49 @@
+{
+	"2001:db8:aaaa::/64": [
+		{
+			"prefix": "2001:db8:aaaa::/64",
+			"prefixLen": 64,
+			"protocol": "static",
+			"selected": true,
+			"destSelected": true,
+			"distance": 1,
+			"metric": 0,
+			"installed": true,
+			"nexthops": [
+				{
+					"directlyConnected": true,
+					"active": true,
+					"weight": 1
+				}
+			]
+		}
+	],
+	"2005::/64": [
+		{
+			"prefix": "2005::/64",
+			"prefixLen": 64,
+			"protocol": "static",
+			"selected": true,
+			"destSelected": true,
+			"distance": 1,
+			"metric": 0,
+			"installed": true,
+			"nexthops": [
+				{
+					"directlyConnected": true,
+					"active": true,
+					"weight": 1,
+					"seg6local": {
+						"action": "unspec"
+					},
+					"seg6": [
+						"2001:db8:aaaa::7",
+						"2002::2",
+						"2003::3",
+						"2004::4"
+					]
+				}
+			]
+		}
+	]
+}

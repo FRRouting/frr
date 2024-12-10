@@ -19,6 +19,10 @@
 #include "zclient.h"
 #include "bfd.h"
 #include "ldp_sync.h"
+<<<<<<< HEAD
+=======
+#include "plist.h"
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 #include "ospfd/ospfd.h"
 #include "ospfd/ospf_bfd.h"
@@ -67,6 +71,37 @@ int ospf_interface_neighbor_count(struct ospf_interface *oi)
 	return count;
 }
 
+<<<<<<< HEAD
+=======
+
+void ospf_intf_neighbor_filter_apply(struct ospf_interface *oi)
+{
+	struct route_node *rn;
+	struct ospf_neighbor *nbr = NULL;
+	struct prefix nbr_src_prefix = { AF_INET, IPV4_MAX_BITLEN, { 0 } };
+
+	if (!oi->nbr_filter)
+		return;
+
+	/*
+	 * Kill neighbors that don't match the neighbor filter prefix-list
+	 * excluding the neighbor for the router itself and any neighbors
+	 * that are already down.
+	 */
+	for (rn = route_top(oi->nbrs); rn; rn = route_next(rn)) {
+		nbr = rn->info;
+		if (nbr && nbr != oi->nbr_self && nbr->state != NSM_Down) {
+			nbr_src_prefix.u.prefix4 = nbr->src;
+			if (prefix_list_apply(oi->nbr_filter,
+					      (struct prefix *)&(
+						      nbr_src_prefix)) !=
+			    PREFIX_PERMIT)
+				OSPF_NSM_EVENT_EXECUTE(nbr, NSM_KillNbr);
+		}
+	}
+}
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 int ospf_if_get_output_cost(struct ospf_interface *oi)
 {
 	/* If all else fails, use default OSPF cost */
@@ -147,6 +182,7 @@ void ospf_if_reset(struct interface *ifp)
 	}
 }
 
+<<<<<<< HEAD
 void ospf_if_reset_variables(struct ospf_interface *oi)
 {
 	/* Set default values. */
@@ -158,15 +194,31 @@ void ospf_if_reset_variables(struct ospf_interface *oi)
 		/* preserve network-type */
 		if (oi->type != OSPF_IFTYPE_NBMA)
 		oi->type = OSPF_IFTYPE_BROADCAST;
+=======
+static void ospf_if_default_variables(struct ospf_interface *oi)
+{
+	/* Set default values. */
+
+	oi->type = OSPF_IFTYPE_BROADCAST;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	oi->state = ISM_Down;
 
 	oi->crypt_seqnum = 0;
 
+<<<<<<< HEAD
 	/* This must be short, (less than RxmtInterval)
 	   - RFC 2328 Section 13.5 para 3.  Set to 1 second to avoid Acks being
 	     held back for too long - MAG */
 	oi->v_ls_ack = 1;
+=======
+	/*
+	 * The OSPF LS ACK Delay timer must be less than the LS Retransmision
+	 * timer. As per RFC 2328 Section 13.5 paragraph 3,  Set to 1 second
+	 * to avoid Acks being held back for too long
+	 */
+	oi->v_ls_ack_delayed = OSPF_ACK_DELAY_DEFAULT;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 }
 
 /* lookup oi for specified prefix/ifp */
@@ -249,12 +301,21 @@ struct ospf_interface *ospf_if_new(struct ospf *ospf, struct interface *ifp,
 	/* Initialize static neighbor list. */
 	oi->nbr_nbma = list_new();
 
+<<<<<<< HEAD
 	/* Initialize Link State Acknowledgment list. */
 	oi->ls_ack = list_new();
 	oi->ls_ack_direct.ls_ack = list_new();
 
 	/* Set default values. */
 	ospf_if_reset_variables(oi);
+=======
+	/* Initialize Link State Acknowledgment lists. */
+	ospf_lsa_list_init(&oi->ls_ack_delayed);
+	ospf_lsa_list_init(&oi->ls_ack_direct);
+
+	/* Set default values. */
+	ospf_if_default_variables(oi);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	/* Set pseudo neighbor to Null */
 	oi->nbr_self = NULL;
@@ -271,6 +332,13 @@ struct ospf_interface *ospf_if_new(struct ospf *ospf, struct interface *ifp,
 
 	QOBJ_REG(oi, ospf_interface);
 
+<<<<<<< HEAD
+=======
+	/* If first oi, check per-intf write socket */
+	if (ospf->oi_running && ospf->intf_socket_enabled)
+		ospf_ifp_sock_init(ifp);
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	if (IS_DEBUG_OSPF_EVENT)
 		zlog_debug("%s: ospf interface %s vrf %s id %u created",
 			   __func__, ifp->name, ospf_get_name(ospf),
@@ -279,6 +347,25 @@ struct ospf_interface *ospf_if_new(struct ospf *ospf, struct interface *ifp,
 	return oi;
 }
 
+<<<<<<< HEAD
+=======
+/*
+ * Cleanup Interface Ack List
+ */
+static void ospf_if_cleanup_ack_list(struct ospf_lsa_list_head *ls_ack_list)
+{
+	struct ospf_lsa_list_entry *ls_ack_list_entry;
+	struct ospf_lsa *lsa;
+
+	frr_each_safe (ospf_lsa_list, ls_ack_list, ls_ack_list_entry) {
+		lsa = ls_ack_list_entry->lsa;
+		ospf_lsa_list_del(ls_ack_list, ls_ack_list_entry);
+		XFREE(MTYPE_OSPF_LSA_LIST, ls_ack_list_entry);
+		ospf_lsa_unlock(&lsa);
+	}
+}
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 /* Restore an interface to its pre UP state
    Used from ism_interface_down only */
 void ospf_if_cleanup(struct ospf_interface *oi)
@@ -287,7 +374,10 @@ void ospf_if_cleanup(struct ospf_interface *oi)
 	struct listnode *node, *nnode;
 	struct ospf_neighbor *nbr;
 	struct ospf_nbr_nbma *nbr_nbma;
+<<<<<<< HEAD
 	struct ospf_lsa *lsa;
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	/* oi->nbrs and oi->nbr_nbma should be deleted on InterfaceDown event */
 	/* delete all static neighbors attached to this interface */
@@ -311,10 +401,16 @@ void ospf_if_cleanup(struct ospf_interface *oi)
 				OSPF_NSM_EVENT_EXECUTE(nbr, NSM_KillNbr);
 	}
 
+<<<<<<< HEAD
 	/* Cleanup Link State Acknowlegdment list. */
 	for (ALL_LIST_ELEMENTS(oi->ls_ack, node, nnode, lsa))
 		ospf_lsa_unlock(&lsa); /* oi->ls_ack */
 	list_delete_all_node(oi->ls_ack);
+=======
+	/* Cleanup Link State Delayed Acknowlegdment list. */
+	ospf_if_cleanup_ack_list(&oi->ls_ack_delayed);
+	ospf_if_cleanup_ack_list(&oi->ls_ack_direct);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	oi->crypt_seqnum = 0;
 
@@ -327,12 +423,22 @@ void ospf_if_cleanup(struct ospf_interface *oi)
 
 void ospf_if_free(struct ospf_interface *oi)
 {
+<<<<<<< HEAD
+=======
+	struct interface *ifp = oi->ifp;
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	ospf_if_down(oi);
 
 	ospf_fifo_free(oi->obuf);
 
 	assert(oi->state == ISM_Down);
 
+<<<<<<< HEAD
+=======
+	ospf_opaque_type9_lsa_if_cleanup(oi);
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	ospf_opaque_type9_lsa_term(oi);
 
 	QOBJ_UNREG(oi);
@@ -346,8 +452,13 @@ void ospf_if_free(struct ospf_interface *oi)
 	/* Free any lists that should be freed */
 	list_delete(&oi->nbr_nbma);
 
+<<<<<<< HEAD
 	list_delete(&oi->ls_ack);
 	list_delete(&oi->ls_ack_direct.ls_ack);
+=======
+	ospf_if_cleanup_ack_list(&oi->ls_ack_delayed);
+	ospf_if_cleanup_ack_list(&oi->ls_ack_direct);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	if (IS_DEBUG_OSPF_EVENT)
 		zlog_debug("%s: ospf interface %s vrf %s id %u deleted",
@@ -361,6 +472,13 @@ void ospf_if_free(struct ospf_interface *oi)
 
 	event_cancel_event(master, oi);
 
+<<<<<<< HEAD
+=======
+	/* If last oi, close per-interface socket */
+	if (ospf_oi_count(ifp) == 0)
+		ospf_ifp_sock_close(ifp);
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	memset(oi, 0, sizeof(*oi));
 	XFREE(MTYPE_OSPF_IF, oi);
 }
@@ -370,6 +488,7 @@ int ospf_if_is_up(struct ospf_interface *oi)
 	return if_is_up(oi->ifp);
 }
 
+<<<<<<< HEAD
 struct ospf_interface *ospf_if_exists(struct ospf_interface *oic)
 {
 	struct listnode *node;
@@ -390,6 +509,8 @@ struct ospf_interface *ospf_if_exists(struct ospf_interface *oic)
 	return NULL;
 }
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 /* Lookup OSPF interface by router LSA posistion */
 struct ospf_interface *ospf_if_lookup_by_lsa_pos(struct ospf_area *area,
 						 int lsa_pos)
@@ -527,6 +648,10 @@ static struct ospf_if_params *ospf_new_if_params(void)
 	UNSET_IF_PARAM(oip, output_cost_cmd);
 	UNSET_IF_PARAM(oip, transmit_delay);
 	UNSET_IF_PARAM(oip, retransmit_interval);
+<<<<<<< HEAD
+=======
+	UNSET_IF_PARAM(oip, retransmit_window);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	UNSET_IF_PARAM(oip, passive_interface);
 	UNSET_IF_PARAM(oip, v_hello);
 	UNSET_IF_PARAM(oip, fast_hello);
@@ -538,6 +663,12 @@ static struct ospf_if_params *ospf_new_if_params(void)
 	UNSET_IF_PARAM(oip, auth_crypt);
 	UNSET_IF_PARAM(oip, auth_type);
 	UNSET_IF_PARAM(oip, if_area);
+<<<<<<< HEAD
+=======
+	UNSET_IF_PARAM(oip, opaque_capable);
+	UNSET_IF_PARAM(oip, keychain_name);
+	UNSET_IF_PARAM(oip, nbr_filter_name);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	oip->auth_crypt = list_new();
 
@@ -546,6 +677,10 @@ static struct ospf_if_params *ospf_new_if_params(void)
 
 	oip->ptp_dmvpn = 0;
 	oip->p2mp_delay_reflood = OSPF_P2MP_DELAY_REFLOOD_DEFAULT;
+<<<<<<< HEAD
+=======
+	oip->opaque_capable = OSPF_OPAQUE_CAPABLE_DEFAULT;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	return oip;
 }
@@ -554,6 +689,11 @@ static void ospf_del_if_params(struct interface *ifp,
 			       struct ospf_if_params *oip)
 {
 	list_delete(&oip->auth_crypt);
+<<<<<<< HEAD
+=======
+	XFREE(MTYPE_OSPF_IF_PARAMS, oip->keychain_name);
+	XFREE(MTYPE_OSPF_IF_PARAMS, oip->nbr_filter_name);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	ospf_interface_disable_bfd(ifp, oip);
 	ldp_sync_info_free(&(oip->ldp_sync_info));
 	XFREE(MTYPE_OSPF_IF_PARAMS, oip);
@@ -575,6 +715,7 @@ void ospf_free_if_params(struct interface *ifp, struct in_addr addr)
 	oip = rn->info;
 	route_unlock_node(rn);
 
+<<<<<<< HEAD
 	if (!OSPF_IF_PARAM_CONFIGURED(oip, output_cost_cmd)
 	    && !OSPF_IF_PARAM_CONFIGURED(oip, transmit_delay)
 	    && !OSPF_IF_PARAM_CONFIGURED(oip, retransmit_interval)
@@ -588,6 +729,26 @@ void ospf_free_if_params(struct interface *ifp, struct in_addr addr)
 	    && !OSPF_IF_PARAM_CONFIGURED(oip, auth_type)
 	    && !OSPF_IF_PARAM_CONFIGURED(oip, if_area)
 	    && listcount(oip->auth_crypt) == 0) {
+=======
+	if (!OSPF_IF_PARAM_CONFIGURED(oip, output_cost_cmd) &&
+	    !OSPF_IF_PARAM_CONFIGURED(oip, transmit_delay) &&
+	    !OSPF_IF_PARAM_CONFIGURED(oip, retransmit_interval) &&
+	    !OSPF_IF_PARAM_CONFIGURED(oip, retransmit_window) &&
+	    !OSPF_IF_PARAM_CONFIGURED(oip, passive_interface) &&
+	    !OSPF_IF_PARAM_CONFIGURED(oip, v_hello) &&
+	    !OSPF_IF_PARAM_CONFIGURED(oip, fast_hello) &&
+	    !OSPF_IF_PARAM_CONFIGURED(oip, v_wait) &&
+	    !OSPF_IF_PARAM_CONFIGURED(oip, priority) &&
+	    !OSPF_IF_PARAM_CONFIGURED(oip, type) &&
+	    !OSPF_IF_PARAM_CONFIGURED(oip, auth_simple) &&
+	    !OSPF_IF_PARAM_CONFIGURED(oip, auth_type) &&
+	    !OSPF_IF_PARAM_CONFIGURED(oip, if_area) &&
+	    !OSPF_IF_PARAM_CONFIGURED(oip, opaque_capable) &&
+	    !OSPF_IF_PARAM_CONFIGURED(oip, prefix_suppression) &&
+	    !OSPF_IF_PARAM_CONFIGURED(oip, keychain_name) &&
+	    !OSPF_IF_PARAM_CONFIGURED(oip, nbr_filter_name) &&
+	    listcount(oip->auth_crypt) == 0) {
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		ospf_del_if_params(ifp, oip);
 		rn->info = NULL;
 		route_unlock_node(rn);
@@ -670,6 +831,12 @@ int ospf_if_new_hook(struct interface *ifp)
 	IF_DEF_PARAMS(ifp)->retransmit_interval =
 		OSPF_RETRANSMIT_INTERVAL_DEFAULT;
 
+<<<<<<< HEAD
+=======
+	SET_IF_PARAM(IF_DEF_PARAMS(ifp), retransmit_window);
+	IF_DEF_PARAMS(ifp)->retransmit_window = OSPF_RETRANSMIT_WINDOW_DEFAULT;
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	SET_IF_PARAM(IF_DEF_PARAMS(ifp), priority);
 	IF_DEF_PARAMS(ifp)->priority = OSPF_ROUTER_PRIORITY_DEFAULT;
 
@@ -693,6 +860,14 @@ int ospf_if_new_hook(struct interface *ifp)
 	SET_IF_PARAM(IF_DEF_PARAMS(ifp), auth_type);
 	IF_DEF_PARAMS(ifp)->auth_type = OSPF_AUTH_NOTSET;
 
+<<<<<<< HEAD
+=======
+	SET_IF_PARAM(IF_DEF_PARAMS(ifp), opaque_capable);
+	IF_DEF_PARAMS(ifp)->opaque_capable = OSPF_OPAQUE_CAPABLE_DEFAULT;
+
+	IF_DEF_PARAMS(ifp)->prefix_suppression = OSPF_PREFIX_SUPPRESSION_DEFAULT;
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	rc = ospf_opaque_new_if(ifp);
 	return rc;
 }
@@ -817,14 +992,50 @@ int ospf_if_up(struct ospf_interface *oi)
 	return 1;
 }
 
+<<<<<<< HEAD
 int ospf_if_down(struct ospf_interface *oi)
 {
 	struct ospf *ospf;
+=======
+/* This function will mark routes with next-hops matching the down
+ * OSPF interface as changed. It is used to assure routes that get
+ * removed from the zebra RIB when an interface goes down are
+ * reinstalled if the interface comes back up prior to an intervening
+ * SPF calculation.
+ */
+static void ospf_if_down_mark_routes_changed(struct route_table *table,
+					     struct ospf_interface *oi)
+{
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	struct route_node *rn;
 	struct ospf_route *or;
 	struct listnode *nh;
 	struct ospf_path *op;
 
+<<<<<<< HEAD
+=======
+	for (rn = route_top(table); rn; rn = route_next(rn)) {
+		or = rn->info;
+
+		if (or == NULL)
+			continue;
+
+		for (nh = listhead(or->paths); nh;
+		     nh = listnextnode_unchecked(nh)) {
+			op = listgetdata(nh);
+			if (op->ifindex == oi->ifp->ifindex) {
+				or->changed = true;
+				break;
+			}
+		}
+	}
+}
+
+int ospf_if_down(struct ospf_interface *oi)
+{
+	struct ospf *ospf;
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	if (oi == NULL)
 		return 0;
 
@@ -860,6 +1071,7 @@ int ospf_if_down(struct ospf_interface *oi)
 	/* Shutdown packet reception and sending */
 	ospf_if_stream_unset(oi);
 
+<<<<<<< HEAD
 	if (!ospf->new_table)
 		return 1;
 	for (rn = route_top(ospf->new_table); rn; rn = route_next(rn)) {
@@ -877,6 +1089,13 @@ int ospf_if_down(struct ospf_interface *oi)
 			}
 		}
 	}
+=======
+	if (ospf->new_table)
+		ospf_if_down_mark_routes_changed(ospf->new_table, oi);
+
+	if (ospf->new_external_route)
+		ospf_if_down_mark_routes_changed(ospf->new_external_route, oi);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	return 1;
 }
@@ -910,7 +1129,11 @@ struct ospf_interface *ospf_vl_new(struct ospf *ospf,
 {
 	struct ospf_interface *voi;
 	struct interface *vi;
+<<<<<<< HEAD
 	char ifname[INTERFACE_NAMSIZ];
+=======
+	char ifname[IFNAMSIZ];
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	struct ospf_area *area;
 	struct in_addr area_id;
 	struct connected *co;
@@ -940,7 +1163,11 @@ struct ospf_interface *ospf_vl_new(struct ospf *ospf,
 	UNSET_FLAG(vi->status, ZEBRA_INTERFACE_LINKDETECTION);
 	co = connected_new();
 	co->ifp = vi;
+<<<<<<< HEAD
 	listnode_add(vi->connected, co);
+=======
+	if_connected_add_tail(vi->connected, co);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	p = prefix_ipv4_new();
 	p->family = AF_INET;
@@ -1145,7 +1372,11 @@ static int ospf_vl_set_params(struct ospf_area *area,
 				if (IS_DEBUG_OSPF_EVENT)
 					zlog_debug(
 						"found back link through VL");
+<<<<<<< HEAD
 			/* fallthru */
+=======
+				fallthrough;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			case LSA_LINK_TYPE_TRANSIT:
 			case LSA_LINK_TYPE_POINTOPOINT:
 				if (!IPV4_ADDR_SAME(&vl_data->peer_addr,
@@ -1405,7 +1636,12 @@ static int ospf_ifp_up(struct interface *ifp)
 
 	/* Open per-intf write socket if configured */
 	ospf = ifp->vrf->info;
+<<<<<<< HEAD
 	if (ospf && ospf->intf_socket_enabled)
+=======
+
+	if (ospf && ospf->oi_running && ospf->intf_socket_enabled)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		ospf_ifp_sock_init(ifp);
 
 	ospf_if_recalculate_output_cost(ifp);
@@ -1540,8 +1776,15 @@ void ospf_reset_hello_timer(struct interface *ifp, struct in_addr addr,
 
 void ospf_if_init(void)
 {
+<<<<<<< HEAD
 	if_zapi_callbacks(ospf_ifp_create, ospf_ifp_up,
 			  ospf_ifp_down, ospf_ifp_destroy);
+=======
+	hook_register_prio(if_real, 0, ospf_ifp_create);
+	hook_register_prio(if_up, 0, ospf_ifp_up);
+	hook_register_prio(if_down, 0, ospf_ifp_down);
+	hook_register_prio(if_unreal, 0, ospf_ifp_destroy);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	/* Initialize Zebra interface data structure. */
 	hook_register_prio(if_add, 0, ospf_if_new_hook);

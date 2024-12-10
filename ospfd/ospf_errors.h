@@ -22,7 +22,11 @@ enum ospf_log_refs {
 	EC_OSPF_INVALID_ALGORITHM,
 	EC_OSPF_FSM_INVALID_STATE,
 	EC_OSPF_SET_METRIC_PLUS,
+<<<<<<< HEAD
 	EC_OSPF_MD5,
+=======
+	EC_OSPF_AUTH,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	EC_OSPF_PACKET,
 	EC_OSPF_LARGE_LSA,
 	EC_OSPF_LSA_UNEXPECTED,

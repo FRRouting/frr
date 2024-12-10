@@ -15,6 +15,13 @@ r2 and r3 receives those routes with aigp-metric TLV increased by 20,
 and 10 appropriately.
 
 r1 receives routes with aigp-metric TLV 81, 91 and 82, 92 respectively.
+<<<<<<< HEAD
+=======
+
+r1 advertises MED from IGP protocol (set metric igp) to r8.
+
+r1 advertises MED from AIGP (set metric aigp) to r8.
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 """
 
 import os
@@ -29,13 +36,20 @@ sys.path.append(os.path.join(CWD, "../"))
 # pylint: disable=C0413
 from lib import topotest
 from lib.topogen import Topogen, TopoRouter, get_topogen
+<<<<<<< HEAD
 from lib.common_config import step
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 pytestmark = [pytest.mark.bgpd]
 
 
 def build_topo(tgen):
+<<<<<<< HEAD
     for routern in range(1, 8):
+=======
+    for routern in range(1, 9):
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         tgen.add_router("r{}".format(routern))
 
     switch = tgen.add_switch("s1")
@@ -66,6 +80,13 @@ def build_topo(tgen):
     switch.add_link(tgen.gears["r6"])
     switch.add_link(tgen.gears["r7"])
 
+<<<<<<< HEAD
+=======
+    switch = tgen.add_switch("s8")
+    switch.add_link(tgen.gears["r1"])
+    switch.add_link(tgen.gears["r8"])
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 def setup_module(mod):
     tgen = Topogen(build_topo, mod.__name__)
@@ -73,7 +94,11 @@ def setup_module(mod):
 
     router_list = tgen.routers()
 
+<<<<<<< HEAD
     for i, (rname, router) in enumerate(router_list.items(), 1):
+=======
+    for _, (rname, router) in enumerate(router_list.items(), 1):
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         router.load_config(
             TopoRouter.RD_ZEBRA, os.path.join(CWD, "{}/zebra.conf".format(rname))
         )
@@ -103,6 +128,10 @@ def test_bgp_aigp():
     r3 = tgen.gears["r3"]
     r4 = tgen.gears["r4"]
     r5 = tgen.gears["r5"]
+<<<<<<< HEAD
+=======
+    r8 = tgen.gears["r8"]
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
     def _bgp_converge():
         output = json.loads(r1.vtysh_cmd("show bgp ipv4 unicast 10.0.0.71/32 json"))
@@ -144,6 +173,21 @@ def test_bgp_aigp():
         expected = {"paths": [{"aigpMetric": aigp, "valid": True}]}
         return topotest.json_cmp(output, expected)
 
+<<<<<<< HEAD
+=======
+    def _bgp_check_received_med():
+        output = json.loads(
+            r8.vtysh_cmd("show bgp ipv4 unicast 10.0.0.64/28 longer-prefixes json")
+        )
+        expected = {
+            "routes": {
+                "10.0.0.71/32": [{"valid": True, "metric": 10}],
+                "10.0.0.72/32": [{"valid": True, "metric": 92}],
+            }
+        }
+        return topotest.json_cmp(output, expected)
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     def _bgp_check_aigp_metric_bestpath():
         output = json.loads(
             r1.vtysh_cmd(
@@ -228,6 +272,14 @@ def test_bgp_aigp():
     """
     )
 
+<<<<<<< HEAD
+=======
+    # r4, 10.0.6.6/32 with aigp-metric 20
+    test_func = functools.partial(_bgp_check_aigp_metric, r4, "10.0.6.6/32", 20)
+    _, result = topotest.run_and_expect(test_func, None, count=60, wait=1)
+    assert result is None, "aigp-metric for 10.0.6.6/32 is not 20"
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     # r4, 10.0.0.71/32 with aigp-metric 71
     test_func = functools.partial(_bgp_check_aigp_metric, r4, "10.0.0.71/32", 71)
     _, result = topotest.run_and_expect(test_func, None, count=60, wait=1)
@@ -253,6 +305,16 @@ def test_bgp_aigp():
     _, result = topotest.run_and_expect(test_func, None, count=60, wait=1)
     assert result is None, "AIGP attribute is not considered in best-path selection"
 
+<<<<<<< HEAD
+=======
+    # r8, check if MED is set derived from `set metric igp`, and `set metric aigp`
+    test_func = functools.partial(_bgp_check_received_med)
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
+    assert (
+        result is None
+    ), "MED attribute values are not derived from `set metric [a]igp`"
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 if __name__ == "__main__":
     args = ["-s"] + sys.argv[1:]

@@ -97,6 +97,11 @@ Following are some of the management operations supported:
  - Currently committing configurations from Candidate to Running database
    is only allowed, and not vice versa.
 
+<<<<<<< HEAD
+=======
+Front-End Native Protobuf API
+"""""""""""""""""""""""""""""
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 The exact set of message-based APIs are represented as Google Protobuf
 messages and can be found in the following file distributed with FRR codebase.
 
@@ -104,6 +109,17 @@ messages and can be found in the following file distributed with FRR codebase.
 
    lib/mgmt.proto
 
+<<<<<<< HEAD
+=======
+Front-End Native (non-protobuf) API
+"""""""""""""""""""""""""""""""""""
+Additionally there exists a "native" API that does not utilize ``protobuf``s
+this native API and the front-end messages and structures it supports are
+documented in the header file ``lib/mgmt_msg_native.h``.
+
+Connecting to MGMTd
+"""""""""""""""""""
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 The MGMT daemon implements a MGMT Frontend Server that opens a UNIX
 socket-based IPC channel on the following path to listen for incoming
 connections from all possible Frontend clients:
@@ -124,7 +140,13 @@ specification of this library can be found at:
 
    lib/mgmt_fe_client.h
 
+<<<<<<< HEAD
 Following is a list of message types supported on the MGMT Frontend Interface:
+=======
+Following is a list of protobuf message types supported on the MGMT Frontend
+Interface:
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
  - SESSION_REQ<Client-Connection-Id, Destroy>
  - SESSION_REPLY<Client-Connection-Id, Destroy, Session-Id>
  - LOCK_DB_REQ <Session-Id, Database-Id>
@@ -139,8 +161,26 @@ Following is a list of message types supported on the MGMT Frontend Interface:
  - COMMIT_CONFIG_REPLY <Session-Id, Source-Db-id, Dest-Db-Id, Status>
  - GET_DATA_REQ <Session-Id, Database-Id, Base-Yang-Xpath>
  - GET_DATA_REPLY <Session-Id, Database-id, Base-Yang-Xpath, Yang-Data-Set>
+<<<<<<< HEAD
  - REGISTER_NOTIFY_REQ <Session-Id, Database-Id, Base-Yang-Xpath>
  - DATA_NOTIFY_REQ <Database-Id, Base-Yang-Xpath, Yang-Data-Set>
+=======
+
+Following is a list of native messages types supported by the MGMTd Front-End
+API:
+
+ - ERROR (receive) - received in response to any sent native message.
+ - TREE_DATA (receive) - returned data from a datastore
+ - GET_DATA (send) - get a tree of data
+ - NOTIFY (receive) - a notification received from mgmtd
+ - EDIT (send) - edit configuration datastore
+ - EDIT_REPLY (receive) - reply for an edit operation
+ - RPC (send) - sending (invoking) an RPC.
+ - RPC_REPLY (receive) - reply from invoking an RPC
+ - NOTIFY_SELECT (send) - specify the sub-set of notifications the front-end
+   wishes to receive, rather than the default of receiving all.
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 Please refer to the MGMT Frontend Client Developers Reference and Guide
 (coming soon) for more details.
@@ -356,7 +396,11 @@ MGMT Show commands
     Currenlty supported values for 'candidate' and 'running' only
     ('operational' shall be supported in future soon).
 
+<<<<<<< HEAD
 .. clicmd:: show mgmt database-contents [candidate|operation|running] [xpath WORD] [file WORD] json|xml
+=======
+.. clicmd:: show mgmt datastore-contents [candidate|operation|running] [xpath WORD] [file WORD] json|xml
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
     This command dumps the subtree pointed by the xpath in JSON or XML format. If filepath is
     not present then the tree will be printed on the shell.
@@ -371,22 +415,38 @@ MGMT Daemon debug commands
 
 The following debug commands enable debugging within the management daemon:
 
+<<<<<<< HEAD
 .. clicmd:: [no] debug mgmt backend
+=======
+.. clicmd:: debug mgmt backend
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
    Enable[/Disable] debugging messages related to backend operations within the
    management daemon.
 
+<<<<<<< HEAD
 .. clicmd:: [no] debug mgmt datastore
+=======
+.. clicmd:: debug mgmt datastore
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
    Enable[/Disable] debugging messages related to YANG datastore operations
    within the management daemon.
 
+<<<<<<< HEAD
 .. clicmd:: [no] debug mgmt frontend
+=======
+.. clicmd:: debug mgmt frontend
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
    Enable[/Disable] debugging messages related to frontend operations within the
    management daemon.
 
+<<<<<<< HEAD
 .. clicmd:: [no] debug mgmt transaction
+=======
+.. clicmd:: debug mgmt transaction
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
    Enable[/Disable] debugging messages related to transactions within the
    management daemon.
@@ -398,12 +458,20 @@ MGMT Client debug commands
 The following debug commands enable debugging within the management front and
 backend clients:
 
+<<<<<<< HEAD
 .. clicmd:: [no] debug mgmt client backend
+=======
+.. clicmd:: debug mgmt client backend
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
    Enable[/Disable] debugging messages related to backend operations inside the
    backend mgmtd clients.
 
+<<<<<<< HEAD
 .. clicmd:: [no] debug mgmt client frontend
+=======
+.. clicmd:: debug mgmt client frontend
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
    Enable[/Disable] debugging messages related to frontend operations inside the
    frontend mgmtd clients.

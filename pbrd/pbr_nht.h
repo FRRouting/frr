@@ -36,7 +36,11 @@ struct pbr_nexthop_cache {
 	struct pbr_nexthop_group_cache *parent;
 
 	char vrf_name[VRF_NAMSIZ + 1];
+<<<<<<< HEAD
 	char intf_name[INTERFACE_NAMSIZ + 1];
+=======
+	char intf_name[IFNAMSIZ + 1];
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	struct nexthop nexthop;
 

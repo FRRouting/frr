@@ -29,11 +29,19 @@
 /* clang-format on */
 
 /* forward declarations */
+<<<<<<< HEAD
 static uint16_t bgp_write(struct peer *);
 static uint16_t bgp_read(struct peer *peer, int *code_p);
 static void bgp_process_writes(struct event *event);
 static void bgp_process_reads(struct event *event);
 static bool validate_header(struct peer *);
+=======
+static uint16_t bgp_write(struct peer_connection *connection);
+static uint16_t bgp_read(struct peer_connection *connection, int *code_p);
+static void bgp_process_writes(struct event *event);
+static void bgp_process_reads(struct event *event);
+static bool validate_header(struct peer_connection *connection);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 /* generic i/o status codes */
 #define BGP_IO_TRANS_ERR (1 << 0) /* EAGAIN or similar occurred */
@@ -42,6 +50,7 @@ static bool validate_header(struct peer *);
 
 /* Thread external API ----------------------------------------------------- */
 
+<<<<<<< HEAD
 void bgp_writes_on(struct peer *peer)
 {
 	struct frr_pthread *fpt = bgp_pth_io;
@@ -72,10 +81,45 @@ void bgp_writes_off(struct peer *peer)
 }
 
 void bgp_reads_on(struct peer *peer)
+=======
+void bgp_writes_on(struct peer_connection *connection)
+{
+	struct frr_pthread *fpt = bgp_pth_io;
+
+	assert(fpt->running);
+
+	assert(connection->status != Deleted);
+	assert(connection->obuf);
+	assert(connection->ibuf);
+	assert(connection->ibuf_work);
+	assert(!connection->t_connect_check_r);
+	assert(!connection->t_connect_check_w);
+	assert(connection->fd);
+
+	event_add_write(fpt->master, bgp_process_writes, connection,
+			connection->fd, &connection->t_write);
+	SET_FLAG(connection->thread_flags, PEER_THREAD_WRITES_ON);
+}
+
+void bgp_writes_off(struct peer_connection *connection)
+{
+	struct peer *peer = connection->peer;
+	struct frr_pthread *fpt = bgp_pth_io;
+	assert(fpt->running);
+
+	event_cancel_async(fpt->master, &connection->t_write, NULL);
+	EVENT_OFF(connection->t_generate_updgrp_packets);
+
+	UNSET_FLAG(peer->connection->thread_flags, PEER_THREAD_WRITES_ON);
+}
+
+void bgp_reads_on(struct peer_connection *connection)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 {
 	struct frr_pthread *fpt = bgp_pth_io;
 	assert(fpt->running);
 
+<<<<<<< HEAD
 	assert(peer->status != Deleted);
 	assert(peer->ibuf);
 	assert(peer->fd);
@@ -92,15 +136,41 @@ void bgp_reads_on(struct peer *peer)
 }
 
 void bgp_reads_off(struct peer *peer)
+=======
+	assert(connection->status != Deleted);
+	assert(connection->ibuf);
+	assert(connection->fd);
+	assert(connection->ibuf_work);
+	assert(connection->obuf);
+	assert(!connection->t_connect_check_r);
+	assert(!connection->t_connect_check_w);
+	assert(connection->fd);
+
+	event_add_read(fpt->master, bgp_process_reads, connection,
+		       connection->fd, &connection->t_read);
+
+	SET_FLAG(connection->thread_flags, PEER_THREAD_READS_ON);
+}
+
+void bgp_reads_off(struct peer_connection *connection)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 {
 	struct frr_pthread *fpt = bgp_pth_io;
 	assert(fpt->running);
 
+<<<<<<< HEAD
 	event_cancel_async(fpt->master, &peer->t_read, NULL);
 	EVENT_OFF(peer->t_process_packet);
 	EVENT_OFF(peer->t_process_packet_error);
 
 	UNSET_FLAG(peer->thread_flags, PEER_THREAD_READS_ON);
+=======
+	event_cancel_async(fpt->master, &connection->t_read, NULL);
+	EVENT_OFF(connection->t_process_packet);
+	EVENT_OFF(connection->t_process_packet_error);
+
+	UNSET_FLAG(connection->thread_flags, PEER_THREAD_READS_ON);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 }
 
 /* Thread internal functions ----------------------------------------------- */
@@ -111,19 +181,35 @@ void bgp_reads_off(struct peer *peer)
 static void bgp_process_writes(struct event *thread)
 {
 	static struct peer *peer;
+<<<<<<< HEAD
 	peer = EVENT_ARG(thread);
+=======
+	struct peer_connection *connection = EVENT_ARG(thread);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	uint16_t status;
 	bool reschedule;
 	bool fatal = false;
 
+<<<<<<< HEAD
 	if (peer->fd < 0)
+=======
+	peer = connection->peer;
+
+	if (connection->fd < 0)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		return;
 
 	struct frr_pthread *fpt = bgp_pth_io;
 
+<<<<<<< HEAD
 	frr_with_mutex (&peer->io_mtx) {
 		status = bgp_write(peer);
 		reschedule = (stream_fifo_head(peer->obuf) != NULL);
+=======
+	frr_with_mutex (&connection->io_mtx) {
+		status = bgp_write(connection);
+		reschedule = (stream_fifo_head(connection->obuf) != NULL);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	}
 
 	/* no problem */
@@ -142,26 +228,46 @@ static void bgp_process_writes(struct event *thread)
 	 * sent in the update message
 	 */
 	if (reschedule) {
+<<<<<<< HEAD
 		event_add_write(fpt->master, bgp_process_writes, peer, peer->fd,
 				&peer->t_write);
 	} else if (!fatal) {
 		BGP_UPDATE_GROUP_TIMER_ON(&peer->t_generate_updgrp_packets,
+=======
+		event_add_write(fpt->master, bgp_process_writes, connection,
+				connection->fd, &connection->t_write);
+	} else if (!fatal) {
+		BGP_UPDATE_GROUP_TIMER_ON(&connection->t_generate_updgrp_packets,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 					  bgp_generate_updgrp_packets);
 	}
 }
 
+<<<<<<< HEAD
 static int read_ibuf_work(struct peer *peer)
 {
 	/* static buffer for transferring packets */
 	/* shorter alias to peer's input buffer */
 	struct ringbuf *ibw = peer->ibuf_work;
+=======
+static int read_ibuf_work(struct peer_connection *connection)
+{
+	/* static buffer for transferring packets */
+	/* shorter alias to peer's input buffer */
+	struct ringbuf *ibw = connection->ibuf_work;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	/* packet size as given by header */
 	uint16_t pktsize = 0;
 	struct stream *pkt;
 
 	/* ============================================== */
+<<<<<<< HEAD
 	frr_with_mutex (&peer->io_mtx) {
 		if (peer->ibuf->count >= bm->inq_limit)
+=======
+	frr_with_mutex (&connection->io_mtx) {
+		if (connection->ibuf->count >= bm->inq_limit)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			return -ENOMEM;
 	}
 
@@ -170,7 +276,11 @@ static int read_ibuf_work(struct peer *peer)
 		return 0;
 
 	/* check that header is valid */
+<<<<<<< HEAD
 	if (!validate_header(peer))
+=======
+	if (!validate_header(connection))
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		return -EBADMSG;
 
 	/* header is valid; retrieve packet size */
@@ -179,7 +289,11 @@ static int read_ibuf_work(struct peer *peer)
 	pktsize = ntohs(pktsize);
 
 	/* if this fails we are seriously screwed */
+<<<<<<< HEAD
 	assert(pktsize <= peer->max_packet_size);
+=======
+	assert(pktsize <= connection->peer->max_packet_size);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	/*
 	 * If we have that much data, chuck it into its own
@@ -195,9 +309,15 @@ static int read_ibuf_work(struct peer *peer)
 	assert(ringbuf_get(ibw, pkt->data, pktsize) == pktsize);
 	stream_set_endp(pkt, pktsize);
 
+<<<<<<< HEAD
 	frrtrace(2, frr_bgp, packet_read, peer, pkt);
 	frr_with_mutex (&peer->io_mtx) {
 		stream_fifo_push(peer->ibuf, pkt);
+=======
+	frrtrace(2, frr_bgp, packet_read, connection->peer, pkt);
+	frr_with_mutex (&connection->io_mtx) {
+		stream_fifo_push(connection->ibuf, pkt);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	}
 
 	return pktsize;
@@ -208,29 +328,53 @@ static int read_ibuf_work(struct peer *peer)
  * or has hung up.
  *
  * We read as much data as possible, process as many packets as we can and
+<<<<<<< HEAD
  * place them on peer->ibuf for secondary processing by the main thread.
+=======
+ * place them on peer->connection.ibuf for secondary processing by the main
+ * thread.
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
  */
 static void bgp_process_reads(struct event *thread)
 {
 	/* clang-format off */
+<<<<<<< HEAD
 	static struct peer *peer;       /* peer to read from */
 	uint16_t status;                /* bgp_read status code */
 	bool fatal = false;             /* whether fatal error occurred */
 	bool added_pkt = false;         /* whether we pushed onto ->ibuf */
+=======
+	struct peer_connection *connection = EVENT_ARG(thread);
+	static struct peer *peer;       /* peer to read from */
+	uint16_t status;                /* bgp_read status code */
+	bool fatal = false;             /* whether fatal error occurred */
+	bool added_pkt = false;         /* whether we pushed onto ->connection.ibuf */
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	int code = 0;                   /* FSM code if error occurred */
 	static bool ibuf_full_logged;   /* Have we logged full already */
 	int ret = 1;
 	/* clang-format on */
 
+<<<<<<< HEAD
 	peer = EVENT_ARG(thread);
 
 	if (bm->terminating || peer->fd < 0)
+=======
+	peer = connection->peer;
+
+	if (bm->terminating || connection->fd < 0)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		return;
 
 	struct frr_pthread *fpt = bgp_pth_io;
 
+<<<<<<< HEAD
 	frr_with_mutex (&peer->io_mtx) {
 		status = bgp_read(peer, &code);
+=======
+	frr_with_mutex (&connection->io_mtx) {
+		status = bgp_read(connection, &code);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	}
 
 	/* error checking phase */
@@ -246,13 +390,22 @@ static void bgp_process_reads(struct event *thread)
 		/* Handle the error in the main pthread, include the
 		 * specific state change from 'bgp_read'.
 		 */
+<<<<<<< HEAD
 		event_add_event(bm->master, bgp_packet_process_error, peer,
 				code, &peer->t_process_packet_error);
+=======
+		event_add_event(bm->master, bgp_packet_process_error, connection,
+				code, &connection->t_process_packet_error);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		goto done;
 	}
 
 	while (true) {
+<<<<<<< HEAD
 		ret = read_ibuf_work(peer);
+=======
+		ret = read_ibuf_work(connection);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		if (ret <= 0)
 			break;
 
@@ -282,6 +435,7 @@ done:
 	/* handle invalid header */
 	if (fatal) {
 		/* wipe buffer just in case someone screwed up */
+<<<<<<< HEAD
 		ringbuf_wipe(peer->ibuf_work);
 		return;
 	}
@@ -291,22 +445,46 @@ done:
 	if (added_pkt)
 		event_add_event(bm->master, bgp_process_packet, peer, 0,
 				&peer->t_process_packet);
+=======
+		ringbuf_wipe(connection->ibuf_work);
+		return;
+	}
+
+	event_add_read(fpt->master, bgp_process_reads, connection,
+		       connection->fd, &connection->t_read);
+	if (added_pkt)
+		event_add_event(bm->master, bgp_process_packet, connection, 0,
+				&connection->t_process_packet);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 }
 
 /*
  * Flush peer output buffer.
  *
+<<<<<<< HEAD
  * This function pops packets off of peer->obuf and writes them to peer->fd.
  * The amount of packets written is equal to the minimum of peer->wpkt_quanta
  * and the number of packets on the output buffer, unless an error occurs.
+=======
+ * This function pops packets off of peer->connection.obuf and writes them to
+ * peer->connection.fd. The amount of packets written is equal to the minimum of
+ * peer->wpkt_quanta and the number of packets on the output buffer, unless an
+ * error occurs.
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
  *
  * If write() returns an error, the appropriate FSM event is generated.
  *
  * The return value is equal to the number of packets written
  * (which may be zero).
  */
+<<<<<<< HEAD
 static uint16_t bgp_write(struct peer *peer)
 {
+=======
+static uint16_t bgp_write(struct peer_connection *connection)
+{
+	struct peer *peer = connection->peer;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	uint8_t type;
 	struct stream *s;
 	int update_last_write = 0;
@@ -328,7 +506,11 @@ static uint16_t bgp_write(struct peer *peer)
 	struct stream **streams = ostreams;
 	struct iovec iov[wpkt_quanta_old];
 
+<<<<<<< HEAD
 	s = stream_fifo_head(peer->obuf);
+=======
+	s = stream_fifo_head(connection->obuf);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	if (!s)
 		goto done;
@@ -348,11 +530,19 @@ static uint16_t bgp_write(struct peer *peer)
 	total_written = 0;
 
 	do {
+<<<<<<< HEAD
 		num = writev(peer->fd, iov, iovsz);
 
 		if (num < 0) {
 			if (!ERRNO_IO_RETRY(errno)) {
 				BGP_EVENT_ADD(peer, TCP_fatal_error);
+=======
+		num = writev(connection->fd, iov, iovsz);
+
+		if (num < 0) {
+			if (!ERRNO_IO_RETRY(errno)) {
+				BGP_EVENT_ADD(connection, TCP_fatal_error);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 				SET_FLAG(status, BGP_IO_FATAL_ERR);
 			} else {
 				SET_FLAG(status, BGP_IO_TRANS_ERR);
@@ -397,7 +587,11 @@ static uint16_t bgp_write(struct peer *peer)
 
 	/* Handle statistics */
 	for (unsigned int i = 0; i < total_written; i++) {
+<<<<<<< HEAD
 		s = stream_fifo_pop(peer->obuf);
+=======
+		s = stream_fifo_pop(connection->obuf);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 		assert(s == ostreams[i]);
 
@@ -429,7 +623,11 @@ static uint16_t bgp_write(struct peer *peer)
 			 * Handle Graceful Restart case where the state changes
 			 * to Connect instead of Idle.
 			 */
+<<<<<<< HEAD
 			BGP_EVENT_ADD(peer, BGP_Stop);
+=======
+			BGP_EVENT_ADD(connection, BGP_Stop);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			goto done;
 
 		case BGP_MSG_KEEPALIVE:
@@ -476,7 +674,12 @@ done : {
 
 uint8_t ibuf_scratch[BGP_EXTENDED_MESSAGE_MAX_PACKET_SIZE * BGP_READ_PACKET_MAX];
 /*
+<<<<<<< HEAD
  * Reads a chunk of data from peer->fd into peer->ibuf_work.
+=======
+ * Reads a chunk of data from peer->connection.fd into
+ * peer->connection.ibuf_work.
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
  *
  * code_p
  *    Pointer to location to store FSM event code in case of fatal error.
@@ -487,14 +690,22 @@ uint8_t ibuf_scratch[BGP_EXTENDED_MESSAGE_MAX_PACKET_SIZE * BGP_READ_PACKET_MAX]
  * per peer then we need to rethink the global ibuf_scratch
  * data structure above.
  */
+<<<<<<< HEAD
 static uint16_t bgp_read(struct peer *peer, int *code_p)
+=======
+static uint16_t bgp_read(struct peer_connection *connection, int *code_p)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 {
 	size_t readsize; /* how many bytes we want to read */
 	ssize_t nbytes;  /* how many bytes we actually read */
 	size_t ibuf_work_space; /* space we can read into the work buf */
 	uint16_t status = 0;
 
+<<<<<<< HEAD
 	ibuf_work_space = ringbuf_space(peer->ibuf_work);
+=======
+	ibuf_work_space = ringbuf_space(connection->ibuf_work);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	if (ibuf_work_space == 0) {
 		SET_FLAG(status, BGP_IO_WORK_FULL_ERR);
@@ -503,7 +714,17 @@ static uint16_t bgp_read(struct peer *peer, int *code_p)
 
 	readsize = MIN(ibuf_work_space, sizeof(ibuf_scratch));
 
+<<<<<<< HEAD
 	nbytes = read(peer->fd, ibuf_scratch, readsize);
+=======
+#ifdef __clang_analyzer__
+	/* clang-SA doesn't want you to call read() while holding a mutex */
+	(void)readsize;
+	nbytes = 0;
+#else
+	nbytes = read(connection->fd, ibuf_scratch, readsize);
+#endif
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	/* EAGAIN or EWOULDBLOCK; come back later */
 	if (nbytes < 0 && ERRNO_IO_RETRY(errno)) {
@@ -511,8 +732,13 @@ static uint16_t bgp_read(struct peer *peer, int *code_p)
 	} else if (nbytes < 0) {
 		/* Fatal error; tear down session */
 		flog_err(EC_BGP_UPDATE_RCV,
+<<<<<<< HEAD
 			 "%s [Error] bgp_read_packet error: %s", peer->host,
 			 safe_strerror(errno));
+=======
+			 "%s [Error] bgp_read_packet error: %s",
+			 connection->peer->host, safe_strerror(errno));
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 		/* Handle the error in the main pthread. */
 		if (code_p)
@@ -522,9 +748,15 @@ static uint16_t bgp_read(struct peer *peer, int *code_p)
 
 	} else if (nbytes == 0) {
 		/* Received EOF / TCP session closed */
+<<<<<<< HEAD
 		if (bgp_debug_neighbor_events(peer))
 			zlog_debug("%s [Event] BGP connection closed fd %d",
 				   peer->host, peer->fd);
+=======
+		if (bgp_debug_neighbor_events(connection->peer))
+			zlog_debug("%s [Event] BGP connection closed fd %d",
+				   connection->peer->host, connection->fd);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 		/* Handle the error in the main pthread. */
 		if (code_p)
@@ -532,8 +764,13 @@ static uint16_t bgp_read(struct peer *peer, int *code_p)
 
 		SET_FLAG(status, BGP_IO_FATAL_ERR);
 	} else {
+<<<<<<< HEAD
 		assert(ringbuf_put(peer->ibuf_work, ibuf_scratch, nbytes) ==
 		       (size_t)nbytes);
+=======
+		assert(ringbuf_put(connection->ibuf_work, ibuf_scratch,
+				   nbytes) == (size_t)nbytes);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	}
 
 	return status;
@@ -546,11 +783,20 @@ static uint16_t bgp_read(struct peer *peer, int *code_p)
  * Assumes that there are at least BGP_HEADER_SIZE readable bytes in the input
  * buffer.
  */
+<<<<<<< HEAD
 static bool validate_header(struct peer *peer)
 {
 	uint16_t size;
 	uint8_t type;
 	struct ringbuf *pkt = peer->ibuf_work;
+=======
+static bool validate_header(struct peer_connection *connection)
+{
+	struct peer *peer = connection->peer;
+	uint16_t size;
+	uint8_t type;
+	struct ringbuf *pkt = connection->ibuf_work;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	static const uint8_t m_correct[BGP_MARKER_SIZE] = {
 		0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,

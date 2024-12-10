@@ -43,6 +43,10 @@ struct zebra_neigh_info {
 extern void zebra_neigh_add(struct interface *ifp, struct ipaddr *ip,
 			    struct ethaddr *mac);
 extern void zebra_neigh_del(struct interface *ifp, struct ipaddr *ip);
+<<<<<<< HEAD
+=======
+extern void zebra_neigh_del_all(struct interface *ifp);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 extern void zebra_neigh_show(struct vty *vty);
 extern void zebra_neigh_init(void);
 extern void zebra_neigh_terminate(void);

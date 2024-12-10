@@ -6,6 +6,10 @@
  */
 
 #include <zebra.h>
+<<<<<<< HEAD
+=======
+#include <netinet/icmp6.h>
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 #include "memory.h"
 #include "sockopt.h"
@@ -33,6 +37,10 @@
 extern struct zebra_privs_t zserv_privs;
 
 static uint32_t interfaces_configured_for_ra_from_bgp;
+<<<<<<< HEAD
+=======
+#define RTADV_ADATA_SIZE 1024
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 #if defined(HAVE_RTADV)
 
@@ -58,7 +66,11 @@ DEFINE_MTYPE_STATIC(ZEBRA, ADV_IF, "Advertised Interface");
 
 /* adv list node */
 struct adv_if {
+<<<<<<< HEAD
 	char name[INTERFACE_NAMSIZ];
+=======
+	char name[IFNAMSIZ];
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	struct adv_if_list_item list_item;
 };
 
@@ -182,6 +194,7 @@ static int rtadv_recv_packet(struct zebra_vrf *zvrf, int sock, uint8_t *buf,
 static void rtadv_send_packet(int sock, struct interface *ifp,
 			      enum ipv6_nd_suppress_ra_status stop)
 {
+<<<<<<< HEAD
 	struct msghdr msg;
 	struct iovec iov;
 	struct cmsghdr *cmsgptr;
@@ -189,6 +202,16 @@ static void rtadv_send_packet(int sock, struct interface *ifp,
 	struct sockaddr_in6 addr;
 	static void *adata = NULL;
 	unsigned char buf[RTADV_MSG_SIZE];
+=======
+	struct msghdr msg = { 0 };
+	struct iovec iov = { 0 };
+	struct cmsghdr *cmsgptr;
+	struct in6_pktinfo *pkt;
+	struct sockaddr_in6 addr = { 0 };
+	unsigned char buf[RTADV_MSG_SIZE] = { 0 };
+	char adata[RTADV_ADATA_SIZE] = { 0 };
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	struct nd_router_advert *rtadv;
 	int ret;
 	int len = 0;
@@ -199,6 +222,7 @@ static void rtadv_send_packet(int sock, struct interface *ifp,
 	struct listnode *node;
 	uint16_t pkt_RouterLifetime;
 
+<<<<<<< HEAD
 	/*
 	 * Allocate control message bufffer.  This is dynamic because
 	 * CMSG_SPACE is not guaranteed not to call a function.  Note that
@@ -215,6 +239,8 @@ static void rtadv_send_packet(int sock, struct interface *ifp,
 		}
 	}
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	/* Logging of packet. */
 	if (IS_ZEBRA_DEBUG_PACKET)
 		zlog_debug("%s(%s:%u): Tx RA, socket %u", ifp->name,
@@ -1147,7 +1173,12 @@ static void rtadv_prefix_set_defaults(struct rtadv_prefix *rp)
 	rp->AdvValidLifetime = RTADV_VALID_LIFETIME;
 }
 
+<<<<<<< HEAD
 static void rtadv_prefix_set(struct zebra_if *zif, struct rtadv_prefix *rp)
+=======
+static struct rtadv_prefix *rtadv_prefix_set(struct zebra_if *zif,
+					     struct rtadv_prefix *rp)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 {
 	struct rtadv_prefix *rprefix;
 
@@ -1180,6 +1211,7 @@ static void rtadv_prefix_set(struct zebra_if *zif, struct rtadv_prefix *rp)
 			rtadv_prefix_set_defaults(rprefix);
 		}
 	}
+<<<<<<< HEAD
 }
 
 static int rtadv_prefix_reset(struct zebra_if *zif, struct rtadv_prefix *rp)
@@ -1187,6 +1219,18 @@ static int rtadv_prefix_reset(struct zebra_if *zif, struct rtadv_prefix *rp)
 	struct rtadv_prefix *rprefix;
 
 	rprefix = rtadv_prefixes_find(zif->rtadv.prefixes, rp);
+=======
+
+	return rprefix;
+}
+
+static void rtadv_prefix_reset(struct zebra_if *zif, struct rtadv_prefix *rp,
+			       struct rtadv_prefix *rprefix)
+{
+	if (!rprefix)
+		rprefix = rtadv_prefixes_find(zif->rtadv.prefixes, rp);
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	if (rprefix != NULL) {
 
 		/*
@@ -1200,20 +1244,49 @@ static int rtadv_prefix_reset(struct zebra_if *zif, struct rtadv_prefix *rp)
 			if (rprefix->AdvPrefixCreate == PREFIX_SRC_BOTH) {
 				rprefix->AdvPrefixCreate = PREFIX_SRC_AUTO;
 				rtadv_prefix_set_defaults(rprefix);
+<<<<<<< HEAD
 				return 1;
+=======
+				return;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			}
 		} else if (rp->AdvPrefixCreate == PREFIX_SRC_AUTO) {
 			if (rprefix->AdvPrefixCreate == PREFIX_SRC_BOTH) {
 				rprefix->AdvPrefixCreate = PREFIX_SRC_MANUAL;
+<<<<<<< HEAD
 				return 1;
+=======
+				return;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			}
 		}
 
 		rtadv_prefixes_del(zif->rtadv.prefixes, rprefix);
 		rtadv_prefix_free(rprefix);
+<<<<<<< HEAD
 		return 1;
 	} else
 		return 0;
+=======
+	}
+}
+
+struct rtadv_prefix *rtadv_add_prefix_manual(struct zebra_if *zif,
+					     struct rtadv_prefix *rp)
+{
+	rp->AdvPrefixCreate = PREFIX_SRC_MANUAL;
+	return rtadv_prefix_set(zif, rp);
+}
+
+void rtadv_delete_prefix_manual(struct zebra_if *zif,
+				struct rtadv_prefix *rprefix)
+{
+	struct rtadv_prefix rp;
+
+	rp.AdvPrefixCreate = PREFIX_SRC_MANUAL;
+
+	rtadv_prefix_reset(zif, &rp, rprefix);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 }
 
 /* Add IPv6 prefixes learned from the kernel to the RA prefix list */
@@ -1235,7 +1308,11 @@ void rtadv_delete_prefix(struct zebra_if *zif, const struct prefix *p)
 	rp.prefix = *((struct prefix_ipv6 *)p);
 	apply_mask_ipv6(&rp.prefix);
 	rp.AdvPrefixCreate = PREFIX_SRC_AUTO;
+<<<<<<< HEAD
 	rtadv_prefix_reset(zif, &rp);
+=======
+	rtadv_prefix_reset(zif, &rp, NULL);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 }
 
 static void rtadv_start_interface_events(struct zebra_vrf *zvrf,
@@ -1261,8 +1338,13 @@ static void rtadv_start_interface_events(struct zebra_vrf *zvrf,
 		rtadv_event(zvrf, RTADV_START, 0);
 }
 
+<<<<<<< HEAD
 static void ipv6_nd_suppress_ra_set(struct interface *ifp,
 				    enum ipv6_nd_suppress_ra_status status)
+=======
+void ipv6_nd_suppress_ra_set(struct interface *ifp,
+			     enum ipv6_nd_suppress_ra_status status)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 {
 	struct zebra_if *zif;
 	struct zebra_vrf *zvrf;
@@ -1310,6 +1392,39 @@ static void ipv6_nd_suppress_ra_set(struct interface *ifp,
 	}
 }
 
+<<<<<<< HEAD
+=======
+void ipv6_nd_interval_set(struct interface *ifp, uint32_t interval)
+{
+	struct zebra_if *zif = ifp->info;
+	struct zebra_vrf *zvrf = rtadv_interface_get_zvrf(ifp);
+	struct adv_if *adv_if;
+
+	if (zif->rtadv.MaxRtrAdvInterval % 1000) {
+		adv_if = adv_msec_if_del(zvrf, ifp->name);
+		if (adv_if != NULL)
+			adv_if_free(adv_if);
+	}
+
+	if (interval % 1000)
+		(void)adv_msec_if_add(zvrf, ifp->name);
+
+	zif->rtadv.MaxRtrAdvInterval = interval;
+	zif->rtadv.MinRtrAdvInterval = 0.33 * interval;
+
+	if (interval != RTADV_MAX_RTR_ADV_INTERVAL) {
+		SET_FLAG(zif->rtadv.ra_configured, VTY_RA_INTERVAL_CONFIGURED);
+		zif->rtadv.AdvIntervalTimer = 0;
+	} else {
+		if (CHECK_FLAG(zif->rtadv.ra_configured, BGP_RA_CONFIGURED))
+			zif->rtadv.MaxRtrAdvInterval = 10000;
+
+		UNSET_FLAG(zif->rtadv.ra_configured, VTY_RA_INTERVAL_CONFIGURED);
+		zif->rtadv.AdvIntervalTimer = zif->rtadv.MaxRtrAdvInterval;
+	}
+}
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 /*
  * Handle client (BGP) message to enable or disable IPv6 RA on an interface.
  * Note that while the client could request RA on an interface on which the
@@ -1427,7 +1542,11 @@ void rtadv_stop_ra_all(void)
 
 			frr_each_safe (rtadv_prefixes, zif->rtadv.prefixes,
 				       rprefix)
+<<<<<<< HEAD
 				rtadv_prefix_reset(zif, rprefix);
+=======
+				rtadv_prefix_reset(zif, rprefix, rprefix);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 			rtadv_stop_ra(ifp);
 		}
@@ -1512,6 +1631,7 @@ DEFPY(show_ipv6_nd_ra_if, show_ipv6_nd_ra_if_cmd,
 	return CMD_SUCCESS;
 }
 
+<<<<<<< HEAD
 DEFUN (ipv6_nd_ra_fast_retrans,
 	ipv6_nd_ra_fast_retrans_cmd,
 	"ipv6 nd ra-fast-retrans",
@@ -2283,6 +2403,8 @@ DEFUN (no_ipv6_nd_mtu,
 	return CMD_SUCCESS;
 }
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 static struct rtadv_rdnss *rtadv_rdnss_new(void)
 {
 	return XCALLOC(MTYPE_RTADV_RDNSS, sizeof(struct rtadv_rdnss));
@@ -2293,6 +2415,7 @@ static void rtadv_rdnss_free(struct rtadv_rdnss *rdnss)
 	XFREE(MTYPE_RTADV_RDNSS, rdnss);
 }
 
+<<<<<<< HEAD
 static struct rtadv_rdnss *rtadv_rdnss_lookup(struct list *list,
 					      struct rtadv_rdnss *rdnss)
 {
@@ -2317,10 +2440,21 @@ static struct rtadv_rdnss *rtadv_rdnss_get(struct list *list,
 	p = rtadv_rdnss_new();
 	memcpy(p, rdnss, sizeof(struct rtadv_rdnss));
 	listnode_add(list, p);
+=======
+struct rtadv_rdnss *rtadv_rdnss_set(struct zebra_if *zif,
+				    struct rtadv_rdnss *rdnss)
+{
+	struct rtadv_rdnss *p;
+
+	p = rtadv_rdnss_new();
+	memcpy(p, rdnss, sizeof(struct rtadv_rdnss));
+	listnode_add(zif->rtadv.AdvRDNSSList, p);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	return p;
 }
 
+<<<<<<< HEAD
 static void rtadv_rdnss_set(struct zebra_if *zif, struct rtadv_rdnss *rdnss)
 {
 	struct rtadv_rdnss *p;
@@ -2342,6 +2476,12 @@ static int rtadv_rdnss_reset(struct zebra_if *zif, struct rtadv_rdnss *rdnss)
 	}
 
 	return 0;
+=======
+void rtadv_rdnss_reset(struct zebra_if *zif, struct rtadv_rdnss *p)
+{
+	listnode_delete(zif->rtadv.AdvRDNSSList, p);
+	rtadv_rdnss_free(p);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 }
 
 static struct rtadv_dnssl *rtadv_dnssl_new(void)
@@ -2354,6 +2494,7 @@ static void rtadv_dnssl_free(struct rtadv_dnssl *dnssl)
 	XFREE(MTYPE_RTADV_DNSSL, dnssl);
 }
 
+<<<<<<< HEAD
 static struct rtadv_dnssl *rtadv_dnssl_lookup(struct list *list,
 					      struct rtadv_dnssl *dnssl)
 {
@@ -2378,10 +2519,21 @@ static struct rtadv_dnssl *rtadv_dnssl_get(struct list *list,
 	p = rtadv_dnssl_new();
 	memcpy(p, dnssl, sizeof(struct rtadv_dnssl));
 	listnode_add(list, p);
+=======
+struct rtadv_dnssl *rtadv_dnssl_set(struct zebra_if *zif,
+				    struct rtadv_dnssl *dnssl)
+{
+	struct rtadv_dnssl *p;
+
+	p = rtadv_dnssl_new();
+	memcpy(p, dnssl, sizeof(struct rtadv_dnssl));
+	listnode_add(zif->rtadv.AdvDNSSLList, p);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	return p;
 }
 
+<<<<<<< HEAD
 static void rtadv_dnssl_set(struct zebra_if *zif, struct rtadv_dnssl *dnssl)
 {
 	struct rtadv_dnssl *p;
@@ -2402,6 +2554,12 @@ static int rtadv_dnssl_reset(struct zebra_if *zif, struct rtadv_dnssl *dnssl)
 	}
 
 	return 0;
+=======
+void rtadv_dnssl_reset(struct zebra_if *zif, struct rtadv_dnssl *p)
+{
+	listnode_delete(zif->rtadv.AdvDNSSLList, p);
+	rtadv_dnssl_free(p);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 }
 
 /*
@@ -2412,7 +2570,11 @@ static int rtadv_dnssl_reset(struct zebra_if *zif, struct rtadv_dnssl *dnssl)
  * Returns the number of octets written to out or -1 if in does not constitute
  * a valid domain name.
  */
+<<<<<<< HEAD
 static int rtadv_dnssl_encode(uint8_t *out, const char *in)
+=======
+int rtadv_dnssl_encode(uint8_t *out, const char *in)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 {
 	const char *label_start, *label_end;
 	size_t outp;
@@ -2443,6 +2605,7 @@ static int rtadv_dnssl_encode(uint8_t *out, const char *in)
 	return outp;
 }
 
+<<<<<<< HEAD
 DEFUN(ipv6_nd_rdnss,
       ipv6_nd_rdnss_cmd,
       "ipv6 nd rdnss X:X::X:X [<(0-4294967295)|infinite>]",
@@ -2585,6 +2748,8 @@ DEFUN(no_ipv6_nd_dnssl,
 }
 
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 /* Dump interface ND information to vty. */
 static int nd_dump_vty(struct vty *vty, struct interface *ifp)
 {
@@ -2655,6 +2820,7 @@ static int nd_dump_vty(struct vty *vty, struct interface *ifp)
 	return 0;
 }
 
+<<<<<<< HEAD
 
 /* Write configuration about router advertisement. */
 static int rtadv_config_write(struct vty *vty, struct interface *ifp)
@@ -2785,6 +2951,8 @@ static int rtadv_config_write(struct vty *vty, struct interface *ifp)
 }
 
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 static void rtadv_event(struct zebra_vrf *zvrf, enum rtadv_event event, int val)
 {
 	struct rtadv *rtadv;
@@ -2930,6 +3098,7 @@ void rtadv_cmd_init(void)
 	interfaces_configured_for_ra_from_bgp = 0;
 
 	hook_register(zebra_if_extra_info, nd_dump_vty);
+<<<<<<< HEAD
 	hook_register(zebra_if_config_wr, rtadv_config_write);
 
 	install_element(VIEW_NODE, &show_ipv6_nd_ra_if_cmd);
@@ -2973,6 +3142,10 @@ void rtadv_cmd_init(void)
 	install_element(INTERFACE_NODE, &no_ipv6_nd_rdnss_cmd);
 	install_element(INTERFACE_NODE, &ipv6_nd_dnssl_cmd);
 	install_element(INTERFACE_NODE, &no_ipv6_nd_dnssl_cmd);
+=======
+
+	install_element(VIEW_NODE, &show_ipv6_nd_ra_if_cmd);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 }
 
 static int if_join_all_router(int sock, struct interface *ifp)
@@ -3069,3 +3242,16 @@ uint32_t rtadv_get_interfaces_configured_from_bgp(void)
 {
 	return interfaces_configured_for_ra_from_bgp;
 }
+<<<<<<< HEAD
+=======
+
+void rtadv_init(void)
+{
+	if (CMSG_SPACE(sizeof(struct in6_pktinfo)) > RTADV_ADATA_SIZE) {
+		zlog_debug("%s: RTADV_ADATA_SIZE chosen will not work on this platform, please use a larger size",
+			   __func__);
+
+		exit(-1);
+	}
+}
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)

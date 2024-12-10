@@ -92,6 +92,11 @@ static void nhrp_request_stop(void)
 	nhrp_vc_terminate();
 
 	debugf(NHRP_DEBUG_COMMON, "Done.");
+<<<<<<< HEAD
+=======
+
+	resolver_terminate();
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	frr_fini();
 
 	exit(0);
@@ -118,6 +123,7 @@ static const struct frr_yang_module_info *const nhrpd_yang_modules[] = {
 	&frr_vrf_info,
 };
 
+<<<<<<< HEAD
 FRR_DAEMON_INFO(nhrpd, NHRP, .vty_port = NHRP_VTY_PORT,
 
 		.proghelp = "Implementation of the NHRP routing protocol.",
@@ -127,6 +133,22 @@ FRR_DAEMON_INFO(nhrpd, NHRP, .vty_port = NHRP_VTY_PORT,
 		.privs = &nhrpd_privs, .yang_modules = nhrpd_yang_modules,
 		.n_yang_modules = array_size(nhrpd_yang_modules),
 );
+=======
+/* clang-format off */
+FRR_DAEMON_INFO(nhrpd, NHRP,
+	.vty_port = NHRP_VTY_PORT,
+	.proghelp = "Implementation of the NHRP routing protocol.",
+
+	.signals = sighandlers,
+	.n_signals = array_size(sighandlers),
+
+	.privs = &nhrpd_privs,
+
+	.yang_modules = nhrpd_yang_modules,
+	.n_yang_modules = array_size(nhrpd_yang_modules),
+);
+/* clang-format on */
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 int main(int argc, char **argv)
 {
@@ -155,8 +177,15 @@ int main(int argc, char **argv)
 	nhrp_vc_init();
 	nhrp_packet_init();
 	vici_init();
+<<<<<<< HEAD
 	if_zapi_callbacks(nhrp_ifp_create, nhrp_ifp_up,
 			  nhrp_ifp_down, nhrp_ifp_destroy);
+=======
+	hook_register_prio(if_real, 0, nhrp_ifp_create);
+	hook_register_prio(if_up, 0, nhrp_ifp_up);
+	hook_register_prio(if_down, 0, nhrp_ifp_down);
+	hook_register_prio(if_unreal, 0, nhrp_ifp_destroy);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	nhrp_zebra_init();
 	nhrp_shortcut_init();
 

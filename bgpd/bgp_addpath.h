@@ -15,6 +15,21 @@
 #include "bgpd/bgp_table.h"
 #include "lib/json.h"
 
+<<<<<<< HEAD
+=======
+struct bgp_addpath_capability {
+	uint16_t afi;
+	uint8_t safi;
+	uint8_t flags;
+};
+
+struct bgp_paths_limit_capability {
+	uint16_t afi;
+	uint8_t safi;
+	uint16_t paths_limit;
+} __attribute__((packed));
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 #define BGP_ADDPATH_TX_ID_FOR_DEFAULT_ORIGINATE 1
 
 void bgp_addpath_init_bgp_data(struct bgp_addpath_bgp_data *d);
@@ -50,10 +65,18 @@ bool bgp_addpath_tx_path(enum bgp_addpath_strat strat,
  * Change the type of addpath used for a peer.
  */
 void bgp_addpath_set_peer_type(struct peer *peer, afi_t afi, safi_t safi,
+<<<<<<< HEAD
 			      enum bgp_addpath_strat addpath_type);
+=======
+			       enum bgp_addpath_strat addpath_type, uint16_t paths);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 void bgp_addpath_update_ids(struct bgp *bgp, struct bgp_dest *dest, afi_t afi,
 			    safi_t safi);
 
 void bgp_addpath_type_changed(struct bgp *bgp);
+<<<<<<< HEAD
+=======
+extern int bgp_addpath_capability_action(enum bgp_addpath_strat addpath_type, uint16_t paths);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 #endif

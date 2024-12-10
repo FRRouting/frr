@@ -9,6 +9,10 @@
 
 #include "lib/bfd.h"
 #include "lib/mpls.h"
+<<<<<<< HEAD
+=======
+#include "lib/srv6.h"
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 #include "table.h"
 #include "memory.h"
 
@@ -27,6 +31,15 @@ struct static_nh_label {
 	mpls_label_t label[MPLS_MAX_LABELS];
 };
 
+<<<<<<< HEAD
+=======
+/* Static route seg information */
+struct static_nh_seg {
+	int num_segs;
+	struct in6_addr seg[SRV6_MAX_SIDS];
+};
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 enum static_blackhole_type {
 	STATIC_BLACKHOLE_DROP = 0,
 	STATIC_BLACKHOLE_NULL,
@@ -124,11 +137,21 @@ struct static_nexthop {
 	bool nh_registered;
 	bool nh_valid;
 
+<<<<<<< HEAD
 	char ifname[INTERFACE_NAMSIZ + 1];
+=======
+	char ifname[IFNAMSIZ + 1];
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	/* Label information */
 	struct static_nh_label snh_label;
 
+<<<<<<< HEAD
+=======
+	/* SRv6 Seg information */
+	struct static_nh_seg snh_seg;
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	/*
 	 * Whether to pretend the nexthop is directly attached to the specified
 	 * link. Only meaningful when both a gateway address and interface name
@@ -189,13 +212,19 @@ extern uint32_t zebra_ecmp_count;
 
 extern struct zebra_privs_t static_privs;
 
+<<<<<<< HEAD
 void static_fixup_vrf_ids(struct static_vrf *svrf);
+=======
+extern void static_fixup_vrf_ids(struct vrf *vrf);
+extern void static_cleanup_vrf_ids(struct vrf *vrf);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 extern struct static_nexthop *
 static_add_nexthop(struct static_path *pn, enum static_nh_type type,
 		   struct ipaddr *ipaddr, const char *ifname,
 		   const char *nh_vrf, uint32_t color);
 extern void static_install_nexthop(struct static_nexthop *nh);
+<<<<<<< HEAD
 
 extern void static_delete_nexthop(struct static_nexthop *nh);
 
@@ -203,6 +232,12 @@ extern void static_cleanup_vrf_ids(struct static_vrf *disable_svrf);
 
 extern void static_install_intf_nh(struct interface *ifp);
 
+=======
+extern void static_uninstall_nexthop(struct static_nexthop *nh);
+
+extern void static_delete_nexthop(struct static_nexthop *nh);
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 extern void static_ifindex_update(struct interface *ifp, bool up);
 
 extern void static_install_path(struct static_path *pn);
@@ -229,7 +264,11 @@ extern void zebra_stable_node_cleanup(struct route_table *table,
  * Max string return via API static_get_nh_str in size_t
  */
 
+<<<<<<< HEAD
 #define NEXTHOP_STR (INET6_ADDRSTRLEN + INTERFACE_NAMSIZ + 25)
+=======
+#define NEXTHOP_STR (INET6_ADDRSTRLEN + IFNAMSIZ + 25)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 /*
  * For the given nexthop, returns the string
  * nexthop : returns the formatted string in nexthop

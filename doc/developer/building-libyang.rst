@@ -10,11 +10,19 @@ The FRR project builds some binary ``libyang`` packages.
 RPM packages are at our `RPM repository <https://rpm.frrouting.org>`_.
 
 DEB packages are available as CI artifacts `here
+<<<<<<< HEAD
 <https://ci1.netdef.org/browse/LIBYANG-LIBYANGV2/latestSuccessful/artifact>`_.
 
 .. warning::
 
    ``libyang`` version 2.0.0 or newer is required to build FRR.
+=======
+<https://ci1.netdef.org/browse/LIBYANG-LIBYANG21/latestSuccessful/artifact>`_.
+
+.. warning::
+
+   ``libyang`` version 2.1.128 or newer is required to build FRR.
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 .. note::
 
@@ -39,9 +47,15 @@ DEB packages are available as CI artifacts `here
 
    git clone https://github.com/CESNET/libyang.git
    cd libyang
+<<<<<<< HEAD
    git checkout v2.0.0
    mkdir build; cd build
    cmake -D CMAKE_INSTALL_PREFIX:PATH=/usr \
+=======
+   git checkout v2.1.128
+   mkdir build; cd build
+   cmake --install-prefix /usr \
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
          -D CMAKE_BUILD_TYPE:String="Release" ..
    make
    sudo make install

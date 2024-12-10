@@ -167,6 +167,7 @@ extern void *vrf_info_lookup(vrf_id_t);
 /*
  * VRF bit-map: maintaining flags, one bit per VRF ID
  */
+<<<<<<< HEAD
 
 typedef void *vrf_bitmap_t;
 #define VRF_BITMAP_NULL     NULL
@@ -176,6 +177,16 @@ extern void vrf_bitmap_free(vrf_bitmap_t);
 extern void vrf_bitmap_set(vrf_bitmap_t, vrf_id_t);
 extern void vrf_bitmap_unset(vrf_bitmap_t, vrf_id_t);
 extern int vrf_bitmap_check(vrf_bitmap_t, vrf_id_t);
+=======
+typedef void *vrf_bitmap_t;
+#define VRF_BITMAP_NULL     NULL
+
+extern void vrf_bitmap_init(vrf_bitmap_t *pbmap);
+extern void vrf_bitmap_free(vrf_bitmap_t *pbmap);
+extern void vrf_bitmap_set(vrf_bitmap_t *pbmap, vrf_id_t vrf_id);
+extern void vrf_bitmap_unset(vrf_bitmap_t *pbmap, vrf_id_t vrf_id);
+extern int vrf_bitmap_check(vrf_bitmap_t *pbmap, vrf_id_t vrf_id);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 /*
  * VRF initializer/destructor
@@ -203,6 +214,15 @@ extern void vrf_init(int (*create)(struct vrf *vrf),
 		     int (*destroy)(struct vrf *vrf));
 
 /*
+<<<<<<< HEAD
+=======
+ * Iterate over custom VRFs and round up by processing the default VRF.
+ */
+typedef void (*vrf_iter_func)(struct vrf *vrf);
+extern void vrf_iterate(vrf_iter_func fnc);
+
+/*
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
  * Call vrf_terminate when the protocol is being shutdown
  */
 extern void vrf_terminate(void);
@@ -295,6 +315,10 @@ extern int vrf_enable(struct vrf *vrf);
 extern void vrf_delete(struct vrf *vrf);
 
 extern const struct frr_yang_module_info frr_vrf_info;
+<<<<<<< HEAD
+=======
+extern const struct frr_yang_module_info frr_vrf_cli_info;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 #ifdef __cplusplus
 }

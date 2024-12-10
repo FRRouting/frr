@@ -7,6 +7,10 @@
  */
 
 #include <zebra.h>
+<<<<<<< HEAD
+=======
+#include <fcntl.h>
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 #include "qobj.h"
 #include "vty.h"
@@ -64,11 +68,20 @@ int main(int argc, char *argv[])
 		}
 
 	SET_FLAG(peer->cap, PEER_CAP_DYNAMIC_ADV);
+<<<<<<< HEAD
 	peer->status = Established;
 
         peer->fd = open(argv[1], O_RDONLY|O_NONBLOCK);
 	t.arg = peer;
 	peer->t_read = &t;
+=======
+	peer->connection = bgp_peer_connection_new(peer);
+	peer->connection->status = Established;
+
+	peer->connection->fd = open(argv[1], O_RDONLY | O_NONBLOCK);
+	t.arg = peer;
+	peer->connection->t_read = &t;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	// printf("bgp_read_packet returns: %d\n", bgp_read(&t));
 }

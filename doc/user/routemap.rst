@@ -101,9 +101,16 @@ cont
 
 .. clicmd:: clear route-map counter [WORD]
 
+<<<<<<< HEAD
    Clear counters that are being stored about the route-map utilization
    so that subsuquent show commands will indicate since the last clear.
    If WORD is specified clear just that particular route-map's counters.
+=======
+   Clear counters as well as cpu time spent that are being stored about
+   the route-map utilization so that subsequent show commands will indicate
+   since the last clear. If WORD is specified clear just that particular
+   route-map's counters.
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 .. _route-map-command:
 
@@ -176,18 +183,38 @@ Route Map Match Command
 
    Matches the specified `metric`.
 
+<<<<<<< HEAD
 .. clicmd:: match tag TAG
 
    Matches the specified tag value associated with the route. This tag value
    can be in the range of (1-4294967295).
+=======
+.. clicmd:: match tag <untagged|(1-4294967295)>
+
+   Matches the specified tag (or untagged) value associated with the route.
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 .. clicmd:: match local-preference METRIC
 
    Matches the specified `local-preference`.
 
+<<<<<<< HEAD
 .. clicmd:: match community COMMUNITY_LIST
 
    Matches the specified  `community_list`
+=======
+.. clicmd:: match community COMMUNITY_LIST [<exact-match|any>]
+
+   Matches the specified  `community_list`. ``exact-match`` specifies to
+   do the exact matching of the communities, while ``any`` - can match any
+   community specified in COMMUNITY_LIST.
+
+.. clicmd:: match src-peer [IPV4_ADDR|IPV6_ADDR|INTERFACE_NAME|PEER_GROUP_NAME]
+
+   This is a BGP specific match command. Matches the source peer if the neighbor
+   was specified in this manner. Useful to announce the routes that was originated
+   by the source peer.
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 .. clicmd:: match peer IPV4_ADDR
 
@@ -239,9 +266,16 @@ Route Map Set Command
 
 .. program:: configure
 
+<<<<<<< HEAD
 .. clicmd:: set tag TAG
 
    Set a tag on the matched route. This tag value can be from (1-4294967295).
+=======
+.. clicmd:: set tag <untagged|(1-4294967295)>
+
+   Set a tag on the matched route.
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
    Additionally if you have compiled with the :option:`--enable-realms`
    configure option. Tag values from (1-255) are sent to the Linux kernel as a
    realm value. Then route policy can be applied. See the tc man page.  As
@@ -303,13 +337,18 @@ Route Map Set Command
 
    Set the route's weight.
 
+<<<<<<< HEAD
 .. clicmd:: set metric <[+|-](1-4294967295)|rtt|+rtt|-rtt>
+=======
+.. clicmd:: set metric <[+|-](1-4294967295)|rtt|+rtt|-rtt|igp|aigp>
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
    Set the route metric. When used with BGP, set the BGP attribute MED to a
    specific value. Use `+`/`-` to add or subtract the specified value to/from
    the existing/MED. Use `rtt` to set the MED to the round trip time or
    `+rtt`/`-rtt` to add/subtract the round trip time to/from the MED.
 
+<<<<<<< HEAD
 .. clicmd:: set min-metric <(0-4294967295)>
 
    Set the minimum meric for the route.
@@ -317,6 +356,20 @@ Route Map Set Command
 .. clicmd:: set max-metric <(0-4294967295)>
 
    Set the maximum meric for the route.
+=======
+   If ``igp`` is specified, then the actual value from the IGP protocol is used.
+
+   If ``aigp`` is specified, then the actual value from the AIGP metric is used
+   (encoded as MED instead of AIGP attribute).
+
+.. clicmd:: set min-metric <(0-4294967295)>
+
+   Set the minimum metric for the route.
+
+.. clicmd:: set max-metric <(0-4294967295)>
+
+   Set the maximum metric for the route.
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 .. clicmd:: set aigp-metric <igp-metric|(0-4294967295)>
 
@@ -335,6 +388,13 @@ Route Map Set Command
 
    Set the BGP community attribute.
 
+<<<<<<< HEAD
+=======
+.. clicmd:: set extended-comm-list <EXTCOMMUNITY_LIST_NAME> delete
+
+   Set BGP extended community list for deletion.
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 .. clicmd:: set ipv6 next-hop local IPV6_ADDRESS
 
    Set the BGP-4+ link local IPv6 nexthop address.
@@ -374,6 +434,7 @@ Route Map Exit Action Command
 
 .. clicmd:: on-match next
 
+<<<<<<< HEAD
 .. clicmd:: continue
 
    Proceed on to the next entry in the route-map.
@@ -381,6 +442,15 @@ Route Map Exit Action Command
 .. clicmd:: on-match goto N
 
 .. clicmd:: continue N
+=======
+   Proceed on to the next entry in the route-map.
+
+.. clicmd:: continue (1-65535)
+
+   Proceed to the specified sequence in the route-map.
+
+.. clicmd:: on-match goto N
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
    Proceed processing the route-map at the first entry whose order is >= N
 

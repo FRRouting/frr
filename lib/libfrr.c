@@ -6,7 +6,15 @@
  */
 
 #include <zebra.h>
+<<<<<<< HEAD
 #include <sys/un.h>
+=======
+
+#include <signal.h>
+#include <sys/stat.h>
+#include <sys/un.h>
+#include <fcntl.h>
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 #include <sys/types.h>
 #include <sys/wait.h>
@@ -33,6 +41,11 @@
 #include "frrscript.h"
 #include "systemd.h"
 
+<<<<<<< HEAD
+=======
+#include "lib/config_paths.h"
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 DEFINE_HOOK(frr_early_init, (struct event_loop * tm), (tm));
 DEFINE_HOOK(frr_late_init, (struct event_loop * tm), (tm));
 DEFINE_HOOK(frr_config_pre, (struct event_loop * tm), (tm));
@@ -41,10 +54,15 @@ DEFINE_KOOH(frr_early_fini, (), ());
 DEFINE_KOOH(frr_fini, (), ());
 
 const char frr_sysconfdir[] = SYSCONFDIR;
+<<<<<<< HEAD
 char frr_vtydir[256];
 #ifdef HAVE_SQLITE3
 const char frr_dbdir[] = DAEMON_DB_DIR;
 #endif
+=======
+char frr_runstatedir[256] = FRR_RUNSTATE_PATH;
+char frr_libstatedir[256] = FRR_LIBSTATE_PATH;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 const char frr_moduledir[] = MODULE_PATH;
 const char frr_scriptdir[] = SCRIPT_PATH;
 
@@ -52,10 +70,17 @@ char frr_protoname[256] = "NONE";
 char frr_protonameinst[256] = "NONE";
 
 char config_default[512];
+<<<<<<< HEAD
 char frr_zclientpath[256];
 static char pidfile_default[1024];
 #ifdef HAVE_SQLITE3
 static char dbfile_default[512];
+=======
+char frr_zclientpath[512];
+static char pidfile_default[1024];
+#ifdef HAVE_SQLITE3
+static char dbfile_default[1024];
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 #endif
 static char vtypath_default[512];
 
@@ -98,6 +123,7 @@ static void opt_extend(const struct optspec *os)
 #define OPTION_SCRIPTDIR 1009
 
 static const struct option lo_always[] = {
+<<<<<<< HEAD
 	{"help", no_argument, NULL, 'h'},
 	{"version", no_argument, NULL, 'v'},
 	{"daemon", no_argument, NULL, 'd'},
@@ -115,6 +141,27 @@ static const struct option lo_always[] = {
 	{NULL}};
 static const struct optspec os_always = {
 	"hvdM:F:N:o:",
+=======
+	{ "help", no_argument, NULL, 'h' },
+	{ "version", no_argument, NULL, 'v' },
+	{ "daemon", no_argument, NULL, 'd' },
+	{ "module", no_argument, NULL, 'M' },
+	{ "profile", required_argument, NULL, 'F' },
+	{ "pathspace", required_argument, NULL, 'N' },
+	{ "vrfdefaultname", required_argument, NULL, 'o' },
+	{ "graceful_restart", optional_argument, NULL, 'K' },
+	{ "vty_socket", required_argument, NULL, OPTION_VTYSOCK },
+	{ "moduledir", required_argument, NULL, OPTION_MODULEDIR },
+	{ "scriptdir", required_argument, NULL, OPTION_SCRIPTDIR },
+	{ "log", required_argument, NULL, OPTION_LOG },
+	{ "log-level", required_argument, NULL, OPTION_LOGLEVEL },
+	{ "command-log-always", no_argument, NULL, OPTION_LOGGING },
+	{ "limit-fds", required_argument, NULL, OPTION_LIMIT_FDS },
+	{ NULL }
+};
+static const struct optspec os_always = {
+	"hvdM:F:N:o:K::",
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	"  -h, --help         Display this help and exit\n"
 	"  -v, --version      Print program version\n"
 	"  -d, --daemon       Runs in daemon mode\n"
@@ -122,13 +169,22 @@ static const struct optspec os_always = {
 	"  -F, --profile      Use specified configuration profile\n"
 	"  -N, --pathspace    Insert prefix into config & socket paths\n"
 	"  -o, --vrfdefaultname     Set default VRF name.\n"
+<<<<<<< HEAD
+=======
+	"  -K, --graceful_restart   FRR starting in Graceful Restart mode, with optional route-cleanup timer\n"
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	"      --vty_socket   Override vty socket path\n"
 	"      --moduledir    Override modules directory\n"
 	"      --scriptdir    Override scripts directory\n"
 	"      --log          Set Logging to stdout, syslog, or file:<name>\n"
 	"      --log-level    Set Logging Level to use, debug, info, warn, etc\n"
 	"      --limit-fds    Limit number of fds supported\n",
+<<<<<<< HEAD
 	lo_always};
+=======
+	lo_always
+};
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 static bool logging_to_stdout = false; /* set when --log stdout specified */
 
@@ -204,7 +260,11 @@ bool frr_zclient_addr(struct sockaddr_storage *sa, socklen_t *sa_len,
 	if (!strncmp(path, ZAPI_TCP_PATHNAME, strlen(ZAPI_TCP_PATHNAME))) {
 		/* note: this functionality is disabled at bottom */
 		int af;
+<<<<<<< HEAD
 		int port = ZEBRA_PORT;
+=======
+		int port = ZEBRA_TCP_PORT;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		char *err = NULL;
 		struct sockaddr_in *sin = NULL;
 		struct sockaddr_in6 *sin6 = NULL;
@@ -218,7 +278,12 @@ bool frr_zclient_addr(struct sockaddr_storage *sa, socklen_t *sa_len,
 			break;
 		case '6':
 			path++;
+<<<<<<< HEAD
 		/* fallthrough */
+=======
+			af = AF_INET6;
+			break;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		default:
 			af = AF_INET6;
 			break;
@@ -305,11 +370,14 @@ bool frr_zclient_addr(struct sockaddr_storage *sa, socklen_t *sa_len,
 
 static struct frr_daemon_info *di = NULL;
 
+<<<<<<< HEAD
 void frr_init_vtydir(void)
 {
 	snprintf(frr_vtydir, sizeof(frr_vtydir), DAEMON_VTY_DIR, "", "");
 }
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 void frr_preinit(struct frr_daemon_info *daemon, int argc, char **argv)
 {
 	di = daemon;
@@ -319,7 +387,16 @@ void frr_preinit(struct frr_daemon_info *daemon, int argc, char **argv)
 	char *p = strrchr(argv[0], '/');
 	di->progname = p ? p + 1 : argv[0];
 
+<<<<<<< HEAD
 	umask(0027);
+=======
+	if (!getenv("GCOV_PREFIX"))
+		umask(0027);
+	else {
+		/* If we are profiling use a more generous umask */
+		umask(0002);
+	}
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	log_args_init(daemon->early_logging);
 
@@ -339,6 +416,7 @@ void frr_preinit(struct frr_daemon_info *daemon, int argc, char **argv)
 	if (di->flags & FRR_DETACH_LATER)
 		nodetach_daemon = true;
 
+<<<<<<< HEAD
 	frr_init_vtydir();
 	snprintf(config_default, sizeof(config_default), "%s/%s.conf",
 		 frr_sysconfdir, di->name);
@@ -349,12 +427,27 @@ void frr_preinit(struct frr_daemon_info *daemon, int argc, char **argv)
 #ifdef HAVE_SQLITE3
 	snprintf(dbfile_default, sizeof(dbfile_default), "%s/%s.db",
 		 frr_dbdir, di->name);
+=======
+	snprintf(config_default, sizeof(config_default), "%s/%s.conf",
+		 frr_sysconfdir, di->name);
+	snprintf(pidfile_default, sizeof(pidfile_default), "%s/%s.pid",
+		 frr_runstatedir, di->name);
+	snprintf(frr_zclientpath, sizeof(frr_zclientpath), ZAPI_SOCK_NAME);
+#ifdef HAVE_SQLITE3
+	snprintf(dbfile_default, sizeof(dbfile_default), "%s/%s.db",
+		 frr_libstatedir, di->name);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 #endif
 
 	strlcpy(frr_protoname, di->logname, sizeof(frr_protoname));
 	strlcpy(frr_protonameinst, di->logname, sizeof(frr_protonameinst));
 
 	di->cli_mode = FRR_CLI_CLASSIC;
+<<<<<<< HEAD
+=======
+	di->graceful_restart = false;
+	di->gr_cleanup_time = 0;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	/* we may be starting with extra FDs open for whatever purpose,
 	 * e.g. logging, some module, etc.  Recording them here allows later
@@ -497,6 +590,7 @@ static int frr_opt(int opt)
 		}
 		di->pathspace = optarg;
 
+<<<<<<< HEAD
 		if (!di->zpathspace)
 			snprintf(frr_zclientpath, sizeof(frr_zclientpath),
 				 ZEBRA_SERV_PATH, "/", di->pathspace);
@@ -504,6 +598,17 @@ static int frr_opt(int opt)
 			 di->pathspace);
 		snprintf(pidfile_default, sizeof(pidfile_default), "%s/%s.pid",
 			 frr_vtydir, di->name);
+=======
+		snprintf(frr_runstatedir, sizeof(frr_runstatedir),
+			 FRR_RUNSTATE_PATH "/%s", di->pathspace);
+		snprintf(frr_libstatedir, sizeof(frr_libstatedir),
+			 FRR_LIBSTATE_PATH "/%s", di->pathspace);
+		snprintf(pidfile_default, sizeof(pidfile_default), "%s/%s.pid",
+			 frr_runstatedir, di->name);
+		if (!di->zpathspace)
+			snprintf(frr_zclientpath, sizeof(frr_zclientpath),
+				 ZAPI_SOCK_NAME);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		break;
 	case 'o':
 		vrf_set_default_name(optarg);
@@ -515,6 +620,14 @@ static int frr_opt(int opt)
 		di->db_file = optarg;
 		break;
 #endif
+<<<<<<< HEAD
+=======
+	case 'K':
+		di->graceful_restart = true;
+		if (optarg)
+			di->gr_cleanup_time = atoi(optarg);
+		break;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	case 'C':
 		if (di->flags & FRR_NO_SPLIT_CONFIG)
 			return 1;
@@ -724,10 +837,17 @@ struct event_loop *frr_init(void)
 	snprintf(config_default, sizeof(config_default), "%s%s%s%s.conf",
 		 frr_sysconfdir, p_pathspace, di->name, p_instance);
 	snprintf(pidfile_default, sizeof(pidfile_default), "%s/%s%s.pid",
+<<<<<<< HEAD
 		 frr_vtydir, di->name, p_instance);
 #ifdef HAVE_SQLITE3
 	snprintf(dbfile_default, sizeof(dbfile_default), "%s/%s%s%s.db",
 		 frr_dbdir, p_pathspace, di->name, p_instance);
+=======
+		 frr_runstatedir, di->name, p_instance);
+#ifdef HAVE_SQLITE3
+	snprintf(dbfile_default, sizeof(dbfile_default), "%s/%s%s%s.db",
+		 frr_libstatedir, p_pathspace, di->name, p_instance);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 #endif
 
 	zprivs_preinit(di->privs);
@@ -756,8 +876,14 @@ struct event_loop *frr_init(void)
 
 	/* don't mkdir these as root... */
 	if (!(di->flags & FRR_NO_PRIVSEP)) {
+<<<<<<< HEAD
 		if (!di->pid_file || !di->vty_path)
 			frr_mkdir(frr_vtydir, false);
+=======
+		frr_mkdir(frr_libstatedir, false);
+		if (!di->pid_file || !di->vty_path)
+			frr_mkdir(frr_runstatedir, false);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		if (di->pid_file)
 			frr_mkdir(di->pid_file, true);
 		if (di->vty_path)
@@ -792,6 +918,10 @@ struct event_loop *frr_init(void)
 
 	vty_init(master, di->log_always);
 	lib_cmd_init();
+<<<<<<< HEAD
+=======
+	debug_init();
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	frr_pthread_init();
 #ifdef HAVE_SCRIPTING
@@ -802,14 +932,22 @@ struct event_loop *frr_init(void)
 	log_ref_vty_init();
 	lib_error_init();
 
+<<<<<<< HEAD
 	nb_init(master, di->yang_modules, di->n_yang_modules, true);
+=======
+	nb_init(master, di->yang_modules, di->n_yang_modules, true,
+		(di->flags & FRR_LOAD_YANG_LIBRARY) != 0);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	if (nb_db_init() != NB_OK)
 		flog_warn(EC_LIB_NB_DATABASE,
 			  "%s: failed to initialize northbound database",
 			  __func__);
 
+<<<<<<< HEAD
 	debug_init_cli();
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	return master;
 }
 
@@ -956,8 +1094,11 @@ static void frr_daemonize(void)
 	}
 
 	close(fds[1]);
+<<<<<<< HEAD
 	nb_terminate();
 	yang_terminate();
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	frr_daemon_wait(fds[0]);
 }
 
@@ -1036,7 +1177,21 @@ void frr_config_fork(void)
 	zlog_tls_buffer_init();
 }
 
+<<<<<<< HEAD
 void frr_vty_serv_start(void)
+=======
+static void frr_check_detach(void)
+{
+	if (nodetach_term || nodetach_daemon)
+		return;
+
+	if (daemon_ctl_sock != -1)
+		close(daemon_ctl_sock);
+	daemon_ctl_sock = -1;
+}
+
+void frr_vty_serv_start(bool check_detach)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 {
 	/* allow explicit override of vty_path in the future
 	 * (not currently set anywhere) */
@@ -1044,7 +1199,11 @@ void frr_vty_serv_start(void)
 		const char *dir;
 		char defvtydir[256];
 
+<<<<<<< HEAD
 		snprintf(defvtydir, sizeof(defvtydir), "%s", frr_vtydir);
+=======
+		snprintf(defvtydir, sizeof(defvtydir), "%s", frr_runstatedir);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 		dir = di->vty_sock_path ? di->vty_sock_path : defvtydir;
 
@@ -1059,6 +1218,12 @@ void frr_vty_serv_start(void)
 	}
 
 	vty_serv_start(di->vty_addr, di->vty_port, di->vty_path);
+<<<<<<< HEAD
+=======
+
+	if (check_detach)
+		frr_check_detach();
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 }
 
 void frr_vty_serv_stop(void)
@@ -1069,6 +1234,7 @@ void frr_vty_serv_stop(void)
 		unlink(di->vty_path);
 }
 
+<<<<<<< HEAD
 static void frr_check_detach(void)
 {
 	if (nodetach_term || nodetach_daemon)
@@ -1079,6 +1245,8 @@ static void frr_check_detach(void)
 	daemon_ctl_sock = -1;
 }
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 static void frr_terminal_close(int isexit)
 {
 	int nullfd;
@@ -1164,7 +1332,11 @@ void frr_run(struct event_loop *master)
 	char instanceinfo[64] = "";
 
 	if (!(di->flags & FRR_MANUAL_VTY_START))
+<<<<<<< HEAD
 		frr_vty_serv_start();
+=======
+		frr_vty_serv_start(false);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	if (di->instance)
 		snprintf(instanceinfo, sizeof(instanceinfo), "instance %u ",
@@ -1202,7 +1374,12 @@ void frr_run(struct event_loop *master)
 			close(nullfd);
 		}
 
+<<<<<<< HEAD
 		frr_check_detach();
+=======
+		if (!(di->flags & FRR_MANUAL_VTY_START))
+			frr_check_detach();
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	}
 
 	/* end fixed stderr startup logging */
@@ -1220,10 +1397,13 @@ void frr_early_fini(void)
 
 void frr_fini(void)
 {
+<<<<<<< HEAD
 	FILE *fp;
 	char filename[128];
 	int have_leftovers = 0;
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	hook_call(frr_fini);
 
 	vty_terminate();
@@ -1244,6 +1424,7 @@ void frr_fini(void)
 	event_master_free(master);
 	master = NULL;
 	zlog_tls_buffer_fini();
+<<<<<<< HEAD
 	zlog_fini();
 	/* frrmod_init -> nothing needed / hooks */
 	rcu_shutdown();
@@ -1268,6 +1449,184 @@ void frr_fini(void)
 		log_memstats(fp, di->name);
 		fclose(fp);
 	}
+=======
+
+	if (0) {
+		/* this is intentionally disabled.  zlog remains running until
+		 * exit(), so even the very last item done during shutdown can
+		 * have its zlog() messages written out.
+		 *
+		 * Yes this causes memory leaks.  They are explicitly marked
+		 * with DEFINE_MGROUP_ACTIVEATEXIT, which is only used for
+		 * log target memory allocations, and excluded from leak
+		 * reporting at shutdown.  This is strongly preferable over
+		 * just discarding error messages at shutdown.
+		 */
+		zlog_fini();
+	}
+
+	/* frrmod_init -> nothing needed / hooks */
+	rcu_shutdown();
+
+	frrmod_terminate();
+
+	log_memstats(di->name, debug_memstats_at_exit);
+}
+
+struct json_object *frr_daemon_state_load(void)
+{
+	struct json_object *state;
+	char **state_path;
+
+	assertf(di->state_paths,
+		"CODE BUG: daemon trying to load state, but no state path in frr_daemon_info");
+
+	for (state_path = di->state_paths; *state_path; state_path++) {
+		state = json_object_from_file(*state_path);
+		if (state)
+			return state;
+	}
+
+	return json_object_new_object();
+}
+
+/* cross-reference file_write_config() in command.c
+ * the code there is similar but not identical (configs use a unique temporary
+ * name for writing and keep a backup of the previous config.)
+ */
+void frr_daemon_state_save(struct json_object **statep)
+{
+	struct json_object *state = *statep;
+	char *state_path, *slash, *temp_name, **other;
+	size_t name_len, json_len;
+	const char *json_str;
+	int dirfd, fd;
+
+	assertf(di->state_paths,
+		"CODE BUG: daemon trying to save state, but no state path in frr_daemon_info");
+
+	state_path = di->state_paths[0];
+	json_str = json_object_to_json_string_ext(state,
+						  JSON_C_TO_STRING_PRETTY);
+	json_len = strlen(json_str);
+
+	/* To correctly fsync() and ensure we have either consistent old state
+	 * or consistent new state but no fs-damage garbage inbetween, we need
+	 * to work with a directory fd.  If we need that anyway we might as
+	 * well use the dirfd with openat() & co in fd-relative operations.
+	 */
+
+	slash = strrchr(state_path, '/');
+	if (slash) {
+		char *state_dir;
+
+		state_dir = XSTRDUP(MTYPE_TMP, state_path);
+		state_dir[slash - state_path] = '\0';
+		dirfd = open(state_dir, O_DIRECTORY | O_RDONLY);
+		XFREE(MTYPE_TMP, state_dir);
+
+		if (dirfd < 0) {
+			zlog_err("failed to open directory %pSQq for saving daemon state: %m",
+				 state_dir);
+			return;
+		}
+
+		/* skip to file name */
+		slash++;
+	} else {
+		dirfd = open(".", O_DIRECTORY | O_RDONLY);
+		if (dirfd < 0) {
+			zlog_err(
+				"failed to open current directory for saving daemon state: %m");
+			return;
+		}
+
+		/* file name = path */
+		slash = state_path;
+	}
+
+	/* unlike saving configs, a temporary unique filename is unhelpful
+	 * here as it might litter files on limited write-heavy storage
+	 * (think switch with small NOR flash for frequently written data.)
+	 *
+	 * => always use filename with .sav suffix, worst case it litters one
+	 * file.
+	 */
+	name_len = strlen(slash);
+	temp_name = XMALLOC(MTYPE_TMP, name_len + 5);
+	memcpy(temp_name, slash, name_len);
+	memcpy(temp_name + name_len, ".sav", 5);
+
+	/* state file is always 0600, it's by and for FRR itself only */
+	fd = openat(dirfd, temp_name, O_WRONLY | O_CREAT | O_TRUNC, 0600);
+	if (fd < 0) {
+		zlog_err("failed to open temporary daemon state save file for %pSQq: %m",
+			 state_path);
+		goto out_closedir_free;
+	}
+
+	while (json_len) {
+		ssize_t nwr = write(fd, json_str, json_len);
+
+		if (nwr <= 0) {
+			zlog_err("failed to write temporary daemon state to %pSQq: %m",
+				 state_path);
+
+			close(fd);
+			unlinkat(dirfd, temp_name, 0);
+			goto out_closedir_free;
+		}
+
+		json_str += nwr;
+		json_len -= nwr;
+	}
+
+	/* fsync is theoretically implicit in close(), but... */
+	if (fsync(fd) < 0)
+		zlog_warn("fsync for daemon state %pSQq failed: %m", state_path);
+	close(fd);
+
+	/* this is the *actual* fsync that ensures we're consistent.  The
+	 * file fsync only syncs the inode, but not the directory entry
+	 * referring to it.
+	 */
+	if (fsync(dirfd) < 0)
+		zlog_warn("directory fsync for daemon state %pSQq failed: %m",
+			  state_path);
+
+	/* atomic, hopefully. */
+	if (renameat(dirfd, temp_name, dirfd, slash) < 0) {
+		zlog_err("renaming daemon state %pSQq to %pSQq failed: %m",
+			 temp_name, state_path);
+		/* no unlink here, give the user a chance to investigate */
+		goto out_closedir_free;
+	}
+
+	/* and the rename needs to be synced too */
+	if (fsync(dirfd) < 0)
+		zlog_warn("directory fsync for daemon state %pSQq failed after rename: %m",
+			  state_path);
+
+	/* daemon may specify other deprecated paths to load from; since we
+	 * just saved successfully we should delete those.
+	 */
+	for (other = di->state_paths + 1; *other; other++) {
+		if (unlink(*other) == 0)
+			continue;
+		if (errno == ENOENT || errno == ENOTDIR)
+			continue;
+
+		zlog_warn("failed to remove deprecated daemon state file %pSQq: %m",
+			  *other);
+	}
+
+out_closedir_free:
+	XFREE(MTYPE_TMP, temp_name);
+	close(dirfd);
+
+	json_object_free(state);
+	*statep = NULL;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 }
 
 #ifdef INTERP
@@ -1287,7 +1646,34 @@ void _libfrr_version(void)
 	const char banner[] =
 		FRR_FULL_NAME " " FRR_VERSION ".\n"
 		FRR_COPYRIGHT GIT_INFO "\n"
+<<<<<<< HEAD
 		"configured with:\n    " FRR_CONFIG_ARGS "\n";
 	write(1, banner, sizeof(banner) - 1);
 	_exit(0);
 }
+=======
+#ifdef ENABLE_VERSION_BUILD_CONFIG
+		"configured with:\n    " FRR_CONFIG_ARGS "\n"
+#endif
+	;
+	write(1, banner, sizeof(banner) - 1);
+	_exit(0);
+}
+
+/* Render simple version tuple to string */
+const char *frr_vers2str(uint32_t version, char *buf, int buflen)
+{
+	snprintf(buf, buflen, "%d.%d.%d", MAJOR_FRRVERSION(version),
+		 MINOR_FRRVERSION(version), SUB_FRRVERSION(version));
+
+	return buf;
+}
+
+bool frr_is_daemon(void)
+{
+	if (di)
+		return true;
+
+	return false;
+}
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)

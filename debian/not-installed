@@ -1,3 +1,7 @@
 usr/include
 usr/lib/frr/ospfclient
 usr/lib/frr/rfptest
+<<<<<<< HEAD
+=======
+usr/lib/*/frr/modules/dplane_sample_plugin.so
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)

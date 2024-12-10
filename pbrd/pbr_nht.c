@@ -534,6 +534,10 @@ void pbr_nht_set_seq_nhg_data(struct pbr_map_sequence *pbrms,
 	case NEXTHOP_TYPE_IPV4:
 	case NEXTHOP_TYPE_IPV4_IFINDEX:
 		pbrms->family = AF_INET;
+<<<<<<< HEAD
+=======
+		break;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	case NEXTHOP_TYPE_IFINDEX:
 	case NEXTHOP_TYPE_BLACKHOLE:
 		break;
@@ -549,6 +553,10 @@ void pbr_nht_set_seq_nhg(struct pbr_map_sequence *pbrms, const char *name)
 		return;
 
 	pbrms->nhgrp_name = XSTRDUP(MTYPE_TMP, name);
+<<<<<<< HEAD
+=======
+	pbrms->forwarding_type = PBR_FT_NEXTHOP_GROUP;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	nhgc = nhgc_find(name);
 	if (!nhgc)
@@ -572,6 +580,10 @@ void pbr_nht_add_individual_nexthop(struct pbr_map_sequence *pbrms,
 		MTYPE_TMP,
 		pbr_nht_nexthop_make_name(pbrms->parent->name, PBR_NHC_NAMELEN,
 					  pbrms->seqno, buf));
+<<<<<<< HEAD
+=======
+	pbrms->forwarding_type = PBR_FT_NEXTHOP_SINGLE;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	nh = nexthop_new();
 	memcpy(nh, nhop, sizeof(*nh));
@@ -895,7 +907,11 @@ static void pbr_nht_individual_nexthop_update(struct pbr_nexthop_cache *pnhc,
 			pbr_nht_individual_nexthop_interface_update(pnhc, pnhi);
 			break;
 		}
+<<<<<<< HEAD
 		/* Intentional fall thru */
+=======
+		fallthrough;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	case NEXTHOP_TYPE_IPV4_IFINDEX:
 	case NEXTHOP_TYPE_IPV4:
 	case NEXTHOP_TYPE_IPV6:

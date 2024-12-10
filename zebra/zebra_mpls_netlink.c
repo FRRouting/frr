@@ -4,9 +4,19 @@
  */
 
 #include <zebra.h>
+<<<<<<< HEAD
 
 #ifdef HAVE_NETLINK
 
+=======
+#include <sys/stat.h>
+
+#ifdef HAVE_NETLINK
+
+#include <linux/netlink.h>
+#include <linux/rtnetlink.h>
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 #include "zebra/debug.h"
 #include "zebra/rt.h"
 #include "zebra/rt_netlink.h"

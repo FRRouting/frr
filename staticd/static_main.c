@@ -53,7 +53,11 @@ struct option longopts[] = { { 0 } };
 /* Master of threads. */
 struct event_loop *master;
 
+<<<<<<< HEAD
 struct mgmt_be_client *mgmt_be_client;
+=======
+static struct mgmt_be_client *mgmt_be_client;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 static struct frr_daemon_info staticd_di;
 
@@ -113,12 +117,16 @@ static const struct frr_yang_module_info *const staticd_yang_modules[] = {
 	&frr_staticd_info,
 };
 
+<<<<<<< HEAD
 #define STATIC_VTY_PORT 2616
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 /*
  * NOTE: .flags == FRR_NO_SPLIT_CONFIG to avoid reading split config, mgmtd will
  * do this for us now
  */
+<<<<<<< HEAD
 FRR_DAEMON_INFO(staticd, STATIC, .vty_port = STATIC_VTY_PORT,
 
 		.proghelp = "Implementation of STATIC.",
@@ -130,6 +138,24 @@ FRR_DAEMON_INFO(staticd, STATIC, .vty_port = STATIC_VTY_PORT,
 		.n_yang_modules = array_size(staticd_yang_modules),
 
 		.flags = FRR_NO_SPLIT_CONFIG);
+=======
+/* clang-format off */
+FRR_DAEMON_INFO(staticd, STATIC,
+	.vty_port = STATIC_VTY_PORT,
+	.proghelp = "Implementation of STATIC.",
+
+	.signals = static_signals,
+	.n_signals = array_size(static_signals),
+
+	.privs = &static_privs,
+
+	.yang_modules = staticd_yang_modules,
+	.n_yang_modules = array_size(staticd_yang_modules),
+
+	.flags = FRR_NO_SPLIT_CONFIG,
+);
+/* clang-format on */
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 int main(int argc, char **argv, char **envp)
 {
@@ -165,8 +191,15 @@ int main(int argc, char **argv, char **envp)
 
 	hook_register(routing_conf_event,
 		      routing_control_plane_protocols_name_validate);
+<<<<<<< HEAD
 
 	routing_control_plane_protocols_register_vrf_dependency();
+=======
+	hook_register(routing_create,
+		      routing_control_plane_protocols_staticd_create);
+	hook_register(routing_destroy,
+		      routing_control_plane_protocols_staticd_destroy);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	/*
 	 * We set FRR_NO_SPLIT_CONFIG flag to avoid reading our config, but we

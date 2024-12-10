@@ -29,6 +29,10 @@ frr_northbound*
 /lib/test_buffer
 /lib/test_checksum
 /lib/test_frrscript
+<<<<<<< HEAD
+=======
+/lib/test_darr
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 /lib/test_frrlua
 /lib/test_graph
 /lib/test_grpc

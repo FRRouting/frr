@@ -139,7 +139,11 @@ void ospf6_lsdb_add(struct ospf6_lsa *lsa, struct ospf6_lsdb *lsdb)
 		}
 		/* to free the lookup lock in node get*/
 		route_unlock_node(current);
+<<<<<<< HEAD
 		ospf6_lsa_unlock(old);
+=======
+		ospf6_lsa_unlock(&old);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	}
 
 	ospf6_lsdb_count_assert(lsdb);
@@ -168,7 +172,11 @@ void ospf6_lsdb_remove(struct ospf6_lsa *lsa, struct ospf6_lsdb *lsdb)
 
 	route_unlock_node(node); /* to free the lookup lock */
 	route_unlock_node(node); /* to free the original lock */
+<<<<<<< HEAD
 	ospf6_lsa_unlock(lsa);
+=======
+	ospf6_lsa_unlock(&lsa);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	ospf6_lsdb_count_assert(lsdb);
 }
@@ -229,15 +237,23 @@ struct ospf6_lsa *ospf6_find_inter_prefix_lsa(struct ospf6 *ospf6,
 		struct ospf6_inter_prefix_lsa *prefix_lsa;
 		struct prefix prefix;
 
+<<<<<<< HEAD
 		prefix_lsa =
 			(struct ospf6_inter_prefix_lsa *)OSPF6_LSA_HEADER_END(
 				lsa->header);
+=======
+		prefix_lsa = lsa_after_header(lsa->header);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		prefix.family = AF_INET6;
 		prefix.prefixlen = prefix_lsa->prefix.prefix_length;
 		ospf6_prefix_in6_addr(&prefix.u.prefix6, prefix_lsa,
 				      &prefix_lsa->prefix);
 		if (prefix_same(p, &prefix)) {
+<<<<<<< HEAD
 			ospf6_lsa_unlock(lsa);
+=======
+			ospf6_lsa_unlock(&lsa);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			return lsa;
 		}
 	}
@@ -328,7 +344,11 @@ struct ospf6_lsa *ospf6_lsdb_next(const struct route_node *iterend,
 {
 	struct route_node *node = lsa->rn;
 
+<<<<<<< HEAD
 	ospf6_lsa_unlock(lsa);
+=======
+	ospf6_lsa_unlock(&lsa);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	do
 		node = route_next_until(node, iterend);
@@ -361,7 +381,11 @@ void ospf6_lsdb_lsa_unlock(struct ospf6_lsa *lsa)
 	if (lsa != NULL) {
 		if (lsa->rn != NULL)
 			route_unlock_node(lsa->rn);
+<<<<<<< HEAD
 		ospf6_lsa_unlock(lsa);
+=======
+		ospf6_lsa_unlock(&lsa);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	}
 }
 
@@ -398,7 +422,11 @@ int ospf6_lsdb_maxage_remover(struct ospf6_lsdb *lsdb)
 			ospf6_lsa_checksum(lsa->header);
 
 			EVENT_OFF(lsa->refresh);
+<<<<<<< HEAD
 			event_execute(master, ospf6_lsa_refresh, lsa, 0);
+=======
+			event_execute(master, ospf6_lsa_refresh, lsa, 0, NULL);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		} else {
 			zlog_debug("calling ospf6_lsdb_remove %s", lsa->name);
 			ospf6_lsdb_remove(lsa, lsdb);

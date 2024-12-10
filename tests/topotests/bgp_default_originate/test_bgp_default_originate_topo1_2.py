@@ -17,8 +17,11 @@ import os
 import sys
 import time
 import pytest
+<<<<<<< HEAD
 from time import sleep
 from copy import deepcopy
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 from lib.topolog import logger
 
 # pylint: disable=C0413
@@ -31,6 +34,7 @@ from lib.bgp import (
     verify_bgp_convergence,
     verify_graceful_restart,
     create_router_bgp,
+<<<<<<< HEAD
     verify_router_id,
     modify_as_number,
     verify_as_numbers,
@@ -38,6 +42,10 @@ from lib.bgp import (
     clear_bgp,
     verify_bgp_rib,
     get_prefix_count_route,
+=======
+    modify_as_number,
+    verify_bgp_rib,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     get_dut_as_number,
     verify_rib_default_route,
     verify_fib_default_route,
@@ -45,16 +53,24 @@ from lib.bgp import (
     verify_bgp_received_routes_from_neighbor,
 )
 from lib.common_config import (
+<<<<<<< HEAD
     interface_status,
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     verify_prefix_lists,
     verify_fib_routes,
     kill_router_daemons,
     start_router_daemons,
+<<<<<<< HEAD
     shutdown_bringup_interface,
     step,
     required_linux_kernel_version,
     stop_router,
     start_router,
+=======
+    step,
+    required_linux_kernel_version,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     create_route_maps,
     create_prefix_lists,
     get_frr_ipv6_linklocal,
@@ -65,7 +81,10 @@ from lib.common_config import (
     reset_config_on_routers,
     create_static_routes,
     check_router_status,
+<<<<<<< HEAD
     delete_route_maps,
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 )
 
 
@@ -955,6 +974,10 @@ def test_verify_bgp_default_originate_route_map_in_OUT_p1(request):
 
     write_test_footer(tc_name)
 
+<<<<<<< HEAD
+=======
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 def test_verify_bgp_default_originate_route_map_in_IN_p1(request):
     """Verify BGP  default originate route-map with IN route-map"""
     tgen = get_topogen()
@@ -1472,6 +1495,10 @@ def test_verify_bgp_default_originate_route_map_in_IN_p1(request):
         )
     write_test_footer(tc_name)
 
+<<<<<<< HEAD
+=======
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 def test_verify_default_originate_after_removing_default_originate_p1(request):
     """Verify BGP default route after removing default-originate"""
 
@@ -2232,9 +2259,15 @@ def test_verify_default_originate_after_removing_default_originate_p1(request):
         )
     write_test_footer(tc_name)
 
+<<<<<<< HEAD
 def test_verify_default_originate_route_with_GR_p1(request):
     """ "Verify default-originate route with GR "
     """
+=======
+
+def test_verify_default_originate_route_with_GR_p1(request):
+    """ "Verify default-originate route with GR " """
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     tgen = get_topogen()
     global BGP_CONVERGENCE
     global topo
@@ -2250,6 +2283,7 @@ def test_verify_default_originate_route_with_GR_p1(request):
     if BGP_CONVERGENCE != True:
         pytest.skip("skipped because of BGP Convergence failure")
 
+<<<<<<< HEAD
 
     step("Configure IPV4 and IPV6 IBGP between R1 and R2 ")
     step("Configure IPV4 and IPV6 EBGP between R2 to R3 ")
@@ -2258,6 +2292,15 @@ def test_verify_default_originate_route_with_GR_p1(request):
     r2_local_as = topo['routers']['r2']['bgp']['local_as']
     r3_local_as = topo['routers']['r3']['bgp']['local_as']
     r4_local_as = topo['routers']['r4']['bgp']['local_as']
+=======
+    step("Configure IPV4 and IPV6 IBGP between R1 and R2 ")
+    step("Configure IPV4 and IPV6 EBGP between R2 to R3 ")
+    r0_local_as = topo["routers"]["r0"]["bgp"]["local_as"]
+    r1_local_as = topo["routers"]["r1"]["bgp"]["local_as"]
+    r2_local_as = topo["routers"]["r2"]["bgp"]["local_as"]
+    r3_local_as = topo["routers"]["r3"]["bgp"]["local_as"]
+    r4_local_as = topo["routers"]["r4"]["bgp"]["local_as"]
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     input_dict = {
         "r0": {
             "bgp": {
@@ -2336,6 +2379,7 @@ def test_verify_default_originate_route_with_GR_p1(request):
             "bgp": {
                 "local_as": local_as,
                 "address_family": {
+<<<<<<< HEAD
                     "ipv4": {
                         "unicast": {
                             "default_originate":{
@@ -2357,12 +2401,21 @@ def test_verify_default_originate_route_with_GR_p1(request):
                         }
                     }
                 }
+=======
+                    "ipv4": {"unicast": {"default_originate": {"r2": {}}}},
+                    "ipv6": {"unicast": {"default_originate": {"r2": {}}}},
+                },
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
             }
         }
     }
     result = create_router_bgp(tgen, topo, default_originate_config)
+<<<<<<< HEAD
     assert result is True, "Testcase {} : Failed \n Error: {}".format(
             tc_name, result)
+=======
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
     step(
         "R2 received default-originate routes and advertised it to R3 , verify on R2 and R3"
@@ -2383,17 +2436,40 @@ def test_verify_default_originate_route_with_GR_p1(request):
             }
         }
 
+<<<<<<< HEAD
         result = verify_fib_routes(tgen, addr_type, "r2", static_routes_input,next_hop=DEFAULT_ROUTE_NXT_HOP_R1[addr_type])
+=======
+        result = verify_fib_routes(
+            tgen,
+            addr_type,
+            "r2",
+            static_routes_input,
+            next_hop=DEFAULT_ROUTE_NXT_HOP_R1[addr_type],
+        )
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         assert result is True, "Testcase {} : Failed \n Error: {}".format(
             tc_name, result
         )
 
+<<<<<<< HEAD
         result = verify_bgp_rib(tgen, addr_type, "r2", static_routes_input,next_hop=DEFAULT_ROUTE_NXT_HOP_R1[addr_type])
+=======
+        result = verify_bgp_rib(
+            tgen,
+            addr_type,
+            "r2",
+            static_routes_input,
+            next_hop=DEFAULT_ROUTE_NXT_HOP_R1[addr_type],
+        )
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         assert result is True, "Testcase {} : Failed \n Error: {}".format(
             tc_name, result
         )
 
+<<<<<<< HEAD
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     step(" Kill BGPd session on R2")
     kill_router_daemons(tgen, "r2", ["bgpd"])
     start_router_daemons(tgen, "r2", ["bgpd"])
@@ -2411,17 +2487,41 @@ def test_verify_default_originate_route_with_GR_p1(request):
             }
         }
 
+<<<<<<< HEAD
         result = verify_fib_routes(tgen, addr_type, "r2", static_routes_input,next_hop=DEFAULT_ROUTE_NXT_HOP_R1[addr_type])
+=======
+        result = verify_fib_routes(
+            tgen,
+            addr_type,
+            "r2",
+            static_routes_input,
+            next_hop=DEFAULT_ROUTE_NXT_HOP_R1[addr_type],
+        )
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         assert result is True, "Testcase {} : Failed \n Error: {}".format(
             tc_name, result
         )
 
+<<<<<<< HEAD
         result = verify_bgp_rib(tgen, addr_type, "r2", static_routes_input,next_hop=DEFAULT_ROUTE_NXT_HOP_R1[addr_type])
+=======
+        result = verify_bgp_rib(
+            tgen,
+            addr_type,
+            "r2",
+            static_routes_input,
+            next_hop=DEFAULT_ROUTE_NXT_HOP_R1[addr_type],
+        )
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         assert result is True, "Testcase {} : Failed \n Error: {}".format(
             tc_name, result
         )
     write_test_footer(tc_name)
 
+<<<<<<< HEAD
+=======
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 if __name__ == "__main__":
     args = ["-s"] + sys.argv[1:]
     sys.exit(pytest.main(args))

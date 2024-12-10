@@ -426,6 +426,13 @@ def config_ospf_interface(
                     cmd = "ip ospf authentication null"
                 elif data_ospf_auth == "message-digest":
                     cmd = "ip ospf authentication message-digest"
+<<<<<<< HEAD
+=======
+                elif data_ospf_auth == "key-chain":
+                    cmd = "ip ospf authentication key-chain {}".format(
+                        ospf_data["keychain"]
+                    )
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
                 else:
                     cmd = "ip ospf authentication"
 
@@ -1541,7 +1548,11 @@ def verify_ospf_database(
                             )
                             return errormsg
     if ospf_external_lsa:
+<<<<<<< HEAD
         for ospf_ext_lsa, ext_lsa_data in ospf_external_lsa.items():
+=======
+        for ospf_ext_lsa, _ in ospf_external_lsa.items():
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
             if ospf_ext_lsa in show_ospf_json["AS External Link States"]:
                 logger.info(
                     "[DUT: %s]  OSPF LSDB:External LSA %s", router, ospf_ext_lsa
@@ -2505,7 +2516,11 @@ def verify_ospf_gr_helper(tgen, topo, dut, input_dict=None):
         raise ValueError(errormsg)
         return errormsg
 
+<<<<<<< HEAD
     for ospf_gr, gr_data in input_dict.items():
+=======
+    for ospf_gr, _ in input_dict.items():
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         try:
             if input_dict[ospf_gr] == show_ospf_json[ospf_gr]:
                 logger.info(

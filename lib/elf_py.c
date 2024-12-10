@@ -1089,7 +1089,13 @@ static void elffile_add_dynreloc(struct elffile *w, Elf_Data *reldata,
 		symidx = relw->symidx = GELF_R_SYM(rela->r_info);
 		sym = relw->sym = gelf_getsym(symdata, symidx, &relw->_sym);
 		if (sym) {
+<<<<<<< HEAD
 			relw->symname = elfdata_strptr(strdata, sym->st_name);
+=======
+			if (strdata)
+				relw->symname = elfdata_strptr(strdata,
+							       sym->st_name);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			relw->symvalid = GELF_ST_TYPE(sym->st_info)
 					!= STT_NOTYPE;
 			relw->unresolved = sym->st_shndx == SHN_UNDEF;
@@ -1140,7 +1146,11 @@ static PyObject *elffile_load(PyTypeObject *type, PyObject *args,
 	fd = open(filename, O_RDONLY | O_NOCTTY);
 	if (fd < 0 || fstat(fd, &st)) {
 		PyErr_SetFromErrnoWithFilename(PyExc_OSError, filename);
+<<<<<<< HEAD
 		if (fd > 0)
+=======
+		if (fd >= 0)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			close(fd);
 		goto out;
 	}
@@ -1305,7 +1315,11 @@ static PyObject *elffile_load(PyTypeObject *type, PyObject *args,
 	}
 #endif
 
+<<<<<<< HEAD
 	w->sects = calloc(sizeof(PyObject *), w->ehdr->e_shnum);
+=======
+	w->sects = calloc(w->ehdr->e_shnum, sizeof(PyObject *));
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	w->n_sect = w->ehdr->e_shnum;
 
 	return (PyObject *)w;
@@ -1356,6 +1370,18 @@ bool elf_py_init(PyObject *pymod)
 	(void)methods_elfpy;
 #endif
 
+<<<<<<< HEAD
+=======
+#if defined(HAVE_GELF_GETNOTE) && defined(HAVE_ELF_GETDATA_RAWCHUNK)
+	PyObject *elf_notes = Py_True;
+#else
+	PyObject *elf_notes = Py_False;
+#endif
+	Py_INCREF(elf_notes);
+	if (PyModule_AddObject(pymod, "elf_notes", elf_notes))
+		Py_DECREF(elf_notes);
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	ELFFormatError = PyErr_NewException("_clippy.ELFFormatError",
 					    PyExc_ValueError, NULL);
 	PyModule_AddObject(pymod, "ELFFormatError", ELFFormatError);

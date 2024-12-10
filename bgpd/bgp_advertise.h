@@ -69,6 +69,7 @@ struct bgp_adj_out {
 
 	uint32_t addpath_tx_id;
 
+<<<<<<< HEAD
 	/* Advertised attribute.  */
 	struct attr *attr;
 
@@ -77,6 +78,19 @@ struct bgp_adj_out {
 
 	/* Attribute hash */
 	uint32_t attr_hash;
+=======
+	/* Attribute hash */
+	uint32_t attr_hash;
+
+	/* Advertised attribute.  */
+	struct attr *attr;
+
+	/* VPN label information */
+	struct bgp_labels *labels;
+
+	/* Advertisement information.  */
+	struct bgp_advertise *adv;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 };
 
 RB_HEAD(bgp_adj_out_rb, bgp_adj_out);
@@ -95,6 +109,12 @@ struct bgp_adj_in {
 	/* Received attribute.  */
 	struct attr *attr;
 
+<<<<<<< HEAD
+=======
+	/* VPN label information */
+	struct bgp_labels *labels;
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	/* timestamp (monotime) */
 	time_t uptime;
 
@@ -135,10 +155,18 @@ struct bgp_synchronize {
 extern bool bgp_adj_out_lookup(struct peer *peer, struct bgp_dest *dest,
 			       uint32_t addpath_tx_id);
 extern void bgp_adj_in_set(struct bgp_dest *dest, struct peer *peer,
+<<<<<<< HEAD
 			   struct attr *attr, uint32_t addpath_id);
 extern bool bgp_adj_in_unset(struct bgp_dest *dest, struct peer *peer,
 			     uint32_t addpath_id);
 extern void bgp_adj_in_remove(struct bgp_dest *dest, struct bgp_adj_in *bai);
+=======
+			   struct attr *attr, uint32_t addpath_id,
+			   struct bgp_labels *labels);
+extern bool bgp_adj_in_unset(struct bgp_dest **dest, struct peer *peer,
+			     uint32_t addpath_id);
+extern void bgp_adj_in_remove(struct bgp_dest **dest, struct bgp_adj_in *bai);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 extern unsigned int bgp_advertise_attr_hash_key(const void *p);
 extern bool bgp_advertise_attr_hash_cmp(const void *p1, const void *p2);

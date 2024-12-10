@@ -53,9 +53,18 @@ lib_libfrr_la_SOURCES = \
 	lib/jhash.c \
 	lib/json.c \
 	lib/keychain.c \
+<<<<<<< HEAD
 	lib/ldp_sync.c \
 	lib/lib_errors.c \
 	lib/lib_vty.c \
+=======
+	lib/keychain_cli.c \
+	lib/keychain_nb.c \
+	lib/ldp_sync.c \
+	lib/lib_errors.c \
+	lib/lib_vty.c \
+	lib/libagentx.c \
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	lib/libfrr.c \
 	lib/libfrr_trace.c \
 	lib/linklist.c \
@@ -68,6 +77,10 @@ lib_libfrr_la_SOURCES = \
 	lib/mgmt_be_client.c \
 	lib/mgmt_fe_client.c \
 	lib/mgmt_msg.c \
+<<<<<<< HEAD
+=======
+	lib/mgmt_msg_native.c \
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	lib/mlag.c \
 	lib/module.c \
 	lib/mpls.c \
@@ -80,6 +93,10 @@ lib_libfrr_la_SOURCES = \
 	lib/northbound.c \
 	lib/northbound_cli.c \
 	lib/northbound_db.c \
+<<<<<<< HEAD
+=======
+	lib/northbound_oper.c \
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	lib/ntop.c \
 	lib/openbsd-tree.c \
 	lib/pid_output.c \
@@ -127,6 +144,10 @@ lib_libfrr_la_SOURCES = \
 	lib/zlog_5424.c \
 	lib/zlog_5424_cli.c \
 	lib/zlog_live.c \
+<<<<<<< HEAD
+=======
+	lib/zlog_recirculate.c \
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	lib/zlog_targets.c \
 	lib/printf/printf-pos.c \
 	lib/printf/vfprintf.c \
@@ -146,7 +167,14 @@ nodist_lib_libfrr_la_SOURCES = \
 	yang/frr-vrf.yang.c \
 	yang/frr-routing.yang.c \
 	yang/frr-nexthop.yang.c \
+<<<<<<< HEAD
 	yang/ietf/ietf-routing-types.yang.c \
+=======
+	yang/ietf/frr-deviations-ietf-key-chain.yang.c \
+	yang/ietf/ietf-routing-types.yang.c \
+	yang/ietf/ietf-netconf-acm.yang.c \
+	yang/ietf/ietf-key-chain.yang.c \
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	yang/ietf/ietf-interfaces.yang.c \
 	yang/ietf/ietf-bgp-types.yang.c \
 	yang/frr-module-translator.yang.c \
@@ -179,6 +207,10 @@ clippy_scan += \
 	lib/if.c \
 	lib/filter_cli.c \
 	lib/if_rmap.c \
+<<<<<<< HEAD
+=======
+	lib/keychain_cli.c \
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	lib/log_vty.c \
 	lib/mgmt_be_client.c \
 	lib/mgmt_fe_client.c \
@@ -219,11 +251,19 @@ pkginclude_HEADERS += \
 	lib/filter.h \
 	lib/flex_algo.h \
 	lib/freebsd-queue.h \
+<<<<<<< HEAD
+=======
+	lib/frrdistance.h \
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	lib/frrlua.h \
 	lib/frrscript.h \
 	lib/frr_pthread.h \
 	lib/frratomic.h \
 	lib/frrcu.h \
+<<<<<<< HEAD
+=======
+	lib/frrsendmmsg.h \
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	lib/frrstr.h \
 	lib/graph.h \
 	lib/hash.h \
@@ -241,6 +281,10 @@ pkginclude_HEADERS += \
 	lib/ldp_sync.h \
 	lib/lib_errors.h \
 	lib/lib_vty.h \
+<<<<<<< HEAD
+=======
+	lib/libagentx.h \
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	lib/libfrr.h \
 	lib/libfrr_trace.h \
 	lib/libospf.h \
@@ -252,8 +296,15 @@ pkginclude_HEADERS += \
 	lib/memory.h \
 	lib/mgmt.pb-c.h \
 	lib/mgmt_be_client.h \
+<<<<<<< HEAD
 	lib/mgmt_fe_client.h \
 	lib/mgmt_msg.h \
+=======
+	lib/mgmt_defines.h \
+	lib/mgmt_fe_client.h \
+	lib/mgmt_msg.h \
+	lib/mgmt_msg_native.h \
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	lib/mgmt_pb.h \
 	lib/module.h \
 	lib/monotime.h \
@@ -318,6 +369,10 @@ pkginclude_HEADERS += \
 	lib/zlog.h \
 	lib/zlog_5424.h \
 	lib/zlog_live.h \
+<<<<<<< HEAD
+=======
+	lib/zlog_recirculate.h \
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	lib/zlog_targets.h \
 	lib/pbr.h \
 	lib/tc.h \
@@ -397,6 +452,7 @@ lib_libfrrzmq_la_SOURCES = \
 	#end
 
 #
+<<<<<<< HEAD
 # Tail-f's ConfD support
 #
 if CONFD
@@ -409,6 +465,8 @@ lib_confd_la_LIBADD = lib/libfrr.la $(CONFD_LIBS)
 lib_confd_la_SOURCES = lib/northbound_confd.c
 
 #
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 # Sysrepo support
 #
 if SYSREPO
@@ -500,20 +558,54 @@ SUFFIXES += .xref
 %.xref: % $(CLIPPY)
 	$(AM_V_XRELFO) $(CLIPPY) $(top_srcdir)/python/xrelfo.py $(WERROR) $(XRELFO_FLAGS) -o $@ $<
 
+<<<<<<< HEAD
 # dependencies added in python/makefile.py
 frr.xref:
 	$(AM_V_XRELFO) $(CLIPPY) $(top_srcdir)/python/xrelfo.py -o $@ -c vtysh/vtysh_cmd.c $^
+=======
+# these run up to a total of 350k lines at the time of writing.  That's a lot
+# for the compiler to chug down - enough to warrant splitting it up so it can
+# benefit from parallel build.
+vtysh_cmd_split = \
+	vtysh/vtysh_cmd.1.c \
+	vtysh/vtysh_cmd.2.c \
+	vtysh/vtysh_cmd.3.c \
+	vtysh/vtysh_cmd.4.c \
+	vtysh/vtysh_cmd.5.c \
+	vtysh/vtysh_cmd.6.c \
+	vtysh/vtysh_cmd.7.c \
+	vtysh/vtysh_cmd.8.c \
+	# end
+
+# dependencies added in python/makefile.py
+frr.xref:
+	$(AM_V_XRELFO) $(CLIPPY) $(top_srcdir)/python/xrelfo.py -o $@ $^ \
+		-c vtysh/vtysh_cmd.c $(vtysh_cmd_split)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 all-am: frr.xref
 
 clean-xref:
 	-rm -rf $(xrefs) frr.xref
 clean-local: clean-xref
 
+<<<<<<< HEAD
 CLEANFILES += vtysh/vtysh_cmd.c
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 vtysh/vtysh_cmd.c: frr.xref
 	@test -f $@ || rm -f frr.xref || true
 	@test -f $@ || $(MAKE) $(AM_MAKEFLAGS) frr.xref
 
+<<<<<<< HEAD
+=======
+vtysh/vtysh_cmd.%.c: vtysh/vtysh_cmd.c
+	@test -f $@ || rm -f vtysh/vtysh_cmd.c || true
+	@test -f $@ || $(MAKE) $(AM_MAKEFLAGS) vtysh/vtysh_cmd.c
+
+nodist_vtysh_vtysh_SOURCES = vtysh/vtysh_cmd.c $(vtysh_cmd_split)
+CLEANFILES += vtysh/vtysh_cmd.c $(vtysh_cmd_split)
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 ## automake's "ylwrap" is a great piece of GNU software... not.
 .l.c:
 	$(AM_V_LEX)$(am__skiplex) $(LEXCOMPILE) $<
@@ -534,12 +626,28 @@ EXTRA_DIST += \
 BUILT_SOURCES += \
 	lib/gitversion.h \
 	lib/route_types.h \
+<<<<<<< HEAD
+=======
+	lib/vtysh_daemons.h \
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	# end
 
 ## force route_types.h
 $(lib_clippy_OBJECTS): lib/route_types.h
 $(lib_libfrr_la_OBJECTS): lib/route_types.h
 
+<<<<<<< HEAD
+=======
+# force lib_daemons.h
+$(lib_libfrr_la_OBJECTS): lib/vtysh_daemons.h
+
+CLEANFILES += lib/vtysh_daemons.h
+lib/vtysh_daemons.h:
+	@$(MKDIR_P) lib
+	$(PERL) $(top_srcdir)/vtysh/daemons.pl $(vtysh_daemons) > lib/vtysh_daemons.h
+
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 AM_YFLAGS = -d -Dapi.prefix=@BISON_OPENBRACE@cmd_yy@BISON_CLOSEBRACE@ @BISON_VERBOSE@
 
 lib/command_lex.h: lib/command_lex.c

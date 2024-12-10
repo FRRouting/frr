@@ -32,6 +32,11 @@ enum bfd_session_event {
 	BSE_UNINSTALL,
 	/** Install the BFD session configuration. */
 	BSE_INSTALL,
+<<<<<<< HEAD
+=======
+	/** We should install but it couldn't because of a error talking to zebra */
+	BSE_VALID_FOR_INSTALL,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 };
 
 /**
@@ -527,6 +532,13 @@ static void _bfd_sess_send(struct event *t)
 			vrf_id_to_name(bsp->args.vrf_id), bsp->args.vrf_id,
 			bsp->lastev == BSE_INSTALL ? "installed"
 						   : "uninstalled");
+<<<<<<< HEAD
+=======
+
+		bsp->installed = false;
+		if (bsp->lastev == BSE_INSTALL)
+			bsp->lastev = BSE_VALID_FOR_INSTALL;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	}
 }
 
@@ -541,7 +553,11 @@ static void _bfd_sess_remove(struct bfd_session_params *bsp)
 
 	/* Send request to remove any session. */
 	bsp->lastev = BSE_UNINSTALL;
+<<<<<<< HEAD
 	event_execute(bsglobal.tm, _bfd_sess_send, bsp, 0);
+=======
+	event_execute(bsglobal.tm, _bfd_sess_send, bsp, 0, NULL);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 }
 
 void bfd_sess_free(struct bfd_session_params **bsp)
@@ -883,7 +899,11 @@ int zclient_bfd_session_replay(ZAPI_CALLBACK_ARGS)
 	/* Replay all activated peers. */
 	TAILQ_FOREACH (bsp, &bsglobal.bsplist, entry) {
 		/* Skip not installed sessions. */
+<<<<<<< HEAD
 		if (!bsp->installed)
+=======
+		if (!bsp->installed && bsp->lastev != BSE_VALID_FOR_INSTALL)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			continue;
 
 		/* We are reconnecting, so we must send installation. */
@@ -894,7 +914,11 @@ int zclient_bfd_session_replay(ZAPI_CALLBACK_ARGS)
 
 		/* Ask for installation. */
 		bsp->lastev = BSE_INSTALL;
+<<<<<<< HEAD
 		event_execute(bsglobal.tm, _bfd_sess_send, bsp, 0);
+=======
+		event_execute(bsglobal.tm, _bfd_sess_send, bsp, 0, NULL);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	}
 
 	return 0;
@@ -1282,7 +1306,10 @@ static bool bfd_source_cache_update(struct bfd_source_cache *source,
 		const struct zapi_nexthop *nh = &route->nexthops[nh_index];
 		const struct interface *interface;
 		const struct connected *connected;
+<<<<<<< HEAD
 		const struct listnode *node;
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 		interface = if_lookup_by_index(nh->ifindex, nh->vrf_id);
 		if (interface == NULL) {
@@ -1291,8 +1318,12 @@ static bool bfd_source_cache_update(struct bfd_source_cache *source,
 			continue;
 		}
 
+<<<<<<< HEAD
 		for (ALL_LIST_ELEMENTS_RO(interface->connected, node,
 					  connected)) {
+=======
+		frr_each (if_connected_const, interface->connected, connected) {
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			if (source->address.family !=
 			    connected->address->family)
 				continue;
@@ -1336,3 +1367,12 @@ int bfd_nht_update(const struct prefix *match, const struct zapi_route *route)
 
 	return 0;
 }
+<<<<<<< HEAD
+=======
+
+bool bfd_session_is_down(const struct bfd_session_params *session)
+{
+	return session->bss.state == BSS_DOWN ||
+	       session->bss.state == BSS_ADMIN_DOWN;
+}
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)

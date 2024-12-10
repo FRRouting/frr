@@ -47,6 +47,10 @@ noinst_HEADERS += \
 	isisd/isis_spf_private.h \
 	isisd/isis_sr.h \
 	isisd/isis_flex_algo.h \
+<<<<<<< HEAD
+=======
+	isisd/isis_srv6.h \
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	isisd/isis_te.h \
 	isisd/isis_tlvs.h \
 	isisd/isis_tx_queue.h \
@@ -80,6 +84,10 @@ LIBISIS_SOURCES = \
 	isisd/isis_spf.c \
 	isisd/isis_sr.c \
 	isisd/isis_flex_algo.c \
+<<<<<<< HEAD
+=======
+	isisd/isis_srv6.c \
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	isisd/isis_te.c \
 	isisd/isis_tlvs.c \
 	isisd/isis_tx_queue.c \

@@ -76,7 +76,11 @@ submodule frr-bgp-neighbor {
 
     leaf enforce-first-as {
       type boolean;
+<<<<<<< HEAD
       default "false";
+=======
+      default "true";
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
       description
         "When set to 'true' it will enforce the first AS for EBGP routes.";
     }

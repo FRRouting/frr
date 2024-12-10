@@ -82,7 +82,11 @@ struct sr_local_block {
 /* Segment Routing Adjacency-SID type. */
 enum sr_adj_type {
 	ISIS_SR_ADJ_NORMAL = 0,
+<<<<<<< HEAD
 	ISIS_SR_LAN_BACKUP,
+=======
+	ISIS_SR_ADJ_BACKUP,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 };
 
 /* Segment Routing Adjacency. */
@@ -222,6 +226,10 @@ extern struct sr_adjacency *isis_sr_adj_sid_find(struct isis_adjacency *adj,
 						 int family,
 						 enum sr_adj_type type);
 extern void isis_area_delete_backup_adj_sids(struct isis_area *area, int level);
+<<<<<<< HEAD
+=======
+extern int sr_if_addr_update(struct interface *ifp);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 extern char *sr_op2str(char *buf, size_t size, mpls_label_t label_in,
 		       mpls_label_t label_out);
 extern int isis_sr_start(struct isis_area *area);

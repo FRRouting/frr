@@ -73,7 +73,11 @@ def test_bgp_aggregator_zero():
         return topotest.json_cmp(output, expected)
 
     test_func = functools.partial(_bgp_converge)
+<<<<<<< HEAD
     success, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
+=======
+    _, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     assert result is None, "More than one prefix seen at r1, SHOULD be only one."
 
     def _bgp_has_correct_routes_without_asn_0():
@@ -82,7 +86,11 @@ def test_bgp_aggregator_zero():
         return topotest.json_cmp(output, expected)
 
     test_func = functools.partial(_bgp_has_correct_routes_without_asn_0)
+<<<<<<< HEAD
     success, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
+=======
+    _, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     assert result is None, "Failed listing 192.168.100.101/32, SHOULD be accepted."
 
 

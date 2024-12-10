@@ -14,6 +14,10 @@ struct pbr_interface {
 extern struct event_loop *master;
 
 extern void pbr_zebra_init(void);
+<<<<<<< HEAD
+=======
+extern void pbr_zebra_destroy(void);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 extern void route_add(struct pbr_nexthop_group_cache *pnhgc,
 		      struct nexthop_group nhg, afi_t install_afi);

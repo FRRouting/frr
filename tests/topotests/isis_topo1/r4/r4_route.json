@@ -61,5 +61,23 @@
       "protocol": "connected",
       "selected": true
     }
+<<<<<<< HEAD
+=======
+  ],
+  "192.0.2.6/32": [
+    {
+      "nexthops": [
+        {
+          "active": true,
+          "fib": true,
+          "ip": "10.0.11.1",
+          "interfaceName": "r4-eth1"
+        }
+      ],
+      "prefix": "192.0.2.6/32",
+      "protocol": "isis",
+      "selected": true
+    }
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
   ]
 }

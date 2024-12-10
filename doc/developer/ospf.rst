@@ -8,5 +8,11 @@ OSPFD
    :maxdepth: 2
 
    ospf-api
+<<<<<<< HEAD
    ospf-sr
+=======
+   ospf-ls-retrans
+   ospf-sr
+   cspf
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 

@@ -61,7 +61,11 @@ int main(void)
 
 	zlog_aux_init("NONE: ", LOG_DEBUG);
 
+<<<<<<< HEAD
 	event_execute(master, threadfunc, 0, 0);
+=======
+	event_execute(master, threadfunc, 0, 0, NULL);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	exit(0);
 }

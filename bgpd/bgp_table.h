@@ -6,10 +6,13 @@
 #ifndef _QUAGGA_BGP_TABLE_H
 #define _QUAGGA_BGP_TABLE_H
 
+<<<<<<< HEAD
 /* XXX BEGIN TEMPORARY COMPAT */
 #define bgp_dest bgp_node
 /* XXX END TEMPORARY COMPAT */
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 #include "mpls.h"
 #include "table.h"
 #include "queue.h"
@@ -67,6 +70,7 @@ enum bgp_path_selection_reason {
 	bgp_path_selection_default,
 };
 
+<<<<<<< HEAD
 struct bgp_node {
 	/*
 	 * CAUTION
@@ -77,6 +81,12 @@ struct bgp_node {
 	 * @see bgp_node_from_rnode
 	 */
 	ROUTE_NODE_FIELDS
+=======
+struct bgp_dest {
+	struct route_node *rn;
+
+	void *info;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	struct bgp_adj_out_rb adj_out;
 
@@ -86,6 +96,14 @@ struct bgp_node {
 
 	STAILQ_ENTRY(bgp_dest) pq;
 
+<<<<<<< HEAD
+=======
+	struct zebra_announce_item zai;
+	struct bgp_path_info *za_bgp_pi;
+	struct bgpevpn *za_vpn;
+	bool za_is_sync;
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	uint64_t version;
 
 	mpls_label_t local_label;
@@ -100,12 +118,23 @@ struct bgp_node {
 #define BGP_NODE_FIB_INSTALLED          (1 << 6)
 #define BGP_NODE_LABEL_REQUESTED        (1 << 7)
 #define BGP_NODE_SOFT_RECONFIG (1 << 8)
+<<<<<<< HEAD
+=======
+#define BGP_NODE_PROCESS_CLEAR (1 << 9)
+#define BGP_NODE_SCHEDULE_FOR_INSTALL	(1 << 10)
+#define BGP_NODE_SCHEDULE_FOR_DELETE	(1 << 11)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	struct bgp_addpath_node_data tx_addpath;
 
 	enum bgp_path_selection_reason reason;
 };
 
+<<<<<<< HEAD
+=======
+DECLARE_LIST(zebra_announce, struct bgp_dest, zai);
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 extern void bgp_delete_listnode(struct bgp_dest *dest);
 /*
  * bgp_table_iter_t
@@ -121,7 +150,11 @@ extern struct bgp_table *bgp_table_init(struct bgp *bgp, afi_t, safi_t);
 extern void bgp_table_lock(struct bgp_table *);
 extern void bgp_table_unlock(struct bgp_table *);
 extern void bgp_table_finish(struct bgp_table **);
+<<<<<<< HEAD
 extern void bgp_dest_unlock_node(struct bgp_dest *dest);
+=======
+extern struct bgp_dest *bgp_dest_unlock_node(struct bgp_dest *dest);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 extern struct bgp_dest *bgp_dest_lock_node(struct bgp_dest *dest);
 extern const char *bgp_dest_get_prefix_str(struct bgp_dest *dest);
 
@@ -133,7 +166,11 @@ extern const char *bgp_dest_get_prefix_str(struct bgp_dest *dest);
  */
 static inline struct bgp_dest *bgp_dest_from_rnode(struct route_node *rnode)
 {
+<<<<<<< HEAD
 	return (struct bgp_dest *)rnode;
+=======
+	return (rnode && rnode->info) ? (struct bgp_dest *)rnode->info : NULL;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 }
 
 /*
@@ -143,7 +180,11 @@ static inline struct bgp_dest *bgp_dest_from_rnode(struct route_node *rnode)
  */
 static inline struct route_node *bgp_dest_to_rnode(const struct bgp_dest *dest)
 {
+<<<<<<< HEAD
 	return (struct route_node *)dest;
+=======
+	return dest ? dest->rn : NULL;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 }
 
 /*
@@ -165,6 +206,12 @@ static inline struct bgp_dest *bgp_dest_parent_nolock(struct bgp_dest *dest)
 {
 	struct route_node *rn = bgp_dest_to_rnode(dest)->parent;
 
+<<<<<<< HEAD
+=======
+	while (rn && !rn->info)
+		rn = rn->parent;
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	return bgp_dest_from_rnode(rn);
 }
 
@@ -178,7 +225,21 @@ static inline struct bgp_dest *bgp_dest_parent_nolock(struct bgp_dest *dest)
 static inline struct bgp_dest *
 bgp_table_top_nolock(const struct bgp_table *const table)
 {
+<<<<<<< HEAD
 	return bgp_dest_from_rnode(table->route_table->top);
+=======
+	struct route_node *top;
+	struct route_node *rn = top = table->route_table->top;
+
+	while (rn && !rn->info) {
+		if (rn == top)
+			route_lock_node(rn);
+		rn = route_next(rn);
+	}
+	if (rn && rn != top)
+		route_unlock_node(rn);
+	return rn ? rn->info : NULL;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 }
 
 /*
@@ -187,7 +248,15 @@ bgp_table_top_nolock(const struct bgp_table *const table)
 static inline struct bgp_dest *
 bgp_table_top(const struct bgp_table *const table)
 {
+<<<<<<< HEAD
 	return bgp_dest_from_rnode(route_top(table->route_table));
+=======
+	struct route_node *rn = route_top(table->route_table);
+
+	while (rn && !rn->info)
+		rn = route_next(rn);
+	return rn ? rn->info : NULL;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 }
 
 /*
@@ -195,7 +264,15 @@ bgp_table_top(const struct bgp_table *const table)
  */
 static inline struct bgp_dest *bgp_route_next(struct bgp_dest *dest)
 {
+<<<<<<< HEAD
 	return bgp_dest_from_rnode(route_next(bgp_dest_to_rnode(dest)));
+=======
+	struct route_node *rn = route_next(bgp_dest_to_rnode(dest));
+
+	while (rn && !rn->info)
+		rn = route_next(rn);
+	return bgp_dest_from_rnode(rn);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 }
 
 /*
@@ -209,6 +286,12 @@ static inline struct bgp_dest *bgp_route_next_until(struct bgp_dest *dest,
 	rnode = route_next_until(bgp_dest_to_rnode(dest),
 			bgp_dest_to_rnode(limit));
 
+<<<<<<< HEAD
+=======
+	while (rnode && !rnode->info)
+		rnode = route_next_until(rnode, bgp_dest_to_rnode(limit));
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	return bgp_dest_from_rnode(rnode);
 }
 
@@ -218,7 +301,21 @@ static inline struct bgp_dest *bgp_route_next_until(struct bgp_dest *dest,
 static inline struct bgp_dest *bgp_node_get(struct bgp_table *const table,
 					    const struct prefix *p)
 {
+<<<<<<< HEAD
 	return bgp_dest_from_rnode(route_node_get(table->route_table, p));
+=======
+	struct route_node *rn = route_node_get(table->route_table, p);
+
+	if (!rn->info) {
+		struct bgp_dest *dest = XCALLOC(MTYPE_BGP_NODE,
+						sizeof(struct bgp_dest));
+
+		RB_INIT(bgp_adj_out_rb, &dest->adj_out);
+		rn->info = dest;
+		dest->rn = rn;
+	}
+	return rn->info;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 }
 
 /*
@@ -254,7 +351,15 @@ static inline unsigned long bgp_table_count(const struct bgp_table *const table)
 static inline struct bgp_dest *bgp_table_get_next(const struct bgp_table *table,
 						  const struct prefix *p)
 {
+<<<<<<< HEAD
 	return bgp_dest_from_rnode(route_table_get_next(table->route_table, p));
+=======
+	struct route_node *rn = route_table_get_next(table->route_table, p);
+
+	while (rn && !rn->info)
+		rn = route_next(rn);
+	return bgp_dest_from_rnode(rn);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 }
 
 /* This would benefit from a real atomic operation...
@@ -356,7 +461,11 @@ static inline void bgp_dest_set_bgp_path_info(struct bgp_dest *dest,
 static inline struct bgp_table *
 bgp_dest_get_bgp_table_info(struct bgp_dest *dest)
 {
+<<<<<<< HEAD
 	return dest->info;
+=======
+	return dest ? dest->info : NULL;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 }
 
 static inline void bgp_dest_set_bgp_table_info(struct bgp_dest *dest,
@@ -367,17 +476,29 @@ static inline void bgp_dest_set_bgp_table_info(struct bgp_dest *dest,
 
 static inline bool bgp_dest_has_bgp_path_info_data(struct bgp_dest *dest)
 {
+<<<<<<< HEAD
 	return !!dest->info;
+=======
+	return dest ? !!dest->info : false;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 }
 
 static inline const struct prefix *bgp_dest_get_prefix(const struct bgp_dest *dest)
 {
+<<<<<<< HEAD
 	return &dest->p;
+=======
+	return dest ? &dest->rn->p : NULL;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 }
 
 static inline unsigned int bgp_dest_get_lock_count(const struct bgp_dest *dest)
 {
+<<<<<<< HEAD
 	return dest->lock;
+=======
+	return dest ? dest->rn->lock : 0;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 }
 
 #ifdef _FRR_ATTRIBUTE_PRINTFRR

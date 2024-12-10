@@ -13,6 +13,12 @@ module frr-ripngd {
   import frr-if-rmap {
     prefix frr-if-rmap;
   }
+<<<<<<< HEAD
+=======
+  import frr-filter {
+    prefix frr-filter;
+  }
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
   import frr-interface {
     prefix frr-interface;
   }
@@ -63,6 +69,10 @@ module frr-ripngd {
     description
       "Changed interface references to use
       frr-interface:interface-ref typedef";
+<<<<<<< HEAD
+=======
+    reference "FRRouting";
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
   }
   revision 2018-11-27 {
     description
@@ -72,6 +82,10 @@ module frr-ripngd {
   }
 
   container ripngd {
+<<<<<<< HEAD
+=======
+    description "ripng routing instance data";
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     /*
      * Routing instance configuration.
      */
@@ -169,15 +183,27 @@ module frr-ripngd {
           "A list of interfaces where the sending of RIPng packets
            is disabled.";
       }
+<<<<<<< HEAD
+=======
+
+      uses frr-filter:distribute-list-group;
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
       list redistribute {
         key "protocol";
         description
           "Redistributes routes learned from other routing protocols.";
         leaf protocol {
           type frr-route-types:frr-route-types-v6;
+<<<<<<< HEAD
           description
             "Routing protocol.";
           must '. != "ripng"';
+=======
+          must '. != "ripng"';
+          description
+            "Routing protocol.";
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         }
         leaf route-map {
           type frr-route-map:route-map-ref;
@@ -330,6 +356,10 @@ module frr-ripngd {
    * Per-interface configuration data
    */
   augment "/frr-interface:lib/frr-interface:interface" {
+<<<<<<< HEAD
+=======
+    description "RIPng interface augmentation.";
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     container ripng {
       description
         "RIPng interface parameters.";

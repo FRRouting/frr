@@ -24,11 +24,15 @@ protocol.
 Starting VRRP
 =============
 
+<<<<<<< HEAD
 The configuration file for *vrrpd* is :file:`vrrpd.conf`. The typical location
 of :file:`vrrpd.conf` is |INSTALL_PREFIX_ETC|/vrrpd.conf.
 
 If using integrated config, then :file:`vrrpd.conf` need not be present and
 :file:`frr.conf` is read instead.
+=======
+.. include:: config-include.rst
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 .. program:: vrrpd
 
@@ -523,6 +527,10 @@ Check:
 - Do you have unusual ``sysctls`` enabled that could affect the operation of
   multicast traffic?
 - Are you running in ESXi? See below.
+<<<<<<< HEAD
+=======
+- Are you running in a linux VM with a bridged network? See below.
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 
 My master router is not forwarding traffic
@@ -556,6 +564,27 @@ feature instead, explained `here
 
 Issue reference: https://github.com/FRRouting/frr/issues/5386
 
+<<<<<<< HEAD
+=======
+My router is running in a linux VM with a bridged host network and VRRP has issues
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Issues can arise with VRRP (especially IPv6) when you have a VM running on top
+of a linux host, where your physical network is in a bridge, and the VM
+has an interface attached to the bridge. By default, the linux bridge will
+snoop multicast traffic, and you will likely see sporadic VRRP advertisements failing
+to be received. IPv6 traffic was be particularly affected.
+
+This was observed on a VM running on proxmox, and the solution was to disable
+multicast snooping on the bridge:
+
+.. code-block:: console
+
+   echo 0 > /sys/devices/virtual/net/vmbr0/bridge/multicast_snooping
+
+Issue reference: https://github.com/FRRouting/frr/issues/5386
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 My router cannot interoperate with branded routers / L3 switches
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

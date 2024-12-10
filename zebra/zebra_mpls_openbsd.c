@@ -4,6 +4,11 @@
  */
 
 #include <zebra.h>
+<<<<<<< HEAD
+=======
+#include <sys/ioctl.h>
+#include <sys/uio.h>
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 #ifdef OPEN_BSD
 
@@ -62,8 +67,13 @@ static int kernel_send_rtmsg_v4(int action, mpls_label_t in_label,
 	sa_label_in.smpls_family = AF_MPLS;
 	sa_label_in.smpls_label = htonl(in_label << MPLS_LABEL_OFFSET);
 	/* adjust header */
+<<<<<<< HEAD
 	hdr.rtm_flags |= RTF_MPLS | RTF_MPATH;
 	hdr.rtm_addrs |= RTA_DST;
+=======
+	SET_FLAG(hdr.rtm_flags, (RTF_MPLS | RTF_MPATH));
+	SET_FLAG(hdr.rtm_addrs, RTA_DST);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	hdr.rtm_msglen += sizeof(sa_label_in);
 	/* adjust iovec */
 	iov[iovcnt].iov_base = &sa_label_in;
@@ -75,8 +85,13 @@ static int kernel_send_rtmsg_v4(int action, mpls_label_t in_label,
 	nexthop.sin_family = AF_INET;
 	nexthop.sin_addr = nhlfe->nexthop->gate.ipv4;
 	/* adjust header */
+<<<<<<< HEAD
 	hdr.rtm_flags |= RTF_GATEWAY;
 	hdr.rtm_addrs |= RTA_GATEWAY;
+=======
+	SET_FLAG(hdr.rtm_flags, RTF_GATEWAY);
+	SET_FLAG(hdr.rtm_addrs, RTA_GATEWAY);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	hdr.rtm_msglen += sizeof(nexthop);
 	/* adjust iovec */
 	iov[iovcnt].iov_base = &nexthop;
@@ -91,8 +106,13 @@ static int kernel_send_rtmsg_v4(int action, mpls_label_t in_label,
 			htonl(nhlfe->nexthop->nh_label->label[0]
 			      << MPLS_LABEL_OFFSET);
 		/* adjust header */
+<<<<<<< HEAD
 		hdr.rtm_addrs |= RTA_SRC;
 		hdr.rtm_flags |= RTF_MPLS;
+=======
+		SET_FLAG(hdr.rtm_addrs, RTA_SRC);
+		SET_FLAG(hdr.rtm_flags, RTF_MPLS);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		hdr.rtm_msglen += sizeof(sa_label_out);
 		/* adjust iovec */
 		iov[iovcnt].iov_base = &sa_label_out;
@@ -157,8 +177,13 @@ static int kernel_send_rtmsg_v6(int action, mpls_label_t in_label,
 	sa_label_in.smpls_family = AF_MPLS;
 	sa_label_in.smpls_label = htonl(in_label << MPLS_LABEL_OFFSET);
 	/* adjust header */
+<<<<<<< HEAD
 	hdr.rtm_flags |= RTF_MPLS | RTF_MPATH;
 	hdr.rtm_addrs |= RTA_DST;
+=======
+	SET_FLAG(hdr.rtm_flags, (RTF_MPLS | RTF_MPATH));
+	SET_FLAG(hdr.rtm_addrs, RTA_DST);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	hdr.rtm_msglen += sizeof(sa_label_in);
 	/* adjust iovec */
 	iov[iovcnt].iov_base = &sa_label_in;
@@ -182,8 +207,13 @@ static int kernel_send_rtmsg_v6(int action, mpls_label_t in_label,
 	}
 
 	/* adjust header */
+<<<<<<< HEAD
 	hdr.rtm_flags |= RTF_GATEWAY;
 	hdr.rtm_addrs |= RTA_GATEWAY;
+=======
+	SET_FLAG(hdr.rtm_flags, RTF_GATEWAY);
+	SET_FLAG(hdr.rtm_addrs, RTA_GATEWAY);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	hdr.rtm_msglen += ROUNDUP(sizeof(struct sockaddr_in6));
 	/* adjust iovec */
 	iov[iovcnt].iov_base = &nexthop;
@@ -198,8 +228,13 @@ static int kernel_send_rtmsg_v6(int action, mpls_label_t in_label,
 			htonl(nhlfe->nexthop->nh_label->label[0]
 			      << MPLS_LABEL_OFFSET);
 		/* adjust header */
+<<<<<<< HEAD
 		hdr.rtm_addrs |= RTA_SRC;
 		hdr.rtm_flags |= RTF_MPLS;
+=======
+		SET_FLAG(hdr.rtm_addrs, RTA_SRC);
+		SET_FLAG(hdr.rtm_flags, RTF_MPLS);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		hdr.rtm_msglen += sizeof(sa_label_out);
 		/* adjust iovec */
 		iov[iovcnt].iov_base = &sa_label_out;
@@ -229,6 +264,7 @@ static int kernel_lsp_cmd(struct zebra_dplane_ctx *ctx)
 	const struct nexthop *nexthop = NULL;
 	unsigned int nexthop_num = 0;
 	int action;
+<<<<<<< HEAD
 
 	switch (dplane_ctx_get_op(ctx)) {
 	case DPLANE_OP_LSP_DELETE:
@@ -293,6 +329,20 @@ static int kernel_lsp_cmd(struct zebra_dplane_ctx *ctx)
 	case DPLANE_OP_TC_FILTER_UPDATE:
 		return -1;
 	}
+=======
+	enum dplane_op_e op;
+
+	op = dplane_ctx_get_op(ctx);
+
+	if (op == DPLANE_OP_LSP_DELETE)
+		action = RTM_DELETE;
+	else if (op == DPLANE_OP_LSP_INSTALL)
+		action = RTM_ADD;
+	else if (op == DPLANE_OP_LSP_UPDATE)
+		action = RTM_CHANGE;
+	else
+		return -1;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	head = dplane_ctx_get_nhlfe_list(ctx);
 	frr_each(nhlfe_list_const, head, nhlfe) {
@@ -374,8 +424,13 @@ static enum zebra_dplane_result kmpw_install(struct zebra_dplane_ctx *ctx)
 		return ZEBRA_DPLANE_REQUEST_FAILURE;
 	}
 
+<<<<<<< HEAD
 	if (dplane_ctx_get_pw_flags(ctx) & F_PSEUDOWIRE_CWORD)
 		imr.imr_flags |= IMR_FLAG_CONTROLWORD;
+=======
+	if (CHECK_FLAG(dplane_ctx_get_pw_flags(ctx), F_PSEUDOWIRE_CWORD))
+		SET_FLAG(imr.imr_flags, IMR_FLAG_CONTROLWORD);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	/* pseudowire nexthop */
 	memset(&ss, 0, sizeof(ss));
@@ -442,6 +497,7 @@ static enum zebra_dplane_result kmpw_uninstall(struct zebra_dplane_ctx *ctx)
 enum zebra_dplane_result kernel_pw_update(struct zebra_dplane_ctx *ctx)
 {
 	enum zebra_dplane_result result = ZEBRA_DPLANE_REQUEST_FAILURE;
+<<<<<<< HEAD
 
 	switch (dplane_ctx_get_op(ctx)) {
 	case DPLANE_OP_PW_INSTALL:
@@ -504,6 +560,16 @@ enum zebra_dplane_result kernel_pw_update(struct zebra_dplane_ctx *ctx)
 	case DPLANE_OP_TC_FILTER_UPDATE:
 		break;
 	}
+=======
+	enum dplane_op_e op;
+
+	op = dplane_ctx_get_op(ctx);
+
+	if (op == DPLANE_OP_PW_INSTALL)
+		result = kmpw_install(ctx);
+	else if (op == DPLANE_OP_PW_UNINSTALL)
+		result = kmpw_uninstall(ctx);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	return result;
 }

@@ -639,6 +639,7 @@ in order into ``*argv[]``. Before this happens the ``->arg`` field is set to
 point at the snippet of user input that matched it.
 
 For most nontrivial commands the handler function will need to determine which
+<<<<<<< HEAD
 of the possible matching inputs was entered. Previously this was done by looking
 at the first few characters of input. This is now considered an anti-pattern and
 should be avoided. Instead, the ``->type`` or ``->text`` fields for this logic.
@@ -646,6 +647,16 @@ The ``->type`` field can be used when the possible inputs differ in type. When
 the possible types are the same, use the ``->text`` field. This field has the
 full text of the corresponding token in the definition string and using it makes
 for much more readable code. An example is helpful.
+=======
+of the possible matching inputs was entered. Previously this was done by
+looking at the first few characters of input. This is now considered an
+anti-pattern and should be avoided. Instead, use the ``->type`` or ``->text``
+fields for this logic. The ``->type`` field can be used when the possible
+inputs differ in type. When the possible types are the same, use the ``->text``
+field. This field has the full text of the corresponding token in the
+definition string and using it makes for much more readable code. An example is
+helpful.
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 Command definition:
 
@@ -654,9 +665,16 @@ Command definition:
    command <(1-10)|foo|BAR>
 
 In this example, the user may enter any one of:
+<<<<<<< HEAD
 - an integer between 1 and 10
 - "foo"
 - anything at all
+=======
+
+* an integer between 1 and 10
+* "foo"
+* anything at all
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 If the user enters "command f", then:
 
@@ -793,12 +811,21 @@ Adding a CLI Node
 
 To add a new CLI node, you should:
 
+<<<<<<< HEAD
 - define a new numerical node constant
 - define a node structure in the relevant daemon
 - call ``install_node()`` in the relevant daemon
 - define and install the new node in vtysh
 - define corresponding node entry commands in daemon and vtysh
 - add a new entry to the ``ctx_keywords`` dictionary in ``tools/frr-reload.py``
+=======
+#. define a new numerical node constant
+#. define a node structure in the relevant daemon
+#. call ``install_node()`` in the relevant daemon
+#. define and install the new node in vtysh
+#. define corresponding node entry commands in daemon and vtysh
+#. add a new entry to the ``ctx_keywords`` dictionary in ``tools/frr-reload.py``
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 Defining the numerical node constant
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

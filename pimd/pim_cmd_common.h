@@ -7,6 +7,11 @@
 #ifndef PIM_CMD_COMMON_H
 #define PIM_CMD_COMMON_H
 
+<<<<<<< HEAD
+=======
+#define BSR_STR "Bootstrap Router configuration\n"
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 struct pim_upstream;
 struct pim_instance;
 
@@ -33,7 +38,20 @@ int pim_process_rp_plist_cmd(struct vty *vty, const char *rp_str,
 			     const char *prefix_list);
 int pim_process_no_rp_plist_cmd(struct vty *vty, const char *rp_str,
 				const char *prefix_list);
+<<<<<<< HEAD
 
+=======
+int pim_process_autorp_cmd(struct vty *vty);
+int pim_process_no_autorp_cmd(struct vty *vty);
+int pim_process_autorp_candidate_rp_cmd(struct vty *vty, bool no, const char *rpaddr_str,
+					const char *grp, const char *plist);
+int pim_process_autorp_announce_scope_int_cmd(struct vty *vty, bool no, const char *scope,
+					      const char *interval, const char *holdtime);
+int pim_process_autorp_send_rp_discovery_cmd(struct vty *vty, bool no, bool any, bool loopback,
+					     const char *ifname, const char *addr);
+int pim_process_autorp_send_rp_discovery_scope_int_cmd(struct vty *vty, bool no, const char *scope,
+						       const char *interval, const char *holdtime);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 int pim_process_ip_pim_cmd(struct vty *vty);
 int pim_process_no_ip_pim_cmd(struct vty *vty);
 int pim_process_ip_pim_passive_cmd(struct vty *vty, bool enable);
@@ -45,6 +63,10 @@ int pim_process_no_ip_pim_hello_cmd(struct vty *vty);
 int pim_process_ip_pim_activeactive_cmd(struct vty *vty, const char *no);
 int pim_process_ip_pim_boundary_oil_cmd(struct vty *vty, const char *oil);
 int pim_process_no_ip_pim_boundary_oil_cmd(struct vty *vty);
+<<<<<<< HEAD
+=======
+int pim_process_ip_gmp_proxy_cmd(struct vty *vty, bool enable);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 int pim_process_ip_mroute_cmd(struct vty *vty, const char *interface,
 			      const char *group_str, const char *source_str);
 int pim_process_no_ip_mroute_cmd(struct vty *vty, const char *interface,
@@ -53,6 +75,16 @@ int pim_process_bsm_cmd(struct vty *vty);
 int pim_process_no_bsm_cmd(struct vty *vty);
 int pim_process_unicast_bsm_cmd(struct vty *vty);
 int pim_process_no_unicast_bsm_cmd(struct vty *vty);
+<<<<<<< HEAD
+=======
+
+int pim_process_bsr_candidate_cmd(struct vty *vty, const char *cand_str,
+				  bool no, bool is_rp, bool any,
+				  const char *ifname, const char *addr,
+				  const char *prio, const char *interval);
+int pim_process_bsr_crp_grp_cmd(struct vty *vty, const char *grp, bool no);
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 void json_object_pim_upstream_add(json_object *json, struct pim_upstream *up);
 void pim_show_rpf(struct pim_instance *pim, struct vty *vty, json_object *json);
 void pim_show_neighbors_secondary(struct pim_instance *pim, struct vty *vty);
@@ -131,6 +163,11 @@ void show_mroute_summary(struct pim_instance *pim, struct vty *vty,
 			 json_object *json);
 int clear_ip_mroute_count_command(struct vty *vty, const char *name);
 struct vrf *pim_cmd_lookup(struct vty *vty, const char *name);
+<<<<<<< HEAD
+=======
+struct vrf *pim_cmd_lookup_vrf(struct vty *vty, struct cmd_token *argv[],
+			       const int argc, int *idx, bool uj);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 void clear_mroute(struct pim_instance *pim);
 void clear_pim_statistics(struct pim_instance *pim);
 int clear_pim_interface_traffic(const char *vrf, struct vty *vty);
@@ -182,6 +219,13 @@ int pim_show_interface_traffic_helper(const char *vrf, const char *if_name,
 void clear_pim_interfaces(struct pim_instance *pim);
 void pim_show_bsr(struct pim_instance *pim, struct vty *vty, bool uj);
 int pim_show_bsr_helper(const char *vrf, struct vty *vty, bool uj);
+<<<<<<< HEAD
+=======
+int pim_show_bsr_cand_bsr(const struct vrf *vrf, struct vty *vty, bool uj);
+int pim_show_bsr_cand_rp(const struct vrf *vrf, struct vty *vty, bool uj);
+int pim_router_config_write(struct vty *vty);
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 /*
  * Special Macro to allow us to get the correct pim_instance;
  */

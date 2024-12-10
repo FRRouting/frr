@@ -15,6 +15,13 @@ clippy_scan += \
 	# end
 
 lib_LTLIBRARIES += mgmtd/libmgmt_be_nb.la
+<<<<<<< HEAD
+=======
+mgmtd_libmgmt_be_nb_la_SOURCES = \
+	mgmtd/mgmt_be_nb.c \
+	zebra/zebra_cli.c \
+	# end
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 nodist_mgmtd_libmgmt_be_nb_la_SOURCES = \
 	# end
 mgmtd_libmgmt_be_nb_la_CFLAGS = $(AM_CFLAGS) -DINCLUDE_MGMTD_CMDDEFS_ONLY
@@ -33,11 +40,14 @@ mgmtd_libmgmtd_a_SOURCES = \
 	mgmtd/mgmt_vty.c \
 	# end
 
+<<<<<<< HEAD
 mgmtdheaderdir = $(pkgincludedir)/mgmtd
 mgmtdheader_HEADERS = \
 	mgmtd/mgmt_defines.h \
 	# end
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 noinst_HEADERS += \
 	mgmtd/mgmt.h \
 	mgmtd/mgmt_be_adapter.h \
@@ -46,19 +56,40 @@ noinst_HEADERS += \
 	mgmtd/mgmt_history.h \
 	mgmtd/mgmt_memory.h \
 	mgmtd/mgmt_txn.h \
+<<<<<<< HEAD
+=======
+	zebra/zebra_cli.h \
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	# end
 
 sbin_PROGRAMS += mgmtd/mgmtd
 
+<<<<<<< HEAD
+=======
+if MGMTD_TESTC
+sbin_PROGRAMS += mgmtd/mgmtd_testc
+mgmtd_mgmtd_testc_SOURCES = mgmtd/mgmt_testc.c
+mgmtd_mgmtd_testc_LDADD = lib/libfrr.la
+endif
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 mgmtd_mgmtd_SOURCES = \
 	mgmtd/mgmt_main.c \
 	# end
 nodist_mgmtd_mgmtd_SOURCES = \
+<<<<<<< HEAD
+=======
+	yang/frr-zebra.yang.c \
+	yang/frr-zebra-route-map.yang.c \
+	yang/ietf/ietf-netconf.yang.c \
+	yang/ietf/ietf-netconf-with-defaults.yang.c \
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	# nothing
 mgmtd_mgmtd_CFLAGS = $(AM_CFLAGS) -I ./
 mgmtd_mgmtd_LDADD = mgmtd/libmgmtd.a lib/libfrr.la $(LIBCAP) $(LIBM) $(LIBYANG_LIBS) $(UST_LIBS)
 mgmtd_mgmtd_LDADD += mgmtd/libmgmt_be_nb.la
 
+<<<<<<< HEAD
 if STATICD
 nodist_mgmtd_mgmtd_SOURCES += \
 	yang/frr-staticd.yang.c \
@@ -66,3 +97,41 @@ nodist_mgmtd_mgmtd_SOURCES += \
 	# end
 nodist_mgmtd_libmgmt_be_nb_la_SOURCES += staticd/static_vty.c
 endif
+=======
+
+if STATICD
+nodist_mgmtd_mgmtd_SOURCES += yang/frr-bfdd.yang.c
+else
+if RIPD
+nodist_mgmtd_mgmtd_SOURCES += yang/frr-bfdd.yang.c
+endif
+endif
+
+if RIPD
+nodist_mgmtd_mgmtd_SOURCES += \
+	yang/frr-ripd.yang.c \
+	# end
+mgmtd_libmgmt_be_nb_la_SOURCES += \
+	ripd/rip_cli.c \
+	# end
+endif
+
+if RIPNGD
+nodist_mgmtd_mgmtd_SOURCES += \
+	yang/frr-ripngd.yang.c \
+	# end
+mgmtd_libmgmt_be_nb_la_SOURCES += \
+	ripngd/ripng_cli.c \
+	# end
+endif
+
+if STATICD
+nodist_mgmtd_mgmtd_SOURCES += \
+	yang/frr-staticd.yang.c \
+	# end
+nodist_mgmtd_libmgmt_be_nb_la_SOURCES += \
+	staticd/static_vty.c \
+	# end
+endif
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)

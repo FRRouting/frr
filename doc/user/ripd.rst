@@ -21,6 +21,7 @@ version 1 as described in RFC1058.
 Starting and Stopping ripd
 ==========================
 
+<<<<<<< HEAD
 The default configuration file name of *ripd*'s is :file:`ripd.conf`. When
 invocation *ripd* searches directory |INSTALL_PREFIX_ETC|. If :file:`ripd.conf`
 is not there next search current directory.
@@ -30,6 +31,17 @@ the capability to bind the port, generally this means that the user must have
 superuser privileges. RIP protocol requires interface information maintained by
 *zebra* daemon. So running *zebra* is mandatory to run *ripd*. Thus minimum
 sequence for running RIP is like below:
+=======
+.. include:: config-include.rst
+
+RIP uses UDP port 520 to send and receive RIP packets. So the user must have
+the capability to bind the port, generally this means that the user must have
+superuser privileges.
+
+If starting daemons by hand then please note, RIP protocol requires interface
+information maintained by *zebra* daemon. So running *zebra* is mandatory to run
+*ripd*. Thus minimum sequence for running RIP is like below:
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 ::
 

@@ -110,6 +110,30 @@ const struct frr_yang_module_info frr_bgp_route_map_info = {
 			}
 		},
 		{
+<<<<<<< HEAD
+=======
+			.xpath = "/frr-route-map:lib/route-map/entry/match-condition/rmap-match-condition/frr-bgp-route-map:src-peer-ipv4-address",
+			.cbs = {
+				.modify = lib_route_map_entry_match_condition_rmap_match_condition_src_peer_ipv4_address_modify,
+				.destroy = lib_route_map_entry_match_condition_rmap_match_condition_src_peer_ipv4_address_destroy,
+			}
+		},
+		{
+			.xpath = "/frr-route-map:lib/route-map/entry/match-condition/rmap-match-condition/frr-bgp-route-map:src-peer-interface",
+			.cbs = {
+				.modify = lib_route_map_entry_match_condition_rmap_match_condition_src_peer_interface_modify,
+				.destroy = lib_route_map_entry_match_condition_rmap_match_condition_src_peer_interface_destroy,
+			}
+		},
+		{
+			.xpath = "/frr-route-map:lib/route-map/entry/match-condition/rmap-match-condition/frr-bgp-route-map:src-peer-ipv6-address",
+			.cbs = {
+				.modify = lib_route_map_entry_match_condition_rmap_match_condition_src_peer_ipv6_address_modify,
+				.destroy = lib_route_map_entry_match_condition_rmap_match_condition_src_peer_ipv6_address_destroy,
+			}
+		},
+		{
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			.xpath = "/frr-route-map:lib/route-map/entry/match-condition/rmap-match-condition/frr-bgp-route-map:list-name",
 			.cbs = {
 				.modify = lib_route_map_entry_match_condition_rmap_match_condition_list_name_modify,
@@ -147,6 +171,11 @@ const struct frr_yang_module_info frr_bgp_route_map_info = {
 		{
 			.xpath = "/frr-route-map:lib/route-map/entry/match-condition/rmap-match-condition/frr-bgp-route-map:comm-list",
 			.cbs = {
+<<<<<<< HEAD
+=======
+				.create = lib_route_map_entry_match_condition_rmap_match_condition_comm_list_create,
+				.destroy = lib_route_map_entry_match_condition_rmap_match_condition_comm_list_destroy,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 				.apply_finish = lib_route_map_entry_match_condition_rmap_match_condition_comm_list_finish,
 			}
 		},
@@ -154,7 +183,10 @@ const struct frr_yang_module_info frr_bgp_route_map_info = {
 			.xpath = "/frr-route-map:lib/route-map/entry/match-condition/rmap-match-condition/frr-bgp-route-map:comm-list/comm-list-name",
 			.cbs = {
 				.modify = lib_route_map_entry_match_condition_rmap_match_condition_comm_list_comm_list_name_modify,
+<<<<<<< HEAD
 				.destroy = lib_route_map_entry_match_condition_rmap_match_condition_comm_list_comm_list_name_destroy,
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			}
 		},
 		{
@@ -165,6 +197,16 @@ const struct frr_yang_module_info frr_bgp_route_map_info = {
 			}
 		},
 		{
+<<<<<<< HEAD
+=======
+			.xpath = "/frr-route-map:lib/route-map/entry/match-condition/rmap-match-condition/frr-bgp-route-map:comm-list/comm-list-name-any",
+			.cbs = {
+				.modify = lib_route_map_entry_match_condition_rmap_match_condition_comm_list_comm_list_name_any_modify,
+				.destroy = lib_route_map_entry_match_condition_rmap_match_condition_comm_list_comm_list_name_any_destroy,
+			}
+		},
+		{
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			.xpath = "/frr-route-map:lib/route-map/entry/match-condition/rmap-match-condition/frr-bgp-route-map:ipv4-address",
 			.cbs = {
 				.modify = lib_route_map_entry_match_condition_rmap_match_condition_ipv4_address_modify,
@@ -349,6 +391,11 @@ const struct frr_yang_module_info frr_bgp_route_map_info = {
 		{
 			.xpath = "/frr-route-map:lib/route-map/entry/set-action/rmap-set-action/frr-bgp-route-map:aggregator",
 			.cbs = {
+<<<<<<< HEAD
+=======
+				.create = lib_route_map_entry_set_action_rmap_set_action_aggregator_create,
+				.destroy = lib_route_map_entry_set_action_rmap_set_action_aggregator_destroy,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 				.apply_finish = lib_route_map_entry_set_action_rmap_set_action_aggregator_finish,
 			}
 		},
@@ -356,14 +403,20 @@ const struct frr_yang_module_info frr_bgp_route_map_info = {
 			.xpath = "/frr-route-map:lib/route-map/entry/set-action/rmap-set-action/frr-bgp-route-map:aggregator/aggregator-asn",
 			.cbs = {
 				.modify = lib_route_map_entry_set_action_rmap_set_action_aggregator_aggregator_asn_modify,
+<<<<<<< HEAD
 				.destroy = lib_route_map_entry_set_action_rmap_set_action_aggregator_aggregator_asn_destroy,
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			}
 		},
 		{
 			.xpath = "/frr-route-map:lib/route-map/entry/set-action/rmap-set-action/frr-bgp-route-map:aggregator/aggregator-address",
 			.cbs = {
 				.modify = lib_route_map_entry_set_action_rmap_set_action_aggregator_aggregator_address_modify,
+<<<<<<< HEAD
 				.destroy = lib_route_map_entry_set_action_rmap_set_action_aggregator_aggregator_address_destroy,
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			}
 		},
 		{
@@ -383,6 +436,11 @@ const struct frr_yang_module_info frr_bgp_route_map_info = {
 		{
 			.xpath = "/frr-route-map:lib/route-map/entry/set-action/rmap-set-action/frr-bgp-route-map:extcommunity-lb",
 			.cbs = {
+<<<<<<< HEAD
+=======
+				.create = lib_route_map_entry_set_action_rmap_set_action_extcommunity_lb_create,
+				.destroy = lib_route_map_entry_set_action_rmap_set_action_extcommunity_lb_destroy,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 				.apply_finish = lib_route_map_entry_set_action_rmap_set_action_extcommunity_lb_finish,
 			}
 		},
@@ -390,7 +448,10 @@ const struct frr_yang_module_info frr_bgp_route_map_info = {
 			.xpath = "/frr-route-map:lib/route-map/entry/set-action/rmap-set-action/frr-bgp-route-map:extcommunity-lb/lb-type",
 			.cbs = {
 				.modify = lib_route_map_entry_set_action_rmap_set_action_extcommunity_lb_lb_type_modify,
+<<<<<<< HEAD
 				.destroy = lib_route_map_entry_set_action_rmap_set_action_extcommunity_lb_lb_type_destroy,
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			}
 		},
 		{
@@ -401,10 +462,23 @@ const struct frr_yang_module_info frr_bgp_route_map_info = {
 			}
 		},
 		{
+<<<<<<< HEAD
 			.xpath = "/frr-route-map:lib/route-map/entry/set-action/rmap-set-action/frr-bgp-route-map:extcommunity-lb/two-octet-as-specific",
 			.cbs = {
 				.modify = lib_route_map_entry_set_action_rmap_set_action_extcommunity_lb_two_octet_as_specific_modify,
 				.destroy = lib_route_map_entry_set_action_rmap_set_action_extcommunity_lb_two_octet_as_specific_destroy,
+=======
+			.xpath = "/frr-route-map:lib/route-map/entry/set-action/rmap-set-action/frr-bgp-route-map:extcommunity-color",
+			.cbs = {
+				.modify = lib_route_map_entry_set_action_rmap_set_action_extcommunity_color_modify,
+				.destroy = lib_route_map_entry_set_action_rmap_set_action_extcommunity_color_destroy,
+			}
+		},
+		{
+			.xpath = "/frr-route-map:lib/route-map/entry/set-action/rmap-set-action/frr-bgp-route-map:extcommunity-lb/two-octet-as-specific",
+			.cbs = {
+				.modify = lib_route_map_entry_set_action_rmap_set_action_extcommunity_lb_two_octet_as_specific_modify,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			}
 		},
 		{

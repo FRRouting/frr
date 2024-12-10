@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 frr (9.0.4-0) unstable; urgency=medium
 
   * New upstream release FRR 9.0.4
@@ -21,6 +22,31 @@ frr (9.0.1-0) unstable; urgency=medium
   * New upstream release FRR 9.0.1
 
  -- Jafar Al-Gharaibeh <jafar@atcorp.com>  Fri, 01 Sep 2023 02:00:00 -0600
+=======
+frr (10.3~dev-1) UNRELEASED; urgency=medium
+
+  * FRR 10.3 Development
+
+ -- Jafar Al-Gharaibeh <jafar@atcorp.com>  Thu, 10 Oct 2024 02:00:00 -0600
+
+frr (10.1-0) unstable; urgency=medium
+
+  * New upstream release FRR 10.1
+
+ -- Jafar Al-Gharaibeh <jafar@atcorp.com>  Fri, 26 Jul 2024 02:00:00 -0600
+
+frr (10.0-0) unstable; urgency=medium
+
+  * New upstream release FRR 10.0
+
+ -- Jafar Al-Gharaibeh <jafar@atcorp.com>  Mon, 25 Mar 2024 02:00:00 -0600
+
+frr (9.1-0) unstable; urgency=medium
+
+  * New upstream release FRR 9.1
+
+ -- Donatas Abraitis <donatas@opensourcerouting.org>  Thu, 09 Oct 2023 12:00:00 -0600
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 frr (9.0-0) unstable; urgency=medium
 

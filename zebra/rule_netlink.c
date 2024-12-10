@@ -9,6 +9,12 @@
 
 #ifdef HAVE_NETLINK
 
+<<<<<<< HEAD
+=======
+#include <linux/netlink.h>
+#include <linux/rtnetlink.h>
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 #include "if.h"
 #include "prefix.h"
 #include "vrf.h"
@@ -117,8 +123,13 @@ static ssize_t netlink_rule_msg_encode(
 	}
 
 	/* dsfield, if specified; mask off the ECN bits */
+<<<<<<< HEAD
 	if (filter_bm & PBR_FILTER_DSFIELD)
 		req->frh.tos = dsfield & 0xfc;
+=======
+	if (filter_bm & PBR_FILTER_DSCP)
+		req->frh.tos = dsfield & PBR_DSFIELD_DSCP;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	/* protocol to match on */
 	if (filter_bm & PBR_FILTER_IP_PROTOCOL)
@@ -174,6 +185,20 @@ static ssize_t netlink_oldrule_msg_encoder(struct zebra_dplane_ctx *ctx,
 		dplane_ctx_rule_get_old_ipproto(ctx), buf, buflen);
 }
 
+<<<<<<< HEAD
+=======
+/*
+ * Identify valid rule actions for netlink - other actions can't be installed
+ */
+static bool nl_rule_valid_action(uint32_t action)
+{
+	if (action == PBR_ACTION_TABLE)
+		return true;
+	else
+		return false;
+}
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 /* Public functions */
 
 enum netlink_msg_status
@@ -181,6 +206,10 @@ netlink_put_rule_update_msg(struct nl_batch *bth, struct zebra_dplane_ctx *ctx)
 {
 	enum dplane_op_e op;
 	enum netlink_msg_status ret;
+<<<<<<< HEAD
+=======
+	struct pbr_rule rule = {};
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	op = dplane_ctx_get_op(ctx);
 	if (!(op == DPLANE_OP_RULE_ADD || op == DPLANE_OP_RULE_UPDATE
@@ -192,6 +221,21 @@ netlink_put_rule_update_msg(struct nl_batch *bth, struct zebra_dplane_ctx *ctx)
 		return FRR_NETLINK_ERROR;
 	}
 
+<<<<<<< HEAD
+=======
+	/* TODO -- special handling for rules that include actions that
+	 * netlink cannot install. Some of the rule attributes are not
+	 * available in netlink: only try to install valid actions.
+	 */
+	dplane_ctx_rule_get(ctx, &rule, NULL);
+	if (!nl_rule_valid_action(rule.action.flags)) {
+		if (IS_ZEBRA_DEBUG_KERNEL)
+			zlog_debug("%s: skip invalid action %#x", __func__,
+				   rule.action.flags);
+		return 0;
+	}
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	ret = netlink_batch_add_msg(bth, ctx, netlink_rule_msg_encoder, false);
 
 	/**
@@ -400,6 +444,10 @@ int netlink_rules_read(struct zebra_ns *zns)
 
 	ret = netlink_parse_info(netlink_rule_change, &zns->netlink_cmd,
 				 &dp_info, 0, true);
+<<<<<<< HEAD
+=======
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	return ret;
 }
 

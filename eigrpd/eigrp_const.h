@@ -61,9 +61,12 @@
 /* IP TTL for EIGRP protocol. */
 #define EIGRP_IP_TTL             1
 
+<<<<<<< HEAD
 /* VTY port number. */
 #define EIGRP_VTY_PORT          2613
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 /* Default configuration file name for eigrp. */
 #define EIGRP_DEFAULT_CONFIG   "eigrpd.conf"
 

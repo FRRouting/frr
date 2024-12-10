@@ -17,11 +17,14 @@
 extern "C" {
 #endif
 
+<<<<<<< HEAD
 /* These definitions exist in command.c in the current engine but should be
  * relocated here in the new engine
  */
 enum cmd_filter_type { FILTER_RELAXED, FILTER_STRICT };
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 /* matcher result value */
 enum matcher_rv {
 	MATCHER_NO_MATCH,

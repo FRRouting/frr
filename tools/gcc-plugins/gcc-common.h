@@ -111,6 +111,13 @@
 #include "varasm.h"
 #include "stor-layout.h"
 #include "internal-fn.h"
+<<<<<<< HEAD
+=======
+#if BUILDING_GCC_VERSION >= 13000
+#include "gimple.h"
+#include "gimple-iterator.h"
+#endif
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 #include "gimple-expr.h"
 #include "gimple-fold.h"
 #include "context.h"

@@ -1107,6 +1107,7 @@ ALIAS(no_set_tag, no_set_tag_val_cmd, "no set tag (0-65535)", NO_STR SET_STR
       "Tag value for routing protocol\n"
       "Tag value\n")
 
+<<<<<<< HEAD
 DEFUN (eigrp_distribute_list,
        eigrp_distribute_list_cmd,
        "distribute-list [prefix] ACCESSLIST_NAME <in|out> [WORD]",
@@ -1152,15 +1153,22 @@ DEFUN (eigrp_no_distribute_list,
 
 /* Route-map init */
 void eigrp_route_map_init()
+=======
+/* Route-map init */
+void eigrp_route_map_init(void)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 {
 	route_map_init();
 	route_map_init_vty();
 	route_map_add_hook(eigrp_route_map_update);
 	route_map_delete_hook(eigrp_route_map_update);
 
+<<<<<<< HEAD
 	install_element(EIGRP_NODE, &eigrp_distribute_list_cmd);
 	install_element(EIGRP_NODE, &eigrp_no_distribute_list_cmd);
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	/*route_map_install_match (&route_match_metric_cmd);
 	  route_map_install_match (&route_match_interface_cmd);*/
 	/*route_map_install_match (&route_match_ip_next_hop_cmd);

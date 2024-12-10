@@ -352,7 +352,11 @@ route_stream_done(struct route_stream *stream)
 static int
 metric_to_kernel(int metric)
 {
+<<<<<<< HEAD
     return metric < INFINITY ? kernel_metric : KERNEL_INFINITY;
+=======
+	return metric < INFINITY ? metric : KERNEL_INFINITY;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 }
 
 /* This is used to maintain the invariant that the installed route is at

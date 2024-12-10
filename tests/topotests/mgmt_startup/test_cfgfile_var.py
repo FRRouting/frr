@@ -31,8 +31,12 @@ from lib.common_config import step
 from lib.topogen import Topogen, TopoRouter
 from util import check_kernel
 
+<<<<<<< HEAD
 # pytestmark = [pytest.mark.staticd, pytest.mark.mgmtd]
 pytestmark = [pytest.mark.staticd]
+=======
+pytestmark = [pytest.mark.staticd, pytest.mark.mgmtd]
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 
 @pytest.fixture(scope="module")

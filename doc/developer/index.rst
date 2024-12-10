@@ -5,6 +5,10 @@ FRRouting Developer's Guide
    :maxdepth: 2
 
    workflow
+<<<<<<< HEAD
+=======
+   checkpatch
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
    building
    packaging
    process-architecture
@@ -22,3 +26,7 @@ FRRouting Developer's Guide
    path
    pceplib
    link-state
+<<<<<<< HEAD
+=======
+   northbound/northbound
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)

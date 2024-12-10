@@ -41,8 +41,25 @@ static void zclient_event(enum zclient_event, struct zclient *);
 static void zebra_interface_if_set_value(struct stream *s,
 					 struct interface *ifp);
 
+<<<<<<< HEAD
 struct zclient_options zclient_options_default = {.receive_notify = false,
 						  .synchronous = false};
+=======
+const struct zclient_options zclient_options_default = {
+	.synchronous = false,
+	.auxiliary = false,
+};
+
+const struct zclient_options zclient_options_sync = {
+	.synchronous = true,
+	.auxiliary = true,
+};
+
+const struct zclient_options zclient_options_auxiliary = {
+	.synchronous = false,
+	.auxiliary = true,
+};
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 struct sockaddr_storage zclient_addr;
 socklen_t zclient_addr_len;
@@ -52,7 +69,11 @@ static int zclient_debug;
 
 /* Allocate zclient structure. */
 struct zclient *zclient_new(struct event_loop *master,
+<<<<<<< HEAD
 			    struct zclient_options *opt,
+=======
+			    const struct zclient_options *opt,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			    zclient_handler *const *handlers, size_t n_handlers)
 {
 	struct zclient *zclient;
@@ -69,8 +90,13 @@ struct zclient *zclient_new(struct event_loop *master,
 	zclient->handlers = handlers;
 	zclient->n_handlers = n_handlers;
 
+<<<<<<< HEAD
 	zclient->receive_notify = opt->receive_notify;
 	zclient->synchronous = opt->synchronous;
+=======
+	zclient->synchronous = opt->synchronous;
+	zclient->auxiliary = opt->auxiliary;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	return zclient;
 }
@@ -180,14 +206,22 @@ void zclient_stop(struct zclient *zclient)
 
 	for (afi = AFI_IP; afi < AFI_MAX; afi++) {
 		for (i = 0; i < ZEBRA_ROUTE_MAX; i++) {
+<<<<<<< HEAD
 			vrf_bitmap_free(zclient->redist[afi][i]);
+=======
+			vrf_bitmap_free(&zclient->redist[afi][i]);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			zclient->redist[afi][i] = VRF_BITMAP_NULL;
 		}
 		redist_del_instance(
 			&zclient->mi_redist[afi][zclient->redist_default],
 			zclient->instance);
 
+<<<<<<< HEAD
 		vrf_bitmap_free(zclient->default_information[afi]);
+=======
+		vrf_bitmap_free(&zclient->default_information[afi]);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		zclient->default_information[afi] = VRF_BITMAP_NULL;
 	}
 }
@@ -270,6 +304,10 @@ static void zclient_flush_data(struct event *thread)
 				zclient->sock, &zclient->t_write);
 		break;
 	case BUFFER_EMPTY:
+<<<<<<< HEAD
+=======
+		/* Currently only Sharpd and Bgpd has callbacks defined */
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		if (zclient->zebra_buffer_write_ready)
 			(*zclient->zebra_buffer_write_ready)();
 		break;
@@ -392,10 +430,13 @@ enum zclient_send_status zclient_send_hello(struct zclient *zclient)
 		stream_putc(s, zclient->redist_default);
 		stream_putw(s, zclient->instance);
 		stream_putl(s, zclient->session_id);
+<<<<<<< HEAD
 		if (zclient->receive_notify)
 			stream_putc(s, 1);
 		else
 			stream_putc(s, 0);
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		if (zclient->synchronous)
 			stream_putc(s, 1);
 		else
@@ -494,7 +535,11 @@ void zclient_send_reg_requests(struct zclient *zclient, vrf_id_t vrf_id)
 
 	/* Set unwanted redistribute route. */
 	for (afi = AFI_IP; afi < AFI_MAX; afi++)
+<<<<<<< HEAD
 		vrf_bitmap_set(zclient->redist[afi][zclient->redist_default],
+=======
+		vrf_bitmap_set(&zclient->redist[afi][zclient->redist_default],
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			       vrf_id);
 
 	/* Flush all redistribute request. */
@@ -524,15 +569,25 @@ void zclient_send_reg_requests(struct zclient *zclient, vrf_id_t vrf_id)
 	/* Resend all redistribute request. */
 	for (afi = AFI_IP; afi < AFI_MAX; afi++) {
 		for (i = 0; i < ZEBRA_ROUTE_MAX; i++)
+<<<<<<< HEAD
 			if (i != zclient->redist_default
 			    && vrf_bitmap_check(zclient->redist[afi][i],
 						vrf_id))
+=======
+			if (i != zclient->redist_default &&
+			    vrf_bitmap_check(&zclient->redist[afi][i], vrf_id))
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 				zebra_redistribute_send(ZEBRA_REDISTRIBUTE_ADD,
 							zclient, afi, i, 0,
 							vrf_id);
 
 		/* If default information is needed. */
+<<<<<<< HEAD
 		if (vrf_bitmap_check(zclient->default_information[afi], vrf_id))
+=======
+		if (vrf_bitmap_check(&zclient->default_information[afi],
+				     vrf_id))
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			zebra_redistribute_default_send(
 				ZEBRA_REDISTRIBUTE_DEFAULT_ADD, zclient, afi,
 				vrf_id);
@@ -561,7 +616,11 @@ void zclient_send_dereg_requests(struct zclient *zclient, vrf_id_t vrf_id)
 
 	/* Set unwanted redistribute route. */
 	for (afi = AFI_IP; afi < AFI_MAX; afi++)
+<<<<<<< HEAD
 		vrf_bitmap_unset(zclient->redist[afi][zclient->redist_default],
+=======
+		vrf_bitmap_unset(&zclient->redist[afi][zclient->redist_default],
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 				 vrf_id);
 
 	/* Flush all redistribute request. */
@@ -591,15 +650,25 @@ void zclient_send_dereg_requests(struct zclient *zclient, vrf_id_t vrf_id)
 	/* Flush all redistribute request. */
 	for (afi = AFI_IP; afi < AFI_MAX; afi++) {
 		for (i = 0; i < ZEBRA_ROUTE_MAX; i++)
+<<<<<<< HEAD
 			if (i != zclient->redist_default
 			    && vrf_bitmap_check(zclient->redist[afi][i],
 						vrf_id))
+=======
+			if (i != zclient->redist_default &&
+			    vrf_bitmap_check(&zclient->redist[afi][i], vrf_id))
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 				zebra_redistribute_send(
 					ZEBRA_REDISTRIBUTE_DELETE, zclient, afi,
 					i, 0, vrf_id);
 
 		/* If default information is needed. */
+<<<<<<< HEAD
 		if (vrf_bitmap_check(zclient->default_information[afi], vrf_id))
+=======
+		if (vrf_bitmap_check(&zclient->default_information[afi],
+				     vrf_id))
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			zebra_redistribute_default_send(
 				ZEBRA_REDISTRIBUTE_DEFAULT_DELETE, zclient, afi,
 				vrf_id);
@@ -726,7 +795,11 @@ void zclient_init(struct zclient *zclient, int redist_default,
 	/* Clear redistribution flags. */
 	for (afi = AFI_IP; afi < AFI_MAX; afi++)
 		for (i = 0; i < ZEBRA_ROUTE_MAX; i++)
+<<<<<<< HEAD
 			zclient->redist[afi][i] = vrf_bitmap_init();
+=======
+			vrf_bitmap_init(&zclient->redist[afi][i]);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	/* Set unwanted redistribute route.  bgpd does not need BGP route
 	   redistribution. */
@@ -738,7 +811,11 @@ void zclient_init(struct zclient *zclient, int redist_default,
 				    instance);
 
 		/* Set default-information redistribute to zero. */
+<<<<<<< HEAD
 		zclient->default_information[afi] = vrf_bitmap_init();
+=======
+		vrf_bitmap_init(&zclient->default_information[afi]);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	}
 
 	if (zclient_debug)
@@ -891,7 +968,11 @@ static int zapi_nexthop_cmp_no_labels(const struct zapi_nexthop *next1,
 					 &next2->gate);
 		if (ret != 0)
 			return ret;
+<<<<<<< HEAD
 		/* Intentional Fall-Through */
+=======
+		fallthrough;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	case NEXTHOP_TYPE_IFINDEX:
 		if (next1->ifindex < next2->ifindex)
 			return -1;
@@ -1031,7 +1112,11 @@ int zapi_nexthop_encode(struct stream *s, const struct zapi_nexthop *api_nh,
 	}
 
 	if (api_nh->weight)
+<<<<<<< HEAD
 		stream_putl(s, api_nh->weight);
+=======
+		stream_putq(s, api_nh->weight);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	/* Router MAC for EVPN routes. */
 	if (CHECK_FLAG(nh_flags, ZAPI_NEXTHOP_FLAG_EVPN))
@@ -1061,10 +1146,18 @@ int zapi_nexthop_encode(struct stream *s, const struct zapi_nexthop *api_nh,
 			     sizeof(struct seg6local_context));
 	}
 
+<<<<<<< HEAD
 	if (CHECK_FLAG(nh_flags, ZAPI_NEXTHOP_FLAG_SEG6))
 		stream_write(s, &api_nh->seg6_segs,
 			     sizeof(struct in6_addr));
 
+=======
+	if (CHECK_FLAG(nh_flags, ZAPI_NEXTHOP_FLAG_SEG6)) {
+		stream_putc(s, api_nh->seg_num);
+		stream_put(s, &api_nh->seg6_segs[0],
+			   api_nh->seg_num * sizeof(struct in6_addr));
+	}
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 done:
 	return ret;
 }
@@ -1115,6 +1208,14 @@ int zapi_srv6_locator_encode(struct stream *s, const struct srv6_locator *l)
 	stream_put(s, l->name, strlen(l->name));
 	stream_putw(s, l->prefix.prefixlen);
 	stream_put(s, &l->prefix.prefix, sizeof(l->prefix.prefix));
+<<<<<<< HEAD
+=======
+	stream_putc(s, l->block_bits_length);
+	stream_putc(s, l->node_bits_length);
+	stream_putc(s, l->function_bits_length);
+	stream_putc(s, l->argument_bits_length);
+	stream_putc(s, l->flags);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	return 0;
 }
 
@@ -1130,6 +1231,14 @@ int zapi_srv6_locator_decode(struct stream *s, struct srv6_locator *l)
 	STREAM_GETW(s, l->prefix.prefixlen);
 	STREAM_GET(&l->prefix.prefix, s, sizeof(l->prefix.prefix));
 	l->prefix.family = AF_INET6;
+<<<<<<< HEAD
+=======
+	STREAM_GETC(s, l->block_bits_length);
+	STREAM_GETC(s, l->node_bits_length);
+	STREAM_GETC(s, l->function_bits_length);
+	STREAM_GETC(s, l->argument_bits_length);
+	STREAM_GETC(s, l->flags);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	return 0;
 
 stream_failure:
@@ -1402,7 +1511,11 @@ int zapi_nexthop_decode(struct stream *s, struct zapi_nexthop *api_nh,
 	}
 
 	if (CHECK_FLAG(api_nh->flags, ZAPI_NEXTHOP_FLAG_WEIGHT))
+<<<<<<< HEAD
 		STREAM_GETL(s, api_nh->weight);
+=======
+		STREAM_GETQ(s, api_nh->weight);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	/* Router MAC for EVPN routes. */
 	if (CHECK_FLAG(api_nh->flags, ZAPI_NEXTHOP_FLAG_EVPN))
@@ -1430,9 +1543,24 @@ int zapi_nexthop_decode(struct stream *s, struct zapi_nexthop *api_nh,
 			   sizeof(struct seg6local_context));
 	}
 
+<<<<<<< HEAD
 	if (CHECK_FLAG(api_nh->flags, ZAPI_NEXTHOP_FLAG_SEG6))
 		STREAM_GET(&api_nh->seg6_segs, s,
 			   sizeof(struct in6_addr));
+=======
+	if (CHECK_FLAG(api_nh->flags, ZAPI_NEXTHOP_FLAG_SEG6)) {
+		STREAM_GETC(s, api_nh->seg_num);
+		if (api_nh->seg_num > SRV6_MAX_SIDS) {
+			flog_err(EC_LIB_ZAPI_ENCODE,
+				 "%s: invalid number of SRv6 Segs (%u)",
+				 __func__, api_nh->seg_num);
+			return -1;
+		}
+
+		STREAM_GET(&api_nh->seg6_segs[0], s,
+			   api_nh->seg_num * sizeof(struct in6_addr));
+	}
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	/* Success */
 	ret = 0;
@@ -1611,6 +1739,7 @@ static void zapi_encode_prefix(struct stream *s, struct prefix *p,
 	stream_put(s, &p->u.prefix, prefix_blen(p));
 }
 
+<<<<<<< HEAD
 int zapi_pbr_rule_encode(uint8_t cmd, struct stream *s, struct pbr_rule *zrule)
 {
 	stream_reset(s);
@@ -1635,6 +1764,239 @@ int zapi_pbr_rule_encode(uint8_t cmd, struct stream *s, struct pbr_rule *zrule)
 
 	stream_putl(s, zrule->action.table);
 	stream_put(s, zrule->ifname, INTERFACE_NAMSIZ);
+=======
+static bool zapi_decode_prefix(struct stream *s, struct prefix *p)
+{
+	STREAM_GETC(s, p->family);
+	STREAM_GETC(s, p->prefixlen);
+	STREAM_GET(&(p->u.prefix), s, prefix_blen(p));
+	return true;
+
+stream_failure:
+	return false;
+}
+
+static void zapi_encode_sockunion(struct stream *s, const union sockunion *su)
+{
+	int family = sockunion_family(su);
+	size_t addrlen = family2addrsize(family);
+
+	/*
+	 * Must know length to encode
+	 */
+	assert(addrlen);
+
+	stream_putc(s, (uint8_t)family);
+
+	stream_write(s, sockunion_get_addr(su), addrlen);
+}
+
+static bool zapi_decode_sockunion(struct stream *s, union sockunion *su)
+{
+	uint8_t family;
+	size_t addrlen;
+	uint8_t buf[sizeof(union sockunion)];
+
+	memset(su, 0, sizeof(*su));
+
+	STREAM_GETC(s, family);
+	sockunion_family(su) = family;
+
+	addrlen = family2addrsize(family);
+	if (!addrlen)
+		return false;
+
+	if (addrlen > sizeof(buf))
+		return false;
+
+	STREAM_GET(buf, s, addrlen);
+	sockunion_set(su, family, buf, addrlen);
+	return true;
+
+stream_failure:
+	return false;
+}
+
+/*
+ * Encode filter subsection of pbr_rule
+ */
+static void zapi_pbr_rule_filter_encode(struct stream *s, struct pbr_filter *f)
+{
+	assert(f->src_ip.family == f->dst_ip.family);
+	assert((f->src_ip.family == AF_INET) || (f->src_ip.family == AF_INET6));
+
+	stream_putl(s, f->filter_bm);
+
+	if (CHECK_FLAG(f->filter_bm, PBR_FILTER_IP_PROTOCOL))
+		stream_putc(s, f->ip_proto);
+
+	/* addresses */
+	if (CHECK_FLAG(f->filter_bm, PBR_FILTER_SRC_IP))
+		zapi_encode_prefix(s, &f->src_ip, f->src_ip.family);
+	if (CHECK_FLAG(f->filter_bm, PBR_FILTER_DST_IP))
+		zapi_encode_prefix(s, &f->dst_ip, f->dst_ip.family);
+
+	/* port numbers */
+	if (CHECK_FLAG(f->filter_bm, PBR_FILTER_SRC_PORT))
+		stream_putw(s, f->src_port);
+	if (CHECK_FLAG(f->filter_bm, PBR_FILTER_DST_PORT))
+		stream_putw(s, f->dst_port);
+
+	if (CHECK_FLAG(f->filter_bm, PBR_FILTER_DSCP))
+		stream_putc(s, f->dsfield & PBR_DSFIELD_DSCP);
+	if (CHECK_FLAG(f->filter_bm, PBR_FILTER_ECN))
+		stream_putc(s, f->dsfield & PBR_DSFIELD_ECN);
+
+	/* vlan */
+	if (CHECK_FLAG(f->filter_bm, PBR_FILTER_PCP))
+		stream_putc(s, f->pcp);
+	if (CHECK_FLAG(f->filter_bm, PBR_FILTER_VLAN_ID))
+		stream_putw(s, f->vlan_id);
+	if (CHECK_FLAG(f->filter_bm, PBR_FILTER_VLAN_FLAGS))
+		stream_putw(s, f->vlan_flags);
+
+
+	if (CHECK_FLAG(f->filter_bm, PBR_FILTER_FWMARK))
+		stream_putl(s, f->fwmark);
+}
+
+static bool zapi_pbr_rule_filter_decode(struct stream *s, struct pbr_filter *f)
+{
+	uint8_t dscp = 0;
+	uint8_t ecn = 0;
+
+	STREAM_GETL(s, f->filter_bm);
+
+	if (CHECK_FLAG(f->filter_bm, PBR_FILTER_IP_PROTOCOL))
+		STREAM_GETC(s, f->ip_proto);
+
+	if (CHECK_FLAG(f->filter_bm, PBR_FILTER_SRC_IP))
+		if (!zapi_decode_prefix(s, &(f->src_ip)))
+			goto stream_failure;
+	if (CHECK_FLAG(f->filter_bm, PBR_FILTER_DST_IP))
+		if (!zapi_decode_prefix(s, &(f->dst_ip)))
+			goto stream_failure;
+
+	if (CHECK_FLAG(f->filter_bm, PBR_FILTER_SRC_PORT))
+		STREAM_GETW(s, f->src_port);
+	if (CHECK_FLAG(f->filter_bm, PBR_FILTER_DST_PORT))
+		STREAM_GETW(s, f->dst_port);
+
+	if (CHECK_FLAG(f->filter_bm, PBR_FILTER_DSCP))
+		STREAM_GETC(s, dscp);
+	if (CHECK_FLAG(f->filter_bm, PBR_FILTER_ECN))
+		STREAM_GETC(s, ecn);
+	f->dsfield = (dscp & PBR_DSFIELD_DSCP) | (ecn & PBR_DSFIELD_ECN);
+
+	/* vlan */
+	if (CHECK_FLAG(f->filter_bm, PBR_FILTER_PCP))
+		STREAM_GETC(s, f->pcp);
+	if (CHECK_FLAG(f->filter_bm, PBR_FILTER_VLAN_ID))
+		STREAM_GETW(s, f->vlan_id);
+	if (CHECK_FLAG(f->filter_bm, PBR_FILTER_VLAN_FLAGS))
+		STREAM_GETW(s, f->vlan_flags);
+
+	if (CHECK_FLAG(f->filter_bm, PBR_FILTER_FWMARK))
+		STREAM_GETL(s, f->fwmark);
+
+	return true;
+
+stream_failure:
+	return false;
+}
+
+static void zapi_pbr_rule_action_encode(struct stream *s, struct pbr_action *a)
+{
+	stream_putl(s, a->flags);
+
+	if (CHECK_FLAG(a->flags, PBR_ACTION_TABLE))
+		stream_putl(s, a->table);
+	if (CHECK_FLAG(a->flags, PBR_ACTION_QUEUE_ID))
+		stream_putl(s, a->queue_id);
+
+	/* L3 */
+	if (CHECK_FLAG(a->flags, PBR_ACTION_SRC_IP))
+		zapi_encode_sockunion(s, &a->src_ip);
+	if (CHECK_FLAG(a->flags, PBR_ACTION_DST_IP))
+		zapi_encode_sockunion(s, &a->dst_ip);
+	if (CHECK_FLAG(a->flags, PBR_ACTION_SRC_PORT))
+		stream_putw(s, a->src_port);
+	if (CHECK_FLAG(a->flags, PBR_ACTION_DST_PORT))
+		stream_putw(s, a->dst_port);
+
+	if (CHECK_FLAG(a->flags, PBR_ACTION_DSCP))
+		stream_putc(s, a->dscp & PBR_DSFIELD_DSCP);
+	if (CHECK_FLAG(a->flags, PBR_ACTION_ECN))
+		stream_putc(s, a->ecn & PBR_DSFIELD_ECN);
+
+	/* L2 */
+	if (CHECK_FLAG(a->flags, PBR_ACTION_PCP))
+		stream_putc(s, a->pcp);
+	if (CHECK_FLAG(a->flags, PBR_ACTION_VLAN_ID))
+		stream_putw(s, a->vlan_id);
+}
+
+static bool zapi_pbr_rule_action_decode(struct stream *s, struct pbr_action *a)
+{
+	STREAM_GETL(s, a->flags);
+
+	if (CHECK_FLAG(a->flags, PBR_ACTION_TABLE))
+		STREAM_GETL(s, a->table);
+	if (CHECK_FLAG(a->flags, PBR_ACTION_QUEUE_ID))
+		STREAM_GETL(s, a->queue_id);
+
+	/* L3 */
+	if (CHECK_FLAG(a->flags, PBR_ACTION_SRC_IP)) {
+		if (!zapi_decode_sockunion(s, &(a->src_ip)))
+			goto stream_failure;
+	}
+	if (CHECK_FLAG(a->flags, PBR_ACTION_DST_IP))
+		if (!zapi_decode_sockunion(s, &(a->dst_ip)))
+			goto stream_failure;
+
+	if (CHECK_FLAG(a->flags, PBR_ACTION_SRC_PORT))
+		STREAM_GETW(s, a->src_port);
+	if (CHECK_FLAG(a->flags, PBR_ACTION_DST_PORT))
+		STREAM_GETW(s, a->dst_port);
+
+	if (CHECK_FLAG(a->flags, PBR_ACTION_DSCP)) {
+		STREAM_GETC(s, a->dscp);
+		a->dscp &= PBR_DSFIELD_DSCP;
+	}
+	if (CHECK_FLAG(a->flags, PBR_ACTION_ECN)) {
+		STREAM_GETC(s, a->ecn);
+		a->ecn &= PBR_DSFIELD_ECN;
+	}
+
+	/* L2 */
+	if (CHECK_FLAG(a->flags, PBR_ACTION_PCP))
+		STREAM_GETC(s, a->pcp);
+	if (CHECK_FLAG(a->flags, PBR_ACTION_VLAN_ID))
+		STREAM_GETW(s, a->vlan_id);
+
+	return true;
+
+stream_failure:
+	return false;
+}
+
+int zapi_pbr_rule_encode(struct stream *s, struct pbr_rule *r)
+{
+	/*
+	 * PBR record count is always 1
+	 */
+	stream_putl(s, 1);
+
+	stream_putc(s, r->family);
+	stream_putl(s, r->seq);
+	stream_putl(s, r->priority);
+	stream_putl(s, r->unique);
+
+	zapi_pbr_rule_filter_encode(s, &(r->filter));
+	zapi_pbr_rule_action_encode(s, &(r->action));
+
+	stream_put(s, r->ifname, IFNAMSIZ);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	/* Put length at the first point of the stream. */
 	stream_putw_at(s, 0, stream_get_endp(s));
@@ -1642,6 +2004,32 @@ int zapi_pbr_rule_encode(uint8_t cmd, struct stream *s, struct pbr_rule *zrule)
 	return 0;
 }
 
+<<<<<<< HEAD
+=======
+bool zapi_pbr_rule_decode(struct stream *s, struct pbr_rule *r)
+{
+	/* NB caller has already read 4-byte rule count */
+
+	memset(r, 0, sizeof(*r));
+
+	STREAM_GETC(s, r->family);
+	STREAM_GETL(s, r->seq);
+	STREAM_GETL(s, r->priority);
+	STREAM_GETL(s, r->unique);
+
+	if (!zapi_pbr_rule_filter_decode(s, &(r->filter)))
+		goto stream_failure;
+	if (!zapi_pbr_rule_action_decode(s, &(r->action)))
+		goto stream_failure;
+
+	STREAM_GET(r->ifname, s, IFNAMSIZ);
+	return true;
+
+stream_failure:
+	return false;
+}
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 int zapi_tc_qdisc_encode(uint8_t cmd, struct stream *s, struct tc_qdisc *qdisc)
 {
 	stream_reset(s);
@@ -1794,7 +2182,11 @@ bool zapi_rule_notify_decode(struct stream *s, uint32_t *seqno,
 	STREAM_GETL(s, seq);
 	STREAM_GETL(s, prio);
 	STREAM_GETL(s, uni);
+<<<<<<< HEAD
 	STREAM_GET(ifname, s, INTERFACE_NAMSIZ);
+=======
+	STREAM_GET(ifname, s, IFNAMSIZ);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	if (zclient_debug)
 		zlog_debug("%s: %u %u %u %s", __func__, seq, prio, uni, ifname);
@@ -1874,6 +2266,49 @@ stream_failure:
 	return false;
 }
 
+<<<<<<< HEAD
+=======
+bool zapi_srv6_sid_notify_decode(struct stream *s, struct srv6_sid_ctx *ctx,
+				 struct in6_addr *sid_value, uint32_t *func,
+				 uint32_t *wide_func,
+				 enum zapi_srv6_sid_notify *note,
+				 char **p_locator_name)
+{
+	uint32_t f, wf;
+	uint16_t len;
+	static char locator_name[SRV6_LOCNAME_SIZE] = {};
+
+	STREAM_GET(note, s, sizeof(*note));
+	STREAM_GET(ctx, s, sizeof(struct srv6_sid_ctx));
+	STREAM_GET(sid_value, s, sizeof(struct in6_addr));
+	STREAM_GETL(s, f);
+	STREAM_GETL(s, wf);
+
+	if (func)
+		*func = f;
+	if (wide_func)
+		*wide_func = wf;
+
+	STREAM_GETW(s, len);
+	if (len > SRV6_LOCNAME_SIZE) {
+		*p_locator_name = NULL;
+		return false;
+	}
+	if (p_locator_name) {
+		if (len == 0)
+			*p_locator_name = NULL;
+		else {
+			STREAM_GET(locator_name, s, len);
+			*p_locator_name = locator_name;
+		}
+	}
+	return true;
+
+stream_failure:
+	return false;
+}
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 struct nexthop *nexthop_from_zapi_nexthop(const struct zapi_nexthop *znh)
 {
 	struct nexthop *n = nexthop_new();
@@ -1883,6 +2318,10 @@ struct nexthop *nexthop_from_zapi_nexthop(const struct zapi_nexthop *znh)
 	n->ifindex = znh->ifindex;
 	n->gate = znh->gate;
 	n->srte_color = znh->srte_color;
+<<<<<<< HEAD
+=======
+	n->weight = znh->weight;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	/*
 	 * This function currently handles labels
@@ -1902,8 +2341,13 @@ struct nexthop *nexthop_from_zapi_nexthop(const struct zapi_nexthop *znh)
 		nexthop_add_srv6_seg6local(n, znh->seg6local_action,
 					   &znh->seg6local_ctx);
 
+<<<<<<< HEAD
 	if (!sid_zero(&znh->seg6_segs))
 		nexthop_add_srv6_seg6(n, &znh->seg6_segs);
+=======
+	if (znh->seg_num && !sid_zero_ipv6(znh->seg6_segs))
+		nexthop_add_srv6_seg6(n, &znh->seg6_segs[0], znh->seg_num);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	return n;
 }
@@ -1964,10 +2408,21 @@ int zapi_nexthop_from_nexthop(struct zapi_nexthop *znh,
 			       sizeof(struct seg6local_context));
 		}
 
+<<<<<<< HEAD
 		if (!sid_zero(&nh->nh_srv6->seg6_segs)) {
 			SET_FLAG(znh->flags, ZAPI_NEXTHOP_FLAG_SEG6);
 			memcpy(&znh->seg6_segs, &nh->nh_srv6->seg6_segs,
 			       sizeof(struct in6_addr));
+=======
+		if (nh->nh_srv6->seg6_segs && nh->nh_srv6->seg6_segs->num_segs &&
+		    !sid_zero(nh->nh_srv6->seg6_segs)) {
+			SET_FLAG(znh->flags, ZAPI_NEXTHOP_FLAG_SEG6);
+			znh->seg_num = nh->nh_srv6->seg6_segs->num_segs;
+			for (i = 0; i < nh->nh_srv6->seg6_segs->num_segs; i++)
+				memcpy(&znh->seg6_segs[i],
+				       &nh->nh_srv6->seg6_segs->seg[i],
+				       sizeof(struct in6_addr));
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		}
 	}
 
@@ -2026,8 +2481,13 @@ const char *zapi_nexthop2str(const struct zapi_nexthop *znh, char *buf,
 /*
  * Decode the nexthop-tracking update message
  */
+<<<<<<< HEAD
 bool zapi_nexthop_update_decode(struct stream *s, struct prefix *match,
 				struct zapi_route *nhr)
+=======
+static bool zapi_nexthop_update_decode(struct stream *s, struct prefix *match,
+				       struct zapi_route *nhr)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 {
 	uint32_t i;
 
@@ -2070,7 +2530,11 @@ bool zapi_nexthop_update_decode(struct stream *s, struct prefix *match,
 	STREAM_GETW(s, nhr->instance);
 	STREAM_GETC(s, nhr->distance);
 	STREAM_GETL(s, nhr->metric);
+<<<<<<< HEAD
 	STREAM_GETC(s, nhr->nexthop_num);
+=======
+	STREAM_GETW(s, nhr->nexthop_num);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	for (i = 0; i < nhr->nexthop_num; i++) {
 		if (zapi_nexthop_decode(s, &(nhr->nexthops[i]), 0, 0) != 0)
@@ -2283,12 +2747,20 @@ static int zclient_vrf_delete(ZAPI_CALLBACK_ARGS)
 static int zclient_interface_add(ZAPI_CALLBACK_ARGS)
 {
 	struct interface *ifp;
+<<<<<<< HEAD
 	char ifname_tmp[INTERFACE_NAMSIZ + 1] = {};
+=======
+	char ifname_tmp[IFNAMSIZ + 1] = {};
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	struct stream *s = zclient->ibuf;
 	struct vrf *vrf;
 
 	/* Read interface name. */
+<<<<<<< HEAD
 	STREAM_GET(ifname_tmp, s, INTERFACE_NAMSIZ);
+=======
+	STREAM_GET(ifname_tmp, s, IFNAMSIZ);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	/* Lookup/create interface by name. */
 	vrf = vrf_lookup_by_id(vrf_id);
@@ -2319,10 +2791,17 @@ stream_failure:
 struct interface *zebra_interface_state_read(struct stream *s, vrf_id_t vrf_id)
 {
 	struct interface *ifp;
+<<<<<<< HEAD
 	char ifname_tmp[INTERFACE_NAMSIZ + 1] = {};
 
 	/* Read interface name. */
 	STREAM_GET(ifname_tmp, s, INTERFACE_NAMSIZ);
+=======
+	char ifname_tmp[IFNAMSIZ + 1] = {};
+
+	/* Read interface name. */
+	STREAM_GET(ifname_tmp, s, IFNAMSIZ);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	/* Lookup this by interface index. */
 	ifp = if_lookup_by_name(ifname_tmp, vrf_id);
@@ -2532,6 +3011,10 @@ static void zebra_interface_if_set_value(struct stream *s,
 	STREAM_GETC(s, ifp->ptm_status);
 	STREAM_GETL(s, ifp->metric);
 	STREAM_GETL(s, ifp->speed);
+<<<<<<< HEAD
+=======
+	STREAM_GETL(s, ifp->txqlen);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	STREAM_GETL(s, ifp->mtu);
 	STREAM_GETL(s, ifp->mtu6);
 	STREAM_GETL(s, ifp->bandwidth);
@@ -2807,6 +3290,7 @@ stream_failure:
 	return NULL;
 }
 
+<<<<<<< HEAD
 struct interface *zebra_interface_vrf_update_read(struct stream *s,
 						  vrf_id_t vrf_id,
 						  vrf_id_t *new_vrf_id)
@@ -2837,6 +3321,8 @@ stream_failure:
 	return NULL;
 }
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 /* filter unwanted messages until the expected one arrives */
 static int zclient_read_sync_response(struct zclient *zclient,
 				      uint16_t expected_cmd)
@@ -3042,10 +3528,161 @@ int srv6_manager_release_locator_chunk(struct zclient *zclient,
 	return zclient_send_message(zclient);
 }
 
+<<<<<<< HEAD
 /*
  * Asynchronous label chunk request
  *
  * @param zclient Zclient used to connect to label manager (zebra)
+=======
+/**
+ * Function to request a SRv6 locator in an asynchronous way
+ *
+ * @param zclient The zclient used to connect to SRv6 Manager (zebra)
+ * @param locator_name Name of SRv6 locator
+ * @return 0 on success, -1 otherwise
+ */
+int srv6_manager_get_locator(struct zclient *zclient, const char *locator_name)
+{
+	struct stream *s;
+	size_t len;
+
+	if (!locator_name)
+		return -1;
+
+	if (zclient->sock < 0) {
+		flog_err(EC_LIB_ZAPI_SOCKET, "%s: invalid zclient socket",
+			 __func__);
+		return -1;
+	}
+
+	if (zclient_debug)
+		zlog_debug("Getting SRv6 Locator %s", locator_name);
+
+	len = strlen(locator_name);
+
+	/* Send request */
+	s = zclient->obuf;
+	stream_reset(s);
+	zclient_create_header(s, ZEBRA_SRV6_MANAGER_GET_LOCATOR, VRF_DEFAULT);
+
+	/* Locator name */
+	stream_putw(s, len);
+	stream_put(s, locator_name, len);
+
+	/* Put length at the first point of the stream. */
+	stream_putw_at(s, 0, stream_get_endp(s));
+
+	return zclient_send_message(zclient);
+}
+
+/**
+ * Function to request an SRv6 SID in an asynchronous way
+ *
+ * @param zclient The zclient used to connect to SRv6 manager (zebra)
+ * @param ctx Context associated with the SRv6 SID
+ * @param sid_value SRv6 SID value for explicit SID allocation
+ * @param locator_name Name of the parent locator for dynamic SID allocation
+ * @param sid_func SID function assigned by the SRv6 Manager
+ * @result 0 on success, -1 otherwise
+ */
+int srv6_manager_get_sid(struct zclient *zclient, const struct srv6_sid_ctx *ctx,
+			 struct in6_addr *sid_value, const char *locator_name,
+			 uint32_t *sid_func)
+{
+	struct stream *s;
+	uint8_t flags = 0;
+	size_t len;
+	char buf[256];
+
+	if (zclient->sock < 0) {
+		flog_err(EC_LIB_ZAPI_SOCKET, "%s: invalid zclient socket",
+			 __func__);
+		return ZCLIENT_SEND_FAILURE;
+	}
+
+	if (zclient_debug)
+		zlog_debug("Getting SRv6 SID: %s",
+			   srv6_sid_ctx2str(buf, sizeof(buf), ctx));
+
+	/* send request */
+	s = zclient->obuf;
+	stream_reset(s);
+
+	zclient_create_header(s, ZEBRA_SRV6_MANAGER_GET_SRV6_SID, VRF_DEFAULT);
+
+	/* Context associated with the SRv6 SID */
+	stream_put(s, ctx, sizeof(struct srv6_sid_ctx));
+
+	/* Flags */
+	if (!sid_zero_ipv6(sid_value))
+		SET_FLAG(flags, ZAPI_SRV6_MANAGER_SID_FLAG_HAS_SID_VALUE);
+	if (locator_name)
+		SET_FLAG(flags, ZAPI_SRV6_MANAGER_SID_FLAG_HAS_LOCATOR);
+	stream_putc(s, flags);
+
+	/* SRv6 SID value */
+	if (CHECK_FLAG(flags, ZAPI_SRV6_MANAGER_SID_FLAG_HAS_SID_VALUE))
+		stream_put(s, sid_value, sizeof(struct in6_addr));
+
+	/* SRv6 locator */
+	if (CHECK_FLAG(flags, ZAPI_SRV6_MANAGER_SID_FLAG_HAS_LOCATOR)) {
+		len = strlen(locator_name);
+		stream_putw(s, len);
+		stream_put(s, locator_name, len);
+	}
+
+	/* Put length at the first point of the stream. */
+	stream_putw_at(s, 0, stream_get_endp(s));
+
+	/* Send the request to SRv6 Manager */
+	return zclient_send_message(zclient);
+}
+
+/**
+ * Function to release an SRv6 SID
+ *
+ * @param zclient Zclient used to connect to SRv6 manager (zebra)
+ * @param ctx Context associated with the SRv6 SID to be removed
+ * @result 0 on success, -1 otherwise
+ */
+int srv6_manager_release_sid(struct zclient *zclient,
+			     const struct srv6_sid_ctx *ctx)
+{
+	struct stream *s;
+	char buf[256];
+
+	if (zclient->sock < 0) {
+		flog_err(EC_LIB_ZAPI_SOCKET, "%s: invalid zclient socket",
+			 __func__);
+		return -1;
+	}
+
+	if (zclient_debug)
+		zlog_debug("Releasing SRv6 SID: %s",
+			   srv6_sid_ctx2str(buf, sizeof(buf), ctx));
+
+	/* send request */
+	s = zclient->obuf;
+	stream_reset(s);
+
+	zclient_create_header(s, ZEBRA_SRV6_MANAGER_RELEASE_SRV6_SID,
+			      VRF_DEFAULT);
+
+	/* Context associated with the SRv6 SID */
+	stream_put(s, ctx, sizeof(struct srv6_sid_ctx));
+
+	/* Put length at the first point of the stream. */
+	stream_putw_at(s, 0, stream_get_endp(s));
+
+	/* Send the SID release message */
+	return zclient_send_message(zclient);
+}
+
+/*
+ * Asynchronous label chunk request
+ *
+ * @param zclient The zclient used to connect to label manager (zebra)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
  * @param keep Avoid garbage collection
  * @param chunk_size Amount of labels requested
  * @param base Base for the label chunk. if MPLS_LABEL_BASE_ANY we do not care
@@ -3702,7 +4339,11 @@ enum zclient_send_status zebra_send_pw(struct zclient *zclient, int command,
 	stream_reset(s);
 
 	zclient_create_header(s, command, VRF_DEFAULT);
+<<<<<<< HEAD
 	stream_write(s, pw->ifname, INTERFACE_NAMSIZ);
+=======
+	stream_write(s, pw->ifname, IFNAMSIZ);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	stream_putl(s, pw->ifindex);
 
 	/* Put type */
@@ -3749,7 +4390,11 @@ int zebra_read_pw_status_update(ZAPI_CALLBACK_ARGS, struct zapi_pw_status *pw)
 	s = zclient->ibuf;
 
 	/* Get data. */
+<<<<<<< HEAD
 	stream_get(pw->ifname, s, INTERFACE_NAMSIZ);
+=======
+	stream_get(pw->ifname, s, IFNAMSIZ);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	STREAM_GETL(s, pw->ifindex);
 	STREAM_GETL(s, pw->status);
 
@@ -3780,6 +4425,10 @@ static int zclient_capability_decode(ZAPI_CALLBACK_ARGS)
 	cap.mpls_enabled = !!mpls_enabled;
 	STREAM_GETL(s, cap.ecmp);
 	STREAM_GETC(s, cap.role);
+<<<<<<< HEAD
+=======
+	STREAM_GETC(s, cap.v6_with_v4_nexthop);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	if (zclient->zebra_capabilities)
 		(*zclient->zebra_capabilities)(&cap);
@@ -3825,6 +4474,56 @@ enum zclient_send_status zclient_send_mlag_data(struct zclient *client,
 }
 
 /*
+<<<<<<< HEAD
+=======
+ * Init/header setup for opaque zapi messages
+ */
+enum zclient_send_status zapi_opaque_init(struct zclient *zclient,
+					  uint32_t type, uint16_t flags)
+{
+	struct stream *s;
+
+	s = zclient->obuf;
+	stream_reset(s);
+
+	zclient_create_header(s, ZEBRA_OPAQUE_MESSAGE, VRF_DEFAULT);
+
+	/* Send sub-type and flags */
+	stream_putl(s, type);
+	stream_putw(s, flags);
+
+	/* Source daemon identifiers */
+	stream_putc(s, zclient->redist_default);
+	stream_putw(s, zclient->instance);
+	stream_putl(s, zclient->session_id);
+
+	return ZCLIENT_SEND_SUCCESS;
+}
+
+/*
+ * Init, header setup for opaque unicast messages.
+ */
+enum zclient_send_status
+zapi_opaque_unicast_init(struct zclient *zclient, uint32_t type, uint16_t flags,
+			 uint8_t proto, uint16_t instance, uint32_t session_id)
+{
+	struct stream *s;
+
+	s = zclient->obuf;
+
+	/* Common init */
+	zapi_opaque_init(zclient, type, flags | ZAPI_OPAQUE_FLAG_UNICAST);
+
+	/* Send destination client info */
+	stream_putc(s, proto);
+	stream_putw(s, instance);
+	stream_putl(s, session_id);
+
+	return ZCLIENT_SEND_SUCCESS;
+}
+
+/*
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
  * Send an OPAQUE message, contents opaque to zebra. The message header
  * is a message subtype.
  */
@@ -3841,6 +4540,7 @@ enum zclient_send_status zclient_send_opaque(struct zclient *zclient,
 		return ZCLIENT_SEND_FAILURE;
 
 	s = zclient->obuf;
+<<<<<<< HEAD
 	stream_reset(s);
 
 	zclient_create_header(s, ZEBRA_OPAQUE_MESSAGE, VRF_DEFAULT);
@@ -3851,6 +4551,14 @@ enum zclient_send_status zclient_send_opaque(struct zclient *zclient,
 
 	/* Send opaque data */
 	stream_write(s, data, datasize);
+=======
+
+	zapi_opaque_init(zclient, type, flags);
+
+	/* Send opaque data */
+	if (datasize > 0)
+		stream_write(s, data, datasize);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	/* Put length into the header at the start of the stream. */
 	stream_putw_at(s, 0, stream_get_endp(s));
@@ -3877,6 +4585,7 @@ zclient_send_opaque_unicast(struct zclient *zclient, uint32_t type,
 		return ZCLIENT_SEND_FAILURE;
 
 	s = zclient->obuf;
+<<<<<<< HEAD
 	stream_reset(s);
 
 	zclient_create_header(s, ZEBRA_OPAQUE_MESSAGE, VRF_DEFAULT);
@@ -3893,6 +4602,16 @@ zclient_send_opaque_unicast(struct zclient *zclient, uint32_t type,
 
 	/* Send opaque data */
 	stream_write(s, data, datasize);
+=======
+
+	/* Common init */
+	zapi_opaque_unicast_init(zclient, type, flags, proto, instance,
+				 session_id);
+
+	/* Send opaque data */
+	if (datasize > 0)
+		stream_write(s, data, datasize);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	/* Put length into the header at the start of the stream. */
 	stream_putw_at(s, 0, stream_get_endp(s));
@@ -3911,11 +4630,24 @@ int zclient_opaque_decode(struct stream *s, struct zapi_opaque_msg *info)
 	STREAM_GETL(s, info->type);
 	STREAM_GETW(s, info->flags);
 
+<<<<<<< HEAD
 	/* Decode unicast client info if present */
 	if (CHECK_FLAG(info->flags, ZAPI_OPAQUE_FLAG_UNICAST)) {
 		STREAM_GETC(s, info->proto);
 		STREAM_GETW(s, info->instance);
 		STREAM_GETL(s, info->session_id);
+=======
+	/* Decode sending daemon info */
+	STREAM_GETC(s, info->src_proto);
+	STREAM_GETW(s, info->src_instance);
+	STREAM_GETL(s, info->src_session_id);
+
+	/* Decode unicast destination info, if present */
+	if (CHECK_FLAG(info->flags, ZAPI_OPAQUE_FLAG_UNICAST)) {
+		STREAM_GETC(s, info->dest_proto);
+		STREAM_GETW(s, info->dest_instance);
+		STREAM_GETL(s, info->dest_session_id);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	}
 
 	info->len = STREAM_READABLE(s);
@@ -4013,6 +4745,31 @@ stream_failure:
 	return -1;
 }
 
+<<<<<<< HEAD
+=======
+static int zclient_nexthop_update(ZAPI_CALLBACK_ARGS)
+{
+	struct vrf *vrf = vrf_lookup_by_id(vrf_id);
+	struct prefix match;
+	struct zapi_route route;
+
+	if (!vrf) {
+		zlog_warn("nexthop update for unknown VRF ID %u", vrf_id);
+		return 0;
+	}
+
+	if (!zapi_nexthop_update_decode(zclient->ibuf, &match, &route)) {
+		zlog_err("failed to decode nexthop update");
+		return -1;
+	}
+
+	if (zclient->nexthop_update)
+		zclient->nexthop_update(vrf, &match, &route);
+
+	return 0;
+}
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 static zclient_handler *const lib_handlers[] = {
 	/* fundamentals */
 	[ZEBRA_CAPABILITIES] = zclient_capability_decode,
@@ -4026,6 +4783,12 @@ static zclient_handler *const lib_handlers[] = {
 	[ZEBRA_INTERFACE_UP] = zclient_interface_up,
 	[ZEBRA_INTERFACE_DOWN] = zclient_interface_down,
 
+<<<<<<< HEAD
+=======
+	/* NHT pre-decode */
+	[ZEBRA_NEXTHOP_UPDATE] = zclient_nexthop_update,
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	/* BFD */
 	[ZEBRA_BFD_DEST_REPLAY] = zclient_bfd_session_replay,
 	[ZEBRA_INTERFACE_BFD_DEST_UPDATE] = zclient_bfd_session_update,
@@ -4134,7 +4897,12 @@ static void zclient_read(struct event *thread)
 		zlog_debug("zclient %p command %s VRF %u", zclient,
 			   zserv_command_string(command), vrf_id);
 
+<<<<<<< HEAD
 	if (command < array_size(lib_handlers) && lib_handlers[command])
+=======
+	if (!zclient->auxiliary && command < array_size(lib_handlers) &&
+	    lib_handlers[command])
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		lib_handlers[command](command, zclient, length, vrf_id);
 	if (command < zclient->n_handlers && zclient->handlers[command])
 		zclient->handlers[command](command, zclient, length, vrf_id);
@@ -4169,6 +4937,7 @@ void zclient_redistribute(int command, struct zclient *zclient, afi_t afi,
 
 	} else {
 		if (command == ZEBRA_REDISTRIBUTE_ADD) {
+<<<<<<< HEAD
 			if (vrf_bitmap_check(zclient->redist[afi][type],
 					     vrf_id))
 				return;
@@ -4178,6 +4947,17 @@ void zclient_redistribute(int command, struct zclient *zclient, afi_t afi,
 					      vrf_id))
 				return;
 			vrf_bitmap_unset(zclient->redist[afi][type], vrf_id);
+=======
+			if (vrf_bitmap_check(&zclient->redist[afi][type],
+					     vrf_id))
+				return;
+			vrf_bitmap_set(&zclient->redist[afi][type], vrf_id);
+		} else {
+			if (!vrf_bitmap_check(&zclient->redist[afi][type],
+					      vrf_id))
+				return;
+			vrf_bitmap_unset(&zclient->redist[afi][type], vrf_id);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		}
 	}
 
@@ -4192,6 +4972,7 @@ void zclient_redistribute_default(int command, struct zclient *zclient,
 {
 
 	if (command == ZEBRA_REDISTRIBUTE_DEFAULT_ADD) {
+<<<<<<< HEAD
 		if (vrf_bitmap_check(zclient->default_information[afi], vrf_id))
 			return;
 		vrf_bitmap_set(zclient->default_information[afi], vrf_id);
@@ -4200,12 +4981,29 @@ void zclient_redistribute_default(int command, struct zclient *zclient,
 				      vrf_id))
 			return;
 		vrf_bitmap_unset(zclient->default_information[afi], vrf_id);
+=======
+		if (vrf_bitmap_check(&zclient->default_information[afi],
+				     vrf_id))
+			return;
+		vrf_bitmap_set(&zclient->default_information[afi], vrf_id);
+	} else {
+		if (!vrf_bitmap_check(&zclient->default_information[afi],
+				      vrf_id))
+			return;
+		vrf_bitmap_unset(&zclient->default_information[afi], vrf_id);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	}
 
 	if (zclient->sock > 0)
 		zebra_redistribute_default_send(command, zclient, afi, vrf_id);
 }
 
+<<<<<<< HEAD
+=======
+#define ZCLIENT_QUICK_RECONNECT 1
+#define ZCLIENT_SLOW_RECONNECT	5
+#define ZCLIENT_SWITCH_TO_SLOW	30
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 static void zclient_event(enum zclient_event event, struct zclient *zclient)
 {
 	switch (event) {
@@ -4215,11 +5013,21 @@ static void zclient_event(enum zclient_event event, struct zclient *zclient)
 		break;
 	case ZCLIENT_CONNECT:
 		if (zclient_debug)
+<<<<<<< HEAD
 			zlog_debug(
 				"zclient connect failures: %d schedule interval is now %d",
 				zclient->fail, zclient->fail < 3 ? 10 : 60);
 		event_add_timer(zclient->master, zclient_connect, zclient,
 				zclient->fail < 3 ? 10 : 60,
+=======
+			zlog_debug("zclient connect failures: %d schedule interval is now %d",
+				   zclient->fail,
+				   zclient->fail < ZCLIENT_SWITCH_TO_SLOW ? ZCLIENT_QUICK_RECONNECT
+									  : ZCLIENT_SLOW_RECONNECT);
+		event_add_timer(zclient->master, zclient_connect, zclient,
+				zclient->fail < ZCLIENT_SWITCH_TO_SLOW ? ZCLIENT_QUICK_RECONNECT
+								       : ZCLIENT_SLOW_RECONNECT,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 				&zclient->t_connect);
 		break;
 	case ZCLIENT_READ:
@@ -4230,6 +5038,27 @@ static void zclient_event(enum zclient_event event, struct zclient *zclient)
 	}
 }
 
+<<<<<<< HEAD
+=======
+enum zclient_send_status zclient_interface_set_arp(struct zclient *client,
+						   struct interface *ifp,
+						   bool arp_enable)
+{
+	struct stream *s;
+
+	s = client->obuf;
+	stream_reset(s);
+
+	zclient_create_header(s, ZEBRA_INTERFACE_SET_ARP, ifp->vrf->vrf_id);
+
+	stream_putl(s, ifp->ifindex);
+	stream_putc(s, arp_enable);
+
+	stream_putw_at(s, 0, stream_get_endp(s));
+	return zclient_send_message(client);
+}
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 enum zclient_send_status zclient_interface_set_master(struct zclient *client,
 						      struct interface *master,
 						      struct interface *slave)
@@ -4361,6 +5190,7 @@ char *zclient_dump_route_flags(uint32_t flags, char *buf, size_t len)
 		return buf;
 	}
 
+<<<<<<< HEAD
 	snprintfrr(
 		buf, len, "%s%s%s%s%s%s%s%s%s%s",
 		CHECK_FLAG(flags, ZEBRA_FLAG_ALLOW_RECURSION) ? "Recursion "
@@ -4376,6 +5206,27 @@ char *zclient_dump_route_flags(uint32_t flags, char *buf, size_t len)
 		CHECK_FLAG(flags, ZEBRA_FLAG_OFFLOADED) ? "Offloaded " : "",
 		CHECK_FLAG(flags, ZEBRA_FLAG_OFFLOAD_FAILED) ? "Offload Failed "
 							     : "");
+=======
+	snprintfrr(buf, len, "%s%s%s%s%s%s%s%s%s%s%s",
+		   CHECK_FLAG(flags, ZEBRA_FLAG_ALLOW_RECURSION) ? "Recursion "
+								 : "",
+
+		   CHECK_FLAG(flags, ZEBRA_FLAG_SELFROUTE) ? "Self " : "",
+		   CHECK_FLAG(flags, ZEBRA_FLAG_IBGP) ? "iBGP " : "",
+		   CHECK_FLAG(flags, ZEBRA_FLAG_SELECTED) ? "Selected " : "",
+		   CHECK_FLAG(flags, ZEBRA_FLAG_FIB_OVERRIDE) ? "Override " : "",
+		   CHECK_FLAG(flags, ZEBRA_FLAG_EVPN_ROUTE) ? "Evpn " : "",
+		   CHECK_FLAG(flags, ZEBRA_FLAG_RR_USE_DISTANCE) ? "RR Distance "
+								 : "",
+
+		   CHECK_FLAG(flags, ZEBRA_FLAG_TRAPPED) ? "Trapped " : "",
+		   CHECK_FLAG(flags, ZEBRA_FLAG_OFFLOADED) ? "Offloaded " : "",
+		   CHECK_FLAG(flags, ZEBRA_FLAG_OFFLOAD_FAILED)
+			   ? "Offload Failed "
+			   : "",
+		   CHECK_FLAG(flags, ZEBRA_FLAG_OUTOFSYNC) ? "OutOfSync " : "");
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	return buf;
 }
 
@@ -4419,7 +5270,11 @@ static int zclient_neigh_ip_read_entry(struct stream *s, struct ipaddr *add)
 
 int zclient_neigh_ip_encode(struct stream *s, uint16_t cmd, union sockunion *in,
 			    union sockunion *out, struct interface *ifp,
+<<<<<<< HEAD
 			    int ndm_state)
+=======
+			    int ndm_state, int ip_len)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 {
 	int ret = 0;
 
@@ -4432,6 +5287,10 @@ int zclient_neigh_ip_encode(struct stream *s, uint16_t cmd, union sockunion *in,
 			     sockunion_get_addrlen(out));
 	} else
 		stream_putc(s, AF_UNSPEC);
+<<<<<<< HEAD
+=======
+	stream_putl(s, ip_len);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	stream_putl(s, ifp->ifindex);
 	if (out)
 		stream_putl(s, ndm_state);
@@ -4449,6 +5308,10 @@ int zclient_neigh_ip_decode(struct stream *s, struct zapi_neigh_ip *api)
 		return -1;
 	zclient_neigh_ip_read_entry(s, &api->ip_out);
 
+<<<<<<< HEAD
+=======
+	STREAM_GETL(s, api->ip_len);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	STREAM_GETL(s, api->index);
 	STREAM_GETL(s, api->ndm_state);
 	return 0;
@@ -4473,3 +5336,148 @@ int zclient_send_zebra_gre_request(struct zclient *client,
 	zclient_send_message(client);
 	return 0;
 }
+<<<<<<< HEAD
+=======
+
+
+/*
+ * Opaque notification features
+ */
+
+/*
+ * Common encode helper for opaque notifications, both registration
+ * and async notification messages.
+ */
+static int opaque_notif_encode_common(struct stream *s, uint32_t msg_type,
+				      bool request, bool reg, uint8_t proto,
+				      uint16_t instance, uint32_t session_id)
+{
+	int ret = 0;
+	uint8_t val = 0;
+
+	stream_reset(s);
+
+	zclient_create_header(s, ZEBRA_OPAQUE_NOTIFY, VRF_DEFAULT);
+
+	/* Notification or request */
+	if (request)
+		val = 1;
+	stream_putc(s, val);
+
+	if (reg)
+		val = 1;
+	else
+		val = 0;
+	stream_putc(s, val);
+
+	stream_putl(s, msg_type);
+
+	stream_putc(s, proto);
+	stream_putw(s, instance);
+	stream_putl(s, session_id);
+
+	/* And capture message length */
+	stream_putw_at(s, 0, stream_get_endp(s));
+
+	return ret;
+}
+
+/*
+ * Encode a zapi opaque message type notification into buffer 's'
+ */
+int zclient_opaque_notif_encode(struct stream *s, uint32_t msg_type, bool reg,
+				uint8_t proto, uint16_t instance,
+				uint32_t session_id)
+{
+	return opaque_notif_encode_common(s, msg_type, false /* !request */,
+					  reg, proto, instance, session_id);
+}
+
+/*
+ * Decode an incoming zapi opaque message type notification
+ */
+int zclient_opaque_notif_decode(struct stream *s,
+				struct zapi_opaque_notif_info *info)
+{
+	uint8_t val;
+
+	memset(info, 0, sizeof(*info));
+
+	STREAM_GETC(s, val); /* Registration or notification */
+	info->request = (val != 0);
+
+	STREAM_GETC(s, val);
+	info->reg = (val != 0);
+
+	STREAM_GETL(s, info->msg_type);
+
+	STREAM_GETC(s, info->proto);
+	STREAM_GETW(s, info->instance);
+	STREAM_GETL(s, info->session_id);
+
+	return 0;
+
+stream_failure:
+	return -1;
+}
+
+/*
+ * Encode and send a zapi opaque message type notification request to zebra
+ */
+enum zclient_send_status zclient_opaque_request_notify(struct zclient *zclient,
+						       uint32_t msgtype)
+{
+	struct stream *s;
+
+	if (!zclient || zclient->sock < 0)
+		return ZCLIENT_SEND_FAILURE;
+
+	s = zclient->obuf;
+
+	opaque_notif_encode_common(s, msgtype, true /* request */,
+				   true /* register */, zclient->redist_default,
+				   zclient->instance, zclient->session_id);
+
+	return zclient_send_message(zclient);
+}
+
+/*
+ * Encode and send a request to drop notifications for an opaque message type.
+ */
+enum zclient_send_status zclient_opaque_drop_notify(struct zclient *zclient,
+						    uint32_t msgtype)
+{
+	struct stream *s;
+
+	if (!zclient || zclient->sock < 0)
+		return ZCLIENT_SEND_FAILURE;
+
+	s = zclient->obuf;
+
+	opaque_notif_encode_common(s, msgtype, true /* req */,
+				   false /* unreg */, zclient->redist_default,
+				   zclient->instance, zclient->session_id);
+
+	return zclient_send_message(zclient);
+}
+
+void zclient_register_neigh(struct zclient *zclient, vrf_id_t vrf_id, afi_t afi,
+			    bool reg)
+{
+	struct stream *s;
+
+	if (!zclient || zclient->sock < 0)
+		return;
+
+	s = zclient->obuf;
+	stream_reset(s);
+
+	zclient_create_header(s,
+			      reg ? ZEBRA_NEIGH_REGISTER
+				  : ZEBRA_NEIGH_UNREGISTER,
+			      vrf_id);
+	stream_putw(s, afi);
+	stream_putw_at(s, 0, stream_get_endp(s));
+	zclient_send_message(zclient);
+}
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)

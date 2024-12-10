@@ -44,6 +44,11 @@ struct frrscript_names_entry {
 
 extern struct frrscript_names_head frrscript_names_hash;
 
+<<<<<<< HEAD
+=======
+extern void frrscript_names_config_write(struct vty *vty);
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 int frrscript_names_hash_cmp(const struct frrscript_names_entry *snhe1,
 			     const struct frrscript_names_entry *snhe2);
 uint32_t frrscript_names_hash_key(const struct frrscript_names_entry *snhe);
@@ -181,6 +186,14 @@ void frrscript_fini(void);
 	} while (0)
 
 /*
+<<<<<<< HEAD
+=======
+ * Noop function. Used below where we need a noop decoder for any type.
+ */
+void _lua_decode_noop(lua_State *, ...);
+
+/*
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
  * Maps the type of value to its encoder/decoder.
  * Add new mappings here.
  *
@@ -192,7 +205,13 @@ void frrscript_fini(void);
 #define ENCODE_ARGS_WITH_STATE(L, value)                                       \
 	_Generic((value), \
 int : lua_pushinteger,                                          \
+<<<<<<< HEAD
 long long * : lua_pushintegerp,                                 \
+=======
+int * : lua_pushintegerp,                                       \
+long long : lua_pushinteger,                                    \
+long long * : lua_pushlonglongp,                                \
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 struct prefix * : lua_pushprefix,                               \
 struct interface * : lua_pushinterface,                         \
 struct in_addr * : lua_pushinaddr,                              \
@@ -211,8 +230,13 @@ struct zebra_dplane_ctx * : lua_pushzebra_dplane_ctx            \
 
 #define DECODE_ARGS_WITH_STATE(L, value)                                       \
 	_Generic((value), \
+<<<<<<< HEAD
 int : lua_decode_integer_noop,                                  \
 long long * : lua_decode_integerp,                              \
+=======
+int * : lua_decode_integerp,                                    \
+long long * : lua_decode_longlongp,                             \
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 struct prefix * : lua_decode_prefix,                            \
 struct interface * : lua_decode_interface,                      \
 struct in_addr * : lua_decode_inaddr,                           \
@@ -220,6 +244,7 @@ struct in6_addr * : lua_decode_in6addr,                         \
 union sockunion * : lua_decode_sockunion,                       \
 char * : lua_decode_stringp,                                    \
 struct attr * : lua_decode_attr,                                \
+<<<<<<< HEAD
 struct peer * : lua_decode_noop,                                \
 const struct prefix * : lua_decode_noop,                        \
 const struct ipaddr * : lua_decode_noop,                        \
@@ -227,6 +252,9 @@ const struct ethaddr * : lua_decode_noop,                       \
 const struct nexthop_group * : lua_decode_noop,                 \
 const struct nexthop * : lua_decode_noop,                       \
 struct zebra_dplane_ctx * : lua_decode_noop                     \
+=======
+default : _lua_decode_noop                                      \
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 )((L), -1, (value))
 
 /*

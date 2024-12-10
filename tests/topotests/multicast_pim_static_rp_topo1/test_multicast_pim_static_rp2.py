@@ -123,6 +123,7 @@ from lib.pim import (
     verify_join_state_and_timer,
     verify_mroutes,
     verify_pim_neighbors,
+<<<<<<< HEAD
     get_pim_interface_traffic,
     verify_pim_rp_info,
     verify_pim_state,
@@ -131,6 +132,11 @@ from lib.pim import (
     clear_pim_interfaces,
     clear_mroute,
     clear_mroute_verify,
+=======
+    verify_pim_rp_info,
+    clear_pim_interface_traffic,
+    clear_mroute,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     McastTesterHelper,
 )
 

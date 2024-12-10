@@ -41,6 +41,10 @@ pytestmark = [
     # pytest.mark.vrrpd,
 ]
 
+<<<<<<< HEAD
+=======
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 # Function we pass to Topogen to create the topology
 def build_topo(tgen):
     "Build function"

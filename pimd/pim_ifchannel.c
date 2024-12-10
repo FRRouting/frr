@@ -135,7 +135,11 @@ void pim_ifchannel_delete(struct pim_ifchannel *ch)
 		 * being inherited.  So let's figure out what
 		 * needs to be done here
 		 */
+<<<<<<< HEAD
 		if (!pim_addr_is_any(ch->sg.src) &&
+=======
+		if (!pim_addr_is_any(ch->sg.src) && ch->parent &&
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		    pim_upstream_evaluate_join_desired_interface(
 			    ch->upstream, ch, ch->parent))
 			pim_channel_add_oif(ch->upstream->channel_oil,
@@ -208,6 +212,15 @@ void pim_ifchannel_delete(struct pim_ifchannel *ch)
 		zlog_debug("%s: ifchannel entry %s(%s) is deleted ", __func__,
 			   ch->sg_str, ch->interface->name);
 
+<<<<<<< HEAD
+=======
+#if PIM_IPV == 6
+	/* Embedded RPs learned via PIM join/connected source are freed here */
+	if (pim_embedded_rp_is_embedded(&ch->sg.grp))
+		pim_embedded_rp_delete(pim_ifp->pim, &ch->sg.grp);
+#endif /* PIM_IPV == 6 */
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	XFREE(MTYPE_PIM_IFCHANNEL, ch);
 
 	if (up)

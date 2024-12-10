@@ -86,6 +86,7 @@ uint32_t jhash(const void *key, uint32_t length, uint32_t initval)
 	switch (len) {
 	case 11:
 		c += ((uint32_t)k[10] << 24);
+<<<<<<< HEAD
 	/* fallthru */
 	case 10:
 		c += ((uint32_t)k[9] << 16);
@@ -114,6 +115,36 @@ uint32_t jhash(const void *key, uint32_t length, uint32_t initval)
 	case 2:
 		a += ((uint32_t)k[1] << 8);
 	/* fallthru */
+=======
+		fallthrough;
+	case 10:
+		c += ((uint32_t)k[9] << 16);
+		fallthrough;
+	case 9:
+		c += ((uint32_t)k[8] << 8);
+		fallthrough;
+	case 8:
+		b += ((uint32_t)k[7] << 24);
+		fallthrough;
+	case 7:
+		b += ((uint32_t)k[6] << 16);
+		fallthrough;
+	case 6:
+		b += ((uint32_t)k[5] << 8);
+		fallthrough;
+	case 5:
+		b += k[4];
+		fallthrough;
+	case 4:
+		a += ((uint32_t)k[3] << 24);
+		fallthrough;
+	case 3:
+		a += ((uint32_t)k[2] << 16);
+		fallthrough;
+	case 2:
+		a += ((uint32_t)k[1] << 8);
+		fallthrough;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	case 1:
 		a += k[0];
 	}
@@ -148,7 +179,11 @@ uint32_t jhash2(const uint32_t *k, uint32_t length, uint32_t initval)
 	switch (len) {
 	case 2:
 		b += k[1];
+<<<<<<< HEAD
 	/* fallthru */
+=======
+		fallthrough;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	case 1:
 		a += k[0];
 	}

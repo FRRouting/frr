@@ -340,7 +340,10 @@
         },
         "segment-routing":[
           {
+<<<<<<< HEAD
             "adj-sid":5001,
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
             "flags":"0xb0",
             "weight":0
           }
@@ -725,7 +728,10 @@
         },
         "segment-routing":[
           {
+<<<<<<< HEAD
             "adj-sid":5000,
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
             "flags":"0x30",
             "weight":0
           }

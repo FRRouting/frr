@@ -70,10 +70,17 @@ static struct nexthop *nexthop_group_tail(const struct nexthop_group *nhg)
 	return nexthop;
 }
 
+<<<<<<< HEAD
 uint8_t nexthop_group_nexthop_num(const struct nexthop_group *nhg)
 {
 	struct nexthop *nhop;
 	uint8_t num = 0;
+=======
+uint16_t nexthop_group_nexthop_num(const struct nexthop_group *nhg)
+{
+	struct nexthop *nhop;
+	uint16_t num = 0;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	for (ALL_NEXTHOPS_PTR(nhg, nhop))
 		num++;
@@ -81,10 +88,17 @@ uint8_t nexthop_group_nexthop_num(const struct nexthop_group *nhg)
 	return num;
 }
 
+<<<<<<< HEAD
 uint8_t nexthop_group_nexthop_num_no_recurse(const struct nexthop_group *nhg)
 {
 	struct nexthop *nhop;
 	uint8_t num = 0;
+=======
+static uint16_t nexthop_group_nexthop_num_no_recurse(const struct nexthop_group *nhg)
+{
+	struct nexthop *nhop;
+	uint16_t num = 0;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	for (nhop = nhg->nexthop; nhop; nhop = nhop->next)
 		num++;
@@ -92,10 +106,17 @@ uint8_t nexthop_group_nexthop_num_no_recurse(const struct nexthop_group *nhg)
 	return num;
 }
 
+<<<<<<< HEAD
 uint8_t nexthop_group_active_nexthop_num(const struct nexthop_group *nhg)
 {
 	struct nexthop *nhop;
 	uint8_t num = 0;
+=======
+uint16_t nexthop_group_active_nexthop_num(const struct nexthop_group *nhg)
+{
+	struct nexthop *nhop;
+	uint16_t num = 0;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	for (ALL_NEXTHOPS_PTR(nhg, nhop)) {
 		if (CHECK_FLAG(nhop->flags, NEXTHOP_FLAG_ACTIVE))
@@ -105,6 +126,7 @@ uint8_t nexthop_group_active_nexthop_num(const struct nexthop_group *nhg)
 	return num;
 }
 
+<<<<<<< HEAD
 uint8_t
 nexthop_group_active_nexthop_num_no_recurse(const struct nexthop_group *nhg)
 {
@@ -119,6 +141,8 @@ nexthop_group_active_nexthop_num_no_recurse(const struct nexthop_group *nhg)
 	return num;
 }
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 bool nexthop_group_has_label(const struct nexthop_group *nhg)
 {
 	struct nexthop *nhop;
@@ -180,7 +204,11 @@ static struct nexthop *nhg_nh_find(const struct nexthop_group *nhg,
 						 &nexthop->gate, &nh->gate);
 			if (ret != 0)
 				continue;
+<<<<<<< HEAD
 			/* Intentional Fall-Through */
+=======
+			fallthrough;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		case NEXTHOP_TYPE_IFINDEX:
 			if (nexthop->ifindex != nh->ifindex)
 				continue;
@@ -197,11 +225,17 @@ static struct nexthop *nhg_nh_find(const struct nexthop_group *nhg,
 	return NULL;
 }
 
+<<<<<<< HEAD
 static bool
 nexthop_group_equal_common(const struct nexthop_group *nhg1,
 			   const struct nexthop_group *nhg2,
 			   uint8_t (*nexthop_group_nexthop_num_func)(
 				   const struct nexthop_group *nhg))
+=======
+static bool nexthop_group_equal_common(
+	const struct nexthop_group *nhg1, const struct nexthop_group *nhg2,
+	uint16_t (*nexthop_group_nexthop_num_func)(const struct nexthop_group *nhg))
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 {
 	if (nhg1 && !nhg2)
 		return false;
@@ -1047,6 +1081,10 @@ void nexthop_group_write_nexthop_simple(struct vty *vty,
 		vty_out(vty, "%pI6 %s", &nh->gate.ipv6, ifname);
 		break;
 	case NEXTHOP_TYPE_BLACKHOLE:
+<<<<<<< HEAD
+=======
+		vty_out(vty, "%s", "drop");
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		break;
 	}
 }
@@ -1247,9 +1285,15 @@ void nexthop_group_disable_vrf(struct vrf *vrf)
 	struct nexthop_hold *nhh;
 
 	RB_FOREACH (nhgc, nhgc_entry_head, &nhgc_entries) {
+<<<<<<< HEAD
 		struct listnode *node;
 
 		for (ALL_LIST_ELEMENTS_RO(nhgc->nhg_list, node, nhh)) {
+=======
+		struct listnode *node, *nnode;
+
+		for (ALL_LIST_ELEMENTS(nhgc->nhg_list, node, nnode, nhh)) {
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			struct nexthop nhop;
 			struct nexthop *nh;
 
@@ -1270,6 +1314,13 @@ void nexthop_group_disable_vrf(struct vrf *vrf)
 				nhg_hooks.del_nexthop(nhgc, nh);
 
 			nexthop_free(nh);
+<<<<<<< HEAD
+=======
+
+			list_delete_node(nhgc->nhg_list, node);
+
+			nhgl_delete(nhh);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		}
 	}
 }

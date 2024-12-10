@@ -12,7 +12,11 @@
         {
           "fib":true,
           "afi":"ipv6",
+<<<<<<< HEAD
           "interfaceName":"eth-rt4",
+=======
+          "interfaceName":"eth-rt5",
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
           "active":true,
           "labels":[
             16011
@@ -21,7 +25,11 @@
         {
           "fib":true,
           "afi":"ipv6",
+<<<<<<< HEAD
           "interfaceName":"eth-rt5",
+=======
+          "interfaceName":"eth-rt4",
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
           "active":true,
           "labels":[
             16011

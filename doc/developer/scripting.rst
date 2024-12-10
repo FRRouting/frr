@@ -488,12 +488,15 @@ match *exactly*.
 In the above example, we defined encoders/decoders for a value of
 ``struct prefix *``, but not ``struct prefix`` or ``const struct prefix *``.
 
+<<<<<<< HEAD
 ``const`` values are a special case. We want to use them in our Lua scripts
 but not modify them, so creating a decoder for them would be meaningless.
 But we still need a decoder for the type of value so that the compiler will be
 satisfied.
 For that, use ``lua_decode_noop``:
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 .. code-block:: diff
 
      #define DECODE_ARGS_WITH_STATE(L, value) \
@@ -529,6 +532,10 @@ object which contains methods corresponding to each of the ``zlog`` levels:
    log.error("error")
    log.notice("notice")
    log.debug("debug")
+<<<<<<< HEAD
+=======
+   log.trace("trace")
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 The log messages will show up in the daemon's log output.
 
@@ -585,14 +592,22 @@ accomplished with scripting.
            RM_FAILURE, RM_NOMATCH, RM_MATCH, RM_MATCH_AND_CHANGE)
 
            log.info("Evaluating route " .. prefix.network .. " from peer " .. peer.remote_id.string)
+<<<<<<< HEAD
    
+=======
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
            function on_match (prefix, attributes)
                    log.info("Match")
                    return {
                            attributes = RM_MATCH
                    }
            end
+<<<<<<< HEAD
    
+=======
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
            function on_nomatch (prefix, attributes)
                    log.info("No match")
                    return {

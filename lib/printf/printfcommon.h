@@ -8,7 +8,11 @@
  * Chris Torek.
  *
  * Copyright (c) 2011 The FreeBSD Foundation
+<<<<<<< HEAD
  * All rights reserved.
+=======
+ *
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
  * Portions of this software were developed by David Chisnall
  * under sponsorship from the FreeBSD Foundation.
  *
@@ -35,8 +39,11 @@
  * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
+<<<<<<< HEAD
  *
  * $FreeBSD$
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
  */
 
 /*
@@ -70,7 +77,11 @@ io_print(struct io_state *iop, const CHAR * __restrict ptr, size_t len)
 {
 	size_t copylen = len;
 
+<<<<<<< HEAD
 	if (!iop->cb)
+=======
+	if (!iop->cb || !len)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		return 0;
 	if (iop->avail < copylen)
 		copylen = iop->avail;
@@ -171,6 +182,16 @@ __ultoa(u_long val, CHAR *endp, int base, int octzero, const char *xdigs)
 		} while (sval != 0);
 		break;
 
+<<<<<<< HEAD
+=======
+	case 2:
+		do {
+			*--cp = to_char(val & 1);
+			val >>= 1;
+		} while (val);
+		break;
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	case 8:
 		do {
 			*--cp = to_char(val & 7);
@@ -221,6 +242,16 @@ __ujtoa(uintmax_t val, CHAR *endp, int base, int octzero, const char *xdigs)
 		} while (sval != 0);
 		break;
 
+<<<<<<< HEAD
+=======
+	case 2:
+		do {
+			*--cp = to_char(val & 1);
+			val >>= 1;
+		} while (val);
+		break;
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	case 8:
 		do {
 			*--cp = to_char(val & 7);

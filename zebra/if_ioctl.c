@@ -5,6 +5,10 @@
  */
 
 #include <zebra.h>
+<<<<<<< HEAD
+=======
+#include <sys/ioctl.h>
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 #ifdef OPEN_BSD
 
@@ -295,6 +299,11 @@ void interface_list(struct zebra_ns *zns)
 	   /proc/net/if_inet6. */
 	ifaddr_proc_ipv6();
 #endif /* HAVE_PROC_NET_IF_INET6 */
+<<<<<<< HEAD
+=======
+
+	zebra_dplane_startup_stage(zns, ZEBRA_DPLANE_INTERFACES_READ);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 }
 
 #endif /* OPEN_BSD */

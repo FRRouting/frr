@@ -5,6 +5,10 @@
 
 #include "zebra.h"
 
+<<<<<<< HEAD
+=======
+#include <fcntl.h>
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 #include <errno.h>
 #include <linux/if_packet.h>
 
@@ -96,6 +100,7 @@ int os_recvmsg(uint8_t *buf, size_t *len, int *ifindex, uint8_t *addr,
 	return 0;
 }
 
+<<<<<<< HEAD
 static int linux_configure_arp(const char *iface, int on)
 {
 	struct ifreq ifr;
@@ -115,6 +120,8 @@ static int linux_configure_arp(const char *iface, int on)
 	return 0;
 }
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 static int linux_icmp_redirect_off(const char *iface)
 {
 	char fname[PATH_MAX];
@@ -142,7 +149,10 @@ int os_configure_dmvpn(unsigned int ifindex, const char *ifname, int af)
 		ret |= linux_icmp_redirect_off(ifname);
 		break;
 	}
+<<<<<<< HEAD
 	ret |= linux_configure_arp(ifname, 1);
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	return ret;
 }

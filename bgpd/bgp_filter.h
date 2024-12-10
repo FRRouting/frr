@@ -6,10 +6,48 @@
 #ifndef _QUAGGA_BGP_FILTER_H
 #define _QUAGGA_BGP_FILTER_H
 
+<<<<<<< HEAD
+=======
+#include <typesafe.h>
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 #define ASPATH_SEQ_NUMBER_AUTO -1
 
 enum as_filter_type { AS_FILTER_DENY, AS_FILTER_PERMIT };
 
+<<<<<<< HEAD
+=======
+/* Element of AS path filter. */
+struct as_filter {
+	struct as_filter *next;
+	struct as_filter *prev;
+
+	enum as_filter_type type;
+
+	regex_t *reg;
+	char *reg_str;
+
+	/* Sequence number. */
+	int64_t seq;
+};
+
+PREDECL_DLIST(as_list_list);
+/* AS path filter list. */
+struct as_list {
+	char *name;
+
+	struct as_list *next;
+	struct as_list *prev;
+
+	struct as_filter *head;
+	struct as_filter *tail;
+
+	/* Changes in AS path */
+	struct as_list_list_head exclude_rule;
+};
+
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 extern void bgp_filter_init(void);
 extern void bgp_filter_reset(void);
 

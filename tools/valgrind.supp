@@ -24,6 +24,18 @@
    fun:zprivs_caps_init
 }
 {
+<<<<<<< HEAD
+=======
+   <zprivs_init leak in library code we do not control>
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   ...
+   fun:getgrouplist
+   fun:zprivs_init
+   fun:frr_init
+}
+{
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
    <sqlite3 leak in a function we do not control>
    Memcheck:Leak
    fun:malloc

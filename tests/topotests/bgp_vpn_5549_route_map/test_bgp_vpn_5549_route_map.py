@@ -22,7 +22,10 @@ sys.path.append(os.path.join(CWD, "../"))
 # pylint: disable=C0413
 from lib import topotest
 from lib.topogen import Topogen, TopoRouter, get_topogen
+<<<<<<< HEAD
 from lib.common_config import step
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 pytestmark = [pytest.mark.bgpd]
 
@@ -67,7 +70,11 @@ def setup_module(mod):
 
     router_list = tgen.routers()
 
+<<<<<<< HEAD
     for i, (rname, router) in enumerate(router_list.items(), 1):
+=======
+    for _, (rname, router) in enumerate(router_list.items(), 1):
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         router.load_config(
             TopoRouter.RD_ZEBRA, os.path.join(CWD, "{}/zebra.conf".format(rname))
         )
@@ -115,10 +122,62 @@ def test_bgp_vpn_5549():
         }
         return topotest.json_cmp(output, expected)
 
+<<<<<<< HEAD
+=======
+    def _bgp_verify_v4_nexthop_validity():
+        output = json.loads(tgen.gears["cpe1"].vtysh_cmd("show bgp nexthop json"))
+        expected = {
+            "ipv4": {
+                "192.168.1.2": {
+                    "valid": True,
+                    "complete": True,
+                    "igpMetric": 0,
+                    "pathCount": 0,
+                    "nexthops": [{"interfaceName": "cpe1-eth0"}],
+                },
+            }
+        }
+        return topotest.json_cmp(output, expected)
+
+    def _bgp_verify_v6_global_nexthop_validity():
+        output = json.loads(tgen.gears["pe2"].vtysh_cmd("show bgp nexthop json"))
+        expected = {
+            "ipv6": {
+                "2001:db8::1": {
+                    "valid": True,
+                    "complete": True,
+                    "igpMetric": 0,
+                    "pathCount": 2,
+                    "nexthops": [{"interfaceName": "pe2-eth0"}],
+                },
+                "2001:db8:1::1": {
+                    "valid": True,
+                    "complete": True,
+                    "igpMetric": 10,
+                    "pathCount": 2,
+                    "peer": "2001:db8:1::1",
+                    "nexthops": [{"interfaceName": "pe2-eth0"}],
+                },
+            }
+        }
+        return topotest.json_cmp(output, expected)
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     test_func = functools.partial(_bgp_vpn_nexthop_changed)
     _, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
     assert result is None, "Failed overriding IPv6 next-hop for VPN underlay"
 
+<<<<<<< HEAD
+=======
+    test_func = functools.partial(_bgp_verify_v4_nexthop_validity)
+    _, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
+    assert result is None, "IPv4 nexthop is invalid"
+
+    test_func = functools.partial(_bgp_verify_v6_global_nexthop_validity)
+    _, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
+    assert result is None, "IPv6 nexthop is invalid"
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 if __name__ == "__main__":
     args = ["-s"] + sys.argv[1:]

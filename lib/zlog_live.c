@@ -5,6 +5,11 @@
 
 #include "zebra.h"
 
+<<<<<<< HEAD
+=======
+#include "frrsendmmsg.h"
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 #include "zlog_live.h"
 
 #include "memory.h"

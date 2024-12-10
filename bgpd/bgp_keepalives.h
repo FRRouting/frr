@@ -27,7 +27,11 @@
  * If the peer is already registered for keepalives via this function, nothing
  * happens.
  */
+<<<<<<< HEAD
 extern void bgp_keepalives_on(struct peer *);
+=======
+extern void bgp_keepalives_on(struct peer_connection *connection);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 /**
  * Turns off keepalives for a peer.
@@ -36,7 +40,11 @@ extern void bgp_keepalives_on(struct peer *);
  *
  * If the peer is already unregistered for keepalives, nothing happens.
  */
+<<<<<<< HEAD
 extern void bgp_keepalives_off(struct peer *);
+=======
+extern void bgp_keepalives_off(struct peer_connection *connection);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 /**
  * Pre-run initialization function for keepalives pthread.

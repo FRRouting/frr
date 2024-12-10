@@ -5,6 +5,12 @@
 
 #include <zebra.h>
 
+<<<<<<< HEAD
+=======
+#include <fcntl.h>
+#include <signal.h>
+#include <sys/stat.h>
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 #include <sys/un.h>
 #include <setjmp.h>
 #include <pwd.h>
@@ -221,7 +227,13 @@ static struct event *vtysh_rl_read_thread;
 
 static void vtysh_rl_read(struct event *thread)
 {
+<<<<<<< HEAD
 	event_add_read(master, vtysh_rl_read, NULL, STDIN_FILENO,
+=======
+	bool *suppress_warnings = EVENT_ARG(thread);
+
+	event_add_read(master, vtysh_rl_read, suppress_warnings, STDIN_FILENO,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		       &vtysh_rl_read_thread);
 	rl_callback_read_char();
 }
@@ -230,11 +242,19 @@ static void vtysh_rl_read(struct event *thread)
 static void vtysh_rl_run(void)
 {
 	struct event thread;
+<<<<<<< HEAD
+=======
+	bool suppress_warnings = true;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	master = event_master_create(NULL);
 
 	rl_callback_handler_install(vtysh_prompt(), vtysh_rl_callback);
+<<<<<<< HEAD
 	event_add_read(master, vtysh_rl_read, NULL, STDIN_FILENO,
+=======
+	event_add_read(master, vtysh_rl_read, &suppress_warnings, STDIN_FILENO,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		       &vtysh_rl_read_thread);
 
 	while (!vtysh_loop_exited && event_fetch(master, &thread))
@@ -344,6 +364,10 @@ int main(int argc, char **argv, char **env)
 	char pathspace[MAXPATHLEN] = "";
 	const char *histfile = NULL;
 	const char *histfile_env = getenv("VTYSH_HISTFILE");
+<<<<<<< HEAD
+=======
+	const char *logpath = getenv("VTYSH_LOG");
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	/* SUID: drop down to calling user & go back up when needed */
 	elevuid = geteuid();
@@ -359,8 +383,12 @@ int main(int argc, char **argv, char **env)
 
 	strlcpy(sysconfdir, frr_sysconfdir, sizeof(sysconfdir));
 
+<<<<<<< HEAD
 	frr_init_vtydir();
 	strlcpy(vtydir, frr_vtydir, sizeof(vtydir));
+=======
+	strlcpy(vtydir, frr_runstatedir, sizeof(vtydir));
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	/* Option handling. */
 	while (1) {
@@ -484,7 +512,10 @@ int main(int argc, char **argv, char **env)
 
 	/* Make vty structure and register commands. */
 	vtysh_init_vty();
+<<<<<<< HEAD
 	vtysh_init_cmd();
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	vtysh_user_init();
 	vtysh_config_init();
 
@@ -639,9 +670,13 @@ int main(int argc, char **argv, char **env)
 		}
 	}
 
+<<<<<<< HEAD
 	if (getenv("VTYSH_LOG")) {
 		const char *logpath = getenv("VTYSH_LOG");
 
+=======
+	if (logpath != NULL) {
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		logfile = fopen(logpath, "a");
 		if (!logfile) {
 			fprintf(stderr, "Failed to open logfile (%s): %s\n",

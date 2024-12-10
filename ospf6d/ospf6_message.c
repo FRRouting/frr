@@ -33,6 +33,10 @@
 
 #include "ospf6_flood.h"
 #include "ospf6d.h"
+<<<<<<< HEAD
+=======
+#include "ospf6_tlv.h"
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 #include "ospf6_gr.h"
 #include <netinet/ip6.h>
 #include "lib/libospf.h"
@@ -221,12 +225,21 @@ void ospf6_lsupdate_print(struct ospf6_header *oh, int action)
 	     && action == OSPF6_ACTION_RECV)
 	    || (IS_OSPF6_DEBUG_MESSAGE(oh->type, SEND)
 		&& action == OSPF6_ACTION_SEND)) {
+<<<<<<< HEAD
 
 		for (p = (char *)((caddr_t)lsupdate
 				  + sizeof(struct ospf6_lsupdate));
 		     p < OSPF6_MESSAGE_END(oh)
 		     && p + OSPF6_LSA_SIZE(p) <= OSPF6_MESSAGE_END(oh);
 		     p += OSPF6_LSA_SIZE(p)) {
+=======
+		for (p = (char *)((caddr_t)lsupdate +
+				  sizeof(struct ospf6_lsupdate));
+		     p < OSPF6_MESSAGE_END(oh) &&
+		     p + ospf6_lsa_size((struct ospf6_lsa_header *)p) <=
+			     OSPF6_MESSAGE_END(oh);
+		     p += ospf6_lsa_size((struct ospf6_lsa_header *)p)) {
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			ospf6_lsa_header_print_raw(
 				(struct ospf6_lsa_header *)p);
 		}
@@ -268,6 +281,21 @@ static struct ospf6_packet *ospf6_packet_new(size_t size)
 	return new;
 }
 
+<<<<<<< HEAD
+=======
+static struct ospf6_packet *ospf6_packet_dup(struct ospf6_packet *old)
+{
+	struct ospf6_packet *new;
+
+	new = XCALLOC(MTYPE_OSPF6_PACKET, sizeof(struct ospf6_packet));
+	new->s = stream_dup(old->s);
+	new->dst = old->dst;
+	new->length = old->length;
+
+	return new;
+}
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 static void ospf6_packet_free(struct ospf6_packet *op)
 {
 	if (op->s)
@@ -407,6 +435,28 @@ static void ospf6_hello_recv(struct in6_addr *src, struct in6_addr *dst,
 	hello = (struct ospf6_hello *)((caddr_t)oh
 				       + sizeof(struct ospf6_header));
 
+<<<<<<< HEAD
+=======
+	if ((oi->state == OSPF6_INTERFACE_POINTTOPOINT
+	     || oi->state == OSPF6_INTERFACE_POINTTOMULTIPOINT)
+	    && oi->p2xp_only_cfg_neigh) {
+		/* NEVER, never, ever, do this on broadcast (or NBMA)!
+		 * DR/BDR election requires everyone to talk to everyone else
+		 * only for PtP/PtMP we can be selective in adjacencies!
+		 */
+		struct ospf6_if_p2xp_neighcfg *p2xp_cfg;
+
+		p2xp_cfg = ospf6_if_p2xp_find(oi, src);
+		if (!p2xp_cfg) {
+			if (IS_OSPF6_DEBUG_MESSAGE(oh->type, RECV_HDR))
+				zlog_debug(
+					"ignoring PtP/PtMP hello from %pI6, neighbor not configured",
+					src);
+			return;
+		}
+	}
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	/* HelloInterval check */
 	if (ntohs(hello->hello_interval) != oi->hello_interval) {
 		zlog_warn(
@@ -479,7 +529,11 @@ static void ospf6_hello_recv(struct in6_addr *src, struct in6_addr *dst,
 	on->hello_in++;
 
 	/* Always override neighbor's source address */
+<<<<<<< HEAD
 	memcpy(&on->linklocal_addr, src, sizeof(struct in6_addr));
+=======
+	ospf6_neighbor_lladdr_set(on, src);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	/* Neighbor ifindex check */
 	if (on->ifindex != (ifindex_t)ntohl(hello->interface_id)) {
@@ -535,9 +589,15 @@ static void ospf6_hello_recv(struct in6_addr *src, struct in6_addr *dst,
 	oi->hello_in++;
 
 	/* Execute neighbor events */
+<<<<<<< HEAD
 	event_execute(master, hello_received, on, 0);
 	if (twoway)
 		event_execute(master, twoway_received, on, 0);
+=======
+	event_execute(master, hello_received, on, 0, NULL);
+	if (twoway)
+		event_execute(master, twoway_received, on, 0, NULL);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	else {
 		if (OSPF6_GR_IS_ACTIVE_HELPER(on)) {
 			if (IS_DEBUG_OSPF6_GR)
@@ -553,7 +613,11 @@ static void ospf6_hello_recv(struct in6_addr *src, struct in6_addr *dst,
 			 * receives one_way hellow when it acts as HELPER for
 			 * that specific neighbor.
 			 */
+<<<<<<< HEAD
 			event_execute(master, oneway_received, on, 0);
+=======
+			event_execute(master, oneway_received, on, 0, NULL);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		}
 	}
 
@@ -624,15 +688,24 @@ static void ospf6_dbdesc_recv_master(struct ospf6_header *oh,
 		return;
 
 	case OSPF6_NEIGHBOR_INIT:
+<<<<<<< HEAD
 		event_execute(master, twoway_received, on, 0);
+=======
+		event_execute(master, twoway_received, on, 0, NULL);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		if (on->state != OSPF6_NEIGHBOR_EXSTART) {
 			if (IS_OSPF6_DEBUG_MESSAGE(oh->type, RECV_HDR))
 				zlog_debug(
 					"Neighbor state is not ExStart, ignore");
 			return;
 		}
+<<<<<<< HEAD
 	/* else fall through to ExStart */
 	/* fallthru */
+=======
+		/* else fall through to ExStart */
+		fallthrough;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	case OSPF6_NEIGHBOR_EXSTART:
 		/* if neighbor obeys us as our slave, schedule negotiation_done
 		   and process LSA Headers. Otherwise, ignore this message */
@@ -640,7 +713,11 @@ static void ospf6_dbdesc_recv_master(struct ospf6_header *oh,
 		    && !CHECK_FLAG(dbdesc->bits, OSPF6_DBDESC_IBIT)
 		    && ntohl(dbdesc->seqnum) == on->dbdesc_seqnum) {
 			/* execute NegotiationDone */
+<<<<<<< HEAD
 			event_execute(master, negotiation_done, on, 0);
+=======
+			event_execute(master, negotiation_done, on, 0, NULL);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 			/* Record neighbor options */
 			memcpy(on->options, dbdesc->options,
@@ -650,8 +727,13 @@ static void ospf6_dbdesc_recv_master(struct ospf6_header *oh,
 				  on->ospf6_if->interface->vrf->name, on->name);
 			return;
 		}
+<<<<<<< HEAD
 	/* fall through to exchange */
 
+=======
+		/* fall through to exchange */
+		fallthrough;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	case OSPF6_NEIGHBOR_EXCHANGE:
 		if (!memcmp(dbdesc, &on->dbdesc_last,
 			    sizeof(struct ospf6_dbdesc))) {
@@ -828,15 +910,24 @@ static void ospf6_dbdesc_recv_slave(struct ospf6_header *oh,
 		return;
 
 	case OSPF6_NEIGHBOR_INIT:
+<<<<<<< HEAD
 		event_execute(master, twoway_received, on, 0);
+=======
+		event_execute(master, twoway_received, on, 0, NULL);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		if (on->state != OSPF6_NEIGHBOR_EXSTART) {
 			if (IS_OSPF6_DEBUG_MESSAGE(oh->type, RECV_HDR))
 				zlog_debug(
 					"Neighbor state is not ExStart, ignore");
 			return;
 		}
+<<<<<<< HEAD
 	/* else fall through to ExStart */
 	/* fallthru */
+=======
+		/* else fall through to ExStart */
+		fallthrough;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	case OSPF6_NEIGHBOR_EXSTART:
 		/* If the neighbor is Master, act as Slave. Schedule
 		   negotiation_done
@@ -855,7 +946,11 @@ static void ospf6_dbdesc_recv_slave(struct ospf6_header *oh,
 			on->dbdesc_seqnum = ntohl(dbdesc->seqnum);
 
 			/* schedule NegotiationDone */
+<<<<<<< HEAD
 			event_execute(master, negotiation_done, on, 0);
+=======
+			event_execute(master, negotiation_done, on, 0, NULL);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 			/* Record neighbor options */
 			memcpy(on->options, dbdesc->options,
@@ -1272,9 +1367,13 @@ static unsigned ospf6_lsa_examin(struct ospf6_lsa_header *lsah,
 		   4 bytes of referenced link state ID. */
 		if (headeronly)
 			break;
+<<<<<<< HEAD
 		as_external_lsa =
 			(struct ospf6_as_external_lsa
 				 *)((caddr_t)lsah + OSPF6_LSA_HEADER_SIZE);
+=======
+		as_external_lsa = lsa_after_header(lsah);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		exp_length =
 			OSPF6_LSA_HEADER_SIZE + OSPF6_AS_EXTERNAL_LSA_MIN_SIZE;
 		/* To find out if the last optional field (Referenced Link State
@@ -1319,8 +1418,12 @@ static unsigned ospf6_lsa_examin(struct ospf6_lsa_header *lsah,
 		   by N>=0 IPv6 prefix blocks (with N declared beforehand). */
 		if (headeronly)
 			break;
+<<<<<<< HEAD
 		link_lsa = (struct ospf6_link_lsa *)((caddr_t)lsah
 						     + OSPF6_LSA_HEADER_SIZE);
+=======
+		link_lsa = lsa_after_header(lsah);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		return ospf6_prefixes_examin(
 			(struct ospf6_prefix *)((caddr_t)link_lsa
 						+ OSPF6_LINK_LSA_MIN_SIZE),
@@ -1335,9 +1438,13 @@ static unsigned ospf6_lsa_examin(struct ospf6_lsa_header *lsah,
 		   */
 		if (headeronly)
 			break;
+<<<<<<< HEAD
 		intra_prefix_lsa =
 			(struct ospf6_intra_prefix_lsa
 				 *)((caddr_t)lsah + OSPF6_LSA_HEADER_SIZE);
+=======
+		intra_prefix_lsa = lsa_after_header(lsah);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		return ospf6_prefixes_examin(
 			(struct ospf6_prefix
 				 *)((caddr_t)intra_prefix_lsa
@@ -1383,7 +1490,11 @@ ospf6_lsaseq_examin(struct ospf6_lsa_header *lsah, /* start of buffered data */
 			return MSG_NG;
 		}
 		/* save on ntohs() calls here and in the LSA validator */
+<<<<<<< HEAD
 		lsalen = OSPF6_LSA_SIZE(lsah);
+=======
+		lsalen = ospf6_lsa_size(lsah);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		if (lsalen < OSPF6_LSA_HEADER_SIZE) {
 			zlog_warn(
 				"%s: malformed LSA header #%u, declared length is %u B",
@@ -1615,9 +1726,16 @@ static void ospf6_lsupdate_recv(struct in6_addr *src, struct in6_addr *dst,
 
 	/* Process LSAs */
 	for (p = (char *)((caddr_t)lsupdate + sizeof(struct ospf6_lsupdate));
+<<<<<<< HEAD
 	     p < OSPF6_MESSAGE_END(oh)
 	     && p + OSPF6_LSA_SIZE(p) <= OSPF6_MESSAGE_END(oh);
 	     p += OSPF6_LSA_SIZE(p)) {
+=======
+	     p < OSPF6_MESSAGE_END(oh) &&
+	     p + ospf6_lsa_size((struct ospf6_lsa_header *)p) <=
+		     OSPF6_MESSAGE_END(oh);
+	     p += ospf6_lsa_size((struct ospf6_lsa_header *)p)) {
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		ospf6_receive_lsa(on, (struct ospf6_lsa_header *)p);
 	}
 
@@ -2239,8 +2357,11 @@ static void ospf6_write(struct event *thread)
 void ospf6_hello_send(struct event *thread)
 {
 	struct ospf6_interface *oi;
+<<<<<<< HEAD
 	struct ospf6_packet *op;
 	uint16_t length = OSPF6_HEADER_SIZE;
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	oi = (struct ospf6_interface *)EVENT_ARG(thread);
 
@@ -2248,6 +2369,20 @@ void ospf6_hello_send(struct event *thread)
 	if (oi->gr.hello_delay.t_grace_send)
 		return;
 
+<<<<<<< HEAD
+=======
+	/* Check if config is still being processed */
+	if (event_is_scheduled(t_ospf6_cfg)) {
+		if (IS_OSPF6_DEBUG_MESSAGE(OSPF6_MESSAGE_TYPE_HELLO, SEND))
+			zlog_debug(
+				"Suppressing Hello on interface %s during config load",
+				oi->interface->name);
+		event_add_timer(master, ospf6_hello_send, oi,
+				oi->hello_interval, &oi->thread_send_hello);
+		return;
+	}
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	if (oi->state <= OSPF6_INTERFACE_DOWN) {
 		if (IS_OSPF6_DEBUG_MESSAGE(OSPF6_MESSAGE_TYPE_HELLO, SEND_HDR))
 			zlog_debug("Unable to send Hello on down interface %s",
@@ -2255,6 +2390,23 @@ void ospf6_hello_send(struct event *thread)
 		return;
 	}
 
+<<<<<<< HEAD
+=======
+	event_add_timer(master, ospf6_hello_send, oi, oi->hello_interval,
+			 &oi->thread_send_hello);
+
+	ospf6_hello_send_addr(oi, NULL);
+}
+
+/* used to send polls for PtP/PtMP too */
+void ospf6_hello_send_addr(struct ospf6_interface *oi,
+			   const struct in6_addr *addr)
+{
+	struct ospf6_packet *op;
+	uint16_t length = OSPF6_HEADER_SIZE;
+	bool anything = false;
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	op = ospf6_packet_new(oi->ifmtu);
 
 	ospf6_make_header(OSPF6_MESSAGE_TYPE_HELLO, oi, op->s);
@@ -2273,6 +2425,7 @@ void ospf6_hello_send(struct event *thread)
 	/* Set packet length. */
 	op->length = length;
 
+<<<<<<< HEAD
 	op->dst = allspfrouters6;
 
 	ospf6_fill_hdr_checksum(oi, op);
@@ -2287,6 +2440,42 @@ void ospf6_hello_send(struct event *thread)
 			&oi->thread_send_hello);
 
 	OSPF6_MESSAGE_WRITE_ON(oi);
+=======
+	if ((oi->state == OSPF6_INTERFACE_POINTTOPOINT
+	     || oi->state == OSPF6_INTERFACE_POINTTOMULTIPOINT)
+	    && !addr && oi->p2xp_no_multicast_hello) {
+		struct listnode *node;
+		struct ospf6_neighbor *on;
+		struct ospf6_packet *opdup;
+
+		for (ALL_LIST_ELEMENTS_RO(oi->neighbor_list, node, on)) {
+			if (on->state < OSPF6_NEIGHBOR_INIT)
+				/* poll-interval for these */
+				continue;
+
+			opdup = ospf6_packet_dup(op);
+			opdup->dst = on->linklocal_addr;
+			ospf6_fill_hdr_checksum(oi, opdup);
+			ospf6_packet_add_top(oi, opdup);
+			anything = true;
+		}
+
+		ospf6_packet_free(op);
+	} else {
+		op->dst = addr ? *addr : allspfrouters6;
+
+		/* Add packet to the top of the interface output queue, so that
+		 * they can't get delayed by things like long queues of LS
+		 * Update packets
+		 */
+		ospf6_fill_hdr_checksum(oi, op);
+		ospf6_packet_add_top(oi, op);
+		anything = true;
+	}
+
+	if (anything)
+		OSPF6_MESSAGE_WRITE_ON(oi);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 }
 
 static uint16_t ospf6_make_dbdesc(struct ospf6_neighbor *on, struct stream *s)
@@ -2324,9 +2513,15 @@ static uint16_t ospf6_make_dbdesc(struct ospf6_neighbor *on, struct stream *s)
 			if ((length + sizeof(struct ospf6_lsa_header)
 			     + OSPF6_HEADER_SIZE)
 			    > ospf6_packet_max(on->ospf6_if)) {
+<<<<<<< HEAD
 				ospf6_lsa_unlock(lsa);
 				if (lsanext)
 					ospf6_lsa_unlock(lsanext);
+=======
+				ospf6_lsa_unlock(&lsa);
+				if (lsanext)
+					ospf6_lsa_unlock(&lsanext);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 				break;
 			}
 			stream_put(s, lsa->header,
@@ -2404,9 +2599,15 @@ void ospf6_dbdesc_send_newone(struct event *thread)
 
 		if (size + sizeof(struct ospf6_lsa_header)
 		    > ospf6_packet_max(on->ospf6_if)) {
+<<<<<<< HEAD
 			ospf6_lsa_unlock(lsa);
 			if (lsanext)
 				ospf6_lsa_unlock(lsanext);
+=======
+			ospf6_lsa_unlock(&lsa);
+			if (lsanext)
+				ospf6_lsa_unlock(&lsanext);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			break;
 		}
 
@@ -2425,7 +2626,11 @@ void ospf6_dbdesc_send_newone(struct event *thread)
 		event_add_event(master, exchange_done, on, 0,
 				&on->thread_exchange_done);
 
+<<<<<<< HEAD
 	event_execute(master, ospf6_dbdesc_send, on, 0);
+=======
+	event_execute(master, ospf6_dbdesc_send, on, 0, NULL);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 }
 
 static uint16_t ospf6_make_lsreq(struct ospf6_neighbor *on, struct stream *s)
@@ -2436,9 +2641,15 @@ static uint16_t ospf6_make_lsreq(struct ospf6_neighbor *on, struct stream *s)
 	for (ALL_LSDB(on->request_list, lsa, lsanext)) {
 		if ((length + OSPF6_HEADER_SIZE)
 		    > ospf6_packet_max(on->ospf6_if)) {
+<<<<<<< HEAD
 			ospf6_lsa_unlock(lsa);
 			if (lsanext)
 				ospf6_lsa_unlock(lsanext);
+=======
+			ospf6_lsa_unlock(&lsa);
+			if (lsanext)
+				ospf6_lsa_unlock(&lsanext);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			break;
 		}
 		stream_putw(s, 0); /* reserved */
@@ -2451,7 +2662,11 @@ static uint16_t ospf6_make_lsreq(struct ospf6_neighbor *on, struct stream *s)
 
 	if (last_req != NULL) {
 		if (on->last_ls_req != NULL)
+<<<<<<< HEAD
 			on->last_ls_req = ospf6_lsa_unlock(on->last_ls_req);
+=======
+			ospf6_lsa_unlock(&on->last_ls_req);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 		ospf6_lsa_lock(last_req);
 		on->last_ls_req = last_req;
@@ -2612,7 +2827,11 @@ static void ospf6_send_lsupdate(struct ospf6_neighbor *on,
 			 * it will schedule itself again.
 			 */
 			event_cancel(&ospf6->t_write);
+<<<<<<< HEAD
 			event_execute(master, ospf6_write, ospf6, 0);
+=======
+			event_execute(master, ospf6_write, ospf6, 0, NULL);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		} else
 			OSPF6_MESSAGE_WRITE_ON(oi);
 	}
@@ -2628,7 +2847,11 @@ static uint16_t ospf6_make_lsupdate_list(struct ospf6_neighbor *on,
 	stream_forward_endp((*op)->s, OSPF6_LS_UPD_MIN_SIZE);
 
 	for (ALL_LSDB(on->lsupdate_list, lsa, lsanext)) {
+<<<<<<< HEAD
 		if ((length + OSPF6_LSA_SIZE(lsa->header) + OSPF6_HEADER_SIZE) >
+=======
+		if ((length + ospf6_lsa_size(lsa->header) + OSPF6_HEADER_SIZE) >
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		    ospf6_packet_max(on->ospf6_if)) {
 			ospf6_fill_header(on->ospf6_if, (*op)->s,
 					  length + OSPF6_HEADER_SIZE);
@@ -2645,9 +2868,15 @@ static uint16_t ospf6_make_lsupdate_list(struct ospf6_neighbor *on,
 			stream_forward_endp((*op)->s, OSPF6_LS_UPD_MIN_SIZE);
 		}
 		ospf6_lsa_age_update_to_send(lsa, on->ospf6_if->transdelay);
+<<<<<<< HEAD
 		stream_put((*op)->s, lsa->header, OSPF6_LSA_SIZE(lsa->header));
 		(*lsa_cnt)++;
 		length += OSPF6_LSA_SIZE(lsa->header);
+=======
+		stream_put((*op)->s, lsa->header, ospf6_lsa_size(lsa->header));
+		(*lsa_cnt)++;
+		length += ospf6_lsa_size(lsa->header);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		assert(lsa->lock == 2);
 		ospf6_lsdb_remove(lsa, on->lsupdate_list);
 	}
@@ -2665,7 +2894,11 @@ static uint16_t ospf6_make_ls_retrans_list(struct ospf6_neighbor *on,
 	stream_forward_endp((*op)->s, OSPF6_LS_UPD_MIN_SIZE);
 
 	for (ALL_LSDB(on->retrans_list, lsa, lsanext)) {
+<<<<<<< HEAD
 		if ((length + OSPF6_LSA_SIZE(lsa->header) + OSPF6_HEADER_SIZE) >
+=======
+		if ((length + ospf6_lsa_size(lsa->header) + OSPF6_HEADER_SIZE) >
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		    ospf6_packet_max(on->ospf6_if)) {
 			ospf6_fill_header(on->ospf6_if, (*op)->s,
 					  length + OSPF6_HEADER_SIZE);
@@ -2689,9 +2922,15 @@ static uint16_t ospf6_make_ls_retrans_list(struct ospf6_neighbor *on,
 			stream_forward_endp((*op)->s, OSPF6_LS_UPD_MIN_SIZE);
 		}
 		ospf6_lsa_age_update_to_send(lsa, on->ospf6_if->transdelay);
+<<<<<<< HEAD
 		stream_put((*op)->s, lsa->header, OSPF6_LSA_SIZE(lsa->header));
 		(*lsa_cnt)++;
 		length += OSPF6_LSA_SIZE(lsa->header);
+=======
+		stream_put((*op)->s, lsa->header, ospf6_lsa_size(lsa->header));
+		(*lsa_cnt)++;
+		length += ospf6_lsa_size(lsa->header);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	}
 	return length;
 }
@@ -2775,9 +3014,15 @@ int ospf6_lsupdate_send_neighbor_now(struct ospf6_neighbor *on,
 	/* skip over fixed header */
 	stream_forward_endp(op->s, OSPF6_LS_UPD_MIN_SIZE);
 	ospf6_lsa_age_update_to_send(lsa, on->ospf6_if->transdelay);
+<<<<<<< HEAD
 	stream_put(op->s, lsa->header, OSPF6_LSA_SIZE(lsa->header));
 	length = OSPF6_HEADER_SIZE + OSPF6_LS_UPD_MIN_SIZE
 		 + OSPF6_LSA_SIZE(lsa->header);
+=======
+	stream_put(op->s, lsa->header, ospf6_lsa_size(lsa->header));
+	length = OSPF6_HEADER_SIZE + OSPF6_LS_UPD_MIN_SIZE +
+		 ospf6_lsa_size(lsa->header);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	ospf6_fill_header(on->ospf6_if, op->s, length);
 	ospf6_fill_lsupdate_header(op->s, 1);
 	op->length = length;
@@ -2803,7 +3048,11 @@ static uint16_t ospf6_make_lsupdate_interface(struct ospf6_interface *oi,
 	stream_forward_endp((*op)->s, OSPF6_LS_UPD_MIN_SIZE);
 
 	for (ALL_LSDB(oi->lsupdate_list, lsa, lsanext)) {
+<<<<<<< HEAD
 		if (length + OSPF6_LSA_SIZE(lsa->header) + OSPF6_HEADER_SIZE >
+=======
+		if (length + ospf6_lsa_size(lsa->header) + OSPF6_HEADER_SIZE >
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		    ospf6_packet_max(oi)) {
 			ospf6_fill_header(oi, (*op)->s,
 					  length + OSPF6_HEADER_SIZE);
@@ -2821,9 +3070,15 @@ static uint16_t ospf6_make_lsupdate_interface(struct ospf6_interface *oi,
 		}
 
 		ospf6_lsa_age_update_to_send(lsa, oi->transdelay);
+<<<<<<< HEAD
 		stream_put((*op)->s, lsa->header, OSPF6_LSA_SIZE(lsa->header));
 		(*lsa_cnt)++;
 		length += OSPF6_LSA_SIZE(lsa->header);
+=======
+		stream_put((*op)->s, lsa->header, ospf6_lsa_size(lsa->header));
+		(*lsa_cnt)++;
+		length += ospf6_lsa_size(lsa->header);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 		assert(lsa->lock == 2);
 		ospf6_lsdb_remove(lsa, oi->lsupdate_list);
@@ -2933,9 +3188,15 @@ static uint16_t ospf6_make_lsack_interface(struct ospf6_interface *oi,
 			event_add_event(master, ospf6_lsack_send_interface, oi,
 					0, &oi->thread_send_lsack);
 
+<<<<<<< HEAD
 			ospf6_lsa_unlock(lsa);
 			if (lsanext)
 				ospf6_lsa_unlock(lsanext);
+=======
+			ospf6_lsa_unlock(&lsa);
+			if (lsanext)
+				ospf6_lsa_unlock(&lsanext);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			break;
 		}
 		ospf6_lsa_age_update_to_send(lsa, oi->transdelay);

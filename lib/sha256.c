@@ -344,7 +344,11 @@ void HMAC__SHA256_Final(unsigned char digest[32], HMAC_SHA256_CTX *ctx)
 void PBKDF2_SHA256(const uint8_t *passwd, size_t passwdlen, const uint8_t *salt,
 		   size_t saltlen, uint64_t c, uint8_t *buf, size_t dkLen)
 {
+<<<<<<< HEAD
 	HMAC_SHA256_CTX PShctx, hctx;
+=======
+	HMAC_SHA256_CTX PShctx = {}, hctx;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	size_t i;
 	uint8_t ivec[4];
 	uint8_t U[32];

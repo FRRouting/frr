@@ -13,11 +13,23 @@
 #include <zebra/zebra_pw.h>
 #include <zebra/rtadv.h>
 #include <lib/vxlan.h>
+<<<<<<< HEAD
+=======
+#include "defaults.h"
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
+<<<<<<< HEAD
+=======
+FRR_CFG_DEFAULT_BOOL(ZEBRA_IP_NHT_RESOLVE_VIA_DEFAULT,
+	{ .val_bool = true, .match_profile = "traditional", },
+	{ .val_bool = false },
+);
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 /* MPLS (Segment Routing) global block */
 struct mpls_srgb {
 	uint32_t start_label;
@@ -167,6 +179,10 @@ struct zebra_vrf {
 
 	bool zebra_rnh_ip_default_route;
 	bool zebra_rnh_ipv6_default_route;
+<<<<<<< HEAD
+=======
+	bool zebra_mpls_fec_nexthop_resolution;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 };
 #define PROTO_RM_NAME(zvrf, afi, rtype) zvrf->proto_rm[afi][rtype].name
 #define NHT_RM_NAME(zvrf, afi, rtype) zvrf->nht_rm[afi][rtype].name
@@ -237,6 +253,10 @@ extern struct route_table *zebra_vrf_get_table_with_table_id(afi_t afi,
 extern void zebra_vrf_update_all(struct zserv *client);
 extern struct zebra_vrf *zebra_vrf_lookup_by_id(vrf_id_t vrf_id);
 extern struct zebra_vrf *zebra_vrf_lookup_by_name(const char *);
+<<<<<<< HEAD
+=======
+extern vrf_id_t zebra_vrf_lookup_by_table(uint32_t table_id, ns_id_t ns_id);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 extern struct zebra_vrf *zebra_vrf_alloc(struct vrf *vrf);
 extern struct route_table *zebra_vrf_table(afi_t, safi_t, vrf_id_t);
 

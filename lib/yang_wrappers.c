@@ -168,10 +168,16 @@ struct yang_data *yang_data_new_dec64(const char *xpath, double value)
 double yang_dnode_get_dec64(const struct lyd_node *dnode, const char *xpath_fmt,
 			    ...)
 {
+<<<<<<< HEAD
 	const double denom[19] = {1e0,   1e-1,  1e-2,  1e-3,  1e-4,
 				  1e-5,  1e-6,  1e-7,  1e-8,  1e-9,
 				  1e-10, 1e-11, 1e-12, 1e-13, 1e-14,
 				  1e-15, 1e-16, 1e-17, 1e-18};
+=======
+	const double denom[19] = { 1e0,	 1e1,  1e2,  1e3,  1e4,	 1e5,  1e6,
+				   1e7,	 1e8,  1e9,  1e10, 1e11, 1e12, 1e13,
+				   1e14, 1e15, 1e16, 1e17, 1e18 };
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	const struct lysc_type_dec *dectype;
 	const struct lyd_value *dvalue;
 
@@ -179,7 +185,11 @@ double yang_dnode_get_dec64(const struct lyd_node *dnode, const char *xpath_fmt,
 	dectype = (const struct lysc_type_dec *)dvalue->realtype;
 	assert(dectype->basetype == LY_TYPE_DEC64);
 	assert(dectype->fraction_digits < sizeof(denom) / sizeof(*denom));
+<<<<<<< HEAD
 	return (double)dvalue->dec64 * denom[dectype->fraction_digits];
+=======
+	return (double)dvalue->dec64 / denom[dectype->fraction_digits];
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 }
 
 double yang_get_default_dec64(const char *xpath_fmt, ...)
@@ -1020,6 +1030,7 @@ void yang_str2mac(const char *value, struct ethaddr *mac)
 	(void)prefix_str2mac(value, mac);
 }
 
+<<<<<<< HEAD
 struct yang_data *yang_data_new_date_and_time(const char *xpath, time_t time)
 {
 	struct tm tm;
@@ -1044,6 +1055,70 @@ struct yang_data *yang_data_new_date_and_time(const char *xpath, time_t time)
 		   (unsigned long)time_real.tv_usec);
 
 	return yang_data_new(xpath, timebuf);
+=======
+void yang_dnode_get_mac(struct ethaddr *mac, const struct lyd_node *dnode,
+			const char *xpath_fmt, ...)
+{
+	const char *canon = YANG_DNODE_XPATH_GET_CANON(dnode, xpath_fmt);
+	(void)prefix_str2mac(canon, mac);
+}
+
+struct yang_data *yang_data_new_date_and_time(const char *xpath, time_t time, bool is_monotime)
+{
+	struct yang_data *yd;
+	char *times = NULL;
+
+	if (is_monotime) {
+		struct timeval _time = { time, 0 };
+		struct timeval time_real;
+
+		monotime_to_realtime(&_time, &time_real);
+		time = time_real.tv_sec;
+	}
+
+	(void)ly_time_time2str(time, NULL, &times);
+	yd = yang_data_new(xpath, times);
+	free(times);
+
+	return yd;
+}
+
+struct timespec yang_dnode_get_date_and_timespec(const struct lyd_node *dnode,
+						 const char *xpath_fmt, ...)
+{
+	const char *canon = YANG_DNODE_XPATH_GET_CANON(dnode, xpath_fmt);
+	struct timespec ts;
+	LY_ERR err;
+
+	err = ly_time_str2ts(canon, &ts);
+	assert(!err);
+
+	return ts;
+}
+
+time_t yang_dnode_get_date_and_time(const struct lyd_node *dnode,
+				    const char *xpath_fmt, ...)
+{
+	const char *canon = YANG_DNODE_XPATH_GET_CANON(dnode, xpath_fmt);
+	time_t time;
+	LY_ERR err;
+
+	err = ly_time_str2time(canon, &time, NULL);
+	assert(!err);
+
+	return time;
+}
+
+float yang_dnode_get_bandwidth_ieee_float32(const struct lyd_node *dnode,
+					    const char *xpath_fmt, ...)
+{
+	const char *canon = YANG_DNODE_XPATH_GET_CANON(dnode, xpath_fmt);
+	float value;
+
+	assert(sscanf(canon, "%a", &value) == 1);
+
+	return value;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 }
 
 const char *yang_nexthop_type2str(uint32_t ntype)

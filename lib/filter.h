@@ -114,6 +114,10 @@ struct access_master {
 
 /* Prototypes for access-list. */
 extern void access_list_init(void);
+<<<<<<< HEAD
+=======
+extern void access_list_init_new(bool in_backend);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 extern void access_list_reset(void);
 extern void access_list_add_hook(void (*func)(struct access_list *));
 extern void access_list_delete_hook(void (*func)(struct access_list *));
@@ -124,6 +128,7 @@ extern enum filter_type access_list_apply(struct access_list *access,
 struct access_list *access_list_get(afi_t afi, const char *name);
 void access_list_delete(struct access_list *access);
 struct filter *filter_new(void);
+<<<<<<< HEAD
 void access_list_filter_add(struct access_list *access,
 			    struct filter *filter);
 void access_list_filter_delete(struct access_list *access,
@@ -131,6 +136,16 @@ void access_list_filter_delete(struct access_list *access,
 int64_t filter_new_seq_get(struct access_list *access);
 
 extern const struct frr_yang_module_info frr_filter_info;
+=======
+void access_list_filter_add(struct access_list *access, struct filter *filter);
+void access_list_filter_delete(struct access_list *access,
+			       struct filter *filter);
+void access_list_filter_update(struct access_list *access);
+int64_t filter_new_seq_get(struct access_list *access);
+
+extern const struct frr_yang_module_info frr_filter_info;
+extern const struct frr_yang_module_info frr_filter_cli_info;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 
 /* filter_nb.c */

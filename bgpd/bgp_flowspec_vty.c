@@ -355,7 +355,12 @@ void route_vty_out_flowspec(struct vty *vty, const struct prefix *p,
 			bgp_path_info_extra_get(path);
 		bool list_began = false;
 
+<<<<<<< HEAD
 		if (extra->bgp_fs_pbr && listcount(extra->bgp_fs_pbr)) {
+=======
+		if (extra->flowspec && extra->flowspec->bgp_fs_pbr &&
+		    listcount(extra->flowspec->bgp_fs_pbr)) {
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			struct listnode *node;
 			struct bgp_pbr_match_entry *bpme;
 			struct bgp_pbr_match *bpm;
@@ -363,8 +368,13 @@ void route_vty_out_flowspec(struct vty *vty, const struct prefix *p,
 
 			list_bpm = list_new();
 			vty_out(vty, "\tinstalled in PBR");
+<<<<<<< HEAD
 			for (ALL_LIST_ELEMENTS_RO(extra->bgp_fs_pbr,
 						  node, bpme)) {
+=======
+			for (ALL_LIST_ELEMENTS_RO(extra->flowspec->bgp_fs_pbr, node,
+						  bpme)) {
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 				bpm = bpme->backpointer;
 				if (listnode_lookup(list_bpm, bpm))
 					continue;
@@ -378,13 +388,22 @@ void route_vty_out_flowspec(struct vty *vty, const struct prefix *p,
 			}
 			list_delete(&list_bpm);
 		}
+<<<<<<< HEAD
 		if (extra->bgp_fs_iprule && listcount(extra->bgp_fs_iprule)) {
+=======
+		if (extra->flowspec && extra->flowspec->bgp_fs_iprule &&
+		    listcount(extra->flowspec->bgp_fs_iprule)) {
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			struct listnode *node;
 			struct bgp_pbr_rule *bpr;
 
 			if (!list_began)
 				vty_out(vty, "\tinstalled in PBR");
+<<<<<<< HEAD
 			for (ALL_LIST_ELEMENTS_RO(extra->bgp_fs_iprule,
+=======
+			for (ALL_LIST_ELEMENTS_RO(extra->flowspec->bgp_fs_iprule,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 						  node, bpr)) {
 				if (!bpr->action)
 					continue;
@@ -439,7 +458,11 @@ int bgp_show_table_flowspec(struct vty *vty, struct bgp *bgp, afi_t afi,
 	}
 	if (total_count && !use_json)
 		vty_out(vty,
+<<<<<<< HEAD
 			"\nDisplayed  %ld flowspec entries\n",
+=======
+			"\nDisplayed %ld flowspec entries\n",
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			total_count);
 	return CMD_SUCCESS;
 }
@@ -545,7 +568,11 @@ static int bgp_fs_local_install_interface(struct bgp *bgp,
 			return CMD_SUCCESS;
 		pbr_if = XCALLOC(MTYPE_TMP,
 				 sizeof(struct bgp_pbr_interface));
+<<<<<<< HEAD
 		strlcpy(pbr_if->name, ifname, INTERFACE_NAMSIZ);
+=======
+		strlcpy(pbr_if->name, ifname, IFNAMSIZ);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		RB_INSERT(bgp_pbr_interface_head, head, pbr_if);
 		*bgp_pbr_interface_any = false;
 	} else {

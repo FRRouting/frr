@@ -222,7 +222,10 @@ static void ripng_zebra_connected(struct zclient *zclient)
 static zclient_handler *const ripng_handlers[] = {
 	[ZEBRA_INTERFACE_ADDRESS_ADD] = ripng_interface_address_add,
 	[ZEBRA_INTERFACE_ADDRESS_DELETE] = ripng_interface_address_delete,
+<<<<<<< HEAD
 	[ZEBRA_INTERFACE_VRF_UPDATE] = ripng_interface_vrf_update,
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	[ZEBRA_REDISTRIBUTE_ROUTE_ADD] = ripng_zebra_read_route,
 	[ZEBRA_REDISTRIBUTE_ROUTE_DEL] = ripng_zebra_read_route,
 };

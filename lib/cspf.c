@@ -331,6 +331,11 @@ void cspf_clean(struct cspf *algo)
 	if (processed_count(&algo->processed)) {
 		frr_each_safe (processed, &algo->processed, path) {
 			processed_del(&algo->processed, path);
+<<<<<<< HEAD
+=======
+			if (path == algo->pdst)
+				algo->pdst = NULL;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			cpath_del(path);
 		}
 	}
@@ -343,6 +348,12 @@ void cspf_clean(struct cspf *algo)
 		}
 	}
 
+<<<<<<< HEAD
+=======
+	if (algo->pdst)
+		cpath_del(algo->pdst);
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	memset(&algo->csts, 0, sizeof(struct constraints));
 	algo->path = NULL;
 	algo->pdst = NULL;

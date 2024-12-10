@@ -11,6 +11,7 @@
 
 #ifndef FABRICD
 
+<<<<<<< HEAD
 static bool isis_affinity_map_check_use(const char *affmap_name)
 {
 	struct isis *isis = isis_lookup_by_vrfid(VRF_DEFAULT);
@@ -40,6 +41,8 @@ static bool isis_affinity_map_check_use(const char *affmap_name)
 	return false;
 }
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 static void isis_affinity_map_update(const char *affmap_name, uint16_t old_pos,
 				     uint16_t new_pos)
 {
@@ -90,7 +93,10 @@ void isis_affinity_map_init(void)
 {
 	affinity_map_init();
 
+<<<<<<< HEAD
 	affinity_map_set_check_use_hook(isis_affinity_map_check_use);
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	affinity_map_set_update_hook(isis_affinity_map_update);
 }
 

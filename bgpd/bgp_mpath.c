@@ -2,8 +2,15 @@
 /*
  * BGP Multipath
  * Copyright (C) 2010 Google Inc.
+<<<<<<< HEAD
  *
  * This file is part of Quagga
+=======
+ *               2024 Nvidia Corporation
+ *                    Donald Sharp
+ *
+ * This file is part of FRR
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
  */
 
 #include <zebra.h>
@@ -129,6 +136,7 @@ int bgp_path_info_nexthop_cmp(struct bgp_path_info *bpi1,
 					&bpi2->attr->mp_nexthop_global);
 				break;
 			case BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL:
+<<<<<<< HEAD
 				addr1 = (bpi1->attr->mp_nexthop_prefer_global)
 						? bpi1->attr->mp_nexthop_global
 						: bpi1->attr->mp_nexthop_local;
@@ -138,6 +146,21 @@ int bgp_path_info_nexthop_cmp(struct bgp_path_info *bpi1,
 
 				if (!bpi1->attr->mp_nexthop_prefer_global
 				    && !bpi2->attr->mp_nexthop_prefer_global)
+=======
+				addr1 = (CHECK_FLAG(bpi1->attr->nh_flags,
+						    BGP_ATTR_NH_MP_PREFER_GLOBAL))
+						? bpi1->attr->mp_nexthop_global
+						: bpi1->attr->mp_nexthop_local;
+				addr2 = (CHECK_FLAG(bpi2->attr->nh_flags,
+						    BGP_ATTR_NH_MP_PREFER_GLOBAL))
+						? bpi2->attr->mp_nexthop_global
+						: bpi2->attr->mp_nexthop_local;
+
+				if (!CHECK_FLAG(bpi1->attr->nh_flags,
+						BGP_ATTR_NH_MP_PREFER_GLOBAL) &&
+				    !CHECK_FLAG(bpi2->attr->nh_flags,
+						BGP_ATTR_NH_MP_PREFER_GLOBAL))
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 					compare = !bgp_interface_same(
 						bpi1->peer->ifp,
 						bpi2->peer->ifp);
@@ -173,10 +196,18 @@ int bgp_path_info_nexthop_cmp(struct bgp_path_info *bpi1,
 	 * if they belong to same VRF
 	 */
 	if (!compare && bpi1->attr->nh_type != NEXTHOP_TYPE_BLACKHOLE) {
+<<<<<<< HEAD
 		if (bpi1->extra && bpi1->extra->bgp_orig && bpi2->extra
 		    && bpi2->extra->bgp_orig) {
 			if (bpi1->extra->bgp_orig->vrf_id
 			    != bpi2->extra->bgp_orig->vrf_id) {
+=======
+		if (bpi1->extra && bpi1->extra->vrfleak &&
+		    bpi1->extra->vrfleak->bgp_orig && bpi2->extra &&
+		    bpi2->extra->vrfleak && bpi2->extra->vrfleak->bgp_orig) {
+			if (bpi1->extra->vrfleak->bgp_orig->vrf_id !=
+			    bpi2->extra->vrfleak->bgp_orig->vrf_id) {
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 				compare = 1;
 			}
 		}
@@ -186,6 +217,7 @@ int bgp_path_info_nexthop_cmp(struct bgp_path_info *bpi1,
 }
 
 /*
+<<<<<<< HEAD
  * bgp_path_info_mpath_cmp
  *
  * This function determines our multipath list ordering. By ordering
@@ -258,6 +290,8 @@ void bgp_mp_list_add(struct list *mp_list, struct bgp_path_info *mpinfo)
 }
 
 /*
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
  * bgp_path_info_mpath_new
  *
  * Allocate and zero memory for a new bgp_path_info_mpath element
@@ -269,6 +303,10 @@ static struct bgp_path_info_mpath *bgp_path_info_mpath_new(void)
 	new_mpath = XCALLOC(MTYPE_BGP_MPATH_INFO,
 			    sizeof(struct bgp_path_info_mpath));
 
+<<<<<<< HEAD
+=======
+	new_mpath->mp_count = 1;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	return new_mpath;
 }
 
@@ -282,6 +320,11 @@ void bgp_path_info_mpath_free(struct bgp_path_info_mpath **mpath)
 	if (mpath && *mpath) {
 		if ((*mpath)->mp_attr)
 			bgp_attr_unintern(&(*mpath)->mp_attr);
+<<<<<<< HEAD
+=======
+		(*mpath)->mp_attr = NULL;
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		XFREE(MTYPE_BGP_MPATH_INFO, *mpath);
 	}
 }
@@ -309,6 +352,7 @@ bgp_path_info_mpath_get(struct bgp_path_info *path)
 }
 
 /*
+<<<<<<< HEAD
  * bgp_path_info_mpath_enqueue
  *
  * Enqueue a path onto the multipath list given the previous multipath
@@ -352,15 +396,30 @@ void bgp_path_info_mpath_dequeue(struct bgp_path_info *path)
 }
 
 /*
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
  * bgp_path_info_mpath_next
  *
  * Given a bgp_path_info, return the next multipath entry
  */
 struct bgp_path_info *bgp_path_info_mpath_next(struct bgp_path_info *path)
 {
+<<<<<<< HEAD
 	if (!path->mpath || !path->mpath->mp_next)
 		return NULL;
 	return path->mpath->mp_next->mp_info;
+=======
+	path = path->next;
+
+	while (path) {
+		if (CHECK_FLAG(path->flags, BGP_PATH_MULTIPATH))
+			return path;
+
+		path = path->next;
+	}
+
+	return NULL;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 }
 
 /*
@@ -381,7 +440,12 @@ struct bgp_path_info *bgp_path_info_mpath_first(struct bgp_path_info *path)
 uint32_t bgp_path_info_mpath_count(struct bgp_path_info *path)
 {
 	if (!path->mpath)
+<<<<<<< HEAD
 		return 0;
+=======
+		return 1;
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	return path->mpath->mp_count;
 }
 
@@ -406,6 +470,13 @@ static void bgp_path_info_mpath_count_set(struct bgp_path_info *path,
  * bgp_path_info_mpath_lb_update
  *
  * Update cumulative info related to link-bandwidth
+<<<<<<< HEAD
+=======
+ *
+ * This is only set on the first mpath of the list
+ * as such we should UNSET the flags when removing
+ * to ensure nothing accidently happens
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
  */
 static void bgp_path_info_mpath_lb_update(struct bgp_path_info *path, bool set,
 					  bool all_paths_lb, uint64_t cum_bw)
@@ -467,10 +538,17 @@ bool bgp_path_info_mpath_chkwtd(struct bgp *bgp, struct bgp_path_info *path)
 	 */
 	if (bgp->lb_handling != BGP_LINK_BW_SKIP_MISSING &&
 	    bgp->lb_handling != BGP_LINK_BW_DEFWT_4_MISSING)
+<<<<<<< HEAD
 		return (path->mpath->mp_flags & BGP_MP_LB_ALL);
 
 	/* At least one path should have bandwidth. */
 	return (path->mpath->mp_flags & BGP_MP_LB_PRESENT);
+=======
+		return CHECK_FLAG(path->mpath->mp_flags, BGP_MP_LB_ALL);
+
+	/* At least one path should have bandwidth. */
+	return CHECK_FLAG(path->mpath->mp_flags, BGP_MP_LB_PRESENT);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 }
 
 /*
@@ -506,6 +584,7 @@ static void bgp_path_info_mpath_attr_set(struct bgp_path_info *path,
 /*
  * bgp_path_info_mpath_update
  *
+<<<<<<< HEAD
  * Compare and sync up the multipath list with the mp_list generated by
  * bgp_best_selection
  */
@@ -559,6 +638,53 @@ void bgp_path_info_mpath_update(struct bgp *bgp, struct bgp_dest *dest,
 			new_best ? new_best->peer->host : "NONE",
 			mp_list ? listcount(mp_list) : 0, old_mpath_count,
 			old_cum_bw);
+=======
+ * Compare and sync up the multipath flags with what was choosen
+ * in best selection
+ */
+void bgp_path_info_mpath_update(struct bgp *bgp, struct bgp_dest *dest,
+				struct bgp_path_info *new_best, struct bgp_path_info *old_best,
+				uint32_t num_candidates, struct bgp_maxpaths_cfg *mpath_cfg)
+{
+	uint16_t maxpaths, mpath_count, old_mpath_count;
+	uint64_t bwval;
+	uint64_t cum_bw, old_cum_bw;
+	struct bgp_path_info *cur_iterator = NULL;
+	bool mpath_changed, debug;
+	bool all_paths_lb;
+	char path_buf[PATH_ADDPATH_STR_BUFFER];
+	bool old_mpath, new_mpath;
+
+	mpath_changed = false;
+	maxpaths = multipath_num;
+	mpath_count = 0;
+	old_mpath_count = 0;
+	old_cum_bw = cum_bw = 0;
+	debug = bgp_debug_bestpath(dest);
+
+	if (old_best) {
+		old_mpath_count = bgp_path_info_mpath_count(old_best);
+		if (old_mpath_count == 1)
+			SET_FLAG(old_best->flags, BGP_PATH_MULTIPATH);
+		old_cum_bw = bgp_path_info_mpath_cumbw(old_best);
+		bgp_path_info_mpath_count_set(old_best, 0);
+		bgp_path_info_mpath_lb_update(old_best, false, false, 0);
+		bgp_path_info_mpath_free(&old_best->mpath);
+		old_best->mpath = NULL;
+	}
+
+	if (new_best) {
+		maxpaths = (new_best->peer->sort == BGP_PEER_IBGP) ? mpath_cfg->maxpaths_ibgp
+								   : mpath_cfg->maxpaths_ebgp;
+		cur_iterator = new_best;
+	}
+
+	if (debug)
+		zlog_debug("%pBD(%s): starting mpath update, newbest %s num candidates %d old-mpath-count %d old-cum-bw %" PRIu64
+			   " maxpaths set %u",
+			   dest, bgp->name_pretty, new_best ? new_best->peer->host : "NONE",
+			   num_candidates, old_mpath_count, old_cum_bw, maxpaths);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	/*
 	 * We perform an ordered walk through both lists in parallel.
@@ -572,6 +698,7 @@ void bgp_path_info_mpath_update(struct bgp *bgp, struct bgp_dest *dest,
 	 * to skip over it
 	 */
 	all_paths_lb = true; /* We'll reset if any path doesn't have LB. */
+<<<<<<< HEAD
 	while (mp_node || cur_mpath) {
 		struct bgp_path_info *tmp_info;
 
@@ -747,11 +874,109 @@ void bgp_path_info_mpath_update(struct bgp *bgp, struct bgp_dest *dest,
 			SET_FLAG(new_best->flags, BGP_PATH_MULTIPATH_CHG);
 		if ((mpath_count - 1) != old_mpath_count ||
 		    old_cum_bw != cum_bw)
+=======
+
+	while (cur_iterator) {
+		old_mpath = CHECK_FLAG(cur_iterator->flags, BGP_PATH_MULTIPATH);
+		new_mpath = CHECK_FLAG(cur_iterator->flags, BGP_PATH_MULTIPATH_NEW);
+
+		UNSET_FLAG(cur_iterator->flags, BGP_PATH_MULTIPATH_NEW);
+		/*
+		 * If the current mpath count is equal to the number of
+		 * maxpaths that can be used then we can bail, after
+		 * we clean up the flags associated with the rest of the
+		 * bestpaths
+		 */
+		if (mpath_count >= maxpaths) {
+			while (cur_iterator) {
+				UNSET_FLAG(cur_iterator->flags, BGP_PATH_MULTIPATH);
+				UNSET_FLAG(cur_iterator->flags, BGP_PATH_MULTIPATH_NEW);
+
+				cur_iterator = cur_iterator->next;
+			}
+
+			if (debug)
+				zlog_debug("%pBD(%s): Mpath count %u is equal to maximum paths allowed, finished comparision for MPATHS",
+					   dest, bgp->name_pretty, mpath_count);
+
+			break;
+		}
+
+		if (debug)
+			zlog_debug("%pBD(%s): Candidate %s old_mpath: %u new_mpath: %u, Nexthop %pI4 current mpath count: %u",
+				   dest, bgp->name_pretty, cur_iterator->peer->host, old_mpath,
+				   new_mpath, &cur_iterator->attr->nexthop, mpath_count);
+		/*
+		 * There is nothing to do if the cur_iterator is neither a old path
+		 * or a new path
+		 */
+		if (!old_mpath && !new_mpath) {
+			UNSET_FLAG(cur_iterator->flags, BGP_PATH_MULTIPATH);
+			cur_iterator = cur_iterator->next;
+			continue;
+		}
+
+		if (new_mpath) {
+			mpath_count++;
+
+			if (cur_iterator != new_best)
+				SET_FLAG(cur_iterator->flags, BGP_PATH_MULTIPATH);
+
+			if (!old_mpath)
+				mpath_changed = true;
+
+			if (ecommunity_linkbw_present(bgp_attr_get_ecommunity(cur_iterator->attr),
+						      &bwval) ||
+			    ecommunity_linkbw_present(bgp_attr_get_ipv6_ecommunity(
+							      cur_iterator->attr),
+						      &bwval))
+				cum_bw += bwval;
+			else
+				all_paths_lb = false;
+
+			if (debug) {
+				bgp_path_info_path_with_addpath_rx_str(cur_iterator, path_buf,
+								       sizeof(path_buf));
+				zlog_debug("%pBD: add mpath %s nexthop %pI4, cur count %d cum_bw: %" PRIu64
+					   " all_paths_lb: %u",
+					   dest, path_buf, &cur_iterator->attr->nexthop,
+					   mpath_count, cum_bw, all_paths_lb);
+			}
+		} else {
+			/*
+			 * We know that old_mpath is true and new_mpath is false in this path
+			 */
+			mpath_changed = true;
+			UNSET_FLAG(cur_iterator->flags, BGP_PATH_MULTIPATH);
+		}
+
+		cur_iterator = cur_iterator->next;
+	}
+
+	if (new_best) {
+		if (mpath_count > 1 || new_best->mpath) {
+			bgp_path_info_mpath_count_set(new_best, mpath_count);
+			bgp_path_info_mpath_lb_update(new_best, true, all_paths_lb, cum_bw);
+		}
+		if (debug)
+			zlog_debug("%pBD(%s): New mpath count (incl newbest) %d mpath-change %s all_paths_lb %d cum_bw %" PRIu64,
+				   dest, bgp->name_pretty, mpath_count,
+				   mpath_changed ? "YES" : "NO", all_paths_lb,
+				   cum_bw);
+
+		if (mpath_count == 1)
+			UNSET_FLAG(new_best->flags, BGP_PATH_MULTIPATH);
+		if (mpath_changed
+		    || (bgp_path_info_mpath_count(new_best) != old_mpath_count))
+			SET_FLAG(new_best->flags, BGP_PATH_MULTIPATH_CHG);
+		if ((mpath_count) != old_mpath_count || old_cum_bw != cum_bw)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			SET_FLAG(new_best->flags, BGP_PATH_LINK_BW_CHG);
 	}
 }
 
 /*
+<<<<<<< HEAD
  * bgp_mp_dmed_deselect
  *
  * Clean up multipath information for BGP_PATH_DMED_SELECTED path that
@@ -777,6 +1002,8 @@ void bgp_mp_dmed_deselect(struct bgp_path_info *dmed_best)
 }
 
 /*
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
  * bgp_path_info_mpath_aggregate_update
  *
  * Set the multipath aggregate attribute. We need to see if the
@@ -810,7 +1037,11 @@ void bgp_path_info_mpath_aggregate_update(struct bgp_path_info *new_best,
 	if (!new_best)
 		return;
 
+<<<<<<< HEAD
 	if (!bgp_path_info_mpath_count(new_best)) {
+=======
+	if (bgp_path_info_mpath_count(new_best) == 1) {
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		if ((new_attr = bgp_path_info_mpath_attr(new_best))) {
 			bgp_attr_unintern(&new_attr);
 			bgp_path_info_mpath_attr_set(new_best, NULL);

@@ -65,9 +65,15 @@ an example)
    setenv CPPFLAGS -I/usr/local/include
    ln -s /usr/local/bin/sphinx-build-3.6 /usr/local/bin/sphinx-build
    ./configure \
+<<<<<<< HEAD
        --sysconfdir=/usr/local/etc/frr \
        --enable-pkgsrcrcdir=/usr/pkg/share/examples/rc.d \
        --localstatedir=/var/run/frr \
+=======
+       --sysconfdir=/usr/local/etc \
+       --localstatedir=/var \
+       --enable-pkgsrcrcdir=/usr/pkg/share/examples/rc.d \
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
        --prefix=/usr/local \
        --enable-multipath=64 \
        --enable-user=frr \

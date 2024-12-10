@@ -32,6 +32,10 @@
 #include "bgpd/bgp_vty.h"
 #include "bgpd/bgp_rd.h"
 #include "bgpd/bgp_mplsvpn.h"
+<<<<<<< HEAD
+=======
+#include "bgpd/bgp_bfd.h"
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 DEFINE_MTYPE_STATIC(BGPD, MARTIAN_STRING, "BGP Martian Addr Intf String");
 
@@ -43,9 +47,15 @@ int bgp_nexthop_cache_compare(const struct bgp_nexthop_cache *a,
 	if (a->srte_color > b->srte_color)
 		return 1;
 
+<<<<<<< HEAD
 	if (a->ifindex < b->ifindex)
 		return -1;
 	if (a->ifindex > b->ifindex)
+=======
+	if (a->ifindex_ipv6_ll < b->ifindex_ipv6_ll)
+		return -1;
+	if (a->ifindex_ipv6_ll > b->ifindex_ipv6_ll)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		return 1;
 
 	return prefix_cmp(&a->prefix, &b->prefix);
@@ -65,7 +75,11 @@ struct bgp_nexthop_cache *bnc_new(struct bgp_nexthop_cache_head *tree,
 	bnc = XCALLOC(MTYPE_BGP_NEXTHOP_CACHE,
 		      sizeof(struct bgp_nexthop_cache));
 	bnc->prefix = *prefix;
+<<<<<<< HEAD
 	bnc->ifindex = ifindex;
+=======
+	bnc->ifindex_ipv6_ll = ifindex;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	bnc->srte_color = srte_color;
 	bnc->tree = tree;
 	LIST_INIT(&(bnc->paths));
@@ -105,7 +119,11 @@ struct bgp_nexthop_cache *bnc_find(struct bgp_nexthop_cache_head *tree,
 
 	bnc.prefix = *prefix;
 	bnc.srte_color = srte_color;
+<<<<<<< HEAD
 	bnc.ifindex = ifindex;
+=======
+	bnc.ifindex_ipv6_ll = ifindex;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	return bgp_nexthop_cache_find(tree, &bnc);
 }
 
@@ -121,6 +139,10 @@ static void bgp_nexthop_cache_reset(struct bgp_nexthop_cache_head *tree)
 			struct bgp_path_info *path = LIST_FIRST(&(bnc->paths));
 
 			bgp_mplsvpn_path_nh_label_unlink(path);
+<<<<<<< HEAD
+=======
+			bgp_mplsvpn_path_nh_label_bind_unlink(path);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 			path_nh_map(path, bnc, false);
 		}
@@ -384,6 +406,10 @@ void bgp_connected_add(struct bgp *bgp, struct connected *ifc)
 	struct bgp_connected_ref *bc;
 	struct listnode *node, *nnode;
 	struct peer *peer;
+<<<<<<< HEAD
+=======
+	struct peer_connection *connection;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	addr = ifc->address;
 
@@ -407,6 +433,7 @@ void bgp_connected_add(struct bgp *bgp, struct connected *ifc)
 			bgp_dest_set_bgp_connected_ref_info(dest, bc);
 		}
 
+<<<<<<< HEAD
 		for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer)) {
 			if (peer->conf_if
 			    && (strcmp(peer->conf_if, ifc->ifp->name) == 0)
@@ -418,6 +445,8 @@ void bgp_connected_add(struct bgp *bgp, struct connected *ifc)
 				BGP_EVENT_ADD(peer, BGP_Start);
 			}
 		}
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	} else if (addr->family == AF_INET6) {
 		apply_mask_ipv6((struct prefix_ipv6 *)&p);
 
@@ -441,6 +470,25 @@ void bgp_connected_add(struct bgp *bgp, struct connected *ifc)
 			bgp_dest_set_bgp_connected_ref_info(dest, bc);
 		}
 	}
+<<<<<<< HEAD
+=======
+
+	/*
+	 * Iterate over all the peers and attempt to set the bfd session
+	 * data and if it's a bgp unnumbered get her flowing if necessary
+	 */
+	for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer)) {
+		bgp_peer_bfd_update_source(peer);
+		if (peer->conf_if && (strcmp(peer->conf_if, ifc->ifp->name) == 0) &&
+		    !peer_established(peer->connection) &&
+		    !CHECK_FLAG(peer->flags, PEER_FLAG_IFPEER_V6ONLY)) {
+			connection = peer->connection;
+			if (peer_active(connection))
+				BGP_EVENT_ADD(connection, BGP_Stop);
+			BGP_EVENT_ADD(connection, BGP_Start);
+		}
+	}
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 }
 
 void bgp_connected_delete(struct bgp *bgp, struct connected *ifc)
@@ -482,7 +530,13 @@ void bgp_connected_delete(struct bgp *bgp, struct connected *ifc)
 		XFREE(MTYPE_BGP_CONN, bc);
 		bgp_dest_set_bgp_connected_ref_info(dest, NULL);
 	}
+<<<<<<< HEAD
 	bgp_dest_unlock_node(dest);
+=======
+
+	dest = bgp_dest_unlock_node(dest);
+	assert(dest);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	bgp_dest_unlock_node(dest);
 }
 
@@ -524,6 +578,7 @@ bool bgp_nexthop_self(struct bgp *bgp, afi_t afi, uint8_t type,
 			tmp_addr.p.prefixlen = p->prefixlen;
 		} else {
 			/* Here we need to find out which nexthop to be used*/
+<<<<<<< HEAD
 			if (attr->flag & ATTR_FLAG_BIT(BGP_ATTR_NEXT_HOP)) {
 				tmp_addr.p.u.prefix4 = attr->nexthop;
 				tmp_addr.p.prefixlen = IPV4_MAX_BITLEN;
@@ -532,6 +587,14 @@ bool bgp_nexthop_self(struct bgp *bgp, afi_t afi, uint8_t type,
 					== BGP_ATTR_NHLEN_IPV4)
 				       || (attr->mp_nexthop_len
 					   == BGP_ATTR_NHLEN_VPNV4))) {
+=======
+			if (CHECK_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_NEXT_HOP))) {
+				tmp_addr.p.u.prefix4 = attr->nexthop;
+				tmp_addr.p.prefixlen = IPV4_MAX_BITLEN;
+			} else if ((attr->mp_nexthop_len) &&
+				   ((attr->mp_nexthop_len == BGP_ATTR_NHLEN_IPV4) ||
+				    (attr->mp_nexthop_len == BGP_ATTR_NHLEN_VPNV4))) {
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 				tmp_addr.p.u.prefix4 =
 					attr->mp_nexthop_global_in;
 				tmp_addr.p.prefixlen = IPV4_MAX_BITLEN;
@@ -560,11 +623,19 @@ bool bgp_nexthop_self(struct bgp *bgp, afi_t afi, uint8_t type,
 		memset(&tmp_tip, 0, sizeof(tmp_tip));
 		tmp_tip.addr = attr->nexthop;
 
+<<<<<<< HEAD
 		if (attr->flag & ATTR_FLAG_BIT(BGP_ATTR_NEXT_HOP)) {
 			tmp_tip.addr = attr->nexthop;
 		} else if ((attr->mp_nexthop_len) &&
 			   ((attr->mp_nexthop_len == BGP_ATTR_NHLEN_IPV4)
 			    || (attr->mp_nexthop_len == BGP_ATTR_NHLEN_VPNV4))) {
+=======
+		if (CHECK_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_NEXT_HOP))) {
+			tmp_tip.addr = attr->nexthop;
+		} else if ((attr->mp_nexthop_len) &&
+			   ((attr->mp_nexthop_len == BGP_ATTR_NHLEN_IPV4) ||
+			    (attr->mp_nexthop_len == BGP_ATTR_NHLEN_VPNV4))) {
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			tmp_tip.addr = attr->mp_nexthop_global_in;
 		}
 
@@ -593,7 +664,11 @@ bool bgp_multiaccess_check_v4(struct in_addr nexthop, struct peer *peer)
 
 	p.family = AF_INET;
 	p.prefixlen = IPV4_MAX_BITLEN;
+<<<<<<< HEAD
 	p.u.prefix4 = peer->su.sin.sin_addr;
+=======
+	p.u.prefix4 = peer->connection->su.sin.sin_addr;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	dest2 = bgp_node_match(peer->bgp->connected_table[AFI_IP], &p);
 	if (!dest2) {
@@ -626,7 +701,11 @@ bool bgp_multiaccess_check_v6(struct in6_addr nexthop, struct peer *peer)
 
 	p.family = AF_INET6;
 	p.prefixlen = IPV6_MAX_BITLEN;
+<<<<<<< HEAD
 	p.u.prefix6 = peer->su.sin6.sin6_addr;
+=======
+	p.u.prefix6 = peer->connection->su.sin6.sin6_addr;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	dest2 = bgp_node_match(peer->bgp->connected_table[AFI_IP6], &p);
 	if (!dest2) {
@@ -668,7 +747,11 @@ bool bgp_subgrp_multiaccess_check_v6(struct in6_addr nexthop,
 		if (paf->peer == exclude)
 			continue;
 
+<<<<<<< HEAD
 		p.u.prefix6 = paf->peer->su.sin6.sin6_addr;
+=======
+		p.u.prefix6 = paf->peer->connection->su.sin6.sin6_addr;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		dest2 = bgp_node_match(bgp->connected_table[AFI_IP6], &p);
 		if (dest1 == dest2) {
 			bgp_dest_unlock_node(dest1);
@@ -710,7 +793,11 @@ bool bgp_subgrp_multiaccess_check_v4(struct in_addr nexthop,
 		if (paf->peer == exclude)
 			continue;
 
+<<<<<<< HEAD
 		p.u.prefix4 = paf->peer->su.sin.sin_addr;
+=======
+		p.u.prefix4 = paf->peer->connection->su.sin.sin_addr;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 		dest2 = bgp_node_match(bgp->connected_table[AFI_IP], &p);
 		if (dest1 == dest2) {
@@ -857,8 +944,14 @@ static void bgp_show_nexthops_detail(struct vty *vty, struct bgp *bgp,
 				json_object_string_add(
 					json_gate, "interfaceName",
 					ifindex2ifname(
+<<<<<<< HEAD
 						bnc->ifindex ? bnc->ifindex
 							     : nexthop->ifindex,
+=======
+						bnc->ifindex_ipv6_ll
+							? bnc->ifindex_ipv6_ll
+							: nexthop->ifindex,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 						bgp->vrf_id));
 				break;
 			case NEXTHOP_TYPE_IPV4:
@@ -869,8 +962,14 @@ static void bgp_show_nexthops_detail(struct vty *vty, struct bgp *bgp,
 				json_object_string_add(
 					json_gate, "interfaceName",
 					ifindex2ifname(
+<<<<<<< HEAD
 						bnc->ifindex ? bnc->ifindex
 							     : nexthop->ifindex,
+=======
+						bnc->ifindex_ipv6_ll
+							? bnc->ifindex_ipv6_ll
+							: nexthop->ifindex,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 						bgp->vrf_id));
 				break;
 			case NEXTHOP_TYPE_IPV4_IFINDEX:
@@ -879,8 +978,14 @@ static void bgp_show_nexthops_detail(struct vty *vty, struct bgp *bgp,
 				json_object_string_add(
 					json_gate, "interfaceName",
 					ifindex2ifname(
+<<<<<<< HEAD
 						bnc->ifindex ? bnc->ifindex
 							     : nexthop->ifindex,
+=======
+						bnc->ifindex_ipv6_ll
+							? bnc->ifindex_ipv6_ll
+							: nexthop->ifindex,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 						bgp->vrf_id));
 				break;
 			case NEXTHOP_TYPE_BLACKHOLE:
@@ -914,9 +1019,15 @@ static void bgp_show_nexthops_detail(struct vty *vty, struct bgp *bgp,
 		case NEXTHOP_TYPE_IPV6_IFINDEX:
 			vty_out(vty, "  gate %pI6", &nexthop->gate.ipv6);
 			if (nexthop->type == NEXTHOP_TYPE_IPV6_IFINDEX &&
+<<<<<<< HEAD
 			    bnc->ifindex)
 				vty_out(vty, ", if %s\n",
 					ifindex2ifname(bnc->ifindex,
+=======
+			    bnc->ifindex_ipv6_ll)
+				vty_out(vty, ", if %s\n",
+					ifindex2ifname(bnc->ifindex_ipv6_ll,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 						       bgp->vrf_id));
 			else if (nexthop->ifindex)
 				vty_out(vty, ", if %s\n",
@@ -929,9 +1040,15 @@ static void bgp_show_nexthops_detail(struct vty *vty, struct bgp *bgp,
 		case NEXTHOP_TYPE_IPV4_IFINDEX:
 			vty_out(vty, "  gate %pI4", &nexthop->gate.ipv4);
 			if (nexthop->type == NEXTHOP_TYPE_IPV4_IFINDEX &&
+<<<<<<< HEAD
 			    bnc->ifindex)
 				vty_out(vty, ", if %s\n",
 					ifindex2ifname(bnc->ifindex,
+=======
+			    bnc->ifindex_ipv6_ll)
+				vty_out(vty, ", if %s\n",
+					ifindex2ifname(bnc->ifindex_ipv6_ll,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 						       bgp->vrf_id));
 			else if (nexthop->ifindex)
 				vty_out(vty, ", if %s\n",
@@ -942,8 +1059,14 @@ static void bgp_show_nexthops_detail(struct vty *vty, struct bgp *bgp,
 			break;
 		case NEXTHOP_TYPE_IFINDEX:
 			vty_out(vty, "  if %s\n",
+<<<<<<< HEAD
 				ifindex2ifname(bnc->ifindex ? bnc->ifindex
 							    : nexthop->ifindex,
+=======
+				ifindex2ifname(bnc->ifindex_ipv6_ll
+						       ? bnc->ifindex_ipv6_ll
+						       : nexthop->ifindex,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 					       bgp->vrf_id));
 			break;
 		case NEXTHOP_TYPE_BLACKHOLE:
@@ -964,6 +1087,10 @@ static void bgp_show_nexthop(struct vty *vty, struct bgp *bgp,
 {
 	char buf[PREFIX2STR_BUFFER];
 	time_t tbuf;
+<<<<<<< HEAD
+=======
+	char timebuf[32];
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	struct peer *peer;
 	json_object *json_last_update = NULL;
 	json_object *json_nexthop = NULL;
@@ -994,6 +1121,11 @@ static void bgp_show_nexthop(struct vty *vty, struct bgp *bgp,
 			if (bnc->is_evpn_gwip_nexthop)
 				json_object_boolean_true_add(json_nexthop,
 							     "isEvpnGatewayIp");
+<<<<<<< HEAD
+=======
+			json_object_string_addf(json_nexthop, "resolvedPrefix", "%pFX",
+						&bnc->resolved_prefix);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		} else {
 			vty_out(vty, " %s valid [IGP metric %d], #paths %d",
 				buf, bnc->metric, bnc->path_count);
@@ -1001,6 +1133,11 @@ static void bgp_show_nexthop(struct vty *vty, struct bgp *bgp,
 				vty_out(vty, ", peer %s", peer->host);
 			if (bnc->is_evpn_gwip_nexthop)
 				vty_out(vty, " EVPN Gateway IP");
+<<<<<<< HEAD
+=======
+			vty_out(vty, "\n  Resolved prefix %pFX",
+				&bnc->resolved_prefix);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			vty_out(vty, "\n");
 		}
 		bgp_show_nexthops_detail(vty, bgp, bnc, json_nexthop);
@@ -1062,14 +1199,22 @@ static void bgp_show_nexthop(struct vty *vty, struct bgp *bgp,
 			json_last_update = json_object_new_object();
 			json_object_int_add(json_last_update, "epoch", tbuf);
 			json_object_string_add(json_last_update, "string",
+<<<<<<< HEAD
 					       ctime(&tbuf));
+=======
+					       ctime_r(&tbuf, timebuf));
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			json_object_object_add(json_nexthop, "lastUpdate",
 					       json_last_update);
 		} else {
 			json_object_int_add(json_nexthop, "lastUpdate", tbuf);
 		}
 	} else {
+<<<<<<< HEAD
 		vty_out(vty, "  Last update: %s", ctime(&tbuf));
+=======
+		vty_out(vty, "  Last update: %s", ctime_r(&tbuf, timebuf));
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	}
 
 	/* show paths dependent on nexthop, if needed. */
@@ -1366,6 +1511,7 @@ char *bgp_nexthop_dump_bnc_change_flags(struct bgp_nexthop_cache *bnc,
 		return buf;
 	}
 
+<<<<<<< HEAD
 	snprintfrr(buf, len, "%s%s%s",
 		   CHECK_FLAG(bnc->change_flags, BGP_NEXTHOP_CHANGED)
 			   ? "Changed "
@@ -1376,6 +1522,11 @@ char *bgp_nexthop_dump_bnc_change_flags(struct bgp_nexthop_cache *bnc,
 		   CHECK_FLAG(bnc->change_flags, BGP_NEXTHOP_CONNECTED_CHANGED)
 			   ? "Connected "
 			   : "");
+=======
+	snprintfrr(buf, len, "%s%s",
+		   CHECK_FLAG(bnc->change_flags, BGP_NEXTHOP_CHANGED) ? "Changed " : "",
+		   CHECK_FLAG(bnc->change_flags, BGP_NEXTHOP_METRIC_CHANGED) ? "Metric " : "");
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	return buf;
 }

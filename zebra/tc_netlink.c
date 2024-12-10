@@ -9,6 +9,10 @@
 
 #ifdef HAVE_NETLINK
 
+<<<<<<< HEAD
+=======
+#include <linux/rtnetlink.h>
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 #include <linux/pkt_cls.h>
 #include <linux/pkt_sched.h>
 #include <netinet/if_ether.h>
@@ -160,7 +164,11 @@ static ssize_t netlink_qdisc_msg_encode(int cmd, struct zebra_dplane_ctx *ctx,
 		struct nlmsghdr n;
 		struct tcmsg t;
 		char buf[0];
+<<<<<<< HEAD
 	} *req = (void *)data;
+=======
+	} *req = data;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	if (datalen < sizeof(*req))
 		return 0;
@@ -236,7 +244,11 @@ static ssize_t netlink_tclass_msg_encode(int cmd, struct zebra_dplane_ctx *ctx,
 		struct nlmsghdr n;
 		struct tcmsg t;
 		char buf[0];
+<<<<<<< HEAD
 	} *req = (void *)data;
+=======
+	} *req = data;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	if (datalen < sizeof(*req))
 		return 0;
@@ -486,7 +498,11 @@ static ssize_t netlink_tfilter_msg_encode(int cmd, struct zebra_dplane_ctx *ctx,
 		struct nlmsghdr n;
 		struct tcmsg t;
 		char buf[0];
+<<<<<<< HEAD
 	} *req = (void *)data;
+=======
+	} *req = data;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	if (datalen < sizeof(*req))
 		return 0;
@@ -660,6 +676,7 @@ netlink_put_tc_filter_update_msg(struct nl_batch *bth,
 }
 
 /*
+<<<<<<< HEAD
  * Request filters from the kernel
  */
 static int netlink_request_filters(struct zebra_ns *zns, int family, int type,
@@ -681,6 +698,8 @@ static int netlink_request_filters(struct zebra_ns *zns, int family, int type,
 }
 
 /*
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
  * Request queue discipline from the kernel
  */
 static int netlink_request_qdiscs(struct zebra_ns *zns, int family, int type)
@@ -851,6 +870,7 @@ int netlink_qdisc_read(struct zebra_ns *zns)
 	return 0;
 }
 
+<<<<<<< HEAD
 int netlink_tfilter_read_for_interface(struct zebra_ns *zns, ifindex_t ifindex)
 {
 	int ret;
@@ -870,4 +890,6 @@ int netlink_tfilter_read_for_interface(struct zebra_ns *zns, ifindex_t ifindex)
 	return 0;
 }
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 #endif /* HAVE_NETLINK */

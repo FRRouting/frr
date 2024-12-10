@@ -34,6 +34,10 @@ extern "C" {
 #define DEBUG_OPT_NONE 0x00000000
 
 
+<<<<<<< HEAD
+=======
+PREDECL_LIST(debug_list);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 /*
  * Debugging record.
  *
@@ -63,11 +67,18 @@ extern "C" {
  *    manipulate the flags field in a multithreaded environment results in
  *    undefined behavior.
  *
+<<<<<<< HEAD
+=======
+ * conf
+ *    The configuration string that will be written to the config file.
+ *
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
  * desc
  *    Human-readable description of this debugging record.
  */
 struct debug {
 	atomic_uint_fast32_t flags;
+<<<<<<< HEAD
 	const char *desc;
 };
 
@@ -94,6 +105,12 @@ struct debug_callbacks {
 	 *    false: unset flags
 	 */
 	void (*debug_set_all)(uint32_t flags, bool set);
+=======
+	const char *conf;
+	const char *desc;
+
+	struct debug_list_item item;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 };
 
 /*
@@ -217,6 +234,7 @@ struct debug_callbacks {
 #define DEBUGN(name, fmt, ...) DEBUG(notice, name, fmt, ##__VA_ARGS__)
 #define DEBUGD(name, fmt, ...) DEBUG(debug, name, fmt, ##__VA_ARGS__)
 
+<<<<<<< HEAD
 /*
  * Optional initializer for debugging. Highly recommended.
  *
@@ -233,6 +251,21 @@ void debug_init(struct debug_callbacks *cb);
  * Should only be called by libfrr
  */
 void debug_init_cli(void);
+=======
+/* Show current debugging status. */
+void debug_status_write(struct vty *vty);
+
+/*
+ * Register a debug item.
+ */
+void debug_install(struct debug *debug);
+
+/*
+ * Initialize debugging.
+ * Should only be called by libfrr.
+ */
+void debug_init(void);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 #ifdef __cplusplus
 }

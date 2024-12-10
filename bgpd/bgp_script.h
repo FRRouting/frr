@@ -7,7 +7,10 @@
 #define __BGP_SCRIPT__
 
 #include <zebra.h>
+<<<<<<< HEAD
 #include "bgpd.h"
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 #ifdef HAVE_SCRIPTING
 
@@ -18,6 +21,13 @@
  */
 void bgp_script_init(void);
 
+<<<<<<< HEAD
+=======
+/* Forward references */
+struct peer;
+struct attr;
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 void lua_pushpeer(lua_State *L, const struct peer *peer);
 
 void lua_pushattr(lua_State *L, const struct attr *attr);

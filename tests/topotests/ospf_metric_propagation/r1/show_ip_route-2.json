@@ -2,6 +2,7 @@
   "10.0.94.0/24":[
     {
       "prefix":"10.0.94.0/24",
+<<<<<<< HEAD
       "prefixLen":24,
       "protocol":"bgp",
       "vrfName":"green",
@@ -28,6 +29,17 @@
           "vrf":"default",
           "active":true,
           "weight":1
+=======
+      "protocol":"bgp",
+      "vrfName":"green",
+      "metric":136,
+      "installed":true,
+      "nexthops":[
+        {
+          "ip":"10.0.1.2",
+          "interfaceName":"r1-eth0",
+          "vrf":"default"
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         }
       ]
     }

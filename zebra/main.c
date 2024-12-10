@@ -5,6 +5,13 @@
 
 #include <zebra.h>
 
+<<<<<<< HEAD
+=======
+#ifdef GNU_LINUX
+#include <linux/rtnetlink.h>
+#endif
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 #include <lib/version.h>
 #include "getopt.h"
 #include "command.h"
@@ -21,6 +28,11 @@
 #include "affinitymap.h"
 #include "routemap.h"
 #include "routing_nb.h"
+<<<<<<< HEAD
+=======
+#include "mgmt_be_client.h"
+#include "libagentx.h"
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 #include "zebra/zebra_router.h"
 #include "zebra/zebra_errors.h"
@@ -48,12 +60,18 @@
 
 #define ZEBRA_PTM_SUPPORT
 
+<<<<<<< HEAD
+=======
+char *zserv_path;
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 /* process id. */
 pid_t pid;
 
 /* Pacify zclient.o in libfrr, which expects this variable. */
 struct event_loop *master;
 
+<<<<<<< HEAD
 /* Route retain mode flag. */
 int retain_mode = 0;
 
@@ -61,6 +79,13 @@ int graceful_restart;
 
 bool v6_rr_semantics = false;
 
+=======
+struct mgmt_be_client *mgmt_be_client;
+
+/* Route retain mode flag. */
+int retain_mode = 0;
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 /* Receive buffer size for kernel control sockets */
 #define RCVBUFSIZE_MIN 4194304
 #ifdef HAVE_NETLINK
@@ -69,6 +94,7 @@ uint32_t rcvbufsize = RCVBUFSIZE_MIN;
 uint32_t rcvbufsize = 128 * 1024;
 #endif
 
+<<<<<<< HEAD
 #define OPTION_V6_RR_SEMANTICS 2000
 #define OPTION_ASIC_OFFLOAD    2001
 
@@ -87,6 +113,31 @@ const struct option longopts[] = {
 	{"v6-rr-semantics", no_argument, NULL, OPTION_V6_RR_SEMANTICS},
 #endif /* HAVE_NETLINK */
 	{0}};
+=======
+uint32_t rt_table_main_id = RT_TABLE_MAIN;
+
+#define OPTION_V6_RR_SEMANTICS 2000
+#define OPTION_ASIC_OFFLOAD    2001
+#define OPTION_V6_WITH_V4_NEXTHOP 2002
+
+/* Command line options. */
+const struct option longopts[] = {
+	{ "batch", no_argument, NULL, 'b' },
+	{ "allow_delete", no_argument, NULL, 'a' },
+	{ "socket", required_argument, NULL, 'z' },
+	{ "ecmp", required_argument, NULL, 'e' },
+	{ "retain", no_argument, NULL, 'r' },
+	{ "asic-offload", optional_argument, NULL, OPTION_ASIC_OFFLOAD },
+	{ "v6-with-v4-nexthops", no_argument, NULL, OPTION_V6_WITH_V4_NEXTHOP },
+#ifdef HAVE_NETLINK
+	{ "vrfwnetns", no_argument, NULL, 'n' },
+	{ "nl-bufsize", required_argument, NULL, 's' },
+	{ "v6-rr-semantics", no_argument, NULL, OPTION_V6_RR_SEMANTICS },
+#endif /* HAVE_NETLINK */
+	{ "routing-table", optional_argument, NULL, 'R' },
+	{ 0 }
+};
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 zebra_capabilities_t _caps_p[] = {ZCAP_NET_ADMIN, ZCAP_SYS_ADMIN,
 				  ZCAP_NET_RAW,
@@ -134,6 +185,13 @@ static void sigint(void)
 
 	zlog_notice("Terminating on signal");
 
+<<<<<<< HEAD
+=======
+	nb_oper_cancel_all_walks();
+	mgmt_be_client_destroy(mgmt_be_client);
+	mgmt_be_client = NULL;
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	atomic_store_explicit(&zrouter.in_shutdown, true,
 			      memory_order_relaxed);
 
@@ -188,6 +246,16 @@ static void sigint(void)
 	rib_update_finish();
 
 	list_delete(&zrouter.client_list);
+<<<<<<< HEAD
+=======
+	list_delete(&zrouter.stale_client_list);
+
+	/*
+	 * Besides other clean-ups zebra's vrf_disable() also enqueues installed
+	 * routes for removal from the kernel, unless ZEBRA_VRF_RETAIN is set.
+	 */
+	vrf_iterate(vrf_disable);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	/* Indicate that all new dplane work has been enqueued. When that
 	 * work is complete, the dataplane will enqueue an event
@@ -218,10 +286,28 @@ void zebra_finalize(struct event *dummy)
 	zebra_ns_notify_close();
 
 	/* Final shutdown of ns resources */
+<<<<<<< HEAD
 	ns_walk_func(zebra_ns_final_shutdown, NULL, NULL);
 
 	zebra_router_terminate();
 
+=======
+	ns_walk_func(zebra_ns_kernel_shutdown, NULL, NULL);
+
+	zebra_rib_terminate();
+	zebra_router_terminate();
+
+	zebra_mpls_terminate();
+
+	zebra_pw_terminate();
+
+	zebra_srv6_terminate();
+
+	label_manager_terminate();
+
+	ns_walk_func(zebra_ns_final_shutdown, NULL, NULL);
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	ns_terminate();
 	frr_fini();
 	exit(0);
@@ -265,6 +351,7 @@ static const struct frr_yang_module_info *const zebra_yang_modules[] = {
 };
 /* clang-format on */
 
+<<<<<<< HEAD
 FRR_DAEMON_INFO(
 	zebra, ZEBRA, .vty_port = ZEBRA_VTY_PORT, .flags = FRR_NO_ZCLIENT,
 
@@ -272,17 +359,62 @@ FRR_DAEMON_INFO(
 		"Daemon which manages kernel routing table management and\nredistribution between different routing protocols.",
 
 	.signals = zebra_signals, .n_signals = array_size(zebra_signals),
+=======
+/* clang-format off */
+FRR_DAEMON_INFO(zebra, ZEBRA,
+	.vty_port = ZEBRA_VTY_PORT,
+	.proghelp =
+		"Daemon which manages kernel routing table management and\nredistribution between different routing protocols.",
+
+	.flags = FRR_NO_ZCLIENT,
+
+	.signals = zebra_signals,
+	.n_signals = array_size(zebra_signals),
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	.privs = &zserv_privs,
 
 	.yang_modules = zebra_yang_modules,
 	.n_yang_modules = array_size(zebra_yang_modules),
 );
+<<<<<<< HEAD
+=======
+/* clang-format on */
+
+void zebra_main_router_started(void)
+{
+	/*
+	 * Clean up zebra-originated routes. The requests will be sent to OS
+	 * immediately, so originating PID in notifications from kernel
+	 * will be equal to the current getpid(). To know about such routes,
+	 * we have to have route_read() called before.
+	 * If FRR is gracefully restarting, we either wait for clients
+	 * (e.g., BGP) to signal GR is complete else we wait for specified
+	 * duration.
+	 */
+	zrouter.startup_time = monotime(NULL);
+	zrouter.rib_sweep_time = 0;
+	zrouter.graceful_restart = zebra_di.graceful_restart;
+	if (!zrouter.graceful_restart)
+		event_add_timer(zrouter.master, rib_sweep_route, NULL, 0, NULL);
+	else {
+		int gr_cleanup_time;
+
+		gr_cleanup_time = zebra_di.gr_cleanup_time ? zebra_di.gr_cleanup_time
+							   : ZEBRA_GR_DEFAULT_RIB_SWEEP_TIME;
+		event_add_timer(zrouter.master, rib_sweep_route, NULL, gr_cleanup_time,
+				&zrouter.t_rib_sweep);
+	}
+
+	zserv_start(zserv_path);
+}
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 /* Main startup routine. */
 int main(int argc, char **argv)
 {
 	// int batch_mode = 0;
+<<<<<<< HEAD
 	char *zserv_path = NULL;
 	struct sockaddr_storage dummy;
 	socklen_t dummylen;
@@ -290,10 +422,21 @@ int main(int argc, char **argv)
 	bool notify_on_ack = true;
 
 	graceful_restart = 0;
+=======
+	struct sockaddr_storage dummy;
+	socklen_t dummylen;
+	bool asic_offload = false;
+	bool v6_with_v4_nexthop = false;
+	bool notify_on_ack = true;
+
+	zserv_path = NULL;
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	vrf_configure_backend(VRF_BACKEND_VRF_LITE);
 
 	frr_preinit(&zebra_di, argc, argv);
 
+<<<<<<< HEAD
 	frr_opt_add(
 		"baz:e:rK:s:"
 #ifdef HAVE_NETLINK
@@ -316,6 +459,29 @@ int main(int argc, char **argv)
 		"  -s,                      Set kernel socket receive buffer size\n"
 #endif /* HAVE_NETLINK */
 	);
+=======
+	frr_opt_add("baz:e:rK:s:R:"
+#ifdef HAVE_NETLINK
+		    "n"
+#endif
+		    ,
+		    longopts,
+		    "  -b, --batch               Runs in batch mode\n"
+		    "  -a, --allow_delete        Allow other processes to delete zebra routes\n"
+		    "  -z, --socket              Set path of zebra socket\n"
+		    "  -e, --ecmp                Specify ECMP to use.\n"
+		    "  -r, --retain              When program terminates, retain added route by zebra.\n"
+		    "  -A, --asic-offload        FRR is interacting with an asic underneath the linux kernel\n"
+		    "      --v6-with-v4-nexthops Underlying dataplane supports v6 routes with v4 nexthops\n"
+#ifdef HAVE_NETLINK
+		    "  -s, --nl-bufsize          Set netlink receive buffer size\n"
+		    "  -n, --vrfwnetns           Use NetNS as VRF backend\n"
+		    "      --v6-rr-semantics     Use v6 RR semantics\n"
+#else
+		    "  -s,                       Set kernel socket receive buffer size\n"
+#endif /* HAVE_NETLINK */
+		    "  -R, --routing-table       Set kernel routing table\n");
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	while (1) {
 		int opt = frr_getopt(argc, argv, NULL);
@@ -359,9 +525,12 @@ int main(int argc, char **argv)
 		case 'r':
 			retain_mode = 1;
 			break;
+<<<<<<< HEAD
 		case 'K':
 			graceful_restart = atoi(optarg);
 			break;
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		case 's':
 			rcvbufsize = atoi(optarg);
 			if (rcvbufsize < RCVBUFSIZE_MIN)
@@ -369,12 +538,22 @@ int main(int argc, char **argv)
 					"Rcvbufsize is smaller than recommended value: %d\n",
 					RCVBUFSIZE_MIN);
 			break;
+<<<<<<< HEAD
+=======
+		case 'R':
+			rt_table_main_id = atoi(optarg);
+			break;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 #ifdef HAVE_NETLINK
 		case 'n':
 			vrf_configure_backend(VRF_BACKEND_NETNS);
 			break;
 		case OPTION_V6_RR_SEMANTICS:
+<<<<<<< HEAD
 			v6_rr_semantics = true;
+=======
+			zrouter.v6_rr_semantics = true;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			break;
 		case OPTION_ASIC_OFFLOAD:
 			if (!strcmp(optarg, "notify_on_offload"))
@@ -383,6 +562,12 @@ int main(int argc, char **argv)
 				notify_on_ack = true;
 			asic_offload = true;
 			break;
+<<<<<<< HEAD
+=======
+		case OPTION_V6_WITH_V4_NEXTHOP:
+			v6_with_v4_nexthop = true;
+			break;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 #endif /* HAVE_NETLINK */
 		default:
 			frr_help_exit(1);
@@ -392,9 +577,16 @@ int main(int argc, char **argv)
 	zrouter.master = frr_init();
 
 	/* Zebra related initialize. */
+<<<<<<< HEAD
 	zebra_router_init(asic_offload, notify_on_ack);
 	zserv_init();
 	rib_init();
+=======
+	libagentx_init();
+	zebra_router_init(asic_offload, notify_on_ack, v6_with_v4_nexthop);
+	zserv_init();
+	zebra_rib_init();
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	zebra_if_init();
 	zebra_debug_init();
 
@@ -407,8 +599,17 @@ int main(int argc, char **argv)
 	zebra_ns_init();
 	router_id_cmd_init();
 	zebra_vty_init();
+<<<<<<< HEAD
 	access_list_init();
 	prefix_list_init();
+=======
+	mgmt_be_client = mgmt_be_client_create("zebra", NULL, 0,
+					       zrouter.master);
+	access_list_init_new(true);
+	prefix_list_init();
+
+	rtadv_init();
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	rtadv_cmd_init();
 /* PTM socket */
 #ifdef ZEBRA_PTM_SUPPORT
@@ -436,6 +637,7 @@ int main(int argc, char **argv)
 	*/
 	frr_config_fork();
 
+<<<<<<< HEAD
 	/* After we have successfully acquired the pidfile, we can be sure
 	*  about being the only copy of zebra process, which is submitting
 	*  changes to the FIB.
@@ -447,6 +649,13 @@ int main(int argc, char **argv)
 	zrouter.startup_time = monotime(NULL);
 	event_add_timer(zrouter.master, rib_sweep_route, NULL, graceful_restart,
 			&zrouter.sweeper);
+=======
+	/*
+	 * After we have successfully acquired the pidfile, we can be sure
+	 * about being the only copy of zebra process, which is submitting
+	 * changes to the FIB.
+	 */
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	/* Needed for BSD routing socket. */
 	pid = getpid();
@@ -457,9 +666,12 @@ int main(int argc, char **argv)
 	/* Start the ted module, before zserv */
 	zebra_opaque_start();
 
+<<<<<<< HEAD
 	/* Start Zebra API server */
 	zserv_start(zserv_path);
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	/* Init label manager */
 	label_manager_init();
 

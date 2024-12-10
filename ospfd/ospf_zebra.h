@@ -47,6 +47,12 @@ extern uint8_t ospf_distance_apply(struct ospf *ospf, struct prefix_ipv4 *,
 				   struct ospf_route *);
 extern struct ospf_external *ospf_external_lookup(struct ospf *, uint8_t,
 						  unsigned short);
+<<<<<<< HEAD
+=======
+
+extern struct external_info *ospf_external_info_default_lookup(struct ospf *ospf);
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 extern struct ospf_external *ospf_external_add(struct ospf *, uint8_t,
 					       unsigned short);
 

@@ -52,7 +52,11 @@ def setup_module(mod):
 
     router_list = tgen.routers()
 
+<<<<<<< HEAD
     for i, (rname, router) in enumerate(router_list.items(), 1):
+=======
+    for _, (rname, router) in enumerate(router_list.items(), 1):
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         router.load_config(
             TopoRouter.RD_ZEBRA, os.path.join(CWD, "{}/zebra.conf".format(rname))
         )
@@ -74,7 +78,12 @@ def test_bgp_maximum_prefix_invalid():
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
+<<<<<<< HEAD
     router = tgen.gears["r2"]
+=======
+    r1 = tgen.gears["r1"]
+    r2 = tgen.gears["r2"]
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
     def _bgp_converge(router):
         output = json.loads(router.vtysh_cmd("show ip bgp neighbor 192.168.255.1 json"))
@@ -86,6 +95,7 @@ def test_bgp_maximum_prefix_invalid():
         }
         return topotest.json_cmp(output, expected)
 
+<<<<<<< HEAD
     def _bgp_aggregate_address_has_metric(router):
         output = json.loads(router.vtysh_cmd("show ip bgp 172.16.255.0/24 json"))
         expected = {"paths": [{"metric": 123}]}
@@ -102,6 +112,32 @@ def test_bgp_maximum_prefix_invalid():
     assert (
         result is None
     ), 'Failed to see applied metric for aggregated prefix in "{}"'.format(router)
+=======
+    def _bgp_aggregate_address_has_metric(router, metric):
+        output = json.loads(router.vtysh_cmd("show ip bgp 172.16.255.0/24 json"))
+        expected = {"paths": [{"metric": metric}]}
+        return topotest.json_cmp(output, expected)
+
+    test_func = functools.partial(_bgp_converge, r2)
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=0.5)
+    assert result is None, "Failed to see bgp convergence in r2"
+
+    test_func = functools.partial(_bgp_aggregate_address_has_metric, r2, 123)
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=0.5)
+    assert result is None, "Failed to see applied metric for aggregated prefix in r2"
+
+    r1.vtysh_cmd(
+        """
+    configure terminal
+     route-map aggr-rmap permit 10
+      set metric 666
+    """
+    )
+
+    test_func = functools.partial(_bgp_aggregate_address_has_metric, r2, 666)
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=0.5)
+    assert result is None, "Failed to see applied metric for aggregated prefix in r2"
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 
 if __name__ == "__main__":

@@ -36,6 +36,10 @@
 #include "distribute.h"
 #include "libfrr.h"
 #include "routemap.h"
+<<<<<<< HEAD
+=======
+#include "libagentx.h"
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 //#include "if_rmap.h"
 
 #include "eigrpd/eigrp_structs.h"
@@ -94,6 +98,12 @@ static void sighup(void)
 static void sigint(void)
 {
 	zlog_notice("Terminating on signal");
+<<<<<<< HEAD
+=======
+
+	keychain_terminate();
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	eigrp_terminate();
 
 	exit(0);
@@ -130,6 +140,7 @@ static const struct frr_yang_module_info *const eigrpd_yang_modules[] = {
 	&frr_interface_info,
 	&frr_route_map_info,
 	&frr_vrf_info,
+<<<<<<< HEAD
 };
 
 FRR_DAEMON_INFO(eigrpd, EIGRP, .vty_port = EIGRP_VTY_PORT,
@@ -142,6 +153,26 @@ FRR_DAEMON_INFO(eigrpd, EIGRP, .vty_port = EIGRP_VTY_PORT,
 		.privs = &eigrpd_privs, .yang_modules = eigrpd_yang_modules,
 		.n_yang_modules = array_size(eigrpd_yang_modules),
 );
+=======
+	&ietf_key_chain_info,
+	&ietf_key_chain_deviation_info,
+};
+
+/* clang-format off */
+FRR_DAEMON_INFO(eigrpd, EIGRP,
+	.vty_port = EIGRP_VTY_PORT,
+	.proghelp = "Implementation of the EIGRP routing protocol.",
+
+	.signals = eigrp_signals,
+	.n_signals = array_size(eigrp_signals),
+
+	.privs = &eigrpd_privs,
+
+	.yang_modules = eigrpd_yang_modules,
+	.n_yang_modules = array_size(eigrpd_yang_modules),
+);
+/* clang-format on */
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 /* EIGRPd main routine. */
 int main(int argc, char **argv, char **envp)
@@ -169,9 +200,17 @@ int main(int argc, char **argv, char **envp)
 
 	/* EIGRP master init. */
 	eigrp_master_init();
+<<<<<<< HEAD
 	eigrp_om->master = frr_init();
 	master = eigrp_om->master;
 
+=======
+
+	eigrp_om->master = frr_init();
+	master = eigrp_om->master;
+
+	libagentx_init();
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	eigrp_error_init();
 	eigrp_vrf_init();
 	vrf_init(NULL, NULL, NULL, NULL);

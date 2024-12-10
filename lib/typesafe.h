@@ -6,10 +6,18 @@
 #ifndef _FRR_TYPESAFE_H
 #define _FRR_TYPESAFE_H
 
+<<<<<<< HEAD
+=======
+#ifndef _TYPESAFE_EXPAND_MACROS
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 #include <stddef.h>
 #include <stdint.h>
 #include <stdbool.h>
 #include "compiler.h"
+<<<<<<< HEAD
+=======
+#endif /* _TYPESAFE_EXPAND_MACROS */
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 #ifdef __cplusplus
 extern "C" {
@@ -17,12 +25,23 @@ extern "C" {
 
 /* generic macros for all list-like types */
 
+<<<<<<< HEAD
 #define frr_each(prefix, head, item)                                           \
 	for (item = prefix##_first(head); item;                                \
 			item = prefix##_next(head, item))
 #define frr_each_const(prefix, head, item)                                     \
 	for (item = prefix##_const_first(head); item;                          \
 	     item = prefix##_const_next(head, item))
+=======
+/* to iterate using the const variants of the functions, append "_const" to
+ * the name of the container, e.g. "frr_each (my_list, head, item)" becomes
+ * "frr_each (my_list_const, head, item)"
+ */
+
+#define frr_each(prefix, head, item)                                           \
+	for (item = prefix##_first(head); item;                                \
+			item = prefix##_next(head, item))
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 #define frr_each_safe(prefix, head, item)                                      \
 	for (typeof(prefix##_next_safe(head, NULL)) prefix##_safe =            \
 			prefix##_next_safe(head,                               \
@@ -793,13 +812,25 @@ struct thash_head {
 	uint8_t minshift, maxshift;
 };
 
+<<<<<<< HEAD
 #define _HASH_SIZE(tabshift) \
 	((1U << (tabshift)) >> 1)
+=======
+#define _HASH_SIZE(tabshift)                                                   \
+	({                                                                     \
+		assume((tabshift) <= 31);                                      \
+		(1U << (tabshift)) >> 1;                                       \
+	})
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 #define HASH_SIZE(head) \
 	_HASH_SIZE((head).tabshift)
 #define _HASH_KEY(tabshift, val)                                               \
 	({                                                                     \
+<<<<<<< HEAD
 		assume((tabshift) >= 2 && (tabshift) <= 33);                   \
+=======
+		assume((tabshift) >= 2 && (tabshift) <= 31);                   \
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		(val) >> (33 - (tabshift));                                    \
 	})
 #define HASH_KEY(head, val) \

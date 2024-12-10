@@ -14,7 +14,20 @@
 
 /* bgp4V2PeerEntry:
  * offset 1.3.6.1.3.5.1.1.2.1.x.(1|2).(4|16) = 13
+<<<<<<< HEAD
  */
+=======
+ * offset 1.3.6.1.4.1.7336.3.2.1.1.2.1.x.1.(1|2) = 16
+ */
+
+
+/* bgpTraps */
+#define BGP4V2ESTABLISHED	 1
+#define BGP4V2BACKWARDTRANSITION 2
+
+/* bgpPeerTable */
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 #define BGP4V2_PEER_ENTRY_OFFSET 13
 #define BGP4V2_PEER_INSTANCE 1
 #define BGP4V2_PEER_LOCAL_ADDR_TYPE 2
@@ -49,6 +62,10 @@
 
 /* bgp4V2NlriEntry
  * offset 1.3.6.1.3.5.1.1.9.1.x.(1|2).(4|16) = 13
+<<<<<<< HEAD
+=======
+ * offset 1.3.6.1.4.1.7336.3.2.1.1.9.1.x.1.(1|2) = 16
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
  */
 #define BGP4V2_NLRI_ENTRY_OFFSET 13
 #define BGP4V2_NLRI_INDEX 1
@@ -82,5 +99,10 @@
 #define BGP4V2_BACKWARD_TRANSITION_NOTIFICATION 2
 
 extern int bgp_snmp_bgp4v2_init(struct event_loop *tm);
+<<<<<<< HEAD
+=======
+extern int bgpv2TrapEstablished(struct peer *peer);
+extern int bgpv2TrapBackwardTransition(struct peer *peer);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 #endif /* _FRR_BGP_SNMP_BGP4V2_H_ */

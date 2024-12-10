@@ -617,6 +617,10 @@ static struct test_segment misc_segments[] =
 			},
 			2,
 			SHOULD_ERR,
+<<<<<<< HEAD
+=======
+			-1,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		},
 		{
 			"dyn-empty",
@@ -835,7 +839,11 @@ static void parse_test(struct peer *peer, struct test_segment *t, int type)
 	switch (type) {
 	case CAPABILITY:
 		len += 2; /* to cover the OPT-Param header */
+<<<<<<< HEAD
 		_FALLTHROUGH
+=======
+		fallthrough;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	case OPT_PARAM:
 		printf("len: %u\n", len);
 		/* peek_for_as4 wants getp at capibility*/
@@ -847,7 +855,11 @@ static void parse_test(struct peer *peer, struct test_segment *t, int type)
 		ret = bgp_open_option_parse(peer, len, &capability);
 		break;
 	case DYNCAP:
+<<<<<<< HEAD
 		ret = bgp_capability_receive(peer, t->len);
+=======
+		ret = bgp_capability_receive(peer->connection, peer, t->len);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		break;
 	default:
 		printf("unknown type %u\n", type);
@@ -972,7 +984,12 @@ int main(void)
 		parse_test(peer, &opt_params[i++], OPT_PARAM);
 
 	SET_FLAG(peer->cap, PEER_CAP_DYNAMIC_ADV);
+<<<<<<< HEAD
 	peer->status = Established;
+=======
+	peer->connection = bgp_peer_connection_new(peer);
+	peer->connection->status = Established;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	i = 0;
 	while (dynamic_cap_msgs[i].name)

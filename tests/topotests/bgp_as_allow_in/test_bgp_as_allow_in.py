@@ -28,7 +28,10 @@ Following tests are covered to test bgp allowas-in functionality:
 import os
 import sys
 import time
+<<<<<<< HEAD
 import json
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 import pytest
 
 # Save the Current Working Directory to find configuration files.
@@ -59,7 +62,11 @@ from lib.bgp import (
     create_router_bgp,
     verify_bgp_rib,
 )
+<<<<<<< HEAD
 from lib.topojson import build_topo_from_json, build_config_from_json
+=======
+from lib.topojson import build_config_from_json
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 pytestmark = [pytest.mark.bgpd, pytest.mark.staticd]
 

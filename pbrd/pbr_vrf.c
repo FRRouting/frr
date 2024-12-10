@@ -123,4 +123,9 @@ void pbr_vrf_terminate(void)
 		FOR_ALL_INTERFACES (vrf, ifp)
 			pbr_if_del(ifp);
 	}
+<<<<<<< HEAD
+=======
+
+	vrf_terminate();
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 }

@@ -87,6 +87,10 @@ def setup_module(mod):
         router.net.set_intf_netns(rname + "-eth0", ns, up=True)
         router.net.set_intf_netns(rname + "-eth1", ns, up=True)
 
+<<<<<<< HEAD
+=======
+        router.load_config(TopoRouter.RD_MGMTD, None, "--vrfwnetns")
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         router.load_config(
             TopoRouter.RD_ZEBRA,
             os.path.join(CWD, "{}/zebra.conf".format(rname)),
@@ -103,13 +107,21 @@ def setup_module(mod):
             tgen.set_error("unsupported version")
 
 
+<<<<<<< HEAD
 def teardown_module(mod):
+=======
+def teardown_module():
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     "Teardown the pytest environment"
     tgen = get_topogen()
 
     # Move interfaces out of vrf namespace and delete the namespace
     router_list = tgen.routers()
+<<<<<<< HEAD
     for rname, router in router_list.items():
+=======
+    for rname, _ in router_list.items():
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         tgen.net[rname].reset_intf_netns(rname + "-eth0")
         tgen.net[rname].reset_intf_netns(rname + "-eth1")
         tgen.net[rname].delete_netns(rname + "-ospf-cust1")
@@ -233,7 +245,11 @@ def test_ospf_json():
             "show ip ospf vrf {0}-ospf-cust1 json".format(rname),
             expected,
         )
+<<<<<<< HEAD
         _, diff = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
+=======
+        _, diff = topotest.run_and_expect(test_func, None, count=30, wait=1)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         assertmsg = '"{}" JSON output mismatches'.format(rname)
         assert diff is None, assertmsg
 

@@ -12,6 +12,10 @@
 enum bgp_addpath_strat {
 	BGP_ADDPATH_ALL = 0,
 	BGP_ADDPATH_BEST_PER_AS,
+<<<<<<< HEAD
+=======
+	BGP_ADDPATH_BEST_SELECTED,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	BGP_ADDPATH_MAX,
 	BGP_ADDPATH_NONE,
 };

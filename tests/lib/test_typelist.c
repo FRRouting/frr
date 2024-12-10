@@ -156,6 +156,10 @@ int main(int argc, char **argv)
 	test_ATOMSORT_UNIQ();
 	test_ATOMSORT_NONUNIQ();
 
+<<<<<<< HEAD
 	log_memstats_stderr("test: ");
+=======
+	log_memstats(NULL, true);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	return 0;
 }

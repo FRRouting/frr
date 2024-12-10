@@ -101,11 +101,26 @@ struct timeval msec2tv(int a)
 	return ret;
 }
 
+<<<<<<< HEAD
 int ospf_lsa_refresh_delay(struct ospf_lsa *lsa)
+=======
+int tv2msec(struct timeval tv)
+{
+	int msecs;
+
+	msecs = tv.tv_sec * 1000;
+	msecs += (tv.tv_usec + 1000) / 1000;
+
+	return msecs;
+}
+
+int ospf_lsa_refresh_delay(struct ospf *ospf, struct ospf_lsa *lsa)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 {
 	struct timeval delta;
 	int delay = 0;
 
+<<<<<<< HEAD
 	if (monotime_since(&lsa->tv_orig, &delta)
 	    < OSPF_MIN_LS_INTERVAL * 1000LL) {
 		struct timeval minv = msec2tv(OSPF_MIN_LS_INTERVAL);
@@ -121,6 +136,24 @@ int ospf_lsa_refresh_delay(struct ospf_lsa *lsa)
 				delay);
 
 		assert(delay > 0);
+=======
+	if (monotime_since(&lsa->tv_orig, &delta) < ospf->min_ls_interval * 1000LL) {
+		struct timeval minv = msec2tv(ospf->min_ls_interval);
+
+		timersub(&minv, &delta, &minv);
+		delay = tv2msec(minv);
+
+		if (IS_DEBUG_OSPF(lsa, LSA_GENERATE))
+			zlog_debug("LSA[Type%d:%pI4]: Refresh timer delay %d milliseconds",
+				   lsa->data->type, &lsa->data->id, delay);
+
+		if (delay <= 0) {
+			zlog_warn("LSA[Type%d:%pI4]: Invalid refresh timer delay %d milliseconds Seq: 0x%x Age:%u",
+				  lsa->data->type, &lsa->data->id, delay,
+				  ntohl(lsa->data->ls_seqnum), ntohs(lsa->data->ls_age));
+			delay = 0;
+		}
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	}
 
 	return delay;
@@ -539,6 +572,7 @@ static int lsa_link_ptop_set(struct stream **s, struct ospf_interface *oi)
 		}
 
 	/* no need for a stub link for unnumbered interfaces */
+<<<<<<< HEAD
 	if (oi->ptp_dmvpn
 	    || !CHECK_FLAG(oi->connected->flags, ZEBRA_IFA_UNNUMBERED)) {
 		/* Regardless of the state of the neighboring router, we must
@@ -549,6 +583,25 @@ static int lsa_link_ptop_set(struct stream **s, struct ospf_interface *oi)
 			    & mask.s_addr;
 		links += link_info_set(s, id, mask, LSA_LINK_TYPE_STUB, 0,
 				       oi->output_cost);
+=======
+	if (OSPF_IF_PARAM(oi, prefix_suppression)) {
+		if (IS_DEBUG_OSPF(lsa, LSA_GENERATE))
+			zlog_debug("LSA[Type1]: Interface %s stub link omitted due prefix-suppression",
+				   oi->ifp->name);
+	} else {
+		if (oi->ptp_dmvpn ||
+		    !CHECK_FLAG(oi->connected->flags, ZEBRA_IFA_UNNUMBERED)) {
+			/* Regardless of the state of the neighboring router, we must
+			   add a Type 3 link (stub network).
+			   N.B. Options 1 & 2 share basically the same logic. */
+			masklen2ip(oi->address->prefixlen, &mask);
+			id.s_addr =
+				CONNECTED_PREFIX(oi->connected)->u.prefix4.s_addr &
+				mask.s_addr;
+			links += link_info_set(s, id, mask, LSA_LINK_TYPE_STUB,
+					       0, oi->output_cost);
+		}
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	}
 
 	return links;
@@ -563,10 +616,22 @@ static int lsa_link_broadcast_set(struct stream **s, struct ospf_interface *oi)
 
 	/* Describe Type 3 Link. */
 	if (oi->state == ISM_Waiting) {
+<<<<<<< HEAD
 		if (IS_DEBUG_OSPF(lsa, LSA_GENERATE))
 			zlog_debug(
 				"LSA[Type1]: Interface %s is in state Waiting. Adding stub interface",
 				oi->ifp->name);
+=======
+		if (OSPF_IF_PARAM(oi, prefix_suppression)) {
+			if (IS_DEBUG_OSPF(lsa, LSA_GENERATE))
+				zlog_debug("LSA[Type1]: Interface %s stub link omitted due prefix-suppression",
+					   oi->ifp->name);
+			return 0;
+		}
+		if (IS_DEBUG_OSPF(lsa, LSA_GENERATE))
+			zlog_debug("LSA[Type1]: Interface %s is in state Waiting. Adding stub interface",
+				   oi->ifp->name);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		masklen2ip(oi->address->prefixlen, &mask);
 		id.s_addr = oi->address->u.prefix4.s_addr & mask.s_addr;
 		return link_info_set(s, id, mask, LSA_LINK_TYPE_STUB, 0,
@@ -587,10 +652,22 @@ static int lsa_link_broadcast_set(struct stream **s, struct ospf_interface *oi)
 	}
 	/* Describe type 3 link. */
 	else {
+<<<<<<< HEAD
 		if (IS_DEBUG_OSPF(lsa, LSA_GENERATE))
 			zlog_debug(
 				"LSA[Type1]: Interface %s has no DR. Adding stub interface",
 				oi->ifp->name);
+=======
+		if (OSPF_IF_PARAM(oi, prefix_suppression)) {
+			if (IS_DEBUG_OSPF(lsa, LSA_GENERATE))
+				zlog_debug("LSA[Type1]: Interface %s stub link omitted due prefix-suppression",
+					   oi->ifp->name);
+			return 0;
+		}
+		if (IS_DEBUG_OSPF(lsa, LSA_GENERATE))
+			zlog_debug("LSA[Type1]: Interface %s has no DR. Adding stub interface",
+				   oi->ifp->name);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		masklen2ip(oi->address->prefixlen, &mask);
 		id.s_addr = oi->address->u.prefix4.s_addr & mask.s_addr;
 		return link_info_set(s, id, mask, LSA_LINK_TYPE_STUB, 0,
@@ -603,7 +680,11 @@ static int lsa_link_loopback_set(struct stream **s, struct ospf_interface *oi)
 	struct in_addr id, mask;
 
 	/* Describe Type 3 Link. */
+<<<<<<< HEAD
 	if (oi->state != ISM_Loopback)
+=======
+	if ((oi->state != ISM_Loopback) || OSPF_IF_PARAM(oi, prefix_suppression))
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		return 0;
 
 	mask.s_addr = 0xffffffff;
@@ -645,9 +726,21 @@ static int lsa_link_ptomp_set(struct stream **s, struct ospf_interface *oi)
 	struct in_addr id, mask;
 	uint16_t cost = ospf_link_cost(oi);
 
+<<<<<<< HEAD
 	mask.s_addr = 0xffffffff;
 	id.s_addr = oi->address->u.prefix4.s_addr;
 	links += link_info_set(s, id, mask, LSA_LINK_TYPE_STUB, 0, 0);
+=======
+	if (OSPF_IF_PARAM(oi, prefix_suppression)) {
+		if (IS_DEBUG_OSPF(lsa, LSA_GENERATE))
+			zlog_debug("LSA[Type1]: Interface %s stub link omitted due prefix-suppression",
+				   oi->ifp->name);
+	} else {
+		mask.s_addr = 0xffffffff;
+		id.s_addr = oi->address->u.prefix4.s_addr;
+		links += link_info_set(s, id, mask, LSA_LINK_TYPE_STUB, 0, 0);
+	}
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	if (IS_DEBUG_OSPF(lsa, LSA_GENERATE))
 		zlog_debug("PointToMultipoint: running ptomultip_set");
@@ -1006,7 +1099,18 @@ static void ospf_network_lsa_body_set(struct stream *s,
 	struct route_node *rn;
 	struct ospf_neighbor *nbr;
 
+<<<<<<< HEAD
 	masklen2ip(oi->address->prefixlen, &mask);
+=======
+	if (OSPF_IF_PARAM(oi, prefix_suppression)) {
+		mask.s_addr = 0xffffffff;
+		if (IS_DEBUG_OSPF(lsa, LSA_GENERATE))
+			zlog_debug("LSA[Type2]: Interface %s network mask set to host mask due prefix-suppression",
+				   oi->ifp->name);
+	} else {
+		masklen2ip(oi->address->prefixlen, &mask);
+	}
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	stream_put_ipv4(s, mask.s_addr);
 
 	/* The network-LSA lists those routers that are fully adjacent to
@@ -2007,7 +2111,10 @@ static struct ospf_lsa *ospf_lsa_translated_nssa_new(struct ospf *ospf,
 
 	/* add translated flag, checksum and lock new lsa */
 	SET_FLAG(new->flags, OSPF_LSA_LOCAL_XLT); /* Translated from 7  */
+<<<<<<< HEAD
 	new = ospf_lsa_lock(new);
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	return new;
 }
@@ -2367,6 +2474,7 @@ struct ospf_lsa *ospf_nssa_lsa_refresh(struct ospf_area *area,
 static struct external_info *ospf_default_external_info(struct ospf *ospf)
 {
 	int type;
+<<<<<<< HEAD
 	struct prefix_ipv4 p;
 	struct external_info *default_ei;
 	int ret = 0;
@@ -2376,6 +2484,12 @@ static struct external_info *ospf_default_external_info(struct ospf *ospf)
 	p.prefixlen = 0;
 
 	default_ei = ospf_external_info_lookup(ospf, DEFAULT_ROUTE, 0, &p);
+=======
+	struct external_info *default_ei;
+	int ret = 0;
+
+	default_ei = ospf_external_info_default_lookup(ospf);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	if (!default_ei)
 		return NULL;
 
@@ -2584,8 +2698,12 @@ void ospf_external_lsa_refresh_default(struct ospf *ospf)
 	}
 }
 
+<<<<<<< HEAD
 void ospf_external_lsa_refresh_type(struct ospf *ospf, uint8_t type,
 				    unsigned short instance, int force)
+=======
+void ospf_external_lsa_refresh_type(struct ospf *ospf, uint8_t type, uint8_t instance, int force)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 {
 	struct route_node *rn;
 	struct external_info *ei;
@@ -3067,13 +3185,21 @@ struct ospf_lsa *ospf_lsa_install(struct ospf *ospf, struct ospf_interface *oi,
 			/* Incoming "oi" for this LSA has set at LSUpd
 			 * reception. */
 		}
+<<<<<<< HEAD
 	/* Fallthrough */
+=======
+		fallthrough;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	case OSPF_OPAQUE_AREA_LSA:
 	case OSPF_OPAQUE_AS_LSA:
 		new = ospf_opaque_lsa_install(lsa, rt_recalc);
 		break;
 	case OSPF_AS_NSSA_LSA:
 		new = ospf_external_lsa_install(ospf, lsa, rt_recalc);
+<<<<<<< HEAD
+=======
+		break;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	default: /* type-6,8,9....nothing special */
 		break;
 	}
@@ -3140,9 +3266,15 @@ int ospf_check_nbr_status(struct ospf *ospf)
 }
 
 
+<<<<<<< HEAD
 void ospf_maxage_lsa_remover(struct event *thread)
 {
 	struct ospf *ospf = EVENT_ARG(thread);
+=======
+void ospf_maxage_lsa_remover(struct event *event)
+{
+	struct ospf *ospf = EVENT_ARG(event);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	struct ospf_lsa *lsa, *old;
 	struct route_node *rn;
 	int reschedule = 0;
@@ -3172,7 +3304,11 @@ void ospf_maxage_lsa_remover(struct event *thread)
 			}
 
 			/* TODO: maybe convert this function to a work-queue */
+<<<<<<< HEAD
 			if (event_should_yield(thread)) {
+=======
+			if (event_should_yield(event)) {
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 				OSPF_TIMER_ON(ospf->t_maxage,
 					      ospf_maxage_lsa_remover, 0);
 				route_unlock_node(
@@ -3388,9 +3524,15 @@ static int ospf_lsa_maxage_walker_remover(struct ospf *ospf,
 }
 
 /* Periodical check of MaxAge LSA. */
+<<<<<<< HEAD
 void ospf_lsa_maxage_walker(struct event *thread)
 {
 	struct ospf *ospf = EVENT_ARG(thread);
+=======
+void ospf_lsa_maxage_walker(struct event *event)
+{
+	struct ospf *ospf = EVENT_ARG(event);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	struct route_node *rn;
 	struct ospf_lsa *lsa;
 	struct ospf_area *area;
@@ -3751,7 +3893,11 @@ void ospf_flush_self_originated_lsas_now(struct ospf *ospf)
 	 */
 	if (ospf->t_maxage != NULL) {
 		EVENT_OFF(ospf->t_maxage);
+<<<<<<< HEAD
 		event_execute(master, ospf_maxage_lsa_remover, ospf, 0);
+=======
+		event_execute(master, ospf_maxage_lsa_remover, ospf, 0, NULL);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	}
 
 	return;
@@ -4127,11 +4273,19 @@ void ospf_refresher_unregister_lsa(struct ospf *ospf, struct ospf_lsa *lsa)
 	}
 }
 
+<<<<<<< HEAD
 void ospf_lsa_refresh_walker(struct event *t)
 {
 	struct list *refresh_list;
 	struct listnode *node, *nnode;
 	struct ospf *ospf = EVENT_ARG(t);
+=======
+void ospf_lsa_refresh_walker(struct event *e)
+{
+	struct list *refresh_list;
+	struct listnode *node, *nnode;
+	struct ospf *ospf = EVENT_ARG(e);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	struct ospf_lsa *lsa;
 	int i;
 	struct list *lsa_to_refresh = list_new();

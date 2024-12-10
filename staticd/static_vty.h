@@ -11,6 +11,7 @@
 extern "C" {
 #endif
 
+<<<<<<< HEAD
 void static_cli_show(struct vty *vty, const struct lyd_node *dnode,
 		     bool show_defaults);
 void static_cli_show_end(struct vty *vty, const struct lyd_node *dnode);
@@ -27,6 +28,8 @@ int static_src_list_cli_cmp(const struct lyd_node *dnode1,
 int static_path_list_cli_cmp(const struct lyd_node *dnode1,
 			     const struct lyd_node *dnode2);
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 void static_vty_init(void);
 
 #ifdef __cplusplus

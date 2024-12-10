@@ -42,6 +42,10 @@ struct label_manager_chunk {
 	unsigned short instance;
 	uint32_t session_id;
 	uint8_t keep;
+<<<<<<< HEAD
+=======
+	uint8_t is_dynamic; /* Tell if chunk is dynamic or static */
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	uint32_t start; /* First label of the chunk */
 	uint32_t end;   /* Last label of the chunk */
 };
@@ -61,11 +65,22 @@ DECLARE_HOOK(lm_get_chunk,
 DECLARE_HOOK(lm_release_chunk,
 	     (struct zserv *client, uint32_t start, uint32_t end),
 	     (client, start, end));
+<<<<<<< HEAD
 DECLARE_HOOK(lm_cbs_inited, (), ());
 
 
 /* declare wrappers to be called in zapi_msg.c (as hooks must be called in
  * source file where they were defined)
+=======
+DECLARE_HOOK(lm_write_label_block_config,
+	     (struct vty *vty, struct zebra_vrf *zvrf),
+	     (vty, zvrf));
+DECLARE_HOOK(lm_cbs_inited, (), ());
+
+
+/* declare wrappers to be called in zapi_msg.c or zebra_mpls_vty.c (as hooks
+ * must be called in source file where they were defined)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
  */
 void lm_client_connect_call(struct zserv *client, vrf_id_t vrf_id);
 void lm_get_chunk_call(struct label_manager_chunk **lmc, struct zserv *client,
@@ -73,18 +88,29 @@ void lm_get_chunk_call(struct label_manager_chunk **lmc, struct zserv *client,
 		       vrf_id_t vrf_id);
 void lm_release_chunk_call(struct zserv *client, uint32_t start,
 			   uint32_t end);
+<<<<<<< HEAD
+=======
+int lm_write_label_block_config_call(struct vty *vty, struct zebra_vrf *zvrf);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 /* API for an external LM to return responses for requests */
 int lm_client_connect_response(uint8_t proto, uint16_t instance,
 			       uint32_t session_id, vrf_id_t vrf_id,
 			       uint8_t result);
+<<<<<<< HEAD
 int lm_get_chunk_response(struct label_manager_chunk *lmc, struct zserv *client,
 			  vrf_id_t vrf_id);
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 /* convenience function to allocate an lmc to be consumed by the above API */
 struct label_manager_chunk *
 create_label_chunk(uint8_t proto, unsigned short instance, uint32_t session_id,
+<<<<<<< HEAD
 		   uint8_t keep, uint32_t start, uint32_t end);
+=======
+		   uint8_t keep, uint32_t start, uint32_t end, bool is_dynamic);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 void delete_label_chunk(void *val);
 
 /* register/unregister callbacks for hooks */
@@ -97,9 +123,19 @@ void lm_hooks_unregister(void);
  */
 struct label_manager {
 	struct list *lc_list;
+<<<<<<< HEAD
 };
 
 void label_manager_init(void);
+=======
+	uint32_t dynamic_block_start;
+	uint32_t dynamic_block_end;
+};
+
+void label_manager_init(void);
+void label_manager_terminate(void);
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 struct label_manager_chunk *
 assign_label_chunk(uint8_t proto, unsigned short instance, uint32_t session_id,
 		   uint8_t keep, uint32_t size, uint32_t base);

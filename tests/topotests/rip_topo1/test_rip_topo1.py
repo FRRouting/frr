@@ -19,6 +19,10 @@ import re
 import sys
 import pytest
 from time import sleep
+<<<<<<< HEAD
+=======
+import functools
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -258,12 +262,35 @@ def test_zebra_ipv4_routingTable():
     global fatal_error
     net = get_topogen().net
 
+<<<<<<< HEAD
+=======
+    def _verify_ip_route(expected):
+        # Actual output from router
+        actual = (
+            net["r%s" % i]
+            .cmd('vtysh -c "show ip route" 2> /dev/null | grep "^R"')
+            .rstrip()
+        )
+        # Drop timers on end of line
+        actual = re.sub(r", [0-2][0-9]:[0-5][0-9]:[0-5][0-9]", "", actual)
+        # Fix newlines (make them all the same)
+        actual = ("\n".join(actual.splitlines()) + "\n").splitlines(1)
+
+        return topotest.get_textdiff(
+            actual,
+            expected,
+            title1="actual Zebra IPv4 routing table",
+            title2="expected Zebra IPv4 routing table",
+        )
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     # Skip if previous fatal error condition is raised
     if fatal_error != "":
         pytest.skip(fatal_error)
 
     thisDir = os.path.dirname(os.path.realpath(__file__))
 
+<<<<<<< HEAD
     # Verify OSPFv3 Routing Table
     print("\n\n** Verifing Zebra IPv4 Routing Table")
     print("******************************************\n")
@@ -272,10 +299,18 @@ def test_zebra_ipv4_routingTable():
         refTableFile = "%s/r%s/show_ip_route.ref" % (thisDir, i)
         if os.path.isfile(refTableFile):
             # Read expected result from file
+=======
+    print("\n\n** Verifing Zebra IPv4 Routing Table")
+    print("******************************************\n")
+    for i in range(1, 4):
+        refTableFile = "%s/r%s/show_ip_route.ref" % (thisDir, i)
+        if os.path.isfile(refTableFile):
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
             expected = open(refTableFile).read().rstrip()
             # Fix newlines (make them all the same)
             expected = ("\n".join(expected.splitlines()) + "\n").splitlines(1)
 
+<<<<<<< HEAD
             # Actual output from router
             actual = (
                 net["r%s" % i]
@@ -310,6 +345,11 @@ def test_zebra_ipv4_routingTable():
                 i,
                 diff,
             )
+=======
+            test_func = functools.partial(_verify_ip_route, expected)
+            success, _ = topotest.run_and_expect(test_func, "", count=30, wait=1)
+            assert success, "Failed verifying IPv4 routes for r{}".format(i)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
     # Make sure that all daemons are still running
     for i in range(1, 4):
@@ -344,7 +384,10 @@ def test_shutdown_check_stderr():
 
 
 if __name__ == "__main__":
+<<<<<<< HEAD
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     # To suppress tracebacks, either use the following pytest call or add "--tb=no" to cli
     # retval = pytest.main(["-s", "--tb=no"])
     retval = pytest.main(["-s"])

@@ -68,6 +68,11 @@ buster.)
      +----------------+-------------------+-----------------------------------------+
      | pkg.frr.pim6d  | pkg.frr.nopim6d   | builds pim6d (default enabled)          |
      +----------------+-------------------+-----------------------------------------+
+<<<<<<< HEAD
+=======
+     | pkg.frr.grpc   | pkg.frr.nogrpc    | builds with grpc support (default: no)  |
+     +----------------+-------------------+-----------------------------------------+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
    * the ``-uc -us`` options to disable signing the packages with your GPG key
 

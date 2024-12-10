@@ -1,5 +1,11 @@
 version: 1
 formatters:
+<<<<<<< HEAD
+=======
+  result_color:
+    class: munet.mulog.ResultColorFormatter
+    format: '%(levelname)5s: %(message)s'
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
   brief:
     format: '%(levelname)5s: %(message)s'
   operfmt:
@@ -22,7 +28,11 @@ handlers:
   info_console:
     level: INFO
     class: logging.StreamHandler
+<<<<<<< HEAD
     formatter: brief
+=======
+    formatter: result_color
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     stream: ext://sys.stderr
   oper_console:
     level: DEBUG

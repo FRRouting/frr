@@ -17,8 +17,15 @@ adduser \
 usermod -a -G frrvty frr
 
 mkdir -m 0755 -p /var/log/frr
+<<<<<<< HEAD
 mkdir -p /etc/frr
 
+=======
+mkdir -m 0700 -p /var/lib/frr
+mkdir -p /etc/frr
+
+chown frr: /var/lib/frr
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 # only change ownership of files when they were previously owned by root or
 # quagga; this is to ensure we don't trample over some custom user setup.

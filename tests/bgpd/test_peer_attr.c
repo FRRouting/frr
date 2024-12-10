@@ -5,6 +5,10 @@
  */
 #include <zebra.h>
 
+<<<<<<< HEAD
+=======
+#include "debug.h"
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 #include "memory.h"
 #include "plist.h"
 #include "printfrr.h"
@@ -18,6 +22,10 @@
 #include "bgpd/bgp_vty.h"
 #include "bgpd/bgp_zebra.h"
 #include "bgpd/bgp_network.h"
+<<<<<<< HEAD
+=======
+#include "bgpd/bgp_label.h"
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 #ifdef ENABLE_BGP_VNC
 #include "bgpd/rfapi/rfapi_backend.h"
@@ -262,6 +270,7 @@ static struct test_peer_attr test_peer_attrs[] = {
 		.type = PEER_AT_GLOBAL_FLAG,
 	},
 	{
+<<<<<<< HEAD
 		.cmd = "capability extended-nexthop",
 		.u.flag = PEER_FLAG_CAPABILITY_ENHE,
 		.type = PEER_AT_GLOBAL_FLAG,
@@ -269,11 +278,14 @@ static struct test_peer_attr test_peer_attrs[] = {
 		.o.use_iface_peer = true,
 	},
 	{
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		.cmd = "capability software-version",
 		.u.flag = PEER_FLAG_CAPABILITY_SOFT_VERSION,
 		.type = PEER_AT_GLOBAL_FLAG,
 	},
 	{
+<<<<<<< HEAD
 		.cmd = "capability software-version",
 		.u.flag = PEER_FLAG_CAPABILITY_SOFT_VERSION,
 		.type = PEER_AT_GLOBAL_FLAG,
@@ -281,6 +293,8 @@ static struct test_peer_attr test_peer_attrs[] = {
 		.o.use_iface_peer = true,
 	},
 	{
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		.cmd = "description",
 		.peer_cmd = "description FRR Peer",
 		.group_cmd = "description FRR Group",
@@ -297,9 +311,17 @@ static struct test_peer_attr test_peer_attrs[] = {
 		.type = PEER_AT_GLOBAL_FLAG,
 	},
 	{
+<<<<<<< HEAD
 		.cmd = "enforce-first-as",
 		.u.flag = PEER_FLAG_ENFORCE_FIRST_AS,
 		.type = PEER_AT_GLOBAL_FLAG,
+=======
+		.cmd = "capability fqdn",
+		.u.flag = PEER_FLAG_CAPABILITY_FQDN,
+		.type = PEER_AT_GLOBAL_FLAG,
+		.o.invert_peer = true,
+		.o.invert_group = true,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	},
 	{
 		.cmd = "local-as",
@@ -1359,12 +1381,20 @@ static void test_peer_attr(struct test *test, struct test_peer_attr *pa)
 static void bgp_startup(void)
 {
 	cmd_init(1);
+<<<<<<< HEAD
+=======
+	debug_init();
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	zlog_aux_init("NONE: ", LOG_DEBUG);
 	zprivs_preinit(&bgpd_privs);
 	zprivs_init(&bgpd_privs);
 
 	master = event_master_create(NULL);
+<<<<<<< HEAD
 	nb_init(master, NULL, 0, false);
+=======
+	nb_init(master, NULL, 0, false, false);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	bgp_master_init(master, BGP_SOCKET_SNDBUF_SIZE, list_new());
 	bgp_option_set(BGP_OPT_NO_LISTEN);
 	vrf_init(NULL, NULL, NULL, NULL);
@@ -1386,6 +1416,10 @@ static void bgp_shutdown(void)
 	bgp_route_finish();
 	bgp_route_map_terminate();
 	bgp_attr_finish();
+<<<<<<< HEAD
+=======
+	bgp_labels_finish();
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	bgp_pthreads_finish();
 	access_list_add_hook(NULL);
 	access_list_delete_hook(NULL);

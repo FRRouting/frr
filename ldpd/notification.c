@@ -25,16 +25,25 @@ send_notification_full(struct tcp_conn *tcp, struct notify_msg *nm)
 
 	/* calculate size */
 	size = LDP_HDR_SIZE + LDP_MSG_SIZE + STATUS_SIZE;
+<<<<<<< HEAD
 	if (nm->flags & F_NOTIF_PW_STATUS)
 		size += PW_STATUS_TLV_SIZE;
 	if (nm->flags & F_NOTIF_FEC)
 		size += len_fec_tlv(&nm->fec);
 	if (nm->flags & F_NOTIF_RETURNED_TLVS)
+=======
+	if (CHECK_FLAG(nm->flags, F_NOTIF_PW_STATUS))
+		size += PW_STATUS_TLV_SIZE;
+	if (CHECK_FLAG(nm->flags, F_NOTIF_FEC))
+		size += len_fec_tlv(&nm->fec);
+	if (CHECK_FLAG(nm->flags, F_NOTIF_RETURNED_TLVS))
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		size += TLV_HDR_SIZE * 2 + nm->rtlvs.length;
 
 	if ((buf = ibuf_open(size)) == NULL)
 		fatal(__func__);
 
+<<<<<<< HEAD
 	err |= gen_ldp_hdr(buf, size);
 	size -= LDP_HDR_SIZE;
 	err |= gen_msg_hdr(buf, MSG_TYPE_NOTIFICATION, size);
@@ -47,6 +56,20 @@ send_notification_full(struct tcp_conn *tcp, struct notify_msg *nm)
 	if (nm->flags & F_NOTIF_RETURNED_TLVS)
 		err |= gen_returned_tlvs(buf, nm->rtlvs.type, nm->rtlvs.length,
 		    nm->rtlvs.data);
+=======
+	SET_FLAG(err, gen_ldp_hdr(buf, size));
+	size -= LDP_HDR_SIZE;
+	SET_FLAG(err, gen_msg_hdr(buf, MSG_TYPE_NOTIFICATION, size));
+	SET_FLAG(err, gen_status_tlv(buf, nm->status_code, nm->msg_id, nm->msg_type));
+	/* optional tlvs */
+	if (CHECK_FLAG(nm->flags, F_NOTIF_PW_STATUS))
+		SET_FLAG(err, gen_pw_status_tlv(buf, nm->pw_status));
+	if (CHECK_FLAG(nm->flags, F_NOTIF_FEC))
+		SET_FLAG(err, gen_fec_tlv(buf, &nm->fec));
+	if (CHECK_FLAG(nm->flags, F_NOTIF_RETURNED_TLVS))
+		SET_FLAG(err, gen_returned_tlvs(buf, nm->rtlvs.type, nm->rtlvs.length,
+		    nm->rtlvs.data));
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	if (err) {
 		ibuf_free(buf);
 		return;
@@ -121,7 +144,11 @@ send_notification_rtlvs(struct nbr *nbr, uint32_t status_code, uint32_t msg_id,
 		nm.rtlvs.type = tlv_type;
 		nm.rtlvs.length = tlv_len;
 		nm.rtlvs.data = tlv_data;
+<<<<<<< HEAD
 		nm.flags |= F_NOTIF_RETURNED_TLVS;
+=======
+		SET_FLAG(nm.flags, F_NOTIF_RETURNED_TLVS);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	}
 
 	send_notification_full(nbr->tcp, &nm);
@@ -189,13 +216,21 @@ recv_notification(struct nbr *nbr, char *buf, uint16_t len)
 			break;
 		case TLV_TYPE_PW_STATUS:
 			if (tlv_len != 4) {
+<<<<<<< HEAD
 				session_shutdown(nbr, S_BAD_TLV_LEN,
 				    msg.id, msg.type);
+=======
+				session_shutdown(nbr, S_BAD_TLV_LEN, msg.id, msg.type);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 				return (-1);
 			}
 
 			nm.pw_status = ntohl(*(uint32_t *)buf);
+<<<<<<< HEAD
 			nm.flags |= F_NOTIF_PW_STATUS;
+=======
+			SET_FLAG(nm.flags, F_NOTIF_PW_STATUS);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			break;
 		case TLV_TYPE_FEC:
 			if ((tlen = tlv_decode_fec_elm(nbr, &msg, buf,
@@ -203,12 +238,20 @@ recv_notification(struct nbr *nbr, char *buf, uint16_t len)
 				return (-1);
 			/* allow only one fec element */
 			if (tlen != tlv_len) {
+<<<<<<< HEAD
 				session_shutdown(nbr, S_BAD_TLV_VAL,
 				    msg.id, msg.type);
 				leconf->stats.bad_tlv_len++;
 				return (-1);
 			}
 			nm.flags |= F_NOTIF_FEC;
+=======
+				session_shutdown(nbr, S_BAD_TLV_VAL, msg.id, msg.type);
+				leconf->stats.bad_tlv_len++;
+				return (-1);
+			}
+			SET_FLAG(nm.flags, F_NOTIF_FEC);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			break;
 		default:
 			if (!(ntohs(tlv.type) & UNKNOWN_FLAG)) {
@@ -226,9 +269,14 @@ recv_notification(struct nbr *nbr, char *buf, uint16_t len)
 	/* sanity checks */
 	switch (nm.status_code) {
 	case S_PW_STATUS:
+<<<<<<< HEAD
 		if (!(nm.flags & (F_NOTIF_PW_STATUS|F_NOTIF_FEC))) {
 			send_notification(nbr->tcp, S_MISS_MSG,
 			    msg.id, msg.type);
+=======
+		if (!CHECK_FLAG(nm.flags, (F_NOTIF_PW_STATUS|F_NOTIF_FEC))) {
+			send_notification(nbr->tcp, S_MISS_MSG, msg.id, msg.type);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			return (-1);
 		}
 
@@ -236,12 +284,17 @@ recv_notification(struct nbr *nbr, char *buf, uint16_t len)
 		case MAP_TYPE_PWID:
 			break;
 		default:
+<<<<<<< HEAD
 			send_notification(nbr->tcp, S_BAD_TLV_VAL,
 			    msg.id, msg.type);
+=======
+			send_notification(nbr->tcp, S_BAD_TLV_VAL, msg.id, msg.type);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			return (-1);
 		}
 		break;
 	case S_ENDOFLIB:
+<<<<<<< HEAD
 		if (!(nm.flags & F_NOTIF_FEC)) {
 			send_notification(nbr->tcp, S_MISS_MSG,
 			    msg.id, msg.type);
@@ -250,6 +303,14 @@ recv_notification(struct nbr *nbr, char *buf, uint16_t len)
 		if (nm.fec.type != MAP_TYPE_TYPED_WCARD) {
 			send_notification(nbr->tcp, S_BAD_TLV_VAL,
 			    msg.id, msg.type);
+=======
+		if (!CHECK_FLAG(nm.flags, F_NOTIF_FEC)) {
+			send_notification(nbr->tcp, S_MISS_MSG, msg.id, msg.type);
+			return (-1);
+		}
+		if (nm.fec.type != MAP_TYPE_TYPED_WCARD) {
+			send_notification(nbr->tcp, S_BAD_TLV_VAL, msg.id, msg.type);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			return (-1);
 		}
 		break;
@@ -259,7 +320,11 @@ recv_notification(struct nbr *nbr, char *buf, uint16_t len)
 
 	log_msg_notification(0, nbr, &nm);
 
+<<<<<<< HEAD
 	if (st.status_code & htonl(STATUS_FATAL)) {
+=======
+	if (CHECK_FLAG(st.status_code, htonl(STATUS_FATAL))) {
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		if (nbr->state == NBR_STA_OPENSENT)
 			nbr_start_idtimer(nbr);
 
@@ -269,11 +334,17 @@ recv_notification(struct nbr *nbr, char *buf, uint16_t len)
 		 * initialization, it SHOULD transmit a Shutdown message and
 		 * then close the transport connection".
 		 */
+<<<<<<< HEAD
 		if (nbr->state != NBR_STA_OPER &&
 		    nm.status_code == S_SHUTDOWN) {
 			leconf->stats.session_attempts++;
 			send_notification(nbr->tcp, S_SHUTDOWN,
 			    msg.id, msg.type);
+=======
+		if (nbr->state != NBR_STA_OPER && nm.status_code == S_SHUTDOWN) {
+			leconf->stats.session_attempts++;
+			send_notification(nbr->tcp, S_SHUTDOWN, msg.id, msg.type);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		}
 
 		leconf->stats.shutdown_rcv_notify++;
@@ -287,8 +358,12 @@ recv_notification(struct nbr *nbr, char *buf, uint16_t len)
 	switch (nm.status_code) {
 	case S_PW_STATUS:
 	case S_ENDOFLIB:
+<<<<<<< HEAD
 		ldpe_imsg_compose_lde(IMSG_NOTIFICATION, nbr->peerid, 0,
 		    &nm, sizeof(nm));
+=======
+		ldpe_imsg_compose_lde(IMSG_NOTIFICATION, nbr->peerid, 0, &nm, sizeof(nm));
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		break;
 	case S_NO_HELLO:
 		leconf->stats.session_rejects_hello++;
@@ -361,8 +436,13 @@ gen_returned_tlvs(struct ibuf *buf, uint16_t type, uint16_t length,
 	tlv.length = htons(length);
 
 	err = ibuf_add(buf, &rtlvs, sizeof(rtlvs));
+<<<<<<< HEAD
 	err |= ibuf_add(buf, &tlv, sizeof(tlv));
 	err |= ibuf_add(buf, tlv_data, length);
+=======
+	SET_FLAG(err, ibuf_add(buf, &tlv, sizeof(tlv)));
+	SET_FLAG(err, ibuf_add(buf, tlv_data, length));
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	return (err);
 }
@@ -378,9 +458,15 @@ log_msg_notification(int out, struct nbr *nbr, struct notify_msg *nm)
 
 	debug_msg(out, "notification: lsr-id %pI4, status %s",
 	    &nbr->id, status_code_name(nm->status_code));
+<<<<<<< HEAD
 	if (nm->flags & F_NOTIF_FEC)
 		debug_msg(out, "notification:   fec %s", log_map(&nm->fec));
 	if (nm->flags & F_NOTIF_PW_STATUS)
+=======
+	if (CHECK_FLAG(nm->flags, F_NOTIF_FEC))
+		debug_msg(out, "notification:   fec %s", log_map(&nm->fec));
+	if (CHECK_FLAG(nm->flags, F_NOTIF_PW_STATUS))
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		debug_msg(out, "notification:   pw-status %s",
 		    (nm->pw_status == PW_FORWARDING) ? "forwarding" : "not forwarding");
 }

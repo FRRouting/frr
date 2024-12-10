@@ -19,9 +19,16 @@ static int verbose;
 static void str_append(char **buf, const char *repr)
 {
 	if (*buf) {
+<<<<<<< HEAD
 		*buf = realloc(*buf, strlen(*buf) + strlen(repr) + 1);
 		assert(*buf);
 		strncpy((*buf) + strlen(*buf), repr, strlen(repr) + 1);
+=======
+		size_t new_size = strlen(*buf) + strlen(repr) + 1;
+		*buf = realloc(*buf, new_size);
+		assert(*buf);
+		(void)strlcat(*buf, repr, new_size);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	} else {
 		*buf = strdup(repr);
 		assert(*buf);

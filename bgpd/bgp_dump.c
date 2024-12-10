@@ -4,6 +4,10 @@
  */
 
 #include <zebra.h>
+<<<<<<< HEAD
+=======
+#include <sys/stat.h>
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 #include "log.h"
 #include "stream.h"
@@ -246,14 +250,25 @@ static void bgp_dump_routes_index_table(struct bgp *bgp)
 
 	/* Walk down all peers */
 	for (ALL_LIST_ELEMENTS_RO(bgp->peer, node, peer)) {
+<<<<<<< HEAD
 
 		/* Peer's type */
 		if (sockunion_family(&peer->su) == AF_INET) {
+=======
+		int family = sockunion_family(&peer->connection->su);
+
+		/* Peer's type */
+		if (family == AF_INET) {
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			stream_putc(
 				obuf,
 				TABLE_DUMP_V2_PEER_INDEX_TABLE_AS4
 					+ TABLE_DUMP_V2_PEER_INDEX_TABLE_IP);
+<<<<<<< HEAD
 		} else if (sockunion_family(&peer->su) == AF_INET6) {
+=======
+		} else if (family == AF_INET6) {
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			stream_putc(
 				obuf,
 				TABLE_DUMP_V2_PEER_INDEX_TABLE_AS4
@@ -264,10 +279,20 @@ static void bgp_dump_routes_index_table(struct bgp *bgp)
 		stream_put_in_addr(obuf, &peer->remote_id);
 
 		/* Peer's IP address */
+<<<<<<< HEAD
 		if (sockunion_family(&peer->su) == AF_INET) {
 			stream_put_in_addr(obuf, &peer->su.sin.sin_addr);
 		} else if (sockunion_family(&peer->su) == AF_INET6) {
 			stream_write(obuf, (uint8_t *)&peer->su.sin6.sin6_addr,
+=======
+		if (family == AF_INET) {
+			stream_put_in_addr(obuf,
+					   &peer->connection->su.sin.sin_addr);
+		} else if (family == AF_INET6) {
+			stream_write(obuf,
+				     (uint8_t *)&peer->connection->su.sin6
+					     .sin6_addr,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 				     IPV6_MAX_BYTELEN);
 		}
 
@@ -468,24 +493,42 @@ static void bgp_dump_common(struct stream *obuf, struct peer *peer,
 		stream_putw(obuf, peer->local_as);
 	}
 
+<<<<<<< HEAD
 	if (peer->su.sa.sa_family == AF_INET) {
 		stream_putw(obuf, peer->ifp ? peer->ifp->ifindex : 0);
 		stream_putw(obuf, AFI_IP);
 
 		stream_put(obuf, &peer->su.sin.sin_addr, IPV4_MAX_BYTELEN);
+=======
+	if (peer->connection->su.sa.sa_family == AF_INET) {
+		stream_putw(obuf, peer->ifp ? peer->ifp->ifindex : 0);
+		stream_putw(obuf, AFI_IP);
+
+		stream_put(obuf, &peer->connection->su.sin.sin_addr,
+			   IPV4_MAX_BYTELEN);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 		if (peer->su_local)
 			stream_put(obuf, &peer->su_local->sin.sin_addr,
 				   IPV4_MAX_BYTELEN);
 		else
 			stream_put(obuf, empty, IPV4_MAX_BYTELEN);
+<<<<<<< HEAD
 	} else if (peer->su.sa.sa_family == AF_INET6) {
+=======
+	} else if (peer->connection->su.sa.sa_family == AF_INET6) {
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		/* Interface Index and Address family. */
 		stream_putw(obuf, peer->ifp ? peer->ifp->ifindex : 0);
 		stream_putw(obuf, AFI_IP6);
 
 		/* Source IP Address and Destination IP Address. */
+<<<<<<< HEAD
 		stream_put(obuf, &peer->su.sin6.sin6_addr, IPV6_MAX_BYTELEN);
+=======
+		stream_put(obuf, &peer->connection->su.sin6.sin6_addr,
+			   IPV6_MAX_BYTELEN);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 		if (peer->su_local)
 			stream_put(obuf, &peer->su_local->sin6.sin6_addr,
@@ -512,8 +555,13 @@ int bgp_dump_state(struct peer *peer)
 			bgp_dump_all.type);
 	bgp_dump_common(obuf, peer, 1); /* force this in as4speak*/
 
+<<<<<<< HEAD
 	stream_putw(obuf, peer->ostatus);
 	stream_putw(obuf, peer->status);
+=======
+	stream_putw(obuf, peer->connection->ostatus);
+	stream_putw(obuf, peer->connection->status);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	/* Set length. */
 	bgp_dump_set_size(obuf, MSG_PROTOCOL_BGP4MP);
@@ -532,10 +580,17 @@ static void bgp_dump_packet_func(struct bgp_dump *bgp_dump, struct peer *peer,
 	/* If dump file pointer is disabled return immediately. */
 	if (bgp_dump->fp == NULL)
 		return;
+<<<<<<< HEAD
 	if (peer->su.sa.sa_family == AF_INET) {
 		addpath_capable =
 			bgp_addpath_encode_rx(peer, AFI_IP, SAFI_UNICAST);
 	} else if (peer->su.sa.sa_family == AF_INET6) {
+=======
+	if (peer->connection->su.sa.sa_family == AF_INET) {
+		addpath_capable =
+			bgp_addpath_encode_rx(peer, AFI_IP, SAFI_UNICAST);
+	} else if (peer->connection->su.sa.sa_family == AF_INET6) {
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		addpath_capable =
 			bgp_addpath_encode_rx(peer, AFI_IP6, SAFI_UNICAST);
 	}

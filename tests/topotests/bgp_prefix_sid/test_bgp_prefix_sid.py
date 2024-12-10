@@ -93,11 +93,19 @@ def test_r1_receive_and_advertise_prefix_sid_type1():
         return topotest.json_cmp(output, expected)
 
     test_func = functools.partial(_check_type1_r1, router, "3.0.0.1/32", 800001, 1)
+<<<<<<< HEAD
     success, result = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
     assert result is None, 'Failed _check_type1_r1 in "{}"'.format(router)
 
     test_func = functools.partial(_check_type1_r1, router, "3.0.0.2/32", 800002, 2)
     success, result = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
+=======
+    _, result = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
+    assert result is None, 'Failed _check_type1_r1 in "{}"'.format(router)
+
+    test_func = functools.partial(_check_type1_r1, router, "3.0.0.2/32", 800002, 2)
+    _, result = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     assert result is None, 'Failed _check_type1_r1 in "{}"'.format(router)
 
 
@@ -120,6 +128,7 @@ def exabgp_get_update_prefix(filename, afi, nexthop, prefix):
             ret = ret.get(afi)
             if ret is None:
                 continue
+<<<<<<< HEAD
             ret = ret.get(nexthop)
             if ret is None:
                 continue
@@ -127,6 +136,11 @@ def exabgp_get_update_prefix(filename, afi, nexthop, prefix):
             if ret is None:
                 continue
             return output
+=======
+            for nh in ret.get(nexthop, []):
+                if nh.get("nlri") == prefix:
+                    return output
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         return "Not found"
 
 
@@ -135,13 +149,18 @@ def test_peer2_receive_prefix_sid_type1():
     peer2 = tgen.gears["peer2"]
     logfile = "{}/{}-received.log".format(peer2.gearlogdir, peer2.name)
 
+<<<<<<< HEAD
     def _check_type1_peer2(prefix, labelindex):
+=======
+    def _check_type1_peer2(prefix, label):
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         output = exabgp_get_update_prefix(
             logfile, "ipv4 nlri-mpls", "10.0.0.101", prefix
         )
         expected = {
             "type": "update",
             "neighbor": {
+<<<<<<< HEAD
                 "ip": "10.0.0.1",
                 "message": {
                     "update": {
@@ -151,18 +170,44 @@ def test_peer2_receive_prefix_sid_type1():
                             )
                         },
                         "announce": {"ipv4 nlri-mpls": {"10.0.0.101": {}}},
+=======
+                "address": {
+                    "peer": "10.0.0.1",
+                },
+                "message": {
+                    "update": {
+                        "announce": {
+                            "ipv4 nlri-mpls": {
+                                "10.0.0.101": [
+                                    {
+                                        "nlri": prefix,
+                                        "label": [[label]],
+                                    }
+                                ]
+                            }
+                        },
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
                     }
                 },
             },
         }
         return topotest.json_cmp(output, expected)
 
+<<<<<<< HEAD
     test_func = functools.partial(_check_type1_peer2, "3.0.0.1/32", labelindex=1)
     success, result = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
     assert result is None, 'Failed _check_type1_peer2 in "{}"'.format("peer2")
 
     test_func = functools.partial(_check_type1_peer2, "3.0.0.2/32", labelindex=2)
     success, result = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
+=======
+    test_func = functools.partial(_check_type1_peer2, "3.0.0.1/32", label=8001)
+    _, result = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
+    assert result is None, 'Failed _check_type1_peer2 in "{}"'.format("peer2")
+
+    test_func = functools.partial(_check_type1_peer2, "3.0.0.2/32", label=8002)
+    _, result = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     assert result is None, 'Failed _check_type1_peer2 in "{}"'.format("peer2")
 
 

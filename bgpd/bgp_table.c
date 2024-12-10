@@ -47,6 +47,7 @@ void bgp_table_finish(struct bgp_table **rt)
 }
 
 /*
+<<<<<<< HEAD
  * bgp_dest_unlock_node
  */
 void bgp_dest_unlock_node(struct bgp_dest *dest)
@@ -57,6 +58,8 @@ void bgp_dest_unlock_node(struct bgp_dest *dest)
 }
 
 /*
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
  * bgp_dest_lock_node
  */
 struct bgp_dest *bgp_dest_lock_node(struct bgp_dest *dest)
@@ -83,6 +86,7 @@ const char *bgp_dest_get_prefix_str(struct bgp_dest *dest)
 }
 
 /*
+<<<<<<< HEAD
  * bgp_node_create
  */
 static struct route_node *bgp_node_create(route_table_delegate_t *delegate,
@@ -93,12 +97,37 @@ static struct route_node *bgp_node_create(route_table_delegate_t *delegate,
 
 	RB_INIT(bgp_adj_out_rb, &node->adj_out);
 	return bgp_dest_to_rnode(node);
+=======
+ * bgp_dest_unlock_node
+ */
+inline struct bgp_dest *bgp_dest_unlock_node(struct bgp_dest *dest)
+{
+	frrtrace(1, frr_bgp, bgp_dest_unlock, dest);
+	bgp_delete_listnode(dest);
+	struct route_node *rn = bgp_dest_to_rnode(dest);
+
+	if (rn->lock == 1) {
+		struct bgp_table *rt = bgp_dest_table(dest);
+		if (rt->bgp) {
+			bgp_addpath_free_node_data(&rt->bgp->tx_addpath,
+						   &dest->tx_addpath, rt->afi,
+						   rt->safi);
+		}
+		XFREE(MTYPE_BGP_NODE, dest);
+		dest = NULL;
+		rn->info = NULL;
+	}
+	route_unlock_node(rn);
+
+	return dest;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 }
 
 /*
  * bgp_node_destroy
  */
 static void bgp_node_destroy(route_table_delegate_t *delegate,
+<<<<<<< HEAD
 			     struct route_table *table, struct route_node *node)
 {
 	struct bgp_node *bgp_node;
@@ -113,14 +142,38 @@ static void bgp_node_destroy(route_table_delegate_t *delegate,
 	}
 
 	XFREE(MTYPE_BGP_NODE, bgp_node);
+=======
+							struct route_table *table, struct route_node *node)
+{
+	struct bgp_dest *dest;
+	struct bgp_table *rt;
+	dest = bgp_dest_from_rnode(node);
+	rt = table->info;
+	if (dest) {
+		if (rt->bgp) {
+			bgp_addpath_free_node_data(&rt->bgp->tx_addpath,
+										&dest->tx_addpath,
+										rt->afi, rt->safi);
+		}
+		XFREE(MTYPE_BGP_NODE, dest);
+		node->info = NULL;
+	}
+
+	XFREE(MTYPE_ROUTE_NODE, node);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 }
 
 /*
  * Function vector to customize the behavior of the route table
  * library for BGP route tables.
  */
+<<<<<<< HEAD
 route_table_delegate_t bgp_table_delegate = {.create_node = bgp_node_create,
 					     .destroy_node = bgp_node_destroy};
+=======
+route_table_delegate_t bgp_table_delegate = { .create_node = route_node_create,
+					      .destroy_node = bgp_node_destroy };
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 /*
  * bgp_table_init
@@ -151,9 +204,15 @@ struct bgp_table *bgp_table_init(struct bgp *bgp, afi_t afi, safi_t safi)
 }
 
 /* Delete the route node from the selection deferral route list */
+<<<<<<< HEAD
 void bgp_delete_listnode(struct bgp_node *node)
 {
 	struct route_node *rn = NULL;
+=======
+void bgp_delete_listnode(struct bgp_dest *dest)
+{
+	const struct route_node *rn = NULL;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	struct bgp_table *table = NULL;
 	struct bgp *bgp = NULL;
 	afi_t afi;
@@ -162,8 +221,13 @@ void bgp_delete_listnode(struct bgp_node *node)
 	/* If the route to be deleted is selection pending, update the
 	 * route node in gr_info
 	 */
+<<<<<<< HEAD
 	if (CHECK_FLAG(node->flags, BGP_NODE_SELECT_DEFER)) {
 		table = bgp_dest_table(node);
+=======
+	if (CHECK_FLAG(dest->flags, BGP_NODE_SELECT_DEFER)) {
+		table = bgp_dest_table(dest);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 		if (table) {
 			bgp = table->bgp;
@@ -172,16 +236,25 @@ void bgp_delete_listnode(struct bgp_node *node)
 		} else
 			return;
 
+<<<<<<< HEAD
 		rn = bgp_dest_to_rnode(node);
+=======
+		rn = bgp_dest_to_rnode(dest);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 		if (bgp && rn && rn->lock == 1) {
 			/* Delete the route from the selection pending list */
 			bgp->gr_info[afi][safi].gr_deferred--;
+<<<<<<< HEAD
 			UNSET_FLAG(node->flags, BGP_NODE_SELECT_DEFER);
+=======
+			UNSET_FLAG(dest->flags, BGP_NODE_SELECT_DEFER);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		}
 	}
 }
 
+<<<<<<< HEAD
 struct bgp_node *bgp_table_subtree_lookup(const struct bgp_table *table,
 					  const struct prefix *p)
 {
@@ -213,6 +286,40 @@ struct bgp_node *bgp_table_subtree_lookup(const struct bgp_table *table,
 
 		node = bgp_dest_from_rnode(node->link[prefix_bit(
 			&p->u.prefix, node_p->prefixlen)]);
+=======
+struct bgp_dest *bgp_table_subtree_lookup(const struct bgp_table *table,
+					  const struct prefix *p)
+{
+	struct bgp_dest *dest = bgp_dest_from_rnode(table->route_table->top);
+	struct bgp_dest *matched = NULL;
+
+	if (dest == NULL)
+		return NULL;
+
+
+	while (dest) {
+		const struct prefix *dest_p = bgp_dest_get_prefix(dest);
+		struct route_node *node = dest->rn;
+
+		if (dest_p->prefixlen >= p->prefixlen) {
+			if (!prefix_match(p, dest_p))
+				return NULL;
+
+			matched = dest;
+			break;
+		}
+
+		if (!prefix_match(dest_p, p))
+			return NULL;
+
+		if (dest_p->prefixlen == p->prefixlen) {
+			matched = dest;
+			break;
+		}
+
+		dest = bgp_dest_from_rnode(
+			node->link[prefix_bit(&p->u.prefix, dest_p->prefixlen)]);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	}
 
 	if (!matched)
@@ -233,7 +340,17 @@ static ssize_t printfrr_bd(struct fbuf *buf, struct printfrr_eargs *ea,
 	if (!dest)
 		return bputs(buf, "(null)");
 
+<<<<<<< HEAD
 	/* need to get the real length even if buffer too small */
 	prefix2str(p, cbuf, sizeof(cbuf));
 	return bputs(buf, cbuf);
+=======
+#if !defined(DEV_BUILD)
+	/* need to get the real length even if buffer too small */
+	prefix2str(p, cbuf, sizeof(cbuf));
+	return bputs(buf, cbuf);
+#else
+	return bprintfrr(buf, "%s(%p)", prefix2str(p, cbuf, sizeof(cbuf)), dest);
+#endif
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 }

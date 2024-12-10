@@ -53,7 +53,10 @@ Copyright 2011 by Matthieu Boutier and Juliusz Chroboczek
 #endif
 
 
+<<<<<<< HEAD
 #define BABEL_VTY_PORT 2609
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 #define BABEL_DEFAULT_CONFIG "babeld.conf"
 
 /* Values in milliseconds */
@@ -99,5 +102,9 @@ extern int redistribute_filter(const unsigned char *prefix, unsigned short plen,
 extern int resize_receive_buffer(int size);
 extern void schedule_neighbours_check(int msecs, int override);
 extern struct babel *babel_lookup(void);
+<<<<<<< HEAD
+=======
+extern void babel_clean_routing_process(void);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 #endif /* BABEL_BABELD_H */

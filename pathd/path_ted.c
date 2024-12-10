@@ -30,12 +30,20 @@ static uint32_t path_ted_stop_importing_igp(void);
 static enum zclient_send_status path_ted_link_state_sync(void);
 static void path_ted_timer_handler_sync(struct event *thread);
 static void path_ted_timer_handler_refresh(struct event *thread);
+<<<<<<< HEAD
 static int path_ted_cli_debug_config_write(struct vty *vty);
 static int path_ted_cli_debug_set_all(uint32_t flags, bool set);
 
 extern struct zclient *zclient;
 
 struct ted_state ted_state_g = {};
+=======
+
+extern struct zclient *zclient;
+
+struct ted_state ted_state_g = { .dbg = { .conf = "debug pathd mpls-te",
+					  .desc = "Pathd TED" } };
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 /*
  * path_path_ted public API function implementations
@@ -335,10 +343,15 @@ DEFPY (debug_path_ted,
        "ted debugging\n")
 {
 	uint32_t mode = DEBUG_NODE2MODE(vty->node);
+<<<<<<< HEAD
 	bool no_debug = (no != NULL);
 
 	DEBUG_MODE_SET(&ted_state_g.dbg, mode, !no);
 	DEBUG_FLAGS_SET(&ted_state_g.dbg, PATH_TED_DEBUG_BASIC, !no_debug);
+=======
+
+	DEBUG_MODE_SET(&ted_state_g.dbg, mode, !no);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	return CMD_SUCCESS;
 }
 
@@ -466,6 +479,7 @@ DEFPY (show_pathd_ted_db,
 	return CMD_SUCCESS;
 }
 
+<<<<<<< HEAD
 /*
  * Config Write functions
  */
@@ -497,6 +511,8 @@ int path_ted_cli_debug_set_all(uint32_t flags, bool set)
 	return 0;
 }
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 /**
  * Help fn to show ted related configuration
  *
@@ -543,9 +559,13 @@ static void path_ted_register_vty(void)
 	install_element(CONFIG_NODE, &debug_path_ted_cmd);
 	install_element(ENABLE_NODE, &debug_path_ted_cmd);
 
+<<<<<<< HEAD
 	hook_register(nb_client_debug_config_write,
 		      path_ted_cli_debug_config_write);
 	hook_register(nb_client_debug_set_all, path_ted_cli_debug_set_all);
+=======
+	debug_install(&ted_state_g.dbg);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 }
 
 /**

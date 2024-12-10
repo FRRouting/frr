@@ -434,7 +434,11 @@ static void pim_mlag_up_local_add_send(struct pim_instance *pim,
 	stream_putc(s, !(PIM_UPSTREAM_FLAG_TEST_MLAG_NON_DF(up->flags)));
 	stream_putl(s, vrf->vrf_id);
 	/* XXX - this field is a No-op for VXLAN*/
+<<<<<<< HEAD
 	stream_put(s, NULL, INTERFACE_NAMSIZ);
+=======
+	stream_put(s, NULL, IFNAMSIZ);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	stream_fifo_push_safe(router->mlag_fifo, s);
 	pim_mlag_signal_zpthread();
@@ -467,7 +471,11 @@ static void pim_mlag_up_local_del_send(struct pim_instance *pim,
 	stream_putl(s, MLAG_OWNER_VXLAN);
 	stream_putl(s, vrf->vrf_id);
 	/* XXX - this field is a No-op for VXLAN */
+<<<<<<< HEAD
 	stream_put(s, NULL, INTERFACE_NAMSIZ);
+=======
+	stream_put(s, NULL, IFNAMSIZ);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	/* XXX - is this the the most optimal way to do things */
 	stream_fifo_push_safe(router->mlag_fifo, s);

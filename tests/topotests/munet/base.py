@@ -276,6 +276,12 @@ def get_event_loop():
     """
     policy = asyncio.get_event_loop_policy()
     loop = policy.get_event_loop()
+<<<<<<< HEAD
+=======
+    if not hasattr(os, "pidfd_open"):
+        return loop
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     owatcher = policy.get_child_watcher()
     logging.debug(
         "event_loop_fixture: global policy %s, current loop %s, current watcher %s",
@@ -466,6 +472,11 @@ class Commander:  # pylint: disable=R0904
         env = {**(kwargs["env"] if "env" in kwargs else os.environ)}
         if "MUNET_NODENAME" not in env:
             env["MUNET_NODENAME"] = self.name
+<<<<<<< HEAD
+=======
+        if "MUNET_PID" not in env and "MUNET_PID" in os.environ:
+            env["MUNET_PID"] = os.environ["MUNET_PID"]
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         kwargs["env"] = env
 
         defaults.update(kwargs)
@@ -513,9 +524,14 @@ class Commander:  # pylint: disable=R0904
                 self.logger.debug('%s("%s") [no precmd]', method, shlex.join(cmd_list))
         else:
             self.logger.debug(
+<<<<<<< HEAD
                 '%s: %s %s("%s", pre_cmd: "%s" use_pty: %s kwargs: %.120s)',
                 self,
                 "XXX" if method == "_spawn" else "",
+=======
+                '%s: %s("%s", pre_cmd: "%s" use_pty: %s kwargs: %.120s)',
+                self,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
                 method,
                 cmd_list,
                 pre_cmd_list if not skip_pre_cmd else "",
@@ -566,7 +582,11 @@ class Commander:  # pylint: disable=R0904
 
     def _spawn(self, cmd, skip_pre_cmd=False, use_pty=False, echo=False, **kwargs):
         logging.debug(
+<<<<<<< HEAD
             '%s: XXX _spawn: cmd "%s" skip_pre_cmd %s use_pty %s echo %s kwargs %s',
+=======
+            '%s: _spawn: cmd "%s" skip_pre_cmd %s use_pty %s echo %s kwargs %s',
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
             self,
             cmd,
             skip_pre_cmd,
@@ -579,7 +599,11 @@ class Commander:  # pylint: disable=R0904
         )
 
         self.logger.debug(
+<<<<<<< HEAD
             '%s: XXX %s("%s", use_pty %s echo %s defaults: %s)',
+=======
+            '%s: %s("%s", use_pty %s echo %s defaults: %s)',
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
             self,
             "PopenSpawn" if not use_pty else "pexpect.spawn",
             actual_cmd,
@@ -778,8 +802,19 @@ class Commander:  # pylint: disable=R0904
 
         ps1 = re.escape(ps1)
         ps2 = re.escape(ps2)
+<<<<<<< HEAD
 
         extra = "PAGER=cat; export PAGER; TERM=dumb; unset HISTFILE; set +o emacs +o vi"
+=======
+        extra = [
+            "TERM=dumb",
+            "set +o emacs",
+            "set +o vi",
+            "unset HISTFILE",
+            "PAGER=cat",
+            "export PAGER",
+        ]
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         pchg = "PS1='{0}' PS2='{1}' PROMPT_COMMAND=''\n".format(ps1p, ps2p)
         p.send(pchg)
         return ShellWrapper(p, ps1, ps2, extra_init_cmd=extra, will_echo=will_echo)
@@ -865,14 +900,26 @@ class Commander:  # pylint: disable=R0904
             else:
                 o, e = await p.communicate()
             self.logger.debug(
+<<<<<<< HEAD
                 "%s: cmd_p already exited status: %s", self, proc_error(p, o, e)
+=======
+                "%s: [cleanup_proc] proc already exited status: %s",
+                self,
+                proc_error(p, o, e),
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
             )
             return None
 
         if pid is None:
             pid = p.pid
 
+<<<<<<< HEAD
         self.logger.debug("%s: terminate process: %s (pid %s)", self, proc_str(p), pid)
+=======
+        self.logger.debug(
+            "%s: [cleanup_proc] terminate process: %s (pid %s)", self, proc_str(p), pid
+        )
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         try:
             # This will SIGHUP and wait a while then SIGKILL and return immediately
             await self.cleanup_pid(p.pid, pid)
@@ -885,6 +932,7 @@ class Commander:  # pylint: disable=R0904
             else:
                 o, e = await asyncio.wait_for(p.communicate(), timeout=wait_secs)
             self.logger.debug(
+<<<<<<< HEAD
                 "%s: cmd_p exited after kill, status: %s", self, proc_error(p, o, e)
             )
         except (asyncio.TimeoutError, subprocess.TimeoutExpired):
@@ -893,6 +941,21 @@ class Commander:  # pylint: disable=R0904
         except Exception as error:
             self.logger.warning(
                 "%s: kill unexpected exception: %s", self, error, exc_info=True
+=======
+                "%s: [cleanup_proc] exited after kill, status: %s",
+                self,
+                proc_error(p, o, e),
+            )
+        except (asyncio.TimeoutError, subprocess.TimeoutExpired):
+            self.logger.warning("%s: [cleanup_proc] SIGKILL timeout", self)
+            return p
+        except Exception as error:
+            self.logger.warning(
+                "%s: [cleanup_proc] kill unexpected exception: %s",
+                self,
+                error,
+                exc_info=True,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
             )
             return p
         return None
@@ -923,15 +986,34 @@ class Commander:  # pylint: disable=R0904
 
     def _cmd_status(self, cmds, raises=False, warn=True, stdin=None, **kwargs):
         """Execute a command."""
+<<<<<<< HEAD
         pinput, stdin = Commander._cmd_status_input(stdin)
         p, actual_cmd = self._popen("cmd_status", cmds, stdin=stdin, **kwargs)
         o, e = p.communicate(pinput)
+=======
+        timeout = None
+        if "timeout" in kwargs:
+            timeout = kwargs["timeout"]
+            del kwargs["timeout"]
+
+        pinput, stdin = Commander._cmd_status_input(stdin)
+        p, actual_cmd = self._popen("cmd_status", cmds, stdin=stdin, **kwargs)
+        o, e = p.communicate(pinput, timeout=timeout)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         return self._cmd_status_finish(p, cmds, actual_cmd, o, e, raises, warn)
 
     async def _async_cmd_status(
         self, cmds, raises=False, warn=True, stdin=None, text=None, **kwargs
     ):
         """Execute a command."""
+<<<<<<< HEAD
+=======
+        timeout = None
+        if "timeout" in kwargs:
+            timeout = kwargs["timeout"]
+            del kwargs["timeout"]
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         pinput, stdin = Commander._cmd_status_input(stdin)
         p, actual_cmd = await self._async_popen(
             "async_cmd_status", cmds, stdin=stdin, **kwargs
@@ -944,7 +1026,16 @@ class Commander:  # pylint: disable=R0904
 
         if encoding is not None and isinstance(pinput, str):
             pinput = pinput.encode(encoding)
+<<<<<<< HEAD
         o, e = await p.communicate(pinput)
+=======
+        try:
+            o, e = await asyncio.wait_for(p.communicate(), timeout=timeout)
+        except (TimeoutError, asyncio.TimeoutError) as error:
+            raise subprocess.TimeoutExpired(
+                cmd=actual_cmd, timeout=timeout, output=None, stderr=None
+            ) from error
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         if encoding is not None:
             o = o.decode(encoding) if o is not None else o
             e = e.decode(encoding) if e is not None else e
@@ -1206,10 +1297,23 @@ class Commander:  # pylint: disable=R0904
         # XXX need to test ssh in Xterm
         sudo_path = get_exec_path_host(["sudo"])
         # This first test case seems same as last but using list instead of string?
+<<<<<<< HEAD
         if self.is_vm and self.use_ssh:  # pylint: disable=E1101
             if isinstance(cmd, str):
                 cmd = shlex.split(cmd)
             cmd = ["/usr/bin/env", f"MUNET_NODENAME={self.name}"] + cmd
+=======
+        if self.is_vm and self.use_ssh and not ns_only:  # pylint: disable=E1101
+            if isinstance(cmd, str):
+                cmd = shlex.split(cmd)
+            cmd = [
+                "/usr/bin/env",
+                f"MUNET_NODENAME={self.name}",
+            ]
+            if "MUNET_PID" in os.environ:
+                cmd.append(f"MUNET_PID={os.environ.get('MUNET_PID')}")
+            cmd += cmd
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
             # get the ssh cmd
             cmd = self._get_pre_cmd(False, True, ns_only=ns_only) + [shlex.join(cmd)]
@@ -1226,8 +1330,21 @@ class Commander:  # pylint: disable=R0904
         else:
             # This is the command to execute to be inside the namespace.
             # We are getting into trouble with quoting.
+<<<<<<< HEAD
             # Why aren't we passing in MUNET_RUNDIR?
             cmd = f"/usr/bin/env MUNET_NODENAME={self.name} {cmd}"
+=======
+            envvars = f"MUNET_NODENAME={self.name} NODENAME={self.name}"
+            if hasattr(self, "rundir"):
+                envvars += f" RUNDIR={self.rundir}"
+            if "MUNET_PID" in os.environ:
+                envvars += f" MUNET_PID={os.environ.get('MUNET_PID')}"
+            if hasattr(self.unet, "config_dirname") and self.unet.config_dirname:
+                envvars += f" CONFIGDIR={self.unet.config_dirname}"
+            elif "CONFIGDIR" in os.environ:
+                envvars += f" CONFIGDIR={os.environ['CONFIGDIR']}"
+            cmd = f"/usr/bin/env {envvars} {cmd}"
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
             # We need sudo b/c we are executing as the user inside the window system.
             sudo_path = get_exec_path_host(["sudo"])
             nscmd = (
@@ -1337,6 +1454,17 @@ class Commander:  # pylint: disable=R0904
                 "select-layout",
                 "-t",
                 pane_info if not tmux_target else tmux_target,
+<<<<<<< HEAD
+=======
+                "even-horizontal",
+            ]
+            commander.cmd_status(cmd)
+            cmd = [
+                get_exec_path_host("tmux"),
+                "select-layout",
+                "-t",
+                pane_info if not tmux_target else tmux_target,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
                 "tiled",
             ]
             commander.cmd_status(cmd)
@@ -1915,18 +2043,33 @@ class LinuxNamespace(Commander, InterfaceMixin):
             assert unet is None
             self.uflags = uflags
             #
+<<<<<<< HEAD
             # Open file descriptors for current namespaces for later resotration.
             #
             try:
+=======
+            # Open file descriptors for current namespaces for later restoration.
+            #
+            try:
+                # pidfd_open is actually present in 5.4, is this 5.8 check for another
+                # aspect of what the pidfd_open code is relying on, something in the
+                # namespace code? If not we can simply check for os.pidfd_open() being
+                # present as our compat module linux.py runtime patches it in if
+                # supported by the kernel.
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
                 kversion = [int(x) for x in platform.release().split("-")[0].split(".")]
                 kvok = kversion[0] > 5 or (kversion[0] == 5 and kversion[1] >= 8)
             except ValueError:
                 kvok = False
+<<<<<<< HEAD
             if (
                 not kvok
                 or sys.version_info[0] < 3
                 or (sys.version_info[0] == 3 and sys.version_info[1] < 9)
             ):
+=======
+            if not kvok:
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
                 # get list of namespace file descriptors before we unshare
                 self.p_ns_fds = []
                 self.p_ns_fnames = []
@@ -2005,8 +2148,15 @@ class LinuxNamespace(Commander, InterfaceMixin):
                 stdout=stdout,
                 stderr=stderr,
                 text=True,
+<<<<<<< HEAD
                 start_new_session=not unet,
                 shell=False,
+=======
+                shell=False,
+                # start_new_session=not unet
+                # preexec_fn=os.setsid if not unet else None,
+                preexec_fn=os.setsid,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
             )
 
             # The pid number returned is in the global pid namespace. For unshare_inline
@@ -2345,14 +2495,22 @@ class LinuxNamespace(Commander, InterfaceMixin):
             and self.pid != our_pid
         ):
             self.logger.debug(
+<<<<<<< HEAD
                 "cleanup pid on separate pid %s from proc pid %s",
+=======
+                "cleanup separate pid %s from namespace proc pid %s",
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
                 self.pid,
                 self.p.pid if self.p else None,
             )
             await self.cleanup_pid(self.pid)
 
         if self.p is not None:
+<<<<<<< HEAD
             self.logger.debug("cleanup proc pid %s", self.p.pid)
+=======
+            self.logger.debug("cleanup namespace proc pid %s", self.p.pid)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
             await self.async_cleanup_proc(self.p)
 
         # return to the previous namespace, need to do this in case anothe munet
@@ -2492,7 +2650,11 @@ class Bridge(SharedNamespace, InterfaceMixin):
 
         self.logger.debug("Bridge: Creating")
 
+<<<<<<< HEAD
         assert len(self.name) <= 16  # Make sure fits in IFNAMSIZE
+=======
+        # assert len(self.name) <= 16  # Make sure fits in IFNAMSIZE
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         self.cmd_raises(f"ip link delete {name} || true")
         self.cmd_raises(f"ip link add {name} type bridge")
         if self.mtu:
@@ -2616,10 +2778,13 @@ class BaseMunet(LinuxNamespace):
 
         self.cfgopt = munet_config.ConfigOptionsProxy(pytestconfig)
 
+<<<<<<< HEAD
         super().__init__(
             name, mount=True, net=isolated, uts=isolated, pid=pid, unet=None, **kwargs
         )
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         # This allows us to cleanup any leftover running munet's
         if "MUNET_PID" in os.environ:
             if os.environ["MUNET_PID"] != str(our_pid):
@@ -2630,6 +2795,13 @@ class BaseMunet(LinuxNamespace):
                 )
         os.environ["MUNET_PID"] = str(our_pid)
 
+<<<<<<< HEAD
+=======
+        super().__init__(
+            name, mount=True, net=isolated, uts=isolated, pid=pid, unet=None, **kwargs
+        )
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         # this is for testing purposes do not use
         if not BaseMunet.g_unet:
             BaseMunet.g_unet = self
@@ -2737,7 +2909,11 @@ class BaseMunet(LinuxNamespace):
                 self.logger.error('"%s" len %s > 16', nsif1, len(nsif1))
             elif len(nsif2) > 16:
                 self.logger.error('"%s" len %s > 16', nsif2, len(nsif2))
+<<<<<<< HEAD
             assert len(nsif1) <= 16 and len(nsif2) <= 16  # Make sure fits in IFNAMSIZE
+=======
+            assert len(nsif1) < 16 and len(nsif2) < 16  # Make sure fits in IFNAMSIZE
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
             self.logger.debug("%s: Creating veth pair for link %s", self, lname)
 
@@ -2937,7 +3113,11 @@ if True:  # pylint: disable=using-constant-test
             )
 
             logging.debug(
+<<<<<<< HEAD
                 'ShellWraper: XXX prompt "%s" will_echo %s child.echo %s',
+=======
+                'ShellWraper: prompt "%s" will_echo %s child.echo %s',
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
                 prompt,
                 will_echo,
                 spawn.echo,
@@ -2965,8 +3145,16 @@ if True:  # pylint: disable=using-constant-test
                     self._expectf = self.child.expect
 
             if extra_init_cmd:
+<<<<<<< HEAD
                 self.expect_prompt()
                 self.child.sendline(extra_init_cmd)
+=======
+                if isinstance(extra_init_cmd, str):
+                    extra_init_cmd = [extra_init_cmd]
+                for ecmd in extra_init_cmd:
+                    self.expect_prompt()
+                    self.child.sendline(ecmd)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
             self.expect_prompt()
 
         def expect_prompt(self, timeout=-1):

@@ -24,6 +24,7 @@ static void bfd_session_get_key(bool mhop, const struct lyd_node *dnode,
 	struct sockaddr_any psa, lsa;
 
 	/* Required destination parameter. */
+<<<<<<< HEAD
 	strtosa(yang_dnode_get_string(dnode, "./dest-addr"), &psa);
 
 	/* Get optional source address. */
@@ -35,6 +36,19 @@ static void bfd_session_get_key(bool mhop, const struct lyd_node *dnode,
 
 	if (!mhop) {
 		ifname = yang_dnode_get_string(dnode, "./interface");
+=======
+	strtosa(yang_dnode_get_string(dnode, "dest-addr"), &psa);
+
+	/* Get optional source address. */
+	memset(&lsa, 0, sizeof(lsa));
+	if (yang_dnode_exists(dnode, "source-addr"))
+		strtosa(yang_dnode_get_string(dnode, "source-addr"), &lsa);
+
+	vrfname = yang_dnode_get_string(dnode, "vrf");
+
+	if (!mhop) {
+		ifname = yang_dnode_get_string(dnode, "interface");
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		if (strcmp(ifname, "*") == 0)
 			ifname = NULL;
 	}
@@ -53,7 +67,11 @@ static int session_iter_cb(const struct lyd_node *dnode, void *arg)
 	struct session_iter *iter = arg;
 	const char *ifname;
 
+<<<<<<< HEAD
 	ifname = yang_dnode_get_string(dnode, "./interface");
+=======
+	ifname = yang_dnode_get_string(dnode, "interface");
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	if (strmatch(ifname, "*"))
 		iter->wildcard = true;
@@ -76,7 +94,11 @@ static int bfd_session_create(struct nb_cb_create_args *args, bool mhop)
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
+<<<<<<< HEAD
 		yang_dnode_get_prefix(&p, args->dnode, "./dest-addr");
+=======
+		yang_dnode_get_prefix(&p, args->dnode, "dest-addr");
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 		if (mhop) {
 			/*
@@ -97,7 +119,11 @@ static int bfd_session_create(struct nb_cb_create_args *args, bool mhop)
 		 * require interface name, otherwise we can't figure
 		 * which interface to use to send the packets.
 		 */
+<<<<<<< HEAD
 		ifname = yang_dnode_get_string(args->dnode, "./interface");
+=======
+		ifname = yang_dnode_get_string(args->dnode, "interface");
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 		if (p.family == AF_INET6 && IN6_IS_ADDR_LINKLOCAL(&p.u.prefix6)
 		    && strcmp(ifname, "*") == 0) {
@@ -112,8 +138,13 @@ static int bfd_session_create(struct nb_cb_create_args *args, bool mhop)
 
 		sess_dnode = yang_dnode_get_parent(args->dnode, "sessions");
 
+<<<<<<< HEAD
 		dest = yang_dnode_get_string(args->dnode, "./dest-addr");
 		vrfname = yang_dnode_get_string(args->dnode, "./vrf");
+=======
+		dest = yang_dnode_get_string(args->dnode, "dest-addr");
+		vrfname = yang_dnode_get_string(args->dnode, "vrf");
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 		yang_dnode_iterate(session_iter_cb, &iter, sess_dnode,
 				   "./single-hop[dest-addr='%s'][vrf='%s']",
@@ -275,7 +306,11 @@ int bfdd_bfd_profile_create(struct nb_cb_create_args *args)
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
+<<<<<<< HEAD
 	name = yang_dnode_get_string(args->dnode, "./name");
+=======
+	name = yang_dnode_get_string(args->dnode, "name");
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	bp = bfd_profile_new(name);
 	nb_running_set_entry(args->dnode, bp);
 

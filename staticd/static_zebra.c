@@ -43,7 +43,11 @@ struct static_nht_data {
 	vrf_id_t nh_vrf_id;
 
 	uint32_t refcount;
+<<<<<<< HEAD
 	uint8_t nh_num;
+=======
+	uint16_t nh_num;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	bool registered;
 };
 
@@ -111,8 +115,11 @@ static int interface_address_delete(ZAPI_CALLBACK_ARGS)
 
 static int static_ifp_up(struct interface *ifp)
 {
+<<<<<<< HEAD
 	/* Install any static reliant on this interface coming up */
 	static_install_intf_nh(ifp);
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	static_ifindex_update(ifp, true);
 
 	return 0;
@@ -166,9 +173,20 @@ static int route_notify_owner(ZAPI_CALLBACK_ARGS)
 
 static void zebra_connected(struct zclient *zclient)
 {
+<<<<<<< HEAD
 	zclient_send_reg_requests(zclient, VRF_DEFAULT);
 
 	static_fixup_vrf_ids(vrf_info_lookup(VRF_DEFAULT));
+=======
+	struct vrf *vrf;
+
+	zebra_route_notify_send(ZEBRA_ROUTE_NOTIFY_REQUEST, zclient, true);
+	zclient_send_reg_requests(zclient, VRF_DEFAULT);
+
+	vrf = vrf_lookup_by_id(VRF_DEFAULT);
+	assert(vrf);
+	static_fixup_vrf_ids(vrf);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 }
 
 /* API to check whether the configured nexthop address is
@@ -186,6 +204,7 @@ static_nexthop_is_local(vrf_id_t vrfid, struct prefix *addr, int family)
 	}
 	return false;
 }
+<<<<<<< HEAD
 static int static_zebra_nexthop_update(ZAPI_CALLBACK_ARGS)
 {
 	struct static_nht_data *nhtd, lookup;
@@ -214,10 +233,36 @@ static int static_zebra_nexthop_update(ZAPI_CALLBACK_ARGS)
 	lookup.nh = matched;
 	lookup.nh_vrf_id = vrf_id;
 	lookup.safi = nhr.safi;
+=======
+
+static void static_zebra_nexthop_update(struct vrf *vrf, struct prefix *matched,
+					struct zapi_route *nhr)
+{
+	struct static_nht_data *nhtd, lookup;
+	afi_t afi = AFI_IP;
+
+	if (zclient->bfd_integration)
+		bfd_nht_update(matched, nhr);
+
+	if (matched->family == AF_INET6)
+		afi = AFI_IP6;
+
+	if (nhr->type == ZEBRA_ROUTE_CONNECT) {
+		if (static_nexthop_is_local(vrf->vrf_id, matched,
+					    nhr->prefix.family))
+			nhr->nexthop_num = 0;
+	}
+
+	memset(&lookup, 0, sizeof(lookup));
+	lookup.nh = *matched;
+	lookup.nh_vrf_id = vrf->vrf_id;
+	lookup.safi = nhr->safi;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	nhtd = static_nht_hash_find(static_nht_hash, &lookup);
 
 	if (nhtd) {
+<<<<<<< HEAD
 		nhtd->nh_num = nhr.nexthop_num;
 
 		static_nht_reset_start(&matched, afi, nhr.safi,
@@ -228,6 +273,15 @@ static int static_zebra_nexthop_update(ZAPI_CALLBACK_ARGS)
 		zlog_err("No nhtd?");
 
 	return 1;
+=======
+		nhtd->nh_num = nhr->nexthop_num;
+
+		static_nht_reset_start(matched, afi, nhr->safi, nhtd->nh_vrf_id);
+		static_nht_update(NULL, matched, nhr->nexthop_num, afi,
+				  nhr->safi, nhtd->nh_vrf_id);
+	} else
+		zlog_err("No nhtd?");
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 }
 
 static void static_zebra_capabilities(struct zclient_capabilities *cap)
@@ -396,6 +450,12 @@ extern void static_zebra_route_add(struct static_path *pn, bool install)
 	struct zapi_route api;
 	uint32_t nh_num = 0;
 
+<<<<<<< HEAD
+=======
+	if (!si->svrf->vrf || si->svrf->vrf->vrf_id == VRF_UNKNOWN)
+		return;
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	p = src_pp = NULL;
 	srcdest_rnode_prefixes(rn, &p, &src_pp);
 
@@ -500,6 +560,24 @@ extern void static_zebra_route_add(struct static_path *pn, bool install)
 			for (i = 0; i < api_nh->label_num; i++)
 				api_nh->labels[i] = nh->snh_label.label[i];
 		}
+<<<<<<< HEAD
+=======
+		if (nh->snh_seg.num_segs) {
+			int i;
+
+			api_nh->seg6local_action =
+				ZEBRA_SEG6_LOCAL_ACTION_UNSPEC;
+			SET_FLAG(api_nh->flags, ZAPI_NEXTHOP_FLAG_SEG6);
+			SET_FLAG(api.flags, ZEBRA_FLAG_ALLOW_RECURSION);
+			api.safi = SAFI_UNICAST;
+
+			api_nh->seg_num = nh->snh_seg.num_segs;
+			for (i = 0; i < api_nh->seg_num; i++)
+				memcpy(&api_nh->seg6_segs[i],
+				       &nh->snh_seg.seg[i],
+				       sizeof(struct in6_addr));
+		}
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		nh_num++;
 	}
 
@@ -521,22 +599,38 @@ static zclient_handler *const static_handlers[] = {
 	[ZEBRA_INTERFACE_ADDRESS_ADD] = interface_address_add,
 	[ZEBRA_INTERFACE_ADDRESS_DELETE] = interface_address_delete,
 	[ZEBRA_ROUTE_NOTIFY_OWNER] = route_notify_owner,
+<<<<<<< HEAD
 	[ZEBRA_NEXTHOP_UPDATE] = static_zebra_nexthop_update,
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 };
 
 void static_zebra_init(void)
 {
+<<<<<<< HEAD
 	struct zclient_options opt = { .receive_notify = true };
 
 	if_zapi_callbacks(static_ifp_create, static_ifp_up,
 			  static_ifp_down, static_ifp_destroy);
 
 	zclient = zclient_new(master, &opt, static_handlers,
+=======
+	hook_register_prio(if_real, 0, static_ifp_create);
+	hook_register_prio(if_up, 0, static_ifp_up);
+	hook_register_prio(if_down, 0, static_ifp_down);
+	hook_register_prio(if_unreal, 0, static_ifp_destroy);
+
+	zclient = zclient_new(master, &zclient_options_default, static_handlers,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			      array_size(static_handlers));
 
 	zclient_init(zclient, ZEBRA_ROUTE_STATIC, 0, &static_privs);
 	zclient->zebra_capabilities = static_zebra_capabilities;
 	zclient->zebra_connected = zebra_connected;
+<<<<<<< HEAD
+=======
+	zclient->nexthop_update = static_zebra_nexthop_update;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	static_nht_hash_init(static_nht_hash);
 	static_bfd_initialize(zclient, master);

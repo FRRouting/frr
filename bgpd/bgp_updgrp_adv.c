@@ -78,6 +78,11 @@ static inline struct bgp_adj_out *adj_lookup(struct bgp_dest *dest,
 
 static void adj_free(struct bgp_adj_out *adj)
 {
+<<<<<<< HEAD
+=======
+	bgp_labels_unintern(&adj->labels);
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	TAILQ_REMOVE(&(adj->subgroup->adjq), adj, subgrp_adj_train);
 	SUBGRP_DECR_STAT(adj->subgroup, adj_count);
 
@@ -87,6 +92,94 @@ static void adj_free(struct bgp_adj_out *adj)
 	XFREE(MTYPE_BGP_ADJ_OUT, adj);
 }
 
+<<<<<<< HEAD
+=======
+static void
+subgrp_announce_addpath_best_selected(struct bgp_dest *dest,
+				      struct update_subgroup *subgrp)
+{
+	afi_t afi = SUBGRP_AFI(subgrp);
+	safi_t safi = SUBGRP_SAFI(subgrp);
+	struct peer *peer = SUBGRP_PEER(subgrp);
+	enum bgp_path_selection_reason reason;
+	char pfx_buf[PREFIX2STR_BUFFER] = {};
+	int paths_eq = 0;
+	struct list *list = list_new();
+	struct bgp_path_info *pi = NULL;
+	uint16_t paths_count = 0;
+	uint16_t paths_limit = peer->addpath_paths_limit[afi][safi].receive;
+
+	if (peer->addpath_type[afi][safi] == BGP_ADDPATH_BEST_SELECTED) {
+		paths_limit =
+			paths_limit
+				? MIN(paths_limit,
+				      peer->addpath_best_selected[afi][safi])
+				: peer->addpath_best_selected[afi][safi];
+
+		while (paths_count++ < paths_limit) {
+			struct bgp_path_info *exist = NULL;
+
+			for (pi = bgp_dest_get_bgp_path_info(dest); pi;
+			     pi = pi->next) {
+				if (listnode_lookup(list, pi))
+					continue;
+
+				if (CHECK_FLAG(pi->flags, BGP_PATH_SELECTED))
+					continue;
+
+				if (bgp_path_info_cmp(peer->bgp, pi, exist,
+						      &paths_eq, NULL, 0,
+						      pfx_buf, afi, safi,
+						      &reason))
+					exist = pi;
+			}
+
+			if (exist)
+				listnode_add(list, exist);
+		}
+	}
+
+	for (pi = bgp_dest_get_bgp_path_info(dest); pi; pi = pi->next) {
+		uint32_t id = bgp_addpath_id_for_peer(peer, afi, safi,
+						      &pi->tx_addpath);
+
+		if (peer->addpath_type[afi][safi] ==
+		    BGP_ADDPATH_BEST_SELECTED) {
+			if (listnode_lookup(list, pi))
+				subgroup_process_announce_selected(
+					subgrp, pi, dest, afi, safi, id);
+			else
+				subgroup_process_announce_selected(
+					subgrp, NULL, dest, afi, safi, id);
+		} else {
+			/* No Paths-Limit involved */
+			if (!paths_limit) {
+				subgroup_process_announce_selected(subgrp, pi,
+								   dest, afi,
+								   safi, id);
+				continue;
+			}
+
+			/* If we have Paths-Limit capability, we MUST
+			 * not send more than the number of paths expected
+			 * by the peer.
+			 */
+			if (paths_count++ < paths_limit)
+				subgroup_process_announce_selected(subgrp, pi,
+								   dest, afi,
+								   safi, id);
+			else
+				subgroup_process_announce_selected(subgrp, NULL,
+								   dest, afi,
+								   safi, id);
+		}
+	}
+
+	if (list)
+		list_delete(&list);
+}
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 static void subgrp_withdraw_stale_addpath(struct updwalk_context *ctx,
 					  struct update_subgroup *subgrp)
 {
@@ -125,7 +218,10 @@ static int group_announce_route_walkcb(struct update_group *updgrp, void *arg)
 {
 	struct updwalk_context *ctx = arg;
 	struct update_subgroup *subgrp;
+<<<<<<< HEAD
 	struct bgp_path_info *pi;
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	afi_t afi;
 	safi_t safi;
 	struct peer *peer;
@@ -138,12 +234,19 @@ static int group_announce_route_walkcb(struct update_group *updgrp, void *arg)
 	addpath_capable = bgp_addpath_encode_tx(peer, afi, safi);
 
 	if (BGP_DEBUG(update, UPDATE_OUT))
+<<<<<<< HEAD
 		zlog_debug("%s: afi=%s, safi=%s, p=%pRN", __func__,
 			   afi2str(afi), safi2str(safi),
 			   bgp_dest_to_rnode(ctx->dest));
 
 	UPDGRP_FOREACH_SUBGRP (updgrp, subgrp) {
 
+=======
+		zlog_debug("%s: afi=%s, safi=%s, p=%pBD", __func__,
+			   afi2str(afi), safi2str(safi), ctx->dest);
+
+	UPDGRP_FOREACH_SUBGRP (updgrp, subgrp) {
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		/*
 		 * Skip the subgroups that have coalesce timer running. We will
 		 * walk the entire prefix table for those subgroups when the
@@ -155,6 +258,7 @@ static int group_announce_route_walkcb(struct update_group *updgrp, void *arg)
 			if (addpath_capable) {
 				subgrp_withdraw_stale_addpath(ctx, subgrp);
 
+<<<<<<< HEAD
 				for (pi = bgp_dest_get_bgp_path_info(ctx->dest);
 				     pi; pi = pi->next) {
 					/* Skip the bestpath for now */
@@ -168,6 +272,10 @@ static int group_announce_route_walkcb(struct update_group *updgrp, void *arg)
 							peer, afi, safi,
 							&pi->tx_addpath));
 				}
+=======
+				subgrp_announce_addpath_best_selected(ctx->dest,
+								      subgrp);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 				/* Process the bestpath last so the "show [ip]
 				 * bgp neighbor x.x.x.x advertised"
@@ -308,6 +416,10 @@ static void subgroup_coalesce_timer(struct event *thread)
 {
 	struct update_subgroup *subgrp;
 	struct bgp *bgp;
+<<<<<<< HEAD
+=======
+	safi_t safi;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	subgrp = EVENT_ARG(thread);
 	if (bgp_debug_update(NULL, NULL, subgrp->update_group, 0))
@@ -318,7 +430,11 @@ static void subgroup_coalesce_timer(struct event *thread)
 	subgrp->v_coalesce = 0;
 	bgp = SUBGRP_INST(subgrp);
 	subgroup_announce_route(subgrp);
+<<<<<<< HEAD
 
+=======
+	safi = SUBGRP_SAFI(subgrp);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	/* While the announce_route() may kick off the route advertisement timer
 	 * for
@@ -329,14 +445,27 @@ static void subgroup_coalesce_timer(struct event *thread)
 	 * announce, this is the method currently employed to trigger the EOR.
 	 */
 	if (!bgp_update_delay_active(SUBGRP_INST(subgrp)) &&
+<<<<<<< HEAD
 	    !(BGP_SUPPRESS_FIB_ENABLED(bgp))) {
+=======
+	    !(bgp_fibupd_safi(safi) && BGP_SUPPRESS_FIB_ENABLED(bgp))) {
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		struct peer_af *paf;
 		struct peer *peer;
 
 		SUBGRP_FOREACH_PEER (subgrp, paf) {
 			peer = PAF_PEER(paf);
+<<<<<<< HEAD
 			EVENT_OFF(peer->t_routeadv);
 			BGP_TIMER_ON(peer->t_routeadv, bgp_routeadv_timer, 0);
+=======
+			struct peer_connection *connection = peer->connection;
+
+			EVENT_OFF(connection->t_routeadv);
+			BGP_TIMER_ON(connection->t_routeadv, bgp_routeadv_timer,
+				     0);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		}
 	}
 }
@@ -457,7 +586,11 @@ bool bgp_adj_out_set_subgroup(struct bgp_dest *dest,
 	struct peer *adv_peer;
 	struct peer_af *paf;
 	struct bgp *bgp;
+<<<<<<< HEAD
 	uint32_t attr_hash = attrhash_key_make(attr);
+=======
+	uint32_t attr_hash = 0;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	peer = SUBGRP_PEER(subgrp);
 	afi = SUBGRP_AFI(subgrp);
@@ -492,9 +625,19 @@ bool bgp_adj_out_set_subgroup(struct bgp_dest *dest,
 	 * the route wasn't changed actually.
 	 * Do not suppress BGP UPDATES for route-refresh.
 	 */
+<<<<<<< HEAD
 	if (CHECK_FLAG(bgp->flags, BGP_FLAG_SUPPRESS_DUPLICATES)
 	    && !CHECK_FLAG(subgrp->sflags, SUBGRP_STATUS_FORCE_UPDATES)
 	    && adj->attr_hash == attr_hash) {
+=======
+	if (likely(CHECK_FLAG(bgp->flags, BGP_FLAG_SUPPRESS_DUPLICATES)))
+		attr_hash = attrhash_key_make(attr);
+
+	if (!CHECK_FLAG(subgrp->sflags, SUBGRP_STATUS_FORCE_UPDATES) &&
+	    attr_hash && adj->attr_hash == attr_hash &&
+	    bgp_labels_cmp(path->extra ? path->extra->labels : NULL,
+			   adj->labels)) {
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		if (BGP_DEBUG(update, UPDATE_OUT)) {
 			char attr_str[BUFSIZ] = {0};
 
@@ -536,6 +679,13 @@ bool bgp_adj_out_set_subgroup(struct bgp_dest *dest,
 	adv->baa = bgp_advertise_attr_intern(subgrp->hash, attr);
 	adv->adj = adj;
 	adj->attr_hash = attr_hash;
+<<<<<<< HEAD
+=======
+	if (path->extra)
+		adj->labels = bgp_labels_intern(path->extra->labels);
+	else
+		adj->labels = NULL;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	/* Add new advertisement to advertisement attribute list. */
 	bgp_advertise_add(adv->baa, adv);
@@ -550,7 +700,12 @@ bool bgp_adj_out_set_subgroup(struct bgp_dest *dest,
 			 * the flag PEER_STATUS_ADV_DELAY which will allow
 			 * more routes to be sent in the update message
 			 */
+<<<<<<< HEAD
 			if (BGP_SUPPRESS_FIB_ENABLED(bgp)) {
+=======
+			if (bgp_fibupd_safi(safi) &&
+			    BGP_SUPPRESS_FIB_ENABLED(bgp)) {
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 				adv_peer = PAF_PEER(paf);
 				if (!bgp_adv_fifo_count(
 						&subgrp->sync->withdraw))
@@ -683,12 +838,23 @@ void subgroup_announce_table(struct update_subgroup *subgrp,
 	if (safi != SAFI_MPLS_VPN && safi != SAFI_ENCAP && safi != SAFI_EVPN
 	    && CHECK_FLAG(peer->af_flags[afi][safi],
 			  PEER_FLAG_DEFAULT_ORIGINATE))
+<<<<<<< HEAD
 		subgroup_default_originate(subgrp, 0);
+=======
+		subgroup_default_originate(subgrp, false);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	subgrp->pscount = 0;
 	SET_FLAG(subgrp->sflags, SUBGRP_STATUS_TABLE_REPARSING);
 
 	for (dest = bgp_table_top(table); dest; dest = bgp_route_next(dest)) {
+<<<<<<< HEAD
+=======
+
+		if (addpath_capable)
+			subgrp_announce_addpath_best_selected(dest, subgrp);
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		for (ri = bgp_dest_get_bgp_path_info(dest); ri; ri = ri->next) {
 
 			if (!bgp_check_selected(ri, peer, addpath_capable, afi,
@@ -706,10 +872,19 @@ void subgroup_announce_table(struct update_subgroup *subgrp,
 			    is_default_prefix(bgp_dest_get_prefix(dest)))
 				break;
 
+<<<<<<< HEAD
 			subgroup_process_announce_selected(
 				subgrp, ri, dest, afi, safi_rib,
 				bgp_addpath_id_for_peer(peer, afi, safi_rib,
 							&ri->tx_addpath));
+=======
+			if (CHECK_FLAG(ri->flags, BGP_PATH_SELECTED))
+				subgroup_process_announce_selected(
+					subgrp, ri, dest, afi, safi_rib,
+					bgp_addpath_id_for_peer(
+						peer, afi, safi_rib,
+						&ri->tx_addpath));
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		}
 	}
 	UNSET_FLAG(subgrp->sflags, SUBGRP_STATUS_TABLE_REPARSING);
@@ -769,7 +944,11 @@ void subgroup_announce_route(struct update_subgroup *subgrp)
 		}
 }
 
+<<<<<<< HEAD
 void subgroup_default_originate(struct update_subgroup *subgrp, int withdraw)
+=======
+void subgroup_default_originate(struct update_subgroup *subgrp, bool withdraw)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 {
 	struct bgp *bgp;
 	struct attr attr = { 0 };
@@ -813,8 +992,13 @@ void subgroup_default_originate(struct update_subgroup *subgrp, int withdraw)
 	assert(attr.aspath);
 
 	aspath = attr.aspath;
+<<<<<<< HEAD
 	attr.med = 0;
 	attr.flag |= ATTR_FLAG_BIT(BGP_ATTR_MULTI_EXIT_DISC);
+=======
+
+	bgp_attr_set_med(&attr, 0);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	if ((afi == AFI_IP6) || peer_cap_enhe(peer, afi, safi)) {
 		/* IPv6 global nexthop must be included. */
@@ -860,8 +1044,13 @@ void subgroup_default_originate(struct update_subgroup *subgrp, int withdraw)
 						bgp_attr_flush(new_attr);
 						new_attr = bgp_attr_intern(
 							tmp_pi.attr);
+<<<<<<< HEAD
 						bgp_attr_flush(tmp_pi.attr);
 					}
+=======
+					}
+					bgp_attr_flush(tmp_pi.attr);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 					subgroup_announce_reset_nhop(
 						(peer_cap_enhe(peer, afi, safi)
 							 ? AF_INET6
@@ -886,7 +1075,11 @@ void subgroup_default_originate(struct update_subgroup *subgrp, int withdraw)
 					 SUBGRP_STATUS_DEFAULT_ORIGINATE)))
 				SET_FLAG(subgrp->sflags,
 					 SUBGRP_STATUS_DEFAULT_ORIGINATE);
+<<<<<<< HEAD
 			withdraw = 1;
+=======
+			withdraw = true;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		}
 	}
 
@@ -1020,7 +1213,11 @@ void group_announce_route(struct bgp *bgp, afi_t afi, safi_t safi,
 	/* If suppress fib is enabled, the route will be advertised when
 	 * FIB status is received
 	 */
+<<<<<<< HEAD
 	if (!bgp_check_advertise(bgp, dest))
+=======
+	if (!bgp_check_advertise(bgp, dest, safi))
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		return;
 
 	update_group_af_walk(bgp, afi, safi, group_announce_route_walkcb, &ctx);

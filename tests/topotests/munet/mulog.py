@@ -12,6 +12,12 @@ import logging
 from pathlib import Path
 
 
+<<<<<<< HEAD
+=======
+do_color = True
+
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 class MultiFileHandler(logging.FileHandler):
     """A logging handler that logs to new files based on the logger name.
 
@@ -118,5 +124,33 @@ class ColorFormatter(logging.Formatter):
         super().__init__(fmt, datefmt, style, **kwargs)
 
     def format(self, record):
+<<<<<<< HEAD
         formatter = self.formatters.get(record.levelno)
         return formatter.format(record)
+=======
+        if not do_color:
+            return super().format(record)
+        formatter = self.formatters.get(record.levelno)
+        return formatter.format(record)
+
+
+class ResultColorFormatter(logging.Formatter):
+    """A formatter that colorizes PASS/FAIL strings based on level."""
+
+    green = "\x1b[32m"
+    red = "\x1b[31m"
+    reset = "\x1b[0m"
+
+    def format(self, record):
+        s = super().format(record)
+        if not do_color:
+            return s
+        idx = s.find("FAIL")
+        if idx >= 0 and record.levelno > logging.INFO:
+            s = s[:idx] + self.red + "FAIL" + self.reset + s[idx + 4 :]
+        elif record.levelno == logging.INFO:
+            idx = s.find("PASS")
+            if idx >= 0:
+                s = s[:idx] + self.green + "PASS" + self.reset + s[idx + 4 :]
+        return s
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)

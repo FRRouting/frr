@@ -32,7 +32,11 @@ def setup_module(mod):
 
     router_list = tgen.routers()
 
+<<<<<<< HEAD
     for i, (rname, router) in enumerate(router_list.items(), 1):
+=======
+    for _, (rname, router) in enumerate(router_list.items(), 1):
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         router.load_config(
             TopoRouter.RD_ZEBRA, os.path.join(CWD, "{}/zebra.conf".format(rname))
         )
@@ -49,7 +53,11 @@ def setup_module(mod):
     tgen.start_router()
 
 
+<<<<<<< HEAD
 def teardown_module(mod):
+=======
+def teardown_module():
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     tgen = get_topogen()
     tgen.stop_topology()
 
@@ -98,17 +106,29 @@ def test_zebra_opaque():
 
     router = tgen.gears["r1"]
     test_func = functools.partial(_bgp_converge, router)
+<<<<<<< HEAD
     success, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
+=======
+    _, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     assert result is None, 'Cannot see BGP community aliases "{}"'.format(router)
 
     router = tgen.gears["r3"]
     test_func = functools.partial(_ospf_converge, router)
+<<<<<<< HEAD
     success, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
+=======
+    _, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     assert result is None, 'Cannot see OSPFv2 opaque attributes "{}"'.format(router)
 
     router = tgen.gears["r3"]
     test_func = functools.partial(_ospf6_converge, router)
+<<<<<<< HEAD
     success, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
+=======
+    _, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     assert result is None, 'Cannot see OSPFv3 opaque attributes "{}"'.format(router)
 
 

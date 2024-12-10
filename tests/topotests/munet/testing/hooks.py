@@ -18,6 +18,10 @@ import traceback
 
 import pytest
 
+<<<<<<< HEAD
+=======
+from ..args import add_testing_args
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 from ..base import BaseMunet  # pylint: disable=import-error
 from ..cli import cli  # pylint: disable=import-error
 from .util import pause_test
@@ -29,6 +33,7 @@ from .util import pause_test
 
 
 def pytest_addoption(parser):
+<<<<<<< HEAD
     parser.addoption(
         "--cli-on-error",
         action="store_true",
@@ -108,6 +113,9 @@ def pytest_addoption(parser):
         metavar="NODE[,NODE...]",
         help="Comma-separated list of nodes to open tail-f stderr window on, or 'all'",
     )
+=======
+    add_testing_args(parser.addoption)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 
 def pytest_configure(config):
@@ -146,6 +154,21 @@ def pytest_configure(config):
         elif b and not is_xdist and not have_windows:
             pytest.exit(f"{winopt} use requires byobu/TMUX/SCREEN/XTerm")
 
+<<<<<<< HEAD
+=======
+    cli_pause = (
+        config.getoption("--cli-on-error")
+        or config.getoption("--pause")
+        or config.getoption("--pause-at-end")
+        or config.getoption("--pause-on-error")
+    )
+    if config.getoption("--capture") == "fd" and cli_pause:
+        pytest.exit(
+            "CLI is not compatible with `--capture=fd`, "
+            "please run again with `-s` or other `--capture` value"
+        )
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 def pytest_runtest_makereport(item, call):
     """Pause or invoke CLI as directed by config."""
@@ -196,10 +219,17 @@ def pytest_runtest_makereport(item, call):
             if error:
                 item.skip_more_pause = True
 
+<<<<<<< HEAD
             # we can't asyncio.run() (which pause does) if we are unhsare_inline
             # at this point, count on an autouse fixture to pause instead in this
             # case
             if not BaseMunet.g_unet or not BaseMunet.g_unet.unshare_inline:
+=======
+            # we can't asyncio.run() (which pause does) if we are not unhsare_inline
+            # at this point, count on an autouse fixture to pause instead in this
+            # case
+            if BaseMunet.g_unet and BaseMunet.g_unet.unshare_inline:
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
                 pause_test(f"before test '{item.nodeid}'")
 
         # check for a result to try and catch setup (or module setup) failure

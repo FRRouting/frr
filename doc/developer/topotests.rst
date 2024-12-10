@@ -8,6 +8,7 @@ Topotests is a suite of topology tests for FRR built on top of micronet.
 Installation and Setup
 ----------------------
 
+<<<<<<< HEAD
 Topotests run under python3. Additionally, for ExaBGP (which is used
 in some of the BGP tests) an older python2 version (and the python2
 version of ``pip``) must be installed.
@@ -16,6 +17,17 @@ Tested with Ubuntu 20.04,Ubuntu 18.04, and Debian 11.
 
 Instructions are the same for all setups (i.e. ExaBGP is only used for
 BGP tests).
+=======
+Topotests run under python3.
+
+Tested with Ubuntu 22.04,Ubuntu 20.04, and Debian 12.
+
+Python protobuf version < 4 is required b/c python protobuf >= 4 requires a
+protoc >= 3.19, and older package versions are shipped by in the above distros.
+
+Instructions are the same for all setups. However, ExaBGP is only used for
+BGP tests.
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 Tshark is only required if you enable any packet captures on test runs.
 
@@ -32,6 +44,7 @@ Installing Topotest Requirements
        net-tools \
        python3-pip \
        iputils-ping \
+<<<<<<< HEAD
        tshark \
        valgrind
    python3 -m pip install wheel
@@ -44,6 +57,30 @@ Installing Topotest Requirements
    useradd -d /var/run/exabgp/ -s /bin/false exabgp
 
    # To enable the gRPC topotest install:
+=======
+       iptables \
+       tshark \
+       valgrind
+   python3 -m pip install wheel
+   python3 -m pip install 'pytest>=8.3.2' 'pytest-asyncio>=0.24.0' 'pytest-xdist>=3.6.1'
+   python3 -m pip install 'scapy>=2.4.5'
+   python3 -m pip install xmltodict
+   python3 -m pip install git+https://github.com/Exa-Networks/exabgp@0659057837cd6c6351579e9f0fa47e9fb7de7311
+   useradd -d /var/run/exabgp/ -s /bin/false exabgp
+
+The version of protobuf package that is installed on your system will determine
+which versions of the python protobuf packages you need to install.
+
+.. code:: shell
+
+   # - Either - For protobuf version <= 3.12
+   python3 -m pip install 'protobuf<4'
+
+   # - OR- for protobuf version >= 3.21
+   python3 -m pip install 'protobuf>=4'
+
+   # To enable the gRPC topotest also install:
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
    python3 -m pip install grpcio grpcio-tools
 
 
@@ -116,9 +153,15 @@ If you prefer to manually build FRR, then use the following suggested config:
 
    ./configure \
        --prefix=/usr \
+<<<<<<< HEAD
        --localstatedir=/var/run/frr \
        --sbindir=/usr/lib/frr \
        --sysconfdir=/etc/frr \
+=======
+       --sysconfdir=/etc \
+       --localstatedir=/var \
+       --sbindir=/usr/lib/frr \
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
        --enable-vtysh \
        --enable-pimd \
        --enable-pim6d \
@@ -230,8 +273,13 @@ the number of the test we are interested in along with ``--errmsg`` option.
     ~/frr/tests/topotests# ./analyze.py -Ar run-save -T0 --errmsg
     bgp_multiview_topo1/test_bgp_multiview_topo1.py::test_bgp_converge: AssertionError: BGP did not converge:
 
+<<<<<<< HEAD
       IPv4 Unicast Summary (VIEW 1):
       BGP router identifier 172.30.1.1, local AS number 100 vrf-id -1
+=======
+      IPv4 Unicast Summary:
+      BGP router identifier 172.30.1.1, local AS number 100 VIEW 1 vrf-id -1
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
       BGP table version 1
       RIB entries 1, using 184 bytes of memory
       Peers 3, using 2169 KiB of memory
@@ -266,8 +314,13 @@ select the first failed test case.
     >           assert False, "BGP did not converge:\n%s" % bgpStatus
     E           AssertionError: BGP did not converge:
     E
+<<<<<<< HEAD
     E             IPv4 Unicast Summary (VIEW 1):
     E             BGP router identifier 172.30.1.1, local AS number 100 vrf-id -1
+=======
+    E             IPv4 Unicast Summary:
+    E             BGP router identifier 172.30.1.1, local AS number 100 VIEW 1 vrf-id -1
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
                   [...]
     E             Neighbor        V         AS   MsgRcvd   MsgSent   TblVer  InQ OutQ  Up/Down State/PfxRcd   PfxSnt Desc
     E             172.16.1.1      4      65001         0         0        0    0    0    never      Connect        0 N/A
@@ -386,8 +439,14 @@ for ``master`` branch:
    ./bootstrap.sh
    ./configure \
        --enable-address-sanitizer \
+<<<<<<< HEAD
        --prefix=/usr/lib/frr --sysconfdir=/etc/frr \
        --localstatedir=/var/run/frr \
+=======
+       --prefix=/usr/lib/frr \
+       --sysconfdir=/etc \
+       --localstatedir=/var \
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
        --sbindir=/usr/lib/frr --bindir=/usr/lib/frr \
        --with-moduledir=/usr/lib/frr/modules \
        --enable-multipath=0 --enable-rtadv \
@@ -400,6 +459,17 @@ for ``master`` branch:
 
 and create ``frr`` user and ``frrvty`` group as shown above.
 
+<<<<<<< HEAD
+=======
+Newer versions of Address Sanitizers require a sysctl to be changed
+to allow for the tests to be successfully run.  This is also true
+for Undefined behavior Sanitizers as well as Memory Sanitizer.
+
+.. code:: shell
+
+   sysctl vm.mmap_rnd_bits=28
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 Debugging Topotest Failures
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -443,7 +513,11 @@ as shown in the examples below.
 
 For each capture a window is opened displaying a live summary of the captured
 packets. Additionally, the entire packet stream is captured in a pcap file in
+<<<<<<< HEAD
 the tests log directory e.g.,::
+=======
+the tests log directory e.g.,:
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 .. code:: console
 
@@ -453,7 +527,11 @@ the tests log directory e.g.,::
    -rw------- 1 root root 45172 Apr 19 05:30 capture-r2-r2-eth0.pcap
    -rw------- 1 root root 48412 Apr 19 05:30 capture-sw1.pcap
    ...
+<<<<<<< HEAD
 -
+=======
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 Viewing Live Daemon Logs
 """"""""""""""""""""""""
 
@@ -470,10 +548,17 @@ One can live view daemon or the frr logs in separate windows using the
 
 For each capture a window is opened displaying a live summary of the captured
 packets. Additionally, the entire packet stream is captured in a pcap file in
+<<<<<<< HEAD
 the tests log directory e.g.,::
 
 When using a unified log file `frr.log` one substitutes `frr` for the daemon
 name in the ``--logd`` CLI option, e.g.,
+=======
+the tests log directory e.g.,
+
+When using a unified log file ``frr.log`` one substitutes ``frr`` for the
+daemon name in the ``--logd`` CLI option, e.g.,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 .. code:: shell
 
@@ -559,6 +644,11 @@ Here's an example of launching ``vtysh`` on routers ``rt1`` and ``rt2``.
 
    sudo -E pytest --vtysh=rt1,rt2 all-protocol-startup
 
+<<<<<<< HEAD
+=======
+.. _debug_with_gdb:
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 Debugging with GDB
 """"""""""""""""""
 
@@ -583,6 +673,15 @@ Here's an example of launching ``zebra`` and ``bgpd`` inside ``gdb`` on router
           --gdb-breakpoints=nb_config_diff \
           all-protocol-startup
 
+<<<<<<< HEAD
+=======
+Finally, for Emacs users, you can specify ``--gdb-use-emacs``. When specified
+the first router and daemon to be launched in gdb will be launched and run with
+Emacs gdb functionality by using `emacsclient --eval` commands. This provides an
+IDE debugging experience for Emacs users. This functionality works best when
+using password-less sudo.
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 Reporting Memleaks with FRR Memory Statistics
 """""""""""""""""""""""""""""""""""""""""""""
 
@@ -617,6 +716,11 @@ allocations upon exit. To enable also reporting of memory leaks to a specific
 location, define an environment variable ``TOPOTESTS_CHECK_MEMLEAK`` with the
 file prefix, i.e.:
 
+<<<<<<< HEAD
+=======
+::
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
    export TOPOTESTS_CHECK_MEMLEAK="/home/mydir/memleak_"
 
 For tests that support the TOPOTESTS_CHECK_MEMLEAK environment variable, this
@@ -629,16 +733,37 @@ Detecting Memleaks with Valgrind
 """"""""""""""""""""""""""""""""
 
 Topotest can automatically launch all daemons with ``valgrind`` to check for
+<<<<<<< HEAD
 memleaks. This is enabled by specifying 1 or 2 CLI arguments.
 ``--valgrind-memleaks`` will enable general memleak detection, and
 ``--valgrind-extra`` enables extra functionality including generating a
 suppression file. The suppression file ``tools/valgrind.supp`` is used when
 memleak detection is enabled.
+=======
+memleaks. This is enabled by specifying 1 to 3 CLI arguments.
+``--valgrind-memleaks`` enables memleak detection. ``--valgrind-extra`` enables
+extra functionality including generating a suppression file. The suppression
+file ``tools/valgrind.supp`` is used when memleak detection is enabled. Finally,
+``--valgrind-leak-kinds=KINDS`` can be used to modify what types of links are
+reported. This corresponds to valgrind's ``--show-link-kinds`` arg. The value is
+either ``all`` or a comma-separated list of types:
+``definite,indirect,possible,reachable``. The default is ``definite,possible``.
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 .. code:: shell
 
    sudo -E pytest --valgrind-memleaks all-protocol-startup
 
+<<<<<<< HEAD
+=======
+.. note:: GDB can be used in conjection with valgrind.
+
+   When you enable ``--valgrind-memleaks`` and you also launch various daemons
+   under GDB (debug_with_gdb_) topotest will connect the two utilities using
+   ``--vgdb-error=0`` and attaching to a ``vgdb`` process. This is very
+   useful for debugging bugs with use of uninitialized errors, et al.
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 Collecting Performance Data using perf(1)
 """""""""""""""""""""""""""""""""""""""""
 
@@ -660,6 +785,109 @@ during the config_timing test.
 To specify different arguments for ``perf record``, one can use the
 ``--perf-options`` this will replace the ``-g`` used by default.
 
+<<<<<<< HEAD
+=======
+Running Daemons under RR Debug (``rr record``)
+""""""""""""""""""""""""""""""""""""""""""""""
+
+Topotest can automatically launch any daemon under ``rr(1)`` to collect
+execution state. The daemon is run in the foreground with ``rr record``.
+
+The execution state will be saved in the router specific directory
+(in a `rr` subdir that rr creates) under the test's run directoy.
+
+Here's an example of collecting ``rr`` execution state from ``mgmtd`` on router
+``r1`` during the ``config_timing`` test.
+
+.. code:: console
+
+   $ sudo -E pytest --rr-routers=r1 --rr-daemons=mgmtd config_timing
+   ...
+   $ find /tmp/topotests/ -name '*perf.data*'
+   /tmp/topotests/config_timing.test_config_timing/r1/perf.data
+
+To specify additional arguments for ``rr record``, one can use the
+``--rr-options``.
+
+.. _code_coverage:
+
+Code coverage
+"""""""""""""
+Code coverage reporting requires installation of the ``gcov`` and ``lcov``
+packages.
+
+Code coverage can automatically be gathered for any topotest run. To support
+this FRR must first be compiled with the ``--enable-gcov`` configure option.
+This will cause \*.gnco files to be created during the build. When topotests are
+run the statistics are generated and stored in \*.gcda files. Topotest
+infrastructure will gather these files, capture the information into a
+``coverage.info`` ``lcov`` file and also report the coverage summary.
+
+To enable code coverage support pass the ``--cov-topotest`` argument to pytest.
+If you build your FRR in a directory outside of the FRR source directory you
+will also need to pass the ``--cov-frr-build-dir`` argument specifying the build
+directory location.
+
+During the topotest run the \*.gcda files are generated into a ``gcda``
+sub-directory of the top-level run directory (i.e., normally
+``/tmp/topotests/gcda``). These files will then be copied at the end of the
+topotest run into the FRR build directory where the ``gcov`` and ``lcov``
+utilities expect to find them. This is done to deal with the various different
+file ownership and permissions.
+
+At the end of the run ``lcov`` will be run to capture all of the coverage data
+into a ``coverage.info`` file. This file will be located in the top-level run
+directory (i.e., normally ``/tmp/topotests/coverage.info``).
+
+The ``coverage.info`` file can then be used to generate coverage reports or file
+markup (e.g., using the ``genhtml`` utility) or enable markup within your
+IDE/editor if supported (e.g., the emacs ``cov-mode`` package)
+
+NOTE: the \*.gcda files in ``/tmp/topotests/gcda`` are cumulative so if you do
+not remove them they will aggregate data across multiple topotest runs.
+
+How to reproduce failed Tests
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Generally tests fail but recreating the test failure reliably is not necessarily
+easy, or it happens once every 10 runs locally.  Here are some generic strategies
+that are employed to allow for the test to be reproduced reliably
+
+.. code:: console
+
+   cd <test directory>
+   ln -s test_the_test_name.py test_a.py
+   ln -s test_the_test_name.py test_b.py
+
+This allows you to run multiple copies of the same test with one full test run.
+Additionally if you need to modify the test you don't need to recopy everything
+to make it work.  By adding multiple copies of the same occassionally failing test
+you raise the odds of it failing again.  Additionally you have easily accessible
+good and bad runs to compare.
+
+.. code:: console
+
+   sudo -E python3 -m pytest -n <some value> --dist=loadfile
+
+Choose a n value that is greater than the number of cpu's avalaible on the system.
+This changes the timing and may or may not make it more likely that the test fails.
+Be aware, though, that this changes memory requirements as well as may make other
+tests fail more often as well.  You should choose values that do not cause the system
+to go into swap usage.
+
+.. code:: console
+
+   stress -n <number of cpu's to put at 100%>
+
+By filling up cpu's with programs that do nothing you also change the timing again and
+may cause the problem to happen more often.
+
+There is no magic bullet here.  You as a developer might have to experiment with different
+values and different combinations of the above to cause the problem to happen more often.
+These are just the tools that we know of at this point in time.
+
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 .. _topotests_docker:
 
 Running Tests with Docker
@@ -741,7 +969,11 @@ commands:
 .. code:: console
 
    make topotests-build
+<<<<<<< HEAD
    TOPOTEST_PULL=0 make topotests
+=======
+   make topotests
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 
 .. _topotests-guidelines:
@@ -1183,6 +1415,11 @@ You can run scripts inside the node, or use vtysh's <tab> or <?> feature.
   loc1                       1 2001:db8:1:1::/64        Up
   loc2                       2 2001:db8:2:2::/64        Up
 
+<<<<<<< HEAD
+=======
+.. _writing-tests:
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 Writing Tests
 """""""""""""
 
@@ -1201,6 +1438,18 @@ Example:
            router.load_config(TopoRouter.RD_ZEBRA, "zebra.conf")
            router.load_config(TopoRouter.RD_OSPF)
 
+<<<<<<< HEAD
+=======
+or using unified config (specifying which daemons to run is optional):
+
+.. code:: py
+
+      for _, (rname, router) in enumerate(router_list.items(), 1):
+         router.load_frr_config(os.path.join(CWD, "{}/frr.conf".format(rname)), [
+            (TopoRouter.RD_ZEBRA, "-s 90000000"),
+            (TopoRouter.RD_MGMTD, None),
+            (TopoRouter.RD_BGP, None)]
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 - The topology definition or build function
 
@@ -1244,6 +1493,7 @@ Example:
 Requirements:
 
 - Directory name for a new topotest must not contain hyphen (``-``) characters.
+<<<<<<< HEAD
   To separate words, use underscores (``_``). For example, ``tests/topotests/bgp_new_example``.
 - Test code should always be declared inside functions that begin with the
   ``test_`` prefix. Functions beginning with different prefixes will not be run
@@ -1259,6 +1509,24 @@ Requirements:
 - Always use IPv4 :rfc:`5737` (``192.0.2.0/24``, ``198.51.100.0/24``,
   ``203.0.113.0/24``) and IPv6 :rfc:`3849` (``2001:db8::/32``) ranges reserved
   for documentation.
+=======
+  To separate words, use underscores (``_``). For example, ``tests/topotests/bgp_new_example``;
+- Test code should always be declared inside functions that begin with the
+  ``test_`` prefix. Functions beginning with different prefixes will not be run
+  by pytest;
+- Configuration files and long output commands should go into separated files
+  inside folders named after the equipment;
+- Tests must be able to run without any interaction. To make sure your test
+  conforms with this, run it without the :option:`-s` parameter;
+- Use `black <https://github.com/psf/black>`_ code formatter before creating
+  a pull request. This ensures we have a unified code style;
+- Mark test modules with pytest markers depending on the daemons used during the
+  tests (see :ref:`topotests-markers`);
+- Always use IPv4 :rfc:`5737` (``192.0.2.0/24``, ``198.51.100.0/24``,
+  ``203.0.113.0/24``) and IPv6 :rfc:`3849` (``2001:db8::/32``) ranges reserved
+  for documentation;
+- Use unified config (``frr.conf``) for all new tests. See :ref:`writing-tests`.
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 Tips:
 

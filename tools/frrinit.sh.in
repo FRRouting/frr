@@ -37,7 +37,11 @@ self="`dirname $0`"
 if [ -r "$self/frrcommon.sh" ]; then
 	. "$self/frrcommon.sh"
 else
+<<<<<<< HEAD
 	. "@CFG_SBIN@/frrcommon.sh"
+=======
+	. "@e_sbindir@/frrcommon.sh"
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 fi
 
 case "$1" in

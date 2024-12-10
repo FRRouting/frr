@@ -69,6 +69,11 @@ struct route_standard {
 
 	/*  */
 	uint8_t flags; /* From router-LSA */
+<<<<<<< HEAD
+=======
+
+	bool transit; /* Transit network or not */
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 };
 
 struct route_external {

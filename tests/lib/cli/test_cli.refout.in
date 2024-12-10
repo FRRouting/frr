@@ -409,7 +409,10 @@ domainname test.domain
 !
 !
 !
+<<<<<<< HEAD
 !
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 end
 test# conf t
 test(config)# hostname foohost
@@ -425,7 +428,10 @@ domainname test.domain
 !
 !
 !
+<<<<<<< HEAD
 !
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 end
 foohost(config)# 
 end.

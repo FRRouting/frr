@@ -22,7 +22,11 @@
 #include "pcep_utils_counters_test.h"
 
 
+<<<<<<< HEAD
 void test_create_counters_group()
+=======
+void test_create_counters_group(void)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 {
 	const char group_name[] = "group";
 	uint16_t num_subgroups = 10;
@@ -45,7 +49,11 @@ void test_create_counters_group()
 	delete_counters_group(group);
 }
 
+<<<<<<< HEAD
 void test_create_counters_subgroup()
+=======
+void test_create_counters_subgroup(void)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 {
 	const char subgroup_name[] = "subgroup";
 	uint16_t subgroup_id = 10;
@@ -77,7 +85,11 @@ void test_create_counters_subgroup()
 	delete_counters_subgroup(subgroup);
 }
 
+<<<<<<< HEAD
 void test_add_counters_subgroup()
+=======
+void test_add_counters_subgroup(void)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 {
 	struct counters_group *group = create_counters_group("group", 1);
 	struct counters_subgroup *subgroup1 =
@@ -102,6 +114,7 @@ void test_add_counters_subgroup()
 	delete_counters_subgroup(subgroup2);
 }
 
+<<<<<<< HEAD
 void test_create_subgroup_counter()
 {
 	uint16_t counter_id = 1;
@@ -117,12 +130,35 @@ void test_create_subgroup_counter()
 	CU_ASSERT_EQUAL(subgroup->num_counters, 0);
 	CU_ASSERT_TRUE(
 		create_subgroup_counter(subgroup, counter_id, counter_name));
+=======
+void test_create_subgroup_counter(void)
+{
+	uint16_t counter_id = 1;
+	char counter_name[] = "my counter";
+	char counter_name_json[] = "myCounter";
+	struct counters_subgroup *subgroup =
+		create_counters_subgroup("subgroup", 1, 2);
+
+	CU_ASSERT_FALSE(create_subgroup_counter(NULL, counter_id, counter_name,
+						counter_name_json));
+	CU_ASSERT_FALSE(create_subgroup_counter(subgroup, counter_id + 1,
+						counter_name, counter_name_json));
+	CU_ASSERT_FALSE(
+		create_subgroup_counter(subgroup, counter_id, NULL, NULL));
+	CU_ASSERT_EQUAL(subgroup->num_counters, 0);
+	CU_ASSERT_TRUE(create_subgroup_counter(subgroup, counter_id,
+					       counter_name, counter_name_json));
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	CU_ASSERT_EQUAL(subgroup->num_counters, 1);
 
 	delete_counters_subgroup(subgroup);
 }
 
+<<<<<<< HEAD
 void test_delete_counters_group()
+=======
+void test_delete_counters_group(void)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 {
 	struct counters_group *group = create_counters_group("group", 1);
 
@@ -130,7 +166,11 @@ void test_delete_counters_group()
 	CU_ASSERT_TRUE(delete_counters_group(group));
 }
 
+<<<<<<< HEAD
 void test_delete_counters_subgroup()
+=======
+void test_delete_counters_subgroup(void)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 {
 	struct counters_subgroup *subgroup =
 		create_counters_subgroup("subgroup", 1, 1);
@@ -139,14 +179,22 @@ void test_delete_counters_subgroup()
 	CU_ASSERT_TRUE(delete_counters_subgroup(subgroup));
 }
 
+<<<<<<< HEAD
 void test_reset_group_counters()
+=======
+void test_reset_group_counters(void)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 {
 	uint16_t subgroup_id = 1;
 	uint16_t counter_id = 1;
 	struct counters_group *group = create_counters_group("group", 10);
 	struct counters_subgroup *subgroup =
 		create_counters_subgroup("subgroup", subgroup_id, 10);
+<<<<<<< HEAD
 	create_subgroup_counter(subgroup, counter_id, "counter");
+=======
+	create_subgroup_counter(subgroup, counter_id, "counter", "counter");
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	add_counters_subgroup(group, subgroup);
 
 	struct counter *counter = subgroup->counters[counter_id];
@@ -159,12 +207,20 @@ void test_reset_group_counters()
 	delete_counters_group(group);
 }
 
+<<<<<<< HEAD
 void test_reset_subgroup_counters()
+=======
+void test_reset_subgroup_counters(void)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 {
 	uint16_t counter_id = 1;
 	struct counters_subgroup *subgroup =
 		create_counters_subgroup("subgroup", 1, 10);
+<<<<<<< HEAD
 	create_subgroup_counter(subgroup, counter_id, "counter");
+=======
+	create_subgroup_counter(subgroup, counter_id, "counter", "counter");
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	struct counter *counter = subgroup->counters[counter_id];
 	counter->counter_value = 100;
@@ -176,14 +232,22 @@ void test_reset_subgroup_counters()
 	delete_counters_subgroup(subgroup);
 }
 
+<<<<<<< HEAD
 void test_increment_counter()
+=======
+void test_increment_counter(void)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 {
 	uint16_t subgroup_id = 1;
 	uint16_t counter_id = 1;
 	struct counters_group *group = create_counters_group("group", 10);
 	struct counters_subgroup *subgroup =
 		create_counters_subgroup("subgroup", subgroup_id, 10);
+<<<<<<< HEAD
 	create_subgroup_counter(subgroup, counter_id, "counter");
+=======
+	create_subgroup_counter(subgroup, counter_id, "counter", "counter");
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	add_counters_subgroup(group, subgroup);
 
 	struct counter *counter = subgroup->counters[counter_id];
@@ -199,13 +263,21 @@ void test_increment_counter()
 	delete_counters_group(group);
 }
 
+<<<<<<< HEAD
 void test_increment_subgroup_counter()
+=======
+void test_increment_subgroup_counter(void)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 {
 	int counter_id = 1;
 	uint32_t counter_value = 100;
 	struct counters_subgroup *subgroup =
 		create_counters_subgroup("subgroup", 1, 10);
+<<<<<<< HEAD
 	create_subgroup_counter(subgroup, counter_id, "counter");
+=======
+	create_subgroup_counter(subgroup, counter_id, "counter", "counter");
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	struct counter *counter = subgroup->counters[counter_id];
 	counter->counter_value = counter_value;
@@ -218,14 +290,22 @@ void test_increment_subgroup_counter()
 	delete_counters_subgroup(subgroup);
 }
 
+<<<<<<< HEAD
 void test_dump_counters_group_to_log()
+=======
+void test_dump_counters_group_to_log(void)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 {
 	uint16_t subgroup_id = 1;
 	uint16_t counter_id = 1;
 	struct counters_group *group = create_counters_group("group", 10);
 	struct counters_subgroup *subgroup =
 		create_counters_subgroup("subgroup", subgroup_id, 10);
+<<<<<<< HEAD
 	create_subgroup_counter(subgroup, counter_id, "counter");
+=======
+	create_subgroup_counter(subgroup, counter_id, "counter", "counter");
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	add_counters_subgroup(group, subgroup);
 
 	CU_ASSERT_FALSE(dump_counters_group_to_log(NULL));
@@ -234,13 +314,21 @@ void test_dump_counters_group_to_log()
 	delete_counters_group(group);
 }
 
+<<<<<<< HEAD
 void test_dump_counters_subgroup_to_log()
+=======
+void test_dump_counters_subgroup_to_log(void)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 {
 	uint16_t subgroup_id = 1;
 	uint16_t counter_id = 1;
 	struct counters_subgroup *subgroup =
 		create_counters_subgroup("subgroup", subgroup_id, 10);
+<<<<<<< HEAD
 	create_subgroup_counter(subgroup, counter_id, "counter");
+=======
+	create_subgroup_counter(subgroup, counter_id, "counter", "counter");
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	CU_ASSERT_FALSE(dump_counters_subgroup_to_log(NULL));
 	CU_ASSERT_TRUE(dump_counters_subgroup_to_log(subgroup));

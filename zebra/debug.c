@@ -7,6 +7,10 @@
 #include <zebra.h>
 #include "command.h"
 #include "debug.h"
+<<<<<<< HEAD
+=======
+#include "mgmt_be_client.h"
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 #include "zebra/debug_clippy.c"
 
@@ -28,6 +32,10 @@ unsigned long zebra_debug_evpn_mh;
 unsigned long zebra_debug_pbr;
 unsigned long zebra_debug_neigh;
 unsigned long zebra_debug_tc;
+<<<<<<< HEAD
+=======
+unsigned long zebra_debug_srv6;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 DEFINE_HOOK(zebra_debug_show_debugging, (struct vty *vty), (vty));
 
@@ -120,6 +128,12 @@ DEFUN_NOSH (show_debugging_zebra,
 	if (IS_ZEBRA_DEBUG_PBR)
 		vty_out(vty, "  Zebra PBR debugging is on\n");
 
+<<<<<<< HEAD
+=======
+	if (IS_ZEBRA_DEBUG_SRV6)
+		vty_out(vty, "  Zebra SRv6 is on\n");
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	hook_call(zebra_debug_show_debugging, vty);
 
 	cmd_show_lib_debugs(vty);
@@ -371,6 +385,24 @@ DEFUN (debug_zebra_tc,
 	return CMD_SUCCESS;
 }
 
+<<<<<<< HEAD
+=======
+DEFPY(debug_zebra_srv6,
+      debug_zebra_srv6_cmd,
+      "[no$no] debug zebra srv6",
+      NO_STR
+      DEBUG_STR
+      "Zebra configuration\n"
+      "Debug zebra SRv6 events\n")
+{
+	if (no)
+		UNSET_FLAG(zebra_debug_srv6, ZEBRA_DEBUG_SRV6);
+	else
+		SET_FLAG(zebra_debug_srv6, ZEBRA_DEBUG_SRV6);
+	return CMD_SUCCESS;
+}
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 DEFPY (debug_zebra_mlag,
        debug_zebra_mlag_cmd,
        "[no$no] debug zebra mlag",
@@ -753,6 +785,14 @@ static int config_write_debug(struct vty *vty)
 		write++;
 	}
 
+<<<<<<< HEAD
+=======
+	if (IS_ZEBRA_DEBUG_SRV6) {
+		vty_out(vty, "debug zebra srv6\n");
+		write++;
+	}
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	return write;
 }
 
@@ -792,6 +832,10 @@ void zebra_debug_init(void)
 	install_element(ENABLE_NODE, &debug_zebra_rib_cmd);
 	install_element(ENABLE_NODE, &debug_zebra_fpm_cmd);
 	install_element(ENABLE_NODE, &debug_zebra_dplane_cmd);
+<<<<<<< HEAD
+=======
+	install_element(ENABLE_NODE, &debug_zebra_srv6_cmd);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	install_element(ENABLE_NODE, &debug_zebra_mlag_cmd);
 	install_element(ENABLE_NODE, &debug_zebra_nexthop_cmd);
 	install_element(ENABLE_NODE, &debug_zebra_pbr_cmd);
@@ -844,6 +888,15 @@ void zebra_debug_init(void)
 	install_element(CONFIG_NODE, &no_debug_zebra_fpm_cmd);
 	install_element(CONFIG_NODE, &no_debug_zebra_dplane_cmd);
 	install_element(CONFIG_NODE, &no_debug_zebra_pbr_cmd);
+<<<<<<< HEAD
 	install_element(CONFIG_NODE, &debug_zebra_mlag_cmd);
 	install_element(CONFIG_NODE, &debug_zebra_evpn_mh_cmd);
+=======
+	install_element(CONFIG_NODE, &debug_zebra_srv6_cmd);
+	install_element(CONFIG_NODE, &debug_zebra_mlag_cmd);
+	install_element(CONFIG_NODE, &debug_zebra_evpn_mh_cmd);
+
+	/* Init mgmtd backend client debug commands. */
+	mgmt_be_client_lib_vty_init();
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 }

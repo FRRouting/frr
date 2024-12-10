@@ -256,8 +256,12 @@ pfkey_read(int sd, struct sadb_msg *h)
 	}
 
 	/* XXX: Only one message can be outstanding. */
+<<<<<<< HEAD
 	if (hdr.sadb_msg_seq == sadb_msg_seq &&
 	    hdr.sadb_msg_pid == pid) {
+=======
+	if (hdr.sadb_msg_seq == sadb_msg_seq && hdr.sadb_msg_pid == pid) {
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		if (h)
 			*h = hdr;
 		return (0);
@@ -412,8 +416,12 @@ pfkey_establish(struct nbr *nbr, struct nbr_params *nbrp)
 {
 	switch (nbr->auth.method) {
 	case AUTH_MD5SIG:
+<<<<<<< HEAD
 		strlcpy(nbr->auth.md5key, nbrp->auth.md5key,
 		    sizeof(nbr->auth.md5key));
+=======
+		strlcpy(nbr->auth.md5key, nbrp->auth.md5key, sizeof(nbr->auth.md5key));
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		return pfkey_md5sig_establish(nbr, nbrp);
 	case AUTH_NONE:
 		return 0;

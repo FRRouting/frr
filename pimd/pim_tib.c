@@ -78,6 +78,34 @@ tib_sg_oil_setup(struct pim_instance *pim, pim_sgaddr sg, struct interface *oif)
 	return pim_channel_oil_add(pim, &sg, __func__);
 }
 
+<<<<<<< HEAD
+=======
+void tib_sg_proxy_join_prune_check(struct pim_instance *pim, pim_sgaddr sg,
+				   struct interface *oif, bool join)
+{
+	struct interface *ifp;
+
+	FOR_ALL_INTERFACES (pim->vrf, ifp) {
+		struct pim_interface *pim_ifp = ifp->info;
+
+		if (!pim_ifp)
+			continue;
+
+		if (ifp == oif) /* skip the source interface */
+			continue;
+
+		if (pim_ifp->gm_enable && pim_ifp->gm_proxy) {
+			if (join)
+				pim_if_gm_join_add(ifp, sg.grp, sg.src,
+						   GM_JOIN_PROXY);
+			else
+				pim_if_gm_join_del(ifp, sg.grp, sg.src,
+						   GM_JOIN_PROXY);
+		}
+	} /* scan interfaces */
+}
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 bool tib_sg_gm_join(struct pim_instance *pim, pim_sgaddr sg,
 		    struct interface *oif, struct channel_oil **oilp)
 {
@@ -90,11 +118,26 @@ bool tib_sg_gm_join(struct pim_instance *pim, pim_sgaddr sg,
 		return false;
 	}
 
+<<<<<<< HEAD
 	if (!*oilp)
 		*oilp = tib_sg_oil_setup(pim, sg, oif);
 	if (!*oilp)
 		return false;
 
+=======
+	if (!*oilp) {
+		*oilp = tib_sg_oil_setup(pim, sg, oif);
+#if PIM_IPV == 6
+		if (pim_embedded_rp_is_embedded(&sg.grp))
+			(*oilp)->oil_ref_count--;
+#endif /* PIM_IPV == 6 */
+	}
+	if (!*oilp)
+		return false;
+
+	tib_sg_proxy_join_prune_check(pim, sg, oif, true);
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	if (PIM_I_am_DR(pim_oif) || PIM_I_am_DualActive(pim_oif)) {
 		int result;
 
@@ -137,6 +180,11 @@ void tib_sg_gm_prune(struct pim_instance *pim, pim_sgaddr sg,
 {
 	int result;
 
+<<<<<<< HEAD
+=======
+	tib_sg_proxy_join_prune_check(pim, sg, oif, false);
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	/*
 	 It appears that in certain circumstances that
 	 igmp_source_forward_stop is called when IGMP forwarding
@@ -147,7 +195,18 @@ void tib_sg_gm_prune(struct pim_instance *pim, pim_sgaddr sg,
 	 Making the call to pim_channel_del_oif and ignoring the return code
 	 fixes the issue without ill effect, similar to
 	 pim_forward_stop below.
+<<<<<<< HEAD
 	*/
+=======
+
+	 Also on shutdown when the PIM upstream is removed the channel removal
+	 may have already happened, so just return here instead of trying to
+	 access an invalid pointer.
+	*/
+	if (pim->stopping)
+		return;
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	result = pim_channel_del_oif(*oilp, oif, PIM_OIF_FLAG_PROTO_GM,
 				     __func__);
 	if (result) {
@@ -163,4 +222,9 @@ void tib_sg_gm_prune(struct pim_instance *pim, pim_sgaddr sg,
 	  per-interface (S,G) state.
 	 */
 	pim_ifchannel_local_membership_del(oif, &sg);
+<<<<<<< HEAD
+=======
+
+	*oilp = pim_channel_oil_del(*oilp, __func__);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 }

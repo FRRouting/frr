@@ -112,9 +112,12 @@ from lib.common_config import (
     reset_config_on_routers,
     step,
     shutdown_bringup_interface,
+<<<<<<< HEAD
     kill_router_daemons,
     start_router_daemons,
     create_static_routes,
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 )
 from lib.pim import (
     create_pim_config,
@@ -123,9 +126,13 @@ from lib.pim import (
     verify_join_state_and_timer,
     verify_mroutes,
     verify_pim_neighbors,
+<<<<<<< HEAD
     get_pim_interface_traffic,
     verify_pim_rp_info,
     verify_pim_state,
+=======
+    verify_pim_rp_info,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     clear_pim_interface_traffic,
     clear_igmp_interfaces,
     clear_pim_interfaces,

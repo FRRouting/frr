@@ -5,6 +5,12 @@
  */
 
 #include <zebra.h>
+<<<<<<< HEAD
+=======
+#include <netinet/icmp6.h>
+#include <sys/ioctl.h>
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 #include "log.h"
 #include "privs.h"
 #include "if.h"
@@ -32,6 +38,10 @@
 #include "pim_sock.h"
 #include "pim_vxlan.h"
 #include "pim_msg.h"
+<<<<<<< HEAD
+=======
+#include "pim_util.h"
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 static void mroute_read_on(struct pim_instance *pim);
 static int pim_upstream_mroute_update(struct channel_oil *c_oil,
@@ -53,10 +63,21 @@ int pim_mroute_set(struct pim_instance *pim, int enable)
 			err = setsockopt(pim->mroute_socket, PIM_IPPROTO,
 					 MRT_TABLE, &data, data_len);
 			if (err) {
+<<<<<<< HEAD
 				zlog_warn(
 					"%s %s: failure: setsockopt(fd=%d,PIM_IPPROTO, MRT_TABLE=%d): errno=%d: %s",
 					__FILE__, __func__, pim->mroute_socket,
 					data, errno, safe_strerror(errno));
+=======
+				if (err == ENOPROTOOPT)
+					zlog_err("%s Kernel is not compiled with CONFIG_IP_MROUTE_MULTIPLE_TABLES and vrf's will not work",
+						 __func__);
+				else
+					zlog_warn("%s %s: failure: setsockopt(fd=%d,PIM_IPPROTO, MRT_TABLE=%d): errno=%d: %s",
+						  __FILE__, __func__,
+						  pim->mroute_socket, data,
+						  errno, safe_strerror(errno));
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 				return -1;
 			}
 		}
@@ -175,6 +196,17 @@ int pim_mroute_msg_nocache(int fd, struct interface *ifp, const kernmsg *msg)
 		 * so the kernel doesn't keep nagging us.
 		 */
 		struct pim_rpf *rpg;
+<<<<<<< HEAD
+=======
+#if PIM_IPV == 6
+		pim_addr embedded_rp;
+
+		if (pim_ifp->pim->embedded_rp.enable &&
+		    pim_embedded_rp_extract(&sg.grp, &embedded_rp) &&
+		    !pim_embedded_rp_filter_match(pim_ifp->pim, &sg.grp))
+			pim_embedded_rp_new(pim_ifp->pim, &sg.grp, &embedded_rp);
+#endif /* PIM_IPV == 6 */
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 		rpg = RP(pim_ifp->pim, msg->msg_im_dst);
 		if (!rpg) {
@@ -253,10 +285,19 @@ int pim_mroute_msg_nocache(int fd, struct interface *ifp, const kernmsg *msg)
 	up->channel_oil->cc.pktcnt++;
 	// resolve mfcc_parent prior to mroute_add in channel_add_oif
 	if (up->rpf.source_nexthop.interface &&
+<<<<<<< HEAD
 	    *oil_parent(up->channel_oil) >= MAXVIFS) {
 		pim_upstream_mroute_iif_update(up->channel_oil, __func__);
 	}
 	pim_register_join(up);
+=======
+	    *oil_incoming_vif(up->channel_oil) >= MAXVIFS) {
+		pim_upstream_mroute_iif_update(up->channel_oil, __func__);
+	}
+
+	if (!pim_is_group_filtered(pim_ifp, &sg.grp, &sg.src))
+		pim_register_join(up);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	/* if we have receiver, inherit from parent */
 	pim_upstream_inherited_olist_decide(pim_ifp->pim, up);
 
@@ -617,7 +658,12 @@ int pim_mroute_msg_wrvifwhole(int fd, struct interface *ifp, const char *buf,
 		pim_upstream_keep_alive_timer_start(
 			up, pim_ifp->pim->keep_alive_time);
 		up->channel_oil->cc.pktcnt++;
+<<<<<<< HEAD
 		pim_register_join(up);
+=======
+		if (!pim_is_group_filtered(pim_ifp, &sg.grp, &sg.src))
+			pim_register_join(up);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		pim_upstream_inherited_olist(pim_ifp->pim, up);
 		if (!up->channel_oil->installed)
 			pim_upstream_mroute_add(up->channel_oil, __func__);
@@ -1042,10 +1088,17 @@ static inline void pim_mroute_copy(struct channel_oil *out,
 
 	*oil_origin(out) = *oil_origin(in);
 	*oil_mcastgrp(out) = *oil_mcastgrp(in);
+<<<<<<< HEAD
 	*oil_parent(out) = *oil_parent(in);
 
 	for (i = 0; i < MAXVIFS; ++i) {
 		if (*oil_parent(out) == i &&
+=======
+	*oil_incoming_vif(out) = *oil_incoming_vif(in);
+
+	for (i = 0; i < MAXVIFS; ++i) {
+		if (*oil_incoming_vif(out) == i &&
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		    !pim_mroute_allow_iif_in_oil(in, i)) {
 			oil_if_set(out, i, 0);
 			continue;
@@ -1080,7 +1133,11 @@ static int pim_mroute_add(struct channel_oil *c_oil, const char *name)
 	 * in the case of a (*,G).
 	 */
 	if (pim_addr_is_any(*oil_origin(c_oil))) {
+<<<<<<< HEAD
 		oil_if_set(tmp_oil, *oil_parent(c_oil), 1);
+=======
+		oil_if_set(tmp_oil, *oil_incoming_vif(c_oil), 1);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	}
 
 	/*
@@ -1090,18 +1147,30 @@ static int pim_mroute_add(struct channel_oil *c_oil, const char *name)
 	 * the packets to be forwarded.  Then set it
 	 * to the correct IIF afterwords.
 	 */
+<<<<<<< HEAD
 	if (!c_oil->installed && !pim_addr_is_any(*oil_origin(c_oil))
 	    && *oil_parent(c_oil) != 0) {
 		*oil_parent(tmp_oil) = 0;
+=======
+	if (!c_oil->installed && !pim_addr_is_any(*oil_origin(c_oil)) &&
+	    *oil_incoming_vif(c_oil) != 0) {
+		*oil_incoming_vif(tmp_oil) = 0;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	}
 	/* For IPv6 MRT_ADD_MFC is defined to MRT6_ADD_MFC */
 	err = setsockopt(pim->mroute_socket, PIM_IPPROTO, MRT_ADD_MFC,
 			 &tmp_oil->oil, sizeof(tmp_oil->oil));
 
+<<<<<<< HEAD
 	if (!err && !c_oil->installed
 	    && !pim_addr_is_any(*oil_origin(c_oil))
 	    && *oil_parent(c_oil) != 0) {
 		*oil_parent(tmp_oil) = *oil_parent(c_oil);
+=======
+	if (!err && !c_oil->installed && !pim_addr_is_any(*oil_origin(c_oil)) &&
+	    *oil_incoming_vif(c_oil) != 0) {
+		*oil_incoming_vif(tmp_oil) = *oil_incoming_vif(c_oil);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		err = setsockopt(pim->mroute_socket, PIM_IPPROTO, MRT_ADD_MFC,
 				 &tmp_oil->oil, sizeof(tmp_oil->oil));
 	}
@@ -1158,7 +1227,11 @@ static int pim_upstream_mroute_update(struct channel_oil *c_oil,
 {
 	char buf[1000];
 
+<<<<<<< HEAD
 	if (*oil_parent(c_oil) >= MAXVIFS) {
+=======
+	if (*oil_incoming_vif(c_oil) >= MAXVIFS) {
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		/* the c_oil cannot be installed as a mroute yet */
 		if (PIM_DEBUG_MROUTE)
 			zlog_debug(
@@ -1205,13 +1278,22 @@ int pim_upstream_mroute_add(struct channel_oil *c_oil, const char *name)
 
 	iif = pim_upstream_get_mroute_iif(c_oil, name);
 
+<<<<<<< HEAD
 	if (*oil_parent(c_oil) != iif) {
 		*oil_parent(c_oil) = iif;
+=======
+	if (*oil_incoming_vif(c_oil) != iif) {
+		*oil_incoming_vif(c_oil) = iif;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		if (pim_addr_is_any(*oil_origin(c_oil)) &&
 				c_oil->up)
 			pim_upstream_all_sources_iif_update(c_oil->up);
 	} else {
+<<<<<<< HEAD
 		*oil_parent(c_oil) = iif;
+=======
+		*oil_incoming_vif(c_oil) = iif;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	}
 
 	return pim_upstream_mroute_update(c_oil, name);
@@ -1226,11 +1308,19 @@ int pim_upstream_mroute_iif_update(struct channel_oil *c_oil, const char *name)
 	char buf[1000];
 
 	iif = pim_upstream_get_mroute_iif(c_oil, name);
+<<<<<<< HEAD
 	if (*oil_parent(c_oil) == iif) {
 		/* no change */
 		return 0;
 	}
 	*oil_parent(c_oil) = iif;
+=======
+	if (*oil_incoming_vif(c_oil) == iif) {
+		/* no change */
+		return 0;
+	}
+	*oil_incoming_vif(c_oil) = iif;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	if (pim_addr_is_any(*oil_origin(c_oil)) &&
 			c_oil->up)
@@ -1255,10 +1345,17 @@ void pim_static_mroute_iif_update(struct channel_oil *c_oil,
 				int input_vif_index,
 				const char *name)
 {
+<<<<<<< HEAD
 	if (*oil_parent(c_oil) == input_vif_index)
 		return;
 
 	*oil_parent(c_oil) = input_vif_index;
+=======
+	if (*oil_incoming_vif(c_oil) == input_vif_index)
+		return;
+
+	*oil_incoming_vif(c_oil) = input_vif_index;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	if (input_vif_index == MAXVIFS)
 		pim_mroute_del(c_oil, name);
 	else
@@ -1276,10 +1373,22 @@ int pim_mroute_del(struct channel_oil *c_oil, const char *name)
 	if (!c_oil->installed) {
 		if (PIM_DEBUG_MROUTE) {
 			char buf[1000];
+<<<<<<< HEAD
 			zlog_debug(
 				"%s %s: vifi %d for route is %s not installed, do not need to send del req. ",
 				__FILE__, __func__, *oil_parent(c_oil),
 				pim_channel_oil_dump(c_oil, buf, sizeof(buf)));
+=======
+			struct interface *iifp =
+				pim_if_find_by_vif_index(pim, *oil_incoming_vif(
+								      c_oil));
+
+			zlog_debug("%s %s: incoming interface %s for route is %s not installed, do not need to send del req. ",
+				   __FILE__, __func__,
+				   iifp ? iifp->name : "Unknown",
+				   pim_channel_oil_dump(c_oil, buf,
+							sizeof(buf)));
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		}
 		return -2;
 	}

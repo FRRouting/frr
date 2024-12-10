@@ -19,7 +19,11 @@ import re
 import sys
 import pytest
 from time import sleep
+<<<<<<< HEAD
 
+=======
+import functools
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from lib import topotest
@@ -273,6 +277,30 @@ def test_zebra_ipv6_routingTable():
     global fatal_error
     net = get_topogen().net
 
+<<<<<<< HEAD
+=======
+    def _verify_ip_route(expected):
+        # Actual output from router
+        actual = (
+            net["r%s" % i]
+            .cmd('vtysh -c "show ipv6 route" 2> /dev/null | grep "^R"')
+            .rstrip()
+        )
+        # Mask out Link-Local mac address portion. They are random...
+        actual = re.sub(r" fe80::[0-9a-f:]+", " fe80::XXXX:XXXX:XXXX:XXXX", actual)
+        # Drop timers on end of line
+        actual = re.sub(r", [0-2][0-9]:[0-5][0-9]:[0-5][0-9]", "", actual)
+        # Fix newlines (make them all the same)
+        actual = ("\n".join(actual.splitlines()) + "\n").splitlines(1)
+
+        return topotest.get_textdiff(
+            actual,
+            expected,
+            title1="actual Zebra IPv6 routing table",
+            title2="expected Zebra IPv6 routing table",
+        )
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     # Skip if previous fatal error condition is raised
     if fatal_error != "":
         pytest.skip(fatal_error)
@@ -291,6 +319,7 @@ def test_zebra_ipv6_routingTable():
             # Fix newlines (make them all the same)
             expected = ("\n".join(expected.splitlines()) + "\n").splitlines(1)
 
+<<<<<<< HEAD
             # Actual output from router
             actual = (
                 net["r%s" % i]
@@ -327,6 +356,11 @@ def test_zebra_ipv6_routingTable():
                 i,
                 diff,
             )
+=======
+            test_func = functools.partial(_verify_ip_route, expected)
+            success, _ = topotest.run_and_expect(test_func, "", count=30, wait=1)
+            assert success, "Failed verifying IPv6 routes for r{}".format(i)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
     # Make sure that all daemons are running
     for i in range(1, 4):
@@ -386,7 +420,10 @@ def test_shutdown_check_memleak():
 
 
 if __name__ == "__main__":
+<<<<<<< HEAD
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     # To suppress tracebacks, either use the following pytest call or add "--tb=no" to cli
     # retval = pytest.main(["-s", "--tb=no"])
     retval = pytest.main(["-s"])

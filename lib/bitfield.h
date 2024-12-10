@@ -114,7 +114,13 @@ DECLARE_MTYPE(BITFIELD);
 		(v).n += ((v).data[w] == WORD_MAX);                            \
 		if ((v).n == (v).m) {                                          \
 			(v).m = (v).m + 1;                                     \
+<<<<<<< HEAD
 			(v).data = realloc((v).data, (v).m * sizeof(word_t));  \
+=======
+			(v).data = XREALLOC(MTYPE_BITFIELD, (v).data,          \
+					    (v).m * sizeof(word_t));           \
+			(v).data[(v).m - 1] = 0;                               \
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		}                                                              \
 	} while (0)
 
@@ -188,7 +194,12 @@ bf_find_next_clear_bit_wrap(bitfield_t *v, word_t start_index, word_t max_index)
 		 * will allocate additional space.
 		 */
 		v->m += 1;
+<<<<<<< HEAD
 		v->data = (word_t *)realloc(v->data, v->m * sizeof(word_t));
+=======
+		v->data = (word_t *)XREALLOC(MTYPE_BITFIELD, v->data,
+					     v->m * sizeof(word_t));
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		v->data[v->m - 1] = 0;
 		return v->m * WORD_SIZE;
 	}

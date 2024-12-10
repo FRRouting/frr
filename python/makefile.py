@@ -52,7 +52,11 @@ if args.dev_build:
                 "grep",
                 "-l",
                 "-P",
+<<<<<<< HEAD
                 "^#\s*include.*_clippy.c",
+=======
+                r"^#\s*include.*_clippy.c",
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
                 "--",
                 "**.c",
             ]
@@ -91,7 +95,11 @@ lines = before.splitlines()
 autoderp = "#AUTODERP# "
 out_lines = []
 bcdeps = []
+<<<<<<< HEAD
 make_rule_re = re.compile("^([^:\s]+):\s*([^:\s]+)\s*($|\n)")
+=======
+make_rule_re = re.compile(r"^([^:\s]+):\s*([^:\s]+)\s*($|\n)")
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 while lines:
     line = lines.pop(0)

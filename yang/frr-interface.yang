@@ -241,17 +241,29 @@ module frr-interface {
     }
 
     leaf mtu {
+<<<<<<< HEAD
       type uint16;
       description
         "The size of the largest IPV4 packet that the interface
          will send and receive.";
+=======
+      type uint32;
+      description
+        "The size of the largest IPV4 packet that the interface will send.
+         Normally this will never be larger than 65535; however, some devices
+         (e.g., vrf) can have larger values";
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     }
 
     leaf mtu6 {
       type uint32;
       description
         "The size of the largest IPV6 packet that the interface
+<<<<<<< HEAD
          will send and receive.";
+=======
+         will send.";
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     }
 
     leaf speed {

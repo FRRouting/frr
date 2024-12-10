@@ -3,6 +3,12 @@
  * Zebra connect code.
  * Copyright (C) 2018 Cumulus Networks, Inc.
  *               Donald Sharp
+<<<<<<< HEAD
+=======
+ * Portions:
+ *		Copyright (c) 2021 The MITRE Corporation.
+ *		Copyright (c) 2023 LabN Consulting, L.L.C.
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
  */
 #include <zebra.h>
 
@@ -20,6 +26,10 @@
 #include "log.h"
 #include "nexthop.h"
 #include "nexthop_group.h"
+<<<<<<< HEAD
+=======
+#include "pbr.h"
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 #include "pbr_nht.h"
 #include "pbr_map.h"
@@ -125,6 +135,7 @@ int pbr_ifp_down(struct interface *ifp)
 	return 0;
 }
 
+<<<<<<< HEAD
 static int interface_vrf_update(ZAPI_CALLBACK_ARGS)
 {
 	struct interface *ifp;
@@ -148,6 +159,8 @@ static int interface_vrf_update(ZAPI_CALLBACK_ARGS)
 	return 0;
 }
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 static int route_notify_owner(ZAPI_CALLBACK_ARGS)
 {
 	struct prefix p;
@@ -197,7 +210,11 @@ static int rule_notify_owner(ZAPI_CALLBACK_ARGS)
 	enum zapi_rule_notify_owner note;
 	struct pbr_map_sequence *pbrms;
 	struct pbr_map_interface *pmi;
+<<<<<<< HEAD
 	char ifname[INTERFACE_NAMSIZ + 1];
+=======
+	char ifname[IFNAMSIZ + 1];
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	uint64_t installed;
 
 	if (!zapi_rule_notify_decode(zclient->ibuf, &seqno, &priority, &unique,
@@ -241,6 +258,11 @@ static int rule_notify_owner(ZAPI_CALLBACK_ARGS)
 static void zebra_connected(struct zclient *zclient)
 {
 	DEBUGD(&pbr_dbg_zebra, "%s: Registering for fun and profit", __func__);
+<<<<<<< HEAD
+=======
+
+	zebra_route_notify_send(ZEBRA_ROUTE_NOTIFY_REQUEST, zclient, true);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	zclient_send_reg_requests(zclient, VRF_DEFAULT);
 }
 
@@ -383,6 +405,7 @@ void route_delete(struct pbr_nexthop_group_cache *pnhgc, afi_t afi)
 	}
 }
 
+<<<<<<< HEAD
 static int pbr_zebra_nexthop_update(ZAPI_CALLBACK_ARGS)
 {
 	struct zapi_route nhr;
@@ -415,6 +438,32 @@ static int pbr_zebra_nexthop_update(ZAPI_CALLBACK_ARGS)
 	nhr.prefix = matched;
 	pbr_nht_nexthop_update(&nhr);
 	return 1;
+=======
+static void pbr_zebra_nexthop_update(struct vrf *vrf, struct prefix *matched,
+				     struct zapi_route *nhr)
+{
+	uint32_t i;
+
+	if (DEBUG_MODE_CHECK(&pbr_dbg_zebra, DEBUG_MODE_ALL)) {
+		DEBUGD(&pbr_dbg_zebra,
+		       "%s: Received Nexthop update: %pFX against %pFX",
+		       __func__, matched, &nhr->prefix);
+
+		DEBUGD(&pbr_dbg_zebra, "%s:   (Nexthops(%u)", __func__,
+		       nhr->nexthop_num);
+
+		for (i = 0; i < nhr->nexthop_num; i++) {
+			DEBUGD(&pbr_dbg_zebra,
+			       "%s:     Type: %d: vrf: %d, ifindex: %d gate: %pI4",
+			       __func__, nhr->nexthops[i].type,
+			       nhr->nexthops[i].vrf_id, nhr->nexthops[i].ifindex,
+			       &nhr->nexthops[i].gate.ipv4);
+		}
+	}
+
+	nhr->prefix = *matched;
+	pbr_nht_nexthop_update(nhr);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 }
 
 extern struct zebra_privs_t pbr_privs;
@@ -422,21 +471,44 @@ extern struct zebra_privs_t pbr_privs;
 static zclient_handler *const pbr_handlers[] = {
 	[ZEBRA_INTERFACE_ADDRESS_ADD] = interface_address_add,
 	[ZEBRA_INTERFACE_ADDRESS_DELETE] = interface_address_delete,
+<<<<<<< HEAD
 	[ZEBRA_INTERFACE_VRF_UPDATE] = interface_vrf_update,
 	[ZEBRA_ROUTE_NOTIFY_OWNER] = route_notify_owner,
 	[ZEBRA_RULE_NOTIFY_OWNER] = rule_notify_owner,
 	[ZEBRA_NEXTHOP_UPDATE] = pbr_zebra_nexthop_update,
+=======
+	[ZEBRA_ROUTE_NOTIFY_OWNER] = route_notify_owner,
+	[ZEBRA_RULE_NOTIFY_OWNER] = rule_notify_owner,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 };
 
 void pbr_zebra_init(void)
 {
+<<<<<<< HEAD
 	struct zclient_options opt = { .receive_notify = true };
 
 	zclient = zclient_new(master, &opt, pbr_handlers,
+=======
+	zclient = zclient_new(master, &zclient_options_default, pbr_handlers,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			      array_size(pbr_handlers));
 
 	zclient_init(zclient, ZEBRA_ROUTE_PBR, 0, &pbr_privs);
 	zclient->zebra_connected = zebra_connected;
+<<<<<<< HEAD
+=======
+	zclient->nexthop_update = pbr_zebra_nexthop_update;
+}
+
+void pbr_zebra_destroy(void)
+{
+	if (zclient == NULL)
+		return;
+
+	zclient_stop(zclient);
+	zclient_free(zclient);
+	zclient = NULL;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 }
 
 void pbr_send_rnh(struct nexthop *nhop, bool reg)
@@ -479,6 +551,7 @@ void pbr_send_rnh(struct nexthop *nhop, bool reg)
 	}
 }
 
+<<<<<<< HEAD
 static void pbr_encode_pbr_map_sequence_prefix(struct stream *s,
 					       struct prefix *p,
 					       unsigned char  family)
@@ -500,6 +573,11 @@ static void
 pbr_encode_pbr_map_sequence_vrf(struct stream *s,
 				const struct pbr_map_sequence *pbrms,
 				const struct interface *ifp)
+=======
+
+static uint32_t pbr_map_sequence_vrf(const struct pbr_map_sequence *pbrms,
+				     const struct interface *ifp)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 {
 	struct pbr_vrf *pbr_vrf;
 
@@ -510,22 +588,55 @@ pbr_encode_pbr_map_sequence_vrf(struct stream *s,
 
 	if (!pbr_vrf) {
 		DEBUGD(&pbr_dbg_zebra, "%s: VRF not found", __func__);
+<<<<<<< HEAD
 		return;
 	}
 
 	stream_putl(s, pbr_vrf->vrf->data.l.table_id);
 }
 
+=======
+		return 0;
+	}
+
+	return pbr_vrf->vrf->data.l.table_id;
+
+}
+
+/*
+ * 230716 gpz note: it would be worthwhile for pbrd to represent
+ * its rules internally using the lib/pbr.h structures to help
+ * move toward a more common structure across pbrd, bgpd, and zebra.
+ */
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 static bool pbr_encode_pbr_map_sequence(struct stream *s,
 					struct pbr_map_sequence *pbrms,
 					struct interface *ifp)
 {
+<<<<<<< HEAD
 	unsigned char family;
 
+=======
+
+	struct pbr_rule r;
+	uint8_t family;
+
+	/*
+	 * Opportunistic address family field is set when any of the IP
+	 * address match/set fields is set, or when a NH/NHG is resolved.
+	 * The value is needed by zebra for the underlying netlink
+	 * messaging, particularly in delete operations, because it
+	 * selects the rule database (IPv4 vs. IPv6).
+	 *
+	 * Historically the value has been encoded into any unused
+	 * "match src/dst address" fields and picked off in zebra.
+	 */
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	family = AF_INET;
 	if (pbrms->family)
 		family = pbrms->family;
 
+<<<<<<< HEAD
 	stream_putl(s, pbrms->seqno);
 	stream_putl(s, pbrms->ruleno);
 	stream_putl(s, pbrms->unique);
@@ -549,12 +660,86 @@ static bool pbr_encode_pbr_map_sequence(struct stream *s,
 		stream_putl(s, pbr_nht_get_table(pbrms->nhgrp_name));
 	else if (pbrms->nhg)
 		stream_putl(s, pbr_nht_get_table(pbrms->internal_nhg_name));
+=======
+	if (pbrms->src)
+		assert(family == pbrms->src->family);
+	if (pbrms->dst)
+		assert(family == pbrms->dst->family);
+
+	/*
+	 * Convert struct pbr_map_sequence to canonical form
+	 */
+	memset(&r, 0, sizeof(r));
+	r.seq = pbrms->seqno;
+	r.priority = pbrms->ruleno;
+	r.unique = pbrms->unique;
+
+	r.family = pbrms->family;
+
+	/* filter */
+	r.filter.filter_bm = pbrms->filter_bm;
+	if (pbrms->src)
+		r.filter.src_ip = *pbrms->src;
+	else
+		r.filter.src_ip.family = family;
+	if (pbrms->dst)
+		r.filter.dst_ip = *pbrms->dst;
+	else
+		r.filter.dst_ip.family = family;
+	r.filter.src_port = pbrms->src_prt;
+	r.filter.dst_port = pbrms->dst_prt;
+	r.filter.pcp = pbrms->match_pcp;
+	r.filter.vlan_id = pbrms->match_vlan_id;
+	r.filter.vlan_flags = pbrms->match_vlan_flags;
+	r.filter.dsfield = pbrms->dsfield;
+	r.filter.fwmark = pbrms->mark;
+	r.filter.ip_proto = pbrms->ip_proto;
+
+	r.filter.filter_bm = pbrms->filter_bm;
+
+	/* actions */
+
+	r.action.flags = pbrms->action_bm;
+
+	SET_FLAG(r.action.flags, PBR_ACTION_TABLE); /* always valid */
+
+	/*
+	 * if the user does not use the command "set vrf name unchanged"
+	 * then pbr_encode_pbr_map_sequence_vrf will not be called
+	 */
+	if (pbrms->vrf_unchanged || pbrms->vrf_lookup)
+		r.action.table = pbr_map_sequence_vrf(pbrms, ifp);
+	else if (pbrms->nhgrp_name)
+		r.action.table = pbr_nht_get_table(pbrms->nhgrp_name);
+	else if (pbrms->nhg)
+		r.action.table = pbr_nht_get_table(pbrms->internal_nhg_name);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	else {
 		/* Not valid for install without table */
 		return false;
 	}
 
+<<<<<<< HEAD
 	stream_put(s, ifp->name, INTERFACE_NAMSIZ);
+=======
+	r.action.queue_id = pbrms->action_queue_id;
+
+	r.action.src_ip = pbrms->action_src;
+	r.action.dst_ip = pbrms->action_dst;
+
+	r.action.src_port = pbrms->action_src_port;
+	r.action.dst_port = pbrms->action_dst_port;
+
+	r.action.dscp = pbrms->action_dscp;
+	r.action.ecn = pbrms->action_ecn;
+
+	r.action.pcp = pbrms->action_pcp;
+	r.action.vlan_id = pbrms->action_vlan_id;
+
+	strlcpy(r.ifname, ifp->name, sizeof(r.ifname));
+
+	zapi_pbr_rule_encode(s, &r);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	return true;
 }
@@ -568,9 +753,12 @@ bool pbr_send_pbr_map(struct pbr_map_sequence *pbrms,
 
 	is_installed &= pbrms->installed;
 
+<<<<<<< HEAD
 	DEBUGD(&pbr_dbg_zebra, "%s: for %s %d(%" PRIu64 ")", __func__,
 	       pbrm->name, install, is_installed);
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	/*
 	 * If we are installed and asked to do so again and the config
 	 * has not changed, just return.
@@ -591,11 +779,14 @@ bool pbr_send_pbr_map(struct pbr_map_sequence *pbrms,
 			      install ? ZEBRA_RULE_ADD : ZEBRA_RULE_DELETE,
 			      VRF_DEFAULT);
 
+<<<<<<< HEAD
 	/*
 	 * We are sending one item at a time at the moment
 	 */
 	stream_putl(s, 1);
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	DEBUGD(&pbr_dbg_zebra, "%s:    %s %s seq %u %d %s %u", __func__,
 	       install ? "Installing" : "Deleting", pbrm->name, pbrms->seqno,
 	       install, pmi->ifp->name, pmi->delete);

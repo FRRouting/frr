@@ -1,3 +1,7 @@
+<<<<<<< HEAD
+=======
+// SPDX-License-Identifier: GPL-2.0-or-later
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 enum vici_type_t {
 	VICI_START = 0,

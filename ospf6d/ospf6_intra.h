@@ -13,10 +13,20 @@ extern in_addr_t conf_debug_ospf6_brouter_specific_area_id;
 #define OSPF6_DEBUG_BROUTER_SUMMARY         0x01
 #define OSPF6_DEBUG_BROUTER_SPECIFIC_ROUTER 0x02
 #define OSPF6_DEBUG_BROUTER_SPECIFIC_AREA   0x04
+<<<<<<< HEAD
 #define OSPF6_DEBUG_BROUTER_ON()                                               \
 	(conf_debug_ospf6_brouter |= OSPF6_DEBUG_BROUTER_SUMMARY)
 #define OSPF6_DEBUG_BROUTER_OFF()                                              \
 	(conf_debug_ospf6_brouter &= ~OSPF6_DEBUG_BROUTER_SUMMARY)
+=======
+
+#define OSPF6_DEBUG_BROUTER_ON()                                               \
+	(conf_debug_ospf6_brouter |= OSPF6_DEBUG_BROUTER_SUMMARY)
+
+#define OSPF6_DEBUG_BROUTER_OFF()                                              \
+	(conf_debug_ospf6_brouter &= ~OSPF6_DEBUG_BROUTER_SUMMARY)
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 #define IS_OSPF6_DEBUG_BROUTER                                                 \
 	(conf_debug_ospf6_brouter & OSPF6_DEBUG_BROUTER_SUMMARY)
 
@@ -26,14 +36,25 @@ extern in_addr_t conf_debug_ospf6_brouter_specific_area_id;
 		conf_debug_ospf6_brouter |=                                    \
 			OSPF6_DEBUG_BROUTER_SPECIFIC_ROUTER;                   \
 	} while (0)
+<<<<<<< HEAD
+=======
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 #define OSPF6_DEBUG_BROUTER_SPECIFIC_ROUTER_OFF()                              \
 	do {                                                                   \
 		conf_debug_ospf6_brouter_specific_router_id = 0;               \
 		conf_debug_ospf6_brouter &=                                    \
 			~OSPF6_DEBUG_BROUTER_SPECIFIC_ROUTER;                  \
 	} while (0)
+<<<<<<< HEAD
 #define IS_OSPF6_DEBUG_BROUTER_SPECIFIC_ROUTER                                 \
 	(conf_debug_ospf6_brouter & OSPF6_DEBUG_BROUTER_SPECIFIC_ROUTER)
+=======
+
+#define IS_OSPF6_DEBUG_BROUTER_SPECIFIC_ROUTER                                 \
+	(conf_debug_ospf6_brouter & OSPF6_DEBUG_BROUTER_SPECIFIC_ROUTER)
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 #define IS_OSPF6_DEBUG_BROUTER_SPECIFIC_ROUTER_ID(router_id)                   \
 	(IS_OSPF6_DEBUG_BROUTER_SPECIFIC_ROUTER                                \
 	 && conf_debug_ospf6_brouter_specific_router_id == (router_id))
@@ -43,18 +64,30 @@ extern in_addr_t conf_debug_ospf6_brouter_specific_area_id;
 		conf_debug_ospf6_brouter_specific_area_id = (area_id);         \
 		conf_debug_ospf6_brouter |= OSPF6_DEBUG_BROUTER_SPECIFIC_AREA; \
 	} while (0)
+<<<<<<< HEAD
+=======
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 #define OSPF6_DEBUG_BROUTER_SPECIFIC_AREA_OFF()                                \
 	do {                                                                   \
 		conf_debug_ospf6_brouter_specific_area_id = 0;                 \
 		conf_debug_ospf6_brouter &=                                    \
 			~OSPF6_DEBUG_BROUTER_SPECIFIC_AREA;                    \
 	} while (0)
+<<<<<<< HEAD
 #define IS_OSPF6_DEBUG_BROUTER_SPECIFIC_AREA                                   \
 	(conf_debug_ospf6_brouter & OSPF6_DEBUG_BROUTER_SPECIFIC_AREA)
+=======
+
+#define IS_OSPF6_DEBUG_BROUTER_SPECIFIC_AREA                                   \
+	(conf_debug_ospf6_brouter & OSPF6_DEBUG_BROUTER_SPECIFIC_AREA)
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 #define IS_OSPF6_DEBUG_BROUTER_SPECIFIC_AREA_ID(area_id)                       \
 	(IS_OSPF6_DEBUG_BROUTER_SPECIFIC_AREA                                  \
 	 && conf_debug_ospf6_brouter_specific_area_id == (area_id))
 
+<<<<<<< HEAD
 /* Router-LSA */
 #define OSPF6_ROUTER_LSA_MIN_SIZE              4U
 struct ospf6_router_lsa {
@@ -79,6 +112,8 @@ struct ospf6_router_lsdesc {
 #define OSPF6_ROUTER_LSDESC_STUB_NETWORK       3
 #define OSPF6_ROUTER_LSDESC_VIRTUAL_LINK       4
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 enum stub_router_mode {
 	OSPF6_NOT_STUB_ROUTER,
 	OSPF6_IS_STUB_ROUTER,
@@ -92,6 +127,7 @@ enum stub_router_mode {
 		 : 0)
 #define ROUTER_LSDESC_GET_METRIC(x)                                            \
 	(ntohs(((struct ospf6_router_lsdesc *)(x))->metric))
+<<<<<<< HEAD
 #define ROUTER_LSDESC_GET_IFID(x)                                              \
 	(ntohl(((struct ospf6_router_lsdesc *)(x))->interface_id))
 #define ROUTER_LSDESC_GET_NBR_IFID(x)                                          \
@@ -135,6 +171,18 @@ struct ospf6_intra_prefix_lsa {
 	/* followed by ospf6 prefix(es) */
 };
 
+=======
+
+#define ROUTER_LSDESC_GET_IFID(x)                                              \
+	(ntohl(((struct ospf6_router_lsdesc *)(x))->interface_id))
+
+#define ROUTER_LSDESC_GET_NBR_IFID(x)                                          \
+	(ntohl(((struct ospf6_router_lsdesc *)(x))->neighbor_interface_id))
+
+#define ROUTER_LSDESC_GET_NBR_ROUTERID(x)                                      \
+	(((struct ospf6_router_lsdesc *)(x))->neighbor_router_id)
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 #define OSPF6_ROUTER_LSA_SCHEDULE(oa)                                          \
 	do {                                                                   \
@@ -142,18 +190,30 @@ struct ospf6_intra_prefix_lsa {
 			event_add_event(master, ospf6_router_lsa_originate,    \
 					oa, 0, &(oa)->thread_router_lsa);      \
 	} while (0)
+<<<<<<< HEAD
+=======
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 #define OSPF6_NETWORK_LSA_SCHEDULE(oi)                                         \
 	do {                                                                   \
 		if (!CHECK_FLAG((oi)->flag, OSPF6_INTERFACE_DISABLE))          \
 			event_add_event(master, ospf6_network_lsa_originate,   \
 					oi, 0, &(oi)->thread_network_lsa);     \
 	} while (0)
+<<<<<<< HEAD
+=======
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 #define OSPF6_LINK_LSA_SCHEDULE(oi)                                            \
 	do {                                                                   \
 		if (!CHECK_FLAG((oi)->flag, OSPF6_INTERFACE_DISABLE))          \
 			event_add_event(master, ospf6_link_lsa_originate, oi,  \
 					0, &(oi)->thread_link_lsa);            \
 	} while (0)
+<<<<<<< HEAD
+=======
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 #define OSPF6_INTRA_PREFIX_LSA_SCHEDULE_STUB(oa)                               \
 	do {                                                                   \
 		if (CHECK_FLAG((oa)->flag, OSPF6_AREA_ENABLE))                 \
@@ -161,6 +221,10 @@ struct ospf6_intra_prefix_lsa {
 				master, ospf6_intra_prefix_lsa_originate_stub, \
 				oa, 0, &(oa)->thread_intra_prefix_lsa);        \
 	} while (0)
+<<<<<<< HEAD
+=======
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 #define OSPF6_INTRA_PREFIX_LSA_SCHEDULE_TRANSIT(oi)                            \
 	do {                                                                   \
 		if (!CHECK_FLAG((oi)->flag, OSPF6_INTERFACE_DISABLE))          \
@@ -181,20 +245,33 @@ struct ospf6_intra_prefix_lsa {
 	do {                                                                   \
 		if (CHECK_FLAG((oa)->flag, OSPF6_AREA_ENABLE))                 \
 			event_execute(master, ospf6_router_lsa_originate, oa,  \
+<<<<<<< HEAD
 				      0);                                      \
+=======
+				      0, NULL);                                \
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	} while (0)
 
 #define OSPF6_NETWORK_LSA_EXECUTE(oi)                                          \
 	do {                                                                   \
 		EVENT_OFF((oi)->thread_network_lsa);                           \
+<<<<<<< HEAD
 		event_execute(master, ospf6_network_lsa_originate, oi, 0);     \
+=======
+		event_execute(master, ospf6_network_lsa_originate, oi, 0,      \
+			      NULL);                                           \
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	} while (0)
 
 #define OSPF6_LINK_LSA_EXECUTE(oi)                                             \
 	do {                                                                   \
 		if (!CHECK_FLAG((oi)->flag, OSPF6_INTERFACE_DISABLE))          \
 			event_execute(master, ospf6_link_lsa_originate, oi,    \
+<<<<<<< HEAD
 				      0);                                      \
+=======
+				      0, NULL);                                \
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	} while (0)
 
 #define OSPF6_INTRA_PREFIX_LSA_EXECUTE_TRANSIT(oi)                             \
@@ -202,13 +279,21 @@ struct ospf6_intra_prefix_lsa {
 		EVENT_OFF((oi)->thread_intra_prefix_lsa);                      \
 		event_execute(master,                                          \
 			      ospf6_intra_prefix_lsa_originate_transit, oi,    \
+<<<<<<< HEAD
 			      0);                                              \
+=======
+			      0, NULL);                                        \
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	} while (0)
 
 #define OSPF6_AS_EXTERN_LSA_EXECUTE(oi)                                        \
 	do {                                                                   \
 		EVENT_OFF((oi)->thread_as_extern_lsa);                         \
+<<<<<<< HEAD
 		event_execute(master, ospf6_orig_as_external_lsa, oi, 0);      \
+=======
+		event_execute(master, ospf6_orig_as_external_lsa, oi, 0, NULL);\
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	} while (0)
 
 /* Function Prototypes */

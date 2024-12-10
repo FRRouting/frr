@@ -42,3 +42,10 @@ noinst_HEADERS += \
 	nhrpd/zbuf.h \
 	nhrpd/znl.h \
 	# end
+<<<<<<< HEAD
+=======
+
+clippy_scan += \
+	nhrpd/nhrp_vty.c \
+	# end
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)

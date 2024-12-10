@@ -249,7 +249,11 @@ apps:
             - network-bind
             - network-control
     bfdd-debug:
+<<<<<<< HEAD
         command: sbin/bfdd -f $SNAP_DATA/bfdd.conf --pid_file $SNAP_DATA/bfdd.pid --socket $SNAP_DATA/zsock --vty_socket $SNAP_DATA --bfdctl $SNAP_DATA/bfdd.sock
+=======
+        command: sbin/bfdd -f $SNAP_DATA/bfdd.conf --pid_file $SNAP_DATA/bfdd.pid --socket $SNAP_DATA/zsock --vty_socket $SNAP_DATA
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         plugs:
             - network
             - network-bind
@@ -302,7 +306,11 @@ parts:
            - libpcre2-8-0
         source: https://github.com/CESNET/libyang.git
         source-type: git
+<<<<<<< HEAD
         source-tag: v2.1.80
+=======
+        source-tag: v2.1.128
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         plugin: cmake
         configflags:
            - -DCMAKE_INSTALL_PREFIX:PATH=/usr
@@ -369,7 +377,10 @@ parts:
             - --enable-ospfapi=yes
             - --enable-multipath=64
             - --enable-rtadv
+<<<<<<< HEAD
             - --enable-irdp
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
             - --enable-user=root
             - --enable-group=root
             - --enable-pimd
@@ -381,10 +392,17 @@ parts:
             - --enable-vrrpd
             - --enable-configfile-mask=0640
             - --enable-logfile-mask=0640
+<<<<<<< HEAD
             - --localstatedir=/var/run
             - --sbindir=/sbin
             - --bindir=/bin
             - --sysconfdir=/etc/frr
+=======
+            - --sysconfdir=/etc
+            - --localstatedir=/var
+            - --sbindir=/sbin
+            - --bindir=/bin
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
             - --with-pkg-extra-version=@PACKAGE_EXTRAVERSION@
     frr-defaults:
         plugin: dump

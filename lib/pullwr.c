@@ -6,6 +6,11 @@
 
 #include "zebra.h"
 
+<<<<<<< HEAD
+=======
+#include <sys/ioctl.h>
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 #include "pullwr.h"
 #include "memory.h"
 #include "monotime.h"

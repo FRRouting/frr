@@ -10,22 +10,41 @@
 #include "lib/version.h"
 #include "routemap.h"
 #include "filter.h"
+<<<<<<< HEAD
+=======
+#include "keychain.h"
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 #include "libfrr.h"
 #include "frr_pthread.h"
 #include "mgmtd/mgmt.h"
 #include "mgmtd/mgmt_ds.h"
+<<<<<<< HEAD
 #include "routing_nb.h"
 
+=======
+#include "ripd/rip_nb.h"
+#include "ripngd/ripng_nb.h"
+#include "routing_nb.h"
+#include "affinitymap.h"
+#include "zebra/zebra_cli.h"
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 /* mgmt options, we use GNU getopt library. */
 static const struct option longopts[] = {
 	{"skip_runas", no_argument, NULL, 'S'},
 	{"no_zebra", no_argument, NULL, 'Z'},
 	{"socket_size", required_argument, NULL, 's'},
+<<<<<<< HEAD
 	{0}};
 
 static void mgmt_exit(int);
 static void mgmt_vrf_terminate(void);
+=======
+	{"vrfwnetns", no_argument, NULL, 'n'},
+	{0}};
+
+static void mgmt_exit(int);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 /* privileges */
 static zebra_capabilities_t _caps_p[] = {ZCAP_BIND, ZCAP_NET_RAW,
@@ -45,7 +64,10 @@ struct zebra_privs_t mgmt_privs = {
 };
 
 static struct frr_daemon_info mgmtd_di;
+<<<<<<< HEAD
 char backup_config_file[256];
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 /* SIGHUP handler. */
 static void sighup(void)
@@ -114,8 +136,11 @@ static __attribute__((__noreturn__)) void mgmt_exit(int status)
 	/* stop pthreads (if any) */
 	frr_pthread_stop_all();
 
+<<<<<<< HEAD
 	mgmt_vrf_terminate();
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	frr_fini();
 	exit(status);
 }
@@ -139,6 +164,7 @@ static struct frr_signal_t mgmt_signals[] = {
 	},
 };
 
+<<<<<<< HEAD
 static int mgmt_vrf_new(struct vrf *vrf)
 {
 	zlog_debug("VRF Created: %s(%u)", vrf->name, vrf->vrf_id);
@@ -184,10 +210,37 @@ static void mgmt_vrf_terminate(void)
 {
 	vrf_terminate();
 }
+=======
+#ifdef HAVE_STATICD
+extern const struct frr_yang_module_info frr_staticd_cli_info;
+#endif
+
+/*
+ * These are modules that are only needed by mgmtd and hence not included into
+ * the lib and backend daemons.
+ */
+const struct frr_yang_module_info ietf_netconf_with_defaults_info = {
+	.name = "ietf-netconf-with-defaults",
+	.ignore_cfg_cbs = true,
+	.nodes = { { .xpath = NULL } },
+};
+
+/*
+ * These are stub info structs that are used to load the modules used by backend
+ * clients into mgmtd. The modules are used by libyang in order to support
+ * parsing binary data returns from the backend.
+ */
+const struct frr_yang_module_info zebra_route_map_info = {
+	.name = "frr-zebra-route-map",
+	.ignore_cfg_cbs = true,
+	.nodes = { { .xpath = NULL } },
+};
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 /*
  * List of YANG modules to be loaded in the process context of
  * MGMTd.
+<<<<<<< HEAD
  *
  * NOTE: In future this will also include the YANG modules of
  * all individual Backend clients.
@@ -220,6 +273,57 @@ FRR_DAEMON_INFO(mgmtd, MGMTD, .vty_port = MGMTD_VTY_PORT,
 
 		/* avoid libfrr trying to read our config file for us */
 		.flags = FRR_MANUAL_VTY_START);
+=======
+ */
+static const struct frr_yang_module_info *const mgmt_yang_modules[] = {
+	&frr_filter_cli_info,
+	&frr_interface_cli_info,
+	&frr_route_map_cli_info,
+	&frr_routing_cli_info,
+	&frr_vrf_cli_info,
+	&frr_affinity_map_cli_info,
+
+	/* mgmtd-only modules */
+	&ietf_netconf_with_defaults_info,
+
+	/*
+	 * YANG module info used by backend clients get added here.
+	 */
+
+	&frr_zebra_cli_info,
+	&zebra_route_map_info,
+	&ietf_key_chain_cli_info,
+	&ietf_key_chain_deviation_info,
+
+#ifdef HAVE_RIPD
+	&frr_ripd_cli_info,
+#endif
+#ifdef HAVE_RIPNGD
+	&frr_ripngd_cli_info,
+#endif
+#ifdef HAVE_STATICD
+	&frr_staticd_cli_info,
+#endif
+};
+
+/* clang-format off */
+FRR_DAEMON_INFO(mgmtd, MGMTD,
+		.vty_port = MGMTD_VTY_PORT,
+		.proghelp = "FRR Management Daemon.",
+
+		.signals = mgmt_signals,
+		.n_signals = array_size(mgmt_signals),
+
+		.privs = &mgmt_privs,
+
+		.yang_modules = mgmt_yang_modules,
+		.n_yang_modules = array_size(mgmt_yang_modules),
+
+		/* avoid libfrr trying to read our config file for us */
+		.flags = FRR_MANUAL_VTY_START | FRR_NO_SPLIT_CONFIG | FRR_LOAD_YANG_LIBRARY,
+	);
+/* clang-format on */
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 #define DEPRECATED_OPTIONS ""
 
@@ -235,8 +339,14 @@ int main(int argc, char **argv)
 
 	frr_preinit(&mgmtd_di, argc, argv);
 	frr_opt_add(
+<<<<<<< HEAD
 		"s:" DEPRECATED_OPTIONS, longopts,
 		"  -s, --socket_size  Set MGMTD peer socket send buffer size\n");
+=======
+		"s:n" DEPRECATED_OPTIONS, longopts,
+		"  -s, --socket_size  Set MGMTD peer socket send buffer size\n"
+		"  -n, --vrfwnetns    Use NetNS as VRF backend\n");
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	/* Command line argument treatment. */
 	while (1) {
@@ -258,6 +368,12 @@ int main(int argc, char **argv)
 		case 's':
 			buffer_size = atoi(optarg);
 			break;
+<<<<<<< HEAD
+=======
+		case 'n':
+			vrf_configure_backend(VRF_BACKEND_NETNS);
+			break;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		default:
 			frr_help_exit(1);
 			break;
@@ -267,17 +383,28 @@ int main(int argc, char **argv)
 	/* MGMTD master init. */
 	mgmt_master_init(frr_init(), buffer_size);
 
+<<<<<<< HEAD
 	/* VRF Initializations. */
 	mgmt_vrf_init();
+=======
+	/* VRF commands initialization. */
+	vrf_cmd_init(NULL);
+
+	/* Interface commands initialization. */
+	if_cmd_init(NULL);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	/* MGMTD related initialization.  */
 	mgmt_init();
 
+<<<<<<< HEAD
 	snprintf(backup_config_file, sizeof(backup_config_file),
 		 "%s/zebra.conf", frr_sysconfdir);
 	mgmtd_di.backup_config_file = backup_config_file;
 
 	/* this will queue a read configs event */
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	frr_config_fork();
 
 	frr_run(mm->master);

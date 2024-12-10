@@ -31,6 +31,10 @@
 #include "network.h"
 #include "if.h"
 #include "libospf.h" /* for ospf interface types */
+<<<<<<< HEAD
+=======
+#include <lib/json.h>
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 #include "ospfd/ospfd.h"
 #include "ospfd/ospf_interface.h"
@@ -1715,23 +1719,43 @@ static void ospf_ext_lsa_schedule(struct ext_itf *exti, enum lsa_opcode op)
 
 /* Cisco experimental SubTLV */
 static uint16_t show_vty_ext_link_rmt_itf_addr(struct vty *vty,
+<<<<<<< HEAD
 					       struct tlv_header *tlvh)
+=======
+					       struct tlv_header *tlvh,
+					       json_object *json)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 {
 	struct ext_subtlv_rmt_itf_addr *top =
 		(struct ext_subtlv_rmt_itf_addr *)tlvh;
 
 	check_tlv_size(EXT_SUBTLV_RMT_ITF_ADDR_SIZE, "Remote Itf. Address");
 
+<<<<<<< HEAD
 	vty_out(vty,
 		"  Remote Interface Address Sub-TLV: Length %u\n	Address: %pI4\n",
 		ntohs(top->header.length), &top->value);
+=======
+	if (!json)
+		vty_out(vty,
+			"  Remote Interface Address Sub-TLV: Length %u\n	Address: %pI4\n",
+			ntohs(top->header.length), &top->value);
+	else
+		json_object_string_addf(json, "remoteInterfaceAddress", "%pI4",
+					&top->value);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	return TLV_SIZE(tlvh);
 }
 
 /* Adjacency SID SubTLV */
 static uint16_t show_vty_ext_link_adj_sid(struct vty *vty,
+<<<<<<< HEAD
 					  struct tlv_header *tlvh)
+=======
+					  struct tlv_header *tlvh,
+					  json_object *json)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 {
 	struct ext_subtlv_adj_sid *top = (struct ext_subtlv_adj_sid *)tlvh;
 	uint8_t tlv_size;
@@ -1741,6 +1765,7 @@ static uint16_t show_vty_ext_link_adj_sid(struct vty *vty,
 			      : SID_INDEX_SIZE(EXT_SUBTLV_ADJ_SID_SIZE);
 	check_tlv_size(tlv_size, "Adjacency SID");
 
+<<<<<<< HEAD
 	vty_out(vty,
 		"  Adj-SID Sub-TLV: Length %u\n\tFlags: 0x%x\n\tMT-ID:0x%x\n\tWeight: 0x%x\n\t%s: %u\n",
 		ntohs(top->header.length), top->flags, top->mtid, top->weight,
@@ -1749,13 +1774,41 @@ static uint16_t show_vty_ext_link_adj_sid(struct vty *vty,
 		CHECK_FLAG(top->flags, EXT_SUBTLV_LINK_ADJ_SID_VFLG)
 			? GET_LABEL(ntohl(top->value))
 			: ntohl(top->value));
+=======
+	if (!json)
+		vty_out(vty,
+			"  Adj-SID Sub-TLV: Length %u\n\tFlags: 0x%x\n\tMT-ID:0x%x\n\tWeight: 0x%x\n\t%s: %u\n",
+			ntohs(top->header.length), top->flags, top->mtid,
+			top->weight,
+			CHECK_FLAG(top->flags, EXT_SUBTLV_LINK_ADJ_SID_VFLG)
+				? "Label"
+				: "Index",
+			CHECK_FLAG(top->flags, EXT_SUBTLV_LINK_ADJ_SID_VFLG)
+				? GET_LABEL(ntohl(top->value))
+				: ntohl(top->value));
+	else {
+		json_object_string_addf(json, "flags", "0x%x", top->flags);
+		json_object_string_addf(json, "mtID", "0x%x", top->mtid);
+		json_object_string_addf(json, "weight", "0x%x", top->weight);
+		if (CHECK_FLAG(top->flags, EXT_SUBTLV_LINK_ADJ_SID_VFLG))
+			json_object_int_add(json, "label",
+					    GET_LABEL(ntohl(top->value)));
+		else
+			json_object_int_add(json, "index", ntohl(top->value));
+	}
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	return TLV_SIZE(tlvh);
 }
 
 /* LAN Adjacency SubTLV */
 static uint16_t show_vty_ext_link_lan_adj_sid(struct vty *vty,
+<<<<<<< HEAD
 					      struct tlv_header *tlvh)
+=======
+					      struct tlv_header *tlvh,
+					      json_object *json)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 {
 	struct ext_subtlv_lan_adj_sid *top =
 		(struct ext_subtlv_lan_adj_sid *)tlvh;
@@ -1766,6 +1819,7 @@ static uint16_t show_vty_ext_link_lan_adj_sid(struct vty *vty,
 			      : SID_INDEX_SIZE(EXT_SUBTLV_LAN_ADJ_SID_SIZE);
 	check_tlv_size(tlv_size, "LAN-Adjacency SID");
 
+<<<<<<< HEAD
 	vty_out(vty,
 		"  LAN-Adj-SID Sub-TLV: Length %u\n\tFlags: 0x%x\n\tMT-ID:0x%x\n\tWeight: 0x%x\n\tNeighbor ID: %pI4\n\t%s: %u\n",
 		ntohs(top->header.length), top->flags, top->mtid, top->weight,
@@ -1775,33 +1829,87 @@ static uint16_t show_vty_ext_link_lan_adj_sid(struct vty *vty,
 		CHECK_FLAG(top->flags, EXT_SUBTLV_LINK_ADJ_SID_VFLG)
 			? GET_LABEL(ntohl(top->value))
 			: ntohl(top->value));
+=======
+	if (!json)
+		vty_out(vty,
+			"  LAN-Adj-SID Sub-TLV: Length %u\n\tFlags: 0x%x\n\tMT-ID:0x%x\n\tWeight: 0x%x\n\tNeighbor ID: %pI4\n\t%s: %u\n",
+			ntohs(top->header.length), top->flags, top->mtid,
+			top->weight, &top->neighbor_id,
+			CHECK_FLAG(top->flags, EXT_SUBTLV_LINK_ADJ_SID_VFLG)
+				? "Label"
+				: "Index",
+			CHECK_FLAG(top->flags, EXT_SUBTLV_LINK_ADJ_SID_VFLG)
+				? GET_LABEL(ntohl(top->value))
+				: ntohl(top->value));
+	else {
+		json_object_string_addf(json, "flags", "0x%x", top->flags);
+		json_object_string_addf(json, "mtID", "0x%x", top->mtid);
+		json_object_string_addf(json, "weight", "0x%x", top->weight);
+		json_object_string_addf(json, "neighborID", "%pI4",
+					&top->neighbor_id);
+		if (CHECK_FLAG(top->flags, EXT_SUBTLV_LINK_ADJ_SID_VFLG))
+			json_object_int_add(json, "label",
+					    GET_LABEL(ntohl(top->value)));
+		else
+			json_object_int_add(json, "index", ntohl(top->value));
+	}
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	return TLV_SIZE(tlvh);
 }
 
 static uint16_t show_vty_unknown_tlv(struct vty *vty, struct tlv_header *tlvh,
+<<<<<<< HEAD
 				     size_t buf_size)
 {
+=======
+				     size_t buf_size, json_object *json)
+{
+	json_object *obj;
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	if (TLV_SIZE(tlvh) > buf_size) {
 		vty_out(vty, "    TLV size %d exceeds buffer size. Abort!",
 			TLV_SIZE(tlvh));
 		return buf_size;
 	}
+<<<<<<< HEAD
 
 	vty_out(vty, "    Unknown TLV: [type(0x%x), length(0x%x)]\n",
 		ntohs(tlvh->type), ntohs(tlvh->length));
+=======
+	if (!json)
+		vty_out(vty, "    Unknown TLV: [type(0x%x), length(0x%x)]\n",
+			ntohs(tlvh->type), ntohs(tlvh->length));
+	else {
+		obj = json_object_new_object();
+		json_object_string_addf(obj, "type", "0x%x",
+					ntohs(tlvh->type));
+		json_object_string_addf(obj, "length", "0x%x",
+					ntohs(tlvh->length));
+		json_object_object_add(json, "unknownTLV", obj);
+	}
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	return TLV_SIZE(tlvh);
 }
 
 /* Extended Link Sub TLVs */
 static uint16_t show_vty_link_info(struct vty *vty, struct tlv_header *ext,
+<<<<<<< HEAD
 				   size_t buf_size)
+=======
+				   size_t buf_size, json_object *json)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 {
 	struct ext_tlv_link *top = (struct ext_tlv_link *)ext;
 	struct tlv_header *tlvh;
 	uint16_t length = ntohs(top->header.length);
 	uint16_t sum = 0;
+<<<<<<< HEAD
+=======
+	json_object *jadj = NULL, *obj = NULL;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	/* Verify that TLV length is valid against remaining buffer size */
 	if (length > buf_size) {
@@ -1811,12 +1919,31 @@ static uint16_t show_vty_link_info(struct vty *vty, struct tlv_header *ext,
 		return buf_size;
 	}
 
+<<<<<<< HEAD
 	vty_out(vty,
 		"  Extended Link TLV: Length %u\n	Link Type: 0x%x\n"
 		"	Link ID: %pI4\n",
 		ntohs(top->header.length), top->link_type,
 		&top->link_id);
 	vty_out(vty, "	Link data: %pI4\n", &top->link_data);
+=======
+	if (!json) {
+		vty_out(vty,
+			"  Extended Link TLV: Length %u\n	Link Type: 0x%x\n"
+			"	Link ID: %pI4\n",
+			ntohs(top->header.length), top->link_type,
+			&top->link_id);
+		vty_out(vty, "	Link data: %pI4\n", &top->link_data);
+	} else {
+		json_object_string_addf(json, "linkType", "0x%x",
+					top->link_type);
+		json_object_string_addf(json, "linkID", "%pI4", &top->link_id);
+		json_object_string_addf(json, "linkData", "%pI4",
+					&top->link_data);
+		jadj = json_object_new_array();
+		json_object_object_add(json, "adjacencySID", jadj);
+	}
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	/* Skip Extended TLV and parse sub-TLVs */
 	length -= EXT_TLV_LINK_SIZE;
@@ -1825,6 +1952,7 @@ static uint16_t show_vty_link_info(struct vty *vty, struct tlv_header *ext,
 	for (; sum < length && tlvh; tlvh = TLV_HDR_NEXT(tlvh)) {
 		switch (ntohs(tlvh->type)) {
 		case EXT_SUBTLV_ADJ_SID:
+<<<<<<< HEAD
 			sum += show_vty_ext_link_adj_sid(vty, tlvh);
 			break;
 		case EXT_SUBTLV_LAN_ADJ_SID:
@@ -1835,6 +1963,29 @@ static uint16_t show_vty_link_info(struct vty *vty, struct tlv_header *ext,
 			break;
 		default:
 			sum += show_vty_unknown_tlv(vty, tlvh, length - sum);
+=======
+			if (json) {
+				obj = json_object_new_object();
+				json_object_array_add(jadj, obj);
+			} else
+				obj = NULL;
+			sum += show_vty_ext_link_adj_sid(vty, tlvh, obj);
+			break;
+		case EXT_SUBTLV_LAN_ADJ_SID:
+			if (json) {
+				obj = json_object_new_object();
+				json_object_array_add(jadj, obj);
+			} else
+				obj = NULL;
+			sum += show_vty_ext_link_lan_adj_sid(vty, tlvh, obj);
+			break;
+		case EXT_SUBTLV_RMT_ITF_ADDR:
+			sum += show_vty_ext_link_rmt_itf_addr(vty, tlvh, json);
+			break;
+		default:
+			sum += show_vty_unknown_tlv(vty, tlvh, length - sum,
+						    json);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			break;
 		}
 	}
@@ -1849,9 +2000,18 @@ static void ospf_ext_link_show_info(struct vty *vty, struct json_object *json,
 	struct lsa_header *lsah = lsa->data;
 	struct tlv_header *tlvh;
 	uint16_t length = 0, sum = 0;
+<<<<<<< HEAD
 
 	if (json)
 		return;
+=======
+	json_object *jlink = NULL;
+
+	if (json) {
+		jlink = json_object_new_object();
+		json_object_object_add(json, "extendedLink", jlink);
+	}
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	/* Initialize TLV browsing */
 	length = lsa->size - OSPF_LSA_HEADER_SIZE;
@@ -1860,10 +2020,19 @@ static void ospf_ext_link_show_info(struct vty *vty, struct json_object *json,
 	     tlvh = TLV_HDR_NEXT(tlvh)) {
 		switch (ntohs(tlvh->type)) {
 		case EXT_TLV_LINK:
+<<<<<<< HEAD
 			sum += show_vty_link_info(vty, tlvh, length - sum);
 			break;
 		default:
 			sum += show_vty_unknown_tlv(vty, tlvh, length - sum);
+=======
+			sum += show_vty_link_info(vty, tlvh, length - sum,
+						  jlink);
+			break;
+		default:
+			sum += show_vty_unknown_tlv(vty, tlvh, length - sum,
+						    jlink);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			break;
 		}
 	}
@@ -1871,7 +2040,12 @@ static void ospf_ext_link_show_info(struct vty *vty, struct json_object *json,
 
 /* Prefix SID SubTLV */
 static uint16_t show_vty_ext_pref_pref_sid(struct vty *vty,
+<<<<<<< HEAD
 					   struct tlv_header *tlvh)
+=======
+					   struct tlv_header *tlvh,
+					   json_object *json)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 {
 	struct ext_subtlv_prefix_sid *top =
 		(struct ext_subtlv_prefix_sid *)tlvh;
@@ -1882,6 +2056,7 @@ static uint16_t show_vty_ext_pref_pref_sid(struct vty *vty,
 			      : SID_INDEX_SIZE(EXT_SUBTLV_PREFIX_SID_SIZE);
 	check_tlv_size(tlv_size, "Prefix SID");
 
+<<<<<<< HEAD
 	vty_out(vty,
 		"  Prefix SID Sub-TLV: Length %u\n\tAlgorithm: %u\n\tFlags: 0x%x\n\tMT-ID:0x%x\n\t%s: %u\n",
 		ntohs(top->header.length), top->algorithm, top->flags,
@@ -1892,17 +2067,48 @@ static uint16_t show_vty_ext_pref_pref_sid(struct vty *vty,
 			? GET_LABEL(ntohl(top->value))
 			: ntohl(top->value));
 
+=======
+	if (!json)
+		vty_out(vty,
+			"  Prefix SID Sub-TLV: Length %u\n\tAlgorithm: %u\n\tFlags: 0x%x\n\tMT-ID:0x%x\n\t%s: %u\n",
+			ntohs(top->header.length), top->algorithm, top->flags,
+			top->mtid,
+			CHECK_FLAG(top->flags, EXT_SUBTLV_PREFIX_SID_VFLG)
+				? "Label"
+				: "Index",
+			CHECK_FLAG(top->flags, EXT_SUBTLV_PREFIX_SID_VFLG)
+				? GET_LABEL(ntohl(top->value))
+				: ntohl(top->value));
+	else {
+		json_object_int_add(json, "algorithm", top->algorithm);
+		json_object_string_addf(json, "flags", "0x%x", top->flags);
+		json_object_string_addf(json, "mtID", "0x%x", top->mtid);
+		if (CHECK_FLAG(top->flags, EXT_SUBTLV_PREFIX_SID_VFLG))
+			json_object_int_add(json, "label",
+					    GET_LABEL(ntohl(top->value)));
+		else
+			json_object_int_add(json, "index", ntohl(top->value));
+	}
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	return TLV_SIZE(tlvh);
 }
 
 /* Extended Prefix SubTLVs */
 static uint16_t show_vty_pref_info(struct vty *vty, struct tlv_header *ext,
+<<<<<<< HEAD
 				   size_t buf_size)
+=======
+				   size_t buf_size, json_object *json)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 {
 	struct ext_tlv_prefix *top = (struct ext_tlv_prefix *)ext;
 	struct tlv_header *tlvh;
 	uint16_t length = ntohs(top->header.length);
 	uint16_t sum = 0;
+<<<<<<< HEAD
+=======
+	json_object *jsid = NULL;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	/* Verify that TLV length is valid against remaining buffer size */
 	if (length > buf_size) {
@@ -1912,11 +2118,29 @@ static uint16_t show_vty_pref_info(struct vty *vty, struct tlv_header *ext,
 		return buf_size;
 	}
 
+<<<<<<< HEAD
 	vty_out(vty,
 		"  Extended Prefix TLV: Length %u\n\tRoute Type: %u\n"
 		"\tAddress Family: 0x%x\n\tFlags: 0x%x\n\tAddress: %pI4/%u\n",
 		ntohs(top->header.length), top->route_type, top->af, top->flags,
 		&top->address, top->pref_length);
+=======
+	if (!json)
+		vty_out(vty,
+			"  Extended Prefix TLV: Length %u\n\tRoute Type: %u\n"
+			"\tAddress Family: 0x%x\n\tFlags: 0x%x\n\tAddress: %pI4/%u\n",
+			ntohs(top->header.length), top->route_type, top->af,
+			top->flags, &top->address, top->pref_length);
+	else {
+		json_object_int_add(json, "routeType", top->route_type);
+		json_object_string_addf(json, "addressFamily", "0x%x", top->af);
+		json_object_string_addf(json, "flags", "0x%x", top->flags);
+		json_object_string_addf(json, "address", "%pI4", &top->address);
+		json_object_int_add(json, "prefixLength", top->pref_length);
+		jsid = json_object_new_object();
+		json_object_object_add(json, "prefixSID", jsid);
+	}
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	/* Skip Extended Prefix TLV and parse sub-TLVs */
 	length -= EXT_TLV_PREFIX_SIZE;
@@ -1925,10 +2149,18 @@ static uint16_t show_vty_pref_info(struct vty *vty, struct tlv_header *ext,
 	for (; sum < length && tlvh; tlvh = TLV_HDR_NEXT(tlvh)) {
 		switch (ntohs(tlvh->type)) {
 		case EXT_SUBTLV_PREFIX_SID:
+<<<<<<< HEAD
 			sum += show_vty_ext_pref_pref_sid(vty, tlvh);
 			break;
 		default:
 			sum += show_vty_unknown_tlv(vty, tlvh, length - sum);
+=======
+			sum += show_vty_ext_pref_pref_sid(vty, tlvh, jsid);
+			break;
+		default:
+			sum += show_vty_unknown_tlv(vty, tlvh, length - sum,
+						    json);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			break;
 		}
 	}
@@ -1943,9 +2175,18 @@ static void ospf_ext_pref_show_info(struct vty *vty, struct json_object *json,
 	struct lsa_header *lsah = lsa->data;
 	struct tlv_header *tlvh;
 	uint16_t length = 0, sum = 0;
+<<<<<<< HEAD
 
 	if (json)
 		return;
+=======
+	json_object *jpref = NULL;
+
+	if (json) {
+		jpref = json_object_new_object();
+		json_object_object_add(json, "extendedPrefix", jpref);
+	}
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	/* Initialize TLV browsing */
 	length = lsa->size - OSPF_LSA_HEADER_SIZE;
@@ -1954,10 +2195,19 @@ static void ospf_ext_pref_show_info(struct vty *vty, struct json_object *json,
 	     tlvh = TLV_HDR_NEXT(tlvh)) {
 		switch (ntohs(tlvh->type)) {
 		case EXT_TLV_PREFIX:
+<<<<<<< HEAD
 			sum += show_vty_pref_info(vty, tlvh, length - sum);
 			break;
 		default:
 			sum += show_vty_unknown_tlv(vty, tlvh, length - sum);
+=======
+			sum += show_vty_pref_info(vty, tlvh, length - sum,
+						  jpref);
+			break;
+		default:
+			sum += show_vty_unknown_tlv(vty, tlvh, length - sum,
+						    jpref);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			break;
 		}
 	}

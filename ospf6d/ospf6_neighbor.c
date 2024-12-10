@@ -30,10 +30,27 @@
 #include "ospf6_lsa.h"
 #include "ospf6_spf.h"
 #include "ospf6_zebra.h"
+<<<<<<< HEAD
+=======
+#include "ospf6_tlv.h"
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 #include "ospf6_gr.h"
 #include "lib/json.h"
 
 DEFINE_MTYPE_STATIC(OSPF6D, OSPF6_NEIGHBOR, "OSPF6 neighbor");
+<<<<<<< HEAD
+=======
+DEFINE_MTYPE_STATIC(OSPF6D, OSPF6_NEIGHBOR_P2XP_CFG,
+		    "OSPF6 PtP/PtMP neighbor config");
+
+static int ospf6_if_p2xp_neighcfg_cmp(const struct ospf6_if_p2xp_neighcfg *a,
+				      const struct ospf6_if_p2xp_neighcfg *b);
+
+DECLARE_RBTREE_UNIQ(ospf6_if_p2xp_neighcfgs, struct ospf6_if_p2xp_neighcfg,
+		    item, ospf6_if_p2xp_neighcfg_cmp);
+
+static void p2xp_neigh_refresh(struct ospf6_neighbor *on, uint32_t prev_cost);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 DEFINE_HOOK(ospf6_neighbor_change,
 	    (struct ospf6_neighbor * on, int state, int next_state),
@@ -42,6 +59,7 @@ DEFINE_HOOK(ospf6_neighbor_change,
 unsigned char conf_debug_ospf6_neighbor = 0;
 
 const char *const ospf6_neighbor_state_str[] = {
+<<<<<<< HEAD
 	"None",    "Down",     "Attempt", "Init", "Twoway",
 	"ExStart", "ExChange", "Loading", "Full", NULL};
 
@@ -49,6 +67,16 @@ const char *const ospf6_neighbor_event_str[] = {
 	"NoEvent",      "HelloReceived", "2-WayReceived",   "NegotiationDone",
 	"ExchangeDone", "LoadingDone",   "AdjOK?",	  "SeqNumberMismatch",
 	"BadLSReq",     "1-WayReceived", "InactivityTimer",
+=======
+	"None",	   "Down",     "Attempt", "Init", "Twoway",
+	"ExStart", "ExChange", "Loading", "Full", NULL
+};
+
+const char *const ospf6_neighbor_event_str[] = {
+	"NoEvent",	"HelloReceived", "2-WayReceived",   "NegotiationDone",
+	"ExchangeDone", "LoadingDone",	 "AdjOK?",	    "SeqNumberMismatch",
+	"BadLSReq",	"1-WayReceived", "InactivityTimer",
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 };
 
 int ospf6_neighbor_cmp(void *va, void *vb)
@@ -98,9 +126,16 @@ static void ospf6_neighbor_clear_ls_lists(struct ospf6_neighbor *on)
 
 	ospf6_lsdb_remove_all(on->summary_list);
 	if (on->last_ls_req) {
+<<<<<<< HEAD
 		ospf6_lsa_unlock(on->last_ls_req);
 		on->last_ls_req = NULL;
 	}
+=======
+		ospf6_lsa_unlock(&on->last_ls_req);
+		on->last_ls_req = NULL;
+	}
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	ospf6_lsdb_remove_all(on->request_list);
 	for (ALL_LSDB(on->retrans_list, lsa, lsanext)) {
 		ospf6_decrement_retrans_count(lsa);
@@ -118,8 +153,12 @@ struct ospf6_neighbor *ospf6_neighbor_create(uint32_t router_id,
 
 	on = XCALLOC(MTYPE_OSPF6_NEIGHBOR, sizeof(struct ospf6_neighbor));
 	inet_ntop(AF_INET, &router_id, buf, sizeof(buf));
+<<<<<<< HEAD
 	snprintf(on->name, sizeof(on->name), "%s%%%s", buf,
 		 oi->interface->name);
+=======
+	snprintf(on->name, sizeof(on->name), "%s%%%s", buf, oi->interface->name);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	on->ospf6_if = oi;
 	on->state = OSPF6_NEIGHBOR_DOWN;
 	on->state_change = 0;
@@ -149,6 +188,12 @@ struct ospf6_neighbor *ospf6_neighbor_create(uint32_t router_id,
 
 void ospf6_neighbor_delete(struct ospf6_neighbor *on)
 {
+<<<<<<< HEAD
+=======
+	if (on->p2xp_cfg)
+		on->p2xp_cfg->active = NULL;
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	ospf6_neighbor_clear_ls_lists(on);
 
 	ospf6_lsdb_remove_all(on->dbdesc_list);
@@ -181,6 +226,25 @@ void ospf6_neighbor_delete(struct ospf6_neighbor *on)
 	XFREE(MTYPE_OSPF6_NEIGHBOR, on);
 }
 
+<<<<<<< HEAD
+=======
+void ospf6_neighbor_lladdr_set(struct ospf6_neighbor *on,
+			       const struct in6_addr *addr)
+{
+	if (IPV6_ADDR_SAME(addr, &on->linklocal_addr))
+		return;
+
+	memcpy(&on->linklocal_addr, addr, sizeof(struct in6_addr));
+
+	if (on->ospf6_if->type == OSPF_IFTYPE_POINTOPOINT ||
+	    on->ospf6_if->type == OSPF_IFTYPE_POINTOMULTIPOINT) {
+		uint32_t prev_cost = ospf6_neighbor_cost(on);
+
+		p2xp_neigh_refresh(on, prev_cost);
+	}
+}
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 static void ospf6_neighbor_state_change(uint8_t next_state,
 					struct ospf6_neighbor *on, int event)
 {
@@ -197,16 +261,25 @@ static void ospf6_neighbor_state_change(uint8_t next_state,
 
 	/* log */
 	if (IS_OSPF6_DEBUG_NEIGHBOR(STATE)) {
+<<<<<<< HEAD
 		zlog_debug(
 			"Neighbor state change %s (Router-ID: %pI4): [%s]->[%s] (%s)",
 			on->name, &on->router_id,
 			ospf6_neighbor_state_str[prev_state],
 			ospf6_neighbor_state_str[next_state],
 			ospf6_neighbor_event_string(event));
+=======
+		zlog_debug("Neighbor state change %s (Router-ID: %pI4): [%s]->[%s] (%s)",
+			   on->name, &on->router_id,
+			   ospf6_neighbor_state_str[prev_state],
+			   ospf6_neighbor_state_str[next_state],
+			   ospf6_neighbor_event_string(event));
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	}
 
 	/* Optionally notify about adjacency changes */
 	if (CHECK_FLAG(on->ospf6_if->area->ospf6->config_flags,
+<<<<<<< HEAD
 		       OSPF6_LOG_ADJACENCY_CHANGES)
 	    && (CHECK_FLAG(on->ospf6_if->area->ospf6->config_flags,
 			   OSPF6_LOG_ADJACENCY_DETAIL)
@@ -222,6 +295,21 @@ static void ospf6_neighbor_state_change(uint8_t next_state,
 
 	if (prev_state == OSPF6_NEIGHBOR_FULL
 	    || next_state == OSPF6_NEIGHBOR_FULL) {
+=======
+		       OSPF6_LOG_ADJACENCY_CHANGES) &&
+	    (CHECK_FLAG(on->ospf6_if->area->ospf6->config_flags,
+			OSPF6_LOG_ADJACENCY_DETAIL) ||
+	     (next_state == OSPF6_NEIGHBOR_FULL) || (next_state < prev_state)))
+		zlog_notice("AdjChg: Nbr %pI4(%s) on %s: %s -> %s (%s)",
+			    &on->router_id,
+			    vrf_id_to_name(on->ospf6_if->interface->vrf->vrf_id),
+			    on->name, ospf6_neighbor_state_str[prev_state],
+			    ospf6_neighbor_state_str[next_state],
+			    ospf6_neighbor_event_string(event));
+
+	if (prev_state == OSPF6_NEIGHBOR_FULL ||
+	    next_state == OSPF6_NEIGHBOR_FULL) {
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		if (!OSPF6_GR_IS_ACTIVE_HELPER(on)) {
 			OSPF6_ROUTER_LSA_SCHEDULE(on->ospf6_if->area);
 			if (on->ospf6_if->state == OSPF6_INTERFACE_DR) {
@@ -234,12 +322,20 @@ static void ospf6_neighbor_state_change(uint8_t next_state,
 			on->ospf6_if->area->intra_prefix_originate = 1;
 
 		if (!OSPF6_GR_IS_ACTIVE_HELPER(on))
+<<<<<<< HEAD
 			OSPF6_INTRA_PREFIX_LSA_SCHEDULE_STUB(
 				on->ospf6_if->area);
 
 		if ((prev_state == OSPF6_NEIGHBOR_LOADING
 		     || prev_state == OSPF6_NEIGHBOR_EXCHANGE)
 		    && next_state == OSPF6_NEIGHBOR_FULL) {
+=======
+			OSPF6_INTRA_PREFIX_LSA_SCHEDULE_STUB(on->ospf6_if->area);
+
+		if ((prev_state == OSPF6_NEIGHBOR_LOADING ||
+		     prev_state == OSPF6_NEIGHBOR_EXCHANGE) &&
+		    next_state == OSPF6_NEIGHBOR_FULL) {
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			OSPF6_AS_EXTERN_LSA_SCHEDULE(on->ospf6_if);
 			on->ospf6_if->area->full_nbrs++;
 		}
@@ -248,10 +344,17 @@ static void ospf6_neighbor_state_change(uint8_t next_state,
 			on->ospf6_if->area->full_nbrs--;
 	}
 
+<<<<<<< HEAD
 	if ((prev_state == OSPF6_NEIGHBOR_EXCHANGE
 	     || prev_state == OSPF6_NEIGHBOR_LOADING)
 	    && (next_state != OSPF6_NEIGHBOR_EXCHANGE
 		&& next_state != OSPF6_NEIGHBOR_LOADING))
+=======
+	if ((prev_state == OSPF6_NEIGHBOR_EXCHANGE ||
+	     prev_state == OSPF6_NEIGHBOR_LOADING) &&
+	    (next_state != OSPF6_NEIGHBOR_EXCHANGE &&
+	     next_state != OSPF6_NEIGHBOR_LOADING))
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		ospf6_maxage_remove(on->ospf6_if->area->ospf6);
 
 	hook_call(ospf6_neighbor_change, on, next_state, prev_state);
@@ -261,6 +364,7 @@ static void ospf6_neighbor_state_change(uint8_t next_state,
 /* RFC2328 section 10.4 */
 static int need_adjacency(struct ospf6_neighbor *on)
 {
+<<<<<<< HEAD
 	if (on->ospf6_if->state == OSPF6_INTERFACE_POINTTOPOINT
 	    || on->ospf6_if->state == OSPF6_INTERFACE_DR
 	    || on->ospf6_if->state == OSPF6_INTERFACE_BDR)
@@ -268,6 +372,16 @@ static int need_adjacency(struct ospf6_neighbor *on)
 
 	if (on->ospf6_if->drouter == on->router_id
 	    || on->ospf6_if->bdrouter == on->router_id)
+=======
+	if (on->ospf6_if->state == OSPF6_INTERFACE_POINTTOPOINT ||
+	    on->ospf6_if->state == OSPF6_INTERFACE_POINTTOMULTIPOINT ||
+	    on->ospf6_if->state == OSPF6_INTERFACE_DR ||
+	    on->ospf6_if->state == OSPF6_INTERFACE_BDR)
+		return 1;
+
+	if (on->ospf6_if->drouter == on->router_id ||
+	    on->ospf6_if->bdrouter == on->router_id)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		return 1;
 
 	return 0;
@@ -421,13 +535,21 @@ void exchange_done(struct event *thread)
 /* Check loading state. */
 void ospf6_check_nbr_loading(struct ospf6_neighbor *on)
 {
+<<<<<<< HEAD
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	/* RFC2328 Section 10.9: When the neighbor responds to these requests
 	   with the proper Link State Update packet(s), the Link state request
 	   list is truncated and a new Link State Request packet is sent.
 	*/
+<<<<<<< HEAD
 	if ((on->state == OSPF6_NEIGHBOR_LOADING)
 	    || (on->state == OSPF6_NEIGHBOR_EXCHANGE)) {
+=======
+	if ((on->state == OSPF6_NEIGHBOR_LOADING) ||
+	    (on->state == OSPF6_NEIGHBOR_EXCHANGE)) {
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		if (on->request_list->count == 0)
 			event_add_event(master, loading_done, on, 0,
 					&on->event_loading_done);
@@ -586,9 +708,14 @@ void inactivity_timer(struct event *thread)
 		on->drouter = on->prev_drouter = 0;
 		on->bdrouter = on->prev_bdrouter = 0;
 
+<<<<<<< HEAD
 		ospf6_neighbor_state_change(
 			OSPF6_NEIGHBOR_DOWN, on,
 			OSPF6_NEIGHBOR_EVENT_INACTIVITY_TIMER);
+=======
+		ospf6_neighbor_state_change(OSPF6_NEIGHBOR_DOWN, on,
+					    OSPF6_NEIGHBOR_EVENT_INACTIVITY_TIMER);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		event_add_event(master, neighbor_change, on->ospf6_if, 0, NULL);
 
 		listnode_delete(on->ospf6_if->neighbor_list, on);
@@ -596,9 +723,14 @@ void inactivity_timer(struct event *thread)
 
 	} else {
 		if (IS_DEBUG_OSPF6_GR)
+<<<<<<< HEAD
 			zlog_debug(
 				"%s, Acting as HELPER for this neighbour, So restart the dead timer.",
 				__PRETTY_FUNCTION__);
+=======
+			zlog_debug("%s, Acting as HELPER for this neighbour, So restart the dead timer.",
+				   __PRETTY_FUNCTION__);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 		event_add_timer(master, inactivity_timer, on,
 				on->ospf6_if->dead_interval,
@@ -606,8 +738,240 @@ void inactivity_timer(struct event *thread)
 	}
 }
 
+<<<<<<< HEAD
 
 /* vty functions */
+=======
+/* P2P/P2MP stuff */
+
+uint32_t ospf6_neighbor_cost(struct ospf6_neighbor *on)
+{
+	if (on->p2xp_cfg && on->p2xp_cfg->cfg_cost)
+		return on->p2xp_cfg->cost;
+	return on->ospf6_if->cost;
+}
+
+static int ospf6_if_p2xp_neighcfg_cmp(const struct ospf6_if_p2xp_neighcfg *a,
+				      const struct ospf6_if_p2xp_neighcfg *b)
+{
+	return IPV6_ADDR_CMP(&a->addr, &b->addr);
+}
+
+struct ospf6_if_p2xp_neighcfg *ospf6_if_p2xp_find(struct ospf6_interface *oi,
+						  const struct in6_addr *addr)
+{
+	struct ospf6_if_p2xp_neighcfg ref;
+
+	if (!oi)
+		return NULL;
+
+	ref.addr = *addr;
+	return ospf6_if_p2xp_neighcfgs_find(&oi->p2xp_neighs, &ref);
+}
+
+static struct ospf6_if_p2xp_neighcfg *
+ospf6_if_p2xp_get(struct ospf6_interface *oi, const struct in6_addr *addr)
+{
+	struct ospf6_if_p2xp_neighcfg ref, *ret;
+
+	if (!oi)
+		return NULL;
+
+	ref.addr = *addr;
+	ret = ospf6_if_p2xp_neighcfgs_find(&oi->p2xp_neighs, &ref);
+	if (!ret) {
+		ret = XCALLOC(MTYPE_OSPF6_NEIGHBOR_P2XP_CFG, sizeof(*ret));
+		ret->addr = *addr;
+		ret->ospf6_if = oi;
+
+		ospf6_if_p2xp_neighcfgs_add(&oi->p2xp_neighs, ret);
+	}
+
+	return ret;
+}
+
+static void ospf6_if_p2xp_destroy(struct ospf6_if_p2xp_neighcfg *p2xp_cfg)
+{
+	EVENT_OFF(p2xp_cfg->t_unicast_hello);
+	ospf6_if_p2xp_neighcfgs_del(&p2xp_cfg->ospf6_if->p2xp_neighs, p2xp_cfg);
+
+	XFREE(MTYPE_OSPF6_NEIGHBOR_P2XP_CFG, p2xp_cfg);
+}
+
+static void p2xp_neigh_refresh(struct ospf6_neighbor *on, uint32_t prev_cost)
+{
+	if (on->p2xp_cfg)
+		on->p2xp_cfg->active = NULL;
+	on->p2xp_cfg = ospf6_if_p2xp_find(on->ospf6_if, &on->linklocal_addr);
+	if (on->p2xp_cfg)
+		on->p2xp_cfg->active = on;
+
+	if (ospf6_neighbor_cost(on) != prev_cost)
+		OSPF6_ROUTER_LSA_SCHEDULE(on->ospf6_if->area);
+}
+
+/* vty functions */
+
+#ifndef VTYSH_EXTRACT_PL
+#include "ospf6d/ospf6_neighbor_clippy.c"
+#endif
+
+DEFPY (ipv6_ospf6_p2xp_neigh,
+       ipv6_ospf6_p2xp_neigh_cmd,
+       "[no] ipv6 ospf6 neighbor X:X::X:X",
+       NO_STR
+       IP6_STR
+       OSPF6_STR
+       "Configure static neighbor\n"
+       "Neighbor link-local address\n")
+{
+	VTY_DECLVAR_CONTEXT(interface, ifp);
+	struct ospf6_interface *oi = ifp->info;
+	struct ospf6_if_p2xp_neighcfg *p2xp_cfg;
+
+	if (!oi) {
+		if (no)
+			return CMD_SUCCESS;
+		oi = ospf6_interface_create(ifp);
+	}
+
+	if (no) {
+		struct ospf6_neighbor *on;
+		uint32_t prev_cost = 0;
+
+		p2xp_cfg = ospf6_if_p2xp_find(oi, &neighbor);
+		if (!p2xp_cfg)
+			return CMD_SUCCESS;
+
+		on = p2xp_cfg->active;
+		if (on)
+			prev_cost = ospf6_neighbor_cost(on);
+
+		p2xp_cfg->active = NULL;
+		ospf6_if_p2xp_destroy(p2xp_cfg);
+
+		if (on) {
+			on->p2xp_cfg = NULL;
+			p2xp_neigh_refresh(on, prev_cost);
+		}
+		return CMD_SUCCESS;
+	}
+
+	(void)ospf6_if_p2xp_get(oi, &neighbor);
+	return CMD_SUCCESS;
+}
+
+DEFPY (ipv6_ospf6_p2xp_neigh_cost,
+       ipv6_ospf6_p2xp_neigh_cost_cmd,
+       "[no] ipv6 ospf6 neighbor X:X::X:X cost (1-65535)",
+       NO_STR
+       IP6_STR
+       OSPF6_STR
+       "Configure static neighbor\n"
+       "Neighbor link-local address\n"
+       "Outgoing metric for this neighbor\n"
+       "Outgoing metric for this neighbor\n")
+{
+	VTY_DECLVAR_CONTEXT(interface, ifp);
+	struct ospf6_interface *oi = ifp->info;
+	struct ospf6_if_p2xp_neighcfg *p2xp_cfg;
+	uint32_t prev_cost = 0;
+
+	if (!oi) {
+		if (no)
+			return CMD_SUCCESS;
+		oi = ospf6_interface_create(ifp);
+	}
+
+	p2xp_cfg = ospf6_if_p2xp_get(oi, &neighbor);
+
+	if (p2xp_cfg->active)
+		prev_cost = ospf6_neighbor_cost(p2xp_cfg->active);
+
+	if (no) {
+		p2xp_cfg->cfg_cost = false;
+		p2xp_cfg->cost = 0;
+	} else {
+		p2xp_cfg->cfg_cost = true;
+		p2xp_cfg->cost = cost;
+	}
+
+	if (p2xp_cfg->active)
+		p2xp_neigh_refresh(p2xp_cfg->active, prev_cost);
+	return CMD_SUCCESS;
+}
+
+static void p2xp_unicast_hello_send(struct event *event);
+
+static void p2xp_unicast_hello_sched(struct ospf6_if_p2xp_neighcfg *p2xp_cfg)
+{
+	if (!p2xp_cfg->poll_interval ||
+	    (p2xp_cfg->ospf6_if->state != OSPF6_INTERFACE_POINTTOMULTIPOINT &&
+	     p2xp_cfg->ospf6_if->state != OSPF6_INTERFACE_POINTTOPOINT))
+		/* state check covers DOWN state too */
+		EVENT_OFF(p2xp_cfg->t_unicast_hello);
+	else
+		event_add_timer(master, p2xp_unicast_hello_send, p2xp_cfg,
+				p2xp_cfg->poll_interval,
+				&p2xp_cfg->t_unicast_hello);
+}
+
+void ospf6_if_p2xp_up(struct ospf6_interface *oi)
+{
+	struct ospf6_if_p2xp_neighcfg *p2xp_cfg;
+
+	frr_each (ospf6_if_p2xp_neighcfgs, &oi->p2xp_neighs, p2xp_cfg)
+		p2xp_unicast_hello_sched(p2xp_cfg);
+}
+
+static void p2xp_unicast_hello_send(struct event *event)
+{
+	struct ospf6_if_p2xp_neighcfg *p2xp_cfg = EVENT_ARG(event);
+	struct ospf6_interface *oi = p2xp_cfg->ospf6_if;
+
+	if (oi->state != OSPF6_INTERFACE_POINTTOPOINT &&
+	    oi->state != OSPF6_INTERFACE_POINTTOMULTIPOINT)
+		return;
+
+	p2xp_unicast_hello_sched(p2xp_cfg);
+
+	if (p2xp_cfg->active && p2xp_cfg->active->state >= OSPF6_NEIGHBOR_INIT)
+		return;
+
+	ospf6_hello_send_addr(oi, &p2xp_cfg->addr);
+}
+
+DEFPY (ipv6_ospf6_p2xp_neigh_poll_interval,
+       ipv6_ospf6_p2xp_neigh_poll_interval_cmd,
+       "[no] ipv6 ospf6 neighbor X:X::X:X poll-interval (1-65535)",
+       NO_STR
+       IP6_STR
+       OSPF6_STR
+       "Configure static neighbor\n"
+       "Neighbor link-local address\n"
+       "Send unicast hellos to neighbor when down\n"
+       "Unicast hello interval when down (seconds)\n")
+{
+	VTY_DECLVAR_CONTEXT(interface, ifp);
+	struct ospf6_interface *oi = ifp->info;
+	struct ospf6_if_p2xp_neighcfg *p2xp_cfg;
+
+	if (!oi) {
+		if (no)
+			return CMD_SUCCESS;
+		oi = ospf6_interface_create(ifp);
+	}
+	if (no)
+		poll_interval = 0;
+
+	p2xp_cfg = ospf6_if_p2xp_get(oi, &neighbor);
+	p2xp_cfg->poll_interval = poll_interval;
+
+	p2xp_unicast_hello_sched(p2xp_cfg);
+	return CMD_SUCCESS;
+}
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 /* show neighbor structure */
 static void ospf6_neighbor_show(struct vty *vty, struct ospf6_neighbor *on,
 				json_object *json_array, bool use_json)
@@ -630,8 +994,13 @@ static void ospf6_neighbor_show(struct vty *vty, struct ospf6_neighbor *on,
 	/* Dead time */
 	h = m = s = 0;
 	if (on->inactivity_timer) {
+<<<<<<< HEAD
 		s = monotime_until(&on->inactivity_timer->u.sands, NULL)
 		    / 1000000LL;
+=======
+		s = monotime_until(&on->inactivity_timer->u.sands, NULL) /
+		    1000000LL;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		h = s / 3600;
 		s -= h * 3600;
 		m = s / 60;
@@ -642,6 +1011,11 @@ static void ospf6_neighbor_show(struct vty *vty, struct ospf6_neighbor *on,
 	/* Neighbor State */
 	if (on->ospf6_if->type == OSPF_IFTYPE_POINTOPOINT)
 		snprintf(nstate, sizeof(nstate), "PointToPoint");
+<<<<<<< HEAD
+=======
+	else if (on->ospf6_if->type == OSPF_IFTYPE_POINTOMULTIPOINT)
+		snprintf(nstate, sizeof(nstate), "PtMultipoint");
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	else {
 		if (on->router_id == on->drouter)
 			snprintf(nstate, sizeof(nstate), "DR");
@@ -672,9 +1046,15 @@ static void ospf6_neighbor_show(struct vty *vty, struct ospf6_neighbor *on,
 		json_object_string_add(json_route, "duration", duration);
 		json_object_string_add(json_route, "interfaceName",
 				       on->ospf6_if->interface->name);
+<<<<<<< HEAD
 		json_object_string_add(
 			json_route, "interfaceState",
 			ospf6_interface_state_str[on->ospf6_if->state]);
+=======
+		json_object_string_add(json_route, "interfaceState",
+				       ospf6_interface_state_str
+					       [on->ospf6_if->state]);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 		json_object_array_add(json_array, json_route);
 	} else
@@ -719,9 +1099,15 @@ static void ospf6_neighbor_show_drchoice(struct vty *vty,
 		json_object_string_add(json_route, "bdRouter", bdrouter);
 		json_object_string_add(json_route, "interfaceName",
 				       on->ospf6_if->interface->name);
+<<<<<<< HEAD
 		json_object_string_add(
 			json_route, "interfaceState",
 			ospf6_interface_state_str[on->ospf6_if->state]);
+=======
+		json_object_string_add(json_route, "interfaceState",
+				       ospf6_interface_state_str
+					       [on->ospf6_if->state]);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 		json_object_array_add(json_array, json_route);
 	} else
@@ -762,6 +1148,11 @@ static void ospf6_neighbor_show_detail(struct vty *vty,
 				    on->ospf6_if->interface->ifindex);
 		json_object_int_add(json_neighbor, "neighborInterfaceIndex",
 				    on->ifindex);
+<<<<<<< HEAD
+=======
+		json_object_string_addf(json_neighbor, "localLinkLocalAddress",
+				       "%pI6", on->ospf6_if->linklocal_addr);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		json_object_string_add(json_neighbor, "linkLocalAddress",
 				       linklocal_addr);
 		json_object_string_add(json_neighbor, "neighborState",
@@ -776,9 +1167,14 @@ static void ospf6_neighbor_show_detail(struct vty *vty,
 			 (CHECK_FLAG(on->dbdesc_bits, OSPF6_DBDESC_IBIT)
 				  ? "Initial "
 				  : ""),
+<<<<<<< HEAD
 			 (CHECK_FLAG(on->dbdesc_bits, OSPF6_DBDESC_MBIT)
 				  ? "More"
 				  : ""),
+=======
+			 (CHECK_FLAG(on->dbdesc_bits, OSPF6_DBDESC_MBIT) ? "More"
+									 : ""),
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			 (CHECK_FLAG(on->dbdesc_bits, OSPF6_DBDESC_MSBIT)
 				  ? "Master"
 				  : "Slave"));
@@ -792,8 +1188,13 @@ static void ospf6_neighbor_show_detail(struct vty *vty,
 		json_object_int_add(json_neighbor, "summaryListCount",
 				    on->summary_list->count);
 		for (ALL_LSDB(on->summary_list, lsa, lsanext))
+<<<<<<< HEAD
 			json_object_array_add(
 				json_array, json_object_new_string(lsa->name));
+=======
+			json_object_array_add(json_array,
+					      json_object_new_string(lsa->name));
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		json_object_object_add(json_neighbor, "summaryListLsa",
 				       json_array);
 
@@ -801,8 +1202,13 @@ static void ospf6_neighbor_show_detail(struct vty *vty,
 		json_object_int_add(json_neighbor, "requestListCount",
 				    on->request_list->count);
 		for (ALL_LSDB(on->request_list, lsa, lsanext))
+<<<<<<< HEAD
 			json_object_array_add(
 				json_array, json_object_new_string(lsa->name));
+=======
+			json_object_array_add(json_array,
+					      json_object_new_string(lsa->name));
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		json_object_object_add(json_neighbor, "requestListLsa",
 				       json_array);
 
@@ -810,8 +1216,13 @@ static void ospf6_neighbor_show_detail(struct vty *vty,
 		json_object_int_add(json_neighbor, "reTransListCount",
 				    on->retrans_list->count);
 		for (ALL_LSDB(on->retrans_list, lsa, lsanext))
+<<<<<<< HEAD
 			json_object_array_add(
 				json_array, json_object_new_string(lsa->name));
+=======
+			json_object_array_add(json_array,
+					      json_object_new_string(lsa->name));
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		json_object_object_add(json_neighbor, "reTransListLsa",
 				       json_array);
 
@@ -824,6 +1235,7 @@ static void ospf6_neighbor_show_detail(struct vty *vty,
 				    on->dbdesc_list->count);
 		json_object_string_add(json_neighbor, "pendingLsaDbDescTime",
 				       duration);
+<<<<<<< HEAD
 		json_object_string_add(
 			json_neighbor, "dbDescSendThread",
 			(event_is_scheduled(on->thread_send_dbdesc) ? "on"
@@ -832,6 +1244,16 @@ static void ospf6_neighbor_show_detail(struct vty *vty,
 		for (ALL_LSDB(on->dbdesc_list, lsa, lsanext))
 			json_object_array_add(
 				json_array, json_object_new_string(lsa->name));
+=======
+		json_object_string_add(json_neighbor, "dbDescSendThread",
+				       (event_is_scheduled(on->thread_send_dbdesc)
+						? "on"
+						: "off"));
+		json_array = json_object_new_array();
+		for (ALL_LSDB(on->dbdesc_list, lsa, lsanext))
+			json_object_array_add(json_array,
+					      json_object_new_string(lsa->name));
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		json_object_object_add(json_neighbor, "pendingLsaDbDesc",
 				       json_array);
 
@@ -843,6 +1265,7 @@ static void ospf6_neighbor_show_detail(struct vty *vty,
 				    on->request_list->count);
 		json_object_string_add(json_neighbor, "pendingLsaLsReqTime",
 				       duration);
+<<<<<<< HEAD
 		json_object_string_add(
 			json_neighbor, "lsReqSendThread",
 			(event_is_scheduled(on->thread_send_lsreq) ? "on"
@@ -851,19 +1274,34 @@ static void ospf6_neighbor_show_detail(struct vty *vty,
 		for (ALL_LSDB(on->request_list, lsa, lsanext))
 			json_object_array_add(
 				json_array, json_object_new_string(lsa->name));
+=======
+		json_object_string_add(json_neighbor, "lsReqSendThread",
+				       (event_is_scheduled(on->thread_send_lsreq)
+						? "on"
+						: "off"));
+		json_array = json_object_new_array();
+		for (ALL_LSDB(on->request_list, lsa, lsanext))
+			json_object_array_add(json_array,
+					      json_object_new_string(lsa->name));
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		json_object_object_add(json_neighbor, "pendingLsaLsReq",
 				       json_array);
 
 
 		timerclear(&res);
 		if (event_is_scheduled(on->thread_send_lsupdate))
+<<<<<<< HEAD
 			timersub(&on->thread_send_lsupdate->u.sands, &now,
 				 &res);
+=======
+			timersub(&on->thread_send_lsupdate->u.sands, &now, &res);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		timerstring(&res, duration, sizeof(duration));
 		json_object_int_add(json_neighbor, "pendingLsaLsUpdateCount",
 				    on->lsupdate_list->count);
 		json_object_string_add(json_neighbor, "pendingLsaLsUpdateTime",
 				       duration);
+<<<<<<< HEAD
 		json_object_string_add(
 			json_neighbor, "lsUpdateSendThread",
 			(event_is_scheduled(on->thread_send_lsupdate) ? "on"
@@ -872,6 +1310,17 @@ static void ospf6_neighbor_show_detail(struct vty *vty,
 		for (ALL_LSDB(on->lsupdate_list, lsa, lsanext))
 			json_object_array_add(
 				json_array, json_object_new_string(lsa->name));
+=======
+		json_object_string_add(json_neighbor, "lsUpdateSendThread",
+				       (event_is_scheduled(
+						on->thread_send_lsupdate)
+						? "on"
+						: "off"));
+		json_array = json_object_new_array();
+		for (ALL_LSDB(on->lsupdate_list, lsa, lsanext))
+			json_object_array_add(json_array,
+					      json_object_new_string(lsa->name));
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		json_object_object_add(json_neighbor, "pendingLsaLsUpdate",
 				       json_array);
 
@@ -883,6 +1332,7 @@ static void ospf6_neighbor_show_detail(struct vty *vty,
 				    on->lsack_list->count);
 		json_object_string_add(json_neighbor, "pendingLsaLsAckTime",
 				       duration);
+<<<<<<< HEAD
 		json_object_string_add(
 			json_neighbor, "lsAckSendThread",
 			(event_is_scheduled(on->thread_send_lsack) ? "on"
@@ -891,6 +1341,16 @@ static void ospf6_neighbor_show_detail(struct vty *vty,
 		for (ALL_LSDB(on->lsack_list, lsa, lsanext))
 			json_object_array_add(
 				json_array, json_object_new_string(lsa->name));
+=======
+		json_object_string_add(json_neighbor, "lsAckSendThread",
+				       (event_is_scheduled(on->thread_send_lsack)
+						? "on"
+						: "off"));
+		json_array = json_object_new_array();
+		for (ALL_LSDB(on->lsack_list, lsa, lsanext))
+			json_object_array_add(json_array,
+					      json_object_new_string(lsa->name));
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		json_object_object_add(json_neighbor, "pendingLsaLsAck",
 				       json_array);
 
@@ -899,6 +1359,7 @@ static void ospf6_neighbor_show_detail(struct vty *vty,
 		if (on->auth_present == true) {
 			json_object_string_add(json_neighbor, "authStatus",
 					       "enabled");
+<<<<<<< HEAD
 			json_object_int_add(
 				json_neighbor, "recvdHelloHigherSeqNo",
 				on->seqnum_h[OSPF6_MESSAGE_TYPE_HELLO]);
@@ -929,6 +1390,38 @@ static void ospf6_neighbor_show_detail(struct vty *vty,
 			json_object_int_add(
 				json_neighbor, "recvdLSAckLowerSeqNo",
 				on->seqnum_l[OSPF6_MESSAGE_TYPE_LSACK]);
+=======
+			json_object_int_add(json_neighbor,
+					    "recvdHelloHigherSeqNo",
+					    on->seqnum_h[OSPF6_MESSAGE_TYPE_HELLO]);
+			json_object_int_add(json_neighbor,
+					    "recvdHelloLowerSeqNo",
+					    on->seqnum_l[OSPF6_MESSAGE_TYPE_HELLO]);
+			json_object_int_add(json_neighbor,
+					    "recvdDBDescHigherSeqNo",
+					    on->seqnum_h[OSPF6_MESSAGE_TYPE_DBDESC]);
+			json_object_int_add(json_neighbor,
+					    "recvdDBDescLowerSeqNo",
+					    on->seqnum_l[OSPF6_MESSAGE_TYPE_DBDESC]);
+			json_object_int_add(json_neighbor,
+					    "recvdLSReqHigherSeqNo",
+					    on->seqnum_h[OSPF6_MESSAGE_TYPE_LSREQ]);
+			json_object_int_add(json_neighbor,
+					    "recvdLSReqLowerSeqNo",
+					    on->seqnum_l[OSPF6_MESSAGE_TYPE_LSREQ]);
+			json_object_int_add(json_neighbor,
+					    "recvdLSUpdHigherSeqNo",
+					    on->seqnum_h[OSPF6_MESSAGE_TYPE_LSUPDATE]);
+			json_object_int_add(json_neighbor,
+					    "recvdLSUpdLowerSeqNo",
+					    on->seqnum_l[OSPF6_MESSAGE_TYPE_LSUPDATE]);
+			json_object_int_add(json_neighbor,
+					    "recvdLSAckHigherSeqNo",
+					    on->seqnum_h[OSPF6_MESSAGE_TYPE_LSACK]);
+			json_object_int_add(json_neighbor,
+					    "recvdLSAckLowerSeqNo",
+					    on->seqnum_l[OSPF6_MESSAGE_TYPE_LSACK]);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		} else
 			json_object_string_add(json_neighbor, "authStatus",
 					       "disabled");
@@ -950,9 +1443,14 @@ static void ospf6_neighbor_show_detail(struct vty *vty,
 			(CHECK_FLAG(on->dbdesc_bits, OSPF6_DBDESC_IBIT)
 				 ? "Initial "
 				 : ""),
+<<<<<<< HEAD
 			(CHECK_FLAG(on->dbdesc_bits, OSPF6_DBDESC_MBIT)
 				 ? "More "
 				 : ""),
+=======
+			(CHECK_FLAG(on->dbdesc_bits, OSPF6_DBDESC_MBIT) ? "More "
+									: ""),
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			(CHECK_FLAG(on->dbdesc_bits, OSPF6_DBDESC_MSBIT)
 				 ? "Master"
 				 : "Slave"),
@@ -999,8 +1497,12 @@ static void ospf6_neighbor_show_detail(struct vty *vty,
 
 		timerclear(&res);
 		if (event_is_scheduled(on->thread_send_lsupdate))
+<<<<<<< HEAD
 			timersub(&on->thread_send_lsupdate->u.sands, &now,
 				 &res);
+=======
+			timersub(&on->thread_send_lsupdate->u.sands, &now, &res);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		timerstring(&res, duration, sizeof(duration));
 		vty_out(vty,
 			"    %d Pending LSAs for LSUpdate in Time %s [thread %s]\n",
@@ -1099,6 +1601,7 @@ static void ospf6_neighbor_show_detail_common(struct vty *vty,
 	}
 }
 
+<<<<<<< HEAD
 DEFUN(show_ipv6_ospf6_neighbor, show_ipv6_ospf6_neighbor_cmd,
       "show ipv6 ospf6 [vrf <NAME|all>] neighbor [<detail|drchoice>] [json]",
       SHOW_STR IP6_STR OSPF6_STR VRF_CMD_HELP_STR
@@ -1106,6 +1609,20 @@ DEFUN(show_ipv6_ospf6_neighbor, show_ipv6_ospf6_neighbor_cmd,
       "Neighbor list\n"
       "Display details\n"
       "Display DR choices\n" JSON_STR)
+=======
+DEFUN(show_ipv6_ospf6_neighbor,
+      show_ipv6_ospf6_neighbor_cmd,
+      "show ipv6 ospf6 [vrf <NAME|all>] neighbor [<detail|drchoice>] [json]",
+      SHOW_STR
+      IP6_STR
+      OSPF6_STR
+      VRF_CMD_HELP_STR
+      "All VRFs\n"
+      "Neighbor list\n"
+      "Display details\n"
+      "Display DR choices\n"
+      JSON_STR)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 {
 	struct ospf6 *ospf6;
 	struct listnode *node;
@@ -1140,8 +1657,12 @@ DEFUN(show_ipv6_ospf6_neighbor, show_ipv6_ospf6_neighbor_cmd,
 
 static int ospf6_neighbor_show_common(struct vty *vty, int argc,
 				      struct cmd_token **argv,
+<<<<<<< HEAD
 				      struct ospf6 *ospf6, int idx_ipv4,
 				      bool uj)
+=======
+				      struct ospf6 *ospf6, int idx_ipv4, bool uj)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 {
 	struct ospf6_neighbor *on;
 	struct ospf6_interface *oi;
@@ -1175,12 +1696,26 @@ static int ospf6_neighbor_show_common(struct vty *vty, int argc,
 	return CMD_SUCCESS;
 }
 
+<<<<<<< HEAD
 DEFUN(show_ipv6_ospf6_neighbor_one, show_ipv6_ospf6_neighbor_one_cmd,
       "show ipv6 ospf6 [vrf <NAME|all>] neighbor A.B.C.D [json]",
       SHOW_STR IP6_STR OSPF6_STR VRF_CMD_HELP_STR
       "All VRFs\n"
       "Neighbor list\n"
       "Specify Router-ID as IPv4 address notation\n" JSON_STR)
+=======
+DEFUN(show_ipv6_ospf6_neighbor_one,
+      show_ipv6_ospf6_neighbor_one_cmd,
+      "show ipv6 ospf6 [vrf <NAME|all>] neighbor A.B.C.D [json]",
+      SHOW_STR
+      IP6_STR
+      OSPF6_STR
+      VRF_CMD_HELP_STR
+      "All VRFs\n"
+      "Neighbor list\n"
+      "Specify Router-ID as IPv4 address notation\n"
+      JSON_STR)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 {
 	int idx_ipv4 = 4;
 	struct ospf6 *ospf6;
@@ -1213,6 +1748,14 @@ void ospf6_neighbor_init(void)
 {
 	install_element(VIEW_NODE, &show_ipv6_ospf6_neighbor_cmd);
 	install_element(VIEW_NODE, &show_ipv6_ospf6_neighbor_one_cmd);
+<<<<<<< HEAD
+=======
+
+	install_element(INTERFACE_NODE, &ipv6_ospf6_p2xp_neigh_cmd);
+	install_element(INTERFACE_NODE, &ipv6_ospf6_p2xp_neigh_cost_cmd);
+	install_element(INTERFACE_NODE,
+			&ipv6_ospf6_p2xp_neigh_poll_interval_cmd);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 }
 
 DEFUN (debug_ospf6_neighbor,
@@ -1286,12 +1829,20 @@ DEFUN (no_debug_ospf6,
 	ospf6_lsa_debug_set_all(false);
 
 	for (i = 0; i < 6; i++)
+<<<<<<< HEAD
 		OSPF6_DEBUG_MESSAGE_OFF(i,
 					OSPF6_DEBUG_NEIGHBOR_STATE
 						| OSPF6_DEBUG_NEIGHBOR_EVENT);
 
 	OSPF6_DEBUG_NEIGHBOR_OFF(OSPF6_DEBUG_NEIGHBOR_STATE
 				 | OSPF6_DEBUG_NEIGHBOR_EVENT);
+=======
+		OSPF6_DEBUG_MESSAGE_OFF(i, OSPF6_DEBUG_NEIGHBOR_STATE |
+						   OSPF6_DEBUG_NEIGHBOR_EVENT);
+
+	OSPF6_DEBUG_NEIGHBOR_OFF(OSPF6_DEBUG_NEIGHBOR_STATE |
+				 OSPF6_DEBUG_NEIGHBOR_EVENT);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	OSPF6_DEBUG_ROUTE_OFF(OSPF6_DEBUG_ROUTE_TABLE);
 	OSPF6_DEBUG_ROUTE_OFF(OSPF6_DEBUG_ROUTE_INTRA);
 	OSPF6_DEBUG_ROUTE_OFF(OSPF6_DEBUG_ROUTE_INTER);
@@ -1315,6 +1866,28 @@ int config_write_ospf6_debug_neighbor(struct vty *vty)
 	return 0;
 }
 
+<<<<<<< HEAD
+=======
+int config_write_ospf6_p2xp_neighbor(struct vty *vty, struct ospf6_interface *oi)
+{
+	struct ospf6_if_p2xp_neighcfg *p2xp_cfg;
+
+	frr_each (ospf6_if_p2xp_neighcfgs, &oi->p2xp_neighs, p2xp_cfg) {
+		vty_out(vty, " ipv6 ospf6 neighbor %pI6\n", &p2xp_cfg->addr);
+
+		if (p2xp_cfg->poll_interval)
+			vty_out(vty,
+				" ipv6 ospf6 neighbor %pI6 poll-interval %u\n",
+				&p2xp_cfg->addr, p2xp_cfg->poll_interval);
+
+		if (p2xp_cfg->cfg_cost)
+			vty_out(vty, " ipv6 ospf6 neighbor %pI6 cost %u\n",
+				&p2xp_cfg->addr, p2xp_cfg->cost);
+	}
+	return 0;
+}
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 void install_element_ospf6_debug_neighbor(void)
 {
 	install_element(ENABLE_NODE, &debug_ospf6_neighbor_cmd);

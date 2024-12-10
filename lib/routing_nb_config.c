@@ -14,6 +14,11 @@
 
 
 DEFINE_HOOK(routing_conf_event, (struct nb_cb_create_args *args), (args));
+<<<<<<< HEAD
+=======
+DEFINE_HOOK(routing_create, (struct nb_cb_create_args *args), (args));
+DEFINE_KOOH(routing_destroy, (struct nb_cb_destroy_args *args), (args));
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 /*
  * XPath: /frr-routing:routing/control-plane-protocols/control-plane-protocol
@@ -44,11 +49,19 @@ int routing_control_plane_protocols_control_plane_protocol_create(
 		 * find the vrf and store the pointer.
 		 */
 		if (nb_node_has_dependency(args->dnode->schema->priv)) {
+<<<<<<< HEAD
 			vrfname = yang_dnode_get_string(args->dnode, "./vrf");
+=======
+			vrfname = yang_dnode_get_string(args->dnode, "vrf");
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			vrf = vrf_lookup_by_name(vrfname);
 			assert(vrf);
 			nb_running_set_entry(args->dnode, vrf);
 		}
+<<<<<<< HEAD
+=======
+		hook_call(routing_create, args);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		break;
 	};
 
@@ -61,6 +74,11 @@ int routing_control_plane_protocols_control_plane_protocol_destroy(
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
+<<<<<<< HEAD
+=======
+	hook_call(routing_destroy, args);
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	/*
 	 * If dependency on VRF module is registered, then VRF
 	 * pointer was stored and must be cleared.
@@ -76,7 +94,11 @@ static void vrf_to_control_plane_protocol(const struct lyd_node *dnode,
 {
 	const char *vrf;
 
+<<<<<<< HEAD
 	vrf = yang_dnode_get_string(dnode, "./name");
+=======
+	vrf = yang_dnode_get_string(dnode, "name");
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	snprintf(xpath, XPATH_MAXLEN, FRR_ROUTING_KEY_XPATH_VRF, vrf);
 }
@@ -86,7 +108,11 @@ static void control_plane_protocol_to_vrf(const struct lyd_node *dnode,
 {
 	const char *vrf;
 
+<<<<<<< HEAD
 	vrf = yang_dnode_get_string(dnode, "./vrf");
+=======
+	vrf = yang_dnode_get_string(dnode, "vrf");
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	snprintf(xpath, XPATH_MAXLEN, FRR_VRF_KEY_XPATH, vrf);
 }

@@ -17,6 +17,7 @@
 #include <stdlib.h>
 #include <stddef.h>
 #include <ctype.h>
+<<<<<<< HEAD
 #include <errno.h>
 #include <fcntl.h>
 #include <signal.h>
@@ -28,6 +29,11 @@
 #endif /* HAVE_STROPTS_H */
 #include <sys/select.h>
 #include <sys/stat.h>
+=======
+#ifdef HAVE_STROPTS_H
+#include <stropts.h>
+#endif /* HAVE_STROPTS_H */
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 #include <sys/types.h>
 #include <sys/param.h>
 #ifdef HAVE_SYS_SYSCTL_H
@@ -37,13 +43,17 @@
 #include <sys/sysctl.h>
 #endif
 #endif /* HAVE_SYS_SYSCTL_H */
+<<<<<<< HEAD
 #include <sys/ioctl.h>
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 #ifdef HAVE_SYS_CONF_H
 #include <sys/conf.h>
 #endif /* HAVE_SYS_CONF_H */
 #ifdef HAVE_SYS_KSYM_H
 #include <sys/ksym.h>
 #endif /* HAVE_SYS_KSYM_H */
+<<<<<<< HEAD
 #include <syslog.h>
 #include <sys/time.h>
 #include <time.h>
@@ -53,6 +63,11 @@
 #include <limits.h>
 #include <inttypes.h>
 #include <stdbool.h>
+=======
+#include <sys/time.h>
+#include <time.h>
+#include <inttypes.h>
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 #ifdef HAVE_SYS_ENDIAN_H
 #include <sys/endian.h>
 #endif
@@ -63,11 +78,14 @@
 /* misc include group */
 #include <stdarg.h>
 
+<<<<<<< HEAD
 #ifdef HAVE_LCAPS
 #include <sys/capability.h>
 #include <sys/prctl.h>
 #endif /* HAVE_LCAPS */
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 /* network include group */
 
 #include <sys/socket.h>
@@ -76,10 +94,13 @@
 #include <sys/sockio.h>
 #endif /* HAVE_SYS_SOCKIO_H */
 
+<<<<<<< HEAD
 #ifdef __APPLE__
 #define __APPLE_USE_RFC_3542
 #endif
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 #ifndef HAVE_LIBCRYPT
 #ifdef HAVE_LIBCRYPTO
 #include <openssl/des.h>
@@ -87,6 +108,7 @@
 #endif
 #endif
 
+<<<<<<< HEAD
 #ifdef CRYPTO_OPENSSL
 #include <openssl/evp.h>
 #include <openssl/hmac.h>
@@ -96,6 +118,11 @@
 
 #include <netinet/in.h>
 #include <netinet/in_systm.h>
+=======
+#include "openbsd-tree.h"
+
+#include <netinet/in.h>
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 #include <netinet/ip.h>
 #include <netinet/tcp.h>
 
@@ -113,6 +140,7 @@
 #include <net/if_var.h>
 #endif /* HAVE_NET_IF_VAR_H */
 
+<<<<<<< HEAD
 #include <net/route.h>
 
 #ifdef HAVE_NETLINK
@@ -121,6 +149,11 @@
 #include <linux/filter.h>
 #else
 #define RT_TABLE_MAIN		0
+=======
+#ifndef HAVE_NETLINK
+#define RT_TABLE_MAIN		0
+#define RT_TABLE_LOCAL		RT_TABLE_MAIN
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 #endif /* HAVE_NETLINK */
 
 #include <netdb.h>
@@ -146,17 +179,24 @@
 #include <netinet6/in.h>
 #endif /* HAVE_NETINET6_IN_H */
 
+<<<<<<< HEAD
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 #ifdef HAVE_NETINET6_IP6_H
 #include <netinet6/ip6.h>
 #endif /* HAVE_NETINET6_IP6_H */
 
+<<<<<<< HEAD
 #include <netinet/icmp6.h>
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 #ifdef HAVE_NETINET6_ND6_H
 #include <netinet6/nd6.h>
 #endif /* HAVE_NETINET6_ND6_H */
 
+<<<<<<< HEAD
 /* Some systems do not define UINT32_MAX, etc.. from inttypes.h
  * e.g. this makes life easier for FBSD 4.11 users.
  */
@@ -177,6 +217,8 @@
 #include <execinfo.h>
 #endif /* HAVE_GLIBC_BACKTRACE */
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 /* Local includes: */
 #if !defined(__GNUC__)
 #define __attribute__(x)
@@ -210,6 +252,7 @@ size_t strlcpy(char *__restrict dest,
 void explicit_bzero(void *buf, size_t len);
 #endif
 
+<<<<<<< HEAD
 #if !defined(HAVE_STRUCT_MMSGHDR_MSG_HDR) || !defined(HAVE_SENDMMSG)
 /* avoid conflicts in case we have partial support */
 #define mmsghdr frr_mmsghdr
@@ -230,6 +273,8 @@ static inline int sendmmsg(int fd, struct mmsghdr *mmh, unsigned int len,
 }
 #endif
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 /*
  * RFC 3542 defines several macros for using struct cmsghdr.
  * Here, we define those that are not present
@@ -283,10 +328,16 @@ struct in_pktinfo {
  * OpenBSD: network byte order, apart from older versions which are as per
  *          *BSD
  */
+<<<<<<< HEAD
 #if defined(__NetBSD__)                                                        \
 	|| (defined(__FreeBSD__) && (__FreeBSD_version < 1100030))             \
 	|| (defined(__OpenBSD__) && (OpenBSD < 200311))                        \
 	|| (defined(__APPLE__))
+=======
+#if defined(__NetBSD__) ||                                                     \
+	(defined(__FreeBSD__) && (__FreeBSD_version < 1100030)) ||             \
+	(defined(__OpenBSD__) && (OpenBSD < 200311))
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 #define HAVE_IP_HDRINCL_BSD_ORDER
 #endif
 
@@ -300,6 +351,7 @@ struct in_pktinfo {
 #define IN6_ARE_ADDR_EQUAL IN6_IS_ADDR_EQUAL
 #endif /* IN6_ARE_ADDR_EQUAL */
 
+<<<<<<< HEAD
 /* default zebra TCP port for zclient */
 #define ZEBRA_PORT			2600
 
@@ -309,6 +361,8 @@ struct in_pktinfo {
  */
 #include "compiler.h"
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 /* Zebra route's types are defined in route_types.h */
 #include "lib/route_types.h"
 
@@ -358,6 +412,7 @@ typedef enum {
 	for (afi = AFI_IP; afi < AFI_MAX; afi++)                               \
 		for (safi = SAFI_UNICAST; safi <= SAFI_MPLS_VPN; safi++)
 
+<<<<<<< HEAD
 /* Default Administrative Distance of each protocol. */
 #define ZEBRA_KERNEL_DISTANCE_DEFAULT       0
 #define ZEBRA_CONNECT_DISTANCE_DEFAULT      0
@@ -379,6 +434,8 @@ typedef enum {
 #define ZEBRA_OPENFABRIC_DISTANCE_DEFAULT 115
 #define ZEBRA_MAX_DISTANCE_DEFAULT        255
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 /* Flag manipulation macros. */
 #define CHECK_FLAG(V,F)      ((V) & (F))
 #define SET_FLAG(V,F)        (V) |= (F)

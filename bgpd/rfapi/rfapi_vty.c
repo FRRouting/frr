@@ -413,6 +413,7 @@ void rfapi_vty_out_vncinfo(struct vty *vty, const struct prefix *p,
 		XFREE(MTYPE_ECOMMUNITY_STR, s);
 	}
 
+<<<<<<< HEAD
 	if (bpi->extra != NULL) {
 		if (bpi->extra->label[0] == BGP_PREVENT_VRF_2_VRF_LEAK)
 			vty_out(vty, " label=VRF2VRF");
@@ -430,6 +431,29 @@ void rfapi_vty_out_vncinfo(struct vty *vty, const struct prefix *p,
 					bpi->extra->sid[0].func_len,
 					bpi->extra->sid[0].arg_len);
 			}
+=======
+	if (BGP_PATH_INFO_NUM_LABELS(bpi)) {
+		if (bpi->extra->labels->label[0] == BGP_PREVENT_VRF_2_VRF_LEAK)
+			vty_out(vty, " label=VRF2VRF");
+		else
+			vty_out(vty, " label=%u",
+				decode_label(&bpi->extra->labels->label[0]));
+	}
+
+	if (bpi->attr->srv6_l3vpn || bpi->attr->srv6_vpn) {
+		struct in6_addr *sid_tmp =
+			bpi->attr->srv6_l3vpn ? (&bpi->attr->srv6_l3vpn->sid)
+					      : (&bpi->attr->srv6_vpn->sid);
+		vty_out(vty, " sid=%pI6", sid_tmp);
+
+		if (bpi->attr->srv6_l3vpn &&
+		    bpi->attr->srv6_l3vpn->loc_block_len != 0) {
+			vty_out(vty, " sid_structure=[%d,%d,%d,%d]",
+				bpi->attr->srv6_l3vpn->loc_block_len,
+				bpi->attr->srv6_l3vpn->loc_node_len,
+				bpi->attr->srv6_l3vpn->func_len,
+				bpi->attr->srv6_l3vpn->arg_len);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		}
 	}
 
@@ -514,9 +538,16 @@ void rfapiPrintBi(void *stream, struct bgp_path_info *bpi)
 	if (!bpi)
 		return;
 
+<<<<<<< HEAD
 	if (CHECK_FLAG(bpi->flags, BGP_PATH_REMOVED) && bpi->extra
 	    && bpi->extra->vnc.import.timer) {
 		struct event *t = (struct event *)bpi->extra->vnc.import.timer;
+=======
+	if (CHECK_FLAG(bpi->flags, BGP_PATH_REMOVED) && bpi->extra &&
+	    bpi->extra->vnc->vnc.import.timer) {
+		struct event *t =
+			(struct event *)bpi->extra->vnc->vnc.import.timer;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 		r = snprintf(p, REMAIN, " [%4lu] ",
 			     event_timer_remain_second(t));
@@ -529,12 +560,21 @@ void rfapiPrintBi(void *stream, struct bgp_path_info *bpi)
 
 	if (bpi->extra) {
 		/* TBD This valid only for SAFI_MPLS_VPN, but not for encap */
+<<<<<<< HEAD
 		if (decode_rd_type(bpi->extra->vnc.import.rd.val)
 		    == RD_TYPE_VNC_ETH) {
 			has_macaddr = 1;
 			memcpy(macaddr.octet, bpi->extra->vnc.import.rd.val + 2,
 			       6);
 			l2hid = bpi->extra->vnc.import.rd.val[1];
+=======
+		if (decode_rd_type(bpi->extra->vnc->vnc.import.rd.val) ==
+		    RD_TYPE_VNC_ETH) {
+			has_macaddr = 1;
+			memcpy(macaddr.octet,
+			       bpi->extra->vnc->vnc.import.rd.val + 2, 6);
+			l2hid = bpi->extra->vnc->vnc.import.rd.val[1];
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		}
 	}
 
@@ -665,11 +705,19 @@ void rfapiPrintBi(void *stream, struct bgp_path_info *bpi)
 		   l2o_buf.label, l2o_buf.logical_net_id, l2o_buf.local_nve_id,
 		   HVTYNL);
 	}
+<<<<<<< HEAD
 	if (bpi->extra && bpi->extra->vnc.import.aux_prefix.family) {
 		const char *sp;
 
 		sp = rfapi_ntop(bpi->extra->vnc.import.aux_prefix.family,
 				&bpi->extra->vnc.import.aux_prefix.u.prefix,
+=======
+	if (bpi->extra && bpi->extra->vnc->vnc.import.aux_prefix.family) {
+		const char *sp;
+
+		sp = rfapi_ntop(bpi->extra->vnc->vnc.import.aux_prefix.family,
+				&bpi->extra->vnc->vnc.import.aux_prefix.u.prefix,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 				buf, BUFSIZ);
 		buf[BUFSIZ - 1] = 0;
 		if (sp) {
@@ -1047,8 +1095,13 @@ static int rfapiPrintRemoteRegBi(struct bgp *bgp, void *stream,
 		snprintf(buf_un, sizeof(buf_un), "%s",
 			 inet_ntop(pfx_vn.family, &pfx_vn.u.prefix, buf_ntop,
 				   sizeof(buf_ntop)));
+<<<<<<< HEAD
 		if (bpi->extra) {
 			uint32_t l = decode_label(&bpi->extra->label[0]);
+=======
+		if (BGP_PATH_INFO_NUM_LABELS(bpi)) {
+			uint32_t l = decode_label(&bpi->extra->labels->label[0]);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			snprintf(buf_vn, sizeof(buf_vn), "Label: %d", l);
 		} else /* should never happen */
 		{
@@ -1092,14 +1145,24 @@ static int rfapiPrintRemoteRegBi(struct bgp *bgp, void *stream,
 		fp(out, "%-10s ", buf_lifetime);
 	}
 
+<<<<<<< HEAD
 	if (CHECK_FLAG(bpi->flags, BGP_PATH_REMOVED) && bpi->extra
 	    && bpi->extra->vnc.import.timer) {
 
+=======
+	if (CHECK_FLAG(bpi->flags, BGP_PATH_REMOVED) && bpi->extra &&
+	    bpi->extra->vnc->vnc.import.timer) {
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		uint32_t remaining;
 		time_t age;
 		char buf_age[BUFSIZ];
 
+<<<<<<< HEAD
 		struct event *t = (struct event *)bpi->extra->vnc.import.timer;
+=======
+		struct event *t =
+			(struct event *)bpi->extra->vnc->vnc.import.timer;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		remaining = event_timer_remain_second(t);
 
 #ifdef RFAPI_REGISTRATIONS_REPORT_AGE
@@ -1120,11 +1183,18 @@ static int rfapiPrintRemoteRegBi(struct bgp *bgp, void *stream,
 		fp(out, "%-10s ", buf_age);
 
 	} else if (RFAPI_LOCAL_BI(bpi)) {
+<<<<<<< HEAD
 
 		char buf_age[BUFSIZ];
 
 		if (bpi->extra && bpi->extra->vnc.import.create_time) {
 			rfapiFormatAge(bpi->extra->vnc.import.create_time,
+=======
+		char buf_age[BUFSIZ];
+
+		if (bpi->extra && bpi->extra->vnc->vnc.import.create_time) {
+			rfapiFormatAge(bpi->extra->vnc->vnc.import.create_time,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 				       buf_age, BUFSIZ);
 		} else {
 			buf_age[0] = '?';
@@ -1140,6 +1210,7 @@ static int rfapiPrintRemoteRegBi(struct bgp *bgp, void *stream,
 		 * print that on the next line
 		 */
 
+<<<<<<< HEAD
 		if (bpi->extra && bpi->extra->vnc.import.aux_prefix.family) {
 			const char *sp;
 
@@ -1147,6 +1218,16 @@ static int rfapiPrintRemoteRegBi(struct bgp *bgp, void *stream,
 				bpi->extra->vnc.import.aux_prefix.family,
 				&bpi->extra->vnc.import.aux_prefix.u.prefix,
 				buf_ntop, BUFSIZ);
+=======
+		if (bpi->extra && bpi->extra->vnc->vnc.import.aux_prefix.family) {
+			const char *sp;
+
+			sp = rfapi_ntop(bpi->extra->vnc->vnc.import.aux_prefix
+						.family,
+					&bpi->extra->vnc->vnc.import.aux_prefix
+						 .u.prefix,
+					buf_ntop, BUFSIZ);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			buf_ntop[BUFSIZ - 1] = 0;
 
 			if (sp && strcmp(buf_vn, sp) != 0) {
@@ -1156,8 +1237,13 @@ static int rfapiPrintRemoteRegBi(struct bgp *bgp, void *stream,
 			}
 		}
 	}
+<<<<<<< HEAD
 	if (tun_type != BGP_ENCAP_TYPE_MPLS && bpi->extra) {
 		uint32_t l = decode_label(&bpi->extra->label[0]);
+=======
+	if (tun_type != BGP_ENCAP_TYPE_MPLS && BGP_PATH_INFO_NUM_LABELS(bpi)) {
+		uint32_t l = decode_label(&bpi->extra->labels->label[0]);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 		if (!MPLS_LABEL_IS_NULL(l)) {
 			fp(out, "  Label: %d", l);
@@ -1252,6 +1338,11 @@ static int rfapiShowRemoteRegistrationsIt(struct bgp *bgp, void *stream,
 					const char *agetype = "";
 					char *s;
 					const char *type = "";
+<<<<<<< HEAD
+=======
+
+					(void)type; /* clang-SA */
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 					if (show_imported) {
 						type = "Imported";
 					} else {
@@ -1540,10 +1631,16 @@ void rfapiPrintAdvertisedInfo(struct vty *vty, struct rfapi_descriptor *rfd,
 	vty_out(vty, "  bd=%p%s", bd, HVTYNL);
 
 	for (bpi = bgp_dest_get_bgp_path_info(bd); bpi; bpi = bpi->next) {
+<<<<<<< HEAD
 		if (bpi->peer == rfd->peer && bpi->type == type
 		    && bpi->sub_type == BGP_ROUTE_RFP && bpi->extra
 		    && bpi->extra->vnc.export.rfapi_handle == (void *)rfd) {
 
+=======
+		if (bpi->peer == rfd->peer && bpi->type == type &&
+		    bpi->sub_type == BGP_ROUTE_RFP && bpi->extra &&
+		    bpi->extra->vnc->vnc.export.rfapi_handle == (void *)rfd) {
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			rfapiPrintBi(vty, bpi);
 			printed = 1;
 		}
@@ -4146,6 +4243,10 @@ static int rfapi_vty_show_nve_summary(struct vty *vty,
 
 		case SHOW_NVE_SUMMARY_RESPONSES:
 			rfapiRibShowResponsesSummary(vty);
+<<<<<<< HEAD
+=======
+			break;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 		case SHOW_NVE_SUMMARY_UNKNOWN_NVES:
 		case SHOW_NVE_SUMMARY_MAX:

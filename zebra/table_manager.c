@@ -24,6 +24,7 @@
 #include "zebra/table_manager.h"
 #include "zebra/zebra_errors.h"
 
+<<<<<<< HEAD
 /* routing table identifiers
  *
  */
@@ -39,6 +40,8 @@
 #define RT_TABLE_ID_COMPAT                 252
 #define RT_TABLE_ID_UNSPEC                 0
 #endif /* !def(GNU_LINUX) */
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 #define RT_TABLE_ID_UNRESERVED_MIN         1
 #define RT_TABLE_ID_UNRESERVED_MAX         0xffffffff
 
@@ -63,8 +66,12 @@ void table_manager_enable(struct zebra_vrf *zvrf)
 	    && strcmp(zvrf_name(zvrf), VRF_DEFAULT_NAME)) {
 		struct zebra_vrf *def = zebra_vrf_lookup_by_id(VRF_DEFAULT);
 
+<<<<<<< HEAD
 		if (def)
 			zvrf->tbl_mgr = def->tbl_mgr;
+=======
+		zvrf->tbl_mgr = def->tbl_mgr;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		return;
 	}
 	zvrf->tbl_mgr = XCALLOC(MTYPE_TM_TABLE, sizeof(struct table_manager));
@@ -280,6 +287,7 @@ void table_manager_disable(struct zebra_vrf *zvrf)
 	zvrf->tbl_mgr = NULL;
 }
 
+<<<<<<< HEAD
 int table_manager_range(struct vty *vty, bool add, struct zebra_vrf *zvrf,
 			const char *start_table_str, const char *end_table_str)
 {
@@ -328,4 +336,13 @@ int table_manager_range(struct vty *vty, bool add, struct zebra_vrf *zvrf,
 	} else
 		table_range_add(zvrf, 0, 0);
 	return CMD_SUCCESS;
+=======
+void table_manager_range(bool add, struct zebra_vrf *zvrf, uint32_t start,
+			 uint32_t end)
+{
+	if (add)
+		table_range_add(zvrf, start, end);
+	else
+		table_range_add(zvrf, 0, 0);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 }

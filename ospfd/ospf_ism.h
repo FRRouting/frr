@@ -69,7 +69,11 @@
 
 /* Macro for OSPF execute event. */
 #define OSPF_ISM_EVENT_EXECUTE(I, E)                                           \
+<<<<<<< HEAD
 	event_execute(master, ospf_ism_event, (I), (E))
+=======
+	event_execute(master, ospf_ism_event, (I), (E), NULL)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 /* Prototypes. */
 extern void ospf_ism_event(struct event *thread);

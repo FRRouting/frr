@@ -1,0 +1,7 @@
+{
+  "routerId": "192.0.2.2",
+  "defaultLocPrf": 100,
+  "localAS": 65002,
+  "routes": {
+  }
+}

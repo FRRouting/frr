@@ -115,7 +115,11 @@ def setup_module(mod):
     logger.info("Running setup_module() done")
 
 
+<<<<<<< HEAD
 def teardown_module(mod):
+=======
+def teardown_module():
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     """
     Teardown the pytest environment.
 
@@ -607,7 +611,11 @@ def test_ospf_show_p1(request):
                 "r0": {
                     "ospf": {
                         "ifUp": True,
+<<<<<<< HEAD
                         "ifFlags": "<UP,BROADCAST,RUNNING,MULTICAST>",
+=======
+                        "ifFlags": "<UP,LOWER_UP,BROADCAST,RUNNING,MULTICAST>",
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
                         "ospfEnabled": True,
                         "ipAddressPrefixlen": 24,
                         "ospfIfType": "Broadcast",
@@ -634,7 +642,11 @@ def test_ospf_show_p1(request):
 
     # show ip ospf route
     ip = topo["routers"]["r0"]["links"]["r3"]["ipv4"]
+<<<<<<< HEAD
     ip_net = str(ipaddress.ip_interface(u"{}".format(ip)).network)
+=======
+    ip_net = str(ipaddress.ip_interface("{}".format(ip)).network)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     nh = topo["routers"]["r0"]["links"]["r1"]["ipv4"].split("/")[0]
     input_dict = {
         "r1": {"static_routes": [{"network": ip_net, "no_of_ip": 1, "routeType": "N"}]}

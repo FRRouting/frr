@@ -49,10 +49,15 @@ from lib.topolog import logger
 from lib.bgp import (
     verify_bgp_convergence,
     create_router_bgp,
+<<<<<<< HEAD
     verify_bgp_community,
     verify_bgp_rib,
     clear_bgp,
     verify_best_path_as_per_bgp_attribute
+=======
+    verify_bgp_rib,
+    verify_best_path_as_per_bgp_attribute,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 )
 from lib.topojson import build_config_from_json
 
@@ -463,7 +468,10 @@ def test_bgp_best_path_with_dynamic_import_p0(request):
         check_router_status(tgen)
 
     for addr_type in ADDR_TYPES:
+<<<<<<< HEAD
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         step(
             "Redistribute configured static routes into BGP process" " on R1/R2 and R3"
         )
@@ -495,7 +503,10 @@ def test_bgp_best_path_with_dynamic_import_p0(request):
         )
 
     for addr_type in ADDR_TYPES:
+<<<<<<< HEAD
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         step("Import from default vrf into vrf ISR on R1 and R2 as below")
 
         input_dict_vrf = {}
@@ -553,7 +564,10 @@ def test_bgp_best_path_with_dynamic_import_p0(request):
     )
 
     for addr_type in ADDR_TYPES:
+<<<<<<< HEAD
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         step("Verify Pre-emption")
 
         input_routes_r3 = {
@@ -585,7 +599,10 @@ def test_bgp_best_path_with_dynamic_import_p0(request):
     shutdown_bringup_interface(tgen, "r4", intf_r4_r1, False)
 
     for addr_type in ADDR_TYPES:
+<<<<<<< HEAD
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         input_routes_r3 = {
             "r3": {"static_routes": [{"network": [NETWORK3_3[addr_type]]}]}
         }
@@ -616,7 +633,10 @@ def test_bgp_best_path_with_dynamic_import_p0(request):
     shutdown_bringup_interface(tgen, "r4", intf_r4_r1, True)
 
     for addr_type in ADDR_TYPES:
+<<<<<<< HEAD
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         input_routes_r3 = {
             "r3": {"static_routes": [{"network": [NETWORK3_3[addr_type]]}]}
         }
@@ -646,7 +666,10 @@ def test_bgp_best_path_with_dynamic_import_p0(request):
     step("Active-Standby scenario(as-path prepend and Local pref)")
 
     for addr_type in ADDR_TYPES:
+<<<<<<< HEAD
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         step("Create prefix-list")
 
         input_dict_pf = {
@@ -670,7 +693,10 @@ def test_bgp_best_path_with_dynamic_import_p0(request):
         )
 
     for addr_type in ADDR_TYPES:
+<<<<<<< HEAD
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         step("Create route-map to match prefix-list and set localpref 500")
 
         input_dict_rm = {
@@ -778,6 +804,7 @@ def test_bgp_best_path_with_dynamic_import_p0(request):
     attribute = "locPrf"
 
     for addr_type in ADDR_TYPES:
+<<<<<<< HEAD
 
         step("Verify bestpath is installed as per highest localpref")
 
@@ -787,6 +814,12 @@ def test_bgp_best_path_with_dynamic_import_p0(request):
                     {"network": [NETWORK3_3[addr_type], NETWORK3_4[addr_type]]}
                 ]
             }
+=======
+        step("Verify bestpath is installed as per highest localpref")
+
+        input_routes_r3 = {
+            "r3": {"static_routes": [{"network": [NETWORK3_4[addr_type]]}]}
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         }
 
         result = verify_best_path_as_per_bgp_attribute(
@@ -797,7 +830,10 @@ def test_bgp_best_path_with_dynamic_import_p0(request):
         )
 
     for addr_type in ADDR_TYPES:
+<<<<<<< HEAD
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         step("Create route-map to match prefix-list and set localpref 700")
 
         input_dict_rm = {
@@ -825,6 +861,7 @@ def test_bgp_best_path_with_dynamic_import_p0(request):
         )
 
     for addr_type in ADDR_TYPES:
+<<<<<<< HEAD
 
         step("Verify bestpath is changed as per highest localpref")
 
@@ -834,6 +871,12 @@ def test_bgp_best_path_with_dynamic_import_p0(request):
                     {"network": [NETWORK3_3[addr_type], NETWORK3_4[addr_type]]}
                 ]
             }
+=======
+        step("Verify bestpath is changed as per highest localpref")
+
+        input_routes_r3 = {
+            "r3": {"static_routes": [{"network": [NETWORK3_4[addr_type]]}]}
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         }
 
         result = verify_best_path_as_per_bgp_attribute(
@@ -844,7 +887,10 @@ def test_bgp_best_path_with_dynamic_import_p0(request):
         )
 
     for addr_type in ADDR_TYPES:
+<<<<<<< HEAD
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         step("Create route-map to match prefix-list and set as-path prepend")
 
         input_dict_rm = {
@@ -877,6 +923,7 @@ def test_bgp_best_path_with_dynamic_import_p0(request):
     attribute = "path"
 
     for addr_type in ADDR_TYPES:
+<<<<<<< HEAD
 
         step("Verify bestpath is changed as per shortest as-path")
 
@@ -886,6 +933,12 @@ def test_bgp_best_path_with_dynamic_import_p0(request):
                     {"network": [NETWORK3_3[addr_type], NETWORK3_4[addr_type]]}
                 ]
             }
+=======
+        step("Verify bestpath is changed as per shortest as-path")
+
+        input_routes_r3 = {
+            "r3": {"static_routes": [{"network": [NETWORK3_4[addr_type]]}]}
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         }
 
         result = verify_best_path_as_per_bgp_attribute(

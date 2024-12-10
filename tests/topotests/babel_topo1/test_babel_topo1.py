@@ -15,10 +15,17 @@ test_babel_topo1.py: Testing BABEL
 """
 
 import os
+<<<<<<< HEAD
 import re
 import sys
 import pytest
 import json
+=======
+import sys
+import pytest
+import json
+from functools import partial
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 pytestmark = [pytest.mark.babeld]
 
@@ -110,6 +117,20 @@ def test_converge_protocols():
     topotest.sleep(10, "Waiting for BABEL convergence")
 
 
+<<<<<<< HEAD
+=======
+def runit(router, assertmsg, cmd, expfile):
+    logger.info(expfile)
+
+    # Read expected result from file
+    expected = json.loads(open(expfile).read())
+
+    test_func = partial(topotest.router_json_cmp, router, cmd, expected)
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
+    assert result is None, assertmsg
+
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 def test_zebra_ipv4_routingTable():
     "Test 'show ip route'"
 
@@ -118,6 +139,7 @@ def test_zebra_ipv4_routingTable():
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
+<<<<<<< HEAD
     failures = 0
     router_list = tgen.routers().values()
     for router in router_list:
@@ -129,6 +151,16 @@ def test_zebra_ipv4_routingTable():
             router.name
         )
         assert topotest.json_cmp(output, expected) is None, assertmsg
+=======
+    router_list = tgen.routers().values()
+    for router in router_list:
+        assertmsg = "Zebra IPv4 Routing Table verification failed for router {}".format(
+            router.name
+        )
+        refTableFile = "{}/{}/show_ip_route.json_ref".format(CWD, router.name)
+        runit(router, assertmsg, "show ip route json", refTableFile)
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 def test_shutdown_check_stderr():
     if os.environ.get("TOPOTESTS_CHECK_STDERR") is None:

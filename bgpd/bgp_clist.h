@@ -113,11 +113,17 @@ struct community_list_handler {
 };
 
 /* Error code of community-list.  */
+<<<<<<< HEAD
 #define COMMUNITY_LIST_ERR_CANT_FIND_LIST        -1
 #define COMMUNITY_LIST_ERR_MALFORMED_VAL         -2
 #define COMMUNITY_LIST_ERR_STANDARD_CONFLICT     -3
 #define COMMUNITY_LIST_ERR_EXPANDED_CONFLICT     -4
 
+=======
+#define COMMUNITY_LIST_ERR_MALFORMED_VAL     -1
+#define COMMUNITY_LIST_ERR_STANDARD_CONFLICT -2
+#define COMMUNITY_LIST_ERR_EXPANDED_CONFLICT -3
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 /* Handler.  */
 extern struct community_list_handler *bgp_clist;
 
@@ -128,6 +134,7 @@ extern void community_list_terminate(struct community_list_handler *ch);
 extern int community_list_set(struct community_list_handler *ch,
 			      const char *name, const char *str,
 			      const char *seq, int direct, int style);
+<<<<<<< HEAD
 extern int community_list_unset(struct community_list_handler *ch,
 				const char *name, const char *str,
 				const char *seq, int direct, int style);
@@ -137,13 +144,30 @@ extern int extcommunity_list_set(struct community_list_handler *ch,
 extern int extcommunity_list_unset(struct community_list_handler *ch,
 				   const char *name, const char *str,
 				   const char *seq, int direct, int style);
+=======
+extern void community_list_unset(struct community_list_handler *ch,
+				 const char *name, const char *str,
+				 const char *seq, int direct, int style);
+extern int extcommunity_list_set(struct community_list_handler *ch,
+				 const char *name, const char *str,
+				 const char *seq, int direct, int style);
+extern void extcommunity_list_unset(struct community_list_handler *ch,
+				    const char *name, const char *str,
+				    const char *seq, int direct, int style);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 extern int lcommunity_list_set(struct community_list_handler *ch,
 			       const char *name, const char *str,
 			       const char *seq, int direct, int style);
 extern bool lcommunity_list_valid(const char *community, int style);
+<<<<<<< HEAD
 extern int lcommunity_list_unset(struct community_list_handler *ch,
 				 const char *name, const char *str,
 				 const char *seq, int direct, int style);
+=======
+extern void lcommunity_list_unset(struct community_list_handler *ch,
+				  const char *name, const char *str,
+				  const char *seq, int direct, int style);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 extern struct community_list_master *
 community_list_master_lookup(struct community_list_handler *ch, int master);
@@ -162,11 +186,26 @@ extern bool community_list_exact_match(struct community *com,
 				       struct community_list *list);
 extern bool lcommunity_list_exact_match(struct lcommunity *lcom,
 					struct community_list *list);
+<<<<<<< HEAD
 extern struct community *
 community_list_match_delete(struct community *com, struct community_list *list);
 extern struct lcommunity *
 lcommunity_list_match_delete(struct lcommunity *lcom,
 			     struct community_list *list);
+=======
+extern bool community_list_any_match(struct community *com,
+				     struct community_list *list);
+extern struct community *
+community_list_match_delete(struct community *com, struct community_list *list);
+extern bool lcommunity_list_any_match(struct lcommunity *lcom,
+				      struct community_list *list);
+extern struct lcommunity *
+lcommunity_list_match_delete(struct lcommunity *lcom,
+			     struct community_list *list);
+extern struct ecommunity *
+ecommunity_list_match_delete(struct ecommunity *ecom,
+			     struct community_list *list);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 static inline uint32_t bgp_clist_hash_key(char *name)
 {

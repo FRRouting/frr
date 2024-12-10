@@ -21,10 +21,13 @@
 #define MTYPE_OSPF_API_MSG      MTYPE_TMP
 #define MTYPE_OSPF_API_FIFO     MTYPE_TMP
 
+<<<<<<< HEAD
 /* Default API server port to accept connection request from client-side. */
 /* This value could be overridden by "ospfapi" entry in "/etc/services". */
 #define OSPF_API_SYNC_PORT      2607
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 /* -----------------------------------------------------------
  * Generic messages
  * -----------------------------------------------------------

@@ -14,8 +14,12 @@ import pytest
 from lib.topogen import Topogen, TopoRouter
 from util import _test_staticd_late_start
 
+<<<<<<< HEAD
 # pytestmark = [pytest.mark.staticd, pytest.mark.mgmtd]
 pytestmark = [pytest.mark.staticd]
+=======
+pytestmark = [pytest.mark.staticd, pytest.mark.mgmtd]
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 
 @pytest.fixture(scope="module")

@@ -83,9 +83,14 @@ int ripng_offset_list_apply_in(struct ripng *ripng, struct prefix_ipv6 *p,
 		alist = access_list_lookup(AFI_IP6,
 					   OFFSET_LIST_IN_NAME(offset));
 
+<<<<<<< HEAD
 		if (alist
 		    && access_list_apply(alist, (struct prefix *)p)
 			       == FILTER_PERMIT) {
+=======
+		if (alist && access_list_apply(alist, (struct prefix *)p) ==
+				     FILTER_PERMIT) {
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			*metric += OFFSET_LIST_IN_METRIC(offset);
 			return 1;
 		}
@@ -97,9 +102,14 @@ int ripng_offset_list_apply_in(struct ripng *ripng, struct prefix_ipv6 *p,
 		alist = access_list_lookup(AFI_IP6,
 					   OFFSET_LIST_IN_NAME(offset));
 
+<<<<<<< HEAD
 		if (alist
 		    && access_list_apply(alist, (struct prefix *)p)
 			       == FILTER_PERMIT) {
+=======
+		if (alist && access_list_apply(alist, (struct prefix *)p) ==
+				     FILTER_PERMIT) {
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			*metric += OFFSET_LIST_IN_METRIC(offset);
 			return 1;
 		}
@@ -121,9 +131,14 @@ int ripng_offset_list_apply_out(struct ripng *ripng, struct prefix_ipv6 *p,
 		alist = access_list_lookup(AFI_IP6,
 					   OFFSET_LIST_OUT_NAME(offset));
 
+<<<<<<< HEAD
 		if (alist
 		    && access_list_apply(alist, (struct prefix *)p)
 			       == FILTER_PERMIT) {
+=======
+		if (alist && access_list_apply(alist, (struct prefix *)p) ==
+				     FILTER_PERMIT) {
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			*metric += OFFSET_LIST_OUT_METRIC(offset);
 			return 1;
 		}
@@ -136,9 +151,14 @@ int ripng_offset_list_apply_out(struct ripng *ripng, struct prefix_ipv6 *p,
 		alist = access_list_lookup(AFI_IP6,
 					   OFFSET_LIST_OUT_NAME(offset));
 
+<<<<<<< HEAD
 		if (alist
 		    && access_list_apply(alist, (struct prefix *)p)
 			       == FILTER_PERMIT) {
+=======
+		if (alist && access_list_apply(alist, (struct prefix *)p) ==
+				     FILTER_PERMIT) {
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			*metric += OFFSET_LIST_OUT_METRIC(offset);
 			return 1;
 		}

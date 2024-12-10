@@ -16,7 +16,11 @@ import pytest
 # pylint: disable=C0413
 # Import topogen and topotest helpers
 from lib import topotest
+<<<<<<< HEAD
 from lib.topogen import Topogen, TopoRouter, get_topogen
+=======
+from lib.topogen import Topogen, get_topogen
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 from lib.topolog import logger
 
 
@@ -139,7 +143,11 @@ def setup_module(mod):
             tgen.set_error("unsupported version")
 
 
+<<<<<<< HEAD
 def teardown_module(mod):
+=======
+def teardown_module():
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     "Teardown the pytest environment"
     tgen = get_topogen()
     tgen.stop_topology()
@@ -182,9 +190,13 @@ def test_ospf_convergence():
                     "show ip ospf vrf {} route".format(vrf),
                     expected,
                 )
+<<<<<<< HEAD
                 result, diff = topotest.run_and_expect(
                     test_func, "", count=80, wait=1
                 )
+=======
+                result, diff = topotest.run_and_expect(test_func, "", count=80, wait=1)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
                 assertmsg = "OSPF did not converge on {}:\n{}".format(rname, diff)
                 assert result, assertmsg
 
@@ -207,9 +219,13 @@ def test_ospf_kernel_route():
                 test_func = partial(
                     compare_show_ip_route_vrf, router.name, expected, vrf
                 )
+<<<<<<< HEAD
                 result, diff = topotest.run_and_expect(
                     test_func, "", count=80, wait=1
                 )
+=======
+                result, diff = topotest.run_and_expect(test_func, "", count=80, wait=1)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
                 assertmsg = 'OSPF IPv4 route mismatch in router "{}": {}'.format(
                     router.name, diff
                 )

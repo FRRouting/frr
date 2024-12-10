@@ -772,7 +772,11 @@ void eigrp_hello_send(struct eigrp_interface *ei, uint8_t flags,
 		if (ei->eigrp->t_write == NULL) {
 			if (flags & EIGRP_HELLO_GRACEFUL_SHUTDOWN) {
 				event_execute(master, eigrp_write, ei->eigrp,
+<<<<<<< HEAD
 					      ei->eigrp->fd);
+=======
+					      ei->eigrp->fd, NULL);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			} else {
 				event_add_write(master, eigrp_write, ei->eigrp,
 						ei->eigrp->fd,

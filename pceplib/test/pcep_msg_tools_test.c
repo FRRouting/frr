@@ -199,7 +199,11 @@ static bool pcep_obj_has_tlv(struct pcep_object_header *obj_hdr)
 	return (obj_hdr->tlv_list->num_entries > 0);
 }
 
+<<<<<<< HEAD
 void test_pcep_msg_read_pcep_initiate()
+=======
+void test_pcep_msg_read_pcep_initiate(void)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 {
 	char filename[BASE_TMPFILE_SIZE];
 
@@ -303,7 +307,11 @@ void test_pcep_msg_read_pcep_initiate()
 }
 
 
+<<<<<<< HEAD
 void test_pcep_msg_read_pcep_initiate2()
+=======
+void test_pcep_msg_read_pcep_initiate2(void)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 {
 	char filename[BASE_TMPFILE_SIZE];
 
@@ -396,7 +404,11 @@ void test_pcep_msg_read_pcep_initiate2()
 	unlink(filename);
 }
 
+<<<<<<< HEAD
 void test_pcep_msg_read_pcep_open()
+=======
+void test_pcep_msg_read_pcep_open(void)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 {
 	char filename[BASE_TMPFILE_SIZE];
 
@@ -444,7 +456,11 @@ void test_pcep_msg_read_pcep_open()
 	unlink(filename);
 }
 
+<<<<<<< HEAD
 void test_pcep_msg_read_pcep_update()
+=======
+void test_pcep_msg_read_pcep_update(void)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 {
 	char filename[BASE_TMPFILE_SIZE];
 
@@ -530,7 +546,11 @@ void test_pcep_msg_read_pcep_update()
 	unlink(filename);
 }
 
+<<<<<<< HEAD
 void test_pcep_msg_read_pcep_open_initiate()
+=======
+void test_pcep_msg_read_pcep_open_initiate(void)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 {
 	char filename[BASE_TMPFILE_SIZE];
 
@@ -563,7 +583,11 @@ void test_pcep_msg_read_pcep_open_initiate()
 	unlink(filename);
 }
 
+<<<<<<< HEAD
 void test_pcep_msg_read_pcep_open_cisco_pce()
+=======
+void test_pcep_msg_read_pcep_open_cisco_pce(void)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 {
 	char filename[BASE_TMPFILE_SIZE];
 
@@ -630,7 +654,11 @@ void test_pcep_msg_read_pcep_open_cisco_pce()
 	unlink(filename);
 }
 
+<<<<<<< HEAD
 void test_pcep_msg_read_pcep_update_cisco_pce()
+=======
+void test_pcep_msg_read_pcep_update_cisco_pce(void)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 {
 	char filename[BASE_TMPFILE_SIZE];
 
@@ -778,7 +806,11 @@ void test_pcep_msg_read_pcep_update_cisco_pce()
 	unlink(filename);
 }
 
+<<<<<<< HEAD
 void test_pcep_msg_read_pcep_report_cisco_pcc()
+=======
+void test_pcep_msg_read_pcep_report_cisco_pcc(void)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 {
 	char filename[BASE_TMPFILE_SIZE];
 
@@ -943,7 +975,11 @@ void test_pcep_msg_read_pcep_report_cisco_pcc()
 	unlink(filename);
 }
 
+<<<<<<< HEAD
 void test_pcep_msg_read_pcep_initiate_cisco_pcc()
+=======
+void test_pcep_msg_read_pcep_initiate_cisco_pcc(void)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 {
 	char filename[BASE_TMPFILE_SIZE];
 
@@ -1055,7 +1091,11 @@ void test_pcep_msg_read_pcep_initiate_cisco_pcc()
 	unlink(filename);
 }
 
+<<<<<<< HEAD
 void test_validate_message_header()
+=======
+void test_validate_message_header(void)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 {
 	uint8_t pcep_message_invalid_version[] = {0x40, 0x01, 0x04, 0x00};
 	uint8_t pcep_message_invalid_flags[] = {0x22, 0x01, 0x04, 0x00};
@@ -1141,7 +1181,11 @@ struct pcep_message *create_message(uint8_t msg_type, uint8_t obj1_class,
 	return msg;
 }
 
+<<<<<<< HEAD
 void test_validate_message_objects()
+=======
+void test_validate_message_objects(void)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 {
 	/* Valid Open message */
 	struct pcep_message *msg =
@@ -1203,7 +1247,11 @@ void test_validate_message_objects()
 	pcep_msg_free_message(msg);
 }
 
+<<<<<<< HEAD
 void test_validate_message_objects_invalid()
+=======
+void test_validate_message_objects_invalid(void)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 {
 	/* unsupported message ID = 0
 	 * {NO_OBJECT, NO_OBJECT, NO_OBJECT, NO_OBJECT} */

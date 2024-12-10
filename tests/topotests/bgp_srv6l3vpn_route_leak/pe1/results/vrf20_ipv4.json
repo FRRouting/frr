@@ -12,7 +12,11 @@
                 {
                     "fib": true,
                     "directlyConnected": true,
+<<<<<<< HEAD
                     "interfaceName": "eth0",
+=======
+                    "interfaceName": "vrf10",
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
                     "vrf": "vrf10",
                     "active": true
                 }

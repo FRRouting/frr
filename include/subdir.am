@@ -1,4 +1,10 @@
 noinst_HEADERS += \
+<<<<<<< HEAD
+=======
+	include/linux/compiler_types.h \
+	include/linux/libc-compat.h \
+	include/linux/if.h \
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	include/linux/if_addr.h \
 	include/linux/if_bridge.h \
 	include/linux/if_link.h \
@@ -17,7 +23,10 @@ noinst_HEADERS += \
 	include/linux/seg6_hmac.h \
 	include/linux/seg6_iptunnel.h \
 	include/linux/seg6_local.h \
+<<<<<<< HEAD
 	include/linux/mroute.h \
 	include/linux/mroute6.h \
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	include/linux/pkt_cls.h \
 	# end

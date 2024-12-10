@@ -66,10 +66,17 @@ extern char *asn_asn2string(const as_t *as, char *buf, size_t len,
 	((mode == ASNOTATION_DOT) ? "%pASD" :	    \
 	 ((mode == ASNOTATION_DOTPLUS) ? "%pASE" :	\
 	  "%pASP"))
+<<<<<<< HEAD
 #define ASN_FORMAT_SPACE(mode)		    \
 	((mode == ASNOTATION_DOT) ? "%10pASD" :	    \
 	 ((mode == ASNOTATION_DOTPLUS) ? "%10pASE" :	\
 	  "%10pASP"))
+=======
+#define ASN_FORMAT_SPACE(mode)                                                 \
+	((mode == ASNOTATION_DOT)                                              \
+		 ? "%11pASD"                                                   \
+		 : ((mode == ASNOTATION_DOTPLUS) ? "%11pASE" : "%11pASP"))
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 /* for test */
 extern void asn_relax_as_zero(bool relax);

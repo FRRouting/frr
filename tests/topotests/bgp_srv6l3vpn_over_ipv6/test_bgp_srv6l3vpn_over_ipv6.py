@@ -9,10 +9,14 @@
 #
 
 import os
+<<<<<<< HEAD
 import re
 import sys
 import json
 import functools
+=======
+import sys
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 import pytest
 
 CWD = os.path.dirname(os.path.realpath(__file__))
@@ -20,10 +24,16 @@ sys.path.append(os.path.join(CWD, "../"))
 
 # pylint: disable=C0413
 # Import topogen and topotest helpers
+<<<<<<< HEAD
 from lib import topotest
 from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
 from lib.common_config import required_linux_kernel_version
+=======
+from lib.topogen import Topogen, TopoRouter, get_topogen
+from lib.common_config import required_linux_kernel_version
+from lib.checkping import check_ping
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 pytestmark = [pytest.mark.bgpd]
 
@@ -101,6 +111,7 @@ def teardown_module(mod):
     tgen.stop_topology()
 
 
+<<<<<<< HEAD
 def check_ping4(name, dest_addr, expected):
     def _check(name, dest_addr, match):
         tgen = get_topogen()
@@ -126,6 +137,17 @@ def test_ping():
     check_ping4("c12", "192.168.3.1", True)
     check_ping4("c21", "192.168.3.1", True)
     check_ping4("c22", "192.168.3.1", True)
+=======
+def test_ping():
+    tgen = get_topogen()
+
+    check_ping("c11", "192.168.2.1", True, 10, 1)
+    check_ping("c11", "192.168.3.1", True, 10, 1)
+    check_ping("c12", "192.168.2.1", True, 10, 1)
+    check_ping("c12", "192.168.3.1", True, 10, 1)
+    check_ping("c21", "192.168.3.1", True, 10, 1)
+    check_ping("c22", "192.168.3.1", True, 10, 1)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 
 if __name__ == "__main__":

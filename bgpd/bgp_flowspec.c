@@ -195,7 +195,11 @@ int bgp_nlri_parse_flowspec(struct peer *peer, struct attr *attr,
 				   NULL, 0, 0, NULL);
 		} else {
 			bgp_withdraw(peer, &p, 0, afi, safi, ZEBRA_ROUTE_BGP,
+<<<<<<< HEAD
 				     BGP_ROUTE_NORMAL, NULL, NULL, 0, NULL);
+=======
+				     BGP_ROUTE_NORMAL, NULL, NULL, 0);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		}
 
 		XFREE(MTYPE_TMP, temp);

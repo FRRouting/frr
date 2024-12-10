@@ -22,7 +22,10 @@ sys.path.append(os.path.join(CWD, "../"))
 # pylint: disable=C0413
 from lib import topotest
 from lib.topogen import Topogen, TopoRouter, get_topogen
+<<<<<<< HEAD
 from lib.common_config import step
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 pytestmark = [pytest.mark.bgpd]
 
@@ -42,7 +45,11 @@ def setup_module(mod):
 
     router_list = tgen.routers()
 
+<<<<<<< HEAD
     for i, (rname, router) in enumerate(router_list.items(), 1):
+=======
+    for _, (rname, router) in enumerate(router_list.items(), 1):
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         router.load_config(
             TopoRouter.RD_ZEBRA, os.path.join(CWD, "{}/zebra.conf".format(rname))
         )
@@ -82,7 +89,11 @@ def test_bgp_labeled_unicast_default_originate():
     _, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
     assert result is None, "Failed to advertise default route for labeled-unicast"
 
+<<<<<<< HEAD
     def _bgp_check_received_routes():
+=======
+    def _bgp_check_received_ipv4_routes():
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         output = json.loads(
             r2.vtysh_cmd("show bgp ipv4 labeled-unicast 0.0.0.0/0 json")
         )
@@ -94,14 +105,44 @@ def test_bgp_labeled_unicast_default_originate():
                     "community": {
                         "string": "65001:65001",
                     },
+<<<<<<< HEAD
+=======
+                    "remoteLabel": 0,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
                 }
             ]
         }
         return topotest.json_cmp(output, expected)
 
+<<<<<<< HEAD
     test_func = functools.partial(_bgp_check_received_routes)
     _, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
     assert result is None, "Failed to receive default route for labeled-unicast"
+=======
+    test_func = functools.partial(_bgp_check_received_ipv4_routes)
+    _, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
+    assert result is None, "Failed to receive IPv4 default route for labeled-unicast"
+
+    def _bgp_check_received_ipv6_routes():
+        output = json.loads(r2.vtysh_cmd("show bgp ipv6 labeled-unicast ::/0 json"))
+        expected = {
+            "paths": [
+                {
+                    "valid": True,
+                    "metric": 666,
+                    "community": {
+                        "string": "65001:65001",
+                    },
+                    "remoteLabel": 2,
+                }
+            ]
+        }
+        return topotest.json_cmp(output, expected)
+
+    test_func = functools.partial(_bgp_check_received_ipv6_routes)
+    _, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
+    assert result is None, "Failed to receive IPv6 default route for labeled-unicast"
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 
 if __name__ == "__main__":

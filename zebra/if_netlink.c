@@ -17,6 +17,11 @@
 #define _LINUX_IF_H
 #define _LINUX_IP_H
 
+<<<<<<< HEAD
+=======
+#include <linux/netlink.h>
+#include <linux/rtnetlink.h>
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 #include <netinet/if_ether.h>
 #include <linux/if_bridge.h>
 #include <linux/if_link.h>
@@ -63,6 +68,7 @@
 #include "zebra/zebra_trace.h"
 
 extern struct zebra_privs_t zserv_privs;
+<<<<<<< HEAD
 uint8_t frr_protodown_r_bit = FRR_PROTODOWN_REASON_DEFAULT_BIT;
 
 /* Note: on netlink systems, there should be a 1-to-1 mapping between interface
@@ -101,12 +107,20 @@ static void netlink_interface_update_hw_addr(struct rtattr **tb,
 {
 	int i;
 
+=======
+
+/* Utility function to parse hardware link-layer address and update ifp */
+static void netlink_interface_update_hw_addr(struct rtattr **tb,
+					     struct zebra_dplane_ctx *ctx)
+{
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	if (tb[IFLA_ADDRESS]) {
 		int hw_addr_len;
 
 		hw_addr_len = RTA_PAYLOAD(tb[IFLA_ADDRESS]);
 
 		if (hw_addr_len > INTERFACE_HWADDR_MAX)
+<<<<<<< HEAD
 			zlog_debug("Hardware address is too large: %d",
 				   hw_addr_len);
 		else {
@@ -123,6 +137,13 @@ static void netlink_interface_update_hw_addr(struct rtattr **tb,
 			else
 				ifp->hw_addr_len = hw_addr_len;
 		}
+=======
+			zlog_warn("Hardware address is too large: %d",
+				  hw_addr_len);
+		else
+			dplane_ctx_set_ifp_hw_addr(ctx, hw_addr_len,
+						   RTA_DATA(tb[IFLA_ADDRESS]));
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	}
 }
 
@@ -237,6 +258,7 @@ static enum zebra_link_type netlink_to_zebra_link_type(unsigned int hwt)
 	}
 }
 
+<<<<<<< HEAD
 static inline void zebra_if_set_ziftype(struct interface *ifp,
 					enum zebra_iftype zif_type,
 					enum zebra_slave_iftype zif_slave_type)
@@ -257,6 +279,8 @@ static inline void zebra_if_set_ziftype(struct interface *ifp,
 	}
 }
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 static void netlink_determine_zebra_iftype(const char *kind,
 					   enum zebra_iftype *zif_type)
 {
@@ -279,13 +303,19 @@ static void netlink_determine_zebra_iftype(const char *kind,
 		*zif_type = ZEBRA_IF_VETH;
 	else if (strcmp(kind, "bond") == 0)
 		*zif_type = ZEBRA_IF_BOND;
+<<<<<<< HEAD
 	else if (strcmp(kind, "bond_slave") == 0)
 		*zif_type = ZEBRA_IF_BOND_SLAVE;
+=======
+	else if (strcmp(kind, "team") == 0)
+		*zif_type = ZEBRA_IF_BOND;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	else if (strcmp(kind, "gre") == 0)
 		*zif_type = ZEBRA_IF_GRE;
 }
 
 static void netlink_vrf_change(struct nlmsghdr *h, struct rtattr *tb,
+<<<<<<< HEAD
 			       uint32_t ns_id, const char *name)
 {
 	struct ifinfomsg *ifi;
@@ -296,6 +326,13 @@ static void netlink_vrf_change(struct nlmsghdr *h, struct rtattr *tb,
 	uint32_t nl_table_id;
 
 	ifi = NLMSG_DATA(h);
+=======
+			       uint32_t ns_id, const char *name,
+			       struct zebra_dplane_ctx *ctx)
+{
+	struct rtattr *linkinfo[IFLA_INFO_MAX + 1];
+	struct rtattr *attr[IFLA_VRF_MAX + 1];
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	netlink_parse_rtattr_nested(linkinfo, IFLA_INFO_MAX, tb);
 
@@ -317,6 +354,7 @@ static void netlink_vrf_change(struct nlmsghdr *h, struct rtattr *tb,
 		return;
 	}
 
+<<<<<<< HEAD
 	nl_table_id = *(uint32_t *)RTA_DATA(attr[IFLA_VRF_TABLE]);
 
 	if (h->nlmsg_type == RTM_NEWLINK) {
@@ -385,6 +423,10 @@ static void netlink_vrf_change(struct nlmsghdr *h, struct rtattr *tb,
 
 		vrf_delete(vrf);
 	}
+=======
+	dplane_ctx_set_ifp_table_id(
+		ctx, *(uint32_t *)RTA_DATA(attr[IFLA_VRF_TABLE]));
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 }
 
 static uint32_t get_iflink_speed(struct interface *interface, int *error)
@@ -394,6 +436,10 @@ static uint32_t get_iflink_speed(struct interface *interface, int *error)
 	int sd;
 	int rc;
 	const char *ifname = interface->name;
+<<<<<<< HEAD
+=======
+	uint32_t ret;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	if (error)
 		*error = 0;
@@ -418,7 +464,11 @@ static uint32_t get_iflink_speed(struct interface *interface, int *error)
 					   ifname, errno, safe_strerror(errno));
 			/* no vrf socket creation may probably mean vrf issue */
 			if (error)
+<<<<<<< HEAD
 				*error = -1;
+=======
+				*error = INTERFACE_SPEED_ERROR_READ;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			return 0;
 		}
 		/* Get the current link state for the interface */
@@ -432,14 +482,28 @@ static uint32_t get_iflink_speed(struct interface *interface, int *error)
 				ifname, errno, safe_strerror(errno));
 		/* no device means interface unreachable */
 		if (errno == ENODEV && error)
+<<<<<<< HEAD
 			*error = -1;
+=======
+			*error = INTERFACE_SPEED_ERROR_READ;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		ecmd.speed_hi = 0;
 		ecmd.speed = 0;
 	}
 
 	close(sd);
 
+<<<<<<< HEAD
 	return ((uint32_t)ecmd.speed_hi << 16) | ecmd.speed;
+=======
+	ret = ((uint32_t)ecmd.speed_hi << 16) | ecmd.speed;
+	if (ret == UINT32_MAX) {
+		if (error)
+			*error = INTERFACE_SPEED_ERROR_UNKNOWN;
+		ret = 0;
+	}
+	return ret;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 }
 
 uint32_t kernel_get_speed(struct interface *ifp, int *error)
@@ -665,6 +729,7 @@ static int netlink_extract_vxlan_info(struct rtattr *link_data,
  * bridge interface is added or updated, take further actions to map
  * its members. Likewise, for VxLAN interface.
  */
+<<<<<<< HEAD
 static void netlink_interface_update_l2info(struct interface *ifp,
 					    struct rtattr *link_data, int add,
 					    ns_id_t link_nsid)
@@ -721,6 +786,61 @@ static int netlink_bridge_vxlan_vlan_vni_map_update(struct interface *ifp,
 	struct zebra_vxlan_vni vni_end;
 	struct zebra_vxlan_vni vni_start;
 	struct rtattr *aftb[IFLA_BRIDGE_VLAN_TUNNEL_MAX + 1];
+=======
+static void netlink_interface_update_l2info(struct zebra_dplane_ctx *ctx,
+					    enum zebra_iftype zif_type,
+					    struct rtattr *link_data, int add,
+					    ns_id_t link_nsid)
+{
+	struct zebra_l2info_bridge bridge_info;
+	struct zebra_l2info_vlan vlan_info;
+	struct zebra_l2info_vxlan vxlan_info;
+	struct zebra_l2info_gre gre_info;
+
+	if (!link_data)
+		return;
+
+	switch (zif_type) {
+	case ZEBRA_IF_BRIDGE:
+		netlink_extract_bridge_info(link_data, &bridge_info);
+		dplane_ctx_set_ifp_bridge_info(ctx, &bridge_info);
+		break;
+	case ZEBRA_IF_VLAN:
+		netlink_extract_vlan_info(link_data, &vlan_info);
+		dplane_ctx_set_ifp_vlan_info(ctx, &vlan_info);
+		break;
+	case ZEBRA_IF_VXLAN:
+		netlink_extract_vxlan_info(link_data, &vxlan_info);
+		vxlan_info.link_nsid = link_nsid;
+		dplane_ctx_set_ifp_vxlan_info(ctx, &vxlan_info);
+		break;
+	case ZEBRA_IF_GRE:
+		netlink_extract_gre_info(link_data, &gre_info);
+		gre_info.link_nsid = link_nsid;
+		dplane_ctx_set_ifp_gre_info(ctx, &gre_info);
+		break;
+	case ZEBRA_IF_OTHER:
+	case ZEBRA_IF_VRF:
+	case ZEBRA_IF_MACVLAN:
+	case ZEBRA_IF_VETH:
+	case ZEBRA_IF_BOND:
+		break;
+	}
+}
+
+static int
+netlink_bridge_vxlan_vlan_vni_map_update(struct zebra_dplane_ctx *ctx,
+					 struct rtattr *af_spec)
+{
+	int rem;
+	uint16_t flags;
+	struct rtattr *i;
+	struct zebra_vxlan_vni_array *vniarray = NULL;
+	struct zebra_vxlan_vni vni_end;
+	struct zebra_vxlan_vni vni_start;
+	struct rtattr *aftb[IFLA_BRIDGE_VLAN_TUNNEL_MAX + 1];
+	int32_t count = 0;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	memset(&vni_start, 0, sizeof(vni_start));
 	memset(&vni_end, 0, sizeof(vni_end));
@@ -739,17 +859,34 @@ static int netlink_bridge_vxlan_vlan_vni_map_update(struct interface *ifp,
 			/* vlan-vni info missing */
 			return 0;
 
+<<<<<<< HEAD
 		flags = 0;
 		memset(&vni, 0, sizeof(vni));
 
 		vni.vni = *(vni_t *)RTA_DATA(aftb[IFLA_BRIDGE_VLAN_TUNNEL_ID]);
 		vni.access_vlan = *(vlanid_t *)RTA_DATA(
+=======
+		count++;
+		flags = 0;
+		vniarray = XREALLOC(
+			MTYPE_TMP, vniarray,
+			sizeof(struct zebra_vxlan_vni_array) +
+				count * sizeof(struct zebra_vxlan_vni));
+
+		memset(&vniarray->vnis[count - 1], 0,
+		       sizeof(struct zebra_vxlan_vni));
+
+		vniarray->vnis[count - 1].vni =
+			*(vni_t *)RTA_DATA(aftb[IFLA_BRIDGE_VLAN_TUNNEL_ID]);
+		vniarray->vnis[count - 1].access_vlan = *(vlanid_t *)RTA_DATA(
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			aftb[IFLA_BRIDGE_VLAN_TUNNEL_VID]);
 
 		if (aftb[IFLA_BRIDGE_VLAN_TUNNEL_FLAGS])
 			flags = *(uint16_t *)RTA_DATA(
 				aftb[IFLA_BRIDGE_VLAN_TUNNEL_FLAGS]);
 
+<<<<<<< HEAD
 		if (flags & BRIDGE_VLAN_INFO_RANGE_BEGIN) {
 			vni_start = vni;
 			continue;
@@ -813,11 +950,37 @@ static int netlink_bridge_vxlan_update(struct interface *ifp,
 	/* Single vxlan devices has vni-vlan range to update */
 	if (IS_ZEBRA_VXLAN_IF_SVD(zif))
 		return netlink_bridge_vxlan_vlan_vni_map_update(ifp, af_spec);
+=======
+		vniarray->vnis[count - 1].flags = flags;
+	}
+
+	if (count) {
+		vniarray->count = count;
+		dplane_ctx_set_ifp_vxlan_vni_array(ctx, vniarray);
+	}
+	return 0;
+}
+
+static int netlink_bridge_vxlan_update(struct zebra_dplane_ctx *ctx,
+				       struct rtattr *af_spec)
+{
+	struct rtattr *aftb[IFLA_BRIDGE_MAX + 1];
+	struct bridge_vlan_info *vinfo;
+	struct zebra_dplane_bridge_vlan_info bvinfo;
+
+	if (!af_spec) {
+		dplane_ctx_set_ifp_no_afspec(ctx);
+		return 0;
+	}
+
+	netlink_bridge_vxlan_vlan_vni_map_update(ctx, af_spec);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	/* There is a 1-to-1 mapping of VLAN to VxLAN - hence
 	 * only 1 access VLAN is accepted.
 	 */
 	netlink_parse_rtattr_nested(aftb, IFLA_BRIDGE_MAX, af_spec);
+<<<<<<< HEAD
 	if (!aftb[IFLA_BRIDGE_VLAN_INFO])
 		return 0;
 
@@ -849,10 +1012,34 @@ static void netlink_bridge_vlan_update(struct interface *ifp,
 	old_vlan_bitmap = zif->vlan_bitmap;
 	/* create a new bitmap space for re-eval */
 	bf_init(zif->vlan_bitmap, IF_VLAN_BITMAP_MAX);
+=======
+	if (!aftb[IFLA_BRIDGE_VLAN_INFO]) {
+		dplane_ctx_set_ifp_no_bridge_vlan_info(ctx);
+		return 0;
+	}
+
+	vinfo = RTA_DATA(aftb[IFLA_BRIDGE_VLAN_INFO]);
+	bvinfo.flags = vinfo->flags;
+	bvinfo.vid = vinfo->vid;
+
+	dplane_ctx_set_ifp_bridge_vlan_info(ctx, &bvinfo);
+	return 0;
+}
+
+static void netlink_bridge_vlan_update(struct zebra_dplane_ctx *ctx,
+				       struct rtattr *af_spec)
+{
+	struct rtattr *i;
+	int rem;
+	struct bridge_vlan_info *vinfo;
+	struct zebra_dplane_bridge_vlan_info_array *bvarray = NULL;
+	int32_t count = 0;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	if (af_spec) {
 		for (i = RTA_DATA(af_spec), rem = RTA_PAYLOAD(af_spec);
 		     RTA_OK(i, rem); i = RTA_NEXT(i, rem)) {
+<<<<<<< HEAD
 
 			if (i->rta_type != IFLA_BRIDGE_VLAN_INFO)
 				continue;
@@ -908,10 +1095,41 @@ static int netlink_bridge_interface(struct nlmsghdr *h, int len, ns_id_t ns_id,
 
 	if (IS_ZEBRA_IF_VXLAN(ifp))
 		return netlink_bridge_vxlan_update(ifp, af_spec);
+=======
+			if (i->rta_type != IFLA_BRIDGE_VLAN_INFO)
+				continue;
+
+			count++;
+			bvarray = XREALLOC(
+				MTYPE_TMP, bvarray,
+				sizeof(struct
+				       zebra_dplane_bridge_vlan_info_array) +
+					count * sizeof(struct
+						       zebra_dplane_bridge_vlan_info));
+
+			vinfo = RTA_DATA(i);
+			bvarray->array[count - 1].flags = vinfo->flags;
+			bvarray->array[count - 1].vid = vinfo->vid;
+		}
+	}
+
+	if (count) {
+		bvarray->count = count;
+		dplane_ctx_set_ifp_bridge_vlan_info_array(ctx, bvarray);
+	}
+}
+
+static int netlink_bridge_interface(struct zebra_dplane_ctx *ctx,
+				    struct rtattr *af_spec, int startup)
+{
+
+	netlink_bridge_vxlan_update(ctx, af_spec);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	/* build vlan bitmap associated with this interface if that
 	 * device type is interested in the vlans
 	 */
+<<<<<<< HEAD
 	zif = (struct zebra_if *)ifp->info;
 	if (bf_is_inited(zif->vlan_bitmap))
 		netlink_bridge_vlan_update(ifp, af_spec);
@@ -926,17 +1144,32 @@ static bool is_if_protodown_reason_only_frr(uint32_t rc_bitfield)
 	return (rc_bitfield == (((uint32_t)1) << frr_protodown_r_bit));
 }
 
+=======
+	netlink_bridge_vlan_update(ctx, af_spec);
+
+	dplane_provider_enqueue_to_zebra(ctx);
+	return 0;
+}
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 /*
  * Process interface protodown dplane update.
  *
  * If the interface is an es bond member then it must follow EVPN's
  * protodown setting.
  */
+<<<<<<< HEAD
 static void netlink_proc_dplane_if_protodown(struct zebra_if *zif,
 					     struct rtattr **tb)
 {
 	bool protodown;
 	bool old_protodown;
+=======
+static void netlink_proc_dplane_if_protodown(struct zebra_dplane_ctx *ctx,
+					     struct rtattr **tb)
+{
+	bool protodown;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	uint32_t rc_bitfield = 0;
 	struct rtattr *pd_reason_info[IFLA_MAX + 1];
 
@@ -951,6 +1184,7 @@ static void netlink_proc_dplane_if_protodown(struct zebra_if *zif,
 				pd_reason_info[IFLA_PROTO_DOWN_REASON_VALUE]);
 	}
 
+<<<<<<< HEAD
 	/*
 	 * Set our reason code to note it wasn't us.
 	 * If the reason we got from the kernel is ONLY frr though, don't
@@ -1004,6 +1238,11 @@ static void netlink_proc_dplane_if_protodown(struct zebra_if *zif,
 
 		dplane_intf_update(zif->ifp);
 	}
+=======
+	dplane_ctx_set_ifp_rc_bitfield(ctx, rc_bitfield);
+	dplane_ctx_set_ifp_protodown(ctx, protodown);
+	dplane_ctx_set_ifp_protodown_set(ctx, true);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 }
 
 static uint8_t netlink_parse_lacp_bypass(struct rtattr **linkinfo)
@@ -1020,6 +1259,7 @@ static uint8_t netlink_parse_lacp_bypass(struct rtattr **linkinfo)
 	return bypass;
 }
 
+<<<<<<< HEAD
 /*
  * Only called at startup to cleanup leftover protodown reasons we may
  * have not cleaned up. We leave protodown set though.
@@ -1215,6 +1455,8 @@ static int netlink_interface(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 	return 0;
 }
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 /* Request for specific interface or address information from the kernel */
 static int netlink_request_intf_addr(struct nlsock *netlink_cmd, int family,
 				     int type, uint32_t filter_mask)
@@ -1261,7 +1503,11 @@ int interface_lookup_netlink(struct zebra_ns *zns)
 {
 	int ret;
 	struct zebra_dplane_info dp_info;
+<<<<<<< HEAD
 	struct nlsock *netlink_cmd = &zns->netlink_cmd;
+=======
+	struct nlsock *netlink_cmd = &zns->netlink_dplane_out;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	/* Capture key info from ns struct */
 	zebra_dplane_info_from_zns(&dp_info, zns, true /*is_cmd*/);
@@ -1270,7 +1516,11 @@ int interface_lookup_netlink(struct zebra_ns *zns)
 	ret = netlink_request_intf_addr(netlink_cmd, AF_PACKET, RTM_GETLINK, 0);
 	if (ret < 0)
 		return ret;
+<<<<<<< HEAD
 	ret = netlink_parse_info(netlink_interface, netlink_cmd, &dp_info, 0,
+=======
+	ret = netlink_parse_info(netlink_link_change, netlink_cmd, &dp_info, 0,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 				 true);
 	if (ret < 0)
 		return ret;
@@ -1280,11 +1530,25 @@ int interface_lookup_netlink(struct zebra_ns *zns)
 					RTEXT_FILTER_BRVLAN);
 	if (ret < 0)
 		return ret;
+<<<<<<< HEAD
 	ret = netlink_parse_info(netlink_interface, netlink_cmd, &dp_info, 0,
+=======
+	ret = netlink_parse_info(netlink_link_change, netlink_cmd, &dp_info, 0,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 				 true);
 	if (ret < 0)
 		return ret;
 
+<<<<<<< HEAD
+=======
+	return ret;
+}
+
+void interface_list_tunneldump(struct zebra_ns *zns)
+{
+	int ret;
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	/*
 	 * So netlink_tunneldump_read will initiate a request
 	 * per tunnel to get data.  If we are on a kernel that
@@ -1297,6 +1561,7 @@ int interface_lookup_netlink(struct zebra_ns *zns)
 	 */
 	ret = netlink_tunneldump_read(zns);
 	if (ret < 0)
+<<<<<<< HEAD
 		return ret;
 
 	/* fixup linkages */
@@ -1304,6 +1569,14 @@ int interface_lookup_netlink(struct zebra_ns *zns)
 	return 0;
 }
 
+=======
+		return;
+
+	zebra_dplane_startup_stage(zns, ZEBRA_DPLANE_TUNNELS_READ);
+}
+
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 /**
  * interface_addr_lookup_netlink() - Look up interface addresses
  *
@@ -1323,8 +1596,13 @@ static int interface_addr_lookup_netlink(struct zebra_ns *zns)
 	ret = netlink_request_intf_addr(netlink_cmd, AF_INET, RTM_GETADDR, 0);
 	if (ret < 0)
 		return ret;
+<<<<<<< HEAD
 	ret = netlink_parse_info(netlink_interface_addr, netlink_cmd, &dp_info,
 				 0, true);
+=======
+	ret = netlink_parse_info(netlink_interface_addr_dplane, netlink_cmd,
+				 &dp_info, 0, true);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	if (ret < 0)
 		return ret;
 
@@ -1332,8 +1610,13 @@ static int interface_addr_lookup_netlink(struct zebra_ns *zns)
 	ret = netlink_request_intf_addr(netlink_cmd, AF_INET6, RTM_GETADDR, 0);
 	if (ret < 0)
 		return ret;
+<<<<<<< HEAD
 	ret = netlink_parse_info(netlink_interface_addr, netlink_cmd, &dp_info,
 				 0, true);
+=======
+	ret = netlink_parse_info(netlink_interface_addr_dplane, netlink_cmd,
+				 &dp_info, 0, true);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	if (ret < 0)
 		return ret;
 
@@ -1455,6 +1738,7 @@ static ssize_t netlink_intf_msg_encoder(struct zebra_dplane_ctx *ctx, void *buf,
 
 	op = dplane_ctx_get_op(ctx);
 
+<<<<<<< HEAD
 	switch (op) {
 	case DPLANE_OP_INTF_UPDATE:
 		cmd = RTM_SETLINK;
@@ -1516,6 +1800,15 @@ static ssize_t netlink_intf_msg_encoder(struct zebra_dplane_ctx *ctx, void *buf,
 	case DPLANE_OP_TC_FILTER_ADD:
 	case DPLANE_OP_TC_FILTER_DELETE:
 	case DPLANE_OP_TC_FILTER_UPDATE:
+=======
+	if (op == DPLANE_OP_INTF_UPDATE)
+		cmd = RTM_SETLINK;
+	else if (op == DPLANE_OP_INTF_INSTALL)
+		cmd = RTM_NEWLINK;
+	else if (op == DPLANE_OP_INTF_DELETE)
+		cmd = RTM_DELLINK;
+	else {
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		flog_err(
 			EC_ZEBRA_NHG_FIB_UPDATE,
 			"Context received for kernel interface update with incorrect OP code (%u)",
@@ -1532,6 +1825,7 @@ netlink_put_intf_update_msg(struct nl_batch *bth, struct zebra_dplane_ctx *ctx)
 	return netlink_batch_add_msg(bth, ctx, netlink_intf_msg_encoder, false);
 }
 
+<<<<<<< HEAD
 int netlink_interface_addr(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 {
 	int len;
@@ -1738,6 +2032,8 @@ int netlink_interface_addr(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 	return 0;
 }
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 /*
  * Parse and validate an incoming interface address change message,
  * generating a dplane context object.
@@ -1930,6 +2226,12 @@ int netlink_interface_addr_dplane(struct nlmsghdr *h, ns_id_t ns_id,
 	if (kernel_flags & IFA_F_SECONDARY)
 		dplane_ctx_intf_set_secondary(ctx);
 
+<<<<<<< HEAD
+=======
+	if (kernel_flags & IFA_F_NOPREFIXROUTE)
+		dplane_ctx_intf_set_noprefixroute(ctx);
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	/* Label */
 	if (tb[IFA_LABEL]) {
 		label = (char *)RTA_DATA(tb[IFA_LABEL]);
@@ -1943,7 +2245,10 @@ int netlink_interface_addr_dplane(struct nlmsghdr *h, ns_id_t ns_id,
 
 	/* Enqueue ctx for main pthread to process */
 	dplane_provider_enqueue_to_zebra(ctx);
+<<<<<<< HEAD
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	return 0;
 }
 
@@ -1953,18 +2258,25 @@ int netlink_link_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 	struct ifinfomsg *ifi;
 	struct rtattr *tb[IFLA_MAX + 1];
 	struct rtattr *linkinfo[IFLA_MAX + 1];
+<<<<<<< HEAD
 	struct interface *ifp;
 	char *name = NULL;
 	char *kind = NULL;
 	char *desc = NULL;
 	char *slave_kind = NULL;
 	struct zebra_ns *zns;
+=======
+	char *name = NULL;
+	char *kind = NULL;
+	char *slave_kind = NULL;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	vrf_id_t vrf_id = VRF_DEFAULT;
 	enum zebra_iftype zif_type = ZEBRA_IF_OTHER;
 	enum zebra_slave_iftype zif_slave_type = ZEBRA_IF_SLAVE_NONE;
 	ifindex_t bridge_ifindex = IFINDEX_INTERNAL;
 	ifindex_t bond_ifindex = IFINDEX_INTERNAL;
 	ifindex_t link_ifindex = IFINDEX_INTERNAL;
+<<<<<<< HEAD
 	uint8_t old_hw_addr[INTERFACE_HWADDR_MAX];
 	struct zebra_if *zif;
 	ns_id_t link_nsid = ns_id;
@@ -1975,6 +2287,17 @@ int netlink_link_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 	ifi = NLMSG_DATA(h);
 
 	/* assume if not default zns, then new VRF */
+=======
+	ns_id_t link_nsid = ns_id;
+	ifindex_t master_infindex = IFINDEX_INTERNAL;
+	uint8_t bypass = 0;
+	uint32_t txqlen = 0;
+
+	frrtrace(3, frr_zebra, netlink_interface, h, ns_id, startup);
+
+	ifi = NLMSG_DATA(h);
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	if (!(h->nlmsg_type == RTM_NEWLINK || h->nlmsg_type == RTM_DELLINK)) {
 		/* If this is not link add/delete message so print warning. */
 		zlog_debug("%s: wrong kernel message %s", __func__,
@@ -2000,10 +2323,13 @@ int netlink_link_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 		return -1;
 	}
 
+<<<<<<< HEAD
 	/* We are interested in some AF_BRIDGE notifications. */
 	if (ifi->ifi_family == AF_BRIDGE)
 		return netlink_bridge_interface(h, len, ns_id, startup);
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	/* Looking up interface name. */
 	memset(linkinfo, 0, sizeof(linkinfo));
 	netlink_parse_rtattr_flags(tb, IFLA_MAX, IFLA_RTA(ifi), len,
@@ -2050,6 +2376,7 @@ int netlink_link_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 		link_nsid = *(ns_id_t *)RTA_DATA(tb[IFLA_LINK_NETNSID]);
 		link_nsid = ns_id_get_absolute(ns_id, link_nsid);
 	}
+<<<<<<< HEAD
 	if (tb[IFLA_IFALIAS]) {
 		desc = (char *)RTA_DATA(tb[IFLA_IFALIAS]);
 	}
@@ -2062,6 +2389,54 @@ int netlink_link_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 		if (zif_type == ZEBRA_IF_VRF && !vrf_is_backend_netns()) {
 			netlink_vrf_change(h, tb[IFLA_LINKINFO], ns_id, name);
 			vrf_id = (vrf_id_t)ifi->ifi_index;
+=======
+
+	if (tb[IFLA_TXQLEN])
+		txqlen = *(uint32_t *)RTA_DATA(tb[IFLA_TXQLEN]);
+
+	struct zebra_dplane_ctx *ctx = dplane_ctx_alloc();
+	dplane_ctx_set_ns_id(ctx, ns_id);
+	dplane_ctx_set_ifp_link_nsid(ctx, link_nsid);
+	dplane_ctx_set_ifp_zif_type(ctx, zif_type);
+	dplane_ctx_set_ifindex(ctx, ifi->ifi_index);
+	dplane_ctx_set_ifname(ctx, name);
+	dplane_ctx_set_ifp_startup(ctx, startup);
+	dplane_ctx_set_ifp_family(ctx, ifi->ifi_family);
+	dplane_ctx_set_intf_txqlen(ctx, txqlen);
+
+	/* We are interested in some AF_BRIDGE notifications. */
+#ifndef AF_BRIDGE
+#define AF_BRIDGE 7
+#endif
+	if (ifi->ifi_family == AF_BRIDGE) {
+		dplane_ctx_set_op(ctx, DPLANE_OP_INTF_INSTALL);
+		return netlink_bridge_interface(ctx, tb[IFLA_AF_SPEC], startup);
+	}
+
+	if (h->nlmsg_type == RTM_NEWLINK) {
+		dplane_ctx_set_ifp_link_ifindex(ctx, link_ifindex);
+		dplane_ctx_set_op(ctx, DPLANE_OP_INTF_INSTALL);
+		dplane_ctx_set_status(ctx, ZEBRA_DPLANE_REQUEST_QUEUED);
+		if (tb[IFLA_IFALIAS]) {
+			dplane_ctx_set_ifp_desc(ctx,
+						RTA_DATA(tb[IFLA_IFALIAS]));
+		}
+		if (!tb[IFLA_MTU]) {
+			if (IS_ZEBRA_DEBUG_KERNEL)
+				zlog_debug(
+					"RTM_NEWLINK for interface %s(%u) without MTU set",
+					name, ifi->ifi_index);
+			dplane_ctx_fini(&ctx);
+			return 0;
+		}
+		dplane_ctx_set_ifp_mtu(ctx, *(int *)RTA_DATA(tb[IFLA_MTU]));
+
+		/* If VRF, create or update the VRF structure itself. */
+		if (zif_type == ZEBRA_IF_VRF && !vrf_is_backend_netns()) {
+			netlink_vrf_change(h, tb[IFLA_LINKINFO], ns_id, name,
+					   ctx);
+			vrf_id = ifi->ifi_index;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		}
 
 		if (tb[IFLA_MASTER]) {
@@ -2084,6 +2459,7 @@ int netlink_link_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 			} else
 				zif_slave_type = ZEBRA_IF_SLAVE_OTHER;
 		}
+<<<<<<< HEAD
 		if (vrf_is_backend_netns())
 			vrf_id = (vrf_id_t)ns_id;
 		if (ifp == NULL
@@ -2340,6 +2716,47 @@ int netlink_link_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 			netlink_vrf_change(h, tb[IFLA_LINKINFO], ns_id, name);
 	}
 
+=======
+		dplane_ctx_set_ifp_zif_slave_type(ctx, zif_slave_type);
+		dplane_ctx_set_ifp_vrf_id(ctx, vrf_id);
+		dplane_ctx_set_ifp_master_ifindex(ctx, master_infindex);
+		dplane_ctx_set_ifp_bridge_ifindex(ctx, bridge_ifindex);
+		dplane_ctx_set_ifp_bond_ifindex(ctx, bond_ifindex);
+		dplane_ctx_set_ifp_bypass(ctx, bypass);
+		dplane_ctx_set_ifp_zltype(
+			ctx, netlink_to_zebra_link_type(ifi->ifi_type));
+
+		if (vrf_is_backend_netns())
+			dplane_ctx_set_ifp_vrf_id(ctx, ns_id);
+
+		dplane_ctx_set_ifp_flags(ctx, ifi->ifi_flags & 0x0000fffff);
+
+		if (tb[IFLA_PROTO_DOWN]) {
+			dplane_ctx_set_ifp_protodown_set(ctx, true);
+			netlink_proc_dplane_if_protodown(ctx, tb);
+		} else
+			dplane_ctx_set_ifp_protodown_set(ctx, false);
+
+		netlink_interface_update_hw_addr(tb, ctx);
+
+		/* Extract and save L2 interface information, take
+		 * additional actions. */
+		netlink_interface_update_l2info(
+			ctx, zif_type, linkinfo[IFLA_INFO_DATA], 1, link_nsid);
+	} else {
+		if (IS_ZEBRA_DEBUG_KERNEL)
+			zlog_debug("RTM_DELLINK for %s(%u), enqueuing to zebra",
+				   name, ifi->ifi_index);
+
+		dplane_ctx_set_op(ctx, DPLANE_OP_INTF_DELETE);
+		dplane_ctx_set_status(ctx, ZEBRA_DPLANE_REQUEST_QUEUED);
+
+		dplane_ctx_set_ifp_bond_ifindex(ctx, bond_ifindex);
+	}
+
+	dplane_provider_enqueue_to_zebra(ctx);
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	return 0;
 }
 
@@ -2397,9 +2814,16 @@ ssize_t netlink_intf_msg_encode(uint16_t cmd,
 		return -1;
 
 	nl_attr_put32(&req->n, buflen, IFLA_PROTO_DOWN_REASON_MASK,
+<<<<<<< HEAD
 		      (1 << frr_protodown_r_bit));
 	nl_attr_put32(&req->n, buflen, IFLA_PROTO_DOWN_REASON_VALUE,
 		      ((int)pd_reason_val) << frr_protodown_r_bit);
+=======
+		      (1 << if_netlink_get_frr_protodown_r_bit()));
+	nl_attr_put32(&req->n, buflen, IFLA_PROTO_DOWN_REASON_VALUE,
+		      ((int)pd_reason_val)
+			      << if_netlink_get_frr_protodown_r_bit());
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	nl_attr_nest_end(&req->n, nest_protodown_reason);
 
@@ -2415,6 +2839,16 @@ ssize_t netlink_intf_msg_encode(uint16_t cmd,
 void interface_list(struct zebra_ns *zns)
 {
 	interface_lookup_netlink(zns);
+<<<<<<< HEAD
+=======
+
+	zebra_dplane_startup_stage(zns, ZEBRA_DPLANE_INTERFACES_READ);
+}
+
+void interface_list_second(struct zebra_ns *zns)
+{
+	zebra_if_update_all_links(zns);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	/* We add routes for interface address,
 	 * so we need to get the nexthop info
 	 * from the kernel before we can do that
@@ -2422,6 +2856,7 @@ void interface_list(struct zebra_ns *zns)
 	netlink_nexthop_read(zns);
 
 	interface_addr_lookup_netlink(zns);
+<<<<<<< HEAD
 }
 
 void if_netlink_set_frr_protodown_r_bit(uint8_t bit)
@@ -2453,6 +2888,10 @@ bool if_netlink_frr_protodown_r_bit_is_set(void)
 uint8_t if_netlink_get_frr_protodown_r_bit(void)
 {
 	return frr_protodown_r_bit;
+=======
+
+	zebra_dplane_startup_stage(zns, ZEBRA_DPLANE_ADDRESSES_READ);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 }
 
 /**
@@ -2484,6 +2923,18 @@ static int netlink_request_tunneldump(struct zebra_ns *zns, int family,
 	return netlink_request(&zns->netlink_cmd, &req);
 }
 
+<<<<<<< HEAD
+=======
+/* Prototype for tunneldump walker */
+static int tunneldump_walk_cb(struct interface *ifp, void *arg);
+
+struct tunneldump_ctx {
+	struct zebra_ns *zns;
+	struct zebra_dplane_info *dp_info;
+	int ret;
+};
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 /*
  * Currently we only ask for vxlan l3svd vni information.
  * In the future this can be expanded.
@@ -2491,6 +2942,7 @@ static int netlink_request_tunneldump(struct zebra_ns *zns, int family,
 int netlink_tunneldump_read(struct zebra_ns *zns)
 {
 	int ret = 0;
+<<<<<<< HEAD
 	struct zebra_dplane_info dp_info;
 	struct route_node *rn;
 	struct interface *tmp_if = NULL;
@@ -2584,6 +3036,64 @@ static void vlan_id_range_state_change(struct interface *ifp, uint16_t id_start,
 
 	for (uint16_t i = id_start; i <= id_end; i++)
 		vxlan_vni_state_change(zif, i, state);
+=======
+	struct tunneldump_ctx ctx = {};
+	struct zebra_dplane_info dp_info;
+
+	zebra_dplane_info_from_zns(&dp_info, zns, true /*is_cmd*/);
+
+	/* Set up context and call iterator */
+	ctx.zns = zns;
+	ctx.dp_info = &dp_info;
+
+	zebra_ns_ifp_walk(zns, tunneldump_walk_cb, &ctx);
+
+	ret = ctx.ret;
+
+	return ret;
+}
+
+static int tunneldump_walk_cb(struct interface *ifp, void *arg)
+{
+	int ret;
+	struct tunneldump_ctx *ctx = arg;
+	struct zebra_if *zif;
+
+	zif = ifp->info;
+	if (!zif || zif->zif_type != ZEBRA_IF_VXLAN)
+		goto done;
+
+	ret = netlink_request_tunneldump(ctx->zns, PF_BRIDGE, ifp->ifindex);
+	if (ret < 0) {
+		ctx->ret = ret;
+		return NS_WALK_STOP;
+	}
+
+	ret = netlink_parse_info(netlink_link_change, &(ctx->zns->netlink_cmd),
+				 ctx->dp_info, 0, true);
+
+	if (ret < 0) {
+		ctx->ret = ret;
+		return NS_WALK_STOP;
+	}
+
+done:
+	return NS_WALK_CONTINUE;
+}
+
+static uint8_t netlink_get_dplane_vlan_state(uint8_t state)
+{
+	if (state == BR_STATE_LISTENING)
+		return ZEBRA_DPLANE_BR_STATE_LISTENING;
+	else if (state == BR_STATE_LEARNING)
+		return ZEBRA_DPLANE_BR_STATE_LEARNING;
+	else if (state == BR_STATE_FORWARDING)
+		return ZEBRA_DPLANE_BR_STATE_FORWARDING;
+	else if (state == BR_STATE_BLOCKING)
+		return ZEBRA_DPLANE_BR_STATE_BLOCKING;
+
+	return ZEBRA_DPLANE_BR_STATE_DISABLED;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 }
 
 /**
@@ -2598,7 +3108,10 @@ static void vlan_id_range_state_change(struct interface *ifp, uint16_t id_start,
 int netlink_vlan_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 {
 	int len, rem;
+<<<<<<< HEAD
 	struct interface *ifp;
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	struct br_vlan_msg *bvm;
 	struct bridge_vlan_info *vinfo;
 	struct rtattr *vtb[BRIDGE_VLANDB_ENTRY_MAX + 1] = {};
@@ -2606,6 +3119,12 @@ int netlink_vlan_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 	uint8_t state;
 	uint32_t vrange;
 	int type;
+<<<<<<< HEAD
+=======
+	uint32_t count = 0;
+	struct zebra_dplane_ctx *ctx = NULL;
+	struct zebra_vxlan_vlan_array *vlan_array = NULL;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	/* We only care about state changes for now */
 	if (!(h->nlmsg_type == RTM_NEWVLAN))
@@ -2625,6 +3144,7 @@ int netlink_vlan_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 	if (bvm->family != AF_BRIDGE)
 		return 0;
 
+<<<<<<< HEAD
 	ifp = if_lookup_by_index_per_ns(zebra_ns_lookup(ns_id), bvm->ifindex);
 	if (!ifp) {
 		zlog_debug("Cannot find bridge-vlan IF (%u) for vlan update",
@@ -2644,6 +3164,12 @@ int netlink_vlan_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 		zlog_debug("%s %s IF %s NS %u",
 			   nl_msg_type_to_str(h->nlmsg_type),
 			   nl_family_to_str(bvm->family), ifp->name, ns_id);
+=======
+	ctx = dplane_ctx_alloc();
+	dplane_ctx_set_ns_id(ctx, ns_id);
+	dplane_ctx_set_op(ctx, DPLANE_OP_VLAN_INSTALL);
+	dplane_ctx_set_vlan_ifindex(ctx, bvm->ifindex);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	/* Loop over "ALL" BRIDGE_VLANDB_ENTRY */
 	rem = len;
@@ -2674,12 +3200,25 @@ int netlink_vlan_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 		if (!vtb[BRIDGE_VLANDB_ENTRY_STATE])
 			continue;
 
+<<<<<<< HEAD
+=======
+		count++;
+		vlan_array =
+			XREALLOC(MTYPE_VLAN_CHANGE_ARR, vlan_array,
+				 sizeof(struct zebra_vxlan_vlan_array) +
+					 count * sizeof(struct zebra_vxlan_vlan));
+
+		memset(&vlan_array->vlans[count - 1], 0,
+		       sizeof(struct zebra_vxlan_vlan));
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		state = *(uint8_t *)RTA_DATA(vtb[BRIDGE_VLANDB_ENTRY_STATE]);
 
 		if (vtb[BRIDGE_VLANDB_ENTRY_RANGE])
 			vrange = *(uint32_t *)RTA_DATA(
 				vtb[BRIDGE_VLANDB_ENTRY_RANGE]);
 
+<<<<<<< HEAD
 		if (IS_ZEBRA_DEBUG_KERNEL || IS_ZEBRA_DEBUG_VXLAN) {
 			if (vrange)
 				zlog_debug("VLANDB_ENTRY: VID (%u-%u) state=%s",
@@ -2694,6 +3233,26 @@ int netlink_vlan_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 			ifp, vinfo->vid, (vrange ? vrange : vinfo->vid), state);
 	}
 
+=======
+		vlan_array->vlans[count - 1].state =
+			netlink_get_dplane_vlan_state(state);
+		vlan_array->vlans[count - 1].vid = vinfo->vid;
+		vlan_array->vlans[count - 1].vrange = vrange;
+	}
+
+	if (count) {
+		vlan_array->count = count;
+		dplane_ctx_set_vxlan_vlan_array(ctx, vlan_array);
+		if (IS_ZEBRA_DEBUG_KERNEL || IS_ZEBRA_DEBUG_VXLAN)
+			zlog_debug("RTM_NEWVLAN for ifindex %u NS %u, enqueuing for zebra main",
+				   bvm->ifindex, ns_id);
+
+		dplane_provider_enqueue_to_zebra(ctx);
+	} else
+		dplane_ctx_fini(&ctx);
+
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	return 0;
 }
 

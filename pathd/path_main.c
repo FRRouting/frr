@@ -58,7 +58,11 @@ static void sighup(void)
 static void sigint(void)
 {
 	zlog_notice("Terminating on signal");
+<<<<<<< HEAD
 	zlog_notice("Unregisterfrom opaque,etc ");
+=======
+	zlog_notice("Unregister from opaque,etc ");
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	pathd_shutdown();
 
 	exit(0);
@@ -95,6 +99,7 @@ static const struct frr_yang_module_info *pathd_yang_modules[] = {
 	&frr_pathd_info,
 };
 
+<<<<<<< HEAD
 #define PATH_VTY_PORT 2621
 
 FRR_DAEMON_INFO(pathd, PATH, .vty_port = PATH_VTY_PORT,
@@ -106,6 +111,22 @@ FRR_DAEMON_INFO(pathd, PATH, .vty_port = PATH_VTY_PORT,
 		.privs = &pathd_privs, .yang_modules = pathd_yang_modules,
 		.n_yang_modules = array_size(pathd_yang_modules),
 );
+=======
+/* clang-format off */
+FRR_DAEMON_INFO(pathd, PATH,
+	.vty_port = PATH_VTY_PORT,
+	.proghelp = "Implementation of PATH.",
+
+	.signals = path_signals,
+	.n_signals = array_size(path_signals),
+
+	.privs = &pathd_privs,
+
+	.yang_modules = pathd_yang_modules,
+	.n_yang_modules = array_size(pathd_yang_modules),
+);
+/* clang-format on */
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 int main(int argc, char **argv, char **envp)
 {

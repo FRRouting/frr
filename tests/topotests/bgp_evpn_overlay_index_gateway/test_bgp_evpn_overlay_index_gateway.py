@@ -58,7 +58,10 @@ from lib.common_config import (
     step,
     write_test_header,
     write_test_footer,
+<<<<<<< HEAD
     generate_support_bundle,
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 )
 
 # Required to instantiate the topology builder class.
@@ -180,7 +183,11 @@ def setup_module(mod):
         pe.cmd_raises("sysctl -w net.ipv4.tcp_l3mdev_accept={}".format(l3mdev_accept))
 
     # For all registered routers, load the zebra configuration file
+<<<<<<< HEAD
     for (name, router) in tgen.routers().items():
+=======
+    for name, router in tgen.routers().items():
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         router.load_config(
             TopoRouter.RD_ZEBRA, os.path.join(CWD, "{}/zebra.conf".format(name))
         )
@@ -231,18 +238,30 @@ def evpn_gateway_ip_show_op_check(trigger=" "):
         "zebra_vrf_ipv6": "show ipv6 route vrf vrf-blue json",
     }
 
+<<<<<<< HEAD
     for (name, pe) in tgen.gears.items():
         if name not in PES:
             continue
 
         for (cmd_key, command) in show_commands.items():
+=======
+    for name, pe in tgen.gears.items():
+        if name not in PES:
+            continue
+
+        for cmd_key, command in show_commands.items():
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
             expected_op_file = "{0}/{1}/{2}_{3}.json".format(
                 CWD, name, cmd_key, trigger
             )
             expected_op = json.loads(open(expected_op_file).read())
 
             test_func = partial(topotest.router_json_cmp, pe, command, expected_op)
+<<<<<<< HEAD
             ret, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
+=======
+            _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
             assertmsg = '"{0}" JSON output mismatch for {1}'.format(name, command)
             if result is not None:
                 return result, assertmsg
@@ -277,8 +296,11 @@ def test_evpn_gateway_ip_basic_topo(request):
 
     result, assertmsg = evpn_gateway_ip_show_op_check("base")
 
+<<<<<<< HEAD
     if result is not None:
         generate_support_bundle()
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     assert result is None, assertmsg
 
     write_test_footer(tc_name)
@@ -319,8 +341,11 @@ def test_evpn_gateway_ip_flap_rt5(request):
     )
 
     result, assertmsg = evpn_gateway_ip_show_op_check("no_rt5")
+<<<<<<< HEAD
     if result is not None:
         generate_support_bundle()
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     assert result is None, assertmsg
 
     step("Advertise type-5 routes again")
@@ -339,8 +364,11 @@ def test_evpn_gateway_ip_flap_rt5(request):
     )
 
     result, assertmsg = evpn_gateway_ip_show_op_check("base")
+<<<<<<< HEAD
     if result is not None:
         generate_support_bundle()
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
     assert result is None, assertmsg
 
@@ -371,8 +399,11 @@ def test_evpn_gateway_ip_flap_rt2(request):
     pe1.cmd_raises("ip link set dev vxlan100 down")
 
     result, assertmsg = evpn_gateway_ip_show_op_check("no_rt2")
+<<<<<<< HEAD
     if result is not None:
         generate_support_bundle()
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     assert result is None, assertmsg
 
     step("Bring up VxLAN interface at PE1 and advertise type-2 routes again")
@@ -380,8 +411,11 @@ def test_evpn_gateway_ip_flap_rt2(request):
     pe1.cmd_raises("ip link set dev vxlan100 up")
 
     result, assertmsg = evpn_gateway_ip_show_op_check("base")
+<<<<<<< HEAD
     if result is not None:
         generate_support_bundle()
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     assert result is None, assertmsg
 
     write_test_footer(tc_name)

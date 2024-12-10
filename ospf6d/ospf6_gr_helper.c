@@ -32,6 +32,10 @@
 #include "ospf6_neighbor.h"
 #include "ospf6_intra.h"
 #include "ospf6d.h"
+<<<<<<< HEAD
+=======
+#include "ospf6_tlv.h"
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 #include "ospf6_gr.h"
 #include "lib/json.h"
 #include "ospf6d/ospf6_gr_helper_clippy.c"
@@ -129,12 +133,21 @@ static int ospf6_extract_grace_lsa_fields(struct ospf6_lsa *lsa,
 {
 	struct ospf6_lsa_header *lsah = NULL;
 	struct tlv_header *tlvh = NULL;
+<<<<<<< HEAD
 	struct grace_tlv_graceperiod *gracePeriod;
 	struct grace_tlv_restart_reason *grReason;
 	uint16_t length = 0;
 	int sum = 0;
 
 	lsah = (struct ospf6_lsa_header *)lsa->header;
+=======
+	struct tlv_grace_period *gracePeriod;
+	struct tlv_grace_restart_reason *grReason;
+	uint16_t length = 0;
+	int sum = 0;
+
+	lsah = lsa->header;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	if (ntohs(lsah->length) <= OSPF6_LSA_HEADER_SIZE) {
 		if (IS_DEBUG_OSPF6_GR)
 			zlog_debug("%s: undersized (%u B) lsa", __func__,
@@ -144,9 +157,14 @@ static int ospf6_extract_grace_lsa_fields(struct ospf6_lsa *lsa,
 
 	length = ntohs(lsah->length) - OSPF6_LSA_HEADER_SIZE;
 
+<<<<<<< HEAD
 	for (tlvh = TLV_HDR_TOP(lsah); sum < length && tlvh;
 	     tlvh = TLV_HDR_NEXT(tlvh)) {
 
+=======
+	for (tlvh = lsdesc_start(lsah); sum < length && tlvh;
+	     tlvh = TLV_HDR_NEXT(tlvh)) {
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		/* Check TLV len against overall LSA */
 		if (sum + TLV_SIZE(tlvh) > length) {
 			if (IS_DEBUG_OSPF6_GR)
@@ -157,8 +175,13 @@ static int ospf6_extract_grace_lsa_fields(struct ospf6_lsa *lsa,
 		}
 
 		switch (ntohs(tlvh->type)) {
+<<<<<<< HEAD
 		case GRACE_PERIOD_TYPE:
 			gracePeriod = (struct grace_tlv_graceperiod *)tlvh;
+=======
+		case TLV_GRACE_PERIOD_TYPE:
+			gracePeriod = (struct tlv_grace_period *)tlvh;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			*interval = ntohl(gracePeriod->interval);
 			sum += TLV_SIZE(tlvh);
 
@@ -167,8 +190,13 @@ static int ospf6_extract_grace_lsa_fields(struct ospf6_lsa *lsa,
 			    || *interval < OSPF6_MIN_GRACE_INTERVAL)
 				return OSPF6_FAILURE;
 			break;
+<<<<<<< HEAD
 		case RESTART_REASON_TYPE:
 			grReason = (struct grace_tlv_restart_reason *)tlvh;
+=======
+		case TLV_GRACE_RESTART_REASON_TYPE:
+			grReason = (struct tlv_grace_restart_reason *)tlvh;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			*reason = grReason->reason;
 			sum += TLV_SIZE(tlvh);
 
@@ -229,9 +257,15 @@ static bool ospf6_check_chg_in_rxmt_list(struct ospf6_neighbor *nbr)
 					  lsa->header->adv_router, lsa->lsdb);
 
 		if (lsa_in_db && lsa_in_db->tobe_acknowledged) {
+<<<<<<< HEAD
 			ospf6_lsa_unlock(lsa);
 			if (lsanext)
 				ospf6_lsa_unlock(lsanext);
+=======
+			ospf6_lsa_unlock(&lsa);
+			if (lsanext)
+				ospf6_lsa_unlock(&lsanext);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 			return OSPF6_TRUE;
 		}
@@ -939,6 +973,7 @@ static void show_ospf6_gr_helper_details(struct vty *vty, struct ospf6 *ospf6,
 				? "Enabled"
 				: "Disabled");
 
+<<<<<<< HEAD
 #if CONFDATE > 20240401
 		CPP_NOTICE("Remove deprecated json key: restartSupoort")
 #endif
@@ -948,6 +983,8 @@ static void show_ospf6_gr_helper_details(struct vty *vty, struct ospf6 *ospf6,
 				? "Planned Restart only"
 				: "Planned and Unplanned Restarts");
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		json_object_string_add(
 			json, "restartSupport",
 			(ospf6->ospf6_helper_cfg.only_planned_restart)
@@ -1227,12 +1264,21 @@ static int ospf6_grace_lsa_show_info(struct vty *vty, struct ospf6_lsa *lsa,
 {
 	struct ospf6_lsa_header *lsah = NULL;
 	struct tlv_header *tlvh = NULL;
+<<<<<<< HEAD
 	struct grace_tlv_graceperiod *gracePeriod;
 	struct grace_tlv_restart_reason *grReason;
 	uint16_t length = 0;
 	int sum = 0;
 
 	lsah = (struct ospf6_lsa_header *)lsa->header;
+=======
+	struct tlv_grace_period *gracePeriod;
+	struct tlv_grace_restart_reason *grReason;
+	uint16_t length = 0;
+	int sum = 0;
+
+	lsah = lsa->header;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	if (ntohs(lsah->length) <= OSPF6_LSA_HEADER_SIZE) {
 		if (IS_DEBUG_OSPF6_GR)
 			zlog_debug("%s: undersized (%u B) lsa", __func__,
@@ -1249,9 +1295,14 @@ static int ospf6_grace_lsa_show_info(struct vty *vty, struct ospf6_lsa *lsa,
 		zlog_debug("  TLV info:");
 	}
 
+<<<<<<< HEAD
 	for (tlvh = TLV_HDR_TOP(lsah); sum < length && tlvh;
 	     tlvh = TLV_HDR_NEXT(tlvh)) {
 
+=======
+	for (tlvh = lsdesc_start(lsah); sum < length && tlvh;
+	     tlvh = TLV_HDR_NEXT(tlvh)) {
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		/* Check TLV len */
 		if (sum + TLV_SIZE(tlvh) > length) {
 			if (vty)
@@ -1264,8 +1315,13 @@ static int ospf6_grace_lsa_show_info(struct vty *vty, struct ospf6_lsa *lsa,
 		}
 
 		switch (ntohs(tlvh->type)) {
+<<<<<<< HEAD
 		case GRACE_PERIOD_TYPE:
 			gracePeriod = (struct grace_tlv_graceperiod *)tlvh;
+=======
+		case TLV_GRACE_PERIOD_TYPE:
+			gracePeriod = (struct tlv_grace_period *)tlvh;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			sum += TLV_SIZE(tlvh);
 
 			if (vty) {
@@ -1281,8 +1337,13 @@ static int ospf6_grace_lsa_show_info(struct vty *vty, struct ospf6_lsa *lsa,
 					   ntohl(gracePeriod->interval));
 			}
 			break;
+<<<<<<< HEAD
 		case RESTART_REASON_TYPE:
 			grReason = (struct grace_tlv_restart_reason *)tlvh;
+=======
+		case TLV_GRACE_RESTART_REASON_TYPE:
+			grReason = (struct tlv_grace_restart_reason *)tlvh;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			sum += TLV_SIZE(tlvh);
 			if (vty) {
 				if (use_json)

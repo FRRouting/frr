@@ -22,9 +22,12 @@
 
 #define OSPF_VERSION            2
 
+<<<<<<< HEAD
 /* VTY port number. */
 #define OSPF_VTY_PORT          2604
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 /* IP TTL for OSPF protocol. */
 #define OSPF_IP_TTL             1
 #define OSPF_VL_IP_TTL          100
@@ -70,6 +73,12 @@
 /* Default socket buffer size */
 #define OSPF_DEFAULT_SOCK_BUFSIZE   (8 * 1024 * 1024)
 
+<<<<<<< HEAD
+=======
+/* OSPF config processing timer thread */
+extern struct event *t_ospf_cfg;
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 struct ospf_external {
 	unsigned short instance;
 	struct route_table *external_info;
@@ -265,8 +274,13 @@ struct ospf {
 	struct event *t_abr_task;		 /* ABR task timer. */
 	struct event *t_abr_fr;			 /* ABR FR timer. */
 	struct event *t_asbr_check;		 /* ASBR check timer. */
+<<<<<<< HEAD
 	struct event *t_asbr_nssa_redist_update; /* ASBR NSSA redistribution
 						     update timer. */
+=======
+	struct event *t_asbr_redist_update; /* ASBR redistribution update
+					       timer. */
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	struct event *t_distribute_update; /* Distirbute list update timer. */
 	struct event *t_spf_calc;	   /* SPF calculation timer. */
 	struct event *t_ase_calc;	   /* ASE calculation timer. */

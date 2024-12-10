@@ -27,6 +27,10 @@
 #include "ospf6_zebra.h"
 #include "ospf6d.h"
 #include "ospf6_area.h"
+<<<<<<< HEAD
+=======
+#include "ospf6_tlv.h"
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 #include "ospf6_gr.h"
 #include "lib/json.h"
 
@@ -97,9 +101,15 @@ static int ospf6_router_id_update_zebra(ZAPI_CALLBACK_ARGS)
 /* redistribute function */
 void ospf6_zebra_redistribute(int type, vrf_id_t vrf_id)
 {
+<<<<<<< HEAD
 	if (vrf_bitmap_check(zclient->redist[AFI_IP6][type], vrf_id))
 		return;
 	vrf_bitmap_set(zclient->redist[AFI_IP6][type], vrf_id);
+=======
+	if (vrf_bitmap_check(&zclient->redist[AFI_IP6][type], vrf_id))
+		return;
+	vrf_bitmap_set(&zclient->redist[AFI_IP6][type], vrf_id);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	if (zclient->sock > 0)
 		zebra_redistribute_send(ZEBRA_REDISTRIBUTE_ADD, zclient,
@@ -108,9 +118,15 @@ void ospf6_zebra_redistribute(int type, vrf_id_t vrf_id)
 
 void ospf6_zebra_no_redistribute(int type, vrf_id_t vrf_id)
 {
+<<<<<<< HEAD
 	if (!vrf_bitmap_check(zclient->redist[AFI_IP6][type], vrf_id))
 		return;
 	vrf_bitmap_unset(zclient->redist[AFI_IP6][type], vrf_id);
+=======
+	if (!vrf_bitmap_check(&zclient->redist[AFI_IP6][type], vrf_id))
+		return;
+	vrf_bitmap_unset(&zclient->redist[AFI_IP6][type], vrf_id);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	if (zclient->sock > 0)
 		zebra_redistribute_send(ZEBRA_REDISTRIBUTE_DELETE, zclient,
 					AFI_IP6, type, 0, vrf_id);
@@ -147,6 +163,7 @@ void ospf6_zebra_import_default_route(struct ospf6 *ospf6, bool unreg)
 			 __func__);
 }
 
+<<<<<<< HEAD
 static int ospf6_zebra_import_check_update(ZAPI_CALLBACK_ARGS)
 {
 	struct ospf6 *ospf6;
@@ -171,6 +188,24 @@ static int ospf6_zebra_import_check_update(ZAPI_CALLBACK_ARGS)
 	ospf6_abr_nssa_type_7_defaults(ospf6);
 
 	return 0;
+=======
+static void ospf6_zebra_import_check_update(struct vrf *vrf,
+					    struct prefix *matched,
+					    struct zapi_route *nhr)
+{
+	struct ospf6 *ospf6;
+
+	ospf6 = (struct ospf6 *)vrf->info;
+	if (ospf6 == NULL || !IS_OSPF6_ASBR(ospf6))
+		return;
+
+	if (matched->family != AF_INET6 || matched->prefixlen != 0 ||
+	    nhr->type == ZEBRA_ROUTE_OSPF6)
+		return;
+
+	ospf6->nssa_default_import_check.status = !!nhr->nexthop_num;
+	ospf6_abr_nssa_type_7_defaults(ospf6);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 }
 
 static int ospf6_zebra_if_address_update_add(ZAPI_CALLBACK_ARGS)
@@ -297,7 +332,11 @@ static int ospf6_zebra_read_route(ZAPI_CALLBACK_ARGS)
 	if (cmd == ZEBRA_REDISTRIBUTE_ROUTE_ADD)
 		ospf6_asbr_redistribute_add(api.type, ifindex, &api.prefix,
 					    api.nexthop_num, nexthop, api.tag,
+<<<<<<< HEAD
 					    ospf6);
+=======
+					    ospf6, api.metric);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	else
 		ospf6_asbr_redistribute_remove(api.type, ifindex, &api.prefix,
 					       ospf6);
@@ -333,10 +372,17 @@ DEFUN(show_zebra,
 		json_object_int_add(json_zebra, "fail", zclient->fail);
 		json_object_int_add(
 			json_zebra, "redistributeDefault",
+<<<<<<< HEAD
 			vrf_bitmap_check(zclient->default_information[AFI_IP6],
 					 VRF_DEFAULT));
 		for (i = 0; i < ZEBRA_ROUTE_MAX; i++) {
 			if (vrf_bitmap_check(zclient->redist[AFI_IP6][i],
+=======
+			vrf_bitmap_check(&zclient->default_information[AFI_IP6],
+					 VRF_DEFAULT));
+		for (i = 0; i < ZEBRA_ROUTE_MAX; i++) {
+			if (vrf_bitmap_check(&zclient->redist[AFI_IP6][i],
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 					     VRF_DEFAULT))
 				json_object_array_add(
 					json_array,
@@ -351,11 +397,19 @@ DEFUN(show_zebra,
 		vty_out(vty, "Zebra Information\n");
 		vty_out(vty, "  fail: %d\n", zclient->fail);
 		vty_out(vty, "  redistribute default: %d\n",
+<<<<<<< HEAD
 			vrf_bitmap_check(zclient->default_information[AFI_IP6],
 					 VRF_DEFAULT));
 		vty_out(vty, "  redistribute:");
 		for (i = 0; i < ZEBRA_ROUTE_MAX; i++) {
 			if (vrf_bitmap_check(zclient->redist[AFI_IP6][i],
+=======
+			vrf_bitmap_check(&zclient->default_information[AFI_IP6],
+					 VRF_DEFAULT));
+		vty_out(vty, "  redistribute:");
+		for (i = 0; i < ZEBRA_ROUTE_MAX; i++) {
+			if (vrf_bitmap_check(&zclient->redist[AFI_IP6][i],
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 					     VRF_DEFAULT))
 				vty_out(vty, " %s", zebra_route_string(i));
 		}
@@ -763,7 +817,10 @@ static zclient_handler *const ospf6_handlers[] = {
 	[ZEBRA_INTERFACE_ADDRESS_DELETE] = ospf6_zebra_if_address_update_delete,
 	[ZEBRA_REDISTRIBUTE_ROUTE_ADD] = ospf6_zebra_read_route,
 	[ZEBRA_REDISTRIBUTE_ROUTE_DEL] = ospf6_zebra_read_route,
+<<<<<<< HEAD
 	[ZEBRA_NEXTHOP_UPDATE] = ospf6_zebra_import_check_update,
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 };
 
 void ospf6_zebra_init(struct event_loop *master)
@@ -773,6 +830,10 @@ void ospf6_zebra_init(struct event_loop *master)
 			      array_size(ospf6_handlers));
 	zclient_init(zclient, ZEBRA_ROUTE_OSPF6, 0, &ospf6d_privs);
 	zclient->zebra_connected = ospf6_zebra_connected;
+<<<<<<< HEAD
+=======
+	zclient->nexthop_update = ospf6_zebra_import_check_update;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	/* Install command element for zebra node. */
 	install_element(VIEW_NODE, &show_ospf6_zebra_cmd);

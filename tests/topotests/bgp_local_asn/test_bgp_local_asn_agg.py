@@ -25,7 +25,10 @@ sys.path.append(os.path.join(CWD, "../lib/"))
 # pylint: disable=C0413
 # Import topogen and topotest helpers
 from lib.topogen import Topogen, get_topogen
+<<<<<<< HEAD
 from lib.topotest import version_cmp
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 from lib.common_config import (
     start_topology,
@@ -35,7 +38,11 @@ from lib.common_config import (
     verify_rib,
     step,
     check_address_types,
+<<<<<<< HEAD
     check_router_status
+=======
+    check_router_status,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 )
 
 from lib.topolog import logger

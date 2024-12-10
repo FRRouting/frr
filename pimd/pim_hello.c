@@ -440,7 +440,11 @@ int pim_hello_build_tlv(struct interface *ifp, uint8_t *tlv_buf,
 	}
 
 	/* Secondary Address List */
+<<<<<<< HEAD
 	if (ifp->connected->count) {
+=======
+	if (if_connected_count(ifp->connected)) {
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		curr = pim_tlv_append_addrlist_ucast(curr, pastend, ifp,
 						     PIM_AF);
 		if (!curr) {

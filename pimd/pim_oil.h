@@ -112,7 +112,11 @@ static inline pim_addr *oil_mcastgrp(struct channel_oil *c_oil)
 	return &c_oil->oil.mfcc_mcastgrp;
 }
 
+<<<<<<< HEAD
 static inline vifi_t *oil_parent(struct channel_oil *c_oil)
+=======
+static inline vifi_t *oil_incoming_vif(struct channel_oil *c_oil)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 {
 	return &c_oil->oil.mfcc_parent;
 }
@@ -143,7 +147,11 @@ static inline pim_addr *oil_mcastgrp(struct channel_oil *c_oil)
 	return &c_oil->oil.mf6cc_mcastgrp.sin6_addr;
 }
 
+<<<<<<< HEAD
 static inline mifi_t *oil_parent(struct channel_oil *c_oil)
+=======
+static inline mifi_t *oil_incoming_vif(struct channel_oil *c_oil)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 {
 	return &c_oil->oil.mf6cc_parent;
 }

@@ -27,11 +27,20 @@ import time
 import logging
 from collections.abc import Mapping
 from copy import deepcopy
+<<<<<<< HEAD
+=======
+from pathlib import Path
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 import lib.topolog as topolog
 from lib.micronet_compat import Node
 from lib.topolog import logger
+<<<<<<< HEAD
 from munet.base import Timeout
+=======
+from munet.base import commander, get_exec_path_host, Timeout
+from munet.testing.util import retry
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 from lib import micronet
 
@@ -44,6 +53,7 @@ def get_logs_path(rundir):
 
 
 def gdb_core(obj, daemon, corefiles):
+<<<<<<< HEAD
     gdbcmds = """
         info threads
         bt full
@@ -58,11 +68,28 @@ def gdb_core(obj, daemon, corefiles):
         disassemble
         up
         disassemble
+=======
+    gdbcmds = r"""
+set print elements 1024
+echo -------\n
+echo threads\n
+echo -------\n
+info threads
+echo ---------\n
+echo registers\n
+echo ---------\n
+info registers
+echo ---------\n
+echo backtrace\n
+echo ---------\n
+bt
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     """
     gdbcmds = [["-ex", i.strip()] for i in gdbcmds.strip().split("\n")]
     gdbcmds = [item for sl in gdbcmds for item in sl]
 
     daemon_path = os.path.join(obj.daemondir, daemon)
+<<<<<<< HEAD
     backtrace = subprocess.check_output(
         ["gdb", daemon_path, corefiles[0], "--batch"] + gdbcmds
     )
@@ -71,6 +98,72 @@ def gdb_core(obj, daemon, corefiles):
     )
     sys.stderr.write("%s" % backtrace)
     return backtrace
+=======
+    p = subprocess.run(
+        ["gdb", daemon_path, corefiles[0], "--batch"] + gdbcmds,
+        encoding="utf-8",
+        errors="ignore",
+        capture_output=True,
+    )
+    backtrace = p.stdout
+
+    #
+    # Grab the disassemble of top couple frames
+    #
+    m = re.search(r"#(\d+) .*assert.*", backtrace)
+    if not m:
+        m = re.search(r"#(\d+) .*abort.*", backtrace)
+    frames = re.findall(r"\n#(\d+) ", backtrace)
+    if m:
+        frstart = -1
+        astart = int(m.group(1)) + 1
+        ocount = f"-{int(frames[-1]) - astart + 1}"
+    else:
+        astart = -1
+        frstart = 0
+        ocount = ""
+        m = re.search(r"#(\d+) .*core_handler.*", backtrace)
+        if m:
+            frstart = int(m.group(1)) + 2
+            ocount = f"-{int(frames[-1]) - frstart + 1}"
+
+    sys.stderr.write(
+        f"\nCORE FOUND: {obj.name}: {daemon} crashed: see log for backtrace and more\n"
+    )
+
+    gdbcmds = rf"""
+set print elements 1024
+echo -------------------------\n
+echo backtrace with local args\n
+echo -------------------------\n
+bt full {ocount}
+"""
+    if frstart >= 0:
+        gdbcmds += rf"""echo ---------------------------------------\n
+echo disassemble of failing funciton (guess)\n
+echo ---------------------------------------\n
+fr {frstart}
+disassemble /m
+"""
+
+    gdbcmds = [["-ex", i.strip()] for i in gdbcmds.strip().split("\n")]
+    gdbcmds = [item for sl in gdbcmds for item in sl]
+
+    daemon_path = os.path.join(obj.daemondir, daemon)
+    p = subprocess.run(
+        ["gdb", daemon_path, corefiles[0], "-q", "--batch"] + gdbcmds,
+        encoding="utf-8",
+        errors="ignore",
+        capture_output=True,
+    )
+    btdump = p.stdout
+
+    # sys.stderr.write(
+    #     "\n%s: %s crashed. Core file found - Backtrace follows:\n" % (obj.name, daemon)
+    # )
+
+    return backtrace + btdump
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 
 class json_cmp_result(object):
@@ -98,7 +191,11 @@ class json_cmp_result(object):
         )
 
 
+<<<<<<< HEAD
 def gen_json_diff_report(d1, d2, exact=False, path="> $", acc=(0, "")):
+=======
+def gen_json_diff_report(output, expected, exact=False, path="> $", acc=(0, "")):
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     """
     Internal workhorse which compares two JSON data structures and generates an error report suited to be read by a human eye.
     """
@@ -146,6 +243,7 @@ def gen_json_diff_report(d1, d2, exact=False, path="> $", acc=(0, "")):
     def has_errors(other_acc):
         return other_acc[0] > 0
 
+<<<<<<< HEAD
     if d2 == "*" or (
         not isinstance(d1, (list, dict))
         and not isinstance(d2, (list, dict))
@@ -194,12 +292,68 @@ def gen_json_diff_report(d1, d2, exact=False, path="> $", acc=(0, "")):
                 closest_diff = None
                 closest_idx = None
                 for idx1, v1 in zip(range(0, len(d1)), d1):
+=======
+    if expected == "*" or (
+        not isinstance(output, (list, dict))
+        and not isinstance(expected, (list, dict))
+        and output == expected
+    ):
+        return acc
+    elif (
+        not isinstance(output, (list, dict))
+        and not isinstance(expected, (list, dict))
+        and output != expected
+    ):
+        acc = add_error(
+            acc,
+            "output has element with value '{}' but in expected it has value '{}'".format(
+                output, expected
+            ),
+        )
+    elif (
+        isinstance(output, list)
+        and isinstance(expected, list)
+        and ((len(expected) > 0 and expected[0] == "__ordered__") or exact)
+    ):
+        if not exact:
+            del expected[0]
+        if len(output) != len(expected):
+            acc = add_error(
+                acc,
+                "output has Array of length {} but in expected it is of length {}".format(
+                    len(output), len(expected)
+                ),
+            )
+        else:
+            for idx, v1, v2 in zip(range(0, len(output)), output, expected):
+                acc = merge_errors(
+                    acc, gen_json_diff_report(v1, v2, exact=exact, path=add_idx(idx))
+                )
+    elif isinstance(output, list) and isinstance(expected, list):
+        if len(output) < len(expected):
+            acc = add_error(
+                acc,
+                "output has Array of length {} but in expected it is of length {}".format(
+                    len(output), len(expected)
+                ),
+            )
+        else:
+            for idx2, v2 in zip(range(0, len(expected)), expected):
+                found_match = False
+                closest_diff = None
+                closest_idx = None
+                for idx1, v1 in zip(range(0, len(output)), output):
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
                     tmp_v1 = deepcopy(v1)
                     tmp_v2 = deepcopy(v2)
                     tmp_diff = gen_json_diff_report(tmp_v1, tmp_v2, path=add_idx(idx1))
                     if not has_errors(tmp_diff):
                         found_match = True
+<<<<<<< HEAD
                         del d1[idx1]
+=======
+                        del output[idx1]
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
                         break
                     elif not closest_diff or get_errors_n(tmp_diff) < get_errors_n(
                         closest_diff
@@ -213,13 +367,19 @@ def gen_json_diff_report(d1, d2, exact=False, path="> $", acc=(0, "")):
                     acc = add_error(
                         acc,
                         (
+<<<<<<< HEAD
                             "d2 has the following element at index {} which is not present in d1: "
                             + "\n\n{}\n\n\tClosest match in d1 is at index {} with the following errors: {}"
+=======
+                            "expected has the following element at index {} which is not present in output: "
+                            + "\n\n{}\n\n\tClosest match in output is at index {} with the following errors: {}"
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
                         ).format(idx2, dump_json(v2), closest_idx, sub_error),
                     )
                 if not found_match and not isinstance(v2, (list, dict)):
                     acc = add_error(
                         acc,
+<<<<<<< HEAD
                         "d2 has the following element at index {} which is not present in d1: {}".format(
                             idx2, dump_json(v2)
                         ),
@@ -251,12 +411,62 @@ def gen_json_diff_report(d1, d2, exact=False, path="> $", acc=(0, "")):
         for k in valid_keys_intersection:
             acc = merge_errors(
                 acc, gen_json_diff_report(d1[k], d2[k], exact=exact, path=add_key(k))
+=======
+                        "expected has the following element at index {} which is not present in output: {}".format(
+                            idx2, dump_json(v2)
+                        ),
+                    )
+    elif isinstance(output, dict) and isinstance(expected, dict) and exact:
+        invalid_keys_d1 = [k for k in output.keys() if k not in expected.keys()]
+        invalid_keys_d2 = [k for k in expected.keys() if k not in output.keys()]
+        for k in invalid_keys_d1:
+            acc = add_error(
+                acc, "output has key '{}' which is not present in expected".format(k)
+            )
+        for k in invalid_keys_d2:
+            acc = add_error(
+                acc, "expected has key '{}' which is not present in output".format(k)
+            )
+        valid_keys_intersection = [k for k in output.keys() if k in expected.keys()]
+        for k in valid_keys_intersection:
+            acc = merge_errors(
+                acc,
+                gen_json_diff_report(
+                    output[k], expected[k], exact=exact, path=add_key(k)
+                ),
+            )
+    elif isinstance(output, dict) and isinstance(expected, dict):
+        none_keys = [k for k, v in expected.items() if v == None]
+        none_keys_present = [k for k in output.keys() if k in none_keys]
+        for k in none_keys_present:
+            acc = add_error(
+                acc, "output has key '{}' which is not supposed to be present".format(k)
+            )
+        keys = [k for k, v in expected.items() if v != None]
+        invalid_keys_intersection = [k for k in keys if k not in output.keys()]
+        for k in invalid_keys_intersection:
+            acc = add_error(
+                acc, "expected has key '{}' which is not present in output".format(k)
+            )
+        valid_keys_intersection = [k for k in keys if k in output.keys()]
+        for k in valid_keys_intersection:
+            acc = merge_errors(
+                acc,
+                gen_json_diff_report(
+                    output[k], expected[k], exact=exact, path=add_key(k)
+                ),
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
             )
     else:
         acc = add_error(
             acc,
+<<<<<<< HEAD
             "d1 has element of type '{}' but the corresponding element in d2 is of type '{}'".format(
                 json_type(d1), json_type(d2)
+=======
+            "output has element of type '{}' but the corresponding element in expected is of type '{}'".format(
+                json_type(output), json_type(expected)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
             ),
             points=2,
         )
@@ -264,6 +474,7 @@ def gen_json_diff_report(d1, d2, exact=False, path="> $", acc=(0, "")):
     return acc
 
 
+<<<<<<< HEAD
 def json_cmp(d1, d2, exact=False):
     """
     JSON compare function. Receives two parameters:
@@ -272,10 +483,21 @@ def json_cmp(d1, d2, exact=False):
 
     Returns 'None' when all JSON Object keys and all Array elements of d2 have a match
     in d1, i.e., when d2 is a "subset" of d1 without honoring any order. Otherwise an
+=======
+def json_cmp(output, expected, exact=False):
+    """
+    JSON compare function. Receives two parameters:
+    * `output`: parsed JSON data structure from outputed vtysh command
+    * `expected``: parsed JSON data structure from what is expected to be seen
+
+    Returns 'None' when all JSON Object keys and all Array elements of expected have a match
+    in output, i.e., when expected is a "subset" of output without honoring any order. Otherwise an
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     error report is generated and wrapped in a 'json_cmp_result()'. There are special
     parameters and notations explained below which can be used to cover rather unusual
     cases:
 
+<<<<<<< HEAD
     * when 'exact is set to 'True' then d1 and d2 are tested for equality (including
       order within JSON Arrays)
     * using 'null' (or 'None' in Python) as JSON Object value is checking for key
@@ -287,6 +509,21 @@ def json_cmp(d1, d2, exact=False):
     """
 
     (errors_n, errors) = gen_json_diff_report(deepcopy(d1), deepcopy(d2), exact=exact)
+=======
+    * when 'exact is set to 'True' then output and expected are tested for equality (including
+      order within JSON Arrays)
+    * using 'null' (or 'None' in Python) as JSON Object value is checking for key
+      absence in output
+    * using '*' as JSON Object value or Array value is checking for presence in output
+      without checking the values
+    * using '__ordered__' as first element in a JSON Array in expected will also check the
+      order when it is compared to an Array in output
+    """
+
+    (errors_n, errors) = gen_json_diff_report(
+        deepcopy(output), deepcopy(expected), exact=exact
+    )
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
     if errors_n > 0:
         result = json_cmp_result()
@@ -322,6 +559,12 @@ def run_and_expect(func, what, count=20, wait=3):
     waiting `wait` seconds between tries. By default it tries 20 times with
     3 seconds delay between tries.
 
+<<<<<<< HEAD
+=======
+    Changing default count/wait values, please change them below also for
+    `minimum_wait`, and `minimum_count`.
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     Returns (True, func-return) on success or
     (False, func-return) on failure.
 
@@ -340,6 +583,7 @@ def run_and_expect(func, what, count=20, wait=3):
 
     # Just a safety-check to avoid running topotests with very
     # small wait/count arguments.
+<<<<<<< HEAD
     wait_time = wait * count
     if wait_time < 5:
         assert (
@@ -347,6 +591,20 @@ def run_and_expect(func, what, count=20, wait=3):
         ), "Waiting time is too small (count={}, wait={}), adjust timer values".format(
             count, wait
         )
+=======
+    # If too low count/wait values are defined, override them
+    # with the minimum values.
+    minimum_count = 20
+    minimum_wait = 3
+    minimum_wait_time = 15  # The overall minimum seconds for the test to wait
+    wait_time = wait * count
+    if wait_time < minimum_wait_time:
+        logger.warning(
+            f"Waiting time is too small (count={count}, wait={wait}), using default values (count={minimum_count}, wait={minimum_wait})"
+        )
+        count = minimum_count
+        wait = minimum_wait
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
     logger.debug(
         "'{}' polling started (interval {} secs, maximum {} tries)".format(
@@ -528,6 +786,33 @@ def is_linux():
     return False
 
 
+<<<<<<< HEAD
+=======
+def iproute2_is_json_capable():
+    """
+    Checks if the iproute2 version installed on the system is capable of
+    handling JSON outputss
+
+    Returns True if capability can be detected, returns False otherwise.
+    """
+    if is_linux():
+        try:
+            subp = subprocess.Popen(
+                ["ip", "-json", "route", "show"],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                stdin=subprocess.PIPE,
+            )
+            iproute2_err = subp.communicate()[1].splitlines()[0].split()[0]
+
+            if iproute2_err != "Error:":
+                return True
+        except Exception:
+            pass
+    return False
+
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 def iproute2_is_vrf_capable():
     """
     Checks if the iproute2 version installed on the system is capable of
@@ -1138,8 +1423,13 @@ def _sysctl_assure(commander, variable, value):
 def sysctl_atleast(commander, variable, min_value, raises=False):
     try:
         if commander is None:
+<<<<<<< HEAD
             logger = logging.getLogger("topotest")
             commander = micronet.Commander("sysctl", logger=logger)
+=======
+            topotest_logger = logging.getLogger("topotest")
+            commander = micronet.Commander("sysctl", logger=topotest_logger)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
         return _sysctl_atleast(commander, variable, min_value)
     except subprocess.CalledProcessError as error:
@@ -1156,8 +1446,13 @@ def sysctl_atleast(commander, variable, min_value, raises=False):
 def sysctl_assure(commander, variable, value, raises=False):
     try:
         if commander is None:
+<<<<<<< HEAD
             logger = logging.getLogger("topotest")
             commander = micronet.Commander("sysctl", logger=logger)
+=======
+            topotest_logger = logging.getLogger("topotest")
+            commander = micronet.Commander("sysctl", logger=topotest_logger)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         return _sysctl_assure(commander, variable, value)
     except subprocess.CalledProcessError as error:
         logger.warning(
@@ -1222,6 +1517,11 @@ def fix_netns_limits(ns):
 
     sysctl_assure(ns, "net.ipv4.conf.all.ignore_routes_with_linkdown", 1)
     sysctl_assure(ns, "net.ipv6.conf.all.ignore_routes_with_linkdown", 1)
+<<<<<<< HEAD
+=======
+    sysctl_assure(ns, "net.ipv4.conf.default.ignore_routes_with_linkdown", 1)
+    sysctl_assure(ns, "net.ipv6.conf.default.ignore_routes_with_linkdown", 1)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
     # igmp
     sysctl_atleast(ns, "net.ipv4.igmp_max_memberships", 1000)
@@ -1291,6 +1591,11 @@ def setup_node_tmpdir(logdir, name):
 class Router(Node):
     "A Node with IPv4/IPv6 forwarding enabled"
 
+<<<<<<< HEAD
+=======
+    gdb_emacs_router = None
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     def __init__(self, name, *posargs, **params):
         # Backward compatibility:
         #   Load configuration defaults like topogen.
@@ -1308,6 +1613,11 @@ class Router(Node):
         )
 
         self.perf_daemons = {}
+<<<<<<< HEAD
+=======
+        self.rr_daemons = {}
+        self.valgrind_gdb_daemons = {}
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
         # If this topology is using old API and doesn't have logdir
         # specified, then attempt to generate an unique logdir.
@@ -1326,7 +1636,11 @@ class Router(Node):
         self.daemondir = None
         self.hasmpls = False
         self.routertype = "frr"
+<<<<<<< HEAD
         self.unified_config = None
+=======
+        self.unified_config = False
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         self.daemons = {
             "zebra": 0,
             "ripd": 0,
@@ -1348,7 +1662,14 @@ class Router(Node):
             "pathd": 0,
             "snmpd": 0,
             "mgmtd": 0,
+<<<<<<< HEAD
         }
+=======
+            "snmptrapd": 0,
+            "fpm_listener": 0,
+        }
+        self.daemon_instances = {"ospfd": []}
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         self.daemons_options = {"zebra": ""}
         self.reportCores = True
         self.version = None
@@ -1444,7 +1765,11 @@ class Router(Node):
                 pass
         return ret
 
+<<<<<<< HEAD
     def stopRouter(self, assertOnError=True, minErrorVersion="5.1"):
+=======
+    def stopRouter(self, assertOnError=True):
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         # Stop Running FRR Daemons
         running = self.listDaemons()
         if not running:
@@ -1491,9 +1816,12 @@ class Router(Node):
             )
 
         errors = self.checkRouterCores(reportOnce=True)
+<<<<<<< HEAD
         if self.checkRouterVersion("<", minErrorVersion):
             # ignore errors in old versions
             errors = ""
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         if assertOnError and (errors is not None) and len(errors) > 0:
             assert "Errors found - details follow:" == 0, errors
         return errors
@@ -1521,7 +1849,11 @@ class Router(Node):
                 return False
         return True
 
+<<<<<<< HEAD
     def loadConf(self, daemon, source=None, param=None):
+=======
+    def loadConf(self, daemon, source=None, param=None, instance=None):
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         """Enabled and set config for a daemon.
 
         Arranges for loading of daemon configuration from the specified source. Possible
@@ -1550,11 +1882,20 @@ class Router(Node):
         # print "Daemons before:", self.daemons
         if daemon in self.daemons.keys() or daemon == "frr":
             if daemon == "frr":
+<<<<<<< HEAD
                 self.unified_config = 1
+=======
+                self.unified_config = True
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
             else:
                 self.daemons[daemon] = 1
             if param is not None:
                 self.daemons_options[daemon] = param
+<<<<<<< HEAD
+=======
+            if instance is not None:
+                self.daemon_instances[daemon].append(instance)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
             conf_file = "/etc/{}/{}.conf".format(self.routertype, daemon)
             if source and not os.path.exists(source):
                 logger.warning(
@@ -1642,8 +1983,11 @@ class Router(Node):
         # TODO remove the following lines after all tests are migrated to Topogen.
         # Try to find relevant old logfiles in /tmp and delete them
         map(os.remove, glob.glob("{}/{}/*.log".format(self.logdir, self.name)))
+<<<<<<< HEAD
         # Remove old core files
         map(os.remove, glob.glob("{}/{}/*.dmp".format(self.logdir, self.name)))
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         # Remove IP addresses from OS first - we have them in zebra.conf
         self.removeIPs()
         # If ldp is used, check for LDP to be compiled and Linux Kernel to be 4.5 or higher
@@ -1726,10 +2070,24 @@ class Router(Node):
         "Starts FRR daemons for this router."
 
         asan_abort = bool(g_pytest_config.option.asan_abort)
+<<<<<<< HEAD
         gdb_breakpoints = g_pytest_config.get_option_list("--gdb-breakpoints")
         gdb_daemons = g_pytest_config.get_option_list("--gdb-daemons")
         gdb_routers = g_pytest_config.get_option_list("--gdb-routers")
         valgrind_extra = bool(g_pytest_config.option.valgrind_extra)
+=======
+        cov_option = bool(g_pytest_config.option.cov_topotest)
+        cov_dir = Path(g_pytest_config.option.rundir) / "gcda"
+        gdb_breakpoints = g_pytest_config.get_option_list("--gdb-breakpoints")
+        gdb_daemons = g_pytest_config.get_option_list("--gdb-daemons")
+        gdb_routers = g_pytest_config.get_option_list("--gdb-routers")
+        gdb_use_emacs = bool(g_pytest_config.option.gdb_use_emacs)
+        rr_daemons = g_pytest_config.get_option_list("--rr-daemons")
+        rr_routers = g_pytest_config.get_option_list("--rr-routers")
+        rr_options = g_pytest_config.get_option("--rr-options", "")
+        valgrind_extra = bool(g_pytest_config.option.valgrind_extra)
+        valgrind_leak_kinds = g_pytest_config.option.valgrind_leak_kinds
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         valgrind_memleaks = bool(g_pytest_config.option.valgrind_memleaks)
         strace_daemons = g_pytest_config.get_option_list("--strace-daemons")
 
@@ -1754,6 +2112,7 @@ class Router(Node):
         # Re-enable to allow for report per run
         self.reportCores = True
 
+<<<<<<< HEAD
         # XXX: glue code forward ported from removed function.
         if self.version is None:
             self.version = self.cmd(
@@ -1761,6 +2120,8 @@ class Router(Node):
             ).split()[2]
             logger.info("{}: running version: {}".format(self.name, self.version))
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         perfds = {}
         perf_options = g_pytest_config.get_option("--perf-options", "-g")
         for perf in g_pytest_config.get_option("--perf", []):
@@ -1794,12 +2155,17 @@ class Router(Node):
         tail_log_files = []
         check_daemon_files = []
 
+<<<<<<< HEAD
         def start_daemon(daemon, extra_opts=None):
+=======
+        def start_daemon(daemon, instance=None):
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
             daemon_opts = self.daemons_options.get(daemon, "")
 
             # get pid and vty filenames and remove the files
             m = re.match(r"(.* |^)-n (\d+)( ?.*|$)", daemon_opts)
             dfname = daemon if not m else "{}-{}".format(daemon, m.group(2))
+<<<<<<< HEAD
             runbase = "/var/run/{}/{}".format(self.routertype, dfname)
             # If this is a new system bring-up remove the pid/vty files, otherwise
             # do not since apparently presence of the pidfile impacts BGP GR
@@ -1807,12 +2173,51 @@ class Router(Node):
 
             rediropt = " > {0}.out 2> {0}.err".format(daemon)
             if daemon == "snmpd":
+=======
+            if instance != None:
+                inst = "-" + instance
+                dfname = daemon + inst
+            else:
+                inst = ""
+            runbase = "/var/run/{}/{}".format(self.routertype, dfname)
+            # If this is a new system bring-up remove the pid/vty files, otherwise
+            # do not since apparently presence of the pidfile impacts BGP GR
+            self.cmd_status("rm -f {0}{1}.pid {0}{1}.vty".format(runbase, inst))
+
+            def do_gdb_or_rr(gdb):
+                routers = gdb_routers if gdb else rr_routers
+                daemons = gdb_daemons if gdb else rr_daemons
+                return (
+                    (routers or daemons)
+                    and (not routers or self.name in routers or "all" in routers)
+                    and (not daemons or daemon in daemons or "all" in daemons)
+                )
+
+            rediropt = " > {0}.out 2> {0}.err".format(dfname)
+            if daemon == "fpm_listener":
+                binary = "/usr/lib/frr/fpm_listener"
+                cmdenv = ""
+                cmdopt = "-d {}".format(daemon_opts)
+            elif daemon == "snmpd":
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
                 binary = "/usr/sbin/snmpd"
                 cmdenv = ""
                 cmdopt = "{} -C -c /etc/frr/snmpd.conf -p ".format(
                     daemon_opts
                 ) + "{}.pid -x /etc/frr/agentx".format(runbase)
                 # check_daemon_files.append(runbase + ".pid")
+<<<<<<< HEAD
+=======
+            elif daemon == "snmptrapd":
+                binary = "/usr/sbin/snmptrapd"
+                cmdenv = ""
+                cmdopt = (
+                    "{} ".format(daemon_opts)
+                    + "-C -c /etc/{}/snmptrapd.conf".format(self.routertype)
+                    + " -p {}.pid".format(runbase)
+                    + " -LF 6-7 {}/{}/snmptrapd.log".format(self.logdir, self.name)
+                )
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
             else:
                 binary = os.path.join(self.daemondir, daemon)
                 check_daemon_files.extend([runbase + ".pid", runbase + ".vty"])
@@ -1821,9 +2226,19 @@ class Router(Node):
                 if asan_abort:
                     cmdenv += "abort_on_error=1:"
                 cmdenv += "log_path={0}/{1}.asan.{2} ".format(
+<<<<<<< HEAD
                     self.logdir, self.name, daemon
                 )
 
+=======
+                    self.logdir, self.name, dfname
+                )
+
+                if cov_option:
+                    scount = os.environ["GCOV_PREFIX_STRIP"]
+                    cmdenv += f"GCOV_PREFIX_STRIP={scount} GCOV_PREFIX={cov_dir}"
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
                 if valgrind_memleaks:
                     this_dir = os.path.dirname(
                         os.path.abspath(os.path.realpath(__file__))
@@ -1831,25 +2246,51 @@ class Router(Node):
                     supp_file = os.path.abspath(
                         os.path.join(this_dir, "../../../tools/valgrind.supp")
                     )
+<<<<<<< HEAD
                     cmdenv += " /usr/bin/valgrind --num-callers=50 --log-file={1}/{2}.valgrind.{0}.%p --leak-check=full --suppressions={3}".format(
                         daemon, self.logdir, self.name, supp_file
                     )
+=======
+
+                    valgrind_logbase = f"{self.logdir}/{self.name}.valgrind.{dfname}"
+                    if do_gdb_or_rr(True):
+                        cmdenv += " exec"
+                    cmdenv += (
+                        " /usr/bin/valgrind --num-callers=50"
+                        f" --log-file={valgrind_logbase}.%p"
+                        f" --leak-check=full --suppressions={supp_file}"
+                    )
+                    if valgrind_leak_kinds:
+                        cmdenv += f" --show-leak-kinds={valgrind_leak_kinds}"
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
                     if valgrind_extra:
                         cmdenv += (
                             " --gen-suppressions=all --expensive-definedness-checks=yes"
                         )
+<<<<<<< HEAD
+=======
+                    if do_gdb_or_rr(True):
+                        cmdenv += " --vgdb-error=0"
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
                 elif daemon in strace_daemons or "all" in strace_daemons:
                     cmdenv = "strace -f -D -o {1}/{2}.strace.{0} ".format(
                         daemon, self.logdir, self.name
                     )
 
                 cmdopt = "{} --command-log-always ".format(daemon_opts)
+<<<<<<< HEAD
                 cmdopt += "--log file:{}.log --log-level debug".format(daemon)
+=======
+                if instance != None:
+                    cmdopt += " --instance " + instance
+                cmdopt += "--log file:{}.log --log-level debug".format(dfname)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
                 if daemon in logd_options:
                     logdopt = logd_options[daemon]
                     if "all" in logdopt or self.name in logdopt:
                         tail_log_files.append(
+<<<<<<< HEAD
                             "{}/{}/{}.log".format(self.logdir, self.name, daemon)
                         )
             if extra_opts:
@@ -1862,6 +2303,23 @@ class Router(Node):
                 )
                 and (not gdb_daemons or daemon in gdb_daemons or "all" in gdb_daemons)
             ):
+=======
+                            "{}/{}/{}.log".format(self.logdir, self.name, dfname)
+                        )
+
+            if do_gdb_or_rr(True) and do_gdb_or_rr(False):
+                logger.warning("cant' use gdb and rr at same time")
+
+            if (
+                not gdb_use_emacs or Router.gdb_emacs_router or valgrind_memleaks
+            ) and do_gdb_or_rr(True):
+                if Router.gdb_emacs_router is not None:
+                    logger.warning(
+                        "--gdb-use-emacs can only run a single router and daemon, using"
+                        " new window"
+                    )
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
                 if daemon == "snmpd":
                     cmdopt += " -f "
 
@@ -1871,9 +2329,139 @@ class Router(Node):
                     gdbcmd += " -ex 'set breakpoint pending on'"
                 for bp in gdb_breakpoints:
                     gdbcmd += " -ex 'b {}'".format(bp)
+<<<<<<< HEAD
                 gdbcmd += " -ex 'run {}'".format(cmdopt)
 
                 self.run_in_window(gdbcmd, daemon)
+=======
+
+                if not valgrind_memleaks:
+                    gdbcmd += " -ex 'run {}'".format(cmdopt)
+                    self.run_in_window(gdbcmd, daemon)
+
+                    logger.info(
+                        "%s: %s %s launched in gdb window",
+                        self,
+                        self.routertype,
+                        daemon,
+                    )
+
+                else:
+                    cmd = " ".join([cmdenv, binary, cmdopt])
+                    p = self.popen(cmd)
+                    self.valgrind_gdb_daemons[dfname] = p
+                    if p.poll() and p.returncode:
+                        self.logger.error(
+                            '%s: Failed to launch "%s" (%s) with perf using: %s',
+                            self,
+                            daemon,
+                            p.returncode,
+                            cmd,
+                        )
+                        assert False, "Faled to launch valgrind with gdb"
+                    logger.debug(
+                        "%s: %s %s started with perf", self, self.routertype, daemon
+                    )
+                    # Now read the erorr log file until we ae given launch priority
+                    timeout = Timeout(30)
+                    vpid = None
+                    for remaining in timeout:
+                        try:
+                            fname = f"{valgrind_logbase}.{p.pid}"
+                            logging.info("Checking %s for valgrind launch info", fname)
+                            o = open(fname, encoding="ascii").read()
+                        except FileNotFoundError:
+                            logging.info("%s not present yet", fname)
+                        else:
+                            m = re.search(r"target remote \| (.*vgdb) --pid=(\d+)", o)
+                            if m:
+                                vgdb_cmd = m.group(0)
+                                break
+                        time.sleep(1)
+                    else:
+                        assert False, "Faled to get launch info for valgrind with gdb"
+
+                    gdbcmd += f" -ex '{vgdb_cmd}'"
+                    gdbcmd += " -ex 'c'"
+                    self.run_in_window(gdbcmd, daemon)
+
+                    logger.info(
+                        "%s: %s %s launched in gdb window",
+                        self,
+                        self.routertype,
+                        daemon,
+                    )
+            elif gdb_use_emacs and do_gdb_or_rr(True):
+                assert Router.gdb_emacs_router is None
+                Router.gdb_emacs_router = self
+
+                assert not valgrind_memleaks, "vagrind gdb in emacs not supported yet"
+
+                if daemon == "snmpd":
+                    cmdopt += " -f "
+                cmdopt += rediropt
+
+                sudo_path = get_exec_path_host("sudo")
+                ecbin = [
+                    sudo_path,
+                    "-Eu",
+                    os.environ["SUDO_USER"],
+                    get_exec_path_host("emacsclient"),
+                ]
+                pre_cmd = self._get_pre_cmd(True, False, ns_only=True, root_level=True)
+                # why fail:? gdb -i=mi -iex='set debuginfod enabled off' {binary} "
+                gdbcmd = f"{sudo_path} {pre_cmd} gdb -i=mi {binary} "
+
+                commander.cmd_raises(
+                    ecbin
+                    + [
+                        "--eval",
+                        f'(gdb "{gdbcmd}"))',
+                    ]
+                )
+
+                elcheck = (
+                    '(ignore-errors (with-current-buffer "*gud-nsenter*"'
+                    " (and (string-match-p"
+                    ' "(gdb) "'
+                    " (buffer-substring-no-properties "
+                    '  (- (point-max) 10) (point-max))) "ready")))'
+                )
+
+                @retry(10)
+                def emacs_gdb_ready():
+                    check = commander.cmd_nostatus(ecbin + ["--eval", elcheck])
+                    return None if "ready" in check else False
+
+                emacs_gdb_ready()
+
+                # target gdb commands
+                cmd = "set breakpoint pending on"
+                self.cmd_raises(
+                    ecbin
+                    + [
+                        "--eval",
+                        f'(gud-gdb-run-command-fetch-lines "{cmd}" "*gud-gdb*")',
+                    ]
+                )
+                # gdb breakpoints
+                for bp in gdb_breakpoints:
+                    self.cmd_raises(
+                        ecbin
+                        + [
+                            "--eval",
+                            f'(gud-gdb-run-command-fetch-lines "br {bp}" "*gud-gdb*")',
+                        ]
+                    )
+
+                self.cmd_raises(
+                    ecbin
+                    + [
+                        "--eval",
+                        f'(gud-gdb-run-command-fetch-lines "run {cmdopt}" "*gud-gdb*")',
+                    ]
+                )
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
                 logger.info(
                     "%s: %s %s launched in gdb window", self, self.routertype, daemon
@@ -1886,7 +2474,11 @@ class Router(Node):
                     ["perf record {} --".format(perf_options), binary, cmdopt]
                 )
                 p = self.popen(cmd)
+<<<<<<< HEAD
                 self.perf_daemons[daemon] = p
+=======
+                self.perf_daemons[dfname] = p
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
                 if p.poll() and p.returncode:
                     self.logger.error(
                         '%s: Failed to launch "%s" (%s) with perf using: %s',
@@ -1899,11 +2491,48 @@ class Router(Node):
                     logger.debug(
                         "%s: %s %s started with perf", self, self.routertype, daemon
                     )
+<<<<<<< HEAD
             else:
                 if daemon != "snmpd":
                     cmdopt += " -d "
                 cmdopt += rediropt
 
+=======
+            elif do_gdb_or_rr(False):
+                cmdopt += rediropt
+                cmd = " ".join(
+                    [
+                        "rr record -o {} {} --".format(self.rundir / "rr", rr_options),
+                        binary,
+                        cmdopt,
+                    ]
+                )
+                p = self.popen(cmd)
+                self.rr_daemons[dfname] = p
+                if p.poll() and p.returncode:
+                    self.logger.error(
+                        '%s: Failed to launch "%s" (%s) with rr using: %s',
+                        self,
+                        daemon,
+                        p.returncode,
+                        cmd,
+                    )
+                else:
+                    logger.debug(
+                        "%s: %s %s started with rr", self, self.routertype, daemon
+                    )
+            else:
+                if (
+                    daemon != "snmpd"
+                    and daemon != "snmptrapd"
+                    and daemon != "fpm_listener"
+                ):
+                    cmdopt += " -d "
+                cmdopt += rediropt
+                self.logger.info('cmdenv "{}"'.format(cmdenv))
+                self.logger.info('binary "{}"'.format(binary))
+                self.logger.info('cmdopt "{}"'.format(cmdopt))
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
                 try:
                     self.cmd_raises(" ".join([cmdenv, binary, cmdopt]), warn=False)
                 except subprocess.CalledProcessError as error:
@@ -1913,12 +2542,25 @@ class Router(Node):
                         daemon,
                         error.returncode,
                         error.cmd,
+<<<<<<< HEAD
                         '\n:stdout: "{}"'.format(error.stdout.strip())
                         if error.stdout
                         else "",
                         '\n:stderr: "{}"'.format(error.stderr.strip())
                         if error.stderr
                         else "",
+=======
+                        (
+                            '\n:stdout: "{}"'.format(error.stdout.strip())
+                            if error.stdout
+                            else ""
+                        ),
+                        (
+                            '\n:stderr: "{}"'.format(error.stderr.strip())
+                            if error.stderr
+                            else ""
+                        ),
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
                     )
                 else:
                     logger.debug("%s: %s %s started", self, self.routertype, daemon)
@@ -1931,7 +2573,11 @@ class Router(Node):
 
         # Start Zebra after mgmtd
         if "zebra" in daemons_list:
+<<<<<<< HEAD
             start_daemon("zebra", "-s 90000000")
+=======
+            start_daemon("zebra")
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
             while "zebra" in daemons_list:
                 daemons_list.remove("zebra")
 
@@ -1950,11 +2596,30 @@ class Router(Node):
             while "snmpd" in daemons_list:
                 daemons_list.remove("snmpd")
 
+<<<<<<< HEAD
+=======
+        if "fpm_listener" in daemons_list:
+            start_daemon("fpm_listener")
+            while "fpm_listener" in daemons_list:
+                daemons_list.remove("fpm_listener")
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         # Now start all the other daemons
         for daemon in daemons_list:
             if self.daemons[daemon] == 0:
                 continue
+<<<<<<< HEAD
             start_daemon(daemon)
+=======
+            if (
+                daemon in self.daemon_instances.keys()
+                and len(self.daemon_instances[daemon]) > 0
+            ):
+                for inst in self.daemon_instances[daemon]:
+                    start_daemon(daemon, inst)
+            else:
+                start_daemon(daemon)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
         # Check if daemons are running.
         wait_time = 30 if (gdb_routers or gdb_daemons) else 10
@@ -2001,9 +2666,13 @@ class Router(Node):
         rc, o, e = self.cmd_status("kill -0 " + str(pid), warn=False)
         return rc == 0 or "No such process" not in e
 
+<<<<<<< HEAD
     def killRouterDaemons(
         self, daemons, wait=True, assertOnError=True, minErrorVersion="5.1"
     ):
+=======
+    def killRouterDaemons(self, daemons, wait=True, assertOnError=True):
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         # Kill Running FRR
         # Daemons(user specified daemon only) using SIGKILL
         rundaemons = self.cmd("ls -1 /var/run/%s/*.pid" % self.routertype)
@@ -2063,9 +2732,12 @@ class Router(Node):
                         self.cmd("rm -- {}".format(daemonpidfile))
                     if wait:
                         errors = self.checkRouterCores(reportOnce=True)
+<<<<<<< HEAD
                         if self.checkRouterVersion("<", minErrorVersion):
                             # ignore errors in old versions
                             errors = ""
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
                         if assertOnError and len(errors) > 0:
                             assert "Errors found - details follow:" == 0, errors
             else:
@@ -2075,6 +2747,57 @@ class Router(Node):
 
         return errors
 
+<<<<<<< HEAD
+=======
+    def check_daemon(self, daemon, reportLeaks=True, traces="", instance=None):
+        reportMade = False
+        if instance == None:
+            dname = daemon
+        else:
+            dname = daemon + "-" + instance
+        # Look for core file
+        corefiles = glob.glob(
+            "{}/{}/{}_core*.dmp".format(self.logdir, self.name, daemon)
+        )
+        if len(corefiles) > 0:
+            backtrace = gdb_core(self, daemon, corefiles)
+            traces = (
+                traces
+                + f"\nCORE FOUND: {self.name}: {daemon} crashed. Backtrace follows:\n{backtrace}"
+            )
+            reportMade = True
+        elif reportLeaks:
+            log = self.getStdErr(dname)
+            if "memstats" in log:
+                sys.stderr.write("%s: %s has memory leaks:\n" % (self.name, dname))
+                traces = traces + "\n%s: %s has memory leaks:\n" % (
+                    self.name,
+                    dname,
+                )
+                log = re.sub("core_handler: ", "", log)
+                log = re.sub(
+                    r"(showing active allocations in memory group [a-zA-Z0-9]+)",
+                    r"\n  ## \1",
+                    log,
+                )
+                log = re.sub("memstats:  ", "    ", log)
+                sys.stderr.write(log)
+                reportMade = True
+        # Look for AddressSanitizer Errors and append to /tmp/AddressSanitzer.txt if found
+        if checkAddressSanitizerError(
+            self.getStdErr(dname), self.name, dname, self.logdir
+        ):
+            sys.stderr.write(
+                "%s: Daemon %s killed by AddressSanitizer" % (self.name, dname)
+            )
+            traces = traces + "\n%s: Daemon %s killed by AddressSanitizer" % (
+                self.name,
+                dname,
+            )
+            reportMade = True
+        return reportMade
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     def checkRouterCores(self, reportLeaks=True, reportOnce=False):
         if reportOnce and not self.reportCores:
             return
@@ -2082,6 +2805,7 @@ class Router(Node):
         traces = ""
         for daemon in self.daemons:
             if self.daemons[daemon] == 1:
+<<<<<<< HEAD
                 # Look for core file
                 corefiles = glob.glob(
                     "{}/{}/{}_core*.dmp".format(self.logdir, self.name, daemon)
@@ -2125,6 +2849,17 @@ class Router(Node):
                         daemon,
                     )
                     reportMade = True
+=======
+                if (
+                    daemon in self.daemon_instances.keys()
+                    and len(self.daemon_instances[daemon]) > 0
+                ):
+                    for inst in self.daemon_instances[daemon]:
+                        self.check_daemon(daemon, reportLeaks, traces, inst)
+                else:
+                    self.check_daemon(daemon, reportLeaks, traces)
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         if reportMade:
             self.reportCores = False
         return traces
@@ -2144,6 +2879,13 @@ class Router(Node):
         for daemon in self.daemons:
             if daemon == "snmpd":
                 continue
+<<<<<<< HEAD
+=======
+            if daemon == "snmptrapd":
+                continue
+            if daemon == "fpm_listener":
+                continue
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
             if (self.daemons[daemon] == 1) and not (daemon in daemonsRunning):
                 sys.stderr.write("%s: Daemon %s not running\n" % (self.name, daemon))
                 if daemon == "staticd":

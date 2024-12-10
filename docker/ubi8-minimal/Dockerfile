@@ -10,6 +10,10 @@ ADD docker/ubi8-minimal/almalinux.repo /etc/yum.repos.d/almalinux.repo
 # and later reinstall it again: https://bugzilla.redhat.com/show_bug.cgi?id=1668185
 RUN rpm --quiet -e --nodeps tzdata >/dev/null 2>&1
 
+<<<<<<< HEAD
+=======
+# Keep the list of dependencies alphabetically sorted for easier maintenance
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 RUN microdnf --disableplugin=subscription-manager --setopt=install_weak_deps=0 install \
     autoconf \
     automake \
@@ -29,6 +33,10 @@ RUN microdnf --disableplugin=subscription-manager --setopt=install_weak_deps=0 i
     pcre-devel \
     pkgconfig \
     platform-python-devel \
+<<<<<<< HEAD
+=======
+    protobuf-c-devel \
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     python3-devel \
     python3-pytest \
     python3-sphinx \
@@ -37,7 +45,10 @@ RUN microdnf --disableplugin=subscription-manager --setopt=install_weak_deps=0 i
     systemd-devel \
     texinfo \
     tzdata \
+<<<<<<< HEAD
     protobuf-c-devel \
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     && microdnf --disableplugin=subscription-manager clean all
 
 RUN curl -sSL -o /tmp/libyang2.rpm https://ci1.netdef.org/artifact/LIBYANG-LIBYANG2/shared/build-181/RedHat-8-x86_64-Packages/libyang-2.1.80-1.el8.x86_64.rpm \
@@ -92,12 +103,20 @@ ADD docker/ubi8-minimal/almalinux.repo /etc/yum.repos.d/almalinux.repo
 
 RUN rpm --import https://repo.almalinux.org/almalinux/RPM-GPG-KEY-AlmaLinux-8
 
+<<<<<<< HEAD
+=======
+# Keep the list of dependencies alphabetically sorted for easier maintenance
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 RUN microdnf --disableplugin=subscription-manager --setopt=install_weak_deps=0 install \
     c-ares \
     initscripts \
     net-snmp-agent-libs \
     net-snmp-libs \
     openssl \
+<<<<<<< HEAD
+=======
+    protobuf-c \
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     python3 \
     shadow-utils \
     systemd \

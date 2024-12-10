@@ -127,10 +127,14 @@ _isis_flex_algo_elected(int algorithm, const struct isis_area *area,
 	 * Perform FAD comparison. First, compare the priority, and if they are
 	 * the same, compare the sys-id.
 	 */
+<<<<<<< HEAD
 	/* clang-format off */
 	frr_each_const(lspdb, &area->lspdb[ISIS_LEVEL1 - 1], lsp) {
 		/* clang-format on */
 
+=======
+	frr_each (lspdb_const, &area->lspdb[ISIS_LEVEL1 - 1], lsp) {
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		if (!lsp->tlvs || !lsp->tlvs->router_cap)
 			continue;
 

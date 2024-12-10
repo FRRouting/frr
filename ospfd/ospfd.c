@@ -60,7 +60,14 @@ struct ospf_master *om;
 unsigned short ospf_instance;
 
 extern struct zclient *zclient;
+<<<<<<< HEAD
 
+=======
+extern struct zclient *zclient_sync;
+
+/* OSPF config processing timer thread */
+struct event *t_ospf_cfg;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 static void ospf_remove_vls_through_area(struct ospf *, struct ospf_area *);
 static void ospf_network_free(struct ospf *, struct ospf_network *);
@@ -144,6 +151,7 @@ void ospf_process_refresh_data(struct ospf *ospf, bool reset)
 
 	/* Select the router ID based on these priorities:
 	     1. Statically assigned router ID is always the first choice.
+<<<<<<< HEAD
 	     2. If there is no statically assigned router ID, then try to stick
 		with the most recent value, since changing router ID's is very
 		disruptive.
@@ -153,6 +161,12 @@ void ospf_process_refresh_data(struct ospf *ospf, bool reset)
 		router_id = ospf->router_id_static;
 	else if (ospf->router_id.s_addr != INADDR_ANY)
 		router_id = ospf->router_id;
+=======
+	     2. Just go with whatever the zebra daemon recommends.
+	*/
+	if (ospf->router_id_static.s_addr != INADDR_ANY)
+		router_id = ospf->router_id_static;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	else
 		router_id = ospf->router_id_zebra;
 
@@ -572,6 +586,7 @@ static struct ospf *ospf_lookup_by_name(const char *vrf_name)
 	return NULL;
 }
 
+<<<<<<< HEAD
 /* Handle the second half of deferred shutdown. This is called either
  * from the deferred-shutdown timer thread, or directly through
  * ospf_deferred_shutdown_check.
@@ -600,11 +615,18 @@ static void ospf_deferred_shutdown_finish(struct ospf *ospf)
 }
 
 /* Timer thread for G-R */
+=======
+/* Timer thread for deferred shutdown */
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 static void ospf_deferred_shutdown_timer(struct event *t)
 {
 	struct ospf *ospf = EVENT_ARG(t);
 
+<<<<<<< HEAD
 	ospf_deferred_shutdown_finish(ospf);
+=======
+	ospf_finish_final(ospf);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 }
 
 /* Check whether deferred-shutdown must be scheduled, otherwise call
@@ -631,6 +653,7 @@ static void ospf_deferred_shutdown_check(struct ospf *ospf)
 				ospf_router_lsa_update_area(area);
 		}
 		timeout = ospf->stub_router_shutdown_time;
+<<<<<<< HEAD
 	} else {
 		/* No timer needed */
 		ospf_deferred_shutdown_finish(ospf);
@@ -640,6 +663,14 @@ static void ospf_deferred_shutdown_check(struct ospf *ospf)
 	OSPF_TIMER_ON(ospf->t_deferred_shutdown, ospf_deferred_shutdown_timer,
 		      timeout);
 	return;
+=======
+		OSPF_TIMER_ON(ospf->t_deferred_shutdown,
+			      ospf_deferred_shutdown_timer, timeout);
+	} else {
+		/* No timer needed */
+		ospf_finish_final(ospf);
+	}
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 }
 
 /* Shut down the entire process */
@@ -654,10 +685,13 @@ void ospf_terminate(void)
 
 	SET_FLAG(om->options, OSPF_MASTER_SHUTDOWN);
 
+<<<<<<< HEAD
 	/* Skip some steps if OSPF not actually running */
 	if (listcount(om->ospf) == 0)
 		goto done;
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	for (ALL_LIST_ELEMENTS(om->ospf, node, nnode, ospf))
 		ospf_finish(ospf);
 
@@ -675,19 +709,34 @@ void ospf_terminate(void)
 	/* Cleanup vrf info */
 	ospf_vrf_terminate();
 
+<<<<<<< HEAD
+=======
+	keychain_terminate();
+
+	ospf_opaque_term();
+	list_delete(&om->ospf);
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	/* Deliberately go back up, hopefully to thread scheduler, as
 	 * One or more ospf_finish()'s may have deferred shutdown to a timer
 	 * thread
 	 */
 	zclient_stop(zclient);
 	zclient_free(zclient);
+<<<<<<< HEAD
 
 done:
+=======
+	zclient_stop(zclient_sync);
+	zclient_free(zclient_sync);
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	frr_fini();
 }
 
 void ospf_finish(struct ospf *ospf)
 {
+<<<<<<< HEAD
 	/* let deferred shutdown decide */
 	ospf_deferred_shutdown_check(ospf);
 
@@ -696,6 +745,14 @@ void ospf_finish(struct ospf *ospf)
 	 * to thread scheduler.
 	 */
 	return;
+=======
+	if (CHECK_FLAG(om->options, OSPF_MASTER_SHUTDOWN))
+		ospf_finish_final(ospf);
+	else {
+		/* let deferred shutdown decide */
+		ospf_deferred_shutdown_check(ospf);
+	}
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 }
 
 /* Final cleanup of ospf instance */
@@ -895,10 +952,18 @@ static void ospf_finish_final(struct ospf *ospf)
 	EVENT_OFF(ospf->t_ase_calc);
 	EVENT_OFF(ospf->t_maxage);
 	EVENT_OFF(ospf->t_maxage_walker);
+<<<<<<< HEAD
 	EVENT_OFF(ospf->t_abr_task);
 	EVENT_OFF(ospf->t_abr_fr);
 	EVENT_OFF(ospf->t_asbr_check);
 	EVENT_OFF(ospf->t_asbr_nssa_redist_update);
+=======
+	EVENT_OFF(ospf->t_deferred_shutdown);
+	EVENT_OFF(ospf->t_abr_task);
+	EVENT_OFF(ospf->t_abr_fr);
+	EVENT_OFF(ospf->t_asbr_check);
+	EVENT_OFF(ospf->t_asbr_redist_update);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	EVENT_OFF(ospf->t_distribute_update);
 	EVENT_OFF(ospf->t_lsa_refresher);
 	EVENT_OFF(ospf->t_opaque_lsa_self);
@@ -930,6 +995,18 @@ static void ospf_finish_final(struct ospf *ospf)
 	XFREE(MTYPE_OSPF_TOP, ospf);
 }
 
+<<<<<<< HEAD
+=======
+static void ospf_range_table_node_destroy(route_table_delegate_t *delegate,
+			struct route_table *table, struct route_node *node)
+{
+	XFREE(MTYPE_OSPF_AREA_RANGE, node->info);
+	XFREE(MTYPE_ROUTE_NODE, node);
+}
+
+route_table_delegate_t ospf_range_table_delegate = {.create_node = route_node_create,
+						 .destroy_node = ospf_range_table_node_destroy};
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 /* allocate new OSPF Area object */
 struct ospf_area *ospf_area_new(struct ospf *ospf, struct in_addr area_id)
@@ -966,8 +1043,13 @@ struct ospf_area *ospf_area_new(struct ospf *ospf, struct in_addr area_id)
 	ospf_opaque_type10_lsa_init(new);
 
 	new->oiflist = list_new();
+<<<<<<< HEAD
 	new->ranges = route_table_init();
 	new->nssa_ranges = route_table_init();
+=======
+	new->ranges = route_table_init_with_delegate(&ospf_range_table_delegate);
+	new->nssa_ranges = route_table_init_with_delegate(&ospf_range_table_delegate);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	if (area_id.s_addr == OSPF_AREA_BACKBONE)
 		ospf->backbone = new;
@@ -1113,6 +1195,19 @@ struct ospf_interface *add_ospf_interface(struct connected *co,
 	oi->type = IF_DEF_PARAMS(co->ifp)->type;
 	oi->ptp_dmvpn = IF_DEF_PARAMS(co->ifp)->ptp_dmvpn;
 	oi->p2mp_delay_reflood = IF_DEF_PARAMS(co->ifp)->p2mp_delay_reflood;
+<<<<<<< HEAD
+=======
+	oi->p2mp_non_broadcast = IF_DEF_PARAMS(co->ifp)->p2mp_non_broadcast;
+
+	/*
+	 * If a neighbor filter is configured, update the neighbor filter
+	 * for the interface.
+	 */
+	if (OSPF_IF_PARAM_CONFIGURED(IF_DEF_PARAMS(co->ifp), nbr_filter_name))
+		oi->nbr_filter = prefix_list_lookup(AFI_IP,
+						    IF_DEF_PARAMS(co->ifp)
+							    ->nbr_filter_name);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	/* Add pseudo neighbor. */
 	ospf_nbr_self_reset(oi, oi->ospf->router_id);
@@ -1428,7 +1523,10 @@ static void ospf_network_run_interface(struct ospf *ospf, struct interface *ifp,
 				       struct prefix *p,
 				       struct ospf_area *given_area)
 {
+<<<<<<< HEAD
 	struct listnode *cnode;
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	struct connected *co;
 
 	if (memcmp(ifp->name, "VLINK", 5) == 0)
@@ -1440,7 +1538,11 @@ static void ospf_network_run_interface(struct ospf *ospf, struct interface *ifp,
 
 	/* if interface prefix is match specified prefix,
 	   then create socket and join multicast group. */
+<<<<<<< HEAD
 	for (ALL_LIST_ELEMENTS_RO(ifp->connected, cnode, co))
+=======
+	frr_each (if_connected, ifp->connected, co)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		ospf_network_run_subnet(ospf, co, p, given_area);
 }
 
@@ -2007,7 +2109,11 @@ static void ospf_nbr_nbma_add(struct ospf_nbr_nbma *nbr_nbma,
 	struct route_node *rn;
 	struct prefix p;
 
+<<<<<<< HEAD
 	if (oi->type != OSPF_IFTYPE_NBMA)
+=======
+	if (!OSPF_IF_NON_BROADCAST(oi))
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		return;
 
 	if (nbr_nbma->nbr != NULL)
@@ -2054,7 +2160,11 @@ void ospf_nbr_nbma_if_update(struct ospf *ospf, struct ospf_interface *oi)
 	struct route_node *rn;
 	struct prefix_ipv4 p;
 
+<<<<<<< HEAD
 	if (oi->type != OSPF_IFTYPE_NBMA)
+=======
+	if (!OSPF_IF_NON_BROADCAST(oi))
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		return;
 
 	for (rn = route_top(ospf->nbr_nbma); rn; rn = route_next(rn))
@@ -2113,7 +2223,11 @@ int ospf_nbr_nbma_set(struct ospf *ospf, struct in_addr nbr_addr)
 	rn->info = nbr_nbma;
 
 	for (ALL_LIST_ELEMENTS_RO(ospf->oiflist, node, oi)) {
+<<<<<<< HEAD
 		if (oi->type == OSPF_IFTYPE_NBMA)
+=======
+		if (OSPF_IF_NON_BROADCAST(oi))
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			if (prefix_match(oi->address, (struct prefix *)&p)) {
 				ospf_nbr_nbma_add(nbr_nbma, oi);
 				break;
@@ -2286,20 +2400,34 @@ static void ospf_set_redist_vrf_bitmaps(struct ospf *ospf, bool set)
 				"%s: setting redist vrf %d bitmap for type %d",
 				__func__, ospf->vrf_id, type);
 		if (set)
+<<<<<<< HEAD
 			vrf_bitmap_set(zclient->redist[AFI_IP][type],
 				       ospf->vrf_id);
 		else
 			vrf_bitmap_unset(zclient->redist[AFI_IP][type],
+=======
+			vrf_bitmap_set(&zclient->redist[AFI_IP][type],
+				       ospf->vrf_id);
+		else
+			vrf_bitmap_unset(&zclient->redist[AFI_IP][type],
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 					 ospf->vrf_id);
 	}
 
 	red_list = ospf->redist[DEFAULT_ROUTE];
 	if (red_list) {
 		if (set)
+<<<<<<< HEAD
 			vrf_bitmap_set(zclient->default_information[AFI_IP],
 				       ospf->vrf_id);
 		else
 			vrf_bitmap_unset(zclient->default_information[AFI_IP],
+=======
+			vrf_bitmap_set(&zclient->default_information[AFI_IP],
+				       ospf->vrf_id);
+		else
+			vrf_bitmap_unset(&zclient->default_information[AFI_IP],
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 					 ospf->vrf_id);
 	}
 }

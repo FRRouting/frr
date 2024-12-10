@@ -25,6 +25,21 @@ DEFINE_MTYPE_STATIC(LIB, SCRIPT, "Scripting");
 
 struct frrscript_names_head frrscript_names_hash;
 
+<<<<<<< HEAD
+=======
+void _lua_decode_noop(lua_State *L, ...) {}
+
+void frrscript_names_config_write(struct vty *vty)
+{
+	struct frrscript_names_entry *lua_script_entry;
+
+	frr_each (frrscript_names, &frrscript_names_hash, lua_script_entry)
+		if (lua_script_entry->script_name[0] != '\0')
+			vty_out(vty, "zebra on-rib-process script %s\n",
+				lua_script_entry->script_name);
+}
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 /*
  * Wrapper for frrscript_names_add
  * Use this to register hook calls when a daemon starts up
@@ -346,6 +361,12 @@ int frrscript_load(struct frrscript *fs, const char *function_name,
 	/* Set up the Lua script */
 	lua_State *L = luaL_newstate();
 
+<<<<<<< HEAD
+=======
+	/* Load basic built-in Lua functions, e.g. ipairs, string, etc. */
+	luaL_openlibs(L);
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	frrlua_export_logging(L);
 
 	char script_name[MAXPATHLEN];

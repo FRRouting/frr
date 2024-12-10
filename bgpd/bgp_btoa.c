@@ -4,6 +4,10 @@
  */
 
 #include <zebra.h>
+<<<<<<< HEAD
+=======
+#include <fcntl.h>
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 #include "zebra.h"
 #include "stream.h"
@@ -68,7 +72,11 @@ static void attr_parse(struct stream *s, uint16_t len)
 		flag = stream_getc(s);
 		type = stream_getc(s);
 
+<<<<<<< HEAD
 		if (flag & BGP_ATTR_FLAG_EXTLEN)
+=======
+		if (CHECK_FLAG(flag, BGP_ATTR_FLAG_EXTLEN))
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			length = stream_getw(s);
 		else
 			length = stream_getc(s);
@@ -120,6 +128,10 @@ int main(int argc, char **argv)
 	struct in_addr dip;
 	uint16_t viewno, seq_num;
 	struct prefix_ipv4 p;
+<<<<<<< HEAD
+=======
+	char tbuf[32];
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	s = stream_new(10000);
 
@@ -155,7 +167,11 @@ int main(int argc, char **argv)
 		subtype = stream_getw(s);
 		len = stream_getl(s);
 
+<<<<<<< HEAD
 		printf("TIME: %s", ctime(&now));
+=======
+		printf("TIME: %s", ctime_r(&now, tbuf));
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 		/* printf ("TYPE: %d/%d\n", type, subtype); */
 
@@ -239,7 +255,12 @@ int main(int argc, char **argv)
 				source_as = stream_getw(s);
 
 				printf("FROM: %pI4 AS%d\n", &peer, source_as);
+<<<<<<< HEAD
 				printf("ORIGINATED: %s", ctime(&originated));
+=======
+				printf("ORIGINATED: %s", ctime_r(&originated,
+								 tbuf));
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 				attrlen = stream_getw(s);
 				printf("ATTRLEN: %d\n", attrlen);

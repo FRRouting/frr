@@ -28,6 +28,10 @@ struct ipaddr {
 	enum ipaddr_type_t ipa_type;
 	union {
 		uint8_t addr;
+<<<<<<< HEAD
+=======
+		uint8_t addrbytes[16];
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		struct in_addr _v4_addr;
 		struct in6_addr _v6_addr;
 	} ip;
@@ -39,8 +43,14 @@ struct ipaddr {
 #define IS_IPADDR_V4(p)   ((p)->ipa_type == IPADDR_V4)
 #define IS_IPADDR_V6(p)   ((p)->ipa_type == IPADDR_V6)
 
+<<<<<<< HEAD
 #define SET_IPADDR_V4(p)  (p)->ipa_type = IPADDR_V4
 #define SET_IPADDR_V6(p)  (p)->ipa_type = IPADDR_V6
+=======
+#define SET_IPADDR_NONE(p) ((p)->ipa_type = IPADDR_NONE)
+#define SET_IPADDR_V4(p)   ((p)->ipa_type = IPADDR_V4)
+#define SET_IPADDR_V6(p)   ((p)->ipa_type = IPADDR_V6)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 #define IPADDRSZ(p)                                                            \
 	(IS_IPADDR_V4((p)) ? sizeof(struct in_addr) : sizeof(struct in6_addr))
@@ -164,9 +174,23 @@ static inline bool ipaddr_is_zero(const struct ipaddr *ip)
 	return true;
 }
 
+<<<<<<< HEAD
 #ifdef _FRR_ATTRIBUTE_PRINTFRR
 #pragma FRR printfrr_ext "%pIA"  (struct ipaddr *)
 #endif
+=======
+static inline bool ipaddr_is_same(const struct ipaddr *ip1,
+				  const struct ipaddr *ip2)
+{
+	return ipaddr_cmp(ip1, ip2) == 0;
+}
+
+/* clang-format off */
+#ifdef _FRR_ATTRIBUTE_PRINTFRR
+#pragma FRR printfrr_ext "%pIA"  (struct ipaddr *)
+#endif
+/* clang-format on */
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 #ifdef __cplusplus
 }

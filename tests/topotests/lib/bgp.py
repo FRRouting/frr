@@ -50,6 +50,10 @@ def create_router_bgp(tgen, topo=None, input_dict=None, build=False, load_config
             "bgp": {
                 "local_as": "200",
                 "router_id": "22.22.22.22",
+<<<<<<< HEAD
+=======
+                "bgp_always_compare_med": True,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
                 "graceful-restart": {
                     "graceful-restart": True,
                     "preserve-fw-state": True,
@@ -332,7 +336,11 @@ def __create_bgp_global(tgen, input_dict, router, build=False):
             else:
                 del_action = False
 
+<<<<<<< HEAD
             for rs_timer, value in timer.items():
+=======
+            for rs_timer, _ in timer.items():
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
                 rs_timer_value = timer.setdefault(rs_timer, None)
 
                 if rs_timer_value and rs_timer != "delete":
@@ -343,6 +351,16 @@ def __create_bgp_global(tgen, input_dict, router, build=False):
 
                 config_data.append(cmd)
 
+<<<<<<< HEAD
+=======
+    if "bgp_always_compare_med" in bgp_data:
+        bgp_always_compare_med = bgp_data["bgp_always_compare_med"]
+        if bgp_always_compare_med == True:
+            config_data.append("bgp always-compare-med")
+        elif bgp_always_compare_med == False:
+            config_data.append("no bgp always-compare-med")
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     logger.debug("Exiting lib API: {}".format(sys._getframe().f_code.co_name))
     return config_data
 
@@ -1221,7 +1239,11 @@ def modify_bgp_config_when_bgpd_down(tgen, topo, input_dict):
         # Copy bgp config file to /etc/frr
         for dut in input_dict.keys():
             router_list = tgen.routers()
+<<<<<<< HEAD
             for router, rnode in router_list.items():
+=======
+            for router, _ in router_list.items():
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
                 if router != dut:
                     continue
 
@@ -1317,7 +1339,11 @@ def verify_router_id(tgen, topo, input_dict, expected=True):
 
 
 @retry(retry_timeout=150)
+<<<<<<< HEAD
 def verify_bgp_convergence(tgen, topo=None, dut=None, expected=True):
+=======
+def verify_bgp_convergence(tgen, topo=None, dut=None, expected=True, addr_type=None):
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     """
     API will verify if BGP is converged with in the given time frame.
     Running "show bgp summary json" command and verify bgp neighbor
@@ -1328,6 +1354,10 @@ def verify_bgp_convergence(tgen, topo=None, dut=None, expected=True):
     * `tgen`: topogen object
     * `topo`: input json file data
     * `dut`: device under test
+<<<<<<< HEAD
+=======
+    * `addr_type` : address type for which verification to be done, by-default both v4 and v6
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
     Usage
     -----
@@ -1431,20 +1461,42 @@ def verify_bgp_convergence(tgen, topo=None, dut=None, expected=True):
                     return errormsg
             else:
                 total_peer = 0
+<<<<<<< HEAD
                 for addr_type in bgp_addr_type.keys():
                     if not check_address_types(addr_type):
                         continue
 
                     bgp_neighbors = bgp_addr_type[addr_type]["unicast"]["neighbor"]
+=======
+                for _addr_type in bgp_addr_type.keys():
+                    if not check_address_types(_addr_type):
+                        continue
+
+                    if addr_type and addr_type != _addr_type:
+                        continue
+
+                    bgp_neighbors = bgp_addr_type[_addr_type]["unicast"]["neighbor"]
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
                     for bgp_neighbor in bgp_neighbors:
                         total_peer += len(bgp_neighbors[bgp_neighbor]["dest_link"])
 
                 no_of_peer = 0
+<<<<<<< HEAD
                 for addr_type in bgp_addr_type.keys():
                     if not check_address_types(addr_type):
                         continue
                     bgp_neighbors = bgp_addr_type[addr_type]["unicast"]["neighbor"]
+=======
+                for _addr_type in bgp_addr_type.keys():
+                    if not check_address_types(addr_type):
+                        continue
+
+                    if addr_type and addr_type != _addr_type:
+                        continue
+
+                    bgp_neighbors = bgp_addr_type[_addr_type]["unicast"]["neighbor"]
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
                     for bgp_neighbor, peer_data in bgp_neighbors.items():
                         for dest_link in peer_data["dest_link"].keys():
@@ -1465,7 +1517,11 @@ def verify_bgp_convergence(tgen, topo=None, dut=None, expected=True):
                                 elif "source_link" in peer_details:
                                     neighbor_ip = topo["routers"][bgp_neighbor][
                                         "links"
+<<<<<<< HEAD
                                     ][peer_details["source_link"]][addr_type].split(
+=======
+                                    ][peer_details["source_link"]][_addr_type].split(
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
                                         "/"
                                     )[
                                         0
@@ -1476,12 +1532,21 @@ def verify_bgp_convergence(tgen, topo=None, dut=None, expected=True):
                                 ):
                                     neighbor_ip = data[dest_link]["peer-interface"]
                                 else:
+<<<<<<< HEAD
                                     neighbor_ip = data[dest_link][addr_type].split("/")[
                                         0
                                     ]
                                 nh_state = None
                                 neighbor_ip = neighbor_ip.lower()
                                 if addr_type == "ipv4":
+=======
+                                    neighbor_ip = data[dest_link][_addr_type].split(
+                                        "/"
+                                    )[0]
+                                nh_state = None
+                                neighbor_ip = neighbor_ip.lower()
+                                if _addr_type == "ipv4":
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
                                     ipv4_data = show_bgp_json[vrf]["ipv4Unicast"][
                                         "peers"
                                     ]
@@ -1734,7 +1799,11 @@ def verify_as_numbers(tgen, topo, input_dict, expected=True):
 
             for bgp_neighbor, peer_data in bgp_neighbors.items():
                 remote_as = input_dict[bgp_neighbor]["bgp"]["local_as"]
+<<<<<<< HEAD
                 for dest_link, peer_dict in peer_data["dest_link"].items():
+=======
+                for dest_link, _ in peer_data["dest_link"].items():
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
                     neighbor_ip = None
                     data = topo["routers"][bgp_neighbor]["links"]
 
@@ -1817,7 +1886,11 @@ def verify_bgp_convergence_from_running_config(tgen, dut=None, expected=True):
             return errormsg
 
         for vrf, addr_family_data in show_bgp_json.items():
+<<<<<<< HEAD
             for address_family, neighborship_data in addr_family_data.items():
+=======
+            for _, neighborship_data in addr_family_data.items():
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
                 total_peer = 0
                 no_of_peer = 0
 
@@ -1964,7 +2037,11 @@ def clear_bgp_and_verify(tgen, topo, router, rid=None):
             bgp_neighbors = bgp_addr_type[addr_type]["unicast"]["neighbor"]
 
             for bgp_neighbor, peer_data in bgp_neighbors.items():
+<<<<<<< HEAD
                 for dest_link, peer_dict in peer_data["dest_link"].items():
+=======
+                for dest_link, _ in peer_data["dest_link"].items():
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
                     data = topo["routers"][bgp_neighbor]["links"]
 
                     if dest_link in data:
@@ -3215,7 +3292,11 @@ def verify_graceful_restart(
                 if bgp_neighbor != peer:
                     continue
 
+<<<<<<< HEAD
                 for dest_link, peer_dict in peer_data["dest_link"].items():
+=======
+                for dest_link, _ in peer_data["dest_link"].items():
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
                     data = topo["routers"][bgp_neighbor]["links"]
 
                     if dest_link in data:
@@ -3250,6 +3331,7 @@ def verify_graceful_restart(
 
             lmode = None
             rmode = None
+<<<<<<< HEAD
             # Local GR mode
             if "address_family" in input_dict[dut]["bgp"]:
                 bgp_neighbors = input_dict[dut]["bgp"]["address_family"][addr_type][
@@ -3271,6 +3353,45 @@ def verify_graceful_restart(
                         lmode = "Disable"
                     else:
                         lmode = None
+=======
+
+            # Local GR mode
+            if "bgp" not in input_dict[dut] and "graceful-restart" in input_dict[dut]:
+                if (
+                    "graceful-restart" in input_dict[dut]["graceful-restart"]
+                    and input_dict[dut]["graceful-restart"]["graceful-restart"]
+                ):
+                    lmode = "Restart*"
+                elif (
+                    "graceful-restart-disable" in input_dict[dut]["graceful-restart"]
+                    and input_dict[dut]["graceful-restart"]["graceful-restart-disable"]
+                ):
+                    lmode = "Disable*"
+                else:
+                    lmode = "Helper*"
+
+            if lmode is None:
+                if "address_family" in input_dict[dut]["bgp"]:
+                    bgp_neighbors = input_dict[dut]["bgp"]["address_family"][addr_type][
+                        "unicast"
+                    ]["neighbor"][peer]["dest_link"]
+
+                    for dest_link, data in bgp_neighbors.items():
+                        if (
+                            "graceful-restart-helper" in data
+                            and data["graceful-restart-helper"]
+                        ):
+                            lmode = "Helper"
+                        elif "graceful-restart" in data and data["graceful-restart"]:
+                            lmode = "Restart"
+                        elif (
+                            "graceful-restart-disable" in data
+                            and data["graceful-restart-disable"]
+                        ):
+                            lmode = "Disable"
+                        else:
+                            lmode = None
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
             if lmode is None:
                 if "graceful-restart" in input_dict[dut]["bgp"]:
@@ -3298,7 +3419,15 @@ def verify_graceful_restart(
                 return True
 
             # Remote GR mode
+<<<<<<< HEAD
             if "address_family" in input_dict[peer]["bgp"]:
+=======
+
+            if (
+                "bgp" in input_dict[peer]
+                and "address_family" in input_dict[peer]["bgp"]
+            ):
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
                 bgp_neighbors = input_dict[peer]["bgp"]["address_family"][addr_type][
                     "unicast"
                 ]["neighbor"][dut]["dest_link"]
@@ -3320,7 +3449,14 @@ def verify_graceful_restart(
                         rmode = None
 
             if rmode is None:
+<<<<<<< HEAD
                 if "graceful-restart" in input_dict[peer]["bgp"]:
+=======
+                if (
+                    "bgp" in input_dict[peer]
+                    and "graceful-restart" in input_dict[peer]["bgp"]
+                ):
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
                     if (
                         "graceful-restart"
                         in input_dict[peer]["bgp"]["graceful-restart"]
@@ -3339,6 +3475,30 @@ def verify_graceful_restart(
                         rmode = "Disable"
                     else:
                         rmode = "Helper"
+<<<<<<< HEAD
+=======
+
+            if rmode is None:
+                if (
+                    "bgp" not in input_dict[peer]
+                    and "graceful-restart" in input_dict[peer]
+                ):
+                    if (
+                        "graceful-restart" in input_dict[peer]["graceful-restart"]
+                        and input_dict[peer]["graceful-restart"]["graceful-restart"]
+                    ):
+                        rmode = "Restart"
+                    elif (
+                        "graceful-restart-disable"
+                        in input_dict[peer]["graceful-restart"]
+                        and input_dict[peer]["graceful-restart"][
+                            "graceful-restart-disable"
+                        ]
+                    ):
+                        rmode = "Disable"
+                    else:
+                        rmode = "Helper"
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
                 else:
                     rmode = "Helper"
 
@@ -3463,7 +3623,11 @@ def verify_r_bit(tgen, topo, addr_type, input_dict, dut, peer, expected=True):
                 if bgp_neighbor != peer:
                     continue
 
+<<<<<<< HEAD
                 for dest_link, peer_dict in peer_data["dest_link"].items():
+=======
+                for dest_link, _ in peer_data["dest_link"].items():
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
                     data = topo["routers"][bgp_neighbor]["links"]
 
                     if dest_link in data:
@@ -3581,7 +3745,11 @@ def verify_eor(tgen, topo, addr_type, input_dict, dut, peer, expected=True):
                 if bgp_neighbor != peer:
                     continue
 
+<<<<<<< HEAD
                 for dest_link, peer_dict in peer_data["dest_link"].items():
+=======
+                for dest_link, _ in peer_data["dest_link"].items():
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
                     data = topo["routers"][bgp_neighbor]["links"]
 
                     if dest_link in data:
@@ -3746,7 +3914,11 @@ def verify_f_bit(tgen, topo, addr_type, input_dict, dut, peer, expected=True):
                 if bgp_neighbor != peer:
                     continue
 
+<<<<<<< HEAD
                 for dest_link, peer_dict in peer_data["dest_link"].items():
+=======
+                for dest_link, _ in peer_data["dest_link"].items():
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
                     data = topo["routers"][bgp_neighbor]["links"]
 
                     if dest_link in data:
@@ -3874,7 +4046,11 @@ def verify_graceful_restart_timers(tgen, topo, addr_type, input_dict, dut, peer)
                 if bgp_neighbor != peer:
                     continue
 
+<<<<<<< HEAD
                 for dest_link, peer_dict in peer_data["dest_link"].items():
+=======
+                for dest_link, _ in peer_data["dest_link"].items():
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
                     data = topo["routers"][bgp_neighbor]["links"]
 
                     if dest_link in data:
@@ -5578,3 +5754,25 @@ def configure_bgp_soft_configuration(tgen, dut, neighbor_dict, direction):
             )
         )
         return True
+<<<<<<< HEAD
+=======
+
+
+def bgp_configure_prefixes(router, asn, safi, prefixes, vrf=None, update=True):
+    """
+    Configure the bgp prefixes.
+    """
+    withdraw = "no " if not update else ""
+    vrf = " vrf {}".format(vrf) if vrf else ""
+    for p in prefixes:
+        ip = ipaddress.ip_network(p)
+        cmd = [
+            "conf t\n",
+            f"router bgp {asn}{vrf}\n"
+            f"address-family ipv{ip.version} {safi}\n"
+            f"{withdraw}network {ip}\n".format(withdraw, ip),
+            "exit-address-family\n",
+        ]
+        logger.debug(f"setting prefix: ipv{ip.version} {safi} {ip}")
+        router.vtysh_cmd("".join(cmd))
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)

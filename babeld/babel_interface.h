@@ -82,7 +82,10 @@ static inline int
 if_up(struct interface *ifp)
 {
     return (if_is_operative(ifp) &&
+<<<<<<< HEAD
             ifp->connected != NULL &&
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
             CHECK_FLAG(babel_get_if_nfo(ifp)->flags, BABEL_IF_IS_UP));
 }
 
@@ -95,6 +98,10 @@ struct buffered_update {
 
 /* init function */
 void babel_if_init(void);
+<<<<<<< HEAD
+=======
+void babel_if_terminate(void);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 /* Callback functions for zebra client */
 int babel_interface_up (int, struct zclient *, zebra_size_t, vrf_id_t);

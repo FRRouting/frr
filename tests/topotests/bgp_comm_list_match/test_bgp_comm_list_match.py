@@ -39,12 +39,22 @@ pytestmark = [pytest.mark.bgpd]
 
 
 def build_topo(tgen):
+<<<<<<< HEAD
     for routern in range(1, 3):
+=======
+    for routern in range(1, 4):
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         tgen.add_router("r{}".format(routern))
 
     switch = tgen.add_switch("s1")
     switch.add_link(tgen.gears["r1"])
     switch.add_link(tgen.gears["r2"])
+<<<<<<< HEAD
+=======
+    switch = tgen.add_switch("s2")
+    switch.add_link(tgen.gears["r3"])
+    switch.add_link(tgen.gears["r2"])
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 
 def setup_module(mod):
@@ -53,7 +63,11 @@ def setup_module(mod):
 
     router_list = tgen.routers()
 
+<<<<<<< HEAD
     for i, (rname, router) in enumerate(router_list.items(), 1):
+=======
+    for _, (rname, router) in enumerate(router_list.items(), 1):
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         router.load_config(
             TopoRouter.RD_ZEBRA, os.path.join(CWD, "{}/zebra.conf".format(rname))
         )
@@ -95,12 +109,48 @@ def test_bgp_comm_list_match():
         }
         return topotest.json_cmp(output, expected)
 
+<<<<<<< HEAD
     step("Initial BGP converge")
+=======
+    step("Initial BGP converge between R1 and R2")
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     test_func = functools.partial(_bgp_converge)
     _, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
     assert result is None, "Failed to filter BGP UPDATES with community-list on R2"
 
 
+<<<<<<< HEAD
+=======
+def test_bgp_comm_list_match_any():
+    tgen = get_topogen()
+
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    router = tgen.gears["r3"]
+
+    def _bgp_converge():
+        output = json.loads(
+            router.vtysh_cmd(
+                "show bgp ipv4 unicast neighbors 192.168.1.2 filtered-routes json"
+            )
+        )
+        expected = {
+            "receivedRoutes": {
+                "172.16.255.4/32": {
+                    "path": "65002 65001",
+                },
+            }
+        }
+        return topotest.json_cmp(output, expected)
+
+    step("Initial BGP converge between R3 and R2")
+    test_func = functools.partial(_bgp_converge)
+    _, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
+    assert result is None, "Failed to filter BGP UPDATES with community-list on R3"
+
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 if __name__ == "__main__":
     args = ["-s"] + sys.argv[1:]
     sys.exit(pytest.main(args))

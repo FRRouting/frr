@@ -62,6 +62,10 @@
 *.cg.dot
 *.cg.svg
 *.xref
+<<<<<<< HEAD
+=======
+*_tsexpand.h
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 ### gcov outputs
 
@@ -117,3 +121,7 @@ refix
 /test-suite.log
 pceplib/test/*.log
 pceplib/test/*.trs
+<<<<<<< HEAD
+=======
+/tests/topotests/lib/mgmt_pb2.py
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)

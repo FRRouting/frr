@@ -653,7 +653,11 @@ static struct aspath_tests {
 		"8466 3 52737 4096",
 		AS4_DATA,
 		-1,
+<<<<<<< HEAD
 		PEER_CAP_AS4_RCV,
+=======
+		0,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		{
 			COMMON_ATTRS,
 			BGP_ATTR_FLAG_TRANS | BGP_ATTR_FLAG_OPTIONAL,
@@ -685,7 +689,11 @@ static struct aspath_tests {
 		"8466 3 52737 4096",
 		AS4_DATA,
 		-1,
+<<<<<<< HEAD
 		PEER_CAP_AS4_RCV | PEER_CAP_AS4_ADV,
+=======
+		0,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		{
 			COMMON_ATTRS,
 			BGP_ATTR_FLAG_TRANS,
@@ -701,7 +709,11 @@ static struct aspath_tests {
 		"8466 3 52737 4096",
 		AS4_DATA,
 		-1,
+<<<<<<< HEAD
 		PEER_CAP_AS4_RCV | PEER_CAP_AS4_ADV,
+=======
+		0,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		{
 			COMMON_ATTRS,
 			BGP_ATTR_FLAG_TRANS,
@@ -717,7 +729,11 @@ static struct aspath_tests {
 		"8466 3 52737 4096",
 		AS4_DATA,
 		-1,
+<<<<<<< HEAD
 		PEER_CAP_AS4_RCV | PEER_CAP_AS4_ADV,
+=======
+		0,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		{
 			COMMON_ATTRS,
 			BGP_ATTR_FLAG_TRANS,
@@ -733,7 +749,11 @@ static struct aspath_tests {
 		"8466 3 52737 4096",
 		AS4_DATA,
 		-1,
+<<<<<<< HEAD
 		PEER_CAP_AS4_RCV | PEER_CAP_AS4_ADV,
+=======
+		0,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		{
 			COMMON_ATTRS,
 			BGP_ATTR_FLAG_TRANS | BGP_ATTR_FLAG_OPTIONAL,
@@ -1343,10 +1363,18 @@ static int handle_attr_test(struct aspath_tests *t)
 	bgp.asnotation = t->segment->asnotation;
 
 	peer.curr = stream_new(BGP_MAX_PACKET_SIZE);
+<<<<<<< HEAD
 	peer.obuf = stream_fifo_new();
 	peer.bgp = &bgp;
 	peer.host = (char *)"none";
 	peer.fd = -1;
+=======
+	peer.connection = bgp_peer_connection_new(&peer);
+	peer.connection->obuf = stream_fifo_new();
+	peer.bgp = &bgp;
+	peer.host = (char *)"none";
+	peer.connection->fd = -1;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	peer.cap = t->cap;
 	peer.max_packet_size = BGP_STANDARD_MESSAGE_MAX_PACKET_SIZE;
 

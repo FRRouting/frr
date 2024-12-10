@@ -21,7 +21,10 @@
 static struct in_addr mtrace_primary_address(struct interface *ifp)
 {
 	struct connected *ifc;
+<<<<<<< HEAD
 	struct listnode *node;
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	struct in_addr any;
 	struct pim_interface *pim_ifp;
 
@@ -32,7 +35,11 @@ static struct in_addr mtrace_primary_address(struct interface *ifp)
 
 	any.s_addr = INADDR_ANY;
 
+<<<<<<< HEAD
 	for (ALL_LIST_ELEMENTS_RO(ifp->connected, node, ifc)) {
+=======
+	frr_each (if_connected, ifp->connected, ifc) {
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		struct prefix *p = ifc->address;
 
 		if (p->family != AF_INET)

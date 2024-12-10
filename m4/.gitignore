@@ -7,6 +7,10 @@
 !ax_prog_perl_modules.m4
 !ax_pthread.m4
 !ax_python.m4
+<<<<<<< HEAD
+=======
+!ax_recursive_eval.m4
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 !ax_sys_weak_alias.m4
 !ax_sys_weak_alias.m4
 !pkg.m4

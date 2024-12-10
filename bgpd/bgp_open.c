@@ -27,6 +27,7 @@
 #include "bgpd/bgp_vty.h"
 #include "bgpd/bgp_memory.h"
 
+<<<<<<< HEAD
 static const struct message capcode_str[] = {
 	{CAPABILITY_CODE_MP, "MultiProtocol Extensions"},
 	{CAPABILITY_CODE_REFRESH, "Route Refresh"},
@@ -66,6 +67,44 @@ static const size_t cap_minsizes[] = {
 		[CAPABILITY_CODE_LLGR] = CAPABILITY_CODE_LLGR_LEN,
 		[CAPABILITY_CODE_ROLE] = CAPABILITY_CODE_ROLE_LEN,
 		[CAPABILITY_CODE_SOFT_VERSION] = CAPABILITY_CODE_SOFT_VERSION_LEN,
+=======
+const struct message capcode_str[] = {
+	{ CAPABILITY_CODE_MP, "MultiProtocol Extensions" },
+	{ CAPABILITY_CODE_REFRESH, "Route Refresh" },
+	{ CAPABILITY_CODE_ORF, "Cooperative Route Filtering" },
+	{ CAPABILITY_CODE_RESTART, "Graceful Restart" },
+	{ CAPABILITY_CODE_AS4, "4-octet AS number" },
+	{ CAPABILITY_CODE_ADDPATH, "AddPath" },
+	{ CAPABILITY_CODE_DYNAMIC, "Dynamic" },
+	{ CAPABILITY_CODE_ENHE, "Extended Next Hop Encoding" },
+	{ CAPABILITY_CODE_FQDN, "FQDN" },
+	{ CAPABILITY_CODE_ENHANCED_RR, "Enhanced Route Refresh" },
+	{ CAPABILITY_CODE_EXT_MESSAGE, "BGP Extended Message" },
+	{ CAPABILITY_CODE_LLGR, "Long-lived BGP Graceful Restart" },
+	{ CAPABILITY_CODE_ROLE, "Role" },
+	{ CAPABILITY_CODE_SOFT_VERSION, "Software Version" },
+	{ CAPABILITY_CODE_PATHS_LIMIT, "Paths-Limit" },
+	{ 0 }
+};
+
+/* Minimum sizes for length field of each cap (so not inc. the header) */
+const size_t cap_minsizes[] = {
+	[CAPABILITY_CODE_MP] = CAPABILITY_CODE_MP_LEN,
+	[CAPABILITY_CODE_REFRESH] = CAPABILITY_CODE_REFRESH_LEN,
+	[CAPABILITY_CODE_ORF] = CAPABILITY_CODE_ORF_LEN,
+	[CAPABILITY_CODE_RESTART] = CAPABILITY_CODE_RESTART_LEN,
+	[CAPABILITY_CODE_AS4] = CAPABILITY_CODE_AS4_LEN,
+	[CAPABILITY_CODE_ADDPATH] = CAPABILITY_CODE_ADDPATH_LEN,
+	[CAPABILITY_CODE_DYNAMIC] = CAPABILITY_CODE_DYNAMIC_LEN,
+	[CAPABILITY_CODE_ENHE] = CAPABILITY_CODE_ENHE_LEN,
+	[CAPABILITY_CODE_FQDN] = CAPABILITY_CODE_MIN_FQDN_LEN,
+	[CAPABILITY_CODE_ENHANCED_RR] = CAPABILITY_CODE_ENHANCED_LEN,
+	[CAPABILITY_CODE_EXT_MESSAGE] = CAPABILITY_CODE_EXT_MESSAGE_LEN,
+	[CAPABILITY_CODE_LLGR] = CAPABILITY_CODE_LLGR_LEN,
+	[CAPABILITY_CODE_ROLE] = CAPABILITY_CODE_ROLE_LEN,
+	[CAPABILITY_CODE_SOFT_VERSION] = CAPABILITY_CODE_SOFT_VERSION_LEN,
+	[CAPABILITY_CODE_PATHS_LIMIT] = CAPABILITY_CODE_PATHS_LIMIT_LEN,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 };
 
 /* value the capability must be a multiple of.
@@ -73,6 +112,7 @@ static const size_t cap_minsizes[] = {
  * Other capabilities whose data doesn't fall on convenient boundaries for this
  * table should be set to 1.
  */
+<<<<<<< HEAD
 static const size_t cap_modsizes[] = {
 		[CAPABILITY_CODE_MP] = 4,
 		[CAPABILITY_CODE_REFRESH] = 1,
@@ -91,6 +131,24 @@ static const size_t cap_modsizes[] = {
 		[CAPABILITY_CODE_LLGR] = 1,
 		[CAPABILITY_CODE_ROLE] = 1,
 		[CAPABILITY_CODE_SOFT_VERSION] = 1,
+=======
+const size_t cap_modsizes[] = {
+	[CAPABILITY_CODE_MP] = 4,
+	[CAPABILITY_CODE_REFRESH] = 1,
+	[CAPABILITY_CODE_ORF] = 1,
+	[CAPABILITY_CODE_RESTART] = 1,
+	[CAPABILITY_CODE_AS4] = 4,
+	[CAPABILITY_CODE_ADDPATH] = 4,
+	[CAPABILITY_CODE_DYNAMIC] = 1,
+	[CAPABILITY_CODE_ENHE] = 6,
+	[CAPABILITY_CODE_FQDN] = 1,
+	[CAPABILITY_CODE_ENHANCED_RR] = 1,
+	[CAPABILITY_CODE_EXT_MESSAGE] = 1,
+	[CAPABILITY_CODE_LLGR] = 1,
+	[CAPABILITY_CODE_ROLE] = 1,
+	[CAPABILITY_CODE_SOFT_VERSION] = 1,
+	[CAPABILITY_CODE_PATHS_LIMIT] = 5,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 };
 
 /* BGP-4 Multiprotocol Extentions lead us to the complex world. We can
@@ -348,6 +406,7 @@ static void bgp_capability_orf_not_support(struct peer *peer, iana_afi_t afi,
 			peer->host, afi, safi, type, mode);
 }
 
+<<<<<<< HEAD
 static const struct message orf_type_str[] = {
 	{ORF_TYPE_RESERVED, "Reserved"},
 	{ORF_TYPE_PREFIX, "Prefixlist"},
@@ -358,6 +417,16 @@ static const struct message orf_mode_str[] = {{ORF_MODE_RECEIVE, "Receive"},
 					      {ORF_MODE_SEND, "Send"},
 					      {ORF_MODE_BOTH, "Both"},
 					      {0}};
+=======
+const struct message orf_type_str[] = { { ORF_TYPE_RESERVED, "Reserved" },
+					{ ORF_TYPE_PREFIX, "Prefixlist" },
+					{ 0 } };
+
+const struct message orf_mode_str[] = { { ORF_MODE_RECEIVE, "Receive" },
+					{ ORF_MODE_SEND, "Send" },
+					{ ORF_MODE_BOTH, "Both" },
+					{ 0 } };
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 static int bgp_capability_orf_entry(struct peer *peer,
 				    struct capability_header *hdr)
@@ -401,7 +470,11 @@ static int bgp_capability_orf_entry(struct peer *peer,
 		zlog_info(
 			"%s ORF Capability entry length error, Cap length %u, num %u",
 			peer->host, hdr->length, num);
+<<<<<<< HEAD
 		bgp_notify_send(peer, BGP_NOTIFY_OPEN_ERR,
+=======
+		bgp_notify_send(peer->connection, BGP_NOTIFY_OPEN_ERR,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 				BGP_NOTIFY_OPEN_MALFORMED_ATTR);
 		return -1;
 	}
@@ -440,6 +513,7 @@ static int bgp_capability_orf_entry(struct peer *peer,
 				continue;
 			}
 			break;
+<<<<<<< HEAD
 		case CAPABILITY_CODE_ORF_OLD:
 			switch (type) {
 			case ORF_TYPE_RESERVED:
@@ -456,6 +530,8 @@ static int bgp_capability_orf_entry(struct peer *peer,
 				continue;
 			}
 			break;
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		default:
 			bgp_capability_orf_not_support(peer, pkt_afi, pkt_safi,
 						       type, mode);
@@ -482,9 +558,12 @@ static int bgp_capability_orf_entry(struct peer *peer,
 		if (hdr->code == CAPABILITY_CODE_ORF) {
 			sm_cap = PEER_CAP_ORF_PREFIX_SM_RCV;
 			rm_cap = PEER_CAP_ORF_PREFIX_RM_RCV;
+<<<<<<< HEAD
 		} else if (hdr->code == CAPABILITY_CODE_ORF_OLD) {
 			sm_cap = PEER_CAP_ORF_PREFIX_SM_OLD_RCV;
 			rm_cap = PEER_CAP_ORF_PREFIX_RM_OLD_RCV;
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		} else {
 			bgp_capability_orf_not_support(peer, pkt_afi, pkt_safi,
 						       type, mode);
@@ -545,6 +624,7 @@ static int bgp_capability_restart(struct peer *peer,
 	UNSET_FLAG(restart_flag_time, 0xF000);
 	peer->v_gr_restart = restart_flag_time;
 
+<<<<<<< HEAD
 	if (bgp_debug_neighbor_events(peer)) {
 		zlog_debug(
 			"%s Peer has%srestarted. Restart Time: %d, N-bit set: %s",
@@ -559,6 +639,19 @@ static int bgp_capability_restart(struct peer *peer,
 				? "yes"
 				: "no");
 	}
+=======
+	if (bgp_debug_neighbor_events(peer))
+		zlog_debug("%pBP OPEN has GR capability, Restart time %d R-bit %s N-bit %s",
+			   peer, peer->v_gr_restart,
+			   CHECK_FLAG(peer->cap,
+				      PEER_CAP_GRACEFUL_RESTART_R_BIT_RCV)
+				   ? "SET"
+				   : "NOT-SET",
+			   CHECK_FLAG(peer->cap,
+				      PEER_CAP_GRACEFUL_RESTART_N_BIT_RCV)
+				   ? "SET"
+				   : "NOT-SET");
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	while (stream_get_getp(s) + 4 <= end) {
 		afi_t afi;
@@ -582,6 +675,7 @@ static int bgp_capability_restart(struct peer *peer,
 					iana_safi2str(pkt_safi));
 		} else {
 			if (bgp_debug_neighbor_events(peer))
+<<<<<<< HEAD
 				zlog_debug(
 					"%s Address family %s is%spreserved",
 					peer->host, get_afi_safi_str(afi, safi, false),
@@ -590,6 +684,14 @@ static int bgp_capability_restart(struct peer *peer,
 						PEER_CAP_RESTART_AF_PRESERVE_RCV)
 						? " "
 						: " not ");
+=======
+				zlog_debug("%pBP F-bit %s for %s", peer,
+					   CHECK_FLAG(peer->af_cap[afi][safi],
+						      PEER_CAP_RESTART_AF_PRESERVE_RCV)
+						   ? "SET"
+						   : "NOT-SET",
+					   get_afi_safi_str(afi, safi, false));
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 			SET_FLAG(peer->af_cap[afi][safi],
 				 PEER_CAP_RESTART_AF_RCV);
@@ -604,6 +706,7 @@ static int bgp_capability_restart(struct peer *peer,
 static int bgp_capability_llgr(struct peer *peer,
 			       struct capability_header *caphdr)
 {
+<<<<<<< HEAD
 /*
  * +--------------------------------------------------+
  * | Address Family Identifier (16 bits)              |
@@ -616,6 +719,8 @@ static int bgp_capability_llgr(struct peer *peer,
  * +--------------------------------------------------+
  */
 #define BGP_CAP_LLGR_MIN_PACKET_LEN 7
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	struct stream *s = BGP_INPUT(peer);
 	size_t end = stream_get_getp(s) + caphdr->length;
 
@@ -663,17 +768,29 @@ static int bgp_capability_llgr(struct peer *peer,
 /* Unlike other capability parsing routines, this one returns 0 on error */
 static as_t bgp_capability_as4(struct peer *peer, struct capability_header *hdr)
 {
+<<<<<<< HEAD
 	SET_FLAG(peer->cap, PEER_CAP_AS4_RCV);
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	if (hdr->length != CAPABILITY_CODE_AS4_LEN) {
 		flog_err(EC_BGP_PKT_OPEN,
 			 "%s AS4 capability has incorrect data length %d",
 			 peer->host, hdr->length);
+<<<<<<< HEAD
 		return 0;
+=======
+		return -1;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	}
 
 	as_t as4 = stream_getl(BGP_INPUT(peer));
 
+<<<<<<< HEAD
+=======
+	SET_FLAG(peer->cap, PEER_CAP_AS4_RCV);
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	if (BGP_DEBUG(as4, AS4))
 		zlog_debug(
 			"%s [AS4] about to set cap PEER_CAP_AS4_RCV, got as4 %u",
@@ -703,10 +820,15 @@ static int bgp_capability_addpath(struct peer *peer,
 	struct stream *s = BGP_INPUT(peer);
 	size_t end = stream_get_getp(s) + hdr->length;
 
+<<<<<<< HEAD
 	SET_FLAG(peer->cap, PEER_CAP_ADDPATH_RCV);
 
 	/* Verify length is a multiple of 4 */
 	if (hdr->length % 4) {
+=======
+	/* Verify length is a multiple of 4 */
+	if (hdr->length % CAPABILITY_CODE_ADDPATH_LEN) {
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		flog_warn(
 			EC_BGP_CAPABILITY_INVALID_LENGTH,
 			"Add Path: Received invalid length %d, non-multiple of 4",
@@ -714,13 +836,20 @@ static int bgp_capability_addpath(struct peer *peer,
 		return -1;
 	}
 
+<<<<<<< HEAD
 	while (stream_get_getp(s) + 4 <= end) {
+=======
+	SET_FLAG(peer->cap, PEER_CAP_ADDPATH_RCV);
+
+	while (stream_get_getp(s) + CAPABILITY_CODE_ADDPATH_LEN <= end) {
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		afi_t afi;
 		safi_t safi;
 		iana_afi_t pkt_afi = stream_getw(s);
 		iana_safi_t pkt_safi = stream_getc(s);
 		uint8_t send_receive = stream_getc(s);
 
+<<<<<<< HEAD
 		if (bgp_debug_neighbor_events(peer))
 			zlog_debug(
 				"%s OPEN has %s capability for afi/safi: %s/%s%s%s",
@@ -731,6 +860,31 @@ static int bgp_capability_addpath(struct peer *peer,
 								: "",
 				(send_receive & BGP_ADDPATH_TX) ? ", transmit"
 								: "");
+=======
+		/* If any other value (other than 1-3) is received, then
+		 * the capability SHOULD be treated as not understood
+		 * and ignored.
+		 */
+		if (!send_receive || send_receive > 3) {
+			flog_warn(EC_BGP_CAPABILITY_INVALID_DATA,
+				  "Add Path: Received invalid send/receive value %u in Add Path capability",
+				  send_receive);
+			continue;
+		}
+
+		if (bgp_debug_neighbor_events(peer))
+			zlog_debug("%s OPEN has %s capability for afi/safi: %s/%s%s%s",
+				   peer->host,
+				   lookup_msg(capcode_str, hdr->code, NULL),
+				   iana_afi2str(pkt_afi),
+				   iana_safi2str(pkt_safi),
+				   CHECK_FLAG(send_receive, BGP_ADDPATH_RX)
+					   ? ", receive"
+					   : "",
+				   CHECK_FLAG(send_receive, BGP_ADDPATH_TX)
+					   ? ", transmit"
+					   : "");
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 		/* Convert AFI, SAFI to internal values, check. */
 		if (bgp_map_afi_safi_iana2int(pkt_afi, pkt_safi, &afi, &safi)) {
@@ -749,6 +903,7 @@ static int bgp_capability_addpath(struct peer *peer,
 			continue;
 		}
 
+<<<<<<< HEAD
 		if (send_receive & BGP_ADDPATH_RX)
 			SET_FLAG(peer->af_cap[afi][safi],
 				 PEER_CAP_ADDPATH_AF_RX_RCV);
@@ -756,6 +911,77 @@ static int bgp_capability_addpath(struct peer *peer,
 		if (send_receive & BGP_ADDPATH_TX)
 			SET_FLAG(peer->af_cap[afi][safi],
 				 PEER_CAP_ADDPATH_AF_TX_RCV);
+=======
+		if (CHECK_FLAG(send_receive, BGP_ADDPATH_RX))
+			SET_FLAG(peer->af_cap[afi][safi],
+				 PEER_CAP_ADDPATH_AF_RX_RCV);
+		else
+			UNSET_FLAG(peer->af_cap[afi][safi],
+				   PEER_CAP_ADDPATH_AF_RX_RCV);
+
+		if (CHECK_FLAG(send_receive, BGP_ADDPATH_TX))
+			SET_FLAG(peer->af_cap[afi][safi],
+				 PEER_CAP_ADDPATH_AF_TX_RCV);
+		else
+			UNSET_FLAG(peer->af_cap[afi][safi],
+				   PEER_CAP_ADDPATH_AF_TX_RCV);
+	}
+
+	return 0;
+}
+
+static int bgp_capability_paths_limit(struct peer *peer,
+				      struct capability_header *hdr)
+{
+	struct stream *s = BGP_INPUT(peer);
+	size_t end = stream_get_getp(s) + hdr->length;
+
+	if (hdr->length % CAPABILITY_CODE_PATHS_LIMIT_LEN) {
+		flog_warn(EC_BGP_CAPABILITY_INVALID_LENGTH,
+			  "Paths-Limit: Received invalid length %d, non-multiple of %d",
+			  hdr->length, CAPABILITY_CODE_PATHS_LIMIT_LEN);
+		return -1;
+	}
+
+	if (!CHECK_FLAG(peer->cap, PEER_CAP_ADDPATH_RCV)) {
+		flog_warn(EC_BGP_CAPABILITY_INVALID_DATA,
+			  "Paths-Limit: Received Paths-Limit capability without Add-Path capability");
+		return -1;
+	}
+
+	SET_FLAG(peer->cap, PEER_CAP_PATHS_LIMIT_RCV);
+
+	while (stream_get_getp(s) + CAPABILITY_CODE_PATHS_LIMIT_LEN <= end) {
+		afi_t afi;
+		safi_t safi;
+		iana_afi_t pkt_afi = stream_getw(s);
+		iana_safi_t pkt_safi = stream_getc(s);
+		uint16_t paths_limit = stream_getw(s);
+
+		if (bgp_debug_neighbor_events(peer))
+			zlog_debug("%s OPEN has %s capability for afi/safi: %s/%s limit: %u",
+				   peer->host,
+				   lookup_msg(capcode_str, hdr->code, NULL),
+				   iana_afi2str(pkt_afi),
+				   iana_safi2str(pkt_safi), paths_limit);
+
+		if (bgp_map_afi_safi_iana2int(pkt_afi, pkt_safi, &afi, &safi)) {
+			if (bgp_debug_neighbor_events(peer))
+				zlog_debug("%s Addr-family %s/%s(afi/safi) not supported. Ignore the Paths-Limit capability for this AFI/SAFI",
+					   peer->host, iana_afi2str(pkt_afi),
+					   iana_safi2str(pkt_safi));
+			continue;
+		} else if (!peer->afc[afi][safi]) {
+			if (bgp_debug_neighbor_events(peer))
+				zlog_debug("%s Addr-family %s/%s(afi/safi) not enabled. Ignore the Paths-Limit capability for this AFI/SAFI",
+					   peer->host, iana_afi2str(pkt_afi),
+					   iana_safi2str(pkt_safi));
+			continue;
+		}
+
+		SET_FLAG(peer->af_cap[afi][safi], PEER_CAP_PATHS_LIMIT_AF_RCV);
+		peer->addpath_paths_limit[afi][safi].receive = paths_limit;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	}
 
 	return 0;
@@ -840,8 +1066,11 @@ static int bgp_capability_hostname(struct peer *peer,
 	size_t end = stream_get_getp(s) + hdr->length;
 	uint8_t len;
 
+<<<<<<< HEAD
 	SET_FLAG(peer->cap, PEER_CAP_HOSTNAME_RCV);
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	len = stream_getc(s);
 	if (stream_get_getp(s) + len > end) {
 		flog_warn(
@@ -899,6 +1128,11 @@ static int bgp_capability_hostname(struct peer *peer,
 		peer->domainname = XSTRDUP(MTYPE_BGP_PEER_HOST, str);
 	}
 
+<<<<<<< HEAD
+=======
+	SET_FLAG(peer->cap, PEER_CAP_HOSTNAME_RCV);
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	if (bgp_debug_neighbor_events(peer)) {
 		zlog_debug("%s received hostname %s, domainname %s", peer->host,
 			   peer->hostname, peer->domainname);
@@ -909,14 +1143,25 @@ static int bgp_capability_hostname(struct peer *peer,
 
 static int bgp_capability_role(struct peer *peer, struct capability_header *hdr)
 {
+<<<<<<< HEAD
 	SET_FLAG(peer->cap, PEER_CAP_ROLE_RCV);
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	if (hdr->length != CAPABILITY_CODE_ROLE_LEN) {
 		flog_warn(EC_BGP_CAPABILITY_INVALID_LENGTH,
 			  "Role: Received invalid length %d", hdr->length);
 		return -1;
 	}
+<<<<<<< HEAD
 	uint8_t role = stream_getc(BGP_INPUT(peer));
 
+=======
+
+	uint8_t role = stream_getc(BGP_INPUT(peer));
+
+	SET_FLAG(peer->cap, PEER_CAP_ROLE_RCV);
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	peer->remote_role = role;
 	return 0;
 }
@@ -929,8 +1174,11 @@ static int bgp_capability_software_version(struct peer *peer,
 	size_t end = stream_get_getp(s) + hdr->length;
 	uint8_t len;
 
+<<<<<<< HEAD
 	SET_FLAG(peer->cap, PEER_CAP_SOFT_VERSION_RCV);
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	len = stream_getc(s);
 	if (stream_get_getp(s) + len > end) {
 		flog_warn(
@@ -940,6 +1188,11 @@ static int bgp_capability_software_version(struct peer *peer,
 		return -1;
 	}
 
+<<<<<<< HEAD
+=======
+	SET_FLAG(peer->cap, PEER_CAP_SOFT_VERSION_RCV);
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	if (len > BGP_MAX_SOFT_VERSION) {
 		flog_warn(EC_BGP_CAPABILITY_INVALID_LENGTH,
 			  "%s: Received Software Version, but the length is too big, truncating, from peer %s",
@@ -959,8 +1212,13 @@ static int bgp_capability_software_version(struct peer *peer,
 		peer->soft_version = XSTRDUP(MTYPE_BGP_SOFT_VERSION, str);
 
 		if (bgp_debug_neighbor_events(peer))
+<<<<<<< HEAD
 			zlog_debug("%s sent Software Version: %s", peer->host,
 				   peer->soft_version);
+=======
+			zlog_debug("%s received Software Version: %s",
+				   peer->host, peer->soft_version);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	}
 
 	return 0;
@@ -993,7 +1251,11 @@ static int bgp_capability_parse(struct peer *peer, size_t length,
 		if (stream_get_getp(s) + 2 > end) {
 			zlog_info("%s Capability length error (< header)",
 				  peer->host);
+<<<<<<< HEAD
 			bgp_notify_send(peer, BGP_NOTIFY_OPEN_ERR,
+=======
+			bgp_notify_send(peer->connection, BGP_NOTIFY_OPEN_ERR,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 					BGP_NOTIFY_OPEN_MALFORMED_ATTR);
 			return -1;
 		}
@@ -1006,7 +1268,11 @@ static int bgp_capability_parse(struct peer *peer, size_t length,
 		if (start + caphdr.length > end) {
 			zlog_info("%s Capability length error (< length)",
 				  peer->host);
+<<<<<<< HEAD
 			bgp_notify_send(peer, BGP_NOTIFY_OPEN_ERR,
+=======
+			bgp_notify_send(peer->connection, BGP_NOTIFY_OPEN_ERR,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 					BGP_NOTIFY_OPEN_MALFORMED_ATTR);
 			return -1;
 		}
@@ -1021,20 +1287,31 @@ static int bgp_capability_parse(struct peer *peer, size_t length,
 		switch (caphdr.code) {
 		case CAPABILITY_CODE_MP:
 		case CAPABILITY_CODE_REFRESH:
+<<<<<<< HEAD
 		case CAPABILITY_CODE_REFRESH_OLD:
 		case CAPABILITY_CODE_ORF:
 		case CAPABILITY_CODE_ORF_OLD:
+=======
+		case CAPABILITY_CODE_ORF:
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		case CAPABILITY_CODE_RESTART:
 		case CAPABILITY_CODE_AS4:
 		case CAPABILITY_CODE_ADDPATH:
 		case CAPABILITY_CODE_DYNAMIC:
+<<<<<<< HEAD
 		case CAPABILITY_CODE_DYNAMIC_OLD:
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		case CAPABILITY_CODE_ENHE:
 		case CAPABILITY_CODE_FQDN:
 		case CAPABILITY_CODE_ENHANCED_RR:
 		case CAPABILITY_CODE_EXT_MESSAGE:
 		case CAPABILITY_CODE_ROLE:
 		case CAPABILITY_CODE_SOFT_VERSION:
+<<<<<<< HEAD
+=======
+		case CAPABILITY_CODE_PATHS_LIMIT:
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			/* Check length. */
 			if (caphdr.length < cap_minsizes[caphdr.code]) {
 				zlog_info(
@@ -1044,7 +1321,12 @@ static int bgp_capability_parse(struct peer *peer, size_t length,
 						   NULL),
 					caphdr.length,
 					(unsigned)cap_minsizes[caphdr.code]);
+<<<<<<< HEAD
 				bgp_notify_send(peer, BGP_NOTIFY_OPEN_ERR,
+=======
+				bgp_notify_send(peer->connection,
+						BGP_NOTIFY_OPEN_ERR,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 						BGP_NOTIFY_OPEN_MALFORMED_ATTR);
 				return -1;
 			}
@@ -1057,10 +1339,19 @@ static int bgp_capability_parse(struct peer *peer, size_t length,
 						   NULL),
 					caphdr.length,
 					(unsigned)cap_modsizes[caphdr.code]);
+<<<<<<< HEAD
 				bgp_notify_send(peer, BGP_NOTIFY_OPEN_ERR,
 						BGP_NOTIFY_OPEN_MALFORMED_ATTR);
 				return -1;
 			}
+=======
+				bgp_notify_send(peer->connection,
+						BGP_NOTIFY_OPEN_ERR,
+						BGP_NOTIFY_OPEN_MALFORMED_ATTR);
+				return -1;
+			}
+			break;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		/* we deliberately ignore unknown codes, see below */
 		default:
 			break;
@@ -1086,6 +1377,7 @@ static int bgp_capability_parse(struct peer *peer, size_t length,
 			}
 		} break;
 		case CAPABILITY_CODE_ENHANCED_RR:
+<<<<<<< HEAD
 		case CAPABILITY_CODE_REFRESH:
 		case CAPABILITY_CODE_REFRESH_OLD: {
 			/* BGP refresh capability */
@@ -1098,6 +1390,16 @@ static int bgp_capability_parse(struct peer *peer, size_t length,
 		} break;
 		case CAPABILITY_CODE_ORF:
 		case CAPABILITY_CODE_ORF_OLD:
+=======
+		case CAPABILITY_CODE_REFRESH: {
+			/* BGP refresh capability */
+			if (caphdr.code == CAPABILITY_CODE_ENHANCED_RR)
+				SET_FLAG(peer->cap, PEER_CAP_ENHANCED_RR_RCV);
+			else
+				SET_FLAG(peer->cap, PEER_CAP_REFRESH_RCV);
+		} break;
+		case CAPABILITY_CODE_ORF:
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			ret = bgp_capability_orf_entry(peer, &caphdr);
 			break;
 		case CAPABILITY_CODE_RESTART:
@@ -1107,7 +1409,10 @@ static int bgp_capability_parse(struct peer *peer, size_t length,
 			ret = bgp_capability_llgr(peer, &caphdr);
 			break;
 		case CAPABILITY_CODE_DYNAMIC:
+<<<<<<< HEAD
 		case CAPABILITY_CODE_DYNAMIC_OLD:
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			SET_FLAG(peer->cap, PEER_CAP_DYNAMIC_RCV);
 			break;
 		case CAPABILITY_CODE_AS4:
@@ -1138,6 +1443,12 @@ static int bgp_capability_parse(struct peer *peer, size_t length,
 		case CAPABILITY_CODE_SOFT_VERSION:
 			ret = bgp_capability_software_version(peer, &caphdr);
 			break;
+<<<<<<< HEAD
+=======
+		case CAPABILITY_CODE_PATHS_LIMIT:
+			ret = bgp_capability_paths_limit(peer, &caphdr);
+			break;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		default:
 			if (caphdr.code > 128) {
 				/* We don't send Notification for unknown vendor
@@ -1158,7 +1469,11 @@ static int bgp_capability_parse(struct peer *peer, size_t length,
 		}
 
 		if (ret < 0) {
+<<<<<<< HEAD
 			bgp_notify_send(peer, BGP_NOTIFY_OPEN_ERR,
+=======
+			bgp_notify_send(peer->connection, BGP_NOTIFY_OPEN_ERR,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 					BGP_NOTIFY_OPEN_MALFORMED_ATTR);
 			return -1;
 		}
@@ -1206,7 +1521,11 @@ static bool bgp_role_violation(struct peer *peer)
 	      (local_role == ROLE_RS_SERVER && remote_role == ROLE_RS_CLIENT) ||
 	      (local_role == ROLE_RS_CLIENT &&
 	       remote_role == ROLE_RS_SERVER))) {
+<<<<<<< HEAD
 		bgp_notify_send(peer, BGP_NOTIFY_OPEN_ERR,
+=======
+		bgp_notify_send(peer->connection, BGP_NOTIFY_OPEN_ERR,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 				BGP_NOTIFY_OPEN_ROLE_MISMATCH);
 		return true;
 	}
@@ -1214,7 +1533,11 @@ static bool bgp_role_violation(struct peer *peer)
 	    CHECK_FLAG(peer->flags, PEER_FLAG_ROLE_STRICT_MODE)) {
 		const char *err_msg =
 			"Strict mode. Please set the role on your side.";
+<<<<<<< HEAD
 		bgp_notify_send_with_data(peer, BGP_NOTIFY_OPEN_ERR,
+=======
+		bgp_notify_send_with_data(peer->connection, BGP_NOTIFY_OPEN_ERR,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 					  BGP_NOTIFY_OPEN_ROLE_MISMATCH,
 					  (uint8_t *)err_msg, strlen(err_msg));
 		return true;
@@ -1341,8 +1664,13 @@ int bgp_open_option_parse(struct peer *peer, uint16_t length,
 		 * Check that we can read the opt_type and fetch it
 		 */
 		if (STREAM_READABLE(s) < 1) {
+<<<<<<< HEAD
 			zlog_info("%s Option length error", peer->host);
 			bgp_notify_send(peer, BGP_NOTIFY_OPEN_ERR,
+=======
+			zlog_err("%s Option length error", peer->host);
+			bgp_notify_send(peer->connection, BGP_NOTIFY_OPEN_ERR,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 					BGP_NOTIFY_OPEN_MALFORMED_ATTR);
 			return -1;
 		}
@@ -1354,8 +1682,14 @@ int bgp_open_option_parse(struct peer *peer, uint16_t length,
 		 */
 		if (BGP_OPEN_EXT_OPT_PARAMS_CAPABLE(peer)) {
 			if (STREAM_READABLE(s) < 2) {
+<<<<<<< HEAD
 				zlog_info("%s Option length error", peer->host);
 				bgp_notify_send(peer, BGP_NOTIFY_OPEN_ERR,
+=======
+				zlog_err("%s Option length error", peer->host);
+				bgp_notify_send(peer->connection,
+						BGP_NOTIFY_OPEN_ERR,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 						BGP_NOTIFY_OPEN_MALFORMED_ATTR);
 				return -1;
 			}
@@ -1363,8 +1697,14 @@ int bgp_open_option_parse(struct peer *peer, uint16_t length,
 			opt_length = stream_getw(s);
 		} else {
 			if (STREAM_READABLE(s) < 1) {
+<<<<<<< HEAD
 				zlog_info("%s Option length error", peer->host);
 				bgp_notify_send(peer, BGP_NOTIFY_OPEN_ERR,
+=======
+				zlog_err("%s Option length error", peer->host);
+				bgp_notify_send(peer->connection,
+						BGP_NOTIFY_OPEN_ERR,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 						BGP_NOTIFY_OPEN_MALFORMED_ATTR);
 				return -1;
 			}
@@ -1374,9 +1714,15 @@ int bgp_open_option_parse(struct peer *peer, uint16_t length,
 
 		/* Option length check. */
 		if (STREAM_READABLE(s) < opt_length) {
+<<<<<<< HEAD
 			zlog_info("%s Option length error (%d)", peer->host,
 				  opt_length);
 			bgp_notify_send(peer, BGP_NOTIFY_OPEN_ERR,
+=======
+			zlog_err("%s Option length error (%d)", peer->host,
+				 opt_length);
+			bgp_notify_send(peer->connection, BGP_NOTIFY_OPEN_ERR,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 					BGP_NOTIFY_OPEN_MALFORMED_ATTR);
 			return -1;
 		}
@@ -1395,7 +1741,11 @@ int bgp_open_option_parse(struct peer *peer, uint16_t length,
 						   mp_capability, &error);
 			break;
 		default:
+<<<<<<< HEAD
 			bgp_notify_send(peer, BGP_NOTIFY_OPEN_ERR,
+=======
+			bgp_notify_send(peer->connection, BGP_NOTIFY_OPEN_ERR,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 					BGP_NOTIFY_OPEN_UNSUP_PARAM);
 			ret = -1;
 			break;
@@ -1412,14 +1762,24 @@ int bgp_open_option_parse(struct peer *peer, uint16_t length,
 	/* All OPEN option is parsed.  Check capability when strict compare
 	   flag is enabled.*/
 	if (CHECK_FLAG(peer->flags, PEER_FLAG_STRICT_CAP_MATCH)) {
+<<<<<<< HEAD
 		/* If Unsupported Capability exists. */
 		if (error != error_data) {
 			bgp_notify_send_with_data(peer, BGP_NOTIFY_OPEN_ERR,
+=======
+		/* If Unsupported Capability exists or local capability does
+		 * not negotiated with remote peer
+		 */
+		if (error != error_data || !strict_capability_same(peer)) {
+			bgp_notify_send_with_data(peer->connection,
+						  BGP_NOTIFY_OPEN_ERR,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 						  BGP_NOTIFY_OPEN_UNSUP_CAPBL,
 						  error_data,
 						  error - error_data);
 			return -1;
 		}
+<<<<<<< HEAD
 
 		/* Check local capability does not negotiated with remote
 		   peer. */
@@ -1428,6 +1788,8 @@ int bgp_open_option_parse(struct peer *peer, uint16_t length,
 					BGP_NOTIFY_OPEN_UNSUP_CAPBL);
 			return -1;
 		}
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	}
 
 	/* Extended Message Support */
@@ -1462,6 +1824,7 @@ int bgp_open_option_parse(struct peer *peer, uint16_t length,
 				 "%s [Error] Configured AFI/SAFIs do not overlap with received MP capabilities",
 				 peer->host);
 
+<<<<<<< HEAD
 			if (error != error_data)
 				bgp_notify_send_with_data(
 					peer, BGP_NOTIFY_OPEN_ERR,
@@ -1471,6 +1834,13 @@ int bgp_open_option_parse(struct peer *peer, uint16_t length,
 				bgp_notify_send(peer, BGP_NOTIFY_OPEN_ERR,
 						BGP_NOTIFY_OPEN_UNSUP_CAPBL);
 			return -1;
+=======
+			bgp_notify_send_with_data(peer->connection,
+						  BGP_NOTIFY_OPEN_ERR,
+						  BGP_NOTIFY_OPEN_UNSUP_CAPBL,
+						  error_data,
+						  error - error_data);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		}
 	}
 	return 0;
@@ -1508,9 +1878,13 @@ static void bgp_open_capability_orf(struct stream *s, struct peer *peer,
 	/* Address Prefix ORF */
 	if (CHECK_FLAG(peer->af_flags[afi][safi], PEER_FLAG_ORF_PREFIX_SM)
 	    || CHECK_FLAG(peer->af_flags[afi][safi], PEER_FLAG_ORF_PREFIX_RM)) {
+<<<<<<< HEAD
 		stream_putc(s, (code == CAPABILITY_CODE_ORF
 					? ORF_TYPE_PREFIX
 					: ORF_TYPE_PREFIX_OLD));
+=======
+		stream_putc(s, ORF_TYPE_PREFIX);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 		if (CHECK_FLAG(peer->af_flags[afi][safi],
 			       PEER_FLAG_ORF_PREFIX_SM)
@@ -1558,15 +1932,22 @@ static void bgp_peer_send_gr_capability(struct stream *s, struct peer *peer,
 	uint32_t restart_time;
 	unsigned long capp = 0;
 	unsigned long rcapp = 0;
+<<<<<<< HEAD
+=======
+	struct bgp *bgp = peer->bgp;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	if (!CHECK_FLAG(peer->flags, PEER_FLAG_GRACEFUL_RESTART)
 	    && !CHECK_FLAG(peer->flags, PEER_FLAG_GRACEFUL_RESTART_HELPER))
 		return;
 
+<<<<<<< HEAD
 	if (BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
 		zlog_debug("[BGP_GR] Sending helper Capability for Peer :%s :",
 			   peer->host);
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	SET_FLAG(peer->cap, PEER_CAP_RESTART_ADV);
 	stream_putc(s, BGP_OPEN_OPT_CAP);
 	capp = stream_get_endp(s); /* Set Capability Len Pointer */
@@ -1576,6 +1957,7 @@ static void bgp_peer_send_gr_capability(struct stream *s, struct peer *peer,
 	/* Set Restart Capability Len Pointer */
 	rcapp = stream_get_endp(s);
 	stream_putc(s, 0);
+<<<<<<< HEAD
 	restart_time = peer->bgp->restart_time;
 	if (peer->bgp->t_startup) {
 		SET_FLAG(restart_time, GRACEFUL_RESTART_R_BIT);
@@ -1591,14 +1973,41 @@ static void bgp_peer_send_gr_capability(struct stream *s, struct peer *peer,
 		if (BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
 			zlog_debug("[BGP_GR] Sending N-Bit for peer: %s",
 				   peer->host);
+=======
+	restart_time = bgp->restart_time;
+	if (peer->bgp->t_startup || bgp_in_graceful_restart()) {
+		SET_FLAG(restart_time, GRACEFUL_RESTART_R_BIT);
+		SET_FLAG(peer->cap, PEER_CAP_GRACEFUL_RESTART_R_BIT_ADV);
+	}
+
+	if (CHECK_FLAG(bgp->flags, BGP_FLAG_GRACEFUL_NOTIFICATION)) {
+		SET_FLAG(restart_time, GRACEFUL_RESTART_N_BIT);
+		SET_FLAG(peer->cap, PEER_CAP_GRACEFUL_RESTART_N_BIT_ADV);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	}
 
 	stream_putw(s, restart_time);
 
+<<<<<<< HEAD
+=======
+	if (BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
+		zlog_debug("%s: Sending GR Capability, Restart time %d R-bit %s, N-bit %s",
+			   peer->host, bgp->restart_time,
+			   CHECK_FLAG(peer->cap,
+				      PEER_CAP_GRACEFUL_RESTART_R_BIT_ADV)
+				   ? "SET"
+				   : "NOT-SET",
+			   CHECK_FLAG(peer->cap,
+				      PEER_CAP_GRACEFUL_RESTART_N_BIT_ADV)
+				   ? "SET"
+				   : "NOT-SET");
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	/* Send address-family specific graceful-restart capability
 	 * only when GR config is present
 	 */
 	if (CHECK_FLAG(peer->flags, PEER_FLAG_GRACEFUL_RESTART)) {
+<<<<<<< HEAD
 		if (CHECK_FLAG(peer->bgp->flags, BGP_FLAG_GR_PRESERVE_FWD)
 		    && BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
 			zlog_debug("[BGP_GR] F bit Set");
@@ -1612,6 +2021,14 @@ static void bgp_peer_send_gr_capability(struct stream *s, struct peer *peer,
 					"[BGP_GR] Sending GR Capability for AFI :%d :, SAFI :%d:",
 					afi, safi);
 
+=======
+		FOREACH_AFI_SAFI (afi, safi) {
+			bool f_bit = false;
+
+			if (!peer->afc[afi][safi])
+				continue;
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			/* Convert AFI, SAFI to values for
 			 * packet.
 			 */
@@ -1619,11 +2036,23 @@ static void bgp_peer_send_gr_capability(struct stream *s, struct peer *peer,
 						  &pkt_safi);
 			stream_putw(s, pkt_afi);
 			stream_putc(s, pkt_safi);
+<<<<<<< HEAD
 			if (CHECK_FLAG(peer->bgp->flags,
 				       BGP_FLAG_GR_PRESERVE_FWD))
 				stream_putc(s, GRACEFUL_RESTART_F_BIT);
 			else
 				stream_putc(s, 0);
+=======
+
+			f_bit = bgp_gr_is_forwarding_preserved(bgp);
+
+			if (BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
+				zlog_debug("... F-bit %s for %s",
+					   f_bit ? "SET" : "NOT-SET",
+					   get_afi_safi_str(afi, safi, false));
+
+			stream_putc(s, f_bit ? GRACEFUL_RESTART_F_BIT : 0);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		}
 	}
 
@@ -1743,11 +2172,19 @@ uint16_t bgp_open_capability(struct stream *s, struct peer *peer,
 			 * supporting RFC-5549 for
 			 * Link-Local peering only
 			 */
+<<<<<<< HEAD
 			if (CHECK_FLAG(peer->flags, PEER_FLAG_CAPABILITY_ENHE)
 			    && peer->su.sa.sa_family == AF_INET6
 			    && afi == AFI_IP
 			    && (safi == SAFI_UNICAST || safi == SAFI_MPLS_VPN
 				|| safi == SAFI_LABELED_UNICAST)) {
+=======
+			if (CHECK_FLAG(peer->flags, PEER_FLAG_CAPABILITY_ENHE) &&
+			    peer->connection->su.sa.sa_family == AF_INET6 &&
+			    afi == AFI_IP &&
+			    (safi == SAFI_UNICAST || safi == SAFI_MPLS_VPN ||
+			     safi == SAFI_LABELED_UNICAST)) {
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 				/* RFC 5549 Extended Next Hop Encoding
 				 */
 				SET_FLAG(peer->cap, PEER_CAP_ENHE_ADV);
@@ -1781,11 +2218,14 @@ uint16_t bgp_open_capability(struct stream *s, struct peer *peer,
 	stream_putc(s, BGP_OPEN_OPT_CAP);
 	ext_opt_params ? stream_putw(s, CAPABILITY_CODE_REFRESH_LEN + 2)
 		       : stream_putc(s, CAPABILITY_CODE_REFRESH_LEN + 2);
+<<<<<<< HEAD
 	stream_putc(s, CAPABILITY_CODE_REFRESH_OLD);
 	stream_putc(s, CAPABILITY_CODE_REFRESH_LEN);
 	stream_putc(s, BGP_OPEN_OPT_CAP);
 	ext_opt_params ? stream_putw(s, CAPABILITY_CODE_REFRESH_LEN + 2)
 		       : stream_putc(s, CAPABILITY_CODE_REFRESH_LEN + 2);
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	stream_putc(s, CAPABILITY_CODE_REFRESH);
 	stream_putc(s, CAPABILITY_CODE_REFRESH_LEN);
 
@@ -1901,6 +2341,34 @@ uint16_t bgp_open_capability(struct stream *s, struct peer *peer,
 		}
 	}
 
+<<<<<<< HEAD
+=======
+	/* Paths-Limit capability */
+	SET_FLAG(peer->cap, PEER_CAP_PATHS_LIMIT_ADV);
+	stream_putc(s, BGP_OPEN_OPT_CAP);
+	ext_opt_params ? stream_putw(s, (CAPABILITY_CODE_PATHS_LIMIT_LEN *
+					 afi_safi_count) +
+						2)
+		       : stream_putc(s, (CAPABILITY_CODE_PATHS_LIMIT_LEN *
+					 afi_safi_count) +
+						2);
+	stream_putc(s, CAPABILITY_CODE_PATHS_LIMIT);
+	stream_putc(s, CAPABILITY_CODE_PATHS_LIMIT_LEN * afi_safi_count);
+
+	FOREACH_AFI_SAFI (afi, safi) {
+		if (!peer->afc[afi][safi])
+			continue;
+
+		bgp_map_afi_safi_int2iana(afi, safi, &pkt_afi, &pkt_safi);
+
+		stream_putw(s, pkt_afi);
+		stream_putc(s, pkt_safi);
+		stream_putw(s, peer->addpath_paths_limit[afi][safi].send);
+
+		SET_FLAG(peer->af_cap[afi][safi], PEER_CAP_PATHS_LIMIT_AF_ADV);
+	}
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	/* ORF capability. */
 	FOREACH_AFI_SAFI (afi, safi) {
 		if (CHECK_FLAG(peer->af_flags[afi][safi],
@@ -1908,33 +2376,49 @@ uint16_t bgp_open_capability(struct stream *s, struct peer *peer,
 		    || CHECK_FLAG(peer->af_flags[afi][safi],
 				  PEER_FLAG_ORF_PREFIX_RM)) {
 			bgp_open_capability_orf(s, peer, afi, safi,
+<<<<<<< HEAD
 						CAPABILITY_CODE_ORF_OLD,
 						ext_opt_params);
 			bgp_open_capability_orf(s, peer, afi, safi,
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 						CAPABILITY_CODE_ORF,
 						ext_opt_params);
 		}
 	}
 
 	/* Dynamic capability. */
+<<<<<<< HEAD
 	if (CHECK_FLAG(peer->flags, PEER_FLAG_DYNAMIC_CAPABILITY)) {
+=======
+	if (peergroup_flag_check(peer, PEER_FLAG_DYNAMIC_CAPABILITY)) {
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		SET_FLAG(peer->cap, PEER_CAP_DYNAMIC_ADV);
 		stream_putc(s, BGP_OPEN_OPT_CAP);
 		ext_opt_params
 			? stream_putw(s, CAPABILITY_CODE_DYNAMIC_LEN + 2)
 			: stream_putc(s, CAPABILITY_CODE_DYNAMIC_LEN + 2);
+<<<<<<< HEAD
 		stream_putc(s, CAPABILITY_CODE_DYNAMIC_OLD);
 		stream_putc(s, CAPABILITY_CODE_DYNAMIC_LEN);
 		stream_putc(s, BGP_OPEN_OPT_CAP);
 		ext_opt_params
 			? stream_putw(s, CAPABILITY_CODE_DYNAMIC_LEN + 2)
 			: stream_putc(s, CAPABILITY_CODE_DYNAMIC_LEN + 2);
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		stream_putc(s, CAPABILITY_CODE_DYNAMIC);
 		stream_putc(s, CAPABILITY_CODE_DYNAMIC_LEN);
 	}
 
+<<<<<<< HEAD
 	/* Hostname capability */
 	if (cmd_hostname_get()) {
+=======
+	/* FQDN capability */
+	if (CHECK_FLAG(peer->flags, PEER_FLAG_CAPABILITY_FQDN)
+	    && cmd_hostname_get()) {
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		SET_FLAG(peer->cap, PEER_CAP_HOSTNAME_ADV);
 		stream_putc(s, BGP_OPEN_OPT_CAP);
 		rcapp = stream_get_endp(s); /* Ptr to length placeholder */
@@ -1986,7 +2470,11 @@ uint16_t bgp_open_capability(struct stream *s, struct peer *peer,
 	 * or disable its use, and that switch MUST be off by default.
 	 */
 	if (peergroup_flag_check(peer, PEER_FLAG_CAPABILITY_SOFT_VERSION) ||
+<<<<<<< HEAD
 	    peer->sort == BGP_PEER_IBGP) {
+=======
+	    peer->sort == BGP_PEER_IBGP || peer->sub_sort == BGP_PEER_EBGP_OAD) {
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		SET_FLAG(peer->cap, PEER_CAP_SOFT_VERSION_ADV);
 		stream_putc(s, BGP_OPEN_OPT_CAP);
 		rcapp = stream_get_endp(s);

@@ -54,6 +54,12 @@ enum cmd_token_type {
 	END_TKN,   // last token in line
 	NEG_ONLY_TKN,    // filter token, match if "no ..." command
 
+<<<<<<< HEAD
+=======
+#ifdef BUILDING_CLIPPY
+	CMD_ELEMENT_TKN, // python bindings only
+#endif
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	SPECIAL_TKN = FORK_TKN,
 };
 /* clang-format on */

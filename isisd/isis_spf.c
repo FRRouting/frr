@@ -378,6 +378,11 @@ isis_spftree_new(struct isis_area *area, struct lspdb_head *lspdb,
 
 static void _isis_spftree_del(struct isis_spftree *spftree)
 {
+<<<<<<< HEAD
+=======
+	void *info, *backup_info;
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	hash_clean_and_free(&spftree->prefix_sids, NULL);
 	isis_zebra_rlfa_unregister_all(spftree);
 	isis_rlfa_list_clear(spftree);
@@ -391,10 +396,19 @@ static void _isis_spftree_del(struct isis_spftree *spftree)
 	list_delete(&spftree->sadj_list);
 	isis_vertex_queue_free(&spftree->tents);
 	isis_vertex_queue_free(&spftree->paths);
+<<<<<<< HEAD
 	isis_route_table_info_free(spftree->route_table->info);
 	isis_route_table_info_free(spftree->route_table_backup->info);
 	route_table_finish(spftree->route_table);
 	route_table_finish(spftree->route_table_backup);
+=======
+	info =  spftree->route_table->info;
+	backup_info = spftree->route_table_backup->info;
+	route_table_finish(spftree->route_table);
+	route_table_finish(spftree->route_table_backup);
+	isis_route_table_info_free(info);
+	isis_route_table_info_free(backup_info);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 }
 
 void isis_spftree_del(struct isis_spftree *spftree)
@@ -839,6 +853,10 @@ static int isis_spf_process_lsp(struct isis_spftree *spftree,
 	struct isis_mt_router_info *mt_router_info = NULL;
 	struct prefix_pair ip_info;
 	bool has_valid_psid;
+<<<<<<< HEAD
+=======
+	bool loc_is_in_ipv6_reach = false;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	if (isis_lfa_excise_node_check(spftree, lsp->hdr.lsp_id)) {
 		if (IS_DEBUG_LFA)
@@ -1133,6 +1151,53 @@ lspfragloop:
 				process_N(spftree, vtype, &ip_info, dist,
 					  depth + 1, NULL, parent);
 		}
+<<<<<<< HEAD
+=======
+
+		/* Process SRv6 Locator TLVs */
+
+		struct isis_item_list *srv6_locators = isis_lookup_mt_items(
+			&lsp->tlvs->srv6_locator, spftree->mtid);
+
+		struct isis_srv6_locator_tlv *loc;
+		for (loc = srv6_locators ? (struct isis_srv6_locator_tlv *)
+						   srv6_locators->head
+					 : NULL;
+		     loc; loc = loc->next) {
+
+			if (loc->algorithm != SR_ALGORITHM_SPF)
+				continue;
+
+			dist = cost + loc->metric;
+			vtype = VTYPE_IP6REACH_INTERNAL;
+			memset(&ip_info, 0, sizeof(ip_info));
+			ip_info.dest.family = AF_INET6;
+			ip_info.dest.u.prefix6 = loc->prefix.prefix;
+			ip_info.dest.prefixlen = loc->prefix.prefixlen;
+
+			/* An SRv6 Locator can be received in both a Prefix
+			Reachability TLV and an SRv6 Locator TLV (as per RFC
+			9352 section #5). We go through the Prefix Reachability
+			TLVs and check if the SRv6 Locator is present in some of
+			them. If we find the SRv6 Locator in some Prefix
+			Reachbility TLV then it means that we have already
+			processed it before and we can skip it. */
+			for (r = ipv6_reachs ? (struct isis_ipv6_reach *)
+						       ipv6_reachs->head
+					     : NULL;
+			     r; r = r->next) {
+				if (prefix_same((struct prefix *)&r->prefix,
+						(struct prefix *)&loc->prefix))
+					loc_is_in_ipv6_reach = true;
+			}
+
+			/* SRv6 locator not present in Prefix Reachability TLV,
+			 * let's process it */
+			if (!loc_is_in_ipv6_reach)
+				process_N(spftree, vtype, &ip_info, dist,
+					  depth + 1, NULL, parent);
+		}
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	}
 
 end:
@@ -1420,14 +1485,23 @@ static void spf_adj_list_parse_tlv(struct isis_spftree *spftree,
 		sadj->metric = metric;
 	if (oldmetric)
 		SET_FLAG(flags, F_ISIS_SPF_ADJ_OLDMETRIC);
+<<<<<<< HEAD
+=======
+	if ((oldmetric && sadj->metric == ISIS_NARROW_METRIC_INFINITY) ||
+	    (!oldmetric && sadj->metric == ISIS_WIDE_METRIC_INFINITY))
+		SET_FLAG(flags, F_ISIS_SPF_ADJ_METRIC_INFINITY);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	sadj->lsp = lsp;
 	sadj->subtlvs = subtlvs;
 	sadj->flags = flags;
 
+<<<<<<< HEAD
 	if ((oldmetric && metric == ISIS_NARROW_METRIC_INFINITY)
 	    || (!oldmetric && metric == ISIS_WIDE_METRIC_INFINITY))
 		SET_FLAG(flags, F_ISIS_SPF_ADJ_METRIC_INFINITY);
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	/* Set real adjacency. */
 	if (!CHECK_FLAG(spftree->flags, F_SPFTREE_NO_ADJACENCIES)
 	    && !LSP_PSEUDO_ID(id)) {
@@ -2181,21 +2255,51 @@ int _isis_spf_schedule(struct isis_area *area, int level,
 }
 
 static void isis_print_paths(struct vty *vty, struct isis_vertex_queue *queue,
+<<<<<<< HEAD
 			     uint8_t *root_sysid)
+=======
+			     uint8_t *root_sysid, struct json_object **json)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 {
 	struct listnode *node;
 	struct isis_vertex *vertex;
 	char buff[VID2STR_BUFFER];
+<<<<<<< HEAD
 
 	vty_out(vty,
 		"Vertex               Type         Metric Next-Hop             Interface Parent\n");
+=======
+	char vertex_name[VID2STR_BUFFER];
+	char vertex_typestr[VID2STR_BUFFER];
+	char vertex_interface[VID2STR_BUFFER];
+	char vertex_parent[VID2STR_BUFFER + 11];
+	char vertex_nexthop[VID2STR_BUFFER];
+	char vertex_metricstr[20];
+	struct ttable *tt;
+	char *table;
+
+	/* Prepare table. */
+	tt = ttable_new(&ttable_styles[TTSTYLE_BLANK]);
+	ttable_add_row(tt, "Vertex|Type|Metric|Next-Hop|Interface|Parent");
+	tt->style.cell.rpad = 2;
+	tt->style.corner = '+';
+	ttable_restyle(tt);
+	ttable_rowseps(tt, 0, BOTTOM, true, '-');
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	for (ALL_QUEUE_ELEMENTS_RO(queue, node, vertex)) {
 		if (VTYPE_IS(vertex->type)
 		    && memcmp(vertex->N.id, root_sysid, ISIS_SYS_ID_LEN) == 0) {
+<<<<<<< HEAD
 			vty_out(vty, "%-20s %-12s %-6s",
 				print_sys_hostname(root_sysid), "", "");
 			vty_out(vty, "%-30s\n", "");
+=======
+			/* display here */
+			ttable_add_row(tt, "%s|%s|%s|%s|%s|%s",
+				       print_sys_hostname(root_sysid), "", "",
+				       "", "", "");
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			continue;
 		}
 
@@ -2205,9 +2309,18 @@ static void isis_print_paths(struct vty *vty, struct isis_vertex_queue *queue,
 		struct isis_vertex_adj *vadj;
 		struct isis_vertex *pvertex;
 
+<<<<<<< HEAD
 		vty_out(vty, "%-20s %-12s %-6u ",
 			vid2string(vertex, buff, sizeof(buff)),
 			vtype2string(vertex->type), vertex->d_N);
+=======
+		snprintf(vertex_name, sizeof(vertex_name), "%s",
+			 vid2string(vertex, buff, sizeof(buff)));
+		snprintf(vertex_typestr, sizeof(vertex_typestr), "%s",
+			 vtype2string(vertex->type));
+		snprintf(vertex_metricstr, sizeof(vertex_metricstr), "%u",
+			 vertex->d_N);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		for (unsigned int i = 0;
 		     i < MAX(vertex->Adj_N ? listcount(vertex->Adj_N) : 0,
 			     vertex->parents ? listcount(vertex->parents) : 0);
@@ -2227,13 +2340,27 @@ static void isis_print_paths(struct vty *vty, struct isis_vertex_queue *queue,
 			}
 
 			if (rows) {
+<<<<<<< HEAD
 				vty_out(vty, "\n");
 				vty_out(vty, "%-20s %-12s %-6s ", "", "", "");
+=======
+				/* display here */
+				ttable_add_row(tt, "%s|%s|%s|%s|%s|%s",
+					       vertex_name, vertex_typestr,
+					       vertex_metricstr, vertex_nexthop,
+					       vertex_interface, vertex_parent);
+
+				/* store the first 3 elements */
+				vertex_name[0] = '\0';
+				vertex_typestr[0] = '\0';
+				vertex_metricstr[0] = '\0';
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			}
 
 			if (vadj) {
 				struct isis_spf_adj *sadj = vadj->sadj;
 
+<<<<<<< HEAD
 				vty_out(vty, "%-20s %-9s ",
 					print_sys_hostname(sadj->id),
 					sadj->adj ? sadj->adj->circuit
@@ -2248,15 +2375,55 @@ static void isis_print_paths(struct vty *vty, struct isis_vertex_queue *queue,
 				vty_out(vty, "%s(%d)",
 					vid2string(pvertex, buff, sizeof(buff)),
 					pvertex->type);
+=======
+				snprintf(vertex_nexthop, sizeof(vertex_nexthop),
+					 "%s", print_sys_hostname(sadj->id));
+				snprintf(vertex_interface,
+					 sizeof(vertex_interface), "%s",
+					 sadj->adj ? sadj->adj->circuit
+							     ->interface->name
+						   : "-");
+			}
+
+			if (pvertex) {
+				if (!vadj) {
+					vertex_nexthop[0] = '\0';
+					vertex_interface[0] = '\0';
+				}
+				snprintf(vertex_parent, sizeof(vertex_parent),
+					 "%s(%d)",
+					 vid2string(pvertex, buff, sizeof(buff)),
+					 pvertex->type);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			}
 
 			++rows;
 		}
+<<<<<<< HEAD
 		vty_out(vty, "\n");
 	}
 }
 
 void isis_print_spftree(struct vty *vty, struct isis_spftree *spftree)
+=======
+		ttable_add_row(tt, "%s|%s|%s|%s|%s|%s", vertex_name,
+			       vertex_typestr, vertex_metricstr, vertex_nexthop,
+			       vertex_interface, vertex_parent);
+	}
+	if (json == NULL) {
+		table = ttable_dump(tt, "\n");
+		vty_out(vty, "%s\n", table);
+		XFREE(MTYPE_TMP_TTABLE, table);
+	} else
+		*json = ttable_json_with_json_text(
+			tt, "ssdsss",
+			"vertex|type|metric|nextHop|interface|parent");
+	ttable_del(tt);
+}
+
+void isis_print_spftree(struct vty *vty, struct isis_spftree *spftree,
+			struct json_object **json)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 {
 	const char *tree_id_text = NULL;
 
@@ -2278,6 +2445,7 @@ void isis_print_spftree(struct vty *vty, struct isis_spftree *spftree)
 		return;
 	}
 
+<<<<<<< HEAD
 	vty_out(vty, "IS-IS paths to level-%d routers %s\n", spftree->level,
 		tree_id_text);
 	isis_print_paths(vty, &spftree->paths, spftree->sysid);
@@ -2286,6 +2454,20 @@ void isis_print_spftree(struct vty *vty, struct isis_spftree *spftree)
 
 static void show_isis_topology_common(struct vty *vty, int levels,
 				      struct isis *isis, uint8_t algo)
+=======
+	if (!json)
+		vty_out(vty, "IS-IS paths to level-%d routers %s\n",
+			spftree->level, tree_id_text);
+
+	isis_print_paths(vty, &spftree->paths, spftree->sysid, json);
+	if (!json)
+		vty_out(vty, "\n");
+}
+
+static void show_isis_topology_common(struct vty *vty, int levels,
+				      struct isis *isis, uint8_t algo,
+				      json_object **json)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 {
 #ifndef FABRICD
 	struct isis_flex_algo_data *fa_data;
@@ -2294,14 +2476,26 @@ static void show_isis_topology_common(struct vty *vty, int levels,
 	struct isis_spftree *spftree;
 	struct listnode *node;
 	struct isis_area *area;
+<<<<<<< HEAD
+=======
+	json_object *json_level = NULL, *jstr = NULL, *json_val;
+	char key[18];
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	if (!isis->area_list || isis->area_list->count == 0)
 		return;
 
+<<<<<<< HEAD
 	for (ALL_LIST_ELEMENTS_RO(isis->area_list, node, area)) {
 		vty_out(vty,
 			"Area %s:", area->area_tag ? area->area_tag : "null");
 
+=======
+	if (json)
+		*json = json_object_new_object();
+
+	for (ALL_LIST_ELEMENTS_RO(isis->area_list, node, area)) {
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 #ifndef FABRICD
 		/*
 		 * The shapes of the flex algo spftree 2-dimensional array
@@ -2316,18 +2510,52 @@ static void show_isis_topology_common(struct vty *vty, int levels,
 			fa_data = (struct isis_flex_algo_data *)fa->data;
 		} else
 			fa_data = NULL;
+<<<<<<< HEAD
 
 		if (algo != SR_ALGORITHM_SPF)
 			vty_out(vty, " Algorithm %hhu\n", algo);
 		else
 #endif /* ifndef FABRICD */
 			vty_out(vty, "\n");
+=======
+#endif /* ifndef FABRICD */
+
+		if (json) {
+			jstr = json_object_new_string(
+				area->area_tag ? area->area_tag : "null");
+			json_object_object_add(*json, "area", jstr);
+			json_object_int_add(*json, "algorithm", algo);
+		} else {
+			vty_out(vty, "Area %s:",
+				area->area_tag ? area->area_tag : "null");
+
+#ifndef FABRICD
+			if (algo != SR_ALGORITHM_SPF)
+				vty_out(vty, " Algorithm %hhu\n", algo);
+			else
+#endif /* ifndef FABRICD */
+				vty_out(vty, "\n");
+		}
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 		for (int level = ISIS_LEVEL1; level <= ISIS_LEVELS; level++) {
 			if ((level & levels) == 0)
 				continue;
 
+<<<<<<< HEAD
 			if (area->ip_circuits > 0) {
+=======
+			if (json) {
+				json_level = json_object_new_object();
+				jstr = json_object_new_string(
+					area->area_tag ? area->area_tag
+						       : "null");
+				json_object_object_add(json_level, "area", jstr);
+			}
+
+			if (area->ip_circuits > 0) {
+				json_val = NULL;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 #ifndef FABRICD
 				if (fa_data)
 					spftree = fa_data->spftree[SPFTREE_IPV4]
@@ -2337,9 +2565,22 @@ static void show_isis_topology_common(struct vty *vty, int levels,
 					spftree = area->spftree[SPFTREE_IPV4]
 							       [level - 1];
 
+<<<<<<< HEAD
 				isis_print_spftree(vty, spftree);
 			}
 			if (area->ipv6_circuits > 0) {
+=======
+				isis_print_spftree(vty, spftree,
+						   json ? &json_val : NULL);
+				if (json && json_val) {
+					json_object_object_add(json_level,
+							       "ipv4-paths",
+							       json_val);
+				}
+			}
+			if (area->ipv6_circuits > 0) {
+				json_val = NULL;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 #ifndef FABRICD
 				if (fa_data)
 					spftree = fa_data->spftree[SPFTREE_IPV6]
@@ -2348,9 +2589,22 @@ static void show_isis_topology_common(struct vty *vty, int levels,
 #endif /* ifndef FABRICD */
 					spftree = area->spftree[SPFTREE_IPV6]
 							       [level - 1];
+<<<<<<< HEAD
 				isis_print_spftree(vty, spftree);
 			}
 			if (isis_area_ipv6_dstsrc_enabled(area)) {
+=======
+				isis_print_spftree(vty, spftree,
+						   json ? &json_val : NULL);
+				if (json && json_val) {
+					json_object_object_add(json_level,
+							       "ipv6-paths",
+							       json_val);
+				}
+			}
+			if (isis_area_ipv6_dstsrc_enabled(area)) {
+				json_val = NULL;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 #ifndef FABRICD
 				if (fa_data)
 					spftree =
@@ -2360,11 +2614,26 @@ static void show_isis_topology_common(struct vty *vty, int levels,
 #endif /* ifndef FABRICD */
 					spftree = area->spftree[SPFTREE_DSTSRC]
 							       [level - 1];
+<<<<<<< HEAD
 				isis_print_spftree(vty, spftree);
+=======
+				isis_print_spftree(vty, spftree,
+						   json ? &json_val : NULL);
+				if (json && json_val) {
+					json_object_object_add(json_level,
+							       "ipv6-dstsrc-paths",
+							       json_val);
+				}
+			}
+			if (json) {
+				snprintf(key, sizeof(key), "level-%d", level);
+				json_object_object_add(*json, key, json_level);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			}
 		}
 
 		if (fabricd_spftree(area)) {
+<<<<<<< HEAD
 			vty_out(vty,
 				"IS-IS paths to level-2 routers with hop-by-hop metric\n");
 			isis_print_paths(vty, &fabricd_spftree(area)->paths, isis->sysid);
@@ -2372,6 +2641,23 @@ static void show_isis_topology_common(struct vty *vty, int levels,
 		}
 
 		vty_out(vty, "\n");
+=======
+			json_val = NULL;
+
+			vty_out(vty,
+				"IS-IS paths to level-2 routers with hop-by-hop metric\n");
+			isis_print_paths(vty, &fabricd_spftree(area)->paths,
+					 isis->sysid, json ? &json_val : NULL);
+			if (json && json_val)
+				json_object_object_add(json_level,
+						       "fabricd-paths",
+						       json_val);
+			else
+				vty_out(vty, "\n");
+		}
+		if (!json)
+			vty_out(vty, "\n");
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	}
 }
 
@@ -2380,8 +2666,14 @@ DEFUN(show_isis_topology, show_isis_topology_cmd,
       " [vrf <NAME|all>] topology"
 #ifndef FABRICD
       " [<level-1|level-2>]"
+<<<<<<< HEAD
       " [algorithm (128-255)]"
 #endif /* ifndef FABRICD */
+=======
+      " [algorithm [(128-255)]]"
+#endif /* ifndef FABRICD */
+      " [json$uj]"
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
       ,
       SHOW_STR PROTO_HELP VRF_CMD_HELP_STR
       "All VRFs\n"
@@ -2392,6 +2684,10 @@ DEFUN(show_isis_topology, show_isis_topology_cmd,
       "Show Flex-algo routes\n"
       "Algorithm number\n"
 #endif /* ifndef FABRICD */
+<<<<<<< HEAD
+=======
+      JSON_STR
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 )
 {
 	int levels = ISIS_LEVELS;
@@ -2399,8 +2695,17 @@ DEFUN(show_isis_topology, show_isis_topology_cmd,
 	struct isis *isis = NULL;
 	const char *vrf_name = VRF_DEFAULT_NAME;
 	bool all_vrf = false;
+<<<<<<< HEAD
 	int idx_vrf = 0;
 	uint8_t algorithm = SR_ALGORITHM_SPF;
+=======
+	bool all_algorithm = false;
+	int idx_vrf = 0;
+	uint16_t algorithm = SR_ALGORITHM_SPF;
+	bool uj = use_json(argc, argv);
+	json_object *json = NULL, *json_vrf = NULL;
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 #ifndef FABRICD
 	int idx = 0;
 
@@ -2409,8 +2714,17 @@ DEFUN(show_isis_topology, show_isis_topology_cmd,
 		levels = ISIS_LEVEL1;
 	if (argv_find(argv, argc, "level-2", &idx))
 		levels = ISIS_LEVEL2;
+<<<<<<< HEAD
 	if (argv_find(argv, argc, "algorithm", &idx))
 		algorithm = (uint8_t)strtoul(argv[idx + 1]->arg, NULL, 10);
+=======
+	if (argv_find(argv, argc, "algorithm", &idx)) {
+		if (argv_find(argv, argc, "(128-255)", &idx))
+			algorithm = (uint16_t)strtoul(argv[idx]->arg, NULL, 10);
+		else
+			all_algorithm = true;
+	}
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 #endif /* ifndef FABRICD */
 
 	if (!im) {
@@ -2419,6 +2733,7 @@ DEFUN(show_isis_topology, show_isis_topology_cmd,
 	}
 	ISIS_FIND_VRF_ARGS(argv, argc, idx_vrf, vrf_name, all_vrf);
 
+<<<<<<< HEAD
 	if (vrf_name) {
 		if (all_vrf) {
 			for (ALL_LIST_ELEMENTS_RO(im->isis, node, isis))
@@ -2429,6 +2744,60 @@ DEFUN(show_isis_topology, show_isis_topology_cmd,
 		isis = isis_lookup_by_vrfname(vrf_name);
 		if (isis != NULL)
 			show_isis_topology_common(vty, levels, isis, algorithm);
+=======
+	if (uj)
+		json = json_object_new_array();
+
+	if (all_vrf) {
+		for (ALL_LIST_ELEMENTS_RO(im->isis, node, isis)) {
+			if (all_algorithm) {
+				for (algorithm = SR_ALGORITHM_FLEX_MIN;
+				     algorithm <= SR_ALGORITHM_FLEX_MAX;
+				     algorithm++)
+					show_isis_topology_common(vty, levels,
+								  isis,
+								  (uint8_t)algorithm,
+								  uj ? &json_vrf
+								     : NULL);
+			} else {
+				show_isis_topology_common(vty, levels, isis,
+							  (uint8_t)algorithm,
+							  uj ? &json_vrf : NULL);
+			}
+			if (uj) {
+				json_object_object_add(json_vrf, "vrf_id",
+						       json_object_new_int(
+							       isis->vrf_id));
+				json_object_array_add(json, json_vrf);
+			}
+		}
+		goto out;
+	}
+	isis = isis_lookup_by_vrfname(vrf_name);
+	if (isis == NULL)
+		return CMD_SUCCESS;
+	if (all_algorithm) {
+		for (algorithm = SR_ALGORITHM_FLEX_MIN;
+		     algorithm <= SR_ALGORITHM_FLEX_MAX; algorithm++) {
+			show_isis_topology_common(vty, levels, isis,
+						  (uint8_t)algorithm,
+						  uj ? &json_vrf : NULL);
+		}
+	} else
+		show_isis_topology_common(vty, levels, isis, (uint8_t)algorithm,
+					  uj ? &json_vrf : NULL);
+	if (uj) {
+		json_object_object_add(json_vrf, "vrf_id",
+				       json_object_new_int(isis->vrf_id));
+		json_object_array_add(json, json_vrf);
+	}
+out:
+	if (uj) {
+		vty_out(vty, "%s\n",
+			json_object_to_json_string_ext(json,
+						       JSON_C_TO_STRING_PRETTY));
+		json_object_free(json);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	}
 
 	return CMD_SUCCESS;
@@ -2602,6 +2971,7 @@ DEFUN(show_isis_flex_algo, show_isis_flex_algo_cmd,
 
 	ISIS_FIND_VRF_ARGS(argv, argc, idx_vrf, vrf_name, all_vrf);
 
+<<<<<<< HEAD
 	if (vrf_name) {
 		if (all_vrf) {
 			for (ALL_LIST_ELEMENTS_RO(im->isis, node, isis))
@@ -2613,6 +2983,16 @@ DEFUN(show_isis_flex_algo, show_isis_flex_algo_cmd,
 		if (isis != NULL)
 			show_isis_flex_algo_common(vty, isis, flex_algo);
 	}
+=======
+	if (all_vrf) {
+		for (ALL_LIST_ELEMENTS_RO(im->isis, node, isis))
+			show_isis_flex_algo_common(vty, isis, flex_algo);
+		return CMD_SUCCESS;
+	}
+	isis = isis_lookup_by_vrfname(vrf_name);
+	if (isis != NULL)
+		show_isis_flex_algo_common(vty, isis, flex_algo);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	return CMD_SUCCESS;
 }
@@ -2818,9 +3198,19 @@ void isis_print_routes(struct vty *vty, struct isis_spftree *spftree,
 
 		table = ttable_dump(tt, "\n");
 		vty_out(vty, "%s\n", table);
+<<<<<<< HEAD
 		XFREE(MTYPE_TMP, table);
 	} else if (json) {
 		*json = ttable_json(tt, prefix_sid ? "sdssdsdd" : "sdsss");
+=======
+		XFREE(MTYPE_TMP_TTABLE, table);
+	} else if (json) {
+		*json = ttable_json_with_json_text(
+			tt, prefix_sid ? "sdssdsdd" : "sdsss",
+			prefix_sid
+				? "prefix|metric|interface|nextHop|segmentIdentifier|labelOperation|Algorithm"
+				: "prefix|metric|interface|nextHop|label(s)");
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	}
 	ttable_del(tt);
 }
@@ -2838,7 +3228,11 @@ static void show_isis_route_common(struct vty *vty, int levels,
 	struct isis_spftree *spftree;
 	struct listnode *node;
 	struct isis_area *area;
+<<<<<<< HEAD
 	char key[8];
+=======
+	char key[18];
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	if (!isis->area_list || isis->area_list->count == 0)
 		return;
@@ -2868,6 +3262,10 @@ static void show_isis_route_common(struct vty *vty, int levels,
 			jstr = json_object_new_string(
 				area->area_tag ? area->area_tag : "null");
 			json_object_object_add(*json, "area", jstr);
+<<<<<<< HEAD
+=======
+			json_object_int_add(*json, "algorithm", algo);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		} else {
 			vty_out(vty, "Area %s:",
 				area->area_tag ? area->area_tag : "null");
@@ -2903,8 +3301,19 @@ static void show_isis_route_common(struct vty *vty, int levels,
 					spftree = area->spftree[SPFTREE_IPV4]
 							       [level - 1];
 
+<<<<<<< HEAD
 				if (!json)
 					isis_print_spftree(vty, spftree);
+=======
+				isis_print_spftree(vty, spftree,
+						   json ? &json_val : NULL);
+				if (json && json_val) {
+					json_object_object_add(json_level,
+							       "ipv4-paths",
+							       json_val);
+					json_val = NULL;
+				}
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 				isis_print_routes(vty, spftree,
 						  json ? &json_val : NULL,
@@ -2925,8 +3334,19 @@ static void show_isis_route_common(struct vty *vty, int levels,
 					spftree = area->spftree[SPFTREE_IPV6]
 							       [level - 1];
 
+<<<<<<< HEAD
 				if (!json)
 					isis_print_spftree(vty, spftree);
+=======
+				isis_print_spftree(vty, spftree,
+						   json ? &json_val : NULL);
+				if (json && json_val) {
+					json_object_object_add(json_level,
+							       "ipv6-paths",
+							       json_val);
+					json_val = NULL;
+				}
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 				isis_print_routes(vty, spftree,
 						  json ? &json_val : NULL,
@@ -2948,8 +3368,19 @@ static void show_isis_route_common(struct vty *vty, int levels,
 					spftree = area->spftree[SPFTREE_DSTSRC]
 							       [level - 1];
 
+<<<<<<< HEAD
 				if (!json)
 					isis_print_spftree(vty, spftree);
+=======
+				isis_print_spftree(vty, spftree,
+						   json ? &json_val : NULL);
+				if (json && json_val) {
+					json_object_object_add(json_level,
+							       "ipv6-dstsrc-paths",
+							       json_val);
+					json_val = NULL;
+				}
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 				isis_print_routes(vty, spftree,
 						  json ? &json_val : NULL,
 						  prefix_sid, backup);
@@ -2967,15 +3398,57 @@ static void show_isis_route_common(struct vty *vty, int levels,
 	}
 }
 
+<<<<<<< HEAD
+=======
+static void show_isis_route_all_algos(struct vty *vty, int levels,
+				      struct isis *isis, bool prefix_sid,
+				      bool backup, json_object **json)
+{
+	uint16_t algo;
+
+	json_object *json_algo = NULL, *json_algos = NULL;
+
+	if (json) {
+		*json = json_object_new_object();
+		json_algos = json_object_new_array();
+	}
+
+	for (algo = SR_ALGORITHM_FLEX_MIN; algo <= SR_ALGORITHM_FLEX_MAX;
+	     algo++) {
+		show_isis_route_common(vty, levels, isis, prefix_sid, backup,
+				       (uint8_t)algo, json ? &json_algo : NULL);
+		if (!json)
+			continue;
+		if (json_object_object_length(json_algo) == 0) {
+			json_object_free(json_algo);
+			continue;
+		}
+		json_object_object_add(json_algo, "algorithm",
+				       json_object_new_int(algo));
+		json_object_array_add(json_algos, json_algo);
+	}
+
+	if (json)
+		json_object_object_add(*json, "algorithms", json_algos);
+}
+
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 DEFUN(show_isis_route, show_isis_route_cmd,
       "show " PROTO_NAME
       " [vrf <NAME|all>] route"
 #ifndef FABRICD
       " [<level-1|level-2>]"
 #endif /* ifndef FABRICD */
+<<<<<<< HEAD
       " [<prefix-sid|backup>]"
 #ifndef FABRICD
       " [algorithm (128-255)]"
+=======
+      " [prefix-sid] [backup]"
+#ifndef FABRICD
+      " [algorithm [(128-255)]]"
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 #endif /* ifndef FABRICD */
       " [json$uj]",
       SHOW_STR PROTO_HELP VRF_FULL_CMD_HELP_STR
@@ -2997,6 +3470,10 @@ DEFUN(show_isis_route, show_isis_route_cmd,
 	struct listnode *node;
 	const char *vrf_name = VRF_DEFAULT_NAME;
 	bool all_vrf = false;
+<<<<<<< HEAD
+=======
+	bool all_algorithm = false;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	bool prefix_sid = false;
 	bool backup = false;
 	bool uj = use_json(argc, argv);
@@ -3004,6 +3481,10 @@ DEFUN(show_isis_route, show_isis_route_cmd,
 	json_object *json = NULL, *json_vrf = NULL;
 	uint8_t algorithm = SR_ALGORITHM_SPF;
 
+<<<<<<< HEAD
+=======
+	ISIS_FIND_VRF_ARGS(argv, argc, idx, vrf_name, all_vrf);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	if (argv_find(argv, argc, "level-1", &idx))
 		levels = ISIS_LEVEL1;
 	else if (argv_find(argv, argc, "level-2", &idx))
@@ -3015,7 +3496,10 @@ DEFUN(show_isis_route, show_isis_route_cmd,
 		vty_out(vty, "IS-IS Routing Process not enabled\n");
 		return CMD_SUCCESS;
 	}
+<<<<<<< HEAD
 	ISIS_FIND_VRF_ARGS(argv, argc, idx, vrf_name, all_vrf);
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	if (argv_find(argv, argc, "prefix-sid", &idx))
 		prefix_sid = true;
@@ -3023,13 +3507,23 @@ DEFUN(show_isis_route, show_isis_route_cmd,
 		backup = true;
 
 #ifndef FABRICD
+<<<<<<< HEAD
 	if (argv_find(argv, argc, "algorithm", &idx))
 		algorithm = (uint8_t)strtoul(argv[idx + 1]->arg, NULL, 10);
+=======
+	if (argv_find(argv, argc, "algorithm", &idx)) {
+		if (argv_find(argv, argc, "(128-255)", &idx))
+			algorithm = (uint8_t)strtoul(argv[idx]->arg, NULL, 10);
+		else
+			all_algorithm = true;
+	}
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 #endif /* ifndef FABRICD */
 
 	if (uj)
 		json = json_object_new_array();
 
+<<<<<<< HEAD
 	if (vrf_name) {
 		if (all_vrf) {
 			for (ALL_LIST_ELEMENTS_RO(im->isis, node, isis)) {
@@ -3057,6 +3551,41 @@ DEFUN(show_isis_route, show_isis_route_cmd,
 					json_object_new_int(isis->vrf_id));
 				json_object_array_add(json, json_vrf);
 			}
+=======
+	if (all_vrf) {
+		for (ALL_LIST_ELEMENTS_RO(im->isis, node, isis)) {
+			if (all_algorithm)
+				show_isis_route_all_algos(vty, levels, isis,
+							  prefix_sid, backup,
+							  uj ? &json_vrf : NULL);
+			else
+				show_isis_route_common(vty, levels, isis,
+						       prefix_sid, backup,
+						       algorithm,
+						       uj ? &json_vrf : NULL);
+			if (uj) {
+				json_object_object_add(json_vrf, "vrf_id",
+						       json_object_new_int(
+							       isis->vrf_id));
+				json_object_array_add(json, json_vrf);
+			}
+		}
+		goto out;
+	}
+	isis = isis_lookup_by_vrfname(vrf_name);
+	if (isis != NULL) {
+		if (all_algorithm)
+			show_isis_route_all_algos(vty, levels, isis, prefix_sid,
+						  backup, uj ? &json_vrf : NULL);
+		else
+			show_isis_route_common(vty, levels, isis, prefix_sid,
+					       backup, algorithm,
+					       uj ? &json_vrf : NULL);
+		if (uj) {
+			json_object_object_add(json_vrf, "vrf_id",
+					       json_object_new_int(isis->vrf_id));
+			json_object_array_add(json, json_vrf);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		}
 	}
 
@@ -3193,7 +3722,11 @@ static void isis_print_frr_summary(struct vty *vty,
 	/* Dump the generated table. */
 	table = ttable_dump(tt, "\n");
 	vty_out(vty, "%s\n", table);
+<<<<<<< HEAD
 	XFREE(MTYPE_TMP, table);
+=======
+	XFREE(MTYPE_TMP_TTABLE, table);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	ttable_del(tt);
 }
 
@@ -3256,6 +3789,10 @@ DEFUN(show_isis_frr_summary, show_isis_frr_summary_cmd,
 	bool all_vrf = false;
 	int idx = 0;
 
+<<<<<<< HEAD
+=======
+	ISIS_FIND_VRF_ARGS(argv, argc, idx, vrf_name, all_vrf);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	if (argv_find(argv, argc, "level-1", &idx))
 		levels = ISIS_LEVEL1;
 	else if (argv_find(argv, argc, "level-2", &idx))
@@ -3267,6 +3804,7 @@ DEFUN(show_isis_frr_summary, show_isis_frr_summary_cmd,
 		vty_out(vty, "IS-IS Routing Process not enabled\n");
 		return CMD_SUCCESS;
 	}
+<<<<<<< HEAD
 	ISIS_FIND_VRF_ARGS(argv, argc, idx, vrf_name, all_vrf);
 
 	if (vrf_name) {
@@ -3279,6 +3817,17 @@ DEFUN(show_isis_frr_summary, show_isis_frr_summary_cmd,
 		if (isis != NULL)
 			show_isis_frr_summary_common(vty, levels, isis);
 	}
+=======
+
+	if (all_vrf) {
+		for (ALL_LIST_ELEMENTS_RO(im->isis, node, isis))
+			show_isis_frr_summary_common(vty, levels, isis);
+		return CMD_SUCCESS;
+	}
+	isis = isis_lookup_by_vrfname(vrf_name);
+	if (isis != NULL)
+		show_isis_frr_summary_common(vty, levels, isis);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	return CMD_SUCCESS;
 }

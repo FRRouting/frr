@@ -46,7 +46,11 @@ struct zebra_pbr_rule {
 
 	struct pbr_rule rule;
 
+<<<<<<< HEAD
 	char ifname[INTERFACE_NAMSIZ];
+=======
+	char ifname[IFNAMSIZ];
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	struct zebra_pbr_action action;
 
@@ -61,8 +65,11 @@ struct zebra_pbr_rule {
 	(r->rule.filter.filter_bm & PBR_FILTER_SRC_PORT)
 #define IS_RULE_FILTERING_ON_DST_PORT(r) \
 	(r->rule.filter.filter_bm & PBR_FILTER_DST_PORT)
+<<<<<<< HEAD
 #define IS_RULE_FILTERING_ON_DSFIELD(r) \
 	(r->rule.filter.filter_bm & PBR_FILTER_DSFIELD)
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 #define IS_RULE_FILTERING_ON_FWMARK(r) \
 	(r->rule.filter.filter_bm & PBR_FILTER_FWMARK)
 

@@ -261,7 +261,11 @@ int evpn_type5_prefix_match(const struct prefix *n, const struct prefix *p)
 		return 0;
 
 	prefixlen = evp->prefix.prefix_addr.ip_prefix_length;
+<<<<<<< HEAD
 	np = &evp->prefix.prefix_addr.ip.ip.addr;
+=======
+	np = evp->prefix.prefix_addr.ip.ip.addrbytes;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	/* If n's prefix is longer than p's one return 0. */
 	if (prefixlen > p->prefixlen)
@@ -355,6 +359,44 @@ void prefix_copy(union prefixptr udest, union prefixconstptr usrc)
 	}
 }
 
+<<<<<<< HEAD
+=======
+bool evpn_addr_same(const struct evpn_addr *e1, const struct evpn_addr *e2)
+{
+	if (e1->route_type != e2->route_type)
+		return false;
+	if (e1->route_type == BGP_EVPN_AD_ROUTE)
+		return (!memcmp(&e1->ead_addr.esi.val,
+				&e2->ead_addr.esi.val, ESI_BYTES) &&
+			e1->ead_addr.eth_tag == e2->ead_addr.eth_tag &&
+			!ipaddr_cmp(&e1->ead_addr.ip, &e2->ead_addr.ip));
+	if (e1->route_type == BGP_EVPN_MAC_IP_ROUTE)
+		return (e1->macip_addr.eth_tag == e2->macip_addr.eth_tag &&
+			e1->macip_addr.ip_prefix_length
+				== e2->macip_addr.ip_prefix_length &&
+			!memcmp(&e1->macip_addr.mac,
+				&e2->macip_addr.mac, ETH_ALEN) &&
+			!ipaddr_cmp(&e1->macip_addr.ip, &e2->macip_addr.ip));
+	if (e1->route_type == BGP_EVPN_IMET_ROUTE)
+		return (e1->imet_addr.eth_tag == e2->imet_addr.eth_tag &&
+			e1->imet_addr.ip_prefix_length
+				== e2->imet_addr.ip_prefix_length &&
+			!ipaddr_cmp(&e1->imet_addr.ip, &e2->imet_addr.ip));
+	if (e1->route_type == BGP_EVPN_ES_ROUTE)
+		return (!memcmp(&e1->es_addr.esi.val,
+				&e2->es_addr.esi.val, ESI_BYTES) &&
+			e1->es_addr.ip_prefix_length
+				== e2->es_addr.ip_prefix_length &&
+			!ipaddr_cmp(&e1->es_addr.ip, &e2->es_addr.ip));
+	if (e1->route_type == BGP_EVPN_IP_PREFIX_ROUTE)
+		return (e1->prefix_addr.eth_tag == e2->prefix_addr.eth_tag &&
+			e1->prefix_addr.ip_prefix_length
+				== e2->prefix_addr.ip_prefix_length &&
+			!ipaddr_cmp(&e1->prefix_addr.ip, &e2->prefix_addr.ip));
+	return true;
+}
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 /*
  * Return 1 if the address/netmask contained in the prefix structure
  * is the same, and else return 0.  For this routine, 'same' requires
@@ -387,8 +429,12 @@ int prefix_same(union prefixconstptr up1, union prefixconstptr up2)
 				    sizeof(struct ethaddr)))
 				return 1;
 		if (p1->family == AF_EVPN)
+<<<<<<< HEAD
 			if (!memcmp(&p1->u.prefix_evpn, &p2->u.prefix_evpn,
 				    sizeof(struct evpn_addr)))
+=======
+			if (evpn_addr_same(&p1->u.prefix_evpn, &p2->u.prefix_evpn))
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 				return 1;
 		if (p1->family == AF_FLOWSPEC) {
 			if (p1->u.prefix_flowspec.family !=
@@ -1090,6 +1136,18 @@ const char *prefix2str(union prefixconstptr pu, char *str, int size)
 	return str;
 }
 
+<<<<<<< HEAD
+=======
+void prefix_mcast_ip_dump(const char *onfail, const struct ipaddr *addr,
+			  char *buf, int buf_size)
+{
+	if (ipaddr_is_zero(addr))
+		strlcpy(buf, "*", buf_size);
+	else
+		(void)snprintfrr(buf, buf_size, "%pIA", addr);
+}
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 static ssize_t prefixhost2str(struct fbuf *fbuf, union prefixconstptr pu)
 {
 	const struct prefix *p = pu.p;
@@ -1132,7 +1190,11 @@ const char *prefix_sg2str(const struct prefix_sg *sg, char *sg_str)
 	char src_str[INET_ADDRSTRLEN];
 	char grp_str[INET_ADDRSTRLEN];
 
+<<<<<<< HEAD
 	prefix_mcast_inet4_dump("<src?>", sg->src, src_str, sizeof(src_str));
+=======
+	prefix_mcast_ip_dump("<src?>", &sg->src, src_str, sizeof(src_str));
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	prefix_mcast_inet4_dump("<grp?>", sg->grp, grp_str, sizeof(grp_str));
 	snprintf(sg_str, PREFIX_SG_STR_LEN, "(%s,%s)", src_str, grp_str);
 
@@ -1603,10 +1665,17 @@ static ssize_t printfrr_psg(struct fbuf *buf, struct printfrr_eargs *ea,
 	if (!sg)
 		return bputs(buf, "(null)");
 
+<<<<<<< HEAD
 	if (sg->src.s_addr == INADDR_ANY)
 		ret += bputs(buf, "(*,");
 	else
 		ret += bprintfrr(buf, "(%pI4,", &sg->src);
+=======
+	if (ipaddr_is_zero(&sg->src))
+		ret += bputs(buf, "(*,");
+	else
+		ret += bprintfrr(buf, "(%pIA,", &sg->src);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	if (sg->grp.s_addr == INADDR_ANY)
 		ret += bputs(buf, "*)");

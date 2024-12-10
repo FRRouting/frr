@@ -42,8 +42,16 @@ static void recv_join(struct interface *ifp, struct pim_neighbor *neigh,
 		      uint8_t source_flags)
 {
 	struct pim_interface *pim_ifp = NULL;
+<<<<<<< HEAD
 
 	if (PIM_DEBUG_PIM_TRACE)
+=======
+#if PIM_IPV == 6
+	pim_addr embedded_rp;
+#endif /* PIM_IPV == 6 */
+
+	if (PIM_DEBUG_PIM_J_P)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		zlog_debug(
 			"%s: join (S,G)=%pSG rpt=%d wc=%d upstream=%pPAs holdtime=%d from %pPA on %s",
 			__func__, sg, !!(source_flags & PIM_RPT_BIT_MASK),
@@ -53,6 +61,15 @@ static void recv_join(struct interface *ifp, struct pim_neighbor *neigh,
 	pim_ifp = ifp->info;
 	assert(pim_ifp);
 
+<<<<<<< HEAD
+=======
+#if PIM_IPV == 6
+	if (pim_ifp->pim->embedded_rp.enable && pim_embedded_rp_extract(&sg->grp, &embedded_rp) &&
+	    !pim_embedded_rp_filter_match(pim_ifp->pim, &sg->grp))
+		pim_embedded_rp_new(pim_ifp->pim, &sg->grp, &embedded_rp);
+#endif /* PIM_IPV == 6 */
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	++pim_ifp->pim_ifstat_join_recv;
 
 	/*
@@ -115,7 +132,11 @@ static void recv_prune(struct interface *ifp, struct pim_neighbor *neigh,
 {
 	struct pim_interface *pim_ifp = NULL;
 
+<<<<<<< HEAD
 	if (PIM_DEBUG_PIM_TRACE)
+=======
+	if (PIM_DEBUG_PIM_J_P)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		zlog_debug(
 			"%s: prune (S,G)=%pSG rpt=%d wc=%d upstream=%pPAs holdtime=%d from %pPA on %s",
 			__func__, sg, source_flags & PIM_RPT_BIT_MASK,
@@ -147,7 +168,11 @@ static void recv_prune(struct interface *ifp, struct pim_neighbor *neigh,
 		 * Received Prune(*,G) messages are processed even if the
 		 * RP in the message does not match RP(G).
 		 */
+<<<<<<< HEAD
 		if (PIM_DEBUG_PIM_TRACE)
+=======
+		if (PIM_DEBUG_PIM_J_P)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			zlog_debug("%s: Prune received with RP(%pPAs) for %pSG",
 				   __func__, &sg->src, sg);
 
@@ -236,7 +261,11 @@ int pim_joinprune_recv(struct interface *ifp, struct pim_neighbor *neigh,
 		uint16_t msg_num_pruned_sources;
 		int source;
 		struct pim_ifchannel *starg_ch = NULL, *sg_ch = NULL;
+<<<<<<< HEAD
 		bool filtered = false;
+=======
+		bool group_filtered = false;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 		memset(&sg, 0, sizeof(sg));
 		addr_offset = pim_parse_addr_group(&sg, buf, pastend - buf);
@@ -266,7 +295,11 @@ int pim_joinprune_recv(struct interface *ifp, struct pim_neighbor *neigh,
 				&src_addr, ifp->name);
 
 		/* boundary check */
+<<<<<<< HEAD
 		filtered = pim_is_group_filtered(pim_ifp, &sg.grp);
+=======
+		group_filtered = pim_is_group_filtered(pim_ifp, &sg.grp, NULL);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 		/* Scan joined sources */
 		for (source = 0; source < msg_num_joined_sources; ++source) {
@@ -278,8 +311,13 @@ int pim_joinprune_recv(struct interface *ifp, struct pim_neighbor *neigh,
 
 			buf += addr_offset;
 
+<<<<<<< HEAD
 			/* if we are filtering this group, skip the join */
 			if (filtered)
+=======
+			/* if we are filtering this group or (S,G), skip the join */
+			if (group_filtered || pim_is_group_filtered(pim_ifp, &sg.grp, &sg.src))
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 				continue;
 
 			recv_join(ifp, neigh, msg_holdtime, msg_upstream_addr,
@@ -303,10 +341,13 @@ int pim_joinprune_recv(struct interface *ifp, struct pim_neighbor *neigh,
 
 			buf += addr_offset;
 
+<<<<<<< HEAD
 			/* if we are filtering this group, skip the prune */
 			if (filtered)
 				continue;
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			recv_prune(ifp, neigh, msg_holdtime, msg_upstream_addr,
 				   &sg, msg_source_flags);
 			/*
@@ -352,7 +393,11 @@ int pim_joinprune_recv(struct interface *ifp, struct pim_neighbor *neigh,
 				}
 			}
 		}
+<<<<<<< HEAD
 		if (starg_ch && !filtered)
+=======
+		if (starg_ch && !group_filtered)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			pim_ifchannel_set_star_g_join_state(starg_ch, 1, 0);
 		starg_ch = NULL;
 	} /* scan groups */

@@ -24,8 +24,12 @@ sys.path.append(os.path.join(CWD, "../"))
 
 # pylint: disable=C0413
 from lib import topotest
+<<<<<<< HEAD
 from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
+=======
+from lib.topogen import Topogen, TopoRouter
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 pytestmark = [pytest.mark.bgpd]
 
@@ -38,7 +42,11 @@ def tgen(request):
     tgen = Topogen(topodef, request.module.__name__)
     tgen.start_topology()
     router_list = tgen.routers()
+<<<<<<< HEAD
     for rname, router in router_list.items():
+=======
+    for _, router in router_list.items():
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         router.load_config(TopoRouter.RD_ZEBRA, "zebra.conf")
         router.load_config(TopoRouter.RD_BGP, "bgpd.conf")
     tgen.start_router()
@@ -82,9 +90,13 @@ def test_correct_pair(tgen):
     check_r2_established = functools.partial(
         check_session_established, router, neighbor_ip
     )
+<<<<<<< HEAD
     success, result = topotest.run_and_expect(
         check_r2_established, True, count=20, wait=3
     )
+=======
+    success, _ = topotest.run_and_expect(check_r2_established, True, count=20, wait=3)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     assert success, "Session with r2 is not Established"
 
     neighbor_status = find_neighbor_status(router, neighbor_ip)
@@ -100,7 +112,11 @@ def test_role_pair_mismatch(tgen):
     router = tgen.gears["r3"]
     neighbor_ip = "192.168.3.1"
     check_r3_mismatch = functools.partial(check_role_mismatch, router, neighbor_ip)
+<<<<<<< HEAD
     success, result = topotest.run_and_expect(check_r3_mismatch, True, count=20, wait=3)
+=======
+    success, _ = topotest.run_and_expect(check_r3_mismatch, True, count=20, wait=3)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     assert success, "Session between r1 and r3 was not correctly closed"
 
 
@@ -111,9 +127,13 @@ def test_single_role_advertising(tgen):
     check_r4_established = functools.partial(
         check_session_established, router, neighbor_ip
     )
+<<<<<<< HEAD
     success, result = topotest.run_and_expect(
         check_r4_established, True, count=20, wait=3
     )
+=======
+    success, _ = topotest.run_and_expect(check_r4_established, True, count=20, wait=3)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     assert success, "Session with r4 is not Established"
 
     neighbor_status = find_neighbor_status(router, neighbor_ip)
@@ -129,9 +149,13 @@ def test_single_role_receiving(tgen):
     check_r1_established = functools.partial(
         check_session_established, router, neighbor_ip
     )
+<<<<<<< HEAD
     success, result = topotest.run_and_expect(
         check_r1_established, True, count=20, wait=3
     )
+=======
+    success, _ = topotest.run_and_expect(check_r1_established, True, count=20, wait=3)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     assert success, "Session with r1 is not Established"
 
     neighbor_status = find_neighbor_status(router, neighbor_ip)
@@ -145,7 +169,11 @@ def test_role_strict_mode(tgen):
     router = tgen.gears["r5"]
     neighbor_ip = "192.168.5.1"
     check_r5_mismatch = functools.partial(check_role_mismatch, router, neighbor_ip)
+<<<<<<< HEAD
     success, result = topotest.run_and_expect(check_r5_mismatch, True, count=20, wait=3)
+=======
+    success, _ = topotest.run_and_expect(check_r5_mismatch, True, count=20, wait=3)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     assert success, "Session between r1 and r5 was not correctly closed"
 
 

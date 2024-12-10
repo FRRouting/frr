@@ -14,6 +14,11 @@
 #include "log.h"
 #include "vrf.h"
 #include "bfd.h"
+<<<<<<< HEAD
+=======
+#include "frrdistance.h"
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 #include "ripd/ripd.h"
 #include "ripd/rip_debug.h"
 #include "ripd/rip_interface.h"
@@ -222,7 +227,10 @@ static void rip_zebra_connected(struct zclient *zclient)
 zclient_handler *const rip_handlers[] = {
 	[ZEBRA_INTERFACE_ADDRESS_ADD] = rip_interface_address_add,
 	[ZEBRA_INTERFACE_ADDRESS_DELETE] = rip_interface_address_delete,
+<<<<<<< HEAD
 	[ZEBRA_INTERFACE_VRF_UPDATE] = rip_interface_vrf_update,
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	[ZEBRA_REDISTRIBUTE_ROUTE_ADD] = rip_zebra_read_route,
 	[ZEBRA_REDISTRIBUTE_ROUTE_DEL] = rip_zebra_read_route,
 };

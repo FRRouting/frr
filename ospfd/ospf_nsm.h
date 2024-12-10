@@ -49,7 +49,11 @@
 
 /* Macro for OSPF NSM execute event. */
 #define OSPF_NSM_EVENT_EXECUTE(N, E)                                           \
+<<<<<<< HEAD
 	event_execute(master, ospf_nsm_event, (N), (E))
+=======
+	event_execute(master, ospf_nsm_event, (N), (E), NULL)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 /* Prototypes. */
 extern void ospf_nsm_event(struct event *e);

@@ -110,7 +110,12 @@ ospf_external_info_add(struct ospf *ospf, uint8_t type, unsigned short instance,
 		new = rn->info;
 		if ((new->ifindex == ifindex)
 		    && (new->nexthop.s_addr == nexthop.s_addr)
+<<<<<<< HEAD
 		    && (new->tag == tag)) {
+=======
+		    && (new->tag == tag)
+		    && (new->metric == metric)) {
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			route_unlock_node(rn);
 			return NULL; /* NULL => no LSA to refresh */
 		}
@@ -167,6 +172,41 @@ void ospf_external_info_delete(struct ospf *ospf, uint8_t type,
 	}
 }
 
+<<<<<<< HEAD
+=======
+/*
+ * ospf_external_info_delete_multi_instance
+ *
+ * Delete instances of the external route information for a given route type.
+ * The preserve_instance parameter may be used to prevent the current instance
+ * from being deleted.
+ */
+void ospf_external_info_delete_multi_instance(struct ospf *ospf, uint8_t type, struct prefix_ipv4 p,
+					      unsigned long preserve_instance)
+{
+	struct route_node *rn;
+	struct ospf_external *ext;
+	struct list *ext_list;
+	struct listnode *node;
+
+	ext_list = ospf->external[type];
+	if (!ext_list)
+		return;
+
+	for (ALL_LIST_ELEMENTS_RO(ext_list, node, ext)) {
+		if (ext->instance != preserve_instance) {
+			rn = route_node_lookup(EXTERNAL_INFO(ext), (struct prefix *)&p);
+			if (rn) {
+				ospf_external_info_free(rn->info);
+				rn->info = NULL;
+				route_unlock_node(rn);
+				route_unlock_node(rn);
+			}
+		}
+	}
+}
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 struct external_info *ospf_external_info_lookup(struct ospf *ospf, uint8_t type,
 						unsigned short instance,
 						struct prefix_ipv4 *p)
@@ -188,6 +228,47 @@ struct external_info *ospf_external_info_lookup(struct ospf *ospf, uint8_t type,
 	return NULL;
 }
 
+<<<<<<< HEAD
+=======
+/*
+ * ospf_external_info_default_lookup
+ *
+ * For default information criteria, we really don't care about the
+ * source of the route and there only should be one.
+ */
+struct external_info *ospf_external_info_default_lookup(struct ospf *ospf)
+{
+	struct ospf_external *ext;
+	struct external_info *ei;
+	struct list *ext_list;
+	struct listnode *node;
+	struct route_node *rn;
+	struct prefix_ipv4 p = {
+		.family = AF_INET,
+		.prefixlen = 0,
+		.prefix.s_addr = INADDR_ANY,
+	};
+
+	ext_list = ospf->external[DEFAULT_ROUTE];
+	if (!ext_list)
+		return (NULL);
+
+	for (ALL_LIST_ELEMENTS_RO(ext_list, node, ext)) {
+		rn = route_node_lookup(EXTERNAL_INFO(ext), (struct prefix *)&p);
+		if (rn) {
+			route_unlock_node(rn);
+			if (rn->info) {
+				ei = rn->info;
+				if (ei->type != ZEBRA_ROUTE_OSPF || ei->instance != ospf->instance)
+					return ei;
+			}
+		}
+	}
+
+	return NULL;
+}
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 struct ospf_lsa *ospf_external_info_find_lsa(struct ospf *ospf,
 					     struct prefix_ipv4 *p)
 {
@@ -265,17 +346,30 @@ void ospf_asbr_status_update(struct ospf *ospf, uint8_t status)
 }
 
 /* If there's redistribution configured, we need to refresh external
+<<<<<<< HEAD
  * LSAs in order to install Type-7 and flood to all NSSA Areas
  */
 static void ospf_asbr_nssa_redist_update_timer(struct event *thread)
+=======
+ * LSAs (e.g. when default-metric changes or NSSA settings change).
+ */
+static void ospf_asbr_redist_update_timer(struct event *thread)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 {
 	struct ospf *ospf = EVENT_ARG(thread);
 	int type;
 
+<<<<<<< HEAD
 	ospf->t_asbr_nssa_redist_update = NULL;
 
 	if (IS_DEBUG_OSPF_EVENT)
 		zlog_debug("Running ASBR NSSA redistribution update on timer");
+=======
+	ospf->t_asbr_redist_update = NULL;
+
+	if (IS_DEBUG_OSPF_EVENT)
+		zlog_debug("Running ASBR redistribution update on timer");
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	for (type = 0; type < ZEBRA_ROUTE_MAX; type++) {
 		struct list *red_list;
@@ -295,6 +389,7 @@ static void ospf_asbr_nssa_redist_update_timer(struct event *thread)
 	ospf_external_lsa_refresh_default(ospf);
 }
 
+<<<<<<< HEAD
 void ospf_schedule_asbr_nssa_redist_update(struct ospf *ospf)
 {
 	if (IS_DEBUG_OSPF_EVENT)
@@ -303,6 +398,16 @@ void ospf_schedule_asbr_nssa_redist_update(struct ospf *ospf)
 	event_add_timer(master, ospf_asbr_nssa_redist_update_timer, ospf,
 			OSPF_ASBR_NSSA_REDIST_UPDATE_DELAY,
 			&ospf->t_asbr_nssa_redist_update);
+=======
+void ospf_schedule_asbr_redist_update(struct ospf *ospf)
+{
+	if (IS_DEBUG_OSPF_EVENT)
+		zlog_debug("Scheduling ASBR redistribution update");
+
+	event_add_timer(master, ospf_asbr_redist_update_timer, ospf,
+			OSPF_ASBR_REDIST_UPDATE_DELAY,
+			&ospf->t_asbr_redist_update);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 }
 
 void ospf_redistribute_withdraw(struct ospf *ospf, uint8_t type,
@@ -987,6 +1092,10 @@ static void ospf_handle_external_aggr_update(struct ospf *ospf)
 				&aggr->match_extnl_hash,
 				(void *)ospf_aggr_handle_external_info);
 
+<<<<<<< HEAD
+=======
+			ospf_external_aggregator_free(aggr);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		} else if (aggr->action == OSPF_ROUTE_AGGR_MODIFY) {
 
 			aggr->action = OSPF_ROUTE_AGGR_NONE;
@@ -1076,9 +1185,14 @@ static void ospf_external_aggr_timer(struct ospf *ospf,
 		if (ospf->aggr_action == OSPF_ROUTE_AGGR_ADD) {
 
 			if (IS_DEBUG_OSPF(lsa, EXTNL_LSA_AGGR))
+<<<<<<< HEAD
 				zlog_debug(
 					"%s: Not required to retsart timer,set is already added.",
 					__func__);
+=======
+				zlog_debug("%s: Not required to restart timer,set is already added.",
+					   __func__);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			return;
 		}
 

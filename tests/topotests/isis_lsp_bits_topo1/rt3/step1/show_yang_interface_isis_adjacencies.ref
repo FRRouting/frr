@@ -11,7 +11,11 @@
                 {
                   "neighbor-sys-type": "level-1-2",
                   "neighbor-sysid": "0000.0000.0005",
+<<<<<<< HEAD
                   "hold-timer": 9,
+=======
+                  "hold-timer": 10,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
                   "neighbor-priority": 0,
                   "state": "up"
                 }
@@ -30,14 +34,22 @@
                 {
                   "neighbor-sys-type": "level-1",
                   "neighbor-sysid": "0000.0000.0001",
+<<<<<<< HEAD
                   "hold-timer": 9,
+=======
+                  "hold-timer": 10,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
                   "neighbor-priority": 100,
                   "state": "up"
                 },
                 {
                   "neighbor-sys-type": "level-1",
                   "neighbor-sysid": "0000.0000.0002",
+<<<<<<< HEAD
                   "hold-timer": 9,
+=======
+                  "hold-timer": 10,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
                   "neighbor-priority": 64,
                   "state": "up"
                 }

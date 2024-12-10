@@ -99,6 +99,11 @@ static int nhrp_if_delete_hook(struct interface *ifp)
 		free(nifp->ipsec_fallback_profile);
 	if (nifp->source)
 		free(nifp->source);
+<<<<<<< HEAD
+=======
+	if (nifp->auth_token)
+		zbuf_free(nifp->auth_token);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	XFREE(MTYPE_NHRP_IF, ifp->info);
 	return 0;
@@ -259,13 +264,20 @@ static void nhrp_interface_update_address(struct interface *ifp, afi_t afi,
 	struct nhrp_afi_data *if_ad = &nifp->afi[afi];
 	struct nhrp_cache *nc;
 	struct connected *c, *best;
+<<<<<<< HEAD
 	struct listnode *cnode;
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	union sockunion addr;
 	char buf[PREFIX_STRLEN];
 
 	/* Select new best match preferring primary address */
 	best = NULL;
+<<<<<<< HEAD
 	for (ALL_LIST_ELEMENTS_RO(ifp->connected, cnode, c)) {
+=======
+	frr_each (if_connected, ifp->connected, c) {
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		if (PREFIX_FAMILY(c->address) != family)
 			continue;
 		if (best == NULL) {
@@ -352,6 +364,10 @@ void nhrp_interface_update(struct interface *ifp)
 		if (!if_ad->configured) {
 			os_configure_dmvpn(ifp->ifindex, ifp->name,
 					   afi2family(afi));
+<<<<<<< HEAD
+=======
+			nhrp_interface_update_arp(ifp, true);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			nhrp_send_zebra_configure_arp(ifp, afi2family(afi));
 			if_ad->configured = 1;
 			nhrp_interface_update_address(ifp, afi, 1);

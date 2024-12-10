@@ -663,9 +663,14 @@ static void rfapiRibBi2Ri(struct bgp_path_info *bpi, struct rfapi_info *ri,
 	/*
 	 * VN options
 	 */
+<<<<<<< HEAD
 	if (bpi->extra
 	    && decode_rd_type(bpi->extra->vnc.import.rd.val)
 		       == RD_TYPE_VNC_ETH) {
+=======
+	if (bpi->extra && decode_rd_type(bpi->extra->vnc->vnc.import.rd.val) ==
+				  RD_TYPE_VNC_ETH) {
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		/* ethernet route */
 
 		struct rfapi_vn_option *vo;
@@ -678,8 +683,13 @@ static void rfapiRibBi2Ri(struct bgp_path_info *bpi, struct rfapi_info *ri,
 
 		/* copy from RD already stored in bpi, so we don't need it_node
 		 */
+<<<<<<< HEAD
 		memcpy(&vo->v.l2addr.macaddr, bpi->extra->vnc.import.rd.val + 2,
 		       ETH_ALEN);
+=======
+		memcpy(&vo->v.l2addr.macaddr,
+		       bpi->extra->vnc->vnc.import.rd.val + 2, ETH_ALEN);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 		(void)rfapiEcommunityGetLNI(bgp_attr_get_ecommunity(bpi->attr),
 					    &vo->v.l2addr.logical_net_id);
@@ -688,10 +698,21 @@ static void rfapiRibBi2Ri(struct bgp_path_info *bpi, struct rfapi_info *ri,
 			&vo->v.l2addr.tag_id);
 
 		/* local_nve_id comes from RD */
+<<<<<<< HEAD
 		vo->v.l2addr.local_nve_id = bpi->extra->vnc.import.rd.val[1];
 
 		/* label comes from MP_REACH_NLRI label */
 		vo->v.l2addr.label = decode_label(&bpi->extra->label[0]);
+=======
+		vo->v.l2addr.local_nve_id =
+			bpi->extra->vnc->vnc.import.rd.val[1];
+
+		/* label comes from MP_REACH_NLRI label */
+		vo->v.l2addr.label =
+			BGP_PATH_INFO_NUM_LABELS(bpi)
+				? decode_label(&bpi->extra->labels->label[0])
+				: MPLS_INVALID_LABEL;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 		rfapi_vn_options_free(
 			ri->vn_options); /* maybe free old version */
@@ -701,8 +722,13 @@ static void rfapiRibBi2Ri(struct bgp_path_info *bpi, struct rfapi_info *ri,
 	/*
 	 * If there is an auxiliary IP address (L2 can have it), copy it
 	 */
+<<<<<<< HEAD
 	if (bpi->extra && bpi->extra->vnc.import.aux_prefix.family) {
 		ri->rk.aux_prefix = bpi->extra->vnc.import.aux_prefix;
+=======
+	if (bpi->extra && bpi->extra->vnc->vnc.import.aux_prefix.family) {
+		ri->rk.aux_prefix = bpi->extra->vnc->vnc.import.aux_prefix;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	}
 }
 
@@ -746,13 +772,22 @@ int rfapiRibPreloadBi(
 
 	memset((void *)&rk, 0, sizeof(rk));
 	rk.vn = *pfx_vn;
+<<<<<<< HEAD
 	rk.rd = bpi->extra->vnc.import.rd;
+=======
+	rk.rd = bpi->extra->vnc->vnc.import.rd;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	/*
 	 * If there is an auxiliary IP address (L2 can have it), copy it
 	 */
+<<<<<<< HEAD
 	if (bpi->extra->vnc.import.aux_prefix.family) {
 		rk.aux_prefix = bpi->extra->vnc.import.aux_prefix;
+=======
+	if (bpi->extra->vnc->vnc.import.aux_prefix.family) {
+		rk.aux_prefix = bpi->extra->vnc->vnc.import.aux_prefix;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	}
 
 	/*
@@ -1629,12 +1664,22 @@ void rfapiRibUpdatePendingNode(
 
 		ri = rfapi_info_new();
 		ri->rk.vn = pfx_nh;
+<<<<<<< HEAD
 		ri->rk.rd = bpi->extra->vnc.import.rd;
 		/*
 		 * If there is an auxiliary IP address (L2 can have it), copy it
 		 */
 		if (bpi->extra->vnc.import.aux_prefix.family) {
 			ri->rk.aux_prefix = bpi->extra->vnc.import.aux_prefix;
+=======
+		ri->rk.rd = bpi->extra->vnc->vnc.import.rd;
+		/*
+		 * If there is an auxiliary IP address (L2 can have it), copy it
+		 */
+		if (bpi->extra->vnc->vnc.import.aux_prefix.family) {
+			ri->rk.aux_prefix =
+				bpi->extra->vnc->vnc.import.aux_prefix;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		}
 
 		if (rfapiGetUnAddrOfVpnBi(bpi, &ri->un)) {

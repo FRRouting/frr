@@ -28,7 +28,10 @@ ldpd_libldp_a_SOURCES = \
 	ldpd/ldp_vty_exec.c \
 	ldpd/ldp_zebra.c \
 	ldpd/ldpe.c \
+<<<<<<< HEAD
 	ldpd/log.c \
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	ldpd/logmsg.c \
 	ldpd/neighbor.c \
 	ldpd/notification.c \

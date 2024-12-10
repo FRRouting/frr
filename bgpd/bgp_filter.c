@@ -15,9 +15,14 @@
 #include "bgpd/bgpd.h"
 #include "bgpd/bgp_aspath.h"
 #include "bgpd/bgp_regex.h"
+<<<<<<< HEAD
 #include "bgpd/bgp_filter.h"
 
 /* List of AS filter list. */
+=======
+
+/* List of AS list. */
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 struct as_list_list {
 	struct as_list *head;
 	struct as_list *tail;
@@ -35,6 +40,7 @@ struct as_list_master {
 	void (*delete_hook)(const char *);
 };
 
+<<<<<<< HEAD
 /* Element of AS path filter. */
 struct as_filter {
 	struct as_filter *next;
@@ -59,6 +65,8 @@ struct as_list {
 	struct as_filter *head;
 	struct as_filter *tail;
 };
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 
 /* Calculate new sequential number. */
@@ -220,7 +228,10 @@ struct as_list *as_list_lookup(const char *name)
 	for (aslist = as_list_master.str.head; aslist; aslist = aslist->next)
 		if (strcmp(aslist->name, name) == 0)
 			return aslist;
+<<<<<<< HEAD
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	return NULL;
 }
 
@@ -231,8 +242,14 @@ static struct as_list *as_list_new(void)
 
 static void as_list_free(struct as_list *aslist)
 {
+<<<<<<< HEAD
 	XFREE(MTYPE_AS_STR, aslist->name);
 	XFREE(MTYPE_AS_LIST, aslist);
+=======
+
+	XFREE (MTYPE_AS_STR, aslist->name);
+	XFREE (MTYPE_AS_LIST, aslist);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 }
 
 /* Insert new AS list to list of as_list.  Each as_list is sorted by
@@ -441,6 +458,10 @@ DEFUN(as_path, bgp_as_path_cmd,
 	enum as_filter_type type;
 	struct as_filter *asfilter;
 	struct as_list *aslist;
+<<<<<<< HEAD
+=======
+	struct aspath_exclude *ase;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	regex_t *regex;
 	char *regstr;
 	int64_t seqnum = ASPATH_SEQ_NUMBER_AUTO;
@@ -492,6 +513,25 @@ DEFUN(as_path, bgp_as_path_cmd,
 	else
 		as_list_filter_add(aslist, asfilter);
 
+<<<<<<< HEAD
+=======
+	/* init the exclude rule list*/
+	as_list_list_init(&aslist->exclude_rule);
+
+	/* get aspath orphan exclude that are using this acl */
+	ase = as_exclude_lookup_orphan(alname);
+	if (ase) {
+		as_list_list_add_head(&aslist->exclude_rule, ase);
+		/* set reverse pointer */
+		ase->exclude_aspath_acl = aslist;
+		/* set list of aspath excludes using that acl */
+		while ((ase = as_exclude_lookup_orphan(alname))) {
+			as_list_list_add_head(&aslist->exclude_rule, ase);
+			ase->exclude_aspath_acl = aslist;
+		}
+	}
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	return CMD_SUCCESS;
 }
 
@@ -512,6 +552,10 @@ DEFUN(no_as_path, no_bgp_as_path_cmd,
 	enum as_filter_type type;
 	struct as_filter *asfilter;
 	struct as_list *aslist;
+<<<<<<< HEAD
+=======
+	struct aspath_exclude *ase;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	char *regstr;
 	regex_t *regex;
 
@@ -566,6 +610,15 @@ DEFUN(no_as_path, no_bgp_as_path_cmd,
 
 	XFREE(MTYPE_TMP, regstr);
 
+<<<<<<< HEAD
+=======
+	/* put aspath exclude list into orphan */
+	if (as_list_list_count(&aslist->exclude_rule))
+		while ((ase = as_list_list_pop(&aslist->exclude_rule)))
+			as_exclude_set_orphan(ase);
+
+	as_list_list_fini(&aslist->exclude_rule);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	as_list_filter_delete(aslist, asfilter);
 
 	return CMD_SUCCESS;

@@ -21,6 +21,13 @@ module frr-pim-rp {
     prefix frr-route-types;
   }
 
+<<<<<<< HEAD
+=======
+  import frr-interface {
+    prefix "frr-interface";
+  }
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
   organization
     "FRRouting";
 
@@ -64,6 +71,17 @@ module frr-pim-rp {
       "RFC XXXX: A YANG Data Model for PIM RP";
   }
 
+<<<<<<< HEAD
+=======
+  revision 2024-09-26 {
+    description
+      "Add support for embedded RP.";
+    reference
+      "RFC 3956: Embedding the Rendezvous Point (RP) Address in an IPv6
+       Multicast Address";
+  }
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
   typedef plist-ref {
     type string;
   }
@@ -111,6 +129,160 @@ module frr-pim-rp {
     } // static-rp
   } // static-rp-container
 
+<<<<<<< HEAD
+=======
+  grouping embedded-rp-group {
+    container embedded-rp {
+      description "Embedded RP configurations.";
+
+      leaf enable {
+        description
+          "Toggle embedded RP state:
+
+           When enabled the learned RP from the multicast group address
+           will be preferred over any static or dynamic RP configuration.
+
+           When disabled the packet will be processed as usual.";
+        type boolean;
+        default "false";
+      }
+
+      leaf group-list {
+        description
+          "Restrict embedded RP prefix ranges.
+
+           The default is to treat all multicast groups in FF70::/12
+           range as embedded RP. When a group prefix list is configured
+           and group does not match one of its permit entries it will
+           be treated as regular multicast group.";
+        type plist-ref;
+      }
+
+      leaf maximum-rps {
+        description
+          "Maximum allowed number of RPs to learn.";
+        type uint32;
+        default 25;
+      }
+    } // embedded-rp container
+  } // embedded-rp group
+
+  grouping auto-rp-container {
+    description
+      "Grouping of AutoRP container.";
+
+    container auto-rp {
+      description
+        "Containing AutoRP attributes.";
+
+      leaf discovery-enabled {
+        type boolean;
+        description
+          "Flag indicating if Auto RP discovery is enabled.";
+      }
+
+      leaf announce-scope {
+        type uint8;
+        description
+          "The TTL of the C-RP Announcement packet.";
+      }
+
+      leaf announce-interval {
+        type uint16;
+        description
+          "The time between sending C-RP announcement packets (seconds).";
+      }
+
+      leaf announce-holdtime {
+        type uint16;
+        description
+          "The hold time in seconds advertised in the announcement packet.";
+      }
+
+      list candidate-rp-list {
+        key "rp-address";
+        description
+          "A list of Candidate RP addresses.";
+
+        leaf rp-address {
+          type inet:ip-address;
+          description
+            "Specifies a candidate RP address.";
+        }
+
+        choice group-or-prefix-list {
+          description "Use group or prefix-list";
+          case group {
+            leaf group {
+              type frr-route-types:ip-multicast-group-prefix;
+              description
+                "Multicast group prefix.";
+            }
+          }
+          case prefix-list {
+            leaf prefix-list {
+              type plist-ref;
+              description
+                "Group prefix-list filter";
+            }
+          }
+        }
+      } // candidate-rp-list
+
+      container mapping-agent {
+        leaf send-rp-discovery {
+          type boolean;
+          default false;
+          description
+            "Make this router an AutoRP mapping agent";
+        }
+
+        leaf discovery-scope {
+          type uint8;
+          default 31;
+          description
+            "The TTL of the discovery packet";
+        }
+
+        leaf discovery-interval {
+          type uint16 {
+            range "1 .. 65535";
+          }
+          default 60;
+          description
+            "The time between sending discovery advertisements (seconds)";
+        }
+
+        leaf discovery-holdtime {
+          type uint16 {
+            range "0 .. 65535";
+          }
+          default 180;
+          description
+            "The hold time in seconds advertised in the discovery packet.";
+        }
+
+        choice source-address-or-interface {
+          description "Source address to use for mapping agent operation";
+          default if-loopback;
+          leaf address {
+            type inet:ip-address;
+          }
+          leaf interface {
+            type frr-interface:interface-ref;
+          }
+          leaf if-loopback {
+            type empty;
+          }
+          leaf if-any {
+            type empty;
+          }
+        }
+      } // mapping-agent
+    } // auto-rp
+  } // auto-rp-container
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
   /*
    * Configuration data nodes
    */
@@ -123,6 +295,23 @@ module frr-pim-rp {
       description
         "PIM RP configuration data.";
       uses static-rp-container;
+<<<<<<< HEAD
+=======
+
+      uses auto-rp-container {
+        when "../frr-pim:address-family = 'frr-rt:ipv4'" {
+          description
+            "Only applicable to IPv4 address family.";
+        }
+      }
+
+      uses embedded-rp-group {
+        when "../frr-pim:address-family = 'frr-rt:ipv6'" {
+          description
+            "Only available for IPv6 addresses.";
+        }
+      }
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     } // rp
   } // augment
 }

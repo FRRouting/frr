@@ -1,0 +1,17 @@
+{
+  "routerId":"192.0.2.2",
+  "as":65500,
+  "vrfId":0,
+  "vrfName":"default",
+  "peerCount":1,
+  "peers":{
+    "10.125.0.1":{
+      "remoteAs":65500,
+      "localAs":65500,
+      "version":4,
+      "state":"Established",
+      "peerState":"OK"
+    }
+  },
+  "totalPeers":1
+}

@@ -55,9 +55,15 @@ an example)
     export LDFLAGS="-L/usr/pkg/lib -R/usr/pkg/lib"
     export CPPFLAGS="-I/usr/pkg/include"
     ./configure \
+<<<<<<< HEAD
         --sysconfdir=/usr/pkg/etc/frr \
         --enable-pkgsrcrcdir=/usr/pkg/share/examples/rc.d \
         --localstatedir=/var/run/frr \
+=======
+        --sysconfdir=/usr/pkg/etc \
+        --localstatedir=/var \
+        --enable-pkgsrcrcdir=/usr/pkg/share/examples/rc.d \
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         --enable-multipath=64 \
         --enable-user=frr \
         --enable-group=frr \

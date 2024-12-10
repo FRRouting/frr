@@ -229,9 +229,17 @@ send_capability(struct nbr *nbr, uint16_t capability, int enable)
 		 * Announcement Parameter in Capability messages sent to
 		 * its peers".
 		 */
+<<<<<<< HEAD
 		/* FALLTHROUGH */
 	default:
 		fatalx("send_capability: unsupported capability");
+=======
+		fatalx("send_capability: An LDP speaker MUST NOT include the Dynamic Capability Announcement Parameter");
+		break;
+	default:
+		fatalx("send_capability: unsupported capability");
+		break;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	}
 
 	if (err) {
@@ -333,7 +341,11 @@ recv_capability(struct nbr *nbr, char *buf, uint16_t len)
 			 * parameter and process any other Capability Parameters
 			 * in the message".
 			 */
+<<<<<<< HEAD
 			/* FALLTHROUGH */
+=======
+			fallthrough;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		default:
 			if (!CHECK_FLAG(ntohs(tlv.type), UNKNOWN_FLAG))
 				send_notification_rtlvs(nbr, S_UNSSUPORTDCAP,

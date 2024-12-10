@@ -53,12 +53,28 @@ module frr-affinity-map {
       "Initial revision";
   }
 
+<<<<<<< HEAD
+=======
+  typedef affinity-map-ref {
+    type leafref {
+      path "/frr-affinity-map:lib/frr-affinity-map:affinity-maps/frr-affinity-map:affinity-map/frr-affinity-map:name";
+      require-instance true;
+    }
+    description
+      "Reference to an affinity map";
+  }
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
   container lib {
     container affinity-maps {
       description
         "Affinity Mapping Table";
       list affinity-map {
         key "name";
+<<<<<<< HEAD
+=======
+        unique "value";
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         description
           "Affinity Mapping configuration";
         leaf name {
@@ -69,6 +85,10 @@ module frr-affinity-map {
             "Affinity Name";
         }
         leaf value {
+<<<<<<< HEAD
+=======
+          mandatory true;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
           type uint16 {
             range "0..1023";
           }

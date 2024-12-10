@@ -64,6 +64,10 @@ ospf_ti_lfa_find_p_node(struct vertex *pc_node, struct p_space *p_space,
 	struct vertex_parent *pc_vertex_parent;
 
 	curr_node = listnode_lookup(q_space->pc_path, pc_node);
+<<<<<<< HEAD
+=======
+	assert(curr_node);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	pc_node_parent = listgetdata(curr_node->next);
 
 	q_space->p_node_info->type = OSPF_TI_LFA_UNDEFINED_NODE;
@@ -105,6 +109,10 @@ static void ospf_ti_lfa_find_q_node(struct vertex *pc_node,
 	struct vertex_parent *pc_vertex_parent;
 
 	curr_node = listnode_lookup(q_space->pc_path, pc_node);
+<<<<<<< HEAD
+=======
+	assert(curr_node);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	next_node = curr_node->next;
 	pc_node_parent = listgetdata(next_node);
 	pc_vertex_parent =
@@ -219,7 +227,11 @@ static struct list *ospf_ti_lfa_cut_out_pc_path(struct list *pc_vertex_list,
 	current_listnode = listnode_lookup(pc_path, current_vertex);
 
 	/* Note that the post-convergence paths are reversed. */
+<<<<<<< HEAD
 	for (;;) {
+=======
+	while (current_listnode) {
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		current_vertex = listgetdata(current_listnode);
 		listnode_add(inner_pc_path, current_vertex);
 
@@ -268,6 +280,10 @@ static void ospf_ti_lfa_generate_inner_label_stack(
 	end_label = MPLS_INVALID_LABEL;
 	if (p_node_info->node->id.s_addr == p_space->root->id.s_addr) {
 		pc_p_node = listnode_lookup(q_space->pc_path, p_space->pc_spf);
+<<<<<<< HEAD
+=======
+		assert(pc_p_node);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		start_vertex = listgetdata(pc_p_node->prev);
 		start_label = ospf_sr_get_adj_sid_by_id(&p_node_info->node->id,
 							&start_vertex->id);
@@ -275,6 +291,10 @@ static void ospf_ti_lfa_generate_inner_label_stack(
 	if (q_node_info->node->id.s_addr == q_space->root->id.s_addr) {
 		pc_q_node = listnode_lookup(q_space->pc_path,
 					    listnode_head(q_space->pc_path));
+<<<<<<< HEAD
+=======
+		assert(pc_q_node);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		end_vertex = listgetdata(pc_q_node->next);
 		end_label = ospf_sr_get_adj_sid_by_id(&end_vertex->id,
 						      &q_node_info->node->id);
@@ -690,6 +710,10 @@ static void ospf_ti_lfa_generate_q_spaces(struct ospf_area *area,
 			__func__, &p_space->root->id, &q_space->root->id,
 			res_buf);
 
+<<<<<<< HEAD
+=======
+		list_delete(&q_space->vertex_list);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		XFREE(MTYPE_OSPF_Q_SPACE, q_space->p_node_info);
 		XFREE(MTYPE_OSPF_Q_SPACE, q_space->q_node_info);
 		XFREE(MTYPE_OSPF_Q_SPACE, q_space);

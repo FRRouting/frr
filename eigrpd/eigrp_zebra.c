@@ -98,9 +98,13 @@ static zclient_handler *const eigrp_handlers[] = {
 
 void eigrp_zebra_init(void)
 {
+<<<<<<< HEAD
 	struct zclient_options opt = {.receive_notify = false};
 
 	zclient = zclient_new(master, &opt, eigrp_handlers,
+=======
+	zclient = zclient_new(master, &zclient_options_default, eigrp_handlers,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			      array_size(eigrp_handlers));
 
 	zclient_init(zclient, ZEBRA_ROUTE_EIGRP, 0, &eigrpd_privs);
@@ -249,9 +253,15 @@ void eigrp_zebra_route_delete(struct eigrp *eigrp, struct prefix *p)
 static int eigrp_is_type_redistributed(int type, vrf_id_t vrf_id)
 {
 	return ((DEFAULT_ROUTE_TYPE(type))
+<<<<<<< HEAD
 			? vrf_bitmap_check(zclient->default_information[AFI_IP],
 					   vrf_id)
 			: vrf_bitmap_check(zclient->redist[AFI_IP][type],
+=======
+			? vrf_bitmap_check(
+				  &zclient->default_information[AFI_IP], vrf_id)
+			: vrf_bitmap_check(&zclient->redist[AFI_IP][type],
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 					   vrf_id));
 }
 

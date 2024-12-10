@@ -140,6 +140,15 @@ int ls_node_same(struct ls_node *n1, struct ls_node *n2)
 		if (CHECK_FLAG(n1->flags, LS_NODE_MSD) && (n1->msd != n2->msd))
 			return 0;
 	}
+<<<<<<< HEAD
+=======
+	if (CHECK_FLAG(n1->flags, LS_NODE_SRV6)) {
+		if (n1->srv6_cap_flags != n2->srv6_cap_flags)
+			return 0;
+		if (memcmp(&n1->srv6_msd, &n2->srv6_msd, sizeof(n1->srv6_msd)))
+			return 0;
+	}
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	/* OK, n1 & n2 are equal */
 	return 1;
@@ -320,6 +329,26 @@ int ls_attributes_same(struct ls_attributes *l1, struct ls_attributes *l2)
 					&l2->adj_sid[i].neighbor.addr)))
 			return 0;
 	}
+<<<<<<< HEAD
+=======
+	for (int i = 0; i < ADJ_SRV6_MAX; i++) {
+		if (!CHECK_FLAG(l1->flags, (LS_ATTR_ADJ_SRV6SID << i)))
+			continue;
+		if (memcmp(&l1->adj_srv6_sid[i].sid, &l2->adj_srv6_sid[i].sid,
+			   sizeof(struct in6_addr)) ||
+		    (l1->adj_srv6_sid[i].flags != l2->adj_srv6_sid[i].flags) ||
+		    (l1->adj_srv6_sid[i].weight != l2->adj_srv6_sid[i].weight) ||
+		    (l1->adj_srv6_sid[i].endpoint_behavior !=
+		     l2->adj_srv6_sid[i].endpoint_behavior))
+			return 0;
+		if (((l1->adv.origin == ISIS_L1) ||
+		     (l1->adv.origin == ISIS_L2)) &&
+		    (memcmp(&l1->adj_srv6_sid[i].neighbor.sysid,
+			    &l2->adj_srv6_sid[i].neighbor.sysid,
+			    ISO_SYS_ID_LEN) != 0))
+			return 0;
+	}
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	if (CHECK_FLAG(l1->flags, LS_ATTR_SRLG)
 	    && ((l1->srlg_len != l2->srlg_len)
 		|| memcmp(l1->srlgs, l2->srlgs,
@@ -391,6 +420,16 @@ int ls_prefix_same(struct ls_prefix *p1, struct ls_prefix *p2)
 		    || (p1->sr.sid_flag != p2->sr.sid_flag))
 			return 0;
 	}
+<<<<<<< HEAD
+=======
+	if (CHECK_FLAG(p1->flags, LS_PREF_SRV6)) {
+		if (memcmp(&p1->srv6.sid, &p2->srv6.sid,
+			   sizeof(struct in6_addr)) ||
+		    (p1->srv6.flags != p2->srv6.flags) ||
+		    (p1->srv6.behavior != p2->srv6.behavior))
+			return 0;
+	}
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	/* OK, p1 & p2 are equal */
 	return 1;
@@ -523,7 +562,13 @@ struct ls_vertex *ls_vertex_update(struct ls_ted *ted, struct ls_node *node)
 		if (!ls_node_same(old->node, node)) {
 			ls_node_del(old->node);
 			old->node = node;
+<<<<<<< HEAD
 		}
+=======
+		} else
+			ls_node_del(node);
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		old->status = UPDATE;
 		return old;
 	}
@@ -805,7 +850,13 @@ struct ls_edge *ls_edge_update(struct ls_ted *ted,
 		if (!ls_attributes_same(old->attributes, attributes)) {
 			ls_attributes_del(old->attributes);
 			old->attributes = attributes;
+<<<<<<< HEAD
 		}
+=======
+		} else
+			ls_attributes_del(attributes);
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		old->status = UPDATE;
 		return old;
 	}
@@ -902,7 +953,13 @@ struct ls_subnet *ls_subnet_update(struct ls_ted *ted, struct ls_prefix *pref)
 		if (!ls_prefix_same(old->ls_pref, pref)) {
 			ls_prefix_del(old->ls_pref);
 			old->ls_pref = pref;
+<<<<<<< HEAD
 		}
+=======
+		} else
+			ls_prefix_del(pref);
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		old->status = UPDATE;
 		return old;
 	}
@@ -1138,14 +1195,18 @@ int ls_unregister(struct zclient *zclient, bool server)
 
 int ls_request_sync(struct zclient *zclient)
 {
+<<<<<<< HEAD
 	struct stream *s;
 	uint16_t flags = 0;
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	/* Check buffer size */
 	if (STREAM_SIZE(zclient->obuf)
 	    < (ZEBRA_HEADER_SIZE + 3 * sizeof(uint32_t)))
 		return -1;
 
+<<<<<<< HEAD
 	s = zclient->obuf;
 	stream_reset(s);
 
@@ -1163,6 +1224,10 @@ int ls_request_sync(struct zclient *zclient)
 	stream_putw_at(s, 0, stream_get_endp(s));
 
 	return zclient_send_message(zclient);
+=======
+	/* No data with this message */
+	return zclient_send_opaque(zclient, LINK_STATE_SYNC, NULL, 0);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 }
 
 static struct ls_node *ls_parse_node(struct stream *s)
@@ -1310,6 +1375,29 @@ static struct ls_attributes *ls_parse_attributes(struct stream *s)
 		STREAM_GET(attr->adj_sid[ADJ_BCK_IPV6].neighbor.sysid, s,
 			   ISO_SYS_ID_LEN);
 	}
+<<<<<<< HEAD
+=======
+	if (CHECK_FLAG(attr->flags, LS_ATTR_ADJ_SRV6SID)) {
+		STREAM_GET(&attr->adj_srv6_sid[ADJ_SRV6_PRI_IPV6].sid, s,
+			   sizeof(struct in6_addr));
+		STREAM_GETC(s, attr->adj_srv6_sid[ADJ_SRV6_PRI_IPV6].flags);
+		STREAM_GETC(s, attr->adj_srv6_sid[ADJ_SRV6_PRI_IPV6].weight);
+		STREAM_GETW(s, attr->adj_srv6_sid[ADJ_SRV6_PRI_IPV6]
+				       .endpoint_behavior);
+		STREAM_GET(attr->adj_srv6_sid[ADJ_SRV6_PRI_IPV6].neighbor.sysid,
+			   s, ISO_SYS_ID_LEN);
+	}
+	if (CHECK_FLAG(attr->flags, LS_ATTR_BCK_ADJ_SRV6SID)) {
+		STREAM_GET(&attr->adj_srv6_sid[ADJ_SRV6_BCK_IPV6].sid, s,
+			   sizeof(struct in6_addr));
+		STREAM_GETC(s, attr->adj_srv6_sid[ADJ_SRV6_BCK_IPV6].flags);
+		STREAM_GETC(s, attr->adj_srv6_sid[ADJ_SRV6_BCK_IPV6].weight);
+		STREAM_GETW(s, attr->adj_srv6_sid[ADJ_SRV6_BCK_IPV6]
+				       .endpoint_behavior);
+		STREAM_GET(attr->adj_srv6_sid[ADJ_SRV6_BCK_IPV6].neighbor.sysid,
+			   s, ISO_SYS_ID_LEN);
+	}
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	if (CHECK_FLAG(attr->flags, LS_ATTR_SRLG)) {
 		STREAM_GETC(s, len);
 		attr->srlgs = XCALLOC(MTYPE_LS_DB, len*sizeof(uint32_t));
@@ -1357,6 +1445,14 @@ static struct ls_prefix *ls_parse_prefix(struct stream *s)
 		STREAM_GETC(s, ls_pref->sr.sid_flag);
 		STREAM_GETC(s, ls_pref->sr.algo);
 	}
+<<<<<<< HEAD
+=======
+	if (CHECK_FLAG(ls_pref->flags, LS_PREF_SRV6)) {
+		STREAM_GET(&ls_pref->srv6.sid, s, sizeof(struct in6_addr));
+		STREAM_GETW(s, ls_pref->srv6.behavior);
+		STREAM_GETC(s, ls_pref->srv6.flags);
+	}
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	return ls_pref;
 
@@ -1544,6 +1640,31 @@ static int ls_format_attributes(struct stream *s, struct ls_attributes *attr)
 		stream_put(s, attr->adj_sid[ADJ_BCK_IPV6].neighbor.sysid,
 			   ISO_SYS_ID_LEN);
 	}
+<<<<<<< HEAD
+=======
+	if (CHECK_FLAG(attr->flags, LS_ATTR_ADJ_SRV6SID)) {
+		stream_put(s, &attr->adj_srv6_sid[ADJ_SRV6_PRI_IPV6].sid,
+			   sizeof(struct in6_addr));
+		stream_putc(s, attr->adj_srv6_sid[ADJ_SRV6_PRI_IPV6].flags);
+		stream_putc(s, attr->adj_srv6_sid[ADJ_SRV6_PRI_IPV6].weight);
+		stream_putw(s, attr->adj_srv6_sid[ADJ_SRV6_PRI_IPV6]
+				       .endpoint_behavior);
+		stream_put(s,
+			   attr->adj_srv6_sid[ADJ_SRV6_PRI_IPV6].neighbor.sysid,
+			   ISO_SYS_ID_LEN);
+	}
+	if (CHECK_FLAG(attr->flags, LS_ATTR_BCK_ADJ_SRV6SID)) {
+		stream_put(s, &attr->adj_srv6_sid[ADJ_SRV6_BCK_IPV6].sid,
+			   sizeof(struct in6_addr));
+		stream_putc(s, attr->adj_srv6_sid[ADJ_SRV6_BCK_IPV6].flags);
+		stream_putc(s, attr->adj_srv6_sid[ADJ_SRV6_BCK_IPV6].weight);
+		stream_putw(s, attr->adj_srv6_sid[ADJ_SRV6_BCK_IPV6]
+				       .endpoint_behavior);
+		stream_put(s,
+			   attr->adj_srv6_sid[ADJ_SRV6_BCK_IPV6].neighbor.sysid,
+			   ISO_SYS_ID_LEN);
+	}
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	if (CHECK_FLAG(attr->flags, LS_ATTR_SRLG)) {
 		stream_putc(s, attr->srlg_len);
 		for (len = 0; len < attr->srlg_len; len++)
@@ -1579,6 +1700,14 @@ static int ls_format_prefix(struct stream *s, struct ls_prefix *ls_pref)
 		stream_putc(s, ls_pref->sr.sid_flag);
 		stream_putc(s, ls_pref->sr.algo);
 	}
+<<<<<<< HEAD
+=======
+	if (CHECK_FLAG(ls_pref->flags, LS_PREF_SRV6)) {
+		stream_put(s, &ls_pref->srv6.sid, sizeof(struct in6_addr));
+		stream_putw(s, ls_pref->srv6.behavior);
+		stream_putc(s, ls_pref->srv6.flags);
+	}
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	return 0;
 }
@@ -1623,6 +1752,7 @@ int ls_send_msg(struct zclient *zclient, struct ls_message *msg,
 	    (ZEBRA_HEADER_SIZE + sizeof(uint32_t) + sizeof(msg)))
 		return -1;
 
+<<<<<<< HEAD
 	s = zclient->obuf;
 	stream_reset(s);
 
@@ -1640,6 +1770,17 @@ int ls_send_msg(struct zclient *zclient, struct ls_message *msg,
 	} else {
 		stream_putw(s, flags);
 	}
+=======
+	/* Init the message, then encode the data inline. */
+	if (dst == NULL)
+		zapi_opaque_init(zclient, LINK_STATE_UPDATE, flags);
+	else
+		zapi_opaque_unicast_init(zclient, LINK_STATE_UPDATE, flags,
+					 dst->proto, dst->instance,
+					 dst->session_id);
+
+	s = zclient->obuf;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	/* Format Link State message */
 	if (ls_format_msg(s, msg) < 0) {
@@ -1759,7 +1900,11 @@ struct ls_message *ls_subnet2msg(struct ls_message *msg,
 struct ls_vertex *ls_msg2vertex(struct ls_ted *ted, struct ls_message *msg,
 				bool delete)
 {
+<<<<<<< HEAD
 	struct ls_node *node = (struct ls_node *)msg->data.node;
+=======
+	struct ls_node *node = msg->data.node;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	struct ls_vertex *vertex = NULL;
 
 	switch (msg->event) {
@@ -1799,7 +1944,11 @@ struct ls_vertex *ls_msg2vertex(struct ls_ted *ted, struct ls_message *msg,
 struct ls_edge *ls_msg2edge(struct ls_ted *ted, struct ls_message *msg,
 			    bool delete)
 {
+<<<<<<< HEAD
 	struct ls_attributes *attr = (struct ls_attributes *)msg->data.attr;
+=======
+	struct ls_attributes *attr = msg->data.attr;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	struct ls_edge *edge = NULL;
 
 	switch (msg->event) {
@@ -1839,7 +1988,11 @@ struct ls_edge *ls_msg2edge(struct ls_ted *ted, struct ls_message *msg,
 struct ls_subnet *ls_msg2subnet(struct ls_ted *ted, struct ls_message *msg,
 				bool delete)
 {
+<<<<<<< HEAD
 	struct ls_prefix *pref = (struct ls_prefix *)msg->data.prefix;
+=======
+	struct ls_prefix *pref = msg->data.prefix;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	struct ls_subnet *subnet = NULL;
 
 	switch (msg->event) {
@@ -2371,6 +2524,27 @@ static void ls_show_edge_vty(struct ls_edge *edge, struct vty *vty,
 			  attr->adj_sid[ADJ_BCK_IPV6].flags,
 			  attr->adj_sid[ADJ_BCK_IPV6].weight);
 	}
+<<<<<<< HEAD
+=======
+	if (CHECK_FLAG(attr->flags, LS_ATTR_ADJ_SRV6SID)) {
+		sbuf_push(&sbuf, 4, "IPv6 Adjacency-SRV6-SID: %pI6",
+			  &attr->adj_srv6_sid[ADJ_SRV6_PRI_IPV6].sid);
+		sbuf_push(&sbuf, 0,
+			  "\tFlags: 0x%x\tWeight: 0x%x\tbehavior: 0x%x\n",
+			  attr->adj_srv6_sid[ADJ_SRV6_PRI_IPV6].flags,
+			  attr->adj_srv6_sid[ADJ_SRV6_PRI_IPV6].weight,
+			  attr->adj_srv6_sid[ADJ_SRV6_PRI_IPV6].endpoint_behavior);
+	}
+	if (CHECK_FLAG(attr->flags, LS_ATTR_BCK_ADJ_SRV6SID)) {
+		sbuf_push(&sbuf, 4, "IPv6 Bck. Adjacency-SRV6-SID: %pI6",
+			  &attr->adj_srv6_sid[ADJ_SRV6_BCK_IPV6].sid);
+		sbuf_push(&sbuf, 0,
+			  "\tFlags: 0x%x\tWeight: 0x%x\tbehavior: 0x%x\n",
+			  attr->adj_srv6_sid[ADJ_SRV6_BCK_IPV6].flags,
+			  attr->adj_srv6_sid[ADJ_SRV6_BCK_IPV6].weight,
+			  attr->adj_srv6_sid[ADJ_SRV6_BCK_IPV6].endpoint_behavior);
+	}
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	if (CHECK_FLAG(attr->flags, LS_ATTR_SRLG)) {
 		sbuf_push(&sbuf, 4, "SRLGs: %d", attr->srlg_len);
 		for (int i = 1; i < attr->srlg_len; i++) {
@@ -2392,7 +2566,11 @@ static void ls_show_edge_json(struct ls_edge *edge, struct json_object *json)
 	struct ls_attributes *attr;
 	struct json_object *jte, *jbw, *jobj, *jsr = NULL, *jsrlg, *js_ext_ag,
 					      *js_ext_ag_arr_word,
+<<<<<<< HEAD
 					      *js_ext_ag_arr_bit;
+=======
+					      *js_ext_ag_arr_bit, *jsrv6 = NULL;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	char buf[INET6_BUFSIZ];
 	char buf_ag[strlen("0xffffffff") + 1];
 	uint32_t bitmap;
@@ -2577,6 +2755,48 @@ static void ls_show_edge_json(struct ls_edge *edge, struct json_object *json)
 				    attr->adj_sid[ADJ_BCK_IPV6].weight);
 		json_object_array_add(jsr, jobj);
 	}
+<<<<<<< HEAD
+=======
+	if (CHECK_FLAG(attr->flags, LS_ATTR_ADJ_SRV6SID)) {
+		jsrv6 = json_object_new_array();
+		json_object_object_add(json, "segment-routing-ipv6", jsrv6);
+		jobj = json_object_new_object();
+		snprintfrr(buf, INET6_BUFSIZ, "%pI6",
+			   &attr->adj_srv6_sid[ADJ_SRV6_PRI_IPV6].sid);
+		json_object_string_add(jobj, "adj-sid", buf);
+		snprintfrr(buf, 6, "0x%x",
+			   attr->adj_srv6_sid[ADJ_SRV6_PRI_IPV6].flags);
+		json_object_string_add(jobj, "flags", buf);
+		json_object_int_add(jobj, "weight",
+				    attr->adj_srv6_sid[ADJ_SRV6_PRI_IPV6].weight);
+		snprintfrr(buf, 6, "0x%x",
+			   attr->adj_srv6_sid[ADJ_SRV6_PRI_IPV6]
+				   .endpoint_behavior);
+		json_object_string_add(jobj, "endpoint-behavior", buf);
+		json_object_array_add(jsr, jobj);
+	}
+	if (CHECK_FLAG(attr->flags, LS_ATTR_BCK_ADJ_SRV6SID)) {
+		if (!jsrv6) {
+			jsrv6 = json_object_new_array();
+			json_object_object_add(json, "segment-routing-ipv6",
+					       jsrv6);
+		}
+		jobj = json_object_new_object();
+		snprintfrr(buf, INET6_BUFSIZ, "%pI6",
+			   &attr->adj_srv6_sid[ADJ_SRV6_BCK_IPV6].sid);
+		json_object_string_add(jobj, "adj-sid", buf);
+		snprintfrr(buf, 6, "0x%x",
+			   attr->adj_srv6_sid[ADJ_SRV6_BCK_IPV6].flags);
+		json_object_string_add(jobj, "flags", buf);
+		json_object_int_add(jobj, "weight",
+				    attr->adj_srv6_sid[ADJ_SRV6_BCK_IPV6].weight);
+		snprintfrr(buf, 6, "0x%x",
+			   attr->adj_srv6_sid[ADJ_SRV6_BCK_IPV6]
+				   .endpoint_behavior);
+		json_object_string_add(jobj, "endpoint-behavior", buf);
+		json_object_array_add(jsr, jobj);
+	}
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 }
 
 void ls_show_edge(struct ls_edge *edge, struct vty *vty,
@@ -2646,6 +2866,16 @@ static void ls_show_subnet_vty(struct ls_subnet *subnet, struct vty *vty,
 		sbuf_push(&sbuf, 4, "SID: %d\tAlgorithm: %d\tFlags: 0x%x\n",
 			  pref->sr.sid, pref->sr.algo, pref->sr.sid_flag);
 
+<<<<<<< HEAD
+=======
+	if (CHECK_FLAG(pref->flags, LS_PREF_SRV6))
+		sbuf_push(&sbuf, 4,
+			  "SIDv6: %pI6\tEndpoint behavior: %s\tFlags: 0x%x\n",
+			  &pref->srv6.sid,
+			  seg6local_action2str(pref->srv6.behavior),
+			  pref->srv6.flags);
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 end:
 	vty_out(vty, "%s\n", sbuf_buf(&sbuf));
 	sbuf_free(&sbuf);
@@ -2655,7 +2885,11 @@ static void ls_show_subnet_json(struct ls_subnet *subnet,
 				struct json_object *json)
 {
 	struct ls_prefix *pref;
+<<<<<<< HEAD
 	json_object *jsr;
+=======
+	json_object *jsr, *jsrv6;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	char buf[INET6_BUFSIZ];
 
 	pref = subnet->ls_pref;
@@ -2685,6 +2919,19 @@ static void ls_show_subnet_json(struct ls_subnet *subnet,
 		snprintfrr(buf, INET6_BUFSIZ, "0x%x", pref->sr.sid_flag);
 		json_object_string_add(jsr, "flags", buf);
 	}
+<<<<<<< HEAD
+=======
+	if (CHECK_FLAG(pref->flags, LS_PREF_SRV6)) {
+		jsrv6 = json_object_new_object();
+		json_object_object_add(json, "segment-routing-ipv6", jsrv6);
+		snprintfrr(buf, INET6_BUFSIZ, "%pI6", &pref->srv6.sid);
+		json_object_string_add(jsrv6, "sid", buf);
+		json_object_string_add(jsrv6, "behavior",
+				       seg6local_action2str(pref->srv6.behavior));
+		snprintfrr(buf, INET6_BUFSIZ, "0x%x", pref->srv6.flags);
+		json_object_string_add(jsrv6, "flags", buf);
+	}
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 }
 
 void ls_show_subnet(struct ls_subnet *subnet, struct vty *vty,

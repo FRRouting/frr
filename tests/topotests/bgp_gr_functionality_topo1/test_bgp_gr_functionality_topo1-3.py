@@ -117,7 +117,10 @@ from lib.common_config import (
     check_address_types,
     write_test_footer,
     check_router_status,
+<<<<<<< HEAD
     shutdown_bringup_interface,
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     step,
     get_frr_ipv6_linklocal,
     required_linux_kernel_version,

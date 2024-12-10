@@ -171,6 +171,7 @@ static void vnc_redistribute_add(struct prefix *p, uint32_t metric,
 			 * Same setup as in rfapi_open()
 			 */
 			vncHD1VR.peer = peer_new(bgp);
+<<<<<<< HEAD
 			vncHD1VR.peer->status =
 				Established; /* keep bgp core happy */
 
@@ -193,6 +194,13 @@ static void vnc_redistribute_add(struct prefix *p, uint32_t metric,
 				vncHD1VR.peer->obuf = NULL;
 				vncHD1VR.peer->ibuf_work = NULL;
 			}
+=======
+			vncHD1VR.peer->connection->status =
+				Established; /* keep bgp core happy */
+
+			bgp_peer_connection_buffers_free(
+				vncHD1VR.peer->connection);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 			/* base code assumes have valid host pointer */
 			vncHD1VR.peer->host =
@@ -556,9 +564,15 @@ static void vnc_zebra_add_del_prefix(struct bgp *bgp,
 		return;
 	}
 
+<<<<<<< HEAD
 	if (!vrf_bitmap_check(
 		    zclient_vnc->redist[family2afi(p->family)][ZEBRA_ROUTE_VNC],
 		    VRF_DEFAULT))
+=======
+	if (!vrf_bitmap_check(&zclient_vnc->redist[family2afi(p->family)]
+						  [ZEBRA_ROUTE_VNC],
+			      VRF_DEFAULT))
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		return;
 
 	if (!bgp->rfapi_cfg) {
@@ -618,7 +632,11 @@ static void vnc_zebra_add_del_nve(struct bgp *bgp, struct rfapi_descriptor *rfd,
 	if (zclient_vnc->sock < 0)
 		return;
 
+<<<<<<< HEAD
 	if (!vrf_bitmap_check(zclient_vnc->redist[afi][ZEBRA_ROUTE_VNC],
+=======
+	if (!vrf_bitmap_check(&zclient_vnc->redist[afi][ZEBRA_ROUTE_VNC],
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			      VRF_DEFAULT))
 		return;
 
@@ -815,12 +833,21 @@ int vnc_redistribute_set(struct bgp *bgp, afi_t afi, int type)
 	//  bgp->redist[afi][type] = 1;
 
 	/* Return if already redistribute flag is set. */
+<<<<<<< HEAD
 	if (vrf_bitmap_check(zclient_vnc->redist[afi][type], VRF_DEFAULT))
 		return CMD_WARNING_CONFIG_FAILED;
 
 	vrf_bitmap_set(zclient_vnc->redist[afi][type], VRF_DEFAULT);
 
 	// vrf_bitmap_set(zclient_vnc->redist[afi][type], VRF_DEFAULT);
+=======
+	if (vrf_bitmap_check(&zclient_vnc->redist[afi][type], VRF_DEFAULT))
+		return CMD_WARNING_CONFIG_FAILED;
+
+	vrf_bitmap_set(&zclient_vnc->redist[afi][type], VRF_DEFAULT);
+
+	// vrf_bitmap_set(&zclient_vnc->redist[afi][type], VRF_DEFAULT);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	/* Return if zebra connection is not established. */
 	if (zclient_vnc->sock < 0)
@@ -851,9 +878,15 @@ int vnc_redistribute_unset(struct bgp *bgp, afi_t afi, int type)
 	bgp->rfapi_cfg->redist[afi][type] = 0;
 
 	/* Return if zebra connection is disabled. */
+<<<<<<< HEAD
 	if (!vrf_bitmap_check(zclient_vnc->redist[afi][type], VRF_DEFAULT))
 		return CMD_WARNING_CONFIG_FAILED;
 	vrf_bitmap_unset(zclient_vnc->redist[afi][type], VRF_DEFAULT);
+=======
+	if (!vrf_bitmap_check(&zclient_vnc->redist[afi][type], VRF_DEFAULT))
+		return CMD_WARNING_CONFIG_FAILED;
+	vrf_bitmap_unset(&zclient_vnc->redist[afi][type], VRF_DEFAULT);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	if (bgp->rfapi_cfg->redist[AFI_IP][type] == 0
 	    && bgp->rfapi_cfg->redist[AFI_IP6][type] == 0
@@ -889,7 +922,11 @@ static zclient_handler *const vnc_handlers[] = {
 void vnc_zebra_init(struct event_loop *master)
 {
 	/* Set default values. */
+<<<<<<< HEAD
 	zclient_vnc = zclient_new(master, &zclient_options_default,
+=======
+	zclient_vnc = zclient_new(master, &zclient_options_auxiliary,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 				  vnc_handlers, array_size(vnc_handlers));
 	zclient_init(zclient_vnc, ZEBRA_ROUTE_VNC, 0, &bgpd_privs);
 }

@@ -11,7 +11,10 @@
 #include "queue.h"
 #include "filter.h"
 #include "stream.h"
+<<<<<<< HEAD
 #include "jhash.h"
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 #include "frrstr.h"
 
 #include "bgpd/bgpd.h"
@@ -128,6 +131,10 @@ static void community_entry_free(struct community_entry *entry)
 		XFREE(MTYPE_COMMUNITY_LIST_CONFIG, entry->config);
 		if (entry->reg)
 			bgp_regex_free(entry->reg);
+<<<<<<< HEAD
+=======
+		break;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	default:
 		break;
 	}
@@ -449,6 +456,7 @@ static char *community_str_get(struct community *com, int i)
 	comval = ntohl(comval);
 
 	switch (comval) {
+<<<<<<< HEAD
 #if CONFDATE > 20230801
 CPP_NOTICE("Deprecate COMMUNITY_INTERNET BGP community")
 #endif
@@ -456,6 +464,8 @@ CPP_NOTICE("Deprecate COMMUNITY_INTERNET BGP community")
 		str = XSTRDUP(MTYPE_COMMUNITY_STR, "internet");
 		zlog_warn("`internet` community is deprecated");
 		break;
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	case COMMUNITY_GSHUT:
 		str = XSTRDUP(MTYPE_COMMUNITY_STR, "graceful-shutdown");
 		break;
@@ -502,8 +512,13 @@ CPP_NOTICE("Deprecate COMMUNITY_INTERNET BGP community")
 		break;
 	default:
 		str = XSTRDUP(MTYPE_COMMUNITY_STR, "65536:65535");
+<<<<<<< HEAD
 		as = (comval >> 16) & 0xFFFF;
 		val = comval & 0xFFFF;
+=======
+		as = CHECK_FLAG((comval >> 16), 0xFFFF);
+		val = CHECK_FLAG(comval, 0xFFFF);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		snprintf(str, strlen(str), "%u:%d", as, val);
 		break;
 	}
@@ -540,20 +555,44 @@ static bool community_regexp_match(struct community *com, regex_t *reg)
 	const char *str;
 	char *regstr;
 	int rv;
+<<<<<<< HEAD
+=======
+	bool translate_alias = !!bgp_ca_alias_hash->count;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	/* When there is no communities attribute it is treated as empty
 	   string.  */
 	if (com == NULL || com->size == 0)
+<<<<<<< HEAD
 		str = "";
 	else
 		str = community_str(com, false, true);
 
 	regstr = bgp_alias2community_str(str);
+=======
+		return false;
+
+	str = community_str(com, false, translate_alias);
+
+	/* If at least one community alias is configured, then let's
+	 * do the work, otherwise we don't need to spend time on splitting
+	 * stuff and creating a new string.
+	 */
+	regstr = translate_alias ? bgp_alias2community_str(str) : (char *)str;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	/* Regular expression match.  */
 	rv = regexec(reg, regstr, 0, NULL, 0);
 
+<<<<<<< HEAD
 	XFREE(MTYPE_TMP, regstr);
+=======
+	/* This is allocated by frrstr_join(), and needs to be freed
+	 * only if it was created.
+	 */
+	if (translate_alias)
+		XFREE(MTYPE_TMP, regstr);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	return rv == 0;
 }
@@ -614,20 +653,44 @@ static bool lcommunity_regexp_match(struct lcommunity *com, regex_t *reg)
 	const char *str;
 	char *regstr;
 	int rv;
+<<<<<<< HEAD
+=======
+	bool translate_alias = !!bgp_ca_alias_hash->count;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	/* When there is no communities attribute it is treated as empty
 	   string.  */
 	if (com == NULL || com->size == 0)
+<<<<<<< HEAD
 		str = "";
 	else
 		str = lcommunity_str(com, false, true);
 
 	regstr = bgp_alias2community_str(str);
+=======
+		return false;
+
+	str = lcommunity_str(com, false, translate_alias);
+
+	/* If at least one community alias is configured, then let's
+	 * do the work, otherwise we don't need to spend time on splitting
+	 * stuff and creating a new string.
+	 */
+	regstr = translate_alias ? bgp_alias2community_str(str) : (char *)str;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	/* Regular expression match.  */
 	rv = regexec(reg, regstr, 0, NULL, 0);
 
+<<<<<<< HEAD
 	XFREE(MTYPE_TMP, regstr);
+=======
+	/* This is allocated by frrstr_join(), and needs to be freed
+	 * only if it was created.
+	 */
+	if (translate_alias)
+		XFREE(MTYPE_TMP, regstr);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	return rv == 0;
 }
@@ -660,9 +723,12 @@ bool community_list_match(struct community *com, struct community_list *list)
 
 	for (entry = list->head; entry; entry = entry->next) {
 		if (entry->style == COMMUNITY_LIST_STANDARD) {
+<<<<<<< HEAD
 			if (community_include(entry->u.com, COMMUNITY_INTERNET))
 				return entry->direct == COMMUNITY_PERMIT;
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			if (community_match(com, entry->u.com))
 				return entry->direct == COMMUNITY_PERMIT;
 		} else if (entry->style == COMMUNITY_LIST_EXPANDED) {
@@ -735,9 +801,12 @@ bool community_list_exact_match(struct community *com,
 
 	for (entry = list->head; entry; entry = entry->next) {
 		if (entry->style == COMMUNITY_LIST_STANDARD) {
+<<<<<<< HEAD
 			if (community_include(entry->u.com, COMMUNITY_INTERNET))
 				return entry->direct == COMMUNITY_PERMIT;
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			if (community_cmp(com, entry->u.com))
 				return entry->direct == COMMUNITY_PERMIT;
 		} else if (entry->style == COMMUNITY_LIST_EXPANDED) {
@@ -748,6 +817,30 @@ bool community_list_exact_match(struct community *com,
 	return false;
 }
 
+<<<<<<< HEAD
+=======
+bool community_list_any_match(struct community *com, struct community_list *list)
+{
+	struct community_entry *entry;
+	uint32_t val;
+	int i;
+
+	for (i = 0; i < com->size; i++) {
+		val = community_val_get(com, i);
+
+		for (entry = list->head; entry; entry = entry->next) {
+			if (entry->style == COMMUNITY_LIST_STANDARD &&
+			    community_include(entry->u.com, val))
+				return entry->direct == COMMUNITY_PERMIT;
+			if ((entry->style == COMMUNITY_LIST_EXPANDED) &&
+			    community_regexp_include(entry->reg, com, i))
+				return entry->direct == COMMUNITY_PERMIT;
+		}
+	}
+	return false;
+}
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 /* Delete all permitted communities in the list from com.  */
 struct community *community_list_match_delete(struct community *com,
 					      struct community_list *list)
@@ -767,17 +860,25 @@ struct community *community_list_match_delete(struct community *com,
 
 		for (entry = list->head; entry; entry = entry->next) {
 			if ((entry->style == COMMUNITY_LIST_STANDARD) &&
+<<<<<<< HEAD
 			    (community_include(entry->u.com,
 					       COMMUNITY_INTERNET) ||
 			     community_include(entry->u.com, val))) {
+=======
+			    community_include(entry->u.com, val)) {
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 				if (entry->direct == COMMUNITY_PERMIT) {
 					com_index_to_delete[delete_index] = i;
 					delete_index++;
 				}
 				break;
 			} else if ((entry->style == COMMUNITY_LIST_EXPANDED) &&
+<<<<<<< HEAD
 				   community_regexp_include(entry->reg, com,
 							    i)) {
+=======
+				   community_regexp_include(entry->reg, com, i)) {
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 				if (entry->direct == COMMUNITY_PERMIT) {
 					com_index_to_delete[delete_index] = i;
 					delete_index++;
@@ -898,9 +999,15 @@ int community_list_set(struct community_list_handler *ch, const char *name,
 }
 
 /* Unset community-list */
+<<<<<<< HEAD
 int community_list_unset(struct community_list_handler *ch, const char *name,
 			 const char *str, const char *seq, int direct,
 			 int style)
+=======
+void community_list_unset(struct community_list_handler *ch, const char *name,
+			  const char *str, const char *seq, int direct,
+			  int style)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 {
 	struct community_list_master *cm = NULL;
 	struct community_entry *entry = NULL;
@@ -910,14 +1017,22 @@ int community_list_unset(struct community_list_handler *ch, const char *name,
 	/* Lookup community list.  */
 	list = community_list_lookup(ch, name, 0, COMMUNITY_LIST_MASTER);
 	if (list == NULL)
+<<<<<<< HEAD
 		return COMMUNITY_LIST_ERR_CANT_FIND_LIST;
+=======
+		return;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	cm = community_list_master_lookup(ch, COMMUNITY_LIST_MASTER);
 	/* Delete all of entry belongs to this community-list.  */
 	if (!str) {
 		community_list_delete(cm, list);
 		route_map_notify_dependencies(name, RMAP_EVENT_CLIST_DELETED);
+<<<<<<< HEAD
 		return 0;
+=======
+		return;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	}
 
 	if (style == COMMUNITY_LIST_STANDARD)
@@ -930,12 +1045,41 @@ int community_list_unset(struct community_list_handler *ch, const char *name,
 		entry = community_list_entry_lookup(list, str, direct);
 
 	if (!entry)
+<<<<<<< HEAD
 		return COMMUNITY_LIST_ERR_CANT_FIND_LIST;
 
 	community_list_entry_delete(cm, list, entry);
 	route_map_notify_dependencies(name, RMAP_EVENT_CLIST_DELETED);
 
 	return 0;
+=======
+		return;
+
+	community_list_entry_delete(cm, list, entry);
+	route_map_notify_dependencies(name, RMAP_EVENT_CLIST_DELETED);
+}
+
+bool lcommunity_list_any_match(struct lcommunity *lcom,
+			       struct community_list *list)
+{
+	struct community_entry *entry;
+	uint8_t *ptr;
+	int i;
+
+	for (i = 0; i < lcom->size; i++) {
+		ptr = lcom->val + (i * LCOMMUNITY_SIZE);
+
+		for (entry = list->head; entry; entry = entry->next) {
+			if ((entry->style == LARGE_COMMUNITY_LIST_STANDARD) &&
+			    lcommunity_include(entry->u.lcom, ptr))
+				return entry->direct == COMMUNITY_PERMIT;
+			if ((entry->style == LARGE_COMMUNITY_LIST_EXPANDED) &&
+			    lcommunity_regexp_include(entry->reg, lcom, i))
+				return entry->direct == COMMUNITY_PERMIT;
+		}
+	}
+	return false;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 }
 
 /* Delete all permitted large communities in the list from com.  */
@@ -986,6 +1130,47 @@ struct lcommunity *lcommunity_list_match_delete(struct lcommunity *lcom,
 	return lcom;
 }
 
+<<<<<<< HEAD
+=======
+/* Delete all permitted extended communities in the list from ecom.*/
+struct ecommunity *ecommunity_list_match_delete(struct ecommunity *ecom,
+						struct community_list *list)
+{
+	struct community_entry *entry;
+	uint32_t com_index_to_delete[ecom->size];
+	uint8_t *ptr;
+	uint32_t delete_index = 0;
+	uint32_t i;
+	struct ecommunity local_ecom = {.size = 1};
+	struct ecommunity_val local_eval = {0};
+
+	for (i = 0; i < ecom->size; i++) {
+		local_ecom.val = ecom->val + (i * ECOMMUNITY_SIZE);
+		for (entry = list->head; entry; entry = entry->next) {
+			if (((entry->style == EXTCOMMUNITY_LIST_STANDARD) &&
+			     ecommunity_include(entry->u.ecom, &local_ecom)) ||
+			   ((entry->style == EXTCOMMUNITY_LIST_EXPANDED) &&
+			    ecommunity_regexp_match(ecom, entry->reg))) {
+				if (entry->direct == COMMUNITY_PERMIT) {
+					com_index_to_delete[delete_index] = i;
+					delete_index++;
+				}
+				break;
+			}
+		}
+	}
+
+	/* Delete all of the extended communities we flagged for deletion */
+	for (i = delete_index; i > 0; i--) {
+		ptr = ecom->val + (com_index_to_delete[i-1] * ECOMMUNITY_SIZE);
+		memcpy(&local_eval.val, ptr, sizeof(local_eval.val));
+		ecommunity_del_val(ecom, &local_eval);
+	}
+
+	return ecom;
+}
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 /* Helper to check if every octet do not exceed UINT_MAX */
 bool lcommunity_list_valid(const char *community, int style)
 {
@@ -1106,9 +1291,15 @@ int lcommunity_list_set(struct community_list_handler *ch, const char *name,
 
 /* Unset community-list.  When str is NULL, delete all of
    community-list entry belongs to the specified name.  */
+<<<<<<< HEAD
 int lcommunity_list_unset(struct community_list_handler *ch, const char *name,
 			  const char *str, const char *seq, int direct,
 			  int style)
+=======
+void lcommunity_list_unset(struct community_list_handler *ch, const char *name,
+			   const char *str, const char *seq, int direct,
+			   int style)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 {
 	struct community_list_master *cm = NULL;
 	struct community_entry *entry = NULL;
@@ -1119,14 +1310,22 @@ int lcommunity_list_unset(struct community_list_handler *ch, const char *name,
 	/* Lookup community list.  */
 	list = community_list_lookup(ch, name, 0, LARGE_COMMUNITY_LIST_MASTER);
 	if (list == NULL)
+<<<<<<< HEAD
 		return COMMUNITY_LIST_ERR_CANT_FIND_LIST;
+=======
+		return;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	cm = community_list_master_lookup(ch, LARGE_COMMUNITY_LIST_MASTER);
 	/* Delete all of entry belongs to this community-list.  */
 	if (!str) {
 		community_list_delete(cm, list);
 		route_map_notify_dependencies(name, RMAP_EVENT_LLIST_DELETED);
+<<<<<<< HEAD
 		return 0;
+=======
+		return;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	}
 
 	if (style == LARGE_COMMUNITY_LIST_STANDARD)
@@ -1135,7 +1334,11 @@ int lcommunity_list_unset(struct community_list_handler *ch, const char *name,
 		regex = bgp_regcomp(str);
 
 	if (!lcom && !regex)
+<<<<<<< HEAD
 		return COMMUNITY_LIST_ERR_MALFORMED_VAL;
+=======
+		return;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	if (lcom)
 		entry = community_list_entry_lookup(list, lcom, direct);
@@ -1148,12 +1351,19 @@ int lcommunity_list_unset(struct community_list_handler *ch, const char *name,
 		bgp_regex_free(regex);
 
 	if (!entry)
+<<<<<<< HEAD
 		return COMMUNITY_LIST_ERR_CANT_FIND_LIST;
 
 	community_list_entry_delete(cm, list, entry);
 	route_map_notify_dependencies(name, RMAP_EVENT_LLIST_DELETED);
 
 	return 0;
+=======
+		return;
+
+	community_list_entry_delete(cm, list, entry);
+	route_map_notify_dependencies(name, RMAP_EVENT_LLIST_DELETED);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 }
 
 /* Set extcommunity-list.  */
@@ -1233,9 +1443,15 @@ int extcommunity_list_set(struct community_list_handler *ch, const char *name,
  * When str is NULL, delete all extcommunity-list entries belonging to the
  * specified name.
  */
+<<<<<<< HEAD
 int extcommunity_list_unset(struct community_list_handler *ch, const char *name,
 			    const char *str, const char *seq, int direct,
 			    int style)
+=======
+void extcommunity_list_unset(struct community_list_handler *ch,
+			     const char *name, const char *str, const char *seq,
+			     int direct, int style)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 {
 	struct community_list_master *cm = NULL;
 	struct community_entry *entry = NULL;
@@ -1245,14 +1461,22 @@ int extcommunity_list_unset(struct community_list_handler *ch, const char *name,
 	/* Lookup extcommunity list.  */
 	list = community_list_lookup(ch, name, 0, EXTCOMMUNITY_LIST_MASTER);
 	if (list == NULL)
+<<<<<<< HEAD
 		return COMMUNITY_LIST_ERR_CANT_FIND_LIST;
+=======
+		return;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	cm = community_list_master_lookup(ch, EXTCOMMUNITY_LIST_MASTER);
 	/* Delete all of entry belongs to this extcommunity-list.  */
 	if (!str) {
 		community_list_delete(cm, list);
 		route_map_notify_dependencies(name, RMAP_EVENT_ECLIST_DELETED);
+<<<<<<< HEAD
 		return 0;
+=======
+		return;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	}
 
 	if (style == EXTCOMMUNITY_LIST_STANDARD)
@@ -1265,12 +1489,19 @@ int extcommunity_list_unset(struct community_list_handler *ch, const char *name,
 		entry = community_list_entry_lookup(list, str, direct);
 
 	if (!entry)
+<<<<<<< HEAD
 		return COMMUNITY_LIST_ERR_CANT_FIND_LIST;
 
 	community_list_entry_delete(cm, list, entry);
 	route_map_notify_dependencies(name, RMAP_EVENT_ECLIST_DELETED);
 
 	return 0;
+=======
+		return;
+
+	community_list_entry_delete(cm, list, entry);
+	route_map_notify_dependencies(name, RMAP_EVENT_ECLIST_DELETED);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 }
 
 /* Initializa community-list.  Return community-list handler.  */

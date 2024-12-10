@@ -14,10 +14,17 @@ source-built FRR on the following base platforms:
 
 The following platform images are used to support Travis CI and can also
 be used to reproduce topotest failures when the docker host is Ubuntu
+<<<<<<< HEAD
 (tested on 18.04 and 20.04):
 
 * Ubuntu 18.04
 * Ubuntu 20.04
+=======
+(tested on 20.04 and 22.04):
+
+* Ubuntu 20.04
+* Ubuntu 22.04
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 The following platform images may also be built, but these simply install a
 binary package from an existing repository and do not perform source builds:
@@ -130,6 +137,7 @@ No script, multi-arch (ex. amd64, arm64)::
 
 
 
+<<<<<<< HEAD
 Building Ubuntu 18.04 Image
 ---------------------------
 
@@ -158,11 +166,14 @@ Removing the built image::
    docker rmi frr-ubuntu18:latest
 
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 Building Ubuntu 20.04 Image
 ---------------------------
 
 Build image (from project root directory)::
 
+<<<<<<< HEAD
    docker build -t frr-ubuntu20:latest  -f docker/ubuntu20-ci/Dockerfile .
 
 Start the container::
@@ -172,6 +183,26 @@ Start the container::
 Running a topotest (when the docker host is Ubuntu)::
 
    docker exec frr-ubuntu20 bash -c 'cd ~/frr/tests/topotests/ospf-topo1 ; sudo pytest test_ospf_topo1.py'
+=======
+   docker build -t frr-ubuntu20:latest --build-arg=UBUNTU_VERSION=20.04 -f docker/ubuntu-ci/Dockerfile .
+
+Running Full Topotest::
+
+   docker run --init -it --privileged --name frr-ubuntu20 -v /lib/modules:/lib/modules \
+       frr-ubuntu20:latest bash -c 'cd ~/frr/tests/topotests ; sudo pytest -nauto --dist=loadfile'
+
+Extract results from the above run into `run-results` dir and analyze::
+
+   tests/topotests/analyze.py -C frr-ubuntu20 -Ar run-results
+
+Start the container::
+
+   docker run -d --init --privileged --name frr-ubuntu20 --mount type=bind,source=/lib/modules,target=/lib/modules frr-ubuntu20:latest
+
+Running a topotest (when the docker host is Ubuntu)::
+
+   docker exec frr-ubuntu20 bash -c 'cd ~/frr/tests/topotests/ospf_topo1 ; sudo pytest test_ospf_topo1.py'
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 Starting an interactive bash session::
 
@@ -184,3 +215,43 @@ Stopping an removing a container::
 Removing the built image::
 
    docker rmi frr-ubuntu20:latest
+<<<<<<< HEAD
+=======
+
+
+Building Ubuntu 22.04 Image
+---------------------------
+
+Build image (from project root directory)::
+
+   docker build -t frr-ubuntu22:latest -f docker/ubuntu-ci/Dockerfile .
+
+Running Full Topotest::
+
+   docker run --init -it --privileged --name frr-ubuntu22 -v /lib/modules:/lib/modules \
+       frr-ubuntu22:latest bash -c 'cd ~/frr/tests/topotests ; sudo pytest -nauto --dist=loadfile'
+
+Extract results from the above run into `run-results` dir and analyze::
+
+   tests/topotests/analyze.py -C frr-ubuntu22 -Ar run-results
+
+Start the container::
+
+   docker run -d --init --privileged --name frr-ubuntu22 --mount type=bind,source=/lib/modules,target=/lib/modules frr-ubuntu22:latest
+
+Running a topotest (when the docker host is Ubuntu)::
+
+   docker exec frr-ubuntu22 bash -c 'cd ~/frr/tests/topotests/ospf_topo1 ; sudo pytest test_ospf_topo1.py'
+
+Starting an interactive bash session::
+
+   docker exec -it frr-ubuntu22 bash
+
+Stopping an removing a container::
+
+   docker stop frr-ubuntu22 ; docker rm frr-ubuntu22
+
+Removing the built image::
+
+   docker rmi frr-ubuntu22:latest
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)

@@ -30,8 +30,11 @@
  * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
+<<<<<<< HEAD
  *
  * $FreeBSD$
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
  */
 
 #include "compiler.h"
@@ -54,6 +57,10 @@
 #define	PTRDIFFT	0x800		/* ptrdiff_t */
 #define	INTMAXT		0x1000		/* intmax_t */
 #define	CHARINT		0x2000		/* print char using int format */
+<<<<<<< HEAD
+=======
+#define	FASTINT		0x4000		/* int_fastN_t */
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 /*
  * Macros for converting digits to letters and vice versa

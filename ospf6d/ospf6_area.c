@@ -731,7 +731,11 @@ void ospf6_area_config_write(struct vty *vty, struct ospf6 *ospf6)
 
 DEFUN (area_filter_list,
        area_filter_list_cmd,
+<<<<<<< HEAD
        "area <A.B.C.D|(0-4294967295)> filter-list prefix PREFIXLIST_NAME <in|out>",
+=======
+       "area <A.B.C.D|(0-4294967295)> filter-list prefix PREFIXLIST6_NAME <in|out>",
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
        "OSPF6 area parameters\n"
        "OSPF6 area ID in IP address format\n"
        "OSPF6 area ID as a decimal value\n"
@@ -774,7 +778,11 @@ DEFUN (area_filter_list,
 
 DEFUN (no_area_filter_list,
        no_area_filter_list_cmd,
+<<<<<<< HEAD
        "no area <A.B.C.D|(0-4294967295)> filter-list prefix PREFIXLIST_NAME <in|out>",
+=======
+       "no area <A.B.C.D|(0-4294967295)> filter-list prefix PREFIXLIST6_NAME <in|out>",
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
        NO_STR
        "OSPF6 area parameters\n"
        "OSPF6 area ID in IP address format\n"

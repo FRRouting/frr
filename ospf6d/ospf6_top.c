@@ -16,6 +16,10 @@
 #include "defaults.h"
 #include "lib/json.h"
 #include "lib_errors.h"
+<<<<<<< HEAD
+=======
+#include "frrdistance.h"
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 #include "ospf6_proto.h"
 #include "ospf6_message.h"
@@ -36,6 +40,10 @@
 #include "ospf6_intra.h"
 #include "ospf6_spf.h"
 #include "ospf6d.h"
+<<<<<<< HEAD
+=======
+#include "ospf6_tlv.h"
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 #include "ospf6_gr.h"
 #include "lib/json.h"
 #include "ospf6_nssa.h"
@@ -140,20 +148,34 @@ static void ospf6_set_redist_vrf_bitmaps(struct ospf6 *ospf6, bool set)
 				"%s: setting redist vrf %d bitmap for type %d",
 				__func__, ospf6->vrf_id, type);
 		if (set)
+<<<<<<< HEAD
 			vrf_bitmap_set(zclient->redist[AFI_IP6][type],
 				       ospf6->vrf_id);
 		else
 			vrf_bitmap_unset(zclient->redist[AFI_IP6][type],
+=======
+			vrf_bitmap_set(&zclient->redist[AFI_IP6][type],
+				       ospf6->vrf_id);
+		else
+			vrf_bitmap_unset(&zclient->redist[AFI_IP6][type],
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 					 ospf6->vrf_id);
 	}
 
 	red_list = ospf6->redist[DEFAULT_ROUTE];
 	if (red_list) {
 		if (set)
+<<<<<<< HEAD
 			vrf_bitmap_set(zclient->default_information[AFI_IP6],
 				       ospf6->vrf_id);
 		else
 			vrf_bitmap_unset(zclient->default_information[AFI_IP6],
+=======
+			vrf_bitmap_set(&zclient->default_information[AFI_IP6],
+				       ospf6->vrf_id);
+		else
+			vrf_bitmap_unset(&zclient->default_information[AFI_IP6],
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 					 ospf6->vrf_id);
 	}
 }
@@ -429,6 +451,7 @@ static struct ospf6 *ospf6_create(const char *name)
 	/* Make ospf protocol socket. */
 	ospf6_serv_sock(o);
 
+<<<<<<< HEAD
 	/* If sequence number is stored in persistent storage, read it.
 	 */
 	if (ospf6_auth_nvm_file_exist() == OSPF6_AUTH_FILE_EXIST) {
@@ -440,6 +463,9 @@ static struct ospf6 *ospf6_create(const char *name)
 		ospf6_auth_seqno_nvm_update(o);
 	}
 
+=======
+	ospf6_auth_init(o);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	return o;
 }
 
@@ -485,6 +511,10 @@ void ospf6_delete(struct ospf6 *o)
 	struct ospf6_area *oa;
 	struct vrf *vrf;
 	struct ospf6_external_aggr_rt *aggr;
+<<<<<<< HEAD
+=======
+	uint32_t i;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	QOBJ_UNREG(o);
 
@@ -531,6 +561,16 @@ void ospf6_delete(struct ospf6 *o)
 		}
 	route_table_finish(o->rt_aggr_tbl);
 
+<<<<<<< HEAD
+=======
+	for (i = 0; i <= ZEBRA_ROUTE_MAX; i++) {
+		if (!o->redist[i])
+			continue;
+
+		list_delete(&o->redist[i]);
+	}
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	XFREE(MTYPE_OSPF6_TOP, o->name);
 	XFREE(MTYPE_OSPF6_TOP, o);
 }
@@ -575,6 +615,14 @@ void ospf6_master_init(struct event_loop *master)
 	om6->master = master;
 }
 
+<<<<<<< HEAD
+=======
+void ospf6_master_delete(void)
+{
+	list_delete(&om6->ospf6);
+}
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 static void ospf6_maxage_remover(struct event *thread)
 {
 	struct ospf6 *o = (struct ospf6 *)EVENT_ARG(thread);
@@ -1056,6 +1104,7 @@ DEFUN (no_ospf6_distance_ospf6,
 	return CMD_SUCCESS;
 }
 
+<<<<<<< HEAD
 DEFUN_HIDDEN (ospf6_interface_area,
        ospf6_interface_area_cmd,
        "interface IFNAME area <A.B.C.D|(0-4294967295)>",
@@ -1198,6 +1247,8 @@ DEFUN_HIDDEN (no_ospf6_interface_area,
 	return CMD_SUCCESS;
 }
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 DEFUN (ospf6_stub_router_admin,
        ospf6_stub_router_admin_cmd,
        "stub-router administrative",
@@ -2015,7 +2066,11 @@ ospf6_show_summary_address(struct vty *vty, struct ospf6 *ospf6,
 
 	if (!uj) {
 		ospf6_show_vrf_name(vty, ospf6, json_vrf);
+<<<<<<< HEAD
 		vty_out(vty, "aggregation delay interval :%u(in seconds)\n\n",
+=======
+		vty_out(vty, "aggregation delay interval: %u(in seconds)\n\n",
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			ospf6->aggr_delay_interval);
 		vty_out(vty, "%s\n", header);
 	} else {
@@ -2346,8 +2401,11 @@ void ospf6_top_init(void)
 	install_element(OSPF6_NODE, &ospf6_timers_lsa_cmd);
 	install_element(OSPF6_NODE, &no_ospf6_timers_lsa_cmd);
 
+<<<<<<< HEAD
 	install_element(OSPF6_NODE, &ospf6_interface_area_cmd);
 	install_element(OSPF6_NODE, &no_ospf6_interface_area_cmd);
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	install_element(OSPF6_NODE, &ospf6_stub_router_admin_cmd);
 	install_element(OSPF6_NODE, &no_ospf6_stub_router_admin_cmd);
 

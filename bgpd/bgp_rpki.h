@@ -8,6 +8,11 @@
 #ifndef __BGP_RPKI_H__
 #define __BGP_RPKI_H__
 
+<<<<<<< HEAD
+=======
+extern struct zebra_privs_t bgpd_privs;
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 enum rpki_states {
 	RPKI_NOT_BEING_USED,
 	RPKI_VALID,

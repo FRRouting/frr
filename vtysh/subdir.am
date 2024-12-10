@@ -17,9 +17,12 @@ vtysh_vtysh_SOURCES = \
 	vtysh/vtysh_user.c \
 	vtysh/vtysh_config.c \
 	# end
+<<<<<<< HEAD
 nodist_vtysh_vtysh_SOURCES = \
 	vtysh/vtysh_cmd.c \
 	# end
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 noinst_HEADERS += \
 	vtysh/vtysh.h \
@@ -29,6 +32,7 @@ noinst_HEADERS += \
 vtysh_vtysh_LDADD = lib/libfrr.la $(LIBCAP) $(LIBREADLINE) $(LIBS) $(LIBPAM)
 
 EXTRA_DIST += vtysh/daemons.pl
+<<<<<<< HEAD
 
 BUILT_SOURCES += vtysh/vtysh_daemons.h
 
@@ -39,3 +43,5 @@ CLEANFILES += vtysh/vtysh_daemons.h
 vtysh/vtysh_daemons.h:
 	@$(MKDIR_P) vtysh
 	$(PERL) $(top_srcdir)/vtysh/daemons.pl $(vtysh_daemons) > vtysh/vtysh_daemons.h
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)

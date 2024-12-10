@@ -17,6 +17,10 @@ pim_common = \
 	pimd/pim_assert.c \
 	pimd/pim_bfd.c \
 	pimd/pim_bsm.c \
+<<<<<<< HEAD
+=======
+	pimd/pim_bsr_rpdb.c \
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	pimd/pim_cmd_common.c \
 	pimd/pim_errors.c \
 	pimd/pim_hello.c \
@@ -43,7 +47,10 @@ pim_common = \
 	pimd/pim_ssm.c \
 	pimd/pim_ssmpingd.c \
 	pimd/pim_static.c \
+<<<<<<< HEAD
 	pimd/pim_str.c \
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	pimd/pim_tib.c \
 	pimd/pim_time.c \
 	pimd/pim_tlv.c \
@@ -59,6 +66,10 @@ pim_common = \
 
 pimd_pimd_SOURCES = \
 	$(pim_common) \
+<<<<<<< HEAD
+=======
+	pimd/pim_autorp.c \
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	pimd/pim_cmd.c \
 	pimd/pim_igmp.c \
 	pimd/pim_igmp_mtrace.c \
@@ -77,6 +88,10 @@ pimd_pimd_SOURCES = \
 nodist_pimd_pimd_SOURCES = \
 	yang/frr-pim.yang.c \
 	yang/frr-pim-rp.yang.c \
+<<<<<<< HEAD
+=======
+	yang/frr-pim-candidate.yang.c \
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	yang/frr-gmp.yang.c \
 	# end
 
@@ -90,12 +105,20 @@ pimd_pim6d_SOURCES = \
 nodist_pimd_pim6d_SOURCES = \
 	yang/frr-pim.yang.c \
 	yang/frr-pim-rp.yang.c \
+<<<<<<< HEAD
+=======
+	yang/frr-pim-candidate.yang.c \
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	yang/frr-gmp.yang.c \
 	# end
 
 noinst_HEADERS += \
 	pimd/pim_addr.h \
 	pimd/pim_assert.h \
+<<<<<<< HEAD
+=======
+	pimd/pim_autorp.h \
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	pimd/pim_bfd.h \
 	pimd/pim_bsm.h \
 	pimd/pim_cmd.h \
@@ -161,12 +184,20 @@ clippy_scan += \
 	# end
 
 pimd_pimd_CFLAGS = $(AM_CFLAGS) -DPIM_IPV=4
+<<<<<<< HEAD
 pimd_pimd_LDADD = lib/libfrr.la $(LIBCAP)
+=======
+pimd_pimd_LDADD = lib/libfrr.la $(LIBCAP) -lm
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 if PIM6D
 sbin_PROGRAMS += pimd/pim6d
 pimd_pim6d_CFLAGS = $(AM_CFLAGS) -DPIM_IPV=6
+<<<<<<< HEAD
 pimd_pim6d_LDADD = lib/libfrr.la $(LIBCAP)
+=======
+pimd_pim6d_LDADD = lib/libfrr.la $(LIBCAP) -lm
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 endif
 
 pimd_test_igmpv3_join_CFLAGS = $(AM_CFLAGS) -DPIM_IPV=4

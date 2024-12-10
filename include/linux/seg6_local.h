@@ -23,6 +23,10 @@ enum {
 	SEG6_LOCAL_BPF,
 	SEG6_LOCAL_VRFTABLE,
 	SEG6_LOCAL_COUNTERS,
+<<<<<<< HEAD
+=======
+	SEG6_LOCAL_FLAVORS,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	__SEG6_LOCAL_MAX,
 };
 #define SEG6_LOCAL_MAX (__SEG6_LOCAL_MAX - 1)
@@ -105,4 +109,30 @@ enum {
 
 #define SEG6_LOCAL_CNT_MAX (__SEG6_LOCAL_CNT_MAX - 1)
 
+<<<<<<< HEAD
+=======
+/* SRv6 End* Flavor attributes */
+enum {
+	SEG6_LOCAL_FLV_UNSPEC,
+	SEG6_LOCAL_FLV_OPERATION,
+	SEG6_LOCAL_FLV_LCBLOCK_BITS,
+	SEG6_LOCAL_FLV_LCNODE_FN_BITS,
+	__SEG6_LOCAL_FLV_MAX,
+};
+
+#define SEG6_LOCAL_FLV_MAX (__SEG6_LOCAL_FLV_MAX - 1)
+
+/* Designed flavor operations for SRv6 End* Behavior */
+enum {
+	SEG6_LOCAL_FLV_OP_UNSPEC,
+	SEG6_LOCAL_FLV_OP_PSP,
+	SEG6_LOCAL_FLV_OP_USP,
+	SEG6_LOCAL_FLV_OP_USD,
+	SEG6_LOCAL_FLV_OP_NEXT_CSID,
+	__SEG6_LOCAL_FLV_OP_MAX
+};
+
+#define SEG6_LOCAL_FLV_OP_MAX (__SEG6_LOCAL_FLV_OP_MAX - 1)
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 #endif

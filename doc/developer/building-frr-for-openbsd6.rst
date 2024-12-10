@@ -71,8 +71,13 @@ an example)
     export LDFLAGS="-L/usr/local/lib"
     export CPPFLAGS="-I/usr/local/include"
     ./configure \
+<<<<<<< HEAD
         --sysconfdir=/etc/frr \
         --localstatedir=/var/frr \
+=======
+        --sysconfdir=/etc \
+        --localstatedir=/var \
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         --enable-multipath=64 \
         --enable-user=_frr \
         --enable-group=_frr \

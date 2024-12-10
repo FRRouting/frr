@@ -35,7 +35,11 @@ int ripd_instance_create(struct nb_cb_create_args *args)
 	const char *vrf_name;
 	int socket;
 
+<<<<<<< HEAD
 	vrf_name = yang_dnode_get_string(args->dnode, "./vrf");
+=======
+	vrf_name = yang_dnode_get_string(args->dnode, "vrf");
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	vrf = vrf_lookup_by_name(vrf_name);
 
 	/*
@@ -189,7 +193,11 @@ int ripd_instance_distance_source_create(struct nb_cb_create_args *args)
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
+<<<<<<< HEAD
 	yang_dnode_get_ipv4p(&prefix, args->dnode, "./prefix");
+=======
+	yang_dnode_get_ipv4p(&prefix, args->dnode, "prefix");
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	apply_mask_ipv4(&prefix);
 
 	/* Get RIP distance node. */
@@ -395,7 +403,11 @@ int ripd_instance_offset_list_create(struct nb_cb_create_args *args)
 		return NB_OK;
 
 	rip = nb_running_get_entry(args->dnode, NULL, true);
+<<<<<<< HEAD
 	ifname = yang_dnode_get_string(args->dnode, "./interface");
+=======
+	ifname = yang_dnode_get_string(args->dnode, "interface");
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	offset = rip_offset_list_new(rip, ifname);
 	nb_running_set_entry(args->dnode, offset);
@@ -411,7 +423,11 @@ int ripd_instance_offset_list_destroy(struct nb_cb_destroy_args *args)
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
+<<<<<<< HEAD
 	direct = yang_dnode_get_enum(args->dnode, "./direction");
+=======
+	direct = yang_dnode_get_enum(args->dnode, "direction");
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	offset = nb_running_unset_entry(args->dnode);
 	if (offset->direct[direct].alist_name) {
@@ -548,6 +564,26 @@ int ripd_instance_non_passive_interface_destroy(struct nb_cb_destroy_args *args)
 	return rip_passive_nondefault_unset(rip, ifname);
 }
 
+<<<<<<< HEAD
+=======
+
+/*
+ * XPath: /frr-ripd:ripd/instance/distribute-list
+ */
+int ripd_instance_distribute_list_create(struct nb_cb_create_args *args)
+{
+	struct rip *rip;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	rip = nb_running_get_entry(args->dnode, NULL, true);
+	group_distribute_list_create_helper(args, rip->distribute_ctx);
+
+	return NB_OK;
+}
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 /*
  * XPath: /frr-ripd:ripd/instance/redistribute
  */
@@ -560,7 +596,11 @@ int ripd_instance_redistribute_create(struct nb_cb_create_args *args)
 		return NB_OK;
 
 	rip = nb_running_get_entry(args->dnode, NULL, true);
+<<<<<<< HEAD
 	type = yang_dnode_get_enum(args->dnode, "./protocol");
+=======
+	type = yang_dnode_get_enum(args->dnode, "protocol");
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	rip->redist[type].enabled = true;
 
@@ -576,7 +616,11 @@ int ripd_instance_redistribute_destroy(struct nb_cb_destroy_args *args)
 		return NB_OK;
 
 	rip = nb_running_get_entry(args->dnode, NULL, true);
+<<<<<<< HEAD
 	type = yang_dnode_get_enum(args->dnode, "./protocol");
+=======
+	type = yang_dnode_get_enum(args->dnode, "protocol");
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	rip->redist[type].enabled = false;
 	if (rip->redist[type].route_map.name) {
@@ -600,7 +644,11 @@ void ripd_instance_redistribute_apply_finish(
 	int type;
 
 	rip = nb_running_get_entry(args->dnode, NULL, true);
+<<<<<<< HEAD
 	type = yang_dnode_get_enum(args->dnode, "./protocol");
+=======
+	type = yang_dnode_get_enum(args->dnode, "protocol");
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	if (rip->enabled)
 		rip_redistribute_conf_update(rip, type);
@@ -1123,12 +1171,21 @@ int lib_interface_rip_bfd_create(struct nb_cb_create_args *args)
 
 	ifp = nb_running_get_entry(args->dnode, NULL, true);
 	ri = ifp->info;
+<<<<<<< HEAD
 	ri->bfd.enabled = yang_dnode_get_bool(args->dnode, "./enable");
 	XFREE(MTYPE_RIP_BFD_PROFILE, ri->bfd.profile);
 	if (yang_dnode_exists(args->dnode, "./profile"))
 		ri->bfd.profile = XSTRDUP(
 			MTYPE_RIP_BFD_PROFILE,
 			yang_dnode_get_string(args->dnode, "./profile"));
+=======
+	ri->bfd.enabled = yang_dnode_get_bool(args->dnode, "enable");
+	XFREE(MTYPE_RIP_BFD_PROFILE, ri->bfd.profile);
+	if (yang_dnode_exists(args->dnode, "profile"))
+		ri->bfd.profile = XSTRDUP(
+			MTYPE_RIP_BFD_PROFILE,
+			yang_dnode_get_string(args->dnode, "profile"));
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	rip_bfd_interface_update(ri);
 

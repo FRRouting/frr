@@ -201,6 +201,14 @@ module frr-nexthop {
       description
         "Nexthop's MPLS label stack.";
     }
+<<<<<<< HEAD
+=======
+
+    uses srv6-segs-stack {
+      description
+        "Nexthop's SRv6 segs SIDs stack.";
+    }
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
   }
 
   /*
@@ -298,6 +306,35 @@ module frr-nexthop {
     }
   }
 
+<<<<<<< HEAD
+=======
+  /* Contaner for SRv6 segs SIDs */
+  grouping srv6-segs-stack {
+    description
+      "This grouping specifies an SRv6 segs SIDs stack. The segs
+      SIDs stack is encoded as a list of SID entries. The
+      list key is an identifier that indicates the relative
+      ordering of each entry.";
+      container srv6-segs-stack {
+        description
+          "Container for a list of SRv6 segs SIDs entries.";
+          list entry {
+            key "id";
+            description
+              "List of SRv6 segs SIDs entries.";
+	    leaf id {
+              type uint8;
+              description
+              "Identifies the entry in a sequence of SRv6 segs SIDs
+              entries.";
+            }
+            leaf seg {
+                type inet:ipv6-address;
+            }
+          }
+      }
+  }
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
   container frr-nexthop-group {
     description
       "A nexthop-group, represented as a list of nexthop objects.";

@@ -15,6 +15,10 @@
 #include "linklist.h"
 #include "frrevent.h"
 #include "memory.h"
+<<<<<<< HEAD
+=======
+#include "frrdistance.h"
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 #include "ripngd/ripngd.h"
 #include "ripngd/ripng_nexthop.h"

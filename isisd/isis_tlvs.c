@@ -5,11 +5,25 @@
  * Copyright (C) 2015,2017 Christian Franke
  *
  * Copyright (C) 2019 Olivier Dugeon - Orange Labs (for TE and SR)
+<<<<<<< HEAD
+=======
+ *
+ * Copyright (C) 2023 Carmine Scarpitta - University of Rome Tor Vergata
+ * (for IS-IS Extensions to Support SRv6 as per RFC 9352)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
  */
 
 #include <zebra.h>
 #include <json-c/json_object.h>
 
+<<<<<<< HEAD
+=======
+#ifdef CRYPTO_OPENSSL
+#include <openssl/evp.h>
+#include <openssl/hmac.h>
+#endif
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 #ifdef CRYPTO_INTERNAL
 #include "md5.h"
 #endif
@@ -37,7 +51,11 @@
 
 DEFINE_MTYPE_STATIC(ISISD, ISIS_TLV, "ISIS TLVs");
 DEFINE_MTYPE(ISISD, ISIS_SUBTLV, "ISIS Sub-TLVs");
+<<<<<<< HEAD
 DEFINE_MTYPE_STATIC(ISISD, ISIS_SUBSUBTLV, "ISIS Sub-Sub-TLVs");
+=======
+DEFINE_MTYPE(ISISD, ISIS_SUBSUBTLV, "ISIS Sub-Sub-TLVs");
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 DEFINE_MTYPE_STATIC(ISISD, ISIS_MT_ITEM_LIST, "ISIS MT Item Lists");
 
 typedef int (*unpack_tlv_func)(enum isis_tlv_context context, uint8_t tlv_type,
@@ -96,7 +114,12 @@ static const struct pack_order_entry pack_order[] = {
 	PACK_ENTRY(EXTENDED_IP_REACH, ISIS_ITEMS, extended_ip_reach),
 	PACK_ENTRY(MT_IP_REACH, ISIS_MT_ITEMS, mt_ip_reach),
 	PACK_ENTRY(IPV6_REACH, ISIS_ITEMS, ipv6_reach),
+<<<<<<< HEAD
 	PACK_ENTRY(MT_IPV6_REACH, ISIS_MT_ITEMS, mt_ipv6_reach)
+=======
+	PACK_ENTRY(MT_IPV6_REACH, ISIS_MT_ITEMS, mt_ipv6_reach),
+	PACK_ENTRY(SRV6_LOCATOR, ISIS_MT_ITEMS, srv6_locator)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 };
 
 /* This is a forward definition. The table is actually initialized
@@ -109,6 +132,21 @@ static const struct tlv_ops *const tlv_table[ISIS_CONTEXT_MAX][ISIS_TLV_MAX];
 static void append_item(struct isis_item_list *dest, struct isis_item *item);
 static void init_item_list(struct isis_item_list *items);
 
+<<<<<<< HEAD
+=======
+static struct isis_subsubtlvs *
+isis_copy_subsubtlvs(struct isis_subsubtlvs *subsubtlvs);
+static void isis_format_subsubtlvs(struct isis_subsubtlvs *subsubtlvs,
+				   struct sbuf *buf, struct json_object *json,
+				   int indent);
+static int isis_pack_subsubtlvs(struct isis_subsubtlvs *subsubtlvs,
+				struct stream *s);
+static int unpack_tlvs(enum isis_tlv_context context, size_t avail_len,
+		       struct stream *stream, struct sbuf *log, void *dest,
+		       int indent, bool *unpacked_known_tlvs);
+static void isis_free_subsubtlvs(struct isis_subsubtlvs *subsubtlvs);
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 /* For tests/isisd, TLV text requires ipv4-unicast instead of standard */
 static const char *isis_mtid2str_fake(uint16_t mtid)
 {
@@ -127,6 +165,12 @@ struct isis_ext_subtlvs *isis_alloc_ext_subtlvs(void)
 	init_item_list(&ext->lan_sid);
 	ext->aslas = list_new();
 
+<<<<<<< HEAD
+=======
+	init_item_list(&ext->srv6_endx_sid);
+	init_item_list(&ext->srv6_lan_endx_sid);
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	admin_group_init(&ext->ext_admin_group);
 
 	return ext;
@@ -158,6 +202,21 @@ void isis_del_ext_subtlvs(struct isis_ext_subtlvs *ext)
 
 	admin_group_term(&ext->ext_admin_group);
 
+<<<<<<< HEAD
+=======
+	/* First, free SRv6 End.X SID and SRv6 LAN End.X SID list if needed */
+	for (item = ext->srv6_endx_sid.head; item; item = next_item) {
+		next_item = item->next;
+		isis_free_subsubtlvs(((struct isis_srv6_endx_sid_subtlv *)item)->subsubtlvs);
+		XFREE(MTYPE_ISIS_SUBTLV, item);
+	}
+	for (item = ext->srv6_lan_endx_sid.head; item; item = next_item) {
+		next_item = item->next;
+		isis_free_subsubtlvs(((struct isis_srv6_lan_endx_sid_subtlv *)item)->subsubtlvs);
+		XFREE(MTYPE_ISIS_SUBTLV, item);
+	}
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	XFREE(MTYPE_ISIS_SUBTLV, ext);
 }
 
@@ -174,6 +233,11 @@ copy_item_ext_subtlvs(struct isis_ext_subtlvs *exts, uint16_t mtid)
 	struct isis_lan_adj_sid *lan;
 	struct listnode *node, *nnode;
 	struct isis_asla_subtlvs *new_asla, *asla;
+<<<<<<< HEAD
+=======
+	struct isis_srv6_endx_sid_subtlv *srv6_adj;
+	struct isis_srv6_lan_endx_sid_subtlv *srv6_lan;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	/* Copy the Extended IS main part */
 	memcpy(rv, exts, sizeof(struct isis_ext_subtlvs));
@@ -192,9 +256,22 @@ copy_item_ext_subtlvs(struct isis_ext_subtlvs *exts, uint16_t mtid)
 	init_item_list(&rv->adj_sid);
 	init_item_list(&rv->lan_sid);
 
+<<<<<<< HEAD
 	UNSET_SUBTLV(rv, EXT_ADJ_SID);
 	UNSET_SUBTLV(rv, EXT_LAN_ADJ_SID);
 
+=======
+	/* Prepare SRv6 (LAN) End.X SID */
+	init_item_list(&rv->srv6_endx_sid);
+	init_item_list(&rv->srv6_lan_endx_sid);
+
+	UNSET_SUBTLV(rv, EXT_ADJ_SID);
+	UNSET_SUBTLV(rv, EXT_LAN_ADJ_SID);
+
+	UNSET_SUBTLV(rv, EXT_SRV6_ENDX_SID);
+	UNSET_SUBTLV(rv, EXT_SRV6_LAN_ENDX_SID);
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	/* Copy Adj SID list for IPv4 & IPv6 in function of MT ID */
 	for (adj = (struct isis_adj_sid *)exts->adj_sid.head; adj != NULL;
 	     adj = adj->next) {
@@ -238,6 +315,53 @@ copy_item_ext_subtlvs(struct isis_ext_subtlvs *exts, uint16_t mtid)
 		SET_SUBTLV(rv, EXT_LAN_ADJ_SID);
 	}
 
+<<<<<<< HEAD
+=======
+	/* Copy SRv6 End.X SID list for IPv4 & IPv6 in function of MT ID */
+	for (srv6_adj = (struct isis_srv6_endx_sid_subtlv *)
+				exts->srv6_endx_sid.head;
+	     srv6_adj != NULL; srv6_adj = srv6_adj->next) {
+		if ((mtid != 65535) && (mtid != ISIS_MT_DISABLE) &&
+		    ((mtid != ISIS_MT_IPV6_UNICAST)))
+			continue;
+
+		struct isis_srv6_endx_sid_subtlv *new;
+
+		new = XCALLOC(MTYPE_ISIS_SUBTLV,
+			      sizeof(struct isis_srv6_endx_sid_subtlv));
+		new->flags = srv6_adj->flags;
+		new->algorithm = srv6_adj->algorithm;
+		new->weight = srv6_adj->weight;
+		new->behavior = srv6_adj->behavior;
+		new->sid = srv6_adj->sid;
+		new->subsubtlvs = isis_copy_subsubtlvs(srv6_adj->subsubtlvs);
+		append_item(&rv->srv6_endx_sid, (struct isis_item *)new);
+		SET_SUBTLV(rv, EXT_SRV6_ENDX_SID);
+	}
+	/* Same for SRv6 LAN End.X SID */
+	for (srv6_lan = (struct isis_srv6_lan_endx_sid_subtlv *)
+				exts->srv6_lan_endx_sid.head;
+	     srv6_lan != NULL; srv6_lan = srv6_lan->next) {
+		if ((mtid != 65535) && (mtid != ISIS_MT_DISABLE) &&
+		    ((mtid != ISIS_MT_IPV6_UNICAST)))
+			continue;
+
+		struct isis_srv6_lan_endx_sid_subtlv *new;
+
+		new = XCALLOC(MTYPE_ISIS_SUBTLV,
+			      sizeof(struct isis_srv6_lan_endx_sid_subtlv));
+		memcpy(new->neighbor_id, srv6_lan->neighbor_id, 6);
+		new->flags = srv6_lan->flags;
+		new->algorithm = srv6_lan->algorithm;
+		new->weight = srv6_lan->weight;
+		new->behavior = srv6_lan->behavior;
+		new->sid = srv6_lan->sid;
+		new->subsubtlvs = isis_copy_subsubtlvs(srv6_lan->subsubtlvs);
+		append_item(&rv->srv6_lan_endx_sid, (struct isis_item *)new);
+		SET_SUBTLV(rv, EXT_SRV6_LAN_ENDX_SID);
+	}
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	rv->aslas = list_new();
 
 	for (ALL_LIST_ELEMENTS(exts->aslas, node, nnode, asla)) {
@@ -259,9 +383,126 @@ copy_item_ext_subtlvs(struct isis_ext_subtlvs *exts, uint16_t mtid)
 }
 
 static void format_item_asla_subtlvs(struct isis_asla_subtlvs *asla,
+<<<<<<< HEAD
 				     struct sbuf *buf, int indent)
 {
 	char admin_group_buf[ADMIN_GROUP_PRINT_MAX_SIZE];
+=======
+				     struct json_object *ext_json,
+				     struct sbuf *buf, int indent)
+{
+	char admin_group_buf[ADMIN_GROUP_PRINT_MAX_SIZE];
+	struct json_object *json;
+	char cnt_buf[255];
+	size_t i;
+	int j;
+
+	if (ext_json) {
+		json = json_object_new_object();
+		json_object_object_add(ext_json, "asla", json);
+		json_object_boolean_add(json, "legacyFlag", asla->legacy);
+		json_object_string_addf(json, "standardApp", "0x%02x",
+					asla->standard_apps);
+		if (IS_SUBTLV(asla, EXT_ADM_GRP))
+			json_object_string_addf(json, "adminGroup", "0x%x",
+						asla->admin_group);
+		if (IS_SUBTLV(asla, EXT_EXTEND_ADM_GRP) &&
+		    admin_group_nb_words(&asla->ext_admin_group) != 0) {
+			struct json_object *ext_adm_grp_json;
+
+			ext_adm_grp_json = json_object_new_object();
+			json_object_object_add(json, "extendedAdminGroup",
+					       ext_adm_grp_json);
+			for (i = 0;
+			     i < admin_group_nb_words(&asla->ext_admin_group);
+			     i++) {
+				snprintfrr(cnt_buf, sizeof(cnt_buf), "%lu",
+					   (unsigned long)i);
+				json_object_string_addf(ext_adm_grp_json,
+							cnt_buf, "0x%x",
+							asla->ext_admin_group
+								.bitmap.data[i]);
+			}
+		}
+		if (IS_SUBTLV(asla, EXT_MAX_BW))
+			json_object_string_addf(json, "maxBandwithBytesSec",
+						"%g", asla->max_bw);
+		if (IS_SUBTLV(asla, EXT_MAX_RSV_BW))
+			json_object_string_addf(json, "maxResBandwithBytesSec",
+						"%g", asla->max_rsv_bw);
+		if (IS_SUBTLV(asla, EXT_UNRSV_BW)) {
+			struct json_object *unrsv_json =
+				json_object_new_object();
+
+			json_object_object_add(json, "unrsvBandwithBytesSec",
+					       unrsv_json);
+			for (j = 0; j < MAX_CLASS_TYPE; j += 1) {
+				snprintfrr(cnt_buf, sizeof(cnt_buf), "%d", j);
+				json_object_string_addf(unrsv_json, cnt_buf,
+							"%g", asla->unrsv_bw[j]);
+			}
+		}
+		if (IS_SUBTLV(asla, EXT_TE_METRIC))
+			json_object_int_add(json, "teMetric", asla->te_metric);
+
+		/* Extended metrics */
+		if (IS_SUBTLV(asla, EXT_DELAY)) {
+			struct json_object *avg_json;
+
+			avg_json = json_object_new_object();
+			json_object_object_add(json, "avgDelay", avg_json);
+			json_object_string_add(avg_json, "delay",
+					       IS_ANORMAL(asla->delay)
+						       ? "Anomalous"
+						       : "Normal");
+			json_object_int_add(avg_json, "microSec", asla->delay);
+		}
+		if (IS_SUBTLV(asla, EXT_MM_DELAY)) {
+			struct json_object *avg_json;
+
+			avg_json = json_object_new_object();
+			json_object_object_add(json, "maxMinDelay", avg_json);
+			json_object_string_add(avg_json, "delay",
+					       IS_ANORMAL(asla->min_delay)
+						       ? "Anomalous"
+						       : "Normal");
+			json_object_string_addf(avg_json, "microSec", "%u / %u",
+						asla->min_delay & TE_EXT_MASK,
+						asla->max_delay & TE_EXT_MASK);
+		}
+		if (IS_SUBTLV(asla, EXT_DELAY_VAR))
+			json_object_int_add(json, "delayVariationMicroSec",
+					    asla->delay_var & TE_EXT_MASK);
+		if (IS_SUBTLV(asla, EXT_PKT_LOSS)) {
+			struct json_object *link_json;
+
+			link_json = json_object_new_object();
+			json_object_object_add(json, "linkPacketLoss",
+					       link_json);
+			json_object_string_add(link_json, "loss",
+					       IS_ANORMAL(asla->pkt_loss)
+						       ? "Anomalous"
+						       : "Normal");
+			json_object_string_addf(link_json, "percentage", "%g",
+						(float)((asla->pkt_loss &
+							 TE_EXT_MASK) *
+							LOSS_PRECISION));
+		}
+		if (IS_SUBTLV(asla, EXT_RES_BW))
+			json_object_string_addf(json,
+						"unidirResidualBandBytesSec",
+						"%g", (asla->res_bw));
+		if (IS_SUBTLV(asla, EXT_AVA_BW))
+			json_object_string_addf(json,
+						"unidirAvailableBandBytesSec",
+						"%g", (asla->ava_bw));
+		if (IS_SUBTLV(asla, EXT_USE_BW))
+			json_object_string_addf(json,
+						"unidirUtilizedBandBytesSec",
+						"%g", (asla->use_bw));
+		return;
+	}
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	sbuf_push(buf, indent, "Application Specific Link Attributes:\n");
 	sbuf_push(buf, indent + 2,
@@ -381,7 +622,11 @@ static void format_item_ext_subtlvs(struct isis_ext_subtlvs *exts,
 		if (json) {
 			snprintfrr(aux_buf, sizeof(aux_buf), "0x%x",
 				   exts->adm_group);
+<<<<<<< HEAD
 			json_object_string_add(json, "adm-group", aux_buf);
+=======
+			json_object_string_add(json, "admGroup", aux_buf);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		} else {
 			sbuf_push(buf, indent, "Admin Group: 0x%08x\n",
 				  exts->adm_group);
@@ -395,8 +640,28 @@ static void format_item_ext_subtlvs(struct isis_ext_subtlvs *exts,
 
 	if (IS_SUBTLV(exts, EXT_EXTEND_ADM_GRP) &&
 	    admin_group_nb_words(&exts->ext_admin_group) != 0) {
+<<<<<<< HEAD
 		if (!json) {
 			/* TODO json after fix show database detail json */
+=======
+		if (json) {
+			struct json_object *ext_adm_grp_json;
+			size_t i;
+			ext_adm_grp_json = json_object_new_object();
+			json_object_object_add(json, "extendedAdminGroup",
+					       ext_adm_grp_json);
+			for (i = 0;
+			     i < admin_group_nb_words(&exts->ext_admin_group);
+			     i++) {
+				snprintfrr(cnt_buf, sizeof(cnt_buf), "%lu",
+					   (unsigned long)i);
+				json_object_string_addf(ext_adm_grp_json,
+							cnt_buf, "0x%x",
+							exts->ext_admin_group
+								.bitmap.data[i]);
+			}
+		} else {
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			sbuf_push(buf, indent, "Ext Admin Group: %s\n",
 				  admin_group_string(
 					  admin_group_buf,
@@ -416,9 +681,15 @@ static void format_item_ext_subtlvs(struct isis_ext_subtlvs *exts,
 	}
 	if (IS_SUBTLV(exts, EXT_LLRI)) {
 		if (json) {
+<<<<<<< HEAD
 			json_object_int_add(json, "link-local-id",
 					    exts->local_llri);
 			json_object_int_add(json, "link-remote-id",
+=======
+			json_object_int_add(json, "linkLocalId",
+					    exts->local_llri);
+			json_object_int_add(json, "linkRemoteId",
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 					    exts->remote_llri);
 		} else {
 			sbuf_push(buf, indent, "Link Local  ID: %u\n",
@@ -431,7 +702,11 @@ static void format_item_ext_subtlvs(struct isis_ext_subtlvs *exts,
 		if (json) {
 			inet_ntop(AF_INET, &exts->local_addr, aux_buf,
 				  sizeof(aux_buf));
+<<<<<<< HEAD
 			json_object_string_add(json, "local-iface-ip", aux_buf);
+=======
+			json_object_string_add(json, "localIfaceIp", aux_buf);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		} else
 			sbuf_push(buf, indent,
 				  "Local Interface IP Address(es): %pI4\n",
@@ -441,8 +716,12 @@ static void format_item_ext_subtlvs(struct isis_ext_subtlvs *exts,
 		if (json) {
 			inet_ntop(AF_INET, &exts->neigh_addr, aux_buf,
 				  sizeof(aux_buf));
+<<<<<<< HEAD
 			json_object_string_add(json, "remote-iface-ip",
 					       aux_buf);
+=======
+			json_object_string_add(json, "remoteIfaceIp", aux_buf);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		} else
 			sbuf_push(buf, indent,
 				  "Remote Interface IP Address(es): %pI4\n",
@@ -452,8 +731,12 @@ static void format_item_ext_subtlvs(struct isis_ext_subtlvs *exts,
 		if (json) {
 			inet_ntop(AF_INET6, &exts->local_addr6, aux_buf,
 				  sizeof(aux_buf));
+<<<<<<< HEAD
 			json_object_string_add(json, "local-iface-ipv6",
 					       aux_buf);
+=======
+			json_object_string_add(json, "localIfaceIpv6", aux_buf);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		} else
 			sbuf_push(buf, indent,
 				  "Local Interface IPv6 Address(es): %pI6\n",
@@ -463,8 +746,12 @@ static void format_item_ext_subtlvs(struct isis_ext_subtlvs *exts,
 		if (json) {
 			inet_ntop(AF_INET6, &exts->neigh_addr6, aux_buf,
 				  sizeof(aux_buf));
+<<<<<<< HEAD
 			json_object_string_add(json, "remote-iface-ipv6",
 					       aux_buf);
+=======
+			json_object_string_add(json, "remoteIfaceIpv6", aux_buf);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		} else
 			sbuf_push(buf, indent,
 				  "Remote Interface IPv6 Address(es): %pI6\n",
@@ -474,7 +761,11 @@ static void format_item_ext_subtlvs(struct isis_ext_subtlvs *exts,
 		if (json) {
 			snprintfrr(aux_buf, sizeof(aux_buf), "%g",
 				   exts->max_bw);
+<<<<<<< HEAD
 			json_object_string_add(json, "max-bandwith-bytes-sec",
+=======
+			json_object_string_add(json, "maxBandwithBytesSec",
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 					       aux_buf);
 		} else
 			sbuf_push(buf, indent,
@@ -485,8 +776,13 @@ static void format_item_ext_subtlvs(struct isis_ext_subtlvs *exts,
 		if (json) {
 			snprintfrr(aux_buf, sizeof(aux_buf), "%g",
 				   exts->max_rsv_bw);
+<<<<<<< HEAD
 			json_object_string_add(
 				json, "max-res-bandwith-bytes-sec", aux_buf);
+=======
+			json_object_string_add(json, "maxResBandwithBytesSec",
+					       aux_buf);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		} else
 			sbuf_push(
 				buf, indent,
@@ -496,8 +792,14 @@ static void format_item_ext_subtlvs(struct isis_ext_subtlvs *exts,
 	if (IS_SUBTLV(exts, EXT_UNRSV_BW)) {
 		if (json) {
 			struct json_object *unrsv_json;
+<<<<<<< HEAD
 			unrsv_json = json_object_new_object();
 			json_object_object_add(json, "unrsv-bandwith-bytes-sec",
+=======
+
+			unrsv_json = json_object_new_object();
+			json_object_object_add(json, "unrsvBandwithBytesSec",
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 					       unrsv_json);
 			for (int j = 0; j < MAX_CLASS_TYPE; j += 1) {
 				snprintfrr(cnt_buf, sizeof(cnt_buf), "%d", j);
@@ -518,18 +820,31 @@ static void format_item_ext_subtlvs(struct isis_ext_subtlvs *exts,
 		}
 	}
 	if (IS_SUBTLV(exts, EXT_TE_METRIC)) {
+<<<<<<< HEAD
 		if (json) {
 			json_object_int_add(json, "te-metric", exts->te_metric);
 		} else
+=======
+		if (json)
+			json_object_int_add(json, "teMetric", exts->te_metric);
+		else
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			sbuf_push(buf, indent,
 				  "Traffic Engineering Metric: %u\n",
 				  exts->te_metric);
 	}
 	if (IS_SUBTLV(exts, EXT_RMT_AS)) {
+<<<<<<< HEAD
 		if (json) {
 			json_object_int_add(json, "inter-as-te-remote-as",
 					    exts->remote_as);
 		} else
+=======
+		if (json)
+			json_object_int_add(json, "interAsTeRemoteAs",
+					    exts->remote_as);
+		else
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			sbuf_push(buf, indent,
 				  "Inter-AS TE Remote AS number: %u\n",
 				  exts->remote_as);
@@ -538,8 +853,13 @@ static void format_item_ext_subtlvs(struct isis_ext_subtlvs *exts,
 		if (json) {
 			inet_ntop(AF_INET6, &exts->remote_ip, aux_buf,
 				  sizeof(aux_buf));
+<<<<<<< HEAD
 			json_object_string_add(
 				json, "inter-as-te-remote-asbr-ip", aux_buf);
+=======
+			json_object_string_add(json, "interAsTeRemoteAsbrIp",
+					       aux_buf);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		} else
 			sbuf_push(buf, indent,
 				  "Inter-AS TE Remote ASBR IP address: %pI4\n",
@@ -549,13 +869,23 @@ static void format_item_ext_subtlvs(struct isis_ext_subtlvs *exts,
 	if (IS_SUBTLV(exts, EXT_DELAY)) {
 		if (json) {
 			struct json_object *avg_json;
+<<<<<<< HEAD
 			avg_json = json_object_new_object();
 			json_object_object_add(json, "avg-delay", avg_json);
+=======
+
+			avg_json = json_object_new_object();
+			json_object_object_add(json, "avgDelay", avg_json);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			json_object_string_add(avg_json, "delay",
 					       IS_ANORMAL(exts->delay)
 						       ? "Anomalous"
 						       : "Normal");
+<<<<<<< HEAD
 			json_object_int_add(avg_json, "micro-sec", exts->delay);
+=======
+			json_object_int_add(avg_json, "microSec", exts->delay);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		} else
 			sbuf_push(buf, indent,
 				  "%s Average Link Delay: %u (micro-sec)\n",
@@ -566,8 +896,14 @@ static void format_item_ext_subtlvs(struct isis_ext_subtlvs *exts,
 	if (IS_SUBTLV(exts, EXT_MM_DELAY)) {
 		if (json) {
 			struct json_object *avg_json;
+<<<<<<< HEAD
 			avg_json = json_object_new_object();
 			json_object_object_add(json, "max-min-delay", avg_json);
+=======
+
+			avg_json = json_object_new_object();
+			json_object_object_add(json, "maxMinDelay", avg_json);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			json_object_string_add(avg_json, "delay",
 					       IS_ANORMAL(exts->min_delay)
 						       ? "Anomalous"
@@ -575,7 +911,11 @@ static void format_item_ext_subtlvs(struct isis_ext_subtlvs *exts,
 			snprintfrr(aux_buf, sizeof(aux_buf), "%u / %u",
 				   exts->min_delay & TE_EXT_MASK,
 				   exts->max_delay & TE_EXT_MASK);
+<<<<<<< HEAD
 			json_object_string_add(avg_json, "micro-sec", aux_buf);
+=======
+			json_object_string_add(avg_json, "microSec", aux_buf);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 		} else
 			sbuf_push(
@@ -587,10 +927,17 @@ static void format_item_ext_subtlvs(struct isis_ext_subtlvs *exts,
 				exts->max_delay & TE_EXT_MASK);
 	}
 	if (IS_SUBTLV(exts, EXT_DELAY_VAR)) {
+<<<<<<< HEAD
 		if (json) {
 			json_object_int_add(json, "delay-variation-micro-sec",
 					    exts->delay_var & TE_EXT_MASK);
 		} else
+=======
+		if (json)
+			json_object_int_add(json, "delayVariationMicroSec",
+					    exts->delay_var & TE_EXT_MASK);
+		else
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			sbuf_push(buf, indent,
 				  "Delay Variation: %u (micro-sec)\n",
 				  exts->delay_var & TE_EXT_MASK);
@@ -601,15 +948,25 @@ static void format_item_ext_subtlvs(struct isis_ext_subtlvs *exts,
 				   (float)((exts->pkt_loss & TE_EXT_MASK) *
 					   LOSS_PRECISION));
 			struct json_object *link_json;
+<<<<<<< HEAD
 			link_json = json_object_new_object();
 			json_object_object_add(json, "link-packet-loss",
+=======
+
+			link_json = json_object_new_object();
+			json_object_object_add(json, "linkPacketLoss",
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 					       link_json);
 			json_object_string_add(link_json, "loss",
 					       IS_ANORMAL(exts->pkt_loss)
 						       ? "Anomalous"
 						       : "Normal");
+<<<<<<< HEAD
 			json_object_string_add(link_json, "percentaje",
 					       aux_buf);
+=======
+			json_object_string_add(link_json, "percentage", aux_buf);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		} else
 			sbuf_push(buf, indent, "%s Link Packet Loss: %g (%%)\n",
 				  IS_ANORMAL(exts->pkt_loss) ? "Anomalous"
@@ -622,7 +979,11 @@ static void format_item_ext_subtlvs(struct isis_ext_subtlvs *exts,
 			snprintfrr(aux_buf, sizeof(aux_buf), "%g",
 				   (exts->res_bw));
 			json_object_string_add(json,
+<<<<<<< HEAD
 					       "unidir-residual-band-bytes-sec",
+=======
+					       "unidirResidualBandBytesSec",
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 					       aux_buf);
 		} else
 			sbuf_push(
@@ -634,9 +995,15 @@ static void format_item_ext_subtlvs(struct isis_ext_subtlvs *exts,
 		if (json) {
 			snprintfrr(aux_buf, sizeof(aux_buf), "%g",
 				   (exts->ava_bw));
+<<<<<<< HEAD
 			json_object_string_add(
 				json, "unidir-available-band-bytes-sec",
 				aux_buf);
+=======
+			json_object_string_add(json,
+					       "unidirAvailableBandBytesSec",
+					       aux_buf);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		} else
 			sbuf_push(
 				buf, indent,
@@ -648,7 +1015,11 @@ static void format_item_ext_subtlvs(struct isis_ext_subtlvs *exts,
 			snprintfrr(aux_buf, sizeof(aux_buf), "%g",
 				   (exts->use_bw));
 			json_object_string_add(json,
+<<<<<<< HEAD
 					       "unidir-utilized-band-bytes-sec",
+=======
+					       "unidirUtilizedBandBytesSec",
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 					       aux_buf);
 		} else
 			sbuf_push(
@@ -661,13 +1032,21 @@ static void format_item_ext_subtlvs(struct isis_ext_subtlvs *exts,
 		struct isis_adj_sid *adj;
 
 		if (json) {
+<<<<<<< HEAD
 			struct json_object *arr_adj_json, *flags_json;
 			arr_adj_json = json_object_new_array();
 			json_object_object_add(json, "adj-sid", arr_adj_json);
+=======
+			struct json_object *arr_adj_json, *adj_sid_json;
+
+			arr_adj_json = json_object_new_array();
+			json_object_object_add(json, "adjSid", arr_adj_json);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			for (adj = (struct isis_adj_sid *)exts->adj_sid.head;
 			     adj; adj = adj->next) {
 				snprintfrr(cnt_buf, sizeof(cnt_buf), "%d",
 					   adj->sid);
+<<<<<<< HEAD
 				flags_json = json_object_new_object();
 				json_object_int_add(flags_json, "sid",
 						    adj->sid);
@@ -704,6 +1083,39 @@ static void format_item_ext_subtlvs(struct isis_ext_subtlvs *exts,
 						? "1"
 						: "0");
 				json_object_array_add(arr_adj_json, flags_json);
+=======
+				adj_sid_json = json_object_new_object();
+				json_object_int_add(adj_sid_json, "sid",
+						    adj->sid);
+				json_object_int_add(adj_sid_json, "weight",
+						    adj->weight);
+				json_object_boolean_add(adj_sid_json, "flagF",
+							adj->flags & EXT_SUBTLV_LINK_ADJ_SID_FFLG
+								? true
+								: false);
+				json_object_boolean_add(adj_sid_json, "flagB",
+							adj->flags & EXT_SUBTLV_LINK_ADJ_SID_BFLG
+								? true
+								: false);
+				json_object_boolean_add(adj_sid_json, "flagV",
+							adj->flags & EXT_SUBTLV_LINK_ADJ_SID_VFLG
+								? true
+								: false);
+				json_object_boolean_add(adj_sid_json, "flagL",
+							adj->flags & EXT_SUBTLV_LINK_ADJ_SID_LFLG
+								? true
+								: false);
+				json_object_boolean_add(adj_sid_json, "flagS",
+							adj->flags & EXT_SUBTLV_LINK_ADJ_SID_SFLG
+								? true
+								: false);
+				json_object_boolean_add(adj_sid_json, "flagP",
+							adj->flags & EXT_SUBTLV_LINK_ADJ_SID_PFLG
+								? true
+								: false);
+				json_object_array_add(arr_adj_json,
+						      adj_sid_json);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			}
 		} else
 			for (adj = (struct isis_adj_sid *)exts->adj_sid.head;
@@ -736,12 +1148,20 @@ static void format_item_ext_subtlvs(struct isis_ext_subtlvs *exts,
 	if (IS_SUBTLV(exts, EXT_LAN_ADJ_SID)) {
 		struct isis_lan_adj_sid *lan;
 		if (json) {
+<<<<<<< HEAD
 			struct json_object *arr_adj_json, *flags_json;
 			arr_adj_json = json_object_new_array();
 			json_object_object_add(json, "lan-adj-sid",
 					       arr_adj_json);
 			for (lan = (struct isis_lan_adj_sid *)
 					   exts->adj_sid.head;
+=======
+			struct json_object *arr_adj_json, *lan_adj_json;
+
+			arr_adj_json = json_object_new_array();
+			json_object_object_add(json, "lanAdjSid", arr_adj_json);
+			for (lan = (struct isis_lan_adj_sid *)exts->adj_sid.head;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			     lan; lan = lan->next) {
 				if (((mtid == ISIS_MT_IPV4_UNICAST) &&
 				     (lan->family != AF_INET)) ||
@@ -750,6 +1170,7 @@ static void format_item_ext_subtlvs(struct isis_ext_subtlvs *exts,
 					continue;
 				snprintfrr(cnt_buf, sizeof(cnt_buf), "%d",
 					   lan->sid);
+<<<<<<< HEAD
 				flags_json = json_object_new_object();
 				json_object_int_add(flags_json, "sid",
 						    lan->sid);
@@ -786,6 +1207,39 @@ static void format_item_ext_subtlvs(struct isis_ext_subtlvs *exts,
 						? "1"
 						: "0");
 				json_object_array_add(arr_adj_json, flags_json);
+=======
+				lan_adj_json = json_object_new_object();
+				json_object_int_add(lan_adj_json, "sid",
+						    lan->sid);
+				json_object_int_add(lan_adj_json, "weight",
+						    lan->weight);
+				json_object_boolean_add(lan_adj_json, "flagF",
+							lan->flags & EXT_SUBTLV_LINK_ADJ_SID_FFLG
+								? true
+								: false);
+				json_object_boolean_add(lan_adj_json, "flagB",
+							lan->flags & EXT_SUBTLV_LINK_ADJ_SID_BFLG
+								? true
+								: false);
+				json_object_boolean_add(lan_adj_json, "flagV",
+							lan->flags & EXT_SUBTLV_LINK_ADJ_SID_VFLG
+								? true
+								: false);
+				json_object_boolean_add(lan_adj_json, "flagL",
+							lan->flags & EXT_SUBTLV_LINK_ADJ_SID_LFLG
+								? true
+								: false);
+				json_object_boolean_add(lan_adj_json, "flagS",
+							lan->flags & EXT_SUBTLV_LINK_ADJ_SID_SFLG
+								? true
+								: false);
+				json_object_boolean_add(lan_adj_json, "flagP",
+							lan->flags & EXT_SUBTLV_LINK_ADJ_SID_PFLG
+								? true
+								: false);
+				json_object_array_add(arr_adj_json,
+						      lan_adj_json);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			}
 		} else
 
@@ -823,8 +1277,171 @@ static void format_item_ext_subtlvs(struct isis_ext_subtlvs *exts,
 					lan->neighbor_id);
 			}
 	}
+<<<<<<< HEAD
 	for (ALL_LIST_ELEMENTS_RO(exts->aslas, node, asla))
 		format_item_asla_subtlvs(asla, buf, indent);
+=======
+	/* SRv6 End.X SID as per RFC9352 section #8.1 */
+	if (IS_SUBTLV(exts, EXT_SRV6_ENDX_SID)) {
+		struct isis_srv6_endx_sid_subtlv *adj;
+
+		if (json) {
+			struct json_object *arr_adj_json, *srv6_endx_sid_json;
+
+			arr_adj_json = json_object_new_array();
+			json_object_object_add(json, "srv6EndXSID",
+					       arr_adj_json);
+			for (adj = (struct isis_srv6_endx_sid_subtlv *)
+					   exts->srv6_endx_sid.head;
+			     adj; adj = adj->next) {
+				snprintfrr(cnt_buf, sizeof(cnt_buf), "%pI6",
+					   &adj->sid);
+				srv6_endx_sid_json = json_object_new_object();
+				json_object_string_addf(srv6_endx_sid_json,
+							"sid", "%pI6",
+							&adj->sid);
+				json_object_string_add(srv6_endx_sid_json,
+						       "algorithm",
+						       sr_algorithm_string(
+							       adj->algorithm));
+				json_object_int_add(srv6_endx_sid_json,
+						    "weight", adj->weight);
+				json_object_string_add(srv6_endx_sid_json,
+						       "behavior",
+						       seg6local_action2str(
+							       adj->behavior));
+				json_object_boolean_add(
+					srv6_endx_sid_json, "flagB",
+					!!(adj->flags &
+					   EXT_SUBTLV_LINK_SRV6_ENDX_SID_BFLG));
+				json_object_boolean_add(
+					srv6_endx_sid_json, "flagS",
+					!!(adj->flags &
+					   EXT_SUBTLV_LINK_SRV6_ENDX_SID_SFLG));
+				json_object_boolean_add(
+					srv6_endx_sid_json, "flagP",
+					!!(adj->flags &
+					   EXT_SUBTLV_LINK_SRV6_ENDX_SID_PFLG));
+				json_object_array_add(arr_adj_json,
+						      srv6_endx_sid_json);
+				if (adj->subsubtlvs)
+					isis_format_subsubtlvs(adj->subsubtlvs,
+							       NULL,
+							       srv6_endx_sid_json,
+							       indent + 4);
+			}
+		} else
+			for (adj = (struct isis_srv6_endx_sid_subtlv *)
+					   exts->srv6_endx_sid.head;
+			     adj; adj = adj->next) {
+				sbuf_push(
+					buf, indent,
+					"SRv6 End.X SID: %pI6, Algorithm: %s, Weight: %hhu, Endpoint Behavior: %s, Flags: B:%c, S:%c, P:%c\n",
+					&adj->sid,
+					sr_algorithm_string(adj->algorithm),
+					adj->weight,
+					seg6local_action2str(adj->behavior),
+					adj->flags & EXT_SUBTLV_LINK_SRV6_ENDX_SID_BFLG
+						? '1'
+						: '0',
+					adj->flags & EXT_SUBTLV_LINK_SRV6_ENDX_SID_SFLG
+						? '1'
+						: '0',
+					adj->flags & EXT_SUBTLV_LINK_SRV6_ENDX_SID_PFLG
+						? '1'
+						: '0');
+				if (adj->subsubtlvs)
+					isis_format_subsubtlvs(adj->subsubtlvs,
+							       buf, NULL,
+							       indent + 4);
+			}
+	}
+	/* SRv6 LAN End.X SID as per RFC9352 section #8.2 */
+	if (IS_SUBTLV(exts, EXT_SRV6_LAN_ENDX_SID)) {
+		struct isis_srv6_lan_endx_sid_subtlv *lan;
+		if (json) {
+			struct json_object *arr_adj_json,
+				*srv6_lan_endx_sid_json;
+
+			arr_adj_json = json_object_new_array();
+			json_object_object_add(json, "srv6LanEndxSID",
+					       arr_adj_json);
+			for (lan = (struct isis_srv6_lan_endx_sid_subtlv *)
+					   exts->srv6_lan_endx_sid.head;
+			     lan; lan = lan->next) {
+				snprintfrr(cnt_buf, sizeof(cnt_buf), "%pI6",
+					   &lan->sid);
+				srv6_lan_endx_sid_json =
+					json_object_new_object();
+				json_object_string_addf(srv6_lan_endx_sid_json,
+							"sid", "%pI6",
+							&lan->sid);
+				json_object_int_add(srv6_lan_endx_sid_json,
+						    "weight", lan->weight);
+				json_object_string_add(srv6_lan_endx_sid_json,
+						       "algorithm",
+						       sr_algorithm_string(
+							       lan->algorithm));
+				json_object_int_add(srv6_lan_endx_sid_json,
+						    "weight", lan->weight);
+				json_object_string_add(srv6_lan_endx_sid_json,
+						       "behavior",
+						       seg6local_action2str(
+							       lan->behavior));
+				json_object_boolean_add(
+					srv6_lan_endx_sid_json, "flagB",
+					!!(lan->flags &
+					   EXT_SUBTLV_LINK_SRV6_ENDX_SID_BFLG));
+				json_object_boolean_add(
+					srv6_lan_endx_sid_json, "flagS",
+					!!(lan->flags &
+					   EXT_SUBTLV_LINK_SRV6_ENDX_SID_SFLG));
+				json_object_boolean_add(
+					srv6_lan_endx_sid_json, "flagP",
+					!!(lan->flags &
+					   EXT_SUBTLV_LINK_SRV6_ENDX_SID_PFLG));
+				json_object_string_addf(srv6_lan_endx_sid_json,
+							"neighborID", "%pSY",
+							lan->neighbor_id);
+				json_object_array_add(arr_adj_json,
+						      srv6_lan_endx_sid_json);
+				if (lan->subsubtlvs)
+					isis_format_subsubtlvs(lan->subsubtlvs,
+							       NULL,
+							       srv6_lan_endx_sid_json,
+							       indent + 4);
+			}
+		} else
+			for (lan = (struct isis_srv6_lan_endx_sid_subtlv *)
+					   exts->srv6_lan_endx_sid.head;
+			     lan; lan = lan->next) {
+				sbuf_push(
+					buf, indent,
+					"SRv6 Lan End.X SID: %pI6, Algorithm: %s, Weight: %hhu, Endpoint Behavior: %s, Flags: B:%c, S:%c, P:%c "
+					"Neighbor-ID: %pSY\n",
+					&lan->sid,
+					sr_algorithm_string(lan->algorithm),
+					lan->weight,
+					seg6local_action2str(lan->behavior),
+					lan->flags & EXT_SUBTLV_LINK_SRV6_ENDX_SID_BFLG
+						? '1'
+						: '0',
+					lan->flags & EXT_SUBTLV_LINK_SRV6_ENDX_SID_SFLG
+						? '1'
+						: '0',
+					lan->flags & EXT_SUBTLV_LINK_SRV6_ENDX_SID_PFLG
+						? '1'
+						: '0',
+					lan->neighbor_id);
+				if (lan->subsubtlvs)
+					isis_format_subsubtlvs(lan->subsubtlvs,
+							       buf, NULL,
+							       indent + 4);
+			}
+	}
+	for (ALL_LIST_ELEMENTS_RO(exts->aslas, node, asla))
+		format_item_asla_subtlvs(asla, json, buf, indent);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 }
 
 static void free_item_ext_subtlvs(struct  isis_ext_subtlvs *exts)
@@ -1112,6 +1729,92 @@ static int pack_item_ext_subtlvs(struct isis_ext_subtlvs *exts,
 				stream_putl(s, lan->sid);
 		}
 	}
+<<<<<<< HEAD
+=======
+	/* SRv6 End.X SID as per RFC9352 section #8.1 */
+	if (IS_SUBTLV(exts, EXT_SRV6_ENDX_SID)) {
+		struct isis_srv6_endx_sid_subtlv *adj;
+		size_t subtlv_len;
+		size_t subtlv_len_pos;
+
+		for (adj = (struct isis_srv6_endx_sid_subtlv *)
+				   exts->srv6_endx_sid.head;
+		     adj; adj = adj->next) {
+			stream_putc(s, ISIS_SUBTLV_SRV6_ENDX_SID);
+
+			subtlv_len_pos = stream_get_endp(s);
+			stream_putc(s, 0); /* length will be filled later */
+
+			stream_putc(s, adj->flags);
+			stream_putc(s, adj->algorithm);
+			stream_putc(s, adj->weight);
+			stream_putw(s, adj->behavior);
+			stream_put(s, &adj->sid, IPV6_MAX_BYTELEN);
+
+			if (adj->subsubtlvs) {
+				/* Pack Sub-Sub-TLVs */
+				if (isis_pack_subsubtlvs(adj->subsubtlvs, s))
+					return 1;
+			} else {
+				/* No Sub-Sub-TLVs */
+				if (STREAM_WRITEABLE(s) < 1) {
+					*min_len =
+						ISIS_SUBTLV_SRV6_ENDX_SID_SIZE;
+					return 1;
+				}
+
+				/* Put 0 as Sub-Sub-TLV length, because we have
+				 * no Sub-Sub-TLVs  */
+				stream_putc(s, 0);
+			}
+
+			subtlv_len = stream_get_endp(s) - subtlv_len_pos - 1;
+			stream_putc_at(s, subtlv_len_pos, subtlv_len);
+		}
+	}
+	/* SRv6 LAN End.X SID as per RFC9352 section #8.2 */
+	if (IS_SUBTLV(exts, EXT_SRV6_LAN_ENDX_SID)) {
+		struct isis_srv6_lan_endx_sid_subtlv *lan;
+		size_t subtlv_len;
+		size_t subtlv_len_pos;
+
+		for (lan = (struct isis_srv6_lan_endx_sid_subtlv *)
+				   exts->srv6_lan_endx_sid.head;
+		     lan; lan = lan->next) {
+			stream_putc(s, ISIS_SUBTLV_SRV6_LAN_ENDX_SID);
+
+			subtlv_len_pos = stream_get_endp(s);
+			stream_putc(s, 0); /* length will be filled later */
+
+			stream_put(s, lan->neighbor_id, 6);
+			stream_putc(s, lan->flags);
+			stream_putc(s, lan->algorithm);
+			stream_putc(s, lan->weight);
+			stream_putw(s, lan->behavior);
+			stream_put(s, &lan->sid, IPV6_MAX_BYTELEN);
+
+			if (lan->subsubtlvs) {
+				/* Pack Sub-Sub-TLVs */
+				if (isis_pack_subsubtlvs(lan->subsubtlvs, s))
+					return 1;
+			} else {
+				/* No Sub-Sub-TLVs */
+				if (STREAM_WRITEABLE(s) < 1) {
+					*min_len =
+						ISIS_SUBTLV_SRV6_LAN_ENDX_SID_SIZE;
+					return 1;
+				}
+
+				/* Put 0 as Sub-Sub-TLV length, because we have
+				 * no Sub-Sub-TLVs  */
+				stream_putc(s, 0);
+			}
+
+			subtlv_len = stream_get_endp(s) - subtlv_len_pos - 1;
+			stream_putc_at(s, subtlv_len_pos, subtlv_len);
+		}
+	}
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	for (ALL_LIST_ELEMENTS_RO(exts->aslas, node, asla)) {
 		ret = pack_item_ext_subtlv_asla(asla, s, min_len);
@@ -1352,6 +2055,10 @@ static int unpack_item_ext_subtlvs(uint16_t mtid, uint8_t len, struct stream *s,
 	uint8_t sum = 0;
 	uint8_t subtlv_type;
 	uint8_t subtlv_len;
+<<<<<<< HEAD
+=======
+	uint8_t subsubtlv_len;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	size_t nb_groups;
 	uint32_t val;
 
@@ -1690,6 +2397,95 @@ static int unpack_item_ext_subtlvs(uint16_t mtid, uint8_t len, struct stream *s,
 				SET_SUBTLV(exts, EXT_LAN_ADJ_SID);
 			}
 			break;
+<<<<<<< HEAD
+=======
+		/* SRv6 End.X SID as per RFC9352 section #8.1 */
+		case ISIS_SUBTLV_SRV6_ENDX_SID:
+			if (subtlv_len < ISIS_SUBTLV_SRV6_ENDX_SID_SIZE) {
+				TLV_SIZE_MISMATCH(log, indent,
+						  "SRv6 End.X SID");
+				stream_forward_getp(s, subtlv_len);
+			} else {
+				struct isis_srv6_endx_sid_subtlv *adj;
+
+				adj = XCALLOC(
+					MTYPE_ISIS_SUBTLV,
+					sizeof(struct
+					       isis_srv6_endx_sid_subtlv));
+				adj->flags = stream_getc(s);
+				adj->algorithm = stream_getc(s);
+				adj->weight = stream_getc(s);
+				adj->behavior = stream_getw(s);
+				stream_get(&adj->sid, s, IPV6_MAX_BYTELEN);
+				subsubtlv_len = stream_getc(s);
+
+				adj->subsubtlvs = isis_alloc_subsubtlvs(
+					ISIS_CONTEXT_SUBSUBTLV_SRV6_ENDX_SID);
+
+				bool unpacked_known_tlvs = false;
+				if (unpack_tlvs(
+					    ISIS_CONTEXT_SUBSUBTLV_SRV6_ENDX_SID,
+					    subsubtlv_len, s, log,
+					    adj->subsubtlvs, indent + 4,
+					    &unpacked_known_tlvs)) {
+					XFREE(MTYPE_ISIS_SUBTLV, adj);
+					break;
+				}
+				if (!unpacked_known_tlvs) {
+					isis_free_subsubtlvs(adj->subsubtlvs);
+					adj->subsubtlvs = NULL;
+				}
+
+				append_item(&exts->srv6_endx_sid,
+					    (struct isis_item *)adj);
+				SET_SUBTLV(exts, EXT_SRV6_ENDX_SID);
+			}
+			break;
+		/* SRv6 LAN End.X SID as per RFC9352 section #8.2 */
+		case ISIS_SUBTLV_SRV6_LAN_ENDX_SID:
+			if (subtlv_len < ISIS_SUBTLV_SRV6_LAN_ENDX_SID_SIZE) {
+				TLV_SIZE_MISMATCH(log, indent,
+						  "SRv6 LAN End.X SID");
+				stream_forward_getp(s, subtlv_len);
+			} else {
+				struct isis_srv6_lan_endx_sid_subtlv *lan;
+
+				lan = XCALLOC(
+					MTYPE_ISIS_SUBTLV,
+					sizeof(struct
+					       isis_srv6_lan_endx_sid_subtlv));
+				stream_get(&(lan->neighbor_id), s,
+					   ISIS_SYS_ID_LEN);
+				lan->flags = stream_getc(s);
+				lan->algorithm = stream_getc(s);
+				lan->weight = stream_getc(s);
+				lan->behavior = stream_getw(s);
+				stream_get(&lan->sid, s, IPV6_MAX_BYTELEN);
+				subsubtlv_len = stream_getc(s);
+
+				lan->subsubtlvs = isis_alloc_subsubtlvs(
+					ISIS_CONTEXT_SUBSUBTLV_SRV6_ENDX_SID);
+
+				bool unpacked_known_tlvs = false;
+				if (unpack_tlvs(
+					    ISIS_CONTEXT_SUBSUBTLV_SRV6_ENDX_SID,
+					    subsubtlv_len, s, log,
+					    lan->subsubtlvs, indent + 4,
+					    &unpacked_known_tlvs)) {
+					XFREE(MTYPE_ISIS_SUBTLV, lan);
+					break;
+				}
+				if (!unpacked_known_tlvs) {
+					isis_free_subsubtlvs(lan->subsubtlvs);
+					lan->subsubtlvs = NULL;
+				}
+
+				append_item(&exts->srv6_lan_endx_sid,
+					    (struct isis_item *)lan);
+				SET_SUBTLV(exts, EXT_SRV6_LAN_ENDX_SID);
+			}
+			break;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		case ISIS_SUBTLV_ASLA:
 			if (unpack_item_ext_subtlv_asla(mtid, subtlv_len, s,
 							log, indent,
@@ -1727,15 +2523,28 @@ static void format_item_prefix_sid(uint16_t mtid, struct isis_item *i,
 	struct isis_prefix_sid *sid = (struct isis_prefix_sid *)i;
 
 	if (json) {
+<<<<<<< HEAD
 		struct json_object *sr_json;
 		sr_json = json_object_new_object();
 		json_object_object_add(json, "sr", sr_json);
+=======
+		struct json_object *sr_json, *array_json;
+
+		sr_json = json_object_new_object();
+		json_object_object_get_ex(json, "sr", &array_json);
+		if (!array_json) {
+			array_json = json_object_new_array();
+			json_object_object_add(json, "sr", array_json);
+		}
+		json_object_array_add(array_json, sr_json);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		if (sid->flags & ISIS_PREFIX_SID_VALUE) {
 			json_object_int_add(sr_json, "label", sid->value);
 		} else {
 			json_object_int_add(sr_json, "index", sid->value);
 		}
 		json_object_int_add(sr_json, "alg", sid->algorithm);
+<<<<<<< HEAD
 		json_object_string_add(
 			sr_json, "readvertised",
 			((sid->flags & ISIS_PREFIX_SID_READVERTISED) ? "yes"
@@ -1757,6 +2566,28 @@ static void format_item_prefix_sid(uint16_t mtid, struct isis_item *i,
 		json_object_string_add(
 			sr_json, "local",
 			((sid->flags & ISIS_PREFIX_SID_LOCAL) ? "yes" : ""));
+=======
+
+		struct json_object *flags_json;
+
+		flags_json = json_object_new_object();
+		json_object_object_add(sr_json, "flags", flags_json);
+
+		json_object_boolean_add(flags_json, "readvertised",
+					!!(sid->flags &
+					   ISIS_PREFIX_SID_READVERTISED));
+		json_object_boolean_add(flags_json, "node",
+					!!(sid->flags & ISIS_PREFIX_SID_NODE));
+		json_object_boolean_add(flags_json, "noPHP",
+					!!(sid->flags & ISIS_PREFIX_SID_NO_PHP));
+		json_object_boolean_add(flags_json, "explicitNull",
+					!!(sid->flags &
+					   ISIS_PREFIX_SID_EXPLICIT_NULL));
+		json_object_boolean_add(flags_json, "value",
+					!!(sid->flags & ISIS_PREFIX_SID_VALUE));
+		json_object_boolean_add(flags_json, "local",
+					!!(sid->flags & ISIS_PREFIX_SID_LOCAL));
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	} else {
 		sbuf_push(buf, indent, "SR Prefix-SID ");
@@ -1886,7 +2717,11 @@ static void format_subtlv_ipv6_source_prefix(struct prefix_ipv6 *p,
 	char prefixbuf[PREFIX2STR_BUFFER];
 	if (json) {
 		prefix2str(p, prefixbuf, sizeof(prefixbuf));
+<<<<<<< HEAD
 		json_object_string_add(json, "ipv6-src-prefix", prefixbuf);
+=======
+		json_object_string_add(json, "ipv6SrcPrefix", prefixbuf);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	} else {
 		sbuf_push(buf, indent, "IPv6 Source Prefix: %s\n",
 			  prefix2str(p, prefixbuf, sizeof(prefixbuf)));
@@ -1959,6 +2794,117 @@ static int unpack_subtlv_ipv6_source_prefix(enum isis_tlv_context context,
 	return 0;
 }
 
+<<<<<<< HEAD
+=======
+/* Functions related to Sub-Sub-TLV 1 SRv6 SID Structure
+ * as per RFC 9352 section #9 */
+static struct isis_srv6_sid_structure_subsubtlv *
+copy_subsubtlv_srv6_sid_structure(
+	struct isis_srv6_sid_structure_subsubtlv *sid_struct)
+{
+	if (!sid_struct)
+		return NULL;
+
+	struct isis_srv6_sid_structure_subsubtlv *rv =
+		XCALLOC(MTYPE_ISIS_SUBSUBTLV, sizeof(*rv));
+
+	rv->loc_block_len = sid_struct->loc_block_len;
+	rv->loc_node_len = sid_struct->loc_node_len;
+	rv->func_len = sid_struct->func_len;
+	rv->arg_len = sid_struct->arg_len;
+
+	return rv;
+}
+
+static void format_subsubtlv_srv6_sid_structure(
+	struct isis_srv6_sid_structure_subsubtlv *sid_struct, struct sbuf *buf,
+	struct json_object *json, int indent)
+{
+	if (!sid_struct)
+		return;
+
+	if (json) {
+		struct json_object *sid_struct_json;
+
+		sid_struct_json = json_object_new_object();
+		json_object_object_add(json, "srv6SidStructure",
+				       sid_struct_json);
+		json_object_int_add(sid_struct_json, "locBlockLen",
+				    sid_struct->loc_block_len);
+		json_object_int_add(sid_struct_json, "locNodeLen",
+				    sid_struct->loc_node_len);
+		json_object_int_add(sid_struct_json, "funcLen",
+				    sid_struct->func_len);
+		json_object_int_add(sid_struct_json, "argLen",
+				    sid_struct->arg_len);
+	} else {
+		sbuf_push(buf, indent, "SRv6 SID Structure ");
+		sbuf_push(buf, 0, "Locator Block length: %hhu, ",
+			  sid_struct->loc_block_len);
+		sbuf_push(buf, 0, "Locator Node length: %hhu, ",
+			  sid_struct->loc_node_len);
+		sbuf_push(buf, 0, "Function length: %hhu, ",
+			  sid_struct->func_len);
+		sbuf_push(buf, 0, "Argument length: %hhu, ",
+			  sid_struct->arg_len);
+		sbuf_push(buf, 0, "\n");
+	}
+}
+
+static void free_subsubtlv_srv6_sid_structure(
+	struct isis_srv6_sid_structure_subsubtlv *sid_struct)
+{
+	XFREE(MTYPE_ISIS_SUBSUBTLV, sid_struct);
+}
+
+static int pack_subsubtlv_srv6_sid_structure(
+	struct isis_srv6_sid_structure_subsubtlv *sid_struct, struct stream *s)
+{
+	if (!sid_struct)
+		return 0;
+
+	if (STREAM_WRITEABLE(s) < 6) {
+		return 1;
+	}
+
+	stream_putc(s, ISIS_SUBSUBTLV_SRV6_SID_STRUCTURE);
+	stream_putc(s, 4);
+	stream_putc(s, sid_struct->loc_block_len);
+	stream_putc(s, sid_struct->loc_node_len);
+	stream_putc(s, sid_struct->func_len);
+	stream_putc(s, sid_struct->arg_len);
+
+	return 0;
+}
+
+static int unpack_subsubtlv_srv6_sid_structure(
+	enum isis_tlv_context context, uint8_t tlv_type, uint8_t tlv_len,
+	struct stream *s, struct sbuf *log, void *dest, int indent)
+{
+	struct isis_subsubtlvs *subsubtlvs = dest;
+	struct isis_srv6_sid_structure_subsubtlv sid_struct = {};
+
+	sbuf_push(log, indent, "Unpacking SRv6 SID Structure...\n");
+	if (tlv_len != 4) {
+		sbuf_push(
+			log, indent,
+			"Invalid SRv6 SID Structure Sub-Sub-TLV size. (Expected 4 bytes, got %hhu)\n",
+			tlv_len);
+		return 1;
+	}
+
+	sid_struct.loc_block_len = stream_getc(s);
+	sid_struct.loc_node_len = stream_getc(s);
+	sid_struct.func_len = stream_getc(s);
+	sid_struct.arg_len = stream_getc(s);
+
+	subsubtlvs->srv6_sid_structure =
+		copy_subsubtlv_srv6_sid_structure(&sid_struct);
+
+	return 0;
+}
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 static struct isis_item *copy_item(enum isis_tlv_context context,
 				   enum isis_tlv_type type,
 				   struct isis_item *item);
@@ -1979,6 +2925,79 @@ static int pack_items_(uint16_t mtid, enum isis_tlv_context context,
 		       struct list *new_fragment_arg);
 #define pack_items(...) pack_items_(ISIS_MT_IPV4_UNICAST, __VA_ARGS__)
 
+<<<<<<< HEAD
+=======
+/* Functions related to Sub-Sub-TLVs in general */
+
+struct isis_subsubtlvs *isis_alloc_subsubtlvs(enum isis_tlv_context context)
+{
+	struct isis_subsubtlvs *result;
+
+	result = XCALLOC(MTYPE_ISIS_SUBSUBTLV, sizeof(*result));
+	result->context = context;
+
+	return result;
+}
+
+static struct isis_subsubtlvs *
+isis_copy_subsubtlvs(struct isis_subsubtlvs *subsubtlvs)
+{
+	if (!subsubtlvs)
+		return NULL;
+
+	struct isis_subsubtlvs *rv = XCALLOC(MTYPE_ISIS_SUBSUBTLV, sizeof(*rv));
+
+	rv->context = subsubtlvs->context;
+
+	rv->srv6_sid_structure = copy_subsubtlv_srv6_sid_structure(
+		subsubtlvs->srv6_sid_structure);
+
+	return rv;
+}
+
+static void isis_format_subsubtlvs(struct isis_subsubtlvs *subsubtlvs,
+				   struct sbuf *buf, struct json_object *json,
+				   int indent)
+{
+	format_subsubtlv_srv6_sid_structure(subsubtlvs->srv6_sid_structure, buf,
+					    json, indent);
+}
+
+static void isis_free_subsubtlvs(struct isis_subsubtlvs *subsubtlvs)
+{
+	if (!subsubtlvs)
+		return;
+
+	free_subsubtlv_srv6_sid_structure(subsubtlvs->srv6_sid_structure);
+
+	XFREE(MTYPE_ISIS_SUBSUBTLV, subsubtlvs);
+}
+
+static int isis_pack_subsubtlvs(struct isis_subsubtlvs *subsubtlvs,
+				struct stream *s)
+{
+	int rv;
+	size_t subsubtlv_len_pos = stream_get_endp(s);
+
+	if (STREAM_WRITEABLE(s) < 1)
+		return 1;
+
+	stream_putc(s, 0); /* Put 0 as Sub-Sub-TLVs length, filled in later */
+
+	rv = pack_subsubtlv_srv6_sid_structure(subsubtlvs->srv6_sid_structure,
+					       s);
+	if (rv)
+		return rv;
+
+	size_t subsubtlv_len = stream_get_endp(s) - subsubtlv_len_pos - 1;
+	if (subsubtlv_len > 255)
+		return 1;
+
+	stream_putc_at(s, subsubtlv_len_pos, subsubtlv_len);
+	return 0;
+}
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 /* Functions related to subtlvs */
 
 static struct isis_subtlvs *isis_alloc_subtlvs(enum isis_tlv_context context)
@@ -1989,6 +3008,10 @@ static struct isis_subtlvs *isis_alloc_subtlvs(enum isis_tlv_context context)
 	result->context = context;
 
 	init_item_list(&result->prefix_sids);
+<<<<<<< HEAD
+=======
+	init_item_list(&result->srv6_end_sids);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	return result;
 }
@@ -2007,6 +3030,13 @@ static struct isis_subtlvs *copy_subtlvs(struct isis_subtlvs *subtlvs)
 
 	rv->source_prefix =
 		copy_subtlv_ipv6_source_prefix(subtlvs->source_prefix);
+<<<<<<< HEAD
+=======
+
+	copy_items(subtlvs->context, ISIS_SUBTLV_SRV6_END_SID,
+		   &subtlvs->srv6_end_sids, &rv->srv6_end_sids);
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	return rv;
 }
 
@@ -2017,6 +3047,12 @@ static void format_subtlvs(struct isis_subtlvs *subtlvs, struct sbuf *buf,
 		     &subtlvs->prefix_sids, buf, json, indent);
 
 	format_subtlv_ipv6_source_prefix(subtlvs->source_prefix, buf, json, indent);
+<<<<<<< HEAD
+=======
+
+	format_items(subtlvs->context, ISIS_SUBTLV_SRV6_END_SID,
+		     &subtlvs->srv6_end_sids, buf, json, indent);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 }
 
 static void isis_free_subtlvs(struct isis_subtlvs *subtlvs)
@@ -2029,6 +3065,12 @@ static void isis_free_subtlvs(struct isis_subtlvs *subtlvs)
 
 	XFREE(MTYPE_ISIS_SUBTLV, subtlvs->source_prefix);
 
+<<<<<<< HEAD
+=======
+	free_items(subtlvs->context, ISIS_SUBTLV_SRV6_END_SID,
+		   &subtlvs->srv6_end_sids);
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	XFREE(MTYPE_ISIS_SUBTLV, subtlvs);
 }
 
@@ -2051,6 +3093,14 @@ static int pack_subtlvs(struct isis_subtlvs *subtlvs, struct stream *s)
 	if (rv)
 		return rv;
 
+<<<<<<< HEAD
+=======
+	rv = pack_items(subtlvs->context, ISIS_SUBTLV_SRV6_END_SID,
+			&subtlvs->srv6_end_sids, s, NULL, NULL, NULL, NULL);
+	if (rv)
+		return rv;
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	size_t subtlv_len = stream_get_endp(s) - subtlv_len_pos - 1;
 	if (subtlv_len > 255)
 		return 1;
@@ -2063,6 +3113,173 @@ static int unpack_tlvs(enum isis_tlv_context context, size_t avail_len,
 		       struct stream *stream, struct sbuf *log, void *dest,
 		       int indent, bool *unpacked_known_tlvs);
 
+<<<<<<< HEAD
+=======
+/* Functions for Sub-TLV 5 SRv6 End SID as per RFC 9352 section #7.2 */
+static struct isis_item *copy_item_srv6_end_sid(struct isis_item *i)
+{
+	struct isis_srv6_end_sid_subtlv *sid =
+		(struct isis_srv6_end_sid_subtlv *)i;
+	struct isis_srv6_end_sid_subtlv *rv =
+		XCALLOC(MTYPE_ISIS_SUBTLV, sizeof(*rv));
+
+	rv->behavior = sid->behavior;
+	rv->sid = sid->sid;
+	rv->subsubtlvs = isis_copy_subsubtlvs(sid->subsubtlvs);
+
+	return (struct isis_item *)rv;
+}
+
+static void format_item_srv6_end_sid(uint16_t mtid, struct isis_item *i,
+				     struct sbuf *buf, struct json_object *json,
+				     int indent)
+{
+	struct isis_srv6_end_sid_subtlv *sid =
+		(struct isis_srv6_end_sid_subtlv *)i;
+
+	if (json) {
+		struct json_object *sid_json;
+
+		sid_json = json_object_new_object();
+		json_object_object_add(json, "srv6EndSid", sid_json);
+		json_object_string_add(sid_json, "endpointBehavior",
+				       seg6local_action2str(sid->behavior));
+		json_object_string_addf(sid_json, "sidValue", "%pI6", &sid->sid);
+		if (sid->subsubtlvs) {
+			struct json_object *subtlvs_json;
+			subtlvs_json = json_object_new_object();
+			json_object_object_add(sid_json, "subsubtlvs",
+					       subtlvs_json);
+			isis_format_subsubtlvs(sid->subsubtlvs, NULL,
+					       subtlvs_json, 0);
+		}
+	} else {
+		sbuf_push(buf, indent, "SRv6 End SID ");
+		sbuf_push(buf, 0, "Endpoint Behavior: %s, ",
+			  seg6local_action2str(sid->behavior));
+		sbuf_push(buf, 0, "SID value: %pI6\n", &sid->sid);
+
+		if (sid->subsubtlvs) {
+			sbuf_push(buf, indent, "  Sub-Sub-TLVs:\n");
+			isis_format_subsubtlvs(sid->subsubtlvs, buf, NULL,
+					       indent + 4);
+		}
+	}
+}
+
+static void free_item_srv6_end_sid(struct isis_item *i)
+{
+	struct isis_srv6_end_sid_subtlv *item =
+		(struct isis_srv6_end_sid_subtlv *)i;
+
+	isis_free_subsubtlvs(item->subsubtlvs);
+	XFREE(MTYPE_ISIS_SUBTLV, i);
+}
+
+static int pack_item_srv6_end_sid(struct isis_item *i, struct stream *s,
+				  size_t *min_len)
+{
+	struct isis_srv6_end_sid_subtlv *sid =
+		(struct isis_srv6_end_sid_subtlv *)i;
+
+	if (STREAM_WRITEABLE(s) < 19) {
+		*min_len = 19;
+		return 1;
+	}
+
+	stream_putc(s, sid->flags);
+	stream_putw(s, sid->behavior);
+	stream_put(s, &sid->sid, IPV6_MAX_BYTELEN);
+
+	if (sid->subsubtlvs) {
+		/* Pack Sub-Sub-TLVs */
+		if (isis_pack_subsubtlvs(sid->subsubtlvs, s))
+			return 1;
+	} else {
+		/* No Sub-Sub-TLVs */
+		if (STREAM_WRITEABLE(s) < 1) {
+			*min_len = 20;
+			return 1;
+		}
+
+		/* Put 0 as Sub-Sub-TLV length, because we have no Sub-Sub-TLVs
+		 */
+		stream_putc(s, 0);
+	}
+
+	return 0;
+}
+
+static int unpack_item_srv6_end_sid(uint16_t mtid, uint8_t len,
+				    struct stream *s, struct sbuf *log,
+				    void *dest, int indent)
+{
+	struct isis_subtlvs *subtlvs = dest;
+	struct isis_srv6_end_sid_subtlv *sid = NULL;
+	size_t consume;
+	uint8_t subsubtlv_len;
+
+	sbuf_push(log, indent, "Unpacking SRv6 End SID...\n");
+
+	consume = 19;
+	if (len < consume) {
+		sbuf_push(
+			log, indent,
+			"Not enough data left. (expected 19 or more bytes, got %hhu)\n",
+			len);
+		goto out;
+	}
+
+	sid = XCALLOC(MTYPE_ISIS_SUBTLV, sizeof(*sid));
+
+	sid->flags = stream_getc(s);
+	sid->behavior = stream_getw(s);
+	stream_get(&sid->sid, s, IPV6_MAX_BYTELEN);
+
+	format_item_srv6_end_sid(mtid, (struct isis_item *)sid, log, NULL,
+				 indent + 2);
+
+	/* Process Sub-Sub-TLVs */
+	consume += 1;
+	if (len < consume) {
+		sbuf_push(
+			log, indent,
+			"Expected 1 byte of Sub-Sub-TLV len, but no more data persent.\n");
+		goto out;
+	}
+	subsubtlv_len = stream_getc(s);
+
+	consume += subsubtlv_len;
+	if (len < consume) {
+		sbuf_push(log, indent,
+			  "Expected %hhu bytes of Sub-Sub-TLVs, but only %u bytes available.\n",
+			  subsubtlv_len, len - ((uint8_t)consume - subsubtlv_len));
+		goto out;
+	}
+
+	sid->subsubtlvs =
+		isis_alloc_subsubtlvs(ISIS_CONTEXT_SUBSUBTLV_SRV6_END_SID);
+
+	bool unpacked_known_tlvs = false;
+	if (unpack_tlvs(ISIS_CONTEXT_SUBSUBTLV_SRV6_END_SID, subsubtlv_len, s,
+			log, sid->subsubtlvs, indent + 4,
+			&unpacked_known_tlvs)) {
+		goto out;
+	}
+	if (!unpacked_known_tlvs) {
+		isis_free_subsubtlvs(sid->subsubtlvs);
+		sid->subsubtlvs = NULL;
+	}
+
+	append_item(&subtlvs->srv6_end_sids, (struct isis_item *)sid);
+	return 0;
+out:
+	if (sid)
+		free_item_srv6_end_sid((struct isis_item *)sid);
+	return 1;
+}
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 /* Functions related to TLVs 1 Area Addresses */
 
 static struct isis_item *copy_item_area_address(struct isis_item *i)
@@ -2085,7 +3302,11 @@ static void format_item_area_address(uint16_t mtid, struct isis_item *i,
 	memcpy(iso_addr.area_addr, addr->addr, ISO_ADDR_SIZE);
 	iso_addr.addr_len = addr->len;
 	if (json)
+<<<<<<< HEAD
 		json_object_string_addf(json, "area-addr", "%pIS", &iso_addr);
+=======
+		json_object_string_addf(json, "areaAddr", "%pIS", &iso_addr);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	else
 		sbuf_push(buf, indent, "Area Address: %pIS\n", &iso_addr);
 }
@@ -2172,10 +3393,24 @@ static void format_item_oldstyle_reach(uint16_t mtid, struct isis_item *i,
 
 	snprintfrr(sys_id, ISO_SYSID_STRLEN, "%pPN", r->id);
 	if (json) {
+<<<<<<< HEAD
 		struct json_object *old_json;
 		old_json = json_object_new_object();
 		json_object_object_add(json, "old-reach-style", old_json);
 		json_object_string_add(old_json, "is-reach", sys_id);
+=======
+		struct json_object *old_json, *array_json;
+
+		old_json = json_object_new_object();
+		json_object_object_get_ex(json, "oldReachStyle", &array_json);
+		if (!array_json) {
+			array_json = json_object_new_array();
+			json_object_object_add(json, "oldReachStyle",
+					       array_json);
+		}
+		json_object_array_add(array_json, old_json);
+		json_object_string_add(old_json, "isReach", sys_id);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		json_object_int_add(old_json, "metric", r->metric);
 	} else
 		sbuf_push(buf, indent, "IS Reachability: %s (Metric: %hhu)\n",
@@ -2255,7 +3490,11 @@ static void format_item_lan_neighbor(uint16_t mtid, struct isis_item *i,
 
 	snprintfrr(sys_id, ISO_SYSID_STRLEN, "%pSY", n->mac);
 	if (json)
+<<<<<<< HEAD
 		json_object_string_add(json, "lan-neighbor", sys_id);
+=======
+		json_object_string_add(json, "lanNeighbor", sys_id);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	else
 		sbuf_push(buf, indent, "LAN Neighbor: %s\n", sys_id);
 }
@@ -2328,12 +3567,22 @@ static void format_item_lsp_entry(uint16_t mtid, struct isis_item *i,
 	if (json) {
 		char buf[255];
 		struct json_object *lsp_json;
+<<<<<<< HEAD
 		lsp_json = json_object_new_object();
 		json_object_object_add(json, "lsp-entry", lsp_json);
 		json_object_string_add(lsp_json, "id", sys_id);
 		snprintfrr(buf,sizeof(buf),"0x%08x",e->seqno);
 		json_object_string_add(lsp_json, "seq", buf);
 		snprintfrr(buf,sizeof(buf),"0x%04hx",e->checksum);
+=======
+
+		lsp_json = json_object_new_object();
+		json_object_object_add(json, "lspEntry", lsp_json);
+		json_object_string_add(lsp_json, "id", sys_id);
+		snprintfrr(buf, sizeof(buf), "0x%08x", e->seqno);
+		json_object_string_add(lsp_json, "seq", buf);
+		snprintfrr(buf, sizeof(buf), "0x%04hx", e->checksum);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		json_object_string_add(lsp_json, "chksum", buf);
 		json_object_int_add(lsp_json, "lifetime", e->checksum);
 	} else
@@ -2416,6 +3665,7 @@ static void format_item_extended_reach(uint16_t mtid, struct isis_item *i,
 
 	snprintfrr(sys_id, ISO_SYSID_STRLEN, "%pPN", r->id);
 	if (json) {
+<<<<<<< HEAD
 		struct json_object *reach_json;
 		reach_json = json_object_new_object();
 		json_object_object_add(json, "ext-reach", reach_json);
@@ -2430,6 +3680,29 @@ static void format_item_extended_reach(uint16_t mtid, struct isis_item *i,
 
 		if (r->subtlvs)
 			format_item_ext_subtlvs(r->subtlvs, NULL, json,
+=======
+		struct json_object *reach_json, *array_json;
+
+		reach_json = json_object_new_object();
+		json_object_object_get_ex(json, "extReach", &array_json);
+		if (!array_json) {
+			array_json = json_object_new_array();
+			json_object_object_add(json, "extReach", array_json);
+		}
+		json_object_array_add(array_json, reach_json);
+		json_object_string_add(reach_json, "mtId",
+				       (mtid == ISIS_MT_IPV4_UNICAST)
+					       ? "Extended"
+					       : "MT");
+		json_object_string_add(reach_json, "id", sys_id);
+		json_object_int_add(reach_json, "metric", r->metric);
+		if (mtid != ISIS_MT_IPV4_UNICAST)
+			json_object_string_add(reach_json, "mtName",
+					       isis_mtid2str(mtid));
+
+		if (r->subtlvs)
+			format_item_ext_subtlvs(r->subtlvs, NULL, reach_json,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 						indent + 2, mtid);
 	} else {
 		sbuf_push(buf, indent, "%s Reachability: %s (Metric: %u)",
@@ -2557,6 +3830,7 @@ static void format_item_oldstyle_ip_reach(uint16_t mtid, struct isis_item *i,
 	char prefixbuf[PREFIX2STR_BUFFER];
 
 	if (json) {
+<<<<<<< HEAD
 		struct json_object *old_json;
 		old_json = json_object_new_object();
 		json_object_object_add(json, "old-ip-reach-style", old_json);
@@ -2564,6 +3838,24 @@ static void format_item_oldstyle_ip_reach(uint16_t mtid, struct isis_item *i,
 				       prefix2str(&r->prefix, prefixbuf, sizeof(prefixbuf)));
 		json_object_int_add(old_json, "metric", r->metric);
 	} else
+=======
+		struct json_object *old_json, *array_json;
+
+		old_json = json_object_new_object();
+		json_object_object_get_ex(json, "oldIpReachStyle", &array_json);
+		if (!array_json) {
+			array_json = json_object_new_array();
+			json_object_object_add(json, "oldIpReachStyle",
+					       old_json);
+		}
+		json_object_array_add(array_json, old_json);
+		json_object_string_add(old_json, "prefix",
+				       prefix2str(&r->prefix, prefixbuf,
+						  sizeof(prefixbuf)));
+		json_object_int_add(old_json, "metric", r->metric);
+		return;
+	}
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	sbuf_push(buf, indent, "IP Reachability: %s (Metric: %hhu)\n",
 		  prefix2str(&r->prefix, prefixbuf, sizeof(prefixbuf)),
 		  r->metric);
@@ -2656,7 +3948,11 @@ static void format_tlv_protocols_supported(struct isis_protocols_supported *p,
 		char buf[255];
 
 		protocol_json = json_object_new_object();
+<<<<<<< HEAD
 		json_object_object_add(json, "protocols-supported",
+=======
+		json_object_object_add(json, "supportedProtocols",
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 				       protocol_json);
 		for (uint8_t i = 0; i < p->count; i++) {
 			snprintfrr(buf, sizeof(buf), "%d", i);
@@ -2879,7 +4175,11 @@ static void format_item_global_ipv6_address(uint16_t mtid, struct isis_item *i,
 
 	inet_ntop(AF_INET6, &a->addr, addrbuf, sizeof(addrbuf));
 	if (json)
+<<<<<<< HEAD
 		json_object_string_add(json, "global-ipv6", addrbuf);
+=======
+		json_object_string_add(json, "globalIpv6", addrbuf);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	else
 		sbuf_push(buf, indent, "Global IPv6 Interface Address: %s\n",
 			  addrbuf);
@@ -2948,12 +4248,33 @@ static void format_item_mt_router_info(uint16_t mtid, struct isis_item *i,
 	struct isis_mt_router_info *info = (struct isis_mt_router_info *)i;
 
 	if (json) {
+<<<<<<< HEAD
 		struct json_object *mt_json;
 		mt_json = json_object_new_object();
 		json_object_object_add(json, "mt", mt_json);
 		json_object_int_add(mt_json, "mtid", info->mtid);
 		json_object_string_add(mt_json, "overload", info->overload?"true":"false");
 		json_object_string_add(mt_json, "attached", info->attached?"true":"false");
+=======
+		struct json_object *mt_json, *array_json;
+		mt_json = json_object_new_object();
+		json_object_object_get_ex(json, "mt", &array_json);
+		if (!array_json) {
+			array_json = json_object_new_array();
+			json_object_object_add(json, "mt", array_json);
+		}
+		json_object_array_add(array_json, mt_json);
+		json_object_int_add(mt_json, "mtid", info->mtid);
+		json_object_string_add(mt_json, "mt-description",
+				       isis_mtid2str_fake(info->mtid));
+		json_object_string_add(mt_json, "mtDescription",
+				       isis_mtid2str(mtid));
+
+		json_object_boolean_add(mt_json, "overloadBit",
+					!!info->overload);
+		json_object_boolean_add(mt_json, "attachedbit",
+					!!info->attached);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	} else
 		sbuf_push(buf, indent, "MT Router Info: %s%s%s\n",
 			  isis_mtid2str_fake(info->mtid),
@@ -3037,7 +4358,11 @@ static void format_tlv_te_router_id(const struct in_addr *id, struct sbuf *buf,
 	char addrbuf[INET_ADDRSTRLEN];
 	inet_ntop(AF_INET, id, addrbuf, sizeof(addrbuf));
 	if (json)
+<<<<<<< HEAD
 		json_object_string_add(json, "te-router-id", addrbuf);
+=======
+		json_object_string_add(json, "teRouterId", addrbuf);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	else
 		sbuf_push(buf, indent, "TE Router ID: %s\n", addrbuf);
 }
@@ -3109,6 +4434,7 @@ static void format_item_extended_ip_reach(uint16_t mtid, struct isis_item *i,
 					  struct json_object *json, int indent)
 {
 	struct isis_extended_ip_reach *r = (struct isis_extended_ip_reach *)i;
+<<<<<<< HEAD
 	char prefixbuf[PREFIX2STR_BUFFER];
 
 	if (json) {
@@ -3125,11 +4451,39 @@ static void format_item_extended_ip_reach(uint16_t mtid, struct isis_item *i,
 		json_object_string_add(json, "down", r->down ? "yes" : "");
 		if (mtid != ISIS_MT_IPV4_UNICAST)
 			json_object_string_add(json, "mt-name",
+=======
+	struct json_object *ext_json, *array_json;
+	char prefixbuf[PREFIX2STR_BUFFER];
+
+	if (json) {
+		ext_json = json_object_new_object();
+		json_object_object_get_ex(json, "extIpReach", &array_json);
+		if (!array_json) {
+			array_json = json_object_new_array();
+			json_object_object_add(json, "extIpReach", array_json);
+		}
+		json_object_array_add(array_json, ext_json);
+		json_object_string_add(ext_json, "mtId",
+				       (mtid == ISIS_MT_IPV4_UNICAST)
+					       ? "Extended"
+					       : "MT");
+		json_object_string_add(ext_json, "ipReach",
+				       prefix2str(&r->prefix, prefixbuf,
+						  sizeof(prefixbuf)));
+		json_object_int_add(ext_json, "ipReachMetric", r->metric);
+		json_object_boolean_add(ext_json, "down", !!r->down);
+		if (mtid != ISIS_MT_IPV4_UNICAST)
+			json_object_string_add(ext_json, "mtName",
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 					       isis_mtid2str(mtid));
 		if (r->subtlvs) {
 			struct json_object *subtlv_json;
 			subtlv_json = json_object_new_object();
+<<<<<<< HEAD
 			json_object_object_add(json, "subtlvs", subtlv_json);
+=======
+			json_object_object_add(ext_json, "subtlvs", subtlv_json);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			format_subtlvs(r->subtlvs, NULL, subtlv_json, 0);
 		}
 	} else {
@@ -3390,7 +4744,11 @@ static void format_tlv_te_router_id_ipv6(const struct in6_addr *id,
 	char addrbuf[INET6_ADDRSTRLEN];
 	inet_ntop(AF_INET6, id, addrbuf, sizeof(addrbuf));
 	if (json)
+<<<<<<< HEAD
 		json_object_string_add(json, "ipv6-te-router-id", addrbuf);
+=======
+		json_object_string_add(json, "ipv6TeRouterId", addrbuf);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	else
 		sbuf_push(buf, indent, "IPv6 TE Router ID: %s\n", addrbuf);
 }
@@ -3468,6 +4826,7 @@ static void format_tlv_spine_leaf(const struct isis_spine_leaf *spine_leaf,
 
 	if (json) {
 		struct json_object *spine_json;
+<<<<<<< HEAD
 		spine_json = json_object_new_object();
 		json_object_object_add(json, "spine-leaf-extension",
 				       spine_json);
@@ -3486,6 +4845,26 @@ static void format_tlv_spine_leaf(const struct isis_spine_leaf *spine_leaf,
 				       spine_leaf->is_spine ? "yes" : "");
 		json_object_string_add(spine_json, "flag-backup",
 				       spine_leaf->is_backup ? "yes" : "");
+=======
+
+		spine_json = json_object_new_object();
+		json_object_object_add(json, "spineLeafExtension", spine_json);
+		if (spine_leaf->has_tier) {
+			snprintfrr(aux_buf, sizeof(aux_buf), "%hhu",
+				   spine_leaf->tier);
+			json_object_string_add(spine_json, "tier",
+					       (spine_leaf->tier ==
+						ISIS_TIER_UNDEFINED)
+						       ? "undefined"
+						       : aux_buf);
+		}
+		json_object_boolean_add(spine_json, "flagLeaf",
+					spine_leaf->is_leaf ? true : false);
+		json_object_boolean_add(spine_json, "flagSpine",
+					spine_leaf->is_spine ? true : false);
+		json_object_boolean_add(spine_json, "flagBackup",
+					spine_leaf->is_backup ? true : false);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	} else {
 		sbuf_push(buf, indent, "Spine-Leaf-Extension:\n");
 		if (spine_leaf->has_tier) {
@@ -3627,6 +5006,7 @@ format_tlv_threeway_adj(const struct isis_threeway_adj *threeway_adj,
 	snprintfrr(sys_id, ISO_SYSID_STRLEN, "%pSY", threeway_adj->neighbor_id);
 	if (json) {
 		struct json_object *three_json;
+<<<<<<< HEAD
 		three_json = json_object_new_object();
 		json_object_object_add(json, "p2p-three-way-adj", three_json);
 		json_object_string_add(
@@ -3640,6 +5020,23 @@ format_tlv_threeway_adj(const struct isis_threeway_adj *threeway_adj,
 		json_object_string_add(three_json, "neigh-system-id", sys_id);
 		json_object_int_add(three_json, "neigh-ext-circuit-id",
 				    threeway_adj->neighbor_circuit_id);
+=======
+
+		three_json = json_object_new_object();
+		json_object_object_add(json, "p2pThreeWayAdj", three_json);
+		json_object_string_add(three_json, "stateName",
+				       isis_threeway_state_name(
+					       threeway_adj->state));
+		json_object_int_add(three_json, "state", threeway_adj->state);
+		json_object_int_add(three_json, "extLocalCircuitId",
+				    threeway_adj->local_circuit_id);
+		if (threeway_adj->neighbor_set) {
+			json_object_string_add(three_json, "neighSystemId",
+					       sys_id);
+			json_object_int_add(three_json, "neighExtCircuitId",
+					    threeway_adj->neighbor_circuit_id);
+		}
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	} else {
 		sbuf_push(buf, indent, "P2P Three-Way Adjacency:\n");
 		sbuf_push(buf, indent, "  State: %s (%d)\n",
@@ -3743,6 +5140,7 @@ static void format_item_ipv6_reach(uint16_t mtid, struct isis_item *i,
 	char prefixbuf[PREFIX2STR_BUFFER];
 
 	if (json) {
+<<<<<<< HEAD
 		struct json_object *reach_json;
 		reach_json = json_object_new_object();
 		json_object_object_add(json, "ipv6-reach", reach_json);
@@ -3764,6 +5162,39 @@ static void format_item_ipv6_reach(uint16_t mtid, struct isis_item *i,
 			struct json_object *subtlvs_json;
 			subtlvs_json = json_object_new_object();
 			json_object_object_add(json, "subtlvs", subtlvs_json);
+=======
+		struct json_object *reach_json, *array_json;
+
+		reach_json = json_object_new_object();
+		json_object_object_get_ex(json, "ipv6Reach", &array_json);
+		if (!array_json) {
+			array_json = json_object_new_array();
+			json_object_object_add(json, "ipv6Reach", array_json);
+		}
+		json_object_array_add(array_json, reach_json);
+		json_object_string_add(reach_json, "mtId",
+				       (mtid == ISIS_MT_IPV4_UNICAST) ? ""
+								      : "mt");
+		json_object_string_add(reach_json, "prefix",
+				       prefix2str(&r->prefix, prefixbuf,
+						  sizeof(prefixbuf)));
+		json_object_int_add(reach_json, "metric", r->metric);
+		json_object_boolean_add(reach_json, "down",
+					r->down ? true : false);
+		json_object_boolean_add(reach_json, "external",
+					r->external ? true : false);
+		if (mtid != ISIS_MT_IPV4_UNICAST) {
+			json_object_string_add(reach_json, "mt-name",
+					       isis_mtid2str(mtid));
+			json_object_string_add(reach_json, "mtName",
+					       isis_mtid2str(mtid));
+		}
+		if (r->subtlvs) {
+			struct json_object *subtlvs_json;
+			subtlvs_json = json_object_new_object();
+			json_object_object_add(reach_json, "subtlvs",
+					       subtlvs_json);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			format_subtlvs(r->subtlvs, NULL, subtlvs_json, 0);
 		}
 	} else {
@@ -3977,6 +5408,7 @@ static void format_tlv_router_cap_json(const struct isis_router_cap *router_cap,
 
 	/* Router ID and Flags */
 	struct json_object *cap_json;
+<<<<<<< HEAD
 	cap_json = json_object_new_object();
 	json_object_object_add(json, "router-capability", cap_json);
 	inet_ntop(AF_INET, &router_cap->router_id, addrbuf, sizeof(addrbuf));
@@ -3987,10 +5419,23 @@ static void format_tlv_router_cap_json(const struct isis_router_cap *router_cap,
 	json_object_string_add(
 		cap_json, "flag-s",
 		router_cap->flags & ISIS_ROUTER_CAP_FLAG_S ? "1" : "0");
+=======
+
+	cap_json = json_object_new_object();
+	json_object_object_add(json, "routerCapability", cap_json);
+	inet_ntop(AF_INET, &router_cap->router_id, addrbuf, sizeof(addrbuf));
+	json_object_string_add(cap_json, "id", addrbuf);
+	json_object_boolean_add(cap_json, "flagD",
+				!!(router_cap->flags & ISIS_ROUTER_CAP_FLAG_D));
+	json_object_boolean_add(cap_json, "flagS",
+				!!(router_cap->flags & ISIS_ROUTER_CAP_FLAG_S));
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	/* Segment Routing Global Block as per RFC8667 section #3.1 */
 	if (router_cap->srgb.range_size != 0) {
 		struct json_object *gb_json;
+<<<<<<< HEAD
 		gb_json = json_object_new_object();
 		json_object_object_add(json, "segment-routing-gb", gb_json);
 		json_object_string_add(gb_json, "ipv4",
@@ -4002,17 +5447,38 @@ static void format_tlv_router_cap_json(const struct isis_router_cap *router_cap,
 		json_object_int_add(gb_json, "global-block-base",
 				    router_cap->srgb.lower_bound);
 		json_object_int_add(gb_json, "global-block-range",
+=======
+
+		gb_json = json_object_new_object();
+		json_object_object_add(json, "segmentRoutingGb", gb_json);
+		json_object_boolean_add(gb_json, "ipv4",
+					!!IS_SR_IPV4(&router_cap->srgb));
+		json_object_boolean_add(gb_json, "ipv6",
+					!!IS_SR_IPV6(&router_cap->srgb));
+		json_object_int_add(gb_json, "globalBlockBase",
+				    router_cap->srgb.lower_bound);
+		json_object_int_add(gb_json, "globalBlockRange",
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 				    router_cap->srgb.range_size);
 	}
 
 	/* Segment Routing Local Block as per RFC8667 section #3.3 */
 	if (router_cap->srlb.range_size != 0) {
 		struct json_object *lb_json;
+<<<<<<< HEAD
 		lb_json = json_object_new_object();
 		json_object_object_add(json, "segment-routing-lb", lb_json);
 		json_object_int_add(lb_json, "global-block-base",
 				    router_cap->srlb.lower_bound);
 		json_object_int_add(lb_json, "global-block-range",
+=======
+
+		lb_json = json_object_new_object();
+		json_object_object_add(json, "segmentRoutingLb", lb_json);
+		json_object_int_add(lb_json, "globalBlockBase",
+				    router_cap->srlb.lower_bound);
+		json_object_int_add(lb_json, "globalBlockRange",
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 				    router_cap->srlb.range_size);
 	}
 
@@ -4020,10 +5486,18 @@ static void format_tlv_router_cap_json(const struct isis_router_cap *router_cap,
 	if (router_cap->algo[0] != SR_ALGORITHM_UNSET) {
 		char buf[255];
 		struct json_object *alg_json;
+<<<<<<< HEAD
 		alg_json = json_object_new_object();
 		json_object_object_add(json, "segment-routing-algorithm",
 				       alg_json);
 		for (int i = 0; i < SR_ALGORITHM_COUNT; i++)
+=======
+
+		alg_json = json_object_new_object();
+		json_object_object_add(json, "segmentRoutingAlgorithm",
+				       alg_json);
+		for (int i = 0; i < SR_ALGORITHM_COUNT; i++) {
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			if (router_cap->algo[i] != SR_ALGORITHM_UNSET) {
 				snprintfrr(buf, sizeof(buf), "%d", i);
 				json_object_string_add(alg_json, buf,
@@ -4031,6 +5505,10 @@ static void format_tlv_router_cap_json(const struct isis_router_cap *router_cap,
 							       ? "SPF"
 							       : "Strict SPF");
 			}
+<<<<<<< HEAD
+=======
+		}
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	}
 
 	/* Segment Routing Node MSD as per RFC8491 section #2 */
@@ -4141,6 +5619,14 @@ static void format_tlv_router_cap(const struct isis_router_cap *router_cap,
 				  "    Got an unsupported sub-TLV: Yes\n");
 	}
 #endif /* ifndef FABRICD */
+<<<<<<< HEAD
+=======
+
+	/* SRv6 Flags as per RFC 9352 section #2 */
+	if (router_cap->srv6_cap.is_srv6_capable)
+		sbuf_push(buf, indent, "  SRv6: O:%s\n",
+			  SUPPORTS_SRV6_OAM(&router_cap->srv6_cap) ? "1" : "0");
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 }
 
 static void free_tlv_router_cap(struct isis_router_cap *router_cap)
@@ -4202,7 +5688,11 @@ static size_t isis_router_cap_tlv_size(const struct isis_router_cap *router_cap)
 #ifndef FABRICD
 	size_t fad_sz;
 #endif /* ifndef FABRICD */
+<<<<<<< HEAD
 	int nb_algo;
+=======
+	int nb_algo, nb_msd;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	if ((router_cap->srgb.range_size != 0) &&
 	    (router_cap->srgb.lower_bound != 0)) {
@@ -4236,6 +5726,31 @@ static size_t isis_router_cap_tlv_size(const struct isis_router_cap *router_cap)
 	}
 #endif /* ifndef FABRICD */
 
+<<<<<<< HEAD
+=======
+	if (router_cap->srv6_cap.is_srv6_capable) {
+		sz += ISIS_SUBTLV_TYPE_FIELD_SIZE +
+		      ISIS_SUBTLV_LENGTH_FIELD_SIZE +
+		      ISIS_SUBTLV_SRV6_CAPABILITIES_SIZE;
+
+		nb_algo = isis_tlvs_sr_algo_count(router_cap);
+		if (nb_algo != 0)
+			sz += ISIS_SUBTLV_TYPE_FIELD_SIZE +
+			      ISIS_SUBTLV_LENGTH_FIELD_SIZE + nb_algo;
+
+		nb_msd = router_cap->srv6_msd.max_seg_left_msd +
+			 router_cap->srv6_msd.max_end_pop_msd +
+			 router_cap->srv6_msd.max_h_encaps_msd +
+			 router_cap->srv6_msd.max_end_d_msd;
+		if (nb_msd != 0)
+			sz += ISIS_SUBTLV_TYPE_FIELD_SIZE +
+			      ISIS_SUBTLV_LENGTH_FIELD_SIZE +
+			      (ISIS_SUBTLV_NODE_MSD_TYPE_SIZE +
+			       ISIS_SUBTLV_NODE_MSD_VALUE_SIZE) *
+				      nb_msd;
+	}
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	return sz;
 }
 
@@ -4244,6 +5759,11 @@ static int pack_tlv_router_cap(const struct isis_router_cap *router_cap,
 {
 	size_t tlv_len, len_pos;
 	uint8_t nb_algo;
+<<<<<<< HEAD
+=======
+	size_t subtlv_len, subtlv_len_pos;
+	bool sr_algo_subtlv_present = false;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	if (!router_cap)
 		return 0;
@@ -4277,6 +5797,10 @@ static int pack_tlv_router_cap(const struct isis_router_cap *router_cap,
 			for (int i = 0; i < SR_ALGORITHM_COUNT; i++)
 				if (router_cap->algo[i] != SR_ALGORITHM_UNSET)
 					stream_putc(s, router_cap->algo[i]);
+<<<<<<< HEAD
+=======
+			sr_algo_subtlv_present = true;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		}
 
 		/* Local Block if defined as per RFC8667 section #3.3 */
@@ -4375,6 +5899,86 @@ static int pack_tlv_router_cap(const struct isis_router_cap *router_cap,
 	}
 #endif /* ifndef FABRICD */
 
+<<<<<<< HEAD
+=======
+	/* Add SRv6 capabilities if set as per RFC 9352 section #2 */
+	if (router_cap->srv6_cap.is_srv6_capable) {
+		stream_putc(s, ISIS_SUBTLV_SRV6_CAPABILITIES);
+		stream_putc(s, ISIS_SUBTLV_SRV6_CAPABILITIES_SIZE);
+		stream_putw(s, router_cap->srv6_cap.flags);
+
+		/*
+		 * Then add SR Algorithm if set and if we haven't already
+		 * added it when we processed SR-MPLS related Sub-TLVs as
+		 * per RFC 9352 section #3
+		 */
+		if (!sr_algo_subtlv_present) {
+			nb_algo = isis_tlvs_sr_algo_count(router_cap);
+			if (nb_algo > 0) {
+				stream_putc(s, ISIS_SUBTLV_ALGORITHM);
+				stream_putc(s, nb_algo);
+				for (int i = 0; i < SR_ALGORITHM_COUNT; i++)
+					if (router_cap->algo[i] !=
+					    SR_ALGORITHM_UNSET)
+						stream_putc(s,
+							    router_cap->algo[i]);
+			}
+		}
+
+		/* And finish with MSDs if set as per RFC 9352 section #4 */
+		if (router_cap->srv6_msd.max_seg_left_msd +
+			    router_cap->srv6_msd.max_end_pop_msd +
+			    router_cap->srv6_msd.max_h_encaps_msd +
+			    router_cap->srv6_msd.max_end_d_msd !=
+		    0) {
+			stream_putc(s, ISIS_SUBTLV_NODE_MSD);
+
+			subtlv_len_pos = stream_get_endp(s);
+			/* Put 0 as Sub-TLV length for now, real length will be
+			 * adjusted later */
+			stream_putc(s, 0);
+
+			/* RFC 9352 section #4.1 */
+			if (router_cap->srv6_msd.max_seg_left_msd != 0) {
+				stream_putc(s, ISIS_SUBTLV_SRV6_MAX_SL_MSD);
+				stream_putc(
+					s,
+					router_cap->srv6_msd.max_seg_left_msd);
+			}
+
+			/* RFC 9352 section #4.2 */
+			if (router_cap->srv6_msd.max_end_pop_msd != 0) {
+				stream_putc(s,
+					    ISIS_SUBTLV_SRV6_MAX_END_POP_MSD);
+				stream_putc(
+					s,
+					router_cap->srv6_msd.max_end_pop_msd);
+			}
+
+			/* RFC 9352 section #4.3 */
+			if (router_cap->srv6_msd.max_h_encaps_msd != 0) {
+				stream_putc(s,
+					    ISIS_SUBTLV_SRV6_MAX_H_ENCAPS_MSD);
+				stream_putc(
+					s,
+					router_cap->srv6_msd.max_h_encaps_msd);
+			}
+
+			/* RFC 9352 section #4.4 */
+			if (router_cap->srv6_msd.max_end_d_msd != 0) {
+				stream_putc(s, ISIS_SUBTLV_SRV6_MAX_END_D_MSD);
+				stream_putc(s,
+					    router_cap->srv6_msd.max_end_d_msd);
+			}
+
+			/* Adjust Node MSD Sub-TLV length which depends on MSDs
+			 * presence */
+			subtlv_len = stream_get_endp(s) - subtlv_len_pos - 1;
+			stream_putc_at(s, subtlv_len_pos, subtlv_len);
+		}
+	}
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	/* Adjust TLV length which depends on subTLVs presence */
 	tlv_len = stream_get_endp(s) - len_pos - 1;
 	stream_putc_at(s, len_pos, tlv_len);
@@ -4393,6 +5997,10 @@ static int unpack_tlv_router_cap(enum isis_tlv_context context,
 	uint8_t length;
 	uint8_t subtlv_len;
 	uint8_t size;
+<<<<<<< HEAD
+=======
+	int num_msd;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	sbuf_push(log, indent, "Unpacking Router Capability TLV...\n");
 	if (tlv_len < ISIS_ROUTER_CAP_SIZE) {
@@ -4401,6 +6009,7 @@ static int unpack_tlv_router_cap(enum isis_tlv_context context,
 		return 0;
 	}
 
+<<<<<<< HEAD
 	if (tlvs->router_cap)
 		/* Multiple Router Capability found */
 		rcap = tlvs->router_cap;
@@ -4411,6 +6020,19 @@ static int unpack_tlv_router_cap(enum isis_tlv_context context,
 			rcap->algo[i] = SR_ALGORITHM_UNSET;
 	}
 
+=======
+	if (!tlvs->router_cap) {
+		/* First Router Capability TLV.
+		 * Allocate router cap structure and initialize SR Algorithms */
+		tlvs->router_cap = XCALLOC(MTYPE_ISIS_TLV,
+					   sizeof(struct isis_router_cap));
+		for (int i = 0; i < SR_ALGORITHM_COUNT; i++)
+			tlvs->router_cap->algo[i] = SR_ALGORITHM_UNSET;
+	}
+
+	rcap = tlvs->router_cap;
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	/* Get Router ID and Flags */
 	rcap->router_id.s_addr = stream_get_ipv4(s);
 	rcap->flags = stream_getc(s);
@@ -4432,7 +6054,10 @@ static int unpack_tlv_router_cap(enum isis_tlv_context context,
 				log, indent,
 				"WARNING: Router Capability subTLV length too large compared to expected size\n");
 			stream_forward_getp(s, STREAM_READABLE(s));
+<<<<<<< HEAD
 			XFREE(MTYPE_ISIS_TLV, rcap);
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			return 0;
 		}
 
@@ -4561,6 +6186,7 @@ static int unpack_tlv_router_cap(enum isis_tlv_context context,
 
 			break;
 		case ISIS_SUBTLV_NODE_MSD:
+<<<<<<< HEAD
 			/* Check that MSD is correctly formated */
 			if (length < MSD_TLV_SIZE) {
 				stream_forward_getp(s, length);
@@ -4574,6 +6200,68 @@ static int unpack_tlv_router_cap(enum isis_tlv_context context,
 			/* Only one MSD is standardized. Skip others */
 			if (length > MSD_TLV_SIZE)
 				stream_forward_getp(s, length - MSD_TLV_SIZE);
+=======
+			sbuf_push(log, indent,
+				  "Unpacking Node MSD sub-TLV...\n");
+
+			/* Check that MSD is correctly formated */
+			if (length % 2) {
+				sbuf_push(
+					log, indent,
+					"WARNING: Unexpected MSD sub-TLV length\n");
+				stream_forward_getp(s, length);
+				break;
+			}
+
+			/* Get the number of MSDs carried in the value field of
+			 * the Node MSD sub-TLV. The value field consists of one
+			 * or more pairs of a 1-octet MSD-Type and 1-octet
+			 * MSD-Value */
+			num_msd = length / 2;
+
+			/* Unpack MSDs */
+			for (int i = 0; i < num_msd; i++) {
+				msd_type = stream_getc(s);
+
+				switch (msd_type) {
+				case MSD_TYPE_BASE_MPLS_IMPOSITION:
+					/* BMI-MSD type as per RFC 8491 */
+					rcap->msd = stream_getc(s);
+					break;
+				case ISIS_SUBTLV_SRV6_MAX_SL_MSD:
+					/* SRv6 Maximum Segments Left MSD Type
+					 * as per RFC 9352 section #4.1 */
+					rcap->srv6_msd.max_seg_left_msd =
+						stream_getc(s);
+					break;
+				case ISIS_SUBTLV_SRV6_MAX_END_POP_MSD:
+					/* SRv6 Maximum End Pop MSD Type as per
+					 * RFC 9352 section #4.2 */
+					rcap->srv6_msd.max_end_pop_msd =
+						stream_getc(s);
+					break;
+				case ISIS_SUBTLV_SRV6_MAX_H_ENCAPS_MSD:
+					/* SRv6 Maximum H.Encaps MSD Type as per
+					 * RFC 9352 section #4.3 */
+					rcap->srv6_msd.max_h_encaps_msd =
+						stream_getc(s);
+					break;
+				case ISIS_SUBTLV_SRV6_MAX_END_D_MSD:
+					/* SRv6 Maximum End D MSD Type as per
+					 * RFC 9352 section #4.4 */
+					rcap->srv6_msd.max_end_d_msd =
+						stream_getc(s);
+					break;
+				default:
+					/* Unknown MSD, let's skip it */
+					sbuf_push(
+						log, indent,
+						"WARNING: Skipping unknown MSD Type %hhu (1 byte)\n",
+						msd_type);
+					stream_forward_getp(s, 1);
+				}
+			}
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			break;
 #ifndef FABRICD
 		case ISIS_SUBTLV_FAD:
@@ -4649,13 +6337,60 @@ static int unpack_tlv_router_cap(enum isis_tlv_context context,
 			}
 			break;
 #endif /* ifndef FABRICD */
+<<<<<<< HEAD
+=======
+		case ISIS_SUBTLV_SRV6_CAPABILITIES:
+			sbuf_push(log, indent,
+				  "Unpacking SRv6 Capabilities sub-TLV...\n");
+			/* Check that SRv6 capabilities sub-TLV is correctly
+			 * formated */
+			if (length < ISIS_SUBTLV_SRV6_CAPABILITIES_SIZE) {
+				sbuf_push(
+					log, indent,
+					"WARNING: Unexpected SRv6 Capabilities sub-TLV size (expected %d or more bytes, got %hhu)\n",
+					ISIS_SUBTLV_SRV6_CAPABILITIES_SIZE,
+					length);
+				stream_forward_getp(s, length);
+				break;
+			}
+			/* Only one SRv6 capabilities is supported. Skip
+			 * subsequent one */
+			if (rcap->srv6_cap.is_srv6_capable) {
+				sbuf_push(
+					log, indent,
+					"WARNING: SRv6 Capabilities sub-TLV present multiple times, ignoring.\n");
+				stream_forward_getp(s, length);
+				break;
+			}
+			rcap->srv6_cap.is_srv6_capable = true;
+			rcap->srv6_cap.flags = stream_getw(s);
+
+			/* The SRv6 Capabilities Sub-TLV may contain optional
+			 * Sub-Sub-TLVs, as per RFC 9352 section #2.
+			 * Skip any Sub-Sub-TLV contained in the SRv6
+			 * Capabilities Sub-TLV that is not currently supported
+			 * by IS-IS.
+			 */
+			if (length > ISIS_SUBTLV_SRV6_CAPABILITIES_SIZE)
+				sbuf_push(
+					log, indent,
+					"Skipping unknown sub-TLV (%hhu bytes)\n",
+					length);
+			stream_forward_getp(
+				s, length - ISIS_SUBTLV_SRV6_CAPABILITIES_SIZE);
+
+			break;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		default:
 			stream_forward_getp(s, length);
 			break;
 		}
 		subtlv_len = subtlv_len - length - 2;
 	}
+<<<<<<< HEAD
 	tlvs->router_cap = rcap;
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	return 0;
 }
 
@@ -4679,14 +6414,22 @@ static void format_item_auth(uint16_t mtid, struct isis_item *i,
 	char obuf[768];
 
 	if (json)
+<<<<<<< HEAD
 		json_object_string_add(json, "test-auth", "ok");
+=======
+		json_object_string_add(json, "testAuth", "ok");
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	else
 		sbuf_push(buf, indent, "Authentication:\n");
 	switch (auth->type) {
 	case ISIS_PASSWD_TYPE_CLEARTXT:
 		zlog_sanitize(obuf, sizeof(obuf), auth->value, auth->length);
 		if (json)
+<<<<<<< HEAD
 			json_object_string_add(json, "auth-pass", obuf);
+=======
+			json_object_string_add(json, "authPass", obuf);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		else
 			sbuf_push(buf, indent, "  Password: %s\n", obuf);
 		break;
@@ -4696,13 +6439,21 @@ static void format_item_auth(uint16_t mtid, struct isis_item *i,
 				 auth->value[j]);
 		}
 		if (json)
+<<<<<<< HEAD
 			json_object_string_add(json, "auth-hmac-md5", obuf);
+=======
+			json_object_string_add(json, "authHmacMd5", obuf);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		else
 			sbuf_push(buf, indent, "  HMAC-MD5: %s\n", obuf);
 		break;
 	default:
 		if (json)
+<<<<<<< HEAD
 			json_object_int_add(json, "auth-unknown", auth->type);
+=======
+			json_object_int_add(json, "authUnknown", auth->type);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		else
 			sbuf_push(buf, indent, "  Unknown (%hhu)\n",
 				  auth->type);
@@ -4818,12 +6569,22 @@ static void format_tlv_purge_originator(struct isis_purge_originator *poi,
 
 	if (json) {
 		struct json_object *purge_json;
+<<<<<<< HEAD
 		purge_json = json_object_new_object();
 		json_object_object_add(json, "purge_originator", purge_json);
 
 		json_object_string_add(purge_json, "id", gen_id);
 		if (poi->sender_set)
 			json_object_string_add(purge_json, "rec-from", sen_id);
+=======
+
+		purge_json = json_object_new_object();
+		json_object_object_add(json, "purgeOriginator", purge_json);
+
+		json_object_string_add(purge_json, "id", gen_id);
+		if (poi->sender_set)
+			json_object_string_add(purge_json, "recFrom", sen_id);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	} else {
 		sbuf_push(buf, indent, "Purge Originator Identification:\n");
 		sbuf_push(buf, indent, "  Generator: %s\n", gen_id);
@@ -5050,6 +6811,17 @@ top:
 		stream_putw(s, mtid);
 	}
 
+<<<<<<< HEAD
+=======
+	/* The SRv6 Locator TLV (RFC 9352 section #7.1) starts with the MTID
+	 * field */
+	if (context == ISIS_CONTEXT_LSP && type == ISIS_TLV_SRV6_LOCATOR) {
+		if (STREAM_WRITEABLE(s) < 2)
+			goto too_long;
+		stream_putw(s, mtid);
+	}
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	if (context == ISIS_CONTEXT_LSP && type == ISIS_TLV_OLDSTYLE_REACH) {
 		if (STREAM_WRITEABLE(s) < 1)
 			goto too_long;
@@ -5182,7 +6954,12 @@ static int unpack_tlv_with_items(enum isis_tlv_context context,
 	tlv_start = stream_get_getp(s);
 	tlv_pos = 0;
 
+<<<<<<< HEAD
 	if (context == ISIS_CONTEXT_LSP && IS_COMPAT_MT_TLV(tlv_type)) {
+=======
+	if (context == ISIS_CONTEXT_LSP &&
+	    (IS_COMPAT_MT_TLV(tlv_type) || tlv_type == ISIS_TLV_SRV6_LOCATOR)) {
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		if (tlv_len < 2) {
 			sbuf_push(log, indent,
 				  "TLV is too short to contain MTID\n");
@@ -5334,6 +7111,208 @@ static void copy_mt_items(enum isis_tlv_context context,
 	}
 }
 
+<<<<<<< HEAD
+=======
+/* Functions related to TLV 27 SRv6 Locator as per RFC 9352 section #7.1*/
+static struct isis_item *copy_item_srv6_locator(struct isis_item *i)
+{
+	struct isis_srv6_locator_tlv *loc = (struct isis_srv6_locator_tlv *)i;
+	struct isis_srv6_locator_tlv *rv = XCALLOC(MTYPE_ISIS_TLV, sizeof(*rv));
+
+	rv->metric = loc->metric;
+	rv->flags = loc->flags;
+	rv->algorithm = loc->algorithm;
+	rv->prefix = loc->prefix;
+	rv->subtlvs = copy_subtlvs(loc->subtlvs);
+
+	return (struct isis_item *)rv;
+}
+
+static void format_item_srv6_locator(uint16_t mtid, struct isis_item *i,
+				     struct sbuf *buf, struct json_object *json,
+				     int indent)
+{
+	struct isis_srv6_locator_tlv *loc = (struct isis_srv6_locator_tlv *)i;
+
+	if (json) {
+		struct json_object *loc_json;
+
+		loc_json = json_object_new_object();
+		json_object_object_add(json, "srv6Locator", loc_json);
+		json_object_int_add(loc_json, "mtId", mtid);
+		json_object_string_addf(loc_json, "prefix", "%pFX",
+					&loc->prefix);
+		json_object_int_add(loc_json, "metric", loc->metric);
+		json_object_boolean_add(loc_json, "flagD",
+					!!CHECK_FLAG(loc->flags,
+						     ISIS_TLV_SRV6_LOCATOR_FLAG_D));
+		json_object_int_add(loc_json, "algorithm", loc->algorithm);
+		json_object_string_add(loc_json, "MTName", isis_mtid2str(mtid));
+		if (loc->subtlvs) {
+			struct json_object *subtlvs_json;
+			subtlvs_json = json_object_new_object();
+			json_object_object_add(loc_json, "subtlvs",
+					       subtlvs_json);
+			format_subtlvs(loc->subtlvs, NULL, subtlvs_json, 0);
+		}
+	} else {
+		sbuf_push(buf, indent, "SRv6 Locator: %pFX (Metric: %u)%s",
+			  &loc->prefix, loc->metric,
+			  CHECK_FLAG(loc->flags, ISIS_TLV_SRV6_LOCATOR_FLAG_D)
+				  ? " D-flag"
+				  : "");
+		sbuf_push(buf, 0, " %s\n", isis_mtid2str(mtid));
+
+		if (loc->subtlvs) {
+			sbuf_push(buf, indent, "  Sub-TLVs:\n");
+			format_subtlvs(loc->subtlvs, buf, NULL, indent + 4);
+		}
+	}
+}
+
+static void free_item_srv6_locator(struct isis_item *i)
+{
+	struct isis_srv6_locator_tlv *item = (struct isis_srv6_locator_tlv *)i;
+
+	isis_free_subtlvs(item->subtlvs);
+	XFREE(MTYPE_ISIS_TLV, item);
+}
+
+static int pack_item_srv6_locator(struct isis_item *i, struct stream *s,
+				  size_t *min_len)
+{
+	struct isis_srv6_locator_tlv *loc = (struct isis_srv6_locator_tlv *)i;
+
+	if (STREAM_WRITEABLE(s) < 7 + (unsigned)PSIZE(loc->prefix.prefixlen)) {
+		*min_len = 7 + (unsigned)PSIZE(loc->prefix.prefixlen);
+		return 1;
+	}
+
+	stream_putl(s, loc->metric);
+	stream_putc(s, loc->flags);
+	stream_putc(s, loc->algorithm);
+	/* Locator size */
+	stream_putc(s, loc->prefix.prefixlen);
+	/* Locator prefix */
+	stream_put(s, &loc->prefix.prefix.s6_addr,
+		   PSIZE(loc->prefix.prefixlen));
+
+	if (loc->subtlvs) {
+		/* Pack Sub-TLVs */
+		if (pack_subtlvs(loc->subtlvs, s))
+			return 1;
+	} else {
+		/* No Sub-TLVs */
+		if (STREAM_WRITEABLE(s) < 1) {
+			*min_len = 8 + (unsigned)PSIZE(loc->prefix.prefixlen);
+			return 1;
+		}
+
+		/* Put 0 as Sub-TLV length, because we have no Sub-TLVs  */
+		stream_putc(s, 0);
+	}
+
+	return 0;
+}
+
+static int unpack_item_srv6_locator(uint16_t mtid, uint8_t len,
+				    struct stream *s, struct sbuf *log,
+				    void *dest, int indent)
+{
+	struct isis_tlvs *tlvs = dest;
+	struct isis_srv6_locator_tlv *rv = NULL;
+	size_t consume;
+	uint8_t subtlv_len;
+	struct isis_item_list *items;
+
+	items = isis_get_mt_items(&tlvs->srv6_locator, mtid);
+
+	sbuf_push(log, indent, "Unpacking SRv6 Locator...\n");
+	consume = 7;
+	if (len < consume) {
+		sbuf_push(
+			log, indent,
+			"Not enough data left. (expected 7 or more bytes, got %hhu)\n",
+			len);
+		goto out;
+	}
+
+	rv = XCALLOC(MTYPE_ISIS_TLV, sizeof(*rv));
+
+	rv->metric = stream_getl(s);
+	rv->flags = stream_getc(s);
+	rv->algorithm = stream_getc(s);
+
+	rv->prefix.family = AF_INET6;
+	rv->prefix.prefixlen = stream_getc(s);
+	if (rv->prefix.prefixlen > IPV6_MAX_BITLEN) {
+		sbuf_push(log, indent, "Loc Size %u is implausible for SRv6\n",
+			  rv->prefix.prefixlen);
+		goto out;
+	}
+
+	consume += PSIZE(rv->prefix.prefixlen);
+	if (len < consume) {
+		sbuf_push(
+			log, indent,
+			"Expected %u bytes of prefix, but only %u bytes available.\n",
+			PSIZE(rv->prefix.prefixlen), len - 7);
+		goto out;
+	}
+	stream_get(&rv->prefix.prefix.s6_addr, s, PSIZE(rv->prefix.prefixlen));
+
+	struct in6_addr orig_locator = rv->prefix.prefix;
+	apply_mask_ipv6(&rv->prefix);
+	if (memcmp(&orig_locator, &rv->prefix.prefix, sizeof(orig_locator)))
+		sbuf_push(log, indent + 2,
+			  "WARNING: SRv6 Locator had hostbits set.\n");
+	format_item_srv6_locator(mtid, (struct isis_item *)rv, log, NULL,
+				 indent + 2);
+
+	consume += 1;
+	if (len < consume) {
+		sbuf_push(
+			log, indent,
+			"Expected 1 byte of subtlv len, but no more data persent.\n");
+		goto out;
+	}
+	subtlv_len = stream_getc(s);
+
+	if (subtlv_len) {
+		consume += subtlv_len;
+		if (len < consume) {
+			sbuf_push(
+				log, indent,
+				"Expected %hhu bytes of subtlvs, but only %u bytes available.\n",
+				subtlv_len,
+				len - 7 - PSIZE(rv->prefix.prefixlen));
+			goto out;
+		}
+
+		rv->subtlvs =
+			isis_alloc_subtlvs(ISIS_CONTEXT_SUBTLV_SRV6_LOCATOR);
+
+		bool unpacked_known_tlvs = false;
+		if (unpack_tlvs(ISIS_CONTEXT_SUBTLV_SRV6_LOCATOR, subtlv_len, s,
+				log, rv->subtlvs, indent + 4,
+				&unpacked_known_tlvs)) {
+			goto out;
+		}
+		if (!unpacked_known_tlvs) {
+			isis_free_subtlvs(rv->subtlvs);
+			rv->subtlvs = NULL;
+		}
+	}
+
+	append_item(items, (struct isis_item *)rv);
+	return 0;
+out:
+	if (rv)
+		free_item_srv6_locator((struct isis_item *)rv);
+	return 1;
+}
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 /* Functions related to tlvs in general */
 
 struct isis_tlvs *isis_alloc_tlvs(void)
@@ -5359,6 +7338,10 @@ struct isis_tlvs *isis_alloc_tlvs(void)
 	RB_INIT(isis_mt_item_list, &result->mt_ip_reach);
 	init_item_list(&result->ipv6_reach);
 	RB_INIT(isis_mt_item_list, &result->mt_ipv6_reach);
+<<<<<<< HEAD
+=======
+	RB_INIT(isis_mt_item_list, &result->srv6_locator);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	return result;
 }
@@ -5439,6 +7422,12 @@ struct isis_tlvs *isis_copy_tlvs(struct isis_tlvs *tlvs)
 
 	rv->spine_leaf = copy_tlv_spine_leaf(tlvs->spine_leaf);
 
+<<<<<<< HEAD
+=======
+	copy_mt_items(ISIS_CONTEXT_LSP, ISIS_TLV_SRV6_LOCATOR,
+		      &tlvs->srv6_locator, &rv->srv6_locator);
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	return rv;
 }
 
@@ -5457,7 +7446,11 @@ static void format_tlvs(struct isis_tlvs *tlvs, struct sbuf *buf, struct json_ob
 
 	if (tlvs->mt_router_info_empty) {
 		if (json)
+<<<<<<< HEAD
 			json_object_string_add(json, "mt-router-info", "none");
+=======
+			json_object_object_add(json, "mtRouterInfo", NULL);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		else
 			sbuf_push(buf, indent, "MT Router Info: None\n");
 	} else {
@@ -5519,6 +7512,12 @@ static void format_tlvs(struct isis_tlvs *tlvs, struct sbuf *buf, struct json_ob
 	format_tlv_threeway_adj(tlvs->threeway_adj, buf, json, indent);
 
 	format_tlv_spine_leaf(tlvs->spine_leaf, buf, json, indent);
+<<<<<<< HEAD
+=======
+
+	format_mt_items(ISIS_CONTEXT_LSP, ISIS_TLV_SRV6_LOCATOR,
+			&tlvs->srv6_locator, buf, json, indent);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 }
 
 const char *isis_format_tlvs(struct isis_tlvs *tlvs, struct json_object *json)
@@ -5581,6 +7580,11 @@ void isis_free_tlvs(struct isis_tlvs *tlvs)
 	free_tlv_threeway_adj(tlvs->threeway_adj);
 	free_tlv_router_cap(tlvs->router_cap);
 	free_tlv_spine_leaf(tlvs->spine_leaf);
+<<<<<<< HEAD
+=======
+	free_mt_items(ISIS_CONTEXT_LSP, ISIS_TLV_SRV6_LOCATOR,
+		      &tlvs->srv6_locator);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	XFREE(MTYPE_ISIS_TLV, tlvs);
 }
@@ -5991,6 +7995,18 @@ int isis_unpack_tlvs(size_t avail_len, struct stream *stream,
 #define ITEM_SUBTLV_OPS(_name_, _desc_) \
 	ITEM_TLV_OPS(_name_, _desc_)
 
+<<<<<<< HEAD
+=======
+#define SUBSUBTLV_OPS(_name_, _desc_)                                          \
+	static const struct tlv_ops subsubtlv_##_name_##_ops = {               \
+		.name = _desc_,                                                \
+		.unpack = unpack_subsubtlv_##_name_,                           \
+	}
+
+#define ITEM_SUBSUBTLV_OPS(_name_, _desc_) \
+	ITEM_TLV_OPS(_name_, _desc_)
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 ITEM_TLV_OPS(area_address, "TLV 1 Area Addresses");
 ITEM_TLV_OPS(oldstyle_reach, "TLV 2 IS Reachability");
 ITEM_TLV_OPS(lan_neighbor, "TLV 6 LAN Neighbors");
@@ -6016,6 +8032,13 @@ TLV_OPS(router_cap, "TLV 242 Router Capability");
 ITEM_SUBTLV_OPS(prefix_sid, "Sub-TLV 3 SR Prefix-SID");
 SUBTLV_OPS(ipv6_source_prefix, "Sub-TLV 22 IPv6 Source Prefix");
 
+<<<<<<< HEAD
+=======
+ITEM_TLV_OPS(srv6_locator, "TLV 27 SRv6 Locator");
+ITEM_SUBTLV_OPS(srv6_end_sid, "Sub-TLV 5 SRv6 End SID");
+SUBSUBTLV_OPS(srv6_sid_structure, "Sub-Sub-TLV 1 SRv6 SID Structure");
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 static const struct tlv_ops *const tlv_table[ISIS_CONTEXT_MAX][ISIS_TLV_MAX] = {
 	[ISIS_CONTEXT_LSP] = {
 		[ISIS_TLV_AREA_ADDRESSES] = &tlv_area_address_ops,
@@ -6043,6 +8066,10 @@ static const struct tlv_ops *const tlv_table[ISIS_CONTEXT_MAX][ISIS_TLV_MAX] = {
 		[ISIS_TLV_MT_IPV6_REACH] = &tlv_ipv6_reach_ops,
 		[ISIS_TLV_THREE_WAY_ADJ] = &tlv_threeway_adj_ops,
 		[ISIS_TLV_ROUTER_CAPABILITY] = &tlv_router_cap_ops,
+<<<<<<< HEAD
+=======
+		[ISIS_TLV_SRV6_LOCATOR] = &tlv_srv6_locator_ops,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	},
 	[ISIS_CONTEXT_SUBTLV_NE_REACH] = {},
 	[ISIS_CONTEXT_SUBTLV_IP_REACH] = {
@@ -6051,6 +8078,21 @@ static const struct tlv_ops *const tlv_table[ISIS_CONTEXT_MAX][ISIS_TLV_MAX] = {
 	[ISIS_CONTEXT_SUBTLV_IPV6_REACH] = {
 		[ISIS_SUBTLV_PREFIX_SID] = &tlv_prefix_sid_ops,
 		[ISIS_SUBTLV_IPV6_SOURCE_PREFIX] = &subtlv_ipv6_source_prefix_ops,
+<<<<<<< HEAD
+=======
+	},
+	[ISIS_CONTEXT_SUBTLV_SRV6_LOCATOR] = {
+		[ISIS_SUBTLV_SRV6_END_SID] = &tlv_srv6_end_sid_ops,
+	},
+	[ISIS_CONTEXT_SUBSUBTLV_SRV6_END_SID] = {
+		[ISIS_SUBSUBTLV_SRV6_SID_STRUCTURE] = &subsubtlv_srv6_sid_structure_ops,
+	},
+	[ISIS_CONTEXT_SUBSUBTLV_SRV6_ENDX_SID] = {
+		[ISIS_SUBSUBTLV_SRV6_SID_STRUCTURE] = &subsubtlv_srv6_sid_structure_ops,
+	},
+	[ISIS_CONTEXT_SUBSUBTLV_SRV6_LAN_ENDX_SID] = {
+		[ISIS_SUBSUBTLV_SRV6_SID_STRUCTURE] = &subsubtlv_srv6_sid_structure_ops,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	}
 };
 
@@ -6602,7 +8644,11 @@ struct isis_router_cap *isis_tlvs_init_router_capability(struct isis_tlvs *tlvs)
 	tlvs->router_cap = XCALLOC(MTYPE_ISIS_TLV, sizeof(*tlvs->router_cap));
 
 	/* init SR algo list content to the default value */
+<<<<<<< HEAD
 	for (int i = 0; i < SR_ALGORITHM_COUNT; i++)
+=======
+	for (int i = 1; i < SR_ALGORITHM_COUNT; i++)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		tlvs->router_cap->algo[i] = SR_ALGORITHM_UNSET;
 
 	return tlvs->router_cap;
@@ -6720,6 +8766,47 @@ void isis_tlvs_del_lan_adj_sid(struct isis_ext_subtlvs *exts,
 		UNSET_SUBTLV(exts, EXT_LAN_ADJ_SID);
 }
 
+<<<<<<< HEAD
+=======
+/* Add IS-IS SRv6 End.X SID subTLVs */
+void isis_tlvs_add_srv6_endx_sid(struct isis_ext_subtlvs *exts,
+				 struct isis_srv6_endx_sid_subtlv *adj)
+{
+	append_item(&exts->srv6_endx_sid, (struct isis_item *)adj);
+	SET_SUBTLV(exts, EXT_SRV6_ENDX_SID);
+}
+
+/* Delete IS-IS SRv6 End.X SID subTLVs */
+void isis_tlvs_del_srv6_endx_sid(struct isis_ext_subtlvs *exts,
+				 struct isis_srv6_endx_sid_subtlv *adj)
+{
+	isis_free_subsubtlvs(adj->subsubtlvs);
+	delete_item(&exts->srv6_endx_sid, (struct isis_item *)adj);
+	XFREE(MTYPE_ISIS_SUBTLV, adj);
+	if (exts->srv6_endx_sid.count == 0)
+		UNSET_SUBTLV(exts, EXT_SRV6_ENDX_SID);
+}
+
+/* Add IS-IS SRv6 LAN End.X SID subTLVs */
+void isis_tlvs_add_srv6_lan_endx_sid(struct isis_ext_subtlvs *exts,
+				     struct isis_srv6_lan_endx_sid_subtlv *lan)
+{
+	append_item(&exts->srv6_lan_endx_sid, (struct isis_item *)lan);
+	SET_SUBTLV(exts, EXT_SRV6_LAN_ENDX_SID);
+}
+
+/* Delete IS-IS SRv6 LAN End.X SID subTLVs */
+void isis_tlvs_del_srv6_lan_endx_sid(struct isis_ext_subtlvs *exts,
+				     struct isis_srv6_lan_endx_sid_subtlv *lan)
+{
+	isis_free_subsubtlvs(lan->subsubtlvs);
+	delete_item(&exts->srv6_lan_endx_sid, (struct isis_item *)lan);
+	XFREE(MTYPE_ISIS_SUBTLV, lan);
+	if (exts->srv6_lan_endx_sid.count == 0)
+		UNSET_SUBTLV(exts, EXT_SRV6_LAN_ENDX_SID);
+}
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 void isis_tlvs_del_asla_flex_algo(struct isis_ext_subtlvs *ext,
 				  struct isis_asla_subtlvs *asla)
 {
@@ -6949,3 +9036,98 @@ void isis_tlvs_set_purge_originator(struct isis_tlvs *tlvs,
 		       sizeof(tlvs->purge_originator->sender));
 	}
 }
+<<<<<<< HEAD
+=======
+
+/* Set SRv6 SID Structure Sub-Sub-TLV parameters */
+void isis_subsubtlvs_set_srv6_sid_structure(struct isis_subsubtlvs *subsubtlvs,
+					    struct isis_srv6_sid *sid)
+{
+	assert(!subsubtlvs->srv6_sid_structure);
+
+	subsubtlvs->srv6_sid_structure = XCALLOC(
+		MTYPE_ISIS_SUBSUBTLV, sizeof(*subsubtlvs->srv6_sid_structure));
+
+	isis_srv6_sid_structure2subsubtlv(sid, subsubtlvs->srv6_sid_structure);
+}
+
+/* Add an SRv6 End SID to the SRv6 End SID Sub-TLV */
+void isis_subtlvs_add_srv6_end_sid(struct isis_subtlvs *subtlvs,
+				   struct isis_srv6_sid *sid)
+{
+	struct isis_srv6_end_sid_subtlv *sid_subtlv;
+
+	if (!sid)
+		return;
+
+	/* The SRv6 End SID Sub-TLV advertises SRv6 SIDs with Endpoint behaviors
+	 * that do not require a particular neighbor in order to be correctly
+	 * applied (e.g. End, End.DT6, ...). Before proceeding, let's make sure
+	 * we are encoding one of the supported behaviors. */
+	if (sid->behavior != SRV6_ENDPOINT_BEHAVIOR_END &&
+	    sid->behavior != SRV6_ENDPOINT_BEHAVIOR_END_NEXT_CSID &&
+	    sid->behavior != SRV6_ENDPOINT_BEHAVIOR_END_DT6 &&
+	    sid->behavior != SRV6_ENDPOINT_BEHAVIOR_END_DT6_USID &&
+	    sid->behavior != SRV6_ENDPOINT_BEHAVIOR_END_DT4 &&
+	    sid->behavior != SRV6_ENDPOINT_BEHAVIOR_END_DT4_USID &&
+	    sid->behavior != SRV6_ENDPOINT_BEHAVIOR_END_DT46 &&
+	    sid->behavior != SRV6_ENDPOINT_BEHAVIOR_END_DT46_USID)
+		return;
+
+	/* Allocate memory for the Sub-TLV */
+	sid_subtlv = XCALLOC(MTYPE_ISIS_SUBTLV, sizeof(*sid_subtlv));
+
+	/* Fill in the SRv6 End SID Sub-TLV according to the SRv6 SID
+	 * configuration */
+	isis_srv6_end_sid2subtlv(sid, sid_subtlv);
+
+	/* Add the SRv6 SID Structure Sub-Sub-TLV */
+	sid_subtlv->subsubtlvs =
+		isis_alloc_subsubtlvs(ISIS_CONTEXT_SUBSUBTLV_SRV6_END_SID);
+	isis_subsubtlvs_set_srv6_sid_structure(sid_subtlv->subsubtlvs, sid);
+
+	/* Append the SRv6 End SID Sub-TLV to the Sub-TLVs list */
+	append_item(&subtlvs->srv6_end_sids, (struct isis_item *)sid_subtlv);
+}
+
+/* Add an SRv6 Locator to the SRv6 Locator TLV */
+void isis_tlvs_add_srv6_locator(struct isis_tlvs *tlvs, uint16_t mtid,
+				struct isis_srv6_locator *loc)
+{
+	bool subtlvs_present = false;
+	struct listnode *node;
+	struct isis_srv6_sid *sid;
+	struct isis_srv6_locator_tlv *loc_tlv =
+		XCALLOC(MTYPE_ISIS_TLV, sizeof(*loc_tlv));
+
+	/* Fill in the SRv6 Locator TLV according to the SRv6 Locator
+	 * configuration */
+	isis_srv6_locator2tlv(loc, loc_tlv);
+
+	/* Add the SRv6 End SID Sub-TLVs */
+	loc_tlv->subtlvs = isis_alloc_subtlvs(ISIS_CONTEXT_SUBTLV_SRV6_LOCATOR);
+	for (ALL_LIST_ELEMENTS_RO(loc->srv6_sid, node, sid)) {
+		if (sid->behavior == SRV6_ENDPOINT_BEHAVIOR_END ||
+		    sid->behavior == SRV6_ENDPOINT_BEHAVIOR_END_NEXT_CSID ||
+		    sid->behavior == SRV6_ENDPOINT_BEHAVIOR_END_DT6 ||
+		    sid->behavior == SRV6_ENDPOINT_BEHAVIOR_END_DT6_USID ||
+		    sid->behavior == SRV6_ENDPOINT_BEHAVIOR_END_DT4 ||
+		    sid->behavior == SRV6_ENDPOINT_BEHAVIOR_END_DT4_USID ||
+		    sid->behavior == SRV6_ENDPOINT_BEHAVIOR_END_DT46 ||
+		    sid->behavior == SRV6_ENDPOINT_BEHAVIOR_END_DT46_USID) {
+			isis_subtlvs_add_srv6_end_sid(loc_tlv->subtlvs, sid);
+			subtlvs_present = true;
+		}
+	}
+
+	if (!subtlvs_present) {
+		isis_free_subtlvs(loc_tlv->subtlvs);
+		loc_tlv->subtlvs = NULL;
+	}
+
+	/* Append the SRv6 Locator TLV to the TLVs list */
+	struct isis_item_list *l;
+	l = isis_get_mt_items(&tlvs->srv6_locator, mtid);
+	append_item(l, (struct isis_item *)loc_tlv);
+}
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)

@@ -1,5 +1,8 @@
 {
+<<<<<<< HEAD
   "totalGroups":5,
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
   "watermarkLimit":0,
   "l1-i1-eth1":{
     "name":"l1-i1-eth1",
@@ -48,4 +51,7 @@
     ]
   }
 }
+<<<<<<< HEAD
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)

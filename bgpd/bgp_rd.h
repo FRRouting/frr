@@ -41,8 +41,13 @@ struct rd_as {
 
 struct rd_ip {
 	uint16_t type;
+<<<<<<< HEAD
 	struct in_addr ip;
 	uint16_t val;
+=======
+	uint16_t val;
+	struct in_addr ip;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 };
 
 #ifdef ENABLE_BGP_VNC

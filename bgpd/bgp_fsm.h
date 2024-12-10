@@ -17,6 +17,7 @@ enum bgp_fsm_state_progress {
 /* Macro for BGP read, write and timer thread.  */
 #define BGP_TIMER_ON(T, F, V)                                                  \
 	do {                                                                   \
+<<<<<<< HEAD
 		if ((peer->status != Deleted))                                 \
 			event_add_timer(bm->master, (F), peer, (V), &(T));     \
 	} while (0)
@@ -45,6 +46,30 @@ enum bgp_fsm_state_progress {
 				(T));                                          \
 		else                                                           \
 			event_add_timer_msec(bm->master, (F), peer, 0, (T));   \
+=======
+		if ((connection->status != Deleted))                           \
+			event_add_timer(bm->master, (F), connection, (V),      \
+					&(T));                                 \
+	} while (0)
+
+#define BGP_EVENT_ADD(C, E)                                                     \
+	do {                                                                    \
+		if ((C)->status != Deleted)                                     \
+			event_add_event(bm->master, bgp_event, (C), (E), NULL); \
+	} while (0)
+
+#define BGP_UPDATE_GROUP_TIMER_ON(T, F)                                               \
+	do {                                                                          \
+		if (BGP_SUPPRESS_FIB_ENABLED(peer->bgp) &&                            \
+		    PEER_ROUTE_ADV_DELAY(peer))                                       \
+			event_add_timer_msec(bm->master, (F), connection,             \
+					     (BGP_DEFAULT_UPDATE_ADVERTISEMENT_TIME * \
+					      1000),                                  \
+					     (T));                                    \
+		else                                                                  \
+			event_add_timer_msec(bm->master, (F), connection, 0,          \
+					     (T));                                    \
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	} while (0)
 
 #define BGP_MSEC_JITTER 10
@@ -112,6 +137,7 @@ enum bgp_fsm_state_progress {
 /*
  * Update FSM for peer based on whether we have valid nexthops or not.
  */
+<<<<<<< HEAD
 extern void bgp_fsm_nht_update(struct peer *peer, bool has_valid_nexthops);
 extern void bgp_event(struct event *event);
 extern int bgp_event_update(struct peer *, enum bgp_fsm_events event);
@@ -119,6 +145,18 @@ extern enum bgp_fsm_state_progress bgp_stop(struct peer *peer);
 extern void bgp_timer_set(struct peer *);
 extern void bgp_routeadv_timer(struct event *event);
 extern void bgp_fsm_change_status(struct peer *peer,
+=======
+extern void bgp_fsm_nht_update(struct peer_connection *connection,
+			       struct peer *peer, bool has_valid_nexthops);
+extern void bgp_event(struct event *event);
+extern void bgp_event_stop_with_notify(struct event *event);
+extern int bgp_event_update(struct peer_connection *connection,
+			    enum bgp_fsm_events event);
+extern enum bgp_fsm_state_progress bgp_stop(struct peer_connection *connection);
+extern void bgp_timer_set(struct peer_connection *connection);
+extern void bgp_routeadv_timer(struct event *event);
+extern void bgp_fsm_change_status(struct peer_connection *connection,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 				  enum bgp_fsm_status status);
 extern const char *const peer_down_str[];
 extern void bgp_update_delay_end(struct bgp *);
@@ -126,6 +164,12 @@ extern void bgp_maxmed_update(struct bgp *);
 extern bool bgp_maxmed_onstartup_configured(struct bgp *);
 extern bool bgp_maxmed_onstartup_active(struct bgp *);
 extern int bgp_fsm_error_subcode(int status);
+<<<<<<< HEAD
+=======
+extern enum bgp_fsm_state_progress
+bgp_stop_with_notify(struct peer_connection *connection, uint8_t code,
+		     uint8_t sub_code);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 /**
  * Start the route advertisement timer (that honors MRAI) for all the
@@ -152,7 +196,11 @@ int bgp_neighbor_graceful_restart(struct peer *peer,
 				  enum peer_gr_command peer_gr_cmd);
 unsigned int bgp_peer_gr_action(struct peer *peer, enum peer_mode old_peer_state,
 				enum peer_mode new_peer_state);
+<<<<<<< HEAD
 void bgp_peer_move_to_gr_mode(struct peer *peer, int new_state);
+=======
+void bgp_peer_move_to_gr_mode(struct peer *peer, enum peer_mode new_state);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 unsigned int bgp_peer_gr_helper_enable(struct peer *peer);
 unsigned int bgp_peer_gr_enable(struct peer *peer);
 unsigned int bgp_peer_gr_global_inherit(struct peer *peer);
@@ -161,9 +209,12 @@ enum peer_mode bgp_peer_gr_mode_get(struct peer *peer);
 enum global_mode bgp_global_gr_mode_get(struct bgp *bgp);
 enum peer_mode bgp_get_peer_gr_mode_from_flags(struct peer *peer);
 unsigned int bgp_peer_gr_global_inherit_unset(struct peer *peer);
+<<<<<<< HEAD
 int bgp_gr_lookup_n_update_all_peer(struct bgp *bgp,
 		enum global_mode global_new_state,
 		enum global_mode global_old_state);
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 void bgp_peer_gr_flags_update(struct peer *peer);
 const char *print_peer_gr_mode(enum peer_mode pr_mode);
 const char *print_peer_gr_cmd(enum peer_gr_command pr_gr_cmd);
