@@ -49,16 +49,28 @@ const char *prng_fuzz(struct prng *prng, const char *string,
 		      const char *charset, unsigned int operations)
 {
 	static char buf[256];
+<<<<<<< HEAD
 	unsigned int charset_len;
+=======
+	size_t charset_len = strlen(charset);
+	size_t str_len = strlen(string);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	unsigned int i;
 	unsigned int offset;
 	unsigned int op;
 	unsigned int character;
 
+<<<<<<< HEAD
 	assert(strlen(string) < sizeof(buf));
 
 	strncpy(buf, string, sizeof(buf));
 	charset_len = strlen(charset);
+=======
+	assert(str_len < sizeof(buf));
+
+	memset(buf, 0, sizeof(buf));
+	memcpy(buf, string, str_len);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	for (i = 0; i < operations; i++) {
 		offset = prng_rand(prng) % strlen(buf);

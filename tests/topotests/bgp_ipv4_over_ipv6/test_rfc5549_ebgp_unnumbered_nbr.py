@@ -670,7 +670,11 @@ def test_configure_gua_on_unnumbered_intf(request):
                 {
                     "nexthops": [
                         {
+<<<<<<< HEAD
                             "ip": "::ffff:a00:501",
+=======
+                            "ip": "::ffff:10.0.5.1",
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
                             "hostname": "r1",
                             "afi": "ipv6",
                             "scope": "global",
@@ -754,7 +758,11 @@ def test_configure_gua_on_unnumbered_intf(request):
     assert (
         result is None
     ), "Testcase {} : Failed \n Error: Nexthop for prefix 11.0.20.1 \
+<<<<<<< HEAD
     is not ::ffff:a00:501".format(
+=======
+    is not ::ffff:10.0.5.1".format(
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         tc_name
     )
 

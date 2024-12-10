@@ -38,6 +38,10 @@
 #include "pim_igmp_join.h"
 #include "pim_vxlan.h"
 #include "pim_tib.h"
+<<<<<<< HEAD
+=======
+#include "pim_util.h"
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 #include "pim6_mld.h"
 
@@ -215,7 +219,10 @@ void pim_if_delete(struct interface *ifp)
 	if (pim_ifp->bfd_config.profile)
 		XFREE(MTYPE_TMP, pim_ifp->bfd_config.profile);
 
+<<<<<<< HEAD
 	XFREE(MTYPE_PIM_INTERFACE, pim_ifp->boundary_oil_plist);
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	XFREE(MTYPE_PIM_INTERFACE, pim_ifp);
 
 	ifp->info = NULL;
@@ -1258,6 +1265,17 @@ static int gm_join_sock(const char *ifname, ifindex_t ifindex,
 {
 	int join_fd;
 
+<<<<<<< HEAD
+=======
+	if (pim_is_group_filtered(pim_ifp, &group_addr, &source_addr)) {
+		if (PIM_DEBUG_GM_EVENTS) {
+			zlog_debug("%s: join failed for (S,G)=(%pPAs,%pPAs) due to multicast boundary filtering",
+				   __func__, &source_addr, &group_addr);
+		}
+		return -1;
+	}
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	pim_ifp->igmp_ifstat_joins_sent++;
 
 	join_fd = pim_socket_raw(IPPROTO_GM);

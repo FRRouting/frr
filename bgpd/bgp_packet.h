@@ -43,6 +43,10 @@ DECLARE_HOOK(bgp_packet_send,
 
 /* Packet send and receive function prototypes. */
 extern void bgp_keepalive_send(struct peer *peer);
+<<<<<<< HEAD
+=======
+extern struct stream *bgp_open_make(struct peer *peer, uint16_t send_holdtime, as_t local_as);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 extern void bgp_open_send(struct peer_connection *connection);
 extern void bgp_notify_send(struct peer_connection *connection, uint8_t code,
 			    uint8_t sub_code);

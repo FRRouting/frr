@@ -666,7 +666,11 @@ static int igmp_v1_recv_report(struct gm_sock *igmp, struct in_addr from,
 
 	memcpy(&group_addr, igmp_msg + 4, sizeof(struct in_addr));
 
+<<<<<<< HEAD
 	if (pim_is_group_filtered(ifp->info, &group_addr))
+=======
+	if (pim_is_group_filtered(ifp->info, &group_addr, NULL))
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		return -1;
 
 	/* non-existent group is created as INCLUDE {empty} */

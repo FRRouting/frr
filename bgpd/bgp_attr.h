@@ -515,7 +515,11 @@ static inline void bgp_attr_set_ecommunity(struct attr *attr,
 {
 	attr->ecommunity = ecomm;
 
+<<<<<<< HEAD
 	if (ecomm)
+=======
+	if (ecomm && ecomm->size)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		SET_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_EXT_COMMUNITIES));
 	else
 		UNSET_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_EXT_COMMUNITIES));
@@ -566,7 +570,11 @@ static inline void bgp_attr_set_ipv6_ecommunity(struct attr *attr,
 {
 	attr->ipv6_ecommunity = ipv6_ecomm;
 
+<<<<<<< HEAD
 	if (ipv6_ecomm)
+=======
+	if (ipv6_ecomm && ipv6_ecomm->size)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		SET_FLAG(attr->flag,
 			 ATTR_FLAG_BIT(BGP_ATTR_IPV6_EXT_COMMUNITIES));
 	else
@@ -610,6 +618,15 @@ static inline uint64_t bgp_aigp_metric_total(struct bgp_path_info *bpi)
 		return aigp;
 }
 
+<<<<<<< HEAD
+=======
+static inline void bgp_attr_set_med(struct attr *attr, uint32_t med)
+{
+	attr->med = med;
+	SET_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_MULTI_EXIT_DISC));
+}
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 static inline struct cluster_list *bgp_attr_get_cluster(const struct attr *attr)
 {
 	return attr->cluster1;

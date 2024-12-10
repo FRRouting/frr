@@ -115,8 +115,18 @@ bool tib_sg_gm_join(struct pim_instance *pim, pim_sgaddr sg,
 		return false;
 	}
 
+<<<<<<< HEAD
 	if (!*oilp)
 		*oilp = tib_sg_oil_setup(pim, sg, oif);
+=======
+	if (!*oilp) {
+		*oilp = tib_sg_oil_setup(pim, sg, oif);
+#if PIM_IPV == 6
+		if (pim_embedded_rp_is_embedded(&sg.grp))
+			(*oilp)->oil_ref_count--;
+#endif /* PIM_IPV == 6 */
+	}
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	if (!*oilp)
 		return false;
 
@@ -176,7 +186,18 @@ void tib_sg_gm_prune(struct pim_instance *pim, pim_sgaddr sg,
 	 Making the call to pim_channel_del_oif and ignoring the return code
 	 fixes the issue without ill effect, similar to
 	 pim_forward_stop below.
+<<<<<<< HEAD
 	*/
+=======
+
+	 Also on shutdown when the PIM upstream is removed the channel removal
+	 may have already happened, so just return here instead of trying to
+	 access an invalid pointer.
+	*/
+	if (pim->stopping)
+		return;
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	result = pim_channel_del_oif(*oilp, oif, PIM_OIF_FLAG_PROTO_GM,
 				     __func__);
 	if (result) {

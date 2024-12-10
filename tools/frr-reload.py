@@ -255,7 +255,15 @@ ctx_keywords = {
     },
     "router rip": {},
     "router ripng": {},
+<<<<<<< HEAD
     "router isis ": {},
+=======
+    "router isis ": {
+        "segment-routing srv6": {
+            "node-msd": {},
+        },
+    },
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     "router openfabric ": {},
     "router ospf": {},
     "router ospf6": {},
@@ -275,7 +283,11 @@ ctx_keywords = {
             "policy ": {"candidate-path ": {}},
             "pcep": {"pcc": {}, "pce ": {}, "pce-config ": {}},
         },
+<<<<<<< HEAD
         "srv6": {"locators": {"locator ": {}}},
+=======
+        "srv6": {"locators": {"locator ": {}}, "encapsulation": {}},
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     },
     "nexthop-group ": {},
     "route-map ": {},

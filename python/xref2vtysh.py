@@ -450,9 +450,17 @@ class CommandEntry:
 	graph_delete_node(node->cmdgraph, vector_slot(node->cmdgraph->nodes, 0));
 	vector_free(node->cmdgraph->nodes);
 	node->cmdgraph->nodes = &gvec_{node};
+<<<<<<< HEAD
 {'}'}
 """
         )
+=======
+"""
+        )
+        for cmdel in sorted(cmdels):
+            ofd.write(f"\tvector_set(node->cmd_vector, &{cmdel}_vtysh);\n")
+        ofd.write("}\n")
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
         return [node]
 

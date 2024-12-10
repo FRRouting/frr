@@ -218,10 +218,18 @@ def _test_router_id(tgen, testbin):
 
         step("router id: check for modified router id")
         r1.vtysh_multicmd("conf t\nrouter ospf\nospf router-id 1.1.1.1")
+<<<<<<< HEAD
+=======
+        r1.vtysh_multicmd("clear ip ospf process")
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         _wait_output(p, "SUCCESS: {}".format(waitlist[1]))
 
         step("router id: check for restored router id")
         r1.vtysh_multicmd("conf t\nrouter ospf\nospf router-id 1.0.0.0")
+<<<<<<< HEAD
+=======
+        r1.vtysh_multicmd("clear ip ospf process")
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         _wait_output(p, "SUCCESS: {}".format(waitlist[2]))
     except Exception as error:
         logging.error("ERROR: %s", error)

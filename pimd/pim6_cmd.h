@@ -46,6 +46,10 @@
 #define DEBUG_PIMV6_ZEBRA_STR "ZEBRA protocol activity\n"
 #define DEBUG_MROUTE6_STR "PIMv6 interaction with kernel MFC cache\n"
 #define DEBUG_PIMV6_BSM_STR "BSR message processing activity\n"
+<<<<<<< HEAD
+=======
+#define PIM_EMBEDDED_RP			"Embedded Rendezvous Point\n"
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 void pim_cmd_init(void);
 

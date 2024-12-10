@@ -647,7 +647,11 @@ static int zsend_nexthop_lookup_mrib(struct zserv *client, struct ipaddr *addr,
 {
 	struct stream *s;
 	unsigned long nump;
+<<<<<<< HEAD
 	uint8_t num;
+=======
+	uint16_t num;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	struct nexthop *nexthop;
 
 	/* Get output stream. */
@@ -667,7 +671,11 @@ static int zsend_nexthop_lookup_mrib(struct zserv *client, struct ipaddr *addr,
 		/* remember position for nexthop_num */
 		nump = stream_get_endp(s);
 		/* reserve room for nexthop_num */
+<<<<<<< HEAD
 		stream_putc(s, 0);
+=======
+		stream_putw(s, 0);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		nhg = rib_get_fib_nhg(re);
 		for (ALL_NEXTHOPS_PTR(nhg, nexthop)) {
 			if (rnh_nexthop_valid(re, nexthop))
@@ -675,11 +683,19 @@ static int zsend_nexthop_lookup_mrib(struct zserv *client, struct ipaddr *addr,
 		}
 
 		/* store nexthop_num */
+<<<<<<< HEAD
 		stream_putc_at(s, nump, num);
 	} else {
 		stream_putc(s, 0); /* distance */
 		stream_putl(s, 0); /* metric */
 		stream_putc(s, 0); /* nexthop_num */
+=======
+		stream_putw_at(s, nump, num);
+	} else {
+		stream_putc(s, 0); /* distance */
+		stream_putl(s, 0); /* metric */
+		stream_putw(s, 0); /* nexthop_num */
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	}
 
 	stream_putw_at(s, 0, stream_get_endp(s));

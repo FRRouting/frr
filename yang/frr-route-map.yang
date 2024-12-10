@@ -355,6 +355,25 @@ module frr-route-map {
                   "Subtract round trip time to metric";
               }
             }
+<<<<<<< HEAD
+=======
+
+            case use-igp {
+              leaf use-igp {
+                type boolean;
+                description
+                  "Use metric from IGP procotol";
+              }
+            }
+
+            case use-aigp {
+              leaf use-aigp {
+                type boolean;
+                description
+                  "Use metric from AIGP (Accumulated IGP)";
+              }
+            }
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
           }
         }
 

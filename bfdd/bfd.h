@@ -610,6 +610,11 @@ void bfd_sessions_remove_manual(void);
 void bfd_profiles_remove(void);
 void bfd_rtt_init(struct bfd_session *bfd);
 
+<<<<<<< HEAD
+=======
+extern void bfd_vrf_toggle_echo(struct bfd_vrf_global *bfd_vrf);
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 /**
  * Set the BFD session echo state.
  *

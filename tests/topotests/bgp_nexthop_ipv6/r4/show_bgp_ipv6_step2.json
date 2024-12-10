@@ -9,6 +9,7 @@
             "ip": "fd00:0:2::1",
             "hostname": "rr",
             "afi": "ipv6",
+<<<<<<< HEAD
             "scope": "global"
           },
           {
@@ -16,6 +17,9 @@
             "hostname": "rr",
             "afi": "ipv6",
             "scope": "link-local",
+=======
+            "scope": "global",
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
             "used": true
           }
         ]
@@ -28,6 +32,7 @@
             "ip": "fd00:0:2::2",
             "hostname": "rr",
             "afi": "ipv6",
+<<<<<<< HEAD
             "scope": "global"
           },
           {
@@ -35,6 +40,9 @@
             "hostname": "rr",
             "afi": "ipv6",
             "scope": "link-local",
+=======
+            "scope": "global",
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
             "used": true
           }
         ]
@@ -47,6 +55,7 @@
             "ip": "fd00:0:2::3",
             "hostname": "rr",
             "afi": "ipv6",
+<<<<<<< HEAD
             "scope": "global"
           },
           {
@@ -54,6 +63,9 @@
             "hostname": "rr",
             "afi": "ipv6",
             "scope": "link-local",
+=======
+            "scope": "global",
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
             "used": true
           }
         ]
@@ -117,6 +129,7 @@
             "ip": "fd00:0:2::1",
             "hostname": "rr",
             "afi": "ipv6",
+<<<<<<< HEAD
             "scope": "global"
           },
           {
@@ -124,6 +137,9 @@
             "hostname": "rr",
             "afi": "ipv6",
             "scope": "link-local",
+=======
+            "scope": "global",
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
             "used": true
           }
         ]
@@ -136,6 +152,7 @@
             "ip": "fd00:0:2::2",
             "hostname": "rr",
             "afi": "ipv6",
+<<<<<<< HEAD
             "scope": "global"
           },
           {
@@ -143,6 +160,9 @@
             "hostname": "rr",
             "afi": "ipv6",
             "scope": "link-local",
+=======
+            "scope": "global",
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
             "used": true
           }
         ]
@@ -155,6 +175,7 @@
             "ip": "fd00:0:2::3",
             "hostname": "rr",
             "afi": "ipv6",
+<<<<<<< HEAD
             "scope": "global"
           },
           {
@@ -162,6 +183,9 @@
             "hostname": "rr",
             "afi": "ipv6",
             "scope": "link-local",
+=======
+            "scope": "global",
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
             "used": true
           }
         ]

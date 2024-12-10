@@ -21,9 +21,15 @@ extern int bgp_socket(struct bgp *bgp, unsigned short port,
 		      const char *address);
 extern void bgp_close_vrf_socket(struct bgp *bgp);
 extern void bgp_close(void);
+<<<<<<< HEAD
 extern int bgp_connect(struct peer_connection *connection);
 extern int bgp_getsockname(struct peer *peer);
 extern void bgp_updatesockname(struct peer *peer);
+=======
+extern enum connect_result bgp_connect(struct peer_connection *connection);
+extern int bgp_getsockname(struct peer_connection *connection);
+extern void bgp_updatesockname(struct peer *peer, struct peer_connection *connection);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 extern int bgp_md5_set_prefix(struct bgp *bgp, struct prefix *p,
 			      const char *password);

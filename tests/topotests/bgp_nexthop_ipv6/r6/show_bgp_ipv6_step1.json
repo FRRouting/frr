@@ -9,7 +9,17 @@
             "ip": "fd00:0:2::1",
             "hostname": "rr",
             "afi": "ipv6",
+<<<<<<< HEAD
             "scope": "global",
+=======
+            "scope": "global"
+          },
+          {
+            "ip": "link-local:rr:eth-r6",
+            "hostname": "rr",
+            "afi": "ipv6",
+            "scope": "link-local",
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
             "used": true
           }
         ]
@@ -22,7 +32,17 @@
             "ip": "fd00:0:2::2",
             "hostname": "rr",
             "afi": "ipv6",
+<<<<<<< HEAD
             "scope": "global",
+=======
+            "scope": "global"
+          },
+          {
+            "ip": "link-local:rr:eth-r6",
+            "hostname": "rr",
+            "afi": "ipv6",
+            "scope": "link-local",
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
             "used": true
           }
         ]
@@ -48,7 +68,17 @@
             "ip": "fd00:0:2::4",
             "hostname": "rr",
             "afi": "ipv6",
+<<<<<<< HEAD
             "scope": "global",
+=======
+            "scope": "global"
+          },
+          {
+            "ip": "link-local:rr:eth-r6",
+            "hostname": "rr",
+            "afi": "ipv6",
+            "scope": "link-local",
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
             "used": true
           }
         ]
@@ -61,7 +91,17 @@
             "ip": "fd00:0:3::5",
             "hostname": "rr",
             "afi": "ipv6",
+<<<<<<< HEAD
             "scope": "global",
+=======
+            "scope": "global"
+          },
+          {
+            "ip": "link-local:rr:eth-r6",
+            "hostname": "rr",
+            "afi": "ipv6",
+            "scope": "link-local",
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
             "used": true
           }
         ]
@@ -87,7 +127,17 @@
             "ip": "fd00:0:2::1",
             "hostname": "rr",
             "afi": "ipv6",
+<<<<<<< HEAD
             "scope": "global",
+=======
+            "scope": "global"
+          },
+          {
+            "ip": "link-local:rr:eth-r6",
+            "hostname": "rr",
+            "afi": "ipv6",
+            "scope": "link-local",
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
             "used": true
           }
         ]
@@ -100,7 +150,17 @@
             "ip": "fd00:0:2::2",
             "hostname": "rr",
             "afi": "ipv6",
+<<<<<<< HEAD
             "scope": "global",
+=======
+            "scope": "global"
+          },
+          {
+            "ip": "link-local:rr:eth-r6",
+            "hostname": "rr",
+            "afi": "ipv6",
+            "scope": "link-local",
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
             "used": true
           }
         ]
@@ -126,7 +186,17 @@
             "ip": "fd00:0:2::4",
             "hostname": "rr",
             "afi": "ipv6",
+<<<<<<< HEAD
             "scope": "global",
+=======
+            "scope": "global"
+          },
+          {
+            "ip": "link-local:rr:eth-r6",
+            "hostname": "rr",
+            "afi": "ipv6",
+            "scope": "link-local",
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
             "used": true
           }
         ]
@@ -139,7 +209,17 @@
             "ip": "fd00:0:3::5",
             "hostname": "rr",
             "afi": "ipv6",
+<<<<<<< HEAD
             "scope": "global",
+=======
+            "scope": "global"
+          },
+          {
+            "ip": "link-local:rr:eth-r6",
+            "hostname": "rr",
+            "afi": "ipv6",
+            "scope": "link-local",
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
             "used": true
           }
         ]

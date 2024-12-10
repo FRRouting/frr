@@ -37,7 +37,12 @@ Build-Depends: bison,
 	       libgrpc-dev (>=1.16.1) <pkg.frr.grpc>,
 	       libgrpc++-dev (>=1.16.1) <pkg.frr.grpc>,
 	       protobuf-compiler (>=3.6.1) <pkg.frr.grpc>,
+<<<<<<< HEAD
 	       protobuf-compiler-grpc (>=1.16.1) <pkg.frr.grpc>
+=======
+	       protobuf-compiler-grpc (>=1.16.1) <pkg.frr.grpc>,
+               libprotobuf-dev (>=3.6.1) <pkg.frr.grpc>
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 Standards-Version: 4.5.0.3
 Homepage: https://www.frrouting.org/
 Vcs-Browser: https://github.com/FRRouting/frr/tree/debian/master

@@ -26,6 +26,11 @@
 
 static void pim_instance_terminate(struct pim_instance *pim)
 {
+<<<<<<< HEAD
+=======
+	pim->stopping = true;
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	pim_vxlan_exit(pim);
 
 	if (pim->ssm_info) {
@@ -270,3 +275,16 @@ void pim_vrf_terminate(void)
 
 	vrf_terminate();
 }
+<<<<<<< HEAD
+=======
+
+bool pim_msdp_log_neighbor_events(const struct pim_instance *pim)
+{
+	return (pim->log_flags & PIM_MSDP_LOG_NEIGHBOR_EVENTS);
+}
+
+bool pim_msdp_log_sa_events(const struct pim_instance *pim)
+{
+	return (pim->log_flags & PIM_MSDP_LOG_SA_EVENTS);
+}
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)

@@ -639,13 +639,19 @@ void rib_install_kernel(struct route_node *rn, struct route_entry *re,
 {
 	struct rib_table_info *info = srcdest_rnode_table_info(rn);
 	struct zebra_vrf *zvrf = zebra_vrf_lookup_by_id(re->vrf_id);
+<<<<<<< HEAD
 	const struct prefix *p, *src_p;
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	enum zebra_dplane_result ret;
 
 	rib_dest_t *dest = rib_dest_from_rnode(rn);
 
+<<<<<<< HEAD
 	srcdest_rnode_prefixes(rn, &p, &src_p);
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	/*
 	 * Install the resolved nexthop object first.
 	 */
@@ -778,13 +784,85 @@ void zebra_rib_evaluate_rn_nexthops(struct route_node *rn, uint32_t seq,
 	struct rnh *rnh;
 
 	/*
+<<<<<<< HEAD
 	 * We are storing the rnh's associated withb
 	 * the tracked nexthop as a list of the rn's.
+=======
+	 * We are storing the rnh's associated with
+	 * the tracked nexthop as a list of the rnh's
+	 * on the rn that we have matched to.  As an
+	 * example if you have these rnh's:
+	 * rnh 1.1.1.1
+	 * rnh 1.1.1.2
+	 * rnh 1.1.3.4
+	 * rnh 4.5.6.7
+	 * Now imagine that you have in the tree these
+	 * prefix's:
+	 * 1.1.1.1/32
+	 * 1.1.1.0/24
+	 * 1.1.0.0/16
+	 * 0.0.0.0/0
+	 *
+	 * The 1.1.1.1 rnh would be stored on 1.1.1.1/32
+	 * The 1.1.1.2 rnh would be stored on 1.1.1.0/24
+	 * The 1.1.3.4 rnh would be stored on the 1.1.0.0/16
+	 * and finally the 4.5.6.7 would be stored on the 0.0.0.0/0
+	 * prefix.
+	 *
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	 * Unresolved rnh's are placed at the top
 	 * of the tree list.( 0.0.0.0/0 for v4 and 0::0/0 for v6 )
 	 * As such for each rn we need to walk up the tree
 	 * and see if any rnh's need to see if they
 	 * would match a more specific route
+<<<<<<< HEAD
+=======
+	 *
+	 * Now if a 1.1.1.2/32 prefix was added to the tree
+	 * this function would start at this new node and
+	 * see that the 1.1.1.2/32 node has no rnh's and
+	 * there is nothing to do on this node currently,
+	 * so the function would walk the parent pointers, until the
+	 * 1.1.1.0/24 node is hit with the 1.1.1.2 rnh.  This function
+	 * would then call zebra_evaluate_rnh() which would then
+	 * do a LPM and match on the 1.1.1.2/32 node.  This function
+	 * would then pull the 1.1.1.2 rnh off the 1.1.1.0/24 node
+	 * and place it on the 1.1.1.1/32 node and notify the upper
+	 * level protocols interested about the change( as necessary ).
+	 * At this point in time a sequence number is added to note
+	 * that the rnh has been moved.
+	 * The function would also continue to walk up the tree
+	 * looking at the list of rnh's and moving them around
+	 * as necessary.  Since in this example nothing else
+	 * would change no further actions are made.
+	 *
+	 * Another case to consider is a node being deleted
+	 * suppose the 1.1.1.2/32 route is being deleted.
+	 * This function would start at the 1.1.1.1/32 node,
+	 * perform a LPM and settle on the 1.1.1.0/24 node
+	 * as where it belongs.  The code would update appropriate
+	 * interested parties and additionally also mark the sequence
+	 * number and walk up the tree.  Eventually it would get to
+	 * the 1.1.1.0/24 node and since the seqno matches we would
+	 * know that it is not necessary to reconsider this node
+	 * as it was already moved to this spot.
+	 *
+	 * This all works because each node's parent pointer points
+	 * to a node that has a prefix that contains this node.  Eventually
+	 * the parent traversal will hit the 0.0.0.0/0 node and we know
+	 * we are done.  We know this is pretty efficient because when
+	 * a more specific is added as we walk the tree we can
+	 * find the rnh's that matched to a less specific very easily
+	 * and move them to a more specific node.  Also vice-versa as a
+	 * more specific node is removed.
+	 *
+	 * Long term the rnh code might be improved some as the rnh's
+	 * are stored as a list.  This might be transformed to a better
+	 * data structure.  This has not proven to be necessary yet as
+	 * that we have not seen any particular case where a rn is
+	 * storing more than a couple rnh's.  If we find a case
+	 * where this matters something might need to be done.
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	 */
 	while (rn) {
 		if (IS_ZEBRA_DEBUG_NHT_DETAILED)
@@ -1261,7 +1339,10 @@ static void rib_process(struct route_node *rn)
 		if (CHECK_FLAG(re->status, ROUTE_ENTRY_CHANGED)) {
 			proto_re_changed = re;
 			if (!nexthop_active_update(rn, re, old_fib)) {
+<<<<<<< HEAD
 				const struct prefix *p;
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 				struct rib_table_info *info;
 
 				if (re->type == ZEBRA_ROUTE_TABLE) {
@@ -1295,7 +1376,10 @@ static void rib_process(struct route_node *rn)
 				}
 
 				info = srcdest_rnode_table_info(rn);
+<<<<<<< HEAD
 				srcdest_rnode_prefixes(rn, &p, NULL);
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 				zsend_route_notify_owner(
 					rn, re, ZAPI_ROUTE_FAIL_INSTALL,
 					info->afi, info->safi);
@@ -3955,6 +4039,10 @@ static void rib_link(struct route_node *rn, struct route_entry *re, int process)
 {
 	rib_dest_t *dest;
 	afi_t afi;
+<<<<<<< HEAD
+=======
+	safi_t safi;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	const char *rmap_name;
 
 	assert(re && rn);
@@ -3972,11 +4060,21 @@ static void rib_link(struct route_node *rn, struct route_entry *re, int process)
 	afi = (rn->p.family == AF_INET)
 		      ? AFI_IP
 		      : (rn->p.family == AF_INET6) ? AFI_IP6 : AFI_MAX;
+<<<<<<< HEAD
 	if (is_zebra_import_table_enabled(afi, re->vrf_id, re->table)) {
 		struct zebra_vrf *zvrf = zebra_vrf_lookup_by_id(re->vrf_id);
 
 		rmap_name = zebra_get_import_table_route_map(afi, re->table);
 		zebra_add_import_table_entry(zvrf, rn, re, rmap_name);
+=======
+	for (safi = SAFI_UNICAST; safi < SAFI_MAX; safi++) {
+		if (is_zebra_import_table_enabled(afi, safi, re->vrf_id, re->table)) {
+			struct zebra_vrf *zvrf = zebra_vrf_lookup_by_id(re->vrf_id);
+
+			rmap_name = zebra_get_import_table_route_map(afi, safi, re->table);
+			zebra_add_import_table_entry(zvrf, safi, rn, re, rmap_name);
+		}
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	}
 
 	if (process)
@@ -4034,6 +4132,10 @@ void rib_unlink(struct route_node *rn, struct route_entry *re)
 void rib_delnode(struct route_node *rn, struct route_entry *re)
 {
 	afi_t afi;
+<<<<<<< HEAD
+=======
+	safi_t safi;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	if (IS_ZEBRA_DEBUG_RIB)
 		rnode_debug(rn, re->vrf_id, "rn %p, re %p, removing",
@@ -4047,6 +4149,7 @@ void rib_delnode(struct route_node *rn, struct route_entry *re)
 	afi = (rn->p.family == AF_INET)
 		      ? AFI_IP
 		      : (rn->p.family == AF_INET6) ? AFI_IP6 : AFI_MAX;
+<<<<<<< HEAD
 	if (is_zebra_import_table_enabled(afi, re->vrf_id, re->table)) {
 		struct zebra_vrf *zvrf = zebra_vrf_lookup_by_id(re->vrf_id);
 
@@ -4056,6 +4159,19 @@ void rib_delnode(struct route_node *rn, struct route_entry *re)
 			zlog_debug("%s(%u):%pRN: Freeing route rn %p, re %p (%s)",
 				   vrf_id_to_name(re->vrf_id), re->vrf_id, rn,
 				   rn, re, zebra_route_string(re->type));
+=======
+	for (safi = SAFI_UNICAST; safi < SAFI_MAX; safi++) {
+		if (is_zebra_import_table_enabled(afi, safi, re->vrf_id, re->table)) {
+			struct zebra_vrf *zvrf = zebra_vrf_lookup_by_id(re->vrf_id);
+
+			zebra_del_import_table_entry(zvrf, safi, rn, re);
+			/* Just clean up if non main table */
+			if (IS_ZEBRA_DEBUG_RIB)
+				zlog_debug("%s %s(%u):%pRN: Freeing route rn %p, re %p (%s)",
+					   safi2str(safi), vrf_id_to_name(re->vrf_id), re->vrf_id,
+					   rn, rn, re, zebra_route_string(re->type));
+		}
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	}
 
 	rib_queue_add(rn);
@@ -4341,9 +4457,13 @@ int rib_add_multipath(afi_t afi, safi_t safi, struct prefix *p,
 	if (ng) {
 		nhe.nhg.nexthop = ng->nexthop;
 
+<<<<<<< HEAD
 		if (re->type == ZEBRA_ROUTE_CONNECT ||
 		    re->type == ZEBRA_ROUTE_LOCAL ||
 		    re->type == ZEBRA_ROUTE_KERNEL)
+=======
+		if (RIB_SYSTEM_ROUTE(re))
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			SET_FLAG(nhe.flags, NEXTHOP_GROUP_INITIAL_DELAY_INSTALL);
 	} else if (re->nhe_id > 0)
 		nhe.id = re->nhe_id;
@@ -5005,6 +5125,12 @@ static void rib_process_dplane_results(struct event *thread)
 				zebra_ns_startup_continue(ctx);
 				break;
 
+<<<<<<< HEAD
+=======
+			case DPLANE_OP_VLAN_INSTALL:
+				zebra_vlan_dplane_result(ctx);
+				break;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			} /* Dispatch by op code */
 
 			dplane_ctx_fini(&ctx);

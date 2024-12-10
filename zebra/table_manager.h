@@ -24,6 +24,10 @@ extern "C" {
 #if !defined(GNU_LINUX)
 /* BSD systems
  */
+<<<<<<< HEAD
+=======
+#define RT_TABLE_ID_MAIN 0
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 #else
 /* Linux Systems
  */

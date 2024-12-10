@@ -400,6 +400,10 @@ static void zd_dpdk_rule_update(struct zebra_dplane_ctx *ctx)
 	case DPLANE_OP_INTF_INSTALL:
 	case DPLANE_OP_INTF_UPDATE:
 	case DPLANE_OP_INTF_DELETE:
+<<<<<<< HEAD
+=======
+	case DPLANE_OP_VLAN_INSTALL,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		break;
 	}
 }
@@ -459,6 +463,10 @@ static void zd_dpdk_process_update(struct zebra_dplane_ctx *ctx)
 	case DPLANE_OP_INTF_INSTALL:
 	case DPLANE_OP_INTF_UPDATE:
 	case DPLANE_OP_INTF_DELETE:
+<<<<<<< HEAD
+=======
+	case DPLANE_OP_VLAN_INSTALL,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		atomic_fetch_add_explicit(&dpdk_stat->ignored_updates, 1,
 					  memory_order_relaxed);
 

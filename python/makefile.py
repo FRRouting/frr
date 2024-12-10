@@ -52,7 +52,11 @@ if args.dev_build:
                 "grep",
                 "-l",
                 "-P",
+<<<<<<< HEAD
                 "^#\s*include.*_clippy.c",
+=======
+                r"^#\s*include.*_clippy.c",
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
                 "--",
                 "**.c",
             ]

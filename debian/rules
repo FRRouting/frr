@@ -68,6 +68,10 @@ override_dh_auto_configure:
 		--enable-ospfapi \
 		--enable-bgp-vnc \
 		--enable-multipath=256 \
+<<<<<<< HEAD
+=======
+		--enable-pcre2posix \
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		\
 		--enable-user=frr \
 		--enable-group=frr \

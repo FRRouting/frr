@@ -137,7 +137,11 @@ static void bgp_start_interface_nbrs(struct bgp *bgp, struct interface *ifp)
 	for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer)) {
 		if (peer->conf_if && (strcmp(peer->conf_if, ifp->name) == 0) &&
 		    !peer_established(peer->connection)) {
+<<<<<<< HEAD
 			if (peer_active(peer))
+=======
+			if (peer_active(peer->connection))
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 				BGP_EVENT_ADD(peer->connection, BGP_Stop);
 			BGP_EVENT_ADD(peer->connection, BGP_Start);
 		}
@@ -744,6 +748,10 @@ bool bgp_zebra_nexthop_set(union sockunion *local, union sockunion *remote,
 	int ret = 0;
 	struct interface *ifp = NULL;
 	bool v6_ll_avail = true;
+<<<<<<< HEAD
+=======
+	bool shared_network_original = peer->shared_network;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	memset(nexthop, 0, sizeof(struct bgp_nexthop));
 
@@ -838,9 +846,15 @@ bool bgp_zebra_nexthop_set(union sockunion *local, union sockunion *remote,
 		if (!v6_ll_avail && !peer->conf_if)
 			v6_ll_avail = true;
 		if (if_lookup_by_ipv4(&remote->sin.sin_addr, peer->bgp->vrf_id))
+<<<<<<< HEAD
 			peer->shared_network = 1;
 		else
 			peer->shared_network = 0;
+=======
+			peer->shared_network = true;
+		else
+			peer->shared_network = false;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	}
 
 	/* IPv6 connection, fetch and store IPv4 local address if any. */
@@ -903,11 +917,22 @@ bool bgp_zebra_nexthop_set(union sockunion *local, union sockunion *remote,
 		    || if_lookup_by_ipv6(&remote->sin6.sin6_addr,
 					 remote->sin6.sin6_scope_id,
 					 peer->bgp->vrf_id))
+<<<<<<< HEAD
 			peer->shared_network = 1;
 		else
 			peer->shared_network = 0;
 	}
 
+=======
+			peer->shared_network = true;
+		else
+			peer->shared_network = false;
+	}
+
+	if (shared_network_original != peer->shared_network)
+		bgp_peer_bfd_update_source(peer);
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 /* KAME stack specific treatment.  */
 #ifdef KAME
 	if (IN6_IS_ADDR_LINKLOCAL(&nexthop->v6_global)
@@ -1187,9 +1212,16 @@ static bool update_ipv6nh_for_route_install(int nh_othervrf, struct bgp *nh_bgp,
 					ifindex =
 						pi->peer->nexthop.ifp->ifindex;
 			if (!ifindex) {
+<<<<<<< HEAD
 				if (pi->peer->conf_if)
 					ifindex = pi->peer->ifp->ifindex;
 				else if (pi->peer->ifname)
+=======
+				if (pi->peer->conf_if) {
+					if (pi->peer->ifp)
+						ifindex = pi->peer->ifp->ifindex;
+				} else if (pi->peer->ifname)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 					ifindex = ifname2ifindex(
 						pi->peer->ifname,
 						pi->peer->bgp->vrf_id);
@@ -3699,7 +3731,11 @@ static int bgp_zebra_process_srv6_locator_delete(ZAPI_CALLBACK_ARGS)
 	// refresh functions
 	for (ALL_LIST_ELEMENTS(bgp->srv6_functions, node, nnode, func)) {
 		tmp_prefi.family = AF_INET6;
+<<<<<<< HEAD
 		tmp_prefi.prefixlen = 128;
+=======
+		tmp_prefi.prefixlen = IPV6_MAX_BITLEN;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		tmp_prefi.prefix = func->sid;
 		if (prefix_match((struct prefix *)&loc.prefix,
 				 (struct prefix *)&tmp_prefi)) {
@@ -3717,7 +3753,11 @@ static int bgp_zebra_process_srv6_locator_delete(ZAPI_CALLBACK_ARGS)
 		tovpn_sid = bgp_vrf->vpn_policy[AFI_IP].tovpn_sid;
 		if (tovpn_sid) {
 			tmp_prefi.family = AF_INET6;
+<<<<<<< HEAD
 			tmp_prefi.prefixlen = 128;
+=======
+			tmp_prefi.prefixlen = IPV6_MAX_BITLEN;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			tmp_prefi.prefix = *tovpn_sid;
 			if (prefix_match((struct prefix *)&loc.prefix,
 					 (struct prefix *)&tmp_prefi))
@@ -3729,7 +3769,11 @@ static int bgp_zebra_process_srv6_locator_delete(ZAPI_CALLBACK_ARGS)
 		tovpn_sid = bgp_vrf->vpn_policy[AFI_IP6].tovpn_sid;
 		if (tovpn_sid) {
 			tmp_prefi.family = AF_INET6;
+<<<<<<< HEAD
 			tmp_prefi.prefixlen = 128;
+=======
+			tmp_prefi.prefixlen = IPV6_MAX_BITLEN;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			tmp_prefi.prefix = *tovpn_sid;
 			if (prefix_match((struct prefix *)&loc.prefix,
 					 (struct prefix *)&tmp_prefi))

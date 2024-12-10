@@ -17,6 +17,10 @@ import os
 import sys
 import json
 from functools import partial
+<<<<<<< HEAD
+=======
+import re
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 import pytest
 
 # Save the Current Working Directory to find configuration files.
@@ -510,6 +514,71 @@ def test_msdp_sa_filter():
     assert val is None, "multicast route convergence failure"
 
 
+<<<<<<< HEAD
+=======
+def test_msdp_log_events():
+    "Test that the enabled logs are working as expected."
+
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    r1_log = tgen.gears["r1"].net.getLog("log", "pimd")
+
+    # Look up for informational messages that should have been enabled.
+    match = re.search("MSDP peer 192.168.1.2 state changed to established", r1_log)
+    assert match is not None
+
+    match = re.search(r"MSDP SA \(192.168.10.100\,229.1.2.3\) created", r1_log)
+    assert match is not None
+
+
+def test_msdp_shutdown():
+    "Shutdown MSDP sessions between r1, r2, r3, then check the state."
+
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    tgen.gears["r1"].vtysh_cmd(
+        """
+    configure terminal
+    router pim
+     msdp shutdown
+    """
+    )
+
+    r1_expect = {
+        "192.168.0.2": {
+            "state": "inactive",
+        },
+        "192.168.1.2": {
+            "state": "inactive",
+        },
+    }
+    r2_expect = {
+        "192.168.0.1": {
+            "state": "listen",
+        }
+    }
+    r3_expect = {
+        "192.168.1.1": {
+            "state": "listen",
+        }
+    }
+    for router in [("r1", r1_expect), ("r2", r2_expect), ("r3", r3_expect)]:
+        test_func = partial(
+            topotest.router_json_cmp,
+            tgen.gears[router[0]],
+            "show ip msdp peer json",
+            router[1],
+        )
+        logger.info("Waiting for {} msdp peer data".format(router[0]))
+        _, val = topotest.run_and_expect(test_func, None, count=30, wait=1)
+        assert val is None, "multicast route convergence failure"
+
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 def test_memory_leak():
     "Run the memory leak test and report results."
     tgen = get_topogen()

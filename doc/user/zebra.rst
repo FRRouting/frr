@@ -526,6 +526,7 @@ commands in relationship to VRF. Here is an extract of some of those commands:
    The network administrator can however decide to provision this command in
    configuration file to provide more clarity about the intended configuration.
 
+<<<<<<< HEAD
 .. clicmd:: netns NAMESPACE
 
    This command is based on VRF configuration mode. This command is available
@@ -536,6 +537,8 @@ commands in relationship to VRF. Here is an extract of some of those commands:
    decide to provision this command in configuration file to provide more clarity
    about the intended configuration.
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 .. clicmd:: show ip route vrf VRF
 
    The show command permits dumping the routing table associated to the VRF. If
@@ -985,7 +988,11 @@ and this section also helps that case.
 ::
 
    router# configure terminal
+<<<<<<< HEAD
    router(config)# segment-routinig
+=======
+   router(config)# segment-routing
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
    router(config-sr)# srv6
    router(config-srv6)# locators
    router(config-srv6-locs)# locator loc1
@@ -1013,7 +1020,11 @@ and this section also helps that case.
 ::
 
    router# configure terminal
+<<<<<<< HEAD
    router(config)# segment-routinig
+=======
+   router(config)# segment-routing
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
    router(config-sr)# srv6
    router(config-srv6)# locators
    router(config-srv6-locators)# locator loc1
@@ -1042,7 +1053,11 @@ and this section also helps that case.
 ::
 
    router# configure terminal
+<<<<<<< HEAD
    router(config)# segment-routinig
+=======
+   router(config)# segment-routing
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
    router(config-sr)# srv6
    router(config-srv6)# locators
    router(config-srv6-locators)# locator loc1
@@ -1099,7 +1114,11 @@ and this section also helps that case.
 ::
 
    router# configure terminal
+<<<<<<< HEAD
    router(config)# segment-routinig
+=======
+   router(config)# segment-routing
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
    router(config-sr)# srv6
    router(config-srv6)# formats
    router(config-srv6-formats)# format usid-f3216
@@ -1287,6 +1306,28 @@ IPv6 example for OSPFv3.
    Set the delay before any route-maps are processed in zebra.  The
    default time for this is 5 seconds.
 
+<<<<<<< HEAD
+=======
+
+.. _zebra-table-import:
+
+zebra Table Import
+==================
+
+Zebra supports importing an alternate routing table into the main unicast RIB (URIB).
+An imported table will continously sync all changes to the main URIB as routes are
+added or deleted from the alternate table.
+Zebra also supports importing into the main multicast RIB (MRIB) which can be used
+to affect how multicast RPF lookups are performed as described in :ref: `_pim-multicast-rib`.
+
+.. clicmd:: ip import-table (1-252) [mrib] [distance (1-255)] [route-map RMAP_NAME]
+
+   Import table, by given table id, into the main URIB (or MRIB). Optional distance can override
+   the default distance when importing routes from the alternate table. An optional route map
+   can be provided to filter routes that are imported into the main table.
+
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 .. _zebra-fib-push-interface:
 
 zebra FIB push interface
@@ -1864,6 +1905,13 @@ Debugging
 
    Nexthop and nexthop-group events.
 
+<<<<<<< HEAD
+=======
+.. clicmd:: debug zebra srv6
+
+   Segment Routing for IPv6 dataplane debugging.
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 Scripting
 =========
 

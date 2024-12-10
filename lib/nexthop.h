@@ -154,6 +154,11 @@ void nexthops_free(struct nexthop *nexthop);
 void nexthop_add_labels(struct nexthop *nexthop, enum lsp_types_t ltype,
 			uint8_t num_labels, const mpls_label_t *labels);
 void nexthop_del_labels(struct nexthop *);
+<<<<<<< HEAD
+=======
+void nexthop_change_labels(struct nexthop *nexthop, struct mpls_label_stack *new_stack);
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 void nexthop_add_srv6_seg6local(struct nexthop *nexthop, uint32_t action,
 				const struct seg6local_context *ctx);
 void nexthop_del_srv6_seg6local(struct nexthop *nexthop);

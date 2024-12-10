@@ -193,7 +193,11 @@ static int zclient_read_nexthop(struct pim_instance *pim,
 
 	distance = stream_getc(s);
 	metric = stream_getl(s);
+<<<<<<< HEAD
 	nexthop_num = stream_getc(s);
+=======
+	nexthop_num = stream_getw(s);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	if (nexthop_num < 1 || nexthop_num > router->multipath) {
 		if (PIM_DEBUG_PIM_NHT_DETAIL)

@@ -1066,9 +1066,22 @@ static int make_prefix(int afi, struct bgp_path_info *pi, struct prefix *p)
 	case AFI_IP6:
 		p->family = AF_INET6;
 		if (pi->attr->srv6_l3vpn) {
+<<<<<<< HEAD
 			IPV6_ADDR_COPY(&(p->u.prefix6),
 				       &(pi->attr->srv6_l3vpn->sid));
 			p->prefixlen = IPV6_MAX_BITLEN;
+=======
+			p->prefixlen = IPV6_MAX_BITLEN;
+			if (pi->attr->srv6_l3vpn->transposition_len != 0 &&
+			    BGP_PATH_INFO_NUM_LABELS(pi)) {
+				IPV6_ADDR_COPY(&p->u.prefix6, &pi->attr->srv6_l3vpn->sid);
+				transpose_sid(&p->u.prefix6,
+					      decode_label(&pi->extra->labels->label[0]),
+					      pi->attr->srv6_l3vpn->transposition_offset,
+					      pi->attr->srv6_l3vpn->transposition_len);
+			} else
+				IPV6_ADDR_COPY(&(p->u.prefix6), &(pi->attr->srv6_l3vpn->sid));
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		} else if (is_bgp_static) {
 			p->u.prefix6 = p_orig->u.prefix6;
 			p->prefixlen = p_orig->prefixlen;

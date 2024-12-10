@@ -35,6 +35,11 @@ DEFINE_MTYPE_STATIC(ZEBRA, DP_PROV, "Zebra DPlane Provider");
 DEFINE_MTYPE_STATIC(ZEBRA, DP_NETFILTER, "Zebra Netfilter Internal Object");
 DEFINE_MTYPE_STATIC(ZEBRA, DP_NS, "DPlane NSes");
 
+<<<<<<< HEAD
+=======
+DEFINE_MTYPE(ZEBRA, VLAN_CHANGE_ARR, "Vlan Change Array");
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 #ifndef AOK
 #  define AOK 0
 #endif
@@ -371,6 +376,17 @@ struct dplane_srv6_encap_ctx {
 };
 
 /*
+<<<<<<< HEAD
+=======
+ * VLAN info for the dataplane
+ */
+struct dplane_vlan_info {
+	ifindex_t ifindex;
+	struct zebra_vxlan_vlan_array *vlan_array;
+};
+
+/*
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
  * The context block used to exchange info about route updates across
  * the boundary between the zebra main context (and pthread) and the
  * dataplane layer (and pthread).
@@ -416,6 +432,10 @@ struct zebra_dplane_ctx {
 		struct dplane_pw_info pw;
 		struct dplane_br_port_info br_port;
 		struct dplane_intf_info intf;
+<<<<<<< HEAD
+=======
+		struct dplane_vlan_info vlan_info;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		struct dplane_mac_info macinfo;
 		struct dplane_neigh_info neigh;
 		struct dplane_rule_info rule;
@@ -885,6 +905,14 @@ static void dplane_ctx_free_internal(struct zebra_dplane_ctx *ctx)
 	case DPLANE_OP_STARTUP_STAGE:
 	case DPLANE_OP_SRV6_ENCAP_SRCADDR_SET:
 		break;
+<<<<<<< HEAD
+=======
+	case DPLANE_OP_VLAN_INSTALL:
+		if (ctx->u.vlan_info.vlan_array)
+			XFREE(MTYPE_VLAN_CHANGE_ARR,
+			      ctx->u.vlan_info.vlan_array);
+		break;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	}
 }
 
@@ -1030,6 +1058,7 @@ enum dplane_op_e dplane_ctx_get_op(const struct zebra_dplane_ctx *ctx)
 
 const char *dplane_op2str(enum dplane_op_e op)
 {
+<<<<<<< HEAD
 	const char *ret = "UNKNOWN";
 
 	switch (op) {
@@ -1168,6 +1197,104 @@ const char *dplane_op2str(enum dplane_op_e op)
 	case DPLANE_OP_GRE_SET:
 		ret = "GRE_SET";
 		break;
+=======
+	switch (op) {
+	case DPLANE_OP_NONE:
+		return "NONE";
+
+	/* Route update */
+	case DPLANE_OP_ROUTE_INSTALL:
+		return "ROUTE_INSTALL";
+	case DPLANE_OP_ROUTE_UPDATE:
+		return "ROUTE_UPDATE";
+	case DPLANE_OP_ROUTE_DELETE:
+		return "ROUTE_DELETE";
+	case DPLANE_OP_ROUTE_NOTIFY:
+		return "ROUTE_NOTIFY";
+
+	/* Nexthop update */
+	case DPLANE_OP_NH_INSTALL:
+		return "NH_INSTALL";
+	case DPLANE_OP_NH_UPDATE:
+		return "NH_UPDATE";
+	case DPLANE_OP_NH_DELETE:
+		return "NH_DELETE";
+
+	case DPLANE_OP_LSP_INSTALL:
+		return "LSP_INSTALL";
+	case DPLANE_OP_LSP_UPDATE:
+		return "LSP_UPDATE";
+	case DPLANE_OP_LSP_DELETE:
+		return "LSP_DELETE";
+	case DPLANE_OP_LSP_NOTIFY:
+		return "LSP_NOTIFY";
+
+	case DPLANE_OP_PW_INSTALL:
+		return "PW_INSTALL";
+	case DPLANE_OP_PW_UNINSTALL:
+		return "PW_UNINSTALL";
+
+	case DPLANE_OP_SYS_ROUTE_ADD:
+		return "SYS_ROUTE_ADD";
+	case DPLANE_OP_SYS_ROUTE_DELETE:
+		return "SYS_ROUTE_DEL";
+
+	case DPLANE_OP_BR_PORT_UPDATE:
+		return "BR_PORT_UPDATE";
+
+	case DPLANE_OP_ADDR_INSTALL:
+		return "ADDR_INSTALL";
+	case DPLANE_OP_ADDR_UNINSTALL:
+		return "ADDR_UNINSTALL";
+
+	case DPLANE_OP_MAC_INSTALL:
+		return "MAC_INSTALL";
+	case DPLANE_OP_MAC_DELETE:
+		return "MAC_DELETE";
+
+	case DPLANE_OP_NEIGH_INSTALL:
+		return "NEIGH_INSTALL";
+	case DPLANE_OP_NEIGH_UPDATE:
+		return "NEIGH_UPDATE";
+	case DPLANE_OP_NEIGH_DELETE:
+		return "NEIGH_DELETE";
+	case DPLANE_OP_VTEP_ADD:
+		return "VTEP_ADD";
+	case DPLANE_OP_VTEP_DELETE:
+		return "VTEP_DELETE";
+
+	case DPLANE_OP_RULE_ADD:
+		return "RULE_ADD";
+	case DPLANE_OP_RULE_DELETE:
+		return "RULE_DELETE";
+	case DPLANE_OP_RULE_UPDATE:
+		return "RULE_UPDATE";
+
+	case DPLANE_OP_NEIGH_DISCOVER:
+		return "NEIGH_DISCOVER";
+
+	case DPLANE_OP_IPTABLE_ADD:
+		return "IPTABLE_ADD";
+	case DPLANE_OP_IPTABLE_DELETE:
+		return "IPTABLE_DELETE";
+	case DPLANE_OP_IPSET_ADD:
+		return "IPSET_ADD";
+	case DPLANE_OP_IPSET_DELETE:
+		return "IPSET_DELETE";
+	case DPLANE_OP_IPSET_ENTRY_ADD:
+		return "IPSET_ENTRY_ADD";
+	case DPLANE_OP_IPSET_ENTRY_DELETE:
+		return "IPSET_ENTRY_DELETE";
+	case DPLANE_OP_NEIGH_IP_INSTALL:
+		return "NEIGH_IP_INSTALL";
+	case DPLANE_OP_NEIGH_IP_DELETE:
+		return "NEIGH_IP_DELETE";
+	case DPLANE_OP_NEIGH_TABLE_UPDATE:
+		return "NEIGH_TABLE_UPDATE";
+
+	case DPLANE_OP_GRE_SET:
+		return "GRE_SET";
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	case DPLANE_OP_INTF_ADDR_ADD:
 		return "INTF_ADDR_ADD";
@@ -1179,6 +1306,7 @@ const char *dplane_op2str(enum dplane_op_e op)
 		return "INTF_NETCONFIG";
 
 	case DPLANE_OP_INTF_INSTALL:
+<<<<<<< HEAD
 		ret = "INTF_INSTALL";
 		break;
 	case DPLANE_OP_INTF_UPDATE:
@@ -1222,10 +1350,46 @@ const char *dplane_op2str(enum dplane_op_e op)
 	}
 
 	return ret;
+=======
+		return "INTF_INSTALL";
+	case DPLANE_OP_INTF_UPDATE:
+		return "INTF_UPDATE";
+	case DPLANE_OP_INTF_DELETE:
+		return "INTF_DELETE";
+
+	case DPLANE_OP_TC_QDISC_INSTALL:
+		return "TC_QDISC_INSTALL";
+	case DPLANE_OP_TC_QDISC_UNINSTALL:
+		return "TC_QDISC_UNINSTALL";
+	case DPLANE_OP_TC_CLASS_ADD:
+		return "TC_CLASS_ADD";
+	case DPLANE_OP_TC_CLASS_DELETE:
+		return "TC_CLASS_DELETE";
+	case DPLANE_OP_TC_CLASS_UPDATE:
+		return "TC_CLASS_UPDATE";
+	case DPLANE_OP_TC_FILTER_ADD:
+		return "TC_FILTER_ADD";
+	case DPLANE_OP_TC_FILTER_DELETE:
+		return "TC_FILTER_DELETE";
+	case DPLANE_OP_TC_FILTER_UPDATE:
+		return "TC__FILTER_UPDATE";
+	case DPLANE_OP_STARTUP_STAGE:
+		return "STARTUP_STAGE";
+
+	case DPLANE_OP_SRV6_ENCAP_SRCADDR_SET:
+		return "SRV6_ENCAP_SRCADDR_SET";
+
+	case DPLANE_OP_VLAN_INSTALL:
+		return "NEW_VLAN";
+	}
+
+	return "UNKNOWN";
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 }
 
 const char *dplane_res2str(enum zebra_dplane_result res)
 {
+<<<<<<< HEAD
 	const char *ret = "<Unknown>";
 
 	switch (res) {
@@ -1241,6 +1405,18 @@ const char *dplane_res2str(enum zebra_dplane_result res)
 	}
 
 	return ret;
+=======
+	switch (res) {
+	case ZEBRA_DPLANE_REQUEST_FAILURE:
+		return "FAILURE";
+	case ZEBRA_DPLANE_REQUEST_QUEUED:
+		return "QUEUED";
+	case ZEBRA_DPLANE_REQUEST_SUCCESS:
+		return "SUCCESS";
+	}
+
+	return "<Unknown>";
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 }
 
 void dplane_ctx_set_dest(struct zebra_dplane_ctx *ctx,
@@ -3321,6 +3497,38 @@ uint32_t dplane_get_in_queue_len(void)
 				    memory_order_seq_cst);
 }
 
+<<<<<<< HEAD
+=======
+void dplane_ctx_set_vlan_ifindex(struct zebra_dplane_ctx *ctx, ifindex_t ifindex)
+{
+	DPLANE_CTX_VALID(ctx);
+	ctx->u.vlan_info.ifindex = ifindex;
+}
+
+ifindex_t dplane_ctx_get_vlan_ifindex(struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	return ctx->u.vlan_info.ifindex;
+}
+
+void dplane_ctx_set_vxlan_vlan_array(struct zebra_dplane_ctx *ctx,
+				     struct zebra_vxlan_vlan_array *vlan_array)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	ctx->u.vlan_info.vlan_array = vlan_array;
+}
+
+const struct zebra_vxlan_vlan_array *
+dplane_ctx_get_vxlan_vlan_array(struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	return ctx->u.vlan_info.vlan_array;
+}
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 /*
  * Internal helper that copies information from a zebra ns object; this is
  * called in the zebra main pthread context as part of dplane ctx init.
@@ -6720,6 +6928,15 @@ static void kernel_dplane_log_detail(struct zebra_dplane_ctx *ctx)
 			   dplane_op2str(dplane_ctx_get_op(ctx)),
 			   &ctx->u.srv6_encap.srcaddr);
 		break;
+<<<<<<< HEAD
+=======
+
+	case DPLANE_OP_VLAN_INSTALL:
+		zlog_debug("Dplane %s on idx %u",
+			   dplane_op2str(dplane_ctx_get_op(ctx)),
+			   dplane_ctx_get_vlan_ifindex(ctx));
+		break;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	}
 }
 
@@ -6888,6 +7105,10 @@ static void kernel_dplane_handle_result(struct zebra_dplane_ctx *ctx)
 	case DPLANE_OP_INTF_ADDR_ADD:
 	case DPLANE_OP_INTF_ADDR_DEL:
 	case DPLANE_OP_INTF_NETCONFIG:
+<<<<<<< HEAD
+=======
+	case DPLANE_OP_VLAN_INSTALL:
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		break;
 
 	case DPLANE_OP_SRV6_ENCAP_SRCADDR_SET:

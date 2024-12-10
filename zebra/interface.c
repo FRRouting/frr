@@ -43,10 +43,31 @@ DEFINE_MTYPE_STATIC(ZEBRA, ZINFO, "Zebra Interface Information");
 DEFINE_HOOK(zebra_if_extra_info, (struct vty * vty, struct interface *ifp),
 	    (vty, ifp));
 
+<<<<<<< HEAD
 DEFINE_MTYPE(ZEBRA, ZIF_DESC, "Intf desc");
 
 static void if_down_del_nbr_connected(struct interface *ifp);
 
+=======
+DEFINE_MTYPE_STATIC(ZEBRA, ZIF_DESC, "Intf desc");
+
+static void if_down_del_nbr_connected(struct interface *ifp);
+
+static const char *if_zebra_data_state(uint8_t state)
+{
+	switch (state) {
+	case IF_ZEBRA_DATA_UNSPEC:
+		return "Not specified by CLI";
+	case IF_ZEBRA_DATA_ON:
+		return "Enabled by CLI";
+	case IF_ZEBRA_DATA_OFF:
+		return "Disabled by CLI";
+	}
+
+	return "STATE IS WRONG DEV ESCAPE";
+}
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 static void if_zebra_speed_update(struct event *thread)
 {
 	struct interface *ifp = EVENT_ARG(thread);
@@ -215,6 +236,11 @@ static int if_zebra_delete_hook(struct interface *ifp)
 		if_nhg_dependents_release(ifp);
 		nhg_connected_tree_free(&zebra_if->nhg_dependents);
 
+<<<<<<< HEAD
+=======
+		zebra_ns_unlink_ifp(ifp);
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		XFREE(MTYPE_ZIF_DESC, zebra_if->desc);
 
 		EVENT_OFF(zebra_if->speed_update);
@@ -225,6 +251,7 @@ static int if_zebra_delete_hook(struct interface *ifp)
 	return 0;
 }
 
+<<<<<<< HEAD
 /* Build the table key */
 static void if_build_key(uint32_t ifindex, struct prefix *p)
 {
@@ -267,10 +294,13 @@ void if_unlink_per_ns(struct interface *ifp)
 	ifp->node = NULL;
 }
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 /* Look up an interface by identifier within a NS */
 struct interface *if_lookup_by_index_per_ns(struct zebra_ns *ns,
 					    uint32_t ifindex)
 {
+<<<<<<< HEAD
 	struct prefix p;
 	struct route_node *rn;
 	struct interface *ifp = NULL;
@@ -281,6 +311,12 @@ struct interface *if_lookup_by_index_per_ns(struct zebra_ns *ns,
 		ifp = (struct interface *)rn->info;
 		route_unlock_node(rn); /* lookup */
 	}
+=======
+	struct interface *ifp = NULL;
+
+	ifp = zebra_ns_lookup_ifp(ns, ifindex);
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	return ifp;
 }
 
@@ -288,6 +324,7 @@ struct interface *if_lookup_by_index_per_ns(struct zebra_ns *ns,
 struct interface *if_lookup_by_name_per_ns(struct zebra_ns *ns,
 					   const char *ifname)
 {
+<<<<<<< HEAD
 	struct route_node *rn;
 	struct interface *ifp;
 
@@ -300,6 +337,13 @@ struct interface *if_lookup_by_name_per_ns(struct zebra_ns *ns,
 	}
 
 	return NULL;
+=======
+	struct interface *ifp;
+
+	ifp = zebra_ns_lookup_ifp_name(ns, ifname);
+
+	return ifp;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 }
 
 struct interface *if_lookup_by_index_per_nsid(ns_id_t ns_id, uint32_t ifindex)
@@ -419,6 +463,10 @@ int if_subnet_delete(struct interface *ifp, struct connected *ifc)
 	return 0;
 }
 
+<<<<<<< HEAD
+=======
+#ifndef HAVE_NETLINK
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 /* if_flags_mangle: A place for hacks that require mangling
  * or tweaking the interface flags.
  *
@@ -470,6 +518,10 @@ void if_flags_update(struct interface *ifp, uint64_t newflags)
 			if_up(ifp, true);
 	}
 }
+<<<<<<< HEAD
+=======
+#endif
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 /* Wake up configured address if it is not in current kernel
    address. */
@@ -571,7 +623,12 @@ void if_add_update(struct interface *ifp)
 		zns = zvrf->zns;
 	else
 		zns = zebra_ns_lookup(NS_DEFAULT);
+<<<<<<< HEAD
 	if_link_per_ns(zns, ifp);
+=======
+
+	zebra_ns_link_ifp(zns, ifp);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	if_data = ifp->info;
 	assert(if_data);
 
@@ -776,7 +833,11 @@ void if_delete_update(struct interface **pifp)
 	/* Send out notification on interface delete. */
 	zebra_interface_delete_update(ifp);
 
+<<<<<<< HEAD
 	if_unlink_per_ns(ifp);
+=======
+	zebra_ns_unlink_ifp(ifp);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	/* Update ifindex after distributing the delete message.  This is in
 	   case any client needs to have the old value of ifindex available
@@ -784,7 +845,10 @@ void if_delete_update(struct interface **pifp)
 	   for setting ifindex to IFINDEX_INTERNAL after processing the
 	   interface deletion message. */
 	if_set_index(ifp, IFINDEX_INTERNAL);
+<<<<<<< HEAD
 	ifp->node = NULL;
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	UNSET_FLAG(ifp->status, ZEBRA_INTERFACE_VRF_LOOPBACK);
 
@@ -1082,11 +1146,52 @@ void zebra_if_update_link(struct interface *ifp, ifindex_t link_ifindex,
 }
 
 /*
+<<<<<<< HEAD
+=======
+ * Callback for per-ns link fixup iteration
+ */
+static int zif_link_fixup_cb(struct interface *ifp, void *arg)
+{
+	struct zebra_if *zif;
+
+	zif = ifp->info;
+	/* update bond-member to bond linkages */
+	if ((IS_ZEBRA_IF_BOND_SLAVE(ifp)) &&
+	    (zif->bondslave_info.bond_ifindex != IFINDEX_INTERNAL) &&
+	    !zif->bondslave_info.bond_if) {
+		if (IS_ZEBRA_DEBUG_EVPN_MH_ES || IS_ZEBRA_DEBUG_KERNEL)
+			zlog_debug("bond mbr %s map to bond %d", zif->ifp->name,
+				   zif->bondslave_info.bond_ifindex);
+		zebra_l2_map_slave_to_bond(zif, ifp->vrf->vrf_id);
+	}
+
+	/* update SVI linkages */
+	if ((zif->link_ifindex != IFINDEX_INTERNAL) && !zif->link) {
+		zif->link = if_lookup_by_index_per_nsid(zif->link_nsid,
+							zif->link_ifindex);
+		if (IS_ZEBRA_DEBUG_KERNEL)
+			zlog_debug("interface %s/%d's lower fixup to %s/%d",
+				   ifp->name, ifp->ifindex,
+				   zif->link ? zif->link->name : "unk",
+				   zif->link_ifindex);
+	}
+
+	/* Update VLAN<=>SVI map */
+	if (IS_ZEBRA_IF_VLAN(ifp))
+		zebra_evpn_acc_bd_svi_set(zif, NULL,
+					  !!if_is_operative(ifp));
+
+	return NS_WALK_CONTINUE;
+}
+
+/*
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
  * during initial link dump kernel does not order lower devices before
  * upper devices so we need to fixup link dependencies at the end of dump
  */
 void zebra_if_update_all_links(struct zebra_ns *zns)
 {
+<<<<<<< HEAD
 	struct route_node *rn;
 	struct interface *ifp;
 	struct zebra_if *zif;
@@ -1126,6 +1231,12 @@ void zebra_if_update_all_links(struct zebra_ns *zns)
 			zebra_evpn_acc_bd_svi_set(zif, NULL,
 						  !!if_is_operative(ifp));
 	}
+=======
+	if (IS_ZEBRA_DEBUG_KERNEL)
+		zlog_debug("fixup link dependencies");
+
+	zebra_ns_ifp_walk(zns, zif_link_fixup_cb, NULL);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 }
 
 static bool if_ignore_set_protodown(const struct interface *ifp, bool new_down,
@@ -1999,10 +2110,16 @@ static void zebra_if_dplane_ifp_handling(struct zebra_dplane_ctx *ctx)
 		    !CHECK_FLAG(ifp->status, ZEBRA_INTERFACE_ACTIVE)) {
 			/* Add interface notification from kernel */
 			if (IS_ZEBRA_DEBUG_KERNEL)
+<<<<<<< HEAD
 				zlog_debug(
 					"RTM_NEWLINK ADD for %s(%u) vrf_id %u type %d sl_type %d master %u",
 					name, ifindex, vrf_id, zif_type,
 					zif_slave_type, master_ifindex);
+=======
+				zlog_debug("RTM_NEWLINK ADD for %s(%u) vrf_id %u type %d sl_type %d master %u flags 0x%llx",
+					   name, ifindex, vrf_id, zif_type, zif_slave_type,
+					   master_ifindex, (unsigned long long)flags);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 			if (ifp == NULL) {
 				/* unknown interface */
@@ -2087,10 +2204,16 @@ static void zebra_if_dplane_ifp_handling(struct zebra_dplane_ctx *ctx)
 
 			/* Interface update. */
 			if (IS_ZEBRA_DEBUG_KERNEL)
+<<<<<<< HEAD
 				zlog_debug(
 					"RTM_NEWLINK update for %s(%u) sl_type %d master %u",
 					name, ifp->ifindex, zif_slave_type,
 					master_ifindex);
+=======
+				zlog_debug("RTM_NEWLINK update for %s(%u) sl_type %d master %u flags 0x%llx",
+					   name, ifp->ifindex, zif_slave_type, master_ifindex,
+					   (unsigned long long)flags);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 			set_ifindex(ifp, ifindex, zns);
 			ifp->mtu6 = ifp->mtu = mtu;
@@ -2680,8 +2803,13 @@ static void if_dump_vty(struct vty *vty, struct interface *ifp)
 		vty_out(vty, "mtu6 %d ", ifp->mtu6);
 	vty_out(vty, "\n  flags: %s\n", if_flag_dump(ifp->flags));
 
+<<<<<<< HEAD
 	if (zebra_if->mpls)
 		vty_out(vty, "  MPLS enabled\n");
+=======
+	vty_out(vty, "  MPLS %s %s\n", zebra_if->mpls ? "enabled" : "",
+		if_zebra_data_state(zebra_if->multicast));
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	if (zebra_if->linkdown)
 		vty_out(vty, "  Ignore all v4 routes with linkdown\n");
@@ -2693,6 +2821,13 @@ static void if_dump_vty(struct vty *vty, struct interface *ifp)
 	if (zebra_if->v6mcast_on)
 		vty_out(vty, "  v6 Multicast forwarding is on\n");
 
+<<<<<<< HEAD
+=======
+	vty_out(vty, "  Multicast config is %s\n", if_zebra_data_state(zebra_if->multicast));
+
+	vty_out(vty, "  Shutdown config is %s\n", if_zebra_data_state(zebra_if->shutdown));
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	/* Hardware address. */
 	vty_out(vty, "  Type: %s\n", if_link_type_str(ifp->ll_type));
 	if (ifp->hw_addr_len != 0) {
@@ -3041,10 +3176,21 @@ static void if_dump_vty_json(struct vty *vty, struct interface *ifp,
 	json_object_boolean_add(json_if, "mplsEnabled", zebra_if->mpls);
 	json_object_boolean_add(json_if, "linkDown", zebra_if->linkdown);
 	json_object_boolean_add(json_if, "linkDownV6", zebra_if->linkdownv6);
+<<<<<<< HEAD
 	json_object_boolean_add(json_if, "mcForwardingV4",
 				zebra_if->v4mcast_on);
 	json_object_boolean_add(json_if, "mcForwardingV6",
 				zebra_if->v6mcast_on);
+=======
+	json_object_boolean_add(json_if, "mcForwardingV4", zebra_if->v4mcast_on);
+	json_object_boolean_add(json_if, "mcForwardingV6", zebra_if->v6mcast_on);
+
+	json_object_string_add(json_if, "multicastConfig", if_zebra_data_state(zebra_if->multicast));
+
+	json_object_string_add(json_if, "shutdownConfig", if_zebra_data_state(zebra_if->shutdown));
+
+	json_object_string_add(json_if, "mplsConfig", if_zebra_data_state(zebra_if->mpls_config));
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	if (ifp->ifindex == IFINDEX_INTERNAL) {
 		json_object_boolean_add(json_if, "pseudoInterface", true);

@@ -39,7 +39,11 @@ tools_gen_northbound_callbacks_LDADD = lib/libfrr.la $(LIBYANG_LIBS)
 tools_gen_yang_deviations_SOURCES = tools/gen_yang_deviations.c
 tools_gen_yang_deviations_LDADD = lib/libfrr.la $(LIBYANG_LIBS)
 
+<<<<<<< HEAD
 tools_ssd_SOURCES = tools/start-stop-daemon.c
+=======
+tools_ssd_SOURCES = tools/start-stop-daemon.c lib/strlcpy.c
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 tools_ssd_CPPFLAGS =
 
 # don't bother autoconf'ing these for a simple optional tool

@@ -933,6 +933,13 @@ static void show_ip_opennhrp_cache(struct nhrp_cache *c, void *pctx)
 	if (ctx->afi != family2afi(sockunion_family(&c->remote_addr)))
 		return;
 
+<<<<<<< HEAD
+=======
+	if (ctx->count && !ctx->json)
+		vty_out(ctx->vty, "\n");
+	ctx->count++;
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	sockunion2str(&c->remote_addr, buf[0], sizeof(buf[0]));
 	if (c->cur.peer)
 		sockunion2str(&c->cur.peer->vc->remote.nbma, buf[1],
@@ -985,8 +992,11 @@ static void show_ip_opennhrp_cache(struct nhrp_cache *c, void *pctx)
 
 	if (sockunion_family(&c->cur.remote_nbma_natoa) != AF_UNSPEC)
 		vty_out(ctx->vty, "NBMA-NAT-OA-Address: %s\n", buf[2]);
+<<<<<<< HEAD
 
 	vty_out(ctx->vty, "\n\n");
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 }
 
 DEFUN(show_ip_nhrp, show_ip_nhrp_cmd,
@@ -1030,7 +1040,10 @@ DEFUN(show_ip_nhrp, show_ip_nhrp_cmd,
 		else
 			json_object_string_add(json_vrf, "status", "ok");
 
+<<<<<<< HEAD
 		ctx.count++;
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		FOR_ALL_INTERFACES (vrf, ifp)
 			nhrp_cache_foreach(ifp, show_ip_opennhrp_cache, &ctx);
 	}

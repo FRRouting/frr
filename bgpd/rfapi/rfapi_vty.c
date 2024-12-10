@@ -1257,6 +1257,11 @@ static int rfapiShowRemoteRegistrationsIt(struct bgp *bgp, void *stream,
 					const char *agetype = "";
 					char *s;
 					const char *type = "";
+<<<<<<< HEAD
+=======
+
+					(void)type; /* clang-SA */
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 					if (show_imported) {
 						type = "Imported";
 					} else {

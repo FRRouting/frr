@@ -5421,9 +5421,14 @@ void bgp_evpn_advertise_type5_routes(struct bgp *bgp_vrf, afi_t afi,
 					tmp_attr = *pi->attr;
 
 					/* Fill temp path_info */
+<<<<<<< HEAD
 					prep_for_rmap_apply(&tmp_pi, &tmp_pie,
 							    dest, pi, pi->peer,
 							    &tmp_attr);
+=======
+					prep_for_rmap_apply(&tmp_pi, &tmp_pie, dest, pi, pi->peer,
+							    NULL, &tmp_attr);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 					RESET_FLAG(tmp_attr.rmap_change_flags);
 

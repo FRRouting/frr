@@ -2685,7 +2685,12 @@ tree type_normalize (tree type, tree *cousin, tree target = NULL)
 {
   while (1)
     {
+<<<<<<< HEAD
       if (TREE_CODE (type) == FUNCTION_TYPE || TREE_CODE (type) == POINTER_TYPE)
+=======
+      if (TREE_CODE (type) == FUNCTION_TYPE || TREE_CODE (type) == POINTER_TYPE
+	  || TREE_CODE (type) == ARRAY_TYPE)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	return type;
       if (target)
 	/* Strip off any "const" etc.  */

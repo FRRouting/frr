@@ -213,7 +213,11 @@ DEFPY (install_routes,
        "The vrf we would like to install into if non-default\n"
        "The NAME of the vrf\n"
        "v4 Address to start /32 generation at\n"
+<<<<<<< HEAD
        "v6 Address to start /32 generation at\n"
+=======
+       "v6 Address to start /128 generation at\n"
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
        "Nexthop to use(Can be an IPv4 or IPv6 address)\n"
        "V4 Nexthop address to use\n"
        "V6 Nexthop address to use\n"
@@ -372,7 +376,11 @@ DEFPY (install_seg6_routes,
        "The vrf we would like to install into if non-default\n"
        "The NAME of the vrf\n"
        "v4 Address to start /32 generation at\n"
+<<<<<<< HEAD
        "v6 Address to start /32 generation at\n"
+=======
+       "v6 Address to start /128 generation at\n"
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
        "Nexthop-seg6 to use\n"
        "V6 Nexthop address to use\n"
        "Encap mode\n"
@@ -458,7 +466,11 @@ DEFPY (install_seg6local_routes,
        "Routes to install\n"
        "The vrf we would like to install into if non-default\n"
        "The NAME of the vrf\n"
+<<<<<<< HEAD
        "v6 Address to start /32 generation at\n"
+=======
+       "v6 Address to start /128 generation at\n"
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
        "Nexthop-seg6local to use\n"
        "Output device to use\n"
        "SRv6 End function to use\n"
@@ -503,7 +515,11 @@ DEFPY (install_seg6local_routes,
 	sg.r.opaque[0] = '\0';
 	sg.r.inst = 0;
 	sg.r.orig_prefix.family = AF_INET6;
+<<<<<<< HEAD
 	sg.r.orig_prefix.prefixlen = 128;
+=======
+	sg.r.orig_prefix.prefixlen = IPV6_MAX_BITLEN;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	sg.r.orig_prefix.u.prefix6 = start6;
 
 	if (!vrf_name)
@@ -945,7 +961,11 @@ DEFPY (neigh_discover,
 		prefix.u.prefix4 = dst4;
 	} else {
 		prefix.family = AF_INET6;
+<<<<<<< HEAD
 		prefix.prefixlen = 128;
+=======
+		prefix.prefixlen = IPV6_MAX_BITLEN;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		prefix.u.prefix6 = dst6;
 	}
 

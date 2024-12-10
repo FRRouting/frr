@@ -2051,7 +2051,11 @@ void ospf_opaque_lsa_refresh_schedule(struct ospf_lsa *lsa0)
 	struct opaque_info_per_type *oipt;
 	struct opaque_info_per_id *oipi;
 	struct ospf_lsa *lsa;
+<<<<<<< HEAD
 	struct ospf *top;
+=======
+	struct ospf *ospf;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	int delay;
 
 	if ((oipt = lookup_opaque_info_by_type(lsa0)) == NULL
@@ -2076,6 +2080,14 @@ void ospf_opaque_lsa_refresh_schedule(struct ospf_lsa *lsa0)
 		goto out;
 	}
 
+<<<<<<< HEAD
+=======
+	if ((lsa0->area != NULL) && (lsa0->area->ospf != NULL))
+		ospf = lsa0->area->ospf;
+	else
+		ospf = ospf_lookup_by_vrf_id(VRF_DEFAULT);
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	/* Delete this lsa from neighbor retransmit-list. */
 	switch (lsa->data->type) {
 	case OSPF_OPAQUE_LINK_LSA:
@@ -2083,10 +2095,14 @@ void ospf_opaque_lsa_refresh_schedule(struct ospf_lsa *lsa0)
 		ospf_ls_retransmit_delete_nbr_area(lsa->area, lsa);
 		break;
 	case OSPF_OPAQUE_AS_LSA:
+<<<<<<< HEAD
 		top = ospf_lookup_by_vrf_id(VRF_DEFAULT);
 		if ((lsa0->area != NULL) && (lsa0->area->ospf != NULL))
 			top = lsa0->area->ospf;
 		ospf_ls_retransmit_delete_nbr_as(top, lsa);
+=======
+		ospf_ls_retransmit_delete_nbr_as(ospf, lsa);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		break;
 	default:
 		flog_warn(EC_OSPF_LSA_UNEXPECTED, "%s: Unexpected LSA-type(%u)",
@@ -2094,6 +2110,7 @@ void ospf_opaque_lsa_refresh_schedule(struct ospf_lsa *lsa0)
 		goto out;
 	}
 
+<<<<<<< HEAD
 	delay = ospf_lsa_refresh_delay(lsa);
 
 	if (IS_DEBUG_OSPF_EVENT)
@@ -2105,6 +2122,16 @@ void ospf_opaque_lsa_refresh_schedule(struct ospf_lsa *lsa0)
 
 	OSPF_OPAQUE_TIMER_ON(oipi->t_opaque_lsa_self,
 			     ospf_opaque_lsa_refresh_timer, oipi, delay * 1000);
+=======
+	delay = ospf_lsa_refresh_delay(ospf, lsa);
+
+	if (IS_DEBUG_OSPF_EVENT)
+		zlog_debug("Schedule Type-%u Opaque-LSA to REFRESH in %d msec later: [opaque-type=%u, opaque-id=%x]",
+			   lsa->data->type, delay, GET_OPAQUE_TYPE(ntohl(lsa->data->id.s_addr)),
+			   GET_OPAQUE_ID(ntohl(lsa->data->id.s_addr)));
+
+	OSPF_OPAQUE_TIMER_ON(oipi->t_opaque_lsa_self, ospf_opaque_lsa_refresh_timer, oipi, delay);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 out:
 	return;
 }

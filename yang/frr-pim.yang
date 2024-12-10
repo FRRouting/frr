@@ -78,6 +78,13 @@ module frr-pim {
     type string;
   }
 
+<<<<<<< HEAD
+=======
+  typedef access-list-ref {
+    type string;
+  }
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
   /*
    * Groupings
    */
@@ -250,6 +257,30 @@ module frr-pim {
     container msdp {
       description "Global MSDP configuration.";
       uses msdp-timers;
+<<<<<<< HEAD
+=======
+
+      leaf log-neighbor-events {
+        type boolean;
+        default false;
+        description
+          "Log all MSDP neighbor related events.";
+      }
+
+      leaf log-sa-events {
+        type boolean;
+        default false;
+        description
+          "Log all MSDP SA related events.";
+      }
+
+      leaf shutdown {
+        type boolean;
+        default false;
+        description
+          "Shutdown MSDP functionality.";
+      }
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     }
 
     list msdp-mesh-groups {
@@ -486,7 +517,17 @@ module frr-pim {
     leaf multicast-boundary-oil {
       type plist-ref;
       description
+<<<<<<< HEAD
         "Prefix-List to define multicast boundary";
+=======
+        "Prefix-List to define multicast boundary by group";
+    }
+
+    leaf multicast-boundary-acl {
+      type access-list-ref;
+      description
+        "Access-list to define multicast boundary by source and group";
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     }
 
     list mroute {

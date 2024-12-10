@@ -68,6 +68,11 @@
 
 static const char *prov_name = "dplane_fpm_nl";
 
+<<<<<<< HEAD
+=======
+static atomic_bool fpm_cleaning_up;
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 struct fpm_nl_ctx {
 	/* data plane connection. */
 	int socket;
@@ -524,6 +529,19 @@ static void fpm_connect(struct event *t);
 
 static void fpm_reconnect(struct fpm_nl_ctx *fnc)
 {
+<<<<<<< HEAD
+=======
+	bool cleaning_p = false;
+
+	/* This is being called in the FPM pthread: ensure we don't deadlock
+	 * with similar code that may be run in the main pthread.
+	 */
+	if (!atomic_compare_exchange_strong_explicit(
+		    &fpm_cleaning_up, &cleaning_p, true, memory_order_seq_cst,
+		    memory_order_seq_cst))
+		return;
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	/* Cancel all zebra threads first. */
 	event_cancel_async(zrouter.master, &fnc->t_lspreset, NULL);
 	event_cancel_async(zrouter.master, &fnc->t_lspwalk, NULL);
@@ -551,6 +569,15 @@ static void fpm_reconnect(struct fpm_nl_ctx *fnc)
 	EVENT_OFF(fnc->t_read);
 	EVENT_OFF(fnc->t_write);
 
+<<<<<<< HEAD
+=======
+	/* Reset the barrier value */
+	cleaning_p = true;
+	atomic_compare_exchange_strong_explicit(
+		&fpm_cleaning_up, &cleaning_p, false, memory_order_seq_cst,
+		memory_order_seq_cst);
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	/* FPM is disabled, don't attempt to connect. */
 	if (fnc->disabled)
 		return;
@@ -1058,6 +1085,10 @@ static int fpm_nl_enqueue(struct fpm_nl_ctx *fnc, struct zebra_dplane_ctx *ctx)
 	case DPLANE_OP_SRV6_ENCAP_SRCADDR_SET:
 	case DPLANE_OP_NONE:
 	case DPLANE_OP_STARTUP_STAGE:
+<<<<<<< HEAD
+=======
+	case DPLANE_OP_VLAN_INSTALL:
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		break;
 
 	}
@@ -1512,8 +1543,17 @@ static void fpm_process_queue(struct event *t)
 
 	/* Re-schedule if we ran out of buffer space */
 	if (no_bufs) {
+<<<<<<< HEAD
 		event_add_event(fnc->fthread->master, fpm_process_queue, fnc, 0,
 				&fnc->t_dequeue);
+=======
+		if (processed_contexts)
+			event_add_event(fnc->fthread->master, fpm_process_queue, fnc, 0,
+					&fnc->t_dequeue);
+		else
+			event_add_timer_msec(fnc->fthread->master, fpm_process_queue, fnc, 10,
+					     &fnc->t_dequeue);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		event_add_timer(fnc->fthread->master, fpm_process_wedged, fnc,
 				DPLANE_FPM_NL_WEDGIE_TIME, &fnc->t_wedged);
 	} else
@@ -1525,7 +1565,11 @@ static void fpm_process_queue(struct event *t)
 	 * until the dataplane thread gets scheduled for new,
 	 * unrelated work.
 	 */
+<<<<<<< HEAD
 	if (dplane_provider_out_ctx_queue_len(fnc->prov) > 0)
+=======
+	if (processed_contexts)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		dplane_provider_work_ready();
 }
 
@@ -1619,6 +1663,19 @@ static int fpm_nl_start(struct zebra_dplane_provider *prov)
 
 static int fpm_nl_finish_early(struct fpm_nl_ctx *fnc)
 {
+<<<<<<< HEAD
+=======
+	bool cleaning_p = false;
+
+	/* This is being called in the main pthread: ensure we don't deadlock
+	 * with similar code that may be run in the FPM pthread.
+	 */
+	if (!atomic_compare_exchange_strong_explicit(
+		    &fpm_cleaning_up, &cleaning_p, true, memory_order_seq_cst,
+		    memory_order_seq_cst))
+		return 0;
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	/* Disable all events and close socket. */
 	EVENT_OFF(fnc->t_lspreset);
 	EVENT_OFF(fnc->t_lspwalk);
@@ -1639,6 +1696,15 @@ static int fpm_nl_finish_early(struct fpm_nl_ctx *fnc)
 		fnc->socket = -1;
 	}
 
+<<<<<<< HEAD
+=======
+	/* Reset the barrier value */
+	cleaning_p = true;
+	atomic_compare_exchange_strong_explicit(
+		&fpm_cleaning_up, &cleaning_p, false, memory_order_seq_cst,
+		memory_order_seq_cst);
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	return 0;
 }
 

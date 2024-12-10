@@ -27,7 +27,11 @@ pytestmark = [pytest.mark.bgpd]
 
 
 def build_topo(tgen):
+<<<<<<< HEAD
     for routern in range(1, 7):
+=======
+    for routern in range(1, 5):
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         tgen.add_router("r{}".format(routern))
 
     switch = tgen.add_switch("s1")

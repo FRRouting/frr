@@ -84,6 +84,10 @@ enum node_type {
 	CONFIG_NODE,		 /* Config node. Default mode of config file. */
 	PREFIX_NODE, /* ip prefix-list node. */
 	PREFIX_IPV6_NODE, /* ipv6 prefix-list node. */
+<<<<<<< HEAD
+=======
+	RMAP_NODE, /* Route map node. */
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	LIB_DEBUG_NODE,		 /* frrlib debug node. */
 	DEBUG_NODE,		 /* Debug node. */
 	VRF_DEBUG_NODE,		 /* Vrf Debug node. */
@@ -136,7 +140,10 @@ enum node_type {
 	AS_LIST_NODE,		 /* AS list node. */
 	COMMUNITY_LIST_NODE,     /* Community list node. */
 	COMMUNITY_ALIAS_NODE, /* Community alias node. */
+<<<<<<< HEAD
 	RMAP_NODE,		 /* Route map node. */
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	PBRMAP_NODE,		 /* PBR map node. */
 	SMUX_NODE,		 /* SNMP configuration node. */
 	DUMP_NODE,		 /* Packet dump node. */

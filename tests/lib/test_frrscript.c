@@ -49,15 +49,26 @@ int main(int argc, char **argv)
 	long long *ansptr =
 		frrscript_get_result(fs, "fact", "ans", lua_tolonglongp);
 	assert(*ansptr == 120);
+<<<<<<< HEAD
+=======
+	XFREE(MTYPE_SCRIPT_RES, ansptr);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	/* check consecutive call + get_result without re-loading */
 	n = 4;
 	result = frrscript_call(fs, "fact", ("n", &n));
 	assert(result == 0);
+<<<<<<< HEAD
 	ansptr = frrscript_get_result(fs, "fact", "ans", lua_tointegerp);
 	assert(*ansptr == 24);
 
 	XFREE(MTYPE_SCRIPT_RES, ansptr);
+=======
+	int *ansptr_c = frrscript_get_result(fs, "fact", "ans", lua_tointegerp);
+
+	assert(*ansptr_c == 24);
+	XFREE(MTYPE_SCRIPT_RES, ansptr_c);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	/* Negative testing */
 
@@ -70,9 +81,15 @@ int main(int argc, char **argv)
 	assert(result == 1);
 
 	/* Get result from a function that was not loaded */
+<<<<<<< HEAD
 	long long *llptr =
 		frrscript_get_result(fs, "does_not_exist", "c", lua_tointegerp);
 	assert(llptr == NULL);
+=======
+	int *intptr = frrscript_get_result(fs, "does_not_exist", "c", lua_tointegerp);
+
+	assert(intptr == NULL);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	/* Function returns void */
 	result = frrscript_call(fs, "bad_return1");
@@ -85,9 +102,15 @@ int main(int argc, char **argv)
 	/* Get non-existent result from a function */
 	result = frrscript_call(fs, "bad_return3");
 	assert(result == 1);
+<<<<<<< HEAD
 	long long *cllptr =
 		frrscript_get_result(fs, "bad_return3", "c", lua_tointegerp);
 	assert(cllptr == NULL);
+=======
+	intptr = frrscript_get_result(fs, "bad_return3", "c", lua_tointegerp);
+	assert(intptr == NULL);
+	XFREE(MTYPE_SCRIPT_RES, intptr);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	/* Function throws exception */
 	result = frrscript_call(fs, "bad_return4");

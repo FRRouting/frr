@@ -109,6 +109,10 @@ enum bgp_fsm_state_progress {
 extern void bgp_fsm_nht_update(struct peer_connection *connection,
 			       struct peer *peer, bool has_valid_nexthops);
 extern void bgp_event(struct event *event);
+<<<<<<< HEAD
+=======
+extern void bgp_event_stop_with_notify(struct event *event);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 extern int bgp_event_update(struct peer_connection *connection,
 			    enum bgp_fsm_events event);
 extern enum bgp_fsm_state_progress bgp_stop(struct peer_connection *connection);

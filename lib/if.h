@@ -295,8 +295,11 @@ struct interface {
 	struct if_data stats;
 #endif /* HAVE_NET_RT_IFLIST */
 
+<<<<<<< HEAD
 	struct route_node *node;
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	struct vrf *vrf;
 
 	/*

@@ -4403,6 +4403,10 @@ int bgp_rfapi_cfg_write(struct vty *vty, struct bgp *bgp)
 	{
 		const char *s = "";
 
+<<<<<<< HEAD
+=======
+		(void)s; /* clang-SA */
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		switch (hc->redist_mode) {
 		case VNC_REDIST_MODE_PLAIN:
 			s = "plain";

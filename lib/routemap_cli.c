@@ -756,6 +756,21 @@ void route_map_condition_show(struct vty *vty, const struct lyd_node *dnode,
 			acl = "local";
 
 		vty_out(vty, " match peer %s\n", acl);
+<<<<<<< HEAD
+=======
+	} else if (IS_MATCH_SRC_PEER(condition)) {
+		acl = NULL;
+		ln = yang_dnode_get(dnode,
+				    "./rmap-match-condition/frr-bgp-route-map:src-peer-ipv4-address");
+		if (!ln)
+			ln = yang_dnode_get(dnode,
+					    "./rmap-match-condition/frr-bgp-route-map:src-peer-ipv6-address");
+		if (!ln)
+			ln = yang_dnode_get(dnode,
+					    "./rmap-match-condition/frr-bgp-route-map:src-peer-interface");
+		acl = yang_dnode_get_string(ln, NULL);
+		vty_out(vty, " match src-peer %s\n", acl);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	} else if (IS_MATCH_AS_LIST(condition)) {
 		vty_out(vty, " match as-path %s\n",
 			yang_dnode_get_string(
@@ -922,13 +937,23 @@ DEFPY_YANG(
 
 DEFPY_YANG(
 	set_metric, set_metric_cmd,
+<<<<<<< HEAD
 	"set metric <(-4294967295-4294967295)$metric|rtt$rtt|+rtt$artt|-rtt$srtt>",
+=======
+	"set metric <(-4294967295-4294967295)$metric|rtt$rtt|+rtt$artt|-rtt$srtt|igp$igp|aigp$aigp>",
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	SET_STR
 	"Metric value for destination routing protocol\n"
 	"Metric value (use +/- for additions or subtractions)\n"
 	"Assign round trip time\n"
 	"Add round trip time\n"
+<<<<<<< HEAD
 	"Subtract round trip time\n")
+=======
+	"Subtract round trip time\n"
+	"Metric value from IGP protocol\n"
+	"Metric value from AIGP (Accumulated IGP)\n")
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 {
 	const char *xpath = "./set-action[action='frr-route-map:set-metric']";
 	char xpath_value[XPATH_MAXLEN];
@@ -939,6 +964,15 @@ DEFPY_YANG(
 		snprintf(xpath_value, sizeof(xpath_value),
 			 "%s/rmap-set-action/use-round-trip-time", xpath);
 		snprintf(value, sizeof(value), "true");
+<<<<<<< HEAD
+=======
+	} else if (igp) {
+		snprintf(xpath_value, sizeof(xpath_value), "%s/rmap-set-action/use-igp", xpath);
+		snprintf(value, sizeof(value), "true");
+	} else if (aigp) {
+		snprintf(xpath_value, sizeof(xpath_value), "%s/rmap-set-action/use-aigp", xpath);
+		snprintf(value, sizeof(value), "true");
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	} else if (artt) {
 		snprintf(xpath_value, sizeof(xpath_value),
 			 "%s/rmap-set-action/add-round-trip-time", xpath);
@@ -1148,6 +1182,7 @@ void route_map_action_show(struct vty *vty, const struct lyd_node *dnode,
 		if (yang_dnode_get(dnode,
 				   "./rmap-set-action/use-round-trip-time")) {
 			vty_out(vty, " set metric rtt\n");
+<<<<<<< HEAD
 		} else if (yang_dnode_get(
 				   dnode,
 				   "./rmap-set-action/add-round-trip-time")) {
@@ -1165,6 +1200,21 @@ void route_map_action_show(struct vty *vty, const struct lyd_node *dnode,
 		} else if (yang_dnode_get(
 				   dnode,
 				   "./rmap-set-action/subtract-metric")) {
+=======
+		} else if (yang_dnode_get(dnode, "./rmap-set-action/use-igp")) {
+			vty_out(vty, " set metric igp\n");
+		} else if (yang_dnode_get(dnode, "./rmap-set-action/use-aigp")) {
+			vty_out(vty, " set metric aigp\n");
+		} else if (yang_dnode_get(dnode, "./rmap-set-action/add-round-trip-time")) {
+			vty_out(vty, " set metric +rtt\n");
+		} else if (yang_dnode_get(dnode, "./rmap-set-action/subtract-round-trip-time")) {
+			vty_out(vty, " set metric -rtt\n");
+		} else if (yang_dnode_get(dnode, "./rmap-set-action/add-metric")) {
+			vty_out(vty, " set metric +%s\n",
+				yang_dnode_get_string(
+					dnode, "./rmap-set-action/add-metric"));
+		} else if (yang_dnode_get(dnode, "./rmap-set-action/subtract-metric")) {
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			vty_out(vty, " set metric -%s\n",
 				yang_dnode_get_string(
 					dnode,

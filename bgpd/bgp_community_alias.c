@@ -13,7 +13,11 @@
 #include "bgpd/bgpd.h"
 #include "bgpd/bgp_community_alias.h"
 
+<<<<<<< HEAD
 static struct hash *bgp_ca_alias_hash;
+=======
+struct hash *bgp_ca_alias_hash;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 static struct hash *bgp_ca_community_hash;
 
 static unsigned int bgp_ca_community_hash_key(const void *p)

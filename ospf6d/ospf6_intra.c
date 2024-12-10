@@ -578,7 +578,11 @@ static char *ospf6_link_lsa_get_prefix_str(struct ospf6_lsa *lsa, char *buf,
 	struct ospf6_prefix *prefix = nth_prefix(lsa->header, pos);
 	struct in6_addr in6 = { 0 };
 
+<<<<<<< HEAD
 	if (!lsa || !prefix || !buf || buflen < (1 + INET6_ADDRSTRLEN))
+=======
+	if (!prefix || !buf || buflen < (1 + INET6_ADDRSTRLEN))
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		return NULL;
 
 	/* position zero is used for the lladdr in the body of the LSA */
@@ -772,7 +776,11 @@ static char *ospf6_intra_prefix_lsa_get_prefix_str(struct ospf6_lsa *lsa,
 	char tbuf[16];
 
 	/* ensure buflen >= INET6_ADDRSTRLEN + '/128\0' */
+<<<<<<< HEAD
 	if (!lsa || !prefix || !buf || buflen < (5 + INET6_ADDRSTRLEN))
+=======
+	if (!prefix || !buf || buflen < (5 + INET6_ADDRSTRLEN))
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		return NULL;
 
 	memcpy(&in6, OSPF6_PREFIX_BODY(prefix),

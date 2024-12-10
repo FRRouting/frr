@@ -191,6 +191,34 @@ struct pim_instance {
 	int64_t last_route_change_time;
 
 	uint64_t gm_rx_drop_sys;
+<<<<<<< HEAD
+=======
+
+	/** Log information flags. */
+	uint32_t log_flags;
+/** Log neighbor event messages. */
+#define PIM_MSDP_LOG_NEIGHBOR_EVENTS 0x01
+/** Log SA event messages. */
+#define PIM_MSDP_LOG_SA_EVENTS 0x02
+
+	bool stopping;
+
+#if PIM_IPV == 6
+	struct {
+		/** Embedded RP enable state. */
+		bool enable;
+		/** Embedded RP group prefix list. */
+		char *group_list;
+		/** Maximum allowed number of embedded RPs at a time. */
+		uint32_t maximum_rps;
+
+		/** Embedded RP routing table */
+		struct route_table *table;
+		/** Embedded RPs count */
+		size_t rp_count;
+	} embedded_rp;
+#endif /* PIM_IPV == 6 */
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 };
 
 void pim_vrf_init(void);
@@ -200,4 +228,10 @@ extern struct pim_router *router;
 
 struct pim_instance *pim_get_pim_instance(vrf_id_t vrf_id);
 
+<<<<<<< HEAD
+=======
+extern bool pim_msdp_log_neighbor_events(const struct pim_instance *pim);
+extern bool pim_msdp_log_sa_events(const struct pim_instance *pim);
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 #endif

@@ -64,7 +64,11 @@ enum cand_addr {
 	CAND_ADDR_EXPLICIT,
 };
 
+<<<<<<< HEAD
 /* used separately for Cand-RP and Cand-BSR */
+=======
+/* used separately for Cand-RP, Cand-BSR, and AutoRP mapping agent */
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 struct cand_addrsel {
 	bool cfg_enable;
 	enum cand_addr cfg_mode : 8;
@@ -369,6 +373,12 @@ void pim_cand_rp_trigger(struct bsm_scope *scope);
 void pim_cand_rp_grp_add(struct bsm_scope *scope, const prefix_pim *p);
 void pim_cand_rp_grp_del(struct bsm_scope *scope, const prefix_pim *p);
 
+<<<<<<< HEAD
+=======
+void cand_addrsel_clear(struct cand_addrsel *asel);
+bool cand_addrsel_update(struct cand_addrsel *asel, struct vrf *vrf);
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 void pim_cand_addrs_changed(void);
 
 int pim_crp_process(struct interface *ifp, pim_sgaddr *src_dst, uint8_t *buf,

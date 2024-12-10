@@ -306,7 +306,11 @@ void memory_oom(size_t size, const char *name)
 	     "out of memory: failed to allocate %zu bytes for %s object",
 	     size, name);
 	zlog_backtrace(LOG_CRIT);
+<<<<<<< HEAD
 	log_memstats(stderr, "log");
+=======
+	log_memstats(zlog_progname, true);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	abort();
 }
 

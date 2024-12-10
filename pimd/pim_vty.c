@@ -12,6 +12,11 @@
 #include "vty.h"
 #include "vrf.h"
 #include "plist.h"
+<<<<<<< HEAD
+=======
+#include "plist_int.h"
+#include "filter.h"
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 #include "pimd.h"
 #include "pim_vty.h"
@@ -186,6 +191,26 @@ int pim_global_config_write_worker(struct pim_instance *pim, struct vty *vty)
 		++writes;
 	}
 
+<<<<<<< HEAD
+=======
+#if PIM_IPV == 6
+	if (pim->embedded_rp.enable) {
+		vty_out(vty, " embedded-rp\n");
+		writes++;
+	}
+
+	if (pim->embedded_rp.maximum_rps != PIM_EMBEDDED_RP_MAXIMUM) {
+		vty_out(vty, " embedded-rp limit %u\n", pim->embedded_rp.maximum_rps);
+		writes++;
+	}
+
+	if (pim->embedded_rp.group_list) {
+		vty_out(vty, " embedded-rp group-list %s\n", pim->embedded_rp.group_list);
+		writes++;
+	}
+#endif /* PIM_IPV == 6 */
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	writes += pim_rp_config_write(pim, vty);
 #if PIM_IPV == 4
 	writes += pim_autorp_config_write(pim, vty);
@@ -475,7 +500,17 @@ int pim_config_write(struct vty *vty, int writes, struct interface *ifp,
 	/* boundary */
 	if (pim_ifp->boundary_oil_plist) {
 		vty_out(vty, " " PIM_AF_NAME " multicast boundary oil %s\n",
+<<<<<<< HEAD
 			pim_ifp->boundary_oil_plist);
+=======
+			pim_ifp->boundary_oil_plist->name);
+		++writes;
+	}
+
+	if (pim_ifp->boundary_acl) {
+		vty_out(vty, " " PIM_AF_NAME " multicast boundary %s\n",
+			pim_ifp->boundary_acl->name);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		++writes;
 	}
 

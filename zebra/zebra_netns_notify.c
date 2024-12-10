@@ -378,19 +378,38 @@ void zebra_ns_notify_parse(void)
 {
 	struct dirent *dent;
 	DIR *srcdir = opendir(NS_RUN_DIR);
+<<<<<<< HEAD
+=======
+	int srcdirfd;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	if (srcdir == NULL) {
 		flog_err_sys(EC_LIB_SYSTEM_CALL,
 			     "NS parsing init: failed to parse %s", NS_RUN_DIR);
 		return;
 	}
+<<<<<<< HEAD
+=======
+
+	srcdirfd = dirfd(srcdir);
+	if (srcdirfd < 0) {
+		closedir(srcdir);
+		flog_err_sys(EC_LIB_SYSTEM_CALL, "NS parsing init: failed to parse %s", NS_RUN_DIR);
+		return;
+	}
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	while ((dent = readdir(srcdir)) != NULL) {
 		struct stat st;
 
 		if (strcmp(dent->d_name, ".") == 0
 		    || strcmp(dent->d_name, "..") == 0)
 			continue;
+<<<<<<< HEAD
 		if (fstatat(dirfd(srcdir), dent->d_name, &st, 0) < 0) {
+=======
+		if (fstatat(srcdirfd, dent->d_name, &st, 0) < 0) {
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			flog_err_sys(
 				EC_LIB_SYSTEM_CALL,
 				"NS parsing init: failed to parse entry %s",

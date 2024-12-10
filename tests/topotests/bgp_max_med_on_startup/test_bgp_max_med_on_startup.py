@@ -82,12 +82,20 @@ def test_bgp_max_med_on_startup():
 
     # Check session is established
     test_func = functools.partial(_bgp_converge, router2)
+<<<<<<< HEAD
     _, result = topotest.run_and_expect(test_func, None, count=30, wait=0.5)
+=======
+    _, result = topotest.run_and_expect(test_func, None, count=60, wait=1.0)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     assert result is None, "Failed bgp convergence on r2"
 
     # Check metric has value of max-med
     test_func = functools.partial(_bgp_has_routes, router2, 777)
+<<<<<<< HEAD
     _, result = topotest.run_and_expect(test_func, None, count=30, wait=0.5)
+=======
+    _, result = topotest.run_and_expect(test_func, None, count=60, wait=1.0)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     assert result is None, "r2 does not receive routes with metric 777"
 
     # Check that when the max-med timer expires, metric is updated

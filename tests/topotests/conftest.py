@@ -522,9 +522,20 @@ def pytest_configure(config):
         is_xdist = True
         is_worker = True
 
+<<<<<<< HEAD
     resource.setrlimit(
         resource.RLIMIT_CORE, (resource.RLIM_INFINITY, resource.RLIM_INFINITY)
     )
+=======
+    try:
+        resource.setrlimit(
+            resource.RLIMIT_CORE, (resource.RLIM_INFINITY, resource.RLIM_INFINITY)
+        )
+    except ValueError:
+        # The hard limit cannot be raised. Raise the soft limit to previous hard limit
+        core_rlimits = resource.getrlimit(resource.RLIMIT_CORE)
+        resource.setrlimit(resource.RLIMIT_CORE, (core_rlimits[1], core_rlimits[1]))
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     # -----------------------------------------------------
     # Set some defaults for the pytest.ini [pytest] section
     # ---------------------------------------------------

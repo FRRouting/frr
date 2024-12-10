@@ -281,9 +281,12 @@ static int vtysh_client_run(struct vtysh_client *vclient, const char *line,
 		nread = vtysh_client_receive(
 			vclient, bufvalid, buf + bufsz - bufvalid - 1, pass_fd);
 
+<<<<<<< HEAD
 		if (nread < 0 && (errno == EINTR || errno == EAGAIN))
 			continue;
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		if (nread <= 0) {
 			if (vty->of)
 				vty_out(vty,
@@ -699,7 +702,11 @@ static char *trim(char *s)
 int vtysh_mark_file(const char *filename)
 {
 	struct vty *vty;
+<<<<<<< HEAD
 	FILE *confp = NULL;
+=======
+	FILE *confp = NULL, *closefp = NULL;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	int ret;
 	vector vline;
 	int tried = 0;
@@ -712,7 +719,11 @@ int vtysh_mark_file(const char *filename)
 	if (strncmp("-", filename, 1) == 0)
 		confp = stdin;
 	else
+<<<<<<< HEAD
 		confp = fopen(filename, "r");
+=======
+		confp = closefp = fopen(filename, "r");
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	if (confp == NULL) {
 		fprintf(stderr, "%% Can't open config file %s due to '%s'.\n",
@@ -852,9 +863,14 @@ int vtysh_mark_file(const char *filename)
 	vty_close(vty);
 	XFREE(MTYPE_VTYSH_CMD, vty_buf_copy);
 
+<<<<<<< HEAD
 	if (confp != stdin)
 		fclose(confp);
 
+=======
+	if (closefp)
+		fclose(closefp);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	return 0;
 }
 

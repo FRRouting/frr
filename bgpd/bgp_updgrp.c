@@ -455,6 +455,13 @@ static unsigned int updgrp_hash_key_make(const void *p)
 		key = jhash_1word(jhash(soo_str, strlen(soo_str), SEED1), key);
 	}
 
+<<<<<<< HEAD
+=======
+	if (afi == AFI_IP6 &&
+	    (CHECK_FLAG(peer->af_flags[afi][safi], PEER_FLAG_NEXTHOP_LOCAL_UNCHANGED)))
+		key = jhash(&peer->nexthop.v6_global, IPV6_MAX_BYTELEN, key);
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	/*
 	 * ANY NEW ITEMS THAT ARE ADDED TO THE key, ENSURE DEBUG
 	 * STATEMENT STAYS UP TO DATE
@@ -521,6 +528,15 @@ static unsigned int updgrp_hash_key_make(const void *p)
 			peer->soo[afi][safi]
 				? ecommunity_str(peer->soo[afi][safi])
 				: "(NONE)");
+<<<<<<< HEAD
+=======
+		zlog_debug("%pBP Update Group Hash: IPv6 nexthop-local unchanged: %d IPv6 global %pI6",
+			   peer,
+			   afi == AFI_IP6 && (CHECK_FLAG(peer->af_flags[afi][safi],
+							 PEER_FLAG_NEXTHOP_LOCAL_UNCHANGED)),
+			   &peer->nexthop.v6_global);
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		zlog_debug("%pBP Update Group Hash key: %u", peer, key);
 	}
 	return key;
@@ -655,6 +671,15 @@ static bool updgrp_hash_cmp(const void *p1, const void *p2)
 	    !sockunion_same(&pe1->connection->su, &pe2->connection->su))
 		return false;
 
+<<<<<<< HEAD
+=======
+	if (afi == AFI_IP6 &&
+	    (CHECK_FLAG(flags1, PEER_FLAG_NEXTHOP_LOCAL_UNCHANGED) ||
+	     CHECK_FLAG(flags2, PEER_FLAG_NEXTHOP_LOCAL_UNCHANGED)) &&
+	    !IPV6_ADDR_SAME(&pe1->nexthop.v6_global, &pe2->nexthop.v6_global))
+		return false;
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	return true;
 }
 

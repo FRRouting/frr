@@ -1169,6 +1169,17 @@ BGP GR Peer Mode Commands
    at the peer level.
 
 
+<<<<<<< HEAD
+=======
+BGP GR Show Commands
+^^^^^^^^^^^^^^^^^^^^
+
+.. clicmd:: show bgp [<ipv4|ipv6>] [<view|vrf> VRF] neighbors [<A.B.C.D|X:X::X:X|WORD>] graceful-restart [json]
+
+   This command will display information about the neighbors graceful-restart status
+
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 Long-lived Graceful Restart
 ---------------------------
 
@@ -1795,7 +1806,11 @@ Configuring Peers
    Send the extended RPKI communities to the peer. RPKI extended community
    can be send only to iBGP and eBGP-OAD peers.
 
+<<<<<<< HEAD
    Default: enabled.
+=======
+   Default: disabled.
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 .. clicmd:: neighbor PEER weight WEIGHT
 
@@ -1849,7 +1864,12 @@ Configuring Peers
 
 .. clicmd:: neighbor <A.B.C.D|X:X::X:X|WORD> as-override
 
+<<<<<<< HEAD
    Override AS number of the originating router with the local AS number.
+=======
+   Override any AS number in the AS path that matches the neighbor's AS number
+   with the local AS number.
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
    Usually this configuration is used in PEs (Provider Edge) to replace
    the incoming customer AS number so the connected CE (Customer Edge)
@@ -2919,6 +2939,27 @@ BGP Extended Communities in Route Map
 
    This command sets colors values.
 
+<<<<<<< HEAD
+=======
+:rfc:`9256`.
+
+``CO:COLOR``
+   This is a format to define colors value. ``CO`` part is always 00 (default),
+   it can be used to support the requirements of Color-Only steering when using 
+   a Null Endpoint in the SR-TE Policy as specified in Section 8.8 of [RFC9256].
+   The below shows in detail what the different combinations of ``CO`` bits can
+   match on to for the purpose of determining what type of SR-TE Policy Tunnel
+   a BGP route can resolve over, and it also shows the order for resolving the
+   BGP route if there are different tunnels.
+
+   - ``00`` Can match on a specific endpoint only which should be the nexthop
+     of the route(Default Setting).
+   - ``01`` Can match on a specific endpoint or a null endpoint.
+   - ``10`` Can match on a specific endpoint, null endpoint or any endpoint.
+   - ``11`` Reserved for future use and shuould not be used.
+
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 .. clicmd:: set extcommunity bandwidth <(1-25600) | cumulative | num-multipaths> [non-transitive]
 
    This command sets the BGP link-bandwidth extended community for the prefix

@@ -208,6 +208,7 @@ struct route_node *route_node_match(struct route_table *table,
 	return NULL;
 }
 
+<<<<<<< HEAD
 struct route_node *route_node_match_ipv4(struct route_table *table,
 					 const struct in_addr *addr)
 {
@@ -234,6 +235,8 @@ struct route_node *route_node_match_ipv6(struct route_table *table,
 	return route_node_match(table, &p);
 }
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 /* Lookup same prefix node.  Return NULL when we can't find route. */
 struct route_node *route_node_lookup(struct route_table *table,
 				     union prefixconstptr pu)

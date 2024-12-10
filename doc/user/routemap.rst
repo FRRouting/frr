@@ -101,9 +101,16 @@ cont
 
 .. clicmd:: clear route-map counter [WORD]
 
+<<<<<<< HEAD
    Clear counters that are being stored about the route-map utilization
    so that subsuquent show commands will indicate since the last clear.
    If WORD is specified clear just that particular route-map's counters.
+=======
+   Clear counters as well as cpu time spent that are being stored about
+   the route-map utilization so that subsequent show commands will indicate
+   since the last clear. If WORD is specified clear just that particular
+   route-map's counters.
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 .. _route-map-command:
 
@@ -190,6 +197,15 @@ Route Map Match Command
    do the exact matching of the communities, while ``any`` - can match any
    community specified in COMMUNITY_LIST.
 
+<<<<<<< HEAD
+=======
+.. clicmd:: match src-peer [IPV4_ADDR|IPV6_ADDR|INTERFACE_NAME|PEER_GROUP_NAME]
+
+   This is a BGP specific match command. Matches the source peer if the neighbor
+   was specified in this manner. Useful to announce the routes that was originated
+   by the source peer.
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 .. clicmd:: match peer IPV4_ADDR
 
    This is a BGP specific match command. Matches the peer ip address
@@ -305,13 +321,18 @@ Route Map Set Command
 
    Set the route's weight.
 
+<<<<<<< HEAD
 .. clicmd:: set metric <[+|-](1-4294967295)|rtt|+rtt|-rtt>
+=======
+.. clicmd:: set metric <[+|-](1-4294967295)|rtt|+rtt|-rtt|igp|aigp>
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
    Set the route metric. When used with BGP, set the BGP attribute MED to a
    specific value. Use `+`/`-` to add or subtract the specified value to/from
    the existing/MED. Use `rtt` to set the MED to the round trip time or
    `+rtt`/`-rtt` to add/subtract the round trip time to/from the MED.
 
+<<<<<<< HEAD
 .. clicmd:: set min-metric <(0-4294967295)>
 
    Set the minimum meric for the route.
@@ -319,6 +340,20 @@ Route Map Set Command
 .. clicmd:: set max-metric <(0-4294967295)>
 
    Set the maximum meric for the route.
+=======
+   If ``igp`` is specified, then the actual value from the IGP protocol is used.
+
+   If ``aigp`` is specified, then the actual value from the AIGP metric is used
+   (encoded as MED instead of AIGP attribute).
+
+.. clicmd:: set min-metric <(0-4294967295)>
+
+   Set the minimum metric for the route.
+
+.. clicmd:: set max-metric <(0-4294967295)>
+
+   Set the maximum metric for the route.
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 .. clicmd:: set aigp-metric <igp-metric|(0-4294967295)>
 
