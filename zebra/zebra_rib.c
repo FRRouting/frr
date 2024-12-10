@@ -2838,6 +2838,8 @@ static void process_subq_early_route_add(struct zebra_early_route *ere)
 
 	if (!ere->startup && (re->flags & ZEBRA_FLAG_SELFROUTE) &&
 	    zrouter.asic_offloaded) {
+		struct route_entry *entry;
+
 		if (!same) {
 			if (IS_ZEBRA_DEBUG_RIB)
 				zlog_debug(
@@ -2853,6 +2855,25 @@ static void process_subq_early_route_add(struct zebra_early_route *ere)
 			 */
 			early_route_memory_free(ere);
 			return;
+		}
+
+		RNODE_FOREACH_RE (rn, entry) {
+			if (CHECK_FLAG(entry->status, ROUTE_ENTRY_REMOVED))
+				continue;
+
+			if (entry->type != ere->re->type)
+				continue;
+
+			/*
+			 * If we have an entry that is changed but un
+			 * processed and not a self route, then
+			 * we should just drop this new self route
+			 */
+			if (CHECK_FLAG(entry->status, ROUTE_ENTRY_CHANGED) &&
+			    !(entry->flags & ZEBRA_FLAG_SELFROUTE)) {
+				early_route_memory_free(ere);
+				return;
+			}
 		}
 	}
 
