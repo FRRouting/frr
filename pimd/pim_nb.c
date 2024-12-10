@@ -257,6 +257,12 @@ const struct frr_yang_module_info frr_pim_info = {
 			}
 		},
 		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-pim:pim/address-family/mcast-rpf-lookup",
+			.cbs = {
+				.modify = routing_control_plane_protocols_control_plane_protocol_pim_address_family_mcast_rpf_lookup_modify,
+			}
+		},
+		{
 			.xpath = "/frr-interface:lib/interface/frr-pim:pim/address-family",
 			.cbs = {
 				.create = lib_interface_pim_address_family_create,

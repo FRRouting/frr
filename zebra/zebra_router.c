@@ -23,7 +23,6 @@ DEFINE_MTYPE_STATIC(ZEBRA, ZEBRA_RT_TABLE, "Zebra VRF table");
 
 struct zebra_router zrouter = {
 	.multipath_num = MULTIPATH_NUM,
-	.ipv4_multicast_mode = MCAST_NO_CONFIG,
 };
 
 static inline int
@@ -219,19 +218,6 @@ uint32_t zebra_router_get_next_sequence(void)
 	return 1
 	       + atomic_fetch_add_explicit(&zrouter.sequence_num, 1,
 					   memory_order_relaxed);
-}
-
-void multicast_mode_ipv4_set(enum multicast_mode mode)
-{
-	if (IS_ZEBRA_DEBUG_RIB)
-		zlog_debug("%s: multicast lookup mode set (%d)", __func__,
-			   mode);
-	zrouter.ipv4_multicast_mode = mode;
-}
-
-enum multicast_mode multicast_mode_ipv4_get(void)
-{
-	return zrouter.ipv4_multicast_mode;
 }
 
 void zebra_router_terminate(void)
