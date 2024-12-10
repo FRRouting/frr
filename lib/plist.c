@@ -1136,8 +1136,10 @@ static int vty_show_prefix_list_prefix(struct vty *vty, afi_t afi,
 		match = 0;
 
 		if (type == normal_display || type == first_match_display)
-			if (prefix_same(&p, &pentry->prefix))
+			if (prefix_list_entry_match(pentry, &p, false)) {
+				pentry->hitcnt++;
 				match = 1;
+			}
 
 		if (type == longer_display) {
 			if ((p.family == pentry->prefix.family)
