@@ -1179,9 +1179,10 @@ static bool update_ipv6nh_for_route_install(int nh_othervrf, struct bgp *nh_bgp,
 					ifindex =
 						pi->peer->nexthop.ifp->ifindex;
 			if (!ifindex) {
-				if (pi->peer->conf_if)
-					ifindex = pi->peer->ifp->ifindex;
-				else if (pi->peer->ifname)
+				if (pi->peer->conf_if) {
+					if (pi->peer->ifp)
+						ifindex = pi->peer->ifp->ifindex;
+				} else if (pi->peer->ifname)
 					ifindex = ifname2ifindex(
 						pi->peer->ifname,
 						pi->peer->bgp->vrf_id);
