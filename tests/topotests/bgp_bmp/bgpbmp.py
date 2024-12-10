@@ -164,18 +164,6 @@ def bmp_check_for_prefixes(
                 for k, v in sorted(m.items())
                 # filter out variable keys
                 if k not in ["timestamp", "seq", "nxhp_link-local"]
-                and (
-                    # When policy is loc-rib, the peer-distinguisher is 0:0
-                    # for the default VRF or the RD if any or the 0:<vrf_id>.
-                    # 0:<vrf_id> is used to distinguished. RFC7854 says: "If the
-                    # peer is a "Local Instance Peer", it is set to a unique,
-                    # locally defined value." The value is not tested because it
-                    # is variable.
-                    k != "peer_distinguisher"
-                    or policy != loc_rib
-                    or v == "0:0"
-                    or not v.startswith("0:")
-                )
             }
 
     # build expected JSON files
@@ -199,7 +187,7 @@ def bmp_check_for_prefixes(
 
 
 def bmp_check_for_peer_message(
-    expected_peers, bmp_log_type, bmp_collector, bmp_log_file
+    expected_peers, bmp_log_type, bmp_collector, bmp_log_file, is_rd_instance=False
 ):
     """
     Check for the presence of a peer up message for the peer
@@ -218,11 +206,15 @@ def bmp_check_for_peer_message(
     # get the list of pairs (prefix, policy, seq) for the given message type
     peers = []
     for m in messages:
+        if is_rd_instance and m["peer_distinguisher"] == "0:0":
+            continue
         if (
             "peer_ip" in m.keys()
             and m["peer_ip"] != "0.0.0.0"
             and m["bmp_log_type"] == bmp_log_type
         ):
+            if is_rd_instance and m["peer_type"] != "route distinguisher instance":
+                continue
             peers.append(m["peer_ip"])
         elif m["policy"] == "loc-rib" and m["bmp_log_type"] == bmp_log_type:
             peers.append("0.0.0.0")
