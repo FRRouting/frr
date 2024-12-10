@@ -352,6 +352,7 @@ extern void vpn_handle_router_id_update(struct bgp *bgp, bool withdraw,
 					bool is_config);
 extern void bgp_vpn_leak_unimport(struct bgp *from_bgp);
 extern void bgp_vpn_leak_export(struct bgp *from_bgp);
+extern void bgp_vpn_release_label(struct bgp *bgp, afi_t afi, bool reset);
 
 extern bool bgp_mplsvpn_path_uses_valid_mpls_label(struct bgp_path_info *pi);
 extern int
