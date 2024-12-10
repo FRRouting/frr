@@ -95,15 +95,15 @@ FRR_CFG_DEFAULT_BOOL(BGP_DETERMINISTIC_MED,
 );
 FRR_CFG_DEFAULT_ULONG(BGP_CONNECT_RETRY,
 	{ .val_ulong = 10, .match_profile = "datacenter", },
-	{ .val_ulong = 120 },
+	{ .val_ulong = BGP_DEFAULT_CONNECT_RETRY },
 );
 FRR_CFG_DEFAULT_ULONG(BGP_HOLDTIME,
 	{ .val_ulong = 9, .match_profile = "datacenter", },
-	{ .val_ulong = 180 },
+	{ .val_ulong = BGP_DEFAULT_KEEPALIVE },
 );
 FRR_CFG_DEFAULT_ULONG(BGP_KEEPALIVE,
 	{ .val_ulong = 3, .match_profile = "datacenter", },
-	{ .val_ulong = 60 },
+	{ .val_ulong = BGP_DEFAULT_KEEPALIVE },
 );
 FRR_CFG_DEFAULT_BOOL(BGP_EBGP_REQUIRES_POLICY,
 	{ .val_bool = false, .match_profile = "datacenter", },
@@ -7846,7 +7846,7 @@ static int peer_timers_connect_unset_vty(struct vty *vty, const char *ip_str)
 	if (!peer)
 		return CMD_WARNING_CONFIG_FAILED;
 
-	ret = peer_timers_connect_unset(peer);
+	ret = peer_timers_connect_unset(peer, true);
 
 	return bgp_vty_return(vty, ret);
 }
