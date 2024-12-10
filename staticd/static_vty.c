@@ -17,56 +17,213 @@
 #include "mgmt_be_client.h"
 #endif /* HAVE_STATICD_MGMTD */
 #include "mpls.h"
+#ifdef HAVE_STATICD_NB
 #include "northbound.h"
-#include "libfrr.h"
 #include "routing_nb.h"
 #include "northbound_cli.h"
+#endif /* HAVE_STATICD_NB */
+#include "libfrr.h"
 #include "frrdistance.h"
 
 #include "static_vrf.h"
 #include "static_vty.h"
 #include "static_routes.h"
 #include "static_debug.h"
+#include "static_pm.h"
 #include "staticd/static_vty_clippy.c"
+#ifdef HAVE_STATICD_NB
 #include "static_nb.h"
+#endif /* HAVE_STATICD_NB */
 
 #define STATICD_STR "Static route daemon\n"
 
-/** All possible route parameters available in CLI. */
-struct static_route_args {
-	/** "no" command? */
-	bool delete;
-	/** Is VRF obtained from XPath? */
-	bool xpath_vrf;
+#ifndef HAVE_STATICD_NB
+#define CMD_ATTR_YANG 0
 
-	bool onlink;
-	afi_t afi;
-	safi_t safi;
+DEFINE_MTYPE_STATIC(STATIC, STATIC_ARGS, "Static config args");
+DEFINE_MTYPE_STATIC(STATIC, STATIC_ARGS_ATTR, "Static config args attributes");
 
-	const char *vrf;
-	const char *nexthop_vrf;
-	const char *prefix;
-	const char *prefix_mask;
-	const char *source;
-	const char *gateway;
-	const char *interface_name;
-	const char *segs;
-	const char *flag;
-	const char *tag;
-	const char *distance;
-	const char *label;
-	const char *table;
-	const char *color;
 
-	bool bfd;
-	bool bfd_multi_hop;
-	const char *bfd_source;
-	const char *bfd_profile;
+static void static_args_set_prefix(struct static_route_args *args, struct prefix *p)
+{
+	struct in_addr mask;
 
-	bool bfd_auto_hop;
-	bool pm;
-};
+	memset(p, 0, sizeof(struct prefix));
+	assert(!!str2prefix(args->prefix, p));
+	str2prefix(args->prefix, p);
+	if (args->afi == AFI_IP && args->prefix_mask) {
+		/* Cisco like mask notation. */
+		inet_pton(AF_INET, args->prefix_mask, &mask);
+		p->prefixlen = ip_masklen(mask);
+	}
+	/* Apply mask for given prefix. */
+	apply_mask(p);
+}
 
+static struct static_route_args *static_args_find(struct static_vrf *svrf,
+						  struct static_route_args *args)
+{
+	struct static_route_args *run_args;
+
+	frr_each(static_route_args_list, &svrf->route_args_list, run_args) {
+		if (run_args->afi != args->afi)
+			continue;
+		if (run_args->safi != args->safi)
+			continue;
+
+		if (!prefix_same(&run_args->p, &args->p))
+			continue;
+
+		/* compare args attributes except values that can be overriden:
+		 * - labels,
+		 * - color,
+		 * - segs,
+		 * - tags
+		 * - onlink
+		 * - pm
+		 * - distance
+		 * - bfd arguments
+		 * - blackhole flags */
+		if ((!!run_args->gateway != !!args->gateway) ||
+		    ((run_args->gateway && args->gateway &&
+		      strcmp(run_args->gateway, args->gateway))))
+			continue;
+		if ((!!run_args->interface_name != !!args->interface_name) ||
+		    ((run_args->interface_name && args->interface_name &&
+		      strcmp(run_args->interface_name, args->interface_name))))
+			continue;
+		if ((!!run_args->source != !!args->source) ||
+		    ((run_args->source && args->source && strcmp(run_args->source, args->source))))
+			continue;
+		if ((!!run_args->nexthop_vrf != !!args->nexthop_vrf) ||
+		    ((run_args->nexthop_vrf && args->nexthop_vrf &&
+		      strcmp(run_args->nexthop_vrf, args->nexthop_vrf))))
+			continue;
+		if ((!!run_args->table != !!args->table) ||
+		    ((run_args->table && args->table && strcmp(run_args->table, args->table))))
+			continue;
+
+		return run_args;
+	}
+
+	return NULL;
+}
+
+static struct static_route_args *static_args_copy(struct static_route_args *args)
+{
+	struct static_route_args *run_args;
+
+	run_args = XCALLOC(MTYPE_STATIC_ARGS, sizeof(struct static_route_args));
+
+	run_args->onlink = args->onlink;
+	run_args->pm = args->pm;
+	run_args->bfd = args->bfd;
+	run_args->bfd_auto_hop = args->bfd_auto_hop;
+	run_args->bfd_multi_hop = args->bfd_multi_hop;
+	run_args->afi = args->afi;
+	run_args->safi = args->safi;
+
+	prefix_copy(&run_args->p, &args->p);
+
+	if (args->vrf)
+		run_args->vrf = XSTRDUP(MTYPE_STATIC_ARGS_ATTR, args->vrf);
+	if (args->nexthop_vrf)
+		run_args->nexthop_vrf = XSTRDUP(MTYPE_STATIC_ARGS_ATTR, args->nexthop_vrf);
+	if (args->prefix)
+		run_args->prefix = XSTRDUP(MTYPE_STATIC_ARGS_ATTR, args->prefix);
+	if (args->prefix_mask)
+		run_args->prefix_mask = XSTRDUP(MTYPE_STATIC_ARGS_ATTR, args->prefix_mask);
+	if (args->source)
+		run_args->source = XSTRDUP(MTYPE_STATIC_ARGS_ATTR, args->source);
+	if (args->gateway)
+		run_args->gateway = XSTRDUP(MTYPE_STATIC_ARGS_ATTR, args->gateway);
+	if (args->interface_name)
+		run_args->interface_name = XSTRDUP(MTYPE_STATIC_ARGS_ATTR, args->interface_name);
+	if (args->segs)
+		run_args->segs = XSTRDUP(MTYPE_STATIC_ARGS_ATTR, args->segs);
+	if (args->flag)
+		run_args->flag = XSTRDUP(MTYPE_STATIC_ARGS_ATTR, args->flag);
+	if (args->tag)
+		run_args->tag = XSTRDUP(MTYPE_STATIC_ARGS_ATTR, args->tag);
+	if (args->distance)
+		run_args->distance = XSTRDUP(MTYPE_STATIC_ARGS_ATTR, args->distance);
+	if (args->label)
+		run_args->label = XSTRDUP(MTYPE_STATIC_ARGS_ATTR, args->label);
+	if (args->table)
+		run_args->table = XSTRDUP(MTYPE_STATIC_ARGS_ATTR, args->table);
+	if (args->color)
+		run_args->color = XSTRDUP(MTYPE_STATIC_ARGS_ATTR, args->color);
+	if (args->bfd_profile)
+		run_args->bfd_profile = XSTRDUP(MTYPE_STATIC_ARGS_ATTR, args->bfd_profile);
+	if (args->bfd_source)
+		run_args->bfd_source = XSTRDUP(MTYPE_STATIC_ARGS_ATTR, args->bfd_source);
+
+	return run_args;
+}
+
+static void static_args_update_string(char **dst, const char *src)
+{
+	if (*dst && src) {
+		if (strcmp(*dst, src) != 0) {
+			XFREE(MTYPE_STATIC_ARGS_ATTR, *dst);
+			*dst = XSTRDUP(MTYPE_STATIC_ARGS_ATTR, src);
+		}
+	} else if (!*dst && src) {
+		*dst = XSTRDUP(MTYPE_STATIC_ARGS_ATTR, src);
+	} else if (*dst && !src) {
+		XFREE(MTYPE_STATIC_ARGS_ATTR, *dst);
+		*dst = NULL;
+	}
+}
+
+static void static_args_update(struct static_route_args *dst_args,
+			       struct static_route_args *src_args)
+{
+	dst_args->onlink = src_args->onlink;
+	dst_args->pm = src_args->pm;
+	dst_args->bfd = src_args->bfd;
+	dst_args->bfd_auto_hop = src_args->bfd_auto_hop;
+	dst_args->bfd_multi_hop = src_args->bfd_multi_hop;
+
+	static_args_update_string((char **)&dst_args->bfd_source, src_args->bfd_source);
+	static_args_update_string((char **)&dst_args->bfd_profile, src_args->bfd_profile);
+	static_args_update_string((char **)&dst_args->color, src_args->color);
+	static_args_update_string((char **)&dst_args->label, src_args->label);
+	static_args_update_string((char **)&dst_args->segs, src_args->segs);
+}
+
+static void static_args_free_arg(void **arg)
+{
+	if (*arg) {
+		XFREE(MTYPE_STATIC_ARGS_ATTR, *arg);
+		*arg = NULL;
+	}
+}
+
+void static_args_free(struct static_route_args *args)
+{
+	static_args_free_arg((void **)&args->vrf);
+	static_args_free_arg((void **)&args->nexthop_vrf);
+	static_args_free_arg((void **)&args->prefix);
+	static_args_free_arg((void **)&args->prefix_mask);
+	static_args_free_arg((void **)&args->source);
+	static_args_free_arg((void **)&args->gateway);
+	static_args_free_arg((void **)&args->interface_name);
+	static_args_free_arg((void **)&args->segs);
+	static_args_free_arg((void **)&args->flag);
+	static_args_free_arg((void **)&args->tag);
+	static_args_free_arg((void **)&args->distance);
+	static_args_free_arg((void **)&args->label);
+	static_args_free_arg((void **)&args->table);
+	static_args_free_arg((void **)&args->color);
+	static_args_free_arg((void **)&args->bfd_profile);
+	static_args_free_arg((void **)&args->bfd_source);
+
+	XFREE(MTYPE_STATIC_ARGS, args);
+}
+#endif /* !HAVE_STATICD_NB */
+
+#ifdef HAVE_STATICD_NB
 static int static_route_nb_run(struct vty *vty, struct static_route_args *args)
 {
 	int ret;
@@ -510,6 +667,85 @@ static int static_route_nb_run(struct vty *vty, struct static_route_args *args)
 
 	return ret;
 }
+static int static_route_configure(struct vty *vty, struct static_route_args *args)
+{
+	return static_route_nb_run(vty, args);
+}
+#else
+/* !HAVE_STATICD_NB */
+static void static_route_args_add(struct static_route_args *args, struct static_vrf *svrf)
+{
+	struct static_route_args *run_args;
+
+	run_args = static_args_copy(args);
+	static_route_args_list_add_head(&svrf->route_args_list, run_args);
+}
+
+static void static_route_args_del(struct static_route_args *args, struct static_vrf *svrf)
+{
+	static_route_args_list_del(&svrf->route_args_list, args);
+	static_args_free(args);
+}
+
+static int static_route_configure(struct vty *vty, struct static_route_args *args)
+{
+	struct static_route_args *run_args;
+	struct prefix p = {};
+	struct static_vrf *svrf;
+
+	if (args->interface_name && (!strcasecmp(args->interface_name, "reject") ||
+				     !strcasecmp(args->interface_name, "blackhole"))) {
+		vty_out(vty,
+			"Nexthop interface name can not be from reserved keywords (reject, blackhole)\n");
+		return CMD_WARNING;
+	}
+
+	if (args->vrf == NULL)
+		args->vrf = VRF_DEFAULT_NAME;
+
+	svrf = static_vrf_lookup_by_name(args->vrf);
+	if (!svrf)
+		svrf = static_vrf_alloc(args->vrf);
+
+	if (args->nexthop_vrf == NULL)
+		args->nexthop_vrf = args->vrf;
+
+	if (args->interface_name && !strcasecmp(args->interface_name, "Null0")) {
+		args->flag = "Null0";
+		args->interface_name = NULL;
+	}
+
+	/* set prefix from args */
+	static_args_set_prefix(args, &p);
+
+	prefix_copy(&args->p, &p);
+
+	run_args = static_args_find(svrf, args);
+
+	if (args->delete && !run_args)
+		/* nothing to delete */
+		return CMD_SUCCESS;
+
+	if (args->delete) {
+		/* delete the existing configuration */
+		static_route_args_del(run_args, svrf);
+
+		return CMD_SUCCESS;
+	}
+
+	if (run_args) {
+		/* Update route an existing route */
+		static_args_update(run_args, args);
+
+		return CMD_SUCCESS;
+	}
+
+	/* Add a new route */
+	static_route_args_add(args, svrf);
+
+	return CMD_SUCCESS;
+}
+#endif /* !HAVE_STATICD_NB */
 
 /* Static unicast routes for multicast RPF lookup. */
 DEFPY_YANG (ip_mroute_dist,
@@ -548,7 +784,7 @@ DEFPY_YANG (ip_mroute_dist,
 		.bfd_profile = bfd_profile,
 	};
 
-	return static_route_nb_run(vty, &args);
+	return static_route_configure(vty, &args);
 }
 
 /* Static route configuration.  */
@@ -593,7 +829,7 @@ DEFPY_YANG(ip_route_blackhole,
 		.vrf = vrf,
 	};
 
-	return static_route_nb_run(vty, &args);
+	return static_route_configure(vty, &args);
 }
 
 DEFPY_YANG(ip_route_blackhole_vrf,
@@ -621,6 +857,9 @@ DEFPY_YANG(ip_route_blackhole_vrf,
       "Table to configure\n"
       "The table number to configure\n")
 {
+#ifndef HAVE_STATICD_NB
+	VTY_DECLVAR_CONTEXT(vrf, vrf);
+#endif /* !HAVE_STATICD_NB */
 	struct static_route_args args = {
 		.delete = !!no,
 		.afi = AFI_IP,
@@ -632,7 +871,11 @@ DEFPY_YANG(ip_route_blackhole_vrf,
 		.distance = distance_str,
 		.label = label,
 		.table = table_str,
+#ifdef HAVE_STATICD_NB
 		.xpath_vrf = true,
+#else
+		.vrf = vrf->name,
+#endif
 	};
 
 	/*
@@ -642,7 +885,7 @@ DEFPY_YANG(ip_route_blackhole_vrf,
 	 */
 	assert(args.prefix);
 
-	return static_route_nb_run(vty, &args);
+	return static_route_configure(vty, &args);
 }
 
 DEFPY_YANG(ip_route_address_interface,
@@ -715,7 +958,7 @@ DEFPY_YANG(ip_route_address_interface,
 		.pm = !!pm,
 	};
 
-	return static_route_nb_run(vty, &args);
+	return static_route_configure(vty, &args);
 }
 
 DEFPY_YANG(ip_route_address_interface_vrf,
@@ -762,6 +1005,9 @@ DEFPY_YANG(ip_route_address_interface_vrf,
       BFD_PROFILE_NAME_STR
       "Enables Path Monitoring support\n")
 {
+#ifndef HAVE_STATICD_NB
+	VTY_DECLVAR_CONTEXT(vrf, vrf);
+#endif /* !HAVE_STATICD_NB */
 	struct static_route_args args = {
 		.delete = !!no,
 		.afi = AFI_IP,
@@ -776,7 +1022,11 @@ DEFPY_YANG(ip_route_address_interface_vrf,
 		.table = table_str,
 		.color = color_str,
 		.onlink = !!onlink,
+#ifdef HAVE_STATICD_NB
 		.xpath_vrf = true,
+#else
+		.vrf = vrf->name,
+#endif
 		.nexthop_vrf = nexthop_vrf,
 		.bfd = !!bfd,
 		.bfd_multi_hop = !!bfd_multi_hop,
@@ -786,7 +1036,7 @@ DEFPY_YANG(ip_route_address_interface_vrf,
 		.pm = !!pm,
 	};
 
-	return static_route_nb_run(vty, &args);
+	return static_route_configure(vty, &args);
 }
 
 DEFPY_YANG(ip_route,
@@ -855,7 +1105,7 @@ DEFPY_YANG(ip_route,
 		.pm = !!pm,
 	};
 
-	return static_route_nb_run(vty, &args);
+	return static_route_configure(vty, &args);
 }
 
 DEFPY_YANG(ip_route_vrf,
@@ -899,6 +1149,9 @@ DEFPY_YANG(ip_route_vrf,
       BFD_PROFILE_NAME_STR
       "Enables Path Monitoring support\n")
 {
+#ifndef HAVE_STATICD_NB
+	VTY_DECLVAR_CONTEXT(vrf, vrf);
+#endif /* !HAVE_STATICD_NB */
 	struct static_route_args args = {
 		.delete = !!no,
 		.afi = AFI_IP,
@@ -912,7 +1165,11 @@ DEFPY_YANG(ip_route_vrf,
 		.label = label,
 		.table = table_str,
 		.color = color_str,
+#ifdef HAVE_STATICD_NB
 		.xpath_vrf = true,
+#else
+		.vrf = vrf->name,
+#endif
 		.nexthop_vrf = nexthop_vrf,
 		.bfd = !!bfd,
 		.bfd_multi_hop = !!bfd_multi_hop,
@@ -922,7 +1179,7 @@ DEFPY_YANG(ip_route_vrf,
 		.pm = !!pm,
 	};
 
-	return static_route_nb_run(vty, &args);
+	return static_route_configure(vty, &args);
 }
 
 DEFPY_YANG(ipv6_route_blackhole,
@@ -966,7 +1223,7 @@ DEFPY_YANG(ipv6_route_blackhole,
 		.vrf = vrf,
 	};
 
-	return static_route_nb_run(vty, &args);
+	return static_route_configure(vty, &args);
 }
 
 DEFPY_YANG(ipv6_route_blackhole_vrf,
@@ -994,6 +1251,9 @@ DEFPY_YANG(ipv6_route_blackhole_vrf,
       "Table to configure\n"
       "The table number to configure\n")
 {
+#ifndef HAVE_STATICD_NB
+	VTY_DECLVAR_CONTEXT(vrf, vrf);
+#endif /* !HAVE_STATICD_NB */
 	struct static_route_args args = {
 		.delete = !!no,
 		.afi = AFI_IP6,
@@ -1005,7 +1265,11 @@ DEFPY_YANG(ipv6_route_blackhole_vrf,
 		.distance = distance_str,
 		.label = label,
 		.table = table_str,
+#ifdef HAVE_STATICD_NB
 		.xpath_vrf = true,
+#else
+		.vrf = vrf->name,
+#endif
 	};
 
 	/*
@@ -1015,7 +1279,7 @@ DEFPY_YANG(ipv6_route_blackhole_vrf,
 	 */
 	assert(args.prefix);
 
-	return static_route_nb_run(vty, &args);
+	return static_route_configure(vty, &args);
 }
 
 DEFPY_YANG(ipv6_route_address_interface, ipv6_route_address_interface_cmd,
@@ -1083,7 +1347,7 @@ DEFPY_YANG(ipv6_route_address_interface, ipv6_route_address_interface_cmd,
 		.pm = !!pm,
 	};
 
-	return static_route_nb_run(vty, &args);
+	return static_route_configure(vty, &args);
 }
 
 DEFPY_YANG(ipv6_route_address_interface_vrf,
@@ -1126,6 +1390,9 @@ DEFPY_YANG(ipv6_route_address_interface_vrf,
 	   "Value of segs\n"
 	   "Segs (SIDs)\n")
 {
+#ifndef HAVE_STATICD_NB
+	VTY_DECLVAR_CONTEXT(vrf, vrf);
+#endif /* !HAVE_STATICD_NB */
 	struct static_route_args args = {
 		.delete = !!no,
 		.afi = AFI_IP6,
@@ -1140,7 +1407,11 @@ DEFPY_YANG(ipv6_route_address_interface_vrf,
 		.table = table_str,
 		.color = color_str,
 		.onlink = !!onlink,
+#ifdef HAVE_STATICD_NB
 		.xpath_vrf = true,
+#else
+		.vrf = vrf->name,
+#endif
 		.nexthop_vrf = nexthop_vrf,
 		.bfd = !!bfd,
 		.bfd_multi_hop = !!bfd_multi_hop,
@@ -1151,7 +1422,7 @@ DEFPY_YANG(ipv6_route_address_interface_vrf,
 		.pm = !!pm,
 	};
 
-	return static_route_nb_run(vty, &args);
+	return static_route_configure(vty, &args);
 }
 
 DEFPY_YANG(ipv6_route, ipv6_route_cmd,
@@ -1214,7 +1485,7 @@ DEFPY_YANG(ipv6_route, ipv6_route_cmd,
 		.pm = !!pm,
 	};
 
-	return static_route_nb_run(vty, &args);
+	return static_route_configure(vty, &args);
 }
 
 DEFPY_YANG(ipv6_route_vrf, ipv6_route_vrf_cmd,
@@ -1252,6 +1523,9 @@ DEFPY_YANG(ipv6_route_vrf, ipv6_route_vrf_cmd,
 	   "Value of segs\n"
 	   "Segs (SIDs)\n")
 {
+#ifndef HAVE_STATICD_NB
+	VTY_DECLVAR_CONTEXT(vrf, vrf);
+#endif /* !HAVE_STATICD_NB */
 	struct static_route_args args = {
 		.delete = !!no,
 		.afi = AFI_IP6,
@@ -1265,7 +1539,11 @@ DEFPY_YANG(ipv6_route_vrf, ipv6_route_vrf_cmd,
 		.label = label,
 		.table = table_str,
 		.color = color_str,
+#ifdef HAVE_STATICD_NB
 		.xpath_vrf = true,
+#else
+		.vrf = vrf->name,
+#endif
 		.nexthop_vrf = nexthop_vrf,
 		.bfd = !!bfd,
 		.bfd_multi_hop = !!bfd_multi_hop,
@@ -1276,9 +1554,10 @@ DEFPY_YANG(ipv6_route_vrf, ipv6_route_vrf_cmd,
 		.pm = !!pm,
 	};
 
-	return static_route_nb_run(vty, &args);
+	return static_route_configure(vty, &args);
 }
 
+#ifdef HAVE_STATICD_NB
 #if defined(INCLUDE_MGMTD_CMDDEFS_ONLY) || !defined(HAVE_STATICD_MGMTD)
 
 #ifdef HAVE_STATICD_MGMTD
@@ -1709,6 +1988,7 @@ const struct frr_yang_module_info frr_staticd_cli_info = {
 };
 
 #endif /* defined(INCLUDE_MGMTD_CMDDEFS_ONLY) || !defined(HAVE_STATICD_MGMTD) */
+#endif /* HAVE_STATICD_NB */
 
 #if !defined(INCLUDE_MGMTD_CMDDEFS_ONLY) || !defined(HAVE_STATICD_MGMTD)
 DEFPY_YANG(debug_staticd, debug_staticd_cmd,

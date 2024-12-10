@@ -751,6 +751,8 @@ AC_ARG_ENABLE([staticd],
   AS_HELP_STRING([--disable-staticd], [do not build staticd]))
 AC_ARG_ENABLE([staticd-mgmtd],
   AS_HELP_STRING([--disable-staticd-mgmtd], [do not build staticd with mgmtd]))
+AC_ARG_ENABLE([staticd-northbound],
+  AS_HELP_STRING([--disable-staticd-northbound], [do not build staticd with northbound]))
 AC_ARG_ENABLE([fabricd],
   AS_HELP_STRING([--disable-fabricd], [do not build fabricd]))
 AC_ARG_ENABLE([vrrpd],
@@ -1916,8 +1918,19 @@ AS_IF([test "$enable_staticd" != "no"], [
   AC_DEFINE([HAVE_STATICD], [1], [staticd])
 ])
 
+AS_IF([test "$enable_staticd_northbound" = "no" -a "$enable_staticd_mgmtd" != "no"], [
+    AC_MSG_ERROR([Cannot disable staticd northbound without disabling staticd dependency from mgmtd])
+])
+
 AS_IF([test "$enable_staticd_mgmtd" != "no"], [
   AC_DEFINE([HAVE_STATICD_MGMTD], [1], [staticd mgmtd dependency])
+])
+
+AS_IF([test "$enable_staticd_northbound" != "no"], [
+  AC_DEFINE([HAVE_STATICD_NB], [1], [define whether staticd northbound is enabled])
+  AM_CONDITIONAL([STATICD_NB], [true])
+], [
+  AM_CONDITIONAL([STATICD_NB], [false])
 ])
 
 AS_IF([test "$enable_fabricd" != "no"], [

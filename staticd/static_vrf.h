@@ -9,6 +9,10 @@
 
 #include "openbsd-tree.h"
 
+#ifndef HAVE_STATICD_NB
+#include "static_vty.h"
+#endif /* !HAVE_STATICD_NB */
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -20,12 +24,25 @@ struct static_vrf {
 	struct vrf *vrf;
 
 	struct route_table *stable[AFI_MAX][SAFI_MAX];
+
+#ifndef HAVE_STATICD_NB
+	/* static config args list */
+	struct static_route_args_list_head route_args_list;
+#endif /* !HAVE_STATICD_NB */
 };
+
+#ifndef HAVE_STATICD_NB
+DECLARE_DLIST(static_route_args_list, struct static_route_args, list);
+#endif /* !HAVE_STATICD_NB */
+
 RB_HEAD(svrf_name_head, static_vrf);
 RB_PROTOTYPE(svrf_name_head, static_vrf, entry, svrf_name_compare)
 
 extern struct svrf_name_head svrfs;
 
+#ifndef HAVE_STATICD_NB
+struct static_vrf *static_vrf_lookup_by_name(const char *name);
+#endif /* !HAVE_STATICD_NB */
 struct static_vrf *static_vrf_alloc(const char *name);
 void static_vrf_free(struct static_vrf *svrf);
 

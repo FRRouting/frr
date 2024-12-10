@@ -17,10 +17,15 @@ staticd_libstatic_a_SOURCES = \
 	staticd/static_zebra.c \
 	staticd/static_vrf.c \
 	staticd/static_vty.c \
-	staticd/static_nb.c \
-	staticd/static_nb_config.c \
 	staticd/static_pm.c \
 	# end
+
+if STATICD_NB
+staticd_libstatic_a_SOURCES += \
+	staticd/static_nb.c \
+	staticd/static_nb_config.c \
+	# end
+endif
 
 noinst_HEADERS += \
 	staticd/static_debug.h \
@@ -29,18 +34,27 @@ noinst_HEADERS += \
 	staticd/static_routes.h \
 	staticd/static_vty.h \
 	staticd/static_vrf.h \
-	staticd/static_nb.h \
 	staticd/static_pm.h \
 	# end
+
+if STATICD_NB
+noinst_HEADERS += \
+	staticd/static_nb.h \
+	# end
+endif
 
 clippy_scan += \
 	staticd/static_vty.c \
 	# end
 
 staticd_staticd_SOURCES = staticd/static_main.c
-staticd_staticd_LDADD = staticd/libstatic.a lib/libfrr.la $(LIBCAP) $(LIBYANG_LIBS)
+staticd_staticd_LDADD = staticd/libstatic.a lib/libfrr.la $(LIBCAP)
+
+if STATICD_NB
+staticd_staticd_LDADD += $(LIBYANG_LIBS)
 
 nodist_staticd_staticd_SOURCES = \
 	yang/frr-bfdd.yang.c \
 	yang/frr-staticd.yang.c \
 	# end
+endif

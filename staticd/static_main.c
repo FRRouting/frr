@@ -18,14 +18,18 @@
 #include "vrf.h"
 #include "nexthop.h"
 #include "filter.h"
+#ifdef HAVE_STATICD_NB
 #include "routing_nb.h"
+#endif /* HAVE_STATICD_NB */
 
 #include "static_vrf.h"
 #include "static_vty.h"
 #include "static_routes.h"
 #include "static_zebra.h"
 #include "static_debug.h"
+#ifdef HAVE_STATICD_NB
 #include "static_nb.h"
+#endif /* HAVE_STATICD_NB */
 #include "static_pm.h"
 
 #ifdef HAVE_STATICD_MGMTD
@@ -113,12 +117,14 @@ struct frr_signal_t static_signals[] = {
 	},
 };
 
+#ifdef HAVE_STATICD_NB
 static const struct frr_yang_module_info *const staticd_yang_modules[] = {
 	&frr_interface_info,
 	&frr_vrf_info,
 	&frr_routing_info,
 	&frr_staticd_info,
 };
+#endif /* HAVE_STATICD_NB */
 
 /*
  * NOTE: .flags == FRR_NO_SPLIT_CONFIG to avoid reading split config, mgmtd will
@@ -134,8 +140,10 @@ FRR_DAEMON_INFO(staticd, STATIC,
 
 	.privs = &static_privs,
 
+#ifdef HAVE_STATICD_NB
 	.yang_modules = staticd_yang_modules,
 	.n_yang_modules = array_size(staticd_yang_modules),
+#endif /* HAVE_STATICD_NB */
 
 #ifdef HAVE_STATICD_MGMTD
 	.flags = FRR_NO_SPLIT_CONFIG,
@@ -179,12 +187,14 @@ int main(int argc, char **argv, char **envp)
 	mgmt_be_client = mgmt_be_client_create("staticd", NULL, 0, master);
 #endif /* HAVE_STATICD_MGMTD */
 
+#ifdef HAVE_STATICD_NB
 	hook_register(routing_conf_event,
 		      routing_control_plane_protocols_name_validate);
 	hook_register(routing_create,
 		      routing_control_plane_protocols_staticd_create);
 	hook_register(routing_destroy,
 		      routing_control_plane_protocols_staticd_destroy);
+#endif /* HAVE_STATICD_NB */
 
 #ifdef HAVE_STATICD_MGMTD
 	/*

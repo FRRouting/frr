@@ -10,7 +10,9 @@
 #include "nexthop.h"
 #include "table.h"
 #include "srcdest_table.h"
+#ifdef HAVE_STATICD_NB
 #include "northbound_cli.h"
+#endif /* HAVE_STATICD_NB */
 
 #include "static_vrf.h"
 #include "static_routes.h"
@@ -28,7 +30,10 @@ RB_GENERATE(svrf_name_head, static_vrf, entry, svrf_name_compare);
 
 struct svrf_name_head svrfs = RB_INITIALIZER(&svrfs);
 
-static struct static_vrf *static_vrf_lookup_by_name(const char *name)
+#ifdef HAVE_STATICD_NB
+static
+#endif
+struct static_vrf *static_vrf_lookup_by_name(const char *name)
 {
 	struct static_vrf svrf;
 
@@ -65,6 +70,9 @@ struct static_vrf *static_vrf_alloc(const char *name)
 
 			table->cleanup = zebra_stable_node_cleanup;
 			svrf->stable[afi][safi] = table;
+#ifndef HAVE_STATICD_NB
+			static_route_args_list_init(&svrf->route_args_list);
+#endif /* !HAVE_STATICD_NB */
 		}
 	}
 
@@ -81,6 +89,9 @@ struct static_vrf *static_vrf_alloc(const char *name)
 
 void static_vrf_free(struct static_vrf *svrf)
 {
+#ifndef HAVE_STATICD_NB
+	struct static_route_args *args;
+#endif /* !HAVE_STATICD_NB */
 	struct route_table *table;
 	struct vrf *vrf;
 	safi_t safi;
@@ -104,6 +115,13 @@ void static_vrf_free(struct static_vrf *svrf)
 			svrf->stable[afi][safi] = NULL;
 		}
 	}
+
+#ifndef HAVE_STATICD_NB
+	frr_each_safe(static_route_args_list, &svrf->route_args_list, args) {
+		static_route_args_list_del(&svrf->route_args_list, args);
+		static_args_free(args);
+	}
+#endif /* !HAVE_STATICD_NB */
 
 	XFREE(MTYPE_STATIC_RTABLE_INFO, svrf);
 }
@@ -161,7 +179,78 @@ struct route_table *static_vrf_static_table(afi_t afi, safi_t safi,
 	return svrf->stable[afi][safi];
 }
 
+#ifndef HAVE_STATICD_NB
+/* Write static route configuration. */
+static int static_config(struct vty *vty, struct static_vrf *svrf, afi_t afi, safi_t safi,
+			 const char *cmd)
+{
+	struct static_route_args *args;
+	char spacing[100];
+	int write = 0;
+
+	if (!svrf)
+		return 0;
+
+	snprintf(spacing, sizeof(spacing), "%s%s", (svrf->vrf->vrf_id == VRF_DEFAULT) ? "" : " ",
+		 cmd);
+
+	frr_each_safe(static_route_args_list, &svrf->route_args_list, args) {
+		if (args->afi != afi || args->safi != safi)
+			continue;
+
+		if (strcmp(svrf->vrf->name, args->vrf) != 0)
+			continue;
+
+		vty_out(vty, "%s %pFX ", spacing, &args->p);
+		if (args->source)
+			vty_out(vty, "from %s ", args->source);
+		if (args->gateway)
+			vty_out(vty, "%s ", args->gateway);
+		if (args->interface_name)
+			vty_out(vty, "%s ", args->interface_name);
+		if (args->flag)
+			vty_out(vty, "%s ", args->flag);
+		if (args->tag)
+			vty_out(vty, "tag %s ", args->tag);
+		if (args->distance)
+			vty_out(vty, "%s ", args->distance);
+		if (args->label)
+			vty_out(vty, "label %s ", args->label);
+		if (args->segs)
+			vty_out(vty, "segments %s ", args->segs);
+		if (strcmp(args->vrf, args->nexthop_vrf) != 0)
+			vty_out(vty, "nexthop-vrf %s ", args->nexthop_vrf);
+		if (args->table)
+			vty_out(vty, "table %s ", args->table);
+		if (args->onlink)
+			vty_out(vty, "onlink ");
+		if (args->pm)
+			vty_out(vty, "pm");
+		if (args->color)
+			vty_out(vty, "color %s ", args->color);
+		if (args->bfd) {
+			if (args->bfd_multi_hop) {
+				vty_out(vty, "bfd multi-hop ");
+				if (args->bfd_source)
+					vty_out(vty, "source %s ", args->bfd_source);
+			} else if (args->bfd_auto_hop)
+				vty_out(vty, "bfd auto-hop ");
+			else
+				vty_out(vty, "bfd ");
+
+			if (args->bfd_profile)
+				vty_out(vty, "profile %s ", args->bfd_profile);
+		}
+		vty_out(vty, "\n");
+		write = 1;
+	}
+
+	return write;
+}
+#endif /*!HAVE_STATICD_MGMTD */
+
 #ifndef HAVE_STATICD_MGMTD
+#ifdef HAVE_STATICD_NB
 static int static_vrf_config_write(struct vty *vty)
 {
 	struct lyd_node *dnode;
@@ -175,6 +264,28 @@ static int static_vrf_config_write(struct vty *vty)
 
 	return written;
 }
+#else
+/* !HAVE_STATICD_NB */
+static int static_vrf_config_write(struct vty *vty)
+{
+	struct vrf *vrf;
+	int written = 0;
+
+	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
+		if (vrf->vrf_id != VRF_DEFAULT)
+			vty_frame(vty, "vrf %s\n", vrf->name);
+
+		written += static_config(vty, vrf->info, AFI_IP, SAFI_UNICAST, "ip route");
+		written += static_config(vty, vrf->info, AFI_IP, SAFI_MULTICAST, "ip mroute");
+		written += static_config(vty, vrf->info, AFI_IP6, SAFI_UNICAST, "ipv6 route");
+
+		if (vrf->vrf_id != VRF_DEFAULT)
+			vty_endframe(vty, "exit-vrf\n!\n");
+	}
+
+	return written;
+}
+#endif /* !HAVE_STATICD_NB */
 #endif /*!HAVE_STATICD_MGMTD */
 
 void static_vrf_init(void)
