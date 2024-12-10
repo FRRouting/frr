@@ -53,7 +53,9 @@ struct zebra_ptm_cb {
 	 (protocol) == ZEBRA_ROUTE_OSPF6 || (protocol) == ZEBRA_ROUTE_ISIS ||  \
 	 (protocol) == ZEBRA_ROUTE_PIM ||                                      \
 	 (protocol) == ZEBRA_ROUTE_OPENFABRIC ||                               \
-	 (protocol) == ZEBRA_ROUTE_STATIC || (protocol) == ZEBRA_ROUTE_RIP)
+	 (protocol) == ZEBRA_ROUTE_STATIC || (protocol) == ZEBRA_ROUTE_RIP || \
+	 (protocol) == ZEBRA_ROUTE_SRTE)
+
 
 void zebra_ptm_init(void);
 void zebra_ptm_finish(void);

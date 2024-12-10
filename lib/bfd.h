@@ -23,8 +23,11 @@ extern "C" {
 #define BFD_STATUS_DOWN       (1 << 1) /* BFD session status is down */
 #define BFD_STATUS_UP         (1 << 2) /* BFD session status is up */
 #define BFD_STATUS_ADMIN_DOWN (1 << 3) /* BFD session is admin down */
+#define BFD_STATUS_DEL        (1 << 4) /* BFD session is deleted, reserved for sbfd*/
 
 #define BFD_PROFILE_NAME_LEN 64
+
+#define BFD_NAME_SIZE 255
 
 const char *bfd_get_status_str(int status);
 
@@ -409,6 +412,8 @@ struct bfd_session_arg {
 	uint32_t min_tx;
 	/** Detection multiplier. */
 	uint32_t detection_multiplier;
+	/* bfd session name*/
+	char bfd_name[BFD_NAME_SIZE +1];
 };
 
 /**
@@ -457,6 +462,8 @@ extern bool bfd_protocol_integration_shutting_down(void);
  */
 extern int bfd_nht_update(const struct prefix *match,
 			  const struct zapi_route *route);
+
+DECLARE_HOOK(sbfd_state_change_hook, (char *bfd_name, int state,int remote_cbit),(bfd_name, state));
 
 extern bool bfd_session_is_down(const struct bfd_session_params *session);
 
