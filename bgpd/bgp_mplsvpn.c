@@ -3850,13 +3850,16 @@ vrf_id_t get_first_vrf_for_redirect_with_rt(struct ecommunity *eckey)
  * This function gets called when the default instance ("router bgp NNN")
  * is created.
  */
-void vpn_leak_postchange_all(void)
+static void vpn_leak_postchange_all_internal(struct event *t __attribute__((__unused__)))
 {
 	struct listnode *next;
 	struct bgp *bgp;
 	struct bgp *bgp_default = bgp_get_default();
 
-	assert(bgp_default);
+	if (!bgp_default)
+		return;
+
+	EVENT_OFF(bm->t_vpn_leak_postchange);
 
 	/* First, do any exporting from VRFs to the single VPN RIB */
 	for (ALL_LIST_ELEMENTS_RO(bm->bgp, next, bgp)) {
@@ -3901,6 +3904,18 @@ void vpn_leak_postchange_all(void)
 			bgp_default,
 			bgp);
 	}
+}
+
+/* if event is true, delay the vpn processing by 1 second
+ * in a separate thread
+ */
+void vpn_leak_postchange_all(bool event)
+{
+	if (event)
+		event_add_timer(bm->master, vpn_leak_postchange_all_internal, NULL, 1,
+				&bm->t_vpn_leak_postchange);
+	else
+		vpn_leak_postchange_all_internal(NULL);
 }
 
 /* When a bgp vrf instance is unconfigured, remove its routes
