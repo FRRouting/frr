@@ -146,7 +146,11 @@ struct yang_translator *yang_translator_load(const char *path)
 	 */
 	assert(dnode);
 
+<<<<<<< HEAD
 	family = yang_dnode_get_string(dnode, "./family");
+=======
+	family = yang_dnode_get_string(dnode, "family");
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	translator = yang_translator_find(family);
 	if (translator != NULL) {
 		flog_warn(EC_LIB_YANG_TRANSLATOR_LOAD,
@@ -166,7 +170,11 @@ struct yang_translator *yang_translator_load(const char *path)
 	RB_INSERT(yang_translators, &yang_translators, translator);
 
 	/* Initialize the translator libyang context. */
+<<<<<<< HEAD
 	translator->ly_ctx = yang_ctx_new_setup(false, false);
+=======
+	translator->ly_ctx = yang_ctx_new_setup(false, false, false);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	if (!translator->ly_ctx) {
 		flog_warn(EC_LIB_LIBYANG, "%s: ly_ctx_new() failed", __func__);
 		goto error;
@@ -182,7 +190,11 @@ struct yang_translator *yang_translator_load(const char *path)
 		tmodule =
 			XCALLOC(MTYPE_YANG_TRANSLATOR_MODULE, sizeof(*tmodule));
 
+<<<<<<< HEAD
 		module_name = yang_dnode_get_string(set->dnodes[i], "./name");
+=======
+		module_name = yang_dnode_get_string(set->dnodes[i], "name");
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		tmodule->module = ly_ctx_load_module(translator->ly_ctx,
 						     module_name, NULL, NULL);
 		if (!tmodule->module) {
@@ -233,7 +245,11 @@ struct yang_translator *yang_translator_load(const char *path)
 		const struct lysc_node *snode_custom, *snode_native;
 
 		xpath_custom =
+<<<<<<< HEAD
 			yang_dnode_get_string(set->dnodes[i], "./custom");
+=======
+			yang_dnode_get_string(set->dnodes[i], "custom");
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 		snode_custom =
 			yang_find_snode(translator->ly_ctx, xpath_custom, 0);
@@ -246,7 +262,11 @@ struct yang_translator *yang_translator_load(const char *path)
 		}
 
 		xpath_native =
+<<<<<<< HEAD
 			yang_dnode_get_string(set->dnodes[i], "./native");
+=======
+			yang_dnode_get_string(set->dnodes[i], "native");
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		snode_native = yang_find_snode(ly_native_ctx, xpath_native, 0);
 		if (!snode_native) {
 			flog_warn(EC_LIB_YANG_TRANSLATOR_LOAD,
@@ -512,7 +532,11 @@ static unsigned int yang_module_nodes_count(const struct lys_module *module)
 
 void yang_translator_init(void)
 {
+<<<<<<< HEAD
 	ly_translator_ctx = yang_ctx_new_setup(true, false);
+=======
+	ly_translator_ctx = yang_ctx_new_setup(true, false, false);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	if (!ly_translator_ctx) {
 		flog_err(EC_LIB_LIBYANG, "%s: ly_ctx_new() failed", __func__);
 		exit(1);

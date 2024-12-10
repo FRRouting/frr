@@ -178,13 +178,22 @@ extern int zebra_vxlan_if_add(struct interface *ifp);
 extern int zebra_vxlan_if_update(struct interface *ifp,
 				 struct zebra_vxlan_if_update_ctx *ctx);
 extern int zebra_vxlan_if_del(struct interface *ifp);
+<<<<<<< HEAD
 extern int zebra_vxlan_process_vrf_vni_cmd(struct zebra_vrf *zvrf, vni_t vni,
 					   char *err, int err_str_sz,
 					   int filter, int add);
+=======
+extern void zebra_vxlan_process_vrf_vni_cmd(struct zebra_vrf *zvrf, vni_t vni,
+					    int filter, int add);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 extern void zebra_vxlan_init_tables(struct zebra_vrf *zvrf);
 extern void zebra_vxlan_close_tables(struct zebra_vrf *);
 extern void zebra_vxlan_cleanup_tables(struct zebra_vrf *);
 extern void zebra_vxlan_init(void);
+<<<<<<< HEAD
+=======
+extern void zebra_vxlan_terminate(void);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 extern void zebra_vxlan_disable(void);
 extern void zebra_vxlan_evpn_vrf_route_add(vrf_id_t vrf_id,
 					   const struct ethaddr *rmac,
@@ -221,7 +230,11 @@ extern int zebra_vxlan_dp_network_mac_del(struct interface *ifp,
 
 extern void zebra_vxlan_set_accept_bgp_seq(bool set);
 extern bool zebra_vxlan_get_accept_bgp_seq(void);
+<<<<<<< HEAD
 
+=======
+extern void zebra_vlan_dplane_result(struct zebra_dplane_ctx *ctx);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 #ifdef __cplusplus
 }
 #endif

@@ -7,7 +7,11 @@
 ##
 AC_PREREQ([2.69])
 
+<<<<<<< HEAD
 AC_INIT([frr], [9.1.2], [https://github.com/frrouting/frr/issues])
+=======
+AC_INIT([frr], [10.3-dev], [https://github.com/frrouting/frr/issues])
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 PACKAGE_URL="https://frrouting.org/"
 AC_SUBST([PACKAGE_URL])
 PACKAGE_FULLNAME="FRRouting"
@@ -20,6 +24,82 @@ AC_CONFIG_SRCDIR([lib/zebra.h])
 AC_CONFIG_MACRO_DIR([m4])
 AC_CONFIG_AUX_DIR([m4/ac])
 
+<<<<<<< HEAD
+=======
+dnl ------------------------------
+dnl system paths
+dnl ------------------------------
+dnl Versions of FRR (or Quagga, or Zebra) before ca. 9.2 used sysconfdir and
+dnl localstatedir as-is, without appending /frr.  The /frr was expected to be
+dnl given on ./configure invocations.
+dnl
+dnl This does not match standard behavior by other packages and makes FRR
+dnl specific packaging changes necessary to add these options.  localstatedir
+dnl was also misused to include the /run part (it normally is only /var),
+dnl leaving no path configuration option that references /var itself.  This
+dnl is because runstatedir did not exist in ancient autoconf.
+dnl
+dnl The path options have been changed to expect plain / system prefix
+dnl directories.  As a temporary workaround to not break packaging, eventual
+dnl /frr suffixes are stripped and a warning is printed.
+
+path_warn_banner=false
+
+AC_MSG_CHECKING([whether --sysconfdir option is FRR-specific])
+case "$sysconfdir" in
+  */frr)
+    AC_MSG_RESULT([yes, ends in /frr - removing suffix])
+    AC_MSG_WARN([Please remove /frr suffix from --sysconfdir="${sysconfdir}" (it should be /etc in 99% of cases)])
+    sysconfdir="${sysconfdir%/frr}"
+    path_warn_banner=true
+    ;;
+  *)
+    AC_MSG_RESULT([no, as expected])
+    ;;
+esac
+
+frr_sysconfdir="\${sysconfdir}/frr"
+
+AC_MSG_CHECKING([whether --localstatedir option is FRR-specific])
+case "$localstatedir" in
+  */run/frr)
+    AC_MSG_RESULT([yes, ends in /run/frr - removing suffix])
+    AC_MSG_WARN([Please remove /run/frr suffix from --localstatedir=${localstatedir} (it should be /var in 99% of cases)])
+    localstatedir="${localstatedir%/run/frr}"
+    path_warn_banner=true
+    ;;
+  */frr)
+    AC_MSG_RESULT([yes, ends in /frr - removing suffix])
+    AC_MSG_WARN([The --localstatedir=${localstatedir} option seems to include /frr but not /run, this is unexpected.  Please check for consistency.)])
+    localstatedir="${localstatedir%/frr}"
+    path_warn_banner=true
+    ;;
+  *)
+    AC_MSG_RESULT([no, as expected])
+    ;;
+esac
+
+dnl runstatedir is either ${localstatedir}/run or plain /run
+dnl the change of localstatedir above may impact this
+dnl
+dnl note runstatedir was never used with /frr as the other two above, so does
+dnl not need the same cleanup hack
+: "${runstatedir:=\${localstatedir\}/run}"
+frr_runstatedir="\${runstatedir}/frr"
+
+if $path_warn_banner; then
+  AC_MSG_WARN([^])
+  AC_MSG_WARN([^])
+  AC_MSG_WARN([^ warnings regarding system path configuration were printed above])
+  AC_MSG_WARN([^ paths have been adjusted by temporary workarounds])
+  AC_MSG_WARN([^ please fix your ./configure invocation (remove /frr) so it will work without the workarounds])
+  AC_MSG_WARN([^])
+  AC_MSG_WARN([^])
+fi
+
+frr_libstatedir="\${localstatedir}/lib/frr"
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 dnl -----------------------------------
 dnl Get hostname and other information.
 dnl -----------------------------------
@@ -130,10 +210,17 @@ AC_ARG_WITH([moduledir], [AS_HELP_STRING([--with-moduledir=DIR], [module directo
 ])
 AC_SUBST([moduledir], [$moduledir])
 
+<<<<<<< HEAD
 AC_ARG_WITH([scriptdir], [AS_HELP_STRING([--with-scriptdir=DIR], [script directory (${sysconfdir}/scripts)])], [
 	scriptdir="$withval"
 ], [
 	scriptdir="\${sysconfdir}/scripts"
+=======
+AC_ARG_WITH([scriptdir], [AS_HELP_STRING([--with-scriptdir=DIR], [script directory (${sysconfdir}/frr/scripts)])], [
+	scriptdir="$withval"
+], [
+	scriptdir="\${frr_sysconfdir}/scripts"
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 ])
 AC_SUBST([scriptdir], [$scriptdir])
 
@@ -202,7 +289,20 @@ AC_DEFUN([AC_C_FLAG], [{
     AC_CACHE_CHECK([[whether $CC supports $1]], cachename, [
 	AC_LANG_PUSH([C])
 	ac_c_flag_save="$CFLAGS"
+<<<<<<< HEAD
 	CFLAGS="$CFLAGS $1"
+=======
+	dnl GCC ignores unknown -Wno-whatever flags, but errors on -Wwhatever
+	dnl except when it ignores them it prints:
+	dnl   cc1: note: unrecognized command-line option ‘-Wno-whatever’ may have been intended to silence earlier diagnostics
+	dnl which is annoying as hell.  So check for the positive flag instead.
+	flag_add="$1"
+	if test "$flag_add" != "${flag_add#-Wno-}"; then
+	    CFLAGS="$CFLAGS -W${flag_add#-Wno-}"
+	else
+	    CFLAGS="$CFLAGS $flag_add"
+	fi
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	AC_COMPILE_IFELSE(
 		[AC_LANG_PROGRAM([[$4]])],
 		[
@@ -365,6 +465,10 @@ AC_C_FLAG([-Wpointer-arith])
 AC_C_FLAG([-Wbad-function-cast])
 AC_C_FLAG([-Wwrite-strings])
 AC_C_FLAG([-Wundef])
+<<<<<<< HEAD
+=======
+AC_C_FLAG([-Wimplicit-fallthrough])
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 if test "$enable_gcc_ultra_verbose" = "yes" ; then
   AC_C_FLAG([-Wcast-qual])
   AC_C_FLAG([-Wmissing-noreturn])
@@ -378,6 +482,11 @@ else
 fi
 AC_C_FLAG([-Wno-unused-parameter])
 AC_C_FLAG([-Wno-missing-field-initializers])
+<<<<<<< HEAD
+=======
+AC_C_FLAG([-Wno-microsoft-anon-tag])
+AC_C_FLAG([-Wno-error=deprecated-declarations])
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 AC_C_FLAG([-Wc++-compat], [], [CXX_COMPAT_CFLAGS="-Wc++-compat"])
 AC_SUBST([CXX_COMPAT_CFLAGS])
@@ -626,6 +735,13 @@ AC_ARG_ENABLE([mgmtd],
   AS_HELP_STRING([--disable-mgmtd], [do not build mgmtd]))
 AC_ARG_ENABLE([mgmtd_local_validations],
   AS_HELP_STRING([--enable-mgmtd-local-validations], [dev: unimplemented local validation]))
+<<<<<<< HEAD
+=======
+AC_ARG_ENABLE([mgmtd_test_be_client],
+  AS_HELP_STRING([--enable-mgmtd-test-be-client], [build test backend client]))
+AC_ARG_ENABLE([fpm_listener],
+  AS_HELP_STRING([--enable-fpm-listener], [build fpm listener test program]))
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 AC_ARG_ENABLE([ripd],
   AS_HELP_STRING([--disable-ripd], [do not build ripd]))
 AC_ARG_ENABLE([ripngd],
@@ -672,8 +788,11 @@ AC_ARG_ENABLE([snmp],
   AS_HELP_STRING([--enable-snmp], [enable SNMP support for agentx]))
 AC_ARG_ENABLE([config_rollbacks],
   AS_HELP_STRING([--enable-config-rollbacks], [enable configuration rollbacks (requires sqlite3)]))
+<<<<<<< HEAD
 AC_ARG_ENABLE([confd],
   AS_HELP_STRING([--enable-confd=ARG], [enable confd integration]))
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 AC_ARG_ENABLE([sysrepo],
   AS_HELP_STRING([--enable-sysrepo], [enable sysrepo integration]))
 AC_ARG_ENABLE([grpc],
@@ -707,14 +826,21 @@ AC_ARG_ENABLE([configfile_mask],
   AS_HELP_STRING([--enable-configfile-mask=ARG], [set mask for config files]))
 AC_ARG_ENABLE([logfile_mask],
   AS_HELP_STRING([--enable-logfile-mask=ARG], [set mask for log files]))
+<<<<<<< HEAD
 AC_ARG_ENABLE([shell_access],
   AS_HELP_STRING([--enable-shell-access], [Allow users to access shell/telnet/ssh]))
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 AC_ARG_ENABLE([realms],
   AS_HELP_STRING([--enable-realms], [enable REALMS support under Linux]))
 AC_ARG_ENABLE([rtadv],
   AS_HELP_STRING([--disable-rtadv], [disable IPV6 router advertisement feature]))
 AC_ARG_ENABLE([irdp],
+<<<<<<< HEAD
   AS_HELP_STRING([--disable-irdp], [disable IRDP server support in zebra (enabled by default if supported)]))
+=======
+  AS_HELP_STRING([--enable-irdp], [enable IRDP server support in zebra]))
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 AC_ARG_ENABLE([capabilities],
   AS_HELP_STRING([--disable-capabilities], [disable using POSIX capabilities]))
 AC_ARG_ENABLE([gcc_ultra_verbose],
@@ -762,9 +888,18 @@ AC_ARG_WITH([crypto],
 AC_ARG_WITH([frr-format],
   AS_HELP_STRING([--with-frr-format[=<.../frr-format.so>]], [use frr-format GCC plugin]))
 
+<<<<<<< HEAD
 AC_ARG_ENABLE([version-build-config],
   AS_HELP_STRING([--disable-version-build-config], [do not include build configs in show version command]))
 
+=======
+AC_ARG_ENABLE([version_build_config],
+  AS_HELP_STRING([--disable-version-build-config], [do not include build configs in show version command]))
+
+AC_ARG_ENABLE([python_runtime],
+  AS_HELP_STRING([--disable-python-runtime], [do not install python scripts or have python runtime dependency]))
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 #if openssl, else use the internal
 AS_IF([test "$with_crypto" = "openssl"], [
 AC_CHECK_LIB([crypto], [EVP_DigestInit], [LIBS="$LIBS -lcrypto"], [], [])
@@ -820,10 +955,13 @@ fi
 AC_SUBST([DFLT_NAME])
 AC_DEFINE_UNQUOTED([DFLT_NAME], ["$DFLT_NAME"], [Name of the configuration default set])
 
+<<<<<<< HEAD
 if test "$enable_shell_access" = "yes"; then
    AC_DEFINE([HAVE_SHELL_ACCESS], [1], [Allow user to use ssh/telnet/bash, be aware this is considered insecure])
 fi
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 #
 # Python for clippy
 #
@@ -1024,6 +1162,11 @@ dnl -------------------------
 AC_CHECK_HEADERS([stropts.h sys/ksym.h \
 	linux/version.h asm/types.h endian.h sys/endian.h])
 
+<<<<<<< HEAD
+=======
+AC_CHECK_LIB([atomic], [main], [LIBS="$LIBS -latomic"], [], [])
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 ac_stdatomic_ok=false
 AC_DEFINE([FRR_AUTOCONF_ATOMIC], [1], [did autoconf checks for atomic funcs])
 AC_CHECK_HEADER([stdatomic.h],[
@@ -1179,9 +1322,12 @@ m4_define([FRR_INCLUDES],
 /* Required for MAXSIG */
 #include <signal.h>
 #include <sys/socket.h>
+<<<<<<< HEAD
 #ifdef __APPLE__
 # define __APPLE_USE_RFC_3542
 #endif
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 #include <netinet/in.h>
 #include <sys/time.h>
 #include <time.h>
@@ -1582,6 +1728,24 @@ FRR_INCLUDES
 #endif
 ])dnl
 
+<<<<<<< HEAD
+=======
+AC_CHECK_HEADERS([netinet6/ip6_mroute.h], [], [],[
+	#include <sys/socket.h>
+	#include <sys/param.h>
+	#include <sys/types.h>
+	#include <netinet/in.h>
+	#include <net/route.h>
+])
+
+m4_define([FRR_INCLUDES],
+FRR_INCLUDES
+[#ifdef HAVE_NETINET_IP6_MROUTE_H
+# include <netinet6/ip6_mroute.h>
+#endif
+])dnl
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 AC_MSG_CHECKING([for RFC3678 protocol-independed API])
 AC_COMPILE_IFELSE(
 [ AC_LANG_PROGRAM([[
@@ -1739,6 +1903,17 @@ AS_IF([test "$enable_mgmtd" != "no"], [
   ])
 ])
 
+<<<<<<< HEAD
+=======
+AS_IF([test "$enable_mgmtd_test_be_client" = "yes"], [
+  AC_DEFINE([HAVE_MGMTD_TESTC], [1], [mgmtd_testc])
+])
+
+AS_IF([test "$enable_fpm_listener" = "yes"], [
+  AC_DEFINE([HAVE_FPM_LISTENER], [1], [fpm_listener])
+])
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 AS_IF([test "$enable_ripd" != "no"], [
   AC_DEFINE([HAVE_RIPD], [1], [ripd])
 ])
@@ -1954,9 +2129,15 @@ AC_SUBST([SNMP_CFLAGS])
 dnl ---------------
 dnl libyang
 dnl ---------------
+<<<<<<< HEAD
 PKG_CHECK_MODULES([LIBYANG], [libyang >= 2.0.0], , [
   AC_MSG_ERROR([libyang (>= 2.0.0) was not found on your system.])
 ])
+=======
+PKG_CHECK_MODULES([LIBYANG], [libyang >= 2.1.128], , [
+AC_MSG_ERROR([m4_normalize([libyang >= 2.1.128 is required, and was not found on your system.
+Please consult doc/developer/building-libyang.rst for instructions on installing or building libyang.])])])
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 ac_cflags_save="$CFLAGS"
 CFLAGS="$CFLAGS $LIBYANG_CFLAGS"
 AC_CHECK_MEMBER([struct lyd_node.priv], [], [
@@ -1965,6 +2146,16 @@ AC_CHECK_MEMBER([struct lyd_node.priv], [], [
     Instructions for this are included in the build documentation for your platform at http://docs.frrouting.org/projects/dev-guide/en/latest/building.html])
   ])
 ], [[#include <libyang/libyang.h>]])
+<<<<<<< HEAD
+=======
+
+AC_CHECK_LIB([yang],[lyd_find_xpath3],[],[AC_MSG_ERROR([m4_normalize([
+libyang missing lyd_find_xpath3])])])
+dnl -- don't add lyd_new_list3 to this list unless bug is fixed upstream
+dnl -- https://github.com/CESNET/libyang/issues/2149
+AC_CHECK_FUNCS([ly_strerrcode ly_strvecode lyd_trim_xpath])
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 CFLAGS="$ac_cflags_save"
 
 dnl ---------------
@@ -1982,6 +2173,7 @@ if test "$enable_config_rollbacks" = "yes"; then
 fi
 
 dnl ---------------
+<<<<<<< HEAD
 dnl confd
 dnl ---------------
 if test "$enable_confd" != "" -a "$enable_confd" != "no"; then
@@ -1998,6 +2190,8 @@ if test "$enable_confd" != "" -a "$enable_confd" != "no"; then
 fi
 
 dnl ---------------
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 dnl sysrepo
 dnl ---------------
 if test "$enable_sysrepo" = "yes"; then
@@ -2255,6 +2449,12 @@ yes)
 no)
   IRDP=false
   ;;
+<<<<<<< HEAD
+=======
+*)
+  IRDP=false
+  ;;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 esac
 
 
@@ -2635,6 +2835,7 @@ else
 fi
 AC_SUBST([CONFDATE])
 
+<<<<<<< HEAD
 dnl ------------------------------
 dnl set paths for state directory
 dnl ------------------------------
@@ -2716,6 +2917,29 @@ AC_DEFINE_UNQUOTED([MODULE_PATH], ["$CFG_MODULE"], [path to modules])
 AC_DEFINE_UNQUOTED([SCRIPT_PATH], ["$CFG_SCRIPT"], [path to scripts])
 AC_DEFINE_UNQUOTED([YANG_MODELS_PATH], ["$CFG_YANGMODELS"], [path to YANG data models])
 AC_DEFINE_UNQUOTED([WATCHFRR_SH_PATH], ["${CFG_SBIN%/}/watchfrr.sh"], [path to watchfrr.sh])
+=======
+dnl get the full path, recursing through variables...
+AC_DEFUN([AX_SUBST_EXPANDED], [
+  AX_RECURSIVE_EVAL([[$]$1], [e_$1])
+  AC_SUBST([e_$1])
+])
+
+AX_SUBST_EXPANDED([bindir])
+AX_SUBST_EXPANDED([sbindir])
+AX_SUBST_EXPANDED([frr_sysconfdir])
+AX_SUBST_EXPANDED([frr_runstatedir])
+AX_SUBST_EXPANDED([frr_libstatedir])
+AX_SUBST_EXPANDED([moduledir])
+AX_SUBST_EXPANDED([yangmodelsdir])
+AX_SUBST_EXPANDED([scriptdir])
+
+dnl strip duplicate trailing slashes if necessary
+dnl note this uses e_bindir / e_sbindir created above
+watchfrr_sh="\${e_sbindir%/}/watchfrr.sh"
+AX_SUBST_EXPANDED([watchfrr_sh])
+vtysh_bin="\${e_bindir%/}/vtysh"
+AX_SUBST_EXPANDED([vtysh_bin])
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 dnl various features
 AM_CONDITIONAL([SUPPORT_REALMS], [test "$enable_realms" = "yes"])
@@ -2723,7 +2947,10 @@ AM_CONDITIONAL([ENABLE_BGP_VNC], [test "$enable_bgp_vnc" != "no"])
 AM_CONDITIONAL([BGP_BMP], [$bgpd_bmp])
 dnl northbound
 AM_CONDITIONAL([SQLITE3], [$SQLITE3])
+<<<<<<< HEAD
 AM_CONDITIONAL([CONFD], [test "$enable_confd" != ""])
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 AM_CONDITIONAL([SYSREPO], [test "$enable_sysrepo" = "yes"])
 AM_CONDITIONAL([GRPC], [test "$enable_grpc" = "yes"])
 AM_CONDITIONAL([ZEROMQ], [test "$ZEROMQ" = "true"])
@@ -2750,6 +2977,11 @@ AM_CONDITIONAL([VTYSH], [test "$VTYSH" = "vtysh"])
 AM_CONDITIONAL([ZEBRA], [test "$enable_zebra" != "no"])
 AM_CONDITIONAL([BGPD], [test "$enable_bgpd" != "no"])
 AM_CONDITIONAL([MGMTD], [test "$enable_mgmtd" != "no"])
+<<<<<<< HEAD
+=======
+AM_CONDITIONAL([MGMTD_TESTC], [test "$enable_mgmtd_test_be_client" = "yes"])
+AM_CONDITIONAL([FPM_LISTENER], [test "enable_fpm_listener" = "yes"])
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 AM_CONDITIONAL([RIPD], [test "$enable_ripd" != "no"])
 AM_CONDITIONAL([OSPFD], [test "$enable_ospfd" != "no"])
 AM_CONDITIONAL([LDPD], [test "$enable_ldpd" != "no"])
@@ -2773,6 +3005,12 @@ AM_CONDITIONAL([PATHD], [test "$enable_pathd" != "no"])
 AM_CONDITIONAL([PATHD_PCEP], [test "$enable_pathd" != "no"])
 AM_CONDITIONAL([DP_DPDK], [test "$enable_dp_dpdk" = "yes"])
 
+<<<<<<< HEAD
+=======
+
+AM_CONDITIONAL([PYTHON_RUNTIME_DEPENDENCY], [test "$enable_python_runtime" != "no"])
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 AC_CONFIG_FILES([Makefile],[
 	test "$enable_dev_build" = "yes" && makefile_devbuild="--dev-build"
 	${PYTHON} "${ac_abs_top_srcdir}/python/makefile.py" ${makefile_devbuild} || exit 1
@@ -2787,6 +3025,10 @@ AC_CONFIG_FILES([
 	  alpine/APKBUILD
 	  snapcraft/snapcraft.yaml
 	  lib/version.h
+<<<<<<< HEAD
+=======
+	  lib/config_paths.h
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	  tests/lib/cli/test_cli.refout pkgsrc/mgmtd.sh
 	  pkgsrc/bgpd.sh pkgsrc/ospf6d.sh pkgsrc/ospfd.sh
 	  pkgsrc/ripd.sh pkgsrc/ripngd.sh pkgsrc/zebra.sh
@@ -2831,7 +3073,11 @@ fi
     FRR_ALL_CCLS_FLAGS="$(echo ${LIBYANG_CFLAGS} ${LUA_INCLUDE} ${SQLITE3_CFLAGS} | sed -e 's/  */ /g')"
     FRR_ALL_CCLS_CFLAGS="$(echo ${CFLAGS} ${WERROR} ${AC_CFLAGS} ${SAN_FLAGS} | sed -e 's/  */ /g')"
     ac_frr_confdate="${CONFDATE}"
+<<<<<<< HEAD
     ac_frr_sysconfdir="${sysconfdir}/"
+=======
+    ac_frr_sysconfdir="${frr_sysconfdir}/"
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     ])
 ])
 
@@ -2874,10 +3120,18 @@ compiler                : ${CC}
 compiler flags          : ${CFLAGS} ${WERROR} ${AC_CFLAGS} ${SAN_FLAGS}
 make                    : ${MAKE-make}
 linker flags            : ${LDFLAGS} ${SAN_FLAGS} ${LIBS} ${LIBCAP} ${LIBREADLINE} ${LIBM}
+<<<<<<< HEAD
 state file directory    : ${frr_statedir}
 config file directory   : `eval echo \`echo ${sysconfdir}\``
 module directory        : ${CFG_MODULE}
 script directory        : ${CFG_SCRIPT}
+=======
+local state file dir    : ${e_frr_libstatedir}
+run state file dir      : ${e_frr_runstatedir}
+config file directory   : ${e_frr_sysconfdir}
+module directory        : ${e_moduledir}
+script directory        : ${e_scriptdir}
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 user to run as          : ${enable_user}
 group to run as         : ${enable_group}
 group for vty sockets   : ${enable_vty_group}
@@ -2899,3 +3153,14 @@ fi
 if test "$frr_py_mod_pytest" = "false"; then
   AC_MSG_WARN([pytest is missing, unit tests cannot be performed])
 fi
+<<<<<<< HEAD
+=======
+
+if $path_warn_banner; then
+  AC_MSG_WARN([^])
+  AC_MSG_WARN([^])
+  AC_MSG_WARN([^ warnings regarding system path configuration were printed at the very top of output])
+  AC_MSG_WARN([^ paths have been adjusted by temporary workarounds])
+  AC_MSG_WARN([^ please fix your ./configure invocation (remove /frr) so it will work without the workarounds])
+fi
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)

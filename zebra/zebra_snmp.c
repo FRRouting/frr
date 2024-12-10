@@ -223,6 +223,11 @@ static int proto_trans(int type)
 		return 1; /* other */
 	case ZEBRA_ROUTE_CONNECT:
 		return 2; /* local interface */
+<<<<<<< HEAD
+=======
+	case ZEBRA_ROUTE_LOCAL:
+		return 2;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	case ZEBRA_ROUTE_STATIC:
 		return 3; /* static route */
 	case ZEBRA_ROUTE_RIP:

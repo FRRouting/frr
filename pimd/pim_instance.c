@@ -26,6 +26,11 @@
 
 static void pim_instance_terminate(struct pim_instance *pim)
 {
+<<<<<<< HEAD
+=======
+	pim->stopping = true;
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	pim_vxlan_exit(pim);
 
 	if (pim->ssm_info) {
@@ -57,6 +62,13 @@ static void pim_instance_terminate(struct pim_instance *pim)
 
 	pim_mroute_socket_disable(pim);
 
+<<<<<<< HEAD
+=======
+#if PIM_IPV == 4
+	pim_autorp_finish(pim);
+#endif
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	XFREE(MTYPE_PIM_PLIST_NAME, pim->spt.plist);
 	XFREE(MTYPE_PIM_PLIST_NAME, pim->register_plist);
 
@@ -125,6 +137,13 @@ static struct pim_instance *pim_instance_init(struct vrf *vrf)
 	pim->msdp.keep_alive = PIM_MSDP_PEER_KA_TIME;
 	pim->msdp.connection_retry = PIM_MSDP_PEER_CONNECT_RETRY_TIME;
 
+<<<<<<< HEAD
+=======
+#if PIM_IPV == 4
+	pim_autorp_init(pim);
+#endif
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	return pim;
 }
 
@@ -201,6 +220,10 @@ static int pim_vrf_config_write(struct vty *vty)
 {
 	struct vrf *vrf;
 	struct pim_instance *pim;
+<<<<<<< HEAD
+=======
+	char spaces[10];
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
 		pim = vrf->info;
@@ -208,10 +231,31 @@ static int pim_vrf_config_write(struct vty *vty)
 		if (!pim)
 			continue;
 
+<<<<<<< HEAD
 		if (vrf->vrf_id != VRF_DEFAULT)
 			vty_frame(vty, "vrf %s\n", vrf->name);
 
 		pim_global_config_write_worker(pim, vty);
+=======
+		if (vrf->vrf_id != VRF_DEFAULT) {
+			vty_frame(vty, "vrf %s\n", vrf->name);
+			snprintf(spaces, sizeof(spaces), "%s", " ");
+		} else {
+			snprintf(spaces, sizeof(spaces), "%s", "");
+		}
+
+		/* Global IGMP/MLD configuration */
+		if (pim->gm_watermark_limit != 0) {
+#if PIM_IPV == 4
+			vty_out(vty,
+				"%s" PIM_AF_NAME " igmp watermark-warn %u\n",
+				spaces, pim->gm_watermark_limit);
+#else
+			vty_out(vty, "%s" PIM_AF_NAME " mld watermark-warn %u\n",
+				spaces, pim->gm_watermark_limit);
+#endif
+		}
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 		if (vrf->vrf_id != VRF_DEFAULT)
 			vty_endframe(vty, "exit-vrf\n!\n");
@@ -238,6 +282,10 @@ void pim_vrf_terminate(void)
 		if (!pim)
 			continue;
 
+<<<<<<< HEAD
+=======
+		pim_crp_db_clear(&pim->global_scope);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		pim_ssmpingd_destroy(pim);
 		pim_instance_terminate(pim);
 
@@ -246,3 +294,16 @@ void pim_vrf_terminate(void)
 
 	vrf_terminate();
 }
+<<<<<<< HEAD
+=======
+
+bool pim_msdp_log_neighbor_events(const struct pim_instance *pim)
+{
+	return (pim->log_flags & PIM_MSDP_LOG_NEIGHBOR_EVENTS);
+}
+
+bool pim_msdp_log_sa_events(const struct pim_instance *pim)
+{
+	return (pim->log_flags & PIM_MSDP_LOG_SA_EVENTS);
+}
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)

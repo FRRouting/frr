@@ -9,6 +9,12 @@
 
 #ifdef HAVE_NETLINK
 
+<<<<<<< HEAD
+=======
+#include <linux/netlink.h>
+#include <linux/rtnetlink.h>
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 #include "if.h"
 #include "prefix.h"
 #include "vrf.h"

@@ -247,6 +247,7 @@ static bool route_add(const struct prefix *p, vrf_id_t vrf_id, uint8_t instance,
 	memcpy(&api.prefix, p, sizeof(*p));
 
 	api.flags = flags;
+<<<<<<< HEAD
 	SET_FLAG(api.message, ZAPI_MESSAGE_NEXTHOP);
 
 	/* Only send via ID if nhgroup has been successfully installed */
@@ -254,6 +255,14 @@ static bool route_add(const struct prefix *p, vrf_id_t vrf_id, uint8_t instance,
 		SET_FLAG(api.message, ZAPI_MESSAGE_NHG);
 		api.nhgid = nhgid;
 	} else {
+=======
+
+	/* Only send via ID if nhgroup has been successfully installed */
+	if (nhgid && sharp_nhgroup_id_is_installed(nhgid)) {
+		zapi_route_set_nhg_id(&api, &nhgid);
+	} else {
+		SET_FLAG(api.message, ZAPI_MESSAGE_NEXTHOP);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		for (ALL_NEXTHOPS_PTR(nhg, nh)) {
 			/* Check if we set a VNI label */
 			if (nh->nh_label &&
@@ -512,6 +521,10 @@ static int route_notify_owner(ZAPI_CALLBACK_ARGS)
 
 static void zebra_connected(struct zclient *zclient)
 {
+<<<<<<< HEAD
+=======
+	zebra_route_notify_send(ZEBRA_ROUTE_NOTIFY_REQUEST, zclient, true);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	zclient_send_reg_requests(zclient, VRF_DEFAULT);
 
 	/*
@@ -562,6 +575,15 @@ void nhg_add(uint32_t id, const struct nexthop_group *nhg,
 	}
 
 	if (api_nhg.nexthop_num == 0) {
+<<<<<<< HEAD
+=======
+		if (sharp_nhgroup_id_is_installed(id)) {
+			zlog_debug("%s: nhg %u: no nexthops, deleting nexthop group", __func__,
+				   id);
+			zclient_nhg_send(zclient, ZEBRA_NHG_DEL, &api_nhg);
+			return;
+		}
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		zlog_debug("%s: nhg %u not sent: no valid nexthops", __func__,
 			   id);
 		is_valid = false;
@@ -612,18 +634,31 @@ void nhg_del(uint32_t id)
 	zclient_nhg_send(zclient, ZEBRA_NHG_DEL, &api_nhg);
 }
 
+<<<<<<< HEAD
 void sharp_zebra_nexthop_watch(struct prefix *p, vrf_id_t vrf_id, bool import,
 			       bool watch, bool connected)
 {
 	int command;
+=======
+void sharp_zebra_nexthop_watch(struct prefix *p, vrf_id_t vrf_id, bool import, bool watch,
+			       bool connected, bool mrib)
+{
+	int command = ZEBRA_NEXTHOP_REGISTER;
+	safi_t safi = mrib ? SAFI_MULTICAST : SAFI_UNICAST;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	command = ZEBRA_NEXTHOP_REGISTER;
 
 	if (!watch)
 		command = ZEBRA_NEXTHOP_UNREGISTER;
 
+<<<<<<< HEAD
 	if (zclient_send_rnh(zclient, command, p, SAFI_UNICAST, connected,
 			     false, vrf_id) == ZCLIENT_SEND_FAILURE)
+=======
+	if (zclient_send_rnh(zclient, command, p, safi, connected, false, vrf_id) ==
+	    ZCLIENT_SEND_FAILURE)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		zlog_warn("%s: Failure to send nexthop to zebra", __func__);
 }
 
@@ -666,6 +701,7 @@ static int sharp_debug_nexthops(struct zapi_route *api)
 
 	return i;
 }
+<<<<<<< HEAD
 static int sharp_nexthop_update(ZAPI_CALLBACK_ARGS)
 {
 	struct sharp_nh_tracker *nht;
@@ -687,6 +723,22 @@ static int sharp_nexthop_update(ZAPI_CALLBACK_ARGS)
 	sharp_debug_nexthops(&nhr);
 
 	return 0;
+=======
+
+static void sharp_nexthop_update(struct vrf *vrf, struct prefix *matched,
+				 struct zapi_route *nhr)
+{
+	struct sharp_nh_tracker *nht;
+
+	zlog_debug("Received update for %pFX actual match: %pFX metric: %u",
+		   matched, &nhr->prefix, nhr->metric);
+
+	nht = sharp_nh_tracker_get(matched);
+	nht->nhop_num = nhr->nexthop_num;
+	nht->updates++;
+
+	sharp_debug_nexthops(nhr);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 }
 
 static int sharp_redistribute_route(ZAPI_CALLBACK_ARGS)
@@ -705,10 +757,18 @@ static int sharp_redistribute_route(ZAPI_CALLBACK_ARGS)
 	return 0;
 }
 
+<<<<<<< HEAD
 void sharp_redistribute_vrf(struct vrf *vrf, int type)
 {
 	zebra_redistribute_send(ZEBRA_REDISTRIBUTE_ADD, zclient, AFI_IP, type,
 				0, vrf->vrf_id);
+=======
+void sharp_redistribute_vrf(struct vrf *vrf, int type, bool turn_on)
+{
+	zebra_redistribute_send(turn_on ? ZEBRA_REDISTRIBUTE_ADD
+					: ZEBRA_REDISTRIBUTE_DELETE,
+				zclient, AFI_IP, type, 0, vrf->vrf_id);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 }
 
 static zclient_handler *const sharp_opaque_handlers[] = {
@@ -934,6 +994,10 @@ static int nhg_notify_owner(ZAPI_CALLBACK_ARGS)
 		zlog_debug("Failed install of nhg %u", id);
 		break;
 	case ZAPI_NHG_REMOVED:
+<<<<<<< HEAD
+=======
+		sharp_nhgroup_id_set_installed(id, false);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		zlog_debug("Removed nhg %u", id);
 		break;
 	case ZAPI_NHG_REMOVE_FAIL:
@@ -989,6 +1053,44 @@ static int sharp_zebra_process_srv6_locator_chunk(ZAPI_CALLBACK_ARGS)
 	return 0;
 }
 
+<<<<<<< HEAD
+=======
+static int sharp_zebra_process_neigh(ZAPI_CALLBACK_ARGS)
+{
+	union sockunion addr = {}, lladdr = {};
+	struct zapi_neigh_ip api = {};
+	struct interface *ifp;
+
+	zlog_debug("Received a neighbor event");
+	zclient_neigh_ip_decode(zclient->ibuf, &api);
+
+	if (api.ip_in.ipa_type == AF_UNSPEC)
+		return 0;
+
+	sockunion_family(&addr) = api.ip_in.ipa_type;
+	memcpy((uint8_t *)sockunion_get_addr(&addr), &api.ip_in.ip.addr,
+	       family2addrsize(api.ip_in.ipa_type));
+
+	sockunion_family(&lladdr) = api.ip_out.ipa_type;
+	if (api.ip_out.ipa_type != AF_UNSPEC)
+		memcpy((uint8_t *)sockunion_get_addr(&lladdr),
+		       &api.ip_out.ip.addr,
+		       family2addrsize(api.ip_out.ipa_type));
+	ifp = if_lookup_by_index(api.index, vrf_id);
+	if (!ifp) {
+		zlog_debug("Failed to lookup interface for neighbor entry: %u for %u",
+			   api.index, vrf_id);
+		return 0;
+	}
+
+	zlog_debug("Received: %s %pSU dev %s lladr %pSU",
+		   (cmd == ZEBRA_NEIGH_ADDED) ? "NEW" : "DEL", &addr, ifp->name,
+		   &lladdr);
+
+	return 0;
+}
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 int sharp_zebra_send_interface_protodown(struct interface *ifp, bool down)
 {
 	zlog_debug("Sending zebra to set %s protodown %s", ifp->name,
@@ -1059,11 +1161,23 @@ int sharp_zebra_send_tc_filter_rate(struct interface *ifp,
 	return 0;
 }
 
+<<<<<<< HEAD
+=======
+void sharp_zebra_register_neigh(vrf_id_t vrf_id, afi_t afi, bool reg)
+{
+	zclient_register_neigh(zclient, vrf_id, afi, reg);
+}
+
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 static zclient_handler *const sharp_handlers[] = {
 	[ZEBRA_INTERFACE_ADDRESS_ADD] = interface_address_add,
 	[ZEBRA_INTERFACE_ADDRESS_DELETE] = interface_address_delete,
 	[ZEBRA_ROUTE_NOTIFY_OWNER] = route_notify_owner,
+<<<<<<< HEAD
 	[ZEBRA_NEXTHOP_UPDATE] = sharp_nexthop_update,
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	[ZEBRA_NHG_NOTIFY_OWNER] = nhg_notify_owner,
 	[ZEBRA_REDISTRIBUTE_ROUTE_ADD] = sharp_redistribute_route,
 	[ZEBRA_REDISTRIBUTE_ROUTE_DEL] = sharp_redistribute_route,
@@ -1071,19 +1185,51 @@ static zclient_handler *const sharp_handlers[] = {
 	[ZEBRA_OPAQUE_NOTIFY] = sharp_opq_notify_handler,
 	[ZEBRA_SRV6_MANAGER_GET_LOCATOR_CHUNK] =
 		sharp_zebra_process_srv6_locator_chunk,
+<<<<<<< HEAD
+=======
+	[ZEBRA_NEIGH_ADDED] = sharp_zebra_process_neigh,
+	[ZEBRA_NEIGH_REMOVED] = sharp_zebra_process_neigh,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 };
 
 void sharp_zebra_init(void)
 {
+<<<<<<< HEAD
 	struct zclient_options opt = {.receive_notify = true};
 
 	if_zapi_callbacks(sharp_ifp_create, sharp_ifp_up, sharp_ifp_down,
 			  sharp_ifp_destroy);
 
 	zclient = zclient_new(master, &opt, sharp_handlers,
+=======
+	hook_register_prio(if_real, 0, sharp_ifp_create);
+	hook_register_prio(if_up, 0, sharp_ifp_up);
+	hook_register_prio(if_down, 0, sharp_ifp_down);
+	hook_register_prio(if_unreal, 0, sharp_ifp_destroy);
+
+	zclient = zclient_new(master, &zclient_options_default, sharp_handlers,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			      array_size(sharp_handlers));
 
 	zclient_init(zclient, ZEBRA_ROUTE_SHARP, 0, &sharp_privs);
 	zclient->zebra_connected = zebra_connected;
 	zclient->zebra_buffer_write_ready = sharp_zclient_buffer_ready;
+<<<<<<< HEAD
+=======
+	zclient->nexthop_update = sharp_nexthop_update;
+}
+
+void sharp_zebra_terminate(void)
+{
+	struct sharp_zclient *node = sharp_clients_head;
+
+	while (node) {
+		sharp_zclient_delete(node->client->session_id);
+
+		node = sharp_clients_head;
+	}
+
+	zclient_stop(zclient);
+	zclient_free(zclient);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 }

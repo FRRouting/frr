@@ -43,9 +43,15 @@
 #define DEFAULT_TIMER_SESSION_TIMEOUT_INTERVAL 30
 #define DEFAULT_DELEGATION_TIMEOUT_INTERVAL 10
 
+<<<<<<< HEAD
 /* CLI Function declarations */
 static int pcep_cli_debug_config_write(struct vty *vty);
 static int pcep_cli_debug_set_all(uint32_t flags, bool set);
+=======
+#define BUFFER_PCC_PCE_SIZE 1024
+
+/* CLI Function declarations */
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 static int pcep_cli_pcep_config_write(struct vty *vty);
 static int pcep_cli_pcc_config_write(struct vty *vty);
 static int pcep_cli_pce_config_write(struct vty *vty);
@@ -73,6 +79,12 @@ static void print_pcep_capabilities(char *buf, size_t buf_len,
 				    pcep_configuration *config);
 static void print_pcep_session(struct vty *vty, struct pce_opts *pce_opts,
 			       struct pcep_pcc_info *pcc_info);
+<<<<<<< HEAD
+=======
+static void print_pcep_session_json(struct vty *vty, struct pce_opts *pce_opts,
+				    struct pcep_pcc_info *pcc_info,
+				    json_object *json);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 static bool pcep_cli_pcc_has_pce(const char *pce_name);
 static void pcep_cli_add_pce_connection(struct pce_opts *pce_opts);
 static void pcep_cli_remove_pce_connection(struct pce_opts *pce_opts);
@@ -105,10 +117,13 @@ static const char PCEP_VTYSH_ARG_DELEGATION_TIMEOUT[] = "delegation-timeout";
 static const char PCEP_VTYSH_ARG_SR_DRAFT07[] = "sr-draft07";
 static const char PCEP_VTYSH_ARG_PCE_INIT[] = "pce-initiated";
 static const char PCEP_VTYSH_ARG_TCP_MD5[] = "tcp-md5-auth";
+<<<<<<< HEAD
 static const char PCEP_VTYSH_ARG_BASIC[] = "basic";
 static const char PCEP_VTYSH_ARG_PATH[] = "path";
 static const char PCEP_VTYSH_ARG_MESSAGE[] = "message";
 static const char PCEP_VTYSH_ARG_PCEPLIB[] = "pceplib";
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 static const char PCEP_CLI_CAP_STATEFUL[] = " [Stateful PCE]";
 static const char PCEP_CLI_CAP_INCL_DB_VER[] = " [Include DB version]";
 static const char PCEP_CLI_CAP_LSP_TRIGGERED[] = " [LSP Triggered Resync]";
@@ -458,6 +473,7 @@ static void pcep_cli_remove_pce_connection(struct pce_opts *pce_opts)
  * VTY command implementations
  */
 
+<<<<<<< HEAD
 static int path_pcep_cli_debug(struct vty *vty, const char *no_str,
 			       const char *basic_str, const char *path_str,
 			       const char *message_str, const char *pceplib_str)
@@ -479,6 +495,21 @@ static int path_pcep_cli_debug(struct vty *vty, const char *no_str,
 	if (pceplib_str != NULL) {
 		DEBUG_FLAGS_SET(&pcep_g->dbg, PCEP_DEBUG_MODE_PCEPLIB, !no);
 	}
+=======
+static int path_pcep_cli_debug(struct vty *vty, bool onoff, bool basic,
+			       bool path, bool message, bool lib)
+{
+	uint32_t mode = DEBUG_NODE2MODE(vty->node);
+
+	if (basic)
+		DEBUG_MODE_SET(&pcep_g->dbg_basic, mode, onoff);
+	if (path)
+		DEBUG_MODE_SET(&pcep_g->dbg_path, mode, onoff);
+	if (message)
+		DEBUG_MODE_SET(&pcep_g->dbg_msg, mode, onoff);
+	if (lib)
+		DEBUG_MODE_SET(&pcep_g->dbg_lib, mode, onoff);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	return CMD_SUCCESS;
 }
@@ -1022,7 +1053,11 @@ static int path_pcep_cli_pcc_pcc_msd(struct vty *vty, const char *msd_str,
 {
 	if (reset)
 		pcc_msd_configured_g = false;
+<<<<<<< HEAD
 	else {
+=======
+	else if (msd_str) {
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		pcc_msd_configured_g = true;
 		PCEP_VTYSH_INT_ARG_CHECK(msd_str, msd, pcc_msd_g, 0, 33);
 	}
@@ -1183,10 +1218,194 @@ static void print_pcep_capabilities(char *buf, size_t buf_len,
 }
 
 /* Internal util function to print a pcep session */
+<<<<<<< HEAD
+=======
+static void print_pcep_session_json(struct vty *vty, struct pce_opts *pce_opts,
+				    struct pcep_pcc_info *pcc_info,
+				    json_object *json)
+{
+	char buf[BUFFER_PCC_PCE_SIZE] = {};
+	int index = 0;
+	pcep_session *session;
+	struct pcep_config_group_opts *config_opts;
+	struct counters_group *group;
+
+	/* PCE IP */
+	if (IS_IPADDR_V4(&pce_opts->addr))
+		json_object_string_addf(json, "pceAddress", "%pI4",
+					&pce_opts->addr.ipaddr_v4);
+	else if (IS_IPADDR_V6(&pce_opts->addr))
+		json_object_string_addf(json, "pceAddress", "%pI6",
+					&pce_opts->addr.ipaddr_v6);
+	json_object_int_add(json, "pcePort", pce_opts->port);
+
+	/* PCC IP */
+	if (IS_IPADDR_V4(&pcc_info->pcc_addr))
+		json_object_string_addf(json, "pccAddress", "%pI4",
+					&pcc_info->pcc_addr.ipaddr_v4);
+	else if (IS_IPADDR_V6(&pcc_info->pcc_addr))
+		json_object_string_addf(json, "pccAddress", "%pI6",
+					&pcc_info->pcc_addr.ipaddr_v6);
+
+	json_object_int_add(json, "pccPort", pcc_info->pcc_port);
+	json_object_int_add(json, "pccMsd", pcc_info->msd);
+
+	if (pcc_info->status == PCEP_PCC_OPERATING)
+		json_object_string_add(json, "sessionStatus", "UP");
+	else
+		json_object_string_add(json, "sessionStatus",
+				       pcc_status_name(pcc_info->status));
+
+	json_object_boolean_add(json, "bestMultiPce",
+				pcc_info->is_best_multi_pce);
+	json_object_int_add(json, "precedence",
+			    pcc_info->precedence > 0 ? pcc_info->precedence
+						     : DEFAULT_PCE_PRECEDENCE);
+	json_object_string_add(json, "confidence",
+			       pcc_info->previous_best ? "low" : "normal");
+
+	/* PCEPlib pcep session values, get a thread safe copy of the counters
+	 */
+	session = pcep_ctrl_get_pcep_session(pcep_g->fpt, pcc_info->pcc_id);
+
+	/* Config Options values */
+	config_opts = &pce_opts->config_opts;
+	json_object_int_add(json, "keepaliveConfig",
+			    config_opts->keep_alive_seconds);
+	json_object_int_add(json, "deadTimerConfig",
+			    config_opts->dead_timer_seconds);
+	json_object_int_add(json, "pccPcepRequestTimerConfig",
+			    config_opts->pcep_request_time_seconds);
+	json_object_int_add(json, "sessionTimeoutIntervalSec",
+			    config_opts->session_timeout_inteval_seconds);
+	json_object_int_add(json, "delegationTimeout",
+			    config_opts->delegation_timeout_seconds);
+	json_object_boolean_add(json, "tcpMd5Authentication",
+				(strlen(config_opts->tcp_md5_auth) > 0));
+	if (strlen(config_opts->tcp_md5_auth) > 0)
+		json_object_string_add(json, "tcpMd5AuthenticationString",
+				       config_opts->tcp_md5_auth);
+	json_object_boolean_add(json, "draft07", !!config_opts->draft07);
+	json_object_boolean_add(json, "draft16AndRfc8408",
+				!config_opts->draft07);
+
+	json_object_int_add(json, "nextPcRequestId", pcc_info->next_reqid);
+	/* original identifier used by the PCC for LSP instantiation */
+	json_object_int_add(json, "nextPLspId", pcc_info->next_plspid);
+
+	if (session != NULL) {
+		json_object_int_add(json, "sessionKeepalivePceNegotiatedSec",
+				    session->pcc_config
+					    .keep_alive_pce_negotiated_timer_seconds);
+		json_object_int_add(json, "sessionDeadTimerPceNegotiatedSec",
+				    session->pcc_config
+					    .dead_timer_pce_negotiated_seconds);
+		if (pcc_info->status == PCEP_PCC_SYNCHRONIZING ||
+		    pcc_info->status == PCEP_PCC_OPERATING) {
+			time_t current_time = time(NULL);
+			struct tm lt = { 0 };
+			/* Just for the timezone */
+			localtime_r(&current_time, &lt);
+			gmtime_r(&session->time_connected, &lt);
+			json_object_int_add(json, "sessionConnectionDurationSec",
+					    (uint32_t)(current_time -
+						       session->time_connected));
+			json_object_string_addf(json,
+						"sessionConnectionStartTimeUTC",
+						"%d-%02d-%02d %02d:%02d:%02d",
+						lt.tm_year + 1900, lt.tm_mon + 1,
+						lt.tm_mday, lt.tm_hour,
+						lt.tm_min, lt.tm_sec);
+		}
+
+		/* PCC capabilities */
+		buf[0] = '\0';
+
+		if (config_opts->pce_initiated)
+			index += csnprintfrr(buf, sizeof(buf), "%s",
+					     PCEP_CLI_CAP_PCC_PCE_INITIATED);
+		else
+			index += csnprintfrr(buf, sizeof(buf), "%s",
+					     PCEP_CLI_CAP_PCC_INITIATED);
+		print_pcep_capabilities(buf, sizeof(buf) - index,
+					&session->pcc_config);
+		json_object_string_add(json, "pccCapabilities", buf);
+
+		/* PCE capabilities */
+		buf[0] = '\0';
+		print_pcep_capabilities(buf, sizeof(buf), &session->pce_config);
+		if (buf[0] != '\0')
+			json_object_string_add(json, "pceCapabilities", buf);
+		XFREE(MTYPE_PCEP, session);
+	} else {
+		json_object_string_add(json, "warningSession",
+				       "Detailed session information not available.");
+	}
+
+	/* Message Counters, get a thread safe copy of the counters */
+	group = pcep_ctrl_get_counters(pcep_g->fpt, pcc_info->pcc_id);
+
+	if (group != NULL) {
+		struct counters_subgroup *rx_msgs =
+			find_subgroup(group, COUNTER_SUBGROUP_ID_RX_MSG);
+		struct counters_subgroup *tx_msgs =
+			find_subgroup(group, COUNTER_SUBGROUP_ID_TX_MSG);
+		json_object *json_counter;
+		struct counter *tx_counter, *rx_counter;
+
+		if (rx_msgs != NULL) {
+			json_counter = json_object_new_object();
+			for (int i = 0; i < rx_msgs->max_counters; i++) {
+				rx_counter = rx_msgs->counters[i];
+
+				if (rx_counter &&
+				    rx_counter->counter_name_json[0] != '\0')
+					json_object_int_add(
+						json_counter,
+						rx_counter->counter_name_json,
+						rx_counter->counter_value);
+			}
+			json_object_int_add(json_counter, "total",
+					    subgroup_counters_total(rx_msgs));
+			json_object_object_add(json, "messageStatisticsReceived",
+					       json_counter);
+		}
+		if (tx_msgs != NULL) {
+			json_counter = json_object_new_object();
+			for (int i = 0; i < tx_msgs->max_counters; i++) {
+				tx_counter = tx_msgs->counters[i];
+
+				if (tx_counter &&
+				    tx_counter->counter_name_json[0] != '\0')
+					json_object_int_add(
+						json_counter,
+						tx_counter->counter_name_json,
+						tx_counter->counter_value);
+			}
+			json_object_int_add(json_counter, "total",
+					    subgroup_counters_total(tx_msgs));
+			json_object_object_add(json, "messageStatisticsSent",
+					       json_counter);
+		}
+		pcep_lib_free_counters(group);
+	} else {
+		json_object_string_add(json, "messageStatisticsWarning",
+				       "Counters not available.");
+	}
+
+	XFREE(MTYPE_PCEP, pcc_info);
+}
+
+/* Internal util function to print a pcep session */
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 static void print_pcep_session(struct vty *vty, struct pce_opts *pce_opts,
 			       struct pcep_pcc_info *pcc_info)
 {
 	char buf[1024];
+<<<<<<< HEAD
+=======
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	buf[0] = '\0';
 
 	vty_out(vty, "\nPCE %s\n", pce_opts->pce_name);
@@ -1237,6 +1456,10 @@ static void print_pcep_session(struct vty *vty, struct pce_opts *pce_opts,
 
 	/* Config Options values */
 	struct pcep_config_group_opts *config_opts = &pce_opts->config_opts;
+<<<<<<< HEAD
+=======
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	if (session != NULL) {
 		vty_out(vty, " Timer: KeepAlive config %d, pce-negotiated %d\n",
 			config_opts->keep_alive_seconds,
@@ -1352,6 +1575,7 @@ static void print_pcep_session(struct vty *vty, struct pce_opts *pce_opts,
 }
 
 static int path_pcep_cli_show_srte_pcep_session(struct vty *vty,
+<<<<<<< HEAD
 						const char *pcc_peer)
 {
 	struct pce_opts_cli *pce_opts_cli;
@@ -1362,17 +1586,55 @@ static int path_pcep_cli_show_srte_pcep_session(struct vty *vty,
 		pce_opts_cli = pcep_cli_find_pce(pcc_peer);
 		if (pce_opts_cli == NULL) {
 			vty_out(vty, "%% PCE [%s] does not exist.\n", pcc_peer);
+=======
+						const char *pcc_peer, bool uj)
+{
+	struct pce_opts_cli *pce_opts_cli;
+	struct pcep_pcc_info *pcc_info;
+	json_object *json = NULL;
+
+	if (uj)
+		json = json_object_new_object();
+
+	/* Only show 1 PCEP session */
+	if (pcc_peer != NULL) {
+		if (json)
+			json_object_string_add(json, "pceName", pcc_peer);
+		pce_opts_cli = pcep_cli_find_pce(pcc_peer);
+		if (pce_opts_cli == NULL) {
+			if (json) {
+				json_object_string_addf(json, "warning",
+							"PCE [%s] does not exist.",
+							pcc_peer);
+				vty_json(vty, json);
+			} else
+				vty_out(vty, "%% PCE [%s] does not exist.\n",
+					pcc_peer);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			return CMD_WARNING;
 		}
 
 		if (!pcep_cli_pcc_has_pce(pcc_peer)) {
+<<<<<<< HEAD
 			vty_out(vty, "%% PCC is not connected to PCE [%s].\n",
 				pcc_peer);
+=======
+			if (json) {
+				json_object_string_addf(json, "warning",
+							"PCC is not connected to PCE [%s].",
+							pcc_peer);
+				vty_json(vty, json);
+			} else
+				vty_out(vty,
+					"%% PCC is not connected to PCE [%s].\n",
+					pcc_peer);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			return CMD_WARNING;
 		}
 
 		pcc_info = pcep_ctrl_get_pcc_info(pcep_g->fpt, pcc_peer);
 		if (pcc_info == NULL) {
+<<<<<<< HEAD
 			vty_out(vty,
 				"%% Cannot retrieve PCEP session info for PCE [%s]\n",
 				pcc_peer);
@@ -1380,6 +1642,27 @@ static int path_pcep_cli_show_srte_pcep_session(struct vty *vty,
 		}
 
 		print_pcep_session(vty, &pce_opts_cli->pce_opts, pcc_info);
+=======
+			if (json) {
+				json_object_string_addf(json, "warning",
+							"Cannot retrieve PCEP session info for PCE [%s].",
+							pcc_peer);
+				vty_json(vty, json);
+			} else
+				vty_out(vty,
+					"%% Cannot retrieve PCEP session info for PCE [%s]\n",
+					pcc_peer);
+			return CMD_WARNING;
+		}
+
+		if (json) {
+			print_pcep_session_json(vty, &pce_opts_cli->pce_opts,
+						pcc_info, json);
+			vty_json(vty, json);
+		} else
+			print_pcep_session(vty, &pce_opts_cli->pce_opts,
+					   pcc_info);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 		return CMD_SUCCESS;
 	}
@@ -1388,29 +1671,76 @@ static int path_pcep_cli_show_srte_pcep_session(struct vty *vty,
 	struct pce_opts *pce_opts;
 	int num_pcep_sessions_conf = 0;
 	int num_pcep_sessions_conn = 0;
+<<<<<<< HEAD
+=======
+	json_object *json_array = NULL, *json_entry = NULL;
+
+	if (json)
+		json_array = json_object_new_array();
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	for (int i = 0; i < MAX_PCC; i++) {
 		pce_opts = pce_connections_g.connections[i];
 		if (pce_opts == NULL) {
 			continue;
 		}
 
+<<<<<<< HEAD
 		pcc_info =
 			pcep_ctrl_get_pcc_info(pcep_g->fpt, pce_opts->pce_name);
 		if (pcc_info == NULL) {
 			vty_out(vty,
 				"%% Cannot retrieve PCEP session info for PCE [%s]\n",
 				pce_opts->pce_name);
+=======
+		if (json) {
+			json_entry = json_object_new_object();
+			json_object_string_add(json_entry, "pceName",
+					       pce_opts->pce_name);
+		}
+		pcc_info =
+			pcep_ctrl_get_pcc_info(pcep_g->fpt, pce_opts->pce_name);
+		if (pcc_info == NULL) {
+			if (json_entry) {
+				json_object_string_addf(json_entry, "warning",
+							"Cannot retrieve PCEP session info for PCE [%s].",
+							pce_opts->pce_name);
+				json_object_array_add(json_array, json_entry);
+			} else
+				vty_out(vty,
+					"%% Cannot retrieve PCEP session info for PCE [%s]\n",
+					pce_opts->pce_name);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			continue;
 		}
 
 		num_pcep_sessions_conn +=
 			pcc_info->status == PCEP_PCC_OPERATING ? 1 : 0;
 		num_pcep_sessions_conf++;
+<<<<<<< HEAD
 		print_pcep_session(vty, pce_opts, pcc_info);
 	}
 
 	vty_out(vty, "PCEP Sessions => Configured %d ; Connected %d\n",
 		num_pcep_sessions_conf, num_pcep_sessions_conn);
+=======
+		if (json_entry) {
+			print_pcep_session_json(vty, pce_opts, pcc_info,
+						json_entry);
+			json_object_array_add(json_array, json_entry);
+		} else
+			print_pcep_session(vty, pce_opts, pcc_info);
+	}
+	if (json) {
+		json_object_object_add(json, "pcepSessions", json_array);
+		json_object_int_add(json, "pcepSessionsConfigured",
+				    num_pcep_sessions_conf);
+		json_object_int_add(json, "pcepSessionsConnected",
+				    num_pcep_sessions_conn);
+		vty_json(vty, json);
+	} else
+		vty_out(vty, "PCEP Sessions => Configured %d ; Connected %d\n",
+			num_pcep_sessions_conf, num_pcep_sessions_conn);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	return CMD_SUCCESS;
 }
@@ -1465,6 +1795,7 @@ static int path_pcep_cli_clear_srte_pcep_session(struct vty *vty,
  * Config Write functions
  */
 
+<<<<<<< HEAD
 int pcep_cli_debug_config_write(struct vty *vty)
 {
 	char buff[128] = "";
@@ -1501,6 +1832,8 @@ int pcep_cli_debug_set_all(uint32_t flags, bool set)
 	return 0;
 }
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 int pcep_cli_pcep_config_write(struct vty *vty)
 {
 	vty_out(vty, "  pcep\n");
@@ -1702,7 +2035,11 @@ int pcep_cli_pce_config_write(struct vty *vty)
 				&pce_opts->addr.ipaddr_v4);
 		}
 		if (pce_opts->port != PCEP_DEFAULT_PORT) {
+<<<<<<< HEAD
 			vty_out(vty, "    %s %d", PCEP_VTYSH_ARG_PORT,
+=======
+			vty_out(vty, " %s %d", PCEP_VTYSH_ARG_PORT,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 				pce_opts->port);
 		}
 		vty_out(vty, "%s\n", buf);
@@ -1759,6 +2096,7 @@ int pcep_cli_pcep_pce_config_write(struct vty *vty)
  * The param names are taken from the path_pcep_cli_clippy.c generated file.
  */
 
+<<<<<<< HEAD
 DEFPY(show_debugging_pathd_pcep,
       show_debugging_pathd_pcep_cmd,
       "show debugging pathd-pcep",
@@ -1789,6 +2127,11 @@ DEFPY(show_debugging_pathd_pcep,
 DEFPY(pcep_cli_debug,
       pcep_cli_debug_cmd,
       "[no] debug pathd pcep [basic]$basic_str [path]$path_str [message]$message_str [pceplib]$pceplib_str",
+=======
+DEFPY(pcep_cli_debug,
+      pcep_cli_debug_cmd,
+      "[no] debug pathd pcep [{basic$basic|path$path|message$msg|pceplib$lib}]",
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
       NO_STR DEBUG_STR
       "pathd debugging\n"
       "pcep module debugging\n"
@@ -1797,8 +2140,16 @@ DEFPY(pcep_cli_debug,
       "pcep message debugging\n"
       "pceplib debugging\n")
 {
+<<<<<<< HEAD
 	return path_pcep_cli_debug(vty, no, basic_str, path_str, message_str,
 				   pceplib_str);
+=======
+	if (strmatch(argv[argc - 1]->text, "pcep"))
+		return path_pcep_cli_debug(vty, !no, true, true, true, true);
+	else
+		return path_pcep_cli_debug(vty, !no, !!basic, !!path, !!msg,
+					   !!lib);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 }
 
 DEFPY(pcep_cli_show_srte_pcep_counters,
@@ -2040,12 +2391,29 @@ DEFPY(pcep_cli_no_pcc,
 
 DEFPY(pcep_cli_pcc_pcc_msd,
       pcep_cli_pcc_pcc_msd_cmd,
+<<<<<<< HEAD
       "[no] msd (1-32)",
+=======
+      "msd (1-32)",
+      "PCC maximum SID depth \n"
+      "PCC maximum SID depth value\n")
+{
+	return path_pcep_cli_pcc_pcc_msd(vty, msd_str, msd, false);
+}
+
+DEFPY(no_pcep_cli_pcc_pcc_msd,
+      no_pcep_cli_pcc_pcc_msd_cmd,
+      "no msd [(1-32)]",
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
       NO_STR
       "PCC maximum SID depth \n"
       "PCC maximum SID depth value\n")
 {
+<<<<<<< HEAD
 	return path_pcep_cli_pcc_pcc_msd(vty, msd_str, msd, no);
+=======
+	return path_pcep_cli_pcc_pcc_msd(vty, msd_str, msd, true);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 }
 
 DEFPY(pcep_cli_pcc_pcc_peer,
@@ -2079,14 +2447,37 @@ DEFPY(pcep_cli_show_srte_pcc,
 
 DEFPY(pcep_cli_show_srte_pcep_session,
       pcep_cli_show_srte_pcep_session_cmd,
+<<<<<<< HEAD
       "show sr-te pcep session [WORD]$pce",
+=======
+      "show sr-te pcep session WORD$pce [json$uj]",
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
       SHOW_STR
       "SR-TE info\n"
       "PCEP info\n"
       "Show PCEP Session information\n"
+<<<<<<< HEAD
       "PCE name\n")
 {
 	return path_pcep_cli_show_srte_pcep_session(vty, pce);
+=======
+      "PCE name\n"
+      JSON_STR)
+{
+	return path_pcep_cli_show_srte_pcep_session(vty, pce, !!uj);
+}
+
+DEFPY(pcep_cli_show_srte_pcep_sessions,
+      pcep_cli_show_srte_pcep_sessions_cmd,
+      "show sr-te pcep session [json$uj]",
+      SHOW_STR
+      "SR-TE info\n"
+      "PCEP info\n"
+      "Show PCEP Session information\n"
+      JSON_STR)
+{
+	return path_pcep_cli_show_srte_pcep_session(vty, NULL, !!uj);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 }
 
 DEFPY(pcep_cli_clear_srte_pcep_session,
@@ -2104,9 +2495,17 @@ DEFPY(pcep_cli_clear_srte_pcep_session,
 void pcep_cli_init(void)
 {
 	hook_register(pathd_srte_config_write, pcep_cli_pcep_config_write);
+<<<<<<< HEAD
 	hook_register(nb_client_debug_config_write,
 		      pcep_cli_debug_config_write);
 	hook_register(nb_client_debug_set_all, pcep_cli_debug_set_all);
+=======
+
+	debug_install(&pcep_g->dbg_basic);
+	debug_install(&pcep_g->dbg_path);
+	debug_install(&pcep_g->dbg_msg);
+	debug_install(&pcep_g->dbg_lib);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	memset(&pce_connections_g, 0, sizeof(pce_connections_g));
 
@@ -2150,14 +2549,25 @@ void pcep_cli_init(void)
 	install_element(PCEP_NODE, &pcep_cli_no_pcc_cmd);
 	install_element(PCEP_PCC_NODE, &pcep_cli_pcc_pcc_peer_cmd);
 	install_element(PCEP_PCC_NODE, &pcep_cli_pcc_pcc_msd_cmd);
+<<<<<<< HEAD
+=======
+	install_element(PCEP_PCC_NODE, &no_pcep_cli_pcc_pcc_msd_cmd);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	/* Top commands */
 	install_element(CONFIG_NODE, &pcep_cli_debug_cmd);
 	install_element(ENABLE_NODE, &pcep_cli_debug_cmd);
+<<<<<<< HEAD
 	install_element(ENABLE_NODE, &show_debugging_pathd_pcep_cmd);
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	install_element(ENABLE_NODE, &pcep_cli_show_srte_pcep_counters_cmd);
 	install_element(ENABLE_NODE, &pcep_cli_show_srte_pcep_pce_config_cmd);
 	install_element(ENABLE_NODE, &pcep_cli_show_srte_pcep_pce_cmd);
 	install_element(ENABLE_NODE, &pcep_cli_show_srte_pcep_session_cmd);
+<<<<<<< HEAD
+=======
+	install_element(ENABLE_NODE, &pcep_cli_show_srte_pcep_sessions_cmd);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	install_element(ENABLE_NODE, &pcep_cli_clear_srte_pcep_session_cmd);
 }

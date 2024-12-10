@@ -26,8 +26,12 @@ The *zebra* daemon must be running before *babeld* is
 invoked. Also, if *zebra* is restarted then *babeld*
 must be too.
 
+<<<<<<< HEAD
 Configuration of *babeld* is done in its configuration file
 :file:`babeld.conf`.
+=======
+.. include:: config-include.rst
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 .. _babel-configuration:
 

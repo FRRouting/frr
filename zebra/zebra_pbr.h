@@ -46,7 +46,11 @@ struct zebra_pbr_rule {
 
 	struct pbr_rule rule;
 
+<<<<<<< HEAD
 	char ifname[INTERFACE_NAMSIZ];
+=======
+	char ifname[IFNAMSIZ];
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	struct zebra_pbr_action action;
 

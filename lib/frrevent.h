@@ -6,6 +6,10 @@
 #ifndef _ZEBRA_THREAD_H
 #define _ZEBRA_THREAD_H
 
+<<<<<<< HEAD
+=======
+#include <signal.h>
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 #include <zebra.h>
 #include <pthread.h>
 #include <poll.h>
@@ -84,13 +88,21 @@ struct event_loop {
 	int io_pipe[2];
 	int fd_limit;
 	struct fd_handler handler;
+<<<<<<< HEAD
 	unsigned long alloc;
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	long selectpoll_timeout;
 	bool spin;
 	bool handle_signals;
 	pthread_mutex_t mtx;
 	pthread_t owner;
 
+<<<<<<< HEAD
+=======
+	nfds_t last_read;
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	bool ready_run_loop;
 	RUSAGE_T last_getrusage;
 };
@@ -153,6 +165,15 @@ struct cpu_event_history {
 /* Struct timeval's tv_usec one second value.  */
 #define TIMER_SECOND_MICRO 1000000L
 
+<<<<<<< HEAD
+=======
+static inline unsigned long timeval_elapsed(struct timeval a, struct timeval b)
+{
+	return (((a.tv_sec - b.tv_sec) * TIMER_SECOND_MICRO)
+		+ (a.tv_usec - b.tv_usec));
+}
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 /* Event yield time.  */
 #define EVENT_YIELD_TIME_SLOT 10 * 1000L /* 10ms */
 
@@ -218,7 +239,10 @@ struct cpu_event_history {
 extern struct event_loop *event_master_create(const char *name);
 void event_master_set_name(struct event_loop *master, const char *name);
 extern void event_master_free(struct event_loop *m);
+<<<<<<< HEAD
 extern void event_master_free_unused(struct event_loop *m);
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 extern void _event_add_read_write(const struct xref_eventsched *xref,
 				  struct event_loop *master,

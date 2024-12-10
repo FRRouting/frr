@@ -5,6 +5,10 @@
  */
 
 #include <zebra.h>
+<<<<<<< HEAD
+=======
+#include <fcntl.h>
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 #ifdef HAVE_NETNS
 #undef _GNU_SOURCE
@@ -257,7 +261,11 @@ static void ns_disable_internal(struct ns *ns)
 		if (ns_master.ns_disable_hook)
 			(*ns_master.ns_disable_hook)(ns);
 
+<<<<<<< HEAD
 		if (have_netns())
+=======
+		if (have_netns() && ns->fd >= 0)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			close(ns->fd);
 
 		ns->fd = -1;
@@ -502,12 +510,25 @@ void ns_init_management(ns_id_t default_ns_id, ns_id_t internal_ns)
 void ns_terminate(void)
 {
 	struct ns *ns;
+<<<<<<< HEAD
+=======
+	struct ns_map_nsid *ns_map;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	while (!RB_EMPTY(ns_head, &ns_tree)) {
 		ns = RB_ROOT(ns_head, &ns_tree);
 
 		ns_delete(ns);
 	}
+<<<<<<< HEAD
+=======
+
+	while (!RB_EMPTY(ns_map_nsid_head, &ns_map_nsid_list)) {
+		ns_map = RB_ROOT(ns_map_nsid_head, &ns_map_nsid_list);
+		RB_REMOVE(ns_map_nsid_head, &ns_map_nsid_list, ns_map);
+		XFREE(MTYPE_NS, ns_map);
+	}
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 }
 
 int ns_switch_to_netns(const char *name)

@@ -119,7 +119,11 @@ def setup_module(mod):
     logger.info("Running setup_module() done")
 
 
+<<<<<<< HEAD
 def teardown_module(mod):
+=======
+def teardown_module():
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     """
     Teardown the pytest environment.
 
@@ -165,7 +169,11 @@ def test_ospf_learning_tc15_p0(request):
 
     step("Verify that Type 3 summary LSA is originated for the same Area 0")
     ip = topo["routers"]["r1"]["links"]["r3-link0"]["ipv4"]
+<<<<<<< HEAD
     ip_net = str(ipaddress.ip_interface(u"{}".format(ip)).network)
+=======
+    ip_net = str(ipaddress.ip_interface("{}".format(ip)).network)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
     dut = "r0"
     input_dict = {

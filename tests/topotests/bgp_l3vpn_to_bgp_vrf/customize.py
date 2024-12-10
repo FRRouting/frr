@@ -165,6 +165,11 @@ def ltemplatePreRouterStartHook():
     cmds = [
         "ip link add {0}-cust4 type vrf table 30",
         "ip link set dev {0}-cust4 up",
+<<<<<<< HEAD
+=======
+        "ip link add {0}-cust5 type vrf table 40",
+        "ip link set dev {0}-cust5 up",
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     ]
     rtr = "r1"
     for cmd in cmds:

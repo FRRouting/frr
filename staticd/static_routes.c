@@ -87,11 +87,14 @@ void zebra_stable_node_cleanup(struct route_table *table,
 /* Install static path into rib. */
 void static_install_path(struct static_path *pn)
 {
+<<<<<<< HEAD
 	struct static_nexthop *nh;
 
 	frr_each(static_nexthop_list, &pn->nexthop_list, nh)
 		static_zebra_nht_register(nh, true);
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	if (static_nexthop_list_count(&pn->nexthop_list))
 		static_zebra_route_add(pn, true);
 }
@@ -245,6 +248,7 @@ void static_del_path(struct static_path *pn)
 	XFREE(MTYPE_STATIC_PATH, pn);
 }
 
+<<<<<<< HEAD
 struct static_nexthop *static_add_nexthop(struct static_path *pn,
 					  enum static_nh_type type,
 					  struct ipaddr *ipaddr,
@@ -254,12 +258,26 @@ struct static_nexthop *static_add_nexthop(struct static_path *pn,
 	struct route_node *rn = pn->rn;
 	struct static_nexthop *nh;
 	struct static_vrf *nh_svrf;
+=======
+struct static_nexthop *
+static_add_nexthop(struct static_path *pn, enum static_nh_type type,
+		   struct ipaddr *ipaddr, const char *ifname,
+		   const char *nh_vrfname, uint32_t color)
+{
+	struct route_node *rn = pn->rn;
+	struct static_nexthop *nh;
+	struct vrf *nh_vrf;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	struct interface *ifp;
 	struct static_nexthop *cp;
 
 	route_lock_node(rn);
 
+<<<<<<< HEAD
 	nh_svrf = static_vrf_lookup_by_name(nh_vrf);
+=======
+	nh_vrf = vrf_lookup_by_name(nh_vrfname);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	/* Make new static route structure. */
 	nh = XCALLOC(MTYPE_STATIC_NEXTHOP, sizeof(struct static_nexthop));
@@ -274,8 +292,13 @@ struct static_nexthop *static_add_nexthop(struct static_path *pn,
 	if (nh->type == STATIC_BLACKHOLE)
 		nh->bh_type = STATIC_BLACKHOLE_NULL;
 
+<<<<<<< HEAD
 	nh->nh_vrf_id = nh_svrf ? nh_svrf->vrf->vrf_id : VRF_UNKNOWN;
 	strlcpy(nh->nh_vrfname, nh_vrf, sizeof(nh->nh_vrfname));
+=======
+	nh->nh_vrf_id = nh_vrf ? nh_vrf->vrf_id : VRF_UNKNOWN;
+	strlcpy(nh->nh_vrfname, nh_vrfname, sizeof(nh->nh_vrfname));
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	if (ifname)
 		strlcpy(nh->ifname, ifname, sizeof(nh->ifname));
@@ -378,6 +401,20 @@ void static_install_nexthop(struct static_nexthop *nh)
 	}
 }
 
+<<<<<<< HEAD
+=======
+void static_uninstall_nexthop(struct static_nexthop *nh)
+{
+	struct static_path *pn = nh->pn;
+
+	if (nh->nh_vrf_id == VRF_UNKNOWN)
+		return;
+
+	static_zebra_nht_register(nh, false);
+	static_uninstall_path(pn);
+}
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 void static_delete_nexthop(struct static_nexthop *nh)
 {
 	struct static_path *pn = nh->pn;
@@ -387,6 +424,7 @@ void static_delete_nexthop(struct static_nexthop *nh)
 	/* Remove BFD session/configuration if any. */
 	bfd_sess_free(&nh->bsp);
 
+<<<<<<< HEAD
 	if (nh->nh_vrf_id == VRF_UNKNOWN)
 		goto EXIT;
 
@@ -398,6 +436,10 @@ void static_delete_nexthop(struct static_nexthop *nh)
 	static_uninstall_path(pn);
 
 EXIT:
+=======
+	static_uninstall_nexthop(nh);
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	route_unlock_node(rn);
 	/* Free static route configuration. */
 	XFREE(MTYPE_STATIC_NEXTHOP, nh);
@@ -437,6 +479,7 @@ static void static_ifindex_update_af(struct interface *ifp, bool up, afi_t afi,
 	struct route_node *rn;
 	struct static_nexthop *nh;
 	struct static_path *pn;
+<<<<<<< HEAD
 	struct vrf *vrf;
 	struct static_route_info *si;
 
@@ -445,6 +488,12 @@ static void static_ifindex_update_af(struct interface *ifp, bool up, afi_t afi,
 
 		svrf = vrf->info;
 
+=======
+	struct static_vrf *svrf;
+	struct static_route_info *si;
+
+	RB_FOREACH (svrf, svrf_name_head, &svrfs) {
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		stable = static_vrf_static_table(afi, safi, svrf);
 		if (!stable)
 			continue;
@@ -476,8 +525,13 @@ static void static_ifindex_update_af(struct interface *ifp, bool up, afi_t afi,
  * afi -> The afi to look at
  * safi -> the safi to look at
  */
+<<<<<<< HEAD
 static void static_fixup_vrf(struct static_vrf *svrf,
 			     struct route_table *stable, afi_t afi, safi_t safi)
+=======
+static void static_fixup_vrf(struct vrf *vrf, struct route_table *stable,
+			     afi_t afi, safi_t safi)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 {
 	struct route_node *rn;
 	struct static_nexthop *nh;
@@ -491,6 +545,7 @@ static void static_fixup_vrf(struct static_vrf *svrf,
 			continue;
 		frr_each(static_path_list, &si->path_list, pn) {
 			frr_each(static_nexthop_list, &pn->nexthop_list, nh) {
+<<<<<<< HEAD
 				if (strcmp(svrf->vrf->name, nh->nh_vrfname)
 				    != 0)
 					continue;
@@ -498,6 +553,13 @@ static void static_fixup_vrf(struct static_vrf *svrf,
 				nh->nh_vrf_id = svrf->vrf->vrf_id;
 				nh->nh_registered = false;
 				if (nh->ifindex) {
+=======
+				if (strcmp(vrf->name, nh->nh_vrfname) != 0)
+					continue;
+
+				nh->nh_vrf_id = vrf->vrf_id;
+				if (nh->ifname[0]) {
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 					ifp = if_lookup_by_name(nh->ifname,
 								nh->nh_vrf_id);
 					if (ifp)
@@ -506,7 +568,11 @@ static void static_fixup_vrf(struct static_vrf *svrf,
 						continue;
 				}
 
+<<<<<<< HEAD
 				static_install_path(pn);
+=======
+				static_install_nexthop(nh);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			}
 		}
 	}
@@ -521,6 +587,7 @@ static void static_fixup_vrf(struct static_vrf *svrf,
  * afi -> the afi in question
  * safi -> the safi in question
  */
+<<<<<<< HEAD
 static void static_enable_vrf(struct static_vrf *svrf,
 			      struct route_table *stable, afi_t afi,
 			      safi_t safi)
@@ -528,6 +595,11 @@ static void static_enable_vrf(struct static_vrf *svrf,
 	struct route_node *rn;
 	struct static_nexthop *nh;
 	struct interface *ifp;
+=======
+static void static_enable_vrf(struct route_table *stable, afi_t afi, safi_t safi)
+{
+	struct route_node *rn;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	struct static_path *pn;
 	struct static_route_info *si;
 
@@ -535,6 +607,7 @@ static void static_enable_vrf(struct static_vrf *svrf,
 		si = static_route_info_from_rnode(rn);
 		if (!si)
 			continue;
+<<<<<<< HEAD
 		frr_each(static_path_list, &si->path_list, pn) {
 			frr_each(static_nexthop_list, &pn->nexthop_list, nh) {
 				if (nh->ifindex) {
@@ -550,6 +623,10 @@ static void static_enable_vrf(struct static_vrf *svrf,
 				static_install_path(pn);
 			}
 		}
+=======
+		frr_each(static_path_list, &si->path_list, pn)
+			static_install_path(pn);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	}
 }
 
@@ -560,6 +637,7 @@ static void static_enable_vrf(struct static_vrf *svrf,
  *
  * enable_svrf -> the vrf being enabled
  */
+<<<<<<< HEAD
 void static_fixup_vrf_ids(struct static_vrf *enable_svrf)
 {
 	struct route_table *stable;
@@ -571,16 +649,35 @@ void static_fixup_vrf_ids(struct static_vrf *enable_svrf)
 		struct static_vrf *svrf;
 
 		svrf = vrf->info;
+=======
+void static_fixup_vrf_ids(struct vrf *vrf)
+{
+	struct route_table *stable;
+	struct static_vrf *svrf, *enable_svrf;
+	afi_t afi;
+	safi_t safi;
+
+	enable_svrf = vrf->info;
+
+	RB_FOREACH (svrf, svrf_name_head, &svrfs) {
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		/* Install any static routes configured for this VRF. */
 		FOREACH_AFI_SAFI (afi, safi) {
 			stable = svrf->stable[afi][safi];
 			if (!stable)
 				continue;
 
+<<<<<<< HEAD
 			static_fixup_vrf(enable_svrf, stable, afi, safi);
 
 			if (enable_svrf == svrf)
 				static_enable_vrf(svrf, stable, afi, safi);
+=======
+			static_fixup_vrf(vrf, stable, afi, safi);
+
+			if (enable_svrf == svrf)
+				static_enable_vrf(stable, afi, safi);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		}
 	}
 }
@@ -595,8 +692,12 @@ void static_fixup_vrf_ids(struct static_vrf *enable_svrf)
  * afi -> the afi in question
  * safi -> the safi in question
  */
+<<<<<<< HEAD
 static void static_cleanup_vrf(struct static_vrf *svrf,
 			       struct route_table *stable,
+=======
+static void static_cleanup_vrf(struct vrf *vrf, struct route_table *stable,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			       afi_t afi, safi_t safi)
 {
 	struct route_node *rn;
@@ -610,11 +711,21 @@ static void static_cleanup_vrf(struct static_vrf *svrf,
 			continue;
 		frr_each(static_path_list, &si->path_list, pn) {
 			frr_each(static_nexthop_list, &pn->nexthop_list, nh) {
+<<<<<<< HEAD
 				if (strcmp(svrf->vrf->name, nh->nh_vrfname)
 				    != 0)
 					continue;
 
 				static_uninstall_path(pn);
+=======
+				if (strcmp(vrf->name, nh->nh_vrfname) != 0)
+					continue;
+
+				static_uninstall_nexthop(nh);
+
+				nh->nh_vrf_id = VRF_UNKNOWN;
+				nh->ifindex = IFINDEX_INTERNAL;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			}
 		}
 	}
@@ -632,7 +743,10 @@ static void static_disable_vrf(struct route_table *stable,
 			       afi_t afi, safi_t safi)
 {
 	struct route_node *rn;
+<<<<<<< HEAD
 	struct static_nexthop *nh;
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	struct static_path *pn;
 	struct static_route_info *si;
 
@@ -640,11 +754,16 @@ static void static_disable_vrf(struct route_table *stable,
 		si = static_route_info_from_rnode(rn);
 		if (!si)
 			continue;
+<<<<<<< HEAD
 		frr_each(static_path_list, &si->path_list, pn) {
 			frr_each(static_nexthop_list, &pn->nexthop_list, nh) {
 				static_uninstall_path(pn);
 			}
 		}
+=======
+		frr_each(static_path_list, &si->path_list, pn)
+			static_uninstall_path(pn);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	}
 }
 
@@ -656,6 +775,7 @@ static void static_disable_vrf(struct route_table *stable,
  *
  * disable_svrf - The vrf being disabled
  */
+<<<<<<< HEAD
 void static_cleanup_vrf_ids(struct static_vrf *disable_svrf)
 {
 	struct vrf *vrf;
@@ -671,11 +791,29 @@ void static_cleanup_vrf_ids(struct static_vrf *disable_svrf)
 		FOREACH_AFI_SAFI (afi, safi) {
 			struct route_table *stable;
 
+=======
+void static_cleanup_vrf_ids(struct vrf *vrf)
+{
+	struct route_table *stable;
+	struct static_vrf *svrf, *disable_svrf;
+	afi_t afi;
+	safi_t safi;
+
+	disable_svrf = vrf->info;
+
+	RB_FOREACH (svrf, svrf_name_head, &svrfs) {
+		/* Uninstall any static routes configured for this VRF. */
+		FOREACH_AFI_SAFI (afi, safi) {
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			stable = svrf->stable[afi][safi];
 			if (!stable)
 				continue;
 
+<<<<<<< HEAD
 			static_cleanup_vrf(disable_svrf, stable, afi, safi);
+=======
+			static_cleanup_vrf(vrf, stable, afi, safi);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 			if (disable_svrf == svrf)
 				static_disable_vrf(stable, afi, safi);
@@ -683,6 +821,7 @@ void static_cleanup_vrf_ids(struct static_vrf *disable_svrf)
 	}
 }
 
+<<<<<<< HEAD
 /*
  * This function enables static routes when an interface it relies
  * on in a different vrf is coming up.
@@ -748,6 +887,8 @@ void static_install_intf_nh(struct interface *ifp)
 	}
 }
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 /* called from if_{add,delete}_update, i.e. when ifindex becomes [in]valid */
 void static_ifindex_update(struct interface *ifp, bool up)
 {

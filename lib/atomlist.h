@@ -7,7 +7,13 @@
 #define _FRR_ATOMLIST_H
 
 #include "typesafe.h"
+<<<<<<< HEAD
 #include "frratomic.h"
+=======
+#ifndef _TYPESAFE_EXPAND_MACROS
+#include "frratomic.h"
+#endif /* _TYPESAFE_EXPAND_MACROS */
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 #ifdef __cplusplus
 extern "C" {

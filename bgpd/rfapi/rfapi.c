@@ -46,11 +46,14 @@
 #include "bgpd/rfapi/rfapi_encap_tlv.h"
 #include "bgpd/rfapi/vnc_debug.h"
 
+<<<<<<< HEAD
 #ifdef HAVE_GLIBC_BACKTRACE
 /* for backtrace and friends */
 #include <execinfo.h>
 #endif /* HAVE_GLIBC_BACKTRACE */
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 #define DEBUG_CLEANUP 0
 
 struct ethaddr rfapi_ethaddr0 = {{0}};
@@ -371,6 +374,7 @@ void del_vnc_route(struct rfapi_descriptor *rfd,
 
 	for (bpi = (bn ? bgp_dest_get_bgp_path_info(bn) : NULL); bpi;
 	     bpi = bpi->next) {
+<<<<<<< HEAD
 
 		vnc_zlog_debug_verbose(
 			"%s: trying bpi=%p, bpi->peer=%p, bpi->type=%d, bpi->sub_type=%d, bpi->extra->vnc.export.rfapi_handle=%p, local_pref=%" PRIu64,
@@ -385,6 +389,21 @@ void del_vnc_route(struct rfapi_descriptor *rfd,
 		    && bpi->sub_type == sub_type && bpi->extra
 		    && bpi->extra->vnc.export.rfapi_handle == (void *)rfd) {
 
+=======
+		vnc_zlog_debug_verbose(
+			"%s: trying bpi=%p, bpi->peer=%p, bpi->type=%d, bpi->sub_type=%d, bpi->extra->vnc.export.rfapi_handle=%p, local_pref=%" PRIu64,
+			__func__, bpi, bpi->peer, bpi->type, bpi->sub_type,
+			(bpi->extra ? bpi->extra->vnc->vnc.export.rfapi_handle
+				    : NULL),
+			CHECK_FLAG(bpi->attr->flag,
+				   ATTR_FLAG_BIT(BGP_ATTR_LOCAL_PREF)
+					   ? bpi->attr->local_pref
+					   : 0));
+
+		if (bpi->peer == peer && bpi->type == type &&
+		    bpi->sub_type == sub_type && bpi->extra &&
+		    bpi->extra->vnc->vnc.export.rfapi_handle == (void *)rfd) {
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			vnc_zlog_debug_verbose("%s: matched it", __func__);
 
 			break;
@@ -397,8 +416,13 @@ void del_vnc_route(struct rfapi_descriptor *rfd,
 		 * route. Leave the route itself in place.
 		 * TBD add return code reporting of success/failure
 		 */
+<<<<<<< HEAD
 		if (!bpi || !bpi->extra
 		    || !bpi->extra->vnc.export.local_nexthops) {
+=======
+		if (!bpi || !bpi->extra ||
+		    !bpi->extra->vnc->vnc.export.local_nexthops) {
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			/*
 			 * no local nexthops
 			 */
@@ -414,16 +438,26 @@ void del_vnc_route(struct rfapi_descriptor *rfd,
 		struct listnode *node;
 		struct rfapi_nexthop *pLnh = NULL;
 
+<<<<<<< HEAD
 		for (ALL_LIST_ELEMENTS_RO(bpi->extra->vnc.export.local_nexthops,
 					  node, pLnh)) {
 
+=======
+		for (ALL_LIST_ELEMENTS_RO(bpi->extra->vnc->vnc.export
+						  .local_nexthops,
+					  node, pLnh)) {
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			if (prefix_same(&pLnh->addr, &lnh->addr)) {
 				break;
 			}
 		}
 
 		if (pLnh) {
+<<<<<<< HEAD
 			listnode_delete(bpi->extra->vnc.export.local_nexthops,
+=======
+			listnode_delete(bpi->extra->vnc->vnc.export.local_nexthops,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 					pLnh);
 
 			/* silly rabbit, listnode_delete doesn't invoke
@@ -464,12 +498,21 @@ void del_vnc_route(struct rfapi_descriptor *rfd,
 		/*
 		 * Delete local_nexthops list
 		 */
+<<<<<<< HEAD
 		if (bpi->extra && bpi->extra->vnc.export.local_nexthops)
 			list_delete(&bpi->extra->vnc.export.local_nexthops);
 
 		bgp_aggregate_decrement(bgp, p, bpi, afi, safi);
 		bgp_path_info_delete(bn, bpi);
 		bgp_process(bgp, bn, afi, safi);
+=======
+		if (bpi->extra && bpi->extra->vnc->vnc.export.local_nexthops)
+			list_delete(&bpi->extra->vnc->vnc.export.local_nexthops);
+
+		bgp_aggregate_decrement(bgp, p, bpi, afi, safi);
+		bgp_path_info_delete(bn, bpi);
+		bgp_process(bgp, bn, bpi, afi, safi);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	} else {
 		vnc_zlog_debug_verbose(
 			"%s: Couldn't find route (safi=%d) at prefix %pFX",
@@ -555,6 +598,10 @@ void add_vnc_route(struct rfapi_descriptor *rfd, /* cookie, VPN UN addr, peer */
 		   int flags)
 {
 	afi_t afi; /* of the VN address */
+<<<<<<< HEAD
+=======
+	struct bgp_labels bgp_labels = {};
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	struct bgp_path_info *new;
 	struct bgp_path_info *bpi;
 	struct bgp_dest *bn;
@@ -598,7 +645,11 @@ void add_vnc_route(struct rfapi_descriptor *rfd, /* cookie, VPN UN addr, peer */
 		}
 	}
 
+<<<<<<< HEAD
 	if (label)
+=======
+	if (label && *label != MPLS_INVALID_LABEL)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		label_val = *label;
 	else
 		label_val = MPLS_LABEL_IMPLICIT_NULL;
@@ -672,10 +723,15 @@ void add_vnc_route(struct rfapi_descriptor *rfd, /* cookie, VPN UN addr, peer */
 		attr.flag |= ATTR_FLAG_BIT(BGP_ATTR_LOCAL_PREF);
 	}
 
+<<<<<<< HEAD
 	if (med) {
 		attr.med = *med;
 		attr.flag |= ATTR_FLAG_BIT(BGP_ATTR_MULTI_EXIT_DISC);
 	}
+=======
+	if (med)
+		bgp_attr_set_med(&attr, *med);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	/* override default weight assigned by bgp_attr_default_set() */
 	attr.weight = rfd->peer ? rfd->peer->weight[afi][safi] : 0;
@@ -868,10 +924,15 @@ void add_vnc_route(struct rfapi_descriptor *rfd, /* cookie, VPN UN addr, peer */
 
 	red = bgp_redist_lookup(bgp, afi, type, 0);
 
+<<<<<<< HEAD
 	if (red && red->redist_metric_flag) {
 		attr.med = red->redist_metric;
 		attr.flag |= ATTR_FLAG_BIT(BGP_ATTR_MULTI_EXIT_DISC);
 	}
+=======
+	if (red && red->redist_metric_flag)
+		bgp_attr_set_med(&attr, red->redist_metric);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	bn = bgp_afi_node_get(bgp->rib[afi][safi], afi, safi, p, prd);
 
@@ -907,11 +968,18 @@ void add_vnc_route(struct rfapi_descriptor *rfd, /* cookie, VPN UN addr, peer */
 	 */
 	for (bpi = bgp_dest_get_bgp_path_info(bn); bpi; bpi = bpi->next) {
 		/* probably only need to check
+<<<<<<< HEAD
 		 * bpi->extra->vnc.export.rfapi_handle */
 		if (bpi->peer == rfd->peer && bpi->type == type
 		    && bpi->sub_type == sub_type && bpi->extra
 		    && bpi->extra->vnc.export.rfapi_handle == (void *)rfd) {
 
+=======
+		 * bpi->extra->vnc->vnc.export.rfapi_handle */
+		if (bpi->peer == rfd->peer && bpi->type == type &&
+		    bpi->sub_type == sub_type && bpi->extra &&
+		    bpi->extra->vnc->vnc.export.rfapi_handle == (void *)rfd) {
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			break;
 		}
 	}
@@ -923,11 +991,19 @@ void add_vnc_route(struct rfapi_descriptor *rfd, /* cookie, VPN UN addr, peer */
 		 * what is advertised via BGP
 		 */
 		if (lnh) {
+<<<<<<< HEAD
 			if (!bpi->extra->vnc.export.local_nexthops) {
 				/* TBD make arrangements to free when needed */
 				bpi->extra->vnc.export.local_nexthops =
 					list_new();
 				bpi->extra->vnc.export.local_nexthops->del =
+=======
+			if (!bpi->extra->vnc->vnc.export.local_nexthops) {
+				/* TBD make arrangements to free when needed */
+				bpi->extra->vnc->vnc.export.local_nexthops =
+					list_new();
+				bpi->extra->vnc->vnc.export.local_nexthops->del =
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 					rfapi_nexthop_free;
 			}
 
@@ -937,10 +1013,16 @@ void add_vnc_route(struct rfapi_descriptor *rfd, /* cookie, VPN UN addr, peer */
 			struct listnode *node;
 			struct rfapi_nexthop *pLnh = NULL;
 
+<<<<<<< HEAD
 			for (ALL_LIST_ELEMENTS_RO(
 				     bpi->extra->vnc.export.local_nexthops,
 				     node, pLnh)) {
 
+=======
+			for (ALL_LIST_ELEMENTS_RO(bpi->extra->vnc->vnc.export
+							  .local_nexthops,
+						  node, pLnh)) {
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 				if (prefix_same(&pLnh->addr, &lnh->addr)) {
 					break;
 				}
@@ -951,9 +1033,15 @@ void add_vnc_route(struct rfapi_descriptor *rfd, /* cookie, VPN UN addr, peer */
 			 */
 			if (!pLnh) {
 				pLnh = rfapi_nexthop_new(lnh);
+<<<<<<< HEAD
 				listnode_add(
 					bpi->extra->vnc.export.local_nexthops,
 					pLnh);
+=======
+				listnode_add(bpi->extra->vnc->vnc.export
+						     .local_nexthops,
+					     pLnh);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			}
 		}
 
@@ -1009,7 +1097,11 @@ void add_vnc_route(struct rfapi_descriptor *rfd, /* cookie, VPN UN addr, peer */
 
 			/* Process change. */
 			bgp_aggregate_increment(bgp, p, bpi, afi, safi);
+<<<<<<< HEAD
 			bgp_process(bgp, bn, afi, safi);
+=======
+			bgp_process(bgp, bn, bpi, afi, safi);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			bgp_dest_unlock_node(bn);
 
 			vnc_zlog_debug_any(
@@ -1025,8 +1117,18 @@ void add_vnc_route(struct rfapi_descriptor *rfd, /* cookie, VPN UN addr, peer */
 
 	/* save backref to rfapi handle */
 	bgp_path_info_extra_get(new);
+<<<<<<< HEAD
 	new->extra->vnc.export.rfapi_handle = (void *)rfd;
 	encode_label(label_val, &new->extra->label[0]);
+=======
+	new->extra->vnc = XCALLOC(MTYPE_BGP_ROUTE_EXTRA_VNC,
+				  sizeof(struct bgp_path_info_extra_vnc));
+	new->extra->vnc->vnc.export.rfapi_handle = (void *)rfd;
+
+	encode_label(label_val, &bgp_labels.label[0]);
+	bgp_labels.num_labels = 1;
+	new->extra->labels = bgp_labels_intern(&bgp_labels);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	/* debug */
 
@@ -1052,7 +1154,11 @@ void add_vnc_route(struct rfapi_descriptor *rfd, /* cookie, VPN UN addr, peer */
 	}
 
 	bgp_dest_unlock_node(bn);
+<<<<<<< HEAD
 	bgp_process(bgp, bn, afi, safi);
+=======
+	bgp_process(bgp, bn, new, afi, safi);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	vnc_zlog_debug_any(
 		"%s: Added route (safi=%s) at prefix %s (bn=%p, prd=%pRDP)",
@@ -2091,6 +2197,7 @@ int rfapi_close(void *handle)
 	vnc_zlog_debug_verbose("%s: rfd=%p", __func__, rfd);
 
 #ifdef RFAPI_WHO_IS_CALLING_ME
+<<<<<<< HEAD
 #ifdef HAVE_GLIBC_BACKTRACE
 #define RFAPI_DEBUG_BACKTRACE_NENTRIES 5
 	{
@@ -2109,6 +2216,9 @@ int rfapi_close(void *handle)
 		free(syms);
 	}
 #endif
+=======
+	zlog_backtrace(LOG_INFO);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 #endif
 
 	bgp = rfd->bgp;

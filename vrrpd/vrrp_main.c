@@ -107,6 +107,7 @@ static const struct frr_yang_module_info *const vrrp_yang_modules[] = {
 	&frr_vrrpd_info,
 };
 
+<<<<<<< HEAD
 #define VRRP_VTY_PORT 2619
 
 FRR_DAEMON_INFO(vrrpd, VRRP, .vty_port = VRRP_VTY_PORT,
@@ -117,6 +118,22 @@ FRR_DAEMON_INFO(vrrpd, VRRP, .vty_port = VRRP_VTY_PORT,
 		.yang_modules = vrrp_yang_modules,
 		.n_yang_modules = array_size(vrrp_yang_modules),
 );
+=======
+/* clang-format off */
+FRR_DAEMON_INFO(vrrpd, VRRP,
+	.vty_port = VRRP_VTY_PORT,
+	.proghelp = "Virtual Router Redundancy Protocol",
+
+	.signals = vrrp_signals,
+	.n_signals = array_size(vrrp_signals),
+
+	.privs = &vrrp_privs,
+
+	.yang_modules = vrrp_yang_modules,
+	.n_yang_modules = array_size(vrrp_yang_modules),
+);
+/* clang-format on */
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 int main(int argc, char **argv, char **envp)
 {

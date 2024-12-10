@@ -162,9 +162,17 @@ void zserv_log_message(const char *errmsg, struct stream *msg,
 	if (errmsg)
 		zlog_debug("%s", errmsg);
 	if (hdr) {
+<<<<<<< HEAD
 		zlog_debug(" Length: %d", hdr->length);
 		zlog_debug("Command: %s", zserv_command_string(hdr->command));
 		zlog_debug("    VRF: %u", hdr->vrf_id);
+=======
+		struct vrf *vrf = vrf_lookup_by_id(hdr->vrf_id);
+
+		zlog_debug(" Length: %d", hdr->length);
+		zlog_debug("Command: %s", zserv_command_string(hdr->command));
+		zlog_debug("    VRF: %s(%u)", VRF_LOGNAME(vrf), hdr->vrf_id);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	}
 	stream_hexdump(msg);
 }
@@ -307,6 +315,17 @@ zwrite_fail:
  * this task reschedules itself.
  *
  * Any failure in any of these actions is handled by terminating the client.
+<<<<<<< HEAD
+=======
+ *
+ * The client's input buffer ibuf_fifo can have a maximum items as configured
+ * in the packets_to_process. This way we are not filling up the FIFO more
+ * than the maximum when the zebra main is busy. If the fifo has space, we
+ * reschedule ourselves to read more.
+ *
+ * The main thread processes the items in ibuf_fifo and always signals the
+ * client IO thread.
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
  */
 static void zserv_read(struct event *thread)
 {
@@ -314,6 +333,7 @@ static void zserv_read(struct event *thread)
 	int sock;
 	size_t already;
 	struct stream_fifo *cache;
+<<<<<<< HEAD
 	uint32_t p2p_orig;
 
 	uint32_t p2p;
@@ -323,6 +343,27 @@ static void zserv_read(struct event *thread)
 					memory_order_relaxed);
 	cache = stream_fifo_new();
 	p2p = p2p_orig;
+=======
+	uint32_t p2p;	    /* Temp p2p used to process */
+	uint32_t p2p_orig;  /* Configured p2p (Default-1000) */
+	int p2p_avail;	    /* How much space is available for p2p */
+	struct zmsghdr hdr;
+	size_t client_ibuf_fifo_cnt = stream_fifo_count_safe(client->ibuf_fifo);
+
+	p2p_orig = atomic_load_explicit(&zrouter.packets_to_process,
+					memory_order_relaxed);
+	p2p_avail = p2p_orig - client_ibuf_fifo_cnt;
+
+    /*
+     * Do nothing if ibuf_fifo count has reached its max limit. Otherwise
+     * proceed and reschedule ourselves if there is space in the ibuf_fifo.
+     */
+	if (p2p_avail <= 0)
+		return;
+
+	p2p = p2p_avail;
+	cache = stream_fifo_new();
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	sock = EVENT_FD(thread);
 
 	while (p2p) {
@@ -408,11 +449,21 @@ static void zserv_read(struct event *thread)
 		}
 
 		/* Debug packet information. */
+<<<<<<< HEAD
 		if (IS_ZEBRA_DEBUG_PACKET)
 			zlog_debug("zebra message[%s:%u:%u] comes from socket [%d]",
 				   zserv_command_string(hdr.command),
 				   hdr.vrf_id, hdr.length,
 				   sock);
+=======
+		if (IS_ZEBRA_DEBUG_PACKET) {
+			struct vrf *vrf = vrf_lookup_by_id(hdr.vrf_id);
+
+			zlog_debug("zebra message[%s:%s:%u] comes from socket [%d]",
+				   zserv_command_string(hdr.command),
+				   VRF_LOGNAME(vrf), hdr.length, sock);
+		}
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 		stream_set_getp(client->ibuf_work, 0);
 		struct stream *msg = stream_dup(client->ibuf_work);
@@ -422,7 +473,11 @@ static void zserv_read(struct event *thread)
 		p2p--;
 	}
 
+<<<<<<< HEAD
 	if (p2p < p2p_orig) {
+=======
+	if (p2p < (uint32_t)p2p_avail) {
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		uint64_t time_now = monotime(NULL);
 
 		/* update session statistics */
@@ -436,10 +491,17 @@ static void zserv_read(struct event *thread)
 			while (cache->head)
 				stream_fifo_push(client->ibuf_fifo,
 						 stream_fifo_pop(cache));
+<<<<<<< HEAD
+=======
+			/* Need to update count as main thread could have processed few */
+			client_ibuf_fifo_cnt =
+				stream_fifo_count_safe(client->ibuf_fifo);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		}
 
 		/* Schedule job to process those packets */
 		zserv_event(client, ZSERV_PROCESS_MESSAGES);
+<<<<<<< HEAD
 
 	}
 
@@ -449,6 +511,18 @@ static void zserv_read(struct event *thread)
 
 	/* Reschedule ourselves */
 	zserv_client_event(client, ZSERV_CLIENT_READ);
+=======
+	}
+
+	if (IS_ZEBRA_DEBUG_PACKET)
+		zlog_debug("Read %d packets from client: %s. Current ibuf fifo count: %zu. Conf P2p %d",
+			   p2p_avail - p2p, zebra_route_string(client->proto),
+			   client_ibuf_fifo_cnt, p2p_orig);
+
+	/* Reschedule ourselves since we have space in ibuf_fifo */
+	if (client_ibuf_fifo_cnt < p2p_orig)
+		zserv_client_event(client, ZSERV_CLIENT_READ);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	stream_fifo_free(cache);
 
@@ -484,14 +558,28 @@ static void zserv_client_event(struct zserv *client,
  * as the task argument.
  *
  * Each message is popped off the client's input queue and the action associated
+<<<<<<< HEAD
  * with the message is executed. This proceeds until there are no more messages,
  * an error occurs, or the processing limit is reached.
+=======
+ * with the message is executed. This proceeds until an error occurs, or the
+ * processing limit is reached.
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
  *
  * The client's I/O thread can push at most zrouter.packets_to_process messages
  * onto the input buffer before notifying us there are packets to read. As long
  * as we always process zrouter.packets_to_process messages here, then we can
  * rely on the read thread to handle queuing this task enough times to process
  * everything on the input queue.
+<<<<<<< HEAD
+=======
+ *
+ * If the client ibuf always schedules a wakeup to the client IO to read more
+ * items from the socked buffer. This way we ensure
+ *  - Client IO thread always tries to read the socket buffer and add more
+ *    items to the ibuf_fifo (until max limit)
+ *  - the hidden config change (zebra zapi-packets <>) is taken into account.
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
  */
 static void zserv_process_messages(struct event *thread)
 {
@@ -525,6 +613,12 @@ static void zserv_process_messages(struct event *thread)
 	/* Reschedule ourselves if necessary */
 	if (need_resched)
 		zserv_event(client, ZSERV_PROCESS_MESSAGES);
+<<<<<<< HEAD
+=======
+
+	/* Ensure to include the read socket in the select/poll/etc.. */
+	zserv_client_event(client, ZSERV_CLIENT_READ);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 }
 
 int zserv_send_message(struct zserv *client, struct stream *msg)
@@ -638,17 +732,32 @@ static void zserv_client_free(struct zserv *client)
 
 		vrf_bitmap_free(&client->redist_default[afi]);
 		vrf_bitmap_free(&client->ridinfo[afi]);
+<<<<<<< HEAD
 		vrf_bitmap_free(&client->nhrp_neighinfo[afi]);
+=======
+		vrf_bitmap_free(&client->neighinfo[afi]);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	}
 
 	/*
 	 * If any instance are graceful restart enabled,
 	 * client is not deleted
 	 */
+<<<<<<< HEAD
 	if (DYNAMIC_CLIENT_GR_DISABLED(client)) {
 		if (IS_ZEBRA_DEBUG_EVENT)
 			zlog_debug("%s: Deleting client %s", __func__,
 				   zebra_route_string(client->proto));
+=======
+	if (DYNAMIC_CLIENT_GR_DISABLED(client) || zebra_router_in_shutdown()) {
+		if (IS_ZEBRA_DEBUG_EVENT)
+			zlog_debug("%s: Deleting client %s", __func__,
+				   zebra_route_string(client->proto));
+
+		if (zebra_router_in_shutdown())
+			zebra_gr_client_final_shutdown(client);
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		zserv_client_delete(client);
 	} else {
 		/* Handle cases where client has GR instance. */
@@ -759,7 +868,11 @@ static struct zserv *zserv_client_create(int sock)
 			vrf_bitmap_init(&client->redist[afi][i]);
 		vrf_bitmap_init(&client->redist_default[afi]);
 		vrf_bitmap_init(&client->ridinfo[afi]);
+<<<<<<< HEAD
 		vrf_bitmap_init(&client->nhrp_neighinfo[afi]);
+=======
+		vrf_bitmap_init(&client->neighinfo[afi]);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	}
 
 	/* Add this client to linked list. */
@@ -1024,6 +1137,10 @@ static char *zserv_time_buf(time_t *time1, char *buf, int buflen)
 /* Display client info details */
 static void zebra_show_client_detail(struct vty *vty, struct zserv *client)
 {
+<<<<<<< HEAD
+=======
+	struct client_gr_info *info;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	char cbuf[ZEBRA_TIME_BUF], rbuf[ZEBRA_TIME_BUF];
 	char wbuf[ZEBRA_TIME_BUF], nhbuf[ZEBRA_TIME_BUF], mbuf[ZEBRA_TIME_BUF];
 	time_t connect_time, last_read_time, last_write_time;
@@ -1089,6 +1206,11 @@ static void zebra_show_client_detail(struct vty *vty, struct zserv *client)
 		0, client->redist_v4_del_cnt);
 	vty_out(vty, "Redist:v6   %-12u%-12u%-12u\n", client->redist_v6_add_cnt,
 		0, client->redist_v6_del_cnt);
+<<<<<<< HEAD
+=======
+	vty_out(vty, "NHG         %-12u%-12u%-12u\n", client->nhg_add_cnt,
+		client->nhg_upd8_cnt, client->nhg_del_cnt);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	vty_out(vty, "VRF         %-12u%-12u%-12u\n", client->vrfadd_cnt, 0,
 		client->vrfdel_cnt);
 	vty_out(vty, "Connected   %-12u%-12u%-12u\n", client->ifadd_cnt, 0,
@@ -1117,11 +1239,56 @@ static void zebra_show_client_detail(struct vty *vty, struct zserv *client)
 		client->local_es_evi_add_cnt, 0, client->local_es_evi_del_cnt);
 	vty_out(vty, "Errors: %u\n", client->error_cnt);
 
+<<<<<<< HEAD
 #if defined DEV_BUILD
 	vty_out(vty, "Input Fifo: %zu:%zu Output Fifo: %zu:%zu\n",
 		client->ibuf_fifo->count, client->ibuf_fifo->max_count,
 		client->obuf_fifo->count, client->obuf_fifo->max_count);
 #endif
+=======
+	TAILQ_FOREACH (info, &client->gr_info_queue, gr_info) {
+		afi_t afi;
+		bool route_sync_done = true;
+		char timebuf[MONOTIME_STRLEN];
+
+		vty_out(vty, "VRF : %s\n", vrf_id_to_name(info->vrf_id));
+		vty_out(vty, "Capabilities : ");
+		switch (info->capabilities) {
+		case ZEBRA_CLIENT_GR_CAPABILITIES:
+			vty_out(vty, "Graceful Restart\n");
+			break;
+		case ZEBRA_CLIENT_ROUTE_UPDATE_COMPLETE:
+		case ZEBRA_CLIENT_ROUTE_UPDATE_PENDING:
+		case ZEBRA_CLIENT_GR_DISABLE:
+		case ZEBRA_CLIENT_RIB_STALE_TIME:
+			vty_out(vty, "None\n");
+			break;
+		}
+		for (afi = AFI_IP; afi < AFI_MAX; afi++) {
+			if (info->af_enabled[afi]) {
+				if (info->route_sync[afi])
+					vty_out(vty,
+						"AFI %d enabled, route sync DONE\n",
+						afi);
+				else {
+					vty_out(vty,
+						"AFI %d enabled, route sync NOT DONE\n",
+						afi);
+					route_sync_done = false;
+				}
+			}
+		}
+		if (route_sync_done) {
+			time_to_string(info->route_sync_done_time, timebuf);
+			vty_out(vty, "Route sync finished at %s", timebuf);
+		}
+	}
+
+	vty_out(vty, "Input Fifo: %zu:%zu Output Fifo: %zu:%zu\n",
+		client->ibuf_fifo->count, client->ibuf_fifo->max_count,
+		client->obuf_fifo->count, client->obuf_fifo->max_count);
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	vty_out(vty, "\n");
 }
 

@@ -30,6 +30,10 @@
 
 #define LDPD_FD_ASYNC		3
 #define LDPD_FD_SYNC		4
+<<<<<<< HEAD
+=======
+#define LDPD_FD_LOG		5
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 #define LDPD_OPT_VERBOSE	0x00000001
 #define LDPD_OPT_VERBOSE2	0x00000002
@@ -139,7 +143,10 @@ enum imsg_type {
 	IMSG_RECONF_L2VPN_IPW,
 	IMSG_RECONF_END,
 	IMSG_DEBUG_UPDATE,
+<<<<<<< HEAD
 	IMSG_LOG,
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	IMSG_ACL_CHECK,
 	IMSG_INIT,
 	IMSG_PW_UPDATE,
@@ -341,7 +348,11 @@ struct iface_ldp_sync {
 
 struct iface {
 	RB_ENTRY(iface)		 entry;
+<<<<<<< HEAD
 	char			 name[INTERFACE_NAMSIZ];
+=======
+	char name[IFNAMSIZ];
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	ifindex_t		 ifindex;
 	struct if_addr_head	 addr_list;
 	struct in6_addr		 linklocal;
@@ -447,7 +458,11 @@ struct ldp_entity_stats {
 struct l2vpn_if {
 	RB_ENTRY(l2vpn_if)	 entry;
 	struct l2vpn		*l2vpn;
+<<<<<<< HEAD
 	char			 ifname[INTERFACE_NAMSIZ];
+=======
+	char ifname[IFNAMSIZ];
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	ifindex_t		 ifindex;
 	int			 operative;
 	uint8_t			 mac[ETH_ALEN];
@@ -464,7 +479,11 @@ struct l2vpn_pw {
 	int			 af;
 	union ldpd_addr		 addr;
 	uint32_t		 pwid;
+<<<<<<< HEAD
 	char			 ifname[INTERFACE_NAMSIZ];
+=======
+	char ifname[IFNAMSIZ];
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	ifindex_t		 ifindex;
 	bool			 enabled;
 	uint32_t		 remote_group;
@@ -496,7 +515,11 @@ struct l2vpn {
 	int			 type;
 	int			 pw_type;
 	int			 mtu;
+<<<<<<< HEAD
 	char			 br_ifname[INTERFACE_NAMSIZ];
+=======
+	char br_ifname[IFNAMSIZ];
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	ifindex_t		 br_ifindex;
 	struct l2vpn_if_head	 if_tree;
 	struct l2vpn_pw_head	 pw_tree;
@@ -618,7 +641,11 @@ struct kroute {
 };
 
 struct kaddr {
+<<<<<<< HEAD
 	char			 ifname[INTERFACE_NAMSIZ];
+=======
+	char ifname[IFNAMSIZ];
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	ifindex_t		 ifindex;
 	int			 af;
 	union ldpd_addr		 addr;
@@ -627,7 +654,11 @@ struct kaddr {
 };
 
 struct kif {
+<<<<<<< HEAD
 	char			 ifname[INTERFACE_NAMSIZ];
+=======
+	char ifname[IFNAMSIZ];
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	ifindex_t		 ifindex;
 	int			 flags;
 	int			 operative;
@@ -645,7 +676,11 @@ struct acl_check {
 /* control data structures */
 struct ctl_iface {
 	int			 af;
+<<<<<<< HEAD
 	char			 name[INTERFACE_NAMSIZ];
+=======
+	char name[IFNAMSIZ];
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	ifindex_t		 ifindex;
 	int			 state;
 	enum iface_type		 type;
@@ -656,7 +691,11 @@ struct ctl_iface {
 };
 
 struct ctl_disc_if {
+<<<<<<< HEAD
 	char			 name[INTERFACE_NAMSIZ];
+=======
+	char name[IFNAMSIZ];
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	int			 active_v4;
 	int			 active_v6;
 	int			 no_adj;
@@ -672,7 +711,11 @@ struct ctl_adj {
 	int			 af;
 	struct in_addr		 id;
 	enum hello_type		 type;
+<<<<<<< HEAD
 	char			 ifname[INTERFACE_NAMSIZ];
+=======
+	char ifname[IFNAMSIZ];
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	union ldpd_addr		 src_addr;
 	uint16_t		 holdtime;
 	uint16_t		 holdtime_remaining;
@@ -712,7 +755,11 @@ struct ctl_rt {
 struct ctl_pw {
 	uint16_t		 type;
 	char			 l2vpn_name[L2VPN_NAME_LEN];
+<<<<<<< HEAD
 	char			 ifname[INTERFACE_NAMSIZ];
+=======
+	char ifname[IFNAMSIZ];
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	uint32_t		 pwid;
 	struct in_addr		 lsr_id;
 	uint32_t		 local_label;
@@ -728,7 +775,11 @@ struct ctl_pw {
 };
 
 struct ctl_ldp_sync {
+<<<<<<< HEAD
 	char			 name[INTERFACE_NAMSIZ];
+=======
+	char name[IFNAMSIZ];
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	ifindex_t		 ifindex;
 	bool			 in_sync;
 	bool			 timer_running;

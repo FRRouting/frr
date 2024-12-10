@@ -13,11 +13,15 @@ labs.
 Starting SHARP
 ==============
 
+<<<<<<< HEAD
 Default configuration file for *sharpd* is :file:`sharpd.conf`.  The typical
 location of :file:`sharpd.conf` is |INSTALL_PREFIX_ETC|/sharpd.conf.
 
 If the user is using integrated config, then :file:`sharpd.conf` need not be
 present and the :file:`frr.conf` is read instead.
+=======
+.. include:: config-include.rst
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 .. program:: sharpd
 
@@ -67,6 +71,14 @@ keyword. At present, no sharp commands will be preserved in the config.
    Install a label into the kernel that causes the specified vrf NAME table to
    be used for pop and forward operations when the specified label is seen.
 
+<<<<<<< HEAD
+=======
+.. clicmd:: sharp watch [vrf VRF_NAME] neighbor
+
+   Instruct zebra to notify sharpd about neighbor events in the specified vrf.
+   If no vrf is specified then assume default.
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 .. clicmd:: sharp watch <nexthop <A.B.C.D|X:X::X:X>|import <A.B.C.D/M:X:X::X:X/M> [connected]
 
    Instruct zebra to monitor and notify sharp when the specified nexthop is

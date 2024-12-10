@@ -17,6 +17,7 @@
 #include "lib/plist_int.h"
 #include "lib/routemap.h"
 
+<<<<<<< HEAD
 /* Helper function. */
 static void acl_notify_route_map(struct access_list *acl, int route_map_event)
 {
@@ -34,6 +35,8 @@ static void acl_notify_route_map(struct access_list *acl, int route_map_event)
 	route_map_notify_dependencies(acl->name, route_map_event);
 }
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 static enum nb_error prefix_list_length_validate(struct nb_cb_modify_args *args)
 {
 	int type = yang_dnode_get_enum(args->dnode, "../../type");
@@ -112,7 +115,11 @@ prefix_list_nb_validate_v4_af_type(const struct lyd_node *plist_dnode,
 {
 	int af_type;
 
+<<<<<<< HEAD
 	af_type = yang_dnode_get_enum(plist_dnode, "./type");
+=======
+	af_type = yang_dnode_get_enum(plist_dnode, "type");
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	if (af_type != YPLT_IPV4) {
 		snprintf(errmsg, errmsg_len,
 			 "prefix-list type %u is mismatched.", af_type);
@@ -128,7 +135,11 @@ prefix_list_nb_validate_v6_af_type(const struct lyd_node *plist_dnode,
 {
 	int af_type;
 
+<<<<<<< HEAD
 	af_type = yang_dnode_get_enum(plist_dnode, "./type");
+=======
+	af_type = yang_dnode_get_enum(plist_dnode, "type");
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	if (af_type != YPLT_IPV6) {
 		snprintf(errmsg, errmsg_len,
 			 "prefix-list type %u is mismatched.", af_type);
@@ -153,9 +164,12 @@ static int lib_prefix_list_entry_prefix_length_greater_or_equal_modify(
 
 	ple->ge = yang_dnode_get_uint8(args->dnode, NULL);
 
+<<<<<<< HEAD
 	/* Finish prefix entry update procedure. */
 	prefix_list_entry_update_finish(ple);
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	return NB_OK;
 }
 
@@ -174,9 +188,12 @@ static int lib_prefix_list_entry_prefix_length_lesser_or_equal_modify(
 
 	ple->le = yang_dnode_get_uint8(args->dnode, NULL);
 
+<<<<<<< HEAD
 	/* Finish prefix entry update procedure. */
 	prefix_list_entry_update_finish(ple);
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	return NB_OK;
 }
 
@@ -195,9 +212,12 @@ static int lib_prefix_list_entry_prefix_length_greater_or_equal_destroy(
 
 	ple->ge = 0;
 
+<<<<<<< HEAD
 	/* Finish prefix entry update procedure. */
 	prefix_list_entry_update_finish(ple);
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	return NB_OK;
 }
 
@@ -216,9 +236,12 @@ static int lib_prefix_list_entry_prefix_length_lesser_or_equal_destroy(
 
 	ple->le = 0;
 
+<<<<<<< HEAD
 	/* Finish prefix entry update procedure. */
 	prefix_list_entry_update_finish(ple);
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	return NB_OK;
 }
 
@@ -381,14 +404,22 @@ static void plist_dnode_to_prefix(const struct lyd_node *dnode, bool *any,
 	*ge = 0;
 	*le = 0;
 
+<<<<<<< HEAD
 	if (yang_dnode_exists(dnode, "./any")) {
+=======
+	if (yang_dnode_exists(dnode, "any")) {
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		*any = true;
 		return;
 	}
 
 	switch (yang_dnode_get_enum(dnode, "../type")) {
 	case YPLT_IPV4:
+<<<<<<< HEAD
 		yang_dnode_get_prefix(p, dnode, "./ipv4-prefix");
+=======
+		yang_dnode_get_prefix(p, dnode, "ipv4-prefix");
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		if (yang_dnode_exists(dnode,
 				      "./ipv4-prefix-length-greater-or-equal"))
 			*ge = yang_dnode_get_uint8(
@@ -399,7 +430,11 @@ static void plist_dnode_to_prefix(const struct lyd_node *dnode, bool *any,
 				dnode, "./ipv4-prefix-length-lesser-or-equal");
 		break;
 	case YPLT_IPV6:
+<<<<<<< HEAD
 		yang_dnode_get_prefix(p, dnode, "./ipv6-prefix");
+=======
+		yang_dnode_get_prefix(p, dnode, "ipv6-prefix");
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		if (yang_dnode_exists(dnode,
 				      "./ipv6-prefix-length-greater-or-equal"))
 			*ge = yang_dnode_get_uint8(
@@ -468,8 +503,13 @@ static int lib_access_list_create(struct nb_cb_create_args *args)
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
+<<<<<<< HEAD
 	type = yang_dnode_get_enum(args->dnode, "./type");
 	acl_name = yang_dnode_get_string(args->dnode, "./name");
+=======
+	type = yang_dnode_get_enum(args->dnode, "type");
+	acl_name = yang_dnode_get_string(args->dnode, "name");
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	switch (type) {
 	case YALT_IPV4:
@@ -550,7 +590,11 @@ static int lib_access_list_entry_create(struct nb_cb_create_args *args)
 		return NB_OK;
 
 	f = filter_new();
+<<<<<<< HEAD
 	f->seq = yang_dnode_get_uint32(args->dnode, "./sequence");
+=======
+	f->seq = yang_dnode_get_uint32(args->dnode, "sequence");
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	acl = nb_running_get_entry(args->dnode, NULL, true);
 	f->acl = acl;
@@ -575,6 +619,18 @@ static int lib_access_list_entry_destroy(struct nb_cb_destroy_args *args)
 	return NB_OK;
 }
 
+<<<<<<< HEAD
+=======
+static void
+lib_access_list_entry_apply_finish(struct nb_cb_apply_finish_args *args)
+{
+	struct filter *f;
+
+	f = nb_running_get_entry(args->dnode, NULL, true);
+	access_list_filter_update(f->acl);
+}
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 /*
  * XPath: /frr-filter:lib/access-list/entry/action
  */
@@ -594,8 +650,11 @@ lib_access_list_entry_action_modify(struct nb_cb_modify_args *args)
 	else
 		f->type = FILTER_DENY;
 
+<<<<<<< HEAD
 	acl_notify_route_map(f->acl, RMAP_EVENT_FILTER_ADDED);
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	return NB_OK;
 }
 
@@ -629,8 +688,11 @@ lib_access_list_entry_ipv4_prefix_modify(struct nb_cb_modify_args *args)
 	fz = &f->u.zfilter;
 	yang_dnode_get_prefix(&fz->prefix, args->dnode, NULL);
 
+<<<<<<< HEAD
 	acl_notify_route_map(f->acl, RMAP_EVENT_FILTER_ADDED);
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	return NB_OK;
 }
 
@@ -647,8 +709,11 @@ lib_access_list_entry_ipv4_prefix_destroy(struct nb_cb_destroy_args *args)
 	fz = &f->u.zfilter;
 	memset(&fz->prefix, 0, sizeof(fz->prefix));
 
+<<<<<<< HEAD
 	acl_notify_route_map(f->acl, RMAP_EVENT_FILTER_DELETED);
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	return NB_OK;
 }
 
@@ -681,8 +746,11 @@ lib_access_list_entry_ipv4_exact_match_modify(struct nb_cb_modify_args *args)
 	fz = &f->u.zfilter;
 	fz->exact = yang_dnode_get_bool(args->dnode, NULL);
 
+<<<<<<< HEAD
 	acl_notify_route_map(f->acl, RMAP_EVENT_FILTER_ADDED);
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	return NB_OK;
 }
 
@@ -699,8 +767,11 @@ lib_access_list_entry_ipv4_exact_match_destroy(struct nb_cb_destroy_args *args)
 	fz = &f->u.zfilter;
 	fz->exact = 0;
 
+<<<<<<< HEAD
 	acl_notify_route_map(f->acl, RMAP_EVENT_FILTER_DELETED);
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	return NB_OK;
 }
 
@@ -733,8 +804,11 @@ lib_access_list_entry_host_modify(struct nb_cb_modify_args *args)
 	yang_dnode_get_ipv4(&fc->addr, args->dnode, NULL);
 	fc->addr_mask.s_addr = CISCO_BIN_HOST_WILDCARD_MASK;
 
+<<<<<<< HEAD
 	acl_notify_route_map(f->acl, RMAP_EVENT_FILTER_ADDED);
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	return NB_OK;
 }
 
@@ -751,7 +825,33 @@ lib_access_list_entry_host_destroy(struct nb_cb_destroy_args *args)
 	fc = &f->u.cfilter;
 	cisco_unset_addr_mask(&fc->addr, &fc->addr_mask);
 
+<<<<<<< HEAD
 	acl_notify_route_map(f->acl, RMAP_EVENT_FILTER_DELETED);
+=======
+	return NB_OK;
+}
+
+/*
+ * XPath: /frr-filter:lib/access-list/entry/network
+ */
+static int lib_access_list_entry_network_create(struct nb_cb_create_args *args)
+{
+	/* Nothing to do here, everything is done in children callbacks */
+	return NB_OK;
+}
+
+static int lib_access_list_entry_network_destroy(struct nb_cb_destroy_args *args)
+{
+	struct filter_cisco *fc;
+	struct filter *f;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	f = nb_running_get_entry(args->dnode, NULL, true);
+	fc = &f->u.cfilter;
+	cisco_unset_addr_mask(&fc->addr, &fc->addr_mask);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	return NB_OK;
 }
@@ -784,8 +884,11 @@ lib_access_list_entry_network_address_modify(struct nb_cb_modify_args *args)
 	fc = &f->u.cfilter;
 	yang_dnode_get_ipv4(&fc->addr, args->dnode, NULL);
 
+<<<<<<< HEAD
 	acl_notify_route_map(f->acl, RMAP_EVENT_FILTER_ADDED);
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	return NB_OK;
 }
 
@@ -817,8 +920,11 @@ lib_access_list_entry_network_mask_modify(struct nb_cb_modify_args *args)
 	fc = &f->u.cfilter;
 	yang_dnode_get_ipv4(&fc->addr_mask, args->dnode, NULL);
 
+<<<<<<< HEAD
 	acl_notify_route_map(f->acl, RMAP_EVENT_FILTER_ADDED);
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	return NB_OK;
 }
 
@@ -851,8 +957,11 @@ lib_access_list_entry_source_any_create(struct nb_cb_create_args *args)
 	fc->addr.s_addr = INADDR_ANY;
 	fc->addr_mask.s_addr = CISCO_BIN_ANY_WILDCARD_MASK;
 
+<<<<<<< HEAD
 	acl_notify_route_map(f->acl, RMAP_EVENT_FILTER_ADDED);
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	return NB_OK;
 }
 
@@ -869,8 +978,11 @@ lib_access_list_entry_source_any_destroy(struct nb_cb_destroy_args *args)
 	fc = &f->u.cfilter;
 	cisco_unset_addr_mask(&fc->addr, &fc->addr_mask);
 
+<<<<<<< HEAD
 	acl_notify_route_map(f->acl, RMAP_EVENT_FILTER_DELETED);
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	return NB_OK;
 }
 
@@ -903,8 +1015,11 @@ static int lib_access_list_entry_destination_host_modify(
 	yang_dnode_get_ipv4(&fc->mask, args->dnode, NULL);
 	fc->mask_mask.s_addr = CISCO_BIN_HOST_WILDCARD_MASK;
 
+<<<<<<< HEAD
 	acl_notify_route_map(f->acl, RMAP_EVENT_FILTER_ADDED);
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	return NB_OK;
 }
 
@@ -922,7 +1037,36 @@ static int lib_access_list_entry_destination_host_destroy(
 	fc->extended = 0;
 	cisco_unset_addr_mask(&fc->mask, &fc->mask_mask);
 
+<<<<<<< HEAD
 	acl_notify_route_map(f->acl, RMAP_EVENT_FILTER_DELETED);
+=======
+	return NB_OK;
+}
+
+/*
+ * XPath: /frr-filter:lib/access-list/entry/destination-network
+ */
+static int
+lib_access_list_entry_destination_network_create(struct nb_cb_create_args *args)
+{
+	/* Nothing to do here, everything is done in children callbacks */
+	return NB_OK;
+}
+
+static int lib_access_list_entry_destination_network_destroy(
+	struct nb_cb_destroy_args *args)
+{
+	struct filter_cisco *fc;
+	struct filter *f;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	f = nb_running_get_entry(args->dnode, NULL, true);
+	fc = &f->u.cfilter;
+	fc->extended = 0;
+	cisco_unset_addr_mask(&fc->mask, &fc->mask_mask);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	return NB_OK;
 }
@@ -955,8 +1099,11 @@ static int lib_access_list_entry_destination_network_address_modify(
 	fc->extended = 1;
 	yang_dnode_get_ipv4(&fc->mask, args->dnode, NULL);
 
+<<<<<<< HEAD
 	acl_notify_route_map(f->acl, RMAP_EVENT_FILTER_ADDED);
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	return NB_OK;
 }
 
@@ -988,8 +1135,11 @@ static int lib_access_list_entry_destination_network_mask_modify(
 	fc->extended = 1;
 	yang_dnode_get_ipv4(&fc->mask_mask, args->dnode, NULL);
 
+<<<<<<< HEAD
 	acl_notify_route_map(f->acl, RMAP_EVENT_FILTER_ADDED);
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	return NB_OK;
 }
 
@@ -1022,8 +1172,11 @@ static int lib_access_list_entry_destination_any_create(
 	fc->mask.s_addr = INADDR_ANY;
 	fc->mask_mask.s_addr = CISCO_BIN_ANY_WILDCARD_MASK;
 
+<<<<<<< HEAD
 	acl_notify_route_map(f->acl, RMAP_EVENT_FILTER_ADDED);
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	return NB_OK;
 }
 
@@ -1041,8 +1194,11 @@ static int lib_access_list_entry_destination_any_destroy(
 	fc->extended = 0;
 	cisco_unset_addr_mask(&fc->mask, &fc->mask_mask);
 
+<<<<<<< HEAD
 	acl_notify_route_map(f->acl, RMAP_EVENT_FILTER_DELETED);
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	return NB_OK;
 }
 
@@ -1089,8 +1245,11 @@ static int lib_access_list_entry_any_create(struct nb_cb_create_args *args)
 		break;
 	}
 
+<<<<<<< HEAD
 	acl_notify_route_map(f->acl, RMAP_EVENT_FILTER_ADDED);
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	return NB_OK;
 }
 
@@ -1106,8 +1265,11 @@ static int lib_access_list_entry_any_destroy(struct nb_cb_destroy_args *args)
 	fz = &f->u.zfilter;
 	fz->prefix.family = AF_UNSPEC;
 
+<<<<<<< HEAD
 	acl_notify_route_map(f->acl, RMAP_EVENT_FILTER_DELETED);
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	return NB_OK;
 }
 
@@ -1123,8 +1285,13 @@ static int lib_prefix_list_create(struct nb_cb_create_args *args)
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
+<<<<<<< HEAD
 	type = yang_dnode_get_enum(args->dnode, "./type");
 	name = yang_dnode_get_string(args->dnode, "./name");
+=======
+	type = yang_dnode_get_enum(args->dnode, "type");
+	name = yang_dnode_get_string(args->dnode, "name");
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	switch (type) {
 	case 0: /* ipv4 */
 		pl = prefix_list_get(AFI_IP, 0, name);
@@ -1201,7 +1368,11 @@ static int lib_prefix_list_entry_create(struct nb_cb_create_args *args)
 	pl = nb_running_get_entry(args->dnode, NULL, true);
 	ple = prefix_list_entry_new();
 	ple->pl = pl;
+<<<<<<< HEAD
 	ple->seq = yang_dnode_get_uint32(args->dnode, "./sequence");
+=======
+	ple->seq = yang_dnode_get_uint32(args->dnode, "sequence");
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	prefix_list_entry_set_empty(ple);
 	nb_running_set_entry(args->dnode, ple);
 
@@ -1224,6 +1395,25 @@ static int lib_prefix_list_entry_destroy(struct nb_cb_destroy_args *args)
 	return NB_OK;
 }
 
+<<<<<<< HEAD
+=======
+static void
+lib_prefix_list_entry_apply_finish(struct nb_cb_apply_finish_args *args)
+{
+	struct prefix_list_entry *ple;
+
+	ple = nb_running_get_entry(args->dnode, NULL, true);
+
+	/*
+	 * Finish prefix entry update procedure. The procedure is started in
+	 * children callbacks. `prefix_list_entry_update_start` can be called
+	 * multiple times if multiple children are modified, but it is actually
+	 * executed only once because of the protection by `ple->installed`.
+	 */
+	prefix_list_entry_update_finish(ple);
+}
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 /*
  * XPath: /frr-filter:lib/prefix-list/entry/action
  */
@@ -1246,9 +1436,12 @@ static int lib_prefix_list_entry_action_modify(struct nb_cb_modify_args *args)
 	else
 		ple->type = PREFIX_DENY;
 
+<<<<<<< HEAD
 	/* Finish prefix entry update procedure. */
 	prefix_list_entry_update_finish(ple);
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	return NB_OK;
 }
 
@@ -1276,10 +1469,13 @@ static int lib_prefix_list_entry_prefix_modify(struct nb_cb_modify_args *args)
 		prefix_copy(&ple->prefix, &p);
 	}
 
+<<<<<<< HEAD
 
 	/* Finish prefix entry update procedure. */
 	prefix_list_entry_update_finish(ple);
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	return NB_OK;
 }
 
@@ -1297,9 +1493,12 @@ static int lib_prefix_list_entry_prefix_destroy(struct nb_cb_destroy_args *args)
 
 	memset(&ple->prefix, 0, sizeof(ple->prefix));
 
+<<<<<<< HEAD
 	/* Finish prefix entry update procedure. */
 	prefix_list_entry_update_finish(ple);
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	return NB_OK;
 }
 
@@ -1547,9 +1746,12 @@ static int lib_prefix_list_entry_any_create(struct nb_cb_create_args *args)
 		break;
 	}
 
+<<<<<<< HEAD
 	/* Finish prefix entry update procedure. */
 	prefix_list_entry_update_finish(ple);
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	return NB_OK;
 }
 
@@ -1567,9 +1769,12 @@ static int lib_prefix_list_entry_any_destroy(struct nb_cb_destroy_args *args)
 
 	ple->any = false;
 
+<<<<<<< HEAD
 	/* Finish prefix entry update procedure. */
 	prefix_list_entry_update_finish(ple);
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	return NB_OK;
 }
 
@@ -1597,6 +1802,10 @@ const struct frr_yang_module_info frr_filter_info = {
 			.cbs = {
 				.create = lib_access_list_entry_create,
 				.destroy = lib_access_list_entry_destroy,
+<<<<<<< HEAD
+=======
+				.apply_finish = lib_access_list_entry_apply_finish,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 				.cli_cmp = access_list_cmp,
 				.cli_show = access_list_show,
 			}
@@ -1629,6 +1838,16 @@ const struct frr_yang_module_info frr_filter_info = {
 			}
 		},
 		{
+<<<<<<< HEAD
+=======
+			.xpath = "/frr-filter:lib/access-list/entry/network",
+			.cbs = {
+				.create = lib_access_list_entry_network_create,
+				.destroy = lib_access_list_entry_network_destroy,
+			}
+		},
+		{
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			.xpath = "/frr-filter:lib/access-list/entry/network/address",
 			.cbs = {
 				.modify = lib_access_list_entry_network_address_modify,
@@ -1655,6 +1874,16 @@ const struct frr_yang_module_info frr_filter_info = {
 			}
 		},
 		{
+<<<<<<< HEAD
+=======
+			.xpath = "/frr-filter:lib/access-list/entry/destination-network",
+			.cbs = {
+				.create = lib_access_list_entry_destination_network_create,
+				.destroy = lib_access_list_entry_destination_network_destroy,
+			}
+		},
+		{
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			.xpath = "/frr-filter:lib/access-list/entry/destination-network/address",
 			.cbs = {
 				.modify = lib_access_list_entry_destination_network_address_modify,
@@ -1721,6 +1950,10 @@ const struct frr_yang_module_info frr_filter_info = {
 			.cbs = {
 				.create = lib_prefix_list_entry_create,
 				.destroy = lib_prefix_list_entry_destroy,
+<<<<<<< HEAD
+=======
+				.apply_finish = lib_prefix_list_entry_apply_finish,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 				.cli_cmp = prefix_list_cmp,
 				.cli_show = prefix_list_show,
 			}
@@ -1785,3 +2018,38 @@ const struct frr_yang_module_info frr_filter_info = {
 		},
 	}
 };
+<<<<<<< HEAD
+=======
+
+const struct frr_yang_module_info frr_filter_cli_info = {
+	.name = "frr-filter",
+	.ignore_cfg_cbs = true,
+	.nodes = {
+		{
+			.xpath = "/frr-filter:lib/access-list/remark",
+			.cbs.cli_show = access_list_remark_show,
+		},
+		{
+			.xpath = "/frr-filter:lib/access-list/entry",
+			.cbs = {
+				.cli_cmp = access_list_cmp,
+				.cli_show = access_list_show,
+			}
+		},
+		{
+			.xpath = "/frr-filter:lib/prefix-list/remark",
+			.cbs.cli_show = prefix_list_remark_show,
+		},
+		{
+			.xpath = "/frr-filter:lib/prefix-list/entry",
+			.cbs = {
+				.cli_cmp = prefix_list_cmp,
+				.cli_show = prefix_list_show,
+			}
+		},
+		{
+			.xpath = NULL,
+		},
+	}
+};
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)

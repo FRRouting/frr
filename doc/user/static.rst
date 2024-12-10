@@ -12,6 +12,7 @@ of static routes.
 Starting STATIC
 ===============
 
+<<<<<<< HEAD
 Default configuration file for *staticd* is :file:`staticd.conf`.  The typical
 location of :file:`staticd.conf` is |INSTALL_PREFIX_ETC|/staticd.conf.
 
@@ -22,11 +23,18 @@ If the user has not fully upgraded to using the staticd.conf and still has
 a non-integrated config with zebra.conf holding the static routes, *staticd*
 will read in the :file:`zebrad.conf` as a backup.
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 .. program:: staticd
 
 :abbr:`STATIC` supports all the common FRR daemon start options which are
 documented elsewhere.
 
+<<<<<<< HEAD
+=======
+.. include:: config-include.rst
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 .. _static-route-commands:
 
 Static Route Commands

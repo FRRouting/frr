@@ -7,13 +7,20 @@
 
 import functools
 import ipaddress
+<<<<<<< HEAD
 import json
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 import os
 import platform
 import socket
 import subprocess
 import sys
 import traceback
+<<<<<<< HEAD
+=======
+import configparser
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 from collections import OrderedDict
 from copy import deepcopy
 from datetime import datetime, timedelta
@@ -21,12 +28,15 @@ from functools import wraps
 from re import search as re_search
 from time import sleep
 
+<<<<<<< HEAD
 try:
     # Imports from python2
     import ConfigParser as configparser
 except ImportError:
     # Imports from python3
     import configparser
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 from lib.micronet import comm_error
 from lib.topogen import TopoRouter, get_topogen
@@ -447,7 +457,11 @@ def check_router_status(tgen):
 
     try:
         router_list = tgen.routers()
+<<<<<<< HEAD
         for router, rnode in router_list.items():
+=======
+        for _, rnode in router_list.items():
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
             result = rnode.check_router_running()
             if result != "":
                 daemons = []
@@ -691,7 +705,11 @@ def prep_load_config_to_routers(tgen, *config_name_list):
     """
 
     routers = tgen.routers()
+<<<<<<< HEAD
     for rname, router in routers.items():
+=======
+    for rname, _ in routers.items():
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         destname = "{}/{}/{}".format(tgen.logdir, rname, FRRCFG_FILE)
         wmode = "w"
         for cfbase in config_name_list:
@@ -876,7 +894,11 @@ def get_frr_ipv6_linklocal(tgen, router, intf=None, vrf=None):
     """
 
     router_list = tgen.routers()
+<<<<<<< HEAD
     for rname, rnode in router_list.items():
+=======
+    for rname, _ in router_list.items():
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         if rname != router:
             continue
 
@@ -892,7 +914,11 @@ def get_frr_ipv6_linklocal(tgen, router, intf=None, vrf=None):
             cmd = "show interface vrf {}".format(vrf)
         else:
             cmd = "show interface"
+<<<<<<< HEAD
         for chk_ll in range(0, 60):
+=======
+        for _ in range(0, 60):
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
             sleep(1 / 4)
             ifaces = router_list[router].run('vtysh -c "{}"'.format(cmd))
             # Fix newlines (make them all the same)
@@ -941,14 +967,34 @@ def generate_support_bundle():
     """
 
     tgen = get_topogen()
+<<<<<<< HEAD
+=======
+    if tgen is None:
+        logger.warning(
+            "Support bundle attempted to be generated, but topogen is not being used"
+        )
+        return True
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     router_list = tgen.routers()
     test_name = os.environ.get("PYTEST_CURRENT_TEST").split(":")[-1].split(" ")[0]
 
     bundle_procs = {}
     for rname, rnode in router_list.items():
         logger.info("Spawn collection of support bundle for %s", rname)
+<<<<<<< HEAD
         dst_bundle = "{}/{}/support_bundles/{}".format(tgen.logdir, rname, test_name)
         rnode.run("mkdir -p " + dst_bundle)
+=======
+        try:
+            dst_bundle = "{}/{}/support_bundles/{}".format(
+                tgen.logdir, rname, test_name
+            )
+            rnode.run("mkdir -p " + dst_bundle)
+        except Exception as err:
+            logger.error("Generation of Support bundle failed {}".format(err))
+            return True
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
         gen_sup_cmd = [
             "/usr/lib/frr/generate_support_bundle.py",
@@ -1841,7 +1887,17 @@ def retry(retry_timeout, initial_wait=0, expected=True, diag_pct=0.75):
             while True:
                 seconds_left = (retry_until - datetime.now()).total_seconds()
                 try:
+<<<<<<< HEAD
                     ret = func(*args, **kwargs)
+=======
+                    try:
+                        ret = func(*args, seconds_left=seconds_left, **kwargs)
+                    except TypeError as error:
+                        if "seconds_left" not in str(error):
+                            raise
+                        ret = func(*args, **kwargs)
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
                     logger.debug("Function returned %s", ret)
 
                     negative_result = ret is False or is_string(ret)
@@ -1862,7 +1918,11 @@ def retry(retry_timeout, initial_wait=0, expected=True, diag_pct=0.75):
                         return saved_failure
 
                 except Exception as error:
+<<<<<<< HEAD
                     logger.info("Function raised exception: %s", str(error))
+=======
+                    logger.info('Function raised exception: "%s"', repr(error))
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
                     ret = error
 
                 if seconds_left < 0 and saved_failure:
@@ -3088,7 +3148,11 @@ def configure_brctl(tgen, topo, input_dict):
                             "{} dev {} master {}".format(ip_cmd, brctl_name, vrf)
                         )
 
+<<<<<<< HEAD
                         for intf_name, data in topo["routers"][dut]["links"].items():
+=======
+                        for _, data in topo["routers"][dut]["links"].items():
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
                             if "vrf" not in data:
                                 continue
 
@@ -3359,7 +3423,11 @@ def verify_rib(
                                 found_hops = [
                                     rib_r["ip"]
                                     for rib_r in rib_routes_json[st_rt][0]["nexthops"]
+<<<<<<< HEAD
                                     if "ip" in rib_r
+=======
+                                    if "ip" in rib_r and "active" in rib_r
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
                                 ]
 
                                 # If somehow key "ip" is not found in nexthops JSON
@@ -4935,7 +5003,11 @@ def scapy_send_raw_packet(tgen, topo, senderRouter, intf, packet=None):
     sender_interface = intf
     rnode = tgen.routers()[senderRouter]
 
+<<<<<<< HEAD
     for destLink, data in topo["routers"][senderRouter]["links"].items():
+=======
+    for _, data in topo["routers"][senderRouter]["links"].items():
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         if "type" in data and data["type"] == "loopback":
             continue
 

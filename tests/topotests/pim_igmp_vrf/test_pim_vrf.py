@@ -60,7 +60,11 @@ TOPOLOGY = """
 +---------+                  +------------+         |        +---------+
 | Host H1 | 192.168.100.0/24 |            | .1      |    .11 | Host H2 |
 | receive |------------------|  VRF Blue  |---------+--------| PIM RP  |
+<<<<<<< HEAD
 |IGMP JOIN| .10           .1 |            | 192.168.101.0/24 |         |  
+=======
+|IGMP JOIN| .10           .1 |            | 192.168.101.0/24 |         |
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 +---------+                  |            |                  +---------+
                             =| = = R1 = = |=
 +---------+                  |            |                  +---------+
@@ -68,7 +72,11 @@ TOPOLOGY = """
 | receive |------------------|  VRF Red   |---------+--------| PIM RP  |
 |IGMP JOIN| .20           .1 |            | .1      |    .12 |         |
 +---------+                  +------------+         |        +---------+
+<<<<<<< HEAD
                                                  .4 | 
+=======
+                                                 .4 |
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
                                                +----------+
                                                |  Host H4 |
                                                |  Source  |
@@ -80,6 +88,10 @@ import functools
 import os
 import sys
 import pytest
+<<<<<<< HEAD
+=======
+import logging
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 # Save the Current Working Directory to find configuration files.
 CWD = os.path.dirname(os.path.realpath(__file__))
@@ -192,8 +204,24 @@ def setup_module(module):
 
     tgen.start_router()
 
+<<<<<<< HEAD
 
 def teardown_module(module):
+=======
+    # iproute2 needs to support VRFs for this suite to run.
+    if not iproute2_is_vrf_capable():
+        pytest.skip(
+            "Installed iproute2 version does not support VRFs", allow_module_level=True
+        )
+
+    if os.getenv("MROUTE_VRF_MISSING"):
+        pytest.skip(
+            "Kernel does not support vrf mroute tables.", allow_module_level=True
+        )
+
+
+def teardown_module():
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     tgen = get_topogen()
     tgen.stop_topology()
 
@@ -202,16 +230,23 @@ def test_ospf_convergence():
     "Test for OSPFv2 convergence"
     tgen = get_topogen()
 
+<<<<<<< HEAD
     # iproute2 needs to support VRFs for this suite to run.
     if not iproute2_is_vrf_capable():
         pytest.skip("Installed iproute2 version does not support VRFs")
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     # Skip if previous fatal error condition is raised
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
     logger.info("Checking OSPFv2 convergence on router r1 for VRF blue")
 
+<<<<<<< HEAD
+=======
+    # Check for blue neighbor
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     router = tgen.gears["r1"]
     reffile = os.path.join(CWD, "r1/ospf_blue_neighbor.json")
     expected = json.loads(open(reffile).read())
@@ -223,7 +258,26 @@ def test_ospf_convergence():
         expected,
     )
     _, res = topotest.run_and_expect(test_func, None, count=60, wait=2)
+<<<<<<< HEAD
     assertmsg = "OSPF router R1 did not converge on VRF blue"
+=======
+    assertmsg = "OSPF router R1 did not converge on VRF blue (nbr)"
+    assert res is None, assertmsg
+
+    # Check for blue loopback route
+    router = tgen.gears["r1"]
+    reffile = os.path.join(CWD, "r1/ospf_blue_route.json")
+    expected = json.loads(open(reffile).read())
+
+    test_func = functools.partial(
+        topotest.router_json_cmp,
+        router,
+        "show ip ospf vrf blue route json",
+        expected,
+    )
+    _, res = topotest.run_and_expect(test_func, None, count=30, wait=2)
+    assertmsg = "OSPF router R1 did not converge on VRF blue (route)"
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     assert res is None, assertmsg
 
     logger.info("Checking OSPFv2 convergence on router r1 for VRF red")
@@ -236,7 +290,26 @@ def test_ospf_convergence():
         topotest.router_json_cmp, router, "show ip ospf vrf red neighbor json", expected
     )
     _, res = topotest.run_and_expect(test_func, None, count=60, wait=2)
+<<<<<<< HEAD
     assertmsg = "OSPF router R1 did not converge on VRF red"
+=======
+    assertmsg = "OSPF router R1 did not converge on VRF red (nbr)"
+    assert res is None, assertmsg
+
+    # Check for red loopback route
+    router = tgen.gears["r1"]
+    reffile = os.path.join(CWD, "r1/ospf_red_route.json")
+    expected = json.loads(open(reffile).read())
+
+    test_func = functools.partial(
+        topotest.router_json_cmp,
+        router,
+        "show ip ospf vrf red route json",
+        expected,
+    )
+    _, res = topotest.run_and_expect(test_func, None, count=30, wait=2)
+    assertmsg = "OSPF router R1 did not converge on VRF red (route)"
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     assert res is None, assertmsg
 
 
@@ -275,10 +348,20 @@ def test_pim_convergence():
     assert res is None, assertmsg
 
 
+<<<<<<< HEAD
 def test_vrf_pimreg_interfaces():
     "Adding PIM RP in VRF information and verify pimreg interfaces"
     tgen = get_topogen()
 
+=======
+def _test_vrf_pimreg_interfaces():
+    "Adding PIM RP in VRF information and verify pimreg interfaces"
+    tgen = get_topogen()
+
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     r1 = tgen.gears["r1"]
     r1.vtysh_cmd("conf\ninterface blue\nip pim")
     r1.vtysh_cmd("conf\nvrf blue\nip pim rp 192.168.0.11 239.100.0.1/32\nexit-vrf")
@@ -292,7 +375,11 @@ def test_vrf_pimreg_interfaces():
         "show ip pim vrf blue inter pimreg11 json",
         expected,
     )
+<<<<<<< HEAD
     _, res = topotest.run_and_expect(test_func, None, count=5, wait=2)
+=======
+    _, res = topotest.run_and_expect(test_func, None, count=15, wait=2)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     assertmsg = "PIM router R1, VRF blue (table 11) pimreg11 interface missing or incorrect status"
     assert res is None, assertmsg
 
@@ -308,10 +395,27 @@ def test_vrf_pimreg_interfaces():
         "show ip pim vrf red inter pimreg12 json",
         expected,
     )
+<<<<<<< HEAD
     _, res = topotest.run_and_expect(test_func, None, count=5, wait=2)
     assertmsg = "PIM router R1, VRF red (table 12) pimreg12 interface missing or incorrect status"
     assert res is None, assertmsg
 
+=======
+    _, res = topotest.run_and_expect(test_func, None, count=15, wait=2)
+    assertmsg = "PIM router R1, VRF red (table 12) pimreg12 interface missing or incorrect status"
+    assert res is None, assertmsg
+
+def test_vrf_pimreg_interfaces():
+    tgen = get_topogen()
+    r1 = tgen.gears["r1"]
+    try:
+        _test_vrf_pimreg_interfaces()
+    except Exception:
+        # get some debug info.
+        output = r1.net.cmd_nostatus("ip -o link")
+        logging.error("ip link info after failure: %s", output)
+        raise
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 ##################################
 ###  Test PIM / IGMP with VRF

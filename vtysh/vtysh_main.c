@@ -5,6 +5,12 @@
 
 #include <zebra.h>
 
+<<<<<<< HEAD
+=======
+#include <fcntl.h>
+#include <signal.h>
+#include <sys/stat.h>
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 #include <sys/un.h>
 #include <setjmp.h>
 #include <pwd.h>
@@ -347,6 +353,10 @@ int main(int argc, char **argv, char **env)
 	char pathspace[MAXPATHLEN] = "";
 	const char *histfile = NULL;
 	const char *histfile_env = getenv("VTYSH_HISTFILE");
+<<<<<<< HEAD
+=======
+	const char *logpath = getenv("VTYSH_LOG");
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	/* SUID: drop down to calling user & go back up when needed */
 	elevuid = geteuid();
@@ -362,8 +372,12 @@ int main(int argc, char **argv, char **env)
 
 	strlcpy(sysconfdir, frr_sysconfdir, sizeof(sysconfdir));
 
+<<<<<<< HEAD
 	frr_init_vtydir();
 	strlcpy(vtydir, frr_vtydir, sizeof(vtydir));
+=======
+	strlcpy(vtydir, frr_runstatedir, sizeof(vtydir));
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	/* Option handling. */
 	while (1) {
@@ -487,7 +501,10 @@ int main(int argc, char **argv, char **env)
 
 	/* Make vty structure and register commands. */
 	vtysh_init_vty();
+<<<<<<< HEAD
 	vtysh_init_cmd();
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	vtysh_user_init();
 	vtysh_config_init();
 
@@ -642,9 +659,13 @@ int main(int argc, char **argv, char **env)
 		}
 	}
 
+<<<<<<< HEAD
 	if (getenv("VTYSH_LOG")) {
 		const char *logpath = getenv("VTYSH_LOG");
 
+=======
+	if (logpath != NULL) {
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		logfile = fopen(logpath, "a");
 		if (!logfile) {
 			fprintf(stderr, "Failed to open logfile (%s): %s\n",

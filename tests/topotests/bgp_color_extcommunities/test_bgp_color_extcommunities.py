@@ -16,7 +16,10 @@ import os
 import sys
 import json
 import functools
+<<<<<<< HEAD
 from functools import partial
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 import pytest
 
 # Save the Current Working Directory to find configuration files.
@@ -106,7 +109,11 @@ def test_bgp_color_extended_communities():
                     {
                         "valid": True,
                         "extendedCommunity": {
+<<<<<<< HEAD
                             "string": "RT:80:987 Color:100 Color:200 Color:55555"
+=======
+                            "string": "RT:80:987 Color:01:100 Color:01:200 Color:01:55555"
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
                         },
                     }
                 ],
@@ -117,7 +124,13 @@ def test_bgp_color_extended_communities():
 
     test_func = functools.partial(_bgp_check_route, r2, True)
     _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
+<<<<<<< HEAD
     assert result is None, "10.10.10.0/24 ext community is correctly not installed, but SHOULD be"
+=======
+    assert (
+        result is None
+    ), "10.10.10.0/24 ext community is correctly not installed, but SHOULD be"
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 
 if __name__ == "__main__":

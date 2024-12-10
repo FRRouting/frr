@@ -12,9 +12,12 @@
 extern "C" {
 #endif
 
+<<<<<<< HEAD
 extern int netlink_interface_addr(struct nlmsghdr *h, ns_id_t ns_id,
 				  int startup);
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 /*
  * Parse an incoming interface address change message, generate a dplane
  * context object for processing.

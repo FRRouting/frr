@@ -14,7 +14,10 @@ enum base64_encodestep {
 struct base64_encodestate {
 	enum base64_encodestep step;
 	char result;
+<<<<<<< HEAD
 	int stepcount;
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 };
 
 void base64_init_encodestate(struct base64_encodestate *state_in);

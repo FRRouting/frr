@@ -143,6 +143,11 @@ int isis_lsp_iterate_ip_reach(struct isis_lsp *lsp, int family, uint16_t mtid,
 			      lsp_ip_reach_iter_cb cb, void *arg);
 int isis_lsp_iterate_is_reach(struct isis_lsp *lsp, uint16_t mtid,
 			      lsp_is_reach_iter_cb cb, void *arg);
+<<<<<<< HEAD
+=======
+int isis_lsp_iterate_srv6_locator(struct isis_lsp *lsp, uint16_t mtid,
+				  lsp_ip_reach_iter_cb cb, void *arg);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 #define lsp_flood(lsp, circuit) \
 	_lsp_flood((lsp), (circuit), __func__, __FILE__, __LINE__)

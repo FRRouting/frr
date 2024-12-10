@@ -41,13 +41,20 @@
 #include "jhash.h"
 
 DEFINE_MTYPE_STATIC(LIB, AFFINITY_MAP, "Affinity map");
+<<<<<<< HEAD
 DEFINE_MTYPE(LIB, AFFINITY_MAP_NAME, "Affinity map name");
 DEFINE_MTYPE_STATIC(LIB, AFFINITY_MAP_INDEX, "Affinity map index");
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 DEFINE_QOBJ_TYPE(affinity_maps);
 DEFINE_QOBJ_TYPE(affinity_map);
 
+<<<<<<< HEAD
 struct affinity_maps affinity_map_master = {NULL, NULL, NULL, NULL};
+=======
+struct affinity_maps affinity_map_master = {NULL, NULL};
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 static void affinity_map_free(struct affinity_map *map)
 {
@@ -106,6 +113,7 @@ struct affinity_map *affinity_map_get(const char *name)
 	return NULL;
 }
 
+<<<<<<< HEAD
 
 char *affinity_map_name_get(int pos)
 {
@@ -136,6 +144,8 @@ bool affinity_map_check_update_hook(const char *affmap_name, uint16_t new_pos)
 	return true;
 }
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 void affinity_map_update_hook(const char *affmap_name, uint16_t new_pos)
 {
 	struct affinity_map *map;
@@ -153,6 +163,7 @@ void affinity_map_update_hook(const char *affmap_name, uint16_t new_pos)
 					   new_pos);
 }
 
+<<<<<<< HEAD
 
 void affinity_map_set_check_use_hook(bool (*func)(const char *affmap_name))
 {
@@ -165,6 +176,8 @@ void affinity_map_set_check_update_hook(bool (*func)(const char *affmap_name,
 	affinity_map_master.check_update_hook = func;
 }
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 void affinity_map_set_update_hook(void (*func)(const char *affmap_name,
 					       uint16_t old_pos,
 					       uint16_t new_pos))

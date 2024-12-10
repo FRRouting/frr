@@ -15,10 +15,21 @@
 #include "mgmtd/mgmt_history.h"
 #include "mgmtd/mgmt_memory.h"
 
+<<<<<<< HEAD
 struct debug mgmt_debug_be = {.desc = "Management backend adapater"};
 struct debug mgmt_debug_ds = {.desc = "Management datastore"};
 struct debug mgmt_debug_fe = {.desc = "Management frontend adapater"};
 struct debug mgmt_debug_txn = {.desc = "Management transaction"};
+=======
+struct debug mgmt_debug_be = { .conf = "debug mgmt backend",
+			       .desc = "Management backend adapter" };
+struct debug mgmt_debug_ds = { .conf = "debug mgmt datastore",
+			       .desc = "Management datastore" };
+struct debug mgmt_debug_fe = { .conf = "debug mgmt frontend",
+			       .desc = "Management frontend adapter" };
+struct debug mgmt_debug_txn = { .conf = "debug mgmt transaction",
+				.desc = "Management transaction" };
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 /* MGMTD process wide configuration.  */
 static struct mgmt_master mgmt_master;
@@ -39,6 +50,13 @@ void mgmt_master_init(struct event_loop *master, const int buffer_size)
 
 void mgmt_init(void)
 {
+<<<<<<< HEAD
+=======
+	debug_install(&mgmt_debug_be);
+	debug_install(&mgmt_debug_ds);
+	debug_install(&mgmt_debug_fe);
+	debug_install(&mgmt_debug_txn);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	/* Initialize datastores */
 	mgmt_ds_init(mm);
@@ -52,17 +70,38 @@ void mgmt_init(void)
 	/* Initialize the MGMTD Frontend Adapter Module */
 	mgmt_fe_adapter_init(mm->master);
 
+<<<<<<< HEAD
 	/* Initialize the CLI frontend client */
 	vty_init_mgmt_fe();
 
 	/* MGMTD VTY commands installation. */
+=======
+	/*
+	 * Initialize the CLI frontend client -- this queues an event for the
+	 * client to short-circuit connect to the server (ourselves).
+	 */
+	vty_init_mgmt_fe();
+
+	/*
+	 * MGMTD VTY commands installation -- the frr lib code will queue an
+	 * event to read the config files which needs to happen after the
+	 * connect from above is made.
+	 */
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	mgmt_vty_init();
 
 	/*
 	 * Initialize the MGMTD Backend Adapter Module
 	 *
+<<<<<<< HEAD
 	 * We do this after the FE stuff so that we always read our config file
 	 * prior to any BE connection.
+=======
+	 * We do this after the FE stuff so that we have read our config file
+	 * prior to any BE connection. Setting up the server will queue a
+	 * "socket read" event to accept BE connections. So the code is counting
+	 * on the above 2 events to run prior to any `accept` event from here.
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	 */
 	mgmt_be_adapter_init(mm->master);
 }

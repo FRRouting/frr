@@ -19,12 +19,15 @@ Installing Dependencies
 
 .. include:: building-libyang.rst
 
+<<<<<<< HEAD
 Protobuf
 ^^^^^^^^
 
 .. code-block:: console
 
    sudo apt-get install protobuf-c-compiler libprotobuf-c-dev
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 Building & Installing FRR
 -------------------------

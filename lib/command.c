@@ -10,9 +10,20 @@
  */
 
 #include <zebra.h>
+<<<<<<< HEAD
 #include <lib/version.h>
 
 #include "command.h"
+=======
+#include <sys/utsname.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+
+#include <lib/version.h>
+
+#include "command.h"
+#include "debug.h"
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 #include "frrstr.h"
 #include "memory.h"
 #include "log.h"
@@ -39,6 +50,11 @@
 
 #include "frrscript.h"
 
+<<<<<<< HEAD
+=======
+#include "lib/config_paths.h"
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 DEFINE_MTYPE_STATIC(LIB, HOST, "Host config");
 DEFINE_MTYPE(LIB, COMPLETION, "Completion item");
 
@@ -672,6 +688,24 @@ vector cmd_describe_command(vector vline, struct vty *vty, int *status)
 
 static struct list *varhandlers = NULL;
 
+<<<<<<< HEAD
+=======
+static int __add_key_comp(const struct lyd_node *dnode, void *arg)
+{
+	const char *key_value = yang_dnode_get_string(dnode, NULL);
+
+	vector_set((vector)arg, XSTRDUP(MTYPE_COMPLETION, key_value));
+
+	return YANG_ITER_CONTINUE;
+}
+
+static void __get_list_keys(vector comps, const char *xpath)
+{
+	yang_dnode_iterate(__add_key_comp, comps,
+			   vty_shared_candidate_config->dnode, "%s", xpath);
+}
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 void cmd_variable_complete(struct cmd_token *token, const char *arg,
 			   vector comps)
 {
@@ -688,7 +722,14 @@ void cmd_variable_complete(struct cmd_token *token, const char *arg,
 		if (cvh->varname && (!token->varname
 				     || strcmp(cvh->varname, token->varname)))
 			continue;
+<<<<<<< HEAD
 		cvh->completions(tmpcomps, token);
+=======
+		if (cvh->xpath)
+			__get_list_keys(tmpcomps, cvh->xpath);
+		if (cvh->completions)
+			cvh->completions(tmpcomps, token);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		break;
 	}
 
@@ -747,7 +788,11 @@ void cmd_variable_handler_register(const struct cmd_variable_handler *cvh)
 	if (!varhandlers)
 		return;
 
+<<<<<<< HEAD
 	for (; cvh->completions; cvh++)
+=======
+	for (; cvh->completions || cvh->xpath; cvh++)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		listnode_add(varhandlers, (void *)cvh);
 }
 
@@ -1350,7 +1395,11 @@ DEFUN (disable,
 }
 
 /* Down vty node level. */
+<<<<<<< HEAD
 DEFUN (config_exit,
+=======
+DEFUN_YANG (config_exit,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
        config_exit_cmd,
        "exit",
        "Exit current mode and down to previous mode\n")
@@ -1429,7 +1478,11 @@ DEFUN (config_help,
        "Description of the interactive help system\n")
 {
 	vty_out(vty,
+<<<<<<< HEAD
 		"Quagga VTY provides advanced help feature.  When you need help,\n\
+=======
+		"FRR VTY provides advanced help feature.  When you need help,\n\
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 anytime at the command line please press '?'.\n\
 \n\
 If nothing matches, the help list will be empty and you must backup\n\
@@ -1629,6 +1682,13 @@ static int vty_write_config(struct vty *vty)
 	return CMD_SUCCESS;
 }
 
+<<<<<<< HEAD
+=======
+/* cross-reference frr_daemon_state_save in libfrr.c
+ * the code there is similar but not identical (state files always use the same
+ * name for the new write, and don't keep a backup of previous state.)
+ */
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 static int file_write_config(struct vty *vty)
 {
 	int fd, dirfd;
@@ -2435,8 +2495,12 @@ const char *host_config_get(void)
 void cmd_show_lib_debugs(struct vty *vty)
 {
 	route_map_show_debug(vty);
+<<<<<<< HEAD
 	mgmt_debug_be_client_show_debug(vty);
 	mgmt_debug_fe_client_show_debug(vty);
+=======
+	debug_status_write(vty);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 }
 
 void install_default(enum node_type node)

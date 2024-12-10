@@ -19,9 +19,12 @@
 #include "pim_memory.h"
 #include "pim_assert.h"
 
+<<<<<<< HEAD
 #define PIMD_VTY_PORT       2611
 #define PIM6D_VTY_PORT      2622
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 #define PIM_IP_PROTO_IGMP             (2)
 #define PIM_IP_PROTO_PIM              (103)
 #define PIM_IGMP_MIN_LEN              (8)
@@ -98,6 +101,10 @@
 #define PIM_MASK_VXLAN               (1 << 26)
 #define PIM_MASK_BSM_PROC            (1 << 27)
 #define PIM_MASK_MLAG                (1 << 28)
+<<<<<<< HEAD
+=======
+#define PIM_MASK_AUTORP		     (1 << 29)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 /* Remember 32 bits!!! */
 
 /* PIM error codes */
@@ -170,6 +177,10 @@ extern uint8_t qpim_ecmp_rebalance_enable;
 #define PIM_DEBUG_MTRACE (router->debugs & PIM_MASK_MTRACE)
 #define PIM_DEBUG_VXLAN (router->debugs & PIM_MASK_VXLAN)
 #define PIM_DEBUG_BSM	(router->debugs & PIM_MASK_BSM_PROC)
+<<<<<<< HEAD
+=======
+#define PIM_DEBUG_AUTORP	 (router->debugs & PIM_MASK_AUTORP)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 #define PIM_DEBUG_EVENTS                                                       \
 	(router->debugs & (PIM_MASK_PIM_EVENTS | PIM_MASK_GM_EVENTS |          \
@@ -212,6 +223,10 @@ extern uint8_t qpim_ecmp_rebalance_enable;
 #define PIM_DO_DEBUG_PIM_NHT_RP (router->debugs |= PIM_MASK_PIM_NHT_RP)
 #define PIM_DO_DEBUG_MTRACE (router->debugs |= PIM_MASK_MTRACE)
 #define PIM_DO_DEBUG_VXLAN (router->debugs |= PIM_MASK_VXLAN)
+<<<<<<< HEAD
+=======
+#define PIM_DO_DEBUG_AUTORP	    (router->debugs |= PIM_MASK_AUTORP)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 #define PIM_DONT_DEBUG_PIM_EVENTS (router->debugs &= ~PIM_MASK_PIM_EVENTS)
 #define PIM_DONT_DEBUG_PIM_PACKETS (router->debugs &= ~PIM_MASK_PIM_PACKETS)
@@ -246,6 +261,10 @@ extern uint8_t qpim_ecmp_rebalance_enable;
 #define PIM_DONT_DEBUG_MTRACE (router->debugs &= ~PIM_MASK_MTRACE)
 #define PIM_DONT_DEBUG_VXLAN (router->debugs &= ~PIM_MASK_VXLAN)
 #define PIM_DONT_DEBUG_BSM (router->debugs &= ~PIM_MASK_BSM_PROC)
+<<<<<<< HEAD
+=======
+#define PIM_DONT_DEBUG_AUTORP	  (router->debugs &= ~PIM_MASK_AUTORP)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 /* RFC 3376: 8.1. Robustness Variable - Default: 2 for IGMP */
 /* RFC 2710: 7.1. Robustness Variable - Default: 2 for MLD */

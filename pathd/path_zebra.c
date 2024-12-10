@@ -29,6 +29,20 @@ static int path_zebra_opaque_msg_handler(ZAPI_CALLBACK_ARGS);
 struct zclient *zclient;
 static struct zclient *zclient_sync;
 
+<<<<<<< HEAD
+=======
+/* Event to retry synch zapi setup for label-manager */
+static struct event *t_sync_connect;
+
+enum path_sync_level {
+	PATH_SYNC_NONE = 0,
+	PATH_SYNC_CONN,
+	PATH_SYNC_HELLO,
+	PATH_SYNC_DONE
+};
+static enum path_sync_level path_sync_client_level;
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 /* Global Variables */
 bool g_has_router_id_v4 = false;
 bool g_has_router_id_v6 = false;
@@ -236,6 +250,7 @@ void path_zebra_release_label(mpls_label_t label)
 		zlog_warn("%s: error releasing label range!", __func__);
 }
 
+<<<<<<< HEAD
 static void path_zebra_label_manager_connect(void)
 {
 	/* Connect to label manager. */
@@ -256,6 +271,50 @@ static void path_zebra_label_manager_connect(void)
 	while (lm_label_manager_connect(zclient_sync, 0) != 0) {
 		zlog_warn("%s: error connecting to label manager!", __func__);
 		sleep(1);
+=======
+/*
+ * Initialize and connect the synchronous zclient session for the
+ * label-manager. This is prepared to retry on error.
+ */
+static void path_zebra_label_manager_connect(struct event *event)
+{
+	if (path_sync_client_level == PATH_SYNC_NONE) {
+		/* Connect to label manager. */
+		if (zclient_socket_connect(zclient_sync) < 0) {
+			zlog_warn("%s: error connecting synchronous zclient!",
+				  __func__);
+			event_add_timer(master, path_zebra_label_manager_connect,
+					NULL, 1, &t_sync_connect);
+			return;
+		}
+		set_nonblocking(zclient_sync->sock);
+
+		path_sync_client_level = PATH_SYNC_CONN;
+	}
+
+	/* Send hello to notify zebra this is a synchronous client */
+	if (path_sync_client_level == PATH_SYNC_CONN) {
+		if (zclient_send_hello(zclient_sync) == ZCLIENT_SEND_FAILURE) {
+			zlog_warn("%s: Error sending hello for synchronous zclient!",
+				  __func__);
+			event_add_timer(master, path_zebra_label_manager_connect,
+					NULL, 1, &t_sync_connect);
+			return;
+		}
+
+		path_sync_client_level = PATH_SYNC_HELLO;
+	}
+
+	if (path_sync_client_level == PATH_SYNC_HELLO) {
+		if (lm_label_manager_connect(zclient_sync, 0) != 0) {
+			zlog_warn("%s: error connecting to label manager!",
+				  __func__);
+			event_add_timer(master, path_zebra_label_manager_connect,
+					NULL, 1, &t_sync_connect);
+			return;
+		}
+		path_sync_client_level = PATH_SYNC_DONE;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	}
 }
 
@@ -320,9 +379,12 @@ static zclient_handler *const path_handlers[] = {
  */
 void path_zebra_init(struct event_loop *master)
 {
+<<<<<<< HEAD
 	struct zclient_options options = zclient_options_default;
 	options.synchronous = true;
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	/* Initialize asynchronous zclient. */
 	zclient = zclient_new(master, &zclient_options_default, path_handlers,
 			      array_size(path_handlers));
@@ -330,20 +392,33 @@ void path_zebra_init(struct event_loop *master)
 	zclient->zebra_connected = path_zebra_connected;
 
 	/* Initialize special zclient for synchronous message exchanges. */
+<<<<<<< HEAD
 	zclient_sync = zclient_new(master, &options, NULL, 0);
+=======
+	zclient_sync = zclient_new(master, &zclient_options_sync, NULL, 0);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	zclient_sync->sock = -1;
 	zclient_sync->redist_default = ZEBRA_ROUTE_SRTE;
 	zclient_sync->instance = 1;
 	zclient_sync->privs = &pathd_privs;
 
 	/* Connect to the LM. */
+<<<<<<< HEAD
 	path_zebra_label_manager_connect();
+=======
+	t_sync_connect = NULL;
+	path_zebra_label_manager_connect(NULL);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 }
 
 void path_zebra_stop(void)
 {
 	zclient_stop(zclient);
 	zclient_free(zclient);
+<<<<<<< HEAD
+=======
+	event_cancel(&t_sync_connect);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	zclient_stop(zclient_sync);
 	zclient_free(zclient_sync);
 }

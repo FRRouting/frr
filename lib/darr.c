@@ -9,7 +9,12 @@
 #include "darr.h"
 #include "memory.h"
 
+<<<<<<< HEAD
 DEFINE_MTYPE_STATIC(LIB, DARR, "Dynamic Array");
+=======
+DEFINE_MTYPE(LIB, DARR, "Dynamic Array");
+DEFINE_MTYPE(LIB, DARR_STR, "Dynamic Array String");
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 static uint _msb(uint count)
 {
@@ -52,29 +57,97 @@ static size_t darr_size(uint count, size_t esize)
 	return count * esize + sizeof(struct darr_metadata);
 }
 
+<<<<<<< HEAD
 void *__darr_resize(void *a, uint count, size_t esize)
+=======
+char *__darr_in_vsprintf(char **sp, bool concat, const char *fmt, va_list ap)
+{
+	size_t inlen = concat ? darr_strlen(*sp) : 0;
+	size_t capcount = strlen(fmt) + MIN(inlen + 64, 128);
+	ssize_t len;
+	va_list ap_copy;
+
+	darr_ensure_cap(*sp, capcount);
+
+	if (!concat)
+		darr_reset(*sp);
+
+	/* code below counts on having a NUL terminated string */
+	if (darr_len(*sp) == 0)
+		*darr_append(*sp) = 0;
+again:
+	va_copy(ap_copy, ap);
+	len = vsnprintf(darr_last(*sp), darr_avail(*sp) + 1, fmt, ap_copy);
+	va_end(ap_copy);
+	if (len < 0)
+		darr_in_strcat(*sp, fmt);
+	else if ((size_t)len <= darr_avail(*sp))
+		_darr_len(*sp) += len;
+	else {
+		darr_ensure_cap(*sp, darr_len(*sp) + (size_t)len);
+		goto again;
+	}
+	return *sp;
+}
+
+char *__darr_in_sprintf(char **sp, bool concat, const char *fmt, ...)
+{
+	va_list ap;
+
+	va_start(ap, fmt);
+	(void)__darr_in_vsprintf(sp, concat, fmt, ap);
+	va_end(ap);
+	return *sp;
+}
+
+
+void *__darr_resize(void *a, uint count, size_t esize, struct memtype *mtype)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 {
 	uint ncount = darr_next_count(count, esize);
 	size_t osz = (a == NULL) ? 0 : darr_size(darr_cap(a), esize);
 	size_t sz = darr_size(ncount, esize);
+<<<<<<< HEAD
 	struct darr_metadata *dm = XREALLOC(MTYPE_DARR,
 					    a ? _darr_meta(a) : NULL, sz);
 
 	if (sz > osz)
 		memset((char *)dm + osz, 0, sz - osz);
+=======
+	struct darr_metadata *dm;
+
+	if (a) {
+		dm = XREALLOC(_darr_meta(a)->mtype, _darr_meta(a), sz);
+		if (sz > osz)
+			memset((char *)dm + osz, 0, sz - osz);
+	} else {
+		dm = XCALLOC(mtype, sz);
+		dm->mtype = mtype;
+	}
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	dm->cap = ncount;
 	return (void *)(dm + 1);
 }
 
 
+<<<<<<< HEAD
 void *__darr_insert_n(void *a, uint at, uint count, size_t esize, bool zero)
 {
 
+=======
+void *__darr_insert_n(void *a, uint at, uint count, size_t esize, bool zero,
+		      struct memtype *mtype)
+{
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	struct darr_metadata *dm;
 	uint olen, nlen;
 
 	if (!a)
+<<<<<<< HEAD
 		a = __darr_resize(NULL, at + count, esize);
+=======
+		a = __darr_resize(NULL, at + count, esize, mtype);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	dm = (struct darr_metadata *)a - 1;
 	olen = dm->len;
 
@@ -89,7 +162,11 @@ void *__darr_insert_n(void *a, uint at, uint count, size_t esize, bool zero)
 		nlen = olen + count;
 
 	if (nlen > dm->cap) {
+<<<<<<< HEAD
 		a = __darr_resize(a, nlen, esize);
+=======
+		a = __darr_resize(a, nlen, esize, mtype);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		dm = (struct darr_metadata *)a - 1;
 	}
 

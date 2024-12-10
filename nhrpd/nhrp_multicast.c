@@ -7,6 +7,13 @@
 #include "config.h"
 #endif
 
+<<<<<<< HEAD
+=======
+#ifdef GNU_LINUX
+#include <linux/rtnetlink.h>
+#endif
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 #include <fcntl.h>
 #include <net/if.h>
 #include <net/ethernet.h>

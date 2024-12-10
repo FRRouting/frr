@@ -1,8 +1,13 @@
 #!/bin/bash
+<<<<<<< HEAD
 
 if [ $(uname -a | grep -ci Ubuntu) -ge 1 ]; then
     #for topotests under ubuntu host
     sudo modprobe mpls-router mpls-iptunnel
     sudo /etc/init.d/openvswitch-switch start
+=======
+if [ $(uname -a | grep -ci Ubuntu) -ge 1 ]; then
+    sudo modprobe mpls-router mpls-iptunnel vrf
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 fi
 while true ; do sleep 365d ; done

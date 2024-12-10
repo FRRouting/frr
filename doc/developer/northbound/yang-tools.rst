@@ -1,5 +1,9 @@
 Yang Tools
+<<<<<<< HEAD
 ~~~~~~~~~~
+=======
+==========
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 Here's some information about various tools for working with yang
 models.
@@ -83,7 +87,13 @@ Indent a YANG file:
        --keep-comments -f yang --yang-canonical \
        module.yang -o module.yang
 
+<<<<<<< HEAD
 Generate skeleton instance data: \* XML:
+=======
+Generate skeleton instance data:
+
+* XML:
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 .. code:: sh
 
@@ -91,7 +101,11 @@ Generate skeleton instance data: \* XML:
        -f sample-xml-skeleton --sample-xml-skeleton-defaults \
        module.yang [augmented-module1.yang ...] -o module.xml
 
+<<<<<<< HEAD
 -  JSON:
+=======
+*  JSON:
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 .. code:: sh
 

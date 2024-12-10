@@ -10,6 +10,12 @@ module frr-filter {
   import ietf-yang-types {
     prefix yang;
   }
+<<<<<<< HEAD
+=======
+  import frr-interface {
+    prefix frr-interface;
+  }
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
   organization "FRRouting";
   contact
@@ -45,12 +51,17 @@ module frr-filter {
 
   revision 2019-07-04 {
     description "Initial revision";
+<<<<<<< HEAD
+=======
+    reference "FRRouting";
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
   }
 
   /*
    * Types.
    */
   typedef access-list-name {
+<<<<<<< HEAD
     description "Access list name formatting";
     type string {
       length 1..128;
@@ -74,6 +85,90 @@ module frr-filter {
       enum permit {
         description "Accept an entry";
         value 1;
+=======
+    type string {
+      length 1..128;
+    }
+    description "Access list name formatting";
+  }
+
+  typedef access-list-sequence {
+    type uint32 {
+      range "1..4294967295";
+    }
+    description "Access list sequence number";
+  }
+
+  typedef access-list-action {
+    type enumeration {
+      enum deny {
+        value 0;
+        description "Deny an entry";
+      }
+      enum permit {
+        value 1;
+        description "Accept an entry";
+      }
+    }
+    description "Access list return action on match";
+  }
+
+  typedef access-list-ref {
+    type leafref {
+      path "/frr-filter:lib/frr-filter:access-list/frr-filter:name";
+      require-instance false;
+    }
+    description "IPv4 or IPv6 access list reference";
+  }
+
+  typedef prefix-list-ref {
+    type leafref {
+      path "/frr-filter:lib/frr-filter:prefix-list/frr-filter:name";
+      require-instance false;
+    }
+    description "IPv4 or IPv6 prefix list reference";
+  }
+
+  /*
+   * Grouping.
+   */
+  grouping distribute-list-group {
+    description "Distribute list grouping";
+    list distribute-list {
+      key "interface";
+      description "Distribute list configuration";
+
+      leaf interface {
+        type union {
+          type frr-interface:interface-ref;
+          type empty;
+        }
+        description
+          "Interface to attach list to or empty for global.";
+      }
+
+      container in {
+        description "Inbound filter list";
+        leaf access-list {
+          type access-list-ref;
+          description "inbound access list";
+        }
+        leaf prefix-list {
+          type prefix-list-ref;
+          description "inbound prefix list";
+        }
+      }
+      container out {
+        description "Outbound filter list";
+        leaf access-list {
+          type access-list-ref;
+          description "outbound access list";
+        }
+        leaf prefix-list {
+          type prefix-list-ref;
+          description "outbound prefix list";
+        }
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
       }
     }
   }
@@ -82,6 +177,7 @@ module frr-filter {
    * Configuration data.
    */
   container lib {
+<<<<<<< HEAD
     list access-list {
       description "Access list instance";
 
@@ -134,11 +230,63 @@ module frr-filter {
         choice value {
           description "Access list value to match";
           mandatory true;
+=======
+    description "Filter library";
+    list access-list {
+      key "type name";
+      description "Access list instance";
+
+      leaf type {
+        type enumeration {
+          enum ipv4 {
+              value 0;
+              description "Internet Protocol address version 4";
+            }
+            enum ipv6 {
+              value 1;
+              description "Internet Protocol address version 6";
+          }
+          enum mac {
+            value 2;
+            description "Media Access Control address";
+          }
+        }
+        description "Access list content type";
+      }
+
+      leaf name {
+        type access-list-name;
+        description "Access list name";
+      }
+
+      leaf remark {
+        type string;
+        description "Access list remark";
+      }
+
+      list entry {
+        key "sequence";
+        description "Access list entry";
+        leaf sequence {
+          type access-list-sequence;
+          description "Access list sequence value";
+        }
+        leaf action {
+          type access-list-action;
+          mandatory true;
+          description "Access list action on match";
+        }
+
+        choice value {
+          mandatory true;
+          description "Access list value to match";
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
           case ipv4-prefix {
             when "../type = 'ipv4'";
 
             choice style {
+<<<<<<< HEAD
               description "Access list entry style selection: zebra or cisco.";
               mandatory true;
 
@@ -153,6 +301,22 @@ module frr-filter {
                   description "Exact match of prefix";
                   type boolean;
                   default false;
+=======
+              mandatory true;
+              description "Access list entry style selection: zebra or cisco.";
+
+              case zebra {
+                leaf ipv4-prefix {
+                  type inet:ipv4-prefix;
+                  mandatory true;
+                  description "Configure IPv4 prefix to match";
+                }
+
+                leaf ipv4-exact-match {
+                  type boolean;
+                  default false;
+                  description "Exact match of prefix";
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
                 }
               }
               case cisco {
@@ -160,6 +324,7 @@ module frr-filter {
                   description "Source value to match";
 
                   leaf host {
+<<<<<<< HEAD
                     description "Host to match";
                     type inet:ipv4-address;
                   }
@@ -173,6 +338,22 @@ module frr-filter {
                       mandatory true;
                       description "Network mask/wildcard part.";
                       type inet:ipv4-address;
+=======
+                    type inet:ipv4-address;
+                    description "Host to match";
+                  }
+                  container network {
+                    description "Network to match";
+                    leaf address {
+                      type inet:ipv4-address;
+                      mandatory true;
+                      description "Network address part.";
+                    }
+                    leaf mask {
+                      type inet:ipv4-address;
+                      mandatory true;
+                      description "Network mask/wildcard part.";
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
                     }
                   }
                   leaf source-any {
@@ -180,8 +361,13 @@ module frr-filter {
                      * Was `any`, however it conflicts with `any` leaf
                      * outside this choice.
                      */
+<<<<<<< HEAD
                     description "Match any";
                     type empty;
+=======
+                    type empty;
+                    description "Match any";
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
                   }
                 }
 
@@ -189,6 +375,7 @@ module frr-filter {
                   description "Destination value to match";
 
                   leaf destination-host {
+<<<<<<< HEAD
                     description "Host to match";
                     type inet:ipv4-address;
                   }
@@ -207,6 +394,27 @@ module frr-filter {
                   leaf destination-any {
                     description "Match any";
                     type empty;
+=======
+                    type inet:ipv4-address;
+                    description "Host to match";
+                  }
+                  container destination-network {
+                    description "Destination network to match";
+                    leaf address {
+                      type inet:ipv4-address;
+                      mandatory true;
+                      description "Network address part.";
+                    }
+                    leaf mask {
+                      type inet:ipv4-address;
+                      mandatory true;
+                      description "Network mask/wildcard part.";
+                    }
+                  }
+                  leaf destination-any {
+                    type empty;
+                    description "Match any";
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
                   }
                 }
               }
@@ -216,6 +424,7 @@ module frr-filter {
             when "../type = 'ipv6'";
 
             leaf ipv6-prefix {
+<<<<<<< HEAD
               description "Configure IPv6 prefix to match";
               type inet:ipv6-prefix;
               mandatory true;
@@ -225,20 +434,41 @@ module frr-filter {
               description "Exact match of prefix";
               type boolean;
               default false;
+=======
+              type inet:ipv6-prefix;
+              mandatory true;
+              description "Configure IPv6 prefix to match";
+            }
+
+            leaf ipv6-exact-match {
+              type boolean;
+              default false;
+              description "Exact match of prefix";
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
             }
           }
           case mac {
             when "../type = 'mac'";
 
             leaf mac {
+<<<<<<< HEAD
               description "Configure MAC address to match";
               type yang:mac-address;
+=======
+              type yang:mac-address;
+              description "Configure MAC address to match";
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
             }
           }
           case any {
             leaf any {
+<<<<<<< HEAD
               description "Match anything";
               type empty;
+=======
+              type empty;
+              description "Match anything";
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
             }
           }
         }
@@ -246,6 +476,7 @@ module frr-filter {
     }
 
     list prefix-list {
+<<<<<<< HEAD
       description "Prefix list instance";
 
       key "type name";
@@ -317,10 +548,80 @@ module frr-filter {
               type uint8 {
                 range "0..32";
               }
+=======
+      key "type name";
+      description "Prefix list instance";
+      leaf type {
+        type enumeration {
+          enum ipv4 {
+            value 0;
+            description "Internet Protocol address version 4";
+          }
+          enum ipv6 {
+            value 1;
+            description "Internet Protocol address version 6";
+          }
+        }
+        description "Prefix list type";
+      }
+
+      leaf name {
+        type access-list-name;
+        description "Prefix list name";
+      }
+
+      leaf remark {
+        type string;
+        description "Prefix list user description";
+      }
+
+      list entry {
+        key "sequence";
+        description "Prefix list entry";
+        leaf sequence {
+          type access-list-sequence;
+          description "Prefix list sequence value";
+        }
+
+        leaf action {
+          type access-list-action;
+          mandatory true;
+          description "Prefix list action on match";
+        }
+
+        choice value {
+          mandatory true;
+          description "Prefix list value to match";
+
+          case ipv4-prefix {
+            leaf ipv4-prefix {
+              type inet:ipv4-prefix;
+              mandatory true;
+              description "Configure IPv4 prefix to match";
+            }
+
+            leaf ipv4-prefix-length-greater-or-equal {
+              type uint8 {
+                range "0..32";
+              }
+              description
+                "Specifies if matching prefixes with length greater than
+                 or equal to value";
+            }
+
+            leaf ipv4-prefix-length-lesser-or-equal {
+              type uint8 {
+                range "0..32";
+              }
+              description
+                "Specifies if matching prefixes with length lesser than
+                 or equal to value";
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
             }
           }
           case ipv6-prefix {
             leaf ipv6-prefix {
+<<<<<<< HEAD
               description "Configure IPv6 prefix to match";
               type inet:ipv6-prefix;
               mandatory true;
@@ -342,12 +643,40 @@ module frr-filter {
               type uint8 {
                 range "0..128";
               }
+=======
+              type inet:ipv6-prefix;
+              mandatory true;
+              description "Configure IPv6 prefix to match";
+            }
+
+            leaf ipv6-prefix-length-greater-or-equal {
+              type uint8 {
+                range "0..128";
+              }
+              description
+                "Specifies if matching prefixes with length greater than
+                 or equal to value";
+            }
+
+            leaf ipv6-prefix-length-lesser-or-equal {
+              type uint8 {
+                range "0..128";
+              }
+              description
+                "Specifies if matching prefixes with length lesser than
+                 or equal to value";
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
             }
           }
           case any {
             leaf any {
+<<<<<<< HEAD
               description "Match anything";
               type empty;
+=======
+              type empty;
+              description "Match anything";
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
             }
           }
         }

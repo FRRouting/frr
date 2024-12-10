@@ -50,7 +50,11 @@ static int lsp_install(struct zebra_vrf *zvrf, mpls_label_t label,
 		       struct route_node *rn, struct route_entry *re);
 static int lsp_uninstall(struct zebra_vrf *zvrf, mpls_label_t label);
 static int fec_change_update_lsp(struct zebra_vrf *zvrf, struct zebra_fec *fec,
+<<<<<<< HEAD
 				 mpls_label_t old_label);
+=======
+				 mpls_label_t old_label, bool uninstall);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 static int fec_send(struct zebra_fec *fec, struct zserv *client);
 static void fec_update_clients(struct zebra_fec *fec);
 static void fec_print(struct zebra_fec *fec, struct vty *vty);
@@ -161,12 +165,20 @@ static int lsp_install(struct zebra_vrf *zvrf, mpls_label_t label,
 	enum lsp_types_t lsp_type;
 	char buf[BUFSIZ];
 	int added, changed;
+<<<<<<< HEAD
+=======
+	bool zvrf_nexthop_resolution;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	/* Lookup table. */
 	lsp_table = zvrf->lsp_table;
 	if (!lsp_table)
 		return -1;
 
+<<<<<<< HEAD
+=======
+	zvrf_nexthop_resolution = zvrf->zebra_mpls_fec_nexthop_resolution;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	lsp_type = lsp_type_from_re_type(re->type);
 	added = changed = 0;
 
@@ -180,6 +192,7 @@ static int lsp_install(struct zebra_vrf *zvrf, mpls_label_t label,
 	 * the label advertised by the recursive nexthop (plus we don't have the
 	 * logic yet to push multiple labels).
 	 */
+<<<<<<< HEAD
 	for (nexthop = re->nhe->nhg.nexthop;
 	     nexthop; nexthop = nexthop->next) {
 		/* Skip inactive and recursive entries. */
@@ -187,6 +200,22 @@ static int lsp_install(struct zebra_vrf *zvrf, mpls_label_t label,
 			continue;
 		if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_RECURSIVE))
 			continue;
+=======
+	nexthop = re->nhe->nhg.nexthop;
+	while (nexthop) {
+		if (!CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE)) {
+			nexthop =
+				nexthop_next_resolution(nexthop,
+							zvrf_nexthop_resolution);
+			continue;
+		}
+		if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_RECURSIVE)) {
+			nexthop =
+				nexthop_next_resolution(nexthop,
+							zvrf_nexthop_resolution);
+			continue;
+		}
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 		nhlfe = nhlfe_find(&lsp->nhlfe_list, lsp_type,
 				   nexthop->type, &nexthop->gate,
@@ -194,9 +223,19 @@ static int lsp_install(struct zebra_vrf *zvrf, mpls_label_t label,
 		if (nhlfe) {
 			/* Clear deleted flag (in case it was set) */
 			UNSET_FLAG(nhlfe->flags, NHLFE_FLAG_DELETED);
+<<<<<<< HEAD
 			if (nexthop_labels_match(nhlfe->nexthop, nexthop))
 				/* No change */
 				continue;
+=======
+			if (nexthop_labels_match(nhlfe->nexthop, nexthop)) {
+				/* No change */
+				nexthop =
+					nexthop_next_resolution(nexthop,
+								zvrf_nexthop_resolution);
+				continue;
+			}
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 
 			if (IS_ZEBRA_DEBUG_MPLS) {
@@ -221,11 +260,26 @@ static int lsp_install(struct zebra_vrf *zvrf, mpls_label_t label,
 				return -1;
 
 			if (IS_ZEBRA_DEBUG_MPLS) {
+<<<<<<< HEAD
 				nhlfe2str(nhlfe, buf, BUFSIZ);
 				zlog_debug(
 					"Add LSP in-label %u type %d nexthop %s out-label %u",
 					lsp->ile.in_label, lsp_type, buf,
 					nexthop->nh_label->label[0]);
+=======
+				char label_str[MPLS_LABEL_STRLEN];
+
+				nhlfe2str(nhlfe, buf, BUFSIZ);
+				zlog_debug("Add LSP in-label %u type %d nexthop %s out-label %s",
+					   lsp->ile.in_label, lsp_type, buf,
+					   mpls_label2str(nexthop->nh_label
+								  ->num_labels,
+							  nexthop->nh_label->label,
+							  label_str,
+							  sizeof(label_str),
+							  nexthop->nh_label_type,
+							  0));
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			}
 
 			lsp->addr_family = NHLFE_FAMILY(nhlfe);
@@ -234,6 +288,11 @@ static int lsp_install(struct zebra_vrf *zvrf, mpls_label_t label,
 			SET_FLAG(nhlfe->flags, NHLFE_FLAG_CHANGED);
 			added++;
 		}
+<<<<<<< HEAD
+=======
+		nexthop = nexthop_next_resolution(nexthop,
+						  zvrf_nexthop_resolution);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	}
 
 	/* Queue LSP for processing if necessary. If no NHLFE got added (special
@@ -245,6 +304,11 @@ static int lsp_install(struct zebra_vrf *zvrf, mpls_label_t label,
 			return -1;
 	} else {
 		lsp_check_free(lsp_table, &lsp);
+<<<<<<< HEAD
+=======
+		/* failed to install a new LSP */
+		return -1;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	}
 
 	return 0;
@@ -329,7 +393,11 @@ static void fec_evaluate(struct zebra_vrf *zvrf)
 
 			/* Skip configured FECs and those without a label index.
 			 */
+<<<<<<< HEAD
 			if (fec->flags & FEC_FLAG_CONFIGURED
+=======
+			if (CHECK_FLAG(fec->flags, FEC_FLAG_CONFIGURED)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			    || fec->label_index == MPLS_INVALID_LABEL_INDEX)
 				continue;
 
@@ -353,7 +421,11 @@ static void fec_evaluate(struct zebra_vrf *zvrf)
 			fec_update_clients(fec);
 
 			/* Update label forwarding entries appropriately */
+<<<<<<< HEAD
 			fec_change_update_lsp(zvrf, fec, old_label);
+=======
+			fec_change_update_lsp(zvrf, fec, old_label, false);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		}
 	}
 }
@@ -384,7 +456,11 @@ static uint32_t fec_derive_label_from_index(struct zebra_vrf *zvrf,
  * entries, as appropriate.
  */
 static int fec_change_update_lsp(struct zebra_vrf *zvrf, struct zebra_fec *fec,
+<<<<<<< HEAD
 				 mpls_label_t old_label)
+=======
+				 mpls_label_t old_label, bool uninstall)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 {
 	struct route_table *table;
 	struct route_node *rn;
@@ -416,11 +492,25 @@ static int fec_change_update_lsp(struct zebra_vrf *zvrf, struct zebra_fec *fec,
 			break;
 	}
 
+<<<<<<< HEAD
 	if (!re || !zebra_rib_labeled_unicast(re))
 		return 0;
 
 	if (lsp_install(zvrf, fec->label, rn, re))
 		return -1;
+=======
+	if (!re || !zebra_rib_labeled_unicast(re)) {
+		if (uninstall)
+			lsp_uninstall(zvrf, fec->label);
+		return 0;
+	}
+
+	if (lsp_install(zvrf, fec->label, rn, re)) {
+		if (uninstall)
+			lsp_uninstall(zvrf, fec->label);
+		return -1;
+	}
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	return 0;
 }
@@ -448,6 +538,33 @@ static int fec_send(struct zebra_fec *fec, struct zserv *client)
 }
 
 /*
+<<<<<<< HEAD
+=======
+ * Upon reconfiguring nexthop-resolution updates, update the
+ * lsp entries accordingly.
+ */
+void zebra_mpls_fec_nexthop_resolution_update(struct zebra_vrf *zvrf)
+{
+	int af;
+	struct route_node *rn;
+	struct zebra_fec *fec;
+
+	for (af = AFI_IP; af < AFI_MAX; af++) {
+		if (zvrf->fec_table[af] == NULL)
+			continue;
+		for (rn = route_top(zvrf->fec_table[af]); rn;
+		     rn = route_next(rn)) {
+			if (!rn->info)
+				continue;
+			fec = rn->info;
+			fec_change_update_lsp(zvrf, fec, MPLS_INVALID_LABEL,
+					      true);
+		}
+	}
+}
+
+/*
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
  * Update all registered clients about this FEC. Caller should've updated
  * FEC and ensure no duplicate updates.
  */
@@ -616,8 +733,14 @@ static int nhlfe_nexthop_active_ipv4(struct zebra_nhlfe *nhlfe,
 
 		for (match_nh = match->nhe->nhg.nexthop; match_nh;
 		     match_nh = match_nh->next) {
+<<<<<<< HEAD
 			if (match->type == ZEBRA_ROUTE_CONNECT
 			    || nexthop->ifindex == match_nh->ifindex) {
+=======
+			if ((match->type == ZEBRA_ROUTE_CONNECT ||
+			     match->type == ZEBRA_ROUTE_LOCAL) ||
+			    nexthop->ifindex == match_nh->ifindex) {
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 				nexthop->ifindex = match_nh->ifindex;
 				return 1;
 			}
@@ -659,9 +782,16 @@ static int nhlfe_nexthop_active_ipv6(struct zebra_nhlfe *nhlfe,
 
 	/* Locate a valid connected route. */
 	RNODE_FOREACH_RE (rn, match) {
+<<<<<<< HEAD
 		if ((match->type == ZEBRA_ROUTE_CONNECT)
 		    && !CHECK_FLAG(match->status, ROUTE_ENTRY_REMOVED)
 		    && CHECK_FLAG(match->flags, ZEBRA_FLAG_SELECTED))
+=======
+		if (((match->type == ZEBRA_ROUTE_CONNECT ||
+		      match->type == ZEBRA_ROUTE_LOCAL)) &&
+		    !CHECK_FLAG(match->status, ROUTE_ENTRY_REMOVED) &&
+		    CHECK_FLAG(match->flags, ZEBRA_FLAG_SELECTED))
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			break;
 	}
 
@@ -1182,6 +1312,10 @@ static char *nhlfe2str(const struct zebra_nhlfe *nhlfe, char *buf, int size)
 		break;
 	case NEXTHOP_TYPE_IFINDEX:
 		snprintf(buf, size, "Ifindex: %u", nexthop->ifindex);
+<<<<<<< HEAD
+=======
+		break;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	case NEXTHOP_TYPE_BLACKHOLE:
 		break;
 	}
@@ -1395,7 +1529,11 @@ static int nhlfe_del(struct zebra_nhlfe *nhlfe)
 static void nhlfe_out_label_update(struct zebra_nhlfe *nhlfe,
 				   struct mpls_label_stack *nh_label)
 {
+<<<<<<< HEAD
 	nhlfe->nexthop->nh_label->label[0] = nh_label->label[0];
+=======
+	nexthop_change_labels(nhlfe->nexthop, nh_label);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 }
 
 static int mpls_lsp_uninstall_all(struct hash *lsp_table, struct zebra_lsp *lsp,
@@ -1769,9 +1907,13 @@ void zebra_mpls_lsp_dplane_result(struct zebra_dplane_ctx *ctx)
 
 	label = dplane_ctx_get_in_label(ctx);
 
+<<<<<<< HEAD
 	switch (op) {
 	case DPLANE_OP_LSP_INSTALL:
 	case DPLANE_OP_LSP_UPDATE:
+=======
+	if (op == DPLANE_OP_LSP_INSTALL || op == DPLANE_OP_LSP_UPDATE) {
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		/* Look for zebra LSP object */
 		zvrf = zebra_vrf_lookup_by_id(VRF_DEFAULT);
 		lsp_table = zvrf->lsp_table;
@@ -1782,7 +1924,11 @@ void zebra_mpls_lsp_dplane_result(struct zebra_dplane_ctx *ctx)
 			if (IS_ZEBRA_DEBUG_DPLANE)
 				zlog_debug("LSP ctx %p: in-label %u not found",
 					   ctx, dplane_ctx_get_in_label(ctx));
+<<<<<<< HEAD
 			break;
+=======
+			return;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		}
 
 		/* TODO -- Confirm that this result is still 'current' */
@@ -1793,7 +1939,11 @@ void zebra_mpls_lsp_dplane_result(struct zebra_dplane_ctx *ctx)
 			flog_warn(EC_ZEBRA_LSP_INSTALL_FAILURE,
 				  "LSP Install Failure: in-label %u",
 				  lsp->ile.in_label);
+<<<<<<< HEAD
 			break;
+=======
+			return;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		}
 
 		/* Update zebra object */
@@ -1814,13 +1964,18 @@ void zebra_mpls_lsp_dplane_result(struct zebra_dplane_ctx *ctx)
 				      ? ZEBRA_SR_POLICY_LABEL_CREATED
 				      : ZEBRA_SR_POLICY_LABEL_UPDATED;
 		zebra_sr_policy_label_update(label, update_mode);
+<<<<<<< HEAD
 		break;
 
 	case DPLANE_OP_LSP_DELETE:
+=======
+	} else if (op == DPLANE_OP_LSP_DELETE) {
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		if (status != ZEBRA_DPLANE_REQUEST_SUCCESS) {
 			flog_warn(EC_ZEBRA_LSP_DELETE_FAILURE,
 				  "LSP Deletion Failure: in-label %u",
 				  dplane_ctx_get_in_label(ctx));
+<<<<<<< HEAD
 			break;
 		}
 		zebra_sr_policy_label_update(label,
@@ -1882,6 +2037,13 @@ void zebra_mpls_lsp_dplane_result(struct zebra_dplane_ctx *ctx)
 		break;
 
 	} /* Switch */
+=======
+			return;
+		}
+		zebra_sr_policy_label_update(label,
+					     ZEBRA_SR_POLICY_LABEL_REMOVED);
+	}
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 }
 
 /*
@@ -2174,7 +2336,11 @@ void zebra_mpls_process_dplane_notify(struct zebra_dplane_ctx *ctx)
 /*
  * Install dynamic LSP entry.
  */
+<<<<<<< HEAD
 int zebra_mpls_lsp_install(struct zebra_vrf *zvrf, struct route_node *rn,
+=======
+void zebra_mpls_lsp_install(struct zebra_vrf *zvrf, struct route_node *rn,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			   struct route_entry *re)
 {
 	struct route_table *table;
@@ -2182,23 +2348,37 @@ int zebra_mpls_lsp_install(struct zebra_vrf *zvrf, struct route_node *rn,
 
 	table = zvrf->fec_table[family2afi(PREFIX_FAMILY(&rn->p))];
 	if (!table)
+<<<<<<< HEAD
 		return -1;
+=======
+		return;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	/* See if there is a configured label binding for this FEC. */
 	fec = fec_find(table, &rn->p);
 	if (!fec || fec->label == MPLS_INVALID_LABEL)
+<<<<<<< HEAD
 		return 0;
+=======
+		return;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	/* We cannot install a label forwarding entry if local label is the
 	 * implicit-null label.
 	 */
 	if (fec->label == MPLS_LABEL_IMPLICIT_NULL)
+<<<<<<< HEAD
 		return 0;
 
 	if (lsp_install(zvrf, fec->label, rn, re))
 		return -1;
 
 	return 0;
+=======
+		return;
+
+	lsp_install(zvrf, fec->label, rn, re);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 }
 
 /*
@@ -2348,7 +2528,11 @@ int zebra_mpls_fec_register(struct zebra_vrf *zvrf, struct prefix *p,
 		new_client = true;
 	} else {
 		/* Check if the FEC has been statically defined in the config */
+<<<<<<< HEAD
 		is_configured_fec = fec->flags & FEC_FLAG_CONFIGURED;
+=======
+		is_configured_fec = CHECK_FLAG(fec->flags, FEC_FLAG_CONFIGURED);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		/* Client may register same FEC with different label index. */
 		new_client =
 			(listnode_lookup(fec->client_list, client) == NULL);
@@ -2402,7 +2586,11 @@ int zebra_mpls_fec_register(struct zebra_vrf *zvrf, struct prefix *p,
 	}
 
 	if (new_client || label_change)
+<<<<<<< HEAD
 		return fec_change_update_lsp(zvrf, fec, old_label);
+=======
+		return fec_change_update_lsp(zvrf, fec, old_label, false);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	return 0;
 }
@@ -2439,11 +2627,19 @@ int zebra_mpls_fec_unregister(struct zebra_vrf *zvrf, struct prefix *p,
 	/* If not a configured entry, delete the FEC if no other clients. Before
 	 * deleting, see if any LSP needs to be uninstalled.
 	 */
+<<<<<<< HEAD
 	if (!(fec->flags & FEC_FLAG_CONFIGURED)
 	    && list_isempty(fec->client_list)) {
 		mpls_label_t old_label = fec->label;
 		fec->label = MPLS_INVALID_LABEL; /* reset */
 		fec_change_update_lsp(zvrf, fec, old_label);
+=======
+	if (!CHECK_FLAG(fec->flags, FEC_FLAG_CONFIGURED) &&
+	    list_isempty(fec->client_list)) {
+		mpls_label_t old_label = fec->label;
+		fec->label = MPLS_INVALID_LABEL; /* reset */
+		fec_change_update_lsp(zvrf, fec, old_label, false);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		fec_del(fec);
 	}
 
@@ -2477,7 +2673,11 @@ static int zebra_mpls_cleanup_fecs_for_client(struct zserv *client)
 				if (fec_client == client) {
 					listnode_delete(fec->client_list,
 							fec_client);
+<<<<<<< HEAD
 					if (!(fec->flags & FEC_FLAG_CONFIGURED)
+=======
+					if (!CHECK_FLAG(fec->flags, FEC_FLAG_CONFIGURED)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 					    && list_isempty(fec->client_list))
 						fec_del(fec);
 					break;
@@ -2533,7 +2733,11 @@ static int zebra_mpls_cleanup_zclient_labels(struct zserv *client)
  * hash..
  */
 struct zebra_fec *zebra_mpls_fec_for_label(struct zebra_vrf *zvrf,
+<<<<<<< HEAD
 					   mpls_label_t label)
+=======
+					   struct prefix *p, mpls_label_t label)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 {
 	struct route_node *rn;
 	struct zebra_fec *fec;
@@ -2548,8 +2752,16 @@ struct zebra_fec *zebra_mpls_fec_for_label(struct zebra_vrf *zvrf,
 			if (!rn->info)
 				continue;
 			fec = rn->info;
+<<<<<<< HEAD
 			if (fec->label == label)
 				return fec;
+=======
+			if (fec->label == label) {
+				if (p && prefix_same(p, &rn->p))
+					return NULL;
+				return fec;
+			}
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		}
 	}
 
@@ -2559,9 +2771,16 @@ struct zebra_fec *zebra_mpls_fec_for_label(struct zebra_vrf *zvrf,
 /*
  * Inform if specified label is currently bound to a FEC or not.
  */
+<<<<<<< HEAD
 int zebra_mpls_label_already_bound(struct zebra_vrf *zvrf, mpls_label_t label)
 {
 	return (zebra_mpls_fec_for_label(zvrf, label) ? 1 : 0);
+=======
+int zebra_mpls_label_already_bound(struct zebra_vrf *zvrf, struct prefix *p,
+				   mpls_label_t label)
+{
+	return (zebra_mpls_fec_for_label(zvrf, p, label) ? 1 : 0);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 }
 
 /*
@@ -2595,7 +2814,11 @@ int zebra_mpls_static_fec_add(struct zebra_vrf *zvrf, struct prefix *p,
 		if (IS_ZEBRA_DEBUG_MPLS)
 			zlog_debug("Add fec %pFX label %u", p, in_label);
 	} else {
+<<<<<<< HEAD
 		fec->flags |= FEC_FLAG_CONFIGURED;
+=======
+		SET_FLAG(fec->flags, FEC_FLAG_CONFIGURED);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		if (fec->label == in_label)
 			/* Duplicate config */
 			return 0;
@@ -2609,7 +2832,11 @@ int zebra_mpls_static_fec_add(struct zebra_vrf *zvrf, struct prefix *p,
 		fec_update_clients(fec);
 
 		/* Update label forwarding entries appropriately */
+<<<<<<< HEAD
 		ret = fec_change_update_lsp(zvrf, fec, old_label);
+=======
+		ret = fec_change_update_lsp(zvrf, fec, old_label, false);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	}
 
 	return ret;
@@ -2644,7 +2871,11 @@ int zebra_mpls_static_fec_del(struct zebra_vrf *zvrf, struct prefix *p)
 	}
 
 	old_label = fec->label;
+<<<<<<< HEAD
 	fec->flags &= ~FEC_FLAG_CONFIGURED;
+=======
+	UNSET_FLAG(fec->flags, FEC_FLAG_CONFIGURED);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	fec->label = MPLS_INVALID_LABEL;
 
 	/* If no client exists, just delete the FEC. */
@@ -2662,7 +2893,11 @@ int zebra_mpls_static_fec_del(struct zebra_vrf *zvrf, struct prefix *p)
 	fec_update_clients(fec);
 
 	/* Update label forwarding entries appropriately */
+<<<<<<< HEAD
 	return fec_change_update_lsp(zvrf, fec, old_label);
+=======
+	return fec_change_update_lsp(zvrf, fec, old_label, false);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 }
 
 /*
@@ -2687,7 +2922,11 @@ int zebra_mpls_write_fec_config(struct vty *vty, struct zebra_vrf *zvrf)
 			char lstr[BUFSIZ];
 			fec = rn->info;
 
+<<<<<<< HEAD
 			if (!(fec->flags & FEC_FLAG_CONFIGURED))
+=======
+			if (!CHECK_FLAG(fec->flags, FEC_FLAG_CONFIGURED))
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 				continue;
 
 			write = 1;
@@ -3847,7 +4086,11 @@ void zebra_mpls_print_lsp_table(struct vty *vty, struct zebra_vrf *zvrf,
 		if (tt->nrows > 1) {
 			char *table = ttable_dump(tt, "\n");
 			vty_out(vty, "%s\n", table);
+<<<<<<< HEAD
 			XFREE(MTYPE_TMP, table);
+=======
+			XFREE(MTYPE_TMP_TTABLE, table);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		}
 		ttable_del(tt);
 	}
@@ -4101,10 +4344,19 @@ void zebra_mpls_turned_on(void)
 	if (!mpls_enabled) {
 		mpls_processq_init();
 		mpls_enabled = true;
+<<<<<<< HEAD
 	}
 
 	hook_register(zserv_client_close, zebra_mpls_cleanup_fecs_for_client);
 	hook_register(zserv_client_close, zebra_mpls_cleanup_zclient_labels);
+=======
+
+		hook_register(zserv_client_close,
+			      zebra_mpls_cleanup_fecs_for_client);
+		hook_register(zserv_client_close,
+			      zebra_mpls_cleanup_zclient_labels);
+	}
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 }
 
 /*
@@ -4123,3 +4375,12 @@ void zebra_mpls_init(void)
 
 	zebra_mpls_turned_on();
 }
+<<<<<<< HEAD
+=======
+
+void zebra_mpls_terminate(void)
+{
+	hook_unregister(zserv_client_close, zebra_mpls_cleanup_fecs_for_client);
+	hook_unregister(zserv_client_close, zebra_mpls_cleanup_zclient_labels);
+}
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)

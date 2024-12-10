@@ -14,7 +14,10 @@
 #include "filter.h"
 #include "plist.h"
 #include "nexthop.h"
+<<<<<<< HEAD
 #include "northbound_cli.h"
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 #include "lib/route_types.h"
 #include "vrf.h"
 #include "frrstr.h"
@@ -24,20 +27,31 @@
 #include "zebra/debug.h"
 #include "zebra/zebra_rnh.h"
 #include "zebra/zebra_routemap.h"
+<<<<<<< HEAD
+=======
+#include "zebra/zebra_vrf.h"
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 #include "zebra/zebra_routemap_clippy.c"
 
 static uint32_t zebra_rmap_update_timer = ZEBRA_RMAP_DEFAULT_UPDATE_TIMER;
 static struct event *zebra_t_rmap_update = NULL;
+<<<<<<< HEAD
 char *zebra_import_table_routemap[AFI_MAX][ZEBRA_KERNEL_TABLE_MAX];
+=======
+char *zebra_import_table_routemap[AFI_MAX][SAFI_MAX][ZEBRA_KERNEL_TABLE_MAX];
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 struct zebra_rmap_obj {
 	struct nexthop *nexthop;
 	struct route_entry *re;
 };
 
+<<<<<<< HEAD
 static void zebra_route_map_set_delay_timer(uint32_t value);
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 /* 'match tag TAG'
  * Match function return 1 if match is success else return 0
  */
@@ -284,8 +298,13 @@ static const struct route_map_rule_cmd route_match_interface_cmd = {
 	route_match_interface_free
 };
 
+<<<<<<< HEAD
 static int ip_protocol_rm_add(struct zebra_vrf *zvrf, const char *rmap,
 			      int rtype, afi_t afi, safi_t safi)
+=======
+int ip_protocol_rm_add(struct zebra_vrf *zvrf, const char *rmap, int rtype,
+		       afi_t afi, safi_t safi)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 {
 	struct route_table *table;
 
@@ -316,8 +335,13 @@ static int ip_protocol_rm_add(struct zebra_vrf *zvrf, const char *rmap,
 	return CMD_SUCCESS;
 }
 
+<<<<<<< HEAD
 static int ip_protocol_rm_del(struct zebra_vrf *zvrf, const char *rmap,
 			      int rtype, afi_t afi, safi_t safi)
+=======
+int ip_protocol_rm_del(struct zebra_vrf *zvrf, const char *rmap, int rtype,
+		       afi_t afi, safi_t safi)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 {
 	struct route_table *table;
 
@@ -345,8 +369,12 @@ static int ip_protocol_rm_del(struct zebra_vrf *zvrf, const char *rmap,
 	return CMD_SUCCESS;
 }
 
+<<<<<<< HEAD
 static int ip_nht_rm_add(struct zebra_vrf *zvrf, const char *rmap, int rtype,
 			 int afi)
+=======
+int ip_nht_rm_add(struct zebra_vrf *zvrf, const char *rmap, int rtype, int afi)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 {
 
 	if (NHT_RM_NAME(zvrf, afi, rtype)) {
@@ -367,8 +395,12 @@ static int ip_nht_rm_add(struct zebra_vrf *zvrf, const char *rmap, int rtype,
 	return CMD_SUCCESS;
 }
 
+<<<<<<< HEAD
 static int ip_nht_rm_del(struct zebra_vrf *zvrf, const char *rmap, int rtype,
 			 int afi)
+=======
+int ip_nht_rm_del(struct zebra_vrf *zvrf, const char *rmap, int rtype, int afi)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 {
 
 	if (!NHT_RM_NAME(zvrf, afi, rtype))
@@ -390,6 +422,7 @@ static int ip_nht_rm_del(struct zebra_vrf *zvrf, const char *rmap, int rtype,
 	return CMD_SUCCESS;
 }
 
+<<<<<<< HEAD
 DEFPY_YANG(
 	match_ip_address_prefix_len, match_ip_address_prefix_len_cmd,
 	"match ip address prefix-len (0-32)$length",
@@ -735,6 +768,9 @@ DEFPY_YANG (no_ip_protocol,
 }
 
 DEFPY_YANG (show_ip_protocol,
+=======
+DEFPY (show_ip_protocol,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
        show_ip_protocol_cmd,
        "show ip protocol [vrf <NAME$vrf_name|all$vrf_all>]",
        SHOW_STR
@@ -747,6 +783,7 @@ DEFPY_YANG (show_ip_protocol,
 	return ret;
 }
 
+<<<<<<< HEAD
 DEFPY_YANG (ipv6_protocol,
        ipv6_protocol_cmd,
        "ipv6 protocol " FRR_IP6_PROTOCOL_MAP_STR_ZEBRA
@@ -816,6 +853,9 @@ DEFPY_YANG (no_ipv6_protocol,
 }
 
 DEFPY_YANG (show_ipv6_protocol,
+=======
+DEFPY (show_ipv6_protocol,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
        show_ipv6_protocol_cmd,
        "show ipv6 protocol [vrf <NAME$vrf_name|all$vrf_all>]",
        SHOW_STR
@@ -828,6 +868,7 @@ DEFPY_YANG (show_ipv6_protocol,
 	return ret;
 }
 
+<<<<<<< HEAD
 DEFPY_YANG (ip_protocol_nht_rmap,
        ip_protocol_nht_rmap_cmd,
        "ip nht " FRR_IP_PROTOCOL_MAP_STR_ZEBRA
@@ -898,6 +939,9 @@ DEFPY_YANG (no_ip_protocol_nht_rmap,
 }
 
 DEFPY_YANG (show_ip_protocol_nht,
+=======
+DEFPY (show_ip_protocol_nht,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
        show_ip_protocol_nht_cmd,
        "show ip nht route-map [vrf <NAME$vrf_name|all$vrf_all>] [json]",
        SHOW_STR
@@ -916,6 +960,7 @@ DEFPY_YANG (show_ip_protocol_nht,
 	return ret;
 }
 
+<<<<<<< HEAD
 DEFPY_YANG (ipv6_protocol_nht_rmap,
        ipv6_protocol_nht_rmap_cmd,
        "ipv6 nht " FRR_IP6_PROTOCOL_MAP_STR_ZEBRA
@@ -985,6 +1030,9 @@ DEFPY_YANG (no_ipv6_protocol_nht_rmap,
 }
 
 DEFPY_YANG (show_ipv6_protocol_nht,
+=======
+DEFPY (show_ipv6_protocol_nht,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
        show_ipv6_protocol_nht_cmd,
        "show ipv6 nht route-map [vrf <NAME$vrf_name|all$vrf_all>] [json]",
        SHOW_STR
@@ -1203,9 +1251,14 @@ route_match_address_prefix_list(void *rule, const struct prefix *prefix,
 	plist = prefix_list_lookup(afi, (char *)rule);
 	if (plist == NULL) {
 		if (unlikely(CHECK_FLAG(rmap_debug, DEBUG_ROUTEMAP_DETAIL)))
+<<<<<<< HEAD
 			zlog_debug(
 				"%s: Prefix List %s specified does not exist defaulting to NO_MATCH",
 				__func__, (char *)rule);
+=======
+			zlog_debug("%s: Prefix List %s (%s) specified does not exist defaulting to NO_MATCH",
+				   __func__, (char *)rule, afi2str(afi));
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		return RMAP_NOMATCH;
 	}
 
@@ -1735,7 +1788,11 @@ static void zebra_route_map_update_timer(struct event *thread)
 	 */
 }
 
+<<<<<<< HEAD
 static void zebra_route_map_set_delay_timer(uint32_t value)
+=======
+void zebra_route_map_set_delay_timer(uint32_t value)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 {
 	zebra_rmap_update_timer = value;
 	if (!value && zebra_t_rmap_update) {
@@ -1789,6 +1846,7 @@ route_map_result_t zebra_route_map_check(afi_t family, struct route_entry *re,
 	return (ret);
 }
 
+<<<<<<< HEAD
 char *zebra_get_import_table_route_map(afi_t afi, uint32_t table)
 {
 	return zebra_import_table_routemap[afi][table];
@@ -1804,6 +1862,21 @@ void zebra_add_import_table_route_map(afi_t afi, const char *rmap_name,
 void zebra_del_import_table_route_map(afi_t afi, uint32_t table)
 {
 	XFREE(MTYPE_ROUTE_MAP_NAME, zebra_import_table_routemap[afi][table]);
+=======
+char *zebra_get_import_table_route_map(afi_t afi, safi_t safi, uint32_t table)
+{
+	return zebra_import_table_routemap[afi][safi][table];
+}
+
+void zebra_add_import_table_route_map(afi_t afi, safi_t safi, const char *rmap_name, uint32_t table)
+{
+	zebra_import_table_routemap[afi][safi][table] = XSTRDUP(MTYPE_ROUTE_MAP_NAME, rmap_name);
+}
+
+void zebra_del_import_table_route_map(afi_t afi, safi_t safi, uint32_t table)
+{
+	XFREE(MTYPE_ROUTE_MAP_NAME, zebra_import_table_routemap[afi][safi][table]);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 }
 
 route_map_result_t zebra_import_table_route_map_check(int family,
@@ -1902,6 +1975,7 @@ void zebra_routemap_vrf_delete(struct zebra_vrf *zvrf)
 	}
 }
 
+<<<<<<< HEAD
 /* ip protocol configuration write function */
 void zebra_routemap_config_write_protocol(struct vty *vty,
 					  struct zebra_vrf *zvrf)
@@ -1984,6 +2058,16 @@ void zebra_route_map_init(void)
 	install_element(CONFIG_NODE, &no_zebra_route_map_timer_cmd);
 
 	route_map_init();
+=======
+void zebra_route_map_init(void)
+{
+	install_element(VIEW_NODE, &show_ip_protocol_cmd);
+	install_element(VIEW_NODE, &show_ipv6_protocol_cmd);
+	install_element(VIEW_NODE, &show_ip_protocol_nht_cmd);
+	install_element(VIEW_NODE, &show_ipv6_protocol_nht_cmd);
+
+	route_map_init_new(true);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	route_map_add_hook(zebra_route_map_add);
 	route_map_delete_hook(zebra_route_map_delete);
@@ -2037,6 +2121,7 @@ void zebra_route_map_init(void)
 
 	/* */
 	route_map_install_set(&route_set_src_cmd);
+<<<<<<< HEAD
 	/* */
 	install_element(RMAP_NODE, &match_ip_nexthop_prefix_len_cmd);
 	install_element(RMAP_NODE, &no_match_ip_nexthop_prefix_len_cmd);
@@ -2052,4 +2137,6 @@ void zebra_route_map_init(void)
 	/* */
 	install_element(RMAP_NODE, &set_src_cmd);
 	install_element(RMAP_NODE, &no_set_src_cmd);
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 }

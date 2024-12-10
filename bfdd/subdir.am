@@ -17,8 +17,11 @@ bfdd_libbfd_a_SOURCES = \
 	bfdd/bfdd_vty.c \
 	bfdd/bfdd_cli.c \
 	bfdd/bfd_packet.c \
+<<<<<<< HEAD
 	bfdd/config.c \
 	bfdd/control.c \
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	bfdd/dplane.c \
 	bfdd/event.c \
 	bfdd/ptm_adapter.c \
@@ -37,7 +40,10 @@ clippy_scan += \
 	# end
 
 noinst_HEADERS += \
+<<<<<<< HEAD
 	bfdd/bfdctl.h \
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	bfdd/bfdd_nb.h \
 	bfdd/bfd.h \
 	# end

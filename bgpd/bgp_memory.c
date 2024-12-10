@@ -15,6 +15,10 @@
 
 DEFINE_MGROUP(BGPD, "bgpd");
 DEFINE_MTYPE(BGPD, BGP, "BGP instance");
+<<<<<<< HEAD
+=======
+DEFINE_MTYPE(BGPD, BGP_NAME, "BGP Name data");
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 DEFINE_MTYPE(BGPD, BGP_LISTENER, "BGP listen socket details");
 DEFINE_MTYPE(BGPD, BGP_PEER, "BGP peer");
 DEFINE_MTYPE(BGPD, BGP_PEER_CONNECTION, "BGP peer connection");
@@ -41,6 +45,10 @@ DEFINE_MTYPE(BGPD, BGP_ROUTE_EXTRA, "BGP ancillary route info");
 DEFINE_MTYPE(BGPD, BGP_ROUTE_EXTRA_EVPN, "BGP extra info for EVPN");
 DEFINE_MTYPE(BGPD, BGP_ROUTE_EXTRA_FS, "BGP extra info for flowspec");
 DEFINE_MTYPE(BGPD, BGP_ROUTE_EXTRA_VRFLEAK, "BGP extra info for vrf leaking");
+<<<<<<< HEAD
+=======
+DEFINE_MTYPE(BGPD, BGP_ROUTE_EXTRA_VNC, "BGP extra info for vnc");
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 DEFINE_MTYPE(BGPD, BGP_CONN, "BGP connected");
 DEFINE_MTYPE(BGPD, BGP_STATIC, "BGP static");
 DEFINE_MTYPE(BGPD, BGP_ADVERTISE_ATTR, "BGP adv attr");
@@ -89,6 +97,10 @@ DEFINE_MTYPE(BGPD, PEER_UPDATE_SOURCE, "BGP peer update interface");
 DEFINE_MTYPE(BGPD, PEER_CONF_IF, "BGP peer config interface");
 DEFINE_MTYPE(BGPD, BGP_DAMP_INFO, "Dampening info");
 DEFINE_MTYPE(BGPD, BGP_DAMP_ARRAY, "BGP Dampening array");
+<<<<<<< HEAD
+=======
+DEFINE_MTYPE(BGPD, BGP_DAMP_REUSELIST, "BGP Dampening reuse list");
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 DEFINE_MTYPE(BGPD, BGP_REGEXP, "BGP regexp");
 DEFINE_MTYPE(BGPD, BGP_AGGREGATE, "BGP aggregate");
 DEFINE_MTYPE(BGPD, BGP_ADDR, "BGP own address");
@@ -99,6 +111,11 @@ DEFINE_MTYPE(BGPD, BGP_FILTER_NAME, "BGP Filter Information");
 DEFINE_MTYPE(BGPD, BGP_DUMP_STR, "BGP Dump String Information");
 DEFINE_MTYPE(BGPD, ENCAP_TLV, "ENCAP TLV");
 
+<<<<<<< HEAD
+=======
+DEFINE_MTYPE(BGPD, BGP_LABELS, "BGP LABELS");
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 DEFINE_MTYPE(BGPD, BGP_TEA_OPTIONS, "BGP TEA Options");
 DEFINE_MTYPE(BGPD, BGP_TEA_OPTIONS_VALUE, "BGP TEA Options Value");
 
@@ -130,3 +147,8 @@ DEFINE_MTYPE(BGPD, EVPN_REMOTE_IP, "BGP EVPN Remote IP hash entry");
 DEFINE_MTYPE(BGPD, BGP_NOTIFICATION, "BGP Notification Message");
 
 DEFINE_MTYPE(BGPD, BGP_SOFT_VERSION, "Software Version");
+<<<<<<< HEAD
+=======
+
+DEFINE_MTYPE(BGPD, BGP_EVPN_OVERLAY, "BGP EVPN Overlay");
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)

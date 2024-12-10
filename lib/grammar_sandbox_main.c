@@ -40,7 +40,11 @@ int main(int argc, char **argv)
 
 	vty_init(master, true);
 	lib_cmd_init();
+<<<<<<< HEAD
 	nb_init(master, NULL, 0, false);
+=======
+	nb_init(master, NULL, 0, false, false);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	vty_stdio(vty_do_exit);
 

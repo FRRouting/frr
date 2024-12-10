@@ -267,6 +267,12 @@ static bool cmd_nodes_equal(struct graph_node *ga, struct graph_node *gb)
 	case NEG_ONLY_TKN:
 	case WORD_TKN:
 	case ASNUM_TKN:
+<<<<<<< HEAD
+=======
+#ifdef BUILDING_CLIPPY
+	case CMD_ELEMENT_TKN:
+#endif
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		return true;
 	}
 

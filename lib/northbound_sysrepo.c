@@ -19,9 +19,15 @@
 #include <sysrepo/values.h>
 #include <sysrepo/xpath.h>
 
+<<<<<<< HEAD
 DEFINE_MTYPE_STATIC(LIB, SYSREPO, "Sysrepo module");
 
 static struct debug nb_dbg_client_sysrepo = {0, "Northbound client: Sysrepo"};
+=======
+static struct debug nb_dbg_client_sysrepo = { 0,
+					      "debug northbound client sysrepo",
+					      "Northbound client: Sysrepo" };
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 static struct event_loop *master;
 static sr_session_ctx_t *session;
@@ -118,6 +124,12 @@ static int yang_data_frr2sr(struct yang_data *frr_data, sr_val_t *sr_data)
 		sr_data->type = SR_INT64_T;
 		sr_data->data.int64_val = yang_str2int64(frr_data->value);
 		break;
+<<<<<<< HEAD
+=======
+	case LY_TYPE_LEAFREF:
+		sr_val_set_str_data(sr_data, SR_STRING_T, frr_data->value);
+		break;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	case LY_TYPE_STRING:
 		sr_val_set_str_data(sr_data, SR_STRING_T, frr_data->value);
 		break;
@@ -137,6 +149,14 @@ static int yang_data_frr2sr(struct yang_data *frr_data, sr_val_t *sr_data)
 		sr_data->type = SR_UINT64_T;
 		sr_data->data.uint64_val = yang_str2uint64(frr_data->value);
 		break;
+<<<<<<< HEAD
+=======
+	case LY_TYPE_UNION:
+		/* No way to deal with this using un-typed yang_data object */
+		sr_val_set_str_data(sr_data, SR_STRING_T, frr_data->value);
+		break;
+	case LY_TYPE_UNKNOWN:
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	default:
 		return -1;
 	}
@@ -178,12 +198,21 @@ static int frr_sr_process_change(struct nb_config *candidate,
 	/* Map operation values. */
 	switch (sr_op) {
 	case SR_OP_CREATED:
+<<<<<<< HEAD
 	case SR_OP_MODIFIED:
 		if (nb_operation_is_valid(NB_OP_CREATE, nb_node->snode))
 			nb_op = NB_OP_CREATE;
 		else if (nb_operation_is_valid(NB_OP_MODIFY, nb_node->snode)) {
 			nb_op = NB_OP_MODIFY;
 		} else
+=======
+		nb_op = NB_OP_CREATE;
+		break;
+	case SR_OP_MODIFIED:
+		if (nb_is_operation_allowed(nb_node, NB_OP_MODIFY))
+			nb_op = NB_OP_MODIFY;
+		else
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			/* Ignore list keys modifications. */
 			return NB_OK;
 		break;
@@ -193,7 +222,11 @@ static int frr_sr_process_change(struct nb_config *candidate,
 		 * notified about the removal of all of its leafs, even the ones
 		 * that are non-optional. We need to ignore these notifications.
 		 */
+<<<<<<< HEAD
 		if (!nb_operation_is_valid(NB_OP_DESTROY, nb_node->snode))
+=======
+		if (!nb_is_operation_allowed(nb_node, NB_OP_DESTROY))
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			return NB_OK;
 
 		nb_op = NB_OP_DESTROY;
@@ -213,7 +246,11 @@ static int frr_sr_process_change(struct nb_config *candidate,
 
 	ret = nb_candidate_edit(candidate, nb_node, nb_op, xpath, NULL, data);
 	yang_data_free(data);
+<<<<<<< HEAD
 	if (ret != NB_OK && ret != NB_ERR_NOT_FOUND) {
+=======
+	if (ret != NB_OK) {
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		flog_warn(
 			EC_LIB_NB_CANDIDATE_EDIT_ERROR,
 			"%s: failed to edit candidate configuration: operation [%s] xpath [%s]",
@@ -271,11 +308,20 @@ static int frr_sr_config_change_cb_prepare(sr_session_ctx_t *session,
 	ret = nb_candidate_commit_prepare(context, candidate, NULL,
 					  &transaction, false, false, errmsg,
 					  sizeof(errmsg));
+<<<<<<< HEAD
 	if (ret != NB_OK && ret != NB_ERR_NO_CHANGES)
 		flog_warn(
 			EC_LIB_LIBSYSREPO,
 			"%s: failed to prepare configuration transaction: %s (%s)",
 			__func__, nb_err_name(ret), errmsg);
+=======
+	if (ret != NB_OK && ret != NB_ERR_NO_CHANGES) {
+		flog_warn(EC_LIB_LIBSYSREPO,
+			  "%s: failed to prepare configuration transaction: %s (%s)",
+			  __func__, nb_err_name(ret), errmsg);
+		sr_session_set_error_message(session, errmsg);
+	}
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	if (!transaction)
 		nb_config_free(candidate);
@@ -340,6 +386,11 @@ static int frr_sr_config_change_cb(sr_session_ctx_t *session, uint32_t sub_id,
 		return frr_sr_config_change_cb_apply(session, module_name);
 	case SR_EV_ABORT:
 		return frr_sr_config_change_cb_abort(session, module_name);
+<<<<<<< HEAD
+=======
+	case SR_EV_RPC:
+	case SR_EV_UPDATE:
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	default:
 		flog_err(EC_LIB_LIBSYSREPO, "%s: unexpected sysrepo event: %u",
 			 __func__, sr_ev);
@@ -347,6 +398,7 @@ static int frr_sr_config_change_cb(sr_session_ctx_t *session, uint32_t sub_id,
 	}
 }
 
+<<<<<<< HEAD
 static int frr_sr_state_data_iter_cb(const struct lysc_node *snode,
 				     struct yang_translator *translator,
 				     struct yang_data *data, void *arg)
@@ -368,18 +420,27 @@ static int frr_sr_state_data_iter_cb(const struct lysc_node *snode,
 	return NB_OK;
 }
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 /* Callback for state retrieval. */
 static int frr_sr_state_cb(sr_session_ctx_t *session, uint32_t sub_id,
 			   const char *module_name, const char *xpath,
 			   const char *request_xpath, uint32_t request_id,
 			   struct lyd_node **parent, void *private_ctx)
 {
+<<<<<<< HEAD
 	struct lyd_node *dnode;
 
 	dnode = *parent;
 	if (nb_oper_data_iterate(request_xpath, NULL, 0,
 				 frr_sr_state_data_iter_cb, dnode)
 	    != NB_OK) {
+=======
+	struct lyd_node *dnode = NULL;
+
+	dnode = *parent;
+	if (nb_oper_iterate_legacy(request_xpath, NULL, 0, NULL, NULL, &dnode)) {
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		flog_warn(EC_LIB_NB_OPERATIONAL_DATA,
 			  "%s: failed to obtain operational data [xpath %s]",
 			  __func__, xpath);
@@ -391,6 +452,7 @@ static int frr_sr_state_cb(sr_session_ctx_t *session, uint32_t sub_id,
 	return SR_ERR_OK;
 }
 static int frr_sr_config_rpc_cb(sr_session_ctx_t *session, uint32_t sub_id,
+<<<<<<< HEAD
 				const char *xpath, const sr_val_t *sr_input,
 				const size_t input_cnt, sr_event_t sr_ev,
 				uint32_t request_id, sr_val_t **sr_output,
@@ -401,6 +463,13 @@ static int frr_sr_config_rpc_cb(sr_session_ctx_t *session, uint32_t sub_id,
 	struct list *output;
 	struct yang_data *data;
 	size_t cb_output_cnt;
+=======
+				const char *xpath, const struct lyd_node *input,
+				sr_event_t sr_ev, uint32_t request_id,
+				struct lyd_node *output, void *private_ctx)
+{
+	struct nb_node *nb_node;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	int ret = SR_ERR_OK;
 	char errmsg[BUFSIZ] = {0};
 
@@ -411,6 +480,7 @@ static int frr_sr_config_rpc_cb(sr_session_ctx_t *session, uint32_t sub_id,
 		return SR_ERR_INTERNAL;
 	}
 
+<<<<<<< HEAD
 	input = yang_data_list_new();
 	output = yang_data_list_new();
 
@@ -424,6 +494,8 @@ static int frr_sr_config_rpc_cb(sr_session_ctx_t *session, uint32_t sub_id,
 		listnode_add(input, data);
 	}
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	/* Execute callback registered for this XPath. */
 	if (nb_callback_rpc(nb_node, xpath, input, output, errmsg,
 			    sizeof(errmsg))
@@ -431,6 +503,7 @@ static int frr_sr_config_rpc_cb(sr_session_ctx_t *session, uint32_t sub_id,
 		flog_warn(EC_LIB_NB_CB_RPC, "%s: rpc callback failed: %s",
 			  __func__, xpath);
 		ret = SR_ERR_OPERATION_FAILED;
+<<<<<<< HEAD
 		goto exit;
 	}
 
@@ -469,6 +542,10 @@ exit:
 	list_delete(&input);
 	list_delete(&output);
 
+=======
+	}
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	return ret;
 }
 
@@ -593,8 +670,14 @@ static int frr_sr_subscribe_rpc(const struct lysc_node *snode, void *arg)
 	DEBUGD(&nb_dbg_client_sysrepo, "sysrepo: providing RPC to '%s'",
 	       nb_node->xpath);
 
+<<<<<<< HEAD
 	ret = sr_rpc_subscribe(session, nb_node->xpath, frr_sr_config_rpc_cb,
 			       NULL, 0, 0, &module->sr_subscription);
+=======
+	ret = sr_rpc_subscribe_tree(session, nb_node->xpath,
+				    frr_sr_config_rpc_cb, NULL, 0, 0,
+				    &module->sr_subscription);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	if (ret != SR_ERR_OK)
 		flog_err(EC_LIB_LIBSYSREPO, "sr_rpc_subscribe(): %s",
 			 sr_strerror(ret));
@@ -620,6 +703,7 @@ DEFUN (debug_nb_sr,
 	return CMD_SUCCESS;
 }
 
+<<<<<<< HEAD
 static int frr_sr_debug_config_write(struct vty *vty)
 {
 	if (DEBUG_MODE_CHECK(&nb_dbg_client_sysrepo, DEBUG_MODE_CONF))
@@ -643,6 +727,11 @@ static void frr_sr_cli_init(void)
 {
 	hook_register(nb_client_debug_config_write, frr_sr_debug_config_write);
 	hook_register(nb_client_debug_set_all, frr_sr_debug_set_all);
+=======
+static void frr_sr_cli_init(void)
+{
+	debug_install(&nb_dbg_client_sysrepo);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	install_element(ENABLE_NODE, &debug_nb_sr_cmd);
 	install_element(CONFIG_NODE, &debug_nb_sr_cmd);

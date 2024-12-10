@@ -10,6 +10,11 @@
 
 #include "bgp_addpath.h"
 #include "bgp_route.h"
+<<<<<<< HEAD
+=======
+#include "bgp_open.h"
+#include "bgp_packet.h"
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 static const struct bgp_addpath_strategy_names strat_names[BGP_ADDPATH_MAX] = {
 	{
@@ -359,20 +364,55 @@ void bgp_addpath_type_changed(struct bgp *bgp)
 	}
 }
 
+<<<<<<< HEAD
+=======
+int bgp_addpath_capability_action(enum bgp_addpath_strat addpath_type, uint16_t paths)
+{
+	int action = CAPABILITY_ACTION_UNSET;
+
+	switch (addpath_type) {
+	case BGP_ADDPATH_ALL:
+	case BGP_ADDPATH_BEST_PER_AS:
+		action = CAPABILITY_ACTION_SET;
+		break;
+	case BGP_ADDPATH_BEST_SELECTED:
+		if (paths)
+			action = CAPABILITY_ACTION_SET;
+		else
+			action = CAPABILITY_ACTION_UNSET;
+		break;
+	case BGP_ADDPATH_NONE:
+	case BGP_ADDPATH_MAX:
+		action = CAPABILITY_ACTION_UNSET;
+		break;
+	}
+
+	return action;
+}
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 /*
  * Change the addpath type assigned to a peer, or peer group. In addition to
  * adjusting the counts, peer sessions will be reset as needed to make the
  * change take effect.
  */
 void bgp_addpath_set_peer_type(struct peer *peer, afi_t afi, safi_t safi,
+<<<<<<< HEAD
 			       enum bgp_addpath_strat addpath_type,
 			       uint8_t paths)
+=======
+			       enum bgp_addpath_strat addpath_type, uint16_t paths)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 {
 	struct bgp *bgp = peer->bgp;
 	enum bgp_addpath_strat old_type;
 	struct listnode *node, *nnode;
 	struct peer *tmp_peer;
 	struct peer_group *group;
+<<<<<<< HEAD
+=======
+	int action = bgp_addpath_capability_action(addpath_type, paths);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	if (safi == SAFI_LABELED_UNICAST)
 		safi = SAFI_UNICAST;
@@ -430,9 +470,18 @@ void bgp_addpath_set_peer_type(struct peer *peer, afi_t afi, safi_t safi,
 			}
 		}
 	} else {
+<<<<<<< HEAD
 		peer_change_action(peer, afi, safi, peer_change_reset);
 	}
 
+=======
+		if (!CHECK_FLAG(peer->cap, PEER_CAP_DYNAMIC_RCV) &&
+		    !CHECK_FLAG(peer->cap, PEER_CAP_DYNAMIC_ADV))
+			peer_change_action(peer, afi, safi, peer_change_reset);
+	}
+
+	bgp_capability_send(peer, afi, safi, CAPABILITY_CODE_ADDPATH, action);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 }
 
 /*

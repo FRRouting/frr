@@ -96,6 +96,7 @@ from lib.bgp import (
     verify_bgp_rib,
     verify_graceful_restart,
     create_router_bgp,
+<<<<<<< HEAD
     verify_r_bit,
     verify_eor,
     verify_f_bit,
@@ -103,6 +104,11 @@ from lib.bgp import (
     verify_gr_address_family,
     modify_bgp_config_when_bgpd_down,
     verify_graceful_restart_timers,
+=======
+    verify_eor,
+    verify_bgp_convergence,
+    modify_bgp_config_when_bgpd_down,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     verify_bgp_convergence_from_running_config,
 )
 
@@ -116,7 +122,10 @@ from lib.common_config import (
     check_address_types,
     write_test_footer,
     check_router_status,
+<<<<<<< HEAD
     step,
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     get_frr_ipv6_linklocal,
     required_linux_kernel_version,
 )
@@ -171,7 +180,11 @@ def setup_module(mod):
     # Api call verify whether BGP is converged
     ADDR_TYPES = check_address_types()
 
+<<<<<<< HEAD
     for addr_type in ADDR_TYPES:
+=======
+    for _ in ADDR_TYPES:
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         BGP_CONVERGENCE = verify_bgp_convergence(tgen, topo)
         assert BGP_CONVERGENCE is True, "setup_module : Failed \n Error:" " {}".format(
             BGP_CONVERGENCE

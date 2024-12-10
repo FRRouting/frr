@@ -70,12 +70,20 @@ static void clear_ripng_route(struct ripng *ripng)
 int clear_ripng_route_rpc(struct nb_cb_rpc_args *args)
 {
 	struct ripng *ripng;
+<<<<<<< HEAD
 	struct yang_data *yang_vrf;
 
 	yang_vrf = yang_data_list_find(args->input, "%s/%s", args->xpath,
 				       "input/vrf");
 	if (yang_vrf) {
 		ripng = ripng_lookup_by_vrf_name(yang_vrf->value);
+=======
+
+	if (args->input && yang_dnode_exists(args->input, "vrf")) {
+		const char *name = yang_dnode_get_string(args->input, "vrf");
+
+		ripng = ripng_lookup_by_vrf_name(name);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		if (ripng)
 			clear_ripng_route(ripng);
 	} else {

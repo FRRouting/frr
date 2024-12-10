@@ -665,7 +665,11 @@ struct bpacket *subgroup_update_packet(struct update_subgroup *subgrp)
 	uint32_t addpath_tx_id = 0;
 	struct prefix_rd *prd = NULL;
 	mpls_label_t label = MPLS_INVALID_LABEL, *label_pnt = NULL;
+<<<<<<< HEAD
 	uint32_t num_labels = 0;
+=======
+	uint8_t num_labels = 0;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	if (!subgrp)
 		return NULL;
@@ -738,9 +742,15 @@ struct bpacket *subgroup_update_packet(struct update_subgroup *subgrp)
 
 			/* 5: Encode all the attributes, except MP_REACH_NLRI
 			 * attr. */
+<<<<<<< HEAD
 			total_attr_len = bgp_packet_attribute(
 				NULL, peer, s, adv->baa->attr, &vecarr, NULL,
 				afi, safi, from, NULL, NULL, 0, 0, 0, path);
+=======
+			total_attr_len = bgp_packet_attribute(NULL, peer, s, adv->baa->attr,
+							      &vecarr, NULL, afi, safi, from, NULL,
+							      NULL, 0, 0, 0);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 			space_remaining =
 				STREAM_CONCAT_REMAIN(s, snlri, STREAM_SIZE(s))
@@ -812,9 +822,18 @@ struct bpacket *subgroup_update_packet(struct update_subgroup *subgrp)
 					path);
 				label_pnt = &label;
 				num_labels = 1;
+<<<<<<< HEAD
 			} else if (path && path->extra) {
 				label_pnt = &path->extra->label[0];
 				num_labels = path->extra->num_labels;
+=======
+			} else {
+				num_labels = BGP_PATH_INFO_NUM_LABELS(path);
+				label_pnt =
+					num_labels
+						? &path->extra->labels->label[0]
+						: NULL;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			}
 
 			if (stream_empty(snlri))
@@ -858,7 +877,12 @@ struct bpacket *subgroup_update_packet(struct update_subgroup *subgrp)
 			bgp_debug_rdpfxpath2str(afi, safi, prd, dest_p,
 						label_pnt, num_labels,
 						addpath_capable, addpath_tx_id,
+<<<<<<< HEAD
 						&adv->baa->attr->evpn_overlay,
+=======
+						bgp_attr_get_evpn_overlay(
+							adv->baa->attr),
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 						pfx_buf, sizeof(pfx_buf));
 			zlog_debug("u%" PRIu64 ":s%" PRIu64 " send UPDATE %s",
 				   subgrp->update_group->id, subgrp->id,
@@ -1081,7 +1105,11 @@ void subgroup_default_update_packet(struct update_subgroup *subgrp,
 	struct bpacket_attr_vec_arr vecarr;
 	bool addpath_capable = false;
 	mpls_label_t label = MPLS_LABEL_IMPLICIT_NULL;
+<<<<<<< HEAD
 	uint32_t num_labels = 0;
+=======
+	uint8_t num_labels = 0;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	if (DISABLE_BGP_ANNOUNCE)
 		return;
@@ -1145,12 +1173,18 @@ void subgroup_default_update_packet(struct update_subgroup *subgrp,
 	/* Make place for total attribute length.  */
 	pos = stream_get_endp(s);
 	stream_putw(s, 0);
+<<<<<<< HEAD
 	total_attr_len =
 		bgp_packet_attribute(NULL, peer, s, attr, &vecarr, &p, afi,
 				     safi, from, NULL, &label, num_labels,
 				     addpath_capable,
 				     BGP_ADDPATH_TX_ID_FOR_DEFAULT_ORIGINATE,
 				     NULL);
+=======
+	total_attr_len = bgp_packet_attribute(NULL, peer, s, attr, &vecarr, &p, afi, safi, from,
+					      NULL, &label, num_labels, addpath_capable,
+					      BGP_ADDPATH_TX_ID_FOR_DEFAULT_ORIGINATE);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	/* Set Total Path Attribute Length. */
 	stream_putw_at(s, pos, total_attr_len);

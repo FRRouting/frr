@@ -35,7 +35,11 @@ int ripngd_instance_create(struct nb_cb_create_args *args)
 	const char *vrf_name;
 	int socket;
 
+<<<<<<< HEAD
 	vrf_name = yang_dnode_get_string(args->dnode, "./vrf");
+=======
+	vrf_name = yang_dnode_get_string(args->dnode, "vrf");
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	vrf = vrf_lookup_by_name(vrf_name);
 
 	/*
@@ -262,7 +266,11 @@ int ripngd_instance_offset_list_create(struct nb_cb_create_args *args)
 		return NB_OK;
 
 	ripng = nb_running_get_entry(args->dnode, NULL, true);
+<<<<<<< HEAD
 	ifname = yang_dnode_get_string(args->dnode, "./interface");
+=======
+	ifname = yang_dnode_get_string(args->dnode, "interface");
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	offset = ripng_offset_list_new(ripng, ifname);
 	nb_running_set_entry(args->dnode, offset);
@@ -278,7 +286,11 @@ int ripngd_instance_offset_list_destroy(struct nb_cb_destroy_args *args)
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
+<<<<<<< HEAD
 	direct = yang_dnode_get_enum(args->dnode, "./direction");
+=======
+	direct = yang_dnode_get_enum(args->dnode, "direction");
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	offset = nb_running_unset_entry(args->dnode);
 	if (offset->direct[direct].alist_name) {
@@ -369,6 +381,25 @@ int ripngd_instance_passive_interface_destroy(struct nb_cb_destroy_args *args)
 }
 
 /*
+<<<<<<< HEAD
+=======
+ * XPath: /frr-ripng:ripng/instance/distribute-list
+ */
+int ripngd_instance_distribute_list_create(struct nb_cb_create_args *args)
+{
+	struct ripng *ripng;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	ripng = nb_running_get_entry(args->dnode, NULL, true);
+	group_distribute_list_create_helper(args, ripng->distribute_ctx);
+
+	return NB_OK;
+}
+
+/*
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
  * XPath: /frr-ripngd:ripngd/instance/redistribute
  */
 int ripngd_instance_redistribute_create(struct nb_cb_create_args *args)
@@ -380,7 +411,11 @@ int ripngd_instance_redistribute_create(struct nb_cb_create_args *args)
 		return NB_OK;
 
 	ripng = nb_running_get_entry(args->dnode, NULL, true);
+<<<<<<< HEAD
 	type = yang_dnode_get_enum(args->dnode, "./protocol");
+=======
+	type = yang_dnode_get_enum(args->dnode, "protocol");
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	ripng->redist[type].enabled = true;
 
@@ -396,7 +431,11 @@ int ripngd_instance_redistribute_destroy(struct nb_cb_destroy_args *args)
 		return NB_OK;
 
 	ripng = nb_running_get_entry(args->dnode, NULL, true);
+<<<<<<< HEAD
 	type = yang_dnode_get_enum(args->dnode, "./protocol");
+=======
+	type = yang_dnode_get_enum(args->dnode, "protocol");
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	ripng->redist[type].enabled = false;
 	if (ripng->redist[type].route_map.name) {
@@ -420,7 +459,11 @@ void ripngd_instance_redistribute_apply_finish(
 	int type;
 
 	ripng = nb_running_get_entry(args->dnode, NULL, true);
+<<<<<<< HEAD
 	type = yang_dnode_get_enum(args->dnode, "./protocol");
+=======
+	type = yang_dnode_get_enum(args->dnode, "protocol");
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	if (ripng->enabled)
 		ripng_redistribute_conf_update(ripng, type);

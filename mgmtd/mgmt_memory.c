@@ -20,6 +20,10 @@
 DEFINE_MGROUP(MGMTD, "mgmt");
 DEFINE_MTYPE(MGMTD, MGMTD, "instance");
 DEFINE_MTYPE(MGMTD, MGMTD_XPATH, "xpath regex");
+<<<<<<< HEAD
+=======
+DEFINE_MTYPE(MGMTD, MGMTD_ERR, "error");
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 DEFINE_MTYPE(MGMTD, MGMTD_BE_ADPATER, "backend adapter");
 DEFINE_MTYPE(MGMTD, MGMTD_FE_ADPATER, "frontend adapter");
 DEFINE_MTYPE(MGMTD, MGMTD_FE_SESSION, "frontend session");
@@ -29,5 +33,10 @@ DEFINE_MTYPE(MGMTD, MGMTD_TXN_SETCFG_REQ, "txn set-config requests");
 DEFINE_MTYPE(MGMTD, MGMTD_TXN_COMMCFG_REQ, "txn commit-config requests");
 DEFINE_MTYPE(MGMTD, MGMTD_TXN_GETDATA_REQ, "txn get-data requests");
 DEFINE_MTYPE(MGMTD, MGMTD_TXN_GETDATA_REPLY, "txn get-data replies");
+<<<<<<< HEAD
+=======
+DEFINE_MTYPE(MGMTD, MGMTD_TXN_GETTREE_REQ, "txn get-tree requests");
+DEFINE_MTYPE(MGMTD, MGMTD_TXN_RPC_REQ, "txn rpc requests");
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 DEFINE_MTYPE(MGMTD, MGMTD_TXN_CFG_BATCH, "txn config batches");
 DEFINE_MTYPE(MGMTD, MGMTD_CMT_INFO, "commit info");

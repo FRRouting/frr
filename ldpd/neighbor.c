@@ -505,6 +505,7 @@ nbr_start_idtimer(struct nbr *nbr)
 {
 	int	secs;
 
+<<<<<<< HEAD
 	secs = INIT_DELAY_TMR;
 	switch(nbr->idtimer_cnt) {
 	default:
@@ -520,6 +521,14 @@ nbr_start_idtimer(struct nbr *nbr)
 	case 0:
 		nbr->idtimer_cnt++;
 		break;
+=======
+	if (nbr->idtimer_cnt > 2) {
+		/* do not further increase the counter */
+		secs = MAX_DELAY_TMR;
+	} else {
+		secs = INIT_DELAY_TMR * (1 << nbr->idtimer_cnt);
+		nbr->idtimer_cnt++;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	}
 
 	EVENT_OFF(nbr->initdelay_timer);

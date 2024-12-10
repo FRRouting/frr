@@ -462,8 +462,12 @@ void isis_area_delete_backup_adj_sids(struct isis_area *area, int level)
 	struct listnode *node, *nnode;
 
 	for (ALL_LIST_ELEMENTS(area->srdb.adj_sids, node, nnode, sra))
+<<<<<<< HEAD
 		if (sra->type == ISIS_SR_LAN_BACKUP
 		    && (sra->adj->level & level))
+=======
+		if (sra->type == ISIS_SR_ADJ_BACKUP && (sra->adj->level & level))
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			sr_adj_sid_del(sra);
 }
 
@@ -628,6 +632,53 @@ static int sr_local_block_release_label(struct sr_local_block *srlb,
 	return 0;
 }
 
+<<<<<<< HEAD
+=======
+static bool sr_adj_same_subnet_ipv4(struct in_addr ipv4,
+				    struct isis_circuit *circuit)
+{
+	struct listnode *node;
+	struct prefix ipv4_adj;
+	struct prefix_ipv4 *ipv4_circuit;
+
+	ipv4_adj.family = AF_INET;
+	ipv4_adj.u.prefix4 = ipv4;
+
+	for (ALL_LIST_ELEMENTS_RO(circuit->ip_addrs, node, ipv4_circuit)) {
+		ipv4_adj.prefixlen = ipv4_circuit->prefixlen;
+		if (!prefix_cmp(&ipv4_adj, (struct prefix *)ipv4_circuit))
+			return true;
+	}
+
+	return false;
+}
+
+static bool sr_adj_same_subnet_ipv6(struct in6_addr *ipv6,
+				    struct isis_circuit *circuit)
+{
+	struct listnode *node;
+	struct prefix ipv6_adj;
+	struct prefix_ipv6 *ipv6_circuit;
+
+	ipv6_adj.family = AF_INET6;
+	IPV6_ADDR_COPY(&ipv6_adj.u.prefix6, ipv6);
+
+	for (ALL_LIST_ELEMENTS_RO(circuit->ipv6_link, node, ipv6_circuit)) {
+		ipv6_adj.prefixlen = ipv6_circuit->prefixlen;
+		if (!prefix_cmp(&ipv6_adj, (struct prefix *)ipv6_circuit))
+			return true;
+	}
+
+	for (ALL_LIST_ELEMENTS_RO(circuit->ipv6_non_link, node, ipv6_circuit)) {
+		ipv6_adj.prefixlen = ipv6_circuit->prefixlen;
+		if (!prefix_cmp(&ipv6_adj, (struct prefix *)ipv6_circuit))
+			return true;
+	}
+
+	return false;
+}
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 /* --- Segment Routing Adjacency-SID management functions ------------------- */
 
 /**
@@ -659,12 +710,24 @@ void sr_adj_sid_add_single(struct isis_adjacency *adj, int family, bool backup,
 		if (!circuit->ip_router || !adj->ipv4_address_count)
 			return;
 
+<<<<<<< HEAD
+=======
+		if (!sr_adj_same_subnet_ipv4(adj->ipv4_addresses[0], circuit))
+			return;
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		nexthop.ipv4 = adj->ipv4_addresses[0];
 		break;
 	case AF_INET6:
 		if (!circuit->ipv6_router || !adj->ll_ipv6_count)
 			return;
 
+<<<<<<< HEAD
+=======
+		if (!sr_adj_same_subnet_ipv6(&adj->ll_ipv6_addrs[0], circuit))
+			return;
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		nexthop.ipv6 = adj->ll_ipv6_addrs[0];
 		break;
 	default:
@@ -689,7 +752,11 @@ void sr_adj_sid_add_single(struct isis_adjacency *adj, int family, bool backup,
 		circuit->ext = isis_alloc_ext_subtlvs();
 
 	sra = XCALLOC(MTYPE_ISIS_SR_INFO, sizeof(*sra));
+<<<<<<< HEAD
 	sra->type = backup ? ISIS_SR_LAN_BACKUP : ISIS_SR_ADJ_NORMAL;
+=======
+	sra->type = backup ? ISIS_SR_ADJ_BACKUP : ISIS_SR_ADJ_NORMAL;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	sra->input_label = input_label;
 	sra->nexthop.family = family;
 	sra->nexthop.address = nexthop;
@@ -819,7 +886,11 @@ static void sr_adj_sid_del(struct sr_adjacency *sra)
 		exit(1);
 	}
 
+<<<<<<< HEAD
 	if (sra->type == ISIS_SR_LAN_BACKUP && sra->backup_nexthops) {
+=======
+	if (sra->type == ISIS_SR_ADJ_BACKUP && sra->backup_nexthops) {
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		sra->backup_nexthops->del =
 			(void (*)(void *))isis_nexthop_delete;
 		list_delete(&sra->backup_nexthops);
@@ -936,7 +1007,10 @@ int sr_if_addr_update(struct interface *ifp)
 	struct isis_circuit *circuit;
 	struct isis_area *area;
 	struct connected *connected;
+<<<<<<< HEAD
 	struct listnode *node;
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	bool need_lsp_regenerate = false;
 
 	/* Get corresponding circuit */
@@ -948,7 +1022,11 @@ int sr_if_addr_update(struct interface *ifp)
 	if (!area)
 		return 0;
 
+<<<<<<< HEAD
 	FOR_ALL_INTERFACES_ADDRESSES (ifp, connected, node) {
+=======
+	frr_each (if_connected, ifp->connected, connected) {
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		for (int i = 0; i < SR_ALGORITHM_COUNT; i++) {
 			pcfgs[i] = isis_sr_cfg_prefix_find(
 				area, connected->address, i);
@@ -1022,8 +1100,11 @@ static void show_node(struct vty *vty, struct isis_area *area, int level,
 	struct ttable *tt;
 	char buf[128];
 
+<<<<<<< HEAD
 	vty_out(vty, " IS-IS %s SR-Nodes:\n\n", circuit_t2string(level));
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	/* Prepare table. */
 	tt = ttable_new(&ttable_styles[TTSTYLE_BLANK]);
 	ttable_add_row(tt, "System ID|SRGB|SRLB|Algorithm|MSD");
@@ -1064,9 +1145,17 @@ static void show_node(struct vty *vty, struct isis_area *area, int level,
 	if (tt->nrows > 1) {
 		char *table;
 
+<<<<<<< HEAD
 		table = ttable_dump(tt, "\n");
 		vty_out(vty, "%s\n", table);
 		XFREE(MTYPE_TMP, table);
+=======
+		vty_out(vty, " IS-IS %s SR-Nodes:\n\n", circuit_t2string(level));
+
+		table = ttable_dump(tt, "\n");
+		vty_out(vty, "%s\n", table);
+		XFREE(MTYPE_TMP_TTABLE, table);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	}
 	ttable_del(tt);
 }
@@ -1075,7 +1164,11 @@ DEFUN(show_sr_node, show_sr_node_cmd,
       "show " PROTO_NAME
       " segment-routing node"
 #ifndef FABRICD
+<<<<<<< HEAD
       " [algorithm (128-255)]"
+=======
+      " [algorithm [(128-255)]]"
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 #endif /* ifndef FABRICD */
       ,
       SHOW_STR PROTO_HELP
@@ -1089,13 +1182,27 @@ DEFUN(show_sr_node, show_sr_node_cmd,
 {
 	struct listnode *node, *inode;
 	struct isis_area *area;
+<<<<<<< HEAD
 	uint8_t algorithm = SR_ALGORITHM_SPF;
+=======
+	uint16_t algorithm = SR_ALGORITHM_SPF;
+	bool all_algorithm = false;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	struct isis *isis;
 #ifndef FABRICD
 	int idx = 0;
 
+<<<<<<< HEAD
 	if (argv_find(argv, argc, "algorithm", &idx))
 		algorithm = (uint8_t)strtoul(argv[idx + 1]->arg, NULL, 10);
+=======
+	if (argv_find(argv, argc, "algorithm", &idx)) {
+		if (argv_find(argv, argc, "(128-255)", &idx))
+			algorithm = (uint16_t)strtoul(argv[idx]->arg, NULL, 10);
+		else
+			all_algorithm = true;
+	}
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 #endif /* ifndef FABRICD */
 
 	for (ALL_LIST_ELEMENTS_RO(im->isis, inode, isis)) {
@@ -1107,8 +1214,22 @@ DEFUN(show_sr_node, show_sr_node_cmd,
 				continue;
 			}
 			for (int level = ISIS_LEVEL1; level <= ISIS_LEVELS;
+<<<<<<< HEAD
 			     level++)
 				show_node(vty, area, level, algorithm);
+=======
+			     level++) {
+				if (all_algorithm) {
+					for (algorithm = SR_ALGORITHM_FLEX_MIN;
+					     algorithm <= SR_ALGORITHM_FLEX_MAX;
+					     algorithm++)
+						show_node(vty, area, level,
+							  (uint8_t)algorithm);
+				} else
+					show_node(vty, area, level,
+						  (uint8_t)algorithm);
+			}
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		}
 	}
 

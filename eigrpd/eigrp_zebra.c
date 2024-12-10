@@ -98,9 +98,13 @@ static zclient_handler *const eigrp_handlers[] = {
 
 void eigrp_zebra_init(void)
 {
+<<<<<<< HEAD
 	struct zclient_options opt = {.receive_notify = false};
 
 	zclient = zclient_new(master, &opt, eigrp_handlers,
+=======
+	zclient = zclient_new(master, &zclient_options_default, eigrp_handlers,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			      array_size(eigrp_handlers));
 
 	zclient_init(zclient, ZEBRA_ROUTE_EIGRP, 0, &eigrpd_privs);

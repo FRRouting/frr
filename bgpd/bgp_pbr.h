@@ -134,7 +134,11 @@ struct bgp_pbr_entry_main {
 
 struct bgp_pbr_interface {
 	RB_ENTRY(bgp_pbr_interface) id_entry;
+<<<<<<< HEAD
 	char name[INTERFACE_NAMSIZ];
+=======
+	char name[IFNAMSIZ];
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 };
 
 RB_HEAD(bgp_pbr_interface_head, bgp_pbr_interface);

@@ -16,7 +16,11 @@ import json
 import pytest
 import functools
 
+<<<<<<< HEAD
 pytestmark = pytest.mark.bgpd
+=======
+pytestmark = [pytest.mark.bgpd]
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 CWD = os.path.dirname(os.path.realpath(__file__))
 sys.path.append(os.path.join(CWD, "../"))
@@ -26,8 +30,11 @@ from lib import topotest
 from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.common_config import step
 
+<<<<<<< HEAD
 pytestmark = [pytest.mark.bgpd]
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 def setup_module(mod):
     topodef = {"s1": ("r1", "r2")}
@@ -36,7 +43,11 @@ def setup_module(mod):
 
     router_list = tgen.routers()
 
+<<<<<<< HEAD
     for i, (rname, router) in enumerate(router_list.items(), 1):
+=======
+    for _, (rname, router) in enumerate(router_list.items(), 1):
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         router.load_config(
             TopoRouter.RD_ZEBRA, os.path.join(CWD, "{}/zebra.conf".format(rname))
         )
@@ -122,8 +133,14 @@ def test_bgp_check_fqdn():
     step("Wait to converge")
     test_func = functools.partial(bgp_converge, r1)
     _, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
+<<<<<<< HEAD
     assert result is None, "Can't converge with dont-capability-negotiate"
 
+=======
+    assert result is None, "Can't converge with all capabilities"
+
+    step("Make sure FQDN capability is set")
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     test_func = functools.partial(_bgp_check_fqdn, "r2")
     _, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
     assert result is None, "FQDN capability enabled, but r1 can't see it"
@@ -150,6 +167,52 @@ def test_bgp_check_fqdn():
     _, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
     assert result is None, "FQDN capability disabled, but we still have a hostname"
 
+<<<<<<< HEAD
+=======
+    step("Re-enable sending any capability from r2")
+    r2.vtysh_cmd(
+        """
+    configure terminal
+        router bgp 65002
+            address-family ipv4 unicast
+                 no neighbor 192.168.1.1 dont-capability-negotiate
+    end
+    clear bgp 192.168.1.1
+    """
+    )
+    step("Wait to converge")
+    tgen = get_topogen()
+    test_func = functools.partial(bgp_converge, r1)
+    _, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
+    assert result is None, "Can't converge with all capabilities re enabled"
+
+    step("Make sure FQDN capability is r2")
+    test_func = functools.partial(_bgp_check_fqdn, "r2")
+    _, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
+    assert result is None, "FQDN capability enabled, but r1 can't see it"
+
+    step("Disable sending fqdn capability")
+    r2.vtysh_cmd(
+        """
+    configure terminal
+        router bgp 65002
+            no neighbor 192.168.1.1 capability fqdn
+    end
+    clear bgp 192.168.1.1
+    """
+    )
+    step("Wait to converge")
+    tgen = get_topogen()
+    test_func = functools.partial(bgp_converge, r1)
+    _, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
+    assert result is None, "Can't converge with no capability fqdn"
+
+    step("Make sure FQDN capability is reset")
+    test_func = functools.partial(_bgp_check_fqdn)
+    _, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
+    assert result is None, "FQDN capability disabled, but we still have a hostname"
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 if __name__ == "__main__":
     args = ["-s"] + sys.argv[1:]

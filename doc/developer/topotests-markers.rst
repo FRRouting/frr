@@ -12,6 +12,10 @@ systems, all tests must be marked with at least one of the following markers:
 * eigrpd
 * isisd
 * ldpd
+<<<<<<< HEAD
+=======
+* mgmtd
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 * nhrpd
 * ospf6d
 * ospfd
@@ -64,12 +68,21 @@ Adding a single marker:
 
     import pytest
     ...
+<<<<<<< HEAD
     
     # add after imports, before defining classes or functions:
     pytestmark = pytest.mark.bfdd
     
     ...
     
+=======
+
+    # add after imports, before defining classes or functions:
+    pytestmark = pytest.mark.bfdd
+
+    ...
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     def test_using_bfdd():
 
 
@@ -79,16 +92,26 @@ Adding multiple markers:
 
     import pytest
     ...
+<<<<<<< HEAD
     
+=======
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     # add after imports, before defining classes or functions:
     pytestmark = [
         pytest.mark.bgpd,
         pytest.mark.ospfd,
         pytest.mark.ospf6d
     ]
+<<<<<<< HEAD
     
     ...
     
+=======
+
+    ...
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     def test_using_bgpd_ospfd_ospf6d():
 
 

@@ -105,9 +105,13 @@ struct stream_fifo {
 
 	/* number of streams in this fifo */
 	atomic_size_t count;
+<<<<<<< HEAD
 #if defined DEV_BUILD
 	atomic_size_t max_count;
 #endif
+=======
+	atomic_size_t max_count;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	struct stream *head;
 	struct stream *tail;
@@ -177,7 +181,11 @@ extern int stream_putq(struct stream *, uint64_t);
 extern int stream_putq_at(struct stream *, size_t, uint64_t);
 extern int stream_put_ipv4(struct stream *, uint32_t);
 extern int stream_put_in_addr(struct stream *s, const struct in_addr *addr);
+<<<<<<< HEAD
 extern bool stream_put_ipaddr(struct stream *s, struct ipaddr *ip);
+=======
+extern bool stream_put_ipaddr(struct stream *s, const struct ipaddr *ip);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 extern int stream_put_in_addr_at(struct stream *s, size_t putp,
 				 const struct in_addr *addr);
 extern int stream_put_in6_addr_at(struct stream *s, size_t putp,

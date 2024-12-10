@@ -6,10 +6,18 @@
 #ifndef _FRR_TYPESAFE_H
 #define _FRR_TYPESAFE_H
 
+<<<<<<< HEAD
+=======
+#ifndef _TYPESAFE_EXPAND_MACROS
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 #include <stddef.h>
 #include <stdint.h>
 #include <stdbool.h>
 #include "compiler.h"
+<<<<<<< HEAD
+=======
+#endif /* _TYPESAFE_EXPAND_MACROS */
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 #ifdef __cplusplus
 extern "C" {

@@ -1,3 +1,9 @@
+<<<<<<< HEAD
+=======
+Demos
+=====
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 Transactional CLI
 -----------------
 
@@ -5,6 +11,7 @@ This short demo shows some of the capabilities of the new transactional
 CLI:
 
 |asciicast1|
+<<<<<<< HEAD
 
 ConfD + NETCONF + Cisco YDK
 ---------------------------
@@ -25,3 +32,5 @@ using Cisco’s YANG Development Kit (YDK).
    :target: https://asciinema.org/a/jL0BS5HfP2kS6N1HfgsZvfZk1
 .. |asciicast2| image:: https://asciinema.org/a/VfMElNxsjLcdvV7484E6ChxWv.png
    :target: https://asciinema.org/a/VfMElNxsjLcdvV7484E6ChxWv
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)

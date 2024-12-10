@@ -6,6 +6,13 @@
 
 #include <zebra.h>
 
+<<<<<<< HEAD
+=======
+#ifdef GNU_LINUX
+#include <linux/neighbour.h>
+#endif
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 #include "hash.h"
 #include "interface.h"
 #include "jhash.h"

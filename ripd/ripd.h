@@ -51,7 +51,10 @@
 
 /* RIP port number. */
 #define RIP_PORT_DEFAULT               520
+<<<<<<< HEAD
 #define RIP_VTY_PORT                  2602
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 /* Default configuration file name. */
 #define RIPD_DEFAULT_CONFIG    "ripd.conf"
@@ -526,7 +529,10 @@ extern int offset_list_cmp(struct rip_offset_list *o1,
 
 extern void rip_vrf_init(void);
 extern void rip_vrf_terminate(void);
+<<<<<<< HEAD
 extern void rip_cli_init(void);
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 extern struct zebra_privs_t ripd_privs;
 extern struct rip_instance_head rip_instances;

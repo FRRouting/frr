@@ -23,13 +23,25 @@ RUN apt update && apt upgrade -y && \
             libreadline-dev \
             libsnmp-dev \
             libsqlite3-dev \
+<<<<<<< HEAD
             libtool \
+=======
+            lsb-release \
+            libtool \
+            lcov \
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
             make \
             perl \
             pkg-config \
             python3-dev \
             python3-sphinx \
+<<<<<<< HEAD
             texinfo \
+=======
+            screen \
+            texinfo \
+            tmux \
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     && \
     # Protobuf build requirements
     apt-get install -y \
@@ -41,17 +53,34 @@ RUN apt update && apt upgrade -y && \
         cmake \
         libpcre2-dev \
     && \
+<<<<<<< HEAD
+=======
+    # GRPC extra build requirements
+    apt-get install -y \
+        libgrpc-dev \
+        libgrpc++-dev \
+        protobuf-compiler-grpc \
+    && \
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     # Runtime/triage/testing requirements
     apt-get install -y \
         curl \
         gdb \
+<<<<<<< HEAD
+=======
+        kmod \
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         iproute2 \
         iputils-ping \
         liblua5.3-dev \
         libssl-dev \
         lua5.3 \
         net-tools \
+<<<<<<< HEAD
         python2 \
+=======
+        python3 \
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         python3-pip \
         snmp \
         snmp-mibs-downloader \
@@ -66,6 +95,7 @@ RUN apt update && apt upgrade -y && \
     wget https://raw.githubusercontent.com/FRRouting/frr-mibs/main/iana/IANA-IPPM-METRICS-REGISTRY-MIB -O /usr/share/snmp/mibs/iana/IANA-IPPM-METRICS-REGISTRY-MIB && \
     wget https://raw.githubusercontent.com/FRRouting/frr-mibs/main/ietf/SNMPv2-PDU -O /usr/share/snmp/mibs/ietf/SNMPv2-PDU && \
     wget https://raw.githubusercontent.com/FRRouting/frr-mibs/main/ietf/IPATM-IPMC-MIB -O /usr/share/snmp/mibs/ietf/IPATM-IPMC-MIB && \
+<<<<<<< HEAD
     curl https://bootstrap.pypa.io/pip/2.7/get-pip.py --output /tmp/get-pip.py && \
     python2 /tmp/get-pip.py && \
     rm -f  /tmp/get-pip.py && \
@@ -82,11 +112,26 @@ RUN groupadd -r -g 92 frr && \
       groupadd -r -g 85 frrvty && \
       adduser --system --ingroup frr --home /home/frr \
               --gecos "FRR suite" --shell /bin/bash frr && \
+=======
+    python3 -m pip install wheel && \
+    python3 -m pip install 'protobuf<4' grpcio grpcio-tools && \
+    python3 -m pip install 'pytest>=6.2.4' 'pytest-xdist>=2.3.0' && \
+    python3 -m pip install 'scapy>=2.4.5' && \
+    python3 -m pip install xmltodict && \
+    python3 -m pip install git+https://github.com/Exa-Networks/exabgp@0659057837cd6c6351579e9f0fa47e9fb7de7311
+
+ARG UID=1000
+RUN groupadd -r -g 92 frr && \
+      groupadd -r -g 85 frrvty && \
+      adduser --system --ingroup frr --home /home/frr \
+              --gecos "FRR suite" -u $UID --shell /bin/bash frr && \
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
       usermod -a -G frrvty frr && \
       useradd -d /var/run/exabgp/ -s /bin/false exabgp && \
       echo 'frr ALL = NOPASSWD: ALL' | tee /etc/sudoers.d/frr && \
       mkdir -p /home/frr && chown frr.frr /home/frr
 
+<<<<<<< HEAD
 USER frr:frr
 
 # build and install libyang2
@@ -99,6 +144,16 @@ RUN cd && pwd && ls -al && \
           -DCMAKE_BUILD_TYPE:String="Release" .. && \
     make -j $(nproc) && \
     sudo make install
+=======
+# Install FRR built packages
+RUN mkdir -p /etc/apt/keyrings && \
+    curl -s -o /etc/apt/keyrings/frrouting.gpg https://deb.frrouting.org/frr/keys.gpg && \
+    echo deb '[signed-by=/etc/apt/keyrings/frrouting.gpg]' https://deb.frrouting.org/frr \
+        $(lsb_release -s -c) "frr-stable" > /etc/apt/sources.list.d/frr.list && \
+    apt-get update && apt-get install -y librtr-dev libyang2-dev libyang2-tools
+
+USER frr:frr
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 COPY --chown=frr:frr . /home/frr/frr/
 
@@ -106,14 +161,28 @@ RUN cd ~/frr && \
     ./bootstrap.sh && \
     ./configure \
        --prefix=/usr \
+<<<<<<< HEAD
        --localstatedir=/var/run/frr \
        --sbindir=/usr/lib/frr \
        --sysconfdir=/etc/frr \
+=======
+       --sysconfdir=/etc \
+       --localstatedir=/var \
+       --sbindir=/usr/lib/frr \
+       --enable-gcov \
+       --enable-dev-build \
+       --enable-mgmtd-test-be-client \
+       --enable-rpki \
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
        --enable-sharpd \
        --enable-multipath=64 \
        --enable-user=frr \
        --enable-group=frr \
        --enable-config-rollbacks \
+<<<<<<< HEAD
+=======
+       --enable-grpc \
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
        --enable-vty-group=frrvty \
        --enable-snmp=agentx \
        --enable-scripting \

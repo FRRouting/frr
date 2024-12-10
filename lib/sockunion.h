@@ -7,10 +7,19 @@
 #ifndef _ZEBRA_SOCKUNION_H
 #define _ZEBRA_SOCKUNION_H
 
+<<<<<<< HEAD
+=======
+#include "compiler.h"
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 #include "privs.h"
 #include "if.h"
 #include <sys/un.h>
 #ifdef __OpenBSD__
+<<<<<<< HEAD
+=======
+#include <net/route.h>
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 #include <netmpls/mpls.h>
 #endif
 
@@ -27,8 +36,45 @@ union sockunion {
 	struct sockaddr_mpls smpls;
 	struct sockaddr_rtlabel rtlabel;
 #endif
+<<<<<<< HEAD
 };
 
+=======
+
+	/* sockaddr_storage is guaranteed to be larger than the others */
+	struct sockaddr_storage sa_storage;
+};
+
+/* clang-format off */
+/* for functions that want to accept any sockaddr pointer without casts */
+union sockaddrptr {
+	uniontype(sockaddrptr, union sockunion, su)
+	uniontype(sockaddrptr, struct sockaddr, sa)
+	uniontype(sockaddrptr, struct sockaddr_in, sin)
+	uniontype(sockaddrptr, struct sockaddr_in6, sin6)
+	uniontype(sockaddrptr, struct sockaddr_un, sun)
+#ifdef __OpenBSD__
+	uniontype(sockaddrptr, struct sockaddr_mpls, smpls)
+	uniontype(sockaddrptr, struct sockaddr_rtlabel, rtlabel)
+#endif
+	uniontype(sockaddrptr, struct sockaddr_storage, sa_storage)
+} TRANSPARENT_UNION;
+
+union sockaddrconstptr {
+	uniontype(sockaddrconstptr, const union sockunion, su)
+	uniontype(sockaddrconstptr, const struct sockaddr, sa)
+	uniontype(sockaddrconstptr, const struct sockaddr_in, sin)
+	uniontype(sockaddrconstptr, const struct sockaddr_in6, sin6)
+	uniontype(sockaddrconstptr, const struct sockaddr_un, sun)
+#ifdef __OpenBSD__
+	uniontype(sockaddrconstptr, const struct sockaddr_mpls, smpls)
+	uniontype(sockaddrconstptr, const struct sockaddr_rtlabel, rtlabel)
+#endif
+	uniontype(sockaddrconstptr, const struct sockaddr_storage, sa_storage)
+} TRANSPARENT_UNION;
+/* clang-format on */
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 enum connect_result { connect_error, connect_success, connect_in_progress };
 
 /* Default address family. */
@@ -58,7 +104,10 @@ enum connect_result { connect_error, connect_success, connect_in_progress };
 /* Prototypes. */
 extern int str2sockunion(const char *, union sockunion *);
 extern const char *sockunion2str(const union sockunion *, char *, size_t);
+<<<<<<< HEAD
 int in6addr_cmp(const struct in6_addr *addr1, const struct in6_addr *addr2);
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 extern int sockunion_cmp(const union sockunion *, const union sockunion *);
 extern int sockunion_same(const union sockunion *, const union sockunion *);
 extern unsigned int sockunion_hash(const union sockunion *);

@@ -27,6 +27,10 @@
 #include "ospf6_zebra.h"
 #include "ospf6d.h"
 #include "ospf6_area.h"
+<<<<<<< HEAD
+=======
+#include "ospf6_tlv.h"
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 #include "ospf6_gr.h"
 #include "lib/json.h"
 
@@ -147,6 +151,7 @@ void ospf6_zebra_import_default_route(struct ospf6 *ospf6, bool unreg)
 			 __func__);
 }
 
+<<<<<<< HEAD
 static int ospf6_zebra_import_check_update(ZAPI_CALLBACK_ARGS)
 {
 	struct ospf6 *ospf6;
@@ -171,6 +176,24 @@ static int ospf6_zebra_import_check_update(ZAPI_CALLBACK_ARGS)
 	ospf6_abr_nssa_type_7_defaults(ospf6);
 
 	return 0;
+=======
+static void ospf6_zebra_import_check_update(struct vrf *vrf,
+					    struct prefix *matched,
+					    struct zapi_route *nhr)
+{
+	struct ospf6 *ospf6;
+
+	ospf6 = (struct ospf6 *)vrf->info;
+	if (ospf6 == NULL || !IS_OSPF6_ASBR(ospf6))
+		return;
+
+	if (matched->family != AF_INET6 || matched->prefixlen != 0 ||
+	    nhr->type == ZEBRA_ROUTE_OSPF6)
+		return;
+
+	ospf6->nssa_default_import_check.status = !!nhr->nexthop_num;
+	ospf6_abr_nssa_type_7_defaults(ospf6);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 }
 
 static int ospf6_zebra_if_address_update_add(ZAPI_CALLBACK_ARGS)
@@ -297,7 +320,11 @@ static int ospf6_zebra_read_route(ZAPI_CALLBACK_ARGS)
 	if (cmd == ZEBRA_REDISTRIBUTE_ROUTE_ADD)
 		ospf6_asbr_redistribute_add(api.type, ifindex, &api.prefix,
 					    api.nexthop_num, nexthop, api.tag,
+<<<<<<< HEAD
 					    ospf6);
+=======
+					    ospf6, api.metric);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	else
 		ospf6_asbr_redistribute_remove(api.type, ifindex, &api.prefix,
 					       ospf6);
@@ -763,7 +790,10 @@ static zclient_handler *const ospf6_handlers[] = {
 	[ZEBRA_INTERFACE_ADDRESS_DELETE] = ospf6_zebra_if_address_update_delete,
 	[ZEBRA_REDISTRIBUTE_ROUTE_ADD] = ospf6_zebra_read_route,
 	[ZEBRA_REDISTRIBUTE_ROUTE_DEL] = ospf6_zebra_read_route,
+<<<<<<< HEAD
 	[ZEBRA_NEXTHOP_UPDATE] = ospf6_zebra_import_check_update,
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 };
 
 void ospf6_zebra_init(struct event_loop *master)
@@ -773,6 +803,10 @@ void ospf6_zebra_init(struct event_loop *master)
 			      array_size(ospf6_handlers));
 	zclient_init(zclient, ZEBRA_ROUTE_OSPF6, 0, &ospf6d_privs);
 	zclient->zebra_connected = ospf6_zebra_connected;
+<<<<<<< HEAD
+=======
+	zclient->nexthop_update = ospf6_zebra_import_check_update;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	/* Install command element for zebra node. */
 	install_element(VIEW_NODE, &show_ospf6_zebra_cmd);

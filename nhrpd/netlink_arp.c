@@ -7,6 +7,13 @@
 #include "config.h"
 #endif
 
+<<<<<<< HEAD
+=======
+#ifdef GNU_LINUX
+#include <linux/rtnetlink.h>
+#endif
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 #include <fcntl.h>
 #include <net/if.h>
 #include <netinet/if_ether.h>
@@ -150,6 +157,13 @@ int nhrp_neighbor_operation(ZAPI_CALLBACK_ARGS)
 	struct zapi_neigh_ip api = {};
 
 	zclient_neigh_ip_decode(zclient->ibuf, &api);
+<<<<<<< HEAD
+=======
+
+	if (api.ip_len != IPV4_MAX_BYTELEN && api.ip_len != 0)
+		return 0;
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	if (api.ip_in.ipa_type == AF_UNSPEC)
 		return 0;
 	sockunion_family(&addr) = api.ip_in.ipa_type;
@@ -172,12 +186,20 @@ int nhrp_neighbor_operation(ZAPI_CALLBACK_ARGS)
 		return 0;
 	debugf(NHRP_DEBUG_KERNEL,
 	       "Netlink: %s %pSU dev %s lladdr %pSU nud 0x%x cache used %u type %u",
+<<<<<<< HEAD
 	       (cmd == ZEBRA_NHRP_NEIGH_GET)
 	       ? "who-has"
 	       : (cmd == ZEBRA_NHRP_NEIGH_ADDED) ? "new-neigh"
 	       : "del-neigh",
 	       &addr, ifp->name, &lladdr, ndm_state, c->used, c->cur.type);
 	if (cmd == ZEBRA_NHRP_NEIGH_GET) {
+=======
+	       (cmd == ZEBRA_NEIGH_GET)	    ? "who-has"
+	       : (cmd == ZEBRA_NEIGH_ADDED) ? "new-neigh"
+					    : "del-neigh",
+	       &addr, ifp->name, &lladdr, ndm_state, c->used, c->cur.type);
+	if (cmd == ZEBRA_NEIGH_GET) {
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		if (c->cur.type >= NHRP_CACHE_CACHED) {
 			nhrp_cache_set_used(c, 1);
 			debugf(NHRP_DEBUG_KERNEL,
@@ -195,8 +217,13 @@ int nhrp_neighbor_operation(ZAPI_CALLBACK_ARGS)
 			netlink_update_binding(ifp, &addr, &lladdr);
 		}
 	} else {
+<<<<<<< HEAD
 		state = (cmd == ZEBRA_NHRP_NEIGH_ADDED) ? ndm_state
 			: ZEBRA_NEIGH_STATE_FAILED;
+=======
+		state = (cmd == ZEBRA_NEIGH_ADDED) ? ndm_state
+						   : ZEBRA_NEIGH_STATE_FAILED;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		nhrp_cache_set_used(c, state == ZEBRA_NEIGH_STATE_REACHABLE);
 	}
 	return 0;

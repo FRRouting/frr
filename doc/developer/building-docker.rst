@@ -14,7 +14,11 @@ source-built FRR on the following base platforms:
 
 The following platform images are used to support Travis CI and can also
 be used to reproduce topotest failures when the docker host is Ubuntu
+<<<<<<< HEAD
 (tested on 18.04 and 20.04):
+=======
+(tested on 20.04 and 22.04):
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 * Ubuntu 20.04
 * Ubuntu 22.04
@@ -139,12 +143,20 @@ Build image (from project root directory)::
 
 Running Full Topotest::
 
+<<<<<<< HEAD
    docker run --init -it --privileged --name frr -v /lib/modules:/lib/modules \
+=======
+   docker run --init -it --privileged --name frr-ubuntu20 -v /lib/modules:/lib/modules \
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
        frr-ubuntu20:latest bash -c 'cd ~/frr/tests/topotests ; sudo pytest -nauto --dist=loadfile'
 
 Extract results from the above run into `run-results` dir and analyze::
 
+<<<<<<< HEAD
    tests/topotest/analyze.py -C frr -Ar run-results
+=======
+   tests/topotests/analyze.py -C frr-ubuntu20 -Ar run-results
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 Start the container::
 
@@ -176,12 +188,20 @@ Build image (from project root directory)::
 
 Running Full Topotest::
 
+<<<<<<< HEAD
    docker run --init -it --privileged --name frr -v /lib/modules:/lib/modules \
+=======
+   docker run --init -it --privileged --name frr-ubuntu22 -v /lib/modules:/lib/modules \
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
        frr-ubuntu22:latest bash -c 'cd ~/frr/tests/topotests ; sudo pytest -nauto --dist=loadfile'
 
 Extract results from the above run into `run-results` dir and analyze::
 
+<<<<<<< HEAD
    tests/topotest/analyze.py -C frr -Ar run-results
+=======
+   tests/topotests/analyze.py -C frr-ubuntu22 -Ar run-results
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 Start the container::
 

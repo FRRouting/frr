@@ -202,3 +202,18 @@ void frrmod_unload(struct frrmod_runtime *module)
 {
 }
 #endif
+<<<<<<< HEAD
+=======
+
+void frrmod_terminate(void)
+{
+	struct frrmod_runtime *rtinfo = frrmod_list;
+
+	while (rtinfo) {
+		XFREE(MTYPE_MODULE_LOADNAME, rtinfo->load_name);
+		XFREE(MTYPE_MODULE_LOADARGS, rtinfo->load_args);
+
+		rtinfo = rtinfo->next;
+	}
+}
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)

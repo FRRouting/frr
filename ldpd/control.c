@@ -6,6 +6,10 @@
  */
 
 #include <zebra.h>
+<<<<<<< HEAD
+=======
+#include <sys/stat.h>
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 #include <sys/un.h>
 
 #include "ldpd.h"

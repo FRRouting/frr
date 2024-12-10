@@ -257,10 +257,17 @@ def test_recursive_routes_iBGP_peer_p1(request):
     )
     dut = "r2"
     create_interface_in_kernel(
+<<<<<<< HEAD
         tgen, dut, "lo", "40.40.40.50", netmask="255.255.255.0", create=True
     )
     create_interface_in_kernel(
         tgen, dut, "lo", "40:40::40:50", netmask="120", create=True
+=======
+        tgen, dut, "lo10", "40.40.40.50", netmask="255.255.255.0", create=True
+    )
+    create_interface_in_kernel(
+        tgen, dut, "lo10", "40:40::40:50", netmask="120", create=True
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     )
     for addr_type in ADDR_TYPES:
         input_dict_3 = {

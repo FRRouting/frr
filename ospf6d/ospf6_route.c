@@ -363,7 +363,11 @@ void ospf6_route_zebra_copy_nexthops(struct ospf6_route *route,
 
 			case NEXTHOP_TYPE_IPV6_IFINDEX:
 				nexthops[i].ifindex = nh->ifindex;
+<<<<<<< HEAD
 				/* FALLTHROUGH */
+=======
+				fallthrough;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			case NEXTHOP_TYPE_IPV6:
 				nexthops[i].gate.ipv6 = nh->address;
 				break;
@@ -540,6 +544,13 @@ int ospf6_route_cmp(struct ospf6_route *ra, struct ospf6_route *rb)
 	if (ra->path.area_id != rb->path.area_id)
 		return (ntohl(ra->path.area_id) - ntohl(rb->path.area_id));
 
+<<<<<<< HEAD
+=======
+	if ((ra->prefix_options & OSPF6_PREFIX_OPTION_LA)
+	    != (rb->prefix_options & OSPF6_PREFIX_OPTION_LA))
+		return ra->prefix_options & OSPF6_PREFIX_OPTION_LA ? -1 : 1;
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	return 0;
 }
 

@@ -1,0 +1,12 @@
+O>* fc00:1:1:1::/64 [110/20] via fe80::XXXX:XXXX:XXXX:XXXX, r3-sw5, weight 1, XX:XX:XX
+O>* fc00:2:2:2::/64 [110/20] via fe80::XXXX:XXXX:XXXX:XXXX, r3-sw5, weight 1, XX:XX:XX
+O   fc00:3:3:3::/64 [110/10] is directly connected, r3-stubnet, weight 1, XX:XX:XX
+O>* fc00:4:4:4::/64 [110/20] via fe80::XXXX:XXXX:XXXX:XXXX, r3-sw6, weight 1, XX:XX:XX
+O   fc00:a:a:a::/64 [110/10] is directly connected, r3-sw5, weight 1, XX:XX:XX
+O>* fc00:a:a:a::1/128 [110/10] via fe80::XXXX:XXXX:XXXX:XXXX, r3-sw5, weight 1, XX:XX:XX
+O>* fc00:a:a:a::2/128 [110/10] via fe80::XXXX:XXXX:XXXX:XXXX, r3-sw5, weight 1, XX:XX:XX
+O   fc00:b:b:b::/64 [110/10] is directly connected, r3-sw6, weight 1, XX:XX:XX
+O>* fc00:b:b:b::4/128 [110/10] via fe80::XXXX:XXXX:XXXX:XXXX, r3-sw6, weight 1, XX:XX:XX
+O>* fc00:1111:1111:1111::/64 [110/20] via fe80::XXXX:XXXX:XXXX:XXXX, r3-sw5, weight 1, XX:XX:XX
+O>* fc00:2222:2222:2222::/64 [110/20] via fe80::XXXX:XXXX:XXXX:XXXX, r3-sw5, weight 1, XX:XX:XX
+O>* fc00:4444:4444:4444::/64 [110/20] via fe80::XXXX:XXXX:XXXX:XXXX, r3-sw6, weight 1, XX:XX:XX

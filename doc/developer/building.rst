@@ -21,6 +21,10 @@ Building FRR
    building-frr-for-freebsd10
    building-frr-for-freebsd11
    building-frr-for-freebsd13
+<<<<<<< HEAD
+=======
+   building-frr-for-freebsd14
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
    building-frr-for-netbsd6
    building-frr-for-netbsd7
    building-frr-for-openbsd6

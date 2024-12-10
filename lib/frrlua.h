@@ -121,9 +121,15 @@ void lua_pushnexthop(lua_State *L, const struct nexthop *nexthop);
 /*
  * Converts an int to a Lua value and pushes it on the stack.
  */
+<<<<<<< HEAD
 void lua_pushintegerp(lua_State *L, const long long *num);
 
 void lua_decode_integerp(lua_State *L, int idx, long long *num);
+=======
+void lua_pushintegerp(lua_State *L, const int *num);
+
+void lua_decode_integerp(lua_State *L, int idx, int *num);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 /*
  * Converts the Lua value at idx to an int.
@@ -133,6 +139,24 @@ void lua_decode_integerp(lua_State *L, int idx, long long *num);
  */
 void *lua_tointegerp(lua_State *L, int idx);
 
+<<<<<<< HEAD
+=======
+/*
+ * Converts a long long to a Lua value and pushes it on the stack.
+ */
+void lua_pushlonglongp(lua_State *L, const long long *num);
+
+void lua_decode_longlongp(lua_State *L, int idx, long long *num);
+
+/*
+ * Converts the Lua value at idx to a long long.
+ *
+ * Returns:
+ *    long long allocated with MTYPE_TMP.
+ */
+void *lua_tolonglongp(lua_State *L, int idx);
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 void lua_decode_stringp(lua_State *L, int idx, char *str);
 
 /*
@@ -144,6 +168,7 @@ void lua_decode_stringp(lua_State *L, int idx, char *str);
 void *lua_tostringp(lua_State *L, int idx);
 
 /*
+<<<<<<< HEAD
  * No-op decoders
  */
 void lua_decode_noop(lua_State *L, int idx, const void *ptr);
@@ -151,6 +176,8 @@ void lua_decode_noop(lua_State *L, int idx, const void *ptr);
 void lua_decode_integer_noop(lua_State *L, int idx, int i);
 
 /*
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
  * Retrieve an integer from table on the top of the stack.
  *
  * key
@@ -173,6 +200,12 @@ int frrlua_table_get_integer(lua_State *L, const char *key);
  */
 void frrlua_export_logging(lua_State *L);
 
+<<<<<<< HEAD
+=======
+/* A helper fuction that dumps the Lua stack */
+void lua_table_dump(lua_State *L, int index, struct buffer *buf, int level);
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 /*
  * Dump Lua stack to a string.
  *

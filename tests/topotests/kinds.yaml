@@ -10,8 +10,15 @@ kinds:
       /usr/lib/frr/frrinit.sh stop
     volumes:
       - "./%NAME%:/etc/frr"
+<<<<<<< HEAD
       - "%RUNDIR%/var.log.frr:/var/log/frr"
       - "%RUNDIR%/var.run.frr:/var/run/frr"
+=======
+      - "%RUNDIR%/var.lib.frr:/var/lib/frr"
+      - "%RUNDIR%/var.log.frr:/var/log/frr"
+      - "%RUNDIR%/var.run.frr:/var/run/frr"
+      - "%RUNDIR%/var.tmp.frr:/var/tmp/frr"
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     cap-add:
       - SYS_ADMIN
       - AUDIT_WRITE

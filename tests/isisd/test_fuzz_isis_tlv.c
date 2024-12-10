@@ -22,7 +22,11 @@ static bool atexit_registered;
 
 static void show_meminfo_at_exit(void)
 {
+<<<<<<< HEAD
 	log_memstats(stderr, "isis fuzztest");
+=======
+	log_memstats(NULL, true);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 }
 
 static int comp_line(const void *p1, const void *p2)
@@ -43,7 +47,11 @@ static char *sortlines(char *in)
 	}
 
 	if (line_count == 1) {
+<<<<<<< HEAD
 		strncpy(rv, in, rv_len);
+=======
+		memcpy(rv, in, rv_len);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		return rv;
 	}
 

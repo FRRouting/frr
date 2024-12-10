@@ -237,11 +237,18 @@ struct ecommunity *ecommunity_parse(uint8_t *pnt, unsigned short length,
 					 disable_ieee_floating);
 }
 
+<<<<<<< HEAD
 struct ecommunity *ecommunity_parse_ipv6(uint8_t *pnt, unsigned short length,
 					 bool disable_ieee_floating)
 {
 	return ecommunity_parse_internal(pnt, length, IPV6_ECOMMUNITY_SIZE,
 					 disable_ieee_floating);
+=======
+struct ecommunity *ecommunity_parse_ipv6(uint8_t *pnt, unsigned short length)
+{
+	return ecommunity_parse_internal(pnt, length, IPV6_ECOMMUNITY_SIZE,
+					 false);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 }
 
 /* Duplicate the Extended Communities Attribute structure.  */
@@ -263,8 +270,16 @@ struct ecommunity *ecommunity_dup(struct ecommunity *ecom)
 }
 
 /* Return string representation of ecommunities attribute. */
+<<<<<<< HEAD
 char *ecommunity_str(struct ecommunity *ecom)
 {
+=======
+const char *ecommunity_str(struct ecommunity *ecom)
+{
+	if (!ecom)
+		return "(null)";
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	if (!ecom->str)
 		ecom->str =
 			ecommunity_ecom2str(ecom, ECOMMUNITY_FORMAT_DISPLAY, 0);
@@ -359,6 +374,7 @@ static void ecommunity_color_str(char *buf, size_t bufsz, uint8_t *ptr)
 {
 	/*
 	 *  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+<<<<<<< HEAD
 	 *  | 0x03         | Sub-Type(0x0b) |    Flags                      |
 	 *  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 	 *  |                          Color Value                          |
@@ -369,6 +385,24 @@ static void ecommunity_color_str(char *buf, size_t bufsz, uint8_t *ptr)
 	memcpy(&colorid, ptr + 3, 4);
 	colorid = ntohl(colorid);
 	snprintf(buf, bufsz, "Color:%d", colorid);
+=======
+	 *  | 0x03         | Sub-Type(0x0b) | CO|    Flags                  |
+	 *  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+	 *  |                          Color Value                          |
+	 *  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+	 *  https://datatracker.ietf.org/doc/rfc9256/, Section 8.8.1
+	 *  The CO bits can have 4 different values: 00 01 10 11
+	 */
+	uint32_t colorid;
+	uint8_t color_type;
+	/* get the color type */
+	ptr++;
+	color_type = (*ptr) >> 6;
+
+	memcpy(&colorid, ptr + 2, 4);
+	colorid = ntohl(colorid);
+	snprintf(buf, bufsz, "Color:%d%d:%d", (color_type & 0x2) >> 1, color_type & 0x1, colorid);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 }
 
 /* Initialize Extended Comminities related hash. */
@@ -513,7 +547,11 @@ static int ecommunity_encode_internal(uint8_t type, uint8_t sub_type,
 	/* Fill in the values. */
 	eval->val[0] = type;
 	if (!trans)
+<<<<<<< HEAD
 		eval->val[0] |= ECOMMUNITY_FLAG_NON_TRANSITIVE;
+=======
+		SET_FLAG(eval->val[0], ECOMMUNITY_FLAG_NON_TRANSITIVE);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	eval->val[1] = sub_type;
 	if (type == ECOMMUNITY_ENCODE_AS) {
 		encode_route_target_as(as, val, eval, trans);
@@ -529,7 +567,11 @@ static int ecommunity_encode_internal(uint8_t type, uint8_t sub_type,
 		eval6->val[19] = val & 0xff;
 	} else if (type == ECOMMUNITY_ENCODE_OPAQUE &&
 		   sub_type == ECOMMUNITY_COLOR) {
+<<<<<<< HEAD
 		encode_color(val, eval);
+=======
+		encode_color(val, as, eval);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	} else {
 		encode_route_target_as4(as, val, eval, trans);
 	}
@@ -724,15 +766,37 @@ static const char *ecommunity_gettoken(const char *str, void *eval_ptr,
 			memset(buf, 0, INET_ADDRSTRLEN + 1);
 			memcpy(buf, str, p - str);
 
+<<<<<<< HEAD
 			if (dot) {
+=======
+			if (dot == 3) {
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 				/* Parsing A.B.C.D in:
 				 * A.B.C.D:MN
 				 */
 				ret = inet_aton(buf, &ip);
 				if (ret == 0)
 					goto error;
+<<<<<<< HEAD
 			} else {
 				/* ASN */
+=======
+			} else if (dot == 1) {
+				/* Parsing A.B AS number in:
+				 * A.B:MN
+				 */
+				if (!asn_str2asn(buf, &as))
+					goto error;
+			} else if (type == ECOMMUNITY_COLOR) {
+				/* If extcommunity is color, only support 00/01/10/11, max value is 3 */
+				/* color value */
+				as = strtoul(buf, &endptr, 2);
+				if (*endptr != '\0' || as > 3)
+					goto error;
+				val_color = 0;
+			} else {
+				/* Parsing A AS number in A:MN */
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 				errno = 0;
 				tmp_as = strtoul(buf, &endptr, 10);
 				/* 'unsigned long' is a uint64 on 64-bit
@@ -745,13 +809,26 @@ static const char *ecommunity_gettoken(const char *str, void *eval_ptr,
 				if (*endptr != '\0' || tmp_as > BGP_AS4_MAX ||
 				    errno)
 					goto error;
+<<<<<<< HEAD
+=======
+				if (*token == ecommunity_token_color && tmp_as > 3)
+					goto error;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 				as = (as_t)tmp_as;
 			}
 		} else if (*p == '.') {
 			if (separator)
 				goto error;
+<<<<<<< HEAD
 			dot++;
 			if (dot > 4)
+=======
+			/* either IP or AS format */
+			dot++;
+			if (dot > 1)
+				ecomm_type = ECOMMUNITY_ENCODE_IP;
+			if (dot >= 4)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 				goto error;
 		} else {
 			digit = 1;
@@ -776,6 +853,7 @@ static const char *ecommunity_gettoken(const char *str, void *eval_ptr,
 	if (!digit && (!separator || !val_color_set))
 		goto error;
 
+<<<<<<< HEAD
 	/* Encode result into extended community.  */
 	if (dot)
 		ecomm_type = ECOMMUNITY_ENCODE_IP;
@@ -789,6 +867,22 @@ static const char *ecommunity_gettoken(const char *str, void *eval_ptr,
 		val = val_color;
 	}
 
+=======
+	if (ecomm_type != ECOMMUNITY_ENCODE_IP) {
+		/* Encode result into extended community for AS format or color.  */
+		if (as > BGP_AS_MAX)
+			ecomm_type = ECOMMUNITY_ENCODE_AS4;
+		else if (type == ECOMMUNITY_COLOR) {
+			ecomm_type = ECOMMUNITY_ENCODE_OPAQUE;
+			sub_type = ECOMMUNITY_COLOR;
+			if (val_color) {
+				val = val_color;
+				as = 1;
+			}
+		} else if (as > 0)
+			ecomm_type = ECOMMUNITY_ENCODE_AS;
+	}
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	if (ecommunity_encode(ecomm_type, sub_type, 1, as, ip, val, eval))
 		goto error;
 	*token = ecommunity_token_val;
@@ -1015,10 +1109,13 @@ static int ecommunity_lb_str(char *buf, size_t bufsz, const uint8_t *pnt,
 	uint32_t bw_tmp, bw;
 	char bps_buf[20] = {0};
 
+<<<<<<< HEAD
 #define ONE_GBPS_BYTES (1000 * 1000 * 1000 / 8)
 #define ONE_MBPS_BYTES (1000 * 1000 / 8)
 #define ONE_KBPS_BYTES (1000 / 8)
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	as = (*pnt++ << 8);
 	as |= (*pnt++);
 	(void)ptr_get_be32(pnt, &bw_tmp);
@@ -1042,6 +1139,69 @@ static int ecommunity_lb_str(char *buf, size_t bufsz, const uint8_t *pnt,
 	return len;
 }
 
+<<<<<<< HEAD
+=======
+static int ipv6_ecommunity_lb_str(char *buf, size_t bufsz, const uint8_t *pnt,
+				  size_t length)
+{
+	int len = 0;
+	as_t as = 0;
+	uint64_t bw = 0;
+	char bps_buf[20] = { 0 };
+
+	if (length < IPV6_ECOMMUNITY_SIZE)
+		goto done;
+
+	pnt += 2; /* Reserved */
+	pnt = ptr_get_be64(pnt, &bw);
+	(void)ptr_get_be32(pnt, &as);
+
+	if (bw >= ONE_GBPS_BYTES)
+		snprintf(bps_buf, sizeof(bps_buf), "%.3f Gbps",
+			 (float)(bw / ONE_GBPS_BYTES));
+	else if (bw >= ONE_MBPS_BYTES)
+		snprintf(bps_buf, sizeof(bps_buf), "%.3f Mbps",
+			 (float)(bw / ONE_MBPS_BYTES));
+	else if (bw >= ONE_KBPS_BYTES)
+		snprintf(bps_buf, sizeof(bps_buf), "%.3f Kbps",
+			 (float)(bw / ONE_KBPS_BYTES));
+	else
+		snprintfrr(bps_buf, sizeof(bps_buf), "%" PRIu64 " bps", bw * 8);
+
+done:
+	len = snprintfrr(buf, bufsz, "LB:%u:%" PRIu64 " (%s)", as, bw, bps_buf);
+	return len;
+}
+
+bool ecommunity_has_route_target(struct ecommunity *ecom)
+{
+	uint32_t i;
+	uint8_t *pnt;
+	uint8_t type = 0;
+	uint8_t sub_type = 0;
+
+	if (!ecom)
+		return false;
+	for (i = 0; i < ecom->size; i++) {
+		/* Retrieve value field */
+		pnt = ecom->val + (i * ecom->unit_size);
+
+		/* High-order octet is the type */
+		type = *pnt++;
+
+		if (type == ECOMMUNITY_ENCODE_AS ||
+		    type == ECOMMUNITY_ENCODE_IP ||
+		    type == ECOMMUNITY_ENCODE_AS4) {
+			/* Low-order octet of type. */
+			sub_type = *pnt++;
+			if (sub_type == ECOMMUNITY_ROUTE_TARGET)
+				return true;
+		}
+	}
+	return false;
+}
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 /* Convert extended community attribute to string.
  * Due to historical reason of industry standard implementation, there
  * are three types of format:
@@ -1082,7 +1242,11 @@ char *ecommunity_ecom2str(struct ecommunity *ecom, int format, int filter)
 	char encbuf[128];
 
 	for (i = 0; i < ecom->size; i++) {
+<<<<<<< HEAD
 		int unk_ecom = 0;
+=======
+		bool unk_ecom = false;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		memset(encbuf, 0x00, sizeof(encbuf));
 
 		/* Space between each value.  */
@@ -1092,6 +1256,21 @@ char *ecommunity_ecom2str(struct ecommunity *ecom, int format, int filter)
 		/* Retrieve value field */
 		pnt = ecom->val + (i * ecom->unit_size);
 
+<<<<<<< HEAD
+=======
+		uint8_t *data = pnt;
+		uint8_t *end = data + ecom->unit_size;
+		size_t len = end - data;
+
+		/* Sanity check for extended communities lenght, to avoid
+		 * overrun when dealing with bits, e.g. ptr_get_be64().
+		 */
+		if (len < ecom->unit_size) {
+			unk_ecom = true;
+			goto unknown;
+		}
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		/* High-order octet is the type */
 		type = *pnt++;
 
@@ -1114,13 +1293,26 @@ char *ecommunity_ecom2str(struct ecommunity *ecom, int format, int filter)
 					ecommunity_lb_str(
 						encbuf, sizeof(encbuf), pnt,
 						ecom->disable_ieee_floating);
+<<<<<<< HEAD
+=======
+				} else if (sub_type ==
+						   ECOMMUNITY_EXTENDED_LINK_BANDWIDTH &&
+					   type == ECOMMUNITY_ENCODE_AS4) {
+					ipv6_ecommunity_lb_str(encbuf,
+							       sizeof(encbuf),
+							       pnt, len);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 				} else if (sub_type == ECOMMUNITY_NODE_TARGET &&
 					   type == ECOMMUNITY_ENCODE_IP) {
 					ecommunity_node_target_str(
 						encbuf, sizeof(encbuf), pnt,
 						format);
 				} else
+<<<<<<< HEAD
 					unk_ecom = 1;
+=======
+					unk_ecom = true;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			} else {
 				ecommunity_rt_soo_str(encbuf, sizeof(encbuf),
 						      pnt, type, sub_type,
@@ -1143,7 +1335,11 @@ char *ecommunity_ecom2str(struct ecommunity *ecom, int format, int filter)
 				ecommunity_color_str(encbuf, sizeof(encbuf),
 						     pnt);
 			} else {
+<<<<<<< HEAD
 				unk_ecom = 1;
+=======
+				unk_ecom = true;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			}
 		} else if (type == ECOMMUNITY_ENCODE_EVPN) {
 			if (filter == ECOMMUNITY_ROUTE_TARGET)
@@ -1209,11 +1405,20 @@ char *ecommunity_ecom2str(struct ecommunity *ecom, int format, int filter)
 				   == ECOMMUNITY_EVPN_SUBTYPE_ESI_LABEL) {
 				uint8_t flags = *++pnt;
 
+<<<<<<< HEAD
 				snprintf(encbuf,
 					sizeof(encbuf), "ESI-label-Rt:%s",
 					(flags &
 					 ECOMMUNITY_EVPN_SUBTYPE_ESI_SA_FLAG) ?
 					"SA":"AA");
+=======
+				snprintf(encbuf, sizeof(encbuf),
+					 "ESI-label-Rt:%s",
+					 CHECK_FLAG(flags,
+						    ECOMMUNITY_EVPN_SUBTYPE_ESI_SA_FLAG)
+						 ? "SA"
+						 : "AA");
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			} else if (*pnt
 				   == ECOMMUNITY_EVPN_SUBTYPE_DF_ELECTION) {
 				uint8_t alg;
@@ -1236,14 +1441,22 @@ char *ecommunity_ecom2str(struct ecommunity *ecom, int format, int filter)
 						 "DF: (alg: %u, pref: %u)", alg,
 						 pref);
 			} else
+<<<<<<< HEAD
 				unk_ecom = 1;
+=======
+				unk_ecom = true;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		} else if (type == ECOMMUNITY_ENCODE_REDIRECT_IP_NH) {
 			sub_type = *pnt++;
 			if (sub_type == ECOMMUNITY_REDIRECT_IP_NH) {
 				snprintf(encbuf, sizeof(encbuf),
 					 "FS:redirect IP 0x%x", *(pnt + 5));
 			} else
+<<<<<<< HEAD
 				unk_ecom = 1;
+=======
+				unk_ecom = true;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		} else if (type == ECOMMUNITY_ENCODE_TRANS_EXP ||
 			   type == ECOMMUNITY_EXTENDED_COMMUNITY_PART_2 ||
 			   type == ECOMMUNITY_EXTENDED_COMMUNITY_PART_3) {
@@ -1253,6 +1466,7 @@ char *ecommunity_ecom2str(struct ecommunity *ecom, int format, int filter)
 				char buf[ECOMMUNITY_STRLEN];
 
 				memset(buf, 0, sizeof(buf));
+<<<<<<< HEAD
 				ecommunity_rt_soo_str_internal(buf, sizeof(buf),
 						(const uint8_t *)pnt,
 						type &
@@ -1260,12 +1474,21 @@ char *ecommunity_ecom2str(struct ecommunity *ecom, int format, int filter)
 						ECOMMUNITY_ROUTE_TARGET,
 						format,
 						ecom->unit_size);
+=======
+				ecommunity_rt_soo_str_internal(
+					buf, sizeof(buf), (const uint8_t *)pnt,
+					CHECK_FLAG(type,
+						   ~ECOMMUNITY_ENCODE_TRANS_EXP),
+					ECOMMUNITY_ROUTE_TARGET, format,
+					ecom->unit_size);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 				snprintf(encbuf, sizeof(encbuf), "%s", buf);
 			} else if (sub_type ==
 				   ECOMMUNITY_FLOWSPEC_REDIRECT_IPV6) {
 				char buf[64];
 
 				memset(buf, 0, sizeof(buf));
+<<<<<<< HEAD
 				ecommunity_rt_soo_str_internal(buf, sizeof(buf),
 						(const uint8_t *)pnt,
 						type &
@@ -1273,24 +1496,46 @@ char *ecommunity_ecom2str(struct ecommunity *ecom, int format, int filter)
 						ECOMMUNITY_ROUTE_TARGET,
 						ECOMMUNITY_FORMAT_DISPLAY,
 						ecom->unit_size);
+=======
+				ecommunity_rt_soo_str_internal(
+					buf, sizeof(buf), (const uint8_t *)pnt,
+					CHECK_FLAG(type,
+						   ~ECOMMUNITY_ENCODE_TRANS_EXP),
+					ECOMMUNITY_ROUTE_TARGET,
+					ECOMMUNITY_FORMAT_DISPLAY,
+					ecom->unit_size);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 				snprintf(encbuf, sizeof(encbuf),
 					 "FS:redirect VRF %s", buf);
 			} else if (sub_type == ECOMMUNITY_REDIRECT_VRF) {
 				char buf[16];
 
 				memset(buf, 0, sizeof(buf));
+<<<<<<< HEAD
 				ecommunity_rt_soo_str(buf, sizeof(buf),
 						(const uint8_t *)pnt,
 						type &
 						~ECOMMUNITY_ENCODE_TRANS_EXP,
 						ECOMMUNITY_ROUTE_TARGET,
 						ECOMMUNITY_FORMAT_DISPLAY);
+=======
+				ecommunity_rt_soo_str(
+					buf, sizeof(buf), (const uint8_t *)pnt,
+					CHECK_FLAG(type,
+						   ~ECOMMUNITY_ENCODE_TRANS_EXP),
+					ECOMMUNITY_ROUTE_TARGET,
+					ECOMMUNITY_FORMAT_DISPLAY);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 				snprintf(encbuf, sizeof(encbuf),
 					 "FS:redirect VRF %s", buf);
 				snprintf(encbuf, sizeof(encbuf),
 					 "FS:redirect VRF %s", buf);
 			} else if (type != ECOMMUNITY_ENCODE_TRANS_EXP)
+<<<<<<< HEAD
 				unk_ecom = 1;
+=======
+				unk_ecom = true;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			else if (sub_type == ECOMMUNITY_TRAFFIC_ACTION) {
 				char action[64];
 
@@ -1323,6 +1568,7 @@ char *ecommunity_ecom2str(struct ecommunity *ecom, int format, int filter)
 				snprintf(encbuf, sizeof(encbuf),
 					 "FS:marking %u", *(pnt + 5));
 			} else
+<<<<<<< HEAD
 				unk_ecom = 1;
 		} else if (type == ECOMMUNITY_ENCODE_AS_NON_TRANS) {
 			sub_type = *pnt++;
@@ -1332,11 +1578,37 @@ char *ecommunity_ecom2str(struct ecommunity *ecom, int format, int filter)
 			else
 				unk_ecom = 1;
 		} else if (type == ECOMMUNITY_ENCODE_IP_NON_TRANS) {
+=======
+				unk_ecom = true;
+		} else if (CHECK_FLAG(type, ECOMMUNITY_FLAG_NON_TRANSITIVE) ||
+			   type == ECOMMUNITY_ENCODE_OPAQUE_NON_TRANS) {
+			sub_type = *pnt++;
+			if (sub_type == ECOMMUNITY_ORIGIN_VALIDATION_STATE)
+				ecommunity_origin_validation_state_str(encbuf, sizeof(encbuf), pnt);
+			else if (sub_type == ECOMMUNITY_LINK_BANDWIDTH)
+				ecommunity_lb_str(encbuf, sizeof(encbuf), pnt,
+						  ecom->disable_ieee_floating);
+			else if (sub_type == ECOMMUNITY_EXTENDED_LINK_BANDWIDTH)
+				ipv6_ecommunity_lb_str(encbuf, sizeof(encbuf),
+						       pnt, len);
+			else if (sub_type == ECOMMUNITY_OPAQUE_SUBTYPE_COLOR) {
+				uint32_t color;
+				/* get the color type */
+				uint8_t color_type = (*pnt) >> 6;
+				memcpy(&color, pnt + 2, 4);
+				color = ntohl(color);
+				snprintf(encbuf, sizeof(encbuf), "Color:%d%d:%u",
+					 (color_type & 0x2) >> 1, color_type & 0x1, color);
+			} else
+				unk_ecom = true;
+		} else if (CHECK_FLAG(type, ECOMMUNITY_ENCODE_IP_NON_TRANS)) {
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			sub_type = *pnt++;
 			if (sub_type == ECOMMUNITY_NODE_TARGET)
 				ecommunity_node_target_str(
 					encbuf, sizeof(encbuf), pnt, format);
 			else
+<<<<<<< HEAD
 				unk_ecom = 1;
 		} else if (type == ECOMMUNITY_ENCODE_OPAQUE_NON_TRANS) {
 			sub_type = *pnt++;
@@ -1350,11 +1622,24 @@ char *ecommunity_ecom2str(struct ecommunity *ecom, int format, int filter)
 			unk_ecom = 1;
 		}
 
+=======
+				unk_ecom = true;
+		} else {
+			sub_type = *pnt++;
+			unk_ecom = true;
+		}
+
+unknown:
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		if (unk_ecom)
 			snprintf(encbuf, sizeof(encbuf), "UNK:%d, %d", type,
 				 sub_type);
 
 		int r = strlcat(str_buf, encbuf, str_size);
+<<<<<<< HEAD
+=======
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		assert(r < str_size);
 	}
 
@@ -1499,6 +1784,60 @@ bool ecommunity_strip(struct ecommunity *ecom, uint8_t type,
 	return true;
 }
 
+<<<<<<< HEAD
+=======
+static bool ecommunity_non_transitive(uint8_t type)
+{
+	return (CHECK_FLAG(type, ECOMMUNITY_FLAG_NON_TRANSITIVE) ||
+		CHECK_FLAG(type, ECOMMUNITY_ENCODE_IP_NON_TRANS) ||
+		type == ECOMMUNITY_ENCODE_OPAQUE_NON_TRANS);
+}
+
+/* Delete all non-transitive extended communities */
+bool ecommunity_strip_non_transitive(struct ecommunity *ecom)
+{
+	uint8_t *p, *q, *new;
+	uint32_t c, found = 0;
+
+	if (!ecom || !ecom->val)
+		return false;
+
+	/* Certain extended communities like the Route Target can be present
+	 * multiple times, handle that.
+	 */
+	c = 0;
+	for (p = ecom->val; c < ecom->size; p += ecom->unit_size, c++)
+		if (ecommunity_non_transitive(*p))
+			found++;
+
+	if (!found)
+		return false;
+
+	/* Handle the case where everything needs to be stripped. */
+	if (found == ecom->size) {
+		XFREE(MTYPE_ECOMMUNITY_VAL, ecom->val);
+		ecom->size = 0;
+		return true;
+	}
+
+	/* Strip extended communities with non-transitive flag set */
+	new = XMALLOC(MTYPE_ECOMMUNITY_VAL, (ecom->size - found) * ecom->unit_size);
+	q = new;
+	for (c = 0, p = ecom->val; c < ecom->size; c++, p += ecom->unit_size) {
+		if (!ecommunity_non_transitive(*p)) {
+			memcpy(q, p, ecom->unit_size);
+			q += ecom->unit_size;
+		}
+	}
+
+	XFREE(MTYPE_ECOMMUNITY_VAL, ecom->val);
+	ecom->val = new;
+	ecom->size -= found;
+
+	return true;
+}
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 /*
  * Remove specified extended community value from extended community.
  * Returns 1 if value was present (and hence, removed), 0 otherwise.
@@ -1552,12 +1891,22 @@ int ecommunity_fill_pbr_action(struct ecommunity_val *ecom_eval,
 	} else if (ecom_eval->val[1] == ECOMMUNITY_TRAFFIC_ACTION) {
 		api->action = ACTION_TRAFFIC_ACTION;
 		/* else distribute code is set by default */
+<<<<<<< HEAD
 		if (ecom_eval->val[5] & (1 << FLOWSPEC_TRAFFIC_ACTION_TERMINAL))
 			api->u.za.filter |= TRAFFIC_ACTION_TERMINATE;
 		else
 			api->u.za.filter |= TRAFFIC_ACTION_DISTRIBUTE;
 		if (ecom_eval->val[5] == 1 << FLOWSPEC_TRAFFIC_ACTION_SAMPLE)
 			api->u.za.filter |= TRAFFIC_ACTION_SAMPLE;
+=======
+		if (CHECK_FLAG(ecom_eval->val[5],
+			       (1 << FLOWSPEC_TRAFFIC_ACTION_TERMINAL)))
+			SET_FLAG(api->u.za.filter, TRAFFIC_ACTION_TERMINATE);
+		else
+			SET_FLAG(api->u.za.filter, TRAFFIC_ACTION_DISTRIBUTE);
+		if (ecom_eval->val[5] == 1 << FLOWSPEC_TRAFFIC_ACTION_SAMPLE)
+			SET_FLAG(api->u.za.filter, TRAFFIC_ACTION_SAMPLE);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	} else if (ecom_eval->val[1] == ECOMMUNITY_TRAFFIC_MARKING) {
 		api->action = ACTION_MARKING;
@@ -1766,9 +2115,15 @@ ecommunity_add_origin_validation_state(enum rpki_states rpki_state,
  * return the BGP link bandwidth extended community, if present;
  * the actual bandwidth is returned via param
  */
+<<<<<<< HEAD
 const uint8_t *ecommunity_linkbw_present(struct ecommunity *ecom, uint32_t *bw)
 {
 	const uint8_t *eval;
+=======
+const uint8_t *ecommunity_linkbw_present(struct ecommunity *ecom, uint64_t *bw)
+{
+	const uint8_t *data;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	uint32_t i;
 
 	if (bw)
@@ -1780,6 +2135,7 @@ const uint8_t *ecommunity_linkbw_present(struct ecommunity *ecom, uint32_t *bw)
 	for (i = 0; i < ecom->size; i++) {
 		const uint8_t *pnt;
 		uint8_t type, sub_type;
+<<<<<<< HEAD
 		uint32_t bwval;
 
 		eval = pnt = (ecom->val + (i * ECOMMUNITY_SIZE));
@@ -1789,15 +2145,57 @@ const uint8_t *ecommunity_linkbw_present(struct ecommunity *ecom, uint32_t *bw)
 		if ((type == ECOMMUNITY_ENCODE_AS ||
 		     type == ECOMMUNITY_ENCODE_AS_NON_TRANS) &&
 		    sub_type == ECOMMUNITY_LINK_BANDWIDTH) {
+=======
+
+		data = pnt = (ecom->val + (i * ecom->unit_size));
+		type = *pnt++;
+		sub_type = *pnt++;
+
+		const uint8_t *end = data + ecom->unit_size;
+		size_t len = end - data;
+
+		/* Sanity check for extended communities lenght, to avoid
+		 * overrun when dealing with bits, e.g. ptr_get_be64().
+		 */
+		if (len < ecom->unit_size)
+			return NULL;
+
+		if ((type == ECOMMUNITY_ENCODE_AS) && sub_type == ECOMMUNITY_LINK_BANDWIDTH) {
+			uint32_t bwval;
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			pnt += 2; /* bandwidth is encoded as AS:val */
 			pnt = ptr_get_be32(pnt, &bwval);
 			(void)pnt; /* consume value */
 			if (bw)
+<<<<<<< HEAD
 				*bw = ecom->disable_ieee_floating
 					      ? bwval
 					      : ieee_float_uint32_to_uint32(
 							bwval);
 			return eval;
+=======
+				*bw = (uint64_t)(ecom->disable_ieee_floating
+							 ? bwval
+							 : ieee_float_uint32_to_uint32(
+								   bwval));
+			return data;
+		} else if (type == ECOMMUNITY_ENCODE_AS4 &&
+			   sub_type == ECOMMUNITY_EXTENDED_LINK_BANDWIDTH) {
+			uint64_t bwval;
+
+			if (len < IPV6_ECOMMUNITY_SIZE)
+				return NULL;
+
+			pnt += 2; /* Reserved */
+			pnt = ptr_get_be64(pnt, &bwval);
+			(void)pnt;
+
+			if (bw)
+				*bw = bwval;
+
+			return data;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		}
 	}
 
@@ -1807,6 +2205,7 @@ const uint8_t *ecommunity_linkbw_present(struct ecommunity *ecom, uint32_t *bw)
 
 struct ecommunity *ecommunity_replace_linkbw(as_t as, struct ecommunity *ecom,
 					     uint64_t cum_bw,
+<<<<<<< HEAD
 					     bool disable_ieee_floating)
 {
 	struct ecommunity *new;
@@ -1814,6 +2213,15 @@ struct ecommunity *ecommunity_replace_linkbw(as_t as, struct ecommunity *ecom,
 	const uint8_t *eval;
 	uint8_t type;
 	uint32_t cur_bw;
+=======
+					     bool disable_ieee_floating,
+					     bool extended)
+{
+	struct ecommunity *new;
+	const uint8_t *eval;
+	uint8_t type;
+	uint64_t cur_bw;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	/* Nothing to replace if link-bandwidth doesn't exist or
 	 * is non-transitive - just return existing extcommunity.
@@ -1827,7 +2235,11 @@ struct ecommunity *ecommunity_replace_linkbw(as_t as, struct ecommunity *ecom,
 		return new;
 
 	type = *eval;
+<<<<<<< HEAD
 	if (type & ECOMMUNITY_FLAG_NON_TRANSITIVE)
+=======
+	if (CHECK_FLAG(type, ECOMMUNITY_FLAG_NON_TRANSITIVE))
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		return new;
 
 	/* Transitive link-bandwidth exists, replace with the passed
@@ -1837,10 +2249,28 @@ struct ecommunity *ecommunity_replace_linkbw(as_t as, struct ecommunity *ecom,
 	 */
 	if (cum_bw > 0xFFFFFFFF)
 		cum_bw = 0xFFFFFFFF;
+<<<<<<< HEAD
 	encode_lb_extcomm(as > BGP_AS_MAX ? BGP_AS_TRANS : as, cum_bw, false,
 			  &lb_eval, disable_ieee_floating);
 	new = ecommunity_dup(ecom);
 	ecommunity_add_val(new, &lb_eval, true, true);
+=======
+
+	if (extended) {
+		struct ecommunity_val_ipv6 lb_eval;
+
+		encode_lb_extended_extcomm(as, cum_bw, false, &lb_eval);
+		new = ecommunity_dup(ecom);
+		ecommunity_add_val_ipv6(new, &lb_eval, true, true);
+	} else {
+		struct ecommunity_val lb_eval;
+
+		encode_lb_extcomm(as > BGP_AS_MAX ? BGP_AS_TRANS : as, cum_bw,
+				  false, &lb_eval, disable_ieee_floating);
+		new = ecommunity_dup(ecom);
+		ecommunity_add_val(new, &lb_eval, true, true);
+	}
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	return new;
 }

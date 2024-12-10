@@ -58,9 +58,21 @@ struct zebra_ptm_cb {
 void zebra_ptm_init(void);
 void zebra_ptm_finish(void);
 void zebra_ptm_connect(struct event *t);
+<<<<<<< HEAD
 void zebra_ptm_write(struct vty *vty);
 int zebra_ptm_get_enable_state(void);
 
+=======
+int zebra_ptm_get_enable_state(void);
+
+#if HAVE_BFDD == 0
+void zebra_global_ptm_enable(void);
+void zebra_global_ptm_disable(void);
+void zebra_if_ptm_enable(struct interface *ifp);
+void zebra_if_ptm_disable(struct interface *ifp);
+#endif
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 /* ZAPI message handlers */
 void zebra_ptm_bfd_dst_register(ZAPI_HANDLER_ARGS);
 void zebra_ptm_bfd_dst_deregister(ZAPI_HANDLER_ARGS);
@@ -74,7 +86,10 @@ void zebra_ptm_show_status(struct vty *vty, json_object *json,
 void zebra_ptm_if_init(struct zebra_if *zebra_ifp);
 void zebra_ptm_if_set_ptm_state(struct interface *ifp,
 				struct zebra_if *zebra_ifp);
+<<<<<<< HEAD
 void zebra_ptm_if_write(struct vty *vty, struct zebra_if *zebra_ifp);
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 #ifdef __cplusplus
 }

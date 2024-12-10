@@ -128,6 +128,10 @@ static void conf_copy(struct peer *dst, struct peer *src, afi_t afi,
 
 	dst->bgp = src->bgp;
 	dst->sort = src->sort;
+<<<<<<< HEAD
+=======
+	dst->sub_sort = src->sub_sort;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	dst->as = src->as;
 	dst->v_routeadv = src->v_routeadv;
 	dst->flags = src->flags;
@@ -144,11 +148,19 @@ static void conf_copy(struct peer *dst, struct peer *src, afi_t afi,
 	dst->addpath_type[afi][safi] = src->addpath_type[afi][safi];
 	dst->addpath_best_selected[afi][safi] =
 		src->addpath_best_selected[afi][safi];
+<<<<<<< HEAD
+=======
+	dst->addpath_paths_limit[afi][safi] =
+		src->addpath_paths_limit[afi][safi];
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	dst->local_as = src->local_as;
 	dst->change_local_as = src->change_local_as;
 	dst->shared_network = src->shared_network;
 	dst->local_role = src->local_role;
+<<<<<<< HEAD
 	dst->as_path_loop_detection = src->as_path_loop_detection;
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	if (src->soo[afi][safi]) {
 		ecommunity_free(&dst->soo[afi][safi]);
@@ -341,11 +353,26 @@ static unsigned int updgrp_hash_key_make(const void *p)
 
 	key = 0;
 
+<<<<<<< HEAD
 	key = jhash_1word(peer->sort, key); /* EBGP or IBGP */
+=======
+	/* `remote-as auto` technically uses identical peer->sort.
+	 * After OPEN message is parsed, this is updated accordingly, but
+	 * we need to call the peer_sort() here also to properly create
+	 * separate subgroups.
+	 */
+	key = jhash_1word(peer_sort((struct peer *)peer), key);
+	key = jhash_1word(peer->sub_sort, key); /* OAD */
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	key = jhash_1word((peer->flags & PEER_UPDGRP_FLAGS), key);
 	key = jhash_1word((flags & PEER_UPDGRP_AF_FLAGS), key);
 	key = jhash_1word((uint32_t)peer->addpath_type[afi][safi], key);
 	key = jhash_1word(peer->addpath_best_selected[afi][safi], key);
+<<<<<<< HEAD
+=======
+	key = jhash_1word(peer->addpath_paths_limit[afi][safi].receive, key);
+	key = jhash_1word(peer->addpath_paths_limit[afi][safi].send, key);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	key = jhash_1word((peer->cap & PEER_UPDGRP_CAP_FLAGS), key);
 	key = jhash_1word((peer->af_cap[afi][safi] & PEER_UPDGRP_AF_CAP_FLAGS),
 			  key);
@@ -354,9 +381,18 @@ static unsigned int updgrp_hash_key_make(const void *p)
 	key = jhash_1word(peer->max_packet_size, key);
 	key = jhash_1word(peer->pmax_out[afi][safi], key);
 
+<<<<<<< HEAD
 	if (peer->as_path_loop_detection)
 		key = jhash_2words(peer->as, peer->as_path_loop_detection, key);
 
+=======
+
+	if (CHECK_FLAG(peer->flags, PEER_FLAG_AS_LOOP_DETECTION))
+		key = jhash_2words(peer->as,
+				   CHECK_FLAG(peer->flags,
+					      PEER_FLAG_AS_LOOP_DETECTION),
+				   key);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	if (peer->group)
 		key = jhash_1word(jhash(peer->group->name,
 					strlen(peer->group->name), SEED1),
@@ -437,16 +473,28 @@ static unsigned int updgrp_hash_key_make(const void *p)
 	key = jhash_1word((peer->flags & PEER_FLAG_AIGP), key);
 
 	if (peer->soo[afi][safi]) {
+<<<<<<< HEAD
 		char *soo_str = ecommunity_str(peer->soo[afi][safi]);
+=======
+		const char *soo_str = ecommunity_str(peer->soo[afi][safi]);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 		key = jhash_1word(jhash(soo_str, strlen(soo_str), SEED1), key);
 	}
 
+<<<<<<< HEAD
+=======
+	if (afi == AFI_IP6 &&
+	    (CHECK_FLAG(peer->af_flags[afi][safi], PEER_FLAG_NEXTHOP_LOCAL_UNCHANGED)))
+		key = jhash(&peer->nexthop.v6_global, IPV6_MAX_BYTELEN, key);
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	/*
 	 * ANY NEW ITEMS THAT ARE ADDED TO THE key, ENSURE DEBUG
 	 * STATEMENT STAYS UP TO DATE
 	 */
 	if (bgp_debug_neighbor_events(peer)) {
+<<<<<<< HEAD
 		zlog_debug(
 			"%pBP Update Group Hash: sort: %d UpdGrpFlags: %ju UpdGrpAFFlags: %ju",
 			peer, peer->sort,
@@ -460,6 +508,24 @@ static unsigned int updgrp_hash_key_make(const void *p)
 				   PEER_UPDGRP_AF_CAP_FLAGS),
 			peer->v_routeadv, peer->change_local_as,
 			peer->as_path_loop_detection);
+=======
+		zlog_debug("%pBP Update Group Hash: sort: %d sub_sort: %d UpdGrpFlags: %ju UpdGrpAFFlags: %ju",
+			   peer, peer->sort, peer->sub_sort,
+			   (intmax_t)CHECK_FLAG(peer->flags, PEER_UPDGRP_FLAGS),
+			   (intmax_t)CHECK_FLAG(flags, PEER_UPDGRP_AF_FLAGS));
+		zlog_debug("%pBP Update Group Hash: addpath: %u UpdGrpCapFlag: %ju UpdGrpCapAFFlag: %u route_adv: %u change local as: %u, as_path_loop_detection: %d",
+			   peer, (uint32_t)peer->addpath_type[afi][safi],
+			   (intmax_t)CHECK_FLAG(peer->cap,
+						PEER_UPDGRP_CAP_FLAGS),
+			   CHECK_FLAG(peer->af_cap[afi][safi],
+				      PEER_UPDGRP_AF_CAP_FLAGS),
+			   peer->v_routeadv, peer->change_local_as,
+			   !!CHECK_FLAG(peer->flags,
+					PEER_FLAG_AS_LOOP_DETECTION));
+		zlog_debug("%pBP Update Group Hash: addpath paths-limit: (send %u, receive %u)",
+			   peer, peer->addpath_paths_limit[afi][safi].send,
+			   peer->addpath_paths_limit[afi][safi].receive);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		zlog_debug(
 			"%pBP Update Group Hash: max packet size: %u pmax_out: %u Peer Group: %s rmap out: %s",
 			peer, peer->max_packet_size, peer->pmax_out[afi][safi],
@@ -505,6 +571,15 @@ static unsigned int updgrp_hash_key_make(const void *p)
 			peer->soo[afi][safi]
 				? ecommunity_str(peer->soo[afi][safi])
 				: "(NONE)");
+<<<<<<< HEAD
+=======
+		zlog_debug("%pBP Update Group Hash: IPv6 nexthop-local unchanged: %d IPv6 global %pI6",
+			   peer,
+			   afi == AFI_IP6 && (CHECK_FLAG(peer->af_flags[afi][safi],
+							 PEER_FLAG_NEXTHOP_LOCAL_UNCHANGED)),
+			   &peer->nexthop.v6_global);
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		zlog_debug("%pBP Update Group Hash key: %u", peer, key);
 	}
 	return key;
@@ -639,6 +714,15 @@ static bool updgrp_hash_cmp(const void *p1, const void *p2)
 	    !sockunion_same(&pe1->connection->su, &pe2->connection->su))
 		return false;
 
+<<<<<<< HEAD
+=======
+	if (afi == AFI_IP6 &&
+	    (CHECK_FLAG(flags1, PEER_FLAG_NEXTHOP_LOCAL_UNCHANGED) ||
+	     CHECK_FLAG(flags2, PEER_FLAG_NEXTHOP_LOCAL_UNCHANGED)) &&
+	    !IPV6_ADDR_SAME(&pe1->nexthop.v6_global, &pe2->nexthop.v6_global))
+		return false;
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	return true;
 }
 
@@ -767,8 +851,16 @@ static int update_group_show_walkcb(struct update_group *updgrp, void *arg)
 				json_updgrp, "replaceLocalAs",
 				CHECK_FLAG(updgrp->conf->flags,
 					   PEER_FLAG_LOCAL_AS_REPLACE_AS));
+<<<<<<< HEAD
 		} else {
 			vty_out(vty, "  Local AS %u%s%s\n",
+=======
+			json_object_boolean_add(json_updgrp, "dualAs",
+						CHECK_FLAG(updgrp->conf->flags,
+							   PEER_FLAG_DUAL_AS));
+		} else {
+			vty_out(vty, "  Local AS %u%s%s%s\n",
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 				updgrp->conf->change_local_as,
 				CHECK_FLAG(updgrp->conf->flags,
 					   PEER_FLAG_LOCAL_AS_NO_PREPEND)
@@ -777,6 +869,13 @@ static int update_group_show_walkcb(struct update_group *updgrp, void *arg)
 				CHECK_FLAG(updgrp->conf->flags,
 					   PEER_FLAG_LOCAL_AS_REPLACE_AS)
 					? " replace-as"
+<<<<<<< HEAD
+=======
+					: "",
+				CHECK_FLAG(updgrp->conf->flags,
+					   PEER_FLAG_DUAL_AS)
+					? " dual-as"
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 					: "");
 		}
 	}
@@ -1698,14 +1797,24 @@ static int updgrp_policy_update_walkcb(struct update_group *updgrp, void *arg)
 				 */
 				UNSET_FLAG(subgrp->sflags,
 					   SUBGRP_STATUS_DEFAULT_ORIGINATE);
+<<<<<<< HEAD
 				subgroup_default_originate(subgrp, 0);
+=======
+				subgroup_default_originate(subgrp, false);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			} else {
 				/*
 				 * This is a explicit withdraw, since the
 				 * routemap is not present in routemap lib. need
+<<<<<<< HEAD
 				 * to pass 1 for withdraw arg.
 				 */
 				subgroup_default_originate(subgrp, 1);
+=======
+				 * to pass `true` for withdraw arg.
+				 */
+				subgroup_default_originate(subgrp, true);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			}
 		}
 		update_subgroup_set_needs_refresh(subgrp, 0);
@@ -1721,6 +1830,7 @@ static int update_group_walkcb(struct hash_bucket *bucket, void *arg)
 	return ret;
 }
 
+<<<<<<< HEAD
 static int update_group_periodic_merge_walkcb(struct update_group *updgrp,
 					      void *arg)
 {
@@ -1733,6 +1843,8 @@ static int update_group_periodic_merge_walkcb(struct update_group *updgrp,
 	return UPDWALK_CONTINUE;
 }
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 /********************
  * PUBLIC FUNCTIONS
  ********************/
@@ -2012,6 +2124,11 @@ int update_group_adjust_soloness(struct peer *peer, int set)
 	struct peer_group *group;
 	struct listnode *node, *nnode;
 
+<<<<<<< HEAD
+=======
+	peer_flag_set(peer, PEER_FLAG_LONESOUL);
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	if (!CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP)) {
 		peer_lonesoul_or_not(peer, set);
 		if (peer_established(peer->connection))
@@ -2071,6 +2188,7 @@ void update_group_walk(struct bgp *bgp, updgrp_walkcb cb, void *ctx)
 	}
 }
 
+<<<<<<< HEAD
 void update_group_periodic_merge(struct bgp *bgp)
 {
 	char reason[] = "periodic merge check";
@@ -2079,6 +2197,8 @@ void update_group_periodic_merge(struct bgp *bgp)
 			  (void *)reason);
 }
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 static int
 update_group_default_originate_route_map_walkcb(struct update_group *updgrp,
 						void *arg)
@@ -2101,7 +2221,11 @@ update_group_default_originate_route_map_walkcb(struct update_group *updgrp,
 			 */
 			UNSET_FLAG(subgrp->sflags,
 				   SUBGRP_STATUS_DEFAULT_ORIGINATE);
+<<<<<<< HEAD
 			subgroup_default_originate(subgrp, 0);
+=======
+			subgroup_default_originate(subgrp, false);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		}
 	}
 

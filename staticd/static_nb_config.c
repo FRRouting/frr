@@ -34,8 +34,13 @@ static int static_path_list_create(struct nb_cb_create_args *args)
 	case NB_EV_VALIDATE:
 		vrf_dnode = yang_dnode_get_parent(args->dnode,
 						  "control-plane-protocol");
+<<<<<<< HEAD
 		vrf = yang_dnode_get_string(vrf_dnode, "./vrf");
 		table_id = yang_dnode_get_uint32(args->dnode, "./table-id");
+=======
+		vrf = yang_dnode_get_string(vrf_dnode, "vrf");
+		table_id = yang_dnode_get_uint32(args->dnode, "table-id");
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 		/*
 		 * TableId is not applicable for VRF. Consider the case of
@@ -56,8 +61,13 @@ static int static_path_list_create(struct nb_cb_create_args *args)
 		break;
 	case NB_EV_APPLY:
 		rn = nb_running_get_entry(args->dnode, NULL, true);
+<<<<<<< HEAD
 		distance = yang_dnode_get_uint8(args->dnode, "./distance");
 		table_id = yang_dnode_get_uint32(args->dnode, "./table-id");
+=======
+		distance = yang_dnode_get_uint8(args->dnode, "distance");
+		table_id = yang_dnode_get_uint32(args->dnode, "table-id");
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		pn = static_add_path(rn, table_id, distance);
 		nb_running_set_entry(args->dnode, pn);
 	}
@@ -112,7 +122,11 @@ static int nexthop_iter_cb(const struct lyd_node *dnode, void *arg)
 	struct nexthop_iter *iter = arg;
 	enum static_nh_type nh_type;
 
+<<<<<<< HEAD
 	nh_type = yang_dnode_get_enum(dnode, "./nh-type");
+=======
+	nh_type = yang_dnode_get_enum(dnode, "nh-type");
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	if (nh_type == STATIC_BLACKHOLE)
 		iter->blackhole = true;
@@ -135,9 +149,14 @@ static bool static_nexthop_create(struct nb_cb_create_args *args)
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
+<<<<<<< HEAD
 		ifname = yang_dnode_get_string(args->dnode, "./interface");
 		nh_type = yang_dnode_get_enum(args->dnode, "./nh-type");
 		if (ifname != NULL && nh_type != STATIC_BLACKHOLE) {
+=======
+		ifname = yang_dnode_get_string(args->dnode, "interface");
+		if (ifname != NULL) {
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			if (strcasecmp(ifname, "Null0") == 0
 			    || strcasecmp(ifname, "reject") == 0
 			    || strcasecmp(ifname, "blackhole") == 0) {
@@ -171,12 +190,24 @@ static bool static_nexthop_create(struct nb_cb_create_args *args)
 	case NB_EV_ABORT:
 		break;
 	case NB_EV_APPLY:
+<<<<<<< HEAD
 		yang_dnode_get_ip(&ipaddr, args->dnode, "./gateway");
 		nh_type = yang_dnode_get_enum(args->dnode, "./nh-type");
 		ifname = yang_dnode_get_string(args->dnode, "./interface");
 		nh_vrf = yang_dnode_get_string(args->dnode, "./vrf");
 		pn = nb_running_get_entry(args->dnode, NULL, true);
 
+=======
+		yang_dnode_get_ip(&ipaddr, args->dnode, "gateway");
+		nh_type = yang_dnode_get_enum(args->dnode, "nh-type");
+		ifname = yang_dnode_get_string(args->dnode, "interface");
+		nh_vrf = yang_dnode_get_string(args->dnode, "vrf");
+		pn = nb_running_get_entry(args->dnode, NULL, true);
+
+		if (strmatch(ifname, "(null)"))
+			ifname = "";
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		if (!static_add_nexthop_validate(nh_vrf, nh_type, &ipaddr))
 			flog_warn(
 				EC_LIB_NB_CB_CONFIG_VALIDATE,
@@ -465,12 +496,16 @@ static int static_nexthop_bh_type_modify(struct nb_cb_modify_args *args)
 {
 	struct static_nexthop *nh;
 	enum static_nh_type nh_type;
+<<<<<<< HEAD
 	const char *nh_ifname;
 	const char *nh_vrf;
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 		nh_type = yang_dnode_get_enum(args->dnode, "../nh-type");
+<<<<<<< HEAD
 		nh_ifname = yang_dnode_get_string(args->dnode, "../interface");
 		nh_vrf = yang_dnode_get_string(args->dnode, "../vrf");
 		if (nh_ifname && nh_vrf) {
@@ -492,6 +527,8 @@ static int static_nexthop_bh_type_modify(struct nb_cb_modify_args *args)
 				return NB_ERR_VALIDATION;
 			}
 		}
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		if (nh_type != STATIC_BLACKHOLE) {
 			snprintf(args->errmsg, args->errmsg_len,
 				 "nexthop type is not the blackhole type");
@@ -536,7 +573,11 @@ int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_pa
 	const struct lyd_node *mls_dnode;
 	uint32_t count;
 
+<<<<<<< HEAD
 	mls_dnode = yang_dnode_get(args->dnode, "./mpls-label-stack");
+=======
+	mls_dnode = yang_dnode_get(args->dnode, "mpls-label-stack");
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	count = yang_get_list_elements_count(lyd_child(mls_dnode));
 
 	if (count > MPLS_MAX_LABELS) {
@@ -553,7 +594,11 @@ int routing_control_plane_protocols_name_validate(
 {
 	const char *name;
 
+<<<<<<< HEAD
 	name = yang_dnode_get_string(args->dnode, "./name");
+=======
+	name = yang_dnode_get_string(args->dnode, "name");
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	if (!strmatch(name, "staticd")) {
 		snprintf(args->errmsg, args->errmsg_len,
 			"static routing supports only one instance with name staticd");
@@ -561,6 +606,51 @@ int routing_control_plane_protocols_name_validate(
 	}
 	return NB_OK;
 }
+<<<<<<< HEAD
+=======
+
+/*
+ * XPath:
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol
+ */
+int routing_control_plane_protocols_staticd_create(struct nb_cb_create_args *args)
+{
+	struct static_vrf *svrf;
+	const char *vrf;
+
+	vrf = yang_dnode_get_string(args->dnode, "vrf");
+	svrf = static_vrf_alloc(vrf);
+	nb_running_set_entry(args->dnode, svrf);
+
+	return NB_OK;
+}
+
+int routing_control_plane_protocols_staticd_destroy(
+	struct nb_cb_destroy_args *args)
+{
+	struct static_vrf *svrf;
+	struct route_table *stable;
+	struct route_node *rn;
+	afi_t afi;
+	safi_t safi;
+
+	svrf = nb_running_unset_entry(args->dnode);
+
+	FOREACH_AFI_SAFI (afi, safi) {
+		stable = svrf->stable[afi][safi];
+		if (!stable)
+			continue;
+
+		for (rn = route_top(stable); rn; rn = route_next(rn))
+			static_del_route(rn);
+	}
+
+	static_vrf_free(svrf);
+
+	return NB_OK;
+}
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 /*
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-staticd:staticd/route-list
@@ -568,8 +658,12 @@ int routing_control_plane_protocols_name_validate(
 int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_create(
 	struct nb_cb_create_args *args)
 {
+<<<<<<< HEAD
 	struct vrf *vrf;
 	struct static_vrf *s_vrf;
+=======
+	struct static_vrf *svrf;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	struct route_node *rn;
 	const struct lyd_node *vrf_dnode;
 	struct prefix prefix;
@@ -580,15 +674,24 @@ int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_cr
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
+<<<<<<< HEAD
 		yang_dnode_get_prefix(&prefix, args->dnode, "./prefix");
 		afi_safi = yang_dnode_get_string(args->dnode, "./afi-safi");
+=======
+		yang_dnode_get_prefix(&prefix, args->dnode, "prefix");
+		afi_safi = yang_dnode_get_string(args->dnode, "afi-safi");
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		yang_afi_safi_identity2value(afi_safi, &afi, &safi);
 		prefix_afi = family2afi(prefix.family);
 		if (afi != prefix_afi) {
 			flog_warn(
 				EC_LIB_NB_CB_CONFIG_VALIDATE,
 				"route node %s creation failed",
+<<<<<<< HEAD
 				yang_dnode_get_string(args->dnode, "./prefix"));
+=======
+				yang_dnode_get_string(args->dnode, "prefix"));
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			return NB_ERR_VALIDATION;
 		}
 		break;
@@ -598,6 +701,7 @@ int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_cr
 	case NB_EV_APPLY:
 		vrf_dnode = yang_dnode_get_parent(args->dnode,
 						  "control-plane-protocol");
+<<<<<<< HEAD
 		vrf = nb_running_get_entry(vrf_dnode, NULL, true);
 		s_vrf = vrf->info;
 
@@ -611,6 +715,20 @@ int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_cr
 				args->errmsg, args->errmsg_len,
 				"Static Route to %s not installed currently because dependent config not fully available",
 				yang_dnode_get_string(args->dnode, "./prefix"));
+=======
+		svrf = nb_running_get_entry(vrf_dnode, NULL, true);
+
+		yang_dnode_get_prefix(&prefix, args->dnode, "prefix");
+		afi_safi = yang_dnode_get_string(args->dnode, "afi-safi");
+		yang_afi_safi_identity2value(afi_safi, &afi, &safi);
+
+		rn = static_add_route(afi, safi, &prefix, NULL, svrf);
+		if (!svrf->vrf || svrf->vrf->vrf_id == VRF_UNKNOWN)
+			snprintf(
+				args->errmsg, args->errmsg_len,
+				"Static Route to %s not installed currently because dependent config not fully available",
+				yang_dnode_get_string(args->dnode, "prefix"));
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		nb_running_set_entry(args->dnode, rn);
 		break;
 	}
@@ -1048,7 +1166,11 @@ int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_sr
 		rn = nb_running_get_entry(args->dnode, NULL, true);
 		info = route_table_get_info(rn->table);
 		s_vrf = info->svrf;
+<<<<<<< HEAD
 		yang_dnode_get_ipv6p(&src_prefix, args->dnode, "./src-prefix");
+=======
+		yang_dnode_get_ipv6p(&src_prefix, args->dnode, "src-prefix");
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		afi = family2afi(src_prefix.family);
 		src_rn =
 			static_add_route(afi, safi, &rn->p, &src_prefix, s_vrf);

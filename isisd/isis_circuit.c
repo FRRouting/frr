@@ -198,8 +198,13 @@ void isis_circuit_del(struct isis_circuit *circuit)
 	ldp_sync_info_free(&circuit->ldp_sync_info);
 
 	circuit_mt_finish(circuit);
+<<<<<<< HEAD
 	isis_lfa_excluded_ifaces_clear(circuit, ISIS_LEVEL1);
 	isis_lfa_excluded_ifaces_clear(circuit, ISIS_LEVEL2);
+=======
+	isis_lfa_excluded_ifaces_delete(circuit, ISIS_LEVEL1);
+	isis_lfa_excluded_ifaces_delete(circuit, ISIS_LEVEL2);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	list_delete(&circuit->ip_addrs);
 	list_delete(&circuit->ipv6_link);
@@ -489,7 +494,10 @@ static uint8_t isis_circuit_id_gen(struct isis *isis, struct interface *ifp)
 
 void isis_circuit_if_add(struct isis_circuit *circuit, struct interface *ifp)
 {
+<<<<<<< HEAD
 	struct listnode *node, *nnode;
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	struct connected *conn;
 
 	if (if_is_broadcast(ifp)) {
@@ -509,20 +517,32 @@ void isis_circuit_if_add(struct isis_circuit *circuit, struct interface *ifp)
 		circuit->circ_type = CIRCUIT_T_UNKNOWN;
 	}
 
+<<<<<<< HEAD
 	for (ALL_LIST_ELEMENTS(ifp->connected, node, nnode, conn))
 		isis_circuit_add_addr(circuit, conn);
 
+=======
+	frr_each (if_connected, ifp->connected, conn)
+		isis_circuit_add_addr(circuit, conn);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 }
 
 void isis_circuit_if_del(struct isis_circuit *circuit, struct interface *ifp)
 {
+<<<<<<< HEAD
 	struct listnode *node, *nnode;
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	struct connected *conn;
 
 	assert(circuit->interface == ifp);
 
 	/* destroy addresses */
+<<<<<<< HEAD
 	for (ALL_LIST_ELEMENTS(ifp->connected, node, nnode, conn))
+=======
+	frr_each_safe (if_connected, ifp->connected, conn)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		isis_circuit_del_addr(circuit, conn);
 
 	circuit->circ_type = CIRCUIT_T_UNKNOWN;
@@ -854,11 +874,19 @@ void isis_circuit_down(struct isis_circuit *circuit)
 			isis_dr_resign(circuit, 1);
 			circuit->u.bc.is_dr[0] = 0;
 		}
+<<<<<<< HEAD
+=======
+		circuit->u.bc.run_dr_elect[0] = 0;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		memset(circuit->u.bc.l1_desig_is, 0, ISIS_SYS_ID_LEN + 1);
 		if (circuit->u.bc.is_dr[1]) {
 			isis_dr_resign(circuit, 2);
 			circuit->u.bc.is_dr[1] = 0;
 		}
+<<<<<<< HEAD
+=======
+		circuit->u.bc.run_dr_elect[1] = 0;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		memset(circuit->u.bc.l2_desig_is, 0, ISIS_SYS_ID_LEN + 1);
 		memset(circuit->u.bc.snpa, 0, ETH_ALEN);
 
@@ -1680,6 +1708,13 @@ void isis_circuit_init(void)
 #else
 	if_cmd_init_default();
 #endif
+<<<<<<< HEAD
 	if_zapi_callbacks(isis_ifp_create, isis_ifp_up,
 			  isis_ifp_down, isis_ifp_destroy);
+=======
+	hook_register_prio(if_real, 0, isis_ifp_create);
+	hook_register_prio(if_up, 0, isis_ifp_up);
+	hook_register_prio(if_down, 0, isis_ifp_down);
+	hook_register_prio(if_unreal, 0, isis_ifp_destroy);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 }

@@ -195,7 +195,11 @@ static int zebra_vrf_disable(struct vrf *vrf)
 	/* Cleanup Vxlan, MPLS and PW tables. */
 	zebra_vxlan_cleanup_tables(zvrf);
 	zebra_mpls_cleanup_tables(zvrf);
+<<<<<<< HEAD
 	zebra_pw_exit(zvrf);
+=======
+	zebra_pw_exit_vrf(zvrf);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	/* Remove link-local IPv4 addresses created for BGP unnumbered peering.
 	 */
@@ -265,6 +269,15 @@ static int zebra_vrf_delete(struct vrf *vrf)
 
 	otable_fini(&zvrf->other_tables);
 	XFREE(MTYPE_ZEBRA_VRF, zvrf);
+<<<<<<< HEAD
+=======
+
+	if (vrf->ns_ctxt) {
+		ns_delete(vrf->ns_ctxt);
+		vrf->ns_ctxt = NULL;
+	}
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	vrf->info = NULL;
 
 	return 0;
@@ -370,7 +383,11 @@ struct zebra_vrf *zebra_vrf_alloc(struct vrf *vrf)
 
 	zebra_vxlan_init_tables(zvrf);
 	zebra_mpls_init_tables(zvrf);
+<<<<<<< HEAD
 	zebra_pw_init(zvrf);
+=======
+	zebra_pw_init_vrf(zvrf);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	zvrf->table_id = rt_table_main_id;
 	/* by default table ID is default one */
 
@@ -392,6 +409,10 @@ vrf_id_t zebra_vrf_lookup_by_table(uint32_t table_id, ns_id_t ns_id)
 
 	RB_FOREACH (vrf, vrf_id_head, &vrfs_by_id) {
 		zvrf = vrf->info;
+<<<<<<< HEAD
+=======
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		if (zvrf == NULL)
 			continue;
 		/* case vrf with netns : match the netnsid */
@@ -402,6 +423,10 @@ vrf_id_t zebra_vrf_lookup_by_table(uint32_t table_id, ns_id_t ns_id)
 			/* VRF is VRF_BACKEND_VRF_LITE */
 			if (zvrf->table_id != table_id)
 				continue;
+<<<<<<< HEAD
+=======
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			return zvrf_id(zvrf);
 		}
 	}
@@ -444,6 +469,7 @@ struct route_table *zebra_vrf_table(afi_t afi, safi_t safi, vrf_id_t vrf_id)
 	return zvrf->table[afi][safi];
 }
 
+<<<<<<< HEAD
 static int vrf_config_write(struct vty *vty)
 {
 	struct vrf *vrf;
@@ -579,6 +605,8 @@ DEFUN (no_vrf_netns,
 	return CMD_SUCCESS;
 }
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 /* if ns_id is different and not VRF_UNKNOWN,
  * then update vrf identifier, and enable VRF
  */
@@ -677,6 +705,7 @@ void zebra_vrf_init(void)
 		 zebra_vrf_delete);
 
 	hook_register(zserv_client_close, release_daemon_table_chunks);
+<<<<<<< HEAD
 
 	vrf_cmd_init(vrf_config_write);
 
@@ -685,4 +714,6 @@ void zebra_vrf_init(void)
 		install_element(VRF_NODE, &vrf_netns_cmd);
 		install_element(VRF_NODE, &no_vrf_netns_cmd);
 	}
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 }

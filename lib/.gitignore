@@ -1,3 +1,7 @@
+<<<<<<< HEAD
+=======
+/config_paths.h
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 /version.c
 /version.h
 /gitversion.h
@@ -11,3 +15,7 @@
 /grammar_sandbox
 /clippy
 /defun_lex.c
+<<<<<<< HEAD
+=======
+vtysh_daemons.h
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)

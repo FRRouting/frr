@@ -17,10 +17,22 @@ extern struct zebra_privs_t zserv_privs;
 
 static const char proc_net_snmp[] = "/proc/net/snmp";
 
+<<<<<<< HEAD
 static void dropline(FILE *fp)
 {
 	while (getc(fp) != '\n')
 		;
+=======
+static bool dropline(FILE *fp)
+{
+	int ch;
+
+	do {
+		ch = getc(fp);
+	} while (ch != EOF && ch != '\n');
+
+	return ch != EOF;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 }
 
 int ipforward(void)
@@ -36,7 +48,14 @@ int ipforward(void)
 		return -1;
 
 	/* We don't care about the first line. */
+<<<<<<< HEAD
 	dropline(fp);
+=======
+	if (!dropline(fp)) {
+		fclose(fp);
+		return 0;
+	}
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	/* Get ip_statistics.IpForwarding :
 	   1 => ip forwarding enabled

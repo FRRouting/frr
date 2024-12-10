@@ -16,7 +16,11 @@ fi
 
 name="ospf6d"
 rcvar=$name
+<<<<<<< HEAD
 required_files="@sysconfdir@/${name}.conf"
+=======
+required_files="@e_sysconfdir@/${name}.conf"
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 command="@prefix@/sbin/${name}"
 command_args="-d"
 

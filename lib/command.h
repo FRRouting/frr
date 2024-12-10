@@ -82,9 +82,18 @@ enum node_type {
 	AUTH_ENABLE_NODE,	/* Authentication mode for change enable. */
 	ENABLE_NODE,		 /* Enable node. */
 	CONFIG_NODE,		 /* Config node. Default mode of config file. */
+<<<<<<< HEAD
 	DEBUG_NODE,		 /* Debug node. */
 	VRF_DEBUG_NODE,		 /* Vrf Debug node. */
 	NORTHBOUND_DEBUG_NODE,	 /* Northbound Debug node. */
+=======
+	PREFIX_NODE, /* ip prefix-list node. */
+	PREFIX_IPV6_NODE, /* ipv6 prefix-list node. */
+	RMAP_NODE, /* Route map node. */
+	LIB_DEBUG_NODE,		 /* frrlib debug node. */
+	DEBUG_NODE,		 /* Debug node. */
+	VRF_DEBUG_NODE,		 /* Vrf Debug node. */
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	DEBUG_VNC_NODE,		 /* Debug VNC node. */
 	RMAP_DEBUG_NODE,         /* Route-map debug node */
 	RESOLVER_DEBUG_NODE,	 /* Resolver debug node */
@@ -98,7 +107,10 @@ enum node_type {
 	INTERFACE_NODE,		 /* Interface mode node. */
 	NH_GROUP_NODE,		 /* Nexthop-Group mode node. */
 	ZEBRA_NODE,		 /* zebra connection node. */
+<<<<<<< HEAD
 	TABLE_NODE,		 /* rtm_table selection node. */
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	RIP_NODE,		 /* RIP protocol mode node. */
 	RIPNG_NODE,		 /* RIPng protocol mode node. */
 	BABEL_NODE,		 /* BABEL protocol mode node. */
@@ -116,7 +128,10 @@ enum node_type {
 	BGP_VNC_DEFAULTS_NODE,   /* BGP VNC nve defaults */
 	BGP_VNC_NVE_GROUP_NODE,  /* BGP VNC nve group */
 	BGP_VNC_L2_GROUP_NODE,   /* BGP VNC L2 group */
+<<<<<<< HEAD
 	RFP_DEFAULTS_NODE,       /* RFP defaults node */
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	BGP_EVPN_NODE,		 /* BGP EVPN node. */
 	BGP_SRV6_NODE,		 /* BGP SRv6 node. */
 	OSPF_NODE,		 /* OSPF protocol mode */
@@ -131,6 +146,7 @@ enum node_type {
 	ISIS_NODE,		 /* ISIS protocol mode */
 	ISIS_FLEX_ALGO_NODE,    /* ISIS Flex Algo mode */
 	ACCESS_NODE,		 /* Access list node. */
+<<<<<<< HEAD
 	PREFIX_NODE,		 /* Prefix list node. */
 	ACCESS_IPV6_NODE,	/* Access list node. */
 	ACCESS_MAC_NODE,	 /* MAC access list node*/
@@ -139,6 +155,13 @@ enum node_type {
 	COMMUNITY_LIST_NODE,     /* Community list node. */
 	COMMUNITY_ALIAS_NODE, /* Community alias node. */
 	RMAP_NODE,		 /* Route map node. */
+=======
+	ACCESS_IPV6_NODE,	/* Access list node. */
+	ACCESS_MAC_NODE,	 /* MAC access list node*/
+	AS_LIST_NODE,		 /* AS list node. */
+	COMMUNITY_LIST_NODE,     /* Community list node. */
+	COMMUNITY_ALIAS_NODE, /* Community alias node. */
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	PBRMAP_NODE,		 /* PBR map node. */
 	SMUX_NODE,		 /* SNMP configuration node. */
 	DUMP_NODE,		 /* Packet dump node. */
@@ -158,6 +181,13 @@ enum node_type {
 	SRV6_NODE,		 /* SRv6 node */
 	SRV6_LOCS_NODE,		 /* SRv6 locators node */
 	SRV6_LOC_NODE,		 /* SRv6 locator node */
+<<<<<<< HEAD
+=======
+	SRV6_ENCAP_NODE,		 /* SRv6 encapsulation node */
+	SRV6_SID_FORMATS_NODE,		 /* SRv6 SID formats config node */
+	SRV6_SID_FORMAT_USID_F3216_NODE,		 /* SRv6 uSID f3216 format config node */
+	SRV6_SID_FORMAT_UNCOMPRESSED_F4024_NODE,		 /* SRv6 uncompressed f4024 format config node */
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	VTY_NODE,		 /* Vty node. */
 	FPM_NODE,		 /* Dataplane FPM node. */
 	LINK_PARAMS_NODE,	/* Link-parameters node */
@@ -174,6 +204,13 @@ enum node_type {
 	BMP_NODE,		/* BMP config under router bgp */
 	ISIS_SRV6_NODE,    /* ISIS SRv6 node */
 	ISIS_SRV6_NODE_MSD_NODE,    /* ISIS SRv6 Node MSDs node */
+<<<<<<< HEAD
+=======
+	MGMTD_NODE,		 /* MGMTD node. */
+	RPKI_VRF_NODE,  /* RPKI node for VRF */
+	PIM_NODE,		 /* PIM protocol mode */
+	PIM6_NODE,		 /* PIM protocol for IPv6 mode */
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	NODE_TYPE_MAX, /* maximum */
 };
 /* clang-format on */
@@ -242,9 +279,17 @@ struct cmd_node {
 /* Argc max counts. */
 #define CMD_ARGC_MAX   256
 
+<<<<<<< HEAD
 /* helper defines for end-user DEFUN* macros */
 #define DEFUN_CMD_ELEMENT(funcname, cmdname, cmdstr, helpstr, attrs, dnum)     \
 	static const struct cmd_element cmdname = {                            \
+=======
+/* clang-format off */
+
+/* helper defines for end-user DEFUN* macros */
+#define DEFUN_CMD_ELEMENT(funcname, cmdname, cmdstr, helpstr, attrs, dnum)     \
+	const struct cmd_element cmdname = {                                   \
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		.string = cmdstr,                                              \
 		.func = funcname,                                              \
 		.doc = helpstr,                                                \
@@ -271,7 +316,11 @@ struct cmd_node {
 /* DEFPY variants */
 
 #define DEFPY_ATTR(funcname, cmdname, cmdstr, helpstr, attr)                   \
+<<<<<<< HEAD
 	DEFUN_CMD_ELEMENT(funcname, cmdname, cmdstr, helpstr, attr, 0)         \
+=======
+	static DEFUN_CMD_ELEMENT(funcname, cmdname, cmdstr, helpstr, attr, 0)  \
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	funcdecl_##funcname
 
 #define DEFPY(funcname, cmdname, cmdstr, helpstr)                              \
@@ -286,6 +335,13 @@ struct cmd_node {
 #define DEFPY_YANG(funcname, cmdname, cmdstr, helpstr)                         \
 	DEFPY_ATTR(funcname, cmdname, cmdstr, helpstr, CMD_ATTR_YANG)
 
+<<<<<<< HEAD
+=======
+#define DEFPY_YANG_HIDDEN(funcname, cmdname, cmdstr, helpstr)                  \
+	DEFPY_ATTR(funcname, cmdname, cmdstr, helpstr,                         \
+		   CMD_ATTR_YANG | CMD_ATTR_HIDDEN)
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 #define DEFPY_YANG_NOSH(funcname, cmdname, cmdstr, helpstr)                    \
 	DEFPY_ATTR(funcname, cmdname, cmdstr, helpstr,                         \
 		   CMD_ATTR_YANG | CMD_ATTR_NOSH)
@@ -294,7 +350,11 @@ struct cmd_node {
 
 #define DEFUN_ATTR(funcname, cmdname, cmdstr, helpstr, attr)                   \
 	DEFUN_CMD_FUNC_DECL(funcname)                                          \
+<<<<<<< HEAD
 	DEFUN_CMD_ELEMENT(funcname, cmdname, cmdstr, helpstr, attr, 0)         \
+=======
+	static DEFUN_CMD_ELEMENT(funcname, cmdname, cmdstr, helpstr, attr, 0)  \
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	DEFUN_CMD_FUNC_TEXT(funcname)
 
 #define DEFUN(funcname, cmdname, cmdstr, helpstr)                              \
@@ -310,6 +370,13 @@ struct cmd_node {
 #define DEFUN_NOSH(funcname, cmdname, cmdstr, helpstr)                         \
 	DEFUN_ATTR(funcname, cmdname, cmdstr, helpstr, CMD_ATTR_NOSH)
 
+<<<<<<< HEAD
+=======
+#define DEFUN_YANG_HIDDEN(funcname, cmdname, cmdstr, helpstr)                  \
+	DEFUN_ATTR(funcname, cmdname, cmdstr, helpstr,                         \
+		   CMD_ATTR_YANG | CMD_ATTR_HIDDEN)
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 #define DEFUN_YANG_NOSH(funcname, cmdname, cmdstr, helpstr)                    \
 	DEFUN_ATTR(funcname, cmdname, cmdstr, helpstr,                         \
 		   CMD_ATTR_YANG | CMD_ATTR_NOSH)
@@ -327,7 +394,12 @@ struct cmd_node {
 /* DEFUN + DEFSH */
 #define DEFUNSH_ATTR(daemon, funcname, cmdname, cmdstr, helpstr, attr)         \
 	DEFUN_CMD_FUNC_DECL(funcname)                                          \
+<<<<<<< HEAD
 	DEFUN_CMD_ELEMENT(funcname, cmdname, cmdstr, helpstr, attr, daemon)    \
+=======
+	static DEFUN_CMD_ELEMENT(funcname, cmdname, cmdstr, helpstr, attr,     \
+				 daemon)                                       \
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	DEFUN_CMD_FUNC_TEXT(funcname)
 
 #define DEFUNSH(daemon, funcname, cmdname, cmdstr, helpstr)                    \
@@ -339,7 +411,11 @@ struct cmd_node {
 
 /* ALIAS macro which define existing command's alias. */
 #define ALIAS_ATTR(funcname, cmdname, cmdstr, helpstr, attr)                   \
+<<<<<<< HEAD
 	DEFUN_CMD_ELEMENT(funcname, cmdname, cmdstr, helpstr, attr, 0)
+=======
+	static DEFUN_CMD_ELEMENT(funcname, cmdname, cmdstr, helpstr, attr, 0)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 #define ALIAS(funcname, cmdname, cmdstr, helpstr)                              \
 	ALIAS_ATTR(funcname, cmdname, cmdstr, helpstr, 0)
@@ -358,6 +434,11 @@ struct cmd_node {
 #define ALIAS_YANG(funcname, cmdname, cmdstr, helpstr)                         \
 	ALIAS_ATTR(funcname, cmdname, cmdstr, helpstr, CMD_ATTR_YANG)
 
+<<<<<<< HEAD
+=======
+/* clang-format on */
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 /* Some macroes */
 
 /*
@@ -449,6 +530,11 @@ struct cmd_node {
 #define MPLS_LDP_SYNC_HOLDDOWN_STR                                             \
 	"Time to wait for LDP-SYNC to occur before restoring if cost\n"
 #define NO_MPLS_LDP_SYNC_HOLDDOWN_STR "holddown timer disable\n"
+<<<<<<< HEAD
+=======
+#define BGP_AF_STR "Address Family\n"
+#define BGP_AF_MODIFIER_STR "Address Family modifier\n"
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 /* Command warnings. */
 #define NO_PASSWD_CMD_WARNING                                                  \
@@ -623,6 +709,10 @@ extern void cmd_banner_motd_line(const char *line);
 
 struct cmd_variable_handler {
 	const char *tokenname, *varname;
+<<<<<<< HEAD
+=======
+	const char *xpath;	/* fill comps from set of values at xpath */
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	void (*completions)(vector out, struct cmd_token *token);
 };
 

@@ -48,17 +48,29 @@ int pcep_messages_test_suite_teardown(void)
 	return 0;
 }
 
+<<<<<<< HEAD
 void pcep_messages_test_setup()
+=======
+void pcep_messages_test_setup(void)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 {
 	versioning = create_default_pcep_versioning();
 }
 
+<<<<<<< HEAD
 void pcep_messages_test_teardown()
+=======
+void pcep_messages_test_teardown(void)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 {
 	destroy_pcep_versioning(versioning);
 }
 
+<<<<<<< HEAD
 void test_pcep_msg_create_open()
+=======
+void test_pcep_msg_create_open(void)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 {
 	uint8_t keepalive = 30;
 	uint8_t deadtimer = 60;
@@ -96,8 +108,12 @@ void test_pcep_msg_create_open()
 	pcep_msg_free_message(message);
 }
 
+<<<<<<< HEAD
 
 void test_pcep_msg_create_request()
+=======
+void test_pcep_msg_create_request(void)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 {
 	/* First test with NULL objects */
 	struct pcep_message *message =
@@ -185,6 +201,7 @@ void test_pcep_msg_create_request()
 	pcep_msg_free_message(message);
 }
 
+<<<<<<< HEAD
 
 void test_pcep_msg_create_request_svec()
 {
@@ -192,6 +209,13 @@ void test_pcep_msg_create_request_svec()
 
 
 void test_pcep_msg_create_reply_nopath()
+=======
+void test_pcep_msg_create_request_svec(void)
+{
+}
+
+void test_pcep_msg_create_reply_nopath(void)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 {
 	struct pcep_object_rp *rp_obj =
 		pcep_obj_create_rp(0, false, false, false, false, 10, NULL);
@@ -219,8 +243,12 @@ void test_pcep_msg_create_reply_nopath()
 	pcep_msg_free_message(message);
 }
 
+<<<<<<< HEAD
 
 void test_pcep_msg_create_reply()
+=======
+void test_pcep_msg_create_reply(void)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 {
 	/* First test with NULL ero and rp objects */
 	struct pcep_message *message = pcep_msg_create_reply(NULL, NULL);
@@ -268,8 +296,12 @@ void test_pcep_msg_create_reply()
 	pcep_msg_free_message(message);
 }
 
+<<<<<<< HEAD
 
 void test_pcep_msg_create_close()
+=======
+void test_pcep_msg_create_close(void)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 {
 	uint8_t reason = PCEP_CLOSE_REASON_UNREC_MSG;
 
@@ -301,8 +333,12 @@ void test_pcep_msg_create_close()
 	pcep_msg_free_message(message);
 }
 
+<<<<<<< HEAD
 
 void test_pcep_msg_create_error()
+=======
+void test_pcep_msg_create_error(void)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 {
 	uint8_t error_type = PCEP_ERRT_RECEPTION_OF_INV_OBJECT;
 	uint8_t error_value = PCEP_ERRV_KEEPALIVEWAIT_TIMED_OUT;
@@ -337,8 +373,12 @@ void test_pcep_msg_create_error()
 	pcep_msg_free_message(message);
 }
 
+<<<<<<< HEAD
 
 void test_pcep_msg_create_keepalive()
+=======
+void test_pcep_msg_create_keepalive(void)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 {
 	struct pcep_message *message = pcep_msg_create_keepalive();
 	CU_ASSERT_PTR_NOT_NULL(message);
@@ -356,7 +396,11 @@ void test_pcep_msg_create_keepalive()
 	pcep_msg_free_message(message);
 }
 
+<<<<<<< HEAD
 void test_pcep_msg_create_report()
+=======
+void test_pcep_msg_create_report(void)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 {
 	double_linked_list *obj_list = dll_initialize();
 
@@ -387,7 +431,11 @@ void test_pcep_msg_create_report()
 	pcep_msg_free_message(message);
 }
 
+<<<<<<< HEAD
 void test_pcep_msg_create_update()
+=======
+void test_pcep_msg_create_update(void)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 {
 	double_linked_list *obj_list = dll_initialize();
 	double_linked_list *ero_subobj_list = dll_initialize();
@@ -398,10 +446,15 @@ void test_pcep_msg_create_update()
 	/* Should return NULL if obj_list is empty */
 	message = pcep_msg_create_update(obj_list);
 	CU_ASSERT_PTR_NULL(message);
+<<<<<<< HEAD
 	if (message != NULL) {
 		pcep_msg_free_message(message);
 		message = NULL;
 	}
+=======
+	if (message != NULL)
+		pcep_msg_free_message(message);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	struct pcep_object_srp *srp = pcep_obj_create_srp(false, 100, NULL);
 	struct pcep_object_lsp *lsp =
@@ -417,10 +470,16 @@ void test_pcep_msg_create_update()
 	CU_ASSERT_PTR_NULL(message);
 
 	dll_append(obj_list, ero);
+<<<<<<< HEAD
 	if (message != NULL) {
 		pcep_msg_free_message(message);
 		message = NULL;
 	}
+=======
+	if (message != NULL)
+		pcep_msg_free_message(message);
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	message = pcep_msg_create_update(obj_list);
 	CU_ASSERT_PTR_NOT_NULL(message);
 	pcep_encode_message(message, versioning);
@@ -442,7 +501,11 @@ void test_pcep_msg_create_update()
 	pcep_msg_free_message(message);
 }
 
+<<<<<<< HEAD
 void test_pcep_msg_create_initiate()
+=======
+void test_pcep_msg_create_initiate(void)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 {
 	double_linked_list *obj_list = dll_initialize();
 	double_linked_list *ero_subobj_list = dll_initialize();
@@ -450,10 +513,15 @@ void test_pcep_msg_create_initiate()
 	/* Should return NULL if obj_list is empty */
 	struct pcep_message *message = pcep_msg_create_initiate(NULL);
 	CU_ASSERT_PTR_NULL(message);
+<<<<<<< HEAD
 	if (message != NULL) {
 		pcep_msg_free_message(message);
 		message = NULL;
 	}
+=======
+	if (message != NULL)
+		pcep_msg_free_message(message);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	struct pcep_object_srp *srp = pcep_obj_create_srp(false, 100, NULL);
 	struct pcep_object_lsp *lsp =
@@ -466,10 +534,15 @@ void test_pcep_msg_create_initiate()
 	dll_append(obj_list, srp);
 	message = pcep_msg_create_initiate(obj_list);
 	CU_ASSERT_PTR_NULL(message);
+<<<<<<< HEAD
 	if (message != NULL) {
 		pcep_msg_free_message(message);
 		message = NULL;
 	}
+=======
+	if (message != NULL)
+		pcep_msg_free_message(message);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	dll_append(obj_list, lsp);
 	dll_append(obj_list, ero);

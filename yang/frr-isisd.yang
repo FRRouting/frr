@@ -685,7 +685,11 @@ module frr-isisd {
         type uint32 {
           range "0..16777215";
         }
+<<<<<<< HEAD
         must ". < 64 or /frr-isisd:isis/instance[area-tag = current()/../../area-tag]/metric-style = 'wide'";
+=======
+        must ". < 64 or not(/frr-isisd:isis/instance[area-tag = current()/../../area-tag]/metric-style) or /frr-isisd:isis/instance[area-tag = current()/../../area-tag]/metric-style != 'narrow'";
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         default "10";
         description
           "Default level-1 metric for this IS-IS circuit.";
@@ -695,7 +699,11 @@ module frr-isisd {
         type uint32 {
           range "0..16777215";
         }
+<<<<<<< HEAD
         must ". < 64 or /frr-isisd:isis/instance[area-tag = current()/../../area-tag]/metric-style = 'wide'";
+=======
+        must ". < 64 or not(/frr-isisd:isis/instance[area-tag = current()/../../area-tag]/metric-style) or /frr-isisd:isis/instance[area-tag = current()/../../area-tag]/metric-style != 'narrow'";
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         default "10";
         description
           "Default level-2 metric for this IS-IS circuit.";
@@ -1922,7 +1930,11 @@ module frr-isisd {
                if set to disable, ISISEXPLICITNULLFlag
                will override the value of ISISPHPFlag";
             leaf algo {
+<<<<<<< HEAD
               type uint32 {
+=======
+              type uint8 {
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
                 range "128..255";
               }
               description

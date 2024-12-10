@@ -8,6 +8,13 @@
 
 #include <zebra.h>
 
+<<<<<<< HEAD
+=======
+#ifdef GNU_LINUX
+#include <linux/rtnetlink.h>
+#endif
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 #include "log.h"
 #include "libfrr.h"
 #include "stream.h"

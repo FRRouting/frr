@@ -16,6 +16,12 @@ module frr-ripd {
   import frr-bfdd {
     prefix frr-bfdd;
   }
+<<<<<<< HEAD
+=======
+  import frr-filter {
+    prefix frr-filter;
+  }
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
   import frr-interface {
     prefix frr-interface;
   }
@@ -258,6 +264,12 @@ module frr-ripd {
           "A list of interfaces where the sending of RIP packets
            is enabled.";
       }
+<<<<<<< HEAD
+=======
+
+      uses frr-filter:distribute-list-group;
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
       list redistribute {
         key "protocol";
         description
@@ -380,9 +392,15 @@ module frr-ripd {
       }
 
       leaf default-bfd-profile {
+<<<<<<< HEAD
         description
           "Use this BFD profile for all peers by default.";
         type frr-bfdd:profile-ref;
+=======
+        type frr-bfdd:profile-ref;
+        description
+          "Use this BFD profile for all peers by default.";
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
       }
 
       /*
@@ -691,12 +709,22 @@ module frr-ripd {
       container bfd-monitoring {
         presence
           "Present if BFD is configured for RIP peers in this interface.";
+<<<<<<< HEAD
 
         leaf enable {
           type boolean;
           description
             "Enable/disable BFD monitoring.";
           default false;
+=======
+        description "Configure BFD use in RIPD";
+
+        leaf enable {
+          type boolean;
+          default false;
+          description
+            "Enable/disable BFD monitoring.";
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         }
 
         leaf profile {

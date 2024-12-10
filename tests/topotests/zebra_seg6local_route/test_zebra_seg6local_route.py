@@ -42,7 +42,11 @@ def setup_module(mod):
     tgen = Topogen({None: "r1"}, mod.__name__)
     tgen.start_topology()
     router_list = tgen.routers()
+<<<<<<< HEAD
     for rname, router in tgen.routers().items():
+=======
+    for rname, router in router_list.items():
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         router.run(
             "/bin/bash {}".format(os.path.join(CWD, "{}/setup.sh".format(rname)))
         )
@@ -101,7 +105,11 @@ def test_zebra_seg6local_routes():
             dest,
             manifest["out"],
         )
+<<<<<<< HEAD
         success, result = topotest.run_and_expect(test_func, None, count=25, wait=1)
+=======
+        _, result = topotest.run_and_expect(test_func, None, count=25, wait=1)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         assert result is None, "Failed"
 
 

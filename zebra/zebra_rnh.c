@@ -512,10 +512,21 @@ static bool rnh_check_re_nexthops(const struct route_entry *re,
 		goto done;
 	}
 
+<<<<<<< HEAD
 	/* Some special checks if registration asked for them. */
 	if (CHECK_FLAG(rnh->flags, ZEBRA_NHT_CONNECTED)) {
 		if ((re->type == ZEBRA_ROUTE_CONNECT)
 		    || (re->type == ZEBRA_ROUTE_STATIC))
+=======
+	/*
+	 * Some special checks if registration asked for them.
+	 * LOCAL routes are by their definition not CONNECTED
+	 * and as such should not be considered here
+	 */
+	if (CHECK_FLAG(rnh->flags, ZEBRA_NHT_CONNECTED)) {
+		if ((re->type == ZEBRA_ROUTE_CONNECT) ||
+		    (re->type == ZEBRA_ROUTE_STATIC))
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			ret = true;
 		if (re->type == ZEBRA_ROUTE_NHRP) {
 
@@ -821,7 +832,11 @@ static void free_state(vrf_id_t vrf_id, struct route_entry *re,
 
 	/* free RE and nexthops */
 	zebra_nhg_free(re->nhe);
+<<<<<<< HEAD
 	XFREE(MTYPE_RE, re);
+=======
+	zebra_rib_route_entry_free(re);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 }
 
 static void copy_state(struct rnh *rnh, const struct route_entry *re,
@@ -1136,7 +1151,11 @@ int zebra_send_rnh_update(struct rnh *rnh, struct zserv *client,
 	struct stream *s = NULL;
 	struct route_entry *re;
 	unsigned long nump;
+<<<<<<< HEAD
 	uint8_t num;
+=======
+	uint16_t num;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	struct nexthop *nh;
 	struct route_node *rn;
 	int ret;
@@ -1207,7 +1226,11 @@ int zebra_send_rnh_update(struct rnh *rnh, struct zserv *client,
 		stream_putl(s, re->metric);
 		num = 0;
 		nump = stream_get_endp(s);
+<<<<<<< HEAD
 		stream_putc(s, 0);
+=======
+		stream_putw(s, 0);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 		nhg = rib_get_fib_nhg(re);
 		for (ALL_NEXTHOPS_PTR(nhg, nh))
@@ -1235,13 +1258,21 @@ int zebra_send_rnh_update(struct rnh *rnh, struct zserv *client,
 				}
 		}
 
+<<<<<<< HEAD
 		stream_putc_at(s, nump, num);
+=======
+		stream_putw_at(s, nump, num);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	} else {
 		stream_putc(s, 0); // type
 		stream_putw(s, 0); // instance
 		stream_putc(s, 0); // distance
 		stream_putl(s, 0); // metric
+<<<<<<< HEAD
 		stream_putc(s, 0); // nexthops
+=======
+		stream_putw(s, 0); // nexthops
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	}
 	stream_putw_at(s, 0, stream_get_endp(s));
 
@@ -1261,6 +1292,7 @@ failure:
  */
 void show_nexthop_json_helper(json_object *json_nexthop,
 			      const struct nexthop *nexthop,
+<<<<<<< HEAD
 			      const struct route_entry *re)
 {
 	json_object *json_labels = NULL;
@@ -1451,11 +1483,29 @@ void show_nexthop_json_helper(json_object *json_nexthop,
 			}
 		}
 	}
+=======
+			      const struct route_node *rn,
+			      const struct route_entry *re)
+{
+	bool display_vrfid = false;
+	uint8_t rn_family;
+
+	if ((re == NULL || nexthop->vrf_id != re->vrf_id) && nexthop->type != NEXTHOP_TYPE_BLACKHOLE)
+		display_vrfid = true;
+
+	if (rn)
+		rn_family = rn->p.family;
+	else
+		rn_family = AF_UNSPEC;
+
+	nexthop_json_helper(json_nexthop, nexthop, display_vrfid, rn_family);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 }
 
 /*
  * Helper for nexthop output, used in the 'show ip route' path
  */
+<<<<<<< HEAD
 void show_route_nexthop_helper(struct vty *vty, const struct route_entry *re,
 			       const struct nexthop *nexthop)
 {
@@ -1582,6 +1632,24 @@ void show_route_nexthop_helper(struct vty *vty, const struct route_entry *re,
 		for (i = 1; i < nexthop->backup_num; i++)
 			vty_out(vty, ",%d", nexthop->backup_idx[i]);
 	}
+=======
+void show_route_nexthop_helper(struct vty *vty, const struct route_node *rn,
+			       const struct route_entry *re,
+			       const struct nexthop *nexthop)
+{
+	bool display_vrfid = false;
+	uint8_t rn_family;
+
+	if ((re == NULL || nexthop->vrf_id != re->vrf_id) && nexthop->type != NEXTHOP_TYPE_BLACKHOLE)
+		display_vrfid = true;
+
+	if (rn)
+		rn_family = rn->p.family;
+	else
+		rn_family = AF_UNSPEC;
+
+	nexthop_vty_helper(vty, nexthop, display_vrfid, rn_family);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 }
 
 static void print_rnh(struct route_node *rn, struct vty *vty, json_object *json)
@@ -1624,6 +1692,7 @@ static void print_rnh(struct route_node *rn, struct vty *vty, json_object *json)
 	}
 
 	if (rnh->state) {
+<<<<<<< HEAD
 		if (json)
 			json_object_string_add(
 				json_nht, "resolvedProtocol",
@@ -1631,6 +1700,19 @@ static void print_rnh(struct route_node *rn, struct vty *vty, json_object *json)
 		else
 			vty_out(vty, " resolved via %s\n",
 				zebra_route_string(rnh->state->type));
+=======
+		if (json) {
+			json_object_string_add(
+				json_nht, "resolvedProtocol",
+				zebra_route_string(rnh->state->type));
+			json_object_string_addf(json_nht, "prefix", "%pFX",
+						&rnh->resolved_route);
+		} else {
+			vty_out(vty, " resolved via %s, prefix %pFX\n",
+				zebra_route_string(rnh->state->type),
+				&rnh->resolved_route);
+		}
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 		for (nexthop = rnh->state->nhe->nhg.nexthop; nexthop;
 		     nexthop = nexthop->next) {
@@ -1639,9 +1721,16 @@ static void print_rnh(struct route_node *rn, struct vty *vty, json_object *json)
 				json_object_array_add(json_nexthop_array,
 						      json_nexthop);
 				show_nexthop_json_helper(json_nexthop, nexthop,
+<<<<<<< HEAD
 							 NULL);
 			} else {
 				show_route_nexthop_helper(vty, NULL, nexthop);
+=======
+							 rn, NULL);
+			} else {
+				show_route_nexthop_helper(vty, rn, NULL,
+							  nexthop);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 				vty_out(vty, "\n");
 			}
 		}

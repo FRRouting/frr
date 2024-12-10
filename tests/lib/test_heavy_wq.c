@@ -76,12 +76,15 @@ static wq_item_status slow_func(struct work_queue *wq, void *data)
 	for (j = 0; j < 300; j++)
 		x += sin(x) * j;
 
+<<<<<<< HEAD
 	if ((hn->i % ITERS_LATER) == 0)
 		return WQ_RETRY_LATER;
 
 	if ((hn->i % ITERS_ERR) == 0)
 		return WQ_RETRY_NOW;
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	if ((hn->i % ITERS_PRINT) == 0)
 		printf("%s did %d, x = %g\n", hn->str, hn->i, x);
 

@@ -49,7 +49,11 @@ if ret != False and found != None:
             luCommand(
                 rtr,
                 'vtysh -c "show bgp ipv4 uni" | grep Display',
+<<<<<<< HEAD
                 " 13 route",
+=======
+                " 14 route",
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
                 "wait",
                 "BGP routes removed",
                 wait,

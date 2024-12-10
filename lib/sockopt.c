@@ -10,6 +10,7 @@
 #include "sockunion.h"
 #include "lib_errors.h"
 
+<<<<<<< HEAD
 #if (defined(__FreeBSD__)                                                      \
      && ((__FreeBSD_version >= 500022 && __FreeBSD_version < 700000)           \
 	 || (__FreeBSD_version < 500000 && __FreeBSD_version >= 440000)))      \
@@ -21,6 +22,18 @@
 #endif
 
 void setsockopt_so_recvbuf(int sock, int size)
+=======
+#if (defined(__FreeBSD__) &&                                                   \
+     ((__FreeBSD_version >= 500022 && __FreeBSD_version < 700000) ||           \
+      (__FreeBSD_version < 500000 && __FreeBSD_version >= 440000))) ||         \
+	(defined(__NetBSD__) && defined(__NetBSD_Version__) &&                 \
+	 __NetBSD_Version__ >= 106010000) ||                                   \
+	defined(__OpenBSD__) || defined(__DragonFly__) || defined(__sun)
+#define HAVE_BSD_STRUCT_IP_MREQ_HACK
+#endif
+
+int setsockopt_so_recvbuf(int sock, int size)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 {
 	int orig_req = size;
 
@@ -35,9 +48,17 @@ void setsockopt_so_recvbuf(int sock, int size)
 		flog_err(EC_LIB_SOCKET,
 			 "%s: fd %d: SO_RCVBUF set to %d (requested %d)",
 			 __func__, sock, size, orig_req);
+<<<<<<< HEAD
 }
 
 void setsockopt_so_sendbuf(const int sock, int size)
+=======
+
+	return size;
+}
+
+int setsockopt_so_sendbuf(const int sock, int size)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 {
 	int orig_req = size;
 
@@ -52,6 +73,11 @@ void setsockopt_so_sendbuf(const int sock, int size)
 		flog_err(EC_LIB_SOCKET,
 			 "%s: fd %d: SO_SNDBUF set to %d (requested %d)",
 			 __func__, sock, size, orig_req);
+<<<<<<< HEAD
+=======
+
+	return size;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 }
 
 int getsockopt_so_sendbuf(const int sock)

@@ -1,4 +1,8 @@
+<<<<<<< HEAD
 #!/bin/bash
+=======
+#!/usr/bin/env bash
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 # SPDX-License-Identifier: MIT
 #
 # Copyright 2018 Network Device Education Foundation, Inc. ("NetDEF")
@@ -45,9 +49,12 @@ if [[ "$1" = "-h" ]] || [[ "$1" = "--help" ]]; then
 	TOPOTEST_OPTIONS        These options are appended to the docker-run
 	                        command for starting the tests.
 
+<<<<<<< HEAD
 	TOPOTEST_PULL           If set to 0, don't try to pull the most recent
 	                        version of the docker image from dockerhub.
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	TOPOTEST_SANITIZER      Controls whether to use the address sanitizer.
 	                        Enabled by default, set to 0 to disable.
 
@@ -116,6 +123,7 @@ if [ -z "$TOPOTEST_FRR" ]; then
 	git -C "$TOPOTEST_FRR" ls-files -z > "${TOPOTEST_LOGS}/git-ls-files"
 fi
 
+<<<<<<< HEAD
 if [ -z "$TOPOTEST_BUILDCACHE" ]; then
 	TOPOTEST_BUILDCACHE=topotest-buildcache
 	docker volume inspect "${TOPOTEST_BUILDCACHE}" &> /dev/null \
@@ -124,6 +132,14 @@ fi
 
 if [ "${TOPOTEST_PULL:-1}" = "1" ]; then
 	docker pull frrouting/topotests:latest
+=======
+cmd="$(command -v docker || command -v podman)"
+
+if [ -z "$TOPOTEST_BUILDCACHE" ]; then
+	TOPOTEST_BUILDCACHE=topotest-buildcache
+	"${cmd}" volume inspect "${TOPOTEST_BUILDCACHE}" &> /dev/null \
+		|| "${cmd}" volume create "${TOPOTEST_BUILDCACHE}"
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 fi
 
 if [[ -n "$TMUX" ]]; then
@@ -152,4 +168,8 @@ if [ -t 0 ]; then
 	set -- -t "$@"
 fi
 
+<<<<<<< HEAD
 exec docker run "$@"
+=======
+exec "${cmd}" run "$@"
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)

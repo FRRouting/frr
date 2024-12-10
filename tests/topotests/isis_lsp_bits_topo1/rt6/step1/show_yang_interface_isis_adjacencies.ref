@@ -9,7 +9,11 @@
             "adjacencies": {
               "adjacency": [
                 {
+<<<<<<< HEAD
                   "neighbor-sys-type": "level-1-2",
+=======
+                  "neighbor-sys-type": "level-1",
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
                   "neighbor-sysid": "0000.0000.0004",
                   "hold-timer": 10,
                   "neighbor-priority": 0,
@@ -28,7 +32,11 @@
             "adjacencies": {
               "adjacency": [
                 {
+<<<<<<< HEAD
                   "neighbor-sys-type": "level-1-2",
+=======
+                  "neighbor-sys-type": "level-1",
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
                   "neighbor-sysid": "0000.0000.0005",
                   "hold-timer": 10,
                   "neighbor-priority": 0,

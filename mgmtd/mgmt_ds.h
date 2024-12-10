@@ -11,8 +11,13 @@
 
 #include "mgmt_fe_client.h"
 #include "northbound.h"
+<<<<<<< HEAD
 
 #include "mgmtd/mgmt_defines.h"
+=======
+#include "mgmt_defines.h"
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 #include "mgmtd/mgmt_be_adapter.h"
 #include "mgmtd/mgmt_fe_adapter.h"
 
@@ -29,8 +34,13 @@
 
 #define MGMTD_MAX_COMMIT_LIST 10
 
+<<<<<<< HEAD
 #define MGMTD_COMMIT_FILE_PATH DAEMON_DB_DIR "/commit-%s.json"
 #define MGMTD_COMMIT_INDEX_FILE_NAME DAEMON_DB_DIR "/commit-index.dat"
+=======
+#define MGMTD_COMMIT_FILE_PATH(id)   "%s/commit-%s.json", frr_libstatedir, id
+#define MGMTD_COMMIT_INDEX_FILE_PATH "%s/commit-index.dat", frr_libstatedir
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 extern struct nb_config *running_config;
 

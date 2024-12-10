@@ -11,6 +11,7 @@ The following sections discuss commands common to all the routing daemons.
 Config Commands
 ===============
 
+<<<<<<< HEAD
 
 
 
@@ -50,6 +51,24 @@ present.
 If desired, you can specify a config file using the :option:`-f` or
 :option:`--config_file` options when starting a daemon.
 
+=======
+In the config file, you can write the debugging options, a vty's password,
+routing daemon configurations, a log file name, and so forth. This information
+forms the initial command set for a routing beast as it is starting.
+
+.. _config-file:
+
+Integrated Config File
+----------------------
+
+FRR uses a single configuration file located in |INSTALL_PREFIX_ETC|/frr.conf.
+When FRR is started using an init script or ``systemd``, ``vtysh`` is invoked to
+read the config file and send the appropriate portions to only the daemons
+interested in them. Running configuration updates are persisted back to this
+single file using ``vtysh`` as well.
+
+.. include:: prior-config-files.rst
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 .. _basic-config-commands:
 
@@ -152,6 +171,23 @@ Basic Config Commands
    deprecated ``log trap`` command) will be used. The ``no`` form of the command
    disables logging to a file.
 
+<<<<<<< HEAD
+=======
+.. clicmd:: log daemon DAEMON file [FILENAME [LEVEL]]
+
+   Configure file logging for a single FRR daemon. If you want to log
+   into a file, please specify ``filename`` as in this example:
+
+   ::
+
+      log daemon bgpd file /var/log/frr/bgpd.log informational
+
+   If the optional second argument specifying the logging level is not present,
+   the default logging level (typically debugging, but can be changed using the
+   deprecated ``log trap`` command) will be used. The ``no`` form of the command
+   disables logging to a file for a single FRR daemon.
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 .. clicmd:: log syslog [LEVEL]
 
    Enable logging output to syslog. If the optional second argument specifying
@@ -215,7 +251,11 @@ Basic Config Commands
    enabled log destinations. The note that logging includes full command lines,
    including passwords. If the daemon startup option `--command-log-always`
    is used to start the daemon then this command is turned on by default
+<<<<<<< HEAD
    and cannot be turned off and the [no] form of the command is dissallowed.
+=======
+   and cannot be turned off and the [no] form of the command is disallowed.
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 .. clicmd:: log filtered-file [FILENAME [LEVEL]]
 
@@ -673,24 +713,44 @@ Terminal Mode Commands
 
 .. _common-show-commands:
 
+<<<<<<< HEAD
 .. clicmd:: show thread cpu [r|w|t|e|x]
+=======
+.. clicmd:: show event cpu [r|w|t|e|x]
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
    This command displays system run statistics for all the different event
    types. If no options is specified all different run types are displayed
    together.  Additionally you can ask to look at (r)ead, (w)rite, (t)imer,
    (e)vent and e(x)ecute thread event types.
 
+<<<<<<< HEAD
 .. clicmd:: show thread poll
+=======
+.. clicmd:: show event poll
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
    This command displays FRR's poll data.  It allows a glimpse into how
    we are setting each individual fd for the poll command at that point
    in time.
 
+<<<<<<< HEAD
 .. clicmd:: show thread timers
+=======
+.. clicmd:: show event timers
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
    This command displays FRR's timer data for timers that will pop in
    the future.
 
+<<<<<<< HEAD
+=======
+.. clicmd:: show configuration running [<json|xml> [translate WORD]] [with-defaults] DAEMON
+
+   This command displays the northbound/YANG configuration data for a
+   daemon in text/vty, json, or xml format.
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 .. clicmd:: show yang operational-data XPATH [{format <json|xml>|translate TRANSLATOR|with-config}] DAEMON
 
    Display the YANG operational data starting from XPATH. The default
@@ -773,7 +833,11 @@ These options apply to all |PACKAGE_NAME| daemons.
 .. option:: --command-log-always
 
    Cause the daemon to always log commands entered to the specified log file.
+<<<<<<< HEAD
    This also makes the `no log commands` command dissallowed.  Enabling this
+=======
+   This also makes the `no log commands` command disallowed. Enabling this
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
    is suggested if you have need to track what the operator is doing on
    this router.
 

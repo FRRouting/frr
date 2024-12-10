@@ -416,6 +416,7 @@ static void set_community_string(struct community *com, bool make_json,
 			}
 			break;
 		default:
+<<<<<<< HEAD
 			as = (comval >> 16) & 0xFFFF;
 			val = comval & 0xFFFF;
 			char buf[32];
@@ -423,6 +424,14 @@ static void set_community_string(struct community *com, bool make_json,
 			const char *com2alias =
 				translate_alias ? bgp_community2alias(buf)
 						: buf;
+=======
+			as = CHECK_FLAG((comval >> 16), 0xFFFF);
+			val = CHECK_FLAG(comval, 0xFFFF);
+			char buf[32];
+			snprintf(buf, sizeof(buf), "%u:%d", as, val);
+			const char *com2alias =
+				translate_alias ? bgp_community2alias(buf) : buf;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 			strlcat(str, com2alias, len);
 			if (make_json) {

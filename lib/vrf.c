@@ -5,6 +5,10 @@
  */
 
 #include <zebra.h>
+<<<<<<< HEAD
+=======
+#include <sys/ioctl.h>
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 #include "if.h"
 #include "vrf.h"
@@ -635,7 +639,11 @@ int vrf_configure_backend(enum vrf_backend_type backend)
 }
 
 /* vrf CLI commands */
+<<<<<<< HEAD
 DEFUN_NOSH(vrf_exit,
+=======
+DEFUN_YANG_NOSH (vrf_exit,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
            vrf_exit_cmd,
 	   "exit-vrf",
 	   "Exit current mode and down to previous mode\n")
@@ -687,6 +695,7 @@ DEFUN_YANG (no_vrf,
 	const char *vrfname = argv[2]->arg;
 	char xpath_list[XPATH_MAXLEN];
 
+<<<<<<< HEAD
 	struct vrf *vrfp;
 
 	vrfp = vrf_lookup_by_name(vrfname);
@@ -699,6 +708,8 @@ DEFUN_YANG (no_vrf,
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	if (vrf_get_backend() == VRF_BACKEND_VRF_LITE) {
 		/*
 		 * Remove the VRF interface config when removing the VRF.
@@ -921,7 +932,11 @@ static int lib_vrf_create(struct nb_cb_create_args *args)
 	const char *vrfname;
 	struct vrf *vrfp;
 
+<<<<<<< HEAD
 	vrfname = yang_dnode_get_string(args->dnode, "./name");
+=======
+	vrfname = yang_dnode_get_string(args->dnode, "name");
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
@@ -962,6 +977,28 @@ static int lib_vrf_destroy(struct nb_cb_destroy_args *args)
 	return NB_OK;
 }
 
+<<<<<<< HEAD
+=======
+static void lib_vrf_cli_write(struct vty *vty, const struct lyd_node *dnode,
+			      bool show_defaults)
+{
+	const char *name = yang_dnode_get_string(dnode, "name");
+
+	if (strcmp(name, VRF_DEFAULT_NAME)) {
+		vty_out(vty, "!\n");
+		vty_out(vty, "vrf %s\n", name);
+	}
+}
+
+static void lib_vrf_cli_write_end(struct vty *vty, const struct lyd_node *dnode)
+{
+	const char *name = yang_dnode_get_string(dnode, "name");
+
+	if (strcmp(name, VRF_DEFAULT_NAME))
+		vty_out(vty, "exit-vrf\n");
+}
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 static const void *lib_vrf_get_next(struct nb_cb_get_next_args *args)
 {
 	struct vrf *vrfp = (struct vrf *)args->list_entry;
@@ -994,6 +1031,22 @@ static const void *lib_vrf_lookup_entry(struct nb_cb_lookup_entry_args *args)
 	return vrf;
 }
 
+<<<<<<< HEAD
+=======
+static const void *lib_vrf_lookup_next(struct nb_cb_lookup_entry_args *args)
+{
+	const char *vrfname = args->keys->key[0];
+	struct vrf vrfkey, *vrf;
+
+	strlcpy(vrfkey.name, vrfname, sizeof(vrfkey.name));
+	vrf = RB_FIND(vrf_name_head, &vrfs_by_name, &vrfkey);
+	if (!strcmp(vrf->name, vrfname))
+		vrf = RB_NEXT(vrf_name_head, vrf);
+
+	return vrf;
+}
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 /*
  * XPath: /frr-vrf:lib/vrf/id
  */
@@ -1020,6 +1073,11 @@ lib_vrf_state_active_get_elem(struct nb_cb_get_elem_args *args)
 }
 
 /* clang-format off */
+<<<<<<< HEAD
+=======
+
+/* cli_show callbacks are kept here for daemons not yet converted to mgmtd */
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 const struct frr_yang_module_info frr_vrf_info = {
 	.name = "frr-vrf",
 	.nodes = {
@@ -1028,9 +1086,18 @@ const struct frr_yang_module_info frr_vrf_info = {
 			.cbs = {
 				.create = lib_vrf_create,
 				.destroy = lib_vrf_destroy,
+<<<<<<< HEAD
 				.get_next = lib_vrf_get_next,
 				.get_keys = lib_vrf_get_keys,
 				.lookup_entry = lib_vrf_lookup_entry,
+=======
+				.cli_show = lib_vrf_cli_write,
+				.cli_show_end = lib_vrf_cli_write_end,
+				.get_next = lib_vrf_get_next,
+				.get_keys = lib_vrf_get_keys,
+				.lookup_entry = lib_vrf_lookup_entry,
+				.lookup_next = lib_vrf_lookup_next,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			},
 			.priority = NB_DFLT_PRIORITY - 2,
 		},
@@ -1052,3 +1119,22 @@ const struct frr_yang_module_info frr_vrf_info = {
 	}
 };
 
+<<<<<<< HEAD
+=======
+const struct frr_yang_module_info frr_vrf_cli_info = {
+	.name = "frr-vrf",
+	.ignore_cfg_cbs = true,
+	.nodes = {
+		{
+			.xpath = "/frr-vrf:lib/vrf",
+			.cbs = {
+				.cli_show = lib_vrf_cli_write,
+				.cli_show_end = lib_vrf_cli_write_end,
+			},
+		},
+		{
+			.xpath = NULL,
+		},
+	}
+};
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)

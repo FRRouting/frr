@@ -48,16 +48,28 @@
               "adjacency": [
                 {
                   "neighbor-sys-type": "level-1",
+<<<<<<< HEAD
                   "neighbor-sysid": "0000.0000.0001",
                   "hold-timer": 10,
                   "neighbor-priority": 100,
+=======
+                  "neighbor-sysid": "0000.0000.0002",
+                  "hold-timer": 10,
+                  "neighbor-priority": 64,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
                   "state": "up"
                 },
                 {
                   "neighbor-sys-type": "level-1",
+<<<<<<< HEAD
                   "neighbor-sysid": "0000.0000.0002",
                   "hold-timer": 10,
                   "neighbor-priority": 64,
+=======
+                  "neighbor-sysid": "0000.0000.0001",
+                  "hold-timer": 10,
+                  "neighbor-priority": 100,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
                   "state": "up"
                 }
               ]

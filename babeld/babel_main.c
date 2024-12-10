@@ -5,6 +5,11 @@ Copyright 2011 by Matthieu Boutier and Juliusz Chroboczek
 
 /* include zebra library */
 #include <zebra.h>
+<<<<<<< HEAD
+=======
+#include <fcntl.h>
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 #include "getopt.h"
 #include "if.h"
 #include "log.h"
@@ -56,7 +61,10 @@ unsigned char protocol_group[16]; /* babel's link-local multicast address */
 int protocol_port;                /* babel's port */
 int protocol_socket = -1;         /* socket: communicate with others babeld */
 
+<<<<<<< HEAD
 static const char babel_config_default[] = SYSCONFDIR BABEL_DEFAULT_CONFIG;
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 static char *babel_vty_addr = NULL;
 static int babel_vty_port = BABEL_VTY_PORT;
 
@@ -124,6 +132,7 @@ static const struct frr_yang_module_info *const babeld_yang_modules[] = {
 	&frr_vrf_info,
 };
 
+<<<<<<< HEAD
 FRR_DAEMON_INFO(babeld, BABELD,
 		.vty_port = BABEL_VTY_PORT,
 		.proghelp = "Implementation of the BABEL routing protocol.",
@@ -136,6 +145,22 @@ FRR_DAEMON_INFO(babeld, BABELD,
 		.yang_modules = babeld_yang_modules,
 		.n_yang_modules = array_size(babeld_yang_modules),
 );
+=======
+/* clang-format off */
+FRR_DAEMON_INFO(babeld, BABELD,
+	.vty_port = BABEL_VTY_PORT,
+	.proghelp = "Implementation of the BABEL routing protocol.",
+
+	.signals = babel_signals,
+	.n_signals = array_size(babel_signals),
+
+	.privs = &babeld_privs,
+
+	.yang_modules = babeld_yang_modules,
+	.n_yang_modules = array_size(babeld_yang_modules),
+);
+/* clang-format on */
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 int
 main(int argc, char **argv)
@@ -169,8 +194,13 @@ main(int argc, char **argv)
 	  }
     }
 
+<<<<<<< HEAD
     snprintf(state_file, sizeof(state_file), "%s/%s",
 	     frr_vtydir, "babel-state");
+=======
+    snprintf(state_file, sizeof(state_file), "%s/%s", frr_runstatedir,
+	     "babel-state");
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
     /* create the threads handler */
     master = frr_init ();
@@ -182,8 +212,15 @@ main(int argc, char **argv)
     change_smoothing_half_life(BABEL_DEFAULT_SMOOTHING_HALF_LIFE);
 
     /* init some quagga's dependencies, and babeld's commands */
+<<<<<<< HEAD
     if_zapi_callbacks(babel_ifp_create, babel_ifp_up,
 		      babel_ifp_down, babel_ifp_destroy);
+=======
+    hook_register_prio(if_real, 0, babel_ifp_create);
+    hook_register_prio(if_up, 0, babel_ifp_up);
+    hook_register_prio(if_down, 0, babel_ifp_down);
+    hook_register_prio(if_unreal, 0, babel_ifp_destroy);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     babeld_quagga_init();
     /* init zebra client's structure and it's commands */
     /* this replace kernel_setup && kernel_setup_socket */
@@ -300,12 +337,23 @@ babel_exit_properly(void)
 
     /* Uninstall and flush all routes. */
     debugf(BABEL_DEBUG_COMMON, "Uninstall routes.");
+<<<<<<< HEAD
     flush_all_routes();
     babel_interface_close_all();
     babel_zebra_close_connexion();
     babel_save_state_file();
     debugf(BABEL_DEBUG_COMMON, "Remove pid file.");
     debugf(BABEL_DEBUG_COMMON, "Done.");
+=======
+    babel_clean_routing_process();
+    babel_zebra_close_connexion();
+    babel_if_terminate();
+    babel_save_state_file();
+    debugf(BABEL_DEBUG_COMMON, "Remove pid file.");
+    debugf(BABEL_DEBUG_COMMON, "Done.");
+
+    vrf_terminate();
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     frr_fini();
 
     exit(0);
@@ -360,7 +408,11 @@ show_babel_main_configuration (struct vty *vty)
             "id                      = %s\n"
             "kernel_metric           = %d\n",
             state_file,
+<<<<<<< HEAD
             babeld_di.config_file ? babeld_di.config_file : babel_config_default,
+=======
+            babeld_di.config_file,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
             format_address(protocol_group),
             protocol_port,
             babel_vty_addr ? babel_vty_addr : "None",

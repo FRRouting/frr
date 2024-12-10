@@ -46,6 +46,21 @@ int lib_route_map_entry_match_condition_rmap_match_condition_peer_ipv6_address_m
 int lib_route_map_entry_match_condition_rmap_match_condition_peer_ipv6_address_destroy(struct nb_cb_destroy_args *args);
 int lib_route_map_entry_match_condition_rmap_match_condition_peer_local_modify(struct nb_cb_modify_args *args);
 int lib_route_map_entry_match_condition_rmap_match_condition_peer_local_destroy(struct nb_cb_destroy_args *args);
+<<<<<<< HEAD
+=======
+int lib_route_map_entry_match_condition_rmap_match_condition_src_peer_ipv4_address_modify(
+	struct nb_cb_modify_args *args);
+int lib_route_map_entry_match_condition_rmap_match_condition_src_peer_ipv4_address_destroy(
+	struct nb_cb_destroy_args *args);
+int lib_route_map_entry_match_condition_rmap_match_condition_src_peer_interface_modify(
+	struct nb_cb_modify_args *args);
+int lib_route_map_entry_match_condition_rmap_match_condition_src_peer_interface_destroy(
+	struct nb_cb_destroy_args *args);
+int lib_route_map_entry_match_condition_rmap_match_condition_src_peer_ipv6_address_modify(
+	struct nb_cb_modify_args *args);
+int lib_route_map_entry_match_condition_rmap_match_condition_src_peer_ipv6_address_destroy(
+	struct nb_cb_destroy_args *args);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 int lib_route_map_entry_match_condition_rmap_match_condition_access_list_num_modify(struct nb_cb_modify_args *args);
 int lib_route_map_entry_match_condition_rmap_match_condition_access_list_num_destroy(struct nb_cb_destroy_args *args);
 int lib_route_map_entry_match_condition_rmap_match_condition_access_list_num_extended_modify(struct nb_cb_modify_args *args);
@@ -60,9 +75,18 @@ int lib_route_map_entry_match_condition_rmap_match_condition_evpn_route_type_mod
 int lib_route_map_entry_match_condition_rmap_match_condition_evpn_route_type_destroy(struct nb_cb_destroy_args *args);
 int lib_route_map_entry_match_condition_rmap_match_condition_route_distinguisher_modify(struct nb_cb_modify_args *args);
 int lib_route_map_entry_match_condition_rmap_match_condition_route_distinguisher_destroy(struct nb_cb_destroy_args *args);
+<<<<<<< HEAD
 void lib_route_map_entry_match_condition_rmap_match_condition_comm_list_finish(struct nb_cb_apply_finish_args *args);
 int lib_route_map_entry_match_condition_rmap_match_condition_comm_list_comm_list_name_modify(struct nb_cb_modify_args *args);
 int lib_route_map_entry_match_condition_rmap_match_condition_comm_list_comm_list_name_destroy(struct nb_cb_destroy_args *args);
+=======
+int lib_route_map_entry_match_condition_rmap_match_condition_comm_list_create(
+	struct nb_cb_create_args *args);
+int lib_route_map_entry_match_condition_rmap_match_condition_comm_list_destroy(
+	struct nb_cb_destroy_args *args);
+void lib_route_map_entry_match_condition_rmap_match_condition_comm_list_finish(struct nb_cb_apply_finish_args *args);
+int lib_route_map_entry_match_condition_rmap_match_condition_comm_list_comm_list_name_modify(struct nb_cb_modify_args *args);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 int lib_route_map_entry_match_condition_rmap_match_condition_comm_list_comm_list_name_exact_match_modify(struct nb_cb_modify_args *args);
 int lib_route_map_entry_match_condition_rmap_match_condition_comm_list_comm_list_name_exact_match_destroy(struct nb_cb_destroy_args *args);
 int lib_route_map_entry_match_condition_rmap_match_condition_comm_list_comm_list_name_any_modify(
@@ -127,17 +151,28 @@ int lib_route_map_entry_set_action_rmap_set_action_large_community_none_modify(s
 int lib_route_map_entry_set_action_rmap_set_action_large_community_none_destroy(struct nb_cb_destroy_args *args);
 int lib_route_map_entry_set_action_rmap_set_action_large_community_string_modify(struct nb_cb_modify_args *args);
 int lib_route_map_entry_set_action_rmap_set_action_large_community_string_destroy(struct nb_cb_destroy_args *args);
+<<<<<<< HEAD
 void lib_route_map_entry_set_action_rmap_set_action_aggregator_finish(struct nb_cb_apply_finish_args *args);
 int lib_route_map_entry_set_action_rmap_set_action_aggregator_aggregator_asn_modify(struct nb_cb_modify_args *args);
 int lib_route_map_entry_set_action_rmap_set_action_aggregator_aggregator_asn_destroy(struct nb_cb_destroy_args *args);
 int lib_route_map_entry_set_action_rmap_set_action_aggregator_aggregator_address_modify(struct nb_cb_modify_args *args);
 int lib_route_map_entry_set_action_rmap_set_action_aggregator_aggregator_address_destroy(struct nb_cb_destroy_args *args);
+=======
+int lib_route_map_entry_set_action_rmap_set_action_aggregator_create(
+	struct nb_cb_create_args *args);
+int lib_route_map_entry_set_action_rmap_set_action_aggregator_destroy(
+	struct nb_cb_destroy_args *args);
+void lib_route_map_entry_set_action_rmap_set_action_aggregator_finish(struct nb_cb_apply_finish_args *args);
+int lib_route_map_entry_set_action_rmap_set_action_aggregator_aggregator_asn_modify(struct nb_cb_modify_args *args);
+int lib_route_map_entry_set_action_rmap_set_action_aggregator_aggregator_address_modify(struct nb_cb_modify_args *args);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 int lib_route_map_entry_set_action_rmap_set_action_comm_list_num_modify(struct nb_cb_modify_args *args);
 int lib_route_map_entry_set_action_rmap_set_action_comm_list_num_destroy(struct nb_cb_destroy_args *args);
 int lib_route_map_entry_set_action_rmap_set_action_comm_list_num_extended_modify(struct nb_cb_modify_args *args);
 int lib_route_map_entry_set_action_rmap_set_action_comm_list_num_extended_destroy(struct nb_cb_destroy_args *args);
 int lib_route_map_entry_set_action_rmap_set_action_comm_list_name_modify(struct nb_cb_modify_args *args);
 int lib_route_map_entry_set_action_rmap_set_action_comm_list_name_destroy(struct nb_cb_destroy_args *args);
+<<<<<<< HEAD
 void lib_route_map_entry_set_action_rmap_set_action_extcommunity_lb_finish(struct nb_cb_apply_finish_args *args);
 int lib_route_map_entry_set_action_rmap_set_action_extcommunity_lb_lb_type_modify(struct nb_cb_modify_args *args);
 int lib_route_map_entry_set_action_rmap_set_action_extcommunity_lb_lb_type_destroy(struct nb_cb_destroy_args *args);
@@ -145,6 +180,17 @@ int lib_route_map_entry_set_action_rmap_set_action_extcommunity_lb_bandwidth_mod
 int lib_route_map_entry_set_action_rmap_set_action_extcommunity_lb_bandwidth_destroy(struct nb_cb_destroy_args *args);
 int lib_route_map_entry_set_action_rmap_set_action_extcommunity_lb_two_octet_as_specific_modify(struct nb_cb_modify_args *args);
 int lib_route_map_entry_set_action_rmap_set_action_extcommunity_lb_two_octet_as_specific_destroy(struct nb_cb_destroy_args *args);
+=======
+int lib_route_map_entry_set_action_rmap_set_action_extcommunity_lb_create(
+	struct nb_cb_create_args *args);
+int lib_route_map_entry_set_action_rmap_set_action_extcommunity_lb_destroy(
+	struct nb_cb_destroy_args *args);
+void lib_route_map_entry_set_action_rmap_set_action_extcommunity_lb_finish(struct nb_cb_apply_finish_args *args);
+int lib_route_map_entry_set_action_rmap_set_action_extcommunity_lb_lb_type_modify(struct nb_cb_modify_args *args);
+int lib_route_map_entry_set_action_rmap_set_action_extcommunity_lb_bandwidth_modify(struct nb_cb_modify_args *args);
+int lib_route_map_entry_set_action_rmap_set_action_extcommunity_lb_bandwidth_destroy(struct nb_cb_destroy_args *args);
+int lib_route_map_entry_set_action_rmap_set_action_extcommunity_lb_two_octet_as_specific_modify(struct nb_cb_modify_args *args);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 int lib_route_map_entry_set_action_rmap_set_action_extcommunity_none_modify(
 	struct nb_cb_modify_args *args);
 int lib_route_map_entry_set_action_rmap_set_action_extcommunity_none_destroy(

@@ -22,6 +22,10 @@
 #include "zebra/zebra_rnh.h"
 #include "zebra/redistribute.h"
 #include "zebra/zebra_routemap.h"
+<<<<<<< HEAD
+=======
+#include "zebra/label_manager.h"
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 static int zebra_mpls_transit_lsp(struct vty *vty, int add_cmd,
 				  const char *inlabel_str, const char *gate_str,
@@ -209,7 +213,11 @@ static int zebra_mpls_bind(struct vty *vty, int add_cmd, const char *prefix,
 				vty_out(vty, "%% Invalid label\n");
 				return CMD_WARNING_CONFIG_FAILED;
 			}
+<<<<<<< HEAD
 			if (zebra_mpls_label_already_bound(zvrf, label)) {
+=======
+			if (zebra_mpls_label_already_bound(zvrf, &p, label)) {
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 				vty_out(vty,
 					"%% Label already bound to a FEC\n");
 				return CMD_WARNING_CONFIG_FAILED;
@@ -271,6 +279,11 @@ static int zebra_mpls_config(struct vty *vty)
 	write += zebra_mpls_write_lsp_config(vty, zvrf);
 	write += zebra_mpls_write_fec_config(vty, zvrf);
 	write += zebra_mpls_write_label_block_config(vty, zvrf);
+<<<<<<< HEAD
+=======
+	write += lm_write_label_block_config_call(vty, zvrf);
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	return write;
 }
 

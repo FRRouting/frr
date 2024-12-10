@@ -6,11 +6,20 @@
  *                     Donald Sharp
  */
 #include <zebra.h>
+<<<<<<< HEAD
+=======
+#include <fcntl.h>
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 #ifdef HAVE_NETLINK /* Netlink OSes only */
 
 #include <ns.h>
 
+<<<<<<< HEAD
+=======
+#include <linux/netlink.h>
+#include <linux/rtnetlink.h>
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 #include "linux/netconf.h"
 
 #include "lib/lib_errors.h"

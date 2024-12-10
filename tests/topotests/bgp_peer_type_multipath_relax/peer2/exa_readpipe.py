@@ -1,4 +1,8 @@
+<<<<<<< HEAD
 #!/usr/bin/env python2
+=======
+#!/usr/bin/env python3
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 "Helper script to read api commands from a pipe and feed them to ExaBGP"
 
 import sys

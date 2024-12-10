@@ -163,16 +163,31 @@ bool bgp_adj_out_lookup(struct peer *peer, struct bgp_dest *dest,
 
 
 void bgp_adj_in_set(struct bgp_dest *dest, struct peer *peer, struct attr *attr,
+<<<<<<< HEAD
 		    uint32_t addpath_id)
+=======
+		    uint32_t addpath_id, struct bgp_labels *labels)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 {
 	struct bgp_adj_in *adj;
 
 	for (adj = dest->adj_in; adj; adj = adj->next) {
 		if (adj->peer == peer && adj->addpath_rx_id == addpath_id) {
+<<<<<<< HEAD
 			if (adj->attr != attr) {
 				bgp_attr_unintern(&adj->attr);
 				adj->attr = bgp_attr_intern(attr);
 			}
+=======
+			if (!attrhash_cmp(adj->attr, attr)) {
+				bgp_attr_unintern(&adj->attr);
+				adj->attr = bgp_attr_intern(attr);
+			}
+			if (!bgp_labels_cmp(adj->labels, labels)) {
+				bgp_labels_unintern(&adj->labels);
+				adj->labels = bgp_labels_intern(labels);
+			}
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			return;
 		}
 	}
@@ -181,13 +196,25 @@ void bgp_adj_in_set(struct bgp_dest *dest, struct peer *peer, struct attr *attr,
 	adj->attr = bgp_attr_intern(attr);
 	adj->uptime = monotime(NULL);
 	adj->addpath_rx_id = addpath_id;
+<<<<<<< HEAD
 	BGP_ADJ_IN_ADD(dest, adj);
+=======
+	adj->labels = bgp_labels_intern(labels);
+	BGP_ADJ_IN_ADD(dest, adj);
+	peer->stat_pfx_adj_rib_in++;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	bgp_dest_lock_node(dest);
 }
 
 void bgp_adj_in_remove(struct bgp_dest **dest, struct bgp_adj_in *bai)
 {
 	bgp_attr_unintern(&bai->attr);
+<<<<<<< HEAD
+=======
+	bgp_labels_unintern(&bai->labels);
+	if (bai->peer)
+		bai->peer->stat_pfx_adj_rib_in--;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	BGP_ADJ_IN_DEL(*dest, bai);
 	*dest = bgp_dest_unlock_node(*dest);
 	peer_unlock(bai->peer); /* adj_in peer reference */

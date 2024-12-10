@@ -86,7 +86,10 @@ struct zebra_ptm_cb ptm_cb;
 
 static int zebra_ptm_socket_init(void);
 void zebra_ptm_sock_read(struct event *thread);
+<<<<<<< HEAD
 static void zebra_ptm_install_commands(void);
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 static int zebra_ptm_handle_msg_cb(void *arg, void *in_ctxt);
 void zebra_bfd_peer_replay_req(void);
 void zebra_ptm_send_status_req(void);
@@ -115,7 +118,10 @@ void zebra_ptm_init(void)
 	}
 
 	ptm_cb.pid = getpid();
+<<<<<<< HEAD
 	zebra_ptm_install_commands();
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	snprintf(buf, sizeof(buf), "%s", FRR_PTM_NAME);
 	ptm_hdl = ptm_lib_register(buf, NULL, zebra_ptm_handle_msg_cb,
@@ -240,10 +246,14 @@ void zebra_ptm_connect(struct event *t)
 	}
 }
 
+<<<<<<< HEAD
 DEFUN (zebra_ptm_enable,
        zebra_ptm_enable_cmd,
        "ptm-enable",
        "Enable neighbor check with specified topology\n")
+=======
+void zebra_global_ptm_enable(void)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 {
 	struct vrf *vrf;
 	struct interface *ifp;
@@ -266,6 +276,7 @@ DEFUN (zebra_ptm_enable,
 			}
 
 	zebra_ptm_connect(NULL);
+<<<<<<< HEAD
 
 	return CMD_SUCCESS;
 }
@@ -287,6 +298,18 @@ DEFUN (zebra_ptm_enable_if,
        "Enable neighbor check with specified topology\n")
 {
 	VTY_DECLVAR_CONTEXT(interface, ifp);
+=======
+}
+
+void zebra_global_ptm_disable(void)
+{
+	ptm_cb.ptm_enable = ZEBRA_IF_PTM_ENABLE_OFF;
+	zebra_ptm_reset_status(1);
+}
+
+void zebra_if_ptm_enable(struct interface *ifp)
+{
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	struct zebra_if *if_data;
 	int old_ptm_enable;
 	int send_linkdown = 0;
@@ -295,7 +318,11 @@ DEFUN (zebra_ptm_enable_if,
 	if_data->ptm_enable = ZEBRA_IF_PTM_ENABLE_UNSPEC;
 
 	if (ifp->ifindex == IFINDEX_INTERNAL) {
+<<<<<<< HEAD
 		return CMD_SUCCESS;
+=======
+		return;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	}
 
 	old_ptm_enable = ifp->ptm_enable;
@@ -312,6 +339,7 @@ DEFUN (zebra_ptm_enable_if,
 			if_down(ifp);
 		}
 	}
+<<<<<<< HEAD
 
 	return CMD_SUCCESS;
 }
@@ -325,6 +353,14 @@ DEFUN (no_zebra_ptm_enable_if,
 	VTY_DECLVAR_CONTEXT(interface, ifp);
 	int send_linkup = 0;
 	struct zebra_if *if_data;
+=======
+}
+
+void zebra_if_ptm_disable(struct interface *ifp)
+{
+	struct zebra_if *if_data;
+	int send_linkup = 0;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	if ((ifp->ifindex != IFINDEX_INTERNAL) && (ifp->ptm_enable)) {
 		if (!if_is_operative(ifp))
@@ -341,6 +377,7 @@ DEFUN (no_zebra_ptm_enable_if,
 
 	if_data = ifp->info;
 	if_data->ptm_enable = ZEBRA_IF_PTM_ENABLE_OFF;
+<<<<<<< HEAD
 
 	return CMD_SUCCESS;
 }
@@ -352,6 +389,8 @@ void zebra_ptm_write(struct vty *vty)
 		vty_out(vty, "ptm-enable\n");
 
 	return;
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 }
 
 static int zebra_ptm_socket_init(void)
@@ -394,6 +433,7 @@ static int zebra_ptm_socket_init(void)
 	return sock;
 }
 
+<<<<<<< HEAD
 static void zebra_ptm_install_commands(void)
 {
 	install_element(CONFIG_NODE, &zebra_ptm_enable_cmd);
@@ -402,6 +442,8 @@ static void zebra_ptm_install_commands(void)
 	install_element(INTERFACE_NODE, &no_zebra_ptm_enable_if_cmd);
 }
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 /* BFD session goes down, send message to the protocols. */
 static void if_bfd_session_update(struct interface *ifp, struct prefix *dp,
 				  struct prefix *sp, int status,
@@ -678,7 +720,11 @@ void zebra_ptm_bfd_dst_register(ZAPI_HANDLER_ARGS)
 	uint8_t detect_mul;
 	unsigned int min_rx_timer;
 	unsigned int min_tx_timer;
+<<<<<<< HEAD
 	char if_name[INTERFACE_NAMSIZ];
+=======
+	char if_name[IFNAMSIZ];
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	uint8_t len;
 	void *out_ctxt;
 	char buf[INET6_ADDRSTRLEN];
@@ -841,7 +887,11 @@ void zebra_ptm_bfd_dst_deregister(ZAPI_HANDLER_ARGS)
 	struct prefix src_p;
 	struct prefix dst_p;
 	uint8_t multi_hop;
+<<<<<<< HEAD
 	char if_name[INTERFACE_NAMSIZ];
+=======
+	char if_name[IFNAMSIZ];
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	uint8_t len;
 	char buf[INET6_ADDRSTRLEN];
 	char tmp_buf[64];
@@ -1165,12 +1215,15 @@ void zebra_ptm_if_set_ptm_state(struct interface *ifp,
 		ifp->ptm_enable = zebra_ifp->ptm_enable;
 }
 
+<<<<<<< HEAD
 void zebra_ptm_if_write(struct vty *vty, struct zebra_if *zebra_ifp)
 {
 	if (zebra_ifp->ptm_enable == ZEBRA_IF_PTM_ENABLE_OFF)
 		vty_out(vty, " no ptm-enable\n");
 }
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 #else /* HAVE_BFDD */
 
 /*
@@ -1533,6 +1586,7 @@ void zebra_ptm_show_status(struct vty *vty __attribute__((__unused__)),
 	/* NOTHING */
 }
 
+<<<<<<< HEAD
 void zebra_ptm_write(struct vty *vty __attribute__((__unused__)))
 {
 	/* NOTHING */
@@ -1543,6 +1597,8 @@ void zebra_ptm_if_write(struct vty *vty __attribute__((__unused__)),
 {
 	/* NOTHING */
 }
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 void zebra_ptm_if_set_ptm_state(struct interface *i __attribute__((__unused__)),
 				struct zebra_if *zi __attribute__((__unused__)))
 {

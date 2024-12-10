@@ -46,7 +46,11 @@ def setup_module(mod):
 
     router_list = tgen.routers()
 
+<<<<<<< HEAD
     for i, (rname, router) in enumerate(router_list.items(), 1):
+=======
+    for _, (rname, router) in enumerate(router_list.items(), 1):
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         router.load_config(
             TopoRouter.RD_ZEBRA, os.path.join(CWD, "{}/zebra.conf".format(rname))
         )
@@ -64,29 +68,52 @@ def teardown_module(mod):
 
 expected_1 = {
     "routes": {
+<<<<<<< HEAD
         "172.16.255.31/32": [{"path": "65002"}],
         "172.16.255.32/32": [{"path": ""}],
+=======
+        "172.16.255.30/32": [{"path": ""}],
+        "172.16.255.31/32": [{"path": "65002"}],
+        "172.16.255.32/32": [{"path": "65003"}],
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     }
 }
 
 expected_2 = {
     "routes": {
+<<<<<<< HEAD
         "172.16.255.31/32": [{"path": ""}],
+=======
+        "172.16.255.30/32": [{"path": ""}],
+        "172.16.255.31/32": [{"path": "65002"}],
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         "172.16.255.32/32": [{"path": ""}],
     }
 }
 
 expected_3 = {
     "routes": {
+<<<<<<< HEAD
         "172.16.255.31/32": [{"path": "65003"}],
         "172.16.255.32/32": [{"path": "65003"}],
+=======
+        "172.16.255.30/32": [{"path": ""}],
+        "172.16.255.31/32": [{"path": "65002"}],
+        "172.16.255.32/32": [{"path": "65002 65003"}],
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     }
 }
 
 expected_4 = {
     "routes": {
+<<<<<<< HEAD
         "172.16.255.31/32": [{"path": "65002 65003"}],
         "172.16.255.32/32": [{"path": "65002 65003"}],
+=======
+        "172.16.255.30/32": [{"path": ""}],
+        "172.16.255.31/32": [{"path": "65002"}],
+        "172.16.255.32/32": [{"path": "65002"}],
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     }
 }
 
@@ -104,7 +131,11 @@ def test_bgp_set_aspath_exclude():
         pytest.skip(tgen.errors)
 
     test_func = functools.partial(bgp_converge, tgen.gears["r1"], expected_1)
+<<<<<<< HEAD
     _, result = topotest.run_and_expect(test_func, None, count=30, wait=0.5)
+=======
+    _, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
     assert result is None, "Failed overriding incoming AS-PATH with route-map"
 
@@ -117,6 +148,10 @@ def test_bgp_set_aspath_exclude_access_list():
 
     rname = "r1"
     r1 = tgen.gears[rname]
+<<<<<<< HEAD
+=======
+    # tgen.mininet_cli()
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
     r1.vtysh_cmd(
         """
@@ -126,6 +161,7 @@ conf
   set as-path exclude as-path-access-list FIRST
     """
     )
+<<<<<<< HEAD
 
     test_func = functools.partial(bgp_converge, tgen.gears["r1"], expected_2)
     _, result = topotest.run_and_expect(test_func, None, count=30, wait=0.5)
@@ -135,16 +171,39 @@ conf
         """
 conf
  bgp as-path access-list SECOND permit 2
+=======
+    # tgen.mininet_cli()
+    r1.vtysh_cmd(
+        """
+clear bgp *
+    """
+    )
+
+    test_func = functools.partial(bgp_converge, tgen.gears["r1"], expected_2)
+    _, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
+
+    assert result is None, "Failed change of exclude rule in route map"
+    r1.vtysh_cmd(
+        """
+conf
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
  route-map r2 permit 6
   set as-path exclude as-path-access-list SECOND
     """
     )
 
     # tgen.mininet_cli()
+<<<<<<< HEAD
     test_func = functools.partial(bgp_converge, tgen.gears["r1"], expected_3)
     _, result = topotest.run_and_expect(test_func, None, count=30, wait=0.5)
 
     assert result is None, "Failed overriding incoming AS-PATH with regex 2 route-map"
+=======
+    test_func = functools.partial(bgp_converge, tgen.gears["r1"], expected_1)
+    _, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
+
+    assert result is None, "Failed reverting exclude rule in route map"
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 
 def test_no_bgp_set_aspath_exclude_access_list():
@@ -159,6 +218,7 @@ def test_no_bgp_set_aspath_exclude_access_list():
     r1.vtysh_cmd(
         """
 conf
+<<<<<<< HEAD
  no bgp as-path access-list SECOND permit 2
     """
     )
@@ -168,6 +228,36 @@ conf
 
     assert result is None, "Failed removing bgp as-path access-list"
 
+=======
+ no bgp as-path access-list SECOND permit 2$
+    """
+    )
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
+    r1.vtysh_cmd(
+        """
+clear bgp *
+    """
+    )
+
+<<<<<<< HEAD
+    test_func = functools.partial(bgp_converge, tgen.gears["r1"], expected_4)
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=0.5)
+
+    assert result is None, "Failed to renegotiate with peers"
+=======
+    test_func = functools.partial(bgp_converge, tgen.gears["r1"], expected_3)
+    _, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
+
+    assert result is None, "Failed to removing current accesslist"
+
+    # tgen.mininet_cli()
+    r1.vtysh_cmd(
+        """
+conf
+ bgp as-path access-list SECOND permit 3$
+    """
+    )
     r1.vtysh_cmd(
         """
 clear bgp *
@@ -175,9 +265,48 @@ clear bgp *
     )
 
     test_func = functools.partial(bgp_converge, tgen.gears["r1"], expected_4)
-    _, result = topotest.run_and_expect(test_func, None, count=30, wait=0.5)
+    _, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
 
-    assert result is None, "Failed to renegotiate with peers"
+    assert result is None, "Failed to renegotiate with peers 2"
+
+    r1.vtysh_cmd(
+        """
+conf
+ route-map r2 permit 6
+  set as-path exclude 65555
+    """
+    )
+
+    r1.vtysh_cmd(
+        """
+clear bgp *
+    """
+    )
+
+    test_func = functools.partial(bgp_converge, tgen.gears["r1"], expected_3)
+    _, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
+
+    assert result is None, "Failed to renegotiate with peers 2"
+
+    r1.vtysh_cmd(
+        """
+conf
+ route-map r2 permit 6
+  set as-path exclude as-path-access-list NON-EXISTING
+    """
+    )
+
+    r1.vtysh_cmd(
+        """
+clear bgp *
+    """
+    )
+
+    test_func = functools.partial(bgp_converge, tgen.gears["r1"], expected_3)
+    _, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
+
+    assert result is None, "Failed to renegotiate with peers 2"
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 
 if __name__ == "__main__":

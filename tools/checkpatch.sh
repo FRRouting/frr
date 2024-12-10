@@ -3,7 +3,12 @@
 usage="./checkpatch.sh <patch> <tree>"
 patch=$1
 tree=$2
+<<<<<<< HEAD
 checkpatch="$tree/tools/checkpatch.pl --no-tree -f"
+=======
+scriptdir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd)"
+checkpatch="$scriptdir/checkpatch.pl --no-tree -f"
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 ignore="ldpd\|babeld"
 cwd=${PWD##*/}
 dirty=0

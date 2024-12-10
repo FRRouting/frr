@@ -9,6 +9,10 @@
 #include <unistd.h>
 #include <zebra.h>
 
+<<<<<<< HEAD
+=======
+#include "debug.h"
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 #include "filter.h"
 #include "frr_pthread.h"
 #include "libfrr.h"
@@ -79,6 +83,10 @@ static void static_startup(void)
 	// static struct option_chain *oc;
 
 	cmd_init(1);
+<<<<<<< HEAD
+=======
+	debug_init();
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	zlog_aux_init("NONE: ", LOG_DEBUG);
 	zprivs_preinit(&static_privs);
@@ -109,8 +117,12 @@ static void static_startup(void)
 	static_debug_init();
 
 	master = event_master_create(NULL);
+<<<<<<< HEAD
 	nb_init(master, staticd_yang_modules, array_size(staticd_yang_modules),
 		false);
+=======
+	nb_init(master, staticd_yang_modules, array_size(staticd_yang_modules), false, false);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	static_zebra_init();
 	vty_init(master, true);
@@ -119,8 +131,15 @@ static void static_startup(void)
 
 	hook_register(routing_conf_event,
 		      routing_control_plane_protocols_name_validate);
+<<<<<<< HEAD
 
 	routing_control_plane_protocols_register_vrf_dependency();
+=======
+	hook_register(routing_create,
+		      routing_control_plane_protocols_staticd_create);
+	hook_register(routing_destroy,
+		      routing_control_plane_protocols_staticd_destroy);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	// Add a route
 	vty = vty_new();

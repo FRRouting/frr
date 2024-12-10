@@ -1,5 +1,9 @@
 # SPDX-License-Identifier: GPL-2.0
 # clang-format configuration file. Intended for clang-format >= 11.
+<<<<<<< HEAD
+=======
+# If the version is changed also check that CI tool frrbot is updated.
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 #
 # For more information, see:
 #
@@ -77,10 +81,18 @@ FixNamespaceComments: false
 ForEachMacros:
   # lib: outliers:
   - 'FOR_ALL_INTERFACES'
+<<<<<<< HEAD
   - 'FOR_ALL_INTERFACES_ADDRESSES'
   # libyang outliers:
   - 'LY_FOR_KEYS'
   - 'LY_LIST_FOR'
+=======
+  # libyang outliers:
+  - 'LY_FOR_KEYS'
+  - 'LY_LIST_FOR'
+  - 'LYD_LIST_FOR_INST'
+  - 'LYD_LIST_FOR_INST_SAFE'
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
   - 'LY_TREE_FOR'
   - 'LY_TREE_DFS_BEGIN'
   - 'LYD_TREE_DFS_BEGIN'
@@ -103,6 +115,10 @@ ForEachMacros:
   - 'FOREACH_AFI_SAFI'
   - 'FOREACH_AFI_SAFI_NSF'
   - 'FOREACH_BE_APPLY_BATCH_IN_LIST'
+<<<<<<< HEAD
+=======
+  - 'FOREACH_BE_CLIENT_BITS'
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
   - 'FOREACH_BE_TXN_BATCH_IN_LIST'
   - 'FOREACH_BE_TXN_IN_LIST'
   - 'FOREACH_CMT_REC'
@@ -204,4 +220,28 @@ SpacesInSquareBrackets: false
 Standard: Cpp03
 TabWidth: 8
 UseTab: Always
+<<<<<<< HEAD
+=======
+WhitespaceSensitiveMacros:
+  - "DEFPY"
+  - "DEFPY_HIDDEN"
+  - "DEFPY_NOSH"
+  - "DEFPY_YANG"
+  - "DEFPY_YANG_HIDDEN"
+  - "DEFPY_YANG_NOSH"
+  - "DEFSH"
+  - "DEFSH_HIDDEN"
+  - "DEFUN"
+  - "DEFUN_HIDDEN"
+  - "DEFUN_NOSH"
+  - "DEFUN_YANG"
+  - "DEFUN_YANG_HIDDEN"
+  - "DEFUN_YANG_NOSH"
+  - "DEFUNSH"
+  - "DEFUNSH_HIDDEN"
+  - "ALIAS"
+  - "ALIAS_HIDDEN"
+  - "ALIAS_YANG"
+  - "ALIAS_DEPRECATED"
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 ...

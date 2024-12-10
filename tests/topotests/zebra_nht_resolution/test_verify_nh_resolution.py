@@ -16,7 +16,10 @@ import sys
 import pytest
 
 from lib.common_config import (
+<<<<<<< HEAD
     start_topology,
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     verify_rib,
     verify_ip_nht,
     step,
@@ -24,7 +27,10 @@ from lib.common_config import (
 )
 
 # pylint: disable=C0413
+<<<<<<< HEAD
 from lib import topotest
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
 
@@ -33,30 +39,55 @@ sys.path.append(os.path.join(CWD, "../"))
 
 pytestmark = [pytest.mark.sharpd]
 
+<<<<<<< HEAD
 #GLOBAL VARIABLES
 NH1 = "2.2.2.32"
 
+=======
+# GLOBAL VARIABLES
+NH1 = "2.2.2.32"
+
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 def build_topo(tgen):
     tgen.add_router("r1")
 
     switch = tgen.add_switch("sw1")
     switch.add_link(tgen.gears["r1"])
 
+<<<<<<< HEAD
+=======
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 def setup_module(mod):
     tgen = Topogen(build_topo, mod.__name__)
     tgen.start_topology()
     router_list = tgen.routers()
     for rname, router in tgen.routers().items():
+<<<<<<< HEAD
         router.load_config(TopoRouter.RD_ZEBRA, os.path.join(CWD, "{}/zebra.conf".format(rname)))
+=======
+        router.load_config(
+            TopoRouter.RD_ZEBRA, os.path.join(CWD, "{}/zebra.conf".format(rname))
+        )
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         router.load_config(
             TopoRouter.RD_SHARP, os.path.join(CWD, "{}/sharpd.conf".format(rname))
         )
     tgen.start_router()
 
+<<<<<<< HEAD
+=======
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 def teardown_module(_mod):
     tgen = get_topogen()
     tgen.stop_topology()
 
+<<<<<<< HEAD
+=======
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 def test_verify_zebra_nh_resolution(request):
     tgen = get_topogen()
     tc_name = request.node.name
@@ -67,6 +98,7 @@ def test_verify_zebra_nh_resolution(request):
 
     step("Configure static route")
     input_dict_1 = {
+<<<<<<< HEAD
             "r1": {
                 "static_routes": [
                     {"network": "2.2.2.0/24", "next_hop": "r1-eth0"}
@@ -92,6 +124,20 @@ def test_verify_zebra_nh_resolution(request):
     result = verify_rib(tgen, "ipv4", dut, input_dict_2)
     assert result is True, "Testcase {} :Failed \n Error: {}".format(
             tc_name, result)
+=======
+        "r1": {"static_routes": [{"network": "2.2.2.0/24", "next_hop": "r1-eth0"}]}
+    }
+
+    result = create_static_routes(tgen, input_dict_1)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
+
+    step("Verify static routes in RIB of R1")
+    input_dict_2 = {"r1": {"static_routes": [{"network": "2.2.2.0/24"}]}}
+
+    dut = "r1"
+    result = verify_rib(tgen, "ipv4", dut, input_dict_2)
+    assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
     step("Set the connected flag on the NH tracking entry")
     r1.vtysh_cmd("sharp watch nexthop 2.2.2.32 connected")
@@ -108,8 +154,12 @@ def test_verify_zebra_nh_resolution(request):
     }
     result = verify_ip_nht(tgen, input_dict_nh)
     assert result is True, "Testcase {} : Failed \n"
+<<<<<<< HEAD
     "Error: Nexthop is missing in RIB".format(
         tc_name, result)
+=======
+    "Error: Nexthop is missing in RIB".format(tc_name, result)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
     step("Add a .32/32 route with the NH as itself")
     r1.vtysh_cmd("sharp install routes 2.2.2.32 nexthop 2.2.2.32 1")
@@ -126,11 +176,20 @@ def test_verify_zebra_nh_resolution(request):
     }
     result = verify_ip_nht(tgen, input_dict_nh)
     assert result is True, "Testcase {} : Failed \n"
+<<<<<<< HEAD
     "Error: Nexthop became unresolved".format(
         tc_name, result)
 
     step("Add a .31/32 route with the NH as 2.2.2.32"
          "to verify the NH Resolution behaviour")
+=======
+    "Error: Nexthop became unresolved".format(tc_name, result)
+
+    step(
+        "Add a .31/32 route with the NH as 2.2.2.32"
+        "to verify the NH Resolution behaviour"
+    )
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     r1.vtysh_cmd("sharp install routes 2.2.2.31 nexthop 2.2.2.32 1")
 
     step("Verify that NH 2.2.2.2/32 doesn't become unresolved")
@@ -145,8 +204,13 @@ def test_verify_zebra_nh_resolution(request):
     }
     result = verify_ip_nht(tgen, input_dict_nh)
     assert result is True, "Testcase {} : Failed \n"
+<<<<<<< HEAD
     "Error: Nexthop became unresolved".format(
         tc_name, result)
+=======
+    "Error: Nexthop became unresolved".format(tc_name, result)
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 if __name__ == "__main__":
     args = ["-s"] + sys.argv[1:]

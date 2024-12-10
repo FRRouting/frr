@@ -138,7 +138,11 @@ struct pbr_rule {
 	struct pbr_filter filter;
 	struct pbr_action action;
 
+<<<<<<< HEAD
 	char ifname[INTERFACE_NAMSIZ + 1];
+=======
+	char ifname[IFNAMSIZ + 1];
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 };
 
 /* TCP flags value shared

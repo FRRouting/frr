@@ -308,6 +308,7 @@ static struct log_ref ferr_lib_err[] = {
 		.suggestion = "Check if the FRR libyang plugins were installed correctly in the system",
 	},
 	{
+<<<<<<< HEAD
 		.code = EC_LIB_CONFD_INIT,
 		.title = "ConfD initialization error",
 		.description = "Upon startup FRR failed to properly initialize and startup the ConfD northbound plugin",
@@ -326,6 +327,8 @@ static struct log_ref ferr_lib_err[] = {
 		.suggestion = "Open an Issue with all relevant log files and restart FRR"
 	},
 	{
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		.code = EC_LIB_SYSREPO_INIT,
 		.title = "Sysrepo initialization error",
 		.description = "Upon startup FRR failed to properly initialize and startup the Sysrepo northbound plugin",

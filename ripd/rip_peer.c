@@ -12,6 +12,10 @@
 #include "frrevent.h"
 #include "memory.h"
 #include "table.h"
+<<<<<<< HEAD
+=======
+#include "frrdistance.h"
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 #include "ripd/ripd.h"
 #include "ripd/rip_bfd.h"

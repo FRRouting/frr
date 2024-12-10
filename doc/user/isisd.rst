@@ -22,8 +22,12 @@ interface information from *zebra* in order to function. Therefore *zebra* must
 be running before invoking *isisd*. Also, if *zebra* is restarted then *isisd*
 must be too.
 
+<<<<<<< HEAD
 Like other daemons, *isisd* configuration is done in :abbr:`ISIS` specific
 configuration file :file:`isisd.conf`.
+=======
+.. include:: config-include.rst
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 .. _isis-router:
 
@@ -124,7 +128,11 @@ ISIS Timer
    Set LSP refresh interval in seconds, globally, for an area (level-1) or a
    domain (level-2).
 
+<<<<<<< HEAD
 .. clicmd:: max-lsp-lifetime [level-1 | level-2] (360-65535)
+=======
+.. clicmd:: max-lsp-lifetime [level-1 | level-2] (350-65535)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
    Set LSP maximum LSP lifetime in seconds, globally, for an area (level-1) or
    a domain (level-2).
@@ -225,17 +233,29 @@ ISIS interface
 
    Add padding to IS-IS hello packets during adjacency formation only.
 
+<<<<<<< HEAD
 .. clicmd:: isis hello-interval (1-600) [level-1 | level-2]
+=======
+.. clicmd:: isis hello-interval [level-1 | level-2] (1-600)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
    Set Hello interval in seconds globally, for an area (level-1) or a domain
    (level-2).
 
+<<<<<<< HEAD
 .. clicmd:: isis hello-multiplier (2-100) [level-1 | level-2]
+=======
+.. clicmd:: isis hello-multiplier [level-1 | level-2] (2-100)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
    Set multiplier for Hello holding time globally, for an area (level-1) or a
    domain (level-2).
 
+<<<<<<< HEAD
 .. clicmd:: isis metric [(0-255) | (0-16777215)] [level-1 | level-2]
+=======
+.. clicmd:: isis metric [level-1 | level-2] [(0-255) | (0-16777215)]
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
    Set default metric value globally, for an area (level-1) or a domain
    (level-2).  Max value depend if metric support narrow or wide value (see
@@ -302,7 +322,11 @@ Showing ISIS information
 
    Show summary information about ISIS.
 
+<<<<<<< HEAD
 .. clicmd:: show isis hostname
+=======
+.. clicmd:: show isis [vrf <NAME|all>] hostname
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
    Show information about ISIS node.
 
@@ -321,17 +345,29 @@ Showing ISIS information
    Show the ISIS database globally, for a specific LSP id without or with
    details.
 
+<<<<<<< HEAD
 .. clicmd:: show isis topology [level-1|level-2] [algorithm (128-255)]
+=======
+.. clicmd:: show isis [vrf <NAME|all>] topology [level-1|level-2] [algorithm [(128-255)]]
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
    Show topology IS-IS paths to Intermediate Systems, globally, in area
    (level-1) or domain (level-2).
 
+<<<<<<< HEAD
 .. clicmd:: show isis route [level-1|level-2] [prefix-sid|backup] [algorithm (128-255)]
+=======
+.. clicmd:: show isis [vrf <NAME|all>] route [level-1|level-2] [prefix-sid] [backup] [algorithm [(128-255)]]
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
    Show the ISIS routing table, as determined by the most recent SPF
    calculation.
 
+<<<<<<< HEAD
 .. clicmd:: show isis fast-reroute summary [level-1|level-2]
+=======
+.. clicmd:: show isis [vrf <NAME|all>] fast-reroute summary [level-1|level-2]
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
    Show information about the number of prefixes having LFA protection,
    and network-wide LFA coverage.
@@ -436,7 +472,11 @@ Known limitations:
    clear the Node flag that is set by default for Prefix-SIDs associated to
    loopback addresses. This option is necessary to configure Anycast-SIDs.
 
+<<<<<<< HEAD
 .. clicmd:: show isis segment-routing node [algorithm (128-255)]
+=======
+.. clicmd:: show isis segment-routing node [algorithm [(128-255)]]
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
    Show detailed information about all learned Segment Routing Nodes.
 
@@ -463,10 +503,21 @@ To do so, it defines a set of Flex-Algo Definitions (FAD) which
 have the following characteristics:
 
 - a numeric identifier (ID) between 128 and 255 inclusive
+<<<<<<< HEAD
 - a set of constraints (basically, include or exclude a certain given set of
 	links, designated by a admin-group)
 - the calculation type (only the `Shortest-Path-First` is currently supported)
 - the metric type (only the IGP inherited metric type is currently supported)
+=======
+
+- a set of constraints (basically, include or exclude a certain given set of
+	links, designated by a admin-group)
+
+- the calculation type (only the `Shortest-Path-First` is currently supported)
+
+- the metric type (only the IGP inherited metric type is currently supported)
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 - some additional flags (not supported for the moment).
 
 A subset of routers advertises the Flex-Algo Definitions (FAD) to the other
@@ -476,6 +527,7 @@ rules:
 
 - If a locally configured FAD is not advertised to the area, the router does not
 	participate in the particular flex algorithm.
+<<<<<<< HEAD
 - If a given flex algorithm is running, the participation in this particular
 	flex algorithm stops when its advertisements are over.
 - A router includes its own FAD in the election process if and only if it is
@@ -483,6 +535,20 @@ rules:
 - If only one router advertises the FAD, the FAD is elected.
 - If several FADs are advertised with different priorities, the one with the
 	highest priority value is selected.
+=======
+
+- If a given flex algorithm is running, the participation in this particular
+	flex algorithm stops when its advertisements are over.
+
+- A router includes its own FAD in the election process if and only if it is
+	advertised to the other routers.
+
+- If only one router advertises the FAD, the FAD is elected.
+
+- If several FADs are advertised with different priorities, the one with the
+	highest priority value is selected.
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 - If there are multiple advertisements of the FAD with the same highest
 	priority, the FAD of the router with the highest IS-IS system-ID is
 	selected.
@@ -498,15 +564,22 @@ which flex algorithm they must use for a given packet.
 The following commands configure Flex-Algo at the 'router isis' configuration
 level. Segment-Routing prefixes must be configured for the Flex-Algo.
 
+<<<<<<< HEAD
 .. clicmd:: flexible-algorithm (128-255)
+=======
+.. clicmd:: flex-algo (128-255)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
    Add a Flex-Algo Definition (FAD) and enter the FAD configuration
    level. The algorithm ID value is in the range of 128 to 255 inclusive.
 
+<<<<<<< HEAD
 .. clicmd:: no flexible-algorithm (128-255)
 
    Unconfigure a Flex-Algo Definition.
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 .. clicmd:: affinity-map NAME bit-position (0-255)
 
    Add the specified 'affinity-map'. Affinity-map definitions are used in
@@ -518,7 +591,11 @@ level. Segment-Routing prefixes must be configured for the Flex-Algo.
    admin-group 'bit-position' is set 1, else it is set to 0.
 
 The following commands configure Flex-Algo at the 'router isis' and
+<<<<<<< HEAD
 'flexible-algorithm (128-255)' configuration level.
+=======
+'flex-algo (128-255)' configuration level.
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 .. clicmd:: advertise-definition
 
@@ -635,26 +712,35 @@ Debugging ISIS
 
    IS-IS Adjacency related packets.
 
+<<<<<<< HEAD
 .. clicmd:: debug isis checksum-errors
 
    IS-IS LSP checksum errors.
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 .. clicmd:: debug isis events
 
    IS-IS Events.
 
+<<<<<<< HEAD
 .. clicmd:: debug isis local-updates
 
    IS-IS local update packets.
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 .. clicmd:: debug isis packet-dump
 
    IS-IS packet dump.
 
+<<<<<<< HEAD
 .. clicmd:: debug isis protocol-errors
 
    IS-IS LSP protocol errors.
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 .. clicmd:: debug isis route-events
 
    IS-IS Route related events.
@@ -664,11 +750,16 @@ Debugging ISIS
    IS-IS CSNP/PSNP packets.
 
 .. clicmd:: debug isis spf-events
+<<<<<<< HEAD
 .. clicmd:: debug isis spf-statistics
 .. clicmd:: debug isis spf-triggers
 
    IS-IS Shortest Path First Events, Timing and Statistic Data and triggering
    events.
+=======
+
+   IS-IS Shortest Path First Events.
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 .. clicmd:: debug isis update-packets
 
@@ -847,7 +938,11 @@ A simple vrf example:
 
    !
    interface eth0 vrf RED
+<<<<<<< HEAD
     ip router isis FOO vrf RED
+=======
+    ip router isis FOO
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     isis network point-to-point
     isis circuit-type level-2-only
    !

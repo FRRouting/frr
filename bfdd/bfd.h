@@ -20,17 +20,84 @@
 #include "lib/queue.h"
 #include "lib/vrf.h"
 
+<<<<<<< HEAD
 #include "bfdctl.h"
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 #ifdef BFD_DEBUG
 #define BFDD_JSON_CONV_OPTIONS (JSON_C_TO_STRING_PRETTY)
 #else
 #define BFDD_JSON_CONV_OPTIONS (0)
 #endif
 
+<<<<<<< HEAD
 DECLARE_MGROUP(BFDD);
 DECLARE_MTYPE(BFDD_CONTROL);
 DECLARE_MTYPE(BFDD_NOTIFICATION);
+=======
+#ifndef MAXNAMELEN
+#define MAXNAMELEN 32
+#endif
+
+#define BPC_DEF_DETECTMULTIPLIER     3
+#define BPC_DEF_RECEIVEINTERVAL	     300 /* milliseconds */
+#define BPC_DEF_TRANSMITINTERVAL     300 /* milliseconds */
+#define BPC_DEF_ECHORECEIVEINTERVAL  50	 /* milliseconds */
+#define BPC_DEF_ECHOTRANSMITINTERVAL 50	 /* milliseconds */
+
+DECLARE_MGROUP(BFDD);
+DECLARE_MTYPE(BFDD_CLIENT);
+DECLARE_MTYPE(BFDD_CLIENT_NOTIFICATION);
+
+struct sockaddr_any {
+	union {
+		struct sockaddr_in sa_sin;
+		struct sockaddr_in6 sa_sin6;
+	};
+};
+
+struct bfd_peer_cfg {
+	bool bpc_mhop;
+	bool bpc_ipv4;
+	struct sockaddr_any bpc_peer;
+	struct sockaddr_any bpc_local;
+
+	bool bpc_has_localif;
+	char bpc_localif[MAXNAMELEN + 1];
+
+	bool bpc_has_vrfname;
+	char bpc_vrfname[MAXNAMELEN + 1];
+
+	bool bpc_has_detectmultiplier;
+	uint8_t bpc_detectmultiplier;
+
+	bool bpc_has_recvinterval;
+	uint64_t bpc_recvinterval;
+
+	bool bpc_has_txinterval;
+	uint64_t bpc_txinterval;
+
+	bool bpc_has_echorecvinterval;
+	uint64_t bpc_echorecvinterval;
+
+	bool bpc_has_echotxinterval;
+	uint64_t bpc_echotxinterval;
+
+	bool bpc_has_minimum_ttl;
+	uint8_t bpc_minimum_ttl;
+
+	bool bpc_echo;
+	bool bpc_createonly;
+	bool bpc_shutdown;
+
+	bool bpc_cbit;
+	bool bpc_passive;
+
+	bool bpc_has_profile;
+	char bpc_profile[64];
+};
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 /* bfd Authentication Type. */
 #define BFD_AUTH_NULL 0
@@ -95,22 +162,38 @@ struct bfd_echo_pkt {
 /* Macros for manipulating control packets */
 #define BFD_VERMASK 0x07
 #define BFD_DIAGMASK 0x1F
+<<<<<<< HEAD
 #define BFD_GETVER(diag) ((diag >> 5) & BFD_VERMASK)
 #define BFD_SETVER(diag, val) ((diag) |= (val & BFD_VERMASK) << 5)
+=======
+#define BFD_GETVER(diag) (CHECK_FLAG((diag >> 5), BFD_VERMASK))
+#define BFD_SETVER(diag, val)                                                  \
+	SET_FLAG((diag), CHECK_FLAG(val, BFD_VERMASK) << 5)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 #define BFD_VERSION 1
 #define BFD_PBIT 0x20
 #define BFD_FBIT 0x10
 #define BFD_CBIT 0x08
 #define BFD_ABIT 0x04
 #define BFD_DEMANDBIT 0x02
+<<<<<<< HEAD
 #define BFD_SETDEMANDBIT(flags, val)                                           \
 	{                                                                      \
 		if ((val))                                                     \
 			flags |= BFD_DEMANDBIT;                                \
+=======
+#define BFD_MBIT	      0x01
+#define BFD_GETMBIT(flags)    (CHECK_FLAG(flags, BFD_MBIT))
+#define BFD_SETDEMANDBIT(flags, val)                                           \
+	{                                                                      \
+		if ((val))                                                     \
+			SET_FLAG(flags, BFD_DEMANDBIT);                        \
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	}
 #define BFD_SETPBIT(flags, val)                                                \
 	{                                                                      \
 		if ((val))                                                     \
+<<<<<<< HEAD
 			flags |= BFD_PBIT;                                     \
 	}
 #define BFD_GETPBIT(flags) (flags & BFD_PBIT)
@@ -132,6 +215,29 @@ struct bfd_echo_pkt {
 			flags |= val;                                          \
 	}
 #define BFD_GETCBIT(flags) (flags & BFD_FBIT)
+=======
+			SET_FLAG(flags, BFD_PBIT);                             \
+	}
+#define BFD_GETPBIT(flags) (CHECK_FLAG(flags, BFD_PBIT))
+#define BFD_SETFBIT(flags, val)                                                \
+	{                                                                      \
+		if ((val))                                                     \
+			SET_FLAG(flags, BFD_FBIT);                             \
+	}
+#define BFD_GETFBIT(flags) (CHECK_FLAG(flags, BFD_FBIT))
+#define BFD_SETSTATE(flags, val)                                               \
+	{                                                                      \
+		if ((val))                                                     \
+			SET_FLAG(flags, (CHECK_FLAG(val, 0x3) << 6));          \
+	}
+#define BFD_GETSTATE(flags) (CHECK_FLAG((flags >> 6), 0x3))
+#define BFD_SETCBIT(flags, val)                                                \
+	{                                                                      \
+		if ((val))                                                     \
+			SET_FLAG(flags, val);                                  \
+	}
+#define BFD_GETCBIT(flags) (CHECK_FLAG(flags, BFD_CBIT))
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 #define BFD_ECHO_VERSION 1
 #define BFD_ECHO_PKT_LEN sizeof(struct bfd_echo_pkt)
 
@@ -193,7 +299,11 @@ struct bfd_key {
 	uint16_t mhop;
 	struct in6_addr peer;
 	struct in6_addr local;
+<<<<<<< HEAD
 	char ifname[INTERFACE_NAMSIZ];
+=======
+	char ifname[IFNAMSIZ];
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	char vrfname[VRF_NAMSIZ];
 } __attribute__((packed));
 
@@ -241,9 +351,12 @@ struct bfd_profile {
 /** Profile list type. */
 TAILQ_HEAD(bfdproflist, bfd_profile);
 
+<<<<<<< HEAD
 /* bfd_session shortcut label forwarding. */
 struct peer_label;
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 struct bfd_config_timers {
 	uint32_t desired_min_tx;
 	uint32_t required_min_rx;
@@ -321,6 +434,7 @@ struct bfd_session {
 	uint64_t rtt[BFD_RTT_SAMPLE]; /* RRT in usec for echo to be looped */
 };
 
+<<<<<<< HEAD
 struct peer_label {
 	TAILQ_ENTRY(peer_label) pl_entry;
 
@@ -329,6 +443,8 @@ struct peer_label {
 };
 TAILQ_HEAD(pllist, peer_label);
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 struct bfd_diag_str_list {
 	const char *str;
 	int type;
@@ -380,6 +496,7 @@ TAILQ_HEAD(obslist, bfd_session_observer);
 #define BFD_DEF_ECHO_PORT 3785
 #define BFD_DEF_MHOP_DEST_PORT 4784
 
+<<<<<<< HEAD
 /*
  * control.c
  *
@@ -438,6 +555,8 @@ int control_notify(struct bfd_session *bs, uint8_t notify_state);
 int control_notify_config(const char *op, struct bfd_session *bs);
 void control_accept(struct event *t);
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 /*
  * bfdd.c
@@ -463,9 +582,12 @@ TAILQ_HEAD(dplane_queue, bfd_dplane_ctx);
 struct bfd_global {
 	int bg_csock;
 	struct event *bg_csockev;
+<<<<<<< HEAD
 	struct bcslist bg_bcslist;
 
 	struct pllist bg_pllist;
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	struct obslist bg_obslist;
 
@@ -512,6 +634,7 @@ void socket_close(int *s);
 
 
 /*
+<<<<<<< HEAD
  * config.c
  *
  * Contains the code related with loading/reloading configuration.
@@ -533,6 +656,8 @@ void pl_free(struct peer_label *pl);
 
 
 /*
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
  * logging - alias to zebra log
  */
 #define zlog_fatal(msg, ...)                                                   \
@@ -616,7 +741,10 @@ struct bfd_session *ptm_bfd_sess_find(struct bfd_pkt *cp,
 				      bool is_mhop);
 
 struct bfd_session *bs_peer_find(struct bfd_peer_cfg *bpc);
+<<<<<<< HEAD
 int bfd_session_update_label(struct bfd_session *bs, const char *nlabel);
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 void bfd_set_polling(struct bfd_session *bs);
 void bs_state_handler(struct bfd_session *bs, int nstate);
 void bs_echo_timer_handler(struct bfd_session *bs);
@@ -645,6 +773,11 @@ void bfd_sessions_remove_manual(void);
 void bfd_profiles_remove(void);
 void bfd_rtt_init(struct bfd_session *bfd);
 
+<<<<<<< HEAD
+=======
+extern void bfd_vrf_toggle_echo(struct bfd_vrf_global *bfd_vrf);
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 /**
  * Set the BFD session echo state.
  *
@@ -782,6 +915,10 @@ void bfdd_cli_init(void);
  */
 void bfdd_zclient_init(struct zebra_privs_t *bfdd_priv);
 void bfdd_zclient_stop(void);
+<<<<<<< HEAD
+=======
+void bfdd_zclient_terminate(void);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 void bfdd_zclient_unregister(vrf_id_t vrf_id);
 void bfdd_zclient_register(vrf_id_t vrf_id);
 void bfdd_sessions_enable_vrf(struct vrf *vrf);

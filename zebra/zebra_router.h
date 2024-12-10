@@ -191,10 +191,23 @@ struct zebra_router {
 	enum multicast_mode ipv4_multicast_mode;
 
 	/*
+<<<<<<< HEAD
 	 * Time for when we sweep the rib from old routes
 	 */
 	time_t startup_time;
 	struct event *sweeper;
+=======
+	 * zebra start time and time of sweeping RIB of old routes
+	 */
+	time_t startup_time;
+	time_t rib_sweep_time;
+
+	/* FRR fast/graceful restart info */
+	bool graceful_restart;
+	int gr_cleanup_time;
+#define ZEBRA_GR_DEFAULT_RIB_SWEEP_TIME 500
+	struct event *t_rib_sweep;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	/*
 	 * The hash of nexthop groups associated with this router
@@ -209,6 +222,11 @@ struct zebra_router {
 	bool notify_on_ack;
 	bool v6_with_v4_nexthop;
 
+<<<<<<< HEAD
+=======
+	bool v6_rr_semantics;
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	/*
 	 * If the asic is notifying us about successful nexthop
 	 * allocation/control.  Some developers have made their
@@ -231,6 +249,11 @@ struct zebra_router {
 	bool allow_delete;
 
 	uint8_t protodown_r_bit;
+<<<<<<< HEAD
+=======
+
+	uint64_t nexthop_weight_scale_value;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 };
 
 #define GRACEFUL_RESTART_TIME 60
@@ -246,6 +269,12 @@ extern void zebra_router_terminate(void);
 extern struct zebra_router_table *zebra_router_find_zrt(struct zebra_vrf *zvrf,
 							uint32_t tableid,
 							afi_t afi, safi_t safi);
+<<<<<<< HEAD
+=======
+extern struct zebra_router_table *
+zebra_router_find_next_zrt(struct zebra_vrf *zvrf, uint32_t tableid, afi_t afi,
+			   safi_t safi);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 extern struct route_table *zebra_router_find_table(struct zebra_vrf *zvrf,
 						   uint32_t tableid, afi_t afi,
 						   safi_t safi);
@@ -316,6 +345,11 @@ static inline uint8_t if_netlink_get_frr_protodown_r_bit(void)
 	return zrouter.protodown_r_bit;
 }
 
+<<<<<<< HEAD
+=======
+extern void zebra_main_router_started(void);
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 /* zebra_northbound.c */
 extern const struct frr_yang_module_info frr_zebra_info;
 

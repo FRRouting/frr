@@ -4,6 +4,10 @@
  */
 
 #include <zebra.h>
+<<<<<<< HEAD
+=======
+#include <string.h>
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 #include "vector.h"
 #include "memory.h"
@@ -23,12 +27,17 @@ vector vector_init(unsigned int size)
 	v->alloced = size;
 	v->active = 0;
 	v->count = 0;
+<<<<<<< HEAD
+=======
+	v->dynamic = true;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	v->index = XCALLOC(MTYPE_VECTOR_INDEX, sizeof(void *) * size);
 	return v;
 }
 
 void vector_free(vector v)
 {
+<<<<<<< HEAD
 	XFREE(MTYPE_VECTOR_INDEX, v->index);
 	XFREE(MTYPE_VECTOR, v);
 }
@@ -62,6 +71,39 @@ void vector_ensure(vector v, unsigned int num)
 
 	if (v->alloced <= num)
 		vector_ensure(v, num);
+=======
+	if (v->alloced)
+		XFREE(MTYPE_VECTOR_INDEX, v->index);
+	if (v->dynamic)
+		XFREE(MTYPE_VECTOR, v);
+}
+
+/* resize vector to a minimum of num
+ * may resize larger to avoid excessive realloc overhead
+ */
+void vector_ensure(vector v, unsigned int num)
+{
+	unsigned int newsz;
+
+	if (v->alloced > num)
+		return;
+
+	newsz = MAX(v->active * 2, num + 1);
+
+	if (!v->alloced && v->index) {
+		/* currently using global variable, not malloc'd memory */
+		void **orig_index = v->index;
+
+		v->index = XMALLOC(MTYPE_VECTOR_INDEX, sizeof(void *) * newsz);
+		memcpy(v->index, orig_index, v->active * sizeof(void *));
+		v->alloced = v->active;
+	} else
+		v->index = XREALLOC(MTYPE_VECTOR_INDEX, v->index,
+				    sizeof(void *) * newsz);
+
+	memset(&v->index[v->alloced], 0, sizeof(void *) * (newsz - v->alloced));
+	v->alloced = newsz;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 }
 
 /* This function only returns next empty slot index.  It dose not mean
@@ -139,7 +181,11 @@ void *vector_lookup_ensure(vector v, unsigned int i)
 /* Unset value at specified index slot. */
 void vector_unset(vector v, unsigned int i)
 {
+<<<<<<< HEAD
 	if (i >= v->alloced)
+=======
+	if (i >= v->active)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		return;
 
 	if (v->index[i])

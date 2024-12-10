@@ -260,6 +260,7 @@ isis_route_info_new(struct prefix *prefix, struct prefix_ipv6 *src_p,
 			       ISIS_CIRCUIT_FLAPPED_AFTER_SPF))
 			SET_FLAG(rinfo->flag, ISIS_ROUTE_FLAG_ZEBRA_RESYNC);
 
+<<<<<<< HEAD
 		/* update neighbor router address */
 		switch (prefix->family) {
 		case AF_INET:
@@ -278,6 +279,8 @@ isis_route_info_new(struct prefix *prefix, struct prefix_ipv6 *src_p,
 				 prefix->family);
 			exit(1);
 		}
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		adjinfo2nexthop(prefix->family, rinfo->nexthops, adj, sr,
 				label_stack);
 		if (!allow_ecmp)

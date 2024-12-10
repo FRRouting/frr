@@ -14,16 +14,28 @@
 
 #if PIM_IPV == 4
 typedef struct in_addr pim_addr;
+<<<<<<< HEAD
+=======
+typedef struct prefix_ipv4 prefix_pim;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 #define PIM_ADDRSTRLEN	INET_ADDRSTRLEN
 #define PIM_AF		AF_INET
 #define PIM_AFI		AFI_IP
 #define PIM_PROTO_REG   IPPROTO_RAW
+<<<<<<< HEAD
+=======
+#define PIM_IANA_AFI	IANA_AFI_IPV4
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 #define PIM_IPADDR	IPADDR_V4
 #define ipaddr_pim	ipaddr_v4
 #define PIM_MAX_BITLEN	IPV4_MAX_BITLEN
 #define PIM_AF_NAME     "ip"
 #define PIM_AF_DBG	"pim"
+<<<<<<< HEAD
+=======
+#define PIM_AF_ROUTER	"pim"
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 #define GM_AF_DBG	"igmp"
 #define PIM_MROUTE_DBG  "mroute"
 #define PIMREG          "pimreg"
@@ -33,6 +45,7 @@ typedef struct in_addr pim_addr;
 #define PIM_ADDR_FUNCNAME(name) ipv4_##name
 
 union pimprefixptr {
+<<<<<<< HEAD
 	prefixtype(pimprefixptr, struct prefix,      p)
 	prefixtype(pimprefixptr, struct prefix_ipv4, p4)
 } TRANSPARENT_UNION;
@@ -40,20 +53,41 @@ union pimprefixptr {
 union pimprefixconstptr {
 	prefixtype(pimprefixconstptr, const struct prefix,      p)
 	prefixtype(pimprefixconstptr, const struct prefix_ipv4, p4)
+=======
+	uniontype(pimprefixptr, struct prefix,      p)
+	uniontype(pimprefixptr, struct prefix_ipv4, p4)
+} TRANSPARENT_UNION;
+
+union pimprefixconstptr {
+	uniontype(pimprefixconstptr, const struct prefix,      p)
+	uniontype(pimprefixconstptr, const struct prefix_ipv4, p4)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 } TRANSPARENT_UNION;
 
 #else
 typedef struct in6_addr pim_addr;
+<<<<<<< HEAD
+=======
+typedef struct prefix_ipv6 prefix_pim;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 #define PIM_ADDRSTRLEN	INET6_ADDRSTRLEN
 #define PIM_AF		AF_INET6
 #define PIM_AFI		AFI_IP6
 #define PIM_PROTO_REG   IPPROTO_PIM
+<<<<<<< HEAD
+=======
+#define PIM_IANA_AFI	IANA_AFI_IPV6
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 #define PIM_IPADDR	IPADDR_V6
 #define ipaddr_pim	ipaddr_v6
 #define PIM_MAX_BITLEN	IPV6_MAX_BITLEN
 #define PIM_AF_NAME     "ipv6"
 #define PIM_AF_DBG	"pimv6"
+<<<<<<< HEAD
+=======
+#define PIM_AF_ROUTER	"pim6"
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 #define GM_AF_DBG	"mld"
 #define PIM_MROUTE_DBG  "mroute6"
 #define PIMREG          "pim6reg"
@@ -63,6 +97,7 @@ typedef struct in6_addr pim_addr;
 #define PIM_ADDR_FUNCNAME(name) ipv6_##name
 
 union pimprefixptr {
+<<<<<<< HEAD
 	prefixtype(pimprefixptr, struct prefix,      p)
 	prefixtype(pimprefixptr, struct prefix_ipv6, p6)
 } TRANSPARENT_UNION;
@@ -70,6 +105,15 @@ union pimprefixptr {
 union pimprefixconstptr {
 	prefixtype(pimprefixconstptr, const struct prefix,      p)
 	prefixtype(pimprefixconstptr, const struct prefix_ipv6, p6)
+=======
+	uniontype(pimprefixptr, struct prefix,      p)
+	uniontype(pimprefixptr, struct prefix_ipv6, p6)
+} TRANSPARENT_UNION;
+
+union pimprefixconstptr {
+	uniontype(pimprefixconstptr, const struct prefix,      p)
+	uniontype(pimprefixconstptr, const struct prefix_ipv6, p6)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 } TRANSPARENT_UNION;
 #endif
 

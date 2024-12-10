@@ -12,6 +12,10 @@
 #ifndef _ZEBRA_ISIS_ROUTE_H
 #define _ZEBRA_ISIS_ROUTE_H
 
+<<<<<<< HEAD
+=======
+#include "lib/table.h"
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 #include "lib/nexthop.h"
 
 struct isis_nexthop {

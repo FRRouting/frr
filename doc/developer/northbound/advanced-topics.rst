@@ -1,11 +1,26 @@
+<<<<<<< HEAD
+=======
+Advanced Topics
+===============
+
+.. contents:: Table of contents
+    :local:
+    :backlinks: entry
+    :depth: 1
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 Auto-generated CLI commands
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 In order to have less code to maintain, it should be possible to write a
 tool that auto-generates CLI commands based on the FRR YANG models. As a
 matter of fact, there are already a number of NETCONF-based CLIs that do
+<<<<<<< HEAD
 exactly that (e.g. `Clixon <https://github.com/clicon/clixon>`__,
 ConfD’s CLI).
+=======
+exactly that (e.g. `Clixon <https://github.com/clicon/clixon>`__).
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 The problem however is that there isn’t an exact one-to-one mapping
 between the existing CLI commands and the corresponding YANG nodes from
@@ -19,11 +34,14 @@ command for each YANG leaf, (leaf-)list and presence-container. The
 ripd’s ``timers basic`` command, for instance, would become three
 different commands, which would be undesirable.
 
+<<<<<<< HEAD
    This Tail-f’s®
    `document <http://info.tail-f.com/hubfs/Whitepapers/Tail-f_ConfD-CLI__Cfg_Mode_App_Note_Rev%20C.pdf>`__
    shows how to customize ConfD auto-generated CLI commands using YANG
    annotations.
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 The good news is that *libyang* allows users to create plugins to
 implement their own YANG extensions, which can be used to implement CLI
 annotations. If done properly, a CLI generator can save FRR developers
@@ -34,6 +52,7 @@ CLI on a separate program
 
 The flexible design of the northbound architecture opens the door to
 move the CLI to a separate program in the long-term future. Some
+<<<<<<< HEAD
 advantages of doing so would be: \* Treat the CLI as just another
 northbound client, instead of having CLI commands embedded in the
 binaries of all FRR daemons. \* Improved robustness: bugs in CLI
@@ -41,6 +60,18 @@ commands (e.g. null-pointer dereferences) or in the CLI code itself
 wouldn’t affect the FRR daemons. \* Foster innovation by allowing other
 CLI programs to be implemented, possibly using higher level programming
 languages.
+=======
+advantages of doing so would be:
+
+* Treat the CLI as just another northbound client, instead of having CLI
+  commands embedded in the binaries of all FRR daemons.
+
+* Improved robustness: bugs in CLI commands (e.g. null-pointer dereferences) or
+  in the CLI code itself wouldn’t affect the FRR daemons.
+
+* Foster innovation by allowing other CLI programs to be implemented, possibly
+  using higher level programming languages.
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 The problem, however, is that the northbound retrofitting process will
 convert only the CLI configuration commands and EXEC commands in a first
@@ -65,8 +96,13 @@ Example of how this feature could be provided in the CLI:
 ``commit confirmed [minutes <1-60>]``. The ability to do confirmed
 commits should also be exposed in the northbound API so that the
 northbound plugins can also take advantage of it (in the case of the
+<<<<<<< HEAD
 Sysrepo and ConfD plugins, confirmed commits are implemented externally
 in the *netopeer2-server* and *confd* daemons, respectively).
+=======
+Sysrepo plugin, confirmed commit is implemented externally in the
+*netopeer2-server* daemon).
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 Proposed feature: enable/disable configuration commands/sections
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -232,6 +268,7 @@ vtysh support
 As explained in the [[Transactional CLI]] page, all commands introduced
 by the transactional CLI are not yet available in *vtysh*. This needs to
 be addressed in the short term future. Some challenges for doing that
+<<<<<<< HEAD
 work include: \* How to display configurations (running, candidates and
 rollbacks) in a more clever way? The implementation of the
 ``show running-config`` command in *vtysh* is not something that should
@@ -266,6 +303,44 @@ configuration files in the JSON or XML formats will be tricky, as
 sent to which daemons. *vtysh* will either need to fetch the YANG
 modules implemented by all daemons at runtime or obtain this information
 at compile-time somehow.
+=======
+work include:
+
+* How to display configurations (running, candidates and rollbacks) in a more
+  clever way? The implementation of the ``show running-config`` command in
+  *vtysh* is not something that should be followed as an example. A better idea
+  would be to fetch the desired configuration from all daemons (encoded in JSON
+  for example), merge them all into a single ``lyd_node`` variable and then
+  display the combined configurations from this variable (the configuration
+  merges would transparently take care of combining the shared configuration
+  objects). In order to be able to manipulate the JSON configurations, *vtysh*
+  will need to load the YANG modules from all daemons at startup (this might
+  have a minimal impact on startup time). The only issue with this approach is
+  that the ``cli_show()`` callbacks from all daemons are embedded in their
+  binaries and thus not accessible externally. It might be necessary to compile
+  these callbacks on a separate shared library so that they are accessible to
+  *vtysh* too. Other than that, displaying the combined configurations in the
+  JSON/XML formats should be straightforward.
+
+* With the current design, transaction IDs are per-daemon and not global across
+  all FRR daemons. This means that the same transaction ID can represent
+  different transactions on different daemons. Given this observation, how to
+  implement the ``rollback configuration`` command in *vtysh*? The easy solution
+  would be to add a ``daemon WORD`` argument to specify the context of the
+  rollback, but per-daemon rollbacks would certainly be confusing and convoluted
+  to end users. A better idea would be to attack the root of the problem: change
+  configuration transactions to be global instead of being per-daemon. This
+  involves a bigger change in the northbound architecture, and would have
+  implications on how transactions are stored in the SQL database
+  (daemon-specific and shared configuration objects would need to have their own
+  tables or columns).
+
+* Loading configuration files in the JSON or XML formats will be tricky, as
+  *vtysh* will need to know which sections of the configuration should be sent
+  to which daemons. *vtysh* will either need to fetch the YANG modules
+  implemented by all daemons at runtime or obtain this information at
+  compile-time somehow.
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 Detecting type mismatches at compile-time
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

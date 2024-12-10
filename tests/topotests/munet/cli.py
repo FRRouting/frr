@@ -106,9 +106,19 @@ def is_host_regex(restr):
 
 
 def get_host_regex(restr):
+<<<<<<< HEAD
     if len(restr) < 3 or restr[0] != "/" or restr[-1] != "/":
         return None
     return re.compile(restr[1:-1])
+=======
+    try:
+        if len(restr) < 3 or restr[0] != "/" or restr[-1] != "/":
+            return None
+        return re.compile(restr[1:-1])
+    except re.error:
+        logging.error("Invalid regex")
+        return None
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 
 def host_in(restr, names):
@@ -126,8 +136,13 @@ def expand_host(restr, names):
     hosts = []
     regexp = get_host_regex(restr)
     if not regexp:
+<<<<<<< HEAD
         assert restr in names
         hosts.append(restr)
+=======
+        if restr in names:
+            hosts.append(restr)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     else:
         for name in names:
             if regexp.fullmatch(name):
@@ -325,13 +340,22 @@ def get_shcmd(unet, host, kinds, execfmt, ucmd):
     if not execfmt:
         return ""
 
+<<<<<<< HEAD
     # Do substitutions for {} in string
+=======
+    # Do substitutions for {} and {N} in string
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     numfmt = len(re.findall(r"{\d*}", execfmt))
     if numfmt > 1:
         ucmd = execfmt.format(*shlex.split(ucmd))
     elif numfmt:
         ucmd = execfmt.format(ucmd)
+<<<<<<< HEAD
     elif len(re.findall(r"{[a-zA-Z_][0-9a-zA-Z_\.]*}", execfmt)):
+=======
+    # look for any pair of {}s but do not count escaped {{ or }}
+    elif len(re.findall(r"{[^}]+}", execfmt.replace("{{", "").replace("}}", ""))):
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         if execfmt.endswith('"'):
             fstring = "f'''" + execfmt + "'''"
         else:
@@ -740,7 +764,11 @@ async def cli_client_connected(unet, background, reader, writer):
         await writer.drain()
 
 
+<<<<<<< HEAD
 async def remote_cli(unet, prompt, title, background):
+=======
+async def remote_cli(unet, prompt, title, background, remote_wait=False):
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     """Open a CLI in a new window."""
     try:
         if not unet.cli_sockpath:
@@ -751,6 +779,16 @@ async def remote_cli(unet, prompt, title, background):
             unet.cli_sockpath = sockpath
             logging.info("server created on :\n%s\n", sockpath)
 
+<<<<<<< HEAD
+=======
+        if remote_wait:
+            wait_tmux = bool(os.getenv("TMUX", ""))
+            wait_x11 = not wait_tmux and bool(os.getenv("DISPLAY", ""))
+        else:
+            wait_tmux = False
+            wait_x11 = False
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         # Open a new window with a new CLI
         python_path = await unet.async_get_exec_path(["python3", "python"])
         us = os.path.realpath(__file__)
@@ -760,7 +798,36 @@ async def remote_cli(unet, prompt, title, background):
         if prompt:
             cmd += f" --prompt='{prompt}'"
         cmd += " " + unet.cli_sockpath
+<<<<<<< HEAD
         unet.run_in_window(cmd, title=title, background=False)
+=======
+
+        channel = None
+        if wait_tmux:
+            from .base import Commander  # pylint: disable=import-outside-toplevel
+
+            channel = "{}-{}".format(os.getpid(), Commander.tmux_wait_gen)
+            logger.info("XXX channel is %s", channel)
+            # If we don't have a tty to pause on pause for tmux windows to exit
+            if channel is not None:
+                Commander.tmux_wait_gen += 1
+
+        pane_info = unet.run_in_window(
+            cmd, title=title, background=False, wait_for=channel
+        )
+
+        if wait_tmux and channel:
+            from .base import commander  # pylint: disable=import-outside-toplevel
+
+            logger.debug("Waiting on TMUX CLI window")
+            await commander.async_cmd_raises(
+                [commander.get_exec_path("tmux"), "wait", channel]
+            )
+        elif wait_x11 and isinstance(pane_info, subprocess.Popen):
+            logger.debug("Waiting on xterm CLI process %s", pane_info)
+            if hasattr(asyncio, "to_thread"):
+                await asyncio.to_thread(pane_info.wait)  # pylint: disable=no-member
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     except Exception as error:
         logging.error("cli server: unexpected exception: %s", error)
 
@@ -901,8 +968,27 @@ def cli(
     prompt=None,
     background=True,
 ):
+<<<<<<< HEAD
     asyncio.run(
         async_cli(unet, histfile, sockpath, force_window, title, prompt, background)
+=======
+    # In the case of no tty a remote_cli will be used, and we want it to wait on finish
+    # of the spawned cli.py script, otherwise it returns back here and exits async loop
+    # which kills the server side CLI socket operation.
+    remote_wait = not sys.stdin.isatty()
+
+    asyncio.run(
+        async_cli(
+            unet,
+            histfile,
+            sockpath,
+            force_window,
+            title,
+            prompt,
+            background,
+            remote_wait=remote_wait,
+        )
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     )
 
 
@@ -914,12 +1000,21 @@ async def async_cli(
     title=None,
     prompt=None,
     background=True,
+<<<<<<< HEAD
+=======
+    remote_wait=False,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 ):
     if prompt is None:
         prompt = "munet> "
 
     if force_window or not sys.stdin.isatty():
+<<<<<<< HEAD
         await remote_cli(unet, prompt, title, background)
+=======
+        await remote_cli(unet, prompt, title, background, remote_wait)
+        return
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
     if not unet:
         logger.debug("client-cli using sockpath %s", sockpath)

@@ -70,7 +70,11 @@ else:
         "See all sharp routes in rib on ce1",
         wait,
         wait_time=10,
+<<<<<<< HEAD
         )
+=======
+    )
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     luCommand(
         "ce2",
         'vtysh -c "show ip route summ" | grep "sharp" | cut -d " " -f 33',
@@ -79,7 +83,11 @@ else:
         "See all sharp routes in rib on ce2",
         wait,
         wait_time=10,
+<<<<<<< HEAD
         )
+=======
+    )
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
     rtrs = ["ce1", "ce2", "ce3"]
     for rtr in rtrs:
@@ -226,7 +234,11 @@ else:
             ave_b = float(delta_b) / float(num)
             luCommand(
                 rtr,
+<<<<<<< HEAD
                 'vtysh -c "show thread cpu"',
+=======
+                'vtysh -c "show event cpu"',
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
                 ".",
                 "pass",
                 "BGPd heap: {0} {1} --> {2} {3} ({4} {1}/vpn route)".format(
@@ -239,7 +251,11 @@ else:
             )
             luCommand(
                 rtr,
+<<<<<<< HEAD
                 'vtysh -c "show thread cpu"',
+=======
+                'vtysh -c "show event cpu"',
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
                 ".",
                 "pass",
                 "Zebra heap: {0} {1} --> {2} {3} ({4} {1}/vpn route)".format(

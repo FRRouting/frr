@@ -555,6 +555,7 @@ static void ospf_gr_grace_period_expired(struct event *thread)
 	ospf_gr_restart_exit(ospf, "grace period has expired");
 }
 
+<<<<<<< HEAD
 /*
  * Returns the path of the file (non-volatile memory) that contains GR status
  * information.
@@ -570,6 +571,8 @@ static char *ospf_gr_nvm_filepath(struct ospf *ospf)
 	return filepath;
 }
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 /* Send extra Grace-LSA out the interface (unplanned outages only). */
 void ospf_gr_iface_send_grace_lsa(struct event *thread)
 {
@@ -591,18 +594,27 @@ void ospf_gr_iface_send_grace_lsa(struct event *thread)
  */
 static void ospf_gr_nvm_update(struct ospf *ospf, bool prepare)
 {
+<<<<<<< HEAD
 	char *filepath;
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	const char *inst_name;
 	json_object *json;
 	json_object *json_instances;
 	json_object *json_instance;
 
+<<<<<<< HEAD
 	filepath = ospf_gr_nvm_filepath(ospf);
 	inst_name = ospf_get_name(ospf);
 
 	json = json_object_from_file(filepath);
 	if (json == NULL)
 		json = json_object_new_object();
+=======
+	inst_name = ospf_get_name(ospf);
+
+	json = frr_daemon_state_load();
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	json_object_object_get_ex(json, "instances", &json_instances);
 	if (!json_instances) {
@@ -630,8 +642,12 @@ static void ospf_gr_nvm_update(struct ospf *ospf, bool prepare)
 		json_object_int_add(json_instance, "timestamp",
 				    time(NULL) + ospf->gr_info.grace_period);
 
+<<<<<<< HEAD
 	json_object_to_file_ext(filepath, json, JSON_C_TO_STRING_PRETTY);
 	json_object_free(json);
+=======
+	frr_daemon_state_save(&json);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 }
 
 /*
@@ -640,17 +656,26 @@ static void ospf_gr_nvm_update(struct ospf *ospf, bool prepare)
  */
 void ospf_gr_nvm_delete(struct ospf *ospf)
 {
+<<<<<<< HEAD
 	char *filepath;
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	const char *inst_name;
 	json_object *json;
 	json_object *json_instances;
 
+<<<<<<< HEAD
 	filepath = ospf_gr_nvm_filepath(ospf);
 	inst_name = ospf_get_name(ospf);
 
 	json = json_object_from_file(filepath);
 	if (json == NULL)
 		json = json_object_new_object();
+=======
+	inst_name = ospf_get_name(ospf);
+
+	json = frr_daemon_state_load();
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	json_object_object_get_ex(json, "instances", &json_instances);
 	if (!json_instances) {
@@ -660,8 +685,12 @@ void ospf_gr_nvm_delete(struct ospf *ospf)
 
 	json_object_object_del(json_instances, inst_name);
 
+<<<<<<< HEAD
 	json_object_to_file_ext(filepath, json, JSON_C_TO_STRING_PRETTY);
 	json_object_free(json);
+=======
+	frr_daemon_state_save(&json);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 }
 
 /*
@@ -670,7 +699,10 @@ void ospf_gr_nvm_delete(struct ospf *ospf)
  */
 void ospf_gr_nvm_read(struct ospf *ospf)
 {
+<<<<<<< HEAD
 	char *filepath;
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	const char *inst_name;
 	json_object *json;
 	json_object *json_instances;
@@ -679,12 +711,18 @@ void ospf_gr_nvm_read(struct ospf *ospf)
 	json_object *json_grace_period;
 	time_t timestamp = 0;
 
+<<<<<<< HEAD
 	filepath = ospf_gr_nvm_filepath(ospf);
 	inst_name = ospf_get_name(ospf);
 
 	json = json_object_from_file(filepath);
 	if (json == NULL)
 		json = json_object_new_object();
+=======
+	inst_name = ospf_get_name(ospf);
+
+	json = frr_daemon_state_load();
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	json_object_object_get_ex(json, "instances", &json_instances);
 	if (!json_instances) {
@@ -730,8 +768,12 @@ void ospf_gr_nvm_read(struct ospf *ospf)
 
 	json_object_object_del(json_instances, inst_name);
 
+<<<<<<< HEAD
 	json_object_to_file_ext(filepath, json, JSON_C_TO_STRING_PRETTY);
 	json_object_free(json);
+=======
+	frr_daemon_state_save(&json);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 }
 
 void ospf_gr_unplanned_start_interface(struct ospf_interface *oi)

@@ -13,6 +13,21 @@
 extern "C" {
 #endif
 
+<<<<<<< HEAD
+=======
+/*
+ * NOTICE:
+ *
+ * If you are reading this file in an effort to add a new hash structure
+ * this is the wrong place to be using it.  Please see the typesafe
+ * data structures, or ask one of the other developers.
+ *
+ * If you are reading this file as a way to update an existing usage
+ * of this data structure, please consider just converting the data
+ * structure to one of the typesafe data structures instead.
+ */
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 /* Default hash table size.  */
 #define HASH_INITIAL_SIZE 256
 /* Expansion threshold */
@@ -28,12 +43,21 @@ struct hash_bucket {
 	 */
 	int len;
 
+<<<<<<< HEAD
 	/* Linked list.  */
 	struct hash_bucket *next;
 
 	/* Hash key. */
 	unsigned int key;
 
+=======
+	/* Hash key. */
+	unsigned int key;
+
+	/* Linked list.  */
+	struct hash_bucket *next;
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	/* Data.  */
 	void *data;
 };

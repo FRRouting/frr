@@ -62,6 +62,22 @@ from lib.topolog import logger
 pytestmark = [pytest.mark.bgpd, pytest.mark.staticd]
 
 
+<<<<<<< HEAD
+=======
+# Prefixes used in the test
+prefix1 = "203.0.113.0/30"
+prefix2 = "203.0.113.4/30"
+prefix3 = "203.0.113.8/30"
+# Next hops used for iBGP/confed routes
+resolved_nh1 = "198.51.100.1"
+resolved_nh2 = "198.51.100.2"
+# BGP route used for recursive resolution
+bgp_resolving_prefix = "198.51.100.0/24"
+# Next hop that will require non-connected recursive resolution
+ebgp_resolved_nh = "198.51.100.10"
+
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 def build_topo(tgen):
     "Build function"
 
@@ -90,7 +106,10 @@ def setup_module(mod):
 
     # For all registered routers, load the zebra configuration file
     for rname, router in tgen.routers().items():
+<<<<<<< HEAD
         router.run("/bin/bash {}/setup_vrfs".format(CWD))
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         router.load_config(
             TopoRouter.RD_ZEBRA, os.path.join(CWD, "{}/zebra.conf".format(rname))
         )
@@ -125,13 +144,25 @@ def teardown_module(mod):
     tgen.stop_topology()
 
 
+<<<<<<< HEAD
 def test_bgp_peer_type_multipath_relax():
+=======
+def exabgp_cmd(peer, cmd):
+    pipe = open("/run/exabgp_{}.in".format(peer), "w")
+    with pipe:
+        pipe.write(cmd)
+        pipe.close()
+
+
+def test_bgp_peer_type_multipath_relax_test1():
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     tgen = get_topogen()
 
     # Don't run this test if we have any failure.
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
+<<<<<<< HEAD
     def exabgp_cmd(peer, cmd):
         pipe = open("/run/exabgp_{}.in".format(peer), "w")
         with pipe:
@@ -149,12 +180,18 @@ def test_bgp_peer_type_multipath_relax():
     bgp_resolving_prefix = "198.51.100.0/24"
     # Next hop that will require non-connected recursive resolution
     ebgp_resolved_nh = "198.51.100.10"
+=======
+    r1 = tgen.gears["r1"]
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
     # Send a non-connected route to resolve others
     exabgp_cmd(
         "peer3", "announce route {} next-hop self\n".format(bgp_resolving_prefix)
     )
+<<<<<<< HEAD
     router = tgen.gears["r1"]
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
     # It seems that if you write to the exabgp socket too quickly in
     #  succession, requests get lost. So verify prefix1 now instead of
@@ -177,7 +214,11 @@ def test_bgp_peer_type_multipath_relax():
     expected = json.loads(open(reffile).read())
     test_func = functools.partial(
         topotest.router_json_cmp,
+<<<<<<< HEAD
         router,
+=======
+        r1,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         "show ip bgp {} json".format(prefix1),
         expected,
     )
@@ -185,6 +226,19 @@ def test_bgp_peer_type_multipath_relax():
     assertMsg = "Mixed-type multipath not found"
     assert res is None, assertMsg
 
+<<<<<<< HEAD
+=======
+
+def test_bgp_peer_type_multipath_relax_test2():
+    tgen = get_topogen()
+
+    # Don't run this test if we have any failure.
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    r1 = tgen.gears["r1"]
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     logger.info("Create and verify eBGP and iBGP+confed multipaths")
     exabgp_cmd(
         "peer1",
@@ -203,26 +257,50 @@ def test_bgp_peer_type_multipath_relax():
     reffile = os.path.join(CWD, "r1/multipath.json")
     expected = json.loads(open(reffile).read())
     test_func = functools.partial(
+<<<<<<< HEAD
         topotest.router_json_cmp, router, "show ip bgp json", expected
+=======
+        topotest.router_json_cmp, r1, "show ip bgp json", expected
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     )
     _, res = topotest.run_and_expect(test_func, None, count=10, wait=1)
     assertMsg = "Not all expected multipaths found"
     assert res is None, assertMsg
 
+<<<<<<< HEAD
     logger.info("Toggle peer-type multipath-relax and verify the changes")
     router.vtysh_cmd(
+=======
+
+def test_bgp_peer_type_multipath_relax_test3():
+    tgen = get_topogen()
+
+    # Don't run this test if we have any failure.
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    r1 = tgen.gears["r1"]
+
+    logger.info("Toggle peer-type multipath-relax and verify the changes")
+    r1.vtysh_cmd(
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         "conf\n router bgp 64510\n no bgp bestpath peer-type multipath-relax\n"
     )
     # This file verifies "multipath" is not set
     reffile = os.path.join(CWD, "r1/not-multipath.json")
     expected = json.loads(open(reffile).read())
     test_func = functools.partial(
+<<<<<<< HEAD
         topotest.router_json_cmp, router, "show ip bgp json", expected
+=======
+        topotest.router_json_cmp, r1, "show ip bgp json", expected
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     )
     _, res = topotest.run_and_expect(test_func, None, count=10, wait=1)
     assertMsg = "Disabling peer-type multipath-relax did not take effect"
     assert res is None, assertMsg
 
+<<<<<<< HEAD
     router.vtysh_cmd(
         "conf\n router bgp 64510\n bgp bestpath peer-type multipath-relax\n"
     )
@@ -230,11 +308,41 @@ def test_bgp_peer_type_multipath_relax():
     expected = json.loads(open(reffile).read())
     test_func = functools.partial(
         topotest.router_json_cmp, router, "show ip bgp json", expected
+=======
+
+def test_bgp_peer_type_multipath_relax_test4():
+    tgen = get_topogen()
+
+    # Don't run this test if we have any failure.
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    r1 = tgen.gears["r1"]
+
+    r1.vtysh_cmd("conf\n router bgp 64510\n bgp bestpath peer-type multipath-relax\n")
+    reffile = os.path.join(CWD, "r1/multipath.json")
+    expected = json.loads(open(reffile).read())
+    test_func = functools.partial(
+        topotest.router_json_cmp, r1, "show ip bgp json", expected
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     )
     _, res = topotest.run_and_expect(test_func, None, count=10, wait=1)
     assertMsg = "Reenabling peer-type multipath-relax did not take effect"
     assert res is None, assertMsg
 
+<<<<<<< HEAD
+=======
+
+def test_bgp_peer_type_multipath_relax_test5():
+    tgen = get_topogen()
+
+    # Don't run this test if we have any failure.
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    r1 = tgen.gears["r1"]
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     logger.info("Check recursive resolution of eBGP next hops is not affected")
     # eBGP next hop resolution rejects recursively resolved next hops by
     # default, even with peer-type multipath-relax
@@ -245,7 +353,11 @@ def test_bgp_peer_type_multipath_relax():
     expected = json.loads(open(reffile).read())
     test_func = functools.partial(
         topotest.router_json_cmp,
+<<<<<<< HEAD
         router,
+=======
+        r1,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         "show ip bgp {} json".format(prefix3),
         expected,
     )
@@ -253,6 +365,19 @@ def test_bgp_peer_type_multipath_relax():
     assertMsg = "Recursive eBGP next hop not as expected for {}".format(prefix3)
     assert res is None, assertMsg
 
+<<<<<<< HEAD
+=======
+
+def test_bgp_peer_type_multipath_relax_test6():
+    tgen = get_topogen()
+
+    # Don't run this test if we have any failure.
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    r1 = tgen.gears["r1"]
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     exabgp_cmd(
         "peer4", "announce route {} next-hop {}\n".format(prefix1, ebgp_resolved_nh)
     )
@@ -260,7 +385,11 @@ def test_bgp_peer_type_multipath_relax():
     expected = json.loads(open(reffile).read())
     test_func = functools.partial(
         topotest.router_json_cmp,
+<<<<<<< HEAD
         router,
+=======
+        r1,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         "show ip bgp {} json".format(prefix1),
         expected,
     )
@@ -268,14 +397,34 @@ def test_bgp_peer_type_multipath_relax():
     assertMsg = "Recursive eBGP next hop not as expected for {}".format(prefix1)
     assert res is None, assertMsg
 
+<<<<<<< HEAD
     # When other config allows recursively resolved eBGP next hops,
     # such next hops in all-eBGP multipaths should be valid
     router.vtysh_cmd("conf\n router bgp 64510\n neighbor 10.0.4.2 ebgp-multihop\n")
+=======
+
+def test_bgp_peer_type_multipath_relax_test7():
+    tgen = get_topogen()
+
+    # Don't run this test if we have any failure.
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    r1 = tgen.gears["r1"]
+
+    # When other config allows recursively resolved eBGP next hops,
+    # such next hops in all-eBGP multipaths should be valid
+    r1.vtysh_cmd("conf\n router bgp 64510\n neighbor 10.0.4.2 ebgp-multihop\n")
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     reffile = os.path.join(CWD, "r1/prefix3-recursive.json")
     expected = json.loads(open(reffile).read())
     test_func = functools.partial(
         topotest.router_json_cmp,
+<<<<<<< HEAD
         router,
+=======
+        r1,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         "show ip bgp {} json".format(prefix3),
         expected,
     )
@@ -287,7 +436,11 @@ def test_bgp_peer_type_multipath_relax():
     expected = json.loads(open(reffile).read())
     test_func = functools.partial(
         topotest.router_json_cmp,
+<<<<<<< HEAD
         router,
+=======
+        r1,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         "show ip bgp {} json".format(prefix1),
         expected,
     )
@@ -295,6 +448,19 @@ def test_bgp_peer_type_multipath_relax():
     assertMsg = "Recursive eBGP next hop not as expected for {}".format(prefix1)
     assert res is None, assertMsg
 
+<<<<<<< HEAD
+=======
+
+def test_bgp_peer_type_multipath_relax_test8():
+    tgen = get_topogen()
+
+    # Don't run this test if we have any failure.
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    r1 = tgen.gears["r1"]
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     logger.info("Check mixed-type multipath next hop recursive resolution in FIB")
     # There are now two eBGP-learned routes with a recursively resolved next;
     # hop; one is all-eBGP multipath, and the other is iBGP/eBGP/
@@ -305,7 +471,11 @@ def test_bgp_peer_type_multipath_relax():
     expected = json.loads(open(reffile).read())
     test_func = functools.partial(
         topotest.router_json_cmp,
+<<<<<<< HEAD
         router,
+=======
+        r1,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         "show ip route {} json".format(prefix3),
         expected,
     )
@@ -313,6 +483,19 @@ def test_bgp_peer_type_multipath_relax():
     assertMsg = "FIB next hops mismatch for all-eBGP multipath"
     assert res is None, assertMsg
 
+<<<<<<< HEAD
+=======
+
+def test_bgp_peer_type_multipath_relax_test9():
+    tgen = get_topogen()
+
+    # Don't run this test if we have any failure.
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    r1 = tgen.gears["r1"]
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     # check confed-external enables recursively resolved next hops by itself
     exabgp_cmd(
         "peer1",
@@ -324,7 +507,11 @@ def test_bgp_peer_type_multipath_relax():
     expected = json.loads(open(reffile).read())
     test_func = functools.partial(
         topotest.router_json_cmp,
+<<<<<<< HEAD
         router,
+=======
+        r1,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         "show ip route {} json".format(prefix1),
         expected,
     )
@@ -332,6 +519,19 @@ def test_bgp_peer_type_multipath_relax():
     assertMsg = "FIB next hops mismatch for eBGP+confed-external multipath"
     assert res is None, assertMsg
 
+<<<<<<< HEAD
+=======
+
+def test_bgp_peer_type_multipath_relax_test10():
+    tgen = get_topogen()
+
+    # Don't run this test if we have any failure.
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    r1 = tgen.gears["r1"]
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     # check iBGP by itself
     exabgp_cmd(
         "peer1",
@@ -349,7 +549,11 @@ def test_bgp_peer_type_multipath_relax():
     expected = json.loads(open(reffile).read())
     test_func = functools.partial(
         topotest.router_json_cmp,
+<<<<<<< HEAD
         router,
+=======
+        r1,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         "show ip route {} json".format(prefix1),
         expected,
     )

@@ -148,7 +148,11 @@ be built and installed generally like:
    CC=${HOST_ARCH}-gcc \
    CXX=${HOST_ARCH}-g++ \
    cmake \
+<<<<<<< HEAD
        -DCMAKE_INSTALL_PREFIX=/usr/${HOST_ARCH} \
+=======
+       --install-prefix /usr/${HOST_ARCH} \
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
        ..
    make
    make install
@@ -239,9 +243,15 @@ the last thing to actually build is FRR itself:
       --host=${HOST_ARCH} \
       --with-sysroot=/usr/${HOST_ARCH} \
       --with-clippy=./build-clippy/lib/clippy \
+<<<<<<< HEAD
       --sysconfdir=/etc/frr \
       --sbindir="\${prefix}/lib/frr" \
       --localstatedir=/var/run/frr \
+=======
+      --sysconfdir=/etc \
+      --localstatedir=/var \
+      --sbindir="\${prefix}/lib/frr" \
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
       --prefix=/usr \
       --enable-user=frr \
       --enable-group=frr \

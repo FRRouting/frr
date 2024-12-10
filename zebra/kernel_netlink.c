@@ -4,8 +4,17 @@
  */
 
 #include <zebra.h>
+<<<<<<< HEAD
 
 #ifdef HAVE_NETLINK
+=======
+#include <fcntl.h>
+
+#ifdef HAVE_NETLINK
+#include <linux/netlink.h>
+#include <linux/rtnetlink.h>
+#include <linux/filter.h>
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 #include "linklist.h"
 #include "if.h"
@@ -35,6 +44,10 @@
 #include "zebra/tc_netlink.h"
 #include "zebra/netconf_netlink.h"
 #include "zebra/zebra_errors.h"
+<<<<<<< HEAD
+=======
+#include "zebra/ge_netlink.h"
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 #ifndef SO_RCVBUFFORCE
 #define SO_RCVBUFFORCE  (33)
@@ -76,6 +89,7 @@
  */
 #define NL_DEFAULT_BATCH_SEND_THRESHOLD (15 * NL_PKT_BUF_SIZE)
 
+<<<<<<< HEAD
 static const struct message nlmsg_str[] = {{RTM_NEWROUTE, "RTM_NEWROUTE"},
 					   {RTM_DELROUTE, "RTM_DELROUTE"},
 					   {RTM_GETROUTE, "RTM_GETROUTE"},
@@ -113,6 +127,50 @@ static const struct message nlmsg_str[] = {{RTM_NEWROUTE, "RTM_NEWROUTE"},
 					   {RTM_DELVLAN, "RTM_DELVLAN"},
 					   {RTM_GETVLAN, "RTM_GETVLAN"},
 					   {0}};
+=======
+static const struct message nlmsg_str[] = {
+	{ RTM_NEWROUTE, "RTM_NEWROUTE" },
+	{ RTM_DELROUTE, "RTM_DELROUTE" },
+	{ RTM_GETROUTE, "RTM_GETROUTE" },
+	{ RTM_NEWLINK, "RTM_NEWLINK" },
+	{ RTM_SETLINK, "RTM_SETLINK" },
+	{ RTM_DELLINK, "RTM_DELLINK" },
+	{ RTM_GETLINK, "RTM_GETLINK" },
+	{ RTM_NEWADDR, "RTM_NEWADDR" },
+	{ RTM_DELADDR, "RTM_DELADDR" },
+	{ RTM_GETADDR, "RTM_GETADDR" },
+	{ RTM_NEWNEIGH, "RTM_NEWNEIGH" },
+	{ RTM_DELNEIGH, "RTM_DELNEIGH" },
+	{ RTM_GETNEIGH, "RTM_GETNEIGH" },
+	{ RTM_NEWRULE, "RTM_NEWRULE" },
+	{ RTM_DELRULE, "RTM_DELRULE" },
+	{ RTM_GETRULE, "RTM_GETRULE" },
+	{ RTM_NEWNEXTHOP, "RTM_NEWNEXTHOP" },
+	{ RTM_DELNEXTHOP, "RTM_DELNEXTHOP" },
+	{ RTM_GETNEXTHOP, "RTM_GETNEXTHOP" },
+	{ RTM_NEWNETCONF, "RTM_NEWNETCONF" },
+	{ RTM_DELNETCONF, "RTM_DELNETCONF" },
+	{ RTM_NEWTUNNEL, "RTM_NEWTUNNEL" },
+	{ RTM_DELTUNNEL, "RTM_DELTUNNEL" },
+	{ RTM_GETTUNNEL, "RTM_GETTUNNEL" },
+	{ RTM_NEWQDISC, "RTM_NEWQDISC" },
+	{ RTM_DELQDISC, "RTM_DELQDISC" },
+	{ RTM_GETQDISC, "RTM_GETQDISC" },
+	{ RTM_NEWTCLASS, "RTM_NEWTCLASS" },
+	{ RTM_DELTCLASS, "RTM_DELTCLASS" },
+	{ RTM_GETTCLASS, "RTM_GETTCLASS" },
+	{ RTM_NEWTFILTER, "RTM_NEWTFILTER" },
+	{ RTM_DELTFILTER, "RTM_DELTFILTER" },
+	{ RTM_GETTFILTER, "RTM_GETTFILTER" },
+	{ RTM_NEWVLAN, "RTM_NEWVLAN" },
+	{ RTM_DELVLAN, "RTM_DELVLAN" },
+	{ RTM_GETVLAN, "RTM_GETVLAN" },
+	{ RTM_NEWCHAIN, "RTM_NEWCHAIN" },
+	{ RTM_DELCHAIN, "RTM_DELCHAIN" },
+	{ RTM_GETCHAIN, "RTM_GETCHAIN" },
+	{ 0 }
+};
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 static const struct message rtproto_str[] = {
 	{RTPROT_REDIRECT, "redirect"},
@@ -301,7 +359,11 @@ static const char *group2str(uint32_t group)
 /* Make socket for Linux netlink interface. */
 static int netlink_socket(struct nlsock *nl, unsigned long groups,
 			  uint32_t ext_groups[], uint8_t ext_group_size,
+<<<<<<< HEAD
 			  ns_id_t ns_id)
+=======
+			  ns_id_t ns_id, int nl_family)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 {
 	int ret;
 	struct sockaddr_nl snl;
@@ -309,7 +371,11 @@ static int netlink_socket(struct nlsock *nl, unsigned long groups,
 	int namelen;
 
 	frr_with_privs(&zserv_privs) {
+<<<<<<< HEAD
 		sock = ns_socket(AF_NETLINK, SOCK_RAW, NETLINK_ROUTE, ns_id);
+=======
+		sock = ns_socket(AF_NETLINK, SOCK_RAW, nl_family, ns_id);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		if (sock < 0) {
 			zlog_err("Can't open %s socket: %s", nl->name,
 				 safe_strerror(errno));
@@ -395,10 +461,13 @@ static int netlink_information_fetch(struct nlmsghdr *h, ns_id_t ns_id,
 		return netlink_route_change(h, ns_id, startup);
 	case RTM_DELROUTE:
 		return netlink_route_change(h, ns_id, startup);
+<<<<<<< HEAD
 	case RTM_NEWLINK:
 		return netlink_link_change(h, ns_id, startup);
 	case RTM_DELLINK:
 		return 0;
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	case RTM_NEWNEIGH:
 	case RTM_DELNEIGH:
 	case RTM_GETNEIGH:
@@ -420,10 +489,13 @@ static int netlink_information_fetch(struct nlmsghdr *h, ns_id_t ns_id,
 	case RTM_NEWTFILTER:
 	case RTM_DELTFILTER:
 		return netlink_tfilter_change(h, ns_id, startup);
+<<<<<<< HEAD
 	case RTM_NEWVLAN:
 		return netlink_vlan_change(h, ns_id, startup);
 	case RTM_DELVLAN:
 		return netlink_vlan_change(h, ns_id, startup);
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	/* Messages we may receive, but ignore */
 	case RTM_NEWCHAIN:
@@ -432,6 +504,11 @@ static int netlink_information_fetch(struct nlmsghdr *h, ns_id_t ns_id,
 		return 0;
 
 	/* Messages handled in the dplane thread */
+<<<<<<< HEAD
+=======
+	case RTM_NEWLINK:
+	case RTM_DELLINK:
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	case RTM_NEWADDR:
 	case RTM_DELADDR:
 	case RTM_NEWNETCONF:
@@ -439,6 +516,11 @@ static int netlink_information_fetch(struct nlmsghdr *h, ns_id_t ns_id,
 	case RTM_NEWTUNNEL:
 	case RTM_DELTUNNEL:
 	case RTM_GETTUNNEL:
+<<<<<<< HEAD
+=======
+	case RTM_NEWVLAN:
+	case RTM_DELVLAN:
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		return 0;
 	default:
 		/*
@@ -482,6 +564,13 @@ static int dplane_netlink_information_fetch(struct nlmsghdr *h, ns_id_t ns_id,
 	case RTM_DELLINK:
 		return netlink_link_change(h, ns_id, startup);
 
+<<<<<<< HEAD
+=======
+	case RTM_NEWVLAN:
+	case RTM_DELVLAN:
+		return netlink_vlan_change(h, ns_id, startup);
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	default:
 		break;
 	}
@@ -609,6 +698,14 @@ static void netlink_install_filter(int sock, uint32_t pid, uint32_t dplane_pid)
 			     safe_strerror(errno));
 }
 
+<<<<<<< HEAD
+=======
+/*
+ * Please note, the assumption with this function is that the
+ * flags passed in that are bit masked with type, we are implicitly
+ * assuming that this is handling the NLA_F_NESTED ilk.
+ */
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 void netlink_parse_rtattr_flags(struct rtattr **tb, int max, struct rtattr *rta,
 				int len, unsigned short flags)
 {
@@ -628,8 +725,24 @@ void netlink_parse_rtattr(struct rtattr **tb, int max, struct rtattr *rta,
 {
 	memset(tb, 0, sizeof(struct rtattr *) * (max + 1));
 	while (RTA_OK(rta, len)) {
+<<<<<<< HEAD
 		if (rta->rta_type <= max)
 			tb[rta->rta_type] = rta;
+=======
+		/*
+		 * The type may be &'ed with NLA_F_NESTED
+		 * which puts data in the upper 8 bits of the
+		 * rta_type.  Mask it off and save the actual
+		 * underlying value to be placed into the array.
+		 * This way we don't accidently crash in the future
+		 * when the kernel sends us new data and we try
+		 * to write well beyond the end of the array.
+		 */
+		uint16_t type = rta->rta_type & NLA_TYPE_MASK;
+
+		if (type <= max)
+			tb[type] = rta;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		rta = RTA_NEXT(rta, len);
 	}
 }
@@ -646,6 +759,7 @@ void netlink_parse_rtattr_nested(struct rtattr **tb, int max,
 	netlink_parse_rtattr(tb, max, RTA_DATA(rta), RTA_PAYLOAD(rta));
 }
 
+<<<<<<< HEAD
 bool nl_addraw_l(struct nlmsghdr *n, unsigned int maxlen, const void *data,
 		 unsigned int len)
 {
@@ -661,6 +775,8 @@ bool nl_addraw_l(struct nlmsghdr *n, unsigned int maxlen, const void *data,
 	return true;
 }
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 bool nl_attr_put(struct nlmsghdr *n, unsigned int maxlen, int type,
 		 const void *data, unsigned int alen)
 {
@@ -921,7 +1037,11 @@ static int netlink_recv_msg(struct nlsock *nl, struct msghdr *msg)
 	} while (status == -1 && errno == EINTR);
 
 	if (status == -1) {
+<<<<<<< HEAD
 		if (errno == EWOULDBLOCK || errno == EAGAIN)
+=======
+		if (errno == EWOULDBLOCK || errno == EAGAIN || errno == EMSGSIZE)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			return 0;
 		flog_err(EC_ZEBRA_RECVMSG_OVERRUN, "%s recvmsg overrun: %s",
 			 nl->name, safe_strerror(errno));
@@ -1219,6 +1339,36 @@ int netlink_talk(int (*filter)(struct nlmsghdr *, ns_id_t, int startup),
 	return netlink_talk_info(filter, n, &dp_info, startup);
 }
 
+<<<<<<< HEAD
+=======
+/*
+ * Synchronous version of netlink_talk_info. Converts args to suit the
+ * common version, which is suitable for both sync and async use.
+ */
+int ge_netlink_talk(int (*filter)(struct nlmsghdr *, ns_id_t, int startup),
+		    struct nlmsghdr *n, struct zebra_ns *zns, bool startup)
+{
+	struct zebra_dplane_info dp_info;
+
+	if (zns->ge_netlink_cmd.sock < 0)
+		return -1;
+
+	/* Increment sequence number before capturing snapshot of ns socket
+	 * info.
+	 */
+	zns->ge_netlink_cmd.seq = zebra_router_get_next_sequence();
+
+	/* Capture info in intermediate info struct */
+	dp_info.ns_id = zns->ns_id;
+
+	dp_info.is_cmd = true;
+	dp_info.sock = zns->ge_netlink_cmd.sock;
+	dp_info.seq = zns->ge_netlink_cmd.seq;
+
+	return netlink_talk_info(filter, n, &dp_info, startup);
+}
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 /* Issue request message to kernel via netlink socket. GET messages
  * are issued through this interface.
  */
@@ -1583,6 +1733,10 @@ static enum netlink_msg_status nl_put_msg(struct nl_batch *bth,
 	case DPLANE_OP_IPSET_ENTRY_ADD:
 	case DPLANE_OP_IPSET_ENTRY_DELETE:
 	case DPLANE_OP_STARTUP_STAGE:
+<<<<<<< HEAD
+=======
+	case DPLANE_OP_VLAN_INSTALL:
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		return FRR_NETLINK_ERROR;
 
 	case DPLANE_OP_GRE_SET:
@@ -1612,6 +1766,12 @@ static enum netlink_msg_status nl_put_msg(struct nl_batch *bth,
 	case DPLANE_OP_TC_FILTER_DELETE:
 	case DPLANE_OP_TC_FILTER_UPDATE:
 		return netlink_put_tc_filter_update_msg(bth, ctx);
+<<<<<<< HEAD
+=======
+
+	case DPLANE_OP_SRV6_ENCAP_SRCADDR_SET:
+		return netlink_put_sr_tunsrc_set_msg(bth, ctx);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	}
 
 	return FRR_NETLINK_ERROR;
@@ -1748,8 +1908,13 @@ void kernel_init(struct zebra_ns *zns)
 	snprintf(zns->netlink.name, sizeof(zns->netlink.name),
 		 "netlink-listen (NS %u)", zns->ns_id);
 	zns->netlink.sock = -1;
+<<<<<<< HEAD
 	if (netlink_socket(&zns->netlink, groups, &ext_groups, 1, zns->ns_id) <
 	    0) {
+=======
+	if (netlink_socket(&zns->netlink, groups, &ext_groups, 1, zns->ns_id,
+			   NETLINK_ROUTE) < 0) {
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		zlog_err("Failure to create %s socket",
 			 zns->netlink.name);
 		exit(-1);
@@ -1760,7 +1925,12 @@ void kernel_init(struct zebra_ns *zns)
 	snprintf(zns->netlink_cmd.name, sizeof(zns->netlink_cmd.name),
 		 "netlink-cmd (NS %u)", zns->ns_id);
 	zns->netlink_cmd.sock = -1;
+<<<<<<< HEAD
 	if (netlink_socket(&zns->netlink_cmd, 0, 0, 0, zns->ns_id) < 0) {
+=======
+	if (netlink_socket(&zns->netlink_cmd, 0, 0, 0, zns->ns_id,
+			   NETLINK_ROUTE) < 0) {
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		zlog_err("Failure to create %s socket",
 			 zns->netlink_cmd.name);
 		exit(-1);
@@ -1773,7 +1943,12 @@ void kernel_init(struct zebra_ns *zns)
 		 sizeof(zns->netlink_dplane_out.name), "netlink-dp (NS %u)",
 		 zns->ns_id);
 	zns->netlink_dplane_out.sock = -1;
+<<<<<<< HEAD
 	if (netlink_socket(&zns->netlink_dplane_out, 0, 0, 0, zns->ns_id) < 0) {
+=======
+	if (netlink_socket(&zns->netlink_dplane_out, 0, 0, 0, zns->ns_id,
+			   NETLINK_ROUTE) < 0) {
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		zlog_err("Failure to create %s socket",
 			 zns->netlink_dplane_out.name);
 		exit(-1);
@@ -1787,7 +1962,11 @@ void kernel_init(struct zebra_ns *zns)
 		 zns->ns_id);
 	zns->netlink_dplane_in.sock = -1;
 	if (netlink_socket(&zns->netlink_dplane_in, dplane_groups, 0, 0,
+<<<<<<< HEAD
 			   zns->ns_id) < 0) {
+=======
+			   zns->ns_id, NETLINK_ROUTE) < 0) {
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		zlog_err("Failure to create %s socket",
 			 zns->netlink_dplane_in.name);
 		exit(-1);
@@ -1795,6 +1974,22 @@ void kernel_init(struct zebra_ns *zns)
 
 	kernel_netlink_nlsock_insert(&zns->netlink_dplane_in);
 
+<<<<<<< HEAD
+=======
+	/* Generic Netlink socket. */
+	snprintf(zns->ge_netlink_cmd.name, sizeof(zns->ge_netlink_cmd.name),
+		 "generic-netlink-cmd (NS %u)", zns->ns_id);
+	zns->ge_netlink_cmd.sock = -1;
+	if (netlink_socket(&zns->ge_netlink_cmd, 0, 0, 0, zns->ns_id,
+			   NETLINK_GENERIC) < 0) {
+		zlog_warn("Failure to create %s socket",
+			  zns->ge_netlink_cmd.name);
+	}
+
+	if (zns->ge_netlink_cmd.sock >= 0)
+		kernel_netlink_nlsock_insert(&zns->ge_netlink_cmd);
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	/*
 	 * SOL_NETLINK is not available on all platforms yet
 	 * apparently.  It's in bits/socket.h which I am not
@@ -1806,8 +2001,13 @@ void kernel_init(struct zebra_ns *zns)
 	 * setsockopt multicast group subscriptions that don't fit in nl_groups
 	 */
 	grp = RTNLGRP_BRVLAN;
+<<<<<<< HEAD
 	ret = setsockopt(zns->netlink.sock, SOL_NETLINK, NETLINK_ADD_MEMBERSHIP,
 			 &grp, sizeof(grp));
+=======
+	ret = setsockopt(zns->netlink_dplane_in.sock, SOL_NETLINK,
+			 NETLINK_ADD_MEMBERSHIP, &grp, sizeof(grp));
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	if (ret < 0)
 		zlog_notice(
@@ -1833,6 +2033,18 @@ void kernel_init(struct zebra_ns *zns)
 		zlog_notice("Registration for extended dp ACK failed : %d %s",
 			    errno, safe_strerror(errno));
 
+<<<<<<< HEAD
+=======
+	if (zns->ge_netlink_cmd.sock >= 0) {
+		one = 1;
+		ret = setsockopt(zns->ge_netlink_cmd.sock, SOL_NETLINK,
+				 NETLINK_EXT_ACK, &one, sizeof(one));
+		if (ret < 0)
+			zlog_err("Registration for extended generic netlink cmd ACK failed : %d %s",
+				 errno, safe_strerror(errno));
+	}
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	/*
 	 * Trim off the payload of the original netlink message in the
 	 * acknowledgment. This option is available since Linux 4.2, so if
@@ -1865,12 +2077,28 @@ void kernel_init(struct zebra_ns *zns)
 			 zns->netlink_dplane_in.name, safe_strerror(errno),
 			 errno);
 
+<<<<<<< HEAD
+=======
+	if (zns->ge_netlink_cmd.sock >= 0) {
+		if (fcntl(zns->ge_netlink_cmd.sock, F_SETFL, O_NONBLOCK) < 0)
+			zlog_err("Can't set %s socket error: %s(%d)",
+				 zns->ge_netlink_cmd.name, safe_strerror(errno),
+				 errno);
+	}
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	/* Set receive buffer size if it's set from command line */
 	if (rcvbufsize) {
 		netlink_recvbuf(&zns->netlink, rcvbufsize);
 		netlink_recvbuf(&zns->netlink_cmd, rcvbufsize);
 		netlink_recvbuf(&zns->netlink_dplane_out, rcvbufsize);
 		netlink_recvbuf(&zns->netlink_dplane_in, rcvbufsize);
+<<<<<<< HEAD
+=======
+
+		if (zns->ge_netlink_cmd.sock >= 0)
+			netlink_recvbuf(&zns->ge_netlink_cmd, rcvbufsize);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	}
 
 	/* Set filter for inbound sockets, to exclude events we've generated
@@ -1889,6 +2117,11 @@ void kernel_init(struct zebra_ns *zns)
 		       &zns->t_netlink);
 
 	rt_netlink_init();
+<<<<<<< HEAD
+=======
+
+	ge_netlink_init(zns);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 }
 
 /* Helper to clean up an nlsock */
@@ -1913,11 +2146,24 @@ void kernel_terminate(struct zebra_ns *zns, bool complete)
 
 	kernel_nlsock_fini(&zns->netlink_dplane_in);
 
+<<<<<<< HEAD
 	/* During zebra shutdown, we need to leave the dataplane socket
 	 * around until all work is done.
 	 */
 	if (complete)
 		kernel_nlsock_fini(&zns->netlink_dplane_out);
+=======
+	kernel_nlsock_fini(&zns->ge_netlink_cmd);
+
+	/* During zebra shutdown, we need to leave the dataplane socket
+	 * around until all work is done.
+	 */
+	if (complete) {
+		kernel_nlsock_fini(&zns->netlink_dplane_out);
+
+		XFREE(MTYPE_NL_BUF, nl_batch_tx_buf);
+	}
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 }
 
 /*

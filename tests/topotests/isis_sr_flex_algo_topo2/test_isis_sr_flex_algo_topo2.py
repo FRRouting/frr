@@ -47,7 +47,10 @@ import os
 import sys
 import pytest
 import json
+<<<<<<< HEAD
 import time
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 from functools import partial
 
 # Save the Current Working Directory to find configuration files.
@@ -67,7 +70,10 @@ pytestmark = [pytest.mark.isisd]
 def build_topo(tgen):
     "Build function"
 
+<<<<<<< HEAD
     routers = []
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     for i in range(0, 10):
         rt = tgen.add_router("rt{}".format(i))
         rt.run("sysctl -w net.ipv4.fib_multipath_hash_policy=1")
@@ -118,11 +124,27 @@ def setup_module(mod):
 
     # For all registered routers, load the zebra configuration file
     for rname, router in router_list.items():
+<<<<<<< HEAD
         router.load_config( TopoRouter.RD_ZEBRA, os.path.join(CWD, "{}/zebra.conf".format(rname)))
         router.load_config( TopoRouter.RD_ISIS, os.path.join(CWD, "{}/isisd.conf".format(rname)))
         if rname in ["rt0", "rt9"]:
             router.load_config( TopoRouter.RD_BGP, os.path.join(CWD, "{}/bgpd.conf".format(rname)))
             router.load_config( TopoRouter.RD_PATH, os.path.join(CWD, "{}/pathd.conf".format(rname)))
+=======
+        router.load_config(
+            TopoRouter.RD_ZEBRA, os.path.join(CWD, "{}/zebra.conf".format(rname))
+        )
+        router.load_config(
+            TopoRouter.RD_ISIS, os.path.join(CWD, "{}/isisd.conf".format(rname))
+        )
+        if rname in ["rt0", "rt9"]:
+            router.load_config(
+                TopoRouter.RD_BGP, os.path.join(CWD, "{}/bgpd.conf".format(rname))
+            )
+            router.load_config(
+                TopoRouter.RD_PATH, os.path.join(CWD, "{}/pathd.conf".format(rname))
+            )
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
             router.run("ip link add dum0 type dummy")
             router.run("ip link set dum0 up")
             if rname == "rt0":
@@ -132,7 +154,11 @@ def setup_module(mod):
     tgen.start_router()
 
 
+<<<<<<< HEAD
 def teardown_module(mod):
+=======
+def teardown_module():
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     "Teardown the pytest environment"
     tgen = get_topogen()
     tgen.stop_topology()
@@ -145,6 +171,10 @@ def setup_testcase(msg):
         pytest.skip(tgen.errors)
     return tgen
 
+<<<<<<< HEAD
+=======
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 def open_json_file(filename):
     try:
         with open(filename, "r") as f:
@@ -162,10 +192,17 @@ def check_rib(name, cmd, expected_file):
         expected = open_json_file("{}/{}".format(CWD, expected_file))
         return topotest.json_cmp(output, expected)
 
+<<<<<<< HEAD
     logger.info("[+] check {} \"{}\" {}".format(name, cmd, expected_file))
     tgen = get_topogen()
     func = partial(_check, name, cmd, expected_file)
     success, result = topotest.run_and_expect(func, None, count=120, wait=0.5)
+=======
+    logger.info('[+] check {} "{}" {}'.format(name, cmd, expected_file))
+    tgen = get_topogen()
+    func = partial(_check, name, cmd, expected_file)
+    _, result = topotest.run_and_expect(func, None, count=120, wait=0.5)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     assert result is None, "Failed"
 
 

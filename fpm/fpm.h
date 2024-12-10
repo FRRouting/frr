@@ -63,6 +63,7 @@
 #define FPM_DEFAULT_IP              (htonl (INADDR_LOOPBACK))
 
 /*
+<<<<<<< HEAD
  * default port for fpm connections
  */
 #define FPM_DEFAULT_PORT 2620
@@ -71,6 +72,11 @@
  * Largest message that can be sent to or received from the FPM.
  */
 #define FPM_MAX_MSG_LEN 4096
+=======
+ * Largest message that can be sent to or received from the FPM.
+ */
+#define FPM_MAX_MSG_LEN MAX(MULTIPATH_NUM * 32, 4096)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 #ifdef __SUNPRO_C
 #pragma pack(1)

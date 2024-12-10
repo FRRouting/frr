@@ -47,20 +47,28 @@ static int pim_msdp_mg_mbr_comp(const void *p1, const void *p2);
 static void pim_msdp_mg_mbr_free(struct pim_msdp_mg_mbr *mbr);
 
 /************************ SA cache management ******************************/
+<<<<<<< HEAD
 static void pim_msdp_sa_timer_expiry_log(struct pim_msdp_sa *sa,
 					 const char *timer_str)
 {
 	zlog_debug("MSDP SA %s %s timer expired", sa->sg_str, timer_str);
 }
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 /* RFC-3618:Sec-5.1 - global active source advertisement timer */
 static void pim_msdp_sa_adv_timer_cb(struct event *t)
 {
 	struct pim_instance *pim = EVENT_ARG(t);
 
+<<<<<<< HEAD
 	if (PIM_DEBUG_MSDP_EVENTS) {
 		zlog_debug("MSDP SA advertisement timer expired");
 	}
+=======
+	if (pim_msdp_log_sa_events(pim))
+		zlog_info("MSDP SA advertisement timer expired");
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	pim_msdp_sa_adv_timer_setup(pim, true /* start */);
 	pim_msdp_pkt_sa_tx(pim);
@@ -83,9 +91,14 @@ static void pim_msdp_sa_state_timer_cb(struct event *t)
 
 	sa = EVENT_ARG(t);
 
+<<<<<<< HEAD
 	if (PIM_DEBUG_MSDP_EVENTS) {
 		pim_msdp_sa_timer_expiry_log(sa, "state");
 	}
+=======
+	if (pim_msdp_log_sa_events(sa->pim))
+		zlog_info("MSDP SA %s state timer expired", sa->sg_str);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	pim_msdp_sa_deref(sa, PIM_MSDP_SAF_PEER);
 }
@@ -120,9 +133,14 @@ static void pim_msdp_sa_upstream_del(struct pim_msdp_sa *sa)
 		sa->flags &= ~PIM_MSDP_SAF_UP_DEL_IN_PROG;
 	}
 
+<<<<<<< HEAD
 	if (PIM_DEBUG_MSDP_EVENTS) {
 		zlog_debug("MSDP SA %s de-referenced SPT", sa->sg_str);
 	}
+=======
+	if (pim_msdp_log_sa_events(sa->pim))
+		zlog_info("MSDP SA %s de-referenced SPT", sa->sg_str);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 }
 
 static bool pim_msdp_sa_upstream_add_ok(struct pim_msdp_sa *sa,
@@ -185,10 +203,15 @@ static void pim_msdp_sa_upstream_update(struct pim_msdp_sa *sa,
 	if (up && (PIM_UPSTREAM_FLAG_TEST_SRC_MSDP(up->flags))) {
 		/* somehow we lost track of the upstream ptr? best log it */
 		sa->up = up;
+<<<<<<< HEAD
 		if (PIM_DEBUG_MSDP_EVENTS) {
 			zlog_debug("MSDP SA %s SPT reference missing",
 				   sa->sg_str);
 		}
+=======
+		if (pim_msdp_log_sa_events(sa->pim))
+			zlog_info("MSDP SA %s SPT reference missing", sa->sg_str);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		return;
 	}
 
@@ -204,6 +227,7 @@ static void pim_msdp_sa_upstream_update(struct pim_msdp_sa *sa,
 		/* should we also start the kat in parallel? we will need it
 		 * when the
 		 * SA ages out */
+<<<<<<< HEAD
 		if (PIM_DEBUG_MSDP_EVENTS) {
 			zlog_debug("MSDP SA %s referenced SPT", sa->sg_str);
 		}
@@ -212,6 +236,13 @@ static void pim_msdp_sa_upstream_update(struct pim_msdp_sa *sa,
 			zlog_debug("MSDP SA %s SPT reference failed",
 				   sa->sg_str);
 		}
+=======
+		if (pim_msdp_log_sa_events(sa->pim))
+			zlog_info("MSDP SA %s referenced SPT", sa->sg_str);
+	} else {
+		if (pim_msdp_log_sa_events(sa->pim))
+			zlog_info("MSDP SA %s SPT reference failed", sa->sg_str);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	}
 }
 
@@ -240,9 +271,14 @@ static struct pim_msdp_sa *pim_msdp_sa_new(struct pim_instance *pim,
 	sa = hash_get(pim->msdp.sa_hash, sa, hash_alloc_intern);
 	listnode_add_sort(pim->msdp.sa_list, sa);
 
+<<<<<<< HEAD
 	if (PIM_DEBUG_MSDP_EVENTS) {
 		zlog_debug("MSDP SA %s created", sa->sg_str);
 	}
+=======
+	if (pim_msdp_log_sa_events(pim))
+		zlog_info("MSDP SA %s created", sa->sg_str);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	return sa;
 }
@@ -282,9 +318,14 @@ static void pim_msdp_sa_del(struct pim_msdp_sa *sa)
 	listnode_delete(sa->pim->msdp.sa_list, sa);
 	hash_release(sa->pim->msdp.sa_hash, sa);
 
+<<<<<<< HEAD
 	if (PIM_DEBUG_MSDP_EVENTS) {
 		zlog_debug("MSDP SA %s deleted", sa->sg_str);
 	}
+=======
+	if (pim_msdp_log_sa_events(sa->pim))
+		zlog_info("MSDP SA %s deleted", sa->sg_str);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	/* free up any associated memory */
 	pim_msdp_sa_free(sa);
@@ -333,10 +374,16 @@ static void pim_msdp_sa_deref(struct pim_msdp_sa *sa,
 
 	if ((sa->flags & PIM_MSDP_SAF_LOCAL)) {
 		if (flags & PIM_MSDP_SAF_LOCAL) {
+<<<<<<< HEAD
 			if (PIM_DEBUG_MSDP_EVENTS) {
 				zlog_debug("MSDP SA %s local reference removed",
 					   sa->sg_str);
 			}
+=======
+			if (pim_msdp_log_sa_events(sa->pim))
+				zlog_info("MSDP SA %s local reference removed", sa->sg_str);
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			if (sa->pim->msdp.local_cnt)
 				--sa->pim->msdp.local_cnt;
 		}
@@ -346,10 +393,16 @@ static void pim_msdp_sa_deref(struct pim_msdp_sa *sa,
 		if (flags & PIM_MSDP_SAF_PEER) {
 			struct in_addr rp;
 
+<<<<<<< HEAD
 			if (PIM_DEBUG_MSDP_EVENTS) {
 				zlog_debug("MSDP SA %s peer reference removed",
 					   sa->sg_str);
 			}
+=======
+			if (pim_msdp_log_sa_events(sa->pim))
+				zlog_info("MSDP SA %s peer reference removed", sa->sg_str);
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			pim_msdp_sa_state_timer_setup(sa, false /* start */);
 			rp.s_addr = INADDR_ANY;
 			pim_msdp_sa_peer_ip_set(sa, NULL /* mp */, rp);
@@ -386,10 +439,15 @@ void pim_msdp_sa_ref(struct pim_instance *pim, struct pim_msdp_peer *mp,
 	if (mp) {
 		if (!(sa->flags & PIM_MSDP_SAF_PEER)) {
 			sa->flags |= PIM_MSDP_SAF_PEER;
+<<<<<<< HEAD
 			if (PIM_DEBUG_MSDP_EVENTS) {
 				zlog_debug("MSDP SA %s added by peer",
 					   sa->sg_str);
 			}
+=======
+			if (pim_msdp_log_sa_events(pim))
+				zlog_info("MSDP SA %s added by peer", sa->sg_str);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		}
 		pim_msdp_sa_peer_ip_set(sa, mp, rp);
 		/* start/re-start the state timer to prevent cache expiry */
@@ -403,10 +461,16 @@ void pim_msdp_sa_ref(struct pim_instance *pim, struct pim_msdp_peer *mp,
 		if (!(sa->flags & PIM_MSDP_SAF_LOCAL)) {
 			sa->flags |= PIM_MSDP_SAF_LOCAL;
 			++sa->pim->msdp.local_cnt;
+<<<<<<< HEAD
 			if (PIM_DEBUG_MSDP_EVENTS) {
 				zlog_debug("MSDP SA %s added locally",
 					   sa->sg_str);
 			}
+=======
+			if (pim_msdp_log_sa_events(pim))
+				zlog_info("MSDP SA %s added locally", sa->sg_str);
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			/* send an immediate SA update to peers */
 			pim_addr_to_prefix(&grp, sa->sg.grp);
 			rp_info = pim_rp_find_match_group(pim, &grp);
@@ -710,6 +774,12 @@ bool pim_msdp_peer_rpf_check(struct pim_msdp_peer *mp, struct in_addr rp)
 		return true;
 	}
 
+<<<<<<< HEAD
+=======
+	if (pim_msdp_log_sa_events(mp->pim))
+		zlog_info("MSDP peer %pI4 RPF failure for %pI4", &mp->peer, &rp);
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	return false;
 }
 
@@ -744,7 +814,11 @@ static void pim_msdp_peer_state_chg_log(struct pim_msdp_peer *mp)
 	char state_str[PIM_MSDP_STATE_STRLEN];
 
 	pim_msdp_state_dump(mp->state, state_str, sizeof(state_str));
+<<<<<<< HEAD
 	zlog_debug("MSDP peer %s state chg to %s", mp->key_str, state_str);
+=======
+	zlog_info("MSDP peer %s state changed to %s", mp->key_str, state_str);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 }
 
 /* MSDP Connection State Machine actions (defined in RFC-3618:Sec-11.2) */
@@ -752,10 +826,20 @@ static void pim_msdp_peer_state_chg_log(struct pim_msdp_peer *mp)
  * a tcp connection will be made */
 static void pim_msdp_peer_connect(struct pim_msdp_peer *mp)
 {
+<<<<<<< HEAD
 	mp->state = PIM_MSDP_CONNECTING;
 	if (PIM_DEBUG_MSDP_EVENTS) {
 		pim_msdp_peer_state_chg_log(mp);
 	}
+=======
+	/* Stop here if we are shutdown. */
+	if (mp->pim->msdp.shutdown)
+		return;
+
+	mp->state = PIM_MSDP_CONNECTING;
+	if (pim_msdp_log_neighbor_events(mp->pim))
+		pim_msdp_peer_state_chg_log(mp);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	pim_msdp_peer_cr_timer_setup(mp, true /* start */);
 }
@@ -763,17 +847,34 @@ static void pim_msdp_peer_connect(struct pim_msdp_peer *mp)
 /* 11.2.A3: passive peer - just listen for connections */
 static void pim_msdp_peer_listen(struct pim_msdp_peer *mp)
 {
+<<<<<<< HEAD
 	mp->state = PIM_MSDP_LISTEN;
 	if (PIM_DEBUG_MSDP_EVENTS) {
 		pim_msdp_peer_state_chg_log(mp);
 	}
+=======
+	/* Stop here if we are shutdown. */
+	if (mp->pim->msdp.shutdown)
+		return;
+
+	mp->state = PIM_MSDP_LISTEN;
+	if (pim_msdp_log_neighbor_events(mp->pim))
+		pim_msdp_peer_state_chg_log(mp);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	/* this is interntionally asymmetric i.e. we set up listen-socket when
 	* the
 	* first listening peer is configured; but don't bother tearing it down
 	* when
 	* all the peers go down */
+<<<<<<< HEAD
 	pim_msdp_sock_listen(mp->pim);
+=======
+	if (mp->auth_type == MSDP_AUTH_NONE)
+		pim_msdp_sock_listen(mp->pim);
+	else
+		pim_msdp_sock_auth_listen(mp);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 }
 
 /* 11.2.A4 and 11.2.A5: transition active or passive peer to
@@ -787,9 +888,14 @@ void pim_msdp_peer_established(struct pim_msdp_peer *mp)
 	mp->state = PIM_MSDP_ESTABLISHED;
 	mp->uptime = pim_time_monotonic_sec();
 
+<<<<<<< HEAD
 	if (PIM_DEBUG_MSDP_EVENTS) {
 		pim_msdp_peer_state_chg_log(mp);
 	}
+=======
+	if (pim_msdp_log_neighbor_events(mp->pim))
+		pim_msdp_peer_state_chg_log(mp);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	/* stop retry timer on active peers */
 	pim_msdp_peer_cr_timer_setup(mp, false /* start */);
@@ -813,9 +919,15 @@ void pim_msdp_peer_stop_tcp_conn(struct pim_msdp_peer *mp, bool chg_state)
 			++mp->est_flaps;
 		}
 		mp->state = PIM_MSDP_INACTIVE;
+<<<<<<< HEAD
 		if (PIM_DEBUG_MSDP_EVENTS) {
 			pim_msdp_peer_state_chg_log(mp);
 		}
+=======
+
+		if (pim_msdp_log_neighbor_events(mp->pim))
+			pim_msdp_peer_state_chg_log(mp);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	}
 
 	if (PIM_DEBUG_MSDP_INTERNAL) {
@@ -848,10 +960,17 @@ void pim_msdp_peer_stop_tcp_conn(struct pim_msdp_peer *mp, bool chg_state)
 /* RFC-3618:Sec-5.6 - stop the peer tcp connection and startover */
 void pim_msdp_peer_reset_tcp_conn(struct pim_msdp_peer *mp, const char *rc_str)
 {
+<<<<<<< HEAD
 	if (PIM_DEBUG_EVENTS) {
 		zlog_debug("MSDP peer %s tcp reset %s", mp->key_str, rc_str);
 		snprintf(mp->last_reset, sizeof(mp->last_reset), "%s", rc_str);
 	}
+=======
+	if (pim_msdp_log_neighbor_events(mp->pim))
+		zlog_info("MSDP peer %s tcp reset %s", mp->key_str, rc_str);
+
+	snprintf(mp->last_reset, sizeof(mp->last_reset), "%s", rc_str);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	/* close the connection and transition to listening or connecting */
 	pim_msdp_peer_stop_tcp_conn(mp, true /* chg_state */);
@@ -862,12 +981,15 @@ void pim_msdp_peer_reset_tcp_conn(struct pim_msdp_peer *mp, const char *rc_str)
 	}
 }
 
+<<<<<<< HEAD
 static void pim_msdp_peer_timer_expiry_log(struct pim_msdp_peer *mp,
 					   const char *timer_str)
 {
 	zlog_debug("MSDP peer %s %s timer expired", mp->key_str, timer_str);
 }
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 /* RFC-3618:Sec-5.4 - peer hold timer */
 static void pim_msdp_peer_hold_timer_cb(struct event *t)
 {
@@ -875,17 +997,28 @@ static void pim_msdp_peer_hold_timer_cb(struct event *t)
 
 	mp = EVENT_ARG(t);
 
+<<<<<<< HEAD
 	if (PIM_DEBUG_MSDP_EVENTS) {
 		pim_msdp_peer_timer_expiry_log(mp, "hold");
 	}
+=======
+	if (pim_msdp_log_neighbor_events(mp->pim))
+		zlog_info("MSDP peer %s hold timer expired", mp->key_str);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	if (mp->state != PIM_MSDP_ESTABLISHED) {
 		return;
 	}
 
+<<<<<<< HEAD
 	if (PIM_DEBUG_MSDP_EVENTS) {
 		pim_msdp_peer_state_chg_log(mp);
 	}
+=======
+	if (pim_msdp_log_neighbor_events(mp->pim))
+		pim_msdp_peer_state_chg_log(mp);
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	pim_msdp_peer_reset_tcp_conn(mp, "ht-expired");
 }
 
@@ -907,9 +1040,14 @@ static void pim_msdp_peer_ka_timer_cb(struct event *t)
 
 	mp = EVENT_ARG(t);
 
+<<<<<<< HEAD
 	if (PIM_DEBUG_MSDP_EVENTS) {
 		pim_msdp_peer_timer_expiry_log(mp, "ka");
 	}
+=======
+	if (pim_msdp_log_neighbor_events(mp->pim))
+		zlog_info("MSDP peer %s keep alive timer expired", mp->key_str);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	pim_msdp_pkt_ka_tx(mp);
 	pim_msdp_peer_ka_timer_setup(mp, true /* start */);
@@ -967,9 +1105,14 @@ static void pim_msdp_peer_cr_timer_cb(struct event *t)
 
 	mp = EVENT_ARG(t);
 
+<<<<<<< HEAD
 	if (PIM_DEBUG_MSDP_EVENTS) {
 		pim_msdp_peer_timer_expiry_log(mp, "connect-retry");
 	}
+=======
+	if (pim_msdp_log_neighbor_events(mp->pim))
+		zlog_info("MSDP peer %s connection retry timer expired", mp->key_str);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	if (mp->state != PIM_MSDP_CONNECTING || PIM_MSDP_PEER_IS_LISTENER(mp)) {
 		return;
@@ -1009,6 +1152,7 @@ void pim_msdp_peer_pkt_txed(struct pim_msdp_peer *mp)
 	}
 }
 
+<<<<<<< HEAD
 static void pim_msdp_addr2su(union sockunion *su, struct in_addr addr)
 {
 	sockunion_init(su);
@@ -1019,6 +1163,8 @@ static void pim_msdp_addr2su(union sockunion *su, struct in_addr addr)
 #endif /* HAVE_STRUCT_SOCKADDR_IN_SIN_LEN */
 }
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 /* 11.2.A1: create a new peer and transition state to listen or connecting */
 struct pim_msdp_peer *pim_msdp_peer_add(struct pim_instance *pim,
 					const struct in_addr *peer,
@@ -1034,17 +1180,27 @@ struct pim_msdp_peer *pim_msdp_peer_add(struct pim_instance *pim,
 	mp->pim = pim;
 	mp->peer = *peer;
 	pim_inet4_dump("<peer?>", mp->peer, mp->key_str, sizeof(mp->key_str));
+<<<<<<< HEAD
 	pim_msdp_addr2su(&mp->su_peer, mp->peer);
 	mp->local = *local;
 	/* XXX: originator_id setting needs to move to the mesh group */
 	pim->msdp.originator_id = *local;
 	pim_msdp_addr2su(&mp->su_local, mp->local);
+=======
+	mp->local = *local;
+	/* XXX: originator_id setting needs to move to the mesh group */
+	pim->msdp.originator_id = *local;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	if (mesh_group_name)
 		mp->mesh_group_name =
 			XSTRDUP(MTYPE_PIM_MSDP_MG_NAME, mesh_group_name);
 
 	mp->state = PIM_MSDP_INACTIVE;
 	mp->fd = -1;
+<<<<<<< HEAD
+=======
+	mp->auth_listen_sock = -1;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	strlcpy(mp->last_reset, "-", sizeof(mp->last_reset));
 	/* higher IP address is listener */
 	if (ntohl(mp->local.s_addr) > ntohl(mp->peer.s_addr)) {
@@ -1059,8 +1215,13 @@ struct pim_msdp_peer *pim_msdp_peer_add(struct pim_instance *pim,
 	mp = hash_get(pim->msdp.peer_hash, mp, hash_alloc_intern);
 	listnode_add_sort(pim->msdp.peer_list, mp);
 
+<<<<<<< HEAD
 	if (PIM_DEBUG_MSDP_EVENTS) {
 		zlog_debug("MSDP peer %s created", mp->key_str);
+=======
+	if (pim_msdp_log_neighbor_events(pim)) {
+		zlog_info("MSDP peer %s created", mp->key_str);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 		pim_msdp_peer_state_chg_log(mp);
 	}
@@ -1074,8 +1235,12 @@ struct pim_msdp_peer *pim_msdp_peer_add(struct pim_instance *pim,
 	return mp;
 }
 
+<<<<<<< HEAD
 struct pim_msdp_peer *pim_msdp_peer_find(struct pim_instance *pim,
 					 struct in_addr peer_addr)
+=======
+struct pim_msdp_peer *pim_msdp_peer_find(const struct pim_instance *pim, struct in_addr peer_addr)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 {
 	struct pim_msdp_peer lookup;
 
@@ -1100,6 +1265,15 @@ static void pim_msdp_peer_free(struct pim_msdp_peer *mp)
 		stream_fifo_free(mp->obuf);
 	}
 
+<<<<<<< HEAD
+=======
+	/* Free authentication data. */
+	event_cancel(&mp->auth_listen_ev);
+	XFREE(MTYPE_PIM_MSDP_AUTH_KEY, mp->auth_key);
+	if (mp->auth_listen_sock != -1)
+		close(mp->auth_listen_sock);
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	XFREE(MTYPE_PIM_MSDP_MG_NAME, mp->mesh_group_name);
 
 	mp->pim = NULL;
@@ -1119,15 +1293,21 @@ void pim_msdp_peer_del(struct pim_msdp_peer **mp)
 	listnode_delete((*mp)->pim->msdp.peer_list, *mp);
 	hash_release((*mp)->pim->msdp.peer_hash, *mp);
 
+<<<<<<< HEAD
 	if (PIM_DEBUG_MSDP_EVENTS) {
 		zlog_debug("MSDP peer %s deleted", (*mp)->key_str);
 	}
+=======
+	if (pim_msdp_log_neighbor_events((*mp)->pim))
+		zlog_info("MSDP peer %s deleted", (*mp)->key_str);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	/* free up any associated memory */
 	pim_msdp_peer_free(*mp);
 	*mp = NULL;
 }
 
+<<<<<<< HEAD
 void pim_msdp_peer_change_source(struct pim_msdp_peer *mp,
 				 const struct in_addr *addr)
 {
@@ -1135,12 +1315,37 @@ void pim_msdp_peer_change_source(struct pim_msdp_peer *mp,
 
 	mp->local = *addr;
 
+=======
+void pim_msdp_peer_restart(struct pim_msdp_peer *mp)
+{
+	/* Stop auth listening socket if any. */
+	event_cancel(&mp->auth_listen_ev);
+	if (mp->auth_listen_sock != -1) {
+		close(mp->auth_listen_sock);
+		mp->auth_listen_sock = -1;
+	}
+
+	/* Stop previously running connection. */
+	pim_msdp_peer_stop_tcp_conn(mp, true);
+
+	/* Start connection again. */
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	if (PIM_MSDP_PEER_IS_LISTENER(mp))
 		pim_msdp_peer_listen(mp);
 	else
 		pim_msdp_peer_connect(mp);
 }
 
+<<<<<<< HEAD
+=======
+void pim_msdp_peer_change_source(struct pim_msdp_peer *mp,
+				 const struct in_addr *addr)
+{
+	mp->local = *addr;
+	pim_msdp_peer_restart(mp);
+}
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 /* peer hash and peer list helpers */
 static unsigned int pim_msdp_peer_hash_key_make(const void *p)
 {
@@ -1183,10 +1388,15 @@ void pim_msdp_mg_free(struct pim_instance *pim, struct pim_msdp_mg **mgp)
 	for (ALL_LIST_ELEMENTS((*mgp)->mbr_list, n, nn, mbr))
 		pim_msdp_mg_mbr_del((*mgp), mbr);
 
+<<<<<<< HEAD
 	if (PIM_DEBUG_MSDP_EVENTS) {
 		zlog_debug("MSDP mesh-group %s deleted",
 			   (*mgp)->mesh_group_name);
 	}
+=======
+	if (pim_msdp_log_neighbor_events(pim))
+		zlog_info("MSDP mesh-group %s deleted", (*mgp)->mesh_group_name);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	XFREE(MTYPE_PIM_MSDP_MG_NAME, (*mgp)->mesh_group_name);
 
@@ -1203,15 +1413,24 @@ struct pim_msdp_mg *pim_msdp_mg_new(struct pim_instance *pim,
 	struct pim_msdp_mg *mg;
 
 	mg = XCALLOC(MTYPE_PIM_MSDP_MG, sizeof(*mg));
+<<<<<<< HEAD
 
+=======
+	mg->pim = pim;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	mg->mesh_group_name = XSTRDUP(MTYPE_PIM_MSDP_MG_NAME, mesh_group_name);
 	mg->mbr_list = list_new();
 	mg->mbr_list->del = (void (*)(void *))pim_msdp_mg_mbr_free;
 	mg->mbr_list->cmp = (int (*)(void *, void *))pim_msdp_mg_mbr_comp;
 
+<<<<<<< HEAD
 	if (PIM_DEBUG_MSDP_EVENTS) {
 		zlog_debug("MSDP mesh-group %s created", mg->mesh_group_name);
 	}
+=======
+	if (pim_msdp_log_neighbor_events(pim))
+		zlog_info("MSDP mesh-group %s created", mg->mesh_group_name);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	SLIST_INSERT_HEAD(&pim->msdp.mglist, mg, mg_entry);
 
@@ -1245,12 +1464,19 @@ void pim_msdp_mg_mbr_del(struct pim_msdp_mg *mg, struct pim_msdp_mg_mbr *mbr)
 	}
 
 	listnode_delete(mg->mbr_list, mbr);
+<<<<<<< HEAD
 	if (PIM_DEBUG_MSDP_EVENTS) {
 		char ip_str[INET_ADDRSTRLEN];
 		pim_inet4_dump("<mbr?>", mbr->mbr_ip, ip_str, sizeof(ip_str));
 		zlog_debug("MSDP mesh-group %s mbr %s deleted",
 			   mg->mesh_group_name, ip_str);
 	}
+=======
+	if (pim_msdp_log_neighbor_events(mg->pim))
+		zlog_info("MSDP mesh-group %s neighbor %pI4 deleted", mg->mesh_group_name,
+			  &mbr->mbr_ip);
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	pim_msdp_mg_mbr_free(mbr);
 	if (mg->mbr_cnt) {
 		--mg->mbr_cnt;
@@ -1267,6 +1493,7 @@ static void pim_msdp_src_del(struct pim_msdp_mg *mg)
 		if (mbr->mp)
 			pim_msdp_peer_del(&mbr->mp);
 	}
+<<<<<<< HEAD
 	if (PIM_DEBUG_MSDP_EVENTS) {
 		zlog_debug("MSDP mesh-group %s src cleared",
 			   mg->mesh_group_name);
@@ -1276,6 +1503,15 @@ static void pim_msdp_src_del(struct pim_msdp_mg *mg)
 /*********************** MSDP feature APIs *********************************/
 int pim_msdp_config_write(struct pim_instance *pim, struct vty *vty,
 			  const char *spaces)
+=======
+
+	if (pim_msdp_log_neighbor_events(mg->pim))
+		zlog_info("MSDP mesh-group %s source cleared", mg->mesh_group_name);
+}
+
+/*********************** MSDP feature APIs *********************************/
+int pim_msdp_config_write(struct pim_instance *pim, struct vty *vty)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 {
 	struct pim_msdp_mg *mg;
 	struct listnode *mbrnode;
@@ -1283,6 +1519,14 @@ int pim_msdp_config_write(struct pim_instance *pim, struct vty *vty,
 	char src_str[INET_ADDRSTRLEN];
 	int count = 0;
 
+<<<<<<< HEAD
+=======
+	if (pim_msdp_log_neighbor_events(pim))
+		vty_out(vty, " msdp log neighbor-events\n");
+	if (pim_msdp_log_sa_events(pim))
+		vty_out(vty, " msdp log sa-events\n");
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	if (SLIST_EMPTY(&pim->msdp.mglist))
 		return count;
 
@@ -1290,14 +1534,24 @@ int pim_msdp_config_write(struct pim_instance *pim, struct vty *vty,
 		if (mg->src_ip.s_addr != INADDR_ANY) {
 			pim_inet4_dump("<src?>", mg->src_ip, src_str,
 				       sizeof(src_str));
+<<<<<<< HEAD
 			vty_out(vty, "%sip msdp mesh-group %s source %s\n",
 				spaces, mg->mesh_group_name, src_str);
+=======
+			vty_out(vty, " msdp mesh-group %s source %s\n",
+				mg->mesh_group_name, src_str);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			++count;
 		}
 
 		for (ALL_LIST_ELEMENTS_RO(mg->mbr_list, mbrnode, mbr)) {
+<<<<<<< HEAD
 			vty_out(vty, "%sip msdp mesh-group %s member %pI4\n",
 				spaces, mg->mesh_group_name, &mbr->mbr_ip);
+=======
+			vty_out(vty, " msdp mesh-group %s member %pI4\n",
+				mg->mesh_group_name, &mbr->mbr_ip);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			++count;
 		}
 	}
@@ -1305,8 +1559,12 @@ int pim_msdp_config_write(struct pim_instance *pim, struct vty *vty,
 	return count;
 }
 
+<<<<<<< HEAD
 bool pim_msdp_peer_config_write(struct vty *vty, struct pim_instance *pim,
 				const char *spaces)
+=======
+bool pim_msdp_peer_config_write(struct vty *vty, struct pim_instance *pim)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 {
 	struct pim_msdp_peer *mp;
 	struct listnode *node;
@@ -1317,11 +1575,35 @@ bool pim_msdp_peer_config_write(struct vty *vty, struct pim_instance *pim,
 		if (mp->flags & PIM_MSDP_PEERF_IN_GROUP)
 			continue;
 
+<<<<<<< HEAD
 		vty_out(vty, "%sip msdp peer %pI4 source %pI4\n", spaces,
 			&mp->peer, &mp->local);
 		written = true;
 	}
 
+=======
+		vty_out(vty, " msdp peer %pI4 source %pI4\n", &mp->peer,
+			&mp->local);
+
+		if (mp->auth_type == MSDP_AUTH_MD5)
+			vty_out(vty, " msdp peer %pI4 password %s\n", &mp->peer,
+				mp->auth_key);
+
+		if (mp->acl_in)
+			vty_out(vty, " msdp peer %pI4 sa-filter %s in\n",
+				&mp->peer, mp->acl_in);
+
+		if (mp->acl_out)
+			vty_out(vty, " msdp peer %pI4 sa-filter %s out\n",
+				&mp->peer, mp->acl_out);
+
+		written = true;
+	}
+
+	if (pim->msdp.shutdown)
+		vty_out(vty, " msdp shutdown\n");
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	return written;
 }
 
@@ -1405,9 +1687,14 @@ void pim_msdp_mg_src_add(struct pim_instance *pim, struct pim_msdp_mg *mg,
 
 	/* No new address, disable everyone. */
 	if (ai->s_addr == INADDR_ANY) {
+<<<<<<< HEAD
 		if (PIM_DEBUG_MSDP_EVENTS)
 			zlog_debug("MSDP mesh-group %s src unset",
 				   mg->mesh_group_name);
+=======
+		if (pim_msdp_log_neighbor_events(pim))
+			zlog_info("MSDP mesh-group %s source unset", mg->mesh_group_name);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		return;
 	}
 
@@ -1416,9 +1703,14 @@ void pim_msdp_mg_src_add(struct pim_instance *pim, struct pim_msdp_mg *mg,
 		mbr->mp = pim_msdp_peer_add(pim, &mbr->mbr_ip, &mg->src_ip,
 					    mg->mesh_group_name);
 
+<<<<<<< HEAD
 	if (PIM_DEBUG_MSDP_EVENTS)
 		zlog_debug("MSDP mesh-group %s src %pI4 set",
 			   mg->mesh_group_name, &mg->src_ip);
+=======
+	if (pim_msdp_log_neighbor_events(pim))
+		zlog_info("MSDP mesh-group %s source %pI4 set", mg->mesh_group_name, &mg->src_ip);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 }
 
 struct pim_msdp_mg_mbr *pim_msdp_mg_mbr_add(struct pim_instance *pim,
@@ -1436,11 +1728,59 @@ struct pim_msdp_mg_mbr *pim_msdp_mg_mbr_add(struct pim_instance *pim,
 		mbr->mp = pim_msdp_peer_add(pim, &mbr->mbr_ip, &mg->src_ip,
 					    mg->mesh_group_name);
 
+<<<<<<< HEAD
 	if (PIM_DEBUG_MSDP_EVENTS)
 		zlog_debug("MSDP mesh-group %s mbr %pI4 created",
 			   mg->mesh_group_name, &mbr->mbr_ip);
+=======
+	if (pim_msdp_log_neighbor_events(pim))
+		zlog_info("MSDP mesh-group %s neighbor %pI4 created", mg->mesh_group_name,
+			  &mbr->mbr_ip);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	++mg->mbr_cnt;
 
 	return mbr;
 }
+<<<<<<< HEAD
+=======
+
+void pim_msdp_shutdown(struct pim_instance *pim, bool state)
+{
+	struct pim_msdp_peer *peer;
+	struct listnode *node;
+
+	/* Same value nothing to do. */
+	if (pim->msdp.shutdown == state)
+		return;
+
+	if (state) {
+		pim->msdp.shutdown = true;
+
+		for (ALL_LIST_ELEMENTS_RO(pim->msdp.peer_list, node, peer)) {
+			/* Stop the tcp connection and shutdown all timers */
+			pim_msdp_peer_stop_tcp_conn(peer, true);
+
+			/* Stop listening socket if any. */
+			event_cancel(&peer->auth_listen_ev);
+			if (peer->auth_listen_sock != -1)
+				close(peer->auth_listen_sock);
+
+			/* Disable and remove listener flag. */
+			UNSET_FLAG(pim->msdp.flags, PIM_MSDPF_ENABLE | PIM_MSDPF_LISTENER);
+		}
+	} else {
+		pim->msdp.shutdown = false;
+
+		for (ALL_LIST_ELEMENTS_RO(pim->msdp.peer_list, node, peer)) {
+			/* Start connection again. */
+			if (PIM_MSDP_PEER_IS_LISTENER(peer))
+				pim_msdp_peer_listen(peer);
+			else
+				pim_msdp_peer_connect(peer);
+
+			SET_FLAG(pim->msdp.flags, PIM_MSDPF_ENABLE);
+		}
+	}
+}
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)

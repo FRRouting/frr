@@ -45,8 +45,15 @@ bool rnh_get_hide_backups(void);
 
 void show_nexthop_json_helper(json_object *json_nexthop,
 			      const struct nexthop *nexthop,
+<<<<<<< HEAD
 			      const struct route_entry *re);
 void show_route_nexthop_helper(struct vty *vty, const struct route_entry *re,
+=======
+			      const struct route_node *rn,
+			      const struct route_entry *re);
+void show_route_nexthop_helper(struct vty *vty, const struct route_node *rn,
+			       const struct route_entry *re,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			       const struct nexthop *nexthop);
 
 #ifdef __cplusplus

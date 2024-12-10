@@ -6,6 +6,14 @@
  */
 
 #include <zebra.h>
+<<<<<<< HEAD
+=======
+
+#include <signal.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 #include "frrevent.h"
 #include <log.h>
 #include <network.h>
@@ -27,6 +35,11 @@
 #include "watchfrr.h"
 #include "watchfrr_errors.h"
 
+<<<<<<< HEAD
+=======
+#include "lib/config_paths.h"
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 #ifndef MIN
 #define MIN(X,Y) (((X) <= (Y)) ? (X) : (Y))
 #endif
@@ -115,7 +128,11 @@ static struct global_state {
 	int numdown; /* # of daemons that are not UP or UNRESPONSIVE */
 } gs = {
 	.phase = PHASE_INIT,
+<<<<<<< HEAD
 	.vtydir = frr_vtydir,
+=======
+	.vtydir = frr_runstatedir,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	.period = 1000 * DEFAULT_PERIOD,
 	.timeout = DEFAULT_TIMEOUT,
 	.restart_timeout = DEFAULT_RESTART_TIMEOUT,
@@ -292,11 +309,19 @@ Otherwise, the interval is doubled (but capped at the -M value).\n\n",
 		passing command-line arguments with embedded spaces.\n\
 -v, --version	Print program version\n\
 -h, --help	Display this help and exit\n",
+<<<<<<< HEAD
 		frr_vtydir, DEFAULT_LOGLEVEL, LOG_EMERG, LOG_DEBUG, LOG_DEBUG,
 		DEFAULT_MIN_RESTART, DEFAULT_MAX_RESTART,
 		DEFAULT_OPERATIONAL_TIMEOUT, DEFAULT_PERIOD, DEFAULT_TIMEOUT,
 		DEFAULT_RESTART_TIMEOUT, DEFAULT_RESTART_CMD, DEFAULT_START_CMD,
 		DEFAULT_STOP_CMD, frr_vtydir);
+=======
+		frr_runstatedir, DEFAULT_LOGLEVEL, LOG_EMERG, LOG_DEBUG,
+		LOG_DEBUG, DEFAULT_MIN_RESTART, DEFAULT_MAX_RESTART,
+		DEFAULT_OPERATIONAL_TIMEOUT, DEFAULT_PERIOD, DEFAULT_TIMEOUT,
+		DEFAULT_RESTART_TIMEOUT, DEFAULT_RESTART_CMD, DEFAULT_START_CMD,
+		DEFAULT_STOP_CMD, frr_runstatedir);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 }
 
 static pid_t run_background(char *shell_cmd)
@@ -723,7 +748,11 @@ static void daemon_send_ready(int exitcode)
 
 	frr_detach();
 
+<<<<<<< HEAD
 	snprintf(started, sizeof(started), "%s/%s", frr_vtydir,
+=======
+	snprintf(started, sizeof(started), "%s/%s", frr_runstatedir,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		 "watchfrr.started");
 	fp = fopen(started, "w");
 	if (fp)
@@ -911,7 +940,11 @@ static void phase_check(void)
 			"Phased restart: all routing daemon stop jobs have completed.");
 		set_phase(PHASE_WAITING_DOWN);
 
+<<<<<<< HEAD
 	/*FALLTHRU*/
+=======
+		fallthrough;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	case PHASE_WAITING_DOWN:
 		if (gs.numdown + IS_UP(gs.special) < gs.numdaemons)
 			break;
@@ -921,7 +954,11 @@ static void phase_check(void)
 			1);
 		set_phase(PHASE_ZEBRA_RESTART_PENDING);
 
+<<<<<<< HEAD
 	/*FALLTHRU*/
+=======
+		fallthrough;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	case PHASE_ZEBRA_RESTART_PENDING:
 		if (gs.special->restart.pid)
 			break;
@@ -930,7 +967,11 @@ static void phase_check(void)
 			  gs.special->name);
 		set_phase(PHASE_WAITING_ZEBRA_UP);
 
+<<<<<<< HEAD
 	/*FALLTHRU*/
+=======
+		fallthrough;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	case PHASE_WAITING_ZEBRA_UP:
 		if (!IS_UP(gs.special))
 			break;
@@ -1347,6 +1388,7 @@ static struct frr_signal_t watchfrr_signals[] = {
 	},
 };
 
+<<<<<<< HEAD
 FRR_DAEMON_INFO(watchfrr, WATCHFRR,
 		.flags = FRR_NO_PRIVSEP | FRR_NO_TCPVTY | FRR_LIMITED_CLI
 			 | FRR_NO_CFG_PID_DRY | FRR_NO_ZCLIENT
@@ -1360,6 +1402,22 @@ FRR_DAEMON_INFO(watchfrr, WATCHFRR,
 
 		.privs = &watchfrr_privs,
 );
+=======
+/* clang-format off */
+FRR_DAEMON_INFO(watchfrr, WATCHFRR,
+	.flags = FRR_NO_PRIVSEP | FRR_NO_TCPVTY | FRR_LIMITED_CLI
+		 | FRR_NO_CFG_PID_DRY | FRR_NO_ZCLIENT | FRR_DETACH_LATER,
+
+	.printhelp = printhelp,
+	.copyright = "Copyright 2004 Andrew J. Schorr",
+
+	.signals = watchfrr_signals,
+	.n_signals = array_size(watchfrr_signals),
+
+	.privs = &watchfrr_privs,
+);
+/* clang-format on */
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 #define DEPRECATED_OPTIONS "aAezR:"
 

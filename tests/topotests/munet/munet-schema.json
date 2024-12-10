@@ -93,12 +93,30 @@
           "image": {
             "type": "string"
           },
+<<<<<<< HEAD
+=======
+          "hostnet": {
+            "type": "boolean"
+          },
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
           "server": {
             "type": "string"
           },
           "server-port": {
             "type": "number"
           },
+<<<<<<< HEAD
+=======
+          "ssh-identity-file": {
+            "type": "string"
+          },
+          "ssh-user": {
+            "type": "string"
+          },
+          "ssh-password": {
+            "type": "string"
+          },
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
           "qemu": {
             "type": "object",
             "properties": {
@@ -108,6 +126,18 @@
               "disk": {
                 "type": "string"
               },
+<<<<<<< HEAD
+=======
+              "disk-driver": {
+                "type": "string"
+              },
+              "disk-template": {
+                "type": "string"
+              },
+              "initial-cmd": {
+                "type": "string"
+              },
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
               "kerenel": {
                 "type": "string"
               },
@@ -141,6 +171,12 @@
                   "password": {
                     "type": "string"
                   },
+<<<<<<< HEAD
+=======
+                  "initial-password": {
+                    "type": "string"
+                  },
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
                   "expects": {
                     "type": "array",
                     "items": {
@@ -362,6 +398,12 @@
               },
               "ipv6": {
                 "type": "string"
+<<<<<<< HEAD
+=======
+              },
+              "external": {
+                "type": "boolean"
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
               }
             }
           }
@@ -401,12 +443,30 @@
               "image": {
                 "type": "string"
               },
+<<<<<<< HEAD
+=======
+              "hostnet": {
+                "type": "boolean"
+              },
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
               "server": {
                 "type": "string"
               },
               "server-port": {
                 "type": "number"
               },
+<<<<<<< HEAD
+=======
+              "ssh-identity-file": {
+                "type": "string"
+              },
+              "ssh-user": {
+                "type": "string"
+              },
+              "ssh-password": {
+                "type": "string"
+              },
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
               "qemu": {
                 "type": "object",
                 "properties": {
@@ -416,6 +476,18 @@
                   "disk": {
                     "type": "string"
                   },
+<<<<<<< HEAD
+=======
+                  "disk-driver": {
+                    "type": "string"
+                  },
+                  "disk-template": {
+                    "type": "string"
+                  },
+                  "initial-cmd": {
+                    "type": "string"
+                  },
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
                   "kerenel": {
                     "type": "string"
                   },
@@ -449,6 +521,12 @@
                       "password": {
                         "type": "string"
                       },
+<<<<<<< HEAD
+=======
+                      "initial-password": {
+                        "type": "string"
+                      },
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
                       "expects": {
                         "type": "array",
                         "items": {

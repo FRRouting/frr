@@ -52,10 +52,17 @@ int main(int argc, char *argv[])
 	if (argc != 1)
 		usage(EXIT_FAILURE);
 
+<<<<<<< HEAD
 	yang_init(false, false);
 
 	/* Load YANG module. */
 	module = yang_module_load(argv[0]);
+=======
+	yang_init(false, false, false);
+
+	/* Load YANG module. */
+	module = yang_module_load(argv[0], NULL);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	/* Generate deviations. */
 	yang_snodes_iterate(module->info, generate_yang_deviation, 0, NULL);

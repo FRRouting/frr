@@ -1,4 +1,8 @@
+<<<<<<< HEAD
 name: Warn before merging if a "freeze" label exists
+=======
+name: Warn before merging if a "freeze" or "do not merge" label exists
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 on:
   pull_request_target:
@@ -6,12 +10,21 @@ on:
 
 jobs:
   freeze_warning:
+<<<<<<< HEAD
     if: ${{ contains(github.event.*.labels.*.name, 'freeze') }}
     name: Warn before merging if a "freeze" label exists
+=======
+    if: ${{ contains(github.event.*.labels.*.name, 'freeze') || contains(github.event.*.labels.*.name, 'do not merge') }}
+    name: Warn before merging if a "freeze" or "do not merge" label exists
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     runs-on: ubuntu-latest
     steps:
       - name: Check for "freeze" label
         run: |
+<<<<<<< HEAD
           echo "Pull request is labeled as 'freeze'"
+=======
+          echo "Pull request is labeled as 'freeze' or 'do not merge'"
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
           echo "This workflow fails so that the pull request cannot be merged."
           exit 1

@@ -34,13 +34,21 @@ extern const char UNKNOWN_EVENT_STR[];
  * Test suite setup and teardown called before AND after the test suite.
  */
 
+<<<<<<< HEAD
 int pcep_pcc_api_test_suite_setup()
+=======
+int pcep_pcc_api_test_suite_setup(void)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 {
 	pceplib_memory_reset();
 	return 0;
 }
 
+<<<<<<< HEAD
 int pcep_pcc_api_test_suite_teardown()
+=======
+int pcep_pcc_api_test_suite_teardown(void)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 {
 	printf("\n");
 	pceplib_memory_dump();
@@ -51,13 +59,21 @@ int pcep_pcc_api_test_suite_teardown()
  * Test case setup and teardown called before AND after each test.
  */
 
+<<<<<<< HEAD
 void pcep_pcc_api_test_setup()
+=======
+void pcep_pcc_api_test_setup(void)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 {
 	setup_mock_socket_comm_info();
 }
 
 
+<<<<<<< HEAD
 void pcep_pcc_api_test_teardown()
+=======
+void pcep_pcc_api_test_teardown(void)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 {
 	teardown_mock_socket_comm_info();
 }
@@ -66,7 +82,11 @@ void pcep_pcc_api_test_teardown()
  * Unit test cases
  */
 
+<<<<<<< HEAD
 void test_initialize_pcc()
+=======
+void test_initialize_pcc(void)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 {
 	CU_ASSERT_TRUE(initialize_pcc());
 	/* Give the PCC time to initialize */
@@ -74,7 +94,11 @@ void test_initialize_pcc()
 	CU_ASSERT_TRUE(destroy_pcc());
 }
 
+<<<<<<< HEAD
 void test_connect_pce()
+=======
+void test_connect_pce(void)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 {
 	pcep_configuration *config = create_default_pcep_configuration();
 	struct hostent *host_info = gethostbyname("localhost");
@@ -109,7 +133,11 @@ void test_connect_pce()
 	destroy_pcc();
 }
 
+<<<<<<< HEAD
 void test_connect_pce_ipv6()
+=======
+void test_connect_pce_ipv6(void)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 {
 	pcep_configuration *config = create_default_pcep_configuration();
 	struct in6_addr dest_address;
@@ -147,7 +175,11 @@ void test_connect_pce_ipv6()
 	destroy_pcc();
 }
 
+<<<<<<< HEAD
 void test_connect_pce_with_src_ip()
+=======
+void test_connect_pce_with_src_ip(void)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 {
 	pcep_configuration *config = create_default_pcep_configuration();
 	struct hostent *host_info = gethostbyname("localhost");
@@ -180,7 +212,11 @@ void test_connect_pce_with_src_ip()
 	destroy_pcc();
 }
 
+<<<<<<< HEAD
 void test_disconnect_pce()
+=======
+void test_disconnect_pce(void)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 {
 	pcep_configuration *config = create_default_pcep_configuration();
 	struct hostent *host_info = gethostbyname("localhost");
@@ -225,7 +261,11 @@ void test_disconnect_pce()
 }
 
 
+<<<<<<< HEAD
 void test_send_message()
+=======
+void test_send_message(void)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 {
 	pcep_configuration *config = create_default_pcep_configuration();
 	struct hostent *host_info = gethostbyname("localhost");
@@ -249,7 +289,11 @@ void test_send_message()
 	destroy_pcc();
 }
 
+<<<<<<< HEAD
 void test_event_queue()
+=======
+void test_event_queue(void)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 {
 	/* This initializes the event_queue */
 	CU_ASSERT_TRUE(initialize_pcc());
@@ -278,7 +322,11 @@ void test_event_queue()
 	CU_ASSERT_TRUE(destroy_pcc());
 }
 
+<<<<<<< HEAD
 void test_get_event_type_str()
+=======
+void test_get_event_type_str(void)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 {
 	CU_ASSERT_EQUAL(strcmp(get_event_type_str(MESSAGE_RECEIVED),
 			       MESSAGE_RECEIVED_STR),

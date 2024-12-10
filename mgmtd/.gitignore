@@ -1,1 +1,5 @@
 mgmtd
+<<<<<<< HEAD
+=======
+mgmtd_testc
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)

@@ -31,6 +31,10 @@
 #include "link_state.h"
 #include "zclient.h"
 #include "printfrr.h"
+<<<<<<< HEAD
+=======
+#include <lib/json.h>
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 #include "ospfd/ospfd.h"
 #include "ospfd/ospf_interface.h"
@@ -3198,14 +3202,27 @@ static void ospf_te_init_ted(struct ls_ted *ted, struct ospf *ospf)
 		}                                                              \
 	} while (0)
 
+<<<<<<< HEAD
 static uint16_t show_vty_router_addr(struct vty *vty, struct tlv_header *tlvh)
+=======
+static uint16_t show_vty_router_addr(struct vty *vty, struct tlv_header *tlvh,
+				     json_object *json)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 {
 	struct te_tlv_router_addr *top = (struct te_tlv_router_addr *)tlvh;
 
 	check_tlv_size(TE_LINK_SUBTLV_DEF_SIZE, "Router Address");
 
 	if (vty != NULL)
+<<<<<<< HEAD
 		vty_out(vty, "  Router-Address: %pI4\n", &top->value);
+=======
+		if (!json)
+			vty_out(vty, "  Router-Address: %pI4\n", &top->value);
+		else
+			json_object_string_addf(json, "routerAddress", "%pI4",
+						&top->value);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	else
 		zlog_debug("    Router-Address: %pI4", &top->value);
 
@@ -3213,7 +3230,11 @@ static uint16_t show_vty_router_addr(struct vty *vty, struct tlv_header *tlvh)
 }
 
 static uint16_t show_vty_link_header(struct vty *vty, struct tlv_header *tlvh,
+<<<<<<< HEAD
 				     size_t buf_size)
+=======
+				     size_t buf_size, json_object *json)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 {
 	struct te_tlv_link *top = (struct te_tlv_link *)tlvh;
 
@@ -3230,8 +3251,17 @@ static uint16_t show_vty_link_header(struct vty *vty, struct tlv_header *tlvh,
 	}
 
 	if (vty != NULL)
+<<<<<<< HEAD
 		vty_out(vty, "  Link: %u octets of data\n",
 			ntohs(top->header.length));
+=======
+		if (!json)
+			vty_out(vty, "  Link: %u octets of data\n",
+				ntohs(top->header.length));
+		else
+			json_object_int_add(json, "teLinkDataLength",
+					    ntohs(top->header.length));
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	else
 		zlog_debug("    Link: %u octets of data",
 			   ntohs(top->header.length));
@@ -3240,7 +3270,12 @@ static uint16_t show_vty_link_header(struct vty *vty, struct tlv_header *tlvh,
 }
 
 static uint16_t show_vty_link_subtlv_link_type(struct vty *vty,
+<<<<<<< HEAD
 					       struct tlv_header *tlvh)
+=======
+					       struct tlv_header *tlvh,
+					       json_object *json)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 {
 	struct te_link_subtlv_link_type *top;
 	const char *cp = "Unknown";
@@ -3260,8 +3295,16 @@ static uint16_t show_vty_link_subtlv_link_type(struct vty *vty,
 	}
 
 	if (vty != NULL)
+<<<<<<< HEAD
 		vty_out(vty, "  Link-Type: %s (%u)\n", cp,
 			top->link_type.value);
+=======
+		if (!json)
+			vty_out(vty, "  Link-Type: %s (%u)\n", cp,
+				top->link_type.value);
+		else
+			json_object_string_add(json, "accessType", cp);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	else
 		zlog_debug("    Link-Type: %s (%u)", cp, top->link_type.value);
 
@@ -3269,7 +3312,12 @@ static uint16_t show_vty_link_subtlv_link_type(struct vty *vty,
 }
 
 static uint16_t show_vty_link_subtlv_link_id(struct vty *vty,
+<<<<<<< HEAD
 					     struct tlv_header *tlvh)
+=======
+					     struct tlv_header *tlvh,
+					     json_object *json)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 {
 	struct te_link_subtlv_link_id *top;
 
@@ -3277,7 +3325,15 @@ static uint16_t show_vty_link_subtlv_link_id(struct vty *vty,
 
 	top = (struct te_link_subtlv_link_id *)tlvh;
 	if (vty != NULL)
+<<<<<<< HEAD
 		vty_out(vty, "  Link-ID: %pI4\n", &top->value);
+=======
+		if (!json)
+			vty_out(vty, "  Link-ID: %pI4\n", &top->value);
+		else
+			json_object_string_addf(json, "linkID", "%pI4",
+						&top->value);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	else
 		zlog_debug("    Link-ID: %pI4", &top->value);
 
@@ -3286,9 +3342,18 @@ static uint16_t show_vty_link_subtlv_link_id(struct vty *vty,
 
 static uint16_t show_vty_link_subtlv_lclif_ipaddr(struct vty *vty,
 						  struct tlv_header *tlvh,
+<<<<<<< HEAD
 						  size_t buf_size)
 {
 	struct te_link_subtlv_lclif_ipaddr *top;
+=======
+						  size_t buf_size,
+						  json_object *json)
+{
+	struct te_link_subtlv_lclif_ipaddr *top;
+	json_object *json_addr, *json_obj;
+	char buf[4];
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	int i, n;
 
 	if (TLV_SIZE(tlvh) > buf_size) {
@@ -3307,13 +3372,37 @@ static uint16_t show_vty_link_subtlv_lclif_ipaddr(struct vty *vty,
 	n = ntohs(tlvh->length) / sizeof(top->value[0]);
 
 	if (vty != NULL)
+<<<<<<< HEAD
 		vty_out(vty, "  Local Interface IP Address(es): %d\n", n);
+=======
+		if (!json)
+			vty_out(vty, "  Local Interface IP Address(es): %d\n",
+				n);
+		else {
+			json_addr = json_object_new_array();
+			json_object_object_add(json, "localIPAddresses",
+					       json_addr);
+		}
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	else
 		zlog_debug("    Local Interface IP Address(es): %d", n);
 
 	for (i = 0; i < n; i++) {
 		if (vty != NULL)
+<<<<<<< HEAD
 			vty_out(vty, "    #%d: %pI4\n", i, &top->value[i]);
+=======
+			if (!json)
+				vty_out(vty, "    #%d: %pI4\n", i,
+					&top->value[i]);
+			else {
+				json_obj = json_object_new_object();
+				snprintfrr(buf, 2, "%d", i);
+				json_object_string_addf(json_obj, buf, "%pI4",
+							&top->value[i]);
+				json_object_array_add(json_addr, json_obj);
+			}
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		else
 			zlog_debug("      #%d: %pI4", i, &top->value[i]);
 	}
@@ -3322,9 +3411,18 @@ static uint16_t show_vty_link_subtlv_lclif_ipaddr(struct vty *vty,
 
 static uint16_t show_vty_link_subtlv_rmtif_ipaddr(struct vty *vty,
 						  struct tlv_header *tlvh,
+<<<<<<< HEAD
 						  size_t buf_size)
 {
 	struct te_link_subtlv_rmtif_ipaddr *top;
+=======
+						  size_t buf_size,
+						  json_object *json)
+{
+	struct te_link_subtlv_rmtif_ipaddr *top;
+	json_object *json_addr, *json_obj;
+	char buf[4];
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	int i, n;
 
 	if (TLV_SIZE(tlvh) > buf_size) {
@@ -3342,13 +3440,37 @@ static uint16_t show_vty_link_subtlv_rmtif_ipaddr(struct vty *vty,
 	top = (struct te_link_subtlv_rmtif_ipaddr *)tlvh;
 	n = ntohs(tlvh->length) / sizeof(top->value[0]);
 	if (vty != NULL)
+<<<<<<< HEAD
 		vty_out(vty, "  Remote Interface IP Address(es): %d\n", n);
+=======
+		if (!json)
+			vty_out(vty, "  Remote Interface IP Address(es): %d\n",
+				n);
+		else {
+			json_addr = json_object_new_array();
+			json_object_object_add(json, "remoteIPAddresses",
+					       json_addr);
+		}
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	else
 		zlog_debug("    Remote Interface IP Address(es): %d", n);
 
 	for (i = 0; i < n; i++) {
 		if (vty != NULL)
+<<<<<<< HEAD
 			vty_out(vty, "    #%d: %pI4\n", i, &top->value[i]);
+=======
+			if (!json)
+				vty_out(vty, "    #%d: %pI4\n", i,
+					&top->value[i]);
+			else {
+				json_obj = json_object_new_object();
+				snprintfrr(buf, 2, "%d", i);
+				json_object_string_addf(json_obj, buf, "%pI4",
+							&top->value[i]);
+				json_object_array_add(json_addr, json_obj);
+			}
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		else
 			zlog_debug("      #%d: %pI4", i, &top->value[i]);
 	}
@@ -3356,7 +3478,12 @@ static uint16_t show_vty_link_subtlv_rmtif_ipaddr(struct vty *vty,
 }
 
 static uint16_t show_vty_link_subtlv_te_metric(struct vty *vty,
+<<<<<<< HEAD
 					       struct tlv_header *tlvh)
+=======
+					       struct tlv_header *tlvh,
+					       json_object *json)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 {
 	struct te_link_subtlv_te_metric *top;
 
@@ -3364,8 +3491,17 @@ static uint16_t show_vty_link_subtlv_te_metric(struct vty *vty,
 
 	top = (struct te_link_subtlv_te_metric *)tlvh;
 	if (vty != NULL)
+<<<<<<< HEAD
 		vty_out(vty, "  Traffic Engineering Metric: %u\n",
 			(uint32_t)ntohl(top->value));
+=======
+		if (!json)
+			vty_out(vty, "  Traffic Engineering Metric: %u\n",
+				(uint32_t)ntohl(top->value));
+		else
+			json_object_int_add(json, "teDefaultMetric",
+					    (uint32_t)ntohl(top->value));
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	else
 		zlog_debug("    Traffic Engineering Metric: %u",
 			   (uint32_t)ntohl(top->value));
@@ -3374,7 +3510,12 @@ static uint16_t show_vty_link_subtlv_te_metric(struct vty *vty,
 }
 
 static uint16_t show_vty_link_subtlv_max_bw(struct vty *vty,
+<<<<<<< HEAD
 					    struct tlv_header *tlvh)
+=======
+					    struct tlv_header *tlvh,
+					    json_object *json)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 {
 	struct te_link_subtlv_max_bw *top;
 	float fval;
@@ -3385,7 +3526,15 @@ static uint16_t show_vty_link_subtlv_max_bw(struct vty *vty,
 	fval = ntohf(top->value);
 
 	if (vty != NULL)
+<<<<<<< HEAD
 		vty_out(vty, "  Maximum Bandwidth: %g (Bytes/sec)\n", fval);
+=======
+		if (!json)
+			vty_out(vty, "  Maximum Bandwidth: %g (Bytes/sec)\n",
+				fval);
+		else
+			json_object_double_add(json, "maxLinkBandwidth", fval);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	else
 		zlog_debug("    Maximum Bandwidth: %g (Bytes/sec)", fval);
 
@@ -3393,7 +3542,12 @@ static uint16_t show_vty_link_subtlv_max_bw(struct vty *vty,
 }
 
 static uint16_t show_vty_link_subtlv_max_rsv_bw(struct vty *vty,
+<<<<<<< HEAD
 						struct tlv_header *tlvh)
+=======
+						struct tlv_header *tlvh,
+						json_object *json)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 {
 	struct te_link_subtlv_max_rsv_bw *top;
 	float fval;
@@ -3404,8 +3558,17 @@ static uint16_t show_vty_link_subtlv_max_rsv_bw(struct vty *vty,
 	fval = ntohf(top->value);
 
 	if (vty != NULL)
+<<<<<<< HEAD
 		vty_out(vty, "  Maximum Reservable Bandwidth: %g (Bytes/sec)\n",
 			fval);
+=======
+		if (!json)
+			vty_out(vty, "  Maximum Reservable Bandwidth: %g (Bytes/sec)\n",
+				fval);
+		else
+			json_object_double_add(json, "maxResvLinkBandwidth",
+					       fval);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	else
 		zlog_debug("    Maximum Reservable Bandwidth: %g (Bytes/sec)",
 			   fval);
@@ -3414,18 +3577,39 @@ static uint16_t show_vty_link_subtlv_max_rsv_bw(struct vty *vty,
 }
 
 static uint16_t show_vty_link_subtlv_unrsv_bw(struct vty *vty,
+<<<<<<< HEAD
 					      struct tlv_header *tlvh)
 {
 	struct te_link_subtlv_unrsv_bw *top;
 	float fval1, fval2;
+=======
+					      struct tlv_header *tlvh,
+					      json_object *json)
+{
+	struct te_link_subtlv_unrsv_bw *top;
+	json_object *json_bw, *json_obj;
+	float fval1, fval2;
+	char buf[16];
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	int i;
 
 	check_tlv_size(TE_LINK_SUBTLV_UNRSV_SIZE, "Unreserved Bandwidth");
 
 	top = (struct te_link_subtlv_unrsv_bw *)tlvh;
 	if (vty != NULL)
+<<<<<<< HEAD
 		vty_out(vty,
 			"  Unreserved Bandwidth per Class Type in Byte/s:\n");
+=======
+		if (!json)
+			vty_out(vty,
+				"  Unreserved Bandwidth per Class Type in Byte/s:\n");
+		else {
+			json_bw = json_object_new_array();
+			json_object_object_add(json, "unreservedBandwidth",
+					       json_bw);
+		}
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	else
 		zlog_debug(
 			"    Unreserved Bandwidth per Class Type in Byte/s:");
@@ -3434,9 +3618,26 @@ static uint16_t show_vty_link_subtlv_unrsv_bw(struct vty *vty,
 		fval2 = ntohf(top->value[i + 1]);
 
 		if (vty != NULL)
+<<<<<<< HEAD
 			vty_out(vty,
 				"    [%d]: %g (Bytes/sec),\t[%d]: %g (Bytes/sec)\n",
 				i, fval1, i + 1, fval2);
+=======
+			if (!json)
+				vty_out(vty,
+					"    [%d]: %g (Bytes/sec),\t[%d]: %g (Bytes/sec)\n",
+					i, fval1, i + 1, fval2);
+			else {
+				json_obj = json_object_new_object();
+				snprintfrr(buf, 12, "classType-%u", i);
+				json_object_double_add(json_obj, buf, fval1);
+				json_object_array_add(json_bw, json_obj);
+				json_obj = json_object_new_object();
+				snprintfrr(buf, 12, "classType-%u", i + 1);
+				json_object_double_add(json_obj, buf, fval2);
+				json_object_array_add(json_bw, json_obj);
+			}
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		else
 			zlog_debug(
 				"      [%d]: %g (Bytes/sec),  [%d]: %g (Bytes/sec)",
@@ -3447,7 +3648,12 @@ static uint16_t show_vty_link_subtlv_unrsv_bw(struct vty *vty,
 }
 
 static uint16_t show_vty_link_subtlv_rsc_clsclr(struct vty *vty,
+<<<<<<< HEAD
 						struct tlv_header *tlvh)
+=======
+						struct tlv_header *tlvh,
+						json_object *json)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 {
 	struct te_link_subtlv_rsc_clsclr *top;
 
@@ -3455,8 +3661,18 @@ static uint16_t show_vty_link_subtlv_rsc_clsclr(struct vty *vty,
 
 	top = (struct te_link_subtlv_rsc_clsclr *)tlvh;
 	if (vty != NULL)
+<<<<<<< HEAD
 		vty_out(vty, "  Resource class/color: 0x%x\n",
 			(uint32_t)ntohl(top->value));
+=======
+		if (!json)
+			vty_out(vty, "  Resource class/color: 0x%x\n",
+				(uint32_t)ntohl(top->value));
+		else
+			json_object_string_addf(json, "administrativeGroup",
+						"0x%x",
+						(uint32_t)ntohl(top->value));
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	else
 		zlog_debug("    Resource Class/Color: 0x%x",
 			   (uint32_t)ntohl(top->value));
@@ -3465,7 +3681,12 @@ static uint16_t show_vty_link_subtlv_rsc_clsclr(struct vty *vty,
 }
 
 static uint16_t show_vty_link_subtlv_lrrid(struct vty *vty,
+<<<<<<< HEAD
 					   struct tlv_header *tlvh)
+=======
+					   struct tlv_header *tlvh,
+					   json_object *json)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 {
 	struct te_link_subtlv_lrrid *top;
 
@@ -3474,10 +3695,24 @@ static uint16_t show_vty_link_subtlv_lrrid(struct vty *vty,
 	top = (struct te_link_subtlv_lrrid *)tlvh;
 
 	if (vty != NULL) {
+<<<<<<< HEAD
 		vty_out(vty, "  Local  TE Router ID: %pI4\n",
 			&top->local);
 		vty_out(vty, "  Remote TE Router ID: %pI4\n",
 			&top->remote);
+=======
+		if (!json) {
+			vty_out(vty, "  Local  TE Router ID: %pI4\n",
+				&top->local);
+			vty_out(vty, "  Remote TE Router ID: %pI4\n",
+				&top->remote);
+		} else {
+			json_object_string_addf(json, "localTeRouterID", "%pI4",
+						&top->local);
+			json_object_string_addf(json, "remoteTeRouterID",
+						"%pI4", &top->remote);
+		}
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	} else {
 		zlog_debug("    Local  TE Router ID: %pI4",
 			   &top->local);
@@ -3489,7 +3724,12 @@ static uint16_t show_vty_link_subtlv_lrrid(struct vty *vty,
 }
 
 static uint16_t show_vty_link_subtlv_llri(struct vty *vty,
+<<<<<<< HEAD
 					  struct tlv_header *tlvh)
+=======
+					  struct tlv_header *tlvh,
+					  json_object *json)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 {
 	struct te_link_subtlv_llri *top;
 
@@ -3498,10 +3738,24 @@ static uint16_t show_vty_link_subtlv_llri(struct vty *vty,
 	top = (struct te_link_subtlv_llri *)tlvh;
 
 	if (vty != NULL) {
+<<<<<<< HEAD
 		vty_out(vty, "  Link Local  ID: %d\n",
 			(uint32_t)ntohl(top->local));
 		vty_out(vty, "  Link Remote ID: %d\n",
 			(uint32_t)ntohl(top->remote));
+=======
+		if (!json) {
+			vty_out(vty, "  Link Local  ID: %d\n",
+				(uint32_t)ntohl(top->local));
+			vty_out(vty, "  Link Remote ID: %d\n",
+				(uint32_t)ntohl(top->remote));
+		} else {
+			json_object_int_add(json, "localLinkID",
+					    (uint32_t)ntohl(top->local));
+			json_object_int_add(json, "remoteLinkID",
+					    (uint32_t)ntohl(top->remote));
+		}
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	} else {
 		zlog_debug("    Link Local  ID: %d",
 			   (uint32_t)ntohl(top->local));
@@ -3513,7 +3767,12 @@ static uint16_t show_vty_link_subtlv_llri(struct vty *vty,
 }
 
 static uint16_t show_vty_link_subtlv_rip(struct vty *vty,
+<<<<<<< HEAD
 					 struct tlv_header *tlvh)
+=======
+					 struct tlv_header *tlvh,
+					 json_object *json)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 {
 	struct te_link_subtlv_rip *top;
 
@@ -3522,8 +3781,17 @@ static uint16_t show_vty_link_subtlv_rip(struct vty *vty,
 	top = (struct te_link_subtlv_rip *)tlvh;
 
 	if (vty != NULL)
+<<<<<<< HEAD
 		vty_out(vty, "  Inter-AS TE Remote ASBR IP address: %pI4\n",
 			&top->value);
+=======
+		if (!json)
+			vty_out(vty, "  Inter-AS TE Remote ASBR IP address: %pI4\n",
+				&top->value);
+		else
+			json_object_string_addf(json, "remoteAsbrAddress",
+						"%pI4", &top->value);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	else
 		zlog_debug("    Inter-AS TE Remote ASBR IP address: %pI4",
 			   &top->value);
@@ -3532,7 +3800,12 @@ static uint16_t show_vty_link_subtlv_rip(struct vty *vty,
 }
 
 static uint16_t show_vty_link_subtlv_ras(struct vty *vty,
+<<<<<<< HEAD
 					 struct tlv_header *tlvh)
+=======
+					 struct tlv_header *tlvh,
+					 json_object *json)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 {
 	struct te_link_subtlv_ras *top;
 
@@ -3541,8 +3814,17 @@ static uint16_t show_vty_link_subtlv_ras(struct vty *vty,
 	top = (struct te_link_subtlv_ras *)tlvh;
 
 	if (vty != NULL)
+<<<<<<< HEAD
 		vty_out(vty, "  Inter-AS TE Remote AS number: %u\n",
 			ntohl(top->value));
+=======
+		if (!json)
+			vty_out(vty, "  Inter-AS TE Remote AS number: %u\n",
+				ntohl(top->value));
+		else
+			json_object_int_add(json, "remoteAsbrNumber",
+					    ntohl(top->value));
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	else
 		zlog_debug("    Inter-AS TE Remote AS number: %u",
 			   ntohl(top->value));
@@ -3551,7 +3833,12 @@ static uint16_t show_vty_link_subtlv_ras(struct vty *vty,
 }
 
 static uint16_t show_vty_link_subtlv_av_delay(struct vty *vty,
+<<<<<<< HEAD
 					      struct tlv_header *tlvh)
+=======
+					      struct tlv_header *tlvh,
+					      json_object *json)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 {
 	struct te_link_subtlv_av_delay *top;
 	uint32_t delay;
@@ -3564,8 +3851,20 @@ static uint16_t show_vty_link_subtlv_av_delay(struct vty *vty,
 	anomalous = (uint32_t)ntohl(top->value) & TE_EXT_ANORMAL;
 
 	if (vty != NULL)
+<<<<<<< HEAD
 		vty_out(vty, "  %s Average Link Delay: %d (micro-sec)\n",
 			anomalous ? "Anomalous" : "Normal", delay);
+=======
+		if (!json)
+			vty_out(vty, "  %s Average Link Delay: %d (micro-sec)\n",
+				anomalous ? "Anomalous" : "Normal", delay);
+		else {
+			json_object_int_add(json, "oneWayDelay", delay);
+			json_object_string_add(json, "oneWayDelayNormality",
+					       anomalous ? "abnormal"
+							 : "normal");
+		}
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	else
 		zlog_debug("    %s Average Link Delay: %d (micro-sec)",
 			   anomalous ? "Anomalous" : "Normal", delay);
@@ -3574,7 +3873,12 @@ static uint16_t show_vty_link_subtlv_av_delay(struct vty *vty,
 }
 
 static uint16_t show_vty_link_subtlv_mm_delay(struct vty *vty,
+<<<<<<< HEAD
 					      struct tlv_header *tlvh)
+=======
+					      struct tlv_header *tlvh,
+					      json_object *json)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 {
 	struct te_link_subtlv_mm_delay *top;
 	uint32_t low, high;
@@ -3588,8 +3892,25 @@ static uint16_t show_vty_link_subtlv_mm_delay(struct vty *vty,
 	high = (uint32_t)ntohl(top->high);
 
 	if (vty != NULL)
+<<<<<<< HEAD
 		vty_out(vty, "  %s Min/Max Link Delay: %d/%d (micro-sec)\n",
 			anomalous ? "Anomalous" : "Normal", low, high);
+=======
+		if (!json)
+			vty_out(vty,
+				"  %s Min/Max Link Delay: %d/%d (micro-sec)\n",
+				anomalous ? "Anomalous" : "Normal", low, high);
+		else {
+			json_object_int_add(json, "oneWayMinDelay", low);
+			json_object_string_add(json, "oneWayMinDelayNormality",
+					       anomalous ? "abnormal"
+							 : "normal");
+			json_object_int_add(json, "oneWayMaxDelay", high);
+			json_object_string_add(json, "oneWayMaxDelayNormality",
+					       anomalous ? "abnormal"
+							 : "normal");
+		}
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	else
 		zlog_debug("    %s Min/Max Link Delay: %d/%d (micro-sec)",
 			   anomalous ? "Anomalous" : "Normal", low, high);
@@ -3598,7 +3919,12 @@ static uint16_t show_vty_link_subtlv_mm_delay(struct vty *vty,
 }
 
 static uint16_t show_vty_link_subtlv_delay_var(struct vty *vty,
+<<<<<<< HEAD
 					       struct tlv_header *tlvh)
+=======
+					       struct tlv_header *tlvh,
+					       json_object *json)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 {
 	struct te_link_subtlv_delay_var *top;
 	uint32_t jitter;
@@ -3609,7 +3935,16 @@ static uint16_t show_vty_link_subtlv_delay_var(struct vty *vty,
 	jitter = (uint32_t)ntohl(top->value) & TE_EXT_MASK;
 
 	if (vty != NULL)
+<<<<<<< HEAD
 		vty_out(vty, "  Delay Variation: %d (micro-sec)\n", jitter);
+=======
+		if (!json)
+			vty_out(vty, "  Delay Variation: %d (micro-sec)\n",
+				jitter);
+		else
+			json_object_int_add(json, "oneWayDelayVariation",
+					    jitter);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	else
 		zlog_debug("    Delay Variation: %d (micro-sec)", jitter);
 
@@ -3617,7 +3952,12 @@ static uint16_t show_vty_link_subtlv_delay_var(struct vty *vty,
 }
 
 static uint16_t show_vty_link_subtlv_pkt_loss(struct vty *vty,
+<<<<<<< HEAD
 					      struct tlv_header *tlvh)
+=======
+					      struct tlv_header *tlvh,
+					      json_object *json)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 {
 	struct te_link_subtlv_pkt_loss *top;
 	uint32_t loss;
@@ -3632,8 +3972,21 @@ static uint16_t show_vty_link_subtlv_pkt_loss(struct vty *vty,
 	anomalous = (uint32_t)ntohl(top->value) & TE_EXT_ANORMAL;
 
 	if (vty != NULL)
+<<<<<<< HEAD
 		vty_out(vty, "  %s Link Loss: %g (%%)\n",
 			anomalous ? "Anomalous" : "Normal", fval);
+=======
+		if (!json)
+			vty_out(vty, "  %s Link Loss: %g (%%)\n",
+				anomalous ? "Anomalous" : "Normal", fval);
+		else {
+			json_object_double_add(json, "oneWayPacketLoss", fval);
+			json_object_string_add(json,
+					       "oneWayPacketLossNormality",
+					       anomalous ? "abnormal"
+							 : "normal");
+		}
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	else
 		zlog_debug("    %s Link Loss: %g (%%)",
 			   anomalous ? "Anomalous" : "Normal", fval);
@@ -3642,7 +3995,12 @@ static uint16_t show_vty_link_subtlv_pkt_loss(struct vty *vty,
 }
 
 static uint16_t show_vty_link_subtlv_res_bw(struct vty *vty,
+<<<<<<< HEAD
 					    struct tlv_header *tlvh)
+=======
+					    struct tlv_header *tlvh,
+					    json_object *json)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 {
 	struct te_link_subtlv_res_bw *top;
 	float fval;
@@ -3653,9 +4011,19 @@ static uint16_t show_vty_link_subtlv_res_bw(struct vty *vty,
 	fval = ntohf(top->value);
 
 	if (vty != NULL)
+<<<<<<< HEAD
 		vty_out(vty,
 			"  Unidirectional Residual Bandwidth: %g (Bytes/sec)\n",
 			fval);
+=======
+		if (!json)
+			vty_out(vty,
+				"  Unidirectional Residual Bandwidth: %g (Bytes/sec)\n",
+				fval);
+		else
+			json_object_double_add(json, "oneWayResidualBandwidth",
+					       fval);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	else
 		zlog_debug(
 			"    Unidirectional Residual Bandwidth: %g (Bytes/sec)",
@@ -3665,7 +4033,12 @@ static uint16_t show_vty_link_subtlv_res_bw(struct vty *vty,
 }
 
 static uint16_t show_vty_link_subtlv_ava_bw(struct vty *vty,
+<<<<<<< HEAD
 					    struct tlv_header *tlvh)
+=======
+					    struct tlv_header *tlvh,
+					    json_object *json)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 {
 	struct te_link_subtlv_ava_bw *top;
 	float fval;
@@ -3676,9 +4049,19 @@ static uint16_t show_vty_link_subtlv_ava_bw(struct vty *vty,
 	fval = ntohf(top->value);
 
 	if (vty != NULL)
+<<<<<<< HEAD
 		vty_out(vty,
 			"  Unidirectional Available Bandwidth: %g (Bytes/sec)\n",
 			fval);
+=======
+		if (!json)
+			vty_out(vty,
+				"  Unidirectional Available Bandwidth: %g (Bytes/sec)\n",
+				fval);
+		else
+			json_object_double_add(json, "oneWayAvailableBandwidth",
+					       fval);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	else
 		zlog_debug(
 			"    Unidirectional Available Bandwidth: %g (Bytes/sec)",
@@ -3688,7 +4071,12 @@ static uint16_t show_vty_link_subtlv_ava_bw(struct vty *vty,
 }
 
 static uint16_t show_vty_link_subtlv_use_bw(struct vty *vty,
+<<<<<<< HEAD
 					    struct tlv_header *tlvh)
+=======
+					    struct tlv_header *tlvh,
+					    json_object *json)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 {
 	struct te_link_subtlv_use_bw *top;
 	float fval;
@@ -3699,9 +4087,19 @@ static uint16_t show_vty_link_subtlv_use_bw(struct vty *vty,
 	fval = ntohf(top->value);
 
 	if (vty != NULL)
+<<<<<<< HEAD
 		vty_out(vty,
 			"  Unidirectional Utilized Bandwidth: %g (Bytes/sec)\n",
 			fval);
+=======
+		if (!json)
+			vty_out(vty,
+				"  Unidirectional Utilized Bandwidth: %g (Bytes/sec)\n",
+				fval);
+		else
+			json_object_double_add(json, "oneWayUtilizedBandwidth",
+					       fval);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	else
 		zlog_debug(
 			"    Unidirectional Utilized Bandwidth: %g (Bytes/sec)",
@@ -3711,8 +4109,15 @@ static uint16_t show_vty_link_subtlv_use_bw(struct vty *vty,
 }
 
 static uint16_t show_vty_unknown_tlv(struct vty *vty, struct tlv_header *tlvh,
+<<<<<<< HEAD
 				     size_t buf_size)
 {
+=======
+				     size_t buf_size, json_object *json)
+{
+	json_object *obj;
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	if (TLV_SIZE(tlvh) > buf_size) {
 		if (vty != NULL)
 			vty_out(vty,
@@ -3726,8 +4131,22 @@ static uint16_t show_vty_unknown_tlv(struct vty *vty, struct tlv_header *tlvh,
 	}
 
 	if (vty != NULL)
+<<<<<<< HEAD
 		vty_out(vty, "  Unknown TLV: [type(0x%x), length(0x%x)]\n",
 			ntohs(tlvh->type), ntohs(tlvh->length));
+=======
+		if (!json)
+			vty_out(vty, "  Unknown TLV: [type(0x%x), length(0x%x)]\n",
+				ntohs(tlvh->type), ntohs(tlvh->length));
+		else {
+			obj = json_object_new_object();
+			json_object_string_addf(obj, "type", "0x%x",
+						ntohs(tlvh->type));
+			json_object_string_addf(obj, "length", "0x%x",
+						ntohs(tlvh->length));
+			json_object_object_add(json, "unknownTLV", obj);
+		}
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	else
 		zlog_debug("    Unknown TLV: [type(0x%x), length(0x%x)]",
 			   ntohs(tlvh->type), ntohs(tlvh->length));
@@ -3737,7 +4156,12 @@ static uint16_t show_vty_unknown_tlv(struct vty *vty, struct tlv_header *tlvh,
 
 static uint16_t ospf_mpls_te_show_link_subtlv(struct vty *vty,
 					      struct tlv_header *tlvh0,
+<<<<<<< HEAD
 					      uint16_t subtotal, uint16_t total)
+=======
+					      uint16_t subtotal, uint16_t total,
+					      json_object *json)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 {
 	struct tlv_header *tlvh;
 	uint16_t sum = subtotal;
@@ -3745,6 +4169,7 @@ static uint16_t ospf_mpls_te_show_link_subtlv(struct vty *vty,
 	for (tlvh = tlvh0; sum < total; tlvh = TLV_HDR_NEXT(tlvh)) {
 		switch (ntohs(tlvh->type)) {
 		case TE_LINK_SUBTLV_LINK_TYPE:
+<<<<<<< HEAD
 			sum += show_vty_link_subtlv_link_type(vty, tlvh);
 			break;
 		case TE_LINK_SUBTLV_LINK_ID:
@@ -3808,6 +4233,74 @@ static uint16_t ospf_mpls_te_show_link_subtlv(struct vty *vty,
 			break;
 		default:
 			sum += show_vty_unknown_tlv(vty, tlvh, total - sum);
+=======
+			sum += show_vty_link_subtlv_link_type(vty, tlvh, json);
+			break;
+		case TE_LINK_SUBTLV_LINK_ID:
+			sum += show_vty_link_subtlv_link_id(vty, tlvh, json);
+			break;
+		case TE_LINK_SUBTLV_LCLIF_IPADDR:
+			sum += show_vty_link_subtlv_lclif_ipaddr(vty, tlvh,
+								 total - sum,
+								 json);
+			break;
+		case TE_LINK_SUBTLV_RMTIF_IPADDR:
+			sum += show_vty_link_subtlv_rmtif_ipaddr(vty, tlvh,
+								 total - sum,
+								 json);
+			break;
+		case TE_LINK_SUBTLV_TE_METRIC:
+			sum += show_vty_link_subtlv_te_metric(vty, tlvh, json);
+			break;
+		case TE_LINK_SUBTLV_MAX_BW:
+			sum += show_vty_link_subtlv_max_bw(vty, tlvh, json);
+			break;
+		case TE_LINK_SUBTLV_MAX_RSV_BW:
+			sum += show_vty_link_subtlv_max_rsv_bw(vty, tlvh, json);
+			break;
+		case TE_LINK_SUBTLV_UNRSV_BW:
+			sum += show_vty_link_subtlv_unrsv_bw(vty, tlvh, json);
+			break;
+		case TE_LINK_SUBTLV_RSC_CLSCLR:
+			sum += show_vty_link_subtlv_rsc_clsclr(vty, tlvh, json);
+			break;
+		case TE_LINK_SUBTLV_LRRID:
+			sum += show_vty_link_subtlv_lrrid(vty, tlvh, json);
+			break;
+		case TE_LINK_SUBTLV_LLRI:
+			sum += show_vty_link_subtlv_llri(vty, tlvh, json);
+			break;
+		case TE_LINK_SUBTLV_RIP:
+			sum += show_vty_link_subtlv_rip(vty, tlvh, json);
+			break;
+		case TE_LINK_SUBTLV_RAS:
+			sum += show_vty_link_subtlv_ras(vty, tlvh, json);
+			break;
+		case TE_LINK_SUBTLV_AV_DELAY:
+			sum += show_vty_link_subtlv_av_delay(vty, tlvh, json);
+			break;
+		case TE_LINK_SUBTLV_MM_DELAY:
+			sum += show_vty_link_subtlv_mm_delay(vty, tlvh, json);
+			break;
+		case TE_LINK_SUBTLV_DELAY_VAR:
+			sum += show_vty_link_subtlv_delay_var(vty, tlvh, json);
+			break;
+		case TE_LINK_SUBTLV_PKT_LOSS:
+			sum += show_vty_link_subtlv_pkt_loss(vty, tlvh, json);
+			break;
+		case TE_LINK_SUBTLV_RES_BW:
+			sum += show_vty_link_subtlv_res_bw(vty, tlvh, json);
+			break;
+		case TE_LINK_SUBTLV_AVA_BW:
+			sum += show_vty_link_subtlv_ava_bw(vty, tlvh, json);
+			break;
+		case TE_LINK_SUBTLV_USE_BW:
+			sum += show_vty_link_subtlv_use_bw(vty, tlvh, json);
+			break;
+		default:
+			sum += show_vty_unknown_tlv(vty, tlvh, total - sum,
+						    json);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			break;
 		}
 	}
@@ -3819,12 +4312,20 @@ static void ospf_mpls_te_show_info(struct vty *vty, struct json_object *json,
 {
 	struct lsa_header *lsah = lsa->data;
 	struct tlv_header *tlvh, *next;
+<<<<<<< HEAD
 	uint16_t sum, total;
 	uint16_t (*subfunc)(struct vty * vty, struct tlv_header * tlvh,
 			    uint16_t subtotal, uint16_t total) = NULL;
 
 	if (json)
 		return;
+=======
+	uint16_t sum, sub, total;
+	uint16_t (*subfunc)(struct vty * vty, struct tlv_header * tlvh,
+			    uint16_t subtotal, uint16_t total,
+			    struct json_object *json) = NULL;
+	json_object *jobj = NULL;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	sum = 0;
 	total = lsa->size - OSPF_LSA_HEADER_SIZE;
@@ -3832,24 +4333,51 @@ static void ospf_mpls_te_show_info(struct vty *vty, struct json_object *json,
 	for (tlvh = TLV_HDR_TOP(lsah); sum < total && tlvh;
 	     tlvh = (next ? next : TLV_HDR_NEXT(tlvh))) {
 		if (subfunc != NULL) {
+<<<<<<< HEAD
 			sum = (*subfunc)(vty, tlvh, sum, total);
+=======
+			sum = (*subfunc)(vty, tlvh, sum, total, jobj);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			next = (struct tlv_header *)((char *)tlvh + sum);
 			subfunc = NULL;
 			continue;
 		}
 
 		next = NULL;
+<<<<<<< HEAD
 		switch (ntohs(tlvh->type)) {
 		case TE_TLV_ROUTER_ADDR:
 			sum += show_vty_router_addr(vty, tlvh);
 			break;
 		case TE_TLV_LINK:
 			sum += show_vty_link_header(vty, tlvh, total - sum);
+=======
+		sub = total - sum;
+		switch (ntohs(tlvh->type)) {
+		case TE_TLV_ROUTER_ADDR:
+			if (json) {
+				jobj = json_object_new_object();
+				json_object_object_add(json, "teRouterAddress",
+						       jobj);
+			}
+			sum += show_vty_router_addr(vty, tlvh, jobj);
+			break;
+		case TE_TLV_LINK:
+			if (json) {
+				jobj = json_object_new_object();
+				json_object_object_add(json, "teLink", jobj);
+			}
+			sum += show_vty_link_header(vty, tlvh, sub, jobj);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			subfunc = ospf_mpls_te_show_link_subtlv;
 			next = TLV_DATA(tlvh);
 			break;
 		default:
+<<<<<<< HEAD
 			sum += show_vty_unknown_tlv(vty, tlvh, total - sum);
+=======
+			sum += show_vty_unknown_tlv(vty, tlvh, sub, json);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			break;
 		}
 	}
@@ -4183,7 +4711,12 @@ DEFUN (show_ip_ospf_mpls_te_router,
 
 		if (ntohs(OspfMplsTE.router_addr.header.type) != 0)
 			show_vty_router_addr(vty,
+<<<<<<< HEAD
 					     &OspfMplsTE.router_addr.header);
+=======
+					     &OspfMplsTE.router_addr.header,
+					     NULL);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		else
 			vty_out(vty, "  Router address is not set\n");
 		vty_out(vty, "  Link State distribution is %s\n",
@@ -4192,7 +4725,12 @@ DEFUN (show_ip_ospf_mpls_te_router,
 	return CMD_SUCCESS;
 }
 
+<<<<<<< HEAD
 static void show_mpls_te_link_sub(struct vty *vty, struct interface *ifp)
+=======
+static void show_mpls_te_link_sub(struct vty *vty, struct interface *ifp,
+				  json_object *json)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 {
 	struct mpls_te_link *lp;
 
@@ -4222,6 +4760,7 @@ static void show_mpls_te_link_sub(struct vty *vty, struct interface *ifp)
 
 		if (TLV_TYPE(lp->link_type) != 0)
 			show_vty_link_subtlv_link_type(vty,
+<<<<<<< HEAD
 						       &lp->link_type.header);
 		if (TLV_TYPE(lp->link_id) != 0)
 			show_vty_link_subtlv_link_id(vty, &lp->link_id.header);
@@ -4269,6 +4808,71 @@ static void show_mpls_te_link_sub(struct vty *vty, struct interface *ifp)
 			show_vty_link_subtlv_ava_bw(vty, &lp->ava_bw.header);
 		if (TLV_TYPE(lp->use_bw) != 0)
 			show_vty_link_subtlv_use_bw(vty, &lp->use_bw.header);
+=======
+						       &lp->link_type.header,
+						       json);
+		if (TLV_TYPE(lp->link_id) != 0)
+			show_vty_link_subtlv_link_id(vty, &lp->link_id.header,
+						     json);
+		if (TLV_TYPE(lp->lclif_ipaddr) != 0)
+			show_vty_link_subtlv_lclif_ipaddr(
+				vty, &lp->lclif_ipaddr.header,
+				lp->lclif_ipaddr.header.length,
+				json);
+		if (TLV_TYPE(lp->rmtif_ipaddr) != 0)
+			show_vty_link_subtlv_rmtif_ipaddr(
+				vty, &lp->rmtif_ipaddr.header,
+				lp->rmtif_ipaddr.header.length,
+				json);
+		if (TLV_TYPE(lp->rip) != 0)
+			show_vty_link_subtlv_rip(vty, &lp->rip.header, json);
+		if (TLV_TYPE(lp->ras) != 0)
+			show_vty_link_subtlv_ras(vty, &lp->ras.header, json);
+		if (TLV_TYPE(lp->te_metric) != 0)
+			show_vty_link_subtlv_te_metric(vty,
+						       &lp->te_metric.header,
+						       json);
+		if (TLV_TYPE(lp->max_bw) != 0)
+			show_vty_link_subtlv_max_bw(vty, &lp->max_bw.header,
+						    json);
+		if (TLV_TYPE(lp->max_rsv_bw) != 0)
+			show_vty_link_subtlv_max_rsv_bw(vty,
+							&lp->max_rsv_bw.header,
+							json);
+		if (TLV_TYPE(lp->unrsv_bw) != 0)
+			show_vty_link_subtlv_unrsv_bw(vty,
+						      &lp->unrsv_bw.header,
+						      json);
+		if (TLV_TYPE(lp->rsc_clsclr) != 0)
+			show_vty_link_subtlv_rsc_clsclr(vty,
+							&lp->rsc_clsclr.header,
+							json);
+		if (TLV_TYPE(lp->av_delay) != 0)
+			show_vty_link_subtlv_av_delay(vty,
+						      &lp->av_delay.header,
+						      json);
+		if (TLV_TYPE(lp->mm_delay) != 0)
+			show_vty_link_subtlv_mm_delay(vty,
+						      &lp->mm_delay.header,
+						      json);
+		if (TLV_TYPE(lp->delay_var) != 0)
+			show_vty_link_subtlv_delay_var(vty,
+						       &lp->delay_var.header,
+						       json);
+		if (TLV_TYPE(lp->pkt_loss) != 0)
+			show_vty_link_subtlv_pkt_loss(vty,
+						      &lp->pkt_loss.header,
+						      json);
+		if (TLV_TYPE(lp->res_bw) != 0)
+			show_vty_link_subtlv_res_bw(vty, &lp->res_bw.header,
+						    json);
+		if (TLV_TYPE(lp->ava_bw) != 0)
+			show_vty_link_subtlv_ava_bw(vty, &lp->ava_bw.header,
+						    json);
+		if (TLV_TYPE(lp->use_bw) != 0)
+			show_vty_link_subtlv_use_bw(vty, &lp->use_bw.header,
+						    json);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		vty_out(vty, "---------------\n\n");
 	} else {
 		vty_out(vty, "  %s: MPLS-TE is disabled on this interface\n",
@@ -4297,7 +4901,10 @@ DEFUN (show_ip_ospf_mpls_te_link,
 	ospf = ospf_lookup_by_vrf_id(VRF_DEFAULT);
 	if (ospf == NULL || !ospf->oi_running)
 		return CMD_SUCCESS;
+<<<<<<< HEAD
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	vrf = vrf_lookup_by_id(VRF_DEFAULT);
 	if (!vrf)
 		return CMD_SUCCESS;
@@ -4311,11 +4918,19 @@ DEFUN (show_ip_ospf_mpls_te_link,
 	}
 	if (!ifp) {
 		FOR_ALL_INTERFACES (vrf, ifp)
+<<<<<<< HEAD
 			show_mpls_te_link_sub(vty, ifp);
 		return CMD_SUCCESS;
 	}
 
 	show_mpls_te_link_sub(vty, ifp);
+=======
+			show_mpls_te_link_sub(vty, ifp, NULL);
+		return CMD_SUCCESS;
+	}
+
+	show_mpls_te_link_sub(vty, ifp, NULL);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	return CMD_SUCCESS;
 }
 

@@ -79,6 +79,7 @@ struct ospf6_external_aggr_rt {
 	struct hash *match_extnl_hash;
 };
 
+<<<<<<< HEAD
 /* AS-External-LSA */
 #define OSPF6_AS_EXTERNAL_LSA_MIN_SIZE         4U /* w/o IPv6 prefix */
 struct ospf6_as_external_lsa {
@@ -90,15 +91,27 @@ struct ospf6_as_external_lsa {
 	/* followed by none or one referenced LS-ID */
 };
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 #define OSPF6_ASBR_BIT_T  ntohl (0x01000000)
 #define OSPF6_ASBR_BIT_F  ntohl (0x02000000)
 #define OSPF6_ASBR_BIT_E  ntohl (0x04000000)
 
+<<<<<<< HEAD
 #define OSPF6_ASBR_METRIC(E) (ntohl ((E)->bits_metric & htonl (0x00ffffff)))
 #define OSPF6_ASBR_METRIC_SET(E, C)                                            \
 	{                                                                      \
 		(E)->bits_metric &= htonl(0xff000000);                         \
 		(E)->bits_metric |= htonl(0x00ffffff) & htonl(C);              \
+=======
+#define OSPF6_ASBR_METRIC(E)                                                   \
+	(ntohl((E)->bits_metric & htonl(OSPF6_EXT_PATH_METRIC_MAX)))
+#define OSPF6_ASBR_METRIC_SET(E, C)                                            \
+	{                                                                      \
+		(E)->bits_metric &= htonl(~OSPF6_EXT_PATH_METRIC_MAX);         \
+		(E)->bits_metric |= htonl(OSPF6_EXT_PATH_METRIC_MAX) &         \
+				    htonl(C);                                  \
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	}
 
 extern void ospf6_asbr_lsa_add(struct ospf6_lsa *lsa);
@@ -115,7 +128,12 @@ extern void ospf6_asbr_redistribute_add(int type, ifindex_t ifindex,
 					struct prefix *prefix,
 					unsigned int nexthop_num,
 					const struct in6_addr *nexthop,
+<<<<<<< HEAD
 					route_tag_t tag, struct ospf6 *ospf6);
+=======
+					route_tag_t tag, struct ospf6 *ospf6,
+					uint32_t metric);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 extern void ospf6_asbr_redistribute_remove(int type, ifindex_t ifindex,
 					   struct prefix *prefix,
 					   struct ospf6 *ospf6);

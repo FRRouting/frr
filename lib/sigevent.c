@@ -4,6 +4,11 @@
  */
 
 #include <zebra.h>
+<<<<<<< HEAD
+=======
+
+#include <signal.h>
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 #include <sigevent.h>
 #include <log.h>
 #include <memory.h>
@@ -235,10 +240,37 @@ core_handler(int signo, siginfo_t *siginfo, void *context)
 
 	zlog_signal(signo, "aborting...", siginfo, pc);
 
+<<<<<<< HEAD
 	/* dump memory stats on core */
 	log_memstats(stderr, "core_handler");
 
 	zlog_tls_buffer_fini();
+=======
+	/* there used to be a log_memstats() call here, to dump MTYPE counters
+	 * on a coredump.  This is not possible since log_memstats is not
+	 * AS-Safe, as it calls fopen(), fprintf(), and cousins.  This can
+	 * lead to a deadlock depending on where we crashed - very much not a
+	 * good thing if the process just hangs there after a crash.
+	 *
+	 * The alarm(1) above tries to alleviate this, but that's really a
+	 * last resort recovery.  Stick with AS-safe calls here.
+	 *
+	 * If the fprintf() calls are removed from log_memstats(), this can be
+	 * added back in, since writing to log with zlog_sigsafe() is AS-safe.
+	 */
+
+	/*
+	 * This is a buffer flush because FRR is going down
+	 * hard.  This is especially important if the crash
+	 * was caused by a memory operation and if we call
+	 * zlog_tls_buffer_fini() then it has memory
+	 * operations as well.  This will cause the
+	 * core dump to not happen.  BAD MOJO
+	 * So this is intentional, let's try to flush
+	 * what we can and let the crash happen.
+	 */
+	zlog_tls_buffer_flush();
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	/* give the kernel a chance to generate a coredump */
 	sigaddset(&sigset, signo);

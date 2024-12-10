@@ -52,10 +52,17 @@ typedef enum {
 /* Maximum number of VTEPs per-ES -
  * XXX - temporary limit for allocating strings etc.
  */
+<<<<<<< HEAD
 #define ES_VTEP_MAX_CNT 10
 #define ES_VTEP_LIST_STR_SZ (ES_VTEP_MAX_CNT * 16)
 
 #define ETHER_ADDR_STRLEN (3*ETH_ALEN)
+=======
+#define ES_VTEP_MAX_CNT	    10
+#define ES_VTEP_LIST_STR_SZ (ES_VTEP_MAX_CNT * IPADDR_STRING_SIZE)
+
+#define ETHER_ADDR_STRLEN (3 * ETH_ALEN)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 /*
  * there isn't a portable ethernet address type. We define our
  * own to simplify internal handling
@@ -282,6 +289,7 @@ struct prefix_fs {
 struct prefix_sg {
 	uint8_t family;
 	uint16_t prefixlen;
+<<<<<<< HEAD
 	struct in_addr src __attribute__((aligned(8)));
 	struct in_addr grp;
 };
@@ -303,6 +311,31 @@ union prefixconstptr {
 	prefixtype(prefixconstptr, const struct prefix_fs,   fs)
 	prefixtype(prefixconstptr, const struct prefix_rd,   rd)
 } TRANSPARENT_UNION;
+=======
+	struct ipaddr src __attribute__((aligned(8)));
+	struct in_addr grp;
+};
+
+/* clang-format off */
+union prefixptr {
+	uniontype(prefixptr, struct prefix,      p)
+	uniontype(prefixptr, struct prefix_ipv4, p4)
+	uniontype(prefixptr, struct prefix_ipv6, p6)
+	uniontype(prefixptr, struct prefix_evpn, evp)
+	uniontype(prefixptr, struct prefix_fs,   fs)
+	uniontype(prefixptr, struct prefix_rd,   rd)
+} TRANSPARENT_UNION;
+
+union prefixconstptr {
+	uniontype(prefixconstptr, const struct prefix,      p)
+	uniontype(prefixconstptr, const struct prefix_ipv4, p4)
+	uniontype(prefixconstptr, const struct prefix_ipv6, p6)
+	uniontype(prefixconstptr, const struct prefix_evpn, evp)
+	uniontype(prefixconstptr, const struct prefix_fs,   fs)
+	uniontype(prefixconstptr, const struct prefix_rd,   rd)
+} TRANSPARENT_UNION;
+/* clang-format on */
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 #ifndef INET_ADDRSTRLEN
 #define INET_ADDRSTRLEN 16
@@ -413,6 +446,11 @@ extern int str2prefix(const char *string, struct prefix *prefix);
 
 #define PREFIX2STR_BUFFER  PREFIX_STRLEN
 
+<<<<<<< HEAD
+=======
+extern void prefix_mcast_ip_dump(const char *onfail, const struct ipaddr *addr,
+				 char *buf, int buf_size);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 extern void prefix_mcast_inet4_dump(const char *onfail, struct in_addr addr,
 				char *buf, int buf_size);
 extern const char *prefix_sg2str(const struct prefix_sg *sg, char *str);

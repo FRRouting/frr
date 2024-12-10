@@ -6,6 +6,11 @@
       "type":"connected"
     }
   ],
+<<<<<<< HEAD
   "routesTotal":32,
   "routesTotalFib":32
+=======
+  "routesTotal":64,
+  "routesTotalFib":64
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 }

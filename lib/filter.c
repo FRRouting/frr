@@ -410,7 +410,14 @@ void access_list_filter_add(struct access_list *access,
 		filter->prev = access->tail;
 		access->tail = filter;
 	}
+<<<<<<< HEAD
 
+=======
+}
+
+void access_list_filter_update(struct access_list *access)
+{
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	/* Run hook function. */
 	if (access->master->add_hook)
 		(*access->master->add_hook)(access);
@@ -455,7 +462,10 @@ static int filter_show(struct vty *vty, const char *name, afi_t afi,
 	struct filter_cisco *filter;
 	bool first;
 	json_object *json = NULL;
+<<<<<<< HEAD
 	json_object *json_proto = NULL;
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	master = access_master_get(afi);
 	if (master == NULL) {
@@ -466,12 +476,16 @@ static int filter_show(struct vty *vty, const char *name, afi_t afi,
 
 	if (use_json)
 		json = json_object_new_object();
+<<<<<<< HEAD
 
 	/* Print the name of the protocol */
 	if (json) {
 		json_proto = json_object_new_object();
 		json_object_object_add(json, frr_protoname, json_proto);
 	} else
+=======
+	else
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		vty_out(vty, "%s:\n", frr_protoname);
 
 	for (access = master->str.head; access; access = access->next) {
@@ -493,7 +507,11 @@ static int filter_show(struct vty *vty, const char *name, afi_t afi,
 
 				if (json) {
 					json_acl = json_object_new_object();
+<<<<<<< HEAD
 					json_object_object_add(json_proto,
+=======
+					json_object_object_add(json,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 							       access->name,
 							       json_acl);
 
@@ -593,7 +611,11 @@ DEFUN (show_mac_access_list_name,
 	return filter_show(vty, argv[3]->arg, AFI_L2VPN, false);
 }
 
+<<<<<<< HEAD
 DEFUN (show_ip_access_list,
+=======
+DEFUN_NOSH (show_ip_access_list,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
        show_ip_access_list_cmd,
        "show ip access-list [json]",
        SHOW_STR
@@ -605,7 +627,11 @@ DEFUN (show_ip_access_list,
 	return filter_show(vty, NULL, AFI_IP, uj);
 }
 
+<<<<<<< HEAD
 DEFUN (show_ip_access_list_name,
+=======
+DEFUN_NOSH (show_ip_access_list_name,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
        show_ip_access_list_name_cmd,
        "show ip access-list ACCESSLIST4_NAME [json]",
        SHOW_STR
@@ -619,7 +645,11 @@ DEFUN (show_ip_access_list_name,
 	return filter_show(vty, argv[idx_acl]->arg, AFI_IP, uj);
 }
 
+<<<<<<< HEAD
 DEFUN (show_ipv6_access_list,
+=======
+DEFUN_NOSH (show_ipv6_access_list,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
        show_ipv6_access_list_cmd,
        "show ipv6 access-list [json]",
        SHOW_STR
@@ -631,7 +661,11 @@ DEFUN (show_ipv6_access_list,
 	return filter_show(vty, NULL, AFI_IP6, uj);
 }
 
+<<<<<<< HEAD
 DEFUN (show_ipv6_access_list_name,
+=======
+DEFUN_NOSH (show_ipv6_access_list_name,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
        show_ipv6_access_list_name_cmd,
        "show ipv6 access-list ACCESSLIST6_NAME [json]",
        SHOW_STR
@@ -885,7 +919,11 @@ static void access_list_init_ipv6(void)
 	install_element(ENABLE_NODE, &show_ipv6_access_list_name_cmd);
 }
 
+<<<<<<< HEAD
 void access_list_init(void)
+=======
+void access_list_init_new(bool in_backend)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 {
 	cmd_variable_handler_register(access_list_handlers);
 
@@ -893,7 +931,19 @@ void access_list_init(void)
 	access_list_init_ipv6();
 	access_list_init_mac();
 
+<<<<<<< HEAD
 	filter_cli_init();
+=======
+	if (!in_backend) {
+		/* we do not want to handle config commands in the backend */
+		filter_cli_init();
+	}
+}
+
+void access_list_init(void)
+{
+	access_list_init_new(false);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 }
 
 void access_list_reset(void)

@@ -16,6 +16,10 @@
 #include "memory.h"
 #include "queue.h"
 #include "filter.h"
+<<<<<<< HEAD
+=======
+#include "hook.h"
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 #include "bgpd/bgpd.h"
 #include "bgpd/bgp_aspath.h"
@@ -37,6 +41,12 @@
 
 #include "bgpd/bgp_debug_clippy.c"
 
+<<<<<<< HEAD
+=======
+DEFINE_HOOK(bgp_hook_config_write_debug, (struct vty *vty, bool running),
+	    (vty, running));
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 unsigned long conf_bgp_debug_as4;
 unsigned long conf_bgp_debug_neighbor_events;
 unsigned long conf_bgp_debug_events;
@@ -46,7 +56,10 @@ unsigned long conf_bgp_debug_keepalive;
 unsigned long conf_bgp_debug_update;
 unsigned long conf_bgp_debug_bestpath;
 unsigned long conf_bgp_debug_zebra;
+<<<<<<< HEAD
 unsigned long conf_bgp_debug_allow_martians;
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 unsigned long conf_bgp_debug_nht;
 unsigned long conf_bgp_debug_update_groups;
 unsigned long conf_bgp_debug_vpn;
@@ -67,7 +80,10 @@ unsigned long term_bgp_debug_keepalive;
 unsigned long term_bgp_debug_update;
 unsigned long term_bgp_debug_bestpath;
 unsigned long term_bgp_debug_zebra;
+<<<<<<< HEAD
 unsigned long term_bgp_debug_allow_martians;
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 unsigned long term_bgp_debug_nht;
 unsigned long term_bgp_debug_update_groups;
 unsigned long term_bgp_debug_vpn;
@@ -112,6 +128,10 @@ static const struct message bgp_notify_msg[] = {
 	{BGP_NOTIFY_FSM_ERR, "Neighbor Events Error"},
 	{BGP_NOTIFY_CEASE, "Cease"},
 	{BGP_NOTIFY_ROUTE_REFRESH_ERR, "ROUTE-REFRESH Message Error"},
+<<<<<<< HEAD
+=======
+	{BGP_NOTIFY_SEND_HOLD_ERR, "Send Hold Timer Expired"},
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	{0}};
 
 static const struct message bgp_notify_head_msg[] = {
@@ -216,6 +236,10 @@ static void bgp_debug_list_free(struct list *list)
 			listnode_delete(list, filter);
 			prefix_free(&filter->p);
 			XFREE(MTYPE_BGP_DEBUG_STR, filter->host);
+<<<<<<< HEAD
+=======
+			XFREE(MTYPE_BGP_DEBUG_STR, filter->plist_name);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			XFREE(MTYPE_BGP_DEBUG_FILTER, filter);
 		}
 }
@@ -233,15 +257,31 @@ static void bgp_debug_list_print(struct vty *vty, const char *desc,
 	vty_out(vty, "%s", desc);
 
 	if (list && !list_isempty(list)) {
+<<<<<<< HEAD
 		vty_out(vty, " for");
 		for (ALL_LIST_ELEMENTS(list, node, nnode, filter)) {
 			if (filter->host)
 				vty_out(vty, " %s", filter->host);
+=======
+		vty_out(vty, " for:\n");
+		for (ALL_LIST_ELEMENTS(list, node, nnode, filter)) {
+			if (filter->host)
+				vty_out(vty, "   %s", filter->host);
+
+			if (filter->plist_name)
+				vty_out(vty, " with prefix-list %s",
+					filter->plist_name);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 			if (filter->p && filter->p->family == AF_EVPN)
 				bgp_debug_print_evpn_prefix(vty, "", filter->p);
 			else if (filter->p)
 				vty_out(vty, " %pFX", filter->p);
+<<<<<<< HEAD
+=======
+
+			vty_out(vty, "\n");
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		}
 	}
 
@@ -261,7 +301,15 @@ static int bgp_debug_list_conf_print(struct vty *vty, const char *desc,
 
 	if (list && !list_isempty(list)) {
 		for (ALL_LIST_ELEMENTS(list, node, nnode, filter)) {
+<<<<<<< HEAD
 			if (filter->host) {
+=======
+			if (filter->host && filter->plist_name) {
+				vty_out(vty, "%s %s prefix-list %s\n", desc,
+					filter->host, filter->plist_name);
+				write++;
+			} else if (filter->host) {
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 				vty_out(vty, "%s %s\n", desc, filter->host);
 				write++;
 			}
@@ -286,7 +334,12 @@ static int bgp_debug_list_conf_print(struct vty *vty, const char *desc,
 }
 
 static void bgp_debug_list_add_entry(struct list *list, const char *host,
+<<<<<<< HEAD
 				     const struct prefix *p)
+=======
+				     const struct prefix *p,
+				     const char *plist_name)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 {
 	struct bgp_debug_filter *filter;
 
@@ -295,13 +348,36 @@ static void bgp_debug_list_add_entry(struct list *list, const char *host,
 
 	if (host) {
 		filter->host = XSTRDUP(MTYPE_BGP_DEBUG_STR, host);
+<<<<<<< HEAD
 		filter->p = NULL;
 	} else if (p) {
 		filter->host = NULL;
+=======
+		filter->plist_name = NULL;
+		filter->plist_v4 = NULL;
+		filter->plist_v6 = NULL;
+		filter->p = NULL;
+	} else if (p) {
+		filter->host = NULL;
+		filter->plist_name = NULL;
+		filter->plist_v4 = NULL;
+		filter->plist_v6 = NULL;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		filter->p = prefix_new();
 		prefix_copy(filter->p, p);
 	}
 
+<<<<<<< HEAD
+=======
+	if (plist_name) {
+		filter->plist_name = XSTRDUP(MTYPE_BGP_DEBUG_STR, plist_name);
+		filter->plist_v4 = prefix_list_lookup(AFI_IP,
+						      filter->plist_name);
+		filter->plist_v6 = prefix_list_lookup(AFI_IP6,
+						      filter->plist_name);
+	}
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	listnode_add(list, filter);
 }
 
@@ -315,6 +391,10 @@ static bool bgp_debug_list_remove_entry(struct list *list, const char *host,
 		if (host && strcmp(filter->host, host) == 0) {
 			listnode_delete(list, filter);
 			XFREE(MTYPE_BGP_DEBUG_STR, filter->host);
+<<<<<<< HEAD
+=======
+			XFREE(MTYPE_BGP_DEBUG_STR, filter->plist_name);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			XFREE(MTYPE_BGP_DEBUG_FILTER, filter);
 			return true;
 		} else if (p && filter->p->prefixlen == p->prefixlen
@@ -330,16 +410,31 @@ static bool bgp_debug_list_remove_entry(struct list *list, const char *host,
 }
 
 static bool bgp_debug_list_has_entry(struct list *list, const char *host,
+<<<<<<< HEAD
 				     const struct prefix *p)
+=======
+				     const struct prefix *p,
+				     const char *plist_name)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 {
 	struct bgp_debug_filter *filter;
 	struct listnode *node, *nnode;
 
 	for (ALL_LIST_ELEMENTS(list, node, nnode, filter)) {
+<<<<<<< HEAD
 		if (host) {
 			if (strcmp(filter->host, host) == 0) {
 				return true;
 			}
+=======
+		if (host && plist_name) {
+			if (strmatch(filter->host, host) && filter->plist_name &&
+			    strmatch(filter->plist_name, plist_name))
+				return true;
+		} else if (host) {
+			if (strmatch(filter->host, host))
+				return true;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		} else if (p) {
 			if (filter->p->prefixlen == p->prefixlen
 			    && prefix_match(filter->p, p)) {
@@ -353,7 +448,11 @@ static bool bgp_debug_list_has_entry(struct list *list, const char *host,
 
 bool bgp_debug_peer_updout_enabled(char *host)
 {
+<<<<<<< HEAD
 	return (bgp_debug_list_has_entry(bgp_debug_update_out_peers, host,
+=======
+	return (bgp_debug_list_has_entry(bgp_debug_update_out_peers, host, NULL,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 					 NULL));
 }
 
@@ -415,6 +514,13 @@ bool bgp_dump_attr(struct attr *attr, char *buf, size_t size)
 			 ", extcommunity %s",
 			 ecommunity_str(bgp_attr_get_ecommunity(attr)));
 
+<<<<<<< HEAD
+=======
+	if (CHECK_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_IPV6_EXT_COMMUNITIES)))
+		snprintf(buf + strlen(buf), size - strlen(buf), ", ipv6-extcommunity %s",
+			 ecommunity_str(bgp_attr_get_ipv6_ecommunity(attr)));
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	if (CHECK_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_ATOMIC_AGGREGATE)))
 		snprintf(buf + strlen(buf), size - strlen(buf),
 			 ", atomic-aggregate");
@@ -480,6 +586,10 @@ const char *bgp_notify_subcode_str(char code, char subcode)
 		return lookup_msg(bgp_notify_update_msg, subcode,
 				  "Unrecognized Error Subcode");
 	case BGP_NOTIFY_HOLD_ERR:
+<<<<<<< HEAD
+=======
+	case BGP_NOTIFY_SEND_HOLD_ERR:
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		break;
 	case BGP_NOTIFY_FSM_ERR:
 		return lookup_msg(bgp_notify_fsm_msg, subcode,
@@ -780,14 +890,23 @@ DEFUN (debug_bgp_neighbor_events_peer,
 		bgp_debug_neighbor_events_peers = list_new();
 
 	if (bgp_debug_list_has_entry(bgp_debug_neighbor_events_peers, host,
+<<<<<<< HEAD
 				     NULL)) {
+=======
+				     NULL, NULL)) {
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		vty_out(vty,
 			"BGP neighbor-events debugging is already enabled for %s\n",
 			host);
 		return CMD_SUCCESS;
 	}
 
+<<<<<<< HEAD
 	bgp_debug_list_add_entry(bgp_debug_neighbor_events_peers, host, NULL);
+=======
+	bgp_debug_list_add_entry(bgp_debug_neighbor_events_peers, host, NULL,
+				 NULL);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	if (vty->node == CONFIG_NODE)
 		DEBUG_ON(neighbor_events, NEIGHBOR_EVENTS);
@@ -927,14 +1046,23 @@ DEFUN (debug_bgp_keepalive_peer,
 	if (!bgp_debug_keepalive_peers)
 		bgp_debug_keepalive_peers = list_new();
 
+<<<<<<< HEAD
 	if (bgp_debug_list_has_entry(bgp_debug_keepalive_peers, host, NULL)) {
+=======
+	if (bgp_debug_list_has_entry(bgp_debug_keepalive_peers, host, NULL,
+				     NULL)) {
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		vty_out(vty,
 			"BGP keepalive debugging is already enabled for %s\n",
 			host);
 		return CMD_SUCCESS;
 	}
 
+<<<<<<< HEAD
 	bgp_debug_list_add_entry(bgp_debug_keepalive_peers, host, NULL);
+=======
+	bgp_debug_list_add_entry(bgp_debug_keepalive_peers, host, NULL, NULL);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	if (vty->node == CONFIG_NODE)
 		DEBUG_ON(keepalive, KEEPALIVE);
@@ -1015,15 +1143,25 @@ DEFPY (debug_bgp_bestpath_prefix,
 	if (!bgp_debug_bestpath_prefixes)
 		bgp_debug_bestpath_prefixes = list_new();
 
+<<<<<<< HEAD
 	if (bgp_debug_list_has_entry(bgp_debug_bestpath_prefixes, NULL,
 				     prefix)) {
+=======
+	if (bgp_debug_list_has_entry(bgp_debug_bestpath_prefixes, NULL, prefix,
+				     NULL)) {
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		vty_out(vty,
 			"BGP bestpath debugging is already enabled for %s\n",
 			prefix_str);
 		return CMD_SUCCESS;
 	}
 
+<<<<<<< HEAD
 	bgp_debug_list_add_entry(bgp_debug_bestpath_prefixes, NULL, prefix);
+=======
+	bgp_debug_list_add_entry(bgp_debug_bestpath_prefixes, NULL, prefix,
+				 NULL);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	if (vty->node == CONFIG_NODE) {
 		DEBUG_ON(bestpath, BESTPATH);
@@ -1116,6 +1254,34 @@ DEFUN (debug_bgp_update,
 	return CMD_SUCCESS;
 }
 
+<<<<<<< HEAD
+=======
+DEFPY (debug_bgp_update_detail,
+       debug_bgp_update_detail_cmd,
+       "[no] debug bgp updates detail",
+       NO_STR
+       DEBUG_STR
+       BGP_STR
+       "BGP updates\n"
+       "Show detailed information about updates\n")
+{
+	if (vty->node == CONFIG_NODE) {
+		if (no)
+			DEBUG_OFF(update, UPDATE_DETAIL);
+		else
+			DEBUG_ON(update, UPDATE_DETAIL);
+	} else {
+		if (no)
+			TERM_DEBUG_OFF(update, UPDATE_DETAIL);
+		else
+			TERM_DEBUG_ON(update, UPDATE_DETAIL);
+		vty_out(vty, "BGP updates detail debugging is on\n");
+	}
+
+	return CMD_SUCCESS;
+}
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 DEFUN (debug_bgp_update_direct,
        debug_bgp_update_direct_cmd,
        "debug bgp updates <in|out>",
@@ -1150,9 +1316,15 @@ DEFUN (debug_bgp_update_direct,
 	return CMD_SUCCESS;
 }
 
+<<<<<<< HEAD
 DEFUN (debug_bgp_update_direct_peer,
        debug_bgp_update_direct_peer_cmd,
        "debug bgp updates <in|out> <A.B.C.D|X:X::X:X|WORD>",
+=======
+DEFPY (debug_bgp_update_direct_peer,
+       debug_bgp_update_direct_peer_cmd,
+       "debug bgp updates <in|out> <A.B.C.D|X:X::X:X|WORD> [prefix-list PREFIXLIST_NAME$plist]",
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
        DEBUG_STR
        BGP_STR
        "BGP updates\n"
@@ -1160,7 +1332,13 @@ DEFUN (debug_bgp_update_direct_peer,
        "Outbound updates\n"
        "BGP neighbor IP address to debug\n"
        "BGP IPv6 neighbor to debug\n"
+<<<<<<< HEAD
        "BGP neighbor on interface to debug\n")
+=======
+       "BGP neighbor on interface to debug\n"
+       "Use prefix-list to filter prefixes to debug\n"
+       "Name of prefix-list\n")
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 {
 	int idx_in_out = 3;
 	int idx_peer = 4;
@@ -1180,7 +1358,11 @@ DEFUN (debug_bgp_update_direct_peer,
 
 	if (inbound) {
 		if (bgp_debug_list_has_entry(bgp_debug_update_in_peers, host,
+<<<<<<< HEAD
 					     NULL)) {
+=======
+					     NULL, plist)) {
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			vty_out(vty,
 				"BGP inbound update debugging is already enabled for %s\n",
 				host);
@@ -1190,7 +1372,11 @@ DEFUN (debug_bgp_update_direct_peer,
 
 	else {
 		if (bgp_debug_list_has_entry(bgp_debug_update_out_peers, host,
+<<<<<<< HEAD
 					     NULL)) {
+=======
+					     NULL, plist)) {
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			vty_out(vty,
 				"BGP outbound update debugging is already enabled for %s\n",
 				host);
@@ -1199,14 +1385,24 @@ DEFUN (debug_bgp_update_direct_peer,
 	}
 
 	if (inbound)
+<<<<<<< HEAD
 		bgp_debug_list_add_entry(bgp_debug_update_in_peers, host, NULL);
+=======
+		bgp_debug_list_add_entry(bgp_debug_update_in_peers, host, NULL,
+					 plist);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	else {
 		struct peer *peer;
 		struct peer_af *paf;
 		int afidx;
 
+<<<<<<< HEAD
 		bgp_debug_list_add_entry(bgp_debug_update_out_peers, host,
 					 NULL);
+=======
+		bgp_debug_list_add_entry(bgp_debug_update_out_peers, host, NULL,
+					 plist);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		peer = bgp_find_peer(vty, host);
 
 		if (peer) {
@@ -1283,7 +1479,11 @@ DEFUN (no_debug_bgp_update_direct,
 
 DEFUN (no_debug_bgp_update_direct_peer,
        no_debug_bgp_update_direct_peer_cmd,
+<<<<<<< HEAD
        "no debug bgp updates <in|out> <A.B.C.D|X:X::X:X|WORD>",
+=======
+       "no debug bgp updates <in|out> <A.B.C.D|X:X::X:X|WORD> [prefix-list PREFIXLIST_NAME]",
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
        NO_STR
        DEBUG_STR
        BGP_STR
@@ -1292,7 +1492,13 @@ DEFUN (no_debug_bgp_update_direct_peer,
        "Outbound updates\n"
        "BGP neighbor IP address to debug\n"
        "BGP IPv6 neighbor to debug\n"
+<<<<<<< HEAD
        "BGP neighbor on interface to debug\n")
+=======
+       "BGP neighbor on interface to debug\n"
+       "Use prefix-list to filter prefixes to debug\n"
+       "Name of prefix-list\n")
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 {
 	int idx_in_out = 4;
 	int idx_peer = 5;
@@ -1414,15 +1620,24 @@ DEFPY (debug_bgp_update_prefix_afi_safi,
 	if (!bgp_debug_update_prefixes)
 		bgp_debug_update_prefixes = list_new();
 
+<<<<<<< HEAD
 	if (bgp_debug_list_has_entry(bgp_debug_update_prefixes, NULL,
 				     &argv_p)) {
+=======
+	if (bgp_debug_list_has_entry(bgp_debug_update_prefixes, NULL, &argv_p,
+				     NULL)) {
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		vty_out(vty,
 			"BGP updates debugging is already enabled for %pFX\n",
 			&argv_p);
 		return CMD_SUCCESS;
 	}
 
+<<<<<<< HEAD
 	bgp_debug_list_add_entry(bgp_debug_update_prefixes, NULL, &argv_p);
+=======
+	bgp_debug_list_add_entry(bgp_debug_update_prefixes, NULL, &argv_p, NULL);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	if (vty->node == CONFIG_NODE) {
 		DEBUG_ON(update, UPDATE_PREFIX);
@@ -1510,14 +1725,23 @@ DEFPY (debug_bgp_update_prefix,
 	if (!bgp_debug_update_prefixes)
 		bgp_debug_update_prefixes = list_new();
 
+<<<<<<< HEAD
 	if (bgp_debug_list_has_entry(bgp_debug_update_prefixes, NULL, prefix)) {
+=======
+	if (bgp_debug_list_has_entry(bgp_debug_update_prefixes, NULL, prefix,
+				     NULL)) {
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		vty_out(vty,
 			"BGP updates debugging is already enabled for %s\n",
 			prefix_str);
 		return CMD_SUCCESS;
 	}
 
+<<<<<<< HEAD
 	bgp_debug_list_add_entry(bgp_debug_update_prefixes, NULL, prefix);
+=======
+	bgp_debug_list_add_entry(bgp_debug_update_prefixes, NULL, prefix, NULL);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	if (vty->node == CONFIG_NODE) {
 		DEBUG_ON(update, UPDATE_PREFIX);
@@ -1647,13 +1871,22 @@ DEFPY (debug_bgp_zebra_prefix,
 	if (!bgp_debug_zebra_prefixes)
 		bgp_debug_zebra_prefixes = list_new();
 
+<<<<<<< HEAD
 	if (bgp_debug_list_has_entry(bgp_debug_zebra_prefixes, NULL, prefix)) {
+=======
+	if (bgp_debug_list_has_entry(bgp_debug_zebra_prefixes, NULL, prefix,
+				     NULL)) {
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		vty_out(vty, "BGP zebra debugging is already enabled for %s\n",
 			prefix_str);
 		return CMD_SUCCESS;
 	}
 
+<<<<<<< HEAD
 	bgp_debug_list_add_entry(bgp_debug_zebra_prefixes, NULL, prefix);
+=======
+	bgp_debug_list_add_entry(bgp_debug_zebra_prefixes, NULL, prefix, NULL);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	if (vty->node == CONFIG_NODE)
 		DEBUG_ON(zebra, ZEBRA);
@@ -2093,7 +2326,10 @@ DEFUN (no_debug_bgp,
 	TERM_DEBUG_OFF(as4, AS4_SEGMENT);
 	TERM_DEBUG_OFF(neighbor_events, NEIGHBOR_EVENTS);
 	TERM_DEBUG_OFF(zebra, ZEBRA);
+<<<<<<< HEAD
 	TERM_DEBUG_OFF(allow_martians, ALLOW_MARTIANS);
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	TERM_DEBUG_OFF(nht, NHT);
 	TERM_DEBUG_OFF(vpn, VPN_LEAK_FROM_VRF);
 	TERM_DEBUG_OFF(vpn, VPN_LEAK_TO_VRF);
@@ -2169,9 +2405,12 @@ DEFUN_NOSH (show_debugging_bgp,
 	if (BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
 		vty_out(vty, "  BGP graceful-restart debugging is on\n");
 
+<<<<<<< HEAD
 	if (BGP_DEBUG(allow_martians, ALLOW_MARTIANS))
 		vty_out(vty, "  BGP allow martian next hop debugging is on\n");
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	if (BGP_DEBUG(vpn, VPN_LEAK_FROM_VRF))
 		vty_out(vty,
 			"  BGP route leak from vrf to vpn debugging is on\n");
@@ -2206,6 +2445,11 @@ DEFUN_NOSH (show_debugging_bgp,
 
 	cmd_show_lib_debugs(vty);
 
+<<<<<<< HEAD
+=======
+	hook_call(bgp_hook_config_write_debug, vty, false);
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	return CMD_SUCCESS;
 }
 
@@ -2265,6 +2509,14 @@ static int bgp_config_write_debug(struct vty *vty)
 						   bgp_debug_update_out_peers);
 	}
 
+<<<<<<< HEAD
+=======
+	if (CONF_BGP_DEBUG(update, UPDATE_DETAIL)) {
+		vty_out(vty, "debug bgp updates detail\n");
+		write++;
+	}
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	if (CONF_BGP_DEBUG(zebra, ZEBRA)) {
 		if (!bgp_debug_zebra_prefixes
 		    || list_isempty(bgp_debug_zebra_prefixes)) {
@@ -2277,11 +2529,14 @@ static int bgp_config_write_debug(struct vty *vty)
 		}
 	}
 
+<<<<<<< HEAD
 	if (CONF_BGP_DEBUG(allow_martians, ALLOW_MARTIANS)) {
 		vty_out(vty, "debug bgp allow-martians\n");
 		write++;
 	}
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	if (CONF_BGP_DEBUG(vpn, VPN_LEAK_FROM_VRF)) {
 		vty_out(vty, "debug bgp vpn leak-from-vrf\n");
 		write++;
@@ -2340,6 +2595,12 @@ static int bgp_config_write_debug(struct vty *vty)
 		write++;
 	}
 
+<<<<<<< HEAD
+=======
+	if (hook_call(bgp_hook_config_write_debug, vty, true))
+		write++;
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	return write;
 }
 
@@ -2370,6 +2631,11 @@ void bgp_debug_init(void)
 	install_element(CONFIG_NODE, &debug_bgp_keepalive_cmd);
 	install_element(ENABLE_NODE, &debug_bgp_update_cmd);
 	install_element(CONFIG_NODE, &debug_bgp_update_cmd);
+<<<<<<< HEAD
+=======
+	install_element(ENABLE_NODE, &debug_bgp_update_detail_cmd);
+	install_element(CONFIG_NODE, &debug_bgp_update_detail_cmd);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	install_element(ENABLE_NODE, &debug_bgp_zebra_cmd);
 	install_element(CONFIG_NODE, &debug_bgp_zebra_cmd);
 	install_element(ENABLE_NODE, &debug_bgp_update_groups_cmd);
@@ -2485,7 +2751,11 @@ static int bgp_debug_per_prefix(const struct prefix *p,
 	struct bgp_debug_filter *filter;
 	struct listnode *node, *nnode;
 
+<<<<<<< HEAD
 	if (term_bgp_debug_type & BGP_DEBUG_TYPE) {
+=======
+	if (CHECK_FLAG(term_bgp_debug_type, BGP_DEBUG_TYPE)) {
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		/* We are debugging all prefixes so return true */
 		if (!per_prefix_list || list_isempty(per_prefix_list))
 			return 1;
@@ -2510,18 +2780,28 @@ static int bgp_debug_per_prefix(const struct prefix *p,
 /* Return true if this peer is on the per_peer_list of peers to debug
  * for BGP_DEBUG_TYPE
  */
+<<<<<<< HEAD
 static bool bgp_debug_per_peer(char *host, unsigned long term_bgp_debug_type,
+=======
+static bool bgp_debug_per_peer(char *host, const struct prefix *p,
+			       unsigned long term_bgp_debug_type,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			       unsigned int BGP_DEBUG_TYPE,
 			       struct list *per_peer_list)
 {
 	struct bgp_debug_filter *filter;
 	struct listnode *node, *nnode;
 
+<<<<<<< HEAD
 	if (term_bgp_debug_type & BGP_DEBUG_TYPE) {
+=======
+	if (CHECK_FLAG(term_bgp_debug_type, BGP_DEBUG_TYPE)) {
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		/* We are debugging all peers so return true */
 		if (!per_peer_list || list_isempty(per_peer_list))
 			return true;
 
+<<<<<<< HEAD
 		else {
 			if (!host)
 				return false;
@@ -2533,6 +2813,30 @@ static bool bgp_debug_per_peer(char *host, unsigned long term_bgp_debug_type,
 
 			return false;
 		}
+=======
+		if (!host)
+			return false;
+
+		for (ALL_LIST_ELEMENTS(per_peer_list, node, nnode, filter))
+			if (strmatch(filter->host, host) &&
+			    filter->plist_name && p) {
+				struct prefix_list *plist;
+				afi_t afi = family2afi(p->family);
+
+				plist = (afi == AFI_IP) ? filter->plist_v4
+							: filter->plist_v6;
+
+				if (!plist)
+					continue;
+
+				return prefix_list_apply(plist, p) ==
+				       PREFIX_PERMIT;
+			} else if (strmatch(filter->host, host)) {
+				return true;
+			}
+
+		return false;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	}
 
 	return false;
@@ -2545,7 +2849,11 @@ bool bgp_debug_neighbor_events(const struct peer *peer)
 	if (peer)
 		host = peer->host;
 
+<<<<<<< HEAD
 	return bgp_debug_per_peer(host, term_bgp_debug_neighbor_events,
+=======
+	return bgp_debug_per_peer(host, NULL, term_bgp_debug_neighbor_events,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 				  BGP_DEBUG_NEIGHBOR_EVENTS,
 				  bgp_debug_neighbor_events_peers);
 }
@@ -2557,7 +2865,11 @@ bool bgp_debug_keepalive(const struct peer *peer)
 	if (peer)
 		host = peer->host;
 
+<<<<<<< HEAD
 	return bgp_debug_per_peer(host, term_bgp_debug_keepalive,
+=======
+	return bgp_debug_per_peer(host, NULL, term_bgp_debug_keepalive,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 				  BGP_DEBUG_KEEPALIVE,
 				  bgp_debug_keepalive_peers);
 }
@@ -2571,7 +2883,11 @@ bool bgp_debug_update(const struct peer *peer, const struct prefix *p,
 		host = peer->host;
 
 	if (inbound) {
+<<<<<<< HEAD
 		if (bgp_debug_per_peer(host, term_bgp_debug_update,
+=======
+		if (bgp_debug_per_peer(host, p, term_bgp_debug_update,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 				       BGP_DEBUG_UPDATE_IN,
 				       bgp_debug_update_in_peers))
 			return true;
@@ -2579,7 +2895,11 @@ bool bgp_debug_update(const struct peer *peer, const struct prefix *p,
 
 	/* outbound */
 	else {
+<<<<<<< HEAD
 		if (bgp_debug_per_peer(host, term_bgp_debug_update,
+=======
+		if (bgp_debug_per_peer(host, p, term_bgp_debug_update,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 				       BGP_DEBUG_UPDATE_OUT,
 				       bgp_debug_update_out_peers))
 			return true;
@@ -2628,7 +2948,11 @@ bool bgp_debug_zebra(const struct prefix *p)
 const char *bgp_debug_rdpfxpath2str(afi_t afi, safi_t safi,
 				    const struct prefix_rd *prd,
 				    union prefixconstptr pu,
+<<<<<<< HEAD
 				    mpls_label_t *label, uint32_t num_labels,
+=======
+				    mpls_label_t *label, uint8_t num_labels,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 				    int addpath_valid, uint32_t addpath_id,
 				    struct bgp_route_evpn *overlay_index,
 				    char *str, int size)

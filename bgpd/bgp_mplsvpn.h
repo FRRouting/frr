@@ -13,6 +13,10 @@
 #include "bgpd/bgp_rd.h"
 #include "bgpd/bgp_zebra.h"
 #include "bgpd/bgp_vty.h"
+<<<<<<< HEAD
+=======
+#include "bgpd/bgp_label.h"
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 #define MPLS_LABEL_IS_SPECIAL(label) ((label) <= MPLS_LABEL_EXTENSION)
 #define MPLS_LABEL_IS_NULL(label)                                              \
@@ -112,7 +116,12 @@ static inline bool is_bgp_vrf_mplsvpn(struct bgp *bgp)
 }
 
 static inline int vpn_leak_to_vpn_active(struct bgp *bgp_vrf, afi_t afi,
+<<<<<<< HEAD
 					 const char **pmsg)
+=======
+					 const char **pmsg,
+					 bool ignore_export_rt_list)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 {
 	if (bgp_vrf->inst_type != BGP_INSTANCE_TYPE_VRF
 		&& bgp_vrf->inst_type != BGP_INSTANCE_TYPE_DEFAULT) {
@@ -132,8 +141,26 @@ static inline int vpn_leak_to_vpn_active(struct bgp *bgp_vrf, afi_t afi,
 		return 0;
 	}
 
+<<<<<<< HEAD
 	/* Is there an RT list set? */
 	if (!bgp_vrf->vpn_policy[afi].rtlist[BGP_VPN_POLICY_DIR_TOVPN]) {
+=======
+	/* Before performing withdrawal, VPN activation is checked; however,
+	 * when the route-map modifies the export route-target (RT) list, it
+	 * becomes challenging to determine if VPN prefixes were previously
+	 * present, or not. The 'ignore_export_rt_list' parameter will be
+	 * used to force the withdraw operation by not checking the possible
+	 * route-map changes.
+	 * Of the 'ignore_export_rt_list' is set to false, check the following:
+	 * - Is there an RT list set?
+	 * - Is there a route-map that sets RT communities
+	 */
+	if (!ignore_export_rt_list &&
+	    !bgp_vrf->vpn_policy[afi].rtlist[BGP_VPN_POLICY_DIR_TOVPN] &&
+	    (!bgp_vrf->vpn_policy[afi].rmap[BGP_VPN_POLICY_DIR_TOVPN] ||
+	     !bgp_route_map_has_extcommunity_rt(
+		     bgp_vrf->vpn_policy[afi].rmap[BGP_VPN_POLICY_DIR_TOVPN]))) {
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		if (pmsg)
 			*pmsg = "rtlist tovpn not defined";
 		return 0;
@@ -155,6 +182,7 @@ static inline int vpn_leak_to_vpn_active(struct bgp *bgp_vrf, afi_t afi,
 		return 0;
 	}
 
+<<<<<<< HEAD
 	/* Is there an "auto" export label that isn't allocated yet? */
 	if (CHECK_FLAG(bgp_vrf->vpn_policy[afi].flags,
 		BGP_VPN_POLICY_TOVPN_LABEL_AUTO) &&
@@ -163,6 +191,25 @@ static inline int vpn_leak_to_vpn_active(struct bgp *bgp_vrf, afi_t afi,
 		if (pmsg)
 			*pmsg = "auto label not allocated";
 		return 0;
+=======
+	/* Is there a "manual" export label that isn't allocated yet? */
+	if (!CHECK_FLAG(bgp_vrf->vpn_policy[afi].flags,
+			BGP_VPN_POLICY_TOVPN_LABEL_AUTO) &&
+	    bgp_vrf->vpn_policy[afi].tovpn_label != BGP_PREVENT_VRF_2_VRF_LEAK &&
+	    bgp_vrf->vpn_policy[afi].tovpn_label != MPLS_LABEL_NONE &&
+	    (bgp_vrf->vpn_policy[afi].tovpn_label >= MPLS_LABEL_UNRESERVED_MIN &&
+	     !CHECK_FLAG(bgp_vrf->vpn_policy[afi].flags,
+			 BGP_VPN_POLICY_TOVPN_LABEL_MANUAL_REG))) {
+		if (!bgp_zebra_request_label_range(bgp_vrf->vpn_policy[afi]
+							   .tovpn_label,
+						   1, false)) {
+			if (pmsg)
+				*pmsg = "manual label could not be allocated";
+			return 0;
+		}
+		SET_FLAG(bgp_vrf->vpn_policy[afi].flags,
+			 BGP_VPN_POLICY_TOVPN_LABEL_MANUAL_REG);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	}
 
 	return 1;
@@ -226,8 +273,12 @@ static inline void vpn_leak_prechange(enum vpn_policy_direction direction,
 		vpn_leak_to_vrf_withdraw_all(bgp_vrf, afi);
 	}
 	if ((direction == BGP_VPN_POLICY_DIR_TOVPN) &&
+<<<<<<< HEAD
 		vpn_leak_to_vpn_active(bgp_vrf, afi, NULL)) {
 
+=======
+	    vpn_leak_to_vpn_active(bgp_vrf, afi, NULL, true)) {
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		vpn_leak_from_vrf_withdraw_all(bgp_vpn, bgp_vrf, afi);
 	}
 }
@@ -396,6 +447,11 @@ struct bgp_mplsvpn_nh_label_bind_cache *bgp_mplsvpn_nh_label_bind_find(
 	struct bgp_mplsvpn_nh_label_bind_cache_head *tree, struct prefix *p,
 	mpls_label_t orig_label);
 void bgp_mplsvpn_nexthop_init(void);
+<<<<<<< HEAD
+=======
+extern void sid_register(struct bgp *bgp, const struct in6_addr *sid,
+			 const char *locator_name);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 extern void sid_unregister(struct bgp *bgp, const struct in6_addr *sid);
 
 #endif /* _QUAGGA_BGP_MPLSVPN_H */

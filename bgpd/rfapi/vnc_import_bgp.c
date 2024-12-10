@@ -414,7 +414,11 @@ static void vnc_import_bgp_add_route_mode_resolve_nve_one_bi(
 	uint32_t lifetime;
 	uint32_t *plifetime;
 	struct bgp_attr_encap_subtlv *encaptlvs;
+<<<<<<< HEAD
 	uint32_t label = 0;
+=======
+	uint32_t label;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	struct rfapi_un_option optary[3];
 	struct rfapi_un_option *opt = NULL;
@@ -470,16 +474,31 @@ static void vnc_import_bgp_add_route_mode_resolve_nve_one_bi(
 	if (bgp_attr_get_ecommunity(bpi->attr))
 		ecommunity_merge(new_ecom, bgp_attr_get_ecommunity(bpi->attr));
 
+<<<<<<< HEAD
 	if (bpi->extra)
 		label = decode_label(&bpi->extra->label[0]);
 
 	add_vnc_route(&vncHDResolveNve, bgp, SAFI_MPLS_VPN,
 		      prefix,	  /* unicast route prefix */
+=======
+	if (BGP_PATH_INFO_NUM_LABELS(bpi))
+		label = decode_label(&bpi->extra->labels->label[0]);
+	else
+		label = MPLS_INVALID_LABEL;
+
+	add_vnc_route(&vncHDResolveNve, bgp, SAFI_MPLS_VPN,
+		      prefix,	       /* unicast route prefix */
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		      prd, &nexthop_h, /* new nexthop */
 		      local_pref, plifetime,
 		      (struct bgp_tea_options *)encaptlvs, /* RFP options */
 		      opt, NULL, new_ecom, med, /* NULL => don't set med */
+<<<<<<< HEAD
 		      (label ? &label : NULL),  /* NULL= default */
+=======
+		      ((label != MPLS_INVALID_LABEL) ? &label
+						     : NULL), /* NULL= default */
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		      ZEBRA_ROUTE_BGP_DIRECT, BGP_ROUTE_REDISTRIBUTE,
 		      RFAPI_AHR_RFPOPT_IS_VNCTLV); /* flags */
 
@@ -1678,7 +1697,11 @@ static void vnc_import_bgp_exterior_add_route_it(
 			     bpi_interior = bpi_interior->next) {
 				struct prefix_rd *prd;
 				struct attr new_attr;
+<<<<<<< HEAD
 				uint32_t label = 0;
+=======
+				uint32_t label;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 				if (!is_usable_interior_route(bpi_interior))
 					continue;
@@ -1695,6 +1718,7 @@ static void vnc_import_bgp_exterior_add_route_it(
 				 */
 				have_usable_route = 1;
 
+<<<<<<< HEAD
 				if (bpi_interior->extra) {
 					prd = &bpi_interior->extra->vnc.import
 						       .rd;
@@ -1703,6 +1727,21 @@ static void vnc_import_bgp_exterior_add_route_it(
 				} else
 					prd = NULL;
 
+=======
+				if (bpi_interior->extra)
+					prd = &bpi_interior->extra->vnc->vnc
+						       .import.rd;
+				else
+					prd = NULL;
+
+				if (BGP_PATH_INFO_NUM_LABELS(bpi_interior))
+					label = decode_label(
+						&bpi_interior->extra->labels
+							 ->label[0]);
+				else
+					label = MPLS_INVALID_LABEL;
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 				/* use local_pref from unicast route */
 				memset(&new_attr, 0, sizeof(new_attr));
 				new_attr = *bpi_interior->attr;
@@ -1851,7 +1890,11 @@ void vnc_import_bgp_exterior_del_route(
 			for (bpi_interior = rn->info; bpi_interior;
 			     bpi_interior = bpi_interior->next) {
 				struct prefix_rd *prd;
+<<<<<<< HEAD
 				uint32_t label = 0;
+=======
+				uint32_t label;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 				if (!is_usable_interior_route(bpi_interior))
 					continue;
@@ -1864,6 +1907,7 @@ void vnc_import_bgp_exterior_del_route(
 				 */
 				have_usable_route = 1;
 
+<<<<<<< HEAD
 				if (bpi_interior->extra) {
 					prd = &bpi_interior->extra->vnc.import
 						       .rd;
@@ -1872,6 +1916,21 @@ void vnc_import_bgp_exterior_del_route(
 				} else
 					prd = NULL;
 
+=======
+				if (bpi_interior->extra)
+					prd = &bpi_interior->extra->vnc->vnc
+						       .import.rd;
+				else
+					prd = NULL;
+
+				if (BGP_PATH_INFO_NUM_LABELS(bpi_interior))
+					label = decode_label(
+						&bpi_interior->extra->labels
+							 ->label[0]);
+				else
+					label = MPLS_INVALID_LABEL;
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 				rfapiBgpInfoFilteredImportVPN(
 					it, FIF_ACTION_KILL, bpi_interior->peer,
 					NULL, /* rfd */
@@ -2007,11 +2066,16 @@ void vnc_import_bgp_exterior_add_route_interior(
 
 			struct prefix_rd *prd;
 			struct attr new_attr;
+<<<<<<< HEAD
 			uint32_t label = 0;
+=======
+			uint32_t label;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 			assert(bpi_exterior);
 			assert(pfx_exterior);
 
+<<<<<<< HEAD
 			if (bpi_interior->extra) {
 				prd = &bpi_interior->extra->vnc.import.rd;
 				label = decode_label(
@@ -2019,6 +2083,19 @@ void vnc_import_bgp_exterior_add_route_interior(
 			} else
 				prd = NULL;
 
+=======
+			if (bpi_interior->extra)
+				prd = &bpi_interior->extra->vnc->vnc.import.rd;
+			else
+				prd = NULL;
+
+			if (BGP_PATH_INFO_NUM_LABELS(bpi_interior))
+				label = decode_label(
+					&bpi_interior->extra->labels->label[0]);
+			else
+				label = MPLS_INVALID_LABEL;
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			/* use local_pref from unicast route */
 			memset(&new_attr, 0, sizeof(struct attr));
 			new_attr = *bpi_interior->attr;
@@ -2097,7 +2174,11 @@ void vnc_import_bgp_exterior_add_route_interior(
 				struct bgp_path_info *bpi;
 				struct prefix_rd *prd;
 				struct attr new_attr;
+<<<<<<< HEAD
 				uint32_t label = 0;
+=======
+				uint32_t label;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 				/* do pull-down */
 
@@ -2124,6 +2205,7 @@ void vnc_import_bgp_exterior_add_route_interior(
 				 * parent routes.
 				 */
 				for (bpi = par->info; bpi; bpi = bpi->next) {
+<<<<<<< HEAD
 
 					if (bpi->extra) {
 						prd = &bpi->extra->vnc.import
@@ -2133,6 +2215,21 @@ void vnc_import_bgp_exterior_add_route_interior(
 					} else
 						prd = NULL;
 
+=======
+					if (bpi->extra)
+						prd = &bpi->extra->vnc->vnc
+							       .import.rd;
+					else
+						prd = NULL;
+
+					if (BGP_PATH_INFO_NUM_LABELS(bpi))
+						label = decode_label(
+							&bpi->extra->labels
+								 ->label[0]);
+					else
+						label = MPLS_INVALID_LABEL;
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 					rfapiBgpInfoFilteredImportVPN(
 						it, FIF_ACTION_KILL, bpi->peer,
 						NULL, /* rfd */
@@ -2147,6 +2244,7 @@ void vnc_import_bgp_exterior_add_route_interior(
 				 * Add constructed exterior routes based on
 				 * the new interior route at longer prefix.
 				 */
+<<<<<<< HEAD
 				if (bpi_interior->extra) {
 					prd = &bpi_interior->extra->vnc.import
 						       .rd;
@@ -2155,6 +2253,21 @@ void vnc_import_bgp_exterior_add_route_interior(
 				} else
 					prd = NULL;
 
+=======
+				if (bpi_interior->extra)
+					prd = &bpi_interior->extra->vnc->vnc
+						       .import.rd;
+				else
+					prd = NULL;
+
+				if (BGP_PATH_INFO_NUM_LABELS(bpi_interior))
+					label = decode_label(
+						&bpi_interior->extra->labels
+							 ->label[0]);
+				else
+					label = MPLS_INVALID_LABEL;
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 				/* use local_pref from unicast route */
 				memset(&new_attr, 0, sizeof(struct attr));
 				new_attr = *bpi_interior->attr;
@@ -2237,7 +2350,11 @@ void vnc_import_bgp_exterior_add_route_interior(
 
 			struct prefix_rd *prd;
 			struct attr new_attr;
+<<<<<<< HEAD
 			uint32_t label = 0;
+=======
+			uint32_t label;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 			/* do pull-down */
 
@@ -2266,6 +2383,7 @@ void vnc_import_bgp_exterior_add_route_interior(
 			 * Add constructed exterior routes based on the
 			 * new interior route at the longer prefix.
 			 */
+<<<<<<< HEAD
 			if (bpi_interior->extra) {
 				prd = &bpi_interior->extra->vnc.import.rd;
 				label = decode_label(
@@ -2273,6 +2391,19 @@ void vnc_import_bgp_exterior_add_route_interior(
 			} else
 				prd = NULL;
 
+=======
+			if (bpi_interior->extra)
+				prd = &bpi_interior->extra->vnc->vnc.import.rd;
+			else
+				prd = NULL;
+
+			if (BGP_PATH_INFO_NUM_LABELS(bpi_interior))
+				label = decode_label(
+					&bpi_interior->extra->labels->label[0]);
+			else
+				label = MPLS_INVALID_LABEL;
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			/* use local_pref from unicast route */
 			memset(&new_attr, 0, sizeof(struct attr));
 			new_attr = *bpi_interior->attr;
@@ -2372,6 +2503,7 @@ void vnc_import_bgp_exterior_del_route_interior(
 				&cursor)) {
 
 		struct prefix_rd *prd;
+<<<<<<< HEAD
 		uint32_t label = 0;
 
 		if (bpi_interior->extra) {
@@ -2380,6 +2512,21 @@ void vnc_import_bgp_exterior_del_route_interior(
 		} else
 			prd = NULL;
 
+=======
+		uint32_t label;
+
+		if (bpi_interior->extra)
+			prd = &bpi_interior->extra->vnc->vnc.import.rd;
+		else
+			prd = NULL;
+
+		if (BGP_PATH_INFO_NUM_LABELS(bpi_interior))
+			label = decode_label(
+				&bpi_interior->extra->labels->label[0]);
+		else
+			label = MPLS_INVALID_LABEL;
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		rfapiBgpInfoFilteredImportVPN(
 			it, FIF_ACTION_KILL, bpi_interior->peer, NULL, /* rfd */
 			pfx_exterior, NULL, afi, prd, bpi_interior->attr,
@@ -2446,11 +2593,16 @@ void vnc_import_bgp_exterior_del_route_interior(
 
 				struct prefix_rd *prd;
 				struct attr new_attr;
+<<<<<<< HEAD
 				uint32_t label = 0;
+=======
+				uint32_t label;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 				if (bpi->type == ZEBRA_ROUTE_BGP_DIRECT_EXT)
 					continue;
 
+<<<<<<< HEAD
 				if (bpi->extra) {
 					prd = &bpi->extra->vnc.import.rd;
 					label = decode_label(
@@ -2458,6 +2610,19 @@ void vnc_import_bgp_exterior_del_route_interior(
 				} else
 					prd = NULL;
 
+=======
+				if (bpi->extra)
+					prd = &bpi->extra->vnc->vnc.import.rd;
+				else
+					prd = NULL;
+
+				if (BGP_PATH_INFO_NUM_LABELS(bpi))
+					label = decode_label(
+						&bpi->extra->labels->label[0]);
+				else
+					label = MPLS_INVALID_LABEL;
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 				/* use local_pref from unicast route */
 				memset(&new_attr, 0, sizeof(new_attr));
 				new_attr = *bpi->attr;
@@ -2805,6 +2970,7 @@ void vnc_import_bgp_redist_disable(struct bgp *bgp, afi_t afi)
 
 				assert(bpi->extra);
 
+<<<<<<< HEAD
 				rfd = bpi->extra->vnc.export.rfapi_handle;
 
 				vnc_zlog_debug_verbose(
@@ -2813,6 +2979,16 @@ void vnc_import_bgp_redist_disable(struct bgp *bgp, afi_t afi)
 					bpi->sub_type,
 					(bpi->extra ? bpi->extra->vnc.export
 							      .rfapi_handle
+=======
+				rfd = bpi->extra->vnc->vnc.export.rfapi_handle;
+
+				vnc_zlog_debug_verbose(
+					"%s: deleting bpi=%p, bpi->peer=%p, bpi->type=%d, bpi->sub_type=%d, bpi->extra->vnc->vnc.export.rfapi_handle=%p [passing rfd=%p]",
+					__func__, bpi, bpi->peer, bpi->type,
+					bpi->sub_type,
+					(bpi->extra ? bpi->extra->vnc->vnc
+							      .export.rfapi_handle
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 						    : NULL),
 					rfd);
 

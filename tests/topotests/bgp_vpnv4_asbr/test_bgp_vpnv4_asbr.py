@@ -48,6 +48,13 @@ sys.path.append(os.path.join(CWD, "../"))
 # pylint: disable=C0413
 # Import topogen and topotest helpers
 from lib import topotest
+<<<<<<< HEAD
+=======
+from lib.bgpcheck import (
+    check_show_bgp_vpn_prefix_found,
+    check_show_bgp_vpn_prefix_not_found,
+)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
 from lib.checkping import check_ping
@@ -199,7 +206,11 @@ def bgp_vpnv4_prefix_check(router, rd, prefix, label, nexthop):
         )
 
     func = functools.partial(_check, router, prefix, rd, label, nexthop)
+<<<<<<< HEAD
     success, result = topotest.run_and_expect(func, None, count=20, wait=0.5)
+=======
+    _, result = topotest.run_and_expect(func, None, count=20, wait=0.5)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     assert_msg = "{}, show bgp ipv4 vpn {}, rd {}, label {} nexthop {}".format(
         router.name, prefix, rd, label, nexthop
     )
@@ -259,6 +270,7 @@ def mpls_table_check_entry(router, out_label, out_nexthop):
     )
 
 
+<<<<<<< HEAD
 def check_show_bgp_vpn_prefix_found(
     router, ipversion, prefix, rd, label=None, nexthop=None
 ):
@@ -315,6 +327,8 @@ def check_show_bgp_vpn_prefix_not_found(router, ipversion, prefix, rd, label=Non
     return None
 
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 def check_show_mpls_table_entry_label_not_found(router, inlabel):
     output = json.loads(router.vtysh_cmd("show mpls table {} json".format(inlabel)))
     expected = {"inLabel": inlabel, "installed": True}
@@ -364,7 +378,11 @@ def check_show_bgp_vpn_ok(router, vpnv4_entries):
             return "{0}, {1}, route distinguisher not present".format(
                 router.name, prefix
             )
+<<<<<<< HEAD
         for rd, pathes in dump.items():
+=======
+        for _, pathes in dump.items():
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
             for path in pathes["paths"]:
                 if "remoteLabel" not in path.keys():
                     return "{0}, {1}, remoteLabel not present".format(
@@ -376,7 +394,11 @@ def check_show_bgp_vpn_ok(router, vpnv4_entries):
 
     for prefix, rname_to_test in vpnv4_entries.items():
         func = functools.partial(_check_nexthop_available, router, prefix)
+<<<<<<< HEAD
         success, result = topotest.run_and_expect(func, None, count=20, wait=0.5)
+=======
+        _, result = topotest.run_and_expect(func, None, count=20, wait=0.5)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         assert result is None, "Failed to detect prefix {} on router {}".format(
             prefix, router.name
         )
@@ -420,17 +442,30 @@ def test_protocols_convergence():
 
     # check that r2 peerings are ok
     logger.info("Checking BGP ipv4 vpn summary for r2")
+<<<<<<< HEAD
     router = tgen.gears["r2"]
     json_file = "{}/{}/ipv4_vpn_summary.json".format(CWD, router.name)
     expected = json.loads(open(json_file).read())
     test_func = partial(
         topotest.router_json_cmp,
         router,
+=======
+    r2 = tgen.gears["r2"]
+    json_file = "{}/{}/ipv4_vpn_summary.json".format(CWD, r2.name)
+    expected = json.loads(open(json_file).read())
+    test_func = partial(
+        topotest.router_json_cmp,
+        r2,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         "show bgp ipv4 vpn summary json",
         expected,
     )
     _, result = topotest.run_and_expect(test_func, None, count=20, wait=0.5)
+<<<<<<< HEAD
     assertmsg = '"{}" JSON output mismatches'.format(router.name)
+=======
+    assertmsg = '"{}" JSON output mismatches'.format(r2.name)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     assert result is None, assertmsg
 
 
@@ -452,11 +487,19 @@ def test_mpls_setup_ok():
     tgen = get_topogen()
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
+<<<<<<< HEAD
     router = tgen.gears["r2"]
 
     # diagnostic
     logger.info("Dumping mplsvpn nexthop table")
     router.vtysh_cmd("show bgp mplsvpn-nh-label-bind detail", isjson=False)
+=======
+    r2 = tgen.gears["r2"]
+
+    # diagnostic
+    logger.info("Dumping mplsvpn nexthop table")
+    r2.vtysh_cmd("show bgp mplsvpn-nh-label-bind detail")
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
     vpnv4_checks = {
         "172.31.1.0/24": "r1",
@@ -466,10 +509,17 @@ def test_mpls_setup_ok():
     }
     logger.info(
         "{}, check that 'show bgp ipv4 vpn' and 'show mpls table' are set accordingly on all devices".format(
+<<<<<<< HEAD
             router.name
         )
     )
     check_show_bgp_vpn_ok(router, vpnv4_checks)
+=======
+            r2.name
+        )
+    )
+    check_show_bgp_vpn_ok(r2, vpnv4_checks)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
     logger.info("h1, check that ping from h1 to (h2,h3) is ok")
     check_ping("h1", "172.31.1.10", True, 20, 0.5)
@@ -488,6 +538,7 @@ def test_r3_prefixes_removed():
     tgen = get_topogen()
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
+<<<<<<< HEAD
     router = tgen.gears["r3"]
     logger.info("{}, keeping only 172.31.3.0/24 network".format(router.name))
     router.vtysh_cmd("configure terminal\ninterface r3-eth1 vrf vrf1\nshutdown\n")
@@ -497,33 +548,70 @@ def test_r3_prefixes_removed():
     logger.info(
         "{}, check that 'show bgp ipv4 vpn' has only 172.31.3.0/24 network from r3".format(
             router.name
+=======
+    r3 = tgen.gears["r3"]
+    logger.info("{}, keeping only 172.31.3.0/24 network".format(r3.name))
+    r3.vtysh_cmd(
+        """
+configure terminal
+interface r3-eth1 vrf vrf1
+ shutdown
+!
+interface r3-eth2 vrf vrf1
+ shutdown\n
+"""
+    )
+
+    r2 = tgen.gears["r2"]
+    logger.info(
+        "{}, check that 'show bgp ipv4 vpn' has only 172.31.3.0/24 network from r3".format(
+            r2.name
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         )
     )
 
     for prefix in ("172.31.1.0/24", "172.31.2.0/24"):
         test_func = functools.partial(
             check_show_bgp_vpn_prefix_not_found,
+<<<<<<< HEAD
             router,
+=======
+            r2,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
             "ipv4",
             prefix,
             "444:3",
         )
+<<<<<<< HEAD
         success, result = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
         assert success, "{}, vpnv4 update {} still present".format(router.name, prefix)
 
     # diagnostic
     logger.info("Dumping mplsvpn nexthop table")
     router.vtysh_cmd("show bgp mplsvpn-nh-label-bind detail", isjson=False)
+=======
+        success, _ = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
+        assert success, "{}, vpnv4 update {} still present".format(r2.name, prefix)
+
+    # diagnostic
+    logger.info("Dumping mplsvpn nexthop table")
+    r2.vtysh_cmd("show bgp mplsvpn-nh-label-bind detail")
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
     prefix = "172.31.3.0/24"
     logger.info(
         "{}, check that 'show bgp ipv4 vpn' and 'show mpls table' are set accordingly on r2 and on r1".format(
+<<<<<<< HEAD
             router.name
+=======
+            r2.name
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         )
     )
     vpnv4_checks = {
         prefix: "r1",
     }
+<<<<<<< HEAD
     label_ip_entries = check_show_bgp_vpn_ok(router, vpnv4_checks)
 
     router = tgen.gears["r3"]
@@ -534,15 +622,38 @@ def test_r3_prefixes_removed():
     logger.info(
         "{}, check that 'show bgp ipv4 vpn' has not {} network from r3".format(
             router.name, prefix
+=======
+    label_ip_entries = check_show_bgp_vpn_ok(r2, vpnv4_checks)
+
+    r3 = tgen.gears["r3"]
+    logger.info("{}, removing {} network".format(r3.name, prefix))
+    r3.vtysh_cmd(
+        """
+configure terminal
+interface r3-eth3 vrf vrf1
+ shutdown\n
+"""
+    )
+
+    r2 = tgen.gears["r2"]
+    logger.info(
+        "{}, check that 'show bgp ipv4 vpn' has not {} network from r3".format(
+            r2.name, prefix
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         )
     )
     test_func = functools.partial(
         check_show_bgp_vpn_prefix_not_found,
+<<<<<<< HEAD
         router,
+=======
+        r2,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         "ipv4",
         prefix,
         "444:3",
     )
+<<<<<<< HEAD
     success, result = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
     assert success, "{}, vpnv4 update {} still present".format(router.name, prefix)
 
@@ -555,6 +666,20 @@ def test_r3_prefixes_removed():
         check_show_mpls_table_entry_label_not_found, router, label_ip_entries[prefix]
     )
     success, result = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
+=======
+    success, _ = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
+    assert success, "{}, vpnv4 update {} still present".format(r2.name, prefix)
+
+    logger.info(
+        "{}, check that 'show mpls table {}' is not present".format(
+            r2.name, label_ip_entries[prefix]
+        )
+    )
+    test_func = functools.partial(
+        check_show_mpls_table_entry_label_not_found, r2, label_ip_entries[prefix]
+    )
+    success, _ = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     assert success, "r1, mpls entry with in_label {} still present".format(
         label_ip_entries[prefix]
     )
@@ -569,6 +694,7 @@ def test_r3_prefixes_added_back():
     tgen = get_topogen()
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
+<<<<<<< HEAD
     router = tgen.gears["r3"]
     prefix = "172.31.3.0/24"
     logger.info("{}, restoring the {} network from r3".format(router.name, prefix))
@@ -578,27 +704,58 @@ def test_r3_prefixes_added_back():
     logger.info(
         "{}, check that 'show bgp ipv4 vpn' has {} network from r3".format(
             router.name, prefix
+=======
+    r3 = tgen.gears["r3"]
+    prefix = "172.31.3.0/24"
+    logger.info("{}, restoring the {} network from r3".format(r3.name, prefix))
+    r3.vtysh_cmd(
+        """
+configure terminal
+ interface r3-eth3 vrf vrf1
+  no shutdown
+"""
+    )
+
+    r2 = tgen.gears["r2"]
+    logger.info(
+        "{}, check that 'show bgp ipv4 vpn' has {} network from r3".format(
+            r2.name, prefix
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         )
     )
 
     test_func = functools.partial(
         check_show_bgp_vpn_prefix_found,
+<<<<<<< HEAD
         router,
+=======
+        r2,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         "ipv4",
         prefix,
         "444:3",
     )
+<<<<<<< HEAD
     success, result = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
     assert success, "{}, vpnv4 update {} not present".format(router.name, prefix)
 
     logger.info(
         "{}, check that 'show bgp ipv4 vpn' and 'show mpls table' are set accordingly on r2 and on r1".format(
             router.name
+=======
+    success, _ = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
+    assert success, "{}, vpnv4 update {} not present".format(r2.name, prefix)
+
+    logger.info(
+        "{}, check that 'show bgp ipv4 vpn' and 'show mpls table' are set accordingly on r2 and on r1".format(
+            r2.name
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         )
     )
     vpnv4_checks = {
         prefix: "r1",
     }
+<<<<<<< HEAD
     check_show_bgp_vpn_ok(router, vpnv4_checks)
 
     router = tgen.gears["r3"]
@@ -612,16 +769,49 @@ def test_r3_prefixes_added_back():
         test_func = functools.partial(
             check_show_bgp_vpn_prefix_found,
             router,
+=======
+    check_show_bgp_vpn_ok(r2, vpnv4_checks)
+
+    r3 = tgen.gears["r3"]
+    logger.info(
+        "{}, restoring the redistribute connected prefixes from r3".format(r3.name)
+    )
+    r3.vtysh_cmd(
+        """
+configure terminal
+interface r3-eth1 vrf vrf1
+ no shutdown
+!
+interface r3-eth2 vrf vrf1
+ no shutdown
+"""
+    )
+
+    r2 = tgen.gears["r2"]
+    for prefix in ("172.31.1.0/24", "172.31.2.0/24"):
+        test_func = functools.partial(
+            check_show_bgp_vpn_prefix_found,
+            r2,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
             "ipv4",
             prefix,
             "444:3",
         )
+<<<<<<< HEAD
         success, result = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
         assert success, "{}, vpnv4 update {} not present".format(router.name, prefix)
 
     # diagnostic
     logger.info("Dumping mplsvpn nexthop table")
     tgen.gears["r2"].vtysh_cmd("show bgp mplsvpn-nh-label-bind detail", isjson=False)
+=======
+        success, _ = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
+        assert success, "{}, vpnv4 update {} not present".format(r2.name, prefix)
+
+    # diagnostic
+    logger.info("Dumping mplsvpn nexthop table")
+    r2.vtysh_cmd("show bgp mplsvpn-nh-label-bind detail")
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 
 def test_unconfigure_nexthop_change_nexthop_self():
@@ -635,13 +825,18 @@ def test_unconfigure_nexthop_change_nexthop_self():
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
+<<<<<<< HEAD
     router = tgen.gears["r2"]
+=======
+    r2 = tgen.gears["r2"]
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     vpnv4_checks = {
         "172.31.1.0/24": "r1",
         "172.31.2.0/24": "r1",
         "172.31.3.0/24": "r1",
     }
     logger.info(
+<<<<<<< HEAD
         "{}, Get the list of labels allocated for prefixes from r3".format(router.name)
     )
     label_ip_entries = check_show_bgp_vpn_ok(router, vpnv4_checks)
@@ -652,11 +847,27 @@ def test_unconfigure_nexthop_change_nexthop_self():
     router = tgen.gears["r2"]
     router.vtysh_cmd(
         "configure terminal\nrouter bgp 65500\naddress-family ipv4 vpn\nno neighbor 192.0.2.100 next-hop-self\n"
+=======
+        "{}, Get the list of labels allocated for prefixes from r3".format(r2.name)
+    )
+    label_ip_entries = check_show_bgp_vpn_ok(r2, vpnv4_checks)
+
+    logger.info("{}, disable next-hop-self for 192.0.2.100 neighbor".format(r2.name))
+
+    r2.vtysh_cmd(
+        """
+configure terminal
+router bgp 65500
+ address-family ipv4 vpn
+  no neighbor 192.0.2.100 next-hop-self
+"""
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     )
 
     for prefix, label in label_ip_entries.items():
         logger.info(
             "{}, check mpls entry for {} with in_label {} is not present'".format(
+<<<<<<< HEAD
                 router.name, prefix, label
             )
         )
@@ -664,41 +875,78 @@ def test_unconfigure_nexthop_change_nexthop_self():
             check_show_mpls_table_entry_label_not_found, router, label
         )
         success, result = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
+=======
+                r2.name, prefix, label
+            )
+        )
+        test_func = functools.partial(
+            check_show_mpls_table_entry_label_not_found, r2, label
+        )
+        success, _ = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         assert success, "r1, mpls entry for {} with in_label {} still present".format(
             prefix, label
         )
 
+<<<<<<< HEAD
     router = tgen.gears["r1"]
     for prefix, label in label_ip_entries.items():
         test_func = functools.partial(
             check_show_bgp_vpn_prefix_not_found,
             router,
+=======
+    r1 = tgen.gears["r1"]
+    for prefix, label in label_ip_entries.items():
+        test_func = functools.partial(
+            check_show_bgp_vpn_prefix_not_found,
+            r1,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
             "ipv4",
             prefix,
             "444:3",
             label=label,
         )
+<<<<<<< HEAD
         success, result = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
         assert success, "{}, mpls vpn update {} label {} is present".format(
             router.name, prefix, label
+=======
+        success, _ = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
+        assert success, "{}, mpls vpn update {} label {} is present".format(
+            r1.name, prefix, label
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         )
     for prefix, label in label_ip_entries.items():
         test_func = functools.partial(
             check_show_bgp_vpn_prefix_found,
+<<<<<<< HEAD
             router,
+=======
+            r1,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
             "ipv4",
             prefix,
             "444:3",
             nexthop="192.168.1.3",
         )
+<<<<<<< HEAD
         success, result = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
         assert success, "{}, mpls vpn update {} label {} is present".format(
             router.name, prefix, label
+=======
+        success, _ = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
+        assert success, "{}, mpls vpn update {} label {} is present".format(
+            r1.name, prefix, label
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         )
 
     # diagnostic
     logger.info("Dumping mplsvpn nexthop table")
+<<<<<<< HEAD
     tgen.gears["r2"].vtysh_cmd("show bgp mplsvpn-nh-label-bind detail", isjson=False)
+=======
+    tgen.gears["r2"].vtysh_cmd("show bgp mplsvpn-nh-label-bind detail")
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 
 def test_reconfigure_nexthop_change_nexthop_self():
@@ -712,10 +960,22 @@ def test_reconfigure_nexthop_change_nexthop_self():
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
+<<<<<<< HEAD
     router = tgen.gears["r2"]
     logger.info("{}, enable next-hop-self for 192.0.2.100 neighbor".format(router.name))
     router.vtysh_cmd(
         "configure terminal\nrouter bgp 65500\naddress-family ipv4 vpn\nneighbor 192.0.2.100 next-hop-self\n"
+=======
+    r2 = tgen.gears["r2"]
+    logger.info("{}, enable next-hop-self for 192.0.2.100 neighbor".format(r2.name))
+    r2.vtysh_cmd(
+        """
+configure terminal
+router bgp 65500
+ address-family ipv4 vpn
+  neighbor 192.0.2.100 next-hop-self
+"""
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     )
     vpnv4_checks = {
         "172.31.1.0/24": "r1",
@@ -724,17 +984,28 @@ def test_reconfigure_nexthop_change_nexthop_self():
     }
     logger.info(
         "{}, check that 'show bgp ipv4 vpn' and 'show mpls table' are set accordingly on r2 and on r1".format(
+<<<<<<< HEAD
             router.name
         )
     )
     check_show_bgp_vpn_ok(router, vpnv4_checks)
+=======
+            r2.name
+        )
+    )
+    check_show_bgp_vpn_ok(r2, vpnv4_checks)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
     logger.info("h1, check that ping from h1 to (h2,h3) is ok")
     check_ping("h1", "172.31.1.10", True, 20, 0.5)
     check_ping("h1", "172.31.2.10", True, 20, 0.5)
     # diagnostic
     logger.info("Dumping mplsvpn nexthop table")
+<<<<<<< HEAD
     router.vtysh_cmd("show bgp mplsvpn-nh-label-bind detail", isjson=False)
+=======
+    r2.vtysh_cmd("show bgp mplsvpn-nh-label-bind detail")
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 
 def test_declare_vpn_network_with_different_label():
@@ -748,6 +1019,7 @@ def test_declare_vpn_network_with_different_label():
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
+<<<<<<< HEAD
     router = tgen.gears["r3"]
     logger.info(
         "{}, declare static 33.33.33.33/32 network rd 33:33 label 33".format(
@@ -762,6 +1034,23 @@ def test_declare_vpn_network_with_different_label():
     )
 
     router = tgen.gears["r2"]
+=======
+    r3 = tgen.gears["r3"]
+    logger.info(
+        "{}, declare static 33.33.33.33/32 network rd 33:33 label 33".format(r3.name)
+    )
+    r3.vtysh_cmd(
+        """
+configure terminal
+router bgp 65501
+ no bgp network import-check\n"
+ address-family ipv4 vpn
+  network 33.33.33.33/32 rd 444:3 label 33
+"""
+    )
+
+    r2 = tgen.gears["r2"]
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     vpnv4_entries = {
         "172.31.1.0/24": None,
         "172.31.2.0/24": None,
@@ -772,16 +1061,26 @@ def test_declare_vpn_network_with_different_label():
     for prefix, label in vpnv4_entries.items():
         test_func = functools.partial(
             check_show_bgp_vpn_prefix_found,
+<<<<<<< HEAD
             router,
+=======
+            r2,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
             "ipv4",
             prefix,
             "444:3",
             label=label,
             nexthop="192.168.1.3",
         )
+<<<<<<< HEAD
         success, result = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
         assert success, "{}, vpnv4 update {}, label {} not present".format(
             router.name, prefix, label
+=======
+        success, _ = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
+        assert success, "{}, vpnv4 update {}, label {} not present".format(
+            r2.name, prefix, label
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         )
 
     vpnv4_checks = {
@@ -792,10 +1091,17 @@ def test_declare_vpn_network_with_different_label():
     }
     logger.info(
         "{}, check that 'show bgp ipv4 vpn' and 'show mpls table' are set accordingly on r2 and on r1".format(
+<<<<<<< HEAD
             router.name
         )
     )
     check_show_bgp_vpn_ok(router, vpnv4_checks)
+=======
+            r2.name
+        )
+    )
+    check_show_bgp_vpn_ok(r2, vpnv4_checks)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 
 def test_filter_vpn_network_from_r1():
@@ -809,13 +1115,18 @@ def test_filter_vpn_network_from_r1():
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
+<<<<<<< HEAD
     router = tgen.gears["r2"]
+=======
+    r2 = tgen.gears["r2"]
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
     vpnv4_checks = {
         "172.31.0.0/24": "r3",
     }
     logger.info(
         "{}, check that 'show bgp ipv4 vpn' and 'show mpls table' are set accordingly on r2 and on r3".format(
+<<<<<<< HEAD
             router.name
         )
     )
@@ -835,10 +1146,35 @@ def test_filter_vpn_network_from_r1():
         test_func = functools.partial(
             check_show_bgp_vpn_prefix_not_found,
             router,
+=======
+            r2.name
+        )
+    )
+    label_ip_entries = check_show_bgp_vpn_ok(r2, vpnv4_checks)
+
+    for prefix, label in label_ip_entries.items():
+        logger.info("{}, filter prefix {} from r1".format(r2.name, prefix))
+        r2.vtysh_cmd(
+            """
+configure terminal
+route-map rmap deny 1
+ match ip next-hop address 192.0.2.1
+!
+router bgp 65500
+ address-family ipv4 vpn
+  neighbor 192.0.2.100 route-map rmap in
+"""
+        )
+        logger.info("{}, check that prefix {} is not present".format(r2.name, prefix))
+        test_func = functools.partial(
+            check_show_bgp_vpn_prefix_not_found,
+            r2,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
             "ipv4",
             "172.31.0.0/24",
             "444:1",
         )
+<<<<<<< HEAD
         success, result = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
         assert success, "{}, vpnv4 update {}, is still present".format(
             router.name, prefix
@@ -857,6 +1193,22 @@ def test_filter_vpn_network_from_r1():
             check_show_mpls_table_entry_label_not_found, router, int(label)
         )
         success, result = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
+=======
+        success, _ = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
+        assert success, "{}, vpnv4 update {}, is still present".format(r2.name, prefix)
+
+        # diagnostic
+        logger.info("Dumping mplsvpn nexthop table")
+        r2.vtysh_cmd("show bgp mplsvpn-nh-label-bind detail")
+
+        logger.info(
+            "{}, check that show mpls table {} is not present".format(r2.name, label)
+        )
+        test_func = functools.partial(
+            check_show_mpls_table_entry_label_not_found, r2, int(label)
+        )
+        success, _ = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         assert success, "r1, mpls entry for {} with in_label {} still present".format(
             prefix, label
         )
@@ -873,6 +1225,7 @@ def test_unfilter_vpn_network_from_r1():
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
+<<<<<<< HEAD
     router = tgen.gears["r2"]
     prefix = "172.31.0.0/24"
 
@@ -887,12 +1240,29 @@ def test_unfilter_vpn_network_from_r1():
     )
     success, result = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
     assert success, "{}, vpnv4 update {}, is not present".format(router.name, prefix)
+=======
+    r2 = tgen.gears["r2"]
+    prefix = "172.31.0.0/24"
+
+    logger.info("{}, filter prefix {} from r1".format(r2.name, prefix))
+    r2.vtysh_cmd(
+        "configure terminal\nrouter bgp 65500\naddress-family ipv4 vpn\nno neighbor 192.0.2.100 route-map rmap in\n"
+    )
+
+    logger.info("{}, check that prefix {} is present".format(r2.name, prefix))
+    test_func = functools.partial(
+        check_show_bgp_vpn_prefix_found, r2, "ipv4", prefix, "444:1"
+    )
+    success, _ = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
+    assert success, "{}, vpnv4 update {}, is not present".format(r2.name, prefix)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
     vpnv4_checks = {
         "172.31.0.0/24": "r3",
     }
     logger.info(
         "{}, check that 'show bgp ipv4 vpn' and 'show mpls table' are set accordingly on all devices".format(
+<<<<<<< HEAD
             router.name
         )
     )
@@ -901,6 +1271,16 @@ def test_unfilter_vpn_network_from_r1():
     # diagnostic
     logger.info("Dumping mplsvpn nexthop table")
     router.vtysh_cmd("show bgp mplsvpn-nh-label-bind detail", isjson=False)
+=======
+            r2.name
+        )
+    )
+    check_show_bgp_vpn_ok(r2, vpnv4_checks)
+
+    # diagnostic
+    logger.info("Dumping mplsvpn nexthop table")
+    r2.vtysh_cmd("show bgp mplsvpn-nh-label-bind detail")
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 
 def test_memory_leak():

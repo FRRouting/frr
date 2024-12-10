@@ -52,7 +52,10 @@ sys.path.append(os.path.join(CWD, "../lib/"))
 # pylint: disable=C0413
 # Import topogen and topotest helpers
 from lib.topogen import Topogen, get_topogen
+<<<<<<< HEAD
 from lib.topotest import version_cmp
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 from lib.common_config import (
     start_topology,
@@ -229,7 +232,13 @@ def test_verify_bgp_local_as_in_EBGP_p0(request):
                                     "neighbor": {
                                         neighbor: {
                                             "dest_link": {
+<<<<<<< HEAD
                                                 "r3": {"local_asn": {"local_as": "1.110"}}
+=======
+                                                "r3": {
+                                                    "local_asn": {"local_as": "1.110"}
+                                                }
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
                                             }
                                         }
                                     }
@@ -256,7 +265,13 @@ def test_verify_bgp_local_as_in_EBGP_p0(request):
                                     "neighbor": {
                                         neighbor: {
                                             "dest_link": {
+<<<<<<< HEAD
                                                 dut: {"local_asn": {"remote_as": "1.110"}}
+=======
+                                                dut: {
+                                                    "local_asn": {"remote_as": "1.110"}
+                                                }
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
                                             }
                                         }
                                     }
@@ -832,7 +847,13 @@ def test_verify_bgp_local_as_GR_EBGP_p0(request):
                                     "neighbor": {
                                         "r2": {
                                             "dest_link": {
+<<<<<<< HEAD
                                                 "r3": {"local_asn": {"local_as": "1.110"}}
+=======
+                                                "r3": {
+                                                    "local_asn": {"local_as": "1.110"}
+                                                }
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
                                             }
                                         }
                                     }
@@ -861,7 +882,13 @@ def test_verify_bgp_local_as_GR_EBGP_p0(request):
                                     "neighbor": {
                                         "r4": {
                                             "dest_link": {
+<<<<<<< HEAD
                                                 "r3": {"local_asn": {"local_as": "1.110"}}
+=======
+                                                "r3": {
+                                                    "local_asn": {"local_as": "1.110"}
+                                                }
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
                                             }
                                         }
                                     }
@@ -1395,7 +1422,13 @@ def test_verify_bgp_local_as_in_EBGP_aspath_p0(request):
                                     "neighbor": {
                                         neighbor: {
                                             "dest_link": {
+<<<<<<< HEAD
                                                 "r3": {"local_asn": {"local_as": "1.110"}}
+=======
+                                                "r3": {
+                                                    "local_asn": {"local_as": "1.110"}
+                                                }
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
                                             }
                                         }
                                     }
@@ -1422,7 +1455,13 @@ def test_verify_bgp_local_as_in_EBGP_aspath_p0(request):
                                     "neighbor": {
                                         neighbor: {
                                             "dest_link": {
+<<<<<<< HEAD
                                                 dut: {"local_asn": {"remote_as": "1.110"}}
+=======
+                                                dut: {
+                                                    "local_asn": {"remote_as": "1.110"}
+                                                }
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
                                             }
                                         }
                                     }
@@ -1593,7 +1632,14 @@ def test_verify_bgp_local_as_in_EBGP_aspath_p0(request):
                         {
                             "action": "permit",
                             "set": {
+<<<<<<< HEAD
                                 "path": {"as_num": "1.1000 1.1000", "as_action": "prepend"}
+=======
+                                "path": {
+                                    "as_num": "1.1000 1.1000",
+                                    "as_action": "prepend",
+                                }
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
                             },
                         }
                     ]
@@ -1778,7 +1824,13 @@ def test_verify_bgp_local_as_in_iBGP_p0(request):
                                     "neighbor": {
                                         "r4": {
                                             "dest_link": {
+<<<<<<< HEAD
                                                 "r3": {"local_asn": {"local_as": "1.110"}}
+=======
+                                                "r3": {
+                                                    "local_asn": {"local_as": "1.110"}
+                                                }
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
                                             }
                                         }
                                     }
@@ -2137,7 +2189,13 @@ def test_verify_bgp_local_as_allow_as_in_iBGP_p0(request):
                                     "neighbor": {
                                         "r2": {
                                             "dest_link": {
+<<<<<<< HEAD
                                                 "r3": {"local_asn": {"local_as": "1.110"}}
+=======
+                                                "r3": {
+                                                    "local_asn": {"local_as": "1.110"}
+                                                }
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
                                             }
                                         }
                                     }
@@ -2166,7 +2224,13 @@ def test_verify_bgp_local_as_allow_as_in_iBGP_p0(request):
                                     "neighbor": {
                                         "r4": {
                                             "dest_link": {
+<<<<<<< HEAD
                                                 "r3": {"local_asn": {"local_as": "1.110"}}
+=======
+                                                "r3": {
+                                                    "local_asn": {"local_as": "1.110"}
+                                                }
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
                                             }
                                         }
                                     }
@@ -2484,7 +2548,13 @@ def test_verify_bgp_local_as_in_EBGP_port_reset_p0(request):
                                     "neighbor": {
                                         neighbor: {
                                             "dest_link": {
+<<<<<<< HEAD
                                                 "r3": {"local_asn": {"local_as": "1.110"}}
+=======
+                                                "r3": {
+                                                    "local_asn": {"local_as": "1.110"}
+                                                }
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
                                             }
                                         }
                                     }
@@ -2511,7 +2581,13 @@ def test_verify_bgp_local_as_in_EBGP_port_reset_p0(request):
                                     "neighbor": {
                                         neighbor: {
                                             "dest_link": {
+<<<<<<< HEAD
                                                 dut: {"local_asn": {"remote_as": "1.110"}}
+=======
+                                                dut: {
+                                                    "local_asn": {"remote_as": "1.110"}
+                                                }
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
                                             }
                                         }
                                     }
@@ -2824,7 +2900,13 @@ def test_verify_bgp_local_as_in_EBGP_negative2_p0(request):
                                     "neighbor": {
                                         neighbor: {
                                             "dest_link": {
+<<<<<<< HEAD
                                                 "r3": {"local_asn": {"local_as": "1.110"}}
+=======
+                                                "r3": {
+                                                    "local_asn": {"local_as": "1.110"}
+                                                }
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
                                             }
                                         }
                                     }
@@ -2851,7 +2933,13 @@ def test_verify_bgp_local_as_in_EBGP_negative2_p0(request):
                                     "neighbor": {
                                         neighbor: {
                                             "dest_link": {
+<<<<<<< HEAD
                                                 dut: {"local_asn": {"remote_as": "1.110"}}
+=======
+                                                dut: {
+                                                    "local_asn": {"remote_as": "1.110"}
+                                                }
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
                                             }
                                         }
                                     }
@@ -3164,7 +3252,13 @@ def test_verify_bgp_local_as_in_EBGP_negative3_p0(request):
                                     "neighbor": {
                                         neighbor: {
                                             "dest_link": {
+<<<<<<< HEAD
                                                 "r3": {"local_asn": {"local_as": "1.110"}}
+=======
+                                                "r3": {
+                                                    "local_asn": {"local_as": "1.110"}
+                                                }
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
                                             }
                                         }
                                     }
@@ -3191,7 +3285,13 @@ def test_verify_bgp_local_as_in_EBGP_negative3_p0(request):
                                     "neighbor": {
                                         neighbor: {
                                             "dest_link": {
+<<<<<<< HEAD
                                                 dut: {"local_asn": {"remote_as": "1.110"}}
+=======
+                                                dut: {
+                                                    "local_asn": {"remote_as": "1.110"}
+                                                }
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
                                             }
                                         }
                                     }
@@ -3354,7 +3454,13 @@ def test_verify_bgp_local_as_in_EBGP_restart_daemons_p0(request):
                                     "neighbor": {
                                         neighbor: {
                                             "dest_link": {
+<<<<<<< HEAD
                                                 "r3": {"local_asn": {"local_as": "1.110"}}
+=======
+                                                "r3": {
+                                                    "local_asn": {"local_as": "1.110"}
+                                                }
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
                                             }
                                         }
                                     }
@@ -3381,7 +3487,13 @@ def test_verify_bgp_local_as_in_EBGP_restart_daemons_p0(request):
                                     "neighbor": {
                                         neighbor: {
                                             "dest_link": {
+<<<<<<< HEAD
                                                 dut: {"local_asn": {"remote_as": "1.110"}}
+=======
+                                                dut: {
+                                                    "local_asn": {"remote_as": "1.110"}
+                                                }
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
                                             }
                                         }
                                     }

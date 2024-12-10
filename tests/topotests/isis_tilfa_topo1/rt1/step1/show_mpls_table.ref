@@ -7,7 +7,12 @@
         "type":"SR (IS-IS)",
         "outLabel":3,
         "installed":true,
+<<<<<<< HEAD
         "nexthop":"10.0.1.2"
+=======
+        "nexthop":"10.0.1.2",
+        "interface":"eth-sw1"
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
       }
     ]
   },
@@ -31,7 +36,12 @@
         "type":"SR (IS-IS)",
         "outLabel":3,
         "installed":true,
+<<<<<<< HEAD
         "nexthop":"10.0.1.3"
+=======
+        "nexthop":"10.0.1.3",
+        "interface":"eth-sw1"
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
       }
     ]
   },
@@ -55,7 +65,12 @@
         "type":"SR (IS-IS)",
         "outLabel":16040,
         "installed":true,
+<<<<<<< HEAD
         "nexthop":"10.0.1.2"
+=======
+        "nexthop":"10.0.1.2",
+        "interface":"eth-sw1"
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
       }
     ]
   },
@@ -79,7 +94,12 @@
         "type":"SR (IS-IS)",
         "outLabel":16050,
         "installed":true,
+<<<<<<< HEAD
         "nexthop":"10.0.1.3"
+=======
+        "nexthop":"10.0.1.3",
+        "interface":"eth-sw1"
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
       }
     ]
   },
@@ -103,13 +123,23 @@
         "type":"SR (IS-IS)",
         "outLabel":16060,
         "installed":true,
+<<<<<<< HEAD
         "nexthop":"10.0.1.3"
+=======
+        "nexthop":"10.0.1.3",
+        "interface":"eth-sw1"
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
       },
       {
         "type":"SR (IS-IS)",
         "outLabel":16060,
         "installed":true,
+<<<<<<< HEAD
         "nexthop":"10.0.1.2"
+=======
+        "nexthop":"10.0.1.2",
+        "interface":"eth-sw1"
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
       }
     ]
   },

@@ -6,6 +6,15 @@ build:
   os: ubuntu-22.04
   tools:
     python: "3.11"
+<<<<<<< HEAD
+=======
+  apt_packages:
+    - graphviz
+
+python:
+  install:
+    - requirements: doc/developer/requirements.txt
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 # Build documentation in the docs/ directory with Sphinx
 sphinx:

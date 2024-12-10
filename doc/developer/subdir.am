@@ -5,6 +5,10 @@
 dev_RSTFILES = \
 	doc/developer/bgp-typecodes.rst \
 	doc/developer/bgpd.rst \
+<<<<<<< HEAD
+=======
+	doc/developer/bmp.rst \
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	doc/developer/building-frr-for-alpine.rst \
 	doc/developer/building-frr-for-archlinux.rst \
 	doc/developer/building-frr-for-centos6.rst \

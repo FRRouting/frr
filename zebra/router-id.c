@@ -109,7 +109,11 @@ int router_id_get(afi_t afi, struct prefix *p, struct zebra_vrf *zvrf)
 	assert(!"Reached end of function we should never hit");
 }
 
+<<<<<<< HEAD
 static int router_id_set(afi_t afi, struct prefix *p, struct zebra_vrf *zvrf)
+=======
+int router_id_set(afi_t afi, struct prefix *p, struct zebra_vrf *zvrf)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 {
 	struct prefix after, before;
 	struct listnode *node;
@@ -241,6 +245,7 @@ void router_id_del_address(struct connected *ifc)
 		zsend_router_id_update(client, afi, &after, zvrf_id(zvrf));
 }
 
+<<<<<<< HEAD
 void router_id_write(struct vty *vty, struct zebra_vrf *zvrf)
 {
 	char space[2];
@@ -491,6 +496,8 @@ DEFUN (no_ipv6_router_id_in_vrf,
 	return CMD_SUCCESS;
 }
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 DEFUN (show_ip_router_id,
        show_ip_router_id_cmd,
        "show [ip|ipv6] router-id [vrf NAME]",
@@ -557,6 +564,7 @@ static int router_id_v6_cmp(void *a, void *b)
 
 void router_id_cmd_init(void)
 {
+<<<<<<< HEAD
 	install_element(CONFIG_NODE, &ip_router_id_cmd);
 	install_element(CONFIG_NODE, &router_id_cmd);
 	install_element(CONFIG_NODE, &ipv6_router_id_cmd);
@@ -575,6 +583,8 @@ void router_id_cmd_init(void)
 	install_element(VRF_NODE, &no_router_id_in_vrf_cmd);
 	install_element(CONFIG_NODE, &no_ipv6_router_id_in_vrf_cmd);
 	install_element(VRF_NODE, &no_ipv6_router_id_in_vrf_cmd);
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	install_element(VIEW_NODE, &show_ip_router_id_cmd);
 }
 

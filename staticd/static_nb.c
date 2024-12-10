@@ -16,6 +16,7 @@ const struct frr_yang_module_info frr_staticd_info = {
 	.name = "frr-staticd",
 	.nodes = {
 		{
+<<<<<<< HEAD
 			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-staticd:staticd",
 			.cbs = {
 				.cli_show = static_cli_show,
@@ -23,11 +24,16 @@ const struct frr_yang_module_info frr_staticd_info = {
 			}
 		},
 		{
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-staticd:staticd/route-list",
 			.cbs = {
 				.create = routing_control_plane_protocols_control_plane_protocol_staticd_route_list_create,
 				.destroy = routing_control_plane_protocols_control_plane_protocol_staticd_route_list_destroy,
+<<<<<<< HEAD
 				.cli_cmp = static_route_list_cli_cmp,
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			}
 		},
 		{
@@ -35,7 +41,10 @@ const struct frr_yang_module_info frr_staticd_info = {
 			.cbs = {
 				.create = routing_control_plane_protocols_control_plane_protocol_staticd_route_list_path_list_create,
 				.destroy = routing_control_plane_protocols_control_plane_protocol_staticd_route_list_path_list_destroy,
+<<<<<<< HEAD
 				.cli_cmp = static_path_list_cli_cmp,
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			}
 		},
 		{
@@ -51,8 +60,11 @@ const struct frr_yang_module_info frr_staticd_info = {
 				.create = routing_control_plane_protocols_control_plane_protocol_staticd_route_list_path_list_frr_nexthops_nexthop_create,
 				.destroy = routing_control_plane_protocols_control_plane_protocol_staticd_route_list_path_list_frr_nexthops_nexthop_destroy,
 				.pre_validate = routing_control_plane_protocols_control_plane_protocol_staticd_route_list_path_list_frr_nexthops_nexthop_pre_validate,
+<<<<<<< HEAD
 				.cli_show = static_nexthop_cli_show,
 				.cli_cmp = static_nexthop_cli_cmp,
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			}
 		},
 		{
@@ -150,7 +162,10 @@ const struct frr_yang_module_info frr_staticd_info = {
 			.cbs = {
 				.create = routing_control_plane_protocols_control_plane_protocol_staticd_route_list_src_list_create,
 				.destroy = routing_control_plane_protocols_control_plane_protocol_staticd_route_list_src_list_destroy,
+<<<<<<< HEAD
 				.cli_cmp = static_src_list_cli_cmp,
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			}
 		},
 		{
@@ -158,7 +173,10 @@ const struct frr_yang_module_info frr_staticd_info = {
 			.cbs = {
 				.create = routing_control_plane_protocols_control_plane_protocol_staticd_route_list_src_list_path_list_create,
 				.destroy = routing_control_plane_protocols_control_plane_protocol_staticd_route_list_src_list_path_list_destroy,
+<<<<<<< HEAD
 				.cli_cmp = static_path_list_cli_cmp,
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			}
 		},
 		{
@@ -174,8 +192,11 @@ const struct frr_yang_module_info frr_staticd_info = {
 				.create = routing_control_plane_protocols_control_plane_protocol_staticd_route_list_src_list_path_list_frr_nexthops_nexthop_create,
 				.destroy = routing_control_plane_protocols_control_plane_protocol_staticd_route_list_src_list_path_list_frr_nexthops_nexthop_destroy,
 				.pre_validate = routing_control_plane_protocols_control_plane_protocol_staticd_route_list_path_list_frr_nexthops_nexthop_pre_validate,
+<<<<<<< HEAD
 				.cli_show = static_src_nexthop_cli_show,
 				.cli_cmp = static_nexthop_cli_cmp,
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			}
 		},
 		{

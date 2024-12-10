@@ -214,4 +214,8 @@ void nhrp_vc_terminate(void)
 {
 	nhrp_vc_reset();
 	hash_clean(nhrp_vc_hash, nhrp_vc_free);
+<<<<<<< HEAD
+=======
+	hash_free(nhrp_vc_hash);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 }

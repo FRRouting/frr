@@ -355,7 +355,11 @@ reswitch:	switch (ch) {
 			goto rflag;
 		case 'C':
 			flags |= LONGINT;
+<<<<<<< HEAD
 			/*FALLTHROUGH*/
+=======
+			fallthrough;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		case 'c':
 			error = addtype(&types,
 					(flags & LONGINT) ? T_WINT : T_INT);
@@ -364,7 +368,11 @@ reswitch:	switch (ch) {
 			break;
 		case 'D':
 			flags |= LONGINT;
+<<<<<<< HEAD
 			/*FALLTHROUGH*/
+=======
+			fallthrough;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		case 'd':
 		case 'i':
 			if ((error = addsarg(&types, flags)))
@@ -408,7 +416,11 @@ reswitch:	switch (ch) {
 #endif
 		case 'O':
 			flags |= LONGINT;
+<<<<<<< HEAD
 			/*FALLTHROUGH*/
+=======
+			fallthrough;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		case 'o':
 			if ((error = adduarg(&types, flags)))
 				goto error;
@@ -419,7 +431,11 @@ reswitch:	switch (ch) {
 			break;
 		case 'S':
 			flags |= LONGINT;
+<<<<<<< HEAD
 			/*FALLTHROUGH*/
+=======
+			fallthrough;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		case 's':
 			error = addtype(&types,
 					(flags & LONGINT) ? TP_WCHAR : TP_CHAR);
@@ -428,7 +444,11 @@ reswitch:	switch (ch) {
 			break;
 		case 'U':
 			flags |= LONGINT;
+<<<<<<< HEAD
 			/*FALLTHROUGH*/
+=======
+			fallthrough;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		case 'u':
 		case 'X':
 		case 'x':
@@ -549,7 +569,11 @@ reswitch:	switch (ch) {
 			goto rflag;
 		case 'C':
 			flags |= LONGINT;
+<<<<<<< HEAD
 			/*FALLTHROUGH*/
+=======
+			fallthrough;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		case 'c':
 			error = addtype(&types,
 					(flags & LONGINT) ? T_WINT : T_INT);
@@ -558,7 +582,11 @@ reswitch:	switch (ch) {
 			break;
 		case 'D':
 			flags |= LONGINT;
+<<<<<<< HEAD
 			/*FALLTHROUGH*/
+=======
+			fallthrough;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		case 'd':
 		case 'i':
 			if ((error = addsarg(&types, flags)))
@@ -602,7 +630,11 @@ reswitch:	switch (ch) {
 #endif
 		case 'O':
 			flags |= LONGINT;
+<<<<<<< HEAD
 			/*FALLTHROUGH*/
+=======
+			fallthrough;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		case 'o':
 			if ((error = adduarg(&types, flags)))
 				goto error;
@@ -613,7 +645,11 @@ reswitch:	switch (ch) {
 			break;
 		case 'S':
 			flags |= LONGINT;
+<<<<<<< HEAD
 			/*FALLTHROUGH*/
+=======
+			fallthrough;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		case 's':
 			error = addtype(&types,
 			    (flags & LONGINT) ? TP_WCHAR : TP_CHAR);
@@ -622,7 +658,11 @@ reswitch:	switch (ch) {
 			break;
 		case 'U':
 			flags |= LONGINT;
+<<<<<<< HEAD
 			/*FALLTHROUGH*/
+=======
+			fallthrough;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		case 'u':
 		case 'X':
 		case 'x':

@@ -2294,11 +2294,19 @@ static void evpn_configure_vrf_rd(struct bgp *bgp_vrf, struct prefix_rd *rd,
 	bgp_evpn_handle_vrf_rd_change(bgp_vrf, 1);
 
 	if (bgp_vrf->vrf_prd_pretty)
+<<<<<<< HEAD
 		XFREE(MTYPE_BGP, bgp_vrf->vrf_prd_pretty);
 
 	/* update RD */
 	memcpy(&bgp_vrf->vrf_prd, rd, sizeof(struct prefix_rd));
 	bgp_vrf->vrf_prd_pretty = XSTRDUP(MTYPE_BGP, rd_pretty);
+=======
+		XFREE(MTYPE_BGP_NAME, bgp_vrf->vrf_prd_pretty);
+
+	/* update RD */
+	memcpy(&bgp_vrf->vrf_prd, rd, sizeof(struct prefix_rd));
+	bgp_vrf->vrf_prd_pretty = XSTRDUP(MTYPE_BGP_NAME, rd_pretty);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	SET_FLAG(bgp_vrf->vrf_flags, BGP_VRF_RD_CFGD);
 
 	/* We have a new RD for VRF.
@@ -2321,7 +2329,11 @@ static void evpn_unconfigure_vrf_rd(struct bgp *bgp_vrf)
 	bgp_evpn_derive_auto_rd_for_vrf(bgp_vrf);
 	UNSET_FLAG(bgp_vrf->vrf_flags, BGP_VRF_RD_CFGD);
 	if (bgp_vrf->vrf_prd_pretty)
+<<<<<<< HEAD
 		XFREE(MTYPE_BGP, bgp_vrf->vrf_prd_pretty);
+=======
+		XFREE(MTYPE_BGP_NAME, bgp_vrf->vrf_prd_pretty);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	/* We have a new RD for VRF.
 	 * Advertise all type-5 routes again with the new RD
 	 */
@@ -2343,7 +2355,11 @@ static void evpn_configure_rd(struct bgp *bgp, struct bgpevpn *vpn,
 
 	/* update RD */
 	memcpy(&vpn->prd, rd, sizeof(struct prefix_rd));
+<<<<<<< HEAD
 	vpn->prd_pretty = XSTRDUP(MTYPE_BGP, rd_pretty);
+=======
+	vpn->prd_pretty = XSTRDUP(MTYPE_BGP_NAME, rd_pretty);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	SET_FLAG(vpn->flags, VNI_FLAG_RD_CFGD);
 
 	if (is_vni_live(vpn))
@@ -2561,7 +2577,11 @@ static void evpn_show_route_vni_multicast(struct vty *vty, struct bgp *bgp,
 
 	/* Prefix and num paths displayed once per prefix. */
 	route_vty_out_detail_header(vty, bgp, dest, bgp_dest_get_prefix(dest),
+<<<<<<< HEAD
 				    NULL, afi, safi, json, false);
+=======
+				    NULL, afi, safi, json, false, true);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	/* Display each path for this prefix. */
 	for (pi = bgp_dest_get_bgp_path_info(dest); pi; pi = pi->next) {
@@ -2663,7 +2683,11 @@ static void evpn_show_route_vni_macip(struct vty *vty, struct bgp *bgp,
 
 	/* Prefix and num paths displayed once per prefix. */
 	route_vty_out_detail_header(vty, bgp, dest, (struct prefix *)&p, NULL,
+<<<<<<< HEAD
 				    afi, safi, json, false);
+=======
+				    afi, safi, json, false, true);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	evp = (const struct prefix_evpn *)bgp_dest_get_prefix(dest);
 
@@ -2798,7 +2822,11 @@ static void evpn_show_route_rd_macip(struct vty *vty, struct bgp *bgp,
 
 	/* Prefix and num paths displayed once per prefix. */
 	route_vty_out_detail_header(vty, bgp, dest, bgp_dest_get_prefix(dest),
+<<<<<<< HEAD
 				    prd, afi, safi, json, false);
+=======
+				    prd, afi, safi, json, false, false);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	if (json)
 		json_paths = json_object_new_array();
@@ -2905,9 +2933,16 @@ static void evpn_show_route_rd(struct vty *vty, struct bgp *bgp,
 			}
 
 			/* Prefix and num paths displayed once per prefix. */
+<<<<<<< HEAD
 			route_vty_out_detail_header(
 				vty, bgp, dest, bgp_dest_get_prefix(dest), prd,
 				afi, safi, json_prefix, false);
+=======
+			route_vty_out_detail_header(vty, bgp, dest,
+						    bgp_dest_get_prefix(dest),
+						    prd, afi, safi, json_prefix,
+						    false, false);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 			prefix_cnt++;
 		}
@@ -3042,9 +3077,16 @@ static void evpn_show_route_rd_all_macip(struct vty *vty, struct bgp *bgp,
 					    p->prefixlen);
 		} else
 			/* Prefix and num paths displayed once per prefix. */
+<<<<<<< HEAD
 			route_vty_out_detail_header(
 				vty, bgp, dest, p, (struct prefix_rd *)rd_destp,
 				AFI_L2VPN, SAFI_EVPN, json_prefix, false);
+=======
+			route_vty_out_detail_header(vty, bgp, dest, p,
+						    (struct prefix_rd *)rd_destp,
+						    AFI_L2VPN, SAFI_EVPN,
+						    json_prefix, false, false);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 		/* For EVPN, the prefix is displayed for each path (to
 		 * fit in with code that already exists).
@@ -3197,11 +3239,22 @@ static void evpn_show_all_routes(struct vty *vty, struct bgp *bgp, int type,
 
 			/* Prefix and num paths displayed once per prefix. */
 			if (detail)
+<<<<<<< HEAD
 				route_vty_out_detail_header(
 					vty, bgp, dest,
 					bgp_dest_get_prefix(dest),
 					(struct prefix_rd *)rd_destp, AFI_L2VPN,
 					SAFI_EVPN, json_prefix, false);
+=======
+				route_vty_out_detail_header(vty, bgp, dest,
+							    bgp_dest_get_prefix(
+								    dest),
+							    (struct prefix_rd *)
+								    rd_destp,
+							    AFI_L2VPN, SAFI_EVPN,
+							    json_prefix, false,
+							    false);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 			/* For EVPN, the prefix is displayed for each path (to
 			 * fit in
@@ -4840,7 +4893,11 @@ DEFUN(show_bgp_l2vpn_evpn_summary, show_bgp_l2vpn_evpn_summary_cmd,
 	char *vrf = NULL;
 	char *neighbor = NULL;
 	as_t as = 0; /* 0 means AS filter not set */
+<<<<<<< HEAD
 	int as_type = AS_UNSPECIFIED;
+=======
+	enum peer_asn_type as_type = AS_UNSPECIFIED;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	uint16_t show_flags = 0;
 
 	if (argv_find(argv, argc, "vrf", &idx_vrf))

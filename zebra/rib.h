@@ -85,6 +85,7 @@ struct route_entry {
 	 */
 	struct nhg_hash_entry *nhe;
 
+<<<<<<< HEAD
 	/* Nexthop group from FIB (optional), reflecting what is actually
 	 * installed in the FIB if that differs. The 'backup' group is used
 	 * when backup nexthops are present in the route's nhg.
@@ -92,18 +93,23 @@ struct route_entry {
 	struct nexthop_group fib_ng;
 	struct nexthop_group fib_backup_ng;
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	/* Nexthop group hash entry IDs. The "installed" id is the id
 	 * used in linux/netlink, if available.
 	 */
 	uint32_t nhe_id;
 	uint32_t nhe_installed_id;
 
+<<<<<<< HEAD
 	/* Tag */
 	route_tag_t tag;
 
 	/* Uptime. */
 	time_t uptime;
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	/* Type of this route. */
 	int type;
 
@@ -121,8 +127,13 @@ struct route_entry {
 	uint32_t nexthop_mtu;
 
 	/* Flags of this route.
+<<<<<<< HEAD
 	 * This flag's definition is in lib/zebra.h ZEBRA_FLAG_* and is exposed
 	 * to clients via Zserv
+=======
+	 * This flag's definition is in lib/zclient.h ZEBRA_FLAG_* and is
+	 * exposed to clients via Zserv
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	 */
 	uint32_t flags;
 
@@ -160,7 +171,24 @@ struct route_entry {
 	/* Distance. */
 	uint8_t distance;
 
+<<<<<<< HEAD
 	struct re_opaque *opaque;
+=======
+	/* Tag */
+	route_tag_t tag;
+
+	/* Uptime. */
+	time_t uptime;
+
+	struct re_opaque *opaque;
+
+	/* Nexthop group from FIB (optional), reflecting what is actually
+	 * installed in the FIB if that differs. The 'backup' group is used
+	 * when backup nexthops are present in the route's nhg.
+	 */
+	struct nexthop_group fib_ng;
+	struct nexthop_group fib_backup_ng;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 };
 
 #define RIB_SYSTEM_ROUTE(R) RSYSTEM_ROUTE((R)->type)
@@ -169,7 +197,11 @@ struct route_entry {
 
 /* Define route types that are equivalent to "connected". */
 #define RIB_CONNECTED_ROUTE(R)                                                 \
+<<<<<<< HEAD
 	((R)->type == ZEBRA_ROUTE_CONNECT || (R)->type == ZEBRA_ROUTE_NHRP)
+=======
+	((R)->type == ZEBRA_ROUTE_CONNECT || (R)->type == ZEBRA_ROUTE_LOCAL || (R)->type == ZEBRA_ROUTE_NHRP)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 /* meta-queue structure:
  * sub-queue 0: nexthop group objects
@@ -326,6 +358,10 @@ typedef struct rib_tables_iter_t_ {
 
 /* Events/reasons triggering a RIB update. */
 enum rib_update_event {
+<<<<<<< HEAD
+=======
+	RIB_UPDATE_INTERFACE_DOWN,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	RIB_UPDATE_KERNEL,
 	RIB_UPDATE_RMAP_CHANGE,
 	RIB_UPDATE_OTHER,
@@ -395,7 +431,11 @@ extern int rib_add_multipath_nhe(afi_t afi, safi_t safi, struct prefix *p,
 
 extern void rib_delete(afi_t afi, safi_t safi, vrf_id_t vrf_id, int type,
 		       unsigned short instance, uint32_t flags,
+<<<<<<< HEAD
 		       struct prefix *p, struct prefix_ipv6 *src_p,
+=======
+		       const struct prefix *p, const struct prefix_ipv6 *src_p,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		       const struct nexthop *nh, uint32_t nhe_id,
 		       uint32_t table_id, uint32_t metric, uint8_t distance,
 		       bool fromkernel);
@@ -407,16 +447,24 @@ extern struct route_entry *rib_match_multicast(afi_t afi, vrf_id_t vrf_id,
 					       union g_addr *gaddr,
 					       struct route_node **rn_out);
 
+<<<<<<< HEAD
 extern struct route_entry *rib_lookup_ipv4(struct prefix_ipv4 *p,
 					   vrf_id_t vrf_id);
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 extern void rib_update(enum rib_update_event event);
 extern void rib_update_table(struct route_table *table,
 			     enum rib_update_event event, int rtype);
 extern void rib_sweep_route(struct event *t);
 extern void rib_sweep_table(struct route_table *table);
 extern void rib_close_table(struct route_table *table);
+<<<<<<< HEAD
 extern void rib_init(void);
+=======
+extern void zebra_rib_init(void);
+extern void zebra_rib_terminate(void);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 extern unsigned long rib_score_proto(uint8_t proto, unsigned short instance);
 extern unsigned long rib_score_proto_table(uint8_t proto,
 					   unsigned short instance,
@@ -431,6 +479,10 @@ extern int rib_queue_nhg_ctx_add(struct nhg_ctx *ctx);
 
 /* Enqueue incoming nhg from proto daemon for processing */
 extern int rib_queue_nhe_add(struct nhg_hash_entry *nhe);
+<<<<<<< HEAD
+=======
+extern int rib_queue_nhe_del(struct nhg_hash_entry *nhe);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 /* Enqueue evpn route for processing */
 int zebra_rib_queue_evpn_route_add(vrf_id_t vrf_id, const struct ethaddr *rmac,
@@ -475,6 +527,11 @@ extern uint8_t route_distance(int type);
 extern void zebra_rib_evaluate_rn_nexthops(struct route_node *rn, uint32_t seq,
 					   bool rt_delete);
 
+<<<<<<< HEAD
+=======
+extern void rib_update_handle_vrf_all(enum rib_update_event event, int rtype);
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 /*
  * rib_find_rn_from_ctx
  *
@@ -620,6 +677,7 @@ static inline struct nexthop_group *rib_get_fib_backup_nhg(
 }
 
 extern void zebra_gr_process_client(afi_t afi, vrf_id_t vrf_id, uint8_t proto,
+<<<<<<< HEAD
 				    uint8_t instance);
 
 extern int rib_add_gr_run(afi_t afi, vrf_id_t vrf_id, uint8_t proto,
@@ -633,6 +691,24 @@ extern bool v6_rr_semantics;
 
 extern uint32_t rt_table_main_id;
 
+=======
+				    uint8_t instance, time_t restart_time);
+
+extern int rib_add_gr_run(afi_t afi, vrf_id_t vrf_id, uint8_t proto,
+			  uint8_t instance, time_t restart_time);
+
+extern void zebra_vty_init(void);
+extern uint32_t zebra_rib_dplane_results_count(void);
+
+extern pid_t pid;
+
+extern uint32_t rt_table_main_id;
+
+void route_entry_dump_nh(const struct route_entry *re, const char *straddr,
+			 const struct vrf *re_vrf,
+			 const struct nexthop *nexthop);
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 /* Name of hook calls */
 #define ZEBRA_ON_RIB_PROCESS_HOOK_CALL "on_rib_process_dplane_results"
 

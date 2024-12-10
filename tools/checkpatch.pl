@@ -547,7 +547,11 @@ our $Operators	= qr{
 
 our $c90_Keywords = qr{do|for|while|if|else|return|goto|continue|switch|default|case|break}x;
 our $Iterators	= qr{
+<<<<<<< HEAD
 			frr_each|frr_each_safe|frr_each_from|
+=======
+			darr_foreach_p|darr_foreach_i|frr_each|frr_each_safe|frr_each_from|
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			frr_with_mutex|frr_with_privs|
 			LIST_FOREACH|LIST_FOREACH_SAFE|
 			SLIST_FOREACH|SLIST_FOREACH_SAFE|SLIST_FOREACH_PREVPTR|
@@ -555,7 +559,11 @@ our $Iterators	= qr{
 			TAILQ_FOREACH|TAILQ_FOREACH_SAFE|TAILQ_FOREACH_REVERSE|TAILQ_FOREACH_REVERSE_SAFE|
 			RB_FOREACH|RB_FOREACH_SAFE|RB_FOREACH_REVERSE|RB_FOREACH_REVERSE_SAFE|
 			SPLAY_FOREACH|
+<<<<<<< HEAD
 			FOR_ALL_INTERFACES|FOR_ALL_INTERFACES_ADDRESSES|JSON_FOREACH|
+=======
+			FOR_ALL_INTERFACES|JSON_FOREACH|
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			LY_FOR_KEYS|LY_LIST_FOR|LY_TREE_FOR|LY_TREE_DFS_BEGIN|LYD_TREE_DFS_BEGIN|
 			RE_DEST_FOREACH_ROUTE|RE_DEST_FOREACH_ROUTE_SAFE|
 			RNODE_FOREACH_RE|RNODE_FOREACH_RE_SAFE|
@@ -563,6 +571,10 @@ our $Iterators	= qr{
 			SUBGRP_FOREACH_PEER|SUBGRP_FOREACH_PEER_SAFE|
 			SUBGRP_FOREACH_ADJ|SUBGRP_FOREACH_ADJ_SAFE|
 			AF_FOREACH|FOREACH_AFI_SAFI|FOREACH_SAFI|
+<<<<<<< HEAD
+=======
+                        FOREACH_BE_CLIENT_BITS|FOREACH_MGMTD_BE_CLIENT_ID|
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			LSDB_LOOP
 		  }x;
 
@@ -4655,6 +4667,7 @@ sub process {
 				$herecurr);
 		}
 
+<<<<<<< HEAD
 # check for sizeof(foo)/sizeof(foo[0]) that could be ARRAY_SIZE(foo)
 		if ($line =~ m@\bsizeof\s*\(\s*($Lval)\s*\)@) {
 			my $array = $1;
@@ -4668,6 +4681,8 @@ sub process {
 			}
 		}
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 # check for function declarations without arguments like "int foo()"
 		if ($line =~ /(\b$Type\s*$Ident)\s*\(\s*\)/) {
 			if (ERROR("FUNCTION_WITHOUT_ARGS",
@@ -4680,6 +4695,10 @@ sub process {
 # check for new typedefs, only function parameters and sparse annotations
 # make sense.
 		if ($line =~ /\btypedef\s/ &&
+<<<<<<< HEAD
+=======
+		    $line !~ /\btypedef.*\s(pim_[^\s]+|[^\s]+_pim)\s*;/ &&
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		    $line !~ /\btypedef\s+$Type\s*\(\s*\*?$Ident\s*\)\s*\(/ &&
 		    $line !~ /\btypedef\s+$Type\s+$Ident\s*\(/ &&
 		    $line !~ /\b$typeTypedefs\b/ &&
@@ -5161,7 +5180,11 @@ sub process {
 				# none after.  May be left adjacent to another
 				# unary operator, or a cast
 				} elsif ($op eq '!' || $op eq '~' ||
+<<<<<<< HEAD
 					 $opv eq '*U' || $opv eq '-U' ||
+=======
+					 $opv eq '*U' || $opv eq '-U' || $opv eq '+U' ||
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 					 $opv eq '&U' || $opv eq '&&U') {
 					if ($ctx !~ /[WEBC]x./ && $ca !~ /(?:\)|!|~|\*|-|\&|\||\+\+|\-\-|\{)$/) {
 						if (ERROR("SPACING",

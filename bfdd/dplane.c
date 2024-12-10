@@ -354,7 +354,11 @@ bfd_dplane_session_state_change(struct bfd_dplane_ctx *bdc,
 	bs->remote_timers.required_min_echo = ntohl(state->required_echo_rx);
 
 	/* Notify and update counters. */
+<<<<<<< HEAD
 	control_notify(bs, bs->ses_state);
+=======
+	ptm_bfd_notify(bs, bs->ses_state);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	/* No state change. */
 	if (old_state == bs->ses_state)
@@ -948,6 +952,12 @@ static void bfd_dplane_client_connect(struct event *t)
 		_bfd_dplane_client_bootstrap(bdc);
 	}
 
+<<<<<<< HEAD
+=======
+	/* Continue with the connection */
+	return;
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 reschedule_connect:
 	EVENT_OFF(bdc->inbufev);
 	EVENT_OFF(bdc->outbufev);

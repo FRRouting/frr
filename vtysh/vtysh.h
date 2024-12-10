@@ -36,6 +36,11 @@ extern struct event_loop *master;
 #define VTYSH_PIM6D     0x100000
 #define VTYSH_MGMTD 0x200000
 
+<<<<<<< HEAD
+=======
+#define VTYSH_RCV_BUF_MAX 16777216
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 #define VTYSH_WAS_ACTIVE (-2)
 
 /* commands in REALLYALL are crucial to correct vtysh operation */
@@ -49,6 +54,7 @@ extern struct event_loop *master;
 		VTYSH_PIM6D | VTYSH_NHRPD | VTYSH_EIGRPD | VTYSH_BABELD |      \
 		VTYSH_SHARPD | VTYSH_PBRD | VTYSH_STATICD | VTYSH_BFDD |       \
 		VTYSH_FABRICD | VTYSH_VRRPD | VTYSH_PATHD | VTYSH_MGMTD
+<<<<<<< HEAD
 #define VTYSH_ACL         VTYSH_BFDD|VTYSH_BABELD|VTYSH_BGPD|VTYSH_EIGRPD|VTYSH_ISISD|VTYSH_FABRICD|VTYSH_LDPD|VTYSH_NHRPD|VTYSH_OSPF6D|VTYSH_OSPFD|VTYSH_PBRD|VTYSH_PIMD|VTYSH_PIM6D|VTYSH_RIPD|VTYSH_RIPNGD|VTYSH_VRRPD|VTYSH_ZEBRA
 #define VTYSH_AFFMAP VTYSH_ZEBRA | VTYSH_ISISD
 #define VTYSH_RMAP       VTYSH_ZEBRA|VTYSH_RIPD|VTYSH_RIPNGD|VTYSH_OSPFD|VTYSH_OSPF6D|VTYSH_BGPD|VTYSH_ISISD|VTYSH_PIMD|VTYSH_EIGRPD|VTYSH_FABRICD
@@ -60,10 +66,53 @@ extern struct event_loop *master;
 #define VTYSH_INTERFACE VTYSH_INTERFACE_SUBSET | VTYSH_BGPD
 #define VTYSH_VRF	VTYSH_INTERFACE_SUBSET | VTYSH_MGMTD
 #define VTYSH_KEYS VTYSH_RIPD | VTYSH_EIGRPD | VTYSH_OSPF6D | VTYSH_OSPFD
+=======
+#define VTYSH_ACL_CONFIG                                                       \
+	VTYSH_BFDD | VTYSH_BABELD | VTYSH_BGPD | VTYSH_EIGRPD | VTYSH_ISISD |  \
+		VTYSH_FABRICD | VTYSH_LDPD | VTYSH_NHRPD | VTYSH_OSPF6D |      \
+		VTYSH_OSPFD | VTYSH_PBRD | VTYSH_PIMD | VTYSH_PIM6D |          \
+		VTYSH_VRRPD | VTYSH_MGMTD
+#define VTYSH_ACL_SHOW                                                         \
+	VTYSH_BFDD | VTYSH_BABELD | VTYSH_BGPD | VTYSH_EIGRPD | VTYSH_ISISD |  \
+		VTYSH_FABRICD | VTYSH_LDPD | VTYSH_NHRPD | VTYSH_OSPF6D |      \
+		VTYSH_OSPFD | VTYSH_PBRD | VTYSH_PIMD | VTYSH_PIM6D |          \
+		VTYSH_RIPD | VTYSH_RIPNGD | VTYSH_VRRPD | VTYSH_ZEBRA
+
+#define VTYSH_AFFMAP VTYSH_ISISD | VTYSH_MGMTD
+#define VTYSH_RMAP_CONFIG                                                      \
+	VTYSH_OSPFD | VTYSH_OSPF6D | VTYSH_BGPD | VTYSH_ISISD |  \
+		VTYSH_PIMD | VTYSH_EIGRPD | VTYSH_FABRICD | VTYSH_MGMTD
+#define VTYSH_RMAP_SHOW                                                        \
+	VTYSH_ZEBRA | VTYSH_RIPD | VTYSH_RIPNGD | VTYSH_OSPFD | VTYSH_OSPF6D | \
+		VTYSH_BGPD | VTYSH_ISISD | VTYSH_PIMD | VTYSH_EIGRPD |         \
+		VTYSH_FABRICD
+#define VTYSH_ACCESS_LIST_SHOW                                                 \
+	VTYSH_ZEBRA | VTYSH_RIPD | VTYSH_RIPNGD | VTYSH_OSPFD | VTYSH_OSPF6D | \
+		VTYSH_BGPD | VTYSH_ISISD | VTYSH_PIMD | VTYSH_EIGRPD |         \
+		VTYSH_FABRICD
+#define VTYSH_PREFIX_LIST_SHOW                                                 \
+	VTYSH_ZEBRA | VTYSH_RIPD | VTYSH_RIPNGD | VTYSH_OSPFD | VTYSH_OSPF6D | \
+		VTYSH_BGPD | VTYSH_ISISD | VTYSH_PIMD | VTYSH_EIGRPD |         \
+		VTYSH_FABRICD
+#define VTYSH_INTERFACE_SUBSET                                                 \
+	VTYSH_OSPFD | VTYSH_OSPF6D | \
+		VTYSH_ISISD | VTYSH_PIMD | VTYSH_PIM6D | VTYSH_NHRPD |         \
+		VTYSH_EIGRPD | VTYSH_BABELD | VTYSH_PBRD | VTYSH_FABRICD |     \
+		VTYSH_VRRPD | VTYSH_MGMTD
+#define VTYSH_INTERFACE VTYSH_INTERFACE_SUBSET | VTYSH_BGPD
+#define VTYSH_VRF	VTYSH_INTERFACE_SUBSET | VTYSH_BGPD
+#define VTYSH_KEYS VTYSH_MGMTD | VTYSH_EIGRPD | VTYSH_OSPF6D | VTYSH_OSPFD
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 /* Daemons who can process nexthop-group configs */
 #define VTYSH_NH_GROUP    VTYSH_PBRD|VTYSH_SHARPD
 #define VTYSH_SR          VTYSH_ZEBRA|VTYSH_PATHD
 #define VTYSH_DPDK VTYSH_ZEBRA
+<<<<<<< HEAD
+=======
+#define VTYSH_MGMT_BACKEND                                                     \
+	VTYSH_RIPD | VTYSH_RIPNGD | VTYSH_STATICD | VTYSH_ZEBRA
+#define VTYSH_MGMT_FRONTEND VTYSH_MGMTD
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 enum vtysh_write_integrated {
 	WRITE_INTEGRATED_UNSPECIFIED,
@@ -71,7 +120,21 @@ enum vtysh_write_integrated {
 	WRITE_INTEGRATED_YES
 };
 
+<<<<<<< HEAD
 extern enum vtysh_write_integrated vtysh_write_integrated;
+=======
+enum display_type {
+	normal_display,
+	summary_display,
+	detail_display,
+	sequential_display,
+	longer_display,
+	first_match_display
+};
+
+extern enum vtysh_write_integrated vtysh_write_integrated;
+extern enum display_type display_type;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 extern char frr_config[];
 extern char vtydir[];

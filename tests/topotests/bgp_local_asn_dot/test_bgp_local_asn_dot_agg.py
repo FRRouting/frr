@@ -38,7 +38,10 @@ sys.path.append(os.path.join(CWD, "../lib/"))
 # pylint: disable=C0413
 # Import topogen and topotest helpers
 from lib.topogen import Topogen, get_topogen
+<<<<<<< HEAD
 from lib.topotest import version_cmp
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 from lib.common_config import (
     start_topology,
@@ -48,7 +51,11 @@ from lib.common_config import (
     verify_rib,
     step,
     check_address_types,
+<<<<<<< HEAD
     check_router_status
+=======
+    check_router_status,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 )
 
 from lib.topolog import logger
@@ -163,7 +170,13 @@ def test_verify_bgp_local_as_agg_in_EBGP_p0(request):
                                     "neighbor": {
                                         neighbor: {
                                             "dest_link": {
+<<<<<<< HEAD
                                                 "r3": {"local_asn": {"local_as": "1.110"}}
+=======
+                                                "r3": {
+                                                    "local_asn": {"local_as": "1.110"}
+                                                }
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
                                             }
                                         }
                                     }
@@ -190,7 +203,13 @@ def test_verify_bgp_local_as_agg_in_EBGP_p0(request):
                                     "neighbor": {
                                         neighbor: {
                                             "dest_link": {
+<<<<<<< HEAD
                                                 dut: {"local_asn": {"remote_as": "1.110"}}
+=======
+                                                dut: {
+                                                    "local_asn": {"remote_as": "1.110"}
+                                                }
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
                                             }
                                         }
                                     }

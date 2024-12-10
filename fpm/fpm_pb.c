@@ -10,3 +10,11 @@
 /*
  * Main file for the fpm_pb library.
  */
+<<<<<<< HEAD
+=======
+
+#include "config.h"
+#include "xref.h"
+
+XREF_SETUP();
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)

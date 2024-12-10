@@ -9,6 +9,10 @@
 #include "lib/json.h"
 #include "bgpd/bgp_route.h"
 #include "bgpd/bgp_filter.h"
+<<<<<<< HEAD
+=======
+#include <typesafe.h>
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 /* AS path segment type.  */
 #define AS_SET                       1
@@ -58,6 +62,10 @@ struct aspath {
 	   and AS path regular expression match.  */
 	char *str;
 	unsigned short str_len;
+<<<<<<< HEAD
+=======
+	uint32_t count;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	/* AS notation used by string expression of AS path */
 	enum asnotation_mode asnotation;
@@ -67,11 +75,20 @@ struct aspath {
 
 /* `set as-path exclude ASn' */
 struct aspath_exclude {
+<<<<<<< HEAD
+=======
+	struct as_list_list_item exclude_list;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	struct aspath *aspath;
 	bool exclude_all;
 	char *exclude_aspath_acl_name;
 	struct as_list *exclude_aspath_acl;
 };
+<<<<<<< HEAD
+=======
+DECLARE_DLIST(as_list_list, struct aspath_exclude, exclude_list);
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 /* Prototypes. */
 extern void aspath_init(void);
@@ -83,6 +100,12 @@ extern struct aspath *aspath_parse(struct stream *s, size_t length,
 extern struct aspath *aspath_dup(struct aspath *aspath);
 extern struct aspath *aspath_aggregate(struct aspath *as1, struct aspath *as2);
 extern struct aspath *aspath_prepend(struct aspath *as1, struct aspath *as2);
+<<<<<<< HEAD
+=======
+extern void as_exclude_set_orphan(struct aspath_exclude *ase);
+extern void as_exclude_remove_orphan(struct aspath_exclude *ase);
+extern struct aspath_exclude *as_exclude_lookup_orphan(const char *acl_name);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 extern struct aspath *aspath_filter_exclude(struct aspath *source,
 					    struct aspath *exclude_list);
 extern struct aspath *aspath_filter_exclude_all(struct aspath *source);

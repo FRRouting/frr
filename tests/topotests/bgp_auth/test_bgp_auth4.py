@@ -32,6 +32,7 @@ for bgp instances
 """
 # pylint: disable=C0413
 
+<<<<<<< HEAD
 import json
 import os
 import platform
@@ -40,6 +41,14 @@ from time import sleep
 
 import pytest
 from lib import common_config, topotest
+=======
+import os
+import platform
+import sys
+
+import pytest
+from lib import topotest
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 from lib.common_config import (
     save_initial_config_on_routers,
     reset_with_new_configs,
@@ -155,7 +164,11 @@ def setup_module(mod):
     router_list = tgen.routers()
 
     # For all registered routers, load the zebra configuration file
+<<<<<<< HEAD
     for rname, router in router_list.items():
+=======
+    for _, router in router_list.items():
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         router.load_config(TopoRouter.RD_ZEBRA, "zebra.conf")
         router.load_config(TopoRouter.RD_OSPF, "")
         router.load_config(TopoRouter.RD_BGP, "")

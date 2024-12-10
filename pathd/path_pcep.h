@@ -25,6 +25,7 @@ DECLARE_MTYPE(PCEP);
 #define PCEP_DEBUG_MODE_PATH 0x02
 #define PCEP_DEBUG_MODE_PCEP 0x04
 #define PCEP_DEBUG_MODE_PCEPLIB 0x08
+<<<<<<< HEAD
 #define PCEP_DEBUG(fmt, ...)                                                   \
 	do {                                                                   \
 		if (DEBUG_FLAGS_CHECK(&pcep_g->dbg, PCEP_DEBUG_MODE_BASIC))    \
@@ -40,10 +41,20 @@ DECLARE_MTYPE(PCEP);
 		if (DEBUG_FLAGS_CHECK(&pcep_g->dbg, PCEP_DEBUG_MODE_PCEP))     \
 			DEBUGD(&pcep_g->dbg, "pcep: " fmt, ##__VA_ARGS__);     \
 	} while (0)
+=======
+#define PCEP_DEBUG_MODE_ALL 0x0F
+#define PCEP_DEBUG(fmt, ...)                                                   \
+	DEBUGD(&pcep_g->dbg_basic, "pcep: " fmt, ##__VA_ARGS__)
+#define PCEP_DEBUG_PATH(fmt, ...)                                              \
+	DEBUGD(&pcep_g->dbg_path, "pcep: " fmt, ##__VA_ARGS__)
+#define PCEP_DEBUG_PCEP(fmt, ...)                                              \
+	DEBUGD(&pcep_g->dbg_msg, "pcep: " fmt, ##__VA_ARGS__)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 #define PCEP_DEBUG_PCEPLIB(priority, fmt, ...)                                 \
 	do {                                                                   \
 		switch (priority) {                                            \
 		case LOG_DEBUG:                                                \
+<<<<<<< HEAD
 			if (DEBUG_FLAGS_CHECK(&pcep_g->dbg,                    \
 					      PCEP_DEBUG_MODE_PCEPLIB))        \
 				DEBUGD(&pcep_g->dbg, "pcep: " fmt,             \
@@ -60,6 +71,15 @@ DECLARE_MTYPE(PCEP);
 					      PCEP_DEBUG_MODE_PCEPLIB))        \
 				DEBUGN(&pcep_g->dbg, "pcep: " fmt,             \
 				       ##__VA_ARGS__);                         \
+=======
+			DEBUGD(&pcep_g->dbg_lib, "pcep: " fmt, ##__VA_ARGS__); \
+			break;                                                 \
+		case LOG_INFO:                                                 \
+			DEBUGI(&pcep_g->dbg_lib, "pcep: " fmt, ##__VA_ARGS__); \
+			break;                                                 \
+		case LOG_NOTICE:                                               \
+			DEBUGN(&pcep_g->dbg_lib, "pcep: " fmt, ##__VA_ARGS__); \
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			break;                                                 \
 		case LOG_WARNING:                                              \
 		case LOG_ERR:                                                  \
@@ -293,7 +313,14 @@ struct path {
 };
 
 struct pcep_glob {
+<<<<<<< HEAD
 	struct debug dbg;
+=======
+	struct debug dbg_basic;
+	struct debug dbg_path;
+	struct debug dbg_msg;
+	struct debug dbg_lib;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	struct event_loop *master;
 	struct frr_pthread *fpt;
 	uint8_t num_pce_opts_cli;

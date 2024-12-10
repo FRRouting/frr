@@ -197,7 +197,10 @@ void irdp_send_thread(struct event *t_advert)
 	struct zebra_if *zi = ifp->info;
 	struct irdp_interface *irdp = zi->irdp;
 	struct prefix *p;
+<<<<<<< HEAD
 	struct listnode *node, *nnode;
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	struct connected *ifc;
 
 	if (!irdp)
@@ -205,6 +208,7 @@ void irdp_send_thread(struct event *t_advert)
 
 	irdp->flags &= ~IF_SOLICIT;
 
+<<<<<<< HEAD
 	if (ifp->connected)
 		for (ALL_LIST_ELEMENTS(ifp->connected, node, nnode, ifc)) {
 			p = ifc->address;
@@ -215,6 +219,17 @@ void irdp_send_thread(struct event *t_advert)
 			irdp_advertisement(ifp, p);
 			irdp->irdp_sent++;
 		}
+=======
+	frr_each (if_connected, ifp->connected, ifc) {
+		p = ifc->address;
+
+		if (p->family != AF_INET)
+			continue;
+
+		irdp_advertisement(ifp, p);
+		irdp->irdp_sent++;
+	}
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	tmp = irdp->MaxAdvertInterval - irdp->MinAdvertInterval;
 	timer = frr_weak_random() % (tmp + 1);
@@ -237,7 +252,10 @@ void irdp_advert_off(struct interface *ifp)
 {
 	struct zebra_if *zi = ifp->info;
 	struct irdp_interface *irdp = zi->irdp;
+<<<<<<< HEAD
 	struct listnode *node, *nnode;
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	int i;
 	struct connected *ifc;
 	struct prefix *p;
@@ -247,6 +265,7 @@ void irdp_advert_off(struct interface *ifp)
 
 	EVENT_OFF(irdp->t_advertise);
 
+<<<<<<< HEAD
 	if (ifp->connected)
 		for (ALL_LIST_ELEMENTS(ifp->connected, node, nnode, ifc)) {
 			p = ifc->address;
@@ -260,6 +279,23 @@ void irdp_advert_off(struct interface *ifp)
 				irdp_advertisement(ifp, p);
 			}
 		}
+=======
+	frr_each (if_connected, ifp->connected, ifc) {
+		p = ifc->address;
+
+		if (p->family != AF_INET)
+			continue;
+
+		/* Output some packets with Lifetime 0
+		   we should add a wait...
+		*/
+
+		for (i = 0; i < IRDP_LAST_ADVERT_MESSAGES; i++) {
+			irdp->irdp_sent++;
+			irdp_advertisement(ifp, p);
+		}
+	}
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 }
 
 

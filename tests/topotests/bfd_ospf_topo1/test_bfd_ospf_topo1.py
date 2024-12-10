@@ -59,7 +59,10 @@ import os
 import sys
 import pytest
 import json
+<<<<<<< HEAD
 from time import sleep
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 from functools import partial
 
 # Save the Current Working Directory to find configuration files.

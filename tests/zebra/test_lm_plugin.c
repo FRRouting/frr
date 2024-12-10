@@ -48,7 +48,11 @@ static int lm_get_chunk_pi(struct label_manager_chunk **lmc,
 			   uint32_t base, vrf_id_t vrf_id)
 {
 	if (base == 0)
+<<<<<<< HEAD
 		*lmc = create_label_chunk(10, 55, 0, 1, 50, 50 + size);
+=======
+		*lmc = create_label_chunk(10, 55, 0, 1, 50, 50 + size, true);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	else
 		*lmc = assign_label_chunk(10, 55, 0, 1, size, base);
 

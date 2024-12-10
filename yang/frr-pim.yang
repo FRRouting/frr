@@ -5,6 +5,13 @@ module frr-pim {
 
   prefix frr-pim;
 
+<<<<<<< HEAD
+=======
+  import frr-filter {
+    prefix frr-filter;
+  }
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
   import frr-interface {
     prefix frr-interface;
   }
@@ -74,6 +81,13 @@ module frr-pim {
     type string;
   }
 
+<<<<<<< HEAD
+=======
+  typedef access-list-ref {
+    type string;
+  }
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
   /*
    * Groupings
    */
@@ -118,6 +132,40 @@ module frr-pim {
     }
   }
 
+<<<<<<< HEAD
+=======
+  grouping msdp-authentication {
+    description
+      "MSDP authentication options.";
+
+    leaf authentication-type {
+      type enumeration {
+        enum None {
+          value 0;
+          description
+            "No authentication.";
+        }
+        enum MD5 {
+          value 1;
+          description
+            "Use MD5 digest.";
+        }
+      }
+      default None;
+      description
+        "Authentication method.";
+    }
+
+    leaf authentication-key {
+      when "../authentication-type = 'MD5'";
+      mandatory true;
+      type string;
+      description
+        "Authentication key.";
+    }
+  }
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
   grouping global-pim-config-attributes {
     description
       "A grouping defining per address family pim global attributes";
@@ -215,6 +263,30 @@ module frr-pim {
     container msdp {
       description "Global MSDP configuration.";
       uses msdp-timers;
+<<<<<<< HEAD
+=======
+
+      leaf log-neighbor-events {
+        type boolean;
+        default false;
+        description
+          "Log all MSDP neighbor related events.";
+      }
+
+      leaf log-sa-events {
+        type boolean;
+        default false;
+        description
+          "Log all MSDP SA related events.";
+      }
+
+      leaf shutdown {
+        type boolean;
+        default false;
+        description
+          "Shutdown MSDP functionality.";
+      }
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     }
 
     list msdp-mesh-groups {
@@ -267,6 +339,23 @@ module frr-pim {
         description
           "MSDP source IP address.";
       }
+<<<<<<< HEAD
+=======
+
+      leaf sa-filter-in {
+        type frr-filter:access-list-name;
+        description
+          "Access list name used to filter the incoming SAs exchanged.";
+      }
+
+      leaf sa-filter-out {
+        type frr-filter:access-list-name;
+        description
+          "Access list name used to filter the outgoing SAs exchanged.";
+      }
+
+      uses msdp-authentication;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     }
 
     container mlag {
@@ -437,7 +526,17 @@ module frr-pim {
     leaf multicast-boundary-oil {
       type plist-ref;
       description
+<<<<<<< HEAD
         "Prefix-List to define multicast boundary";
+=======
+        "Prefix-List to define multicast boundary by group";
+    }
+
+    leaf multicast-boundary-acl {
+      type access-list-ref;
+      description
+        "Access-list to define multicast boundary by source and group";
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     }
 
     list mroute {

@@ -128,14 +128,21 @@ static void rip_request_interface_send(struct interface *ifp, uint8_t version)
 
 	/* RIPv1 and non multicast interface. */
 	if (if_is_pointopoint(ifp) || if_is_broadcast(ifp)) {
+<<<<<<< HEAD
 		struct listnode *cnode, *cnnode;
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		struct connected *connected;
 
 		if (IS_RIP_DEBUG_EVENT)
 			zlog_debug("broadcast request to %s", ifp->name);
 
+<<<<<<< HEAD
 		for (ALL_LIST_ELEMENTS(ifp->connected, cnode, cnnode,
 				       connected)) {
+=======
+		frr_each (if_connected, ifp->connected, connected) {
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			if (connected->address->family != AF_INET)
 				continue;
 
@@ -197,14 +204,21 @@ static void rip_request_interface(struct interface *ifp)
 /* Multicast packet receive socket. */
 static int rip_multicast_join(struct interface *ifp, int sock)
 {
+<<<<<<< HEAD
 	struct listnode *cnode;
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	struct connected *ifc;
 
 	if (if_is_operative(ifp) && if_is_multicast(ifp)) {
 		if (IS_RIP_DEBUG_EVENT)
 			zlog_debug("multicast join at %s", ifp->name);
 
+<<<<<<< HEAD
 		for (ALL_LIST_ELEMENTS_RO(ifp->connected, cnode, ifc)) {
+=======
+		frr_each (if_connected, ifp->connected, ifc) {
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			struct prefix_ipv4 *p;
 			struct in_addr group;
 
@@ -228,14 +242,21 @@ static int rip_multicast_join(struct interface *ifp, int sock)
 /* Leave from multicast group. */
 static void rip_multicast_leave(struct interface *ifp, int sock)
 {
+<<<<<<< HEAD
 	struct listnode *cnode;
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	struct connected *connected;
 
 	if (if_is_up(ifp) && if_is_multicast(ifp)) {
 		if (IS_RIP_DEBUG_EVENT)
 			zlog_debug("multicast leave from %s", ifp->name);
 
+<<<<<<< HEAD
 		for (ALL_LIST_ELEMENTS_RO(ifp->connected, cnode, connected)) {
+=======
+		frr_each (if_connected, ifp->connected, connected) {
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			struct prefix_ipv4 *p;
 			struct in_addr group;
 
@@ -256,11 +277,18 @@ static void rip_multicast_leave(struct interface *ifp, int sock)
 /* Is there and address on interface that I could use ? */
 static int rip_if_ipv4_address_check(struct interface *ifp)
 {
+<<<<<<< HEAD
 	struct listnode *nn;
 	struct connected *connected;
 	int count = 0;
 
 	for (ALL_LIST_ELEMENTS_RO(ifp->connected, nn, connected)) {
+=======
+	struct connected *connected;
+	int count = 0;
+
+	frr_each (if_connected, ifp->connected, connected) {
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		struct prefix *p;
 
 		p = connected->address;
@@ -279,10 +307,16 @@ int if_check_address(struct rip *rip, struct in_addr addr)
 	struct interface *ifp;
 
 	FOR_ALL_INTERFACES (rip->vrf, ifp) {
+<<<<<<< HEAD
 		struct listnode *cnode;
 		struct connected *connected;
 
 		for (ALL_LIST_ELEMENTS_RO(ifp->connected, cnode, connected)) {
+=======
+		struct connected *connected;
+
+		frr_each (if_connected, ifp->connected, connected) {
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			struct prefix_ipv4 *p;
 
 			p = (struct prefix_ipv4 *)connected->address;
@@ -596,14 +630,21 @@ static int rip_enable_network_lookup_if(struct interface *ifp)
 {
 	struct rip_interface *ri = ifp->info;
 	struct rip *rip = ri->rip;
+<<<<<<< HEAD
 	struct listnode *node, *nnode;
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	struct connected *connected;
 	struct prefix_ipv4 address;
 
 	if (!rip)
 		return -1;
 
+<<<<<<< HEAD
 	for (ALL_LIST_ELEMENTS(ifp->connected, node, nnode, connected)) {
+=======
+	frr_each (if_connected, ifp->connected, connected) {
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		struct prefix *p;
 		struct route_node *n;
 
@@ -780,14 +821,21 @@ static void rip_connect_set(struct interface *ifp, int set)
 {
 	struct rip_interface *ri = ifp->info;
 	struct rip *rip = ri->rip;
+<<<<<<< HEAD
 	struct listnode *node, *nnode;
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	struct connected *connected;
 	struct prefix_ipv4 address;
 	struct nexthop nh;
 
 	memset(&nh, 0, sizeof(nh));
 
+<<<<<<< HEAD
 	for (ALL_LIST_ELEMENTS(ifp->connected, node, nnode, connected)) {
+=======
+	frr_each (if_connected, ifp->connected, connected) {
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		struct prefix *p;
 		p = connected->address;
 
@@ -1117,7 +1165,14 @@ void rip_if_init(void)
 	hook_register_prio(if_del, 0, rip_interface_delete_hook);
 
 	/* Install interface node. */
+<<<<<<< HEAD
 	if_cmd_init_default();
 	if_zapi_callbacks(rip_ifp_create, rip_ifp_up,
 			  rip_ifp_down, rip_ifp_destroy);
+=======
+	hook_register_prio(if_real, 0, rip_ifp_create);
+	hook_register_prio(if_up, 0, rip_ifp_up);
+	hook_register_prio(if_down, 0, rip_ifp_down);
+	hook_register_prio(if_unreal, 0, rip_ifp_destroy);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 }

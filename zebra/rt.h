@@ -25,7 +25,12 @@ extern "C" {
 #define RKERNEL_ROUTE(type) ((type) == ZEBRA_ROUTE_KERNEL)
 
 #define RSYSTEM_ROUTE(type)                                                    \
+<<<<<<< HEAD
 	((RKERNEL_ROUTE(type)) || (type) == ZEBRA_ROUTE_CONNECT)
+=======
+	((RKERNEL_ROUTE(type)) || (type) == ZEBRA_ROUTE_CONNECT ||             \
+	 (type) == ZEBRA_ROUTE_LOCAL)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 #ifndef HAVE_NETLINK
 /*

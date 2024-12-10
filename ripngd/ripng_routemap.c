@@ -386,7 +386,11 @@ static const struct route_map_rule_cmd route_set_tag_cmd = {
 
 void ripng_route_map_init(void)
 {
+<<<<<<< HEAD
 	route_map_init();
+=======
+	route_map_init_new(true);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	route_map_match_interface_hook(generic_match_add);
 	route_map_no_match_interface_hook(generic_match_delete);

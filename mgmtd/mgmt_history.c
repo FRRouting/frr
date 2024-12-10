@@ -63,7 +63,11 @@ static struct mgmt_cmt_info_t *mgmt_history_new_cmt_info(void)
 	mgmt_time_to_string(&tv, true, new->time_str, sizeof(new->time_str));
 	mgmt_time_to_string(&tv, false, new->cmtid_str, sizeof(new->cmtid_str));
 	snprintf(new->cmt_json_file, sizeof(new->cmt_json_file),
+<<<<<<< HEAD
 		 MGMTD_COMMIT_FILE_PATH, new->cmtid_str);
+=======
+		 MGMTD_COMMIT_FILE_PATH(new->cmtid_str));
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	return new;
 }
@@ -104,11 +108,16 @@ mgmt_history_find_cmt_record(const char *cmtid_str)
 
 static bool mgmt_history_read_cmt_record_index(void)
 {
+<<<<<<< HEAD
+=======
+	char index_path[MAXPATHLEN];
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	FILE *fp;
 	struct mgmt_cmt_info_t cmt_info;
 	struct mgmt_cmt_info_t *new;
 	int cnt = 0;
 
+<<<<<<< HEAD
 	if (!file_exists(MGMTD_COMMIT_FILE_PATH))
 		return false;
 
@@ -116,6 +125,17 @@ static bool mgmt_history_read_cmt_record_index(void)
 	if (!fp) {
 		zlog_err("Failed to open commit history %s for reading: %s",
 			 MGMTD_COMMIT_INDEX_FILE_NAME, safe_strerror(errno));
+=======
+	snprintf(index_path, sizeof(index_path), MGMTD_COMMIT_INDEX_FILE_PATH);
+
+	fp = fopen(index_path, "rb");
+	if (!fp) {
+		if (errno == ENOENT || errno == ENOTDIR)
+			return false;
+
+		zlog_err("Failed to open commit history %pSQq for reading: %m",
+			 index_path);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		return false;
 	}
 
@@ -132,9 +152,14 @@ static bool mgmt_history_read_cmt_record_index(void)
 			memcpy(new, &cmt_info, sizeof(struct mgmt_cmt_info_t));
 			mgmt_cmt_infos_add_tail(&mm->cmts, new);
 		} else {
+<<<<<<< HEAD
 			zlog_warn(
 				"More records found in commit history file %s than expected",
 				MGMTD_COMMIT_INDEX_FILE_NAME);
+=======
+			zlog_warn("More records found in commit history file %pSQq than expected",
+				  index_path);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			fclose(fp);
 			return false;
 		}
@@ -148,16 +173,29 @@ static bool mgmt_history_read_cmt_record_index(void)
 
 static bool mgmt_history_dump_cmt_record_index(void)
 {
+<<<<<<< HEAD
+=======
+	char index_path[MAXPATHLEN];
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	FILE *fp;
 	int ret = 0;
 	struct mgmt_cmt_info_t *cmt_info;
 	struct mgmt_cmt_info_t cmt_info_set[10];
 	int cnt = 0;
 
+<<<<<<< HEAD
 	fp = fopen(MGMTD_COMMIT_INDEX_FILE_NAME, "wb");
 	if (!fp) {
 		zlog_err("Failed to open commit history %s for writing: %s",
 			 MGMTD_COMMIT_INDEX_FILE_NAME, safe_strerror(errno));
+=======
+	snprintf(index_path, sizeof(index_path), MGMTD_COMMIT_INDEX_FILE_PATH);
+
+	fp = fopen(index_path, "wb");
+	if (!fp) {
+		zlog_err("Failed to open commit history %pSQq for writing: %m",
+			 index_path);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		return false;
 	}
 
@@ -176,7 +214,11 @@ static bool mgmt_history_dump_cmt_record_index(void)
 	fclose(fp);
 	if (ret != cnt) {
 		zlog_err("Failed to write full commit history, removing file");
+<<<<<<< HEAD
 		remove_file(MGMTD_COMMIT_INDEX_FILE_NAME);
+=======
+		remove_file(index_path);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		return false;
 	}
 	return true;
@@ -261,7 +303,13 @@ failed_unlock:
 
 void mgmt_history_rollback_complete(bool success)
 {
+<<<<<<< HEAD
 	vty_mgmt_resume_response(rollback_vty, success);
+=======
+	vty_mgmt_resume_response(rollback_vty,
+				 success ? CMD_SUCCESS
+					 : CMD_WARNING_CONFIG_FAILED);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	rollback_vty = NULL;
 }
 

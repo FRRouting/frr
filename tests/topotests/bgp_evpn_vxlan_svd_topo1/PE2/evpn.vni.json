@@ -1,7 +1,11 @@
 {
   "vni":101,
   "type":"L2",
+<<<<<<< HEAD
   "vrf":"default",
+=======
+  "tenantVrf":"default",
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
   "vxlanInterface":"vxlan0",
   "vtepIp":"10.30.30.30",
   "mcastGroup":"0.0.0.0",

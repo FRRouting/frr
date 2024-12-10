@@ -45,7 +45,11 @@ def setup_module(mod):
 
     router_list = tgen.routers()
 
+<<<<<<< HEAD
     for i, (rname, router) in enumerate(router_list.items(), 1):
+=======
+    for _, (rname, router) in enumerate(router_list.items(), 1):
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         router.load_config(
             TopoRouter.RD_ZEBRA, os.path.join(CWD, "{}/zebra.conf".format(rname))
         )
@@ -177,7 +181,11 @@ def test_bgp_maximum_prefix_out():
             router1.vtysh_cmd(cmd)
 
         test_func = functools.partial(_bgp_converge, router2, exp_prfxs)
+<<<<<<< HEAD
         success, result = topotest.run_and_expect(test_func, None, count=30, wait=0.5)
+=======
+        _, result = topotest.run_and_expect(test_func, None, count=30, wait=0.5)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
         assert result is None, 'Failed bgp convergence in "{}"'.format(router2)
 

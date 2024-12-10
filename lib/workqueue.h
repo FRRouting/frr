@@ -26,9 +26,13 @@ DECLARE_MTYPE(WORK_QUEUE);
 /* action value, for use by item processor and item error handlers */
 typedef enum {
 	WQ_SUCCESS = 0,
+<<<<<<< HEAD
 	WQ_RETRY_NOW,     /* retry immediately */
 	WQ_RETRY_LATER,   /* retry later, cease processing work queue */
 	WQ_REQUEUE,       /* requeue item, continue processing work queue */
+=======
+	WQ_REQUEUE,	  /* requeue item, continue processing work queue */
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	WQ_QUEUE_BLOCKED, /* Queue cant be processed at this time.
 			   * Similar to WQ_RETRY_LATER, but doesn't penalise
 			   * the particular item.. */
@@ -117,6 +121,7 @@ work_queue_last_item(struct work_queue *wq)
 	return STAILQ_LAST(&wq->items, work_queue_item, wq);
 }
 
+<<<<<<< HEAD
 static inline void work_queue_item_enqueue(struct work_queue *wq,
 					   struct work_queue_item *item)
 {
@@ -133,6 +138,8 @@ static inline void work_queue_item_dequeue(struct work_queue *wq,
 	STAILQ_REMOVE(&wq->items, item, work_queue_item, wq);
 }
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 /* create a new work queue, of given name.
  * user must fill in the spec of the returned work queue before adding
  * anything to it
@@ -160,6 +167,10 @@ bool work_queue_is_scheduled(struct work_queue *wq);
 /* Helpers, exported for thread.c and command.c */
 extern void work_queue_run(struct event *thread);
 
+<<<<<<< HEAD
+=======
+/* Function to initialize the workqueue cli */
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 extern void workqueue_cmd_init(void);
 
 #ifdef __cplusplus

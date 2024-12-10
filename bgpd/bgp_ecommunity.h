@@ -10,6 +10,13 @@
 #include "bgpd/bgp_rpki.h"
 #include "bgpd/bgpd.h"
 
+<<<<<<< HEAD
+=======
+#define ONE_GBPS_BYTES (1000 * 1000 * 1000 / 8)
+#define ONE_MBPS_BYTES (1000 * 1000 / 8)
+#define ONE_KBPS_BYTES (1000 / 8)
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 /* Refer to rfc7153 for the IANA registry definitions. These are
  * updated by other standards like rfc7674.
  */
@@ -28,9 +35,13 @@
 #define ECOMMUNITY_EXTENDED_COMMUNITY_PART_3 0x82
 
 /* Non-transitive extended community types. */
+<<<<<<< HEAD
 #define ECOMMUNITY_ENCODE_AS_NON_TRANS      0x40
 #define ECOMMUNITY_ENCODE_IP_NON_TRANS      0x41
 #define ECOMMUNITY_ENCODE_AS4_NON_TRANS     0x42
+=======
+#define ECOMMUNITY_ENCODE_IP_NON_TRANS      0x41
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 #define ECOMMUNITY_ENCODE_OPAQUE_NON_TRANS  0x43
 
 /* Low-order octet of the Extended Communities type field.  */
@@ -52,10 +63,21 @@
  * 0x0c Flow-spec Redirect to IPv4 - draft-ietf-idr-flowspec-redirect
  */
 #define ECOMMUNITY_FLOWSPEC_REDIRECT_IPV4   0x0c
+<<<<<<< HEAD
 /* from draft-ietf-idr-flow-spec-v6-09
  * 0x0b Flow-spec Redirect to IPv6
  */
 #define ECOMMUNITY_FLOWSPEC_REDIRECT_IPV6   0x0b
+=======
+/* RFC 8956 */
+#define ECOMMUNITY_FLOWSPEC_REDIRECT_IPV6 0x0d
+
+/* https://datatracker.ietf.org/doc/html/draft-li-idr-link-bandwidth-ext-01
+ * Sub-type is allocated by IANA, just the draft is not yet updated with the
+ * new value.
+ */
+#define ECOMMUNITY_EXTENDED_LINK_BANDWIDTH 0x0006
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 /* Low-order octet of the Extended Communities type field for EVPN types */
 #define ECOMMUNITY_EVPN_SUBTYPE_MACMOBILITY  0x00
@@ -79,6 +101,10 @@
 
 /* Low-order octet of the Extended Communities type field for OPAQUE types */
 #define ECOMMUNITY_OPAQUE_SUBTYPE_ENCAP     0x0c
+<<<<<<< HEAD
+=======
+#define ECOMMUNITY_OPAQUE_SUBTYPE_COLOR	    0x0b
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 /* Extended communities attribute string format.  */
 #define ECOMMUNITY_FORMAT_ROUTE_MAP            0
@@ -117,6 +143,12 @@ struct ecommunity {
 	 */
 	uint8_t unit_size;
 
+<<<<<<< HEAD
+=======
+	/* Disable IEEE floating-point encoding for extended community */
+	bool disable_ieee_floating;
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	/* Size of Extended Communities attribute.  */
 	uint32_t size;
 
@@ -125,9 +157,12 @@ struct ecommunity {
 
 	/* Human readable format string.  */
 	char *str;
+<<<<<<< HEAD
 
 	/* Disable IEEE floating-point encoding for extended community */
 	bool disable_ieee_floating;
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 };
 
 struct ecommunity_as {
@@ -147,12 +182,20 @@ struct ecommunity_ip6 {
 
 /* Extended community value is eight octet.  */
 struct ecommunity_val {
+<<<<<<< HEAD
 	char val[ECOMMUNITY_SIZE];
+=======
+	uint8_t val[ECOMMUNITY_SIZE];
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 };
 
 /* IPv6 Extended community value is eight octet.  */
 struct ecommunity_val_ipv6 {
+<<<<<<< HEAD
 	char val[IPV6_ECOMMUNITY_SIZE];
+=======
+	uint8_t val[IPV6_ECOMMUNITY_SIZE];
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 };
 
 #define ecom_length_size(X, Y)    ((X)->size * (Y))
@@ -226,12 +269,22 @@ static uint32_t uint32_to_ieee_float_uint32(uint32_t u)
  * Encode BGP Link Bandwidth extended community
  *  bandwidth (bw) is in bytes-per-sec
  */
+<<<<<<< HEAD
 static inline void encode_lb_extcomm(as_t as, uint32_t bw, bool non_trans,
 				     struct ecommunity_val *eval,
 				     bool disable_ieee_floating)
 {
 	uint32_t bandwidth =
 		disable_ieee_floating ? bw : uint32_to_ieee_float_uint32(bw);
+=======
+static inline void encode_lb_extcomm(as_t as, uint64_t bw, bool non_trans,
+				     struct ecommunity_val *eval,
+				     bool disable_ieee_floating)
+{
+	uint64_t bandwidth = disable_ieee_floating
+				     ? bw
+				     : uint32_to_ieee_float_uint32(bw);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	memset(eval, 0, sizeof(*eval));
 	eval->val[0] = ECOMMUNITY_ENCODE_AS;
@@ -246,6 +299,36 @@ static inline void encode_lb_extcomm(as_t as, uint32_t bw, bool non_trans,
 	eval->val[7] = bandwidth & 0xff;
 }
 
+<<<<<<< HEAD
+=======
+/*
+ * Encode BGP Link Bandwidth inside IPv6 Extended Community,
+ * bandwidth is in bytes per second.
+ */
+static inline void encode_lb_extended_extcomm(as_t as, uint64_t bandwidth,
+					      bool non_trans,
+					      struct ecommunity_val_ipv6 *eval)
+{
+	memset(eval, 0, sizeof(*eval));
+	eval->val[0] = ECOMMUNITY_ENCODE_AS4;
+	if (non_trans)
+		eval->val[0] |= ECOMMUNITY_FLAG_NON_TRANSITIVE;
+	eval->val[1] = ECOMMUNITY_EXTENDED_LINK_BANDWIDTH;
+	eval->val[4] = (bandwidth >> 56) & 0xff;
+	eval->val[5] = (bandwidth >> 48) & 0xff;
+	eval->val[6] = (bandwidth >> 40) & 0xff;
+	eval->val[7] = (bandwidth >> 32) & 0xff;
+	eval->val[8] = (bandwidth >> 24) & 0xff;
+	eval->val[9] = (bandwidth >> 16) & 0xff;
+	eval->val[10] = (bandwidth >> 8) & 0xff;
+	eval->val[11] = bandwidth & 0xff;
+	eval->val[12] = (as >> 24) & 0xff;
+	eval->val[13] = (as >> 16) & 0xff;
+	eval->val[14] = (as >> 8) & 0xff;
+	eval->val[15] = as & 0xff;
+}
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 static inline void encode_origin_validation_state(enum rpki_states state,
 						  struct ecommunity_val *eval)
 {
@@ -294,6 +377,7 @@ static inline void encode_node_target(struct in_addr *node_id,
 
 /*
  * Encode BGP Color extended community
+<<<<<<< HEAD
  * is's a transitive opaque Extended community (RFC 9012 4.3)
  * flag is set to 0
  * RFC 9012 14.10: No values have currently been registered.
@@ -309,11 +393,31 @@ static inline void encode_color(uint32_t color_id, struct ecommunity_val *eval)
 	 *  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 	 *  |                          Color Value                          |
 	 *  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+=======
+ * is's a transitive opaque Extended community (RFC 9256  8.8.1)
+ * flag is set to 0
+ *
+ */
+static inline void encode_color(uint32_t color_id, uint32_t flags, struct ecommunity_val *eval)
+{
+	/*
+	 *  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+	 *  | 0x03         | Sub-Type(0x0b) |CO |         Flags             |
+	 *  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+	 *  |                          Color Value                          |
+	 *  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+	 *  https://datatracker.ietf.org/doc/rfc9256/, Section 8.8.1
+	 *  The CO bits can have 4 different values: 00 01 10 11
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	 */
 	memset(eval, 0, sizeof(*eval));
 	eval->val[0] = ECOMMUNITY_ENCODE_OPAQUE;
 	eval->val[1] = ECOMMUNITY_COLOR;
+<<<<<<< HEAD
 	eval->val[2] = 0x00;
+=======
+	eval->val[2] = (flags << 6) & 0xff;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	eval->val[3] = 0x00;
 	eval->val[4] = (color_id >> 24) & 0xff;
 	eval->val[5] = (color_id >> 16) & 0xff;
@@ -327,8 +431,12 @@ extern void ecommunity_free(struct ecommunity **);
 extern struct ecommunity *ecommunity_parse(uint8_t *, unsigned short,
 					   bool disable_ieee_floating);
 extern struct ecommunity *ecommunity_parse_ipv6(uint8_t *pnt,
+<<<<<<< HEAD
 						unsigned short length,
 						bool disable_ieee_floating);
+=======
+						unsigned short length);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 extern struct ecommunity *ecommunity_dup(struct ecommunity *);
 extern struct ecommunity *ecommunity_merge(struct ecommunity *,
 					   struct ecommunity *);
@@ -341,11 +449,19 @@ extern struct ecommunity *ecommunity_str2com(const char *, int, int);
 extern struct ecommunity *ecommunity_str2com_ipv6(const char *str, int type,
 						  int keyword_included);
 extern char *ecommunity_ecom2str(struct ecommunity *, int, int);
+<<<<<<< HEAD
+=======
+extern bool ecommunity_has_route_target(struct ecommunity *ecom);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 extern void ecommunity_strfree(char **s);
 extern bool ecommunity_include(struct ecommunity *e1, struct ecommunity *e2);
 extern bool ecommunity_match(const struct ecommunity *,
 			     const struct ecommunity *);
+<<<<<<< HEAD
 extern char *ecommunity_str(struct ecommunity *ecom);
+=======
+extern const char *ecommunity_str(struct ecommunity *ecom);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 extern struct ecommunity_val *ecommunity_lookup(const struct ecommunity *,
 						uint8_t, uint8_t);
 
@@ -362,6 +478,10 @@ extern struct ecommunity *ecommunity_new(void);
 extern bool ecommunity_strip(struct ecommunity *ecom, uint8_t type,
 			     uint8_t subtype);
 extern struct ecommunity *ecommunity_new(void);
+<<<<<<< HEAD
+=======
+extern bool ecommunity_strip_non_transitive(struct ecommunity *ecom);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 extern bool ecommunity_del_val(struct ecommunity *ecom,
 			       struct ecommunity_val *eval);
 struct bgp_pbr_entry_action;
@@ -386,11 +506,18 @@ extern void bgp_remove_ecomm_from_aggregate_hash(
 					struct ecommunity *ecommunity);
 extern void bgp_aggr_ecommunity_remove(void *arg);
 extern const uint8_t *ecommunity_linkbw_present(struct ecommunity *ecom,
+<<<<<<< HEAD
 						uint32_t *bw);
 extern struct ecommunity *ecommunity_replace_linkbw(as_t as,
 						    struct ecommunity *ecom,
 						    uint64_t cum_bw,
 						    bool disable_ieee_floating);
+=======
+						uint64_t *bw);
+extern struct ecommunity *
+ecommunity_replace_linkbw(as_t as, struct ecommunity *ecom, uint64_t cum_bw,
+			  bool disable_ieee_floating, bool extended);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 extern bool soo_in_ecom(struct ecommunity *ecom, struct ecommunity *soo);
 

@@ -305,6 +305,7 @@ int bgp_flowspec_op_decode(enum bgp_flowspec_util_nlri_t type,
 				break;
 			mval->value = value;
 			if (op[5] == 1)
+<<<<<<< HEAD
 				mval->compare_operator |=
 					OPERATOR_COMPARE_LESS_THAN;
 			if (op[6] == 1)
@@ -313,6 +314,16 @@ int bgp_flowspec_op_decode(enum bgp_flowspec_util_nlri_t type,
 			if (op[7] == 1)
 				mval->compare_operator |=
 					OPERATOR_COMPARE_EQUAL_TO;
+=======
+				SET_FLAG(mval->compare_operator,
+					 OPERATOR_COMPARE_LESS_THAN);
+			if (op[6] == 1)
+				SET_FLAG(mval->compare_operator,
+					 OPERATOR_COMPARE_GREATER_THAN);
+			if (op[7] == 1)
+				SET_FLAG(mval->compare_operator,
+					 OPERATOR_COMPARE_EQUAL_TO);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			if (op[1] == 1)
 				mval->unary_operator = OPERATOR_UNARY_AND;
 			else
@@ -413,6 +424,7 @@ int bgp_flowspec_bitmask_decode(enum bgp_flowspec_util_nlri_t type,
 			mval->value = value;
 			if (op[6] == 1) {
 				/* different from */
+<<<<<<< HEAD
 				mval->compare_operator |=
 					OPERATOR_COMPARE_LESS_THAN;
 				mval->compare_operator |=
@@ -423,6 +435,18 @@ int bgp_flowspec_bitmask_decode(enum bgp_flowspec_util_nlri_t type,
 			if (op[7] == 1)
 				mval->compare_operator |=
 					OPERATOR_COMPARE_EXACT_MATCH;
+=======
+				SET_FLAG(mval->compare_operator,
+					 OPERATOR_COMPARE_LESS_THAN);
+				SET_FLAG(mval->compare_operator,
+					 OPERATOR_COMPARE_GREATER_THAN);
+			} else
+				SET_FLAG(mval->compare_operator,
+					 OPERATOR_COMPARE_EQUAL_TO);
+			if (op[7] == 1)
+				SET_FLAG(mval->compare_operator,
+					 OPERATOR_COMPARE_EXACT_MATCH);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			if (op[1] == 1)
 				mval->unary_operator =
 					OPERATOR_UNARY_AND;
@@ -467,11 +491,19 @@ int bgp_flowspec_match_rules_fill(uint8_t *nlri_content, int len,
 		case FLOWSPEC_SRC_PREFIX:
 			bitmask = 0;
 			if (type == FLOWSPEC_DEST_PREFIX) {
+<<<<<<< HEAD
 				bitmask |= PREFIX_DST_PRESENT;
 				prefix = &bpem->dst_prefix;
 				prefix_offset = &bpem->dst_prefix_offset;
 			} else {
 				bitmask |= PREFIX_SRC_PRESENT;
+=======
+				SET_FLAG(bitmask, PREFIX_DST_PRESENT);
+				prefix = &bpem->dst_prefix;
+				prefix_offset = &bpem->dst_prefix_offset;
+			} else {
+				SET_FLAG(bitmask, PREFIX_SRC_PRESENT);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 				prefix = &bpem->src_prefix;
 				prefix_offset = &bpem->src_prefix_offset;
 			}
@@ -491,14 +523,26 @@ int bgp_flowspec_match_rules_fill(uint8_t *nlri_content, int len,
 				 */
 				if (prefix->family == AF_INET
 				    && prefix->u.prefix4.s_addr == INADDR_ANY)
+<<<<<<< HEAD
 					bpem->match_bitmask_iprule |= bitmask;
+=======
+					SET_FLAG(bpem->match_bitmask_iprule,
+						 bitmask);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 				else if (prefix->family == AF_INET6
 					 && !memcmp(&prefix->u.prefix6,
 						    &in6addr_any,
 						    sizeof(struct in6_addr)))
+<<<<<<< HEAD
 					bpem->match_bitmask_iprule |= bitmask;
 				else
 					bpem->match_bitmask |= bitmask;
+=======
+					SET_FLAG(bpem->match_bitmask_iprule,
+						 bitmask);
+				else
+					SET_FLAG(bpem->match_bitmask, bitmask);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			}
 			offset += ret;
 			break;
@@ -640,8 +684,13 @@ int bgp_flowspec_match_rules_fill(uint8_t *nlri_content, int len,
 	    || bpem->match_dst_port_num || bpem->match_protocol_num
 	    || bpem->match_bitmask || bpem->match_flowlabel_num)
 		bpem->type = BGP_PBR_IPSET;
+<<<<<<< HEAD
 	else if ((bpem->match_bitmask_iprule & PREFIX_SRC_PRESENT) ||
 		 (bpem->match_bitmask_iprule & PREFIX_DST_PRESENT))
+=======
+	else if (CHECK_FLAG(bpem->match_bitmask_iprule, PREFIX_SRC_PRESENT) ||
+		 CHECK_FLAG(bpem->match_bitmask_iprule, PREFIX_DST_PRESENT))
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		/* the extracted policy rule may not need an
 		 * iptables/ipset filtering. check this may not be
 		 * a standard ip rule : permit any to any ( eg)

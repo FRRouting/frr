@@ -8,6 +8,11 @@
       "type":"sharp"
     }
   ],
+<<<<<<< HEAD
   "routesTotal":4,
   "routesTotalFib":4
+=======
+  "routesTotal":5,
+  "routesTotalFib":5
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 }

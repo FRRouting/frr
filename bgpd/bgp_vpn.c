@@ -30,8 +30,11 @@ int show_adj_route_vpn(struct vty *vty, struct peer *peer,
 	int rd_header;
 	int header = 1;
 	json_object *json = NULL;
+<<<<<<< HEAD
 	json_object *json_scode = NULL;
 	json_object *json_ocode = NULL;
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	json_object *json_adv = NULL;
 	json_object *json_routes = NULL;
 	char rd_str[BUFSIZ];
@@ -47,6 +50,7 @@ int show_adj_route_vpn(struct vty *vty, struct peer *peer,
 	}
 
 	if (use_json) {
+<<<<<<< HEAD
 		json_scode = json_object_new_object();
 		json_ocode = json_object_new_object();
 		json = json_object_new_object();
@@ -62,6 +66,10 @@ int show_adj_route_vpn(struct vty *vty, struct peer *peer,
 		json_object_string_add(json_ocode, "igp", "i");
 		json_object_string_add(json_ocode, "egp", "e");
 		json_object_string_add(json_ocode, "incomplete", "?");
+=======
+		json = json_object_new_object();
+		json_adv = json_object_new_object();
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	}
 
 	for (dest = bgp_table_top(bgp->rib[afi][safi]); dest;
@@ -117,12 +125,15 @@ int show_adj_route_vpn(struct vty *vty, struct peer *peer,
 					json_object_int_add(
 						json, "localAS",
 						bgp->as);
+<<<<<<< HEAD
 					json_object_object_add(json,
 							       "bgpStatusCodes",
 							       json_scode);
 					json_object_object_add(json,
 							       "bgpOriginCodes",
 							       json_ocode);
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 				} else {
 					vty_out(vty,
 						"BGP table version is 0, local router ID is %pI4\n",

@@ -13,14 +13,23 @@
 #include "vrf.h"
 #include "defaults.h"
 #include "stream.h"
+<<<<<<< HEAD
 
 #include "mgmtd/mgmt_memory.h"
 #include "mgmtd/mgmt_defines.h"
+=======
+#include "mgmt_defines.h"
+
+#include "mgmtd/mgmt_memory.h"
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 #include "mgmtd/mgmt_history.h"
 #include "mgmtd/mgmt_txn.h"
 #include "mgmtd/mgmt_ds.h"
 
+<<<<<<< HEAD
 #define MGMTD_VTY_PORT 2623
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 #define MGMTD_SOCKET_BUF_SIZE 65535
 #define MGMTD_MAX_COMMIT_LIST 10
 
@@ -70,11 +79,14 @@ struct mgmt_master {
 extern struct mgmt_master *mm;
 
 /* Inline functions */
+<<<<<<< HEAD
 static inline unsigned long timeval_elapsed(struct timeval a, struct timeval b)
 {
 	return (((a.tv_sec - b.tv_sec) * TIMER_SECOND_MICRO)
 		+ (a.tv_usec - b.tv_usec));
 }
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 /*
  * Remove trailing separator from a string.

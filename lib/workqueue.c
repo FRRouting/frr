@@ -42,6 +42,18 @@ static void work_queue_item_free(struct work_queue_item *item)
 	return;
 }
 
+<<<<<<< HEAD
+=======
+static inline void work_queue_item_dequeue(struct work_queue *wq,
+					   struct work_queue_item *item)
+{
+	assert(wq->item_count > 0);
+
+	wq->item_count--;
+	STAILQ_REMOVE(&wq->items, item, work_queue_item, wq);
+}
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 static void work_queue_item_remove(struct work_queue *wq,
 				   struct work_queue_item *item)
 {
@@ -133,6 +145,16 @@ static int work_queue_schedule(struct work_queue *wq, unsigned int delay)
 		return 0;
 }
 
+<<<<<<< HEAD
+=======
+static inline void work_queue_item_enqueue(struct work_queue *wq,
+					   struct work_queue_item *item)
+{
+	STAILQ_INSERT_TAIL(&wq->items, item, wq);
+	wq->item_count++;
+}
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 void work_queue_add(struct work_queue *wq, void *data)
 {
 	struct work_queue_item *item;
@@ -265,17 +287,27 @@ void work_queue_run(struct event *thread)
 		do {
 			ret = wq->spec.workfunc(wq, item->data);
 			item->ran++;
+<<<<<<< HEAD
 		} while ((ret == WQ_RETRY_NOW)
 			 && (item->ran < wq->spec.max_retries));
+=======
+		} while (item->ran < wq->spec.max_retries);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 		switch (ret) {
 		case WQ_QUEUE_BLOCKED: {
 			/* decrement item->ran again, cause this isn't an item
+<<<<<<< HEAD
 			 * specific error, and fall through to WQ_RETRY_LATER
 			 */
 			item->ran--;
 		}
 		case WQ_RETRY_LATER: {
+=======
+			 * specific error, and retry later
+			 */
+			item->ran--;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			goto stats;
 		}
 		case WQ_REQUEUE: {
@@ -295,10 +327,13 @@ void work_queue_run(struct event *thread)
 				titem = item;
 			break;
 		}
+<<<<<<< HEAD
 		case WQ_RETRY_NOW:
 		/* a RETRY_NOW that gets here has exceeded max_tries, same as
 		 * ERROR */
 		/* fallthru */
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		case WQ_SUCCESS:
 		default: {
 			work_queue_item_remove(wq, item);
@@ -350,8 +385,12 @@ stats:
 
 	/* Is the queue done yet? If it is, call the completion callback. */
 	if (!work_queue_empty(wq)) {
+<<<<<<< HEAD
 		if (ret == WQ_RETRY_LATER ||
 		    ret == WQ_QUEUE_BLOCKED)
+=======
+		if (ret == WQ_QUEUE_BLOCKED)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			work_queue_schedule(wq, wq->spec.retry);
 		else
 			work_queue_schedule(wq, 0);

@@ -44,7 +44,11 @@ void pcep_object_error_types_test_teardown(void)
 {
 }
 
+<<<<<<< HEAD
 void test_get_error_type_str()
+=======
+void test_get_error_type_str(void)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 {
 	const char *error_type_str;
 	int i = 0;
@@ -57,7 +61,11 @@ void test_get_error_type_str()
 	CU_ASSERT_PTR_NULL(get_error_type_str(MAX_ERROR_TYPE));
 }
 
+<<<<<<< HEAD
 void test_get_error_value_str()
+=======
+void test_get_error_value_str(void)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 {
 	const char *error_value_str;
 	int i = 0, j = 0;

@@ -6,6 +6,11 @@
 
 #include <zebra.h>
 
+<<<<<<< HEAD
+=======
+#include <net/route.h>
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 #if !defined(GNU_LINUX)
 
 #include "memory.h"

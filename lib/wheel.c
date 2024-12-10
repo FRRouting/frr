@@ -18,7 +18,11 @@ static int debug_timer_wheel = 0;
 
 static void wheel_timer_thread(struct event *t);
 
+<<<<<<< HEAD
 static void wheel_timer_thread_helper(struct event *t)
+=======
+static void wheel_timer_thread(struct event *t)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 {
 	struct listnode *node, *nextnode;
 	unsigned long long curr_slot;
@@ -51,6 +55,7 @@ static void wheel_timer_thread_helper(struct event *t)
 			     wheel->nexttime * slots_to_skip, &wheel->timer);
 }
 
+<<<<<<< HEAD
 static void wheel_timer_thread(struct event *t)
 {
 	struct timer_wheel *wheel;
@@ -60,6 +65,8 @@ static void wheel_timer_thread(struct event *t)
 	event_execute(wheel->master, wheel_timer_thread_helper, wheel, 0, NULL);
 }
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 struct timer_wheel *wheel_init(struct event_loop *master, int period,
 			       size_t slots,
 			       unsigned int (*slot_key)(const void *),
@@ -70,7 +77,10 @@ struct timer_wheel *wheel_init(struct event_loop *master, int period,
 
 	wheel = XCALLOC(MTYPE_TIMER_WHEEL, sizeof(struct timer_wheel));
 
+<<<<<<< HEAD
 	wheel->name = XSTRDUP(MTYPE_TIMER_WHEEL, run_name);
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	wheel->slot_key = slot_key;
 	wheel->slot_run = slot_run;
 
@@ -101,7 +111,10 @@ void wheel_delete(struct timer_wheel *wheel)
 
 	EVENT_OFF(wheel->timer);
 	XFREE(MTYPE_TIMER_WHEEL_LIST, wheel->wheel_slot_lists);
+<<<<<<< HEAD
 	XFREE(MTYPE_TIMER_WHEEL, wheel->name);
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	XFREE(MTYPE_TIMER_WHEEL, wheel);
 }
 

@@ -22,7 +22,12 @@ test_ospf_unset_suppress_fa()
 
 import os
 import sys
+<<<<<<< HEAD
 import re
+=======
+import json
+from functools import partial
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 import pytest
 
 # Save the Current Working Directory to find configuration files.
@@ -33,6 +38,10 @@ sys.path.append(os.path.join(CWD, "../"))
 # Import topogen and topotest helpers
 from lib import topotest
 from lib.topogen import Topogen, TopoRouter, get_topogen
+<<<<<<< HEAD
+=======
+from lib.topolog import logger
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 # Required to instantiate the topology builder class.
 
@@ -75,6 +84,10 @@ def setup_module(mod):
             TopoRouter.RD_OSPF, os.path.join(CWD, "{}/ospfd.conf".format(rname))
         )
 
+<<<<<<< HEAD
+=======
+    logger.info("Module Setup")
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     tgen.start_router()
 
 
@@ -93,7 +106,21 @@ def test_converge_protocols():
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
+<<<<<<< HEAD
     topotest.sleep(10, "Waiting for OSPF convergence")
+=======
+    router = tgen.gears["r1"]
+    json_file = "{}/r1/neighbor.json".format(CWD)
+    expected = json.loads(open(json_file).read())
+
+    test_func = partial(
+        topotest.router_json_cmp, router, "show ip ospf neighbor json", expected
+    )
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
+    assert result is None, "r1 has not converged"
+
+    logger.info("Converged Protocol")
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 
 def ospf_configure_suppress_fa(router_name, area):
@@ -114,6 +141,7 @@ def ospf_unconfigure_suppress_fa(router_name, area):
     router.vtysh_cmd("conf t\nrouter ospf\narea {} nssa\nexit\n".format(area))
 
 
+<<<<<<< HEAD
 def ospf_get_lsa_type5(router_name):
     "Return a dict with link state id as key and forwarding addresses as value"
 
@@ -166,6 +194,57 @@ def test_ospf_unset_supress_fa(original):
     restore = ospf_get_lsa_type5("r1")
     for prefix in restore:
         assert restore[prefix] == original[prefix], assertmsg
+=======
+def test_ospf_set_suppress_fa():
+    "Test OSPF area [x] nssa suppress-fa"
+
+    logger.info("Testing Turning on/off suppress-fa")
+    tgen = get_topogen()
+
+    # Get current forwarding address for each LSA type-5 in r1
+    logger.info("Get Initial State")
+    router = tgen.gears["r1"]
+    json_file = "{}/r1/initial.json".format(CWD)
+    expected_initial = json.loads(open(json_file).read())
+
+    test_func_initial = partial(
+        topotest.router_json_cmp,
+        router,
+        "show ip ospf data external json",
+        expected_initial,
+    )
+    _, result = topotest.run_and_expect(test_func_initial, None, count=30, wait=1)
+    assert result is None, "Unable to get expected initial states"
+
+    logger.info("Configure suppress-fa")
+    # Configure suppres-fa in r2 area 1
+    ospf_configure_suppress_fa("r2", "1")
+
+    logger.info("Ensure that OSPF has converged on new values")
+    json_file = "{}/r1/post.json".format(CWD)
+    expected_post = json.loads(open(json_file).read())
+
+    test_func_post = partial(
+        topotest.router_json_cmp,
+        router,
+        "show ip ospf data external json",
+        expected_post,
+    )
+
+    _, result = topotest.run_and_expect(test_func_post, None, count=30, wait=1)
+    assert result is None, "Unable to get expected state after turning on suppress-fa"
+
+    logger.info("Test OSPF no area [x] nssa suppress-fa")
+
+    # Remove suppress-fa in r2 area 1
+    ospf_unconfigure_suppress_fa("r2", "1")
+
+    logger.info("Has OSPF returned to original values")
+    _, result = topotest.run_and_expect(test_func_post, None, count=30, wait=1)
+    assert (
+        result is None
+    ), "Unable to return to original state after turning off suppress-fa"
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 
 if __name__ == "__main__":

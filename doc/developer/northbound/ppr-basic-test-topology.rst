@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 Table of Contents
 ~~~~~~~~~~~~~~~~~
 
@@ -10,6 +11,15 @@ Table of Contents
 
 -  `Verification - Control Plane <#verification-cplane>`__
 -  `Verification - Forwarding Plane <#verification-fplane>`__
+=======
+IS-IS PPR Basic
+===============
+
+.. contents:: Table of contents
+    :local:
+    :backlinks: entry
+    :depth: 2
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 Software
 ~~~~~~~~

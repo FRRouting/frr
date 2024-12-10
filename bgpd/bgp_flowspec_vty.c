@@ -441,7 +441,11 @@ int bgp_show_table_flowspec(struct vty *vty, struct bgp *bgp, afi_t afi,
 	}
 	if (total_count && !use_json)
 		vty_out(vty,
+<<<<<<< HEAD
 			"\nDisplayed  %ld flowspec entries\n",
+=======
+			"\nDisplayed %ld flowspec entries\n",
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			total_count);
 	return CMD_SUCCESS;
 }
@@ -547,7 +551,11 @@ static int bgp_fs_local_install_interface(struct bgp *bgp,
 			return CMD_SUCCESS;
 		pbr_if = XCALLOC(MTYPE_TMP,
 				 sizeof(struct bgp_pbr_interface));
+<<<<<<< HEAD
 		strlcpy(pbr_if->name, ifname, INTERFACE_NAMSIZ);
+=======
+		strlcpy(pbr_if->name, ifname, IFNAMSIZ);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		RB_INSERT(bgp_pbr_interface_head, head, pbr_if);
 		*bgp_pbr_interface_any = false;
 	} else {

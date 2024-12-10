@@ -6,11 +6,20 @@
 
 #include <zebra.h>
 
+<<<<<<< HEAD
 #include "northbound.h"
 #include "libfrr.h"
 
 #include "ripngd/ripng_nb.h"
 #include "lib/if_rmap.h"
+=======
+#include "distribute.h"
+#include "if_rmap.h"
+#include "libfrr.h"
+#include "northbound.h"
+
+#include "ripngd/ripng_nb.h"
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 /* clang-format off */
 const struct frr_yang_module_info frr_ripngd_info = {
@@ -19,7 +28,10 @@ const struct frr_yang_module_info frr_ripngd_info = {
 		{
 			.xpath = "/frr-ripngd:ripngd/instance",
 			.cbs = {
+<<<<<<< HEAD
 				.cli_show = cli_show_router_ripng,
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 				.create = ripngd_instance_create,
 				.destroy = ripngd_instance_destroy,
 				.get_keys = ripngd_instance_get_keys,
@@ -30,28 +42,40 @@ const struct frr_yang_module_info frr_ripngd_info = {
 		{
 			.xpath = "/frr-ripngd:ripngd/instance/allow-ecmp",
 			.cbs = {
+<<<<<<< HEAD
 				.cli_show = cli_show_ripng_allow_ecmp,
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 				.modify = ripngd_instance_allow_ecmp_modify,
 			},
 		},
 		{
 			.xpath = "/frr-ripngd:ripngd/instance/default-information-originate",
 			.cbs = {
+<<<<<<< HEAD
 				.cli_show = cli_show_ripng_default_information_originate,
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 				.modify = ripngd_instance_default_information_originate_modify,
 			},
 		},
 		{
 			.xpath = "/frr-ripngd:ripngd/instance/default-metric",
 			.cbs = {
+<<<<<<< HEAD
 				.cli_show = cli_show_ripng_default_metric,
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 				.modify = ripngd_instance_default_metric_modify,
 			},
 		},
 		{
 			.xpath = "/frr-ripngd:ripngd/instance/network",
 			.cbs = {
+<<<<<<< HEAD
 				.cli_show = cli_show_ripng_network_prefix,
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 				.create = ripngd_instance_network_create,
 				.destroy = ripngd_instance_network_destroy,
 			},
@@ -59,7 +83,10 @@ const struct frr_yang_module_info frr_ripngd_info = {
 		{
 			.xpath = "/frr-ripngd:ripngd/instance/interface",
 			.cbs = {
+<<<<<<< HEAD
 				.cli_show = cli_show_ripng_network_interface,
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 				.create = ripngd_instance_interface_create,
 				.destroy = ripngd_instance_interface_destroy,
 			},
@@ -67,7 +94,10 @@ const struct frr_yang_module_info frr_ripngd_info = {
 		{
 			.xpath = "/frr-ripngd:ripngd/instance/offset-list",
 			.cbs = {
+<<<<<<< HEAD
 				.cli_show = cli_show_ripng_offset_list,
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 				.create = ripngd_instance_offset_list_create,
 				.destroy = ripngd_instance_offset_list_destroy,
 			},
@@ -87,16 +117,60 @@ const struct frr_yang_module_info frr_ripngd_info = {
 		{
 			.xpath = "/frr-ripngd:ripngd/instance/passive-interface",
 			.cbs = {
+<<<<<<< HEAD
 				.cli_show = cli_show_ripng_passive_interface,
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 				.create = ripngd_instance_passive_interface_create,
 				.destroy = ripngd_instance_passive_interface_destroy,
 			},
 		},
 		{
+<<<<<<< HEAD
 			.xpath = "/frr-ripngd:ripngd/instance/redistribute",
 			.cbs = {
 				.apply_finish = ripngd_instance_redistribute_apply_finish,
 				.cli_show = cli_show_ripng_redistribute,
+=======
+			.xpath = "/frr-ripngd:ripngd/instance/distribute-list",
+			.cbs = {
+				.create = ripngd_instance_distribute_list_create,
+				.destroy = group_distribute_list_destroy,
+			}
+		},
+		{
+			.xpath = "/frr-ripngd:ripngd/instance/distribute-list/in/access-list",
+			.cbs = {
+				.modify = group_distribute_list_ipv6_modify,
+				.destroy = group_distribute_list_ipv6_destroy,
+			}
+		},
+		{
+			.xpath = "/frr-ripngd:ripngd/instance/distribute-list/out/access-list",
+			.cbs = {
+				.modify = group_distribute_list_ipv6_modify,
+				.destroy = group_distribute_list_ipv6_destroy,
+			}
+		},
+		{
+			.xpath = "/frr-ripngd:ripngd/instance/distribute-list/in/prefix-list",
+			.cbs = {
+				.modify = group_distribute_list_ipv6_modify,
+				.destroy = group_distribute_list_ipv6_destroy,
+			}
+		},
+		{
+			.xpath = "/frr-ripngd:ripngd/instance/distribute-list/out/prefix-list",
+			.cbs = {
+				.modify = group_distribute_list_ipv6_modify,
+				.destroy = group_distribute_list_ipv6_destroy,
+			}
+		},
+		{
+			.xpath = "/frr-ripngd:ripngd/instance/redistribute",
+			.cbs = {
+				.apply_finish = ripngd_instance_redistribute_apply_finish,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 				.create = ripngd_instance_redistribute_create,
 				.destroy = ripngd_instance_redistribute_destroy,
 			},
@@ -120,7 +194,10 @@ const struct frr_yang_module_info frr_ripngd_info = {
 			.cbs = {
 				.create = ripngd_instance_if_route_maps_if_route_map_create,
 				.destroy = ripngd_instance_if_route_maps_if_route_map_destroy,
+<<<<<<< HEAD
 				.cli_show = cli_show_if_route_map,
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			}
 		},
 		{
@@ -140,7 +217,10 @@ const struct frr_yang_module_info frr_ripngd_info = {
 		{
 			.xpath = "/frr-ripngd:ripngd/instance/static-route",
 			.cbs = {
+<<<<<<< HEAD
 				.cli_show = cli_show_ripng_route,
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 				.create = ripngd_instance_static_route_create,
 				.destroy = ripngd_instance_static_route_destroy,
 			},
@@ -148,7 +228,10 @@ const struct frr_yang_module_info frr_ripngd_info = {
 		{
 			.xpath = "/frr-ripngd:ripngd/instance/aggregate-address",
 			.cbs = {
+<<<<<<< HEAD
 				.cli_show = cli_show_ripng_aggregate_address,
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 				.create = ripngd_instance_aggregate_address_create,
 				.destroy = ripngd_instance_aggregate_address_destroy,
 			},
@@ -157,7 +240,10 @@ const struct frr_yang_module_info frr_ripngd_info = {
 			.xpath = "/frr-ripngd:ripngd/instance/timers",
 			.cbs = {
 				.apply_finish = ripngd_instance_timers_apply_finish,
+<<<<<<< HEAD
 				.cli_show = cli_show_ripng_timers,
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			},
 		},
 		{
@@ -251,7 +337,10 @@ const struct frr_yang_module_info frr_ripngd_info = {
 		{
 			.xpath = "/frr-interface:lib/interface/frr-ripngd:ripng/split-horizon",
 			.cbs = {
+<<<<<<< HEAD
 				.cli_show = cli_show_ipv6_ripng_split_horizon,
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 				.modify = lib_interface_ripng_split_horizon_modify,
 			},
 		},

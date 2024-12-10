@@ -50,8 +50,11 @@ netlink_put_tc_filter_update_msg(struct nl_batch *bth,
  */
 
 extern int netlink_qdisc_read(struct zebra_ns *zns);
+<<<<<<< HEAD
 extern int netlink_tfilter_read_for_interface(struct zebra_ns *zns,
 					      ifindex_t ifindex);
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 extern int netlink_tfilter_change(struct nlmsghdr *h, ns_id_t ns_id,
 				  int startup);

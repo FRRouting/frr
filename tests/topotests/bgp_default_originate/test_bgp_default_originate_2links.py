@@ -17,7 +17,10 @@ import sys
 import time
 import pytest
 import datetime
+<<<<<<< HEAD
 from copy import deepcopy
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 from lib.topolog import logger
 from time import sleep
 
@@ -214,7 +217,10 @@ def get_rib_route_uptime(tgen, addr_type, dut, input_dict):
 
     logger.info("Entering lib API: get_rib_route_uptime()")
     route_time = []
+<<<<<<< HEAD
     out_route_dict = {}
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     router_list = tgen.routers()
     for routerInput in input_dict.keys():
         for router, rnode in router_list.items():
@@ -234,7 +240,10 @@ def get_rib_route_uptime(tgen, addr_type, dut, input_dict):
 
                 for static_route in static_routes:
                     if "vrf" in static_route and static_route["vrf"] is not None:
+<<<<<<< HEAD
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
                         logger.info(
                             "[DUT: {}]: Verifying routes for VRF:"
                             " {}".format(router, static_route["vrf"])
@@ -269,21 +278,33 @@ def verify_the_uptime(time_stamp_before, time_stamp_after, incremented=None):
     if incremented == True:
         if uptime_before < uptime_after:
             logger.info(
+<<<<<<< HEAD
                 "  The Uptime [{}] is incremented than [{}].......PASSED ".format(
+=======
+                "  The Uptime before [{}] is less than [{}].......PASSED ".format(
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
                     time_stamp_before, time_stamp_after
                 )
             )
             return True
         else:
             logger.error(
+<<<<<<< HEAD
                 "  The Uptime [{}] is expected to be incremented than [{}].......FAILED ".format(
+=======
+                "  The Uptime before [{}] is greater than the uptime after [{}].......FAILED ".format(
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
                     time_stamp_before, time_stamp_after
                 )
             )
             return False
     else:
         logger.info(
+<<<<<<< HEAD
             "  The Uptime [{}] is not incremented than [{}] ".format(
+=======
+            "  The Uptime before [{}] the same as after [{}] ".format(
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
                 time_stamp_before, time_stamp_after
             )
         )
@@ -307,7 +328,10 @@ def get_best_path_route_in_FIB(tgen, topo, dut, network):
     on failure : return error message with boolean False
     """
     is_ipv4_best_path_found = False
+<<<<<<< HEAD
     is_ipv6_best_path_found = False
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     rnode = tgen.routers()[dut]
     ipv4_show_bgp_json = run_frr_cmd(rnode, "sh ip bgp  json ", isjson=True)
     ipv6_show_bgp_json = run_frr_cmd(
@@ -1031,7 +1055,11 @@ def test_verify_bgp_default_originate_with_default_static_route_p1(request):
     result = verify_the_uptime(uptime_before_ipv6, uptime_after_ipv6, incremented=False)
     assert result is True, "Testcase {} : Failed Error: {}".format(tc_name, result)
 
+<<<<<<< HEAD
     step("Taking uptime snapshot before  removing   redisctribute static ")
+=======
+    step("Taking uptime snapshot before removing redistribute static")
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     uptime_before_ipv4 = get_rib_route_uptime(tgen, "ipv4", "r2", ipv4_uptime_dict)
     uptime_before_ipv6 = get_rib_route_uptime(tgen, "ipv6", "r2", ipv6_uptime_dict)
     sleep(1)
@@ -1078,6 +1106,10 @@ def test_verify_bgp_default_originate_with_default_static_route_p1(request):
     )
     assert result is True, "Testcase {} : Failed Error: {}".format(tc_name, result)
 
+<<<<<<< HEAD
+=======
+    step("Now look that the route is not pointed at link2")
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     result = verify_rib_default_route(
         tgen,
         topo,
@@ -1097,7 +1129,11 @@ def test_verify_bgp_default_originate_with_default_static_route_p1(request):
     )
     assert result is not True, "Testcase {} : Failed Error: {}".format(tc_name, result)
 
+<<<<<<< HEAD
     step("Taking uptime snapshot before  removing   redisctribute static ")
+=======
+    step("Taking uptime snapshot after removing redistribute static")
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     uptime_after_ipv4 = get_rib_route_uptime(tgen, "ipv4", "r2", ipv4_uptime_dict)
     uptime_after_ipv6 = get_rib_route_uptime(tgen, "ipv6", "r2", ipv6_uptime_dict)
 
@@ -1575,7 +1611,11 @@ def test_verify_default_originate_with_2way_ecmp_p2(request):
     ipv_dict = get_best_path_route_in_FIB(tgen, topo, dut="r2", network=network)
     dut_links = topo["routers"]["r1"]["links"]
     active_interface = None
+<<<<<<< HEAD
     for key, values in dut_links.items():
+=======
+    for key, _ in dut_links.items():
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         ipv4_address = dut_links[key]["ipv4"].split("/")[0]
         ipv6_address = dut_links[key]["ipv6"].split("/")[0]
         if ipv_dict["ipv4"] == ipv4_address and ipv_dict["ipv6"] == ipv6_address:

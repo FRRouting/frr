@@ -6,6 +6,11 @@
 
 #include <zebra.h>
 
+<<<<<<< HEAD
+=======
+#include <fcntl.h>
+#include <sys/stat.h>
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 #include <lib/version.h>
 #include <sys/types.h>
 #include <sys/types.h>
@@ -37,13 +42,26 @@
 #include "libfrr.h"
 #include "frrstr.h"
 #include "lib_errors.h"
+<<<<<<< HEAD
 #include "northbound_cli.h"
 #include "printfrr.h"
 #include "json.h"
+=======
+#include <libyang/version.h>
+#include "northbound_cli.h"
+#include "printfrr.h"
+#include "json.h"
+#include "sockopt.h"
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 #include <arpa/telnet.h>
 #include <termios.h>
 
+<<<<<<< HEAD
+=======
+#include "lib/config_paths.h"
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 #include "lib/vty_clippy.c"
 
 DEFINE_MTYPE_STATIC(LIB, VTY, "VTY");
@@ -122,6 +140,16 @@ bool vty_log_commands;
 static bool vty_log_commands_perm;
 
 char const *const mgmt_daemons[] = {
+<<<<<<< HEAD
+=======
+	"zebra",
+#ifdef HAVE_RIPD
+	"ripd",
+#endif
+#ifdef HAVE_RIPNGD
+	"ripngd",
+#endif
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 #ifdef HAVE_STATICD
 	"staticd",
 #endif
@@ -157,10 +185,16 @@ static int vty_mgmt_unlock_running_inline(struct vty *vty)
 	return vty->mgmt_locked_running_ds ? -1 : 0;
 }
 
+<<<<<<< HEAD
 void vty_mgmt_resume_response(struct vty *vty, bool success)
 {
 	uint8_t header[4] = {0, 0, 0, 0};
 	int ret = CMD_SUCCESS;
+=======
+void vty_mgmt_resume_response(struct vty *vty, int ret)
+{
+	uint8_t header[4] = {0, 0, 0, 0};
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	if (!vty->mgmt_req_pending_cmd) {
 		zlog_err(
@@ -168,6 +202,7 @@ void vty_mgmt_resume_response(struct vty *vty, bool success)
 		return;
 	}
 
+<<<<<<< HEAD
 	if (!success)
 		ret = CMD_WARNING_CONFIG_FAILED;
 
@@ -176,6 +211,12 @@ void vty_mgmt_resume_response(struct vty *vty, bool success)
 		" with '%s'",
 		vty->mgmt_req_pending_cmd, vty->mgmt_session_id,
 		success ? "succeeded" : "failed");
+=======
+	debug_fe_client("resuming CLI cmd after %s on vty session-id: %" PRIu64
+			" with '%s'",
+			vty->mgmt_req_pending_cmd, vty->mgmt_session_id,
+			ret == CMD_SUCCESS ? "success" : "failed");
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	vty->mgmt_req_pending_cmd = NULL;
 
@@ -338,8 +379,22 @@ int vty_out(struct vty *vty, const char *format, ...)
 	case VTY_SHELL_SERV:
 	case VTY_FILE:
 	default:
+<<<<<<< HEAD
 		/* print without crlf replacement */
 		buffer_put(vty->obuf, (uint8_t *)filtered, strlen(filtered));
+=======
+		vty->vty_buf_size_accumulated += strlen(filtered);
+		/* print without crlf replacement */
+		buffer_put(vty->obuf, (uint8_t *)filtered, strlen(filtered));
+		/* For every chunk of memory, we invoke vtysh_flush where we
+		 * put the data of collective vty->obuf Linked List items on the
+		 * socket and free the vty->obuf data.
+		 */
+		if (vty->vty_buf_size_accumulated >= vty->buf_size_intermediate) {
+			vty->vty_buf_size_accumulated = 0;
+			vtysh_flush(vty);
+		}
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		break;
 	}
 
@@ -383,11 +438,37 @@ int vty_json_no_pretty(struct vty *vty, struct json_object *json)
 	return vty_json_helper(vty, json, JSON_C_TO_STRING_NOSLASHESCAPE);
 }
 
+<<<<<<< HEAD
 void vty_json_empty(struct vty *vty)
 {
 	json_object *json = json_object_new_object();
 
 	vty_json(vty, json);
+=======
+
+void vty_json_key(struct vty *vty, const char *key, bool *first_key)
+{
+	vty_out(vty, "%s\"%s\":", *first_key ? "{" : ",", key);
+	*first_key = false;
+}
+
+void vty_json_close(struct vty *vty, bool first_key)
+{
+	if (first_key)
+		/* JSON was not opened */
+		vty_out(vty, "{");
+	vty_out(vty, "}\n");
+}
+
+void vty_json_empty(struct vty *vty, struct json_object *json)
+{
+	json_object *jsonobj = json;
+
+	if (!json)
+		jsonobj = json_object_new_object();
+
+	vty_json(vty, jsonobj);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 }
 
 /* Output current time to the vty. */
@@ -1565,7 +1646,11 @@ static void vty_read(struct event *thread)
 			break;
 		case '\r':
 			vty->escape = VTY_CR;
+<<<<<<< HEAD
 			/* fallthru */
+=======
+			fallthrough;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		case '\n':
 			vty_out(vty, "\n");
 			buffer_flush_available(vty->obuf, vty->wfd);
@@ -2093,6 +2178,11 @@ static void vtysh_accept(struct event *thread)
 	int client_len;
 	struct sockaddr_un client;
 	struct vty *vty;
+<<<<<<< HEAD
+=======
+	int ret = 0;
+	uint32_t sndbufsize = VTY_SEND_BUF_MAX;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	vty_event_serv(VTYSH_SERV, vtyserv);
 
@@ -2116,6 +2206,23 @@ static void vtysh_accept(struct event *thread)
 		close(sock);
 		return;
 	}
+<<<<<<< HEAD
+=======
+
+	/*
+	 * Increasing the SEND socket buffer size so that the socket can hold
+	 * before sending it to VTY shell.
+	 */
+	ret = setsockopt_so_sendbuf(sock, sndbufsize);
+	if (ret <= 0) {
+		flog_err(EC_LIB_SOCKET,
+			 "Cannot set socket %d send buffer size, %s", sock,
+			 safe_strerror(errno));
+		close(sock);
+		return;
+	}
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	set_cloexec(sock);
 
 #ifdef VTYSH_DEBUG
@@ -2123,6 +2230,16 @@ static void vtysh_accept(struct event *thread)
 #endif /* VTYSH_DEBUG */
 
 	vty = vty_new();
+<<<<<<< HEAD
+=======
+
+	vty->buf_size_set = ret;
+	if (vty->buf_size_set < VTY_MAX_INTERMEDIATE_FLUSH)
+		vty->buf_size_intermediate = vty->buf_size_set / 2;
+	else
+		vty->buf_size_intermediate = VTY_MAX_INTERMEDIATE_FLUSH;
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	vty->fd = sock;
 	vty->wfd = sock;
 	vty->type = VTY_SHELL_SERV;
@@ -2202,6 +2319,10 @@ static int vtysh_flush(struct vty *vty)
 		vty_close(vty);
 		return -1;
 	case BUFFER_EMPTY:
+<<<<<<< HEAD
+=======
+		vty->vty_buf_size_accumulated = 0;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		break;
 	}
 	return 0;
@@ -2256,6 +2377,7 @@ bool mgmt_vty_read_configs(void)
 
 	snprintf(path, sizeof(path), "%s/mgmtd.conf", frr_sysconfdir);
 	confp = vty_open_config(path, config_default);
+<<<<<<< HEAD
 	if (!confp) {
 		char *orig;
 
@@ -2269,6 +2391,8 @@ bool mgmt_vty_read_configs(void)
 		XFREE(MTYPE_TMP, orig);
 	}
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	if (confp) {
 		zlog_info("mgmtd: reading config file: %s", path);
 
@@ -2406,10 +2530,16 @@ static void vtysh_read(struct event *thread)
 				 * we get response through callback.
 				 */
 				if (vty->mgmt_req_pending_cmd) {
+<<<<<<< HEAD
 					MGMTD_FE_CLIENT_DBG(
 						"postpone CLI response pending mgmtd %s on vty session-id %" PRIu64,
 						vty->mgmt_req_pending_cmd,
 						vty->mgmt_session_id);
+=======
+					debug_fe_client("postpone CLI response pending mgmtd %s on vty session-id %" PRIu64,
+							vty->mgmt_req_pending_cmd,
+							vty->mgmt_session_id);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 					return;
 				}
 
@@ -2490,14 +2620,22 @@ void vty_close(struct vty *vty)
 	 * so warn the user.
 	 */
 	if (vty->mgmt_num_pending_setcfg)
+<<<<<<< HEAD
 		MGMTD_FE_CLIENT_ERR(
+=======
+		log_err_fe_client(
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			"vty closed, uncommitted config will be lost.");
 
 	/* Drop out of configure / transaction if needed. */
 	vty_config_exit(vty);
 
 	if (mgmt_fe_client && vty->mgmt_session_id) {
+<<<<<<< HEAD
 		MGMTD_FE_CLIENT_DBG("closing vty session");
+=======
+		debug_fe_client("closing vty session");
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		mgmt_fe_destroy_client_session(mgmt_fe_client,
 					       vty->mgmt_client_id);
 		vty->mgmt_session_id = 0;
@@ -3477,9 +3615,14 @@ void vty_init_vtysh(void)
 static void vty_mgmt_server_connected(struct mgmt_fe_client *client,
 				      uintptr_t usr_data, bool connected)
 {
+<<<<<<< HEAD
 	MGMTD_FE_CLIENT_DBG("Got %sconnected %s MGMTD Frontend Server",
 			    !connected ? "dis: " : "",
 			    !connected ? "from" : "to");
+=======
+	debug_fe_client("Got %sconnected %s MGMTD Frontend Server",
+			!connected ? "dis: " : "", !connected ? "from" : "to");
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	/*
 	 * We should not have any sessions for connecting or disconnecting case.
@@ -3492,7 +3635,11 @@ static void vty_mgmt_server_connected(struct mgmt_fe_client *client,
 
 	/* Start or stop listening for vty connections */
 	if (connected)
+<<<<<<< HEAD
 		frr_vty_serv_start();
+=======
+		frr_vty_serv_start(true);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	else
 		frr_vty_serv_stop();
 }
@@ -3515,8 +3662,13 @@ static void vty_mgmt_session_notify(struct mgmt_fe_client *client,
 		return;
 	}
 
+<<<<<<< HEAD
 	MGMTD_FE_CLIENT_DBG("%s session for client %" PRIu64 " successfully",
 			    create ? "Created" : "Destroyed", client_id);
+=======
+	debug_fe_client("%s session for client %" PRIu64 " successfully",
+			create ? "Created" : "Destroyed", client_id);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	if (create) {
 		assert(session_id != 0);
@@ -3547,8 +3699,13 @@ static void vty_mgmt_ds_lock_notified(struct mgmt_fe_client *client,
 		zlog_err("%socking for DS %u failed, Err: '%s' vty %p",
 			 lock_ds ? "L" : "Unl", ds_id, errmsg_if_any, vty);
 	else {
+<<<<<<< HEAD
 		MGMTD_FE_CLIENT_DBG("%socked DS %u successfully",
 				    lock_ds ? "L" : "Unl", ds_id);
+=======
+		debug_fe_client("%socked DS %u successfully",
+				lock_ds ? "L" : "Unl", ds_id);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		if (ds_id == MGMTD_DS_CANDIDATE)
 			vty->mgmt_locked_candidate_ds = lock_ds;
 		else
@@ -3557,7 +3714,12 @@ static void vty_mgmt_ds_lock_notified(struct mgmt_fe_client *client,
 
 	if (!is_short_circuit && vty->mgmt_req_pending_cmd) {
 		assert(!strcmp(vty->mgmt_req_pending_cmd, "MESSAGE_LOCKDS_REQ"));
+<<<<<<< HEAD
 		vty_mgmt_resume_response(vty, success);
+=======
+		vty_mgmt_resume_response(vty,
+					 success ? CMD_SUCCESS : CMD_WARNING);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	}
 }
 
@@ -3575,12 +3737,23 @@ static void vty_mgmt_set_config_result_notified(
 		zlog_err("SET_CONFIG request for client 0x%" PRIx64
 			 " failed, Error: '%s'",
 			 client_id, errmsg_if_any ? errmsg_if_any : "Unknown");
+<<<<<<< HEAD
 		vty_out(vty, "ERROR: SET_CONFIG request failed, Error: %s\n",
 			errmsg_if_any ? errmsg_if_any : "Unknown");
 	} else {
 		MGMTD_FE_CLIENT_DBG("SET_CONFIG request for client 0x%" PRIx64
 				    " req-id %" PRIu64 " was successfull",
 				    client_id, req_id);
+=======
+		vty_out(vty, "%% Configuration failed.\n\n");
+		if (errmsg_if_any)
+			vty_out(vty, "%s\n", errmsg_if_any);
+	} else {
+		debug_fe_client("SET_CONFIG request for client 0x%" PRIx64
+				" req-id %" PRIu64 " was successfull%s%s",
+				client_id, req_id, errmsg_if_any ? ": " : "",
+				errmsg_if_any ?: "");
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	}
 
 	if (implicit_commit) {
@@ -3589,7 +3762,12 @@ static void vty_mgmt_set_config_result_notified(
 		vty_mgmt_unlock_running_inline(vty);
 	}
 
+<<<<<<< HEAD
 	vty_mgmt_resume_response(vty, success);
+=======
+	vty_mgmt_resume_response(vty, success ? CMD_SUCCESS
+					      : CMD_WARNING_CONFIG_FAILED);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 }
 
 static void vty_mgmt_commit_config_result_notified(
@@ -3606,6 +3784,7 @@ static void vty_mgmt_commit_config_result_notified(
 		zlog_err("COMMIT_CONFIG request for client 0x%" PRIx64
 			 " failed, Error: '%s'",
 			 client_id, errmsg_if_any ? errmsg_if_any : "Unknown");
+<<<<<<< HEAD
 		vty_out(vty, "ERROR: COMMIT_CONFIG request failed, Error: %s\n",
 			errmsg_if_any ? errmsg_if_any : "Unknown");
 	} else {
@@ -3613,11 +3792,26 @@ static void vty_mgmt_commit_config_result_notified(
 			"COMMIT_CONFIG request for client 0x%" PRIx64
 			" req-id %" PRIu64 " was successfull",
 			client_id, req_id);
+=======
+		vty_out(vty, "%% Configuration failed.\n\n");
+		if (errmsg_if_any)
+			vty_out(vty, "%s\n", errmsg_if_any);
+	} else {
+		debug_fe_client("COMMIT_CONFIG request for client 0x%" PRIx64
+				" req-id %" PRIu64 " was successfull%s%s",
+				client_id, req_id, errmsg_if_any ? ": " : "",
+				errmsg_if_any ?: "");
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		if (errmsg_if_any)
 			vty_out(vty, "MGMTD: %s\n", errmsg_if_any);
 	}
 
+<<<<<<< HEAD
 	vty_mgmt_resume_response(vty, success);
+=======
+	vty_mgmt_resume_response(vty, success ? CMD_SUCCESS
+					      : CMD_WARNING_CONFIG_FAILED);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 }
 
 static int vty_mgmt_get_data_result_notified(
@@ -3637,6 +3831,7 @@ static int vty_mgmt_get_data_result_notified(
 			 client_id, errmsg_if_any ? errmsg_if_any : "Unknown");
 		vty_out(vty, "ERROR: GET_DATA request failed, Error: %s\n",
 			errmsg_if_any ? errmsg_if_any : "Unknown");
+<<<<<<< HEAD
 		vty_mgmt_resume_response(vty, success);
 		return -1;
 	}
@@ -3644,6 +3839,16 @@ static int vty_mgmt_get_data_result_notified(
 	MGMTD_FE_CLIENT_DBG("GET_DATA request succeeded, client 0x%" PRIx64
 			    " req-id %" PRIu64,
 			    client_id, req_id);
+=======
+		vty_mgmt_resume_response(vty, CMD_WARNING);
+		return -1;
+	}
+
+	debug_fe_client("GET_DATA request succeeded, client 0x%" PRIx64
+			" req-id %" PRIu64 "%s%s",
+			client_id, req_id, errmsg_if_any ? ": " : "",
+			errmsg_if_any ?: "");
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	if (req_id != mgmt_last_req_id) {
 		mgmt_last_req_id = req_id;
@@ -3656,12 +3861,266 @@ static int vty_mgmt_get_data_result_notified(
 	}
 	if (next_key < 0) {
 		vty_out(vty, "]\n");
+<<<<<<< HEAD
 		vty_mgmt_resume_response(vty, success);
+=======
+		vty_mgmt_resume_response(vty, CMD_SUCCESS);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	}
 
 	return 0;
 }
 
+<<<<<<< HEAD
+=======
+static ssize_t vty_mgmt_libyang_print(void *user_data, const void *buf,
+				      size_t count)
+{
+	struct vty *vty = user_data;
+
+	vty_out(vty, "%.*s", (int)count, (const char *)buf);
+	return count;
+}
+
+static void vty_out_yang_error(struct vty *vty, LYD_FORMAT format,
+			       const struct ly_err_item *ei)
+{
+#if (LY_VERSION_MAJOR < 3)
+#define data_path path
+#else
+#define data_path data_path
+#endif
+	bool have_apptag = ei->apptag && ei->apptag[0] != 0;
+	bool have_path = ei->data_path && ei->data_path[0] != 0;
+	bool have_msg = ei->msg && ei->msg[0] != 0;
+	const char *severity = NULL;
+	const char *evalid = NULL;
+	const char *ecode = NULL;
+#if (LY_VERSION_MAJOR < 3)
+	LY_ERR err = ei->no;
+#else
+	LY_ERR err = ei->err;
+#endif
+
+	if (ei->level == LY_LLERR)
+		severity = "error";
+	else if (ei->level == LY_LLWRN)
+		severity = "warning";
+
+	ecode = yang_ly_strerrcode(err);
+	if (err == LY_EVALID && ei->vecode != LYVE_SUCCESS)
+		evalid = yang_ly_strvecode(ei->vecode);
+
+	switch (format) {
+	case LYD_XML:
+		vty_out(vty,
+			"<rpc-error xmlns=\"urn:ietf:params:xml:ns:netconf:base:1.0\">");
+		vty_out(vty, "<error-type>application</error-type>");
+		if (severity)
+			vty_out(vty, "<error-severity>%s</error-severity>",
+				severity);
+		if (ecode)
+			vty_out(vty, "<error-code>%s</error-code>", ecode);
+		if (evalid)
+			vty_out(vty, "<error-validation>%s</error-validation>\n",
+				evalid);
+		if (have_path)
+			vty_out(vty, "<error-path>%s</error-path>\n",
+				ei->data_path);
+		if (have_apptag)
+			vty_out(vty, "<error-app-tag>%s</error-app-tag>\n",
+				ei->apptag);
+		if (have_msg)
+			vty_out(vty, "<error-message>%s</error-message>\n",
+				ei->msg);
+
+		vty_out(vty, "</rpc-error>");
+		break;
+	case LYD_JSON:
+		vty_out(vty, "{ \"error-type\": \"application\"");
+		if (severity)
+			vty_out(vty, ", \"error-severity\": \"%s\"", severity);
+		if (ecode)
+			vty_out(vty, ", \"error-code\": \"%s\"", ecode);
+		if (evalid)
+			vty_out(vty, ", \"error-validation\": \"%s\"", evalid);
+		if (have_path)
+			vty_out(vty, ", \"error-path\": \"%s\"", ei->data_path);
+		if (have_apptag)
+			vty_out(vty, ", \"error-app-tag\": \"%s\"", ei->apptag);
+		if (have_msg)
+			vty_out(vty, ", \"error-message\": \"%s\"", ei->msg);
+
+		vty_out(vty, "}");
+		break;
+	case LYD_UNKNOWN:
+	case LYD_LYB:
+	default:
+		vty_out(vty, "%% error");
+		if (severity)
+			vty_out(vty, " severity: %s", severity);
+		if (evalid)
+			vty_out(vty, " invalid: %s", evalid);
+		if (have_path)
+			vty_out(vty, " path: %s", ei->data_path);
+		if (have_apptag)
+			vty_out(vty, " app-tag: %s", ei->apptag);
+		if (have_msg)
+			vty_out(vty, " msg: %s", ei->msg);
+		break;
+	}
+#undef data_path
+}
+
+static uint vty_out_yang_errors(struct vty *vty, LYD_FORMAT format)
+{
+	const struct ly_err_item *ei = ly_err_first(ly_native_ctx);
+	uint count;
+
+	if (!ei)
+		return 0;
+
+	if (format == LYD_JSON)
+		vty_out(vty, "\"ietf-restconf:errors\": [ ");
+
+	for (count = 0; ei; count++, ei = ei->next) {
+		if (count)
+			vty_out(vty, ", ");
+		vty_out_yang_error(vty, format, ei);
+	}
+
+	if (format == LYD_JSON)
+		vty_out(vty, " ]");
+
+	ly_err_clean(ly_native_ctx, NULL);
+
+	return count;
+}
+
+
+static int vty_mgmt_get_tree_result_notified(
+	struct mgmt_fe_client *client, uintptr_t user_data, uint64_t client_id,
+	uint64_t session_id, uintptr_t session_ctx, uint64_t req_id,
+	Mgmtd__DatastoreId ds_id, LYD_FORMAT result_type, void *result,
+	size_t len, int partial_error)
+{
+	struct vty *vty;
+	struct lyd_node *dnode;
+	int ret = CMD_SUCCESS;
+	LY_ERR err;
+
+	vty = (struct vty *)session_ctx;
+
+	debug_fe_client("GET_TREE request %ssucceeded, client 0x%" PRIx64
+			" req-id %" PRIu64,
+			partial_error ? "partially " : "", client_id, req_id);
+
+	assert(result_type == LYD_LYB ||
+	       result_type == vty->mgmt_req_pending_data);
+
+	if (vty->mgmt_req_pending_data == LYD_XML && partial_error)
+		vty_out(vty,
+			"<!-- some errors occurred gathering results -->\n");
+
+	if (result_type == LYD_LYB) {
+		/*
+		 * parse binary into tree and print in the specified format
+		 */
+		result_type = vty->mgmt_req_pending_data;
+
+		err = lyd_parse_data_mem(ly_native_ctx, result, LYD_LYB, 0, 0,
+					 &dnode);
+		if (!err)
+			err = lyd_print_clb(vty_mgmt_libyang_print, vty, dnode,
+					    result_type, LYD_PRINT_WITHSIBLINGS);
+		lyd_free_all(dnode);
+
+		if (vty_out_yang_errors(vty, result_type) || err)
+			ret = CMD_WARNING;
+	} else {
+		/*
+		 * Print the in-format result
+		 */
+		assert(result_type == LYD_XML || result_type == LYD_JSON);
+		vty_out(vty, "%.*s\n", (int)len - 1, (const char *)result);
+	}
+
+	vty_mgmt_resume_response(vty, ret);
+
+	return 0;
+}
+
+static int vty_mgmt_edit_result_notified(struct mgmt_fe_client *client,
+					 uintptr_t user_data,
+					 uint64_t client_id, uint64_t session_id,
+					 uintptr_t session_ctx, uint64_t req_id,
+					 const char *xpath)
+{
+	struct vty *vty = (struct vty *)session_ctx;
+
+	debug_fe_client("EDIT request for client 0x%" PRIx64 " req-id %" PRIu64
+			" was successful, xpath: %s",
+			client_id, req_id, xpath);
+
+	vty_mgmt_resume_response(vty, CMD_SUCCESS);
+
+	return 0;
+}
+
+static int vty_mgmt_rpc_result_notified(struct mgmt_fe_client *client,
+					uintptr_t user_data, uint64_t client_id,
+					uint64_t session_id,
+					uintptr_t session_ctx, uint64_t req_id,
+					const char *result)
+{
+	struct vty *vty = (struct vty *)session_ctx;
+
+	debug_fe_client("RPC request for client 0x%" PRIx64 " req-id %" PRIu64
+			" was successful",
+			client_id, req_id);
+
+	if (result)
+		vty_out(vty, "%s\n", result);
+
+	vty_mgmt_resume_response(vty, CMD_SUCCESS);
+
+	return 0;
+}
+
+static int vty_mgmt_error_notified(struct mgmt_fe_client *client,
+				   uintptr_t user_data, uint64_t client_id,
+				   uint64_t session_id, uintptr_t session_ctx,
+				   uint64_t req_id, int error,
+				   const char *errstr)
+{
+	struct vty *vty = (struct vty *)session_ctx;
+	const char *cname = mgmt_fe_client_name(client);
+
+	if (!vty->mgmt_req_pending_cmd) {
+		debug_fe_client("Error with no pending command: %d returned for client %s 0x%" PRIx64
+				" session-id %" PRIu64 " req-id %" PRIu64
+				"error-str %s",
+				error, cname, client_id, session_id, req_id,
+				errstr);
+		vty_out(vty,
+			"%% Error %d from MGMTD for %s with no pending command: %s\n",
+			error, cname, errstr);
+		return CMD_WARNING;
+	}
+
+	debug_fe_client("Error %d returned for client %s 0x%" PRIx64
+			" session-id %" PRIu64 " req-id %" PRIu64 "error-str %s",
+			error, cname, client_id, session_id, req_id, errstr);
+
+	vty_out(vty, "%% %s (for %s, client %s)\n", errstr,
+		vty->mgmt_req_pending_cmd, cname);
+
+	vty_mgmt_resume_response(vty, error ? CMD_WARNING : CMD_SUCCESS);
+
+	return 0;
+}
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 static struct mgmt_fe_client_cbs mgmt_cbs = {
 	.client_connect_notify = vty_mgmt_server_connected,
 	.client_session_notify = vty_mgmt_session_notify,
@@ -3669,6 +4128,14 @@ static struct mgmt_fe_client_cbs mgmt_cbs = {
 	.set_config_notify = vty_mgmt_set_config_result_notified,
 	.commit_config_notify = vty_mgmt_commit_config_result_notified,
 	.get_data_notify = vty_mgmt_get_data_result_notified,
+<<<<<<< HEAD
+=======
+	.get_tree_notify = vty_mgmt_get_tree_result_notified,
+	.edit_notify = vty_mgmt_edit_result_notified,
+	.rpc_notify = vty_mgmt_rpc_result_notified,
+	.error_notify = vty_mgmt_error_notified,
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 };
 
 void vty_init_mgmt_fe(void)
@@ -3715,12 +4182,22 @@ int vty_mgmt_send_lockds_req(struct vty *vty, Mgmtd__DatastoreId ds_id,
 	return 0;
 }
 
+<<<<<<< HEAD
 int vty_mgmt_send_config_data(struct vty *vty, bool implicit_commit)
+=======
+int vty_mgmt_send_config_data(struct vty *vty, const char *xpath_base,
+			      bool implicit_commit)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 {
 	Mgmtd__YangDataValue value[VTY_MAXCFGCHANGES];
 	Mgmtd__YangData cfg_data[VTY_MAXCFGCHANGES];
 	Mgmtd__YangCfgDataReq cfg_req[VTY_MAXCFGCHANGES];
 	Mgmtd__YangCfgDataReq *cfgreq[VTY_MAXCFGCHANGES] = {0};
+<<<<<<< HEAD
+=======
+	char xpath[VTY_MAXCFGCHANGES][XPATH_MAXLEN];
+	char *change_xpath;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	size_t indx;
 
 	if (vty->type == VTY_FILE) {
@@ -3756,6 +4233,12 @@ int vty_mgmt_send_config_data(struct vty *vty, bool implicit_commit)
 		}
 	}
 
+<<<<<<< HEAD
+=======
+	if (xpath_base == NULL)
+		xpath_base = "";
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	for (indx = 0; indx < vty->num_cfg_changes; indx++) {
 		mgmt_yang_data_init(&cfg_data[indx]);
 
@@ -3768,16 +4251,35 @@ int vty_mgmt_send_config_data(struct vty *vty, bool implicit_commit)
 			cfg_data[indx].value = &value[indx];
 		}
 
+<<<<<<< HEAD
 		cfg_data[indx].xpath = vty->cfg_changes[indx].xpath;
+=======
+		change_xpath = vty->cfg_changes[indx].xpath;
+
+		memset(xpath[indx], 0, sizeof(xpath[indx]));
+		/* If change xpath is relative, prepend base xpath. */
+		if (change_xpath[0] == '.') {
+			strlcpy(xpath[indx], xpath_base, sizeof(xpath[indx]));
+			change_xpath++; /* skip '.' */
+		}
+		strlcat(xpath[indx], change_xpath, sizeof(xpath[indx]));
+
+		cfg_data[indx].xpath = xpath[indx];
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 		mgmt_yang_cfg_data_req_init(&cfg_req[indx]);
 		cfg_req[indx].data = &cfg_data[indx];
 		switch (vty->cfg_changes[indx].operation) {
+<<<<<<< HEAD
 		case NB_OP_DESTROY:
+=======
+		case NB_OP_DELETE:
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			cfg_req[indx].req_type =
 				MGMTD__CFG_DATA_REQ_TYPE__DELETE_DATA;
 			break;
 
+<<<<<<< HEAD
 		case NB_OP_CREATE:
 		case NB_OP_MODIFY:
 		case NB_OP_MOVE:
@@ -3791,6 +4293,29 @@ int vty_mgmt_send_config_data(struct vty *vty, bool implicit_commit)
 		case NB_OP_GET_KEYS:
 		case NB_OP_LOOKUP_ENTRY:
 		case NB_OP_RPC:
+=======
+		case NB_OP_DESTROY:
+			cfg_req[indx].req_type =
+				MGMTD__CFG_DATA_REQ_TYPE__REMOVE_DATA;
+			break;
+
+		case NB_OP_CREATE_EXCL:
+			cfg_req[indx].req_type =
+				MGMTD__CFG_DATA_REQ_TYPE__CREATE_DATA;
+			break;
+
+		case NB_OP_REPLACE:
+			cfg_req[indx].req_type =
+				MGMTD__CFG_DATA_REQ_TYPE__REPLACE_DATA;
+			break;
+
+		case NB_OP_CREATE:
+		case NB_OP_MODIFY:
+		case NB_OP_MOVE:
+			cfg_req[indx].req_type =
+				MGMTD__CFG_DATA_REQ_TYPE__SET_DATA;
+			break;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		default:
 			assertf(false,
 				"Invalid operation type for send config: %d",
@@ -3874,6 +4399,74 @@ int vty_mgmt_send_get_req(struct vty *vty, bool is_config,
 	return 0;
 }
 
+<<<<<<< HEAD
+=======
+int vty_mgmt_send_get_data_req(struct vty *vty, uint8_t datastore,
+			       LYD_FORMAT result_type, uint8_t flags,
+			       uint8_t defaults, const char *xpath)
+{
+	LYD_FORMAT intern_format = result_type;
+
+	vty->mgmt_req_id++;
+
+	if (mgmt_fe_send_get_data_req(mgmt_fe_client, vty->mgmt_session_id,
+				      vty->mgmt_req_id, datastore,
+				      intern_format, flags, defaults, xpath)) {
+		zlog_err("Failed to send GET-DATA to MGMTD session-id: %" PRIu64
+			 " req-id %" PRIu64 ".",
+			 vty->mgmt_session_id, vty->mgmt_req_id);
+		vty_out(vty, "Failed to send GET-DATA to MGMTD!\n");
+		return -1;
+	}
+
+	vty->mgmt_req_pending_cmd = "MESSAGE_GET_DATA_REQ";
+	vty->mgmt_req_pending_data = result_type;
+
+	return 0;
+}
+
+int vty_mgmt_send_edit_req(struct vty *vty, uint8_t datastore,
+			   LYD_FORMAT request_type, uint8_t flags,
+			   uint8_t operation, const char *xpath,
+			   const char *data)
+{
+	vty->mgmt_req_id++;
+
+	if (mgmt_fe_send_edit_req(mgmt_fe_client, vty->mgmt_session_id,
+				  vty->mgmt_req_id, datastore, request_type,
+				  flags, operation, xpath, data)) {
+		zlog_err("Failed to send EDIT to MGMTD session-id: %" PRIu64
+			 " req-id %" PRIu64 ".",
+			 vty->mgmt_session_id, vty->mgmt_req_id);
+		vty_out(vty, "Failed to send EDIT to MGMTD!\n");
+		return -1;
+	}
+
+	vty->mgmt_req_pending_cmd = "MESSAGE_EDIT_REQ";
+
+	return 0;
+}
+
+int vty_mgmt_send_rpc_req(struct vty *vty, LYD_FORMAT request_type,
+			  const char *xpath, const char *data)
+{
+	vty->mgmt_req_id++;
+
+	if (mgmt_fe_send_rpc_req(mgmt_fe_client, vty->mgmt_session_id,
+				 vty->mgmt_req_id, request_type, xpath, data)) {
+		zlog_err("Failed to send RPC to MGMTD session-id: %" PRIu64
+			 " req-id %" PRIu64 ".",
+			 vty->mgmt_session_id, vty->mgmt_req_id);
+		vty_out(vty, "Failed to send RPC to MGMTD!\n");
+		return -1;
+	}
+
+	vty->mgmt_req_pending_cmd = "MESSAGE_RPC_REQ";
+
+	return 0;
+}
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 /* Install vty's own commands like `who' command. */
 void vty_init(struct event_loop *master_thread, bool do_command_logging)
 {

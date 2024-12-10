@@ -98,6 +98,10 @@ typedef enum {
 	ZEBRA_INTERFACE_UP,
 	ZEBRA_INTERFACE_DOWN,
 	ZEBRA_INTERFACE_SET_MASTER,
+<<<<<<< HEAD
+=======
+	ZEBRA_INTERFACE_SET_ARP,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	ZEBRA_INTERFACE_SET_PROTODOWN,
 	ZEBRA_ROUTE_ADD,
 	ZEBRA_ROUTE_DELETE,
@@ -123,7 +127,10 @@ typedef enum {
 	ZEBRA_BFD_DEST_REPLAY,
 	ZEBRA_REDISTRIBUTE_ROUTE_ADD,
 	ZEBRA_REDISTRIBUTE_ROUTE_DEL,
+<<<<<<< HEAD
 	ZEBRA_VRF_UNREGISTER,
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	ZEBRA_VRF_ADD,
 	ZEBRA_VRF_DELETE,
 	ZEBRA_VRF_LABEL,
@@ -208,6 +215,12 @@ typedef enum {
 	ZEBRA_SRV6_LOCATOR_DELETE,
 	ZEBRA_SRV6_MANAGER_GET_LOCATOR_CHUNK,
 	ZEBRA_SRV6_MANAGER_RELEASE_LOCATOR_CHUNK,
+<<<<<<< HEAD
+=======
+	ZEBRA_SRV6_MANAGER_GET_LOCATOR,
+	ZEBRA_SRV6_MANAGER_GET_SRV6_SID,
+	ZEBRA_SRV6_MANAGER_RELEASE_SRV6_SID,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	ZEBRA_ERROR,
 	ZEBRA_CLIENT_CAPABILITIES,
 	ZEBRA_OPAQUE_MESSAGE,
@@ -216,11 +229,19 @@ typedef enum {
 	ZEBRA_NEIGH_DISCOVER,
 	ZEBRA_ROUTE_NOTIFY_REQUEST,
 	ZEBRA_CLIENT_CLOSE_NOTIFY,
+<<<<<<< HEAD
 	ZEBRA_NHRP_NEIGH_ADDED,
 	ZEBRA_NHRP_NEIGH_REMOVED,
 	ZEBRA_NHRP_NEIGH_GET,
 	ZEBRA_NHRP_NEIGH_REGISTER,
 	ZEBRA_NHRP_NEIGH_UNREGISTER,
+=======
+	ZEBRA_NEIGH_ADDED,
+	ZEBRA_NEIGH_REMOVED,
+	ZEBRA_NEIGH_GET,
+	ZEBRA_NEIGH_REGISTER,
+	ZEBRA_NEIGH_UNREGISTER,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	ZEBRA_NEIGH_IP_ADD,
 	ZEBRA_NEIGH_IP_DEL,
 	ZEBRA_CONFIGURE_ARP,
@@ -234,6 +255,10 @@ typedef enum {
 	ZEBRA_TC_FILTER_ADD,
 	ZEBRA_TC_FILTER_DELETE,
 	ZEBRA_OPAQUE_NOTIFY,
+<<<<<<< HEAD
+=======
+	ZEBRA_SRV6_SID_NOTIFY,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 } zebra_message_types_t;
 /* Zebra message types. Please update the corresponding
  * command_types array with any changes!
@@ -247,6 +272,7 @@ enum zebra_error_types {
 
 static inline const char *zebra_error_type2str(enum zebra_error_types type)
 {
+<<<<<<< HEAD
 	const char *ret = "UNKNOWN";
 
 	switch (type) {
@@ -262,6 +288,18 @@ static inline const char *zebra_error_type2str(enum zebra_error_types type)
 	}
 
 	return ret;
+=======
+	switch (type) {
+	case ZEBRA_UNKNOWN_ERROR:
+		return "ZEBRA_UNKNOWN_ERROR";
+	case ZEBRA_NO_VRF:
+		return "ZEBRA_NO_VRF";
+	case ZEBRA_INVALID_MSG_TYPE:
+		return "ZEBRA_INVALID_MSG_TYPE";
+	}
+
+	return "UNKNOWN";
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 }
 
 struct redist_proto {
@@ -293,6 +331,11 @@ struct zapi_cap {
 typedef int (zclient_handler)(ZAPI_CALLBACK_ARGS);
 /* clang-format on */
 
+<<<<<<< HEAD
+=======
+struct zapi_route;
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 /* Structure for the zebra client. */
 struct zclient {
 	/* The thread master we schedule ourselves on */
@@ -301,12 +344,23 @@ struct zclient {
 	/* Privileges to change socket values */
 	struct zebra_privs_t *privs;
 
+<<<<<<< HEAD
 	/* Do we care about failure events for route install? */
 	bool receive_notify;
 
 	/* Is this a synchronous client? */
 	bool synchronous;
 
+=======
+	/* Is this a synchronous client? */
+	bool synchronous;
+
+	/* Auxiliary clients don't execute standard library handlers
+	 * (which otherwise would duplicate VRF/interface add/delete/etc.
+	 */
+	bool auxiliary;
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	/* BFD enabled with bfd_protocol_integration_init() */
 	bool bfd_integration;
 
@@ -348,6 +402,22 @@ struct zclient {
 	void (*zebra_connected)(struct zclient *);
 	void (*zebra_capabilities)(struct zclient_capabilities *cap);
 
+<<<<<<< HEAD
+=======
+	/*
+	 * match -> is the prefix that the calling daemon asked to be matched
+	 * against.
+	 * nhr->prefix -> is the actual prefix that was matched against in the
+	 * rib itself.
+	 *
+	 * This distinction is made because a LPM can be made if there is a
+	 * covering route.  This way the upper level protocol can make a
+	 * decision point about whether or not it wants to use the match or not.
+	 */
+	void (*nexthop_update)(struct vrf *vrf, struct prefix *match,
+			       struct zapi_route *nhr);
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	int (*handle_error)(enum zebra_error_types error);
 
 	/*
@@ -423,7 +493,11 @@ struct zapi_nexthop {
 
 	struct ethaddr rmac;
 
+<<<<<<< HEAD
 	uint32_t weight;
+=======
+	uint64_t weight;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	/* Backup nexthops, for IP-FRR, TI-LFA, etc */
 	uint8_t backup_num;
@@ -629,7 +703,11 @@ struct zapi_sr_policy {
 };
 
 struct zapi_pw {
+<<<<<<< HEAD
 	char ifname[INTERFACE_NAMSIZ];
+=======
+	char ifname[IFNAMSIZ];
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	ifindex_t ifindex;
 	int type;
 	int af;
@@ -642,7 +720,11 @@ struct zapi_pw {
 };
 
 struct zapi_pw_status {
+<<<<<<< HEAD
 	char ifname[INTERFACE_NAMSIZ];
+=======
+	char ifname[IFNAMSIZ];
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	ifindex_t ifindex;
 	uint32_t status;
 };
@@ -743,6 +825,16 @@ enum zapi_iptable_notify_owner {
 	ZAPI_IPTABLE_FAIL_REMOVE,
 };
 
+<<<<<<< HEAD
+=======
+enum zapi_srv6_sid_notify {
+	ZAPI_SRV6_SID_FAIL_ALLOC = 0,
+	ZAPI_SRV6_SID_ALLOCATED,
+	ZAPI_SRV6_SID_RELEASED,
+	ZAPI_SRV6_SID_FAIL_RELEASE,
+};
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 enum zclient_send_status {
 	ZCLIENT_SEND_FAILURE = -1,
 	ZCLIENT_SEND_SUCCESS = 0,
@@ -752,6 +844,7 @@ enum zclient_send_status {
 static inline const char *
 zapi_nhg_notify_owner2str(enum zapi_nhg_notify_owner note)
 {
+<<<<<<< HEAD
 	const char *ret = "UNKNOWN";
 
 	switch (note) {
@@ -770,11 +863,26 @@ zapi_nhg_notify_owner2str(enum zapi_nhg_notify_owner note)
 	}
 
 	return ret;
+=======
+	switch (note) {
+	case ZAPI_NHG_FAIL_INSTALL:
+		return "ZAPI_NHG_FAIL_INSTALL";
+	case ZAPI_NHG_INSTALLED:
+		return "ZAPI_NHG_INSTALLED";
+	case ZAPI_NHG_REMOVE_FAIL:
+		return "ZAPI_NHG_REMOVE_FAIL";
+	case ZAPI_NHG_REMOVED:
+		return "ZAPI_NHG_REMOVED";
+	}
+
+	return "UNKNOWN";
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 }
 
 static inline const char *
 zapi_rule_notify_owner2str(enum zapi_rule_notify_owner note)
 {
+<<<<<<< HEAD
 	const char *ret = "UNKNOWN";
 
 	switch (note) {
@@ -793,6 +901,36 @@ zapi_rule_notify_owner2str(enum zapi_rule_notify_owner note)
 	}
 
 	return ret;
+=======
+	switch (note) {
+	case ZAPI_RULE_FAIL_INSTALL:
+		return "ZAPI_RULE_FAIL_INSTALL";
+	case ZAPI_RULE_INSTALLED:
+		return "ZAPI_RULE_INSTALLED";
+	case ZAPI_RULE_FAIL_REMOVE:
+		return "ZAPI_RULE_FAIL_REMOVE";
+	case ZAPI_RULE_REMOVED:
+		return "ZAPI_RULE_REMOVED";
+	}
+
+	return "UNKNOWN";
+}
+
+static inline const char *zapi_srv6_sid_notify2str(enum zapi_srv6_sid_notify note)
+{
+	switch (note) {
+	case ZAPI_SRV6_SID_FAIL_ALLOC:
+		return "ZAPI_SRV6_SID_FAIL_ALLOC";
+	case ZAPI_SRV6_SID_ALLOCATED:
+		return "ZAPI_SRV6_SID_ALLOCATED";
+	case ZAPI_SRV6_SID_FAIL_RELEASE:
+		return "ZAPI_SRV6_SID_FAIL_RELEASE";
+	case ZAPI_SRV6_SID_RELEASED:
+		return "ZAPI_SRV6_SID_RELEASED";
+	}
+
+	return "UNKNOWN";
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 }
 
 /* Zebra MAC types */
@@ -819,11 +957,26 @@ extern char *zclient_evpn_dump_macip_flags(uint8_t flags, char *buf,
 enum zebra_neigh_state { ZEBRA_NEIGH_INACTIVE = 0, ZEBRA_NEIGH_ACTIVE = 1 };
 
 struct zclient_options {
+<<<<<<< HEAD
 	bool receive_notify;
 	bool synchronous;
 };
 
 extern struct zclient_options zclient_options_default;
+=======
+	bool synchronous;
+
+	/* auxiliary = don't call common lib/ handlers that manage bits.
+	 * Those should only run once, on the "main" zclient, which this is
+	 * not.  (This is also set for synchronous clients.)
+	 */
+	bool auxiliary;
+};
+
+extern const struct zclient_options zclient_options_default;
+extern const struct zclient_options zclient_options_sync;
+extern const struct zclient_options zclient_options_auxiliary;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 /* link layer representation for GRE like interfaces
  * ip_in is the underlay IP, ip_out is the tunnel dest
@@ -843,6 +996,10 @@ extern struct zclient_options zclient_options_default;
 
 struct zapi_neigh_ip {
 	int cmd;
+<<<<<<< HEAD
+=======
+	int ip_len;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	struct ipaddr ip_in;
 	struct ipaddr ip_out;
 	ifindex_t index;
@@ -851,7 +1008,11 @@ struct zapi_neigh_ip {
 int zclient_neigh_ip_decode(struct stream *s, struct zapi_neigh_ip *api);
 int zclient_neigh_ip_encode(struct stream *s, uint16_t cmd, union sockunion *in,
 			    union sockunion *out, struct interface *ifp,
+<<<<<<< HEAD
 			    int ndm_state);
+=======
+			    int ndm_state, int ip_len);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 /*
  * We reserve the top 4 bits for l2-NHG, everything else
@@ -865,12 +1026,20 @@ int zclient_neigh_ip_encode(struct stream *s, uint16_t cmd, union sockunion *in,
 	((uint32_t)250000000) /* Bottom 28 bits then rounded down */
 #define ZEBRA_NHG_PROTO_SPACING (ZEBRA_NHG_PROTO_UPPER / ZEBRA_ROUTE_MAX)
 #define ZEBRA_NHG_PROTO_LOWER                                                  \
+<<<<<<< HEAD
 	(ZEBRA_NHG_PROTO_SPACING * (ZEBRA_ROUTE_CONNECT + 1))
+=======
+	(ZEBRA_NHG_PROTO_SPACING * (ZEBRA_ROUTE_LOCAL + 1))
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 extern uint32_t zclient_get_nhg_start(uint32_t proto);
 
 extern struct zclient *zclient_new(struct event_loop *m,
+<<<<<<< HEAD
 				   struct zclient_options *opt,
+=======
+				   const struct zclient_options *opt,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 				   zclient_handler *const *handlers,
 				   size_t n_handlers);
 
@@ -1011,6 +1180,12 @@ extern int zclient_read_header(struct stream *s, int sock, uint16_t *size,
  */
 extern bool zapi_parse_header(struct stream *zmsg, struct zmsghdr *hdr);
 
+<<<<<<< HEAD
+=======
+extern enum zclient_send_status zclient_interface_set_arp(struct zclient *client,
+							  struct interface *ifp,
+							  bool arp_enable);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 extern enum zclient_send_status
 zclient_interface_set_master(struct zclient *client, struct interface *master,
 			     struct interface *slave);
@@ -1019,9 +1194,12 @@ extern struct connected *zebra_interface_address_read(int, struct stream *,
 						      vrf_id_t);
 extern struct nbr_connected *
 zebra_interface_nbr_address_read(int, struct stream *, vrf_id_t);
+<<<<<<< HEAD
 extern struct interface *zebra_interface_vrf_update_read(struct stream *s,
 							 vrf_id_t vrf_id,
 							 vrf_id_t *new_vrf_id);
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 extern int zebra_router_id_update_read(struct stream *s, struct prefix *rid);
 
 extern struct interface *zebra_interface_link_params_read(struct stream *s,
@@ -1044,10 +1222,29 @@ extern int tm_get_table_chunk(struct zclient *zclient, uint32_t chunk_size,
 			      uint32_t *start, uint32_t *end);
 extern int tm_release_table_chunk(struct zclient *zclient, uint32_t start,
 				  uint32_t end);
+<<<<<<< HEAD
+=======
+
+/* Zebra SRv6 Manager flags */
+#define ZAPI_SRV6_MANAGER_SID_FLAG_HAS_SID_VALUE 0x01
+#define ZAPI_SRV6_MANAGER_SID_FLAG_HAS_LOCATOR	 0x02
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 extern int srv6_manager_get_locator_chunk(struct zclient *zclient,
 					  const char *locator_name);
 extern int srv6_manager_release_locator_chunk(struct zclient *zclient,
 					      const char *locator_name);
+<<<<<<< HEAD
+=======
+extern int srv6_manager_get_locator(struct zclient *zclient,
+				    const char *locator_name);
+extern int srv6_manager_get_sid(struct zclient *zclient,
+				const struct srv6_sid_ctx *ctx,
+				struct in6_addr *sid_value,
+				const char *locator_name, uint32_t *sid_func);
+extern int srv6_manager_release_sid(struct zclient *zclient,
+				    const struct srv6_sid_ctx *ctx);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 extern enum zclient_send_status zebra_send_sr_policy(struct zclient *zclient,
 						     int cmd,
@@ -1102,6 +1299,14 @@ bool zapi_rule_notify_decode(struct stream *s, uint32_t *seqno,
 bool zapi_ipset_notify_decode(struct stream *s,
 			      uint32_t *unique,
 			     enum zapi_ipset_notify_owner *note);
+<<<<<<< HEAD
+=======
+bool zapi_srv6_sid_notify_decode(struct stream *s, struct srv6_sid_ctx *ctx,
+				 struct in6_addr *sid_value, uint32_t *func,
+				 uint32_t *wide_func,
+				 enum zapi_srv6_sid_notify *note,
+				 char **locator_name);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 /* Nexthop-group message apis */
 extern enum zclient_send_status
@@ -1123,6 +1328,7 @@ int zapi_nexthop_from_nexthop(struct zapi_nexthop *znh,
 			      const struct nexthop *nh);
 int zapi_backup_nexthop_from_nexthop(struct zapi_nexthop *znh,
 				     const struct nexthop *nh);
+<<<<<<< HEAD
 /*
  * match -> is the prefix that the calling daemon asked to be matched
  * against.
@@ -1135,6 +1341,8 @@ int zapi_backup_nexthop_from_nexthop(struct zapi_nexthop *znh,
  */
 extern bool zapi_nexthop_update_decode(struct stream *s, struct prefix *match,
 				       struct zapi_route *nhr);
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 const char *zapi_nexthop2str(const struct zapi_nexthop *znh, char *buf,
 			     int bufsize);
 
@@ -1157,6 +1365,18 @@ static inline void zapi_route_set_blackhole(struct zapi_route *api,
 	SET_FLAG(api->message, ZAPI_MESSAGE_NEXTHOP);
 };
 
+<<<<<<< HEAD
+=======
+static inline void zapi_route_set_nhg_id(struct zapi_route *api,
+					 uint32_t *nhg_id)
+{
+	api->nexthop_num = 0;
+	api->nhgid = *nhg_id;
+	if (api->nhgid)
+		SET_FLAG(api->message, ZAPI_MESSAGE_NHG);
+};
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 extern enum zclient_send_status
 zclient_send_mlag_register(struct zclient *client, uint32_t bit_map);
 extern enum zclient_send_status
@@ -1304,6 +1524,12 @@ enum zapi_opaque_registry {
  */
 extern enum zclient_send_status zclient_send_hello(struct zclient *client);
 
+<<<<<<< HEAD
+=======
+extern void zclient_register_neigh(struct zclient *zclient, vrf_id_t vrf_id,
+				   afi_t afi, bool reg);
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 extern enum zclient_send_status
 zclient_send_neigh_discovery_req(struct zclient *zclient,
 				 const struct interface *ifp,

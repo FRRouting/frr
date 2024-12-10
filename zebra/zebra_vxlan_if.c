@@ -208,13 +208,21 @@ static int zebra_vxlan_if_update_vni(struct interface *ifp,
 				chgflags);
 
 		/* Removed from bridge? Cleanup and return */
+<<<<<<< HEAD
 		if ((chgflags & ZEBRA_VXLIF_MASTER_CHANGE) &&
+=======
+		if (CHECK_FLAG(chgflags, ZEBRA_VXLIF_MASTER_CHANGE) &&
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		    (zif->brslave_info.bridge_ifindex == IFINDEX_INTERNAL)) {
 			zebra_vxlan_process_l3vni_oper_down(zl3vni);
 			return 0;
 		}
 
+<<<<<<< HEAD
 		if ((chgflags & ZEBRA_VXLIF_MASTER_MAC_CHANGE) &&
+=======
+		if (CHECK_FLAG(chgflags, ZEBRA_VXLIF_MASTER_MAC_CHANGE) &&
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		    if_is_operative(ifp) && is_l3vni_oper_up(zl3vni)) {
 			zebra_vxlan_process_l3vni_oper_down(zl3vni);
 			zebra_vxlan_process_l3vni_oper_up(zl3vni);
@@ -224,7 +232,11 @@ static int zebra_vxlan_if_update_vni(struct interface *ifp,
 		/* access-vlan change - process oper down, associate with new
 		 * svi_if and then process oper up again
 		 */
+<<<<<<< HEAD
 		if (chgflags & ZEBRA_VXLIF_VLAN_CHANGE) {
+=======
+		if (CHECK_FLAG(chgflags, ZEBRA_VXLIF_VLAN_CHANGE)) {
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			if (if_is_operative(ifp)) {
 				zebra_vxlan_process_l3vni_oper_down(zl3vni);
 				zl3vni->svi_if = NULL;
@@ -242,7 +254,11 @@ static int zebra_vxlan_if_update_vni(struct interface *ifp,
 		 * local-ip change - process oper down, associate with new
 		 * local-ip and then process oper up again
 		 */
+<<<<<<< HEAD
 		if (chgflags & ZEBRA_VXLIF_LOCAL_IP_CHANGE) {
+=======
+		if (CHECK_FLAG(chgflags, ZEBRA_VXLIF_LOCAL_IP_CHANGE)) {
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			if (if_is_operative(ifp)) {
 				zebra_vxlan_process_l3vni_oper_down(zl3vni);
 				zl3vni->local_vtep_ip = vxl->vtep_ip;
@@ -262,7 +278,11 @@ static int zebra_vxlan_if_update_vni(struct interface *ifp,
 		zl3vni_bridge_if_set(zl3vni, br_if, true /* set */);
 
 		/* if we have a valid new master, process l3-vni oper up */
+<<<<<<< HEAD
 		if (chgflags & ZEBRA_VXLIF_MASTER_CHANGE) {
+=======
+		if (CHECK_FLAG(chgflags, ZEBRA_VXLIF_MASTER_CHANGE)) {
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			if (if_is_operative(ifp) && is_l3vni_oper_up(zl3vni))
 				zebra_vxlan_process_l3vni_oper_up(zl3vni);
 		}
@@ -285,7 +305,11 @@ static int zebra_vxlan_if_update_vni(struct interface *ifp,
 				chgflags);
 
 		/* Removed from bridge? Cleanup and return */
+<<<<<<< HEAD
 		if ((chgflags & ZEBRA_VXLIF_MASTER_CHANGE) &&
+=======
+		if (CHECK_FLAG(chgflags, ZEBRA_VXLIF_MASTER_CHANGE) &&
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		    (zif->brslave_info.bridge_ifindex == IFINDEX_INTERNAL)) {
 			/* Delete from client, remove all remote VTEPs */
 			/* Also, free up all MACs and neighbors. */
@@ -298,7 +322,11 @@ static int zebra_vxlan_if_update_vni(struct interface *ifp,
 		}
 
 		/* Handle other changes. */
+<<<<<<< HEAD
 		if (chgflags & ZEBRA_VXLIF_VLAN_CHANGE) {
+=======
+		if (CHECK_FLAG(chgflags, ZEBRA_VXLIF_VLAN_CHANGE)) {
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			/* Remove all existing local neigh and MACs for this VNI
 			 * (including from BGP)
 			 */
@@ -341,9 +369,16 @@ static int zebra_vxlan_if_update_vni(struct interface *ifp,
 			return 0;
 
 		/* Inform BGP, if there is a change of interest. */
+<<<<<<< HEAD
 		if (chgflags &
 		    (ZEBRA_VXLIF_MASTER_CHANGE | ZEBRA_VXLIF_LOCAL_IP_CHANGE |
 		     ZEBRA_VXLIF_MCAST_GRP_CHANGE | ZEBRA_VXLIF_VLAN_CHANGE))
+=======
+		if (CHECK_FLAG(chgflags, (ZEBRA_VXLIF_MASTER_CHANGE |
+					  ZEBRA_VXLIF_LOCAL_IP_CHANGE |
+					  ZEBRA_VXLIF_MCAST_GRP_CHANGE |
+					  ZEBRA_VXLIF_VLAN_CHANGE)))
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			zebra_evpn_send_add_to_client(zevpn);
 
 		/* If there is a valid new master or a VLAN mapping change,
@@ -351,9 +386,15 @@ static int zebra_vxlan_if_update_vni(struct interface *ifp,
 		 * Also, reinstall any remote MACs and neighbors
 		 * for this VNI (based on new VLAN).
 		 */
+<<<<<<< HEAD
 		if (chgflags & ZEBRA_VXLIF_MASTER_CHANGE)
 			zebra_evpn_read_mac_neigh(zevpn, ifp);
 		else if (chgflags & ZEBRA_VXLIF_VLAN_CHANGE) {
+=======
+		if (CHECK_FLAG(chgflags, ZEBRA_VXLIF_MASTER_CHANGE))
+			zebra_evpn_read_mac_neigh(zevpn, ifp);
+		else if (CHECK_FLAG(chgflags, ZEBRA_VXLIF_VLAN_CHANGE)) {
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			struct neigh_walk_ctx n_wctx;
 
 			zebra_evpn_read_mac_neigh(zevpn, ifp);
@@ -506,7 +547,11 @@ static int zebra_vxlan_if_add_update_vni(struct zebra_if *zif,
 	if ((hashcount(ctx->old_vni_table) == 0) ||
 	    !(old_vni = hash_release(ctx->old_vni_table, &vni_tmp))) {
 		if (IS_ZEBRA_DEBUG_VXLAN)
+<<<<<<< HEAD
 			zlog_debug("vxlan %s adding vni(%d, %d)",
+=======
+			zlog_debug("%s vxlan %s adding vni(%d, %d)", __func__,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 				   zif->ifp->name, vni->vni, vni->access_vlan);
 
 		zebra_vxlan_if_vni_entry_add(zif, &vni_tmp);
@@ -521,17 +566,50 @@ static int zebra_vxlan_if_add_update_vni(struct zebra_if *zif,
 
 	if (old_vni->access_vlan != vni->access_vlan) {
 		if (IS_ZEBRA_DEBUG_VXLAN)
+<<<<<<< HEAD
 			zlog_debug(
 				"vxlan %s updating vni(%d, %d) -> vni(%d, %d)",
 				zif->ifp->name, old_vni->vni,
 				old_vni->access_vlan, vni->vni,
 				vni->access_vlan);
+=======
+			zlog_debug("%s vxlan %s updating vni(%d, %d) -> vni(%d, %d)",
+				   __func__, zif->ifp->name, old_vni->vni,
+				   old_vni->access_vlan, vni->vni,
+				   vni->access_vlan);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 		zebra_evpn_vl_vxl_deref(old_vni->access_vlan, old_vni->vni,
 					zif);
 		zebra_evpn_vl_vxl_ref(vni->access_vlan, vni->vni, zif);
 		zebra_vxlan_if_update_vni(zif->ifp, vni, ctx);
 		zebra_vxlan_vni_free(old_vni);
+<<<<<<< HEAD
+=======
+	} else {
+		int ret;
+
+		ret = zebra_evpn_vl_vxl_bridge_lookup(vni->access_vlan, zif);
+		/* Here ret value 0 implied bridge vlan mapping is not present
+		 * repopulated. Ignore ret value 1 as it means vlan mapping is
+		 * present in bridge table.
+		 */
+		if (ret < 0) {
+			if (IS_ZEBRA_DEBUG_VXLAN)
+				zlog_debug("%s vxlan %s vni %u has error accessing bridge table.",
+					   __func__, zif->ifp->name, vni->vni);
+		} else if (ret == 0) {
+			if (IS_ZEBRA_DEBUG_VXLAN)
+				zlog_debug("%s vxlan %s vni (%u, %u) not present in bridge table",
+					   __func__, zif->ifp->name, vni->vni,
+					   vni->access_vlan);
+			zebra_evpn_vl_vxl_deref(old_vni->access_vlan,
+						old_vni->vni, zif);
+			zebra_evpn_vl_vxl_ref(vni->access_vlan, vni->vni, zif);
+			zebra_vxlan_if_update_vni(zif->ifp, vni, ctx);
+			zebra_vxlan_vni_free(old_vni);
+		}
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	}
 
 	return 0;
@@ -768,6 +846,10 @@ vni_t zebra_vxlan_if_access_vlan_vni_find(struct zebra_if *zif,
 	return vni->vni;
 }
 
+<<<<<<< HEAD
+=======
+/* SVD VLAN-VNI mapping update */
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 int zebra_vxlan_if_vni_table_add_update(struct interface *ifp,
 					struct hash *vni_table)
 {
@@ -1008,7 +1090,17 @@ int zebra_vxlan_if_vni_up(struct interface *ifp, struct zebra_vxlan_vni *vnip)
 		/* If part of a bridge, inform BGP about this VNI. */
 		/* Also, read and populate local MACs and neighbors. */
 		if (zif->brslave_info.br_if) {
+<<<<<<< HEAD
 			zebra_evpn_send_add_to_client(zevpn);
+=======
+			if (if_is_operative(zevpn->vxlan_if)) {
+				zebra_evpn_send_add_to_client(zevpn);
+			} else {
+				if (IS_ZEBRA_DEBUG_KERNEL || IS_ZEBRA_DEBUG_VXLAN)
+					zlog_debug("%s VNI %u vxlan_if %s oper down skipping vni up to client",
+						   __func__, zevpn->vni, zevpn->vxlan_if->name);
+			}
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			zebra_evpn_read_mac_neigh(zevpn, ifp);
 		}
 	}

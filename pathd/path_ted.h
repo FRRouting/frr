@@ -59,6 +59,7 @@ struct ted_state {
 	struct debug dbg;
 };
 /* Debug flags. */
+<<<<<<< HEAD
 #define PATH_TED_DEBUG_BASIC   0x01
 #define PATH_TED_DEBUG(fmt, ...)                                               \
 	do {                                                                   \
@@ -81,6 +82,19 @@ struct ted_state {
 		if (DEBUG_FLAGS_CHECK(&ted_state_g.dbg, PATH_TED_DEBUG_BASIC)) \
 			DEBUGI(&ted_state_g.dbg, "mpls-te: " fmt, ##__VA_ARGS__); \
 	} while (0)
+=======
+#define PATH_TED_DEBUG(fmt, ...)                                               \
+	DEBUGD(&ted_state_g.dbg, "mpls-te: " fmt, ##__VA_ARGS__)
+
+#define PATH_TED_ERROR(fmt, ...)                                               \
+	DEBUGE(&ted_state_g.dbg, "mpls-te: " fmt, ##__VA_ARGS__)
+
+#define PATH_TED_WARN(fmt, ...)                                                \
+	DEBUGW(&ted_state_g.dbg, "mpls-te: " fmt, ##__VA_ARGS__)
+
+#define PATH_TED_INFO(fmt, ...)                                                \
+	DEBUGI(&ted_state_g.dbg, "mpls-te: " fmt, ##__VA_ARGS__)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 /* TED management functions */
 bool path_ted_is_initialized(void);
@@ -92,7 +106,10 @@ int path_ted_segment_list_refresh(void);
 
 /* TED configuration functions */
 uint32_t path_ted_config_write(struct vty *vty);
+<<<<<<< HEAD
 void path_ted_show_debugging(struct vty *vty);
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 /* TED util functions */
 /* clang-format off */

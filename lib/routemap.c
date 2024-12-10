@@ -875,6 +875,31 @@ void route_map_walk_update_list(void (*route_map_update_fn)(char *name))
 	}
 }
 
+<<<<<<< HEAD
+=======
+static const char *route_map_action_reason2str(enum route_map_action_reason reason)
+{
+	switch (reason) {
+	case route_map_action_none:
+		return "none";
+	case route_map_action_map_null:
+		return "route-map is null";
+	case route_map_action_no_index:
+		return "no index";
+	case route_map_action_next_deny:
+		return "next statement is deny";
+	case route_map_action_exit:
+		return "exit policy";
+	case route_map_action_goto_null:
+		return "goto index is null";
+	case route_map_action_index_deny:
+		return "deny index";
+	}
+
+	return "Invalid reason";
+}
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 /* Return route map's type string. */
 static const char *route_map_type_str(enum route_map_type type)
 {
@@ -941,11 +966,20 @@ static void vty_show_route_map_entry(struct vty *vty, struct route_map *map,
 		json_object_boolean_add(json_rmap, "processedChange",
 					map->to_be_processed);
 		json_object_object_add(json_rmap, "rules", json_rules);
+<<<<<<< HEAD
 	} else {
 		vty_out(vty,
 			"route-map: %s Invoked: %" PRIu64
 			" Optimization: %s Processed Change: %s\n",
 			map->name, map->applied - map->applied_clear,
+=======
+		json_object_int_add(json_rmap, "cpuTimeMS", map->cputime / 1000);
+	} else {
+		vty_out(vty,
+			"route-map: %s Invoked: %" PRIu64
+			" (%zu milliseconds total) Optimization: %s Processed Change: %s\n",
+			map->name, map->applied - map->applied_clear, map->cputime / 1000,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			map->optimization_disabled ? "disabled" : "enabled",
 			map->to_be_processed ? "true" : "false");
 	}
@@ -967,6 +1001,10 @@ static void vty_show_route_map_entry(struct vty *vty, struct route_map *map,
 			json_object_int_add(json_rule, "invoked",
 					    index->applied
 						    - index->applied_clear);
+<<<<<<< HEAD
+=======
+			json_object_int_add(json_rule, "cpuTimeMS", index->cputime / 1000);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 			/* Description */
 			if (index->description)
@@ -1018,9 +1056,16 @@ static void vty_show_route_map_entry(struct vty *vty, struct route_map *map,
 				json_object_string_add(json_rule, "action",
 						       action);
 		} else {
+<<<<<<< HEAD
 			vty_out(vty, " %s, sequence %d Invoked %" PRIu64 "\n",
 				route_map_type_str(index->type), index->pref,
 				index->applied - index->applied_clear);
+=======
+			vty_out(vty,
+				" %s, sequence %d Invoked %" PRIu64 " (%zu milliseconds total)\n",
+				route_map_type_str(index->type), index->pref,
+				index->applied - index->applied_clear, index->cputime / 1000);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 			/* Description */
 			if (index->description)
@@ -2548,6 +2593,13 @@ route_map_result_t route_map_apply_ext(struct route_map *map,
 	struct route_map_index *index = NULL;
 	struct route_map_rule *set = NULL;
 	bool skip_match_clause = false;
+<<<<<<< HEAD
+=======
+	RUSAGE_T mbefore, mafter;
+	RUSAGE_T ibefore, iafter;
+	unsigned long cputime;
+	enum route_map_action_reason reason = route_map_action_none;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	if (recursion > RMAP_RECURSION_LIMIT) {
 		if (map)
@@ -2565,11 +2617,21 @@ route_map_result_t route_map_apply_ext(struct route_map *map,
 		if (map)
 			map->applied++;
 		ret = RMAP_DENYMATCH;
+<<<<<<< HEAD
+=======
+		reason = route_map_action_map_null;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		goto route_map_apply_end;
 	}
 
 	map->applied++;
 
+<<<<<<< HEAD
+=======
+	GETRUSAGE(&mbefore);
+	ibefore = mbefore;
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	if (prefix->family == AF_EVPN) {
 		index = map->head;
 	} else {
@@ -2580,6 +2642,15 @@ route_map_result_t route_map_apply_ext(struct route_map *map,
 
 	if (index) {
 		index->applied++;
+<<<<<<< HEAD
+=======
+
+		GETRUSAGE(&iafter);
+		event_consumed_time(&iafter, &ibefore, &cputime);
+		index->cputime += cputime;
+		ibefore = iafter;
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		if (unlikely(CHECK_FLAG(rmap_debug, DEBUG_ROUTEMAP)))
 			zlog_debug(
 				"Best match route-map: %s, sequence: %d for pfx: %pFX, result: %s",
@@ -2599,6 +2670,10 @@ route_map_result_t route_map_apply_ext(struct route_map *map,
 			ret = RMAP_PERMITMATCH;
 		else
 			ret = RMAP_DENYMATCH;
+<<<<<<< HEAD
+=======
+		reason = route_map_action_no_index;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		goto route_map_apply_end;
 	}
 
@@ -2686,12 +2761,23 @@ route_map_result_t route_map_apply_ext(struct route_map *map,
 					}
 
 					/* If nextrm returned 'deny', finish. */
+<<<<<<< HEAD
 					if (ret == RMAP_DENYMATCH)
 						goto route_map_apply_end;
+=======
+					if (ret == RMAP_DENYMATCH) {
+						reason = route_map_action_next_deny;
+						goto route_map_apply_end;
+					}
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 				}
 
 				switch (index->exitpolicy) {
 				case RMAP_EXIT:
+<<<<<<< HEAD
+=======
+					reason = route_map_action_exit;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 					goto route_map_apply_end;
 				case RMAP_NEXT:
 					continue;
@@ -2707,6 +2793,10 @@ route_map_result_t route_map_apply_ext(struct route_map *map,
 					}
 					if (next == NULL) {
 						/* No clauses match! */
+<<<<<<< HEAD
+=======
+						reason = route_map_action_goto_null;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 						goto route_map_apply_end;
 					}
 				}
@@ -2715,16 +2805,33 @@ route_map_result_t route_map_apply_ext(struct route_map *map,
 			/* 'deny' */
 			{
 				ret = RMAP_DENYMATCH;
+<<<<<<< HEAD
 				goto route_map_apply_end;
 			}
 		}
+=======
+				reason = route_map_action_index_deny;
+				goto route_map_apply_end;
+			}
+		}
+		GETRUSAGE(&iafter);
+		event_consumed_time(&iafter, &ibefore, &cputime);
+		index->cputime += cputime;
+		ibefore = iafter;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	}
 
 route_map_apply_end:
 	if (unlikely(CHECK_FLAG(rmap_debug, DEBUG_ROUTEMAP)))
+<<<<<<< HEAD
 		zlog_debug("Route-map: %s, prefix: %pFX, result: %s",
 			   (map ? map->name : "null"), prefix,
 			   route_map_result_str(ret));
+=======
+		zlog_debug("Route-map: %s, prefix: %pFX, result: %s, reason: %s",
+			   (map ? map->name : "null"), prefix, route_map_result_str(ret),
+			   route_map_action_reason2str(reason));
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	if (pref) {
 		if (index != NULL && ret == RMAP_PERMITMATCH)
@@ -2733,6 +2840,16 @@ route_map_apply_end:
 			*pref = 65536;
 	}
 
+<<<<<<< HEAD
+=======
+	if (map) {
+		GETRUSAGE(&mbefore);
+		GETRUSAGE(&mafter);
+		event_consumed_time(&mafter, &mbefore, &cputime);
+		map->cputime += cputime;
+	}
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	return (ret);
 }
 
@@ -3090,8 +3207,16 @@ static void clear_route_map_helper(struct route_map *map)
 	struct route_map_index *index;
 
 	map->applied_clear = map->applied;
+<<<<<<< HEAD
 	for (index = map->head; index; index = index->next)
 		index->applied_clear = index->applied;
+=======
+	map->cputime = 0;
+	for (index = map->head; index; index = index->next) {
+		index->applied_clear = index->applied;
+		index->cputime = 0;
+	}
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 }
 
 DEFPY (rmap_clear_counters,
@@ -3390,7 +3515,11 @@ DEFUN_HIDDEN(show_route_map_pfx_tbl, show_route_map_pfx_tbl_cmd,
 }
 
 /* Initialization of route map vector. */
+<<<<<<< HEAD
 void route_map_init(void)
+=======
+void route_map_init_new(bool in_backend)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 {
 	int i;
 
@@ -3405,7 +3534,14 @@ void route_map_init(void)
 
 	UNSET_FLAG(rmap_debug, DEBUG_ROUTEMAP);
 
+<<<<<<< HEAD
 	route_map_cli_init();
+=======
+	if (!in_backend) {
+		/* we do not want to handle config commands in the backend */
+		route_map_cli_init();
+	}
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	/* Install route map top node. */
 	install_node(&rmap_debug_node);
@@ -3425,3 +3561,11 @@ void route_map_init(void)
 
 	install_element(ENABLE_NODE, &show_route_map_pfx_tbl_cmd);
 }
+<<<<<<< HEAD
+=======
+
+void route_map_init(void)
+{
+	route_map_init_new(false);
+}
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)

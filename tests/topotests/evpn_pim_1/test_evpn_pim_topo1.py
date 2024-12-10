@@ -20,7 +20,11 @@ import pytest
 import json
 from functools import partial
 
+<<<<<<< HEAD
 pytestmark = [pytest.mark.pimd]
+=======
+pytestmark = [pytest.mark.pimd, pytest.mark.bgpd]
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 # Save the Current Working Directory to find configuration files.
 CWD = os.path.dirname(os.path.realpath(__file__))
@@ -32,10 +36,13 @@ from lib import topotest
 from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
 
+<<<<<<< HEAD
 # Required to instantiate the topology builder class.
 
 pytestmark = [pytest.mark.bgpd, pytest.mark.bgpd]
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 #####################################################
 ##

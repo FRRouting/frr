@@ -2,5 +2,9 @@
   "ledger":0,
   "inUse":0,
   "requests":0,
+<<<<<<< HEAD
   "labelChunks":1
+=======
+  "labelChunks":0
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 }

@@ -36,6 +36,11 @@ static void lptest_init(void);
 static void lptest_finish(void);
 #endif
 
+<<<<<<< HEAD
+=======
+static void bgp_sync_label_manager(struct event *e);
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 /*
  * Remember where pool data are kept
  */
@@ -448,13 +453,23 @@ void bgp_lp_get(
 
 	if (lp_fifo_count(&lp->requests) > lp->pending_count) {
 		if (!bgp_zebra_request_label_range(MPLS_LABEL_BASE_ANY,
+<<<<<<< HEAD
 						   lp->next_chunksize))
+=======
+						   lp->next_chunksize, true))
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			return;
 
 		lp->pending_count += lp->next_chunksize;
 		if ((lp->next_chunksize << 1) <= LP_CHUNK_SIZE_MAX)
 			lp->next_chunksize <<= 1;
 	}
+<<<<<<< HEAD
+=======
+
+	event_add_timer(bm->master, bgp_sync_label_manager, NULL, 1,
+			&bm->t_bgp_sync_label_manager);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 }
 
 void bgp_lp_release(
@@ -494,8 +509,23 @@ void bgp_lp_release(
 				bf_release_index(chunk->allocated_map, index);
 				chunk->nfree += 1;
 				deallocated = true;
+<<<<<<< HEAD
 			}
 			assert(deallocated);
+=======
+				break;
+			}
+			assert(deallocated);
+			if (deallocated &&
+			    chunk->nfree == chunk->last - chunk->first + 1 &&
+			    lp_fifo_count(&lp->requests) == 0) {
+				bgp_zebra_release_label_range(chunk->first,
+							      chunk->last);
+				list_delete_node(lp->chunks, node);
+				lp_chunk_free(chunk);
+				lp->next_chunksize = LP_CHUNK_SIZE_MIN;
+			}
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		}
 	}
 }
@@ -547,6 +577,13 @@ static void bgp_sync_label_manager(struct event *e)
 				zlog_debug("%s: out of labels, await more",
 					   __func__);
 			}
+<<<<<<< HEAD
+=======
+
+			lp_fifo_add_tail(&lp->requests, lf);
+			event_add_timer(bm->master, bgp_sync_label_manager,
+					NULL, 1, &bm->t_bgp_sync_label_manager);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			break;
 		}
 
@@ -572,9 +609,12 @@ static void bgp_sync_label_manager(struct event *e)
 finishedrequest:
 		XFREE(MTYPE_BGP_LABEL_FIFO, lf);
 	}
+<<<<<<< HEAD
 
 	event_add_timer(bm->master, bgp_sync_label_manager, NULL, 1,
 			&bm->t_bgp_sync_label_manager);
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 }
 
 void bgp_lp_event_chunk(uint32_t first, uint32_t last)
@@ -642,7 +682,11 @@ void bgp_lp_event_zebra_up(void)
 	}
 
 	/* round up */
+<<<<<<< HEAD
 	chunks_needed = (labels_needed / lp->next_chunksize) + 1;
+=======
+	chunks_needed = (labels_needed + lp->next_chunksize - 1) / lp->next_chunksize;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	labels_needed = chunks_needed * lp->next_chunksize;
 
 	/*
@@ -650,10 +694,17 @@ void bgp_lp_event_zebra_up(void)
 	 */
 	list_delete_all_node(lp->chunks);
 
+<<<<<<< HEAD
 	if (!bgp_zebra_request_label_range(MPLS_LABEL_BASE_ANY, labels_needed))
 		return;
 
 	lp->pending_count = labels_needed;
+=======
+	if (labels_needed && !bgp_zebra_request_label_range(MPLS_LABEL_BASE_ANY,
+							    labels_needed, true))
+		return;
+	lp->pending_count += labels_needed;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	/*
 	 * Invalidate any existing labels and requeue them as requests

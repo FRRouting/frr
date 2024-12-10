@@ -18,6 +18,11 @@
 #include "iana_afi.h"
 #include "asn.h"
 
+<<<<<<< HEAD
+=======
+PREDECL_LIST(zebra_announce);
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 /* For union sockunion.  */
 #include "queue.h"
 #include "sockunion.h"
@@ -31,9 +36,19 @@
 #include "bgp_addpath_types.h"
 #include "bgp_nexthop.h"
 #include "bgp_io.h"
+<<<<<<< HEAD
 
 #include "lib/bfd.h"
 
+=======
+#include "bgp_damp.h"
+
+#include "lib/bfd.h"
+
+DECLARE_HOOK(bgp_hook_config_write_vrf, (struct vty *vty, struct vrf *vrf),
+	     (vty, vrf));
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 #define BGP_MAX_HOSTNAME 64	/* Linux max, is larger than most other sys */
 #define BGP_PEER_MAX_HASH_SIZE 16384
 
@@ -50,10 +65,19 @@ struct bgp_pbr_config;
  * behavior
  * in the system.
  */
+<<<<<<< HEAD
 enum { AS_UNSPECIFIED = 0,
        AS_SPECIFIED,
        AS_INTERNAL,
        AS_EXTERNAL,
+=======
+enum peer_asn_type {
+	AS_UNSPECIFIED = 1,
+	AS_SPECIFIED = 2,
+	AS_INTERNAL = 4,
+	AS_EXTERNAL = 8,
+	AS_AUTO = 16,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 };
 
 /* Zebra Gracaful Restart states */
@@ -121,6 +145,12 @@ struct bgp_master {
 #define BGP_OPT_NO_FIB                   (1 << 0)
 #define BGP_OPT_NO_LISTEN                (1 << 1)
 #define BGP_OPT_NO_ZEBRA                 (1 << 2)
+<<<<<<< HEAD
+=======
+#define BGP_OPT_TRAPS_RFC4273            (1 << 3)
+#define BGP_OPT_TRAPS_BGP4MIBV2          (1 << 4)
+#define BGP_OPT_TRAPS_RFC4382		 (1 << 5)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	uint64_t updgrp_idspace;
 	uint64_t subgrp_idspace;
@@ -155,12 +185,38 @@ struct bgp_master {
 	uint32_t flags;
 #define BM_FLAG_GRACEFUL_SHUTDOWN        (1 << 0)
 #define BM_FLAG_SEND_EXTRA_DATA_TO_ZEBRA (1 << 1)
+<<<<<<< HEAD
 #define BM_FLAG_IPV6_NO_AUTO_RA		 (1 << 8)
 
 	bool terminating;	/* global flag that sigint terminate seen */
 
 	/* DSCP value for TCP sessions */
 	uint8_t tcp_dscp;
+=======
+#define BM_FLAG_MAINTENANCE_MODE	 (1 << 2)
+#define BM_FLAG_GR_RESTARTER		 (1 << 3)
+#define BM_FLAG_GR_DISABLED		 (1 << 4)
+#define BM_FLAG_GR_PRESERVE_FWD		 (1 << 5)
+#define BM_FLAG_GRACEFUL_RESTART	 (1 << 6)
+#define BM_FLAG_GR_COMPLETE		 (1 << 7)
+#define BM_FLAG_IPV6_NO_AUTO_RA		 (1 << 8)
+
+#define BM_FLAG_GR_CONFIGURED (BM_FLAG_GR_RESTARTER | BM_FLAG_GR_DISABLED)
+
+	/* BGP-wide graceful restart config params */
+	uint32_t restart_time;
+	uint32_t stalepath_time;
+	uint32_t select_defer_time;
+	uint32_t rib_stale_time;
+
+	time_t startup_time;
+	time_t gr_completion_time;
+
+	bool terminating;	/* global flag that sigint terminate seen */
+
+	/* TOS value for outgoing packets in BGP connections */
+	uint8_t ip_tos;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 #define BM_DEFAULT_Q_LIMIT 10000
 	uint32_t inq_limit;
@@ -169,8 +225,18 @@ struct bgp_master {
 	struct event *t_bgp_sync_label_manager;
 	struct event *t_bgp_start_label_manager;
 
+<<<<<<< HEAD
 	bool v6_with_v4_nexthops;
 
+=======
+	struct event *t_bgp_zebra_route;
+
+	bool v6_with_v4_nexthops;
+
+	/* To preserve ordering of installations into zebra across all Vrfs */
+	struct zebra_announce_head zebra_announce_head;
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	QOBJ_FIELDS;
 };
 DECLARE_QOBJ_TYPE(bgp_master);
@@ -218,6 +284,11 @@ struct vpn_policy {
 #define BGP_VPN_POLICY_TOVPN_NEXTHOP_SET       (1 << 2)
 #define BGP_VPN_POLICY_TOVPN_SID_AUTO          (1 << 3)
 #define BGP_VPN_POLICY_TOVPN_LABEL_PER_NEXTHOP (1 << 4)
+<<<<<<< HEAD
+=======
+/* Manual label is registered with zebra label manager */
+#define BGP_VPN_POLICY_TOVPN_LABEL_MANUAL_REG (1 << 5)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	/*
 	 * If we are importing another vrf into us keep a list of
@@ -236,7 +307,11 @@ struct vpn_policy {
 	 */
 	uint32_t tovpn_sid_index; /* unset => set to 0 */
 	struct in6_addr *tovpn_sid;
+<<<<<<< HEAD
 	struct srv6_locator_chunk *tovpn_sid_locator;
+=======
+	struct srv6_locator *tovpn_sid_locator;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	uint32_t tovpn_sid_transpose_label;
 	struct in6_addr *tovpn_zebra_vrf_sid_last_sent;
 };
@@ -279,9 +354,15 @@ struct graceful_restart_info {
 	/* Best route select */
 	struct event *t_route_select;
 	/* AFI, SAFI enabled */
+<<<<<<< HEAD
 	bool af_enabled[AFI_MAX][SAFI_MAX];
 	/* Route update completed */
 	bool route_sync[AFI_MAX][SAFI_MAX];
+=======
+	bool af_enabled;
+	/* Route update completed */
+	bool route_sync;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 };
 
 enum global_mode {
@@ -456,16 +537,24 @@ struct bgp {
 	uint32_t restarted_peers;
 	uint32_t implicit_eors;
 	uint32_t explicit_eors;
+<<<<<<< HEAD
 #define BGP_UPDATE_DELAY_DEF              0
 #define BGP_UPDATE_DELAY_MIN              0
 #define BGP_UPDATE_DELAY_MAX              3600
+=======
+#define BGP_UPDATE_DELAY_DEFAULT 0
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	/* Reference bandwidth for BGP link-bandwidth. Used when
 	 * the LB value has to be computed based on some other
 	 * factor (e.g., number of multipaths for the prefix)
 	 * Value is in Mbps
 	 */
+<<<<<<< HEAD
 	uint32_t lb_ref_bw;
+=======
+	uint64_t lb_ref_bw;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 #define BGP_LINK_BW_REF_BW                1
 
 	/* BGP flags. */
@@ -515,6 +604,13 @@ struct bgp {
 /* For BGP-LU, force IPv6 local prefixes to use ipv6-explicit-null label */
 #define BGP_FLAG_LU_IPV6_EXPLICIT_NULL (1ULL << 34)
 #define BGP_FLAG_SOFT_VERSION_CAPABILITY (1ULL << 35)
+<<<<<<< HEAD
+=======
+#define BGP_FLAG_ENFORCE_FIRST_AS (1ULL << 36)
+#define BGP_FLAG_DYNAMIC_CAPABILITY (1ULL << 37)
+#define BGP_FLAG_VNI_DOWN		 (1ULL << 38)
+#define BGP_FLAG_INSTANCE_HIDDEN	 (1ULL << 39)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 /* Prohibit BGP from enabling IPv6 RA on interfaces */
 #define BGP_FLAG_IPV6_NO_AUTO_RA (1ULL << 40)
 
@@ -532,6 +628,12 @@ struct bgp {
 	 */
 	enum zebra_gr_mode present_zebra_gr_state;
 
+<<<<<<< HEAD
+=======
+	/* Is deferred path selection still not complete? */
+	bool gr_route_sync_pending;
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	/* BGP Per AF flags */
 	uint16_t af_flags[AFI_MAX][SAFI_MAX];
 #define BGP_CONFIG_DAMPENING				(1 << 0)
@@ -800,11 +902,19 @@ struct bgp {
 	/* BGP VPN SRv6 backend */
 	bool srv6_enabled;
 	char srv6_locator_name[SRV6_LOCNAME_SIZE];
+<<<<<<< HEAD
+=======
+	struct srv6_locator *srv6_locator;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	struct list *srv6_locator_chunks;
 	struct list *srv6_functions;
 	uint32_t tovpn_sid_index; /* unset => set to 0 */
 	struct in6_addr *tovpn_sid;
+<<<<<<< HEAD
 	struct srv6_locator_chunk *tovpn_sid_locator;
+=======
+	struct srv6_locator *tovpn_sid_locator;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	uint32_t tovpn_sid_transpose_label;
 	struct in6_addr *tovpn_zebra_vrf_sid_last_sent;
 
@@ -820,6 +930,16 @@ struct bgp {
 
 	enum asnotation_mode asnotation;
 
+<<<<<<< HEAD
+=======
+	/* BGP route flap dampening configuration */
+	struct bgp_damp_config damp[AFI_MAX][SAFI_MAX];
+
+	uint64_t bestpath_runs;
+	uint64_t node_already_on_queue;
+	uint64_t node_deferred_on_queue;
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	QOBJ_FIELDS;
 };
 DECLARE_QOBJ_TYPE(bgp);
@@ -835,7 +955,15 @@ DECLARE_HOOK(bgp_inst_delete, (struct bgp *bgp), (bgp));
 DECLARE_HOOK(bgp_inst_config_write,
 		(struct bgp *bgp, struct vty *vty),
 		(bgp, vty));
+<<<<<<< HEAD
 DECLARE_HOOK(bgp_config_end, (struct bgp *bgp), (bgp));
+=======
+DECLARE_HOOK(bgp_snmp_traps_config_write, (struct vty *vty), (vty));
+DECLARE_HOOK(bgp_config_end, (struct bgp *bgp), (bgp));
+DECLARE_HOOK(bgp_hook_vrf_update, (struct vrf *vrf, bool enabled),
+	     (vrf, enabled));
+DECLARE_HOOK(bgp_instance_state, (struct bgp *bgp), (bgp));
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 /* Thread callback information */
 struct afi_safi_info {
@@ -880,10 +1008,17 @@ struct peer_group {
 struct bgp_notify {
 	uint8_t code;
 	uint8_t subcode;
+<<<<<<< HEAD
 	char *data;
 	bgp_size_t length;
 	uint8_t *raw_data;
 	bool hard_reset;
+=======
+	bgp_size_t length;
+	bool hard_reset;
+	char *data;
+	uint8_t *raw_data;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 };
 
 /* Next hop self address. */
@@ -974,6 +1109,17 @@ enum bgp_peer_sort {
 	BGP_PEER_CONFED,
 };
 
+<<<<<<< HEAD
+=======
+/* BGP peering sub-types
+ * E.g.:
+ * EBGP-OAD - https://datatracker.ietf.org/doc/html/draft-uttaro-idr-bgp-oad
+ */
+enum bgp_peer_sub_sort {
+	BGP_PEER_EBGP_OAD = 1,
+};
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 /* BGP message header and packet size.  */
 #define BGP_MARKER_SIZE		                16
 #define BGP_HEADER_SIZE		                19
@@ -1075,7 +1221,12 @@ enum bgp_fsm_rfc_codes {
 	BGP_FSM_NotifMsg = 25,
 	BGP_FSM_KeepAliveMsg = 26,
 	BGP_FSM_UpdateMsg = 27,
+<<<<<<< HEAD
 	BGP_FSM_UpdateMsgErr = 28
+=======
+	BGP_FSM_UpdateMsgErr = 28,
+	BGP_FSM_SendHoldTimer_Expires = 29,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 };
 
 /*
@@ -1124,6 +1275,14 @@ struct llgr_info {
 	uint8_t flags;
 };
 
+<<<<<<< HEAD
+=======
+struct addpath_paths_limit {
+	uint16_t send;
+	uint16_t receive;
+};
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 struct peer_connection {
 	struct peer *peer;
 
@@ -1133,6 +1292,14 @@ struct peer_connection {
 
 	int fd;
 
+<<<<<<< HEAD
+=======
+	/* Thread flags */
+	_Atomic uint32_t thread_flags;
+#define PEER_THREAD_WRITES_ON (1U << 0)
+#define PEER_THREAD_READS_ON  (1U << 1)
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	/* Packet receive and send buffer. */
 	pthread_mutex_t io_mtx;	  // guards ibuf, obuf
 	struct stream_fifo *ibuf; // packets waiting to be processed
@@ -1160,6 +1327,7 @@ struct peer_connection {
 	struct event *t_process_packet;
 	struct event *t_process_packet_error;
 
+<<<<<<< HEAD
 	union sockunion su;
 #define BGP_CONNECTION_SU_UNSPEC(connection)                                   \
 	(connection->su.sa.sa_family == AF_UNSPEC)
@@ -1168,6 +1336,13 @@ struct peer_connection {
 	_Atomic uint32_t thread_flags;
 #define PEER_THREAD_WRITES_ON (1U << 0)
 #define PEER_THREAD_READS_ON (1U << 1)
+=======
+	struct event *t_stop_with_notify;
+
+	union sockunion su;
+#define BGP_CONNECTION_SU_UNSPEC(connection)                                   \
+	(connection->su.sa.sa_family == AF_UNSPEC)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 };
 extern struct peer_connection *bgp_peer_connection_new(struct peer *peer);
 extern void bgp_peer_connection_free(struct peer_connection **connection);
@@ -1192,7 +1367,11 @@ struct peer {
 	struct peer_af *peer_af_array[BGP_AF_MAX];
 
 	/* Peer's remote AS number. */
+<<<<<<< HEAD
 	int as_type;
+=======
+	enum peer_asn_type as_type;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	as_t as;
 	/* for vty as format */
 	char *as_pretty;
@@ -1201,6 +1380,10 @@ struct peer {
 	as_t local_as;
 
 	enum bgp_peer_sort sort;
+<<<<<<< HEAD
+=======
+	enum bgp_peer_sub_sort sub_sort;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	/* Peer's Change local AS number. */
 	as_t change_local_as;
@@ -1261,7 +1444,11 @@ struct peer {
 
 	union sockunion *su_local;  /* Sockunion of local address.  */
 	union sockunion *su_remote; /* Sockunion of remote address.  */
+<<<<<<< HEAD
 	int shared_network;	 /* Is this peer shared same network. */
+=======
+	bool shared_network;	    /* Is this peer shared same network. */
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	struct bgp_nexthop nexthop; /* Nexthop */
 
 	/* Roles in bgp session */
@@ -1283,6 +1470,7 @@ struct peer {
 	uint8_t afc_recv[AFI_MAX][SAFI_MAX];
 
 	/* Capability flags (reset in bgp_stop) */
+<<<<<<< HEAD
 	uint32_t cap;
 #define PEER_CAP_REFRESH_ADV                (1U << 0) /* refresh advertised */
 #define PEER_CAP_REFRESH_RCV                (1U << 2) /* refresh rfc received */
@@ -1316,6 +1504,43 @@ struct peer {
 #define PEER_CAP_ROLE_RCV                   (1U << 26) /* role received */
 #define PEER_CAP_SOFT_VERSION_ADV (1U << 27)
 #define PEER_CAP_SOFT_VERSION_RCV (1U << 28)
+=======
+	uint64_t cap;
+#define PEER_CAP_REFRESH_ADV (1ULL << 0) /* refresh advertised */
+#define PEER_CAP_REFRESH_RCV (1ULL << 2) /* refresh rfc received */
+#define PEER_CAP_DYNAMIC_ADV (1ULL << 3) /* dynamic advertised */
+#define PEER_CAP_DYNAMIC_RCV (1ULL << 4) /* dynamic received */
+#define PEER_CAP_RESTART_ADV (1ULL << 5) /* restart advertised */
+#define PEER_CAP_RESTART_RCV (1ULL << 6) /* restart received */
+#define PEER_CAP_AS4_ADV     (1ULL << 7) /* as4 advertised */
+#define PEER_CAP_AS4_RCV     (1ULL << 8) /* as4 received */
+/* sent graceful-restart restart (R) bit */
+#define PEER_CAP_GRACEFUL_RESTART_R_BIT_ADV (1ULL << 9)
+/* received graceful-restart restart (R) bit */
+#define PEER_CAP_GRACEFUL_RESTART_R_BIT_RCV (1ULL << 10)
+#define PEER_CAP_ADDPATH_ADV		    (1ULL << 11) /* addpath advertised */
+#define PEER_CAP_ADDPATH_RCV		    (1ULL << 12) /* addpath received */
+#define PEER_CAP_ENHE_ADV		    (1ULL << 13) /* Extended nexthop advertised */
+#define PEER_CAP_ENHE_RCV		    (1ULL << 14) /* Extended nexthop received */
+#define PEER_CAP_HOSTNAME_ADV		    (1ULL << 15) /* hostname advertised */
+#define PEER_CAP_HOSTNAME_RCV		    (1ULL << 16) /* hostname received */
+#define PEER_CAP_ENHANCED_RR_ADV	    (1ULL << 17) /* enhanced rr advertised */
+#define PEER_CAP_ENHANCED_RR_RCV	    (1ULL << 18) /* enhanced rr received */
+#define PEER_CAP_EXTENDED_MESSAGE_ADV	    (1ULL << 19)
+#define PEER_CAP_EXTENDED_MESSAGE_RCV	    (1ULL << 20)
+#define PEER_CAP_LLGR_ADV		    (1ULL << 21)
+#define PEER_CAP_LLGR_RCV		    (1ULL << 22)
+/* sent graceful-restart notification (N) bit */
+#define PEER_CAP_GRACEFUL_RESTART_N_BIT_ADV (1ULL << 23)
+/* received graceful-restart notification (N) bit */
+#define PEER_CAP_GRACEFUL_RESTART_N_BIT_RCV (1ULL << 24)
+#define PEER_CAP_ROLE_ADV		    (1ULL << 25) /* role advertised */
+#define PEER_CAP_ROLE_RCV		    (1ULL << 26) /* role received */
+#define PEER_CAP_SOFT_VERSION_ADV	    (1ULL << 27)
+#define PEER_CAP_SOFT_VERSION_RCV	    (1ULL << 28)
+#define PEER_CAP_PATHS_LIMIT_ADV (1U << 29)
+#define PEER_CAP_PATHS_LIMIT_RCV (1U << 30)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	/* Capability flags (reset in bgp_stop) */
 	uint32_t af_cap[AFI_MAX][SAFI_MAX];
@@ -1334,6 +1559,11 @@ struct peer {
 #define PEER_CAP_ENHE_AF_NEGO               (1U << 14) /* Extended nexthop afi/safi negotiated */
 #define PEER_CAP_LLGR_AF_ADV                (1U << 15)
 #define PEER_CAP_LLGR_AF_RCV                (1U << 16)
+<<<<<<< HEAD
+=======
+#define PEER_CAP_PATHS_LIMIT_AF_ADV         (1U << 17)
+#define PEER_CAP_PATHS_LIMIT_AF_RCV         (1U << 18)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	/* Global configuration flags. */
 	/*
@@ -1443,6 +1673,13 @@ struct peer {
 #define PEER_FLAG_AIGP (1ULL << 34)
 #define PEER_FLAG_GRACEFUL_SHUTDOWN (1ULL << 35)
 #define PEER_FLAG_CAPABILITY_SOFT_VERSION (1ULL << 36)
+<<<<<<< HEAD
+=======
+#define PEER_FLAG_CAPABILITY_FQDN (1ULL << 37)  /* fqdn capability */
+#define PEER_FLAG_AS_LOOP_DETECTION (1ULL << 38) /* as path loop detection */
+#define PEER_FLAG_EXTENDED_LINK_BANDWIDTH (1ULL << 39)
+#define PEER_FLAG_DUAL_AS		  (1ULL << 40)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	/*
 	 *GR-Disabled mode means unset PEER_FLAG_GRACEFUL_RESTART
@@ -1470,6 +1707,12 @@ struct peer {
 	/* Last update packet sent time */
 	time_t pkt_stime[AFI_MAX][SAFI_MAX];
 
+<<<<<<< HEAD
+=======
+	/* Peer / peer group route flap dampening configuration */
+	struct bgp_damp_config damp[AFI_MAX][SAFI_MAX];
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	/* Peer Per AF flags */
 	/*
 	 * Please consult the comments for *flags_override*, *flags_invert* and
@@ -1509,6 +1752,12 @@ struct peer {
 #define PEER_FLAG_MAX_PREFIX_FORCE (1ULL << 26)
 #define PEER_FLAG_DISABLE_ADDPATH_RX (1ULL << 27)
 #define PEER_FLAG_SOO (1ULL << 28)
+<<<<<<< HEAD
+=======
+#define PEER_FLAG_SEND_EXT_COMMUNITY_RPKI (1ULL << 29)
+#define PEER_FLAG_ADDPATH_RX_PATHS_LIMIT (1ULL << 30)
+#define PEER_FLAG_CONFIG_DAMPENING (1U << 31)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 #define PEER_FLAG_ACCEPT_OWN (1ULL << 63)
 
 	enum bgp_addpath_strat addpath_type[AFI_MAX][SAFI_MAX];
@@ -1628,6 +1877,11 @@ struct peer {
 	uint32_t stat_pfx_nh_invalid;
 	uint32_t stat_pfx_dup_withdraw;
 	uint32_t stat_upd_7606;  /* RFC7606: treat-as-withdraw */
+<<<<<<< HEAD
+=======
+	uint64_t stat_pfx_loc_rib; /* RFC7854 : Number of routes in Loc-RIB */
+	uint64_t stat_pfx_adj_rib_in; /* RFC7854 : Number of routes in Adj-RIBs-In */
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	/* BGP state count */
 	uint32_t established; /* Established */
@@ -1685,8 +1939,20 @@ struct peer {
 	/* Text description of last attribute rcvd */
 	char rcvd_attr_str[BUFSIZ];
 
+<<<<<<< HEAD
 	/* Track if we printed the attribute in debugs */
 	int rcvd_attr_printed;
+=======
+	/*
+	 * Track if we printed the attribute in debugs
+	 *
+	 * These two rcvd_attr_str and rcvd_attr_printed are going to
+	 * be fun in the long term when we want to break up parsing
+	 * of data from the nlri in multiple pthreads or really
+	 * if we ever change order of things this will just break
+	 */
+	bool rcvd_attr_printed;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	/* Accepted prefix count */
 	uint32_t pcount[AFI_MAX][SAFI_MAX];
@@ -1747,6 +2013,10 @@ struct peer {
 #define PEER_DOWN_SOCKET_ERROR          34U /* Some socket error happened */
 #define PEER_DOWN_RTT_SHUTDOWN          35U /* Automatically shutdown due to RTT */
 #define PEER_DOWN_SUPPRESS_FIB_PENDING	 36U /* Suppress fib pending changed */
+<<<<<<< HEAD
+=======
+#define PEER_DOWN_PASSWORD_CHANGE	 37U /* neighbor password command */
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	/*
 	 * Remember to update peer_down_str in bgp_fsm.c when you add
 	 * a new value to the last_reset reason
@@ -1755,16 +2025,24 @@ struct peer {
 	struct stream *last_reset_cause;
 
 	/* The kind of route-map Flags.*/
+<<<<<<< HEAD
 	uint16_t rmap_type;
+=======
+	uint8_t rmap_type;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 #define PEER_RMAP_TYPE_IN             (1U << 0) /* neighbor route-map in */
 #define PEER_RMAP_TYPE_OUT            (1U << 1) /* neighbor route-map out */
 #define PEER_RMAP_TYPE_NETWORK        (1U << 2) /* network route-map */
 #define PEER_RMAP_TYPE_REDISTRIBUTE   (1U << 3) /* redistribute route-map */
 #define PEER_RMAP_TYPE_DEFAULT        (1U << 4) /* default-originate route-map */
+<<<<<<< HEAD
 #define PEER_RMAP_TYPE_NOSET          (1U << 5) /* not allow to set commands */
 #define PEER_RMAP_TYPE_IMPORT         (1U << 6) /* neighbor route-map import */
 #define PEER_RMAP_TYPE_EXPORT         (1U << 7) /* neighbor route-map export */
 #define PEER_RMAP_TYPE_AGGREGATE      (1U << 8) /* aggregate-address route-map */
+=======
+#define PEER_RMAP_TYPE_AGGREGATE      (1U << 5) /* aggregate-address route-map */
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	/** Peer overwrite configuration. */
 	struct bfd_session_config {
@@ -1794,9 +2072,12 @@ struct peer {
 	char *hostname;
 	char *domainname;
 
+<<<<<<< HEAD
 	/* Sender side AS path loop detection. */
 	bool as_path_loop_detection;
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	/* Extended Message Support */
 	uint16_t max_packet_size;
 
@@ -1826,6 +2107,12 @@ struct peer {
 	/* Add-Path Best selected paths number to advertise */
 	uint8_t addpath_best_selected[AFI_MAX][SAFI_MAX];
 
+<<<<<<< HEAD
+=======
+	/* Add-Path Paths-Limit */
+	struct addpath_paths_limit addpath_paths_limit[AFI_MAX][SAFI_MAX];
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	QOBJ_FIELDS;
 };
 DECLARE_QOBJ_TYPE(peer);
@@ -1873,11 +2160,19 @@ struct bgp_nlri {
 	/* SAFI.  */
 	uint8_t safi; /* iana_safi_t */
 
+<<<<<<< HEAD
 	/* Pointer to NLRI byte stream.  */
 	uint8_t *nlri;
 
 	/* Length of whole NLRI.  */
 	bgp_size_t length;
+=======
+	/* Length of whole NLRI.  */
+	bgp_size_t length;
+
+	/* Pointer to NLRI byte stream.  */
+	uint8_t *nlri;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 };
 
 /* BGP versions.  */
@@ -1932,7 +2227,10 @@ struct bgp_nlri {
 #define BGP_ATTR_LARGE_COMMUNITIES              32
 #define BGP_ATTR_OTC                            35
 #define BGP_ATTR_PREFIX_SID                     40
+<<<<<<< HEAD
 #define BGP_ATTR_SRTE_COLOR                     51
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 #ifdef ENABLE_BGP_VNC_ATTR
 #define BGP_ATTR_VNC                           255
 #endif
@@ -1951,6 +2249,10 @@ struct bgp_nlri {
 #define BGP_NOTIFY_FSM_ERR                       5
 #define BGP_NOTIFY_CEASE                         6
 #define BGP_NOTIFY_ROUTE_REFRESH_ERR             7
+<<<<<<< HEAD
+=======
+#define BGP_NOTIFY_SEND_HOLD_ERR                 8
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 /* Subcodes for BGP Finite State Machine Error */
 #define BGP_NOTIFY_FSM_ERR_SUBCODE_UNSPECIFIC  0
@@ -2047,7 +2349,10 @@ struct bgp_nlri {
 #define BGP_UPTIME_LEN 25
 
 /* Default configuration settings for bgpd.  */
+<<<<<<< HEAD
 #define BGP_VTY_PORT                          2605
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 #define BGP_DEFAULT_CONFIG             "bgpd.conf"
 
 /* BGP Dynamic Neighbors feature */
@@ -2069,7 +2374,12 @@ enum bgp_clear_type {
 	BGP_CLEAR_SOFT_IN,
 	BGP_CLEAR_SOFT_BOTH,
 	BGP_CLEAR_SOFT_IN_ORF_PREFIX,
+<<<<<<< HEAD
 	BGP_CLEAR_MESSAGE_STATS
+=======
+	BGP_CLEAR_MESSAGE_STATS,
+	BGP_CLEAR_CAPABILITIES,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 };
 
 /* Macros. */
@@ -2082,6 +2392,10 @@ enum bgp_clear_type {
 enum bgp_create_error_code {
 	BGP_SUCCESS = 0,
 	BGP_CREATED = 1,
+<<<<<<< HEAD
+=======
+	BGP_INSTANCE_EXISTS = 2,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	BGP_ERR_INVALID_VALUE = -1,
 	BGP_ERR_INVALID_FLAG = -2,
 	BGP_ERR_INVALID_AS = -3,
@@ -2204,15 +2518,25 @@ extern struct peer *peer_unlock_with_caller(const char *, struct peer *);
 extern enum bgp_peer_sort peer_sort(struct peer *peer);
 extern enum bgp_peer_sort peer_sort_lookup(struct peer *peer);
 
+<<<<<<< HEAD
 extern bool peer_active(struct peer *);
+=======
+extern bool peer_active(struct peer_connection *connection);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 extern bool peer_active_nego(struct peer *);
 extern bool peer_afc_received(struct peer *peer);
 extern bool peer_afc_advertised(struct peer *peer);
 extern void bgp_recalculate_all_bestpaths(struct bgp *bgp);
 extern struct peer *peer_create(union sockunion *su, const char *conf_if,
 				struct bgp *bgp, as_t local_as, as_t remote_as,
+<<<<<<< HEAD
 				int as_type, struct peer_group *group,
 				bool config_node, const char *as_str);
+=======
+				enum peer_asn_type as_type,
+				struct peer_group *group, bool config_node,
+				const char *as_str);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 extern struct peer *peer_create_accept(struct bgp *);
 extern void peer_xfer_config(struct peer *dst, struct peer *src);
 extern char *peer_uptime(time_t uptime2, char *buf, size_t len, bool use_json,
@@ -2285,6 +2609,7 @@ extern void bgp_listen_limit_unset(struct bgp *bgp);
 extern bool bgp_update_delay_active(struct bgp *);
 extern bool bgp_update_delay_configured(struct bgp *);
 extern bool bgp_afi_safi_peer_exists(struct bgp *bgp, afi_t afi, safi_t safi);
+<<<<<<< HEAD
 extern void peer_as_change(struct peer *peer, as_t as, int as_type,
 			   const char *as_str);
 extern int peer_remote_as(struct bgp *bgp, union sockunion *su,
@@ -2294,6 +2619,18 @@ extern int peer_group_remote_as(struct bgp *bgp, const char *peer_str, as_t *as,
 				int as_type, const char *as_str);
 extern int peer_delete(struct peer *peer);
 extern void peer_notify_unconfig(struct peer *peer);
+=======
+extern void peer_as_change(struct peer *peer, as_t as,
+			   enum peer_asn_type as_type, const char *as_str);
+extern int peer_remote_as(struct bgp *bgp, union sockunion *su,
+			  const char *conf_if, as_t *as,
+			  enum peer_asn_type as_type, const char *as_str);
+extern int peer_group_remote_as(struct bgp *bgp, const char *peer_str, as_t *as,
+				enum peer_asn_type as_type, const char *as_str);
+extern int peer_delete(struct peer *peer);
+extern void peer_notify_unconfig(struct peer_connection *connection);
+extern bool peer_notify_config_change(struct peer_connection *connection);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 extern int peer_group_delete(struct peer_group *);
 extern int peer_group_remote_as_delete(struct peer_group *);
 extern int peer_group_listen_range_add(struct peer_group *, struct prefix *);
@@ -2372,7 +2709,11 @@ extern int peer_allowas_in_set(struct peer *, afi_t, safi_t, int, int);
 extern int peer_allowas_in_unset(struct peer *, afi_t, safi_t);
 
 extern int peer_local_as_set(struct peer *peer, as_t as, bool no_prepend,
+<<<<<<< HEAD
 			     bool replace_as, const char *as_str);
+=======
+			     bool replace_as, bool dual_as, const char *as_str);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 extern int peer_local_as_unset(struct peer *);
 
 extern int peer_prefix_list_set(struct peer *, afi_t, safi_t, int,
@@ -2435,6 +2776,11 @@ extern enum asnotation_mode bgp_get_asnotation(struct bgp *bgp);
 
 extern void bgp_route_map_terminate(void);
 
+<<<<<<< HEAD
+=======
+extern bool bgp_route_map_has_extcommunity_rt(const struct route_map *map);
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 extern int peer_cmp(struct peer *p1, struct peer *p2);
 
 extern int bgp_map_afi_safi_iana2int(iana_afi_t pkt_afi, iana_safi_t pkt_safi,
@@ -2690,12 +3036,73 @@ static inline bool bgp_in_graceful_shutdown(struct bgp *bgp)
 	        !!CHECK_FLAG(bm->flags, BM_FLAG_GRACEFUL_SHUTDOWN));
 }
 
+<<<<<<< HEAD
+=======
+static inline bool bgp_in_graceful_restart(void)
+{
+	/* True if BGP has (re)started gracefully (based on flags
+	 * noted at startup) and GR is not complete.
+	 */
+	return (CHECK_FLAG(bm->flags, BM_FLAG_GRACEFUL_RESTART) &&
+		!CHECK_FLAG(bm->flags, BM_FLAG_GR_COMPLETE));
+}
+
+static inline bool bgp_is_graceful_restart_complete(void)
+{
+	/* True if BGP has (re)started gracefully (based on flags
+	 * noted at startup) and GR is marked as complete.
+	 */
+	return (CHECK_FLAG(bm->flags, BM_FLAG_GRACEFUL_RESTART) &&
+		CHECK_FLAG(bm->flags, BM_FLAG_GR_COMPLETE));
+}
+
+static inline void bgp_update_gr_completion(void)
+{
+	struct listnode *node, *nnode;
+	struct bgp *bgp;
+
+	/*
+	 * Check and mark GR complete. This is done when deferred
+	 * path selection has been completed for all instances and
+	 * route-advertisement/EOR and route-sync with zebra has
+	 * been invoked.
+	 */
+	if (!CHECK_FLAG(bm->flags, BM_FLAG_GRACEFUL_RESTART) ||
+	    CHECK_FLAG(bm->flags, BM_FLAG_GR_COMPLETE))
+		return;
+
+	for (ALL_LIST_ELEMENTS(bm->bgp, node, nnode, bgp)) {
+		if (bgp->gr_route_sync_pending)
+			return;
+	}
+
+	SET_FLAG(bm->flags, BM_FLAG_GR_COMPLETE);
+	bm->gr_completion_time = monotime(NULL);
+}
+
+static inline bool bgp_gr_is_forwarding_preserved(struct bgp *bgp)
+{
+	/*
+	 * Is forwarding state preserved? Based either on config
+	 * or if BGP restarted gracefully.
+	 * TBD: Additional AFI/SAFI based checks etc.
+	 */
+	return (CHECK_FLAG(bm->flags, BM_FLAG_GRACEFUL_RESTART) ||
+		CHECK_FLAG(bgp->flags, BGP_FLAG_GR_PRESERVE_FWD));
+}
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 /* For benefit of rfapi */
 extern struct peer *peer_new(struct bgp *bgp);
 
 extern struct peer *peer_lookup_in_view(struct vty *vty, struct bgp *bgp,
 					const char *ip_str, bool use_json);
 extern int bgp_lookup_by_as_name_type(struct bgp **bgp_val, as_t *as,
+<<<<<<< HEAD
+=======
+				      const char *as_pretty,
+				      enum asnotation_mode asnotation,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 				      const char *name,
 				      enum bgp_instance_type inst_type);
 
@@ -2729,10 +3136,31 @@ extern bool bgp_path_attribute_treat_as_withdraw(struct peer *peer, char *buf,
 
 extern void srv6_function_free(struct bgp_srv6_function *func);
 
+<<<<<<< HEAD
+=======
+extern void bgp_session_reset_safe(struct peer *peer, struct listnode **nnode);
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 #ifdef _FRR_ATTRIBUTE_PRINTFRR
 /* clang-format off */
 #pragma FRR printfrr_ext "%pBP" (struct peer *)
 /* clang-format on */
 #endif
 
+<<<<<<< HEAD
+=======
+/* Macro to check if default bgp instance is hidden */
+#define IS_BGP_INSTANCE_HIDDEN(_bgp)                                           \
+	(CHECK_FLAG(_bgp->flags, BGP_FLAG_INSTANCE_HIDDEN) &&                  \
+	 (_bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT ||                      \
+	  _bgp->inst_type == BGP_INSTANCE_TYPE_VRF))
+
+/* Macro to check if bgp instance delete in-progress and !hidden */
+#define BGP_INSTANCE_HIDDEN_DELETE_IN_PROGRESS(_bgp, _afi, _safi)              \
+	(CHECK_FLAG(_bgp->flags, BGP_FLAG_DELETE_IN_PROGRESS) &&               \
+	 !IS_BGP_INSTANCE_HIDDEN(_bgp) &&                                      \
+	 !(_afi == AFI_IP && _safi == SAFI_MPLS_VPN) &&                        \
+	 !(_afi == AFI_IP6 && _safi == SAFI_MPLS_VPN))
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 #endif /* _QUAGGA_BGPD_H */

@@ -124,6 +124,10 @@ struct bmp {
 	 * ahead we need to make sure that refcount is decremented.  Also, on
 	 * disconnects we need to walk the queue and drop our reference.
 	 */
+<<<<<<< HEAD
+=======
+	struct bmp_queue_entry *locrib_queuepos;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	struct bmp_queue_entry *queuepos;
 	struct bmp_mirrorq *mirrorpos;
 	bool mirror_lost;
@@ -215,12 +219,22 @@ struct bmp_targets {
 	int stat_msec;
 
 	/* only supporting:
+<<<<<<< HEAD
 	 * - IPv4 / unicast & multicast
 	 * - IPv6 / unicast & multicast
+=======
+	 * - IPv4 / unicast & multicast & VPN
+	 * - IPv6 / unicast & multicast & VPN
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	 * - L2VPN / EVPN
 	 */
 #define BMP_MON_PREPOLICY	(1 << 0)
 #define BMP_MON_POSTPOLICY	(1 << 1)
+<<<<<<< HEAD
+=======
+#define BMP_MON_LOC_RIB (1 << 2)
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	uint8_t afimon[AFI_MAX][SAFI_MAX];
 	bool mirror;
 
@@ -232,8 +246,18 @@ struct bmp_targets {
 	struct bmp_qhash_head updhash;
 	struct bmp_qlist_head updlist;
 
+<<<<<<< HEAD
 	uint64_t cnt_accept, cnt_aclrefused;
 
+=======
+	struct bmp_qhash_head locupdhash;
+	struct bmp_qlist_head locupdlist;
+
+	uint64_t cnt_accept, cnt_aclrefused;
+
+	bool stats_send_experimental;
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	QOBJ_FIELDS;
 };
 DECLARE_QOBJ_TYPE(bmp_targets);
@@ -260,10 +284,25 @@ PREDECL_HASH(bmp_bgph);
 
 #define BMP_PEER_DOWN_NO_RELEVANT_EVENT_CODE 0x00
 
+<<<<<<< HEAD
+=======
+enum bmp_vrf_state {
+	vrf_state_down = -1,
+	vrf_state_unknown = 0,
+	vrf_state_up = 1,
+};
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 struct bmp_bgp {
 	struct bmp_bgph_item bbi;
 
 	struct bgp *bgp;
+<<<<<<< HEAD
+=======
+
+	enum bmp_vrf_state vrf_state;
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	struct bmp_targets_head targets;
 
 	struct bmp_mirrorq_head mirrorq;
@@ -272,12 +311,26 @@ struct bmp_bgp {
 	size_t mirror_qsizelimit;
 };
 
+<<<<<<< HEAD
 enum {
 	BMP_PEERDOWN_LOCAL_NOTIFY       = 1,
 	BMP_PEERDOWN_LOCAL_FSM          = 2,
 	BMP_PEERDOWN_REMOTE_NOTIFY      = 3,
 	BMP_PEERDOWN_REMOTE_CLOSE       = 4,
 	BMP_PEERDOWN_ENDMONITOR         = 5,
+=======
+extern bool bmp_bgp_update_vrf_status(struct bmp_bgp *bmpbgp, enum bmp_vrf_state force);
+
+enum {
+	/* RFC7854 - 10.8 */
+	BMP_PEERDOWN_LOCAL_NOTIFY = 1,
+	BMP_PEERDOWN_LOCAL_FSM = 2,
+	BMP_PEERDOWN_REMOTE_NOTIFY = 3,
+	BMP_PEERDOWN_REMOTE_CLOSE = 4,
+	BMP_PEERDOWN_ENDMONITOR = 5,
+	/* RFC9069 - 8.4 */
+	BMP_PEERDOWN_LOCAL_TLV = 6,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 };
 
 enum {

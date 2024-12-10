@@ -52,6 +52,10 @@
 #define	PTRDIFFT	0x800		/* ptrdiff_t */
 #define	INTMAXT		0x1000		/* intmax_t */
 #define	CHARINT		0x2000		/* print char using int format */
+<<<<<<< HEAD
+=======
+#define	FASTINT		0x4000		/* int_fastN_t */
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 /*
  * Macros for converting digits to letters and vice versa

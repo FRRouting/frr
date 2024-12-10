@@ -15,6 +15,7 @@ Installing Dependencies
       pkg-config libpam0g-dev libjson-c-dev bison flex \
       libc-ares-dev python3-dev python3-sphinx \
       install-info build-essential libsnmp-dev perl \
+<<<<<<< HEAD
       libcap-dev python2 libelf-dev libunwind-dev \
       libyang2 libyang2-dev
 
@@ -49,6 +50,23 @@ This is optional
 .. code-block:: console
 
    sudo apt-get install protobuf-c-compiler libprotobuf-c-dev
+=======
+      libcap-dev libelf-dev libunwind-dev \
+      protobuf-c-compiler libprotobuf-c-dev
+
+.. include:: building-libunwind-note.rst
+
+.. include:: building-libyang.rst
+
+GRPC
+^^^^
+If GRPC is enabled using ``--enable-grpc`` the following packages should be
+installed.
+
+.. code-block:: console
+
+   sudo apt-get install libgrpc++-dev protobuf-compiler-grpc
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 
 Config Rollbacks

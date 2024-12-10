@@ -534,6 +534,10 @@ void pbr_nht_set_seq_nhg_data(struct pbr_map_sequence *pbrms,
 	case NEXTHOP_TYPE_IPV4:
 	case NEXTHOP_TYPE_IPV4_IFINDEX:
 		pbrms->family = AF_INET;
+<<<<<<< HEAD
+=======
+		break;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	case NEXTHOP_TYPE_IFINDEX:
 	case NEXTHOP_TYPE_BLACKHOLE:
 		break;
@@ -897,7 +901,11 @@ static void pbr_nht_individual_nexthop_update(struct pbr_nexthop_cache *pnhc,
 			pbr_nht_individual_nexthop_interface_update(pnhc, pnhi);
 			break;
 		}
+<<<<<<< HEAD
 		/* Intentional fall thru */
+=======
+		fallthrough;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	case NEXTHOP_TYPE_IPV4_IFINDEX:
 	case NEXTHOP_TYPE_IPV4:
 	case NEXTHOP_TYPE_IPV6:

@@ -52,10 +52,15 @@ an example.)
     ./configure \
         --bindir=/usr/bin \
         --sbindir=/usr/lib/frr \
+<<<<<<< HEAD
         --sysconfdir=/etc/frr \
         --libdir=/usr/lib/frr \
         --libexecdir=/usr/lib/frr \
         --localstatedir=/var/run/frr \
+=======
+        --libdir=/usr/lib/frr \
+        --libexecdir=/usr/lib/frr \
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         --with-moduledir=/usr/lib/frr/modules \
         --enable-snmp=agentx \
         --enable-multipath=64 \

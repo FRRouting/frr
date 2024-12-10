@@ -1,3 +1,7 @@
+<<<<<<< HEAD
+=======
+// SPDX-License-Identifier: GPL-2.0-or-later
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 int os_socket(void);
 int os_sendmsg(const uint8_t *buf, size_t len, int ifindex, const uint8_t *addr,

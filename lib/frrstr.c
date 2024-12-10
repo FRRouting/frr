@@ -3,6 +3,10 @@
  * FRR string processing utilities.
  * Copyright (C) 2018  Cumulus Networks, Inc.
  *                     Quentin Young
+<<<<<<< HEAD
+=======
+ * Copyright (c) 2023, LabN Consulting, L.L.C.
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
  */
 
 #include "zebra.h"
@@ -225,3 +229,50 @@ char *frrstr_hex(char *buff, size_t bufsiz, const uint8_t *str, size_t num)
 
 	return buff;
 }
+<<<<<<< HEAD
+=======
+
+const char *frrstr_skip_over_char(const char *s, int skipc)
+{
+	int c, quote = 0;
+
+	while ((c = *s++)) {
+		if (c == '\\') {
+			if (!*s++)
+				return NULL;
+			continue;
+		}
+		if (quote) {
+			if (c == quote)
+				quote = 0;
+			continue;
+		}
+		if (c == skipc)
+			return s;
+		if (c == '"' || c == '\'')
+			quote = c;
+	}
+	return NULL;
+}
+
+/*
+ * Advance backward in string until reaching the char `toc`
+ * if beginning of string is reached w/o finding char return NULL
+ *
+ * /foo/bar'baz/booz'/foo
+ */
+const char *frrstr_back_to_char(const char *s, int toc)
+{
+	const char *next = s;
+	const char *prev = NULL;
+
+	if (s[0] == 0)
+		return NULL;
+	if (!strpbrk(s, "'\"\\"))
+		return strrchr(s, toc);
+	while ((next = frrstr_skip_over_char(next, toc)))
+		prev = next - 1;
+	return prev;
+}
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)

@@ -13,6 +13,7 @@
 #include "vrrp_debug.h"
 
 /* clang-format off */
+<<<<<<< HEAD
 struct debug vrrp_dbg_arp = {0, "VRRP ARP"};
 struct debug vrrp_dbg_auto = {0, "VRRP autoconfiguration events"};
 struct debug vrrp_dbg_ndisc = {0, "VRRP Neighbor Discovery"};
@@ -86,6 +87,17 @@ int vrrp_debug_status_write(struct vty *vty)
 	return vrrp_debug_config_write_helper(vty, false);
 }
 
+=======
+struct debug vrrp_dbg_arp = {0, "debug vrrp arp", "VRRP ARP"};
+struct debug vrrp_dbg_auto = {0, "debug vrrp autoconfigure", "VRRP autoconfiguration events"};
+struct debug vrrp_dbg_ndisc = {0, "debug vrrp ndisc", "VRRP Neighbor Discovery"};
+struct debug vrrp_dbg_pkt = {0, "debug vrrp packets", "VRRP packets"};
+struct debug vrrp_dbg_proto = {0, "debug vrrp protocol", "VRRP protocol events"};
+struct debug vrrp_dbg_sock = {0, "debug vrrp sockets", "VRRP sockets"};
+struct debug vrrp_dbg_zebra = {0, "debug vrrp zebra", "VRRP Zebra events"};
+/* clang-format on */
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 void vrrp_debug_set(struct interface *ifp, uint8_t vrid, int vtynode,
 		    bool onoff, bool proto, bool autoconf, bool pkt, bool sock,
 		    bool ndisc, bool arp, bool zebra)
@@ -110,9 +122,21 @@ void vrrp_debug_set(struct interface *ifp, uint8_t vrid, int vtynode,
 
 /* ------------------------------------------------------------------------- */
 
+<<<<<<< HEAD
 struct debug_callbacks vrrp_dbg_cbs = {.debug_set_all = vrrp_debug_set_all};
 
 void vrrp_debug_init(void)
 {
 	debug_init(&vrrp_dbg_cbs);
+=======
+void vrrp_debug_init(void)
+{
+	debug_install(&vrrp_dbg_arp);
+	debug_install(&vrrp_dbg_auto);
+	debug_install(&vrrp_dbg_ndisc);
+	debug_install(&vrrp_dbg_pkt);
+	debug_install(&vrrp_dbg_proto);
+	debug_install(&vrrp_dbg_sock);
+	debug_install(&vrrp_dbg_zebra);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 }

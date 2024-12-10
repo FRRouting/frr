@@ -52,10 +52,16 @@ static void zebra_evpn_es_get_one_base_evpn(void);
 static int zebra_evpn_es_evi_send_to_client(struct zebra_evpn_es *es,
 					    struct zebra_evpn *zevpn, bool add);
 static void zebra_evpn_local_es_del(struct zebra_evpn_es **esp);
+<<<<<<< HEAD
 static int zebra_evpn_local_es_update(struct zebra_if *zif, esi_t *esi);
 static bool zebra_evpn_es_br_port_dplane_update(struct zebra_evpn_es *es,
 						const char *caller);
 static void zebra_evpn_mh_uplink_cfg_update(struct zebra_if *zif, bool set);
+=======
+static void zebra_evpn_local_es_update(struct zebra_if *zif);
+static bool zebra_evpn_es_br_port_dplane_update(struct zebra_evpn_es *es,
+						const char *caller);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 static void zebra_evpn_mh_update_protodown_es(struct zebra_evpn_es *es,
 					      bool resync_dplane);
 static void zebra_evpn_mh_clear_protodown_es(struct zebra_evpn_es *es);
@@ -564,8 +570,14 @@ zebra_evpn_acc_vl_new(vlanid_t vid, struct interface *br_if)
 	struct zebra_evpn_access_bd *acc_bd;
 	struct interface *vlan_if;
 
+<<<<<<< HEAD
 	if (IS_ZEBRA_DEBUG_EVPN_MH_ES)
 		zlog_debug("access vlan %d bridge %s add", vid, br_if->name);
+=======
+	if (IS_ZEBRA_DEBUG_EVPN_MH_ES || IS_ZEBRA_DEBUG_KERNEL)
+		zlog_debug("%s access vlan %d bridge %s add", __func__, vid,
+			   br_if->name);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	acc_bd = XCALLOC(MTYPE_ZACC_BD, sizeof(struct zebra_evpn_access_bd));
 
@@ -583,8 +595,13 @@ zebra_evpn_acc_vl_new(vlanid_t vid, struct interface *br_if)
 	vlan_if = zvni_map_to_svi(vid, br_if);
 	if (vlan_if) {
 		if (IS_ZEBRA_DEBUG_EVPN_MH_ES)
+<<<<<<< HEAD
 			zlog_debug("vlan %d bridge %s SVI %s set", vid,
 				   br_if->name, vlan_if->name);
+=======
+			zlog_debug("%s vlan %d bridge %s SVI %s set", __func__,
+				   vid, br_if->name, vlan_if->name);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		acc_bd->vlan_zif = vlan_if->info;
 	}
 	return acc_bd;
@@ -732,6 +749,32 @@ static void zebra_evpn_acc_bd_evpn_set(struct zebra_evpn_access_bd *acc_bd,
 	}
 }
 
+<<<<<<< HEAD
+=======
+/* Lookup API for  VxLAN_IF's Bridge, VLAN in EVPN cache */
+int zebra_evpn_vl_vxl_bridge_lookup(uint16_t vid, struct zebra_if *vxlan_zif)
+{
+	struct interface *br_if;
+	struct zebra_evpn_access_bd *acc_bd;
+
+	if (!vid)
+		return -1;
+
+	br_if = vxlan_zif->brslave_info.br_if;
+
+	if (!br_if)
+		return -1;
+
+	acc_bd = zebra_evpn_acc_vl_find(vid, br_if);
+
+	if (!acc_bd)
+		return 0;
+
+	return 1;
+}
+
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 /* handle VLAN->VxLAN_IF association */
 void zebra_evpn_vl_vxl_ref(uint16_t vid, vni_t vni_id,
 			   struct zebra_if *vxlan_zif)
@@ -769,8 +812,14 @@ void zebra_evpn_vl_vxl_ref(uint16_t vid, vni_t vni_id,
 	if (acc_bd->zevpn == old_zevpn)
 		return;
 
+<<<<<<< HEAD
 	if (IS_ZEBRA_DEBUG_EVPN_MH_ES)
 		zlog_debug("access vlan %d vni %u ref", acc_bd->vid, vni_id);
+=======
+	if (IS_ZEBRA_DEBUG_EVPN_MH_ES || IS_ZEBRA_DEBUG_KERNEL)
+		zlog_debug("%s bridge %s access vlan %d vni %u ref", __func__,
+			   br_if->name, acc_bd->vid, vni_id);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	if (old_zevpn)
 		zebra_evpn_acc_bd_evpn_set(acc_bd, NULL, old_zevpn);
@@ -1139,7 +1188,11 @@ void zebra_evpn_if_init(struct zebra_if *zif)
 	/* if an es_id and sysmac are already present against the interface
 	 * activate it
 	 */
+<<<<<<< HEAD
 	zebra_evpn_local_es_update(zif, &zif->es_info.esi);
+=======
+	zebra_evpn_local_es_update(zif);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 }
 
 /* handle deletion of an access port by removing it from all associated
@@ -1936,7 +1989,11 @@ static int zebra_evpn_es_send_add_to_client(struct zebra_evpn_es *es)
 	if (!client)
 		return 0;
 
+<<<<<<< HEAD
 	s = stream_new(ZEBRA_MAX_PACKET_SIZ);
+=======
+	s = stream_new(ZEBRA_SMALL_PACKET_SIZE);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	zclient_create_header(s, ZEBRA_LOCAL_ES_ADD, zebra_vrf_get_evpn_id());
 	stream_put(s, &es->esi, sizeof(esi_t));
@@ -1972,7 +2029,11 @@ static int zebra_evpn_es_send_del_to_client(struct zebra_evpn_es *es)
 	if (!client)
 		return 0;
 
+<<<<<<< HEAD
 	s = stream_new(ZEBRA_MAX_PACKET_SIZ);
+=======
+	s = stream_new(ZEBRA_SMALL_PACKET_SIZE);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	stream_reset(s);
 
 	zclient_create_header(s, ZEBRA_LOCAL_ES_DEL, zebra_vrf_get_evpn_id());
@@ -2250,8 +2311,12 @@ static void zebra_evpn_es_local_info_set(struct zebra_evpn_es *es,
 
 	/* attach es to interface */
 	zif->es_info.es = es;
+<<<<<<< HEAD
 	es->df_pref = zif->es_info.df_pref ? zif->es_info.df_pref
 					   : EVPN_MH_DF_PREF_DEFAULT;
+=======
+	es->df_pref = zif->es_info.df_pref;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	/* attach interface to es */
 	es->zif = zif;
@@ -2402,6 +2467,7 @@ static void zebra_evpn_es_remote_info_re_eval(struct zebra_evpn_es **esp)
 	}
 }
 
+<<<<<<< HEAD
 /* A new local es is created when a local-es-id and sysmac is configured
  * against an interface.
  */
@@ -2413,12 +2479,61 @@ static int zebra_evpn_local_es_update(struct zebra_if *zif, esi_t *esi)
 	if (old_es && !memcmp(&old_es->esi, esi, sizeof(*esi)))
 		/* dup - nothing to be done */
 		return 0;
+=======
+void zebra_build_type3_esi(uint32_t lid, struct ethaddr *mac, esi_t *esi)
+{
+	int offset = 0;
+	int field_bytes = 0;
+
+	/* build 10-byte type-3-ESI -
+	 * Type(1-byte), MAC(6-bytes), ES-LID (3-bytes)
+	 */
+	field_bytes = 1;
+	esi->val[offset] = ESI_TYPE_MAC;
+	offset += field_bytes;
+
+	field_bytes = ETH_ALEN;
+	memcpy(&esi->val[offset], (uint8_t *)mac, field_bytes);
+	offset += field_bytes;
+
+	esi->val[offset++] = (uint8_t)(lid >> 16);
+	esi->val[offset++] = (uint8_t)(lid >> 8);
+	esi->val[offset++] = (uint8_t)lid;
+}
+
+/* A new local es is created when a local-es-id and sysmac is configured
+ * against an interface.
+ */
+static void zebra_evpn_local_es_update(struct zebra_if *zif)
+{
+	struct zebra_evpn_es *old_es = zif->es_info.es;
+	struct zebra_evpn_es *es;
+	esi_t _esi, *esi;
+
+	if (!zebra_evpn_is_if_es_capable(zif))
+		return;
+
+	if (memcmp(&zif->es_info.esi, zero_esi, sizeof(*zero_esi))) {
+		esi = &zif->es_info.esi;
+	} else if (zif->es_info.lid && !is_zero_mac(&zif->es_info.sysmac)) {
+		zebra_build_type3_esi(zif->es_info.lid, &zif->es_info.sysmac,
+				      &_esi);
+		esi = &_esi;
+	} else {
+		esi = zero_esi;
+	}
+
+	if (old_es && !memcmp(&old_es->esi, esi, sizeof(*esi)))
+		/* dup - nothing to be done */
+		return;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	/* release the old_es against the zif */
 	if (old_es)
 		zebra_evpn_local_es_del(&old_es);
 
 	es = zebra_evpn_es_find(esi);
+<<<<<<< HEAD
 	if (es) {
 		/* if it exists against another interface flag an error */
 		if (es->zif && es->zif != zif)
@@ -2469,6 +2584,13 @@ static int zebra_evpn_type3_esi_update(struct zebra_if *zif, uint32_t lid,
 	esi.val[offset++] = (uint8_t)lid;
 
 	return zebra_evpn_local_es_update(zif, &esi);
+=======
+	if (!es)
+		es = zebra_evpn_es_new(esi);
+
+	if (es)
+		zebra_evpn_es_local_info_set(es, zif);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 }
 
 int zebra_evpn_remote_es_del(const esi_t *esi, struct in_addr vtep_ip)
@@ -2651,7 +2773,11 @@ static int zebra_evpn_es_evi_send_to_client(struct zebra_evpn_es *es,
 	if (!client)
 		return 0;
 
+<<<<<<< HEAD
 	s = stream_new(ZEBRA_MAX_PACKET_SIZ);
+=======
+	s = stream_new(ZEBRA_SMALL_PACKET_SIZE);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	zclient_create_header(s,
 			add ? ZEBRA_LOCAL_ES_EVI_ADD : ZEBRA_LOCAL_ES_EVI_DEL,
@@ -2673,6 +2799,7 @@ static int zebra_evpn_es_evi_send_to_client(struct zebra_evpn_es *es,
 }
 
 /* sysmac part of a local ESI has changed */
+<<<<<<< HEAD
 static int zebra_evpn_es_sys_mac_update(struct zebra_if *zif,
 		struct ethaddr *sysmac)
 {
@@ -2711,6 +2838,35 @@ static int zebra_evpn_es_type0_esi_update(struct zebra_if *zif, esi_t *esi)
 	zif->es_info.lid = 0;
 
 	return rv;
+=======
+void zebra_evpn_es_sys_mac_update(struct zebra_if *zif, struct ethaddr *sysmac)
+{
+	if (sysmac)
+		memcpy(&zif->es_info.sysmac, sysmac, sizeof(struct ethaddr));
+	else
+		memset(&zif->es_info.sysmac, 0, sizeof(struct ethaddr));
+
+	zebra_evpn_local_es_update(zif);
+}
+
+/* local-ID part of ESI has changed */
+void zebra_evpn_es_lid_update(struct zebra_if *zif, uint32_t lid)
+{
+	zif->es_info.lid = lid;
+
+	zebra_evpn_local_es_update(zif);
+}
+
+/* type-0 esi has changed */
+void zebra_evpn_es_type0_esi_update(struct zebra_if *zif, esi_t *esi)
+{
+	if (esi)
+		memcpy(&zif->es_info.esi, esi, sizeof(*esi));
+	else
+		memset(&zif->es_info.esi, 0, sizeof(*esi));
+
+	zebra_evpn_local_es_update(zif);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 }
 
 void zebra_evpn_es_cleanup(void)
@@ -2726,10 +2882,16 @@ void zebra_evpn_es_cleanup(void)
 	}
 }
 
+<<<<<<< HEAD
 static void zebra_evpn_es_df_pref_update(struct zebra_if *zif, uint16_t df_pref)
 {
 	struct zebra_evpn_es *es;
 	uint16_t tmp_pref;
+=======
+void zebra_evpn_es_df_pref_update(struct zebra_if *zif, uint16_t df_pref)
+{
+	struct zebra_evpn_es *es;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	if (zif->es_info.df_pref == df_pref)
 		return;
@@ -2740,6 +2902,7 @@ static void zebra_evpn_es_df_pref_update(struct zebra_if *zif, uint16_t df_pref)
 	if (!es)
 		return;
 
+<<<<<<< HEAD
 	tmp_pref = zif->es_info.df_pref ? zif->es_info.df_pref
 					: EVPN_MH_DF_PREF_DEFAULT;
 
@@ -2747,6 +2910,12 @@ static void zebra_evpn_es_df_pref_update(struct zebra_if *zif, uint16_t df_pref)
 		return;
 
 	es->df_pref = tmp_pref;
+=======
+	if (es->df_pref == zif->es_info.df_pref)
+		return;
+
+	es->df_pref = zif->es_info.df_pref;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	/* run df election */
 	zebra_evpn_es_run_df_election(es, __func__);
 	/* notify bgp */
@@ -2833,7 +3002,11 @@ void zebra_evpn_es_bypass_update(struct zebra_evpn_es *es,
 		zebra_evpn_es_br_port_dplane_update(es, __func__);
 }
 
+<<<<<<< HEAD
 static void zebra_evpn_es_bypass_cfg_update(struct zebra_if *zif, bool bypass)
+=======
+void zebra_evpn_es_bypass_cfg_update(struct zebra_if *zif, bool bypass)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 {
 	bool old_bypass = !!(zif->es_info.flags & ZIF_CFG_ES_FLAG_BYPASS);
 
@@ -3028,7 +3201,11 @@ void zebra_evpn_es_if_oper_state_change(struct zebra_if *zif, bool up)
 }
 
 static char *zebra_evpn_es_vtep_str(char *vtep_str, struct zebra_evpn_es *es,
+<<<<<<< HEAD
 				    uint8_t vtep_str_size)
+=======
+				    size_t vtep_str_size)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 {
 	struct zebra_evpn_es_vtep *zvtep;
 	struct listnode	*node;
@@ -3326,6 +3503,7 @@ void zebra_evpn_es_show_esi(struct vty *vty, bool uj, esi_t *esi)
 		vty_json(vty, json);
 }
 
+<<<<<<< HEAD
 int zebra_evpn_mh_if_write(struct vty *vty, struct interface *ifp)
 {
 	struct zebra_if *zif = ifp->info;
@@ -3528,6 +3706,11 @@ DEFPY(zebra_evpn_mh_uplink, zebra_evpn_mh_uplink_cmd, "[no] evpn mh uplink",
 	zebra_evpn_mh_uplink_cfg_update(zif, no ? false : true);
 
 	return CMD_SUCCESS;
+=======
+void zebra_evpn_mh_if_init(struct zebra_if *zif)
+{
+	zif->es_info.df_pref = EVPN_MH_DF_PREF_DEFAULT;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 }
 
 void zebra_evpn_mh_json(json_object *json)
@@ -3864,7 +4047,11 @@ static void zebra_evpn_mh_uplink_oper_flags_update(struct zebra_if *zif,
 	}
 }
 
+<<<<<<< HEAD
 static void zebra_evpn_mh_uplink_cfg_update(struct zebra_if *zif, bool set)
+=======
+void zebra_evpn_mh_uplink_cfg_update(struct zebra_if *zif, bool set)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 {
 	bool old_protodown = zebra_evpn_mh_is_all_uplinks_down();
 	bool new_protodown;
@@ -4087,6 +4274,7 @@ int zebra_evpn_mh_redirect_off(struct vty *vty, bool redirect_off)
 	return 0;
 }
 
+<<<<<<< HEAD
 void zebra_evpn_interface_init(void)
 {
 	install_element(INTERFACE_NODE, &zebra_evpn_es_id_cmd);
@@ -4096,6 +4284,8 @@ void zebra_evpn_interface_init(void)
 	install_element(INTERFACE_NODE, &zebra_evpn_mh_uplink_cmd);
 }
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 void zebra_evpn_mh_init(void)
 {
 	zrouter.mh_info = XCALLOC(MTYPE_ZMH_INFO, sizeof(*zrouter.mh_info));

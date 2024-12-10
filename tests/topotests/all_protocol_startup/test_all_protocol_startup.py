@@ -20,6 +20,10 @@ import sys
 import pytest
 import glob
 from time import sleep
+<<<<<<< HEAD
+=======
+from lib.topolog import logger
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 pytestmark = [
     pytest.mark.babeld,
@@ -37,10 +41,19 @@ from lib.topogen import Topogen, get_topogen
 from lib.common_config import (
     required_linux_kernel_version,
 )
+<<<<<<< HEAD
 
 from lib.topolog import logger
 import json
 
+=======
+from lib.topolog import logger
+
+import json
+import functools
+
+# Global that must be set on a failure to stop subsequent tests from being run
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 fatal_error = ""
 
 
@@ -54,7 +67,11 @@ fatal_error = ""
 def build_topo(tgen):
     router = tgen.add_router("r1")
     for i in range(0, 10):
+<<<<<<< HEAD
         tgen.add_switch("sw%d" % i).add_link(router)
+=======
+        tgen.add_switch("sw{}".format(i)).add_link(router)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 
 #####################################################
@@ -67,7 +84,11 @@ def build_topo(tgen):
 def setup_module(module):
     global fatal_error
 
+<<<<<<< HEAD
     print("\n\n** %s: Setup Topology" % module.__name__)
+=======
+    print("\n\n** {}: Setup Topology".format(module.__name__))
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     print("******************************************\n")
 
     thisDir = os.path.dirname(os.path.realpath(__file__))
@@ -85,6 +106,7 @@ def setup_module(module):
     #
     # Main router
     for i in range(1, 2):
+<<<<<<< HEAD
         net["r%s" % i].loadConf("mgmtd", "%s/r%s/zebra.conf" % (thisDir, i))
         net["r%s" % i].loadConf("zebra", "%s/r%s/zebra.conf" % (thisDir, i))
         net["r%s" % i].loadConf("ripd", "%s/r%s/ripd.conf" % (thisDir, i))
@@ -106,13 +128,42 @@ def setup_module(module):
         net["r%s" % i].loadConf("babeld", "%s/r%s/babeld.conf" % (thisDir, i))
         net["r%s" % i].loadConf("pbrd", "%s/r%s/pbrd.conf" % (thisDir, i))
         tgen.gears["r%s" % i].start()
+=======
+        net["r{}".format(i)].loadConf("mgmtd", "{}/r{}/zebra.conf".format(thisDir, i))
+        net["r{}".format(i)].loadConf("zebra", "{}/r{}/zebra.conf".format(thisDir, i))
+        net["r{}".format(i)].loadConf("ripd", "{}/r{}/ripd.conf".format(thisDir, i))
+        net["r{}".format(i)].loadConf("ripngd", "{}/r{}/ripngd.conf".format(thisDir, i))
+        net["r{}".format(i)].loadConf("ospfd", "{}/r{}/ospfd.conf".format(thisDir, i))
+        if net["r1"].checkRouterVersion("<", "4.0"):
+            net["r{}".format(i)].loadConf(
+                "ospf6d", "{}/r{}/ospf6d.conf-pre-v4".format(thisDir, i)
+            )
+        else:
+            net["r{}".format(i)].loadConf(
+                "ospf6d", "{}/r{}/ospf6d.conf".format(thisDir, i)
+            )
+        net["r{}".format(i)].loadConf("isisd", "{}/r{}/isisd.conf".format(thisDir, i))
+        net["r{}".format(i)].loadConf("bgpd", "{}/r{}/bgpd.conf".format(thisDir, i))
+        if net["r{}".format(i)].daemon_available("ldpd"):
+            # Only test LDPd if it's installed and Kernel >= 4.5
+            net["r{}".format(i)].loadConf("ldpd", "{}/r{}/ldpd.conf".format(thisDir, i))
+        net["r{}".format(i)].loadConf("sharpd")
+        net["r{}".format(i)].loadConf("nhrpd", "{}/r{}/nhrpd.conf".format(thisDir, i))
+        net["r{}".format(i)].loadConf("babeld", "{}/r{}/babeld.conf".format(thisDir, i))
+        net["r{}".format(i)].loadConf("pbrd", "{}/r{}/pbrd.conf".format(thisDir, i))
+        tgen.gears["r{}".format(i)].start()
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
     # For debugging after starting FRR daemons, uncomment the next line
     # tgen.mininet_cli()
 
 
 def teardown_module(module):
+<<<<<<< HEAD
     print("\n\n** %s: Shutdown Topology" % module.__name__)
+=======
+    print("\n\n** {}: Shutdown Topology".format(module.__name__))
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     print("******************************************\n")
     tgen = get_topogen()
     tgen.stop_topology()
@@ -133,7 +184,11 @@ def test_router_running():
 
     # Starting Routers
     for i in range(1, 2):
+<<<<<<< HEAD
         fatal_error = net["r%s" % i].checkRouterRunning()
+=======
+        fatal_error = net["r{}".format(i)].checkRouterRunning()
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         assert fatal_error == "", fatal_error
 
     # For debugging after starting FRR daemons, uncomment the next line
@@ -151,14 +206,23 @@ def test_error_messages_vtysh():
     print("\n\n** Check for error messages on VTYSH")
     print("******************************************\n")
 
+<<<<<<< HEAD
     failures = 0
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     for i in range(1, 2):
         #
         # First checking Standard Output
         #
 
         # VTYSH output from router
+<<<<<<< HEAD
         vtystdout = net["r%s" % i].cmd('vtysh -c "show version" 2> /dev/null').rstrip()
+=======
+        vtystdout = (
+            net["r{}".format(i)].cmd('vtysh -c "show version" 2> /dev/null').rstrip()
+        )
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
         # Fix newlines (make them all the same)
         vtystdout = ("\n".join(vtystdout.splitlines()) + "\n").rstrip()
@@ -166,16 +230,30 @@ def test_error_messages_vtysh():
         vtystdout = re.sub(r"FRRouting [0-9]+.*", "", vtystdout, flags=re.DOTALL)
 
         if vtystdout == "":
+<<<<<<< HEAD
             print("r%s StdOut ok" % i)
 
         assert vtystdout == "", "Vtysh StdOut Output check failed for router r%s" % i
+=======
+            print("r{} StdOut ok".format(i))
+
+        assert (
+            vtystdout == ""
+        ), "Vtysh StdOut Output check failed for router r{}".format(i)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
         #
         # Second checking Standard Error
         #
 
         # VTYSH StdErr output from router
+<<<<<<< HEAD
         vtystderr = net["r%s" % i].cmd('vtysh -c "show version" > /dev/null').rstrip()
+=======
+        vtystderr = (
+            net["r{}".format(i)].cmd('vtysh -c "show version" > /dev/null').rstrip()
+        )
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
         # Fix newlines (make them all the same)
         vtystderr = ("\n".join(vtystderr.splitlines()) + "\n").rstrip()
@@ -183,6 +261,7 @@ def test_error_messages_vtysh():
         # vtystderr = re.sub(r"FRRouting [0-9]+.*", "", vtystderr, flags=re.DOTALL)
 
         if vtystderr == "":
+<<<<<<< HEAD
             print("r%s StdErr ok" % i)
 
         assert vtystderr == "", "Vtysh StdErr Output check failed for router r%s" % i
@@ -190,6 +269,17 @@ def test_error_messages_vtysh():
     # Make sure that all daemons are running
     for i in range(1, 2):
         fatal_error = net["r%s" % i].checkRouterRunning()
+=======
+            print("r{} StdErr ok".format(i))
+
+        assert (
+            vtystderr == ""
+        ), "Vtysh StdErr Output check failed for router r{}".format(i)
+
+    # Make sure that all daemons are running
+    for i in range(1, 2):
+        fatal_error = net["r{}".format(i)].checkRouterRunning()
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         assert fatal_error == "", fatal_error
 
 
@@ -213,6 +303,7 @@ def test_error_messages_daemons():
     error_logs = ""
 
     for i in range(1, 2):
+<<<<<<< HEAD
         log = net["r%s" % i].getStdErr("ripd")
         if log:
             error_logs += "r%s RIPd StdErr Output:\n" % i
@@ -230,10 +321,30 @@ def test_error_messages_daemons():
             error_logs += "r%s OSPF6d StdErr Output:\n" % i
             error_logs += log
         log = net["r%s" % i].getStdErr("isisd")
+=======
+        log = net["r{}".format(i)].getStdErr("ripd")
+        if log:
+            error_logs += "r{} RIPd StdErr Output:\n".format(i)
+            error_logs += log
+        log = net["r{}".format(i)].getStdErr("ripngd")
+        if log:
+            error_logs += "r{} RIPngd StdErr Output:\n".format(i)
+            error_logs += log
+        log = net["r{}".format(i)].getStdErr("ospfd")
+        if log:
+            error_logs += "r{} OSPFd StdErr Output:\n".format(i)
+            error_logs += log
+        log = net["r{}".format(i)].getStdErr("ospf6d")
+        if log:
+            error_logs += "r{} OSPF6d StdErr Output:\n".format(i)
+            error_logs += log
+        log = net["r{}".format(i)].getStdErr("isisd")
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         # ISIS shows debugging enabled status on StdErr
         # Remove these messages
         log = re.sub(r"^IS-IS .* debugging is on.*", "", log).rstrip()
         if log:
+<<<<<<< HEAD
             error_logs += "r%s ISISd StdErr Output:\n" % i
             error_logs += log
         log = net["r%s" % i].getStdErr("bgpd")
@@ -244,6 +355,18 @@ def test_error_messages_daemons():
             log = net["r%s" % i].getStdErr("ldpd")
             if log:
                 error_logs += "r%s LDPd StdErr Output:\n" % i
+=======
+            error_logs += "r{} ISISd StdErr Output:\n".format(i)
+            error_logs += log
+        log = net["r{}".format(i)].getStdErr("bgpd")
+        if log:
+            error_logs += "r{} BGPd StdErr Output:\n".format(i)
+            error_logs += log
+        if net["r{}".format(i)].daemon_available("ldpd"):
+            log = net["r{}".format(i)].getStdErr("ldpd")
+            if log:
+                error_logs += "r{} LDPd StdErr Output:\n".format(i)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
                 error_logs += log
 
         log = net["r1"].getStdErr("nhrpd")
@@ -251,27 +374,48 @@ def test_error_messages_daemons():
         # Ignore these
         log = re.sub(r".*YANG model.*not embedded.*", "", log).rstrip()
         if log:
+<<<<<<< HEAD
             error_logs += "r%s NHRPd StdErr Output:\n" % i
+=======
+            error_logs += "r{} NHRPd StdErr Output:\n".format(i)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
             error_logs += log
 
         log = net["r1"].getStdErr("babeld")
         if log:
+<<<<<<< HEAD
             error_logs += "r%s BABELd StdErr Output:\n" % i
+=======
+            error_logs += "r{} BABELd StdErr Output:\n".format(i)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
             error_logs += log
 
         log = net["r1"].getStdErr("pbrd")
         if log:
+<<<<<<< HEAD
             error_logs += "r%s PBRd StdErr Output:\n" % i
             error_logs += log
 
         log = net["r%s" % i].getStdErr("zebra")
         if log:
             error_logs += "r%s Zebra StdErr Output:\n" % i
+=======
+            error_logs += "r{} PBRd StdErr Output:\n".format(i)
+            error_logs += log
+
+        log = net["r{}".format(i)].getStdErr("zebra")
+        if log:
+            error_logs += "r{} Zebra StdErr Output:\n".format(i)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
             error_logs += log
 
     if error_logs:
         sys.stderr.write(
+<<<<<<< HEAD
             "Failed check for StdErr Output on daemons:\n%s\n" % error_logs
+=======
+            "Failed check for StdErr Output on daemons:\n{}\n".format(error_logs)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         )
 
     # Ignoring the issue if told to ignore (ie not yet fixed)
@@ -317,6 +461,7 @@ def test_converge_protocols():
     # Make sure that all daemons are running
     failures = 0
     for i in range(1, 2):
+<<<<<<< HEAD
         fatal_error = net["r%s" % i].checkRouterRunning()
         assert fatal_error == "", fatal_error
 
@@ -324,11 +469,26 @@ def test_converge_protocols():
         v4_routesFile = "%s/r%s/ipv4_routes.ref" % (thisDir, i)
         expected = (
             net["r%s" % i].cmd("sort {} 2> /dev/null".format(v4_routesFile)).rstrip()
+=======
+        fatal_error = net["r{}".format(i)].checkRouterRunning()
+        assert fatal_error == "", fatal_error
+
+        print("Show that v4 routes are right\n")
+        v4_routesFile = "{}/r{}/ipv4_routes.ref".format(thisDir, i)
+        expected = (
+            net["r{}".format(i)]
+            .cmd("sort {} 2> /dev/null".format(v4_routesFile))
+            .rstrip()
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         )
         expected = ("\n".join(expected.splitlines()) + "\n").splitlines(1)
 
         actual = (
+<<<<<<< HEAD
             net["r%s" % i]
+=======
+            net["r{}".format(i)]
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
             .cmd(
                 "vtysh -c \"show ip route\" | sed -e '/^Codes: /,/^\\s*$/d' | sort 2> /dev/null"
             )
@@ -344,24 +504,45 @@ def test_converge_protocols():
             title2="Expected IP RoutingTable",
         )
         if diff:
+<<<<<<< HEAD
             sys.stderr.write("r%s failed IP Routing table check:\n%s\n" % (i, diff))
             failures += 1
         else:
             print("r%s ok" % i)
 
         assert failures == 0, "IP Routing table failed for r%s\n%s" % (i, diff)
+=======
+            sys.stderr.write("r{} failed IP Routing table check:\n{}\n".format(i, diff))
+            failures += 1
+        else:
+            print("r{} ok".format(i))
+
+        assert failures == 0, "IP Routing table failed for r{}\n{}".format(i, diff)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
         failures = 0
 
         print("Show that v6 routes are right\n")
+<<<<<<< HEAD
         v6_routesFile = "%s/r%s/ipv6_routes.ref" % (thisDir, i)
         expected = (
             net["r%s" % i].cmd("sort {} 2> /dev/null".format(v6_routesFile)).rstrip()
+=======
+        v6_routesFile = "{}/r{}/ipv6_routes.ref".format(thisDir, i)
+        expected = (
+            net["r{}".format(i)]
+            .cmd("sort {} 2> /dev/null".format(v6_routesFile))
+            .rstrip()
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         )
         expected = ("\n".join(expected.splitlines()) + "\n").splitlines(1)
 
         actual = (
+<<<<<<< HEAD
             net["r%s" % i]
+=======
+            net["r{}".format(i)]
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
             .cmd(
                 "vtysh -c \"show ipv6 route\" | sed -e '/^Codes: /,/^\\s*$/d' | sort 2> /dev/null"
             )
@@ -377,6 +558,7 @@ def test_converge_protocols():
             title2="Expected IPv6 RoutingTable",
         )
         if diff:
+<<<<<<< HEAD
             sys.stderr.write("r%s failed IPv6 Routing table check:\n%s\n" % (i, diff))
             failures += 1
         else:
@@ -395,6 +577,40 @@ def route_get_nhg_id(route_str):
 
     nhg_id = int(match.group(1))
     return nhg_id
+=======
+            sys.stderr.write(
+                "r{} failed IPv6 Routing table check:\n{}\n".format(i, diff)
+            )
+            failures += 1
+        else:
+            print("r{} ok".format(i))
+
+        assert failures == 0, "IPv6 Routing table failed for r{}\n{}".format(i, diff)
+
+
+def route_get_nhg_id(route_str):
+    global fatal_error
+
+    def get_func(route_str):
+        net = get_topogen().net
+        output = net["r1"].cmd(
+            'vtysh -c "show ip route {} nexthop-group"'.format(route_str)
+        )
+        match = re.search(r"Nexthop Group ID: (\d+)", output)
+        if match is not None:
+            nhg_id = int(match.group(1))
+            return nhg_id
+        else:
+            return None
+
+    test_func = functools.partial(get_func, route_str)
+    _, nhg_id = topotest.run_and_expect_type(test_func, int, count=30, wait=1)
+    if nhg_id == None:
+        fatal_error = "Nexthop Group ID not found for route {}".format(route_str)
+        assert nhg_id != None, fatal_error
+    else:
+        return nhg_id
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 
 def verify_nexthop_group(nhg_id, recursive=False, ecmp=0):
@@ -410,7 +626,11 @@ def verify_nexthop_group(nhg_id, recursive=False, ecmp=0):
     while not found and count < 10:
         count += 1
         # Verify NHG is valid/installed
+<<<<<<< HEAD
         output = net["r1"].cmd('vtysh -c "show nexthop-group rib %d"' % nhg_id)
+=======
+        output = net["r1"].cmd('vtysh -c "show nexthop-group rib {}"'.format(nhg_id))
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         valid = re.search(r"Valid", output)
         if valid is None:
             found = False
@@ -449,6 +669,7 @@ def verify_nexthop_group(nhg_id, recursive=False, ecmp=0):
                 continue
         found = True
 
+<<<<<<< HEAD
     assert valid is not None, "Nexthop Group ID=%d not marked Valid" % nhg_id
     if ecmp or recursive:
         assert ecmpcount is not None, "Nexthop Group ID=%d has no depends" % nhg_id
@@ -463,12 +684,41 @@ def verify_nexthop_group(nhg_id, recursive=False, ecmp=0):
     else:
         assert installed is not None, (
             "Nexthop Group ID=%d not marked Installed" % nhg_id
+=======
+    assert valid is not None, "Nexthop Group ID={} not marked Valid".format(nhg_id)
+    if ecmp or recursive:
+        assert ecmpcount is not None, "Nexthop Group ID={} has no depends".format(
+            nhg_id
+        )
+        if ecmp:
+            assert (
+                len(depends) == ecmp
+            ), "Nexthop Group ID={} doesn't match ecmp size".format(nhg_id)
+        else:
+            assert (
+                len(depends) == 1
+            ), "Nexthop Group ID={} should only have one recursive depend".format(
+                nhg_id
+            )
+    else:
+        assert installed is not None, "Nexthop Group ID={} not marked Installed".format(
+            nhg_id
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         )
 
 
 def verify_route_nexthop_group(route_str, recursive=False, ecmp=0):
+<<<<<<< HEAD
     # Verify route and that zebra created NHGs for and they are valid/installed
     nhg_id = route_get_nhg_id(route_str)
+=======
+    global fatal_error
+
+    # Verify route and that zebra created NHGs for and they are valid/installed
+
+    nhg_id = route_get_nhg_id(route_str)
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     verify_nexthop_group(nhg_id, recursive, ecmp)
 
 
@@ -599,18 +849,33 @@ def test_nexthop_groups():
     count = 0
     dups = []
     nhg_id = route_get_nhg_id("6.6.6.1/32")
+<<<<<<< HEAD
     while (len(dups) != 3) and count < 10:
         output = net["r1"].cmd('vtysh -c "show nexthop-group rib %d"' % nhg_id)
 
         dups = re.findall(r"(via 1\.1\.1\.1)", output)
         if len(dups) != 3:
+=======
+    while (len(dups) != 4) and count < 10:
+        output = net["r1"].cmd('vtysh -c "show nexthop-group rib {}"'.format(nhg_id))
+
+        dups = re.findall(r"(via 1\.1\.1\.1)", output)
+        if len(dups) != 4:
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
             count += 1
             sleep(1)
 
     # Should find 3, itself is inactive
+<<<<<<< HEAD
     assert len(dups) == 3, (
         "Route 6.6.6.1/32 with Nexthop Group ID=%d has wrong number of resolved nexthops"
         % nhg_id
+=======
+    assert (
+        len(dups) == 4
+    ), "Route 6.6.6.1/32 with Nexthop Group ID={} has wrong number of resolved nexthops".format(
+        nhg_id
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     )
 
     ## Remove all NHG routes
@@ -640,7 +905,11 @@ def test_rip_status():
     print("******************************************\n")
     failures = 0
     for i in range(1, 2):
+<<<<<<< HEAD
         refTableFile = "%s/r%s/rip_status.ref" % (thisDir, i)
+=======
+        refTableFile = "{}/r{}/rip_status.ref".format(thisDir, i)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         if os.path.isfile(refTableFile):
             # Read expected result from file
             expected = open(refTableFile).read().rstrip()
@@ -649,7 +918,11 @@ def test_rip_status():
 
             # Actual output from router
             actual = (
+<<<<<<< HEAD
                 net["r%s" % i]
+=======
+                net["r{}".format(i)]
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
                 .cmd('vtysh -c "show ip rip status" 2> /dev/null')
                 .rstrip()
             )
@@ -670,6 +943,7 @@ def test_rip_status():
 
             # Empty string if it matches, otherwise diff contains unified diff
             if diff:
+<<<<<<< HEAD
                 sys.stderr.write("r%s failed IP RIP status check:\n%s\n" % (i, diff))
                 failures += 1
             else:
@@ -680,6 +954,22 @@ def test_rip_status():
     # Make sure that all daemons are running
     for i in range(1, 2):
         fatal_error = net["r%s" % i].checkRouterRunning()
+=======
+                sys.stderr.write(
+                    "r{} failed IP RIP status check:\n{}\n".format(i, diff)
+                )
+                failures += 1
+            else:
+                print("r{} ok".format(i))
+
+            assert failures == 0, "IP RIP status failed for router r{}:\n{}".format(
+                i, diff
+            )
+
+    # Make sure that all daemons are running
+    for i in range(1, 2):
+        fatal_error = net["r{}".format(i)].checkRouterRunning()
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         assert fatal_error == "", fatal_error
 
 
@@ -697,7 +987,11 @@ def test_ripng_status():
     print("******************************************\n")
     failures = 0
     for i in range(1, 2):
+<<<<<<< HEAD
         refTableFile = "%s/r%s/ripng_status.ref" % (thisDir, i)
+=======
+        refTableFile = "{}/r{}/ripng_status.ref".format(thisDir, i)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         if os.path.isfile(refTableFile):
             # Read expected result from file
             expected = open(refTableFile).read().rstrip()
@@ -706,7 +1000,11 @@ def test_ripng_status():
 
             # Actual output from router
             actual = (
+<<<<<<< HEAD
                 net["r%s" % i]
+=======
+                net["r{}".format(i)]
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
                 .cmd('vtysh -c "show ipv6 ripng status" 2> /dev/null')
                 .rstrip()
             )
@@ -730,6 +1028,7 @@ def test_ripng_status():
             # Empty string if it matches, otherwise diff contains unified diff
             if diff:
                 sys.stderr.write(
+<<<<<<< HEAD
                     "r%s failed IPv6 RIPng status check:\n%s\n" % (i, diff)
                 )
                 failures += 1
@@ -739,11 +1038,25 @@ def test_ripng_status():
             assert failures == 0, "IPv6 RIPng status failed for router r%s:\n%s" % (
                 i,
                 diff,
+=======
+                    "r{} failed IPv6 RIPng status check:\n{}\n".format(i, diff)
+                )
+                failures += 1
+            else:
+                print("r{} ok".format(i))
+
+            assert failures == 0, "IPv6 RIPng status failed for router r{}:\n{}".format(
+                i, diff
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
             )
 
     # Make sure that all daemons are running
     for i in range(1, 2):
+<<<<<<< HEAD
         fatal_error = net["r%s" % i].checkRouterRunning()
+=======
+        fatal_error = net["r{}".format(i)].checkRouterRunning()
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         assert fatal_error == "", fatal_error
 
 
@@ -761,7 +1074,11 @@ def test_ospfv2_interfaces():
     print("******************************************\n")
     failures = 0
     for i in range(1, 2):
+<<<<<<< HEAD
         refTableFile = "%s/r%s/show_ip_ospf_interface.ref" % (thisDir, i)
+=======
+        refTableFile = "{}/r{}/show_ip_ospf_interface.ref".format(thisDir, i)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         if os.path.isfile(refTableFile):
             # Read expected result from file
             expected = open(refTableFile).read().rstrip()
@@ -770,7 +1087,11 @@ def test_ospfv2_interfaces():
 
             # Actual output from router
             actual = (
+<<<<<<< HEAD
                 net["r%s" % i]
+=======
+                net["r{}".format(i)]
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
                 .cmd('vtysh -c "show ip ospf interface" 2> /dev/null')
                 .rstrip()
             )
@@ -803,11 +1124,19 @@ def test_ospfv2_interfaces():
             # Empty string if it matches, otherwise diff contains unified diff
             if diff:
                 sys.stderr.write(
+<<<<<<< HEAD
                     "r%s failed SHOW IP OSPF INTERFACE check:\n%s\n" % (i, diff)
                 )
                 failures += 1
             else:
                 print("r%s ok" % i)
+=======
+                    "r{} failed SHOW IP OSPF INTERFACE check:\n{}\n".format(i, diff)
+                )
+                failures += 1
+            else:
+                print("r{} ok".format(i))
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
             # Ignoring the issue if told to ignore (ie not yet fixed)
             if failures != 0:
@@ -821,11 +1150,19 @@ def test_ospfv2_interfaces():
 
             assert (
                 failures == 0
+<<<<<<< HEAD
             ), "SHOW IP OSPF INTERFACE failed for router r%s:\n%s" % (i, diff)
 
     # Make sure that all daemons are running
     for i in range(1, 2):
         fatal_error = net["r%s" % i].checkRouterRunning()
+=======
+            ), "SHOW IP OSPF INTERFACE failed for router r{}:\n{}".format(i, diff)
+
+    # Make sure that all daemons are running
+    for i in range(1, 2):
+        fatal_error = net["r{}".format(i)].checkRouterRunning()
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         assert fatal_error == "", fatal_error
 
 
@@ -843,7 +1180,11 @@ def test_isis_interfaces():
     print("******************************************\n")
     failures = 0
     for i in range(1, 2):
+<<<<<<< HEAD
         refTableFile = "%s/r%s/show_isis_interface_detail.ref" % (thisDir, i)
+=======
+        refTableFile = "{}/r{}/show_isis_interface_detail.ref".format(thisDir, i)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         if os.path.isfile(refTableFile):
             # Read expected result from file
             expected = open(refTableFile).read().rstrip()
@@ -852,7 +1193,11 @@ def test_isis_interfaces():
 
             # Actual output from router
             actual = (
+<<<<<<< HEAD
                 net["r%s" % i]
+=======
+                net["r{}".format(i)]
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
                 .cmd('vtysh -c "show isis interface detail" 2> /dev/null')
                 .rstrip()
             )
@@ -876,6 +1221,7 @@ def test_isis_interfaces():
             # Empty string if it matches, otherwise diff contains unified diff
             if diff:
                 sys.stderr.write(
+<<<<<<< HEAD
                     "r%s failed SHOW ISIS INTERFACE DETAIL check:\n%s\n" % (i, diff)
                 )
                 failures += 1
@@ -889,6 +1235,21 @@ def test_isis_interfaces():
     # Make sure that all daemons are running
     for i in range(1, 2):
         fatal_error = net["r%s" % i].checkRouterRunning()
+=======
+                    "r{} failed SHOW ISIS INTERFACE DETAIL check:\n{}\n".format(i, diff)
+                )
+                failures += 1
+            else:
+                print("r{} ok".format(i))
+
+            assert (
+                failures == 0
+            ), "SHOW ISIS INTERFACE DETAIL failed for router r{}:\n{}".format(i, diff)
+
+    # Make sure that all daemons are running
+    for i in range(1, 2):
+        fatal_error = net["r{}".format(i)].checkRouterRunning()
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         assert fatal_error == "", fatal_error
 
 
@@ -906,7 +1267,11 @@ def test_bgp_summary():
     print("******************************************\n")
     failures = 0
     for i in range(1, 2):
+<<<<<<< HEAD
         refTableFile = "%s/r%s/show_ip_bgp_summary.ref" % (thisDir, i)
+=======
+        refTableFile = "{}/r{}/show_ip_bgp_summary.ref".format(thisDir, i)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         if os.path.isfile(refTableFile):
             # Read expected result from file
             expected_original = open(refTableFile).read().rstrip()
@@ -933,7 +1298,11 @@ def test_bgp_summary():
             ]:
                 # Actual output from router
                 actual = (
+<<<<<<< HEAD
                     net["r%s" % i]
+=======
+                    net["r{}".format(i)]
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
                     .cmd(
                         'vtysh -c "show ip bgp summary ' + arguments + '" 2> /dev/null'
                     )
@@ -951,6 +1320,7 @@ def test_bgp_summary():
                 actual = re.sub(r"Total number.*", "", actual)
                 actual = re.sub(r"Displayed.*", "", actual)
                 # Remove IPv4 Unicast Summary (Title only)
+<<<<<<< HEAD
                 actual = re.sub(r"IPv4 Unicast Summary \(VRF default\):", "", actual)
                 # Remove IPv4 Multicast Summary (all of it)
                 actual = re.sub(r"IPv4 Multicast Summary \(VRF default\):", "", actual)
@@ -963,14 +1333,32 @@ def test_bgp_summary():
                 actual = re.sub(r"No IPv4 Encap neighbor is configured", "", actual)
                 # Remove Unknown Summary (all of it)
                 actual = re.sub(r"Unknown Summary \(VRF default\):", "", actual)
+=======
+                actual = re.sub(r"IPv4 Unicast Summary:", "", actual)
+                # Remove IPv4 Multicast Summary (all of it)
+                actual = re.sub(r"IPv4 Multicast Summary:", "", actual)
+                actual = re.sub(r"No IPv4 Multicast neighbor is configured", "", actual)
+                # Remove IPv4 VPN Summary (all of it)
+                actual = re.sub(r"IPv4 VPN Summary:", "", actual)
+                actual = re.sub(r"No IPv4 VPN neighbor is configured", "", actual)
+                # Remove IPv4 Encap Summary (all of it)
+                actual = re.sub(r"IPv4 Encap Summary:", "", actual)
+                actual = re.sub(r"No IPv4 Encap neighbor is configured", "", actual)
+                # Remove Unknown Summary (all of it)
+                actual = re.sub(r"Unknown Summary:", "", actual)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
                 actual = re.sub(r"No Unknown neighbor is configured", "", actual)
                 # Make Connect/Active/Idle the same (change them all to Active)
                 actual = re.sub(r" Connect ", "  Active ", actual)
                 actual = re.sub(r"    Idle ", "  Active ", actual)
 
+<<<<<<< HEAD
                 actual = re.sub(
                     r"IPv4 labeled-unicast Summary \(VRF default\):", "", actual
                 )
+=======
+                actual = re.sub(r"IPv4 labeled-unicast Summary:", "", actual)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
                 actual = re.sub(
                     r"No IPv4 labeled-unicast neighbor is configured", "", actual
                 )
@@ -1051,6 +1439,7 @@ def test_bgp_summary():
                 # Empty string if it matches, otherwise diff contains unified diff
                 if diff:
                     sys.stderr.write(
+<<<<<<< HEAD
                         "r%s failed SHOW IP BGP SUMMARY check:\n%s\n" % (i, diff)
                     )
                     failures += 1
@@ -1067,6 +1456,21 @@ def test_bgp_summary():
     # Make sure that all daemons are running
     for i in range(1, 2):
         fatal_error = net["r%s" % i].checkRouterRunning()
+=======
+                        "r{} failed SHOW IP BGP SUMMARY check:\n{}\n".format(i, diff)
+                    )
+                    failures += 1
+                else:
+                    print("r{} ok".format(i))
+
+                assert (
+                    failures == 0
+                ), "SHOW IP BGP SUMMARY failed for router r{}:\n{}".format(i, diff)
+
+    # Make sure that all daemons are running
+    for i in range(1, 2):
+        fatal_error = net["r{}".format(i)].checkRouterRunning()
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         assert fatal_error == "", fatal_error
 
 
@@ -1084,7 +1488,11 @@ def test_bgp_ipv6_summary():
     print("******************************************\n")
     failures = 0
     for i in range(1, 2):
+<<<<<<< HEAD
         refTableFile = "%s/r%s/show_bgp_ipv6_summary.ref" % (thisDir, i)
+=======
+        refTableFile = "{}/r{}/show_bgp_ipv6_summary.ref".format(thisDir, i)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         if os.path.isfile(refTableFile):
             # Read expected result from file
             expected = open(refTableFile).read().rstrip()
@@ -1093,7 +1501,11 @@ def test_bgp_ipv6_summary():
 
             # Actual output from router
             actual = (
+<<<<<<< HEAD
                 net["r%s" % i]
+=======
+                net["r{}".format(i)]
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
                 .cmd('vtysh -c "show bgp ipv6 summary" 2> /dev/null')
                 .rstrip()
             )
@@ -1108,6 +1520,7 @@ def test_bgp_ipv6_summary():
             actual = re.sub(r"Total number.*", "", actual)
             actual = re.sub(r"Displayed.*", "", actual)
             # Remove IPv4 Unicast Summary (Title only)
+<<<<<<< HEAD
             actual = re.sub(r"IPv6 Unicast Summary \(VRF default\):", "", actual)
             # Remove IPv4 Multicast Summary (all of it)
             actual = re.sub(r"IPv6 Multicast Summary \(VRF default\):", "", actual)
@@ -1120,15 +1533,33 @@ def test_bgp_ipv6_summary():
             actual = re.sub(r"No IPv6 Encap neighbor is configured", "", actual)
             # Remove Unknown Summary (all of it)
             actual = re.sub(r"Unknown Summary \(VRF default\):", "", actual)
+=======
+            actual = re.sub(r"IPv6 Unicast Summary:", "", actual)
+            # Remove IPv4 Multicast Summary (all of it)
+            actual = re.sub(r"IPv6 Multicast Summary:", "", actual)
+            actual = re.sub(r"No IPv6 Multicast neighbor is configured", "", actual)
+            # Remove IPv4 VPN Summary (all of it)
+            actual = re.sub(r"IPv6 VPN Summary:", "", actual)
+            actual = re.sub(r"No IPv6 VPN neighbor is configured", "", actual)
+            # Remove IPv4 Encap Summary (all of it)
+            actual = re.sub(r"IPv6 Encap Summary:", "", actual)
+            actual = re.sub(r"No IPv6 Encap neighbor is configured", "", actual)
+            # Remove Unknown Summary (all of it)
+            actual = re.sub(r"Unknown Summary:", "", actual)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
             actual = re.sub(r"No Unknown neighbor is configured", "", actual)
             # Make Connect/Active/Idle the same (change them all to Active)
             actual = re.sub(r" Connect ", "  Active ", actual)
             actual = re.sub(r"    Idle ", "  Active ", actual)
 
             # Remove Labeled Unicast Summary (all of it)
+<<<<<<< HEAD
             actual = re.sub(
                 r"IPv6 labeled-unicast Summary \(VRF default\):", "", actual
             )
+=======
+            actual = re.sub(r"IPv6 labeled-unicast Summary:", "", actual)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
             actual = re.sub(
                 r"No IPv6 labeled-unicast neighbor is configured", "", actual
             )
@@ -1151,6 +1582,7 @@ def test_bgp_ipv6_summary():
             # Empty string if it matches, otherwise diff contains unified diff
             if diff:
                 sys.stderr.write(
+<<<<<<< HEAD
                     "r%s failed SHOW BGP IPv6 SUMMARY check:\n%s\n" % (i, diff)
                 )
                 failures += 1
@@ -1165,6 +1597,21 @@ def test_bgp_ipv6_summary():
     # Make sure that all daemons are running
     for i in range(1, 2):
         fatal_error = net["r%s" % i].checkRouterRunning()
+=======
+                    "r{} failed SHOW BGP IPv6 SUMMARY check:\n{}\n".format(i, diff)
+                )
+                failures += 1
+            else:
+                print("r{} ok".format(i))
+
+            assert (
+                failures == 0
+            ), "SHOW BGP IPv6 SUMMARY failed for router r{}:\n{}".format(i, diff)
+
+    # Make sure that all daemons are running
+    for i in range(1, 2):
+        fatal_error = net["r{}".format(i)].checkRouterRunning()
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         assert fatal_error == "", fatal_error
 
 
@@ -1181,11 +1628,21 @@ def test_nht():
     thisDir = os.path.dirname(os.path.realpath(__file__))
 
     for i in range(1, 2):
+<<<<<<< HEAD
         nhtFile = "%s/r%s/ip_nht.ref" % (thisDir, i)
         expected = open(nhtFile).read().rstrip()
         expected = ("\n".join(expected.splitlines()) + "\n").splitlines(1)
 
         actual = net["r%s" % i].cmd('vtysh -c "show ip nht" 2> /dev/null').rstrip()
+=======
+        nhtFile = "{}/r{}/ip_nht.ref".format(thisDir, i)
+        expected = open(nhtFile).read().rstrip()
+        expected = ("\n".join(expected.splitlines()) + "\n").splitlines(1)
+
+        actual = (
+            net["r{}".format(i)].cmd('vtysh -c "show ip nht" 2> /dev/null').rstrip()
+        )
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         actual = re.sub(r"fd [0-9]+", "fd XX", actual)
         actual = ("\n".join(actual.splitlines()) + "\n").splitlines(1)
 
@@ -1197,6 +1654,7 @@ def test_nht():
         )
 
         if diff:
+<<<<<<< HEAD
             assert 0, "r%s failed ip nht check:\n%s\n" % (i, diff)
         else:
             print("show ip nht is ok\n")
@@ -1206,6 +1664,19 @@ def test_nht():
         expected = ("\n".join(expected.splitlines()) + "\n").splitlines(1)
 
         actual = net["r%s" % i].cmd('vtysh -c "show ipv6 nht" 2> /dev/null').rstrip()
+=======
+            assert 0, "r{} failed ip nht check:\n{}\n".format(i, diff)
+        else:
+            print("show ip nht is ok\n")
+
+        nhtFile = "{}/r{}/ipv6_nht.ref".format(thisDir, i)
+        expected = open(nhtFile).read().rstrip()
+        expected = ("\n".join(expected.splitlines()) + "\n").splitlines(1)
+
+        actual = (
+            net["r{}".format(i)].cmd('vtysh -c "show ipv6 nht" 2> /dev/null').rstrip()
+        )
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         actual = re.sub(r"fd [0-9]+", "fd XX", actual)
         actual = ("\n".join(actual.splitlines()) + "\n").splitlines(1)
 
@@ -1217,7 +1688,11 @@ def test_nht():
         )
 
         if diff:
+<<<<<<< HEAD
             assert 0, "r%s failed ipv6 nht check:\n%s\n" % (i, diff)
+=======
+            assert 0, "r{} failed ipv6 nht check:\n{}\n".format(i, diff)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         else:
             print("show ipv6 nht is ok\n")
 
@@ -1237,7 +1712,11 @@ def test_bgp_ipv4():
     diffresult = {}
     for i in range(1, 2):
         success = 0
+<<<<<<< HEAD
         for refTableFile in glob.glob("%s/r%s/show_bgp_ipv4*.ref" % (thisDir, i)):
+=======
+        for refTableFile in glob.glob("{}/r{}/show_bgp_ipv4*.ref".format(thisDir, i)):
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
             if os.path.isfile(refTableFile):
                 # Read expected result from file
                 expected = open(refTableFile).read().rstrip()
@@ -1246,7 +1725,13 @@ def test_bgp_ipv4():
 
                 # Actual output from router
                 actual = (
+<<<<<<< HEAD
                     net["r%s" % i].cmd('vtysh -c "show bgp ipv4" 2> /dev/null').rstrip()
+=======
+                    net["r{}".format(i)]
+                    .cmd('vtysh -c "show bgp ipv4" 2> /dev/null')
+                    .rstrip()
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
                 )
                 # Remove summary line (changed recently)
                 actual = re.sub(r"Total number.*", "", actual)
@@ -1268,12 +1753,17 @@ def test_bgp_ipv4():
                     diffresult[refTableFile] = diff
                 else:
                     success = 1
+<<<<<<< HEAD
                     print("template %s matched: r%s ok" % (refTableFile, i))
+=======
+                    print("template {} matched: r{} ok".format(refTableFile, i))
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
                     break
 
         if not success:
             resultstr = "No template matched.\n"
             for f in diffresult.keys():
+<<<<<<< HEAD
                 resultstr += "template %s: r%s failed SHOW BGP IPv4 check:\n%s\n" % (
                     f,
                     i,
@@ -1281,11 +1771,26 @@ def test_bgp_ipv4():
                 )
             raise AssertionError(
                 "SHOW BGP IPv4 failed for router r%s:\n%s" % (i, resultstr)
+=======
+                resultstr += (
+                    "template {}: r{} failed SHOW BGP IPv4 check:\n{}\n".format(
+                        f,
+                        i,
+                        diffresult[f],
+                    )
+                )
+            raise AssertionError(
+                "SHOW BGP IPv4 failed for router r{}:\n{}".format(i, resultstr)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
             )
 
     # Make sure that all daemons are running
     for i in range(1, 2):
+<<<<<<< HEAD
         fatal_error = net["r%s" % i].checkRouterRunning()
+=======
+        fatal_error = net["r{}".format(i)].checkRouterRunning()
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         assert fatal_error == "", fatal_error
 
 
@@ -1304,7 +1809,11 @@ def test_bgp_ipv6():
     diffresult = {}
     for i in range(1, 2):
         success = 0
+<<<<<<< HEAD
         for refTableFile in glob.glob("%s/r%s/show_bgp_ipv6*.ref" % (thisDir, i)):
+=======
+        for refTableFile in glob.glob("{}/r{}/show_bgp_ipv6*.ref".format(thisDir, i)):
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
             if os.path.isfile(refTableFile):
                 # Read expected result from file
                 expected = open(refTableFile).read().rstrip()
@@ -1313,7 +1822,13 @@ def test_bgp_ipv6():
 
                 # Actual output from router
                 actual = (
+<<<<<<< HEAD
                     net["r%s" % i].cmd('vtysh -c "show bgp ipv6" 2> /dev/null').rstrip()
+=======
+                    net["r{}".format(i)]
+                    .cmd('vtysh -c "show bgp ipv6" 2> /dev/null')
+                    .rstrip()
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
                 )
                 # Remove summary line (changed recently)
                 actual = re.sub(r"Total number.*", "", actual)
@@ -1335,11 +1850,16 @@ def test_bgp_ipv6():
                     diffresult[refTableFile] = diff
                 else:
                     success = 1
+<<<<<<< HEAD
                     print("template %s matched: r%s ok" % (refTableFile, i))
+=======
+                    print("template {} matched: r{} ok".format(refTableFile, i))
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
         if not success:
             resultstr = "No template matched.\n"
             for f in diffresult.keys():
+<<<<<<< HEAD
                 resultstr += "template %s: r%s failed SHOW BGP IPv6 check:\n%s\n" % (
                     f,
                     i,
@@ -1347,11 +1867,26 @@ def test_bgp_ipv6():
                 )
             raise AssertionError(
                 "SHOW BGP IPv6 failed for router r%s:\n%s" % (i, resultstr)
+=======
+                resultstr += (
+                    "template {}: r{} failed SHOW BGP IPv6 check:\n{}\n".format(
+                        f,
+                        i,
+                        diffresult[f],
+                    )
+                )
+            raise AssertionError(
+                "SHOW BGP IPv6 failed for router r{}:\n{}".format(i, resultstr)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
             )
 
     # Make sure that all daemons are running
     for i in range(1, 2):
+<<<<<<< HEAD
         fatal_error = net["r%s" % i].checkRouterRunning()
+=======
+        fatal_error = net["r{}".format(i)].checkRouterRunning()
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         assert fatal_error == "", fatal_error
 
 
@@ -1368,14 +1903,26 @@ def test_route_map():
     print("*******************************************************\n")
     failures = 0
     for i in range(1, 2):
+<<<<<<< HEAD
         refroutemap = "%s/r%s/show_route_map.ref" % (thisDir, i)
+=======
+        refroutemap = "{}/r{}/show_route_map.ref".format(thisDir, i)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         if os.path.isfile(refroutemap):
             expected = open(refroutemap).read().rstrip()
             expected = ("\n".join(expected.splitlines()) + "\n").splitlines(1)
 
             actual = (
+<<<<<<< HEAD
                 net["r%s" % i].cmd('vtysh -c "show route-map" 2> /dev/null').rstrip()
             )
+=======
+                net["r{}".format(i)]
+                .cmd('vtysh -c "show route-map" 2> /dev/null')
+                .rstrip()
+            )
+            actual = re.sub(r"\([0-9].* milli", "(X milli", actual)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
             actual = ("\n".join(actual.splitlines()) + "\n").splitlines(1)
 
             diff = topotest.get_textdiff(
@@ -1387,6 +1934,7 @@ def test_route_map():
 
             if diff:
                 sys.stderr.write(
+<<<<<<< HEAD
                     "r%s failed show route-map command Check:\n%s\n" % (i, diff)
                 )
                 failures += 1
@@ -1396,6 +1944,17 @@ def test_route_map():
             assert (
                 failures == 0
             ), "Show route-map command failed for router r%s:\n%s" % (i, diff)
+=======
+                    "r{} failed show route-map command Check:\n{}\n".format(i, diff)
+                )
+                failures += 1
+            else:
+                print("r{} ok".format(i))
+
+            assert (
+                failures == 0
+            ), "Show route-map command failed for router r{}:\n{}".format(i, diff)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 
 def test_nexthop_groups_with_route_maps():
@@ -1422,6 +1981,7 @@ def test_nexthop_groups_with_route_maps():
     src_str = "192.168.0.1"
 
     net["r1"].cmd(
+<<<<<<< HEAD
         'vtysh -c "c t" -c "route-map NH-SRC permit 111" -c "set src %s"' % src_str
     )
     net["r1"].cmd('vtysh -c "c t" -c "ip protocol sharp route-map NH-SRC"')
@@ -1435,15 +1995,43 @@ def test_nexthop_groups_with_route_maps():
         output = net["r1"].cmd("ip route show %s/32" % route_str)
         match = re.search(r"src %s" % src_str, output)
         assert match is not None, "Route %s/32 not installed with src %s" % (
+=======
+        'vtysh -c "c t" -c "route-map NH-SRC permit 111" -c "set src {}"'.format(
+            src_str
+        )
+    )
+    net["r1"].cmd('vtysh -c "c t" -c "ip protocol sharp route-map NH-SRC"')
+
+    net["r1"].cmd(
+        'vtysh -c "sharp install routes {} nexthop-group test 1"'.format(route_str)
+    )
+
+    verify_route_nexthop_group("{}/32".format(route_str))
+
+    # Only a valid test on linux using nexthop objects
+    if sys.platform.startswith("linux"):
+        output = net["r1"].cmd("ip route show {}/32".format(route_str))
+        match = re.search(r"src {}".format(src_str), output)
+        assert match is not None, "Route {}/32 not installed with src {}".format(
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
             route_str,
             src_str,
         )
 
     # Remove NHG routes and route-map
+<<<<<<< HEAD
     net["r1"].cmd('vtysh -c "sharp remove routes %s 1"' % route_str)
     net["r1"].cmd('vtysh -c "c t" -c "no ip protocol sharp route-map NH-SRC"')
     net["r1"].cmd(
         'vtysh -c "c t" -c "no route-map NH-SRC permit 111" # -c "set src %s"' % src_str
+=======
+    net["r1"].cmd('vtysh -c "sharp remove routes {} 1"'.format(route_str))
+    net["r1"].cmd('vtysh -c "c t" -c "no ip protocol sharp route-map NH-SRC"')
+    net["r1"].cmd(
+        'vtysh -c "c t" -c "no route-map NH-SRC permit 111" # -c "set src {}"'.format(
+            src_str
+        )
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     )
     net["r1"].cmd('vtysh -c "c t" -c "no route-map NH-SRC"')
 
@@ -1453,7 +2041,13 @@ def test_nexthop_groups_with_route_maps():
     deny_route_str = "3.3.3.2"
 
     net["r1"].cmd(
+<<<<<<< HEAD
         'vtysh -c "c t" -c "ip prefix-list NOPE seq 5 permit %s/32"' % permit_route_str
+=======
+        'vtysh -c "c t" -c "ip prefix-list NOPE seq 5 permit {}/32"'.format(
+            permit_route_str
+        )
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     )
     net["r1"].cmd(
         'vtysh -c "c t" -c "route-map NOPE permit 111" -c "match ip address prefix-list NOPE"'
@@ -1463,6 +2057,7 @@ def test_nexthop_groups_with_route_maps():
 
     # This route should be permitted
     net["r1"].cmd(
+<<<<<<< HEAD
         'vtysh -c "sharp install routes %s nexthop-group test 1"' % permit_route_str
     )
 
@@ -1485,13 +2080,49 @@ def test_nexthop_groups_with_route_maps():
     # Remove NHG routes and route-map
     net["r1"].cmd('vtysh -c "sharp remove routes %s 1"' % permit_route_str)
     net["r1"].cmd('vtysh -c "sharp remove routes %s 1"' % deny_route_str)
+=======
+        'vtysh -c "sharp install routes {} nexthop-group test 1"'.format(
+            permit_route_str
+        )
+    )
+
+    verify_route_nexthop_group("{}/32".format(permit_route_str))
+
+    # This route should be denied
+    net["r1"].cmd(
+        'vtysh -c "sharp install routes {} nexthop-group test 1"'.format(deny_route_str)
+    )
+
+    nhg_id = route_get_nhg_id(deny_route_str)
+    output = net["r1"].cmd('vtysh -c "show nexthop-group rib {}"'.format(nhg_id))
+
+    match = re.search(r"Valid", output)
+    assert match is None, "Nexthop Group ID={} should not be marked Valid".format(
+        nhg_id
+    )
+
+    match = re.search(r"Installed", output)
+    assert match is None, "Nexthop Group ID={} should not be marked Installed".format(
+        nhg_id
+    )
+
+    # Remove NHG routes and route-map
+    net["r1"].cmd('vtysh -c "sharp remove routes {} 1"'.format(permit_route_str))
+    net["r1"].cmd('vtysh -c "sharp remove routes {} 1"'.format(deny_route_str))
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     net["r1"].cmd('vtysh -c "c t" -c "no ip protocol sharp route-map NOPE"')
     net["r1"].cmd('vtysh -c "c t" -c "no route-map NOPE permit 111"')
     net["r1"].cmd('vtysh -c "c t" -c "no route-map NOPE deny 222"')
     net["r1"].cmd('vtysh -c "c t" -c "no route-map NOPE"')
     net["r1"].cmd(
+<<<<<<< HEAD
         'vtysh -c "c t" -c "no ip prefix-list NOPE seq 5 permit %s/32"'
         % permit_route_str
+=======
+        'vtysh -c "c t" -c "no ip prefix-list NOPE seq 5 permit {}/32"'.format(
+            permit_route_str
+        )
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     )
 
 
@@ -1554,7 +2185,11 @@ def test_mpls_interfaces():
     print("******************************************\n")
     failures = 0
     for i in range(1, 2):
+<<<<<<< HEAD
         refTableFile = "%s/r%s/show_mpls_ldp_interface.ref" % (thisDir, i)
+=======
+        refTableFile = "{}/r{}/show_mpls_ldp_interface.ref".format(thisDir, i)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         if os.path.isfile(refTableFile):
             # Read expected result from file
             expected = open(refTableFile).read().rstrip()
@@ -1563,7 +2198,11 @@ def test_mpls_interfaces():
 
             # Actual output from router
             actual = (
+<<<<<<< HEAD
                 net["r%s" % i]
+=======
+                net["r{}".format(i)]
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
                 .cmd('vtysh -c "show mpls ldp interface" 2> /dev/null')
                 .rstrip()
             )
@@ -1583,28 +2222,54 @@ def test_mpls_interfaces():
             # Empty string if it matches, otherwise diff contains unified diff
             if diff:
                 sys.stderr.write(
+<<<<<<< HEAD
                     "r%s failed MPLS LDP Interface status Check:\n%s\n" % (i, diff)
                 )
                 failures += 1
             else:
                 print("r%s ok" % i)
+=======
+                    "r{} failed MPLS LDP Interface status Check:\n{}\n".format(i, diff)
+                )
+                failures += 1
+            else:
+                print("r{} ok".format(i))
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
             if failures > 0:
                 fatal_error = "MPLS LDP Interface status failed"
 
             assert (
                 failures == 0
+<<<<<<< HEAD
             ), "MPLS LDP Interface status failed for router r%s:\n%s" % (i, diff)
 
     # Make sure that all daemons are running
     for i in range(1, 2):
         fatal_error = net["r%s" % i].checkRouterRunning()
+=======
+            ), "MPLS LDP Interface status failed for router r{}:\n{}".format(i, diff)
+
+    # Make sure that all daemons are running
+    for i in range(1, 2):
+        fatal_error = net["r{}".format(i)].checkRouterRunning()
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         assert fatal_error == "", fatal_error
 
 
 def test_resilient_nexthop_group():
+<<<<<<< HEAD
     net = get_topogen().net
 
+=======
+    global fatal_error
+    net = get_topogen().net
+
+    # Skip if previous fatal error condition is raised
+    if fatal_error != "":
+        pytest.skip(fatal_error)
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     result = required_linux_kernel_version("5.19")
     if result is not True:
         pytest.skip("Kernel requirements are not met, kernel version should be >= 5.19")
@@ -1613,8 +2278,23 @@ def test_resilient_nexthop_group():
         'vtysh -c "conf" -c "nexthop-group resilience" -c "resilient buckets 64 idle-timer 128 unbalanced-timer 256" -c "nexthop 1.1.1.1 r1-eth1 onlink" -c "nexthop 1.1.1.2 r1-eth2 onlink"'
     )
 
+<<<<<<< HEAD
     output = net["r1"].cmd('vtysh -c "show nexthop-group rib sharp"')
     buckets = re.findall(r"Buckets", output)
+=======
+    # Temporary helper function
+    def _show_func():
+        output = net["r1"].cmd('vtysh -c "show nexthop-group rib sharp"')
+        buckets = re.findall(r"Buckets", output)
+
+        return len(buckets)
+
+    _, result = topotest.run_and_expect(_show_func, 1, count=30, wait=1)
+    if result != 1:
+        fatal_error = "Resilient NHG not created in zebra"
+
+    assert result == 1, fatal_error
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
     output = net["r1"].cmd('vtysh -c "show nexthop-group rib sharp json"')
 
@@ -1627,8 +2307,90 @@ def test_resilient_nexthop_group():
         if "buckets" in n:
             break
 
+<<<<<<< HEAD
     verify_nexthop_group(int(nhgid))
     assert len(buckets) == 1, "Resilient NHG not created in zebra"
+=======
+    if "buckets" not in n:
+        fatal_error = "Resilient NHG not found in json output"
+    assert "buckets" in n, fatal_error
+
+    verify_nexthop_group(int(nhgid))
+
+    # Remove NHG
+    net["r1"].cmd('vtysh -c "conf" -c "no nexthop-group resilience"')
+
+
+def test_interface_stuff():
+    global fatal_error
+    net = get_topogen().net
+
+    # Skip if previous fatal error condition is raised
+    if fatal_error != "":
+        pytest.skip(fatal_error)
+
+    print("\n\n** Verifying some interface code")
+    print("************************************\n")
+
+    net["r1"].cmd('vtysh -c "conf" -c "interface r1-eth0" -c "multicast enable"')
+
+    def _test_interface_multicast_on():
+        output = json.loads(net["r1"].cmd('vtysh -c "show int r1-eth0 json"'))
+        expected = {
+            "r1-eth0": {
+                "flags": "<UP,LOWER_UP,BROADCAST,RUNNING,MULTICAST>",
+                "multicastConfig": "Enabled by CLI",
+            }
+        }
+        return topotest.json_cmp(output, expected)
+
+    test_func = functools.partial(_test_interface_multicast_on)
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
+    assert result is None, "Multicast bit was not set on r1-eth0"
+
+    net["r1"].cmd('vtysh -c "conf" -c "interface r1-eth0" -c "multicast disable"')
+
+    def _test_interface_multicast_off():
+        output = json.loads(
+            net["r1"].cmd('vtysh -c "show int r1-eth0 vrf default json"')
+        )
+        expected = {
+            "r1-eth0": {
+                "flags": "<UP,LOWER_UP,BROADCAST,RUNNING>",
+                "multicastConfig": "Disabled by CLI",
+            }
+        }
+        return topotest.json_cmp(output, expected)
+
+    test_func = functools.partial(_test_interface_multicast_off)
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
+    assert result is None, "Multicast bit was not turned off on r1-eth0"
+
+    net["r1"].cmd('vtysh -c "conf" -c "interface r1-eth0" -c "no multicast disable"')
+
+    def _test_interface_multicast_disable():
+        output = json.loads(net["r1"].cmd('vtysh -c "show int r1-eth0 json"'))
+        expected = {
+            "r1-eth0": {
+                "flags": "<UP,LOWER_UP,BROADCAST,RUNNING>",
+                "multicastConfig": "Not specified by CLI",
+            }
+        }
+        return topotest.json_cmp(output, expected)
+
+    test_func = functools.partial(_test_interface_multicast_disable)
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
+    assert result is None, "Multicast bit was set on r1-eth0"
+
+    logger.info("Ensure that these commands are still nominally working")
+    rc, o, e = net["r1"].cmd_status('vtysh -c "show interface description vrf all"')
+    logger.info(o)
+    assert rc == 0
+
+    rc, o, e = net["r1"].cmd_status('vtysh -c "show interface description vrf default"')
+    logger.info(o)
+    assert rc == 0
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 
 def test_shutdown_check_stderr():
@@ -1711,8 +2473,13 @@ def test_shutdown_check_memleak():
     thisDir = os.path.dirname(os.path.realpath(__file__))
 
     for i in range(1, 2):
+<<<<<<< HEAD
         net["r%s" % i].stopRouter()
         net["r%s" % i].report_memory_leaks(
+=======
+        net["r{}".format(i)].stopRouter()
+        net["r{}".format(i)].report_memory_leaks(
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
             os.environ.get("TOPOTESTS_CHECK_MEMLEAK"), os.path.basename(__file__)
         )
 

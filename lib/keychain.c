@@ -6,6 +6,7 @@
 #include "config.h"
 #include <zebra.h>
 
+<<<<<<< HEAD
 #include "command.h"
 #include "memory.h"
 #include "linklist.h"
@@ -13,12 +14,25 @@
 
 DEFINE_MTYPE_STATIC(LIB, KEY, "Key");
 DEFINE_MTYPE_STATIC(LIB, KEYCHAIN, "Key chain");
+=======
+#include "keychain.h"
+#include "linklist.h"
+#include "memory.h"
+
+DEFINE_MTYPE(LIB, KEY, "Key");
+DEFINE_MTYPE(LIB, KEYCHAIN, "Key chain");
+DEFINE_MTYPE(LIB, KEYCHAIN_DESC, "Key chain description");
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 DEFINE_QOBJ_TYPE(keychain);
 DEFINE_QOBJ_TYPE(key);
 
 /* Master list of key chain. */
+<<<<<<< HEAD
 static struct list *keychain_list;
+=======
+struct list *keychain_list;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 static struct keychain *keychain_new(void)
 {
@@ -37,6 +51,10 @@ static void keychain_free(struct keychain *keychain)
 static struct key *key_new(void)
 {
 	struct key *key = XCALLOC(MTYPE_KEY, sizeof(struct key));
+<<<<<<< HEAD
+=======
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	QOBJ_REG(key, key);
 	return key;
 }
@@ -77,11 +95,19 @@ static int key_cmp_func(void *arg1, void *arg2)
 static void key_delete_func(struct key *key)
 {
 	if (key->string)
+<<<<<<< HEAD
 		free(key->string);
 	key_free(key);
 }
 
 static struct keychain *keychain_get(const char *name)
+=======
+		XFREE(MTYPE_KEY, key->string);
+	key_free(key);
+}
+
+struct keychain *keychain_get(const char *name)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 {
 	struct keychain *keychain;
 
@@ -100,7 +126,11 @@ static struct keychain *keychain_get(const char *name)
 	return keychain;
 }
 
+<<<<<<< HEAD
 static void keychain_delete(struct keychain *keychain)
+=======
+void keychain_delete(struct keychain *keychain)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 {
 	XFREE(MTYPE_KEYCHAIN, keychain->name);
 
@@ -109,7 +139,11 @@ static void keychain_delete(struct keychain *keychain)
 	keychain_free(keychain);
 }
 
+<<<<<<< HEAD
 static struct key *key_lookup(const struct keychain *keychain, uint32_t index)
+=======
+struct key *key_lookup(const struct keychain *keychain, uint32_t index)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 {
 	struct listnode *node;
 	struct key *key;
@@ -182,7 +216,11 @@ struct key *key_lookup_for_send(const struct keychain *keychain)
 	return NULL;
 }
 
+<<<<<<< HEAD
 static struct key *key_get(const struct keychain *keychain, uint32_t index)
+=======
+struct key *key_get(const struct keychain *keychain, uint32_t index)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 {
 	struct key *key;
 
@@ -199,7 +237,11 @@ static struct key *key_get(const struct keychain *keychain, uint32_t index)
 	return key;
 }
 
+<<<<<<< HEAD
 static void key_delete(struct keychain *keychain, struct key *key)
+=======
+void key_delete(struct keychain *keychain, struct key *key)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 {
 	listnode_delete(keychain->key, key);
 
@@ -207,6 +249,7 @@ static void key_delete(struct keychain *keychain, struct key *key)
 	key_free(key);
 }
 
+<<<<<<< HEAD
 DEFUN_NOSH (key_chain,
        key_chain_cmd,
        "key chain WORD",
@@ -323,6 +366,8 @@ DEFUN (no_key_string,
 	return CMD_SUCCESS;
 }
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 const struct keychain_algo_info algo_info[] = {
 	{KEYCHAIN_ALGO_NULL, "null", 0, 0, "NULL"},
 	{KEYCHAIN_ALGO_MD5, "md5", KEYCHAIN_MD5_HASH_SIZE,
@@ -393,6 +438,7 @@ const char *keychain_get_algo_name_by_id(enum keychain_hash_algo key)
 	return algo_info[key].name;
 }
 
+<<<<<<< HEAD
 DEFUN(cryptographic_algorithm, cryptographic_algorithm_cmd,
       "cryptographic-algorithm "
       "<md5|hmac-sha-1|hmac-sha-256|hmac-sha-384|hmac-sha-512>",
@@ -1254,3 +1300,41 @@ void keychain_init(void)
 	install_element(KEYCHAIN_KEY_NODE, &cryptographic_algorithm_cmd);
 	install_element(KEYCHAIN_KEY_NODE, &no_cryptographic_algorithm_cmd);
 }
+=======
+void keychain_terminate(void)
+{
+	struct keychain *keychain;
+
+	while (listcount(keychain_list)) {
+		keychain = listgetdata(listhead(keychain_list));
+
+		listnode_delete(keychain_list, keychain);
+		keychain_delete(keychain);
+	}
+
+	list_delete(&keychain_list);
+}
+
+void keychain_init_new(bool in_backend)
+{
+	keychain_list = list_new();
+
+	if (!in_backend)
+		keychain_cli_init();
+}
+
+void keychain_init(void)
+{
+	keychain_init_new(false);
+}
+
+const struct frr_yang_module_info ietf_key_chain_deviation_info = {
+	.name = "frr-deviations-ietf-key-chain",
+	.ignore_cfg_cbs = true,
+	.nodes = {
+		{
+			.xpath = NULL,
+		},
+	},
+};
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)

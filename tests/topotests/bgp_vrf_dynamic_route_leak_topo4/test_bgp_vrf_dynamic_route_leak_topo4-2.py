@@ -24,7 +24,10 @@ import sys
 import time
 import pytest
 import platform
+<<<<<<< HEAD
 from time import sleep
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 # Save the Current Working Directory to find configuration files.
 CWD = os.path.dirname(os.path.realpath(__file__))
@@ -46,18 +49,25 @@ from lib.common_config import (
     reset_config_on_routers,
     verify_rib,
     step,
+<<<<<<< HEAD
     create_route_maps,
     create_static_routes,
     create_prefix_lists,
     create_bgp_community_lists,
     get_frr_ipv6_linklocal,
+=======
+    create_static_routes,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 )
 
 from lib.topolog import logger
 from lib.bgp import (
     verify_bgp_convergence,
     create_router_bgp,
+<<<<<<< HEAD
     verify_bgp_community,
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     verify_bgp_rib,
 )
 from lib.topojson import build_config_from_json
@@ -495,23 +505,43 @@ def test_dynamic_import_routes_between_two_tenant_vrf_p0(request):
                     result = verify_bgp_rib(
                         tgen, addr_type, dut, static_routes, expected=False
                     )
+<<<<<<< HEAD
                     assert (
                         result is not True
                     ), "Testcase {} : Failed \nError {}\n" "Routes {} still in BGP table".format(
                         tc_name,
                         result,
                         static_routes[dut]["static_routes"][0]["network"],
+=======
+                    assert result is not True, (
+                        "Testcase {} : Failed \nError {}\n"
+                        "Routes {} still in BGP table".format(
+                            tc_name,
+                            result,
+                            static_routes[dut]["static_routes"][0]["network"],
+                        )
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
                     )
 
                     result = verify_rib(
                         tgen, addr_type, dut, static_routes, expected=False
                     )
+<<<<<<< HEAD
                     assert (
                         result is not True
                     ), "Testcase {} : Failed \nError {}\n" "Routes {} still in Route table".format(
                         tc_name,
                         result,
                         static_routes[dut]["static_routes"][0]["network"],
+=======
+                    assert result is not True, (
+                        "Testcase {} : Failed \nError {}\n"
+                        "Routes {} still in Route table".format(
+                            tc_name,
+                            result,
+                            static_routes[dut]["static_routes"][0]["network"],
+                        )
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
                     )
                 else:
                     result = verify_bgp_rib(tgen, addr_type, dut, static_routes)
@@ -882,23 +912,43 @@ def test_dynamic_import_routes_between_two_tenant_vrf_p0(request):
                     result = verify_bgp_rib(
                         tgen, addr_type, dut, static_routes, expected=False
                     )
+<<<<<<< HEAD
                     assert (
                         result is not True
                     ), "Testcase {} : Failed \nError {}\n" "Routes {} still in BGP table".format(
                         tc_name,
                         result,
                         static_routes[dut]["static_routes"][0]["network"],
+=======
+                    assert result is not True, (
+                        "Testcase {} : Failed \nError {}\n"
+                        "Routes {} still in BGP table".format(
+                            tc_name,
+                            result,
+                            static_routes[dut]["static_routes"][0]["network"],
+                        )
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
                     )
 
                     result = verify_rib(
                         tgen, addr_type, dut, static_routes, expected=False
                     )
+<<<<<<< HEAD
                     assert (
                         result is not True
                     ), "Testcase {} : Failed Error {}" "Routes {} still in Route table".format(
                         tc_name,
                         result,
                         static_routes[dut]["static_routes"][0]["network"],
+=======
+                    assert result is not True, (
+                        "Testcase {} : Failed Error {}"
+                        "Routes {} still in Route table".format(
+                            tc_name,
+                            result,
+                            static_routes[dut]["static_routes"][0]["network"],
+                        )
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
                     )
                 else:
                     result = verify_bgp_rib(tgen, addr_type, dut, static_routes)

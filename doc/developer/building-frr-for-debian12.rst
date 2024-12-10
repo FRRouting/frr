@@ -47,9 +47,15 @@ an example.)
     cd frr
     ./bootstrap.sh
     ./configure \
+<<<<<<< HEAD
         --localstatedir=/var/opt/frr \
         --sbindir=/usr/lib/frr \
         --sysconfdir=/etc/frr \
+=======
+        --sysconfdir=/etc \
+        --localstatedir=/var \
+        --sbindir=/usr/lib/frr \
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         --enable-multipath=64 \
         --enable-user=frr \
         --enable-group=frr \

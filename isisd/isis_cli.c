@@ -85,6 +85,7 @@ void cli_show_router_isis(struct vty *vty, const struct lyd_node *dnode,
 {
 	const char *vrf = NULL;
 
+<<<<<<< HEAD
 	vrf = yang_dnode_get_string(dnode, "./vrf");
 
 	vty_out(vty, "!\n");
@@ -92,6 +93,15 @@ void cli_show_router_isis(struct vty *vty, const struct lyd_node *dnode,
 		yang_dnode_get_string(dnode, "./area-tag"));
 	if (!strmatch(vrf, VRF_DEFAULT_NAME))
 		vty_out(vty, " vrf %s", yang_dnode_get_string(dnode, "./vrf"));
+=======
+	vrf = yang_dnode_get_string(dnode, "vrf");
+
+	vty_out(vty, "!\n");
+	vty_out(vty, "router isis %s",
+		yang_dnode_get_string(dnode, "area-tag"));
+	if (!strmatch(vrf, VRF_DEFAULT_NAME))
+		vty_out(vty, " vrf %s", yang_dnode_get_string(dnode, "vrf"));
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	vty_out(vty, "\n");
 }
 
@@ -172,7 +182,11 @@ DEFPY_YANG(no_ip_router_isis, no_ip_router_isis_cmd,
 	 * If both ipv4 and ipv6 are off delete the interface isis container.
 	 */
 	if (strmatch(ip, "ipv6")) {
+<<<<<<< HEAD
 		if (!yang_dnode_get_bool(dnode, "./ipv4-routing"))
+=======
+		if (!yang_dnode_get_bool(dnode, "ipv4-routing"))
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			nb_cli_enqueue_change(vty, "./frr-isisd:isis",
 					      NB_OP_DESTROY, NULL);
 		else
@@ -180,7 +194,11 @@ DEFPY_YANG(no_ip_router_isis, no_ip_router_isis_cmd,
 					      "./frr-isisd:isis/ipv6-routing",
 					      NB_OP_MODIFY, "false");
 	} else {
+<<<<<<< HEAD
 		if (!yang_dnode_get_bool(dnode, "./ipv6-routing"))
+=======
+		if (!yang_dnode_get_bool(dnode, "ipv6-routing"))
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			nb_cli_enqueue_change(vty, "./frr-isisd:isis",
 					      NB_OP_DESTROY, NULL);
 		else
@@ -280,16 +298,26 @@ void cli_show_ip_isis_bfd_monitoring(struct vty *vty,
 				     const struct lyd_node *dnode,
 				     bool show_defaults)
 {
+<<<<<<< HEAD
 	if (!yang_dnode_get_bool(dnode, "./enabled")) {
+=======
+	if (!yang_dnode_get_bool(dnode, "enabled")) {
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		if (show_defaults)
 			vty_out(vty, " no isis bfd\n");
 	} else {
 		vty_out(vty, " isis bfd\n");
 	}
 
+<<<<<<< HEAD
 	if (yang_dnode_exists(dnode, "./profile"))
 		vty_out(vty, " isis bfd profile %s\n",
 			yang_dnode_get_string(dnode, "./profile"));
+=======
+	if (yang_dnode_exists(dnode, "profile"))
+		vty_out(vty, " isis bfd profile %s\n",
+			yang_dnode_get_string(dnode, "profile"));
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 }
 
 /*
@@ -300,8 +328,17 @@ DEFPY_YANG(net, net_cmd, "[no] net WORD",
       "A Network Entity Title for this process (OSI only)\n"
       "XX.XXXX. ... .XXX.XX  Network entity title (NET)\n")
 {
+<<<<<<< HEAD
 	nb_cli_enqueue_change(vty, "./area-address",
 			      no ? NB_OP_DESTROY : NB_OP_CREATE, net);
+=======
+	char xpath[XPATH_MAXLEN];
+
+	snprintf(xpath, XPATH_MAXLEN, "./area-address[.='%s']", net);
+
+	nb_cli_enqueue_change(vty, xpath, no ? NB_OP_DESTROY : NB_OP_CREATE,
+			      NULL);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	return nb_cli_apply_changes(vty, NULL);
 }
@@ -588,9 +625,15 @@ void cli_show_isis_area_pwd(struct vty *vty, const struct lyd_node *dnode,
 	const char *snp;
 
 	vty_out(vty, " area-password %s %s",
+<<<<<<< HEAD
 		yang_dnode_get_string(dnode, "./password-type"),
 		yang_dnode_get_string(dnode, "./password"));
 	snp = yang_dnode_get_string(dnode, "./authenticate-snp");
+=======
+		yang_dnode_get_string(dnode, "password-type"),
+		yang_dnode_get_string(dnode, "password"));
+	snp = yang_dnode_get_string(dnode, "authenticate-snp");
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	if (!strmatch("none", snp))
 		vty_out(vty, " authenticate snp %s", snp);
 	vty_out(vty, "\n");
@@ -638,9 +681,15 @@ void cli_show_isis_domain_pwd(struct vty *vty, const struct lyd_node *dnode,
 	const char *snp;
 
 	vty_out(vty, " domain-password %s %s",
+<<<<<<< HEAD
 		yang_dnode_get_string(dnode, "./password-type"),
 		yang_dnode_get_string(dnode, "./password"));
 	snp = yang_dnode_get_string(dnode, "./authenticate-snp");
+=======
+		yang_dnode_get_string(dnode, "password-type"),
+		yang_dnode_get_string(dnode, "password"));
+	snp = yang_dnode_get_string(dnode, "authenticate-snp");
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	if (!strmatch("none", snp))
 		vty_out(vty, " authenticate snp %s", snp);
 	vty_out(vty, "\n");
@@ -861,6 +910,7 @@ void cli_show_isis_lsp_timers(struct vty *vty, const struct lyd_node *dnode,
 			      bool show_defaults)
 {
 	const char *l1_refresh =
+<<<<<<< HEAD
 		yang_dnode_get_string(dnode, "./level-1/refresh-interval");
 	const char *l2_refresh =
 		yang_dnode_get_string(dnode, "./level-2/refresh-interval");
@@ -872,6 +922,19 @@ void cli_show_isis_lsp_timers(struct vty *vty, const struct lyd_node *dnode,
 		yang_dnode_get_string(dnode, "./level-1/generation-interval");
 	const char *l2_gen =
 		yang_dnode_get_string(dnode, "./level-2/generation-interval");
+=======
+		yang_dnode_get_string(dnode, "level-1/refresh-interval");
+	const char *l2_refresh =
+		yang_dnode_get_string(dnode, "level-2/refresh-interval");
+	const char *l1_lifetime =
+		yang_dnode_get_string(dnode, "level-1/maximum-lifetime");
+	const char *l2_lifetime =
+		yang_dnode_get_string(dnode, "level-2/maximum-lifetime");
+	const char *l1_gen =
+		yang_dnode_get_string(dnode, "level-1/generation-interval");
+	const char *l2_gen =
+		yang_dnode_get_string(dnode, "level-2/generation-interval");
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	if (strmatch(l1_refresh, l2_refresh)
 	    && strmatch(l1_lifetime, l2_lifetime) && strmatch(l1_gen, l2_gen))
 		vty_out(vty,
@@ -980,8 +1043,13 @@ void cli_show_isis_spf_min_interval(struct vty *vty,
 				    const struct lyd_node *dnode,
 				    bool show_defaults)
 {
+<<<<<<< HEAD
 	const char *l1 = yang_dnode_get_string(dnode, "./level-1");
 	const char *l2 = yang_dnode_get_string(dnode, "./level-2");
+=======
+	const char *l1 = yang_dnode_get_string(dnode, "level-1");
+	const char *l2 = yang_dnode_get_string(dnode, "level-2");
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	if (strmatch(l1, l2))
 		vty_out(vty, " spf-interval %s\n", l1);
@@ -1051,11 +1119,19 @@ void cli_show_isis_spf_ietf_backoff(struct vty *vty,
 {
 	vty_out(vty,
 		" spf-delay-ietf init-delay %s short-delay %s long-delay %s holddown %s time-to-learn %s\n",
+<<<<<<< HEAD
 		yang_dnode_get_string(dnode, "./init-delay"),
 		yang_dnode_get_string(dnode, "./short-delay"),
 		yang_dnode_get_string(dnode, "./long-delay"),
 		yang_dnode_get_string(dnode, "./hold-down"),
 		yang_dnode_get_string(dnode, "./time-to-learn"));
+=======
+		yang_dnode_get_string(dnode, "init-delay"),
+		yang_dnode_get_string(dnode, "short-delay"),
+		yang_dnode_get_string(dnode, "long-delay"),
+		yang_dnode_get_string(dnode, "hold-down"),
+		yang_dnode_get_string(dnode, "time-to-learn"));
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 }
 
 /*
@@ -1364,6 +1440,7 @@ static void vty_print_def_origin(struct vty *vty, const struct lyd_node *dnode,
 				 bool show_defaults)
 {
 	vty_out(vty, " default-information originate %s %s", family, level);
+<<<<<<< HEAD
 	if (yang_dnode_get_bool(dnode, "./always"))
 		vty_out(vty, " always");
 
@@ -1373,6 +1450,17 @@ static void vty_print_def_origin(struct vty *vty, const struct lyd_node *dnode,
 	if (show_defaults || !yang_dnode_is_default(dnode, "./metric"))
 		vty_out(vty, " metric %s",
 			yang_dnode_get_string(dnode, "./metric"));
+=======
+	if (yang_dnode_get_bool(dnode, "always"))
+		vty_out(vty, " always");
+
+	if (yang_dnode_exists(dnode, "route-map"))
+		vty_out(vty, " route-map %s",
+			yang_dnode_get_string(dnode, "route-map"));
+	if (show_defaults || !yang_dnode_is_default(dnode, "metric"))
+		vty_out(vty, " metric %s",
+			yang_dnode_get_string(dnode, "metric"));
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	vty_out(vty, "\n");
 }
@@ -1381,7 +1469,11 @@ void cli_show_isis_def_origin_ipv4(struct vty *vty,
 				   const struct lyd_node *dnode,
 				   bool show_defaults)
 {
+<<<<<<< HEAD
 	const char *level = yang_dnode_get_string(dnode, "./level");
+=======
+	const char *level = yang_dnode_get_string(dnode, "level");
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	vty_print_def_origin(vty, dnode, "ipv4", level, show_defaults);
 }
@@ -1390,7 +1482,11 @@ void cli_show_isis_def_origin_ipv6(struct vty *vty,
 				   const struct lyd_node *dnode,
 				   bool show_defaults)
 {
+<<<<<<< HEAD
 	const char *level = yang_dnode_get_string(dnode, "./level");
+=======
+	const char *level = yang_dnode_get_string(dnode, "level");
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	vty_print_def_origin(vty, dnode, "ipv6", level, show_defaults);
 }
@@ -1505,6 +1601,7 @@ static void vty_print_redistribute(struct vty *vty, const struct lyd_node *dnode
 
 	if (table) {
 		level = yang_dnode_get_string(dnode, "../level");
+<<<<<<< HEAD
 		tableid = yang_dnode_get_uint16(dnode, "./table");
 		vty_out(vty, " redistribute %s table %d ", family, tableid);
 	} else {
@@ -1521,6 +1618,24 @@ static void vty_print_redistribute(struct vty *vty, const struct lyd_node *dnode
 
 	if (yang_dnode_exists(dnode, "./route-map"))
 		routemap = yang_dnode_get_string(dnode, "./route-map");
+=======
+		tableid = yang_dnode_get_uint16(dnode, "table");
+		vty_out(vty, " redistribute %s table %d ", family, tableid);
+	} else {
+		protocol = yang_dnode_get_string(dnode, "protocol");
+		if (!table && strmatch(protocol, "table"))
+			return;
+		level = yang_dnode_get_string(dnode, "level");
+		vty_out(vty, " redistribute %s %s ", family, protocol);
+	}
+	vty_out(vty, "%s", level);
+	if (show_defaults || !yang_dnode_is_default(dnode, "metric"))
+		vty_out(vty, " metric %s",
+			yang_dnode_get_string(dnode, "%s", "metric"));
+
+	if (yang_dnode_exists(dnode, "route-map"))
+		routemap = yang_dnode_get_string(dnode, "route-map");
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	if (routemap)
 		vty_out(vty, " route-map %s", routemap);
 	vty_out(vty, "\n");
@@ -1557,8 +1672,13 @@ void cli_show_isis_redistribute_ipv6_table(struct vty *vty,
 int cli_cmp_isis_redistribute_table(const struct lyd_node *dnode1,
 				    const struct lyd_node *dnode2)
 {
+<<<<<<< HEAD
 	uint16_t table1 = yang_dnode_get_uint16(dnode1, "./table");
 	uint16_t table2 = yang_dnode_get_uint16(dnode2, "./table");
+=======
+	uint16_t table1 = yang_dnode_get_uint16(dnode1, "table");
+	uint16_t table2 = yang_dnode_get_uint16(dnode2, "table");
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	return table1 - table2;
 }
@@ -1619,7 +1739,11 @@ void cli_show_isis_mt_ipv4_multicast(struct vty *vty,
 				     bool show_defaults)
 {
 	vty_out(vty, " topology ipv4-multicast");
+<<<<<<< HEAD
 	if (yang_dnode_get_bool(dnode, "./overload"))
+=======
+	if (yang_dnode_get_bool(dnode, "overload"))
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		vty_out(vty, " overload");
 	vty_out(vty, "\n");
 }
@@ -1628,7 +1752,11 @@ void cli_show_isis_mt_ipv4_mgmt(struct vty *vty, const struct lyd_node *dnode,
 				bool show_defaults)
 {
 	vty_out(vty, " topology ipv4-mgmt");
+<<<<<<< HEAD
 	if (yang_dnode_get_bool(dnode, "./overload"))
+=======
+	if (yang_dnode_get_bool(dnode, "overload"))
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		vty_out(vty, " overload");
 	vty_out(vty, "\n");
 }
@@ -1638,7 +1766,11 @@ void cli_show_isis_mt_ipv6_unicast(struct vty *vty,
 				   bool show_defaults)
 {
 	vty_out(vty, " topology ipv6-unicast");
+<<<<<<< HEAD
 	if (yang_dnode_get_bool(dnode, "./overload"))
+=======
+	if (yang_dnode_get_bool(dnode, "overload"))
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		vty_out(vty, " overload");
 	vty_out(vty, "\n");
 }
@@ -1648,7 +1780,11 @@ void cli_show_isis_mt_ipv6_multicast(struct vty *vty,
 				     bool show_defaults)
 {
 	vty_out(vty, " topology ipv6-multicast");
+<<<<<<< HEAD
 	if (yang_dnode_get_bool(dnode, "./overload"))
+=======
+	if (yang_dnode_get_bool(dnode, "overload"))
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		vty_out(vty, " overload");
 	vty_out(vty, "\n");
 }
@@ -1657,7 +1793,11 @@ void cli_show_isis_mt_ipv6_mgmt(struct vty *vty, const struct lyd_node *dnode,
 				bool show_defaults)
 {
 	vty_out(vty, " topology ipv6-mgmt");
+<<<<<<< HEAD
 	if (yang_dnode_get_bool(dnode, "./overload"))
+=======
+	if (yang_dnode_get_bool(dnode, "overload"))
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		vty_out(vty, " overload");
 	vty_out(vty, "\n");
 }
@@ -1666,7 +1806,11 @@ void cli_show_isis_mt_ipv6_dstsrc(struct vty *vty, const struct lyd_node *dnode,
 				  bool show_defaults)
 {
 	vty_out(vty, " topology ipv6-dstsrc");
+<<<<<<< HEAD
 	if (yang_dnode_get_bool(dnode, "./overload"))
+=======
+	if (yang_dnode_get_bool(dnode, "overload"))
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		vty_out(vty, " overload");
 	vty_out(vty, "\n");
 }
@@ -1771,6 +1915,7 @@ void cli_show_isis_label_blocks(struct vty *vty, const struct lyd_node *dnode,
 				bool show_defaults)
 {
 	vty_out(vty, " segment-routing global-block %s %s",
+<<<<<<< HEAD
 		yang_dnode_get_string(dnode, "./srgb/lower-bound"),
 		yang_dnode_get_string(dnode, "./srgb/upper-bound"));
 	if (!yang_dnode_is_default(dnode, "./srlb/lower-bound")
@@ -1778,6 +1923,15 @@ void cli_show_isis_label_blocks(struct vty *vty, const struct lyd_node *dnode,
 		vty_out(vty, " local-block %s %s",
 			yang_dnode_get_string(dnode, "./srlb/lower-bound"),
 			yang_dnode_get_string(dnode, "./srlb/upper-bound"));
+=======
+		yang_dnode_get_string(dnode, "srgb/lower-bound"),
+		yang_dnode_get_string(dnode, "srgb/upper-bound"));
+	if (!yang_dnode_is_default(dnode, "srlb/lower-bound")
+	    || !yang_dnode_is_default(dnode, "srlb/upper-bound"))
+		vty_out(vty, " local-block %s %s",
+			yang_dnode_get_string(dnode, "srlb/lower-bound"),
+			yang_dnode_get_string(dnode, "srlb/upper-bound"));
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	vty_out(vty, "\n");
 }
 
@@ -1899,11 +2053,19 @@ void cli_show_isis_prefix_sid(struct vty *vty, const struct lyd_node *dnode,
 	const char *sid_value;
 	bool n_flag_clear;
 
+<<<<<<< HEAD
 	prefix = yang_dnode_get_string(dnode, "./prefix");
 	lh_behavior = yang_dnode_get_string(dnode, "./last-hop-behavior");
 	sid_value_type = yang_dnode_get_string(dnode, "./sid-value-type");
 	sid_value = yang_dnode_get_string(dnode, "./sid-value");
 	n_flag_clear = yang_dnode_get_bool(dnode, "./n-flag-clear");
+=======
+	prefix = yang_dnode_get_string(dnode, "prefix");
+	lh_behavior = yang_dnode_get_string(dnode, "last-hop-behavior");
+	sid_value_type = yang_dnode_get_string(dnode, "sid-value-type");
+	sid_value = yang_dnode_get_string(dnode, "sid-value");
+	n_flag_clear = yang_dnode_get_bool(dnode, "n-flag-clear");
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	vty_out(vty, " segment-routing prefix %s", prefix);
 	if (strmatch(sid_value_type, "absolute"))
@@ -2011,6 +2173,7 @@ void cli_show_isis_prefix_sid_algorithm(struct vty *vty,
 	const char *sid_value_type;
 	const char *sid_value;
 	bool n_flag_clear;
+<<<<<<< HEAD
 	uint32_t algorithm;
 
 	prefix = yang_dnode_get_string(dnode, "./prefix");
@@ -2019,6 +2182,16 @@ void cli_show_isis_prefix_sid_algorithm(struct vty *vty,
 	algorithm = yang_dnode_get_uint32(dnode, "./algo");
 	lh_behavior = yang_dnode_get_string(dnode, "./last-hop-behavior");
 	n_flag_clear = yang_dnode_get_bool(dnode, "./n-flag-clear");
+=======
+	uint8_t algorithm;
+
+	prefix = yang_dnode_get_string(dnode, "prefix");
+	sid_value_type = yang_dnode_get_string(dnode, "sid-value-type");
+	sid_value = yang_dnode_get_string(dnode, "sid-value");
+	algorithm = yang_dnode_get_uint8(dnode, "algo");
+	lh_behavior = yang_dnode_get_string(dnode, "last-hop-behavior");
+	n_flag_clear = yang_dnode_get_bool(dnode, "n-flag-clear");
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	vty_out(vty, " segment-routing prefix %s", prefix);
 	vty_out(vty, " algorithm %u", algorithm);
@@ -2226,6 +2399,7 @@ void cli_show_isis_srv6_node_msd(struct vty *vty, const struct lyd_node *dnode,
 				 bool show_defaults)
 {
 	vty_out(vty, "  node-msd\n");
+<<<<<<< HEAD
 	if (yang_dnode_get_uint8(dnode, "./max-segs-left") !=
 	    yang_get_default_uint8("%s/msd/node-msd/max-segs-left", ISIS_SRV6))
 		vty_out(vty, "   max-segs-left %u\n",
@@ -2242,6 +2416,24 @@ void cli_show_isis_srv6_node_msd(struct vty *vty, const struct lyd_node *dnode,
 	    yang_get_default_uint8("%s/msd/node-msd/max-end-d", ISIS_SRV6))
 		vty_out(vty, "   max-end-d %u\n",
 			yang_dnode_get_uint8(dnode, "./max-end-d"));
+=======
+	if (yang_dnode_get_uint8(dnode, "max-segs-left") !=
+	    yang_get_default_uint8("%s/msd/node-msd/max-segs-left", ISIS_SRV6))
+		vty_out(vty, "   max-segs-left %u\n",
+			yang_dnode_get_uint8(dnode, "max-segs-left"));
+	if (yang_dnode_get_uint8(dnode, "max-end-pop") !=
+	    yang_get_default_uint8("%s/msd/node-msd/max-end-pop", ISIS_SRV6))
+		vty_out(vty, "   max-end-pop %u\n",
+			yang_dnode_get_uint8(dnode, "max-end-pop"));
+	if (yang_dnode_get_uint8(dnode, "max-h-encaps") !=
+	    yang_get_default_uint8("%s/msd/node-msd/max-h-encaps", ISIS_SRV6))
+		vty_out(vty, "   max-h-encaps %u\n",
+			yang_dnode_get_uint8(dnode, "max-h-encaps"));
+	if (yang_dnode_get_uint8(dnode, "max-end-d") !=
+	    yang_get_default_uint8("%s/msd/node-msd/max-end-d", ISIS_SRV6))
+		vty_out(vty, "   max-end-d %u\n",
+			yang_dnode_get_uint8(dnode, "max-end-d"));
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 }
 
 /*
@@ -2387,8 +2579,13 @@ void cli_show_isis_frr_lfa_tiebreaker(struct vty *vty,
 				      bool show_defaults)
 {
 	vty_out(vty, " fast-reroute lfa tiebreaker %s index %s %s\n",
+<<<<<<< HEAD
 		yang_dnode_get_string(dnode, "./type"),
 		yang_dnode_get_string(dnode, "./index"),
+=======
+		yang_dnode_get_string(dnode, "type"),
+		yang_dnode_get_string(dnode, "index"),
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		dnode->parent->parent->schema->name);
 }
 
@@ -2560,8 +2757,13 @@ void cli_show_ip_isis_password(struct vty *vty, const struct lyd_node *dnode,
 			       bool show_defaults)
 {
 	vty_out(vty, " isis password %s %s\n",
+<<<<<<< HEAD
 		yang_dnode_get_string(dnode, "./password-type"),
 		yang_dnode_get_string(dnode, "./password"));
+=======
+		yang_dnode_get_string(dnode, "password-type"),
+		yang_dnode_get_string(dnode, "password"));
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 }
 
 /*
@@ -2607,8 +2809,13 @@ DEFPY_YANG(no_isis_metric, no_isis_metric_cmd,
 void cli_show_ip_isis_metric(struct vty *vty, const struct lyd_node *dnode,
 			     bool show_defaults)
 {
+<<<<<<< HEAD
 	const char *l1 = yang_dnode_get_string(dnode, "./level-1");
 	const char *l2 = yang_dnode_get_string(dnode, "./level-2");
+=======
+	const char *l1 = yang_dnode_get_string(dnode, "level-1");
+	const char *l2 = yang_dnode_get_string(dnode, "level-2");
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	if (strmatch(l1, l2))
 		vty_out(vty, " isis metric %s\n", l1);
@@ -2666,8 +2873,13 @@ void cli_show_ip_isis_hello_interval(struct vty *vty,
 				     const struct lyd_node *dnode,
 				     bool show_defaults)
 {
+<<<<<<< HEAD
 	const char *l1 = yang_dnode_get_string(dnode, "./level-1");
 	const char *l2 = yang_dnode_get_string(dnode, "./level-2");
+=======
+	const char *l1 = yang_dnode_get_string(dnode, "level-1");
+	const char *l2 = yang_dnode_get_string(dnode, "level-2");
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	if (strmatch(l1, l2))
 		vty_out(vty, " isis hello-interval %s\n", l1);
@@ -2724,8 +2936,13 @@ DEFPY_YANG(no_isis_hello_multiplier, no_isis_hello_multiplier_cmd,
 void cli_show_ip_isis_hello_multi(struct vty *vty, const struct lyd_node *dnode,
 				  bool show_defaults)
 {
+<<<<<<< HEAD
 	const char *l1 = yang_dnode_get_string(dnode, "./level-1");
 	const char *l2 = yang_dnode_get_string(dnode, "./level-2");
+=======
+	const char *l1 = yang_dnode_get_string(dnode, "level-1");
+	const char *l2 = yang_dnode_get_string(dnode, "level-2");
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	if (strmatch(l1, l2))
 		vty_out(vty, " isis hello-multiplier %s\n", l1);
@@ -2843,8 +3060,13 @@ void cli_show_ip_isis_csnp_interval(struct vty *vty,
 				    const struct lyd_node *dnode,
 				    bool show_defaults)
 {
+<<<<<<< HEAD
 	const char *l1 = yang_dnode_get_string(dnode, "./level-1");
 	const char *l2 = yang_dnode_get_string(dnode, "./level-2");
+=======
+	const char *l1 = yang_dnode_get_string(dnode, "level-1");
+	const char *l2 = yang_dnode_get_string(dnode, "level-2");
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	if (strmatch(l1, l2))
 		vty_out(vty, " isis csnp-interval %s\n", l1);
@@ -2902,8 +3124,13 @@ void cli_show_ip_isis_psnp_interval(struct vty *vty,
 				    const struct lyd_node *dnode,
 				    bool show_defaults)
 {
+<<<<<<< HEAD
 	const char *l1 = yang_dnode_get_string(dnode, "./level-1");
 	const char *l2 = yang_dnode_get_string(dnode, "./level-2");
+=======
+	const char *l1 = yang_dnode_get_string(dnode, "level-1");
+	const char *l2 = yang_dnode_get_string(dnode, "level-2");
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	if (strmatch(l1, l2))
 		vty_out(vty, " isis psnp-interval %s\n", l1);
@@ -3060,12 +3287,25 @@ void cli_show_ip_isis_circ_type(struct vty *vty, const struct lyd_node *dnode,
 }
 
 static int ag_change(struct vty *vty, int argc, struct cmd_token **argv,
+<<<<<<< HEAD
 		     const char *xpath, bool no, int start_idx)
 {
 	for (int i = start_idx; i < argc; i++)
 		nb_cli_enqueue_change(vty, xpath,
 				      no ? NB_OP_DESTROY : NB_OP_CREATE,
 				      argv[i]->arg);
+=======
+		     const char *xpath_base, bool no, int start_idx)
+{
+	char xpath[XPATH_MAXLEN];
+
+	for (int i = start_idx; i < argc; i++) {
+		snprintf(xpath, XPATH_MAXLEN, "%s[.='%s']", xpath_base,
+			 argv[i]->arg);
+		nb_cli_enqueue_change(vty, xpath,
+				      no ? NB_OP_DESTROY : NB_OP_CREATE, NULL);
+	}
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	return nb_cli_apply_changes(vty, NULL);
 }
 
@@ -3146,8 +3386,13 @@ DEFPY_YANG(no_isis_priority, no_isis_priority_cmd,
 void cli_show_ip_isis_priority(struct vty *vty, const struct lyd_node *dnode,
 			       bool show_defaults)
 {
+<<<<<<< HEAD
 	const char *l1 = yang_dnode_get_string(dnode, "./level-1");
 	const char *l2 = yang_dnode_get_string(dnode, "./level-2");
+=======
+	const char *l1 = yang_dnode_get_string(dnode, "level-1");
+	const char *l2 = yang_dnode_get_string(dnode, "level-2");
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	if (strmatch(l1, l2))
 		vty_out(vty, " isis priority %s\n", l1);
@@ -3168,8 +3413,13 @@ void cli_show_ip_isis_frr(struct vty *vty, const struct lyd_node *dnode,
 	bool l1_link_fallback, l2_link_fallback;
 
 	/* Classic LFA */
+<<<<<<< HEAD
 	l1_enabled = yang_dnode_get_bool(dnode, "./level-1/lfa/enable");
 	l2_enabled = yang_dnode_get_bool(dnode, "./level-2/lfa/enable");
+=======
+	l1_enabled = yang_dnode_get_bool(dnode, "level-1/lfa/enable");
+	l2_enabled = yang_dnode_get_bool(dnode, "level-2/lfa/enable");
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	if (l1_enabled || l2_enabled) {
 		if (l1_enabled == l2_enabled) {
@@ -3186,8 +3436,13 @@ void cli_show_ip_isis_frr(struct vty *vty, const struct lyd_node *dnode,
 	}
 
 	/* Remote LFA */
+<<<<<<< HEAD
 	l1_enabled = yang_dnode_get_bool(dnode, "./level-1/remote-lfa/enable");
 	l2_enabled = yang_dnode_get_bool(dnode, "./level-2/remote-lfa/enable");
+=======
+	l1_enabled = yang_dnode_get_bool(dnode, "level-1/remote-lfa/enable");
+	l2_enabled = yang_dnode_get_bool(dnode, "level-2/remote-lfa/enable");
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	if (l1_enabled || l2_enabled) {
 		if (l1_enabled == l2_enabled) {
@@ -3205,6 +3460,7 @@ void cli_show_ip_isis_frr(struct vty *vty, const struct lyd_node *dnode,
 	}
 
 	/* TI-LFA */
+<<<<<<< HEAD
 	l1_enabled = yang_dnode_get_bool(dnode, "./level-1/ti-lfa/enable");
 	l2_enabled = yang_dnode_get_bool(dnode, "./level-2/ti-lfa/enable");
 	l1_node_protection =
@@ -3215,6 +3471,18 @@ void cli_show_ip_isis_frr(struct vty *vty, const struct lyd_node *dnode,
 		yang_dnode_get_bool(dnode, "./level-1/ti-lfa/link-fallback");
 	l2_link_fallback =
 		yang_dnode_get_bool(dnode, "./level-2/ti-lfa/link-fallback");
+=======
+	l1_enabled = yang_dnode_get_bool(dnode, "level-1/ti-lfa/enable");
+	l2_enabled = yang_dnode_get_bool(dnode, "level-2/ti-lfa/enable");
+	l1_node_protection =
+		yang_dnode_get_bool(dnode, "level-1/ti-lfa/node-protection");
+	l2_node_protection =
+		yang_dnode_get_bool(dnode, "level-2/ti-lfa/node-protection");
+	l1_link_fallback =
+		yang_dnode_get_bool(dnode, "level-1/ti-lfa/link-fallback");
+	l2_link_fallback =
+		yang_dnode_get_bool(dnode, "level-2/ti-lfa/link-fallback");
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 
 	if (l1_enabled || l2_enabled) {
@@ -3308,6 +3576,7 @@ DEFPY(isis_lfa_exclude_interface, isis_lfa_exclude_interface_cmd,
       "Exclude an interface from computation\n"
       "Interface name\n")
 {
+<<<<<<< HEAD
 	if (!level || strmatch(level, "level-1")) {
 		if (no) {
 			nb_cli_enqueue_change(
@@ -3333,6 +3602,29 @@ DEFPY(isis_lfa_exclude_interface, isis_lfa_exclude_interface_cmd,
 				"./frr-isisd:isis/fast-reroute/level-2/lfa/exclude-interface",
 				NB_OP_CREATE, ifname);
 		}
+=======
+	char xpath[XPATH_MAXLEN];
+
+	if (!level || strmatch(level, "level-1")) {
+		snprintf(xpath, sizeof(xpath),
+			 "./frr-isisd:isis/fast-reroute/level-1/lfa/exclude-interface[.='%s']",
+			 ifname);
+
+		if (no)
+			nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+		else
+			nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
+	}
+	if (!level || strmatch(level, "level-2")) {
+		snprintf(xpath, sizeof(xpath),
+			 "./frr-isisd:isis/fast-reroute/level-2/lfa/exclude-interface[.='%s']",
+			 ifname);
+
+		if (no)
+			nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+		else
+			nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	}
 
 	return nb_cli_apply_changes(vty, NULL);
@@ -3880,6 +4172,7 @@ void cli_show_isis_flex_algo(struct vty *vty, const struct lyd_node *dnode,
 	uint32_t priority;
 	char type_str[10];
 
+<<<<<<< HEAD
 	algorithm = yang_dnode_get_uint32(dnode, "./flex-algo");
 	vty_out(vty, " flex-algo %u\n", algorithm);
 
@@ -3898,6 +4191,26 @@ void cli_show_isis_flex_algo(struct vty *vty, const struct lyd_node *dnode,
 
 	if (yang_dnode_exists(dnode, "./metric-type")) {
 		metric_type = yang_dnode_get_enum(dnode, "./metric-type");
+=======
+	algorithm = yang_dnode_get_uint32(dnode, "flex-algo");
+	vty_out(vty, " flex-algo %u\n", algorithm);
+
+	if (yang_dnode_exists(dnode, "advertise-definition"))
+		vty_out(vty, "  advertise-definition\n");
+
+	if (yang_dnode_exists(dnode, "dplane-sr-mpls"))
+		vty_out(vty, "  dataplane sr-mpls\n");
+	if (yang_dnode_exists(dnode, "dplane-srv6"))
+		vty_out(vty, "  dataplane srv6\n");
+	if (yang_dnode_exists(dnode, "dplane-ip"))
+		vty_out(vty, "  dataplane ip\n");
+
+	if (yang_dnode_exists(dnode, "prefix-metric"))
+		vty_out(vty, "  prefix-metric\n");
+
+	if (yang_dnode_exists(dnode, "metric-type")) {
+		metric_type = yang_dnode_get_enum(dnode, "metric-type");
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		if (metric_type != MT_IGP) {
 			flex_algo_metric_type_print(type_str, sizeof(type_str),
 						    metric_type);
@@ -3905,8 +4218,13 @@ void cli_show_isis_flex_algo(struct vty *vty, const struct lyd_node *dnode,
 		}
 	}
 
+<<<<<<< HEAD
 	if (yang_dnode_exists(dnode, "./priority")) {
 		priority = yang_dnode_get_uint32(dnode, "./priority");
+=======
+	if (yang_dnode_exists(dnode, "priority")) {
+		priority = yang_dnode_get_uint32(dnode, "priority");
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		if (priority != FLEX_ALGO_PRIO_DEFAULT)
 			vty_out(vty, "  priority %u\n", priority);
 	}

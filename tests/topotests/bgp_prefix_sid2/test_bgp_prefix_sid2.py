@@ -90,7 +90,11 @@ def test_r1_rib():
         logger.info('[+] check {} "{}" {}'.format(name, cmd, expected_file))
         tgen = get_topogen()
         func = functools.partial(_check, name, cmd, expected_file)
+<<<<<<< HEAD
         success, result = topotest.run_and_expect(func, None, count=10, wait=0.5)
+=======
+        _, result = topotest.run_and_expect(func, None, count=10, wait=0.5)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         assert result is None, "Failed"
 
     check("r1", "show bgp ipv6 vpn 2001:1::/64 json", "r1/vpnv6_rib_entry1.json")

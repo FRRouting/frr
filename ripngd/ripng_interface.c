@@ -128,11 +128,18 @@ static int ripng_multicast_leave(struct interface *ifp, int sock)
 /* How many link local IPv6 address could be used on the interface ? */
 static int ripng_if_ipv6_lladdress_check(struct interface *ifp)
 {
+<<<<<<< HEAD
 	struct listnode *nn;
 	struct connected *connected;
 	int count = 0;
 
 	for (ALL_LIST_ELEMENTS_RO(ifp->connected, nn, connected)) {
+=======
+	struct connected *connected;
+	int count = 0;
+
+	frr_each (if_connected, ifp->connected, connected) {
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		struct prefix *p;
 		p = connected->address;
 
@@ -408,14 +415,21 @@ static int ripng_enable_network_lookup_if(struct interface *ifp)
 {
 	struct ripng_interface *ri = ifp->info;
 	struct ripng *ripng = ri->ripng;
+<<<<<<< HEAD
 	struct listnode *node;
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	struct connected *connected;
 	struct prefix_ipv6 address;
 
 	if (!ripng)
 		return -1;
 
+<<<<<<< HEAD
 	for (ALL_LIST_ELEMENTS_RO(ifp->connected, node, connected)) {
+=======
+	frr_each (if_connected, ifp->connected, connected) {
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		struct prefix *p;
 		struct agg_node *n;
 
@@ -590,11 +604,18 @@ static void ripng_connect_set(struct interface *ifp, int set)
 {
 	struct ripng_interface *ri = ifp->info;
 	struct ripng *ripng = ri->ripng;
+<<<<<<< HEAD
 	struct listnode *node, *nnode;
 	struct connected *connected;
 	struct prefix_ipv6 address;
 
 	for (ALL_LIST_ELEMENTS(ifp->connected, node, nnode, connected)) {
+=======
+	struct connected *connected;
+	struct prefix_ipv6 address;
+
+	frr_each (if_connected, ifp->connected, connected) {
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		struct prefix *p;
 		p = connected->address;
 
@@ -876,7 +897,14 @@ void ripng_if_init(void)
 	hook_register_prio(if_del, 0, ripng_if_delete_hook);
 
 	/* Install interface node. */
+<<<<<<< HEAD
 	if_cmd_init_default();
 	if_zapi_callbacks(ripng_ifp_create, ripng_ifp_up,
 			  ripng_ifp_down, ripng_ifp_destroy);
+=======
+	hook_register_prio(if_real, 0, ripng_ifp_create);
+	hook_register_prio(if_up, 0, ripng_ifp_up);
+	hook_register_prio(if_down, 0, ripng_ifp_down);
+	hook_register_prio(if_unreal, 0, ripng_ifp_destroy);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 }

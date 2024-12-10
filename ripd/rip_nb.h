@@ -7,7 +7,14 @@
 #ifndef _FRR_RIP_NB_H_
 #define _FRR_RIP_NB_H_
 
+<<<<<<< HEAD
 extern const struct frr_yang_module_info frr_ripd_info;
+=======
+#include "northbound.h"
+
+extern const struct frr_yang_module_info frr_ripd_info;
+extern const struct frr_yang_module_info frr_ripd_cli_info;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 /* Mandatory callbacks. */
 int ripd_instance_create(struct nb_cb_create_args *args);
@@ -45,6 +52,11 @@ int ripd_instance_passive_interface_destroy(struct nb_cb_destroy_args *args);
 int ripd_instance_non_passive_interface_create(struct nb_cb_create_args *args);
 int ripd_instance_non_passive_interface_destroy(
 	struct nb_cb_destroy_args *args);
+<<<<<<< HEAD
+=======
+int ripd_instance_distribute_list_create(struct nb_cb_create_args *args);
+int ripd_instance_distribute_list_destroy(struct nb_cb_destroy_args *args);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 int ripd_instance_redistribute_create(struct nb_cb_create_args *args);
 int ripd_instance_redistribute_destroy(struct nb_cb_destroy_args *args);
 int ripd_instance_redistribute_route_map_modify(struct nb_cb_modify_args *args);
@@ -168,6 +180,10 @@ void ripd_instance_timers_apply_finish(struct nb_cb_apply_finish_args *args);
 /* Optional 'cli_show' callbacks. */
 void cli_show_router_rip(struct vty *vty, const struct lyd_node *dnode,
 			 bool show_defaults);
+<<<<<<< HEAD
+=======
+void cli_show_end_router_rip(struct vty *vty, const struct lyd_node *dnode);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 void cli_show_rip_allow_ecmp(struct vty *vty, const struct lyd_node *dnode,
 			     bool show_defaults);
 void cli_show_rip_default_information_originate(struct vty *vty,
@@ -235,4 +251,9 @@ void cli_show_ip_rip_bfd_profile(struct vty *vty, const struct lyd_node *dnode,
 extern void ripd_notif_send_auth_type_failure(const char *ifname);
 extern void ripd_notif_send_auth_failure(const char *ifname);
 
+<<<<<<< HEAD
+=======
+extern void rip_cli_init(void);
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 #endif /* _FRR_RIP_NB_H_ */

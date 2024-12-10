@@ -9,10 +9,13 @@
       "argumentBitsLength":0,
       "statusUp":true,
       "chunks":[
+<<<<<<< HEAD
         {
           "prefix":"fc00:0:4::/48",
           "proto":"isis"
         }
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
       ]
     }
   ]

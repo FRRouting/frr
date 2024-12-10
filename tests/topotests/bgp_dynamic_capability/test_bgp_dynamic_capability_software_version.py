@@ -16,18 +16,28 @@ import json
 import pytest
 import functools
 
+<<<<<<< HEAD
 pytestmark = pytest.mark.bgpd
+=======
+pytestmark = [pytest.mark.bgpd]
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 CWD = os.path.dirname(os.path.realpath(__file__))
 sys.path.append(os.path.join(CWD, "../"))
 
 # pylint: disable=C0413
 from lib import topotest
+<<<<<<< HEAD
 from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.common_config import step
 
 pytestmark = [pytest.mark.bgpd]
 
+=======
+from lib.topogen import Topogen, get_topogen
+from lib.common_config import step
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 def setup_module(mod):
     topodef = {"s1": ("r1", "r2")}
@@ -70,7 +80,11 @@ def test_bgp_dynamic_capability_software_version():
                 },
                 "addressFamilyInfo": {
                     "ipv4Unicast": {
+<<<<<<< HEAD
                         "acceptedPrefixCounter": 2,
+=======
+                        "acceptedPrefixCounter": 3,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
                     }
                 },
             }
@@ -86,7 +100,11 @@ def test_bgp_dynamic_capability_software_version():
     step("Enable software version capability and check if it's exchanged dynamically")
 
     # Clear message stats to check if we receive a notification or not after we
+<<<<<<< HEAD
     # change the settings fo LLGR.
+=======
+    # enable software-version capability.
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     r1.vtysh_cmd("clear bgp 192.168.1.2 message-stats")
     r1.vtysh_cmd(
         """
@@ -136,7 +154,11 @@ def test_bgp_dynamic_capability_software_version():
                 },
                 "addressFamilyInfo": {
                     "ipv4Unicast": {
+<<<<<<< HEAD
                         "acceptedPrefixCounter": 2,
+=======
+                        "acceptedPrefixCounter": 3,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
                     }
                 },
                 "messageStats": {
@@ -155,6 +177,44 @@ def test_bgp_dynamic_capability_software_version():
         result is None
     ), "Session was reset after enabling software version capability"
 
+<<<<<<< HEAD
+=======
+    # Clear message stats to check if we receive a notification or not after we
+    # disable software-version capability.
+    r1.vtysh_cmd("clear bgp 192.168.1.2 message-stats")
+    r1.vtysh_cmd(
+        """
+    configure terminal
+    router bgp
+      no neighbor 192.168.1.2 capability software-version
+    """
+    )
+
+    def _bgp_check_if_software_version_capability_is_absent():
+        output = json.loads(r1.vtysh_cmd("show bgp neighbor json"))
+        expected = {
+            "192.168.1.2": {
+                "bgpState": "Established",
+                "neighborCapabilities": {
+                    "dynamic": "advertisedAndReceived",
+                    "softwareVersion": {
+                        "advertisedSoftwareVersion": None,
+                    },
+                },
+                "messageStats": {
+                    "notificationsRecv": 0,
+                },
+            }
+        }
+        return topotest.json_cmp(output, expected)
+
+    test_func = functools.partial(
+        _bgp_check_if_software_version_capability_is_absent,
+    )
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
+    assert result is None, "Failed to disable software version capability"
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 if __name__ == "__main__":
     args = ["-s"] + sys.argv[1:]

@@ -149,6 +149,7 @@ extern void nexthop_group_json_nexthop(json_object *j,
 				       const struct nexthop *nh);
 
 /* Return the number of nexthops in this nhg */
+<<<<<<< HEAD
 extern uint8_t nexthop_group_nexthop_num(const struct nexthop_group *nhg);
 extern uint8_t
 nexthop_group_nexthop_num_no_recurse(const struct nexthop_group *nhg);
@@ -156,6 +157,10 @@ extern uint8_t
 nexthop_group_active_nexthop_num(const struct nexthop_group *nhg);
 extern uint8_t
 nexthop_group_active_nexthop_num_no_recurse(const struct nexthop_group *nhg);
+=======
+extern uint16_t nexthop_group_nexthop_num(const struct nexthop_group *nhg);
+extern uint16_t nexthop_group_active_nexthop_num(const struct nexthop_group *nhg);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 extern bool nexthop_group_has_label(const struct nexthop_group *nhg);
 

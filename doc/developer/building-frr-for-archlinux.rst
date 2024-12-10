@@ -11,18 +11,25 @@ Installing Dependencies
       git autoconf automake libtool make cmake pcre readline texinfo \
       pkg-config pam json-c bison flex python-pytest \
       c-ares python python2-ipaddress python-sphinx \
+<<<<<<< HEAD
       net-snmp perl libcap libelf libunwind
+=======
+      net-snmp perl libcap libelf libunwind protobuf-c
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 .. include:: building-libunwind-note.rst
 
 .. include:: building-libyang.rst
 
+<<<<<<< HEAD
 Protobuf
 ^^^^^^^^
 
 .. code-block:: console
 
    sudo pacman -S protobuf-c
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 ZeroMQ
 ^^^^^^

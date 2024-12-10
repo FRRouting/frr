@@ -21,6 +21,11 @@
 #include "log.h"
 #include "lib_errors.h"
 
+<<<<<<< HEAD
+=======
+XREF_SETUP();
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 DEFINE_MTYPE_STATIC(LIB, ZEROMQ_CB, "ZeroMQ callback");
 
 /* libzmq's context */

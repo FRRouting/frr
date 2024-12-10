@@ -11,6 +11,15 @@ extern "C" {
 #endif
 
 extern const struct frr_yang_module_info frr_staticd_info;
+<<<<<<< HEAD
+=======
+extern const struct frr_yang_module_info frr_staticd_cli_info;
+
+int routing_control_plane_protocols_staticd_create(
+	struct nb_cb_create_args *args);
+int routing_control_plane_protocols_staticd_destroy(
+	struct nb_cb_destroy_args *args);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 /* Mandatory callbacks. */
 int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_create(

@@ -56,7 +56,11 @@ MODULE_LDFLAGS = \
 	$(SAN_FLAGS) \
 	# end
 
+<<<<<<< HEAD
 DEFS = @DEFS@ -DSYSCONFDIR=\"$(sysconfdir)/\" -DCONFDATE=$(CONFDATE)
+=======
+DEFS = @DEFS@ -DCONFDATE=$(CONFDATE)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 AR_FLAGS = @AR_FLAGS@
 ARFLAGS = @ARFLAGS@

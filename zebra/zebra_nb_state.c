@@ -49,8 +49,55 @@ lib_interface_zebra_state_down_count_get_elem(struct nb_cb_get_elem_args *args)
 struct yang_data *
 lib_interface_zebra_state_zif_type_get_elem(struct nb_cb_get_elem_args *args)
 {
+<<<<<<< HEAD
 	/* TODO: implement me. */
 	return NULL;
+=======
+	const struct interface *ifp = args->list_entry;
+	struct zebra_if *zebra_if;
+	const char *type = NULL;
+
+	zebra_if = ifp->info;
+
+	/*
+	 * NOTE: when adding a new type to the switch, make sure it is defined
+	 * in it's YANG model.
+	 */
+	switch (zebra_if->zif_type) {
+	case ZEBRA_IF_OTHER:
+		type = "frr-zebra:zif-other";
+		break;
+	case ZEBRA_IF_VXLAN:
+		type = "frr-zebra:zif-vxlan";
+		break;
+	case ZEBRA_IF_VRF:
+		type = "frr-zebra:zif-vrf";
+		break;
+	case ZEBRA_IF_BRIDGE:
+		type = "frr-zebra:zif-bridge";
+		break;
+	case ZEBRA_IF_VLAN:
+		type = "frr-zebra:zif-vlan";
+		break;
+	case ZEBRA_IF_MACVLAN:
+		type = "frr-zebra:zif-macvlan";
+		break;
+	case ZEBRA_IF_VETH:
+		type = "frr-zebra:zif-veth";
+		break;
+	case ZEBRA_IF_BOND:
+		type = "frr-zebra:zif-bond";
+		break;
+	case ZEBRA_IF_GRE:
+		type = "frr-zebra:zif-gre";
+		break;
+	}
+
+	if (!type)
+		return NULL;
+
+	return yang_data_new_string(args->xpath, type);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 }
 
 /*
@@ -145,6 +192,31 @@ lib_interface_zebra_state_mcast_group_get_elem(struct nb_cb_get_elem_args *args)
 	return yang_data_new_ipv4(args->xpath, &vni->mcast_grp);
 }
 
+<<<<<<< HEAD
+=======
+/*
+ * XPath: /frr-interface:lib/interface/frr-zebra:zebra/state/bond
+ */
+struct yang_data *
+lib_interface_zebra_state_bond_get_elem(struct nb_cb_get_elem_args *args)
+{
+	const struct interface *ifp = args->list_entry;
+	struct zebra_if *zebra_if;
+	struct interface *bond;
+
+	if (!IS_ZEBRA_IF_BOND_SLAVE(ifp))
+		return NULL;
+
+	zebra_if = ifp->info;
+	bond = zebra_if->bondslave_info.bond_if;
+
+	if (!bond)
+		return NULL;
+
+	return yang_data_new_string(args->xpath, bond->name);
+}
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 const void *lib_vrf_zebra_ribs_rib_get_next(struct nb_cb_get_next_args *args)
 {
 	struct vrf *vrf = (struct vrf *)args->parent_list_entry;
@@ -156,6 +228,11 @@ const void *lib_vrf_zebra_ribs_rib_get_next(struct nb_cb_get_next_args *args)
 	safi_t safi;
 
 	zvrf = zebra_vrf_lookup_by_id(vrf->vrf_id);
+<<<<<<< HEAD
+=======
+	if (!zvrf)
+		return NULL;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	if (args->list_entry == NULL) {
 		afi = AFI_IP;
@@ -167,7 +244,12 @@ const void *lib_vrf_zebra_ribs_rib_get_next(struct nb_cb_get_next_args *args)
 	} else {
 		zrt = RB_NEXT(zebra_router_table_head, zrt);
 		/* vrf_id/ns_id do not match, only walk for the given VRF */
+<<<<<<< HEAD
 		while (zrt && zrt->ns_id != zvrf->zns->ns_id)
+=======
+		while (zrt && (zrt->tableid != zvrf->table_id ||
+			       zrt->ns_id != zvrf->zns->ns_id))
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			zrt = RB_NEXT(zebra_router_table_head, zrt);
 	}
 
@@ -198,6 +280,11 @@ lib_vrf_zebra_ribs_rib_lookup_entry(struct nb_cb_lookup_entry_args *args)
 	uint32_t table_id = 0;
 
 	zvrf = zebra_vrf_lookup_by_id(vrf->vrf_id);
+<<<<<<< HEAD
+=======
+	if (!zvrf)
+		return NULL;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	yang_afi_safi_identity2value(args->keys->key[0], &afi, &safi);
 	table_id = yang_str2uint32(args->keys->key[1]);
@@ -208,6 +295,31 @@ lib_vrf_zebra_ribs_rib_lookup_entry(struct nb_cb_lookup_entry_args *args)
 	return zebra_router_find_zrt(zvrf, table_id, afi, safi);
 }
 
+<<<<<<< HEAD
+=======
+const void *
+lib_vrf_zebra_ribs_rib_lookup_next(struct nb_cb_lookup_entry_args *args)
+{
+	struct vrf *vrf = (struct vrf *)args->parent_list_entry;
+	struct zebra_vrf *zvrf;
+	afi_t afi;
+	safi_t safi;
+	uint32_t table_id = 0;
+
+	zvrf = zebra_vrf_lookup_by_id(vrf->vrf_id);
+	if (!zvrf)
+		return NULL;
+
+	yang_afi_safi_identity2value(args->keys->key[0], &afi, &safi);
+	table_id = yang_str2uint32(args->keys->key[1]);
+	/* table_id 0 assume vrf's table_id. */
+	if (!table_id)
+		table_id = zvrf->table_id;
+
+	return zebra_router_find_next_zrt(zvrf, table_id, afi, safi);
+}
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 /*
  * XPath: /frr-vrf:lib/vrf/frr-zebra:zebra/ribs/rib/afi-safi-name
  */
@@ -285,6 +397,28 @@ lib_vrf_zebra_ribs_rib_route_lookup_entry(struct nb_cb_lookup_entry_args *args)
 	return rn;
 }
 
+<<<<<<< HEAD
+=======
+const void *
+lib_vrf_zebra_ribs_rib_route_lookup_next(struct nb_cb_lookup_entry_args *args)
+{
+	const struct zebra_router_table *zrt = args->parent_list_entry;
+	struct prefix p;
+	struct route_node *rn;
+
+	yang_str2prefix(args->keys->key[0], &p);
+
+	rn = route_table_get_next(zrt->table, &p);
+
+	if (!rn)
+		return NULL;
+
+	route_unlock_node(rn);
+
+	return rn;
+}
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 /*
  * XPath: /frr-vrf:lib/vrf/frr-zebra:zebra/ribs/rib/route/prefix
  */
@@ -502,7 +636,11 @@ struct yang_data *lib_vrf_zebra_ribs_rib_route_route_entry_uptime_get_elem(
 {
 	struct route_entry *re = (struct route_entry *)args->list_entry;
 
+<<<<<<< HEAD
 	return yang_data_new_date_and_time(args->xpath, re->uptime);
+=======
+	return yang_data_new_date_and_time(args->xpath, re->uptime, true);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 }
 
 /*
@@ -790,6 +928,10 @@ lib_vrf_zebra_ribs_rib_route_route_entry_nexthop_group_nexthop_bh_type_get_elem(
 	if (nexthop->type != NEXTHOP_TYPE_BLACKHOLE)
 		return NULL;
 
+<<<<<<< HEAD
+=======
+	(void)type_str; /* clang-SA */
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	switch (nexthop->bh_type) {
 	case BLACKHOLE_NULL:
 		type_str = "null";

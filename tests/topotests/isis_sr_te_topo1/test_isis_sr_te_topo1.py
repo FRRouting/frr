@@ -164,7 +164,11 @@ def setup_module(mod):
     tgen.start_router()
 
 
+<<<<<<< HEAD
 def teardown_module(mod):
+=======
+def teardown_module():
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     "Teardown the pytest environment"
     tgen = get_topogen()
 
@@ -641,7 +645,11 @@ def test_srte_route_map_with_sr_policy_check_nextop_step5():
     )
 
     # (re-)build the SR Policy two times to ensure that reinstalling still works
+<<<<<<< HEAD
     for i in [1, 2]:
+=======
+    for _ in [1, 2]:
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         cmp_json_output(
             "rt1", "show ip route bgp json", "step5/show_ip_route_bgp_inactive_srte.ref"
         )

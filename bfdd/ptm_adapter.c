@@ -148,7 +148,10 @@ static void _ptm_bfd_session_del(struct bfd_session *bs, uint8_t diag)
 				"ptm-del-session: [%s] session refcount is zero but it was configured by CLI",
 				bs_to_string(bs));
 		} else {
+<<<<<<< HEAD
 			control_notify_config(BCM_NOTIFY_CONFIG_DELETE, bs);
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			bfd_session_free(bs);
 		}
 	}
@@ -826,7 +829,12 @@ static zclient_handler *const bfd_handlers[] = {
 
 void bfdd_zclient_init(struct zebra_privs_t *bfdd_priv)
 {
+<<<<<<< HEAD
 	if_zapi_callbacks(bfd_ifp_create, NULL, NULL, bfd_ifp_destroy);
+=======
+	hook_register_prio(if_real, 0, bfd_ifp_create);
+	hook_register_prio(if_unreal, 0, bfd_ifp_destroy);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	zclient = zclient_new(master, &zclient_options_default, bfd_handlers,
 			      array_size(bfd_handlers));
 	assert(zclient != NULL);
@@ -858,6 +866,14 @@ void bfdd_zclient_stop(void)
 	pc_free_all();
 }
 
+<<<<<<< HEAD
+=======
+void bfdd_zclient_terminate(void)
+{
+	zclient_free(zclient);
+}
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 /*
  * Client handling.
@@ -886,7 +902,11 @@ static struct ptm_client *pc_new(uint32_t pid)
 		return pc;
 
 	/* Allocate the client data and save it. */
+<<<<<<< HEAD
 	pc = XCALLOC(MTYPE_BFDD_CONTROL, sizeof(*pc));
+=======
+	pc = XCALLOC(MTYPE_BFDD_CLIENT, sizeof(*pc));
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	pc->pc_pid = pid;
 	TAILQ_INSERT_HEAD(&pcqueue, pc, pc_entry);
@@ -904,7 +924,11 @@ static void pc_free(struct ptm_client *pc)
 		pcn_free(pcn);
 	}
 
+<<<<<<< HEAD
 	XFREE(MTYPE_BFDD_CONTROL, pc);
+=======
+	XFREE(MTYPE_BFDD_CLIENT, pc);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 }
 
 static void pc_free_all(void)
@@ -928,7 +952,11 @@ static struct ptm_client_notification *pcn_new(struct ptm_client *pc,
 		return pcn;
 
 	/* Save the client notification data. */
+<<<<<<< HEAD
 	pcn = XCALLOC(MTYPE_BFDD_NOTIFICATION, sizeof(*pcn));
+=======
+	pcn = XCALLOC(MTYPE_BFDD_CLIENT_NOTIFICATION, sizeof(*pcn));
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	TAILQ_INSERT_HEAD(&pc->pc_pcnqueue, pcn, pcn_entry);
 	pcn->pcn_pc = pc;
@@ -976,5 +1004,9 @@ static void pcn_free(struct ptm_client_notification *pcn)
 	pcn->pcn_pc = NULL;
 	TAILQ_REMOVE(&pc->pc_pcnqueue, pcn, pcn_entry);
 
+<<<<<<< HEAD
 	XFREE(MTYPE_BFDD_NOTIFICATION, pcn);
+=======
+	XFREE(MTYPE_BFDD_CLIENT_NOTIFICATION, pcn);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 }

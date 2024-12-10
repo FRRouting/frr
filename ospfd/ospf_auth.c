@@ -5,6 +5,15 @@
  */
 
 #include <zebra.h>
+<<<<<<< HEAD
+=======
+#include <sys/stat.h>
+
+#ifdef CRYPTO_OPENSSL
+#include <openssl/evp.h>
+#include <openssl/hmac.h>
+#endif
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 #include "linklist.h"
 #include "if.h"

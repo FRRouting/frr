@@ -20,7 +20,10 @@
 #
 
 import os
+<<<<<<< HEAD
 import re
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 import sys
 import json
 import functools
@@ -106,7 +109,11 @@ def setup_module(mod):
     tgen = Topogen(build_topo, mod.__name__)
     tgen.start_topology()
     router_list = tgen.routers()
+<<<<<<< HEAD
     for i, (rname, router) in enumerate(tgen.routers().items(), 1):
+=======
+    for _, (rname, router) in enumerate(tgen.routers().items(), 1):
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         router.load_config(
             TopoRouter.RD_ZEBRA, os.path.join(CWD, "{}/zebra.conf".format(rname))
         )
@@ -180,7 +187,11 @@ def check_rib(name, cmd, expected_file):
     logger.info('[+] check {} "{}" {}'.format(name, cmd, expected_file))
     tgen = get_topogen()
     func = functools.partial(_check, name, cmd, expected_file)
+<<<<<<< HEAD
     success, result = topotest.run_and_expect(func, None, count=10, wait=0.5)
+=======
+    _, result = topotest.run_and_expect(func, None, count=10, wait=0.5)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     assert result is None, "Failed"
 
 

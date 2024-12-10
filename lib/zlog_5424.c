@@ -13,6 +13,12 @@
  */
 
 #include "zebra.h"
+<<<<<<< HEAD
+=======
+#include <fcntl.h>
+
+#include "frrsendmmsg.h"
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 #include "zlog_5424.h"
 
@@ -913,7 +919,11 @@ static int zlog_5424_open(struct zlog_cfg_5424 *zcf, int sock_type)
 		}
 
 		flags = O_NONBLOCK;
+<<<<<<< HEAD
 		/* fallthru */
+=======
+		fallthrough;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	case ZLOG_5424_DST_FILE:
 		if (!zcf->filename)

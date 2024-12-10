@@ -238,10 +238,17 @@ void isis_lfa_excluded_ifaces_init(struct isis_circuit *circuit, int level)
  *
  * @param nodes		List of SPF nodes
  */
+<<<<<<< HEAD
 void isis_lfa_excluded_ifaces_clear(struct isis_circuit *circuit, int level)
 {
 	hash_clean(circuit->lfa_excluded_ifaces[level - 1],
 		   lfa_excl_interface_hash_free);
+=======
+void isis_lfa_excluded_ifaces_delete(struct isis_circuit *circuit, int level)
+{
+	hash_clean_and_free(&circuit->lfa_excluded_ifaces[level - 1],
+			    lfa_excl_interface_hash_free);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 }
 
 /**
@@ -916,9 +923,14 @@ int isis_tilfa_check(struct isis_spftree *spftree_pc,
 
 		adj = isis_adj_find(spftree_pc->area, spftree_pc->level,
 				    vertex->N.id);
+<<<<<<< HEAD
 		if (adj
 		    && isis_sr_adj_sid_find(adj, spftree_pc->family,
 					    ISIS_SR_LAN_BACKUP)) {
+=======
+		if (adj && isis_sr_adj_sid_find(adj, spftree_pc->family,
+						ISIS_SR_ADJ_BACKUP)) {
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			if (IS_DEBUG_LFA)
 				zlog_debug(
 					"ISIS-LFA: %s %s already covered by node protection",
@@ -1065,7 +1077,11 @@ static void lfa_calc_reach_nodes(struct isis_spftree *spftree,
 	for (ALL_QUEUE_ELEMENTS_RO(&spftree->paths, node, vertex)) {
 		char buf[VID2STR_BUFFER];
 
+<<<<<<< HEAD
 		if (!VTYPE_IS(vertex->type))
+=======
+		if (vertex->type != VTYPE_NONPSEUDO_IS && vertex->type != VTYPE_NONPSEUDO_TE_IS)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			continue;
 
 		/* Skip root node. */
@@ -2127,9 +2143,22 @@ void isis_lfa_compute(struct isis_area *area, struct isis_circuit *circuit,
 		}
 
 		vadj_primary = listnode_head(vertex->Adj_N);
+<<<<<<< HEAD
 		sadj_primary = vadj_primary->sadj;
 
 		parent_vertex = listnode_head(vertex->parents);
+=======
+		if (!vadj_primary) {
+			if (IS_DEBUG_LFA)
+				zlog_debug(
+					"ISIS-LFA: skipping computing LFAs due to no adjacencies");
+			continue;
+		}
+		sadj_primary = vadj_primary->sadj;
+
+		parent_vertex = listnode_head(vertex->parents);
+		assert(parent_vertex);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		prefix_metric = vertex->d_N - parent_vertex->d_N;
 
 		/*

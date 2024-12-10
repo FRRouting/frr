@@ -19,15 +19,27 @@ DEFINE_MTYPE_STATIC(NHRPD, NHRP_SHORTCUT, "NHRP shortcut");
 static struct route_table *shortcut_rib[AFI_MAX];
 
 static void nhrp_shortcut_do_purge(struct event *t);
+<<<<<<< HEAD
 static void nhrp_shortcut_delete(struct nhrp_shortcut *s);
 static void nhrp_shortcut_send_resolution_req(struct nhrp_shortcut *s);
+=======
+static void nhrp_shortcut_delete(struct nhrp_shortcut *s,
+				 void *arg __attribute__((__unused__)));
+static void nhrp_shortcut_send_resolution_req(struct nhrp_shortcut *s,
+					      bool retry);
+static void nhrp_shortcut_retry_resolution_req(struct event *t);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 static void nhrp_shortcut_check_use(struct nhrp_shortcut *s)
 {
 	if (s->expiring && s->cache && s->cache->used) {
 		debugf(NHRP_DEBUG_ROUTE, "Shortcut %pFX used and expiring",
 		       s->p);
+<<<<<<< HEAD
 		nhrp_shortcut_send_resolution_req(s);
+=======
+		nhrp_shortcut_send_resolution_req(s, false);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	}
 }
 
@@ -36,7 +48,11 @@ static void nhrp_shortcut_do_expire(struct event *t)
 	struct nhrp_shortcut *s = EVENT_ARG(t);
 
 	event_add_timer(master, nhrp_shortcut_do_purge, s, s->holding_time / 3,
+<<<<<<< HEAD
 			&s->t_timer);
+=======
+			&s->t_shortcut_purge);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	s->expiring = 1;
 	nhrp_shortcut_check_use(s);
 }
@@ -72,7 +88,11 @@ static void nhrp_shortcut_cache_notify(struct notifier_block *n,
 			s->route_installed = 0;
 		}
 		if (cmd == NOTIFY_CACHE_DELETE)
+<<<<<<< HEAD
 			nhrp_shortcut_delete(s);
+=======
+			nhrp_shortcut_delete(s, NULL);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		break;
 	}
 }
@@ -123,21 +143,39 @@ static void nhrp_shortcut_update_binding(struct nhrp_shortcut *s,
 		s->route_installed = 0;
 	}
 
+<<<<<<< HEAD
 	EVENT_OFF(s->t_timer);
+=======
+	EVENT_OFF(s->t_shortcut_purge);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	if (holding_time) {
 		s->expiring = 0;
 		s->holding_time = holding_time;
 		event_add_timer(master, nhrp_shortcut_do_expire, s,
+<<<<<<< HEAD
 				2 * holding_time / 3, &s->t_timer);
 	}
 }
 
 static void nhrp_shortcut_delete(struct nhrp_shortcut *s)
+=======
+				2 * holding_time / 3, &s->t_shortcut_purge);
+	}
+}
+
+static void nhrp_shortcut_delete(struct nhrp_shortcut *s,
+				 void *arg __attribute__((__unused__)))
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 {
 	struct route_node *rn;
 	afi_t afi = family2afi(PREFIX_FAMILY(s->p));
 
+<<<<<<< HEAD
 	EVENT_OFF(s->t_timer);
+=======
+	EVENT_OFF(s->t_shortcut_purge);
+	EVENT_OFF(s->t_retry_resolution);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	nhrp_reqid_free(&nhrp_packet_reqid, &s->reqid);
 
 	debugf(NHRP_DEBUG_ROUTE, "Shortcut %pFX purged", s->p);
@@ -157,8 +195,14 @@ static void nhrp_shortcut_delete(struct nhrp_shortcut *s)
 static void nhrp_shortcut_do_purge(struct event *t)
 {
 	struct nhrp_shortcut *s = EVENT_ARG(t);
+<<<<<<< HEAD
 	s->t_timer = NULL;
 	nhrp_shortcut_delete(s);
+=======
+	s->t_shortcut_purge = NULL;
+	EVENT_OFF(s->t_retry_resolution);
+	nhrp_shortcut_delete(s, NULL);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 }
 
 static struct nhrp_shortcut *nhrp_shortcut_get(struct prefix *p)
@@ -204,8 +248,15 @@ static void nhrp_shortcut_recv_resolution_rep(struct nhrp_reqid *reqid,
 	int holding_time = pp->if_ad->holdtime;
 
 	nhrp_reqid_free(&nhrp_packet_reqid, &s->reqid);
+<<<<<<< HEAD
 	EVENT_OFF(s->t_timer);
 	event_add_timer(master, nhrp_shortcut_do_purge, s, 1, &s->t_timer);
+=======
+	EVENT_OFF(s->t_shortcut_purge);
+	EVENT_OFF(s->t_retry_resolution);
+	event_add_timer(master, nhrp_shortcut_do_purge, s, 1,
+			&s->t_shortcut_purge);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	if (pp->hdr->type != NHRP_PACKET_RESOLUTION_REPLY) {
 		if (pp->hdr->type == NHRP_PACKET_ERROR_INDICATION
@@ -372,7 +423,12 @@ static void nhrp_shortcut_recv_resolution_rep(struct nhrp_reqid *reqid,
 	debugf(NHRP_DEBUG_COMMON, "Shortcut: Resolution reply handled");
 }
 
+<<<<<<< HEAD
 static void nhrp_shortcut_send_resolution_req(struct nhrp_shortcut *s)
+=======
+static void nhrp_shortcut_send_resolution_req(struct nhrp_shortcut *s,
+					      bool retry)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 {
 	struct zbuf *zb;
 	struct nhrp_packet_header *hdr;
@@ -387,6 +443,25 @@ static void nhrp_shortcut_send_resolution_req(struct nhrp_shortcut *s)
 	    != NHRP_ROUTE_NBMA_NEXTHOP)
 		return;
 
+<<<<<<< HEAD
+=======
+	/*Retry interval for NHRP resolution request
+	 * will start at 1 second and will be doubled every time
+	 * another resolution request is sent, until it is
+	 * eventually upper-bounded by the purge time of
+	 * the shortcut.
+	 */
+	if (!retry)
+		s->retry_interval = 1;
+	event_add_timer(master, nhrp_shortcut_retry_resolution_req, s,
+			s->retry_interval, &s->t_retry_resolution);
+	if (s->retry_interval != (NHRPD_DEFAULT_PURGE_TIME / 4))
+		s->retry_interval = ((s->retry_interval * 2) <
+				     (NHRPD_DEFAULT_PURGE_TIME / 4))
+					    ? (s->retry_interval * 2)
+					    : (NHRPD_DEFAULT_PURGE_TIME / 4);
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	if (s->type == NHRP_CACHE_INVALID || s->type == NHRP_CACHE_NEGATIVE)
 		s->type = NHRP_CACHE_INCOMPLETE;
 
@@ -399,9 +474,29 @@ static void nhrp_shortcut_send_resolution_req(struct nhrp_shortcut *s)
 		zb, NHRP_PACKET_RESOLUTION_REQUEST, &nifp->nbma,
 		&nifp->afi[family2afi(sockunion_family(&s->addr))].addr,
 		&s->addr);
+<<<<<<< HEAD
 	hdr->u.request_id =
 		htonl(nhrp_reqid_alloc(&nhrp_packet_reqid, &s->reqid,
 				       nhrp_shortcut_recv_resolution_rep));
+=======
+
+	/* RFC2332 - The value is taken from a 32 bit counter that is incremented
+	 * each time a new "request" is transmitted.  The same value MUST
+	 * be used when resending a "request", i.e., when a "reply" has not been
+	 * received for a "request" and a retry is sent after an
+	 * appropriate interval
+	 */
+	if (!retry)
+		hdr->u.request_id = htonl(
+			nhrp_reqid_alloc(&nhrp_packet_reqid, &s->reqid,
+					 nhrp_shortcut_recv_resolution_rep));
+	else
+		/* Just pull request_id from existing incomplete
+		 * shortcut in the case of a retry
+		 */
+		hdr->u.request_id = htonl(s->reqid.request_id);
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	hdr->flags = htons(NHRP_FLAG_RESOLUTION_SOURCE_IS_ROUTER
 			   | NHRP_FLAG_RESOLUTION_AUTHORATIVE
 			   | NHRP_FLAG_RESOLUTION_SOURCE_STABLE);
@@ -410,7 +505,11 @@ static void nhrp_shortcut_send_resolution_req(struct nhrp_shortcut *s)
 	 *  - Prefix length: widest acceptable prefix we accept (if U set, 0xff)
 	 *  - MTU: MTU of the source station
 	 *  - Holding Time: Max time to cache the source information
+<<<<<<< HEAD
 	 * */
+=======
+	 */
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	/* FIXME: push CIE for each local protocol address */
 	cie = nhrp_cie_push(zb, NHRP_CODE_SUCCESS, NULL, NULL);
 	if_ad = &nifp->afi[family2afi(sockunion_family(&s->addr))];
@@ -423,7 +522,11 @@ static void nhrp_shortcut_send_resolution_req(struct nhrp_shortcut *s)
 	       "Shortcut res_req: set cie ht to %u and mtu to %u. shortcut ht is %u",
 	       ntohs(cie->holding_time), ntohs(cie->mtu), s->holding_time);
 
+<<<<<<< HEAD
 	nhrp_ext_request(zb, hdr, ifp);
+=======
+	nhrp_ext_request(zb, hdr);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	/* Cisco NAT detection extension */
 	hdr->flags |= htons(NHRP_FLAG_RESOLUTION_NAT);
@@ -436,7 +539,11 @@ static void nhrp_shortcut_send_resolution_req(struct nhrp_shortcut *s)
 		nhrp_ext_complete(zb, ext);
 	}
 
+<<<<<<< HEAD
 	nhrp_packet_complete(zb, hdr);
+=======
+	nhrp_packet_complete(zb, hdr, ifp);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	nhrp_peer_send(peer, zb);
 	nhrp_peer_unref(peer);
@@ -454,6 +561,7 @@ void nhrp_shortcut_initiate(union sockunion *addr)
 	s = nhrp_shortcut_get(&p);
 	if (s && s->type != NHRP_CACHE_INCOMPLETE) {
 		s->addr = *addr;
+<<<<<<< HEAD
 		EVENT_OFF(s->t_timer);
 		event_add_timer(master, nhrp_shortcut_do_purge, s, 30,
 				&s->t_timer);
@@ -461,6 +569,27 @@ void nhrp_shortcut_initiate(union sockunion *addr)
 	}
 }
 
+=======
+		EVENT_OFF(s->t_shortcut_purge);
+		EVENT_OFF(s->t_retry_resolution);
+
+		event_add_timer(master, nhrp_shortcut_do_purge, s,
+				NHRPD_DEFAULT_PURGE_TIME, &s->t_shortcut_purge);
+		nhrp_shortcut_send_resolution_req(s, false);
+	}
+}
+
+static void nhrp_shortcut_retry_resolution_req(struct event *t)
+{
+	struct nhrp_shortcut *s = EVENT_ARG(t);
+
+	EVENT_OFF(s->t_retry_resolution);
+	debugf(NHRP_DEBUG_COMMON, "Shortcut: Retrying Resolution Request");
+	nhrp_shortcut_send_resolution_req(s, true);
+}
+
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 void nhrp_shortcut_init(void)
 {
 	shortcut_rib[AFI_IP] = route_table_init();
@@ -469,6 +598,11 @@ void nhrp_shortcut_init(void)
 
 void nhrp_shortcut_terminate(void)
 {
+<<<<<<< HEAD
+=======
+	nhrp_shortcut_foreach(AFI_IP, nhrp_shortcut_delete, NULL);
+	nhrp_shortcut_foreach(AFI_IP6, nhrp_shortcut_delete, NULL);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	route_table_finish(shortcut_rib[AFI_IP]);
 	route_table_finish(shortcut_rib[AFI_IP6]);
 }
@@ -499,13 +633,22 @@ struct purge_ctx {
 
 void nhrp_shortcut_purge(struct nhrp_shortcut *s, int force)
 {
+<<<<<<< HEAD
 	EVENT_OFF(s->t_timer);
+=======
+	EVENT_OFF(s->t_shortcut_purge);
+	EVENT_OFF(s->t_retry_resolution);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	nhrp_reqid_free(&nhrp_packet_reqid, &s->reqid);
 
 	if (force) {
 		/* Immediate purge on route with draw or pending shortcut */
 		event_add_timer_msec(master, nhrp_shortcut_do_purge, s, 5,
+<<<<<<< HEAD
 				     &s->t_timer);
+=======
+				     &s->t_shortcut_purge);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	} else {
 		/* Soft expire - force immediate renewal, but purge
 		 * in few seconds to make sure stale route is not
@@ -514,8 +657,13 @@ void nhrp_shortcut_purge(struct nhrp_shortcut *s, int force)
 		 * This allows to keep nhrp route up, and to not
 		 * cause temporary rerouting via hubs causing latency
 		 * jitter. */
+<<<<<<< HEAD
 		event_add_timer_msec(master, nhrp_shortcut_do_purge, s, 3000,
 				     &s->t_timer);
+=======
+		event_add_timer_msec(master, nhrp_shortcut_do_purge, s,
+				     NHRPD_PURGE_EXPIRE, &s->t_shortcut_purge);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		s->expiring = 1;
 		nhrp_shortcut_check_use(s);
 	}

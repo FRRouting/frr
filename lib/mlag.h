@@ -65,7 +65,11 @@ struct mlag_frr_status {
 };
 
 struct mlag_status {
+<<<<<<< HEAD
 	char peerlink_rif[INTERFACE_NAMSIZ];
+=======
+	char peerlink_rif[IFNAMSIZ];
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	enum mlag_role my_role;
 	enum mlag_state peer_state;
 };
@@ -86,7 +90,11 @@ struct mlag_mroute_add {
 	bool am_i_dr;
 	bool am_i_dual_active;
 	vrf_id_t vrf_id;
+<<<<<<< HEAD
 	char intf_name[INTERFACE_NAMSIZ];
+=======
+	char intf_name[IFNAMSIZ];
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 };
 
 struct mlag_mroute_del {
@@ -95,7 +103,11 @@ struct mlag_mroute_del {
 	uint32_t group_ip;
 	enum mlag_owner owner_id;
 	vrf_id_t vrf_id;
+<<<<<<< HEAD
 	char intf_name[INTERFACE_NAMSIZ];
+=======
+	char intf_name[IFNAMSIZ];
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 };
 
 struct mlag_msg {

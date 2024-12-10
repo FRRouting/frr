@@ -25,8 +25,13 @@ extern void router_id_add_address(struct connected *c);
 extern void router_id_del_address(struct connected *c);
 extern void router_id_init(struct zebra_vrf *zvrf);
 extern void router_id_cmd_init(void);
+<<<<<<< HEAD
 extern void router_id_write(struct vty *vty, struct zebra_vrf *zvrf);
 extern int router_id_get(afi_t afi, struct prefix *p, struct zebra_vrf *zvrf);
+=======
+extern int router_id_get(afi_t afi, struct prefix *p, struct zebra_vrf *zvrf);
+extern int router_id_set(afi_t afi, struct prefix *p, struct zebra_vrf *zvrf);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 #ifdef __cplusplus
 }

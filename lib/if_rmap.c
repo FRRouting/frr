@@ -243,6 +243,7 @@ DEFPY_YANG(no_if_ipv6_route_map, no_if_ipv6_route_map_cmd,
 void cli_show_if_route_map(struct vty *vty, const struct lyd_node *dnode,
 			   bool show_defaults)
 {
+<<<<<<< HEAD
 	if (yang_dnode_exists(dnode, "./in-route-map"))
 		vty_out(vty, " route-map %s in %s\n",
 			yang_dnode_get_string(dnode, "./in-route-map"),
@@ -251,6 +252,16 @@ void cli_show_if_route_map(struct vty *vty, const struct lyd_node *dnode,
 		vty_out(vty, " route-map %s out %s\n",
 			yang_dnode_get_string(dnode, "./out-route-map"),
 			yang_dnode_get_string(dnode, "./interface"));
+=======
+	if (yang_dnode_exists(dnode, "in-route-map"))
+		vty_out(vty, " route-map %s in %s\n",
+			yang_dnode_get_string(dnode, "in-route-map"),
+			yang_dnode_get_string(dnode, "interface"));
+	if (yang_dnode_exists(dnode, "out-route-map"))
+		vty_out(vty, " route-map %s out %s\n",
+			yang_dnode_get_string(dnode, "out-route-map"),
+			yang_dnode_get_string(dnode, "interface"));
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 }
 
 void if_rmap_yang_modify_cb(struct if_rmap_ctx *ctx,

@@ -757,7 +757,11 @@ static struct variable bgp_variables[] = {
 	 {6, 1, 14}},
 };
 
+<<<<<<< HEAD
 int bgpTrapEstablished(struct peer *peer)
+=======
+int bgp4TrapEstablished(struct peer *peer)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 {
 	int ret;
 	struct in_addr addr;
@@ -782,7 +786,11 @@ int bgpTrapEstablished(struct peer *peer)
 	return 0;
 }
 
+<<<<<<< HEAD
 int bgpTrapBackwardTransition(struct peer *peer)
+=======
+int bgp4TrapBackwardTransition(struct peer *peer)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 {
 	int ret;
 	struct in_addr addr;

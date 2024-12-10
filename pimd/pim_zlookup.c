@@ -122,10 +122,14 @@ void zclient_lookup_free(void)
 
 void zclient_lookup_new(void)
 {
+<<<<<<< HEAD
 	struct zclient_options options = zclient_options_default;
 	options.synchronous = true;
 
 	zlookup = zclient_new(router->master, &options, NULL, 0);
+=======
+	zlookup = zclient_new(router->master, &zclient_options_sync, NULL, 0);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	if (!zlookup) {
 		flog_err(EC_LIB_ZAPI_SOCKET, "%s: zclient_new() failure",
 			 __func__);
@@ -196,7 +200,11 @@ static int zclient_read_nexthop(struct pim_instance *pim,
 
 	distance = stream_getc(s);
 	metric = stream_getl(s);
+<<<<<<< HEAD
 	nexthop_num = stream_getc(s);
+=======
+	nexthop_num = stream_getw(s);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	if (nexthop_num < 1 || nexthop_num > router->multipath) {
 		if (PIM_DEBUG_PIM_NHT_DETAIL)

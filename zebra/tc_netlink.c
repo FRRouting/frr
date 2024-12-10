@@ -9,6 +9,10 @@
 
 #ifdef HAVE_NETLINK
 
+<<<<<<< HEAD
+=======
+#include <linux/rtnetlink.h>
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 #include <linux/pkt_cls.h>
 #include <linux/pkt_sched.h>
 #include <netinet/if_ether.h>
@@ -660,6 +664,7 @@ netlink_put_tc_filter_update_msg(struct nl_batch *bth,
 }
 
 /*
+<<<<<<< HEAD
  * Request filters from the kernel
  */
 static int netlink_request_filters(struct zebra_ns *zns, int family, int type,
@@ -681,6 +686,8 @@ static int netlink_request_filters(struct zebra_ns *zns, int family, int type,
 }
 
 /*
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
  * Request queue discipline from the kernel
  */
 static int netlink_request_qdiscs(struct zebra_ns *zns, int family, int type)
@@ -851,6 +858,7 @@ int netlink_qdisc_read(struct zebra_ns *zns)
 	return 0;
 }
 
+<<<<<<< HEAD
 int netlink_tfilter_read_for_interface(struct zebra_ns *zns, ifindex_t ifindex)
 {
 	int ret;
@@ -870,4 +878,6 @@ int netlink_tfilter_read_for_interface(struct zebra_ns *zns, ifindex_t ifindex)
 	return 0;
 }
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 #endif /* HAVE_NETLINK */

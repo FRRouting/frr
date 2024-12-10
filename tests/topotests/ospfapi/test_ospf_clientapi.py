@@ -16,7 +16,10 @@ import signal
 import subprocess
 import sys
 import time
+<<<<<<< HEAD
 from datetime import datetime, timedelta
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 from functools import partial
 
 import pytest
@@ -35,8 +38,12 @@ from lib.topotest import interface_set_status, json_cmp
 # pylint: disable=C0413
 # Import topogen and topotest helpers
 from lib import topotest
+<<<<<<< HEAD
 from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
+=======
+from lib.topogen import Topogen, TopoRouter
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 pytestmark = [pytest.mark.ospfd]
 
@@ -220,10 +227,18 @@ def _test_router_id(tgen, testbin):
 
         step("router id: check for modified router id")
         r1.vtysh_multicmd("conf t\nrouter ospf\nospf router-id 1.1.1.1")
+<<<<<<< HEAD
+=======
+        r1.vtysh_multicmd("clear ip ospf process")
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         _wait_output(p, "SUCCESS: {}".format(waitlist[1]))
 
         step("router id: check for restored router id")
         r1.vtysh_multicmd("conf t\nrouter ospf\nospf router-id 1.0.0.0")
+<<<<<<< HEAD
+=======
+        r1.vtysh_multicmd("clear ip ospf process")
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         _wait_output(p, "SUCCESS: {}".format(waitlist[2]))
     except Exception as error:
         logging.error("ERROR: %s", error)
@@ -277,7 +292,11 @@ def _test_add_data(tgen, apibin):
                             "linkStateId": "230.0.0.2",
                             "advertisingRouter": "1.0.0.0",
                             "lsaSeqNumber": "80000001",
+<<<<<<< HEAD
                             "opaqueData": "00000202",
+=======
+                            "opaqueValues": {"opaqueData": "00000202"},
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
                         },
                     ],
                 }
@@ -327,7 +346,13 @@ def _test_add_data(tgen, apibin):
                             "linkStateId": "231.0.0.1",
                             "advertisingRouter": "1.0.0.0",
                             "lsaSeqNumber": "80000001",
+<<<<<<< HEAD
                             "opaqueData": "00010101",
+=======
+                            "opaqueValues": {
+                                "opaqueData": "00010101",
+                            },
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
                         },
                     ],
                 }
@@ -376,7 +401,13 @@ def _test_add_data(tgen, apibin):
                     "linkStateId": "232.0.0.3",
                     "advertisingRouter": "1.0.0.0",
                     "lsaSeqNumber": "80000001",
+<<<<<<< HEAD
                     "opaqueData": "deadbeaf01234567",
+=======
+                    "opaqueValues": {
+                        "opaqueData": "deadbeaf01234567",
+                    },
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
                 },
             ]
         }
@@ -427,7 +458,13 @@ def _test_add_data(tgen, apibin):
                     "linkStateId": "232.0.0.3",
                     "advertisingRouter": "1.0.0.0",
                     "lsaSeqNumber": "80000002",
+<<<<<<< HEAD
                     "opaqueData": "ebadf00d",
+=======
+                    "opaqueValues": {
+                        "opaqueData": "ebadf00d",
+                    },
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
                 },
             ]
         }
@@ -574,7 +611,11 @@ def _test_opaque_add_del(tgen, apibin):
                                 "lsaSeqNumber": "80000001",
                                 "checksum": "76bf",
                                 "length": 20,
+<<<<<<< HEAD
                                 "opaqueDataLength": 0,
+=======
+                                "opaqueLength": 0,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
                             },
                             {
                                 "linkStateId": "230.0.0.2",
@@ -583,7 +624,11 @@ def _test_opaque_add_del(tgen, apibin):
                                 "checksum": "8aa2",
                                 "length": 24,
                                 "opaqueId": 2,
+<<<<<<< HEAD
                                 "opaqueDataLength": 4,
+=======
+                                "opaqueLength": 4,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
                             },
                         ]
                     }
@@ -599,7 +644,11 @@ def _test_opaque_add_del(tgen, apibin):
                                 "lsaSeqNumber": "80000001",
                                 "checksum": "5bd8",
                                 "length": 20,
+<<<<<<< HEAD
                                 "opaqueDataLength": 0,
+=======
+                                "opaqueLength": 0,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
                             },
                             {
                                 "linkStateId": "231.0.0.2",
@@ -607,7 +656,11 @@ def _test_opaque_add_del(tgen, apibin):
                                 "lsaSeqNumber": "80000001",
                                 "checksum": "7690",
                                 "length": 28,
+<<<<<<< HEAD
                                 "opaqueDataLength": 8,
+=======
+                                "opaqueLength": 8,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
                             },
                         ],
                     },
@@ -621,7 +674,11 @@ def _test_opaque_add_del(tgen, apibin):
                         "lsaSeqNumber": "80000001",
                         "checksum": "5ed5",
                         "length": 20,
+<<<<<<< HEAD
                         "opaqueDataLength": 0,
+=======
+                        "opaqueLength": 0,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
                     },
                     {
                         "linkStateId": "232.0.0.2",
@@ -629,7 +686,11 @@ def _test_opaque_add_del(tgen, apibin):
                         "lsaSeqNumber": "80000001",
                         "checksum": "d9bd",
                         "length": 24,
+<<<<<<< HEAD
                         "opaqueDataLength": 4,
+=======
+                        "opaqueLength": 4,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
                     },
                 ],
             },
@@ -734,7 +795,11 @@ def _test_opaque_add_del(tgen, apibin):
                                 "lsaSeqNumber": "80000001",
                                 "checksum": "76bf",
                                 "length": 20,
+<<<<<<< HEAD
                                 "opaqueDataLength": 0,
+=======
+                                "opaqueLength": 0,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
                             },
                             {
                                 "linkStateId": "230.0.0.2",
@@ -744,7 +809,11 @@ def _test_opaque_add_del(tgen, apibin):
                                 "checksum": "8aa2",
                                 "length": 24,
                                 "opaqueId": 2,
+<<<<<<< HEAD
                                 "opaqueDataLength": 4,
+=======
+                                "opaqueLength": 4,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
                             },
                         ]
                     }
@@ -760,7 +829,11 @@ def _test_opaque_add_del(tgen, apibin):
                                 "lsaSeqNumber": "80000001",
                                 "checksum": "5bd8",
                                 "length": 20,
+<<<<<<< HEAD
                                 "opaqueDataLength": 0,
+=======
+                                "opaqueLength": 0,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
                             },
                             {
                                 "lsaAge": 3600,
@@ -770,7 +843,11 @@ def _test_opaque_add_del(tgen, apibin):
                                 "checksum": "4fe2",
                                 # data removed
                                 "length": 20,
+<<<<<<< HEAD
                                 "opaqueDataLength": 0,
+=======
+                                "opaqueLength": 0,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
                             },
                         ],
                     },
@@ -785,7 +862,11 @@ def _test_opaque_add_del(tgen, apibin):
                         "lsaSeqNumber": "80000001",
                         "checksum": "5ed5",
                         "length": 20,
+<<<<<<< HEAD
                         "opaqueDataLength": 0,
+=======
+                        "opaqueLength": 0,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
                     },
                     {
                         "linkStateId": "232.0.0.2",
@@ -793,7 +874,11 @@ def _test_opaque_add_del(tgen, apibin):
                         "lsaSeqNumber": "80000001",
                         "checksum": "d9bd",
                         "length": 24,
+<<<<<<< HEAD
                         "opaqueDataLength": 4,
+=======
+                        "opaqueLength": 4,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
                     },
                 ],
             },
@@ -827,7 +912,11 @@ def _test_opaque_add_del(tgen, apibin):
                                 "lsaSeqNumber": "80000001",
                                 "checksum": "76bf",
                                 "length": 20,
+<<<<<<< HEAD
                                 "opaqueDataLength": 0,
+=======
+                                "opaqueLength": 0,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
                             },
                             {
                                 "linkStateId": "230.0.0.2",
@@ -837,7 +926,11 @@ def _test_opaque_add_del(tgen, apibin):
                                 "checksum": "8aa2",
                                 "length": 24,
                                 "opaqueId": 2,
+<<<<<<< HEAD
                                 "opaqueDataLength": 4,
+=======
+                                "opaqueLength": 4,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
                             },
                         ]
                     }
@@ -854,7 +947,11 @@ def _test_opaque_add_del(tgen, apibin):
                                 "lsaSeqNumber": "80000001",
                                 "checksum": "5bd8",
                                 "length": 20,
+<<<<<<< HEAD
                                 "opaqueDataLength": 0,
+=======
+                                "opaqueLength": 0,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
                             },
                             {
                                 "lsaAge": 3600,
@@ -864,7 +961,11 @@ def _test_opaque_add_del(tgen, apibin):
                                 "checksum": "4fe2",
                                 # data removed
                                 "length": 20,
+<<<<<<< HEAD
                                 "opaqueDataLength": 0,
+=======
+                                "opaqueLength": 0,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
                             },
                         ],
                     },
@@ -879,7 +980,11 @@ def _test_opaque_add_del(tgen, apibin):
                         "lsaSeqNumber": "80000001",
                         "checksum": "5ed5",
                         "length": 20,
+<<<<<<< HEAD
                         "opaqueDataLength": 0,
+=======
+                        "opaqueLength": 0,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
                     },
                     {
                         "linkStateId": "232.0.0.2",
@@ -888,7 +993,11 @@ def _test_opaque_add_del(tgen, apibin):
                         "lsaSeqNumber": "80000001",
                         "checksum": "d9bd",
                         "length": 24,
+<<<<<<< HEAD
                         "opaqueDataLength": 4,
+=======
+                        "opaqueLength": 4,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
                     },
                 ],
             },
@@ -1044,7 +1153,11 @@ def _test_opaque_add_restart_add(tgen, apibin):
                             "lsaSeqNumber": "80000001",
                             "checksum": "b07a",
                             "length": 28,
+<<<<<<< HEAD
                             "opaqueDataLength": 8,
+=======
+                            "opaqueLength": 8,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
                         },
                     ],
                 },
@@ -1100,7 +1213,11 @@ def _test_opaque_add_restart_add(tgen, apibin):
                             "lsaSeqNumber": "80000003",
                             "checksum": "cb27",
                             "length": 28,
+<<<<<<< HEAD
                             "opaqueDataLength": 8,
+=======
+                            "opaqueLength": 8,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
                         },
                     ],
                 },
@@ -1205,7 +1322,14 @@ def _test_opaque_interface_disable(tgen, apibin):
             }
         }
         test_func = partial(
+<<<<<<< HEAD
             topotest.router_json_cmp, r1, "show ip ospf interface json", r1_interface_without_opaque
+=======
+            topotest.router_json_cmp,
+            r1,
+            "show ip ospf interface json",
+            r1_interface_without_opaque,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         )
         _, result = topotest.run_and_expect(test_func, None, count=60, wait=1)
         assertmsg = "r1 OSPF interface doesn't have opaque capability disabled"
@@ -1232,7 +1356,14 @@ def _test_opaque_interface_disable(tgen, apibin):
         # STEP 4 in test_ospf_opaque_interface_disable and STEP 59 in CI tests
         step("Verify that the r1 neighbor options don't include opaque")
         test_func = partial(
+<<<<<<< HEAD
             topotest.router_json_cmp, r1, "show ip ospf neighbor detail json", r1_neighbor_without_opaque
+=======
+            topotest.router_json_cmp,
+            r1,
+            "show ip ospf neighbor detail json",
+            r1_neighbor_without_opaque,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         )
         _, result = topotest.run_and_expect(test_func, None, count=60, wait=1)
         assertmsg = "r1 OSPF neighbor has opaque option in optionsList"
@@ -1241,7 +1372,14 @@ def _test_opaque_interface_disable(tgen, apibin):
         # STEP 5 in test_ospf_opaque_interface_disable and STEP 60 in CI tests
         step("Verify that the r1 neighbor options don't include opaque")
         test_func = partial(
+<<<<<<< HEAD
             topotest.router_json_cmp, r2, "show ip ospf neighbor detail json", r2_neighbor_without_opaque
+=======
+            topotest.router_json_cmp,
+            r2,
+            "show ip ospf neighbor detail json",
+            r2_neighbor_without_opaque,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         )
         _, result = topotest.run_and_expect(test_func, None, count=60, wait=1)
         assertmsg = "r2 OSPF neighbor has opaque option in optionsList"
@@ -1282,7 +1420,14 @@ def _test_opaque_interface_disable(tgen, apibin):
             }
         }
         test_func = partial(
+<<<<<<< HEAD
             topotest.router_json_cmp, r2, "show ip ospf interface json", r2_interface_with_opaque
+=======
+            topotest.router_json_cmp,
+            r2,
+            "show ip ospf interface json",
+            r2_interface_with_opaque,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         )
         _, result = topotest.run_and_expect(test_func, None, count=60, wait=1)
         assertmsg = "r2 OSPF interface has opaque capability disabled"
@@ -1338,6 +1483,7 @@ def _test_opaque_interface_disable(tgen, apibin):
             "asExternalOpaqueLsaCount": 1,
         }
         opaque_area_empty_database = {
+<<<<<<< HEAD
             "routerId":"2.0.0.0",
             "areaLocalOpaqueLsa":{
                 "areas":{
@@ -1345,12 +1491,23 @@ def _test_opaque_interface_disable(tgen, apibin):
                     ]
                 }
             }
+=======
+            "routerId": "2.0.0.0",
+            "areaLocalOpaqueLsa": {"areas": {"1.2.3.4": []}},
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         }
 
         # STEP 9 in test_ospf_opaque_interface_disable and STEP 64 in CI tests
         step("Check that LSAs are added on r1")
         test_func = partial(
+<<<<<<< HEAD
             topotest.router_json_cmp, r1, "show ip ospf database json", opaque_LSAs_in_database
+=======
+            topotest.router_json_cmp,
+            r1,
+            "show ip ospf database json",
+            opaque_LSAs_in_database,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         )
         _, result = topotest.run_and_expect(test_func, None, count=60, wait=1)
         assertmsg = "r1 OSPF database doesn't contain opaque LSAs"
@@ -1359,8 +1516,16 @@ def _test_opaque_interface_disable(tgen, apibin):
         # STEP 10 in test_ospf_opaque_interface_disable and STEP 65 in CI tests
         step("Check that LSAs are not added on r2")
         test_func = partial(
+<<<<<<< HEAD
             topotest.router_json_cmp, r2, "show ip ospf database opaque-area json",
             opaque_area_empty_database, True
+=======
+            topotest.router_json_cmp,
+            r2,
+            "show ip ospf database opaque-area json",
+            opaque_area_empty_database,
+            True,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         )
         _, result = topotest.run_and_expect(test_func, None, count=60, wait=1)
         assertmsg = "r2 OSPF area database contains opaque LSAs"
@@ -1382,7 +1547,14 @@ def _test_opaque_interface_disable(tgen, apibin):
         # STEP 13 in test_ospf_opaque_interface_disable and STEP 68 in CI tests
         step("Verify the ospf opaque option is applied to the r1 interface")
         test_func = partial(
+<<<<<<< HEAD
             topotest.router_json_cmp, r1, "show ip ospf interface json", r1_interface_with_opaque
+=======
+            topotest.router_json_cmp,
+            r1,
+            "show ip ospf interface json",
+            r1_interface_with_opaque,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         )
         _, result = topotest.run_and_expect(test_func, None, count=60, wait=1)
         assertmsg = "r1 OSPF interface doesn't have opaque capability disabled"
@@ -1409,7 +1581,14 @@ def _test_opaque_interface_disable(tgen, apibin):
         # STEP 14 in test_ospf_opaque_interface_disable and STEP 69 in CI tests
         step("Verify that the r1 neighbor options include opaque")
         test_func = partial(
+<<<<<<< HEAD
             topotest.router_json_cmp, r1, "show ip ospf neighbor detail json", r1_neighbor_with_opaque
+=======
+            topotest.router_json_cmp,
+            r1,
+            "show ip ospf neighbor detail json",
+            r1_neighbor_with_opaque,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         )
         _, result = topotest.run_and_expect(test_func, None, count=60, wait=1)
         assertmsg = "r1 OSPF neighbor doesn't have opaque option in optionsList"
@@ -1418,7 +1597,14 @@ def _test_opaque_interface_disable(tgen, apibin):
         # STEP 15 in test_ospf_opaque_interface_disable and STEP 70 in CI tests
         step("Verify that the r2 neighbor options include opaque")
         test_func = partial(
+<<<<<<< HEAD
             topotest.router_json_cmp, r2, "show ip ospf neighbor detail json", r2_neighbor_with_opaque
+=======
+            topotest.router_json_cmp,
+            r2,
+            "show ip ospf neighbor detail json",
+            r2_neighbor_with_opaque,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         )
         _, result = topotest.run_and_expect(test_func, None, count=60, wait=1)
         assertmsg = "r2 OSPF neighbor doesn't have opaque option in optionsList"
@@ -1427,7 +1613,14 @@ def _test_opaque_interface_disable(tgen, apibin):
         # STEP 16 in test_ospf_opaque_interface_disable and STEP 71 in CI tests
         step("Check that LSAs are now added to r2")
         test_func = partial(
+<<<<<<< HEAD
             topotest.router_json_cmp, r2, "show ip ospf database json", opaque_LSAs_in_database
+=======
+            topotest.router_json_cmp,
+            r2,
+            "show ip ospf database json",
+            opaque_LSAs_in_database,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         )
         _, result = topotest.run_and_expect(test_func, None, count=60, wait=1)
         assertmsg = "r2 OSPF database doesn't contains opaque LSAs"
@@ -1463,7 +1656,14 @@ def _test_opaque_interface_disable(tgen, apibin):
         # STEP 20 in test_ospf_opaque_interface_disable and STEP 75 in CI tests
         step("Verify the ospf opaque option is not applied to the r2 interface")
         test_func = partial(
+<<<<<<< HEAD
             topotest.router_json_cmp, r2, "show ip ospf interface json", r2_interface_without_opaque
+=======
+            topotest.router_json_cmp,
+            r2,
+            "show ip ospf interface json",
+            r2_interface_without_opaque,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         )
         _, result = topotest.run_and_expect(test_func, None, count=60, wait=1)
         assertmsg = "r1 OSPF interface doesn't have opaque capability disabled"
@@ -1472,7 +1672,14 @@ def _test_opaque_interface_disable(tgen, apibin):
         # STEP 21 in test_ospf_opaque_interface_disable and STEP 76 in CI tests
         step("Verify that the r1 neighbor options don't include opaque")
         test_func = partial(
+<<<<<<< HEAD
             topotest.router_json_cmp, r1, "show ip ospf neighbor detail json", r1_neighbor_without_opaque
+=======
+            topotest.router_json_cmp,
+            r1,
+            "show ip ospf neighbor detail json",
+            r1_neighbor_without_opaque,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         )
         _, result = topotest.run_and_expect(test_func, None, count=60, wait=1)
         assertmsg = "r1 OSPF neighbor has opaque option in optionsList"
@@ -1481,7 +1688,14 @@ def _test_opaque_interface_disable(tgen, apibin):
         # STEP 22 in test_ospf_opaque_interface_disable and STEP 77 in CI tests
         step("Verify that the r2 neighbor options don't include opaque")
         test_func = partial(
+<<<<<<< HEAD
             topotest.router_json_cmp, r2, "show ip ospf neighbor detail json", r2_neighbor_without_opaque
+=======
+            topotest.router_json_cmp,
+            r2,
+            "show ip ospf neighbor detail json",
+            r2_neighbor_without_opaque,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         )
         _, result = topotest.run_and_expect(test_func, None, count=60, wait=1)
         assertmsg = "r2 OSPF neighbor has opaque option in optionsList"
@@ -1490,7 +1704,14 @@ def _test_opaque_interface_disable(tgen, apibin):
         # STEP 23 in test_ospf_opaque_interface_disable and STEP 78 in CI tests
         step("Verify that r1 still has the opaque LSAs")
         test_func = partial(
+<<<<<<< HEAD
             topotest.router_json_cmp, r1, "show ip ospf database json", opaque_LSAs_in_database
+=======
+            topotest.router_json_cmp,
+            r1,
+            "show ip ospf database json",
+            opaque_LSAs_in_database,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         )
         _, result = topotest.run_and_expect(test_func, None, count=60, wait=1)
         assertmsg = "r1 OSPF database doesn't contain opaque LSAs"
@@ -1499,8 +1720,16 @@ def _test_opaque_interface_disable(tgen, apibin):
         # STEP 24 in test_ospf_opaque_interface_disable and STEP 79 in CI tests
         step("Verify that r2 doesn't have the opaque LSAs")
         test_func = partial(
+<<<<<<< HEAD
             topotest.router_json_cmp, r2, "show ip ospf database opaque-area json",
             opaque_area_empty_database, True
+=======
+            topotest.router_json_cmp,
+            r2,
+            "show ip ospf database opaque-area json",
+            opaque_area_empty_database,
+            True,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         )
         _, result = topotest.run_and_expect(test_func, None, count=60, wait=1)
         assertmsg = "r2 OSPF area database contains opaque LSAs"
@@ -1524,7 +1753,14 @@ def _test_opaque_interface_disable(tgen, apibin):
         # STEP 27 in test_ospf_opaque_interface_disable and STEP 82 in CI tests
         step("Verify the ospf opaque option is applied to the r2 interface")
         test_func = partial(
+<<<<<<< HEAD
             topotest.router_json_cmp, r2, "show ip ospf interface json", r2_interface_with_opaque
+=======
+            topotest.router_json_cmp,
+            r2,
+            "show ip ospf interface json",
+            r2_interface_with_opaque,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         )
         _, result = topotest.run_and_expect(test_func, None, count=60, wait=1)
         assertmsg = "r2 OSPF interface doesn't have opaque capability disabled"
@@ -1533,7 +1769,14 @@ def _test_opaque_interface_disable(tgen, apibin):
         # STEP 28 in test_ospf_opaque_interface_disable and STEP 83 in CI tests
         step("Verify that the r2 neighbor options include opaque")
         test_func = partial(
+<<<<<<< HEAD
             topotest.router_json_cmp, r2, "show ip ospf neighbor detail json", r2_neighbor_with_opaque
+=======
+            topotest.router_json_cmp,
+            r2,
+            "show ip ospf neighbor detail json",
+            r2_neighbor_with_opaque,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         )
         _, result = topotest.run_and_expect(test_func, None, count=60, wait=1)
         assertmsg = "r2 OSPF neighbor doesn't have opaque option in optionsList"
@@ -1542,7 +1785,14 @@ def _test_opaque_interface_disable(tgen, apibin):
         # STEP 29 in test_ospf_opaque_interface_disable and STEP 84 in CI tests
         step("Verify that the r1 neighbor options include opaque")
         test_func = partial(
+<<<<<<< HEAD
             topotest.router_json_cmp, r1, "show ip ospf neighbor detail json", r1_neighbor_with_opaque
+=======
+            topotest.router_json_cmp,
+            r1,
+            "show ip ospf neighbor detail json",
+            r1_neighbor_with_opaque,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         )
         _, result = topotest.run_and_expect(test_func, None, count=60, wait=1)
         assertmsg = "r1 OSPF neighbor doesn't have opaque option in optionsList"
@@ -1551,7 +1801,14 @@ def _test_opaque_interface_disable(tgen, apibin):
         # STEP 30 in test_ospf_opaque_interface_disable and STEP 85 in CLI tests
         step("Verify that r2 now has the opaque LSAs")
         test_func = partial(
+<<<<<<< HEAD
             topotest.router_json_cmp, r2, "show ip ospf database json", opaque_LSAs_in_database
+=======
+            topotest.router_json_cmp,
+            r2,
+            "show ip ospf database json",
+            opaque_LSAs_in_database,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         )
         _, result = topotest.run_and_expect(test_func, None, count=60, wait=1)
         assertmsg = "r2 OSPF database doesn't contain opaque LSAs"
@@ -1581,6 +1838,96 @@ def test_ospf_opaque_interface_disable(tgen):
     _test_opaque_interface_disable(tgen, apibin)
 
 
+<<<<<<< HEAD
+=======
+def _test_opaque_link_local_lsa_crash(tgen, apibin):
+    "Test disabling opaque capability on an interface"
+
+    r1 = tgen.gears["r1"]
+    r2 = tgen.gears["r2"]
+    tc_name = "opaque_interface_disable"
+
+    p = None
+    # Log to our stdin, stderr
+    pout = open(os.path.join(r1.net.logdir, "r1/intf-disable.log"), "a+")
+    try:
+        step("Add a link-local opaque LSA for r1-eth0")
+        pread = r1.popen([apibin, "-v", "add,9,10.0.1.1,230,1,feedaceedeadbeef"])
+
+        input_dict = {
+            "linkLocalOpaqueLsa": {
+                "areas": {
+                    "1.2.3.4": [
+                        {
+                            "linkStateId": "230.0.0.1",
+                            "advertisingRouter": "1.0.0.0",
+                            "lsaSeqNumber": "80000001",
+                            "opaqueValues": {
+                                "opaqueData": "feedaceedeadbeef",
+                            },
+                        },
+                    ],
+                }
+            },
+        }
+
+        # verify content
+        json_cmd = "show ip ospf da opaque-link json"
+        assert verify_ospf_database(tgen, r1, input_dict, json_cmd) is None
+
+        step("Shut down r1-eth0 and verify there is no crash")
+        r1.vtysh_multicmd("conf t\ninterface r1-eth0\nshut")
+        time.sleep(2)
+
+        step("Bring r1-eth0 back up and verify there is no crash")
+        r1.vtysh_multicmd("conf t\ninterface r1-eth0\nno shut")
+
+        step("Add another link-local opaque LSA for r1-eth0")
+        pread = r1.popen([apibin, "-v", "add,9,10.0.1.1,230,1,feedaceecafebeef"])
+
+        input_dict = {
+            "linkLocalOpaqueLsa": {
+                "areas": {
+                    "1.2.3.4": [
+                        {
+                            "linkStateId": "230.0.0.1",
+                            "advertisingRouter": "1.0.0.0",
+                            "lsaSeqNumber": "80000001",
+                            "opaqueValues": {
+                                "opaqueData": "feedaceecafebeef",
+                            },
+                        },
+                    ],
+                }
+            },
+        }
+        # verify content
+        json_cmd = "show ip ospf da opaque-link json"
+        assert verify_ospf_database(tgen, r1, input_dict, json_cmd) is None
+
+    except Exception:
+        if p:
+            p.terminate()
+            if p.wait():
+                comm_error(p)
+            p = None
+        raise
+    finally:
+        if p:
+            p.terminate()
+            p.wait()
+    p = None
+
+
+@pytest.mark.parametrize("tgen", [2], indirect=True)
+def test_ospf_opaque_link_local_lsa_crash(tgen):
+    apibin = os.path.join(CLIENTDIR, "ospfclient.py")
+    rc, o, e = tgen.gears["r2"].net.cmd_status([apibin, "--help"])
+    logging.debug("%s --help: rc: %s stdout: '%s' stderr: '%s'", apibin, rc, o, e)
+    _test_opaque_link_local_lsa_crash(tgen, apibin)
+
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 if __name__ == "__main__":
     args = ["-s"] + sys.argv[1:]
     sys.exit(pytest.main(args))

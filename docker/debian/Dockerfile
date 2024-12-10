@@ -24,5 +24,9 @@ RUN chown -R frr:frr /etc/frr /var/run/frr
 ENTRYPOINT ["/usr/bin/tini", "--"]
 
 # Default CMD starts watchfrr
+<<<<<<< HEAD
 COPY docker-start /usr/lib/frr/docker-start
+=======
+COPY --chmod=0755 docker-start /usr/lib/frr/docker-start
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 CMD ["/usr/lib/frr/docker-start"]

@@ -18,6 +18,10 @@ struct sharp_nh_tracker {
 };
 
 extern struct sharp_nh_tracker *sharp_nh_tracker_get(struct prefix *p);
+<<<<<<< HEAD
+=======
+extern void sharp_nh_tracker_free(struct sharp_nh_tracker *nht);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 extern void sharp_nh_tracker_dump(struct vty *vty);
 

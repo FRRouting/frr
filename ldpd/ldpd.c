@@ -9,6 +9,12 @@
  */
 
 #include <zebra.h>
+<<<<<<< HEAD
+=======
+
+#include <signal.h>
+#include <fcntl.h>
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 #include <sys/wait.h>
 
 #include "ldpd.h"
@@ -32,9 +38,17 @@
 #include "qobj.h"
 #include "libfrr.h"
 #include "lib_errors.h"
+<<<<<<< HEAD
 
 static void		 ldpd_shutdown(void);
 static pid_t		 start_child(enum ldpd_process, char *, int, int);
+=======
+#include "zlog_recirculate.h"
+#include "libagentx.h"
+
+static void		 ldpd_shutdown(void);
+static pid_t		 start_child(enum ldpd_process, char *, int, int, int);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 static void main_dispatch_ldpe(struct event *thread);
 static void main_dispatch_lde(struct event *thread);
 static int		 main_imsg_send_ipc_sockets(struct imsgbuf *,
@@ -66,6 +80,11 @@ DEFINE_QOBJ_TYPE(l2vpn_pw);
 DEFINE_QOBJ_TYPE(l2vpn);
 DEFINE_QOBJ_TYPE(ldpd_conf);
 
+<<<<<<< HEAD
+=======
+const char		*log_procname;
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 struct ldpd_global	 global;
 struct ldpd_init	 init;
 struct ldpd_conf	*ldpd_conf, *vty_conf;
@@ -101,7 +120,10 @@ void ldp_agentx_enabled(void)
 enum ldpd_process ldpd_process;
 
 #define LDP_DEFAULT_CONFIG	"ldpd.conf"
+<<<<<<< HEAD
 #define LDP_VTY_PORT		2612
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 /* Master of threads. */
 struct event_loop *master;
@@ -194,6 +216,10 @@ static const struct frr_yang_module_info *const ldpd_yang_modules[] = {
 	&frr_vrf_info,
 };
 
+<<<<<<< HEAD
+=======
+/* clang-format off */
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 FRR_DAEMON_INFO(ldpd, LDP,
 	.vty_port = LDP_VTY_PORT,
 
@@ -207,6 +233,10 @@ FRR_DAEMON_INFO(ldpd, LDP,
 	.yang_modules = ldpd_yang_modules,
 	.n_yang_modules = array_size(ldpd_yang_modules),
 );
+<<<<<<< HEAD
+=======
+/* clang-format on */
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 static void ldp_config_fork_apply(struct event *t)
 {
@@ -227,6 +257,7 @@ main(int argc, char *argv[])
 {
 	char			*saved_argv0;
 	int			 lflag = 0, eflag = 0;
+<<<<<<< HEAD
 	int			 pipe_parent2ldpe[2], pipe_parent2ldpe_sync[2];
 	int			 pipe_parent2lde[2], pipe_parent2lde_sync[2];
 	char			*ctl_sock_name;
@@ -235,6 +266,16 @@ main(int argc, char *argv[])
 	snprintf(ctl_sock_path, sizeof(ctl_sock_path), LDPD_SOCKET,
 		 "", "");
 
+=======
+	int			 pipe_parent2ldpe[2];
+	int			 pipe_parent2ldpe_sync[2];
+	int			 pipe_ldpe_log[2];
+	int			 pipe_parent2lde[2];
+	int			 pipe_parent2lde_sync[2];
+	int			 pipe_lde_log[2];
+	bool                    ctl_sock_used = false;
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	ldpd_process = PROC_MAIN;
 	log_procname = log_procnames[ldpd_process];
 
@@ -260,6 +301,7 @@ main(int argc, char *argv[])
 			break;
 		case OPTION_CTLSOCK:
 			ctl_sock_used = true;
+<<<<<<< HEAD
 			ctl_sock_name = strrchr(LDPD_SOCKET, '/');
 			if (ctl_sock_name)
 				/* skip '/' */
@@ -275,6 +317,10 @@ main(int argc, char *argv[])
 			strlcat(ctl_sock_path, "/", sizeof(ctl_sock_path));
 			strlcat(ctl_sock_path, ctl_sock_name,
 			    sizeof(ctl_sock_path));
+=======
+			snprintf(ctl_sock_path, sizeof(ctl_sock_path),
+				 "%s/" LDPD_SOCK_NAME, optarg);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			break;
 		case 'n':
 			init.instance = atoi(optarg);
@@ -292,9 +338,15 @@ main(int argc, char *argv[])
 		}
 	}
 
+<<<<<<< HEAD
 	if (ldpd_di.pathspace && !ctl_sock_used)
 		snprintf(ctl_sock_path, sizeof(ctl_sock_path), LDPD_SOCKET,
 			 "/", ldpd_di.pathspace);
+=======
+	if (!ctl_sock_used)
+		snprintf(ctl_sock_path, sizeof(ctl_sock_path),
+			 "%s/" LDPD_SOCK_NAME, frr_runstatedir);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	strlcpy(init.user, ldpd_privs.user, sizeof(init.user));
 	strlcpy(init.group, ldpd_privs.group, sizeof(init.group));
@@ -313,6 +365,7 @@ main(int argc, char *argv[])
 		exit(1);
 	}
 
+<<<<<<< HEAD
 	if (lflag || eflag) {
 		struct zprivs_ids_t ids;
 
@@ -322,6 +375,8 @@ main(int argc, char *argv[])
 		zlog_init(ldpd_di.progname, "LDP", 0,
 			  ids.uid_normal, ids.gid_normal);
 	}
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	if (lflag)
 		lde();
 	else if (eflag)
@@ -334,6 +389,12 @@ main(int argc, char *argv[])
 	    pipe_parent2ldpe_sync) == -1)
 		fatal("socketpair");
 
+<<<<<<< HEAD
+=======
+	if (socketpair(AF_UNIX, SOCK_DGRAM, PF_UNSPEC, pipe_ldpe_log) == -1)
+		fatal("socketpair");
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	if (socketpair(AF_UNIX, SOCK_STREAM, PF_UNSPEC, pipe_parent2lde) == -1)
 		fatal("socketpair");
 
@@ -341,6 +402,12 @@ main(int argc, char *argv[])
 	    pipe_parent2lde_sync) == -1)
 		fatal("socketpair");
 
+<<<<<<< HEAD
+=======
+	if (socketpair(AF_UNIX, SOCK_DGRAM, PF_UNSPEC, pipe_lde_log) == -1)
+		fatal("socketpair");
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	sock_set_nonblock(pipe_parent2ldpe[0]);
 	sock_set_cloexec(pipe_parent2ldpe[0]);
 	sock_set_nonblock(pipe_parent2ldpe[1]);
@@ -348,6 +415,14 @@ main(int argc, char *argv[])
 	sock_set_nonblock(pipe_parent2ldpe_sync[0]);
 	sock_set_cloexec(pipe_parent2ldpe_sync[0]);
 	sock_set_cloexec(pipe_parent2ldpe_sync[1]);
+<<<<<<< HEAD
+=======
+	sock_set_nonblock(pipe_ldpe_log[0]);
+	sock_set_cloexec(pipe_ldpe_log[0]);
+	sock_set_nonblock(pipe_ldpe_log[1]);
+	sock_set_cloexec(pipe_ldpe_log[1]);
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	sock_set_nonblock(pipe_parent2lde[0]);
 	sock_set_cloexec(pipe_parent2lde[0]);
 	sock_set_nonblock(pipe_parent2lde[1]);
@@ -355,6 +430,7 @@ main(int argc, char *argv[])
 	sock_set_nonblock(pipe_parent2lde_sync[0]);
 	sock_set_cloexec(pipe_parent2lde_sync[0]);
 	sock_set_cloexec(pipe_parent2lde_sync[1]);
+<<<<<<< HEAD
 
 	/* start children */
 	lde_pid = start_child(PROC_LDE_ENGINE, saved_argv0,
@@ -364,6 +440,28 @@ main(int argc, char *argv[])
 
 	master = frr_init();
 
+=======
+	sock_set_nonblock(pipe_lde_log[0]);
+	sock_set_cloexec(pipe_lde_log[0]);
+	sock_set_nonblock(pipe_lde_log[1]);
+	sock_set_cloexec(pipe_lde_log[1]);
+
+	/* start children */
+	lde_pid = start_child(PROC_LDE_ENGINE, saved_argv0,
+	    pipe_parent2lde[1], pipe_parent2lde_sync[1], pipe_lde_log[1]);
+	ldpe_pid = start_child(PROC_LDP_ENGINE, saved_argv0,
+	    pipe_parent2ldpe[1], pipe_parent2ldpe_sync[1], pipe_ldpe_log[1]);
+
+	master = frr_init();
+	/* The two child processes use the zlog_live backend to send their
+	 * messages here, where the actual logging config is then applied.
+	 * Look for zlog_live_open_fd() to find the other end of this.
+	 */
+	zlog_recirculate_subscribe(master, pipe_lde_log[0]);
+	zlog_recirculate_subscribe(master, pipe_ldpe_log[0]);
+
+	libagentx_init();
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	vrf_init(NULL, NULL, NULL, NULL);
 	access_list_init();
 	ldp_vty_init();
@@ -497,7 +595,12 @@ ldpd_shutdown(void)
 }
 
 static pid_t
+<<<<<<< HEAD
 start_child(enum ldpd_process p, char *argv0, int fd_async, int fd_sync)
+=======
+start_child(enum ldpd_process p, char *argv0, int fd_async, int fd_sync,
+	    int fd_log)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 {
 	char	*argv[7];
 	int	 argc = 0, nullfd;
@@ -512,6 +615,10 @@ start_child(enum ldpd_process p, char *argv0, int fd_async, int fd_sync)
 	default:
 		close(fd_async);
 		close(fd_sync);
+<<<<<<< HEAD
+=======
+		close(fd_log);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		return (pid);
 	}
 
@@ -533,6 +640,12 @@ start_child(enum ldpd_process p, char *argv0, int fd_async, int fd_sync)
 	if (dup2(fd_sync, LDPD_FD_SYNC) == -1)
 		fatal("cannot setup imsg sync fd");
 
+<<<<<<< HEAD
+=======
+	if (dup2(fd_log, LDPD_FD_LOG) == -1)
+		fatal("cannot setup zlog fd");
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	argv[argc++] = argv0;
 	switch (p) {
 	case PROC_MAIN:
@@ -582,9 +695,12 @@ static void main_dispatch_ldpe(struct event *thread)
 			break;
 
 		switch (imsg.hdr.type) {
+<<<<<<< HEAD
 		case IMSG_LOG:
 			logit(imsg.hdr.pid, "%s", (const char *)imsg.data);
 			break;
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		case IMSG_REQUEST_SOCKETS:
 			af = imsg.hdr.pid;
 			main_imsg_send_net_sockets(af);
@@ -650,9 +766,12 @@ static void main_dispatch_lde(struct event *thread)
 			break;
 
 		switch (imsg.hdr.type) {
+<<<<<<< HEAD
 		case IMSG_LOG:
 			logit(imsg.hdr.pid, "%s", (const char *)imsg.data);
 			break;
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		case IMSG_KLABEL_CHANGE:
 			if (imsg.hdr.len - IMSG_HEADER_SIZE !=
 			    sizeof(struct kroute))

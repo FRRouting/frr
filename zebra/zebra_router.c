@@ -70,6 +70,29 @@ struct zebra_router_table *zebra_router_find_zrt(struct zebra_vrf *zvrf,
 	return zrt;
 }
 
+<<<<<<< HEAD
+=======
+struct zebra_router_table *zebra_router_find_next_zrt(struct zebra_vrf *zvrf,
+						      uint32_t tableid,
+						      afi_t afi, safi_t safi)
+{
+	struct zebra_router_table finder;
+	struct zebra_router_table *zrt;
+
+	memset(&finder, 0, sizeof(finder));
+	finder.afi = afi;
+	finder.safi = safi;
+	finder.tableid = tableid;
+	finder.ns_id = zvrf->zns->ns_id;
+	zrt = RB_NFIND(zebra_router_table_head, &zrouter.tables, &finder);
+	if (zrt->afi == afi && zrt->safi == safi && zrt->tableid == tableid &&
+	    zrt->ns_id == finder.ns_id)
+		zrt = RB_NEXT(zebra_router_table_head, zrt);
+
+	return zrt;
+}
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 struct route_table *zebra_router_find_table(struct zebra_vrf *zvrf,
 					    uint32_t tableid, afi_t afi,
 					    safi_t safi)
@@ -218,7 +241,11 @@ void zebra_router_terminate(void)
 {
 	struct zebra_router_table *zrt, *tmp;
 
+<<<<<<< HEAD
 	EVENT_OFF(zrouter.sweeper);
+=======
+	EVENT_OFF(zrouter.t_rib_sweep);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	RB_FOREACH_SAFE (zrt, zebra_router_table_head, &zrouter.tables, tmp)
 		zebra_router_free_table(zrt);
@@ -241,11 +268,21 @@ void zebra_router_terminate(void)
 			    zebra_pbr_ipset_entry_free);
 	hash_clean_and_free(&zrouter.ipset_hash, zebra_pbr_ipset_free);
 	hash_clean_and_free(&zrouter.iptable_hash, zebra_pbr_iptable_free);
+<<<<<<< HEAD
+=======
+	hash_clean_and_free(&zrouter.filter_hash, (void (*)(void *)) zebra_tc_filter_free);
+	hash_clean_and_free(&zrouter.qdisc_hash, (void (*)(void *)) zebra_tc_qdisc_free);
+	hash_clean_and_free(&zrouter.class_hash, (void (*)(void *)) zebra_tc_class_free);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 #ifdef HAVE_SCRIPTING
 	zebra_script_destroy();
 #endif
 
+<<<<<<< HEAD
+=======
+	zebra_vxlan_terminate();
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	/* OS-specific deinit */
 	kernel_router_terminate();
 }
@@ -295,10 +332,13 @@ void zebra_router_init(bool asic_offload, bool notify_on_ack,
 		hash_create_size(8, zebra_nhg_id_key, zebra_nhg_hash_id_equal,
 				 "Zebra Router Nexthop Groups ID index");
 
+<<<<<<< HEAD
 	zrouter.rules_hash =
 		hash_create_size(8, zebra_pbr_rules_hash_key,
 				 zebra_pbr_rules_hash_equal, "Rules Hash");
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	zrouter.qdisc_hash =
 		hash_create_size(8, zebra_tc_qdisc_hash_key,
 				 zebra_tc_qdisc_hash_equal, "TC (qdisc) Hash");
@@ -323,6 +363,11 @@ void zebra_router_init(bool asic_offload, bool notify_on_ack,
 #endif
 	zrouter.asic_notification_nexthop_control = false;
 
+<<<<<<< HEAD
+=======
+	zrouter.nexthop_weight_scale_value = 254;
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 #ifdef HAVE_SCRIPTING
 	zebra_script_init();
 #endif

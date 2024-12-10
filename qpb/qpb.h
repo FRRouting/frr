@@ -14,6 +14,10 @@
 #ifndef _QPB_H
 #define _QPB_H
 
+<<<<<<< HEAD
+=======
+#include "nexthop.h"
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 #include "prefix.h"
 
 #include "qpb/qpb.pb-c.h"

@@ -18,7 +18,10 @@
 #include "log.h"
 #include "zclient.h"
 #include "vrf.h"
+<<<<<<< HEAD
 #include "lib/northbound_cli.h"
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 #include "zebra/rtadv.h"
 #include "zebra_ns.h"
@@ -33,7 +36,10 @@
 #include "zebra/zebra_ptm.h"
 #include "zebra/rt_netlink.h"
 #include "zebra/if_netlink.h"
+<<<<<<< HEAD
 #include "zebra/interface.h"
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 #include "zebra/zebra_vxlan.h"
 #include "zebra/zebra_errors.h"
 #include "zebra/zebra_evpn_mh.h"
@@ -44,6 +50,7 @@ DEFINE_MTYPE_STATIC(ZEBRA, ZINFO, "Zebra Interface Information");
 
 DEFINE_HOOK(zebra_if_extra_info, (struct vty * vty, struct interface *ifp),
 	    (vty, ifp));
+<<<<<<< HEAD
 DEFINE_HOOK(zebra_if_config_wr, (struct vty * vty, struct interface *ifp),
 	    (vty, ifp));
 
@@ -51,6 +58,27 @@ DEFINE_MTYPE(ZEBRA, ZIF_DESC, "Intf desc");
 
 static void if_down_del_nbr_connected(struct interface *ifp);
 
+=======
+
+DEFINE_MTYPE_STATIC(ZEBRA, ZIF_DESC, "Intf desc");
+
+static void if_down_del_nbr_connected(struct interface *ifp);
+
+static const char *if_zebra_data_state(uint8_t state)
+{
+	switch (state) {
+	case IF_ZEBRA_DATA_UNSPEC:
+		return "Not specified by CLI";
+	case IF_ZEBRA_DATA_ON:
+		return "Enabled by CLI";
+	case IF_ZEBRA_DATA_OFF:
+		return "Disabled by CLI";
+	}
+
+	return "STATE IS WRONG DEV ESCAPE";
+}
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 static void if_zebra_speed_update(struct event *thread)
 {
 	struct interface *ifp = EVENT_ARG(thread);
@@ -65,7 +93,11 @@ static void if_zebra_speed_update(struct event *thread)
 	 * interfaces not available.
 	 * note that loopback & virtual interfaces can return 0 as speed
 	 */
+<<<<<<< HEAD
 	if (error < 0)
+=======
+	if (error == INTERFACE_SPEED_ERROR_READ)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		return;
 
 	if (new_speed != ifp->speed) {
@@ -76,7 +108,11 @@ static void if_zebra_speed_update(struct event *thread)
 		changed = true;
 	}
 
+<<<<<<< HEAD
 	if (changed || new_speed == UINT32_MAX) {
+=======
+	if (changed || error == INTERFACE_SPEED_ERROR_UNKNOWN) {
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 #define SPEED_UPDATE_SLEEP_TIME 5
 #define SPEED_UPDATE_COUNT_MAX (4 * 60 / SPEED_UPDATE_SLEEP_TIME)
 		/*
@@ -91,7 +127,11 @@ static void if_zebra_speed_update(struct event *thread)
 		 * to not update the system to keep track of that.  This
 		 * is far simpler to just stop trying after 4 minutes
 		 */
+<<<<<<< HEAD
 		if (new_speed == UINT32_MAX &&
+=======
+		if (error == INTERFACE_SPEED_ERROR_UNKNOWN &&
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		    zif->speed_update_count == SPEED_UPDATE_COUNT_MAX)
 			return;
 
@@ -111,6 +151,7 @@ static void zebra_if_node_destroy(route_table_delegate_t *delegate,
 	route_node_destroy(delegate, table, node);
 }
 
+<<<<<<< HEAD
 static void zebra_if_nhg_dependents_free(struct zebra_if *zebra_if)
 {
 	nhg_connected_tree_free(&zebra_if->nhg_dependents);
@@ -122,6 +163,8 @@ static void zebra_if_nhg_dependents_init(struct zebra_if *zebra_if)
 }
 
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 route_table_delegate_t zebra_if_table_delegate = {
 	.create_node = route_node_create,
 	.destroy_node = zebra_if_node_destroy};
@@ -136,11 +179,19 @@ static int if_zebra_new_hook(struct interface *ifp)
 
 	zebra_if->multicast = IF_ZEBRA_DATA_UNSPEC;
 	zebra_if->mpls_config = IF_ZEBRA_DATA_UNSPEC;
+<<<<<<< HEAD
 	zebra_if->shutdown = IF_ZEBRA_DATA_OFF;
 
 	zebra_if->link_nsid = NS_UNKNOWN;
 
 	zebra_if_nhg_dependents_init(zebra_if);
+=======
+	zebra_if->shutdown = IF_ZEBRA_DATA_UNSPEC;
+
+	zebra_if->link_nsid = NS_UNKNOWN;
+
+	nhg_connected_tree_init(&zebra_if->nhg_dependents);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	zebra_ptm_if_init(zebra_if);
 
@@ -148,6 +199,11 @@ static int if_zebra_new_hook(struct interface *ifp)
 
 	rtadv_if_init(zebra_if);
 
+<<<<<<< HEAD
+=======
+	zebra_evpn_mh_if_init(zebra_if);
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	memset(&zebra_if->neigh_mac[0], 0, 6);
 
 	/* Initialize installed address chains tree. */
@@ -171,18 +227,25 @@ static int if_zebra_new_hook(struct interface *ifp)
 	return 0;
 }
 
+<<<<<<< HEAD
 static void if_nhg_dependents_check_valid(struct nhg_hash_entry *nhe)
 {
 	zebra_nhg_check_valid(nhe);
 }
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 static void if_down_nhg_dependents(const struct interface *ifp)
 {
 	struct nhg_connected *rb_node_dep = NULL;
 	struct zebra_if *zif = (struct zebra_if *)ifp->info;
 
 	frr_each(nhg_connected_tree, &zif->nhg_dependents, rb_node_dep)
+<<<<<<< HEAD
 		if_nhg_dependents_check_valid(rb_node_dep->nhe);
+=======
+		zebra_nhg_check_valid(rb_node_dep->nhe);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 }
 
 static void if_nhg_dependents_release(const struct interface *ifp)
@@ -192,7 +255,15 @@ static void if_nhg_dependents_release(const struct interface *ifp)
 
 	frr_each(nhg_connected_tree, &zif->nhg_dependents, rb_node_dep) {
 		rb_node_dep->nhe->ifp = NULL; /* Null it out */
+<<<<<<< HEAD
 		if_nhg_dependents_check_valid(rb_node_dep->nhe);
+=======
+		zebra_nhg_check_valid(rb_node_dep->nhe);
+		if (CHECK_FLAG(rb_node_dep->nhe->flags,
+			       NEXTHOP_GROUP_KEEP_AROUND) &&
+		    rb_node_dep->nhe->refcnt == 1)
+			zebra_nhg_decrement_ref(rb_node_dep->nhe);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	}
 }
 
@@ -227,7 +298,13 @@ static int if_zebra_delete_hook(struct interface *ifp)
 		zebra_evpn_mac_ifp_del(ifp);
 
 		if_nhg_dependents_release(ifp);
+<<<<<<< HEAD
 		zebra_if_nhg_dependents_free(zebra_if);
+=======
+		nhg_connected_tree_free(&zebra_if->nhg_dependents);
+
+		zebra_ns_unlink_ifp(ifp);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 		XFREE(MTYPE_ZIF_DESC, zebra_if->desc);
 
@@ -239,6 +316,7 @@ static int if_zebra_delete_hook(struct interface *ifp)
 	return 0;
 }
 
+<<<<<<< HEAD
 /* Build the table key */
 static void if_build_key(uint32_t ifindex, struct prefix *p)
 {
@@ -281,10 +359,13 @@ void if_unlink_per_ns(struct interface *ifp)
 	ifp->node = NULL;
 }
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 /* Look up an interface by identifier within a NS */
 struct interface *if_lookup_by_index_per_ns(struct zebra_ns *ns,
 					    uint32_t ifindex)
 {
+<<<<<<< HEAD
 	struct prefix p;
 	struct route_node *rn;
 	struct interface *ifp = NULL;
@@ -295,6 +376,12 @@ struct interface *if_lookup_by_index_per_ns(struct zebra_ns *ns,
 		ifp = (struct interface *)rn->info;
 		route_unlock_node(rn); /* lookup */
 	}
+=======
+	struct interface *ifp = NULL;
+
+	ifp = zebra_ns_lookup_ifp(ns, ifindex);
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	return ifp;
 }
 
@@ -302,6 +389,7 @@ struct interface *if_lookup_by_index_per_ns(struct zebra_ns *ns,
 struct interface *if_lookup_by_name_per_ns(struct zebra_ns *ns,
 					   const char *ifname)
 {
+<<<<<<< HEAD
 	struct route_node *rn;
 	struct interface *ifp;
 
@@ -314,6 +402,13 @@ struct interface *if_lookup_by_name_per_ns(struct zebra_ns *ns,
 	}
 
 	return NULL;
+=======
+	struct interface *ifp;
+
+	ifp = zebra_ns_lookup_ifp_name(ns, ifname);
+
+	return ifp;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 }
 
 struct interface *if_lookup_by_index_per_nsid(ns_id_t ns_id, uint32_t ifindex)
@@ -433,6 +528,10 @@ int if_subnet_delete(struct interface *ifp, struct connected *ifc)
 	return 0;
 }
 
+<<<<<<< HEAD
+=======
+#ifndef HAVE_NETLINK
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 /* if_flags_mangle: A place for hacks that require mangling
  * or tweaking the interface flags.
  *
@@ -484,17 +583,28 @@ void if_flags_update(struct interface *ifp, uint64_t newflags)
 			if_up(ifp, true);
 	}
 }
+<<<<<<< HEAD
+=======
+#endif
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 /* Wake up configured address if it is not in current kernel
    address. */
 void if_addr_wakeup(struct interface *ifp)
 {
+<<<<<<< HEAD
 	struct listnode *node, *nnode;
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	struct connected *ifc;
 	struct prefix *p;
 	enum zebra_dplane_result dplane_res;
 
+<<<<<<< HEAD
 	for (ALL_LIST_ELEMENTS(ifp->connected, node, nnode, ifc)) {
+=======
+	frr_each_safe (if_connected, ifp->connected, ifc) {
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		p = ifc->address;
 
 		if (CHECK_FLAG(ifc->conf, ZEBRA_IFC_CONFIGURED)
@@ -586,7 +696,12 @@ void if_add_update(struct interface *ifp)
 		zns = zvrf->zns;
 	else
 		zns = zebra_ns_lookup(NS_DEFAULT);
+<<<<<<< HEAD
 	if_link_per_ns(zns, ifp);
+=======
+
+	zebra_ns_link_ifp(zns, ifp);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	if_data = ifp->info;
 	assert(if_data);
 
@@ -637,6 +752,7 @@ void if_add_update(struct interface *ifp)
 /* Install connected routes corresponding to an interface. */
 static void if_install_connected(struct interface *ifp)
 {
+<<<<<<< HEAD
 	struct listnode *node;
 	struct listnode *next;
 	struct connected *ifc;
@@ -648,12 +764,22 @@ static void if_install_connected(struct interface *ifp)
 
 			connected_up(ifp, ifc);
 		}
+=======
+	struct connected *ifc;
+
+	frr_each (if_connected, ifp->connected, ifc) {
+		if (CHECK_FLAG(ifc->conf, ZEBRA_IFC_REAL))
+			zebra_interface_address_add_update(ifp, ifc);
+
+		connected_up(ifp, ifc);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	}
 }
 
 /* Uninstall connected routes corresponding to an interface. */
 static void if_uninstall_connected(struct interface *ifp)
 {
+<<<<<<< HEAD
 	struct listnode *node;
 	struct listnode *next;
 	struct connected *ifc;
@@ -663,6 +789,13 @@ static void if_uninstall_connected(struct interface *ifp)
 			zebra_interface_address_delete_update(ifp, ifc);
 			connected_down(ifp, ifc);
 		}
+=======
+	struct connected *ifc;
+
+	frr_each_safe (if_connected, ifp->connected, ifc) {
+		zebra_interface_address_delete_update(ifp, ifc);
+		connected_down(ifp, ifc);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	}
 }
 
@@ -670,6 +803,7 @@ static void if_uninstall_connected(struct interface *ifp)
 /* TODO - Check why IPv4 handling here is different from install or if_down */
 static void if_delete_connected(struct interface *ifp)
 {
+<<<<<<< HEAD
 	struct connected *ifc;
 	struct prefix cp;
 	struct route_node *rn;
@@ -684,6 +818,17 @@ static void if_delete_connected(struct interface *ifp)
 
 	while ((node = (last ? last->next : listhead(ifp->connected)))) {
 		ifc = listgetdata(node);
+=======
+	struct connected *ifc, *ifc_next;
+	struct prefix cp;
+	struct route_node *rn;
+	struct zebra_if *zebra_if;
+
+	zebra_if = ifp->info;
+
+	for (ifc = if_connected_first(ifp->connected); ifc; ifc = ifc_next) {
+		ifc_next = if_connected_next(ifp->connected, ifc);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 		cp = *CONNECTED_PREFIX(ifc);
 		apply_mask(&cp);
@@ -732,11 +877,23 @@ static void if_delete_connected(struct interface *ifp)
 					 * (unconditionally). */
 					if (!CHECK_FLAG(ifc->conf,
 							ZEBRA_IFC_CONFIGURED)) {
+<<<<<<< HEAD
 						listnode_delete(ifp->connected,
 								ifc);
 						connected_free(&ifc);
 					} else
 						last = node;
+=======
+						if (ifc == ifc_next)
+							ifc_next = if_connected_next(
+								ifp->connected,
+								ifc);
+
+						if_connected_del(ifp->connected,
+								 ifc);
+						connected_free(&ifc);
+					}
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 				}
 
 			/* Free chain list and respective route node. */
@@ -751,6 +908,7 @@ static void if_delete_connected(struct interface *ifp)
 			UNSET_FLAG(ifc->conf, ZEBRA_IFC_REAL);
 			UNSET_FLAG(ifc->conf, ZEBRA_IFC_QUEUED);
 
+<<<<<<< HEAD
 			if (CHECK_FLAG(ifc->conf, ZEBRA_IFC_CONFIGURED))
 				last = node;
 			else {
@@ -759,6 +917,12 @@ static void if_delete_connected(struct interface *ifp)
 			}
 		} else {
 			last = node;
+=======
+			if (!CHECK_FLAG(ifc->conf, ZEBRA_IFC_CONFIGURED)) {
+				if_connected_del(ifp->connected, ifc);
+				connected_free(&ifc);
+			}
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		}
 	}
 }
@@ -804,7 +968,11 @@ void if_delete_update(struct interface **pifp)
 	/* Send out notification on interface delete. */
 	zebra_interface_delete_update(ifp);
 
+<<<<<<< HEAD
 	if_unlink_per_ns(ifp);
+=======
+	zebra_ns_unlink_ifp(ifp);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	/* Update ifindex after distributing the delete message.  This is in
 	   case any client needs to have the old value of ifindex available
@@ -812,7 +980,10 @@ void if_delete_update(struct interface **pifp)
 	   for setting ifindex to IFINDEX_INTERNAL after processing the
 	   interface deletion message. */
 	if_set_index(ifp, IFINDEX_INTERNAL);
+<<<<<<< HEAD
 	ifp->node = NULL;
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	UNSET_FLAG(ifp->status, ZEBRA_INTERFACE_VRF_LOOPBACK);
 
@@ -974,6 +1145,7 @@ static void if_down_del_nbr_connected(struct interface *ifp)
 	}
 }
 
+<<<<<<< HEAD
 void if_nhg_dependents_add(struct interface *ifp, struct nhg_hash_entry *nhe)
 {
 	if (ifp->info) {
@@ -1015,6 +1187,8 @@ bool if_nhg_dependents_is_empty(const struct interface *ifp)
 	return false;
 }
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 /* Interface is up. */
 void if_up(struct interface *ifp, bool install_connected)
 {
@@ -1042,6 +1216,17 @@ void if_up(struct interface *ifp, bool install_connected)
 	if (install_connected)
 		if_install_connected(ifp);
 
+<<<<<<< HEAD
+=======
+	/*
+	 * Interface associated NHG's have been deleted on
+	 * interface down events, now that this interface
+	 * is coming back up, let's resync the zebra -> dplane
+	 * nhg's so that they can be continued to be used.
+	 */
+	zebra_interface_nhg_reinstall(ifp);
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	/* Handle interface up for specific types for EVPN. Non-VxLAN interfaces
 	 * are checked to see if (remote) neighbor entries need to be installed
 	 * on them for ARP suppression.
@@ -1068,6 +1253,11 @@ void if_up(struct interface *ifp, bool install_connected)
 	event_add_timer(zrouter.master, if_zebra_speed_update, ifp, 0,
 			&zif->speed_update);
 	event_ignore_late_timer(zif->speed_update);
+<<<<<<< HEAD
+=======
+
+	if_addr_wakeup(ifp);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 }
 
 /* Interface goes down.  We have to manage different behavior of based
@@ -1117,6 +1307,11 @@ void if_down(struct interface *ifp)
 
 	/* Delete all neighbor addresses learnt through IPv6 RA */
 	if_down_del_nbr_connected(ifp);
+<<<<<<< HEAD
+=======
+
+	rib_update_handle_vrf_all(RIB_UPDATE_INTERFACE_DOWN, ZEBRA_ROUTE_KERNEL);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 }
 
 void if_refresh(struct interface *ifp)
@@ -1139,11 +1334,52 @@ void zebra_if_update_link(struct interface *ifp, ifindex_t link_ifindex,
 }
 
 /*
+<<<<<<< HEAD
+=======
+ * Callback for per-ns link fixup iteration
+ */
+static int zif_link_fixup_cb(struct interface *ifp, void *arg)
+{
+	struct zebra_if *zif;
+
+	zif = ifp->info;
+	/* update bond-member to bond linkages */
+	if ((IS_ZEBRA_IF_BOND_SLAVE(ifp)) &&
+	    (zif->bondslave_info.bond_ifindex != IFINDEX_INTERNAL) &&
+	    !zif->bondslave_info.bond_if) {
+		if (IS_ZEBRA_DEBUG_EVPN_MH_ES || IS_ZEBRA_DEBUG_KERNEL)
+			zlog_debug("bond mbr %s map to bond %d", zif->ifp->name,
+				   zif->bondslave_info.bond_ifindex);
+		zebra_l2_map_slave_to_bond(zif, ifp->vrf->vrf_id);
+	}
+
+	/* update SVI linkages */
+	if ((zif->link_ifindex != IFINDEX_INTERNAL) && !zif->link) {
+		zif->link = if_lookup_by_index_per_nsid(zif->link_nsid,
+							zif->link_ifindex);
+		if (IS_ZEBRA_DEBUG_KERNEL)
+			zlog_debug("interface %s/%d's lower fixup to %s/%d",
+				   ifp->name, ifp->ifindex,
+				   zif->link ? zif->link->name : "unk",
+				   zif->link_ifindex);
+	}
+
+	/* Update VLAN<=>SVI map */
+	if (IS_ZEBRA_IF_VLAN(ifp))
+		zebra_evpn_acc_bd_svi_set(zif, NULL,
+					  !!if_is_operative(ifp));
+
+	return NS_WALK_CONTINUE;
+}
+
+/*
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
  * during initial link dump kernel does not order lower devices before
  * upper devices so we need to fixup link dependencies at the end of dump
  */
 void zebra_if_update_all_links(struct zebra_ns *zns)
 {
+<<<<<<< HEAD
 	struct route_node *rn;
 	struct interface *ifp;
 	struct zebra_if *zif;
@@ -1183,6 +1419,12 @@ void zebra_if_update_all_links(struct zebra_ns *zns)
 			zebra_evpn_acc_bd_svi_set(zif, NULL,
 						  !!if_is_operative(ifp));
 	}
+=======
+	if (IS_ZEBRA_DEBUG_KERNEL)
+		zlog_debug("fixup link dependencies");
+
+	zebra_ns_ifp_walk(zns, zif_link_fixup_cb, NULL);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 }
 
 static bool if_ignore_set_protodown(const struct interface *ifp, bool new_down,
@@ -1331,6 +1573,12 @@ static void zebra_if_addr_update_ctx(struct zebra_dplane_ctx *ctx,
 	if (dplane_ctx_intf_is_secondary(ctx))
 		SET_FLAG(flags, ZEBRA_IFA_SECONDARY);
 
+<<<<<<< HEAD
+=======
+	if (dplane_ctx_intf_is_noprefixroute(ctx))
+		SET_FLAG(flags, ZEBRA_IFA_NOPREFIXROUTE);
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	/* Label? */
 	if (dplane_ctx_intf_has_label(ctx))
 		label = dplane_ctx_get_intf_label(ctx);
@@ -2053,10 +2301,16 @@ static void zebra_if_dplane_ifp_handling(struct zebra_dplane_ctx *ctx)
 		    !CHECK_FLAG(ifp->status, ZEBRA_INTERFACE_ACTIVE)) {
 			/* Add interface notification from kernel */
 			if (IS_ZEBRA_DEBUG_KERNEL)
+<<<<<<< HEAD
 				zlog_debug(
 					"RTM_NEWLINK ADD for %s(%u) vrf_id %u type %d sl_type %d master %u",
 					name, ifindex, vrf_id, zif_type,
 					zif_slave_type, master_ifindex);
+=======
+				zlog_debug("RTM_NEWLINK ADD for %s(%u) vrf_id %u type %d sl_type %d master %u flags 0x%llx",
+					   name, ifindex, vrf_id, zif_type, zif_slave_type,
+					   master_ifindex, (unsigned long long)flags);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 			if (ifp == NULL) {
 				/* unknown interface */
@@ -2141,10 +2395,16 @@ static void zebra_if_dplane_ifp_handling(struct zebra_dplane_ctx *ctx)
 
 			/* Interface update. */
 			if (IS_ZEBRA_DEBUG_KERNEL)
+<<<<<<< HEAD
 				zlog_debug(
 					"RTM_NEWLINK update for %s(%u) sl_type %d master %u",
 					name, ifp->ifindex, zif_slave_type,
 					master_ifindex);
+=======
+				zlog_debug("RTM_NEWLINK update for %s(%u) sl_type %d master %u flags 0x%llx",
+					   name, ifp->ifindex, zif_slave_type, master_ifindex,
+					   (unsigned long long)flags);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 			set_ifindex(ifp, ifindex, zns);
 			ifp->mtu6 = ifp->mtu = mtu;
@@ -2311,6 +2571,7 @@ void zebra_if_dplane_result(struct zebra_dplane_ctx *ctx)
 
 	ifp = if_lookup_by_index_per_ns(zns, ifindex);
 
+<<<<<<< HEAD
 	switch (op) {
 	case DPLANE_OP_INTF_ADDR_ADD:
 	case DPLANE_OP_INTF_ADDR_DEL:
@@ -2320,6 +2581,12 @@ void zebra_if_dplane_result(struct zebra_dplane_ctx *ctx)
 	case DPLANE_OP_INTF_INSTALL:
 	case DPLANE_OP_INTF_UPDATE:
 	case DPLANE_OP_INTF_DELETE:
+=======
+	if (op == DPLANE_OP_INTF_ADDR_ADD || op == DPLANE_OP_INTF_ADDR_DEL) {
+		zebra_if_addr_update_ctx(ctx, ifp);
+	} else if (op == DPLANE_OP_INTF_INSTALL ||
+		   op == DPLANE_OP_INTF_UPDATE || op == DPLANE_OP_INTF_DELETE) {
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		/*
 		 * Queued from the dplane means it is something
 		 * that we need to handle( create/delete the
@@ -2329,6 +2596,7 @@ void zebra_if_dplane_result(struct zebra_dplane_ctx *ctx)
 			zebra_if_dplane_ifp_handling(ctx);
 		else
 			zebra_if_update_ctx(ctx, ifp);
+<<<<<<< HEAD
 		break;
 
 	case DPLANE_OP_INTF_NETCONFIG:
@@ -2385,6 +2653,10 @@ void zebra_if_dplane_result(struct zebra_dplane_ctx *ctx)
 	case DPLANE_OP_TC_FILTER_UPDATE:
 	case DPLANE_OP_STARTUP_STAGE:
 		break; /* should never hit here */
+=======
+	} else if (op == DPLANE_OP_INTF_NETCONFIG) {
+		zebra_if_netconf_update_ctx(ctx, ifp, ifindex);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	}
 }
 
@@ -2424,6 +2696,15 @@ static void connected_dump_vty(struct vty *vty, json_object *json,
 		vty_out(vty, " secondary");
 
 	if (json)
+<<<<<<< HEAD
+=======
+		json_object_boolean_add(json_addr, "noPrefixRoute",
+					CHECK_FLAG(connected->flags, ZEBRA_IFA_NOPREFIXROUTE));
+	else if (CHECK_FLAG(connected->flags, ZEBRA_IFA_NOPREFIXROUTE))
+		vty_out(vty, " noprefixroute");
+
+	if (json)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		json_object_boolean_add(
 			json_addr, "unnumbered",
 			CHECK_FLAG(connected->flags, ZEBRA_IFA_UNNUMBERED));
@@ -2572,11 +2853,16 @@ static void ifs_dump_brief_vty(struct vty *vty, struct vrf *vrf)
 		}
 
 		uint32_t v6_list_size = 0;
+<<<<<<< HEAD
 		for (ALL_LIST_ELEMENTS_RO(ifp->connected, node, connected)) {
+=======
+		frr_each (if_connected, ifp->connected, connected) {
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			if (CHECK_FLAG(connected->conf, ZEBRA_IFC_REAL)
 				&& (connected->address->family == AF_INET6))
 				v6_list_size++;
 		}
+<<<<<<< HEAD
 		for (ALL_LIST_ELEMENTS_RO(ifp->connected, node, connected)) {
 			if (CHECK_FLAG(connected->conf, ZEBRA_IFC_REAL)
 			    && !CHECK_FLAG(connected->flags,
@@ -2600,6 +2886,24 @@ static void ifs_dump_brief_vty(struct vty *vty, struct vrf *vrf)
 					first_pfx_printed = true;
 					break;
 				}
+=======
+		frr_each (if_connected, ifp->connected, connected) {
+			if (!CHECK_FLAG(connected->flags, ZEBRA_IFA_SECONDARY) &&
+			    (connected->address->family == AF_INET6)) {
+				p = connected->address;
+				if (first_pfx_printed) {
+					vty_out(vty, "%-40s", "");
+					if (v6_list_size > 1)
+						vty_out(vty, "+ ");
+					vty_out(vty, "%pFX\n", p);
+				} else {
+					if (v6_list_size > 1)
+						vty_out(vty, "+ ");
+					vty_out(vty, "%pFX\n", p);
+				}
+				first_pfx_printed = true;
+				break;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			}
 		}
 		if (!first_pfx_printed)
@@ -2611,7 +2915,10 @@ static void ifs_dump_brief_vty(struct vty *vty, struct vrf *vrf)
 static void ifs_dump_brief_vty_json(json_object *json, struct vrf *vrf)
 {
 	struct connected *connected;
+<<<<<<< HEAD
 	struct listnode *node;
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	struct interface *ifp;
 
 	FOR_ALL_INTERFACES (vrf, ifp) {
@@ -2627,6 +2934,7 @@ static void ifs_dump_brief_vty_json(json_object *json, struct vrf *vrf)
 
 		json_addrs = json_object_new_array();
 		json_object_object_add(json_if, "addresses", json_addrs);
+<<<<<<< HEAD
 		for (ALL_LIST_ELEMENTS_RO(ifp->connected, node, connected)) {
 			if (CHECK_FLAG(connected->conf, ZEBRA_IFC_REAL)
 			    && !CHECK_FLAG(connected->flags,
@@ -2634,6 +2942,10 @@ static void ifs_dump_brief_vty_json(json_object *json, struct vrf *vrf)
 			    && !(connected->address->family == AF_INET6
 				 && IN6_IS_ADDR_LINKLOCAL(
 					 &connected->address->u.prefix6))) {
+=======
+		frr_each (if_connected, ifp->connected, connected) {
+			if (!CHECK_FLAG(connected->flags, ZEBRA_IFA_SECONDARY)) {
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 				char buf[PREFIX2STR_BUFFER];
 
 				json_array_string_add(
@@ -2800,8 +3112,13 @@ static void if_dump_vty(struct vty *vty, struct interface *ifp)
 		vty_out(vty, "mtu6 %d ", ifp->mtu6);
 	vty_out(vty, "\n  flags: %s\n", if_flag_dump(ifp->flags));
 
+<<<<<<< HEAD
 	if (zebra_if->mpls)
 		vty_out(vty, "  MPLS enabled\n");
+=======
+	vty_out(vty, "  MPLS %s %s\n", zebra_if->mpls ? "enabled" : "",
+		if_zebra_data_state(zebra_if->multicast));
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	if (zebra_if->linkdown)
 		vty_out(vty, "  Ignore all v4 routes with linkdown\n");
@@ -2813,6 +3130,13 @@ static void if_dump_vty(struct vty *vty, struct interface *ifp)
 	if (zebra_if->v6mcast_on)
 		vty_out(vty, "  v6 Multicast forwarding is on\n");
 
+<<<<<<< HEAD
+=======
+	vty_out(vty, "  Multicast config is %s\n", if_zebra_data_state(zebra_if->multicast));
+
+	vty_out(vty, "  Shutdown config is %s\n", if_zebra_data_state(zebra_if->shutdown));
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	/* Hardware address. */
 	vty_out(vty, "  Type: %s\n", if_link_type_str(ifp->ll_type));
 	if (ifp->hw_addr_len != 0) {
@@ -2840,9 +3164,14 @@ static void if_dump_vty(struct vty *vty, struct interface *ifp)
 			connected_dump_vty(vty, NULL, connected);
 	}
 
+<<<<<<< HEAD
 	for (ALL_LIST_ELEMENTS_RO(ifp->connected, node, connected)) {
 		if (CHECK_FLAG(connected->conf, ZEBRA_IFC_REAL)
 		    && (connected->address->family == AF_INET6))
+=======
+	frr_each (if_connected, ifp->connected, connected) {
+		if (connected->address->family == AF_INET6)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			connected_dump_vty(vty, NULL, connected);
 	}
 
@@ -2974,8 +3303,13 @@ static void if_dump_vty(struct vty *vty, struct interface *ifp)
 				"    Link Delay Variation %u (micro-sec.)\n",
 				iflp->delay_var);
 		if (IS_PARAM_SET(iflp, LP_PKT_LOSS))
+<<<<<<< HEAD
 			vty_out(vty, "    Link Packet Loss %g (in %%)\n",
 				iflp->pkt_loss);
+=======
+			vty_out(vty, "    Link Packet Loss %f (in %%)\n",
+				(double)iflp->pkt_loss * LOSS_PRECISION);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		if (IS_PARAM_SET(iflp, LP_AVA_BW))
 			vty_out(vty, "    Available Bandwidth %g (Byte/s)\n",
 				iflp->ava_bw);
@@ -3162,10 +3496,21 @@ static void if_dump_vty_json(struct vty *vty, struct interface *ifp,
 	json_object_boolean_add(json_if, "mplsEnabled", zebra_if->mpls);
 	json_object_boolean_add(json_if, "linkDown", zebra_if->linkdown);
 	json_object_boolean_add(json_if, "linkDownV6", zebra_if->linkdownv6);
+<<<<<<< HEAD
 	json_object_boolean_add(json_if, "mcForwardingV4",
 				zebra_if->v4mcast_on);
 	json_object_boolean_add(json_if, "mcForwardingV6",
 				zebra_if->v6mcast_on);
+=======
+	json_object_boolean_add(json_if, "mcForwardingV4", zebra_if->v4mcast_on);
+	json_object_boolean_add(json_if, "mcForwardingV6", zebra_if->v6mcast_on);
+
+	json_object_string_add(json_if, "multicastConfig", if_zebra_data_state(zebra_if->multicast));
+
+	json_object_string_add(json_if, "shutdownConfig", if_zebra_data_state(zebra_if->shutdown));
+
+	json_object_string_add(json_if, "mplsConfig", if_zebra_data_state(zebra_if->mpls_config));
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	if (ifp->ifindex == IFINDEX_INTERNAL) {
 		json_object_boolean_add(json_if, "pseudoInterface", true);
@@ -3217,9 +3562,14 @@ static void if_dump_vty_json(struct vty *vty, struct interface *ifp,
 			connected_dump_vty(vty, json_addrs, connected);
 	}
 
+<<<<<<< HEAD
 	for (ALL_LIST_ELEMENTS_RO(ifp->connected, node, connected)) {
 		if (CHECK_FLAG(connected->conf, ZEBRA_IFC_REAL)
 		    && (connected->address->family == AF_INET6))
+=======
+	frr_each (if_connected, ifp->connected, connected) {
+		if (connected->address->family == AF_INET6)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			connected_dump_vty(vty, json_addrs, connected);
 	}
 
@@ -3376,7 +3726,12 @@ static void if_dump_vty_json(struct vty *vty, struct interface *ifp,
 					    iflp->delay_var);
 		if (IS_PARAM_SET(iflp, LP_PKT_LOSS))
 			json_object_double_add(json_te, "linkPacketLoss",
+<<<<<<< HEAD
 					       iflp->pkt_loss);
+=======
+					       (double)iflp->pkt_loss *
+						       LOSS_PRECISION);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		if (IS_PARAM_SET(iflp, LP_AVA_BW))
 			json_object_double_add(json_te, "availableBandwidth",
 					       iflp->ava_bw);
@@ -3760,6 +4115,30 @@ DEFUN (show_interface_desc_vrf_all,
 	return CMD_SUCCESS;
 }
 
+<<<<<<< HEAD
+=======
+void if_arp(struct interface *ifp, bool enable)
+{
+	int ret;
+
+	if (!CHECK_FLAG(ifp->status, ZEBRA_INTERFACE_ACTIVE))
+		return;
+
+	if (enable)
+		ret = if_unset_flags(ifp, IFF_NOARP);
+	else
+		ret = if_set_flags(ifp, IFF_NOARP);
+
+	if (ret < 0) {
+		zlog_debug("Can't %sset noarp flag on interface %s",
+			   enable ? "" : "un", ifp->name);
+		return;
+	}
+
+	if_refresh(ifp);
+}
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 int if_multicast_set(struct interface *ifp)
 {
 	struct zebra_if *if_data;
@@ -3778,6 +4157,7 @@ int if_multicast_set(struct interface *ifp)
 	return 0;
 }
 
+<<<<<<< HEAD
 DEFUN (multicast,
        multicast_cmd,
        "multicast",
@@ -3819,6 +4199,8 @@ DEFPY (mpls,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 int if_multicast_unset(struct interface *ifp)
 {
 	struct zebra_if *if_data;
@@ -3837,6 +4219,7 @@ int if_multicast_unset(struct interface *ifp)
 	return 0;
 }
 
+<<<<<<< HEAD
 DEFUN (no_multicast,
        no_multicast_cmd,
        "no multicast",
@@ -3861,6 +4244,8 @@ DEFUN (no_multicast,
 	return CMD_SUCCESS;
 }
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 int if_linkdetect(struct interface *ifp, bool detect)
 {
 	int if_was_operative;
@@ -3884,6 +4269,7 @@ int if_linkdetect(struct interface *ifp, bool detect)
 	return 0;
 }
 
+<<<<<<< HEAD
 DEFUN(linkdetect, linkdetect_cmd, "link-detect",
       "Enable link detection on interface\n")
 {
@@ -3908,6 +4294,8 @@ DEFUN (no_linkdetect,
 	return CMD_SUCCESS;
 }
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 int if_shutdown(struct interface *ifp)
 {
 	struct zebra_if *if_data;
@@ -3927,6 +4315,7 @@ int if_shutdown(struct interface *ifp)
 	return 0;
 }
 
+<<<<<<< HEAD
 DEFUN (shutdown_if,
        shutdown_if_cmd,
        "shutdown",
@@ -3952,6 +4341,8 @@ DEFUN (shutdown_if,
 	return CMD_SUCCESS;
 }
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 int if_no_shutdown(struct interface *ifp)
 {
 	struct zebra_if *if_data;
@@ -3976,6 +4367,7 @@ int if_no_shutdown(struct interface *ifp)
 	return 0;
 }
 
+<<<<<<< HEAD
 DEFUN (no_shutdown_if,
        no_shutdown_if_cmd,
        "no shutdown",
@@ -4063,11 +4455,16 @@ struct cmd_node link_params_node = {
 
 static void link_param_cmd_set_uint32(struct interface *ifp, uint32_t *field,
 				      uint32_t type, uint32_t value)
+=======
+void link_param_cmd_set_uint32(struct interface *ifp, uint32_t *field,
+			       uint32_t type, uint32_t value)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 {
 	/* Update field as needed */
 	if (IS_PARAM_UNSET(ifp->link_params, type) || *field != value) {
 		*field = value;
 		SET_PARAM(ifp->link_params, type);
+<<<<<<< HEAD
 
 		/* force protocols to update LINK STATE due to parameters change
 		 */
@@ -4079,10 +4476,19 @@ static void link_param_cmd_set_float(struct interface *ifp, float *field,
 				     uint32_t type, float value)
 {
 
+=======
+	}
+}
+
+void link_param_cmd_set_float(struct interface *ifp, float *field,
+			      uint32_t type, float value)
+{
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	/* Update field as needed */
 	if (IS_PARAM_UNSET(ifp->link_params, type) || *field != value) {
 		*field = value;
 		SET_PARAM(ifp->link_params, type);
+<<<<<<< HEAD
 
 		/* force protocols to update LINK STATE due to parameters change
 		 */
@@ -4092,12 +4498,19 @@ static void link_param_cmd_set_float(struct interface *ifp, float *field,
 }
 
 static void link_param_cmd_unset(struct interface *ifp, uint32_t type)
+=======
+	}
+}
+
+void link_param_cmd_unset(struct interface *ifp, uint32_t type)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 {
 	if (ifp->link_params == NULL)
 		return;
 
 	/* Unset field */
 	UNSET_PARAM(ifp->link_params, type);
+<<<<<<< HEAD
 
 	/* force protocols to update LINK STATE due to parameters change */
 	if (if_is_operative(ifp))
@@ -4940,11 +5353,25 @@ int if_ip_address_install(struct interface *ifp, struct prefix *prefix,
 	apply_mask_ipv4(&lp);
 
 	ifc = connected_check_ptp(ifp, &lp, pp ? pp : NULL);
+=======
+}
+
+void if_ip_address_install(struct interface *ifp, struct prefix *prefix,
+			   const char *label, struct prefix *pp)
+{
+	struct zebra_if *if_data;
+	struct connected *ifc;
+
+	if_data = ifp->info;
+
+	ifc = connected_check_ptp(ifp, prefix, pp);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	if (!ifc) {
 		ifc = connected_new();
 		ifc->ifp = ifp;
 
 		/* Address. */
+<<<<<<< HEAD
 		p = prefix_ipv4_new();
 		*p = lp;
 		ifc->address = (struct prefix *)p;
@@ -4954,6 +5381,15 @@ int if_ip_address_install(struct interface *ifp, struct prefix *prefix,
 			p = prefix_ipv4_new();
 			*p = *(struct prefix_ipv4 *)pp;
 			ifc->destination = (struct prefix *)p;
+=======
+		ifc->address = prefix_new();
+		prefix_copy(ifc->address, prefix);
+
+		if (pp) {
+			SET_FLAG(ifc->flags, ZEBRA_IFA_PEER);
+			ifc->destination = prefix_new();
+			prefix_copy(ifc->destination, pp);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		}
 
 		/* Label. */
@@ -4961,7 +5397,11 @@ int if_ip_address_install(struct interface *ifp, struct prefix *prefix,
 			ifc->label = XSTRDUP(MTYPE_CONNECTED_LABEL, label);
 
 		/* Add to linked list. */
+<<<<<<< HEAD
 		listnode_add(ifp->connected, ifc);
+=======
+		if_connected_add_tail(ifp->connected, ifc);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	}
 
 	/* This address is configured from zebra. */
@@ -4978,6 +5418,7 @@ int if_ip_address_install(struct interface *ifp, struct prefix *prefix,
 			if_refresh(ifp);
 		}
 
+<<<<<<< HEAD
 		dplane_res = dplane_intf_addr_set(ifp, ifc);
 		if (dplane_res == ZEBRA_DPLANE_REQUEST_FAILURE) {
 			zlog_debug(
@@ -4985,6 +5426,9 @@ int if_ip_address_install(struct interface *ifp, struct prefix *prefix,
 				dplane_res2str(dplane_res));
 			return NB_ERR;
 		}
+=======
+		dplane_intf_addr_set(ifp, ifc);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 		SET_FLAG(ifc->conf, ZEBRA_IFC_QUEUED);
 		/* The address will be advertised to zebra clients when the
@@ -4992,6 +5436,7 @@ int if_ip_address_install(struct interface *ifp, struct prefix *prefix,
 		 * from the kernel has been received.
 		 * It will also be added to the subnet chain list, then. */
 	}
+<<<<<<< HEAD
 
 	return 0;
 }
@@ -5035,11 +5480,48 @@ static int ip_address_install(struct vty *vty, struct interface *ifp,
 	}
 
 	ifc = connected_check_ptp(ifp, &lp, peer_str ? &pp : NULL);
+=======
+}
+
+void if_ip_address_uninstall(struct interface *ifp, struct prefix *prefix,
+			     struct prefix *pp)
+{
+	struct connected *ifc;
+
+	ifc = connected_check_ptp(ifp, prefix, pp);
+	assert(ifc);
+
+	UNSET_FLAG(ifc->conf, ZEBRA_IFC_CONFIGURED);
+
+	/* This is not real address or interface is not active. */
+	if (!CHECK_FLAG(ifc->conf, ZEBRA_IFC_QUEUED)
+	    || !CHECK_FLAG(ifp->status, ZEBRA_INTERFACE_ACTIVE)) {
+		if_connected_del(ifp->connected, ifc);
+		connected_free(&ifc);
+		return;
+	}
+
+	/* This is real route. */
+	dplane_intf_addr_unset(ifp, ifc);
+
+	UNSET_FLAG(ifc->conf, ZEBRA_IFC_QUEUED);
+}
+
+void if_ipv6_address_install(struct interface *ifp, struct prefix *prefix)
+{
+	struct zebra_if *if_data;
+	struct connected *ifc;
+
+	if_data = ifp->info;
+
+	ifc = connected_check(ifp, prefix);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	if (!ifc) {
 		ifc = connected_new();
 		ifc->ifp = ifp;
 
 		/* Address. */
+<<<<<<< HEAD
 		p = prefix_ipv4_new();
 		*p = lp;
 		ifc->address = (struct prefix *)p;
@@ -5057,6 +5539,13 @@ static int ip_address_install(struct vty *vty, struct interface *ifp,
 
 		/* Add to linked list. */
 		listnode_add(ifp->connected, ifc);
+=======
+		ifc->address = prefix_new();
+		prefix_copy(ifc->address, prefix);
+
+		/* Add to linked list. */
+		if_connected_add_tail(ifp->connected, ifc);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	}
 
 	/* This address is configured from zebra. */
@@ -5073,6 +5562,7 @@ static int ip_address_install(struct vty *vty, struct interface *ifp,
 			if_refresh(ifp);
 		}
 
+<<<<<<< HEAD
 		dplane_res = dplane_intf_addr_set(ifp, ifc);
 		if (dplane_res == ZEBRA_DPLANE_REQUEST_FAILURE) {
 			vty_out(vty, "%% Can't set interface IP address: %s.\n",
@@ -5343,12 +5833,16 @@ int if_ipv6_address_install(struct interface *ifp, struct prefix *prefix,
 				dplane_res2str(dplane_res));
 			return NB_ERR;
 		}
+=======
+		dplane_intf_addr_set(ifp, ifc);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 		SET_FLAG(ifc->conf, ZEBRA_IFC_QUEUED);
 		/* The address will be advertised to zebra clients when the
 		 * notification
 		 * from the kernel has been received. */
 	}
+<<<<<<< HEAD
 
 	return 0;
 }
@@ -5465,12 +5959,23 @@ static int ipv6_address_uninstall(struct vty *vty, struct interface *ifp,
 	/* This is not configured address. */
 	if (!CHECK_FLAG(ifc->conf, ZEBRA_IFC_CONFIGURED))
 		return CMD_WARNING_CONFIG_FAILED;
+=======
+}
+
+void if_ipv6_address_uninstall(struct interface *ifp, struct prefix *prefix)
+{
+	struct connected *ifc;
+
+	ifc = connected_check(ifp, prefix);
+	assert(ifc);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	UNSET_FLAG(ifc->conf, ZEBRA_IFC_CONFIGURED);
 
 	/* This is not real address or interface is not active. */
 	if (!CHECK_FLAG(ifc->conf, ZEBRA_IFC_QUEUED)
 	    || !CHECK_FLAG(ifp->status, ZEBRA_INTERFACE_ACTIVE)) {
+<<<<<<< HEAD
 		listnode_delete(ifp->connected, ifc);
 		connected_free(&ifc);
 		return CMD_WARNING_CONFIG_FAILED;
@@ -5668,6 +6173,17 @@ static int if_config_write(struct vty *vty)
 			if_vty_config_end(vty);
 		}
 	return 0;
+=======
+		if_connected_del(ifp->connected, ifc);
+		connected_free(&ifc);
+		return;
+	}
+
+	/* This is real route. */
+	dplane_intf_addr_unset(ifp, ifc);
+
+	UNSET_FLAG(ifc->conf, ZEBRA_IFC_QUEUED);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 }
 
 /* Allocate and initialize interface vector. */
@@ -5677,6 +6193,7 @@ void zebra_if_init(void)
 	hook_register_prio(if_add, 0, if_zebra_new_hook);
 	hook_register_prio(if_del, 0, if_zebra_delete_hook);
 
+<<<<<<< HEAD
 	/* Install configuration write function. */
 	if_cmd_init(if_config_write);
 	install_node(&link_params_node);
@@ -5686,6 +6203,8 @@ void zebra_if_init(void)
 	 */
 	if_zapi_callbacks(NULL, NULL, NULL, NULL);
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	install_element(VIEW_NODE, &show_interface_cmd);
 	install_element(VIEW_NODE, &show_interface_vrf_all_cmd);
 	install_element(VIEW_NODE, &show_interface_name_vrf_cmd);
@@ -5693,6 +6212,7 @@ void zebra_if_init(void)
 
 	install_element(ENABLE_NODE, &show_interface_desc_cmd);
 	install_element(ENABLE_NODE, &show_interface_desc_vrf_all_cmd);
+<<<<<<< HEAD
 	install_element(INTERFACE_NODE, &multicast_cmd);
 	install_element(INTERFACE_NODE, &no_multicast_cmd);
 	install_element(INTERFACE_NODE, &mpls_cmd);
@@ -5744,4 +6264,6 @@ void zebra_if_init(void)
 
 	/* setup EVPN MH elements */
 	zebra_evpn_interface_init();
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 }

@@ -1,7 +1,11 @@
 # Contributor: Sören Tempel <soeren+alpine@soeren-tempel.net>
 # Maintainer: Christian Franke <nobody@nowhere.ws>
 pkgname=libyang
+<<<<<<< HEAD
 pkgver=2.1.80
+=======
+pkgver=2.1.128
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 pkgrel=0
 pkgdesc="YANG data modelling language parser and toolkit"
 url="https://github.com/CESNET/libyang"
@@ -11,6 +15,10 @@ makedepends="bison cmake cmocka-dev flex pcre2-dev"
 checkdepends="expect grep shunit2"
 subpackages="$pkgname-dev $pkgname-doc"
 source="$pkgname-$pkgver.tar.gz::https://github.com/CESNET/libyang/archive/v$pkgver.tar.gz"
+<<<<<<< HEAD
+=======
+options="!check"
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 # secfixes:
 #   1.0.215-r1:

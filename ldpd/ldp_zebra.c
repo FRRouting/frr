@@ -330,7 +330,10 @@ void
 kif_redistribute(const char *ifname)
 {
 	struct vrf		*vrf = vrf_lookup_by_id(VRF_DEFAULT);
+<<<<<<< HEAD
 	struct listnode		*cnode;
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	struct interface	*ifp;
 	struct connected	*ifc;
 	struct kif		 kif;
@@ -343,7 +346,11 @@ kif_redistribute(const char *ifname)
 		ifp2kif(ifp, &kif);
 		main_imsg_compose_both(IMSG_IFSTATUS, &kif, sizeof(kif));
 
+<<<<<<< HEAD
 		for (ALL_LIST_ELEMENTS_RO(ifp->connected, cnode, ifc)) {
+=======
+		frr_each (if_connected, ifp->connected, ifc) {
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			ifc2kaddr(ifp, ifc, &ka);
 			main_imsg_compose_ldpe(IMSG_NEWADDR, 0, &ka, sizeof(ka));
 		}
@@ -400,7 +407,10 @@ ldp_ifp_destroy(struct interface *ifp)
 static int
 ldp_interface_status_change(struct interface *ifp)
 {
+<<<<<<< HEAD
 	struct listnode		*node;
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	struct connected	*ifc;
 	struct kif		 kif;
 	struct kaddr		 ka;
@@ -411,12 +421,20 @@ ldp_interface_status_change(struct interface *ifp)
 	main_imsg_compose_both(IMSG_IFSTATUS, &kif, sizeof(kif));
 
 	if (if_is_operative(ifp)) {
+<<<<<<< HEAD
 		for (ALL_LIST_ELEMENTS_RO(ifp->connected, node, ifc)) {
+=======
+		frr_each (if_connected, ifp->connected, ifc) {
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			ifc2kaddr(ifp, ifc, &ka);
 			main_imsg_compose_ldpe(IMSG_NEWADDR, 0, &ka, sizeof(ka));
 		}
 	} else {
+<<<<<<< HEAD
 		for (ALL_LIST_ELEMENTS_RO(ifp->connected, node, ifc)) {
+=======
+		frr_each (if_connected, ifp->connected, ifc) {
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			ifc2kaddr(ifp, ifc, &ka);
 			main_imsg_compose_ldpe(IMSG_DELADDR, 0, &ka, sizeof(ka));
 		}
@@ -682,7 +700,14 @@ static zclient_handler *const ldp_handlers[] = {
 
 void ldp_zebra_init(struct event_loop *master)
 {
+<<<<<<< HEAD
 	if_zapi_callbacks(ldp_ifp_create, ldp_ifp_up, ldp_ifp_down, ldp_ifp_destroy);
+=======
+	hook_register_prio(if_real, 0, ldp_ifp_create);
+	hook_register_prio(if_up, 0, ldp_ifp_up);
+	hook_register_prio(if_down, 0, ldp_ifp_down);
+	hook_register_prio(if_unreal, 0, ldp_ifp_destroy);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	/* Set default values. */
 	zclient = zclient_new(master, &zclient_options_default, ldp_handlers,

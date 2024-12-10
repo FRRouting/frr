@@ -6,6 +6,18 @@
  * Copyright (c) 2005, 2011, Oracle and/or its affiliates. All rights reserved.
  */
 #include <zebra.h>
+<<<<<<< HEAD
+=======
+
+#include <pwd.h>
+#include <grp.h>
+
+#ifdef HAVE_LCAPS
+#include <sys/capability.h>
+#include <sys/prctl.h>
+#endif /* HAVE_LCAPS */
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 #include "log.h"
 #include "privs.h"
 #include "memory.h"

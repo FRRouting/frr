@@ -14,6 +14,10 @@
 #include "table.h"
 #include "plist.h"
 #include "frrevent.h"
+<<<<<<< HEAD
+=======
+#include "frrstr.h"
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 #include "linklist.h"
 #include "lib/northbound_cli.h"
 
@@ -38,6 +42,10 @@
 #include "ospf6d.h"
 #include "ospf6_spf.h"
 #include "ospf6_nssa.h"
+<<<<<<< HEAD
+=======
+#include "ospf6_tlv.h"
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 #include "ospf6_gr.h"
 #include "lib/json.h"
 
@@ -101,9 +109,13 @@ struct ospf6_lsa *ospf6_as_external_lsa_originate(struct ospf6_route *route,
 	/* prepare buffer */
 	memset(buffer, 0, sizeof(buffer));
 	lsa_header = (struct ospf6_lsa_header *)buffer;
+<<<<<<< HEAD
 	as_external_lsa = (struct ospf6_as_external_lsa
 				   *)((caddr_t)lsa_header
 				      + sizeof(struct ospf6_lsa_header));
+=======
+	as_external_lsa = lsa_after_header(lsa_header);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	p = (caddr_t)((caddr_t)as_external_lsa
 		      + sizeof(struct ospf6_as_external_lsa));
 
@@ -216,8 +228,12 @@ static route_tag_t ospf6_as_external_lsa_get_tag(struct ospf6_lsa *lsa)
 	if (!lsa)
 		return 0;
 
+<<<<<<< HEAD
 	external = (struct ospf6_as_external_lsa *)OSPF6_LSA_HEADER_END(
 		lsa->header);
+=======
+	external = lsa_after_header(lsa->header);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	if (!CHECK_FLAG(external->bits_metric, OSPF6_ASBR_BIT_T))
 		return 0;
@@ -481,7 +497,11 @@ void ospf6_asbr_update_route_ecmp_path(struct ospf6_route *old,
 static int ospf6_ase_forward_address_check(struct ospf6 *ospf6,
 					   struct in6_addr *fwd_addr)
 {
+<<<<<<< HEAD
 	struct listnode *anode, *node, *cnode;
+=======
+	struct listnode *anode, *node;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	struct ospf6_interface *oi;
 	struct ospf6_area *oa;
 	struct interface *ifp;
@@ -494,7 +514,11 @@ static int ospf6_ase_forward_address_check(struct ospf6 *ospf6,
 				continue;
 
 			ifp = oi->interface;
+<<<<<<< HEAD
 			for (ALL_LIST_ELEMENTS_RO(ifp->connected, cnode, c)) {
+=======
+			frr_each (if_connected, ifp->connected, c) {
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 				if (IPV6_ADDR_SAME(&c->address->u.prefix6,
 						   fwd_addr))
 					return 0;
@@ -520,8 +544,12 @@ void ospf6_asbr_lsa_add(struct ospf6_lsa *lsa)
 	type = ntohs(lsa->header->type);
 	oa = lsa->lsdb->data;
 
+<<<<<<< HEAD
 	external = (struct ospf6_as_external_lsa *)OSPF6_LSA_HEADER_END(
 		lsa->header);
+=======
+	external = lsa_after_header(lsa->header);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	if (IS_OSPF6_DEBUG_EXAMIN(AS_EXTERNAL))
 		zlog_debug("Calculate AS-External route for %s", lsa->name);
@@ -725,8 +753,12 @@ void ospf6_asbr_lsa_remove(struct ospf6_lsa *lsa,
 	int type;
 	bool debug = false;
 
+<<<<<<< HEAD
 	external = (struct ospf6_as_external_lsa *)OSPF6_LSA_HEADER_END(
 		lsa->header);
+=======
+	external = lsa_after_header(lsa->header);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	if (IS_OSPF6_DEBUG_EXAMIN(AS_EXTERNAL) || (IS_OSPF6_DEBUG_NSSA))
 		debug = true;
@@ -1407,12 +1439,19 @@ static void ospf6_external_lsa_fwd_addr_set(struct ospf6 *ospf6,
 	FOR_ALL_INTERFACES (vrf, ifp) {
 		struct ospf6_interface *oi = ifp->info;
 		struct connected *connected;
+<<<<<<< HEAD
 		struct listnode *node;
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 		if (!oi || CHECK_FLAG(oi->flag, OSPF6_INTERFACE_DISABLE))
 			continue;
 
+<<<<<<< HEAD
 		FOR_ALL_INTERFACES_ADDRESSES (ifp, connected, node) {
+=======
+		frr_each (if_connected, ifp->connected, connected) {
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			if (connected->address->family != AF_INET6)
 				continue;
 			if (IN6_IS_ADDR_LINKLOCAL(&connected->address->u.prefix6))
@@ -1427,10 +1466,16 @@ static void ospf6_external_lsa_fwd_addr_set(struct ospf6 *ospf6,
 }
 
 void ospf6_asbr_redistribute_add(int type, ifindex_t ifindex,
+<<<<<<< HEAD
 				 struct prefix *prefix,
 				 unsigned int nexthop_num,
 				 const struct in6_addr *nexthop,
 				 route_tag_t tag, struct ospf6 *ospf6)
+=======
+				 struct prefix *prefix, unsigned int nexthop_num,
+				 const struct in6_addr *nexthop, route_tag_t tag,
+				 struct ospf6 *ospf6, uint32_t metric)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 {
 	route_map_result_t ret;
 	struct ospf6_route troute;
@@ -1473,6 +1518,10 @@ void ospf6_asbr_redistribute_add(int type, ifindex_t ifindex,
 	if (ROUTEMAP(red)) {
 		troute.route_option = &tinfo;
 		troute.ospf6 = ospf6;
+<<<<<<< HEAD
+=======
+		troute.path.redistribute_cost = metric;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		tinfo.ifindex = ifindex;
 		tinfo.tag = tag;
 
@@ -1925,7 +1974,11 @@ static void ospf6_redistribute_default_set(struct ospf6 *ospf6, int originate)
 	case DEFAULT_ORIGINATE_ALWAYS:
 		ospf6_asbr_redistribute_add(DEFAULT_ROUTE, 0,
 					    (struct prefix *)&p, 0, &nexthop, 0,
+<<<<<<< HEAD
 					    ospf6);
+=======
+					    ospf6, 0);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		break;
 	}
 }
@@ -2154,25 +2207,100 @@ static const struct route_map_rule_cmd
 	ospf6_routemap_rule_set_metric_type_free,
 };
 
+<<<<<<< HEAD
+=======
+struct ospf6_metric {
+	enum { metric_increment, metric_decrement, metric_absolute } type;
+	bool used;
+	uint32_t metric;
+};
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 static enum route_map_cmd_result_t
 ospf6_routemap_rule_set_metric(void *rule, const struct prefix *prefix,
 			       void *object)
 {
+<<<<<<< HEAD
 	char *metric = rule;
 	struct ospf6_route *route = object;
 
 	route->path.cost = atoi(metric);
+=======
+	struct ospf6_metric *metric;
+	struct ospf6_route *route;
+
+	/* Fetch routemap's rule information. */
+	metric = rule;
+	route = object;
+
+	/* Set metric out value. */
+	if (!metric->used)
+		return RMAP_OKAY;
+
+	if (route->path.redistribute_cost > OSPF6_EXT_PATH_METRIC_MAX)
+		route->path.redistribute_cost = OSPF6_EXT_PATH_METRIC_MAX;
+
+	if (metric->type == metric_increment) {
+		route->path.cost = route->path.redistribute_cost +
+				   metric->metric;
+
+		/* Check overflow */
+		if (route->path.cost > OSPF6_EXT_PATH_METRIC_MAX ||
+		    route->path.cost < metric->metric)
+			route->path.cost = OSPF6_EXT_PATH_METRIC_MAX;
+	} else if (metric->type == metric_decrement) {
+		route->path.cost = route->path.redistribute_cost -
+				   metric->metric;
+
+		/* Check overflow */
+		if (route->path.cost == 0 ||
+		    route->path.cost > route->path.redistribute_cost)
+			route->path.cost = 1;
+	} else if (metric->type == metric_absolute)
+		route->path.cost = metric->metric;
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	return RMAP_OKAY;
 }
 
 static void *ospf6_routemap_rule_set_metric_compile(const char *arg)
 {
+<<<<<<< HEAD
 	uint32_t metric;
 	char *endp;
 	metric = strtoul(arg, &endp, 0);
 	if (metric > OSPF_LS_INFINITY || *endp != '\0')
 		return NULL;
 	return XSTRDUP(MTYPE_ROUTE_MAP_COMPILED, arg);
+=======
+	struct ospf6_metric *metric;
+
+	metric = XCALLOC(MTYPE_ROUTE_MAP_COMPILED, sizeof(*metric));
+	metric->used = false;
+
+	if (all_digit(arg))
+		metric->type = metric_absolute;
+
+	if ((arg[0] == '+') && all_digit(arg + 1)) {
+		metric->type = metric_increment;
+		arg++;
+	}
+
+	if ((arg[0] == '-') && all_digit(arg + 1)) {
+		metric->type = metric_decrement;
+		arg++;
+	}
+
+	metric->metric = strtoul(arg, NULL, 10);
+
+	if (metric->metric > OSPF6_EXT_PATH_METRIC_MAX)
+		metric->metric = OSPF6_EXT_PATH_METRIC_MAX;
+
+	if (metric->metric)
+		metric->used = true;
+
+	return metric;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 }
 
 static void ospf6_routemap_rule_set_metric_free(void *rule)
@@ -2369,8 +2497,12 @@ static char *ospf6_as_external_lsa_get_prefix_str(struct ospf6_lsa *lsa,
 	char tbuf[16];
 
 	if (lsa) {
+<<<<<<< HEAD
 		external = (struct ospf6_as_external_lsa *)OSPF6_LSA_HEADER_END(
 			lsa->header);
+=======
+		external = lsa_after_header(lsa->header);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 		if (pos == 0) {
 			ospf6_prefix_in6_addr(&in6, external,
@@ -2404,8 +2536,12 @@ static int ospf6_as_external_lsa_show(struct vty *vty, struct ospf6_lsa *lsa,
 	char buf[64];
 
 	assert(lsa->header);
+<<<<<<< HEAD
 	external = (struct ospf6_as_external_lsa *)OSPF6_LSA_HEADER_END(
 		lsa->header);
+=======
+	external = lsa_after_header(lsa->header);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	/* bits */
 	snprintf(buf, sizeof(buf), "%c%c%c",
@@ -2972,8 +3108,12 @@ ospf6_originate_summary_lsa(struct ospf6 *ospf6,
 			return;
 		}
 
+<<<<<<< HEAD
 		external = (struct ospf6_as_external_lsa *)OSPF6_LSA_HEADER_END
 					(aggr_lsa->header);
+=======
+		external = lsa_after_header(aggr_lsa->header);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		metric = (unsigned long)OSPF6_ASBR_METRIC(external);
 		tag = ospf6_as_external_lsa_get_tag(aggr_lsa);
 		mtype = CHECK_FLAG(external->bits_metric,
@@ -3121,8 +3261,12 @@ ospf6_handle_external_aggr_modify(struct ospf6 *ospf6,
 		return OSPF6_FAILURE;
 	}
 
+<<<<<<< HEAD
 	asel = (struct ospf6_as_external_lsa *)
 		OSPF6_LSA_HEADER_END(lsa->header);
+=======
+	asel = lsa_after_header(lsa->header);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	metric = (unsigned long)OSPF6_ASBR_METRIC(asel);
 	tag = ospf6_as_external_lsa_get_tag(lsa);
 	mtype = CHECK_FLAG(asel->bits_metric,
@@ -3311,9 +3455,13 @@ static void ospf6_handle_aggregated_exnl_rt(struct ospf6 *ospf6,
 	lsa = ospf6_lsdb_lookup(htons(OSPF6_LSTYPE_AS_EXTERNAL),
 				htonl(info->id), ospf6->router_id, ospf6->lsdb);
 	if (lsa) {
+<<<<<<< HEAD
 		ext_lsa = (struct ospf6_as_external_lsa
 			*)((char *)(lsa->header)
 			+ sizeof(struct ospf6_lsa_header));
+=======
+		ext_lsa = lsa_after_header(lsa->header);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 		if (rt->prefix.prefixlen != ext_lsa->prefix.prefix_length)
 			return;

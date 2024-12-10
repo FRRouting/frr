@@ -28,6 +28,7 @@ extern void bgp_zebra_destroy(void);
 extern int bgp_zebra_get_table_range(struct zclient *zc, uint32_t chunk_size,
 				     uint32_t *start, uint32_t *end);
 extern int bgp_if_update_all(void);
+<<<<<<< HEAD
 extern void bgp_zebra_announce(struct bgp_dest *dest, const struct prefix *p,
 			       struct bgp_path_info *path, struct bgp *bgp,
 			       afi_t afi, safi_t safi);
@@ -35,6 +36,13 @@ extern void bgp_zebra_announce_table(struct bgp *bgp, afi_t afi, safi_t safi);
 extern void bgp_zebra_withdraw(const struct prefix *p,
 			       struct bgp_path_info *path, struct bgp *bgp,
 			       safi_t safi);
+=======
+extern void bgp_zebra_route_install(struct bgp_dest *dest,
+				    struct bgp_path_info *path, struct bgp *bgp,
+				    bool install, struct bgpevpn *vpn,
+				    bool is_sync);
+extern void bgp_zebra_announce_table(struct bgp *bgp, afi_t afi, safi_t safi);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 /* Announce routes of any bgp subtype of a table to zebra */
 extern void bgp_zebra_announce_table_all_subtypes(struct bgp *bgp, afi_t afi,
@@ -119,6 +127,7 @@ extern int bgp_zebra_update(struct bgp *bgp, afi_t afi, safi_t safi,
 extern int bgp_zebra_stale_timer_update(struct bgp *bgp);
 extern int bgp_zebra_srv6_manager_get_locator_chunk(const char *name);
 extern int bgp_zebra_srv6_manager_release_locator_chunk(const char *name);
+<<<<<<< HEAD
 extern void bgp_zebra_send_nexthop_label(int cmd, mpls_label_t label,
 					 ifindex_t index, vrf_id_t vrfid,
 					 enum lsp_types_t ltype,
@@ -126,4 +135,24 @@ extern void bgp_zebra_send_nexthop_label(int cmd, mpls_label_t label,
 					 mpls_label_t out_labels[]);
 extern bool bgp_zebra_request_label_range(uint32_t base, uint32_t chunk_size);
 extern void bgp_zebra_release_label_range(uint32_t start, uint32_t end);
+=======
+extern int bgp_zebra_srv6_manager_get_locator(const char *name);
+extern bool bgp_zebra_request_srv6_sid(const struct srv6_sid_ctx *ctx,
+				       struct in6_addr *sid_value,
+				       const char *locator_name,
+				       uint32_t *sid_func);
+extern void bgp_zebra_release_srv6_sid(const struct srv6_sid_ctx *ctx);
+
+extern void bgp_zebra_send_nexthop_label(int cmd, mpls_label_t label,
+					 ifindex_t index, vrf_id_t vrfid,
+					 enum lsp_types_t ltype,
+					 struct prefix *p, uint8_t num_labels,
+					 mpls_label_t out_labels[]);
+extern bool bgp_zebra_request_label_range(uint32_t base, uint32_t chunk_size,
+					  bool label_auto);
+extern void bgp_zebra_release_label_range(uint32_t start, uint32_t end);
+extern enum zclient_send_status
+bgp_zebra_withdraw_actual(struct bgp_dest *dest, struct bgp_path_info *info,
+			  struct bgp *bgp);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 #endif /* _QUAGGA_BGP_ZEBRA_H */

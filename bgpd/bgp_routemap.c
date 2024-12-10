@@ -125,6 +125,13 @@ o Local extensions
 #define RMAP_VALUE_ADD 1
 #define RMAP_VALUE_SUB 2
 
+<<<<<<< HEAD
+=======
+#define RMAP_VALUE_TYPE_RTT  1
+#define RMAP_VALUE_TYPE_IGP  2
+#define RMAP_VALUE_TYPE_AIGP 3
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 struct rmap_value {
 	uint8_t action;
 	uint8_t variable;
@@ -140,6 +147,7 @@ static int route_value_match(struct rmap_value *rv, uint32_t value)
 }
 
 static uint32_t route_value_adjust(struct rmap_value *rv, uint32_t current,
+<<<<<<< HEAD
 				   struct peer *peer)
 {
 	uint32_t value;
@@ -148,6 +156,23 @@ static uint32_t route_value_adjust(struct rmap_value *rv, uint32_t current,
 	case 1:
 		value = peer->rtt;
 		break;
+=======
+				   struct bgp_path_info *bpi)
+{
+	uint32_t value;
+	struct peer *peer = bpi->peer;
+
+	switch (rv->variable) {
+	case RMAP_VALUE_TYPE_RTT:
+		value = peer->rtt;
+		break;
+	case RMAP_VALUE_TYPE_IGP:
+		value = bpi->extra ? bpi->extra->igpmetric : 0;
+		break;
+	case RMAP_VALUE_TYPE_AIGP:
+		value = MIN(bpi->attr->aigp_metric, UINT32_MAX);
+		break;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	default:
 		value = rv->value;
 		break;
@@ -187,11 +212,22 @@ static void *route_value_compile(const char *arg)
 		larg = strtoul(arg, &endptr, 10);
 		if (*arg == 0 || *endptr != 0 || errno || larg > UINT32_MAX)
 			return NULL;
+<<<<<<< HEAD
 	} else {
 		if (strcmp(arg, "rtt") == 0)
 			var = 1;
 		else
 			return NULL;
+=======
+	} else if (strmatch(arg, "rtt")) {
+		var = RMAP_VALUE_TYPE_RTT;
+	} else if (strmatch(arg, "igp")) {
+		var = RMAP_VALUE_TYPE_IGP;
+	} else if (strmatch(arg, "aigp")) {
+		var = RMAP_VALUE_TYPE_AIGP;
+	} else {
+		return NULL;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	}
 
 	rv = XMALLOC(MTYPE_ROUTE_MAP_COMPILED, sizeof(struct rmap_value));
@@ -251,7 +287,11 @@ route_match_peer(void *rule, const struct prefix *prefix, void *object)
 	peer = ((struct bgp_path_info *)object)->peer;
 
 	if (pc->interface) {
+<<<<<<< HEAD
 		if (!peer->conf_if || !peer->group)
+=======
+		if (!peer->conf_if && !peer->group)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			return RMAP_NOMATCH;
 
 		if (peer->conf_if && strcmp(peer->conf_if, pc->interface) == 0)
@@ -333,6 +373,69 @@ static const struct route_map_rule_cmd route_match_peer_cmd = {
 	route_match_peer_free
 };
 
+<<<<<<< HEAD
+=======
+static enum route_map_cmd_result_t route_match_src_peer(void *rule, const struct prefix *prefix,
+							void *object)
+{
+	struct bgp_match_peer_compiled *pc;
+	union sockunion *su;
+	struct peer_group *group;
+	struct peer *peer;
+	struct listnode *node, *nnode;
+	struct bgp_path_info *bpi;
+
+	pc = rule;
+	su = &pc->su;
+	bpi = object;
+	peer = bpi->from;
+
+	/* Fallback to destination (current) peer. This is mostly
+	 * happens if `match src-peer ...` is used at incoming direction.
+	 */
+	if (!peer)
+		peer = bpi->peer;
+
+	if (!peer)
+		return RMAP_NOMATCH;
+
+	if (pc->interface) {
+		if (!peer->conf_if && !peer->group)
+			return RMAP_NOMATCH;
+
+		if (peer->conf_if && strcmp(peer->conf_if, pc->interface) == 0)
+			return RMAP_MATCH;
+
+		if (peer->group && strcmp(peer->group->name, pc->interface) == 0)
+			return RMAP_MATCH;
+
+		return RMAP_NOMATCH;
+	}
+
+	if (!CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP)) {
+		if (sockunion_same(su, &peer->connection->su))
+			return RMAP_MATCH;
+
+		return RMAP_NOMATCH;
+	}
+
+	group = peer->group;
+	for (ALL_LIST_ELEMENTS(group->peer, node, nnode, peer)) {
+		if (sockunion_same(su, &peer->connection->su))
+			return RMAP_MATCH;
+	}
+
+	return RMAP_NOMATCH;
+}
+
+static const struct route_map_rule_cmd route_match_src_peer_cmd = {
+	"src-peer",
+	route_match_src_peer,
+	route_match_peer_compile,
+	route_match_peer_free
+};
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 #ifdef HAVE_SCRIPTING
 
 enum frrlua_rm_status {
@@ -383,8 +486,12 @@ route_match_script(void *rule, const struct prefix *prefix, void *object)
 		return RMAP_NOMATCH;
 	}
 
+<<<<<<< HEAD
 	long long *action = frrscript_get_result(fs, routematch_function,
 						 "action", lua_tointegerp);
+=======
+	int *action = frrscript_get_result(fs, routematch_function, "action", lua_tointegerp);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	int status = RMAP_NOMATCH;
 
@@ -406,7 +513,11 @@ route_match_script(void *rule, const struct prefix *prefix, void *object)
 
 		path->attr->med = newattr.med;
 
+<<<<<<< HEAD
 		if (path->attr->flag & ATTR_FLAG_BIT(BGP_ATTR_LOCAL_PREF))
+=======
+		if (CHECK_FLAG(path->attr->flag, ATTR_FLAG_BIT(BGP_ATTR_LOCAL_PREF)))
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			locpref = path->attr->local_pref;
 		if (locpref != newattr.local_pref) {
 			SET_FLAG(path->attr->flag,
@@ -639,15 +750,25 @@ route_match_prefix_list_flowspec(afi_t afi, struct prefix_list *plist,
 					    afi);
 	if (ret < 0)
 		return RMAP_NOMATCH;
+<<<<<<< HEAD
 	if (api.match_bitmask & PREFIX_DST_PRESENT ||
 	    api.match_bitmask_iprule & PREFIX_DST_PRESENT) {
+=======
+	if (CHECK_FLAG(api.match_bitmask, PREFIX_DST_PRESENT) ||
+	    CHECK_FLAG(api.match_bitmask_iprule, PREFIX_DST_PRESENT)) {
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		if (family2afi((&api.dst_prefix)->family) != afi)
 			return RMAP_NOMATCH;
 		return prefix_list_apply(plist, &api.dst_prefix) == PREFIX_DENY
 			? RMAP_NOMATCH
 			: RMAP_MATCH;
+<<<<<<< HEAD
 	} else if (api.match_bitmask & PREFIX_SRC_PRESENT ||
 		   api.match_bitmask_iprule & PREFIX_SRC_PRESENT) {
+=======
+	} else if (CHECK_FLAG(api.match_bitmask, PREFIX_SRC_PRESENT) ||
+		   CHECK_FLAG(api.match_bitmask_iprule, PREFIX_SRC_PRESENT)) {
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		if (family2afi((&api.src_prefix)->family) != afi)
 			return RMAP_NOMATCH;
 		return (prefix_list_apply(plist, &api.src_prefix) == PREFIX_DENY
@@ -680,9 +801,14 @@ route_match_address_prefix_list(void *rule, afi_t afi,
 	plist = prefix_list_lookup(afi, (char *)rule);
 	if (plist == NULL) {
 		if (unlikely(CHECK_FLAG(rmap_debug, DEBUG_ROUTEMAP_DETAIL)))
+<<<<<<< HEAD
 			zlog_debug(
 				"%s: Prefix List %s specified does not exist defaulting to NO_MATCH",
 				__func__, (char *)rule);
+=======
+			zlog_debug("%s: Prefix List %s (%s) specified does not exist defaulting to NO_MATCH",
+				   __func__, (char *)rule, afi2str(afi));
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		return RMAP_NOMATCH;
 	}
 
@@ -1056,7 +1182,11 @@ static enum route_map_cmd_result_t
 route_match_vni(void *rule, const struct prefix *prefix, void *object)
 {
 	vni_t vni = 0;
+<<<<<<< HEAD
 	unsigned int label_cnt = 0;
+=======
+	unsigned int label_cnt;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	struct bgp_path_info *path = NULL;
 	struct prefix_evpn *evp = (struct prefix_evpn *) prefix;
 
@@ -1081,6 +1211,7 @@ route_match_vni(void *rule, const struct prefix *prefix, void *object)
 		&& evp->prefix.route_type != BGP_EVPN_IP_PREFIX_ROUTE))
 		return RMAP_NOOP;
 
+<<<<<<< HEAD
 	if (path->extra == NULL)
 		return RMAP_NOMATCH;
 
@@ -1088,6 +1219,12 @@ route_match_vni(void *rule, const struct prefix *prefix, void *object)
 	     label_cnt < BGP_MAX_LABELS && label_cnt < path->extra->num_labels;
 	     label_cnt++) {
 		if (vni == label2vni(&path->extra->label[label_cnt]))
+=======
+	for (label_cnt = 0; label_cnt < BGP_MAX_LABELS &&
+			    label_cnt < BGP_PATH_INFO_NUM_LABELS(path);
+	     label_cnt++) {
+		if (vni == label2vni(&path->extra->labels->label[label_cnt]))
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			return RMAP_MATCH;
 	}
 
@@ -1240,6 +1377,11 @@ route_set_evpn_gateway_ip(void *rule, const struct prefix *prefix, void *object)
 	struct ipaddr *gw_ip = rule;
 	struct bgp_path_info *path;
 	struct prefix_evpn *evp;
+<<<<<<< HEAD
+=======
+	struct bgp_route_evpn *bre = XCALLOC(MTYPE_BGP_EVPN_OVERLAY,
+					     sizeof(struct bgp_route_evpn));
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	if (prefix->family != AF_EVPN)
 		return RMAP_OKAY;
@@ -1255,9 +1397,15 @@ route_set_evpn_gateway_ip(void *rule, const struct prefix *prefix, void *object)
 	path = object;
 
 	/* Set gateway-ip value. */
+<<<<<<< HEAD
 	path->attr->evpn_overlay.type = OVERLAY_INDEX_GATEWAY_IP;
 	memcpy(&path->attr->evpn_overlay.gw_ip, &gw_ip->ip.addr,
 	       IPADDRSZ(gw_ip));
+=======
+	bre->type = OVERLAY_INDEX_GATEWAY_IP;
+	memcpy(&bre->gw_ip, &gw_ip->ip.addr, IPADDRSZ(gw_ip));
+	bgp_attr_set_evpn_overlay(path->attr, bre);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	return RMAP_OKAY;
 }
@@ -1944,7 +2092,10 @@ route_set_srte_color(void *rule, const struct prefix *prefix, void *object)
 	path = object;
 
 	path->attr->srte_color = *srte_color;
+<<<<<<< HEAD
 	path->attr->flag |= ATTR_FLAG_BIT(BGP_ATTR_SRTE_COLOR);
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	return RMAP_OKAY;
 }
@@ -1995,6 +2146,7 @@ route_set_ip_nexthop(void *rule, const struct prefix *prefix, void *object)
 		SET_FLAG(path->attr->rmap_change_flags,
 			 BATTR_RMAP_NEXTHOP_UNCHANGED);
 	} else if (rins->peer_address) {
+<<<<<<< HEAD
 		if ((CHECK_FLAG(peer->rmap_type, PEER_RMAP_TYPE_IN)
 		     || CHECK_FLAG(peer->rmap_type, PEER_RMAP_TYPE_IMPORT))
 		    && peer->su_remote
@@ -2002,6 +2154,14 @@ route_set_ip_nexthop(void *rule, const struct prefix *prefix, void *object)
 			path->attr->nexthop.s_addr =
 				sockunion2ip(peer->su_remote);
 			path->attr->flag |= ATTR_FLAG_BIT(BGP_ATTR_NEXT_HOP);
+=======
+		if ((CHECK_FLAG(peer->rmap_type, PEER_RMAP_TYPE_IN)) &&
+		    peer->su_remote &&
+		    sockunion_family(peer->su_remote) == AF_INET) {
+			path->attr->nexthop.s_addr =
+				sockunion2ip(peer->su_remote);
+			SET_FLAG(path->attr->flag, ATTR_FLAG_BIT(BGP_ATTR_NEXT_HOP));
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		} else if (CHECK_FLAG(peer->rmap_type, PEER_RMAP_TYPE_OUT)) {
 			/* The next hop value will be set as part of
 			 * packet rewrite.  Set the flags here to indicate
@@ -2014,7 +2174,11 @@ route_set_ip_nexthop(void *rule, const struct prefix *prefix, void *object)
 		}
 	} else {
 		/* Set next hop value. */
+<<<<<<< HEAD
 		path->attr->flag |= ATTR_FLAG_BIT(BGP_ATTR_NEXT_HOP);
+=======
+		SET_FLAG(path->attr->flag, ATTR_FLAG_BIT(BGP_ATTR_NEXT_HOP));
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		path->attr->nexthop = *rins->address;
 		SET_FLAG(path->attr->rmap_change_flags,
 			 BATTR_RMAP_IPV4_NHOP_CHANGED);
@@ -2148,8 +2312,13 @@ route_set_local_pref(void *rule, const struct prefix *prefix, void *object)
 	if (path->attr->local_pref)
 		locpref = path->attr->local_pref;
 
+<<<<<<< HEAD
 	path->attr->flag |= ATTR_FLAG_BIT(BGP_ATTR_LOCAL_PREF);
 	path->attr->local_pref = route_value_adjust(rv, locpref, path->peer);
+=======
+	SET_FLAG(path->attr->flag, ATTR_FLAG_BIT(BGP_ATTR_LOCAL_PREF));
+	path->attr->local_pref = route_value_adjust(rv, locpref, path);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	return RMAP_OKAY;
 }
@@ -2176,7 +2345,11 @@ route_set_weight(void *rule, const struct prefix *prefix, void *object)
 	path = object;
 
 	/* Set weight value. */
+<<<<<<< HEAD
 	path->attr->weight = route_value_adjust(rv, 0, path->peer);
+=======
+	path->attr->weight = route_value_adjust(rv, 0, path);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	return RMAP_OKAY;
 }
@@ -2223,11 +2396,18 @@ route_set_metric(void *rule, const struct prefix *prefix, void *object)
 	rv = rule;
 	path = object;
 
+<<<<<<< HEAD
 	if (path->attr->flag & ATTR_FLAG_BIT(BGP_ATTR_MULTI_EXIT_DISC))
 		med = path->attr->med;
 
 	path->attr->med = route_value_adjust(rv, med, path->peer);
 	path->attr->flag |= ATTR_FLAG_BIT(BGP_ATTR_MULTI_EXIT_DISC);
+=======
+	if (CHECK_FLAG(path->attr->flag, ATTR_FLAG_BIT(BGP_ATTR_MULTI_EXIT_DISC)))
+		med = path->attr->med;
+
+	bgp_attr_set_med(path->attr, route_value_adjust(rv, med, path));
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	return RMAP_OKAY;
 }
@@ -2326,7 +2506,11 @@ static const struct route_map_rule_cmd route_set_aspath_prepend_cmd = {
 static void *route_aspath_exclude_compile(const char *arg)
 {
 	struct aspath_exclude *ase;
+<<<<<<< HEAD
 	struct aspath_exclude_list *ael;
+=======
+	struct as_list *aux_aslist;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	const char *str = arg;
 	static const char asp_acl[] = "as-path-access-list";
 
@@ -2338,6 +2522,7 @@ static void *route_aspath_exclude_compile(const char *arg)
 		while (*str == ' ')
 			str++;
 		ase->exclude_aspath_acl_name = XSTRDUP(MTYPE_TMP, str);
+<<<<<<< HEAD
 		ase->exclude_aspath_acl = as_list_lookup(str);
 	} else
 		ase->aspath = aspath_str2aspath(str, bgp_get_asnotation(NULL));
@@ -2350,18 +2535,45 @@ static void *route_aspath_exclude_compile(const char *arg)
 		ase->exclude_aspath_acl->exclude_list = ael;
 	}
 
+=======
+		aux_aslist = as_list_lookup(str);
+		if (!aux_aslist)
+			/* new orphan filter */
+			as_exclude_set_orphan(ase);
+		else
+			as_list_list_add_head(&aux_aslist->exclude_rule, ase);
+
+		ase->exclude_aspath_acl = aux_aslist;
+	} else
+		ase->aspath = aspath_str2aspath(str, bgp_get_asnotation(NULL));
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	return ase;
 }
 
 static void route_aspath_exclude_free(void *rule)
 {
 	struct aspath_exclude *ase = rule;
+<<<<<<< HEAD
 	struct aspath_exclude_list *cur_ael = NULL;
 	struct aspath_exclude_list *prev_ael = NULL;
+=======
+	struct as_list *acl;
+
+	/* manage references to that rule*/
+	if (ase->exclude_aspath_acl) {
+		acl = ase->exclude_aspath_acl;
+		as_list_list_del(&acl->exclude_rule, ase);
+	} else if (ase->exclude_aspath_acl_name) {
+		/* no ref to acl, this aspath exclude is orphan */
+		as_exclude_remove_orphan(ase);
+	}
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	aspath_free(ase->aspath);
 	if (ase->exclude_aspath_acl_name)
 		XFREE(MTYPE_TMP, ase->exclude_aspath_acl_name);
+<<<<<<< HEAD
 	if (ase->exclude_aspath_acl)
 		cur_ael = ase->exclude_aspath_acl->exclude_list;
 	while (cur_ael) {
@@ -2376,6 +2588,8 @@ static void route_aspath_exclude_free(void *rule)
 		prev_ael = cur_ael;
 		cur_ael = cur_ael->next;
 	}
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	XFREE(MTYPE_ROUTE_MAP_COMPILED, ase);
 }
 
@@ -2410,6 +2624,7 @@ route_set_aspath_exclude(void *rule, const struct prefix *dummy, void *object)
 	else if (ase->exclude_all)
 		path->attr->aspath = aspath_filter_exclude_all(new_path);
 
+<<<<<<< HEAD
 	else if (ase->exclude_aspath_acl_name) {
 		if (!ase->exclude_aspath_acl)
 			ase->exclude_aspath_acl =
@@ -2420,6 +2635,12 @@ route_set_aspath_exclude(void *rule, const struct prefix *dummy, void *object)
 							  ase->exclude_aspath_acl);
 	}
 
+=======
+	else if (ase->exclude_aspath_acl)
+		path->attr->aspath =
+			aspath_filter_exclude_acl(new_path,
+						  ase->exclude_aspath_acl);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	return RMAP_OKAY;
 }
 
@@ -3196,7 +3417,11 @@ struct rmap_ecomm_lb_set {
 #define RMAP_ECOMM_LB_SET_CUMUL 2
 #define RMAP_ECOMM_LB_SET_NUM_MPATH 3
 	bool non_trans;
+<<<<<<< HEAD
 	uint32_t bw;
+=======
+	uint64_t bw;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 };
 
 static enum route_map_cmd_result_t
@@ -3206,8 +3431,12 @@ route_set_ecommunity_lb(void *rule, const struct prefix *prefix, void *object)
 	struct bgp_path_info *path;
 	struct peer *peer;
 	struct ecommunity ecom_lb = {0};
+<<<<<<< HEAD
 	struct ecommunity_val lb_eval;
 	uint32_t bw_bytes = 0;
+=======
+	uint64_t bw_bytes = 0;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	uint16_t mpath_count = 0;
 	struct ecommunity *new_ecom;
 	struct ecommunity *old_ecom;
@@ -3221,13 +3450,21 @@ route_set_ecommunity_lb(void *rule, const struct prefix *prefix, void *object)
 	/* Build link bandwidth extended community */
 	as = (peer->bgp->as > BGP_AS_MAX) ? BGP_AS_TRANS : peer->bgp->as;
 	if (rels->lb_type == RMAP_ECOMM_LB_SET_VALUE) {
+<<<<<<< HEAD
 		bw_bytes = ((uint64_t)rels->bw * 1000 * 1000) / 8;
+=======
+		bw_bytes = (rels->bw * 1000 * 1000) / 8;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	} else if (rels->lb_type == RMAP_ECOMM_LB_SET_CUMUL) {
 		/* process this only for the best path. */
 		if (!CHECK_FLAG(path->flags, BGP_PATH_SELECTED))
 			return RMAP_OKAY;
 
+<<<<<<< HEAD
 		bw_bytes = (uint32_t)bgp_path_info_mpath_cumbw(path);
+=======
+		bw_bytes = bgp_path_info_mpath_cumbw(path);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		if (!bw_bytes)
 			return RMAP_OKAY;
 
@@ -3237,6 +3474,7 @@ route_set_ecommunity_lb(void *rule, const struct prefix *prefix, void *object)
 		if (!CHECK_FLAG(path->flags, BGP_PATH_SELECTED))
 			return RMAP_OKAY;
 
+<<<<<<< HEAD
 		bw_bytes = ((uint64_t)peer->bgp->lb_ref_bw * 1000 * 1000) / 8;
 		mpath_count = bgp_path_info_mpath_count(path) + 1;
 		bw_bytes *= mpath_count;
@@ -3262,6 +3500,55 @@ route_set_ecommunity_lb(void *rule, const struct prefix *prefix, void *object)
 
 	/* new_ecom will be intern()'d or attr_flush()'d in call stack */
 	bgp_attr_set_ecommunity(path->attr, new_ecom);
+=======
+		bw_bytes = (peer->bgp->lb_ref_bw * 1000 * 1000) / 8;
+		mpath_count = bgp_path_info_mpath_count(path);
+		bw_bytes *= mpath_count;
+	}
+
+	if (CHECK_FLAG(peer->flags, PEER_FLAG_EXTENDED_LINK_BANDWIDTH)) {
+		struct ecommunity_val_ipv6 lb_eval;
+
+		encode_lb_extended_extcomm(as, bw_bytes, rels->non_trans,
+					   &lb_eval);
+
+		old_ecom = bgp_attr_get_ipv6_ecommunity(path->attr);
+		if (old_ecom) {
+			new_ecom = ecommunity_dup(old_ecom);
+			ecommunity_add_val_ipv6(new_ecom, &lb_eval, true, true);
+			if (!old_ecom->refcnt)
+				ecommunity_free(&old_ecom);
+		} else {
+			ecom_lb.size = 1;
+			ecom_lb.unit_size = IPV6_ECOMMUNITY_SIZE;
+			ecom_lb.val = (uint8_t *)lb_eval.val;
+			new_ecom = ecommunity_dup(&ecom_lb);
+		}
+
+		bgp_attr_set_ipv6_ecommunity(path->attr, new_ecom);
+	} else {
+		struct ecommunity_val lb_eval;
+
+		encode_lb_extcomm(as, bw_bytes, rels->non_trans, &lb_eval,
+				  CHECK_FLAG(peer->flags,
+					     PEER_FLAG_DISABLE_LINK_BW_ENCODING_IEEE));
+
+		old_ecom = bgp_attr_get_ecommunity(path->attr);
+		if (old_ecom) {
+			new_ecom = ecommunity_dup(old_ecom);
+			ecommunity_add_val(new_ecom, &lb_eval, true, true);
+			if (!old_ecom->refcnt)
+				ecommunity_free(&old_ecom);
+		} else {
+			ecom_lb.size = 1;
+			ecom_lb.unit_size = ECOMMUNITY_SIZE;
+			ecom_lb.val = (uint8_t *)lb_eval.val;
+			new_ecom = ecommunity_dup(&ecom_lb);
+		}
+
+		bgp_attr_set_ecommunity(path->attr, new_ecom);
+	}
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	/* Mark that route-map has set link bandwidth; used in attribute
 	 * setting decisions.
@@ -3275,7 +3562,11 @@ static void *route_set_ecommunity_lb_compile(const char *arg)
 {
 	struct rmap_ecomm_lb_set *rels;
 	uint8_t lb_type;
+<<<<<<< HEAD
 	uint32_t bw = 0;
+=======
+	uint64_t bw = 0;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	char bw_str[40] = {0};
 	char *p, *str;
 	bool non_trans = false;
@@ -3317,6 +3608,7 @@ static enum route_map_cmd_result_t
 route_set_ecommunity_color(void *rule, const struct prefix *prefix,
 			   void *object)
 {
+<<<<<<< HEAD
 	struct bgp_path_info *path;
 
 	path = object;
@@ -3324,6 +3616,10 @@ route_set_ecommunity_color(void *rule, const struct prefix *prefix,
 	route_set_ecommunity(rule, prefix, object);
 
 	path->attr->flag |= ATTR_FLAG_BIT(BGP_ATTR_SRTE_COLOR);
+=======
+	route_set_ecommunity(rule, prefix, object);
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	return RMAP_OKAY;
 }
 
@@ -3421,7 +3717,11 @@ route_set_atomic_aggregate(void *rule, const struct prefix *pfx, void *object)
 	struct bgp_path_info *path;
 
 	path = object;
+<<<<<<< HEAD
 	path->attr->flag |= ATTR_FLAG_BIT(BGP_ATTR_ATOMIC_AGGREGATE);
+=======
+	SET_FLAG(path->attr->flag, ATTR_FLAG_BIT(BGP_ATTR_ATOMIC_AGGREGATE));
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	return RMAP_OKAY;
 }
@@ -3499,7 +3799,11 @@ route_set_aggregator_as(void *rule, const struct prefix *prefix, void *object)
 
 	path->attr->aggregator_as = aggregator->as;
 	path->attr->aggregator_addr = aggregator->address;
+<<<<<<< HEAD
 	path->attr->flag |= ATTR_FLAG_BIT(BGP_ATTR_AGGREGATOR);
+=======
+	SET_FLAG(path->attr->flag, ATTR_FLAG_BIT(BGP_ATTR_AGGREGATOR));
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	return RMAP_OKAY;
 }
@@ -3579,7 +3883,11 @@ route_set_label_index(void *rule, const struct prefix *prefix, void *object)
 	label_index = rv->value;
 	if (label_index) {
 		path->attr->label_index = label_index;
+<<<<<<< HEAD
 		path->attr->flag |= ATTR_FLAG_BIT(BGP_ATTR_PREFIX_SID);
+=======
+		SET_FLAG(path->attr->flag, ATTR_FLAG_BIT(BGP_ATTR_PREFIX_SID));
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	}
 
 	return RMAP_OKAY;
@@ -3946,6 +4254,7 @@ route_set_ipv6_nexthop_prefer_global(void *rule, const struct prefix *prefix,
 	path = object;
 	peer = path->peer;
 
+<<<<<<< HEAD
 	if (CHECK_FLAG(peer->rmap_type, PEER_RMAP_TYPE_IN)
 	    || CHECK_FLAG(peer->rmap_type, PEER_RMAP_TYPE_IMPORT)) {
 		/* Set next hop preference to global */
@@ -3954,6 +4263,15 @@ route_set_ipv6_nexthop_prefer_global(void *rule, const struct prefix *prefix,
 			 BATTR_RMAP_IPV6_PREFER_GLOBAL_CHANGED);
 	} else {
 		path->attr->mp_nexthop_prefer_global = false;
+=======
+	if (CHECK_FLAG(peer->rmap_type, PEER_RMAP_TYPE_IN)) {
+		/* Set next hop preference to global */
+		SET_FLAG(path->attr->nh_flags, BGP_ATTR_NH_MP_PREFER_GLOBAL);
+		SET_FLAG(path->attr->rmap_change_flags,
+			 BATTR_RMAP_IPV6_PREFER_GLOBAL_CHANGED);
+	} else {
+		UNSET_FLAG(path->attr->nh_flags, BGP_ATTR_NH_MP_PREFER_GLOBAL);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		SET_FLAG(path->attr->rmap_change_flags,
 			 BATTR_RMAP_IPV6_PREFER_GLOBAL_CHANGED);
 	}
@@ -4073,10 +4391,15 @@ route_set_ipv6_nexthop_peer(void *rule, const struct prefix *pfx, void *object)
 	path = object;
 	peer = path->peer;
 
+<<<<<<< HEAD
 	if ((CHECK_FLAG(peer->rmap_type, PEER_RMAP_TYPE_IN)
 	     || CHECK_FLAG(peer->rmap_type, PEER_RMAP_TYPE_IMPORT))
 	    && peer->su_remote
 	    && sockunion_family(peer->su_remote) == AF_INET6) {
+=======
+	if ((CHECK_FLAG(peer->rmap_type, PEER_RMAP_TYPE_IN)) &&
+	    peer->su_remote && sockunion_family(peer->su_remote) == AF_INET6) {
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		peer_address = peer->su_remote->sin6.sin6_addr;
 		/* Set next hop value and length in attribute. */
 		if (IN6_IS_ADDR_LINKLOCAL(&peer_address)) {
@@ -4091,7 +4414,10 @@ route_set_ipv6_nexthop_peer(void *rule, const struct prefix *pfx, void *object)
 				path->attr->mp_nexthop_len =
 					BGP_ATTR_NHLEN_IPV6_GLOBAL;
 		}
+<<<<<<< HEAD
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	} else if (CHECK_FLAG(peer->rmap_type, PEER_RMAP_TYPE_OUT)) {
 		/* The next hop value will be set as part of packet
 		 * rewrite.
@@ -4250,7 +4576,11 @@ route_set_originator_id(void *rule, const struct prefix *prefix, void *object)
 	address = rule;
 	path = object;
 
+<<<<<<< HEAD
 	path->attr->flag |= ATTR_FLAG_BIT(BGP_ATTR_ORIGINATOR_ID);
+=======
+	SET_FLAG(path->attr->flag, ATTR_FLAG_BIT(BGP_ATTR_ORIGINATOR_ID));
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	path->attr->originator_id = *address;
 
 	return RMAP_OKAY;
@@ -4617,6 +4947,10 @@ static void bgp_route_map_process_update(struct bgp *bgp, const char *rmap_name,
 					route_map_counter_increment(map);
 
 				aggregate->rmap.map = map;
+<<<<<<< HEAD
+=======
+				aggregate->rmap.changed = true;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 				matched = true;
 			}
@@ -4764,6 +5098,27 @@ static void bgp_route_map_delete(const char *rmap_name)
 	route_map_notify_dependencies(rmap_name, RMAP_EVENT_MATCH_DELETED);
 }
 
+<<<<<<< HEAD
+=======
+bool bgp_route_map_has_extcommunity_rt(const struct route_map *map)
+{
+	struct route_map_index *index = NULL;
+	struct route_map_rule *set = NULL;
+
+	assert(map);
+
+	for (index = map->head; index; index = index->next) {
+		for (set = index->set_list.head; set; set = set->next) {
+			if (set->cmd && set->cmd->str &&
+			    (strmatch(set->cmd->str, "extcommunity rt") ||
+			     strmatch(set->cmd->str, "extended-comm-list")))
+				return true;
+		}
+	}
+	return false;
+}
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 static void bgp_route_map_event(const char *rmap_name)
 {
 	if (route_map_mark_updated(rmap_name) == 0)
@@ -5256,6 +5611,55 @@ DEFUN_YANG (no_match_peer,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
+<<<<<<< HEAD
+=======
+DEFPY_YANG (match_src_peer,
+       match_src_peer_cmd,
+       "match src-peer <A.B.C.D$addrv4|X:X::X:X$addrv6|WORD$intf>",
+       MATCH_STR
+       "Match source peer address\n"
+       "IP address of peer\n"
+       "IPv6 address of peer\n"
+       "Interface name of peer or peer group name\n")
+{
+	const char *xpath = "./match-condition[condition='frr-bgp-route-map:src-peer']";
+	char xpath_value[XPATH_MAXLEN];
+
+	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
+
+	snprintf(xpath_value, sizeof(xpath_value),
+		 "%s/rmap-match-condition/frr-bgp-route-map:src-peer-ipv4-address", xpath);
+	nb_cli_enqueue_change(vty, xpath_value, addrv4_str ? NB_OP_MODIFY : NB_OP_DESTROY,
+			      addrv4_str);
+	snprintf(xpath_value, sizeof(xpath_value),
+		 "%s/rmap-match-condition/frr-bgp-route-map:src-peer-ipv6-address", xpath);
+	nb_cli_enqueue_change(vty, xpath_value, addrv6_str ? NB_OP_MODIFY : NB_OP_DESTROY,
+			      addrv6_str);
+	snprintf(xpath_value, sizeof(xpath_value),
+		 "%s/rmap-match-condition/frr-bgp-route-map:src-peer-interface", xpath);
+	nb_cli_enqueue_change(vty, xpath_value, intf ? NB_OP_MODIFY : NB_OP_DESTROY, intf);
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFUN_YANG (no_match_src_peer,
+	    no_match_src_peer_cmd,
+	    "no match src-peer [<A.B.C.D|X:X::X:X|WORD>]",
+	    NO_STR
+	    MATCH_STR
+	    "Match peer address\n"
+	    "IP address of peer\n"
+	    "IPv6 address of peer\n"
+	    "Interface name of peer\n")
+{
+	const char *xpath = "./match-condition[condition='frr-bgp-route-map:src-peer']";
+
+	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 #ifdef HAVE_SCRIPTING
 DEFUN_YANG (match_script,
 	    match_script_cmd,
@@ -6857,7 +7261,11 @@ DEFUN_YANG(no_set_ecommunity_none, no_set_ecommunity_none_cmd,
 
 DEFUN_YANG (set_ecommunity_lb,
 	    set_ecommunity_lb_cmd,
+<<<<<<< HEAD
 	    "set extcommunity bandwidth <(1-25600)|cumulative|num-multipaths> [non-transitive]",
+=======
+	    "set extcommunity bandwidth <(1-4294967295)|cumulative|num-multipaths> [non-transitive]",
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	    SET_STR
 	    "BGP extended community attribute\n"
 	    "Link bandwidth extended community\n"
@@ -6911,7 +7319,11 @@ DEFUN_YANG (set_ecommunity_lb,
 
 DEFUN_YANG (no_set_ecommunity_lb,
 	    no_set_ecommunity_lb_cmd,
+<<<<<<< HEAD
 	    "no set extcommunity bandwidth <(1-25600)|cumulative|num-multipaths> [non-transitive]",
+=======
+	    "no set extcommunity bandwidth <(1-4294967295)|cumulative|num-multipaths> [non-transitive]",
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	    NO_STR
 	    SET_STR
 	    "BGP extended community attribute\n"
@@ -7747,6 +8159,10 @@ void bgp_route_map_init(void)
 	route_map_no_set_tag_hook(generic_set_delete);
 
 	route_map_install_match(&route_match_peer_cmd);
+<<<<<<< HEAD
+=======
+	route_map_install_match(&route_match_src_peer_cmd);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	route_map_install_match(&route_match_alias_cmd);
 	route_map_install_match(&route_match_local_pref_cmd);
 #ifdef HAVE_SCRIPTING
@@ -7814,6 +8230,11 @@ void bgp_route_map_init(void)
 
 	install_element(RMAP_NODE, &match_peer_cmd);
 	install_element(RMAP_NODE, &match_peer_local_cmd);
+<<<<<<< HEAD
+=======
+	install_element(RMAP_NODE, &match_src_peer_cmd);
+	install_element(RMAP_NODE, &no_match_src_peer_cmd);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	install_element(RMAP_NODE, &no_match_peer_cmd);
 	install_element(RMAP_NODE, &match_ip_route_source_cmd);
 	install_element(RMAP_NODE, &no_match_ip_route_source_cmd);

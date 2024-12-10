@@ -14,6 +14,10 @@
 #include "bgpd/bgpd.h"
 #include "bgpd/bgp_mac.h"
 #include "bgpd/bgp_memory.h"
+<<<<<<< HEAD
+=======
+#include "bgpd/bgp_label.h"
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 #include "bgpd/bgp_route.h"
 #include "bgpd/bgp_packet.h"
 #include "bgpd/bgp_rd.h"
@@ -125,6 +129,11 @@ static void bgp_process_mac_rescan_table(struct bgp *bgp, struct peer *peer,
 {
 	struct bgp_dest *pdest, *dest;
 	struct bgp_path_info *pi;
+<<<<<<< HEAD
+=======
+	uint8_t num_labels;
+	mpls_label_t *label_pnt;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	for (pdest = bgp_table_top(table); pdest;
 	     pdest = bgp_route_next(pdest)) {
@@ -140,9 +149,12 @@ static void bgp_process_mac_rescan_table(struct bgp *bgp, struct peer *peer,
 			const struct prefix *p = bgp_dest_get_prefix(dest);
 			struct prefix_evpn *pevpn = (struct prefix_evpn *)dest;
 			struct prefix_rd prd;
+<<<<<<< HEAD
 			uint32_t num_labels = 0;
 			mpls_label_t *label_pnt = NULL;
 			struct bgp_route_evpn *evpn;
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 			if (pevpn->family == AF_EVPN
 			    && pevpn->prefix.route_type == BGP_EVPN_MAC_IP_ROUTE
@@ -169,10 +181,16 @@ static void bgp_process_mac_rescan_table(struct bgp *bgp, struct peer *peer,
 			    && !dest_affected)
 				continue;
 
+<<<<<<< HEAD
 			if (pi->extra)
 				num_labels = pi->extra->num_labels;
 			if (num_labels)
 				label_pnt = &pi->extra->label[0];
+=======
+			num_labels = BGP_PATH_INFO_NUM_LABELS(pi);
+			label_pnt = num_labels ? &pi->extra->labels->label[0]
+					       : NULL;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 			prd.family = AF_UNSPEC;
 			prd.prefixlen = 64;
@@ -195,12 +213,19 @@ static void bgp_process_mac_rescan_table(struct bgp *bgp, struct peer *peer,
 				continue;
 			}
 
+<<<<<<< HEAD
 			memcpy(&evpn, bgp_attr_get_evpn_overlay(pi->attr),
 			       sizeof(evpn));
 			bgp_update(peer, p, pi->addpath_rx_id, pi->attr,
 				   AFI_L2VPN, SAFI_EVPN, ZEBRA_ROUTE_BGP,
 				   BGP_ROUTE_NORMAL, &prd, label_pnt,
 				   num_labels, 1, evpn);
+=======
+			bgp_update(peer, p, pi->addpath_rx_id, pi->attr,
+				   AFI_L2VPN, SAFI_EVPN, ZEBRA_ROUTE_BGP,
+				   BGP_ROUTE_NORMAL, &prd, label_pnt, num_labels,
+				   1, bgp_attr_get_evpn_overlay(pi->attr));
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		}
 	}
 }

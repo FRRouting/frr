@@ -15,4 +15,10 @@
 #define IPADDRESS ASN_IPADDRESS
 #define GAUGE32 ASN_UNSIGNED
 
+<<<<<<< HEAD
+=======
+extern int bgpTrapEstablished(struct peer *peer);
+extern int bgpTrapBackwardTransition(struct peer *peer);
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 #endif /* _FRR_BGP_SNMP_H_ */

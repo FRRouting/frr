@@ -1,3 +1,9 @@
+<<<<<<< HEAD
+=======
+Links
+=====
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 RFCs
 ~~~~
 
@@ -192,6 +198,7 @@ pyangbind
 -  GitHub page: https://github.com/robshakir/pyangbind
 -  Documentation: http://pynms.io/pyangbind/
 
+<<<<<<< HEAD
 ConfD
 ^^^^^
 
@@ -200,6 +207,8 @@ ConfD
 -  Training Videos: http://www.tail-f.com/confd-training-videos/
 -  Forum: http://discuss.tail-f.com/
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 Sysrepo
 ^^^^^^^
 

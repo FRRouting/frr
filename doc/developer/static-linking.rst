@@ -44,7 +44,11 @@ when building libyang statically.
 The resultant cmake command is::
 
    cmake -DENABLE_STATIC=ON -DENABLE_LYD_PRIV=ON \
+<<<<<<< HEAD
          -DCMAKE_INSTALL_PREFIX:PATH=/usr \
+=======
+         --install-prefix /usr \
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
          -DCMAKE_POSITION_INDEPENDENT_CODE=TRUE \
          -DCMAKE_BUILD_TYPE:String="Release" ..
 

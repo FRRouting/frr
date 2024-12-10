@@ -16,7 +16,10 @@
 /* RIPng version and port number. */
 #define RIPNG_V1                         1
 #define RIPNG_PORT_DEFAULT             521
+<<<<<<< HEAD
 #define RIPNG_VTY_PORT                2603
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 #define RIPNG_MAX_PACKET_SIZE         1500
 #define RIPNG_PRIORITY_DEFAULT           0
 
@@ -432,7 +435,10 @@ extern void ripng_ecmp_change(struct ripng *ripng);
 
 extern void ripng_vrf_init(void);
 extern void ripng_vrf_terminate(void);
+<<<<<<< HEAD
 extern void ripng_cli_init(void);
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 extern uint32_t zebra_ecmp_count;
 

@@ -109,6 +109,7 @@ void zebra_evpn_print(struct zebra_evpn *zevpn, void **ctxt)
 	} else {
 		json_object_int_add(json, "vni", zevpn->vni);
 		json_object_string_add(json, "type", "L2");
+<<<<<<< HEAD
 #if CONFDATE > 20240210
 CPP_NOTICE("Drop `vrf` from JSON output")
 #endif
@@ -116,14 +117,21 @@ CPP_NOTICE("Drop `vrf` from JSON output")
 				       vrf_id_to_name(zevpn->vrf_id));
 		json_object_string_add(json, "tenantVrf",
 				       vrf_id_to_name(zevpn->vrf_id));
+=======
+		json_object_string_add(json, "tenantVrf", vrf_id_to_name(zevpn->vrf_id));
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	}
 
 	if (!zevpn->vxlan_if) { // unexpected
 		if (json == NULL)
 			vty_out(vty, " VxLAN interface: unknown\n");
 		else
+<<<<<<< HEAD
 			json_object_string_add(json, "vxlanInterface",
 					       "unknown");
+=======
+			json_object_string_add(json, "vxlanInterface", "unknown");
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		return;
 	}
 	num_macs = num_valid_macs(zevpn);
@@ -135,6 +143,7 @@ CPP_NOTICE("Drop `vrf` from JSON output")
 			(zevpn->svi_if ? zevpn->svi_if->name : ""));
 		vty_out(vty, " SVI ifIndex: %u\n",
 			(zevpn->svi_if ? zevpn->svi_if->ifindex : 0));
+<<<<<<< HEAD
 		vty_out(vty, " Local VTEP IP: %pI4\n",
 			&zevpn->local_vtep_ip);
 		vty_out(vty, " Mcast group: %pI4\n",
@@ -164,6 +173,23 @@ CPP_NOTICE("Drop `ifindex` from JSON output")
 		json_object_string_add(json, "advertiseSviMacip",
 				       zevpn->advertise_svi_macip ? "Yes"
 								  : "No");
+=======
+		vty_out(vty, " Local VTEP IP: %pI4\n", &zevpn->local_vtep_ip);
+		vty_out(vty, " Mcast group: %pI4\n", &zevpn->mcast_grp);
+	} else {
+		json_object_string_add(json, "vxlanInterface", zevpn->vxlan_if->name);
+		json_object_int_add(json, "vxlanIfindex", zevpn->vxlan_if->ifindex);
+		if (zevpn->svi_if) {
+			json_object_string_add(json, "sviInterface", zevpn->svi_if->name);
+			json_object_int_add(json, "sviIfindex", zevpn->svi_if->ifindex);
+		}
+		json_object_string_addf(json, "vtepIp", "%pI4", &zevpn->local_vtep_ip);
+		json_object_string_addf(json, "mcastGroup", "%pI4", &zevpn->mcast_grp);
+		json_object_string_add(json, "advertiseGatewayMacip",
+				       zevpn->advertise_gw_macip ? "Yes" : "No");
+		json_object_string_add(json, "advertiseSviMacip",
+				       zevpn->advertise_svi_macip ? "Yes" : "No");
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		json_object_int_add(json, "numMacs", num_macs);
 		json_object_int_add(json, "numArpNd", num_neigh);
 	}
@@ -179,6 +205,7 @@ CPP_NOTICE("Drop `ifindex` from JSON output")
 			json_vtep_list = json_object_new_array();
 		for (zvtep = zevpn->vteps; zvtep; zvtep = zvtep->next) {
 			const char *flood_str = lookup_msg(
+<<<<<<< HEAD
 				zvtep_flood_str, zvtep->flood_control,
 				VXLAN_FLOOD_STR_DEFAULT);
 
@@ -194,13 +221,28 @@ CPP_NOTICE("Drop `ifindex` from JSON output")
 						       flood_str);
 				json_object_array_add(json_vtep_list,
 						      json_vtep);
+=======
+				zvtep_flood_str, zvtep->flood_control, VXLAN_FLOOD_STR_DEFAULT);
+
+			if (json == NULL) {
+				vty_out(vty, "  %pI4 flood: %s\n", &zvtep->vtep_ip, flood_str);
+			} else {
+				json_vtep = json_object_new_object();
+				json_object_string_addf(json_vtep, "ip", "%pI4", &zvtep->vtep_ip);
+				json_object_string_add(json_vtep, "flood", flood_str);
+				json_object_array_add(json_vtep_list, json_vtep);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			}
 			num_vteps++;
 		}
 		if (json) {
 			json_object_int_add(json, "numRemoteVteps", num_vteps);
+<<<<<<< HEAD
 			json_object_object_add(json, "remoteVteps",
 					       json_vtep_list);
+=======
+			json_object_object_add(json, "remoteVteps", json_vtep_list);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		}
 	}
 	if (json == NULL) {
@@ -261,8 +303,12 @@ void zebra_evpn_print_hash(struct hash_bucket *bucket, void *ctxt[])
 		json_object_int_add(json_evpn, "vni", zevpn->vni);
 		json_object_string_add(json_evpn, "type", "L2");
 		json_object_string_add(json_evpn, "vxlanIf",
+<<<<<<< HEAD
 				       zevpn->vxlan_if ? zevpn->vxlan_if->name
 						      : "unknown");
+=======
+				       zevpn->vxlan_if ? zevpn->vxlan_if->name : "unknown");
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		json_object_int_add(json_evpn, "numMacs", num_macs);
 		json_object_int_add(json_evpn, "numArpNd", num_neigh);
 		json_object_int_add(json_evpn, "numRemoteVteps", num_vteps);
@@ -272,6 +318,7 @@ void zebra_evpn_print_hash(struct hash_bucket *bucket, void *ctxt[])
 			json_vtep_list = json_object_new_array();
 			for (zvtep = zevpn->vteps; zvtep; zvtep = zvtep->next) {
 				json_ip_str = json_object_new_string(
+<<<<<<< HEAD
 					inet_ntop(AF_INET, &zvtep->vtep_ip, buf,
 						  sizeof(buf)));
 				json_object_array_add(json_vtep_list,
@@ -279,6 +326,12 @@ void zebra_evpn_print_hash(struct hash_bucket *bucket, void *ctxt[])
 			}
 			json_object_object_add(json_evpn, "remoteVteps",
 					       json_vtep_list);
+=======
+					inet_ntop(AF_INET, &zvtep->vtep_ip, buf, sizeof(buf)));
+				json_object_array_add(json_vtep_list, json_ip_str);
+			}
+			json_object_object_add(json_evpn, "remoteVteps", json_vtep_list);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		}
 		json_object_object_add(json, vni_str, json_evpn);
 	}
@@ -310,13 +363,20 @@ void zebra_evpn_print_hash_detail(struct hash_bucket *bucket, void *data)
 int zebra_evpn_del_macip_for_intf(struct interface *ifp,
 				  struct zebra_evpn *zevpn)
 {
+<<<<<<< HEAD
 	struct listnode *cnode = NULL, *cnnode = NULL;
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	struct connected *c = NULL;
 	struct ethaddr macaddr;
 
 	memcpy(&macaddr.octet, ifp->hw_addr, ETH_ALEN);
 
+<<<<<<< HEAD
 	for (ALL_LIST_ELEMENTS(ifp->connected, cnode, cnnode, c)) {
+=======
+	frr_each_safe (if_connected, ifp->connected, c) {
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		struct ipaddr ip;
 
 		memset(&ip, 0, sizeof(struct ipaddr));
@@ -344,13 +404,20 @@ int zebra_evpn_del_macip_for_intf(struct interface *ifp,
 int zebra_evpn_add_macip_for_intf(struct interface *ifp,
 				  struct zebra_evpn *zevpn)
 {
+<<<<<<< HEAD
 	struct listnode *cnode = NULL, *cnnode = NULL;
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	struct connected *c = NULL;
 	struct ethaddr macaddr;
 
 	memcpy(&macaddr.octet, ifp->hw_addr, ETH_ALEN);
 
+<<<<<<< HEAD
 	for (ALL_LIST_ELEMENTS(ifp->connected, cnode, cnnode, c)) {
+=======
+	frr_each_safe (if_connected, ifp->connected, c) {
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		struct ipaddr ip;
 
 		if (!CHECK_FLAG(c->conf, ZEBRA_IFC_REAL))
@@ -385,7 +452,11 @@ static int ip_prefix_send_to_client(vrf_id_t vrf_id, struct prefix *p,
 	if (!client)
 		return 0;
 
+<<<<<<< HEAD
 	s = stream_new(ZEBRA_MAX_PACKET_SIZ);
+=======
+	s = stream_new(ZEBRA_SMALL_PACKET_SIZE);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	zclient_create_header(s, cmd, vrf_id);
 	stream_put(s, p, sizeof(struct prefix));
@@ -409,13 +480,20 @@ static int ip_prefix_send_to_client(vrf_id_t vrf_id, struct prefix *p,
 int zebra_evpn_advertise_subnet(struct zebra_evpn *zevpn, struct interface *ifp,
 				int advertise)
 {
+<<<<<<< HEAD
 	struct listnode *cnode = NULL, *cnnode = NULL;
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	struct connected *c = NULL;
 	struct ethaddr macaddr;
 
 	memcpy(&macaddr.octet, ifp->hw_addr, ETH_ALEN);
 
+<<<<<<< HEAD
 	for (ALL_LIST_ELEMENTS(ifp->connected, cnode, cnnode, c)) {
+=======
+	frr_each (if_connected, ifp->connected, c) {
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		struct prefix p;
 
 		memcpy(&p, c->address, sizeof(struct prefix));
@@ -493,8 +571,12 @@ int zebra_evpn_gw_macip_del(struct interface *ifp, struct zebra_evpn *zevpn,
 
 	/* Remove neighbor from BGP. */
 	zebra_evpn_neigh_send_del_to_client(zevpn->vni, &n->ip, &n->emac,
+<<<<<<< HEAD
 					    n->flags, ZEBRA_NEIGH_ACTIVE,
 					    false /*force*/);
+=======
+					    n->flags, ZEBRA_NEIGH_ACTIVE, false /*force*/);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	/* Delete this neighbor entry. */
 	zebra_evpn_neigh_del(zevpn, n);
@@ -524,8 +606,12 @@ void zebra_evpn_gw_macip_del_for_evpn_hash(struct hash_bucket *bucket,
 	 */
 	if (zevpn->advertise_gw_macip) {
 		if (IS_ZEBRA_DEBUG_VXLAN)
+<<<<<<< HEAD
 			zlog_debug("VNI: %u GW-MACIP enabled, retain gw-macip",
 				   zevpn->vni);
+=======
+			zlog_debug("VNI: %u GW-MACIP enabled, retain gw-macip", zevpn->vni);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		return;
 	}
 
@@ -647,6 +733,7 @@ void zebra_evpn_svi_macip_del_for_evpn_hash(struct hash_bucket *bucket,
 	return;
 }
 
+<<<<<<< HEAD
 static int zebra_evpn_map_vlan_ns(struct ns *ns,
 				  void *_in_param,
 				  void **_p_zevpn)
@@ -666,11 +753,25 @@ static int zebra_evpn_map_vlan_ns(struct ns *ns,
 	uint8_t bridge_vlan_aware;
 
 	assert(p_zevpn && in_param);
+=======
+/* Callback for per-NS ifp walk */
+static int zebra_evpn_map_vlan_ns(struct interface *tmp_if, void *_in_param)
+{
+	bool found = false;
+	struct interface *br_if;
+	struct zebra_evpn *zevpn;
+	struct zebra_if *zif;
+	struct zebra_from_svi_param *in_param = _in_param;
+	vni_t vni_id = 0;
+
+	assert(in_param);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	br_if = in_param->br_if;
 	assert(br_if);
 	zif = in_param->zif;
 	assert(zif);
+<<<<<<< HEAD
 	vid = in_param->vid;
 	bridge_vlan_aware = in_param->bridge_vlan_aware;
 
@@ -706,11 +807,37 @@ static int zebra_evpn_map_vlan_ns(struct ns *ns,
 		}
 	}
 
+=======
+
+	/*
+	 * See if this interface (or interface plus VLAN Id) maps to a
+	 * VxLAN
+	 */
+	/* TODO: Optimize with a hash. */
+	zif = tmp_if->info;
+	if (!zif || zif->zif_type != ZEBRA_IF_VXLAN)
+		goto done;
+	if (!if_is_operative(tmp_if))
+		goto done;
+
+	if (zif->brslave_info.br_if != br_if)
+		goto done;
+
+	vni_id = zebra_vxlan_if_access_vlan_vni_find(zif, br_if);
+	if (vni_id)
+		found = true;
+
+done:
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	if (!found)
 		return NS_WALK_CONTINUE;
 
 	zevpn = zebra_evpn_lookup(vni_id);
+<<<<<<< HEAD
 	*p_zevpn = zevpn;
+=======
+	in_param->zevpn = zevpn;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	return NS_WALK_STOP;
 }
 
@@ -722,13 +849,19 @@ struct zebra_evpn *zebra_evpn_map_vlan(struct interface *ifp,
 				       struct interface *br_if, vlanid_t vid)
 {
 	struct zebra_if *zif;
+<<<<<<< HEAD
 	struct zebra_evpn **p_zevpn;
 	struct zebra_evpn *zevpn = NULL;
 	struct zebra_from_svi_param in_param;
+=======
+	struct zebra_from_svi_param in_param = {};
+	vni_t vni_id = 0;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	/* Determine if bridge is VLAN-aware or not */
 	zif = br_if->info;
 	assert(zif);
+<<<<<<< HEAD
 	in_param.bridge_vlan_aware = IS_ZEBRA_IF_BRIDGE_VLAN_AWARE(zif);
 	in_param.vid = vid;
 	in_param.br_if = br_if;
@@ -760,6 +893,35 @@ static int zebra_evpn_from_svi_ns(struct ns *ns,
 	vni_t vni_id = 0;
 	vlanid_t vid = 0;
 	uint8_t bridge_vlan_aware;
+=======
+
+	/* Special case for vlan */
+	if (IS_ZEBRA_IF_BRIDGE_VLAN_AWARE(zif)) {
+		vni_id = zebra_l2_bridge_if_vni_find(zif, vid);
+		if (vni_id)
+			return zebra_evpn_lookup(vni_id);
+	}
+
+	in_param.vid = vid;
+	in_param.br_if = br_if;
+	in_param.zif = zif;
+
+	zebra_ns_ifp_walk_all(zebra_evpn_map_vlan_ns, &in_param);
+
+	return in_param.zevpn;
+}
+
+/* Callback for from_svi ifp walker */
+static int zebra_evpn_from_svi_ns(struct interface *tmp_if, void *_in_param)
+{
+	struct interface *br_if;
+	struct zebra_evpn *zevpn;
+	struct zebra_if *zif;
+	struct zebra_if *br_zif;
+	struct zebra_from_svi_param *in_param = _in_param;
+	bool found = false;
+	vni_t vni_id = 0;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	if (!in_param)
 		return NS_WALK_STOP;
@@ -767,6 +929,7 @@ static int zebra_evpn_from_svi_ns(struct ns *ns,
 	br_if = in_param->br_if;
 	zif = in_param->zif;
 	assert(zif);
+<<<<<<< HEAD
 	bridge_vlan_aware = in_param->bridge_vlan_aware;
 	vid = in_param->vid;
 	br_zif = br_if->info;
@@ -802,12 +965,37 @@ static int zebra_evpn_from_svi_ns(struct ns *ns,
 		}
 	}
 
+=======
+	br_zif = br_if->info;
+	assert(br_zif);
+
+	if (!tmp_if)
+		goto done;
+	zif = tmp_if->info;
+	if (!zif || zif->zif_type != ZEBRA_IF_VXLAN)
+		goto done;
+	if (!if_is_operative(tmp_if))
+		goto done;
+
+	if (zif->brslave_info.br_if != br_if)
+		goto done;
+
+	vni_id = zebra_vxlan_if_access_vlan_vni_find(zif, br_if);
+	if (vni_id)
+		found = true;
+
+done:
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	if (!found)
 		return NS_WALK_CONTINUE;
 
 	zevpn = zebra_evpn_lookup(vni_id);
+<<<<<<< HEAD
 	if (p_zevpn)
 		*p_zevpn = zevpn;
+=======
+	in_param->zevpn = zevpn;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	return NS_WALK_STOP;
 }
 
@@ -818,17 +1006,34 @@ static int zebra_evpn_from_svi_ns(struct ns *ns,
 struct zebra_evpn *zebra_evpn_from_svi(struct interface *ifp,
 				       struct interface *br_if)
 {
+<<<<<<< HEAD
 	struct zebra_evpn *zevpn = NULL;
 	struct zebra_evpn **p_zevpn;
 	struct zebra_if *zif;
 	struct zebra_from_svi_param in_param;
+=======
+	struct zebra_if *zif;
+	struct zebra_l2_bridge_vlan *bvlan;
+	struct zebra_from_svi_param in_param = {};
+	vni_t vni_id = 0;
+	struct zebra_evpn *zevpn;
+	struct zebra_l2info_vlan *vl;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	if (!br_if)
 		return NULL;
 
 	/* Make sure the linked interface is a bridge. */
+<<<<<<< HEAD
 	if (!IS_ZEBRA_IF_BRIDGE(br_if))
 		return NULL;
+=======
+	if (!IS_ZEBRA_IF_BRIDGE(br_if)) {
+		if (IS_ZEBRA_DEBUG_VXLAN)
+			zlog_debug("%s: br_if NOT a bridge", __func__);
+		return NULL;
+	}
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	/* Determine if bridge is VLAN-aware or not */
 	zif = br_if->info;
@@ -836,16 +1041,27 @@ struct zebra_evpn *zebra_evpn_from_svi(struct interface *ifp,
 	in_param.bridge_vlan_aware = IS_ZEBRA_IF_BRIDGE_VLAN_AWARE(zif);
 	in_param.vid = 0;
 
+<<<<<<< HEAD
 	if (in_param.bridge_vlan_aware) {
 		struct zebra_l2info_vlan *vl;
 
 		if (!IS_ZEBRA_IF_VLAN(ifp))
 			return NULL;
 
+=======
+	/* Don't need to search in this case */
+	if (in_param.bridge_vlan_aware) {
+		if (!IS_ZEBRA_IF_VLAN(ifp))
+			return NULL;
+
+		zevpn = NULL;
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		zif = ifp->info;
 		assert(zif);
 		vl = &zif->l2info.vl;
 		in_param.vid = vl->vid;
+<<<<<<< HEAD
 	}
 
 	in_param.br_if = br_if;
@@ -888,6 +1104,51 @@ static int zvni_map_to_macvlan_ns(struct ns *ns,
 		}
 	}
 
+=======
+
+		bvlan = zebra_l2_bridge_if_vlan_find(br_if->info, vl->vid);
+		if (bvlan && bvlan->access_bd && bvlan->access_bd->vni) {
+			vni_id = bvlan->access_bd->vni;
+			zevpn = zebra_evpn_lookup(vni_id);
+		}
+
+		return zevpn;
+	}
+
+	/* See if this interface (or interface plus VLAN Id) maps to a VxLAN:
+	 * search all NSes
+	 */
+	in_param.br_if = br_if;
+	in_param.zif = zif;
+	zebra_ns_ifp_walk_all(zebra_evpn_from_svi_ns, &in_param);
+
+	return in_param.zevpn;
+}
+
+static int zvni_map_to_macvlan_ns(struct interface *tmp_if, void *_in_param)
+{
+	struct zebra_from_svi_param *in_param = _in_param;
+	struct zebra_if *zif;
+
+	assert(in_param);
+
+	/* Identify corresponding VLAN interface. */
+
+	/* Check oper status of the SVI. */
+	if (!tmp_if || !if_is_operative(tmp_if))
+		goto done;
+
+	zif = tmp_if->info;
+	if (!zif || zif->zif_type != ZEBRA_IF_MACVLAN)
+		goto done;
+
+	if (zif->link == in_param->svi_if) {
+		in_param->ret_ifp = tmp_if;
+		return NS_WALK_STOP;
+	}
+
+done:
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	return NS_WALK_CONTINUE;
 }
 
@@ -896,17 +1157,27 @@ static int zvni_map_to_macvlan_ns(struct ns *ns,
 struct interface *zebra_evpn_map_to_macvlan(struct interface *br_if,
 					    struct interface *svi_if)
 {
+<<<<<<< HEAD
 	struct interface *tmp_if = NULL;
 	struct zebra_if *zif;
 	struct interface **p_ifp;
 	struct zebra_from_svi_param in_param;
+=======
+	struct zebra_if *zif;
+	struct zebra_from_svi_param in_param = {};
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	/* Defensive check, caller expected to invoke only with valid bridge. */
 	if (!br_if)
 		return NULL;
 
 	if (!svi_if) {
+<<<<<<< HEAD
 		zlog_debug("svi_if is not passed.");
+=======
+		if (IS_ZEBRA_DEBUG_VXLAN)
+			zlog_debug("%s: svi_if is not passed.", __func__);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		return NULL;
 	}
 
@@ -918,6 +1189,7 @@ struct interface *zebra_evpn_map_to_macvlan(struct interface *br_if,
 	in_param.br_if = br_if;
 	in_param.zif = NULL;
 	in_param.svi_if = svi_if;
+<<<<<<< HEAD
 	p_ifp = &tmp_if;
 
 	/* Identify corresponding VLAN interface. */
@@ -925,6 +1197,12 @@ struct interface *zebra_evpn_map_to_macvlan(struct interface *br_if,
 		     (void *)&in_param,
 		     (void **)p_ifp);
 	return tmp_if;
+=======
+
+	/* Identify corresponding VLAN interface. */
+	zebra_ns_ifp_walk_all(zvni_map_to_macvlan_ns, &in_param);
+	return in_param.ret_ifp;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 }
 
 /*
@@ -1128,8 +1406,12 @@ struct zebra_evpn *zebra_evpn_add(vni_t vni)
 	/* Create hash table for MAC */
 	zevpn->mac_table = zebra_mac_db_create(buffer);
 
+<<<<<<< HEAD
 	snprintf(buffer, sizeof(buffer), "Zebra EVPN Neighbor Table vni: %u",
 		 vni);
+=======
+	snprintf(buffer, sizeof(buffer), "Zebra EVPN Neighbor Table vni: %u", vni);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	/* Create hash table for neighbors */
 	zevpn->neigh_table = zebra_neigh_db_create(buffer);
 
@@ -1185,7 +1467,11 @@ int zebra_evpn_send_add_to_client(struct zebra_evpn *zevpn)
 
 	svi_index = zevpn->svi_if ? zevpn->svi_if->ifindex : 0;
 
+<<<<<<< HEAD
 	s = stream_new(ZEBRA_MAX_PACKET_SIZ);
+=======
+	s = stream_new(ZEBRA_SMALL_PACKET_SIZE);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	zclient_create_header(s, ZEBRA_VNI_ADD, zebra_vrf_get_evpn_id());
 	stream_putl(s, zevpn->vni);
@@ -1208,8 +1494,13 @@ int zebra_evpn_send_add_to_client(struct zebra_evpn *zevpn)
 	client->vniadd_cnt++;
 	rc = zserv_send_message(client, s);
 
+<<<<<<< HEAD
 	if (!(zevpn->flags & ZEVPN_READY_FOR_BGP)) {
 		zevpn->flags |= ZEVPN_READY_FOR_BGP;
+=======
+	if (!CHECK_FLAG(zevpn->flags, ZEVPN_READY_FOR_BGP)) {
+		SET_FLAG(zevpn->flags, ZEVPN_READY_FOR_BGP);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		/* once the EVPN is sent the ES-EVIs can also be replayed
 		 * to BGP
 		 */
@@ -1231,13 +1522,22 @@ int zebra_evpn_send_del_to_client(struct zebra_evpn *zevpn)
 	if (!client)
 		return 0;
 
+<<<<<<< HEAD
 	if (zevpn->flags & ZEVPN_READY_FOR_BGP) {
 		zevpn->flags &= ~ZEVPN_READY_FOR_BGP;
+=======
+	if (CHECK_FLAG(zevpn->flags, ZEVPN_READY_FOR_BGP)) {
+		UNSET_FLAG(zevpn->flags, ZEVPN_READY_FOR_BGP);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		/* the ES-EVIs must be removed from BGP before the EVPN is */
 		zebra_evpn_update_all_es(zevpn);
 	}
 
+<<<<<<< HEAD
 	s = stream_new(ZEBRA_MAX_PACKET_SIZ);
+=======
+	s = stream_new(ZEBRA_SMALL_PACKET_SIZE);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	stream_reset(s);
 
 	zclient_create_header(s, ZEBRA_VNI_DEL, zebra_vrf_get_evpn_id());
@@ -1353,8 +1653,12 @@ int zebra_evpn_vtep_install(struct zebra_evpn *zevpn, struct zebra_vtep *zvtep)
 	if (is_vxlan_flooding_head_end() &&
 	    (zvtep->flood_control == VXLAN_FLOOD_HEAD_END_REPL)) {
 		if (ZEBRA_DPLANE_REQUEST_FAILURE ==
+<<<<<<< HEAD
 		    dplane_vtep_add(zevpn->vxlan_if,
 				    &zvtep->vtep_ip, zevpn->vni))
+=======
+		    dplane_vtep_add(zevpn->vxlan_if, &zvtep->vtep_ip, zevpn->vni))
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			return -1;
 	}
 
@@ -1367,8 +1671,14 @@ int zebra_evpn_vtep_install(struct zebra_evpn *zevpn, struct zebra_vtep *zvtep)
 int zebra_evpn_vtep_uninstall(struct zebra_evpn *zevpn, struct in_addr *vtep_ip)
 {
 	if (!zevpn->vxlan_if) {
+<<<<<<< HEAD
 		zlog_debug("VNI %u hash %p couldn't be uninstalled - no intf",
 			   zevpn->vni, zevpn);
+=======
+		if (IS_ZEBRA_DEBUG_VXLAN)
+			zlog_debug("VNI %u hash %p couldn't be uninstalled - no intf",
+				   zevpn->vni, zevpn);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		return -1;
 	}
 
@@ -1445,9 +1755,13 @@ static void zebra_evpn_process_sync_macip_add(struct zebra_evpn *zevpn,
 				zevpn->vni,
 				macaddr,
 				ipa_len ? " IP " : "",
+<<<<<<< HEAD
 				ipa_len ? ipaddr2str(ipaddr, ipbuf,
 						     sizeof(ipbuf))
 					: "",
+=======
+				ipa_len ? ipaddr2str(ipaddr, ipbuf, sizeof(ipbuf)) : "",
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 				sticky ? " sticky" : "",
 				remote_gw ? " remote_gw" : "");
 		return;
@@ -1462,16 +1776,24 @@ static void zebra_evpn_process_sync_macip_add(struct zebra_evpn *zevpn,
 		mac = zebra_evpn_mac_lookup(zevpn, macaddr);
 		if (!mac) {
 			mac = zebra_evpn_proc_sync_mac_update(zevpn, macaddr,
+<<<<<<< HEAD
 							      ipa_len, ipaddr,
 							      flags, seq, esi);
+=======
+							      ipa_len, ipaddr, flags, seq, esi);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		}
 		if (!mac)
 			return;
 
 		n = zebra_evpn_neigh_lookup(zevpn, ipaddr);
+<<<<<<< HEAD
 		if (n
 		    && !zebra_evpn_neigh_is_bgp_seq_ok(zevpn, n, macaddr, seq,
 						       true))
+=======
+		if (n && !zebra_evpn_neigh_is_bgp_seq_ok(zevpn, n, macaddr, seq, true))
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			return;
 
 		zebra_evpn_proc_sync_neigh_update(zevpn, n, ipa_len, ipaddr,
@@ -1517,6 +1839,7 @@ void zebra_evpn_rem_macip_add(vni_t vni, const struct ethaddr *macaddr,
 	 * SYNC - if ES is local
 	 * REMOTE - if ES is not local
 	 */
+<<<<<<< HEAD
 	if (flags & ZEBRA_MACIP_TYPE_SYNC_PATH) {
 		struct zebra_evpn_es *es;
 
@@ -1525,14 +1848,27 @@ void zebra_evpn_rem_macip_add(vni_t vni, const struct ethaddr *macaddr,
 			zebra_evpn_process_sync_macip_add(zevpn, macaddr,
 							  ipa_len, ipaddr,
 							  flags, seq, esi);
+=======
+	if (CHECK_FLAG(flags, ZEBRA_MACIP_TYPE_SYNC_PATH)) {
+		struct zebra_evpn_es *es;
+
+		es = zebra_evpn_es_find(esi);
+		if (es && CHECK_FLAG(es->flags, ZEBRA_EVPNES_READY_FOR_BGP)) {
+			zebra_evpn_process_sync_macip_add(zevpn, macaddr,
+							  ipa_len, ipaddr, flags, seq, esi);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		} else {
 			if (IS_ZEBRA_DEBUG_EVPN_MH_ES) {
 				char esi_str[ESI_STR_LEN];
 
 				esi_to_str(esi, esi_str, sizeof(esi_str));
+<<<<<<< HEAD
 				zlog_debug(
 					"Ignore sync-macip add; ES %s is not ready",
 					esi_str);
+=======
+				zlog_debug("Ignore sync-macip add; ES %s is not ready", esi_str);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			}
 		}
 
@@ -1546,8 +1882,12 @@ void zebra_evpn_rem_macip_add(vni_t vni, const struct ethaddr *macaddr,
 	if (vtep_ip.s_addr) {
 		zvtep = zebra_evpn_vtep_find(zevpn, &vtep_ip);
 		if (!zvtep) {
+<<<<<<< HEAD
 			zvtep = zebra_evpn_vtep_add(zevpn, &vtep_ip,
 						    VXLAN_FLOOD_DISABLED);
+=======
+			zvtep = zebra_evpn_vtep_add(zevpn, &vtep_ip, VXLAN_FLOOD_DISABLED);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			if (!zvtep) {
 				flog_err(
 					EC_ZEBRA_VTEP_ADD_FAILED,
@@ -1624,9 +1964,13 @@ void zebra_evpn_rem_macip_del(vni_t vni, const struct ethaddr *macaddr,
 	vnip = zebra_vxlan_if_vni_find(zif, vni);
 	if (!vnip) {
 		if (IS_ZEBRA_DEBUG_VXLAN)
+<<<<<<< HEAD
 			zlog_debug(
 				"VNI %u not in interface upon remote MACIP DEL",
 				vni);
+=======
+			zlog_debug("VNI %u not in interface upon remote MACIP DEL", vni);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		return;
 	}
 

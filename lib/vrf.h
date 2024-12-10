@@ -300,6 +300,10 @@ extern int vrf_enable(struct vrf *vrf);
 extern void vrf_delete(struct vrf *vrf);
 
 extern const struct frr_yang_module_info frr_vrf_info;
+<<<<<<< HEAD
+=======
+extern const struct frr_yang_module_info frr_vrf_cli_info;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 #ifdef __cplusplus
 }

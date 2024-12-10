@@ -124,7 +124,11 @@ Install libyang and its dependencies:
    sudo yum install pcre-devel doxygen cmake
    git clone https://github.com/CESNET/libyang.git
    cd libyang
+<<<<<<< HEAD
    git checkout 090926a89d59a3c4000719505d563aaf6ac60f2
+=======
+   git checkout v2.1.128
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
    mkdir build ; cd build
    cmake -DENABLE_LYD_PRIV=ON -DCMAKE_INSTALL_PREFIX:PATH=/usr -D CMAKE_BUILD_TYPE:String="Release" ..
    make build-rpm
@@ -161,10 +165,15 @@ an example.)
     ./configure \
         --bindir=/usr/bin \
         --sbindir=/usr/lib/frr \
+<<<<<<< HEAD
         --sysconfdir=/etc/frr \
         --libdir=/usr/lib/frr \
         --libexecdir=/usr/lib/frr \
         --localstatedir=/var/run/frr \
+=======
+        --libdir=/usr/lib/frr \
+        --libexecdir=/usr/lib/frr \
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         --with-moduledir=/usr/lib/frr/modules \
         --disable-pimd \
         --enable-snmp=agentx \

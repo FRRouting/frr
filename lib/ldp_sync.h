@@ -59,7 +59,11 @@ struct ldp_igp_sync_if_state {
 struct ldp_igp_sync_if_state_req {
 	int proto;
 	ifindex_t ifindex;
+<<<<<<< HEAD
 	char name[INTERFACE_NAMSIZ];
+=======
+	char name[IFNAMSIZ];
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 };
 
 #ifdef __cplusplus

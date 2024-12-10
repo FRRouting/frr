@@ -6,6 +6,11 @@
  */
 
 #include <zebra.h>
+<<<<<<< HEAD
+=======
+
+#include <signal.h>
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 #include <sys/wait.h>
 
 #include "memory.h"
@@ -16,6 +21,11 @@
 
 #include "watchfrr.h"
 
+<<<<<<< HEAD
+=======
+#include "lib/config_paths.h"
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 pid_t integrated_write_pid;
 static int integrated_result_fd;
 

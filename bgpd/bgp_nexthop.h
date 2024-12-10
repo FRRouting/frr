@@ -38,7 +38,22 @@ struct bgp_nexthop_cache {
 	uint32_t metric;
 
 	/* Nexthop number and nexthop linked list.*/
+<<<<<<< HEAD
 	uint8_t nexthop_num;
+=======
+	uint16_t nexthop_num;
+
+	/* This flag is set to TRUE for a bnc that is gateway IP overlay index
+	 * nexthop.
+	 */
+	bool is_evpn_gwip_nexthop;
+
+	uint8_t change_flags;
+#define BGP_NEXTHOP_CHANGED	      (1 << 0)
+#define BGP_NEXTHOP_METRIC_CHANGED    (1 << 1)
+#define BGP_NEXTHOP_MACIP_CHANGED     (1 << 2)
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	struct nexthop *nexthop;
 	time_t last_update;
 	uint16_t flags;
@@ -54,6 +69,10 @@ struct bgp_nexthop_cache {
 #define BGP_STATIC_ROUTE              (1 << 4)
 #define BGP_STATIC_ROUTE_EXACT_MATCH  (1 << 5)
 #define BGP_NEXTHOP_LABELED_VALID     (1 << 6)
+<<<<<<< HEAD
+=======
+#define BGP_NEXTHOP_ULTIMATE	      (1 << 7)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 /*
  * This flag is added for EVPN gateway IP nexthops.
@@ -72,27 +91,39 @@ struct bgp_nexthop_cache {
  */
 #define BGP_NEXTHOP_EVPN_INCOMPLETE (1 << 7)
 
+<<<<<<< HEAD
 	uint16_t change_flags;
 
 #define BGP_NEXTHOP_CHANGED           (1 << 0)
 #define BGP_NEXTHOP_METRIC_CHANGED    (1 << 1)
 #define BGP_NEXTHOP_CONNECTED_CHANGED (1 << 2)
 #define BGP_NEXTHOP_MACIP_CHANGED (1 << 3)
+=======
+	uint32_t srte_color;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	/* Back pointer to the cache tree this entry belongs to. */
 	struct bgp_nexthop_cache_head *tree;
 
+<<<<<<< HEAD
 	uint32_t srte_color;
 	struct prefix prefix;
+=======
+	struct prefix prefix;
+	struct prefix resolved_prefix;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	void *nht_info; /* In BGP, peer session */
 	LIST_HEAD(path_list, bgp_path_info) paths;
 	unsigned int path_count;
 	struct bgp *bgp;
+<<<<<<< HEAD
 
 	/* This flag is set to TRUE for a bnc that is gateway IP overlay index
 	 * nexthop.
 	 */
 	bool is_evpn_gwip_nexthop;
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 };
 
 extern int bgp_nexthop_cache_compare(const struct bgp_nexthop_cache *a,

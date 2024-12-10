@@ -5,6 +5,13 @@
 
 #include <zebra.h>
 
+<<<<<<< HEAD
+=======
+#ifdef GNU_LINUX
+#include <linux/rtnetlink.h>
+#endif
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 #include "command.h"
 #include "if.h"
 #include "linklist.h"
@@ -25,6 +32,10 @@
 #include "frr_pthread.h"
 #include "printfrr.h"
 #include "frrscript.h"
+<<<<<<< HEAD
+=======
+#include "frrdistance.h"
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 #include "zebra/zebra_router.h"
 #include "zebra/connected.h"
@@ -103,6 +114,12 @@ static const struct {
 	[ZEBRA_ROUTE_CONNECT] = {ZEBRA_ROUTE_CONNECT,
 				 ZEBRA_CONNECT_DISTANCE_DEFAULT,
 				 META_QUEUE_CONNECTED},
+<<<<<<< HEAD
+=======
+	[ZEBRA_ROUTE_LOCAL] = {ZEBRA_ROUTE_LOCAL,
+			       ZEBRA_CONNECT_DISTANCE_DEFAULT,
+			       META_QUEUE_CONNECTED},
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	[ZEBRA_ROUTE_STATIC] = {ZEBRA_ROUTE_STATIC,
 				ZEBRA_STATIC_DISTANCE_DEFAULT,
 				META_QUEUE_STATIC},
@@ -130,6 +147,10 @@ static const struct {
 	[ZEBRA_ROUTE_OLSR] = {ZEBRA_ROUTE_OLSR, ZEBRA_MAX_DISTANCE_DEFAULT,
 			      META_QUEUE_OTHER},
 	[ZEBRA_ROUTE_TABLE] = {ZEBRA_ROUTE_TABLE, ZEBRA_TABLE_DISTANCE_DEFAULT, META_QUEUE_STATIC},
+<<<<<<< HEAD
+=======
+	[ZEBRA_ROUTE_TABLE_DIRECT] = {ZEBRA_ROUTE_TABLE_DIRECT, ZEBRA_TABLEDIRECT_DISTANCE_DEFAULT, META_QUEUE_STATIC},
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	[ZEBRA_ROUTE_LDP] = {ZEBRA_ROUTE_LDP, ZEBRA_LDP_DISTANCE_DEFAULT,
 			     META_QUEUE_OTHER},
 	[ZEBRA_ROUTE_VNC] = {ZEBRA_ROUTE_VNC, ZEBRA_EBGP_DISTANCE_DEFAULT,
@@ -177,6 +198,10 @@ struct wq_nhg_wrapper {
 		struct nhg_ctx *ctx;
 		struct nhg_hash_entry *nhe;
 	} u;
+<<<<<<< HEAD
+=======
+	bool deletion;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 };
 
 #define WQ_NHG_WRAPPER_TYPE_CTX  0x01
@@ -306,12 +331,27 @@ static ssize_t printfrr_zebra_node(struct fbuf *buf, struct printfrr_eargs *ea,
 }
 
 #define rnode_debug(node, vrf_id, msg, ...)                                    \
+<<<<<<< HEAD
 	zlog_debug("%s: (%u:%pZNt):%pZN: " msg, __func__, vrf_id, node, node,  \
 		   ##__VA_ARGS__)
 
 #define rnode_info(node, vrf_id, msg, ...)                                     \
 	zlog_info("%s: (%u:%pZNt):%pZN: " msg, __func__, vrf_id, node, node,   \
 		  ##__VA_ARGS__)
+=======
+	do {                                                                   \
+		struct vrf *vrf = vrf_lookup_by_id(vrf_id);                    \
+		zlog_debug("%s: (%s:%pZNt):%pZN: " msg, __func__,              \
+			   VRF_LOGNAME(vrf), node, node, ##__VA_ARGS__);       \
+	} while (0)
+
+#define rnode_info(node, vrf_id, msg, ...)                                     \
+	do {                                                                   \
+		struct vrf *vrf = vrf_lookup_by_id(vrf_id);                    \
+		zlog_info("%s: (%s:%pZNt):%pZN: " msg, __func__,               \
+			  VRF_LOGNAME(vrf), node, node, ##__VA_ARGS__);        \
+	} while (0)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 static char *_dump_re_status(const struct route_entry *re, char *buf,
 			     size_t len)
@@ -521,7 +561,12 @@ struct route_entry *rib_match(afi_t afi, safi_t safi, vrf_id_t vrf_id,
 			if (rn)
 				route_lock_node(rn);
 		} else {
+<<<<<<< HEAD
 			if (match->type != ZEBRA_ROUTE_CONNECT) {
+=======
+			if (match->type != ZEBRA_ROUTE_CONNECT &&
+			    match->type != ZEBRA_ROUTE_LOCAL) {
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 				if (!CHECK_FLAG(match->status,
 						ROUTE_ENTRY_INSTALLED))
 					return NULL;
@@ -594,6 +639,7 @@ struct route_entry *rib_match_multicast(afi_t afi, vrf_id_t vrf_id,
 	return re;
 }
 
+<<<<<<< HEAD
 struct route_entry *rib_lookup_ipv4(struct prefix_ipv4 *p, vrf_id_t vrf_id)
 {
 	struct route_table *table;
@@ -632,6 +678,8 @@ struct route_entry *rib_lookup_ipv4(struct prefix_ipv4 *p, vrf_id_t vrf_id)
 	return NULL;
 }
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 /*
  * Is this RIB labeled-unicast? It must be of type BGP and all paths
  * (nexthops) must have a label.
@@ -639,8 +687,15 @@ struct route_entry *rib_lookup_ipv4(struct prefix_ipv4 *p, vrf_id_t vrf_id)
 int zebra_rib_labeled_unicast(struct route_entry *re)
 {
 	struct nexthop *nexthop = NULL;
+<<<<<<< HEAD
 
 	if (re->type != ZEBRA_ROUTE_BGP)
+=======
+	struct zebra_vrf *zvrf = vrf_info_lookup(re->vrf_id);
+
+	if ((re->type != ZEBRA_ROUTE_BGP) &&
+	    !zvrf->zebra_mpls_fec_nexthop_resolution)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		return 0;
 
 	for (ALL_NEXTHOPS(re->nhe->nhg, nexthop))
@@ -656,14 +711,20 @@ int zebra_rib_labeled_unicast(struct route_entry *re)
 void rib_install_kernel(struct route_node *rn, struct route_entry *re,
 			struct route_entry *old)
 {
+<<<<<<< HEAD
 	struct nexthop *nexthop;
 	struct rib_table_info *info = srcdest_rnode_table_info(rn);
 	struct zebra_vrf *zvrf = zebra_vrf_lookup_by_id(re->vrf_id);
 	const struct prefix *p, *src_p;
+=======
+	struct rib_table_info *info = srcdest_rnode_table_info(rn);
+	struct zebra_vrf *zvrf = zebra_vrf_lookup_by_id(re->vrf_id);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	enum zebra_dplane_result ret;
 
 	rib_dest_t *dest = rib_dest_from_rnode(rn);
 
+<<<<<<< HEAD
 	srcdest_rnode_prefixes(rn, &p, &src_p);
 
 	if (info->safi != SAFI_UNICAST) {
@@ -677,6 +738,12 @@ void rib_install_kernel(struct route_node *rn, struct route_entry *re,
 	 * Install the resolved nexthop object first.
 	 */
 	zebra_nhg_install_kernel(re->nhe);
+=======
+	/*
+	 * Install the resolved nexthop object first.
+	 */
+	zebra_nhg_install_kernel(re->nhe, re->type);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	/*
 	 * If this is a replace to a new RE let the originator of the RE
@@ -739,6 +806,7 @@ void rib_install_kernel(struct route_node *rn, struct route_entry *re,
 /* Uninstall the route from kernel. */
 void rib_uninstall_kernel(struct route_node *rn, struct route_entry *re)
 {
+<<<<<<< HEAD
 	struct nexthop *nexthop;
 	struct rib_table_info *info = srcdest_rnode_table_info(rn);
 	struct zebra_vrf *zvrf = zebra_vrf_lookup_by_id(re->vrf_id);
@@ -750,6 +818,10 @@ void rib_uninstall_kernel(struct route_node *rn, struct route_entry *re)
 		return;
 	}
 
+=======
+	struct zebra_vrf *zvrf = zebra_vrf_lookup_by_id(re->vrf_id);
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	/*
 	 * Make sure we update the FPM any time we send new information to
 	 * the dataplane.
@@ -814,13 +886,85 @@ void zebra_rib_evaluate_rn_nexthops(struct route_node *rn, uint32_t seq,
 	struct rnh *rnh;
 
 	/*
+<<<<<<< HEAD
 	 * We are storing the rnh's associated withb
 	 * the tracked nexthop as a list of the rn's.
+=======
+	 * We are storing the rnh's associated with
+	 * the tracked nexthop as a list of the rnh's
+	 * on the rn that we have matched to.  As an
+	 * example if you have these rnh's:
+	 * rnh 1.1.1.1
+	 * rnh 1.1.1.2
+	 * rnh 1.1.3.4
+	 * rnh 4.5.6.7
+	 * Now imagine that you have in the tree these
+	 * prefix's:
+	 * 1.1.1.1/32
+	 * 1.1.1.0/24
+	 * 1.1.0.0/16
+	 * 0.0.0.0/0
+	 *
+	 * The 1.1.1.1 rnh would be stored on 1.1.1.1/32
+	 * The 1.1.1.2 rnh would be stored on 1.1.1.0/24
+	 * The 1.1.3.4 rnh would be stored on the 1.1.0.0/16
+	 * and finally the 4.5.6.7 would be stored on the 0.0.0.0/0
+	 * prefix.
+	 *
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	 * Unresolved rnh's are placed at the top
 	 * of the tree list.( 0.0.0.0/0 for v4 and 0::0/0 for v6 )
 	 * As such for each rn we need to walk up the tree
 	 * and see if any rnh's need to see if they
 	 * would match a more specific route
+<<<<<<< HEAD
+=======
+	 *
+	 * Now if a 1.1.1.2/32 prefix was added to the tree
+	 * this function would start at this new node and
+	 * see that the 1.1.1.2/32 node has no rnh's and
+	 * there is nothing to do on this node currently,
+	 * so the function would walk the parent pointers, until the
+	 * 1.1.1.0/24 node is hit with the 1.1.1.2 rnh.  This function
+	 * would then call zebra_evaluate_rnh() which would then
+	 * do a LPM and match on the 1.1.1.2/32 node.  This function
+	 * would then pull the 1.1.1.2 rnh off the 1.1.1.0/24 node
+	 * and place it on the 1.1.1.1/32 node and notify the upper
+	 * level protocols interested about the change( as necessary ).
+	 * At this point in time a sequence number is added to note
+	 * that the rnh has been moved.
+	 * The function would also continue to walk up the tree
+	 * looking at the list of rnh's and moving them around
+	 * as necessary.  Since in this example nothing else
+	 * would change no further actions are made.
+	 *
+	 * Another case to consider is a node being deleted
+	 * suppose the 1.1.1.2/32 route is being deleted.
+	 * This function would start at the 1.1.1.1/32 node,
+	 * perform a LPM and settle on the 1.1.1.0/24 node
+	 * as where it belongs.  The code would update appropriate
+	 * interested parties and additionally also mark the sequence
+	 * number and walk up the tree.  Eventually it would get to
+	 * the 1.1.1.0/24 node and since the seqno matches we would
+	 * know that it is not necessary to reconsider this node
+	 * as it was already moved to this spot.
+	 *
+	 * This all works because each node's parent pointer points
+	 * to a node that has a prefix that contains this node.  Eventually
+	 * the parent traversal will hit the 0.0.0.0/0 node and we know
+	 * we are done.  We know this is pretty efficient because when
+	 * a more specific is added as we walk the tree we can
+	 * find the rnh's that matched to a less specific very easily
+	 * and move them to a more specific node.  Also vice-versa as a
+	 * more specific node is removed.
+	 *
+	 * Long term the rnh code might be improved some as the rnh's
+	 * are stored as a list.  This might be transformed to a better
+	 * data structure.  This has not proven to be necessary yet as
+	 * that we have not seen any particular case where a rn is
+	 * storing more than a couple rnh's.  If we find a case
+	 * where this matters something might need to be done.
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	 */
 	while (rn) {
 		if (IS_ZEBRA_DEBUG_NHT_DETAILED)
@@ -1122,6 +1266,7 @@ static void rib_process_update_fib(struct zebra_vrf *zvrf,
 	UNSET_FLAG(new->status, ROUTE_ENTRY_CHANGED);
 }
 
+<<<<<<< HEAD
 /* Check if 'alternate' RIB entry is better than 'current'. */
 static struct route_entry *rib_choose_best(struct route_entry *current,
 					   struct route_entry *alternate)
@@ -1143,6 +1288,17 @@ static struct route_entry *rib_choose_best(struct route_entry *current,
 	 */
 	if (alternate->type == ZEBRA_ROUTE_CONNECT) {
 		if (current->type != ZEBRA_ROUTE_CONNECT)
+=======
+static struct route_entry *rib_choose_best_type(uint8_t route_type,
+						struct route_entry *current,
+						struct route_entry *alternate)
+{
+	/*
+	 * We know that alternate and current are now non-NULL
+	 */
+	if (alternate->type == route_type) {
+		if (current->type != route_type)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			return alternate;
 
 		/* both are connected.  are either loop or vrf? */
@@ -1171,7 +1327,45 @@ static struct route_entry *rib_choose_best(struct route_entry *current,
 		return current;
 	}
 
+<<<<<<< HEAD
 	if (current->type == ZEBRA_ROUTE_CONNECT)
+=======
+	return NULL;
+}
+
+/* Check if 'alternate' RIB entry is better than 'current'. */
+static struct route_entry *rib_choose_best(struct route_entry *current,
+					   struct route_entry *alternate)
+{
+	struct route_entry *possible;
+
+	if (current == NULL)
+		return alternate;
+
+	/* filter route selection in following order:
+	 * - Local beats Connected
+	 * - connected beats other types
+	 * - if both connected, loopback or vrf wins
+	 * - lower distance beats higher
+	 * - lower metric beats higher for equal distance
+	 * - last, hence oldest, route wins tie break.
+	 */
+
+	/* Connected or Local routes. Check to see if either are a vrf
+	 * or loopback interface.  If not, pick the last connected
+	 * route of the set of lowest metric connected routes.
+	 */
+	possible = rib_choose_best_type(ZEBRA_ROUTE_LOCAL, current, alternate);
+	if (possible)
+		return possible;
+
+	possible = rib_choose_best_type(ZEBRA_ROUTE_CONNECT, current, alternate);
+	if (possible)
+		return possible;
+
+	if (current->type == ZEBRA_ROUTE_CONNECT ||
+	    current->type == ZEBRA_ROUTE_LOCAL)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		return current;
 
 	/* higher distance loses */
@@ -1200,8 +1394,21 @@ static void rib_process(struct route_node *rn)
 	rib_dest_t *dest;
 	struct zebra_vrf *zvrf = NULL;
 	struct vrf *vrf;
+<<<<<<< HEAD
 
 	vrf_id_t vrf_id = VRF_UNKNOWN;
+=======
+	struct route_entry *proto_re_changed = NULL;
+	vrf_id_t vrf_id = VRF_UNKNOWN;
+	safi_t safi = SAFI_UNICAST;
+
+	if (IS_ZEBRA_DEBUG_RIB || IS_ZEBRA_DEBUG_RIB_DETAILED) {
+		struct rib_table_info *info = srcdest_rnode_table_info(rn);
+
+		assert(info);
+		safi = info->safi;
+	}
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	assert(rn);
 
@@ -1227,9 +1434,14 @@ static void rib_process(struct route_node *rn)
 	if (IS_ZEBRA_DEBUG_RIB_DETAILED) {
 		struct route_entry *re = re_list_first(&dest->routes);
 
+<<<<<<< HEAD
 		zlog_debug("%s(%u:%u):%pRN: Processing rn %p",
 			   VRF_LOGNAME(vrf), vrf_id, re->table, rn,
 			   rn);
+=======
+		zlog_debug("%s(%u:%u:%u):%pRN: Processing rn %p", VRF_LOGNAME(vrf), vrf_id,
+			   re->table, safi, rn, rn);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	}
 
 	old_fib = dest->selected_fib;
@@ -1239,6 +1451,7 @@ static void rib_process(struct route_node *rn)
 			char flags_buf[128];
 			char status_buf[128];
 
+<<<<<<< HEAD
 			zlog_debug(
 				"%s(%u:%u):%pRN: Examine re %p (%s) status: %sflags: %sdist %d metric %d",
 				VRF_LOGNAME(vrf), vrf_id, re->table, rn, re,
@@ -1248,6 +1461,14 @@ static void rib_process(struct route_node *rn)
 				zclient_dump_route_flags(re->flags, flags_buf,
 							 sizeof(flags_buf)),
 				re->distance, re->metric);
+=======
+			zlog_debug("%s(%u:%u:%u):%pRN: Examine re %p (%s) status: %sflags: %sdist %d metric %d",
+				   VRF_LOGNAME(vrf), vrf_id, re->table, safi, rn, re,
+				   zebra_route_string(re->type),
+				   _dump_re_status(re, status_buf, sizeof(status_buf)),
+				   zclient_dump_route_flags(re->flags, flags_buf, sizeof(flags_buf)),
+				   re->distance, re->metric);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		}
 
 		/* Currently selected re. */
@@ -1269,8 +1490,13 @@ static void rib_process(struct route_node *rn)
 		 * skip it.
 		 */
 		if (CHECK_FLAG(re->status, ROUTE_ENTRY_CHANGED)) {
+<<<<<<< HEAD
 			if (!nexthop_active_update(rn, re)) {
 				const struct prefix *p;
+=======
+			proto_re_changed = re;
+			if (!nexthop_active_update(rn, re, old_fib)) {
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 				struct rib_table_info *info;
 
 				if (re->type == ZEBRA_ROUTE_TABLE) {
@@ -1304,7 +1530,10 @@ static void rib_process(struct route_node *rn)
 				}
 
 				info = srcdest_rnode_table_info(rn);
+<<<<<<< HEAD
 				srcdest_rnode_prefixes(rn, &p, NULL);
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 				zsend_route_notify_owner(
 					rn, re, ZAPI_ROUTE_FAIL_INSTALL,
 					info->afi, info->safi);
@@ -1354,6 +1583,11 @@ static void rib_process(struct route_node *rn)
 	 * new_selected --- RE entry that is newly SELECTED
 	 * old_fib      --- RE entry currently in kernel FIB
 	 * new_fib      --- RE entry that is newly to be in kernel FIB
+<<<<<<< HEAD
+=======
+	 * proto_re_changed -- RE that is the last changed entry in the
+	 *                     list of RE's.
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	 *
 	 * new_selected will get SELECTED flag, and is going to be redistributed
 	 * the zclients. new_fib (which can be new_selected) will be installed
@@ -1370,11 +1604,18 @@ static void rib_process(struct route_node *rn)
 					  : old_fib ? old_fib
 						    : new_fib ? new_fib : NULL;
 
+<<<<<<< HEAD
 		zlog_debug(
 			"%s(%u:%u):%pRN: After processing: old_selected %p new_selected %p old_fib %p new_fib %p",
 			VRF_LOGNAME(vrf), vrf_id, entry ? entry->table : 0, rn,
 			(void *)old_selected, (void *)new_selected,
 			(void *)old_fib, (void *)new_fib);
+=======
+		zlog_debug("%s(%u:%u:%u):%pRN: After processing: old_selected %p new_selected %p old_fib %p new_fib %p",
+			   VRF_LOGNAME(vrf), vrf_id, entry ? entry->table : 0, safi, rn,
+			   (void *)old_selected, (void *)new_selected, (void *)old_fib,
+			   (void *)new_fib);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	}
 
 	/* Buffer ROUTE_ENTRY_CHANGED here, because it will get cleared if
@@ -1408,6 +1649,25 @@ static void rib_process(struct route_node *rn)
 		}
 	}
 
+<<<<<<< HEAD
+=======
+	/*
+	 * If zebra has a new_selected and a proto_re_changed
+	 * entry that was not the old selected and the protocol
+	 * is different, zebra should notify the upper level
+	 * protocol that the sent down entry was not selected
+	 */
+	if (new_selected && proto_re_changed &&
+	    proto_re_changed != old_selected &&
+	    new_selected->type != proto_re_changed->type) {
+		struct rib_table_info *info = srcdest_rnode_table_info(rn);
+
+		zsend_route_notify_owner(rn, proto_re_changed,
+					 ZAPI_ROUTE_BETTER_ADMIN_WON, info->afi,
+					 info->safi);
+	}
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	/* Update fib according to selection results */
 	if (new_fib && old_fib)
 		rib_process_update_fib(zvrf, rn, old_fib, new_fib);
@@ -1506,7 +1766,12 @@ static bool rib_route_match_ctx(const struct route_entry *re,
 			} else if (re->type == ZEBRA_ROUTE_KERNEL &&
 				   re->metric != dplane_ctx_get_metric(ctx)) {
 				result = false;
+<<<<<<< HEAD
 			} else if (re->type == ZEBRA_ROUTE_CONNECT) {
+=======
+			} else if (re->type == ZEBRA_ROUTE_CONNECT ||
+				   re->type == ZEBRA_ROUTE_LOCAL) {
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 				result = nexthop_group_equal_no_recurse(
 					&re->nhe->nhg, dplane_ctx_get_ng(ctx));
 			}
@@ -1564,7 +1829,15 @@ static bool rib_compare_routes(const struct route_entry *re1,
 	 * v6 link-locals, and we also support multiple addresses in the same
 	 * subnet on a single interface.
 	 */
+<<<<<<< HEAD
 	if (re1->type != ZEBRA_ROUTE_CONNECT)
+=======
+	if (re1->type == ZEBRA_ROUTE_CONNECT &&
+	    (re1->nhe->nhg.nexthop->ifindex == re2->nhe->nhg.nexthop->ifindex))
+		return true;
+
+	if (re1->type != ZEBRA_ROUTE_CONNECT && re1->type != ZEBRA_ROUTE_LOCAL)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		return true;
 
 	return false;
@@ -1604,6 +1877,12 @@ static bool rib_update_nhg_from_ctx(struct nexthop_group *re_nhg,
 		if (!CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE))
 			continue;
 
+<<<<<<< HEAD
+=======
+		if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_DUPLICATE))
+			continue;
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		/* Check for a FIB nexthop corresponding to the RIB nexthop */
 		if (!nexthop_same(ctx_nexthop, nexthop)) {
 			/* If the FIB doesn't know about the nexthop,
@@ -2014,9 +2293,13 @@ static void rib_process_result(struct zebra_dplane_ctx *ctx)
 			UNSET_FLAG(old_re->status, ROUTE_ENTRY_QUEUED);
 	}
 
+<<<<<<< HEAD
 	switch (op) {
 	case DPLANE_OP_ROUTE_INSTALL:
 	case DPLANE_OP_ROUTE_UPDATE:
+=======
+	if (op == DPLANE_OP_ROUTE_INSTALL || op == DPLANE_OP_ROUTE_UPDATE) {
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		if (status == ZEBRA_DPLANE_REQUEST_SUCCESS) {
 			if (re) {
 				UNSET_FLAG(re->status, ROUTE_ENTRY_FAILED);
@@ -2107,8 +2390,12 @@ static void rib_process_result(struct zebra_dplane_ctx *ctx)
 				  VRF_LOGNAME(vrf), dplane_ctx_get_vrf(ctx),
 				  dplane_ctx_get_table(ctx), rn);
 		}
+<<<<<<< HEAD
 		break;
 	case DPLANE_OP_ROUTE_DELETE:
+=======
+	} else if (op == DPLANE_OP_ROUTE_DELETE) {
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		rt_delete = true;
 		if (re)
 			SET_FLAG(re->status, ROUTE_ENTRY_FAILED);
@@ -2147,6 +2434,7 @@ static void rib_process_result(struct zebra_dplane_ctx *ctx)
 		if ((re && RIB_SYSTEM_ROUTE(re)) ||
 		    (old_re && RIB_SYSTEM_ROUTE(old_re)))
 			zebra_rib_fixup_system(rn);
+<<<<<<< HEAD
 		break;
 
 	case DPLANE_OP_NONE:
@@ -2202,6 +2490,8 @@ static void rib_process_result(struct zebra_dplane_ctx *ctx)
 	case DPLANE_OP_TC_FILTER_UPDATE:
 	case DPLANE_OP_STARTUP_STAGE:
 		break;
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	}
 
 	zebra_rib_evaluate_rn_nexthops(rn, seq, rt_delete);
@@ -2535,7 +2825,11 @@ static void process_subq_evpn(struct listnode *lnode)
 static void process_subq_nhg(struct listnode *lnode)
 {
 	struct nhg_ctx *ctx;
+<<<<<<< HEAD
 	struct nhg_hash_entry *nhe, *newnhe;
+=======
+	struct nhg_hash_entry *nhe, *newnhe, *oldnhe;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	struct wq_nhg_wrapper *w;
 	uint8_t qindex = META_QUEUE_NHG;
 
@@ -2567,6 +2861,7 @@ static void process_subq_nhg(struct listnode *lnode)
 				   subqueue2str(qindex));
 
 		/* Process incoming nhg update, probably from a proto daemon */
+<<<<<<< HEAD
 		newnhe = zebra_nhg_proto_add(nhe->id, nhe->type,
 					     nhe->zapi_instance,
 					     nhe->zapi_session, &nhe->nhg, 0);
@@ -2576,6 +2871,35 @@ static void process_subq_nhg(struct listnode *lnode)
 			zsend_nhg_notify(nhe->type, nhe->zapi_instance,
 					 nhe->zapi_session, nhe->id,
 					 ZAPI_NHG_FAIL_INSTALL);
+=======
+		if (w->deletion) {
+			/*
+			 * Delete the received nhg id
+			 */
+			oldnhe = zebra_nhg_proto_del(nhe->id, nhe->type);
+			if (oldnhe) {
+				zsend_nhg_notify(nhe->type, nhe->zapi_instance,
+						 nhe->zapi_session, nhe->id,
+						 ZAPI_NHG_REMOVED);
+				zebra_nhg_decrement_ref(oldnhe);
+			} else
+				zsend_nhg_notify(nhe->type, nhe->zapi_instance,
+						 nhe->zapi_session, nhe->id,
+						 ZAPI_NHG_REMOVE_FAIL);
+
+		} else {
+			newnhe = zebra_nhg_proto_add(nhe->id, nhe->type,
+						     nhe->zapi_instance,
+						     nhe->zapi_session,
+						     &nhe->nhg, 0);
+
+			/* Report error to daemon via ZAPI */
+			if (newnhe == NULL)
+				zsend_nhg_notify(nhe->type, nhe->zapi_instance,
+						 nhe->zapi_session, nhe->id,
+						 ZAPI_NHG_FAIL_INSTALL);
+		}
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 		/* Free temp nhe - we own that memory. */
 		zebra_nhg_free(nhe);
@@ -2678,7 +3002,11 @@ static void early_route_memory_free(struct zebra_early_route *ere)
 	if (ere->re_nhe)
 		zebra_nhg_free(ere->re_nhe);
 
+<<<<<<< HEAD
 	XFREE(MTYPE_RE, ere->re);
+=======
+	zebra_rib_route_entry_free(ere->re);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	XFREE(MTYPE_WQ_WRAPPER, ere);
 }
 
@@ -2845,10 +3173,18 @@ static void process_subq_early_route_add(struct zebra_early_route *ere)
 
 	/* Link new re to node.*/
 	if (IS_ZEBRA_DEBUG_RIB) {
+<<<<<<< HEAD
 		rnode_debug(
 			rn, re->vrf_id,
 			"Inserting route rn %p, re %p (%s) existing %p, same_count %d",
 			rn, re, zebra_route_string(re->type), same, same_count);
+=======
+		rnode_debug(rn, re->vrf_id,
+			    "Inserting route rn %p, re %p (%s/%s/%s) existing %p, same_count %d",
+			    rn, re, zebra_route_string(re->type),
+			    afi2str(ere->afi), safi2str(ere->safi), same,
+			    same_count);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 		if (IS_ZEBRA_DEBUG_RIB_DETAILED)
 			route_entry_dump(
@@ -2859,11 +3195,18 @@ static void process_subq_early_route_add(struct zebra_early_route *ere)
 	SET_FLAG(re->status, ROUTE_ENTRY_CHANGED);
 	rib_addnode(rn, re, 1);
 
+<<<<<<< HEAD
 	/* Free implicit route.*/
 	if (same) {
 		rib_dest_t *dest = rn->info;
 
 		if (same == dest->selected_fib)
+=======
+	dest = rib_dest_from_rnode(rn);
+	/* Free implicit route.*/
+	if (same) {
+		if (dest && same == dest->selected_fib)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			SET_FLAG(same->status, ROUTE_ENTRY_ROUTE_REPLACING);
 		rib_delnode(rn, same);
 	}
@@ -2871,7 +3214,10 @@ static void process_subq_early_route_add(struct zebra_early_route *ere)
 	/* See if we can remove some RE entries that are queued for
 	 * removal, but won't be considered in rib processing.
 	 */
+<<<<<<< HEAD
 	dest = rib_dest_from_rnode(rn);
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	RNODE_FOREACH_RE_SAFE (rn, re, same) {
 		if (CHECK_FLAG(re->status, ROUTE_ENTRY_REMOVED)) {
 			/* If the route was used earlier, must retain it. */
@@ -2967,7 +3313,12 @@ static void process_subq_early_route_delete(struct zebra_early_route *ere)
 		if (re->type == ZEBRA_ROUTE_KERNEL &&
 		    re->metric != ere->re->metric)
 			continue;
+<<<<<<< HEAD
 		if (re->type == ZEBRA_ROUTE_CONNECT &&
+=======
+		if ((re->type == ZEBRA_ROUTE_CONNECT ||
+		     re->type == ZEBRA_ROUTE_LOCAL) &&
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		    (rtnh = re->nhe->nhg.nexthop) &&
 		    rtnh->type == NEXTHOP_TYPE_IFINDEX && nh) {
 			if (rtnh->ifindex != nh->ifindex)
@@ -3144,6 +3495,10 @@ struct meta_q_gr_run {
 	vrf_id_t vrf_id;
 	uint8_t proto;
 	uint8_t instance;
+<<<<<<< HEAD
+=======
+	time_t restart_time;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 };
 
 static void process_subq_gr_run(struct listnode *lnode)
@@ -3151,7 +3506,11 @@ static void process_subq_gr_run(struct listnode *lnode)
 	struct meta_q_gr_run *gr_run = listgetdata(lnode);
 
 	zebra_gr_process_client(gr_run->afi, gr_run->vrf_id, gr_run->proto,
+<<<<<<< HEAD
 				gr_run->instance);
+=======
+				gr_run->instance, gr_run->restart_time);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	XFREE(MTYPE_WQ_WRAPPER, gr_run);
 }
@@ -3342,7 +3701,12 @@ static int rib_meta_queue_nhg_ctx_add(struct meta_queue *mq, void *data)
 	return 0;
 }
 
+<<<<<<< HEAD
 static int rib_meta_queue_nhg_add(struct meta_queue *mq, void *data)
+=======
+static int rib_meta_queue_nhg_process(struct meta_queue *mq, void *data,
+				      bool deletion)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 {
 	struct nhg_hash_entry *nhe = NULL;
 	uint8_t qindex = META_QUEUE_NHG;
@@ -3357,6 +3721,10 @@ static int rib_meta_queue_nhg_add(struct meta_queue *mq, void *data)
 
 	w->type = WQ_NHG_WRAPPER_TYPE_NHG;
 	w->u.nhe = nhe;
+<<<<<<< HEAD
+=======
+	w->deletion = deletion;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	listnode_add(mq->subq[qindex], w);
 	mq->size++;
@@ -3368,6 +3736,19 @@ static int rib_meta_queue_nhg_add(struct meta_queue *mq, void *data)
 	return 0;
 }
 
+<<<<<<< HEAD
+=======
+static int rib_meta_queue_nhg_add(struct meta_queue *mq, void *data)
+{
+	return rib_meta_queue_nhg_process(mq, data, false);
+}
+
+static int rib_meta_queue_nhg_del(struct meta_queue *mq, void *data)
+{
+	return rib_meta_queue_nhg_process(mq, data, true);
+}
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 static int rib_meta_queue_evpn_add(struct meta_queue *mq, void *data)
 {
 	listnode_add(mq->subq[META_QUEUE_EVPN], data);
@@ -3476,6 +3857,20 @@ int rib_queue_nhe_add(struct nhg_hash_entry *nhe)
 }
 
 /*
+<<<<<<< HEAD
+=======
+ * Enqueue incoming nhg from proto daemon for processing
+ */
+int rib_queue_nhe_del(struct nhg_hash_entry *nhe)
+{
+	if (nhe == NULL)
+		return -1;
+
+	return mq_add_handler(nhe, rib_meta_queue_nhg_del);
+}
+
+/*
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
  * Enqueue evpn route for processing
  */
 int zebra_rib_queue_evpn_route_add(vrf_id_t vrf_id, const struct ethaddr *rmac,
@@ -3795,7 +4190,12 @@ static void rib_meta_queue_free(struct meta_queue *mq, struct list *l,
 }
 
 static void early_route_meta_queue_free(struct meta_queue *mq, struct list *l,
+<<<<<<< HEAD
 					struct zebra_vrf *zvrf)
+=======
+					const struct zebra_vrf *zvrf,
+					uint8_t proto, uint8_t instance)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 {
 	struct zebra_early_route *ere;
 	struct listnode *node, *nnode;
@@ -3804,6 +4204,13 @@ static void early_route_meta_queue_free(struct meta_queue *mq, struct list *l,
 		if (zvrf && ere->re->vrf_id != zvrf->vrf->vrf_id)
 			continue;
 
+<<<<<<< HEAD
+=======
+		if (proto != ZEBRA_ROUTE_ALL &&
+		    (proto != ere->re->type && instance != ere->re->instance))
+			continue;
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		early_route_memory_free(ere);
 		node->data = NULL;
 		list_delete_node(l, node);
@@ -3842,7 +4249,12 @@ void meta_queue_free(struct meta_queue *mq, struct zebra_vrf *zvrf)
 			evpn_meta_queue_free(mq, mq->subq[i], zvrf);
 			break;
 		case META_QUEUE_EARLY_ROUTE:
+<<<<<<< HEAD
 			early_route_meta_queue_free(mq, mq->subq[i], zvrf);
+=======
+			early_route_meta_queue_free(mq, mq->subq[i], zvrf,
+						    ZEBRA_ROUTE_ALL, 0);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			break;
 		case META_QUEUE_EARLY_LABEL:
 			early_label_meta_queue_free(mq, mq->subq[i], zvrf);
@@ -3949,6 +4361,10 @@ static void rib_link(struct route_node *rn, struct route_entry *re, int process)
 {
 	rib_dest_t *dest;
 	afi_t afi;
+<<<<<<< HEAD
+=======
+	safi_t safi;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	const char *rmap_name;
 
 	assert(re && rn);
@@ -3966,11 +4382,21 @@ static void rib_link(struct route_node *rn, struct route_entry *re, int process)
 	afi = (rn->p.family == AF_INET)
 		      ? AFI_IP
 		      : (rn->p.family == AF_INET6) ? AFI_IP6 : AFI_MAX;
+<<<<<<< HEAD
 	if (is_zebra_import_table_enabled(afi, re->vrf_id, re->table)) {
 		struct zebra_vrf *zvrf = zebra_vrf_lookup_by_id(re->vrf_id);
 
 		rmap_name = zebra_get_import_table_route_map(afi, re->table);
 		zebra_add_import_table_entry(zvrf, rn, re, rmap_name);
+=======
+	for (safi = SAFI_UNICAST; safi < SAFI_MAX; safi++) {
+		if (is_zebra_import_table_enabled(afi, safi, re->vrf_id, re->table)) {
+			struct zebra_vrf *zvrf = zebra_vrf_lookup_by_id(re->vrf_id);
+
+			rmap_name = zebra_get_import_table_route_map(afi, safi, re->table);
+			zebra_add_import_table_entry(zvrf, safi, rn, re, rmap_name);
+		}
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	}
 
 	if (process)
@@ -4022,14 +4448,22 @@ void rib_unlink(struct route_node *rn, struct route_entry *re)
 
 	rib_re_nhg_free(re);
 
+<<<<<<< HEAD
 	zapi_re_opaque_free(re->opaque);
 
 	XFREE(MTYPE_RE, re);
+=======
+	zebra_rib_route_entry_free(re);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 }
 
 void rib_delnode(struct route_node *rn, struct route_entry *re)
 {
 	afi_t afi;
+<<<<<<< HEAD
+=======
+	safi_t safi;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	if (IS_ZEBRA_DEBUG_RIB)
 		rnode_debug(rn, re->vrf_id, "rn %p, re %p, removing",
@@ -4043,6 +4477,7 @@ void rib_delnode(struct route_node *rn, struct route_entry *re)
 	afi = (rn->p.family == AF_INET)
 		      ? AFI_IP
 		      : (rn->p.family == AF_INET6) ? AFI_IP6 : AFI_MAX;
+<<<<<<< HEAD
 	if (is_zebra_import_table_enabled(afi, re->vrf_id, re->table)) {
 		struct zebra_vrf *zvrf = zebra_vrf_lookup_by_id(re->vrf_id);
 
@@ -4052,6 +4487,19 @@ void rib_delnode(struct route_node *rn, struct route_entry *re)
 			zlog_debug("%s(%u):%pRN: Freeing route rn %p, re %p (%s)",
 				   vrf_id_to_name(re->vrf_id), re->vrf_id, rn,
 				   rn, re, zebra_route_string(re->type));
+=======
+	for (safi = SAFI_UNICAST; safi < SAFI_MAX; safi++) {
+		if (is_zebra_import_table_enabled(afi, safi, re->vrf_id, re->table)) {
+			struct zebra_vrf *zvrf = zebra_vrf_lookup_by_id(re->vrf_id);
+
+			zebra_del_import_table_entry(zvrf, safi, rn, re);
+			/* Just clean up if non main table */
+			if (IS_ZEBRA_DEBUG_RIB)
+				zlog_debug("%s %s(%u):%pRN: Freeing route rn %p, re %p (%s)",
+					   safi2str(safi), vrf_id_to_name(re->vrf_id), re->vrf_id,
+					   rn, rn, re, zebra_route_string(re->type));
+		}
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	}
 
 	rib_queue_add(rn);
@@ -4060,9 +4508,14 @@ void rib_delnode(struct route_node *rn, struct route_entry *re)
 /*
  * Helper that debugs a single nexthop within a route-entry
  */
+<<<<<<< HEAD
 static void _route_entry_dump_nh(const struct route_entry *re,
 				 const char *straddr,
 				 const struct nexthop *nexthop)
+=======
+void route_entry_dump_nh(const struct route_entry *re, const char *straddr,
+			 const struct vrf *re_vrf, const struct nexthop *nexthop)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 {
 	char nhname[PREFIX_STRLEN];
 	char backup_str[50];
@@ -4083,7 +4536,10 @@ static void _route_entry_dump_nh(const struct route_entry *re,
 			 ifp ? ifp->name : "Unknown");
 		break;
 	case NEXTHOP_TYPE_IPV4:
+<<<<<<< HEAD
 		/* fallthrough */
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	case NEXTHOP_TYPE_IPV4_IFINDEX:
 		inet_ntop(AF_INET, &nexthop->gate, nhname, INET6_ADDRSTRLEN);
 		break;
@@ -4117,6 +4573,7 @@ static void _route_entry_dump_nh(const struct route_entry *re,
 	if (nexthop->weight)
 		snprintf(wgt_str, sizeof(wgt_str), "wgt %d,", nexthop->weight);
 
+<<<<<<< HEAD
 	zlog_debug("%s: %s %s[%u] %svrf %s(%u) %s%s with flags %s%s%s%s%s%s%s%s%s",
 		   straddr, (nexthop->rparent ? "  NH" : "NH"), nhname,
 		   nexthop->ifindex, label_str, vrf ? vrf->name : "Unknown",
@@ -4146,6 +4603,34 @@ static void _route_entry_dump_nh(const struct route_entry *re,
 		   (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_EVPN)
 		    ? "EVPN " : ""));
 
+=======
+	zlog_debug("%s(%s): %s %s[%u] %svrf %s(%u) %s%s with flags %s%s%s%s%s%s%s%s%s",
+		   straddr, VRF_LOGNAME(re_vrf),
+		   (nexthop->rparent ? "  NH" : "NH"), nhname, nexthop->ifindex,
+		   label_str, vrf ? vrf->name : "Unknown", nexthop->vrf_id,
+		   wgt_str, backup_str,
+		   (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE) ? "ACTIVE "
+								    : ""),
+		   (CHECK_FLAG(re->status, ROUTE_ENTRY_INSTALLED) ? "FIB " : ""),
+		   (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_RECURSIVE)
+			    ? "RECURSIVE "
+			    : ""),
+		   (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_ONLINK) ? "ONLINK "
+								    : ""),
+		   (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_DUPLICATE)
+			    ? "DUPLICATE "
+			    : ""),
+		   (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_RNH_FILTERED)
+			    ? "FILTERED "
+			    : ""),
+		   (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_HAS_BACKUP)
+			    ? "BACKUP "
+			    : ""),
+		   (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_SRTE) ? "SRTE "
+								  : ""),
+		   (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_EVPN) ? "EVPN "
+								  : ""));
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 }
 
 /* This function dumps the contents of a given RE entry into
@@ -4174,6 +4659,7 @@ void _route_entry_dump(const char *func, union prefixconstptr pp,
 		   is_srcdst ? prefix2str(src_pp, srcaddr, sizeof(srcaddr))
 			     : "",
 		   VRF_LOGNAME(vrf), re->vrf_id);
+<<<<<<< HEAD
 	zlog_debug("%s: uptime == %lu, type == %u, instance == %d, table == %d",
 		   straddr, (unsigned long)re->uptime, re->type, re->instance,
 		   re->table);
@@ -4185,10 +4671,24 @@ void _route_entry_dump(const char *func, union prefixconstptr pp,
 		_dump_re_status(re, status_buf, sizeof(status_buf)));
 	zlog_debug("%s: tag == %u, nexthop_num == %u, nexthop_active_num == %u",
 		   straddr, re->tag, nexthop_group_nexthop_num(&(re->nhe->nhg)),
+=======
+	zlog_debug("%s(%s): uptime == %lu, type == %u, instance == %d, table == %d",
+		   straddr, VRF_LOGNAME(vrf), (unsigned long)re->uptime,
+		   re->type, re->instance, re->table);
+	zlog_debug("%s(%s): metric == %u, mtu == %u, distance == %u, flags == %sstatus == %s",
+		   straddr, VRF_LOGNAME(vrf), re->metric, re->mtu, re->distance,
+		   zclient_dump_route_flags(re->flags, flags_buf,
+					    sizeof(flags_buf)),
+		   _dump_re_status(re, status_buf, sizeof(status_buf)));
+	zlog_debug("%s(%s): tag == %u, nexthop_num == %u, nexthop_active_num == %u",
+		   straddr, VRF_LOGNAME(vrf), re->tag,
+		   nexthop_group_nexthop_num(&(re->nhe->nhg)),
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		   nexthop_group_active_nexthop_num(&(re->nhe->nhg)));
 
 	/* Dump nexthops */
 	for (ALL_NEXTHOPS(re->nhe->nhg, nexthop))
+<<<<<<< HEAD
 		_route_entry_dump_nh(re, straddr, nexthop);
 
 	if (zebra_nhg_get_backup_nhg(re->nhe)) {
@@ -4200,6 +4700,20 @@ void _route_entry_dump(const char *func, union prefixconstptr pp,
 	}
 
 	zlog_debug("%s: dump complete", straddr);
+=======
+		route_entry_dump_nh(re, straddr, vrf, nexthop);
+
+	if (zebra_nhg_get_backup_nhg(re->nhe)) {
+		zlog_debug("%s(%s): backup nexthops:", straddr,
+			   VRF_LOGNAME(vrf));
+
+		nhg = zebra_nhg_get_backup_nhg(re->nhe);
+		for (ALL_NEXTHOPS_PTR(nhg, nexthop))
+			route_entry_dump_nh(re, straddr, vrf, nexthop);
+	}
+
+	zlog_debug("%s(%s): dump complete", straddr, VRF_LOGNAME(vrf));
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 }
 
 static int rib_meta_queue_gr_run_add(struct meta_queue *mq, void *data)
@@ -4220,16 +4734,32 @@ static int rib_meta_queue_early_route_add(struct meta_queue *mq, void *data)
 	listnode_add(mq->subq[META_QUEUE_EARLY_ROUTE], data);
 	mq->size++;
 
+<<<<<<< HEAD
 	if (IS_ZEBRA_DEBUG_RIB_DETAILED)
 		zlog_debug("Route %pFX(%u) (%s) queued for processing into sub-queue %s",
 			   &ere->p, ere->re->vrf_id,
 			   ere->deletion ? "delete" : "add",
 			   subqueue2str(META_QUEUE_EARLY_ROUTE));
+=======
+	if (IS_ZEBRA_DEBUG_RIB_DETAILED) {
+		struct vrf *vrf = vrf_lookup_by_id(ere->re->vrf_id);
+
+		zlog_debug("Route %pFX(%s) (%s) queued for processing into sub-queue %s",
+			   &ere->p, VRF_LOGNAME(vrf),
+			   ere->deletion ? "delete" : "add",
+			   subqueue2str(META_QUEUE_EARLY_ROUTE));
+	}
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	return 0;
 }
 
+<<<<<<< HEAD
 int rib_add_gr_run(afi_t afi, vrf_id_t vrf_id, uint8_t proto, uint8_t instance)
+=======
+int rib_add_gr_run(afi_t afi, vrf_id_t vrf_id, uint8_t proto, uint8_t instance,
+		   time_t restart_time)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 {
 	struct meta_q_gr_run *gr_run;
 
@@ -4239,6 +4769,10 @@ int rib_add_gr_run(afi_t afi, vrf_id_t vrf_id, uint8_t proto, uint8_t instance)
 	gr_run->proto = proto;
 	gr_run->vrf_id = vrf_id;
 	gr_run->instance = instance;
+<<<<<<< HEAD
+=======
+	gr_run->restart_time = restart_time;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	return mq_add_handler(gr_run, rib_meta_queue_gr_run_add);
 }
@@ -4270,6 +4804,10 @@ struct route_entry *zebra_rib_route_entry_new(vrf_id_t vrf_id, int type,
 
 void zebra_rib_route_entry_free(struct route_entry *re)
 {
+<<<<<<< HEAD
+=======
+	zapi_re_opaque_free(re);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	XFREE(MTYPE_RE, re);
 }
 
@@ -4323,31 +4861,88 @@ int rib_add_multipath(afi_t afi, safi_t safi, struct prefix *p,
 		return -1;
 
 	/* We either need nexthop(s) or an existing nexthop id */
+<<<<<<< HEAD
 	if (ng == NULL && re->nhe_id == 0)
 		return -1;
+=======
+	if (ng == NULL && re->nhe_id == 0) {
+		zebra_rib_route_entry_free(re);
+		return -1;
+	}
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	/*
 	 * Use a temporary nhe to convey info to the common/main api.
 	 */
 	zebra_nhe_init(&nhe, afi, (ng ? ng->nexthop : NULL));
+<<<<<<< HEAD
 	if (ng)
 		nhe.nhg.nexthop = ng->nexthop;
 	else if (re->nhe_id > 0)
 		nhe.id = re->nhe_id;
 
 	n = zebra_nhe_copy(&nhe, 0);
+=======
+	if (ng) {
+		nhe.nhg.nexthop = ng->nexthop;
+
+		if (RIB_SYSTEM_ROUTE(re))
+			SET_FLAG(nhe.flags, NEXTHOP_GROUP_INITIAL_DELAY_INSTALL);
+	} else if (re->nhe_id > 0)
+		nhe.id = re->nhe_id;
+
+	n = zebra_nhe_copy(&nhe, 0);
+
+	if (re->type == ZEBRA_ROUTE_KERNEL) {
+		struct interface *ifp;
+		struct connected *connected;
+
+		if (p->family == AF_INET6 &&
+		    IN6_IS_ADDR_LINKLOCAL(&p->u.prefix6)) {
+			zebra_nhg_free(n);
+			zebra_rib_route_entry_free(re);
+			return -1;
+		}
+
+		ifp = if_lookup_prefix(p, re->vrf_id);
+		if (ifp) {
+			connected = connected_lookup_prefix(ifp, p);
+
+			if (connected && !CHECK_FLAG(connected->flags,
+						     ZEBRA_IFA_NOPREFIXROUTE)) {
+				zebra_nhg_free(n);
+				zebra_rib_route_entry_free(re);
+				return -1;
+			}
+
+			if (ng && ng->nexthop &&
+			    ifp->ifindex == ng->nexthop->ifindex)
+				re->type = ZEBRA_ROUTE_CONNECT;
+		}
+	}
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	ret = rib_add_multipath_nhe(afi, safi, p, src_p, re, n, startup);
 
 	/* In error cases, free the route also */
 	if (ret < 0)
+<<<<<<< HEAD
 		XFREE(MTYPE_RE, re);
+=======
+		zebra_rib_route_entry_free(re);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	return ret;
 }
 
 void rib_delete(afi_t afi, safi_t safi, vrf_id_t vrf_id, int type,
+<<<<<<< HEAD
 		unsigned short instance, uint32_t flags, struct prefix *p,
 		struct prefix_ipv6 *src_p, const struct nexthop *nh,
+=======
+		unsigned short instance, uint32_t flags, const struct prefix *p,
+		const struct prefix_ipv6 *src_p, const struct nexthop *nh,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		uint32_t nhe_id, uint32_t table_id, uint32_t metric,
 		uint8_t distance, bool fromkernel)
 {
@@ -4411,6 +5006,12 @@ static const char *rib_update_event2str(enum rib_update_event event)
 	const char *ret = "UNKNOWN";
 
 	switch (event) {
+<<<<<<< HEAD
+=======
+	case RIB_UPDATE_INTERFACE_DOWN:
+		ret = "RIB_UPDATE_INTERFACE_DOWN";
+		break;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	case RIB_UPDATE_KERNEL:
 		ret = "RIB_UPDATE_KERNEL";
 		break;
@@ -4427,15 +5028,66 @@ static const char *rib_update_event2str(enum rib_update_event event)
 	return ret;
 }
 
+<<<<<<< HEAD
 
 /* Schedule route nodes to be processed if they match the type */
 static void rib_update_route_node(struct route_node *rn, int type)
+=======
+/*
+ * We now keep kernel routes, but we don't have any
+ * trigger events for them when they are implicitly
+ * deleted.  Since we are already walking the
+ * entire table on a down event let's look at
+ * the few kernel routes we may have
+ */
+static void
+rib_update_handle_kernel_route_down_possibility(struct route_node *rn,
+						struct route_entry *re)
+{
+	struct nexthop *nexthop = NULL;
+	bool alive = false;
+
+	for (ALL_NEXTHOPS(re->nhe->nhg, nexthop)) {
+		struct interface *ifp = if_lookup_by_index(nexthop->ifindex,
+							   nexthop->vrf_id);
+
+		if ((ifp && if_is_up(ifp)) || nexthop->type == NEXTHOP_TYPE_BLACKHOLE) {
+			alive = true;
+			break;
+		}
+	}
+
+	if (!alive) {
+		struct rib_table_info *rib_table = srcdest_rnode_table_info(rn);
+		const struct prefix *p;
+		const struct prefix_ipv6 *src_p;
+
+		srcdest_rnode_prefixes(rn, &p, (const struct prefix **)&src_p);
+
+		rib_delete(rib_table->afi, rib_table->safi, re->vrf_id,
+			   re->type, re->instance, re->flags, p, src_p, NULL, 0,
+			   re->table, re->metric, re->distance, true);
+	}
+}
+
+
+/* Schedule route nodes to be processed if they match the type */
+static void rib_update_route_node(struct route_node *rn, int type,
+				  enum rib_update_event event)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 {
 	struct route_entry *re, *next;
 	bool re_changed = false;
 
 	RNODE_FOREACH_RE_SAFE (rn, re, next) {
+<<<<<<< HEAD
 		if (type == ZEBRA_ROUTE_ALL || type == re->type) {
+=======
+		if (event == RIB_UPDATE_INTERFACE_DOWN && type == re->type &&
+		    type == ZEBRA_ROUTE_KERNEL)
+			rib_update_handle_kernel_route_down_possibility(rn, re);
+		else if (type == ZEBRA_ROUTE_ALL || type == re->type) {
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			SET_FLAG(re->status, ROUTE_ENTRY_CHANGED);
 			re_changed = true;
 		}
@@ -4475,6 +5127,7 @@ void rib_update_table(struct route_table *table, enum rib_update_event event,
 		/*
 		 * If we are looking at a route node and the node
 		 * has already been queued  we don't
+<<<<<<< HEAD
 		 * need to queue it up again
 		 */
 		if (rn->info
@@ -4489,6 +5142,26 @@ void rib_update_table(struct route_table *table, enum rib_update_event event,
 		case RIB_UPDATE_RMAP_CHANGE:
 		case RIB_UPDATE_OTHER:
 			rib_update_route_node(rn, rtype);
+=======
+		 * need to queue it up again, unless it is
+		 * an interface down event as that we need
+		 * to process this no matter what.
+		 */
+		if (rn->info &&
+		    CHECK_FLAG(rib_dest_from_rnode(rn)->flags,
+			       RIB_ROUTE_ANY_QUEUED) &&
+		    event != RIB_UPDATE_INTERFACE_DOWN)
+			continue;
+
+		switch (event) {
+		case RIB_UPDATE_INTERFACE_DOWN:
+		case RIB_UPDATE_KERNEL:
+			rib_update_route_node(rn, ZEBRA_ROUTE_KERNEL, event);
+			break;
+		case RIB_UPDATE_RMAP_CHANGE:
+		case RIB_UPDATE_OTHER:
+			rib_update_route_node(rn, rtype, event);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			break;
 		case RIB_UPDATE_MAX:
 			break;
@@ -4496,7 +5169,11 @@ void rib_update_table(struct route_table *table, enum rib_update_event event,
 	}
 }
 
+<<<<<<< HEAD
 static void rib_update_handle_vrf_all(enum rib_update_event event, int rtype)
+=======
+void rib_update_handle_vrf_all(enum rib_update_event event, int rtype)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 {
 	struct zebra_router_table *zrt;
 
@@ -4657,6 +5334,13 @@ void rib_sweep_route(struct event *t)
 	struct vrf *vrf;
 	struct zebra_vrf *zvrf;
 
+<<<<<<< HEAD
+=======
+	zrouter.rib_sweep_time = monotime(NULL);
+	/* TODO: Change to debug */
+	zlog_info("Sweeping the RIB for stale routes...");
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	RB_FOREACH (vrf, vrf_id_head, &vrfs_by_id) {
 		if ((zvrf = vrf->info) == NULL)
 			continue;
@@ -4705,6 +5389,13 @@ unsigned long rib_score_proto(uint8_t proto, unsigned short instance)
 		if (!zvrf)
 			continue;
 
+<<<<<<< HEAD
+=======
+		early_route_meta_queue_free(zrouter.mq,
+					    zrouter.mq->subq[META_QUEUE_EARLY_ROUTE],
+					    zvrf, proto, instance);
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		cnt += rib_score_proto_table(proto, instance,
 					     zvrf->table[AFI_IP][SAFI_UNICAST])
 		       + rib_score_proto_table(
@@ -4738,6 +5429,7 @@ void rib_close_table(struct route_table *table)
 }
 
 /*
+<<<<<<< HEAD
  * Handler for async dataplane results after a pseudowire installation
  */
 static void handle_pw_result(struct zebra_dplane_ctx *ctx)
@@ -4761,6 +5453,8 @@ static void handle_pw_result(struct zebra_dplane_ctx *ctx)
 }
 
 /*
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
  * Handle results from the dataplane system. Dequeue update context
  * structs, dispatch to appropriate internal handlers.
  */
@@ -4866,7 +5560,11 @@ static void rib_process_dplane_results(struct event *thread)
 
 			case DPLANE_OP_PW_INSTALL:
 			case DPLANE_OP_PW_UNINSTALL:
+<<<<<<< HEAD
 				handle_pw_result(ctx);
+=======
+				zebra_pw_handle_dplane_results(ctx);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 				break;
 
 			case DPLANE_OP_SYS_ROUTE_ADD:
@@ -4923,12 +5621,22 @@ static void rib_process_dplane_results(struct event *thread)
 			case DPLANE_OP_BR_PORT_UPDATE:
 			case DPLANE_OP_NEIGH_TABLE_UPDATE:
 			case DPLANE_OP_GRE_SET:
+<<<<<<< HEAD
+=======
+			case DPLANE_OP_SRV6_ENCAP_SRCADDR_SET:
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			case DPLANE_OP_NONE:
 				break;
 			case DPLANE_OP_STARTUP_STAGE:
 				zebra_ns_startup_continue(ctx);
 				break;
 
+<<<<<<< HEAD
+=======
+			case DPLANE_OP_VLAN_INSTALL:
+				zebra_vlan_dplane_result(ctx);
+				break;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			} /* Dispatch by op code */
 
 			dplane_ctx_fini(&ctx);
@@ -4963,6 +5671,20 @@ static int rib_dplane_results(struct dplane_ctx_list_head *ctxlist)
 	return 0;
 }
 
+<<<<<<< HEAD
+=======
+uint32_t zebra_rib_dplane_results_count(void)
+{
+	uint32_t count;
+
+	frr_with_mutex (&dplane_mutex) {
+		count = dplane_ctx_queue_count(&rib_dplane_q);
+	}
+
+	return count;
+}
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 /*
  * Ensure there are no empty slots in the route_info array.
  * Every route type in zebra should be present there.
@@ -4985,7 +5707,11 @@ static void check_route_info(void)
 }
 
 /* Routing information base initialize. */
+<<<<<<< HEAD
 void rib_init(void)
+=======
+void zebra_rib_init(void)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 {
 	check_route_info();
 
@@ -4997,6 +5723,23 @@ void rib_init(void)
 	zebra_dplane_init(rib_dplane_results);
 }
 
+<<<<<<< HEAD
+=======
+void zebra_rib_terminate(void)
+{
+	struct zebra_dplane_ctx *ctx;
+
+	EVENT_OFF(t_dplane);
+
+	ctx = dplane_ctx_dequeue(&rib_dplane_q);
+	while (ctx) {
+		dplane_ctx_fini(&ctx);
+
+		ctx = dplane_ctx_dequeue(&rib_dplane_q);
+	}
+}
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 /*
  * vrf_id_get_next
  *
@@ -5050,7 +5793,11 @@ struct route_table *rib_tables_iter_next(rib_tables_iter_t *iter)
 		iter->vrf_id = VRF_DEFAULT;
 		iter->afi_safi_ix = -1;
 
+<<<<<<< HEAD
 	/* Fall through */
+=======
+		fallthrough;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	case RIB_TABLES_ITER_S_ITERATING:
 		iter->afi_safi_ix++;

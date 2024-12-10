@@ -35,10 +35,25 @@ DEFINE_MTYPE_STATIC(ZEBRA, DP_PROV, "Zebra DPlane Provider");
 DEFINE_MTYPE_STATIC(ZEBRA, DP_NETFILTER, "Zebra Netfilter Internal Object");
 DEFINE_MTYPE_STATIC(ZEBRA, DP_NS, "DPlane NSes");
 
+<<<<<<< HEAD
+=======
+DEFINE_MTYPE(ZEBRA, VLAN_CHANGE_ARR, "Vlan Change Array");
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 #ifndef AOK
 #  define AOK 0
 #endif
 
+<<<<<<< HEAD
+=======
+/*
+ * Dataplane API version. This must be updated when any incompatible changes
+ * are made. The minor version (at least) should be updated when new APIs
+ * are introduced.
+ */
+static uint32_t zdplane_version = MAKE_FRRVERSION(2, 0, 0);
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 /* Control for collection of extra interface info with route updates; a plugin
  * can enable the extra info via a dplane api.
  */
@@ -79,7 +94,11 @@ struct dplane_nexthop_info {
 
 	struct nexthop_group ng;
 	struct nh_grp nh_grp[MULTIPATH_NUM];
+<<<<<<< HEAD
 	uint8_t nh_grp_count;
+=======
+	uint16_t nh_grp_count;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 };
 
 /*
@@ -230,6 +249,10 @@ struct dplane_intf_info {
 #define DPLANE_INTF_BROADCAST   (1 << 2)
 #define DPLANE_INTF_HAS_DEST    DPLANE_INTF_CONNECTED
 #define DPLANE_INTF_HAS_LABEL   (1 << 4)
+<<<<<<< HEAD
+=======
+#define DPLANE_INTF_NOPREFIXROUTE (1 << 5)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	/* Interface address/prefix */
 	struct prefix prefix;
@@ -356,6 +379,24 @@ struct dplane_tc_filter_info {
 };
 
 /*
+<<<<<<< HEAD
+=======
+ * SRv6 encapsulation params context for the dataplane
+ */
+struct dplane_srv6_encap_ctx {
+	struct in6_addr srcaddr;
+};
+
+/*
+ * VLAN info for the dataplane
+ */
+struct dplane_vlan_info {
+	ifindex_t ifindex;
+	struct zebra_vxlan_vlan_array *vlan_array;
+};
+
+/*
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
  * The context block used to exchange info about route updates across
  * the boundary between the zebra main context (and pthread) and the
  * dataplane layer (and pthread).
@@ -391,7 +432,11 @@ struct zebra_dplane_ctx {
 	vrf_id_t zd_vrf_id;
 	uint32_t zd_table_id;
 
+<<<<<<< HEAD
 	char zd_ifname[INTERFACE_NAMSIZ];
+=======
+	char zd_ifname[IFNAMSIZ];
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	ifindex_t zd_ifindex;
 
 	/* Support info for different kinds of updates */
@@ -401,6 +446,10 @@ struct zebra_dplane_ctx {
 		struct dplane_pw_info pw;
 		struct dplane_br_port_info br_port;
 		struct dplane_intf_info intf;
+<<<<<<< HEAD
+=======
+		struct dplane_vlan_info vlan_info;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		struct dplane_mac_info macinfo;
 		struct dplane_neigh_info neigh;
 		struct dplane_rule_info rule;
@@ -417,6 +466,10 @@ struct zebra_dplane_ctx {
 		struct dplane_gre_ctx gre;
 		struct dplane_netconf_info netconf;
 		enum zebra_dplane_startup_notifications spot;
+<<<<<<< HEAD
+=======
+		struct dplane_srv6_encap_ctx srv6_encap;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	} u;
 
 	/* Namespace info, used especially for netlink kernel communication */
@@ -467,10 +520,15 @@ struct zebra_dplane_provider {
 	int (*dp_fini)(struct zebra_dplane_provider *prov, bool early_p);
 
 	_Atomic uint32_t dp_in_counter;
+<<<<<<< HEAD
 	_Atomic uint32_t dp_in_queued;
 	_Atomic uint32_t dp_in_max;
 	_Atomic uint32_t dp_out_counter;
 	_Atomic uint32_t dp_out_queued;
+=======
+	_Atomic uint32_t dp_in_max;
+	_Atomic uint32_t dp_out_counter;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	_Atomic uint32_t dp_out_max;
 	_Atomic uint32_t dp_error_counter;
 
@@ -598,6 +656,12 @@ static struct zebra_dplane_globals {
 	_Atomic uint32_t dg_tcs_in;
 	_Atomic uint32_t dg_tcs_errors;
 
+<<<<<<< HEAD
+=======
+	_Atomic uint32_t dg_srv6_encap_srcaddr_set_in;
+	_Atomic uint32_t dg_srv6_encap_srcaddr_set_errors;
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	/* Dataplane pthread */
 	struct frr_pthread *dg_pthread;
 
@@ -652,6 +716,15 @@ neigh_update_internal(enum dplane_op_e op, const struct interface *ifp,
  * Public APIs
  */
 
+<<<<<<< HEAD
+=======
+/* Access the dplane API version */
+uint32_t zebra_dplane_get_version(void)
+{
+	return zdplane_version;
+}
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 /* Obtain thread_master for dataplane thread */
 struct event_loop *dplane_get_thread_master(void)
 {
@@ -860,6 +933,15 @@ static void dplane_ctx_free_internal(struct zebra_dplane_ctx *ctx)
 	case DPLANE_OP_GRE_SET:
 	case DPLANE_OP_INTF_NETCONFIG:
 	case DPLANE_OP_STARTUP_STAGE:
+<<<<<<< HEAD
+=======
+	case DPLANE_OP_SRV6_ENCAP_SRCADDR_SET:
+		break;
+	case DPLANE_OP_VLAN_INSTALL:
+		if (ctx->u.vlan_info.vlan_array)
+			XFREE(MTYPE_VLAN_CHANGE_ARR,
+			      ctx->u.vlan_info.vlan_array);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		break;
 	}
 }
@@ -943,6 +1025,14 @@ struct zebra_dplane_ctx *dplane_ctx_dequeue(struct dplane_ctx_list_head *q)
 	return ctx;
 }
 
+<<<<<<< HEAD
+=======
+uint32_t dplane_ctx_queue_count(struct dplane_ctx_list_head *q)
+{
+	return dplane_ctx_list_count(q);
+}
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 /*
  * Accessors for information from the context object
  */
@@ -1001,6 +1091,7 @@ enum dplane_op_e dplane_ctx_get_op(const struct zebra_dplane_ctx *ctx)
 
 const char *dplane_op2str(enum dplane_op_e op)
 {
+<<<<<<< HEAD
 	const char *ret = "UNKNOWN";
 
 	switch (op) {
@@ -1139,6 +1230,104 @@ const char *dplane_op2str(enum dplane_op_e op)
 	case DPLANE_OP_GRE_SET:
 		ret = "GRE_SET";
 		break;
+=======
+	switch (op) {
+	case DPLANE_OP_NONE:
+		return "NONE";
+
+	/* Route update */
+	case DPLANE_OP_ROUTE_INSTALL:
+		return "ROUTE_INSTALL";
+	case DPLANE_OP_ROUTE_UPDATE:
+		return "ROUTE_UPDATE";
+	case DPLANE_OP_ROUTE_DELETE:
+		return "ROUTE_DELETE";
+	case DPLANE_OP_ROUTE_NOTIFY:
+		return "ROUTE_NOTIFY";
+
+	/* Nexthop update */
+	case DPLANE_OP_NH_INSTALL:
+		return "NH_INSTALL";
+	case DPLANE_OP_NH_UPDATE:
+		return "NH_UPDATE";
+	case DPLANE_OP_NH_DELETE:
+		return "NH_DELETE";
+
+	case DPLANE_OP_LSP_INSTALL:
+		return "LSP_INSTALL";
+	case DPLANE_OP_LSP_UPDATE:
+		return "LSP_UPDATE";
+	case DPLANE_OP_LSP_DELETE:
+		return "LSP_DELETE";
+	case DPLANE_OP_LSP_NOTIFY:
+		return "LSP_NOTIFY";
+
+	case DPLANE_OP_PW_INSTALL:
+		return "PW_INSTALL";
+	case DPLANE_OP_PW_UNINSTALL:
+		return "PW_UNINSTALL";
+
+	case DPLANE_OP_SYS_ROUTE_ADD:
+		return "SYS_ROUTE_ADD";
+	case DPLANE_OP_SYS_ROUTE_DELETE:
+		return "SYS_ROUTE_DEL";
+
+	case DPLANE_OP_BR_PORT_UPDATE:
+		return "BR_PORT_UPDATE";
+
+	case DPLANE_OP_ADDR_INSTALL:
+		return "ADDR_INSTALL";
+	case DPLANE_OP_ADDR_UNINSTALL:
+		return "ADDR_UNINSTALL";
+
+	case DPLANE_OP_MAC_INSTALL:
+		return "MAC_INSTALL";
+	case DPLANE_OP_MAC_DELETE:
+		return "MAC_DELETE";
+
+	case DPLANE_OP_NEIGH_INSTALL:
+		return "NEIGH_INSTALL";
+	case DPLANE_OP_NEIGH_UPDATE:
+		return "NEIGH_UPDATE";
+	case DPLANE_OP_NEIGH_DELETE:
+		return "NEIGH_DELETE";
+	case DPLANE_OP_VTEP_ADD:
+		return "VTEP_ADD";
+	case DPLANE_OP_VTEP_DELETE:
+		return "VTEP_DELETE";
+
+	case DPLANE_OP_RULE_ADD:
+		return "RULE_ADD";
+	case DPLANE_OP_RULE_DELETE:
+		return "RULE_DELETE";
+	case DPLANE_OP_RULE_UPDATE:
+		return "RULE_UPDATE";
+
+	case DPLANE_OP_NEIGH_DISCOVER:
+		return "NEIGH_DISCOVER";
+
+	case DPLANE_OP_IPTABLE_ADD:
+		return "IPTABLE_ADD";
+	case DPLANE_OP_IPTABLE_DELETE:
+		return "IPTABLE_DELETE";
+	case DPLANE_OP_IPSET_ADD:
+		return "IPSET_ADD";
+	case DPLANE_OP_IPSET_DELETE:
+		return "IPSET_DELETE";
+	case DPLANE_OP_IPSET_ENTRY_ADD:
+		return "IPSET_ENTRY_ADD";
+	case DPLANE_OP_IPSET_ENTRY_DELETE:
+		return "IPSET_ENTRY_DELETE";
+	case DPLANE_OP_NEIGH_IP_INSTALL:
+		return "NEIGH_IP_INSTALL";
+	case DPLANE_OP_NEIGH_IP_DELETE:
+		return "NEIGH_IP_DELETE";
+	case DPLANE_OP_NEIGH_TABLE_UPDATE:
+		return "NEIGH_TABLE_UPDATE";
+
+	case DPLANE_OP_GRE_SET:
+		return "GRE_SET";
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	case DPLANE_OP_INTF_ADDR_ADD:
 		return "INTF_ADDR_ADD";
@@ -1150,6 +1339,7 @@ const char *dplane_op2str(enum dplane_op_e op)
 		return "INTF_NETCONFIG";
 
 	case DPLANE_OP_INTF_INSTALL:
+<<<<<<< HEAD
 		ret = "INTF_INSTALL";
 		break;
 	case DPLANE_OP_INTF_UPDATE:
@@ -1188,10 +1378,46 @@ const char *dplane_op2str(enum dplane_op_e op)
 	}
 
 	return ret;
+=======
+		return "INTF_INSTALL";
+	case DPLANE_OP_INTF_UPDATE:
+		return "INTF_UPDATE";
+	case DPLANE_OP_INTF_DELETE:
+		return "INTF_DELETE";
+
+	case DPLANE_OP_TC_QDISC_INSTALL:
+		return "TC_QDISC_INSTALL";
+	case DPLANE_OP_TC_QDISC_UNINSTALL:
+		return "TC_QDISC_UNINSTALL";
+	case DPLANE_OP_TC_CLASS_ADD:
+		return "TC_CLASS_ADD";
+	case DPLANE_OP_TC_CLASS_DELETE:
+		return "TC_CLASS_DELETE";
+	case DPLANE_OP_TC_CLASS_UPDATE:
+		return "TC_CLASS_UPDATE";
+	case DPLANE_OP_TC_FILTER_ADD:
+		return "TC_FILTER_ADD";
+	case DPLANE_OP_TC_FILTER_DELETE:
+		return "TC_FILTER_DELETE";
+	case DPLANE_OP_TC_FILTER_UPDATE:
+		return "TC__FILTER_UPDATE";
+	case DPLANE_OP_STARTUP_STAGE:
+		return "STARTUP_STAGE";
+
+	case DPLANE_OP_SRV6_ENCAP_SRCADDR_SET:
+		return "SRV6_ENCAP_SRCADDR_SET";
+
+	case DPLANE_OP_VLAN_INSTALL:
+		return "NEW_VLAN";
+	}
+
+	return "UNKNOWN";
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 }
 
 const char *dplane_res2str(enum zebra_dplane_result res)
 {
+<<<<<<< HEAD
 	const char *ret = "<Unknown>";
 
 	switch (res) {
@@ -1207,6 +1433,18 @@ const char *dplane_res2str(enum zebra_dplane_result res)
 	}
 
 	return ret;
+=======
+	switch (res) {
+	case ZEBRA_DPLANE_REQUEST_FAILURE:
+		return "FAILURE";
+	case ZEBRA_DPLANE_REQUEST_QUEUED:
+		return "QUEUED";
+	case ZEBRA_DPLANE_REQUEST_SUCCESS:
+		return "SUCCESS";
+	}
+
+	return "<Unknown>";
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 }
 
 void dplane_ctx_set_dest(struct zebra_dplane_ctx *ctx,
@@ -2282,7 +2520,11 @@ dplane_ctx_get_nhe_nh_grp(const struct zebra_dplane_ctx *ctx)
 	return ctx->u.rinfo.nhe.nh_grp;
 }
 
+<<<<<<< HEAD
 uint8_t dplane_ctx_get_nhe_nh_grp_count(const struct zebra_dplane_ctx *ctx)
+=======
+uint16_t dplane_ctx_get_nhe_nh_grp_count(const struct zebra_dplane_ctx *ctx)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 {
 	DPLANE_CTX_VALID(ctx);
 	return ctx->u.rinfo.nhe.nh_grp_count;
@@ -2541,6 +2783,16 @@ bool dplane_ctx_intf_is_connected(const struct zebra_dplane_ctx *ctx)
 	return (ctx->u.intf.flags & DPLANE_INTF_CONNECTED);
 }
 
+<<<<<<< HEAD
+=======
+bool dplane_ctx_intf_is_noprefixroute(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	return (ctx->u.intf.flags & DPLANE_INTF_NOPREFIXROUTE);
+}
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 bool dplane_ctx_intf_is_secondary(const struct zebra_dplane_ctx *ctx)
 {
 	DPLANE_CTX_VALID(ctx);
@@ -2569,6 +2821,16 @@ void dplane_ctx_intf_set_secondary(struct zebra_dplane_ctx *ctx)
 	ctx->u.intf.flags |= DPLANE_INTF_SECONDARY;
 }
 
+<<<<<<< HEAD
+=======
+void dplane_ctx_intf_set_noprefixroute(struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	ctx->u.intf.flags |= DPLANE_INTF_NOPREFIXROUTE;
+}
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 void dplane_ctx_intf_set_broadcast(struct zebra_dplane_ctx *ctx)
 {
 	DPLANE_CTX_VALID(ctx);
@@ -2584,6 +2846,19 @@ const struct prefix *dplane_ctx_get_intf_addr(
 	return &(ctx->u.intf.prefix);
 }
 
+<<<<<<< HEAD
+=======
+
+/* Accessors for SRv6 encapsulation source address information */
+const struct in6_addr *
+dplane_ctx_get_srv6_encap_srcaddr(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	return &(ctx->u.srv6_encap.srcaddr);
+}
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 void dplane_ctx_set_intf_addr(struct zebra_dplane_ctx *ctx,
 			      const struct prefix *p)
 {
@@ -3263,6 +3538,38 @@ uint32_t dplane_get_in_queue_len(void)
 				    memory_order_seq_cst);
 }
 
+<<<<<<< HEAD
+=======
+void dplane_ctx_set_vlan_ifindex(struct zebra_dplane_ctx *ctx, ifindex_t ifindex)
+{
+	DPLANE_CTX_VALID(ctx);
+	ctx->u.vlan_info.ifindex = ifindex;
+}
+
+ifindex_t dplane_ctx_get_vlan_ifindex(struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	return ctx->u.vlan_info.ifindex;
+}
+
+void dplane_ctx_set_vxlan_vlan_array(struct zebra_dplane_ctx *ctx,
+				     struct zebra_vxlan_vlan_array *vlan_array)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	ctx->u.vlan_info.vlan_array = vlan_array;
+}
+
+const struct zebra_vxlan_vlan_array *
+dplane_ctx_get_vxlan_vlan_array(struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	return ctx->u.vlan_info.vlan_array;
+}
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 /*
  * Internal helper that copies information from a zebra ns object; this is
  * called in the zebra main pthread context as part of dplane ctx init.
@@ -4255,6 +4562,13 @@ dplane_route_update_internal(struct route_node *rn,
 					continue;
 
 				if (CHECK_FLAG(nexthop->flags,
+<<<<<<< HEAD
+=======
+					       NEXTHOP_FLAG_DUPLICATE))
+					continue;
+
+				if (CHECK_FLAG(nexthop->flags,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 					       NEXTHOP_FLAG_ACTIVE))
 					SET_FLAG(nexthop->flags,
 						 NEXTHOP_FLAG_FIB);
@@ -4439,8 +4753,26 @@ dplane_nexthop_update_internal(struct nhg_hash_entry *nhe, enum dplane_op_e op)
 	ctx = dplane_ctx_alloc();
 
 	ret = dplane_ctx_nexthop_init(ctx, op, nhe);
+<<<<<<< HEAD
 	if (ret == AOK)
 		ret = dplane_update_enqueue(ctx);
+=======
+	if (ret == AOK) {
+		if (CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_INITIAL_DELAY_INSTALL)) {
+			UNSET_FLAG(nhe->flags, NEXTHOP_GROUP_QUEUED);
+			UNSET_FLAG(nhe->flags, NEXTHOP_GROUP_REINSTALL);
+			SET_FLAG(nhe->flags, NEXTHOP_GROUP_INSTALLED);
+
+			dplane_ctx_free(&ctx);
+			atomic_fetch_add_explicit(&zdplane_info.dg_nexthops_in,
+						  1, memory_order_relaxed);
+
+			return ZEBRA_DPLANE_REQUEST_SUCCESS;
+		}
+
+		ret = dplane_update_enqueue(ctx);
+	}
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	/* Update counter */
 	atomic_fetch_add_explicit(&zdplane_info.dg_nexthops_in, 1,
@@ -5858,6 +6190,62 @@ done:
 }
 
 /*
+<<<<<<< HEAD
+=======
+ * Common helper api for SRv6 encapsulation source address set
+ */
+enum zebra_dplane_result
+dplane_srv6_encap_srcaddr_set(const struct in6_addr *addr, ns_id_t ns_id)
+{
+	enum zebra_dplane_result result = ZEBRA_DPLANE_REQUEST_FAILURE;
+	struct zebra_dplane_ctx *ctx = NULL;
+	enum dplane_op_e op = DPLANE_OP_SRV6_ENCAP_SRCADDR_SET;
+	int ret;
+	struct zebra_ns *zns;
+
+	if (!addr)
+		return result;
+
+	if (IS_ZEBRA_DEBUG_DPLANE_DETAIL) {
+		zlog_debug("init dplane ctx %s: addr %pI6", dplane_op2str(op),
+			   addr);
+	}
+
+	zns = zebra_ns_lookup(ns_id);
+	if (!zns)
+		return result;
+
+	ctx = dplane_ctx_alloc();
+
+	ctx->zd_op = op;
+	ctx->zd_status = ZEBRA_DPLANE_REQUEST_SUCCESS;
+
+	dplane_ctx_ns_init(ctx, zns, false);
+
+	/* Init the SRv6 encap source address specific data area */
+	memcpy(&ctx->u.srv6_encap.srcaddr, addr,
+	       sizeof(ctx->u.srv6_encap.srcaddr));
+
+	/* Update counter */
+	atomic_fetch_add_explicit(&zdplane_info.dg_srv6_encap_srcaddr_set_in, 1,
+				  memory_order_relaxed);
+
+	/* Enqueue context for processing */
+	ret = dplane_update_enqueue(ctx);
+
+	if (ret == AOK)
+		result = ZEBRA_DPLANE_REQUEST_QUEUED;
+	else {
+		atomic_fetch_add_explicit(&zdplane_info
+						   .dg_srv6_encap_srcaddr_set_errors,
+					  1, memory_order_relaxed);
+		dplane_ctx_free(&ctx);
+	}
+	return result;
+}
+
+/*
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
  * Handler for 'show dplane'
  */
 int dplane_show_helper(struct vty *vty, bool detailed)
@@ -5886,6 +6274,17 @@ int dplane_show_helper(struct vty *vty, bool detailed)
 	vty_out(vty, "Zebra dataplane:\nRoute updates:            %"PRIu64"\n",
 		incoming);
 	vty_out(vty, "Route update errors:      %"PRIu64"\n", errs);
+<<<<<<< HEAD
+=======
+
+	incoming = atomic_load_explicit(&zdplane_info.dg_nexthops_in,
+					memory_order_relaxed);
+	errs = atomic_load_explicit(&zdplane_info.dg_nexthop_errors,
+				    memory_order_relaxed);
+	vty_out(vty, "Nexthop updates:          %" PRIu64 "\n", incoming);
+	vty_out(vty, "Nexthop update errors:    %" PRIu64 "\n", errs);
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	vty_out(vty, "Other errors       :      %"PRIu64"\n", other_errs);
 	vty_out(vty, "Route update queue limit: %"PRIu64"\n", limit);
 	vty_out(vty, "Route update queue depth: %"PRIu64"\n", queued);
@@ -5991,6 +6390,7 @@ int dplane_show_provs_helper(struct vty *vty, bool detailed)
 	struct zebra_dplane_provider *prov;
 	uint64_t in, in_q, in_max, out, out_q, out_max;
 
+<<<<<<< HEAD
 	vty_out(vty, "Zebra dataplane providers:\n");
 
 	DPLANE_LOCK();
@@ -6004,10 +6404,31 @@ int dplane_show_provs_helper(struct vty *vty, bool detailed)
 					  memory_order_relaxed);
 		in_q = atomic_load_explicit(&prov->dp_in_queued,
 					    memory_order_relaxed);
+=======
+	DPLANE_LOCK();
+	prov = dplane_prov_list_first(&zdplane_info.dg_providers);
+	in = dplane_ctx_queue_count(&zdplane_info.dg_update_list);
+	DPLANE_UNLOCK();
+
+	vty_out(vty, "dataplane Incoming Queue from Zebra: %" PRIu64 "\n", in);
+	vty_out(vty, "Zebra dataplane providers:\n");
+
+	/* Show counters, useful info from each registered provider */
+	while (prov) {
+		dplane_provider_lock(prov);
+		in_q = dplane_ctx_queue_count(&prov->dp_ctx_in_list);
+		out_q = dplane_ctx_queue_count(&prov->dp_ctx_out_list);
+		dplane_provider_unlock(prov);
+
+		in = atomic_load_explicit(&prov->dp_in_counter,
+					  memory_order_relaxed);
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		in_max = atomic_load_explicit(&prov->dp_in_max,
 					      memory_order_relaxed);
 		out = atomic_load_explicit(&prov->dp_out_counter,
 					   memory_order_relaxed);
+<<<<<<< HEAD
 		out_q = atomic_load_explicit(&prov->dp_out_queued,
 					     memory_order_relaxed);
 		out_max = atomic_load_explicit(&prov->dp_out_max,
@@ -6016,10 +6437,28 @@ int dplane_show_provs_helper(struct vty *vty, bool detailed)
 		vty_out(vty, "%s (%u): in: %"PRIu64", q: %"PRIu64", q_max: %"PRIu64", out: %"PRIu64", q: %"PRIu64", q_max: %"PRIu64"\n",
 			prov->dp_name, prov->dp_id, in, in_q, in_max,
 			out, out_q, out_max);
+=======
+
+		out_max = atomic_load_explicit(&prov->dp_out_max,
+					       memory_order_relaxed);
+
+		vty_out(vty,
+			"  %s (%u): in: %" PRIu64 ", q: %" PRIu64
+			", q_max: %" PRIu64 ", out: %" PRIu64 ", q: %" PRIu64
+			", q_max: %" PRIu64 "\n",
+			prov->dp_name, prov->dp_id, in, in_q, in_max, out,
+			out_q, out_max);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 		prov = dplane_prov_list_next(&zdplane_info.dg_providers, prov);
 	}
 
+<<<<<<< HEAD
+=======
+	out = zebra_rib_dplane_results_count();
+	vty_out(vty, "dataplane Outgoing Queue to Zebra: %" PRIu64 "\n", out);
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	return CMD_SUCCESS;
 }
 
@@ -6161,10 +6600,13 @@ struct zebra_dplane_ctx *dplane_provider_dequeue_in_ctx(
 	dplane_provider_lock(prov);
 
 	ctx = dplane_ctx_list_pop(&(prov->dp_ctx_in_list));
+<<<<<<< HEAD
 	if (ctx) {
 		atomic_fetch_sub_explicit(&prov->dp_in_queued, 1,
 					  memory_order_relaxed);
 	}
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	dplane_provider_unlock(prov);
 
@@ -6192,10 +6634,13 @@ int dplane_provider_dequeue_in_list(struct zebra_dplane_provider *prov,
 			break;
 	}
 
+<<<<<<< HEAD
 	if (ret > 0)
 		atomic_fetch_sub_explicit(&prov->dp_in_queued, ret,
 					  memory_order_relaxed);
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	dplane_provider_unlock(prov);
 
 	return ret;
@@ -6220,10 +6665,14 @@ void dplane_provider_enqueue_out_ctx(struct zebra_dplane_provider *prov,
 	dplane_ctx_list_add_tail(&(prov->dp_ctx_out_list), ctx);
 
 	/* Maintain out-queue counters */
+<<<<<<< HEAD
 	atomic_fetch_add_explicit(&(prov->dp_out_queued), 1,
 				  memory_order_relaxed);
 	curr = atomic_load_explicit(&prov->dp_out_queued,
 				    memory_order_relaxed);
+=======
+	curr = dplane_ctx_queue_count(&prov->dp_ctx_out_list);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	high = atomic_load_explicit(&prov->dp_out_max,
 				    memory_order_relaxed);
 	if (curr > high)
@@ -6245,9 +6694,12 @@ dplane_provider_dequeue_out_ctx(struct zebra_dplane_provider *prov)
 	if (!ctx)
 		return NULL;
 
+<<<<<<< HEAD
 	atomic_fetch_sub_explicit(&(prov->dp_out_queued), 1,
 				  memory_order_relaxed);
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	return ctx;
 }
 
@@ -6256,7 +6708,11 @@ dplane_provider_dequeue_out_ctx(struct zebra_dplane_provider *prov)
  */
 bool dplane_provider_is_threaded(const struct zebra_dplane_provider *prov)
 {
+<<<<<<< HEAD
 	return (prov->dp_flags & DPLANE_PROV_FLAG_THREADED);
+=======
+	return CHECK_FLAG(prov->dp_flags, DPLANE_PROV_FLAG_THREADED);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 }
 
 #ifdef HAVE_NETLINK
@@ -6582,6 +7038,21 @@ static void kernel_dplane_log_detail(struct zebra_dplane_ctx *ctx)
 	case DPLANE_OP_TC_FILTER_UPDATE:
 	case DPLANE_OP_STARTUP_STAGE:
 		break;
+<<<<<<< HEAD
+=======
+
+	case DPLANE_OP_SRV6_ENCAP_SRCADDR_SET:
+		zlog_debug("Dplane SRv6 encap source address set op %s, addr %pI6",
+			   dplane_op2str(dplane_ctx_get_op(ctx)),
+			   &ctx->u.srv6_encap.srcaddr);
+		break;
+
+	case DPLANE_OP_VLAN_INSTALL:
+		zlog_debug("Dplane %s on idx %u",
+			   dplane_op2str(dplane_ctx_get_op(ctx)),
+			   dplane_ctx_get_vlan_ifindex(ctx));
+		break;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	}
 }
 
@@ -6750,6 +7221,17 @@ static void kernel_dplane_handle_result(struct zebra_dplane_ctx *ctx)
 	case DPLANE_OP_INTF_ADDR_ADD:
 	case DPLANE_OP_INTF_ADDR_DEL:
 	case DPLANE_OP_INTF_NETCONFIG:
+<<<<<<< HEAD
+=======
+	case DPLANE_OP_VLAN_INSTALL:
+		break;
+
+	case DPLANE_OP_SRV6_ENCAP_SRCADDR_SET:
+		if (res != ZEBRA_DPLANE_REQUEST_SUCCESS)
+			atomic_fetch_add_explicit(&zdplane_info
+							   .dg_srv6_encap_srcaddr_set_errors,
+						  1, memory_order_relaxed);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		break;
 
 	case DPLANE_OP_NONE:
@@ -6860,6 +7342,34 @@ static int kernel_dplane_process_func(struct zebra_dplane_provider *prov)
 	return 0;
 }
 
+<<<<<<< HEAD
+=======
+static int kernel_dplane_shutdown_func(struct zebra_dplane_provider *prov,
+				       bool early)
+{
+	struct zebra_dplane_ctx *ctx;
+
+	if (early)
+		return 1;
+
+	ctx = dplane_provider_dequeue_in_ctx(prov);
+	while (ctx) {
+		dplane_ctx_free(&ctx);
+
+		ctx = dplane_provider_dequeue_in_ctx(prov);
+	}
+
+	ctx = dplane_provider_dequeue_out_ctx(prov);
+	while (ctx) {
+		dplane_ctx_free(&ctx);
+
+		ctx = dplane_provider_dequeue_out_ctx(prov);
+	}
+
+	return 1;
+}
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 #ifdef DPLANE_TEST_PROVIDER
 
 /*
@@ -6932,12 +7442,19 @@ static void dplane_provider_init(void)
 {
 	int ret;
 
+<<<<<<< HEAD
 	ret = dplane_provider_register("Kernel",
 				       DPLANE_PRIO_KERNEL,
 				       DPLANE_PROV_FLAGS_DEFAULT, NULL,
 				       kernel_dplane_process_func,
 				       NULL,
 				       NULL, NULL);
+=======
+	ret = dplane_provider_register("Kernel", DPLANE_PRIO_KERNEL,
+				       DPLANE_PROV_FLAGS_DEFAULT, NULL,
+				       kernel_dplane_process_func,
+				       kernel_dplane_shutdown_func, NULL, NULL);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	if (ret != AOK)
 		zlog_err("Unable to register kernel dplane provider: %d",
@@ -7157,10 +7674,17 @@ static void dplane_thread_loop(struct event *event)
 {
 	struct dplane_ctx_list_head work_list;
 	struct dplane_ctx_list_head error_list;
+<<<<<<< HEAD
 	struct zebra_dplane_provider *prov;
 	struct zebra_dplane_ctx *ctx;
 	int limit, counter, error_counter;
 	uint64_t curr, high;
+=======
+	struct zebra_dplane_provider *prov, *next_prov;
+	struct zebra_dplane_ctx *ctx;
+	int limit, counter, error_counter;
+	uint64_t curr, out_curr, high;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	bool reschedule = false;
 
 	/* Capture work limit per cycle */
@@ -7184,6 +7708,7 @@ static void dplane_thread_loop(struct event *event)
 	/* Locate initial registered provider */
 	prov = dplane_prov_list_first(&zdplane_info.dg_providers);
 
+<<<<<<< HEAD
 	/* Move new work from incoming list to temp list */
 	for (counter = 0; counter < limit; counter++) {
 		ctx = dplane_ctx_list_pop(&zdplane_info.dg_update_list);
@@ -7196,6 +7721,50 @@ static void dplane_thread_loop(struct event *event)
 		}
 	}
 
+=======
+	curr = dplane_ctx_queue_count(&prov->dp_ctx_in_list);
+	out_curr = dplane_ctx_queue_count(&prov->dp_ctx_out_list);
+
+	if (curr >= (uint64_t)limit) {
+		if (IS_ZEBRA_DEBUG_DPLANE_DETAIL)
+			zlog_debug("%s: Current first provider(%s) Input queue is %" PRIu64
+				   ", holding off work",
+				   __func__, prov->dp_name, curr);
+		counter = 0;
+	} else if (out_curr >= (uint64_t)limit) {
+		if (IS_ZEBRA_DEBUG_DPLANE_DETAIL)
+			zlog_debug("%s: Current first provider(%s) Output queue is %" PRIu64
+				   ", holding off work",
+				   __func__, prov->dp_name, out_curr);
+		counter = 0;
+	} else {
+		int tlimit;
+		/*
+		 * Let's limit the work to how what can be put on the
+		 * in or out queue without going over
+		 */
+		tlimit = limit - MAX(curr, out_curr);
+		/* Move new work from incoming list to temp list */
+		for (counter = 0; counter < tlimit; counter++) {
+			ctx = dplane_ctx_list_pop(&zdplane_info.dg_update_list);
+			if (ctx) {
+				ctx->zd_provider = prov->dp_id;
+
+				dplane_ctx_list_add_tail(&work_list, ctx);
+			} else {
+				break;
+			}
+		}
+	}
+
+	/*
+	 * If there is anything still on the two input queues reschedule
+	 */
+	if (dplane_ctx_queue_count(&prov->dp_ctx_in_list) > 0 ||
+	    dplane_ctx_queue_count(&zdplane_info.dg_update_list) > 0)
+		reschedule = true;
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	DPLANE_UNLOCK();
 
 	atomic_fetch_sub_explicit(&zdplane_info.dg_routes_queued, counter,
@@ -7214,8 +7783,14 @@ static void dplane_thread_loop(struct event *event)
 		 * items.
 		 */
 		if (IS_ZEBRA_DEBUG_DPLANE_DETAIL)
+<<<<<<< HEAD
 			zlog_debug("dplane enqueues %d new work to provider '%s'",
 				   counter, dplane_provider_get_name(prov));
+=======
+			zlog_debug("dplane enqueues %d new work to provider '%s' curr is %" PRIu64,
+				   counter, dplane_provider_get_name(prov),
+				   curr);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 		/* Capture current provider id in each context; check for
 		 * error status.
@@ -7248,10 +7823,14 @@ static void dplane_thread_loop(struct event *event)
 
 		atomic_fetch_add_explicit(&prov->dp_in_counter, counter,
 					  memory_order_relaxed);
+<<<<<<< HEAD
 		atomic_fetch_add_explicit(&prov->dp_in_queued, counter,
 					  memory_order_relaxed);
 		curr = atomic_load_explicit(&prov->dp_in_queued,
 					    memory_order_relaxed);
+=======
+		curr = dplane_ctx_queue_count(&prov->dp_ctx_in_list);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		high = atomic_load_explicit(&prov->dp_in_max,
 					    memory_order_relaxed);
 		if (curr > high)
@@ -7276,6 +7855,7 @@ static void dplane_thread_loop(struct event *event)
 		if (!zdplane_info.dg_run)
 			break;
 
+<<<<<<< HEAD
 		/* Dequeue completed work from the provider */
 		dplane_provider_lock(prov);
 
@@ -7288,6 +7868,63 @@ static void dplane_thread_loop(struct event *event)
 				break;
 		}
 
+=======
+		/* Locate next provider */
+		next_prov = dplane_prov_list_next(&zdplane_info.dg_providers,
+						  prov);
+		if (next_prov) {
+			curr = dplane_ctx_queue_count(
+				&next_prov->dp_ctx_in_list);
+			out_curr = dplane_ctx_queue_count(
+				&next_prov->dp_ctx_out_list);
+		} else
+			out_curr = curr = 0;
+
+		/* Dequeue completed work from the provider */
+		dplane_provider_lock(prov);
+
+		if (curr >= (uint64_t)limit) {
+			if (IS_ZEBRA_DEBUG_DPLANE_DETAIL)
+				zlog_debug("%s: Next Provider(%s) Input queue is %" PRIu64
+					   ", holding off work",
+					   __func__, next_prov->dp_name, curr);
+			counter = 0;
+		} else if (out_curr >= (uint64_t)limit) {
+			if (IS_ZEBRA_DEBUG_DPLANE_DETAIL)
+				zlog_debug("%s: Next Provider(%s) Output queue is %" PRIu64
+					   ", holding off work",
+					   __func__, next_prov->dp_name,
+					   out_curr);
+			counter = 0;
+		} else {
+			int tlimit;
+
+			/*
+			 * Let's limit the work to how what can be put on the
+			 * in or out queue without going over
+			 */
+			tlimit = limit - MAX(curr, out_curr);
+			while (counter < tlimit) {
+				ctx = dplane_provider_dequeue_out_ctx(prov);
+				if (ctx) {
+					dplane_ctx_list_add_tail(&work_list,
+								 ctx);
+					counter++;
+				} else
+					break;
+			}
+		}
+
+		/*
+		 * Let's check if there are still any items on the
+		 * input or output queus of the current provider
+		 * if so then we know we need to reschedule.
+		 */
+		if (dplane_ctx_queue_count(&prov->dp_ctx_in_list) > 0 ||
+		    dplane_ctx_queue_count(&prov->dp_ctx_out_list) > 0)
+			reschedule = true;
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		dplane_provider_unlock(prov);
 
 		if (counter >= limit)
@@ -7297,8 +7934,18 @@ static void dplane_thread_loop(struct event *event)
 			zlog_debug("dplane dequeues %d completed work from provider %s",
 				   counter, dplane_provider_get_name(prov));
 
+<<<<<<< HEAD
 		/* Locate next provider */
 		prov = dplane_prov_list_next(&zdplane_info.dg_providers, prov);
+=======
+		if (event_should_yield(event)) {
+			reschedule = true;
+			break;
+		}
+
+		/* Locate next provider */
+		prov = next_prov;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	}
 
 	/*
@@ -7338,6 +7985,10 @@ static void dplane_thread_loop(struct event *event)
 void zebra_dplane_shutdown(void)
 {
 	struct zebra_dplane_provider *dp;
+<<<<<<< HEAD
+=======
+	struct zebra_dplane_ctx *ctx;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	if (IS_ZEBRA_DEBUG_DPLANE)
 		zlog_debug("Zebra dataplane shutdown called");
@@ -7365,8 +8016,30 @@ void zebra_dplane_shutdown(void)
 	}
 
 	/* TODO -- Clean-up provider objects */
+<<<<<<< HEAD
 
 	/* TODO -- Clean queue(s), free memory */
+=======
+	dp = dplane_prov_list_first(&zdplane_info.dg_providers);
+	while (dp) {
+		dplane_prov_list_del(&zdplane_info.dg_providers, dp);
+		XFREE(MTYPE_DP_PROV, dp);
+
+		dp = dplane_prov_list_first(&zdplane_info.dg_providers);
+	}
+
+	/* TODO -- Clean queue(s), free memory */
+	DPLANE_LOCK();
+	{
+		ctx = dplane_ctx_list_pop(&zdplane_info.dg_update_list);
+		while (ctx) {
+			dplane_ctx_free(&ctx);
+
+			ctx = dplane_ctx_list_pop(&zdplane_info.dg_update_list);
+		}
+	}
+	DPLANE_UNLOCK();
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 }
 
 /*

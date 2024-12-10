@@ -7,17 +7,32 @@
  */
 
 #include <zebra.h>
+<<<<<<< HEAD
 #include "hash.h"
 #include "jhash.h"
 #include "libfrr.h"
+=======
+#include "darr.h"
+#include "hash.h"
+#include "jhash.h"
+#include "libfrr.h"
+#include "mgmt_msg.h"
+#include "mgmt_msg_native.h"
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 #include "mgmtd/mgmt.h"
 #include "mgmtd/mgmt_memory.h"
 #include "mgmtd/mgmt_txn.h"
 
+<<<<<<< HEAD
 #define MGMTD_TXN_DBG(fmt, ...)                                                \
 	DEBUGD(&mgmt_debug_txn, "TXN: %s: " fmt, __func__, ##__VA_ARGS__)
 #define MGMTD_TXN_ERR(fmt, ...)                                                \
 	zlog_err("%s: ERROR: " fmt, __func__, ##__VA_ARGS__)
+=======
+#define __dbg(fmt, ...)                                                        \
+	DEBUGD(&mgmt_debug_txn, "TXN: %s: " fmt, __func__, ##__VA_ARGS__)
+#define __log_err(fmt, ...) zlog_err("%s: ERROR: " fmt, __func__, ##__VA_ARGS__)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 #define MGMTD_TXN_LOCK(txn)   mgmt_txn_lock(txn, __FILE__, __LINE__)
 #define MGMTD_TXN_UNLOCK(txn) mgmt_txn_unlock(txn, __FILE__, __LINE__)
@@ -26,9 +41,15 @@ enum mgmt_txn_event {
 	MGMTD_TXN_PROC_SETCFG = 1,
 	MGMTD_TXN_PROC_COMMITCFG,
 	MGMTD_TXN_PROC_GETCFG,
+<<<<<<< HEAD
 	MGMTD_TXN_PROC_GETDATA,
 	MGMTD_TXN_COMMITCFG_TIMEOUT,
 	MGMTD_TXN_CLEANUP
+=======
+	MGMTD_TXN_PROC_GETTREE,
+	MGMTD_TXN_PROC_RPC,
+	MGMTD_TXN_COMMITCFG_TIMEOUT,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 };
 
 PREDECL_LIST(mgmt_txn_reqs);
@@ -47,7 +68,10 @@ struct mgmt_set_cfg_req {
 enum mgmt_commit_phase {
 	MGMTD_COMMIT_PHASE_PREPARE_CFG = 0,
 	MGMTD_COMMIT_PHASE_TXN_CREATE,
+<<<<<<< HEAD
 	MGMTD_COMMIT_PHASE_SEND_CFG,
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	MGMTD_COMMIT_PHASE_APPLY_CFG,
 	MGMTD_COMMIT_PHASE_TXN_DELETE,
 	MGMTD_COMMIT_PHASE_MAX
@@ -60,8 +84,11 @@ static inline const char *mgmt_commit_phase2str(enum mgmt_commit_phase cmt_phase
 		return "PREP-CFG";
 	case MGMTD_COMMIT_PHASE_TXN_CREATE:
 		return "CREATE-TXN";
+<<<<<<< HEAD
 	case MGMTD_COMMIT_PHASE_SEND_CFG:
 		return "SEND-CFG";
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	case MGMTD_COMMIT_PHASE_APPLY_CFG:
 		return "APPLY-CFG";
 	case MGMTD_COMMIT_PHASE_TXN_DELETE:
@@ -77,17 +104,25 @@ PREDECL_LIST(mgmt_txn_batches);
 
 struct mgmt_txn_be_cfg_batch {
 	struct mgmt_txn_ctx *txn;
+<<<<<<< HEAD
 	uint64_t batch_id;
 	enum mgmt_be_client_id be_id;
 	struct mgmt_be_client_adapter *be_adapter;
 	uint xp_subscr[MGMTD_MAX_CFG_CHANGES_IN_BATCH];
+=======
+	enum mgmt_be_client_id be_id;
+	struct mgmt_be_client_adapter *be_adapter;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	Mgmtd__YangCfgDataReq cfg_data[MGMTD_MAX_CFG_CHANGES_IN_BATCH];
 	Mgmtd__YangCfgDataReq *cfg_datap[MGMTD_MAX_CFG_CHANGES_IN_BATCH];
 	Mgmtd__YangData data[MGMTD_MAX_CFG_CHANGES_IN_BATCH];
 	Mgmtd__YangDataValue value[MGMTD_MAX_CFG_CHANGES_IN_BATCH];
 	size_t num_cfg_data;
 	int buf_space_left;
+<<<<<<< HEAD
 	enum mgmt_commit_phase comm_phase;
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	struct mgmt_txn_batches_item list_linkage;
 };
 
@@ -96,6 +131,15 @@ DECLARE_LIST(mgmt_txn_batches, struct mgmt_txn_be_cfg_batch, list_linkage);
 #define FOREACH_TXN_CFG_BATCH_IN_LIST(list, batch)                             \
 	frr_each_safe (mgmt_txn_batches, list, batch)
 
+<<<<<<< HEAD
+=======
+struct mgmt_edit_req {
+	char xpath_created[XPATH_MAXLEN];
+	bool created;
+	bool unlock;
+};
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 struct mgmt_commit_cfg_req {
 	Mgmtd__DatastoreId src_ds_id;
 	struct mgmt_ds_ctx *src_ds_ctx;
@@ -106,10 +150,25 @@ struct mgmt_commit_cfg_req {
 	uint8_t abort : 1;
 	uint8_t implicit : 1;
 	uint8_t rollback : 1;
+<<<<<<< HEAD
 
 	/* Track commit phases */
 	enum mgmt_commit_phase curr_phase;
 	enum mgmt_commit_phase next_phase;
+=======
+	uint8_t init : 1;
+
+	/* Track commit phases */
+	enum mgmt_commit_phase phase;
+
+	enum mgmt_commit_phase be_phase[MGMTD_BE_CLIENT_ID_MAX];
+
+	/*
+	 * Additional information when the commit is triggered by native edit
+	 * request.
+	 */
+	struct mgmt_edit_req *edit;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	/*
 	 * Set of config changes to commit. This is used only
@@ -125,11 +184,16 @@ struct mgmt_commit_cfg_req {
 	 * Details on all the Backend Clients associated with
 	 * this commit.
 	 */
+<<<<<<< HEAD
 	struct mgmt_be_client_subscr_info subscr_info;
+=======
+	uint64_t clients;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	/*
 	 * List of backend batches for this commit to be validated
 	 * and applied at the backend.
+<<<<<<< HEAD
 	 *
 	 * FIXME: Need to re-think this design for the case set of
 	 * validators for a given YANG data item is different from
@@ -145,6 +209,14 @@ struct mgmt_commit_cfg_req {
 	struct mgmt_txn_be_cfg_batch *last_be_cfg_batch[MGMTD_BE_CLIENT_ID_MAX];
 	struct hash *batches;
 	uint64_t next_batch_id;
+=======
+	 */
+	struct mgmt_txn_batches_head batches[MGMTD_BE_CLIENT_ID_MAX];
+	/*
+	 * The last batch added for any backend client.
+	 */
+	struct mgmt_txn_be_cfg_batch *last_be_cfg_batch[MGMTD_BE_CLIENT_ID_MAX];
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	struct mgmt_commit_stats *cmt_stats;
 };
@@ -176,6 +248,31 @@ struct mgmt_get_data_req {
 	int total_reply;
 };
 
+<<<<<<< HEAD
+=======
+
+struct txn_req_get_tree {
+	char *xpath;	       /* xpath of tree to get */
+	uint64_t sent_clients; /* Bitmask of clients sent req to */
+	uint64_t recv_clients; /* Bitmask of clients recv reply from */
+	int32_t partial_error; /* an error while gather results */
+	uint8_t result_type;   /* LYD_FORMAT for results */
+	uint8_t wd_options;    /* LYD_PRINT_WD_* flags for results */
+	uint8_t exact;	       /* if exact node is requested */
+	uint8_t simple_xpath;  /* if xpath is simple */
+	struct lyd_node *client_results; /* result tree from clients */
+};
+
+struct txn_req_rpc {
+	char *xpath;	       /* xpath of rpc/action to invoke */
+	uint64_t sent_clients; /* Bitmask of clients sent req to */
+	uint64_t recv_clients; /* Bitmask of clients recv reply from */
+	uint8_t result_type;   /* LYD_FORMAT for results */
+	char *errstr;	       /* error string */
+	struct lyd_node *client_results; /* result tree from clients */
+};
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 struct mgmt_txn_req {
 	struct mgmt_txn_ctx *txn;
 	enum mgmt_txn_event req_event;
@@ -183,10 +280,18 @@ struct mgmt_txn_req {
 	union {
 		struct mgmt_set_cfg_req *set_cfg;
 		struct mgmt_get_data_req *get_data;
+<<<<<<< HEAD
 		struct mgmt_commit_cfg_req commit_cfg;
 	} req;
 
 	bool pending_be_proc;
+=======
+		struct txn_req_get_tree *get_tree;
+		struct txn_req_rpc *rpc;
+		struct mgmt_commit_cfg_req commit_cfg;
+	} req;
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	struct mgmt_txn_reqs_item list_linkage;
 };
 
@@ -206,7 +311,14 @@ struct mgmt_txn_ctx {
 	struct event *proc_comm_cfg;
 	struct event *proc_get_cfg;
 	struct event *proc_get_data;
+<<<<<<< HEAD
 	struct event *comm_cfg_timeout;
+=======
+	struct event *proc_get_tree;
+	struct event *comm_cfg_timeout;
+	struct event *get_tree_timeout;
+	struct event *rpc_timeout;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	struct event *clnup;
 
 	/* List of backend adapters involved in this transaction */
@@ -216,6 +328,13 @@ struct mgmt_txn_ctx {
 
 	struct mgmt_txns_item list_linkage;
 
+<<<<<<< HEAD
+=======
+	/* TODO: why do we need unique lists for each type of transaction since
+	 * a transaction is of only 1 type?
+	 */
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	/*
 	 * List of pending set-config requests for a given
 	 * transaction/session. Just one list for requests
@@ -231,6 +350,7 @@ struct mgmt_txn_ctx {
 	 */
 	struct mgmt_txn_reqs_head get_cfg_reqs;
 	/*
+<<<<<<< HEAD
 	 * List of pending get-data requests for a given
 	 * transaction/session Two lists, one for requests
 	 * not processed at all, and one for requests that
@@ -238,6 +358,15 @@ struct mgmt_txn_ctx {
 	 */
 	struct mgmt_txn_reqs_head get_data_reqs;
 	struct mgmt_txn_reqs_head pending_get_datas;
+=======
+	 * List of pending get-tree requests.
+	 */
+	struct mgmt_txn_reqs_head get_tree_reqs;
+	/*
+	 * List of pending rpc requests.
+	 */
+	struct mgmt_txn_reqs_head rpc_reqs;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	/*
 	 * There will always be one commit-config allowed for a given
 	 * transaction/session. No need to maintain lists for it.
@@ -254,15 +383,23 @@ static int mgmt_txn_send_commit_cfg_reply(struct mgmt_txn_ctx *txn,
 					  enum mgmt_result result,
 					  const char *error_if_any);
 
+<<<<<<< HEAD
 static inline const char *mgmt_txn_commit_phase_str(struct mgmt_txn_ctx *txn,
 						    bool curr)
+=======
+static inline const char *mgmt_txn_commit_phase_str(struct mgmt_txn_ctx *txn)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 {
 	if (!txn->commit_cfg_req)
 		return "None";
 
+<<<<<<< HEAD
 	return (mgmt_commit_phase2str(
 		curr ? txn->commit_cfg_req->req.commit_cfg.curr_phase
 		     : txn->commit_cfg_req->req.commit_cfg.next_phase));
+=======
+	return mgmt_commit_phase2str(txn->commit_cfg_req->req.commit_cfg.phase);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 }
 
 static void mgmt_txn_lock(struct mgmt_txn_ctx *txn, const char *file, int line);
@@ -277,9 +414,13 @@ static struct mgmt_master *mgmt_txn_mm;
 static void mgmt_txn_register_event(struct mgmt_txn_ctx *txn,
 				    enum mgmt_txn_event event);
 
+<<<<<<< HEAD
 static int
 mgmt_move_be_commit_to_next_phase(struct mgmt_txn_ctx *txn,
 				  struct mgmt_be_client_adapter *adapter);
+=======
+static void mgmt_txn_cleanup_txn(struct mgmt_txn_ctx **txn);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 static struct mgmt_txn_be_cfg_batch *
 mgmt_txn_cfg_batch_alloc(struct mgmt_txn_ctx *txn, enum mgmt_be_client_id id,
@@ -296,7 +437,11 @@ mgmt_txn_cfg_batch_alloc(struct mgmt_txn_ctx *txn, enum mgmt_be_client_id id,
 	MGMTD_TXN_LOCK(txn);
 	assert(txn->commit_cfg_req);
 	mgmt_txn_batches_add_tail(&txn->commit_cfg_req->req.commit_cfg
+<<<<<<< HEAD
 					   .curr_batches[id],
+=======
+					   .batches[id],
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 				  batch);
 	batch->be_adapter = be_adapter;
 	batch->buf_space_left = MGMTD_BE_CFGDATA_MAX_MSG_LEN;
@@ -304,11 +449,14 @@ mgmt_txn_cfg_batch_alloc(struct mgmt_txn_ctx *txn, enum mgmt_be_client_id id,
 		mgmt_be_adapter_lock(be_adapter);
 
 	txn->commit_cfg_req->req.commit_cfg.last_be_cfg_batch[id] = batch;
+<<<<<<< HEAD
 	if (!txn->commit_cfg_req->req.commit_cfg.next_batch_id)
 		txn->commit_cfg_req->req.commit_cfg.next_batch_id++;
 	batch->batch_id = txn->commit_cfg_req->req.commit_cfg.next_batch_id++;
 	hash_get(txn->commit_cfg_req->req.commit_cfg.batches, batch,
 		 hash_alloc_intern);
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	return batch;
 }
@@ -318,15 +466,23 @@ static void mgmt_txn_cfg_batch_free(struct mgmt_txn_be_cfg_batch **batch)
 	size_t indx;
 	struct mgmt_commit_cfg_req *cmtcfg_req;
 
+<<<<<<< HEAD
 	MGMTD_TXN_DBG(" freeing batch-id: %" PRIu64 " txn-id %" PRIu64,
 		      (*batch)->batch_id, (*batch)->txn->txn_id);
+=======
+	__dbg(" freeing batch txn-id %" PRIu64, (*batch)->txn->txn_id);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	assert((*batch)->txn && (*batch)->txn->type == MGMTD_TXN_TYPE_CONFIG);
 
 	cmtcfg_req = &(*batch)->txn->commit_cfg_req->req.commit_cfg;
+<<<<<<< HEAD
 	hash_release(cmtcfg_req->batches, *batch);
 	mgmt_txn_batches_del(&cmtcfg_req->curr_batches[(*batch)->be_id], *batch);
 	mgmt_txn_batches_del(&cmtcfg_req->next_batches[(*batch)->be_id], *batch);
+=======
+	mgmt_txn_batches_del(&cmtcfg_req->batches[(*batch)->be_id], *batch);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	if ((*batch)->be_adapter)
 		mgmt_be_adapter_unlock(&(*batch)->be_adapter);
@@ -344,6 +500,7 @@ static void mgmt_txn_cfg_batch_free(struct mgmt_txn_be_cfg_batch **batch)
 	*batch = NULL;
 }
 
+<<<<<<< HEAD
 static unsigned int mgmt_txn_cfgbatch_hash_key(const void *data)
 {
 	const struct mgmt_txn_be_cfg_batch *batch = data;
@@ -382,12 +539,15 @@ mgmt_txn_cfgbatch_id2ctx(struct mgmt_txn_ctx *txn, uint64_t batch_id)
 	return batch;
 }
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 static void mgmt_txn_cleanup_be_cfg_batches(struct mgmt_txn_ctx *txn,
 					    enum mgmt_be_client_id id)
 {
 	struct mgmt_txn_be_cfg_batch *batch;
 	struct mgmt_txn_batches_head *list;
 
+<<<<<<< HEAD
 	list = &txn->commit_cfg_req->req.commit_cfg.curr_batches[id];
 	FOREACH_TXN_CFG_BATCH_IN_LIST (list, batch)
 		mgmt_txn_cfg_batch_free(&batch);
@@ -395,6 +555,9 @@ static void mgmt_txn_cleanup_be_cfg_batches(struct mgmt_txn_ctx *txn,
 	mgmt_txn_batches_fini(list);
 
 	list = &txn->commit_cfg_req->req.commit_cfg.next_batches[id];
+=======
+	list = &txn->commit_cfg_req->req.commit_cfg.batches[id];
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	FOREACH_TXN_CFG_BATCH_IN_LIST (list, batch)
 		mgmt_txn_cfg_batch_free(&batch);
 
@@ -415,7 +578,10 @@ static struct mgmt_txn_req *mgmt_txn_req_alloc(struct mgmt_txn_ctx *txn,
 	txn_req->txn = txn;
 	txn_req->req_id = req_id;
 	txn_req->req_event = req_event;
+<<<<<<< HEAD
 	txn_req->pending_be_proc = false;
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	switch (txn_req->req_event) {
 	case MGMTD_TXN_PROC_SETCFG:
@@ -423,6 +589,7 @@ static struct mgmt_txn_req *mgmt_txn_req_alloc(struct mgmt_txn_ctx *txn,
 					       sizeof(struct mgmt_set_cfg_req));
 		assert(txn_req->req.set_cfg);
 		mgmt_txn_reqs_add_tail(&txn->set_cfg_reqs, txn_req);
+<<<<<<< HEAD
 		MGMTD_TXN_DBG("Added a new SETCFG req-id: %" PRIu64
 			      " txn-id: %" PRIu64 ", session-id: %" PRIu64,
 			      txn_req->req_id, txn->txn_id, txn->session_id);
@@ -444,6 +611,26 @@ static struct mgmt_txn_req *mgmt_txn_req_alloc(struct mgmt_txn_ctx *txn,
 			hash_create(mgmt_txn_cfgbatch_hash_key,
 				    mgmt_txn_cfgbatch_hash_cmp,
 				    "MGMT Config Batches");
+=======
+		__dbg("Added a new SETCFG req-id: %" PRIu64 " txn-id: %" PRIu64
+		      ", session-id: %" PRIu64,
+		      txn_req->req_id, txn->txn_id, txn->session_id);
+		break;
+	case MGMTD_TXN_PROC_COMMITCFG:
+		txn->commit_cfg_req = txn_req;
+		__dbg("Added a new COMMITCFG req-id: %" PRIu64
+		      " txn-id: %" PRIu64 " session-id: %" PRIu64,
+		      txn_req->req_id, txn->txn_id, txn->session_id);
+
+		FOREACH_MGMTD_BE_CLIENT_ID (id) {
+			txn_req->req.commit_cfg.be_phase[id] =
+				MGMTD_COMMIT_PHASE_PREPARE_CFG;
+			mgmt_txn_batches_init(
+				&txn_req->req.commit_cfg.batches[id]);
+		}
+
+		txn_req->req.commit_cfg.phase = MGMTD_COMMIT_PHASE_PREPARE_CFG;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		break;
 	case MGMTD_TXN_PROC_GETCFG:
 		txn_req->req.get_data =
@@ -451,6 +638,7 @@ static struct mgmt_txn_req *mgmt_txn_req_alloc(struct mgmt_txn_ctx *txn,
 				sizeof(struct mgmt_get_data_req));
 		assert(txn_req->req.get_data);
 		mgmt_txn_reqs_add_tail(&txn->get_cfg_reqs, txn_req);
+<<<<<<< HEAD
 		MGMTD_TXN_DBG("Added a new GETCFG req-id: %" PRIu64
 			      " txn-id: %" PRIu64 " session-id: %" PRIu64,
 			      txn_req->req_id, txn->txn_id, txn->session_id);
@@ -467,6 +655,30 @@ static struct mgmt_txn_req *mgmt_txn_req_alloc(struct mgmt_txn_ctx *txn,
 		break;
 	case MGMTD_TXN_COMMITCFG_TIMEOUT:
 	case MGMTD_TXN_CLEANUP:
+=======
+		__dbg("Added a new GETCFG req-id: %" PRIu64 " txn-id: %" PRIu64
+		      " session-id: %" PRIu64,
+		      txn_req->req_id, txn->txn_id, txn->session_id);
+		break;
+	case MGMTD_TXN_PROC_GETTREE:
+		txn_req->req.get_tree = XCALLOC(MTYPE_MGMTD_TXN_GETTREE_REQ,
+						sizeof(struct txn_req_get_tree));
+		mgmt_txn_reqs_add_tail(&txn->get_tree_reqs, txn_req);
+		__dbg("Added a new GETTREE req-id: %" PRIu64 " txn-id: %" PRIu64
+		      " session-id: %" PRIu64,
+		      txn_req->req_id, txn->txn_id, txn->session_id);
+		break;
+	case MGMTD_TXN_PROC_RPC:
+		txn_req->req.rpc = XCALLOC(MTYPE_MGMTD_TXN_RPC_REQ,
+					   sizeof(struct txn_req_rpc));
+		assert(txn_req->req.rpc);
+		mgmt_txn_reqs_add_tail(&txn->rpc_reqs, txn_req);
+		__dbg("Added a new RPC req-id: %" PRIu64 " txn-id: %" PRIu64
+		      " session-id: %" PRIu64,
+		      txn_req->req_id, txn->txn_id, txn->session_id);
+		break;
+	case MGMTD_TXN_COMMITCFG_TIMEOUT:
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		break;
 	}
 
@@ -479,14 +691,22 @@ static void mgmt_txn_req_free(struct mgmt_txn_req **txn_req)
 {
 	int indx;
 	struct mgmt_txn_reqs_head *req_list = NULL;
+<<<<<<< HEAD
 	struct mgmt_txn_reqs_head *pending_list = NULL;
 	enum mgmt_be_client_id id;
 	struct mgmt_be_client_adapter *adapter;
 	struct mgmt_commit_cfg_req *ccreq;
+=======
+	enum mgmt_be_client_id id;
+	struct mgmt_be_client_adapter *adapter;
+	struct mgmt_commit_cfg_req *ccreq;
+	struct mgmt_set_cfg_req *set_cfg;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	bool cleanup;
 
 	switch ((*txn_req)->req_event) {
 	case MGMTD_TXN_PROC_SETCFG:
+<<<<<<< HEAD
 		for (indx = 0; indx < (*txn_req)->req.set_cfg->num_cfg_changes;
 		     indx++) {
 			if ((*txn_req)->req.set_cfg->cfg_changes[indx].value) {
@@ -522,6 +742,27 @@ static void mgmt_txn_req_free(struct mgmt_txn_req **txn_req)
 		ccreq = &(*txn_req)->req.commit_cfg;
 		cleanup = (ccreq->curr_phase >= MGMTD_COMMIT_PHASE_TXN_CREATE &&
 			   ccreq->curr_phase < MGMTD_COMMIT_PHASE_TXN_DELETE);
+=======
+		set_cfg = (*txn_req)->req.set_cfg;
+		for (indx = 0; indx < set_cfg->num_cfg_changes; indx++) {
+			if (set_cfg->cfg_changes[indx].value)
+				free((void *)set_cfg->cfg_changes[indx].value);
+		}
+		req_list = &(*txn_req)->txn->set_cfg_reqs;
+		__dbg("Deleting SETCFG req-id: %" PRIu64 " txn-id: %" PRIu64,
+		      (*txn_req)->req_id, (*txn_req)->txn->txn_id);
+		XFREE(MTYPE_MGMTD_TXN_SETCFG_REQ, (*txn_req)->req.set_cfg);
+		break;
+	case MGMTD_TXN_PROC_COMMITCFG:
+		__dbg("Deleting COMMITCFG req-id: %" PRIu64 " txn-id: %" PRIu64,
+		      (*txn_req)->req_id, (*txn_req)->txn->txn_id);
+
+		ccreq = &(*txn_req)->req.commit_cfg;
+		cleanup = (ccreq->phase >= MGMTD_COMMIT_PHASE_TXN_CREATE &&
+			   ccreq->phase < MGMTD_COMMIT_PHASE_TXN_DELETE);
+
+		XFREE(MTYPE_MGMTD_TXN_REQ, ccreq->edit);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 		FOREACH_MGMTD_BE_CLIENT_ID (id) {
 			/*
@@ -534,20 +775,27 @@ static void mgmt_txn_req_free(struct mgmt_txn_req **txn_req)
 			 * anything more with them
 			 */
 			mgmt_txn_cleanup_be_cfg_batches((*txn_req)->txn, id);
+<<<<<<< HEAD
 			if (ccreq->batches) {
 				hash_clean(ccreq->batches,
 					   mgmt_txn_cfgbatch_hash_free);
 				hash_free(ccreq->batches);
 				ccreq->batches = NULL;
 			}
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 			/*
 			 * If we were in the middle of the state machine then
 			 * send a txn delete message
 			 */
 			adapter = mgmt_be_get_adapter_by_id(id);
+<<<<<<< HEAD
 			if (adapter && cleanup &&
 			    ccreq->subscr_info.xpath_subscr[id])
+=======
+			if (adapter && cleanup && IS_IDBIT_SET(ccreq->clients, id))
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 				mgmt_txn_send_be_txn_delete((*txn_req)->txn,
 							    adapter);
 		}
@@ -560,9 +808,14 @@ static void mgmt_txn_req_free(struct mgmt_txn_req **txn_req)
 					     ->req.get_data->xpaths[indx]);
 		}
 		req_list = &(*txn_req)->txn->get_cfg_reqs;
+<<<<<<< HEAD
 		MGMTD_TXN_DBG("Deleting GETCFG req-id: %" PRIu64
 			      " txn-id: %" PRIu64,
 			      (*txn_req)->req_id, (*txn_req)->txn->txn_id);
+=======
+		__dbg("Deleting GETCFG req-id: %" PRIu64 " txn-id: %" PRIu64,
+		      (*txn_req)->req_id, (*txn_req)->txn->txn_id);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		if ((*txn_req)->req.get_data->reply)
 			XFREE(MTYPE_MGMTD_TXN_GETDATA_REPLY,
 			      (*txn_req)->req.get_data->reply);
@@ -572,6 +825,7 @@ static void mgmt_txn_req_free(struct mgmt_txn_req **txn_req)
 
 		XFREE(MTYPE_MGMTD_TXN_GETDATA_REQ, (*txn_req)->req.get_data);
 		break;
+<<<<<<< HEAD
 	case MGMTD_TXN_PROC_GETDATA:
 		for (indx = 0; indx < (*txn_req)->req.get_data->num_xpaths;
 		     indx++) {
@@ -608,6 +862,35 @@ static void mgmt_txn_req_free(struct mgmt_txn_req **txn_req)
 	}
 
 	(*txn_req)->pending_be_proc = false;
+=======
+	case MGMTD_TXN_PROC_GETTREE:
+		__dbg("Deleting GETTREE req-id: %" PRIu64 " of txn-id: %" PRIu64,
+		      (*txn_req)->req_id, (*txn_req)->txn->txn_id);
+		req_list = &(*txn_req)->txn->get_tree_reqs;
+		lyd_free_all((*txn_req)->req.get_tree->client_results);
+		XFREE(MTYPE_MGMTD_XPATH, (*txn_req)->req.get_tree->xpath);
+		XFREE(MTYPE_MGMTD_TXN_GETTREE_REQ, (*txn_req)->req.get_tree);
+		break;
+	case MGMTD_TXN_PROC_RPC:
+		__dbg("Deleting RPC req-id: %" PRIu64 " txn-id: %" PRIu64,
+		      (*txn_req)->req_id, (*txn_req)->txn->txn_id);
+		req_list = &(*txn_req)->txn->rpc_reqs;
+		lyd_free_all((*txn_req)->req.rpc->client_results);
+		XFREE(MTYPE_MGMTD_ERR, (*txn_req)->req.rpc->errstr);
+		XFREE(MTYPE_MGMTD_XPATH, (*txn_req)->req.rpc->xpath);
+		XFREE(MTYPE_MGMTD_TXN_RPC_REQ, (*txn_req)->req.rpc);
+		break;
+	case MGMTD_TXN_COMMITCFG_TIMEOUT:
+		break;
+	}
+
+	if (req_list) {
+		mgmt_txn_reqs_del(req_list, *txn_req);
+		__dbg("Removed req-id: %" PRIu64 " from request-list (left:%zu)",
+		      (*txn_req)->req_id, mgmt_txn_reqs_count(req_list));
+	}
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	MGMTD_TXN_UNLOCK(&(*txn_req)->txn);
 	XFREE(MTYPE_MGMTD_TXN_REQ, (*txn_req));
 	*txn_req = NULL;
@@ -630,10 +913,17 @@ static void mgmt_txn_process_set_cfg(struct event *thread)
 	assert(txn);
 	cmt_stats = mgmt_fe_get_session_commit_stats(txn->session_id);
 
+<<<<<<< HEAD
 	MGMTD_TXN_DBG("Processing %zu SET_CONFIG requests txn-id:%" PRIu64
 		      " session-id: %" PRIu64,
 		      mgmt_txn_reqs_count(&txn->set_cfg_reqs), txn->txn_id,
 		      txn->session_id);
+=======
+	__dbg("Processing %zu SET_CONFIG requests txn-id:%" PRIu64
+	      " session-id: %" PRIu64,
+	      mgmt_txn_reqs_count(&txn->set_cfg_reqs), txn->txn_id,
+	      txn->session_id);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	FOREACH_TXN_REQ_IN_LIST (&txn->set_cfg_reqs, txn_req) {
 		assert(txn_req->req_event == MGMTD_TXN_PROC_SETCFG);
@@ -666,7 +956,11 @@ static void mgmt_txn_process_set_cfg(struct event *thread)
 						 txn_req->req.set_cfg->cfg_changes,
 						 (size_t)txn_req->req.set_cfg
 							 ->num_cfg_changes,
+<<<<<<< HEAD
 						 NULL, NULL, 0, err_buf,
+=======
+						 NULL, false, err_buf,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 						 sizeof(err_buf), &error);
 		if (error) {
 			mgmt_fe_send_set_cfg_reply(txn->session_id, txn->txn_id,
@@ -685,6 +979,7 @@ static void mgmt_txn_process_set_cfg(struct event *thread)
 			/* We expect the user to have locked the DST DS */
 			if (!mgmt_ds_is_locked(txn_req->req.set_cfg->dst_ds_ctx,
 					       txn->session_id)) {
+<<<<<<< HEAD
 				MGMTD_TXN_ERR("DS %u not locked for implicit commit txn-id: %" PRIu64
 					      " session-id: %" PRIu64 " err: %s",
 					      txn_req->req.set_cfg->dst_ds_id,
@@ -693,6 +988,19 @@ static void mgmt_txn_process_set_cfg(struct event *thread)
 				mgmt_txn_send_commit_cfg_reply(
 					txn, MGMTD_DS_LOCK_FAILED,
 					"running DS not locked for implicit commit");
+=======
+				__log_err("DS %u not locked for implicit commit txn-id: %" PRIu64
+					  " session-id: %" PRIu64 " err: %s",
+					  txn_req->req.set_cfg->dst_ds_id,
+					  txn->txn_id, txn->session_id,
+					  strerror(ret));
+				mgmt_fe_send_set_cfg_reply(
+					txn->session_id, txn->txn_id,
+					txn_req->req.set_cfg->ds_id,
+					txn_req->req_id, MGMTD_DS_LOCK_FAILED,
+					"running DS not locked for implicit commit",
+					txn_req->req.set_cfg->implicit_commit);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 				goto mgmt_txn_process_set_cfg_done;
 			}
 
@@ -706,7 +1014,12 @@ static void mgmt_txn_process_set_cfg(struct event *thread)
 								->dst_ds_id,
 							txn_req->req.set_cfg
 								->dst_ds_ctx,
+<<<<<<< HEAD
 							false, false, true);
+=======
+							false, false, true,
+							NULL);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 			if (mm->perf_stats_en)
 				gettimeofday(&cmt_stats->last_start, NULL);
@@ -717,9 +1030,15 @@ static void mgmt_txn_process_set_cfg(struct event *thread)
 						      txn_req->req_id,
 						      MGMTD_SUCCESS, NULL,
 						      false) != 0) {
+<<<<<<< HEAD
 			MGMTD_TXN_ERR("Failed to send SET_CONFIG_REPLY txn-id %" PRIu64
 				      " session-id: %" PRIu64,
 				      txn->txn_id, txn->session_id);
+=======
+			__log_err("Failed to send SET_CONFIG_REPLY txn-id %" PRIu64
+				  " session-id: %" PRIu64,
+				  txn->txn_id, txn->session_id);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		}
 
 mgmt_txn_process_set_cfg_done:
@@ -736,9 +1055,14 @@ mgmt_txn_process_set_cfg_done:
 
 	left = mgmt_txn_reqs_count(&txn->set_cfg_reqs);
 	if (left) {
+<<<<<<< HEAD
 		MGMTD_TXN_DBG("Processed maximum number of Set-Config requests (%d/%d/%d). Rescheduling for rest.",
 			      num_processed, MGMTD_TXN_MAX_NUM_SETCFG_PROC,
 			      (int)left);
+=======
+		__dbg("Processed maximum number of Set-Config requests (%d/%d/%d). Rescheduling for rest.",
+		      num_processed, MGMTD_TXN_MAX_NUM_SETCFG_PROC, (int)left);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		mgmt_txn_register_event(txn, MGMTD_TXN_PROC_SETCFG);
 	}
 }
@@ -758,7 +1082,12 @@ static int mgmt_txn_send_commit_cfg_reply(struct mgmt_txn_ctx *txn,
 	 * b/c right now that is special cased.. that special casing should be
 	 * removed; however...
 	 */
+<<<<<<< HEAD
 	if (!txn->commit_cfg_req->req.commit_cfg.implicit && txn->session_id &&
+=======
+	if (!txn->commit_cfg_req->req.commit_cfg.edit &&
+	    !txn->commit_cfg_req->req.commit_cfg.implicit && txn->session_id &&
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	    !txn->commit_cfg_req->req.commit_cfg.rollback &&
 	    mgmt_fe_send_commit_cfg_reply(txn->session_id, txn->txn_id,
 					  txn->commit_cfg_req->req.commit_cfg
@@ -769,12 +1098,22 @@ static int mgmt_txn_send_commit_cfg_reply(struct mgmt_txn_ctx *txn,
 					  txn->commit_cfg_req->req.commit_cfg
 						  .validate_only,
 					  result, error_if_any) != 0) {
+<<<<<<< HEAD
 		MGMTD_TXN_ERR("Failed to send COMMIT-CONFIG-REPLY txn-id: %" PRIu64
 			      " session-id: %" PRIu64,
 			      txn->txn_id, txn->session_id);
 	}
 
 	if (txn->commit_cfg_req->req.commit_cfg.implicit && txn->session_id &&
+=======
+		__log_err("Failed to send COMMIT-CONFIG-REPLY txn-id: %" PRIu64
+			  " session-id: %" PRIu64,
+			  txn->txn_id, txn->session_id);
+	}
+
+	if (!txn->commit_cfg_req->req.commit_cfg.edit &&
+	    txn->commit_cfg_req->req.commit_cfg.implicit && txn->session_id &&
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	    !txn->commit_cfg_req->req.commit_cfg.rollback &&
 	    mgmt_fe_send_set_cfg_reply(txn->session_id, txn->txn_id,
 				       txn->commit_cfg_req->req.commit_cfg
@@ -783,9 +1122,32 @@ static int mgmt_txn_send_commit_cfg_reply(struct mgmt_txn_ctx *txn,
 				       success ? MGMTD_SUCCESS
 					       : MGMTD_INTERNAL_ERROR,
 				       error_if_any, true) != 0) {
+<<<<<<< HEAD
 		MGMTD_TXN_ERR("Failed to send SET-CONFIG-REPLY txn-id: %" PRIu64
 			      " session-id: %" PRIu64,
 			      txn->txn_id, txn->session_id);
+=======
+		__log_err("Failed to send SET-CONFIG-REPLY txn-id: %" PRIu64
+			  " session-id: %" PRIu64,
+			  txn->txn_id, txn->session_id);
+	}
+
+	if (txn->commit_cfg_req->req.commit_cfg.edit &&
+	    mgmt_fe_adapter_send_edit_reply(txn->session_id, txn->txn_id,
+					    txn->commit_cfg_req->req_id,
+					    txn->commit_cfg_req->req.commit_cfg
+						    .edit->unlock,
+					    true,
+					    txn->commit_cfg_req->req.commit_cfg
+						    .edit->created,
+					    txn->commit_cfg_req->req.commit_cfg
+						    .edit->xpath_created,
+					    success ? 0 : -1,
+					    error_if_any) != 0) {
+		__log_err("Failed to send EDIT-REPLY txn-id: %" PRIu64
+			  " session-id: %" PRIu64,
+			  txn->txn_id, txn->session_id);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	}
 
 	if (success) {
@@ -848,6 +1210,17 @@ static int mgmt_txn_send_commit_cfg_reply(struct mgmt_txn_ctx *txn,
 		mgmt_history_rollback_complete(success);
 	}
 
+<<<<<<< HEAD
+=======
+	if (txn->commit_cfg_req->req.commit_cfg.init) {
+		/*
+		 * This is the backend init request.
+		 * We need to unlock the running datastore.
+		 */
+		mgmt_ds_unlock(txn->commit_cfg_req->req.commit_cfg.dst_ds_ctx);
+	}
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	txn->commit_cfg_req->req.commit_cfg.cmt_stats = NULL;
 	mgmt_txn_req_free(&txn->commit_cfg_req);
 
@@ -857,11 +1230,16 @@ static int mgmt_txn_send_commit_cfg_reply(struct mgmt_txn_ctx *txn,
 	 * we need to cleanup by itself.
 	 */
 	if (!txn->session_id)
+<<<<<<< HEAD
 		mgmt_txn_register_event(txn, MGMTD_TXN_CLEANUP);
+=======
+		mgmt_txn_cleanup_txn(&txn);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	return 0;
 }
 
+<<<<<<< HEAD
 static void
 mgmt_move_txn_cfg_batch_to_next(struct mgmt_commit_cfg_req *cmtcfg_req,
 				struct mgmt_txn_be_cfg_batch *batch,
@@ -900,23 +1278,37 @@ static void mgmt_move_txn_cfg_batches(struct mgmt_txn_ctx *txn,
 	}
 }
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 static int
 mgmt_try_move_commit_to_next_phase(struct mgmt_txn_ctx *txn,
 				   struct mgmt_commit_cfg_req *cmtcfg_req)
 {
+<<<<<<< HEAD
 	struct mgmt_txn_batches_head *curr_list, *next_list;
 	enum mgmt_be_client_id id;
 
 	MGMTD_TXN_DBG("txn-id: %" PRIu64 ", Phase(current:'%s' next:'%s')",
 		      txn->txn_id, mgmt_txn_commit_phase_str(txn, true),
 		      mgmt_txn_commit_phase_str(txn, false));
+=======
+	enum mgmt_be_client_id id;
+
+	__dbg("txn-id: %" PRIu64 ", Phase '%s'", txn->txn_id,
+	      mgmt_txn_commit_phase_str(txn));
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	/*
 	 * Check if all clients has moved to next phase or not.
 	 */
 	FOREACH_MGMTD_BE_CLIENT_ID (id) {
+<<<<<<< HEAD
 		if (cmtcfg_req->subscr_info.xpath_subscr[id] &&
 		    mgmt_txn_batches_count(&cmtcfg_req->curr_batches[id])) {
+=======
+		if (IS_IDBIT_SET(cmtcfg_req->clients, id) &&
+		    cmtcfg_req->be_phase[id] == cmtcfg_req->phase) {
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			/*
 			 * There's atleast once client who hasn't moved to
 			 * next phase.
@@ -929,14 +1321,18 @@ mgmt_try_move_commit_to_next_phase(struct mgmt_txn_ctx *txn,
 		}
 	}
 
+<<<<<<< HEAD
 	MGMTD_TXN_DBG("Move entire txn-id: %" PRIu64 " from '%s' to '%s'",
 		      txn->txn_id, mgmt_txn_commit_phase_str(txn, true),
 		      mgmt_txn_commit_phase_str(txn, false));
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	/*
 	 * If we are here, it means all the clients has moved to next phase.
 	 * So we can move the whole commit to next phase.
 	 */
+<<<<<<< HEAD
 	cmtcfg_req->curr_phase = cmtcfg_req->next_phase;
 	cmtcfg_req->next_phase++;
 	MGMTD_TXN_DBG("Move back all config batches for txn-id: %" PRIu64
@@ -948,12 +1344,19 @@ mgmt_try_move_commit_to_next_phase(struct mgmt_txn_ctx *txn,
 		mgmt_move_txn_cfg_batches(txn, cmtcfg_req, next_list, curr_list,
 					  false, 0);
 	}
+=======
+	cmtcfg_req->phase++;
+
+	__dbg("Move entire txn-id: %" PRIu64 " to phase '%s'", txn->txn_id,
+	      mgmt_txn_commit_phase_str(txn));
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	mgmt_txn_register_event(txn, MGMTD_TXN_PROC_COMMITCFG);
 
 	return 0;
 }
 
+<<<<<<< HEAD
 static int
 mgmt_move_be_commit_to_next_phase(struct mgmt_txn_ctx *txn,
 				  struct mgmt_be_client_adapter *adapter)
@@ -991,12 +1394,18 @@ mgmt_move_be_commit_to_next_phase(struct mgmt_txn_ctx *txn,
 	return 0;
 }
 
+=======
+/*
+ * This is the real workhorse
+ */
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 static int mgmt_txn_create_config_batches(struct mgmt_txn_req *txn_req,
 					  struct nb_config_cbs *changes)
 {
 	struct nb_config_cb *cb, *nxt;
 	struct nb_config_change *chg;
 	struct mgmt_txn_be_cfg_batch *batch;
+<<<<<<< HEAD
 	struct mgmt_be_client_subscr_info subscr_info;
 	char *xpath = NULL, *value = NULL;
 	char err_buf[1024];
@@ -1006,6 +1415,15 @@ static int mgmt_txn_create_config_batches(struct mgmt_txn_req *txn_req,
 	bool found_validator;
 	int num_chgs = 0;
 	int xpath_len, value_len;
+=======
+	char *xpath = NULL, *value = NULL;
+	enum mgmt_be_client_id id;
+	struct mgmt_be_client_adapter *adapter;
+	struct mgmt_commit_cfg_req *cmtcfg_req;
+	int num_chgs = 0;
+	int xpath_len, value_len;
+	uint64_t clients, chg_clients;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	cmtcfg_req = &txn_req->req.commit_cfg;
 
@@ -1029,6 +1447,7 @@ static int mgmt_txn_create_config_batches(struct mgmt_txn_req *txn_req,
 		if (!value)
 			value = (char *)MGMTD_BE_CONTAINER_NODE_VAL;
 
+<<<<<<< HEAD
 		MGMTD_TXN_DBG("XPATH: %s, Value: '%s'", xpath,
 			      value ? value : "NIL");
 
@@ -1043,10 +1462,28 @@ static int mgmt_txn_create_config_batches(struct mgmt_txn_req *txn_req,
 			       MGMT_SUBSCR_NOTIFY_CFG)))
 				continue;
 
+=======
+		__dbg("XPATH: %s, Value: '%s'", xpath, value ? value : "NIL");
+
+		clients =
+			mgmt_be_interested_clients(xpath,
+						   MGMT_BE_XPATH_SUBSCR_TYPE_CFG);
+
+		chg_clients = 0;
+
+		xpath_len = strlen(xpath) + 1;
+		value_len = strlen(value) + 1;
+		FOREACH_BE_CLIENT_BITS (id, clients) {
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			adapter = mgmt_be_get_adapter_by_id(id);
 			if (!adapter)
 				continue;
 
+<<<<<<< HEAD
+=======
+			chg_clients |= (1ull << id);
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			batch = cmtcfg_req->last_be_cfg_batch[id];
 			if (!batch ||
 			    (batch->num_cfg_data ==
@@ -1058,18 +1495,32 @@ static int mgmt_txn_create_config_batches(struct mgmt_txn_req *txn_req,
 			}
 
 			batch->buf_space_left -= (xpath_len + value_len);
+<<<<<<< HEAD
 			memcpy(&batch->xp_subscr[batch->num_cfg_data],
 			       &subscr_info.xpath_subscr[id],
 			       sizeof(batch->xp_subscr[0]));
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 			mgmt_yang_cfg_data_req_init(
 				&batch->cfg_data[batch->num_cfg_data]);
 			batch->cfg_datap[batch->num_cfg_data] =
 				&batch->cfg_data[batch->num_cfg_data];
 
+<<<<<<< HEAD
 			if (chg->cb.operation == NB_OP_DESTROY)
 				batch->cfg_data[batch->num_cfg_data].req_type =
 					MGMTD__CFG_DATA_REQ_TYPE__DELETE_DATA;
+=======
+			/*
+			 * On the backend, we don't really care if it's CREATE
+			 * or MODIFY, because the existence was already checked
+			 * on the frontend. Therefore we use SET for both.
+			 */
+			if (chg->cb.operation == NB_CB_DESTROY)
+				batch->cfg_data[batch->num_cfg_data].req_type =
+					MGMTD__CFG_DATA_REQ_TYPE__REMOVE_DATA;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			else
 				batch->cfg_data[batch->num_cfg_data].req_type =
 					MGMTD__CFG_DATA_REQ_TYPE__SET_DATA;
@@ -1087,6 +1538,7 @@ static int mgmt_txn_create_config_batches(struct mgmt_txn_req *txn_req,
 				MGMTD__YANG_DATA_VALUE__VALUE_ENCODED_STR_VAL;
 			batch->value[batch->num_cfg_data].encoded_str_val =
 				value;
+<<<<<<< HEAD
 			value = NULL;
 
 			if (subscr_info.xpath_subscr[id] &
@@ -1098,17 +1550,30 @@ static int mgmt_txn_create_config_batches(struct mgmt_txn_req *txn_req,
 			MGMTD_TXN_DBG(" -- %s, batch-id: %" PRIu64 " item:%d",
 				      adapter->name, batch->batch_id,
 				      (int)batch->num_cfg_data);
+=======
+
+			__dbg(" -- %s, batch item:%d", adapter->name,
+			      (int)batch->num_cfg_data);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 			batch->num_cfg_data++;
 			num_chgs++;
 		}
 
+<<<<<<< HEAD
 		if (!found_validator) {
 			snprintf(err_buf, sizeof(err_buf),
 				 "No validator module found for XPATH: '%s",
 				 xpath);
 			MGMTD_TXN_ERR("***** %s", err_buf);
 		}
+=======
+		if (!chg_clients)
+			__dbg("Daemons interested in XPATH are not currently connected: %s",
+			      xpath);
+
+		cmtcfg_req->clients |= chg_clients;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 		free(xpath);
 	}
@@ -1117,11 +1582,25 @@ static int mgmt_txn_create_config_batches(struct mgmt_txn_req *txn_req,
 	if (!num_chgs) {
 		(void)mgmt_txn_send_commit_cfg_reply(txn_req->txn,
 						     MGMTD_NO_CFG_CHANGES,
+<<<<<<< HEAD
 						     "No changes found to commit!");
 		return -1;
 	}
 
 	cmtcfg_req->next_phase = MGMTD_COMMIT_PHASE_TXN_CREATE;
+=======
+						     "No connected daemons interested in changes");
+		return -1;
+	}
+
+	/* Move all BE clients to create phase */
+	FOREACH_MGMTD_BE_CLIENT_ID(id) {
+		if (IS_IDBIT_SET(cmtcfg_req->clients, id))
+			cmtcfg_req->be_phase[id] =
+				MGMTD_COMMIT_PHASE_TXN_CREATE;
+	}
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	return 0;
 }
 
@@ -1194,6 +1673,7 @@ static int mgmt_txn_prepare_config(struct mgmt_txn_ctx *txn)
 	}
 
 	/*
+<<<<<<< HEAD
 	 * Check for diffs from scratch buffer. If found empty
 	 * get the diff from Candidate DS itself.
 	 */
@@ -1213,6 +1693,30 @@ static int mgmt_txn_prepare_config(struct mgmt_txn_ctx *txn)
 		del_cfg_chgs = true;
 	}
 
+=======
+	 * Validate YANG contents of the source DS and get the diff
+	 * between source and destination DS contents.
+	 */
+	char err_buf[BUFSIZ] = { 0 };
+
+	ret = nb_candidate_validate_yang(nb_config, true, err_buf,
+					 sizeof(err_buf) - 1);
+	if (ret != NB_OK) {
+		if (strncmp(err_buf, " ", strlen(err_buf)) == 0)
+			strlcpy(err_buf, "Validation failed", sizeof(err_buf));
+		(void)mgmt_txn_send_commit_cfg_reply(txn, MGMTD_INVALID_PARAM,
+						     err_buf);
+		ret = -1;
+		goto mgmt_txn_prepare_config_done;
+	}
+
+	nb_config_diff(mgmt_ds_get_nb_config(txn->commit_cfg_req->req.commit_cfg
+					     .dst_ds_ctx),
+		       nb_config, &changes);
+	cfg_chgs = &changes;
+	del_cfg_chgs = true;
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	if (RB_EMPTY(nb_config_cbs, cfg_chgs)) {
 		/*
 		 * This means there's no changes to commit whatsoever
@@ -1230,6 +1734,7 @@ static int mgmt_txn_prepare_config(struct mgmt_txn_ctx *txn)
 				      ->validate_start,
 			     NULL);
 	/*
+<<<<<<< HEAD
 	 * Validate YANG contents of the source DS and get the diff
 	 * between source and destination DS contents.
 	 */
@@ -1248,10 +1753,17 @@ static int mgmt_txn_prepare_config(struct mgmt_txn_ctx *txn)
 		goto mgmt_txn_prepare_config_done;
 	}
 	/*
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	 * Perform application level validations locally on the MGMTD
 	 * process by calling application specific validation routines
 	 * loaded onto MGMTD process using libraries.
 	 */
+<<<<<<< HEAD
+=======
+	nb_ctx.client = NB_CLIENT_MGMTD_SERVER;
+	nb_ctx.user = (void *)txn;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	ret = nb_candidate_validate_code(&nb_ctx, nb_config, &changes, err_buf,
 					 sizeof(err_buf) - 1);
 	if (ret != NB_OK) {
@@ -1290,7 +1802,11 @@ mgmt_txn_prep_config_validation_done:
 	}
 
 	/* Move to the Transaction Create Phase */
+<<<<<<< HEAD
 	txn->commit_cfg_req->req.commit_cfg.curr_phase =
+=======
+	txn->commit_cfg_req->req.commit_cfg.phase =
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		MGMTD_COMMIT_PHASE_TXN_CREATE;
 	mgmt_txn_register_event(txn, MGMTD_TXN_PROC_COMMITCFG);
 
@@ -1312,13 +1828,20 @@ static int mgmt_txn_send_be_txn_create(struct mgmt_txn_ctx *txn)
 	enum mgmt_be_client_id id;
 	struct mgmt_be_client_adapter *adapter;
 	struct mgmt_commit_cfg_req *cmtcfg_req;
+<<<<<<< HEAD
 	struct mgmt_txn_be_cfg_batch *batch;
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	assert(txn->type == MGMTD_TXN_TYPE_CONFIG && txn->commit_cfg_req);
 
 	cmtcfg_req = &txn->commit_cfg_req->req.commit_cfg;
 	FOREACH_MGMTD_BE_CLIENT_ID (id) {
+<<<<<<< HEAD
 		if (cmtcfg_req->subscr_info.xpath_subscr[id]) {
+=======
+		if (IS_IDBIT_SET(cmtcfg_req->clients, id)) {
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			adapter = mgmt_be_get_adapter_by_id(id);
 			if (mgmt_be_send_txn_req(adapter, txn->txn_id, true)) {
 				(void)mgmt_txn_send_commit_cfg_reply(
@@ -1326,6 +1849,7 @@ static int mgmt_txn_send_be_txn_create(struct mgmt_txn_ctx *txn)
 					"Could not send TXN_CREATE to backend adapter");
 				return -1;
 			}
+<<<<<<< HEAD
 
 			FOREACH_TXN_CFG_BATCH_IN_LIST (&txn->commit_cfg_req->req
 								.commit_cfg
@@ -1339,16 +1863,26 @@ static int mgmt_txn_send_be_txn_create(struct mgmt_txn_ctx *txn)
 	txn->commit_cfg_req->req.commit_cfg.next_phase =
 		MGMTD_COMMIT_PHASE_SEND_CFG;
 
+=======
+		}
+	}
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	/*
 	 * Dont move the commit to next phase yet. Wait for the TXN_REPLY to
 	 * come back.
 	 */
 
+<<<<<<< HEAD
 	MGMTD_TXN_DBG("txn-id: %" PRIu64 " session-id: %" PRIu64
 		      " Phase(Current:'%s', Next: '%s')",
 		      txn->txn_id, txn->session_id,
 		      mgmt_txn_commit_phase_str(txn, true),
 		      mgmt_txn_commit_phase_str(txn, false));
+=======
+	__dbg("txn-id: %" PRIu64 " session-id: %" PRIu64 " Phase '%s'",
+	      txn->txn_id, txn->session_id, mgmt_txn_commit_phase_str(txn));
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	return 0;
 }
@@ -1364,6 +1898,7 @@ static int mgmt_txn_send_be_cfg_data(struct mgmt_txn_ctx *txn,
 	assert(txn->type == MGMTD_TXN_TYPE_CONFIG && txn->commit_cfg_req);
 
 	cmtcfg_req = &txn->commit_cfg_req->req.commit_cfg;
+<<<<<<< HEAD
 	assert(cmtcfg_req->subscr_info.xpath_subscr[adapter->id]);
 
 	indx = 0;
@@ -1372,26 +1907,44 @@ static int mgmt_txn_send_be_cfg_data(struct mgmt_txn_ctx *txn,
 	FOREACH_TXN_CFG_BATCH_IN_LIST (&cmtcfg_req->curr_batches[adapter->id],
 				       batch) {
 		assert(cmtcfg_req->next_phase == MGMTD_COMMIT_PHASE_SEND_CFG);
+=======
+	assert(IS_IDBIT_SET(cmtcfg_req->clients, adapter->id));
+
+	indx = 0;
+	num_batches = mgmt_txn_batches_count(&cmtcfg_req->batches[adapter->id]);
+	FOREACH_TXN_CFG_BATCH_IN_LIST (&cmtcfg_req->batches[adapter->id],
+				       batch) {
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 		cfg_req.cfgdata_reqs = batch->cfg_datap;
 		cfg_req.num_reqs = batch->num_cfg_data;
 		indx++;
 		if (mgmt_be_send_cfgdata_req(adapter, txn->txn_id,
+<<<<<<< HEAD
 					     batch->batch_id,
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 					     cfg_req.cfgdata_reqs,
 					     cfg_req.num_reqs,
 					     indx == num_batches)) {
 			(void)mgmt_txn_send_commit_cfg_reply(
 				txn, MGMTD_INTERNAL_ERROR,
 				"Internal Error! Could not send config data to backend!");
+<<<<<<< HEAD
 			MGMTD_TXN_ERR("Could not send CFGDATA_CREATE txn-id: %" PRIu64
 				      " batch-id: %" PRIu64 " to client '%s",
 				      txn->txn_id, batch->batch_id,
 				      adapter->name);
+=======
+			__log_err("Could not send CFGDATA_CREATE txn-id: %" PRIu64
+				  " to client '%s",
+				  txn->txn_id, adapter->name);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			return -1;
 		}
 
 		cmtcfg_req->cmt_stats->last_num_cfgdata_reqs++;
+<<<<<<< HEAD
 		mgmt_move_txn_cfg_batch_to_next(
 			cmtcfg_req, batch,
 			&cmtcfg_req->curr_batches[adapter->id],
@@ -1404,6 +1957,14 @@ static int mgmt_txn_send_be_cfg_data(struct mgmt_txn_ctx *txn,
 	 * Try moving the commit to next phase.
 	 */
 	mgmt_try_move_commit_to_next_phase(txn, cmtcfg_req);
+=======
+	}
+
+	/*
+	 * We don't advance the phase here, instead that is driven by the
+	 * cfg_reply.
+	 */
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	return 0;
 }
@@ -1415,9 +1976,14 @@ static int mgmt_txn_send_be_txn_delete(struct mgmt_txn_ctx *txn,
 		&txn->commit_cfg_req->req.commit_cfg;
 
 	assert(txn->type == MGMTD_TXN_TYPE_CONFIG);
+<<<<<<< HEAD
 	assert(!mgmt_txn_batches_count(&cmtcfg_req->curr_batches[adapter->id]));
 
 	if (!cmtcfg_req->subscr_info.xpath_subscr[adapter->id])
+=======
+
+	if (IS_IDBIT_UNSET(cmtcfg_req->clients, adapter->id))
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		return 0;
 
 	return mgmt_be_send_txn_req(adapter, txn->txn_id, false);
@@ -1435,8 +2001,13 @@ static void mgmt_txn_cfg_commit_timedout(struct event *thread)
 	if (!txn->commit_cfg_req)
 		return;
 
+<<<<<<< HEAD
 	MGMTD_TXN_ERR("Backend timeout txn-id: %" PRIu64 " aborting commit",
 		      txn->txn_id);
+=======
+	__log_err("Backend timeout txn-id: %" PRIu64 " aborting commit",
+		  txn->txn_id);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	/*
 	 * Send a COMMIT_CONFIG_REPLY with failure.
@@ -1448,6 +2019,141 @@ static void mgmt_txn_cfg_commit_timedout(struct event *thread)
 		"Operation on the backend timed-out. Aborting commit!");
 }
 
+<<<<<<< HEAD
+=======
+
+static int txn_get_tree_data_done(struct mgmt_txn_ctx *txn,
+				  struct mgmt_txn_req *txn_req)
+{
+	struct txn_req_get_tree *get_tree = txn_req->req.get_tree;
+	uint64_t req_id = txn_req->req_id;
+	struct lyd_node *result;
+	int ret = NB_OK;
+
+	/* cancel timer and send reply onward */
+	EVENT_OFF(txn->get_tree_timeout);
+
+	if (!get_tree->simple_xpath && get_tree->client_results) {
+		/*
+		 * We have a complex query so Filter results by the xpath query.
+		 */
+		if (yang_lyd_trim_xpath(&get_tree->client_results,
+					txn_req->req.get_tree->xpath))
+			ret = NB_ERR;
+	}
+
+	result = get_tree->client_results;
+
+	if (ret == NB_OK && result && get_tree->exact)
+		result = yang_dnode_get(result, get_tree->xpath);
+
+	if (ret == NB_OK)
+		ret = mgmt_fe_adapter_send_tree_data(txn->session_id,
+						     txn->txn_id,
+						     txn_req->req_id,
+						     get_tree->result_type,
+						     get_tree->wd_options,
+						     result,
+						     get_tree->partial_error,
+						     false);
+
+	/* we're done with the request */
+	mgmt_txn_req_free(&txn_req);
+
+	if (ret) {
+		__log_err("Error sending the results of GETTREE for txn-id %" PRIu64
+			  " req_id %" PRIu64 " to requested type %u",
+			  txn->txn_id, req_id, get_tree->result_type);
+
+		(void)mgmt_fe_adapter_txn_error(txn->txn_id, req_id, false,
+						errno_from_nb_error(ret),
+						"Error converting results of GETTREE");
+	}
+
+	return ret;
+}
+
+static int txn_rpc_done(struct mgmt_txn_ctx *txn, struct mgmt_txn_req *txn_req)
+{
+	struct txn_req_rpc *rpc = txn_req->req.rpc;
+	uint64_t req_id = txn_req->req_id;
+
+	/* cancel timer and send reply onward */
+	EVENT_OFF(txn->rpc_timeout);
+
+	if (rpc->errstr)
+		mgmt_fe_adapter_txn_error(txn->txn_id, req_id, false, -EINVAL,
+					  rpc->errstr);
+	else if (mgmt_fe_adapter_send_rpc_reply(txn->session_id, txn->txn_id,
+						req_id, rpc->result_type,
+						rpc->client_results)) {
+		__log_err("Error sending the results of RPC for txn-id %" PRIu64
+			  " req_id %" PRIu64 " to requested type %u",
+			  txn->txn_id, req_id, rpc->result_type);
+
+		(void)mgmt_fe_adapter_txn_error(txn->txn_id, req_id, false,
+						-EINVAL,
+						"Error converting results of RPC");
+	}
+
+	/* we're done with the request */
+	mgmt_txn_req_free(&txn_req);
+
+	return 0;
+}
+
+static void txn_get_tree_timeout(struct event *thread)
+{
+	struct mgmt_txn_ctx *txn;
+	struct mgmt_txn_req *txn_req;
+
+	txn_req = (struct mgmt_txn_req *)EVENT_ARG(thread);
+	txn = txn_req->txn;
+
+	assert(txn);
+	assert(txn->type == MGMTD_TXN_TYPE_SHOW);
+
+
+	__log_err("Backend timeout txn-id: %" PRIu64 " ending get-tree",
+		  txn->txn_id);
+
+	/*
+	 * Send a get-tree data reply.
+	 *
+	 * NOTE: The transaction cleanup will be triggered from Front-end
+	 * adapter.
+	 */
+
+	txn_req->req.get_tree->partial_error = -ETIMEDOUT;
+	txn_get_tree_data_done(txn, txn_req);
+}
+
+static void txn_rpc_timeout(struct event *thread)
+{
+	struct mgmt_txn_ctx *txn;
+	struct mgmt_txn_req *txn_req;
+
+	txn_req = (struct mgmt_txn_req *)EVENT_ARG(thread);
+	txn = txn_req->txn;
+
+	assert(txn);
+	assert(txn->type == MGMTD_TXN_TYPE_RPC);
+
+	__log_err("Backend timeout txn-id: %" PRIu64 " ending rpc", txn->txn_id);
+
+	/*
+	 * Send a get-tree data reply.
+	 *
+	 * NOTE: The transaction cleanup will be triggered from Front-end
+	 * adapter.
+	 */
+
+	txn_req->req.rpc->errstr =
+		XSTRDUP(MTYPE_MGMTD_ERR, "Operation on the backend timed-out");
+	txn_rpc_done(txn, txn_req);
+}
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 /*
  * Send CFG_APPLY_REQs to all the backend client.
  *
@@ -1461,8 +2167,11 @@ static int mgmt_txn_send_be_cfg_apply(struct mgmt_txn_ctx *txn)
 	enum mgmt_be_client_id id;
 	struct mgmt_be_client_adapter *adapter;
 	struct mgmt_commit_cfg_req *cmtcfg_req;
+<<<<<<< HEAD
 	struct mgmt_txn_batches_head *batch_list;
 	struct mgmt_txn_be_cfg_batch *batch;
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	assert(txn->type == MGMTD_TXN_TYPE_CONFIG && txn->commit_cfg_req);
 
@@ -1476,13 +2185,20 @@ static int mgmt_txn_send_be_cfg_apply(struct mgmt_txn_ctx *txn)
 	}
 
 	FOREACH_MGMTD_BE_CLIENT_ID (id) {
+<<<<<<< HEAD
 		if (cmtcfg_req->subscr_info.xpath_subscr[id] &
 		    MGMT_SUBSCR_NOTIFY_CFG) {
+=======
+		if (IS_IDBIT_SET(cmtcfg_req->clients, id)) {
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			adapter = mgmt_be_get_adapter_by_id(id);
 			if (!adapter)
 				return -1;
 
+<<<<<<< HEAD
 			batch_list = &cmtcfg_req->curr_batches[id];
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			if (mgmt_be_send_cfgapply_req(adapter, txn->txn_id)) {
 				(void)mgmt_txn_send_commit_cfg_reply(
 					txn, MGMTD_INTERNAL_ERROR,
@@ -1493,6 +2209,7 @@ static int mgmt_txn_send_be_cfg_apply(struct mgmt_txn_ctx *txn)
 
 			UNSET_FLAG(adapter->flags,
 				   MGMTD_BE_ADAPTER_FLAGS_CFG_SYNCED);
+<<<<<<< HEAD
 
 			FOREACH_TXN_CFG_BATCH_IN_LIST (batch_list, batch)
 				batch->comm_phase = MGMTD_COMMIT_PHASE_APPLY_CFG;
@@ -1502,6 +2219,11 @@ static int mgmt_txn_send_be_cfg_apply(struct mgmt_txn_ctx *txn)
 	txn->commit_cfg_req->req.commit_cfg.next_phase =
 		MGMTD_COMMIT_PHASE_TXN_DELETE;
 
+=======
+		}
+	}
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	/*
 	 * Dont move the commit to next phase yet. Wait for all VALIDATE_REPLIES
 	 * to come back.
@@ -1518,6 +2240,7 @@ static void mgmt_txn_process_commit_cfg(struct event *thread)
 	txn = (struct mgmt_txn_ctx *)EVENT_ARG(thread);
 	assert(txn);
 
+<<<<<<< HEAD
 	MGMTD_TXN_DBG("Processing COMMIT_CONFIG for txn-id: %" PRIu64
 		      " session-id: %" PRIu64 " Phase(Current:'%s', Next: '%s')",
 		      txn->txn_id, txn->session_id,
@@ -1527,6 +2250,15 @@ static void mgmt_txn_process_commit_cfg(struct event *thread)
 	assert(txn->commit_cfg_req);
 	cmtcfg_req = &txn->commit_cfg_req->req.commit_cfg;
 	switch (cmtcfg_req->curr_phase) {
+=======
+	__dbg("Processing COMMIT_CONFIG for txn-id: %" PRIu64
+	      " session-id: %" PRIu64 " Phase '%s'",
+	      txn->txn_id, txn->session_id, mgmt_txn_commit_phase_str(txn));
+
+	assert(txn->commit_cfg_req);
+	cmtcfg_req = &txn->commit_cfg_req->req.commit_cfg;
+	switch (cmtcfg_req->phase) {
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	case MGMTD_COMMIT_PHASE_PREPARE_CFG:
 		mgmt_txn_prepare_config(txn);
 		break;
@@ -1539,6 +2271,7 @@ static void mgmt_txn_process_commit_cfg(struct event *thread)
 		 */
 		mgmt_txn_send_be_txn_create(txn);
 		break;
+<<<<<<< HEAD
 	case MGMTD_COMMIT_PHASE_SEND_CFG:
 		if (mm->perf_stats_en)
 			gettimeofday(&cmtcfg_req->cmt_stats->send_cfg_start,
@@ -1559,6 +2292,8 @@ static void mgmt_txn_process_commit_cfg(struct event *thread)
 			      txn->txn_id, txn->session_id);
 #endif /* ifndef MGMTD_LOCAL_VALIDATIONS_ENABLED */
 		break;
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	case MGMTD_COMMIT_PHASE_APPLY_CFG:
 		if (mm->perf_stats_en)
 			gettimeofday(&cmtcfg_req->cmt_stats->apply_cfg_start,
@@ -1587,12 +2322,15 @@ static void mgmt_txn_process_commit_cfg(struct event *thread)
 	case MGMTD_COMMIT_PHASE_MAX:
 		break;
 	}
+<<<<<<< HEAD
 
 	MGMTD_TXN_DBG("txn-id:%" PRIu64 " session-id: %" PRIu64
 		      " phase updated to (current:'%s', next: '%s')",
 		      txn->txn_id, txn->session_id,
 		      mgmt_txn_commit_phase_str(txn, true),
 		      mgmt_txn_commit_phase_str(txn, false));
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 }
 
 static void mgmt_init_get_data_reply(struct mgmt_get_data_reply *get_reply)
@@ -1613,8 +2351,11 @@ static void mgmt_reset_get_data_reply(struct mgmt_get_data_reply *get_reply)
 			get_reply->reply_xpathp[indx] = 0;
 		}
 		if (get_reply->reply_data[indx].xpath) {
+<<<<<<< HEAD
 			zlog_debug("%s free xpath %p", __func__,
 				   get_reply->reply_data[indx].xpath);
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			free(get_reply->reply_data[indx].xpath);
 			get_reply->reply_data[indx].xpath = 0;
 		}
@@ -1653,8 +2394,13 @@ static void mgmt_txn_send_getcfg_reply_data(struct mgmt_txn_req *txn_req,
 	data_reply->next_indx = (!get_reply->last_batch ? get_req->total_reply
 							: -1);
 
+<<<<<<< HEAD
 	MGMTD_TXN_DBG("Sending %zu Get-Config/Data replies next-index:%" PRId64,
 		      data_reply->n_data, data_reply->next_indx);
+=======
+	__dbg("Sending %zu Get-Config/Data replies next-index:%" PRId64,
+	      data_reply->n_data, data_reply->next_indx);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	switch (txn_req->req_event) {
 	case MGMTD_TXN_PROC_GETCFG:
@@ -1662,6 +2408,7 @@ static void mgmt_txn_send_getcfg_reply_data(struct mgmt_txn_req *txn_req,
 					   txn_req->txn->txn_id, get_req->ds_id,
 					   txn_req->req_id, MGMTD_SUCCESS,
 					   data_reply, NULL) != 0) {
+<<<<<<< HEAD
 			MGMTD_TXN_ERR("Failed to send GET-CONFIG-REPLY txn-id: %" PRIu64
 				      " session-id: %" PRIu64
 				      " req-id: %" PRIu64,
@@ -1679,13 +2426,26 @@ static void mgmt_txn_send_getcfg_reply_data(struct mgmt_txn_req *txn_req,
 				      " req-id: %" PRIu64,
 				      txn_req->txn->txn_id,
 				      txn_req->txn->session_id, txn_req->req_id);
+=======
+			__log_err("Failed to send GET-CONFIG-REPLY txn-id: %" PRIu64
+				  " session-id: %" PRIu64 " req-id: %" PRIu64,
+				  txn_req->txn->txn_id,
+				  txn_req->txn->session_id, txn_req->req_id);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		}
 		break;
 	case MGMTD_TXN_PROC_SETCFG:
 	case MGMTD_TXN_PROC_COMMITCFG:
+<<<<<<< HEAD
 	case MGMTD_TXN_COMMITCFG_TIMEOUT:
 	case MGMTD_TXN_CLEANUP:
 		MGMTD_TXN_ERR("Invalid Txn-Req-Event %u", txn_req->req_event);
+=======
+	case MGMTD_TXN_PROC_GETTREE:
+	case MGMTD_TXN_PROC_RPC:
+	case MGMTD_TXN_COMMITCFG_TIMEOUT:
+		__log_err("Invalid Txn-Req-Event %u", txn_req->req_event);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		break;
 	}
 
@@ -1695,10 +2455,15 @@ static void mgmt_txn_send_getcfg_reply_data(struct mgmt_txn_req *txn_req,
 	mgmt_reset_get_data_reply_buf(get_req);
 }
 
+<<<<<<< HEAD
 static void mgmt_txn_iter_and_send_get_cfg_reply(const char *xpath,
 						 struct lyd_node *node,
 						 struct nb_node *nb_node,
 						 void *ctx)
+=======
+static void txn_iter_get_config_data_cb(const char *xpath, struct lyd_node *node,
+					struct nb_node *nb_node, void *ctx)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 {
 	struct mgmt_txn_req *txn_req;
 	struct mgmt_get_data_req *get_req;
@@ -1713,8 +2478,12 @@ static void mgmt_txn_iter_and_send_get_cfg_reply(const char *xpath,
 	if (!(node->schema->nodetype & LYD_NODE_TERM))
 		return;
 
+<<<<<<< HEAD
 	assert(txn_req->req_event == MGMTD_TXN_PROC_GETCFG ||
 	       txn_req->req_event == MGMTD_TXN_PROC_GETDATA);
+=======
+	assert(txn_req->req_event == MGMTD_TXN_PROC_GETCFG);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	get_req = txn_req->req.get_data;
 	assert(get_req);
@@ -1731,8 +2500,13 @@ static void mgmt_txn_iter_and_send_get_cfg_reply(const char *xpath,
 
 	get_reply->num_reply++;
 	get_req->total_reply++;
+<<<<<<< HEAD
 	MGMTD_TXN_DBG(" [%d] XPATH: '%s', Value: '%s'", get_req->total_reply,
 		      data->xpath, data_value->encoded_str_val);
+=======
+	__dbg(" [%d] XPATH: '%s', Value: '%s'", get_req->total_reply,
+	      data->xpath, data_value->encoded_str_val);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	if (get_reply->num_reply == MGMTD_MAX_NUM_DATA_REPLY_IN_BATCH)
 		mgmt_txn_send_getcfg_reply_data(txn_req, get_req);
@@ -1766,8 +2540,13 @@ static int mgmt_txn_get_config(struct mgmt_txn_ctx *txn,
 	 */
 	get_reply = get_data->reply;
 	for (indx = 0; indx < get_data->num_xpaths; indx++) {
+<<<<<<< HEAD
 		MGMTD_TXN_DBG("Trying to get all data under '%s'",
 			      get_data->xpaths[indx]);
+=======
+		__dbg("Trying to get all data under '%s'",
+		      get_data->xpaths[indx]);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		mgmt_init_get_data_reply(get_reply);
 		/*
 		 * mgmt_ds_iter_data works on path prefixes, but the user may
@@ -1776,18 +2555,29 @@ static int mgmt_txn_get_config(struct mgmt_txn_ctx *txn,
 		 */
 		if (mgmt_ds_iter_data(get_data->ds_id, root,
 				      get_data->xpaths[indx],
+<<<<<<< HEAD
 				      mgmt_txn_iter_and_send_get_cfg_reply,
 				      (void *)txn_req) == -1) {
 			MGMTD_TXN_DBG("Invalid Xpath '%s",
 				      get_data->xpaths[indx]);
+=======
+				      txn_iter_get_config_data_cb,
+				      (void *)txn_req) == -1) {
+			__dbg("Invalid Xpath '%s", get_data->xpaths[indx]);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			mgmt_fe_send_get_reply(txn->session_id, txn->txn_id,
 					       get_data->ds_id, txn_req->req_id,
 					       MGMTD_INTERNAL_ERROR, NULL,
 					       "Invalid xpath");
 			goto mgmt_txn_get_config_failed;
 		}
+<<<<<<< HEAD
 		MGMTD_TXN_DBG("Got %d remaining data-replies for xpath '%s'",
 			      get_reply->num_reply, get_data->xpaths[indx]);
+=======
+		__dbg("Got %d remaining data-replies for xpath '%s'",
+		      get_reply->num_reply, get_data->xpaths[indx]);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		get_reply->last_batch = true;
 		mgmt_txn_send_getcfg_reply_data(txn_req, get_data);
 	}
@@ -1814,10 +2604,17 @@ static void mgmt_txn_process_get_cfg(struct event *thread)
 	txn = (struct mgmt_txn_ctx *)EVENT_ARG(thread);
 	assert(txn);
 
+<<<<<<< HEAD
 	MGMTD_TXN_DBG("Processing %zu GET_CONFIG requests txn-id: %" PRIu64
 		      " session-id: %" PRIu64,
 		      mgmt_txn_reqs_count(&txn->get_cfg_reqs), txn->txn_id,
 		      txn->session_id);
+=======
+	__dbg("Processing %zu GET_CONFIG requests txn-id: %" PRIu64
+	      " session-id: %" PRIu64,
+	      mgmt_txn_reqs_count(&txn->get_cfg_reqs), txn->txn_id,
+	      txn->session_id);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	FOREACH_TXN_REQ_IN_LIST (&txn->get_cfg_reqs, txn_req) {
 		error = false;
@@ -1826,11 +2623,18 @@ static void mgmt_txn_process_get_cfg(struct event *thread)
 		assert(cfg_root);
 
 		if (mgmt_txn_get_config(txn, txn_req, cfg_root) != 0) {
+<<<<<<< HEAD
 			MGMTD_TXN_ERR("Unable to retrieve config from DS %d txn-id: %" PRIu64
 				      " session-id: %" PRIu64
 				      " req-id: %" PRIu64,
 				      txn_req->req.get_data->ds_id, txn->txn_id,
 				      txn->session_id, txn_req->req_id);
+=======
+			__log_err("Unable to retrieve config from DS %d txn-id: %" PRIu64
+				  " session-id: %" PRIu64 " req-id: %" PRIu64,
+				  txn_req->req.get_data->ds_id, txn->txn_id,
+				  txn->session_id, txn_req->req_id);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			error = true;
 		}
 
@@ -1853,12 +2657,18 @@ static void mgmt_txn_process_get_cfg(struct event *thread)
 	}
 
 	if (mgmt_txn_reqs_count(&txn->get_cfg_reqs)) {
+<<<<<<< HEAD
 		MGMTD_TXN_DBG("Processed maximum number of Get-Config requests (%d/%d). Rescheduling for rest.",
 			      num_processed, MGMTD_TXN_MAX_NUM_GETCFG_PROC);
+=======
+		__dbg("Processed maximum number of Get-Config requests (%d/%d). Rescheduling for rest.",
+		      num_processed, MGMTD_TXN_MAX_NUM_GETCFG_PROC);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		mgmt_txn_register_event(txn, MGMTD_TXN_PROC_GETCFG);
 	}
 }
 
+<<<<<<< HEAD
 static void mgmt_txn_process_get_data(struct event *thread)
 {
 	struct mgmt_txn_ctx *txn;
@@ -1907,6 +2717,8 @@ static void mgmt_txn_process_get_data(struct event *thread)
 	}
 }
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 static struct mgmt_txn_ctx *
 mgmt_fe_find_txn_by_session_id(struct mgmt_master *cm, uint64_t session_id,
 			       enum mgmt_txn_type type)
@@ -1926,6 +2738,7 @@ static struct mgmt_txn_ctx *mgmt_txn_create_new(uint64_t session_id,
 {
 	struct mgmt_txn_ctx *txn = NULL;
 
+<<<<<<< HEAD
 	/*
 	 * For 'CONFIG' transaction check if one is already created
 	 * or not.
@@ -1935,6 +2748,11 @@ static struct mgmt_txn_ctx *mgmt_txn_create_new(uint64_t session_id,
 			txn = mgmt_txn_mm->cfg_txn;
 		goto mgmt_create_txn_done;
 	}
+=======
+	/* Do not allow multiple config transactions */
+	if (type == MGMTD_TXN_TYPE_CONFIG && mgmt_config_txn_in_progress())
+		return NULL;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	txn = mgmt_fe_find_txn_by_session_id(mgmt_txn_mm, session_id, type);
 	if (!txn) {
@@ -1944,10 +2762,18 @@ static struct mgmt_txn_ctx *mgmt_txn_create_new(uint64_t session_id,
 		txn->session_id = session_id;
 		txn->type = type;
 		mgmt_txns_add_tail(&mgmt_txn_mm->txn_list, txn);
+<<<<<<< HEAD
 		mgmt_txn_reqs_init(&txn->set_cfg_reqs);
 		mgmt_txn_reqs_init(&txn->get_cfg_reqs);
 		mgmt_txn_reqs_init(&txn->get_data_reqs);
 		mgmt_txn_reqs_init(&txn->pending_get_datas);
+=======
+		/* TODO: why do we need N lists for one transaction */
+		mgmt_txn_reqs_init(&txn->set_cfg_reqs);
+		mgmt_txn_reqs_init(&txn->get_cfg_reqs);
+		mgmt_txn_reqs_init(&txn->get_tree_reqs);
+		mgmt_txn_reqs_init(&txn->rpc_reqs);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		txn->commit_cfg_req = NULL;
 		txn->refcount = 0;
 		if (!mgmt_txn_mm->next_txn_id)
@@ -1955,8 +2781,13 @@ static struct mgmt_txn_ctx *mgmt_txn_create_new(uint64_t session_id,
 		txn->txn_id = mgmt_txn_mm->next_txn_id++;
 		hash_get(mgmt_txn_mm->txn_hash, txn, hash_alloc_intern);
 
+<<<<<<< HEAD
 		MGMTD_TXN_DBG("Added new '%s' txn-id: %" PRIu64,
 			      mgmt_txn_type2str(type), txn->txn_id);
+=======
+		__dbg("Added new '%s' txn-id: %" PRIu64,
+		      mgmt_txn_type2str(type), txn->txn_id);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 		if (type == MGMTD_TXN_TYPE_CONFIG)
 			mgmt_txn_mm->cfg_txn = txn;
@@ -1964,7 +2795,10 @@ static struct mgmt_txn_ctx *mgmt_txn_create_new(uint64_t session_id,
 		MGMTD_TXN_LOCK(txn);
 	}
 
+<<<<<<< HEAD
 mgmt_create_txn_done:
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	return txn;
 }
 
@@ -2029,12 +2863,27 @@ static inline struct mgmt_txn_ctx *mgmt_txn_id2ctx(uint64_t txn_id)
 	return txn;
 }
 
+<<<<<<< HEAD
 static void mgmt_txn_lock(struct mgmt_txn_ctx *txn, const char *file, int line)
 {
 	txn->refcount++;
 	MGMTD_TXN_DBG("%s:%d --> Lock %s txn-id: %" PRIu64 " refcnt: %d", file,
 		      line, mgmt_txn_type2str(txn->type), txn->txn_id,
 		      txn->refcount);
+=======
+uint64_t mgmt_txn_get_session_id(uint64_t txn_id)
+{
+	struct mgmt_txn_ctx *txn = mgmt_txn_id2ctx(txn_id);
+
+	return txn ? txn->session_id : MGMTD_SESSION_ID_NONE;
+}
+
+static void mgmt_txn_lock(struct mgmt_txn_ctx *txn, const char *file, int line)
+{
+	txn->refcount++;
+	__dbg("%s:%d --> Lock %s txn-id: %" PRIu64 " refcnt: %d", file, line,
+	      mgmt_txn_type2str(txn->type), txn->txn_id, txn->refcount);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 }
 
 static void mgmt_txn_unlock(struct mgmt_txn_ctx **txn, const char *file,
@@ -2043,9 +2892,14 @@ static void mgmt_txn_unlock(struct mgmt_txn_ctx **txn, const char *file,
 	assert(*txn && (*txn)->refcount);
 
 	(*txn)->refcount--;
+<<<<<<< HEAD
 	MGMTD_TXN_DBG("%s:%d --> Unlock %s txn-id: %" PRIu64 " refcnt: %d",
 		      file, line, mgmt_txn_type2str((*txn)->type),
 		      (*txn)->txn_id, (*txn)->refcount);
+=======
+	__dbg("%s:%d --> Unlock %s txn-id: %" PRIu64 " refcnt: %d", file, line,
+	      mgmt_txn_type2str((*txn)->type), (*txn)->txn_id, (*txn)->refcount);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	if (!(*txn)->refcount) {
 		if ((*txn)->type == MGMTD_TXN_TYPE_CONFIG)
 			if (mgmt_txn_mm->cfg_txn == *txn)
@@ -2054,6 +2908,7 @@ static void mgmt_txn_unlock(struct mgmt_txn_ctx **txn, const char *file,
 		EVENT_OFF((*txn)->proc_get_data);
 		EVENT_OFF((*txn)->proc_comm_cfg);
 		EVENT_OFF((*txn)->comm_cfg_timeout);
+<<<<<<< HEAD
 		hash_release(mgmt_txn_mm->txn_hash, *txn);
 		mgmt_txns_del(&mgmt_txn_mm->txn_list, *txn);
 
@@ -2061,6 +2916,15 @@ static void mgmt_txn_unlock(struct mgmt_txn_ctx **txn, const char *file,
 			      " session-id: %" PRIu64,
 			      mgmt_txn_type2str((*txn)->type), (*txn)->txn_id,
 			      (*txn)->session_id);
+=======
+		EVENT_OFF((*txn)->get_tree_timeout);
+		hash_release(mgmt_txn_mm->txn_hash, *txn);
+		mgmt_txns_del(&mgmt_txn_mm->txn_list, *txn);
+
+		__dbg("Deleted %s txn-id: %" PRIu64 " session-id: %" PRIu64,
+		      mgmt_txn_type2str((*txn)->type), (*txn)->txn_id,
+		      (*txn)->session_id);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 		XFREE(MTYPE_MGMTD_TXN, *txn);
 	}
@@ -2086,6 +2950,7 @@ static void mgmt_txn_cleanup_all_txns(void)
 		mgmt_txn_cleanup_txn(&txn);
 }
 
+<<<<<<< HEAD
 static void mgmt_txn_cleanup(struct event *thread)
 {
 	struct mgmt_txn_ctx *txn;
@@ -2096,6 +2961,8 @@ static void mgmt_txn_cleanup(struct event *thread)
 	mgmt_txn_cleanup_txn(&txn);
 }
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 static void mgmt_txn_register_event(struct mgmt_txn_ctx *txn,
 				    enum mgmt_txn_event event)
 {
@@ -2117,6 +2984,7 @@ static void mgmt_txn_register_event(struct mgmt_txn_ctx *txn,
 		event_add_timer_tv(mgmt_txn_tm, mgmt_txn_process_get_cfg, txn,
 				   &tv, &txn->proc_get_cfg);
 		break;
+<<<<<<< HEAD
 	case MGMTD_TXN_PROC_GETDATA:
 		event_add_timer_tv(mgmt_txn_tm, mgmt_txn_process_get_data, txn,
 				   &tv, &txn->proc_get_data);
@@ -2130,6 +2998,17 @@ static void mgmt_txn_register_event(struct mgmt_txn_ctx *txn,
 		tv.tv_usec = MGMTD_TXN_CLEANUP_DELAY_USEC;
 		event_add_timer_tv(mgmt_txn_tm, mgmt_txn_cleanup, txn, &tv,
 				   &txn->clnup);
+=======
+	case MGMTD_TXN_COMMITCFG_TIMEOUT:
+		event_add_timer(mgmt_txn_tm, mgmt_txn_cfg_commit_timedout, txn,
+				MGMTD_TXN_CFG_COMMIT_MAX_DELAY_SEC,
+				&txn->comm_cfg_timeout);
+		break;
+	case MGMTD_TXN_PROC_GETTREE:
+	case MGMTD_TXN_PROC_RPC:
+		assert(!"code bug do not register this event");
+		break;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	}
 }
 
@@ -2154,12 +3033,21 @@ void mgmt_txn_destroy(void)
 	mgmt_txn_hash_destroy();
 }
 
+<<<<<<< HEAD
 uint64_t mgmt_config_txn_in_progress(void)
 {
 	if (mgmt_txn_mm && mgmt_txn_mm->cfg_txn)
 		return mgmt_txn_mm->cfg_txn->session_id;
 
 	return MGMTD_SESSION_ID_NONE;
+=======
+bool mgmt_config_txn_in_progress(void)
+{
+	if (mgmt_txn_mm && mgmt_txn_mm->cfg_txn)
+		return true;
+
+	return false;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 }
 
 uint64_t mgmt_create_txn(uint64_t session_id, enum mgmt_txn_type type)
@@ -2195,13 +3083,21 @@ int mgmt_txn_send_set_config_req(uint64_t txn_id, uint64_t req_id,
 	size_t indx;
 	uint16_t *num_chgs;
 	struct nb_cfg_change *cfg_chg;
+<<<<<<< HEAD
+=======
+	struct nb_node *node;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	txn = mgmt_txn_id2ctx(txn_id);
 	if (!txn)
 		return -1;
 
 	if (implicit_commit && mgmt_txn_reqs_count(&txn->set_cfg_reqs)) {
+<<<<<<< HEAD
 		MGMTD_TXN_ERR(
+=======
+		__log_err(
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			"For implicit commit config only one SETCFG-REQ can be allowed!");
 		return -1;
 	}
@@ -2213,6 +3109,7 @@ int mgmt_txn_send_set_config_req(uint64_t txn_id, uint64_t req_id,
 	for (indx = 0; indx < num_req; indx++) {
 		cfg_chg = &txn_req->req.set_cfg->cfg_changes[*num_chgs];
 
+<<<<<<< HEAD
 		if (cfg_req[indx]->req_type ==
 		    MGMTD__CFG_DATA_REQ_TYPE__DELETE_DATA)
 			cfg_chg->operation = NB_OP_DESTROY;
@@ -2234,6 +3131,44 @@ int mgmt_txn_send_set_config_req(uint64_t txn_id, uint64_t req_id,
 					       cfg_req[indx]->data->value->encoded_str_val
 				       ? cfg_req[indx]->data->value->encoded_str_val
 				       : "NULL"));
+=======
+		switch (cfg_req[indx]->req_type) {
+		case MGMTD__CFG_DATA_REQ_TYPE__DELETE_DATA:
+			cfg_chg->operation = NB_OP_DELETE;
+			break;
+		case MGMTD__CFG_DATA_REQ_TYPE__REMOVE_DATA:
+			cfg_chg->operation = NB_OP_DESTROY;
+			break;
+		case MGMTD__CFG_DATA_REQ_TYPE__SET_DATA:
+			/*
+			 * For backward compatibility, we need to allow creating
+			 * *new* list keys with SET_DATA operation. NB_OP_MODIFY
+			 * is not allowed for keys, so use NB_OP_CREATE_EXCL.
+			 */
+			node = nb_node_find(cfg_req[indx]->data->xpath);
+			if (node && lysc_is_key(node->snode))
+				cfg_chg->operation = NB_OP_CREATE_EXCL;
+			else
+				cfg_chg->operation = NB_OP_MODIFY;
+			break;
+		case MGMTD__CFG_DATA_REQ_TYPE__CREATE_DATA:
+			cfg_chg->operation = NB_OP_CREATE_EXCL;
+			break;
+		case MGMTD__CFG_DATA_REQ_TYPE__REPLACE_DATA:
+			cfg_chg->operation = NB_OP_REPLACE;
+			break;
+		case MGMTD__CFG_DATA_REQ_TYPE__REQ_TYPE_NONE:
+		case _MGMTD__CFG_DATA_REQ_TYPE_IS_INT_SIZE:
+		default:
+			continue;
+		}
+
+		__dbg("XPath: '%s', Value: '%s'", cfg_req[indx]->data->xpath,
+		      (cfg_req[indx]->data->value &&
+				       cfg_req[indx]->data->value->encoded_str_val
+			       ? cfg_req[indx]->data->value->encoded_str_val
+			       : "NULL"));
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		strlcpy(cfg_chg->xpath, cfg_req[indx]->data->xpath,
 			sizeof(cfg_chg->xpath));
 		cfg_chg->value =
@@ -2243,8 +3178,13 @@ int mgmt_txn_send_set_config_req(uint64_t txn_id, uint64_t req_id,
 						  ->data->value->encoded_str_val)
 				 : NULL);
 		if (cfg_chg->value)
+<<<<<<< HEAD
 			MGMTD_TXN_DBG("Allocated value at %p ==> '%s'",
 				      cfg_chg->value, cfg_chg->value);
+=======
+			__dbg("Allocated value at %p ==> '%s'", cfg_chg->value,
+			      cfg_chg->value);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 		(*num_chgs)++;
 	}
@@ -2264,7 +3204,11 @@ int mgmt_txn_send_commit_config_req(uint64_t txn_id, uint64_t req_id,
 				    Mgmtd__DatastoreId dst_ds_id,
 				    struct mgmt_ds_ctx *dst_ds_ctx,
 				    bool validate_only, bool abort,
+<<<<<<< HEAD
 				    bool implicit)
+=======
+				    bool implicit, struct mgmt_edit_req *edit)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 {
 	struct mgmt_txn_ctx *txn;
 	struct mgmt_txn_req *txn_req;
@@ -2274,9 +3218,15 @@ int mgmt_txn_send_commit_config_req(uint64_t txn_id, uint64_t req_id,
 		return -1;
 
 	if (txn->commit_cfg_req) {
+<<<<<<< HEAD
 		MGMTD_TXN_ERR("Commit already in-progress txn-id: %" PRIu64
 			      " session-id: %" PRIu64 ". Cannot start another",
 			      txn->txn_id, txn->session_id);
+=======
+		__log_err("Commit already in-progress txn-id: %" PRIu64
+			  " session-id: %" PRIu64 ". Cannot start another",
+			  txn->txn_id, txn->session_id);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		return -1;
 	}
 
@@ -2288,6 +3238,10 @@ int mgmt_txn_send_commit_config_req(uint64_t txn_id, uint64_t req_id,
 	txn_req->req.commit_cfg.validate_only = validate_only;
 	txn_req->req.commit_cfg.abort = abort;
 	txn_req->req.commit_cfg.implicit = implicit;
+<<<<<<< HEAD
+=======
+	txn_req->req.commit_cfg.edit = edit;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	txn_req->req.commit_cfg.cmt_stats =
 		mgmt_fe_get_session_commit_stats(txn->session_id);
 
@@ -2306,15 +3260,37 @@ int mgmt_txn_notify_be_adapter_conn(struct mgmt_be_client_adapter *adapter,
 	struct mgmt_commit_cfg_req *cmtcfg_req;
 	static struct mgmt_commit_stats dummy_stats;
 	struct nb_config_cbs *adapter_cfgs = NULL;
+<<<<<<< HEAD
 
 	memset(&dummy_stats, 0, sizeof(dummy_stats));
 	if (connect) {
 		/* Get config for this single backend client */
 
+=======
+	struct mgmt_ds_ctx *ds_ctx;
+
+	memset(&dummy_stats, 0, sizeof(dummy_stats));
+	if (connect) {
+		ds_ctx = mgmt_ds_get_ctx_by_id(mm, MGMTD_DS_RUNNING);
+		assert(ds_ctx);
+
+		/*
+		 * Lock the running datastore to prevent any changes while we
+		 * are initializing the backend.
+		 */
+		if (mgmt_ds_lock(ds_ctx, 0) != 0)
+			return -1;
+
+		/* Get config for this single backend client */
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		mgmt_be_get_adapter_config(adapter, &adapter_cfgs);
 		if (!adapter_cfgs || RB_EMPTY(nb_config_cbs, adapter_cfgs)) {
 			SET_FLAG(adapter->flags,
 				 MGMTD_BE_ADAPTER_FLAGS_CFG_SYNCED);
+<<<<<<< HEAD
+=======
+			mgmt_ds_unlock(ds_ctx);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			return 0;
 		}
 
@@ -2324,6 +3300,7 @@ int mgmt_txn_notify_be_adapter_conn(struct mgmt_be_client_adapter *adapter,
 		 */
 		txn = mgmt_txn_create_new(0, MGMTD_TXN_TYPE_CONFIG);
 		if (!txn) {
+<<<<<<< HEAD
 			MGMTD_TXN_ERR("Failed to create CONFIG Transaction for downloading CONFIGs for client '%s'",
 				      adapter->name);
 			return -1;
@@ -2332,6 +3309,17 @@ int mgmt_txn_notify_be_adapter_conn(struct mgmt_be_client_adapter *adapter,
 		MGMTD_TXN_DBG("Created initial txn-id: %" PRIu64
 			      " for BE client '%s'",
 			      txn->txn_id, adapter->name);
+=======
+			__log_err("Failed to create CONFIG Transaction for downloading CONFIGs for client '%s'",
+				  adapter->name);
+			mgmt_ds_unlock(ds_ctx);
+			nb_config_diff_del_changes(adapter_cfgs);
+			return -1;
+		}
+
+		__dbg("Created initial txn-id: %" PRIu64 " for BE client '%s'",
+		      txn->txn_id, adapter->name);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		/*
 		 * Set the changeset for transaction to commit and trigger the
 		 * commit request.
@@ -2339,10 +3327,18 @@ int mgmt_txn_notify_be_adapter_conn(struct mgmt_be_client_adapter *adapter,
 		txn_req = mgmt_txn_req_alloc(txn, 0, MGMTD_TXN_PROC_COMMITCFG);
 		txn_req->req.commit_cfg.src_ds_id = MGMTD_DS_NONE;
 		txn_req->req.commit_cfg.src_ds_ctx = 0;
+<<<<<<< HEAD
 		txn_req->req.commit_cfg.dst_ds_id = MGMTD_DS_NONE;
 		txn_req->req.commit_cfg.dst_ds_ctx = 0;
 		txn_req->req.commit_cfg.validate_only = false;
 		txn_req->req.commit_cfg.abort = false;
+=======
+		txn_req->req.commit_cfg.dst_ds_id = MGMTD_DS_RUNNING;
+		txn_req->req.commit_cfg.dst_ds_ctx = ds_ctx;
+		txn_req->req.commit_cfg.validate_only = false;
+		txn_req->req.commit_cfg.abort = false;
+		txn_req->req.commit_cfg.init = true;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		txn_req->req.commit_cfg.cmt_stats = &dummy_stats;
 		txn_req->req.commit_cfg.cfg_chgs = adapter_cfgs;
 
@@ -2365,9 +3361,14 @@ int mgmt_txn_notify_be_adapter_conn(struct mgmt_be_client_adapter *adapter,
 						     ? &txn->commit_cfg_req->req
 								.commit_cfg
 						     : NULL;
+<<<<<<< HEAD
 				if (cmtcfg_req &&
 				    cmtcfg_req->subscr_info
 					    .xpath_subscr[adapter->id]) {
+=======
+				if (cmtcfg_req && IS_IDBIT_SET(cmtcfg_req->clients,
+							       adapter->id)) {
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 					mgmt_txn_send_commit_cfg_reply(
 						txn, MGMTD_INTERNAL_ERROR,
 						"Backend daemon disconnected while processing commit!");
@@ -2400,7 +3401,11 @@ int mgmt_txn_notify_be_txn_reply(uint64_t txn_id, bool create, bool success,
 			 * Done with TXN_CREATE. Move the backend client to
 			 * next phase.
 			 */
+<<<<<<< HEAD
 			assert(cmtcfg_req->curr_phase ==
+=======
+			assert(cmtcfg_req->phase ==
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			       MGMTD_COMMIT_PHASE_TXN_CREATE);
 
 			/*
@@ -2412,23 +3417,34 @@ int mgmt_txn_notify_be_txn_reply(uint64_t txn_id, bool create, bool success,
 				txn, MGMTD_INTERNAL_ERROR,
 				"Internal error! Failed to initiate transaction at backend!");
 		}
+<<<<<<< HEAD
 	} else {
 		/*
 		 * Done with TXN_DELETE. Move the backend client to next phase.
 		 */
 		if (false)
 			mgmt_move_be_commit_to_next_phase(txn, adapter);
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	}
 
 	return 0;
 }
 
+<<<<<<< HEAD
 int mgmt_txn_notify_be_cfgdata_reply(uint64_t txn_id, uint64_t batch_id,
 				     bool success, char *error_if_any,
 				     struct mgmt_be_client_adapter *adapter)
 {
 	struct mgmt_txn_ctx *txn;
 	struct mgmt_txn_be_cfg_batch *batch;
+=======
+int mgmt_txn_notify_be_cfgdata_reply(uint64_t txn_id, bool success,
+				     char *error_if_any,
+				     struct mgmt_be_client_adapter *adapter)
+{
+	struct mgmt_txn_ctx *txn;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	struct mgmt_commit_cfg_req *cmtcfg_req;
 
 	txn = mgmt_txn_id2ctx(txn_id);
@@ -2439,6 +3455,7 @@ int mgmt_txn_notify_be_cfgdata_reply(uint64_t txn_id, uint64_t batch_id,
 		return -1;
 	cmtcfg_req = &txn->commit_cfg_req->req.commit_cfg;
 
+<<<<<<< HEAD
 	batch = mgmt_txn_cfgbatch_id2ctx(txn, batch_id);
 	if (!batch || batch->txn != txn)
 		return -1;
@@ -2448,6 +3465,13 @@ int mgmt_txn_notify_be_cfgdata_reply(uint64_t txn_id, uint64_t batch_id,
 			      " batch-id %" PRIu64 " err: %s",
 			      adapter->name, txn->txn_id, batch->batch_id,
 			      error_if_any ? error_if_any : "None");
+=======
+	if (!success) {
+		__log_err("CFGDATA_CREATE_REQ sent to '%s' failed txn-id: %" PRIu64
+			  " err: %s",
+			  adapter->name, txn->txn_id,
+			  error_if_any ? error_if_any : "None");
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		mgmt_txn_send_commit_cfg_reply(
 			txn, MGMTD_INTERNAL_ERROR,
 			error_if_any
@@ -2456,6 +3480,7 @@ int mgmt_txn_notify_be_cfgdata_reply(uint64_t txn_id, uint64_t batch_id,
 		return 0;
 	}
 
+<<<<<<< HEAD
 	MGMTD_TXN_DBG("CFGDATA_CREATE_REQ sent to '%s' was successful txn-id: %" PRIu64
 		      " batch-id %" PRIu64 " err: %s",
 		      adapter->name, txn->txn_id, batch->batch_id,
@@ -2464,6 +3489,13 @@ int mgmt_txn_notify_be_cfgdata_reply(uint64_t txn_id, uint64_t batch_id,
 					&cmtcfg_req->curr_batches[adapter->id],
 					&cmtcfg_req->next_batches[adapter->id],
 					true, MGMTD_COMMIT_PHASE_APPLY_CFG);
+=======
+	__dbg("CFGDATA_CREATE_REQ sent to '%s' was successful txn-id: %" PRIu64
+	      " err: %s",
+	      adapter->name, txn->txn_id, error_if_any ? error_if_any : "None");
+
+	cmtcfg_req->be_phase[adapter->id] = MGMTD_COMMIT_PHASE_APPLY_CFG;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	mgmt_try_move_commit_to_next_phase(txn, cmtcfg_req);
 
@@ -2471,6 +3503,7 @@ int mgmt_txn_notify_be_cfgdata_reply(uint64_t txn_id, uint64_t batch_id,
 }
 
 int mgmt_txn_notify_be_cfg_apply_reply(uint64_t txn_id, bool success,
+<<<<<<< HEAD
 				       uint64_t batch_ids[],
 				       size_t num_batch_ids, char *error_if_any,
 				       struct mgmt_be_client_adapter *adapter)
@@ -2479,6 +3512,13 @@ int mgmt_txn_notify_be_cfg_apply_reply(uint64_t txn_id, bool success,
 	struct mgmt_txn_be_cfg_batch *batch;
 	struct mgmt_commit_cfg_req *cmtcfg_req = NULL;
 	size_t indx;
+=======
+				       char *error_if_any,
+				       struct mgmt_be_client_adapter *adapter)
+{
+	struct mgmt_txn_ctx *txn;
+	struct mgmt_commit_cfg_req *cmtcfg_req = NULL;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	txn = mgmt_txn_id2ctx(txn_id);
 	if (!txn || txn->type != MGMTD_TXN_TYPE_CONFIG || !txn->commit_cfg_req)
@@ -2487,11 +3527,18 @@ int mgmt_txn_notify_be_cfg_apply_reply(uint64_t txn_id, bool success,
 	cmtcfg_req = &txn->commit_cfg_req->req.commit_cfg;
 
 	if (!success) {
+<<<<<<< HEAD
 		MGMTD_TXN_ERR("CFGDATA_APPLY_REQ sent to '%s' failed txn-id: %" PRIu64
 			      " batch ids %" PRIu64 " - %" PRIu64 " err: %s",
 			      adapter->name, txn->txn_id, batch_ids[0],
 			      batch_ids[num_batch_ids - 1],
 			      error_if_any ? error_if_any : "None");
+=======
+		__log_err("CFGDATA_APPLY_REQ sent to '%s' failed txn-id: %" PRIu64
+			  " err: %s",
+			  adapter->name, txn->txn_id,
+			  error_if_any ? error_if_any : "None");
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		mgmt_txn_send_commit_cfg_reply(
 			txn, MGMTD_INTERNAL_ERROR,
 			error_if_any
@@ -2500,6 +3547,7 @@ int mgmt_txn_notify_be_cfg_apply_reply(uint64_t txn_id, bool success,
 		return 0;
 	}
 
+<<<<<<< HEAD
 	for (indx = 0; indx < num_batch_ids; indx++) {
 		batch = mgmt_txn_cfgbatch_id2ctx(txn, batch_ids[indx]);
 		if (batch->txn != txn)
@@ -2519,6 +3567,16 @@ int mgmt_txn_notify_be_cfg_apply_reply(uint64_t txn_id, bool success,
 		SET_FLAG(adapter->flags, MGMTD_BE_ADAPTER_FLAGS_CFG_SYNCED);
 		mgmt_txn_send_be_txn_delete(txn, adapter);
 	}
+=======
+	cmtcfg_req->be_phase[adapter->id] = MGMTD_COMMIT_PHASE_TXN_DELETE;
+
+	/*
+	 * All configuration for the specific backend has been applied.
+	 * Send TXN-DELETE to wrap up the transaction for this backend.
+	 */
+	SET_FLAG(adapter->flags, MGMTD_BE_ADAPTER_FLAGS_CFG_SYNCED);
+	mgmt_txn_send_be_txn_delete(txn, adapter);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	mgmt_try_move_commit_to_next_phase(txn, cmtcfg_req);
 	if (mm->perf_stats_en)
@@ -2540,15 +3598,23 @@ int mgmt_txn_send_get_req(uint64_t txn_id, uint64_t req_id,
 	if (!txn)
 		return -1;
 
+<<<<<<< HEAD
 	req_event = cfg_root ? MGMTD_TXN_PROC_GETCFG : MGMTD_TXN_PROC_GETDATA;
 
+=======
+	req_event = MGMTD_TXN_PROC_GETCFG;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	txn_req = mgmt_txn_req_alloc(txn, req_id, req_event);
 	txn_req->req.get_data->ds_id = ds_id;
 	txn_req->req.get_data->cfg_root = cfg_root;
 	for (indx = 0;
 	     indx < num_reqs && indx < MGMTD_MAX_NUM_DATA_REPLY_IN_BATCH;
 	     indx++) {
+<<<<<<< HEAD
 		MGMTD_TXN_DBG("XPath: '%s'", data_req[indx]->data->xpath);
+=======
+		__dbg("XPath: '%s'", data_req[indx]->data->xpath);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		txn_req->req.get_data->xpaths[indx] =
 			strdup(data_req[indx]->data->xpath);
 		txn_req->req.get_data->num_xpaths++;
@@ -2559,6 +3625,460 @@ int mgmt_txn_send_get_req(uint64_t txn_id, uint64_t req_id,
 	return 0;
 }
 
+<<<<<<< HEAD
+=======
+
+/**
+ * Send get-tree requests to each client indicated in `clients` bitmask, which
+ * has registered operational state that matches the given `xpath`
+ */
+int mgmt_txn_send_get_tree_oper(uint64_t txn_id, uint64_t req_id,
+				uint64_t clients, Mgmtd__DatastoreId ds_id,
+				LYD_FORMAT result_type, uint8_t flags,
+				uint32_t wd_options, bool simple_xpath,
+				const char *xpath)
+{
+	struct mgmt_msg_get_tree *msg;
+	struct mgmt_txn_ctx *txn;
+	struct mgmt_txn_req *txn_req;
+	struct txn_req_get_tree *get_tree;
+	enum mgmt_be_client_id id;
+	ssize_t slen = strlen(xpath);
+	int ret;
+
+	txn = mgmt_txn_id2ctx(txn_id);
+	if (!txn)
+		return -1;
+
+	/* If error in this function below here, be sure to free the req */
+	txn_req = mgmt_txn_req_alloc(txn, req_id, MGMTD_TXN_PROC_GETTREE);
+	get_tree = txn_req->req.get_tree;
+	get_tree->result_type = result_type;
+	get_tree->wd_options = wd_options;
+	get_tree->exact = CHECK_FLAG(flags, GET_DATA_FLAG_EXACT);
+	get_tree->simple_xpath = simple_xpath;
+	get_tree->xpath = XSTRDUP(MTYPE_MGMTD_XPATH, xpath);
+
+	if (CHECK_FLAG(flags, GET_DATA_FLAG_CONFIG)) {
+		/*
+		 * If the requested datastore is operational, get the config
+		 * from running.
+		 */
+		struct mgmt_ds_ctx *ds =
+			mgmt_ds_get_ctx_by_id(mm, ds_id == MGMTD_DS_OPERATIONAL
+							  ? MGMTD_DS_RUNNING
+							  : ds_id);
+		struct nb_config *config = mgmt_ds_get_nb_config(ds);
+
+		if (config) {
+			struct ly_set *set = NULL;
+			LY_ERR err;
+
+			err = lyd_find_xpath(config->dnode, xpath, &set);
+			if (err) {
+				get_tree->partial_error = err;
+				goto state;
+			}
+
+			/*
+			 * If there's a single result, duplicate the returned
+			 * node. If there are multiple results, duplicate the
+			 * whole config and mark simple_xpath as false so the
+			 * result is trimmed later in txn_get_tree_data_done.
+			 */
+			if (set->count == 1) {
+				err = lyd_dup_single(set->dnodes[0], NULL,
+						     LYD_DUP_WITH_PARENTS |
+							     LYD_DUP_WITH_FLAGS |
+							     LYD_DUP_RECURSIVE,
+						     &get_tree->client_results);
+				if (!err)
+					while (get_tree->client_results->parent)
+						get_tree->client_results = lyd_parent(
+							get_tree->client_results);
+			} else if (set->count > 1) {
+				err = lyd_dup_siblings(config->dnode, NULL,
+						       LYD_DUP_RECURSIVE |
+							       LYD_DUP_WITH_FLAGS,
+						       &get_tree->client_results);
+				if (!err)
+					get_tree->simple_xpath = false;
+			}
+
+			if (err)
+				get_tree->partial_error = err;
+
+			ly_set_free(set, NULL);
+		}
+	}
+state:
+	/* If we are only getting config, we are done */
+	if (!CHECK_FLAG(flags, GET_DATA_FLAG_STATE) ||
+	    ds_id != MGMTD_DS_OPERATIONAL || !clients)
+		return txn_get_tree_data_done(txn, txn_req);
+
+	msg = mgmt_msg_native_alloc_msg(struct mgmt_msg_get_tree, slen + 1,
+					MTYPE_MSG_NATIVE_GET_TREE);
+	msg->refer_id = txn_id;
+	msg->req_id = req_id;
+	msg->code = MGMT_MSG_CODE_GET_TREE;
+	/* Always operate with the binary format in the backend */
+	msg->result_type = LYD_LYB;
+	strlcpy(msg->xpath, xpath, slen + 1);
+
+	assert(clients);
+	FOREACH_BE_CLIENT_BITS (id, clients) {
+		ret = mgmt_be_send_native(id, msg);
+		if (ret) {
+			__log_err("Could not send get-tree message to backend client %s",
+				  mgmt_be_client_id2name(id));
+			continue;
+		}
+
+		__dbg("Sent get-tree req to backend client %s",
+		      mgmt_be_client_id2name(id));
+
+		/* record that we sent the request to the client */
+		get_tree->sent_clients |= (1u << id);
+	}
+
+	mgmt_msg_native_free_msg(msg);
+
+	/* Return if we didn't send any messages to backends */
+	if (!get_tree->sent_clients)
+		return txn_get_tree_data_done(txn, txn_req);
+
+	/* Start timeout timer - pulled out of register event code so we can
+	 * pass a different arg
+	 */
+	event_add_timer(mgmt_txn_tm, txn_get_tree_timeout, txn_req,
+			MGMTD_TXN_GET_TREE_MAX_DELAY_SEC,
+			&txn->get_tree_timeout);
+	return 0;
+}
+
+int mgmt_txn_send_edit(uint64_t txn_id, uint64_t req_id,
+		       Mgmtd__DatastoreId ds_id, struct mgmt_ds_ctx *ds_ctx,
+		       Mgmtd__DatastoreId commit_ds_id,
+		       struct mgmt_ds_ctx *commit_ds_ctx, bool unlock,
+		       bool commit, LYD_FORMAT request_type, uint8_t flags,
+		       uint8_t operation, const char *xpath, const char *data)
+{
+	struct mgmt_txn_ctx *txn;
+	struct mgmt_edit_req *edit;
+	struct nb_config *nb_config;
+	char errstr[BUFSIZ];
+	int ret;
+
+	txn = mgmt_txn_id2ctx(txn_id);
+	if (!txn)
+		return -1;
+
+	edit = XCALLOC(MTYPE_MGMTD_TXN_REQ, sizeof(struct mgmt_edit_req));
+
+	nb_config = mgmt_ds_get_nb_config(ds_ctx);
+	assert(nb_config);
+
+	ret = nb_candidate_edit_tree(nb_config, operation, request_type, xpath,
+				     data, &edit->created, edit->xpath_created,
+				     errstr, sizeof(errstr));
+	if (ret)
+		goto reply;
+
+	if (commit) {
+		edit->unlock = unlock;
+
+		mgmt_txn_send_commit_config_req(txn_id, req_id, ds_id, ds_ctx,
+						commit_ds_id, commit_ds_ctx,
+						false, false, true, edit);
+		return 0;
+	}
+reply:
+	mgmt_fe_adapter_send_edit_reply(txn->session_id, txn->txn_id, req_id,
+					unlock, commit, edit->created,
+					edit->xpath_created,
+					errno_from_nb_error(ret), errstr);
+
+	XFREE(MTYPE_MGMTD_TXN_REQ, edit);
+
+	return 0;
+}
+
+int mgmt_txn_send_rpc(uint64_t txn_id, uint64_t req_id, uint64_t clients,
+		      LYD_FORMAT result_type, const char *xpath,
+		      const char *data, size_t data_len)
+{
+	struct mgmt_txn_ctx *txn;
+	struct mgmt_txn_req *txn_req;
+	struct mgmt_msg_rpc *msg;
+	struct txn_req_rpc *rpc;
+	uint64_t id;
+	int ret;
+
+	txn = mgmt_txn_id2ctx(txn_id);
+	if (!txn)
+		return -1;
+
+	txn_req = mgmt_txn_req_alloc(txn, req_id, MGMTD_TXN_PROC_RPC);
+	rpc = txn_req->req.rpc;
+	rpc->xpath = XSTRDUP(MTYPE_MGMTD_XPATH, xpath);
+	rpc->result_type = result_type;
+
+	msg = mgmt_msg_native_alloc_msg(struct mgmt_msg_rpc, 0,
+					MTYPE_MSG_NATIVE_RPC);
+	msg->refer_id = txn_id;
+	msg->req_id = req_id;
+	msg->code = MGMT_MSG_CODE_RPC;
+	msg->request_type = result_type;
+
+	mgmt_msg_native_xpath_encode(msg, xpath);
+	if (data)
+		mgmt_msg_native_append(msg, data, data_len);
+
+	assert(clients);
+	FOREACH_BE_CLIENT_BITS (id, clients) {
+		ret = mgmt_be_send_native(id, msg);
+		if (ret) {
+			__log_err("Could not send rpc message to backend client %s",
+				  mgmt_be_client_id2name(id));
+			continue;
+		}
+
+		__dbg("Sent rpc req to backend client %s",
+		      mgmt_be_client_id2name(id));
+
+		/* record that we sent the request to the client */
+		rpc->sent_clients |= (1u << id);
+	}
+
+	mgmt_msg_native_free_msg(msg);
+
+	if (!rpc->sent_clients)
+		return txn_rpc_done(txn, txn_req);
+
+	event_add_timer(mgmt_txn_tm, txn_rpc_timeout, txn_req,
+			MGMTD_TXN_RPC_MAX_DELAY_SEC, &txn->rpc_timeout);
+
+	return 0;
+}
+
+/*
+ * Error reply from the backend client.
+ */
+int mgmt_txn_notify_error(struct mgmt_be_client_adapter *adapter,
+			  uint64_t txn_id, uint64_t req_id, int error,
+			  const char *errstr)
+{
+	enum mgmt_be_client_id id = adapter->id;
+	struct mgmt_txn_ctx *txn = mgmt_txn_id2ctx(txn_id);
+	struct txn_req_get_tree *get_tree;
+	struct txn_req_rpc *rpc;
+	struct mgmt_txn_req *txn_req;
+
+	if (!txn) {
+		__log_err("Error reply from %s cannot find txn-id %" PRIu64,
+			  adapter->name, txn_id);
+		return -1;
+	}
+
+	/* Find the request. */
+	FOREACH_TXN_REQ_IN_LIST (&txn->get_tree_reqs, txn_req)
+		if (txn_req->req_id == req_id)
+			break;
+	if (!txn_req)
+		FOREACH_TXN_REQ_IN_LIST (&txn->rpc_reqs, txn_req)
+			if (txn_req->req_id == req_id)
+				break;
+	if (!txn_req) {
+		__log_err("Error reply from %s for txn-id %" PRIu64
+			  " cannot find req_id %" PRIu64,
+			  adapter->name, txn_id, req_id);
+		return -1;
+	}
+
+	__log_err("Error reply from %s for txn-id %" PRIu64 " req_id %" PRIu64,
+		  adapter->name, txn_id, req_id);
+
+	switch (txn_req->req_event) {
+	case MGMTD_TXN_PROC_GETTREE:
+		get_tree = txn_req->req.get_tree;
+		get_tree->recv_clients |= (1u << id);
+		get_tree->partial_error = error;
+
+		/* check if done yet */
+		if (get_tree->recv_clients != get_tree->sent_clients)
+			return 0;
+		return txn_get_tree_data_done(txn, txn_req);
+	case MGMTD_TXN_PROC_RPC:
+		rpc = txn_req->req.rpc;
+		rpc->recv_clients |= (1u << id);
+		if (errstr) {
+			XFREE(MTYPE_MGMTD_ERR, rpc->errstr);
+			rpc->errstr = XSTRDUP(MTYPE_MGMTD_ERR, errstr);
+		}
+		/* check if done yet */
+		if (rpc->recv_clients != rpc->sent_clients)
+			return 0;
+		return txn_rpc_done(txn, txn_req);
+
+	/* non-native message events */
+	case MGMTD_TXN_PROC_SETCFG:
+	case MGMTD_TXN_PROC_COMMITCFG:
+	case MGMTD_TXN_PROC_GETCFG:
+	case MGMTD_TXN_COMMITCFG_TIMEOUT:
+	default:
+		assert(!"non-native req event in native error path");
+		return -1;
+	}
+}
+
+/*
+ * Get-tree data from the backend client.
+ */
+int mgmt_txn_notify_tree_data_reply(struct mgmt_be_client_adapter *adapter,
+				    struct mgmt_msg_tree_data *data_msg,
+				    size_t msg_len)
+{
+	uint64_t txn_id = data_msg->refer_id;
+	uint64_t req_id = data_msg->req_id;
+
+	enum mgmt_be_client_id id = adapter->id;
+	struct mgmt_txn_ctx *txn = mgmt_txn_id2ctx(txn_id);
+	struct mgmt_txn_req *txn_req;
+	struct txn_req_get_tree *get_tree;
+	struct lyd_node *tree = NULL;
+	LY_ERR err;
+
+	if (!txn) {
+		__log_err("GETTREE reply from %s for a missing txn-id %" PRIu64,
+			  adapter->name, txn_id);
+		return -1;
+	}
+
+	/* Find the request. */
+	FOREACH_TXN_REQ_IN_LIST (&txn->get_tree_reqs, txn_req)
+		if (txn_req->req_id == req_id)
+			break;
+	if (!txn_req) {
+		__log_err("GETTREE reply from %s for txn-id %" PRIu64
+			  " missing req_id %" PRIu64,
+			  adapter->name, txn_id, req_id);
+		return -1;
+	}
+
+	get_tree = txn_req->req.get_tree;
+
+	/* store the result */
+	err = lyd_parse_data_mem(ly_native_ctx, (const char *)data_msg->result,
+				 data_msg->result_type,
+				 LYD_PARSE_STRICT | LYD_PARSE_ONLY,
+				 0 /*LYD_VALIDATE_OPERATIONAL*/, &tree);
+	if (err) {
+		__log_err("GETTREE reply from %s for txn-id %" PRIu64
+			  " req_id %" PRIu64 " error parsing result of type %u",
+			  adapter->name, txn_id, req_id, data_msg->result_type);
+	}
+	if (!err) {
+		/* TODO: we could merge ly_errs here if it's not binary */
+
+		if (!get_tree->client_results)
+			get_tree->client_results = tree;
+		else
+			err = lyd_merge_siblings(&get_tree->client_results,
+						 tree, LYD_MERGE_DESTRUCT);
+		if (err) {
+			__log_err("GETTREE reply from %s for txn-id %" PRIu64
+				  " req_id %" PRIu64 " error merging result",
+				  adapter->name, txn_id, req_id);
+		}
+	}
+	if (!get_tree->partial_error)
+		get_tree->partial_error = (data_msg->partial_error
+						   ? data_msg->partial_error
+						   : (int)err);
+
+	if (!data_msg->more)
+		get_tree->recv_clients |= (1u << id);
+
+	/* check if done yet */
+	if (get_tree->recv_clients != get_tree->sent_clients)
+		return 0;
+
+	return txn_get_tree_data_done(txn, txn_req);
+}
+
+int mgmt_txn_notify_rpc_reply(struct mgmt_be_client_adapter *adapter,
+			      struct mgmt_msg_rpc_reply *reply_msg,
+			      size_t msg_len)
+{
+	uint64_t txn_id = reply_msg->refer_id;
+	uint64_t req_id = reply_msg->req_id;
+	enum mgmt_be_client_id id = adapter->id;
+	struct mgmt_txn_ctx *txn = mgmt_txn_id2ctx(txn_id);
+	struct mgmt_txn_req *txn_req;
+	struct txn_req_rpc *rpc;
+	struct lyd_node *tree;
+	size_t data_len = msg_len - sizeof(*reply_msg);
+	LY_ERR err = LY_SUCCESS;
+
+	if (!txn) {
+		__log_err("RPC reply from %s for a missing txn-id %" PRIu64,
+			  adapter->name, txn_id);
+		return -1;
+	}
+
+	/* Find the request. */
+	FOREACH_TXN_REQ_IN_LIST (&txn->rpc_reqs, txn_req)
+		if (txn_req->req_id == req_id)
+			break;
+	if (!txn_req) {
+		__log_err("RPC reply from %s for txn-id %" PRIu64
+			  " missing req_id %" PRIu64,
+			  adapter->name, txn_id, req_id);
+		return -1;
+	}
+
+	rpc = txn_req->req.rpc;
+
+	tree = NULL;
+	if (data_len)
+		err = yang_parse_rpc(rpc->xpath, reply_msg->result_type,
+				     reply_msg->data, true, &tree);
+	if (err) {
+		__log_err("RPC reply from %s for txn-id %" PRIu64
+			  " req_id %" PRIu64 " error parsing result of type %u: %s",
+			  adapter->name, txn_id, req_id, reply_msg->result_type,
+			  ly_strerrcode(err));
+	}
+	if (!err && tree) {
+		if (!rpc->client_results)
+			rpc->client_results = tree;
+		else
+			err = lyd_merge_siblings(&rpc->client_results, tree,
+						 LYD_MERGE_DESTRUCT);
+		if (err) {
+			__log_err("RPC reply from %s for txn-id %" PRIu64
+				  " req_id %" PRIu64 " error merging result: %s",
+				  adapter->name, txn_id, req_id,
+				  ly_strerrcode(err));
+		}
+	}
+	if (err) {
+		XFREE(MTYPE_MGMTD_ERR, rpc->errstr);
+		rpc->errstr = XSTRDUP(MTYPE_MGMTD_ERR,
+				      "Cannot parse result from the backend");
+	}
+
+	rpc->recv_clients |= (1u << id);
+
+	/* check if done yet */
+	if (rpc->recv_clients != rpc->sent_clients)
+		return 0;
+
+	return txn_rpc_done(txn, txn_req);
+}
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 void mgmt_txn_status_write(struct vty *vty)
 {
 	struct mgmt_txn_ctx *txn;
@@ -2614,12 +4134,20 @@ int mgmt_txn_rollback_trigger_cfg_apply(struct mgmt_ds_ctx *src_ds_ctx,
 	 */
 	txn = mgmt_txn_create_new(0, MGMTD_TXN_TYPE_CONFIG);
 	if (!txn) {
+<<<<<<< HEAD
 		MGMTD_TXN_ERR(
+=======
+		__log_err(
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			"Failed to create CONFIG Transaction for downloading CONFIGs");
 		return -1;
 	}
 
+<<<<<<< HEAD
 	MGMTD_TXN_DBG("Created rollback txn-id: %" PRIu64, txn->txn_id);
+=======
+	__dbg("Created rollback txn-id: %" PRIu64, txn->txn_id);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	/*
 	 * Set the changeset for transaction to commit and trigger the commit

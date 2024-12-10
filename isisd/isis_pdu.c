@@ -111,6 +111,10 @@ struct iih_info {
 	bool v6_usable;
 
 	struct isis_tlvs *tlvs;
+<<<<<<< HEAD
+=======
+	int calculated_type;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 };
 
 static int process_p2p_hello(struct iih_info *iih)
@@ -151,6 +155,79 @@ static int process_p2p_hello(struct iih_info *iih)
 	struct isis_adjacency *adj = iih->circuit->u.p2p.neighbor;
 	/* If an adjacency exists, check it is with the source of the hello
 	 * packets */
+<<<<<<< HEAD
+=======
+	if (((iih->circuit->area->is_type == IS_LEVEL_1) &&
+	     ((iih->circuit->is_type_config == IS_LEVEL_1_AND_2) ||
+	      (iih->circuit->is_type_config == IS_LEVEL_1))) ||
+	    ((iih->circuit->area->is_type == IS_LEVEL_1_AND_2) &&
+	     (iih->circuit->is_type_config == IS_LEVEL_1) &&
+	     ((iih->circ_type == IS_LEVEL_1) ||
+	      (iih->circ_type == IS_LEVEL_1_AND_2))) ||
+	    ((iih->circuit->area->is_type == IS_LEVEL_1_AND_2) &&
+	     (iih->circuit->is_type_config == IS_LEVEL_1_AND_2) &&
+	     (iih->circ_type == IS_LEVEL_1))) {
+		if (!isis_tlvs_area_addresses_match(iih->tlvs,
+						    iih->circuit->area
+							    ->area_addrs)) {
+			if (IS_DEBUG_ADJ_PACKETS) {
+				zlog_debug("ISIS-Adj (%s): Rcvd P2P IIH from (%s), cir type %s, cir id %u, length %u",
+					iih->circuit->area->area_tag,
+					iih->circuit->interface->name,
+					circuit_t2string(
+						iih->circuit->is_type),
+					iih->circuit->circuit_id,
+					iih->pdu_len);
+			}
+
+			return ISIS_WARNING;
+		}
+
+		iih->calculated_type = IS_LEVEL_1;
+
+	}
+
+	else if (((iih->circuit->area->is_type == IS_LEVEL_2) &&
+		  ((iih->circuit->is_type_config == IS_LEVEL_1_AND_2) ||
+		   (iih->circuit->is_type_config == IS_LEVEL_2))) ||
+		 ((iih->circuit->area->is_type == IS_LEVEL_1_AND_2) &&
+		  (iih->circuit->is_type_config == IS_LEVEL_2) &&
+		  ((iih->circ_type == IS_LEVEL_2) ||
+		   (iih->circ_type == IS_LEVEL_1_AND_2))) ||
+		 ((iih->circuit->area->is_type == IS_LEVEL_1_AND_2) &&
+		  (iih->circuit->is_type_config == IS_LEVEL_1_AND_2) &&
+		  (iih->circ_type == IS_LEVEL_2))) {
+		iih->calculated_type = IS_LEVEL_2;
+	}
+
+	else if ((iih->circuit->area->is_type == IS_LEVEL_1_AND_2) &&
+		 (iih->circuit->is_type_config == IS_LEVEL_1_AND_2) &&
+		 (iih->circ_type == IS_LEVEL_1_AND_2)) {
+		iih->calculated_type = IS_LEVEL_1_AND_2;
+
+		if (!isis_tlvs_area_addresses_match(iih->tlvs,
+						    iih->circuit->area
+							    ->area_addrs)) {
+			iih->calculated_type = IS_LEVEL_2;
+		}
+	}
+
+	else {
+		if (IS_DEBUG_ADJ_PACKETS) {
+			if (IS_DEBUG_ADJ_PACKETS) {
+				zlog_debug("ISIS-Adj (%s): Rcvd P2P IIH from (%s), cir type %s, cir id %u, length %u",
+					   iih->circuit->area->area_tag,
+					   iih->circuit->interface->name,
+					   circuit_t2string(
+						   iih->circuit->is_type),
+					   iih->circuit->circuit_id,
+					   iih->pdu_len);
+			}
+		}
+		return ISIS_WARNING;
+	}
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	if (adj) {
 		if (memcmp(iih->sys_id, adj->sysid, ISIS_SYS_ID_LEN)) {
 			zlog_debug(
@@ -160,12 +237,23 @@ static int process_p2p_hello(struct iih_info *iih)
 			return ISIS_OK;
 		}
 	}
+<<<<<<< HEAD
 	if (!adj || adj->level != iih->circ_type) {
 		if (!adj) {
 			adj = isis_new_adj(iih->sys_id, NULL, iih->circ_type,
 					   iih->circuit);
 		} else {
 			adj->level = iih->circ_type;
+=======
+	if (!adj || adj->level != iih->calculated_type ||
+	    !(iih->circuit->is_type & iih->circ_type)) {
+		if (!adj) {
+			adj = isis_new_adj(iih->sys_id, NULL,
+					   iih->calculated_type, iih->circuit);
+
+		} else {
+			adj->level = iih->calculated_type;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		}
 		iih->circuit->u.p2p.neighbor = adj;
 		/* Build lsp with the new neighbor entry when a new
@@ -174,7 +262,11 @@ static int process_p2p_hello(struct iih_info *iih)
 		 * when an adjacency is up. This will result in the new
 		 * adjacency entry getting added to the lsp tlv neighbor list.
 		 */
+<<<<<<< HEAD
 		adj->circuit_t = iih->circ_type;
+=======
+		adj->circuit_t = iih->calculated_type;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		isis_adj_state_change(&adj, ISIS_ADJ_INITIALIZING, NULL);
 		adj->sys_type = ISIS_SYSTYPE_UNKNOWN;
 	}
@@ -205,6 +297,7 @@ static int process_p2p_hello(struct iih_info *iih)
 	/* 8.2.5.2 a) a match was detected */
 	if (isis_tlvs_area_addresses_match(iih->tlvs,
 					   iih->circuit->area->area_addrs)) {
+<<<<<<< HEAD
 		/* 8.2.5.2 a) 2) If the system is L1 - table 5 */
 		if (iih->circuit->area->is_type == IS_LEVEL_1) {
 			switch (iih->circ_type) {
@@ -227,23 +320,51 @@ static int process_p2p_hello(struct iih_info *iih)
 					isis_adj_state_change(&adj,
 							      ISIS_ADJ_DOWN,
 							      "Wrong System");
+=======
+		/* 8.2.5.2 a) 2) If the calculated type is L1 - table 5 */
+		if (iih->calculated_type == IS_LEVEL_1) {
+			switch (iih->circ_type) {
+			case IS_LEVEL_1:
+				isis_adj_process_threeway(&adj, tw_adj,
+							  iih->calculated_type);
+				break;
+			case IS_LEVEL_1_AND_2:
+				if ((adj->adj_state != ISIS_ADJ_UP) ||
+				    (adj->adj_usage == ISIS_ADJ_LEVEL1) ||
+				    (adj->adj_usage == ISIS_ADJ_LEVEL1AND2)) {
+					isis_adj_process_threeway(&adj, tw_adj,
+								  iih->calculated_type);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 				}
 				break;
 			}
 		}
 
+<<<<<<< HEAD
 		/* 8.2.5.2 a) 3) If the system is L1L2 - table 6 */
 		if (iih->circuit->area->is_type == IS_LEVEL_1_AND_2) {
+=======
+		/* 8.2.5.2 a) 3) If the calculated type is L1L2 - table 6 */
+		if (iih->calculated_type == IS_LEVEL_1_AND_2) {
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			switch (iih->circ_type) {
 			case IS_LEVEL_1:
 				if (adj->adj_state != ISIS_ADJ_UP
 				    || adj->adj_usage == ISIS_ADJ_LEVEL1) {
+<<<<<<< HEAD
 					isis_adj_process_threeway(adj, tw_adj,
 								  ISIS_ADJ_LEVEL1);
 				} else if ((adj->adj_usage
 					    == ISIS_ADJ_LEVEL1AND2)
 					   || (adj->adj_usage
 					       == ISIS_ADJ_LEVEL2)) {
+=======
+					isis_adj_process_threeway(&adj, tw_adj,
+								  iih->calculated_type);
+				} else if ((adj->adj_usage == ISIS_ADJ_LEVEL2) ||
+					   (adj->adj_usage ==
+					    ISIS_ADJ_LEVEL1AND2)) {
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 					/* (8) down - wrong system */
 					isis_adj_state_change(&adj,
 							      ISIS_ADJ_DOWN,
@@ -253,11 +374,19 @@ static int process_p2p_hello(struct iih_info *iih)
 			case IS_LEVEL_2:
 				if (adj->adj_state != ISIS_ADJ_UP
 				    || adj->adj_usage == ISIS_ADJ_LEVEL2) {
+<<<<<<< HEAD
 					isis_adj_process_threeway(adj, tw_adj,
 								  ISIS_ADJ_LEVEL2);
 				} else if ((adj->adj_usage == ISIS_ADJ_LEVEL1)
 					   || (adj->adj_usage
 					       == ISIS_ADJ_LEVEL1AND2)) {
+=======
+					isis_adj_process_threeway(&adj, tw_adj,
+								  iih->calculated_type);
+				} else if ((adj->adj_usage == ISIS_ADJ_LEVEL1) ||
+					   (adj->adj_usage ==
+					    ISIS_ADJ_LEVEL1AND2)) {
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 					/* (8) down - wrong system */
 					isis_adj_state_change(&adj,
 							      ISIS_ADJ_DOWN,
@@ -267,11 +396,18 @@ static int process_p2p_hello(struct iih_info *iih)
 			case IS_LEVEL_1_AND_2:
 				if (adj->adj_state != ISIS_ADJ_UP
 				    || adj->adj_usage == ISIS_ADJ_LEVEL1AND2) {
+<<<<<<< HEAD
 					isis_adj_process_threeway(adj, tw_adj,
 								  ISIS_ADJ_LEVEL1AND2);
 				} else if ((adj->adj_usage == ISIS_ADJ_LEVEL1)
 					   || (adj->adj_usage
 					       == ISIS_ADJ_LEVEL2)) {
+=======
+					isis_adj_process_threeway(&adj, tw_adj,
+								  iih->calculated_type);
+				} else if ((adj->adj_usage == ISIS_ADJ_LEVEL1) ||
+					   (adj->adj_usage == ISIS_ADJ_LEVEL2)) {
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 					/* (8) down - wrong system */
 					isis_adj_state_change(&adj,
 							      ISIS_ADJ_DOWN,
@@ -282,6 +418,7 @@ static int process_p2p_hello(struct iih_info *iih)
 		}
 
 		/* 8.2.5.2 a) 4) If the system is L2 - table 7 */
+<<<<<<< HEAD
 		if (iih->circuit->area->is_type == IS_LEVEL_2) {
 			switch (iih->circ_type) {
 			case IS_LEVEL_1:
@@ -313,13 +450,32 @@ static int process_p2p_hello(struct iih_info *iih)
 							      ISIS_ADJ_DOWN,
 							      "Wrong System");
 				}
+=======
+		if (iih->calculated_type == IS_LEVEL_2) {
+			switch (iih->circ_type) {
+			case IS_LEVEL_1_AND_2:
+				if (adj->adj_state != ISIS_ADJ_UP ||
+				    adj->adj_usage == ISIS_ADJ_LEVEL2 ||
+				    adj->adj_usage == ISIS_ADJ_LEVEL1AND2) {
+					isis_adj_process_threeway(&adj, tw_adj,
+								  iih->calculated_type);
+				}
+				break;
+			case IS_LEVEL_2:
+				isis_adj_process_threeway(&adj, tw_adj,
+							  iih->calculated_type);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 				break;
 			}
 		}
 	}
 	/* 8.2.5.2 b) if no match was detected */
 	else if (listcount(iih->circuit->area->area_addrs) > 0) {
+<<<<<<< HEAD
 		if (iih->circuit->area->is_type == IS_LEVEL_1) {
+=======
+		if (iih->calculated_type == IS_LEVEL_1) {
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			/* 8.2.5.2 b) 1) is_type L1 and adj is not up */
 			if (adj->adj_state != ISIS_ADJ_UP) {
 				isis_adj_state_change(&adj, ISIS_ADJ_DOWN,
@@ -358,8 +514,13 @@ static int process_p2p_hello(struct iih_info *iih)
 			case IS_LEVEL_2:
 				if (adj->adj_state != ISIS_ADJ_UP
 				    || adj->adj_usage == ISIS_ADJ_LEVEL2) {
+<<<<<<< HEAD
 					isis_adj_process_threeway(adj, tw_adj,
 								  ISIS_ADJ_LEVEL2);
+=======
+					isis_adj_process_threeway(&adj, tw_adj,
+								  iih->calculated_type);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 				} else if (adj->adj_usage == ISIS_ADJ_LEVEL1) {
 					/* (7) down - wrong system */
 					isis_adj_state_change(&adj,
@@ -2039,7 +2200,11 @@ static void send_hello_cb(struct event *thread)
 		circuit->u.p2p.t_send_p2p_hello = NULL;
 		send_hello(circuit, 1);
 		send_hello_sched(circuit, ISIS_LEVEL1,
+<<<<<<< HEAD
 				 1000 * circuit->hello_interval[1]);
+=======
+				 1000 * circuit->hello_interval[0]);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		return;
 	}
 

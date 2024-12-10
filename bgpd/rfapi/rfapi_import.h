@@ -57,8 +57,11 @@ struct rfapi_import_table {
 
 extern uint8_t rfapiRfpCost(struct attr *attr);
 
+<<<<<<< HEAD
 extern void rfapiDebugBacktrace(void);
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 extern void rfapiCheckRouteCount(void);
 
 /*

@@ -163,6 +163,11 @@ extern void _hook_unregister(struct hook *hook, void *funcptr, void *arg,
 	_hook_unregister(&_hook_##hookname,                                    \
 			 _hook_typecheck_arg_##hookname(func), arg, true)
 
+<<<<<<< HEAD
+=======
+#define hook_have_hooks(hookname) (_hook_##hookname.entries != NULL)
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 /* invoke hooks
  * this is private (static) to the file that has the DEFINE_HOOK statement
  */

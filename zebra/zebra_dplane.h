@@ -18,11 +18,27 @@
 #include "zebra/zserv.h"
 #include "zebra/zebra_mpls.h"
 #include "zebra/zebra_nhg.h"
+<<<<<<< HEAD
+=======
+#include "zebra/ge_netlink.h"
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
+<<<<<<< HEAD
+=======
+DECLARE_MTYPE(VLAN_CHANGE_ARR);
+
+/* Retrieve the dataplane API version number; see libfrr.h to decode major,
+ * minor, sub version values.
+ * Plugins should pay attention to the major version number, at least, to
+ * be able to detect API changes that may not be backward-compatible.
+ */
+uint32_t zebra_dplane_get_version(void);
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 /* Key netlink info from zebra ns */
 struct zebra_dplane_info {
 	ns_id_t ns_id;
@@ -196,10 +212,30 @@ enum dplane_op_e {
 	DPLANE_OP_TC_FILTER_DELETE,
 	DPLANE_OP_TC_FILTER_UPDATE,
 
+<<<<<<< HEAD
 	/* Startup Control */
 	DPLANE_OP_STARTUP_STAGE,
 };
 
+=======
+	/* VLAN update */
+	DPLANE_OP_VLAN_INSTALL,
+
+	/* Startup Control */
+	DPLANE_OP_STARTUP_STAGE,
+
+	/* Source address for SRv6 encapsulation */
+	DPLANE_OP_SRV6_ENCAP_SRCADDR_SET,
+};
+
+/* Operational status of Bridge Ports */
+#define ZEBRA_DPLANE_BR_STATE_DISABLED	 0x01
+#define ZEBRA_DPLANE_BR_STATE_LISTENING	 0x02
+#define ZEBRA_DPLANE_BR_STATE_LEARNING	 0x04
+#define ZEBRA_DPLANE_BR_STATE_FORWARDING 0x08
+#define ZEBRA_DPLANE_BR_STATE_BLOCKING	 0x10
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 /*
  * The vxlan/evpn neighbor management code needs some values to use
  * when programming neighbor changes. Offer some platform-neutral values
@@ -312,6 +348,11 @@ struct zebra_dplane_ctx *dplane_ctx_get_head(struct dplane_ctx_list_head *q);
 /* Init a list of contexts */
 void dplane_ctx_q_init(struct dplane_ctx_list_head *q);
 
+<<<<<<< HEAD
+=======
+uint32_t dplane_ctx_queue_count(struct dplane_ctx_list_head *q);
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 /*
  * Accessors for information from the context object
  */
@@ -584,7 +625,11 @@ const struct nexthop_group *
 dplane_ctx_get_nhe_ng(const struct zebra_dplane_ctx *ctx);
 const struct nh_grp *
 dplane_ctx_get_nhe_nh_grp(const struct zebra_dplane_ctx *ctx);
+<<<<<<< HEAD
 uint8_t dplane_ctx_get_nhe_nh_grp_count(const struct zebra_dplane_ctx *ctx);
+=======
+uint16_t dplane_ctx_get_nhe_nh_grp_count(const struct zebra_dplane_ctx *ctx);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 /* Accessors for LSP information */
 
@@ -658,10 +703,20 @@ bool dplane_ctx_intf_is_connected(const struct zebra_dplane_ctx *ctx);
 void dplane_ctx_intf_set_connected(struct zebra_dplane_ctx *ctx);
 bool dplane_ctx_intf_is_secondary(const struct zebra_dplane_ctx *ctx);
 void dplane_ctx_intf_set_secondary(struct zebra_dplane_ctx *ctx);
+<<<<<<< HEAD
+=======
+bool dplane_ctx_intf_is_noprefixroute(const struct zebra_dplane_ctx *ctx);
+void dplane_ctx_intf_set_noprefixroute(struct zebra_dplane_ctx *ctx);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 bool dplane_ctx_intf_is_broadcast(const struct zebra_dplane_ctx *ctx);
 void dplane_ctx_intf_set_broadcast(struct zebra_dplane_ctx *ctx);
 const struct prefix *dplane_ctx_get_intf_addr(
 	const struct zebra_dplane_ctx *ctx);
+<<<<<<< HEAD
+=======
+const struct in6_addr *
+dplane_ctx_get_srv6_encap_srcaddr(const struct zebra_dplane_ctx *ctx);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 void dplane_ctx_set_intf_addr(struct zebra_dplane_ctx *ctx,
 			      const struct prefix *p);
 bool dplane_ctx_intf_has_dest(const struct zebra_dplane_ctx *ctx);
@@ -990,6 +1045,16 @@ enum zebra_dplane_result
 dplane_gre_set(struct interface *ifp, struct interface *ifp_link,
 	       unsigned int mtu, const struct zebra_l2info_gre *gre_info);
 
+<<<<<<< HEAD
+=======
+/*
+ * Enqueue an SRv6 encap source address set
+ */
+enum zebra_dplane_result
+dplane_srv6_encap_srcaddr_set(const struct in6_addr *addr, ns_id_t ns_id);
+
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 /* Forward ref of zebra_pbr_rule */
 struct zebra_pbr_rule;
 
@@ -1054,6 +1119,29 @@ void dplane_set_in_queue_limit(uint32_t limit, bool set);
 /* Retrieve the current queue depth of incoming, unprocessed updates */
 uint32_t dplane_get_in_queue_len(void);
 
+<<<<<<< HEAD
+=======
+void dplane_ctx_set_vlan_ifindex(struct zebra_dplane_ctx *ctx,
+				 ifindex_t ifindex);
+ifindex_t dplane_ctx_get_vlan_ifindex(struct zebra_dplane_ctx *ctx);
+struct zebra_vxlan_vlan_array;
+
+/*
+ * In netlink_vlan_change(), the memory allocated for vlan_array is freed
+ * in two cases
+ *  1) Inline free in netlink_vlan_change() when there are no new
+ *     vlans to process i.e. nothing is enqueued to main thread.
+ *  2) Dplane-ctx takes over the vlan memory which gets freed in
+ *     rib_process_dplane_results() after handling the vlan install
+ *
+ * Note: MTYPE of interest for this purpose is MTYPE_VLAN_CHANGE_ARR
+ */
+void dplane_ctx_set_vxlan_vlan_array(struct zebra_dplane_ctx *ctx,
+				     struct zebra_vxlan_vlan_array *vlan_array);
+const struct zebra_vxlan_vlan_array *
+dplane_ctx_get_vxlan_vlan_array(struct zebra_dplane_ctx *ctx);
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 /*
  * Vty/cli apis
  */

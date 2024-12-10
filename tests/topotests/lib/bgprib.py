@@ -64,10 +64,16 @@ class BgpRib:
                 self.log("missing route: pfx=" + want["p"] + ", nh=" + want["n"])
             return 0
 
+<<<<<<< HEAD
     def RequireVpnRoutes(self, target, title, wantroutes, debug=0):
         import json
 
         logstr = "RequireVpnRoutes " + str(wantroutes)
+=======
+    def RequireVpnRoutesOne(self, target, title, wantroutes, debug=0):
+        import json
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         # non json form for humans
         luCommand(
             target,
@@ -86,11 +92,26 @@ class BgpRib:
         if re.search(r"^\s*$", ret):
             # degenerate case: empty json means no routes
             if len(wantroutes) > 0:
+<<<<<<< HEAD
                 luResult(target, False, title, logstr)
                 return
             luResult(target, True, title, logstr)
         rib = json.loads(ret)
         rds = rib["routes"]["routeDistinguishers"]
+=======
+                return False
+            return True
+        rib = json.loads(ret)
+        try:
+            rds = rib["routes"]["routeDistinguishers"]
+        except KeyError as err:
+            # KeyError: 'routes' probably means missing/bad VRF
+            # This error also happens if we are too quick and the routing
+            # table has not been fully populated yet.
+            if debug:
+                self.log("KeyError, no routes")
+            return False
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         for want in wantroutes:
             found = 0
             if debug:
@@ -105,11 +126,47 @@ class BgpRib:
                     found = 1
                     break
             if not found:
+<<<<<<< HEAD
                 luResult(target, False, title, logstr)
                 return
         luResult(target, True, title, logstr)
 
     def RequireUnicastRoutes(self, target, afi, vrf, title, wantroutes, debug=0):
+=======
+                return False
+        return True
+
+    def RequireVpnRoutes(
+        self, target, title, wantroutes, debug=0, wait=10, wait_time=0.5
+    ):
+        import time
+        import math
+
+        logstr = "RequireVpnRoutes " + str(wantroutes)
+        found = False
+        n = 0
+        startt = time.time()
+
+        # Calculate the amount of `sleep`s we are going to peform.
+        wait_count = int(math.ceil(wait / wait_time)) + 1
+
+        while wait_count > 0:
+            n += 1
+            found = self.RequireVpnRoutesOne(target, title, wantroutes, debug)
+            if found is not False:
+                break
+
+            wait_count -= 1
+            if wait_count > 0:
+                time.sleep(wait_time)
+
+        delta = time.time() - startt
+        self.log("Done after %d loops, time=%s, Found=%s" % (n, delta, found))
+        luResult(target, found, title, logstr)
+        return found
+
+    def RequireUnicastRoutesOne(self, target, afi, vrf, title, wantroutes, debug=0):
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         logstr = "RequireUnicastRoutes %s" % str(wantroutes)
         vrfstr = ""
         if vrf != "":
@@ -129,9 +186,14 @@ class BgpRib:
         if re.search(r"^\s*$", ret):
             # degenerate case: empty json means no routes
             if len(wantroutes) > 0:
+<<<<<<< HEAD
                 luResult(target, False, title, logstr)
                 return
             luResult(target, True, title, logstr)
+=======
+                return False, ""
+            return True, ""
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         rib = json.loads(ret)
         try:
             table = rib["routes"]
@@ -141,25 +203,80 @@ class BgpRib:
                 errstr = "-script ERROR: check if wrong vrf (%s)" % (vrf)
             else:
                 errstr = "-script ERROR: check if vrf missing"
+<<<<<<< HEAD
             luResult(target, False, title + errstr, logstr)
             return
+=======
+            self.log(errstr)
+            return False, errstr
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         # if debug:
         #    self.log("table=%s" % table)
         for want in wantroutes:
             if debug:
                 self.log("want=%s" % want)
             if not self.routes_include_wanted(table, want, debug):
+<<<<<<< HEAD
                 luResult(target, False, title, logstr)
                 return
         luResult(target, True, title, logstr)
+=======
+                return False, ""
+        return True, ""
+
+    def RequireUnicastRoutes(
+        self, target, afi, vrf, title, wantroutes, debug=0, wait=10, wait_time=0.5
+    ):
+        import time
+        import math
+
+        logstr = "RequireUnicastRoutes %s" % str(wantroutes)
+        found = False
+        n = 0
+        startt = time.time()
+        errstr = ""
+
+        # Calculate the amount of `sleep`s we are going to peform.
+        wait_count = int(math.ceil(wait / wait_time)) + 1
+
+        while wait_count > 0:
+            n += 1
+            found, errstr = self.RequireUnicastRoutesOne(
+                target, afi, vrf, title, wantroutes, debug
+            )
+            if found is not False:
+                break
+
+            wait_count -= 1
+            if wait_count > 0:
+                time.sleep(wait_time)
+
+        delta = time.time() - startt
+        self.log("Done after %d loops, time=%s, Found=%s" % (n, delta, found))
+        luResult(target, found, title + errstr, logstr)
+        return found
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 
 BgpRib = BgpRib()
 
 
+<<<<<<< HEAD
 def bgpribRequireVpnRoutes(target, title, wantroutes, debug=0):
     BgpRib.RequireVpnRoutes(target, title, wantroutes, debug)
 
 
 def bgpribRequireUnicastRoutes(target, afi, vrf, title, wantroutes, debug=0):
     BgpRib.RequireUnicastRoutes(target, afi, vrf, title, wantroutes, debug)
+=======
+def bgpribRequireVpnRoutes(target, title, wantroutes, debug=0, wait=10, wait_time=0.5):
+    BgpRib.RequireVpnRoutes(target, title, wantroutes, debug, wait, wait_time)
+
+
+def bgpribRequireUnicastRoutes(
+    target, afi, vrf, title, wantroutes, debug=0, wait=10, wait_time=0.5
+):
+    BgpRib.RequireUnicastRoutes(
+        target, afi, vrf, title, wantroutes, debug, wait, wait_time
+    )
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)

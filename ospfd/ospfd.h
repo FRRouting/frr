@@ -22,9 +22,12 @@
 
 #define OSPF_VERSION            2
 
+<<<<<<< HEAD
 /* VTY port number. */
 #define OSPF_VTY_PORT          2604
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 /* IP TTL for OSPF protocol. */
 #define OSPF_IP_TTL             1
 #define OSPF_VL_IP_TTL          100

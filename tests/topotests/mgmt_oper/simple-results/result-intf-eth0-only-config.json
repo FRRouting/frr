@@ -1,0 +1,21 @@
+{
+	"frr-interface:lib": {
+		"interface": [
+			{
+				"name": "r1-eth0",
+				"description": "r1-eth0-desc",
+				"frr-zebra:zebra": {
+					"ipv4-addrs": [
+						{
+							"ip": "1.1.1.1",
+							"prefix-length": 24
+						}
+					],
+					"evpn-mh": {
+						"df-preference": 32767
+					}
+				}
+			}
+		]
+	}
+}

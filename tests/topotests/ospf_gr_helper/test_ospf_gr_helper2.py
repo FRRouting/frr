@@ -190,8 +190,15 @@ def test_ospf_gr_helper_tc3_p1(request):
         ospf_covergence is True
     ), "OSPF is not after reset config \n Error:  {}".format(ospf_covergence)
 
+<<<<<<< HEAD
     step("Configure DR priority 100 on R0 and clear ospf neighbors "
          "on all the routers.")
+=======
+    step(
+        "Configure DR priority 100 on R0 and clear ospf neighbors "
+        "on all the routers."
+    )
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
     input_dict = {
         "r0": {

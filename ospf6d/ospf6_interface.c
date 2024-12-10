@@ -14,6 +14,10 @@
 #include "plist.h"
 #include "zclient.h"
 
+<<<<<<< HEAD
+=======
+#include "ospf6_proto.h"
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 #include "ospf6_lsa.h"
 #include "ospf6_lsdb.h"
 #include "ospf6_top.h"
@@ -30,9 +34,15 @@
 #include "ospf6d.h"
 #include "ospf6_bfd.h"
 #include "ospf6_zebra.h"
+<<<<<<< HEAD
 #include "ospf6_gr.h"
 #include "lib/json.h"
 #include "ospf6_proto.h"
+=======
+#include "ospf6_tlv.h"
+#include "ospf6_gr.h"
+#include "lib/json.h"
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 #include "lib/keychain.h"
 #include "ospf6_auth_trailer.h"
 #include "ospf6d/ospf6_interface_clippy.c"
@@ -49,8 +59,14 @@ DEFINE_HOOK(ospf6_interface_change,
 unsigned char conf_debug_ospf6_interface = 0;
 
 const char *const ospf6_interface_state_str[] = {
+<<<<<<< HEAD
 	"None",    "Down", "Loopback", "Waiting", "PointToPoint",
 	"DROther", "BDR",  "DR",       NULL};
+=======
+	"None",		"Down",	   "Loopback", "Waiting", "PointToPoint",
+	"PtMultipoint", "DROther", "BDR",      "DR",	  NULL
+};
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 int ospf6_interface_neighbor_count(struct ospf6_interface *oi)
 {
@@ -83,8 +99,12 @@ struct ospf6_interface *ospf6_interface_lookup_by_ifindex(ifindex_t ifindex,
 }
 
 /* schedule routing table recalculation */
+<<<<<<< HEAD
 static void ospf6_interface_lsdb_hook(struct ospf6_lsa *lsa,
 				      unsigned int reason)
+=======
+static void ospf6_interface_lsdb_hook(struct ospf6_lsa *lsa, unsigned int reason)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 {
 	struct ospf6_interface *oi;
 
@@ -227,9 +247,14 @@ struct ospf6_interface *ospf6_interface_create(struct interface *ifp)
 	iobuflen = ospf6_iobuf_size(ifp->mtu6);
 	if (oi->ifmtu > iobuflen) {
 		if (IS_OSPF6_DEBUG_INTERFACE)
+<<<<<<< HEAD
 			zlog_debug(
 				"Interface %s: IfMtu is adjusted to I/O buffer size: %d.",
 				ifp->name, iobuflen);
+=======
+			zlog_debug("Interface %s: IfMtu is adjusted to I/O buffer size: %d.",
+				   ifp->name, iobuflen);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		oi->ifmtu = iobuflen;
 	}
 
@@ -242,8 +267,13 @@ struct ospf6_interface *ospf6_interface_create(struct interface *ifp)
 	oi->lsdb->hook_remove = ospf6_interface_lsdb_hook_remove;
 	oi->lsdb_self = ospf6_lsdb_create(oi);
 
+<<<<<<< HEAD
 	oi->route_connected =
 		OSPF6_ROUTE_TABLE_CREATE(INTERFACE, CONNECTED_ROUTES);
+=======
+	oi->route_connected = OSPF6_ROUTE_TABLE_CREATE(INTERFACE,
+						       CONNECTED_ROUTES);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	oi->route_connected->scope = oi;
 
 	/* link both */
@@ -344,12 +374,19 @@ void ospf6_interface_disable(struct ospf6_interface *oi)
 static struct in6_addr *
 ospf6_interface_get_linklocal_address(struct interface *ifp)
 {
+<<<<<<< HEAD
 	struct listnode *n;
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	struct connected *c;
 	struct in6_addr *l = (struct in6_addr *)NULL;
 
 	/* for each connected address */
+<<<<<<< HEAD
 	for (ALL_LIST_ELEMENTS_RO(ifp->connected, n, c)) {
+=======
+	frr_each (if_connected, ifp->connected, c) {
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		/* if family not AF_INET6, ignore */
 		if (c->address->family != AF_INET6)
 			continue;
@@ -380,23 +417,39 @@ void ospf6_interface_state_update(struct interface *ifp)
 			iobuflen = ospf6_iobuf_size(ifp->mtu6);
 			if (oi->ifmtu > iobuflen) {
 				if (IS_OSPF6_DEBUG_INTERFACE)
+<<<<<<< HEAD
 					zlog_debug(
 						"Interface %s: IfMtu is adjusted to I/O buffer size: %d.",
 						ifp->name, iobuflen);
+=======
+					zlog_debug("Interface %s: IfMtu is adjusted to I/O buffer size: %d.",
+						   ifp->name, iobuflen);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 				oi->ifmtu = iobuflen;
 			}
 		} else if (oi->c_ifmtu > ifp->mtu6) {
 			oi->ifmtu = ifp->mtu6;
+<<<<<<< HEAD
 			zlog_warn(
 				"Configured mtu %u on %s overridden by kernel %u",
 				oi->c_ifmtu, ifp->name, ifp->mtu6);
+=======
+			zlog_warn("Configured mtu %u on %s overridden by kernel %u",
+				  oi->c_ifmtu, ifp->name, ifp->mtu6);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		} else
 			oi->ifmtu = oi->c_ifmtu;
 	}
 
+<<<<<<< HEAD
 	if (if_is_operative(ifp)
 	    && (ospf6_interface_get_linklocal_address(oi->interface)
 		|| if_is_loopback(oi->interface)))
+=======
+	if (if_is_operative(ifp) &&
+	    (ospf6_interface_get_linklocal_address(oi->interface) ||
+	     if_is_loopback(oi->interface)))
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		event_execute(master, interface_up, oi, 0, NULL);
 	else
 		event_execute(master, interface_down, oi, 0, NULL);
@@ -407,9 +460,13 @@ void ospf6_interface_state_update(struct interface *ifp)
 void ospf6_interface_connected_route_update(struct interface *ifp)
 {
 	struct ospf6_interface *oi;
+<<<<<<< HEAD
 	struct ospf6_route *route;
 	struct connected *c;
 	struct listnode *node, *nnode;
+=======
+	struct connected *c;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	struct in6_addr nh_addr;
 
 	oi = (struct ospf6_interface *)ifp->info;
@@ -429,7 +486,11 @@ void ospf6_interface_connected_route_update(struct interface *ifp)
 	/* update "route to advertise" interface route table */
 	ospf6_route_remove_all(oi->route_connected);
 
+<<<<<<< HEAD
 	for (ALL_LIST_ELEMENTS(oi->interface->connected, node, nnode, c)) {
+=======
+	frr_each (if_connected, ifp->connected, c) {
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		if (c->address->family != AF_INET6)
 			continue;
 
@@ -453,14 +514,53 @@ void ospf6_interface_connected_route_update(struct interface *ifp)
 			ret = prefix_list_apply(plist, (void *)c->address);
 			if (ret == PREFIX_DENY) {
 				if (IS_OSPF6_DEBUG_INTERFACE)
+<<<<<<< HEAD
 					zlog_debug(
 						"%pFX on %s filtered by prefix-list %s ",
 						c->address, oi->interface->name,
 						oi->plist_name);
+=======
+					zlog_debug("%pFX on %s filtered by prefix-list %s ",
+						   c->address,
+						   oi->interface->name,
+						   oi->plist_name);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 				continue;
 			}
 		}
 
+<<<<<<< HEAD
+=======
+		if (oi->type == OSPF_IFTYPE_LOOPBACK ||
+		    oi->type == OSPF_IFTYPE_POINTOMULTIPOINT ||
+		    oi->type == OSPF_IFTYPE_POINTOPOINT) {
+			struct ospf6_route *la_route;
+
+			la_route = ospf6_route_create(oi->area->ospf6);
+			la_route->prefix = *c->address;
+			la_route->prefix.prefixlen = 128;
+			la_route->prefix_options |= OSPF6_PREFIX_OPTION_LA;
+
+			la_route->type = OSPF6_DEST_TYPE_NETWORK;
+			la_route->path.area_id = oi->area->area_id;
+			la_route->path.type = OSPF6_PATH_TYPE_INTRA;
+			la_route->path.cost = 0;
+			inet_pton(AF_INET6, "::1", &nh_addr);
+			ospf6_route_add_nexthop(la_route, oi->interface->ifindex,
+						&nh_addr);
+			ospf6_route_add(la_route, oi->route_connected);
+		}
+
+		if (oi->type == OSPF_IFTYPE_POINTOMULTIPOINT &&
+		    !oi->p2xp_connected_pfx_include)
+			continue;
+		if (oi->type == OSPF_IFTYPE_POINTOPOINT &&
+		    oi->p2xp_connected_pfx_exclude)
+			continue;
+
+		struct ospf6_route *route;
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		route = ospf6_route_create(oi->area->ospf6);
 		memcpy(&route->prefix, c->address, sizeof(struct prefix));
 		apply_mask(&route->prefix);
@@ -469,8 +569,12 @@ void ospf6_interface_connected_route_update(struct interface *ifp)
 		route->path.type = OSPF6_PATH_TYPE_INTRA;
 		route->path.cost = oi->cost;
 		inet_pton(AF_INET6, "::1", &nh_addr);
+<<<<<<< HEAD
 		ospf6_route_add_nexthop(route, oi->interface->ifindex,
 					&nh_addr);
+=======
+		ospf6_route_add_nexthop(route, oi->interface->ifindex, &nh_addr);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		ospf6_route_add(route, oi->route_connected);
 	}
 
@@ -506,6 +610,7 @@ static int ospf6_interface_state_change(uint8_t next_state,
 
 	ospf6 = oi->area->ospf6;
 
+<<<<<<< HEAD
 	if ((prev_state == OSPF6_INTERFACE_DR
 	     || prev_state == OSPF6_INTERFACE_BDR)
 	    && (next_state != OSPF6_INTERFACE_DR
@@ -517,6 +622,19 @@ static int ospf6_interface_state_change(uint8_t next_state,
 	     && prev_state != OSPF6_INTERFACE_BDR)
 	    && (next_state == OSPF6_INTERFACE_DR
 		|| next_state == OSPF6_INTERFACE_BDR))
+=======
+	if ((prev_state == OSPF6_INTERFACE_DR ||
+	     prev_state == OSPF6_INTERFACE_BDR) &&
+	    (next_state != OSPF6_INTERFACE_DR &&
+	     next_state != OSPF6_INTERFACE_BDR))
+		ospf6_sso(oi->interface->ifindex, &alldrouters6,
+			  IPV6_LEAVE_GROUP, ospf6->fd);
+
+	if ((prev_state != OSPF6_INTERFACE_DR &&
+	     prev_state != OSPF6_INTERFACE_BDR) &&
+	    (next_state == OSPF6_INTERFACE_DR ||
+	     next_state == OSPF6_INTERFACE_BDR))
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		ospf6_sso(oi->interface->ifindex, &alldrouters6,
 			  IPV6_JOIN_GROUP, ospf6->fd);
 
@@ -526,13 +644,25 @@ static int ospf6_interface_state_change(uint8_t next_state,
 		OSPF6_NETWORK_LSA_EXECUTE(oi);
 		OSPF6_INTRA_PREFIX_LSA_EXECUTE_TRANSIT(oi);
 		OSPF6_INTRA_PREFIX_LSA_SCHEDULE_STUB(oi->area);
+<<<<<<< HEAD
 	} else if (prev_state == OSPF6_INTERFACE_DR
 		   || next_state == OSPF6_INTERFACE_DR) {
+=======
+	} else if (prev_state == OSPF6_INTERFACE_DR ||
+		   next_state == OSPF6_INTERFACE_DR) {
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		OSPF6_NETWORK_LSA_SCHEDULE(oi);
 		OSPF6_INTRA_PREFIX_LSA_SCHEDULE_TRANSIT(oi);
 		OSPF6_INTRA_PREFIX_LSA_SCHEDULE_STUB(oi->area);
 	}
 
+<<<<<<< HEAD
+=======
+	if (next_state == OSPF6_INTERFACE_POINTTOPOINT ||
+	    next_state == OSPF6_INTERFACE_POINTTOMULTIPOINT)
+		ospf6_if_p2xp_up(oi);
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	hook_call(ospf6_interface_change, oi, next_state, prev_state);
 
 	return 0;
@@ -547,8 +677,13 @@ static int ospf6_interface_state_change(uint8_t next_state,
 static struct ospf6_neighbor *better_bdrouter(struct ospf6_neighbor *a,
 					      struct ospf6_neighbor *b)
 {
+<<<<<<< HEAD
 	if ((a == NULL || !IS_ELIGIBLE(a) || a->drouter == a->router_id)
 	    && (b == NULL || !IS_ELIGIBLE(b) || b->drouter == b->router_id))
+=======
+	if ((a == NULL || !IS_ELIGIBLE(a) || a->drouter == a->router_id) &&
+	    (b == NULL || !IS_ELIGIBLE(b) || b->drouter == b->router_id))
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		return NULL;
 	else if (a == NULL || !IS_ELIGIBLE(a) || a->drouter == a->router_id)
 		return b;
@@ -577,8 +712,13 @@ static struct ospf6_neighbor *better_bdrouter(struct ospf6_neighbor *a,
 static struct ospf6_neighbor *better_drouter(struct ospf6_neighbor *a,
 					     struct ospf6_neighbor *b)
 {
+<<<<<<< HEAD
 	if ((a == NULL || !IS_ELIGIBLE(a) || a->drouter != a->router_id)
 	    && (b == NULL || !IS_ELIGIBLE(b) || b->drouter != b->router_id))
+=======
+	if ((a == NULL || !IS_ELIGIBLE(a) || a->drouter != a->router_id) &&
+	    (b == NULL || !IS_ELIGIBLE(b) || b->drouter != b->router_id))
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		return NULL;
 	else if (a == NULL || !IS_ELIGIBLE(a) || a->drouter != a->router_id)
 		return b;
@@ -641,10 +781,17 @@ uint8_t dr_election(struct ospf6_interface *oi)
 		drouter = bdrouter;
 
 	/* the router itself is newly/no longer DR/BDR (4) */
+<<<<<<< HEAD
 	if ((drouter == &myself && myself.drouter != myself.router_id)
 	    || (drouter != &myself && myself.drouter == myself.router_id)
 	    || (bdrouter == &myself && myself.bdrouter != myself.router_id)
 	    || (bdrouter != &myself && myself.bdrouter == myself.router_id)) {
+=======
+	if ((drouter == &myself && myself.drouter != myself.router_id) ||
+	    (drouter != &myself && myself.drouter == myself.router_id) ||
+	    (bdrouter == &myself && myself.bdrouter != myself.router_id) ||
+	    (bdrouter != &myself && myself.bdrouter == myself.router_id)) {
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		myself.drouter = (drouter ? drouter->router_id : htonl(0));
 		myself.bdrouter = (bdrouter ? bdrouter->router_id : htonl(0));
 
@@ -718,8 +865,13 @@ static bool ifmaddr_check(ifindex_t ifindex, struct in6_addr *addr)
 			continue;
 		sdl = (struct sockaddr_dl *)ifma->ifma_name;
 		sin6 = (struct sockaddr_in6 *)ifma->ifma_addr;
+<<<<<<< HEAD
 		if (sdl->sdl_index == ifindex
 		    && memcmp(&sin6->sin6_addr, addr, IPV6_MAX_BYTELEN) == 0) {
+=======
+		if (sdl->sdl_index == ifindex &&
+		    memcmp(&sin6->sin6_addr, addr, IPV6_MAX_BYTELEN) == 0) {
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			found = true;
 			break;
 		}
@@ -759,6 +911,7 @@ void interface_up(struct event *thread)
 	}
 
 	/* check interface has a link-local address */
+<<<<<<< HEAD
 	if (!(ospf6_interface_get_linklocal_address(oi->interface)
 	      || if_is_loopback(oi->interface))) {
 		zlog_warn(
@@ -769,6 +922,17 @@ void interface_up(struct event *thread)
 
 	/* Recompute cost */
 	ospf6_interface_recalculate_cost(oi);
+=======
+	if (!(ospf6_interface_get_linklocal_address(oi->interface) ||
+	      if_is_loopback(oi->interface))) {
+		zlog_warn("Interface %s has no link local address, can't execute [InterfaceUp]",
+			  oi->interface->name);
+		return;
+	}
+
+	/* Recompute cost & update connected LSAs */
+	ospf6_interface_force_recalculate_cost(oi);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	/* if already enabled, do nothing */
 	if (oi->state > OSPF6_INTERFACE_DOWN) {
@@ -780,9 +944,14 @@ void interface_up(struct event *thread)
 
 	/* If no area assigned, return */
 	if (oi->area == NULL) {
+<<<<<<< HEAD
 		zlog_warn(
 			"%s: Not scheduling Hello for %s as there is no area assigned yet",
 			__func__, oi->interface->name);
+=======
+		zlog_warn("%s: Not scheduling Hello for %s as there is no area assigned yet",
+			  __func__, oi->interface->name);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		return;
 	}
 
@@ -807,9 +976,14 @@ void interface_up(struct event *thread)
 	 * the interface actually left the group.
 	 */
 	if (ifmaddr_check(oi->interface->ifindex, &allspfrouters6)) {
+<<<<<<< HEAD
 		zlog_info(
 			"Interface %s is still in all routers group, rescheduling for SSO",
 			oi->interface->name);
+=======
+		zlog_info("Interface %s is still in all routers group, rescheduling for SSO",
+			  oi->interface->name);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		event_add_timer(master, interface_up, oi,
 				OSPF6_INTERFACE_SSO_RETRY_INT, &oi->thread_sso);
 		return;
@@ -820,12 +994,19 @@ void interface_up(struct event *thread)
 
 	/* Join AllSPFRouters */
 	if (ospf6_sso(oi->interface->ifindex, &allspfrouters6, IPV6_JOIN_GROUP,
+<<<<<<< HEAD
 		      ospf6->fd)
 	    < 0) {
 		if (oi->sso_try_cnt++ < OSPF6_INTERFACE_SSO_RETRY_MAX) {
 			zlog_info(
 				"Scheduling %s for sso retry, trial count: %d",
 				oi->interface->name, oi->sso_try_cnt);
+=======
+		      ospf6->fd) < 0) {
+		if (oi->sso_try_cnt++ < OSPF6_INTERFACE_SSO_RETRY_MAX) {
+			zlog_info("Scheduling %s for sso retry, trial count: %d",
+				  oi->interface->name, oi->sso_try_cnt);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			event_add_timer(master, interface_up, oi,
 					OSPF6_INTERFACE_SSO_RETRY_INT,
 					&oi->thread_sso);
@@ -838,8 +1019,13 @@ void interface_up(struct event *thread)
 	ospf6_interface_connected_route_update(oi->interface);
 
 	/* Schedule Hello */
+<<<<<<< HEAD
 	if (!CHECK_FLAG(oi->flag, OSPF6_INTERFACE_PASSIVE)
 	    && !if_is_loopback(oi->interface)) {
+=======
+	if (!CHECK_FLAG(oi->flag, OSPF6_INTERFACE_PASSIVE) &&
+	    !if_is_loopback(oi->interface)) {
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		event_add_timer(master, ospf6_hello_send, oi, 0,
 				&oi->thread_send_hello);
 	}
@@ -849,6 +1035,12 @@ void interface_up(struct event *thread)
 		ospf6_interface_state_change(OSPF6_INTERFACE_LOOPBACK, oi);
 	} else if (oi->type == OSPF_IFTYPE_POINTOPOINT) {
 		ospf6_interface_state_change(OSPF6_INTERFACE_POINTTOPOINT, oi);
+<<<<<<< HEAD
+=======
+	} else if (oi->type == OSPF_IFTYPE_POINTOMULTIPOINT) {
+		ospf6_interface_state_change(OSPF6_INTERFACE_POINTTOMULTIPOINT,
+					     oi);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	} else if (oi->priority == 0)
 		ospf6_interface_state_change(OSPF6_INTERFACE_DROTHER, oi);
 	else {
@@ -899,9 +1091,14 @@ void neighbor_change(struct event *thread)
 		zlog_debug("Interface Event %s: [NeighborChange]",
 			   oi->interface->name);
 
+<<<<<<< HEAD
 	if (oi->state == OSPF6_INTERFACE_DROTHER
 	    || oi->state == OSPF6_INTERFACE_BDR
 	    || oi->state == OSPF6_INTERFACE_DR)
+=======
+	if (oi->state == OSPF6_INTERFACE_DROTHER ||
+	    oi->state == OSPF6_INTERFACE_BDR || oi->state == OSPF6_INTERFACE_DR)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		ospf6_interface_state_change(dr_election(oi), oi);
 }
 
@@ -977,6 +1174,11 @@ static const char *ospf6_iftype_str(uint8_t iftype)
 		return "BROADCAST";
 	case OSPF_IFTYPE_POINTOPOINT:
 		return "POINTOPOINT";
+<<<<<<< HEAD
+=======
+	case OSPF_IFTYPE_POINTOMULTIPOINT:
+		return "POINTOMULTIPOINT";
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	}
 	return "UNKNOWN";
 }
@@ -988,7 +1190,10 @@ static int ospf6_interface_show(struct vty *vty, struct interface *ifp,
 	struct ospf6_interface *oi;
 	struct connected *c;
 	struct prefix *p;
+<<<<<<< HEAD
 	struct listnode *i;
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	char strbuf[PREFIX2STR_BUFFER], drouter[32], bdrouter[32];
 	uint8_t default_iftype;
 	struct timeval res, now;
@@ -1035,7 +1240,11 @@ static int ospf6_interface_show(struct vty *vty, struct interface *ifp,
 
 	if (use_json) {
 		json_arr = json_object_new_array();
+<<<<<<< HEAD
 		for (ALL_LIST_ELEMENTS_RO(ifp->connected, i, c)) {
+=======
+		frr_each (if_connected, ifp->connected, c) {
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			json_addr = json_object_new_object();
 			p = c->address;
 			prefix2str(p, strbuf, sizeof(strbuf));
@@ -1067,7 +1276,11 @@ static int ospf6_interface_show(struct vty *vty, struct interface *ifp,
 	} else {
 		vty_out(vty, "  Internet Address:\n");
 
+<<<<<<< HEAD
 		for (ALL_LIST_ELEMENTS_RO(ifp->connected, i, c)) {
+=======
+		frr_each (if_connected, ifp->connected, c) {
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			p = c->address;
 			prefix2str(p, strbuf, sizeof(strbuf));
 			switch (p->family) {
@@ -1086,12 +1299,19 @@ static int ospf6_interface_show(struct vty *vty, struct interface *ifp,
 
 	if (use_json) {
 		if (oi->area) {
+<<<<<<< HEAD
 			json_object_boolean_true_add(json_obj,
 						     "attachedToArea");
 			json_object_int_add(json_obj, "instanceId",
 					    oi->instance_id);
 			json_object_int_add(json_obj, "interfaceMtu",
 					    oi->ifmtu);
+=======
+			json_object_boolean_true_add(json_obj, "attachedToArea");
+			json_object_int_add(json_obj, "instanceId",
+					    oi->instance_id);
+			json_object_int_add(json_obj, "interfaceMtu", oi->ifmtu);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			json_object_int_add(json_obj, "autoDetect", ifp->mtu6);
 			json_object_string_add(json_obj, "mtuMismatchDetection",
 					       oi->mtu_ignore ? "disabled"
@@ -1131,9 +1351,15 @@ static int ospf6_interface_show(struct vty *vty, struct interface *ifp,
 				    oi->dead_interval);
 		json_object_int_add(json_obj, "timerIntervalsConfigRetransmit",
 				    oi->rxmt_interval);
+<<<<<<< HEAD
 		json_object_boolean_add(
 			json_obj, "timerPassiveIface",
 			!!CHECK_FLAG(oi->flag, OSPF6_INTERFACE_PASSIVE));
+=======
+		json_object_boolean_add(json_obj, "timerPassiveIface",
+					!!CHECK_FLAG(oi->flag,
+						     OSPF6_INTERFACE_PASSIVE));
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	} else {
 		vty_out(vty, "  State %s, Transmit Delay %d sec, Priority %d\n",
 			ospf6_interface_state_str[oi->state], oi->transdelay,
@@ -1166,13 +1392,18 @@ static int ospf6_interface_show(struct vty *vty, struct interface *ifp,
 	if (use_json) {
 		timerclear(&res);
 		if (event_is_scheduled(oi->thread_send_lsupdate))
+<<<<<<< HEAD
 			timersub(&oi->thread_send_lsupdate->u.sands, &now,
 				 &res);
+=======
+			timersub(&oi->thread_send_lsupdate->u.sands, &now, &res);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		timerstring(&res, duration, sizeof(duration));
 		json_object_int_add(json_obj, "pendingLsaLsUpdateCount",
 				    oi->lsupdate_list->count);
 		json_object_string_add(json_obj, "pendingLsaLsUpdateTime",
 				       duration);
+<<<<<<< HEAD
 		json_object_string_add(
 			json_obj, "lsUpdateSendThread",
 			(event_is_scheduled(oi->thread_send_lsupdate) ? "on"
@@ -1184,6 +1415,19 @@ static int ospf6_interface_show(struct vty *vty, struct interface *ifp,
 				json_arr, json_object_new_string(lsa->name));
 		json_object_object_add(json_obj, "pendingLsaLsUpdate",
 				       json_arr);
+=======
+		json_object_string_add(json_obj, "lsUpdateSendThread",
+				       (event_is_scheduled(
+						oi->thread_send_lsupdate)
+						? "on"
+						: "off"));
+
+		json_arr = json_object_new_array();
+		for (ALL_LSDB(oi->lsupdate_list, lsa, lsanext))
+			json_object_array_add(json_arr,
+					      json_object_new_string(lsa->name));
+		json_object_object_add(json_obj, "pendingLsaLsUpdate", json_arr);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 		timerclear(&res);
 		if (event_is_scheduled(oi->thread_send_lsack))
@@ -1194,6 +1438,7 @@ static int ospf6_interface_show(struct vty *vty, struct interface *ifp,
 				    oi->lsack_list->count);
 		json_object_string_add(json_obj, "pendingLsaLsAckTime",
 				       duration);
+<<<<<<< HEAD
 		json_object_string_add(
 			json_obj, "lsAckSendThread",
 			(event_is_scheduled(oi->thread_send_lsack) ? "on"
@@ -1203,6 +1448,17 @@ static int ospf6_interface_show(struct vty *vty, struct interface *ifp,
 		for (ALL_LSDB(oi->lsack_list, lsa, lsanext))
 			json_object_array_add(
 				json_arr, json_object_new_string(lsa->name));
+=======
+		json_object_string_add(json_obj, "lsAckSendThread",
+				       (event_is_scheduled(oi->thread_send_lsack)
+						? "on"
+						: "off"));
+
+		json_arr = json_object_new_array();
+		for (ALL_LSDB(oi->lsack_list, lsa, lsanext))
+			json_object_array_add(json_arr,
+					      json_object_new_string(lsa->name));
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		json_object_object_add(json_obj, "pendingLsaLsAck", json_arr);
 
 		if (oi->gr.hello_delay.interval != 0)
@@ -1211,8 +1467,12 @@ static int ospf6_interface_show(struct vty *vty, struct interface *ifp,
 	} else {
 		timerclear(&res);
 		if (event_is_scheduled(oi->thread_send_lsupdate))
+<<<<<<< HEAD
 			timersub(&oi->thread_send_lsupdate->u.sands, &now,
 				 &res);
+=======
+			timersub(&oi->thread_send_lsupdate->u.sands, &now, &res);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		timerstring(&res, duration, sizeof(duration));
 		vty_out(vty,
 			"    %d Pending LSAs for LSUpdate in Time %s [thread %s]\n",
@@ -1244,9 +1504,14 @@ static int ospf6_interface_show(struct vty *vty, struct interface *ifp,
 		if (use_json) {
 			struct json_object *json_bfd = json_object_new_object();
 
+<<<<<<< HEAD
 			json_object_int_add(
 				json_bfd, "detectMultiplier",
 				oi->bfd_config.detection_multiplier);
+=======
+			json_object_int_add(json_bfd, "detectMultiplier",
+					    oi->bfd_config.detection_multiplier);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			json_object_int_add(json_bfd, "rxMinInterval",
 					    oi->bfd_config.min_rx);
 			json_object_int_add(json_bfd, "txMinInterval",
@@ -1269,8 +1534,12 @@ static int ospf6_interface_show(struct vty *vty, struct interface *ifp,
 				       OSPF6_AUTH_TRAILER_KEYCHAIN)) {
 				json_object_string_add(json_auth, "authType",
 						       "keychain");
+<<<<<<< HEAD
 				json_object_string_add(json_auth,
 						       "keychainName",
+=======
+				json_object_string_add(json_auth, "keychainName",
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 						       oi->at_data.keychain);
 			} else if (CHECK_FLAG(oi->at_data.flags,
 					      OSPF6_AUTH_TRAILER_MANUAL_KEY))
@@ -1310,11 +1579,18 @@ static int ospf6_interface_show(struct vty *vty, struct interface *ifp,
 /* Find the global address to be used as a forwarding address in NSSA LSA.*/
 struct in6_addr *ospf6_interface_get_global_address(struct interface *ifp)
 {
+<<<<<<< HEAD
 	struct listnode *n;
 	struct connected *c;
 
 	/* for each connected address */
 	for (ALL_LIST_ELEMENTS_RO(ifp->connected, n, c)) {
+=======
+	struct connected *c;
+
+	/* for each connected address */
+	frr_each (if_connected, ifp->connected, c) {
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		/* if family not AF_INET6, ignore */
 		if (c->address->family != AF_INET6)
 			continue;
@@ -1332,7 +1608,10 @@ static int show_ospf6_interface_common(struct vty *vty, vrf_id_t vrf_id,
 				       int idx_ifname, int intf_idx,
 				       int json_idx, bool uj)
 {
+<<<<<<< HEAD
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	struct vrf *vrf = vrf_lookup_by_id(vrf_id);
 	struct interface *ifp;
 	json_object *json;
@@ -1379,10 +1658,24 @@ static int show_ospf6_interface_common(struct vty *vty, vrf_id_t vrf_id,
 }
 
 /* show interface */
+<<<<<<< HEAD
 DEFUN(show_ipv6_ospf6_interface, show_ipv6_ospf6_interface_ifname_cmd,
       "show ipv6 ospf6 [vrf <NAME|all>] interface [IFNAME] [json]",
       SHOW_STR IP6_STR OSPF6_STR VRF_CMD_HELP_STR
       "All VRFs\n" INTERFACE_STR IFNAME_STR JSON_STR)
+=======
+DEFUN(show_ipv6_ospf6_interface,
+      show_ipv6_ospf6_interface_ifname_cmd,
+      "show ipv6 ospf6 [vrf <NAME|all>] interface [IFNAME] [json]",
+      SHOW_STR
+      IP6_STR
+      OSPF6_STR
+      VRF_CMD_HELP_STR
+      "All VRFs\n"
+      INTERFACE_STR
+      IFNAME_STR
+      JSON_STR)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 {
 	int idx_ifname = 4;
 	int intf_idx = 5;
@@ -1462,18 +1755,27 @@ static int ospf6_interface_show_traffic(struct vty *vty,
 				json_object_int_add(json_interface, "lsReqTx",
 						    oi->ls_req_out);
 				json_object_int_add(json_interface,
+<<<<<<< HEAD
 						    "lsUpdateRx",
 						    oi->ls_upd_in);
 				json_object_int_add(json_interface,
 						    "lsUpdateTx",
+=======
+						    "lsUpdateRx", oi->ls_upd_in);
+				json_object_int_add(json_interface, "lsUpdateTx",
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 						    oi->ls_upd_out);
 				json_object_int_add(json_interface, "lsAckRx",
 						    oi->ls_ack_in);
 				json_object_int_add(json_interface, "lsAckTx",
 						    oi->ls_ack_out);
 
+<<<<<<< HEAD
 				json_object_object_add(json,
 						       oi->interface->name,
+=======
+				json_object_object_add(json, oi->interface->name,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 						       json_interface);
 			} else
 				vty_out(vty,
@@ -1585,11 +1887,26 @@ static int ospf6_interface_show_traffic_common(struct vty *vty, int argc,
 }
 
 /* show interface */
+<<<<<<< HEAD
 DEFUN(show_ipv6_ospf6_interface_traffic, show_ipv6_ospf6_interface_traffic_cmd,
       "show ipv6 ospf6 [vrf <NAME|all>] interface traffic [IFNAME] [json]",
       SHOW_STR IP6_STR OSPF6_STR VRF_CMD_HELP_STR
       "All VRFs\n" INTERFACE_STR
       "Protocol Packet counters\n" IFNAME_STR JSON_STR)
+=======
+DEFUN(show_ipv6_ospf6_interface_traffic,
+      show_ipv6_ospf6_interface_traffic_cmd,
+      "show ipv6 ospf6 [vrf <NAME|all>] interface traffic [IFNAME] [json]",
+      SHOW_STR
+      IP6_STR
+      OSPF6_STR
+      VRF_CMD_HELP_STR
+      "All VRFs\n"
+      INTERFACE_STR
+      "Protocol Packet counters\n"
+      IFNAME_STR
+      JSON_STR)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 {
 	struct ospf6 *ospf6;
 	struct listnode *node;
@@ -1618,6 +1935,7 @@ DEFUN(show_ipv6_ospf6_interface_traffic, show_ipv6_ospf6_interface_traffic_cmd,
 
 DEFUN(show_ipv6_ospf6_interface_ifname_prefix,
       show_ipv6_ospf6_interface_ifname_prefix_cmd,
+<<<<<<< HEAD
       "show ipv6 ospf6 [vrf <NAME|all>] interface IFNAME prefix\
           [<\
 	    detail\
@@ -1629,6 +1947,23 @@ DEFUN(show_ipv6_ospf6_interface_ifname_prefix,
       "Display details of the prefixes\n" OSPF6_ROUTE_ADDRESS_STR
 	      OSPF6_ROUTE_PREFIX_STR OSPF6_ROUTE_MATCH_STR
       "Display details of the prefixes\n" JSON_STR)
+=======
+      "show ipv6 ospf6 [vrf <NAME|all>] interface IFNAME prefix "
+          "[<detail|<X:X::X:X|X:X::X:X/M> [<match|detail>]>] [json]",
+      SHOW_STR
+      IP6_STR
+      OSPF6_STR
+      VRF_CMD_HELP_STR
+      "All VRFs\n"
+      INTERFACE_STR IFNAME_STR
+      "Display connected prefixes to advertise\n"
+      "Display details of the prefixes\n"
+      OSPF6_ROUTE_ADDRESS_STR
+      OSPF6_ROUTE_PREFIX_STR
+      OSPF6_ROUTE_MATCH_STR
+      "Display details of the prefixes\n"
+      JSON_STR)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 {
 	int idx_ifname = 4;
 	int idx_prefix = 6;
@@ -1659,8 +1994,13 @@ DEFUN(show_ipv6_ospf6_interface_ifname_prefix,
 			}
 
 			oi = ifp->info;
+<<<<<<< HEAD
 			if (oi == NULL
 			    || CHECK_FLAG(oi->flag, OSPF6_INTERFACE_DISABLE)) {
+=======
+			if (oi == NULL ||
+			    CHECK_FLAG(oi->flag, OSPF6_INTERFACE_DISABLE)) {
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 				vty_out(vty,
 					"Interface %s not attached to area\n",
 					argv[idx_ifname]->arg);
@@ -1680,6 +2020,7 @@ DEFUN(show_ipv6_ospf6_interface_ifname_prefix,
 	return CMD_SUCCESS;
 }
 
+<<<<<<< HEAD
 DEFUN(show_ipv6_ospf6_interface_prefix, show_ipv6_ospf6_interface_prefix_cmd,
       "show ipv6 ospf6 [vrf <NAME|all>] interface prefix\
           [<\
@@ -1692,6 +2033,25 @@ DEFUN(show_ipv6_ospf6_interface_prefix, show_ipv6_ospf6_interface_prefix_cmd,
       "Display details of the prefixes\n" OSPF6_ROUTE_ADDRESS_STR
 	      OSPF6_ROUTE_PREFIX_STR OSPF6_ROUTE_MATCH_STR
       "Display details of the prefixes\n" JSON_STR)
+=======
+DEFUN(show_ipv6_ospf6_interface_prefix,
+      show_ipv6_ospf6_interface_prefix_cmd,
+      "show ipv6 ospf6 [vrf <NAME|all>] interface prefix "
+          "[<detail|<X:X::X:X|X:X::X:X/M> [<match|detail>]>] [json]",
+      SHOW_STR
+      IP6_STR
+      OSPF6_STR
+      VRF_CMD_HELP_STR
+      "All VRFs\n"
+      INTERFACE_STR
+      "Display connected prefixes to advertise\n"
+      "Display details of the prefixes\n"
+      OSPF6_ROUTE_ADDRESS_STR
+      OSPF6_ROUTE_PREFIX_STR
+      OSPF6_ROUTE_MATCH_STR
+      "Display details of the prefixes\n"
+      JSON_STR)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 {
 	struct vrf *vrf = NULL;
 	int idx_prefix = 5;
@@ -1713,9 +2073,15 @@ DEFUN(show_ipv6_ospf6_interface_prefix, show_ipv6_ospf6_interface_prefix_cmd,
 			vrf = vrf_lookup_by_id(ospf6->vrf_id);
 			FOR_ALL_INTERFACES (vrf, ifp) {
 				oi = (struct ospf6_interface *)ifp->info;
+<<<<<<< HEAD
 				if (oi == NULL
 				    || CHECK_FLAG(oi->flag,
 						  OSPF6_INTERFACE_DISABLE))
+=======
+				if (oi == NULL ||
+				    CHECK_FLAG(oi->flag,
+					       OSPF6_INTERFACE_DISABLE))
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 					continue;
 
 				ospf6_route_table_show(vty, idx_prefix, argc,
@@ -2189,7 +2555,12 @@ ALIAS (ipv6_ospf6_deadinterval,
        "Interval time after which a neighbor is declared down\n"
        SECONDS_STR)
 
+<<<<<<< HEAD
 DEFPY(ipv6_ospf6_gr_hdelay, ipv6_ospf6_gr_hdelay_cmd,
+=======
+DEFPY(ipv6_ospf6_gr_hdelay,
+      ipv6_ospf6_gr_hdelay_cmd,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
       "ipv6 ospf6 graceful-restart hello-delay (1-1800)",
       IP6_STR
       OSPF6_STR
@@ -2210,7 +2581,12 @@ DEFPY(ipv6_ospf6_gr_hdelay, ipv6_ospf6_gr_hdelay_cmd,
 	return CMD_SUCCESS;
 }
 
+<<<<<<< HEAD
 DEFPY(no_ipv6_ospf6_gr_hdelay, no_ipv6_ospf6_gr_hdelay_cmd,
+=======
+DEFPY(no_ipv6_ospf6_gr_hdelay,
+      no_ipv6_ospf6_gr_hdelay_cmd,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
       "no ipv6 ospf6 graceful-restart hello-delay [(1-1800)]",
       NO_STR
       IP6_STR
@@ -2324,10 +2700,16 @@ DEFUN (ipv6_ospf6_priority,
 			       ? OSPF6_INTERFACE_PRIORITY
 			       : strtoul(argv[idx_number]->arg, NULL, 10);
 
+<<<<<<< HEAD
 	if (oi->area
 	    && (oi->state == OSPF6_INTERFACE_DROTHER
 		|| oi->state == OSPF6_INTERFACE_BDR
 		|| oi->state == OSPF6_INTERFACE_DR)) {
+=======
+	if (oi->area && (oi->state == OSPF6_INTERFACE_DROTHER ||
+			 oi->state == OSPF6_INTERFACE_BDR ||
+			 oi->state == OSPF6_INTERFACE_DR)) {
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		if (ospf6_interface_state_change(dr_election(oi), oi) == -1)
 			OSPF6_LINK_LSA_SCHEDULE(oi);
 	}
@@ -2484,6 +2866,7 @@ DEFUN (no_ipv6_ospf6_mtu_ignore,
 	return CMD_SUCCESS;
 }
 
+<<<<<<< HEAD
 DEFUN (ipv6_ospf6_advertise_prefix_list,
        ipv6_ospf6_advertise_prefix_list_cmd,
        "ipv6 ospf6 advertise prefix-list WORD",
@@ -2493,6 +2876,16 @@ DEFUN (ipv6_ospf6_advertise_prefix_list,
        "Filter prefix using prefix-list\n"
        "Prefix list name\n"
        )
+=======
+DEFUN(ipv6_ospf6_advertise_prefix_list,
+      ipv6_ospf6_advertise_prefix_list_cmd,
+      "ipv6 ospf6 advertise prefix-list PREFIXLIST6_NAME",
+      IP6_STR
+      OSPF6_STR
+      "Advertising options\n"
+      "Filter prefix using prefix-list\n"
+      "Prefix list name\n")
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 {
 	VTY_DECLVAR_CONTEXT(interface, ifp);
 	int idx_word = 4;
@@ -2522,6 +2915,7 @@ DEFUN (ipv6_ospf6_advertise_prefix_list,
 	return CMD_SUCCESS;
 }
 
+<<<<<<< HEAD
 DEFUN (no_ipv6_ospf6_advertise_prefix_list,
        no_ipv6_ospf6_advertise_prefix_list_cmd,
        "no ipv6 ospf6 advertise prefix-list [WORD]",
@@ -2531,6 +2925,17 @@ DEFUN (no_ipv6_ospf6_advertise_prefix_list,
        "Advertising options\n"
        "Filter prefix using prefix-list\n"
        "Prefix list name\n")
+=======
+DEFUN(no_ipv6_ospf6_advertise_prefix_list,
+      no_ipv6_ospf6_advertise_prefix_list_cmd,
+      "no ipv6 ospf6 advertise prefix-list [PREFIXLIST6_NAME]",
+      NO_STR
+      IP6_STR
+      OSPF6_STR
+      "Advertising options\n"
+      "Filter prefix using prefix-list\n"
+      "Prefix list name\n")
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 {
 	VTY_DECLVAR_CONTEXT(interface, ifp);
 	struct ospf6_interface *oi;
@@ -2560,12 +2965,20 @@ DEFUN (no_ipv6_ospf6_advertise_prefix_list,
 
 DEFUN (ipv6_ospf6_network,
        ipv6_ospf6_network_cmd,
+<<<<<<< HEAD
        "ipv6 ospf6 network <broadcast|point-to-point>",
+=======
+       "ipv6 ospf6 network <broadcast|point-to-point|point-to-multipoint>",
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
        IP6_STR
        OSPF6_STR
        "Network type\n"
        "Specify OSPF6 broadcast network\n"
        "Specify OSPF6 point-to-point network\n"
+<<<<<<< HEAD
+=======
+       "Specify OSPF6 point-to-multipoint network\n"
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
        )
 {
 	VTY_DECLVAR_CONTEXT(interface, ifp);
@@ -2591,6 +3004,14 @@ DEFUN (ipv6_ospf6_network,
 			return CMD_SUCCESS;
 		}
 		oi->type = OSPF_IFTYPE_POINTOPOINT;
+<<<<<<< HEAD
+=======
+	} else if (strncmp(argv[idx_network]->arg, "point-to-m", 10) == 0) {
+		if (oi->type == OSPF_IFTYPE_POINTOMULTIPOINT) {
+			return CMD_SUCCESS;
+		}
+		oi->type = OSPF_IFTYPE_POINTOMULTIPOINT;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	}
 
 	/* Reset the interface */
@@ -2602,13 +3023,22 @@ DEFUN (ipv6_ospf6_network,
 
 DEFUN (no_ipv6_ospf6_network,
        no_ipv6_ospf6_network_cmd,
+<<<<<<< HEAD
        "no ipv6 ospf6 network [<broadcast|point-to-point>]",
+=======
+       "no ipv6 ospf6 network [<broadcast|point-to-point|point-to-multipoint>]",
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
        NO_STR
        IP6_STR
        OSPF6_STR
        "Set default network type\n"
        "Specify OSPF6 broadcast network\n"
+<<<<<<< HEAD
        "Specify OSPF6 point-to-point network\n")
+=======
+       "Specify OSPF6 point-to-point network\n"
+       "Specify OSPF6 point-to-multipoint network\n")
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 {
 	VTY_DECLVAR_CONTEXT(interface, ifp);
 	struct ospf6_interface *oi;
@@ -2617,9 +3047,14 @@ DEFUN (no_ipv6_ospf6_network,
 	assert(ifp);
 
 	oi = (struct ospf6_interface *)ifp->info;
+<<<<<<< HEAD
 	if (oi == NULL) {
 		return CMD_SUCCESS;
 	}
+=======
+	if (oi == NULL)
+		return CMD_SUCCESS;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	oi->type_cfg = false;
 
@@ -2636,6 +3071,110 @@ DEFUN (no_ipv6_ospf6_network,
 	return CMD_SUCCESS;
 }
 
+<<<<<<< HEAD
+=======
+DEFPY (ipv6_ospf6_p2xp_only_cfg_neigh,
+       ipv6_ospf6_p2xp_only_cfg_neigh_cmd,
+       "[no] ipv6 ospf6 p2p-p2mp config-neighbors-only",
+       NO_STR
+       IP6_STR
+       OSPF6_STR
+       "Point-to-point and Point-to-Multipoint parameters\n"
+       "Only form adjacencies with explicitly configured neighbors\n")
+{
+	VTY_DECLVAR_CONTEXT(interface, ifp);
+	struct ospf6_interface *oi = ifp->info;
+
+	if (no) {
+		if (!oi)
+			return CMD_SUCCESS;
+
+		oi->p2xp_only_cfg_neigh = false;
+		return CMD_SUCCESS;
+	}
+
+	if (!oi)
+		oi = ospf6_interface_create(ifp);
+
+	oi->p2xp_only_cfg_neigh = true;
+	return CMD_SUCCESS;
+}
+
+DEFPY (ipv6_ospf6_p2xp_no_multicast_hello,
+       ipv6_ospf6_p2xp_no_multicast_hello_cmd,
+       "[no] ipv6 ospf6 p2p-p2mp disable-multicast-hello",
+       NO_STR
+       IP6_STR
+       OSPF6_STR
+       "Point-to-point and Point-to-Multipoint parameters\n"
+       "Do not send multicast hellos\n")
+{
+	VTY_DECLVAR_CONTEXT(interface, ifp);
+	struct ospf6_interface *oi = ifp->info;
+
+	if (no) {
+		if (!oi)
+			return CMD_SUCCESS;
+
+		oi->p2xp_no_multicast_hello = false;
+		return CMD_SUCCESS;
+	}
+
+	if (!oi)
+		oi = ospf6_interface_create(ifp);
+
+	oi->p2xp_no_multicast_hello = true;
+	return CMD_SUCCESS;
+}
+
+DEFPY (ipv6_ospf6_p2xp_connected_pfx,
+       ipv6_ospf6_p2xp_connected_pfx_cmd,
+       "[no] ipv6 ospf6 p2p-p2mp connected-prefixes <include$incl|exclude$excl>",
+       NO_STR
+       IP6_STR
+       OSPF6_STR
+       "Point-to-point and Point-to-Multipoint parameters\n"
+       "Adjust handling of directly connected prefixes\n"
+       "Advertise prefixes and own /128 (default for PtP)\n"
+       "Ignore, only advertise own /128 (default for PtMP)\n")
+{
+	VTY_DECLVAR_CONTEXT(interface, ifp);
+	struct ospf6_interface *oi = ifp->info;
+	bool old_incl, old_excl;
+
+	if (no && !oi)
+		return CMD_SUCCESS;
+
+	if (!oi)
+		oi = ospf6_interface_create(ifp);
+
+	old_incl = oi->p2xp_connected_pfx_include;
+	old_excl = oi->p2xp_connected_pfx_exclude;
+	oi->p2xp_connected_pfx_include = false;
+	oi->p2xp_connected_pfx_exclude = false;
+
+	if (incl && !no)
+		oi->p2xp_connected_pfx_include = true;
+	if (excl && !no)
+		oi->p2xp_connected_pfx_exclude = true;
+
+	if (oi->p2xp_connected_pfx_include != old_incl ||
+	    oi->p2xp_connected_pfx_exclude != old_excl)
+		ospf6_interface_connected_route_update(ifp);
+	return CMD_SUCCESS;
+}
+
+ALIAS (ipv6_ospf6_p2xp_connected_pfx,
+       no_ipv6_ospf6_p2xp_connected_pfx_cmd,
+       "no ipv6 ospf6 p2p-p2mp connected-prefixes",
+       NO_STR
+       IP6_STR
+       OSPF6_STR
+       "Point-to-point and Point-to-Multipoint parameters\n"
+       "Adjust handling of directly connected prefixes\n")
+
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 static int config_write_ospf6_interface(struct vty *vty, struct vrf *vrf)
 {
 	struct ospf6_interface *oi;
@@ -2695,7 +3234,14 @@ static int config_write_ospf6_interface(struct vty *vty, struct vrf *vrf)
 		if (oi->mtu_ignore)
 			vty_out(vty, " ipv6 ospf6 mtu-ignore\n");
 
+<<<<<<< HEAD
 		if (oi->type_cfg && oi->type == OSPF_IFTYPE_POINTOPOINT)
+=======
+		if (oi->type_cfg && oi->type == OSPF_IFTYPE_POINTOMULTIPOINT)
+			vty_out(vty,
+				" ipv6 ospf6 network point-to-multipoint\n");
+		else if (oi->type_cfg && oi->type == OSPF_IFTYPE_POINTOPOINT)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			vty_out(vty, " ipv6 ospf6 network point-to-point\n");
 		else if (oi->type_cfg && oi->type == OSPF_IFTYPE_BROADCAST)
 			vty_out(vty, " ipv6 ospf6 network broadcast\n");
@@ -2704,7 +3250,26 @@ static int config_write_ospf6_interface(struct vty *vty, struct vrf *vrf)
 			vty_out(vty,
 				" ipv6 ospf6 graceful-restart hello-delay %u\n",
 				oi->gr.hello_delay.interval);
+<<<<<<< HEAD
 
+=======
+		if (oi->p2xp_only_cfg_neigh)
+			vty_out(vty,
+				" ipv6 ospf6 p2p-p2mp config-neighbors-only\n");
+
+		if (oi->p2xp_no_multicast_hello)
+			vty_out(vty,
+				" ipv6 ospf6 p2p-p2mp disable-multicast-hello\n");
+
+		if (oi->p2xp_connected_pfx_include)
+			vty_out(vty,
+				" ipv6 ospf6 p2p-p2mp connected-prefixes include\n");
+		else if (oi->p2xp_connected_pfx_exclude)
+			vty_out(vty,
+				" ipv6 ospf6 p2p-p2mp connected-prefixes exclude\n");
+
+		config_write_ospf6_p2xp_neighbor(vty, oi);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		ospf6_bfd_write_config(vty, oi);
 
 		ospf6_auth_write_config(vty, &oi->at_data);
@@ -2742,10 +3307,17 @@ static int ospf6_ifp_create(struct interface *ifp)
 static int ospf6_ifp_up(struct interface *ifp)
 {
 	if (IS_OSPF6_DEBUG_ZEBRA(RECV))
+<<<<<<< HEAD
 		zlog_debug(
 			"Zebra Interface state change: %s index %d flags %llx metric %d mtu %d bandwidth %d",
 			ifp->name, ifp->ifindex, (unsigned long long)ifp->flags,
 			ifp->metric, ifp->mtu6, ifp->bandwidth);
+=======
+		zlog_debug("Zebra Interface state change: %s index %d flags %llx metric %d mtu %d bandwidth %d",
+			   ifp->name, ifp->ifindex,
+			   (unsigned long long)ifp->flags, ifp->metric,
+			   ifp->mtu6, ifp->bandwidth);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	ospf6_interface_state_update(ifp);
 
@@ -2755,10 +3327,17 @@ static int ospf6_ifp_up(struct interface *ifp)
 static int ospf6_ifp_down(struct interface *ifp)
 {
 	if (IS_OSPF6_DEBUG_ZEBRA(RECV))
+<<<<<<< HEAD
 		zlog_debug(
 			"Zebra Interface state change: %s index %d flags %llx metric %d mtu %d bandwidth %d",
 			ifp->name, ifp->ifindex, (unsigned long long)ifp->flags,
 			ifp->metric, ifp->mtu6, ifp->bandwidth);
+=======
+		zlog_debug("Zebra Interface state change: %s index %d flags %llx metric %d mtu %d bandwidth %d",
+			   ifp->name, ifp->ifindex,
+			   (unsigned long long)ifp->flags, ifp->metric,
+			   ifp->mtu6, ifp->bandwidth);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	ospf6_interface_state_update(ifp);
 
@@ -2785,6 +3364,7 @@ void ospf6_interface_init(void)
 {
 	/* Install interface node. */
 	if_cmd_init(config_write_interface);
+<<<<<<< HEAD
 	if_zapi_callbacks(ospf6_ifp_create, ospf6_ifp_up,
 			  ospf6_ifp_down, ospf6_ifp_destroy);
 
@@ -2792,6 +3372,16 @@ void ospf6_interface_init(void)
 	install_element(VIEW_NODE, &show_ipv6_ospf6_interface_ifname_cmd);
 	install_element(VIEW_NODE,
 			&show_ipv6_ospf6_interface_ifname_prefix_cmd);
+=======
+	hook_register_prio(if_real, 0, ospf6_ifp_create);
+	hook_register_prio(if_up, 0, ospf6_ifp_up);
+	hook_register_prio(if_down, 0, ospf6_ifp_down);
+	hook_register_prio(if_unreal, 0, ospf6_ifp_destroy);
+
+	install_element(VIEW_NODE, &show_ipv6_ospf6_interface_prefix_cmd);
+	install_element(VIEW_NODE, &show_ipv6_ospf6_interface_ifname_cmd);
+	install_element(VIEW_NODE, &show_ipv6_ospf6_interface_ifname_prefix_cmd);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	install_element(VIEW_NODE, &show_ipv6_ospf6_interface_traffic_cmd);
 
 	install_element(INTERFACE_NODE, &ipv6_ospf6_area_cmd);
@@ -2829,6 +3419,14 @@ void ospf6_interface_init(void)
 	install_element(INTERFACE_NODE, &ipv6_ospf6_network_cmd);
 	install_element(INTERFACE_NODE, &no_ipv6_ospf6_network_cmd);
 
+<<<<<<< HEAD
+=======
+	install_element(INTERFACE_NODE, &ipv6_ospf6_p2xp_only_cfg_neigh_cmd);
+	install_element(INTERFACE_NODE, &ipv6_ospf6_p2xp_no_multicast_hello_cmd);
+	install_element(INTERFACE_NODE, &ipv6_ospf6_p2xp_connected_pfx_cmd);
+	install_element(INTERFACE_NODE, &no_ipv6_ospf6_p2xp_connected_pfx_cmd);
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	/* reference bandwidth commands */
 	install_element(OSPF6_NODE, &auto_cost_reference_bandwidth_cmd);
 	install_element(OSPF6_NODE, &no_auto_cost_reference_bandwidth_cmd);
@@ -2965,7 +3563,12 @@ void ospf6_auth_write_config(struct vty *vty, struct ospf6_auth_data *at_data)
 DEFUN(ipv6_ospf6_intf_auth_trailer_keychain,
       ipv6_ospf6_intf_auth_trailer_keychain_cmd,
       "ipv6 ospf6 authentication keychain KEYCHAIN_NAME",
+<<<<<<< HEAD
       IP6_STR OSPF6_STR
+=======
+      IP6_STR
+      OSPF6_STR
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
       "Enable authentication on this interface\n"
       "Keychain\n"
       "Keychain name\n")
@@ -2989,8 +3592,13 @@ DEFUN(ipv6_ospf6_intf_auth_trailer_keychain,
 	if (oi->at_data.keychain)
 		XFREE(MTYPE_OSPF6_AUTH_KEYCHAIN, oi->at_data.keychain);
 
+<<<<<<< HEAD
 	oi->at_data.keychain =
 		XSTRDUP(MTYPE_OSPF6_AUTH_KEYCHAIN, argv[keychain_idx]->arg);
+=======
+	oi->at_data.keychain = XSTRDUP(MTYPE_OSPF6_AUTH_KEYCHAIN,
+				       argv[keychain_idx]->arg);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	return CMD_SUCCESS;
 }
@@ -2998,7 +3606,13 @@ DEFUN(ipv6_ospf6_intf_auth_trailer_keychain,
 DEFUN(no_ipv6_ospf6_intf_auth_trailer_keychain,
       no_ipv6_ospf6_intf_auth_trailer_keychain_cmd,
       "no ipv6 ospf6 authentication keychain [KEYCHAIN_NAME]",
+<<<<<<< HEAD
       NO_STR IP6_STR OSPF6_STR
+=======
+      NO_STR
+      IP6_STR
+      OSPF6_STR
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
       "Enable authentication on this interface\n"
       "Keychain\n"
       "Keychain name\n")
@@ -3023,11 +3637,21 @@ DEFUN(no_ipv6_ospf6_intf_auth_trailer_keychain,
 	return CMD_SUCCESS;
 }
 
+<<<<<<< HEAD
 DEFUN(ipv6_ospf6_intf_auth_trailer_key, ipv6_ospf6_intf_auth_trailer_key_cmd,
       "ipv6 ospf6 authentication key-id (1-65535) hash-algo "
       "<md5|hmac-sha-1|hmac-sha-256|hmac-sha-384|hmac-sha-512> "
       "key WORD",
       IP6_STR OSPF6_STR
+=======
+DEFUN(ipv6_ospf6_intf_auth_trailer_key,
+      ipv6_ospf6_intf_auth_trailer_key_cmd,
+      "ipv6 ospf6 authentication key-id (1-65535) hash-algo "
+      "<md5|hmac-sha-1|hmac-sha-256|hmac-sha-384|hmac-sha-512> "
+      "key WORD",
+      IP6_STR
+      OSPF6_STR
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
       "Authentication\n"
       "Key ID\n"
       "Key ID value\n"
@@ -3072,8 +3696,13 @@ DEFUN(ipv6_ospf6_intf_auth_trailer_key, ipv6_ospf6_intf_auth_trailer_key_cmd,
 	oi->at_data.key_id = (uint16_t)strtol(argv[key_id_idx]->arg, NULL, 10);
 	if (oi->at_data.auth_key)
 		XFREE(MTYPE_OSPF6_AUTH_MANUAL_KEY, oi->at_data.auth_key);
+<<<<<<< HEAD
 	oi->at_data.auth_key =
 		XSTRDUP(MTYPE_OSPF6_AUTH_MANUAL_KEY, argv[password_idx]->arg);
+=======
+	oi->at_data.auth_key = XSTRDUP(MTYPE_OSPF6_AUTH_MANUAL_KEY,
+				       argv[password_idx]->arg);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	return CMD_SUCCESS;
 }
@@ -3083,7 +3712,13 @@ DEFUN(no_ipv6_ospf6_intf_auth_trailer_key,
       "no ipv6 ospf6 authentication key-id [(1-65535) hash-algo "
       "<md5|hmac-sha-1|hmac-sha-256|hmac-sha-384|hmac-sha-512> "
       "key WORD]",
+<<<<<<< HEAD
       NO_STR IP6_STR OSPF6_STR
+=======
+      NO_STR
+      IP6_STR
+      OSPF6_STR
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
       "Authentication\n"
       "Key ID\n"
       "Key ID value\n"

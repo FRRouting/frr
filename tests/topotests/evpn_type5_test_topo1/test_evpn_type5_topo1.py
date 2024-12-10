@@ -22,7 +22,10 @@ Following tests are covered to test EVPN-Type5 functionality:
 
 import os
 import sys
+<<<<<<< HEAD
 import json
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 import time
 import pytest
 import platform
@@ -69,7 +72,11 @@ from lib.bgp import (
     verify_attributes_for_evpn_routes,
     verify_evpn_routes,
 )
+<<<<<<< HEAD
 from lib.topojson import build_topo_from_json, build_config_from_json
+=======
+from lib.topojson import build_config_from_json
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 pytestmark = [pytest.mark.bgpd, pytest.mark.staticd]
 

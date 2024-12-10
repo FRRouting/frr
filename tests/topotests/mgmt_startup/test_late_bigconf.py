@@ -22,8 +22,12 @@ from util import check_kernel, check_vtysh_up, write_big_route_conf
 
 CWD = os.path.dirname(os.path.realpath(__file__))
 
+<<<<<<< HEAD
 # pytestmark = [pytest.mark.staticd, pytest.mark.mgmtd]
 pytestmark = [pytest.mark.staticd]
+=======
+pytestmark = [pytest.mark.staticd, pytest.mark.mgmtd]
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 track = Timeout(0)
 ROUTE_COUNT = 2500

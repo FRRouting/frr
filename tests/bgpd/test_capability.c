@@ -617,6 +617,10 @@ static struct test_segment misc_segments[] =
 			},
 			2,
 			SHOULD_ERR,
+<<<<<<< HEAD
+=======
+			-1,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		},
 		{
 			"dyn-empty",
@@ -835,7 +839,11 @@ static void parse_test(struct peer *peer, struct test_segment *t, int type)
 	switch (type) {
 	case CAPABILITY:
 		len += 2; /* to cover the OPT-Param header */
+<<<<<<< HEAD
 		_FALLTHROUGH
+=======
+		fallthrough;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	case OPT_PARAM:
 		printf("len: %u\n", len);
 		/* peek_for_as4 wants getp at capibility*/

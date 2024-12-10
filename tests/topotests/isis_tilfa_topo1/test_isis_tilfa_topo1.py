@@ -54,8 +54,13 @@ import os
 import sys
 import pytest
 import json
+<<<<<<< HEAD
 import tempfile
 from functools import partial
+=======
+from functools import partial
+from time import sleep
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 # Save the Current Working Directory to find configuration files.
 CWD = os.path.dirname(os.path.realpath(__file__))
@@ -120,6 +125,7 @@ def build_topo(tgen):
     switch.add_link(tgen.gears["rt5"], nodeif="eth-rt6")
     switch.add_link(tgen.gears["rt6"], nodeif="eth-rt5")
 
+<<<<<<< HEAD
     #
     # Populate multi-dimensional dictionary containing all expected outputs
     #
@@ -159,6 +165,8 @@ def build_topo(tgen):
                     f_in.close()
                     f_out.close()
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 def setup_module(mod):
     "Sets up the pytest environment"
@@ -176,13 +184,21 @@ def setup_module(mod):
             TopoRouter.RD_ISIS, os.path.join(CWD, "{}/isisd.conf".format(rname))
         )
         router.load_config(
+<<<<<<< HEAD
             TopoRouter.RD_BFD, os.path.join(CWD, "/dev/null".format(rname))
+=======
+            TopoRouter.RD_BFD, os.path.join(CWD, "{}/bfdd.conf".format(rname))
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         )
 
     tgen.start_router()
 
 
+<<<<<<< HEAD
 def teardown_module(mod):
+=======
+def teardown_module():
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     "Teardown the pytest environment"
     tgen = get_topogen()
 
@@ -190,12 +206,183 @@ def teardown_module(mod):
     tgen.stop_topology()
 
 
+<<<<<<< HEAD
 def router_compare_json_output(rname, command, reference, count=120, wait=0.5):
     "Compare router JSON output"
 
     logger.info('Comparing router "%s" "%s" output', rname, command)
 
     tgen = get_topogen()
+=======
+def filter_json(data, keys_to_keep):
+    """
+    Filters a dictionary, keeping only the specified keys.
+    """
+    return {k: v for k, v in data.items() if k in keys_to_keep}
+
+
+def regen_data(rname, command, step, file, wait):
+    """
+    Regenerates reference data.
+    """
+    # Sleep enough time to ensure the protocol has converged
+    if rname == "rt1":
+        sleep(wait)
+    if step == 10:
+        sleep(10)
+
+    # Get and parse JSON output
+    tgen = get_topogen()
+    output = json.loads(tgen.gears[rname].vtysh_cmd(command))
+
+    # Default JSON separators
+    separators = (",", ":")
+
+    # Process JSON output based on the specified file
+    if file == "show_yang_interface_isis_adjacencies.ref":
+        # Filter out the loopback interface
+        output["frr-interface:lib"]["interface"] = [
+            interface
+            for interface in output["frr-interface:lib"]["interface"]
+            if interface["name"] != "lo"
+        ]
+
+        # Filter out unwanted fields
+        for interface in output["frr-interface:lib"]["interface"]:
+            keys_to_keep = {"name", "vrf", "state"}
+            filtered_interface = filter_json(interface, keys_to_keep)
+            interface.clear()
+            interface.update(filtered_interface)
+
+            keys_to_keep = {"frr-isisd:isis"}
+            filtered_state = filter_json(interface["state"], keys_to_keep)
+            interface["state"].clear()
+            interface["state"].update(filtered_state)
+
+            keys_to_keep = {"adjacencies"}
+            filtered_isis = filter_json(
+                interface["state"]["frr-isisd:isis"], keys_to_keep
+            )
+            interface["state"]["frr-isisd:isis"].clear()
+            interface["state"]["frr-isisd:isis"].update(filtered_isis)
+            if "adjacencies" in interface["state"]["frr-isisd:isis"]:
+                for adjacency in interface["state"]["frr-isisd:isis"]["adjacencies"][
+                    "adjacency"
+                ]:
+                    keys_to_keep = {
+                        "neighbor-sys-type",
+                        "neighbor-sysid",
+                        "hold-timer",
+                        "neighbor-priority",
+                        "state",
+                    }
+                    filtered_adjacency = filter_json(adjacency, keys_to_keep)
+                    adjacency.clear()
+                    adjacency.update(filtered_adjacency)
+        # Adjust separators to match libyang's output.
+        separators = (",", ": ")
+
+    elif file == "show_ip_route.ref" or file == "show_ipv6_route.ref":
+        # Filter out unwanted fields
+        keys_to_keep_route = {
+            "prefix",
+            "protocol",
+            "selected",
+            "destSelected",
+            "distance",
+            "metric",
+            "installed",
+            "nexthops",
+            "backupNexthops",
+        }
+        keys_to_keep_nh = {
+            "fib",
+            "ip",
+            "afi",
+            "interfaceName",
+            "active",
+            "backupIndex",
+            "labels",
+        }
+        for prefix_key, prefix_value in output.items():
+            filtered_routes = []
+            for route in prefix_value:
+                if "nexthops" in route:
+                    filtered_nhs = []
+                    for nh in route["nexthops"]:
+                        if nh["ip"].startswith("fe80"):
+                            del nh["ip"]
+                        filtered_nhs.append(filter_json(nh, keys_to_keep_nh))
+                    route["nexthops"] = filtered_nhs
+                if "backupNexthops" in route:
+                    filtered_nhs = []
+                    for nh in route["backupNexthops"]:
+                        if nh["ip"].startswith("fe80"):
+                            del nh["ip"]
+                        filtered_nhs.append(filter_json(nh, keys_to_keep_nh))
+                    route["backupNexthops"] = filtered_nhs
+                filtered_routes.append(filter_json(route, keys_to_keep_route))
+            output[prefix_key] = filtered_routes
+
+    elif file == "show_mpls_table.ref":
+        # Filter out Adj-SID labels
+        output = {int(key): value for key, value in output.items() if int(key) >= 16000}
+
+        # Filter out unwanted fields
+        keys_to_keep_label = {
+            "inLabel",
+            "installed",
+            "nexthops",
+            "backupNexthops",
+        }
+        keys_to_keep_nh = {
+            "type",
+            "outLabel",
+            "installed",
+            "interface",
+            "nexthop",
+            "backupIndex",
+        }
+        for label_key, label_value in output.items():
+            if "nexthops" in label_value:
+                filtered_nhs = []
+                for nh in label_value["nexthops"]:
+                    if nh["nexthop"].startswith("fe80"):
+                        del nh["nexthop"]
+                    filtered_nhs.append(filter_json(nh, keys_to_keep_nh))
+                label_value["nexthops"] = filtered_nhs
+            if "backupNexthops" in label_value:
+                filtered_nhs = []
+                for nh in label_value["backupNexthops"]:
+                    if nh["nexthop"].startswith("fe80"):
+                        del nh["nexthop"]
+                    filtered_nhs.append(filter_json(nh, keys_to_keep_nh))
+                label_value["backupNexthops"] = filtered_nhs
+            output[label_key] = filter_json(label_value, keys_to_keep_label)
+
+    elif file.startswith("show_bfd_peer"):
+        keys_to_keep = ["multihop", "peer", "interface", "status"]
+        output = filter_json(output, keys_to_keep)
+
+    # Save the processed output to a file
+    filename = "{}/{}/step{}/{}".format(CWD, rname, step, file)
+    output = json.dumps(output, separators=separators, indent=2).replace("/", "\\/")
+    with open(filename, "w", encoding="ascii") as file:
+        file.write(output + "\n")
+
+
+def router_compare_json_output(rname, command, step, file, count=120, wait=0.5):
+    "Compare router JSON output"
+
+    # Regenerate reference data when the REGEN_DATA environment variable is set
+    if os.environ.get("REGEN_DATA") is not None:
+        regen_data(rname, command, step, file, count * wait)
+        return
+
+    tgen = get_topogen()
+    logger.info('Comparing router "%s" "%s" output', rname, command)
+    reference = open("{}/{}/step{}/{}".format(CWD, rname, step, file)).read()
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     expected = json.loads(reference)
 
     # Run test function until we get an result. Wait at most 60 seconds.
@@ -222,7 +409,12 @@ def test_isis_adjacencies_step1():
         router_compare_json_output(
             rname,
             "show yang operational-data /frr-interface:lib isisd",
+<<<<<<< HEAD
             outputs[rname][1]["show_yang_interface_isis_adjacencies.ref"],
+=======
+            1,
+            "show_yang_interface_isis_adjacencies.ref",
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         )
 
 
@@ -236,7 +428,11 @@ def test_rib_ipv4_step1():
 
     for rname in ["rt1", "rt2", "rt3", "rt4", "rt5", "rt6"]:
         router_compare_json_output(
+<<<<<<< HEAD
             rname, "show ip route isis json", outputs[rname][1]["show_ip_route.ref"]
+=======
+            rname, "show ip route isis json", 1, "show_ip_route.ref"
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         )
 
 
@@ -250,7 +446,11 @@ def test_rib_ipv6_step1():
 
     for rname in ["rt1", "rt2", "rt3", "rt4", "rt5", "rt6"]:
         router_compare_json_output(
+<<<<<<< HEAD
             rname, "show ipv6 route isis json", outputs[rname][1]["show_ipv6_route.ref"]
+=======
+            rname, "show ipv6 route isis json", 1, "show_ipv6_route.ref"
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         )
 
 
@@ -264,7 +464,11 @@ def test_mpls_lib_step1():
 
     for rname in ["rt1", "rt2", "rt3", "rt4", "rt5", "rt6"]:
         router_compare_json_output(
+<<<<<<< HEAD
             rname, "show mpls table json", outputs[rname][1]["show_mpls_table.ref"]
+=======
+            rname, "show mpls table json", 1, "show_mpls_table.ref"
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         )
 
 
@@ -292,7 +496,11 @@ def test_rib_ipv4_step2():
 
     for rname in ["rt1", "rt2", "rt3", "rt4", "rt5", "rt6"]:
         router_compare_json_output(
+<<<<<<< HEAD
             rname, "show ip route isis json", outputs[rname][2]["show_ip_route.ref"]
+=======
+            rname, "show ip route isis json", 2, "show_ip_route.ref"
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         )
 
 
@@ -306,7 +514,11 @@ def test_rib_ipv6_step2():
 
     for rname in ["rt1", "rt2", "rt3", "rt4", "rt5", "rt6"]:
         router_compare_json_output(
+<<<<<<< HEAD
             rname, "show ipv6 route isis json", outputs[rname][2]["show_ipv6_route.ref"]
+=======
+            rname, "show ipv6 route isis json", 2, "show_ipv6_route.ref"
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         )
 
 
@@ -320,7 +532,11 @@ def test_mpls_lib_step2():
 
     for rname in ["rt1", "rt2", "rt3", "rt4", "rt5", "rt6"]:
         router_compare_json_output(
+<<<<<<< HEAD
             rname, "show mpls table json", outputs[rname][2]["show_mpls_table.ref"]
+=======
+            rname, "show mpls table json", 2, "show_mpls_table.ref"
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         )
 
 
@@ -348,7 +564,11 @@ def test_rib_ipv4_step3():
 
     for rname in ["rt1", "rt2", "rt3", "rt4", "rt5", "rt6"]:
         router_compare_json_output(
+<<<<<<< HEAD
             rname, "show ip route isis json", outputs[rname][3]["show_ip_route.ref"]
+=======
+            rname, "show ip route isis json", 3, "show_ip_route.ref"
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         )
 
 
@@ -362,7 +582,11 @@ def test_rib_ipv6_step3():
 
     for rname in ["rt1", "rt2", "rt3", "rt4", "rt5", "rt6"]:
         router_compare_json_output(
+<<<<<<< HEAD
             rname, "show ipv6 route isis json", outputs[rname][3]["show_ipv6_route.ref"]
+=======
+            rname, "show ipv6 route isis json", 3, "show_ipv6_route.ref"
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         )
 
 
@@ -376,7 +600,11 @@ def test_mpls_lib_step3():
 
     for rname in ["rt1", "rt2", "rt3", "rt4", "rt5", "rt6"]:
         router_compare_json_output(
+<<<<<<< HEAD
             rname, "show mpls table json", outputs[rname][3]["show_mpls_table.ref"]
+=======
+            rname, "show mpls table json", 3, "show_mpls_table.ref"
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         )
 
 
@@ -409,7 +637,11 @@ def test_rib_ipv4_step4():
 
     for rname in ["rt1", "rt2", "rt3", "rt4", "rt5", "rt6"]:
         router_compare_json_output(
+<<<<<<< HEAD
             rname, "show ip route isis json", outputs[rname][4]["show_ip_route.ref"]
+=======
+            rname, "show ip route isis json", 4, "show_ip_route.ref"
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         )
 
 
@@ -423,7 +655,11 @@ def test_rib_ipv6_step4():
 
     for rname in ["rt1", "rt2", "rt3", "rt4", "rt5", "rt6"]:
         router_compare_json_output(
+<<<<<<< HEAD
             rname, "show ipv6 route isis json", outputs[rname][4]["show_ipv6_route.ref"]
+=======
+            rname, "show ipv6 route isis json", 4, "show_ipv6_route.ref"
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         )
 
 
@@ -437,7 +673,11 @@ def test_mpls_lib_step4():
 
     for rname in ["rt1", "rt2", "rt3", "rt4", "rt5", "rt6"]:
         router_compare_json_output(
+<<<<<<< HEAD
             rname, "show mpls table json", outputs[rname][4]["show_mpls_table.ref"]
+=======
+            rname, "show mpls table json", 4, "show_mpls_table.ref"
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         )
 
 
@@ -463,7 +703,11 @@ def test_rib_ipv4_step5():
 
     for rname in ["rt1", "rt2", "rt3", "rt4", "rt5", "rt6"]:
         router_compare_json_output(
+<<<<<<< HEAD
             rname, "show ip route isis json", outputs[rname][5]["show_ip_route.ref"]
+=======
+            rname, "show ip route isis json", 5, "show_ip_route.ref"
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         )
 
 
@@ -477,7 +721,11 @@ def test_rib_ipv6_step5():
 
     for rname in ["rt1", "rt2", "rt3", "rt4", "rt5", "rt6"]:
         router_compare_json_output(
+<<<<<<< HEAD
             rname, "show ipv6 route isis json", outputs[rname][5]["show_ipv6_route.ref"]
+=======
+            rname, "show ipv6 route isis json", 5, "show_ipv6_route.ref"
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         )
 
 
@@ -491,7 +739,11 @@ def test_mpls_lib_step5():
 
     for rname in ["rt1", "rt2", "rt3", "rt4", "rt5", "rt6"]:
         router_compare_json_output(
+<<<<<<< HEAD
             rname, "show mpls table json", outputs[rname][5]["show_mpls_table.ref"]
+=======
+            rname, "show mpls table json", 5, "show_mpls_table.ref"
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         )
 
 
@@ -519,7 +771,11 @@ def test_rib_ipv4_step6():
 
     for rname in ["rt1", "rt2", "rt3", "rt4", "rt5", "rt6"]:
         router_compare_json_output(
+<<<<<<< HEAD
             rname, "show ip route isis json", outputs[rname][6]["show_ip_route.ref"]
+=======
+            rname, "show ip route isis json", 6, "show_ip_route.ref"
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         )
 
 
@@ -533,7 +789,11 @@ def test_rib_ipv6_step6():
 
     for rname in ["rt1", "rt2", "rt3", "rt4", "rt5", "rt6"]:
         router_compare_json_output(
+<<<<<<< HEAD
             rname, "show ipv6 route isis json", outputs[rname][6]["show_ipv6_route.ref"]
+=======
+            rname, "show ipv6 route isis json", 6, "show_ipv6_route.ref"
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         )
 
 
@@ -547,7 +807,11 @@ def test_mpls_lib_step6():
 
     for rname in ["rt1", "rt2", "rt3", "rt4", "rt5", "rt6"]:
         router_compare_json_output(
+<<<<<<< HEAD
             rname, "show mpls table json", outputs[rname][6]["show_mpls_table.ref"]
+=======
+            rname, "show mpls table json", 6, "show_mpls_table.ref"
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         )
 
 
@@ -579,7 +843,11 @@ def test_rib_ipv4_step7():
 
     for rname in ["rt1", "rt2", "rt3", "rt4", "rt5", "rt6"]:
         router_compare_json_output(
+<<<<<<< HEAD
             rname, "show ip route isis json", outputs[rname][7]["show_ip_route.ref"]
+=======
+            rname, "show ip route isis json", 7, "show_ip_route.ref"
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         )
 
 
@@ -593,7 +861,11 @@ def test_rib_ipv6_step7():
 
     for rname in ["rt1", "rt2", "rt3", "rt4", "rt5", "rt6"]:
         router_compare_json_output(
+<<<<<<< HEAD
             rname, "show ipv6 route isis json", outputs[rname][7]["show_ipv6_route.ref"]
+=======
+            rname, "show ipv6 route isis json", 7, "show_ipv6_route.ref"
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         )
 
 
@@ -607,7 +879,11 @@ def test_mpls_lib_step7():
 
     for rname in ["rt1", "rt2", "rt3", "rt4", "rt5", "rt6"]:
         router_compare_json_output(
+<<<<<<< HEAD
             rname, "show mpls table json", outputs[rname][7]["show_mpls_table.ref"]
+=======
+            rname, "show mpls table json", 7, "show_mpls_table.ref"
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         )
 
 
@@ -638,7 +914,11 @@ def test_rib_ipv4_step8():
 
     for rname in ["rt1", "rt2", "rt3", "rt4", "rt5", "rt6"]:
         router_compare_json_output(
+<<<<<<< HEAD
             rname, "show ip route isis json", outputs[rname][8]["show_ip_route.ref"]
+=======
+            rname, "show ip route isis json", 8, "show_ip_route.ref"
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         )
 
 
@@ -652,7 +932,11 @@ def test_rib_ipv6_step8():
 
     for rname in ["rt1", "rt2", "rt3", "rt4", "rt5", "rt6"]:
         router_compare_json_output(
+<<<<<<< HEAD
             rname, "show ipv6 route isis json", outputs[rname][8]["show_ipv6_route.ref"]
+=======
+            rname, "show ipv6 route isis json", 8, "show_ipv6_route.ref"
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         )
 
 
@@ -666,7 +950,11 @@ def test_mpls_lib_step8():
 
     for rname in ["rt1", "rt2", "rt3", "rt4", "rt5", "rt6"]:
         router_compare_json_output(
+<<<<<<< HEAD
             rname, "show mpls table json", outputs[rname][8]["show_mpls_table.ref"]
+=======
+            rname, "show mpls table json", 8, "show_mpls_table.ref"
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         )
 
 
@@ -698,7 +986,11 @@ def test_rib_ipv4_step9():
 
     for rname in ["rt1", "rt2", "rt3", "rt4", "rt5", "rt6"]:
         router_compare_json_output(
+<<<<<<< HEAD
             rname, "show ip route isis json", outputs[rname][9]["show_ip_route.ref"]
+=======
+            rname, "show ip route isis json", 9, "show_ip_route.ref"
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         )
 
 
@@ -712,7 +1004,11 @@ def test_rib_ipv6_step9():
 
     for rname in ["rt1", "rt2", "rt3", "rt4", "rt5", "rt6"]:
         router_compare_json_output(
+<<<<<<< HEAD
             rname, "show ipv6 route isis json", outputs[rname][9]["show_ipv6_route.ref"]
+=======
+            rname, "show ipv6 route isis json", 9, "show_ipv6_route.ref"
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         )
 
 
@@ -726,7 +1022,11 @@ def test_mpls_lib_step9():
 
     for rname in ["rt1", "rt2", "rt3", "rt4", "rt5", "rt6"]:
         router_compare_json_output(
+<<<<<<< HEAD
             rname, "show mpls table json", outputs[rname][9]["show_mpls_table.ref"]
+=======
+            rname, "show mpls table json", 9, "show_mpls_table.ref"
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         )
 
 
@@ -734,11 +1034,25 @@ def test_mpls_lib_step9():
 # Step 10
 #
 # Action(s):
+<<<<<<< HEAD
 # - Setting spf-delay-ietf init-delay of 15s
 #
 # Expected changes:
 # - No routing table change
 # - At the end of test, SPF reacts to a failure in 15s
+=======
+# - Enable ISIS BFD between rt5 and rt6
+# - Verify that the BFD session is up
+# - Configure an SPF delay-ietf initial delay of 60 seconds on both rt5 and rt6
+# - Shut down the eth-rt5 interface on rt6 from the switch side to test fast-reroute
+#
+# Expected changes:
+# - Verify that the BFD session is down
+# - Routes should switch over to use alternate paths
+#   - On rt5, the switchover should be triggered by the link down event
+#   - On rt6, the switchover should be triggered by the BFD down event, since it has
+#     link-detect disabled on the eth-rt5 interface
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 #
 def test_rib_ipv4_step10():
     logger.info("Test (step 10): verify IPv4 RIB")
@@ -748,6 +1062,7 @@ def test_rib_ipv4_step10():
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
+<<<<<<< HEAD
     logger.info("Setting spf-delay-ietf init-delay of 15s")
     tgen.net["rt6"].cmd(
         'vtysh -c "conf t" -c "router isis 1" -c "spf-delay-ietf init-delay 15000 short-delay 0 long-delay 0 holddown 0 time-to-learn 0"'
@@ -756,6 +1071,40 @@ def test_rib_ipv4_step10():
     for rname in ["rt1", "rt2", "rt3", "rt4", "rt5", "rt6"]:
         router_compare_json_output(
             rname, "show ip route isis json", outputs[rname][10]["show_ip_route.ref"]
+=======
+    logger.info("Enabling ISIS BFD between rt5 and rt6")
+    tgen.net["rt5"].cmd('vtysh -c "conf t" -c "int eth-rt6" -c "isis bfd"')
+    tgen.net["rt6"].cmd('vtysh -c "conf t" -c "int eth-rt5" -c "isis bfd"')
+
+    logger.info("Checking if the BFD session is up")
+    expect = '{"multihop":false,"peer":"10.0.8.5","interface":"eth-rt5","status":"up"}'
+    router_compare_json_output(
+        "rt6", "show bfd peer 10.0.8.5 json", 10, "show_bfd_peer_up.ref"
+    )
+
+    logger.info("Setting SPF delay-ietf initial delay to 60 seconds")
+    for rname in ["rt5", "rt6"]:
+        tgen.net[rname].cmd(
+            'vtysh -c "conf t" -c "router isis 1" -c "spf-delay-ietf init-delay 60000 short-delay 0 long-delay 0 holddown 0 time-to-learn 0"'
+        )
+
+    logger.info(
+        "Shutting down rt5 interface to rt6 from the switch side to test fast-reroute"
+    )
+    tgen.net.cmd_raises("ip link set %s down" % tgen.net["s8"].intfs[0])
+
+    logger.info("Verifying if the BFD session is down")
+    expect = (
+        '{"multihop":false,"peer":"10.0.8.5","interface":"eth-rt5","status":"down"}'
+    )
+    router_compare_json_output(
+        "rt6", "show bfd peer 10.0.8.5 json", 10, "show_bfd_peer_down.ref"
+    )
+
+    for rname in ["rt5", "rt6"]:
+        router_compare_json_output(
+            rname, "show ip route isis json", 10, "show_ip_route.ref"
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         )
 
 
@@ -767,11 +1116,20 @@ def test_rib_ipv6_step10():
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
+<<<<<<< HEAD
     for rname in ["rt1", "rt2", "rt3", "rt4", "rt5", "rt6"]:
         router_compare_json_output(
             rname,
             "show ipv6 route isis json",
             outputs[rname][10]["show_ipv6_route.ref"],
+=======
+    for rname in ["rt5", "rt6"]:
+        router_compare_json_output(
+            rname,
+            "show ipv6 route isis json",
+            10,
+            "show_ipv6_route.ref",
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         )
 
 
@@ -783,6 +1141,7 @@ def test_mpls_lib_step10():
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
+<<<<<<< HEAD
     for rname in ["rt1", "rt2", "rt3", "rt4", "rt5", "rt6"]:
         router_compare_json_output(
             rname, "show mpls table json", outputs[rname][10]["show_mpls_table.ref"]
@@ -1095,6 +1454,11 @@ def test_mpls_lib_step15():
             rname,
             "show mpls table json",
             outputs[rname][12]["show_mpls_table.ref"],
+=======
+    for rname in ["rt5", "rt6"]:
+        router_compare_json_output(
+            rname, "show mpls table json", 10, "show_mpls_table.ref"
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         )
 
 

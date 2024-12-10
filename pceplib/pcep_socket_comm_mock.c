@@ -115,7 +115,11 @@ bool initialize_socket_comm_external_infra(
 	return true;
 }
 
+<<<<<<< HEAD
 bool destroy_socket_comm_loop()
+=======
+bool destroy_socket_comm_loop(void)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 {
 	mock_socket_metadata.destroy_socket_comm_loop_times_called++;
 

@@ -7,9 +7,16 @@
 #define _BGP_NHT_H
 
 /**
+<<<<<<< HEAD
  * bgp_parse_nexthop_update() - parse a nexthop update message from Zebra.
  */
 extern void bgp_parse_nexthop_update(int command, vrf_id_t vrf_id);
+=======
+ * bgp_nexthop_update() - process a nexthop update message from Zebra.
+ */
+extern void bgp_nexthop_update(struct vrf *vrf, struct prefix *match,
+			       struct zapi_route *nhr);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 /**
  * bgp_find_or_add_nexthop() - lookup the nexthop cache table for the bnc
@@ -78,12 +85,15 @@ extern void bgp_nht_reg_enhe_cap_intfs(struct peer *peer);
 extern void bgp_nht_dereg_enhe_cap_intfs(struct peer *peer);
 extern void evaluate_paths(struct bgp_nexthop_cache *bnc);
 
+<<<<<<< HEAD
 /* APIs for setting up and allocating L3 nexthop group ids */
 extern uint32_t bgp_l3nhg_id_alloc(void);
 extern void bgp_l3nhg_id_free(uint32_t nhg_id);
 extern void bgp_l3nhg_init(void);
 void bgp_l3nhg_finish(void);
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 extern void bgp_nht_ifp_up(struct interface *ifp);
 extern void bgp_nht_ifp_down(struct interface *ifp);
 
