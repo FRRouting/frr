@@ -89,6 +89,14 @@ enum pim_msdp_peer_flags {
 	PIM_MSDP_PEERF_IN_GROUP = (1 << 2),
 };
 
+<<<<<<< HEAD
+=======
+enum msdp_auth_type {
+	MSDP_AUTH_NONE = 0,
+	MSDP_AUTH_MD5 = 1,
+};
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 struct pim_msdp_peer {
 	struct pim_instance *pim;
 
@@ -98,13 +106,26 @@ struct pim_msdp_peer {
 	char *mesh_group_name;
 	char key_str[INET_ADDRSTRLEN];
 
+<<<<<<< HEAD
+=======
+	/* Authentication data. */
+	enum msdp_auth_type auth_type;
+	char *auth_key;
+
+	int auth_listen_sock;
+	struct event *auth_listen_ev;
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	/* state */
 	enum pim_msdp_peer_state state;
 	enum pim_msdp_peer_flags flags;
 
+<<<<<<< HEAD
 	/* TCP socket info */
 	union sockunion su_local;
 	union sockunion su_peer;
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	int fd;
 
 /* protocol timers */
@@ -138,6 +159,14 @@ struct pim_msdp_peer {
 
 	/* timestamps */
 	int64_t uptime;
+<<<<<<< HEAD
+=======
+
+	/** SA input access list name. */
+	char *acl_in;
+	/** SA output access list name. */
+	char *acl_out;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 };
 
 struct pim_msdp_mg_mbr {
@@ -151,6 +180,10 @@ struct pim_msdp_mg {
 	struct in_addr src_ip;
 	uint32_t mbr_cnt;
 	struct list *mbr_list;
+<<<<<<< HEAD
+=======
+	struct pim_instance *pim;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	/** Belongs to PIM instance list. */
 	SLIST_ENTRY(pim_msdp_mg) mg_entry;
@@ -201,6 +234,12 @@ struct pim_msdp {
 	uint32_t keep_alive;
 	/** MSDP global connection retry period. */
 	uint32_t connection_retry;
+<<<<<<< HEAD
+=======
+
+	/** MSDP operation state. */
+	bool shutdown;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 };
 
 #define PIM_MSDP_PEER_READ_ON(mp)                                              \
@@ -221,17 +260,26 @@ void pim_msdp_init(struct pim_instance *pim, struct event_loop *master);
 void pim_msdp_exit(struct pim_instance *pim);
 char *pim_msdp_state_dump(enum pim_msdp_peer_state state, char *buf,
 			  int buf_size);
+<<<<<<< HEAD
 struct pim_msdp_peer *pim_msdp_peer_find(struct pim_instance *pim,
 					 struct in_addr peer_addr);
+=======
+struct pim_msdp_peer *pim_msdp_peer_find(const struct pim_instance *pim, struct in_addr peer_addr);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 void pim_msdp_peer_established(struct pim_msdp_peer *mp);
 void pim_msdp_peer_pkt_rxed(struct pim_msdp_peer *mp);
 void pim_msdp_peer_stop_tcp_conn(struct pim_msdp_peer *mp, bool chg_state);
 void pim_msdp_peer_reset_tcp_conn(struct pim_msdp_peer *mp, const char *rc_str);
 void pim_msdp_write(struct event *thread);
+<<<<<<< HEAD
 int pim_msdp_config_write(struct pim_instance *pim, struct vty *vty,
 			  const char *spaces);
 bool pim_msdp_peer_config_write(struct vty *vty, struct pim_instance *pim,
 				const char *spaces);
+=======
+int pim_msdp_config_write(struct pim_instance *pim, struct vty *vty);
+bool pim_msdp_peer_config_write(struct vty *vty, struct pim_instance *pim);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 void pim_msdp_peer_pkt_txed(struct pim_msdp_peer *mp);
 void pim_msdp_sa_ref(struct pim_instance *pim, struct pim_msdp_peer *mp,
 		     pim_sgaddr *sg, struct in_addr rp);
@@ -306,6 +354,26 @@ void pim_msdp_peer_del(struct pim_msdp_peer **mp);
 void pim_msdp_peer_change_source(struct pim_msdp_peer *mp,
 				 const struct in_addr *addr);
 
+<<<<<<< HEAD
+=======
+/**
+ * Restart peer's connection.
+ *
+ * This is used internally in MSDP and should be used by northbound
+ * when wanting to immediately apply connections settings such as
+ * authentication.
+ */
+void pim_msdp_peer_restart(struct pim_msdp_peer *mp);
+
+/**
+ * Toggle MSDP functionality administrative state.
+ *
+ * \param pim PIM instance we want to shutdown.
+ * \param state shutdown state.
+ */
+void pim_msdp_shutdown(struct pim_instance *pim, bool state);
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 #else /* PIM_IPV == 6 */
 static inline void pim_msdp_init(struct pim_instance *pim,
 				 struct event_loop *master)
@@ -339,17 +407,32 @@ static inline void pim_msdp_sa_local_del(struct pim_instance *pim,
 }
 
 static inline int pim_msdp_config_write(struct pim_instance *pim,
+<<<<<<< HEAD
 					struct vty *vty, const char *spaces)
+=======
+					struct vty *vty)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 {
 	return 0;
 }
 
 static inline bool pim_msdp_peer_config_write(struct vty *vty,
+<<<<<<< HEAD
 					      struct pim_instance *pim,
 					      const char *spaces)
 {
 	return false;
 }
+=======
+					      struct pim_instance *pim)
+{
+	return false;
+}
+
+static inline void pim_msdp_shutdown(struct pim_instance *pim, bool state)
+{
+}
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 #endif /* PIM_IPV == 6 */
 
 #endif

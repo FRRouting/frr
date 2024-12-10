@@ -20,7 +20,10 @@ import pytest
 from functools import partial
 from lib import topotest
 from lib.topogen import Topogen, TopoRouter
+<<<<<<< HEAD
 from lib.topolog import logger
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 pytestmark = [
     pytest.mark.bfdd,

@@ -285,7 +285,11 @@ static void run_server(int syncfd)
 	zmq_close(zmqsock);
 	frrzmq_finish();
 	event_master_free(master);
+<<<<<<< HEAD
 	log_memstats_stderr("test");
+=======
+	log_memstats(NULL, true);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 }
 
 int main(void)

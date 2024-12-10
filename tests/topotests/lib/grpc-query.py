@@ -40,7 +40,10 @@ try:
 
     try:
         sys.path[0:0] = [tmpdir]
+<<<<<<< HEAD
         print(sys.path)
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         import frr_northbound_pb2
         import frr_northbound_pb2_grpc
 

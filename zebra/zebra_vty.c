@@ -370,7 +370,11 @@ static void show_nexthop_detail_helper(struct vty *vty,
 		break;
 	}
 
+<<<<<<< HEAD
 	if (re->vrf_id != nexthop->vrf_id) {
+=======
+	if (re->vrf_id != nexthop->vrf_id && nexthop->type != NEXTHOP_TYPE_BLACKHOLE) {
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		struct vrf *vrf = vrf_lookup_by_id(nexthop->vrf_id);
 
 		vty_out(vty, "(vrf %s)", VRF_LOGNAME(vrf));
@@ -858,6 +862,30 @@ static void vty_show_ip_route_detail_json(struct vty *vty,
 	vty_json(vty, json);
 }
 
+<<<<<<< HEAD
+=======
+static void zebra_vty_display_vrf_header(struct vty *vty, struct zebra_vrf *zvrf, uint32_t tableid)
+{
+	if (!tableid)
+		vty_out(vty, "VRF %s:\n", zvrf_name(zvrf));
+	else {
+		if (vrf_is_backend_netns())
+			vty_out(vty, "VRF %s table %u:\n", zvrf_name(zvrf), tableid);
+		else {
+			vrf_id_t vrf = zebra_vrf_lookup_by_table(tableid, zvrf->zns->ns_id);
+
+			if (vrf == VRF_DEFAULT && tableid != RT_TABLE_ID_MAIN)
+				vty_out(vty, "table %u:\n", tableid);
+			else {
+				struct zebra_vrf *zvrf2 = zebra_vrf_lookup_by_id(vrf);
+
+				vty_out(vty, "VRF %s table %u:\n", zvrf_name(zvrf2), tableid);
+			}
+		}
+	}
+}
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 static void do_show_route_helper(struct vty *vty, struct zebra_vrf *zvrf,
 				 struct route_table *table, afi_t afi,
 				 bool use_fib, route_tag_t tag,
@@ -891,6 +919,12 @@ static void do_show_route_helper(struct vty *vty, struct zebra_vrf *zvrf,
 	for (rn = route_top(table); rn; rn = srcdest_route_next(rn)) {
 		dest = rib_dest_from_rnode(rn);
 
+<<<<<<< HEAD
+=======
+		if (longer_prefix_p && !prefix_match(longer_prefix_p, &rn->p))
+			continue;
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		RNODE_FOREACH_RE (rn, re) {
 			if (use_fib && re != dest->selected_fib)
 				continue;
@@ -898,10 +932,13 @@ static void do_show_route_helper(struct vty *vty, struct zebra_vrf *zvrf,
 			if (tag && re->tag != tag)
 				continue;
 
+<<<<<<< HEAD
 			if (longer_prefix_p
 			    && !prefix_match(longer_prefix_p, &rn->p))
 				continue;
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			/* This can only be true when the afi is IPv4 */
 			if (supernets_only) {
 				addr = ntohl(rn->p.u.prefix4.s_addr);
@@ -938,6 +975,7 @@ static void do_show_route_helper(struct vty *vty, struct zebra_vrf *zvrf,
 				}
 				if (ctx->multi && ctx->header_done)
 					vty_out(vty, "\n");
+<<<<<<< HEAD
 				if (ctx->multi || zvrf_id(zvrf) != VRF_DEFAULT
 				    || tableid) {
 					if (!tableid)
@@ -949,6 +987,11 @@ static void do_show_route_helper(struct vty *vty, struct zebra_vrf *zvrf,
 							zvrf_name(zvrf),
 							tableid);
 				}
+=======
+				if (ctx->multi || zvrf_id(zvrf) != VRF_DEFAULT || tableid)
+					zebra_vty_display_vrf_header(vty, zvrf, tableid);
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 				ctx->header_done = true;
 				first = 0;
 			}
@@ -1196,6 +1239,10 @@ static void show_nexthop_group_out(struct vty *vty, struct nhg_hash_entry *nhe,
 		json_object_string_add(json, "uptime", up_str);
 		json_object_string_add(json, "vrf",
 				       vrf_id_to_name(nhe->vrf_id));
+<<<<<<< HEAD
+=======
+		json_object_string_add(json, "afi", afi2str(nhe->afi));
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	} else {
 		vty_out(vty, "ID: %u (%s)\n", nhe->id,
@@ -1209,7 +1256,12 @@ static void show_nexthop_group_out(struct vty *vty, struct nhg_hash_entry *nhe,
 		vty_out(vty, "\n");
 
 		vty_out(vty, "     Uptime: %s\n", up_str);
+<<<<<<< HEAD
 		vty_out(vty, "     VRF: %s\n", vrf_id_to_name(nhe->vrf_id));
+=======
+		vty_out(vty, "     VRF: %s(%s)\n", vrf_id_to_name(nhe->vrf_id),
+			afi2str(nhe->afi));
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	}
 
 	if (CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_VALID)) {
@@ -1229,6 +1281,16 @@ static void show_nexthop_group_out(struct vty *vty, struct nhg_hash_entry *nhe,
 			else
 				vty_out(vty, ", Installed");
 		}
+<<<<<<< HEAD
+=======
+		if (CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_INITIAL_DELAY_INSTALL)) {
+			if (json)
+				json_object_boolean_true_add(json,
+							     "initialDelay");
+			else
+				vty_out(vty, ", Initial Delay");
+		}
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		if (!json)
 			vty_out(vty, "\n");
 	}
@@ -3586,17 +3648,28 @@ static int zebra_ip_config(struct vty *vty)
 	return write;
 }
 
+<<<<<<< HEAD
 DEFUN (ip_zebra_import_table_distance,
        ip_zebra_import_table_distance_cmd,
        "ip import-table (1-252) [distance (1-255)] [route-map RMAP_NAME]",
        IP_STR
        "import routes from non-main kernel table\n"
        "kernel routing table id\n"
+=======
+DEFPY (ip_zebra_import_table_distance,
+       ip_zebra_import_table_distance_cmd,
+       "ip import-table (1-252)$table_id [mrib]$mrib [distance (1-255)$distance] [route-map RMAP_NAME$rmap]",
+       IP_STR
+       "import routes from non-main kernel table\n"
+       "kernel routing table id\n"
+	   "Import into the MRIB instead of the URIB\n"
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
        "Distance for imported routes\n"
        "Default distance value\n"
        "route-map for filtering\n"
        "route-map name\n")
 {
+<<<<<<< HEAD
 	uint32_t table_id = 0;
 
 	table_id = strtoul(argv[2]->arg, NULL, 10);
@@ -3616,10 +3689,20 @@ DEFUN (ip_zebra_import_table_distance,
 			table_id);
 		if (rmap)
 			XFREE(MTYPE_ROUTE_MAP_NAME, rmap);
+=======
+	safi_t safi = mrib ? SAFI_MULTICAST : SAFI_UNICAST;
+
+	if (distance_str == NULL)
+		distance = ZEBRA_TABLE_DISTANCE_DEFAULT;
+
+	if (!is_zebra_valid_kernel_table(table_id)) {
+		vty_out(vty, "Invalid routing table ID, %ld. Must be in range 1-252\n", table_id);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		return CMD_WARNING;
 	}
 
 	if (is_zebra_main_routing_table(table_id)) {
+<<<<<<< HEAD
 		vty_out(vty,
 			"Invalid routing table ID, %d. Must be non-default table\n",
 			table_id);
@@ -3634,6 +3717,13 @@ DEFUN (ip_zebra_import_table_distance,
 		XFREE(MTYPE_ROUTE_MAP_NAME, rmap);
 
 	return ret;
+=======
+		vty_out(vty, "Invalid routing table ID, %ld. Must be non-default table\n", table_id);
+		return CMD_WARNING;
+	}
+
+	return zebra_import_table(AFI_IP, safi, VRF_DEFAULT, table_id, distance, rmap, true);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 }
 
 DEFUN_HIDDEN (zebra_packet_process,
@@ -3692,20 +3782,34 @@ DEFUN_HIDDEN (no_zebra_workqueue_timer,
 	return CMD_SUCCESS;
 }
 
+<<<<<<< HEAD
 DEFUN (no_ip_zebra_import_table,
        no_ip_zebra_import_table_cmd,
        "no ip import-table (1-252) [distance (1-255)] [route-map NAME]",
+=======
+DEFPY (no_ip_zebra_import_table,
+       no_ip_zebra_import_table_cmd,
+       "no ip import-table (1-252)$table_id [mrib]$mrib [distance (1-255)] [route-map NAME]",
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
        NO_STR
        IP_STR
        "import routes from non-main kernel table\n"
        "kernel routing table id\n"
+<<<<<<< HEAD
+=======
+	   "Import into the MRIB instead of the URIB\n"
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
        "Distance for imported routes\n"
        "Default distance value\n"
        "route-map for filtering\n"
        "route-map name\n")
 {
+<<<<<<< HEAD
 	uint32_t table_id = 0;
 	table_id = strtoul(argv[3]->arg, NULL, 10);
+=======
+	safi_t safi = mrib ? SAFI_MULTICAST : SAFI_UNICAST;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	if (!is_zebra_valid_kernel_table(table_id)) {
 		vty_out(vty,
@@ -3714,6 +3818,7 @@ DEFUN (no_ip_zebra_import_table,
 	}
 
 	if (is_zebra_main_routing_table(table_id)) {
+<<<<<<< HEAD
 		vty_out(vty,
 			"Invalid routing table ID, %d. Must be non-default table\n",
 			table_id);
@@ -3724,6 +3829,16 @@ DEFUN (no_ip_zebra_import_table,
 		return CMD_SUCCESS;
 
 	return (zebra_import_table(AFI_IP, VRF_DEFAULT, table_id, 0, NULL, 0));
+=======
+		vty_out(vty, "Invalid routing table ID, %ld. Must be non-default table\n", table_id);
+		return CMD_WARNING;
+	}
+
+	if (!is_zebra_import_table_enabled(AFI_IP, safi, VRF_DEFAULT, table_id))
+		return CMD_SUCCESS;
+
+	return (zebra_import_table(AFI_IP, safi, VRF_DEFAULT, table_id, 0, NULL, false));
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 }
 
 DEFPY (zebra_nexthop_group_keep,
@@ -3829,6 +3944,23 @@ DEFUN (show_zebra,
 	struct vrf *vrf;
 	struct ttable *table = ttable_new(&ttable_styles[TTSTYLE_BLANK]);
 	char *out;
+<<<<<<< HEAD
+=======
+	char timebuf[MONOTIME_STRLEN];
+
+	time_to_string(zrouter.startup_time, timebuf);
+	vty_out(vty, "Zebra started%s at time %s",
+		zrouter.graceful_restart ? " gracefully" : "", timebuf);
+
+	if (zrouter.t_rib_sweep)
+		vty_out(vty,
+			"Zebra RIB sweep timer running, remaining time %lds\n",
+			event_timer_remain_second(zrouter.t_rib_sweep));
+	else {
+		time_to_string(zrouter.rib_sweep_time, timebuf);
+		vty_out(vty, "Zebra RIB sweep happened at %s", timebuf);
+	}
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	ttable_rowseps(table, 0, BOTTOM, true, '-');
 	ttable_add_row(table, "OS|%s(%s)", cmd_system_get(), cmd_release_get());
@@ -3899,7 +4031,11 @@ DEFUN (show_zebra,
 
 	out = ttable_dump(table, "\n");
 	vty_out(vty, "%s\n", out);
+<<<<<<< HEAD
 	XFREE(MTYPE_TMP, out);
+=======
+	XFREE(MTYPE_TMP_TTABLE, out);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	ttable_del(table);
 	vty_out(vty,
@@ -4133,12 +4269,15 @@ DEFUN (zebra_show_routing_tables_summary,
 	return CMD_SUCCESS;
 }
 
+<<<<<<< HEAD
 /* Table configuration write function. */
 static int config_write_table(struct vty *vty)
 {
 	return 0;
 }
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 /* IPForwarding configuration write function. */
 static int config_write_forwarding(struct vty *vty)
 {
@@ -4315,6 +4454,7 @@ static struct cmd_node protocol_node = {
 	.prompt = "",
 	.config_write = config_write_protocol,
 };
+<<<<<<< HEAD
 /* table node for routing tables. */
 static int config_write_table(struct vty *vty);
 static struct cmd_node table_node = {
@@ -4323,6 +4463,8 @@ static struct cmd_node table_node = {
 	.prompt = "",
 	.config_write = config_write_table,
 };
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 static int config_write_forwarding(struct vty *vty);
 static struct cmd_node forwarding_node = {
 	.name = "forwarding",
@@ -4335,7 +4477,10 @@ static struct cmd_node forwarding_node = {
 void zebra_vty_init(void)
 {
 	/* Install configuration write function. */
+<<<<<<< HEAD
 	install_node(&table_node);
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	install_node(&forwarding_node);
 
 	install_element(VIEW_NODE, &show_ip_forwarding_cmd);

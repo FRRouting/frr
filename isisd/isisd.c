@@ -176,6 +176,14 @@ void isis_master_init(struct event_loop *master)
 	im->master = master;
 }
 
+<<<<<<< HEAD
+=======
+void isis_master_terminate(void)
+{
+	list_delete(&im->isis);
+}
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 struct isis *isis_new(const char *vrf_name)
 {
 	struct vrf *vrf;
@@ -272,7 +280,11 @@ void isis_area_del_circuit(struct isis_area *area, struct isis_circuit *circuit)
 	isis_csm_state_change(ISIS_DISABLE, circuit, area);
 }
 
+<<<<<<< HEAD
 static void delete_area_addr(void *arg)
+=======
+void isis_area_address_delete(void *arg)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 {
 	struct iso_address *addr = (struct iso_address *)arg;
 
@@ -330,7 +342,11 @@ struct isis_area *isis_area_create(const char *area_tag, const char *vrf_name)
 	area->circuit_list = list_new();
 	area->adjacency_list = list_new();
 	area->area_addrs = list_new();
+<<<<<<< HEAD
 	area->area_addrs->del = delete_area_addr;
+=======
+	area->area_addrs->del = isis_area_address_delete;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	if (!CHECK_FLAG(im->options, F_ISIS_UNIT_TEST))
 		event_add_timer(master, lsp_tick, area, 1, &area->t_tick);
@@ -471,6 +487,32 @@ struct isis_area *isis_area_lookup(const char *area_tag, vrf_id_t vrf_id)
 	return NULL;
 }
 
+<<<<<<< HEAD
+=======
+struct isis_area *isis_area_lookup_by_sysid(const uint8_t *sysid)
+{
+	struct isis_area *area;
+	struct listnode *node;
+	struct isis *isis;
+	struct iso_address *addr = NULL;
+
+	isis = isis_lookup_by_sysid(sysid);
+	if (isis == NULL)
+		return NULL;
+
+	for (ALL_LIST_ELEMENTS_RO(isis->area_list, node, area)) {
+		if (listcount(area->area_addrs) > 0) {
+			addr = listgetdata(listhead(area->area_addrs));
+			if (!memcmp(addr->area_addr + addr->addr_len, sysid,
+				    ISIS_SYS_ID_LEN))
+				return area;
+			}
+		}
+
+	return NULL;
+}
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 int isis_area_get(struct vty *vty, const char *area_tag)
 {
 	struct isis_area *area;
@@ -496,6 +538,10 @@ void isis_area_destroy(struct isis_area *area)
 {
 	struct listnode *node, *nnode;
 	struct isis_circuit *circuit;
+<<<<<<< HEAD
+=======
+	struct iso_address *addr;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	QOBJ_UNREG(area);
 
@@ -545,6 +591,18 @@ void isis_area_destroy(struct isis_area *area)
 	if (!CHECK_FLAG(im->options, F_ISIS_UNIT_TEST))
 		isis_redist_area_finish(area);
 
+<<<<<<< HEAD
+=======
+	if (listcount(area->area_addrs) > 0) {
+		addr = listgetdata(listhead(area->area_addrs));
+		if (!memcmp(addr->area_addr + addr->addr_len, area->isis->sysid,
+			    ISIS_SYS_ID_LEN)) {
+			memset(area->isis->sysid, 0, ISIS_SYS_ID_LEN);
+			area->isis->sysid_set = 0;
+		}
+	}
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	list_delete(&area->area_addrs);
 
 	for (int i = SPF_PREFIX_PRIO_CRITICAL; i <= SPF_PREFIX_PRIO_MEDIUM;
@@ -2328,35 +2386,59 @@ static void common_isis_summary_json(struct json_object *json,
 				     struct isis *isis)
 {
 	int level;
+<<<<<<< HEAD
 	json_object *areas_json, *area_json, *tx_pdu_json, *rx_pdu_json,
 		*levels_json, *level_json;
+=======
+	json_object *vrf_json, *areas_json, *area_json, *tx_pdu_json, *rx_pdu_json, *levels_json,
+		*level_json;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	struct listnode *node, *node2;
 	struct isis_area *area;
 	time_t cur;
 	char uptime[MONOTIME_STRLEN];
 	char stier[5];
 
+<<<<<<< HEAD
 	json_object_string_add(json, "vrf", isis->name);
 	json_object_int_add(json, "process-id", isis->process_id);
 	if (isis->sysid_set)
 		json_object_string_addf(json, "system-id", "%pSY", isis->sysid);
+=======
+	vrf_json = json_object_new_object();
+	json_object_string_add(vrf_json, "vrf", isis->name);
+	json_object_int_add(vrf_json, "process-id", isis->process_id);
+	if (isis->sysid_set)
+		json_object_string_addf(vrf_json, "system-id", "%pSY", isis->sysid);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	cur = time(NULL);
 	cur -= isis->uptime;
 	frrtime_to_interval(cur, uptime, sizeof(uptime));
+<<<<<<< HEAD
 	json_object_string_add(json, "up-time", uptime);
 	if (isis->area_list)
 		json_object_int_add(json, "number-areas",
 				    isis->area_list->count);
 	areas_json = json_object_new_array();
 	json_object_object_add(json, "areas", areas_json);
+=======
+	json_object_string_add(vrf_json, "up-time", uptime);
+	if (isis->area_list)
+		json_object_int_add(vrf_json, "number-areas", isis->area_list->count);
+	areas_json = json_object_new_array();
+	json_object_object_add(vrf_json, "areas", areas_json);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	for (ALL_LIST_ELEMENTS_RO(isis->area_list, node, area)) {
 		area_json = json_object_new_object();
 		json_object_string_add(area_json, "area",
 				       area->area_tag ? area->area_tag
 						      : "null");
 
+<<<<<<< HEAD
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		if (fabricd) {
 			uint8_t tier = fabricd_tier(area);
 			snprintfrr(stier, sizeof(stier), "%s", &tier);
@@ -2433,6 +2515,10 @@ static void common_isis_summary_json(struct json_object *json,
 		}
 		json_object_array_add(areas_json, area_json);
 	}
+<<<<<<< HEAD
+=======
+	json_object_array_add(json, vrf_json);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 }
 
 static void common_isis_summary_vty(struct vty *vty, struct isis *isis)
@@ -2535,6 +2621,7 @@ static void common_isis_summary_vty(struct vty *vty, struct isis *isis)
 	}
 }
 
+<<<<<<< HEAD
 static void common_isis_summary(struct vty *vty, struct json_object *json,
 				struct isis *isis)
 {
@@ -2542,6 +2629,29 @@ static void common_isis_summary(struct vty *vty, struct json_object *json,
 		common_isis_summary_json(json, isis);
 	} else {
 		common_isis_summary_vty(vty, isis);
+=======
+static void common_isis_summary(struct vty *vty, struct json_object *json, const char *vrf_name,
+				bool all_vrf)
+{
+	struct listnode *node;
+	struct isis *isis;
+
+	if (all_vrf) {
+		for (ALL_LIST_ELEMENTS_RO(im->isis, node, isis)) {
+			if (json)
+				common_isis_summary_json(json, isis);
+			else
+				common_isis_summary_vty(vty, isis);
+		}
+	} else {
+		isis = isis_lookup_by_vrfname(vrf_name);
+		if (isis != NULL) {
+			if (json)
+				common_isis_summary_json(json, isis);
+			else
+				common_isis_summary_vty(vty, isis);
+		}
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	}
 }
 
@@ -2552,6 +2662,7 @@ DEFUN(show_isis_summary, show_isis_summary_cmd,
        "json output\n"
       "summary\n")
 {
+<<<<<<< HEAD
 	struct listnode *node;
 	int idx_vrf = 0;
 	struct isis *isis;
@@ -2559,12 +2670,20 @@ DEFUN(show_isis_summary, show_isis_summary_cmd,
 	bool all_vrf = false;
 	bool uj = use_json(argc, argv);
 	json_object *json = NULL;
+=======
+	int idx_vrf = 0;
+	const char *vrf_name = VRF_DEFAULT_NAME;
+	bool all_vrf = false;
+	bool uj = use_json(argc, argv);
+	json_object *json = NULL, *vrfs_json = NULL;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	ISIS_FIND_VRF_ARGS(argv, argc, idx_vrf, vrf_name, all_vrf)
 	if (!im) {
 		vty_out(vty, PROTO_NAME " is not running\n");
 		return CMD_SUCCESS;
 	}
+<<<<<<< HEAD
 	if (uj)
 		json = json_object_new_object();
 
@@ -2577,6 +2696,15 @@ DEFUN(show_isis_summary, show_isis_summary_cmd,
 	isis = isis_lookup_by_vrfname(vrf_name);
 	if (isis != NULL)
 		common_isis_summary(vty, json, isis);
+=======
+	if (uj) {
+		json = json_object_new_object();
+		vrfs_json = json_object_new_array();
+		json_object_object_add(json, "vrfs", vrfs_json);
+	}
+
+	common_isis_summary(vty, vrfs_json, vrf_name, all_vrf);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	if (uj)
 		vty_json(vty, json);

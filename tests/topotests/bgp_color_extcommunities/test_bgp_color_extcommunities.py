@@ -16,7 +16,10 @@ import os
 import sys
 import json
 import functools
+<<<<<<< HEAD
 from functools import partial
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 import pytest
 
 # Save the Current Working Directory to find configuration files.
@@ -106,7 +109,11 @@ def test_bgp_color_extended_communities():
                     {
                         "valid": True,
                         "extendedCommunity": {
+<<<<<<< HEAD
                             "string": "RT:80:987 Color:100 Color:200 Color:55555"
+=======
+                            "string": "RT:80:987 Color:01:100 Color:01:200 Color:01:55555"
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
                         },
                     }
                 ],

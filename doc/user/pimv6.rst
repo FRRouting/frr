@@ -47,21 +47,42 @@ Certain signals have special meanings to *pim6d*.
 *pim6d* invocation options. Common options that can be specified
 (:ref:`common-invocation-options`).
 
+<<<<<<< HEAD
 .. clicmd:: ipv6 pim rp X:X::X:X Y:Y::Y:Y/M
+=======
+PIMv6 Router
+------------
+
+.. clicmd:: router pim6 [vrf NAME]
+
+   Configure the global PIMv6 protocol
+
+.. clicmd:: rp X:X::X:X Y:Y::Y:Y/M
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
    In order to use pimv6, it is necessary to configure a RP for join messages to
    be sent to. Currently the only methodology to do this is via static rp
    commands. All routers in the pimv6 network must agree on these values. The
    first ipv6 address is the RP's address and the second value is the matching
    prefix of group ranges covered. This command is vrf aware, to configure for
+<<<<<<< HEAD
    a vrf, enter the vrf submode.
 
 .. clicmd:: ipv6 pim rp X:X::X:X prefix-list WORD
+=======
+   a vrf, specify the vrf in the router pim6 block.
+
+.. clicmd:: rp X:X::X:X prefix-list WORD
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
    This CLI helps in configuring RP address for a range of groups specified
    by the prefix-list.
 
+<<<<<<< HEAD
 .. clicmd:: ipv6 pim rp keep-alive-timer (1-65535)
+=======
+.. clicmd:: rp keep-alive-timer (1-65535)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
    Modify the time out value for a S,G flow from 1-65535 seconds at RP.
    The normal keepalive period for the KAT(S,G) defaults to 210 seconds.
@@ -71,19 +92,88 @@ Certain signals have special meanings to *pim6d*.
    max(Keepalive_Period, RP_Keepalive_Period) when a Register-Stop is sent.
    If choosing a value below 31 seconds be aware that some hardware platforms
    cannot see data flowing in better than 30 second chunks. This command is
+<<<<<<< HEAD
    vrf aware, to configure for a vrf, enter the vrf submode.
 
 .. clicmd:: ipv6 pim spt-switchover infinity-and-beyond [prefix-list PLIST]
+=======
+   vrf aware, to configure for a vrf, specify the vrf in the router pim6 block.
+
+.. clicmd:: bsr candidate-bsr [priority (0-255)] [source [address X:X::X:X] | [interface INTERFACE] | [loopback] | [any]]
+
+   Configure the router to advertise itself as a candidate PIM-SM BSR. The candidate
+   with the highest priority becomes the BSR for the domain (high wins). When priority is the
+   same for more than one candidate BSR, the candidate with the highest IP address
+   becomes the BSR of the domain. The address can be configured explicitly
+   via ``address``, or be selecting an interface name using ``interface``.
+   If ``any`` is configured the highest address from any interface will be selected.
+   By default, the highest loopback address is selected, which can also be
+   configured via ``loopback``
+
+.. clicmd:: bsr candidate-rp [interval (1-4294967295) ] [priority (0-255)] [source [address X:X::X:X] | [interface INTERFACE] | [loopback] | [any]]
+
+   Configure the router to advertise itself as a candidate PIM-SM RP. ``interval``
+   can be used to configure the interval in seconds to send these advertisements.
+   The candidate with the lowest priority becomes the RP for the domain (low wins).
+   When priority is the same for more than one candidate RP, the candidate with
+   the highest IP address becomes the BSR of the domain. The address can be
+   configured explicitly via ``address``, or be selecting an interface name
+   using ``interface``. If ``any`` is configured the highest address from any
+   interface will be selected.By default, the highest loopback address is
+   selected, which can also be configured via ``loopback``.
+
+.. clicmd:: embedded-rp
+
+   Learn the RP via embedded RP address in multicast group.
+
+   .. note::
+
+      The embedded RP address range is: FF70::/12 (with exception of FFF0::/12).
+
+      Example: FF75:0130:2001:DB8:FFFF::100
+
+      - First byte is always 0xFF
+      - Second byte high nibble is always 7 (signifies RPT bits set)
+      - Second byte low nibble is address scope
+      - Third byte high nibble is zero (reserved)
+      - Third byte low nibble is the RP interface ID (RIID)
+      - Fourth byte is the RP prefix length (must be between 1 and 64)
+      - Fifth byte + RP prefix length is the RP address prefix
+      - Last four bytes are the group ID.
+
+      The RP in the above multicast address sample is:
+      2001:DB8:FFFF::1
+
+.. clicmd:: embedded-rp group-list PREFIX_LIST_NAME
+
+   Restrict the embedded RP prefix range using only the permitted groups
+   provided by the prefix-list.
+
+   This is useful to restrict what RP addresses can be used.
+
+.. clicmd:: embedded-rp limit (1-4294967295)
+
+   Restrict the maximum amount of embedded RPs to learn at same time.
+
+.. clicmd:: spt-switchover infinity-and-beyond [prefix-list PLIST]
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
    On the last hop router if it is desired to not switch over to the SPT tree
    configure this command. Optional parameter prefix-list can be use to control
    which groups to switch or not switch. If a group is PERMIT as per the
    PLIST, then the SPT switchover does not happen for it and if it is DENY,
    then the SPT switchover happens.
+<<<<<<< HEAD
    This command is vrf aware, to configure for a vrf,
    enter the vrf submode.
 
 .. clicmd:: ipv6 pim join-prune-interval (1-65535)
+=======
+   This command is vrf aware, to configure for a vrf, specify the vrf in the
+   router pim6 block.
+
+.. clicmd:: join-prune-interval (1-65535)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
    Modify the join/prune interval that pim uses to the new value. Time is
    specified in seconds. This command is vrf aware, to configure for a vrf,
@@ -91,19 +181,30 @@ Certain signals have special meanings to *pim6d*.
    a value smaller than 60 seconds be aware that this can and will affect
    convergence at scale.
 
+<<<<<<< HEAD
 .. clicmd:: ipv6 pim keep-alive-timer (1-65535)
+=======
+.. clicmd:: keep-alive-timer (1-65535)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
    Modify the time out value for a S,G flow from 1-65535 seconds. If choosing
    a value below 31 seconds be aware that some hardware platforms cannot see data
    flowing in better than 30 second chunks. This command is vrf aware, to
+<<<<<<< HEAD
    configure for a vrf, enter the vrf submode.
 
 .. clicmd:: ipv6 pim packets (1-255)
+=======
+   configure for a vrf, specify the vrf in the router pim6 block.
+
+.. clicmd:: packets (1-255)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
    When processing packets from a neighbor process the number of packets
    incoming at one time before moving on to the next task. The default value is
    3 packets.  This command is only useful at scale when you can possibly have
    a large number of pim control packets flowing. This command is vrf aware, to
+<<<<<<< HEAD
    configure for a vrf, enter the vrf submode.
 
 .. clicmd:: ipv6 pim register-suppress-time (1-65535)
@@ -113,6 +214,17 @@ Certain signals have special meanings to *pim6d*.
    vrf, enter the vrf submode.
 
 .. clicmd:: ipv6 ssmpingd [X:X::X:X]
+=======
+   configure for a vrf, specify the vrf in the router pim6 block.
+
+.. clicmd:: register-suppress-time (1-65535)
+
+   Modify the time that pim will register suppress a FHR will send register
+   notifications to the kernel. This command is vrf aware, to configure for a
+   vrf, specify the vrf in the router pim6 block.
+
+.. clicmd:: ssmpingd [X:X::X:X]
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
    Enable ipv6 ssmpingd configuration. A network level management tool
    to check whether one can receive multicast packets via SSM from host.
@@ -384,6 +496,7 @@ General multicast routing state
    Display total number of S,G mroutes and number of S,G mroutes
    installed into the kernel for all vrfs.
 
+<<<<<<< HEAD
 .. clicmd:: show ipv6 pim bsr
 
    Display current bsr, its uptime and last received bsm age.
@@ -393,6 +506,34 @@ General multicast routing state
    Display group-to-rp mappings received from E-BSR.
 
 .. clicmd:: show ipv6 pim bsm-database
+=======
+.. clicmd:: show ipv6 pim bsr [vrf NAME] [json]
+
+   Display current bsr, its uptime and last received bsm age.
+
+.. clicmd:: show ipv6 pim bsr candidate-bsr [vrf NAME] [json]
+
+   Display information about the candidate BSR state on this router.
+
+.. clicmd:: show ipv6 pim bsr candidate-rp [vrf NAME] [json]
+
+   Display information about the candidate RP state on this router.
+
+.. clicmd:: show ipv6 pim bsr candidate-rp-database [vrf NAME] [json]
+
+   Display the current list of candidate RPs received by this router.
+
+.. clicmd:: show ipv6 pim bsr groups [vrf NAME] [json]
+
+   Display the current list of multicast group mapping received by
+   this router from candidate RPs.
+
+.. clicmd:: show ipv6 pim bsr rp-info [vrf NAME] [json]
+
+   Display group-to-rp mappings received from E-BSR.
+
+.. clicmd:: show ipv6 pim bsm-database [vrf NAME] [json]
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
    Display all fragments of stored bootstrap message in user readable format.
 
@@ -417,7 +558,11 @@ Clear commands reset various variables.
 
 .. clicmd:: clear ipv6 pim [vrf NAME] interface traffic
 
+<<<<<<< HEAD
    When this command is issued, resets the information about the 
+=======
+   When this command is issued, resets the information about the
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
    number of PIM protocol packets sent/received on an interface.
 
 .. clicmd:: clear ipv6 pim oil
@@ -494,7 +639,11 @@ the config was written out.
 
 .. clicmd:: debug mld trace [detail]
 
+<<<<<<< HEAD
    This traces mld code and how it is running. 
+=======
+   This traces mld code and how it is running.
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 .. clicmd:: debug pimv6 bsm
 

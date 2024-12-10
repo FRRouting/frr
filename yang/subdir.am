@@ -80,6 +80,10 @@ if PIMD
 dist_yangmodels_DATA += yang/frr-gmp.yang
 dist_yangmodels_DATA += yang/frr-pim.yang
 dist_yangmodels_DATA += yang/frr-pim-rp.yang
+<<<<<<< HEAD
+=======
+dist_yangmodels_DATA += yang/frr-pim-candidate.yang
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 endif
 
 if BGPD

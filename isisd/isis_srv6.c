@@ -102,6 +102,10 @@ bool isis_srv6_locator_unset(struct isis_area *area)
 	struct srv6_locator_chunk *chunk;
 	struct isis_srv6_sid *sid;
 	struct srv6_adjacency *sra;
+<<<<<<< HEAD
+=======
+	struct srv6_sid_ctx ctx = {};
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	if (strncmp(area->srv6db.config.srv6_locator_name, "",
 		    sizeof(area->srv6db.config.srv6_locator_name)) == 0) {
@@ -120,13 +124,39 @@ bool isis_srv6_locator_unset(struct isis_area *area)
 		 * Zebra */
 		isis_zebra_srv6_sid_uninstall(area, sid);
 
+<<<<<<< HEAD
+=======
+		/*
+		 * Inform the SID Manager that IS-IS will no longer use the SID, so
+		 * that the SID Manager can remove the SID context ownership from IS-IS
+		 * and release/free the SID context if it is not yes by other protocols.
+		 */
+		ctx.behavior = ZEBRA_SEG6_LOCAL_ACTION_END;
+		isis_zebra_release_srv6_sid(&ctx);
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		listnode_delete(area->srv6db.srv6_sids, sid);
 		isis_srv6_sid_free(sid);
 	}
 
 	/* Uninstall all local Adjacency-SIDs. */
+<<<<<<< HEAD
 	for (ALL_LIST_ELEMENTS(area->srv6db.srv6_endx_sids, node, nnode, sra))
 		srv6_endx_sid_del(sra);
+=======
+	for (ALL_LIST_ELEMENTS(area->srv6db.srv6_endx_sids, node, nnode, sra)) {
+		/*
+		 * Inform the SID Manager that IS-IS will no longer use the SID, so
+		 * that the SID Manager can remove the SID context ownership from IS-IS
+		 * and release/free the SID context if it is not yes by other protocols.
+		 */
+		ctx.behavior = ZEBRA_SEG6_LOCAL_ACTION_END_X;
+		ctx.nh6 = sra->nexthop;
+		isis_zebra_release_srv6_sid(&ctx);
+
+		srv6_endx_sid_del(sra);
+	}
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	/* Inform Zebra that we are releasing the SRv6 locator */
 	ret = isis_zebra_srv6_manager_release_locator_chunk(
@@ -146,6 +176,13 @@ bool isis_srv6_locator_unset(struct isis_area *area)
 		srv6_locator_chunk_free(&chunk);
 	}
 
+<<<<<<< HEAD
+=======
+	/* Clear locator */
+	srv6_locator_free(area->srv6db.srv6_locator);
+	area->srv6db.srv6_locator = NULL;
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	/* Clear locator name */
 	memset(area->srv6db.config.srv6_locator_name, 0,
 	       sizeof(area->srv6db.config.srv6_locator_name));
@@ -198,6 +235,7 @@ void isis_srv6_interface_set(struct isis_area *area, const char *ifname)
 }
 
 /**
+<<<<<<< HEAD
  * Encode SID function in the SRv6 SID.
  *
  * @param sid
@@ -314,10 +352,19 @@ srv6_locator_request_sid(struct isis_area *area,
  * @param area		IS-IS area
  * @param chunk		SRv6 locator chunk
  * @param behavior	SRv6 Endpoint Behavior bound to the SID
+=======
+ * Allocate an SRv6 SID from an SRv6 locator.
+ *
+ * @param area		IS-IS area
+ * @param locator	SRv6 locator
+ * @param behavior	SRv6 Endpoint Behavior bound to the SID
+ * @param sid_value	SRv6 SID value
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
  *
  * @result the allocated SID on success, NULL otherwise
  */
 struct isis_srv6_sid *
+<<<<<<< HEAD
 isis_srv6_sid_alloc(struct isis_area *area, struct srv6_locator_chunk *chunk,
 		    enum srv6_endpoint_behavior_codepoint behavior,
 		    int sid_func)
@@ -325,10 +372,20 @@ isis_srv6_sid_alloc(struct isis_area *area, struct srv6_locator_chunk *chunk,
 	struct isis_srv6_sid *sid = NULL;
 
 	if (!area || !chunk)
+=======
+isis_srv6_sid_alloc(struct isis_area *area, struct srv6_locator *locator,
+		    enum srv6_endpoint_behavior_codepoint behavior,
+		    struct in6_addr *sid_value)
+{
+	struct isis_srv6_sid *sid = NULL;
+
+	if (!area || !locator || !sid_value)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		return NULL;
 
 	sid = XCALLOC(MTYPE_ISIS_SRV6_SID, sizeof(struct isis_srv6_sid));
 
+<<<<<<< HEAD
 	sid->sid = srv6_locator_request_sid(area, chunk, sid_func);
 	if (IPV6_ADDR_SAME(&sid->sid, &in6addr_any)) {
 		isis_srv6_sid_free(sid);
@@ -341,6 +398,16 @@ isis_srv6_sid_alloc(struct isis_area *area, struct srv6_locator_chunk *chunk,
 	sid->structure.func_len = chunk->function_bits_length;
 	sid->structure.arg_len = chunk->argument_bits_length;
 	sid->locator = chunk;
+=======
+	sid->sid = *sid_value;
+
+	sid->behavior = behavior;
+	sid->structure.loc_block_len = locator->block_bits_length;
+	sid->structure.loc_node_len = locator->node_bits_length;
+	sid->structure.func_len = locator->function_bits_length;
+	sid->structure.arg_len = locator->argument_bits_length;
+	sid->locator = locator;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	sid->area = area;
 
 	return sid;
@@ -376,9 +443,16 @@ void isis_area_delete_backup_srv6_endx_sids(struct isis_area *area, int level)
  * @param adj	   IS-IS Adjacency
  * @param backup   True to initialize backup Adjacency SID
  * @param nexthops List of backup nexthops (for backup End.X SIDs only)
+<<<<<<< HEAD
  */
 void srv6_endx_sid_add_single(struct isis_adjacency *adj, bool backup,
 			      struct list *nexthops)
+=======
+ * @param sid_value SID value associated to be associated with the adjacency
+ */
+void srv6_endx_sid_add_single(struct isis_adjacency *adj, bool backup,
+			      struct list *nexthops, struct in6_addr *sid_value)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 {
 	struct isis_circuit *circuit = adj->circuit;
 	struct isis_area *area = circuit->area;
@@ -387,11 +461,18 @@ void srv6_endx_sid_add_single(struct isis_adjacency *adj, bool backup,
 	struct isis_srv6_lan_endx_sid_subtlv *ladj_sid;
 	struct in6_addr nexthop;
 	uint8_t flags = 0;
+<<<<<<< HEAD
 	struct srv6_locator_chunk *chunk;
 	uint32_t behavior;
 
 	if (!area || !area->srv6db.srv6_locator_chunks ||
 	    list_isempty(area->srv6db.srv6_locator_chunks))
+=======
+	struct srv6_locator *locator;
+	uint32_t behavior;
+
+	if (!area || !area->srv6db.srv6_locator)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		return;
 
 	sr_debug("ISIS-SRv6 (%s): Add %s End.X SID", area->area_tag,
@@ -401,10 +482,14 @@ void srv6_endx_sid_add_single(struct isis_adjacency *adj, bool backup,
 	if (!circuit->ipv6_router || !adj->ll_ipv6_count)
 		return;
 
+<<<<<<< HEAD
 	chunk = (struct srv6_locator_chunk *)listgetdata(
 		listhead(area->srv6db.srv6_locator_chunks));
 	if (!chunk)
 		return;
+=======
+	locator = area->srv6db.srv6_locator;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	nexthop = adj->ll_ipv6_addrs[0];
 
@@ -415,13 +500,18 @@ void srv6_endx_sid_add_single(struct isis_adjacency *adj, bool backup,
 	if (circuit->ext == NULL)
 		circuit->ext = isis_alloc_ext_subtlvs();
 
+<<<<<<< HEAD
 	behavior = (CHECK_FLAG(chunk->flags, SRV6_LOCATOR_USID))
+=======
+	behavior = (CHECK_FLAG(locator->flags, SRV6_LOCATOR_USID))
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			   ? SRV6_ENDPOINT_BEHAVIOR_END_X_NEXT_CSID
 			   : SRV6_ENDPOINT_BEHAVIOR_END_X;
 
 	sra = XCALLOC(MTYPE_ISIS_SRV6_INFO, sizeof(*sra));
 	sra->type = backup ? ISIS_SRV6_ADJ_BACKUP : ISIS_SRV6_ADJ_NORMAL;
 	sra->behavior = behavior;
+<<<<<<< HEAD
 	sra->locator = chunk;
 	sra->structure.loc_block_len = chunk->block_bits_length;
 	sra->structure.loc_node_len = chunk->node_bits_length;
@@ -434,6 +524,16 @@ void srv6_endx_sid_add_single(struct isis_adjacency *adj, bool backup,
 		XFREE(MTYPE_ISIS_SRV6_INFO, sra);
 		return;
 	}
+=======
+	sra->locator = locator;
+	sra->structure.loc_block_len = locator->block_bits_length;
+	sra->structure.loc_node_len = locator->node_bits_length;
+	sra->structure.func_len = locator->function_bits_length;
+	sra->structure.arg_len = locator->argument_bits_length;
+	sra->nexthop = nexthop;
+
+	sra->sid = *sid_value;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	switch (circuit->circ_type) {
 	/* SRv6 LAN End.X SID for Broadcast interface section #8.2 */
@@ -505,9 +605,15 @@ void srv6_endx_sid_add_single(struct isis_adjacency *adj, bool backup,
  *
  * @param adj	  IS-IS Adjacency
  */
+<<<<<<< HEAD
 void srv6_endx_sid_add(struct isis_adjacency *adj)
 {
 	srv6_endx_sid_add_single(adj, false, NULL);
+=======
+void srv6_endx_sid_add(struct isis_adjacency *adj, struct in6_addr *sid_value)
+{
+	srv6_endx_sid_add_single(adj, false, NULL, sid_value);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 }
 
 /**
@@ -610,7 +716,11 @@ static int srv6_adj_ip_enabled(struct isis_adjacency *adj, int family,
 	    family != AF_INET6)
 		return 0;
 
+<<<<<<< HEAD
 	srv6_endx_sid_add(adj);
+=======
+	isis_zebra_request_srv6_sid_endx(adj);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	return 0;
 }
@@ -689,7 +799,11 @@ static void show_node(struct vty *vty, struct isis_area *area, int level)
 
 		table = ttable_dump(tt, "\n");
 		vty_out(vty, "%s\n", table);
+<<<<<<< HEAD
 		XFREE(MTYPE_TMP, table);
+=======
+		XFREE(MTYPE_TMP_TTABLE, table);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	}
 	ttable_del(tt);
 }
@@ -832,6 +946,12 @@ void isis_srv6_area_term(struct isis_area *area)
 		srv6_locator_chunk_free(&chunk);
 	list_delete(&srv6db->srv6_locator_chunks);
 
+<<<<<<< HEAD
+=======
+	srv6_locator_free(area->srv6db.srv6_locator);
+	area->srv6db.srv6_locator = NULL;
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	/* Free SRv6 SIDs list */
 	list_delete(&srv6db->srv6_sids);
 	list_delete(&srv6db->srv6_endx_sids);

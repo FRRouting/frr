@@ -19,7 +19,10 @@ import sys
 import time
 import pytest
 import platform
+<<<<<<< HEAD
 from time import sleep
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 # Save the Current Working Directory to find configuration files.
 CWD = os.path.dirname(os.path.realpath(__file__))

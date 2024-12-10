@@ -87,7 +87,11 @@ Generate skeleton instance data:
 
 * XML:
 
+<<<<<<< HEAD
    .. code:: sh
+=======
+.. code:: sh
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
    $ pyang -p <yang-search-path> \
        -f sample-xml-skeleton --sample-xml-skeleton-defaults \
@@ -95,7 +99,11 @@ Generate skeleton instance data:
 
 *  JSON:
 
+<<<<<<< HEAD
    .. code:: sh
+=======
+.. code:: sh
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
    $ pyang -p <yang-search-path> \
        -f jsonxsl module.yang -o module.xsl

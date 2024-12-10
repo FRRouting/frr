@@ -49,7 +49,11 @@ def setup_module(mod):
     tgen.start_router()
 
 
+<<<<<<< HEAD
 def teardown_module(mod):
+=======
+def teardown_module():
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     tgen = get_topogen()
     tgen.stop_topology()
 
@@ -70,13 +74,21 @@ def _check_sharpd_chunk(router, expected_chunk_file):
 
 def check_srv6_locator(router, expected_file):
     func = functools.partial(_check_srv6_locator, router, expected_file)
+<<<<<<< HEAD
     success, result = topotest.run_and_expect(func, None, count=5, wait=3)
+=======
+    _, result = topotest.run_and_expect(func, None, count=5, wait=3)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     assert result is None, "Failed"
 
 
 def check_sharpd_chunk(router, expected_file):
     func = functools.partial(_check_sharpd_chunk, router, expected_file)
+<<<<<<< HEAD
     success, result = topotest.run_and_expect(func, None, count=5, wait=3)
+=======
+    _, result = topotest.run_and_expect(func, None, count=5, wait=3)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     assert result is None, "Failed"
 
 

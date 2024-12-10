@@ -590,7 +590,11 @@ static void vrrp_show(struct vty *vty, struct vrrp_vrouter *vr)
 	char *table = ttable_dump(tt, "\n");
 
 	vty_out(vty, "\n%s\n", table);
+<<<<<<< HEAD
 	XFREE(MTYPE_TMP, table);
+=======
+	XFREE(MTYPE_TMP_TTABLE, table);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	ttable_del(tt);
 }
 
@@ -695,7 +699,11 @@ DEFPY_YANG(vrrp_vrid_show_summary,
 	char *table = ttable_dump(tt, "\n");
 
 	vty_out(vty, "\n%s\n", table);
+<<<<<<< HEAD
 	XFREE(MTYPE_TMP, table);
+=======
+	XFREE(MTYPE_TMP_TTABLE, table);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	ttable_del(tt);
 
 	list_delete(&ll);
@@ -738,8 +746,11 @@ DEFUN_NOSH (show_debugging_vrrp,
 {
 	vty_out(vty, "VRRP debugging status:\n");
 
+<<<<<<< HEAD
 	vrrp_debug_status_write(vty);
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	cmd_show_lib_debugs(vty);
 
 	return CMD_SUCCESS;
@@ -747,6 +758,7 @@ DEFUN_NOSH (show_debugging_vrrp,
 
 /* clang-format on */
 
+<<<<<<< HEAD
 static struct cmd_node debug_node = {
 	.name = "debug",
 	.node = DEBUG_NODE,
@@ -754,6 +766,8 @@ static struct cmd_node debug_node = {
 	.config_write = vrrp_config_write_debug,
 };
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 static struct cmd_node vrrp_node = {
 	.name = "vrrp",
 	.node = VRRP_NODE,
@@ -763,7 +777,10 @@ static struct cmd_node vrrp_node = {
 
 void vrrp_vty_init(void)
 {
+<<<<<<< HEAD
 	install_node(&debug_node);
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	install_node(&vrrp_node);
 	vrf_cmd_init(NULL);
 	if_cmd_init_default();

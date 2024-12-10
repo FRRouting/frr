@@ -358,6 +358,12 @@ int frrscript_load(struct frrscript *fs, const char *function_name,
 	/* Set up the Lua script */
 	lua_State *L = luaL_newstate();
 
+<<<<<<< HEAD
+=======
+	/* Load basic built-in Lua functions, e.g. ipairs, string, etc. */
+	luaL_openlibs(L);
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	frrlua_export_logging(L);
 
 	char script_name[MAXPATHLEN];

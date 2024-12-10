@@ -1468,10 +1468,18 @@ static void routing_socket(struct zebra_ns *zns)
 
 void interface_list_second(struct zebra_ns *zns)
 {
+<<<<<<< HEAD
+=======
+	zebra_dplane_startup_stage(zns, ZEBRA_DPLANE_ADDRESSES_READ);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 }
 
 void interface_list_tunneldump(struct zebra_ns *zns)
 {
+<<<<<<< HEAD
+=======
+	zebra_dplane_startup_stage(zns, ZEBRA_DPLANE_TUNNELS_READ);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 }
 
 /* Exported interface function.  This function simply calls
@@ -1625,6 +1633,10 @@ void kernel_update_multi(struct dplane_ctx_list_head *ctx_list)
 		case DPLANE_OP_INTF_ADDR_DEL:
 		case DPLANE_OP_STARTUP_STAGE:
 		case DPLANE_OP_SRV6_ENCAP_SRCADDR_SET:
+<<<<<<< HEAD
+=======
+		case DPLANE_OP_VLAN_INSTALL:
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			zlog_err("Unhandled dplane data for %s",
 				 dplane_op2str(dplane_ctx_get_op(ctx)));
 			res = ZEBRA_DPLANE_REQUEST_FAILURE;

@@ -128,6 +128,11 @@ void interface_list(struct zebra_ns *zns)
 
 	/* Free sysctl buffer. */
 	XFREE(MTYPE_TMP, ref);
+<<<<<<< HEAD
+=======
+
+	zebra_dplane_startup_stage(zns, ZEBRA_DPLANE_INTERFACES_READ);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 }
 
 #endif /* !defined(GNU_LINUX) && !defined(OPEN_BSD) */

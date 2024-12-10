@@ -304,9 +304,12 @@ static uint8_t parse_filter(const char *filterstr)
 	return filter;
 }
 
+<<<<<<< HEAD
 #if CONFDATE > 20240707
 	CPP_NOTICE("Remove `show thread ...` commands")
 #endif
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 DEFUN_NOSH (show_event_cpu,
             show_event_cpu_cmd,
             "show event cpu [FILTER]",
@@ -332,6 +335,7 @@ DEFUN_NOSH (show_event_cpu,
 	return CMD_SUCCESS;
 }
 
+<<<<<<< HEAD
 ALIAS(show_event_cpu,
       show_thread_cpu_cmd,
       "show thread cpu [FILTER]",
@@ -340,6 +344,8 @@ ALIAS(show_event_cpu,
       "Thread CPU usage\n"
       "Display filter (rwtex)\n")
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 DEFPY (service_cputime_stats,
        service_cputime_stats_cmd,
        "[no] service cputime-stats",
@@ -440,6 +446,7 @@ DEFUN_NOSH (show_event_poll,
 	return CMD_SUCCESS;
 }
 
+<<<<<<< HEAD
 ALIAS(show_event_poll,
       show_thread_poll_cmd,
       "show thread poll",
@@ -453,6 +460,17 @@ DEFUN (clear_thread_cpu,
        "Clear stored data in all pthreads\n"
        "Thread information\n"
        "Thread CPU usage\n"
+=======
+#if CONFDATE > 20241231
+CPP_NOTICE("Remove `clear thread cpu` command")
+#endif
+DEFUN (clear_event_cpu,
+       clear_event_cpu_cmd,
+       "clear event cpu [FILTER]",
+       "Clear stored data in all pthreads\n"
+       "Event information\n"
+       "Event CPU usage\n"
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
        "Display filter (rwtexb)\n")
 {
 	uint8_t filter = (uint8_t)-1U;
@@ -472,6 +490,17 @@ DEFUN (clear_thread_cpu,
 	return CMD_SUCCESS;
 }
 
+<<<<<<< HEAD
+=======
+ALIAS (clear_event_cpu,
+       clear_thread_cpu_cmd,
+       "clear thread cpu [FILTER]",
+       "Clear stored data in all pthreads\n"
+       "Thread information\n"
+       "Thread CPU usage\n"
+       "Display filter (rwtexb)\n")
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 static void show_event_timers_helper(struct vty *vty, struct event_loop *m)
 {
 	const char *name = m->name ? m->name : "main";
@@ -507,6 +536,7 @@ DEFPY_NOSH (show_event_timers,
 	return CMD_SUCCESS;
 }
 
+<<<<<<< HEAD
 ALIAS(show_event_timers,
       show_thread_timers_cmd,
       "show thread timers",
@@ -521,12 +551,23 @@ void event_cmd_init(void)
 	install_element(VIEW_NODE, &show_thread_poll_cmd);
 	install_element(VIEW_NODE, &show_event_poll_cmd);
 	install_element(ENABLE_NODE, &clear_thread_cpu_cmd);
+=======
+void event_cmd_init(void)
+{
+	install_element(VIEW_NODE, &show_event_cpu_cmd);
+	install_element(VIEW_NODE, &show_event_poll_cmd);
+	install_element(ENABLE_NODE, &clear_thread_cpu_cmd);
+	install_element(ENABLE_NODE, &clear_event_cpu_cmd);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	install_element(CONFIG_NODE, &service_cputime_stats_cmd);
 	install_element(CONFIG_NODE, &service_cputime_warning_cmd);
 	install_element(CONFIG_NODE, &service_walltime_warning_cmd);
 
+<<<<<<< HEAD
 	install_element(VIEW_NODE, &show_thread_timers_cmd);
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	install_element(VIEW_NODE, &show_event_timers_cmd);
 }
 /* CLI end ------------------------------------------------------------------ */
@@ -571,8 +612,14 @@ struct event_loop *event_master_create(const char *name)
 	}
 
 	if (rv->fd_limit > STUPIDLY_LARGE_FD_SIZE) {
+<<<<<<< HEAD
 		zlog_warn("FD Limit set: %u is stupidly large.  Is this what you intended?  Consider using --limit-fds also limiting size to %u",
 			  rv->fd_limit, STUPIDLY_LARGE_FD_SIZE);
+=======
+		if (frr_is_daemon())
+			zlog_warn("FD Limit set: %u is stupidly large.  Is this what you intended?  Consider using --limit-fds also limiting size to %u",
+				  rv->fd_limit, STUPIDLY_LARGE_FD_SIZE);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 		rv->fd_limit = STUPIDLY_LARGE_FD_SIZE;
 	}
@@ -684,6 +731,7 @@ static void thread_array_free(struct event_loop *m, struct event **thread_array)
 	XFREE(MTYPE_EVENT_POLL, thread_array);
 }
 
+<<<<<<< HEAD
 /*
  * event_master_free_unused
  *
@@ -702,6 +750,8 @@ void event_master_free_unused(struct event_loop *m)
 	}
 }
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 /* Stop thread scheduler. */
 void event_master_free(struct event_loop *m)
 {
@@ -808,7 +858,10 @@ static struct event *thread_get(struct event_loop *m, uint8_t type,
 		thread = XCALLOC(MTYPE_THREAD, sizeof(struct event));
 		/* mutex only needs to be initialized at struct creation. */
 		pthread_mutex_init(&thread->mtx, NULL);
+<<<<<<< HEAD
 		m->alloc++;
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	}
 
 	thread->type = type;
@@ -847,10 +900,13 @@ static struct event *thread_get(struct event_loop *m, uint8_t type,
 
 static void thread_free(struct event_loop *master, struct event *thread)
 {
+<<<<<<< HEAD
 	/* Update statistics. */
 	assert(master->alloc > 0);
 	master->alloc--;
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	/* Free allocated resources. */
 	pthread_mutex_destroy(&thread->mtx);
 	XFREE(MTYPE_THREAD, thread);
@@ -994,7 +1050,11 @@ void _event_add_read_write(const struct xref_eventsched *xref,
 		 * if we already have a pollfd for our file descriptor, find and
 		 * use it
 		 */
+<<<<<<< HEAD
 		for (nfds_t i = 0; i < m->handler.pfdcount; i++)
+=======
+		for (nfds_t i = 0; i < m->handler.pfdcount; i++) {
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			if (m->handler.pfds[i].fd == fd) {
 				queuepos = i;
 
@@ -1008,6 +1068,18 @@ void _event_add_read_write(const struct xref_eventsched *xref,
 #endif
 				break;
 			}
+<<<<<<< HEAD
+=======
+			/*
+			 * We are setting the fd = -1 for the
+			 * case when a read/write event is going
+			 * away.  if we find a -1 we can stuff it
+			 * into that spot, so note it
+			 */
+			if (m->handler.pfds[i].fd == -1 && queuepos == m->handler.pfdcount)
+				queuepos = i;
+		}
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 		/* make sure we have room for this fd + pipe poker fd */
 		assert(queuepos + 1 < m->handler.pfdsize);
@@ -1284,6 +1356,17 @@ static void cancel_arg_helper(struct event_loop *master,
 	for (i = 0; i < master->handler.pfdcount;) {
 		pfd = master->handler.pfds + i;
 
+<<<<<<< HEAD
+=======
+		/*
+		 * Skip this spot, nothing here to see
+		 */
+		if (pfd->fd == -1) {
+			i++;
+			continue;
+		}
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		if (pfd->events & POLLIN)
 			t = master->read[pfd->fd];
 		else
@@ -1605,6 +1688,15 @@ static int thread_process_io_helper(struct event_loop *m, struct event *thread,
 	 * we should.
 	 */
 	m->handler.pfds[pos].events &= ~(state);
+<<<<<<< HEAD
+=======
+	/*
+	 * ppoll man page says that a fd of -1 causes the particular
+	 * array item to be skipped.  So let's skip it
+	 */
+	if (m->handler.pfds[pos].events == 0)
+		m->handler.pfds[pos].fd = -1;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	if (!thread) {
 		if ((actual_state & (POLLHUP|POLLIN)) != POLLHUP)

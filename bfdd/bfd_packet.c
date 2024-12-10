@@ -982,7 +982,11 @@ void bfd_recv_cb(struct event *t)
 	}
 
 	/* Save remote diagnostics before state switch. */
+<<<<<<< HEAD
 	bfd->remote_diag = cp->diag & BFD_DIAGMASK;
+=======
+	bfd->remote_diag = CHECK_FLAG(cp->diag, BFD_DIAGMASK);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	/* Update remote timers settings. */
 	bfd->remote_timers.desired_min_tx = ntohl(cp->timers.desired_min_tx);
@@ -1738,7 +1742,11 @@ void bfd_peer_mac_set(int sd, struct bfd_session *bfd,
 
 	if (CHECK_FLAG(bfd->flags, BFD_SESS_FLAG_MAC_SET))
 		return;
+<<<<<<< HEAD
 	if (ifp->flags & IFF_NOARP)
+=======
+	if (CHECK_FLAG(ifp->flags, IFF_NOARP))
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		return;
 
 	if (peer->sa_sin.sin_family == AF_INET) {

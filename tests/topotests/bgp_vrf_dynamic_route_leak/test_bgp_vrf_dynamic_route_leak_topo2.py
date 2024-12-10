@@ -18,7 +18,10 @@ Following tests are covered to test BGP Multi-VRF Dynamic Route Leaking:
 
 import os
 import sys
+<<<<<<< HEAD
 import json
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 import time
 import pytest
 import platform
@@ -58,7 +61,11 @@ from lib.bgp import (
     verify_best_path_as_per_bgp_attribute,
     verify_bgp_rib,
 )
+<<<<<<< HEAD
 from lib.topojson import build_topo_from_json, build_config_from_json
+=======
+from lib.topojson import build_config_from_json
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 pytestmark = [pytest.mark.bgpd, pytest.mark.staticd]
 

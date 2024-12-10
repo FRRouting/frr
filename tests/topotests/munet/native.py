@@ -490,6 +490,13 @@ class NodeMixin:
                 gdbcmd += f" '-ex={cmd}'"
 
             self.run_in_window(gdbcmd, ns_only=True)
+<<<<<<< HEAD
+=======
+
+            # We need somehow signal from the launched gdb that it has continued
+            # this is non-trivial so for now just wait a while. :/
+            time.sleep(5)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         elif should_gdb and use_emacs:
             gdbcmd = gdbcmd.replace("gdb ", "gdb -i=mi ")
             ecbin = self.get_exec_path("emacsclient")
@@ -2729,7 +2736,11 @@ ff02::2\tip6-allrouters
                     ),
                     "format": "stdout HOST [HOST ...]",
                     "help": "tail -f on the stdout of the qemu/cmd for this node",
+<<<<<<< HEAD
                     "new-window": True,
+=======
+                    "new-window": {"background": True, "ns_only": True},
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
                 },
                 {
                     "name": "stderr",
@@ -2739,7 +2750,11 @@ ff02::2\tip6-allrouters
                     ),
                     "format": "stderr HOST [HOST ...]",
                     "help": "tail -f on the stdout of the qemu/cmd for this node",
+<<<<<<< HEAD
                     "new-window": True,
+=======
+                    "new-window": {"background": True, "ns_only": True},
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
                 },
             ]
         }

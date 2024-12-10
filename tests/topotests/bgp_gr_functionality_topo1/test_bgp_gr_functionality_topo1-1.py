@@ -102,7 +102,10 @@ from lib.bgp import (
     verify_graceful_restart,
     create_router_bgp,
     verify_r_bit,
+<<<<<<< HEAD
     verify_f_bit,
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     verify_bgp_convergence,
     verify_bgp_convergence_from_running_config,
 )

@@ -17,8 +17,11 @@ import os
 import sys
 import time
 import pytest
+<<<<<<< HEAD
 from time import sleep
 from copy import deepcopy
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 from lib.topolog import logger
 
 # pylint: disable=C0413
@@ -31,6 +34,7 @@ from lib.bgp import (
     verify_bgp_convergence,
     verify_graceful_restart,
     create_router_bgp,
+<<<<<<< HEAD
     verify_router_id,
     modify_as_number,
     verify_as_numbers,
@@ -38,6 +42,10 @@ from lib.bgp import (
     clear_bgp,
     verify_bgp_rib,
     get_prefix_count_route,
+=======
+    modify_as_number,
+    verify_bgp_rib,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     get_dut_as_number,
     verify_rib_default_route,
     verify_fib_default_route,
@@ -45,16 +53,24 @@ from lib.bgp import (
     verify_bgp_received_routes_from_neighbor,
 )
 from lib.common_config import (
+<<<<<<< HEAD
     interface_status,
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     verify_prefix_lists,
     verify_fib_routes,
     kill_router_daemons,
     start_router_daemons,
+<<<<<<< HEAD
     shutdown_bringup_interface,
     step,
     required_linux_kernel_version,
     stop_router,
     start_router,
+=======
+    step,
+    required_linux_kernel_version,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     create_route_maps,
     create_prefix_lists,
     get_frr_ipv6_linklocal,
@@ -65,7 +81,10 @@ from lib.common_config import (
     reset_config_on_routers,
     create_static_routes,
     check_router_status,
+<<<<<<< HEAD
     delete_route_maps,
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 )
 
 

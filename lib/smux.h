@@ -101,6 +101,10 @@ extern bool smux_enabled(void);
 
 extern void libagentx_init(void);
 extern void smux_init(struct event_loop *tm);
+<<<<<<< HEAD
+=======
+extern void smux_terminate(void);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 extern void smux_agentx_enable(void);
 extern void smux_register_mib(const char *, struct variable *, size_t, int,
 			      oid[], size_t);

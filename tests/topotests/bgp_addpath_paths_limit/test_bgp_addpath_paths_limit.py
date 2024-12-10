@@ -20,7 +20,11 @@ sys.path.append(os.path.join(CWD, "../"))
 
 # pylint: disable=C0413
 from lib import topotest
+<<<<<<< HEAD
 from lib.topogen import Topogen, TopoRouter, get_topogen
+=======
+from lib.topogen import Topogen, get_topogen
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 pytestmark = [pytest.mark.bgpd]
 

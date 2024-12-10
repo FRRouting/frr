@@ -29,6 +29,7 @@ extern struct debug static_dbg_bfd;
 void static_debug_init(void);
 
 /*
+<<<<<<< HEAD
  * Print staticd debugging configuration.
  *
  * vty
@@ -45,6 +46,8 @@ int static_config_write_debug(struct vty *vty);
 int static_debug_status_write(struct vty *vty);
 
 /*
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
  * Set debugging status.
  *
  * vtynode

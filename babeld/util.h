@@ -47,19 +47,31 @@ seqno_compare(unsigned short s1, unsigned short s2)
     if(s1 == s2)
         return 0;
     else
+<<<<<<< HEAD
         return ((s2 - s1) & 0x8000) ? 1 : -1;
+=======
+        return (CHECK_FLAG((s2 - s1), 0x8000)) ? 1 : -1;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 }
 
 static inline short
 seqno_minus(unsigned short s1, unsigned short s2)
 {
+<<<<<<< HEAD
     return (short)((s1 - s2) & 0xFFFF);
+=======
+    return (short)(CHECK_FLAG((s1 - s2), 0xFFFF));
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 }
 
 static inline unsigned short
 seqno_plus(unsigned short s, int plus)
 {
+<<<<<<< HEAD
     return ((s + plus) & 0xFFFF);
+=======
+    return CHECK_FLAG((s + plus), 0xFFFF);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 }
 
 /* Returns a time in microseconds on 32 bits (thus modulo 2^32,
@@ -130,7 +142,11 @@ is_default(const unsigned char *prefix, int plen)
 
 #define debugf(level, ...)                                                     \
 	do {                                                                   \
+<<<<<<< HEAD
 		if (unlikely(debug & level))                                   \
+=======
+		if (unlikely(CHECK_FLAG(debug, level)))                            \
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			zlog_debug(__VA_ARGS__);                               \
 	} while (0)
 

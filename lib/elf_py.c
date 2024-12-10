@@ -1307,7 +1307,11 @@ static PyObject *elffile_load(PyTypeObject *type, PyObject *args,
 	}
 #endif
 
+<<<<<<< HEAD
 	w->sects = calloc(sizeof(PyObject *), w->ehdr->e_shnum);
+=======
+	w->sects = calloc(w->ehdr->e_shnum, sizeof(PyObject *));
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	w->n_sect = w->ehdr->e_shnum;
 
 	return (PyObject *)w;

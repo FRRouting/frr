@@ -12,6 +12,12 @@
 
 #include "nhrpd.h"
 #include "netlink.h"
+<<<<<<< HEAD
+=======
+#include "nhrp_protocol.h"
+
+#include "nhrpd/nhrp_vty_clippy.c"
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 static int nhrp_config_write(struct vty *vty);
 static struct cmd_node zebra_node = {
@@ -292,10 +298,22 @@ DEFUN(tunnel_protection, tunnel_protection_cmd,
 }
 
 DEFUN(no_tunnel_protection, no_tunnel_protection_cmd,
+<<<<<<< HEAD
 	"no tunnel protection",
 	NO_STR
 	"NHRP/GRE integration\n"
 	"IPsec protection\n")
+=======
+	"no tunnel protection [vici profile PROFILE [fallback-profile FALLBACK]]",
+	NO_STR
+	"NHRP/GRE integration\n"
+	"IPsec protection\n"
+	"VICI (StrongSwan)\n"
+	"IPsec profile\n"
+	"IPsec profile name\n"
+	"Fallback IPsec profile\n"
+	"Fallback IPsec profile name\n")
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 {
 	VTY_DECLVAR_CONTEXT(interface, ifp);
 
@@ -459,6 +477,61 @@ DEFUN(if_no_nhrp_holdtime, if_no_nhrp_holdtime_cmd,
 	return CMD_SUCCESS;
 }
 
+<<<<<<< HEAD
+=======
+DEFPY(if_nhrp_authentication, if_nhrp_authentication_cmd,
+      AFI_CMD "nhrp authentication PASSWORD$password",
+      AFI_STR
+      NHRP_STR
+      "Specify plain text password used for authenticantion\n"
+      "Password, plain text, limited to 8 characters\n")
+{
+	VTY_DECLVAR_CONTEXT(interface, ifp);
+	struct nhrp_cisco_authentication_extension *auth;
+	struct nhrp_interface *nifp = ifp->info;
+	int pass_len = strlen(password);
+
+	if (pass_len > NHRP_CISCO_PASS_LEN) {
+		vty_out(vty, "Password size limit exceeded (%d>%d)\n",
+			pass_len, NHRP_CISCO_PASS_LEN);
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	if (nifp->auth_token) {
+		zbuf_free(nifp->auth_token);
+		nifp->auth_token = NULL;
+	}
+
+	nifp->auth_token = zbuf_alloc(pass_len + sizeof(uint32_t));
+	auth = (struct nhrp_cisco_authentication_extension *)
+		       nifp->auth_token->buf;
+	auth->type = htonl(NHRP_AUTHENTICATION_PLAINTEXT);
+	memcpy(auth->secret, password, pass_len);
+
+	return CMD_SUCCESS;
+}
+
+
+DEFPY(if_no_nhrp_authentication, if_no_nhrp_authentication_cmd,
+      "no " AFI_CMD "nhrp authentication PASSWORD$password",
+      NO_STR
+      AFI_STR
+      NHRP_STR
+      "Specify plain text password used for authenticantion\n"
+	  "Password, plain text, limited to 8 characters\n")
+{
+	VTY_DECLVAR_CONTEXT(interface, ifp);
+	struct nhrp_interface *nifp = ifp->info;
+
+	if (nifp->auth_token) {
+		zbuf_free(nifp->auth_token);
+		nifp->auth_token = NULL;
+	}
+	return CMD_SUCCESS;
+}
+
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 DEFUN(if_nhrp_mtu, if_nhrp_mtu_cmd,
 	"ip nhrp mtu <(576-1500)|opennhrp>",
 	IP_STR
@@ -873,6 +946,13 @@ static void show_ip_opennhrp_cache(struct nhrp_cache *c, void *pctx)
 	if (ctx->afi != family2afi(sockunion_family(&c->remote_addr)))
 		return;
 
+<<<<<<< HEAD
+=======
+	if (ctx->count && !ctx->json)
+		vty_out(ctx->vty, "\n");
+	ctx->count++;
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	sockunion2str(&c->remote_addr, buf[0], sizeof(buf[0]));
 	if (c->cur.peer)
 		sockunion2str(&c->cur.peer->vc->remote.nbma, buf[1],
@@ -925,8 +1005,11 @@ static void show_ip_opennhrp_cache(struct nhrp_cache *c, void *pctx)
 
 	if (sockunion_family(&c->cur.remote_nbma_natoa) != AF_UNSPEC)
 		vty_out(ctx->vty, "NBMA-NAT-OA-Address: %s\n", buf[2]);
+<<<<<<< HEAD
 
 	vty_out(ctx->vty, "\n\n");
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 }
 
 DEFUN(show_ip_nhrp, show_ip_nhrp_cmd,
@@ -970,7 +1053,10 @@ DEFUN(show_ip_nhrp, show_ip_nhrp_cmd,
 		else
 			json_object_string_add(json_vrf, "status", "ok");
 
+<<<<<<< HEAD
 		ctx.count++;
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		FOR_ALL_INTERFACES (vrf, ifp)
 			nhrp_cache_foreach(ifp, show_ip_opennhrp_cache, &ctx);
 	}
@@ -1053,6 +1139,10 @@ DEFUN(show_dmvpn, show_dmvpn_cmd,
 static void clear_nhrp_cache(struct nhrp_cache *c, void *data)
 {
 	struct info_ctx *ctx = data;
+<<<<<<< HEAD
+=======
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	if (c->cur.type <= NHRP_CACHE_DYNAMIC) {
 		nhrp_cache_update_binding(c, c->cur.type, -1, NULL, 0, NULL,
 					  NULL);
@@ -1129,6 +1219,10 @@ static void interface_config_write_nhrp_map(struct nhrp_cache_config *c,
 static int interface_config_write(struct vty *vty)
 {
 	struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
+<<<<<<< HEAD
+=======
+	struct nhrp_cisco_authentication_extension *auth;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	struct write_map_ctx mapctx;
 	struct interface *ifp;
 	struct nhrp_interface *nifp;
@@ -1155,6 +1249,15 @@ static int interface_config_write(struct vty *vty)
 		if (nifp->source)
 			vty_out(vty, " tunnel source %s\n", nifp->source);
 
+<<<<<<< HEAD
+=======
+		if (nifp->auth_token) {
+			auth = (struct nhrp_cisco_authentication_extension *)
+				       nifp->auth_token->buf;
+			vty_out(vty, " ip nhrp authentication %s\n", auth->secret);
+		}
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		for (afi = 0; afi < AFI_MAX; afi++) {
 			struct nhrp_afi_data *ad = &nifp->afi[afi];
 
@@ -1256,6 +1359,11 @@ void nhrp_config_init(void)
 	install_element(INTERFACE_NODE, &if_no_nhrp_network_id_cmd);
 	install_element(INTERFACE_NODE, &if_nhrp_holdtime_cmd);
 	install_element(INTERFACE_NODE, &if_no_nhrp_holdtime_cmd);
+<<<<<<< HEAD
+=======
+	install_element(INTERFACE_NODE, &if_nhrp_authentication_cmd);
+	install_element(INTERFACE_NODE, &if_no_nhrp_authentication_cmd);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	install_element(INTERFACE_NODE, &if_nhrp_mtu_cmd);
 	install_element(INTERFACE_NODE, &if_no_nhrp_mtu_cmd);
 	install_element(INTERFACE_NODE, &if_nhrp_flags_cmd);

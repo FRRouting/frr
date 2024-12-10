@@ -4668,6 +4668,10 @@ sub process {
 # check for new typedefs, only function parameters and sparse annotations
 # make sense.
 		if ($line =~ /\btypedef\s/ &&
+<<<<<<< HEAD
+=======
+		    $line !~ /\btypedef.*\s(pim_[^\s]+|[^\s]+_pim)\s*;/ &&
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		    $line !~ /\btypedef\s+$Type\s*\(\s*\*?$Ident\s*\)\s*\(/ &&
 		    $line !~ /\btypedef\s+$Type\s+$Ident\s*\(/ &&
 		    $line !~ /\b$typeTypedefs\b/ &&
@@ -5149,7 +5153,11 @@ sub process {
 				# none after.  May be left adjacent to another
 				# unary operator, or a cast
 				} elsif ($op eq '!' || $op eq '~' ||
+<<<<<<< HEAD
 					 $opv eq '*U' || $opv eq '-U' ||
+=======
+					 $opv eq '*U' || $opv eq '-U' || $opv eq '+U' ||
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 					 $opv eq '&U' || $opv eq '&&U') {
 					if ($ctx !~ /[WEBC]x./ && $ca !~ /(?:\)|!|~|\*|-|\&|\||\+\+|\-\-|\{)$/) {
 						if (ERROR("SPACING",

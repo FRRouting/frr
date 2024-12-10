@@ -626,6 +626,10 @@ module frr-zebra {
 
         leaf table-id {
           type uint32;
+<<<<<<< HEAD
+=======
+	  default "254";
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
           description
             "Routing Table id (default id - 254).";
         }
@@ -2855,6 +2859,19 @@ module frr-zebra {
         }
       }
 
+<<<<<<< HEAD
+=======
+      container mpls {
+        description
+          "MPLS Configuration.";
+          leaf fec-nexthop-resolution {
+            type boolean;
+            description
+              "Authorise nexthop resolution over all labeled routes.";
+          }
+      }
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
       uses ribs;
 
       uses vrf-vni-mapping;

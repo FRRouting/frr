@@ -112,18 +112,29 @@ static void nsm_timer_set(struct ospf_neighbor *nbr)
 	case NSM_Init:
 	case NSM_TwoWay:
 		EVENT_OFF(nbr->t_db_desc);
+<<<<<<< HEAD
 		EVENT_OFF(nbr->t_ls_upd);
+=======
+		EVENT_OFF(nbr->t_ls_rxmt);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		EVENT_OFF(nbr->t_ls_req);
 		break;
 	case NSM_ExStart:
 		OSPF_NSM_TIMER_ON(nbr->t_db_desc, ospf_db_desc_timer,
 				  nbr->v_db_desc);
+<<<<<<< HEAD
 		EVENT_OFF(nbr->t_ls_upd);
 		EVENT_OFF(nbr->t_ls_req);
 		break;
 	case NSM_Exchange:
 		OSPF_NSM_TIMER_ON(nbr->t_ls_upd, ospf_ls_upd_timer,
 				  nbr->v_ls_upd);
+=======
+		EVENT_OFF(nbr->t_ls_rxmt);
+		EVENT_OFF(nbr->t_ls_req);
+		break;
+	case NSM_Exchange:
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		if (!IS_SET_DD_MS(nbr->dd_flags))
 			EVENT_OFF(nbr->t_db_desc);
 		break;

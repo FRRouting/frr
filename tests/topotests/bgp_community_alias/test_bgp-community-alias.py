@@ -40,7 +40,11 @@ def setup_module(mod):
 
     router_list = tgen.routers()
 
+<<<<<<< HEAD
     for i, (rname, router) in enumerate(router_list.items(), 1):
+=======
+    for _, (rname, router) in enumerate(router_list.items(), 1):
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         router.load_config(
             TopoRouter.RD_ZEBRA, os.path.join(CWD, "{}/zebra.conf".format(rname))
         )
@@ -92,7 +96,11 @@ def test_bgp_community_alias():
         return topotest.json_cmp(output, expected)
 
     test_func = functools.partial(_bgp_converge, router)
+<<<<<<< HEAD
     success, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
+=======
+    _, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     assert result is None, "Cannot see BGP community aliases at r1"
 
     def _bgp_show_prefixes_by_alias(router):
@@ -118,7 +126,11 @@ def test_bgp_community_alias():
         return topotest.json_cmp(output, expected)
 
     test_func = functools.partial(_bgp_show_prefixes_by_alias, router)
+<<<<<<< HEAD
     success, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
+=======
+    _, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     assert result is None, "Cannot see BGP prefixes by community alias at r1"
 
     def _bgp_show_prefixes_by_large_community_list(router):
@@ -129,7 +141,11 @@ def test_bgp_community_alias():
         return topotest.json_cmp(output, expected)
 
     test_func = functools.partial(_bgp_show_prefixes_by_large_community_list, router)
+<<<<<<< HEAD
     success, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
+=======
+    _, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     assert result is None, "Cannot see BGP prefixes by large community list at r1"
 
 

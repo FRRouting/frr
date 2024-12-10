@@ -382,7 +382,11 @@ static inline void encode_mac_mobility_extcomm(int static_mac, uint32_t seq,
 }
 
 static inline void encode_na_flag_extcomm(struct ecommunity_val *eval,
+<<<<<<< HEAD
 					  uint8_t na_flag, bool proxy)
+=======
+					  bool na_flag, bool proxy)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 {
 	memset(eval, 0, sizeof(*eval));
 	eval->val[0] = ECOMMUNITY_ENCODE_EVPN;

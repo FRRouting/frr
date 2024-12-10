@@ -13,9 +13,13 @@ test_zebra_netlink.py: Test some basic interactions with kernel using Netlink
 """
 # pylint: disable=C0413
 import ipaddress
+<<<<<<< HEAD
 import json
 import sys
 from functools import partial
+=======
+import sys
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 import pytest
 from lib import topotest
@@ -42,7 +46,11 @@ def tgen(request):
 
     # Initialize all routers.
     router_list = tgen.routers()
+<<<<<<< HEAD
     for rname, router in router_list.items():
+=======
+    for _, router in router_list.items():
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         router.load_config(TopoRouter.RD_ZEBRA, "zebra.conf")
         router.load_config(TopoRouter.RD_SHARP)
 

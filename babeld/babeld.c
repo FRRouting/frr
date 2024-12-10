@@ -204,7 +204,11 @@ static void babel_read_protocol(struct event *thread)
  making these inits have sense. */
 static void babel_init_routing_process(struct event *thread)
 {
+<<<<<<< HEAD
     myseqno = (frr_weak_random() & 0xFFFF);
+=======
+    myseqno = CHECK_FLAG(frr_weak_random(), 0xFFFF);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     babel_get_myid();
     babel_load_state_file();
     debugf(BABEL_DEBUG_COMMON, "My ID is : %s.", format_eui64(myid));
@@ -299,8 +303,12 @@ babel_initial_noise(void)
 }
 
 /* Delete all the added babel routes, make babeld only speak to zebra. */
+<<<<<<< HEAD
 static void
 babel_clean_routing_process(void)
+=======
+void babel_clean_routing_process(void)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 {
     flush_all_routes();
     babel_interface_close_all();
@@ -444,8 +452,13 @@ babel_fill_with_next_timeout(struct timeval *tv)
 #if (defined NO_DEBUG)
 #define printIfMin(a,b,c,d)
 #else
+<<<<<<< HEAD
 #define printIfMin(a, b, c, d)                                                 \
 	if (unlikely(debug & BABEL_DEBUG_TIMEOUT)) {                           \
+=======
+#define printIfMin(a, b, c, d)                                         \
+	if (unlikely(CHECK_FLAG(debug, BABEL_DEBUG_TIMEOUT))) {            \
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		printIfMin(a, b, c, d);                                        \
 	}
 

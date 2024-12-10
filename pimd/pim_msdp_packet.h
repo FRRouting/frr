@@ -57,5 +57,10 @@ void pim_msdp_pkt_sa_tx_one(struct pim_msdp_sa *sa);
 void pim_msdp_pkt_sa_tx_to_one_peer(struct pim_msdp_peer *mp);
 void pim_msdp_pkt_sa_tx_one_to_one_peer(struct pim_msdp_peer *mp,
 					struct in_addr rp, pim_sgaddr sg);
+<<<<<<< HEAD
+=======
+bool msdp_peer_sa_filter(const struct pim_msdp_peer *mp,
+			 const struct pim_msdp_sa *sa);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 #endif

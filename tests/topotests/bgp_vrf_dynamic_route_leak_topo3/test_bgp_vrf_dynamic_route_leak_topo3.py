@@ -23,7 +23,10 @@ import sys
 import time
 import pytest
 import platform
+<<<<<<< HEAD
 from time import sleep
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 # Save the Current Working Directory to find configuration files.
 CWD = os.path.dirname(os.path.realpath(__file__))
@@ -49,7 +52,10 @@ from lib.common_config import (
     create_static_routes,
     create_prefix_lists,
     create_bgp_community_lists,
+<<<<<<< HEAD
     get_frr_ipv6_linklocal,
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 )
 
 from lib.topolog import logger

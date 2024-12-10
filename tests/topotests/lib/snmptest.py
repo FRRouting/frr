@@ -104,12 +104,23 @@ class SnmpTester(object):
             return None
         return self._get_snmp_value(result)
 
+<<<<<<< HEAD
     def walk(self, oid):
+=======
+    def walk(self, oid, raw=False):
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         cmd = "snmpwalk {0} {1} 2>&1 | grep -v SNMPv2-PDU".format(
             self._snmp_config(), oid
         )
 
         result = self.router.cmd(cmd)
+<<<<<<< HEAD
+=======
+
+        if raw:
+            return result
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         return self._parse_multiline(result)
 
     def parse_notif_ipv4(self, notif):

@@ -117,6 +117,16 @@ extern int bgp_zebra_update(struct bgp *bgp, afi_t afi, safi_t safi,
 extern int bgp_zebra_stale_timer_update(struct bgp *bgp);
 extern int bgp_zebra_srv6_manager_get_locator_chunk(const char *name);
 extern int bgp_zebra_srv6_manager_release_locator_chunk(const char *name);
+<<<<<<< HEAD
+=======
+extern int bgp_zebra_srv6_manager_get_locator(const char *name);
+extern bool bgp_zebra_request_srv6_sid(const struct srv6_sid_ctx *ctx,
+				       struct in6_addr *sid_value,
+				       const char *locator_name,
+				       uint32_t *sid_func);
+extern void bgp_zebra_release_srv6_sid(const struct srv6_sid_ctx *ctx);
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 extern void bgp_zebra_send_nexthop_label(int cmd, mpls_label_t label,
 					 ifindex_t index, vrf_id_t vrfid,
 					 enum lsp_types_t ltype,

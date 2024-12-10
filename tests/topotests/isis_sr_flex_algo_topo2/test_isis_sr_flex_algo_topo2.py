@@ -47,7 +47,10 @@ import os
 import sys
 import pytest
 import json
+<<<<<<< HEAD
 import time
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 from functools import partial
 
 # Save the Current Working Directory to find configuration files.
@@ -67,7 +70,10 @@ pytestmark = [pytest.mark.isisd]
 def build_topo(tgen):
     "Build function"
 
+<<<<<<< HEAD
     routers = []
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     for i in range(0, 10):
         rt = tgen.add_router("rt{}".format(i))
         rt.run("sysctl -w net.ipv4.fib_multipath_hash_policy=1")
@@ -140,7 +146,11 @@ def setup_module(mod):
     tgen.start_router()
 
 
+<<<<<<< HEAD
 def teardown_module(mod):
+=======
+def teardown_module():
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     "Teardown the pytest environment"
     tgen = get_topogen()
     tgen.stop_topology()
@@ -174,7 +184,11 @@ def check_rib(name, cmd, expected_file):
     logger.info('[+] check {} "{}" {}'.format(name, cmd, expected_file))
     tgen = get_topogen()
     func = partial(_check, name, cmd, expected_file)
+<<<<<<< HEAD
     success, result = topotest.run_and_expect(func, None, count=120, wait=0.5)
+=======
+    _, result = topotest.run_and_expect(func, None, count=120, wait=0.5)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     assert result is None, "Failed"
 
 

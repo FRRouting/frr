@@ -13,6 +13,7 @@ import os
 import sys
 import time
 import pytest
+<<<<<<< HEAD
 from copy import deepcopy
 import ipaddress
 from lib.ospf import (
@@ -22,6 +23,12 @@ from lib.ospf import (
     verify_ospf6_rib,
     verify_ospf6_interface,
     verify_ospf6_database,
+=======
+import ipaddress
+from lib.ospf import (
+    verify_ospf6_neighbor,
+    verify_ospf6_rib,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     create_router_ospf,
 )
 
@@ -29,12 +36,15 @@ from lib.ospf import (
 # Import topogen and topotest helpers
 from lib.topogen import Topogen, get_topogen
 
+<<<<<<< HEAD
 from lib.bgp import (
     verify_bgp_convergence,
     create_router_bgp,
     clear_bgp_and_verify,
     verify_bgp_rib,
 )
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 from lib.topolog import logger
 from lib.common_config import (
     start_topology,
@@ -44,12 +54,18 @@ from lib.common_config import (
     verify_rib,
     create_static_routes,
     step,
+<<<<<<< HEAD
     create_route_maps,
     shutdown_bringup_interface,
     create_interfaces_cfg,
     check_router_status,
 )
 from ipaddress import IPv4Address
+=======
+    create_interfaces_cfg,
+    check_router_status,
+)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 from lib.topolog import logger
 from lib.topojson import build_config_from_json
 

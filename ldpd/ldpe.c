@@ -459,6 +459,11 @@ static void ldpe_dispatch_main(struct event *thread)
 			tnbr_update_all(AF_UNSPEC);
 			break;
 		case IMSG_RECONF_CONF:
+<<<<<<< HEAD
+=======
+			if (nconf)
+				ldp_clear_config(nconf);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			if ((nconf = malloc(sizeof(struct ldpd_conf))) == NULL)
 				fatal(NULL);
 			memcpy(nconf, imsg.data, sizeof(struct ldpd_conf));

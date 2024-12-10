@@ -238,7 +238,11 @@ void zebra_router_terminate(void)
 {
 	struct zebra_router_table *zrt, *tmp;
 
+<<<<<<< HEAD
 	EVENT_OFF(zrouter.sweeper);
+=======
+	EVENT_OFF(zrouter.t_rib_sweep);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	RB_FOREACH_SAFE (zrt, zebra_router_table_head, &zrouter.tables, tmp)
 		zebra_router_free_table(zrt);
@@ -343,7 +347,11 @@ void zebra_router_init(bool asic_offload, bool notify_on_ack,
 #endif
 	zrouter.asic_notification_nexthop_control = false;
 
+<<<<<<< HEAD
 	zrouter.nexthop_weight_scale_value = 255;
+=======
+	zrouter.nexthop_weight_scale_value = 254;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 #ifdef HAVE_SCRIPTING
 	zebra_script_init();

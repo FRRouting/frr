@@ -139,7 +139,11 @@ static int _nexthop_source_cmp(const struct nexthop *nh1,
 }
 
 static int _nexthop_cmp_no_labels(const struct nexthop *next1,
+<<<<<<< HEAD
 				  const struct nexthop *next2)
+=======
+				  const struct nexthop *next2, bool use_weight)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 {
 	int ret = 0;
 
@@ -155,11 +159,21 @@ static int _nexthop_cmp_no_labels(const struct nexthop *next1,
 	if (next1->type > next2->type)
 		return 1;
 
+<<<<<<< HEAD
 	if (next1->weight < next2->weight)
 		return -1;
 
 	if (next1->weight > next2->weight)
 		return 1;
+=======
+	if (use_weight) {
+		if (next1->weight < next2->weight)
+			return -1;
+
+		if (next1->weight > next2->weight)
+			return 1;
+	}
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	switch (next1->type) {
 	case NEXTHOP_TYPE_IPV4:
@@ -227,11 +241,20 @@ done:
 	return ret;
 }
 
+<<<<<<< HEAD
 int nexthop_cmp(const struct nexthop *next1, const struct nexthop *next2)
 {
 	int ret = 0;
 
 	ret = _nexthop_cmp_no_labels(next1, next2);
+=======
+static int nexthop_cmp_internal(const struct nexthop *next1,
+				const struct nexthop *next2, bool use_weight)
+{
+	int ret = 0;
+
+	ret = _nexthop_cmp_no_labels(next1, next2, use_weight);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	if (ret != 0)
 		return ret;
 
@@ -244,6 +267,20 @@ int nexthop_cmp(const struct nexthop *next1, const struct nexthop *next2)
 	return ret;
 }
 
+<<<<<<< HEAD
+=======
+int nexthop_cmp(const struct nexthop *next1, const struct nexthop *next2)
+{
+	return nexthop_cmp_internal(next1, next2, true);
+}
+
+int nexthop_cmp_no_weight(const struct nexthop *next1,
+			  const struct nexthop *next2)
+{
+	return nexthop_cmp_internal(next1, next2, false);
+}
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 /*
  * More-limited comparison function used to detect duplicate
  * nexthops. This is used in places where we don't need the full
@@ -441,7 +478,11 @@ bool nexthop_same_no_labels(const struct nexthop *nh1,
 	if (nh1 == nh2)
 		return true;
 
+<<<<<<< HEAD
 	if (_nexthop_cmp_no_labels(nh1, nh2) != 0)
+=======
+	if (_nexthop_cmp_no_labels(nh1, nh2, true) != 0)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		return false;
 
 	return true;
@@ -567,6 +608,35 @@ void nexthop_del_labels(struct nexthop *nexthop)
 	nexthop->nh_label_type = ZEBRA_LSP_NONE;
 }
 
+<<<<<<< HEAD
+=======
+void nexthop_change_labels(struct nexthop *nexthop, struct mpls_label_stack *new_stack)
+{
+	struct mpls_label_stack *nh_label_tmp;
+	uint32_t i;
+
+	/* Enforce limit on label stack size */
+	if (new_stack->num_labels > MPLS_MAX_LABELS)
+		new_stack->num_labels = MPLS_MAX_LABELS;
+
+	/* Resize the array to accommodate the new label stack */
+	if (new_stack->num_labels > nexthop->nh_label->num_labels) {
+		nh_label_tmp = XREALLOC(MTYPE_NH_LABEL, nexthop->nh_label,
+					sizeof(struct mpls_label_stack) +
+						new_stack->num_labels * sizeof(mpls_label_t));
+		if (nh_label_tmp) {
+			nexthop->nh_label = nh_label_tmp;
+			nexthop->nh_label->num_labels = new_stack->num_labels;
+		} else
+			new_stack->num_labels = nexthop->nh_label->num_labels;
+	}
+
+	/* Copy the label stack into the array */
+	for (i = 0; i < new_stack->num_labels; i++)
+		nexthop->nh_label->label[i] = new_stack->label[i];
+}
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 void nexthop_add_srv6_seg6local(struct nexthop *nexthop, uint32_t action,
 				const struct seg6local_context *ctx)
 {
@@ -699,6 +769,18 @@ struct nexthop *nexthop_next(const struct nexthop *nexthop)
 	return NULL;
 }
 
+<<<<<<< HEAD
+=======
+struct nexthop *nexthop_next_resolution(const struct nexthop *nexthop,
+					bool nexthop_resolution)
+{
+	if (nexthop_resolution)
+		return nexthop_next(nexthop);
+	/* no resolution attempt */
+	return nexthop->next;
+}
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 /* Return the next nexthop in the tree that is resolved and active */
 struct nexthop *nexthop_next_active_resolved(const struct nexthop *nexthop)
 {
@@ -1166,6 +1248,10 @@ void nexthop_json_helper(json_object *json_nexthop,
 	json_object *json_labels = NULL;
 	json_object *json_backups = NULL;
 	json_object *json_seg6local = NULL;
+<<<<<<< HEAD
+=======
+	json_object *json_seg6local_context = NULL;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	json_object *json_seg6 = NULL;
 	json_object *json_segs = NULL;
 	int i;
@@ -1331,8 +1417,21 @@ void nexthop_json_helper(json_object *json_nexthop,
 				       seg6local_action2str(
 					       nexthop->nh_srv6
 						       ->seg6local_action));
+<<<<<<< HEAD
 		json_object_object_add(json_nexthop, "seg6local",
 				       json_seg6local);
+=======
+		json_seg6local_context = json_object_new_object();
+		json_object_object_add(json_nexthop, "seg6local",
+				       json_seg6local);
+
+		seg6local_context2json(&nexthop->nh_srv6->seg6local_ctx,
+				       nexthop->nh_srv6->seg6local_action,
+				       json_seg6local_context);
+		json_object_object_add(json_nexthop, "seg6localContext",
+				       json_seg6local_context);
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		if (nexthop->nh_srv6->seg6_segs &&
 		    nexthop->nh_srv6->seg6_segs->num_segs == 1) {
 			json_seg6 = json_object_new_object();

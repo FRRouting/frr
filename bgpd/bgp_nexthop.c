@@ -32,6 +32,10 @@
 #include "bgpd/bgp_vty.h"
 #include "bgpd/bgp_rd.h"
 #include "bgpd/bgp_mplsvpn.h"
+<<<<<<< HEAD
+=======
+#include "bgpd/bgp_bfd.h"
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 DEFINE_MTYPE_STATIC(BGPD, MARTIAN_STRING, "BGP Martian Addr Intf String");
 
@@ -409,6 +413,7 @@ void bgp_connected_add(struct bgp *bgp, struct connected *ifc)
 			bgp_dest_set_bgp_connected_ref_info(dest, bc);
 		}
 
+<<<<<<< HEAD
 		for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer)) {
 			if (peer->conf_if &&
 			    (strcmp(peer->conf_if, ifc->ifp->name) == 0) &&
@@ -420,6 +425,8 @@ void bgp_connected_add(struct bgp *bgp, struct connected *ifc)
 				BGP_EVENT_ADD(connection, BGP_Start);
 			}
 		}
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	} else if (addr->family == AF_INET6) {
 		apply_mask_ipv6((struct prefix_ipv6 *)&p);
 
@@ -443,6 +450,25 @@ void bgp_connected_add(struct bgp *bgp, struct connected *ifc)
 			bgp_dest_set_bgp_connected_ref_info(dest, bc);
 		}
 	}
+<<<<<<< HEAD
+=======
+
+	/*
+	 * Iterate over all the peers and attempt to set the bfd session
+	 * data and if it's a bgp unnumbered get her flowing if necessary
+	 */
+	for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer)) {
+		bgp_peer_bfd_update_source(peer);
+		if (peer->conf_if && (strcmp(peer->conf_if, ifc->ifp->name) == 0) &&
+		    !peer_established(peer->connection) &&
+		    !CHECK_FLAG(peer->flags, PEER_FLAG_IFPEER_V6ONLY)) {
+			connection = peer->connection;
+			if (peer_active(connection))
+				BGP_EVENT_ADD(connection, BGP_Stop);
+			BGP_EVENT_ADD(connection, BGP_Start);
+		}
+	}
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 }
 
 void bgp_connected_delete(struct bgp *bgp, struct connected *ifc)
@@ -528,6 +554,7 @@ bool bgp_nexthop_self(struct bgp *bgp, afi_t afi, uint8_t type,
 			tmp_addr.p.prefixlen = p->prefixlen;
 		} else {
 			/* Here we need to find out which nexthop to be used*/
+<<<<<<< HEAD
 			if (attr->flag & ATTR_FLAG_BIT(BGP_ATTR_NEXT_HOP)) {
 				tmp_addr.p.u.prefix4 = attr->nexthop;
 				tmp_addr.p.prefixlen = IPV4_MAX_BITLEN;
@@ -536,6 +563,14 @@ bool bgp_nexthop_self(struct bgp *bgp, afi_t afi, uint8_t type,
 					== BGP_ATTR_NHLEN_IPV4)
 				       || (attr->mp_nexthop_len
 					   == BGP_ATTR_NHLEN_VPNV4))) {
+=======
+			if (CHECK_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_NEXT_HOP))) {
+				tmp_addr.p.u.prefix4 = attr->nexthop;
+				tmp_addr.p.prefixlen = IPV4_MAX_BITLEN;
+			} else if ((attr->mp_nexthop_len) &&
+				   ((attr->mp_nexthop_len == BGP_ATTR_NHLEN_IPV4) ||
+				    (attr->mp_nexthop_len == BGP_ATTR_NHLEN_VPNV4))) {
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 				tmp_addr.p.u.prefix4 =
 					attr->mp_nexthop_global_in;
 				tmp_addr.p.prefixlen = IPV4_MAX_BITLEN;
@@ -564,11 +599,19 @@ bool bgp_nexthop_self(struct bgp *bgp, afi_t afi, uint8_t type,
 		memset(&tmp_tip, 0, sizeof(tmp_tip));
 		tmp_tip.addr = attr->nexthop;
 
+<<<<<<< HEAD
 		if (attr->flag & ATTR_FLAG_BIT(BGP_ATTR_NEXT_HOP)) {
 			tmp_tip.addr = attr->nexthop;
 		} else if ((attr->mp_nexthop_len) &&
 			   ((attr->mp_nexthop_len == BGP_ATTR_NHLEN_IPV4)
 			    || (attr->mp_nexthop_len == BGP_ATTR_NHLEN_VPNV4))) {
+=======
+		if (CHECK_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_NEXT_HOP))) {
+			tmp_tip.addr = attr->nexthop;
+		} else if ((attr->mp_nexthop_len) &&
+			   ((attr->mp_nexthop_len == BGP_ATTR_NHLEN_IPV4) ||
+			    (attr->mp_nexthop_len == BGP_ATTR_NHLEN_VPNV4))) {
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			tmp_tip.addr = attr->mp_nexthop_global_in;
 		}
 
@@ -1379,6 +1422,7 @@ char *bgp_nexthop_dump_bnc_change_flags(struct bgp_nexthop_cache *bnc,
 		return buf;
 	}
 
+<<<<<<< HEAD
 	snprintfrr(buf, len, "%s%s%s",
 		   CHECK_FLAG(bnc->change_flags, BGP_NEXTHOP_CHANGED)
 			   ? "Changed "
@@ -1389,6 +1433,11 @@ char *bgp_nexthop_dump_bnc_change_flags(struct bgp_nexthop_cache *bnc,
 		   CHECK_FLAG(bnc->change_flags, BGP_NEXTHOP_CONNECTED_CHANGED)
 			   ? "Connected "
 			   : "");
+=======
+	snprintfrr(buf, len, "%s%s",
+		   CHECK_FLAG(bnc->change_flags, BGP_NEXTHOP_CHANGED) ? "Changed " : "",
+		   CHECK_FLAG(bnc->change_flags, BGP_NEXTHOP_METRIC_CHANGED) ? "Metric " : "");
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	return buf;
 }

@@ -27,7 +27,11 @@ pytestmark = [pytest.mark.bgpd]
 
 
 def build_topo(tgen):
+<<<<<<< HEAD
     for routern in range(1, 7):
+=======
+    for routern in range(1, 5):
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         tgen.add_router("r{}".format(routern))
 
     switch = tgen.add_switch("s1")
@@ -49,7 +53,11 @@ def setup_module(mod):
 
     router_list = tgen.routers()
 
+<<<<<<< HEAD
     for i, (rname, router) in enumerate(router_list.items(), 1):
+=======
+    for _, (rname, router) in enumerate(router_list.items(), 1):
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         router.load_config(
             TopoRouter.RD_ZEBRA, os.path.join(CWD, "{}/zebra.conf".format(rname))
         )

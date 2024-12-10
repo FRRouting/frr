@@ -12,17 +12,23 @@ Test static route functionality
 
 import ipaddress
 import math
+<<<<<<< HEAD
 import time
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 import pytest
 from lib.topogen import Topogen
 from oper import check_kernel_32, do_oper_test
 
+<<<<<<< HEAD
 try:
     from deepdiff import DeepDiff as dd_json_cmp
 except ImportError:
     dd_json_cmp = None
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 pytestmark = [pytest.mark.staticd, pytest.mark.mgmtd]
 
 

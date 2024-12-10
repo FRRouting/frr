@@ -124,6 +124,11 @@ enum zebra_log_refs {
 	EC_ZEBRA_GRE_SET_UPDATE,
 	EC_ZEBRA_SRV6M_UNRELEASED_LOCATOR_CHUNK,
 	EC_ZEBRA_INTF_UPDATE_FAILURE,
+<<<<<<< HEAD
+=======
+	EC_ZEBRA_SM_CANNOT_ASSIGN_SID,
+	EC_ZEBRA_SM_DAEMON_MISMATCH,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 };
 
 void zebra_error_init(void);

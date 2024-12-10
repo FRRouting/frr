@@ -770,8 +770,12 @@ int bgp_evpn_type4_route_process(struct peer *peer, afi_t afi, safi_t safi,
 			   0, 0, NULL);
 	} else {
 		bgp_withdraw(peer, (struct prefix *)&p, addpath_id, afi, safi,
+<<<<<<< HEAD
 			     ZEBRA_ROUTE_BGP, BGP_ROUTE_NORMAL, &prd, NULL, 0,
 			     NULL);
+=======
+			     ZEBRA_ROUTE_BGP, BGP_ROUTE_NORMAL, &prd, NULL, 0);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	}
 	return 0;
 }
@@ -1239,8 +1243,12 @@ int bgp_evpn_type1_route_process(struct peer *peer, afi_t afi, safi_t safi,
 			   0, 0, NULL);
 	} else {
 		bgp_withdraw(peer, (struct prefix *)&p, addpath_id, afi, safi,
+<<<<<<< HEAD
 			     ZEBRA_ROUTE_BGP, BGP_ROUTE_NORMAL, &prd, NULL, 0,
 			     NULL);
+=======
+			     ZEBRA_ROUTE_BGP, BGP_ROUTE_NORMAL, &prd, NULL, 0);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	}
 	return 0;
 }
@@ -1406,8 +1414,13 @@ bgp_zebra_send_remote_es_vtep(struct bgp *bgp, struct bgp_evpn_es_vtep *es_vtep,
 		return ZCLIENT_SEND_SUCCESS;
 	}
 
+<<<<<<< HEAD
 	if (es_vtep->flags & BGP_EVPNES_VTEP_ESR)
 		flags |= ZAPI_ES_VTEP_FLAG_ESR_RXED;
+=======
+	if (CHECK_FLAG(es_vtep->flags, BGP_EVPNES_VTEP_ESR))
+		SET_FLAG(flags, ZAPI_ES_VTEP_FLAG_ESR_RXED);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	s = zclient->obuf;
 	stream_reset(s);
@@ -1966,9 +1979,15 @@ static struct bgp_evpn_es *bgp_evpn_es_new(struct bgp *bgp, const esi_t *esi)
  */
 static void bgp_evpn_es_free(struct bgp_evpn_es *es, const char *caller)
 {
+<<<<<<< HEAD
 	if ((es->flags & (BGP_EVPNES_LOCAL | BGP_EVPNES_REMOTE))
 	    || listcount(es->macip_evi_path_list)
 	    || listcount(es->macip_global_path_list))
+=======
+	if (CHECK_FLAG(es->flags, (BGP_EVPNES_LOCAL | BGP_EVPNES_REMOTE)) ||
+	    listcount(es->macip_evi_path_list) ||
+	    listcount(es->macip_global_path_list))
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		return;
 
 	if (BGP_DEBUG(evpn_mh, EVPN_MH_ES))
@@ -1993,8 +2012,13 @@ static void bgp_evpn_es_free(struct bgp_evpn_es *es, const char *caller)
 
 static inline bool bgp_evpn_is_es_local_and_non_bypass(struct bgp_evpn_es *es)
 {
+<<<<<<< HEAD
 	return (es->flags & BGP_EVPNES_LOCAL)
 	       && !(es->flags & BGP_EVPNES_BYPASS);
+=======
+	return CHECK_FLAG(es->flags, BGP_EVPNES_LOCAL) &&
+	       !CHECK_FLAG(es->flags, BGP_EVPNES_BYPASS);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 }
 
 /* init local info associated with the ES */
@@ -2076,8 +2100,13 @@ bool bgp_evpn_es_add_l3_ecomm_ok(esi_t *esi)
 
 	es = bgp_evpn_es_find(esi);
 
+<<<<<<< HEAD
 	return (!es || !(es->flags & BGP_EVPNES_LOCAL)
 		|| bgp_evpn_local_es_is_active(es));
+=======
+	return (!es || !CHECK_FLAG(es->flags, BGP_EVPNES_LOCAL) ||
+		bgp_evpn_local_es_is_active(es));
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 }
 
 static bool bgp_evpn_is_valid_local_path(struct bgp_path_info *pi)
@@ -2177,9 +2206,15 @@ static void bgp_evpn_mac_update_on_es_local_chg(struct bgp_evpn_es *es,
 
 		attr_tmp = *pi->attr;
 		if (is_local)
+<<<<<<< HEAD
 			attr_tmp.es_flags |= ATTR_ES_IS_LOCAL;
 		else
 			attr_tmp.es_flags &= ~ATTR_ES_IS_LOCAL;
+=======
+			SET_FLAG(attr_tmp.es_flags, ATTR_ES_IS_LOCAL);
+		else
+			UNSET_FLAG(attr_tmp.es_flags, ATTR_ES_IS_LOCAL);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		attr_new = bgp_attr_intern(&attr_tmp);
 		bgp_attr_unintern(&pi->attr);
 		pi->attr = attr_new;
@@ -2473,9 +2508,15 @@ static char *bgp_evpn_es_vteps_str(char *vtep_str, struct bgp_evpn_es *es,
 	for (ALL_LIST_ELEMENTS_RO(es->es_vtep_list, node, es_vtep)) {
 		vtep_flag_str[0] = '\0';
 
+<<<<<<< HEAD
 		if (es_vtep->flags & BGP_EVPNES_VTEP_ESR)
 			strlcat(vtep_flag_str, "E", sizeof(vtep_flag_str));
 		if (es_vtep->flags & BGP_EVPNES_VTEP_ACTIVE)
+=======
+		if (CHECK_FLAG(es_vtep->flags, BGP_EVPNES_VTEP_ESR))
+			strlcat(vtep_flag_str, "E", sizeof(vtep_flag_str));
+		if (CHECK_FLAG(es_vtep->flags, BGP_EVPNES_VTEP_ACTIVE))
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			strlcat(vtep_flag_str, "A", sizeof(vtep_flag_str));
 
 		if (!strlen(vtep_flag_str))
@@ -2507,6 +2548,7 @@ static void bgp_evpn_es_json_vtep_fill(json_object *json_vteps,
 
 	json_object_string_addf(json_vtep_entry, "vtep_ip", "%pI4",
 				&es_vtep->vtep_ip);
+<<<<<<< HEAD
 	if (es_vtep->flags & (BGP_EVPNES_VTEP_ESR |
 			 BGP_EVPNES_VTEP_ACTIVE)) {
 		json_flags = json_object_new_array();
@@ -2516,6 +2558,17 @@ static void bgp_evpn_es_json_vtep_fill(json_object *json_vteps,
 			json_array_string_add(json_flags, "active");
 		json_object_object_add(json_vtep_entry, "flags", json_flags);
 		if (es_vtep->flags & BGP_EVPNES_VTEP_ESR) {
+=======
+	if (CHECK_FLAG(es_vtep->flags,
+		       (BGP_EVPNES_VTEP_ESR | BGP_EVPNES_VTEP_ACTIVE))) {
+		json_flags = json_object_new_array();
+		if (CHECK_FLAG(es_vtep->flags, BGP_EVPNES_VTEP_ESR))
+			json_array_string_add(json_flags, "esr");
+		if (CHECK_FLAG(es_vtep->flags, BGP_EVPNES_VTEP_ACTIVE))
+			json_array_string_add(json_flags, "active");
+		json_object_object_add(json_vtep_entry, "flags", json_flags);
+		if (CHECK_FLAG(es_vtep->flags, BGP_EVPNES_VTEP_ESR)) {
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			json_object_int_add(json_vtep_entry, "dfPreference",
 					    es_vtep->df_pref);
 			json_object_string_add(
@@ -2539,9 +2592,15 @@ static void bgp_evpn_es_vteps_show_detail(struct vty *vty,
 
 	for (ALL_LIST_ELEMENTS_RO(es->es_vtep_list, node, es_vtep)) {
 		vtep_flag_str[0] = '\0';
+<<<<<<< HEAD
 		if (es_vtep->flags & BGP_EVPNES_VTEP_ESR)
 			strlcat(vtep_flag_str, "E", sizeof(vtep_flag_str));
 		if (es_vtep->flags & BGP_EVPNES_VTEP_ACTIVE)
+=======
+		if (CHECK_FLAG(es_vtep->flags, BGP_EVPNES_VTEP_ESR))
+			strlcat(vtep_flag_str, "E", sizeof(vtep_flag_str));
+		if (CHECK_FLAG(es_vtep->flags, BGP_EVPNES_VTEP_ACTIVE))
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			strlcat(vtep_flag_str, "A", sizeof(vtep_flag_str));
 
 		if (!strlen(vtep_flag_str))
@@ -2550,7 +2609,11 @@ static void bgp_evpn_es_vteps_show_detail(struct vty *vty,
 		vty_out(vty, "  %pI4 flags: %s", &es_vtep->vtep_ip,
 			vtep_flag_str);
 
+<<<<<<< HEAD
 		if (es_vtep->flags & BGP_EVPNES_VTEP_ESR)
+=======
+		if (CHECK_FLAG(es_vtep->flags, BGP_EVPNES_VTEP_ESR))
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			vty_out(vty, " df_alg: %s df_pref: %u\n",
 				evpn_es_df_alg2str(es_vtep->df_alg, alg_buf,
 						   sizeof(alg_buf)),
@@ -2575,11 +2638,20 @@ static void bgp_evpn_es_show_entry(struct vty *vty,
 			json_object_string_addf(json, "rd", "%pRDP",
 						&es->es_base_frag->prd);
 
+<<<<<<< HEAD
 		if (es->flags & (BGP_EVPNES_LOCAL | BGP_EVPNES_REMOTE)) {
 			json_types = json_object_new_array();
 			if (es->flags & BGP_EVPNES_LOCAL)
 				json_array_string_add(json_types, "local");
 			if (es->flags & BGP_EVPNES_REMOTE)
+=======
+		if (CHECK_FLAG(es->flags,
+			       (BGP_EVPNES_LOCAL | BGP_EVPNES_REMOTE))) {
+			json_types = json_object_new_array();
+			if (CHECK_FLAG(es->flags, BGP_EVPNES_LOCAL))
+				json_array_string_add(json_types, "local");
+			if (CHECK_FLAG(es->flags, BGP_EVPNES_REMOTE))
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 				json_array_string_add(json_types, "remote");
 			json_object_object_add(json, "type", json_types);
 		}
@@ -2599,11 +2671,19 @@ static void bgp_evpn_es_show_entry(struct vty *vty,
 		char vtep_str[ES_VTEP_LIST_STR_SZ + BGP_EVPN_VTEPS_FLAG_STR_SZ];
 
 		type_str[0] = '\0';
+<<<<<<< HEAD
 		if (es->flags & BGP_EVPNES_BYPASS)
 			strlcat(type_str, "B", sizeof(type_str));
 		if (es->flags & BGP_EVPNES_LOCAL)
 			strlcat(type_str, "L", sizeof(type_str));
 		if (es->flags & BGP_EVPNES_REMOTE)
+=======
+		if (CHECK_FLAG(es->flags, BGP_EVPNES_BYPASS))
+			strlcat(type_str, "B", sizeof(type_str));
+		if (CHECK_FLAG(es->flags, BGP_EVPNES_LOCAL))
+			strlcat(type_str, "L", sizeof(type_str));
+		if (CHECK_FLAG(es->flags, BGP_EVPNES_REMOTE))
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			strlcat(type_str, "R", sizeof(type_str));
 		if (es->inconsistencies)
 			strlcat(type_str, "I", sizeof(type_str));
@@ -2630,6 +2710,7 @@ static void bgp_evpn_es_show_entry_detail(struct vty *vty,
 
 		/* Add the "brief" info first */
 		bgp_evpn_es_show_entry(vty, es, json);
+<<<<<<< HEAD
 		if (es->flags
 		    & (BGP_EVPNES_OPER_UP | BGP_EVPNES_ADV_EVI
 		       | BGP_EVPNES_BYPASS)) {
@@ -2640,6 +2721,18 @@ static void bgp_evpn_es_show_entry_detail(struct vty *vty,
 				json_array_string_add(json_flags,
 						"advertiseEVI");
 			if (es->flags & BGP_EVPNES_BYPASS)
+=======
+		if (CHECK_FLAG(es->flags,
+			       (BGP_EVPNES_OPER_UP | BGP_EVPNES_ADV_EVI |
+				BGP_EVPNES_BYPASS))) {
+			json_flags = json_object_new_array();
+			if (CHECK_FLAG(es->flags, BGP_EVPNES_OPER_UP))
+				json_array_string_add(json_flags, "up");
+			if (CHECK_FLAG(es->flags, BGP_EVPNES_ADV_EVI))
+				json_array_string_add(json_flags,
+						"advertiseEVI");
+			if (CHECK_FLAG(es->flags, BGP_EVPNES_BYPASS))
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 				json_array_string_add(json_flags, "bypass");
 			json_object_object_add(json, "flags", json_flags);
 		}
@@ -2655,7 +2748,11 @@ static void bgp_evpn_es_show_entry_detail(struct vty *vty,
 				    listcount(es->macip_global_path_list));
 		json_object_int_add(json, "inconsistentVniVtepCount",
 				es->incons_evi_vtep_cnt);
+<<<<<<< HEAD
 		if (es->flags & BGP_EVPNES_LOCAL)
+=======
+		if (CHECK_FLAG(es->flags, BGP_EVPNES_LOCAL))
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			json_object_int_add(json, "localEsDfPreference",
 					    es->df_pref);
 		if (listcount(es->es_vtep_list)) {
@@ -2673,7 +2770,12 @@ static void bgp_evpn_es_show_entry_detail(struct vty *vty,
 		}
 		if (es->inconsistencies) {
 			json_incons = json_object_new_array();
+<<<<<<< HEAD
 			if (es->inconsistencies & BGP_EVPNES_INCONS_VTEP_LIST)
+=======
+			if (CHECK_FLAG(es->inconsistencies,
+				       BGP_EVPNES_INCONS_VTEP_LIST))
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 				json_array_string_add(json_incons,
 						"vni-vtep-mismatch");
 			json_object_object_add(json, "inconsistencies",
@@ -2684,9 +2786,15 @@ static void bgp_evpn_es_show_entry_detail(struct vty *vty,
 		char type_str[4];
 
 		type_str[0] = '\0';
+<<<<<<< HEAD
 		if (es->flags & BGP_EVPNES_LOCAL)
 			strlcat(type_str, "L", sizeof(type_str));
 		if (es->flags & BGP_EVPNES_REMOTE)
+=======
+		if (CHECK_FLAG(es->flags, BGP_EVPNES_LOCAL))
+			strlcat(type_str, "L", sizeof(type_str));
+		if (CHECK_FLAG(es->flags, BGP_EVPNES_REMOTE))
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			strlcat(type_str, "R", sizeof(type_str));
 
 		vty_out(vty, "ESI: %s\n", es->esi_str);
@@ -2694,10 +2802,17 @@ static void bgp_evpn_es_show_entry_detail(struct vty *vty,
 		vty_out(vty, " RD: %pRDP\n",
 			es->es_base_frag ? &es->es_base_frag->prd : NULL);
 		vty_out(vty, " Originator-IP: %pI4\n", &es->originator_ip);
+<<<<<<< HEAD
 		if (es->flags & BGP_EVPNES_LOCAL)
 			vty_out(vty, " Local ES DF preference: %u\n",
 				es->df_pref);
 		if (es->flags & BGP_EVPNES_BYPASS)
+=======
+		if (CHECK_FLAG(es->flags, BGP_EVPNES_LOCAL))
+			vty_out(vty, " Local ES DF preference: %u\n",
+				es->df_pref);
+		if (CHECK_FLAG(es->flags, BGP_EVPNES_BYPASS))
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			vty_out(vty, " LACP bypass: on\n");
 		vty_out(vty, " VNI Count: %d\n", listcount(es->es_evi_list));
 		vty_out(vty, " Remote VNI Count: %d\n",
@@ -2711,7 +2826,12 @@ static void bgp_evpn_es_show_entry_detail(struct vty *vty,
 				es->incons_evi_vtep_cnt);
 		if (es->inconsistencies) {
 			incons_str[0] = '\0';
+<<<<<<< HEAD
 			if (es->inconsistencies & BGP_EVPNES_INCONS_VTEP_LIST)
+=======
+			if (CHECK_FLAG(es->inconsistencies,
+				       BGP_EVPNES_INCONS_VTEP_LIST))
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 				strlcat(incons_str, "vni-vtep-mismatch",
 					sizeof(incons_str));
 		} else {
@@ -2935,7 +3055,11 @@ static void bgp_evpn_l3nhg_zebra_del(struct bgp_evpn_es_vrf *es_vrf)
 
 static void bgp_evpn_l3nhg_deactivate(struct bgp_evpn_es_vrf *es_vrf)
 {
+<<<<<<< HEAD
 	if (!(es_vrf->flags & BGP_EVPNES_VRF_NHG_ACTIVE))
+=======
+	if (!CHECK_FLAG(es_vrf->flags, BGP_EVPNES_VRF_NHG_ACTIVE))
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		return;
 
 	if (BGP_DEBUG(evpn_mh, EVPN_MH_ES))
@@ -2943,7 +3067,11 @@ static void bgp_evpn_l3nhg_deactivate(struct bgp_evpn_es_vrf *es_vrf)
 			   es_vrf->es->esi_str, es_vrf->bgp_vrf->vrf_id,
 			   es_vrf->nhg_id);
 	bgp_evpn_l3nhg_zebra_del(es_vrf);
+<<<<<<< HEAD
 	es_vrf->flags &= ~BGP_EVPNES_VRF_NHG_ACTIVE;
+=======
+	UNSET_FLAG(es_vrf->flags, BGP_EVPNES_VRF_NHG_ACTIVE);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	/* MAC-IPs can now be installed via the L3NHG */
 	bgp_evpn_es_path_update_on_es_vrf_chg(es_vrf, "l3nhg-deactivate");
 }
@@ -2955,7 +3083,11 @@ static void bgp_evpn_l3nhg_activate(struct bgp_evpn_es_vrf *es_vrf, bool update)
 		return;
 	}
 
+<<<<<<< HEAD
 	if (es_vrf->flags & BGP_EVPNES_VRF_NHG_ACTIVE) {
+=======
+	if (CHECK_FLAG(es_vrf->flags, BGP_EVPNES_VRF_NHG_ACTIVE)) {
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		if (!update)
 			return;
 	} else {
@@ -2963,7 +3095,11 @@ static void bgp_evpn_l3nhg_activate(struct bgp_evpn_es_vrf *es_vrf, bool update)
 			zlog_debug("es %s vrf %u nhg %u activate",
 				   es_vrf->es->esi_str, es_vrf->bgp_vrf->vrf_id,
 				   es_vrf->nhg_id);
+<<<<<<< HEAD
 		es_vrf->flags |= BGP_EVPNES_VRF_NHG_ACTIVE;
+=======
+		SET_FLAG(es_vrf->flags, BGP_EVPNES_VRF_NHG_ACTIVE);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		/* MAC-IPs can now be installed via the L3NHG */
 		bgp_evpn_es_path_update_on_es_vrf_chg(es_vrf, "l3nhg_activate");
 	}
@@ -3184,7 +3320,11 @@ void bgp_evpn_es_vrf_use_nhg(struct bgp *bgp_vrf, esi_t *esi, bool *use_l3nhg,
 		return;
 
 	*use_l3nhg = true;
+<<<<<<< HEAD
 	if (es_vrf->flags & BGP_EVPNES_VRF_NHG_ACTIVE)
+=======
+	if (CHECK_FLAG(es_vrf->flags, BGP_EVPNES_VRF_NHG_ACTIVE))
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		*is_l3nhg_active = true;
 	if (es_vrf_p)
 		*es_vrf_p = es_vrf;
@@ -3276,9 +3416,15 @@ static void bgp_evpn_es_vrf_show_entry(struct vty *vty,
 		json_object_string_add(json, "esi", es->esi_str);
 		json_object_string_add(json, "vrf", bgp_vrf->name_pretty);
 
+<<<<<<< HEAD
 		if (es_vrf->flags & (BGP_EVPNES_VRF_NHG_ACTIVE)) {
 			json_types = json_object_new_array();
 			if (es_vrf->flags & BGP_EVPNES_VRF_NHG_ACTIVE)
+=======
+		if (CHECK_FLAG(es_vrf->flags, (BGP_EVPNES_VRF_NHG_ACTIVE))) {
+			json_types = json_object_new_array();
+			if (CHECK_FLAG(es_vrf->flags, BGP_EVPNES_VRF_NHG_ACTIVE))
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 				json_array_string_add(json_types, "active");
 			json_object_object_add(json, "flags", json_types);
 		}
@@ -3290,7 +3436,11 @@ static void bgp_evpn_es_vrf_show_entry(struct vty *vty,
 		char flags_str[4];
 
 		flags_str[0] = '\0';
+<<<<<<< HEAD
 		if (es_vrf->flags & BGP_EVPNES_VRF_NHG_ACTIVE)
+=======
+		if (CHECK_FLAG(es_vrf->flags, BGP_EVPNES_VRF_NHG_ACTIVE))
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			strlcat(flags_str, "A", sizeof(flags_str));
 
 		vty_out(vty, "%-30s %-15s %-5s %-8u %-8u %u\n", es->esi_str,
@@ -3400,7 +3550,11 @@ static void bgp_evpn_es_evi_vtep_free(struct bgp_evpn_es_evi_vtep *evi_vtep)
 {
 	struct bgp_evpn_es_evi *es_evi = evi_vtep->es_evi;
 
+<<<<<<< HEAD
 	if (evi_vtep->flags & (BGP_EVPN_EVI_VTEP_EAD))
+=======
+	if (CHECK_FLAG(evi_vtep->flags, (BGP_EVPN_EVI_VTEP_EAD)))
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		/* as long as there is some reference we can't free it */
 		return;
 
@@ -3445,7 +3599,12 @@ bgp_evpn_es_evi_vtep_re_eval_active(struct bgp *bgp,
 		/* EAD-per-ES is sufficent to activate the PE */
 		ead_activity_flags = BGP_EVPN_EVI_VTEP_EAD_PER_ES;
 
+<<<<<<< HEAD
 	if ((evi_vtep->flags & ead_activity_flags) == ead_activity_flags)
+=======
+	if (CHECK_FLAG(evi_vtep->flags, ead_activity_flags) ==
+	    ead_activity_flags)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		SET_FLAG(evi_vtep->flags, BGP_EVPN_EVI_VTEP_ACTIVE);
 	else
 		UNSET_FLAG(evi_vtep->flags, BGP_EVPN_EVI_VTEP_ACTIVE);
@@ -3602,7 +3761,12 @@ bgp_evpn_es_evi_free(struct bgp_evpn_es_evi *es_evi)
 	/* cannot free the element as long as there is a local or remote
 	 * reference
 	 */
+<<<<<<< HEAD
 	if (es_evi->flags & (BGP_EVPNES_EVI_LOCAL | BGP_EVPNES_EVI_REMOTE))
+=======
+	if (CHECK_FLAG(es_evi->flags,
+		       (BGP_EVPNES_EVI_LOCAL | BGP_EVPNES_EVI_REMOTE)))
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		return es_evi;
 	bgp_evpn_es_frag_evi_del(es_evi, false);
 	bgp_evpn_es_vrf_deref(es_evi);
@@ -3925,8 +4089,13 @@ static void bgp_evpn_remote_es_evi_flush(struct bgp_evpn_es_evi *es_evi)
 	/* delete all VTEPs */
 	for (ALL_LIST_ELEMENTS(es_evi->es_evi_vtep_list, node, nnode,
 			       evi_vtep)) {
+<<<<<<< HEAD
 		evi_vtep->flags &= ~(BGP_EVPN_EVI_VTEP_EAD_PER_ES
 				     | BGP_EVPN_EVI_VTEP_EAD_PER_EVI);
+=======
+		UNSET_FLAG(evi_vtep->flags, (BGP_EVPN_EVI_VTEP_EAD_PER_ES |
+					     BGP_EVPN_EVI_VTEP_EAD_PER_EVI));
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		bgp_evpn_es_evi_vtep_re_eval_active(bgp, evi_vtep);
 		bgp_evpn_es_evi_vtep_free(evi_vtep);
 	}
@@ -3974,9 +4143,15 @@ static char *bgp_evpn_es_evi_vteps_str(char *vtep_str,
 	vtep_str[0] = '\0';
 	for (ALL_LIST_ELEMENTS_RO(es_evi->es_evi_vtep_list, node, evi_vtep)) {
 		vtep_flag_str[0] = '\0';
+<<<<<<< HEAD
 		if (evi_vtep->flags & BGP_EVPN_EVI_VTEP_EAD_PER_ES)
 			strlcat(vtep_flag_str, "E", sizeof(vtep_flag_str));
 		if (evi_vtep->flags & BGP_EVPN_EVI_VTEP_EAD_PER_EVI)
+=======
+		if (CHECK_FLAG(evi_vtep->flags, BGP_EVPN_EVI_VTEP_EAD_PER_ES))
+			strlcat(vtep_flag_str, "E", sizeof(vtep_flag_str));
+		if (CHECK_FLAG(evi_vtep->flags, BGP_EVPN_EVI_VTEP_EAD_PER_EVI))
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			strlcat(vtep_flag_str, "V", sizeof(vtep_flag_str));
 
 		if (!strnlen(vtep_flag_str, sizeof(vtep_flag_str)))
@@ -4007,12 +4182,21 @@ static void bgp_evpn_es_evi_json_vtep_fill(json_object *json_vteps,
 
 	json_object_string_addf(json_vtep_entry, "vtep_ip", "%pI4",
 				&evi_vtep->vtep_ip);
+<<<<<<< HEAD
 	if (evi_vtep->flags & (BGP_EVPN_EVI_VTEP_EAD_PER_ES |
 			 BGP_EVPN_EVI_VTEP_EAD_PER_EVI)) {
 		json_flags = json_object_new_array();
 		if (evi_vtep->flags & BGP_EVPN_EVI_VTEP_EAD_PER_ES)
 			json_array_string_add(json_flags, "ead-per-es");
 		if (evi_vtep->flags & BGP_EVPN_EVI_VTEP_EAD_PER_EVI)
+=======
+	if (CHECK_FLAG(evi_vtep->flags, (BGP_EVPN_EVI_VTEP_EAD_PER_ES |
+					 BGP_EVPN_EVI_VTEP_EAD_PER_EVI))) {
+		json_flags = json_object_new_array();
+		if (CHECK_FLAG(evi_vtep->flags, BGP_EVPN_EVI_VTEP_EAD_PER_ES))
+			json_array_string_add(json_flags, "ead-per-es");
+		if (CHECK_FLAG(evi_vtep->flags, BGP_EVPN_EVI_VTEP_EAD_PER_EVI))
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			json_array_string_add(json_flags, "ead-per-evi");
 		json_object_object_add(json_vtep_entry,
 				"flags", json_flags);
@@ -4036,12 +4220,21 @@ static void bgp_evpn_es_evi_show_entry(struct vty *vty,
 		if (es_evi->vpn)
 			json_object_int_add(json, "vni", es_evi->vpn->vni);
 
+<<<<<<< HEAD
 		if (es_evi->flags & (BGP_EVPNES_EVI_LOCAL |
 					BGP_EVPNES_EVI_REMOTE)) {
 			json_types = json_object_new_array();
 			if (es_evi->flags & BGP_EVPNES_EVI_LOCAL)
 				json_array_string_add(json_types, "local");
 			if (es_evi->flags & BGP_EVPNES_EVI_REMOTE)
+=======
+		if (CHECK_FLAG(es_evi->flags, (BGP_EVPNES_EVI_LOCAL |
+					       BGP_EVPNES_EVI_REMOTE))) {
+			json_types = json_object_new_array();
+			if (CHECK_FLAG(es_evi->flags, BGP_EVPNES_EVI_LOCAL))
+				json_array_string_add(json_types, "local");
+			if (CHECK_FLAG(es_evi->flags, BGP_EVPNES_EVI_REMOTE))
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 				json_array_string_add(json_types, "remote");
 			json_object_object_add(json, "type", json_types);
 		}
@@ -4060,11 +4253,19 @@ static void bgp_evpn_es_evi_show_entry(struct vty *vty,
 		char vtep_str[ES_VTEP_LIST_STR_SZ + BGP_EVPN_VTEPS_FLAG_STR_SZ];
 
 		type_str[0] = '\0';
+<<<<<<< HEAD
 		if (es_evi->flags & BGP_EVPNES_EVI_LOCAL)
 			strlcat(type_str, "L", sizeof(type_str));
 		if (es_evi->flags & BGP_EVPNES_EVI_REMOTE)
 			strlcat(type_str, "R", sizeof(type_str));
 		if (es_evi->flags & BGP_EVPNES_EVI_INCONS_VTEP_LIST)
+=======
+		if (CHECK_FLAG(es_evi->flags, BGP_EVPNES_EVI_LOCAL))
+			strlcat(type_str, "L", sizeof(type_str));
+		if (CHECK_FLAG(es_evi->flags, BGP_EVPNES_EVI_REMOTE))
+			strlcat(type_str, "R", sizeof(type_str));
+		if (CHECK_FLAG(es_evi->flags, BGP_EVPNES_EVI_INCONS_VTEP_LIST))
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			strlcat(type_str, "I", sizeof(type_str));
 
 		bgp_evpn_es_evi_vteps_str(vtep_str, es_evi, sizeof(vtep_str));
@@ -4091,7 +4292,11 @@ static void bgp_evpn_es_evi_show_entry_detail(struct vty *vty,
 			json_object_string_addf(json, "esFragmentRd",
 						BGP_RD_AS_FORMAT(mode),
 						&es_evi->es_frag->prd);
+<<<<<<< HEAD
 		if (es_evi->flags & BGP_EVPNES_EVI_INCONS_VTEP_LIST) {
+=======
+		if (CHECK_FLAG(es_evi->flags, BGP_EVPNES_EVI_INCONS_VTEP_LIST)) {
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			json_flags = json_object_new_array();
 			json_array_string_add(json_flags, "es-vtep-mismatch");
 			json_object_object_add(json, "flags", json_flags);
@@ -4101,9 +4306,15 @@ static void bgp_evpn_es_evi_show_entry_detail(struct vty *vty,
 		char type_str[4];
 
 		type_str[0] = '\0';
+<<<<<<< HEAD
 		if (es_evi->flags & BGP_EVPNES_EVI_LOCAL)
 			strlcat(type_str, "L", sizeof(type_str));
 		if (es_evi->flags & BGP_EVPNES_EVI_REMOTE)
+=======
+		if (CHECK_FLAG(es_evi->flags, BGP_EVPNES_EVI_LOCAL))
+			strlcat(type_str, "L", sizeof(type_str));
+		if (CHECK_FLAG(es_evi->flags, BGP_EVPNES_EVI_REMOTE))
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			strlcat(type_str, "R", sizeof(type_str));
 
 		bgp_evpn_es_evi_vteps_str(vtep_str, es_evi, sizeof(vtep_str));
@@ -4120,8 +4331,15 @@ static void bgp_evpn_es_evi_show_entry_detail(struct vty *vty,
 			vty_out(vty, "\n");
 		}
 		vty_out(vty, " Inconsistencies: %s\n",
+<<<<<<< HEAD
 			(es_evi->flags & BGP_EVPNES_EVI_INCONS_VTEP_LIST) ?
 			"es-vtep-mismatch":"-");
+=======
+			CHECK_FLAG(es_evi->flags,
+				   BGP_EVPNES_EVI_INCONS_VTEP_LIST)
+				? "es-vtep-mismatch"
+				: "-");
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		vty_out(vty, " VTEPs: %s\n", vtep_str);
 		vty_out(vty, "\n");
 	}
@@ -4515,12 +4733,21 @@ static void bgp_evpn_nh_zebra_update_send(struct bgp_evpn_nh *nh, bool add)
 static void bgp_evpn_nh_zebra_update(struct bgp_evpn_nh *nh, bool add)
 {
 	if (add && !is_zero_mac(&nh->rmac)) {
+<<<<<<< HEAD
 		nh->flags |= BGP_EVPN_NH_READY_FOR_ZEBRA;
 		bgp_evpn_nh_zebra_update_send(nh, true);
 	} else {
 		if (!(nh->flags & BGP_EVPN_NH_READY_FOR_ZEBRA))
 			return;
 		nh->flags &= ~BGP_EVPN_NH_READY_FOR_ZEBRA;
+=======
+		SET_FLAG(nh->flags, BGP_EVPN_NH_READY_FOR_ZEBRA);
+		bgp_evpn_nh_zebra_update_send(nh, true);
+	} else {
+		if (!CHECK_FLAG(nh->flags, BGP_EVPN_NH_READY_FOR_ZEBRA))
+			return;
+		UNSET_FLAG(nh->flags, BGP_EVPN_NH_READY_FOR_ZEBRA);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		bgp_evpn_nh_zebra_update_send(nh, false);
 	}
 }
@@ -4812,7 +5039,11 @@ static void bgp_evpn_path_nh_link(struct bgp *bgp_vrf, struct bgp_path_info *pi)
 	/* if NHG is not being used for this path we don't need to manage the
 	 * nexthops in bgp (they are managed by zebra instead)
 	 */
+<<<<<<< HEAD
 	if (!(pi->attr->es_flags & ATTR_ES_L3_NHG_USE)) {
+=======
+	if (!CHECK_FLAG(pi->attr->es_flags, ATTR_ES_L3_NHG_USE)) {
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		if (nh_info)
 			bgp_evpn_path_nh_unlink(nh_info);
 		return;

@@ -92,7 +92,11 @@ from lib import topotest
 from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
 from lib.topotest import iproute2_is_vrf_capable
+<<<<<<< HEAD
 from lib.common_config import required_linux_kernel_version, retry
+=======
+from lib.common_config import required_linux_kernel_version
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 from lib.pim import McastTesterHelper
 
 
@@ -205,7 +209,11 @@ def setup_module(module):
         )
 
 
+<<<<<<< HEAD
 def teardown_module(module):
+=======
+def teardown_module():
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     tgen = get_topogen()
     tgen.stop_topology()
 

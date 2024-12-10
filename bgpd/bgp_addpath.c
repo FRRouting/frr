@@ -361,8 +361,12 @@ void bgp_addpath_type_changed(struct bgp *bgp)
 	}
 }
 
+<<<<<<< HEAD
 int bgp_addpath_capability_action(enum bgp_addpath_strat addpath_type,
 				  uint8_t paths)
+=======
+int bgp_addpath_capability_action(enum bgp_addpath_strat addpath_type, uint16_t paths)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 {
 	int action = CAPABILITY_ACTION_UNSET;
 
@@ -392,8 +396,12 @@ int bgp_addpath_capability_action(enum bgp_addpath_strat addpath_type,
  * change take effect.
  */
 void bgp_addpath_set_peer_type(struct peer *peer, afi_t afi, safi_t safi,
+<<<<<<< HEAD
 			       enum bgp_addpath_strat addpath_type,
 			       uint8_t paths)
+=======
+			       enum bgp_addpath_strat addpath_type, uint16_t paths)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 {
 	struct bgp *bgp = peer->bgp;
 	enum bgp_addpath_strat old_type;

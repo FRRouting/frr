@@ -15,7 +15,10 @@ test_ospf_instance_redistribute
 """
 
 import os
+<<<<<<< HEAD
 import re
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 import sys
 import pytest
 import json
@@ -64,9 +67,13 @@ def setup_module(module):
 
     # This is a sample of configuration loading.
     r1 = tgen.gears["r1"]
+<<<<<<< HEAD
     r1.load_config(TopoRouter.RD_ZEBRA, os.path.join(CWD, "r1/zebra.conf"))
     r1.load_config(TopoRouter.RD_OSPF, os.path.join(CWD, "r1/ospfd-3.conf"), "-n 3")
     r1.load_config(TopoRouter.RD_SHARP, os.path.join(CWD, "r1/sharpd.conf"))
+=======
+    r1.load_frr_config(os.path.join(CWD, "r1/frr.conf"))
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
     tgen.start_router()
 
@@ -85,6 +92,40 @@ def test_install_sharp_instance_routes():
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
+<<<<<<< HEAD
+=======
+    r1 = tgen.gears["r1"]
+    logger.info("Ensure that connected routes are actually installed")
+    expected = {
+        "192.168.100.0/24": [
+            {
+                "prefix": "192.168.100.0/24",
+                "prefixLen": 24,
+                "protocol": "connected",
+                "vrfName": "default",
+                "selected": True,
+                "destSelected": True,
+                "installed": True,
+                "nexthops": [
+                    {
+                        "fib": True,
+                        "directlyConnected": True,
+                        "interfaceName": "lo",
+                        "active": True,
+                        "weight": 1,
+                    }
+                ],
+            }
+        ]
+    }
+
+    test_func = partial(
+        topotest.router_json_cmp, r1, "show ip route connected json", expected
+    )
+
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     logger.info("Installing sharp routes")
     r1 = tgen.gears["r1"]
     r1.vtysh_cmd("sharp install route 4.5.6.7 nexthop 192.168.100.2 1")

@@ -14,12 +14,19 @@ from functools import partial
 import pytest
 
 from lib import topotest
+<<<<<<< HEAD
 from lib.topogen import Topogen, TopoRouter, get_topogen
+=======
+from lib.topogen import Topogen, get_topogen
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 from lib.topolog import logger
 
 from lib.common_config import verify_rib
 from lib.ospf import verify_ospf_rib
+<<<<<<< HEAD
 from _ast import Try
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 pytestmark = pytest.mark.ospfd
 
@@ -86,7 +93,11 @@ def setup_module(mod):
     tgen.start_router()
 
 
+<<<<<<< HEAD
 def teardown_module(mod):
+=======
+def teardown_module():
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     "Tear-down the test environment"
     tgen = get_topogen()
     tgen.stop_topology()

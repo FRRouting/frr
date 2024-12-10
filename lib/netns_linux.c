@@ -258,7 +258,11 @@ static void ns_disable_internal(struct ns *ns)
 		if (ns_master.ns_disable_hook)
 			(*ns_master.ns_disable_hook)(ns);
 
+<<<<<<< HEAD
 		if (have_netns())
+=======
+		if (have_netns() && ns->fd >= 0)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			close(ns->fd);
 
 		ns->fd = -1;

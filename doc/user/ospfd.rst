@@ -200,6 +200,47 @@ To start OSPF process you have to specify the OSPF router.
    This command supersedes the *timers spf* command in previous FRR
    releases.
 
+<<<<<<< HEAD
+=======
+.. clicmd:: timers throttle lsa all (0-5000)
+
+   This command sets the minumum interval between originations of the
+   same LSA or the `minimum LSA refresh interval`. The time is specified
+   in milliseconds and the default is 5 seconds (5000 milliseconds) consistent
+   with the architectual constant MinLSInterval specified in Appendix D of
+   RFC 2328. When a self-originated LSA needs to be reoriginated, it may be
+   delayed for up to this interval.
+
+   .. code-block:: frr
+
+      router ospf
+       timers throttle lsa all 1000
+
+
+   In this example, the `mininum LSA refresh interval` is set to 1000ms. This
+   command reduces the delay between successive originations of a self-originated
+   LSA from 5000 milliseconds to 1000 milliseconds.
+
+.. clicmd:: timers lsa min-arrival (0-5000)
+
+   This command sets the minumum interval between receptions of instances of
+   the same LSA or the `minimum LSA arrival interval`. The time is specified in
+   milliseconds and the default is 1 second (1000 milliseconds) consistent with
+   the architectual constant MinLSArrival specified in Appendix D of RFC 2328. If a
+   newer instance of the same LSA is received in less than this interval, it is
+   ignored.
+
+   .. code-block:: frr
+
+      router ospf
+       timers lsa min-arrival 50
+
+
+   In this example, the `minimum LSA arrival interval` is set to 50ms. This
+   command reduces the minimum interval required between instances of the same
+   LSA from 1000 milliseconds to 50 milliseconds.
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 .. clicmd:: max-metric router-lsa [on-startup (5-86400)|on-shutdown (5-100)]
 
 .. clicmd:: max-metric router-lsa administrative
@@ -738,7 +779,21 @@ Interfaces
    retransmitting Database Description and Link State Request packets. The
    default value is 5 seconds.
 
+<<<<<<< HEAD
 .. clicmd:: ip ospf transmit-delay (1-65535) [A.B.C.D]
+=======
+.. clicmd:: ip ospf retransmit-window (20-1000)
+
+
+   Set number of milliseconds in the window for neighbor LSA retransmission.
+   When a neighbor Link State (LS) retransmission timer expires, LSAs scheduled
+   to be retransmitted within the number of milliseconds configured are
+   retransmitted to the neighbor. Any expiring after the window will be
+   retransmitted the next time the neighbor LS retransmission timer expires.
+   The default is 50 milliseconds.
+
+ .. clicmd:: ip ospf transmit-delay (1-65535) [A.B.C.D]
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 
    Set number of seconds for InfTransDelay value. LSAs' age should be

@@ -103,6 +103,15 @@ static __attribute__((__noreturn__)) void terminate(int i)
 	isis_sr_term();
 	isis_srv6_term();
 	isis_zebra_stop();
+<<<<<<< HEAD
+=======
+
+	isis_master_terminate();
+	route_map_finish();
+	vrf_terminate();
+
+	frr_fini();
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	exit(i);
 }
 

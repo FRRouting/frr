@@ -678,6 +678,10 @@ enum nb_error {
 	NB_ERR,
 	NB_ERR_NO_CHANGES,
 	NB_ERR_NOT_FOUND,
+<<<<<<< HEAD
+=======
+	NB_ERR_EXISTS,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	NB_ERR_LOCKED,
 	NB_ERR_VALIDATION,
 	NB_ERR_RESOURCE,
@@ -799,8 +803,11 @@ DECLARE_HOOK(nb_notification_send, (const char *xpath, struct list *arguments),
 	     (xpath, arguments));
 DECLARE_HOOK(nb_notification_tree_send,
 	     (const char *xpath, const struct lyd_node *tree), (xpath, tree));
+<<<<<<< HEAD
 DECLARE_HOOK(nb_client_debug_config_write, (struct vty *vty), (vty));
 DECLARE_HOOK(nb_client_debug_set_all, (uint32_t flags, bool set), (flags, set));
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 /* Northbound debugging records */
 extern struct debug nb_dbg_cbs_config;
@@ -1017,6 +1024,12 @@ extern int nb_candidate_edit(struct nb_config *candidate,
  * data
  *    New data tree for the node.
  *
+<<<<<<< HEAD
+=======
+ * created
+ *    OUT param set accordingly if a node was created or just updated
+ *
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
  * xpath_created
  *    XPath of the created node if operation is "create".
  *
@@ -1031,9 +1044,15 @@ extern int nb_candidate_edit(struct nb_config *candidate,
  *    - NB_ERR for other errors.
  */
 extern int nb_candidate_edit_tree(struct nb_config *candidate,
+<<<<<<< HEAD
 				  enum nb_operation operation,
 				  LYD_FORMAT format, const char *xpath,
 				  const char *data, char *xpath_created,
+=======
+				  enum nb_operation operation, LYD_FORMAT format,
+				  const char *xpath, const char *data,
+				  bool *created, char *xpath_created,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 				  char *errmsg, size_t errmsg_len);
 
 /*
@@ -1701,10 +1720,19 @@ void nb_validate_callbacks(void);
  *
  * db_enabled
  *    Set this to record the transactions in the transaction log.
+<<<<<<< HEAD
  */
 extern void nb_init(struct event_loop *tm,
 		    const struct frr_yang_module_info *const modules[],
 		    size_t nmodules, bool db_enabled);
+=======
+ *
+ * load_library
+ *    Set this to have libyang to load/implement the ietf-yang-library.
+ */
+extern void nb_init(struct event_loop *tm, const struct frr_yang_module_info *const modules[],
+		    size_t nmodules, bool db_enabled, bool load_library);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 /*
  * Finish the northbound layer gracefully. Should be called only when the daemon
@@ -1714,6 +1742,10 @@ extern void nb_terminate(void);
 
 extern void nb_oper_init(struct event_loop *loop);
 extern void nb_oper_terminate(void);
+<<<<<<< HEAD
+=======
+extern bool nb_oper_is_yang_lib_query(const char *xpath);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 #ifdef __cplusplus
 }

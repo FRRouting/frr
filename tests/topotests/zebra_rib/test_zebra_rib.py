@@ -71,7 +71,11 @@ def setup_module(mod):
     tgen.start_router()
 
 
+<<<<<<< HEAD
 def teardown_module(mod):
+=======
+def teardown_module():
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     "Teardown the pytest environment"
     tgen = get_topogen()
     tgen.stop_topology()
@@ -153,7 +157,11 @@ def test_zebra_kernel_admin_distance():
     # metric.  That needs to be properly resolved.  Making a note for
     # coming back around later and fixing this.
     # tgen.mininet_cli()
+<<<<<<< HEAD
     for i in range(1, 2):
+=======
+    for i in range(1, 3):
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         json_file = "{}/r1/v4_route_{}.json".format(CWD, i)
         expected = json.loads(open(json_file).read())
 
@@ -235,7 +243,11 @@ def test_route_map_usage():
         return topotest.json_cmp(output, expected)
 
     test_func = partial(check_initial_routes_installed, r1)
+<<<<<<< HEAD
     success, result = topotest.run_and_expect(test_func, None, count=40, wait=1)
+=======
+    _, result = topotest.run_and_expect(test_func, None, count=40, wait=1)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
     static_rmapfile = "%s/r1/static_rmap.ref" % (thisDir)
     expected = open(static_rmapfile).read().rstrip()
@@ -246,6 +258,10 @@ def test_route_map_usage():
 
     def check_static_map_correct_runs():
         actual = r1.vtysh_cmd("show route-map static")
+<<<<<<< HEAD
+=======
+        actual = re.sub(r"\([0-9].* milli", "(X milli", actual)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         actual = ("\n".join(actual.splitlines()) + "\n").rstrip()
         return topotest.get_textdiff(
             actual,
@@ -266,6 +282,10 @@ def test_route_map_usage():
 
     def check_sharp_map_correct_runs():
         actual = r1.vtysh_cmd("show route-map sharp")
+<<<<<<< HEAD
+=======
+        actual = re.sub(r"\([0-9].* milli", "(X milli", actual)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         actual = ("\n".join(actual.splitlines()) + "\n").rstrip()
         return topotest.get_textdiff(
             actual,

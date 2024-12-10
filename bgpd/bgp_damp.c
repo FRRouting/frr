@@ -779,7 +779,12 @@ int bgp_show_dampening_parameters(struct vty *vty, afi_t afi, safi_t safi,
 	bool use_json = CHECK_FLAG(show_flags, BGP_SHOW_OPT_JSON);
 
 	bgp = bgp_get_default();
+<<<<<<< HEAD
 	if (bgp == NULL) {
+=======
+
+	if (bgp == NULL || IS_BGP_INSTANCE_HIDDEN(bgp)) {
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		vty_out(vty, "No BGP process is configured\n");
 		return CMD_WARNING;
 	}

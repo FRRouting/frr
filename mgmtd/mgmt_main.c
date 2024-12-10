@@ -214,7 +214,11 @@ FRR_DAEMON_INFO(mgmtd, MGMTD,
 		.n_yang_modules = array_size(mgmt_yang_modules),
 
 		/* avoid libfrr trying to read our config file for us */
+<<<<<<< HEAD
 		.flags = FRR_MANUAL_VTY_START | FRR_NO_SPLIT_CONFIG,
+=======
+		.flags = FRR_MANUAL_VTY_START | FRR_NO_SPLIT_CONFIG | FRR_LOAD_YANG_LIBRARY,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	);
 /* clang-format on */
 

@@ -66,7 +66,11 @@ def tgen(request):
 
     router_list = tgen.routers()
 
+<<<<<<< HEAD
     for rname, router in router_list.items():
+=======
+    for _, router in router_list.items():
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         router.load_frr_config("frr.conf")
 
     tgen.start_router()

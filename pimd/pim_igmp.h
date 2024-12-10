@@ -51,13 +51,31 @@
 		output |= *((ptr) + 1);                                        \
 	} while (0)
 
+<<<<<<< HEAD
+=======
+enum gm_join_type { GM_JOIN_STATIC = 0, GM_JOIN_PROXY = 1, GM_JOIN_BOTH = 2 };
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 struct gm_join {
 	pim_addr group_addr;
 	pim_addr source_addr;
 	int sock_fd;
+<<<<<<< HEAD
 	time_t sock_creation;
 };
 
+=======
+	enum gm_join_type join_type;
+	time_t sock_creation;
+};
+
+struct static_group {
+	pim_addr group_addr;
+	pim_addr source_addr;
+	struct channel_oil *oilp;
+};
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 struct gm_sock {
 	int fd;
 	struct interface *interface;

@@ -26,6 +26,10 @@
 
 #include "ospf6_flood.h"
 #include "ospf6_nssa.h"
+<<<<<<< HEAD
+=======
+#include "ospf6_tlv.h"
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 #include "ospf6_gr.h"
 
 unsigned char conf_debug_ospf6_flooding;

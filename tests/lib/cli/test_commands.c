@@ -21,6 +21,10 @@
 #include <stdlib.h>
 #include <unistd.h>
 
+<<<<<<< HEAD
+=======
+#include "debug.h"
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 #include "command.h"
 #include "memory.h"
 #include "vector.h"
@@ -195,7 +199,12 @@ static void test_init(void)
 	struct cmd_element *cmd;
 
 	cmd_init(1);
+<<<<<<< HEAD
 	nb_init(master, NULL, 0, false);
+=======
+	debug_init();
+	nb_init(master, NULL, 0, false, false);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	install_node(&bgp_node);
 	install_node(&rip_node);

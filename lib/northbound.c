@@ -178,7 +178,11 @@ struct nb_node *nb_node_find(const char *path)
 
 struct nb_node **nb_nodes_find(const char *xpath)
 {
+<<<<<<< HEAD
 	struct lysc_node **snodes = NULL;
+=======
+	const struct lysc_node **snodes = NULL;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	struct nb_node **nb_nodes = NULL;
 	bool simple;
 	LY_ERR err;
@@ -816,8 +820,14 @@ int nb_candidate_edit(struct nb_config *candidate, const struct nb_node *nb_node
 static int nb_candidate_edit_tree_add(struct nb_config *candidate,
 				      enum nb_operation operation,
 				      LYD_FORMAT format, const char *xpath,
+<<<<<<< HEAD
 				      const char *data, char *xpath_created,
 				      char *errmsg, size_t errmsg_len)
+=======
+				      const char *data, bool *created,
+				      char *xpath_created, char *errmsg,
+				      size_t errmsg_len)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 {
 	struct lyd_node *tree = NULL;
 	struct lyd_node *parent = NULL;
@@ -897,10 +907,25 @@ static int nb_candidate_edit_tree_add(struct nb_config *candidate,
 	}
 
 	/* check if the node already exists in candidate */
+<<<<<<< HEAD
 	if (operation == NB_OP_CREATE_EXCL || operation == NB_OP_REPLACE) {
 		existing = yang_dnode_get(candidate->dnode, xpath_created);
 
 		/* if the existing node is implicit default, ignore */
+=======
+	if (operation == NB_OP_CREATE || operation == NB_OP_MODIFY)
+		existing = yang_dnode_get(candidate->dnode, xpath_created);
+	else if (operation == NB_OP_CREATE_EXCL || operation == NB_OP_REPLACE) {
+		existing = yang_dnode_get(candidate->dnode, xpath_created);
+
+		/* if the existing node is implicit default, ignore */
+		/* Q: Is this correct for CREATE_EXCL which is supposed to error
+		 * if the resouurce already exists? This is used by RESTCONF
+		 * when processing the POST command, for example. RFC8040
+		 * doesn't say POST fails if resource exists "unless it was a
+		 * default".
+		 */
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		if (existing && (existing->flags & LYD_DEFAULT))
 			existing = NULL;
 
@@ -908,7 +933,11 @@ static int nb_candidate_edit_tree_add(struct nb_config *candidate,
 			if (operation == NB_OP_CREATE_EXCL) {
 				snprintf(errmsg, errmsg_len,
 					 "Data already exists");
+<<<<<<< HEAD
 				ret = NB_ERR;
+=======
+				ret = NB_ERR_EXISTS;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 				goto done;
 			}
 
@@ -930,7 +959,11 @@ static int nb_candidate_edit_tree_add(struct nb_config *candidate,
 				 LYD_MERGE_DESTRUCT | LYD_MERGE_WITH_FLAGS);
 	if (err) {
 		/* if replace failed, restore the original node */
+<<<<<<< HEAD
 		if (existing) {
+=======
+		if (existing && operation == NB_OP_REPLACE) {
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			if (root) {
 				/* Restoring the whole config. */
 				candidate->dnode = existing;
@@ -954,6 +987,11 @@ static int nb_candidate_edit_tree_add(struct nb_config *candidate,
 		ret = NB_ERR;
 		goto done;
 	} else {
+<<<<<<< HEAD
+=======
+		if (!existing)
+			*created = true;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		/*
 		 * Free existing node after replace.
 		 * We're using `lyd_free_siblings` here to free the whole
@@ -961,7 +999,11 @@ static int nb_candidate_edit_tree_add(struct nb_config *candidate,
 		 * siblings if it wasn't root, because the existing node
 		 * was unlinked from the tree.
 		 */
+<<<<<<< HEAD
 		if (existing)
+=======
+		if (existing && operation == NB_OP_REPLACE)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			lyd_free_siblings(existing);
 
 		tree = NULL; /* LYD_MERGE_DESTRUCT deleted the tree */
@@ -995,7 +1037,11 @@ static int nb_candidate_edit_tree_del(struct nb_config *candidate,
 	if (!dnode || (dnode->flags & LYD_DEFAULT)) {
 		if (operation == NB_OP_DELETE) {
 			snprintf(errmsg, errmsg_len, "Data missing");
+<<<<<<< HEAD
 			return NB_ERR;
+=======
+			return NB_ERR_NOT_FOUND;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		} else
 			return NB_OK;
 	}
@@ -1011,7 +1057,11 @@ static int nb_candidate_edit_tree_del(struct nb_config *candidate,
 
 int nb_candidate_edit_tree(struct nb_config *candidate,
 			   enum nb_operation operation, LYD_FORMAT format,
+<<<<<<< HEAD
 			   const char *xpath, const char *data,
+=======
+			   const char *xpath, const char *data, bool *created,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			   char *xpath_created, char *errmsg, size_t errmsg_len)
 {
 	int ret = NB_ERR;
@@ -1022,8 +1072,14 @@ int nb_candidate_edit_tree(struct nb_config *candidate,
 	case NB_OP_MODIFY:
 	case NB_OP_REPLACE:
 		ret = nb_candidate_edit_tree_add(candidate, operation, format,
+<<<<<<< HEAD
 						 xpath, data, xpath_created,
 						 errmsg, errmsg_len);
+=======
+						 xpath, data, created,
+						 xpath_created, errmsg,
+						 errmsg_len);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		break;
 	case NB_OP_DESTROY:
 	case NB_OP_DELETE:
@@ -2605,6 +2661,11 @@ const char *nb_err_name(enum nb_error error)
 		return "no changes";
 	case NB_ERR_NOT_FOUND:
 		return "element not found";
+<<<<<<< HEAD
+=======
+	case NB_ERR_EXISTS:
+		return "element already exists";
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	case NB_ERR_LOCKED:
 		return "resource is locked";
 	case NB_ERR_VALIDATION:
@@ -2687,7 +2748,11 @@ void nb_validate_callbacks(void)
 
 void nb_init(struct event_loop *tm,
 	     const struct frr_yang_module_info *const modules[],
+<<<<<<< HEAD
 	     size_t nmodules, bool db_enabled)
+=======
+	     size_t nmodules, bool db_enabled, bool load_library)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 {
 	struct yang_module *loaded[nmodules], **loadedp = loaded;
 
@@ -2703,7 +2768,11 @@ void nb_init(struct event_loop *tm,
 
 	nb_db_enabled = db_enabled;
 
+<<<<<<< HEAD
 	yang_init(true, explicit_compile);
+=======
+	yang_init(true, explicit_compile, load_library);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	/* Load YANG modules and their corresponding northbound callbacks. */
 	for (size_t i = 0; i < nmodules; i++) {

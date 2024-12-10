@@ -131,7 +131,11 @@ DEFPY(show_srte_policy,
 	/* Dump the generated table. */
 	table = ttable_dump(tt, "\n");
 	vty_out(vty, "%s\n", table);
+<<<<<<< HEAD
 	XFREE(MTYPE_TMP, table);
+=======
+	XFREE(MTYPE_TMP_TTABLE, table);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	ttable_del(tt);
 
@@ -1089,9 +1093,13 @@ DEFPY_NOSH(show_debugging_pathd, show_debugging_pathd_cmd,
 	vty_out(vty, "Path debugging status:\n");
 
 	cmd_show_lib_debugs(vty);
+<<<<<<< HEAD
 	/* nothing to do here */
 	path_ted_show_debugging(vty);
 	path_policy_show_debugging(vty);
+=======
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	return CMD_SUCCESS;
 }
 
@@ -1101,10 +1109,15 @@ DEFPY(debug_path_policy, debug_path_policy_cmd, "[no] debug pathd policy",
       "policy debugging\n")
 {
 	uint32_t mode = DEBUG_NODE2MODE(vty->node);
+<<<<<<< HEAD
 	bool no_debug = no;
 
 	DEBUG_MODE_SET(&path_policy_debug, mode, !no);
 	DEBUG_FLAGS_SET(&path_policy_debug, PATH_POLICY_DEBUG_BASIC, !no_debug);
+=======
+
+	DEBUG_MODE_SET(&path_policy_debug, mode, !no);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	return CMD_SUCCESS;
 }
 
@@ -1307,6 +1320,7 @@ int config_write_segment_routing(struct vty *vty)
 	return 1;
 }
 
+<<<<<<< HEAD
 static int path_policy_cli_debug_config_write(struct vty *vty)
 {
 	if (DEBUG_MODE_CHECK(&path_policy_debug, DEBUG_MODE_CONF)) {
@@ -1334,6 +1348,11 @@ void path_cli_init(void)
 	hook_register(nb_client_debug_config_write,
 		      path_policy_cli_debug_config_write);
 	hook_register(nb_client_debug_set_all, path_policy_cli_debug_set_all);
+=======
+void path_cli_init(void)
+{
+	debug_install(&path_policy_debug);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	install_node(&segment_routing_node);
 	install_node(&sr_traffic_eng_node);

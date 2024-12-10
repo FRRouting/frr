@@ -674,6 +674,10 @@ static int log_5424_config_write(struct vty *vty)
 
 		vty_out(vty, "log extended %s\n", cfg->name);
 
+<<<<<<< HEAD
+=======
+		(void)fmt_str; /* clang-SA */
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		switch (cfg->cfg.fmt) {
 		case ZLOG_FMT_5424:
 			fmt_str = " format rfc5424";

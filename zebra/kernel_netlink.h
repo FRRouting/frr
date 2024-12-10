@@ -77,6 +77,7 @@ extern void netlink_parse_rtattr_flags(struct rtattr **tb, int max,
 				 unsigned short flags);
 extern void netlink_parse_rtattr_nested(struct rtattr **tb, int max,
 					struct rtattr *rta);
+<<<<<<< HEAD
 /*
  * nl_addraw_l copies raw form the netlink message buffer into netlink
  * message header pointer. It ensures the aligned data buffer does not
@@ -85,6 +86,8 @@ extern void netlink_parse_rtattr_nested(struct rtattr **tb, int max,
  */
 extern bool nl_addraw_l(struct nlmsghdr *n, unsigned int maxlen,
 			const void *data, unsigned int len);
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 extern const char *nl_msg_type_to_str(uint16_t msg_type);
 extern const char *nl_rtproto_to_str(uint8_t rtproto);
 extern const char *nl_family_to_str(uint8_t family);

@@ -142,7 +142,11 @@ def test_converge_bgplu():
         "192.168.2.2/32",
         "0",
     )
+<<<<<<< HEAD
     success, result = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
+=======
+    success, _ = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     assert success, "r1, prefix 192.168.2.2/32 from r2 not present"
 
     # Check r2 gets prefix 192.168.2.1/32
@@ -153,7 +157,11 @@ def test_converge_bgplu():
         "192.168.2.1/32",
         "0",
     )
+<<<<<<< HEAD
     success, result = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
+=======
+    success, _ = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     assert success, "r2, prefix 192.168.2.1/32 from r1 not present"
 
 
@@ -178,7 +186,11 @@ def test_traffic_connectivity():
     tgen = get_topogen()
     func = functools.partial(_check_ping, "r1", "192.168.2.2", "192.168.2.1")
     # tgen.mininet_cli()
+<<<<<<< HEAD
     success, result = topotest.run_and_expect(func, None, count=10, wait=0.5)
+=======
+    _, result = topotest.run_and_expect(func, None, count=10, wait=0.5)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     assert result is None, "r1, ping to 192.168.2.2 from 192.168.2.1 fails"
 
 

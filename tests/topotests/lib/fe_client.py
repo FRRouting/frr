@@ -9,7 +9,10 @@
 # noqa: E501
 #
 import argparse
+<<<<<<< HEAD
 import json
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 import logging
 import os
 import socket
@@ -18,6 +21,11 @@ import sys
 import time
 from pathlib import Path
 
+<<<<<<< HEAD
+=======
+from munet.base import Timeout
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 CWD = os.path.dirname(os.path.realpath(__file__))
 
 # This is painful but works if you have installed protobuf would be better if we
@@ -80,6 +88,16 @@ GET_DATA_FLAG_EXACT = 0x4
 MSG_NOTIFY_FMT = "=B7x"
 NOTIFY_FIELD_RESULT_TYPE = 0
 
+<<<<<<< HEAD
+=======
+MSG_NOTIFY_SELECT_FMT = "=B7x"
+
+MSG_SESSION_REQ_FMT = "=8x"
+
+MSG_SESSION_REPLY_FMT = "=B7x"
+SESSION_REPLY_FIELD_CREATED = 0
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 #
 # Native message codes
 #
@@ -88,6 +106,12 @@ MSG_CODE_ERROR = 0
 MSG_CODE_TREE_DATA = 2
 MSG_CODE_GET_DATA = 3
 MSG_CODE_NOTIFY = 4
+<<<<<<< HEAD
+=======
+MSG_CODE_NOTIFY_SELECT = 9
+MSG_CODE_SESSION_REQ = 10
+MSG_CODE_SESSION_REPLY = 11
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 msg_native_formats = {
     MSG_CODE_ERROR: MSG_ERROR_FMT,
@@ -95,6 +119,12 @@ msg_native_formats = {
     MSG_CODE_TREE_DATA: MSG_TREE_DATA_FMT,
     MSG_CODE_GET_DATA: MSG_GET_DATA_FMT,
     MSG_CODE_NOTIFY: MSG_NOTIFY_FMT,
+<<<<<<< HEAD
+=======
+    MSG_CODE_NOTIFY_SELECT: MSG_NOTIFY_SELECT_FMT,
+    MSG_CODE_SESSION_REQ: MSG_SESSION_REQ_FMT,
+    MSG_CODE_SESSION_REPLY: MSG_SESSION_REPLY_FMT,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 }
 
 
@@ -177,6 +207,7 @@ class Session:
 
     client_id = 1
 
+<<<<<<< HEAD
     def __init__(self, sock):
         self.sock = sock
         self.next_req_id = 1
@@ -198,6 +229,46 @@ class Session:
 
         assert reply.session_reply.success
         self.sess_id = reply.session_reply.session_id
+=======
+    def __init__(self, sock, use_protobuf):
+        self.sock = sock
+        self.next_req_id = 1
+
+        if use_protobuf:
+            req = mgmt_pb2.FeMessage()
+            req.register_req.client_name = "test-client"
+            self.send_pb_msg(req)
+            logging.debug("Sent FeRegisterReq: %s", req)
+
+            req = mgmt_pb2.FeMessage()
+            req.session_req.create = 1
+            req.session_req.client_conn_id = Session.client_id
+            Session.client_id += 1
+            self.send_pb_msg(req)
+            logging.debug("Sent FeSessionReq: %s", req)
+
+            reply = self.recv_pb_msg(mgmt_pb2.FeMessage())
+            logging.debug("Received FeSessionReply: %s", repr(reply))
+
+            assert reply.session_reply.success
+            self.sess_id = reply.session_reply.session_id
+        else:
+            self.sess_id = 0
+            mdata, _ = self.get_native_msg_header(MSG_CODE_SESSION_REQ)
+            mdata += struct.pack(MSG_SESSION_REQ_FMT)
+            mdata += "test-client".encode("utf-8") + b"\x00"
+
+            self.send_native_msg(mdata)
+            logging.debug("Sent native SESSION-REQ")
+
+            mhdr, mfixed, mdata = self.recv_native_msg()
+            if mhdr[HDR_FIELD_CODE] == MSG_CODE_SESSION_REPLY:
+                logging.debug("Recv native SESSION-REQ Message: %s: %s", mfixed, mdata)
+            else:
+                raise Exception(f"Recv NON-SESSION-REPLY Message: {mfixed}: {mdata}")
+            assert mfixed[0]
+            self.sess_id = mhdr[HDR_FIELD_SESS_ID]
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
     def close(self, clean=True):
         if clean:
@@ -292,7 +363,11 @@ class Session:
 
     def get_data(self, query, data=True, config=False):
         # Create the message
+<<<<<<< HEAD
         mdata, req_id = self.get_native_msg_header(MSG_CODE_GET_DATA)
+=======
+        mdata, _ = self.get_native_msg_header(MSG_CODE_GET_DATA)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         flags = GET_DATA_FLAG_STATE if data else 0
         flags |= GET_DATA_FLAG_CONFIG if config else 0
         mdata += struct.pack(MSG_GET_DATA_FMT, MSG_FORMAT_JSON, flags)
@@ -301,13 +376,18 @@ class Session:
         self.send_native_msg(mdata)
         logging.debug("Sent GET-TREE")
 
+<<<<<<< HEAD
         mhdr, mfixed, mdata = self.recv_native_msg()
+=======
+        _, mfixed, mdata = self.recv_native_msg()
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         assert mdata[-1] == 0
         result = mdata[:-1].decode("utf-8")
 
         logging.debug("Received GET: %s: %s", mfixed, mdata)
         return result
 
+<<<<<<< HEAD
     # def subscribe(self, notif_xpath):
     #     # Create the message
     #     mdata, req_id = self.get_native_msg_header(MSG_CODE_SUBSCRIBE)
@@ -319,6 +399,24 @@ class Session:
 
     def recv_notify(self, xpaths=None):
         while True:
+=======
+    def add_notify_select(self, replace, notif_xpaths):
+        # Create the message
+        mdata, _ = self.get_native_msg_header(MSG_CODE_NOTIFY_SELECT)
+        mdata += struct.pack(MSG_NOTIFY_SELECT_FMT, replace)
+
+        for xpath in notif_xpaths:
+            mdata += xpath.encode("utf-8") + b"\x00"
+
+        self.send_native_msg(mdata)
+        logging.debug("Sent NOTIFY_SELECT")
+
+    def recv_notify(self, xpaths=None):
+        if xpaths:
+            self.add_notify_select(True, xpaths)
+
+        for _ in Timeout(60):
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
             logging.debug("Waiting for Notify Message")
             mhdr, mfixed, mdata = self.recv_native_msg()
             if mhdr[HDR_FIELD_CODE] == MSG_CODE_NOTIFY:
@@ -328,6 +426,7 @@ class Session:
 
             vsplit = mhdr[HDR_FIELD_VSPLIT]
             assert mdata[vsplit - 1] == 0
+<<<<<<< HEAD
             xpath = mdata[: vsplit - 1].decode("utf-8")
 
             assert mdata[-1] == 0
@@ -341,6 +440,13 @@ class Session:
                 if key.startswith(xpath):
                     return result
             logging.debug("'%s' didn't match xpath filters", key)
+=======
+            assert mdata[-1] == 0
+            # xpath = mdata[: vsplit - 1].decode("utf-8")
+            return mdata[vsplit:-1].decode("utf-8")
+        else:
+            raise TimeoutError("Timeout waiting for notifications")
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 
 def __parse_args():
@@ -365,6 +471,12 @@ def __parse_args():
         "-q", "--query", nargs="+", metavar="XPATH", help="xpath[s] to query"
     )
     parser.add_argument("-s", "--server", default=MPATH, help="path to server socket")
+<<<<<<< HEAD
+=======
+    parser.add_argument(
+        "--use-protobuf", action="store_true", help="Use protobuf when there's a choice"
+    )
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     parser.add_argument("-v", "--verbose", action="store_true", help="Be verbose")
     args = parser.parse_args()
 
@@ -381,13 +493,22 @@ def __server_connect(spath):
         logging.warn("retry server connection in .5s (%s)", os.strerror(ec))
         time.sleep(0.5)
     logging.info("Connected to server on %s", spath)
+<<<<<<< HEAD
+=======
+    # Set a timeout of 5 minutes for socket operations.
+    sock.settimeout(60 * 5)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     return sock
 
 
 def __main():
     args = __parse_args()
     sock = __server_connect(Path(args.server))
+<<<<<<< HEAD
     sess = Session(sock)
+=======
+    sess = Session(sock, use_protobuf=args.use_protobuf)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
     if args.query:
         # Performa an xpath query
@@ -412,8 +533,17 @@ def main():
         __main()
     except KeyboardInterrupt:
         logging.info("Exiting")
+<<<<<<< HEAD
     except Exception as error:
         logging.error("Unexpected error exiting: %s", error, exc_info=True)
+=======
+    except TimeoutError as error:
+        logging.error("Timeout: %s", error)
+        sys.exit(2)
+    except Exception as error:
+        logging.error("Unexpected error exiting: %s", error, exc_info=True)
+        sys.exit(1)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 
 if __name__ == "__main__":

@@ -16,7 +16,10 @@ import sys
 import pytest
 
 from lib.common_config import (
+<<<<<<< HEAD
     start_topology,
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     verify_rib,
     verify_ip_nht,
     step,
@@ -24,7 +27,10 @@ from lib.common_config import (
 )
 
 # pylint: disable=C0413
+<<<<<<< HEAD
 from lib import topotest
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
 

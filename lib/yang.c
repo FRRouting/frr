@@ -286,7 +286,11 @@ void yang_snode_get_path(const struct lysc_node *snode,
 }
 
 LY_ERR yang_resolve_snode_xpath(struct ly_ctx *ly_ctx, const char *xpath,
+<<<<<<< HEAD
 				struct lysc_node ***snodes, bool *simple)
+=======
+				const struct lysc_node ***snodes, bool *simple)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 {
 	struct lysc_node *snode;
 	struct ly_set *set;
@@ -976,7 +980,11 @@ void yang_debugging_set(bool enable)
 	}
 }
 
+<<<<<<< HEAD
 struct ly_ctx *yang_ctx_new_setup(bool embedded_modules, bool explicit_compile)
+=======
+struct ly_ctx *yang_ctx_new_setup(bool embedded_modules, bool explicit_compile, bool load_library)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 {
 	struct ly_ctx *ctx = NULL;
 	const char *yang_models_path = YANG_MODELS_PATH;
@@ -994,7 +1002,13 @@ struct ly_ctx *yang_ctx_new_setup(bool embedded_modules, bool explicit_compile)
 				     YANG_MODELS_PATH);
 	}
 
+<<<<<<< HEAD
 	options = LY_CTX_NO_YANGLIBRARY | LY_CTX_DISABLE_SEARCHDIR_CWD;
+=======
+	options = LY_CTX_DISABLE_SEARCHDIR_CWD;
+	if (!load_library)
+		options |= LY_CTX_NO_YANGLIBRARY;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	if (explicit_compile)
 		options |= LY_CTX_EXPLICIT_COMPILE;
 	err = ly_ctx_new(yang_models_path, options, &ctx);
@@ -1007,7 +1021,11 @@ struct ly_ctx *yang_ctx_new_setup(bool embedded_modules, bool explicit_compile)
 	return ctx;
 }
 
+<<<<<<< HEAD
 void yang_init(bool embedded_modules, bool defer_compile)
+=======
+void yang_init(bool embedded_modules, bool defer_compile, bool load_library)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 {
 	/* Initialize libyang global parameters that affect all containers. */
 	ly_set_log_clb(ly_zlog_cb
@@ -1019,7 +1037,11 @@ void yang_init(bool embedded_modules, bool defer_compile)
 	ly_log_options(LY_LOLOG | LY_LOSTORE);
 
 	/* Initialize libyang container for native models. */
+<<<<<<< HEAD
 	ly_native_ctx = yang_ctx_new_setup(embedded_modules, defer_compile);
+=======
+	ly_native_ctx = yang_ctx_new_setup(embedded_modules, defer_compile, load_library);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	if (!ly_native_ctx) {
 		flog_err(EC_LIB_LIBYANG, "%s: ly_ctx_new() failed", __func__);
 		exit(1);
@@ -1398,8 +1420,15 @@ LY_ERR yang_lyd_trim_xpath(struct lyd_node **root, const char *xpath)
 		}
 	}
 	darr_foreach_i (remove, i) {
+<<<<<<< HEAD
 		if (remove[i] == *root)
 			*root = (*root)->next;
+=======
+		if (remove[i] == *root) {
+			assert(*root);
+			*root = (*root)->next;
+		}
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		lyd_free_tree(remove[i]);
 	}
 	darr_free(remove);

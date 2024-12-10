@@ -557,6 +557,7 @@ DEFPY(mgmt_rollback,
 	return CMD_SUCCESS;
 }
 
+<<<<<<< HEAD
 int config_write_mgmt_debug(struct vty *vty);
 static struct cmd_node debug_node = {
 	.name = "mgmt debug",
@@ -596,13 +597,18 @@ int config_write_mgmt_debug(struct vty *vty)
 	return write_mgmt_debug_helper(vty, true);
 }
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 DEFPY_NOSH(show_debugging_mgmt, show_debugging_mgmt_cmd,
 	   "show debugging [mgmt]", SHOW_STR DEBUG_STR "MGMT Information\n")
 {
 	vty_out(vty, "MGMT debugging status:\n");
 
+<<<<<<< HEAD
 	write_mgmt_debug_helper(vty, false);
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	cmd_show_lib_debugs(vty);
 
 	return CMD_SUCCESS;
@@ -696,7 +702,10 @@ void mgmt_vty_init(void)
 	event_add_event(mm->master, mgmt_config_read_in, NULL, 0,
 			&mgmt_daemon_info->read_in);
 
+<<<<<<< HEAD
 	install_node(&debug_node);
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	install_node(&mgmtd_node);
 
 	install_element(VIEW_NODE, &show_mgmt_be_adapter_cmd);

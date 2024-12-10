@@ -236,6 +236,13 @@ struct vty {
 	uintptr_t mgmt_req_pending_data;
 	bool mgmt_locked_candidate_ds;
 	bool mgmt_locked_running_ds;
+<<<<<<< HEAD
+=======
+	uint64_t vty_buf_size_accumulated;
+
+	int buf_size_set;
+	uint64_t buf_size_intermediate;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 };
 
 static inline void vty_push_context(struct vty *vty, int node, uint64_t id)
@@ -338,6 +345,15 @@ struct vty_arg {
 /* Vty read buffer size. */
 #define VTY_READ_BUFSIZ 512
 
+<<<<<<< HEAD
+=======
+/* Vty max send buffer size */
+#define VTY_SEND_BUF_MAX 16777216
+
+/* Vty flush intermediate size */
+#define VTY_MAX_INTERMEDIATE_FLUSH 131072
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 /* Directory separator. */
 #ifndef DIRECTORY_SEP
 #define DIRECTORY_SEP '/'

@@ -377,4 +377,19 @@ void smux_events_update(void)
 	agentx_events_update();
 }
 
+<<<<<<< HEAD
+=======
+static void smux_events_delete_thread(void *arg)
+{
+	XFREE(MTYPE_TMP, arg);
+}
+
+void smux_terminate(void)
+{
+	if (events) {
+		events->del = smux_events_delete_thread;
+		list_delete(&events);
+	}
+}
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 #endif /* SNMP_AGENTX */

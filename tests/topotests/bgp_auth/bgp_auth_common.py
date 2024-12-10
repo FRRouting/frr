@@ -34,6 +34,7 @@ for bgp instances
 
 import json
 import os
+<<<<<<< HEAD
 import platform
 import sys
 from time import sleep
@@ -44,6 +45,11 @@ from lib.common_config import (
     reset_with_new_configs,
 )
 from lib.topogen import Topogen, TopoRouter, get_topogen
+=======
+
+from lib import common_config
+from lib.topogen import get_topogen
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 CWD = os.path.dirname(os.path.realpath(__file__))
 

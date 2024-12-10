@@ -6,10 +6,15 @@
 #
 
 import os
+<<<<<<< HEAD
 import re
 import sys
 import json
 import functools
+=======
+import sys
+import json
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 import pytest
 
 CWD = os.path.dirname(os.path.realpath(__file__))
@@ -20,7 +25,10 @@ sys.path.append(os.path.join(CWD, "../"))
 from lib import topotest
 from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
+<<<<<<< HEAD
 from lib.common_config import required_linux_kernel_version
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 pytestmark = [pytest.mark.bgpd]
 

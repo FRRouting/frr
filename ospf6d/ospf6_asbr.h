@@ -79,6 +79,7 @@ struct ospf6_external_aggr_rt {
 	struct hash *match_extnl_hash;
 };
 
+<<<<<<< HEAD
 /* AS-External-LSA */
 #define OSPF6_AS_EXTERNAL_LSA_MIN_SIZE         4U /* w/o IPv6 prefix */
 struct ospf6_as_external_lsa {
@@ -90,6 +91,8 @@ struct ospf6_as_external_lsa {
 	/* followed by none or one referenced LS-ID */
 };
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 #define OSPF6_ASBR_BIT_T  ntohl (0x01000000)
 #define OSPF6_ASBR_BIT_F  ntohl (0x02000000)
 #define OSPF6_ASBR_BIT_E  ntohl (0x04000000)

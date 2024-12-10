@@ -1639,13 +1639,17 @@ DEFUN_NOSH (show_debugging_static,
 {
 	vty_out(vty, "Staticd debugging status\n");
 
+<<<<<<< HEAD
 	static_debug_status_write(vty);
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	cmd_show_lib_debugs(vty);
 
 	return CMD_SUCCESS;
 }
 
+<<<<<<< HEAD
 static struct cmd_node debug_node = {
 	.name = "debug",
 	.node = DEBUG_NODE,
@@ -1653,12 +1657,17 @@ static struct cmd_node debug_node = {
 	.config_write = static_config_write_debug,
 };
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 #endif /* ifndef INCLUDE_MGMTD_CMDDEFS_ONLY */
 
 void static_vty_init(void)
 {
 #ifndef INCLUDE_MGMTD_CMDDEFS_ONLY
+<<<<<<< HEAD
 	install_node(&debug_node);
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	install_element(ENABLE_NODE, &debug_staticd_cmd);
 	install_element(CONFIG_NODE, &debug_staticd_cmd);
 	install_element(ENABLE_NODE, &show_debugging_static_cmd);

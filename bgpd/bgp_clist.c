@@ -11,7 +11,10 @@
 #include "queue.h"
 #include "filter.h"
 #include "stream.h"
+<<<<<<< HEAD
 #include "jhash.h"
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 #include "frrstr.h"
 
 #include "bgpd/bgpd.h"
@@ -496,8 +499,13 @@ static char *community_str_get(struct community *com, int i)
 		break;
 	default:
 		str = XSTRDUP(MTYPE_COMMUNITY_STR, "65536:65535");
+<<<<<<< HEAD
 		as = (comval >> 16) & 0xFFFF;
 		val = comval & 0xFFFF;
+=======
+		as = CHECK_FLAG((comval >> 16), 0xFFFF);
+		val = CHECK_FLAG(comval, 0xFFFF);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		snprintf(str, strlen(str), "%u:%d", as, val);
 		break;
 	}
@@ -534,20 +542,44 @@ static bool community_regexp_match(struct community *com, regex_t *reg)
 	const char *str;
 	char *regstr;
 	int rv;
+<<<<<<< HEAD
+=======
+	bool translate_alias = !!bgp_ca_alias_hash->count;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	/* When there is no communities attribute it is treated as empty
 	   string.  */
 	if (com == NULL || com->size == 0)
+<<<<<<< HEAD
 		str = "";
 	else
 		str = community_str(com, false, true);
 
 	regstr = bgp_alias2community_str(str);
+=======
+		return false;
+
+	str = community_str(com, false, translate_alias);
+
+	/* If at least one community alias is configured, then let's
+	 * do the work, otherwise we don't need to spend time on splitting
+	 * stuff and creating a new string.
+	 */
+	regstr = translate_alias ? bgp_alias2community_str(str) : (char *)str;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	/* Regular expression match.  */
 	rv = regexec(reg, regstr, 0, NULL, 0);
 
+<<<<<<< HEAD
 	XFREE(MTYPE_TMP, regstr);
+=======
+	/* This is allocated by frrstr_join(), and needs to be freed
+	 * only if it was created.
+	 */
+	if (translate_alias)
+		XFREE(MTYPE_TMP, regstr);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	return rv == 0;
 }
@@ -608,20 +640,44 @@ static bool lcommunity_regexp_match(struct lcommunity *com, regex_t *reg)
 	const char *str;
 	char *regstr;
 	int rv;
+<<<<<<< HEAD
+=======
+	bool translate_alias = !!bgp_ca_alias_hash->count;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	/* When there is no communities attribute it is treated as empty
 	   string.  */
 	if (com == NULL || com->size == 0)
+<<<<<<< HEAD
 		str = "";
 	else
 		str = lcommunity_str(com, false, true);
 
 	regstr = bgp_alias2community_str(str);
+=======
+		return false;
+
+	str = lcommunity_str(com, false, translate_alias);
+
+	/* If at least one community alias is configured, then let's
+	 * do the work, otherwise we don't need to spend time on splitting
+	 * stuff and creating a new string.
+	 */
+	regstr = translate_alias ? bgp_alias2community_str(str) : (char *)str;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	/* Regular expression match.  */
 	rv = regexec(reg, regstr, 0, NULL, 0);
 
+<<<<<<< HEAD
 	XFREE(MTYPE_TMP, regstr);
+=======
+	/* This is allocated by frrstr_join(), and needs to be freed
+	 * only if it was created.
+	 */
+	if (translate_alias)
+		XFREE(MTYPE_TMP, regstr);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	return rv == 0;
 }

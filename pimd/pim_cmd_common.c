@@ -100,6 +100,7 @@ int pim_process_no_join_prune_cmd(struct vty *vty)
 
 int pim_process_spt_switchover_infinity_cmd(struct vty *vty)
 {
+<<<<<<< HEAD
 	const char *vrfname;
 	char spt_plist_xpath[XPATH_MAXLEN];
 	char spt_action_xpath[XPATH_MAXLEN];
@@ -119,6 +120,15 @@ int pim_process_spt_switchover_infinity_cmd(struct vty *vty)
 		 FRR_PIM_AF_XPATH_VAL);
 	strlcat(spt_action_xpath, "/spt-switchover/spt-action",
 		sizeof(spt_action_xpath));
+=======
+	char spt_plist_xpath[XPATH_MAXLEN + 40];
+	char spt_action_xpath[XPATH_MAXLEN + 26];
+
+	snprintf(spt_plist_xpath, sizeof(spt_plist_xpath),
+		 "%s/spt-switchover/spt-infinity-prefix-list", VTY_CURR_XPATH);
+	snprintf(spt_action_xpath, sizeof(spt_action_xpath),
+		 "%s/spt-switchover/spt-action", VTY_CURR_XPATH);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	if (yang_dnode_exists(vty->candidate_config->dnode, spt_plist_xpath))
 		nb_cli_enqueue_change(vty, spt_plist_xpath, NB_OP_DESTROY,
@@ -132,6 +142,7 @@ int pim_process_spt_switchover_infinity_cmd(struct vty *vty)
 int pim_process_spt_switchover_prefixlist_cmd(struct vty *vty,
 					      const char *plist)
 {
+<<<<<<< HEAD
 	const char *vrfname;
 	char spt_plist_xpath[XPATH_MAXLEN];
 	char spt_action_xpath[XPATH_MAXLEN];
@@ -156,12 +167,26 @@ int pim_process_spt_switchover_prefixlist_cmd(struct vty *vty,
 			      "PIM_SPT_INFINITY");
 	nb_cli_enqueue_change(vty, spt_plist_xpath, NB_OP_MODIFY,
 			      plist);
+=======
+	char spt_plist_xpath[XPATH_MAXLEN];
+	char spt_action_xpath[XPATH_MAXLEN];
+
+	snprintf(spt_plist_xpath, sizeof(spt_plist_xpath),
+		 "./spt-switchover/spt-infinity-prefix-list");
+	snprintf(spt_action_xpath, sizeof(spt_action_xpath),
+		 "./spt-switchover/spt-action");
+
+	nb_cli_enqueue_change(vty, spt_action_xpath, NB_OP_MODIFY,
+			      "PIM_SPT_INFINITY");
+	nb_cli_enqueue_change(vty, spt_plist_xpath, NB_OP_MODIFY, plist);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	return nb_cli_apply_changes(vty, NULL);
 }
 
 int pim_process_no_spt_switchover_cmd(struct vty *vty)
 {
+<<<<<<< HEAD
 	const char *vrfname;
 	char spt_plist_xpath[XPATH_MAXLEN];
 	char spt_action_xpath[XPATH_MAXLEN];
@@ -181,6 +206,15 @@ int pim_process_no_spt_switchover_cmd(struct vty *vty)
 		 FRR_PIM_AF_XPATH_VAL);
 	strlcat(spt_action_xpath, "/spt-switchover/spt-action",
 		sizeof(spt_action_xpath));
+=======
+	char spt_plist_xpath[XPATH_MAXLEN];
+	char spt_action_xpath[XPATH_MAXLEN];
+
+	snprintf(spt_plist_xpath, sizeof(spt_plist_xpath),
+		 "./spt-switchover/spt-infinity-prefix-list");
+	snprintf(spt_action_xpath, sizeof(spt_action_xpath),
+		 "./spt-switchover/spt-action");
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	nb_cli_enqueue_change(vty, spt_plist_xpath, NB_OP_DESTROY, NULL);
 	nb_cli_enqueue_change(vty, spt_action_xpath, NB_OP_MODIFY,
@@ -217,6 +251,7 @@ int pim_process_no_pim_packet_cmd(struct vty *vty)
 
 int pim_process_keepalivetimer_cmd(struct vty *vty, const char *kat)
 {
+<<<<<<< HEAD
 	const char *vrfname;
 	char ka_timer_xpath[XPATH_MAXLEN];
 
@@ -230,12 +265,20 @@ int pim_process_keepalivetimer_cmd(struct vty *vty, const char *kat)
 
 	nb_cli_enqueue_change(vty, ka_timer_xpath, NB_OP_MODIFY,
 			      kat);
+=======
+	char ka_timer_xpath[XPATH_MAXLEN];
+
+	snprintf(ka_timer_xpath, sizeof(ka_timer_xpath), "./keep-alive-timer");
+
+	nb_cli_enqueue_change(vty, ka_timer_xpath, NB_OP_MODIFY, kat);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	return nb_cli_apply_changes(vty, NULL);
 }
 
 int pim_process_no_keepalivetimer_cmd(struct vty *vty)
 {
+<<<<<<< HEAD
 	const char *vrfname;
 	char ka_timer_xpath[XPATH_MAXLEN];
 
@@ -246,6 +289,11 @@ int pim_process_no_keepalivetimer_cmd(struct vty *vty)
 	snprintf(ka_timer_xpath, sizeof(ka_timer_xpath), FRR_PIM_VRF_XPATH,
 		 "frr-pim:pimd", "pim", vrfname, FRR_PIM_AF_XPATH_VAL);
 	strlcat(ka_timer_xpath, "/keep-alive-timer", sizeof(ka_timer_xpath));
+=======
+	char ka_timer_xpath[XPATH_MAXLEN];
+
+	snprintf(ka_timer_xpath, sizeof(ka_timer_xpath), "./keep-alive-timer");
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	nb_cli_enqueue_change(vty, ka_timer_xpath, NB_OP_DESTROY, NULL);
 
@@ -254,6 +302,7 @@ int pim_process_no_keepalivetimer_cmd(struct vty *vty)
 
 int pim_process_rp_kat_cmd(struct vty *vty, const char *rpkat)
 {
+<<<<<<< HEAD
 	const char *vrfname;
 	char rp_ka_timer_xpath[XPATH_MAXLEN];
 
@@ -269,20 +318,36 @@ int pim_process_rp_kat_cmd(struct vty *vty, const char *rpkat)
 
 	nb_cli_enqueue_change(vty, rp_ka_timer_xpath, NB_OP_MODIFY,
 			      rpkat);
+=======
+	char rp_ka_timer_xpath[XPATH_MAXLEN];
+
+	snprintf(rp_ka_timer_xpath, sizeof(rp_ka_timer_xpath),
+		 "./rp-keep-alive-timer");
+
+	nb_cli_enqueue_change(vty, rp_ka_timer_xpath, NB_OP_MODIFY, rpkat);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	return nb_cli_apply_changes(vty, NULL);
 }
 
 int pim_process_no_rp_kat_cmd(struct vty *vty)
 {
+<<<<<<< HEAD
 	const char *vrfname;
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	char rp_ka_timer[6];
 	char rp_ka_timer_xpath[XPATH_MAXLEN];
 	uint v;
 	char rs_timer_xpath[XPATH_MAXLEN];
 
+<<<<<<< HEAD
 	snprintf(rs_timer_xpath, sizeof(rs_timer_xpath),
 		 FRR_PIM_ROUTER_XPATH, FRR_PIM_AF_XPATH_VAL);
+=======
+	snprintf(rs_timer_xpath, sizeof(rs_timer_xpath), FRR_PIM_ROUTER_XPATH,
+		 FRR_PIM_AF_XPATH_VAL);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	strlcat(rs_timer_xpath, "/register-suppress-time",
 		sizeof(rs_timer_xpath));
 
@@ -301,6 +366,7 @@ int pim_process_no_rp_kat_cmd(struct vty *vty)
 		v = UINT16_MAX;
 	snprintf(rp_ka_timer, sizeof(rp_ka_timer), "%u", v);
 
+<<<<<<< HEAD
 	vrfname = pim_cli_get_vrf_name(vty);
 	if (vrfname == NULL)
 		return CMD_WARNING_CONFIG_FAILED;
@@ -313,6 +379,12 @@ int pim_process_no_rp_kat_cmd(struct vty *vty)
 
 	nb_cli_enqueue_change(vty, rp_ka_timer_xpath, NB_OP_MODIFY,
 			      rp_ka_timer);
+=======
+	snprintf(rp_ka_timer_xpath, sizeof(rp_ka_timer_xpath),
+		 "./rp-keep-alive-timer");
+
+	nb_cli_enqueue_change(vty, rp_ka_timer_xpath, NB_OP_MODIFY, rp_ka_timer);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	return nb_cli_apply_changes(vty, NULL);
 }
@@ -490,6 +562,20 @@ int pim_process_no_ip_pim_boundary_oil_cmd(struct vty *vty)
 				    FRR_PIM_AF_XPATH_VAL);
 }
 
+<<<<<<< HEAD
+=======
+int pim_process_ip_gmp_proxy_cmd(struct vty *vty, bool enable)
+{
+	if (enable)
+		nb_cli_enqueue_change(vty, "./proxy", NB_OP_MODIFY, "true");
+	else
+		nb_cli_enqueue_change(vty, "./proxy", NB_OP_DESTROY, NULL);
+
+	return nb_cli_apply_changes(vty, FRR_GMP_INTERFACE_XPATH,
+				    FRR_PIM_AF_XPATH_VAL);
+}
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 int pim_process_ip_mroute_cmd(struct vty *vty, const char *interface,
 			      const char *group_str, const char *source_str)
 {
@@ -531,9 +617,13 @@ int pim_process_no_ip_mroute_cmd(struct vty *vty, const char *interface,
 int pim_process_rp_cmd(struct vty *vty, const char *rp_str,
 		       const char *group_str)
 {
+<<<<<<< HEAD
 	const char *vrfname;
 	char group_xpath[XPATH_MAXLEN];
 	char rp_xpath[XPATH_MAXLEN];
+=======
+	char group_xpath[XPATH_MAXLEN];
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	int printed;
 	int result = 0;
 	struct prefix group;
@@ -575,6 +665,7 @@ int pim_process_rp_cmd(struct vty *vty, const char *rp_str,
 	}
 #endif
 
+<<<<<<< HEAD
 	vrfname = pim_cli_get_vrf_name(vty);
 	if (vrfname == NULL)
 		return CMD_WARNING_CONFIG_FAILED;
@@ -583,6 +674,11 @@ int pim_process_rp_cmd(struct vty *vty, const char *rp_str,
 		 "frr-pim:pimd", "pim", vrfname, FRR_PIM_AF_XPATH_VAL, rp_str);
 	printed = snprintf(group_xpath, sizeof(group_xpath),
 			   "%s/group-list[.='%s']", rp_xpath, group_str);
+=======
+	printed = snprintf(group_xpath, sizeof(group_xpath),
+			   "./" FRR_PIM_STATIC_RP_XPATH "/group-list[.='%s']",
+			   rp_str, group_str);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	if (printed >= (int)(sizeof(group_xpath))) {
 		vty_out(vty, "Xpath too long (%d > %u)", printed + 1,
@@ -599,6 +695,7 @@ int pim_process_no_rp_cmd(struct vty *vty, const char *rp_str,
 			  const char *group_str)
 {
 	char group_xpath[XPATH_MAXLEN];
+<<<<<<< HEAD
 	char rp_xpath[XPATH_MAXLEN];
 	int printed;
 	const char *vrfname;
@@ -610,6 +707,14 @@ int pim_process_no_rp_cmd(struct vty *vty, const char *rp_str,
 
 	snprintf(rp_xpath, sizeof(rp_xpath), FRR_PIM_STATIC_RP_XPATH,
 		 "frr-pim:pimd", "pim", vrfname, FRR_PIM_AF_XPATH_VAL, rp_str);
+=======
+	char rp_xpath[XPATH_MAXLEN + 47];
+	int printed;
+	const struct lyd_node *group_dnode;
+
+	snprintf(rp_xpath, sizeof(rp_xpath), "%s/" FRR_PIM_STATIC_RP_XPATH,
+		 VTY_CURR_XPATH, rp_str);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	printed = snprintf(group_xpath, sizeof(group_xpath),
 			   "%s/group-list[.='%s']", rp_xpath, group_str);
 
@@ -636,6 +741,7 @@ int pim_process_no_rp_cmd(struct vty *vty, const char *rp_str,
 int pim_process_rp_plist_cmd(struct vty *vty, const char *rp_str,
 			     const char *prefix_list)
 {
+<<<<<<< HEAD
 	const char *vrfname;
 	char rp_plist_xpath[XPATH_MAXLEN];
 
@@ -646,6 +752,12 @@ int pim_process_rp_plist_cmd(struct vty *vty, const char *rp_str,
 	snprintf(rp_plist_xpath, sizeof(rp_plist_xpath),
 		 FRR_PIM_STATIC_RP_XPATH, "frr-pim:pimd", "pim", vrfname,
 		 FRR_PIM_AF_XPATH_VAL, rp_str);
+=======
+	char rp_plist_xpath[XPATH_MAXLEN];
+
+	snprintf(rp_plist_xpath, sizeof(rp_plist_xpath),
+		 "./" FRR_PIM_STATIC_RP_XPATH, rp_str);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	strlcat(rp_plist_xpath, "/prefix-list", sizeof(rp_plist_xpath));
 
 	nb_cli_enqueue_change(vty, rp_plist_xpath, NB_OP_MODIFY, prefix_list);
@@ -656,6 +768,7 @@ int pim_process_rp_plist_cmd(struct vty *vty, const char *rp_str,
 int pim_process_no_rp_plist_cmd(struct vty *vty, const char *rp_str,
 				const char *prefix_list)
 {
+<<<<<<< HEAD
 	char rp_xpath[XPATH_MAXLEN];
 	char plist_xpath[XPATH_MAXLEN];
 	const char *vrfname;
@@ -671,6 +784,16 @@ int pim_process_no_rp_plist_cmd(struct vty *vty, const char *rp_str,
 
 	snprintf(plist_xpath, sizeof(plist_xpath), FRR_PIM_STATIC_RP_XPATH,
 		 "frr-pim:pimd", "pim", vrfname, FRR_PIM_AF_XPATH_VAL, rp_str);
+=======
+	char rp_xpath[XPATH_MAXLEN + 47];
+	char plist_xpath[XPATH_MAXLEN + 1070];
+	const struct lyd_node *plist_dnode;
+	const char *plist;
+
+	snprintf(rp_xpath, sizeof(rp_xpath), "%s/" FRR_PIM_STATIC_RP_XPATH,
+		 VTY_CURR_XPATH, rp_str);
+	snprintf(plist_xpath, sizeof(plist_xpath), "%s", rp_xpath);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	strlcat(plist_xpath, "/prefix-list", sizeof(plist_xpath));
 
 	plist_dnode = yang_dnode_get(vty->candidate_config->dnode, plist_xpath);
@@ -679,7 +802,11 @@ int pim_process_no_rp_plist_cmd(struct vty *vty, const char *rp_str,
 		return NB_OK;
 	}
 
+<<<<<<< HEAD
 	plist = yang_dnode_get_string(plist_dnode, "%s", plist_xpath);
+=======
+	plist = yang_dnode_get_string(plist_dnode, NULL);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	if (strcmp(prefix_list, plist)) {
 		vty_out(vty, "%% Unable to find specified RP\n");
 		return NB_OK;
@@ -690,6 +817,117 @@ int pim_process_no_rp_plist_cmd(struct vty *vty, const char *rp_str,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
+<<<<<<< HEAD
+=======
+int pim_process_autorp_cmd(struct vty *vty)
+{
+	char xpath[XPATH_MAXLEN];
+
+	snprintf(xpath, sizeof(xpath), "%s/%s", FRR_PIM_AUTORP_XPATH,
+		 "discovery-enabled");
+
+	nb_cli_enqueue_change(vty, xpath, NB_OP_MODIFY, "true");
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+int pim_process_no_autorp_cmd(struct vty *vty)
+{
+	char xpath[XPATH_MAXLEN];
+
+	snprintf(xpath, sizeof(xpath), "%s/%s", FRR_PIM_AUTORP_XPATH,
+		 "discovery-enabled");
+
+	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+int pim_process_autorp_candidate_rp_cmd(struct vty *vty, bool no, const char *rpaddr_str,
+					const char *grp, const char *plist)
+{
+	if (no) {
+		if (grp || plist) {
+			/* If any single values are set, only destroy those */
+			if (grp)
+				nb_cli_enqueue_change(vty, "./group", NB_OP_DESTROY, NULL);
+			if (plist)
+				nb_cli_enqueue_change(vty, "./prefix-list", NB_OP_DESTROY, NULL);
+		} else
+			/* No values set, remove the entire RP */
+			nb_cli_enqueue_change(vty, ".", NB_OP_DESTROY, NULL);
+	} else {
+		nb_cli_enqueue_change(vty, ".", NB_OP_CREATE, NULL);
+		if (grp)
+			nb_cli_enqueue_change(vty, "./group", NB_OP_MODIFY, grp);
+		if (plist)
+			nb_cli_enqueue_change(vty, "./prefix-list", NB_OP_MODIFY, plist);
+	}
+
+	return nb_cli_apply_changes(vty, "%s/candidate-rp-list[rp-address='%s']",
+				    FRR_PIM_AUTORP_XPATH, rpaddr_str);
+}
+
+int pim_process_autorp_announce_scope_int_cmd(struct vty *vty, bool no, const char *scope,
+					      const char *interval, const char *holdtime)
+{
+	/* At least one value is required, so set/delete anything defined */
+	enum nb_operation op = (no ? NB_OP_DESTROY : NB_OP_MODIFY);
+
+	if (scope)
+		nb_cli_enqueue_change(vty, "./announce-scope", op, scope);
+	if (interval)
+		nb_cli_enqueue_change(vty, "./announce-interval", op, interval);
+	if (holdtime)
+		nb_cli_enqueue_change(vty, "./announce-holdtime", op, holdtime);
+
+	return nb_cli_apply_changes(vty, "%s", FRR_PIM_AUTORP_XPATH);
+}
+
+int pim_process_autorp_send_rp_discovery_cmd(struct vty *vty, bool no, bool any, bool loopback,
+					     const char *ifname, const char *addr)
+{
+	/* Just take any "no" version of this command as disable the mapping agent */
+	nb_cli_enqueue_change(vty, "./send-rp-discovery", NB_OP_MODIFY, (no ? "false" : "true"));
+	if (no) {
+		nb_cli_enqueue_change(vty, "./if-any", NB_OP_DESTROY, NULL);
+		nb_cli_enqueue_change(vty, "./interface", NB_OP_DESTROY, NULL);
+		nb_cli_enqueue_change(vty, "./address", NB_OP_DESTROY, NULL);
+		nb_cli_enqueue_change(vty, "./if-loopback", NB_OP_DESTROY, NULL);
+	} else {
+		/* Enabling mapping agent. Loopback is default, so any non-no for of the command will
+		 * enable the mapping agent.
+		 */
+		if (any)
+			nb_cli_enqueue_change(vty, "./if-any", NB_OP_CREATE, NULL);
+		else if (ifname)
+			nb_cli_enqueue_change(vty, "./interface", NB_OP_MODIFY, ifname);
+		else if (addr)
+			nb_cli_enqueue_change(vty, "./address", NB_OP_MODIFY, addr);
+		else
+			nb_cli_enqueue_change(vty, "./if-loopback", NB_OP_CREATE, NULL);
+	}
+
+	return nb_cli_apply_changes(vty, "%s/%s", FRR_PIM_AUTORP_XPATH, "mapping-agent");
+}
+
+int pim_process_autorp_send_rp_discovery_scope_int_cmd(struct vty *vty, bool no, const char *scope,
+						       const char *interval, const char *holdtime)
+{
+	/* At least one value is required, so only set/delete the values specified */
+	enum nb_operation op = (no ? NB_OP_DESTROY : NB_OP_MODIFY);
+
+	if (scope)
+		nb_cli_enqueue_change(vty, "./discovery-scope", op, scope);
+	if (interval)
+		nb_cli_enqueue_change(vty, "./discovery-interval", op, interval);
+	if (holdtime)
+		nb_cli_enqueue_change(vty, "./discovery-holdtime", op, holdtime);
+
+	return nb_cli_apply_changes(vty, "%s/%s", FRR_PIM_AUTORP_XPATH, "mapping-agent");
+}
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 bool pim_sgaddr_match(pim_sgaddr item, pim_sgaddr match)
 {
 	return (pim_addr_is_any(match.grp) ||
@@ -969,7 +1207,11 @@ void pim_show_rpf(struct pim_instance *pim, struct vty *vty, json_object *json)
 	if (!json) {
 		table = ttable_dump(tt, "\n");
 		vty_out(vty, "%s\n", table);
+<<<<<<< HEAD
 		XFREE(MTYPE_TMP, table);
+=======
+		XFREE(MTYPE_TMP_TTABLE, table);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		ttable_del(tt);
 	}
 }
@@ -1021,7 +1263,11 @@ void pim_show_neighbors_secondary(struct pim_instance *pim, struct vty *vty)
 	/* Dump the generated table. */
 	table = ttable_dump(tt, "\n");
 	vty_out(vty, "%s\n", table);
+<<<<<<< HEAD
 	XFREE(MTYPE_TMP, table);
+=======
+	XFREE(MTYPE_TMP_TTABLE, table);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	ttable_del(tt);
 }
 
@@ -1275,7 +1521,11 @@ void pim_show_state(struct pim_instance *pim, struct vty *vty,
 #else
 		table = ttable_dump(tt, "\n");
 		vty_out(vty, "%s\n", table);
+<<<<<<< HEAD
 		XFREE(MTYPE_TMP, table);
+=======
+		XFREE(MTYPE_TMP_TTABLE, table);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		ttable_del(tt);
 #endif
 	}
@@ -1508,7 +1758,11 @@ void pim_show_upstream(struct pim_instance *pim, struct vty *vty,
 	if (!json) {
 		table = ttable_dump(tt, "\n");
 		vty_out(vty, "%s\n", table);
+<<<<<<< HEAD
 		XFREE(MTYPE_TMP, table);
+=======
+		XFREE(MTYPE_TMP_TTABLE, table);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		ttable_del(tt);
 	}
 }
@@ -1585,7 +1839,11 @@ void pim_show_join_desired(struct pim_instance *pim, struct vty *vty, bool uj)
 		/* Dump the generated table. */
 		table = ttable_dump(tt, "\n");
 		vty_out(vty, "%s\n", table);
+<<<<<<< HEAD
 		XFREE(MTYPE_TMP, table);
+=======
+		XFREE(MTYPE_TMP_TTABLE, table);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		ttable_del(tt);
 	}
 }
@@ -1664,7 +1922,11 @@ void pim_show_upstream_rpf(struct pim_instance *pim, struct vty *vty, bool uj)
 		/* Dump the generated table. */
 		table = ttable_dump(tt, "\n");
 		vty_out(vty, "%s\n", table);
+<<<<<<< HEAD
 		XFREE(MTYPE_TMP, table);
+=======
+		XFREE(MTYPE_TMP_TTABLE, table);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		ttable_del(tt);
 	}
 }
@@ -1846,7 +2108,11 @@ void pim_show_join(struct pim_instance *pim, struct vty *vty, pim_sgaddr *sg,
 	if (!json) {
 		table = ttable_dump(tt, "\n");
 		vty_out(vty, "%s\n", table);
+<<<<<<< HEAD
 		XFREE(MTYPE_TMP, table);
+=======
+		XFREE(MTYPE_TMP_TTABLE, table);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		ttable_del(tt);
 	}
 }
@@ -1926,7 +2192,11 @@ void pim_show_jp_agg_list(struct pim_instance *pim, struct vty *vty)
 	/* Dump the generated table. */
 	table = ttable_dump(tt, "\n");
 	vty_out(vty, "%s\n", table);
+<<<<<<< HEAD
 	XFREE(MTYPE_TMP, table);
+=======
+	XFREE(MTYPE_TMP_TTABLE, table);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	ttable_del(tt);
 }
 
@@ -2069,7 +2339,11 @@ void pim_show_membership(struct pim_instance *pim, struct vty *vty, bool uj)
 		/* Dump the generated table. */
 		table = ttable_dump(tt, "\n");
 		vty_out(vty, "%s\n", table);
+<<<<<<< HEAD
 		XFREE(MTYPE_TMP, table);
+=======
+		XFREE(MTYPE_TMP_TTABLE, table);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		ttable_del(tt);
 	}
 }
@@ -2174,7 +2448,11 @@ void pim_show_channel(struct pim_instance *pim, struct vty *vty, bool uj)
 		/* Dump the generated table. */
 		table = ttable_dump(tt, "\n");
 		vty_out(vty, "%s\n", table);
+<<<<<<< HEAD
 		XFREE(MTYPE_TMP, table);
+=======
+		XFREE(MTYPE_TMP_TTABLE, table);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		ttable_del(tt);
 	}
 }
@@ -2357,7 +2635,11 @@ void pim_show_interfaces(struct pim_instance *pim, struct vty *vty, bool mlag,
 		/* Dump the generated table. */
 		table = ttable_dump(tt, "\n");
 		vty_out(vty, "%s\n", table);
+<<<<<<< HEAD
 		XFREE(MTYPE_TMP, table);
+=======
+		XFREE(MTYPE_TMP_TTABLE, table);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 		ttable_del(tt);
 	}
@@ -2829,7 +3111,11 @@ static int pim_print_vty_pnc_cache_walkcb(struct hash_bucket *bucket, void *arg)
 	/* Dump the generated table. */
 	table = ttable_dump(tt, "\n");
 	vty_out(vty, "%s\n", table);
+<<<<<<< HEAD
 	XFREE(MTYPE_TMP, table);
+=======
+	XFREE(MTYPE_TMP_TTABLE, table);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	ttable_del(tt);
 
 	return CMD_SUCCESS;
@@ -3309,7 +3595,11 @@ void pim_show_neighbors(struct pim_instance *pim, struct vty *vty,
 	if (!json) {
 		table = ttable_dump(tt, "\n");
 		vty_out(vty, "%s\n", table);
+<<<<<<< HEAD
 		XFREE(MTYPE_TMP, table);
+=======
+		XFREE(MTYPE_TMP_TTABLE, table);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		ttable_del(tt);
 	}
 }
@@ -3408,6 +3698,7 @@ int gm_process_no_last_member_query_interval_cmd(struct vty *vty)
 int pim_process_ssmpingd_cmd(struct vty *vty, enum nb_operation operation,
 			     const char *src_str)
 {
+<<<<<<< HEAD
 	const char *vrfname;
 	char ssmpingd_ip_xpath[XPATH_MAXLEN];
 	char ssmpingd_src_ip_xpath[XPATH_MAXLEN];
@@ -3423,6 +3714,13 @@ int pim_process_ssmpingd_cmd(struct vty *vty, enum nb_operation operation,
 	printed = snprintf(ssmpingd_src_ip_xpath, sizeof(ssmpingd_src_ip_xpath),
 			   "%s/ssm-pingd-source-ip[.='%s']", ssmpingd_ip_xpath,
 			   src_str);
+=======
+	char ssmpingd_src_ip_xpath[XPATH_MAXLEN];
+	int printed;
+
+	printed = snprintf(ssmpingd_src_ip_xpath, sizeof(ssmpingd_src_ip_xpath),
+			   "./ssm-pingd-source-ip[.='%s']", src_str);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	if (printed >= (int)sizeof(ssmpingd_src_ip_xpath)) {
 		vty_out(vty, "Xpath too long (%d > %u)", printed + 1,
 			XPATH_MAXLEN);
@@ -3494,6 +3792,58 @@ int pim_process_no_unicast_bsm_cmd(struct vty *vty)
 				    FRR_PIM_AF_XPATH_VAL);
 }
 
+<<<<<<< HEAD
+=======
+/* helper for bsr/rp candidate commands*/
+int pim_process_bsr_candidate_cmd(struct vty *vty, const char *cand_str,
+				  bool no, bool is_rp, bool any,
+				  const char *ifname, const char *addr,
+				  const char *prio, const char *interval)
+{
+	if (no)
+		nb_cli_enqueue_change(vty, ".", NB_OP_DESTROY, NULL);
+	else {
+		nb_cli_enqueue_change(vty, ".", NB_OP_CREATE, NULL);
+
+		if (any)
+			nb_cli_enqueue_change(vty, "./if-any", NB_OP_CREATE,
+					      NULL);
+		else if (ifname)
+			nb_cli_enqueue_change(vty, "./interface", NB_OP_CREATE,
+					      ifname);
+		else if (addr)
+			nb_cli_enqueue_change(vty, "./address", NB_OP_CREATE,
+					      addr);
+		else
+			nb_cli_enqueue_change(vty, "./if-loopback",
+					      NB_OP_CREATE, NULL);
+
+		if (prio)
+			nb_cli_enqueue_change(vty,
+					      (is_rp ? "./rp-priority"
+						     : "./bsr-priority"),
+					      NB_OP_MODIFY, prio);
+
+		/* only valid for rp candidate case*/
+		if (is_rp && interval)
+			nb_cli_enqueue_change(vty, "./advertisement-interval",
+					      NB_OP_MODIFY, interval);
+	}
+
+	return nb_cli_apply_changes(vty, "%s", cand_str);
+}
+
+int pim_process_bsr_crp_grp_cmd(struct vty *vty, const char *grp, bool no)
+{
+	if (no)
+		nb_cli_enqueue_change(vty, ".", NB_OP_DESTROY, grp);
+	else
+		nb_cli_enqueue_change(vty, ".", NB_OP_CREATE, grp);
+
+	return nb_cli_apply_changes(vty, "%s/group-list", FRR_PIM_CAND_RP_XPATH);
+}
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 static void show_scan_oil_stats(struct pim_instance *pim, struct vty *vty,
 				time_t now)
 {
@@ -3605,7 +3955,11 @@ void show_multicast_interfaces(struct pim_instance *pim, struct vty *vty,
 	if (!json) {
 		table = ttable_dump(tt, "\n");
 		vty_out(vty, "%s\n", table);
+<<<<<<< HEAD
 		XFREE(MTYPE_TMP, table);
+=======
+		XFREE(MTYPE_TMP_TTABLE, table);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		ttable_del(tt);
 	}
 }
@@ -4044,7 +4398,11 @@ void show_mroute(struct pim_instance *pim, struct vty *vty, pim_sgaddr *sg,
 	if (!json) {
 		table = ttable_dump(tt, "\n");
 		vty_out(vty, "%s\n", table);
+<<<<<<< HEAD
 		XFREE(MTYPE_TMP, table);
+=======
+		XFREE(MTYPE_TMP_TTABLE, table);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		ttable_del(tt);
 	}
 }
@@ -4127,7 +4485,11 @@ void show_mroute_count(struct pim_instance *pim, struct vty *vty,
 	if (!json) {
 		table = ttable_dump(tt, "\n");
 		vty_out(vty, "%s\n", table);
+<<<<<<< HEAD
 		XFREE(MTYPE_TMP, table);
+=======
+		XFREE(MTYPE_TMP_TTABLE, table);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		ttable_del(tt);
 	}
 }
@@ -4263,6 +4625,30 @@ struct vrf *pim_cmd_lookup(struct vty *vty, const char *name)
 	return vrf;
 }
 
+<<<<<<< HEAD
+=======
+struct vrf *pim_cmd_lookup_vrf(struct vty *vty, struct cmd_token *argv[],
+			       const int argc, int *idx, bool uj)
+{
+	struct vrf *vrf;
+
+	if (argv_find(argv, argc, "NAME", idx))
+		vrf = vrf_lookup_by_name(argv[*idx]->arg);
+	else
+		vrf = vrf_lookup_by_id(VRF_DEFAULT);
+
+	if (!vrf) {
+		if (uj)
+			vty_json_empty(vty, NULL);
+		else
+			vty_out(vty, "Specified VRF: %s does not exist\n",
+				argv[*idx]->arg);
+	}
+
+	return vrf;
+}
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 void clear_mroute(struct pim_instance *pim)
 {
 	struct pim_upstream *up;
@@ -5293,6 +5679,15 @@ void pim_show_bsr(struct pim_instance *pim, struct vty *vty, bool uj)
 	case ACCEPT_PREFERRED:
 		strlcpy(bsr_state, "ACCEPT_PREFERRED", sizeof(bsr_state));
 		break;
+<<<<<<< HEAD
+=======
+	case BSR_PENDING:
+		strlcpy(bsr_state, "BSR_PENDING", sizeof(bsr_state));
+		break;
+	case BSR_ELECTED:
+		strlcpy(bsr_state, "BSR_ELECTED", sizeof(bsr_state));
+		break;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	default:
 		strlcpy(bsr_state, "", sizeof(bsr_state));
 	}
@@ -5312,7 +5707,11 @@ void pim_show_bsr(struct pim_instance *pim, struct vty *vty, bool uj)
 	}
 
 	else {
+<<<<<<< HEAD
 		vty_out(vty, "PIMv2 Bootstrap information\n");
+=======
+		vty_out(vty, "PIMv2 Bootstrap Router information\n");
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		vty_out(vty, "Current preferred BSR address: %pPA\n",
 			&pim->global_scope.current_bsr);
 		vty_out(vty,
@@ -5430,7 +5829,11 @@ static void pim_show_group_rp_mappings_info(struct pim_instance *pim,
 
 			table = ttable_dump(tt, "\n");
 			vty_out(vty, "%s\n", table);
+<<<<<<< HEAD
 			XFREE(MTYPE_TMP, table);
+=======
+			XFREE(MTYPE_TMP_TTABLE, table);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			ttable_del(tt);
 			tt = NULL;
 		}
@@ -5484,7 +5887,11 @@ static void pim_show_group_rp_mappings_info(struct pim_instance *pim,
 
 			table = ttable_dump(tt, "\n");
 			vty_out(vty, "%s\n", table);
+<<<<<<< HEAD
 			XFREE(MTYPE_TMP, table);
+=======
+			XFREE(MTYPE_TMP_TTABLE, table);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			ttable_del(tt);
 		}
 		if (!bsm_rpinfos_count(bsgrp->partial_bsrp_list) && !uj)
@@ -5521,6 +5928,101 @@ int pim_show_group_rp_mappings_info_helper(const char *vrf, struct vty *vty,
 	return CMD_SUCCESS;
 }
 
+<<<<<<< HEAD
+=======
+int pim_show_bsr_cand_rp(const struct vrf *vrf, struct vty *vty, bool uj)
+{
+	struct pim_instance *pim;
+	struct bsm_scope *scope;
+	json_object *jsondata = NULL;
+
+	if (!vrf || !vrf->info)
+		return CMD_WARNING;
+
+	pim = (struct pim_instance *)vrf->info;
+	scope = &pim->global_scope;
+
+	if (!scope->cand_rp_addrsel.run) {
+		if (!!uj)
+			vty_out(vty, "{}\n");
+		else
+			vty_out(vty,
+				"This router is not currently operating as Candidate RP\n");
+		return CMD_SUCCESS;
+	}
+
+	if (!!uj) {
+		jsondata = json_object_new_object();
+		json_object_string_addf(jsondata, "address", "%pPA",
+					&scope->cand_rp_addrsel.run_addr);
+		json_object_int_add(jsondata, "priority", scope->cand_rp_prio);
+		json_object_int_add(jsondata, "nextAdvertisementMsec",
+				    event_timer_remain_msec(
+					    scope->cand_rp_adv_timer));
+
+		vty_json(vty, jsondata);
+		return CMD_SUCCESS;
+	}
+
+	vty_out(vty, "Candidate-RP\nAddress:   %pPA\nPriority:  %u\n\n",
+		&scope->cand_rp_addrsel.run_addr, scope->cand_rp_prio);
+	vty_out(vty, "Next adv.: %lu msec\n",
+		event_timer_remain_msec(scope->cand_rp_adv_timer));
+
+
+	return CMD_SUCCESS;
+}
+
+int pim_show_bsr_cand_bsr(const struct vrf *vrf, struct vty *vty, bool uj)
+{
+	struct pim_instance *pim;
+	struct bsm_scope *scope;
+	json_object *jsondata = NULL;
+
+	if (!vrf || !vrf->info)
+		return CMD_WARNING;
+
+	pim = (struct pim_instance *)vrf->info;
+	scope = &pim->global_scope;
+
+	if (!scope->bsr_addrsel.cfg_enable) {
+		if (!!uj)
+			vty_out(vty, "{}\n");
+		else
+			vty_out(vty,
+				"This router is not currently operating as Candidate BSR\n");
+		return CMD_SUCCESS;
+	}
+
+	if (uj) {
+		char buf[INET_ADDRSTRLEN];
+
+		jsondata = json_object_new_object();
+		inet_ntop(AF_INET, &scope->bsr_addrsel.run_addr, buf,
+			  sizeof(buf));
+		json_object_string_add(jsondata, "address", buf);
+		json_object_int_add(jsondata, "priority", scope->cand_bsr_prio);
+		json_object_boolean_add(jsondata, "elected",
+					pim->global_scope.state == BSR_ELECTED);
+
+		vty_json(vty, jsondata);
+		return CMD_SUCCESS;
+	}
+
+	vty_out(vty,
+		"Candidate-BSR\nAddress:   %pPA\nPriority:  %u\nElected: %s\n",
+		&scope->bsr_addrsel.run_addr, scope->cand_bsr_prio,
+		(pim->global_scope.state == BSR_ELECTED) ? "  Yes" : "  No");
+
+	if (!pim_addr_cmp(scope->bsr_addrsel.run_addr, PIMADDR_ANY))
+		vty_out(vty,
+			"\nThis router is not currently operating as Candidate BSR\n"
+			"Configure a BSR address to enable this feature\n\n");
+
+	return CMD_SUCCESS;
+}
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 /* Display the bsm database details */
 static void pim_show_bsm_db(struct pim_instance *pim, struct vty *vty, bool uj)
 {
@@ -5705,3 +6207,37 @@ int pim_show_bsm_db_helper(const char *vrf, struct vty *vty, bool uj)
 
 	return CMD_SUCCESS;
 }
+<<<<<<< HEAD
+=======
+
+int pim_router_config_write(struct vty *vty)
+{
+	struct vrf *vrf;
+	struct pim_instance *pim;
+	int writes = 0;
+	char framestr[64] = { 0 };
+
+	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
+		pim = vrf->info;
+
+		if (!pim)
+			continue;
+
+		snprintfrr(framestr, sizeof(framestr), "router %s",
+			   PIM_AF_ROUTER);
+		if (vrf->vrf_id != VRF_DEFAULT) {
+			strlcat(framestr, " vrf ", sizeof(framestr));
+			strlcat(framestr, vrf->name, sizeof(framestr));
+		}
+		vty_frame(vty, "%s\n", framestr);
+		++writes;
+
+		writes += pim_global_config_write_worker(pim, vty);
+
+		vty_endframe(vty, "exit\n");
+		++writes;
+	}
+
+	return writes;
+}
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)

@@ -157,6 +157,12 @@ SPECIAL		[(),]
 
 %%
 
+<<<<<<< HEAD
+=======
+#else
+extern int def_yylex(void);
+extern int def_yylex_destroy(void);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 #endif /* __clang_analyzer__ */
 
 static int yylex_clr(char **retbuf)

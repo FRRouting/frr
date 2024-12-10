@@ -506,7 +506,11 @@ parse_nexthop_unicast(ns_id_t ns_id, struct rtmsg *rtm, struct rtattr **tb,
 		      void *gate, afi_t afi, vrf_id_t vrf_id)
 {
 	struct interface *ifp = NULL;
+<<<<<<< HEAD
 	struct nexthop nh = {0};
+=======
+	struct nexthop nh = {.weight = 1};
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	mpls_label_t labels[MPLS_MAX_LABELS] = {0};
 	int num_labels = 0;
 	enum seg6local_action_t seg6l_act = ZEBRA_SEG6_LOCAL_ACTION_UNSPEC;
@@ -591,12 +595,18 @@ parse_nexthop_unicast(ns_id_t ns_id, struct rtmsg *rtm, struct rtattr **tb,
 	return nh;
 }
 
+<<<<<<< HEAD
 static uint8_t parse_multipath_nexthops_unicast(ns_id_t ns_id,
 						struct nexthop_group *ng,
 						struct rtmsg *rtm,
 						struct rtnexthop *rtnh,
 						struct rtattr **tb,
 						void *prefsrc, vrf_id_t vrf_id)
+=======
+static uint16_t parse_multipath_nexthops_unicast(ns_id_t ns_id, struct nexthop_group *ng,
+						 struct rtmsg *rtm, struct rtnexthop *rtnh,
+						 struct rtattr **tb, void *prefsrc, vrf_id_t vrf_id)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 {
 	void *gate = NULL;
 	struct interface *ifp = NULL;
@@ -721,7 +731,11 @@ static uint8_t parse_multipath_nexthops_unicast(ns_id_t ns_id,
 		rtnh = RTNH_NEXT(rtnh);
 	}
 
+<<<<<<< HEAD
 	uint8_t nhop_num = nexthop_group_nexthop_num(ng);
+=======
+	uint16_t nhop_num = nexthop_group_nexthop_num(ng);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	return nhop_num;
 }
@@ -799,8 +813,11 @@ int netlink_route_change_read_unicast_internal(struct nlmsghdr *h,
 		return 0;
 	if (rtm->rtm_protocol == RTPROT_REDIRECT)
 		return 0;
+<<<<<<< HEAD
 	if (rtm->rtm_protocol == RTPROT_KERNEL)
 		return 0;
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	selfroute = is_selfroute(rtm->rtm_protocol);
 
@@ -1002,7 +1019,11 @@ int netlink_route_change_read_unicast_internal(struct nlmsghdr *h,
 				(struct rtnexthop *)RTA_DATA(tb[RTA_MULTIPATH]);
 
 			if (!nhe_id) {
+<<<<<<< HEAD
 				uint8_t nhop_num;
+=======
+				uint16_t nhop_num;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 				/* Use temporary list of nexthops; parse
 				 * message payload's nexthops.
@@ -1040,7 +1061,11 @@ int netlink_route_change_read_unicast_internal(struct nlmsghdr *h,
 			zlog_err(
 				"%s: %pFX multipath RTM_NEWROUTE has a invalid nexthop group from the kernel",
 				__func__, &p);
+<<<<<<< HEAD
 			XFREE(MTYPE_RE, re);
+=======
+			zebra_rib_route_entry_free(re);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		}
 	} else {
 		if (ctx) {
@@ -1690,7 +1715,11 @@ static bool _netlink_route_build_singlepath(const struct prefix *p,
 					return false;
 				if (!nl_attr_put(nlmsg, req_size,
 						 SEG6_LOCAL_NH6, &ctx->nh6,
+<<<<<<< HEAD
 						 sizeof(struct in_addr)))
+=======
+						 sizeof(struct in6_addr)))
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 					return false;
 				break;
 			case ZEBRA_SEG6_LOCAL_ACTION_END_DT6:
@@ -2646,11 +2675,17 @@ int kernel_get_ipmr_sg_stats(struct zebra_vrf *zvrf, void *in)
 /* Char length to debug ID with */
 #define ID_LENGTH 10
 
+<<<<<<< HEAD
 static bool _netlink_nexthop_build_group(struct nlmsghdr *n, size_t req_size,
 					 uint32_t id,
 					 const struct nh_grp *z_grp,
 					 const uint8_t count, bool resilient,
 					 const struct nhg_resilience *nhgr)
+=======
+static bool _netlink_nexthop_build_group(struct nlmsghdr *n, size_t req_size, uint32_t id,
+					 const struct nh_grp *z_grp, const uint16_t count,
+					 bool resilient, const struct nhg_resilience *nhgr)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 {
 	struct nexthop_grp grp[count];
 	/* Need space for max group size, "/", and null term */
@@ -2981,7 +3016,11 @@ ssize_t netlink_nexthop_msg_encode(uint16_t cmd,
 						if (!nl_attr_put(&req->n, buflen,
 								 SEG6_LOCAL_NH6,
 								 &ctx->nh6,
+<<<<<<< HEAD
 								 sizeof(struct in_addr)))
+=======
+								 sizeof(struct in6_addr)))
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 							return 0;
 						break;
 					case SEG6_LOCAL_ACTION_END_DT6:
@@ -3185,6 +3224,12 @@ netlink_put_route_update_msg(struct nl_batch *bth, struct zebra_dplane_ctx *ctx)
 	} else
 		return FRR_NETLINK_ERROR;
 
+<<<<<<< HEAD
+=======
+	if (dplane_ctx_get_safi(ctx) == SAFI_MULTICAST)
+		return FRR_NETLINK_SUCCESS;
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	if (RSYSTEM_ROUTE(dplane_ctx_get_type(ctx)))
 		return FRR_NETLINK_SUCCESS;
 
@@ -3210,7 +3255,11 @@ static struct nexthop netlink_nexthop_process_nh(struct rtattr **tb,
 						 struct interface **ifp,
 						 ns_id_t ns_id)
 {
+<<<<<<< HEAD
 	struct nexthop nh = {};
+=======
+	struct nexthop nh = {.weight = 1};
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	void *gate = NULL;
 	enum nexthop_types_t type = 0;
 	int if_index = 0;
@@ -3287,7 +3336,11 @@ static int netlink_nexthop_process_group(struct rtattr **tb,
 					 struct nh_grp *z_grp, int z_grp_size,
 					 struct nhg_resilience *nhgr)
 {
+<<<<<<< HEAD
 	uint8_t count = 0;
+=======
+	uint16_t count = 0;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	/* linux/nexthop.h group struct */
 	struct nexthop_grp *n_grp = NULL;
 
@@ -3357,10 +3410,17 @@ int netlink_nexthop_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 	vrf_id_t vrf_id = VRF_DEFAULT;
 	struct interface *ifp = NULL;
 	struct nhmsg *nhm = NULL;
+<<<<<<< HEAD
 	struct nexthop nh = {};
 	struct nh_grp grp[MULTIPATH_NUM] = {};
 	/* Count of nexthops in group array */
 	uint8_t grp_count = 0;
+=======
+	struct nexthop nh = {.weight = 1};
+	struct nh_grp grp[MULTIPATH_NUM] = {};
+	/* Count of nexthops in group array */
+	uint16_t grp_count = 0;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	struct rtattr *tb[NHA_MAX + 1] = {};
 
 	frrtrace(3, frr_zebra, netlink_nexthop_change, h, ns_id, startup);
@@ -3687,6 +3747,16 @@ netlink_vxlan_flood_update_ctx(const struct zebra_dplane_ctx *ctx, int cmd,
 	if (dplane_ctx_get_type(ctx) != 0)
 		proto = zebra2proto(dplane_ctx_get_type(ctx));
 
+<<<<<<< HEAD
+=======
+	if (IS_ZEBRA_DEBUG_KERNEL)
+		zlog_debug("Tx %s family %s IF %s(%u) VNI %u MAC %pEA VTEP %pIA vid %u",
+			   nl_msg_type_to_str(cmd), nl_family_to_str(PF_BRIDGE),
+			   dplane_ctx_get_ifname(ctx), dplane_ctx_get_ifindex(ctx),
+			   dplane_ctx_neigh_get_vni(ctx), &dst_mac,
+			   dplane_ctx_neigh_get_ipaddr(ctx), dplane_ctx_mac_get_vlan(ctx));
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	return netlink_neigh_update_msg_encode(
 		ctx, cmd, (const void *)&dst_mac, ETH_ALEN,
 		dplane_ctx_neigh_get_ipaddr(ctx), false, PF_BRIDGE, 0, NTF_SELF,

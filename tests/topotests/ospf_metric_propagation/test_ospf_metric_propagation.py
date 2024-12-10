@@ -11,14 +11,21 @@
 import os
 import sys
 import json
+<<<<<<< HEAD
 from time import sleep
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 from functools import partial
 import pytest
 
 # pylint: disable=C0413
 # Import topogen and topotest helpers
 from lib import topotest
+<<<<<<< HEAD
 from lib.topogen import Topogen, TopoRouter, get_topogen
+=======
+from lib.topogen import Topogen, get_topogen
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 from lib.topolog import logger
 
 
@@ -166,7 +173,11 @@ def setup_module(mod):
             tgen.set_error("unsupported version")
 
 
+<<<<<<< HEAD
 def teardown_module(mod):
+=======
+def teardown_module():
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
     "Teardown the pytest environment"
     tgen = get_topogen()
     tgen.stop_topology()

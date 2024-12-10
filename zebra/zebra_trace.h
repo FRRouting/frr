@@ -70,6 +70,7 @@ TRACEPOINT_EVENT(
 
 TRACEPOINT_EVENT(
 	frr_zebra,
+<<<<<<< HEAD
 	netlink_interface_addr,
 	TP_ARGS(
 		struct nlmsghdr *, header,
@@ -84,6 +85,8 @@ TRACEPOINT_EVENT(
 
 TRACEPOINT_EVENT(
 	frr_zebra,
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	netlink_route_change_read_unicast,
 	TP_ARGS(
 		struct nlmsghdr *, header,

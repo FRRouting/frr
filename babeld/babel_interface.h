@@ -94,6 +94,10 @@ struct buffered_update {
 
 /* init function */
 void babel_if_init(void);
+<<<<<<< HEAD
+=======
+void babel_if_terminate(void);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 /* Callback functions for zebra client */
 int babel_interface_up (int, struct zclient *, zebra_size_t, vrf_id_t);

@@ -94,6 +94,14 @@ extern int zsend_sr_policy_notify_status(uint32_t color,
 extern void zsend_neighbor_notify(int cmd, struct interface *ifp,
 				  struct ipaddr *ipaddr, int ndm_state,
 				  union sockunion *link_layer_ipv4, int ip_len);
+<<<<<<< HEAD
+=======
+extern void zsend_srv6_sid_notify(struct zserv *client,
+				  const struct srv6_sid_ctx *ctx,
+				  struct in6_addr *sid_value, uint32_t func,
+				  uint32_t wide_func, const char *locator_name,
+				  enum zapi_srv6_sid_notify note);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 extern int zsend_client_close_notify(struct zserv *client,
 				     struct zserv *closed_client);
@@ -101,7 +109,11 @@ extern int zsend_client_close_notify(struct zserv *client,
 int zsend_nhg_notify(uint16_t type, uint16_t instance, uint32_t session_id,
 		     uint32_t id, enum zapi_nhg_notify_owner note);
 
+<<<<<<< HEAD
 extern void zapi_re_opaque_free(struct re_opaque *opaque);
+=======
+extern void zapi_re_opaque_free(struct route_entry *re);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 extern int zsend_zebra_srv6_locator_add(struct zserv *client,
 					struct srv6_locator *loc);
@@ -110,6 +122,12 @@ extern int zsend_zebra_srv6_locator_delete(struct zserv *client,
 extern int zsend_srv6_manager_get_locator_chunk_response(struct zserv *client,
 		vrf_id_t vrf_id, struct srv6_locator *loc);
 
+<<<<<<< HEAD
+=======
+extern int zsend_srv6_manager_get_locator_response(struct zserv *client,
+						   struct srv6_locator *locator);
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 #ifdef __cplusplus
 }
 #endif

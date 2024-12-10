@@ -343,7 +343,16 @@ static unsigned int updgrp_hash_key_make(const void *p)
 
 	key = 0;
 
+<<<<<<< HEAD
 	key = jhash_1word(peer->sort, key); /* EBGP or IBGP */
+=======
+	/* `remote-as auto` technically uses identical peer->sort.
+	 * After OPEN message is parsed, this is updated accordingly, but
+	 * we need to call the peer_sort() here also to properly create
+	 * separate subgroups.
+	 */
+	key = jhash_1word(peer_sort((struct peer *)peer), key);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	key = jhash_1word(peer->sub_sort, key); /* OAD */
 	key = jhash_1word((peer->flags & PEER_UPDGRP_FLAGS), key);
 	key = jhash_1word((flags & PEER_UPDGRP_AF_FLAGS), key);
@@ -450,6 +459,13 @@ static unsigned int updgrp_hash_key_make(const void *p)
 		key = jhash_1word(jhash(soo_str, strlen(soo_str), SEED1), key);
 	}
 
+<<<<<<< HEAD
+=======
+	if (afi == AFI_IP6 &&
+	    (CHECK_FLAG(peer->af_flags[afi][safi], PEER_FLAG_NEXTHOP_LOCAL_UNCHANGED)))
+		key = jhash(&peer->nexthop.v6_global, IPV6_MAX_BYTELEN, key);
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	/*
 	 * ANY NEW ITEMS THAT ARE ADDED TO THE key, ENSURE DEBUG
 	 * STATEMENT STAYS UP TO DATE
@@ -516,6 +532,15 @@ static unsigned int updgrp_hash_key_make(const void *p)
 			peer->soo[afi][safi]
 				? ecommunity_str(peer->soo[afi][safi])
 				: "(NONE)");
+<<<<<<< HEAD
+=======
+		zlog_debug("%pBP Update Group Hash: IPv6 nexthop-local unchanged: %d IPv6 global %pI6",
+			   peer,
+			   afi == AFI_IP6 && (CHECK_FLAG(peer->af_flags[afi][safi],
+							 PEER_FLAG_NEXTHOP_LOCAL_UNCHANGED)),
+			   &peer->nexthop.v6_global);
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		zlog_debug("%pBP Update Group Hash key: %u", peer, key);
 	}
 	return key;
@@ -650,6 +675,15 @@ static bool updgrp_hash_cmp(const void *p1, const void *p2)
 	    !sockunion_same(&pe1->connection->su, &pe2->connection->su))
 		return false;
 
+<<<<<<< HEAD
+=======
+	if (afi == AFI_IP6 &&
+	    (CHECK_FLAG(flags1, PEER_FLAG_NEXTHOP_LOCAL_UNCHANGED) ||
+	     CHECK_FLAG(flags2, PEER_FLAG_NEXTHOP_LOCAL_UNCHANGED)) &&
+	    !IPV6_ADDR_SAME(&pe1->nexthop.v6_global, &pe2->nexthop.v6_global))
+		return false;
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	return true;
 }
 
@@ -778,8 +812,16 @@ static int update_group_show_walkcb(struct update_group *updgrp, void *arg)
 				json_updgrp, "replaceLocalAs",
 				CHECK_FLAG(updgrp->conf->flags,
 					   PEER_FLAG_LOCAL_AS_REPLACE_AS));
+<<<<<<< HEAD
 		} else {
 			vty_out(vty, "  Local AS %u%s%s\n",
+=======
+			json_object_boolean_add(json_updgrp, "dualAs",
+						CHECK_FLAG(updgrp->conf->flags,
+							   PEER_FLAG_DUAL_AS));
+		} else {
+			vty_out(vty, "  Local AS %u%s%s%s\n",
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 				updgrp->conf->change_local_as,
 				CHECK_FLAG(updgrp->conf->flags,
 					   PEER_FLAG_LOCAL_AS_NO_PREPEND)
@@ -788,6 +830,13 @@ static int update_group_show_walkcb(struct update_group *updgrp, void *arg)
 				CHECK_FLAG(updgrp->conf->flags,
 					   PEER_FLAG_LOCAL_AS_REPLACE_AS)
 					? " replace-as"
+<<<<<<< HEAD
+=======
+					: "",
+				CHECK_FLAG(updgrp->conf->flags,
+					   PEER_FLAG_DUAL_AS)
+					? " dual-as"
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 					: "");
 		}
 	}
@@ -2011,6 +2060,11 @@ int update_group_adjust_soloness(struct peer *peer, int set)
 	struct peer_group *group;
 	struct listnode *node, *nnode;
 
+<<<<<<< HEAD
+=======
+	peer_flag_set(peer, PEER_FLAG_LONESOUL);
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	if (!CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP)) {
 		peer_lonesoul_or_not(peer, set);
 		if (peer_established(peer->connection))

@@ -119,6 +119,13 @@ static void lsp_destroy(struct isis_lsp *lsp)
 	lsp_clear_data(lsp);
 
 	if (!LSP_FRAGMENT(lsp->hdr.lsp_id)) {
+<<<<<<< HEAD
+=======
+		/* Only non-pseudo nodes and non-fragment LSPs can delete nodes. */
+		if (!LSP_PSEUDO_ID(lsp->hdr.lsp_id))
+			isis_dynhn_remove(lsp->area->isis, lsp->hdr.lsp_id);
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		if (lsp->lspu.frags) {
 			lsp_remove_frags(&lsp->area->lspdb[lsp->level - 1],
 					lsp->lspu.frags);
@@ -482,6 +489,7 @@ static void lsp_update_data(struct isis_lsp *lsp, struct isis_lsp_hdr *hdr,
 
 	lsp->tlvs = tlvs;
 
+<<<<<<< HEAD
 	if (area->dynhostname && lsp->tlvs->hostname
 	    && lsp->hdr.rem_lifetime) {
 		isis_dynhn_insert(
@@ -489,6 +497,21 @@ static void lsp_update_data(struct isis_lsp *lsp, struct isis_lsp_hdr *hdr,
 			(lsp->hdr.lsp_bits & LSPBIT_IST) == IS_LEVEL_1_AND_2
 				? IS_LEVEL_2
 				: IS_LEVEL_1);
+=======
+	if (area->dynhostname && lsp->hdr.rem_lifetime) {
+		if (lsp->tlvs->hostname) {
+			isis_dynhn_insert(area->isis, lsp->hdr.lsp_id,
+					  lsp->tlvs->hostname,
+					  (lsp->hdr.lsp_bits & LSPBIT_IST) ==
+							  IS_LEVEL_1_AND_2
+						  ? IS_LEVEL_2
+						  : IS_LEVEL_1);
+		} else {
+			if (!LSP_PSEUDO_ID(lsp->hdr.lsp_id) &&
+			    !LSP_FRAGMENT(lsp->hdr.lsp_id))
+				isis_dynhn_remove(area->isis, lsp->hdr.lsp_id);
+		}
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	}
 
 	return;
@@ -705,10 +728,13 @@ void lsp_print_common(struct isis_lsp *lsp, struct vty *vty, struct json_object 
 	}
 }
 
+<<<<<<< HEAD
 #if CONFDATE > 20240916
 CPP_NOTICE("Remove JSON in '-' format")
 #endif
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 void lsp_print_json(struct isis_lsp *lsp, struct json_object *json,
 	       char dynhost, struct isis *isis)
 {
@@ -722,6 +748,7 @@ void lsp_print_json(struct isis_lsp *lsp, struct json_object *json,
 	own_json = json_object_new_object();
 	json_object_object_add(json, "lsp", own_json);
 	json_object_string_add(own_json, "id", LSPid);
+<<<<<<< HEAD
 #if CONFDATE > 20240916
 	CPP_NOTICE("remove own key")
 #endif
@@ -735,6 +762,13 @@ void lsp_print_json(struct isis_lsp *lsp, struct json_object *json,
 	CPP_NOTICE("remove seq-number key")
 #endif
 	json_object_string_add(json, "seq-number", buf);
+=======
+	json_object_string_add(own_json, "own", lsp->own_lsp ? "*" : " ");
+	if (lsp->own_lsp)
+		json_object_boolean_add(own_json, "ownLSP", true);
+	json_object_int_add(json, "pduLen", lsp->hdr.pdu_len);
+	snprintfrr(buf, sizeof(buf), "0x%08x", lsp->hdr.seqno);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	json_object_string_add(json, "seqNumber", buf);
 	snprintfrr(buf, sizeof(buf), "0x%04hx", lsp->hdr.checksum);
 	json_object_string_add(json, "chksum", buf);
@@ -745,11 +779,14 @@ void lsp_print_json(struct isis_lsp *lsp, struct json_object *json,
 	} else {
 		json_object_int_add(json, "holdtime", lsp->hdr.rem_lifetime);
 	}
+<<<<<<< HEAD
 #if CONFDATE > 20240916
 	CPP_NOTICE("remove att-p-ol key")
 #endif
 	json_object_string_add(
 		json, "att-p-ol", lsp_bits2string(lsp->hdr.lsp_bits, b, sizeof(b)));
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	json_object_string_add(json, "attPOl",
 			       lsp_bits2string(lsp->hdr.lsp_bits, b, sizeof(b)));
 }
@@ -1222,6 +1259,7 @@ static void lsp_build(struct isis_lsp *lsp, struct isis_area *area)
 	}
 
 	/* Add SRv6 Locator TLV. */
+<<<<<<< HEAD
 	if (area->srv6db.config.enabled &&
 	    !list_isempty(area->srv6db.srv6_locator_chunks)) {
 		struct isis_srv6_locator locator = {};
@@ -1233,6 +1271,13 @@ static void lsp_build(struct isis_lsp *lsp, struct isis_area *area)
 
 		locator.metric = 0;
 		locator.prefix = chunk->prefix;
+=======
+	if (area->srv6db.config.enabled && area->srv6db.srv6_locator) {
+		struct isis_srv6_locator locator = {};
+
+		locator.metric = 0;
+		locator.prefix = area->srv6db.srv6_locator->prefix;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		locator.flags = 0;
 		locator.algorithm = 0;
 
@@ -1252,7 +1297,12 @@ static void lsp_build(struct isis_lsp *lsp, struct isis_area *area)
 
 		isis_tlvs_add_ipv6_reach(lsp->tlvs,
 					 isis_area_ipv6_topology(area),
+<<<<<<< HEAD
 					 &chunk->prefix, 0, false, NULL);
+=======
+					 &area->srv6db.srv6_locator->prefix, 0,
+					 false, NULL);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	}
 
 	/* IPv4 address and TE router ID TLVs.
@@ -2336,6 +2386,59 @@ static int lsp_handle_adj_state_change(struct isis_adjacency *adj)
 }
 
 /*
+<<<<<<< HEAD
+=======
+ * Iterate over all SRv6 locator TLVs
+ */
+int isis_lsp_iterate_srv6_locator(struct isis_lsp *lsp, uint16_t mtid,
+				  lsp_ip_reach_iter_cb cb, void *arg)
+{
+	bool pseudo_lsp = LSP_PSEUDO_ID(lsp->hdr.lsp_id);
+	struct isis_lsp *frag;
+	struct listnode *node;
+
+	if (lsp->hdr.seqno == 0 || lsp->hdr.rem_lifetime == 0)
+		return LSP_ITER_CONTINUE;
+
+	/* Parse LSP */
+	if (lsp->tlvs) {
+		if (!pseudo_lsp) {
+			struct isis_item_list *srv6_locator_reachs;
+			struct isis_srv6_locator_tlv *r;
+
+			srv6_locator_reachs =
+				isis_lookup_mt_items(&lsp->tlvs->srv6_locator,
+						     mtid);
+
+			for (r = srv6_locator_reachs
+					 ? (struct isis_srv6_locator_tlv *)
+						   srv6_locator_reachs->head
+					 : NULL;
+			     r; r = r->next) {
+				if ((*cb)((struct prefix *)&r->prefix,
+					  r->metric, false /* ignore */,
+					  r->subtlvs, arg) == LSP_ITER_STOP)
+					return LSP_ITER_STOP;
+			}
+		}
+	}
+
+	/* Parse LSP fragments if it is not a fragment itself */
+	if (!LSP_FRAGMENT(lsp->hdr.lsp_id))
+		for (ALL_LIST_ELEMENTS_RO(lsp->lspu.frags, node, frag)) {
+			if (!frag->tlvs)
+				continue;
+
+			if (isis_lsp_iterate_srv6_locator(frag, mtid, cb,
+							  arg) == LSP_ITER_STOP)
+				return LSP_ITER_STOP;
+		}
+
+	return LSP_ITER_CONTINUE;
+}
+
+/*
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
  * Iterate over all IP reachability TLVs in a LSP (all fragments) of the given
  * address-family and MT-ID.
  */

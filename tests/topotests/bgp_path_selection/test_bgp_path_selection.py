@@ -57,7 +57,11 @@ def setup_module(mod):
     tgen.gears["r2"].cmd("ip address add dev vrf1 192.0.2.8/32")
     tgen.gears["r3"].cmd("ip address add dev vrf1 192.0.2.8/32")
 
+<<<<<<< HEAD
     for i, (rname, router) in enumerate(router_list.items(), 1):
+=======
+    for _, (rname, router) in enumerate(router_list.items(), 1):
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         router.load_config(
             TopoRouter.RD_ZEBRA, os.path.join(CWD, "{}/zebra.conf".format(rname))
         )

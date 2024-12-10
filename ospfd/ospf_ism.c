@@ -285,7 +285,11 @@ static void ism_timer_set(struct ospf_interface *oi)
 		   reset also. */
 		EVENT_OFF(oi->t_hello);
 		EVENT_OFF(oi->t_wait);
+<<<<<<< HEAD
 		EVENT_OFF(oi->t_ls_ack);
+=======
+		EVENT_OFF(oi->t_ls_ack_delayed);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		EVENT_OFF(oi->gr.hello_delay.t_grace_send);
 		break;
 	case ISM_Loopback:
@@ -293,7 +297,11 @@ static void ism_timer_set(struct ospf_interface *oi)
 		   unavailable for regular data traffic. */
 		EVENT_OFF(oi->t_hello);
 		EVENT_OFF(oi->t_wait);
+<<<<<<< HEAD
 		EVENT_OFF(oi->t_ls_ack);
+=======
+		EVENT_OFF(oi->t_ls_ack_delayed);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		EVENT_OFF(oi->gr.hello_delay.t_grace_send);
 		break;
 	case ISM_Waiting:
@@ -304,7 +312,11 @@ static void ism_timer_set(struct ospf_interface *oi)
 		OSPF_ISM_TIMER_MSEC_ON(oi->t_hello, ospf_hello_timer, 1);
 		OSPF_ISM_TIMER_ON(oi->t_wait, ospf_wait_timer,
 				  OSPF_IF_PARAM(oi, v_wait));
+<<<<<<< HEAD
 		EVENT_OFF(oi->t_ls_ack);
+=======
+		EVENT_OFF(oi->t_ls_ack_delayed);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		break;
 	case ISM_PointToPoint:
 		/* The interface connects to a physical Point-to-point network
@@ -314,8 +326,11 @@ static void ism_timer_set(struct ospf_interface *oi)
 		/* send first hello immediately */
 		OSPF_ISM_TIMER_MSEC_ON(oi->t_hello, ospf_hello_timer, 1);
 		EVENT_OFF(oi->t_wait);
+<<<<<<< HEAD
 		OSPF_ISM_TIMER_ON(oi->t_ls_ack, ospf_ls_ack_timer,
 				  oi->v_ls_ack);
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		break;
 	case ISM_DROther:
 		/* The network type of the interface is broadcast or NBMA
@@ -324,8 +339,11 @@ static void ism_timer_set(struct ospf_interface *oi)
 		   Backup Designated Router. */
 		OSPF_HELLO_TIMER_ON(oi);
 		EVENT_OFF(oi->t_wait);
+<<<<<<< HEAD
 		OSPF_ISM_TIMER_ON(oi->t_ls_ack, ospf_ls_ack_timer,
 				  oi->v_ls_ack);
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		break;
 	case ISM_Backup:
 		/* The network type of the interface is broadcast os NBMA
@@ -333,8 +351,11 @@ static void ism_timer_set(struct ospf_interface *oi)
 		   and the router is Backup Designated Router. */
 		OSPF_HELLO_TIMER_ON(oi);
 		EVENT_OFF(oi->t_wait);
+<<<<<<< HEAD
 		OSPF_ISM_TIMER_ON(oi->t_ls_ack, ospf_ls_ack_timer,
 				  oi->v_ls_ack);
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		break;
 	case ISM_DR:
 		/* The network type of the interface is broadcast or NBMA
@@ -342,8 +363,11 @@ static void ism_timer_set(struct ospf_interface *oi)
 		   and the router is Designated Router. */
 		OSPF_HELLO_TIMER_ON(oi);
 		EVENT_OFF(oi->t_wait);
+<<<<<<< HEAD
 		OSPF_ISM_TIMER_ON(oi->t_ls_ack, ospf_ls_ack_timer,
 				  oi->v_ls_ack);
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		break;
 	}
 }

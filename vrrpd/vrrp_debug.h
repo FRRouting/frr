@@ -28,6 +28,7 @@ extern struct debug vrrp_dbg_zebra;
 void vrrp_debug_init(void);
 
 /*
+<<<<<<< HEAD
  * Print VRRP debugging configuration.
  *
  * vty
@@ -36,6 +37,8 @@ void vrrp_debug_init(void);
 int vrrp_config_write_debug(struct vty *vty);
 
 /*
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
  * Print VRRP debugging configuration, human readable form.
  *
  * vty

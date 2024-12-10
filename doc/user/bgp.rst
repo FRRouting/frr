@@ -92,6 +92,15 @@ be specified (:ref:`common-invocation-options`).
    the operator has turned off communication to zebra and is running bgpd
    as a complete standalone process.
 
+<<<<<<< HEAD
+=======
+.. option:: -K, --graceful_restart
+
+   Bgpd will use this option to denote either a planned FRR graceful
+   restart or a bgpd-only graceful restart, and this will drive the BGP
+   GR restarting router procedures.
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 LABEL MANAGER
 -------------
 
@@ -1080,6 +1089,55 @@ Default global mode is helper and default peer per mode is inherit from global.
 If per peer mode is configured, the GR mode of this particular peer will
 override the global mode.
 
+<<<<<<< HEAD
+=======
+.. _bgp-GR-config-mode-cmd:
+
+BGP GR Config Mode Commands
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+.. clicmd:: bgp graceful-restart
+
+   This command will enable BGP graceful restart functionality for all BGP instances.
+
+.. clicmd:: bgp graceful-restart-disable
+
+   This command will disable both the functionality graceful restart and helper
+   mode for all BGP instances
+
+.. clicmd:: bgp graceful-restart select-defer-time (0-3600)
+
+   This is command, will set deferral time to value specified.
+
+.. clicmd:: bgp graceful-restart rib-stale-time (1-3600)
+
+   This is command, will set the time for which stale routes are kept in RIB.
+
+.. clicmd:: bgp graceful-restart restart-time (0-4095)
+
+   Set the time to wait to delete stale routes before a BGP open message
+   is received.
+
+   Using with Long-lived Graceful Restart capability, this is recommended
+   setting this timer to 0 and control stale routes with
+   ``bgp long-lived-graceful-restart stale-time``.
+
+   Default value is 120.
+
+.. clicmd:: bgp graceful-restart stalepath-time (1-4095)
+
+   This is command, will set the max time (in seconds) to hold onto
+   restarting peer's stale paths.
+
+   It also controls Enhanced Route-Refresh timer.
+
+   If this command is configured and the router does not receive a Route-Refresh EoRR
+   message, the router removes the stale routes from the BGP table after the timer
+   expires. The stale path timer is started when the router receives a Route-Refresh
+   BoRR message
+
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 .. _bgp-GR-global-mode-cmd:
 
 BGP GR Global Mode Commands
@@ -1117,6 +1175,17 @@ BGP GR Peer Mode Commands
    at the peer level.
 
 
+<<<<<<< HEAD
+=======
+BGP GR Show Commands
+^^^^^^^^^^^^^^^^^^^^
+
+.. clicmd:: show bgp [<ipv4|ipv6>] [<view|vrf> VRF] neighbors [<A.B.C.D|X:X::X:X|WORD>] graceful-restart [json]
+
+   This command will display information about the neighbors graceful-restart status
+
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 Long-lived Graceful Restart
 ---------------------------
 
@@ -1516,6 +1585,13 @@ Defining Peers
    peers ASN is the same as mine as specified under the :clicmd:`router bgp ASN`
    command the connection will be denied.
 
+<<<<<<< HEAD
+=======
+.. clicmd:: neighbor PEER remote-as auto
+
+   The neighbor's ASN is detected automatically from the OPEN message.
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 .. clicmd:: neighbor PEER oad
 
    Mark a peer belonging to the One Administrative Domain.
@@ -1654,7 +1730,11 @@ Configuring Peers
    IPv4 session addresses, see the ``neighbor PEER update-source`` command
    below.
 
+<<<<<<< HEAD
 .. clicmd:: neighbor PEER interface remote-as <internal|external|ASN>
+=======
+.. clicmd:: neighbor PEER interface remote-as <internal|external|auto|ASN>
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
    Configure an unnumbered BGP peer. ``PEER`` should be an interface name. The
    session will be established via IPv6 link locals. Use ``internal`` for iBGP
@@ -1739,7 +1819,11 @@ Configuring Peers
    Send the extended RPKI communities to the peer. RPKI extended community
    can be send only to iBGP and eBGP-OAD peers.
 
+<<<<<<< HEAD
    Default: enabled.
+=======
+   Default: disabled.
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 .. clicmd:: neighbor PEER weight WEIGHT
 
@@ -1769,7 +1853,11 @@ Configuring Peers
    Since sent prefix count is managed by update-groups, this option
    creates a separate update-group for outgoing updates.
 
+<<<<<<< HEAD
 .. clicmd:: neighbor PEER local-as AS-NUMBER [no-prepend] [replace-as]
+=======
+.. clicmd:: neighbor PEER local-as AS-NUMBER [no-prepend [replace-as [dual-as]]]
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
    Specify an alternate AS for this BGP process when interacting with the
    specified peer. With no modifiers, the specified local-as is prepended to
@@ -1785,11 +1873,23 @@ Configuring Peers
 
    Note that replace-as can only be specified if no-prepend is.
 
+<<<<<<< HEAD
+=======
+   The ``dual-as`` keyword is used to configure the neighbor to establish a peering
+   session using the real autonomous-system number (``router bgp ASN``) or by using
+   the autonomous system number configured with the ``local-as``.
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
    This command is only allowed for eBGP peers.
 
 .. clicmd:: neighbor <A.B.C.D|X:X::X:X|WORD> as-override
 
+<<<<<<< HEAD
    Override AS number of the originating router with the local AS number.
+=======
+   Override any AS number in the AS path that matches the neighbor's AS number
+   with the local AS number.
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
    Usually this configuration is used in PEs (Provider Edge) to replace
    the incoming customer AS number so the connected CE (Customer Edge)
@@ -1923,12 +2023,21 @@ Configuring Peers
    and will not be displayed as part of a `show run`.  The no form
    of the command turns off this ability.
 
+<<<<<<< HEAD
 .. clicmd:: bgp default-originate timer (0-3600)
+=======
+.. clicmd:: bgp default-originate timer (0-65535)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
    Set the period to rerun the default-originate route-map scanner process. The
    default is 5 seconds. With a full routing table, it might be useful to increase
    this setting to avoid scanning the whole BGP table aggressively.
 
+<<<<<<< HEAD
+=======
+   Setting to 0 turns off the scanning at all.
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 .. clicmd:: bgp default ipv4-unicast
 
    This command allows the user to specify that the IPv4 Unicast address
@@ -2142,8 +2251,12 @@ and will share updates.
 .. clicmd:: neighbor PEER solo
 
    This command is used to indicate that routes advertised by the peer
+<<<<<<< HEAD
    should not be reflected back to the peer.  This command only is only
    meaningful when there is a single peer defined in the peer-group.
+=======
+   should not be reflected back to the peer.
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 .. clicmd:: show [ip] bgp peer-group [json]
 
@@ -2433,7 +2546,11 @@ is 4 octet long. The following format is used to define the community value.
 ``blackhole``
    ``blackhole`` represents well-known communities value ``BLACKHOLE``
    ``0xFFFF029A`` ``65535:666``. :rfc:`7999` documents sending prefixes to
+<<<<<<< HEAD
    EBGP peers and upstream for the purpose of blackholing traffic.
+=======
+   peers and upstream for the purpose of blackholing traffic.
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
    Prefixes tagged with the this community should normally not be
    re-advertised from neighbors of the originating network. Upon receiving
    ``BLACKHOLE`` community from a BGP speaker, ``NO_ADVERTISE`` community
@@ -2858,6 +2975,27 @@ BGP Extended Communities in Route Map
 
    This command sets colors values.
 
+<<<<<<< HEAD
+=======
+:rfc:`9256`.
+
+``CO:COLOR``
+   This is a format to define colors value. ``CO`` part is always 00 (default),
+   it can be used to support the requirements of Color-Only steering when using 
+   a Null Endpoint in the SR-TE Policy as specified in Section 8.8 of [RFC9256].
+   The below shows in detail what the different combinations of ``CO`` bits can
+   match on to for the purpose of determining what type of SR-TE Policy Tunnel
+   a BGP route can resolve over, and it also shows the order for resolving the
+   BGP route if there are different tunnels.
+
+   - ``00`` Can match on a specific endpoint only which should be the nexthop
+     of the route(Default Setting).
+   - ``01`` Can match on a specific endpoint or a null endpoint.
+   - ``10`` Can match on a specific endpoint, null endpoint or any endpoint.
+   - ``11`` Reserved for future use and shuould not be used.
+
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 .. clicmd:: set extcommunity bandwidth <(1-25600) | cumulative | num-multipaths> [non-transitive]
 
    This command sets the BGP link-bandwidth extended community for the prefix

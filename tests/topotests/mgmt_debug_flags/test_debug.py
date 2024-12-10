@@ -27,7 +27,11 @@ def tgen(request):
     tgen = Topogen(topodef, request.module.__name__)
     tgen.start_topology()
 
+<<<<<<< HEAD
     for rname, router in tgen.routers().items():
+=======
+    for _, router in tgen.routers().items():
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         router.load_frr_config("frr.conf")
 
     tgen.start_router()

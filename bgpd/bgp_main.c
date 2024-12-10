@@ -510,6 +510,10 @@ int main(int argc, char **argv)
 
 	/* BGP master init. */
 	bgp_master_init(frr_init(), buffer_size, addresses);
+<<<<<<< HEAD
+=======
+	bm->startup_time = monotime(NULL);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	bm->port = bgp_port;
 	bm->v6_with_v4_nexthops = v6_with_v4_nexthops;
 	if (bgp_port == 0)
@@ -518,6 +522,12 @@ int main(int argc, char **argv)
 		bgp_option_set(BGP_OPT_NO_FIB);
 	if (no_zebra_flag)
 		bgp_option_set(BGP_OPT_NO_ZEBRA);
+<<<<<<< HEAD
+=======
+	if (bgpd_di.graceful_restart)
+		SET_FLAG(bm->flags, BM_FLAG_GRACEFUL_RESTART);
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	bgp_error_init();
 	/* Initializations. */
 	libagentx_init();

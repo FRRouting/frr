@@ -17,9 +17,12 @@ vtysh_vtysh_SOURCES = \
 	vtysh/vtysh_user.c \
 	vtysh/vtysh_config.c \
 	# end
+<<<<<<< HEAD
 nodist_vtysh_vtysh_SOURCES = \
 	vtysh/vtysh_cmd.c \
 	# end
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 noinst_HEADERS += \
 	vtysh/vtysh.h \

@@ -78,6 +78,17 @@
     endscript
 }
 
+<<<<<<< HEAD
+=======
+/var/log/frr/mgmtd.log {
+    notifempty
+    missingok
+    postrotate
+        /bin/kill -USR1 `cat /var/run/frr/mgmtd.pid 2> /dev/null` 2> /dev/null || true
+    endscript
+}
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 /var/log/frr/nhrpd.log {
     notifempty
     missingok

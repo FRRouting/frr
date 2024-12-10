@@ -19,7 +19,10 @@ import os
 import sys
 import time
 import pytest
+<<<<<<< HEAD
 from copy import deepcopy
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 from lib.topolog import logger
 
 # pylint: disable=C0413

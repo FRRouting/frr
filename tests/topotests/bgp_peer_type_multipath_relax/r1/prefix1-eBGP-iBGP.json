@@ -23,7 +23,11 @@
           "recursive":true
         },
         {
+<<<<<<< HEAD
           "fib":true,
+=======
+          "duplicate":true,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
           "ip":"10.0.3.2",
           "active":true
         }

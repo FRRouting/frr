@@ -14,6 +14,10 @@ DEFINE_MGROUP(PIMD, "pimd");
 DEFINE_MTYPE(PIMD, PIM_CHANNEL_OIL, "PIM SSM (S,G) channel OIL");
 DEFINE_MTYPE(PIMD, PIM_INTERFACE, "PIM interface");
 DEFINE_MTYPE(PIMD, PIM_IGMP_JOIN, "PIM interface IGMP static join");
+<<<<<<< HEAD
+=======
+DEFINE_MTYPE(PIMD, PIM_STATIC_GROUP, "PIM interface IGMP static group");
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 DEFINE_MTYPE(PIMD, PIM_IGMP_SOCKET, "PIM interface IGMP socket");
 DEFINE_MTYPE(PIMD, PIM_IGMP_GROUP, "PIM interface IGMP group");
 DEFINE_MTYPE(PIMD, PIM_IGMP_GROUP_SOURCE, "PIM interface IGMP source");
@@ -26,6 +30,10 @@ DEFINE_MTYPE(PIMD, PIM_RP, "PIM RP info");
 DEFINE_MTYPE(PIMD, PIM_FILTER_NAME, "PIM RP filter info");
 DEFINE_MTYPE(PIMD, PIM_MSDP_PEER, "PIM MSDP peer");
 DEFINE_MTYPE(PIMD, PIM_MSDP_MG_NAME, "PIM MSDP mesh-group name");
+<<<<<<< HEAD
+=======
+DEFINE_MTYPE(PIMD, PIM_MSDP_AUTH_KEY, "PIM MSDP authentication key");
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 DEFINE_MTYPE(PIMD, PIM_MSDP_SA, "PIM MSDP source-active cache");
 DEFINE_MTYPE(PIMD, PIM_MSDP_MG, "PIM MSDP mesh group");
 DEFINE_MTYPE(PIMD, PIM_MSDP_MG_MBR, "PIM MSDP mesh group mbr");

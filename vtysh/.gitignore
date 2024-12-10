@@ -1,5 +1,9 @@
 vtysh
 vtysh_cmd.c
+<<<<<<< HEAD
+=======
+vtysh_cmd.*.c
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 # does not exist anymore - remove 2023-10-04 or so
 extract.pl

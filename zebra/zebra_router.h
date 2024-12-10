@@ -191,10 +191,23 @@ struct zebra_router {
 	enum multicast_mode ipv4_multicast_mode;
 
 	/*
+<<<<<<< HEAD
 	 * Time for when we sweep the rib from old routes
 	 */
 	time_t startup_time;
 	struct event *sweeper;
+=======
+	 * zebra start time and time of sweeping RIB of old routes
+	 */
+	time_t startup_time;
+	time_t rib_sweep_time;
+
+	/* FRR fast/graceful restart info */
+	bool graceful_restart;
+	int gr_cleanup_time;
+#define ZEBRA_GR_DEFAULT_RIB_SWEEP_TIME 500
+	struct event *t_rib_sweep;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	/*
 	 * The hash of nexthop groups associated with this router
@@ -323,6 +336,11 @@ static inline uint8_t if_netlink_get_frr_protodown_r_bit(void)
 	return zrouter.protodown_r_bit;
 }
 
+<<<<<<< HEAD
+=======
+extern void zebra_main_router_started(void);
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 /* zebra_northbound.c */
 extern const struct frr_yang_module_info frr_zebra_info;
 

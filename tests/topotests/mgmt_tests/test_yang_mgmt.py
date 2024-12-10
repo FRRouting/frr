@@ -66,7 +66,10 @@ from lib.common_config import (
     start_router_daemons,
 )
 from lib.topolog import logger
+<<<<<<< HEAD
 from lib.bgp import verify_bgp_convergence, create_router_bgp, verify_bgp_rib
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 from lib.topojson import build_config_from_json
 
 pytestmark = [pytest.mark.bgpd, pytest.mark.staticd, pytest.mark.mgmtd]

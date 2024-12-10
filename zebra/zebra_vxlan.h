@@ -221,7 +221,11 @@ extern int zebra_vxlan_dp_network_mac_del(struct interface *ifp,
 
 extern void zebra_vxlan_set_accept_bgp_seq(bool set);
 extern bool zebra_vxlan_get_accept_bgp_seq(void);
+<<<<<<< HEAD
 
+=======
+extern void zebra_vlan_dplane_result(struct zebra_dplane_ctx *ctx);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 #ifdef __cplusplus
 }
 #endif

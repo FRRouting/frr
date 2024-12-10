@@ -900,6 +900,10 @@ lib_vrf_zebra_ribs_rib_route_route_entry_nexthop_group_nexthop_bh_type_get_elem(
 	if (nexthop->type != NEXTHOP_TYPE_BLACKHOLE)
 		return NULL;
 
+<<<<<<< HEAD
+=======
+	(void)type_str; /* clang-SA */
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	switch (nexthop->bh_type) {
 	case BLACKHOLE_NULL:
 		type_str = "null";

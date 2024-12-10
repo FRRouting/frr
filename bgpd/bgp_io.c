@@ -512,7 +512,17 @@ static uint16_t bgp_read(struct peer_connection *connection, int *code_p)
 
 	readsize = MIN(ibuf_work_space, sizeof(ibuf_scratch));
 
+<<<<<<< HEAD
 	nbytes = read(connection->fd, ibuf_scratch, readsize);
+=======
+#ifdef __clang_analyzer__
+	/* clang-SA doesn't want you to call read() while holding a mutex */
+	(void)readsize;
+	nbytes = 0;
+#else
+	nbytes = read(connection->fd, ibuf_scratch, readsize);
+#endif
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	/* EAGAIN or EWOULDBLOCK; come back later */
 	if (nbytes < 0 && ERRNO_IO_RETRY(errno)) {

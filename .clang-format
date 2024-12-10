@@ -224,4 +224,11 @@ WhitespaceSensitiveMacros:
   - "DEFUN_YANG_NOSH"
   - "DEFUNSH"
   - "DEFUNSH_HIDDEN"
+<<<<<<< HEAD
+=======
+  - "ALIAS"
+  - "ALIAS_HIDDEN"
+  - "ALIAS_YANG"
+  - "ALIAS_DEPRECATED"
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 ...

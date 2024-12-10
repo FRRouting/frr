@@ -238,10 +238,17 @@ void isis_lfa_excluded_ifaces_init(struct isis_circuit *circuit, int level)
  *
  * @param nodes		List of SPF nodes
  */
+<<<<<<< HEAD
 void isis_lfa_excluded_ifaces_clear(struct isis_circuit *circuit, int level)
 {
 	hash_clean(circuit->lfa_excluded_ifaces[level - 1],
 		   lfa_excl_interface_hash_free);
+=======
+void isis_lfa_excluded_ifaces_delete(struct isis_circuit *circuit, int level)
+{
+	hash_clean_and_free(&circuit->lfa_excluded_ifaces[level - 1],
+			    lfa_excl_interface_hash_free);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 }
 
 /**
@@ -1064,7 +1071,11 @@ static void lfa_calc_reach_nodes(struct isis_spftree *spftree,
 	for (ALL_QUEUE_ELEMENTS_RO(&spftree->paths, node, vertex)) {
 		char buf[VID2STR_BUFFER];
 
+<<<<<<< HEAD
 		if (!VTYPE_IS(vertex->type))
+=======
+		if (vertex->type != VTYPE_NONPSEUDO_IS && vertex->type != VTYPE_NONPSEUDO_TE_IS)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 			continue;
 
 		/* Skip root node. */

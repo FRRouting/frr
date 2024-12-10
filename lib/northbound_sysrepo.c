@@ -19,7 +19,13 @@
 #include <sysrepo/values.h>
 #include <sysrepo/xpath.h>
 
+<<<<<<< HEAD
 static struct debug nb_dbg_client_sysrepo = {0, "Northbound client: Sysrepo"};
+=======
+static struct debug nb_dbg_client_sysrepo = { 0,
+					      "debug northbound client sysrepo",
+					      "Northbound client: Sysrepo" };
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 static struct event_loop *master;
 static sr_session_ctx_t *session;
@@ -553,6 +559,7 @@ DEFUN (debug_nb_sr,
 	return CMD_SUCCESS;
 }
 
+<<<<<<< HEAD
 static int frr_sr_debug_config_write(struct vty *vty)
 {
 	if (DEBUG_MODE_CHECK(&nb_dbg_client_sysrepo, DEBUG_MODE_CONF))
@@ -576,6 +583,11 @@ static void frr_sr_cli_init(void)
 {
 	hook_register(nb_client_debug_config_write, frr_sr_debug_config_write);
 	hook_register(nb_client_debug_set_all, frr_sr_debug_set_all);
+=======
+static void frr_sr_cli_init(void)
+{
+	debug_install(&nb_dbg_client_sysrepo);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	install_element(ENABLE_NODE, &debug_nb_sr_cmd);
 	install_element(CONFIG_NODE, &debug_nb_sr_cmd);

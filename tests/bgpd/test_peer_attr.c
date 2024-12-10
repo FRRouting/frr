@@ -5,6 +5,10 @@
  */
 #include <zebra.h>
 
+<<<<<<< HEAD
+=======
+#include "debug.h"
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 #include "memory.h"
 #include "plist.h"
 #include "printfrr.h"
@@ -1348,12 +1352,20 @@ static void test_peer_attr(struct test *test, struct test_peer_attr *pa)
 static void bgp_startup(void)
 {
 	cmd_init(1);
+<<<<<<< HEAD
+=======
+	debug_init();
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	zlog_aux_init("NONE: ", LOG_DEBUG);
 	zprivs_preinit(&bgpd_privs);
 	zprivs_init(&bgpd_privs);
 
 	master = event_master_create(NULL);
+<<<<<<< HEAD
 	nb_init(master, NULL, 0, false);
+=======
+	nb_init(master, NULL, 0, false, false);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	bgp_master_init(master, BGP_SOCKET_SNDBUF_SIZE, list_new());
 	bgp_option_set(BGP_OPT_NO_LISTEN);
 	vrf_init(NULL, NULL, NULL, NULL);

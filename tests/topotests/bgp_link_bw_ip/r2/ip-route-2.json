@@ -12,7 +12,11 @@
         {
           "fib":true,
           "ip":"11.1.2.2",
+<<<<<<< HEAD
           "weight":255
+=======
+          "weight":254
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         }
       ]
     }

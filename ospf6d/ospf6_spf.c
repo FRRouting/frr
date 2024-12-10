@@ -16,11 +16,18 @@
 #include "frrevent.h"
 #include "lib_errors.h"
 
+<<<<<<< HEAD
+=======
+#include "ospf6_proto.h"
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 #include "ospf6_lsa.h"
 #include "ospf6_lsdb.h"
 #include "ospf6_route.h"
 #include "ospf6_area.h"
+<<<<<<< HEAD
 #include "ospf6_proto.h"
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 #include "ospf6_abr.h"
 #include "ospf6_asbr.h"
 #include "ospf6_spf.h"
@@ -290,8 +297,12 @@ static void ospf6_nexthop_calc(struct ospf6_vertex *w, struct ospf6_vertex *v,
 			       != lsa->header->id)
 			continue;
 
+<<<<<<< HEAD
 		link_lsa = (struct ospf6_link_lsa *)ospf6_lsa_header_end(
 			lsa->header);
+=======
+		link_lsa = lsa_after_header(lsa->header);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		if (IS_OSPF6_DEBUG_SPF(PROCESS)) {
 			inet_ntop(AF_INET6, &link_lsa->linklocal_addr, buf,
 				  sizeof(buf));
@@ -1136,8 +1147,12 @@ int ospf6_ase_calculate_route(struct ospf6 *ospf6, struct ospf6_lsa *lsa,
 		return 0;
 	}
 
+<<<<<<< HEAD
 	external = (struct ospf6_as_external_lsa *)ospf6_lsa_header_end(
 		lsa->header);
+=======
+	external = lsa_after_header(lsa->header);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	prefix.family = AF_INET6;
 	prefix.prefixlen = external->prefix.prefix_length;
 	ospf6_prefix_in6_addr(&prefix.u.prefix6, external, &external->prefix);

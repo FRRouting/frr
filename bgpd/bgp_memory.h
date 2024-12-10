@@ -134,4 +134,9 @@ DECLARE_MTYPE(BGP_NOTIFICATION);
 
 DECLARE_MTYPE(BGP_SOFT_VERSION);
 
+<<<<<<< HEAD
+=======
+DECLARE_MTYPE(BGP_EVPN_OVERLAY);
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 #endif /* _QUAGGA_BGP_MEMORY_H */

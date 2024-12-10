@@ -247,12 +247,19 @@ static bool route_add(const struct prefix *p, vrf_id_t vrf_id, uint8_t instance,
 	memcpy(&api.prefix, p, sizeof(*p));
 
 	api.flags = flags;
+<<<<<<< HEAD
 	SET_FLAG(api.message, ZAPI_MESSAGE_NEXTHOP);
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	/* Only send via ID if nhgroup has been successfully installed */
 	if (nhgid && sharp_nhgroup_id_is_installed(nhgid)) {
 		zapi_route_set_nhg_id(&api, &nhgid);
 	} else {
+<<<<<<< HEAD
+=======
+		SET_FLAG(api.message, ZAPI_MESSAGE_NEXTHOP);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		for (ALL_NEXTHOPS_PTR(nhg, nh)) {
 			/* Check if we set a VNI label */
 			if (nh->nh_label &&
@@ -618,18 +625,31 @@ void nhg_del(uint32_t id)
 	zclient_nhg_send(zclient, ZEBRA_NHG_DEL, &api_nhg);
 }
 
+<<<<<<< HEAD
 void sharp_zebra_nexthop_watch(struct prefix *p, vrf_id_t vrf_id, bool import,
 			       bool watch, bool connected)
 {
 	int command;
+=======
+void sharp_zebra_nexthop_watch(struct prefix *p, vrf_id_t vrf_id, bool import, bool watch,
+			       bool connected, bool mrib)
+{
+	int command = ZEBRA_NEXTHOP_REGISTER;
+	safi_t safi = mrib ? SAFI_MULTICAST : SAFI_UNICAST;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	command = ZEBRA_NEXTHOP_REGISTER;
 
 	if (!watch)
 		command = ZEBRA_NEXTHOP_UNREGISTER;
 
+<<<<<<< HEAD
 	if (zclient_send_rnh(zclient, command, p, SAFI_UNICAST, connected,
 			     false, vrf_id) == ZCLIENT_SEND_FAILURE)
+=======
+	if (zclient_send_rnh(zclient, command, p, safi, connected, false, vrf_id) ==
+	    ZCLIENT_SEND_FAILURE)
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		zlog_warn("%s: Failure to send nexthop to zebra", __func__);
 }
 

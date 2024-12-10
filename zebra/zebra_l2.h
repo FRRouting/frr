@@ -146,6 +146,20 @@ union zebra_l2if_info {
 	struct zebra_l2info_gre gre;
 };
 
+<<<<<<< HEAD
+=======
+struct zebra_vxlan_vlan {
+	uint8_t state;
+	uint32_t vrange;
+	vlanid_t vid;
+};
+
+struct zebra_vxlan_vlan_array {
+	uint16_t count;
+	struct zebra_vxlan_vlan vlans[0];
+};
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 /* NOTE: These macros are to be invoked only in the "correct" context.
  * IOW, the macro VNI_FROM_ZEBRA_IF() will assume the interface is
  * of type ZEBRA_IF_VXLAN.

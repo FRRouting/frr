@@ -56,6 +56,10 @@
 #define DEBUG_MSDP_PACKETS_STR                      "MSDP protocol packets\n"
 #define DEBUG_MTRACE_STR                            "Mtrace protocol activity\n"
 #define DEBUG_PIM_BSM_STR                           "BSR message processing activity\n"
+<<<<<<< HEAD
+=======
+#define DEBUG_PIM_AUTORP_STR			    "AutoRP message processing activity\n"
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 
 void pim_cmd_init(void);

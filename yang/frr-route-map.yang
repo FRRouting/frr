@@ -355,21 +355,50 @@ module frr-route-map {
                   "Subtract round trip time to metric";
               }
             }
+<<<<<<< HEAD
+=======
+
+            case use-igp {
+              leaf use-igp {
+                type boolean;
+                description
+                  "Use metric from IGP procotol";
+              }
+            }
+
+            case use-aigp {
+              leaf use-aigp {
+                type boolean;
+                description
+                  "Use metric from AIGP (Accumulated IGP)";
+              }
+            }
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
           }
         }
 
         case set-min-metric {
           when "derived-from-or-self(../action, 'set-min-metric')";
+<<<<<<< HEAD
           choice minimun-metric-value {
             description
               "Mimimum metric to set or use";
+=======
+          choice minimum-metric-value {
+            description
+              "Minimum metric to set or use";
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
             case min-metric {
               leaf min-metric {
                 type uint32 {
                   range "0..4294967295";
                 }
                 description
+<<<<<<< HEAD
                   "Use the following mimumn metric value";
+=======
+                  "Use the following minimum metric value";
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
               }
             }
           }

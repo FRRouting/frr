@@ -36,6 +36,11 @@ extern struct event_loop *master;
 #define VTYSH_PIM6D     0x100000
 #define VTYSH_MGMTD 0x200000
 
+<<<<<<< HEAD
+=======
+#define VTYSH_RCV_BUF_MAX 16777216
+
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 #define VTYSH_WAS_ACTIVE (-2)
 
 /* commands in REALLYALL are crucial to correct vtysh operation */

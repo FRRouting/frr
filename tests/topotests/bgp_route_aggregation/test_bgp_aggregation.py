@@ -119,7 +119,11 @@ def setup_module(mod):
     # Api call verify whether BGP is converged
     ADDR_TYPES = check_address_types()
 
+<<<<<<< HEAD
     for addr_type in ADDR_TYPES:
+=======
+    for _ in ADDR_TYPES:
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
         BGP_CONVERGENCE = verify_bgp_convergence(tgen, topo)
         assert BGP_CONVERGENCE is True, "setup_module :Failed \n Error:" " {}".format(
             BGP_CONVERGENCE

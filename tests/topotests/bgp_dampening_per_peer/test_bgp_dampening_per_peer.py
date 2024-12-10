@@ -6,7 +6,10 @@
 #
 
 import os
+<<<<<<< HEAD
 import re
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 import sys
 import json
 import pytest

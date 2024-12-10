@@ -94,6 +94,10 @@ DECLARE_LIST(mgmt_txn_batches, struct mgmt_txn_be_cfg_batch, list_linkage);
 
 struct mgmt_edit_req {
 	char xpath_created[XPATH_MAXLEN];
+<<<<<<< HEAD
+=======
+	bool created;
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	bool unlock;
 };
 
@@ -742,6 +746,11 @@ static int mgmt_txn_send_commit_cfg_reply(struct mgmt_txn_ctx *txn,
 						    .edit->unlock,
 					    true,
 					    txn->commit_cfg_req->req.commit_cfg
+<<<<<<< HEAD
+=======
+						    .edit->created,
+					    txn->commit_cfg_req->req.commit_cfg
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 						    .edit->xpath_created,
 					    success ? 0 : -1,
 					    error_if_any) != 0) {
@@ -1335,7 +1344,12 @@ static int txn_get_tree_data_done(struct mgmt_txn_ctx *txn,
 			  " req_id %" PRIu64 " to requested type %u",
 			  txn->txn_id, req_id, get_tree->result_type);
 
+<<<<<<< HEAD
 		(void)mgmt_fe_adapter_txn_error(txn->txn_id, req_id, false, ret,
+=======
+		(void)mgmt_fe_adapter_txn_error(txn->txn_id, req_id, false,
+						errno_from_nb_error(ret),
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 						"Error converting results of GETTREE");
 	}
 
@@ -1351,7 +1365,11 @@ static int txn_rpc_done(struct mgmt_txn_ctx *txn, struct mgmt_txn_req *txn_req)
 	EVENT_OFF(txn->rpc_timeout);
 
 	if (rpc->errstr)
+<<<<<<< HEAD
 		mgmt_fe_adapter_txn_error(txn->txn_id, req_id, false, -1,
+=======
+		mgmt_fe_adapter_txn_error(txn->txn_id, req_id, false, -EINVAL,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 					  rpc->errstr);
 	else if (mgmt_fe_adapter_send_rpc_reply(txn->session_id, txn->txn_id,
 						req_id, rpc->result_type,
@@ -1360,7 +1378,12 @@ static int txn_rpc_done(struct mgmt_txn_ctx *txn, struct mgmt_txn_req *txn_req)
 			  " req_id %" PRIu64 " to requested type %u",
 			  txn->txn_id, req_id, rpc->result_type);
 
+<<<<<<< HEAD
 		(void)mgmt_fe_adapter_txn_error(txn->txn_id, req_id, false, -1,
+=======
+		(void)mgmt_fe_adapter_txn_error(txn->txn_id, req_id, false,
+						-EINVAL,
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 						"Error converting results of RPC");
 	}
 
@@ -2564,8 +2587,13 @@ int mgmt_txn_send_edit(uint64_t txn_id, uint64_t req_id,
 	assert(nb_config);
 
 	ret = nb_candidate_edit_tree(nb_config, operation, request_type, xpath,
+<<<<<<< HEAD
 				     data, edit->xpath_created, errstr,
 				     sizeof(errstr));
+=======
+				     data, &edit->created, edit->xpath_created,
+				     errstr, sizeof(errstr));
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 	if (ret)
 		goto reply;
 
@@ -2579,8 +2607,14 @@ int mgmt_txn_send_edit(uint64_t txn_id, uint64_t req_id,
 	}
 reply:
 	mgmt_fe_adapter_send_edit_reply(txn->session_id, txn->txn_id, req_id,
+<<<<<<< HEAD
 					unlock, commit, edit->xpath_created,
 					ret ? -1 : 0, errstr);
+=======
+					unlock, commit, edit->created,
+					edit->xpath_created,
+					errno_from_nb_error(ret), errstr);
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 
 	XFREE(MTYPE_MGMTD_TXN_REQ, edit);
 
@@ -2710,7 +2744,11 @@ int mgmt_txn_notify_error(struct mgmt_be_client_adapter *adapter,
 	case MGMTD_TXN_PROC_GETCFG:
 	case MGMTD_TXN_COMMITCFG_TIMEOUT:
 	default:
+<<<<<<< HEAD
 		assert(!"non-native req event in native erorr path");
+=======
+		assert(!"non-native req event in native error path");
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 		return -1;
 	}
 }

@@ -24,7 +24,10 @@ import os
 import sys
 import json
 from functools import partial
+<<<<<<< HEAD
 import re
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 import pytest
 
 # Save the Current Working Directory to find configuration files.

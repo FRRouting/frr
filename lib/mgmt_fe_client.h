@@ -179,11 +179,14 @@ mgmt_fe_client_create(const char *client_name, struct mgmt_fe_client_cbs *cbs,
 extern void mgmt_fe_client_lib_vty_init(void);
 
 /*
+<<<<<<< HEAD
  * Print enabled debugging commands.
  */
 extern void mgmt_debug_fe_client_show_debug(struct vty *vty);
 
 /*
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
  * Create a new Session for a Frontend Client connection.
  *
  * lib_hndl

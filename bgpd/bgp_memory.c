@@ -135,3 +135,8 @@ DEFINE_MTYPE(BGPD, EVPN_REMOTE_IP, "BGP EVPN Remote IP hash entry");
 DEFINE_MTYPE(BGPD, BGP_NOTIFICATION, "BGP Notification Message");
 
 DEFINE_MTYPE(BGPD, BGP_SOFT_VERSION, "Software Version");
+<<<<<<< HEAD
+=======
+
+DEFINE_MTYPE(BGPD, BGP_EVPN_OVERLAY, "BGP EVPN Overlay");
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)

@@ -35,6 +35,7 @@ void pbr_debug_init(void);
  */
 void pbr_debug_set_all(uint32_t flags, bool set);
 
+<<<<<<< HEAD
 /*
  * Config write helper.
  *
@@ -57,4 +58,6 @@ int pbr_debug_config_write_helper(struct vty *vty, bool config);
  */
 int pbr_debug_config_write(struct vty *vty);
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 #endif /* __PBR_DEBUG_H__ */

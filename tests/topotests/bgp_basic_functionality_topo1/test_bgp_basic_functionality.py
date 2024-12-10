@@ -831,7 +831,10 @@ def test_bgp_with_loopback_interface(request):
         for bgp_neighbor in topo["routers"][routerN]["bgp"]["address_family"]["ipv4"][
             "unicast"
         ]["neighbor"].keys():
+<<<<<<< HEAD
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
             # Adding ['source_link'] = 'lo' key:value pair
             topo["routers"][routerN]["bgp"]["address_family"]["ipv4"]["unicast"][
                 "neighbor"
@@ -876,6 +879,7 @@ def test_bgp_with_loopback_interface(request):
     write_test_footer(tc_name)
 
 
+<<<<<<< HEAD
 def test_bgp_with_loopback_with_same_subnet_p1(request):
     """
     Verify routes not installed in zebra when /32 routes received
@@ -1164,6 +1168,8 @@ def test_bgp_with_loopback_with_same_subnet_p1(request):
     write_test_footer(tc_name)
 
 
+=======
+>>>>>>> 9b0b9282d (bgpd: Fix bgp core with a possible Intf delete)
 if __name__ == "__main__":
     args = ["-s"] + sys.argv[1:]
     sys.exit(pytest.main(args))
