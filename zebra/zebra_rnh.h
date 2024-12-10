@@ -17,7 +17,7 @@ extern "C" {
 extern void zebra_rnh_init(void);
 
 extern struct rnh *zebra_add_rnh(struct prefix *p, vrf_id_t vrfid, safi_t safi,
-				 bool *exists);
+				 bool *exists, uint32_t srte_color);
 extern struct rnh *zebra_lookup_rnh(struct prefix *p, vrf_id_t vrfid,
 				    safi_t safi);
 extern void zebra_free_rnh(struct rnh *rnh);
