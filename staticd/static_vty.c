@@ -158,6 +158,8 @@ static struct static_route_args *static_args_copy(struct static_route_args *args
 	if (args->bfd_source)
 		run_args->bfd_source = XSTRDUP(MTYPE_STATIC_ARGS_ATTR, args->bfd_source);
 
+	run_args->nh = args->nh;
+
 	return run_args;
 }
 
@@ -742,11 +744,205 @@ static void static_route_args_del(struct static_route_args *args, struct static_
 	static_args_free(args);
 }
 
+/* Install the static_route_args args.
+ * If a running static_route_args run_args is specified, the static route will
+ * be updated with the static_route_args args.
+ */
+static void static_route_args_install(struct static_route_args *args, struct static_vrf *svrf,
+				      struct static_route_args *run_args)
+{
+	struct prefix_ipv6 src = {};
+	enum static_nh_type type;
+	enum static_blackhole_type bh_type = 0;
+	route_tag_t tag = 0;
+	uint32_t table_id = 0;
+	uint8_t distance = ZEBRA_STATIC_DISTANCE_DEFAULT;
+	struct ipaddr gw = {};
+	uint8_t label_stack_id = 0;
+	uint8_t segs_stack_id = 0;
+	struct static_nh_label snh_label = {};
+	struct static_nh_seg snh_seg = {};
+	uint32_t color = 0;
+	bool pm = false;
+	bool onlink = false;
+	bool update_path = false, update_nexthop = false;
+	char *ostr, *nump;
+	struct static_path *pn;
+	struct route_node *rn;
+
+	if (args->source)
+		str2prefix_ipv6(args->source, &src);
+
+	/* Administrative distance. */
+	if (args->distance)
+		distance = atoi(args->distance);
+
+	if (args->gateway == NULL && args->interface_name == NULL) {
+		type = STATIC_BLACKHOLE;
+		/* Route flags */
+		if (args->flag) {
+			switch (args->flag[0]) {
+			case 'r':
+				bh_type = STATIC_BLACKHOLE_REJECT;
+				break;
+			case 'b':
+				bh_type = STATIC_BLACKHOLE_DROP;
+				break;
+			case 'N':
+				bh_type = STATIC_BLACKHOLE_NULL;
+				break;
+			default:
+				bh_type = 0;
+				break;
+			}
+		}
+	} else if (args->gateway && args->interface_name) {
+		if (args->afi == AFI_IP)
+			type = STATIC_IPV4_GATEWAY_IFNAME;
+		else
+			type = STATIC_IPV6_GATEWAY_IFNAME;
+		str2ipaddr(args->gateway, &gw);
+	} else if (args->interface_name)
+		type = STATIC_IFNAME;
+	else {
+		if (args->afi == AFI_IP)
+			type = STATIC_IPV4_GATEWAY;
+		else
+			type = STATIC_IPV6_GATEWAY;
+		str2ipaddr(args->gateway, &gw);
+	}
+
+	switch (type) {
+	case STATIC_IPV4_GATEWAY_IFNAME:
+	case STATIC_IPV6_GATEWAY_IFNAME:
+		onlink = args->onlink;
+		/* fall through */
+	case STATIC_IPV4_GATEWAY:
+	case STATIC_IPV6_GATEWAY:
+		/* no break was deliberately set before these cases */
+		if (args->color)
+			color = atoi(args->color);
+		pm = args->pm;
+		/* fall through */
+	case STATIC_IFNAME:
+		/* no break was deliberately set before these cases */
+		if (args->segs) {
+			ostr = XSTRDUP(MTYPE_TMP, args->segs);
+			for (segs_stack_id = 0;
+			     (nump = strsep(&ostr, "/")) && segs_stack_id < SRV6_MAX_SIDS;
+			     segs_stack_id++)
+				inet_pton(AF_INET6, nump, &snh_seg.seg[segs_stack_id]);
+			snh_seg.num_segs = segs_stack_id;
+			XFREE(MTYPE_TMP, ostr);
+		}
+
+		if (args->label) {
+			ostr = XSTRDUP(MTYPE_TMP, args->label);
+			for (label_stack_id = 0;
+			     (nump = strsep(&ostr, "/")) && label_stack_id < MPLS_MAX_LABELS;
+			     label_stack_id++)
+				snh_label.label[label_stack_id] = atoi(nump);
+			snh_label.num_labels = label_stack_id;
+			XFREE(MTYPE_TMP, ostr);
+		}
+		break;
+	case STATIC_BLACKHOLE:
+		break;
+	}
+
+	if (args->tag)
+		tag = atoi(args->tag);
+
+	/* TableID */
+	if (args->table)
+		table_id = strtol(args->table, NULL, 10);
+
+	if (run_args) {
+		/* update an existing route */
+		if (run_args->nh->pn->tag != tag) {
+			/* update tag */
+			run_args->nh->pn->tag = tag;
+			update_path = true;
+		}
+		if (run_args->nh->bh_type != bh_type) {
+			/* blackhole type update */
+			run_args->nh->bh_type = bh_type;
+			update_nexthop = true;
+		}
+		if ((!!run_args->label != !!args->label) ||
+		    ((run_args->label && args->label && strcmp(run_args->label, args->label)))) {
+			/* labels update */
+			memcpy(&run_args->nh->snh_label.label, &snh_label.label,
+			       sizeof(snh_label.label));
+			run_args->nh->snh_label.num_labels = snh_label.num_labels;
+			run_args->nh->state = STATIC_START;
+			update_nexthop = true;
+		}
+		if ((!!run_args->segs != !!args->segs) ||
+		    ((run_args->segs && args->segs && strcmp(run_args->segs, args->segs)))) {
+			/* segments update */
+			memcpy(&run_args->nh->snh_seg, &snh_seg, sizeof(struct static_nh_seg));
+			run_args->nh->state = STATIC_START;
+			update_nexthop = true;
+		}
+		if (run_args->nh->color != color) {
+			/* color update */
+			run_args->nh->color = color;
+			run_args->nh->state = STATIC_START;
+			update_nexthop = true;
+		}
+		if (run_args->nh->onlink != onlink) {
+			/* onlink update */
+			run_args->nh->onlink = onlink;
+			run_args->nh->state = STATIC_START;
+			update_nexthop = true;
+		}
+		if (run_args->nh->pm != pm) {
+			/* pm update */
+			if (pm)
+				static_next_hop_pm_update(run_args->nh);
+			else
+				static_next_hop_pm_destroy(run_args->nh);
+			run_args->nh->state = STATIC_START;
+			update_nexthop = true;
+		}
+
+		if (update_path)
+			static_install_path(run_args->nh->pn);
+		if (update_nexthop)
+			static_install_nexthop(run_args->nh);
+
+		return;
+	}
+
+	/* Install the route */
+	rn = static_add_route(args->afi, args->safi, &args->p, args->source ? &src : NULL, svrf);
+	pn = static_add_path(rn, table_id, distance);
+	pn->tag = tag;
+	args->nh = static_add_nexthop(pn, type, &gw, args->interface_name, args->nexthop_vrf, color,
+				      pm);
+	args->nh->bh_type = bh_type;
+	args->nh->onlink = onlink;
+	memcpy(&args->nh->snh_label, &snh_label, sizeof(struct static_nh_label));
+	memcpy(&args->nh->snh_seg, &snh_seg, sizeof(struct static_nh_seg));
+
+	static_install_nexthop(args->nh);
+}
+
+static void static_route_args_uninstall(struct static_route_args *args)
+{
+	if (args->nh) {
+		static_delete_nexthop(args->nh);
+		args->nh = NULL;
+	}
+}
+
 static int static_route_configure(struct vty *vty, struct static_route_args *args)
 {
 	struct static_route_args *run_args;
 	struct prefix p = {};
 	struct static_vrf *svrf;
+	uint8_t distance;
 
 	if (args->interface_name && (!strcasecmp(args->interface_name, "reject") ||
 				     !strcasecmp(args->interface_name, "blackhole"))) {
@@ -783,19 +979,32 @@ static int static_route_configure(struct vty *vty, struct static_route_args *arg
 
 	if (args->delete) {
 		/* delete the existing configuration */
+		static_route_args_uninstall(run_args);
 		static_route_args_del(run_args, svrf);
 
 		return CMD_SUCCESS;
 	}
 
+	distance = args->distance ? atoi(args->distance) : ZEBRA_STATIC_DISTANCE_DEFAULT;
+	if (run_args && run_args->nh->pn->distance != distance) {
+		/* Cannot update the existing route.
+		 * Remove the existing route and recreate it later in the function.
+		 */
+		static_route_args_uninstall(run_args);
+		static_route_args_del(run_args, svrf);
+		run_args = NULL;
+	}
+
 	if (run_args) {
 		/* Update route an existing route */
+		static_route_args_install(args, svrf, run_args);
 		static_args_update(run_args, args);
 
 		return CMD_SUCCESS;
 	}
 
 	/* Add a new route */
+	static_route_args_install(args, svrf, NULL);
 	static_route_args_add(args, svrf);
 
 	return CMD_SUCCESS;

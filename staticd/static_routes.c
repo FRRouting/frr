@@ -132,6 +132,10 @@ struct route_node *static_add_route(afi_t afi, safi_t safi, struct prefix *p,
 
 	/* Lookup static route prefix. */
 	rn = srcdest_rnode_get(stable, p, src_p);
+#ifndef HAVE_STATICD_NB
+	if (rn->info)
+		return rn;
+#endif /* !HAVE_STATICD_NB */
 
 	si = XCALLOC(MTYPE_STATIC_ROUTE, sizeof(struct static_route_info));
 
@@ -227,6 +231,21 @@ struct static_path *static_add_path(struct route_node *rn, uint32_t table_id,
 
 	route_lock_node(rn);
 
+#ifndef HAVE_STATICD_NB
+	si = rn->info;
+
+	frr_each_safe (static_path_list, &si->path_list, pn) {
+		if (pn->rn != rn)
+			continue;
+		if (pn->table_id != table_id)
+			continue;
+		if (pn->distance != distance)
+			continue;
+
+		return pn;
+	}
+#endif /* !HAVE_STATICD_NB */
+
 	/* Make new static route structure. */
 	pn = XCALLOC(MTYPE_STATIC_PATH, sizeof(struct static_path));
 
@@ -235,7 +254,9 @@ struct static_path *static_add_path(struct route_node *rn, uint32_t table_id,
 	pn->table_id = table_id;
 	static_nexthop_list_init(&(pn->nexthop_list));
 
+#ifdef HAVE_STATICD_NB
 	si = rn->info;
+#endif /* HAVE_STATICD_NB */
 	static_path_list_add_head(&(si->path_list), pn);
 
 	return pn;
@@ -271,10 +292,29 @@ static_add_nexthop(struct static_path *pn, enum static_nh_type type,
 	struct vrf *nh_vrf;
 	struct interface *ifp;
 	struct static_nexthop *cp;
+	vrf_id_t nh_vrf_id;
+	ifindex_t ifindex = IFINDEX_INTERNAL;
 
 	route_lock_node(rn);
 
 	nh_vrf = vrf_lookup_by_name(nh_vrfname);
+	nh_vrf_id = nh_vrf ? nh_vrf->vrf_id : VRF_UNKNOWN;
+
+#ifndef HAVE_STATICD_NB
+	switch (type) {
+	case STATIC_IPV4_GATEWAY:
+	case STATIC_IPV6_GATEWAY:
+	case STATIC_BLACKHOLE:
+		break;
+	case STATIC_IPV4_GATEWAY_IFNAME:
+	case STATIC_IPV6_GATEWAY_IFNAME:
+	case STATIC_IFNAME:
+		ifp = if_lookup_by_name(ifname, nh_vrf_id);
+		if (ifp && ifp->ifindex != IFINDEX_INTERNAL)
+			ifindex = ifp->ifindex;
+		break;
+	}
+#endif /* !HAVE_STATICD_NB */
 
 	/* Make new static route structure. */
 	nh = XCALLOC(MTYPE_STATIC_NEXTHOP, sizeof(struct static_nexthop));
@@ -289,12 +329,12 @@ static_add_nexthop(struct static_path *pn, enum static_nh_type type,
 	if (nh->type == STATIC_BLACKHOLE)
 		nh->bh_type = STATIC_BLACKHOLE_NULL;
 
-	nh->nh_vrf_id = nh_vrf ? nh_vrf->vrf_id : VRF_UNKNOWN;
+	nh->nh_vrf_id = nh_vrf_id;
 	strlcpy(nh->nh_vrfname, nh_vrfname, sizeof(nh->nh_vrfname));
 
 	if (ifname)
 		strlcpy(nh->ifname, ifname, sizeof(nh->ifname));
-	nh->ifindex = IFINDEX_INTERNAL;
+	nh->ifindex = ifindex;
 
 	if (pm)
 		static_next_hop_pm_update(nh);
@@ -344,10 +384,14 @@ static_add_nexthop(struct static_path *pn, enum static_nh_type type,
 	case STATIC_IPV4_GATEWAY_IFNAME:
 	case STATIC_IPV6_GATEWAY_IFNAME:
 	case STATIC_IFNAME:
+#ifdef HAVE_STATICD_NB
 		ifp = if_lookup_by_name(ifname, nh->nh_vrf_id);
 		if (ifp && ifp->ifindex != IFINDEX_INTERNAL)
 			nh->ifindex = ifp->ifindex;
 		else
+#else
+		if (ifindex == IFINDEX_INTERNAL)
+#endif /* !HAVE_STATICD_NB */
 			zlog_warn(
 				"Static Route using %s interface not installed because the interface does not exist in specified vrf",
 				ifname);
