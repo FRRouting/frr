@@ -10,6 +10,7 @@
 #include <zebra.h>
 #include "prefix.h"
 #include "json.h"
+#include "vrf.h"
 
 #include <arpa/inet.h>
 #include <netinet/in.h>
@@ -129,6 +130,7 @@ struct srv6_locator {
 	uint64_t current;
 	bool status_up;
 	struct list *chunks;
+	struct list *sids;
 
 	uint8_t flags;
 #define SRV6_LOCATOR_USID (1 << 0) /* The SRv6 Locator is a uSID Locator */
@@ -167,6 +169,12 @@ struct srv6_locator_chunk {
 	uint8_t flags;
 };
 
+struct seg6_sid {
+	enum seg6local_action_t sidaction;
+	char vrfName[VRF_NAMSIZ + 1];
+	struct prefix_ipv6 ipv6Addr;
+	char sidstr[PREFIX_STRLEN];
+};
 /*
  * SRv6 Endpoint Behavior codepoints, as defined by IANA in
  * https://www.iana.org/assignments/segment-routing/segment-routing.xhtml
@@ -376,8 +384,14 @@ static inline const char *srv6_sid_ctx2str(char *str, size_t size,
 int snprintf_seg6_segs(char *str,
 		size_t size, const struct seg6_segs *segs);
 
+extern void combine_sid(struct srv6_locator *locator, struct in6_addr *sid_addr,
+			struct in6_addr *result_addr);
+extern void srv6_locator_del(struct srv6_locator *locator);
+
 extern struct srv6_locator *srv6_locator_alloc(const char *name);
 extern struct srv6_locator_chunk *srv6_locator_chunk_alloc(void);
+extern struct seg6_sid *srv6_locator_sid_alloc(void);
+extern void srv6_locator_sid_free(struct seg6_sid *sid);
 extern void srv6_locator_free(struct srv6_locator *locator);
 extern void srv6_locator_chunk_list_free(void *data);
 extern void srv6_locator_chunk_free(struct srv6_locator_chunk **chunk);
@@ -388,6 +402,8 @@ json_object *srv6_locator_json(const struct srv6_locator *loc);
 json_object *srv6_locator_detailed_json(const struct srv6_locator *loc);
 json_object *
 srv6_locator_chunk_detailed_json(const struct srv6_locator_chunk *chunk);
+json_object *srv6_locator_sid_detailed_json(const struct srv6_locator *locator,
+					    const struct seg6_sid *sid);
 
 extern struct srv6_sid_format *srv6_sid_format_alloc(const char *name);
 extern void srv6_sid_format_free(struct srv6_sid_format *format);
