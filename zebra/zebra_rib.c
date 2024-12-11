@@ -3746,10 +3746,8 @@ static struct meta_queue *meta_queue_new(void)
 
 	new = XCALLOC(MTYPE_WORK_QUEUE, sizeof(struct meta_queue));
 
-	for (i = 0; i < MQ_SIZE; i++) {
+	for (i = 0; i < MQ_SIZE; i++)
 		new->subq[i] = list_new();
-		assert(new->subq[i]);
-	}
 
 	return new;
 }
@@ -3935,12 +3933,7 @@ void meta_queue_free(struct meta_queue *mq, struct zebra_vrf *zvrf)
 /* initialise zebra rib work queue */
 static void rib_queue_init(void)
 {
-	if (!(zrouter.ribq = work_queue_new(zrouter.master,
-					    "route_node processing"))) {
-		flog_err(EC_ZEBRA_WQ_NONEXISTENT,
-			 "%s: could not initialise work queue!", __func__);
-		return;
-	}
+	zrouter.ribq = work_queue_new(zrouter.master, "route_node processing");
 
 	/* fill in the work queue spec */
 	zrouter.ribq->spec.workfunc = &meta_queue_process;
@@ -3950,11 +3943,8 @@ static void rib_queue_init(void)
 	zrouter.ribq->spec.hold = ZEBRA_RIB_PROCESS_HOLD_TIME;
 	zrouter.ribq->spec.retry = ZEBRA_RIB_PROCESS_RETRY_TIME;
 
-	if (!(zrouter.mq = meta_queue_new())) {
-		flog_err(EC_ZEBRA_WQ_NONEXISTENT,
-			 "%s: could not initialise meta queue!", __func__);
-		return;
-	}
+	zrouter.mq = meta_queue_new();
+
 	return;
 }
 
