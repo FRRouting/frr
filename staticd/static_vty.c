@@ -673,12 +673,67 @@ static int static_route_configure(struct vty *vty, struct static_route_args *arg
 }
 #else
 /* !HAVE_STATICD_NB */
+static inline int static_route_args_cmp(const struct static_route_args *a,
+					const struct static_route_args *b)
+{
+	const char *a_gw, *b_gw, *a_if, *b_if;
+	int cmp;
+
+	if (a->afi != b->afi)
+		return (a->afi < b->afi) ? -1 : 1;
+
+	if (a->safi != b->safi)
+		return (a->safi < b->safi) ? -1 : 1;
+
+	/* Compare based on AFI */
+	if (a->afi == AFI_IP) {
+		/* IPv4: Compare by prefix address (uint32_t) */
+		if (a->p.u.prefix4.s_addr != b->p.u.prefix4.s_addr)
+			return (a->p.u.prefix4.s_addr < b->p.u.prefix4.s_addr) ? -1 : 1;
+	} else {
+		/* IPv6: Compare by prefix (memcmp) */
+		cmp = memcmp(&a->p.u.prefix6, &b->p.u.prefix6, IPV6_MAX_BYTELEN);
+		if (cmp != 0)
+			return cmp;
+	}
+
+	/* Same prefix address, compare prefix length */
+	if (a->p.prefixlen != b->p.prefixlen)
+		return (a->p.prefixlen < b->p.prefixlen) ? -1 : 1;
+
+	/* Prefix and prefix length are identical, compare gateway strings */
+	a_gw = a->gateway ? a->gateway : "";
+	b_gw = b->gateway ? b->gateway : "";
+	cmp = strcmp(a_gw, b_gw);
+	if (cmp != 0)
+		return cmp;
+
+	/* Gateways are identical, compare interface names */
+	a_if = a->interface_name ? a->interface_name : "";
+	b_if = b->interface_name ? b->interface_name : "";
+	cmp = strcmp(a_if, b_if);
+	if (cmp != 0)
+		return cmp;
+
+	return 0;
+}
+
 static void static_route_args_add(struct static_route_args *args, struct static_vrf *svrf)
 {
-	struct static_route_args *run_args;
+	struct static_route_args *run_args, *iter_args = NULL, *iter_args_prev = NULL;
 
 	run_args = static_args_copy(args);
-	static_route_args_list_add_head(&svrf->route_args_list, run_args);
+
+	/* Insert maintaining sorted order */
+	frr_each (static_route_args_list, &svrf->route_args_list, iter_args) {
+		/* If run_args should come before iter_args */
+		if (static_route_args_cmp(run_args, iter_args) < 0)
+			break;
+
+		iter_args_prev = iter_args;
+	}
+
+	static_route_args_list_add_after(&svrf->route_args_list, iter_args_prev, run_args);
 }
 
 static void static_route_args_del(struct static_route_args *args, struct static_vrf *svrf)
