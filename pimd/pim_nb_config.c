@@ -1008,6 +1008,38 @@ int routing_control_plane_protocols_control_plane_protocol_pim_address_family_ss
 	return NB_OK;
 }
 
+pim6_msdp_err(pim_msdp_hold_time_modify, nb_cb_modify_args);
+pim6_msdp_err(pim_msdp_keep_alive_modify, nb_cb_modify_args);
+pim6_msdp_err(pim_msdp_connection_retry_modify, nb_cb_modify_args);
+pim6_msdp_err(pim_msdp_mesh_group_destroy, nb_cb_destroy_args);
+pim6_msdp_err(pim_msdp_mesh_group_create, nb_cb_create_args);
+pim6_msdp_err(pim_msdp_mesh_group_source_modify, nb_cb_modify_args);
+pim6_msdp_err(pim_msdp_mesh_group_source_destroy, nb_cb_destroy_args);
+pim6_msdp_err(pim_msdp_mesh_group_members_create, nb_cb_create_args);
+pim6_msdp_err(pim_msdp_mesh_group_members_destroy, nb_cb_destroy_args);
+pim6_msdp_err(pim_msdp_peer_sa_filter_in_modify, nb_cb_modify_args);
+pim6_msdp_err(pim_msdp_peer_sa_filter_in_destroy, nb_cb_destroy_args);
+pim6_msdp_err(pim_msdp_peer_sa_filter_out_modify, nb_cb_modify_args);
+pim6_msdp_err(pim_msdp_peer_sa_filter_out_destroy, nb_cb_destroy_args);
+pim6_msdp_err(pim_msdp_peer_sa_limit_modify, nb_cb_modify_args);
+pim6_msdp_err(pim_msdp_peer_sa_limit_destroy, nb_cb_destroy_args);
+pim6_msdp_err(
+	routing_control_plane_protocols_control_plane_protocol_pim_address_family_msdp_peer_source_ip_modify,
+	nb_cb_modify_args);
+pim6_msdp_err(
+	routing_control_plane_protocols_control_plane_protocol_pim_address_family_msdp_peer_destroy,
+	nb_cb_destroy_args);
+pim6_msdp_err(
+	routing_control_plane_protocols_control_plane_protocol_pim_address_family_msdp_peer_create,
+	nb_cb_create_args);
+pim6_msdp_err(pim_msdp_peer_authentication_type_modify, nb_cb_modify_args);
+pim6_msdp_err(pim_msdp_peer_authentication_key_modify, nb_cb_modify_args);
+pim6_msdp_err(pim_msdp_peer_authentication_key_destroy, nb_cb_destroy_args);
+pim6_msdp_err(pim_msdp_log_neighbor_events_modify, nb_cb_modify_args);
+pim6_msdp_err(pim_msdp_log_sa_events_modify, nb_cb_modify_args);
+pim6_msdp_err(pim_msdp_shutdown_modify, nb_cb_modify_args);
+
+#if PIM_IPV != 6
 /*
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-pim:pim/address-family/msdp/hold-time
@@ -1081,26 +1113,6 @@ int pim_msdp_connection_retry_modify(struct nb_cb_modify_args *args)
 	return NB_OK;
 }
 
-pim6_msdp_err(pim_msdp_mesh_group_destroy, nb_cb_destroy_args);
-pim6_msdp_err(pim_msdp_mesh_group_create, nb_cb_create_args);
-pim6_msdp_err(pim_msdp_mesh_group_source_modify, nb_cb_modify_args);
-pim6_msdp_err(pim_msdp_mesh_group_source_destroy, nb_cb_destroy_args);
-pim6_msdp_err(pim_msdp_mesh_group_members_create, nb_cb_create_args);
-pim6_msdp_err(pim_msdp_mesh_group_members_destroy, nb_cb_destroy_args);
-pim6_msdp_err(routing_control_plane_protocols_control_plane_protocol_pim_address_family_msdp_peer_source_ip_modify,
-	      nb_cb_modify_args);
-pim6_msdp_err(routing_control_plane_protocols_control_plane_protocol_pim_address_family_msdp_peer_destroy,
-	      nb_cb_destroy_args);
-pim6_msdp_err(routing_control_plane_protocols_control_plane_protocol_pim_address_family_msdp_peer_create,
-	      nb_cb_create_args);
-pim6_msdp_err(pim_msdp_peer_authentication_type_modify, nb_cb_modify_args);
-pim6_msdp_err(pim_msdp_peer_authentication_key_modify, nb_cb_modify_args);
-pim6_msdp_err(pim_msdp_peer_authentication_key_destroy, nb_cb_destroy_args);
-pim6_msdp_err(pim_msdp_log_neighbor_events_modify, nb_cb_modify_args);
-pim6_msdp_err(pim_msdp_log_sa_events_modify, nb_cb_modify_args);
-pim6_msdp_err(pim_msdp_shutdown_modify, nb_cb_modify_args);
-
-#if PIM_IPV != 6
 /*
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-pim:pim/address-family/msdp/log-neighbor-events
@@ -1489,7 +1501,6 @@ int routing_control_plane_protocols_control_plane_protocol_pim_address_family_ms
 
 	return NB_OK;
 }
-#endif /* PIM_IPV != 6 */
 
 /*
  * XPath:
@@ -1620,6 +1631,7 @@ int pim_msdp_peer_sa_limit_destroy(struct nb_cb_destroy_args *args)
 
 	return NB_OK;
 }
+#endif /* PIM_IPV != 6 */
 
 /*
  * XPath: /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-pim:pim/address-family/mlag
