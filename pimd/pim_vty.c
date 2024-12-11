@@ -180,8 +180,10 @@ int pim_global_config_write_worker(struct pim_instance *pim, struct vty *vty)
 	int writes = 0;
 	struct pim_ssm *ssm = pim->ssm_info;
 
+#if PIM_IPV == 4
 	writes += pim_msdp_peer_config_write(vty, pim);
 	writes += pim_msdp_config_write(pim, vty);
+#endif /* PIM_IPV == 4 */
 
 	if (!pim->send_v6_secondary) {
 		vty_out(vty, " no send-v6-secondary\n");
@@ -271,17 +273,6 @@ int pim_global_config_write_worker(struct pim_instance *pim, struct vty *vty)
 			vty_out(vty, " ssmpingd %pPA\n", &ss->source_addr);
 			++writes;
 		}
-	}
-
-	if (pim->msdp.hold_time != PIM_MSDP_PEER_HOLD_TIME
-	    || pim->msdp.keep_alive != PIM_MSDP_PEER_KA_TIME
-	    || pim->msdp.connection_retry != PIM_MSDP_PEER_CONNECT_RETRY_TIME) {
-		vty_out(vty, " msdp timers %u %u", pim->msdp.hold_time,
-			pim->msdp.keep_alive);
-		if (pim->msdp.connection_retry
-		    != PIM_MSDP_PEER_CONNECT_RETRY_TIME)
-			vty_out(vty, " %u", pim->msdp.connection_retry);
-		vty_out(vty, "\n");
 	}
 
 	return writes;
