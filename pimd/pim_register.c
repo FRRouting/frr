@@ -709,7 +709,10 @@ int pim_register_recv(struct interface *ifp, pim_addr dest_addr,
 			// inherited_olist(S,G,rpt)
 			// This is taken care of by the kernel for us
 		}
+
+#if PIM_IPV == 4
 		pim_upstream_msdp_reg_timer_start(upstream);
+#endif /* PIM_IPV == 4 */
 	} else {
 		if (PIM_DEBUG_PIM_REG) {
 			if (!i_am_rp)

@@ -53,7 +53,9 @@ static void pim_instance_terminate(struct pim_instance *pim)
 
 	pim_oil_terminate(pim);
 
+#if PIM_IPV == 4
 	pim_msdp_exit(pim);
+#endif /* PIM_IPV == 4 */
 
 	close(pim->reg_sock);
 
@@ -91,7 +93,9 @@ static struct pim_instance *pim_instance_init(struct vrf *vrf)
 	pim->spt.switchover = PIM_SPT_IMMEDIATE;
 	pim->spt.plist = NULL;
 
+#if PIM_IPV == 4
 	pim_msdp_init(pim, router->master);
+#endif /* PIM_IPV == 4 */
 	pim_vxlan_init(pim);
 
 	snprintf(hash_name, sizeof(hash_name), "PIM %s RPF Hash", vrf->name);

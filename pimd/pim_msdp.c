@@ -31,8 +31,6 @@
 #include "pim_msdp_packet.h"
 #include "pim_msdp_socket.h"
 
-// struct pim_msdp pim_msdp, *msdp = &pim_msdp;
-
 static void pim_msdp_peer_listen(struct pim_msdp_peer *mp);
 static void pim_msdp_peer_cr_timer_setup(struct pim_msdp_peer *mp, bool start);
 static void pim_msdp_peer_ka_timer_setup(struct pim_msdp_peer *mp, bool start);
@@ -1466,6 +1464,25 @@ struct pim_msdp_mg_mbr *pim_msdp_mg_mbr_add(struct pim_instance *pim,
 	++mg->mbr_cnt;
 
 	return mbr;
+}
+
+/* MSDP on RP needs to know if a source is registerable to this RP */
+static void pim_upstream_msdp_reg_timer(struct event *t)
+{
+	struct pim_upstream *up = EVENT_ARG(t);
+	struct pim_instance *pim = up->channel_oil->pim;
+
+	/* source is no longer active - pull the SA from MSDP's cache */
+	pim_msdp_sa_local_del(pim, &up->sg);
+}
+
+void pim_upstream_msdp_reg_timer_start(struct pim_upstream *up)
+{
+	EVENT_OFF(up->t_msdp_reg_timer);
+	event_add_timer(router->master, pim_upstream_msdp_reg_timer, up, PIM_MSDP_REG_RXED_PERIOD,
+			&up->t_msdp_reg_timer);
+
+	pim_msdp_sa_local_update(up);
 }
 
 void pim_msdp_shutdown(struct pim_instance *pim, bool state)
