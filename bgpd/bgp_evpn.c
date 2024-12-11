@@ -1669,9 +1669,18 @@ static int update_evpn_type5_route_entry(struct bgp *bgp_evpn,
 			/* attribute changed */
 			*route_changed = 1;
 
+			/* if the asn values are different, copy the asn of
+			 * source vrf to the target (evpn) vrf entry.
+			 */
+			if (bgp_vrf->as != bgp_evpn->as) {
+				new_aspath = aspath_dup(static_attr.aspath);
+				new_aspath = aspath_add_seq(new_aspath, bgp_vrf->as);
+				static_attr.aspath = new_aspath;
+			}
 			/* The attribute has changed. */
 			/* Add (or update) attribute to hash. */
-			attr_new = bgp_attr_intern(attr);
+			attr_new = bgp_attr_intern(&static_attr);
+			bgp_attr_flush(&static_attr);
 			bgp_path_info_set_flag(dest, tmp_pi,
 					       BGP_PATH_ATTR_CHANGED);
 
@@ -4212,9 +4221,7 @@ static int bgp_evpn_install_uninstall_table(struct bgp *bgp, afi_t afi,
 
 	assert(attr);
 
-	/* Only type-1, type-2, type-3, type-4 and type-5
-	 * are supported currently
-	 */
+	/* Only EVPN route-types 1-5 are supported currently */
 	if (!(evp->prefix.route_type == BGP_EVPN_MAC_IP_ROUTE
 	      || evp->prefix.route_type == BGP_EVPN_IMET_ROUTE
 	      || evp->prefix.route_type == BGP_EVPN_ES_ROUTE
@@ -4271,26 +4278,28 @@ static int bgp_evpn_install_uninstall_table(struct bgp *bgp, afi_t afi,
 					      bgp_evpn_attr_get_esi(pi->attr));
 
 		/*
-		 * macip routes (type-2) are imported into VNI and VRF tables.
-		 * IMET route is imported into VNI table.
-		 * prefix routes are imported into VRF table.
+		 * AD/IMET routes (type-1/3) are imported into VNI table.
+		 * MACIP routes (type-2) are imported into VNI and VRF tables.
+		 * Prefix routes (type 5) are imported into VRF table.
 		 */
 		if (evp->prefix.route_type == BGP_EVPN_MAC_IP_ROUTE ||
 		    evp->prefix.route_type == BGP_EVPN_IMET_ROUTE ||
 		    evp->prefix.route_type == BGP_EVPN_AD_ROUTE ||
 		    evp->prefix.route_type == BGP_EVPN_IP_PREFIX_ROUTE) {
+			if (evp->prefix.route_type != BGP_EVPN_IP_PREFIX_ROUTE) {
+				irt = in_vni_rt ? lookup_import_rt(bgp, eval) : NULL;
+				if (irt)
+					install_uninstall_route_in_vnis(bgp, afi, safi, evp, pi,
+									irt->vnis, import);
+			}
 
-			irt = in_vni_rt ? lookup_import_rt(bgp, eval) : NULL;
-			if (irt)
-				install_uninstall_route_in_vnis(
-					bgp, afi, safi, evp, pi, irt->vnis,
-					import);
-
-			vrf_irt = in_vrf_rt ? lookup_vrf_import_rt(eval) : NULL;
-			if (vrf_irt)
-				install_uninstall_route_in_vrfs(
-					bgp, afi, safi, evp, pi, vrf_irt->vrfs,
-					import);
+			if (evp->prefix.route_type != BGP_EVPN_AD_ROUTE &&
+			    evp->prefix.route_type != BGP_EVPN_IMET_ROUTE) {
+				vrf_irt = in_vrf_rt ? lookup_vrf_import_rt(eval) : NULL;
+				if (vrf_irt)
+					install_uninstall_route_in_vrfs(bgp, afi, safi, evp, pi,
+									vrf_irt->vrfs, import);
+			}
 
 			/* Also check for non-exact match.
 			 * In this, we mask out the AS and
