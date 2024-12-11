@@ -121,6 +121,7 @@ void ospf6_zebra_import_default_route(struct ospf6 *ospf6, bool unreg)
 {
 	struct prefix prefix = {};
 	int command;
+	uint8_t flags = 0;
 
 	if (zclient->sock < 0) {
 		if (IS_OSPF6_DEBUG_ZEBRA(SEND))
@@ -140,9 +141,8 @@ void ospf6_zebra_import_default_route(struct ospf6 *ospf6, bool unreg)
 		zlog_debug("%s: sending cmd %s for %pFX (vrf %u)", __func__,
 			   zserv_command_string(command), &prefix,
 			   ospf6->vrf_id);
-
-	if (zclient_send_rnh(zclient, command, &prefix, SAFI_UNICAST, false,
-			     true, ospf6->vrf_id)
+	SET_FLAG(flags, NEXTHOP_REGISTER_FLAG_RESOLVE_VIA_DEFAULT);
+	if (zclient_send_rnh(zclient, command, &prefix, SAFI_UNICAST, flags, ospf6->vrf_id, 0)
 	    == ZCLIENT_SEND_FAILURE)
 		flog_err(EC_LIB_ZAPI_SOCKET, "%s: zclient_send_rnh() failed",
 			 __func__);
