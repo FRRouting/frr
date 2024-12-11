@@ -986,7 +986,7 @@ static int static_route_configure(struct vty *vty, struct static_route_args *arg
 	}
 
 	distance = args->distance ? atoi(args->distance) : ZEBRA_STATIC_DISTANCE_DEFAULT;
-	if (run_args && run_args->nh->pn->distance != distance) {
+	if (run_args && (run_args->nh->pn->distance != distance || (!run_args->pm && args->pm))) {
 		/* Cannot update the existing route.
 		 * Remove the existing route and recreate it later in the function.
 		 */
