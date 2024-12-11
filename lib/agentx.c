@@ -183,10 +183,10 @@ static int agentx_read_now(int fd)
 static void agentx_read(struct event *t)
 {
 	struct listnode *ln = EVENT_ARG(t);
-	list_delete_node(events, ln);
-	int res = 0;
 	struct event **thr = listgetdata(ln);
+	int res = 0;
 
+	list_delete_node(events, ln);
 	XFREE(MTYPE_TMP, thr);
 
 	res = agentx_read_now(EVENT_FD(t));
@@ -581,7 +581,7 @@ static void agentx_send_ringbuf(void)
 				  internal_stat.nb_locktry_trap1_fail);
 			break;
 		}
-		/* snmp_free_varbind(*notif_vars_old); */
+		snmp_free_varbind(notif_vars_old); 
 		notif_vars_old = NULL;
 		pthread_mutex_unlock(&ax_io_mtx);
 		nb_elem_ringbuf -= sizeof(notif_vars_old);
