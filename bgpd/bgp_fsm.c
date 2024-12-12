@@ -661,7 +661,7 @@ static void bgp_llgr_stale_timer_expire(struct event *thread)
 static void bgp_set_llgr_stale(struct peer *peer, afi_t afi, safi_t safi)
 {
 	struct bgp_dest *dest;
-	struct bgp_path_info *pi;
+	struct bgp_path_info *pi, *next;
 	struct bgp_table *table;
 	struct attr attr;
 
@@ -676,8 +676,8 @@ static void bgp_set_llgr_stale(struct peer *peer, afi_t afi, safi_t safi)
 
 			for (rm = bgp_table_top(table); rm;
 			     rm = bgp_route_next(rm))
-				for (pi = bgp_dest_get_bgp_path_info(rm); pi;
-				     pi = pi->next) {
+				for (pi = bgp_dest_get_bgp_path_info(rm);
+				     (pi != NULL) && (next = pi->next, 1); pi = next) {
 					if (pi->peer != peer)
 						continue;
 
@@ -708,8 +708,8 @@ static void bgp_set_llgr_stale(struct peer *peer, afi_t afi, safi_t safi)
 	} else {
 		for (dest = bgp_table_top(peer->bgp->rib[afi][safi]); dest;
 		     dest = bgp_route_next(dest))
-			for (pi = bgp_dest_get_bgp_path_info(dest); pi;
-			     pi = pi->next) {
+			for (pi = bgp_dest_get_bgp_path_info(dest);
+			     (pi != NULL) && (next = pi->next, 1); pi = next) {
 				if (pi->peer != peer)
 					continue;
 
