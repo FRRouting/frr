@@ -269,6 +269,14 @@ module frr-pim {
           "Log all MSDP SA related events.";
       }
 
+      leaf originator-id {
+        type inet:ip-address;
+        description
+          "Configure the RP address for the SAs.
+
+           By default the local system RP address will be used.";
+      }
+
       leaf shutdown {
         type boolean;
         default false;
