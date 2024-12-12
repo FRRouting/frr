@@ -150,7 +150,9 @@ struct pim_instance {
 
 	struct rb_pim_oil_head channel_oil_head;
 
+#if PIM_IPV == 4
 	struct pim_msdp msdp;
+#endif /* PIM_IPV == 4 */
 	struct pim_vxlan_instance vxlan;
 
 	struct pim_autorp *autorp;
@@ -224,8 +226,5 @@ void pim_vrf_terminate(void);
 extern struct pim_router *router;
 
 struct pim_instance *pim_get_pim_instance(vrf_id_t vrf_id);
-
-extern bool pim_msdp_log_neighbor_events(const struct pim_instance *pim);
-extern bool pim_msdp_log_sa_events(const struct pim_instance *pim);
 
 #endif

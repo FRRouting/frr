@@ -31,8 +31,6 @@
 #include "pim_msdp_packet.h"
 #include "pim_msdp_socket.h"
 
-// struct pim_msdp pim_msdp, *msdp = &pim_msdp;
-
 static void pim_msdp_peer_listen(struct pim_msdp_peer *mp);
 static void pim_msdp_peer_cr_timer_setup(struct pim_msdp_peer *mp, bool start);
 static void pim_msdp_peer_ka_timer_setup(struct pim_msdp_peer *mp, bool start);
@@ -1272,10 +1270,21 @@ int pim_msdp_config_write(struct pim_instance *pim, struct vty *vty)
 	char src_str[INET_ADDRSTRLEN];
 	int count = 0;
 
+	if (pim->msdp.hold_time != PIM_MSDP_PEER_HOLD_TIME ||
+	    pim->msdp.keep_alive != PIM_MSDP_PEER_KA_TIME ||
+	    pim->msdp.connection_retry != PIM_MSDP_PEER_CONNECT_RETRY_TIME) {
+		vty_out(vty, " msdp timers %u %u", pim->msdp.hold_time, pim->msdp.keep_alive);
+		if (pim->msdp.connection_retry != PIM_MSDP_PEER_CONNECT_RETRY_TIME)
+			vty_out(vty, " %u", pim->msdp.connection_retry);
+		vty_out(vty, "\n");
+	}
+
 	if (pim_msdp_log_neighbor_events(pim))
 		vty_out(vty, " msdp log neighbor-events\n");
 	if (pim_msdp_log_sa_events(pim))
 		vty_out(vty, " msdp log sa-events\n");
+	if (pim->msdp.shutdown)
+		vty_out(vty, " msdp shutdown\n");
 
 	if (SLIST_EMPTY(&pim->msdp.mglist))
 		return count;
@@ -1331,9 +1340,6 @@ bool pim_msdp_peer_config_write(struct vty *vty, struct pim_instance *pim)
 		written = true;
 	}
 
-	if (pim->msdp.shutdown)
-		vty_out(vty, " msdp shutdown\n");
-
 	return written;
 }
 
@@ -1373,6 +1379,11 @@ void pim_msdp_init(struct pim_instance *pim, struct event_loop *master)
 	pim->msdp.sa_list = list_new();
 	pim->msdp.sa_list->del = (void (*)(void *))pim_msdp_sa_free;
 	pim->msdp.sa_list->cmp = (int (*)(void *, void *))pim_msdp_sa_comp;
+
+	/* MSDP global timer defaults. */
+	pim->msdp.hold_time = PIM_MSDP_PEER_HOLD_TIME;
+	pim->msdp.keep_alive = PIM_MSDP_PEER_KA_TIME;
+	pim->msdp.connection_retry = PIM_MSDP_PEER_CONNECT_RETRY_TIME;
 }
 
 /* counterpart to MSDP init; XXX: unused currently */
@@ -1453,6 +1464,25 @@ struct pim_msdp_mg_mbr *pim_msdp_mg_mbr_add(struct pim_instance *pim,
 	++mg->mbr_cnt;
 
 	return mbr;
+}
+
+/* MSDP on RP needs to know if a source is registerable to this RP */
+static void pim_upstream_msdp_reg_timer(struct event *t)
+{
+	struct pim_upstream *up = EVENT_ARG(t);
+	struct pim_instance *pim = up->channel_oil->pim;
+
+	/* source is no longer active - pull the SA from MSDP's cache */
+	pim_msdp_sa_local_del(pim, &up->sg);
+}
+
+void pim_upstream_msdp_reg_timer_start(struct pim_upstream *up)
+{
+	EVENT_OFF(up->t_msdp_reg_timer);
+	event_add_timer(router->master, pim_upstream_msdp_reg_timer, up, PIM_MSDP_REG_RXED_PERIOD,
+			&up->t_msdp_reg_timer);
+
+	pim_msdp_sa_local_update(up);
 }
 
 void pim_msdp_shutdown(struct pim_instance *pim, bool state)
