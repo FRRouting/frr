@@ -2825,13 +2825,7 @@ int routing_control_plane_protocols_control_plane_protocol_pim_address_family_rp
 		else if (yang_dnode_get(args->dnode, "prefix-list")) {
 			plist = yang_dnode_get_string(args->dnode,
 					"./prefix-list");
-			if (!pim_get_all_mcast_group(&group)) {
-				flog_err(
-					EC_LIB_DEVELOPMENT,
-					"Unable to convert 224.0.0.0/4 to prefix");
-				return NB_ERR_INCONSISTENCY;
-			}
-
+			pim_get_all_mcast_group(&group);
 			result = pim_no_rp_cmd_worker(pim, rp_addr, group,
 						      plist, args->errmsg,
 						      args->errmsg_len);
@@ -2923,11 +2917,7 @@ int routing_control_plane_protocols_control_plane_protocol_pim_address_family_rp
 		pim = vrf->info;
 		plist = yang_dnode_get_string(args->dnode, NULL);
 		yang_dnode_get_pimaddr(&rp_addr, args->dnode, "../rp-address");
-		if (!pim_get_all_mcast_group(&group)) {
-			flog_err(EC_LIB_DEVELOPMENT,
-				 "Unable to convert 224.0.0.0/4 to prefix");
-			return NB_ERR_INCONSISTENCY;
-		}
+		pim_get_all_mcast_group(&group);
 		return pim_rp_cmd_worker(pim, rp_addr, group, plist,
 					 args->errmsg, args->errmsg_len);
 	}
@@ -2954,11 +2944,7 @@ int routing_control_plane_protocols_control_plane_protocol_pim_address_family_rp
 		pim = vrf->info;
 		yang_dnode_get_pimaddr(&rp_addr, args->dnode, "../rp-address");
 		plist = yang_dnode_get_string(args->dnode, NULL);
-		if (!pim_get_all_mcast_group(&group)) {
-			flog_err(EC_LIB_DEVELOPMENT,
-				 "Unable to convert 224.0.0.0/4 to prefix");
-			return NB_ERR_INCONSISTENCY;
-		}
+		pim_get_all_mcast_group(&group);
 		return pim_no_rp_cmd_worker(pim, rp_addr, group, plist,
 					    args->errmsg, args->errmsg_len);
 		break;

@@ -213,16 +213,21 @@ bool pim_is_group_filtered(struct pim_interface *pim_ifp, pim_addr *grp, pim_add
 
 
 /* This function returns all multicast group */
-int pim_get_all_mcast_group(struct prefix *prefix)
+void pim_get_all_mcast_group(struct prefix *prefix)
 {
+	memset(prefix, 0, sizeof(*prefix));
+
 #if PIM_IPV == 4
-	if (!str2prefix("224.0.0.0/4", prefix))
-		return 0;
+	/* Precomputed version of: `str2prefix("224.0.0.0/4", prefix);` */
+	prefix->family = AF_INET;
+	prefix->prefixlen = 4;
+	prefix->u.prefix4.s_addr = htonl(0xe0000000);
 #else
-	if (!str2prefix("FF00::0/8", prefix))
-		return 0;
+	/* Precomputed version of: `str2prefix("FF00::0/8", prefix)` */
+	prefix->family = AF_INET6;
+	prefix->prefixlen = 8;
+	prefix->u.prefix6.s6_addr[0] = 0xff;
 #endif
-	return 1;
 }
 
 bool pim_addr_is_multicast(pim_addr addr)

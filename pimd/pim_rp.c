@@ -97,14 +97,7 @@ void pim_rp_init(struct pim_instance *pim)
 
 	rp_info = XCALLOC(MTYPE_PIM_RP, sizeof(*rp_info));
 
-	if (!pim_get_all_mcast_group(&rp_info->group)) {
-		flog_err(EC_LIB_DEVELOPMENT,
-			 "Unable to convert all-multicast prefix");
-		list_delete(&pim->rp_list);
-		route_table_finish(pim->rp_table);
-		XFREE(MTYPE_PIM_RP, rp_info);
-		return;
-	}
+	pim_get_all_mcast_group(&rp_info->group);
 	rp_info->rp.rpf_addr = PIMADDR_ANY;
 
 	listnode_add(pim->rp_list, rp_info);
@@ -524,11 +517,7 @@ int pim_rp_new(struct pim_instance *pim, pim_addr rp_addr, struct prefix group,
 
 		rp_info->plist = XSTRDUP(MTYPE_PIM_FILTER_NAME, plist);
 	} else {
-
-		if (!pim_get_all_mcast_group(&group_all)) {
-			XFREE(MTYPE_PIM_RP, rp_info);
-			return PIM_GROUP_BAD_ADDRESS;
-		}
+		pim_get_all_mcast_group(&group_all);
 		rp_all = pim_rp_find_match_group(pim, &group_all);
 
 		/*
@@ -708,9 +697,10 @@ void pim_rp_del_config(struct pim_instance *pim, pim_addr rp_addr,
 	struct prefix group;
 	int result;
 
-	if (group_range == NULL)
-		result = pim_get_all_mcast_group(&group);
-	else
+	if (group_range == NULL) {
+		result = 0;
+		pim_get_all_mcast_group(&group);
+	} else
 		result = str2prefix(group_range, &group);
 
 	if (!result) {
@@ -789,9 +779,7 @@ int pim_rp_del(struct pim_instance *pim, pim_addr rp_addr, struct prefix group,
 			   &nht_p);
 	pim_delete_tracked_nexthop(pim, nht_p, NULL, rp_info);
 
-	if (!pim_get_all_mcast_group(&g_all))
-		return PIM_RP_BAD_ADDRESS;
-
+	pim_get_all_mcast_group(&g_all);
 	rp_all = pim_rp_find_match_group(pim, &g_all);
 
 	if (rp_all == rp_info) {
