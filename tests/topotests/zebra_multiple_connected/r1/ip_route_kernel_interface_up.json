@@ -1,0 +1,21 @@
+{
+  "5.5.6.7/32":[
+    {
+      "prefix":"5.5.6.7/32",
+      "prefixLen":32,
+      "protocol":"kernel",
+      "vrfName":"default",
+      "internalFlags":8,
+      "internalNextHopNum":1,
+      "internalNextHopActiveNum":1,
+      "nexthops":[
+        {
+          "flags":3,
+          "fib":true,
+          "interfaceName":"r1-eth2",
+          "active":true
+        }
+      ]
+    }
+  ]
+}
