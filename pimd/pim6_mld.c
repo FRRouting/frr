@@ -449,7 +449,7 @@ static void gm_sg_update(struct gm_sg *sg, bool has_expired)
 		 * this data structure.
 		 */
 		if (sg->oil)
-			pim_channel_oil_del(sg->oil, __func__);
+			sg->oil = pim_channel_oil_del(sg->oil, __func__);
 
 		/* multiple paths can lead to the last state going away;
 		 * t_sg_expire can still be running if we're arriving from
