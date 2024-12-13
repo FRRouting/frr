@@ -1,0 +1,11 @@
+{
+  "rtcPrefixList": {
+    "prefixListCounter": 1,
+    "prefixListName": "10.0.1.40",
+    "RT:65000:200/96": {
+      "originAS": [
+        "65000"
+      ]
+    }
+  }
+}
