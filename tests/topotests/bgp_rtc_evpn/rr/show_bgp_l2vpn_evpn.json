@@ -1,0 +1,186 @@
+{
+  "bgpLocalRouterId": "10.0.1.100",
+  "localAS": 65000,
+  "10.0.1.10:2": {
+    "rd": "10.0.1.10:2",
+    "[2]:[0]:[48]:[xx:xx:xx:xx:xx:xx]": {
+      "paths": [
+        {
+          "valid": true,
+          "routeType": 2,
+          "ethTag": 0,
+          "macLen": 48,
+          "mac": "xx:xx:xx:xx:xx:xx",
+          "extendedCommunity": {
+            "string": "RT:65000:100 ET:8"
+          },
+          "nexthops": [
+            {
+              "ip": "10.0.1.10",
+              "hostname": "r1",
+              "used": true
+            }
+          ]
+        }
+      ]
+    },
+    "[3]:[0]:[32]:[10.0.1.10]": {
+      "paths": [
+        {
+          "valid": true,
+          "routeType": 3,
+          "ethTag": 0,
+          "ipLen": 32,
+          "ip": "10.0.1.10",
+          "extendedCommunity": {
+            "string": "RT:65000:100 ET:8"
+          },
+          "nexthops": [
+            {
+              "ip": "10.0.1.10",
+              "hostname": "r1",
+              "used": true
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "10.0.1.20:2": {
+    "rd": "10.0.1.20:2",
+    "[2]:[0]:[48]:[xx:xx:xx:xx:xx:xx]": {
+      "paths": [
+        {
+          "valid": true,
+          "routeType": 2,
+          "ethTag": 0,
+          "macLen": 48,
+          "mac": "xx:xx:xx:xx:xx:xx",
+          "extendedCommunity": {
+            "string": "RT:65000:100 ET:8"
+          },
+          "nexthops": [
+            {
+              "ip": "10.0.1.20",
+              "hostname": "r2",
+              "used": true
+            }
+          ]
+        }
+      ]
+    },
+    "[3]:[0]:[32]:[10.0.1.20]": {
+      "paths": [
+        {
+          "valid": true,
+          "routeType": 3,
+          "ethTag": 0,
+          "ipLen": 32,
+          "ip": "10.0.1.20",
+          "extendedCommunity": {
+            "string": "RT:65000:100 ET:8"
+          },
+          "nexthops": [
+            {
+              "ip": "10.0.1.20",
+              "hostname": "r2",
+              "used": true
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "10.0.1.30:2": {
+    "rd": "10.0.1.30:2",
+    "[2]:[0]:[48]:[xx:xx:xx:xx:xx:xx]": {
+      "paths": [
+        {
+          "valid": true,
+          "routeType": 2,
+          "ethTag": 0,
+          "macLen": 48,
+          "mac": "xx:xx:xx:xx:xx:xx",
+          "extendedCommunity": {
+            "string": "RT:65000:200 ET:8"
+          },
+          "nexthops": [
+            {
+              "ip": "10.0.1.30",
+              "hostname": "r3",
+              "used": true
+            }
+          ]
+        }
+      ]
+    },
+    "[3]:[0]:[32]:[10.0.1.30]": {
+      "paths": [
+        {
+          "valid": true,
+          "routeType": 3,
+          "ethTag": 0,
+          "ipLen": 32,
+          "ip": "10.0.1.30",
+          "extendedCommunity": {
+            "string": "RT:65000:200 ET:8"
+          },
+          "nexthops": [
+            {
+              "ip": "10.0.1.30",
+              "hostname": "r3",
+              "used": true
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "10.0.1.40:2": {
+    "rd": "10.0.1.40:2",
+    "[2]:[0]:[48]:[xx:xx:xx:xx:xx:xx]": {
+      "paths": [
+        {
+          "valid": true,
+          "routeType": 2,
+          "ethTag": 0,
+          "macLen": 48,
+          "mac": "xx:xx:xx:xx:xx:xx",
+          "extendedCommunity": {
+            "string": "RT:65000:200 ET:8"
+          },
+          "nexthops": [
+            {
+              "ip": "10.0.1.40",
+              "hostname": "r4",
+              "used": true
+            }
+          ]
+        }
+      ]
+    },
+    "[3]:[0]:[32]:[10.0.1.40]": {
+      "paths": [
+        {
+          "valid": true,
+          "routeType": 3,
+          "ethTag": 0,
+          "ipLen": 32,
+          "ip": "10.0.1.40",
+          "extendedCommunity": {
+            "string": "RT:65000:200 ET:8"
+          },
+          "nexthops": [
+            {
+              "ip": "10.0.1.40",
+              "hostname": "r4",
+              "used": true
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "numPrefix": 8,
+  "totalPrefix": 8
+}
