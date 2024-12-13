@@ -1,0 +1,25 @@
+{
+  "vrfName": "default",
+  "routerId": "10.0.1.30",
+  "localAS": 65000,
+  "routes": {
+    "65000:RT:65000:100/96": [
+      {
+        "valid": true,
+        "bestpath": true,
+        "peerId": "10.0.1.100",
+        "path": ""
+      }
+    ],
+    "65000:RT:65000:200/96": [
+      {
+        "valid": true,
+        "bestpath": true,
+        "peerId": "(unspec)",
+        "path": ""
+      }
+    ]
+  },
+  "totalRoutes": 2,
+  "totalPaths": 2
+}
