@@ -1,0 +1,48 @@
+{
+  "default": {
+    "ipv4Rtc": {
+      "routerId": "10.0.1.100",
+      "peers": {
+        "10.0.1.10": {
+          "hostname": "r1",
+          "state": "Established"
+        },
+        "10.0.1.20": {
+          "hostname": "r2",
+          "state": "Established"
+        },
+        "10.0.1.30": {
+          "hostname": "r3",
+          "state": "Established"
+        },
+        "10.0.1.40": {
+          "hostname": "r4",
+          "state": "Established"
+        }
+      },
+      "totalPeers": 4
+    },
+    "l2VpnEvpn": {
+      "routerId": "10.0.1.100",
+      "peers": {
+        "10.0.1.10": {
+          "hostname": "r1",
+          "state": "Established"
+        },
+        "10.0.1.20": {
+          "hostname": "r2",
+          "state": "Established"
+        },
+        "10.0.1.30": {
+          "hostname": "r3",
+          "state": "Established"
+        },
+        "10.0.1.40": {
+          "hostname": "r4",
+          "state": "Established"
+        }
+      },
+      "totalPeers": 4
+    }
+  }
+}
