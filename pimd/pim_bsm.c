@@ -480,9 +480,7 @@ static void pim_instate_pend_list(struct bsgrp_node *bsgrp_node)
 
 	pend = bsm_rpinfos_first(bsgrp_node->partial_bsrp_list);
 
-	if (!pim_get_all_mcast_group(&group_all))
-		return;
-
+	pim_get_all_mcast_group(&group_all);
 	rp_all = pim_rp_find_match_group(pim, &group_all);
 	rn = route_node_lookup(pim->rp_table, &bsgrp_node->group);
 
@@ -729,9 +727,7 @@ void pim_bsm_clear(struct pim_instance *pim)
 
 		pim_delete_tracked_nexthop(pim, nht_p, NULL, rp_info);
 
-		if (!pim_get_all_mcast_group(&g_all))
-			return;
-
+		pim_get_all_mcast_group(&g_all);
 		rp_all = pim_rp_find_match_group(pim, &g_all);
 
 		if (rp_all == rp_info) {
