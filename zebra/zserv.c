@@ -184,10 +184,9 @@ void zserv_log_message(const char *errmsg, struct stream *msg,
  */
 static void zserv_client_fail(struct zserv *client)
 {
-	flog_warn(
-		EC_ZEBRA_CLIENT_IO_ERROR,
-		"Client '%s' (session id %d) encountered an error and is shutting down.",
-		zebra_route_string(client->proto), client->session_id);
+	flog_warn(EC_ZEBRA_CLIENT_IO_ERROR,
+		  "Client %d '%s' (session id %d) encountered an error and is shutting down.",
+		  client->sock, zebra_route_string(client->proto), client->session_id);
 
 	atomic_store_explicit(&client->pthread->running, false,
 			      memory_order_relaxed);
@@ -468,8 +467,8 @@ static void zserv_read(struct event *thread)
 	}
 
 	if (IS_ZEBRA_DEBUG_PACKET)
-		zlog_debug("Read %d packets from client: %s. Current ibuf fifo count: %zu. Conf P2p %d",
-			   p2p_avail - p2p, zebra_route_string(client->proto),
+		zlog_debug("Read %d packets from client: %s(%d). Current ibuf fifo count: %zu. Conf P2p %d",
+			   p2p_avail - p2p, zebra_route_string(client->proto), client->sock,
 			   client_ibuf_fifo_cnt, p2p_orig);
 
 	/* Reschedule ourselves since we have space in ibuf_fifo */
