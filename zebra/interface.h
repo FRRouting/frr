@@ -134,6 +134,7 @@ struct zebra_if {
 
 	struct rtadvconf rtadv;
 	unsigned int ra_sent, ra_rcvd;
+	unsigned int rs_rcvd;
 
 #ifdef HAVE_STRUCT_SOCKADDR_DL
 	union {
