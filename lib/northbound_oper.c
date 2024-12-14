@@ -1834,6 +1834,20 @@ bool nb_oper_is_yang_lib_query(const char *xpath)
 	return strlen(xpath) > liblen;
 }
 
+void *nb_oper_walk_finish_arg(void *walk)
+{
+	struct nb_op_yield_state *ys = walk;
+
+	return ys->finish_arg;
+}
+
+void *nb_oper_walk_cb_arg(void *walk)
+{
+	struct nb_op_yield_state *ys = walk;
+
+	return ys->cb_arg;
+}
+
 void *nb_oper_walk(const char *xpath, struct yang_translator *translator,
 		   uint32_t flags, bool should_batch, nb_oper_data_cb cb,
 		   void *cb_arg, nb_oper_data_finish_cb finish, void *finish_arg)

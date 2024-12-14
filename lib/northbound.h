@@ -1512,6 +1512,15 @@ extern void nb_oper_cancel_walk(void *walk);
  */
 extern void nb_oper_cancel_all_walks(void);
 
+/**
+ * nb_oper_walk_finish_arg() - return the finish arg for this walk
+ */
+extern void *nb_oper_walk_finish_arg(void *walk);
+/**
+ * nb_oper_walk_cb_arg() - return the callback arg for this walk
+ */
+extern void *nb_oper_walk_cb_arg(void *walk);
+
 /*
  * Validate if the northbound callback operation is valid for the given node.
  *
@@ -1805,6 +1814,9 @@ extern struct lyd_node *nb_op_updatef(struct lyd_node *tree, const char *path, c
 
 extern struct lyd_node *nb_op_vupdatef(struct lyd_node *tree, const char *path, const char *val_fmt,
 				       va_list ap);
+
+extern void nb_notif_init(struct event_loop *loop);
+extern void nb_notif_terminate(void);
 
 #ifdef __cplusplus
 }
