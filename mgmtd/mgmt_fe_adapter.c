@@ -190,7 +190,7 @@ static void mgmt_fe_cleanup_session(struct mgmt_fe_session_ctx **sessionp)
 		assert(session->adapter->refcount > 1);
 		mgmt_fe_adapter_unlock(&session->adapter);
 	}
-
+	darr_free_free(session->notify_xpaths);
 	hash_release(mgmt_fe_sessions, session);
 	XFREE(MTYPE_MGMTD_FE_SESSION, session);
 	*sessionp = NULL;
