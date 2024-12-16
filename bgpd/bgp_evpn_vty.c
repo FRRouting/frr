@@ -1863,9 +1863,6 @@ DEFUN(show_ip_bgp_l2vpn_evpn_rd_neighbor_advertised_routes,
 	if (uj)
 		argc--;
 
-	if (uj)
-		argc--;
-
 	bgp_vty_find_and_parse_afi_safi_bgp(vty, argv, argc, &idx, &afi, &safi,
 					    &bgp, uj);
 	if (!idx) {
