@@ -1240,6 +1240,19 @@ static void bmp_monitor(struct bmp *bmp, struct peer *peer, uint8_t flags,
 	stream_free(msg);
 }
 
+static void bmp_eor_afi_safi(struct bmp *bmp, afi_t afi, safi_t safi, uint8_t peer_type_flag)
+{
+	zlog_info("bmp[%s] %s %s table completed (EoR)", bmp->remote, afi2str(afi), safi2str(safi));
+
+	bmp_eor(bmp, afi, safi, BMP_PEER_FLAG_L, peer_type_flag);
+	bmp_eor(bmp, afi, safi, 0, peer_type_flag);
+	bmp_eor(bmp, afi, safi, 0, BMP_PEER_TYPE_LOC_RIB_INSTANCE);
+
+	bmp->afistate[afi][safi] = BMP_AFI_LIVE;
+	bmp->syncafi = AFI_MAX;
+	bmp->syncsafi = SAFI_MAX;
+}
+
 static bool bmp_wrsync(struct bmp *bmp, struct pullwr *pullwr)
 {
 	uint8_t bpi_num_labels, adjin_num_labels;
@@ -1340,19 +1353,9 @@ afibreak:
 							return true;
 				}
 			eor:
-				zlog_info("bmp[%s] %s %s table completed (EoR)",
-						bmp->remote, afi2str(afi),
-						safi2str(safi));
-
-				bmp_eor(bmp, afi, safi, BMP_PEER_FLAG_L, peer_type_flag);
-				bmp_eor(bmp, afi, safi, 0, peer_type_flag);
-				bmp_eor(bmp, afi, safi, 0,
-					BMP_PEER_TYPE_LOC_RIB_INSTANCE);
-
-				bmp->afistate[afi][safi] = BMP_AFI_LIVE;
-				bmp->syncafi = AFI_MAX;
-				bmp->syncsafi = SAFI_MAX;
-				return true;
+							bmp_eor_afi_safi(bmp, afi, safi,
+									 peer_type_flag);
+							return true;
 			}
 			bmp->syncpeerid = 0;
 			prefix_copy(&bmp->syncpos, bgp_dest_get_prefix(bn));
