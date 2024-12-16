@@ -17,11 +17,12 @@
 #include "pim_rpf.h"
 
 /* PIM nexthop cache value structure. */
-struct pim_nexthop_cache {
-	struct pim_rpf rpf;
+struct pim_nexthop_cache_rib {
 	/* IGP route's metric. */
 	uint32_t metric;
 	uint32_t distance;
+	uint16_t prefix_len;
+
 	/* Nexthop number and nexthop linked list. */
 	uint16_t nexthop_num;
 	struct nexthop *nexthop;
@@ -29,6 +30,13 @@ struct pim_nexthop_cache {
 	uint16_t flags;
 #define PIM_NEXTHOP_VALID             (1 << 0)
 #define PIM_NEXTHOP_ANSWER_RECEIVED   (1 << 1)
+};
+
+struct pim_nexthop_cache {
+	pim_addr addr;
+
+	struct pim_nexthop_cache_rib mrib;
+	struct pim_nexthop_cache_rib urib;
 
 	struct list *rp_list;
 	struct hash *upstream_hash;
@@ -46,36 +54,74 @@ struct pnc_hash_walk_data {
 	struct interface *ifp;
 };
 
-void pim_nexthop_update(struct vrf *vrf, struct prefix *match,
-			struct zapi_route *nhr);
-int pim_find_or_track_nexthop(struct pim_instance *pim, pim_addr addr,
-			      struct pim_upstream *up, struct rp_info *rp,
-			      struct pim_nexthop_cache *out_pnc);
-void pim_delete_tracked_nexthop(struct pim_instance *pim, pim_addr addr,
-				struct pim_upstream *up, struct rp_info *rp);
-struct pim_nexthop_cache *pim_nexthop_cache_find(struct pim_instance *pim,
-						 struct pim_rpf *rpf);
-uint32_t pim_compute_ecmp_hash(struct prefix *src, struct prefix *grp);
-int pim_ecmp_nexthop_lookup(struct pim_instance *pim,
-			    struct pim_nexthop *nexthop, pim_addr src,
-			    struct prefix *grp, int neighbor_needed);
-void pim_sendmsg_zebra_rnh(struct pim_instance *pim, struct zclient *zclient,
-			   struct pim_nexthop_cache *pnc, int command);
-int pim_ecmp_fib_lookup_if_vif_index(struct pim_instance *pim, pim_addr src,
-				     struct prefix *grp);
-void pim_rp_nexthop_del(struct rp_info *rp_info);
+/* Verify that we have nexthop information in the cache entry */
+bool pim_nht_pnc_is_valid(struct pim_instance *pim, struct pim_nexthop_cache *pnc);
 
-/* for RPF check on BSM message receipt */
+/* Get (or add) the NH cache entry for the given address */
+struct pim_nexthop_cache *pim_nht_get(struct pim_instance *pim, pim_addr addr);
+
+/* Set the gateway address for all nexthops in the given cache entry to the given address
+ * unless the gateway is already set, and only if the nexthop is through the given interface.
+ */
+void pim_nht_set_gateway(struct pim_instance *pim, struct pim_nexthop_cache *pnc, pim_addr addr,
+			 struct interface *ifp);
+
+/* Track a new addr, registers an upstream or RP for updates */
+bool pim_nht_find_or_track(struct pim_instance *pim, pim_addr addr, struct pim_upstream *up,
+			   struct rp_info *rp, struct pim_nexthop_cache *out_pnc);
+
+/* Track a new addr, increments BSR count */
 void pim_nht_bsr_add(struct pim_instance *pim, pim_addr bsr_addr);
-void pim_nht_bsr_del(struct pim_instance *pim, pim_addr bsr_addr);
-/* RPF(bsr_addr) == src_ip%src_ifp? */
-bool pim_nht_bsr_rpf_check(struct pim_instance *pim, pim_addr bsr_addr,
-			   struct interface *src_ifp, pim_addr src_ip);
-void pim_upstream_nh_if_update(struct pim_instance *pim, struct interface *ifp);
 
-/* wrappers for usage with Candidate RPs in BSMs */
+/* Track a new addr, increments Cand RP count */
 bool pim_nht_candrp_add(struct pim_instance *pim, pim_addr addr);
+
+/* Delete a tracked addr with registered upstream or RP, if no-one else is interested, stop tracking */
+void pim_nht_delete_tracked(struct pim_instance *pim, pim_addr addr, struct pim_upstream *up,
+			    struct rp_info *rp);
+
+/* Delete a tracked addr and decrement BSR count, if no-one else is interested, stop tracking */
+void pim_nht_bsr_del(struct pim_instance *pim, pim_addr bsr_addr);
+
+/* Delete a tracked addr and decrement Cand RP count, if no-one else is interested, stop tracking */
 void pim_nht_candrp_del(struct pim_instance *pim, pim_addr addr);
-void pim_crp_nht_update(struct pim_instance *pim, struct pim_nexthop_cache *pnc);
+
+/* RPF(bsr_addr) == src_ip%src_ifp? */
+bool pim_nht_bsr_rpf_check(struct pim_instance *pim, pim_addr bsr_addr, struct interface *src_ifp,
+			   pim_addr src_ip);
+
+/* Reset the rp.source_nexthop of the given RP */
+void pim_nht_rp_del(struct rp_info *rp_info);
+
+/* Walk the NH cache and update every nexthop that uses the given interface */
+void pim_nht_upstream_if_update(struct pim_instance *pim, struct interface *ifp);
+
+/* Lookup nexthop information for src, returned in nexthop when function returns true.
+ * Tries to find in cache first and does a synchronous lookup if not found in the cache.
+ * If neighbor_needed is true, then nexthop is only considered valid if it's to a pim
+ * neighbor.
+ * Providing the group only effects the ECMP decision, if enabled
+ */
+bool pim_nht_lookup_ecmp(struct pim_instance *pim, struct pim_nexthop *nexthop, pim_addr src,
+			 struct prefix *grp, bool neighbor_needed);
+
+/* Very similar to pim_nht_lookup_ecmp, but does not check the nht cache and only does
+ * a synchronous lookup. No ECMP decision is made.
+ */
+bool pim_nht_lookup(struct pim_instance *pim, struct pim_nexthop *nexthop, pim_addr addr,
+		    int neighbor_needed);
+
+/* Performs a pim_nht_lookup_ecmp and returns the mroute VIF index of the nexthop interface */
+int pim_nht_lookup_ecmp_if_vif_index(struct pim_instance *pim, pim_addr src, struct prefix *grp);
+
+/* Tracked nexthop update from zebra */
+void pim_nexthop_update(struct vrf *vrf, struct prefix *match, struct zapi_route *nhr);
+
+/* RPF lookup mode changed via configuration */
+void pim_nht_mode_changed(struct pim_instance *pim);
+
+/* NHT init and finish funcitons */
+void pim_nht_init(struct pim_instance *pim);
+void pim_nht_terminate(struct pim_instance *pim);
 
 #endif

@@ -2914,7 +2914,7 @@ DEFPY (show_ip_pim_nexthop,
 
 DEFPY (show_ip_pim_nexthop_lookup,
        show_ip_pim_nexthop_lookup_cmd,
-       "show ip pim [vrf NAME] nexthop-lookup A.B.C.D$source A.B.C.D$group",
+       "show ip pim [vrf NAME] nexthop-lookup A.B.C.D$source [A.B.C.D$group]",
        SHOW_STR
        IP_STR
        PIM_STR
@@ -2925,6 +2925,14 @@ DEFPY (show_ip_pim_nexthop_lookup,
 {
 	return pim_show_nexthop_lookup_cmd_helper(vrf, vty, source, group);
 }
+
+ALIAS_DEPRECATED (show_ip_pim_nexthop_lookup,
+                  show_ip_rpf_source_cmd,
+                  "show ip rpf A.B.C.D$source",
+                  SHOW_STR
+                  IP_STR
+                  "Display RPF information for multicast source\n"
+                  "Nexthop lookup for specific source address\n");
 
 DEFPY (show_ip_pim_interface_traffic,
        show_ip_pim_interface_traffic_cmd,
@@ -3288,7 +3296,7 @@ DEFUN (show_ip_rib,
 		return CMD_WARNING;
 	}
 
-	if (!pim_nexthop_lookup(vrf->info, &nexthop, addr, 0)) {
+	if (!pim_nht_lookup(vrf->info, &nexthop, addr, 0)) {
 		vty_out(vty,
 			"Failure querying RIB nexthop for unicast address %s\n",
 			addr_str);
@@ -8869,6 +8877,24 @@ done:
 	return ret;
 }
 
+DEFPY_YANG(pim_rpf_lookup_mode, pim_rpf_lookup_mode_cmd,
+           "[no] rpf-lookup-mode ![urib-only|mrib-only|mrib-then-urib|lower-distance|longer-prefix]$mode",
+           NO_STR
+           "RPF lookup behavior\n"
+           "Lookup in unicast RIB only\n"
+           "Lookup in multicast RIB only\n"
+           "Try multicast RIB first, fall back to unicast RIB\n"
+           "Lookup both, use entry with lower distance\n"
+           "Lookup both, use entry with longer prefix\n")
+{
+	if (no)
+		nb_cli_enqueue_change(vty, "./mcast-rpf-lookup", NB_OP_DESTROY, NULL);
+	else
+		nb_cli_enqueue_change(vty, "./mcast-rpf-lookup", NB_OP_MODIFY, mode);
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
 struct cmd_node pim_node = {
 	.name = "pim",
 	.node = PIM_NODE,
@@ -9036,6 +9062,8 @@ void pim_cmd_init(void)
 	install_element(PIM_NODE, &pim_bsr_candidate_rp_group_cmd);
 	install_element(PIM_NODE, &pim_bsr_candidate_bsr_cmd);
 
+	install_element(PIM_NODE, &pim_rpf_lookup_mode_cmd);
+
 	install_element(INTERFACE_NODE, &interface_ip_igmp_cmd);
 	install_element(INTERFACE_NODE, &interface_no_ip_igmp_cmd);
 	install_element(INTERFACE_NODE, &interface_ip_igmp_join_cmd);
@@ -9159,6 +9187,7 @@ void pim_cmd_init(void)
 	install_element(VIEW_NODE, &show_ip_ssmpingd_cmd);
 	install_element(VIEW_NODE, &show_ip_pim_nexthop_cmd);
 	install_element(VIEW_NODE, &show_ip_pim_nexthop_lookup_cmd);
+	install_element(VIEW_NODE, &show_ip_rpf_source_cmd);
 	install_element(VIEW_NODE, &show_ip_pim_bsrp_cmd);
 	install_element(VIEW_NODE, &show_ip_pim_bsm_db_cmd);
 	install_element(VIEW_NODE, &show_ip_pim_bsr_rpinfo_cmd);

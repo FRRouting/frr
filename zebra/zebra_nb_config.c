@@ -31,23 +31,6 @@
 #include "zebra/table_manager.h"
 
 /*
- * XPath: /frr-zebra:zebra/mcast-rpf-lookup
- */
-int zebra_mcast_rpf_lookup_modify(struct nb_cb_modify_args *args)
-{
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
-	}
-
-	return NB_OK;
-}
-
-/*
  * XPath: /frr-zebra:zebra/ip-forwarding
  */
 int zebra_ip_forwarding_modify(struct nb_cb_modify_args *args)

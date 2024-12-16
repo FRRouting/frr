@@ -2825,31 +2825,39 @@ static int pim_print_vty_pnc_cache_walkcb(struct hash_bucket *bucket, void *arg)
 	struct vty *vty = cwd->vty;
 	struct pim_instance *pim = cwd->pim;
 	struct nexthop *nh_node = NULL;
-	ifindex_t first_ifindex;
 	struct interface *ifp = NULL;
 	struct ttable *tt = NULL;
 	char *table = NULL;
 
 	/* Prepare table. */
 	tt = ttable_new(&ttable_styles[TTSTYLE_BLANK]);
-	ttable_add_row(tt, "Address|Interface|Nexthop");
+	ttable_add_row(tt, "Address|Interface|Nexthop|Table");
 	tt->style.cell.rpad = 2;
 	tt->style.corner = '+';
 	ttable_restyle(tt);
 
-	for (nh_node = pnc->nexthop; nh_node; nh_node = nh_node->next) {
-		first_ifindex = nh_node->ifindex;
-
-		ifp = if_lookup_by_index(first_ifindex, pim->vrf->vrf_id);
-
+	for (nh_node = pnc->mrib.nexthop; nh_node; nh_node = nh_node->next) {
+		ifp = if_lookup_by_index(nh_node->ifindex, pim->vrf->vrf_id);
 #if PIM_IPV == 4
-		ttable_add_row(tt, "%pPA|%s|%pI4", &pnc->rpf.rpf_addr,
-			       ifp ? ifp->name : "NULL", &nh_node->gate.ipv4);
+		ttable_add_row(tt, "%pPA|%s|%pI4|%s", &pnc->addr, ifp ? ifp->name : "NULL",
+			       &nh_node->gate.ipv4, "MRIB");
 #else
-		ttable_add_row(tt, "%pPA|%s|%pI6", &pnc->rpf.rpf_addr,
-			       ifp ? ifp->name : "NULL", &nh_node->gate.ipv6);
+		ttable_add_row(tt, "%pPA|%s|%pI6|%s", &pnc->addr, ifp ? ifp->name : "NULL",
+			       &nh_node->gate.ipv6, "MRIB");
 #endif
 	}
+
+	for (nh_node = pnc->urib.nexthop; nh_node; nh_node = nh_node->next) {
+		ifp = if_lookup_by_index(nh_node->ifindex, pim->vrf->vrf_id);
+#if PIM_IPV == 4
+		ttable_add_row(tt, "%pPA|%s|%pI4|%s", &pnc->addr, ifp ? ifp->name : "NULL",
+			       &nh_node->gate.ipv4, "URIB");
+#else
+		ttable_add_row(tt, "%pPA|%s|%pI6|%s", &pnc->addr, ifp ? ifp->name : "NULL",
+			       &nh_node->gate.ipv6, "URIB");
+#endif
+	}
+
 	/* Dump the generated table. */
 	table = ttable_dump(tt, "\n");
 	vty_out(vty, "%s\n", table);
@@ -2859,56 +2867,58 @@ static int pim_print_vty_pnc_cache_walkcb(struct hash_bucket *bucket, void *arg)
 	return CMD_SUCCESS;
 }
 
-static int pim_print_json_pnc_cache_walkcb(struct hash_bucket *backet,
-					   void *arg)
+static void pim_print_json_nexthop(json_object *json_obj, struct nexthop *nh_node,
+				   struct interface *ifp, char *addr_str, const char *type)
 {
-	struct pim_nexthop_cache *pnc = backet->data;
-	struct json_pnc_cache_walk_data *cwd = arg;
-	struct pim_instance *pim = cwd->pim;
-	struct nexthop *nh_node = NULL;
-	ifindex_t first_ifindex;
-	struct interface *ifp = NULL;
-	char addr_str[PIM_ADDRSTRLEN];
 	json_object *json_row = NULL;
 	json_object *json_ifp = NULL;
 	json_object *json_arr = NULL;
 	struct pim_interface *pim_ifp = NULL;
-	bool pim_enable = false;
 
-	for (nh_node = pnc->nexthop; nh_node; nh_node = nh_node->next) {
-		first_ifindex = nh_node->ifindex;
-		ifp = if_lookup_by_index(first_ifindex, pim->vrf->vrf_id);
-		snprintfrr(addr_str, sizeof(addr_str), "%pPA",
-			   &pnc->rpf.rpf_addr);
-		json_object_object_get_ex(cwd->json_obj, addr_str, &json_row);
-		if (!json_row) {
-			json_row = json_object_new_object();
-			json_object_string_addf(json_row, "address", "%pPA",
-						&pnc->rpf.rpf_addr);
-			json_object_object_addf(cwd->json_obj, json_row, "%pPA",
-						&pnc->rpf.rpf_addr);
-			json_arr = json_object_new_array();
-			json_object_object_add(json_row, "nexthops", json_arr);
-		}
-		json_ifp = json_object_new_object();
-		json_object_string_add(json_ifp, "interface",
-				       ifp ? ifp->name : "NULL");
+	if (ifp)
+		pim_ifp = ifp->info;
 
-		if (ifp)
-			pim_ifp = ifp->info;
+	json_object_object_get_ex(json_obj, addr_str, &json_row);
 
-		if (pim_ifp && pim_ifp->pim_enable)
-			pim_enable = true;
+	if (!json_row) {
+		json_row = json_object_new_object();
+		json_object_string_addf(json_row, "address", "%s", addr_str);
+		json_object_object_addf(json_obj, json_row, "%s", addr_str);
+		json_arr = json_object_new_array();
+		json_object_object_add(json_row, "nexthops", json_arr);
+	}
 
-		json_object_boolean_add(json_ifp, "pimEnabled", pim_enable);
+	json_ifp = json_object_new_object();
+	json_object_string_add(json_ifp, "interface", ifp ? ifp->name : "NULL");
+	json_object_boolean_add(json_ifp, "pimEnabled", (pim_ifp && pim_ifp->pim_enable));
 #if PIM_IPV == 4
-		json_object_string_addf(json_ifp, "nexthop", "%pI4",
-					&nh_node->gate.ipv4);
+	json_object_string_addf(json_ifp, "nexthop", "%pI4", &nh_node->gate.ipv4);
 #else
-		json_object_string_addf(json_ifp, "nexthop", "%pI6",
-					&nh_node->gate.ipv6);
+	json_object_string_addf(json_ifp, "nexthop", "%pI6", &nh_node->gate.ipv6);
 #endif
-		json_object_array_add(json_arr, json_ifp);
+	json_object_string_add(json_ifp, "table", type);
+	json_object_array_add(json_arr, json_ifp);
+}
+
+static int pim_print_json_pnc_cache_walkcb(struct hash_bucket *backet, void *arg)
+{
+	struct pim_nexthop_cache *pnc = backet->data;
+	struct json_pnc_cache_walk_data *cwd = arg;
+	json_object *json_obj = cwd->json_obj;
+	struct pim_instance *pim = cwd->pim;
+	char addr_str[PIM_ADDRSTRLEN];
+	struct nexthop *nh_node = NULL;
+	struct interface *ifp = NULL;
+
+	snprintfrr(addr_str, sizeof(addr_str), "%pPA", &pnc->addr);
+	for (nh_node = pnc->mrib.nexthop; nh_node; nh_node = nh_node->next) {
+		ifp = if_lookup_by_index(nh_node->ifindex, pim->vrf->vrf_id);
+		pim_print_json_nexthop(json_obj, nh_node, ifp, addr_str, "MRIB");
+	}
+
+	for (nh_node = pnc->urib.nexthop; nh_node; nh_node = nh_node->next) {
+		ifp = if_lookup_by_index(nh_node->ifindex, pim->vrf->vrf_id);
+		pim_print_json_nexthop(json_obj, nh_node, ifp, addr_str, "URIB");
 	}
 	return CMD_SUCCESS;
 }
@@ -2916,7 +2926,6 @@ static int pim_print_json_pnc_cache_walkcb(struct hash_bucket *backet,
 int pim_show_nexthop_lookup_cmd_helper(const char *vrf, struct vty *vty,
 				       pim_addr source, pim_addr group)
 {
-	int result = 0;
 	pim_addr vif_source;
 	struct prefix grp;
 	struct pim_nexthop nexthop;
@@ -2929,34 +2938,36 @@ int pim_show_nexthop_lookup_cmd_helper(const char *vrf, struct vty *vty,
 
 #if PIM_IPV == 4
 	if (pim_is_group_224_4(source)) {
-		vty_out(vty,
-			"Invalid argument. Expected Valid Source Address.\n");
+		vty_out(vty, "Invalid argument. Expected Valid Source Address.\n");
 		return CMD_WARNING;
 	}
-
-	if (!pim_is_group_224_4(group)) {
-		vty_out(vty,
-			"Invalid argument. Expected Valid Multicast Group Address.\n");
+	/* Only require group if source is not provided */
+	if (pim_addr_is_any(source) && !pim_is_group_224_4(group)) {
+		vty_out(vty, "Invalid argument. Expected Valid Multicast Group Address.\n");
 		return CMD_WARNING;
 	}
 #endif
 
-	if (!pim_rp_set_upstream_addr(v->info, &vif_source, source, group))
+	/* This call will set vif_source=source, if source is not ANY. Otherwise vif_source
+	 * will be set to the RP address according to the group address. If no RP is configured
+	 * for the group, then return 0 and set vif_source to ANY
+	 */
+	if (!pim_rp_set_upstream_addr(v->info, &vif_source, source, group)) {
+		vty_out(vty, "(%pPAs, %pPA) --- Nexthop Lookup failed, no RP.\n", &source, &group);
 		return CMD_SUCCESS;
+	}
+
 
 	pim_addr_to_prefix(&grp, group);
 	memset(&nexthop, 0, sizeof(nexthop));
 
-	result =
-		pim_ecmp_nexthop_lookup(v->info, &nexthop, vif_source, &grp, 0);
-
-	if (!result) {
-		vty_out(vty,
-			"Nexthop Lookup failed, no usable routes returned.\n");
+	if (!pim_nht_lookup_ecmp(v->info, &nexthop, vif_source, &grp, false)) {
+		vty_out(vty, "(%pPAs, %pPA) --- Nexthop Lookup failed, no usable routes returned.\n",
+			&source, &group);
 		return CMD_SUCCESS;
 	}
 
-	vty_out(vty, "Group %pFXh --- Nexthop %pPAs Interface %s\n", &grp,
+	vty_out(vty, "(%pPAs, %pPAs) --- Nexthop %pPAs Interface %s\n", &source, &group,
 		&nexthop.mrib_nexthop_addr, nexthop.interface->name);
 
 	return CMD_SUCCESS;
@@ -2985,19 +2996,16 @@ void pim_show_nexthop(struct pim_instance *pim, struct vty *vty, bool uj)
 	cwd.pim = pim;
 	jcwd.pim = pim;
 
-	if (uj) {
+	if (uj)
 		jcwd.json_obj = json_object_new_object();
-	} else {
-		vty_out(vty, "Number of registered addresses: %lu\n",
-			pim->rpf_hash->count);
-	}
+	else
+		vty_out(vty, "Number of registered addresses: %lu\n", pim->nht_hash->count);
 
 	if (uj) {
-		hash_walk(pim->rpf_hash, pim_print_json_pnc_cache_walkcb,
-			  &jcwd);
+		hash_walk(pim->nht_hash, pim_print_json_pnc_cache_walkcb, &jcwd);
 		vty_json(vty, jcwd.json_obj);
 	} else
-		hash_walk(pim->rpf_hash, pim_print_vty_pnc_cache_walkcb, &cwd);
+		hash_walk(pim->nht_hash, pim_print_vty_pnc_cache_walkcb, &cwd);
 }
 
 int pim_show_neighbors_cmd_helper(const char *vrf, struct vty *vty,

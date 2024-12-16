@@ -16,6 +16,7 @@
 #include "pim_oil.h"
 #include "pim_ifchannel.h"
 #include "pim_macro.h"
+#include "pim_nht.h"
 #include "pim_igmp_mtrace.h"
 
 static struct in_addr mtrace_primary_address(struct interface *ifp)
@@ -58,14 +59,14 @@ static bool mtrace_fwd_info_weak(struct pim_instance *pim,
 
 	memset(&nexthop, 0, sizeof(nexthop));
 
-	if (!pim_nexthop_lookup(pim, &nexthop, mtracep->src_addr, 1)) {
+	if (!pim_nht_lookup(pim, &nexthop, mtracep->src_addr, 1)) {
 		if (PIM_DEBUG_MTRACE)
 			zlog_debug("mtrace not found neighbor");
 		return false;
 	}
 
 	if (PIM_DEBUG_MTRACE)
-		zlog_debug("mtrace pim_nexthop_lookup OK");
+		zlog_debug("mtrace pim_nht_lookup OK");
 
 	if (PIM_DEBUG_MTRACE)
 		zlog_debug("mtrace next_hop=%pPAs", &nexthop.mrib_nexthop_addr);
@@ -353,7 +354,7 @@ static int mtrace_un_forward_packet(struct pim_instance *pim, struct ip *ip_hdr,
 
 	if (interface == NULL) {
 		memset(&nexthop, 0, sizeof(nexthop));
-		if (!pim_nexthop_lookup(pim, &nexthop, ip_hdr->ip_dst, 0)) {
+		if (!pim_nht_lookup(pim, &nexthop, ip_hdr->ip_dst, 0)) {
 			if (PIM_DEBUG_MTRACE)
 				zlog_debug(
 					"Dropping mtrace packet, no route to destination");
@@ -535,7 +536,7 @@ static int mtrace_send_response(struct pim_instance *pim,
 	} else {
 		memset(&nexthop, 0, sizeof(nexthop));
 		/* TODO: should use unicast rib lookup */
-		if (!pim_nexthop_lookup(pim, &nexthop, mtracep->rsp_addr, 1)) {
+		if (!pim_nht_lookup(pim, &nexthop, mtracep->rsp_addr, 1)) {
 			if (PIM_DEBUG_MTRACE)
 				zlog_debug(
 					"Dropped response qid=%ud, no route to response address",

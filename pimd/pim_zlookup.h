@@ -21,6 +21,7 @@ struct pim_zlookup_nexthop {
 	ifindex_t ifindex;
 	uint32_t route_metric;
 	uint8_t protocol_distance;
+	uint16_t prefix_len;
 };
 
 void zclient_lookup_new(void);

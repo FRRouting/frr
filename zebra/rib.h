@@ -402,11 +402,7 @@ extern void rib_delete(afi_t afi, safi_t safi, vrf_id_t vrf_id, int type,
 		       bool fromkernel);
 
 extern struct route_entry *rib_match(afi_t afi, safi_t safi, vrf_id_t vrf_id,
-				     const union g_addr *addr,
-				     struct route_node **rn_out);
-extern struct route_entry *rib_match_multicast(afi_t afi, vrf_id_t vrf_id,
-					       union g_addr *gaddr,
-					       struct route_node **rn_out);
+				     const union g_addr *addr, struct route_node **rn_out);
 
 extern void rib_update(enum rib_update_event event);
 extern void rib_update_table(struct route_table *table,

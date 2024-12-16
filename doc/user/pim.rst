@@ -217,32 +217,47 @@ PIM Routers
    never do SM over. This command is vrf aware, to configure for a vrf, specify
    the vrf in the router pim block.
 
+.. clicmd:: rpf-lookup-mode MODE
+
+   MODE sets the method used to perform RPF lookups. Supported modes:
+
+   urib-only
+      Performs the lookup on the Unicast RIB. The Multicast RIB is never used.
+
+   mrib-only
+      Performs the lookup on the Multicast RIB. The Unicast RIB is never used.
+
+   mrib-then-urib
+      Tries to perform the lookup on the Multicast RIB. If any route is found,
+      that route is used. Otherwise, the Unicast RIB is tried.
+
+   lower-distance
+      Performs a lookup on the Multicast RIB and Unicast RIB each. The result
+      with the lower administrative distance is used;  if they're equal, the
+      Multicast RIB takes precedence.
+
+   longer-prefix
+      Performs a lookup on the Multicast RIB and Unicast RIB each. The result
+      with the longer prefix length is used;  if they're equal, the
+      Multicast RIB takes precedence.
+
+      The ``mrib-then-urib`` setting is the default behavior if nothing is
+      configured. If this is the desired behavior, it should be explicitly
+      configured to make the configuration immune against possible changes in
+      what the default behavior is.
+
+.. warning::
+
+   Unreachable routes do not receive special treatment and do not cause
+   fallback to a second lookup.
+
+.. _pim-global-configuration:
+
 Global Multicast
-----------------
+================
 
 These commands are valid at the top-level of the configuration (or also per
 vrf where indicated), instead of under the 'router pim' submode.
-
-.. clicmd:: ip multicast rpf-lookup-mode WORD
-
-   Modify how PIM does RPF lookups in the zebra routing table.  You can use
-   these choices:
-
-   longer-prefix
-      Lookup the RPF in both tables using the longer prefix as a match
-
-   lower-distance
-      Lookup the RPF in both tables using the lower distance as a match
-
-   mrib-only
-      Lookup in the Multicast RIB only
-
-   mrib-then-urib
-      Lookup in the Multicast RIB then the Unicast Rib, returning first found.
-      This is the default value for lookup if this command is not entered
-
-   urib-only
-      Lookup in the Unicast Rib only.
 
 .. clicmd:: ip igmp generate-query-once [version (2-3)]
 
@@ -256,6 +271,70 @@ vrf where indicated), instead of under the 'router pim' submode.
    warning once the configured group limit is reached while adding new groups.
    'no' form of the command disables the warning generation. This command is
    vrf aware. To configure per vrf, enter vrf submode.
+
+
+.. _pim-multicast-rib:
+
+Multicast RIB Commands
+----------------------
+
+The Multicast RIB provides a separate table of unicast destinations which
+is used for Multicast Reverse Path Forwarding decisions. It is used with
+a multicast source's IP address, hence contains not multicast group
+addresses but unicast addresses.
+
+This table is fully separate from the default unicast table. However,
+RPF lookup can include the unicast table.
+
+.. clicmd:: ip mroute PREFIX NEXTHOP [DISTANCE]
+
+   Adds a static route entry to the Multicast RIB. This performs exactly as the
+   ``ip route`` command, except that it inserts the route in the Multicast RIB
+   instead of the Unicast RIB.
+   These routes are only used for RPF lookup and will not be used by zebra for
+   insertion into the kernel *or* for normal rib processing. As such it is
+   possible to create weird states with these commands. Use with caution. Most
+   of the time this will not be necessary.
+
+.. clicmd:: show [ip|ipv6] rpf
+
+   Prints the entire Multicast RIB. Note that this is independent of the
+   configured RPF lookup mode, the Multicast RIB may be printed yet not
+   used at all.
+
+.. clicmd:: show [ip|ipv6] rpf ADDR
+
+   Performs a Multicast RPF lookup using the Multicast RIB only.
+   ADDR specifies the multicast source address to look up. Note that this is
+   independent of the configured RPF lookup mode.
+
+   ::
+
+      > show ip rpf 192.0.2.1
+      Routing entry for 192.0.2.0/24 using Multicast RIB
+      Known via "kernel", distance 0, metric 0, best
+      * 198.51.100.1, via eth0
+
+
+   Indicates that a multicast source lookup for 192.0.2.1 against the
+   Multicast RIB would use an entry for 192.0.2.0/24 with a gateway of
+   198.51.100.1.
+
+.. clicmd:: show ip pim [vrf NAME] nexthop-lookup ADDR [GROUP]
+
+   Performs a nexthop lookup according to the configured RPF lookup mode.
+   This performs the lookup for a given source address, and optionally with
+   a group address, which may effect the nexthop decision.
+
+   ::
+
+      > show ip pim nexthop-lookup 192.0.2.1
+      (192.0.2.1, *) --- Nexthop 198.10.10.1 Interface eth1
+
+
+   Indicates the a source lookup for 192.0.2.1 according to the configured RPF
+   lookup mode would use the gateway address 192.10.10.1 on interface eth1.
+
 
 .. _pim-interface-configuration:
 
@@ -409,29 +488,6 @@ is in a vrf, enter the interface command with the vrf keyword at the end.
 .. seealso::
 
    :ref:`bfd-pim-peer-config`
-
-
-.. _pim-multicast-rib:
-
-PIM Multicast RIB
-=================
-
-In order to influence Multicast RPF lookup, it is possible to insert
-into zebra routes for the Multicast RIB. These routes are only
-used for RPF lookup and will not be used by zebra for insertion
-into the kernel *or* for normal rib processing. As such it is
-possible to create weird states with these commands. Use with
-caution. Most of the time this will not be necessary.
-
-.. clicmd:: ip mroute A.B.C.D/M A.B.C.D (1-255)
-
-   Insert into the Multicast Rib Route A.B.C.D/M with specified nexthop. The
-   distance can be specified as well if desired.
-
-.. clicmd:: ip mroute A.B.C.D/M INTERFACE (1-255)
-
-   Insert into the Multicast Rib Route A.B.C.D/M using the specified INTERFACE.
-   The distance can be specified as well if desired.
 
 .. _msdp-configuration:
 
@@ -778,7 +834,7 @@ cause great confusion.
 
 .. seealso::
 
-   :ref:`multicast-rib-commands`
+   :ref:`pim-multicast-rib`
 
 
 PIM Debug Commands
