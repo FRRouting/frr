@@ -29,6 +29,7 @@
 #include "bgpd/bgp_ecommunity.h"
 #include "bgpd/bgp_lcommunity.h"
 #include "bgpd/bgp_community.h"
+#include "bgpd/bgp_evpn_vty_clippy.c"
 
 #define SHOW_DISPLAY_STANDARD 0
 #define SHOW_DISPLAY_TAGS 1
@@ -1762,9 +1763,9 @@ DEFUN(show_ip_bgp_l2vpn_evpn_rd_neighbor_routes,
 					     peer, SHOW_DISPLAY_STANDARD, uj);
 }
 
-DEFUN(show_ip_bgp_l2vpn_evpn_neighbor_advertised_received_filtered_routes,
+DEFPY(show_ip_bgp_l2vpn_evpn_neighbor_advertised_received_filtered_routes,
       show_ip_bgp_l2vpn_evpn_neighbor_advertised_received_filtered_routes_cmd,
-      "show [ip] bgp l2vpn evpn neighbors <A.B.C.D|X:X::X:X|WORD> <advertised-routes|received-routes|filtered-routes> [json]",
+      "show [ip] bgp l2vpn evpn neighbors <A.B.C.D|X:X::X:X|WORD> <advertised-routes|received-routes|filtered-routes> [route-map RMAP_NAME$route_map] [<A.B.C.D/M|X:X::X:X/M>$prefix | detail$detail] [json]",
       SHOW_STR
       IP_STR
       BGP_STR
@@ -1777,6 +1778,11 @@ DEFUN(show_ip_bgp_l2vpn_evpn_neighbor_advertised_received_filtered_routes,
       "Display the routes advertised to a BGP neighbor\n"
       "Display the received routes from neighbor\n"
       "Display the filtered routes received from neighbor\n"
+      "Route-map to modify the attributes\n"
+      "Name of the route map\n"
+      "IPv4 prefix\n"
+      "IPv6 prefix\n"
+      "Display detailed version of routes\n"
       JSON_STR)
 {
 	int idx = 0;
@@ -1788,6 +1794,9 @@ DEFUN(show_ip_bgp_l2vpn_evpn_neighbor_advertised_received_filtered_routes,
 	char *peerstr = NULL;
 	enum bgp_show_adj_route_type type = bgp_show_adj_route_advertised;
 	uint16_t show_flags = 0;
+
+	if (detail || prefix_str)
+		SET_FLAG(show_flags, BGP_SHOW_OPT_ROUTES_DETAIL);
 
 	if (uj) {
 		SET_FLAG(show_flags, BGP_SHOW_OPT_JSON);
@@ -1842,12 +1851,13 @@ DEFUN(show_ip_bgp_l2vpn_evpn_neighbor_advertised_received_filtered_routes,
 	else if (argv_find(argv, argc, "filtered-routes", &idx))
 		type = bgp_show_adj_route_filtered;
 
-	return peer_adj_routes(vty, peer, AFI_L2VPN, SAFI_EVPN, type, NULL, NULL, show_flags);
+	return peer_adj_routes(vty, peer, AFI_L2VPN, SAFI_EVPN, type, route_map,
+			       prefix_str ? prefix : NULL, show_flags);
 }
 
-DEFUN(show_ip_bgp_l2vpn_evpn_rd_neighbor_advertised_received_filtered_routes,
+DEFPY(show_ip_bgp_l2vpn_evpn_rd_neighbor_advertised_received_filtered_routes,
       show_ip_bgp_l2vpn_evpn_rd_neighbor_advertised_received_filtered_routes_cmd,
-      "show [ip] bgp l2vpn evpn rd <ASN:NN_OR_IP-ADDRESS:NN|all> neighbors <A.B.C.D|X:X::X:X|WORD> <advertised-routes|received-routes|filtered-routes> [json]",
+      "show [ip] bgp l2vpn evpn rd <ASN:NN_OR_IP-ADDRESS:NN|all> neighbors <A.B.C.D|X:X::X:X|WORD> <advertised-routes|received-routes|filtered-routes> [route-map RMAP_NAME$route_map] [<A.B.C.D/M|X:X::X:X/M>$prefix | detail$detail] [json]",
       SHOW_STR
       IP_STR
       BGP_STR
@@ -1863,6 +1873,11 @@ DEFUN(show_ip_bgp_l2vpn_evpn_rd_neighbor_advertised_received_filtered_routes,
       "Display the routes advertised to a BGP neighbor\n"
       "Display the received routes from neighbor\n"
       "Display the filtered routes received from neighbor\n"
+      "Route-map to modify the attributes\n"
+      "Name of the route map\n"
+      "IPv4 prefix\n"
+      "IPv6 prefix\n"
+      "Display detailed version of routes\n"
       JSON_STR)
 {
 	int idx_ext_community = 0;
@@ -1878,6 +1893,9 @@ DEFUN(show_ip_bgp_l2vpn_evpn_rd_neighbor_advertised_received_filtered_routes,
 	int rd_all = 0;
 	enum bgp_show_adj_route_type type = bgp_show_adj_route_advertised;
 	uint16_t show_flags = 0;
+
+	if (detail || prefix_str)
+		SET_FLAG(show_flags, BGP_SHOW_OPT_ROUTES_DETAIL);
 
 	if (uj) {
 		argc--;
@@ -1933,8 +1951,8 @@ DEFUN(show_ip_bgp_l2vpn_evpn_rd_neighbor_advertised_received_filtered_routes,
 		type = bgp_show_adj_route_filtered;
 
 	if (argv_find(argv, argc, "all", &rd_all))
-		return peer_adj_routes(vty, peer, AFI_L2VPN, SAFI_EVPN, type, NULL, NULL,
-				       show_flags);
+		return peer_adj_routes(vty, peer, AFI_L2VPN, SAFI_EVPN, type, route_map,
+				       prefix_str ? prefix : NULL, show_flags);
 	else {
 		argv_find(argv, argc, "ASN:NN_OR_IP-ADDRESS:NN",
 			  &idx_ext_community);
@@ -3631,8 +3649,6 @@ static void write_vni_config(struct vty *vty, struct bgpevpn *vpn)
 		vty_out(vty, "  exit-vni\n");
 	}
 }
-
-#include "bgpd/bgp_evpn_vty_clippy.c"
 
 DEFPY(bgp_evpn_flood_control,
       bgp_evpn_flood_control_cmd,
