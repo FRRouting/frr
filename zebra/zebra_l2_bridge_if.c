@@ -55,12 +55,100 @@
 #include "zebra/zebra_evpn_vxlan.h"
 #include "zebra/zebra_router.h"
 
+static void zebra_l2_brvlan_print_mac_hash(struct hash_bucket *bucket, void *ctxt)
+{
+	struct zebra_l2_brvlan_mac_ctx *ctx;
+	struct vty *vty;
+	struct zebra_l2_brvlan_mac *bmac;
+	json_object *json_obj = NULL, *json_mac = NULL;
+	char mac[ETHER_ADDR_STRLEN];
+	struct interface *ifp;
+
+	ctx = (struct zebra_l2_brvlan_mac_ctx *)ctxt;
+	vty = (struct vty *)(ctx->arg);
+	bmac = (struct zebra_l2_brvlan_mac *)bucket->data;
+	json_obj = ctx->json;
+
+	prefix_mac2str(&bmac->macaddr, mac, sizeof(mac));
+	ifp = if_lookup_by_index_per_ns(zebra_ns_lookup(NS_DEFAULT),
+									bmac->ifindex);
+
+	if (json_obj) {
+		json_mac = json_object_new_object();
+		json_object_int_add(json_mac, "IfIndex", bmac->ifindex);
+		json_object_string_add(json_mac, "Interface",
+								ifp ? ifp->name : "-");
+		json_object_object_add(json_obj, mac, json_mac);
+	} else {
+		vty_out(vty, "%-17s %-7u %s\n", mac, bmac->ifindex,
+				ifp ? ifp->name : "-");
+	}
+}
+
 static unsigned int zebra_l2_bridge_vlan_hash_keymake(const void *p)
 {
 	const struct zebra_l2_bridge_vlan *bvlan;
 
 	bvlan = (const struct zebra_l2_bridge_vlan *)p;
 	return jhash(&bvlan->vid, sizeof(bvlan->vid), 0);
+}
+
+void zebra_l2_brvlan_print_macs(struct vty *vty, struct interface *br_if, vlanid_t vid, bool uj)
+{
+	struct zebra_if *zif;
+	struct zebra_l2_bridge_if *br;
+	uint32_t num_macs;
+	struct zebra_l2_brvlan_mac_ctx ctx;
+
+	zif = (struct zebra_if *)br_if->info;
+	br = BRIDGE_FROM_ZEBRA_IF(zif);
+	if (!br)
+		return;
+
+	json_object *json_obj = NULL, *json_mac_obj = NULL;
+
+	if (uj) { /* json format */
+		json_obj = json_object_new_object();
+		json_mac_obj = json_object_new_object();
+	}
+
+	if (!br->mac_table[vid]) {
+		vty_out(vty,
+				"%% bridge %s VID %u does not have a MAC hash table\n",
+				br_if->name, vid);
+		return;
+	}
+	num_macs = hashcount(br->mac_table[vid]);
+	if (!num_macs) {
+		vty_out(vty, "bridge %s VID %u - No local MACs\n", br_if->name,
+				vid);
+		return;
+	}
+
+	if (uj) {
+		json_object_string_add(json_obj, "bridge", br_if->name);
+		json_object_int_add(json_obj, "VID", vid);
+		json_object_int_add(json_obj, "number of local MACS", num_macs);
+	} else {
+		vty_out(vty, "bridge %s VID %u - Number of local MACs: %u\n",
+				br_if->name, vid, num_macs);
+		vty_out(vty, "%-17s %-7s %-30s\n", "MAC", "IfIndex",
+				"Interface");
+	}
+	memset(&ctx, 0, sizeof(ctx));
+	ctx.br_if = br_if;
+	ctx.vid = vid;
+	ctx.arg = vty;
+	ctx.json = json_mac_obj;
+	hash_iterate(br->mac_table[vid], zebra_l2_brvlan_print_mac_hash, &ctx);
+	if (uj) {
+		json_object_object_add(json_obj, "MAC", json_mac_obj);
+		vty_out(vty, "%s\n",
+				json_object_to_json_string_ext(
+						json_obj, JSON_C_TO_STRING_PRETTY));
+		json_object_free(json_obj);
+	}
+
 }
 
 static bool zebra_l2_bridge_vlan_hash_cmp(const void *p1, const void *p2)

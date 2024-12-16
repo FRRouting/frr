@@ -3101,6 +3101,9 @@ static void zebra_evpn_es_show_entry(struct vty *vty, struct zebra_evpn_es *es,
 				json_array_string_add(json_flags, "local");
 			if (es->flags & ZEBRA_EVPNES_REMOTE)
 				json_array_string_add(json_flags, "remote");
+			if (es->flags & ZEBRA_EVPNES_LOCAL &&
+			    !(es->flags & ZEBRA_EVPNES_NON_DF))
+				json_array_string_add(json_flags, "df");
 			if (es->flags & ZEBRA_EVPNES_NON_DF)
 				json_array_string_add(json_flags, "nonDF");
 			if (es->flags & ZEBRA_EVPNES_BYPASS)

@@ -706,7 +706,8 @@ static void vty_show_ip_route(struct vty *vty, struct route_node *rn,
 
 		for (ALL_NEXTHOPS_PTR(nhg, nexthop)) {
 			json_nexthop = json_object_new_object();
-			show_nexthop_json_helper(json_nexthop, nexthop, rn, re);
+			show_nexthop_json_helper(json_nexthop, nexthop, rn, re,
+					false);
 
 			json_object_array_add(json_nexthops,
 					      json_nexthop);
@@ -727,7 +728,7 @@ static void vty_show_ip_route(struct vty *vty, struct route_node *rn,
 				json_nexthop = json_object_new_object();
 
 				show_nexthop_json_helper(json_nexthop, nexthop,
-							 rn, re);
+							 rn, re, false);
 				json_object_array_add(json_nexthops,
 						      json_nexthop);
 			}
@@ -1174,7 +1175,7 @@ DEFPY (show_ip_nht,
 }
 
 static void show_nexthop_group_out(struct vty *vty, struct nhg_hash_entry *nhe,
-				   json_object *json_nhe_hdr)
+				   json_object *json_nhe_hdr, bool brief)
 {
 	struct nexthop *nexthop = NULL;
 	struct nhg_connected *rb_node_dep = NULL;
@@ -1196,19 +1197,21 @@ static void show_nexthop_group_out(struct vty *vty, struct nhg_hash_entry *nhe,
 		json = json_object_new_object();
 
 	if (json) {
-		json_object_string_add(json, "type",
+		if (!brief) {
+			json_object_string_add(json, "type",
 				       zebra_route_string(nhe->type));
-		json_object_int_add(json, "refCount", nhe->refcnt);
-		if (event_is_scheduled(nhe->timer))
-			json_object_string_add(
-				json, "timeToDeletion",
-				event_timer_to_hhmmss(time_left,
-						      sizeof(time_left),
-						      nhe->timer));
+			json_object_int_add(json, "refCount", nhe->refcnt);
+			if (event_is_scheduled(nhe->timer))
+				json_object_string_add(
+					json, "timeToDeletion",
+					event_timer_to_hhmmss(time_left,
+							      sizeof(time_left),
+							      nhe->timer));
+			json_object_string_add(json, "afi", afi2str(nhe->afi));
+		}
 		json_object_string_add(json, "uptime", up_str);
 		json_object_string_add(json, "vrf",
 				       vrf_id_to_name(nhe->vrf_id));
-		json_object_string_add(json, "afi", afi2str(nhe->afi));
 
 	} else {
 		vty_out(vty, "ID: %u (%s)\n", nhe->id,
@@ -1290,8 +1293,14 @@ static void show_nexthop_group_out(struct vty *vty, struct nhg_hash_entry *nhe,
 	for (ALL_NEXTHOPS(nhe->nhg, nexthop)) {
 		if (json_nexthop_array) {
 			json_nexthops = json_object_new_object();
-			show_nexthop_json_helper(json_nexthops, nexthop, NULL,
-						 NULL);
+			if (brief) {
+				if (zebra_nhg_dependents_is_empty(nhe))
+					show_nexthop_json_helper(json_nexthops,
+							nexthop, NULL, NULL, brief);
+			} else {
+				show_nexthop_json_helper(json_nexthops, nexthop,
+						NULL, NULL, false);
+			}
 		} else {
 			if (!CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_RECURSIVE))
 				vty_out(vty, "          ");
@@ -1341,8 +1350,18 @@ static void show_nexthop_group_out(struct vty *vty, struct nhg_hash_entry *nhe,
 		}
 	}
 
-	if (json)
+	if (json) {
+		if (brief) {
+			if (zebra_nhg_dependents_is_empty(nhe))
+				json_object_object_add(json, "nexthops",
+						       json_nexthop_array);
+			if (json_nhe_hdr)
+				json_object_object_addf(json_nhe_hdr, json,
+							"%u", nhe->id);
+			return;
+		}
 		json_object_object_add(json, "nexthops", json_nexthop_array);
+	}
 
 	/* Output backup nexthops (if any) */
 	backup_nhg = zebra_nhg_get_backup_nhg(nhe);
@@ -1356,7 +1375,7 @@ static void show_nexthop_group_out(struct vty *vty, struct nhg_hash_entry *nhe,
 			if (json_backup_nexthop_array) {
 				json_backup_nexthops = json_object_new_object();
 				show_nexthop_json_helper(json_backup_nexthops,
-							 nexthop, NULL, NULL);
+							 nexthop, NULL, NULL, false);
 				json_object_array_add(json_backup_nexthop_array,
 						      json_backup_nexthops);
 			} else {
@@ -1427,14 +1446,14 @@ static void show_nexthop_group_out(struct vty *vty, struct nhg_hash_entry *nhe,
 }
 
 static int show_nexthop_group_id_cmd_helper(struct vty *vty, uint32_t id,
-					    json_object *json)
+					    json_object *json, bool brief)
 {
 	struct nhg_hash_entry *nhe = NULL;
 
 	nhe = zebra_nhg_lookup_id(id);
 
 	if (nhe)
-		show_nexthop_group_out(vty, nhe, json);
+		show_nexthop_group_out(vty, nhe, json, brief);
 	else {
 		if (json)
 			vty_json(vty, json);
@@ -1458,6 +1477,7 @@ struct nhe_show_context {
 	afi_t afi;
 	int type;
 	json_object *json;
+	bool brief;
 };
 
 static int nhe_show_walker(struct hash_bucket *bucket, void *arg)
@@ -1476,7 +1496,7 @@ static int nhe_show_walker(struct hash_bucket *bucket, void *arg)
 	if (ctx->type && nhe->type != ctx->type)
 		goto done;
 
-	show_nexthop_group_out(ctx->vty, nhe, ctx->json);
+	show_nexthop_group_out(ctx->vty, nhe, ctx->json, ctx->brief);
 
 done:
 	return HASHWALK_CONTINUE;
@@ -1484,7 +1504,8 @@ done:
 
 static void show_nexthop_group_cmd_helper(struct vty *vty,
 					  struct zebra_vrf *zvrf, afi_t afi,
-					  int type, json_object *json)
+					  int type, json_object *json,
+					  bool brief)
 {
 	struct nhe_show_context ctx;
 
@@ -1493,6 +1514,7 @@ static void show_nexthop_group_cmd_helper(struct vty *vty,
 	ctx.vrf_id = zvrf->vrf->vrf_id;
 	ctx.type = type;
 	ctx.json = json;
+	ctx.brief = brief;
 
 	hash_walk(zrouter.nhgs_id, nhe_show_walker, &ctx);
 }
@@ -1512,7 +1534,8 @@ static void if_nexthop_group_dump_vty(struct vty *vty, struct interface *ifp)
 		}
 
 		vty_out(vty, "   ");
-		show_nexthop_group_out(vty, rb_node_dep->nhe, NULL);
+		show_nexthop_group_out(vty, rb_node_dep->nhe, NULL,
+				false);
 	}
 }
 
@@ -1552,7 +1575,7 @@ DEFPY (show_interface_nexthop_group,
 
 DEFPY(show_nexthop_group,
       show_nexthop_group_cmd,
-      "show nexthop-group rib <(0-4294967295)$id|[singleton <ip$v4|ipv6$v6>] [<kernel|zebra|bgp|sharp>$type_str] [vrf <NAME$vrf_name|all$vrf_all>]> [json]",
+      "show nexthop-group rib <(0-4294967295)$id|[singleton <ip$v4|ipv6$v6>] [<kernel|zebra|bgp|sharp>$type_str] [vrf <NAME$vrf_name|all$vrf_all>]> [<brief$brief>] [json]",
       SHOW_STR
       "Show Nexthop Groups\n"
       "RIB information\n"
@@ -1565,6 +1588,7 @@ DEFPY(show_nexthop_group,
       "Border Gateway Protocol (BGP)\n"
       "Super Happy Advanced Routing Protocol (SHARP)\n"
       VRF_FULL_CMD_HELP_STR
+      "Brief\n"
       JSON_STR)
 {
 
@@ -1579,7 +1603,7 @@ DEFPY(show_nexthop_group,
 		json = json_object_new_object();
 
 	if (id)
-		return show_nexthop_group_id_cmd_helper(vty, id, json);
+		return show_nexthop_group_id_cmd_helper(vty, id, json, brief);
 
 	if (v4)
 		afi = AFI_IP;
@@ -1618,7 +1642,7 @@ DEFPY(show_nexthop_group,
 				vty_out(vty, "VRF: %s\n", vrf->name);
 
 			show_nexthop_group_cmd_helper(vty, zvrf, afi, type,
-						      json_vrf);
+						      json_vrf, brief);
 			if (uj)
 				json_object_object_add(json, vrf->name,
 						       json_vrf);
@@ -1644,10 +1668,14 @@ DEFPY(show_nexthop_group,
 		return CMD_WARNING;
 	}
 
-	show_nexthop_group_cmd_helper(vty, zvrf, afi, type, json);
+	show_nexthop_group_cmd_helper(vty, zvrf, afi, type, json, brief);
 
-	if (uj)
-		vty_json(vty, json);
+	if (uj) {
+		if (brief)
+			vty_json_no_pretty(vty, json);
+		else
+			vty_json(vty, json);
+	}
 
 	return CMD_SUCCESS;
 }
@@ -3486,6 +3514,39 @@ DEFUN (show_evpn_neigh_vni_vtep,
 	return CMD_SUCCESS;
 }
 
+DEFPY(show_evpn_local_mac, show_evpn_local_mac_cmd,
+      "show evpn local-mac IFNAME$if_name (1-4094)$vid [json$json]",
+      SHOW_STR
+      "EVPN\n"
+      "Local MAC addresses\n"
+      "Interface Name\n"
+      "VLAN ID\n" JSON_STR)
+{
+	struct vrf *vrf = NULL;
+	struct interface *ifp = NULL;
+	bool found = false;
+	bool uj = use_json(argc, argv);
+
+	if (!if_name || !vid)
+		return CMD_WARNING;
+
+	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
+		ifp = if_lookup_by_name(if_name, vrf->vrf_id);
+		if (ifp) {
+			found = true;
+			break;
+		}
+	}
+
+	if (!found) {
+		vty_out(vty, "%% Can't find interface %s\n", if_name);
+		return CMD_WARNING;
+	}
+
+	zebra_l2_brvlan_print_macs(vty, ifp, vid, uj);
+	return CMD_SUCCESS;
+}
+
 /* policy routing contexts */
 DEFUN (show_pbr_ipset,
        show_pbr_ipset_cmd,
@@ -4420,6 +4481,7 @@ void zebra_vty_init(void)
 	install_element(VIEW_NODE, &show_evpn_neigh_vni_vtep_cmd);
 	install_element(VIEW_NODE, &show_evpn_neigh_vni_dad_cmd);
 	install_element(VIEW_NODE, &show_evpn_neigh_vni_all_dad_cmd);
+	install_element(VIEW_NODE, &show_evpn_local_mac_cmd);
 	install_element(ENABLE_NODE, &clear_evpn_dup_addr_cmd);
 	install_element(CONFIG_NODE, &evpn_accept_bgp_seq_cmd);
 	install_element(CONFIG_NODE, &no_evpn_accept_bgp_seq_cmd);
