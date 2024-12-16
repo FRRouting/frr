@@ -1762,9 +1762,9 @@ DEFUN(show_ip_bgp_l2vpn_evpn_rd_neighbor_routes,
 					     peer, SHOW_DISPLAY_STANDARD, uj);
 }
 
-DEFUN(show_ip_bgp_l2vpn_evpn_neighbor_advertised_routes,
-      show_ip_bgp_l2vpn_evpn_neighbor_advertised_routes_cmd,
-      "show [ip] bgp l2vpn evpn neighbors <A.B.C.D|X:X::X:X|WORD> advertised-routes [json]",
+DEFUN(show_ip_bgp_l2vpn_evpn_neighbor_advertised_received_filtered_routes,
+      show_ip_bgp_l2vpn_evpn_neighbor_advertised_received_filtered_routes_cmd,
+      "show [ip] bgp l2vpn evpn neighbors <A.B.C.D|X:X::X:X|WORD> <advertised-routes|received-routes|filtered-routes> [json]",
       SHOW_STR
       IP_STR
       BGP_STR
@@ -1774,7 +1774,10 @@ DEFUN(show_ip_bgp_l2vpn_evpn_neighbor_advertised_routes,
       "IPv4 Neighbor to display information about\n"
       "IPv6 Neighbor to display information about\n"
       "Neighbor on BGP configured interface\n"
-      "Display the routes advertised to a BGP neighbor\n" JSON_STR)
+      "Display the routes advertised to a BGP neighbor\n"
+      "Display the received routes from neighbor\n"
+      "Display the filtered routes received from neighbor\n"
+      JSON_STR)
 {
 	int idx = 0;
 	struct peer *peer;
@@ -1832,12 +1835,19 @@ DEFUN(show_ip_bgp_l2vpn_evpn_neighbor_advertised_routes,
 		return CMD_WARNING;
 	}
 
-	return show_adj_route_vpn(vty, peer, NULL, AFI_L2VPN, SAFI_EVPN, uj);
+	if (argv_find(argv, argc, "advertised-routes", &idx))
+		type = bgp_show_adj_route_advertised;
+	else if (argv_find(argv, argc, "received-routes", &idx))
+		type = bgp_show_adj_route_received;
+	else if (argv_find(argv, argc, "filtered-routes", &idx))
+		type = bgp_show_adj_route_filtered;
+
+	return peer_adj_routes(vty, peer, AFI_L2VPN, SAFI_EVPN, type, NULL, NULL, show_flags);
 }
 
-DEFUN(show_ip_bgp_l2vpn_evpn_rd_neighbor_advertised_routes,
-      show_ip_bgp_l2vpn_evpn_rd_neighbor_advertised_routes_cmd,
-      "show [ip] bgp l2vpn evpn rd <ASN:NN_OR_IP-ADDRESS:NN|all> neighbors <A.B.C.D|X:X::X:X|WORD> advertised-routes [json]",
+DEFUN(show_ip_bgp_l2vpn_evpn_rd_neighbor_advertised_received_filtered_routes,
+      show_ip_bgp_l2vpn_evpn_rd_neighbor_advertised_received_filtered_routes_cmd,
+      "show [ip] bgp l2vpn evpn rd <ASN:NN_OR_IP-ADDRESS:NN|all> neighbors <A.B.C.D|X:X::X:X|WORD> <advertised-routes|received-routes|filtered-routes> [json]",
       SHOW_STR
       IP_STR
       BGP_STR
@@ -1850,7 +1860,10 @@ DEFUN(show_ip_bgp_l2vpn_evpn_rd_neighbor_advertised_routes,
       "IPv4 Neighbor to display information about\n"
       "IPv6 Neighbor to display information about\n"
       "Neighbor on BGP configured interface\n"
-      "Display the routes advertised to a BGP neighbor\n" JSON_STR)
+      "Display the routes advertised to a BGP neighbor\n"
+      "Display the received routes from neighbor\n"
+      "Display the filtered routes received from neighbor\n"
+      JSON_STR)
 {
 	int idx_ext_community = 0;
 	int idx = 0;
@@ -1911,6 +1924,13 @@ DEFUN(show_ip_bgp_l2vpn_evpn_rd_neighbor_advertised_routes,
 			vty_out(vty, "%% No such neighbor or address family\n");
 		return CMD_WARNING;
 	}
+
+	if (argv_find(argv, argc, "advertised-routes", &idx))
+		type = bgp_show_adj_route_advertised;
+	else if (argv_find(argv, argc, "received-routes", &idx))
+		type = bgp_show_adj_route_received;
+	else if (argv_find(argv, argc, "filtered-routes", &idx))
+		type = bgp_show_adj_route_filtered;
 
 	if (argv_find(argv, argc, "all", &rd_all))
 		return peer_adj_routes(vty, peer, AFI_L2VPN, SAFI_EVPN, type, NULL, NULL,
@@ -7523,12 +7543,10 @@ void bgp_ethernetvpn_init(void)
 			&show_ip_bgp_l2vpn_evpn_neighbor_routes_cmd);
 	install_element(VIEW_NODE,
 			&show_ip_bgp_l2vpn_evpn_rd_neighbor_routes_cmd);
-	install_element(
-		VIEW_NODE,
-		&show_ip_bgp_l2vpn_evpn_neighbor_advertised_routes_cmd);
-	install_element(
-		VIEW_NODE,
-		&show_ip_bgp_l2vpn_evpn_rd_neighbor_advertised_routes_cmd);
+	install_element(VIEW_NODE,
+			&show_ip_bgp_l2vpn_evpn_neighbor_advertised_received_filtered_routes_cmd);
+	install_element(VIEW_NODE,
+			&show_ip_bgp_l2vpn_evpn_rd_neighbor_advertised_received_filtered_routes_cmd);
 	install_element(VIEW_NODE, &show_ip_bgp_evpn_rd_overlay_cmd);
 	install_element(VIEW_NODE, &show_ip_bgp_l2vpn_evpn_all_overlay_cmd);
 	install_element(BGP_EVPN_NODE, &no_evpnrt5_network_cmd);
