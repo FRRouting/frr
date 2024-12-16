@@ -554,8 +554,8 @@ extern int vmgmt_msg_native_send_error(struct msg_conn *conn,
  */
 #define mgmt_msg_native_alloc_msg(msg_type, var_len, mem_type)                 \
 	({                                                                     \
-		uint8_t *buf = NULL;                                           \
-		(msg_type *)darr_append_nz_mt(buf,                             \
+		uint8_t *__nam_buf = NULL;                                     \
+		(msg_type *)darr_append_nz_mt(__nam_buf,                       \
 					      sizeof(msg_type) + (var_len),    \
 					      mem_type);                       \
 	})
@@ -590,10 +590,10 @@ extern int vmgmt_msg_native_send_error(struct msg_conn *conn,
  */
 #define mgmt_msg_native_append(msg, data, len)                                 \
 	({                                                                     \
-		uint8_t **darrp = mgmt_msg_native_get_darrp(msg);              \
-		uint8_t *p = darr_append_n(*darrp, len);                       \
-		memcpy(p, data, len);                                          \
-		p;                                                             \
+		uint8_t **__na_darrp = mgmt_msg_native_get_darrp(msg);         \
+		uint8_t *__na_p = darr_append_n(*__na_darrp, len);             \
+		memcpy(__na_p, data, len);                                     \
+		__na_p;							       \
 	})
 
 /**
@@ -611,8 +611,8 @@ extern int vmgmt_msg_native_send_error(struct msg_conn *conn,
  */
 #define mgmt_msg_native_add_str(msg, s)                                        \
 	do {                                                                   \
-		int __len = strlen(s) + 1;                                     \
-		mgmt_msg_native_append(msg, s, __len);                         \
+		int __nas_len = strlen(s) + 1;                                 \
+		mgmt_msg_native_append(msg, s, __nas_len);                     \
 	} while (0)
 
 /**
