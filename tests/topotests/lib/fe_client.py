@@ -78,8 +78,13 @@ GET_DATA_FLAG_STATE = 0x1
 GET_DATA_FLAG_CONFIG = 0x2
 GET_DATA_FLAG_EXACT = 0x4
 
-MSG_NOTIFY_FMT = "=B7x"
+MSG_NOTIFY_FMT = "=BB6x"
 NOTIFY_FIELD_RESULT_TYPE = 0
+NOTIFY_FIELD_OP = 1
+NOTIFY_OP_NOTIFICATION = 0
+NOTIFY_OP_REPLACE = 1
+NOTIFY_OP_DELETE = 2
+NOTIFY_OP_PATCH = 3
 
 MSG_NOTIFY_SELECT_FMT = "=B7x"
 
@@ -363,10 +368,12 @@ class Session:
                 raise Exception(f"Received NON-NOTIFY Message: {mfixed}: {mdata}")
 
             vsplit = mhdr[HDR_FIELD_VSPLIT]
+            result_type = mfixed[0]
+            op = mfixed[1]
             assert mdata[vsplit - 1] == 0
             assert mdata[-1] == 0
-            # xpath = mdata[: vsplit - 1].decode("utf-8")
-            return mdata[vsplit:-1].decode("utf-8")
+            xpath = mdata[: vsplit - 1].decode("utf-8")
+            return result_type, op, xpath, mdata[vsplit:-1].decode("utf-8")
         else:
             raise TimeoutError("Timeout waiting for notifications")
 
@@ -388,6 +395,9 @@ def __parse_args():
     )
     parser.add_argument(
         "-c", "--config-only", action="store_true", help="return config only"
+    )
+    parser.add_argument(
+        "--datastore", action="store_true", help="listen for datastore notifications"
     )
     parser.add_argument(
         "-q", "--query", nargs="+", metavar="XPATH", help="xpath[s] to query"
@@ -434,9 +444,31 @@ def __main():
 
     if args.listen is not None:
         i = args.notify_count
+        if args.listen:
+            sess.add_notify_select(True, args.listen)
         while i > 0 or args.notify_count == 0:
-            notif = sess.recv_notify(args.listen)
-            print(notif)
+            result_type, op, xpath, notif = sess.recv_notify()
+            if op == NOTIFY_OP_NOTIFICATION:
+                if args.datastore:
+                    logging.warning("ignoring non-datastore notification: %s", notif)
+                else:
+                    print(notif)
+            elif not args.datastore:
+                logging.warning(
+                    "ignoring datastore notification op: %s xpath: %s data: %s",
+                    op,
+                    xpath,
+                    notif,
+                )
+            elif op == NOTIFY_OP_PATCH:
+                print(f"#OP=PATCH: {xpath}")
+                print(notif)
+            elif op == NOTIFY_OP_REPLACE:
+                print(f"#OP=REPLACE: {xpath}")
+                print(notif)
+            elif op == NOTIFY_OP_DELETE:
+                print(f"#OP=DELETE: {xpath}")
+                assert len(notif) == 0
             i -= 1
 
 
