@@ -1852,7 +1852,7 @@ DEFPY(show_ip_bgp_l2vpn_evpn_neighbor_advertised_received_filtered_routes,
 		type = bgp_show_adj_route_filtered;
 
 	return peer_adj_routes(vty, peer, AFI_L2VPN, SAFI_EVPN, type, route_map,
-			       prefix_str ? prefix : NULL, show_flags);
+			       prefix_str ? prefix : NULL, show_flags, NULL);
 }
 
 DEFPY(show_ip_bgp_l2vpn_evpn_rd_neighbor_advertised_received_filtered_routes,
@@ -1952,7 +1952,7 @@ DEFPY(show_ip_bgp_l2vpn_evpn_rd_neighbor_advertised_received_filtered_routes,
 
 	if (argv_find(argv, argc, "all", &rd_all))
 		return peer_adj_routes(vty, peer, AFI_L2VPN, SAFI_EVPN, type, route_map,
-				       prefix_str ? prefix : NULL, show_flags);
+				       prefix_str ? prefix : NULL, show_flags, NULL);
 	else {
 		argv_find(argv, argc, "ASN:NN_OR_IP-ADDRESS:NN",
 			  &idx_ext_community);
@@ -1974,7 +1974,8 @@ DEFPY(show_ip_bgp_l2vpn_evpn_rd_neighbor_advertised_received_filtered_routes,
 		}
 	}
 
-	return show_adj_route_vpn(vty, peer, &prd, AFI_L2VPN, SAFI_EVPN, uj);
+	return peer_adj_routes(vty, peer, AFI_L2VPN, SAFI_EVPN, type, route_map,
+			       prefix_str ? prefix : NULL, show_flags, &prd);
 }
 
 DEFUN(show_ip_bgp_l2vpn_evpn_all_overlay,
