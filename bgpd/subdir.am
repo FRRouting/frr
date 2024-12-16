@@ -72,7 +72,6 @@ bgpd_libbgp_a_SOURCES = \
 	bgpd/bgp_updgrp.c \
 	bgpd/bgp_updgrp_adv.c \
 	bgpd/bgp_updgrp_packet.c \
-	bgpd/bgp_vpn.c \
 	bgpd/bgp_vty.c \
 	bgpd/bgp_zebra.c \
 	bgpd/bgpd.c \
@@ -156,7 +155,6 @@ noinst_HEADERS += \
 	bgpd/bgp_snmp_bgp4v2.h \
 	bgpd/bgp_table.h \
 	bgpd/bgp_updgrp.h \
-	bgpd/bgp_vpn.h \
 	bgpd/bgp_vty.h \
 	bgpd/bgp_zebra.h \
 	bgpd/bgpd.h \

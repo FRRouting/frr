@@ -18,7 +18,6 @@
 #include "bgpd/bgp_attr.h"
 #include "bgpd/bgp_route.h"
 #include "bgpd/bgp_mplsvpn.h"
-#include "bgpd/bgp_vpn.h"
 #include "bgpd/bgp_evpn_vty.h"
 #include "bgpd/bgp_evpn.h"
 #include "bgpd/bgp_evpn_private.h"
