@@ -14865,10 +14865,9 @@ show_adj_route(struct vty *vty, struct peer *peer, struct bgp_table *table,
 	}
 }
 
-static int peer_adj_routes(struct vty *vty, struct peer *peer, afi_t afi,
-			   safi_t safi, enum bgp_show_adj_route_type type,
-			   const char *rmap_name, const struct prefix *match,
-			   uint16_t show_flags)
+int peer_adj_routes(struct vty *vty, struct peer *peer, afi_t afi, safi_t safi,
+		    enum bgp_show_adj_route_type type, const char *rmap_name,
+		    const struct prefix *match, uint16_t show_flags)
 {
 	struct bgp *bgp;
 	struct bgp_table *table;

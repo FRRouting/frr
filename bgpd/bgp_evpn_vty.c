@@ -1783,9 +1783,13 @@ DEFUN(show_ip_bgp_l2vpn_evpn_neighbor_advertised_routes,
 	afi_t afi = AFI_L2VPN;
 	safi_t safi = SAFI_EVPN;
 	char *peerstr = NULL;
+	enum bgp_show_adj_route_type type = bgp_show_adj_route_advertised;
+	uint16_t show_flags = 0;
 
-	if (uj)
+	if (uj) {
+		SET_FLAG(show_flags, BGP_SHOW_OPT_JSON);
 		argc--;
+	}
 
 	bgp_vty_find_and_parse_afi_safi_bgp(vty, argv, argc, &idx, &afi, &safi,
 					    &bgp, uj);
@@ -1859,9 +1863,13 @@ DEFUN(show_ip_bgp_l2vpn_evpn_rd_neighbor_advertised_routes,
 	afi_t afi = AFI_L2VPN;
 	safi_t safi = SAFI_EVPN;
 	int rd_all = 0;
+	enum bgp_show_adj_route_type type = bgp_show_adj_route_advertised;
+	uint16_t show_flags = 0;
 
-	if (uj)
+	if (uj) {
 		argc--;
+		SET_FLAG(show_flags, BGP_SHOW_OPT_JSON);
+	}
 
 	bgp_vty_find_and_parse_afi_safi_bgp(vty, argv, argc, &idx, &afi, &safi,
 					    &bgp, uj);
@@ -1905,8 +1913,8 @@ DEFUN(show_ip_bgp_l2vpn_evpn_rd_neighbor_advertised_routes,
 	}
 
 	if (argv_find(argv, argc, "all", &rd_all))
-		return show_adj_route_vpn(vty, peer, NULL, AFI_L2VPN, SAFI_EVPN,
-					  uj);
+		return peer_adj_routes(vty, peer, AFI_L2VPN, SAFI_EVPN, type, NULL, NULL,
+				       show_flags);
 	else {
 		argv_find(argv, argc, "ASN:NN_OR_IP-ADDRESS:NN",
 			  &idx_ext_community);
