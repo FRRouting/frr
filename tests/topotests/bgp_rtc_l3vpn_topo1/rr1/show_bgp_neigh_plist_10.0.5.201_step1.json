@@ -1,0 +1,21 @@
+{
+  "rtcPrefixList": {
+    "prefixListCounter": 3,
+    "prefixListName": "192.168.0.201",
+    "RT:65000:100/96": {
+      "originAS": [
+        "65001"
+      ]
+    },
+    "RT:65000:101/96": {
+      "originAS": [
+        "65001"
+      ]
+    },
+    "RT:65000:103/96": {
+      "originAS": [
+        "65001"
+      ]
+    }
+  }
+}
