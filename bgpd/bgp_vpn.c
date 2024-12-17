@@ -139,8 +139,18 @@ int show_adj_route_vpn(struct vty *vty, struct peer *peer,
 				else if (type == RD_TYPE_IP)
 					decode_rd_ip(pnt + 2, &rd_ip);
 #ifdef ENABLE_BGP_VNC
-				else if (type == RD_TYPE_VNC_ETH)
+				else if (type == RD_TYPE_VNC_ETH) {
 					decode_rd_vnc_eth(pnt, &rd_vnc_eth);
+					snprintf(rd_str, sizeof(rd_str),
+						 "LHI:%u, %02x:%02x:%02x:%02x:%02x:%02x",
+						 rd_vnc_eth.local_nve_id,
+						 rd_vnc_eth.macaddr.octet[0],
+						 rd_vnc_eth.macaddr.octet[1],
+						 rd_vnc_eth.macaddr.octet[2],
+						 rd_vnc_eth.macaddr.octet[3],
+						 rd_vnc_eth.macaddr.octet[4],
+						 rd_vnc_eth.macaddr.octet[5]);
+				}
 #endif
 				if (use_json) {
 					json_routes = json_object_new_object();
@@ -170,21 +180,7 @@ int show_adj_route_vpn(struct vty *vty, struct peer *peer,
 							&rd_ip.ip, rd_ip.val);
 #ifdef ENABLE_BGP_VNC
 					else if (type == RD_TYPE_VNC_ETH)
-						vty_out(vty,
-							"%u:%02x:%02x:%02x:%02x:%02x:%02x",
-							rd_vnc_eth.local_nve_id,
-							rd_vnc_eth.macaddr
-								.octet[0],
-							rd_vnc_eth.macaddr
-								.octet[1],
-							rd_vnc_eth.macaddr
-								.octet[2],
-							rd_vnc_eth.macaddr
-								.octet[3],
-							rd_vnc_eth.macaddr
-								.octet[4],
-							rd_vnc_eth.macaddr
-								.octet[5]);
+						vty_out(vty, "%s", rd_str);
 #endif
 
 					vty_out(vty, "\n");
