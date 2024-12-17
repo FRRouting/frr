@@ -2960,7 +2960,10 @@ void bgp_best_selection(struct bgp *bgp, struct bgp_dest *dest,
 
 	old_select = NULL;
 	pi = bgp_dest_get_bgp_path_info(dest);
-	while (pi && CHECK_FLAG(pi->flags, BGP_PATH_UNSORTED)) {
+	while (pi && (CHECK_FLAG(pi->flags, BGP_PATH_UNSORTED) ||
+		      (pi->peer != bgp->peer_self &&
+		       !CHECK_FLAG(pi->peer->sflags, PEER_STATUS_NSF_WAIT) &&
+		       !peer_established(pi->peer->connection)))) {
 		struct bgp_path_info *next = pi->next;
 
 		if (CHECK_FLAG(pi->flags, BGP_PATH_SELECTED))
@@ -3051,6 +3054,30 @@ void bgp_best_selection(struct bgp *bgp, struct bgp_dest *dest,
 
 				UNSET_FLAG(first->flags, BGP_PATH_UNSORTED);
 			}
+			continue;
+		}
+
+		if (first->peer && first->peer != bgp->peer_self &&
+		    !CHECK_FLAG(first->peer->sflags, PEER_STATUS_NSF_WAIT) &&
+		    !peer_established(first->peer->connection)) {
+			if (debug)
+				zlog_debug("%s: %pBD(%s) pi %p from %s is not in established state",
+					   __func__, dest, bgp->name_pretty, first,
+					   first->peer->host);
+
+			/*
+			 * Peer is not in established state we cannot sort this
+			 * item yet.  Let's wait, so hold this one to the side
+			 */
+			if (unsorted_holddown) {
+				first->next = unsorted_holddown;
+				unsorted_holddown->prev = first;
+				unsorted_holddown = first;
+			} else
+				unsorted_holddown = first;
+
+			UNSET_FLAG(first->flags, BGP_PATH_UNSORTED);
+
 			continue;
 		}
 
