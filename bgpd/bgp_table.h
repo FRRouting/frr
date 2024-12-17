@@ -419,7 +419,6 @@ static inline unsigned int bgp_dest_get_lock_count(const struct bgp_dest *dest)
 }
 
 #ifdef _FRR_ATTRIBUTE_PRINTFRR
-#pragma FRR printfrr_ext "%pRN"  (struct bgp_node *)
 #pragma FRR printfrr_ext "%pBD"  (struct bgp_dest *)
 #endif
 
