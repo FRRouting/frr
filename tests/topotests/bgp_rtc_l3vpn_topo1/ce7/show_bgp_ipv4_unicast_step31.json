@@ -1,0 +1,84 @@
+{
+  "vrfName": "default",
+  "routerId": "172.16.7.254",
+  "localAS": 65507,
+  "routes": {
+    "172.20.1.0/24": [
+      {
+        "valid": true,
+        "bestpath": true,
+        "peerId": "172.16.7.1",
+        "path": "65000 65501",
+        "nexthops": [
+          {
+            "ip": "172.16.7.1",
+            "hostname": "pe4",
+            "used": true
+          }
+        ]
+      }
+    ],
+    "172.20.3.0/24": [
+      {
+        "valid": true,
+        "bestpath": true,
+        "peerId": "172.16.7.1",
+        "path": "65000 65503",
+        "nexthops": [
+          {
+            "ip": "172.16.7.1",
+            "hostname": "pe4",
+            "used": true
+          }
+        ]
+      }
+    ],
+    "172.20.5.0/24": [
+      {
+        "valid": true,
+        "bestpath": true,
+        "peerId": "172.16.7.1",
+        "path": "65000 65505",
+        "nexthops": [
+          {
+            "ip": "172.16.7.1",
+            "hostname": "pe4",
+            "used": true
+          }
+        ]
+      }
+    ],
+    "172.20.7.0/24": [
+      {
+        "valid": true,
+        "bestpath": true,
+        "peerId": "(unspec)",
+        "path": "",
+        "nexthops": [
+          {
+            "ip": "0.0.0.0",
+            "hostname": "ce7",
+            "used": true
+          }
+        ]
+      }
+    ],
+    "172.20.9.0/24": [
+      {
+        "valid": true,
+        "bestpath": true,
+        "peerId": "172.16.7.1",
+        "path": "65000 65201 65203 65001 65509",
+        "nexthops": [
+          {
+            "ip": "172.16.7.1",
+            "hostname": "pe4",
+            "used": true
+          }
+        ]
+      }
+    ]
+  },
+  "totalRoutes": 5,
+  "totalPaths": 5
+}
