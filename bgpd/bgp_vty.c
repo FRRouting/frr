@@ -15845,15 +15845,15 @@ CPP_NOTICE("Remove `gracefulRestartCapability` JSON field")
 	}
 
 	/* Local address. */
-	if (p->su_local) {
+	if (p->connection->su_local) {
 		if (use_json) {
 			json_object_string_addf(json_neigh, "hostLocal", "%pSU",
-						p->su_local);
+						p->connection->su_local);
 			json_object_int_add(json_neigh, "portLocal",
-					    ntohs(p->su_local->sin.sin_port));
+					    ntohs(p->connection->su_local->sin.sin_port));
 		} else
-			vty_out(vty, "Local host: %pSU, Local port: %d\n",
-				p->su_local, ntohs(p->su_local->sin.sin_port));
+			vty_out(vty, "Local host: %pSU, Local port: %d\n", p->connection->su_local,
+				ntohs(p->connection->su_local->sin.sin_port));
 	} else {
 		if (use_json) {
 			json_object_string_add(json_neigh, "hostLocal",
@@ -15863,16 +15863,16 @@ CPP_NOTICE("Remove `gracefulRestartCapability` JSON field")
 	}
 
 	/* Remote address. */
-	if (p->su_remote) {
+	if (p->connection->su_remote) {
 		if (use_json) {
-			json_object_string_addf(json_neigh, "hostForeign",
-						"%pSU", p->su_remote);
+			json_object_string_addf(json_neigh, "hostForeign", "%pSU",
+						p->connection->su_remote);
 			json_object_int_add(json_neigh, "portForeign",
-					    ntohs(p->su_remote->sin.sin_port));
+					    ntohs(p->connection->su_remote->sin.sin_port));
 		} else
 			vty_out(vty, "Foreign host: %pSU, Foreign port: %d\n",
-				p->su_remote,
-				ntohs(p->su_remote->sin.sin_port));
+				p->connection->su_remote,
+				ntohs(p->connection->su_remote->sin.sin_port));
 	} else {
 		if (use_json) {
 			json_object_string_add(json_neigh, "hostForeign",
@@ -15882,7 +15882,7 @@ CPP_NOTICE("Remove `gracefulRestartCapability` JSON field")
 	}
 
 	/* Nexthop display. */
-	if (p->su_local) {
+	if (p->connection->su_local) {
 		if (use_json) {
 			json_object_string_addf(json_neigh, "nexthop", "%pI4",
 						&p->nexthop.v4);

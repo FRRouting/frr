@@ -2768,14 +2768,14 @@ int peer_delete(struct peer *peer)
 	}
 
 	/* Local and remote addresses. */
-	if (peer->su_local) {
-		sockunion_free(peer->su_local);
-		peer->su_local = NULL;
+	if (peer->connection->su_local) {
+		sockunion_free(peer->connection->su_local);
+		peer->connection->su_local = NULL;
 	}
 
-	if (peer->su_remote) {
-		sockunion_free(peer->su_remote);
-		peer->su_remote = NULL;
+	if (peer->connection->su_remote) {
+		sockunion_free(peer->connection->su_remote);
+		peer->connection->su_remote = NULL;
 	}
 
 	/* Free filter related memory.  */

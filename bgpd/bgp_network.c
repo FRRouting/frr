@@ -863,20 +863,18 @@ enum connect_result bgp_connect(struct peer_connection *connection)
 
 void bgp_updatesockname(struct peer_connection *connection)
 {
-	struct peer *peer = connection->peer;
-
-	if (peer->su_local) {
-		sockunion_free(peer->su_local);
-		peer->su_local = NULL;
+	if (connection->su_local) {
+		sockunion_free(connection->su_local);
+		connection->su_local = NULL;
 	}
 
-	if (peer->su_remote) {
-		sockunion_free(peer->su_remote);
-		peer->su_remote = NULL;
+	if (connection->su_remote) {
+		sockunion_free(connection->su_remote);
+		connection->su_remote = NULL;
 	}
 
-	peer->su_local = sockunion_getsockname(connection->fd);
-	peer->su_remote = sockunion_getpeername(connection->fd);
+	connection->su_local = sockunion_getsockname(connection->fd);
+	connection->su_remote = sockunion_getpeername(connection->fd);
 }
 
 /* After TCP connection is established.  Get local address and port. */
@@ -886,15 +884,13 @@ int bgp_getsockname(struct peer_connection *connection)
 
 	bgp_updatesockname(connection);
 
-	if (!bgp_zebra_nexthop_set(peer->su_local, peer->su_remote,
-				   &peer->nexthop, peer)) {
-		flog_err(
-			EC_BGP_NH_UPD,
-			"%s: nexthop_set failed, local: %pSUp remote: %pSUp update_if: %s resetting connection - intf %s",
-			peer->host, peer->su_local, peer->su_remote,
-			peer->update_if ? peer->update_if : "(None)",
-			peer->nexthop.ifp ? peer->nexthop.ifp->name
-					  : "(Unknown)");
+	if (!bgp_zebra_nexthop_set(connection->su_local, connection->su_remote, &peer->nexthop,
+				   peer)) {
+		flog_err(EC_BGP_NH_UPD,
+			 "%s: nexthop_set failed, local: %pSUp remote: %pSUp update_if: %s resetting connection - intf %s",
+			 peer->host, connection->su_local, connection->su_remote,
+			 peer->update_if ? peer->update_if : "(None)",
+			 peer->nexthop.ifp ? peer->nexthop.ifp->name : "(Unknown)");
 		return -1;
 	}
 	return 0;

@@ -1576,17 +1576,17 @@ int bgp_path_info_cmp(struct bgp *bgp, struct bgp_path_info *new,
 	}
 
 	/* locally configured routes to advertise do not have su_remote */
-	if (peer_new->su_remote == NULL) {
+	if (peer_new->connection->su_remote == NULL) {
 		*reason = bgp_path_selection_local_configured;
 		return 0;
 	}
 
-	if (peer_exist->su_remote == NULL) {
+	if (peer_exist->connection->su_remote == NULL) {
 		*reason = bgp_path_selection_local_configured;
 		return 1;
 	}
 
-	ret = sockunion_cmp(peer_new->su_remote, peer_exist->su_remote);
+	ret = sockunion_cmp(peer_new->connection->su_remote, peer_exist->connection->su_remote);
 
 	if (ret == 1) {
 		*reason = bgp_path_selection_neighbor_ip;
@@ -12003,9 +12003,8 @@ static int bgp_show_table(struct vty *vty, struct bgp *bgp, afi_t afi, safi_t sa
 			    || type == bgp_show_type_damp_neighbor) {
 				union sockunion *su = output_arg;
 
-				if (pi->peer == NULL
-				    || pi->peer->su_remote == NULL
-				    || !sockunion_same(pi->peer->su_remote, su))
+				if (pi->peer == NULL || pi->peer->connection->su_remote == NULL ||
+				    !sockunion_same(pi->peer->connection->su_remote, su))
 					continue;
 			}
 			if (type == bgp_show_type_cidr_only) {

@@ -1722,8 +1722,8 @@ bgp_connect_success(struct peer_connection *connection)
 
 	if (bgp_debug_neighbor_events(peer)) {
 		if (!CHECK_FLAG(peer->sflags, PEER_STATUS_ACCEPT_PEER))
-			zlog_debug("%s open active, local address %pSU",
-				   peer->host, peer->su_local);
+			zlog_debug("%s open active, local address %pSU", peer->host,
+				   connection->su_local);
 		else
 			zlog_debug("%s passive open", peer->host);
 	}
@@ -1768,8 +1768,8 @@ bgp_connect_success_w_delayopen(struct peer_connection *connection)
 
 	if (bgp_debug_neighbor_events(peer)) {
 		if (!CHECK_FLAG(peer->sflags, PEER_STATUS_ACCEPT_PEER))
-			zlog_debug("%s open active, local address %pSU",
-				   peer->host, peer->su_local);
+			zlog_debug("%s open active, local address %pSU", peer->host,
+				   connection->su_local);
 		else
 			zlog_debug("%s passive open", peer->host);
 	}
@@ -1820,13 +1820,13 @@ static void bgp_connect_in_progress_update_connection(struct peer_connection *co
 	struct peer *peer = connection->peer;
 
 	bgp_updatesockname(connection);
-	if (!peer->su_remote && !BGP_CONNECTION_SU_UNSPEC(connection)) {
+	if (!connection->su_remote && !BGP_CONNECTION_SU_UNSPEC(connection)) {
 		/* if connect initiated, then dest port and dest addresses are well known */
-		peer->su_remote = sockunion_dup(&connection->su);
-		if (sockunion_family(peer->su_remote) == AF_INET)
-			peer->su_remote->sin.sin_port = htons(peer->port);
-		else if (sockunion_family(peer->su_remote) == AF_INET6)
-			peer->su_remote->sin6.sin6_port = htons(peer->port);
+		connection->su_remote = sockunion_dup(&connection->su);
+		if (sockunion_family(connection->su_remote) == AF_INET)
+			connection->su_remote->sin.sin_port = htons(peer->port);
+		else if (sockunion_family(connection->su_remote) == AF_INET6)
+			connection->su_remote->sin6.sin6_port = htons(peer->port);
 	}
 }
 
