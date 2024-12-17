@@ -1,0 +1,191 @@
+{
+  "vrfName": "default",
+  "routerId": "192.168.0.101",
+  "localAS": 65000,
+  "routes": {
+    "routeDistinguishers": {
+      "65000:100": {
+        "172.20.1.0/24": [
+          {
+            "valid": true,
+            "bestpath": true,
+            "peerId": "192.168.0.1",
+            "path": "65501",
+            "nexthops": [
+              {
+                "ip": "192.168.0.1",
+                "hostname": "pe1",
+                "used": true
+              }
+            ]
+          }
+        ],
+        "172.20.3.0/24": [
+          {
+            "valid": true,
+            "bestpath": true,
+            "peerId": "192.168.0.2",
+            "path": "65503",
+            "nexthops": [
+              {
+                "ip": "192.168.0.2",
+                "hostname": "pe2",
+                "used": true
+              }
+            ]
+          }
+        ],
+        "172.20.5.0/24": [
+          {
+            "valid": true,
+            "bestpath": true,
+            "peerId": "192.168.0.102",
+            "path": "65505",
+            "nexthops": [
+              {
+                "ip": "192.168.0.3",
+                "hostname": "rr2",
+                "used": true
+              }
+            ]
+          }
+        ],
+        "172.20.7.0/24": [
+          {
+            "valid": true,
+            "bestpath": true,
+            "peerId": "192.168.0.102",
+            "path": "65507",
+            "nexthops": [
+              {
+                "ip": "192.168.0.4",
+                "hostname": "rr2",
+                "used": true
+              }
+            ]
+          }
+        ],
+        "172.20.9.0/24": [
+          {
+            "valid": true,
+            "bestpath": true,
+            "peerId": "10.0.5.201",
+            "path": "65201 65204 65205 65001 65509",
+            "nexthops": [
+              {
+                "ip": "192.168.0.5",
+                "hostname": "p1",
+                "used": true
+              }
+            ]
+          },
+          {
+            "valid": true,
+            "peerId": "10.0.7.202",
+            "path": "65201 65204 65205 65001 65509",
+            "nexthops": [
+              {
+                "ip": "192.168.0.5",
+                "hostname": "p2",
+                "used": true
+              }
+            ]
+          }
+        ]
+      },
+      "65000:101": {
+        "172.20.2.0/24": [
+          {
+            "valid": true,
+            "bestpath": true,
+            "peerId": "192.168.0.1",
+            "path": "65502",
+            "nexthops": [
+              {
+                "ip": "192.168.0.1",
+                "hostname": "pe1",
+                "used": true
+              }
+            ]
+          }
+        ],
+        "172.20.6.0/24": [
+          {
+            "valid": true,
+            "bestpath": true,
+            "peerId": "192.168.0.102",
+            "path": "65506",
+            "nexthops": [
+              {
+                "ip": "192.168.0.3",
+                "hostname": "rr2",
+                "used": true
+              }
+            ]
+          }
+        ],
+        "172.20.10.0/24": [
+          {
+            "valid": true,
+            "bestpath": true,
+            "peerId": "10.0.5.201",
+            "path": "65201 65204 65205 65001 65510",
+            "nexthops": [
+              {
+                "ip": "192.168.0.5",
+                "hostname": "p1",
+                "used": true
+              }
+            ]
+          },
+          {
+            "valid": true,
+            "peerId": "10.0.7.202",
+            "path": "65201 65204 65205 65001 65510",
+            "nexthops": [
+              {
+                "ip": "192.168.0.5",
+                "hostname": "p2",
+                "used": true
+              }
+            ]
+          }
+        ]
+      },
+      "65000:102": {
+        "172.20.4.0/24": [
+          {
+            "valid": true,
+            "bestpath": true,
+            "peerId": "192.168.0.2",
+            "path": "65504",
+            "nexthops": [
+              {
+                "ip": "192.168.0.2",
+                "hostname": "pe2",
+                "used": true
+              }
+            ]
+          }
+        ],
+        "172.20.8.0/24": [
+          {
+            "valid": true,
+            "bestpath": true,
+            "peerId": "192.168.0.102",
+            "path": "65508",
+            "nexthops": [
+              {
+                "ip": "192.168.0.4",
+                "hostname": "rr2",
+                "used": true
+              }
+            ]
+          }
+        ]
+      }
+    }
+  },
+  "totalRoutes": 10,
+  "totalPaths": 12
+}

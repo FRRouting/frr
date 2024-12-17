@@ -1,0 +1,24 @@
+{
+  "vrfName": "default",
+  "routerId": "172.16.11.254",
+  "localAS": 65510,
+  "routes": {
+    "172.20.11.0/24": [
+      {
+        "valid": true,
+        "bestpath": true,
+        "peerId": "(unspec)",
+        "path": "",
+        "nexthops": [
+          {
+            "ip": "0.0.0.0",
+            "hostname": "ce11",
+            "used": true
+          }
+        ]
+      }
+    ]
+  },
+  "totalRoutes": 1,
+  "totalPaths": 1
+}

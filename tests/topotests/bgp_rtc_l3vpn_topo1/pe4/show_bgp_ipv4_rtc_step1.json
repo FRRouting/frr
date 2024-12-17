@@ -1,0 +1,67 @@
+{
+  "vrfName": "default",
+  "routerId": "192.168.0.4",
+  "localAS": 65000,
+  "routes": {
+    "65000:RT:65000:100/96": [
+      {
+        "valid": true,
+        "bestpath": true,
+        "peerId": "(unspec)",
+        "path": ""
+      },
+      {
+        "valid": true,
+        "peerId": "192.168.0.102",
+        "path": ""
+      }
+    ],
+    "65001:RT:65000:100/96": [
+      {
+        "valid": true,
+        "bestpath": true,
+        "peerId": "192.168.0.102",
+        "path": "65201 65204 65205 65001"
+      }
+    ],
+    "65000:RT:65000:101/96": [
+      {
+        "valid": true,
+        "bestpath": true,
+        "peerId": "192.168.0.102",
+        "path": ""
+      }
+    ],
+    "65001:RT:65000:101/96": [
+      {
+        "valid": true,
+        "bestpath": true,
+        "peerId": "192.168.0.102",
+        "path": "65201 65204 65205 65001"
+      }
+    ],
+    "65000:RT:65000:102/96": [
+      {
+        "valid": true,
+        "bestpath": true,
+        "peerId": "(unspec)",
+        "path": ""
+      },
+      {
+        "valid": true,
+        "peerId": "192.168.0.102",
+        "path": ""
+      }
+    ],
+    "65001:RT:65000:103/96": [
+      {
+        "valid": true,
+        "bestpath": true,
+        "peerId": "192.168.0.102",
+        "path": "65201 65204 65205 65001"
+      }
+    ]
+  },
+  "totalRoutes": 6,
+  "totalPaths": 8
+}

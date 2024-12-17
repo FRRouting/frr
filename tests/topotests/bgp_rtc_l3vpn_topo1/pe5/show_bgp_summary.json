@@ -1,0 +1,91 @@
+{
+  "default": {
+    "ipv4Vpn": {
+      "peers": {
+        "192.168.0.103": {
+          "hostname": "rr3",
+          "state": "Established"
+        }
+      },
+      "totalPeers": 1
+    },
+    "ipv4Rtc": {
+      "peers": {
+        "192.168.0.103": {
+          "hostname": "rr3",
+          "state": "Established"
+        }
+      },
+      "totalPeers": 1
+    },
+    "ipv6Vpn": {
+      "peers": {
+        "3fff::192:168:0:103": {
+          "hostname": "rr3",
+          "state": "Established"
+        }
+      },
+      "totalPeers": 1
+    }
+  },
+  "RED": {
+    "ipv4Unicast": {
+      "peers": {
+        "172.16.9.254": {
+          "hostname": "ce9",
+          "state": "Established"
+        }
+      },
+      "totalPeers": 1
+    },
+    "ipv6Unicast": {
+      "peers": {
+        "3fff:9::ff": {
+          "hostname": "ce9",
+          "state": "Established"
+        }
+      },
+      "totalPeers": 1
+    }
+  },
+  "BLUE": {
+    "ipv4Unicast": {
+      "peers": {
+        "172.16.10.254": {
+          "hostname": "ce10",
+          "state": "Established"
+        }
+      },
+      "totalPeers": 1
+    },
+    "ipv6Unicast": {
+      "peers": {
+        "3fff:10::ff": {
+          "hostname": "ce10",
+          "state": "Established"
+        }
+      },
+      "totalPeers": 1
+    }
+  },
+  "ORANGE": {
+    "ipv4Unicast": {
+      "peers": {
+        "172.16.11.254": {
+          "hostname": "ce11",
+          "state": "Established"
+        }
+      },
+      "totalPeers": 1
+    },
+    "ipv6Unicast": {
+      "peers": {
+        "3fff:11::ff": {
+          "hostname": "ce11",
+          "state": "Established"
+        }
+      },
+      "totalPeers": 1
+    }
+  }
+}

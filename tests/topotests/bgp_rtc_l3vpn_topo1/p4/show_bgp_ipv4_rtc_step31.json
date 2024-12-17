@@ -1,0 +1,33 @@
+{
+  "vrfName": "default",
+  "routerId": "192.168.0.204",
+  "localAS": 65204,
+  "routes": {
+    "65000:RT:65000:100/96": [
+      {
+        "valid": true,
+        "bestpath": true,
+        "peerId": "10.0.11.202",
+        "path": "65201 65000"
+      }
+    ],
+    "65000:RT:65000:101/96": [
+      {
+        "valid": true,
+        "bestpath": true,
+        "peerId": "10.0.11.202",
+        "path": "65201 65000"
+      }
+    ],
+    "65000:RT:65000:102/96": [
+      {
+        "valid": true,
+        "bestpath": true,
+        "peerId": "10.0.11.202",
+        "path": "65201 65000"
+      }
+    ]
+  },
+  "totalRoutes": 3,
+  "totalPaths": 3
+}

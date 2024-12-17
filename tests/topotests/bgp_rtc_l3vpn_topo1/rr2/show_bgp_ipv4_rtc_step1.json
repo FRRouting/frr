@@ -1,0 +1,107 @@
+{
+  "vrfName": "default",
+  "routerId": "192.168.0.102",
+  "localAS": 65000,
+  "routes": {
+    "65000:RT:65000:100/96": [
+      {
+        "valid": true,
+        "bestpath": true,
+        "peerId": "192.168.0.101",
+        "path": ""
+      },
+      {
+        "valid": true,
+        "peerId": "192.168.0.3",
+        "path": ""
+      },
+      {
+        "valid": true,
+        "peerId": "192.168.0.4",
+        "path": ""
+      }
+    ],
+    "65001:RT:65000:100/96": [
+      {
+        "valid": true,
+        "bestpath": true,
+        "peerId": "10.0.6.201",
+        "path": "65201 65204 65205 65001"
+      },
+      {
+        "valid": true,
+        "peerId": "10.0.8.202",
+        "path": "65201 65204 65205 65001"
+      },
+      {
+        "valid": true,
+        "peerId": "192.168.0.101",
+        "path": "65201 65204 65205 65001"
+      }
+    ],
+    "65000:RT:65000:101/96": [
+      {
+        "valid": true,
+        "bestpath": true,
+        "peerId": "192.168.0.101",
+        "path": ""
+      },
+      {
+        "valid": true,
+        "peerId": "192.168.0.3",
+        "path": ""
+      }
+    ],
+    "65001:RT:65000:101/96": [
+      {
+        "valid": true,
+        "bestpath": true,
+        "peerId": "10.0.6.201",
+        "path": "65201 65204 65205 65001"
+      },
+      {
+        "valid": true,
+        "peerId": "10.0.8.202",
+        "path": "65201 65204 65205 65001"
+      },
+      {
+        "valid": true,
+        "peerId": "192.168.0.101",
+        "path": "65201 65204 65205 65001"
+      }
+    ],
+    "65000:RT:65000:102/96": [
+      {
+        "valid": true,
+        "bestpath": true,
+        "peerId": "192.168.0.101",
+        "path": ""
+      },
+      {
+        "valid": true,
+        "peerId": "192.168.0.4",
+        "path": ""
+      }
+    ],
+    "65001:RT:65000:103/96": [
+      {
+        "valid": true,
+        "bestpath": true,
+        "peerId": "10.0.6.201",
+        "path": "65201 65204 65205 65001"
+      },
+      {
+        "valid": true,
+        "peerId": "10.0.8.202",
+        "path": "65201 65204 65205 65001"
+      },
+      {
+        "valid": true,
+        "peerId": "192.168.0.101",
+        "path": "65201 65204 65205 65001"
+      }
+    ]
+  },
+  "totalRoutes": 6,
+  "totalPaths": 16
+}
