@@ -3966,11 +3966,16 @@ int bgp_delete(struct bgp *bgp)
 	afi_t afi;
 	safi_t safi;
 	int i;
+	uint32_t vni_count;
+	struct bgpevpn *vpn = NULL;
 	struct bgp_dest *dest = NULL;
 	struct bgp_dest *dest_next = NULL;
 	struct bgp_table *dest_table = NULL;
 	struct graceful_restart_info *gr_info;
-	uint32_t cnt_before, cnt_after;
+	uint32_t b_ann_cnt = 0, b_l2_cnt = 0, b_l3_cnt = 0;
+	uint32_t a_ann_cnt = 0, a_l2_cnt = 0, a_l3_cnt = 0;
+	struct bgp *bgp_to_proc = NULL;
+	struct bgp *bgp_to_proc_next = NULL;
 
 	assert(bgp);
 
@@ -3978,7 +3983,7 @@ int bgp_delete(struct bgp *bgp)
 	 * Iterate the pending dest list and remove all the dest pertaininig to
 	 * the bgp under delete.
 	 */
-	cnt_before = zebra_announce_count(&bm->zebra_announce_head);
+	b_ann_cnt = zebra_announce_count(&bm->zebra_announce_head);
 	for (dest = zebra_announce_first(&bm->zebra_announce_head); dest;
 	     dest = dest_next) {
 		dest_next = zebra_announce_next(&bm->zebra_announce_head, dest);
@@ -3990,10 +3995,36 @@ int bgp_delete(struct bgp *bgp)
 		}
 	}
 
-	cnt_after = zebra_announce_count(&bm->zebra_announce_head);
-	if (BGP_DEBUG(zebra, ZEBRA))
-		zlog_debug("Zebra Announce Fifo cleanup count before %u and after %u during BGP %s deletion",
-			   cnt_before, cnt_after, bgp->name_pretty);
+	/*
+	 * Pop all VPNs yet to be processed for remote routes install if the
+	 * bgp-evpn instance is getting deleted
+	 */
+	if (bgp == bgp_get_evpn()) {
+		b_l2_cnt = zebra_l2_vni_count(&bm->zebra_l2_vni_head);
+		vni_count = b_l2_cnt;
+		while (vni_count) {
+			vpn = zebra_l2_vni_pop(&bm->zebra_l2_vni_head);
+			UNSET_FLAG(vpn->flags, VNI_FLAG_ADD);
+			vni_count--;
+		}
+	}
+
+	b_l3_cnt = zebra_l3_vni_count(&bm->zebra_l3_vni_head);
+	for (bgp_to_proc = zebra_l3_vni_first(&bm->zebra_l3_vni_head); bgp_to_proc;
+	     bgp_to_proc = bgp_to_proc_next) {
+		bgp_to_proc_next = zebra_l3_vni_next(&bm->zebra_l3_vni_head, bgp_to_proc);
+		if (bgp_to_proc == bgp)
+			zebra_l3_vni_del(&bm->zebra_l3_vni_head, bgp_to_proc);
+	}
+
+	if (BGP_DEBUG(zebra, ZEBRA)) {
+		a_ann_cnt = zebra_announce_count(&bm->zebra_announce_head);
+		a_l2_cnt = zebra_l2_vni_count(&bm->zebra_l2_vni_head);
+		a_l3_cnt = zebra_l3_vni_count(&bm->zebra_l3_vni_head);
+		zlog_debug("BGP %s deletion FIFO cnt Zebra_Ann before %u after %u, L2_VNI before %u after, %u L3_VNI before %u after %u",
+			   bgp->name_pretty, b_ann_cnt, a_ann_cnt, b_l2_cnt, a_l2_cnt, b_l3_cnt,
+			   a_l3_cnt);
+	}
 
 	bgp_soft_reconfig_table_task_cancel(bgp, NULL, NULL);
 
@@ -8492,6 +8523,8 @@ void bgp_master_init(struct event_loop *master, const int buffer_size,
 	bm = &bgp_master;
 
 	zebra_announce_init(&bm->zebra_announce_head);
+	zebra_l2_vni_init(&bm->zebra_l2_vni_head);
+	zebra_l3_vni_init(&bm->zebra_l3_vni_head);
 	bm->bgp = list_new();
 	bm->listen_sockets = list_new();
 	bm->port = BGP_PORT_DEFAULT;
@@ -8515,6 +8548,8 @@ void bgp_master_init(struct event_loop *master, const int buffer_size,
 	bm->stalepath_time = BGP_DEFAULT_STALEPATH_TIME;
 	bm->select_defer_time = BGP_DEFAULT_SELECT_DEFERRAL_TIME;
 	bm->rib_stale_time = BGP_DEFAULT_RIB_STALE_TIME;
+	bm->t_bgp_zebra_l2_vni = NULL;
+	bm->t_bgp_zebra_l3_vni = NULL;
 
 	bgp_mac_init();
 	/* init the rd id space.
@@ -8762,6 +8797,8 @@ void bgp_terminate(void)
 	EVENT_OFF(bm->t_bgp_sync_label_manager);
 	EVENT_OFF(bm->t_bgp_start_label_manager);
 	EVENT_OFF(bm->t_bgp_zebra_route);
+	EVENT_OFF(bm->t_bgp_zebra_l2_vni);
+	EVENT_OFF(bm->t_bgp_zebra_l3_vni);
 
 	bgp_mac_finish();
 }
