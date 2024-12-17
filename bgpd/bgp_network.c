@@ -861,8 +861,10 @@ enum connect_result bgp_connect(struct peer_connection *connection)
 				 htons(peer->port), ifindex);
 }
 
-void bgp_updatesockname(struct peer *peer, struct peer_connection *connection)
+void bgp_updatesockname(struct peer_connection *connection)
 {
+	struct peer *peer = connection->peer;
+
 	if (peer->su_local) {
 		sockunion_free(peer->su_local);
 		peer->su_local = NULL;
@@ -882,7 +884,7 @@ int bgp_getsockname(struct peer_connection *connection)
 {
 	struct peer *peer = connection->peer;
 
-	bgp_updatesockname(peer, peer->connection);
+	bgp_updatesockname(connection);
 
 	if (!bgp_zebra_nexthop_set(peer->su_local, peer->su_remote,
 				   &peer->nexthop, peer)) {

@@ -1819,8 +1819,8 @@ static void bgp_connect_in_progress_update_connection(struct peer_connection *co
 {
 	struct peer *peer = connection->peer;
 
-	bgp_updatesockname(peer, connection);
-	if (!peer->su_remote && !BGP_CONNECTION_SU_UNSPEC(peer->connection)) {
+	bgp_updatesockname(connection);
+	if (!peer->su_remote && !BGP_CONNECTION_SU_UNSPEC(connection)) {
 		/* if connect initiated, then dest port and dest addresses are well known */
 		peer->su_remote = sockunion_dup(&connection->su);
 		if (sockunion_family(peer->su_remote) == AF_INET)
