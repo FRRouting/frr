@@ -1,0 +1,8 @@
+{
+  "vrfName": "default",
+  "routerId": "192.168.0.203",
+  "localAS": 65203,
+  "routes": {},
+  "totalRoutes": 0,
+  "totalPaths": 0
+}

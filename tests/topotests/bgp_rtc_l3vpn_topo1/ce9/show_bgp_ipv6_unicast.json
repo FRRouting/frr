@@ -1,0 +1,105 @@
+{
+  "vrfName": "default",
+  "routerId": "172.16.9.254",
+  "localAS": 65509,
+  "routes": {
+    "2001:db8:1::/64": [
+      {
+        "valid": true,
+        "bestpath": true,
+        "peerId": "3fff:9::1",
+        "path": "65001 65203 65201 65000 65501",
+        "nexthops": [
+          {
+            "ip": "3fff:9::1",
+            "hostname": "pe5",
+            "scope": "global"
+          },
+          {
+            "hostname": "pe5",
+            "scope": "link-local",
+            "used": true
+          }
+        ]
+      }
+    ],
+    "2001:db8:3::/64": [
+      {
+        "valid": true,
+        "bestpath": true,
+        "peerId": "3fff:9::1",
+        "path": "65001 65203 65201 65000 65503",
+        "nexthops": [
+          {
+            "ip": "3fff:9::1",
+            "hostname": "pe5",
+            "scope": "global"
+          },
+          {
+            "hostname": "pe5",
+            "scope": "link-local",
+            "used": true
+          }
+        ]
+      }
+    ],
+    "2001:db8:5::/64": [
+      {
+        "valid": true,
+        "bestpath": true,
+        "peerId": "3fff:9::1",
+        "path": "65001 65203 65201 65000 65505",
+        "nexthops": [
+          {
+            "ip": "3fff:9::1",
+            "hostname": "pe5",
+            "scope": "global"
+          },
+          {
+            "hostname": "pe5",
+            "scope": "link-local",
+            "used": true
+          }
+        ]
+      }
+    ],
+    "2001:db8:7::/64": [
+      {
+        "valid": true,
+        "bestpath": true,
+        "peerId": "3fff:9::1",
+        "path": "65001 65203 65201 65000 65507",
+        "nexthops": [
+          {
+            "ip": "3fff:9::1",
+            "hostname": "pe5",
+            "scope": "global"
+          },
+          {
+            "hostname": "pe5",
+            "scope": "link-local",
+            "used": true
+          }
+        ]
+      }
+    ],
+    "2001:db8:9::/64": [
+      {
+        "valid": true,
+        "bestpath": true,
+        "peerId": "(unspec)",
+        "path": "",
+        "nexthops": [
+          {
+            "ip": "::",
+            "hostname": "ce9",
+            "scope": "global",
+            "used": true
+          }
+        ]
+      }
+    ]
+  },
+  "totalRoutes": 5,
+  "totalPaths": 5
+}
