@@ -56,14 +56,11 @@ static void vrrp_zebra_connected(struct zclient *zclient)
 }
 
 /* Router-id update message from zebra. */
-static int vrrp_router_id_update_zebra(int command, struct zclient *zclient,
-				       zebra_size_t length, vrf_id_t vrf_id)
+static void vrrp_router_id_update_zebra(ZAPI_CALLBACK_ARGS)
 {
 	struct prefix router_id;
 
 	zebra_router_id_update_read(zclient->ibuf, &router_id);
-
-	return 0;
 }
 
 int vrrp_ifp_create(struct interface *ifp)
@@ -102,8 +99,7 @@ int vrrp_ifp_down(struct interface *ifp)
 	return 0;
 }
 
-static int vrrp_zebra_if_address_add(int command, struct zclient *zclient,
-				     zebra_size_t length, vrf_id_t vrf_id)
+static void vrrp_zebra_if_address_add(ZAPI_CALLBACK_ARGS)
 {
 	struct connected *c;
 
@@ -115,21 +111,18 @@ static int vrrp_zebra_if_address_add(int command, struct zclient *zclient,
 	 * will add address to interface list by calling
 	 * connected_add_by_prefix()
 	 */
-	c = zebra_interface_address_read(command, zclient->ibuf, vrf_id);
+	c = zebra_interface_address_read(cmd, zclient->ibuf, vrf_id);
 
 	if (!c)
-		return 0;
+		return;
 
 	vrrp_zebra_debug_if_state(c->ifp, __func__);
 	vrrp_zebra_debug_if_dump_address(c->ifp, __func__);
 
 	vrrp_if_address_add(c->ifp);
-
-	return 0;
 }
 
-static int vrrp_zebra_if_address_del(int command, struct zclient *client,
-				     zebra_size_t length, vrf_id_t vrf_id)
+static void vrrp_zebra_if_address_del(ZAPI_CALLBACK_ARGS)
 {
 	struct connected *c;
 
@@ -141,17 +134,15 @@ static int vrrp_zebra_if_address_del(int command, struct zclient *client,
 	 * will remove address from interface list by calling
 	 * connected_delete_by_prefix()
 	 */
-	c = zebra_interface_address_read(command, client->ibuf, vrf_id);
+	c = zebra_interface_address_read(cmd, zclient->ibuf, vrf_id);
 
 	if (!c)
-		return 0;
+		return;
 
 	vrrp_zebra_debug_if_state(c->ifp, __func__);
 	vrrp_zebra_debug_if_dump_address(c->ifp, __func__);
 
 	vrrp_if_address_del(c->ifp);
-
-	return 0;
 }
 
 void vrrp_zebra_radv_set(struct vrrp_router *r, bool enable)
