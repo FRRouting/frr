@@ -2034,10 +2034,14 @@ static void bmp_bgp_peer_vrf(struct bmp_bgp_peer *bbpeer, struct bgp *bgp)
 	size_t open_len = stream_get_endp(s);
 
 	bbpeer->open_rx_len = open_len;
+	if (bbpeer->open_rx)
+		XFREE(MTYPE_BMP_OPEN, bbpeer->open_rx);
 	bbpeer->open_rx = XMALLOC(MTYPE_BMP_OPEN, open_len);
 	memcpy(bbpeer->open_rx, s->data, open_len);
 
 	bbpeer->open_tx_len = open_len;
+	if (bbpeer->open_tx)
+		XFREE(MTYPE_BMP_OPEN, bbpeer->open_tx);
 	bbpeer->open_tx = XMALLOC(MTYPE_BMP_OPEN, open_len);
 	memcpy(bbpeer->open_tx, s->data, open_len);
 
@@ -2079,6 +2083,7 @@ bool bmp_bgp_update_vrf_status(struct bmp_bgp *bmpbgp, enum bmp_vrf_state force)
 		} else {
 			bbpeer = bmp_bgp_peer_find(peer->qobj_node.nid);
 			if (bbpeer) {
+				XFREE(MTYPE_BMP_OPEN, bbpeer->open_tx);
 				XFREE(MTYPE_BMP_OPEN, bbpeer->open_rx);
 				bmp_peerh_del(&bmp_peerh, bbpeer);
 				XFREE(MTYPE_BMP_PEER, bbpeer);
