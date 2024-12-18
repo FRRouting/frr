@@ -442,6 +442,10 @@ extern void prefix_set_linkstate_display_hook(
 #define RTC_ADDR_STRLEN 41
 
 /* Prototypes. */
+
+extern void prefix_set_rtc_display_hook(char *(*func)(char *buf, size_t buf_size, uint16_t prefixlen,
+						      const struct rtc_info *rtc_info));
+
 extern int str2family(const char *string);
 extern int afi2family(afi_t afi);
 extern afi_t family2afi(int family);

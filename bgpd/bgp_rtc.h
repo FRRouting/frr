@@ -14,4 +14,7 @@
 extern int bgp_nlri_parse_rtc(struct peer *peer, struct attr *attr, struct bgp_nlri *packet,
 			      bool withdraw);
 
+extern char *bgp_rtc_prefix_display(char *buf, size_t size, uint16_t prefix_len,
+				    const struct rtc_info *rtc_info);
+extern void bgp_rtc_init(void);
 #endif /* BGP_RTC_H */

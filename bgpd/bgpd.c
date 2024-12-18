@@ -81,6 +81,7 @@
 #include "bgpd/bgp_evpn_private.h"
 #include "bgpd/bgp_evpn_mh.h"
 #include "bgpd/bgp_mac.h"
+#include "bgpd/bgp_rtc.h"
 #include "bgp_trace.h"
 #include "bgpd/bgp_tracker.h"
 
@@ -8851,6 +8852,8 @@ void bgp_init(unsigned short instance)
 	bgp_linkstate_init();
 	bgp_linkstate_vty_init();
 	bgp_tracker_init();
+
+	bgp_rtc_init();
 
 	/* Access list initialize. */
 	access_list_init();
