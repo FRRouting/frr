@@ -193,6 +193,7 @@ def bmp_check_for_peer_message(
     Check for the presence of a peer up message for the peer
     """
     global SEQ
+    last_seq = SEQ
 
     # we care only about the new messages
     messages = [
@@ -215,16 +216,23 @@ def bmp_check_for_peer_message(
         ):
             if is_rd_instance and m["peer_type"] != "route distinguisher instance":
                 continue
-            peers.append(m["peer_ip"])
+            peers.append((m["peer_ip"], m["seq"]))
         elif m["policy"] == "loc-rib" and m["bmp_log_type"] == bmp_log_type:
-            peers.append("0.0.0.0")
+            peers.append(("0.0.0.0", m["seq"]))
 
     # check for prefixes
     for ep in expected_peers:
-        if ep not in peers:
+        for _ip, _seq in peers:
+            if ep == _ip:
+                msg = "The peer {} is present in the {} log messages."
+                logger.debug(msg.format(ep, bmp_log_type))
+                if _seq > last_seq:
+                    last_seq = _seq
+                break
+        else:
             msg = "The peer {} is not present in the {} log messages."
             logger.debug(msg.format(ep, bmp_log_type))
             return False
 
-    SEQ = messages[-1]["seq"]
+    SEQ = last_seq
     return True
