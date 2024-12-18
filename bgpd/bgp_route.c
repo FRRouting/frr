@@ -12261,6 +12261,15 @@ static void route_vty_out_route(struct bgp_dest *dest, const struct prefix *p, s
 			json_object_string_add(json, "nlriStr", nlri_str);
 			json_object_object_add(json, "nlri", json_nlri);
 		}
+	} else if (p->family == AF_RTC) {
+		if (!json) {
+			len = vty_out(vty, "%pFX", p);
+		} else {
+			json_object_string_addf(json, "prefix", "%pFXh", p);
+			json_object_int_add(json, "prefixLen", p->prefixlen);
+			json_object_string_addf(json, "network", "%pFX", p);
+			json_object_int_add(json, "version", dest->version);
+		}
 	} else {
 		if (!json)
 			len = vty_out(vty, "%pFX", p);
