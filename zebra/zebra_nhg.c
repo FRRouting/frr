@@ -2645,10 +2645,12 @@ static unsigned nexthop_active_check(struct route_node *rn,
 	 */
 	if (re->type == ZEBRA_ROUTE_KERNEL || re->type == ZEBRA_ROUTE_SYSTEM) {
 		struct interface *ifp;
+		int connected_if_count = 0;
 
 		ifp = if_lookup_by_index(nexthop->ifindex, nexthop->vrf_id);
+		connected_if_count = connected_count_by_family(ifp->connected, AF_INET) + connected_count_by_family(ifp->connected, AF_INET6);
 
-		if (ifp && ifp->vrf->vrf_id == vrf_id && if_is_up(ifp)) {
+		if (ifp && ifp->vrf->vrf_id == vrf_id && if_is_up(ifp) && connected_if_count) {
 			SET_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE);
 			goto skip_check;
 		}
