@@ -1293,7 +1293,7 @@ static struct rtadv_prefix *rtadv_prefix_set(struct zebra_if *zif,
 	if (rp->AdvPrefixCreate == PREFIX_SRC_MANUAL) {
 		if (rprefix->AdvPrefixCreate == PREFIX_SRC_AUTO)
 			rprefix->AdvPrefixCreate = PREFIX_SRC_BOTH;
-		else
+		else if (rprefix->AdvPrefixCreate != PREFIX_SRC_BOTH)
 			rprefix->AdvPrefixCreate = PREFIX_SRC_MANUAL;
 
 		rprefix->AdvAutonomousFlag = rp->AdvAutonomousFlag;
@@ -1304,7 +1304,7 @@ static struct rtadv_prefix *rtadv_prefix_set(struct zebra_if *zif,
 	} else if (rp->AdvPrefixCreate == PREFIX_SRC_AUTO) {
 		if (rprefix->AdvPrefixCreate == PREFIX_SRC_MANUAL)
 			rprefix->AdvPrefixCreate = PREFIX_SRC_BOTH;
-		else {
+		else if (rprefix->AdvPrefixCreate != PREFIX_SRC_BOTH) {
 			rprefix->AdvPrefixCreate = PREFIX_SRC_AUTO;
 			rtadv_prefix_set_defaults(rprefix);
 		}
@@ -1333,7 +1333,8 @@ static void rtadv_prefix_reset(struct zebra_if *zif, struct rtadv_prefix *rp,
 				rprefix->AdvPrefixCreate = PREFIX_SRC_AUTO;
 				rtadv_prefix_set_defaults(rprefix);
 				return;
-			}
+			} else if (rprefix->AdvPrefixCreate == PREFIX_SRC_AUTO)
+				return;
 		} else if (rp->AdvPrefixCreate == PREFIX_SRC_AUTO) {
 			if (rprefix->AdvPrefixCreate == PREFIX_SRC_BOTH) {
 				rprefix->AdvPrefixCreate = PREFIX_SRC_MANUAL;
