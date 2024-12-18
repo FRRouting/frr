@@ -32,6 +32,15 @@ static const uint8_t maskbit[] = {0x00, 0x80, 0xc0, 0xe0, 0xf0,
 
 #define MASKBIT(offset)  ((0xff << (PNBBY - (offset))) & 0xff)
 
+char *(*prefix_rtc_display_hook)(char *buf, size_t buf_size, uint16_t prefixlen,
+				 const struct rtc_info *rtc_info) = NULL;
+
+void prefix_set_rtc_display_hook(char *(*func)(char *buf, size_t buf_size, uint16_t prefixlen,
+					       const struct rtc_info *rtc_info))
+{
+	prefix_rtc_display_hook = func;
+}
+
 int is_zero_mac(const struct ethaddr *mac)
 {
 	int i = 0;
@@ -1150,6 +1159,14 @@ const char *prefix2str(union prefixconstptr pu, char *str, int size)
 		break;
 
 	case AF_RTC:
+		if (prefix_rtc_display_hook) {
+			snprintf(str, size, "%s/%d",
+				 prefix_rtc_display_hook(buf, sizeof(buf), p->prefixlen,
+							 &p->u.prefix_rtc),
+				 p->prefixlen);
+			break;
+		}
+
 		strlcpy(str, "RTC prefix", size);
 		break;
 
@@ -1184,7 +1201,12 @@ static ssize_t prefixhost2str(struct fbuf *fbuf, union prefixconstptr pu)
 	case AF_ETHERNET:
 		prefix_mac2str(&p->u.prefix_eth, buf, sizeof(buf));
 		return bputs(fbuf, buf);
-
+	case AF_RTC:
+		if (prefix_rtc_display_hook)
+			prefix_rtc_display_hook(buf, sizeof(buf), p->prefixlen, &p->u.prefix_rtc);
+		else
+			snprintf(buf, sizeof(buf), "RTC prefix");
+		return bputs(fbuf, buf);
 	default:
 		return bprintfrr(fbuf, "{prefix.af=%dPF}", p->family);
 	}

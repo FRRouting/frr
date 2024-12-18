@@ -78,6 +78,7 @@
 #include "bgpd/bgp_evpn_private.h"
 #include "bgpd/bgp_evpn_mh.h"
 #include "bgpd/bgp_mac.h"
+#include "bgpd/bgp_rtc.h"
 #include "bgp_trace.h"
 
 DEFINE_MTYPE_STATIC(BGPD, PEER_TX_SHUTDOWN_MSG, "Peer shutdown message (TX)");
@@ -8808,6 +8809,8 @@ void bgp_init(unsigned short instance)
 #endif
 	bgp_ethernetvpn_init();
 	bgp_flowspec_vty_init();
+
+	bgp_rtc_init();
 
 	/* Access list initialize. */
 	access_list_init();
