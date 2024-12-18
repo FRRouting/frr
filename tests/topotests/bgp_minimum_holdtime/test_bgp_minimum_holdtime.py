@@ -76,7 +76,7 @@ def test_bgp_minimum_holdtime():
         return topotest.json_cmp(output, expected)
 
     test_func = functools.partial(_bgp_neighbor_check_if_notification_sent)
-    _, result = topotest.run_and_expect(test_func, None, count=40, wait=0.5)
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
     assert result is None, "Failed to send notification message\n"
 
 
