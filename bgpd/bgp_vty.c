@@ -9482,6 +9482,8 @@ DEFPY (af_rd_vpn_export,
 			   bgp_get_default(), bgp);
 
 	if (yes) {
+		if (bgp->vpn_policy[afi].tovpn_rd_pretty)
+			XFREE(MTYPE_BGP_NAME, bgp->vpn_policy[afi].tovpn_rd_pretty);
 		bgp->vpn_policy[afi].tovpn_rd_pretty = XSTRDUP(MTYPE_BGP_NAME,
 							       rd_str);
 		bgp->vpn_policy[afi].tovpn_rd = prd;
