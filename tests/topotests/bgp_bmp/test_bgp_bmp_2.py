@@ -252,6 +252,43 @@ def test_peer_down():
     assert success, "Checking the updated prefixes has been failed !."
 
 
+def test_bgp_instance_flapping():
+    """
+    Checking for BGP loc-rib up messages
+    """
+    tgen = get_topogen()
+
+    # create flapping at BMP
+    tgen.net["r1vrf"].cmd("ip link set dev vrf1 down")
+
+    peers = ["0.0.0.0"]
+    logger.info("checking for BMP peer down LOC-RIB message.")
+    test_func = partial(
+        bmp_check_for_peer_message,
+        peers,
+        "peer down",
+        tgen.gears["bmp1vrf"],
+        os.path.join(tgen.logdir, "bmp1vrf", "bmp.log"),
+        is_rd_instance=True,
+    )
+    success, _ = topotest.run_and_expect(test_func, True, count=30, wait=1)
+    assert success, "Checking the BMP peer down LOC-RIB message failed !."
+
+    tgen.net["r1vrf"].cmd("ip link set dev vrf1 up")
+
+    logger.info("checking for BMP peer up LOC-RIB message.")
+    test_func = partial(
+        bmp_check_for_peer_message,
+        peers,
+        "peer up",
+        tgen.gears["bmp1vrf"],
+        os.path.join(tgen.logdir, "bmp1vrf", "bmp.log"),
+        is_rd_instance=True,
+    )
+    success, _ = topotest.run_and_expect(test_func, True, count=30, wait=1)
+    assert success, "Checking the BMP peer up LOC-RIB message failed !."
+
+
 if __name__ == "__main__":
     args = ["-s"] + sys.argv[1:]
     sys.exit(pytest.main(args))
