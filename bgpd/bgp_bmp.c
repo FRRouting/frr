@@ -2081,6 +2081,7 @@ static struct bmp_bgp *bmp_bgp_get(struct bgp *bgp)
 	bmpbgp->bgp = bgp;
 	bmpbgp->vrf_state = vrf_state_unknown;
 	bmpbgp->mirror_qsizelimit = ~0UL;
+	bmp_targets_init(&bmpbgp->targets);
 	bmp_mirrorq_init(&bmpbgp->mirrorq);
 	bmp_bgph_add(&bmp_bgph, bmpbgp);
 
