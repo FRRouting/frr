@@ -695,6 +695,16 @@ static void bmp_send_bt(struct bmp_targets *bt, struct stream *s)
 		pullwr_write_stream(bmp->pullwr, s);
 }
 
+static void bmp_send_bt_safe(struct bmp_targets *bt, struct stream *s)
+{
+	if (!s)
+		return;
+
+	bmp_send_bt(bt, s);
+
+	stream_free(s);
+}
+
 /* send a stream to all bmp sessions configured in a bgp instance */
 /* XXX: kludge - filling the pullwr's buffer */
 static void bmp_send_all(struct bmp_bgp *bmpbgp, struct stream *s)
@@ -3459,22 +3469,45 @@ static int bmp_route_distinguisher_update(struct bgp *bgp, afi_t afi, bool preco
 	return bmp_bgp_attribute_updated(bgp, preconfig);
 }
 
+static void _bmp_vrf_state_changed_internal(struct bgp *bgp, enum bmp_vrf_state vrf_state)
+{
+	struct bmp_bgp *bmpbgp = bmp_bgp_find(bgp);
+	struct bgp *bgp_vrf;
+	struct bmp_targets *bt;
+	struct listnode *node;
+	struct bmp_imported_bgp *bib;
+
+	if (bmpbgp && bmp_bgp_update_vrf_status(&bmpbgp->vrf_state, bgp, vrf_state))
+		bmp_send_all_safe(bmpbgp, bmp_peerstate(bgp->peer_self,
+							bmpbgp->vrf_state == vrf_state_down));
+
+	for (ALL_LIST_ELEMENTS_RO(bm->bgp, node, bgp_vrf)) {
+		bmpbgp = bmp_bgp_find(bgp_vrf);
+		if (!bmpbgp)
+			continue;
+		if (bgp_vrf == bgp)
+			continue;
+		frr_each (bmp_targets, &bmpbgp->targets, bt) {
+			frr_each (bmp_imported_bgps, &bt->imported_bgps, bib) {
+				if (bgp_lookup_by_name(bib->name) != bgp)
+					continue;
+				if (bmp_bgp_update_vrf_status(&bib->vrf_state, bgp, vrf_state)) {
+					bmp_send_bt_safe(bt, bmp_peerstate(bgp->peer_self,
+									   bib->vrf_state ==
+										   vrf_state_down));
+					break;
+				}
+			}
+		}
+	}
+}
+
 /* called when a bgp instance goes up/down, implying that the underlying VRF
  * has been created or deleted in zebra
  */
 static int bmp_vrf_state_changed(struct bgp *bgp)
 {
-	struct bmp_bgp *bmpbgp = bmp_bgp_find(bgp);
-
-	if (!bmpbgp)
-		return 0;
-
-	if (!bmp_bgp_update_vrf_status(&bmpbgp->vrf_state, bgp, vrf_state_unknown))
-		return 1;
-
-	bmp_send_all_safe(bmpbgp,
-			  bmp_peerstate(bgp->peer_self, bmpbgp->vrf_state == vrf_state_down));
-
+	_bmp_vrf_state_changed_internal(bgp, vrf_state_unknown);
 	return 0;
 }
 
@@ -3483,7 +3516,6 @@ static int bmp_vrf_state_changed(struct bgp *bgp)
  */
 static int bmp_vrf_itf_state_changed(struct bgp *bgp, struct interface *itf)
 {
-	struct bmp_bgp *bmpbgp;
 	enum bmp_vrf_state new_state;
 
 	/* if the update is not about the vrf device double-check
@@ -3492,10 +3524,8 @@ static int bmp_vrf_itf_state_changed(struct bgp *bgp, struct interface *itf)
 	if (!itf || !if_is_vrf(itf))
 		return bmp_vrf_state_changed(bgp);
 
-	bmpbgp = bmp_bgp_find(bgp);
 	new_state = if_is_up(itf) ? vrf_state_up : vrf_state_down;
-	if (bmpbgp && bmp_bgp_update_vrf_status(&bmpbgp->vrf_state, bgp, new_state))
-		bmp_send_all(bmpbgp, bmp_peerstate(bgp->peer_self, new_state == vrf_state_down));
+	_bmp_vrf_state_changed_internal(bgp, new_state);
 
 	return 0;
 }
