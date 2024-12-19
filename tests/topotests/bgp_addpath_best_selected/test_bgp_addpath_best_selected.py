@@ -73,7 +73,9 @@ def test_bgp_addpath_best_selected():
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
+    r1 = tgen.gears["r1"]
     r2 = tgen.gears["r2"]
+    r7 = tgen.gears["r7"]
 
     def _bgp_converge():
         output = json.loads(r2.vtysh_cmd("show bgp ipv4 unicast 172.16.16.254/32 json"))
@@ -111,78 +113,67 @@ def test_bgp_addpath_best_selected():
     _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
     assert result is None, "Can't converge initially"
 
-    def check_bgp_advertised_routes_to_r1():
+    def r1_check_bgp_received_routes_from_r2():
         output = json.loads(
-            r2.vtysh_cmd(
-                "show bgp ipv4 neighbors 192.168.1.1 advertised-routes detail json"
-            )
+            r1.vtysh_cmd("show bgp ipv4 neighbors 192.168.1.2 routes json")
         )
         expected = {
-            "advertisedRoutes": {
-                "172.16.16.254/32": {
-                    "paths": [
-                        {
-                            "aspath": {
-                                "string": "65005",
-                            }
-                        },
-                        {
-                            "aspath": {
-                                "string": "65006",
-                            }
-                        },
-                    ]
-                }
+            "routes": {
+                "172.16.16.254/32": [
+                    {
+                        "valid": True,
+                        "path": "65002 65005",
+                    },
+                    {
+                        "valid": True,
+                        "path": "65002 65006",
+                    },
+                ]
             },
-            "totalPrefixCounter": 2,
+            "totalRoutes": 1,
+            "totalPaths": 2,
         }
 
         return topotest.json_cmp(output, expected)
 
-    test_func = functools.partial(check_bgp_advertised_routes_to_r1)
+    test_func = functools.partial(r1_check_bgp_received_routes_from_r2)
     _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
     assert (
         result is None
-    ), "Received more/less Add-Path best paths, but should be only 1+1 (real best path)"
+    ), "Received more/less Add-Path best paths, but should be ONLY 1+1 (real best path)"
 
-    def check_bgp_advertised_routes_to_r7():
+    def r7_check_bgp_received_routes_from_r2():
         output = json.loads(
-            r2.vtysh_cmd(
-                "show bgp ipv4 neighbors 192.168.7.7 advertised-routes detail json"
-            )
+            r7.vtysh_cmd("show bgp ipv4 neighbors 192.168.7.2 routes json")
         )
         expected = {
-            "advertisedRoutes": {
-                "172.16.16.254/32": {
-                    "paths": [
-                        {
-                            "aspath": {
-                                "string": "65004",
-                            }
-                        },
-                        {
-                            "aspath": {
-                                "string": "65005",
-                            }
-                        },
-                        {
-                            "aspath": {
-                                "string": "65006",
-                            }
-                        },
-                    ]
-                }
+            "routes": {
+                "172.16.16.254/32": [
+                    {
+                        "valid": True,
+                        "path": "65002 65004",
+                    },
+                    {
+                        "valid": True,
+                        "path": "65002 65005",
+                    },
+                    {
+                        "valid": True,
+                        "path": "65002 65006",
+                    },
+                ]
             },
-            "totalPrefixCounter": 3,
+            "totalRoutes": 1,
+            "totalPaths": 3,
         }
 
         return topotest.json_cmp(output, expected)
 
-    test_func = functools.partial(check_bgp_advertised_routes_to_r7)
+    test_func = functools.partial(r7_check_bgp_received_routes_from_r2)
     _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
     assert (
         result is None
-    ), "Received more/less Add-Path best paths, but should be only 2+1 (real best path)"
+    ), "Received more/less Add-Path best paths, but should be ONLY 2+1 (real best path)"
 
 
 if __name__ == "__main__":
