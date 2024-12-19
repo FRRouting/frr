@@ -283,6 +283,7 @@ struct bmp_imported_bgp {
 	struct bmp_imported_bgps_item bib;
 	struct bmp_targets *targets;
 	char *name;
+	enum bmp_vrf_state vrf_state;
 };
 
 struct bmp_bgp {
