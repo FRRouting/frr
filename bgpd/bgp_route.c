@@ -11290,6 +11290,8 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct bgp_dest *bn,
 				json_path, "community",
 				bgp_attr_get_community(attr)->json);
 		} else {
+			if (!bgp_attr_get_community(attr)->str)
+				community_str(bgp_attr_get_community(attr), true, true);
 			vty_out(vty, "      Community: %s\n",
 				bgp_attr_get_community(attr)->str);
 		}
@@ -11297,6 +11299,9 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct bgp_dest *bn,
 
 	/* Line 5 display Extended-community */
 	if (CHECK_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_EXT_COMMUNITIES))) {
+		if (!bgp_attr_get_ecommunity(attr)->str)
+			ecommunity_str(bgp_attr_get_ecommunity(attr));
+
 		if (json_paths) {
 			json_ext_community = json_object_new_object();
 			json_object_string_add(
@@ -11311,6 +11316,9 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct bgp_dest *bn,
 	}
 
 	if (CHECK_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_IPV6_EXT_COMMUNITIES))) {
+		if (!bgp_attr_get_ipv6_ecommunity(attr)->str)
+			ecommunity_str(bgp_attr_get_ipv6_ecommunity(attr));
+
 		if (json_paths) {
 			json_ext_ipv6_community = json_object_new_object();
 			json_object_string_add(json_ext_ipv6_community, "string",
@@ -11336,6 +11344,8 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct bgp_dest *bn,
 				json_path, "largeCommunity",
 				bgp_attr_get_lcommunity(attr)->json);
 		} else {
+			if (!bgp_attr_get_lcommunity(attr)->str)
+				lcommunity_str(bgp_attr_get_lcommunity(attr), true, true);
 			vty_out(vty, "      Large Community: %s\n",
 				bgp_attr_get_lcommunity(attr)->str);
 		}
