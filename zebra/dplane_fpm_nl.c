@@ -587,6 +587,7 @@ static void fpm_read(struct event *t)
 	struct zebra_dplane_ctx *ctx;
 	size_t available_bytes;
 	size_t hdr_available_bytes;
+	int ival;
 
 	/* Let's ignore the input at the moment. */
 	rv = stream_read_try(fnc->ibuf, fnc->socket,
@@ -715,17 +716,28 @@ static void fpm_read(struct event *t)
 				break;
 			}
 
+			/* Parse the route data into a dplane ctx, then
+			 * enqueue it to zebra for processing.
+			 */
 			ctx = dplane_ctx_alloc();
 			dplane_ctx_route_init(ctx, DPLANE_OP_ROUTE_NOTIFY, NULL,
 					      NULL);
-			if (netlink_route_change_read_unicast_internal(
-				    hdr, 0, false, ctx) != 1) {
-				dplane_ctx_fini(&ctx);
-				stream_pulldown(fnc->ibuf);
+
+			if (netlink_route_notify_read_ctx(hdr, 0, ctx) >= 0) {
+				/* In the FPM encoding, the vrfid is present */
+				ival = dplane_ctx_get_table(ctx);
+				dplane_ctx_set_vrf(ctx, ival);
+				dplane_ctx_set_table(ctx,
+						     ZEBRA_ROUTE_TABLE_UNKNOWN);
+
+				dplane_provider_enqueue_to_zebra(ctx);
+			} else {
 				/*
 				 * Let's continue to read other messages
 				 * Even if we ignore this one.
 				 */
+				dplane_ctx_fini(&ctx);
+				stream_pulldown(fnc->ibuf);
 			}
 			break;
 		default:
