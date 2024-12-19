@@ -842,6 +842,9 @@ struct bgp {
 	/* Process Queue for handling routes */
 	struct work_queue *process_queue;
 
+	/* Meta Queue Information */
+	struct meta_queue *mq;
+
 	bool fast_convergence;
 
 	/* BGP Conditional advertisement */
