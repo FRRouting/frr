@@ -60,6 +60,9 @@ module frr-test-module {
           leaf-list interface {
             type frr-interface:interface-ref;
           }
+          leaf-list interface-new {
+            type frr-interface:interface-ref;
+          }
         }
         container routes {
           list route {

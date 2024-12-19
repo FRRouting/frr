@@ -11,6 +11,12 @@ test# show yang operational-data /frr-test-module:frr-test-module
               "eth1",
               "eth2",
               "eth3"
+            ],
+            "interface-new": [
+              "eth0",
+              "eth1",
+              "eth2",
+              "eth3"
             ]
           },
           "routes": {
@@ -61,6 +67,12 @@ test# show yang operational-data /frr-test-module:frr-test-module
           "name": "vrf1",
           "interfaces": {
             "interface": [
+              "eth0",
+              "eth1",
+              "eth2",
+              "eth3"
+            ],
+            "interface-new": [
               "eth0",
               "eth1",
               "eth2",
