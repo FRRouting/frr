@@ -12121,8 +12121,13 @@ static int bgp_show_table(struct vty *vty, struct bgp *bgp, afi_t afi, safi_t sa
 		}
 		if (is_last) {
 			unsigned long i;
-			for (i = 0; i < *json_header_depth; ++i)
+			for (i = 0; i < *json_header_depth; ++i) {
 				vty_out(vty, " } ");
+				/* Put this information before closing the last `}` */
+				if (i == *json_header_depth - 2)
+					vty_out(vty, ", \"totalRoutes\": %ld, \"totalPaths\": %ld",
+						output_count, total_count);
+			}
 			if (!all)
 				vty_out(vty, "\n");
 		}
