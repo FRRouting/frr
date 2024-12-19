@@ -78,7 +78,7 @@ def setup_module(mod):
             "tcpdump -nni r1-eth0 -s 0 -w {} &".format(pcap_file), stdout=None
         )
 
-    for rname, router in tgen.routers().items():
+    for _, (rname, router) in enumerate(tgen.routers().items(), 1):
         logger.info("Loading router %s" % rname)
         router.load_frr_config(
             os.path.join(CWD, "{}/frr.conf".format(rname)),
