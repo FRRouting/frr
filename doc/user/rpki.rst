@@ -131,6 +131,14 @@ The following commands are available for independent of a specific cache server.
 
    The default value is 600 seconds.
 
+.. clicmd:: rpki revalidate_interval (1-4294967295)
+
+   Set the number of seconds the router waits until it revalidates all the routes, including
+   redistributed routes, statically defined routes (``network``), and routes per neighbor
+   (soft reconfiguration).
+
+   The default value is 30 seconds.
+
 .. clicmd:: rpki cache tcp HOST PORT [source A.B.C.D] preference (1-255)
 
    Add a TCP cache server to the socket.
