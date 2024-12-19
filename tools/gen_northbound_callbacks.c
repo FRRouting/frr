@@ -11,6 +11,7 @@
 
 #include <unistd.h>
 
+#include "darr.h"
 #include "yang.h"
 #include "northbound.h"
 
@@ -19,7 +20,7 @@ static bool static_cbs;
 static void __attribute__((noreturn)) usage(int status)
 {
 	extern const char *__progname;
-	fprintf(stderr, "usage: %s [-h] [-s] [-p path] MODULE\n", __progname);
+	fprintf(stderr, "usage: %s [-h] [-s] [-p path]* MODULE\n", __progname);
 	exit(status);
 }
 
@@ -408,7 +409,8 @@ static int generate_nb_nodes(const struct lysc_node *snode, void *arg)
 
 int main(int argc, char *argv[])
 {
-	const char *search_path = NULL;
+	char **search_paths = NULL;
+	char **iter = NULL;
 	struct yang_module *module;
 	char module_name_underscores[64];
 	struct stat st;
@@ -433,7 +435,7 @@ int main(int argc, char *argv[])
 				exit(EXIT_FAILURE);
 			}
 
-			search_path = optarg;
+			*darr_append(search_paths) = darr_strdup(optarg);
 			break;
 		case 's':
 			static_cbs = true;
@@ -450,8 +452,11 @@ int main(int argc, char *argv[])
 
 	yang_init(false, true, false);
 
-	if (search_path)
-		ly_ctx_set_searchdir(ly_native_ctx, search_path);
+	darr_foreach_p (search_paths, iter) {
+		ly_ctx_set_searchdir(ly_native_ctx, *iter);
+		darr_free(*iter);
+	}
+	darr_free(search_paths);
 
 	/* Load all FRR native models to ensure all augmentations are loaded. */
 	yang_module_load_all();

@@ -107,6 +107,7 @@ vtysh -c 'show mgmt get-data /frr-vrf:lib/vrf[name="default"]/frr-zebra:zebra/ri
 
 for f in ${resdir}/result-*; do
    sed -i -e 's/"uptime": ".*"/"uptime": "rubout"/;s/"id": [0-9][0-9]*/"id": "rubout"/' $f
+   sed -i -e 's/"phy-address": ".*"/"phy-address": "rubout"/' $f
    sed -i -e 's/"if-index": [0-9][0-9]*/"if-index": "rubout"/' $f
    sed -i -e 's,"vrf": "[0-9]*","vrf": "rubout",' $f
 done
