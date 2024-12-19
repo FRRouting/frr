@@ -3394,24 +3394,58 @@ static int bgp_bmp_early_fini(void)
 	return 0;
 }
 
-/* called when the routerid of an instance changes */
-static int bmp_bgp_attribute_updated(struct bgp *bgp, bool withdraw)
+static int bmp_bgp_attribute_updated_instance(struct bmp_targets *bt, enum bmp_vrf_state *vrf_state,
+					      struct bgp *bgp, bool withdraw, struct stream *s)
 {
-	struct bmp_bgp *bmpbgp = bmp_bgp_find(bgp);
-
-	if (!bmpbgp)
-		return 0;
-
-	bmp_bgp_update_vrf_status(&bmpbgp->vrf_state, bgp, vrf_state_unknown);
-
-	if (bmpbgp->vrf_state == vrf_state_down)
+	bmp_bgp_update_vrf_status(vrf_state, bgp, vrf_state_unknown);
+	if (*vrf_state == vrf_state_down)
 		/* do not send peer events, router id will not be enough to set state to up
 		 */
 		return 0;
 
 	/* vrf_state is up: trigger a peer event
 	 */
-	bmp_send_all_safe(bmpbgp, bmp_peerstate(bgp->peer_self, withdraw));
+	bmp_send_bt(bt, s);
+	return 1;
+}
+
+/* called when the routerid of an instance changes */
+static int bmp_bgp_attribute_updated(struct bgp *bgp, bool withdraw)
+{
+	struct bmp_bgp *bmpbgp = bmp_bgp_find(bgp);
+	struct bgp *bgp_vrf;
+	struct bmp_targets *bt;
+	struct listnode *node;
+	struct bmp_imported_bgp *bib;
+	int ret = 0;
+	struct stream *s = bmp_peerstate(bgp->peer_self, withdraw);
+
+	if (!s)
+		return 0;
+
+	if (bmpbgp) {
+		frr_each (bmp_targets, &bmpbgp->targets, bt) {
+			ret = bmp_bgp_attribute_updated_instance(bt, &bmpbgp->vrf_state, bgp,
+								 withdraw, s);
+		}
+	}
+
+	for (ALL_LIST_ELEMENTS_RO(bm->bgp, node, bgp_vrf)) {
+		if (bgp == bgp_vrf)
+			continue;
+		bmpbgp = bmp_bgp_find(bgp_vrf);
+		if (!bmpbgp)
+			continue;
+		frr_each (bmp_targets, &bmpbgp->targets, bt) {
+			frr_each (bmp_imported_bgps, &bt->imported_bgps, bib) {
+				if (bgp_lookup_by_name(bib->name) != bgp)
+					continue;
+				ret += bmp_bgp_attribute_updated_instance(bt, &bib->vrf_state, bgp,
+									  withdraw, s);
+			}
+		}
+	}
+	stream_free(s);
 	return 1;
 }
 
