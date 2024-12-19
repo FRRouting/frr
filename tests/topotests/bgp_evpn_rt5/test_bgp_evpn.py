@@ -159,19 +159,13 @@ def setup_module(mod):
     tgen.net["r1"].cmd_raises("ip -n r1-vrf-101 link set bridge-101 up")
     tgen.net["r1"].cmd_raises("ip -n r1-vrf-101 link set vxlan-101 up")
 
-    for rname, router in router_list.items():
+    for rname, router in tgen.routers().items():
+        logger.info("Loading router %s" % rname)
         if rname == "r1":
             router.use_netns_vrf()
-            router.load_config(
-                TopoRouter.RD_ZEBRA, os.path.join(CWD, "{}/zebra.conf".format(rname))
-            )
+            router.load_frr_config(os.path.join(CWD, "{}/frr.conf".format(rname)))
         else:
-            router.load_config(
-                TopoRouter.RD_ZEBRA, os.path.join(CWD, "{}/zebra.conf".format(rname))
-            )
-        router.load_config(
-            TopoRouter.RD_BGP, os.path.join(CWD, "{}/bgpd.conf".format(rname))
-        )
+            router.load_frr_config(os.path.join(CWD, "{}/frr.conf".format(rname)))
 
     # Initialize all routers.
     tgen.start_router()
