@@ -92,7 +92,7 @@ struct bmp_mirrorq {
 	uint8_t data[0];
 };
 
-enum {
+enum bmp_afi_state {
 	BMP_AFI_INACTIVE = 0,
 	BMP_AFI_NEEDSYNC,
 	BMP_AFI_SYNC,
@@ -148,6 +148,7 @@ struct bmp {
 	uint64_t syncpeerid;
 	afi_t syncafi;
 	safi_t syncsafi;
+	struct bgp *sync_bgp;
 };
 
 /* config & state for an active outbound connection.  When the connection
@@ -195,6 +196,9 @@ struct bmp_listener {
 	int sock;
 };
 
+/* config for imported bgp instances */
+PREDECL_SORTLIST_UNIQ(bmp_imported_bgps);
+
 /* bmp_targets - plural since it may contain multiple bmp_listener &
  * bmp_active items.  If they have the same config, BMP session should be
  * put in the same targets since that's a bit more effective.
@@ -206,6 +210,7 @@ struct bmp_targets {
 
 	struct bmp_bgp *bmpbgp;
 	struct bgp *bgp;
+	bool bgp_request_sync[AFI_MAX][SAFI_MAX];
 	char *name;
 
 	struct bmp_listeners_head listeners;
@@ -237,6 +242,8 @@ struct bmp_targets {
 
 	struct bmp_qhash_head locupdhash;
 	struct bmp_qlist_head locupdlist;
+
+	struct bmp_imported_bgps_head imported_bgps;
 
 	uint64_t cnt_accept, cnt_aclrefused;
 
@@ -274,6 +281,14 @@ enum bmp_vrf_state {
 	vrf_state_up = 1,
 };
 
+struct bmp_imported_bgp {
+	struct bmp_imported_bgps_item bib;
+	struct bmp_targets *targets;
+	char *name;
+	enum bmp_vrf_state vrf_state;
+	bool bgp_request_sync[AFI_MAX][SAFI_MAX];
+};
+
 struct bmp_bgp {
 	struct bmp_bgph_item bbi;
 
@@ -289,7 +304,8 @@ struct bmp_bgp {
 	size_t mirror_qsizelimit;
 };
 
-extern bool bmp_bgp_update_vrf_status(struct bmp_bgp *bmpbgp, enum bmp_vrf_state force);
+extern bool bmp_bgp_update_vrf_status(enum bmp_vrf_state *vrf_state, struct bgp *bgp,
+				      enum bmp_vrf_state force);
 
 enum {
 	/* RFC7854 - 10.8 */
