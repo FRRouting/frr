@@ -8,6 +8,7 @@
 #include <zebra.h>
 #include "darr.h"
 #include "memory.h"
+#include "printfrr.h"
 
 DEFINE_MTYPE(LIB, DARR, "Dynamic Array");
 DEFINE_MTYPE(LIB, DARR_STR, "Dynamic Array String");
@@ -70,7 +71,7 @@ char *__darr_in_vsprintf(char **sp, bool concat, const char *fmt, va_list ap)
 		*darr_append(*sp) = 0;
 again:
 	va_copy(ap_copy, ap);
-	len = vsnprintf(darr_last(*sp), darr_avail(*sp) + 1, fmt, ap_copy);
+	len = vsnprintfrr(darr_last(*sp), darr_avail(*sp) + 1, fmt, ap_copy);
 	va_end(ap_copy);
 	if (len < 0)
 		darr_in_strcat(*sp, fmt);
