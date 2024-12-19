@@ -2154,8 +2154,11 @@ DEFPY(bmp_connect,
 	}
 
 	ba = bmp_active_get(bt, hostname, port);
-	if (srcif)
+	if (srcif) {
+		if (ba->ifsrc)
+			XFREE(MTYPE_TMP, ba->ifsrc);
 		ba->ifsrc = XSTRDUP(MTYPE_TMP, srcif);
+	}
 	if (min_retry_str)
 		ba->minretry = min_retry;
 	if (max_retry_str)
