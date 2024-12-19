@@ -3714,6 +3714,7 @@ struct nhg_hash_entry *zebra_nhg_proto_add(uint32_t id, int type,
 					  rb_node_dep)
 					zebra_nhg_decrement_ref(
 						rb_node_dep->nhe);
+				nhg_connected_tree_free(&old->nhg_depends);
 			}
 
 			/* Dont call the dec API, we dont want to uninstall the ID */
