@@ -1912,42 +1912,48 @@ static int bgp_input_modifier(struct peer *peer, const struct prefix *p,
 	return RMAP_PERMIT;
 }
 
-static int bgp_output_modifier(struct peer *peer, const struct prefix *p,
-			       struct attr *attr, afi_t afi, safi_t safi,
-			       const char *rmap_name)
+static int bgp_output_modifier(struct bgp_dest *dest, struct peer *peer, const struct prefix *p,
+			       struct attr *attr, afi_t afi, safi_t safi, const char *rmap_name)
 {
 	struct bgp_path_info rmap_path;
 	route_map_result_t ret;
 	struct route_map *rmap = NULL;
 	uint8_t rmap_type;
+	struct bgp_filter *filter;
+	struct bgp_path_info *bpi = bgp_dest_get_bgp_path_info(dest);
 
-	/*
-	 * So if we get to this point and have no rmap_name
-	 * we want to just show the output as it currently
-	 * exists.
-	 */
-	if (!rmap_name)
-		return RMAP_PERMIT;
+	filter = &peer->filter[afi][safi];
 
 	/* Apply default weight value. */
 	if (peer->weight[afi][safi])
 		attr->weight = peer->weight[afi][safi];
 
-	rmap = route_map_lookup_by_name(rmap_name);
-
-	/*
-	 * If we have a route map name and we do not find
-	 * the routemap that means we have an implicit
-	 * deny.
-	 */
-	if (rmap == NULL)
-		return RMAP_DENY;
+	if (rmap_name) {
+		rmap = route_map_lookup_by_name(rmap_name);
+		if (!rmap)
+			return RMAP_DENY;
+	} else {
+		if (ROUTE_MAP_OUT_NAME(filter)) {
+			rmap = ROUTE_MAP_OUT(filter);
+			if (!rmap)
+				return RMAP_DENY;
+		} else {
+			/*
+			 * So if we get to this point and have no route-map
+			 * we want to just show the output as it currently
+			 * exists.
+			 */
+			return RMAP_PERMIT;
+		}
+	}
 
 	memset(&rmap_path, 0, sizeof(rmap_path));
 	/* Route map apply. */
 	/* Duplicate current value to new structure for modification. */
 	rmap_path.peer = peer;
 	rmap_path.attr = attr;
+	rmap_path.from = bpi->peer;
+	rmap_path.flags = bpi->flags;
 
 	rmap_type = peer->rmap_type;
 	SET_FLAG(peer->rmap_type, PEER_RMAP_TYPE_OUT);
@@ -11284,6 +11290,8 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct bgp_dest *bn,
 				json_path, "community",
 				bgp_attr_get_community(attr)->json);
 		} else {
+			if (!bgp_attr_get_community(attr)->str)
+				community_str(bgp_attr_get_community(attr), true, true);
 			vty_out(vty, "      Community: %s\n",
 				bgp_attr_get_community(attr)->str);
 		}
@@ -11291,6 +11299,9 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct bgp_dest *bn,
 
 	/* Line 5 display Extended-community */
 	if (CHECK_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_EXT_COMMUNITIES))) {
+		if (!bgp_attr_get_ecommunity(attr)->str)
+			ecommunity_str(bgp_attr_get_ecommunity(attr));
+
 		if (json_paths) {
 			json_ext_community = json_object_new_object();
 			json_object_string_add(
@@ -11305,6 +11316,9 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct bgp_dest *bn,
 	}
 
 	if (CHECK_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_IPV6_EXT_COMMUNITIES))) {
+		if (!bgp_attr_get_ipv6_ecommunity(attr)->str)
+			ecommunity_str(bgp_attr_get_ipv6_ecommunity(attr));
+
 		if (json_paths) {
 			json_ext_ipv6_community = json_object_new_object();
 			json_object_string_add(json_ext_ipv6_community, "string",
@@ -11330,6 +11344,8 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct bgp_dest *bn,
 				json_path, "largeCommunity",
 				bgp_attr_get_lcommunity(attr)->json);
 		} else {
+			if (!bgp_attr_get_lcommunity(attr)->str)
+				lcommunity_str(bgp_attr_get_lcommunity(attr), true, true);
 			vty_out(vty, "      Large Community: %s\n",
 				bgp_attr_get_lcommunity(attr)->str);
 		}
@@ -14623,8 +14639,7 @@ show_adj_route(struct vty *vty, struct peer *peer, struct bgp_table *table,
 			}
 		}
 
-		ret = bgp_output_modifier(peer, rn_p, &attr, afi, safi,
-					  rmap_name);
+		ret = bgp_output_modifier(dest, peer, rn_p, &attr, afi, safi, rmap_name);
 
 		if (ret != RMAP_DENY) {
 			show_adj_route_header(vty, peer, table, header1,
@@ -14798,17 +14813,24 @@ show_adj_route(struct vty *vty, struct peer *peer, struct bgp_table *table,
 
 					const struct prefix *rn_p =
 						bgp_dest_get_prefix(dest);
+					struct bgp_path_info mbpi;
+					struct bgp_dest modified_dest = *dest;
+					struct bgp_dest *mdest;
 
 					attr = *adj->attr;
-					ret = bgp_output_modifier(
-						peer, rn_p, &attr, afi, safi,
-						rmap_name);
+					ret = bgp_output_modifier(dest, peer, rn_p, &attr, afi,
+								  safi, rmap_name);
 
 					if (ret == RMAP_DENY) {
 						(*filtered_count)++;
 						bgp_attr_flush(&attr);
 						continue;
 					}
+
+					mbpi.attr = &attr;
+					mbpi.peer = peer;
+					modified_dest.info = &mbpi;
+					mdest = &modified_dest;
 
 					if ((safi == SAFI_MPLS_VPN) || (safi == SAFI_ENCAP) ||
 					    (safi == SAFI_EVPN)) {
@@ -14824,7 +14846,7 @@ show_adj_route(struct vty *vty, struct peer *peer, struct bgp_table *table,
 					if (detail) {
 						if (use_json)
 							json_net = json_object_new_object();
-						bgp_show_path_info(NULL, dest, vty, bgp, afi, safi,
+						bgp_show_path_info(NULL, mdest, vty, bgp, afi, safi,
 								   json_net, BGP_PATH_SHOW_ALL,
 								   &display, RPKI_NOT_BEING_USED);
 						if (use_json)
