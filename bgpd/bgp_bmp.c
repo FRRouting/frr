@@ -650,20 +650,39 @@ static int bmp_send_peerup(struct bmp *bmp)
 	return 0;
 }
 
-static int bmp_send_peerup_vrf(struct bmp *bmp)
+static void bmp_send_peerup_vrf_per_instance(struct bmp *bmp, enum bmp_vrf_state *vrf_state,
+					     struct bgp *bgp)
 {
-	struct bmp_bgp *bmpbgp = bmp->targets->bmpbgp;
 	struct stream *s;
 
 	/* send unconditionally because state may has been set before the
 	 * session was up. and in this case the peer up has not been sent.
 	 */
-	bmp_bgp_update_vrf_status(&bmpbgp->vrf_state, bmpbgp->bgp, vrf_state_unknown);
+	bmp_bgp_update_vrf_status(vrf_state, bgp, vrf_state_unknown);
 
-	s = bmp_peerstate(bmpbgp->bgp->peer_self, bmpbgp->vrf_state == vrf_state_down);
+	s = bmp_peerstate(bgp->peer_self, *vrf_state == vrf_state_down);
 	if (s) {
 		pullwr_write_stream(bmp->pullwr, s);
 		stream_free(s);
+	}
+}
+
+static int bmp_send_peerup_vrf(struct bmp *bmp)
+{
+	struct bgp *bgp;
+	struct bmp_imported_bgp *bib;
+	struct bmp_bgp *bmpbgp = bmp->targets->bmpbgp;
+	struct bmp_targets *bt;
+
+	bmp_send_peerup_vrf_per_instance(bmp, &bmpbgp->vrf_state, bmpbgp->bgp);
+
+	frr_each (bmp_targets, &bmpbgp->targets, bt) {
+		frr_each (bmp_imported_bgps, &bt->imported_bgps, bib) {
+			bgp = bgp_lookup_by_name(bib->name);
+			if (!bgp)
+				continue;
+			bmp_send_peerup_vrf_per_instance(bmp, &bib->vrf_state, bgp);
+		}
 	}
 	return 0;
 }
@@ -2341,6 +2360,7 @@ static struct bmp_imported_bgp *bmp_imported_bgp_get(struct bmp_targets *bt, cha
 	bib = XCALLOC(MTYPE_BMP_IMPORTED_BGP, sizeof(*bib));
 	if (name)
 		bib->name = XSTRDUP(MTYPE_BMP_IMPORTED_BGP, name);
+	bib->vrf_state = vrf_state_unknown;
 	bib->targets = bt;
 	bmp_imported_bgps_add(&bt->imported_bgps, bib);
 
@@ -2747,13 +2767,13 @@ DEFPY(bmp_import_vrf,
 	bgp = bgp_lookup_by_name(bib->name);
 	if (!bgp)
 		return CMD_SUCCESS;
-	/* TODO: handle loc-rib peer up changes
-	 * TODO: Start the syncronisation
+	/* TODO: Start the syncronisation
 	 */
 	frr_each (bmp_session, &bt->sessions, bmp) {
 		if (bmp->state != BMP_PeerUp && bmp->state != BMP_Run)
 			continue;
 		bmp_send_peerup_per_instance(bmp, bgp);
+		bmp_send_peerup_vrf_per_instance(bmp, &bib->vrf_state, bgp);
 	}
 	return CMD_SUCCESS;
 }

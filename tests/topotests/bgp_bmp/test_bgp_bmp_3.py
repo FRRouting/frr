@@ -222,6 +222,7 @@ def test_peer_up():
         "peer up",
         tgen.gears["bmp1import"],
         os.path.join(tgen.logdir, "bmp1import", "bmp.log"),
+        is_rd_instance=True,
     )
     success, _ = topotest.run_and_expect(test_func, True, count=30, wait=1)
     assert success, "Checking the updated prefixes has been failed !."
