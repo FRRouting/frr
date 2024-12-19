@@ -19,11 +19,6 @@
 extern "C" {
 #endif
 
-FRR_CFG_DEFAULT_BOOL(ZEBRA_IP_NHT_RESOLVE_VIA_DEFAULT,
-	{ .val_bool = true, .match_profile = "traditional", },
-	{ .val_bool = false },
-);
-
 /* MPLS (Segment Routing) global block */
 struct mpls_srgb {
 	uint32_t start_label;
