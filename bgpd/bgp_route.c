@@ -10227,14 +10227,13 @@ static void route_vty_out_detail_es_info(struct vty *vty,
 }
 
 void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct bgp_dest *bn,
-			  const struct prefix *p, struct bgp_path_info *path,
-			  afi_t afi, safi_t safi,
-			  enum rpki_states rpki_curr_state,
-			  json_object *json_paths)
+			  const struct prefix *p, struct bgp_path_info *path, afi_t afi,
+			  safi_t safi, enum rpki_states rpki_curr_state, json_object *json_paths,
+			  struct attr *pattr)
 {
 	char buf[INET6_ADDRSTRLEN];
 	char vni_buf[30] = {};
-	struct attr *attr = path->attr;
+	struct attr *attr = pattr ? pattr : path->attr;
 	time_t tbuf;
 	char timebuf[32];
 	json_object *json_bestpath = NULL;
@@ -10962,6 +10961,8 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct bgp_dest *bn,
 				json_path, "community",
 				bgp_attr_get_community(attr)->json);
 		} else {
+			if (!bgp_attr_get_community(attr)->str)
+				community_str(bgp_attr_get_community(attr), true, true);
 			vty_out(vty, "      Community: %s\n",
 				bgp_attr_get_community(attr)->str);
 		}
@@ -10969,6 +10970,9 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct bgp_dest *bn,
 
 	/* Line 5 display Extended-community */
 	if (attr->flag & ATTR_FLAG_BIT(BGP_ATTR_EXT_COMMUNITIES)) {
+		if (!bgp_attr_get_ecommunity(attr)->str)
+			ecommunity_str(bgp_attr_get_ecommunity(attr));
+
 		if (json_paths) {
 			json_ext_community = json_object_new_object();
 			json_object_string_add(
@@ -10983,6 +10987,9 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct bgp_dest *bn,
 	}
 
 	if (attr->flag & ATTR_FLAG_BIT(BGP_ATTR_IPV6_EXT_COMMUNITIES)) {
+		if (!bgp_attr_get_ipv6_ecommunity(attr)->str)
+			ecommunity_str(bgp_attr_get_ipv6_ecommunity(attr));
+
 		if (json_paths) {
 			json_ext_ipv6_community = json_object_new_object();
 			json_object_string_add(json_ext_ipv6_community, "string",
@@ -11008,6 +11015,8 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct bgp_dest *bn,
 				json_path, "largeCommunity",
 				bgp_attr_get_lcommunity(attr)->json);
 		} else {
+			if (!bgp_attr_get_lcommunity(attr)->str)
+				lcommunity_str(bgp_attr_get_lcommunity(attr), true, true);
 			vty_out(vty, "      Large Community: %s\n",
 				bgp_attr_get_lcommunity(attr)->str);
 		}
@@ -11699,7 +11708,7 @@ static int bgp_show_table(struct vty *vty, struct bgp *bgp, afi_t afi, safi_t sa
 
 					route_vty_out_detail(vty, bgp, dest, dest_p, pi,
 							     family2afi(dest_p->family), safi,
-							     rpki_curr_state, json_paths);
+							     rpki_curr_state, json_paths, NULL);
 				} else {
 					route_vty_out(vty, dest_p, pi, display,
 						      safi, json_paths, wide);
@@ -12201,11 +12210,10 @@ void route_vty_out_detail_header(struct vty *vty, struct bgp *bgp,
 	}
 }
 
-static void bgp_show_path_info(const struct prefix_rd *pfx_rd,
-			       struct bgp_dest *bgp_node, struct vty *vty,
-			       struct bgp *bgp, afi_t afi, safi_t safi,
-			       json_object *json, enum bgp_path_type pathtype,
-			       int *display, enum rpki_states rpki_target_state)
+static void bgp_show_path_info(const struct prefix_rd *pfx_rd, struct bgp_dest *bgp_node,
+			       struct vty *vty, struct bgp *bgp, afi_t afi, safi_t safi,
+			       json_object *json, enum bgp_path_type pathtype, int *display,
+			       enum rpki_states rpki_target_state, struct attr *attr)
 {
 	struct bgp_path_info *pi;
 	int header = 1;
@@ -12248,10 +12256,8 @@ static void bgp_show_path_info(const struct prefix_rd *pfx_rd,
 		    || (pathtype == BGP_PATH_SHOW_MULTIPATH
 			&& (CHECK_FLAG(pi->flags, BGP_PATH_MULTIPATH)
 			    || CHECK_FLAG(pi->flags, BGP_PATH_SELECTED))))
-			route_vty_out_detail(vty, bgp, bgp_node,
-					     bgp_dest_get_prefix(bgp_node), pi,
-					     afi, safi, rpki_curr_state,
-					     json_paths);
+			route_vty_out_detail(vty, bgp, bgp_node, bgp_dest_get_prefix(bgp_node), pi,
+					     afi, safi, rpki_curr_state, json_paths, attr);
 	}
 
 	if (json && json_paths) {
@@ -12340,9 +12346,8 @@ static int bgp_show_route_in_table(struct vty *vty, struct bgp *bgp,
 				continue;
 			}
 
-			bgp_show_path_info((struct prefix_rd *)dest_p, rm, vty,
-					   bgp, afi, safi, json, pathtype,
-					   &display, rpki_target_state);
+			bgp_show_path_info((struct prefix_rd *)dest_p, rm, vty, bgp, afi, safi,
+					   json, pathtype, &display, rpki_target_state, NULL);
 
 			bgp_dest_unlock_node(rm);
 		}
@@ -12401,9 +12406,8 @@ static int bgp_show_route_in_table(struct vty *vty, struct bgp *bgp,
 			rm = longest_pfx;
 			bgp_dest_lock_node(rm);
 
-			bgp_show_path_info((struct prefix_rd *)dest_p, rm, vty,
-					   bgp, afi, safi, json, pathtype,
-					   &display, rpki_target_state);
+			bgp_show_path_info((struct prefix_rd *)dest_p, rm, vty, bgp, afi, safi,
+					   json, pathtype, &display, rpki_target_state, NULL);
 
 			bgp_dest_unlock_node(rm);
 		}
@@ -12429,9 +12433,8 @@ static int bgp_show_route_in_table(struct vty *vty, struct bgp *bgp,
 			const struct prefix *dest_p = bgp_dest_get_prefix(dest);
 			if (!prefix_check
 			    || dest_p->prefixlen == match.prefixlen) {
-				bgp_show_path_info(NULL, dest, vty, bgp, afi,
-						   safi, json, pathtype,
-						   &display, rpki_target_state);
+				bgp_show_path_info(NULL, dest, vty, bgp, afi, safi, json, pathtype,
+						   &display, rpki_target_state, NULL);
 			}
 
 			bgp_dest_unlock_node(dest);
@@ -14365,10 +14368,8 @@ show_adj_route(struct vty *vty, struct peer *peer, struct bgp_table *table,
 			if (use_json)
 				json_net = json_object_new_object();
 
-			bgp_show_path_info(NULL /* prefix_rd */, dest, vty, bgp,
-					   afi, safi, json_net,
-					   BGP_PATH_SHOW_ALL, &display,
-					   RPKI_NOT_BEING_USED);
+			bgp_show_path_info(NULL /* prefix_rd */, dest, vty, bgp, afi, safi, json_net,
+					   BGP_PATH_SHOW_ALL, &display, RPKI_NOT_BEING_USED, NULL);
 			if (use_json)
 				json_object_object_addf(json_ar, json_net,
 							"%pFX", rn_p);
@@ -14501,11 +14502,9 @@ show_adj_route(struct vty *vty, struct peer *peer, struct bgp_table *table,
 						pass_in = &buildit;
 					} else
 						pass_in = dest;
-					bgp_show_path_info(
-						NULL, pass_in, vty, bgp, afi,
-						safi, json_net,
-						BGP_PATH_SHOW_ALL, &display,
-						RPKI_NOT_BEING_USED);
+					bgp_show_path_info(NULL, pass_in, vty, bgp, afi, safi,
+							   json_net, BGP_PATH_SHOW_ALL, &display,
+							   RPKI_NOT_BEING_USED, NULL);
 					if (use_json)
 						json_object_object_addf(
 							json_ar, json_net,
@@ -14532,9 +14531,8 @@ show_adj_route(struct vty *vty, struct peer *peer, struct bgp_table *table,
 						bgp_dest_get_prefix(dest);
 
 					attr = *adj->attr;
-					ret = bgp_output_modifier(
-						peer, rn_p, &attr, afi, safi,
-						rmap_name);
+					ret = bgp_output_modifier(peer, rn_p, &attr, afi, safi,
+								  rmap_name);
 
 					if (ret == RMAP_DENY) {
 						(*filtered_count)++;
@@ -14558,7 +14556,8 @@ show_adj_route(struct vty *vty, struct peer *peer, struct bgp_table *table,
 							json_net = json_object_new_object();
 						bgp_show_path_info(NULL, dest, vty, bgp, afi, safi,
 								   json_net, BGP_PATH_SHOW_ALL,
-								   &display, RPKI_NOT_BEING_USED);
+								   &display, RPKI_NOT_BEING_USED,
+								   adj->attr);
 						if (use_json)
 							json_object_object_addf(json_ar, json_net,
 										"%pFX", rn_p);
@@ -14571,7 +14570,7 @@ show_adj_route(struct vty *vty, struct peer *peer, struct bgp_table *table,
 						 */
 						if (use_json) {
 							route_vty_out_tmp(vty, bgp, dest, rn_p,
-									  &attr, safi, use_json,
+									  adj->attr, safi, use_json,
 									  json_ar, wide);
 						} else {
 							for (bpi = bgp_dest_get_bgp_path_info(dest);
@@ -14604,11 +14603,9 @@ show_adj_route(struct vty *vty, struct peer *peer, struct bgp_table *table,
 					if (use_json)
 						json_net =
 							json_object_new_object();
-					bgp_show_path_info(
-						NULL /* prefix_rd */, dest, vty,
-						bgp, afi, safi, json_net,
-						BGP_PATH_SHOW_BESTPATH,
-						&display, RPKI_NOT_BEING_USED);
+					bgp_show_path_info(NULL /* prefix_rd */, dest, vty, bgp, afi,
+							   safi, json_net, BGP_PATH_SHOW_BESTPATH,
+							   &display, RPKI_NOT_BEING_USED, NULL);
 					if (use_json)
 						json_object_object_addf(
 							json_ar, json_net,
