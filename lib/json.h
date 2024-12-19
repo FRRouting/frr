@@ -13,6 +13,7 @@ extern "C" {
 #include "command.h"
 #include "printfrr.h"
 #include <json-c/json.h>
+#include <json-c/printbuf.h>
 
 /*
  * FRR style JSON iteration.
