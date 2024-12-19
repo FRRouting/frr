@@ -325,8 +325,8 @@ struct interface *if_vrf_lookup_by_index_next(ifindex_t ifindex,
 
 	if (ifindex == 0) {
 		tmp_ifp = RB_MIN(if_index_head, &vrf->ifaces_by_index);
-		/* skip the vrf interface */
-		if (tmp_ifp && if_is_vrf(tmp_ifp))
+		/* skip the vrf interface or the lo interface */
+		if (tmp_ifp && if_is_loopback(tmp_ifp))
 			ifindex = tmp_ifp->ifindex;
 		else
 			return tmp_ifp;
@@ -334,8 +334,8 @@ struct interface *if_vrf_lookup_by_index_next(ifindex_t ifindex,
 
 	RB_FOREACH (tmp_ifp, if_index_head, &vrf->ifaces_by_index) {
 		if (found) {
-			/* skip the vrf interface */
-			if (tmp_ifp && if_is_vrf(tmp_ifp))
+			/* skip the vrf interface or the lo interface */
+			if (tmp_ifp && if_is_loopback(tmp_ifp))
 				continue;
 			else
 				return tmp_ifp;
