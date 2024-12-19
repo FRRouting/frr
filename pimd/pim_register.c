@@ -186,8 +186,9 @@ int pim_register_stop_recv(struct interface *ifp, uint8_t *buf, int buf_size)
 		 */
 		for (ALL_LIST_ELEMENTS_RO(up->sources, up_node, child)) {
 			if (PIM_DEBUG_PIM_REG)
-				zlog_debug("Executing Reg stop for %s",
-					   child->sg_str);
+				zlog_debug(
+					"Executing Reg stop for upstream child %s",
+					child->sg_str);
 
 			pim_reg_stop_upstream(pim, child);
 		}
@@ -208,8 +209,9 @@ int pim_register_stop_recv(struct interface *ifp, uint8_t *buf, int buf_size)
 		frr_each (rb_pim_upstream, &pim->upstream_head, up) {
 			if (pim_addr_cmp(up->sg.grp, sg.grp) == 0) {
 				if (PIM_DEBUG_PIM_REG)
-					zlog_debug("Executing Reg stop for %s",
-						   up->sg_str);
+					zlog_debug(
+						"Executing Reg stop for upstream %s",
+						up->sg_str);
 				pim_reg_stop_upstream(pim, up);
 			}
 		}
@@ -682,9 +684,12 @@ int pim_register_recv(struct interface *ifp, pim_addr dest_addr,
 			}
 		}
 
-		if ((upstream->sptbit == PIM_UPSTREAM_SPTBIT_TRUE)
-		    || ((SwitchToSptDesiredOnRp(pim, &sg))
-			&& pim_upstream_inherited_olist(pim, upstream) == 0)) {
+		if ((upstream->sptbit == PIM_UPSTREAM_SPTBIT_TRUE) ||
+		    (PIM_UPSTREAM_FLAG_TEST_FHR(upstream->flags) && i_am_rp) ||
+		    ((SwitchToSptDesiredOnRp(pim, &sg)) &&
+		     pim_upstream_inherited_olist(pim, upstream) == 0)) {
+			zlog_debug("sending pim register stop message :  %s ",
+				   upstream->sg_str);
 			pim_register_stop_send(ifp, &sg, dest_addr, src_addr);
 			sentRegisterStop = 1;
 		} else {
