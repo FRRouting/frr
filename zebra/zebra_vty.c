@@ -201,7 +201,10 @@ static void show_nexthop_detail_helper(struct vty *vty,
 				       bool is_backup)
 {
 	char buf[MPLS_LABEL_STRLEN];
+	char seg_buf[SRV6_SEG_STRLEN];
+	struct seg6_segs segs;
 	int i;
+	size_t num = 0;
 
 	if (is_backup)
 		vty_out(vty, "    b%s",
@@ -315,6 +318,38 @@ static void show_nexthop_detail_helper(struct vty *vty,
 				       nexthop->nh_label->label, buf,
 				       sizeof(buf), nexthop->nh_label_type,
 				       1 /*pretty*/));
+	}
+
+	if (nexthop->nh_srv6) {
+		seg6local_context2str(buf, sizeof(buf),
+						&nexthop->nh_srv6->seg6local_ctx,
+						nexthop->nh_srv6->seg6local_action);
+		if (nexthop->nh_srv6->seg6local_action !=
+			ZEBRA_SEG6_LOCAL_ACTION_UNSPEC)
+			vty_out(vty, ", seg6local %s %s",
+				seg6local_action2str(
+					nexthop->nh_srv6->seg6local_action),
+				buf);
+		if (nexthop->nh_srv6->seg6_segs &&
+			IPV6_ADDR_CMP(&nexthop->nh_srv6->seg6_segs->seg[0],
+					&in6addr_any)) {
+			segs.num_segs = nexthop->nh_srv6->seg6_segs->num_segs;
+			for (num = 0; num < segs.num_segs; num++)
+				memcpy(&segs.segs[num],
+						&nexthop->nh_srv6->seg6_segs->seg[num],
+						sizeof(struct in6_addr));
+			snprintf_seg6_segs(seg_buf, SRV6_SEG_STRLEN, &segs);
+			vty_out(vty, ", seg6 %s", seg_buf);
+		}
+	}
+
+	if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_SRV6_TUNNEL)) {
+		if (inet_ntop(AF_INET6, &nexthop->gate.ipv6, buf, INET6_ADDRSTRLEN))
+			vty_out(vty, ", srv6(endpoint|color):%s|%u",
+				buf,
+				nexthop->srte_color);
+		else
+			vty_out(vty, ", srv6(endpoint|color):unknown");
 	}
 
 	if (nexthop->weight)
