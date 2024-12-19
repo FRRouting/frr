@@ -83,6 +83,7 @@ static int nb_cli_classic_commit(struct vty *vty)
 static void nb_cli_pending_commit_clear(struct vty *vty)
 {
 	vty->pending_commit = 0;
+	vty->buffer_cmd_count = 0;
 	XFREE(MTYPE_TMP, vty->pending_cmds_buf);
 	vty->pending_cmds_buflen = 0;
 	vty->pending_cmds_bufpos = 0;
@@ -102,12 +103,19 @@ int nb_cli_pending_commit_check(struct vty *vty)
 
 static int nb_cli_schedule_command(struct vty *vty)
 {
-	/* Append command to dynamically sized buffer of scheduled commands. */
+	/* Append command to dynamically sized buffer of scheduled commands.
+	 * vty->buf -Incoming config
+	 * vty->pending_cmds_buf - Pending buffer where incoming configs are
+	 *                         accumulated for later processing
+	 * vty->pending_cmds_bufpos - length of the pending buffer
+	 *
+	 */
 	if (!vty->pending_cmds_buf) {
 		vty->pending_cmds_buflen = 4096;
 		vty->pending_cmds_buf =
 			XCALLOC(MTYPE_TMP, vty->pending_cmds_buflen);
 	}
+
 	if ((strlen(vty->buf) + 3)
 	    > (vty->pending_cmds_buflen - vty->pending_cmds_bufpos)) {
 		vty->pending_cmds_buflen *= 2;
@@ -121,6 +129,9 @@ static int nb_cli_schedule_command(struct vty *vty)
 
 	/* Schedule the commit operation. */
 	vty->pending_commit = 1;
+	vty->buffer_cmd_count++;
+	if (vty->buffer_cmd_count == NB_CMD_BATCH_SIZE)
+		nb_cli_pending_commit_check(vty);
 
 	return CMD_SUCCESS;
 }
