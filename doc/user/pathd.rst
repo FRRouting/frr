@@ -28,7 +28,7 @@ Explicit Segment Lists
 This is the simplest way of configuration, no remote PCE is necessary.
 In order to create a config that match the graphics used in this documentation,
 we will create a segment list (SL) called SL1 with an element for each hop and
-that element will be assigned a MPLS label.
+that element will be assigned a MPLS label/IPv6 address.
 Then the SL1 will be used in the policy ``example1``, please note also the
 preference as in the case of multiple segment list it will be used with the
 criteria of bigger number more preference.
@@ -48,6 +48,18 @@ Let see now the final configuration that match the graphics shown above.
       binding-sid 1111
       candidate-path preference 100 name CP1 explicit segment-list SL1
 
+
+.. code-block:: frr
+
+   segment-routing
+    traffic-eng
+     segment-list SL1
+      index 10 ipv6-address 10:10::10
+      index 10 ipv6-address 20:20::20
+     !
+     policy color 1 endpoint 100:100:1::100
+      name example1
+      candidate-path preference 100 name CP1 explicit segment-list SL1
 
 Explicit Segment Lists and Traffic Engineering Database (TED)
 -------------------------------------------------------------
@@ -206,7 +218,7 @@ An example of command line with pcep module could be this
 Pathd Configuration
 ===================
 
-Example:
+Example of MPLS:
 
 .. code-block:: frr
 
@@ -258,6 +270,28 @@ Example:
     !
    !
 
+Example of srv6:
+
+.. code-block:: frr
+
+   segment-routing
+    traffic-eng
+     segment-list SL1
+      index 10 ipv6-address 10:10::10
+      index 10 ipv6-address 20:2::20
+     !
+     segment-list SL2
+      index 10 ipv6-address 30:30::30
+      index 10 ipv6-address 30:3::30
+     !
+     policy color 1 endpoint 100:100:1::100
+      name default
+      candidate-path preference 100 name CP1 explicit segment-list SL1
+      candidate-path preference 200 name CP2 explicit segment-list SL2
+     !
+    !
+   !
+
 
 .. _path-commands:
 
@@ -285,6 +319,7 @@ Configuration Commands
    Delete or start a segment list definition.
 
 .. clicmd:: index INDEX mpls label LABEL
+.. clicmd:: index INDEX ipv6-address X:X::X:X
 .. clicmd:: index INDEX nai adjacency A.B.C.D A.B.C.D
 .. clicmd:: index INDEX nai prefix A.B.C.D/M algorithm <0|1>
 .. clicmd:: index INDEX nai prefix A.B.C.D/M iface (0-65535)
@@ -501,18 +536,21 @@ Introspection Commands
 
   router# show sr-te policy
 
-   Endpoint  Color  Name     BSID  Status
-   ------------------------------------------
-   192.0.2.1   1      default  4000  Active
+   Endpoint   Color  Name      BSID  Status    Type
+   --------------------------------------------------
+   192.0.2.1   1      default  4000  Active    MPLS
+   1::1       100      a       -     Active    SRV6
 
 
 .. code-block:: frr
 
   router# show sr-te policy detail
 
-  Endpoint: 192.0.2.1  Color: 1  Name: LOW_DELAY  BSID: 4000  Status: Active
+  Endpoint: 192.0.2.1  Color: 1  Name: LOW_DELAY  BSID: 4000  Status: Active  Type: MPLS
       Preference: 100  Name: cand1  Type: explicit  Segment-List: sl1  Protocol-Origin: Local
     * Preference: 200  Name: cand1  Type: dynamic  Segment-List: 32453452  Protocol-Origin: PCEP
+  Endpoint: 1::1  Color: 100  Name:   BSID: -  Status: Active Type: SRV6
+    * Preference: 1  Name: a  Type: explicit  Segment-List: a  Protocol-Origin: Local
 
 The asterisk (*) marks the best, e.g. active, candidate path. Note that for segment-lists which are
 retrieved via PCEP a random number based name is generated.

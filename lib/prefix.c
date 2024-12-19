@@ -1124,6 +1124,24 @@ const char *prefix2str(union prefixconstptr pu, char *str, int size)
 	return str;
 }
 
+int prefix2ipaddr(union prefixconstptr pu, struct ipaddr *ip)
+{
+	const struct prefix *p = pu.p;
+
+	memset(ip, 0, sizeof(struct ipaddr));
+
+	if (p->family == AF_INET) {
+		ip->ipa_type = IPADDR_V4;
+		IPV4_ADDR_COPY(&ip->ipaddr_v4, &p->u.prefix4);
+	} else if (p->family == AF_INET6) {
+		ip->ipa_type = IPADDR_V6;
+		IPV6_ADDR_COPY(&ip->ipaddr_v6, &p->u.prefix6);
+	} else
+		return -1;
+
+	return 0;
+}
+
 void prefix_mcast_ip_dump(const char *onfail, const struct ipaddr *addr,
 			  char *buf, int buf_size)
 {

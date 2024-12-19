@@ -945,7 +945,7 @@ lib_vrf_zebra_ribs_rib_route_route_entry_nexthop_group_nexthop_color_get_elem(
 {
 	struct nexthop *nexthop = (struct nexthop *)args->list_entry;
 
-	if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_SRTE))
+	if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_SRTE) || CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_SRV6TE))
 		return yang_data_new_uint32(args->xpath, nexthop->srte_color);
 
 	return NULL;
