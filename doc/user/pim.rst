@@ -591,9 +591,24 @@ Commands available for MSDP
    Create or update a mesh group to set the source address used to connect to
    peers.
 
-.. clicmd:: msdp peer A.B.C.D source A.B.C.D
+.. clicmd:: msdp peer A.B.C.D source A.B.C.D [as AS_NUMBER]
 
    Create a regular MSDP session with peer using the specified source address.
+
+   Optionally the Autonomous Number (AS) can be provided for eBGP assisted
+   loop detection (see RFC 4611 Section 2.1. Peering between PIM Border
+   Routers).
+
+   .. note::
+
+      The BGP configuration must be enabled in order for this feature to work:
+
+      ::
+
+         bgp send-extra-data zebra
+
+      This knob causes BGP to send the AS Path information to ``zebra`` so
+      MSDP can use that information.
 
 .. clicmd:: msdp peer A.B.C.D sa-filter ACL_NAME <in|out>
 
