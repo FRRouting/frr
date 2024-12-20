@@ -43,12 +43,13 @@ route each.
 With all links up, we expect 3 ECMP paths and 3 nexthops on R1 towards each
 of R7/8. Then we bring down the R3-R6 link, causing only 2 remaining
 paths and 2 nexthops on R1. Then we bring down the R2-R5 link, causing only
-1 remaining path and 1 nexthop on R1. 
+1 remaining path and 1 nexthop on R1.
 
-The test is successful if the number of nexthops for the routes on R1 is as
-expected.
+The test is successful if the number of nexthops and their interfaces for
+the routes on R1 is as expected.
 """
 
+import json
 import os
 import sys
 from functools import partial
@@ -62,7 +63,7 @@ sys.path.append(os.path.join(CWD, "../"))
 # Import topogen and topotest helpers
 from lib import topotest
 from lib.topogen import Topogen, TopoRouter, get_topogen
-from lib.topolog import logger
+from lib.common_config import write_test_header, write_test_footer, step
 
 # Required to instantiate the topology builder class.
 
@@ -111,17 +112,42 @@ def setup_module(mod):
     tgen.start_router()
 
 
-def test_wait_protocol_convergence():
+def expect_routes_json(router, exp_routes_json_fname, stepmsg):
+    "Wait until OSPFv3 routes match JSON spec"
+    step(
+        "waiting for OSPFv3 router '{}' routes/nexthops to match {} ({})".format(
+            router, exp_routes_json_fname, stepmsg
+        )
+    )
+
+    json_file = "{}/{}/{}".format(CWD, router, exp_routes_json_fname)
+    expected = json.loads(open(json_file).read())
+    tgen = get_topogen()
+    test_func = partial(
+        topotest.router_json_cmp,
+        tgen.gears[router],
+        "show ipv6 route ospf6 json",
+        expected,
+    )
+    _, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
+    assertmsg = '"{}" JSON output mismatches ({})'.format(router, stepmsg)
+    assert result is None, assertmsg
+
+
+def test_wait_protocol_convergence(request):
     "Wait for OSPFv3 to converge"
+    tc_name = request.node.name
+    write_test_header(tc_name)
+
     tgen = get_topogen()
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
-    logger.info("waiting for protocols to converge")
+    step("waiting for protocols to converge")
 
     def expect_neighbor_full(router, neighbor):
         "Wait until OSPFv3 neighborship is full"
-        logger.info(
+        step(
             "waiting for OSPFv3 router '{}' neighborship with '{}'".format(
                 router, neighbor
             )
@@ -156,57 +182,31 @@ def test_wait_protocol_convergence():
     expect_neighbor_full("r8", "10.254.254.5")
     expect_neighbor_full("r8", "10.254.254.6")
 
+    expect_routes_json("r1", "show_ipv6_routes_ospf6-1.json", "post-convergence")
 
-def test_ecmp_inter_area():
+    write_test_footer(tc_name)
+
+
+def test_ecmp_inter_area(request):
     "Test whether OSPFv3 ECMP nexthops are properly updated for inter-area routes after link down"
+    tc_name = request.node.name
+    write_test_header(tc_name)
+
     tgen = get_topogen()
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
-    def num_nexthops(router):
-        # Careful: "show ipv6 ospf6 route json" doesn't work here. It will
-        # only list one route type per prefix and that might not necessarily
-        # be the best/selected route. "show ipv6 route ospf6 json" only
-        # lists selected routes, so that's more useful in this case.
-        routes = tgen.gears[router].vtysh_cmd("show ipv6 route ospf6 json", isjson=True)
-        route_prefixes_infos = sorted(routes.items())
-        # Note: ri may contain one entry per routing protocol, but since
-        # we've explicitly requested only ospf6 above, we can count on ri[0]
-        # being the entry we're looking for.
-        return [ri[0]["internalNextHopActiveNum"] for rp, ri in route_prefixes_infos]
-
-    def expect_num_nexthops(router, expected_num_nexthops, count):
-        "Wait until number of nexthops for routes matches expectation"
-        logger.info(
-            "waiting for OSPFv3 router '{}' nexthops {}".format(
-                router, expected_num_nexthops
-            )
-        )
-        test_func = partial(num_nexthops, router)
-        _, result = topotest.run_and_expect(
-            test_func, expected_num_nexthops, count=count, wait=3
-        )
-        assert (
-            result == expected_num_nexthops
-        ), "'{}' wrong number of route nexthops".format(router)
-
-    # Check nexthops pre link-down
-    # tgen.mininet_cli()
-    expect_num_nexthops("r1", [1, 1, 1, 1, 2, 3, 3, 3, 3], 4)
-
-    logger.info("triggering R3-R6 link down")
+    step("triggering R3-R6 link down")
     tgen.gears["r3"].run("ip link set r3-eth1 down")
 
-    # tgen.mininet_cli()
-    # Check nexthops post link-down
-    expect_num_nexthops("r1", [1, 1, 1, 1, 1, 2, 2, 2, 2], 8)
+    expect_routes_json("r1", "show_ipv6_routes_ospf6-2.json", "post-R3-R6-link-down")
 
-    logger.info("triggering R2-R5 link down")
+    step("triggering R2-R5 link down")
     tgen.gears["r2"].run("ip link set r2-eth1 down")
 
-    # tgen.mininet_cli()
-    # Check nexthops post link-down
-    expect_num_nexthops("r1", [1, 1, 1, 1, 1, 1, 1, 1, 1], 8)
+    expect_routes_json("r1", "show_ipv6_routes_ospf6-3.json", "post-R2-R5-link-down")
+
+    write_test_footer(tc_name)
 
 
 def teardown_module(_mod):
@@ -215,13 +215,18 @@ def teardown_module(_mod):
     tgen.stop_topology()
 
 
-def test_memory_leak():
+def test_memory_leak(request):
     "Run the memory leak test and report results."
+    tc_name = request.node.name
+    write_test_header(tc_name)
+
     tgen = get_topogen()
     if not tgen.is_memleak_enabled():
         pytest.skip("Memory leak test/report is disabled")
 
     tgen.report_memory_leaks()
+
+    write_test_footer(tc_name)
 
 
 if __name__ == "__main__":
