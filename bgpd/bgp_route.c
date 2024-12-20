@@ -9361,9 +9361,18 @@ static void route_vty_short_status_out(struct vty *vty,
 				       const struct prefix *p,
 				       json_object *json_path)
 {
-	enum rpki_states rpki_state = RPKI_NOT_BEING_USED;
+	enum rpki_states rpki_state;
+
+	/* RPKI validation state */
+	rpki_state = hook_call(bgp_rpki_prefix_status, path->peer, path->attr, p);
 
 	if (json_path) {
+		if (rpki_state == RPKI_VALID)
+			json_object_boolean_true_add(json_path, "rpkiValid");
+		else if (rpki_state == RPKI_INVALID)
+			json_object_boolean_true_add(json_path, "rpkiInvalid");
+		else if (rpki_state == RPKI_NOTFOUND)
+			json_object_boolean_true_add(json_path, "rpkiNotFound");
 
 		/* Route status display. */
 		if (CHECK_FLAG(path->flags, BGP_PATH_REMOVED))
@@ -9410,10 +9419,6 @@ static void route_vty_short_status_out(struct vty *vty,
 
 		return;
 	}
-
-	/* RPKI validation state */
-	rpki_state =
-		hook_call(bgp_rpki_prefix_status, path->peer, path->attr, p);
 
 	if (rpki_state == RPKI_VALID)
 		vty_out(vty, "V");
