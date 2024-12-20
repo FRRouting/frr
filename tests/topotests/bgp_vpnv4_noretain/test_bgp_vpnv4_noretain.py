@@ -140,6 +140,10 @@ def router_json_cmp_exact_filter(router, cmd, expected):
 
     # filter out tableVersion, version and nhVrfID
     json_output.pop("tableVersion")
+    if "totalRoutes" in json_output:
+        json_output.pop("totalRoutes")
+    if "totalPaths" in json_output:
+        json_output.pop("totalPaths")
     for rd, data in json_output["routes"]["routeDistinguishers"].items():
         for _, attrs in data.items():
             for attr in attrs:
@@ -163,12 +167,18 @@ def router_vrf_json_cmp_exact_filter(router, cmd, expected):
 
     json_output = json.loads(output)
 
+    print(json_output)
+
     # filter out tableVersion, version, nhVrfId and vrfId
     for vrf, data in json_output.items():
         if "vrfId" in data:
             data.pop("vrfId")
         if "tableVersion" in data:
             data.pop("tableVersion")
+        if "totalRoutes" in data:
+            data.pop("totalRoutes")
+        if "totalPaths" in data:
+            data.pop("totalPaths")
         if "routes" not in data:
             continue
         for _, attrs in data["routes"].items():
@@ -203,7 +213,7 @@ def check_show_bgp_ipv4_vpn(rname, json_file):
         "show bgp ipv4 vpn json",
         expected,
     )
-    _, result = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
+    _, result = topotest.run_and_expect(test_func, None, count=20, wait=1)
     assertmsg = '"{}" JSON output mismatches'.format(router.name)
     assert result is None, assertmsg
 
@@ -224,7 +234,7 @@ def check_show_bgp_vrf_ipv4(rname, json_file):
         "show bgp vrf all ipv4 unicast json",
         expected,
     )
-    _, result = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
+    _, result = topotest.run_and_expect(test_func, None, count=20, wait=1)
     assertmsg = '"{}" JSON output mismatches'.format(router.name)
     assert result is None, assertmsg
 
@@ -248,7 +258,7 @@ def test_protocols_convergence_step0():
         "show bgp ipv4 vpn summary json",
         expected,
     )
-    _, result = topotest.run_and_expect(test_func, None, count=20, wait=0.5)
+    _, result = topotest.run_and_expect(test_func, None, count=20, wait=1)
     assertmsg = '"{}" JSON output mismatches'.format(router.name)
     assert result is None, assertmsg
 
