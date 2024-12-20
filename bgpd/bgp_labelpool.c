@@ -1125,7 +1125,6 @@ static void show_bgp_nexthop_label_afi(struct vty *vty, afi_t afi,
 	struct bgp_path_info *path;
 	struct bgp *bgp_path;
 	struct bgp_table *table;
-	time_t tbuf;
 
 	vty_out(vty, "Current BGP label nexthop cache for %s, VRF %s\n",
 		afi2str(afi), bgp->name_pretty);
@@ -1146,8 +1145,7 @@ static void show_bgp_nexthop_label_afi(struct vty *vty, afi_t afi,
 			vty_out(vty, "  if %s\n",
 				ifindex2ifname(iter->nh->ifindex,
 					       iter->nh->vrf_id));
-		tbuf = time(NULL) - (monotime(NULL) - iter->last_update);
-		vty_out(vty, "  Last update: %s", ctime_r(&tbuf, buf));
+		vty_out(vty, "  Last update: %s", time_to_string(iter->last_update, buf));
 		if (!detail)
 			continue;
 		vty_out(vty, "  Paths:\n");

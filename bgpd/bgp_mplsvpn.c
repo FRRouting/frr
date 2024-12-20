@@ -4395,7 +4395,6 @@ static void show_bgp_mplsvpn_nh_label_bind_internal(struct vty *vty,
 	struct bgp_path_info *path;
 	struct bgp *bgp_path;
 	struct bgp_table *table;
-	time_t tbuf;
 	char buf[32];
 
 	vty_out(vty, "Current BGP mpls-vpn nexthop label bind cache, %s\n",
@@ -4413,8 +4412,7 @@ static void show_bgp_mplsvpn_nh_label_bind_internal(struct vty *vty,
 			vty_out(vty, "  interface %s\n",
 				ifindex2ifname(iter->nh->ifindex,
 					       iter->nh->vrf_id));
-		tbuf = time(NULL) - (monotime(NULL) - iter->last_update);
-		vty_out(vty, "  Last update: %s", ctime_r(&tbuf, buf));
+		vty_out(vty, "  Last update: %s", time_to_string(iter->last_update, buf));
 		if (!detail)
 			continue;
 		vty_out(vty, "  Paths:\n");
