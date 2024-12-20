@@ -5131,3 +5131,164 @@ void zclient_register_neigh(struct zclient *zclient, vrf_id_t vrf_id, afi_t afi,
 	stream_putw_at(s, 0, stream_get_endp(s));
 	zclient_send_message(zclient);
 }
+
+static struct zroute_nh_info *zapi_route_nh_decode(struct stream *s)
+{
+	struct zroute_nh_info *rni = XCALLOC(MTYPE_TMP, sizeof(*rni));
+
+	STREAM_GETL(s, rni->rni_vrf_id);
+	STREAM_GETC(s, rni->rni_type);
+
+	switch (rni->rni_type) {
+	case NEXTHOP_TYPE_IPV4:
+	case NEXTHOP_TYPE_IPV4_IFINDEX:
+		STREAM_GET(&rni->rni_addr, s, sizeof(struct in_addr));
+		STREAM_GETL(s, rni->rni_ifindex);
+		break;
+	case NEXTHOP_TYPE_IPV6:
+		STREAM_GET(&rni->rni_addr, s, sizeof(struct in6_addr));
+		break;
+	case NEXTHOP_TYPE_IPV6_IFINDEX:
+		STREAM_GET(&rni->rni_addr, s, sizeof(struct in6_addr));
+		STREAM_GETL(s, rni->rni_ifindex);
+		break;
+	case NEXTHOP_TYPE_IFINDEX:
+		STREAM_GETL(s, rni->rni_ifindex);
+		break;
+	}
+
+	return rni;
+
+stream_failure:
+	zlog_warn("%s: failed to parse next hop", __func__);
+	XFREE(MTYPE_TMP, rni);
+	return NULL;
+}
+
+struct zroute_info *zapi_route_lookup(struct zclient *zc, vrf_id_t vrf_id, int family,
+				      const void *addr)
+{
+	struct zroute_info *ri;
+	struct zroute_nh_info *rni;
+	struct stream *s;
+	int err;
+	size_t addr_size;
+	uint32_t idx;
+	uint16_t length;
+	uint16_t command;
+	uint8_t marker;
+	uint8_t version;
+	struct ipaddr ip;
+	union {
+		struct in_addr ia;
+		struct in6_addr i6a;
+	} const *address = addr;
+
+	/* Initial checks and logging. */
+	switch (family) {
+	case AF_INET:
+		/* `0.0.0.0` is unroutable. */
+		if (address->ia.s_addr == INADDR_NONE)
+			return NULL;
+
+		addr_size = sizeof(struct in_addr);
+		break;
+
+	default:
+		zlog_warn("%s: unsupported address family %d", __func__, family);
+		return NULL;
+	}
+
+	/* Get output stream and reset it. */
+	s = zc->obuf;
+	stream_reset(s);
+
+	/* Create and send lookup request. */
+	zclient_create_header(s, ZEBRA_ROUTE_LOOKUP, vrf_id);
+	stream_putl(s, family);
+	stream_put(s, addr, addr_size);
+	stream_putw_at(s, 0, stream_get_endp(s));
+	err = writen(zc->sock, s->data, stream_get_endp(s));
+	if (err < 0) {
+		flog_err(EC_LIB_SOCKET, "%s: writen() failure: %d writing to zclient lookup socket",
+			 __func__, errno);
+		return NULL;
+	}
+	if (err == 0) {
+		flog_err_sys(EC_LIB_SOCKET, "%s: connection closed on zclient lookup socket",
+			     __func__);
+		return NULL;
+	}
+
+	/* Read and handle unwanted messages. */
+	s = zc->ibuf;
+	do {
+		stream_reset(s);
+		err = zclient_read_header(s, zc->sock, &length, &marker, &version, &vrf_id,
+					  &command);
+		if (err != 0) {
+			flog_err(EC_LIB_ZAPI_MISSMATCH, "%s: zclient_read_header() failed",
+				 __func__);
+			return NULL;
+		}
+	} while (command != ZEBRA_ROUTE_LOOKUP);
+
+	/* Read the response. */
+	STREAM_GETC(s, err);
+
+	/* No route found case. */
+	if (err == 0)
+		return NULL;
+
+	ri = XCALLOC(MTYPE_TMP, sizeof(*ri));
+	stream_get_ipaddr(s, &ip);
+	ri->ri_p.family = ip.ipa_type;
+	switch (ri->ri_p.family) {
+	case AF_INET:
+		ri->ri_p.u.prefix4 = ip.ip._v4_addr;
+		break;
+	case AF_INET6:
+		ri->ri_p.u.prefix6 = ip.ip._v6_addr;
+		break;
+	default:
+		XFREE(MTYPE_TMP, ri);
+		zlog_warn("%s: invalid IP type %d", __func__, ri->ri_p.family);
+		return NULL;
+	}
+	STREAM_GETW(s, ri->ri_p.prefixlen);
+	STREAM_GETL(s, ri->ri_distance);
+	STREAM_GETL(s, ri->ri_metric);
+	STREAM_GETL(s, ri->ri_type);
+	STREAM_GETL(s, ri->ri_nexthop_num);
+
+	for (idx = 0; idx < ri->ri_nexthop_num; idx++) {
+		rni = zapi_route_nh_decode(s);
+		SLIST_INSERT_HEAD(&ri->ri_nhlist, rni, rni_entry);
+	}
+
+	STREAM_GETL(s, ri->ri_opaque_size);
+	STREAM_GET(ri->ri_opaque, s, ri->ri_opaque_size);
+
+	return ri;
+
+stream_failure:
+	zlog_warn("%s: invalid message format", __func__);
+	return NULL;
+}
+
+void zroute_info_free(struct zroute_info **ri)
+{
+	struct zroute_nh_info *rni;
+
+	/* Handle `NULL` pointers */
+	if (*ri == NULL)
+		return;
+
+	/* Free all allocated next hop information. */
+	while ((rni = SLIST_FIRST(&(*ri)->ri_nhlist)) != NULL) {
+		SLIST_REMOVE(&(*ri)->ri_nhlist, rni, zroute_nh_info, rni_entry);
+		XFREE(MTYPE_TMP, rni);
+	}
+
+	XFREE(MTYPE_TMP, (*ri));
+}
