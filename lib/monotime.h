@@ -129,6 +129,22 @@ static inline char *time_to_string(time_t ts, char *buf)
 	return ctime_r(&tbuf, buf);
 }
 
+/* A wrapper for time_to_string() which removes newline at the end.
+ * This is needed for JSON outputs, where newline is not expected.
+ */
+static inline char *time_to_string_json(time_t ts, char *buf)
+{
+	size_t len;
+
+	time_to_string(ts, buf);
+	len = strlen(buf);
+
+	if (len && buf[len - 1] == '\n')
+		buf[len - 1] = '\0';
+
+	return buf;
+}
+
 /* Convert interval to human-friendly string, used in cli output e.g. */
 static inline const char *frrtime_to_interval(time_t t, char *buf,
 					      size_t buflen)
