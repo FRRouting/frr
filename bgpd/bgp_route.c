@@ -11975,14 +11975,13 @@ static int bgp_show_table(struct vty *vty, struct bgp *bgp, afi_t afi, safi_t sa
 					continue;
 			}
 
-			if (type == bgp_show_type_rpki) {
-				if (dest_p->family == AF_INET
-				    || dest_p->family == AF_INET6)
-					rpki_curr_state = hook_call(
-						bgp_rpki_prefix_status,
-						pi->peer, pi->attr, dest_p);
-				if (rpki_target_state != RPKI_NOT_BEING_USED
-				    && rpki_curr_state != rpki_target_state)
+			if ((dest_p->family == AF_INET || dest_p->family == AF_INET6) &&
+			    (detail_routes || detail_json || type == bgp_show_type_rpki)) {
+				rpki_curr_state = hook_call(bgp_rpki_prefix_status, pi->peer,
+							    pi->attr, dest_p);
+				if (type == bgp_show_type_rpki &&
+				    rpki_target_state != RPKI_NOT_BEING_USED &&
+				    rpki_curr_state != rpki_target_state)
 					continue;
 			}
 
@@ -12213,7 +12212,7 @@ static int bgp_show_table(struct vty *vty, struct bgp *bgp, afi_t afi, safi_t sa
 
 					route_vty_out_detail(vty, bgp, dest, dest_p, pi,
 							     family2afi(dest_p->family), safi,
-							     RPKI_NOT_BEING_USED, json_paths, NULL);
+							     rpki_curr_state, json_paths, NULL);
 				} else {
 					route_vty_out(vty, dest_p, pi, display,
 						      safi, json_paths, wide);
