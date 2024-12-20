@@ -117,7 +117,9 @@
                         "distance": 0,
                         "metric": 0,
                         "selected": [null],
+                        "installed": [null],
                         "internal-flags": 8,
+                        "internal-status": 16,
                         "uptime": "rubout",
                         "nexthop-group": {
                           "id": "rubout",
@@ -144,7 +146,9 @@
                         "distance": 0,
                         "metric": 0,
                         "selected": [null],
+                        "installed": [null],
                         "internal-flags": 8,
+                        "internal-status": 16,
                         "uptime": "rubout",
                         "nexthop-group": {
                           "id": "rubout",
