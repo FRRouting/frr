@@ -187,7 +187,13 @@ def bmp_check_for_prefixes(
 
 
 def bmp_check_for_peer_message(
-    expected_peers, bmp_log_type, bmp_collector, bmp_log_file, is_rd_instance=False
+    expected_peers,
+    bmp_log_type,
+    bmp_collector,
+    bmp_log_file,
+    is_rd_instance=False,
+    peer_bgp_id=None,
+    update_seq=True,
 ):
     """
     Check for the presence of a peer up message for the peer
@@ -208,6 +214,8 @@ def bmp_check_for_peer_message(
     for m in messages:
         if is_rd_instance and m["peer_distinguisher"] == "0:0":
             continue
+        if peer_bgp_id and m["peer_bgp_id"] != peer_bgp_id:
+            continue
         if (
             "peer_ip" in m.keys()
             and m["peer_ip"] != "0.0.0.0"
@@ -226,5 +234,6 @@ def bmp_check_for_peer_message(
             logger.debug(msg.format(ep, bmp_log_type))
             return False
 
-    SEQ = messages[-1]["seq"]
+    if update_seq:
+        SEQ = messages[-1]["seq"]
     return True
