@@ -766,8 +766,7 @@ static int update_group_show_walkcb(struct update_group *updgrp, void *arg)
 				       safi2str(updgrp->safi));
 	} else {
 		vty_out(vty, "Update-group %" PRIu64 ":\n", updgrp->id);
-		vty_out(vty, "  Created: %s",
-			timestamp_string(updgrp->uptime, timebuf));
+		vty_out(vty, "  Created: %s", time_to_string(updgrp->uptime, timebuf));
 	}
 
 	filter = &updgrp->conf->filter[updgrp->afi][updgrp->safi];
@@ -842,8 +841,7 @@ static int update_group_show_walkcb(struct update_group *updgrp, void *arg)
 			vty_out(vty, "\n");
 			vty_out(vty, "  Update-subgroup %" PRIu64 ":\n",
 				subgrp->id);
-			vty_out(vty, "    Created: %s",
-				timestamp_string(subgrp->uptime, timebuf));
+			vty_out(vty, "    Created: %s", time_to_string(subgrp->uptime, timebuf));
 		}
 
 		if (subgrp->split_from.update_group_id
