@@ -1622,7 +1622,6 @@ struct peer {
 
 	/* Threads. */
 	struct event *t_llgr_stale[AFI_MAX][SAFI_MAX];
-	struct event *t_revalidate_all[AFI_MAX][SAFI_MAX];
 	struct event *t_refresh_stalepath;
 
 	/* Thread flags. */
