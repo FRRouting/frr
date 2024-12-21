@@ -477,6 +477,7 @@ struct zapi_nexthop {
 struct zapi_nhg {
 	uint16_t proto;
 	uint32_t id;
+	uint32_t flags;
 
 	struct nhg_resilience resilience;
 
@@ -486,6 +487,9 @@ struct zapi_nhg {
 	uint16_t backup_nexthop_num;
 	struct zapi_nexthop backup_nexthops[MULTIPATH_NUM];
 };
+
+/* Flags for the zapi NHG message. */
+#define ZAPI_NHG_FLAG_RECURSIVE 0x01
 
 /*
  * Some of these data structures do not map easily to
