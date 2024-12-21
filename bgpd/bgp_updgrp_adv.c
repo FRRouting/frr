@@ -228,64 +228,67 @@ static int group_announce_route_walkcb(struct update_group *updgrp, void *arg)
 			   afi2str(afi), safi2str(safi), ctx->dest);
 
 	UPDGRP_FOREACH_SUBGRP (updgrp, subgrp) {
-		/* withdraw stale addpath without waiting for the coalesce timer timeout.
-		 * Otherwise, since adj->addpath_tx_id is overwritten, the code never
-		 * notice anymore it has to do a withdrawal.
-		 */
-		if (addpath_capable)
-			subgrp_withdraw_stale_addpath(ctx, subgrp);
-		/*
-		 * Skip the subgroups that have coalesce timer running. We will
-		 * walk the entire prefix table for those subgroups when the
-		 * coalesce timer fires.
-		 */
-		if (!subgrp->t_coalesce) {
+		/* An update-group that uses addpath */
+		if (addpath_capable) {
+			/* Send withdrawals without waiting for coalesting timer
+			 * to expire.
+			 */
+			if (subgrp->t_coalesce) {
+				subgrp_withdraw_stale_addpath(ctx, subgrp);
 
-			/* An update-group that uses addpath */
-			if (addpath_capable) {
-				subgrp_announce_addpath_best_selected(ctx->dest,
-								      subgrp);
-
-				/* Process the bestpath last so the "show [ip]
-				 * bgp neighbor x.x.x.x advertised"
-				 * output shows the attributes from the bestpath
-				 */
-				if (ctx->pi)
-					subgroup_process_announce_selected(
-						subgrp, ctx->pi, ctx->dest, afi,
-						safi,
-						bgp_addpath_id_for_peer(
-							peer, afi, safi,
-							&ctx->pi->tx_addpath));
+				goto done;
 			}
-			/* An update-group that does not use addpath */
-			else {
-				if (ctx->pi) {
-					subgroup_process_announce_selected(
-						subgrp, ctx->pi, ctx->dest, afi,
-						safi,
-						bgp_addpath_id_for_peer(
-							peer, afi, safi,
-							&ctx->pi->tx_addpath));
-				} else {
-					/* Find the addpath_tx_id of the path we
-					 * had advertised and
-					 * send a withdraw */
-					RB_FOREACH_SAFE (adj, bgp_adj_out_rb,
-							 &ctx->dest->adj_out,
+
+			subgrp_withdraw_stale_addpath(ctx, subgrp);
+			subgrp_announce_addpath_best_selected(ctx->dest, subgrp);
+
+			/* Process the bestpath last so the
+			 * "show [ip] bgp neighbor x.x.x.x advertised" output shows
+			 * the attributes from the bestpath.
+			 */
+			if (ctx->pi)
+				subgroup_process_announce_selected(
+					subgrp, ctx->pi, ctx->dest, afi, safi,
+					bgp_addpath_id_for_peer(peer, afi, safi,
+								&ctx->pi->tx_addpath));
+		} else {
+			/* Send withdrawals without waiting for coalesting timer
+			 * to expire.
+			 */
+			if (subgrp->t_coalesce) {
+				if (!ctx->pi || CHECK_FLAG(ctx->pi->flags, BGP_PATH_UNUSEABLE)) {
+					RB_FOREACH_SAFE (adj, bgp_adj_out_rb, &ctx->dest->adj_out,
 							 adj_next) {
 						if (adj->subgroup == subgrp) {
 							subgroup_process_announce_selected(
-								subgrp, NULL,
-								ctx->dest, afi,
-								safi,
+								subgrp, NULL, ctx->dest, afi, safi,
 								adj->addpath_tx_id);
 						}
+					}
+				}
+
+				goto done;
+			}
+
+			if (ctx->pi) {
+				subgroup_process_announce_selected(
+					subgrp, ctx->pi, ctx->dest, afi, safi,
+					bgp_addpath_id_for_peer(peer, afi, safi,
+								&ctx->pi->tx_addpath));
+			} else {
+				RB_FOREACH_SAFE (adj, bgp_adj_out_rb, &ctx->dest->adj_out,
+						 adj_next) {
+					if (adj->subgroup == subgrp) {
+						subgroup_process_announce_selected(subgrp, NULL,
+										   ctx->dest, afi,
+										   safi,
+										   adj->addpath_tx_id);
 					}
 				}
 			}
 		}
 
+done:
 		/* Notify BGP Conditional advertisement */
 		bgp_notify_conditional_adv_scanner(subgrp);
 	}
