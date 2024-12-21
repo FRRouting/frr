@@ -83,4 +83,9 @@ extern void bgp_nht_ifp_up(struct interface *ifp);
 extern void bgp_nht_ifp_down(struct interface *ifp);
 
 extern void bgp_nht_interface_events(struct peer *peer);
+
+/* called when a path becomes valid or invalid, because of nexthop tracking */
+DECLARE_HOOK(bgp_nht_path_update, (struct bgp *bgp, struct bgp_path_info *pi, bool valid),
+	     (bgp, pi, valid));
+
 #endif /* _BGP_NHT_H */
