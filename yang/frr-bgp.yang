@@ -24,6 +24,10 @@ module frr-bgp {
     prefix frr-route-types;
   }
 
+  import frr-route-map {
+    prefix frr-route-map;
+  }
+
   include "frr-bgp-common";
 
   include "frr-bgp-common-structure";
@@ -524,6 +528,62 @@ module frr-bgp {
 
   augment "/frr-rt:routing/frr-rt:control-plane-protocols/frr-rt:control-plane-protocol/bgp/global/afi-safis/afi-safi/l3vpn-ipv6-unicast" {
     uses global-afi-safi-vpn-network-config;
+  }
+
+  augment "/frr-rt:routing/frr-rt:control-plane-protocols/frr-rt:control-plane-protocol/bgp/global/afi-safis/afi-safi/l2vpn-evpn" {
+    list adververtise-prefix {
+      description
+        "Advertise prefix routes";
+      key "afi safi";
+      leaf afi {
+        description
+          "Address Family";
+        type enumeration {
+          enum "ipv4" {value 1;}
+          enum "ipv6" {value 2;}
+        }
+      }
+
+      leaf safi {
+        description
+          "Subsequent Address Family";
+        type enumeration {
+          enum "unicast" {value 1;}
+          enum "multicast" {value 2;}
+          enum "vpn" {value 3;}
+        }
+      }
+
+      leaf gateway-ip {
+        type inet:ipv4-address;
+        description
+          "Advertise gateway IP overlay index";
+      }
+
+      leaf route-map {
+        type frr-route-map:route-map-ref;
+        description
+          "Route-map for filtering specific routes";
+      }
+    }
+
+    leaf advertise-all-vni {
+      type boolean;
+      description
+        "Advertise All local VNIs";
+    }
+
+    leaf advertise-default-gw {
+      type boolean;
+      description
+        "Advertise All default g/w mac-ip routes in EVPN";
+    }
+
+    leaf advertise-svi-ip {
+      type boolean;
+      description
+        "Advertise svi mac-ip routes in EVPN";
+    }
   }
 
   augment "/frr-rt:routing/frr-rt:control-plane-protocols/frr-rt:control-plane-protocol/bgp/global/bmp-config/target-list/afi-safis/afi-safi/ipv4-unicast" {
