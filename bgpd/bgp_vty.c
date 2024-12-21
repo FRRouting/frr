@@ -18783,7 +18783,11 @@ static void bgp_config_write_peer_global(struct vty *vty, struct bgp *bgp,
 
 	/* enforce-first-as */
 	if (CHECK_FLAG(bgp->flags, BGP_FLAG_ENFORCE_FIRST_AS)) {
-		if (!peergroup_flag_check(peer, PEER_FLAG_ENFORCE_FIRST_AS))
+		/* The `no` form is printed because by default this enforcing
+		 * is enabled, thus we need to print it inverted.
+		 * See peer_new().
+		 */
+		if (peergroup_flag_check(peer, PEER_FLAG_ENFORCE_FIRST_AS))
 			vty_out(vty, " no neighbor %s enforce-first-as\n", addr);
 	} else {
 		if (peergroup_flag_check(peer, PEER_FLAG_ENFORCE_FIRST_AS))
