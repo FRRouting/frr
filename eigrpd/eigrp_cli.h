@@ -61,6 +61,12 @@ extern void eigrp_cli_show_authentication(struct vty *vty,
 extern void eigrp_cli_show_keychain(struct vty *vty,
 				    const struct lyd_node *dnode,
 				    bool show_defaults);
+void eigrpd_cli_show_passive_default(struct vty *vty,
+				     const struct lyd_node *dnode,
+				     bool show_defaults);
+void eigrp_cli_show_non_passive_interface(struct vty *vty,
+					  const struct lyd_node *dnode,
+					  bool show_defaults);
 extern void eigrp_cli_init(void);
 
 #endif /*EIGRP_CLI_H_ */
