@@ -83,7 +83,7 @@ static const char *const zebra_oper_xpaths[] = {
 	NULL,
 };
 
-#if HAVE_RIPD
+#ifdef HAVE_RIPD
 static const char *const ripd_config_xpaths[] = {
 	"/frr-filter:lib",
 	"/frr-interface:lib/interface",
@@ -104,7 +104,7 @@ static const char *const ripd_rpc_xpaths[] = {
 };
 #endif
 
-#if HAVE_RIPNGD
+#ifdef HAVE_RIPNGD
 static const char *const ripngd_config_xpaths[] = {
 	"/frr-filter:lib",
 	"/frr-interface:lib/interface",
@@ -123,7 +123,7 @@ static const char *const ripngd_rpc_xpaths[] = {
 };
 #endif
 
-#if HAVE_STATICD
+#ifdef HAVE_STATICD
 static const char *const staticd_config_xpaths[] = {
 	"/frr-vrf:lib",
 	"/frr-interface:lib",
