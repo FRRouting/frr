@@ -401,6 +401,7 @@ extern void zebra_nhg_mark_keep(void);
 
 /* Nexthop resolution processing */
 struct route_entry; /* Forward ref to avoid circular includes */
+extern void nexthop_vrf_update(struct route_node *rn, struct route_entry *re, vrf_id_t vrf_id);
 extern int nexthop_active_update(struct route_node *rn, struct route_entry *re,
 				 struct route_entry *old_re);
 
