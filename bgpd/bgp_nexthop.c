@@ -1079,14 +1079,14 @@ static void bgp_show_nexthop(struct vty *vty, struct bgp *bgp,
 			json_last_update = json_object_new_object();
 			json_object_int_add(json_last_update, "epoch", tbuf);
 			json_object_string_add(json_last_update, "string",
-					       ctime_r(&tbuf, timebuf));
+					       time_to_string_json(bnc->last_update, timebuf));
 			json_object_object_add(json_nexthop, "lastUpdate",
 					       json_last_update);
 		} else {
 			json_object_int_add(json_nexthop, "lastUpdate", tbuf);
 		}
 	} else {
-		vty_out(vty, "  Last update: %s", ctime_r(&tbuf, timebuf));
+		vty_out(vty, "  Last update: %s", time_to_string(bnc->last_update, timebuf));
 	}
 
 	/* show paths dependent on nexthop, if needed. */

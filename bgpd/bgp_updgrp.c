@@ -757,7 +757,7 @@ static int update_group_show_walkcb(struct update_group *updgrp, void *arg)
 		json_time = json_object_new_object();
 		json_object_int_add(json_time, "epoch", epoch_tbuf);
 		json_object_string_add(json_time, "epochString",
-				       ctime_r(&epoch_tbuf, timebuf));
+				       time_to_string_json(updgrp->uptime, timebuf));
 		json_object_object_add(json_updgrp, "groupCreateTime",
 				       json_time);
 		json_object_string_add(json_updgrp, "afi",
@@ -766,8 +766,7 @@ static int update_group_show_walkcb(struct update_group *updgrp, void *arg)
 				       safi2str(updgrp->safi));
 	} else {
 		vty_out(vty, "Update-group %" PRIu64 ":\n", updgrp->id);
-		vty_out(vty, "  Created: %s",
-			timestamp_string(updgrp->uptime, timebuf));
+		vty_out(vty, "  Created: %s", time_to_string(updgrp->uptime, timebuf));
 	}
 
 	filter = &updgrp->conf->filter[updgrp->afi][updgrp->safi];
@@ -835,15 +834,14 @@ static int update_group_show_walkcb(struct update_group *updgrp, void *arg)
 			json_object_int_add(json_subgrp_time, "epoch",
 					    epoch_tbuf);
 			json_object_string_add(json_subgrp_time, "epochString",
-					       ctime_r(&epoch_tbuf, timebuf));
+					       time_to_string_json(subgrp->uptime, timebuf));
 			json_object_object_add(json_subgrp, "groupCreateTime",
 					       json_subgrp_time);
 		} else {
 			vty_out(vty, "\n");
 			vty_out(vty, "  Update-subgroup %" PRIu64 ":\n",
 				subgrp->id);
-			vty_out(vty, "    Created: %s",
-				timestamp_string(subgrp->uptime, timebuf));
+			vty_out(vty, "    Created: %s", time_to_string(subgrp->uptime, timebuf));
 		}
 
 		if (subgrp->split_from.update_group_id
