@@ -421,10 +421,9 @@ static int bgp_interface_address_delete(ZAPI_CALLBACK_ARGS)
 			if (addr->family == AF_INET)
 				continue;
 
-			if (!IN6_IS_ADDR_LINKLOCAL(&addr->u.prefix6)
-			    && memcmp(&peer->nexthop.v6_global,
-				      &addr->u.prefix6, 16)
-				       == 0) {
+			if (!IN6_IS_ADDR_LINKLOCAL(&addr->u.prefix6) &&
+			    memcmp(&peer->nexthop.v6_global, &addr->u.prefix6, IPV6_MAX_BYTELEN) ==
+				    0) {
 				memset(&peer->nexthop.v6_global, 0, 16);
 				FOREACH_AFI_SAFI (afi, safi)
 					bgp_announce_route(peer, afi, safi,
