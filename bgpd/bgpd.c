@@ -4037,6 +4037,9 @@ int bgp_delete(struct bgp *bgp)
 
 	bgp_vpn_leak_unimport(bgp);
 
+	bgp_vpn_release_label(bgp, AFI_IP, true);
+	bgp_vpn_release_label(bgp, AFI_IP6, true);
+
 	hook_call(bgp_inst_delete, bgp);
 
 	FOREACH_AFI_SAFI (afi, safi)
