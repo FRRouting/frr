@@ -834,7 +834,42 @@ sed -i 's/ -M rpki//' %{_sysconfdir}/frr/daemons
 
 %changelog
 
-* Tue Nov 12 2024 Jafar Al-Gharaibeh <jafar@atcorp.com> - %{version}
+* Mon Dec 23 2024 Donatas Abraitis <donatas@opensourcerouting.org> - %{version}
+
+* Mon Dec 23 2024  Donatas Abraitis <donatas@opensourcerouting.org> - 10.2.1
+- bfdd
+-   retain remote dplane client socket
+- bgpd
+-   Fix to pop items off zebra_announce FIFO for few EVPN triggers
+-   Check if as_type is not specified when peer is a peer-group member
+-   Do not reset peers on suppress-fib toggling
+-   Fix bgp core with a possible Intf delete
+-   Fix `enforce-first-as` per peer-group removal
+-   Fix evpn bestpath calculation when path is not established
+-   Fix graceful-restart for peer-groups
+-   Fix memory leak when creating BMP connection with a source interface
+-   Fix memory leak when reconfiguring a route distinguisher
+-   Fix unconfigure asdot neighbor
+-   Fix use single whitespace when displaying flowspec entries
+-   Fix version attribute is an int, not a string
+-   Import allowed routes with self AS if desired
+-   Initialize as_type for peer-group as AS_UNSPECIFIED
+-   Use gracefulRestart JSON field
+-   Validate both nexthop information (NEXTHOP and NLRI)
+-   Validate only affected RPKI prefixes instead of a full RIB
+-   When calling bgp_process, prevent infinite loop
+- lib
+-   Allow setsockopt functions to return size set
+-   Fix session re-establishment
+-   Take ge/le into consideration when checking the prefix with the prefix-list
+-   Use backoff setsockopt option for freebsd
+- ospfd
+-   OSPF multi-instance default origination fixes
+- pimd
+-   Fix access-list memory leak in pimd
+-   Free igmp proxy joins on interface deletion
+-   igmp proxy joins should not be written as part of config
+-   Prevent crash of pim when auto-rp's socket is not initialized
 
 * Tue Nov 12 2024 Jafar Al-Gharaibeh <jafar@atcorp.com> - 10.2
 -   PIM candidate BSR/RP [#16438]

@@ -1,3 +1,9 @@
+frr (10.2.1-0) unstable; urgency=medium
+
+  * New upstream release FRR 10.2.1
+
+ -- Donatas Abraitis <donatas@opensourcerouting.org>  Mon, 23 Dec 2024 22:35:00 +0300
+
 frr (10.2-0) unstable; urgency=medium
 
   * New upstream release FRR 10.2
