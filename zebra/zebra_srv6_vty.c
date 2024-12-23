@@ -338,10 +338,6 @@ DEFUN_NOSH (srv6_locator,
 	}
 
 	locator = srv6_locator_alloc(argv[1]->arg);
-	if (!locator) {
-		vty_out(vty, "%% Alloc failed\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
 	locator->status_up = true;
 
 	VTY_PUSH_CONTEXT(SRV6_LOC_NODE, locator);
