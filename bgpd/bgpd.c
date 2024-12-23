@@ -4237,6 +4237,14 @@ int bgp_delete(struct bgp *bgp)
 		}
 	}
 
+	/* Clean BGP address family parameters */
+	bgp_mh_info->ead_evi_rx = BGP_EVPN_MH_EAD_EVI_RX_DEF;
+	bgp_evpn_switch_ead_evi_rx();
+	bgp_mh_info->ead_evi_tx = BGP_EVPN_MH_EAD_EVI_TX_DEF;
+	bgp_mh_info->evi_per_es_frag = BGP_EVPN_MAX_EVI_PER_ES_FRAG;
+
+	bgp_address_family_distance_delete();
+
 	return 0;
 }
 

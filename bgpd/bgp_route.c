@@ -15778,6 +15778,28 @@ static int bgp_distance_unset(struct vty *vty, const char *distance_str,
 	return CMD_SUCCESS;
 }
 
+void bgp_address_family_distance_delete(void)
+{
+	afi_t afi = AFI_UNSPEC;
+	safi_t safi = SAFI_UNSPEC;
+	struct bgp_dest *dest = NULL;
+	struct bgp_distance *bdistance = NULL;
+
+	FOREACH_AFI_SAFI (afi, safi) {
+		for (dest = bgp_table_top(bgp_distance_table[afi][safi]); dest;
+		     dest = bgp_route_next(dest)) {
+			if (!bgp_dest_has_bgp_path_info_data(dest))
+				continue;
+			bdistance = bgp_dest_get_bgp_distance_info(dest);
+			XFREE(MTYPE_AS_LIST, bdistance->access_list);
+			bgp_distance_free(bdistance);
+
+			bgp_dest_set_bgp_distance_info(dest, NULL);
+			bgp_dest_unlock_node(dest);
+		}
+	}
+}
+
 /* Apply BGP information to distance method. */
 uint8_t bgp_distance_apply(const struct prefix *p, struct bgp_path_info *pinfo,
 			   afi_t afi, safi_t safi, struct bgp *bgp)
