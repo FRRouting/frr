@@ -805,7 +805,85 @@ sed -i 's/ -M rpki//' %{_sysconfdir}/frr/daemons
 
 %changelog
 
-* Wed Sep 11 2024 Martin Winter <mwinter@opensourcerouting.org> - %{version}
+* Mon Dec 23 2024 Martin Winter <mwinter@opensourcerouting.org> - %{version}
+
+* Mon Dec 23 2024 Donatas Abraitis <donatas@opensourcerouting.org> - 10.1.2
+- babeld
+-   Do not remove route when replacing
+-   Send the route's metric down to zebra.
+- bfdd
+-   Add no variants to interval configurations
+-   Retain remote dplane client socket
+- bgpd
+-   Actually make ` --v6-with-v4-nexthops` it work
+-   Add `bgp ipv6-auto-ra` command
+-   Allow value 0 in aigp-metric setting
+-   Avoid use-after-free when doing `no router bgp` with auto created instances
+-   Fix to pop items off zebra_announce FIFO for few EVPN triggers
+-   Clear all paths including addpath once GR expires
+-   Compare aigp after local route check in bgp_path_info_cmp()
+-   Do not filter no-export community for BGP OAD (one administration domain)
+-   Do not reset peers on suppress-fib toggling
+-   EVPN fix per rd specific type-2 json output
+-   Fix bgp core with a possible Intf delete
+-   Fix blank line in running-config with bmp listener cmd
+-   Fix crash when polling bgp4v2PathAttrTable
+-   Fix display of local label in show bgp
+-   Fix `enforce-first-as` per peer-group removal
+-   Fix evpn bestpath calculation when path is not established
+-   Fix evpn mh esi flap remove local routes
+-   Fix for match source-protocol in route-map for redistribute cmd
+-   Fix memory leak when creating BMP connection with a source interface
+-   Fix memory leak when reconfiguring a route distinguisher
+-   Fix printfrr_bp for non initialized peers
+-   Fix resolvedPrefix in show nexthop json output
+-   Fix route selection with AIGP
+-   Fix several issues in sourcing AIGP attribute
+-   Fix unconfigure asdot neighbor
+-   Fix use single whitespace when displaying flowspec entries
+-   Fix version attribute is an int, not a string
+-   Include structure when installing End.DT4/6 SID
+-   Include structure when installing End.DT46 SID
+-   Include structure when removing End.DT4/6 SID
+-   Include structure when removing End.DT46 SID
+-   Move some non BGP-specific route-map functions to lib
+-   Set LLGR stale routes for all the paths including addpath
+-   Treat numbered community-list only if it's in a range 1-500
+-   Validate both nexthop information (NEXTHOP and NLRI)
+-   Validate only affected RPKI prefixes instead of a full RIB
+- isisd
+-   Fix change flex-algorithm number from uint32 to uint8
+-   Fix memory leaks when the transition of neighbor state from non-UP to DOWN
+-   Fix rcap tlv double-free crash
+-   Fix wrong check for MT commands
+- lib
+-   Attach stdout to child only if --log=stdout and stdout FD is a tty
+-   Include SID structure in seg6local nexthop
+-   Take ge/le into consideration when checking the prefix with the prefix-list
+-   Keep `zebra on-rib-process script` in frr.conf
+- nhrpd
+-   Fixes duplicate auth extension
+- ospfd
+-   Add a hidden command for old `no router-id`
+-   Fix heap corruption vulnerability when parsing SR-Algorithm TLV
+-   Fix missing '[no]ip ospf graceful-restart hello-delay <N>' commands
+-   Interface 'ip ospf neighbor-filter' startup config not applied.
+-   Use router_id what Zebra has if we remove a static router_id
+- pimd
+-   Allow resolving bsr via directly connected secondary address
+-   Fix access-list memory leak in pimd
+- vrrpd
+-   Iterate over all ancillary messages
+- zebra
+-   Add missing new line for help string
+-   Add missing proto translations
+-   Correctly report metrics
+-   Fix crash during reconnect
+-   Fix heap-use-after free on ns shutdown
+-   Fix snmp walk of zebra rib
+-   Let's use memset instead of walking bytes and setting to 0
+-   Separate zebra ZAPI server open and accept
+-   Unlock node only after operation in zebra_free_rnh()
 
 * Wed Sep 11 2024 Donatas Abraitis <donatas@opensourcerouting.org> - 10.1.1
 - bgpd
