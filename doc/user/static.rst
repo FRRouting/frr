@@ -177,6 +177,20 @@ multiple segments instructions.
   [..]
   S>* 2005::/64 [1/0] is directly connected, ens3, seg6 2001:db8:aaaa::7,2002::4,2002::3,2002::2, weight 1, 00:00:06
 
+STATIC also supports steering of IPv4 traffic over an SRv6 SID list, as shown in the example below.
+
+.. code-block:: frr
+
+  ip route A.B.C.D <A.B.C.D|nexthop> segments U:U::U:U/Y:Y::Y:Y/Z:Z::Z:Z
+
+::
+
+  router(config)# ip route 10.0.0.0/24 sr0 segments fcbb:bbbb:1:2:3:fe00::
+
+  router# show ip route
+  [..]
+  S>* 10.0.0.0/24 [1/0] is directly connected, sr0, seg6 fcbb:bbbb:1:2:3:fe00::, weight 1, 00:00:06
+
 SRv6 Static SIDs Commands
 =========================
 
