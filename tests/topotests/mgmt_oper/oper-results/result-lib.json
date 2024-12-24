@@ -39,7 +39,7 @@
                               "interface": "r1-eth0",
                               "active": [null],
                               "fib": [null],
-                              "weight":1
+                              "weight": 1
                             }
                           ]
                         }
@@ -68,7 +68,7 @@
                               "interface": "r1-eth0",
                               "active": [null],
                               "fib": [null],
-			      "weight":1
+                              "weight": 1
                             }
                           ]
                         }
@@ -97,7 +97,7 @@
                               "interface": "r1-eth1",
                               "active": [null],
                               "fib": [null],
-			      "weight":1
+                              "weight": 1
                             }
                           ]
                         }
@@ -126,7 +126,7 @@
                               "interface": "r1-eth1",
                               "active": [null],
                               "fib": [null],
-                              "weight":1
+                              "weight": 1
                             }
                           ]
                         }
@@ -238,7 +238,9 @@
                         "distance": 0,
                         "metric": 0,
                         "selected": [null],
+                        "installed": [null],
                         "internal-flags": 8,
+                        "internal-status": 16,
                         "uptime": "rubout",
                         "nexthop-group": {
                           "id": "rubout",
@@ -250,7 +252,7 @@
                               "interface": "r1-eth0",
                               "active": [null],
                               "fib": [null],
-			      "weight":1
+                              "weight": 1
                             }
                           ]
                         }
@@ -265,7 +267,9 @@
                         "distance": 0,
                         "metric": 0,
                         "selected": [null],
+                        "installed": [null],
                         "internal-flags": 8,
+                        "internal-status": 16,
                         "uptime": "rubout",
                         "nexthop-group": {
                           "id": "rubout",
@@ -277,7 +281,7 @@
                               "interface": "r1-eth0",
                               "active": [null],
                               "fib": [null],
-			      "weight":1
+                              "weight": 1
                             }
                           ]
                         }
@@ -292,7 +296,9 @@
                         "distance": 0,
                         "metric": 0,
                         "selected": [null],
+                        "installed": [null],
                         "internal-flags": 8,
+                        "internal-status": 16,
                         "uptime": "rubout",
                         "nexthop-group": {
                           "id": "rubout",
@@ -304,7 +310,7 @@
                               "interface": "r1-eth1",
                               "active": [null],
                               "fib": [null],
-			      "weight":1
+                              "weight": 1
                             }
                           ]
                         }
@@ -319,7 +325,9 @@
                         "distance": 0,
                         "metric": 0,
                         "selected": [null],
+                        "installed": [null],
                         "internal-flags": 8,
+                        "internal-status": 16,
                         "uptime": "rubout",
                         "nexthop-group": {
                           "id": "rubout",
@@ -331,7 +339,7 @@
                               "interface": "r1-eth1",
                               "active": [null],
                               "fib": [null],
-			      "weight":1
+                              "weight": 1
                             }
                           ]
                         }
@@ -369,7 +377,7 @@
                               "interface": "r1-eth0",
                               "active": [null],
                               "fib": [null],
-			      "weight":1
+                              "weight": 1
                             }
                           ]
                         }
@@ -398,7 +406,7 @@
                               "interface": "r1-eth0",
                               "active": [null],
                               "fib": [null],
-			      "weight":1
+                              "weight": 1
                             }
                           ]
                         }
@@ -427,7 +435,7 @@
                               "interface": "r1-eth1",
                               "active": [null],
                               "fib": [null],
-			      "weight":1
+                              "weight": 1
                             }
                           ]
                         }
@@ -456,7 +464,7 @@
                               "interface": "r1-eth1",
                               "active": [null],
                               "fib": [null],
-			      "weight":1
+                              "weight": 1
                             }
                           ]
                         }
@@ -480,7 +488,9 @@
                         "distance": 0,
                         "metric": 0,
                         "selected": [null],
+                        "installed": [null],
                         "internal-flags": 8,
+                        "internal-status": 16,
                         "uptime": "rubout",
                         "nexthop-group": {
                           "id": "rubout",
@@ -492,7 +502,7 @@
                               "interface": "r1-eth0",
                               "active": [null],
                               "fib": [null],
-			      "weight":1
+                              "weight": 1
                             }
                           ]
                         }
@@ -507,7 +517,9 @@
                         "distance": 0,
                         "metric": 0,
                         "selected": [null],
+                        "installed": [null],
                         "internal-flags": 8,
+                        "internal-status": 16,
                         "uptime": "rubout",
                         "nexthop-group": {
                           "id": "rubout",
@@ -519,7 +531,7 @@
                               "interface": "r1-eth0",
                               "active": [null],
                               "fib": [null],
-			      "weight":1
+                              "weight": 1
                             }
                           ]
                         }
@@ -534,7 +546,9 @@
                         "distance": 0,
                         "metric": 0,
                         "selected": [null],
+                        "installed": [null],
                         "internal-flags": 8,
+                        "internal-status": 16,
                         "uptime": "rubout",
                         "nexthop-group": {
                           "id": "rubout",
@@ -546,7 +560,7 @@
                               "interface": "r1-eth1",
                               "active": [null],
                               "fib": [null],
-                              "weight":1
+                              "weight": 1
                             }
                           ]
                         }
@@ -561,7 +575,9 @@
                         "distance": 0,
                         "metric": 0,
                         "selected": [null],
+                        "installed": [null],
                         "internal-flags": 8,
+                        "internal-status": 16,
                         "uptime": "rubout",
                         "nexthop-group": {
                           "id": "rubout",
@@ -573,7 +589,7 @@
                               "interface": "r1-eth1",
                               "active": [null],
                               "fib": [null],
-			      "weight":1
+                              "weight": 1
                             }
                           ]
                         }
@@ -624,7 +640,7 @@
                               "interface": "r1-eth2",
                               "active": [null],
                               "fib": [null],
-			      "weight":1
+                              "weight": 1
                             }
                           ]
                         }
@@ -653,7 +669,7 @@
                               "interface": "r1-eth2",
                               "active": [null],
                               "fib": [null],
-			      "weight":1
+                              "weight": 1
                             }
                           ]
                         }
@@ -682,7 +698,7 @@
                               "interface": "r1-eth3",
                               "active": [null],
                               "fib": [null],
-			      "weight":1
+                              "weight": 1
                             }
                           ]
                         }
@@ -711,7 +727,7 @@
                               "interface": "r1-eth3",
                               "active": [null],
                               "fib": [null],
-			      "weight":1
+                              "weight": 1
                             }
                           ]
                         }
@@ -823,7 +839,9 @@
                         "distance": 0,
                         "metric": 0,
                         "selected": [null],
+                        "installed": [null],
                         "internal-flags": 8,
+                        "internal-status": 16,
                         "uptime": "rubout",
                         "nexthop-group": {
                           "id": "rubout",
@@ -835,7 +853,7 @@
                               "interface": "r1-eth2",
                               "active": [null],
                               "fib": [null],
-			      "weight":1
+                              "weight": 1
                             }
                           ]
                         }
@@ -850,7 +868,9 @@
                         "distance": 0,
                         "metric": 0,
                         "selected": [null],
+                        "installed": [null],
                         "internal-flags": 8,
+                        "internal-status": 16,
                         "uptime": "rubout",
                         "nexthop-group": {
                           "id": "rubout",
@@ -862,7 +882,7 @@
                               "interface": "r1-eth2",
                               "active": [null],
                               "fib": [null],
-			      "weight":1
+                              "weight": 1
                             }
                           ]
                         }
@@ -877,7 +897,9 @@
                         "distance": 0,
                         "metric": 0,
                         "selected": [null],
+                        "installed": [null],
                         "internal-flags": 8,
+                        "internal-status": 16,
                         "uptime": "rubout",
                         "nexthop-group": {
                           "id": "rubout",
@@ -889,7 +911,7 @@
                               "interface": "r1-eth3",
                               "active": [null],
                               "fib": [null],
-			      "weight":1
+                              "weight": 1
                             }
                           ]
                         }
@@ -904,7 +926,9 @@
                         "distance": 0,
                         "metric": 0,
                         "selected": [null],
+                        "installed": [null],
                         "internal-flags": 8,
+                        "internal-status": 16,
                         "uptime": "rubout",
                         "nexthop-group": {
                           "id": "rubout",
@@ -916,7 +940,7 @@
                               "interface": "r1-eth3",
                               "active": [null],
                               "fib": [null],
-			      "weight":1
+                              "weight": 1
                             }
                           ]
                         }
@@ -954,7 +978,7 @@
                               "interface": "r1-eth2",
                               "active": [null],
                               "fib": [null],
-			      "weight":1
+                              "weight": 1
                             }
                           ]
                         }
@@ -983,7 +1007,7 @@
                               "interface": "r1-eth2",
                               "active": [null],
                               "fib": [null],
-			      "weight":1
+                              "weight": 1
                             }
                           ]
                         }
@@ -1012,7 +1036,7 @@
                               "interface": "r1-eth3",
                               "active": [null],
                               "fib": [null],
-			      "weight":1
+                              "weight": 1
                             }
                           ]
                         }
@@ -1041,7 +1065,7 @@
                               "interface": "r1-eth3",
                               "active": [null],
                               "fib": [null],
-			      "weight":1
+                              "weight": 1
                             }
                           ]
                         }
@@ -1065,7 +1089,9 @@
                         "distance": 0,
                         "metric": 0,
                         "selected": [null],
+                        "installed": [null],
                         "internal-flags": 8,
+                        "internal-status": 16,
                         "uptime": "rubout",
                         "nexthop-group": {
                           "id": "rubout",
@@ -1077,7 +1103,7 @@
                               "interface": "r1-eth2",
                               "active": [null],
                               "fib": [null],
-			      "weight":1
+                              "weight": 1
                             }
                           ]
                         }
@@ -1092,7 +1118,9 @@
                         "distance": 0,
                         "metric": 0,
                         "selected": [null],
+                        "installed": [null],
                         "internal-flags": 8,
+                        "internal-status": 16,
                         "uptime": "rubout",
                         "nexthop-group": {
                           "id": "rubout",
@@ -1104,7 +1132,7 @@
                               "interface": "r1-eth2",
                               "active": [null],
                               "fib": [null],
-			      "weight":1
+                              "weight": 1
                             }
                           ]
                         }
@@ -1119,7 +1147,9 @@
                         "distance": 0,
                         "metric": 0,
                         "selected": [null],
+                        "installed": [null],
                         "internal-flags": 8,
+                        "internal-status": 16,
                         "uptime": "rubout",
                         "nexthop-group": {
                           "id": "rubout",
@@ -1131,7 +1161,7 @@
                               "interface": "r1-eth3",
                               "active": [null],
                               "fib": [null],
-			      "weight":1
+                              "weight": 1
                             }
                           ]
                         }
@@ -1146,7 +1176,9 @@
                         "distance": 0,
                         "metric": 0,
                         "selected": [null],
+                        "installed": [null],
                         "internal-flags": 8,
+                        "internal-status": 16,
                         "uptime": "rubout",
                         "nexthop-group": {
                           "id": "rubout",
@@ -1158,7 +1190,7 @@
                               "interface": "r1-eth3",
                               "active": [null],
                               "fib": [null],
-			      "weight":1
+                              "weight": 1
                             }
                           ]
                         }
