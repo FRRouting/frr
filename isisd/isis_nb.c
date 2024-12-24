@@ -861,6 +861,12 @@ const struct frr_yang_module_info frr_isisd_info = {
 			},
 		},
 		{
+			.xpath = "/frr-isisd:isis/instance/segment-routing-srv6",
+			.cbs = {
+				.cli_show_end = cli_show_isis_srv6_end,
+			},
+		},
+		{
 			.xpath = "/frr-isisd:isis/instance/segment-routing-srv6/enabled",
 			.cbs = {
 				.modify = isis_instance_segment_routing_srv6_enabled_modify,
@@ -873,7 +879,6 @@ const struct frr_yang_module_info frr_isisd_info = {
 				.modify = isis_instance_segment_routing_srv6_locator_modify,
 				.destroy = isis_instance_segment_routing_srv6_locator_destroy,
 				.cli_show = cli_show_isis_srv6_locator,
-				.cli_show_end = cli_show_isis_srv6_locator_end,
 			},
 		},
 		{
@@ -904,6 +909,7 @@ const struct frr_yang_module_info frr_isisd_info = {
 			.xpath = "/frr-isisd:isis/instance/segment-routing-srv6/msd/node-msd",
 			.cbs = {
 				.cli_show = cli_show_isis_srv6_node_msd,
+				.cli_show_end = cli_show_isis_srv6_node_msd_end,
 			},
 		},
 		{
