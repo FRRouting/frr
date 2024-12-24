@@ -279,7 +279,11 @@ ctx_keywords = {
             "policy ": {"candidate-path ": {}},
             "pcep": {"pcc": {}, "pce ": {}, "pce-config ": {}},
         },
-        "srv6": {"locators": {"locator ": {}}, "encapsulation": {}},
+        "srv6": {
+            "locators": {"locator ": {}},
+            "encapsulation": {},
+            "formats": {"format": {}},
+        },
     },
     "nexthop-group ": {},
     "route-map ": {},
