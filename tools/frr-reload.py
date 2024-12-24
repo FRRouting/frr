@@ -275,7 +275,15 @@ ctx_keywords = {
             "policy ": {"candidate-path ": {}},
             "pcep": {"pcc": {}, "pce ": {}, "pce-config ": {}},
         },
+<<<<<<< HEAD
         "srv6": {"locators": {"locator ": {}}},
+=======
+        "srv6": {
+            "locators": {"locator ": {}},
+            "encapsulation": {},
+            "formats": {"format": {}},
+        },
+>>>>>>> 5b8b821f2 (tools: Add missing formats keyword to segment-routing in frr-reload)
     },
     "nexthop-group ": {},
     "route-map ": {},
