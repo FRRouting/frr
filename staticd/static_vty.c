@@ -1425,6 +1425,7 @@ DEFPY_YANG(ip_route,
 	  |color (1-4294967295)                        \
 	  |bfd$bfd [{multi-hop$bfd_multi_hop|source A.B.C.D$bfd_source|auto-hop$bfdauto|profile BFDPROF$bfd_profile}] \
 	  |pm$pm                                       \
+	  |segments WORD \
           }]",
       NO_STR IP_STR
       "Establish static routes\n"
@@ -1451,7 +1452,9 @@ DEFPY_YANG(ip_route,
       BFD_AUTOHOP_MODE_STR
       BFD_PROFILE_STR
       BFD_PROFILE_NAME_STR
-      "Enables Path Monitoring support\n")
+      "Enables Path Monitoring support\n"
+      "Steer this route over an SRv6 SID list\n"
+      "SRv6 SID list\n")
 {
 	struct static_route_args args = {
 		.is_delete = !!no,
@@ -1474,6 +1477,7 @@ DEFPY_YANG(ip_route,
 		.bfd_source = bfd_source_str,
 		.bfd_profile = bfd_profile,
 		.pm = !!pm,
+		.segs = segments,
 	};
 
 	return static_route_configure(vty, &args);
