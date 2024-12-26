@@ -1182,9 +1182,26 @@ def pim_delete_move_lines(lines_to_add, lines_to_del):
     return (lines_to_add, lines_to_del)
 
 
+def isis_delete_password_lines(lines_to_add, lines_to_del):
+    index = -1
+    for ctx_keys, line in lines_to_del:
+        index = index + 1
+        if ctx_keys[0].startswith("router isis") and line and line.startswith("area-password"):
+            new_line = "area-password"
+            lines_to_del.remove((ctx_keys, line))
+            lines_to_del.insert(index, (ctx_keys, new_line))
+        if ctx_keys[0].startswith("router isis") and line and line.startswith("domain-password"):
+            new_line = "domain-password"
+            lines_to_del.remove((ctx_keys, line))
+            lines_to_del.insert(index, (ctx_keys, new_line))
+
+    return (lines_to_add, lines_to_del)
+
+
 def delete_move_lines(lines_to_add, lines_to_del):
     lines_to_add, lines_to_del = bgp_delete_move_lines(lines_to_add, lines_to_del)
     lines_to_add, lines_to_del = pim_delete_move_lines(lines_to_add, lines_to_del)
+    lines_to_add, lines_to_del = isis_delete_password_lines(lines_to_add, lines_to_del)
 
     return (lines_to_add, lines_to_del)
 
