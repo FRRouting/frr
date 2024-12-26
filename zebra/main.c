@@ -356,8 +356,6 @@ int main(int argc, char **argv)
 
 	zserv_path = NULL;
 
-	vrf_configure_backend(VRF_BACKEND_VRF_LITE);
-
 	frr_preinit(&zebra_di, argc, argv);
 
 	frr_opt_add("baz:e:rK:s:R:"
