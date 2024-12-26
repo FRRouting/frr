@@ -42,8 +42,7 @@ RB_GENERATE(vrf_name_head, vrf, name_entry, vrf_name_compare);
 struct vrf_id_head vrfs_by_id = RB_INITIALIZER(&vrfs_by_id);
 struct vrf_name_head vrfs_by_name = RB_INITIALIZER(&vrfs_by_name);
 
-static int vrf_backend;
-static int vrf_backend_configured;
+static int vrf_backend = VRF_BACKEND_VRF_LITE;
 static char vrf_default_name[VRF_NAMSIZ] = VRF_DEFAULT_NAME_INTERNAL;
 
 /*
@@ -654,8 +653,6 @@ int vrf_is_backend_netns(void)
 
 int vrf_get_backend(void)
 {
-	if (!vrf_backend_configured)
-		return VRF_BACKEND_UNKNOWN;
 	return vrf_backend;
 }
 
@@ -663,7 +660,6 @@ int vrf_configure_backend(enum vrf_backend_type backend)
 {
 	/* Work around issue in old gcc */
 	switch (backend) {
-	case VRF_BACKEND_UNKNOWN:
 	case VRF_BACKEND_NETNS:
 	case VRF_BACKEND_VRF_LITE:
 		break;
@@ -672,7 +668,6 @@ int vrf_configure_backend(enum vrf_backend_type backend)
 	}
 
 	vrf_backend = backend;
-	vrf_backend_configured = 1;
 
 	return 0;
 }
