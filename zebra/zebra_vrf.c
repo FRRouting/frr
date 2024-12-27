@@ -98,6 +98,14 @@ static int zebra_vrf_new(struct vrf *vrf)
 	zvrf = zebra_vrf_alloc(vrf);
 	if (!vrf_is_backend_netns())
 		zvrf->zns = zebra_ns_lookup(NS_DEFAULT);
+	else if (vrf->vrf_id == VRF_DEFAULT) {
+		struct ns *ns;
+
+		strlcpy(vrf->data.l.netns_name, VRF_DEFAULT_NAME, NS_NAMSIZ);
+		ns = ns_lookup(NS_DEFAULT);
+		ns->vrf_ctxt = vrf;
+		vrf->ns_ctxt = ns;
+	}
 
 	otable_init(&zvrf->other_tables);
 
