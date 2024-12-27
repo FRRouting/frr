@@ -377,7 +377,7 @@ int main(int argc, char **argv)
 		    "      --v6-with-v4-nexthops Underlying dataplane supports v6 routes with v4 nexthops\n"
 #ifdef HAVE_NETLINK
 		    "  -s, --nl-bufsize          Set netlink receive buffer size\n"
-		    "  -n, --vrfwnetns           Use NetNS as VRF backend\n"
+		    "  -n, --vrfwnetns           Use NetNS as VRF backend (deprecated, use -w)\n"
 		    "      --v6-rr-semantics     Use v6 RR semantics\n"
 #else
 		    "  -s,                       Set kernel socket receive buffer size\n"
@@ -438,6 +438,8 @@ int main(int argc, char **argv)
 			break;
 #ifdef HAVE_NETLINK
 		case 'n':
+			fprintf(stderr,
+				"The -n option is deprecated, please use global -w option instead.\n");
 			vrf_configure_backend(VRF_BACKEND_NETNS);
 			break;
 		case OPTION_V6_RR_SEMANTICS:

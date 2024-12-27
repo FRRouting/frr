@@ -238,10 +238,9 @@ int main(int argc, char **argv)
 	int buffer_size = MGMTD_SOCKET_BUF_SIZE;
 
 	frr_preinit(&mgmtd_di, argc, argv);
-	frr_opt_add(
-		"s:n" DEPRECATED_OPTIONS, longopts,
-		"  -s, --socket_size  Set MGMTD peer socket send buffer size\n"
-		"  -n, --vrfwnetns    Use NetNS as VRF backend\n");
+	frr_opt_add("s:n" DEPRECATED_OPTIONS, longopts,
+		    "  -s, --socket_size  Set MGMTD peer socket send buffer size\n"
+		    "  -n, --vrfwnetns    Use NetNS as VRF backend (deprecated, use -w)\n");
 
 	/* Command line argument treatment. */
 	while (1) {
@@ -264,6 +263,8 @@ int main(int argc, char **argv)
 			buffer_size = atoi(optarg);
 			break;
 		case 'n':
+			fprintf(stderr,
+				"The -n option is deprecated, please use global -w option instead.\n");
 			vrf_configure_backend(VRF_BACKEND_NETNS);
 			break;
 		default:

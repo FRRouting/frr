@@ -754,6 +754,17 @@ These options apply to all |PACKAGE_NAME| daemons.
    be added to all files that use the statedir.  If you have "/var/run/frr"
    as the default statedir then it will become "/var/run/frr/<namespace>".
 
+.. option:: -w, --vrfwnetns
+
+   Enable namespace VRF backend. By default, the VRF backend relies on VRF-lite
+   support from the Linux kernel. This option permits discovering Linux named
+   network namespaces and mapping them to FRR VRF contexts. This option must be
+   the same for all running daemons. The easiest way to pass the same option to
+   all daemons is to use the ``frr_global_options`` variable in the
+   :ref:`Daemons Configuration File <daemons-configuration-file>`.
+
+   .. seealso:: :ref:`zebra-vrf`
+
 .. option:: -o, --vrfdefaultname <name>
 
    Set the name used for the *Default VRF* in CLI commands and YANG models.
