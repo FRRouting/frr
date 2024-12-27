@@ -53,6 +53,8 @@ Besides the common invocation options (:ref:`common-invocation-options`), the
    VRF defined by *Zebra*, as usual. If this option is specified when running
    *Zebra*, one must also specify the same option for *mgmtd*.
 
+   This options is deprecated. Please use the global -w option instead.
+
    .. seealso:: :ref:`zebra-vrf`
 
 .. option:: -z <path_to_socket>, --socket <path_to_socket>
