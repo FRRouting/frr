@@ -2065,12 +2065,6 @@ void cli_show_isis_srv6_locator(struct vty *vty, const struct lyd_node *dnode,
 	vty_out(vty, "  locator %s\n", yang_dnode_get_string(dnode, NULL));
 }
 
-void cli_show_isis_srv6_locator_end(struct vty *vty,
-				    const struct lyd_node *dnode)
-{
-	vty_out(vty, " exit\n");
-}
-
 /*
  * XPath: /frr-isisd:isis/instance/segment-routing-srv6/enabled
  */
@@ -2116,6 +2110,11 @@ void cli_show_isis_srv6_enabled(struct vty *vty, const struct lyd_node *dnode,
 		vty_out(vty, " no");
 
 	vty_out(vty, " segment-routing srv6\n");
+}
+
+void cli_show_isis_srv6_end(struct vty *vty, const struct lyd_node *dnode)
+{
+	vty_out(vty, " exit\n");
 }
 
 /*
@@ -2246,6 +2245,11 @@ void cli_show_isis_srv6_node_msd(struct vty *vty, const struct lyd_node *dnode,
 	    yang_get_default_uint8("%s/msd/node-msd/max-end-d", ISIS_SRV6))
 		vty_out(vty, "   max-end-d %u\n",
 			yang_dnode_get_uint8(dnode, "max-end-d"));
+}
+
+void cli_show_isis_srv6_node_msd_end(struct vty *vty, const struct lyd_node *dnode)
+{
+	vty_out(vty, "  exit\n");
 }
 
 /*
