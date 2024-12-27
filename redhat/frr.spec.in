@@ -793,7 +793,28 @@ sed -i 's/ -M rpki//' %{_sysconfdir}/frr/daemons
 
 %changelog
 
-* Wed Sep 11 2024 Martin Winter <mwinter@opensourcerouting.org> - %{version}
+* Mon Dec 23 2024 Martin Winter <mwinter@opensourcerouting.org> - %{version}
+
+* Mon Dec 23 2024 Donatas Abraitis <donatas@opensourcerouting.org> - 8.5.7
+- bgpd
+-   Fix memory leak when creating BMP connection with a source interface
+-   Include structure when installing End.DT4/6 SID
+-   Include structure when installing End.DT46 SID
+-   Include structure when removing End.DT4/6 SID
+-   Include structure when removing End.DT46 SID
+- lib
+-   Include SID structure in seg6local nexthop
+-   Take ge/le into consideration when checking the prefix with the prefix-list
+- ospfd
+-   Fix heap corruption vulnerability when parsing SR-Algorithm TLV
+- pimd
+-   Fix access-list memory leak in pimd
+- zebra
+-   Add missing proto translations
+-   Correctly report metrics
+-   Fix crash during reconnect
+-   Fix snmp walk of zebra rib
+-   Let's use memset instead of walking bytes and setting to 0
 
 * Wed Sep 11 2024 Donatas Abraitis <donatas@opensourcerouting.org> - 8.5.6
 - isisd
