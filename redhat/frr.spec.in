@@ -799,7 +799,51 @@ sed -i 's/ -M rpki//' %{_sysconfdir}/frr/daemons
 
 %changelog
 
-* Wed Sep 11 2024 Martin Winter <mwinter@opensourcerouting.org> - %{version}
+* Mon Dec 23 2024 Martin Winter <mwinter@opensourcerouting.org> - %{version}
+
+* Mon Dec 23 2024 Donatas Abraitis <donatas@opensourcerouting.org> - 9.0.5
+- bgpd
+-   Allow value 0 in aigp-metric setting
+-   Clear all paths including addpath once GR expires
+-   Compare aigp after local route check in bgp_path_info_cmp()
+-   EVPN fix per rd specific type-2 json output
+-   Fix bgp core with a possible Intf delete
+-   Fix blank line in running-config with bmp listener cmd
+-   Fix crash when polling bgp4v2PathAttrTable
+-   Fix display of local label in show bgp
+-   Fix for match source-protocol in route-map for redistribute cmd
+-   Fix memory leak when creating BMP connection with a source interface
+-   Fix route selection with AIGP
+-   Fix unconfigure asdot neighbor
+-   Include structure when installing End.DT4/6 SID
+-   Include structure when installing End.DT46 SID
+-   Include structure when removing End.DT4/6 SID
+-   Include structure when removing End.DT46 SID
+-   Move some non BGP-specific route-map functions to lib
+-   Set LLGR stale routes for all the paths including addpath
+-   Treat numbered community-list only if it's in a range 1-500
+-   Validate both nexthop information (NEXTHOP and NLRI)
+- lib
+-   Include SID structure in seg6local nexthop
+-   Take ge/le into consideration when checking the prefix with the prefix-list
+- nhrpd
+-   Fixes duplicate auth extension
+- ospfd
+-   Fix heap corruption vulnerability when parsing SR-Algorithm TLV
+-   Fix missing '[no]ip ospf graceful-restart hello-delay <N>' commands
+- pimd
+-   Allow resolving bsr via directly connected secondary address
+-   Fix access-list memory leak in pimd
+- vrrpd
+-   Iterate over all ancillary messages
+- zebra
+-   Add missing proto translations
+-   Correctly report metrics
+-   Fix crash during reconnect
+-   Fix snmp walk of zebra rib
+-   Let's use memset instead of walking bytes and setting to 0
+-   Separate zebra ZAPI server open and accept
+-   Unlock node only after operation in zebra_free_rnh()
 
 * Wed Sep 11 2024 Donatas Abraitis <donatas@opensourcerouting.org> - 9.0.4
 - bgpd
