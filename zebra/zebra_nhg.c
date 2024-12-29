@@ -1056,6 +1056,7 @@ static struct nhg_ctx *nhg_ctx_init(uint32_t id, struct nexthop *nh, struct nh_g
 static void zebra_nhg_set_valid(struct nhg_hash_entry *nhe, bool valid)
 {
 	struct nhg_connected *rb_node_dep;
+	bool dependent_valid = valid;
 
 	if (valid)
 		SET_FLAG(nhe->flags, NEXTHOP_GROUP_VALID);
@@ -1071,6 +1072,7 @@ static void zebra_nhg_set_valid(struct nhg_hash_entry *nhe, bool valid)
 
 	/* Update validity of nexthops depending on it */
 	frr_each (nhg_connected_tree, &nhe->nhg_dependents, rb_node_dep) {
+		dependent_valid = valid;
 		if (!valid) {
 			/*
 			 * Grab the first nexthop from the depending nexthop group
@@ -1080,16 +1082,22 @@ static void zebra_nhg_set_valid(struct nhg_hash_entry *nhe, bool valid)
 			struct nexthop *nexthop = rb_node_dep->nhe->nhg.nexthop;
 
 			while (nexthop) {
-				if (nexthop_same(nexthop, nhe->nhg.nexthop))
-					break;
-
+				if (nexthop_same(nexthop, nhe->nhg.nexthop)) {
+					/* Invalid Nexthop */
+					UNSET_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE);
+				} else {
+					/*
+					 * If other nexthops in the nexthop
+					 * group are valid then we can continue
+					 * to use this nexthop group as valid
+					 */
+					if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE))
+						dependent_valid = true;
+				}
 				nexthop = nexthop->next;
 			}
-
-			if (nexthop)
-				UNSET_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE);
 		}
-		zebra_nhg_set_valid(rb_node_dep->nhe, valid);
+		zebra_nhg_set_valid(rb_node_dep->nhe, dependent_valid);
 	}
 }
 
