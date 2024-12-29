@@ -793,7 +793,23 @@ sed -i 's/ -M rpki//' %{_sysconfdir}/frr/daemons
 
 %changelog
 
-* Wed Sep 11 2024 Martin Winter <mwinter@opensourcerouting.org> - %{version}
+* Mon Dec 23 2024 Martin Winter <mwinter@opensourcerouting.org> - %{version}
+
+* Mon Dec 23 2024 Donatas Abraitis <donatas@opensourcerouting.org> - 8.4.7
+- bgpd
+-   Add `bgp ipv6-auto-ra` command
+-   Include structure when removing End.DT4/6 SID
+-   Include structure when installing End.DT4/6 SID
+- lib
+-   Include SID structure in seg6local nexthop
+- ospfd
+-   Fix heap corruption vulnerability when parsing SR-Algorithm TLV
+- zebra
+-   Fix crash during reconnect
+-   Add missing proto translations
+-   Correctly report metrics
+-   Let's use memset instead of walking bytes and setting to 0
+-   Fix snmp walk of zebra rib
 
 * Wed Sep 11 2024 Donatas Abraitis <donatas@opensourcerouting.org> - 8.4.6
 - bgpd
