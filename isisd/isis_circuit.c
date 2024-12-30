@@ -1023,44 +1023,39 @@ void isis_circuit_print_json(struct isis_circuit *circuit,
 					       circuit_t2string(level));
 			if (circuit->area->newmetric)
 				json_object_int_add(level_json, "metric",
-						    circuit->te_metric[0]);
+						    circuit->te_metric[level - 1]);
 			else
 				json_object_int_add(level_json, "metric",
-						    circuit->metric[0]);
+						    circuit->metric[level - 1]);
 			if (!circuit->is_passive) {
-				json_object_int_add(level_json,
-						    "active-neighbors",
-						    circuit->upadjcount[0]);
-				json_object_int_add(level_json,
-						    "hello-interval",
-						    circuit->hello_interval[0]);
+				json_object_int_add(level_json, "active-neighbors",
+						    circuit->upadjcount[level - 1]);
+				json_object_int_add(level_json, "hello-interval",
+						    circuit->hello_interval[level - 1]);
 				hold_json = json_object_new_object();
 				json_object_object_add(level_json, "holddown",
 						       hold_json);
-				json_object_int_add(
-					hold_json, "count",
-					circuit->hello_multiplier[0]);
+				json_object_int_add(hold_json, "count",
+						    circuit->hello_multiplier[level - 1]);
 				json_object_string_add(
 					hold_json, "pad",
 					(circuit->pad_hellos ? "yes" : "no"));
 				json_object_int_add(level_json, "cnsp-interval",
-						    circuit->csnp_interval[0]);
+						    circuit->csnp_interval[level - 1]);
 				json_object_int_add(level_json, "psnp-interval",
-						    circuit->psnp_interval[0]);
+						    circuit->psnp_interval[level - 1]);
 				if (circuit->circ_type == CIRCUIT_T_BROADCAST) {
 					lan_prio_json =
 						json_object_new_object();
 					json_object_object_add(level_json,
 							       "lan",
 							       lan_prio_json);
-					json_object_int_add(
-						lan_prio_json, "priority",
-						circuit->priority[0]);
-					json_object_string_add(
-						lan_prio_json, "is-dis",
-						(circuit->u.bc.is_dr[0]
-							 ? "yes"
-							 : "no"));
+					json_object_int_add(lan_prio_json, "priority",
+							    circuit->priority[level - 1]);
+					json_object_string_add(lan_prio_json, "is-dis",
+							       (circuit->u.bc.is_dr[level - 1]
+									? "yes"
+									: "no"));
 				}
 			}
 			json_object_array_add(levels_json, level_json);
