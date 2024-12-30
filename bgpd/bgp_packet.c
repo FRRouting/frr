@@ -2411,7 +2411,7 @@ static int bgp_update_receive(struct peer_connection *connection,
 				    sizeof(peer->rcvd_attr_str));
 
 		if (attr_parse_ret == BGP_ATTR_PARSE_WITHDRAW) {
-			peer->stat_upd_7606++;
+			peer->stat_pfx_withdraw++;
 			flog_err(
 				EC_BGP_UPDATE_RCV,
 				"%pBP rcvd UPDATE with errors in attr(s)!! Withdrawing route.",
