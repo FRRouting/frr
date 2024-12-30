@@ -193,6 +193,7 @@ def bmp_check_for_peer_message(
     bmp_log_file,
     is_rd_instance=False,
     peer_bgp_id=None,
+    peer_distinguisher=None,
 ):
     """
     Check for the presence of a peer up message for the peer
@@ -213,6 +214,8 @@ def bmp_check_for_peer_message(
     peers = []
     for m in messages:
         if is_rd_instance and m["peer_distinguisher"] == "0:0":
+            continue
+        if peer_distinguisher and m["peer_distinguisher"] != peer_distinguisher:
             continue
         if peer_bgp_id and m["peer_bgp_id"] != peer_bgp_id:
             continue
