@@ -17598,12 +17598,6 @@ DEFUN (bgp_redistribute_ipv4_ospf,
 	if (strncmp(argv[idx_ospf_table]->arg, "o", 1) == 0)
 		protocol = ZEBRA_ROUTE_OSPF;
 	else {
-		if (bgp->vrf_id != VRF_DEFAULT) {
-			vty_out(vty,
-				"%% Only default BGP instance can use '%s'\n",
-				argv[idx_ospf_table]->arg);
-			return CMD_WARNING_CONFIG_FAILED;
-		}
 		if (strncmp(argv[idx_ospf_table]->arg, "table-direct",
 			    strlen("table-direct")) == 0) {
 			protocol = ZEBRA_ROUTE_TABLE_DIRECT;
@@ -17657,12 +17651,6 @@ DEFUN (bgp_redistribute_ipv4_ospf_rmap,
 	if (strncmp(argv[idx_ospf_table]->arg, "o", 1) == 0)
 		protocol = ZEBRA_ROUTE_OSPF;
 	else {
-		if (bgp->vrf_id != VRF_DEFAULT) {
-			vty_out(vty,
-				"%% Only default BGP instance can use '%s'\n",
-				argv[idx_ospf_table]->arg);
-			return CMD_WARNING_CONFIG_FAILED;
-		}
 		if (strncmp(argv[idx_ospf_table]->arg, "table-direct",
 			    strlen("table-direct")) == 0) {
 			protocol = ZEBRA_ROUTE_TABLE_DIRECT;
@@ -17720,12 +17708,6 @@ DEFUN (bgp_redistribute_ipv4_ospf_metric,
 	if (strncmp(argv[idx_ospf_table]->arg, "o", 1) == 0)
 		protocol = ZEBRA_ROUTE_OSPF;
 	else {
-		if (bgp->vrf_id != VRF_DEFAULT) {
-			vty_out(vty,
-				"%% Only default BGP instance can use '%s'\n",
-				argv[idx_ospf_table]->arg);
-			return CMD_WARNING_CONFIG_FAILED;
-		}
 		if (strncmp(argv[idx_ospf_table]->arg, "table-direct",
 			    strlen("table-direct")) == 0) {
 			protocol = ZEBRA_ROUTE_TABLE_DIRECT;
@@ -17790,12 +17772,6 @@ DEFUN (bgp_redistribute_ipv4_ospf_rmap_metric,
 	if (strncmp(argv[idx_ospf_table]->arg, "o", 1) == 0)
 		protocol = ZEBRA_ROUTE_OSPF;
 	else {
-		if (bgp->vrf_id != VRF_DEFAULT) {
-			vty_out(vty,
-				"%% Only default BGP instance can use '%s'\n",
-				argv[idx_ospf_table]->arg);
-			return CMD_WARNING_CONFIG_FAILED;
-		}
 		if (strncmp(argv[idx_ospf_table]->arg, "table-direct",
 			    strlen("table-direct")) == 0) {
 			protocol = ZEBRA_ROUTE_TABLE_DIRECT;
@@ -17865,13 +17841,7 @@ DEFUN (bgp_redistribute_ipv4_ospf_metric_rmap,
 	if (strncmp(argv[idx_ospf_table]->arg, "o", 1) == 0)
 		protocol = ZEBRA_ROUTE_OSPF;
 	else {
-		if (bgp->vrf_id != VRF_DEFAULT) {
-			vty_out(vty,
-				"%% Only default BGP instance can use '%s'\n",
-				argv[idx_ospf_table]->arg);
-			return CMD_WARNING_CONFIG_FAILED;
-		} else if (strncmp(argv[idx_ospf_table]->arg, "table-direct",
-				   strlen("table-direct")) == 0) {
+		if (strncmp(argv[idx_ospf_table]->arg, "table-direct", strlen("table-direct")) == 0) {
 			protocol = ZEBRA_ROUTE_TABLE_DIRECT;
 			if (instance == RT_TABLE_MAIN ||
 			    instance == RT_TABLE_LOCAL) {
@@ -17934,12 +17904,6 @@ DEFUN (no_bgp_redistribute_ipv4_ospf,
 	if (strncmp(argv[idx_ospf_table]->arg, "o", 1) == 0)
 		protocol = ZEBRA_ROUTE_OSPF;
 	else {
-		if (bgp->vrf_id != VRF_DEFAULT) {
-			vty_out(vty,
-				"%% Only default BGP instance can use '%s'\n",
-				argv[idx_ospf_table]->arg);
-			return CMD_WARNING_CONFIG_FAILED;
-		}
 		if (strncmp(argv[idx_ospf_table]->arg, "table-direct",
 			    strlen("table-direct")) == 0) {
 			protocol = ZEBRA_ROUTE_TABLE_DIRECT;
