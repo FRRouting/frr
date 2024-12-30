@@ -142,6 +142,27 @@ def test_bgp_path_attribute_discard():
         result is None
     ), "Failed to discard path attributes (atomic-aggregate, community)"
 
+    def _bgp_check_attributes_discarded_stats():
+        output = json.loads(r1.vtysh_cmd("show bgp neighbor json"))
+        expected = {
+            "10.0.0.254": {
+                "prefixStats": {
+                    "inboundFiltered": 0,
+                    "aspathLoop": 0,
+                    "originatorLoop": 0,
+                    "clusterLoop": 0,
+                    "invalidNextHop": 0,
+                    "withdrawn": 0,
+                    "attributesDiscarded": 3,
+                }
+            }
+        }
+        return topotest.json_cmp(output, expected)
+
+    test_func = functools.partial(_bgp_check_attributes_discarded_stats)
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=0.5)
+    assert result is None, "Discarded path attributes count is not as expected"
+
     def _bgp_check_if_aigp_invalid_attribute_discarded():
         output = json.loads(r2.vtysh_cmd("show bgp ipv4 unicast json detail"))
         expected = {
