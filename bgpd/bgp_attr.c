@@ -5406,7 +5406,14 @@ enum bgp_attr_parse_ret bgp_attr_ignore(struct peer *peer, uint8_t type)
 			   lookup_msg(attr_str, type, NULL),
 			   withdraw ? "treat-as-withdraw" : "discard");
 
-	return withdraw ? BGP_ATTR_PARSE_WITHDRAW : BGP_ATTR_PARSE_PROCEED;
+	/* We don't increment stat_pfx_withdraw here, because it's done in
+	 * bgp_update_receive().
+	 */
+	if (withdraw)
+		return BGP_ATTR_PARSE_WITHDRAW;
+
+	peer->stat_pfx_discard++;
+	return BGP_ATTR_PARSE_PROCEED;
 }
 
 bool route_matches_soo(struct bgp_path_info *pi, struct ecommunity *soo)

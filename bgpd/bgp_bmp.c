@@ -1773,8 +1773,7 @@ static void bmp_stats(struct event *thread)
 				peer->stat_pfx_cluster_loop);
 		bmp_stat_put_u32(s, &count, BMP_STATS_PFX_DUP_WITHDRAW,
 				peer->stat_pfx_dup_withdraw);
-		bmp_stat_put_u32(s, &count, BMP_STATS_UPD_7606_WITHDRAW,
-				peer->stat_upd_7606);
+		bmp_stat_put_u32(s, &count, BMP_STATS_UPD_7606_WITHDRAW, peer->stat_pfx_withdraw);
 		if (bt->stats_send_experimental)
 			bmp_stat_put_u32(s, &count, BMP_STATS_FRR_NH_INVALID,
 					 peer->stat_pfx_nh_invalid);
