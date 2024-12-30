@@ -15396,9 +15396,12 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, bool use_json,
 
 	if (use_json) {
 		json_object *json_stat = NULL;
-		json_stat = json_object_new_object();
-		/* Packet counts. */
+		json_object *json_pfx_stat = NULL;
 
+		json_stat = json_object_new_object();
+		json_pfx_stat = json_object_new_object();
+
+		/* Packet counts. */
 		atomic_size_t outq_count, inq_count;
 		outq_count = atomic_load_explicit(&p->connection->obuf->count,
 						  memory_order_relaxed);
@@ -15448,6 +15451,16 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, bool use_json,
 		json_object_int_add(json_stat, "totalSent", PEER_TOTAL_TX(p));
 		json_object_int_add(json_stat, "totalRecv", PEER_TOTAL_RX(p));
 		json_object_object_add(json_neigh, "messageStats", json_stat);
+
+		/* Prefix statistics */
+		json_object_int_add(json_pfx_stat, "inboundFiltered", p->stat_pfx_filter);
+		json_object_int_add(json_pfx_stat, "aspathLoop", p->stat_pfx_aspath_loop);
+		json_object_int_add(json_pfx_stat, "originatorLoop", p->stat_pfx_originator_loop);
+		json_object_int_add(json_pfx_stat, "clusterLoop", p->stat_pfx_cluster_loop);
+		json_object_int_add(json_pfx_stat, "invalidNextHop", p->stat_pfx_nh_invalid);
+		json_object_int_add(json_pfx_stat, "withdrawn", p->stat_pfx_withdraw);
+		json_object_int_add(json_pfx_stat, "attributesDiscarded", p->stat_pfx_discard);
+		json_object_object_add(json_neigh, "prefixStats", json_pfx_stat);
 	} else {
 		atomic_size_t outq_count, inq_count, open_out, open_in,
 			notify_out, notify_in, update_out, update_in,
@@ -15499,8 +15512,18 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, bool use_json,
 			refresh_in);
 		vty_out(vty, "    Capability:    %10zu %10zu\n",
 			dynamic_cap_out, dynamic_cap_in);
-		vty_out(vty, "    Total:         %10u %10u\n",
-			(uint32_t)PEER_TOTAL_TX(p), (uint32_t)PEER_TOTAL_RX(p));
+		vty_out(vty, "    Total:         %10u %10u\n\n", (uint32_t)PEER_TOTAL_TX(p),
+			(uint32_t)PEER_TOTAL_RX(p));
+
+		/* Prefix statistics */
+		vty_out(vty, "  Prefix statistics:\n");
+		vty_out(vty, "    Inbound filtered: %u\n", p->stat_pfx_filter);
+		vty_out(vty, "    AS-PATH loop: %u\n", p->stat_pfx_aspath_loop);
+		vty_out(vty, "    Originator loop: %u\n", p->stat_pfx_originator_loop);
+		vty_out(vty, "    Cluster loop: %u\n", p->stat_pfx_cluster_loop);
+		vty_out(vty, "    Invalid next-hop: %u\n", p->stat_pfx_nh_invalid);
+		vty_out(vty, "    Withdrawn: %u\n", p->stat_pfx_withdraw);
+		vty_out(vty, "    Attributes discarded: %u\n\n", p->stat_pfx_discard);
 	}
 
 	if (use_json) {

@@ -2274,7 +2274,7 @@ static int bgp_update_receive(struct peer_connection *connection,
 		ret = bgp_dump_attr(&attr, peer->rcvd_attr_str,
 				    sizeof(peer->rcvd_attr_str));
 
-		peer->stat_upd_7606++;
+		peer->stat_pfx_withdraw++;
 
 		if (attr_parse_ret == BGP_ATTR_PARSE_WITHDRAW)
 			flog_err(
