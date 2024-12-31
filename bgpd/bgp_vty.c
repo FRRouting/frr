@@ -1499,13 +1499,12 @@ DEFUN_NOSH (router_bgp,
 	int idx_asn = 2;
 	int idx_view_vrf = 3;
 	int idx_vrf = 4;
-	int is_new_bgp = 0;
 	int idx_asnotation = 3;
 	int idx_asnotation_kind = 4;
 	enum asnotation_mode asnotation = ASNOTATION_UNDEFINED;
 	int ret;
 	as_t as;
-	struct bgp *bgp;
+	struct bgp *bgp = NULL;
 	const char *name = NULL;
 	enum bgp_instance_type inst_type;
 
@@ -1567,11 +1566,14 @@ DEFUN_NOSH (router_bgp,
 				asnotation = ASNOTATION_PLAIN;
 		}
 
-		if (inst_type == BGP_INSTANCE_TYPE_DEFAULT)
-			is_new_bgp = (bgp_lookup(as, name) == NULL);
-
-		ret = bgp_get_vty(&bgp, &as, name, inst_type,
-				  argv[idx_asn]->arg, asnotation);
+		ret = bgp_lookup_by_as_name_type(&bgp, &as, argv[idx_asn]->arg, asnotation, name,
+						 inst_type, true);
+		if (bgp && ret == BGP_INSTANCE_EXISTS)
+			ret = CMD_SUCCESS;
+		else if (bgp == NULL && ret == CMD_SUCCESS)
+			/* SUCCESS and bgp is NULL */
+			ret = bgp_get_vty(&bgp, &as, name, inst_type, argv[idx_asn]->arg,
+					  asnotation);
 		switch (ret) {
 		case BGP_ERR_AS_MISMATCH:
 			vty_out(vty, "BGP is already running; AS is %s\n",
@@ -1591,7 +1593,7 @@ DEFUN_NOSH (router_bgp,
 		 * any pending VRF-VPN leaking that was configured via
 		 * earlier "router bgp X vrf FOO" blocks.
 		 */
-		if (is_new_bgp && inst_type == BGP_INSTANCE_TYPE_DEFAULT)
+		if (bgp && inst_type == BGP_INSTANCE_TYPE_DEFAULT)
 			vpn_leak_postchange_all();
 
 		if (inst_type == BGP_INSTANCE_TYPE_VRF ||
