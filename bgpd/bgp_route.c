@@ -4301,6 +4301,7 @@ void bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 	safi_t orig_safi = safi;
 	int allowas_in = 0;
 	struct bgp_labels bgp_labels = {};
+	struct bgp_route_evpn *p_evpn = evpn;
 	uint8_t i;
 
 	if (frrtrace_enabled(frr_bgp, process_update)) {
@@ -4341,10 +4342,10 @@ void bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 		 * will not be interned. In which case, it is ok to update the
 		 * attr->evpn_overlay, so that, this can be stored in adj_in.
 		 */
-		if ((afi == AFI_L2VPN) && evpn)
+		if (evpn && afi == AFI_L2VPN) {
 			bgp_attr_set_evpn_overlay(attr, evpn);
-		else
-			evpn_overlay_free(evpn);
+			p_evpn = NULL;
+		}
 		bgp_adj_in_set(dest, peer, attr, addpath_id, &bgp_labels);
 	}
 
@@ -4520,10 +4521,10 @@ void bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 	 * attr->evpn_overlay with evpn directly. Instead memcpy
 	 * evpn to new_atr.evpn_overlay before it is interned.
 	 */
-	if (soft_reconfig && (afi == AFI_L2VPN) && evpn)
+	if (soft_reconfig && evpn && afi == AFI_L2VPN) {
 		bgp_attr_set_evpn_overlay(&new_attr, evpn);
-	else
-		evpn_overlay_free(evpn);
+		p_evpn = NULL;
+	}
 
 	/* Apply incoming route-map.
 	 * NB: new_attr may now contain newly allocated values from route-map
@@ -4691,7 +4692,8 @@ void bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 
 			bgp_dest_unlock_node(dest);
 			bgp_attr_unintern(&attr_new);
-
+			if (p_evpn)
+				evpn_overlay_free(p_evpn);
 			return;
 		}
 
@@ -4858,6 +4860,8 @@ void bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 			ret = bgp_damp_update(pi, dest, afi, safi);
 			if (ret == BGP_DAMP_SUPPRESSED) {
 				bgp_dest_unlock_node(dest);
+				if (p_evpn)
+					evpn_overlay_free(p_evpn);
 				return;
 			}
 		}
@@ -4995,6 +4999,8 @@ void bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 					   type, sub_type, NULL);
 		}
 #endif
+		if (p_evpn)
+			evpn_overlay_free(p_evpn);
 		return;
 	} // End of implicit withdraw
 
@@ -5129,6 +5135,8 @@ void bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 	}
 #endif
 
+	if (p_evpn)
+		evpn_overlay_free(p_evpn);
 	return;
 
 /* This BGP update is filtered.  Log the reason then update BGP
@@ -5192,6 +5200,8 @@ filtered:
 	}
 #endif
 
+	if (p_evpn)
+		evpn_overlay_free(p_evpn);
 	return;
 }
 
