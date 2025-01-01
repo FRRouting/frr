@@ -831,6 +831,7 @@ extern void bgp_redistribute_withdraw(struct bgp *, afi_t, int, unsigned short);
 
 extern void bgp_static_add(struct bgp *);
 extern void bgp_static_delete(struct bgp *);
+extern void bgp_address_family_distance_delete(void);
 extern void bgp_static_redo_import_check(struct bgp *);
 extern void bgp_purge_static_redist_routes(struct bgp *bgp);
 extern void bgp_static_update(struct bgp *bgp, const struct prefix *p,
