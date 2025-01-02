@@ -21,6 +21,7 @@ static void static_nht_update_path(struct static_path *pn, struct prefix *nhp,
 				   uint32_t nh_num, vrf_id_t nh_vrf_id)
 {
 	struct static_nexthop *nh;
+	bool route_changed = false;
 
 	frr_each(static_nexthop_list, &pn->nexthop_list, nh) {
 		if (nh->nh_vrf_id != nh_vrf_id)
@@ -42,8 +43,10 @@ static void static_nht_update_path(struct static_path *pn, struct prefix *nhp,
 			nh->nh_valid = !!nh_num;
 
 		if (nh->state == STATIC_START)
-			static_zebra_route_add(pn, true);
+			route_changed = true;
 	}
+	if (route_changed)
+		static_zebra_route_add(pn, true);
 }
 
 static void static_nht_update_safi(struct prefix *sp, struct prefix *nhp,
