@@ -11346,7 +11346,7 @@ DEFPY (af_rt_vpn_imexport,
 {
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
 	int ret;
-	struct ecommunity *ecom = NULL;
+	struct ecommunity *ecom = NULL, *dup_ecom;
 	int dodir[BGP_VPN_POLICY_DIR_MAX] = {0};
 	enum vpn_policy_direction dir;
 	afi_t afi;
@@ -11382,15 +11382,27 @@ DEFPY (af_rt_vpn_imexport,
 		vpn_leak_prechange(dir, afi, bgp_get_default(), bgp);
 
 		if (yes) {
+			dup_ecom = ecommunity_dup(ecom);
+			if (dir == BGP_VPN_POLICY_DIR_FROMVPN)
+				bgp_rtc_update_vpn_policy_ecommunity_dynamic(bgp, afi,
+									     bgp->vpn_policy[afi]
+										     .rtlist[dir],
+									     dup_ecom);
+
 			if (bgp->vpn_policy[afi].rtlist[dir])
 				ecommunity_free(
 						&bgp->vpn_policy[afi].rtlist[dir]);
-			bgp->vpn_policy[afi].rtlist[dir] =
-				ecommunity_dup(ecom);
+			bgp->vpn_policy[afi].rtlist[dir] = dup_ecom;
 			if (dir == BGP_VPN_POLICY_DIR_TOVPN)
 				SET_FLAG(bgp->vpn_policy[afi].flags,
 					 BGP_VPN_POLICY_TOVPN_RT_CLI_SET);
 		} else {
+			if (dir == BGP_VPN_POLICY_DIR_FROMVPN)
+				bgp_rtc_update_vpn_policy_ecommunity_dynamic(bgp, afi,
+									     bgp->vpn_policy[afi]
+										     .rtlist[dir],
+									     NULL);
+
 			if (bgp->vpn_policy[afi].rtlist[dir])
 				ecommunity_free(
 						&bgp->vpn_policy[afi].rtlist[dir]);

@@ -3959,7 +3959,8 @@ static struct bgp *bgp_create(as_t *as, const char *name,
 			      enum asnotation_mode asnotation,
 			      struct bgp *bgp_old, bool hidden)
 {
-	struct bgp *bgp;
+	struct bgp *bgp, *bgp_iter;
+	struct listnode *node;
 	afi_t afi;
 	safi_t safi;
 
@@ -4124,6 +4125,28 @@ peer_init:
 	for (afi = AFI_IP; afi < AFI_MAX; afi++)
 		bgp_label_per_nexthop_cache_init(
 			&bgp->mpls_labels_per_nexthop[afi]);
+
+	if (inst_type == BGP_INSTANCE_TYPE_DEFAULT) {
+		/* It is possible to configure VRF BGP instances before the default VRF
+		 * instance.
+		 * Set Route-Target Constraint prefixes from "rt vpn import"
+		 * of existing VRF BGP instances.
+		 */
+		for (ALL_LIST_ELEMENTS_RO(bm->bgp, node, bgp_iter)) {
+			if (bgp == bgp_iter)
+				continue;
+			if (bgp_iter->vpn_policy[AFI_IP].rtlist[BGP_VPN_POLICY_DIR_FROMVPN])
+				bgp_rtc_update_vpn_policy_ecommunity_dynamic(
+					bgp, AFI_IP, NULL,
+					bgp_iter->vpn_policy[AFI_IP]
+						.rtlist[BGP_VPN_POLICY_DIR_FROMVPN]);
+			if (bgp_iter->vpn_policy[AFI_IP6].rtlist[BGP_VPN_POLICY_DIR_FROMVPN])
+				bgp_rtc_update_vpn_policy_ecommunity_dynamic(
+					bgp, AFI_IP6, NULL,
+					bgp_iter->vpn_policy[AFI_IP6]
+						.rtlist[BGP_VPN_POLICY_DIR_FROMVPN]);
+		}
+	}
 
 	bgp_mplsvpn_nh_label_bind_cache_init(&bgp->mplsvpn_nh_label_bind);
 
@@ -4980,9 +5003,14 @@ int bgp_delete(struct bgp *bgp)
 				list_delete(&bgp->vpn_policy[afi].import_vrf);
 
 			dir = BGP_VPN_POLICY_DIR_FROMVPN;
-			if (bgp->vpn_policy[afi].rtlist[dir])
+			if (bgp->vpn_policy[afi].rtlist[dir]) {
+				bgp_rtc_update_vpn_policy_ecommunity_dynamic(bgp, afi,
+									     bgp->vpn_policy[afi]
+										     .rtlist[dir],
+									     NULL);
 				ecommunity_free(
 					&bgp->vpn_policy[afi].rtlist[dir]);
+			}
 		}
 	}
 
@@ -5074,8 +5102,12 @@ void bgp_free(struct bgp *bgp)
 			list_delete(&bgp->vpn_policy[afi].export_vrf);
 
 		dir = BGP_VPN_POLICY_DIR_FROMVPN;
-		if (bgp->vpn_policy[afi].rtlist[dir])
+		if (bgp->vpn_policy[afi].rtlist[dir]) {
+			bgp_rtc_update_vpn_policy_ecommunity_dynamic(bgp, afi,
+								     bgp->vpn_policy[afi].rtlist[dir],
+								     NULL);
 			ecommunity_free(&bgp->vpn_policy[afi].rtlist[dir]);
+		}
 		dir = BGP_VPN_POLICY_DIR_TOVPN;
 		if (bgp->vpn_policy[afi].rtlist[dir])
 			ecommunity_free(&bgp->vpn_policy[afi].rtlist[dir]);
