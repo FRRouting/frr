@@ -10394,12 +10394,24 @@ DEFPY (af_rt_vpn_imexport,
 		vpn_leak_prechange(dir, afi, bgp_get_default(), bgp);
 
 		if (yes) {
+			if (dir == BGP_VPN_POLICY_DIR_FROMVPN)
+				bgp_rtc_update_vpn_policy_ecommunity_dynamic(bgp, afi,
+									     bgp->vpn_policy[afi]
+										     .rtlist[dir],
+									     ecom);
+
 			if (bgp->vpn_policy[afi].rtlist[dir])
 				ecommunity_free(
 						&bgp->vpn_policy[afi].rtlist[dir]);
 			bgp->vpn_policy[afi].rtlist[dir] =
 				ecommunity_dup(ecom);
 		} else {
+			if (dir == BGP_VPN_POLICY_DIR_FROMVPN)
+				bgp_rtc_update_vpn_policy_ecommunity_dynamic(bgp, afi,
+									     bgp->vpn_policy[afi]
+										     .rtlist[dir],
+									     NULL);
+
 			if (bgp->vpn_policy[afi].rtlist[dir])
 				ecommunity_free(
 						&bgp->vpn_policy[afi].rtlist[dir]);
