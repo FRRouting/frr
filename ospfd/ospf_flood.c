@@ -325,7 +325,7 @@ static void ospf_process_self_originated_lsa(struct ospf *ospf,
 						  LSA_REFRESH_FORCE, false);
 		} else {
 			aggr = (struct ospf_external_aggr_rt *)
-				ospf_extrenal_aggregator_lookup(ospf, &p);
+				ospf_external_aggregator_lookup(ospf, &p);
 			if (aggr) {
 				struct external_info ei_aggr;
 

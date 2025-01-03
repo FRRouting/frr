@@ -492,7 +492,7 @@ static void ospf_aggr_handle_external_info(void *data)
 	ei->to_be_processed = true;
 
 	if (IS_DEBUG_OSPF(lsa, EXTNL_LSA_AGGR))
-		zlog_debug("%s: Handle extrenal route(%pI4/%d)", __func__,
+		zlog_debug("%s: Handle external route(%pI4/%d)", __func__,
 			   &ei->p.prefix, ei->p.prefixlen);
 
 	assert(ospf);
@@ -571,7 +571,7 @@ static void ospf_external_aggr_delete(struct ospf *ospf, struct route_node *rn)
 }
 
 struct ospf_external_aggr_rt *
-ospf_extrenal_aggregator_lookup(struct ospf *ospf, struct prefix_ipv4 *p)
+ospf_external_aggregator_lookup(struct ospf *ospf, struct prefix_ipv4 *p)
 {
 	struct route_node *rn;
 	struct ospf_external_aggr_rt *summary_rt = NULL;
@@ -617,7 +617,7 @@ void ospf_unlink_ei_from_aggr(struct ospf *ospf,
 {
 	if (IS_DEBUG_OSPF(lsa, EXTNL_LSA_AGGR))
 		zlog_debug(
-			"%s: Unlinking extrenal route(%pI4/%d) from aggregator(%pI4/%d), external route count:%ld",
+			"%s: Unlinking external route(%pI4/%d) from aggregator(%pI4/%d), external route count:%ld",
 			__func__, &ei->p.prefix, ei->p.prefixlen,
 			&aggr->p.prefix, aggr->p.prefixlen,
 			OSPF_EXTERNAL_RT_COUNT(aggr));
@@ -648,7 +648,7 @@ static void ospf_link_ei_to_aggr(struct ospf_external_aggr_rt *aggr,
 {
 	if (IS_DEBUG_OSPF(lsa, EXTNL_LSA_AGGR))
 		zlog_debug(
-			"%s: Linking extrenal route(%pI4/%d) to aggregator(%pI4/%d)",
+			"%s: Linking external route(%pI4/%d) to aggregator(%pI4/%d)",
 			__func__, &ei->p.prefix, ei->p.prefixlen,
 			&aggr->p.prefix, aggr->p.prefixlen);
 	(void)hash_get(aggr->match_extnl_hash, ei, hash_alloc_intern);
@@ -703,7 +703,7 @@ struct ospf_lsa *ospf_originate_summary_lsa(struct ospf *ospf,
 		return NULL;
 	}
 
-	/* Prepare the extrenal_info for aggregator */
+	/* Prepare the external_info for aggregator */
 	memset(&ei_aggr, 0, sizeof(ei_aggr));
 	ei_aggr.p = aggr->p;
 	ei_aggr.tag = aggr->tag;
@@ -1063,7 +1063,7 @@ static void ospf_handle_external_aggr_update(struct ospf *ospf)
 
 			aggr->action = OSPF_ROUTE_AGGR_NONE;
 
-			/* Prepare the extrenal_info for aggregator */
+			/* Prepare the external_info for aggregator */
 			memset(&ei_aggr, 0, sizeof(ei_aggr));
 			ei_aggr.p = aggr->p;
 			ei_aggr.tag = aggr->tag;
@@ -1176,7 +1176,7 @@ int ospf_asbr_external_aggregator_set(struct ospf *ospf, struct prefix_ipv4 *p,
 {
 	struct ospf_external_aggr_rt *aggregator;
 
-	aggregator = ospf_extrenal_aggregator_lookup(ospf, p);
+	aggregator = ospf_external_aggregator_lookup(ospf, p);
 
 	if (aggregator) {
 		if (CHECK_FLAG(aggregator->flags,
@@ -1236,7 +1236,7 @@ int ospf_asbr_external_rt_no_advertise(struct ospf *ospf, struct prefix_ipv4 *p)
 	struct ospf_external_aggr_rt *aggr;
 	route_tag_t tag = 0;
 
-	aggr = ospf_extrenal_aggregator_lookup(ospf, p);
+	aggr = ospf_external_aggregator_lookup(ospf, p);
 	if (aggr) {
 		if (CHECK_FLAG(aggr->flags, OSPF_EXTERNAL_AGGRT_NO_ADVERTISE))
 			return OSPF_SUCCESS;

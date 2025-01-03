@@ -1823,7 +1823,7 @@ static void ospf_abr_nssa_type7_default_create(struct ospf *ospf,
 			"Announcing Type-7 default route into NSSA area %pI4",
 			&area->area_id);
 
-	/* Prepare the extrenal_info for aggregator */
+	/* Prepare the external_info for aggregator */
 	memset(&ei, 0, sizeof(struct external_info));
 	ei.p.family = AF_INET;
 	ei.p.prefixlen = 0;
