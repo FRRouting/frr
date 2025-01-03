@@ -144,7 +144,7 @@ extern int ospf_external_aggregator_timer_set(struct ospf *ospf,
 extern void ospf_external_aggrigator_free(struct ospf_external_aggr_rt *aggr);
 
 extern struct ospf_external_aggr_rt *
-ospf_extrenal_aggregator_lookup(struct ospf *ospf, struct prefix_ipv4 *p);
+ospf_external_aggregator_lookup(struct ospf *ospf, struct prefix_ipv4 *p);
 
 void ospf_unset_all_aggr_flag(struct ospf *ospf);
 
