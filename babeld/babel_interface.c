@@ -719,6 +719,7 @@ babel_interface_close_all(void)
 {
     struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
     struct interface *ifp = NULL;
+    int type;
 
     FOR_ALL_INTERFACES(vrf, ifp) {
         if(!if_up(ifp))
@@ -740,7 +741,13 @@ babel_interface_close_all(void)
         flushbuf(ifp);
         usleep(roughly(10000));
         gettime(&babel_now);
+        babel_enable_if_delete(ifp->name);
         interface_reset(ifp);
+    }
+    /* Disable babel redistribution */
+    for (type = 0; type < ZEBRA_ROUTE_MAX; type++) {
+        zclient_redistribute (ZEBRA_REDISTRIBUTE_DELETE, zclient, AFI_IP, type, 0, VRF_DEFAULT);
+        zclient_redistribute (ZEBRA_REDISTRIBUTE_DELETE, zclient, AFI_IP6, type, 0, VRF_DEFAULT);
     }
 }
 
