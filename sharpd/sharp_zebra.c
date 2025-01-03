@@ -133,11 +133,6 @@ int sharp_install_lsps_helper(bool install_p, bool update_p,
 			    nh->nh_label->num_labels == 0)
 				continue;
 
-			if (nh->type == NEXTHOP_TYPE_IFINDEX ||
-			    nh->type == NEXTHOP_TYPE_BLACKHOLE)
-				/* Hmm - can't really deal with these types */
-				continue;
-
 			ret = zapi_nexthop_from_nexthop(znh, nh);
 			if (ret < 0)
 				return -1;
@@ -166,11 +161,6 @@ int sharp_install_lsps_helper(bool install_p, bool update_p,
 			/* Must have labels to be useful */
 			if (nh->nh_label == NULL ||
 			    nh->nh_label->num_labels == 0)
-				return -1;
-
-			if (nh->type == NEXTHOP_TYPE_IFINDEX ||
-			    nh->type == NEXTHOP_TYPE_BLACKHOLE)
-				/* Hmm - can't really deal with these types */
 				return -1;
 
 			ret = zapi_nexthop_from_nexthop(znh, nh);
@@ -539,6 +529,7 @@ void nhg_add(uint32_t id, const struct nexthop_group *nhg,
 
 	api_nhg.id = id;
 
+	api_nhg.flags = nhg->flags;
 	api_nhg.resilience = nhg->nhgr;
 
 	for (ALL_NEXTHOPS_PTR(nhg, nh)) {
@@ -549,11 +540,9 @@ void nhg_add(uint32_t id, const struct nexthop_group *nhg,
 			break;
 		}
 
-		/* Unresolved nexthops will lead to failure - only send
-		 * nexthops that zebra will consider valid.
+		/*
+		 * Let zebra decide if the nexthop is valid or not
 		 */
-		if (nh->ifindex == 0)
-			continue;
 
 		api_nh = &api_nhg.nexthops[api_nhg.nexthop_num];
 
@@ -583,18 +572,9 @@ void nhg_add(uint32_t id, const struct nexthop_group *nhg,
 				break;
 			}
 
-			/* Unresolved nexthop: will be rejected by zebra.
-			 * That causes a problem, since the primary nexthops
-			 * rely on array indexing into the backup nexthops. If
-			 * that array isn't valid, the backup indexes won't be
-			 * valid.
+			/*
+			 * Let zebra decide if the nexthop is valid or not
 			 */
-			if (nh->ifindex == 0) {
-				zlog_debug("%s: nhg %u: invalid backup nexthop",
-					   __func__, id);
-				is_valid = false;
-				break;
-			}
 
 			api_nh = &api_nhg.backup_nexthops
 					  [api_nhg.backup_nexthop_num];
