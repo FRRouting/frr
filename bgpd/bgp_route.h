@@ -977,6 +977,10 @@ extern int bgp_show_table_rd(struct vty *vty, struct bgp *bgp, afi_t afi, safi_t
 			     struct bgp_table *table, struct prefix_rd *prd,
 			     enum bgp_show_type type, void *output_arg,
 			     uint16_t show_flags);
+extern int peer_adj_routes(struct vty *vty, struct peer *peer, afi_t afi, safi_t safi,
+			   enum bgp_show_adj_route_type type, const char *rmap_name,
+			   const struct prefix *match, uint16_t show_flags,
+			   const struct prefix_rd *prd);
 extern void bgp_best_path_select_defer(struct bgp *bgp, afi_t afi, safi_t safi);
 extern bool bgp_update_martian_nexthop(struct bgp *bgp, afi_t afi, safi_t safi,
 				       uint8_t type, uint8_t stype,

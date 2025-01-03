@@ -26,7 +26,6 @@
 #include "bgpd/bgp_mplsvpn.h"
 #include "bgpd/bgp_packet.h"
 #include "bgpd/bgp_vty.h"
-#include "bgpd/bgp_vpn.h"
 #include "bgpd/bgp_community.h"
 #include "bgpd/bgp_ecommunity.h"
 #include "bgpd/bgp_zebra.h"
@@ -3659,6 +3658,13 @@ DEFUN (show_ip_bgp_vpn_all_neighbor_advertised_routes,
 	bool uj = use_json(argc, argv);
 	afi_t afi;
 	int idx = 0;
+	enum bgp_show_adj_route_type type = bgp_show_adj_route_advertised;
+	uint16_t show_flags = 0;
+
+	if (uj) {
+		SET_FLAG(show_flags, BGP_SHOW_OPT_JSON);
+		argc--;
+	}
 
 	if (argv_find_and_parse_vpnvx(argv, argc, &idx, &afi)) {
 		ret = str2sockunion(argv[idx_ipv4]->arg, &su);
@@ -3692,8 +3698,8 @@ DEFUN (show_ip_bgp_vpn_all_neighbor_advertised_routes,
 					"%% No such neighbor or address family\n");
 			return CMD_WARNING;
 		}
-		return show_adj_route_vpn(vty, peer, NULL, AFI_IP,
-					  SAFI_MPLS_VPN, uj);
+		return peer_adj_routes(vty, peer, afi, SAFI_MPLS_VPN, type, NULL, NULL, show_flags,
+				       NULL);
 	}
 	return CMD_SUCCESS;
 }
@@ -3722,6 +3728,13 @@ DEFUN (show_ip_bgp_vpn_rd_neighbor_advertised_routes,
 	bool uj = use_json(argc, argv);
 	afi_t afi;
 	int idx = 0;
+	enum bgp_show_adj_route_type type = bgp_show_adj_route_advertised;
+	uint16_t show_flags = 0;
+
+	if (uj) {
+		SET_FLAG(show_flags, BGP_SHOW_OPT_JSON);
+		argc--;
+	}
 
 	if (argv_find_and_parse_vpnvx(argv, argc, &idx, &afi)) {
 		ret = str2sockunion(argv[idx_ipv4]->arg, &su);
@@ -3757,8 +3770,8 @@ DEFUN (show_ip_bgp_vpn_rd_neighbor_advertised_routes,
 		}
 
 		if (!strcmp(argv[idx_ext_community]->arg, "all"))
-			return show_adj_route_vpn(vty, peer, NULL, AFI_IP,
-						  SAFI_MPLS_VPN, uj);
+			return peer_adj_routes(vty, peer, afi, SAFI_MPLS_VPN, type, NULL, NULL,
+					       show_flags, NULL);
 		ret = str2prefix_rd(argv[idx_ext_community]->arg, &prd);
 		if (!ret) {
 			if (uj) {
@@ -3776,8 +3789,8 @@ DEFUN (show_ip_bgp_vpn_rd_neighbor_advertised_routes,
 			return CMD_WARNING;
 		}
 
-		return show_adj_route_vpn(vty, peer, &prd, AFI_IP,
-					  SAFI_MPLS_VPN, uj);
+		return peer_adj_routes(vty, peer, afi, SAFI_MPLS_VPN, type, NULL, NULL, show_flags,
+				       &prd);
 	}
 	return CMD_SUCCESS;
 }
