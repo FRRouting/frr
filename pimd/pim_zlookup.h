@@ -35,4 +35,15 @@ int zclient_lookup_nexthop(struct pim_instance *pim,
 void pim_zlookup_show_ip_multicast(struct vty *vty);
 
 int pim_zlookup_sg_statistics(struct channel_oil *c_oil);
+
+/**
+ * Asks zebra to lookup for a route and return its information.
+ *
+ * \param pim PIM instance information.
+ * \param addr route address.
+ * \param type route type (e.g. if none specific then `ZEBRA_ROUTE_ALL`).
+ * \note call `zroute_info_free` after using the results.
+ */
+struct zroute_info *zclient_route_lookup(struct pim_instance *pim, const pim_addr *addr);
+
 #endif /* PIM_ZLOOKUP_H */

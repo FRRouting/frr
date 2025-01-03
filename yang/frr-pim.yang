@@ -403,6 +403,12 @@ module frr-pim {
         description
           "Peer SA maximum limit.";
       }
+
+      leaf as {
+        type inet:as-number;
+        description
+          "BGP Autonomous System number.";
+      }
     }
 
     container mlag {
