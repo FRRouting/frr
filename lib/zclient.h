@@ -268,6 +268,15 @@ struct redist_proto {
 	struct list *instances;
 };
 
+/**
+ * Redistribute table direct instance data structure: keeps the VRF
+ * that subscribed to the table ID.
+ */
+struct redist_table_direct {
+	vrf_id_t vrf_id;
+	int table_id;
+};
+
 struct zclient_capabilities {
 	uint32_t ecmp;
 	bool mpls_enabled;
@@ -923,6 +932,15 @@ extern unsigned short *redist_check_instance(struct redist_proto *,
 extern void redist_add_instance(struct redist_proto *, unsigned short);
 extern void redist_del_instance(struct redist_proto *, unsigned short);
 extern void redist_del_all_instances(struct redist_proto *red);
+
+extern struct redist_table_direct *
+redist_lookup_table_direct(const struct redist_proto *red, const struct redist_table_direct *table);
+extern bool redist_table_direct_has_id(const struct redist_proto *red, int table_id);
+extern void redist_add_table_direct(struct redist_proto *red,
+				    const struct redist_table_direct *table);
+extern void redist_del_table_direct(struct redist_proto *red,
+				    const struct redist_table_direct *table);
+
 
 /*
  * Send to zebra that the specified vrf is using label to resolve
