@@ -649,7 +649,7 @@ static bool use_bgp_med_value(struct attr *attr, struct bgp *bgp)
 
 /* Get MED value.  If MED value is missing and "bgp bestpath
    missing-as-worst" is specified, treat it as the worst value. */
-static uint32_t bgp_med_value(struct attr *attr, struct bgp *bgp)
+uint32_t bgp_med_value(struct attr *attr, struct bgp *bgp)
 {
 	if (CHECK_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_MULTI_EXIT_DISC)))
 		return attr->med;
