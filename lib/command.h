@@ -156,6 +156,7 @@ enum node_type {
 	SRV6_NODE,		 /* SRv6 node */
 	SRV6_LOCS_NODE,		 /* SRv6 locators node */
 	SRV6_LOC_NODE,		 /* SRv6 locator node */
+	SRV6_PREFIX_NODE,		 /* SRv6 locator prefix node */
 	SRV6_ENCAP_NODE,		 /* SRv6 encapsulation node */
 	SRV6_SID_FORMATS_NODE,		 /* SRv6 SID formats config node */
 	SRV6_SID_FORMAT_USID_F3216_NODE,		 /* SRv6 uSID f3216 format config node */

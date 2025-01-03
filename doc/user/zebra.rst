@@ -894,6 +894,9 @@ and this section also helps that case.
    function development holds the owner of the chunk of this locator, and no
    other routing protocol will use this area.
 
+   Additionally, if a static local SID is configured,
+   it will also be displayed in this section.
+
 ::
 
    router# show segment-routing srv6 locator loc1 detail
@@ -901,12 +904,20 @@ and this section also helps that case.
    Prefix: 2001:db8:1:1::/64
    Chunks:
    - prefix: 2001:db8:1:1::/64, owner: system
+     sids:
+      -opcode ::fff1:11:0:0:0/128
+       sidaction End.DT46
+       vrf Vrf1
 
    router# show segment-routing srv6 locator loc2 detail
    Name: loc2
    Prefix: 2001:db8:2:2::/64
    Chunks:
    - prefix: 2001:db8:2:2::/64, owner: sharp
+     sids:
+      -opcode ::fff1:12:0:0:0/128
+       sidaction End.DT46
+       vrf Vrf2
 
 .. clicmd:: segment-routing
 
@@ -989,6 +1000,41 @@ and this section also helps that case.
       locator loc1
        prefix 2001:db8:1:1::/64
       !
+   ...
+
+.. clicmd:: opcode WORD <end|end-dt4|end-dt46|end-dt6> [vrf VRF]
+
+   Specify the opcode manually. Configuring a local sid in a purely static mode
+   by specifying the opcode would generate a unique mySID table entry.
+   This feature will support the configuration of static SRv6 decapsulation on the system.
+
+   It supports four paramter options, corresponding to the following functions:
+   End, End.DT4, End.DT6, End.DT46
+
+   When configuring the local sid, if the action is set to 'end', no vrf should be set.
+   While for any other action, it is necessary to specify a specific vrf.
+
+::
+
+   router# configure terminal
+   router(config)# segment-routing
+   router(config-sr)# srv6
+   router(config-srv6)# locators
+   router(config-srv6-locators)# locator loc1
+   router(config-srv6-locator)# prefix fd00:202:202::/48 block-len 32 node-len 16 func-bits 16
+   router(config-srv6-locator)# opcode ::fff1:11:0:0:0 end-dt46 vrf Vrf1
+   router(config-srv6-locator)# opcode ::fff1:12:0:0:0 end-dt46 vrf Vrf2
+
+   router(config-srv6-locator)# show run
+   ...
+   segment-routing
+    srv6
+     locators
+      locator loc1
+       prefix fd00:202:202::/48 block-len 32 node-len 16 func-bits 16
+        opcode ::fff1:11:0:0:0 end-dt46 vrf Vrf1
+        opcode ::fff1:12:0:0:0 end-dt46 vrf Vrf2
+       !
    ...
 
 .. clicmd:: behavior usid
