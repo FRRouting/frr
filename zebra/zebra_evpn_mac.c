@@ -1323,6 +1323,7 @@ int zebra_evpn_mac_send_del_to_client(vni_t vni, const struct ethaddr *macaddr,
 				      uint32_t flags, bool force)
 {
 	int state = ZEBRA_NEIGH_ACTIVE;
+	struct zebra_vrf *zvrf;
 
 	if (!force) {
 		if (CHECK_FLAG(flags, ZEBRA_MAC_LOCAL_INACTIVE) &&
@@ -1330,12 +1331,14 @@ int zebra_evpn_mac_send_del_to_client(vni_t vni, const struct ethaddr *macaddr,
 			/* the host was not advertised - nothing  to delete */
 			return 0;
 
-		/* MAC is LOCAL and DUP_DETECTED, this local mobility event
-		 * is not known to bgpd. Upon receiving local delete
-		 * ask bgp to reinstall the best route (remote entry).
+		/* Duplicate detect action is freeze enabled and
+		 * Local MAC is duplicate deteced, this local
+		 * mobility event is not known to bgpd.
+		 * Upon receiving local delete ask bgp to reinstall
+		 * the best route (remote entry).
 		 */
-		if (CHECK_FLAG(flags, ZEBRA_MAC_LOCAL) &&
-		    CHECK_FLAG(flags, ZEBRA_MAC_DUPLICATE))
+		zvrf = zebra_vrf_get_evpn();
+		if (zvrf && zvrf->dad_freeze && CHECK_FLAG(flags, ZEBRA_MAC_DUPLICATE))
 			state = ZEBRA_NEIGH_INACTIVE;
 	}
 
