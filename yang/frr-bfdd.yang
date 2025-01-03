@@ -503,6 +503,122 @@ module frr-bfdd {
             config false;
           }
         }
+
+        list srte-sbfd-echo {
+          key "source-addr bfd-name vrf";
+          description "List of srte sbfd echo sessions";
+
+          leaf source-addr {
+            type inet:ip-address;
+            description "Local IP address";
+          }
+
+          leaf dest-addr {
+            type inet:ip-address;
+            description "IP address of the peer";
+          }
+
+          leaf bfd-name {
+            type string;
+            default "";
+            description "Bfd session name.";           
+          }
+
+          leaf vrf {
+            type frr-vrf:vrf-ref;
+            description "Virtual Routing Domain name";
+          }
+
+          leaf profile {
+            type profile-ref;
+            description "Override defaults with profile.";
+          }
+
+          leaf segment-list {
+            type inet:ip-address;
+            description "segment list address of sbfd session packet";
+          }
+
+          leaf source-ipv6 {
+            type inet:ip-address;
+            description "source ipv6 address of sbfd session packet";
+          }
+
+          leaf bfd-mode {
+            type uint32;
+            description "Bfd session mode.";           
+          }
+
+          uses session-common;
+          uses session-multi-hop;
+          uses session-echo;
+
+          container stats {
+            uses session-states;
+            config false;
+          }
+        }
+
+        list srte-sbfd-init {
+          key "source-addr dest-addr bfd-name vrf";
+          description "List of srte sbfd echo sessions";
+
+          leaf source-addr {
+            type inet:ip-address;
+            description "Local IP address";
+          }
+
+          leaf dest-addr {
+            type inet:ip-address;
+            description "IP address of the peer";
+          }
+
+          leaf bfd-name {
+            type string;
+            default "";
+            description "Bfd session name.";           
+          }
+
+          leaf vrf {
+            type frr-vrf:vrf-ref;
+            description "Virtual Routing Domain name";
+          }
+
+          leaf profile {
+            type profile-ref;
+            description "Override defaults with profile.";
+          }
+
+          leaf segment-list {
+            type inet:ip-address;
+            description "segment list address of sbfd session packet";
+          }
+
+          leaf source-ipv6 {
+            type inet:ip-address;
+            description "source ipv6 address of sbfd session packet";
+          }
+
+          leaf remote-discr {
+            type uint32;
+            default 0;
+            description
+              "sbfd-init remote discriminator.";
+          }
+
+          leaf bfd-mode {
+            type uint32;
+            description "Bfd session mode.";           
+          }
+
+          uses session-common;
+          uses session-multi-hop;
+
+          container stats {
+            uses session-states;
+            config false;
+          }
+        }
       }
     }
   }
