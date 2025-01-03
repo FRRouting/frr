@@ -114,11 +114,6 @@ static void show_vrf_proto_rm(struct vty *vty, struct zebra_vrf *zvrf,
 			vty_out(vty, "%-24s  : none\n", zebra_route_string(i));
 	}
 
-	if (PROTO_RM_NAME(zvrf, af_type, i))
-		vty_out(vty, "%-24s  : %-10s\n", "any",
-			PROTO_RM_NAME(zvrf, af_type, i));
-	else
-		vty_out(vty, "%-24s  : none\n", "any");
 }
 
 static void show_vrf_nht_rm(struct vty *vty, struct zebra_vrf *zvrf,
@@ -1222,8 +1217,8 @@ route_map_result_t zebra_route_map_check(afi_t family, struct route_entry *re,
 			return RMAP_DENYMATCH;
 	}
 	if (!rmap) {
-		rm_name = PROTO_RM_NAME(zvrf, family, ZEBRA_ROUTE_MAX);
-		rmap = PROTO_RM_MAP(zvrf, family, ZEBRA_ROUTE_MAX);
+		rm_name = PROTO_RM_NAME(zvrf, family, ZEBRA_ROUTE_ALL);
+		rmap = PROTO_RM_MAP(zvrf, family, ZEBRA_ROUTE_ALL);
 
 		if (rm_name && !rmap)
 			return RMAP_DENYMATCH;
